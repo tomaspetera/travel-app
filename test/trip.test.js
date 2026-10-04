@@ -196,3 +196,15 @@ test('planItinerary: výlet mimo město nikdy v den odletu; připnutý výlet se
   const tooShort = planItinerary([...POIS.slice(0, 12), { ...trips[1], pinned: true }], { center: C, start: '2026-11-10', end: '2026-11-11', arrivalTime: '10:00', departureTime: '18:00' });
   assert.ok(tooShort.warnings.length > 0);
 });
+
+test('planItinerary: limit kostelů platí i s krátkým dnem příletu a odletu (Řím)', () => {
+  const pool = Array.from({ length: 40 }, (_, i) => P(`r${i}`, 41.9 + (i % 8) * 0.002, 12.49 + Math.floor(i / 8) * 0.002, 200 - i, i % 2 ? 'church' : ['museum', 'square', 'monument', 'sight'][i % 4 === 0 ? 0 : 3]));
+  for (const [arr, dep, pace, end] of [['18:00', '13:00', 'normal', '2026-11-13'], ['18:00', '13:00', 'intense', '2026-11-13'], ['16:00', '14:00', 'intense', '2026-11-12']]) {
+    const plan = planItinerary(pool, { center: { lat: 41.9, lon: 12.49 }, start: '2026-11-10', end, arrivalTime: arr, departureTime: dep, pace });
+    for (const d of plan.days) {
+      const ch = d.items.filter((p) => p.category === 'church').length;
+      assert.ok(ch <= 3, `${pace} ${arr}/${dep} ${d.date}: ${ch} kostelů`);
+      assert.ok(d.items.filter((p) => p.category === 'square').length <= 2);
+    }
+  }
+});

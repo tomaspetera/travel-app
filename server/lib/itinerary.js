@@ -132,7 +132,8 @@ export function planItinerary(pois, opts) {
   // Výběr podle významu s limitem kategorií už tady (jinak by např. 20 kostelů vyčerpalo čas
   // a pestrost by je pak jen vyškrtala, takže by dny zůstaly poloprázdné).
   const CAP = { church: 3, square: 2, monument: 3 };
-  const catLimit = (cat) => (CAP[cat] ? CAP[cat] * Math.max(1, cityDays.length) : Infinity);
+  // Limit podle skutečného času (krátký den příletu/odletu se nepočítá jako celý den).
+  const catLimit = (cat) => (CAP[cat] ? CAP[cat] * Math.max(1, Math.round(totalCap / full)) : Infinity);
   const ranked = [...near].sort((a, b) => weight(b) - weight(a)).map((p) => ({ ...p, visitMin: p.visitMin || VISIT_MIN[p.category] || 45 }));
   const chosen = [];
   const perCat = {};
@@ -177,7 +178,8 @@ export function planItinerary(pois, opts) {
         const p = d.items.pop();
         mins -= p.visitMin;
         const target = dayOrder
-          .filter((x) => x !== d && x.items.reduce((s, q) => s + q.visitMin, 0) + p.visitMin <= x.cap)
+          .filter((x) => x !== d && x.items.reduce((s, q) => s + q.visitMin, 0) + p.visitMin <= x.cap
+            && !(CAP[p.category] && x.items.filter((q) => q.category === p.category).length >= CAP[p.category]))
           .sort((a, b) => distToItems(a, p) - distToItems(b, p))[0];
         if (target) target.items.push(p);
       }
