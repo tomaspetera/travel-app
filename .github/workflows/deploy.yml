@@ -1,0 +1,37 @@
+# Testy u každé změny; po změně ve větvi main (a když testy projdou) spustí nasazení na Renderu.
+# Služba na Renderu je vytvořená z adresy veřejného repozitáře, takže se sama nenasazuje –
+# proto Deploy Hook. Adresa hooku je tajná: repozitář → Settings → Secrets and variables →
+# Actions → New repository secret, název RENDER_DEPLOY_HOOK.
+name: Testy a nasazení
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Spustit nasazení na Renderu
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::Chybí secret RENDER_DEPLOY_HOOK – nasazení se nespustilo (návod v .github/workflows/deploy.yml)."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" -o /dev/null
+          echo "Nasazení na Renderu spuštěno."

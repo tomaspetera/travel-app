@@ -59,3 +59,21 @@ test('Travelpayouts: když API trh nepřijme, zopakuje dotaz bez něj', async ()
     stub.restore();
   }
 });
+
+test('Travelpayouts: odmítnutá trasa (HTTP 400) = žádné ceny, ne „dotaz selhal“', async () => {
+  const stub = stubFetch((url) => {
+    const u = new URL(url);
+    if (u.searchParams.get('destination') === 'LTN') return { status: 400, body: { error: 'destination: invalid value' } };
+    return { body: { success: true, data: [{ origin: 'PRG', destination: 'LON', origin_airport: 'PRG', destination_airport: 'STN', price: 1111, airline: 'FR', flight_number: '1', departure_at: `${ymdPlus(9)}T07:00:00+01:00`, transfers: 0, link: '/search/y' }] } };
+  });
+  try {
+    const r = await search({ from: ['ap:PRG'], radiusKm: 0, to: ['ap:STN', 'ap:LTN'], dateFrom: ymdPlus(5), dateTo: ymdPlus(15), trip: 'oneway', kmRate: 0 });
+    assert.ok(stub.calls.some((c) => new URL(c.url).searchParams.get('destination') === 'LTN'), 'na LTN se ptal');
+    assert.equal(r.top[0].flightCzk, 1111);
+    const st = r.providers.find((p) => p.id === 'travelpayouts');
+    assert.equal(st.error, null, 'odmítnutá trasa se nehlásí jako chyba');
+    assert.equal(st.state, 'done');
+  } finally {
+    stub.restore();
+  }
+});

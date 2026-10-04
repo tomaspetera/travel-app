@@ -76,17 +76,26 @@ async function pfd(params) {
   const base = { currency: 'czk', sorting: 'price', limit: '1000', page: '1', unique: 'false', ...params };
   const market = marketOk ? config.travelpayoutsMarket : '';
   const qs = new URLSearchParams(market ? { ...base, market } : base);
-  return cache.wrap(`tp:${qs}`, TTL, async () => {
+  // Odmítnutý dotaz (400/422) pro jednu trasu = Travelpayouts tu kombinaci nezná (malé letiště,
+  // neznámý kód) → „žádné ceny“, ne chyba hledání. Uloží se jen na 15 min.
+  const rejected = (e, what) => {
+    console.warn(`Travelpayouts odmítl dotaz (${what}): HTTP ${e.status} ${String(e.body || e.message).slice(0, 160)}`);
+    return { success: true, data: [], rejected: true };
+  };
+  return cache.wrap(`tp:${qs}`, (v) => (v?.rejected ? 15 * 60e3 : TTL), async () => {
     try {
       return await fetchPfd(qs);
     } catch (e) {
       // Jen odmítnutí dotazu (400/422) může znamenat nepodporovaný trh; výpadek sítě nebo timeout ne.
-      if (!market || (e.status !== 400 && e.status !== 422)) throw e;
+      if (e.status !== 400 && e.status !== 422) throw e;
+      if (!market) return rejected(e, `${params.origin}→${params.destination || '*'}`);
       let res;
       try {
         res = await fetchPfd(new URLSearchParams(base));
-      } catch {
-        throw e; // bez trhu taky chyba → trh za to nemůže, nech ho zapnutý
+      } catch (e2) {
+        // bez trhu taky chyba → trh za to nemůže (nech ho zapnutý), trasa prostě nemá data
+        if (e2.status === 400 || e2.status === 422) return rejected(e2, `${params.origin}→${params.destination || '*'}`);
+        throw e2;
       }
       marketOk = false; // bez trhu prošlo → API trh nepřijímá
       return res;

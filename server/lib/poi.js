@@ -372,6 +372,49 @@ export function mockPlaces({ lat, lon }) {
   return out.sort((a, b) => b.score - a.score);
 }
 
+/** DEMO režim: vymyšlené cíle výletů 30–110 km od bodu. */
+export function mockTrips({ lat, lon }) {
+  const kinds = ['town', 'castle', 'nature', 'town', 'castle', 'nature', 'town', 'town', 'nature', 'castle'];
+  return kinds.map((tripKind, i) => {
+    const a = (i * 97 * Math.PI) / 180;
+    const d = 0.3 + (i % 5) * 0.17;
+    const p = { id: `demoTrip${i}`, name: `Ukázkový výlet ${i + 1}`, description: 'demo data', lat: lat + Math.sin(a) * d, lon: lon + Math.cos(a) * d * 1.4, sitelinks: 90 - i * 4, unesco: i === 0, category: 'daytrip', tripKind, extract: 'Vymyšlený cíl výletu (DEMO režim).', url: null };
+    p.distanceKm = Math.round(haversineKm(lat, lon, p.lat, p.lon));
+    p.score = scorePlace(p);
+    p.categoryLabel = tripKind === 'town' ? 'Město / obec' : CATEGORY_CS[tripKind];
+    return p;
+  });
+}
+
+// Cíle výletů: města, příroda, hrady (a cokoli s UNESCO) dál než `minKm` od středu.
+function tripsFromRows(rows, center, minKm) {
+  const trips = groupBindings(rows, center)
+    // ne ostrovy (Tenerife na Tenerife, jiné ostrovy přes moře) a ne památky rozeseté po mnoha místech
+    .filter((p) => p.distanceKm > minKm && !p.island && !p.serial
+      && (p.category === 'town' || p.category === 'nature' || p.category === 'castle' || p.unesco))
+    .map((p) => ({ ...p, category: 'daytrip', tripKind: p.category }));
+  for (const p of trips) p.score = scorePlace(p);
+  return trips;
+}
+
+const tripsQuery = (lat, lon) => cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.toFixed(2)}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, 120, 45, 300), 58000));
+
+/**
+ * Cíle výletů do ~120 km (pro plánovač jednodenních a okružních výletů) – víc než 8 ve findPlaces,
+ * s popisem a fotkou. Čeká na pomalý dotaz celý (max. ~1 min, pak je v mezipaměti týden).
+ */
+export async function findTrips({ lat, lon, limit = 30 }) {
+  const key = `trips:${lat.toFixed(2)}:${lon.toFixed(2)}:${limit}`;
+  return cache.wrap(key, (v) => (v.degraded ? 15 * 60e3 : 7 * 864e5), async () => {
+    const rows = await tripsQuery(lat, lon);
+    const picked = tripsFromRows(rows, { lat, lon }, 15).sort((a, b) => b.score - a.score).slice(0, limit);
+    const failed = await enrich(picked);
+    const out = picked.map(({ partOf, island, serial, ...p }) => ({ ...p, categoryLabel: p.tripKind === 'town' ? 'Město / obec' : CATEGORY_CS[p.tripKind] || CATEGORY_CS.daytrip }));
+    if (failed) out.degraded = true;
+    return out;
+  });
+}
+
 /**
  * Místa k návštěvě kolem bodu.
  * opts: { lat, lon, radiusKm (město, max 25), dayTrips (true = i výlety do 120 km), limit }
@@ -388,9 +431,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     const wvP = wikivoyageListings(lat, lon).catch(() => { wvFailed = true; return []; });
     // Výlety (okruh 120 km) jsou pomalejší dotaz: běží na pozadí a výsledek se uloží zvlášť, takže
     // když nestihne první zobrazení, příští načtení už ho má.
-    const tripsP = dayTrips
-      ? cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.toFixed(2)}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, 120, 45, 300), 58000)).catch(() => null)
-      : Promise.resolve([]);
+    const tripsP = dayTrips ? tripsQuery(lat, lon).catch(() => null) : Promise.resolve([]);
     let cityRows;
     try {
       cityRows = await wdqs(sparqlNear(lat, lon, r, 4, 500));
@@ -411,12 +452,8 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     // zůstanou jen s výrazným znakem (UNESCO); samotné město v centru se vyřadí vždy.
     const city = groupBindings(cityRows, center).filter((p) => p.category !== 'town' || (p.unesco && p.distanceKm > 2));
     for (const p of city) if (p.category === 'town') p.category = 'oldtown';
-    const trips = groupBindings(tripRows, center)
-      // ne ostrovy (Tenerife na Tenerife, jiné ostrovy přes moře) a ne památky rozeseté po mnoha místech
-      .filter((p) => p.distanceKm > Math.max(r, 15) && !p.island && !p.serial
-        && (p.category === 'town' || p.category === 'nature' || p.category === 'castle' || p.unesco))
-      .map((p) => ({ ...p, category: 'daytrip', tripKind: p.category }));
-    for (const p of [...city, ...trips]) p.score = scorePlace(p);
+    const trips = tripsFromRows(tripRows, center, Math.max(r, 15));
+    for (const p of city) p.score = scorePlace(p);
     applyWikivoyage(city, await wvP);
     const top = city.sort((a, b) => b.score - a.score).slice(0, limit);
     // Části jiného vybraného místa (Sixtinská kaple ve Vatikánských muzeích, katedrála na Hradě)
