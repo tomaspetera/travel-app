@@ -63,10 +63,25 @@ Zkopíruj `.env.example` na `.env`:
 | `SEARCH_RATE_LIMIT` | `40` | max. hledání z jedné IP za 10 minut (ochrana při veřejném nasazení, `0` = bez limitu) |
 | `ATLAS_MOCK` | `0` | `1` = demo data (totéž co `npm run demo`) |
 
-### Nasazení na internet
+### Nasazení na internet (trvalý odkaz)
 
-Funguje kdekoliv, kde běží Node.js – např. **Render** (Web Service, Start command `npm start`), **Railway**, **Fly.io**
-nebo vlastní VPS. Je přiložen `Dockerfile`:
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/tomaspetera/travel-app)
+
+1. Klikni na tlačítko výše a přihlas se přes GitHub (Render může chtít ověřit kartu – blokne 1 $ a hned vrátí).
+2. Potvrď **Deploy Blueprint** a počkej 2–5 minut, až služba svítí zeleně **Live**.
+3. Nahoře u služby je tvůj odkaz, např. `https://atlas-letenky.onrender.com` – ten si ulož.
+4. Otevři `…/api/diag` – ukáže, jestli server na hostingu dosáhne na Ryanair a Wizz Air.
+
+Varianty provozu:
+
+- **Zdarma** – po 15 minutách bez návštěvy aplikace usne a první načtení pak trvá 30–60 s.
+  Lze ji udržet vzhůru bezplatným hlídačem (např. UptimeRobot, monitor na `…/healthz` každých 5 min); jedna služba
+  se tak vejde do 750 bezplatných hodin měsíčně, Render to ale nedoporučuje.
+- **Starter za 7 $ měsíčně** (služba → Settings → Instance Type → Starter) – běží nonstop bez usínání.
+
+Každá nová verze na GitHubu se nasadí sama, odkaz zůstává stejný.
+
+Funguje i kdekoliv jinde, kde běží Node.js – **Railway** (Hobby 5 $/měs.), **Fly.io**, vlastní VPS. Je přiložen `Dockerfile`:
 
 ```bash
 docker build -t atlas . && docker run -p 8080:8080 --env-file .env atlas

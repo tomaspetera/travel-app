@@ -1,0 +1,18 @@
+# Nasazení na Render.com jedním kliknutím:
+# https://render.com/deploy?repo=https://github.com/tomaspetera/travel-app
+# Specifikace: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: atlas-letenky            # adresa bude https://atlas-letenky.onrender.com (je-li obsazená, Render přidá znaky)
+    runtime: node
+    plan: free                     # zdarma (po 15 min bez návštěvy usne); `starter` = běží nonstop
+    region: frankfurt              # nejblíž ČR
+    buildCommand: npm install      # aplikace nemá žádné závislosti, build trvá pár sekund
+    startCommand: node server/index.js
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit      # každá změna na GitHubu se sama nasadí
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+# Token Travelpayouts (další aerolinky) se přidává až potom: služba → Environment → TRAVELPAYOUTS_TOKEN.
+# PORT nenastavovat – Render ho dodá sám a server ho čte.
