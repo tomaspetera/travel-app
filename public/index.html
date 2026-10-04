@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="cs" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATLAS · nejlevnější letenky odkudkoliv kamkoliv</title>
+<meta name="description" content="Najdi nejlevnější lety ze všech letišť ve svém okolí – Ryanair, Wizz Air a další aerolinky najednou, včetně ceny dopravy na letiště.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='1' stop-color='%23a855f7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='24' height='24' rx='6' fill='url(%23g)'/%3E%3Cpath d='M20 6l-7 13-3-6-6-3z' fill='white'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/atlas.css">
+<link rel="stylesheet" href="css/flights.css">
+</head>
+<body>
+<div class="app">
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">ATLAS</div>
+        <div class="brand-tag">letenky odkudkoliv kamkoliv</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <div class="src-box" id="srcBox"></div>
+      <div class="theme-toggle" id="themeToggle">
+        <span id="themeLabel">Tmavý režim</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <div class="main">
+    <div class="demo-banner" id="demoBanner" hidden>⚠️ DEMO režim – zobrazené ceny jsou <b>vymyšlené</b> (server běží s ATLAS_MOCK=1). Pro skutečné ceny spusť <code>npm start</code>.</div>
+    <header class="topbar">
+      <div>
+        <div class="page-title" id="pageTitle">Přehled</div>
+        <div class="page-sub" id="pageSub">Tvůj cestovní přehled</div>
+      </div>
+      <div class="topbar-spacer"></div>
+      <button class="home-chip" id="homeChip" title="Odkud obvykle létáš"></button>
+      <button class="icon-btn" id="refreshBtn" title="Aktualizovat data">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>
+      </button>
+    </header>
+
+    <div class="content">
+      <!-- DASHBOARD -->
+      <section class="view active" id="view-dashboard">
+        <div class="hero">
+          <div class="hero-bg"></div><div class="hero-aurora"></div><div class="hero-grain"></div>
+          <div class="hero-inner">
+            <h1 id="heroGreet">Kam poletíme?</h1>
+            <p>Prohledám všechna letiště ve tvém okolí najednou – Ryanair, Wizz Air i další aerolinky – a spočítám i cestu na letiště. Stačí napsat odkud.</p>
+            <form class="hero-search2" id="heroSearch" autocomplete="off">
+              <div class="hs-field"><span class="hs-lab">Odkud</span><div class="place-input" id="heroFrom"></div></div>
+              <div class="hs-field"><span class="hs-lab">Kam</span><div class="place-input" id="heroTo"></div></div>
+              <button class="btn primary" type="submit">Najít lety</button>
+            </form>
+          </div>
+        </div>
+        <div class="stat-grid" id="statGrid"></div>
+
+        <div class="section-head"><h2>📡 Živý cenový radar <span class="faint" id="radarSub" style="font-size:13px;font-weight:600"></span></h2><span class="link" id="radarReload">Obnovit →</span></div>
+        <div id="radar"></div>
+
+        <div class="section-head" id="watchHead" hidden><h2>🔔 Hlídané ceny</h2><span class="link" id="watchCheckAll">Zkontrolovat vše →</span></div>
+        <div id="watchList"></div>
+
+        <div class="section-head"><h2>Rychlé hledání</h2><span class="link" data-go="flights">Otevřít vyhledávač →</span></div>
+        <div class="dest-grid" id="quickFlights"></div>
+
+        <div class="section-head"><h2>Tipy na tenhle měsíc</h2><span class="link" data-go="recommend">Více doporučení →</span></div>
+        <div class="dest-grid" id="dashRecs"></div>
+      </section>
+
+      <!-- FLIGHTS -->
+      <section class="view" id="view-flights">
+        <form class="card search-card" id="searchForm" autocomplete="off">
+          <div class="sf-grid">
+            <div class="field sf-from">
+              <label>Odkud <span class="lab-hint">město, letiště, země nebo tvoje poloha</span></label>
+              <div class="row" style="gap:8px;align-items:stretch">
+                <div class="place-input" id="fromInput" style="flex:1"></div>
+                <button class="btn ghost sm" type="button" id="geoBtn" title="Použít moji polohu">📍</button>
+              </div>
+              <div class="radius-row">
+                <span class="muted">+ letiště do</span>
+                <input type="range" id="radius" min="0" max="500" step="25" value="200">
+                <b id="radiusVal">200 km</b>
+              </div>
+              <div class="origin-pills" id="originPills"></div>
+            </div>
+            <div class="field sf-to">
+              <label>Kam <span class="lab-hint">nech prázdné = kamkoliv</span></label>
+              <div class="place-input" id="toInput"></div>
+              <div class="quick-dest" id="quickDest"></div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="sf-grid sf-when">
+            <div class="field">
+              <label>Cesta</label>
+              <div class="seg" id="tripType"><button type="button" class="on" data-v="return">Tam i zpět</button><button type="button" data-v="oneway">Jen tam</button></div>
+            </div>
+            <div class="field" id="lenField">
+              <label>Délka pobytu</label>
+              <div class="seg wrap" id="lenPreset">
+                <button type="button" data-v="weekend">Víkend</button>
+                <button type="button" data-v="long">Prodl. víkend</button>
+                <button type="button" class="on" data-v="week">Týden</button>
+                <button type="button" data-v="2weeks">2 týdny</button>
+                <button type="button" data-v="custom">Vlastní</button>
+              </div>
+              <div class="nights-row" id="nightsRow">
+                <input class="input sm" type="number" id="nMin" min="0" max="45" value="5"> – <input class="input sm" type="number" id="nMax" min="0" max="45" value="9"> nocí
+              </div>
+            </div>
+            <div class="field">
+              <label>Odlet mezi</label>
+              <div class="row" style="gap:8px">
+                <input class="input" type="date" id="dFrom">
+                <input class="input" type="date" id="dTo">
+              </div>
+              <div class="quick-range" id="quickRange">
+                <button type="button" data-d="14">2 týdny</button><button type="button" data-d="30">měsíc</button><button type="button" data-d="60">2 měsíce</button><button type="button" data-d="90">3 měsíce</button><button type="button" data-m="1">příští měsíc</button>
+              </div>
+            </div>
+          </div>
+
+          <details class="more" id="moreOpts">
+            <summary>Další možnosti <span class="faint" id="moreSummary"></span></summary>
+            <div class="sf-grid more-grid">
+              <div class="field"><label>Cestující</label><select id="adults"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+              <div class="field"><label>Max. cena na osobu</label><input class="input" type="number" id="maxPrice" placeholder="bez limitu" min="0" step="100"></div>
+              <div class="field"><label>Doprava na letiště</label>
+                <label class="check-inline"><input type="checkbox" id="groundOn" checked> započítat (<input class="input xs" type="number" id="kmRate" value="1.1" step="0.1" min="0" max="5"> Kč/km)</label>
+              </div>
+              <div class="field"><label>Kombinace</label>
+                <label class="check-inline"><input type="checkbox" id="openJaw" checked> návrat i na jiné letiště v okolí</label>
+                <label class="check-inline"><input type="checkbox" id="directOnly"> jen přímé lety</label>
+              </div>
+              <div class="field" style="grid-column:1/-1"><label>Dny odletu <span class="lab-hint">nic = libovolný den</span></label>
+                <div class="dow" id="outDays"></div>
+              </div>
+              <div class="field" style="grid-column:1/-1" id="backDaysField"><label>Dny návratu</label>
+                <div class="dow" id="backDays"></div>
+              </div>
+            </div>
+          </details>
+
+          <div class="row wrap" style="margin-top:16px">
+            <button class="btn primary big" id="doSearch" type="submit">🔎 Najít nejlevnější lety</button>
+            <button class="btn ghost" id="watchBtn" type="button" title="Uložit hledání a hlídat cenu">♡ Hlídat cenu</button>
+            <span class="faint" id="searchHint" style="font-size:12.5px"></span>
+          </div>
+        </form>
+
+        <div id="progress"></div>
+        <div id="results"></div>
+
+        <div class="section-head"><h2>Jak ulovit nejlevnější letenku</h2></div>
+        <div class="tip-list" id="flightTips"></div>
+      </section>
+
+      <!-- MAP -->
+      <section class="view" id="view-map">
+        <div class="map-layout">
+          <div class="map-wrap" id="mapWrap">
+            <svg id="worldmap" viewBox="0 0 960 500" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="map-zoom"><button id="zoomIn">+</button><button id="zoomOut">−</button><button id="zoomReset" title="Reset" style="font-size:13px">⤢</button></div>
+          </div>
+          <div>
+            <div class="card" style="padding:20px;margin-bottom:16px">
+              <div class="lab muted" style="font-size:12.5px;font-weight:700">PROCESTOVÁNO SVĚTA</div>
+              <div style="font-size:40px;font-weight:800;font-family:'Sora',sans-serif" id="mapPct">0 %</div>
+              <div class="progress"><span id="mapBar" style="width:0"></span></div>
+              <div class="muted" style="font-size:12.5px;margin-top:10px"><b id="mapCount" style="color:var(--text)">0</b> z 197 zemí · <b id="mapCont" style="color:var(--text)">0</b>/6 kontinentů</div>
+            </div>
+            <div class="card" style="padding:20px">
+              <div style="font-weight:800;margin-bottom:6px">Podle kontinentů</div>
+              <div class="cont-bars" id="contBars"></div>
+            </div>
+            <div class="legend">
+              <span class="row" style="gap:7px"><i class="badge-dot" style="background:var(--accent)"></i> navštíveno</span>
+              <span class="row" style="gap:7px"><i class="badge-dot" style="background:var(--map-land)"></i> zbývá objevit</span>
+              <span class="faint">klikni do mapy</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COUNTRIES -->
+      <section class="view" id="view-countries">
+        <div class="toolbar">
+          <div class="search-wide">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input class="input" id="cSearch" placeholder="Hledat zemi…" autocomplete="off">
+          </div>
+          <select id="cCont"><option value="">Všechny kontinenty</option></select>
+          <select id="cCost"><option value="">Cena: vše</option><option value="1">💰 Levné</option><option value="2">💰💰 Střední</option><option value="4">💰💰💰 Dražší</option></select>
+          <select id="cSort"><option value="cs">Abecedně</option><option value="cost">Od nejlevnějších</option><option value="safety">Nejbezpečnější</option></select>
+          <div class="seg" id="cVisited"><button class="on" data-v="all">Vše</button><button data-v="no">Chci navštívit</button><button data-v="yes">Navštívené</button></div>
+        </div>
+        <div class="dest-grid" id="countryGrid"></div>
+      </section>
+
+      <!-- PLANNER -->
+      <section class="view" id="view-planner">
+        <div id="plannerList"></div>
+      </section>
+
+      <!-- RECOMMEND -->
+      <section class="view" id="view-recommend">
+        <div class="card" style="padding:20px;margin-bottom:18px">
+          <div class="row wrap" style="gap:14px">
+            <div class="field" style="margin:0"><label>Kdy chceš jet</label><select id="rMonth"></select></div>
+            <div class="field" style="margin:0"><label>Styl cesty</label><select id="rVibe"><option value="">Cokoliv</option><option value="pláže">🏖️ Pláže a moře</option><option value="hory">⛰️ Hory a treky</option><option value="historie">🏛️ Historie a kultura</option><option value="safari">🦁 Příroda a safari</option><option value="město">🌆 Města</option></select></div>
+            <div class="field" style="margin:0"><label>Rozpočet</label><select id="rBudget"><option value="9">Bez omezení</option><option value="2">💰 Levně</option><option value="3">💰💰 Středně</option></select></div>
+            <div class="field" style="margin:0"><label>Bezpečnost</label><select id="rSafe"><option value="0">Nezáleží</option><option value="4">Jen bezpečné</option><option value="5">Velmi bezpečné</option></select></div>
+          </div>
+        </div>
+        <div class="section-head"><h2 id="recTitle">Kam teď vyrazit</h2><span class="faint" style="font-size:12px">seřazeno podle skóre cena/výkon</span></div>
+        <div class="dest-grid" id="recGrid"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- mobile nav -->
+<nav class="mobile-nav" id="mobileNav"></nav>
+
+<!-- modal -->
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+<!-- map tooltip + popover -->
+<div class="map-tooltip" id="mapTip"></div>
+<div class="card map-pop" id="mapPop"></div>
+<div class="toast" id="toast"></div>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <linearGradient id="vg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#22d3ee"/><stop offset="0.5" stop-color="#5b8cff"/><stop offset="1" stop-color="#a855f7"/>
+  </linearGradient>
+</defs></svg>
+
+<script src="vendor/d3.min.js"></script>
+<script src="vendor/topojson-client.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+<script src="js/flights.js"></script>
+</body>
+</html>

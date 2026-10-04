@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="cs" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATLAS · chytrý cestovní svět</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============ DESIGN TOKENS ============ */
+:root{
+  --accent:#5b8cff; --accent2:#a855f7; --accent3:#22d3ee;
+  --grad:linear-gradient(135deg,#22d3ee 0%,#5b8cff 45%,#a855f7 100%);
+  --grad-warm:linear-gradient(135deg,#fb7185 0%,#f59e0b 100%);
+  --good:#34d399; --warn:#fbbf24; --bad:#fb7185; --info:#38bdf8;
+  --radius:18px; --radius-sm:12px;
+  --shadow:0 10px 40px -12px rgba(0,0,0,.55);
+  --shadow-lg:0 24px 70px -20px rgba(0,0,0,.65);
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+[data-theme="dark"]{
+  --bg:#080c1a; --bg2:#0b1226; --bg-grad:radial-gradient(1200px 700px at 80% -10%,rgba(168,85,247,.18),transparent 60%),radial-gradient(1000px 600px at -10% 10%,rgba(34,211,238,.14),transparent 55%),#080c1a;
+  --surface:rgba(255,255,255,.045); --surface-2:rgba(255,255,255,.07);
+  --surface-solid:#111a32; --card:rgba(20,28,52,.66);
+  --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.16);
+  --text:#eaf0ff; --muted:#94a3c8; --faint:#6b779c;
+  --map-land:#1c2747; --map-sea:transparent;
+}
+[data-theme="light"]{
+  --bg:#eef2fb; --bg2:#ffffff; --bg-grad:radial-gradient(1200px 700px at 85% -10%,rgba(168,85,247,.12),transparent 60%),radial-gradient(1000px 600px at -10% 5%,rgba(34,211,238,.12),transparent 55%),#eef2fb;
+  --surface:rgba(13,22,48,.04); --surface-2:rgba(13,22,48,.07);
+  --surface-solid:#ffffff; --card:rgba(255,255,255,.8);
+  --border:rgba(13,22,48,.1); --border-2:rgba(13,22,48,.18);
+  --text:#0f1830; --muted:#56638a; --faint:#8a96b8;
+  --map-land:#d6def2; --map-sea:transparent;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  background:var(--bg-grad);background-attachment:fixed;color:var(--text);
+  -webkit-font-smoothing:antialiased;line-height:1.5;overflow-x:hidden;
+}
+h1,h2,h3,.brand-name{font-family:'Sora','Inter',sans-serif;letter-spacing:-.02em}
+a{color:inherit}
+::selection{background:rgba(91,140,255,.35)}
+/* scrollbar */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:20px}
+*::-webkit-scrollbar-track{background:transparent}
+
+/* ============ LAYOUT ============ */
+.app{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+.sidebar{
+  position:sticky;top:0;height:100vh;padding:22px 16px;display:flex;flex-direction:column;gap:6px;
+  background:linear-gradient(180deg,var(--surface),transparent);backdrop-filter:blur(12px);
+  border-right:1px solid var(--border);z-index:30;
+}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px}
+.brand-logo{width:38px;height:38px;border-radius:11px;background:var(--grad);display:grid;place-items:center;box-shadow:0 8px 24px -8px rgba(91,140,255,.7);flex:none}
+.brand-logo svg{width:22px;height:22px;color:#fff}
+.brand-name{font-size:20px;font-weight:800}
+.brand-tag{font-size:11px;color:var(--muted);margin-top:-2px}
+.nav{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+.nav-item{
+  display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:13px;cursor:pointer;
+  color:var(--muted);font-weight:600;font-size:14.5px;border:1px solid transparent;transition:.18s var(--ease);position:relative;
+}
+.nav-item svg{width:20px;height:20px;flex:none}
+.nav-item:hover{background:var(--surface);color:var(--text)}
+.nav-item.active{background:var(--surface-2);color:var(--text);border-color:var(--border)}
+.nav-item.active::before{content:"";position:absolute;left:-16px;top:50%;transform:translateY(-50%);width:4px;height:22px;border-radius:0 4px 4px 0;background:var(--grad)}
+.nav-badge{margin-left:auto;font-size:11px;background:var(--surface-2);padding:2px 8px;border-radius:20px;color:var(--text);font-weight:700}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px;padding-top:12px}
+.theme-toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border:1px solid var(--border);border-radius:13px;cursor:pointer;font-size:13px;color:var(--muted);background:var(--surface)}
+.theme-toggle:hover{color:var(--text)}
+
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;padding:16px 26px;
+  background:linear-gradient(180deg,var(--bg) 35%,transparent);backdrop-filter:blur(8px);
+}
+.page-title{font-size:22px;font-weight:800}
+.page-sub{font-size:12.5px;color:var(--muted)}
+.topbar-spacer{flex:1}
+.airport-pills{display:flex;gap:6px;align-items:center}
+.pill{
+  font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:11px;cursor:pointer;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted);transition:.15s;user-select:none
+}
+.pill:hover{color:var(--text);border-color:var(--border-2)}
+.pill.on{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 6px 18px -8px rgba(91,140,255,.8)}
+.icon-btn{width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:.15s}
+.icon-btn:hover{color:var(--text);border-color:var(--border-2)}
+.icon-btn svg{width:19px;height:19px}
+.content{padding:6px 26px 60px;max-width:1280px;width:100%}
+.view{display:none;animation:fade .45s var(--ease)}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ============ COMPONENTS ============ */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(14px)}
+.grid{display:grid;gap:16px}
+.muted{color:var(--muted)}.faint{color:var(--faint)}
+.row{display:flex;gap:12px;align-items:center}
+.wrap{flex-wrap:wrap}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;border-radius:12px;border:1px solid var(--border-2);
+  background:var(--surface-2);color:var(--text);font-weight:700;font-size:14px;cursor:pointer;transition:.16s var(--ease);font-family:inherit;text-decoration:none;white-space:nowrap
+}
+.btn:hover{transform:translateY(-1px);border-color:var(--accent)}
+.btn svg{width:17px;height:17px}
+.btn.primary{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 10px 26px -10px rgba(91,140,255,.75)}
+.btn.primary:hover{box-shadow:0 14px 32px -10px rgba(168,85,247,.8)}
+.btn.warm{background:var(--grad-warm);border-color:transparent;color:#fff}
+.btn.ghost{background:transparent}
+.btn.sm{padding:8px 12px;font-size:13px;border-radius:10px}
+.btn.block{width:100%}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;background:var(--surface-2);border:1px solid var(--border);color:var(--muted)}
+.chip.accent{background:rgba(91,140,255,.14);color:#9db8ff;border-color:rgba(91,140,255,.3)}
+.input,select,textarea{
+  width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);
+  font-family:inherit;font-size:14px;outline:none;transition:.15s
+}
+.input:focus,select:focus,textarea:focus{border-color:var(--accent);background:var(--surface-2)}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+.field{margin-bottom:2px}
+select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2394a3c8' stroke-width='2.5' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+.divider{height:1px;background:var(--border);margin:18px 0}
+.tag{font-size:11px;padding:3px 9px;border-radius:8px;background:var(--surface-2);color:var(--muted);font-weight:600}
+.badge-dot{display:inline-block;width:8px;height:8px;border-radius:50%}
+
+/* dots rating (cena) */
+.dots{display:inline-flex;gap:3px}
+.dots i{width:7px;height:7px;border-radius:50%;background:var(--border-2)}
+.dots i.f{background:var(--accent)}
+.dots.warm i.f{background:var(--warn)}
+.dots.good i.f{background:var(--good)}
+
+/* ============ HERO (dashboard) ============ */
+.hero{position:relative;overflow:hidden;border-radius:26px;padding:38px 36px;margin-bottom:22px;border:1px solid var(--border)}
+.hero-bg{position:absolute;inset:0;z-index:0;background:linear-gradient(120deg,#0b1740,#241552 55%,#3b1d4f);opacity:.95}
+.hero-aurora{position:absolute;inset:-40%;z-index:0;background:
+   radial-gradient(40% 40% at 20% 30%,rgba(34,211,238,.55),transparent 60%),
+   radial-gradient(45% 45% at 80% 20%,rgba(168,85,247,.55),transparent 60%),
+   radial-gradient(40% 50% at 60% 80%,rgba(91,140,255,.55),transparent 60%);
+   filter:blur(20px);animation:aurora 16s var(--ease) infinite alternate}
+@keyframes aurora{0%{transform:translate(-4%,-2%) rotate(0deg) scale(1.05)}100%{transform:translate(4%,3%) rotate(8deg) scale(1.15)}}
+.hero-grain{position:absolute;inset:0;z-index:1;opacity:.5;background:radial-gradient(circle at 1px 1px,rgba(255,255,255,.06) 1px,transparent 0);background-size:22px 22px}
+.hero-inner{position:relative;z-index:2;color:#fff}
+.hero h1{font-size:34px;font-weight:800;line-height:1.1;max-width:620px}
+.hero p{color:rgba(255,255,255,.78);margin-top:10px;max-width:560px;font-size:15px}
+.hero-search{margin-top:22px;display:flex;gap:10px;max-width:600px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:8px;border-radius:16px;backdrop-filter:blur(10px)}
+.hero-search input{flex:1;background:transparent;border:none;color:#fff;font-size:15.5px;padding:10px 12px;outline:none}
+.hero-search input::placeholder{color:rgba(255,255,255,.65)}
+
+/* stat cards */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+.stat{padding:20px;position:relative;overflow:hidden}
+.stat .lab{font-size:12.5px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:7px}
+.stat .lab svg{width:16px;height:16px}
+.stat .val{font-size:34px;font-weight:800;margin-top:8px;font-family:'Sora',sans-serif;line-height:1}
+.stat .val small{font-size:15px;color:var(--muted);font-weight:600}
+.stat .sub{font-size:12px;color:var(--faint);margin-top:6px}
+.progress{height:7px;border-radius:10px;background:var(--surface-2);overflow:hidden;margin-top:12px}
+.progress>span{display:block;height:100%;border-radius:10px;background:var(--grad);transition:width 1s var(--ease)}
+
+.section-head{display:flex;align-items:center;justify-content:space-between;margin:26px 2px 14px}
+.section-head h2{font-size:18px;font-weight:800}
+.section-head .link{font-size:13px;color:var(--accent);cursor:pointer;font-weight:700}
+
+/* destination cards */
+.dest-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.dest{padding:18px;cursor:pointer;transition:.2s var(--ease);position:relative;overflow:hidden}
+.dest:hover{transform:translateY(-4px);border-color:var(--border-2);box-shadow:var(--shadow-lg)}
+.dest .flag{font-size:30px;line-height:1}
+.dest .cname{font-weight:800;font-size:16.5px;margin-top:8px}
+.dest .ccont{font-size:12px;color:var(--muted)}
+.dest .cblurb{font-size:12.5px;color:var(--muted);margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:34px}
+.dest .meta{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-size:11.5px;color:var(--faint)}
+.dest .vmark{position:absolute;top:14px;right:14px;width:24px;height:24px;border-radius:50%;background:var(--good);display:none;place-items:center;color:#04231a}
+.dest.visited .vmark{display:grid}
+.dest .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
+.score-pill{position:absolute;top:14px;right:14px;font-size:12px;font-weight:800;padding:4px 9px;border-radius:10px;background:var(--grad);color:#fff}
+
+/* ============ FILTER BAR ============ */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+.toolbar .input,.toolbar select{width:auto;min-width:150px}
+.search-wide{flex:1;min-width:220px;position:relative}
+.search-wide svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted)}
+.search-wide input{padding-left:40px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;gap:3px}
+.seg button{border:none;background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:8px 13px;border-radius:9px;cursor:pointer;font-family:inherit;transition:.15s}
+.seg button.on{background:var(--surface-2);color:var(--text)}
+
+/* ============ MAP ============ */
+.map-layout{display:grid;grid-template-columns:1fr 300px;gap:18px}
+.map-wrap{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:var(--card);min-height:520px}
+#worldmap{width:100%;height:100%;display:block;cursor:grab}
+#worldmap:active{cursor:grabbing}
+.map-path{fill:var(--map-land);stroke:var(--bg);stroke-width:.4px;transition:fill .25s,opacity .2s}
+.map-path:hover{fill:#2e3c66}
+.map-path.visited{fill:url(#vg)}
+.map-path.visited:hover{filter:brightness(1.12)}
+.map-zoom{position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;gap:6px}
+.map-zoom button{width:38px;height:38px;border-radius:11px;border:1px solid var(--border-2);background:var(--surface-solid);color:var(--text);font-size:20px;cursor:pointer;display:grid;place-items:center}
+.map-tooltip{position:fixed;pointer-events:none;z-index:200;background:var(--surface-solid);border:1px solid var(--border-2);padding:8px 12px;border-radius:10px;font-size:13px;font-weight:700;box-shadow:var(--shadow);opacity:0;transition:opacity .12s;transform:translate(-50%,-130%)}
+.map-pop{position:fixed;z-index:210;width:230px;transform:translate(-50%,calc(-100% - 14px));padding:14px;display:none}
+.map-pop.show{display:block;animation:fade .2s}
+.cont-bars{display:flex;flex-direction:column;gap:13px;margin-top:6px}
+.cont-row .ct{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px}
+.cont-row .ct b{font-weight:700}
+.legend{display:flex;align-items:center;gap:14px;font-size:12px;color:var(--muted);margin-top:14px;flex-wrap:wrap}
+
+/* ============ MODAL ============ */
+.modal-bg{position:fixed;inset:0;background:rgba(4,7,18,.6);backdrop-filter:blur(6px);z-index:100;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-bg.show{display:flex;animation:fade .25s}
+.modal{width:min(720px,100%);max-height:90vh;overflow-y:auto;border-radius:24px;background:var(--surface-solid);border:1px solid var(--border-2);box-shadow:var(--shadow-lg);position:relative}
+.modal-hero{position:relative;padding:26px;border-radius:24px 24px 0 0;overflow:hidden;color:#fff}
+.modal-hero .mh-bg{position:absolute;inset:0;background:var(--grad);opacity:.92}
+.modal-hero .mh-bg.warm{background:var(--grad-warm)}
+.modal-hero-inner{position:relative;z-index:1}
+.modal-close{position:absolute;top:16px;right:16px;z-index:3;width:38px;height:38px;border-radius:11px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.2);color:#fff;cursor:pointer;display:grid;place-items:center}
+.modal-body{padding:24px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:6px 0 4px}
+.kv .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.kv .v{font-size:16px;font-weight:800;margin-top:3px}
+.weather-now{display:flex;align-items:center;gap:18px;padding:18px;border-radius:16px;background:var(--surface);border:1px solid var(--border);margin:4px 0 16px}
+.weather-now .temp{font-size:46px;font-weight:800;font-family:'Sora',sans-serif;line-height:1}
+.weather-now .wico{font-size:46px}
+.forecast{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.fc{text-align:center;padding:12px 6px;border-radius:12px;background:var(--surface);border:1px solid var(--border)}
+.fc .d{font-size:11px;color:var(--muted);font-weight:700}
+.fc .i{font-size:24px;margin:6px 0}
+.fc .t{font-size:12.5px;font-weight:700}
+.fc .t small{color:var(--muted);font-weight:600}
+.months{display:grid;grid-template-columns:repeat(12,1fr);gap:5px;margin-top:8px}
+.months .m{text-align:center;font-size:10.5px;font-weight:700;padding:8px 2px;border-radius:8px;background:var(--surface);color:var(--faint);border:1px solid var(--border)}
+.months .m.best{background:rgba(52,211,153,.16);color:var(--good);border-color:rgba(52,211,153,.3)}
+.months .m.now{outline:2px solid var(--accent);outline-offset:1px}
+.note{padding:13px 15px;border-radius:13px;font-size:13px;display:flex;gap:10px;align-items:flex-start}
+.note.warn{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.28);color:#f5d488}
+.note.bad{background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.3);color:#f7a6b3}
+.note.info{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.26);color:#a5dbf5}
+.note svg{width:18px;height:18px;flex:none;margin-top:1px}
+
+/* ============ FLIGHTS ============ */
+.flight-card{padding:22px}
+.result-link{display:flex;align-items:center;gap:14px;padding:15px 16px;border-radius:14px;border:1px solid var(--border);background:var(--surface);transition:.16s var(--ease);text-decoration:none;color:var(--text)}
+.result-link:hover{transform:translateY(-2px);border-color:var(--accent);background:var(--surface-2)}
+.result-link .lg{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:15px;color:#fff;flex:none}
+.result-link .rl-t{font-weight:800;font-size:15px}
+.result-link .rl-s{font-size:12.5px;color:var(--muted)}
+.result-link .go{margin-left:auto;color:var(--muted)}
+.tip-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.tip{padding:16px;border-radius:14px;background:var(--surface);border:1px solid var(--border)}
+.tip .tn{font-weight:800;font-size:14px;display:flex;gap:8px;align-items:center}
+.tip .tn span{width:26px;height:26px;border-radius:8px;background:var(--surface-2);display:grid;place-items:center;font-size:14px}
+.tip p{font-size:12.5px;color:var(--muted);margin-top:8px}
+.radar-row{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:13px;border:1px solid var(--border);background:var(--surface);transition:.15s}
+.radar-row:hover{border-color:var(--border-2)}
+.radar-row .rt{font-weight:700;font-size:14px}
+.radar-row .price{margin-left:auto;text-align:right}
+.radar-row .price b{font-size:16px;font-weight:800}
+.radar-row .price small{display:block;font-size:11px;color:var(--faint)}
+
+/* ============ PLANNER ============ */
+.trip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+.trip{padding:0;overflow:hidden;cursor:pointer;transition:.2s var(--ease)}
+.trip:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+.trip-top{padding:18px;background:var(--grad);color:#fff;position:relative}
+.trip-top.warm{background:var(--grad-warm)}
+.trip-top .tt-name{font-weight:800;font-size:18px}
+.trip-top .tt-meta{font-size:12.5px;opacity:.9;margin-top:3px}
+.trip-body{padding:16px 18px}
+.trip-body .bar{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px}
+.new-trip{display:grid;place-items:center;border:2px dashed var(--border-2);background:transparent;min-height:180px;cursor:pointer;transition:.18s}
+.new-trip:hover{border-color:var(--accent);background:var(--surface)}
+.new-trip .plus{width:48px;height:48px;border-radius:14px;background:var(--surface-2);display:grid;place-items:center;margin-bottom:10px}
+.empty{text-align:center;padding:54px 20px;color:var(--muted)}
+.empty .ei{width:64px;height:64px;border-radius:18px;background:var(--surface);display:grid;place-items:center;margin:0 auto 16px}
+.empty .ei svg{width:30px;height:30px;color:var(--accent)}
+
+.day-block{border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;background:var(--surface)}
+.day-block h4{font-size:14px;font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.act{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--surface-2);margin-bottom:6px;font-size:13.5px}
+.act button{margin-left:auto;background:none;border:none;color:var(--faint);cursor:pointer}
+.check{display:flex;align-items:center;gap:10px;padding:9px 0;font-size:14px;border-bottom:1px solid var(--border)}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+
+/* toast */
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);z-index:300;background:var(--surface-solid);border:1px solid var(--border-2);padding:13px 20px;border-radius:14px;font-weight:700;font-size:14px;box-shadow:var(--shadow-lg);opacity:0;transition:.3s var(--ease);display:flex;gap:10px;align-items:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast svg{width:18px;height:18px;color:var(--good)}
+
+.mobile-nav{display:none}
+
+/* ============ RESPONSIVE ============ */
+@media(max-width:1080px){.stat-grid{grid-template-columns:repeat(2,1fr)}.map-layout{grid-template-columns:1fr}}
+@media(max-width:860px){
+  .app{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .content{padding:6px 16px 90px}
+  .topbar{padding:14px 16px}
+  .hero{padding:28px 22px}.hero h1{font-size:26px}
+  .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:50;justify-content:space-around;
+    background:var(--surface-solid);border-top:1px solid var(--border);padding:8px 4px 10px;backdrop-filter:blur(14px)}
+  .mobile-nav .mi{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--muted);font-weight:700;padding:4px 8px;cursor:pointer;border-radius:10px}
+  .mobile-nav .mi svg{width:21px;height:21px}
+  .mobile-nav .mi.active{color:var(--accent)}
+  .airport-pills{display:none}
+  .modal-hero{padding:20px}.modal-body{padding:18px}
+  .forecast{grid-template-columns:repeat(4,1fr)}
+}
+@media(max-width:520px){.stat-grid{grid-template-columns:1fr 1fr}.dest-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">ATLAS</div>
+        <div class="brand-tag">chytrý cestovní svět</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <div class="theme-toggle" id="themeToggle">
+        <span id="themeLabel">Tmavý režim</span>
+        <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="page-title" id="pageTitle">Přehled</div>
+        <div class="page-sub" id="pageSub">Tvůj cestovní přehled</div>
+      </div>
+      <div class="topbar-spacer"></div>
+      <div class="airport-pills" id="airportPills" title="Odletová letiště"></div>
+      <button class="icon-btn" id="refreshBtn" title="Aktualizovat data">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>
+      </button>
+    </header>
+
+    <div class="content">
+      <!-- DASHBOARD -->
+      <section class="view active" id="view-dashboard">
+        <div class="hero">
+          <div class="hero-bg"></div><div class="hero-aurora"></div><div class="hero-grain"></div>
+          <div class="hero-inner">
+            <h1 id="heroGreet">Ahoj Tomáši, kam vyrazíme?</h1>
+            <p>Najdi nejlevnější lety z Prahy, Vídně i Bratislavy, sleduj počasí a bezpečnost a naplánuj si celou cestu na jednom místě.</p>
+            <form class="hero-search" id="heroSearch">
+              <input id="heroInput" placeholder="Kam to bude? Např. Japonsko, Lisabon, Bali…" autocomplete="off">
+              <button class="btn primary" type="submit">Hledat lety</button>
+            </form>
+          </div>
+        </div>
+        <div class="stat-grid" id="statGrid"></div>
+        <div class="section-head"><h2>Tipy na tenhle měsíc</h2><span class="link" data-go="recommend">Více doporučení →</span></div>
+        <div class="dest-grid" id="dashRecs"></div>
+        <div class="section-head"><h2>Rychlé hledání letů</h2><span class="link" data-go="flights">Otevřít vyhledávač →</span></div>
+        <div class="dest-grid" id="quickFlights"></div>
+      </section>
+
+      <!-- FLIGHTS -->
+      <section class="view" id="view-flights">
+        <div class="card flight-card" style="margin-bottom:18px">
+          <div class="field" style="margin-bottom:14px"><label>Odletová letiště</label><div class="airport-pills" id="flightAirports"></div></div>
+          <div class="field" style="margin-bottom:14px"><label>Kam letíš</label>
+            <div class="row" style="gap:10px;align-items:stretch">
+              <input class="input" id="fDest" placeholder="Země nebo město… (nech prázdné = kamkoliv)" autocomplete="off" list="destList" style="flex:1">
+              <button class="pill" id="anyDest" type="button" style="padding:0 16px;white-space:nowrap;font-size:13.5px">🌍 Kamkoliv</button>
+            </div>
+            <datalist id="destList"></datalist>
+          </div>
+          <div class="field" style="margin-bottom:14px"><label>Kdy</label>
+            <div class="seg" id="dateMode" style="flex-wrap:wrap">
+              <button class="on" data-v="exact">Přesné datum</button>
+              <button data-v="weekend">Víkend</button>
+              <button data-v="week">Týden</button>
+              <button data-v="month">Celý měsíc</button>
+              <button data-v="any">Kdykoliv</button>
+            </div>
+          </div>
+          <div class="grid" id="modeControls" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px">
+            <div class="field mc-exact"><label>Odlet</label><input class="input" type="date" id="fDepart"></div>
+            <div class="field mc-exact" id="returnField"><label>Návrat</label><input class="input" type="date" id="fReturn"></div>
+            <div class="field mc-month" style="display:none"><label>Měsíc</label><select id="fMonth"></select></div>
+            <div class="field"><label>Cesta</label><div class="seg" id="tripType"><button class="on" data-v="round">Tam i zpět</button><button data-v="one">Jen tam</button></div></div>
+            <div class="field"><label>Cestující</label><select id="fPax"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
+          </div>
+          <div class="divider"></div>
+          <div class="row wrap">
+            <button class="btn primary" id="doSearch">🔎 Najít nejlevnější lety</button>
+            <button class="btn ghost" id="resetSearch">Vymazat</button>
+          </div>
+          <div class="faint" id="searchHint" style="font-size:12.5px;margin-top:12px"></div>
+        </div>
+        <div id="flightResults"></div>
+        <div class="section-head"><h2>Cenový radar · inspirace z Prahy</h2><span class="faint" style="font-size:12px">orientační ceny zpáteční</span></div>
+        <div class="grid" id="radar" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))"></div>
+        <div class="section-head"><h2>Jak ulovit nejlevnější letenku</h2></div>
+        <div class="tip-list" id="flightTips"></div>
+      </section>
+
+      <!-- MAP -->
+      <section class="view" id="view-map">
+        <div class="map-layout">
+          <div class="map-wrap" id="mapWrap">
+            <svg id="worldmap" viewBox="0 0 960 500" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="map-zoom"><button id="zoomIn">+</button><button id="zoomOut">−</button><button id="zoomReset" title="Reset" style="font-size:13px">⤢</button></div>
+          </div>
+          <div>
+            <div class="card" style="padding:20px;margin-bottom:16px">
+              <div class="lab muted" style="font-size:12.5px;font-weight:700">PROCESTOVÁNO SVĚTA</div>
+              <div style="font-size:40px;font-weight:800;font-family:'Sora',sans-serif" id="mapPct">0 %</div>
+              <div class="progress"><span id="mapBar" style="width:0"></span></div>
+              <div class="muted" style="font-size:12.5px;margin-top:10px"><b id="mapCount" style="color:var(--text)">0</b> z 197 zemí · <b id="mapCont" style="color:var(--text)">0</b>/6 kontinentů</div>
+            </div>
+            <div class="card" style="padding:20px">
+              <div style="font-weight:800;margin-bottom:6px">Podle kontinentů</div>
+              <div class="cont-bars" id="contBars"></div>
+            </div>
+            <div class="legend">
+              <span class="row" style="gap:7px"><i class="badge-dot" style="background:var(--accent)"></i> navštíveno</span>
+              <span class="row" style="gap:7px"><i class="badge-dot" style="background:var(--map-land)"></i> zbývá objevit</span>
+              <span class="faint">klikni do mapy</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COUNTRIES -->
+      <section class="view" id="view-countries">
+        <div class="toolbar">
+          <div class="search-wide">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input class="input" id="cSearch" placeholder="Hledat zemi…" autocomplete="off">
+          </div>
+          <select id="cCont"><option value="">Všechny kontinenty</option></select>
+          <select id="cCost"><option value="">Cena: vše</option><option value="1">💰 Levné</option><option value="2">💰💰 Střední</option><option value="4">💰💰💰 Dražší</option></select>
+          <select id="cSort"><option value="cs">Abecedně</option><option value="cost">Od nejlevnějších</option><option value="safety">Nejbezpečnější</option></select>
+          <div class="seg" id="cVisited"><button class="on" data-v="all">Vše</button><button data-v="no">Chci navštívit</button><button data-v="yes">Navštívené</button></div>
+        </div>
+        <div class="dest-grid" id="countryGrid"></div>
+      </section>
+
+      <!-- PLANNER -->
+      <section class="view" id="view-planner">
+        <div id="plannerList"></div>
+      </section>
+
+      <!-- RECOMMEND -->
+      <section class="view" id="view-recommend">
+        <div class="card" style="padding:20px;margin-bottom:18px">
+          <div class="row wrap" style="gap:14px">
+            <div class="field" style="margin:0"><label>Kdy chceš jet</label><select id="rMonth"></select></div>
+            <div class="field" style="margin:0"><label>Styl cesty</label><select id="rVibe"><option value="">Cokoliv</option><option value="pláže">🏖️ Pláže a moře</option><option value="hory">⛰️ Hory a treky</option><option value="historie">🏛️ Historie a kultura</option><option value="safari">🦁 Příroda a safari</option><option value="město">🌆 Města</option></select></div>
+            <div class="field" style="margin:0"><label>Rozpočet</label><select id="rBudget"><option value="9">Bez omezení</option><option value="2">💰 Levně</option><option value="3">💰💰 Středně</option></select></div>
+            <div class="field" style="margin:0"><label>Bezpečnost</label><select id="rSafe"><option value="0">Nezáleží</option><option value="4">Jen bezpečné</option><option value="5">Velmi bezpečné</option></select></div>
+          </div>
+        </div>
+        <div class="section-head"><h2 id="recTitle">Kam teď vyrazit</h2><span class="faint" style="font-size:12px">seřazeno podle skóre cena/výkon</span></div>
+        <div class="dest-grid" id="recGrid"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- mobile nav -->
+<nav class="mobile-nav" id="mobileNav"></nav>
+
+<!-- modal -->
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+<!-- map tooltip + popover -->
+<div class="map-tooltip" id="mapTip"></div>
+<div class="card map-pop" id="mapPop"></div>
+<div class="toast" id="toast"></div>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <linearGradient id="vg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#22d3ee"/><stop offset="0.5" stop-color="#5b8cff"/><stop offset="1" stop-color="#a855f7"/>
+  </linearGradient>
+</defs></svg>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script>
+const COUNTRIES = [{"m49":"004","iso2":"AF","en":"Afghanistan","cs":"Afghánistán","cont":"Asie","cap":"Kabul"},{"m49":"008","iso2":"AL","en":"Albania","cs":"Albánie","cont":"Evropa","cap":"Tirana","cost":2,"safety":4,"months":[6,7,9],"cur":"ALL","blurb":"Nově objevená riviéra za skvělé ceny.","tags":["pláže","levně","hory"],"geo":""},{"m49":"012","iso2":"DZ","en":"Algeria","cs":"Alžírsko","cont":"Afrika","cap":"Algiers"},{"m49":"020","iso2":"AD","en":"Andorra","cs":"Andorra","cont":"Evropa","cap":"Andorra la Vella"},{"m49":"024","iso2":"AO","en":"Angola","cs":"Angola","cont":"Afrika","cap":"Luanda"},{"m49":"028","iso2":"AG","en":"Antigua and Barbuda","cs":"Antigua a Barbuda","cont":"Severní Amerika","cap":"Saint John's"},{"m49":"032","iso2":"AR","en":"Argentina","cs":"Argentina","cont":"Jižní Amerika","cap":"Buenos Aires","cost":2,"safety":4,"months":[3,4,10,11],"cur":"ARS","blurb":"Tango, Patagonie a vinice.","tags":["Patagonie","tango","vinice"],"geo":""},{"m49":"051","iso2":"AM","en":"Armenia","cs":"Arménie","cont":"Asie","cap":"Yerevan","cost":1,"safety":4,"months":[5,6,9],"cur":"AMD","blurb":"Starobylé kláštery a Kavkaz.","tags":["kláštery","hory","víno"],"geo":""},{"m49":"036","iso2":"AU","en":"Australia","cs":"Austrálie","cont":"Oceánie","cap":"Canberra","cost":4,"safety":5,"months":[3,4,9,10,11],"cur":"AUD","blurb":"Korálové útesy, outback a skvělá města.","tags":["útes","outback","pláže"],"geo":""},{"m49":"044","iso2":"BS","en":"Bahamas","cs":"Bahamy","cont":"Severní Amerika","cap":"Nassau"},{"m49":"048","iso2":"BH","en":"Bahrain","cs":"Bahrajn","cont":"Asie","cap":"Manama"},{"m49":"050","iso2":"BD","en":"Bangladesh","cs":"Bangladéš","cont":"Asie","cap":"Dhaka"},{"m49":"052","iso2":"BB","en":"Barbados","cs":"Barbados","cont":"Severní Amerika","cap":"Bridgetown"},{"m49":"056","iso2":"BE","en":"Belgium","cs":"Belgie","cont":"Evropa","cap":"Brussels","cost":4,"safety":5,"months":[5,6,9],"cur":"EUR","blurb":"Pivo, čokoláda a hezká historická města.","tags":["Brusel","pivo","Bruggy"],"geo":""},{"m49":"084","iso2":"BZ","en":"Belize","cs":"Belize","cont":"Severní Amerika","cap":"Belmopan"},{"m49":"204","iso2":"BJ","en":"Benin","cs":"Benin","cont":"Afrika","cap":"Porto-Novo"},{"m49":"064","iso2":"BT","en":"Bhutan","cs":"Bhútán","cont":"Asie","cap":"Thimphu","cost":4,"safety":5,"months":[3,4,10,11],"cur":"BTN","blurb":"Tajemné himálajské království štěstí.","tags":["Himálaj","kláštery","treky"],"geo":""},{"m49":"068","iso2":"BO","en":"Bolivia","cs":"Bolívie","cont":"Jižní Amerika","cap":"La Paz","cost":1,"safety":3,"months":[5,6,7,8,9],"cur":"BOB","blurb":"Solná pláň Uyuni a vysoké Andy.","tags":["Uyuni","Andy","La Paz"],"geo":""},{"m49":"070","iso2":"BA","en":"Bosnia and Herzegovina","cs":"Bosna a Hercegovina","cont":"Evropa","cap":"Sarajevo"},{"m49":"072","iso2":"BW","en":"Botswana","cs":"Botswana","cont":"Afrika","cap":"Gaborone","cost":3,"safety":4,"months":[5,6,7,8],"cur":"BWP","blurb":"Delta Okavango a špičkové safari.","tags":["Okavango","safari","delta"],"geo":""},{"m49":"076","iso2":"BR","en":"Brazil","cs":"Brazílie","cont":"Jižní Amerika","cap":"Brasília","cost":3,"safety":3,"months":[12,1,2,3],"cur":"BRL","blurb":"Karneval, Amazonie a nekonečné pláže.","tags":["Rio","Amazonie","pláže"],"geo":""},{"m49":"096","iso2":"BN","en":"Brunei","cs":"Brunej","cont":"Asie","cap":"Bandar Seri Begawan"},{"m49":"100","iso2":"BG","en":"Bulgaria","cs":"Bulharsko","cont":"Evropa","cap":"Sofia","cost":2,"safety":4,"months":[6,7,8,9],"cur":"BGN","blurb":"Černomořské pláže a hory za pár korun.","tags":["pláže","hory","levně"],"geo":""},{"m49":"854","iso2":"BF","en":"Burkina Faso","cs":"Burkina Faso","cont":"Afrika","cap":"Ouagadougou"},{"m49":"108","iso2":"BI","en":"Burundi","cs":"Burundi","cont":"Afrika","cap":"Gitega"},{"m49":"112","iso2":"BY","en":"Belarus","cs":"Bělorusko","cont":"Evropa","cap":"Minsk"},{"m49":"152","iso2":"CL","en":"Chile","cs":"Chile","cont":"Jižní Amerika","cap":"Santiago","cost":3,"safety":4,"months":[10,11,12,3],"cur":"CLP","blurb":"Od pouště Atacama po ledovce Patagonie.","tags":["Atacama","Patagonie","víno"],"geo":""},{"m49":"191","iso2":"HR","en":"Croatia","cs":"Chorvatsko","cont":"Evropa","cap":"Zagreb","cost":3,"safety":5,"months":[6,7,9],"cur":"EUR","blurb":"Jadran s tisíci ostrovy, blízko a krásně.","tags":["Jadran","ostrovy","Dubrovník"],"geo":""},{"m49":"180","iso2":"CD","en":"Democratic Republic of the Congo","cs":"Demokratická republika Kongo","cont":"Afrika","cap":"Kinshasa"},{"m49":"212","iso2":"DM","en":"Dominica","cs":"Dominika","cont":"Severní Amerika","cap":"Roseau"},{"m49":"214","iso2":"DO","en":"Dominican Republic","cs":"Dominikánská republika","cont":"Severní Amerika","cap":"Santo Domingo"},{"m49":"208","iso2":"DK","en":"Denmark","cs":"Dánsko","cont":"Evropa","cap":"Copenhagen","cost":4,"safety":5,"months":[5,6,7,8],"cur":"DKK","blurb":"Hygge, design a cyklistika.","tags":["Kodaň","design","hygge"],"geo":""},{"m49":"262","iso2":"DJ","en":"Djibouti","cs":"Džibutsko","cont":"Afrika","cap":"Djibouti"},{"m49":"818","iso2":"EG","en":"Egypt","cs":"Egypt","cont":"Afrika","cap":"Cairo","cost":1,"safety":3,"months":[10,11,12,2,3],"cur":"EGP","blurb":"Pyramidy, Nil a potápění v Rudém moři.","tags":["pyramidy","Nil","potápění"],"geo":""},{"m49":"218","iso2":"EC","en":"Ecuador","cs":"Ekvádor","cont":"Jižní Amerika","cap":"Quito","cost":2,"safety":3,"months":[6,7,8,9],"cur":"USD","blurb":"Galapágy, Andy a Amazonie najednou.","tags":["Galapágy","Andy","sopky"],"geo":""},{"m49":"232","iso2":"ER","en":"Eritrea","cs":"Eritrea","cont":"Afrika","cap":"Asmara"},{"m49":"233","iso2":"EE","en":"Estonia","cs":"Estonsko","cont":"Evropa","cap":"Tallinn","cost":3,"safety":5,"months":[6,7,8],"cur":"EUR","blurb":"Digitální stát s kouzelným starým Tallinnem.","tags":["Tallinn","digitál","Baltik"],"geo":""},{"m49":"748","iso2":"SZ","en":"Eswatini","cs":"Eswatini","cont":"Afrika","cap":"Mbabane"},{"m49":"231","iso2":"ET","en":"Ethiopia","cs":"Etiopie","cont":"Afrika","cap":"Addis Ababa","cost":1,"safety":3,"months":[10,11,12,1],"cur":"ETB","blurb":"Kolébka lidstva s unikátní kulturou.","tags":["skalní kostely","historie"],"geo":"V některých regionech napětí – ověř MZV ČR."},{"m49":"242","iso2":"FJ","en":"Fiji","cs":"Fidži","cont":"Oceánie","cap":"Suva","cost":4,"safety":4,"months":[5,6,7,8,9],"cur":"FJD","blurb":"Pohádkové ostrovy a potápění.","tags":["ostrovy","potápění","pláže"],"geo":""},{"m49":"608","iso2":"PH","en":"Philippines","cs":"Filipíny","cont":"Asie","cap":"Manila","cost":1,"safety":3,"months":[1,2,3,4],"cur":"PHP","blurb":"7000 ostrovů s rajskými plážemi.","tags":["pláže","ostrovy","potápění"],"geo":""},{"m49":"246","iso2":"FI","en":"Finland","cs":"Finsko","cont":"Evropa","cap":"Helsinki","cost":4,"safety":5,"months":[6,7,8,12],"cur":"EUR","blurb":"Jezera, sauny a Laponsko s polární září.","tags":["Laponsko","sauna","jezera"],"geo":""},{"m49":"250","iso2":"FR","en":"France","cs":"Francie","cont":"Evropa","cap":"Paris","cost":4,"safety":4,"months":[5,6,9,10],"cur":"EUR","blurb":"Od Paříže přes Alpy po Riviéru a vinice.","tags":["Paříž","jídlo","umění"],"geo":""},{"m49":"266","iso2":"GA","en":"Gabon","cs":"Gabon","cont":"Afrika","cap":"Libreville"},{"m49":"270","iso2":"GM","en":"Gambia","cs":"Gambie","cont":"Afrika","cap":"Banjul"},{"m49":"288","iso2":"GH","en":"Ghana","cs":"Ghana","cont":"Afrika","cap":"Accra"},{"m49":"308","iso2":"GD","en":"Grenada","cs":"Grenada","cont":"Severní Amerika","cap":"Saint George's"},{"m49":"268","iso2":"GE","en":"Georgia","cs":"Gruzie","cont":"Asie","cap":"Tbilisi","cost":1,"safety":4,"months":[5,6,9,10],"cur":"GEL","blurb":"Hory Kavkazu, víno a pohostinnost levně.","tags":["Kavkaz","víno","Tbilisi"],"geo":""},{"m49":"304","iso2":"GL","en":"Greenland","cs":"Grónsko","cont":"Severní Amerika","cap":"Nuuk"},{"m49":"320","iso2":"GT","en":"Guatemala","cs":"Guatemala","cont":"Severní Amerika","cap":"Guatemala City","cost":1,"safety":3,"months":[11,12,1,2,3],"cur":"GTQ","blurb":"Mayské chrámy a sopky u jezera Atitlán.","tags":["Tikal","sopky","Atitlán"],"geo":""},{"m49":"324","iso2":"GN","en":"Guinea","cs":"Guinea","cont":"Afrika","cap":"Conakry"},{"m49":"624","iso2":"GW","en":"Guinea-Bissau","cs":"Guinea-Bissau","cont":"Afrika","cap":"Bissau"},{"m49":"328","iso2":"GY","en":"Guyana","cs":"Guyana","cont":"Jižní Amerika","cap":"Georgetown"},{"m49":"332","iso2":"HT","en":"Haiti","cs":"Haiti","cont":"Severní Amerika","cap":"Port-au-Prince"},{"m49":"340","iso2":"HN","en":"Honduras","cs":"Honduras","cont":"Severní Amerika","cap":"Tegucigalpa"},{"m49":"356","iso2":"IN","en":"India","cs":"Indie","cont":"Asie","cap":"New Delhi","cost":1,"safety":3,"months":[10,11,12,2],"cur":"INR","blurb":"Intenzivní, barevná a levná. Zážitek na maximum.","tags":["Tádž Mahal","koření","chrámy"],"geo":""},{"m49":"360","iso2":"ID","en":"Indonesia","cs":"Indonésie","cont":"Asie","cap":"Jakarta","cost":1,"safety":4,"months":[5,6,7,9],"cur":"IDR","blurb":"Bali a tisíce ostrovů za skvělé ceny.","tags":["Bali","sopky","surf"],"geo":""},{"m49":"372","iso2":"IE","en":"Ireland","cs":"Irsko","cont":"Evropa","cap":"Dublin","cost":4,"safety":5,"months":[5,6,7,8],"cur":"EUR","blurb":"Zelené útesy, hudba a přátelští lidé.","tags":["útesy","puby","zeleň"],"geo":""},{"m49":"368","iso2":"IQ","en":"Iraq","cs":"Irák","cont":"Asie","cap":"Baghdad"},{"m49":"352","iso2":"IS","en":"Iceland","cs":"Island","cont":"Evropa","cap":"Reykjavík","cost":5,"safety":5,"months":[6,7,8],"cur":"ISK","blurb":"Sopky, ledovce a polární záře. Drahé, ale unikát.","tags":["sopky","gejzíry","záře"],"geo":""},{"m49":"380","iso2":"IT","en":"Italy","cs":"Itálie","cont":"Evropa","cap":"Rome","cost":3,"safety":4,"months":[5,6,9,10],"cur":"EUR","blurb":"Historie, jídlo, pobřeží – nestárnoucí klasika.","tags":["Řím","pizza","Toskánsko"],"geo":""},{"m49":"376","iso2":"IL","en":"Israel","cs":"Izrael","cont":"Asie","cap":"Jerusalem","cost":4,"safety":3,"months":[3,4,5,10],"cur":"ILS","blurb":"Hluboká historie tří náboženství.","tags":["Jeruzalém","Mrtvé moře"],"geo":"Bezpečnostní situace se mění – ověř MZV ČR před cestou."},{"m49":"388","iso2":"JM","en":"Jamaica","cs":"Jamajka","cont":"Severní Amerika","cap":"Kingston"},{"m49":"392","iso2":"JP","en":"Japan","cs":"Japonsko","cont":"Asie","cap":"Tokyo","cost":4,"safety":5,"months":[3,4,10,11],"cur":"JPY","blurb":"Dokonalý mix tradice a budoucnosti.","tags":["Tokio","sakury","sushi"],"geo":""},{"m49":"887","iso2":"YE","en":"Yemen","cs":"Jemen","cont":"Asie","cap":"Sana'a"},{"m49":"710","iso2":"ZA","en":"South Africa","cs":"Jihoafrická republika","cont":"Afrika","cap":"Cape Town","cost":2,"safety":3,"months":[5,6,9,10,11],"cur":"ZAR","blurb":"Safari, vinice a dva oceány.","tags":["safari","Kapské Město","vinice"],"geo":""},{"m49":"410","iso2":"KR","en":"South Korea","cs":"Jižní Korea","cont":"Asie","cap":"Seoul","cost":3,"safety":5,"months":[4,5,10],"cur":"KRW","blurb":"K-pop, technologie a skvělé jídlo.","tags":["Soul","jídlo","tech"],"geo":""},{"m49":"728","iso2":"SS","en":"South Sudan","cs":"Jižní Súdán","cont":"Afrika","cap":"Juba"},{"m49":"400","iso2":"JO","en":"Jordan","cs":"Jordánsko","cont":"Asie","cap":"Amman","cost":3,"safety":4,"months":[3,4,5,10],"cur":"JOD","blurb":"Petra, poušť Wádí Rum a Mrtvé moře.","tags":["Petra","poušť","historie"],"geo":""},{"m49":"116","iso2":"KH","en":"Cambodia","cs":"Kambodža","cont":"Asie","cap":"Phnom Penh","cost":1,"safety":3,"months":[11,12,1,2],"cur":"KHR","blurb":"Angkor Wat a usměvaví lidé.","tags":["Angkor","chrámy","pláže"],"geo":""},{"m49":"120","iso2":"CM","en":"Cameroon","cs":"Kamerun","cont":"Afrika","cap":"Yaoundé"},{"m49":"124","iso2":"CA","en":"Canada","cs":"Kanada","cont":"Severní Amerika","cap":"Ottawa","cost":4,"safety":5,"months":[6,7,8,9],"cur":"CAD","blurb":"Divoká příroda, hory a jezera.","tags":["Skalisté hory","jezera","příroda"],"geo":""},{"m49":"132","iso2":"CV","en":"Cape Verde","cs":"Kapverdy","cont":"Afrika","cap":"Praia"},{"m49":"634","iso2":"QA","en":"Qatar","cs":"Katar","cont":"Asie","cap":"Doha","cost":4,"safety":5,"months":[11,12,1,2],"cur":"QAR","blurb":"Moderní zastávka v Perském zálivu.","tags":["Dauhá","poušť","muzea"],"geo":""},{"m49":"398","iso2":"KZ","en":"Kazakhstan","cs":"Kazachstán","cont":"Asie","cap":"Astana","cost":2,"safety":4,"months":[5,6,9],"cur":"KZT","blurb":"Step, hory a moderní Astana.","tags":["step","hory","Almaty"],"geo":""},{"m49":"404","iso2":"KE","en":"Kenya","cs":"Keňa","cont":"Afrika","cap":"Nairobi","cost":2,"safety":3,"months":[1,2,7,8,9],"cur":"KES","blurb":"Velká migrace a klasické safari.","tags":["safari","savana","migrace"],"geo":""},{"m49":"296","iso2":"KI","en":"Kiribati","cs":"Kiribati","cont":"Oceánie","cap":"Tarawa"},{"m49":"170","iso2":"CO","en":"Colombia","cs":"Kolumbie","cont":"Jižní Amerika","cap":"Bogotá","cost":2,"safety":3,"months":[12,1,2,3],"cur":"COP","blurb":"Káva, Karibik a živá města.","tags":["káva","Cartagena","tanec"],"geo":""},{"m49":"174","iso2":"KM","en":"Comoros","cs":"Komory","cont":"Afrika","cap":"Moroni"},{"m49":"178","iso2":"CG","en":"Republic of the Congo","cs":"Kongo (republika)","cont":"Afrika","cap":"Brazzaville"},{"m49":"983","iso2":"XK","en":"Kosovo","cs":"Kosovo","cont":"Evropa","cap":"Pristina"},{"m49":"188","iso2":"CR","en":"Costa Rica","cs":"Kostarika","cont":"Severní Amerika","cap":"San José","cost":3,"safety":4,"months":[12,1,2,3,4],"cur":"CRC","blurb":"Pura vida – džungle, sopky a pláže.","tags":["džungle","sopky","surf"],"geo":""},{"m49":"192","iso2":"CU","en":"Cuba","cs":"Kuba","cont":"Severní Amerika","cap":"Havana","cost":2,"safety":4,"months":[11,12,1,2,3],"cur":"CUP","blurb":"Stará americká auta a zastavený čas.","tags":["Havana","auta","pláže"],"geo":""},{"m49":"414","iso2":"KW","en":"Kuwait","cs":"Kuvajt","cont":"Asie","cap":"Kuwait City"},{"m49":"196","iso2":"CY","en":"Cyprus","cs":"Kypr","cont":"Evropa","cap":"Nicosia","cost":3,"safety":5,"months":[5,6,9,10],"cur":"EUR","blurb":"Slunce skoro celý rok a čisté moře.","tags":["pláže","slunce","antika"],"geo":""},{"m49":"417","iso2":"KG","en":"Kyrgyzstan","cs":"Kyrgyzstán","cont":"Asie","cap":"Bishkek"},{"m49":"418","iso2":"LA","en":"Laos","cs":"Laos","cont":"Asie","cap":"Vientiane","cost":1,"safety":4,"months":[11,12,1,2],"cur":"LAK","blurb":"Pohodová a autentická jihovýchodní Asie.","tags":["Mekong","chrámy","klid"],"geo":""},{"m49":"426","iso2":"LS","en":"Lesotho","cs":"Lesotho","cont":"Afrika","cap":"Maseru"},{"m49":"422","iso2":"LB","en":"Lebanon","cs":"Libanon","cont":"Asie","cap":"Beirut"},{"m49":"434","iso2":"LY","en":"Libya","cs":"Libye","cont":"Afrika","cap":"Tripoli"},{"m49":"430","iso2":"LR","en":"Liberia","cs":"Libérie","cont":"Afrika","cap":"Monrovia"},{"m49":"438","iso2":"LI","en":"Liechtenstein","cs":"Lichtenštejnsko","cont":"Evropa","cap":"Vaduz"},{"m49":"440","iso2":"LT","en":"Lithuania","cs":"Litva","cont":"Evropa","cap":"Vilnius","cost":2,"safety":5,"months":[6,7,8],"cur":"EUR","blurb":"Útulná Litva s lesy a jezery.","tags":["Vilnius","lesy","Baltik"],"geo":""},{"m49":"428","iso2":"LV","en":"Latvia","cs":"Lotyšsko","cont":"Evropa","cap":"Riga","cost":2,"safety":5,"months":[6,7,8],"cur":"EUR","blurb":"Secesní Riga a baltské pláže.","tags":["Riga","secese","pláže"],"geo":""},{"m49":"442","iso2":"LU","en":"Luxembourg","cs":"Lucembursko","cont":"Evropa","cap":"Luxembourg"},{"m49":"450","iso2":"MG","en":"Madagascar","cs":"Madagaskar","cont":"Afrika","cap":"Antananarivo"},{"m49":"458","iso2":"MY","en":"Malaysia","cs":"Malajsie","cont":"Asie","cap":"Kuala Lumpur","cost":2,"safety":4,"months":[1,2,6,7],"cur":"MYR","blurb":"Mix kultur, džungle a moderní města.","tags":["Kuala Lumpur","džungle","jídlo"],"geo":""},{"m49":"454","iso2":"MW","en":"Malawi","cs":"Malawi","cont":"Afrika","cap":"Lilongwe"},{"m49":"462","iso2":"MV","en":"Maldives","cs":"Maledivy","cont":"Asie","cap":"Malé","cost":5,"safety":5,"months":[11,12,1,2,3],"cur":"MVR","blurb":"Rajské atoly a luxusní resorty.","tags":["atoly","potápění","resorty"],"geo":""},{"m49":"466","iso2":"ML","en":"Mali","cs":"Mali","cont":"Afrika","cap":"Bamako"},{"m49":"470","iso2":"MT","en":"Malta","cs":"Malta","cont":"Evropa","cap":"Valletta","cost":3,"safety":5,"months":[5,6,9,10],"cur":"EUR","blurb":"Středomořský ostrov plný historie.","tags":["moře","historie","slunce"],"geo":""},{"m49":"504","iso2":"MA","en":"Morocco","cs":"Maroko","cont":"Afrika","cap":"Rabat","cost":2,"safety":4,"months":[3,4,10,11],"cur":"MAD","blurb":"Tržiště, poušť Sahara a hory Atlas.","tags":["Marrákeš","Sahara","Atlas"],"geo":""},{"m49":"584","iso2":"MH","en":"Marshall Islands","cs":"Marshallovy ostrovy","cont":"Oceánie","cap":"Majuro"},{"m49":"480","iso2":"MU","en":"Mauritius","cs":"Mauricius","cont":"Afrika","cap":"Port Louis","cost":4,"safety":5,"months":[5,6,9,10,11],"cur":"MUR","blurb":"Tyrkysové laguny a luxus v Indickém oceánu.","tags":["laguny","pláže","potápění"],"geo":""},{"m49":"478","iso2":"MR","en":"Mauritania","cs":"Mauritánie","cont":"Afrika","cap":"Nouakchott"},{"m49":"348","iso2":"HU","en":"Hungary","cs":"Maďarsko","cont":"Evropa","cap":"Budapest","cost":2,"safety":5,"months":[5,6,9],"cur":"HUF","blurb":"Budapešť, lázně a víno za rozumné ceny.","tags":["Budapešť","lázně","víno"],"geo":""},{"m49":"484","iso2":"MX","en":"Mexico","cs":"Mexiko","cont":"Severní Amerika","cap":"Mexico City","cost":2,"safety":3,"months":[11,12,1,2,3],"cur":"MXN","blurb":"Pláže, mayské pyramidy a skvělé jídlo.","tags":["pláže","pyramidy","tacos"],"geo":""},{"m49":"583","iso2":"FM","en":"Micronesia","cs":"Mikronésie","cont":"Oceánie","cap":"Palikir"},{"m49":"498","iso2":"MD","en":"Moldova","cs":"Moldavsko","cont":"Evropa","cap":"Chișinău"},{"m49":"492","iso2":"MC","en":"Monaco","cs":"Monako","cont":"Evropa","cap":"Monaco"},{"m49":"496","iso2":"MN","en":"Mongolia","cs":"Mongolsko","cont":"Asie","cap":"Ulaanbaatar","cost":2,"safety":4,"months":[6,7,8],"cur":"MNT","blurb":"Nekonečné stepi a nomádský život.","tags":["step","jurty","Gobi"],"geo":""},{"m49":"508","iso2":"MZ","en":"Mozambique","cs":"Mosambik","cont":"Afrika","cap":"Maputo"},{"m49":"104","iso2":"MM","en":"Myanmar","cs":"Myanmar (Barma)","cont":"Asie","cap":"Naypyidaw","cost":1,"safety":3,"months":[11,12,1],"cur":"MMK","blurb":"Tisíce pagod, ale složitá politická situace.","tags":["pagody","Bagan"],"geo":"Politická nestabilita po převratu – ověř MZV ČR."},{"m49":"516","iso2":"NA","en":"Namibia","cs":"Namibie","cont":"Afrika","cap":"Windhoek","cost":2,"safety":4,"months":[5,6,7,8],"cur":"NAD","blurb":"Duny, poušť a hvězdná obloha.","tags":["duny","poušť","safari"],"geo":""},{"m49":"520","iso2":"NR","en":"Nauru","cs":"Nauru","cont":"Oceánie","cap":"Yaren"},{"m49":"524","iso2":"NP","en":"Nepal","cs":"Nepál","cont":"Asie","cap":"Kathmandu","cost":1,"safety":4,"months":[3,4,10,11],"cur":"NPR","blurb":"Himálaj a treky života.","tags":["Himálaj","treky","Everest"],"geo":""},{"m49":"562","iso2":"NE","en":"Niger","cs":"Niger","cont":"Afrika","cap":"Niamey"},{"m49":"566","iso2":"NG","en":"Nigeria","cs":"Nigérie","cont":"Afrika","cap":"Abuja"},{"m49":"558","iso2":"NI","en":"Nicaragua","cs":"Nikaragua","cont":"Severní Amerika","cap":"Managua"},{"m49":"528","iso2":"NL","en":"Netherlands","cs":"Nizozemsko","cont":"Evropa","cap":"Amsterdam","cost":4,"safety":5,"months":[4,5,6,9],"cur":"EUR","blurb":"Kola, kanály a galerie světové úrovně.","tags":["Amsterdam","kola","tulipány"],"geo":""},{"m49":"578","iso2":"NO","en":"Norway","cs":"Norsko","cont":"Evropa","cap":"Oslo","cost":5,"safety":5,"months":[6,7,8],"cur":"NOK","blurb":"Fjordy a polární záře. Příroda za odměnu.","tags":["fjordy","záře","treky"],"geo":""},{"m49":"554","iso2":"NZ","en":"New Zealand","cs":"Nový Zéland","cont":"Oceánie","cap":"Wellington","cost":4,"safety":5,"months":[2,3,11,12],"cur":"NZD","blurb":"Krajiny jak z Pána prstenů.","tags":["hory","fjordy","adrenalin"],"geo":""},{"m49":"276","iso2":"DE","en":"Germany","cs":"Německo","cont":"Evropa","cap":"Berlin","cost":4,"safety":5,"months":[5,6,9,12],"cur":"EUR","blurb":"Velká rozmanitost – města, hrady i příroda.","tags":["Berlín","Bavorsko","kultura"],"geo":""},{"m49":"512","iso2":"OM","en":"Oman","cs":"Omán","cont":"Asie","cap":"Muscat"},{"m49":"585","iso2":"PW","en":"Palau","cs":"Palau","cont":"Oceánie","cap":"Ngerulmud"},{"m49":"275","iso2":"PS","en":"Palestine","cs":"Palestina","cont":"Asie","cap":"Ramallah"},{"m49":"591","iso2":"PA","en":"Panama","cs":"Panama","cont":"Severní Amerika","cap":"Panama City","cost":3,"safety":4,"months":[12,1,2,3],"cur":"PAB","blurb":"Průplav, pláže dvou oceánů a džungle.","tags":["průplav","pláže","džungle"],"geo":""},{"m49":"598","iso2":"PG","en":"Papua New Guinea","cs":"Papua-Nová Guinea","cont":"Oceánie","cap":"Port Moresby"},{"m49":"600","iso2":"PY","en":"Paraguay","cs":"Paraguay","cont":"Jižní Amerika","cap":"Asunción"},{"m49":"604","iso2":"PE","en":"Peru","cs":"Peru","cont":"Jižní Amerika","cap":"Lima","cost":2,"safety":3,"months":[5,6,7,8,9],"cur":"PEN","blurb":"Machu Picchu a vysoké Andy.","tags":["Machu Picchu","Andy","jídlo"],"geo":""},{"m49":"384","iso2":"CI","en":"Ivory Coast","cs":"Pobřeží slonoviny","cont":"Afrika","cap":"Yamoussoukro"},{"m49":"616","iso2":"PL","en":"Poland","cs":"Polsko","cont":"Evropa","cap":"Warsaw","cost":2,"safety":5,"months":[5,6,7,9],"cur":"PLN","blurb":"Levně, blízko, krásná stará města.","tags":["Krakov","hory","historie"],"geo":""},{"m49":"620","iso2":"PT","en":"Portugal","cs":"Portugalsko","cont":"Evropa","cap":"Lisbon","cost":3,"safety":5,"months":[5,6,9,10],"cur":"EUR","blurb":"Skvělý poměr cena/výkon, oceán a pohoda.","tags":["Lisabon","surf","Porto"],"geo":""},{"m49":"586","iso2":"PK","en":"Pakistan","cs":"Pákistán","cont":"Asie","cap":"Islamabad"},{"m49":"040","iso2":"AT","en":"Austria","cs":"Rakousko","cont":"Evropa","cap":"Vienna","cost":4,"safety":5,"months":[6,7,8,12],"cur":"EUR","blurb":"Alpy, Vídeň a klasická Evropa ve vysoké kvalitě.","tags":["Alpy","Vídeň","lyže"],"geo":""},{"m49":"226","iso2":"GQ","en":"Equatorial Guinea","cs":"Rovníková Guinea","cont":"Afrika","cap":"Malabo"},{"m49":"642","iso2":"RO","en":"Romania","cs":"Rumunsko","cont":"Evropa","cap":"Bucharest","cost":2,"safety":4,"months":[5,6,9],"cur":"RON","blurb":"Karpaty, Drákula a divoká příroda levně.","tags":["Karpaty","hrady","medvědi"],"geo":""},{"m49":"643","iso2":"RU","en":"Russia","cs":"Rusko","cont":"Evropa","cap":"Moscow","cost":2,"safety":2,"months":[6,7,8],"cur":"RUB","blurb":"Obrovská země; cestování je teď komplikované.","tags":["Moskva","Sibiř"],"geo":"Kvůli válce a sankcím je cestování rizikové a komplikované. Ověř MZV ČR."},{"m49":"646","iso2":"RW","en":"Rwanda","cs":"Rwanda","cont":"Afrika","cap":"Kigali","cost":2,"safety":4,"months":[6,7,8,9],"cur":"RWF","blurb":"Gorily v mlze a čistá zelená země.","tags":["gorily","kopce","čistota"],"geo":""},{"m49":"222","iso2":"SV","en":"El Salvador","cs":"Salvador","cont":"Severní Amerika","cap":"San Salvador"},{"m49":"882","iso2":"WS","en":"Samoa","cs":"Samoa","cont":"Oceánie","cap":"Apia"},{"m49":"674","iso2":"SM","en":"San Marino","cs":"San Marino","cont":"Evropa","cap":"San Marino"},{"m49":"682","iso2":"SA","en":"Saudi Arabia","cs":"Saúdská Arábie","cont":"Asie","cap":"Riyadh","cost":3,"safety":4,"months":[11,12,1,2],"cur":"SAR","blurb":"Nově se otevírá turistům – pouště a historie.","tags":["poušť","AlUla","Rudé moře"],"geo":""},{"m49":"686","iso2":"SN","en":"Senegal","cs":"Senegal","cont":"Afrika","cap":"Dakar","cost":1,"safety":4,"months":[11,12,1,2],"cur":"XOF","blurb":"Hudba, barvy a srdečná západní Afrika.","tags":["hudba","pláže","trhy"],"geo":""},{"m49":"408","iso2":"KP","en":"North Korea","cs":"Severní Korea","cont":"Asie","cap":"Pyongyang"},{"m49":"807","iso2":"MK","en":"North Macedonia","cs":"Severní Makedonie","cont":"Evropa","cap":"Skopje"},{"m49":"690","iso2":"SC","en":"Seychelles","cs":"Seychely","cont":"Afrika","cap":"Victoria","cost":5,"safety":5,"months":[4,5,10,11],"cur":"SCR","blurb":"Žulové ostrovy a dokonalé pláže.","tags":["pláže","ostrovy","potápění"],"geo":""},{"m49":"694","iso2":"SL","en":"Sierra Leone","cs":"Sierra Leone","cont":"Afrika","cap":"Freetown"},{"m49":"702","iso2":"SG","en":"Singapore","cs":"Singapur","cont":"Asie","cap":"Singapore","cost":4,"safety":5,"months":[2,3,6,7],"cur":"SGD","blurb":"Futuristické město-stát, čisté a bezpečné.","tags":["skyline","jídlo","zahrady"],"geo":""},{"m49":"703","iso2":"SK","en":"Slovakia","cs":"Slovensko","cont":"Evropa","cap":"Bratislava","cost":2,"safety":5,"months":[6,7,8,9],"cur":"EUR","blurb":"Hory na dosah, levně a blízko.","tags":["Tatry","příroda","treky"],"geo":""},{"m49":"705","iso2":"SI","en":"Slovenia","cs":"Slovinsko","cont":"Evropa","cap":"Ljubljana","cost":3,"safety":5,"months":[6,7,9],"cur":"EUR","blurb":"Bled, Alpy a jeskyně na malém prostoru.","tags":["Bled","Alpy","jeskyně"],"geo":""},{"m49":"706","iso2":"SO","en":"Somalia","cs":"Somálsko","cont":"Afrika","cap":"Mogadishu"},{"m49":"784","iso2":"AE","en":"United Arab Emirates","cs":"Spojené arabské emiráty","cont":"Asie","cap":"Abu Dhabi","cost":4,"safety":5,"months":[11,12,1,2,3],"cur":"AED","blurb":"Luxus, pouště a futuristická města.","tags":["Dubaj","poušť","nákupy"],"geo":""},{"m49":"826","iso2":"GB","en":"United Kingdom","cs":"Spojené království","cont":"Evropa","cap":"London","cost":4,"safety":5,"months":[5,6,7,9],"cur":"GBP","blurb":"Londýn, venkov a divoká skotská příroda.","tags":["Londýn","Skotsko","puby"],"geo":""},{"m49":"840","iso2":"US","en":"United States of America","cs":"Spojené státy americké","cont":"Severní Amerika","cap":"Washington","cost":4,"safety":4,"months":[5,6,9,10],"cur":"USD","blurb":"Od velkoměst po národní parky – vše ve velkém.","tags":["NY","parky","road trip"],"geo":""},{"m49":"688","iso2":"RS","en":"Serbia","cs":"Srbsko","cont":"Evropa","cap":"Belgrade","cost":2,"safety":4,"months":[5,6,9],"cur":"RSD","blurb":"Živý Bělehrad a srdečná atmosféra.","tags":["Bělehrad","nightlife","levně"],"geo":""},{"m49":"144","iso2":"LK","en":"Sri Lanka","cs":"Srí Lanka","cont":"Asie","cap":"Colombo","cost":1,"safety":4,"months":[1,2,3,7,8],"cur":"LKR","blurb":"Čaj, pláže a safari na malém ostrově.","tags":["čaj","safari","pláže"],"geo":""},{"m49":"140","iso2":"CF","en":"Central African Republic","cs":"Středoafrická republika","cont":"Afrika","cap":"Bangui"},{"m49":"740","iso2":"SR","en":"Suriname","cs":"Surinam","cont":"Jižní Amerika","cap":"Paramaribo"},{"m49":"662","iso2":"LC","en":"Saint Lucia","cs":"Svatá Lucie","cont":"Severní Amerika","cap":"Castries"},{"m49":"659","iso2":"KN","en":"Saint Kitts and Nevis","cs":"Svatý Kryštof a Nevis","cont":"Severní Amerika","cap":"Basseterre"},{"m49":"678","iso2":"ST","en":"Sao Tome and Principe","cs":"Svatý Tomáš a Princův ostrov","cont":"Afrika","cap":"São Tomé"},{"m49":"670","iso2":"VC","en":"Saint Vincent and the Grenadines","cs":"Svatý Vincenc a Grenadiny","cont":"Severní Amerika","cap":"Kingstown"},{"m49":"729","iso2":"SD","en":"Sudan","cs":"Súdán","cont":"Afrika","cap":"Khartoum"},{"m49":"760","iso2":"SY","en":"Syria","cs":"Sýrie","cont":"Asie","cap":"Damascus"},{"m49":"834","iso2":"TZ","en":"Tanzania","cs":"Tanzanie","cont":"Afrika","cap":"Dodoma","cost":2,"safety":3,"months":[6,7,8,9],"cur":"TZS","blurb":"Serengeti, Kilimandžáro a Zanzibar.","tags":["Serengeti","Kilimandžáro","Zanzibar"],"geo":""},{"m49":"158","iso2":"TW","en":"Taiwan","cs":"Tchaj-wan","cont":"Asie","cap":"Taipei"},{"m49":"764","iso2":"TH","en":"Thailand","cs":"Thajsko","cont":"Asie","cap":"Bangkok","cost":1,"safety":4,"months":[11,12,1,2],"cur":"THB","blurb":"Klasika jihovýchodní Asie – pláže a chrámy.","tags":["pláže","chrámy","jídlo"],"geo":""},{"m49":"768","iso2":"TG","en":"Togo","cs":"Togo","cont":"Afrika","cap":"Lomé"},{"m49":"776","iso2":"TO","en":"Tonga","cs":"Tonga","cont":"Oceánie","cap":"Nuku'alofa"},{"m49":"780","iso2":"TT","en":"Trinidad and Tobago","cs":"Trinidad a Tobago","cont":"Severní Amerika","cap":"Port of Spain"},{"m49":"788","iso2":"TN","en":"Tunisia","cs":"Tunisko","cont":"Afrika","cap":"Tunis","cost":2,"safety":4,"months":[4,5,9,10],"cur":"TND","blurb":"Pláže, Sahara a římské památky.","tags":["pláže","Sahara","Kartágo"],"geo":""},{"m49":"792","iso2":"TR","en":"Turkey","cs":"Turecko","cont":"Asie","cap":"Ankara","cost":2,"safety":3,"months":[4,5,9,10],"cur":"TRY","blurb":"Most mezi Evropou a Asií, levně a pestře.","tags":["Istanbul","Kappadokie","pláže"],"geo":""},{"m49":"795","iso2":"TM","en":"Turkmenistan","cs":"Turkmenistán","cont":"Asie","cap":"Ashgabat"},{"m49":"798","iso2":"TV","en":"Tuvalu","cs":"Tuvalu","cont":"Oceánie","cap":"Funafuti"},{"m49":"762","iso2":"TJ","en":"Tajikistan","cs":"Tádžikistán","cont":"Asie","cap":"Dushanbe"},{"m49":"800","iso2":"UG","en":"Uganda","cs":"Uganda","cont":"Afrika","cap":"Kampala","cost":1,"safety":3,"months":[6,7,8],"cur":"UGX","blurb":"Gorily, šimpanzi a pramen Nilu.","tags":["gorily","safari","Nil"],"geo":""},{"m49":"804","iso2":"UA","en":"Ukraine","cs":"Ukrajina","cont":"Evropa","cap":"Kyiv","cost":2,"safety":2,"months":[5,6,9],"cur":"UAH","blurb":"Krásná země, nyní zasažená válkou.","tags":["Kyjev","historie"],"geo":"Probíhající válka – MZV ČR nedoporučuje cesty. Ověř aktuální situaci."},{"m49":"858","iso2":"UY","en":"Uruguay","cs":"Uruguay","cont":"Jižní Amerika","cap":"Montevideo","cost":3,"safety":4,"months":[12,1,2,3],"cur":"UYU","blurb":"Klidná pohoda mezi Argentinou a Brazílií.","tags":["pláže","klid","víno"],"geo":""},{"m49":"860","iso2":"UZ","en":"Uzbekistan","cs":"Uzbekistán","cont":"Asie","cap":"Tashkent","cost":1,"safety":4,"months":[4,5,9,10],"cur":"UZS","blurb":"Hedvábná stezka – Samarkand a Buchara.","tags":["Samarkand","mešity","stezka"],"geo":""},{"m49":"548","iso2":"VU","en":"Vanuatu","cs":"Vanuatu","cont":"Oceánie","cap":"Port Vila"},{"m49":"862","iso2":"VE","en":"Venezuela","cs":"Venezuela","cont":"Jižní Amerika","cap":"Caracas"},{"m49":"704","iso2":"VN","en":"Vietnam","cs":"Vietnam","cont":"Asie","cap":"Hanoi","cost":1,"safety":4,"months":[3,4,10,11],"cur":"VND","blurb":"Úžasná kuchyně a krajina za pár korun.","tags":["Halong","jídlo","rýžovky"],"geo":""},{"m49":"626","iso2":"TL","en":"Timor-Leste","cs":"Východní Timor","cont":"Asie","cap":"Dili"},{"m49":"894","iso2":"ZM","en":"Zambia","cs":"Zambie","cont":"Afrika","cap":"Lusaka"},{"m49":"716","iso2":"ZW","en":"Zimbabwe","cs":"Zimbabwe","cont":"Afrika","cap":"Harare"},{"m49":"031","iso2":"AZ","en":"Azerbaijan","cs":"Ázerbájdžán","cont":"Asie","cap":"Baku","cost":2,"safety":4,"months":[4,5,9,10],"cur":"AZN","blurb":"Baku jako směs starého a ultramoderního.","tags":["Baku","poušť","oheň"],"geo":""},{"m49":"364","iso2":"IR","en":"Iran","cs":"Írán","cont":"Asie","cap":"Tehran","cost":1,"safety":3,"months":[4,5,10],"cur":"IRR","blurb":"Bohatá perská kultura a pohostinnost.","tags":["Persepolis","mešity","poušť"],"geo":"Cesty zvaž obezřetně – ověř MZV ČR."},{"m49":"148","iso2":"TD","en":"Chad","cs":"Čad","cont":"Afrika","cap":"N'Djamena"},{"m49":"499","iso2":"ME","en":"Montenegro","cs":"Černá Hora","cont":"Evropa","cap":"Podgorica","cost":3,"safety":4,"months":[6,7,9],"cur":"EUR","blurb":"Maličká země s horami i Jadranem.","tags":["Jadran","hory","Kotor"],"geo":""},{"m49":"203","iso2":"CZ","en":"Czechia","cs":"Česko","cont":"Evropa","cap":"Prague","cost":2,"safety":5,"months":[5,6,9],"cur":"CZK","blurb":"Domov. Skvělá výchozí základna pro levné lety po Evropě.","tags":["Praha","hrady","pivo"],"geo":""},{"m49":"156","iso2":"CN","en":"China","cs":"Čína","cont":"Asie","cap":"Beijing","cost":2,"safety":4,"months":[4,5,9,10],"cur":"CNY","blurb":"Obří rozmanitost, od velkoměst po hory.","tags":["Peking","Velká zeď","příroda"],"geo":""},{"m49":"300","iso2":"GR","en":"Greece","cs":"Řecko","cont":"Evropa","cap":"Athens","cost":3,"safety":5,"months":[5,6,9,10],"cur":"EUR","blurb":"Ostrovy, antika a křišťálové moře.","tags":["ostrovy","antika","moře"],"geo":""},{"m49":"090","iso2":"SB","en":"Solomon Islands","cs":"Šalomounovy ostrovy","cont":"Oceánie","cap":"Honiara"},{"m49":"724","iso2":"ES","en":"Spain","cs":"Španělsko","cont":"Evropa","cap":"Madrid","cost":3,"safety":4,"months":[5,6,9,10],"cur":"EUR","blurb":"Slunce, pláže, tapas a živá města.","tags":["Barcelona","pláže","fiesta"],"geo":""},{"m49":"752","iso2":"SE","en":"Sweden","cs":"Švédsko","cont":"Evropa","cap":"Stockholm","cost":4,"safety":5,"months":[6,7,8,12],"cur":"SEK","blurb":"Designová města a nekonečná příroda.","tags":["Stockholm","jezera","design"],"geo":""},{"m49":"756","iso2":"CH","en":"Switzerland","cs":"Švýcarsko","cont":"Evropa","cap":"Bern","cost":5,"safety":5,"months":[6,7,8,12],"cur":"CHF","blurb":"Nejhezčí Alpy, ale drahé. Vlaky jak z reklamy.","tags":["Alpy","jezera","lyže"],"geo":""}];
+/* ================= HELPERS ================= */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const norm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+const flag=iso=>iso&&iso.length===2?String.fromCodePoint(...[...iso.toUpperCase()].map(c=>0x1F1E6+c.charCodeAt(0)-65)):'🏳️';
+const enc=encodeURIComponent;
+const MNS=['led','úno','bře','dub','kvě','čvn','čvc','srp','zář','říj','lis','pro'];
+const MNS_FULL=['leden','únor','březen','duben','květen','červen','červenec','srpen','září','říjen','listopad','prosinec'];
+const CONTS=['Evropa','Asie','Afrika','Severní Amerika','Jižní Amerika','Oceánie'];
+const ORIGINS={PRG:{sky:'prg',city:'Praha',n:'Praha'},VIE:{sky:'vie',city:'Vídeň',n:'Vídeň'},BTS:{sky:'bts',city:'Bratislava',n:'Bratislava'}};
+const CAP_IATA={CZ:'PRG',SK:'BTS',AT:'VIE',DE:'BER',FR:'PAR',IT:'ROM',ES:'MAD',PT:'LIS',GR:'ATH',HR:'ZAG',NL:'AMS',BE:'BRU',CH:'ZRH',GB:'LON',IE:'DUB',IS:'KEF',NO:'OSL',SE:'STO',FI:'HEL',DK:'CPH',PL:'WAW',HU:'BUD',RO:'OTP',BG:'SOF',RS:'BEG',ME:'TGD',AL:'TIA',SI:'LJU',MT:'MLA',CY:'LCA',EE:'TLL',LV:'RIX',LT:'VNO',TR:'IST',UA:'IEV',RU:'MOW',JP:'TYO',CN:'BJS',KR:'SEL',TH:'BKK',VN:'HAN',ID:'DPS',MY:'KUL',SG:'SIN',PH:'MNL',IN:'DEL',NP:'KTM',LK:'CMB',AE:'DXB',QA:'DOH',SA:'RUH',IL:'TLV',JO:'AMM',GE:'TBS',AM:'EVN',AZ:'GYD',KH:'PNH',LA:'VTE',MM:'RGN',MN:'ULN',KZ:'ALA',UZ:'TAS',MV:'MLE',BT:'PBH',IR:'IKA',MA:'RAK',EG:'CAI',ZA:'CPT',KE:'NBO',TZ:'JRO',NA:'WDH',BW:'GBE',ET:'ADD',TN:'TUN',SN:'DKR',RW:'KGL',UG:'EBB',MU:'MRU',SC:'SEZ',US:'NYC',CA:'YTO',MX:'MEX',BR:'GRU',AR:'BUE',CL:'SCL',PE:'LIM',CO:'BOG',EC:'UIO',BO:'LPB',CR:'SJO',PA:'PTY',CU:'HAV',GT:'GUA',UY:'MVD',AU:'SYD',NZ:'AKL',FJ:'NAN'};
+const CITY_IATA={lisabon:'LIS',lisbon:'LIS',porto:'OPO',barcelona:'BCN',madrid:'MAD',sevilla:'SVQ',malaga:'AGP',valencie:'VLC',paris:'PAR',pariz:'PAR',londyn:'LON',london:'LON',rim:'ROM',rome:'ROM',milan:'MIL',neapol:'NAP',benatky:'VCE',venice:'VCE',amsterdam:'AMS',berlin:'BER',mnichov:'MUC',munich:'MUC',vieden:'VIE',vienna:'VIE',athens:'ATH',ateny:'ATH',split:'SPU',dubrovnik:'DBV',tokio:'TYO',tokyo:'TYO',osaka:'OSA',kyoto:'OSA',bangkok:'BKK',phuket:'HKT',bali:'DPS',denpasar:'DPS',dubaj:'DXB',dubai:'DXB',singapur:'SIN',singapore:'SIN',hanoj:'HAN',hanoi:'HAN',saigon:'SGN',soul:'SEL',seoul:'SEL',peking:'BJS',beijing:'BJS',sanghaj:'SHA',shanghai:'SHA',hongkong:'HKG',delhi:'DEL',dilli:'DEL',mumbai:'BOM',bombaj:'BOM','novy york':'NYC','new york':'NYC',newyork:'NYC','los angeles':'LAX',miami:'MIA','mexico city':'MEX',cancun:'CUN',kankun:'CUN',rio:'RIO','rio de janeiro':'RIO','sao paulo':'SAO','buenos aires':'BUE',lima:'LIM',bogota:'BOG','kapske mesto':'CPT','cape town':'CPT',johannesburg:'JNB',marrakech:'RAK',marrakes:'RAK',kahira:'CAI',cairo:'CAI',istanbul:'IST',reykjavik:'KEF',oslo:'OSL',stockholm:'STO',helsinky:'HEL',helsinki:'HEL',kodan:'CPH',dublin:'DUB',edinburgh:'EDI',mallorca:'PMI',malorka:'PMI',palma:'PMI',ibiza:'IBZ',tenerife:'TFS',kanary:'LPA',sydney:'SYD',melbourne:'MEL',auckland:'AKL','kuala lumpur':'KUL',manila:'MNL',colombo:'CMB',male:'MLE',kathmandu:'KTM',katmandu:'KTM',zanzibar:'ZNZ',nairobi:'NBO',marakes:'RAK',praha:'PRG',prague:'PRG',bratislava:'BTS',budapest:'BUD',budapest:'BUD',krakov:'KRK',krakow:'KRK',varsava:'WAW'};
+const VIBES={'pláže':['pláž','moře','laguny','atoly','ostrov','surf','potápění','riviér'],'hory':['hory','alp','himálaj','andy','trek','fjord','tatry','karpaty','kavkaz','sopk'],'historie':['histori','antik','chrám','pyramid','mešit','památk','petra','angkor','stezk','kláštery','hrad'],'safari':['safari','goril','přírod','džungl','savan','migrac','delta','okavango'],'město':['měst','tokio','londýn','paříž','berlín','skyline','soul','dubaj','singapur','nightlife']};
+const WC={0:['☀️','Jasno'],1:['🌤️','Skoro jasno'],2:['⛅','Polojasno'],3:['☁️','Zataženo'],45:['🌫️','Mlha'],48:['🌫️','Námraza'],51:['🌦️','Mrholení'],53:['🌦️','Mrholení'],55:['🌦️','Mrholení'],61:['🌧️','Déšť'],63:['🌧️','Déšť'],65:['🌧️','Silný déšť'],66:['🌧️','Mrznoucí déšť'],67:['🌧️','Mrznoucí déšť'],71:['🌨️','Sníh'],73:['🌨️','Sníh'],75:['❄️','Silné sněžení'],77:['🌨️','Sněhové krupky'],80:['🌦️','Přeháňky'],81:['🌦️','Přeháňky'],82:['⛈️','Silné přeháňky'],85:['🌨️','Sněhové přeháňky'],86:['🌨️','Sněhové přeháňky'],95:['⛈️','Bouřka'],96:['⛈️','Bouřka s kroupami'],99:['⛈️','Bouřka s kroupami']};
+const wIco=c=>WC[c]||['🌡️','—'];
+const RADAR=[['Lisabon','LIS','PT',1490,'jaro/podzim'],['Barcelona','BCN','ES',990,'mimo léto'],['Řím','ROM','IT',1190,'celoročně'],['Istanbul','IST','TR',2290,'jaro'],['Londýn','LON','GB',890,'levné aerolinky'],['Athény','ATH','GR',1390,'květen, září'],['Marrákeš','RAK','MA',1990,'jaro/podzim'],['Dubaj','DXB','AE',5990,'zima'],['Bangkok','BKK','TH',9990,'listopad–únor'],['Tokio','TYO','JP',11900,'jaro/podzim'],['New York','NYC','US',7990,'mimo léto'],['Bali','DPS','ID',12900,'duben–říjen']];
+const TIPS=[['🗓️','Rezervuj s předstihem','Pro krátké lety ideálně 4–8 týdnů předem, u dálkových 2–5 měsíců. Cena pak většinou jen roste.'],['🕵️','Hledej v anonymním okně','Weby si pamatují tvoje hledání. Inkognito režim zabrání umělému zdražování.'],['✈️','Porovnej 3 letiště','Z Vídně a Bratislavy bývají dálkové lety o tisíce levnější než z Prahy. Vždy porovnej všechna tři.'],['🔔','Nastav cenové hlídače','Na Google Flights i Skyscanneru si zapni upozornění na pokles ceny dané trasy.'],['🎒','Leť jen s příručním','U nízkonákladovek je odbavené zavazadlo často dražší než letenka. Plánuj nalehko.'],['⚡','Buď flexibilní v datech','Posun o den dva (úterý/středa) nebo „celý měsíc" v hledání umí ušetřit i polovinu ceny.']];
+const PACK=['Pas / OP','Letenky a rezervace','Cestovní pojištění','Nabíječka + powerbanka','Univerzální adaptér','Léky a lékárnička','Hotovost v místní měně','Kopie dokladů'];
+
+/* ================= STATE ================= */
+const LS='atlas_v1';
+let S=load();
+function load(){try{const d=JSON.parse(localStorage.getItem(LS));if(d)return Object.assign(defState(),d);}catch(e){}return defState();}
+function defState(){return{visited:[],trips:[],airports:{PRG:true,VIE:true,BTS:true},theme:'dark',geo:{},weather:{},fx:null};}
+function save(){try{localStorage.setItem(LS,JSON.stringify(S));}catch(e){}}
+let curIso=null;
+const visited=new Set(S.visited);
+function setVisited(iso,on){on?visited.add(iso):visited.delete(iso);S.visited=[...visited];save();refreshStats();paintMap();}
+
+/* lookups */
+const byIso={},byM49={},byEn={};
+COUNTRIES.forEach(c=>{byIso[c.iso2]=c;byM49[String(c.m49).padStart(3,'0')]=c;byEn[norm(c.en)]=c;});
+Object.entries({'united states of america':'US','dem. rep. congo':'CD','democratic republic of the congo':'CD','dominican rep.':'DO','central african rep.':'CF','eq. guinea':'GQ','bosnia and herz.':'BA','n. macedonia':'MK','s. sudan':'SS','solomon is.':'SB','republic of the congo':'CG','congo':'CG',"côte d'ivoire":'CI','ivory coast':'CI','korea':'KR','dem. rep. korea':'KP','lao pdr':'LA','viet nam':'VN','russian federation':'RU','syria':'SY','moldova':'MD','brunei':'BN','the gambia':'GM','swaziland':'SZ','timor-leste':'TL','east timor':'TL','kosovo':'XK','macedonia':'MK','czech rep.':'CZ','czechia':'CZ','myanmar':'MM','w. sahara':null}).forEach(([k,v])=>{if(v&&byIso[v])byEn[norm(k)]=byIso[v];});
+const TOT=COUNTRIES.length;
+const CONT_TOT={};CONTS.forEach(k=>CONT_TOT[k]=COUNTRIES.filter(c=>c.cont===k).length);
+
+/* ================= NAV / SHELL ================= */
+const NAV=[['dashboard','Přehled','Tvůj cestovní přehled','M3 12l9-9 9 9M5 10v10h14V10'],
+['flights','Lety','Nejlevnější letenky z PRG · VIE · BTS','M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z'],
+['map','Mapa','Procestuj svět a odškrtávej země','M9 20l-5.5 2.5V5L9 2.5m0 17.5l6-3m-6 3V2.5m6 14.5l5.5 2.5V5L15 2.5m0 14.5V2.5m-6 0l6 3'],
+['countries','Země','Počasí, ceny, bezpečnost a tipy','M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2c2.5 2.7 4 6.3 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.3-4-10s1.5-7.3 4-10z'],
+['planner','Plánovač','Naplánuj si celou cestu','M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z'],
+['recommend','Doporučení','Kam se vyplatí jet právě teď','M12 2l2.4 7.4H22l-6 4.3 2.3 7.3-6.3-4.6L5.7 21 8 13.7 2 9.4h7.6z']];
+let activeView='dashboard';
+function ico(d){return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;}
+function buildNav(){
+  $('#nav').innerHTML=NAV.map(n=>`<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0]==='map'?'<span class="nav-badge" id="navBadge">0</span>':''}</div>`).join('');
+  $('#mobileNav').innerHTML=NAV.map(n=>`<div class="mi" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span></div>`).join('');
+  $$('[data-view]').forEach(el=>el.onclick=()=>go(el.dataset.view));
+}
+function go(v){
+  activeView=v;
+  $$('.view').forEach(s=>s.classList.toggle('active',s.id==='view-'+v));
+  $$('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.view===v));
+  $$('.mobile-nav .mi').forEach(el=>el.classList.toggle('active',el.dataset.view===v));
+  const n=NAV.find(x=>x[0]===v);$('#pageTitle').textContent=n[1];$('#pageSub').textContent=n[2];
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(v==='map')initMap();
+  if(v==='countries')renderCountries();
+  if(v==='recommend')renderRecs();
+  if(v==='planner')renderPlanner();
+  if(v==='dashboard')renderDash();
+}
+function toast(msg){const t=$('#toast');t.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${msg}`;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* theme */
+function applyTheme(){document.documentElement.dataset.theme=S.theme;$('#themeLabel').textContent=S.theme==='dark'?'Tmavý režim':'Světlý režim';}
+$('#themeToggle').onclick=()=>{S.theme=S.theme==='dark'?'light':'dark';save();applyTheme();};
+
+/* airport pills */
+function buildAirports(){
+  ['#airportPills','#flightAirports'].forEach(sel=>{
+    const el=$(sel);if(!el)return;
+    el.innerHTML=Object.keys(ORIGINS).map(k=>`<span class="pill ${S.airports[k]?'on':''}" data-ap="${k}">${k}</span>`).join('');
+    $$('[data-ap]',el).forEach(p=>p.onclick=()=>{S.airports[p.dataset.ap]=!S.airports[p.dataset.ap];if(!Object.values(S.airports).some(Boolean))S.airports[p.dataset.ap]=true;save();buildAirports();});
+  });
+}
+const activeAirports=()=>Object.keys(ORIGINS).filter(k=>S.airports[k]);
+
+/* ================= STATS ================= */
+function stats(){
+  const v=[...visited];const conts=new Set(v.map(i=>byIso[i]?.cont).filter(Boolean));
+  return{count:v.length,pct:Math.round(v.length/TOT*100),conts:conts.size};
+}
+function refreshStats(){
+  const st=stats();
+  const badge=$('#navBadge');if(badge)badge.textContent=st.count;
+  if($('#mapPct')){$('#mapPct').textContent=st.pct+' %';$('#mapBar').style.width=st.pct+'%';$('#mapCount').textContent=st.count;$('#mapCont').textContent=st.conts;
+    $('#contBars').innerHTML=CONTS.map(c=>{const tot=CONT_TOT[c];const n=[...visited].filter(i=>byIso[i]?.cont===c).length;const p=Math.round(n/tot*100);return `<div class="cont-row"><div class="ct"><span>${c}</span><b>${n}/${tot}</b></div><div class="progress"><span style="width:${p}%"></span></div></div>`;}).join('');
+  }
+}
+
+/* ================= DASHBOARD ================= */
+function renderDash(){
+  const st=stats();const topRec=scoreCountries(new Date().getMonth()+1,{}).filter(r=>!visited.has(r.c.iso2))[0];
+  $('#statGrid').innerHTML=[
+    ['Navštívené země',`${st.count}<small> / ${TOT}</small>`,`${st.pct}% světa`,'M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20',`<div class="progress"><span style="width:${st.pct}%"></span></div>`],
+    ['Kontinenty',`${st.conts}<small> / 6</small>`,st.conts>=6?'Celý svět! 🌍':'Pokračuj v objevování','M3 12h18M12 3v18',''],
+    ['Naplánované cesty',`${S.trips.length}`,S.trips.length?'Mrkni do plánovače':'Začni plánovat','M8 2v4M16 2v4M3 10h18',''],
+    ['Tip na '+MNS_FULL[new Date().getMonth()],topRec?`${flag(topRec.c.iso2)}`:'—',topRec?topRec.c.cs:'',''],
+  ].map(s=>`<div class="card stat"><div class="lab">${s[0]}</div><div class="val">${s[1]}</div><div class="sub">${s[2]}</div>${s[4]||''}</div>`).join('');
+  const recs=scoreCountries(new Date().getMonth()+1,{}).filter(r=>!visited.has(r.c.iso2)).slice(0,4);
+  $('#dashRecs').innerHTML=recs.map(r=>destCard(r.c,r.score)).join('');
+  bindDest('#dashRecs');
+  const QF=[['🌍','Kamkoliv nejlevněji','Otevři objevovací režim',''],['🏖️','Za sluncem','Pláže s ideálním počasím','beach'],['🏛️','Víkend v Evropě','Citytripy na dosah','euro'],['🌏','Dálky a exotika','Velké dobrodružství','far']];
+  $('#quickFlights').innerHTML=QF.map((q,i)=>`<div class="card dest" data-qf="${i}"><div class="flag">${q[0]}</div><div class="cname">${q[1]}</div><div class="cblurb">${q[2]}</div><div class="meta"><span class="chip accent">Hledat lety</span><span>→</span></div></div>`).join('');
+  $$('[data-qf]').forEach(el=>el.onclick=()=>quickFlight(QF[+el.dataset.qf][3]));
+  $('#dashRecs').parentElement&&$$('.link[data-go]').forEach(l=>l.onclick=()=>go(l.dataset.go));
+}
+function quickFlight(kind){
+  go('flights');setAnyOff();
+  if(kind==='beach'){const t=scoreCountries(new Date().getMonth()+1,{vibe:'pláže'})[0];if(t)$('#fDest').value=t.c.cs;}
+  else if(kind==='euro'){$('#fDest').value='Lisabon';}
+  else if(kind==='far'){$('#fDest').value='Bangkok';}
+  else {$('#fDest').value='';runEverywhere();return;}
+  runSearch(false);
+}
+
+/* ================= DEST CARD ================= */
+function costDots(n){return `<span class="dots warm">${[1,2,3,4,5].map(i=>`<i class="${i<=n?'f':''}"></i>`).join('')}</span>`;}
+function destCard(c,score){
+  const months=c.months?c.months.slice(0,3).map(m=>MNS[m-1]).join(' · '):'';
+  return `<div class="card dest ${visited.has(c.iso2)?'visited':''}" data-iso="${c.iso2}">
+    ${score?`<div class="score-pill">${score}</div>`:`<div class="vmark"><svg viewBox="0 0 24 24" width="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>`}
+    <div class="flag">${flag(c.iso2)}</div>
+    <div class="cname">${c.cs}</div><div class="ccont">${c.cont}${c.cap?' · '+c.cap:''}</div>
+    <div class="cblurb">${c.blurb||'Objev tuto zemi – počasí, ceny i odkazy najdeš uvnitř.'}</div>
+    <div class="meta">${c.cost?costDots(c.cost):'<span></span>'}${months?`<span>${months}</span>`:''}</div>
+  </div>`;
+}
+function bindDest(sel){$$(sel+' .dest[data-iso]').forEach(el=>el.onclick=()=>openCountry(el.dataset.iso));}
+
+/* ================= RECOMMENDATIONS ENGINE ================= */
+function scoreCountries(month,opt){
+  const{vibe='',budget=9,safe=0}=opt||{};
+  return COUNTRIES.filter(c=>c.cost).filter(c=>c.cost<=budget&&c.safety>=safe).map(c=>{
+    let season=0;if(c.months.includes(month))season=1;else if(c.months.includes(month%12+1)||c.months.includes((month+10)%12+1))season=.5;
+    const value=(6-c.cost)/5, safety=c.safety/5;
+    let vm=0;if(vibe){const kws=VIBES[vibe]||[];const hay=norm(c.blurb+' '+(c.tags||[]).join(' '));if(kws.some(k=>hay.includes(k)))vm=1;}
+    const total=season*3+value*2+safety*1.5+vm*3+(c.safety>=4?.3:0);
+    const max=vibe?9.8:6.8;
+    return{c,score:Math.round(total/max*100),season};
+  }).sort((a,b)=>b.score-a.score);
+}
+function renderRecs(){
+  const m=+$('#rMonth').value, vibe=$('#rVibe').value, budget=+$('#rBudget').value, safe=+$('#rSafe').value;
+  $('#recTitle').textContent='Kam vyrazit · '+MNS_FULL[m-1];
+  let list=scoreCountries(m,{vibe,budget,safe}).slice(0,18);
+  $('#recGrid').innerHTML=list.map(r=>{
+    const reasons=[];if(r.season===1)reasons.push('ideální počasí');if(r.c.cost<=2)reasons.push('levné');if(r.c.safety>=5)reasons.push('velmi bezpečné');else if(r.c.safety>=4)reasons.push('bezpečné');
+    const c=r.c;
+    return `<div class="card dest" data-iso="${c.iso2}"><div class="score-pill">${r.score}</div>
+      <div class="flag">${flag(c.iso2)}</div><div class="cname">${c.cs}</div><div class="ccont">${c.cont}</div>
+      <div class="cblurb">${c.blurb}</div>
+      <div class="tags">${reasons.map(x=>`<span class="tag" style="color:var(--good)">✓ ${x}</span>`).join('')}</div>
+      <div class="meta">${costDots(c.cost)}<span>${c.months.slice(0,3).map(x=>MNS[x-1]).join(' · ')}</span></div></div>`;
+  }).join('');
+  bindDest('#recGrid');
+}
+
+/* ================= COUNTRIES GRID ================= */
+function renderCountries(){
+  const q=norm($('#cSearch').value),cont=$('#cCont').value,cost=$('#cCost').value,sort=$('#cSort').value,vis=$('#cVisited .on').dataset.v;
+  let list=COUNTRIES.slice();
+  if(q)list=list.filter(c=>norm(c.cs).includes(q)||norm(c.en).includes(q)||(c.tags||[]).some(t=>norm(t).includes(q)));
+  if(cont)list=list.filter(c=>c.cont===cont);
+  if(cost)list=list.filter(c=>c.cost&&(cost==='1'?c.cost<=1:cost==='2'?c.cost<=2:c.cost>=3));
+  if(vis==='yes')list=list.filter(c=>visited.has(c.iso2));else if(vis==='no')list=list.filter(c=>!visited.has(c.iso2));
+  if(sort==='cost')list.sort((a,b)=>(a.cost||9)-(b.cost||9));else if(sort==='safety')list.sort((a,b)=>(b.safety||0)-(a.safety||0));else list.sort((a,b)=>a.cs.localeCompare(b.cs,'cs'));
+  $('#countryGrid').innerHTML=list.length?list.map(c=>destCard(c)).join(''):`<div class="empty" style="grid-column:1/-1"><div class="ei">${ico('M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20')}</div><div>Nic nenalezeno. Zkus jiný filtr.</div></div>`;
+  bindDest('#countryGrid');
+}
+
+/* ================= COUNTRY MODAL ================= */
+function modalOpen(html){$('#modal').innerHTML=html;$('#modalBg').classList.add('show');}
+function modalClose(){$('#modalBg').classList.remove('show');}
+$('#modalBg').onclick=e=>{if(e.target===$('#modalBg'))modalClose();};
+function monthsStrip(best){const now=new Date().getMonth()+1;return `<div class="months">${MNS.map((m,i)=>`<div class="m ${best&&best.includes(i+1)?'best':''} ${i+1===now?'now':''}">${m}</div>`).join('')}</div>`;}
+
+function openCountry(iso){
+  const c=byIso[iso];if(!c)return;curIso=iso;
+  const isV=visited.has(iso);
+  const mzv='https://www.mzv.gov.cz/jnp/cz/cestujeme/index.html';
+  const geoNote=c.geo?`<div class="note ${c.safety<=2?'bad':'warn'}" style="margin-bottom:14px">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${c.geo}</div></div>`:'';
+  const safeTxt=c.safety?['','velmi rizikové','zvýšená opatrnost','střední','bezpečné','velmi bezpečné'][c.safety]:'—';
+  const costTxt=c.cost?['','velmi levné','levné','střední','dražší','drahé'][c.cost]:'—';
+  modalOpen(`
+   <div class="modal-hero"><div class="mh-bg ${c.cost>=4?'warm':''}"></div>
+     <button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button>
+     <div class="modal-hero-inner">
+       <div style="font-size:54px;line-height:1">${flag(iso)}</div>
+       <h2 style="font-size:28px;margin-top:6px">${c.cs}</h2>
+       <div style="opacity:.85;font-size:13.5px">${c.en} · ${c.cont}${c.cap?' · '+c.cap:''}</div>
+     </div>
+   </div>
+   <div class="modal-body">
+     ${geoNote}
+     <div id="wxBox" class="weather-now"><div class="wico">⏳</div><div><div class="muted" style="font-size:12px">Načítám počasí…</div><div class="temp">--°</div></div></div>
+     <div id="fcBox" class="forecast"></div>
+     <div class="divider"></div>
+     <div class="kv">
+       <div><div class="k">Cenová hladina</div><div class="v">${c.cost?costDots(c.cost):'—'}</div><div class="faint" style="font-size:12px">${costTxt}</div></div>
+       <div><div class="k">Bezpečnost</div><div class="v" style="color:${c.safety>=4?'var(--good)':c.safety>=3?'var(--warn)':'var(--bad)'}">${safeTxt}</div></div>
+       <div><div class="k">Měna</div><div class="v" style="font-size:15px">${c.cur||'—'}</div><div class="faint" id="fxLine" style="font-size:12px"></div></div>
+     </div>
+     <div style="margin-top:14px"><div class="k" style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em">Nejlepší období${c.months?'':' — orientačně'}</div>${monthsStrip(c.months)}</div>
+     ${c.tags?`<div class="tags" style="margin-top:16px">${c.tags.map(t=>`<span class="chip accent">${t}</span>`).join('')}</div>`:''}
+     ${c.blurb?`<p class="muted" style="margin-top:14px;font-size:14px">${c.blurb}</p>`:''}
+     <div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Bezpečnostní a geopolitická situace se mění. Před cestou si vždy ověř aktuální doporučení na <a href="${mzv}" target="_blank" rel="noopener" style="color:var(--info);text-decoration:underline">MZV ČR</a>.</div></div>
+     <div class="divider"></div>
+     <div class="row wrap">
+       <button class="btn primary" onclick="modalClose();fromCountrySearch('${iso}')">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button>
+       <button class="btn" onclick="stayLinks('${c.cap||c.cs}')">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>
+       <button class="btn" onclick="addToPlan('${iso}')">${ico('M12 5v14M5 12h14')} Do plánu</button>
+       <button class="btn ${isV?'warm':'ghost'}" id="visBtn" onclick="toggleVis('${iso}')">${isV?'✓ Navštíveno':'Označit jako navštívené'}</button>
+     </div>
+   </div>`);
+  loadWeather(c);
+  loadFx(c);
+}
+window.modalClose=modalClose;
+window.toggleVis=iso=>{const on=!visited.has(iso);setVisited(iso,on);const b=$('#visBtn');if(b){b.textContent=on?'✓ Navštíveno':'Označit jako navštívené';b.className='btn '+(on?'warm':'ghost');}toast(on?'Přidáno: '+byIso[iso].cs:'Odebráno: '+byIso[iso].cs);renderCountries();};
+window.fromCountrySearch=iso=>{const c=byIso[iso];go('flights');setAnyOff();$('#fDest').value=c.cs;runSearch(true);};
+window.stayLinks=city=>openStay(city);
+window.addToPlan=iso=>{newTrip(byIso[iso]);};
+
+/* weather + fx (LIVE) */
+async function geocode(c){
+  if(S.geo[c.iso2])return S.geo[c.iso2];
+  try{const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${enc(c.cap||c.en)}&count=1&language=cs&format=json`);const j=await r.json();
+    if(j.results&&j.results[0]){const g={lat:j.results[0].latitude,lon:j.results[0].longitude};S.geo[c.iso2]=g;save();return g;}}catch(e){}
+  return null;
+}
+async function loadWeather(c){
+  const cache=S.weather[c.iso2];
+  if(cache&&Date.now()-cache.ts<3600000){return paintWeather(cache.data);}
+  const g=await geocode(c);if(!g){$('#wxBox').innerHTML='<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.<br>Zkontroluj připojení a dej Aktualizovat.</div>';return;}
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=auto`);
+    const j=await r.json();S.weather[c.iso2]={ts:Date.now(),data:j};save();paintWeather(j);
+  }catch(e){$('#wxBox').innerHTML='<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.</div>';}
+}
+function paintWeather(j){
+  if(!$('#wxBox'))return;
+  const cur=j.current,[ci,ct]=wIco(cur.weather_code);
+  $('#wxBox').innerHTML=`<div class="wico">${ci}</div><div style="flex:1"><div class="muted" style="font-size:12px">Teď v hlavním městě · ${ct}</div><div class="temp">${Math.round(cur.temperature_2m)}°</div><div class="faint" style="font-size:12px">💨 ${Math.round(cur.wind_speed_10m)} km/h · 💧 ${cur.relative_humidity_2m??'–'} %</div></div>`;
+  const d=j.daily;const days=['Ne','Po','Út','St','Čt','Pá','So'];
+  $('#fcBox').innerHTML=d.time.map((t,i)=>{const dt=new Date(t);const[ic]=wIco(d.weather_code[i]);return `<div class="fc"><div class="d">${i===0?'Dnes':days[dt.getDay()]}</div><div class="i">${ic}</div><div class="t">${Math.round(d.temperature_2m_max[i])}°<small> ${Math.round(d.temperature_2m_min[i])}°</small></div></div>`;}).join('');
+}
+async function loadFx(c){
+  if(!c.cur||c.cur==='CZK'){const el=$('#fxLine');if(el)el.textContent=c.cur==='CZK'?'domácí měna':'';return;}
+  if(!S.fx||Date.now()-S.fx.ts>86400000){try{const r=await fetch('https://open.er-api.com/v6/latest/CZK');const j=await r.json();if(j&&j.rates){S.fx={ts:Date.now(),rates:j.rates};save();}}catch(e){}}
+  const el=$('#fxLine');if(!el)return;
+  if(S.fx&&S.fx.rates[c.cur]){const v=1/S.fx.rates[c.cur];el.textContent=`1 ${c.cur} ≈ ${v.toFixed(v<1?3:2)} Kč`;}
+}
+/* ================= FLIGHTS ================= */
+const ARR=ico('M5 12h14M13 6l6 6-6 6');
+function yymmdd(s){return s?s.slice(2).replace(/-/g,''):'';}
+function resolveCountry(text){const t=norm(text);if(!t)return null;let c=COUNTRIES.find(c=>norm(c.cs)===t||norm(c.en)===t);if(!c)c=COUNTRIES.find(c=>norm(c.cs).startsWith(t)&&t.length>2);return c||null;}
+function resolveDest(text){const t=norm(text);if(!t)return{iata:null,label:'',iso:null};if(CITY_IATA[t])return{iata:CITY_IATA[t],label:text,iso:null};const c=resolveCountry(text);if(c)return{iata:CAP_IATA[c.iso2]||null,label:c.cs,iso:c.iso2};return{iata:null,label:text,iso:null};}
+function provLink(name,sub,url,color,lab){return `<a class="result-link" href="${url}" target="_blank" rel="noopener"><div class="lg" style="background:${color}">${lab}</div><div><div class="rl-t">${name}</div><div class="rl-s">${sub}</div></div><div class="go">${ARR}</div></a>`;}
+function skyURL(o,d,dep,ret,pax){return `https://www.skyscanner.cz/transport/flights/${o}/${d.toLowerCase()}/${yymmdd(dep)}/${ret?yymmdd(ret)+'/':''}?adults=${pax}&rtn=${ret?1:0}`;}
+function googleURL(city,dest,dep,ret){const q=`Flights from ${city} to ${dest} on ${dep}${ret?' returning '+ret:' one way'}`;return `https://www.google.com/travel/flights?hl=cs&curr=CZK&q=${enc(q)}`;}
+function kiwiURL(o,d,dep,ret){return `https://www.kiwi.com/en/search/results/${o.toUpperCase()}/${d.toUpperCase()}/${dep}${ret?'/'+ret:''}`;}
+function everyURL(o){return `https://www.skyscanner.net/transport/flights/${o}/everywhere/`;}
+function kayakURL(o,d,dep,ret){return `https://www.kayak.com/flights/${o}-${d}/${dep}${ret?'/'+ret:''}?sort=price_a`;}
+function kayakRoute(o,d){return `https://www.kayak.com/flights/${o}-${d}?sort=price_a`;}
+function gflights(city,dest,dep,ret){const q=`Flights from ${city} to ${dest}`+(dep?` on ${dep}`+(ret?` returning ${ret}`:` one way`):'');return `https://www.google.com/travel/flights?hl=cs&curr=CZK&q=${enc(q)}`;}
+
+/* flexible-date helpers */
+function pad(n){return String(n).padStart(2,'0');}
+function fmtYMD(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function ymToYYMM(ym){return ym.slice(2,4)+ym.slice(5,7);}
+function monthLabel(ym){const[y,m]=ym.split('-');return MNS_FULL[+m-1].replace(/^./,c=>c.toUpperCase())+' '+y;}
+function nextMonths(n){const out=[],d=new Date();d.setDate(1);for(let i=0;i<n;i++){out.push(fmtYMD(d).slice(0,7));d.setMonth(d.getMonth()+1);}return out;}
+function weekendPairs(ym){const[y,m]=ym.split('-').map(Number),out=[],d=new Date(y,m-1,1);const today=new Date();today.setHours(0,0,0,0);while(d.getMonth()===m-1){if(d.getDay()===5&&d>=today){const a=new Date(d),b=new Date(d);b.setDate(b.getDate()+2);out.push([fmtYMD(a),fmtYMD(b)]);}d.setDate(d.getDate()+1);}return out;}
+function weekPairs(ym){const[y,m]=ym.split('-').map(Number),out=[],d=new Date(y,m-1,1);const today=new Date();today.setHours(0,0,0,0);while(d.getMonth()===m-1){if((d.getDay()===1||d.getDate()===1)&&d>=today){const a=new Date(d),b=new Date(d);b.setDate(b.getDate()+7);out.push([fmtYMD(a),fmtYMD(b)]);}d.setDate(d.getDate()+1);}return out.slice(0,5);}
+function skyMonthURL(o,d,yymm,round){return `https://www.skyscanner.cz/transport/flights/${o}/${d.toLowerCase()}/?oym=${yymm}${round?'&iym='+yymm:''}&rtn=${round?1:0}`;}
+function skyEveryMonthURL(o,yymm){return `https://www.skyscanner.cz/transport/flights/${o}/everywhere/?oym=${yymm}`;}
+function skyAnytimeURL(o,d,round){return `https://www.skyscanner.cz/transport/flights/${o}/${d.toLowerCase()}/?rtn=${round?1:0}`;}
+function kiwiRangeURL(o,d,ym,round){const[y,m]=ym.split('-').map(Number),last=new Date(y,m,0).getDate(),s=`${y}-${pad(m)}-01`,e=`${y}-${pad(m)}-${pad(last)}`;return `https://www.kiwi.com/en/search/results/${o.toUpperCase()}/${d.toUpperCase()}/${s}_${e}${round?'/'+s+'_'+e:''}?sortBy=price`;}
+function kiwiAnytimeURL(o,d,round){const s=fmtYMD(new Date()),e2=new Date();e2.setMonth(e2.getMonth()+10);const e=fmtYMD(e2);return `https://www.kiwi.com/en/search/results/${o.toUpperCase()}/${d.toUpperCase()}/${s}_${e}${round?'/'+s+'_'+e:''}?sortBy=price`;}
+function fcard(title,sub,inner){return `<div class="card flight-card" style="margin-bottom:18px"><div><div style="font-size:16px;font-weight:800">${title}</div>${sub?`<div class="muted" style="font-size:12.5px;margin-top:3px">${sub}</div>`:''}</div><div class="divider"></div>${inner}</div>`;}
+function originBlock(name,links){return `<div style="margin-bottom:16px"><div class="muted" style="font-weight:700;margin-bottom:9px;font-size:13px">${name}</div><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">${links}</div></div>`;}
+function modeSub(mode,ym,round,pax){const rt=round?'tam i zpět':'jen tam',p=pax+' os.';return{exact:'Přesné datum · '+rt+' · '+p,month:'Celý měsíc '+(ym?monthLabel(ym):'')+' · '+rt+' · '+p,weekend:'Víkendové výlety · '+(ym?monthLabel(ym):'')+' · '+rt+' · '+p,week:'Týdenní pobyty · '+(ym?monthLabel(ym):'')+' · '+rt+' · '+p,any:'Libovolný termín · '+rt+' · '+p}[mode]||'';}
+function setAnyOff(){$('#anyDest').classList.remove('on');if($('#fDest'))$('#fDest').disabled=false;}
+
+function runSearch(auto){
+  const mode=$('#dateMode .on').dataset.v;
+  const round=$('#tripType .on').dataset.v==='round';
+  const pax=$('#fPax').value;
+  const anyOn=$('#anyDest').classList.contains('on');
+  const destText=$('#fDest').value.trim();
+  const origins=activeAirports();
+  const ym=$('#fMonth').value, yymm=ym?ymToYYMM(ym):'';
+  const isAny = anyOn || !destText;
+  const r = isAny ? {any:true,label:'kamkoliv'} : resolveDest(destText);
+  let firstUrl=null, inner='';
+  origins.forEach(k=>{
+    const o=ORIGINS[k]; let links='';
+    if(r.any){
+      links=provLink('Skyscanner – Kamkoliv','celý svět seřazený od nejlevnějšího',everyURL(o.sky),'#0770e3','SKY');
+    } else if(mode==='exact'){
+      const dep=$('#fDepart').value,ret=round?$('#fReturn').value:'';
+      if(r.iata)links=provLink('Kayak','rovnou výsledky pro tvé datum',kayakURL(k,r.iata,dep,ret),'#ff690f','KAY')+provLink('Google Flights','porovnání cen',gflights(o.city,r.label,dep,ret),'#4285f4','G');
+      else links=provLink('Google Flights','přesné datum',gflights(o.city,r.label,dep,ret),'#4285f4','G');
+    } else if(mode==='month'){
+      if(r.iata)links=provLink('Google Flights – kalendář cen',monthLabel(ym)+' · ceny po dnech',gflights(o.city,r.label,'',''),'#4285f4','G')+provLink('Kayak',monthLabel(ym)+' · flexibilní dny',kayakRoute(k,r.iata),'#ff690f','KAY');
+      else links=provLink('Google Flights – kalendář cen',monthLabel(ym),gflights(o.city,r.label,'',''),'#4285f4','G');
+    } else if(mode==='weekend'||mode==='week'){
+      if(r.iata)links=provLink('Google Flights – kalendář cen',monthLabel(ym)+' · vyber nejlevnější dny',gflights(o.city,r.label,'',''),'#4285f4','G')+provLink('Kayak',monthLabel(ym)+' · flexibilní dny',kayakRoute(k,r.iata),'#ff690f','KAY');
+      else links=provLink('Google Flights',monthLabel(ym),gflights(o.city,r.label,'',''),'#4285f4','G');
+    } else { // any
+      if(r.iata)links=provLink('Google Flights','libovolný termín · kalendář cen',gflights(o.city,r.label,'',''),'#4285f4','G')+provLink('Kayak','libovolný termín',kayakRoute(k,r.iata),'#ff690f','KAY');
+      else links=provLink('Google Flights','libovolný termín',gflights(o.city,r.label,'',''),'#4285f4','G');
+    }
+    if(!firstUrl){const m=links.match(/href="([^"]+)"/);if(m)firstUrl=m[1];}
+    inner+=originBlock('Z letiště '+o.n+' ('+k+')',links);
+  });
+  if((mode==='weekend'||mode==='week')&&!r.any&&r.iata&&yymm){
+    const k0=origins[0],o=ORIGINS[k0];const pairs=mode==='weekend'?weekendPairs(ym):weekPairs(ym);
+    if(pairs.length){const chips=pairs.map(p=>{const u=kayakURL(k0,r.iata,p[0],round?p[1]:'');return `<a class="result-link" href="${u}" target="_blank" rel="noopener"><div class="lg" style="background:#ff690f;font-size:11px">${p[0].slice(8)}.${p[0].slice(5,7)}.</div><div><div class="rl-t">${fmtDate(p[0])}–${fmtDate(p[1])}</div><div class="rl-s">${mode==='weekend'?'víkend (2 noci)':'7 nocí'} · ${o.n}</div></div><div class="go">${ARR}</div></a>`;}).join('');
+      inner+=`<div class="divider"></div><div class="muted" style="font-weight:700;font-size:13px;margin-bottom:9px">${mode==='weekend'?'Konkrétní víkendy':'Týdenní pobyty'} v ${monthLabel(ym)} · ${o.n} — klikni a porovnej ceny (Kayak)</div><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">${chips}</div>`;}
+  }
+  const title=r.any?'🌍 Kamkoliv za nejmíň':('Lety: '+(r.iso?flag(r.iso)+' ':'')+r.label);
+  if(!r.any&&!r.iata)inner+=`<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Tip: vyber zemi nebo město ze seznamu (našeptávač) – odkazy pak budou ještě přesnější.</div></div>`;
+  $('#flightResults').innerHTML=fcard(title,modeSub(mode,ym,round,pax),inner);
+  $('#flightResults').scrollIntoView({behavior:'smooth',block:'start'});
+  if(auto&&firstUrl)window.open(firstUrl,'_blank','noopener');
+}
+function runEverywhere(){$('#anyDest').classList.add('on');if($('#fDest')){$('#fDest').value='';$('#fDest').disabled=true;}runSearch(true);}
+function renderRadar(){
+  const dp=new Date();dp.setMonth(dp.getMonth()+1);dp.setDate(15);const rt=new Date(dp);rt.setDate(22);const ds=fmtYMD(dp),rs=fmtYMD(rt);
+  $('#radar').innerHTML=RADAR.map(r=>{const u=`https://www.kayak.com/flights/PRG-${r[1]}/${ds}/${rs}?sort=price_a`;
+    return `<a class="radar-row" href="${u}" target="_blank" rel="noopener"><div style="font-size:24px">${flag(r[2])}</div><div><div class="rt">${r[0]}</div><div class="faint" style="font-size:12px">nejlépe: ${r[4]}</div></div><div class="price"><b>od ${r[3].toLocaleString('cs')} Kč</b><small>orientačně, zpáteční</small></div></a>`;}).join('');
+}
+function renderTips(){$('#flightTips').innerHTML=TIPS.map(t=>`<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join('');}
+
+/* ================= MAP (D3) ================= */
+let mapInited=false,mapSel=null,mapZoom=null;
+function isoOf(d){return (byM49[String(d.id).padStart(3,'0')]||byEn[norm(d.properties&&d.properties.name)]||{}).iso2||null;}
+function paintMap(){if(mapSel)mapSel.classed('visited',function(){return this.dataset.iso&&visited.has(this.dataset.iso);});}
+async function initMap(){
+  refreshStats();
+  if(mapInited)return;mapInited=true;
+  if(typeof d3==='undefined'||typeof topojson==='undefined')return mapFallback('Mapové knihovny se nenačetly (jsi offline?).');
+  try{
+    const world=await(await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')).json();
+    const feats=topojson.feature(world,world.objects.countries).features;
+    const svg=d3.select('#worldmap'),W=960,H=500;
+    const proj=d3.geoNaturalEarth1().fitSize([W,H],{type:'FeatureCollection',features:feats});
+    const path=d3.geoPath(proj),g=svg.append('g');
+    mapSel=g.selectAll('path').data(feats).join('path').attr('d',path).attr('class','map-path')
+      .each(function(d){const iso=isoOf(d);if(iso)this.dataset.iso=iso;})
+      .on('mousemove',(e,d)=>{const iso=isoOf(d),nm=iso&&byIso[iso]?byIso[iso].cs:(d.properties.name||'');const tip=$('#mapTip');tip.textContent=(iso?flag(iso)+' ':'')+nm;tip.style.left=e.clientX+'px';tip.style.top=e.clientY+'px';tip.style.opacity=1;})
+      .on('mouseleave',()=>$('#mapTip').style.opacity=0)
+      .on('click',(e,d)=>{const iso=isoOf(d);if(!iso)return toast('Tato oblast není v seznamu');mapPopover(e,iso);});
+    mapZoom=d3.zoom().scaleExtent([1,8]).on('zoom',ev=>g.attr('transform',ev.transform));
+    svg.call(mapZoom);
+    $('#zoomIn').onclick=()=>svg.transition().call(mapZoom.scaleBy,1.6);
+    $('#zoomOut').onclick=()=>svg.transition().call(mapZoom.scaleBy,.6);
+    $('#zoomReset').onclick=()=>svg.transition().call(mapZoom.transform,d3.zoomIdentity);
+    paintMap();
+  }catch(e){mapFallback('Mapu se teď nepodařilo načíst.');}
+}
+function mapPopover(e,iso){const c=byIso[iso],isV=visited.has(iso),p=$('#mapPop');
+  p.innerHTML=`<div class="row" style="gap:10px"><div style="font-size:30px">${flag(iso)}</div><div><div style="font-weight:800">${c.cs}</div><div class="faint" style="font-size:12px">${c.cont}</div></div></div><div class="row" style="margin-top:12px;gap:8px"><button class="btn sm ${isV?'warm':'primary'}" style="flex:1" id="popVis">${isV?'✓ Byl/a jsem':'Byl/a jsem tu'}</button><button class="btn sm ghost" id="popDet">Detail</button></div>`;
+  p.style.left=Math.min(e.clientX,innerWidth-130)+'px';p.style.top=Math.min(e.clientY,innerHeight-120)+'px';p.classList.add('show');
+  $('#popVis').onclick=()=>{setVisited(iso,!visited.has(iso));p.classList.remove('show');toast(visited.has(iso)?'Přidáno: '+c.cs:'Odebráno: '+c.cs);};
+  $('#popDet').onclick=()=>{p.classList.remove('show');openCountry(iso);};
+}
+document.addEventListener('click',e=>{const p=$('#mapPop');if(p.classList.contains('show')&&!p.contains(e.target)&&!e.target.closest('.map-path'))p.classList.remove('show');});
+function mapFallback(msg){
+  const wrap=$('#mapWrap');wrap.style.minHeight='auto';
+  wrap.innerHTML=`<div style="padding:18px"><div class="note info" style="margin-bottom:14px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>${msg} Země můžeš odškrtávat i tady v seznamu.</div></div><div id="fbList"></div></div>`;
+  $('#fbList').innerHTML=CONTS.map(ct=>`<div style="margin-bottom:16px"><div style="font-weight:800;margin:6px 0 8px">${ct} <span class="faint" style="font-weight:600">(${CONT_TOT[ct]})</span></div><div class="row wrap" style="gap:6px">${COUNTRIES.filter(c=>c.cont===ct).map(c=>`<span class="pill ${visited.has(c.iso2)?'on':''}" data-fbiso="${c.iso2}">${flag(c.iso2)} ${c.cs}</span>`).join('')}</div></div>`).join('');
+  $$('[data-fbiso]').forEach(p=>p.onclick=()=>{const iso=p.dataset.fbiso;setVisited(iso,!visited.has(iso));p.classList.toggle('on');});
+}
+
+/* ================= PLANNER ================= */
+function fmtDate(s){if(!s)return'';const[y,m,d]=s.split('-');return `${+d}.${+m}.`;}
+function dateRange(a,b){if(!a)return[];const out=[];let d=new Date(a),end=b?new Date(b):new Date(a);let n=0;while(d<=end&&n<31){out.push(d.toISOString().slice(0,10));d.setDate(d.getDate()+1);n++;}return out;}
+function renderPlanner(){
+  const host=$('#plannerList');
+  if(!S.trips.length){host.innerHTML=`<div class="empty"><div class="ei">${ico('M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z')}</div><h2 style="font-size:20px;margin-bottom:6px">Zatím žádná cesta</h2><p style="max-width:420px;margin:0 auto 18px">Naplánuj si itinerář, ubytování i rozpočet na jednom místě. Začni svou první cestou.</p><button class="btn primary" id="emptyNew">${ico('M12 5v14M5 12h14')} Nová cesta</button></div>`;$('#emptyNew').onclick=()=>newTrip();return;}
+  host.innerHTML=`<div class="trip-grid">${S.trips.map((t,i)=>tripCard(t,i)).join('')}<div class="card new-trip" id="newTripTile"><div class="plus">${ico('M12 5v14M5 12h14')}</div><div style="font-weight:700">Nová cesta</div></div></div>`;
+  $$('.trip[data-ti]').forEach(el=>el.onclick=()=>openTrip(+el.dataset.ti));
+  $('#newTripTile').onclick=()=>newTrip();
+}
+function tripCard(t,i){const c=t.iso?byIso[t.iso]:null,warm=c&&c.cost>=4;
+  return `<div class="card trip" data-ti="${i}"><div class="trip-top ${warm?'warm':''}"><div class="tt-name">${t.name}</div><div class="tt-meta">${c?flag(t.iso)+' ':'📍 '}${t.dest}${t.start?' · '+fmtDate(t.start)+(t.end?'–'+fmtDate(t.end):''):''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax||1} os.</span><span>${t.budget?(+t.budget).toLocaleString('cs')+' Kč':'rozpočet —'}</span></div><div class="muted" style="font-size:12.5px">${(t.days?Object.values(t.days).flat().length:0)} aktivit · ${(t.checklist||[]).filter(x=>x.done).length}/${(t.checklist||[]).length} sbaleno</div></div></div>`;
+}
+function newTrip(c){
+  const dest=c?c.cs:'';
+  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:24px">Nová cesta</h2><div style="opacity:.85;font-size:13px">Vyplň základ, detaily doladíš potom</div></div></div>
+  <div class="modal-body">
+    <div class="field"><label>Název cesty</label><input class="input" id="ntName" placeholder="Např. Léto v Portugalsku" value="${dest?'Cesta: '+dest:''}"></div>
+    <div class="field" style="margin-top:12px"><label>Destinace</label><input class="input" id="ntDest" list="destList" placeholder="Země nebo město" value="${dest}"></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:12px"><div class="field"><label>Odjezd</label><input class="input" type="date" id="ntStart"></div><div class="field"><label>Návrat</label><input class="input" type="date" id="ntEnd"></div></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:12px"><div class="field"><label>Cestující</label><select id="ntPax"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select></div><div class="field"><label>Rozpočet (Kč)</label><input class="input" type="number" id="ntBudget" placeholder="nepovinné"></div></div>
+    <button class="btn primary block" style="margin-top:18px" onclick="saveTrip(${c?`'${c.iso2}'`:'null'})">Vytvořit cestu</button>
+  </div>`);
+}
+window.saveTrip=iso=>{
+  const name=$('#ntName').value.trim()||'Moje cesta';const dest=$('#ntDest').value.trim();
+  let fiso=iso;if(!fiso&&dest){const c=resolveCountry(dest);if(c)fiso=c.iso2;}
+  S.trips.push({name,dest:dest||'—',iso:fiso||null,start:$('#ntStart').value,end:$('#ntEnd').value,pax:$('#ntPax').value,budget:$('#ntBudget').value,days:{},checklist:PACK.map(t=>({t,done:false})),notes:''});
+  save();modalClose();go('planner');toast('Cesta vytvořena');setTimeout(()=>openTrip(S.trips.length-1),250);
+};
+function openTrip(i){
+  const t=S.trips[i];if(!t)return;const c=t.iso?byIso[t.iso]:null;const city=c&&c.cap?c.cap:t.dest;
+  const days=dateRange(t.start,t.end);
+  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c&&c.cost>=4?'warm':''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c?flag(t.iso):'🧳'}</div><h2 style="font-size:25px;margin-top:4px">${t.name}</h2><div style="opacity:.85;font-size:13px">${t.dest}${t.start?' · '+fmtDate(t.start)+(t.end?' – '+fmtDate(t.end):''):''} · ${t.pax} os.</div></div></div>
+  <div class="modal-body">
+    <div class="row wrap"><button class="btn primary" onclick="modalClose();${c?`fromCountrySearch('${t.iso}')`:`go('flights')`}">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" onclick="openStay('${city}','${t.start||''}','${t.end||''}')">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${c?`<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>`:''}</div>
+    <div class="divider"></div>
+    <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length?days.length+' dní':'doplň termíny'}</span></div>
+    <div style="margin-top:10px">${days.length?days.map((d,di)=>{const acts=t.days[d]||[];return `<div class="day-block"><h4>Den ${di+1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span></h4>${acts.map((a,ai)=>`<div class="act"><span>${a}</span><button onclick="delAct(${i},'${d}',${ai})">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" placeholder="Přidej aktivitu…" onkeydown="if(event.key==='Enter')addAct(${i},'${d}')"><button class="btn sm" onclick="addAct(${i},'${d}')">Přidat</button></div></div>`;}).join(''):`<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Doplň termíny cesty a objeví se itinerář den po dni.</div></div>`}</div>
+    <div class="divider"></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:20px">
+      <div><h3 style="font-size:16px;margin-bottom:10px">🧾 Sbaleno</h3><div id="checkList">${(t.checklist||[]).map((x,xi)=>`<label class="check"><input type="checkbox" ${x.done?'checked':''} onchange="toggleCheck(${i},${xi})"><span style="${x.done?'opacity:.5;text-decoration:line-through':''}">${x.t}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" placeholder="Přidej položku…" onkeydown="if(event.key==='Enter')addCheck(${i})"><button class="btn sm" onclick="addCheck(${i})">+</button></div></div>
+      <div><h3 style="font-size:16px;margin-bottom:10px">💰 Rozpočet</h3><div class="field"><label>Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${t.budget||''}" onchange="setBudget(${i},this.value)"></div>${t.budget?`<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget/(t.pax||1)).toLocaleString('cs')} Kč</b></div>`:''}<div class="field" style="margin-top:14px"><label>Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…" onchange="setNotes(${i},this.value)">${t.notes||''}</textarea></div></div>
+    </div>
+    <div class="divider"></div>
+    <button class="btn ghost block" style="color:var(--bad);border-color:rgba(251,113,133,.3)" onclick="delTrip(${i})">Smazat cestu</button>
+  </div>`);
+}
+window.addAct=(i,d)=>{const inp=$('#act-'+i+'-'+d);const v=inp.value.trim();if(!v)return;S.trips[i].days[d]=S.trips[i].days[d]||[];S.trips[i].days[d].push(v);save();openTrip(i);};
+window.delAct=(i,d,ai)=>{S.trips[i].days[d].splice(ai,1);save();openTrip(i);};
+window.toggleCheck=(i,xi)=>{S.trips[i].checklist[xi].done=!S.trips[i].checklist[xi].done;save();openTrip(i);};
+window.addCheck=i=>{const inp=$('#newCheck-'+i);const v=inp.value.trim();if(!v)return;S.trips[i].checklist.push({t:v,done:false});save();openTrip(i);};
+window.setBudget=(i,v)=>{S.trips[i].budget=v;save();openTrip(i);};
+window.setNotes=(i,v)=>{S.trips[i].notes=v;save();};
+window.delTrip=i=>{if(confirm('Opravdu smazat tuto cestu?')){S.trips.splice(i,1);save();modalClose();renderPlanner();toast('Cesta smazána');}};
+window.openStay=(city,start,end)=>{
+  const b=`https://www.booking.com/searchresults.cs.html?ss=${enc(city)}${start?`&checkin=${start}&checkout=${end||''}`:''}&group_adults=2`;
+  const a=`https://www.airbnb.cz/s/${enc(city)}/homes${start?`?checkin=${start}&checkout=${end||''}`:''}`;
+  const h=`https://www.hostelworld.com/s?q=${enc(city)}${start?`&from=${start}&to=${end||''}`:''}`;
+  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování · ${city}</h2><div style="opacity:.85;font-size:13px">${start?fmtDate(start)+(end?' – '+fmtDate(end):''):'vyber si termín na webu'}</div></div></div><div class="modal-body"><div class="grid" style="gap:12px">${provLink('Booking.com','Hotely, apartmány, penziony',b,'#003580','B.')}${provLink('Airbnb','Bydlení u místních',a,'#ff385c','A')}${provLink('Hostelworld','Hostely a levné lůžka',h,'#ff5a00','H')}</div><div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Odkazy otevřou hledání s předvyplněnou destinací (a termínem, pokud je v cestě zadaný).</div></div></div>`);
+};
+
+/* ================= INIT / EVENTS ================= */
+function fillSelectsAndLists(){
+  $('#cCont').innerHTML='<option value="">Všechny kontinenty</option>'+CONTS.map(c=>`<option>${c}</option>`).join('');
+  const m=new Date().getMonth()+1;
+  $('#rMonth').innerHTML=MNS_FULL.map((n,i)=>`<option value="${i+1}" ${i+1===m?'selected':''}>${n.charAt(0).toUpperCase()+n.slice(1)}</option>`).join('');
+  $('#fMonth').innerHTML=nextMonths(12).map(ym=>`<option value="${ym}">${monthLabel(ym)}</option>`).join('');
+  $('#destList').innerHTML=[...COUNTRIES.map(c=>c.cs),'Lisabon','Barcelona','Bali','Tokio','Bangkok','Dubaj','New York','Řím','Paříž','Londýn','Phuket','Mallorca','Tenerife','Zanzibar','Cancún'].map(x=>`<option value="${x}">`).join('');
+}
+function updateModeUI(){
+  const mode=$('#dateMode .on').dataset.v;
+  const exact=mode==='exact',monthBased=(mode==='month'||mode==='weekend'||mode==='week');
+  $$('.mc-exact').forEach(e=>e.style.display=exact?'':'none');
+  $$('.mc-month').forEach(e=>e.style.display=monthBased?'':'none');
+  const hints={exact:'Vybereš přesné dny odletu a návratu.',weekend:'Vyber měsíc – nabídnu konkrétní víkendy + Skyscanner kalendář s nejlevnějšími dny.',week:'Vyber měsíc – nabídnu týdenní pobyty + kalendář nejlevnějších dnů.',month:'Vyber měsíc – Skyscanner ukáže nejlevnější dny v celém měsíci.',any:'Bez pevného termínu – portály najdou úplně nejlevnější dny v širokém období.'};
+  $('#searchHint').textContent=hints[mode]||'';
+}
+function wireEvents(){
+  $$('#tripType button').forEach(b=>b.onclick=()=>{$$('#tripType button').forEach(x=>x.classList.remove('on'));b.classList.add('on');const rf=$('#returnField');if(rf)rf.style.display=b.dataset.v==='round'?'':'none';});
+  $$('#dateMode button').forEach(b=>b.onclick=()=>{$$('#dateMode button').forEach(x=>x.classList.remove('on'));b.classList.add('on');updateModeUI();});
+  $('#anyDest').onclick=()=>{const on=!$('#anyDest').classList.contains('on');$('#anyDest').classList.toggle('on',on);$('#fDest').disabled=on;if(on)$('#fDest').value='';};
+  $$('#cVisited button').forEach(b=>b.onclick=()=>{$$('#cVisited button').forEach(x=>x.classList.remove('on'));b.classList.add('on');renderCountries();});
+  ['#cSearch','#cCont','#cCost','#cSort'].forEach(s=>{const el=$(s);el.oninput=renderCountries;el.onchange=renderCountries;});
+  ['#rMonth','#rVibe','#rBudget','#rSafe'].forEach(s=>$(s).onchange=renderRecs);
+  $('#doSearch').onclick=()=>runSearch(true);
+  $('#resetSearch').onclick=()=>{$('#flightResults').innerHTML='';$('#fDest').value='';setAnyOff();};
+  $('#fDest').oninput=()=>{if($('#fDest').value.trim())setAnyOff();};
+  $('#fDest').onkeydown=e=>{if(e.key==='Enter')runSearch(true);};
+  $('#heroSearch').onsubmit=e=>{e.preventDefault();const v=$('#heroInput').value.trim();go('flights');setAnyOff();$('#fDest').value=v;runSearch(true);};
+  $('#refreshBtn').onclick=()=>{S.weather={};S.fx=null;save();toast('Data aktualizována');if($('#modalBg').classList.contains('show')&&curIso)openCountry(curIso);if(activeView==='dashboard')renderDash();};
+  const d=new Date();d.setDate(d.getDate()+30);const r=new Date(d);r.setDate(r.getDate()+7);
+  $('#fDepart').value=fmtYMD(d);$('#fReturn').value=fmtYMD(r);
+  updateModeUI();
+}
+function boot(){
+  applyTheme();buildNav();buildAirports();fillSelectsAndLists();wireEvents();
+  renderRadar();renderTips();refreshStats();renderDash();
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')modalClose();});
+}
+boot();
+</script>
+</body>
+</html>
