@@ -13,7 +13,10 @@ const API = 'https://be.wizzair.com';
 const DEFAULT_VERSION = '29.14.0';
 const FARE_TTL = 30 * 60e3;
 const WINDOW_DAYS = 30;
-const limit = limiter(3);
+// Wizz po každé odpovědi mění ověřovací token (cookie RequestVerificationToken) a souběžné dotazy
+// se starým tokenem odmítá (HTTP 400 InvalidProtocol). Proto 3 nezávislé relace, v každé dotazy
+// za sebou – token se čte až těsně před odesláním.
+const POOL = 3;
 // Malá náhodná pauza mezi dotazy – dávky bez prodlev z cloudu Wizz Air omezuje.
 const pause = () => new Promise((r) => setTimeout(r, 150 + Math.random() * 450));
 
@@ -23,20 +26,22 @@ const BASE_HEADERS = {
   'Accept-Language': 'en-GB,en;q=0.9',
 };
 
-const state = { version: null, jar: new CookieJar(), ready: null, at: 0, blockedUntil: 0 };
+const state = { blockedUntil: 0 };
+const sessions = Array.from({ length: POOL }, () => ({ version: null, jar: new CookieJar(), ready: null, refreshing: null, at: 0, busy: 0, run: limiter(1) }));
 
 export function scrapeVersion(html) {
   return (String(html).match(/be\.wizzair\.com\/(\d+\.\d+\.\d+)\/Api/) || [])[1] || null;
 }
 
-async function ensureSession(force = false) {
-  if (!force && state.ready && Date.now() - state.at < 30 * 60e3) return state.ready;
-  state.at = Date.now();
-  state.jar = new CookieJar();
-  state.ready = (async () => {
+async function ensureSession(s, force = false) {
+  if (!force && s.ready && Date.now() - s.at < 30 * 60e3) return s.ready;
+  if (force && s.refreshing) return s.refreshing; // obnova už běží – nečekej na další
+  s.at = Date.now();
+  s.jar = new CookieJar();
+  s.ready = s.refreshing = (async () => {
     let version = null;
     try {
-      const html = await request(HOME, { as: 'text', jar: state.jar, headers: { Accept: 'text/html' }, timeoutMs: 12000, retries: 0 });
+      const html = await request(HOME, { as: 'text', jar: s.jar, headers: { Accept: 'text/html' }, timeoutMs: 12000, retries: 0 });
       version = scrapeVersion(html);
     } catch { /* zkusíme buildnumber */ }
     if (!version) {
@@ -45,26 +50,28 @@ async function ensureSession(force = false) {
         version = (t.match(/(\d+\.\d+\.\d+)/) || [])[1] || null;
       } catch { /* výchozí verze */ }
     }
-    state.version = version || DEFAULT_VERSION;
+    s.version = version || DEFAULT_VERSION;
     try {
-      await request(`${API}/${state.version}/Api/userSession/new`, { as: 'text', jar: state.jar, headers: BASE_HEADERS, timeoutMs: 10000, retries: 0 });
+      await request(`${API}/${s.version}/Api/userSession/new`, { as: 'text', jar: s.jar, headers: BASE_HEADERS, timeoutMs: 10000, retries: 0 });
     } catch { /* token nemusí být potřeba */ }
-    return state;
-  })();
-  return state.ready;
+    return s;
+  })().finally(() => { s.refreshing = null; });
+  return s.ready;
 }
 
 class WizzBlocked extends Error {}
 
 async function api(method, path, body, retried = false) {
   if (Date.now() < state.blockedUntil) throw new WizzBlocked('Wizz Air dočasně blokuje dotazy (429)');
-  const s = await ensureSession();
-  const headers = { ...BASE_HEADERS };
-  const tok = s.jar.get('RequestVerificationToken');
-  if (tok) headers['X-RequestVerificationToken'] = tok;
+  const s = sessions.reduce((a, b) => (b.busy < a.busy ? b : a)); // nejméně vytížená relace
+  s.busy++;
   try {
-    return await limit(async () => {
+    return await s.run(async () => {
+      await ensureSession(s);
       await pause();
+      const headers = { ...BASE_HEADERS };
+      const tok = s.jar.get('RequestVerificationToken'); // aktuální token až po čekání ve frontě
+      if (tok) headers['X-RequestVerificationToken'] = tok;
       return request(`${API}/${s.version}/Api/${path}`, { method, body, headers, jar: s.jar, timeoutMs: 15000, retries: 1 });
     });
   } catch (e) {
@@ -72,12 +79,14 @@ async function api(method, path, body, retried = false) {
       state.blockedUntil = Date.now() + 10 * 60e3;
       throw new WizzBlocked('Wizz Air dočasně blokuje dotazy (429)');
     }
-    // Nová verze API → stará cesta vrací 404/410; obnov session jednou.
+    // Nová verze API (404/410) nebo neplatný token → obnov tuhle relaci a zkus jednou znovu.
     if (!retried && (e.status === 404 || e.status === 410 || /InvalidProtocol/.test(e.body || ''))) {
-      await ensureSession(true);
+      await ensureSession(s, true);
       return api(method, path, body, true);
     }
     throw e;
+  } finally {
+    s.busy--;
   }
 }
 

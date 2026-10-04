@@ -37,9 +37,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export async function request(url, opts = {}) {
   const {
-    method = 'GET', headers = {}, body, timeoutMs = 15000, retries = 1, jar, as = 'json',
+    method = 'GET', headers = {}, body, timeoutMs = 15000, retries = 1, jar, as = 'json', retry429 = false,
   } = opts;
   let lastErr;
+  let waited429 = false;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -56,6 +57,15 @@ export async function request(url, opts = {}) {
       const text = await res.text();
       if (!res.ok) {
         const err = new HttpError(res.status, url, text.slice(0, 500));
+        // Slušná API (Wikimedia) při 429 řeknou, za kolik sekund to zkusit (Retry-After): jednou počkej,
+        // je-li to do 10 s. U aerolinek se to nepoužívá (429 je tam ochrana proti botům).
+        const ra = Number(res.headers.get('retry-after'));
+        if (res.status === 429 && retry429 && !waited429 && ra > 0 && ra <= 10) {
+          waited429 = true;
+          await sleep(ra * 1000);
+          attempt--;
+          continue;
+        }
         // 5xx má smysl zkusit znovu, 4xx (vč. 429 bot-gate) ne.
         if (res.status >= 500 && attempt < retries) {
           lastErr = err;

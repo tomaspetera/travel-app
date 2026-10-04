@@ -184,15 +184,33 @@ export function planItinerary(pois, opts) {
         if (target) target.items.push(p);
       }
     }
-    // Doplnění: dny s volným časem doplň dalšími místy z pořadí (nejdřív blízko už naplánovaných).
+    // Výměny mezi dny: když místo A (den 1) leží blíž středu dne 2 a místo B (den 2) blíž středu
+    // dne 1, prohoď je (pokud to sedí s kapacitou a limity kategorií). Odstraní „skoky přes město“.
+    improveDays(dayOrder, CAP);
+    // Krátké dny (přílet/odlet): jen místa do 4 km od ubytování – vzdálenější přesuň jinam, nebo vynech.
+    for (const d of dayOrder.filter((x) => x.cap < full * 0.7)) {
+      for (const p of d.items.filter((q) => haversineKm(center.lat, center.lon, q.lat, q.lon) > 4)) {
+        d.items = d.items.filter((q) => q !== p);
+        const target = dayOrder
+          .filter((x) => x !== d && x.cap >= full * 0.7 && mins(x.items) + p.visitMin <= x.cap * 1.1 && distToItems(x, p) <= 3
+            && !(CAP[p.category] && x.items.filter((q) => q.category === p.category).length >= CAP[p.category]))
+          .sort((a, b) => distToItems(a, p) - distToItems(b, p))[0];
+        if (target) target.items.push(p);
+      }
+    }
+    // Doplnění: dny s volným časem doplň dalšími místy z pořadí – ale jen z okolí toho dne
+    // (do 1,5 km od jeho středu nebo 0,8 km od některé zastávky), ať den neskáče přes celé město.
+    // Krátké dny (přílet/odlet) navíc jen do 3 km od ubytování.
     const inPlan = new Set(dayOrder.flatMap((d) => d.items.map((p) => p.id)));
     for (const d of dayOrder) {
       let free = d.cap - d.items.reduce((sum, q) => sum + q.visitMin, 0);
+      const short = d.cap < full * 0.7;
       while (free >= 20) {
         const cnt = (cat) => d.items.filter((q) => q.category === cat).length;
-        const fits = ranked.filter((p) => !inPlan.has(p.id) && p.visitMin <= free * 1.1 && !(CAP[p.category] && cnt(p.category) >= CAP[p.category]));
-        const near = d.items.length ? fits.filter((p) => distToItems(d, p) <= 3) : fits;
-        const p = (near.length ? near : fits)[0];
+        const mid = d.items.length ? { lat: d.items.reduce((a, q) => a + q.lat, 0) / d.items.length, lon: d.items.reduce((a, q) => a + q.lon, 0) / d.items.length } : center;
+        const local = (p) => (d.items.length ? haversineKm(mid.lat, mid.lon, p.lat, p.lon) <= 1.5 || distToItems(d, p) <= 0.8 : haversineKm(center.lat, center.lon, p.lat, p.lon) <= 3)
+          && (!short || haversineKm(center.lat, center.lon, p.lat, p.lon) <= 3);
+        const p = ranked.find((x) => !inPlan.has(x.id) && x.visitMin <= free * 1.1 && !(CAP[x.category] && cnt(x.category) >= CAP[x.category]) && local(x));
         if (!p) break;
         d.items.push(p);
         inPlan.add(p.id);
@@ -217,6 +235,50 @@ export function planItinerary(pois, opts) {
   }
   const usedIds = new Set(days.flatMap((d) => d.items.map((p) => p.id)));
   return { days, spare: pois.filter((p) => !usedIds.has(p.id)).slice(0, 30), warnings };
+}
+
+const centroid = (items) => ({ lat: items.reduce((a, q) => a + q.lat, 0) / items.length, lon: items.reduce((a, q) => a + q.lon, 0) / items.length });
+const mins = (items) => items.reduce((a, q) => a + q.visitMin, 0);
+
+/** Lokální zlepšení rozdělení do dnů: přesuny a výměny, které zkrátí vzdálenosti ke středům dnů. */
+export function improveDays(days, CAP = {}) {
+  const capOk = (d, add, remove) => mins(d.items) - (remove ? remove.visitMin : 0) + add.visitMin <= d.cap * 1.1;
+  const catOk = (d, add, remove) => !CAP[add.category] || d.items.filter((q) => q !== remove && q.category === add.category).length < CAP[add.category];
+  for (let round = 0; round < 4; round++) {
+    let changed = false;
+    const cs = days.map((d) => (d.items.length ? centroid(d.items) : null));
+    const dist = (p, i) => (cs[i] ? haversineKm(p.lat, p.lon, cs[i].lat, cs[i].lon) : Infinity);
+    for (let i = 0; i < days.length; i++) {
+      for (const a of [...days[i].items]) {
+        if (days[i].items.length < 2) break;
+        for (let j = 0; j < days.length; j++) {
+          if (j === i || !cs[j]) continue;
+          const gain = dist(a, i) - dist(a, j);
+          if (gain < 0.8) continue;
+          // 1) prostý přesun, když je místo
+          if (capOk(days[j], a) && catOk(days[j], a)) {
+            days[i].items = days[i].items.filter((q) => q !== a);
+            days[j].items.push(a);
+            changed = true;
+            break;
+          }
+          // 2) výměna s místem z dne j, které se k dni i hodí víc
+          const b = days[j].items
+            .filter((q) => capOk(days[j], a, q) && capOk(days[i], q, a) && catOk(days[j], a, q) && catOk(days[i], q, a))
+            .map((q) => ({ q, g: gain + dist(q, j) - dist(q, i) }))
+            .filter((x) => x.g > 1)
+            .sort((x, y) => y.g - x.g)[0];
+          if (b) {
+            days[i].items = [...days[i].items.filter((q) => q !== a), b.q];
+            days[j].items = [...days[j].items.filter((q) => q !== b.q), a];
+            changed = true;
+            break;
+          }
+        }
+      }
+    }
+    if (!changed) break;
+  }
 }
 
 function distToItems(day, p) {

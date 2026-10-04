@@ -84,7 +84,8 @@
       car: null,
       plan: null,
       booked: {},
-      step: 'stay',
+      // Nejdřív shrnutí letu s živým ověřením ceny (Kiwi.com), pak ubytování.
+      step: 'flight',
     };
     staysData = null; carsData = null;
     persist();
@@ -119,8 +120,9 @@
       </div>
       <div class="stepbar">${STEPS.map((s, i) => `<button type="button" class="st ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${i < idx ? '✓' : s[1]}</span>${s[2]}</button>`).join('<i></i>')}</div>
       <div id="tripStep"></div>`;
-    $$('.stepbar [data-step]').forEach(b => b.onclick = () => b.dataset.step === 'flight' ? flightStep() : setStep(b.dataset.step));
-    if (t.step === 'stay') stayStep();
+    $$('.stepbar [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step));
+    if (t.step === 'flight') flightStep();
+    else if (t.step === 'stay') stayStep();
     else if (t.step === 'car') carStep();
     else if (t.step === 'program') programStep();
     else summaryStep();
@@ -143,10 +145,12 @@
     $('#tfBack').onclick = () => go('flights');
     $('#tfNext').onclick = () => setStep('stay');
     $('#tfVerify').onclick = () => verifyFlight();
+    // Při prvním zobrazení vybraného letu ověř cenu automaticky (jednou za cestu).
+    if (!t.verifiedAt) { t.verifiedAt = Date.now(); persist(); verifyFlight({ auto: true }); }
   }
 
   /** Živé ceny všech aerolinek pro zvolená data a letiště (Kiwi.com). */
-  async function verifyFlight() {
+  async function verifyFlight({ auto = false } = {}) {
     const t = T();
     const f = t.flight;
     const host = $('#tfAlt');
@@ -157,7 +161,7 @@
       const r = await fetch('api/verify?' + qs);
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-      if (!j.available) { host.innerHTML = '<div class="note info" style="margin-top:12px">ℹ️ <div>Živé ověření není v tomto režimu dostupné.</div></div>'; return; }
+      if (!j.available) { host.innerHTML = auto ? '' : '<div class="note info" style="margin-top:12px">ℹ️ <div>Živé ověření není v tomto režimu dostupné.</div></div>'; return; }
       if (!j.items.length) { host.innerHTML = `<div class="note warn" style="margin-top:12px">⚠️ <div>Pro tato data jsem živé nabídky nenašel${j.error ? ` (${esc(j.error)})` : ''}. Cenu ověř přímo u aerolinky.</div></div>`; return; }
       const cur = f.flightCzk;
       const openJaw = f.back && (f.back.from !== f.out.to || f.back.to !== f.out.from);
@@ -172,7 +176,7 @@
       $$('[data-alt]', host).forEach(b => b.onclick = () => {
         const x = j.items[+b.dataset.alt];
         t.flight = { ...x, groundCzk: t.flight.groundCzk, perPersonCzk: x.flightCzk + (t.flight.groundCzk || 0), totalCzk: (x.flightCzk + (t.flight.groundCzk || 0)) * t.adults };
-        persist(); render(); flightStep(); toast('Let aktualizován');
+        persist(); render(); toast('Let aktualizován');
       });
     } catch (e) {
       host.innerHTML = `<div class="note warn" style="margin-top:12px">⚠️ <div>${esc(e.message)}</div></div>`;

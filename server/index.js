@@ -21,6 +21,7 @@ import { planItinerary } from './lib/itinerary.js';
 import { kiwi } from './providers/kiwi.js';
 import { isYmd, daysBetween } from './lib/dates.js';
 import { affiliateOn } from './lib/links.js';
+import { HttpError } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
 
 const PUBLIC = path.join(config.root, 'public');
@@ -356,6 +357,16 @@ async function route(req, res) {
 export function createServer() {
   return http.createServer((req, res) => {
     route(req, res).catch((e) => {
+      // Chyba cizí služby (HttpError z request()) není chyba uživatele: 503 a česky, bez adresy API.
+      if (e instanceof HttpError) {
+        console.warn(`upstream ${e.status}: ${String(e.message).slice(0, 200)}`);
+        const busy = e.status === 429;
+        if (!res.headersSent) {
+          return sendJson(req, res, 503, { error: busy ? 'Zdroj dat je teď přetížený – zkus to prosím za minutu.' : 'Zdroj dat teď neodpovídá – zkus to prosím za chvíli.' });
+        }
+        return res.end();
+      }
+      if (/^Timeout \d+ ms/.test(e.message || '') && !res.headersSent) return sendJson(req, res, 503, { error: 'Zdroj dat odpovídá příliš pomalu – zkus to prosím za chvíli.' });
       if (!e.status || e.status >= 500) console.error(e);
       if (!res.headersSent) sendJson(req, res, e.status || 500, { error: e.message });
       else res.end();

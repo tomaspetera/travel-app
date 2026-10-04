@@ -182,3 +182,21 @@ test('přesná data: odlet i návrat jen v zadané dny (± tolerance)', async ()
   assert.throws(() => normalizeQuery({ from: ['ap:VIE'], trip: 'return', exactOut: out }), /návratu/);
 });
 
+
+test('legsPerDay: na den nejlevnější + nejlevnější přímý + jiné aerolinky (pro přesná data)', async () => {
+  const { legsPerDay } = await import('../server/lib/optimizer.js');
+  const L = (carrier, dep, czk, stops) => makeLeg({ provider: 'kiwi', carrier, from: 'VIE', to: 'BCN', dep: `2026-11-06T${dep}:00`, czk, price: czk, currency: 'CZK', stops });
+  const day = [L('FR', '06:10', 900, 1), L('FR', '07:00', 950, 1), L('OS', '09:55', 2400, 0), L('VY', '12:00', 1500, 1), L('FR', '17:10', 1200, 0)];
+  const one = legsPerDay(day, 1);
+  assert.equal(one.length, 1);
+  assert.equal(one[0].czk, 900);
+  const four = legsPerDay(day, 4);
+  assert.deepEqual(four.map((l) => l.czk), [900, 1200, 1500, 2400], 'nejlevnější, nejlevnější přímý, VY, OS');
+  assert.ok(four.some((l) => !l.stops), 'přímý let se neztratí');
+  // Zpáteční: přímé lety se nabídnou i vedle levnějšího s přestupem.
+  const back = [makeLeg({ provider: 'kiwi', carrier: 'FR', from: 'BCN', to: 'VIE', dep: '2026-11-10T06:10:00', czk: 800, price: 800, currency: 'CZK', stops: 1 }),
+    makeLeg({ provider: 'ryanair', carrier: 'FR', from: 'BCN', to: 'VIE', dep: '2026-11-10T11:15:00', czk: 1300, price: 1300, currency: 'CZK', stops: 0 })];
+  const trips = bestRoundTrips(day, back, () => 0, { nightsMin: 4, nightsMax: 4, legsPerDay: 4, limit: 50, perDestLimit: 50 });
+  assert.ok(trips.length >= 4);
+  assert.ok(trips.some((t) => !t.out.stops && !t.back.stops), 'existuje varianta přímo tam i zpět');
+});

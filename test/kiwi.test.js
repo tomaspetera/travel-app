@@ -45,7 +45,7 @@ test('parseKiwiSearch: přestupy, více aerolinek, cena na osobu, zpáteční = 
 
 test.beforeEach(() => resetKiwi());
 
-test('kiwi.daily: initialize + tools/call search-flight, okna ±3 dny, datum ve formátu dd/mm/yyyy', async () => {
+test('kiwi.daily: initialize + tools/call search-flight, okno od–do, počet cestujících, datum dd/mm/yyyy', async () => {
   const from = ymdPlus(10);
   const to = ymdPlus(16);
   const stub = stubFetch((url, init) => {
@@ -62,10 +62,15 @@ test('kiwi.daily: initialize + tools/call search-flight, okna ±3 dny, datum ve 
     assert.equal(body.params.name, 'search-flight');
     assert.equal(init.headers['mcp-session-id'], 'sess-1');
     const a = body.params.arguments;
+    // Aktuální schéma Kiwi MCP: adults/currency nahoře, rozsah departureDate..departureDateTo.
     assert.match(a.departureDate, /^\d{2}\/\d{2}\/\d{4}$/);
-    assert.equal(a.departureDateFlexRange, 3);
+    assert.match(a.departureDateTo, /^\d{2}\/\d{2}\/\d{4}$/);
+    assert.equal(a.adults, 1);
+    assert.equal(a.currency, 'EUR');
+    assert.equal(a.passengers, undefined);
+    assert.equal(a.departureDateFlexRange, undefined);
     const [dd, mm, yyyy] = a.departureDate.split('/');
-    const text = JSON.stringify(SEARCH(`${yyyy}-${mm}-${dd}`));
+    const text = JSON.stringify({ ...SEARCH(`${yyyy}-${mm}-${dd}`), passengers: { adults: a.adults } });
     return { body: `event: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text }] } })}\n\n`, headers: { 'content-type': 'text/event-stream' } };
   });
   try {
@@ -80,7 +85,7 @@ test('kiwi.daily: initialize + tools/call search-flight, okna ±3 dny, datum ve 
 });
 
 // Server, který odpovídá na handshake a na search-flight podle data (fail = data, pro která vrátí chybu).
-function kiwiServer({ fail = new Set(), status = 500 } = {}) {
+function kiwiServer({ fail = new Set(), status = 500, wrongPax = false } = {}) {
   return stubFetch((url, init) => {
     const body = JSON.parse(init.body);
     if (body.method === 'initialize') return { body: { jsonrpc: '2.0', id: 1, result: {} }, headers: { 'content-type': 'application/json', 'mcp-session-id': 's2' } };
@@ -88,7 +93,8 @@ function kiwiServer({ fail = new Set(), status = 500 } = {}) {
     const [dd, mm, yyyy] = body.params.arguments.departureDate.split('/');
     const d = `${yyyy}-${mm}-${dd}`;
     if (fail.has(d)) return { status, body: 'boom' };
-    return { body: { jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text: JSON.stringify(SEARCH(d)) }] } } };
+    const adults = body.params.arguments.adults;
+    return { body: { jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text: JSON.stringify({ ...SEARCH(d), passengers: { adults: wrongPax ? adults + 1 : adults } }) }] } } };
   });
 }
 
@@ -104,15 +110,19 @@ test('kiwi.daily: jen přímé lety, když je zapnuto directOnly', async () => {
   }
 });
 
-test('kiwi.daily: chyba jednoho okna nezahodí ostatní; po chybě serveru se Kiwi na chvíli vynechá', async () => {
+test('kiwi.daily: chyba jednoho okna nezahodí ostatní; pojistka až po 3 chybách za sebou', async () => {
   const from = ymdPlus(50);
-  const secondCenter = ymdPlus(60); // okna: [50..56] střed 53, [57..63] střed 60
-  const stub = kiwiServer({ fail: new Set([secondCenter]) });
+  const secondStart = ymdPlus(57); // okna: [50..56], [57..63]
+  const failing = new Set([secondStart, ymdPlus(110), ymdPlus(117), ymdPlus(124)]);
+  const stub = kiwiServer({ fail: failing });
   try {
     const legs = await kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: from, dateTo: ymdPlus(63) });
     assert.ok(legs.length > 0, 'první okno zůstalo');
     assert.ok(legs.every((l) => l.date <= ymdPlus(56)));
-    assert.equal(kiwiBlocked(), true, 'HTTP 500 → pojistka');
+    assert.equal(kiwiBlocked(), false, 'jedna přechodná chyba Kiwi nevypne');
+    // další tři selhání za sebou (3 okna) → pojistka
+    await assert.rejects(kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: ymdPlus(110), dateTo: ymdPlus(130) }));
+    assert.equal(kiwiBlocked(), true, '3 chyby za sebou → pojistka');
     await assert.rejects(kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: ymdPlus(70), dateTo: ymdPlus(76) }), /vynecháno/);
   } finally {
     stub.restore();
@@ -124,6 +134,33 @@ test('kiwi.daily: po termínu (deadline) už nedotazuje', async () => {
   try {
     await assert.rejects(kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: ymdPlus(80), dateTo: ymdPlus(86), deadline: Date.now() - 1 }), /čas/);
     assert.equal(stub.calls.length, 0);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('kiwi: změna rozhraní (jiný počet cestujících v odpovědi) → chyba, ne špatné ceny', async () => {
+  const stub = kiwiServer({ wrongPax: true });
+  try {
+    await assert.rejects(kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: ymdPlus(90), dateTo: ymdPlus(96), adults: 2 }), /rozhraní/);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('kiwi: číslo letu bez zdvojeného kódu aerolinky', async () => {
+  const { flightNoOf } = await import('../server/providers/kiwi.js');
+  assert.equal(flightNoOf({ carrier: 'FR', flightNumber: 'FR13' }), 'FR 13');
+  assert.equal(flightNoOf({ carrier: 'W6', flightNumber: '2347' }), 'W6 2347');
+  assert.equal(flightNoOf({ carrier: 'U2', flightNumber: 'U23902' }), 'U2 3902');
+});
+
+test('kiwi.daily: jen přímé lety → max_sector_stopovers: 0 už v dotazu', async () => {
+  const stub = kiwiServer();
+  try {
+    await kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: ymdPlus(100), dateTo: ymdPlus(102), directOnly: true });
+    const args = stub.calls.map((c) => JSON.parse(c.init.body)).filter((b) => b.method === 'tools/call').map((b) => b.params.arguments);
+    assert.ok(args.length && args.every((a) => a.max_sector_stopovers === 0));
   } finally {
     stub.restore();
   }

@@ -160,3 +160,29 @@ test('Wikivoyage: doporučená místa (see/do) dostanou body a značku, výpadek
     stub.restore();
   }
 });
+
+test('groupBindings: stadion/letiště ani jako památka, stát/událost ne, památková ulice/čtvrť ano, most i když je to silnice', () => {
+  const R = (q, label, sl, types, extra = {}) => types.map((t) => row(q, label, 38.71, -9.14, sl, t, extra));
+  const her = { her: uri('http://www.wikidata.org/entity/Q1019') };
+  const rows = [
+    ...R('Q7875112', 'Estádio da Luz', 49, ['Q483110', 'Q1076486', 'Q210272'], her),
+    ...R('Q403671', 'Letiště Lisabon', 50, ['Q644371', 'Q1248784', 'Q210272'], her),
+    ...R('Q33946', 'Československo', 168, ['Q3024240', 'Q96196009']),
+    ...R('Q190271', 'Metro v Praze', 60, ['Q5503']),
+    ...R('Q985517', 'Alfama', 34, ['Q123705', 'Q210272'], her),
+    ...R('Q1535529', 'Zlatá ulička', 28, ['Q79007'], her),
+    ...R('Q244816', 'Tančící dům', 50, ['Q41176', 'Q1021645']),
+    ...R('Q204871', 'Karlův most', 62, ['Q12280', 'Q34442', 'Q79007', 'Q811979'], her),
+    ...R('Q848072', 'Španělské schody', 40, ['Q12511']),
+  ];
+  const cat = Object.fromEntries(groupBindings(rows, { lat: 38.7, lon: -9.1 }).map((p) => [p.name, p.category]));
+  assert.equal(cat['Estádio da Luz'], undefined);
+  assert.equal(cat['Letiště Lisabon'], undefined);
+  assert.equal(cat['Československo'], undefined);
+  assert.equal(cat['Metro v Praze'], undefined);
+  assert.equal(cat.Alfama, 'oldtown');
+  assert.equal(cat['Zlatá ulička'], 'sight');
+  assert.equal(cat['Tančící dům'], 'sight');
+  assert.equal(cat['Karlův most'], 'bridge');
+  assert.equal(cat['Španělské schody'], 'sight');
+});
