@@ -7,7 +7,7 @@ import { limiter } from '../lib/http.js';
 import { cache } from '../lib/cache.js';
 import { makeLeg, makeTrip } from '../lib/fares.js';
 import { airlineName } from '../lib/airlines.js';
-import { addDays, chunkRange, daysBetween } from '../lib/dates.js';
+import { chunkRange } from '../lib/dates.js';
 import { toCzk } from '../lib/fx.js';
 
 const ENDPOINT = 'https://mcp.kiwi.com';
@@ -17,11 +17,20 @@ const limit = limiter(2);
 const pause = () => new Promise((r) => setTimeout(r, 400));
 const session = { id: null, at: 0, pending: null };
 let rpcId = 10;
-// Pojistka: po timeoutu, 429 nebo chybě serveru se Kiwi na 5 minut vynechává, ať nezdržuje hledání.
+// Pojistka: po 3 selháních za sebou (timeout, 429, chyba serveru) se Kiwi na 3 minuty vynechává,
+// ať nezdržuje hledání. Jednotlivá přechodná chyba (občasné 503) ji nespustí.
 let blockedUntil = 0;
+let failStreak = 0;
 export const kiwiBlocked = () => Date.now() < blockedUntil;
+function noteFailure() {
+  if (++failStreak >= 3) {
+    blockedUntil = Date.now() + 3 * 60e3;
+    failStreak = 0;
+  }
+}
 export function resetKiwi() {
   blockedUntil = 0;
+  failStreak = 0;
   session.id = null;
   session.at = 0;
 }
@@ -52,9 +61,9 @@ export function parseRpcBody(text) {
   return last;
 }
 
-async function post(body, sessionId) {
+async function post(body, sessionId, timeoutMs = 30000) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 30000);
+  const timer = setTimeout(() => ctrl.abort(), Math.max(1000, timeoutMs));
   try {
     const res = await fetch(ENDPOINT, {
       method: 'POST',
@@ -106,39 +115,83 @@ async function ensureSession() {
   return session.pending;
 }
 
-async function searchFlight(args) {
+/**
+ * Jeden dotaz search-flight. `deadline` (ms) platí i pro čekání ve frontě: po získání místa se
+ * zkontroluje znovu a samotný dotaz dostane jen zbývající čas (nejvýš 30 s).
+ */
+async function searchFlight(args, { deadline = null } = {}) {
   const key = `kiwi:${JSON.stringify(args)}`;
-  return cache.wrap(key, TTL, () => limit(async () => {
+  const hit = cache.get(key);
+  if (hit !== undefined) return hit;
+  if (inflight.has(key)) return inflight.get(key);
+  const p = limit(async () => {
     if (kiwiBlocked()) throw new Error('Kiwi: dočasně vynecháno po předchozí chybě');
+    if (deadline && Date.now() > deadline - 1500) throw new Error('Kiwi: vypršel čas na hledání');
     await pause();
+    const timeoutMs = deadline ? Math.min(30000, deadline - Date.now()) : 30000;
     try {
-      return await callSearch(args);
+      const json = await callSearch(args, timeoutMs);
+      // Kiwi mění rozhraní bez ohlášení: když nepřevzalo počet cestujících, ceny by nesedily.
+      if (json?.passengers && Number(json.passengers.adults) !== Number(args.adults)) {
+        throw new Error(`Kiwi: změnilo se rozhraní (cestujících ${json.passengers.adults} místo ${args.adults})`);
+      }
+      cache.set(key, json, TTL);
+      failStreak = 0;
+      return json;
     } catch (e) {
-      if (e.status === 429 || e.status >= 500 || /timeout|fetch failed/i.test(e.message)) blockedUntil = Date.now() + 5 * 60e3;
+      // Pojistka jen při chybě služby; vlastní časový limit hledání (timeout podle deadline) ne.
+      if (e.status === 429 || e.status >= 500 || (/timeout|fetch failed/i.test(e.message) && timeoutMs >= 25000)) noteFailure();
       throw e;
     }
-  }));
+  }).finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
 }
+const inflight = new Map();
 
-async function callSearch(args) {
+async function callSearch(args, timeoutMs) {
   const sid = await ensureSession();
   let out;
+  const t0 = Date.now();
   try {
-    out = await post({ jsonrpc: '2.0', id: ++rpcId, method: 'tools/call', params: { name: 'search-flight', arguments: args } }, sid);
+    out = await post({ jsonrpc: '2.0', id: ++rpcId, method: 'tools/call', params: { name: 'search-flight', arguments: args } }, sid, timeoutMs);
   } catch (e) {
+    // Přechodná chyba brány (502/503/504) → jeden rychlý pokus navíc, pokud zbývá čas.
+    const left = timeoutMs - (Date.now() - t0);
+    if (e.status >= 502 && e.status <= 504 && left > 3000) {
+      await new Promise((r) => setTimeout(r, 400));
+      out = await post({ jsonrpc: '2.0', id: ++rpcId, method: 'tools/call', params: { name: 'search-flight', arguments: args } }, sid, left - 400);
+      return unwrap(out);
+    }
     // Vypršelá session → nová a jeden pokus navíc.
     if (e.status !== 400 && e.status !== 404) throw e;
     session.at = 0;
-    out = await post({ jsonrpc: '2.0', id: ++rpcId, method: 'tools/call', params: { name: 'search-flight', arguments: args } }, await ensureSession());
+    out = await post({ jsonrpc: '2.0', id: ++rpcId, method: 'tools/call', params: { name: 'search-flight', arguments: args } }, await ensureSession(), timeoutMs);
   }
+  return unwrap(out);
+}
+
+function unwrap(out) {
   const res = out.rpc.result || {};
-  if (res.isError) throw new Error('Kiwi: nástroj vrátil chybu');
+  if (res.isError) {
+    const msg = (res.content || []).find((c) => c.type === 'text')?.text || '';
+    throw new Error(`Kiwi: nástroj vrátil chybu${msg ? ` – ${msg.slice(0, 160)}` : ''}`);
+  }
   const text = (res.content || []).find((c) => c.type === 'text' && c.text)?.text;
   if (!text) throw new Error('Kiwi: prázdná odpověď');
   return JSON.parse(text);
 }
 
 const dmy = (ymd) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
+
+/** Číslo letu „FR 13“: Kiwi posílá „FR13“ (s kódem), starší tvar jen „13“. */
+export function flightNoOf(seg) {
+  const c = String(seg?.carrier || '');
+  const n = String(seg?.flightNumber || '');
+  if (!n) return c || null;
+  const num = c && n.toUpperCase().startsWith(c.toUpperCase()) ? n.slice(c.length) : n;
+  return c ? `${c} ${num.trim()}` : num;
+}
 
 function legOf(l, itinerary, currency, adults, combined) {
   if (!l) return null;
@@ -151,7 +204,7 @@ function legOf(l, itinerary, currency, adults, combined) {
     provider: 'kiwi',
     carrier: carriers[0] || null,
     carrierName: carriers.map(airlineName).join(' + ') || 'Kiwi.com',
-    flightNo: segs.map((s) => [s.carrier, s.flightNumber].filter(Boolean).join(' ')).filter(Boolean).join(', ') || null,
+    flightNo: segs.map(flightNoOf).filter(Boolean).join(', ') || null,
     from,
     to,
     dep: l.departureTime || segs[0].departureTime,
@@ -206,7 +259,7 @@ export const kiwi = {
   maxMs: 20000,
 
   /**
-   * Nejlevnější let po dnech: okna po 7 dnech (datum ± 3 dny). Chyba jednoho okna nezahodí ostatní;
+   * Nejlevnější lety po dnech: okna po 7 dnech (rozsah departureDate..departureDateTo). Chyba jednoho okna nezahodí ostatní;
    * po termínu `deadline` (ms) se další okna už nedotazují – vrátí se, co je hotové.
    */
   async daily({ from, to, dateFrom, dateTo, adults = 1, directOnly = false, deadline = null }) {
@@ -216,12 +269,13 @@ export const kiwi = {
     const windows = chunkRange(dateFrom, dateTo, 7);
     for (const [a, b] of windows) {
       if (deadline && Date.now() > deadline) { failed++; lastErr = lastErr || new Error('Kiwi: vypršel čas na hledání'); continue; }
-      const center = addDays(a, Math.min(3, daysBetween(a, b)));
       try {
+        // Okno [a..b] jedním dotazem (departureDate + departureDateTo); ceny za všechny cestující.
         const json = await searchFlight({
-          flyFrom: from, flyTo: to, departureDate: dmy(center), departureDateFlexRange: 3,
-          passengers: { adults }, sort: 'price', curr: 'EUR', locale: 'en', cabinClass: 'M',
-        });
+          flyFrom: from, flyTo: to, departureDate: dmy(a), ...(b > a ? { departureDateTo: dmy(b) } : {}),
+          adults, sort: 'price', currency: 'EUR', locale: 'en', cabinClass: 'M',
+          ...(directOnly ? { max_sector_stopovers: 0 } : {}),
+        }, { deadline });
         for (const t of parseKiwiSearch(json, { adults })) {
           if (t.out.date >= a && t.out.date <= b && t.out.from === from) legs.push(t.out);
         }
@@ -239,7 +293,7 @@ export const kiwi = {
   async exact({ from, to, dateOut, dateBack = null, adults = 1 }) {
     const json = await searchFlight({
       flyFrom: from, flyTo: to, departureDate: dmy(dateOut), ...(dateBack ? { returnDate: dmy(dateBack) } : {}),
-      passengers: { adults }, sort: 'price', curr: 'EUR', locale: 'en', cabinClass: 'M',
+      adults, sort: 'price', currency: 'EUR', locale: 'en', cabinClass: 'M',
     });
     return parseKiwiSearch(json, { adults });
   },

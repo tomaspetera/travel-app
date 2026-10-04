@@ -8,6 +8,38 @@ import { addDays, daysBetween, weekday } from './dates.js';
 import { destKey } from './airports.js';
 import { makeTrip } from './fares.js';
 
+/**
+ * Pro každou kombinaci (from, to, datum) víc variant: nejlevnější, nejlevnější přímý a nejlevnější
+ * od každé další aerolinky – nejvýš `k` (k = 1 → jen nejlevnější, viz cheapestPerDay).
+ */
+export function legsPerDay(legs, k = 1) {
+  if (k <= 1) return cheapestPerDay(legs);
+  const groups = new Map();
+  for (const l of legs) {
+    if (!(l.czk > 0)) continue;
+    const key = `${l.from}|${l.to}|${l.date}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(l);
+  }
+  const out = [];
+  for (const list of groups.values()) {
+    list.sort((a, b) => a.czk - b.czk || (b.live ? 1 : 0) - (a.live ? 1 : 0));
+    const pick = [list[0]];
+    const direct = list.find((l) => !l.stops);
+    if (direct && !pick.includes(direct)) pick.push(direct);
+    const seen = new Set(pick.map((l) => `${l.carrier}|${l.dep}`));
+    for (const l of list) {
+      if (pick.length >= k) break;
+      const sig = `${l.carrier}|${l.dep}`;
+      if (seen.has(sig) || pick.some((p) => p.carrier === l.carrier)) continue;
+      seen.add(sig);
+      pick.push(l);
+    }
+    out.push(...pick);
+  }
+  return out;
+}
+
 /** Nejlevnější leg pro každou kombinaci (from, to, datum). */
 export function cheapestPerDay(legs) {
   const best = new Map();
@@ -79,9 +111,9 @@ function pickDiverse(results, { limit, perDestLimit, perDay = 0 }) {
 export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
   const {
     nightsMin = 1, nightsMax = 30, openJawHome = true, openJawDest = true, limit = 300, perDestLimit = 12, perDay = 0,
-    calendar: cal = null,
+    calendar: cal = null, legsPerDay: k = 1,
   } = opts;
-  const backs = cheapestPerDay(backLegs);
+  const backs = legsPerDay(backLegs, k);
   // Index: datum → seznam návratů seřazený podle (cena + doprava domů).
   const byDate = new Map();
   for (const b of backs) {
@@ -99,7 +131,7 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
   };
 
   const results = [];
-  for (const o of cheapestPerDay(outLegs)) {
+  for (const o of legsPerDay(outLegs, k)) {
     if (!dateOk(o.date, null, opts)) continue;
     const oDest = destKey(o.to);
     const oCost = o.czk + groundOf(o.from);
@@ -112,12 +144,12 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
         if (b.to !== o.from && !openJawHome) continue;
         if (!dateOk(o.date, b.date, opts)) continue;
         const total = oCost + cost;
-        results.push({ o, b, cost: total, sig: `${oDest}|${o.from}|${b.to}|${o.date}|${b.date}` });
+        results.push({ o, b, cost: total, sig: `${oDest}|${o.from}|${b.to}|${o.date}|${b.date}|${o.carrier}|${o.dep}|${b.carrier}|${b.dep}` });
         if (cal) {
           note(cal.out, o.date, total, o, b);
           note(cal.back, b.date, total, o, b);
         }
-        if (++taken >= 3) break; // stačí pár nejlevnějších návratů na den
+        if (++taken >= 3 * k) break; // stačí pár nejlevnějších návratů na den
       }
     }
   }
@@ -127,10 +159,10 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
 
 /** Nejlevnější jednosměrné lety (s dopravou na letiště), rozmanité podle cíle. */
 export function bestOneWays(outLegs, groundOf, opts) {
-  const { limit = 300, perDestLimit = 12, perDay = 0 } = opts;
-  const results = cheapestPerDay(outLegs)
+  const { limit = 300, perDestLimit = 12, perDay = 0, legsPerDay: k = 1 } = opts;
+  const results = legsPerDay(outLegs, k)
     .filter((o) => dateOk(o.date, null, opts))
-    .map((o) => ({ o, cost: o.czk + groundOf(o.from), sig: `${o.from}|${o.to}|${o.date}` }))
+    .map((o) => ({ o, cost: o.czk + groundOf(o.from), sig: `${o.from}|${o.to}|${o.date}|${o.carrier}|${o.dep}` }))
     .sort((x, y) => x.cost - y.cost);
   return pickDiverse(results, { limit, perDestLimit, perDay }).map((r) => makeTrip(r.o));
 }

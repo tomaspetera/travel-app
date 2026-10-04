@@ -283,11 +283,14 @@ export async function search(raw, emit = () => {}) {
       }));
       return;
     }
-    // Pomalejší zdroje (Kiwi) jen pro pár nejvýznamnějších letišť: velká a blízká napřed.
+    // Pomalejší zdroje (Kiwi) jen pro pár nejvýznamnějších letišť: domovské (zadané / nejbližší)
+    // vždy, pak velká a blízká.
     if (p.maxPairs) {
       const rank = { L: 0, M: 1, S: 2 };
       const dist = new Map(origins.airports.map((a) => [a.iata, a.distKm]));
-      pairs.sort((x, y) => rank[getAirport(x.o).type] - rank[getAirport(y.o).type] || dist.get(x.o) - dist.get(y.o));
+      const chosen = new Set(q.from.filter((x) => x.startsWith('ap:')).map((x) => x.slice(3).toUpperCase()));
+      const home = (iata) => (chosen.has(iata) || (dist.get(iata) ?? 99) < 25 ? 0 : 1);
+      pairs.sort((x, y) => home(x.o) - home(y.o) || rank[getAirport(x.o).type] - rank[getAirport(y.o).type] || dist.get(x.o) - dist.get(y.o));
     }
     let maxPairs = p.maxPairs || 40;
     if (p.maxCalls && p.callsPerRoute) {
@@ -325,10 +328,11 @@ export async function search(raw, emit = () => {}) {
   if (routeMode) {
     if (ret) {
       const maps = { out: new Map(), back: new Map() };
-      trips.push(...bestRoundTrips(outLegs, backLegs, groundOf, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, calendar: maps }));
+      // Konkrétní cíl: na každý den víc variant (nejlevnější, přímý, jiné aerolinky) – hlavně u přesných dat.
+      trips.push(...bestRoundTrips(outLegs, backLegs, groundOf, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, calendar: maps, legsPerDay: q.exact ? 4 : 2 }));
       cal = { kind: 'trip', out: calendarArray(maps.out), back: calendarArray(maps.back) };
     } else {
-      trips.push(...bestOneWays(outLegs, groundOf, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3 }));
+      trips.push(...bestOneWays(outLegs, groundOf, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, legsPerDay: q.exact ? 4 : 2 }));
       cal = { kind: 'leg', out: oneWayCalendar(outLegs, groundOf, constraints), back: [] };
     }
   }
