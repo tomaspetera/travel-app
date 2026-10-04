@@ -313,6 +313,7 @@ async function route(req, res) {
     } catch {
       return sendJson(req, res, 400, { error: 'Neplatný JSON' });
     }
+    if (!b || typeof b !== 'object' || Array.isArray(b)) return sendJson(req, res, 400, { error: 'Neplatný JSON' });
     const lat = Number(b.lat);
     const lon = Number(b.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
@@ -337,15 +338,22 @@ async function route(req, res) {
     } catch {
       return sendJson(req, res, 400, { error: 'Neplatný JSON' });
     }
+    if (!b || typeof b !== 'object' || Array.isArray(b)) return sendJson(req, res, 400, { error: 'Neplatný JSON' });
     const lat = Number(b.lat);
     const lon = Number(b.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     if (!isYmd(b.start)) return sendJson(req, res, 400, { error: 'Neplatné datum.' });
     if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
-    const candidates = config.mock ? mockTrips({ lat, lon }) : await findTrips({ lat, lon });
+    let candidates;
+    try {
+      candidates = config.mock ? mockTrips({ lat, lon }) : await findTrips({ lat, lon });
+    } catch (e) {
+      console.warn(`roadtrip: ${e.message}`);
+      return sendJson(req, res, 503, { error: 'Cíle výletů se teď nepodařilo načíst (Wikidata neodpovídá) – zkus to prosím za chvíli.' });
+    }
     const exclude = new Set(Array.isArray(b.exclude) ? b.exclude.map(String) : []);
     const must = new Set(Array.isArray(b.include) ? b.include.map(String) : []);
-    const pool = candidates.filter((x) => !exclude.has(x.id)).map((x) => (must.has(x.id) ? { ...x, score: x.score + 1000, pinned: true } : x));
+    const pool = candidates.filter((x) => !exclude.has(x.id)).map((x) => (must.has(x.id) ? { ...x, baseScore: x.score, score: x.score + 1000, pinned: true } : x));
     const plan = planTrips(pool, {
       base: { lat, lon, label: String(b.label || 'Start').slice(0, 120) },
       start: b.start,
@@ -355,7 +363,7 @@ async function route(req, res) {
       adults: Math.min(9, Math.max(1, Number(b.adults) || 2)),
     });
     // připnuté (+1000) vrať se skutečným skóre
-    const unpin = (x) => (x.pinned ? { ...x, score: x.score - 1000 } : x);
+    const unpin = ({ baseScore, ...x }) => (x.pinned ? { ...x, score: baseScore } : x);
     for (const d of plan.days) d.stops = d.stops.map(unpin);
     plan.spare = plan.spare.map(unpin);
     return sendJson(req, res, 200, { demo: config.mock, degraded: Boolean(candidates.degraded), candidates: candidates.length, ...plan });

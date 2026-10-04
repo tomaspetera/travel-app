@@ -17,7 +17,7 @@
     ['trips', '🚆 Výlety mimo město', { daytrip: 1.8 }],
   ];
   const DAY_COLORS = ['#5b8cff', '#f59e0b', '#22c55e', '#ec4899', '#14b8a6', '#a855f7', '#ef4444', '#0ea5e9'];
-  const ex = { place: null, items: [], cat: '', radius: 10, plan: null, interests: new Set(), pace: 'normal', days: 3, start: '', mode: 'city', trip: null, tripDays: { day: 2, loop: 4 }, tripEx: new Set(), tripMust: new Set() };
+  const ex = { place: null, items: [], cat: '', radius: 10, plan: null, interests: new Set(), pace: 'normal', days: 3, start: '', mode: 'city', trips: { day: null, loop: null }, tripDays: { day: 2, loop: 4 }, tripEx: new Set(), tripMust: new Set(), ms: null };
   const MODES = [['city', '🏙️ Program ve městě'], ['day', '🚗 Jednodenní výlety'], ['loop', '🧭 Vícedenní okruh']];
 
   const icon = c => (CAT[c] || CAT.sight)[0];
@@ -49,7 +49,7 @@
   };
   const liveMaps = new Set();
   // Odkazy do Google Map podle názvu místa (ne souřadnic) – Google pak ukáže přímo to místo.
-  const gq = (name, ctx) => (ctx && !String(name).includes(ctx) ? `${name}, ${ctx}` : String(name));
+  const gq = (name, ctx) => (ctx && !String(name).includes(ctx) ? (name ? `${name}, ${ctx}` : ctx) : String(name || ''));
   const gmSearch = q => `https://www.google.com/maps/search/?api=1&query=${enc(q)}`;
   const gmDir = (origin, stops, mode) => {
     if (!stops.length) return null;
@@ -60,9 +60,12 @@
     qs.set('travelmode', mode);
     return `https://www.google.com/maps/dir/?${qs}`;
   };
-  const cityOf = center => (center.geo ? '' : center.city || center.label || '');
-  // Výchozí bod: ubytování („Hotel X, Milán“), střed města („Milán“), u „Moje poloha“ nic.
-  const centerQ = center => (center.geo ? '' : center.city && center.label && center.label !== center.city ? gq(center.label, center.city) : center.label || '');
+  // Kontext pro hledání: město a země („Córdoba, Argentina“), aby Google nevybral stejnojmenné místo jinde.
+  const cityOf = center => (center.geo ? '' : gq(center.city || center.label || '', center.country || ''));
+  // Výchozí bod: ubytování („Hotel X, Milán“), střed města („Milán, Itálie“); „Moje okolí“ nemá
+  // název, tam zůstanou souřadnice.
+  const centerQ = center => (center.geo ? `${(+center.lat).toFixed(5)},${(+center.lon).toFixed(5)}`
+    : center.city && center.label && center.label !== center.city ? gq(center.label, cityOf(center)) : cityOf(center));
   const poiQ = (p, center) => (p.category === 'daytrip' || p.tripKind ? p.name : gq(p.name, cityOf(center)));
 
   function mapFallback(el, center, msg) {
@@ -75,7 +78,8 @@
     if (typeof maplibregl !== 'undefined') return res();
     const css = document.createElement('link');
     css.rel = 'stylesheet'; css.href = 'vendor/maplibre/maplibre-gl.css';
-    document.head.appendChild(css);
+    // před styly aplikace, aby jejich úpravy (vyskakovací okna, sticky mapa) měly přednost
+    document.head.insertBefore(css, document.head.querySelector('link[rel="stylesheet"]'));
     const sc = document.createElement('script');
     sc.src = 'vendor/maplibre/maplibre-gl.js';
     sc.onload = () => res();
@@ -87,14 +91,14 @@
   function makeMap(el, center) {
     const ms = { map: null, markers: [], lines: null, raster: false, errors: 0 };
     el.innerHTML = '<div class="map-fallback"><span class="spin dark"></span></div>';
-    ms.ready = loadMapLib().then(() => initMap(ms, el, center), e => mapFallback(el, center, e.message));
+    ms.ready = loadMapLib().then(() => initMap(ms, el, center), e => { ms.dead = true; mapFallback(el, center, e.message); });
     return ms;
   }
 
   function initMap(ms, el, center) {
     // Mapy z předchozích vykreslení uvolni (prohlížeč dovolí jen pár WebGL kontextů naráz).
     for (const m of liveMaps) if (!document.body.contains(m.getContainer())) { m.remove(); liveMaps.delete(m); }
-    if (!document.body.contains(el)) return; // mezitím překresleno
+    if (!document.body.contains(el)) { ms.dead = true; return; } // mezitím překresleno
     el.innerHTML = '';
     const dark = document.documentElement.dataset.theme === 'dark';
     let map;
@@ -113,12 +117,13 @@
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.touchZoomRotate.disableRotation();
     // Když vektorová mapa nenaběhne (výpadek OpenFreeMap), přepni na rastrové dlaždice OpenStreetMap.
-    const toRaster = () => { if (ms.raster) return; ms.raster = true; ms.styleReady = false; map.setStyle(OSM_STYLE, { diff: false }); };
+    const toRaster = () => { if (ms.raster || !liveMaps.has(map)) return; ms.raster = true; ms.styleReady = false; map.setStyle(OSM_STYLE, { diff: false }); };
     const timer = setTimeout(() => { if (!ms.styleReady) toRaster(); }, 8000);
+    map.once('remove', () => clearTimeout(timer));
     // Nenačtený styl nebo popis zdroje dlaždic (TileJSON) = mapa by zůstala prázdná → hned záloha;
     // jednotlivé dlaždice až po několika chybách (chybějící ikonky/písma nevadí).
     map.on('error', e => {
-      if (!ms.styleReady || (e.sourceId && !e.tile) || (e.tile && ++ms.errors >= 4)) toRaster();
+      if (!ms.styleReady || (e.sourceId && !e.tile) || (e.tile && ++ms.errors >= 3)) toRaster();
     });
     map.on('style.load', () => { ms.styleReady = true; clearTimeout(timer); addLines(ms); });
   }
@@ -267,7 +272,7 @@
    */
   async function renderPlanner(host, opts) {
     const st = { interests: new Set(opts.interests || []), pace: opts.pace || 'normal', exclude: new Set(), must: new Set(), items: [], map: null, layers: null };
-    const center = { lat: opts.lat, lon: opts.lon, label: opts.label, city: opts.city };
+    const center = { lat: opts.lat, lon: opts.lon, label: opts.label, city: opts.city, country: opts.country };
     host.innerHTML = `${plannerControls(st)}<div class="ex-layout"><div><div id="tpPlan"><div class="loading-row"><span class="spin dark"></span> Hledám, co stojí za vidění, a skládám program…</div></div></div><div class="ex-map" id="tpMap"></div></div>`;
     st.map = makeMap($('#tpMap', host), center);
     let seq = 0;
@@ -322,7 +327,12 @@
       dd.hidden = false;
       $$('.pi-opt', dd).forEach(o => o.onmousedown = e => { e.preventDefault(); pick(sugs[+o.dataset.i]); });
     };
-    const pick = s => { ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc, geo: Boolean(s.geo) }; ex.plan = null; ex.trip = null; ex.tripEx.clear(); ex.tripMust.clear(); q.value = s.label; dd.hidden = true; loadExplore(); };
+    const pick = s => {
+      // země podle kódu (česky, „Španělsko“) – kontext pro odkazy do Google Map
+      const country = s.geo ? '' : (typeof byIso !== 'undefined' && byIso[s.cc]?.cs) || '';
+      ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc, geo: Boolean(s.geo), country };
+      ex.plan = null; ex.trips = { day: null, loop: null }; ex.tripEx.clear(); ex.tripMust.clear(); q.value = s.label; dd.hidden = true; loadExplore();
+    };
     let t;
     q.oninput = () => {
       clearTimeout(t);
@@ -364,16 +374,17 @@
   }
 
   /* ---------- výlety autem (jednodenní / vícedenní okruh) ---------- */
-  async function makeTrip(p) {
-    const body = { lat: p.lat, lon: p.lon, label: p.geo ? 'Start' : p.label, start: ex.start, days: ex.tripDays[ex.mode], mode: ex.mode, pace: ex.pace,
+  async function makeTrip(p, mode) {
+    const body = { lat: p.lat, lon: p.lon, label: p.geo ? 'Start' : p.label, start: ex.start, days: ex.tripDays[mode], mode, pace: ex.pace,
       exclude: [...ex.tripEx], include: [...ex.tripMust] };
     return getJson('api/roadtrip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   }
 
   function tripStopHtml(s, j) {
     return `<div class="dp-item" data-poi="${esc(s.id)}"><span class="dp-n">${j + 1}</span><div>
-      <b>${tripIcon(s)} ${esc(s.name)}</b> <span class="faint">· ${esc(s.categoryLabel || '')}${s.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : ''}</span>
+      <b>${tripIcon(s)} ${esc(s.name)}</b> <span class="faint">· ${esc(s.categoryLabel || '')}${s.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : s.unescoPart ? ' · <span style="color:var(--warn)">část památky UNESCO</span>' : ''}</span>
       <div class="dp-walk">🚗 ${s.driveKm} km (~${minTxt(s.driveMin)}) · příjezd ~${esc(s.arrive)} · na místě ~${minTxt(s.visitMin)}</div>
+      ${s.highlights?.length ? `<div class="dp-walk">👀 Uvidíš: ${esc(s.highlights.join(', '))}</div>` : ''}
       ${s.extract ? `<div class="poi-desc" style="-webkit-line-clamp:2">${esc(s.extract)}</div>` : ''}
       <div class="poi-acts">${s.url ? `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}<a href="${esc(gmSearch(s.name))}" target="_blank" rel="noopener">Google Maps ↗</a></div></div>
       <button type="button" title="Vyřadit z výletu" data-tdrop="${esc(s.id)}">✕</button></div>`;
@@ -398,7 +409,7 @@
         ${url ? `<a class="linkbtn" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">trasa autem v Google Maps ↗</a>` : ''}</h4>
         <div class="dp-walk" style="margin:2px 0 4px">odjezd ~09:00 z: ${esc(d.from.name)}</div>
         ${d.stops.map(tripStopHtml).join('')}
-        ${d.back ? `<div class="dp-end">🏁 návrat do ${esc(center.label)} ~${esc(d.back.arrive)} · ${d.back.km} km (~${minTxt(d.back.min)})</div>`
+        ${d.back ? `<div class="dp-end">🏁 zpět na start (${esc(center.label)}) ~${esc(d.back.arrive)} · ${d.back.km} km (~${minTxt(d.back.min)})</div>`
           : `<div class="dp-end">🛏️ přespání: <b>${esc(d.overnight.name)}</b> · <a href="${esc(safeUrl(d.overnight.bookUrl))}" target="_blank" rel="noopener">najít ubytování ↗</a></div>`}
         <div class="faint" style="font-size:11.5px;margin-top:4px">za volantem ~${minTxt(d.driveMin)} (${d.driveKm} km) · celkem ~${minTxt(d.minutes)}</div>
       </div>`;
@@ -408,6 +419,21 @@
       + '<div class="faint" style="font-size:11.5px;margin-top:6px">Časy jízdy jsou orientační odhad autem; přesnou trasu ukáže Google Maps. Vzdálenost ~120 km od místa.</div>';
   }
 
+  // Mapa Objevuj přežije překreslení stránky (kategorie, režim, úpravy plánu) – nová jen pro nové místo.
+  function exploreMap(p) {
+    const ms = ex.ms;
+    if (ms && ms.place === p && !ms.dead && (!ms.map || liveMaps.has(ms.map))) return ms;
+    if (ms?.map) { ms.map.remove(); liveMaps.delete(ms.map); }
+    const el = document.createElement('div');
+    el.className = 'ex-map';
+    el.id = 'exMap';
+    ex.ms = makeMap(el, p);
+    ex.ms.place = p;
+    ex.ms.el = el;
+    return ex.ms;
+  }
+
+  let replanSeq = 0;
   function paintExplore() {
     const body = $('#exBody'); if (!body) return;
     const p = ex.place;
@@ -415,10 +441,15 @@
     const list = ex.items.filter(x => !ex.cat || x.category === ex.cat);
     const st = ex.planState || (ex.planState = { interests: ex.interests, pace: ex.pace, exclude: new Set(), must: new Set(), items: [], map: null });
     const road = ex.mode !== 'city';
+    const trip = road ? ex.trips[ex.mode] : null;
     const dayOpts = ex.mode === 'loop' ? [2, 3, 4, 5, 6, 7, 10] : ex.mode === 'day' ? [1, 2, 3, 4, 5, 7] : [1, 2, 3, 4, 5, 6, 7, 10];
     const curDays = road ? ex.tripDays[ex.mode] : ex.days;
-    const hasPlan = road ? ex.trip && ex.trip.days.length : ex.plan;
-    const out = road ? tripHtml(ex.trip, p) : ex.plan ? planHtml(ex.plan, p) : '';
+    const hasPlan = road ? trip && trip.days.length : ex.plan;
+    const out = road ? tripHtml(trip, p) : ex.plan ? planHtml(ex.plan, p) : '';
+    // V režimu výletů jde z výpisu přidat jen výlet mimo město (do programu ve městě patří ostatní).
+    const card = x => (road
+      ? poiCard(x, x.category === 'daytrip' ? { tripToggle: true, center: p } : { center: p })
+      : poiCard(x, { toggle: true, must: st.must, center: p }));
     body.innerHTML = `${ex.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
       <div class="section-head" style="margin-top:6px"><h2>${flag(p.cc || '')} ${esc(p.label)} · ${ex.items.length} míst</h2></div>
       <div class="ex-cats"><button type="button" data-cat="" class="${!ex.cat ? 'on' : ''}">Vše</button>${cats.map(c => `<button type="button" data-cat="${c}" class="${ex.cat === c ? 'on' : ''}">${icon(c)} ${(CAT[c] || CAT.sight)[1]}</button>`).join('')}</div>
@@ -426,7 +457,7 @@
         <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${MODES.map(([id, l]) => `<button type="button" data-mode="${id}" class="${ex.mode === id ? 'on' : ''}">${l}</button>`).join('')}</div>
         <div class="muted" style="font-size:13px;margin:-4px 0 10px">${ex.mode === 'city' ? 'Pěší program po památkách – každý den jiná část města.'
           : ex.mode === 'day' ? 'Ráno autem ven, večer zpátky: města, hrady a příroda do ~2 h jízdy. Každý výlet jiný.'
-          : 'Okruh autem s přespáním po cestě – každý den pár zastávek, poslední den návrat.'}</div>
+          : 'Okruh autem s přespáním po cestě – každý den pár zastávek, poslední den zpět na start.'}</div>
         <div class="row wrap" style="gap:10px;align-items:end">
           <div class="field" style="margin:0"><label>Od</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
           <div class="field" style="margin:0"><label>${ex.mode === 'day' ? 'Počet výletů' : 'Počet dní'}</label><select id="exDays">${dayOpts.map(n => `<option ${curDays === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
@@ -434,43 +465,55 @@
           ${hasPlan ? '<button class="btn" id="exSave">💾 Uložit do plánovače</button>' : ''}
         </div>${road ? `<div class="row wrap" style="gap:8px;margin:10px 0"><select data-pace style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', '🐢 V klidu'], ['normal', '🚶 Normálně'], ['intense', '🏃 Nabitě']].map(o => `<option value="${o[0]}" ${ex.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>` : plannerControls(st)}
         <div id="exPlanOut">${out}</div></div>
-      <div class="ex-layout"><div class="poi-list" id="exList">${list.map(x => poiCard(x, { toggle: true, must: st.must, center: p })).join('') || '<div class="empty">Nic v této kategorii.</div>'}</div><div class="ex-map" id="exMap"></div></div>
+      <div class="ex-layout"><div class="poi-list" id="exList">${list.map(card).join('') || '<div class="empty">Nic v této kategorii.</div>'}</div><div id="exMapSlot"></div></div>
       <div class="faint" style="font-size:11.5px;margin-top:10px">Zdroj: Wikidata a Wikipedie (CC BY-SA), mapa © OpenFreeMap, OpenMapTiles, OpenStreetMap. Otevírací doby ověř na webu místa.</div>`;
-    st.map = makeMap($('#exMap', body), p);
+    const ms = exploreMap(p);
+    $('#exMapSlot', body).replaceWith(ms.el);
+    if (ms.map) ms.map.resize();
+    st.map = ms;
     const hl = x => {
       const el = $(`#exPlanOut [data-poi="${CSS.escape(x.id)}"]`) || $(`#exList [data-poi="${CSS.escape(x.id)}"]`);
       if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('hl'); setTimeout(() => el.classList.remove('hl'), 1500); }
     };
-    if (road && ex.trip) drawTrips(st, p, ex.trip, hl);
+    if (trip) drawTrips(st, p, trip, hl);
     else drawOnMap(st, p, ex.plan ? ex.items : list, ex.plan, hl);
+    // Na mapě je jen to, co je na ní nakreslené – bez značky se nikam neletí.
+    const focus = x => { if (x && ms.byId?.has(x.id)) focusOnMap(ms, x); };
     $$('[data-cat]', body).forEach(b => b.onclick = () => { ex.cat = b.dataset.cat; paintExplore(); });
     $$('[data-mode]', body).forEach(b => b.onclick = () => { if (ex.mode !== b.dataset.mode) { ex.mode = b.dataset.mode; paintExplore(); } });
-    $$('#exList [data-poi]', body).forEach(c => c.onclick = () => { const x = ex.items.find(i => i.id === c.dataset.poi); if (x) focusOnMap(st.map, x); });
+    $$('#exList [data-poi]', body).forEach(c => c.onclick = () => focus(ex.items.find(i => i.id === c.dataset.poi)));
     $$('#exPlanOut [data-poi]', body).forEach(c => c.onclick = e => {
       if (e.target.closest('a,button')) return;
-      const x = (road ? [...ex.trip.days.flatMap(d => d.stops), ...ex.trip.spare] : ex.items).find(i => i.id === c.dataset.poi);
-      if (x) focusOnMap(st.map, x);
+      const pool = trip ? [...trip.days.flatMap(d => d.stops), ...trip.spare] : [...(ex.plan?.days || []).flatMap(d => d.items), ...st.items, ...ex.items];
+      focus(pool.find(i => i.id === c.dataset.poi));
     });
     $$('[data-must]', body).forEach(b => b.onclick = e => { e.stopPropagation(); st.must.has(b.dataset.must) ? st.must.delete(b.dataset.must) : st.must.add(b.dataset.must); b.textContent = st.must.has(b.dataset.must) ? '★ v plánu' : '+ chci vidět'; });
     $$('[data-int]', body).forEach(b => b.onclick = () => { st.interests.has(b.dataset.int) ? st.interests.delete(b.dataset.int) : st.interests.add(b.dataset.int); b.classList.toggle('on'); });
     $('[data-pace]', body).onchange = e => { st.pace = e.target.value; ex.pace = e.target.value; };
     $('#exStart', body).onchange = e => { ex.start = e.target.value; };
     $('#exDays', body).onchange = e => { if (road) ex.tripDays[ex.mode] = +e.target.value; else ex.days = +e.target.value; };
+    const mode = ex.mode;
     const replan = async btn => {
+      const my = ++replanSeq; // jen poslední dotaz smí vykreslit (rychlé klikání na ✕ / +)
       if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spin"></span> ${road ? 'Hledám cíle výletů…' : 'Skládám…'}`; }
       try {
         if (road) {
-          const trip = await makeTrip(p);
-          if (ex.place !== p) return; // mezitím jiné místo
-          ex.trip = trip;
+          const t = await makeTrip(p, mode);
+          if (my !== replanSeq || ex.place !== p) return; // mezitím jiné místo nebo novější dotaz
+          ex.trips[mode] = t;
         } else {
           const plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '09:00', departureTime: null });
-          if (ex.place !== p) return;
+          if (my !== replanSeq || ex.place !== p) return;
           ex.plan = plan;
         }
+        if (ex.mode !== mode) return; // výsledek je uložený, ale uživatel už je v jiném režimu
         paintExplore();
         if (btn) $('#exPlanOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } catch (e) { toast(e.message, 'err'); if (btn) { btn.disabled = false; btn.textContent = road ? 'Naplánovat výlet' : 'Sestavit program'; } }
+      } catch (e) {
+        if (my !== replanSeq) return;
+        toast(e.message, 'err');
+        if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = road ? 'Naplánovat výlet' : 'Sestavit program'; }
+      }
     };
     $('#exPlan', body).onclick = () => replan($('#exPlan'));
     $$('[data-drop]', body).forEach(b => b.onclick = () => { st.exclude.add(b.dataset.drop); replan(); });
@@ -480,12 +523,12 @@
     if (sv) sv.onclick = () => {
       const days = {};
       let name, dates;
-      if (road) {
-        ex.trip.days.forEach(d => {
-          days[d.date] = [...d.stops.map(x => `${tripIcon(x)} ${x.name} (příjezd ~${x.arrive})`), d.overnight ? `🛏️ Přespání: ${d.overnight.name}` : `🏁 Návrat do ${p.label} ~${d.back.arrive}`];
+      if (trip) {
+        trip.days.forEach(d => {
+          days[d.date] = [...d.stops.map(x => `${tripIcon(x)} ${x.name} (příjezd ~${x.arrive})`), d.overnight ? `🛏️ Přespání: ${d.overnight.name}` : `🏁 Zpět na start (${p.label}) ~${d.back.arrive}`];
         });
-        name = `${ex.mode === 'day' ? 'Výlety z' : 'Okruh z'}: ${p.label}`;
-        dates = [ex.trip.days[0].date, ex.trip.days.at(-1).date];
+        name = `${trip.mode === 'day' ? 'Výlety z' : 'Okruh z'}: ${p.label}`;
+        dates = [trip.days[0].date, trip.days.at(-1).date];
       } else {
         ex.plan.days.forEach(d => { days[d.date] = d.items.map(x => x.name); });
         name = `Výlet: ${p.label}`;

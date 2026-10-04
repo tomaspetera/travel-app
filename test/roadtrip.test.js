@@ -67,19 +67,42 @@ test('roadtrip: okružní cesta – přespání po cestě, další den začíná
       assert.equal(u.searchParams.get('checkout'), addDays(d.date, 1));
       assert.equal(r.days[i + 1].from.name, d.overnight.name);
     }
-    if (d.stops.length > 1) assert.ok(d.minutes <= CAP, `den ${i + 1}: ${d.minutes} min`);
+    assert.ok(d.minutes <= CAP, `den ${i + 1}: ${d.minutes} min`);
+    assert.ok(d.driveMin <= 330, `den ${i + 1}: ${d.driveMin} min za volantem`);
   });
   assert.ok(ids.length >= 4, 'za 3 dny víc cílů než za jeden');
 });
 
-test('roadtrip: připnutý cíl je v plánu, prázdný seznam → žádné dny s poznámkou', () => {
+test('roadtrip: okruh s cíli na opačných stranách – žádný den přes kapacitu ani limit jízdy', () => {
+  const W = { id: 'w', name: 'Západ', lat: 50.0875, lon: 14.4213 - 1.61, tripKind: 'town', score: 90 };
+  const E = { id: 'e', name: 'Východ', lat: 50.0875, lon: 14.4213 + 1.61, tripKind: 'town', score: 90 };
+  for (const pace of ['relaxed', 'normal']) {
+    const r = planTrips([W, E, ...C], { base: PRAHA, start: START, days: 2, mode: 'loop', pace });
+    const cap = pace === 'relaxed' ? 540 : 630;
+    for (const d of r.days) {
+      assert.ok(d.minutes <= cap, `${pace}: ${d.minutes} min`);
+      assert.ok(d.driveMin <= 330, `${pace}: ${d.driveMin} min za volantem`);
+    }
+    assert.ok(r.days.length <= 2);
+  }
+});
+
+test('roadtrip: poznámka při menším počtu výletů – správné tvary (dny/dní)', () => {
+  const few = C.filter((c) => ['karlstejn', 'kh', 'melnik', 'konopiste', 'krivoklat'].includes(c.id));
+  const r = planTrips(few, { base: PRAHA, start: START, days: 7, mode: 'day', pace: 'relaxed' });
+  assert.ok(r.days.length < 7);
+  const n = r.days.length;
+  assert.match(r.note, new RegExp(`jen na ${n} ${n === 1 ? 'den' : n <= 4 ? 'dny' : 'dní'}\\.`));
+});
+
+test('roadtrip: připnutý cíl je v plánu, prázdný seznam → žádné dny', () => {
   const pinned = C.map((c) => (c.id === 'melnik' ? { ...c, score: c.score + 1000 } : c));
   const r = planTrips(pinned, { base: PRAHA, start: START, days: 1, mode: 'day' });
   assert.ok(r.days[0].stops.some((s) => s.id === 'melnik'));
-  const empty = planTrips([], { base: PRAHA, start: START, days: 2, mode: 'loop' });
-  assert.equal(empty.days.length, 0);
-  assert.ok(empty.note);
-  const e2 = planTrips([], { base: PRAHA, start: START, days: 2, mode: 'day' });
-  assert.equal(e2.days.length, 0);
-  assert.ok(e2.note);
+  // nic nenalezeno → žádné dny ani poznámka (prázdný stav ukáže aplikace)
+  for (const mode of ['loop', 'day']) {
+    const empty = planTrips([], { base: PRAHA, start: START, days: 2, mode });
+    assert.equal(empty.days.length, 0);
+    assert.equal(empty.note, null);
+  }
 });

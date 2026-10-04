@@ -57,6 +57,10 @@ export function parsePricesForDates(json, { adults = 1 } = {}) {
 // Trh (market) určuje, z čí mezipaměti hledání se čte – bez něj API bere ruský trh.
 // Kdyby API zvolený trh nepřijalo, zkusí se dotaz bez něj (a trh se pro běh serveru vypne).
 let marketOk = true;
+/** Pro testy: znovu zapne trh (po pokusu, kdy ho API nepřijalo). */
+export function resetTravelpayouts() {
+  marketOk = true;
+}
 
 async function fetchPfd(qs) {
   const j = await limit(() => request(`${URL_PFD}?${qs}`, {
