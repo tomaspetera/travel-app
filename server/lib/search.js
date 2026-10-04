@@ -264,20 +264,23 @@ export async function search(raw, emit = () => {}) {
     }
     let maxPairs = p.maxPairs || 40;
     if (p.maxCalls && p.callsPerRoute) {
-      const perPair = p.callsPerRoute(q.dateFrom, q.dateTo) * (ret ? 2 : 1);
+      // Skutečný počet dotazů na dvojici letišť: okna cesty tam + okna (delší) cesty zpět.
+      const perPair = p.callsPerRoute(q.dateFrom, q.dateTo) + (ret ? p.callsPerRoute(backFrom, backTo) : 0);
       maxPairs = Math.max(1, Math.min(maxPairs, Math.floor(p.maxCalls / perPair)));
     }
+    // Pomalý zdroj má na hledání časový limit; co nestihne, vynechá (hledání nečeká).
+    const deadline = p.maxMs ? Date.now() + p.maxMs : null;
     const capped = pairs.slice(0, maxPairs);
     const tasks = [];
     for (const { o, d } of capped) {
       tasks.push(async () => {
-        const legs = await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults, directOnly: q.directOnly });
+        const legs = await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults, directOnly: q.directOnly, deadline });
         outLegs.push(...legs);
         st.found += legs.length;
       });
       if (ret) {
         tasks.push(async () => {
-          const legs = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, adults: q.adults, directOnly: q.directOnly });
+          const legs = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, adults: q.adults, directOnly: q.directOnly, deadline });
           backLegs.push(...legs);
           st.found += legs.length;
         });
@@ -285,6 +288,7 @@ export async function search(raw, emit = () => {}) {
     }
     if (pairs.length > capped.length) st.note = `prohledáno ${capped.length} z ${pairs.length} kombinací letišť`;
     await runTasks(st, tasks);
+    if (deadline && Date.now() > deadline) st.note = [st.note, `po ${Math.round(p.maxMs / 1000)} s ukončeno – část termínů vynechána`].filter(Boolean).join(' · ');
   }
 
   await Promise.all(providers.map((p) => settle(() => (routeMode ? routeProvider(p) : exploreProvider(p)), stOf(p))));

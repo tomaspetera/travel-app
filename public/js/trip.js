@@ -153,19 +153,21 @@
     host.innerHTML = '<div class="loading-row"><span class="spin dark"></span> Ověřuji aktuální ceny u všech aerolinek…</div>';
     try {
       const qs = new URLSearchParams({ from: f.out.from, to: f.out.to, out: f.out.date, adults: t.adults });
-      if (f.back) qs.set('back', f.back.date);
+      if (f.back) { qs.set('back', f.back.date); qs.set('backFrom', f.back.from); qs.set('backTo', f.back.to); }
       const r = await fetch('api/verify?' + qs);
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
       if (!j.available) { host.innerHTML = '<div class="note info" style="margin-top:12px">ℹ️ <div>Živé ověření není v tomto režimu dostupné.</div></div>'; return; }
       if (!j.items.length) { host.innerHTML = `<div class="note warn" style="margin-top:12px">⚠️ <div>Pro tato data jsem živé nabídky nenašel${j.error ? ` (${esc(j.error)})` : ''}. Cenu ověř přímo u aerolinky.</div></div>`; return; }
       const cur = f.flightCzk;
-      host.innerHTML = `<div class="divider"></div><div class="muted" style="font-size:13px;margin-bottom:8px">Živé nabídky pro ${dayLbl(f.out.date)}${f.back ? ` – ${dayLbl(f.back.date)}` : ''} (${f.out.from} → ${f.out.to}), cena na osobu:</div>
+      const openJaw = f.back && (f.back.from !== f.out.to || f.back.to !== f.out.from);
+      host.innerHTML = `<div class="divider"></div><div class="muted" style="font-size:13px;margin-bottom:8px">Živé nabídky pro ${dayLbl(f.out.date)}${f.back ? ` – ${dayLbl(f.back.date)}` : ''} (${esc(f.out.from)} → ${esc(f.out.to)}${openJaw ? `, zpět ${esc(f.back.from)} → ${esc(f.back.to)} – dvě samostatné letenky` : ''}), cena na osobu:</div>
         <div class="alt-flights">${j.items.map((x, i) => `<div class="alt-f">
           <div><b>${esc(x.out.carrierName || '')}</b> <span class="faint">${x.out.stops ? `${x.out.stops}× přestup` : 'přímý'}${x.back ? ` · zpět ${esc(x.back.carrierName || '')}${x.back.stops ? ` (${x.back.stops}× přestup)` : ''}` : ''}</span>
             <div class="faint" style="font-size:12px">${hhmm(x.out.dep)}–${hhmm(x.out.arr)}${x.back ? ` · zpět ${hhmm(x.back.dep)}–${hhmm(x.back.arr)}` : ''}</div></div>
           <div class="alt-p ${x.flightCzk < cur ? 'good' : ''}">${czk(x.flightCzk)}</div>
-          <div class="row" style="gap:6px"><button class="btn sm" data-alt="${i}">Použít</button>${x.bookUrl ? `<a class="btn sm ghost" href="${esc(safeUrl(x.bookUrl))}" target="_blank" rel="noopener">Kiwi ↗</a>` : ''}</div></div>`).join('')}</div>
+          <div class="row" style="gap:6px"><button class="btn sm" data-alt="${i}">Použít</button>${x.bookUrl ? `<a class="btn sm ghost" href="${esc(safeUrl(x.bookUrl))}" target="_blank" rel="noopener">Kiwi ↗</a>`
+            : [x.out.bookUrl ? `<a class="btn sm ghost" href="${esc(safeUrl(x.out.bookUrl))}" target="_blank" rel="noopener">tam ↗</a>` : '', x.back && x.back.bookUrl ? `<a class="btn sm ghost" href="${esc(safeUrl(x.back.bookUrl))}" target="_blank" rel="noopener">zpět ↗</a>` : ''].join('')}</div></div>`).join('')}</div>
         ${j.items.some(x => x.out.stops) ? '<div class="faint" style="font-size:11.5px;margin-top:6px">Lety s přestupem přes Kiwi.com bývají samostatné letenky – Kiwi ručí za návaznost svou garancí.</div>' : ''}`;
       $$('[data-alt]', host).forEach(b => b.onclick = () => {
         const x = j.items[+b.dataset.alt];
@@ -406,7 +408,8 @@
       t.stay && t.stay.mode !== 'skip' ? ['🏨', `Ubytování · ${nightsTxt(nights)}${t.stay.name ? ' · ' + t.stay.name : ''}`, c.stay] : null,
       t.car && t.car.mode !== 'skip' ? ['🚗', 'Auto', c.car] : null,
     ].filter(Boolean);
-    const flightLinks = f.bookUrl ? [[f.combined ? 'Koupit letenky (Aviasales)' : 'Koupit letenky', f.bookUrl]]
+    const provLabel = p => ({ kiwi: 'Kiwi.com', travelpayouts: 'Aviasales', ryanair: 'Ryanair', wizzair: 'Wizz Air' })[p] || p;
+    const flightLinks = f.bookUrl ? [[f.combined ? `Koupit letenky (${provLabel(f.provider)})` : 'Koupit letenky', f.bookUrl]]
       : [[`Letenka tam (${f.out.carrierName || f.out.provider})`, f.out.bookUrl], ...(f.back ? [[`Letenka zpět (${f.back.carrierName || f.back.provider})`, f.back.bookUrl]] : [])];
     const steps = [
       ...flightLinks.map(([label, url], i) => ({ id: 'flight' + i, label, url })),
@@ -414,14 +417,14 @@
       t.car && t.car.mode !== 'skip' ? { id: 'car', label: 'Auto', url: carsData && carsData.links[0]?.url } : null,
     ].filter(Boolean);
     const timeline = [];
-    if (t.ground.out) timeline.push([f.out.date, '🚌', `Cesta na letiště ${f.out.from} (~${minutesToHm(t.ground.out.minutes)}, odhad)`]);
-    if (f.back && t.ground.back) timeline.push([f.back.date + '~', '🚌', `Cesta z letiště ${f.back.to} domů (~${minutesToHm(t.ground.back.minutes)})`]);
-    timeline.push([f.out.date, '🛫', `${f.out.from} ${hhmm(f.out.dep)} → ${f.out.to} ${arrHm(f.out)} · ${esc(f.out.carrierName || '')}`]);
+    if (t.ground.out) timeline.push([f.out.date, '🚌', `Cesta na letiště ${esc(f.out.from)} (~${minutesToHm(t.ground.out.minutes)}, odhad)`]);
+    if (f.back && t.ground.back) timeline.push([f.back.date + '~', '🚌', `Cesta z letiště ${esc(f.back.to)} domů (~${minutesToHm(t.ground.back.minutes)})`]);
+    timeline.push([f.out.date, '🛫', `${esc(f.out.from)} ${hhmm(f.out.dep)} → ${esc(f.out.to)} ${arrHm(f.out)} · ${esc(f.out.carrierName || '')}`]);
     if (t.car && t.car.mode !== 'skip' && t.car.from) timeline.push([t.car.from.slice(0, 10), '🚗', `Vyzvednutí auta ${esc(t.car.pickup)} ${t.car.from.slice(11, 16)}`]);
     if (t.stay && t.stay.mode !== 'skip') timeline.push([checkin, '🏨', `Ubytování: ${esc(t.stay.name || '')}`]);
     for (const d of (t.plan?.days || [])) timeline.push([d.date, '📍', d.items.map(x => esc(x.name)).join(' · ') || 'volný den']);
     if (t.car && t.car.mode !== 'skip' && t.car.to) timeline.push([t.car.to.slice(0, 10), '🚗', `Vrácení auta ${esc(t.car.dropoff)} ${t.car.to.slice(11, 16)}`]);
-    if (f.back) timeline.push([f.back.date, '🛬', `${f.back.from} ${hhmm(f.back.dep)} → ${f.back.to} · ${esc(f.back.carrierName || '')}`]);
+    if (f.back) timeline.push([f.back.date, '🛬', `${esc(f.back.from)} ${hhmm(f.back.dep)} → ${esc(f.back.to)} · ${esc(f.back.carrierName || '')}`]);
     // Stabilní řazení podle data; „~“ za datem = až po ostatních položkách dne.
     timeline.sort((a, b) => a[0].localeCompare(b[0]));
     for (const x of timeline) x[0] = x[0].replace('~', '');
@@ -479,13 +482,41 @@
     navigator.clipboard?.writeText(url).then(() => toast('Odkaz zkopírován – pošli ho komukoliv'), () => prompt('Zkopíruj odkaz:', url));
   }
 
+  /**
+   * Data ze sdíleného odkazu jsou cizí vstup: z textů odstraň znaky, které by šly použít k vložení
+   * HTML (<, >, uvozovky, `), čísla převeď na čísla a odkazy pustí dál jen safeUrl při vykreslení.
+   */
+  function sanitizeTrip(raw) {
+    const clean = v => typeof v === 'string' ? v.replace(/[<>"'`]/g, '').slice(0, 300)
+      : typeof v === 'number' ? (Number.isFinite(v) ? v : 0)
+      : typeof v === 'boolean' || v == null ? v
+      : Array.isArray(v) ? v.slice(0, 200).map(clean)
+      : typeof v === 'object' ? Object.fromEntries(Object.entries(v).slice(0, 200).filter(([k]) => /^[\w-]{1,40}$/.test(k)).map(([k, x]) => [k, clean(x)])) : null;
+    const t = clean(raw);
+    const num = (v, min, max, def) => { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def; };
+    const iata = v => /^[A-Z0-9]{3}$/.test(v || '') ? v : '???';
+    const leg = l => l && typeof l === 'object' ? { ...l, from: iata(l.from), to: iata(l.to), date: /^\d{4}-\d{2}-\d{2}$/.test(l.date || '') ? l.date : '1970-01-01' } : null;
+    t.adults = Math.round(num(t.adults, 1, 9, 1));
+    t.nightsOneWay = Math.round(num(t.nightsOneWay, 1, 30, 3));
+    t.flight.out = leg(t.flight.out);
+    t.flight.back = leg(t.flight.back);
+    t.flight.flightCzk = num(t.flight.flightCzk, 0, 1e7, 0);
+    t.flight.groundCzk = num(t.flight.groundCzk, 0, 1e6, 0);
+    for (const k of ['stay', 'car']) if (t[k] && typeof t[k] === 'object') t[k].totalCzk = num(t[k].totalCzk, 0, 1e7, 0);
+    if (!t.dest || typeof t.dest !== 'object') t.dest = { label: t.flight.out.to };
+    if (!t.ground || typeof t.ground !== 'object') t.ground = {};
+    if (t.plan && !Array.isArray(t.plan.days)) t.plan = null;
+    return t;
+  }
+
   /** Načte sdílenou cestu z #trip=… (volá app.js při startu). */
   function importFromHash() {
     const m = location.hash.match(/^#trip=([A-Za-z0-9_-]+)$/);
     if (!m) return false;
     try {
-      const t = JSON.parse(b64urlDecode(m[1]));
-      if (!t || !t.flight || !t.flight.out) throw new Error('neplatná data');
+      const parsed = JSON.parse(b64urlDecode(m[1]));
+      if (!parsed || !parsed.flight || !parsed.flight.out) throw new Error('neplatná data');
+      const t = sanitizeTrip(parsed);
       S.trip = { ...t, booked: {}, step: 'summary', created: Date.now() };
       persist();
       history.replaceState(null, '', '#trip');

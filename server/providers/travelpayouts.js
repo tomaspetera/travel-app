@@ -80,9 +80,16 @@ async function pfd(params) {
     try {
       return await fetchPfd(qs);
     } catch (e) {
-      if (!market || (e.status && e.status !== 400 && e.status !== 422)) throw e;
-      marketOk = false;
-      return fetchPfd(new URLSearchParams(base));
+      // Jen odmítnutí dotazu (400/422) může znamenat nepodporovaný trh; výpadek sítě nebo timeout ne.
+      if (!market || (e.status !== 400 && e.status !== 422)) throw e;
+      let res;
+      try {
+        res = await fetchPfd(new URLSearchParams(base));
+      } catch {
+        throw e; // bez trhu taky chyba → trh za to nemůže, nech ho zapnutý
+      }
+      marketOk = false; // bez trhu prošlo → API trh nepřijímá
+      return res;
     }
   });
 }

@@ -17,6 +17,14 @@ const limit = limiter(2);
 const pause = () => new Promise((r) => setTimeout(r, 400));
 const session = { id: null, at: 0, pending: null };
 let rpcId = 10;
+// Pojistka: po timeoutu, 429 nebo chybě serveru se Kiwi na 5 minut vynechává, ať nezdržuje hledání.
+let blockedUntil = 0;
+export const kiwiBlocked = () => Date.now() < blockedUntil;
+export function resetKiwi() {
+  blockedUntil = 0;
+  session.id = null;
+  session.at = 0;
+}
 
 /** Tělo odpovědi MCP: buď JSON-RPC objekt, nebo SSE („data: {…}“ řádky). */
 export function parseRpcBody(text) {
@@ -53,12 +61,13 @@ async function post(body, sessionId) {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json, text/event-stream',
-        ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
+        ...(sessionId ? { 'mcp-session-id': sessionId, 'mcp-protocol-version': PROTOCOL } : {}),
       },
       body: JSON.stringify(body),
       signal: ctrl.signal,
     });
     const text = await res.text();
+    if (body.id == null && res.ok) return { rpc: null, sessionId }; // notifikace: 202 bez těla
     if (!res.ok) {
       const err = new Error(`Kiwi: HTTP ${res.status}${res.status === 429 ? ' (příliš mnoho dotazů)' : ''}`);
       err.status = res.status;
@@ -86,6 +95,8 @@ async function ensureSession() {
       });
       // Bezstavový server hlavičku vynechá – pak se pokračuje bez ní.
       session.id = (sessionId || '').trim() || null;
+      // MCP: po initialize klient oznámí dokončení (notifications/initialized); chyba nevadí.
+      await post({ jsonrpc: '2.0', method: 'notifications/initialized' }, session.id).catch(() => {});
       session.at = Date.now();
       return session.id;
     } finally {
@@ -98,23 +109,33 @@ async function ensureSession() {
 async function searchFlight(args) {
   const key = `kiwi:${JSON.stringify(args)}`;
   return cache.wrap(key, TTL, () => limit(async () => {
+    if (kiwiBlocked()) throw new Error('Kiwi: dočasně vynecháno po předchozí chybě');
     await pause();
-    const sid = await ensureSession();
-    let out;
     try {
-      out = await post({ jsonrpc: '2.0', id: ++rpcId, method: 'tools/call', params: { name: 'search-flight', arguments: args } }, sid);
+      return await callSearch(args);
     } catch (e) {
-      // Vypršelá session → nová a jeden pokus navíc.
-      if (e.status !== 400 && e.status !== 404) throw e;
-      session.at = 0;
-      out = await post({ jsonrpc: '2.0', id: ++rpcId, method: 'tools/call', params: { name: 'search-flight', arguments: args } }, await ensureSession());
+      if (e.status === 429 || e.status >= 500 || /timeout|fetch failed/i.test(e.message)) blockedUntil = Date.now() + 5 * 60e3;
+      throw e;
     }
-    const res = out.rpc.result || {};
-    if (res.isError) throw new Error('Kiwi: nástroj vrátil chybu');
-    const text = (res.content || []).find((c) => c.type === 'text' && c.text)?.text;
-    if (!text) throw new Error('Kiwi: prázdná odpověď');
-    return JSON.parse(text);
   }));
+}
+
+async function callSearch(args) {
+  const sid = await ensureSession();
+  let out;
+  try {
+    out = await post({ jsonrpc: '2.0', id: ++rpcId, method: 'tools/call', params: { name: 'search-flight', arguments: args } }, sid);
+  } catch (e) {
+    // Vypršelá session → nová a jeden pokus navíc.
+    if (e.status !== 400 && e.status !== 404) throw e;
+    session.at = 0;
+    out = await post({ jsonrpc: '2.0', id: ++rpcId, method: 'tools/call', params: { name: 'search-flight', arguments: args } }, await ensureSession());
+  }
+  const res = out.rpc.result || {};
+  if (res.isError) throw new Error('Kiwi: nástroj vrátil chybu');
+  const text = (res.content || []).find((c) => c.type === 'text' && c.text)?.text;
+  if (!text) throw new Error('Kiwi: prázdná odpověď');
+  return JSON.parse(text);
 }
 
 const dmy = (ymd) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
@@ -179,23 +200,39 @@ export const kiwi = {
   callsPerRoute: (dateFrom, dateTo) => chunkRange(dateFrom, dateTo, 7).length,
   // Dotazy jsou pomalejší (~1–2 s) → v režimu konkrétního cíle jen pár hlavních letišť.
   maxPairs: 3,
-  // Rozpočet dotazů na jedno hledání (~1–2 s každý, 2 souběžně) – u dlouhého rozsahu dat méně letišť.
+  // Rozpočet dotazů na jedno hledání (~1–2 s každý, 2 souběžně) – u dlouhého rozsahu dat méně letišť
+  // a nejvýš 20 s, pak se hledání vrátí s tím, co Kiwi stihlo.
   maxCalls: 24,
+  maxMs: 20000,
 
-  /** Nejlevnější let po dnech: okna po 7 dnech (datum ± 3 dny). */
-  async daily({ from, to, dateFrom, dateTo, adults = 1 }) {
+  /**
+   * Nejlevnější let po dnech: okna po 7 dnech (datum ± 3 dny). Chyba jednoho okna nezahodí ostatní;
+   * po termínu `deadline` (ms) se další okna už nedotazují – vrátí se, co je hotové.
+   */
+  async daily({ from, to, dateFrom, dateTo, adults = 1, directOnly = false, deadline = null }) {
     const legs = [];
-    for (const [a, b] of chunkRange(dateFrom, dateTo, 7)) {
+    let failed = 0;
+    let lastErr = null;
+    const windows = chunkRange(dateFrom, dateTo, 7);
+    for (const [a, b] of windows) {
+      if (deadline && Date.now() > deadline) { failed++; lastErr = lastErr || new Error('Kiwi: vypršel čas na hledání'); continue; }
       const center = addDays(a, Math.min(3, daysBetween(a, b)));
-      const json = await searchFlight({
-        flyFrom: from, flyTo: to, departureDate: dmy(center), departureDateFlexRange: 3,
-        passengers: { adults }, sort: 'price', curr: 'EUR', locale: 'en', cabinClass: 'M',
-      });
-      for (const t of parseKiwiSearch(json, { adults })) {
-        if (t.out.date >= a && t.out.date <= b && t.out.from === from) legs.push(t.out);
+      try {
+        const json = await searchFlight({
+          flyFrom: from, flyTo: to, departureDate: dmy(center), departureDateFlexRange: 3,
+          passengers: { adults }, sort: 'price', curr: 'EUR', locale: 'en', cabinClass: 'M',
+        });
+        for (const t of parseKiwiSearch(json, { adults })) {
+          if (t.out.date >= a && t.out.date <= b && t.out.from === from) legs.push(t.out);
+        }
+      } catch (e) {
+        failed++;
+        lastErr = e;
       }
     }
-    return legs.filter((l) => l.date >= dateFrom && l.date <= dateTo);
+    if (failed === windows.length && lastErr) throw lastErr;
+    // Jen přímé lety: přestupové vyřadit už tady, jinak by v kalendáři přebily dražší přímý let.
+    return legs.filter((l) => l.date >= dateFrom && l.date <= dateTo && (!directOnly || !l.stops));
   },
 
   /** Živé ověření konkrétních dat (průvodce cestou): zpáteční i jednosměrné. */

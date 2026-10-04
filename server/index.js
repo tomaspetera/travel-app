@@ -21,6 +21,7 @@ import { planItinerary } from './lib/itinerary.js';
 import { kiwi } from './providers/kiwi.js';
 import { isYmd, daysBetween } from './lib/dates.js';
 import { affiliateOn } from './lib/links.js';
+import { makeTrip } from './lib/fares.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -266,11 +267,27 @@ async function route(req, res) {
     const out = url.searchParams.get('out') || '';
     const back = url.searchParams.get('back') || '';
     const adults = Math.min(9, Math.max(1, Number(url.searchParams.get('adults')) || 1));
-    if (!getAirport(from) || !getAirport(to) || !isYmd(out) || (back && !isYmd(back))) return sendJson(req, res, 400, { error: 'Neplatné letiště nebo datum.' });
+    // Návrat z/do jiného letiště (open-jaw): backFrom/backTo, výchozí = obráceně než tam.
+    const backFrom = (url.searchParams.get('backFrom') || to).toUpperCase();
+    const backTo = (url.searchParams.get('backTo') || from).toUpperCase();
+    if (!getAirport(from) || !getAirport(to) || !isYmd(out) || (back && !isYmd(back)) || (back && (!getAirport(backFrom) || !getAirport(backTo)))) {
+      return sendJson(req, res, 400, { error: 'Neplatné letiště nebo datum.' });
+    }
     if (config.mock || !config.kiwi) return sendJson(req, res, 200, { available: false, items: [] });
     await loadRates();
     try {
-      const trips = await kiwi.exact({ from, to, dateOut: out, dateBack: back || null, adults });
+      let trips;
+      if (back && (backFrom !== to || backTo !== from)) {
+        // Open-jaw = dvě jednosměrné letenky: nejlevnější kombinace tam × zpět.
+        const [outs, backs] = await Promise.all([
+          kiwi.exact({ from, to, dateOut: out, adults }),
+          kiwi.exact({ from: backFrom, to: backTo, dateOut: back, adults }),
+        ]);
+        const top = (xs) => xs.filter((t) => t.flightCzk > 0).sort((a, b) => a.flightCzk - b.flightCzk).slice(0, 5);
+        trips = top(outs).flatMap((o) => top(backs).map((b) => makeTrip(o.out, b.out)));
+      } else {
+        trips = await kiwi.exact({ from, to, dateOut: out, dateBack: back || null, adults });
+      }
       return sendJson(req, res, 200, { available: true, items: trips.filter((t) => t.flightCzk > 0).sort((a, b) => a.flightCzk - b.flightCzk).slice(0, 12) });
     } catch (e) {
       return sendJson(req, res, 200, { available: true, items: [], error: e.message });
