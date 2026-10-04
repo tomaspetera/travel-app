@@ -1,0 +1,119 @@
+// Integrační test: server v DEMO režimu (ATLAS_MOCK=1) – API, streamované hledání, statické soubory.
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import { ymdPlus } from './helpers.js';
+
+process.env.ATLAS_MOCK = '1';
+const { createServer } = await import('../server/index.js');
+
+let server;
+let base;
+before(async () => {
+  server = createServer();
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  base = `http://127.0.0.1:${server.address().port}`;
+});
+after(() => server.close());
+
+function rawGet(path) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port: server.address().port, path, method: 'GET' }, (res) => {
+      let body = '';
+      res.on('data', (c) => { body += c; });
+      res.on('end', () => resolve({ status: res.statusCode, body }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+async function searchStream(body) {
+  const r = await fetch(`${base}/api/search`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /ndjson/);
+  const lines = (await r.text()).trim().split('\n').map((l) => JSON.parse(l));
+  return { progress: lines.filter((l) => l.type === 'progress'), last: lines.at(-1) };
+}
+
+test('GET /api/health', async () => {
+  const j = await (await fetch(`${base}/api/health`)).json();
+  assert.equal(j.ok, true);
+  assert.equal(j.demo, true);
+  assert.ok(j.providers.length >= 1);
+});
+
+test('GET /healthz a /api/diag (ostrý test zdrojů)', async () => {
+  const h = await fetch(`${base}/healthz`);
+  assert.equal(h.status, 200);
+  assert.equal(await h.text(), 'ok');
+  const d = await (await fetch(`${base}/api/diag`)).json();
+  assert.equal(d.demo, true);
+  assert.ok(d.providers.length >= 1);
+  assert.ok(d.providers.every((p) => p.ok && p.detail));
+  const bad = await rawGet('/%E0%A4%A');
+  assert.equal(bad.status, 400);
+});
+
+test('GET /api/places a /api/origins', async () => {
+  const p = await (await fetch(`${base}/api/places?q=brno&remote=0`)).json();
+  assert.equal(p.items[0].id, 'ap:BRQ');
+  const o = await (await fetch(`${base}/api/origins?from=ap:BRQ&radius=150`)).json();
+  assert.ok(o.airports.some((a) => a.iata === 'VIE'));
+  assert.ok(o.airports.every((a) => a.city && a.lat));
+});
+
+test('POST /api/search – kamkoliv, zpáteční, průběh se streamuje', async () => {
+  const { progress, last } = await searchStream({ from: ['ap:BRQ'], radiusKm: 150, dateFrom: ymdPlus(10), dateTo: ymdPlus(40), trip: 'return', nightsMin: 2, nightsMax: 6, adults: 2 });
+  assert.ok(progress.length >= 1);
+  assert.equal(last.type, 'result');
+  const r = last.result;
+  assert.equal(r.mode, 'explore');
+  assert.equal(r.demo, true);
+  assert.ok(r.groups.length > 10);
+  const prices = r.groups.map((g) => g.best.perPersonCzk);
+  assert.deepEqual(prices, [...prices].sort((a, b) => a - b), 'seřazeno od nejlevnějšího');
+  for (const g of r.groups.slice(0, 20)) {
+    const t = g.best;
+    assert.ok(t.nights >= 2 && t.nights <= 6);
+    assert.equal(t.totalCzk, t.perPersonCzk * 2);
+    assert.equal(t.perPersonCzk, t.flightCzk + t.groundCzk);
+    assert.ok(r.origins.some((o) => o.iata === t.out.from));
+  }
+});
+
+test('POST /api/search – konkrétní cíl, víkend, kalendář', async () => {
+  const { last } = await searchStream({ from: ['ap:VIE'], to: ['metro:LON'], radiusKm: 200, dateFrom: ymdPlus(7), dateTo: ymdPlus(60), trip: 'return', nightsMin: 1, nightsMax: 3, outDays: [4, 5, 6], backDays: [0, 1] });
+  const r = last.result;
+  assert.equal(r.mode, 'route');
+  assert.ok(r.top.length > 0);
+  for (const t of r.top) {
+    assert.ok(['LHR', 'LGW', 'STN', 'LTN', 'LCY', 'SEN'].includes(t.out.to));
+    assert.ok([4, 5, 6].includes(new Date(t.out.date + 'T12:00:00Z').getUTCDay()));
+    assert.ok([0, 1].includes(new Date(t.back.date + 'T12:00:00Z').getUTCDay()));
+  }
+  assert.ok(r.calendar.out.length > 0);
+  assert.ok(r.calendar.out.every((d) => [4, 5, 6].includes(new Date(d.date + 'T12:00:00Z').getUTCDay())));
+});
+
+test('POST /api/search – chybějící odkud → srozumitelná chyba', async () => {
+  const { last } = await searchStream({ to: ['cc:ES'] });
+  assert.equal(last.type, 'error');
+  assert.match(last.error, /odkud/i);
+});
+
+test('statické soubory, data a ochrana proti path traversal', async () => {
+  const html = await fetch(`${base}/`);
+  assert.equal(html.status, 200);
+  assert.match(await html.text(), /<title>ATLAS/);
+  const c = await (await fetch(`${base}/data/countries.json`)).json();
+  assert.ok(c.length > 150);
+  // fetch() by „..“ normalizoval, proto surový HTTP požadavek.
+  for (const p of ['/../server/config.js', '/%2e%2e%2fserver%2fconfig.js', '/..%2f..%2f.env']) {
+    const { status, body } = await rawGet(p);
+    assert.ok(!body.includes('export const config'), `${p} nesmí vrátit zdrojový kód serveru`);
+    assert.ok(status === 403 || status === 200, `${p}: ${status}`);
+  }
+  const js = await fetch(`${base}/js/flights.js`, { headers: { 'accept-encoding': 'gzip' } });
+  assert.equal(js.status, 200);
+});

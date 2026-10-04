@@ -1,0 +1,142 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { makeLeg } from '../server/lib/fares.js';
+import { bestRoundTrips, bestOneWays, cheapestPerDay, dateOk, oneWayCalendar } from '../server/lib/optimizer.js';
+import { localSuggestions, resolveOrigins, resolveDestinations, describe } from '../server/lib/places.js';
+import { groundEstimate, haversineKm } from '../server/lib/geo.js';
+import { convert, setRates, FALLBACK_EUR } from '../server/lib/fx.js';
+import { chunkRange, monthsInRange, weekday } from '../server/lib/dates.js';
+import { normalizeQuery, referencePrice } from '../server/lib/search.js';
+import { ymdPlus } from './helpers.js';
+
+const leg = (provider, from, to, date, czk) => makeLeg({ provider, from, to, dep: `${date}T10:00:00`, czk, price: czk, currency: 'CZK' });
+
+test('cheapestPerDay ponechá jen nejlevnější let pro (odkud, kam, den)', () => {
+  const r = cheapestPerDay([leg('a', 'VIE', 'BGY', '2026-11-03', 900), leg('b', 'VIE', 'BGY', '2026-11-03', 700), leg('a', 'VIE', 'BGY', '2026-11-04', 800)]);
+  assert.equal(r.length, 2);
+  assert.equal(r.find((l) => l.date === '2026-11-03').provider, 'b');
+});
+
+test('dateOk: počet nocí a dny v týdnu', () => {
+  // 2026-11-06 je pátek, 2026-11-08 neděle
+  assert.equal(weekday('2026-11-06'), 5);
+  const c = { nightsMin: 1, nightsMax: 3, outDays: [4, 5], backDays: [0, 1] };
+  assert.equal(dateOk('2026-11-06', '2026-11-08', c), true);
+  assert.equal(dateOk('2026-11-07', '2026-11-08', c), false); // sobota není povolený odlet
+  assert.equal(dateOk('2026-11-06', '2026-11-10', c), false); // 4 noci
+});
+
+test('bestRoundTrips: kombinuje aerolinky, open-jaw domov i cíl a započítá dopravu', () => {
+  const ground = { VIE: 300, BTS: 50 };
+  const groundOf = (i) => ground[i] ?? 0;
+  const out = [leg('ryanair', 'VIE', 'BGY', '2026-11-03', 500), leg('wizzair', 'BTS', 'BGY', '2026-11-03', 650)];
+  const back = [
+    leg('wizzair', 'MXP', 'BTS', '2026-11-06', 400), // Milán MXP → BTS (open-jaw v cíli i doma)
+    leg('ryanair', 'BGY', 'VIE', '2026-11-06', 700),
+    leg('ryanair', 'BGY', 'VIE', '2026-11-20', 100), // mimo rozsah nocí
+  ];
+  const trips = bestRoundTrips(out, back, groundOf, { nightsMin: 2, nightsMax: 5, openJawHome: true, openJawDest: true, limit: 10, perDestLimit: 10 });
+  assert.ok(trips.length >= 2);
+  const best = trips[0];
+  // Nejlevnější celkem: BTS→BGY 650 + doprava 50, zpět MXP→BTS 400 + 50 = 1150
+  // (VIE→BGY je levnější letenka, ale doprava do Vídně 300 Kč ji prodraží).
+  const totals = trips.map((t) => t.flightCzk + groundOf(t.out.from) + groundOf(t.back.to));
+  assert.deepEqual(totals, [...totals].sort((a, b) => a - b));
+  assert.equal(totals[0], 1150);
+  assert.equal(best.out.from, 'BTS');
+  assert.equal(best.back.from, 'MXP');
+  assert.equal(best.provider, 'wizzair');
+  assert.ok(trips.some((t) => t.provider === 'mix'), 'umí kombinovat dvě aerolinky');
+  assert.ok(trips.every((t) => t.nights >= 2 && t.nights <= 5));
+
+  const strict = bestRoundTrips(out, back, groundOf, { nightsMin: 2, nightsMax: 5, openJawHome: false, openJawDest: false, limit: 10, perDestLimit: 10 });
+  assert.ok(strict.every((t) => t.back.from === t.out.to && t.back.to === t.out.from));
+});
+
+test('bestRoundTrips: kalendář nejlevnějších celých cest podle dne', () => {
+  const out = [leg('a', 'VIE', 'BCN', '2026-11-03', 500), leg('a', 'VIE', 'BCN', '2026-11-04', 300)];
+  const back = [leg('a', 'BCN', 'VIE', '2026-11-07', 400), leg('a', 'BCN', 'VIE', '2026-11-08', 200)];
+  const maps = { out: new Map(), back: new Map() };
+  bestRoundTrips(out, back, () => 0, { nightsMin: 3, nightsMax: 4, limit: 10, perDestLimit: 10, perDay: 2, calendar: maps });
+  assert.equal(maps.out.get('2026-11-03').cost, 900); // 3.→7. (4 noci); 8. by bylo 5 nocí
+  assert.equal(maps.out.get('2026-11-04').cost, 500); // 4.→8.
+  assert.equal(maps.back.get('2026-11-08').cost, 500);
+});
+
+test('bestOneWays + oneWayCalendar respektují dny odletu', () => {
+  const out = [leg('a', 'PRG', 'STN', '2026-11-06', 500), leg('a', 'PRG', 'STN', '2026-11-07', 300)];
+  const trips = bestOneWays(out, () => 0, { outDays: [5], limit: 10, perDestLimit: 10 });
+  assert.deepEqual(trips.map((t) => t.out.date), ['2026-11-06']);
+  assert.deepEqual(oneWayCalendar(out, () => 100, { outDays: [5] }).map((d) => d.cost), [600]);
+});
+
+test('našeptávač: české názvy, země, metropole, regiony a IATA kódy', () => {
+  assert.equal(localSuggestions('Vídeň')[0].id, 'ap:VIE');
+  assert.equal(localSuggestions('cesko')[0].id, 'cc:CZ');
+  assert.equal(localSuggestions('Německo')[0].id, 'cc:DE');
+  assert.equal(localSuggestions('lond')[0].id, 'metro:LON');
+  assert.equal(localSuggestions('kanáry')[0].id, 'rg:kanary');
+  assert.equal(localSuggestions('STN')[0].id, 'ap:STN');
+  assert.equal(localSuggestions('mnichov')[0].id, 'ap:MUC');
+  assert.ok(!localSuggestions('Vídeň').some((s) => s.id === 'ap:PLS'), 'žádný šum typu proVIDENciales');
+  assert.equal(describe('geo:49.3961,15.5912|Jihlava').label, 'Jihlava');
+});
+
+test('resolveOrigins: libovolné místo → letiště v okruhu se vzdáleností a odhadem dopravy', () => {
+  const r = resolveOrigins(['geo:49.3961,15.5912|Jihlava'], { radiusKm: 200 });
+  const codes = r.airports.map((a) => a.iata);
+  for (const c of ['PRG', 'BRQ', 'VIE']) assert.ok(codes.includes(c), `${c} je do 200 km od Jihlavy`);
+  assert.ok(r.airports.every((a) => a.distKm <= 200));
+  const prg = r.airports.find((a) => a.iata === 'PRG');
+  assert.ok(prg.ground.czk > 100 && prg.ground.minutes > 60);
+  // Země → všechna (větší) letiště země, bez dopravy
+  const cz = resolveOrigins(['cc:CZ'], { radiusKm: 0 });
+  assert.ok(['PRG', 'BRQ', 'OSR'].every((c) => cz.airports.some((a) => a.iata === c)));
+  assert.equal(cz.home, null);
+  // Konkrétní letiště + okruh
+  const vie = resolveOrigins(['ap:VIE'], { radiusKm: 80 });
+  assert.deepEqual(vie.airports.map((a) => a.iata), ['VIE', 'BTS']);
+  assert.equal(resolveOrigins(['ap:VIE'], { radiusKm: 0 }).airports.length, 1);
+});
+
+test('resolveDestinations', () => {
+  assert.equal(resolveDestinations([]).kind, 'anywhere');
+  assert.deepEqual(resolveDestinations(['cc:ES', 'cc:PT']).countries, ['ES', 'PT']);
+  const lon = resolveDestinations(['metro:LON']);
+  assert.equal(lon.kind, 'airports');
+  assert.ok(lon.airports.includes('STN') && lon.airports.includes('LTN'));
+  assert.deepEqual(resolveDestinations(['rg:kreta']).airports, ['HER', 'CHQ']);
+});
+
+test('geo + doprava na letiště', () => {
+  const d = haversineKm(50.0755, 14.4378, 48.2082, 16.3738); // Praha–Vídeň
+  assert.ok(d > 245 && d < 260);
+  const g = groundEstimate(d, 1.1);
+  assert.ok(g.minutes > 200 && g.minutes < 300);
+  assert.ok(g.czk > 300 && g.czk < 400);
+  assert.equal(groundEstimate(10, 0).czk, 0);
+});
+
+test('fx: převod měn přes EUR', () => {
+  setRates({ base: 'EUR', rates: { ...FALLBACK_EUR, CZK: 25, PLN: 4 }, source: 'test' });
+  assert.equal(convert(100, 'EUR', 'CZK'), 2500);
+  assert.equal(convert(40, 'PLN', 'CZK'), 250);
+  assert.equal(convert(10, 'XYZ', 'CZK'), null);
+});
+
+test('data: rozdělení intervalů', () => {
+  assert.deepEqual(chunkRange('2026-11-01', '2026-11-10', 4), [['2026-11-01', '2026-11-04'], ['2026-11-05', '2026-11-08'], ['2026-11-09', '2026-11-10']]);
+  assert.deepEqual(monthsInRange('2026-11-20', '2027-01-03'), ['2026-11-01', '2026-12-01', '2027-01-01']);
+});
+
+test('normalizeQuery: validace a výchozí hodnoty', () => {
+  assert.throws(() => normalizeQuery({}), /odkud/);
+  const q = normalizeQuery({ from: ['ap:VIE'], dateFrom: '2000-01-01', dateTo: '2000-01-05', nightsMin: 9, nightsMax: 2, adults: 50, outDays: [5, 9, 'x'] });
+  assert.ok(q.dateFrom >= ymdPlus(-1), 'minulost se posune na dnešek');
+  assert.equal(q.nightsMin, 2);
+  assert.equal(q.nightsMax, 9);
+  assert.equal(q.adults, 9);
+  assert.deepEqual(q.outDays, [5]);
+  assert.equal(q.trip, 'return');
+  assert.ok(referencePrice(1000) < referencePrice(5000));
+});
