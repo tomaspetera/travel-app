@@ -135,9 +135,43 @@
     host.innerHTML = `<div class="card step-card"><h3>✈️ Vybraný let</h3>
       ${legLine(t.flight.out)}${t.flight.back ? legLine(t.flight.back, true) : ''}
       <div class="muted" style="margin-top:8px;font-size:13px">Letenky ${czk(t.flight.flightCzk)}/os.${t.flight.groundCzk ? ` + doprava na letiště ${czk(t.flight.groundCzk)}/os.` : ''}</div>
-      <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="tfBack">↩ Vybrat jiný let</button><button class="btn primary" id="tfNext">Pokračovat k ubytování →</button></div></div>`;
+      <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="tfBack">↩ Vybrat jiný let</button><button class="btn" id="tfVerify">🔄 Ověřit živou cenu a porovnat aerolinky</button><button class="btn primary" id="tfNext">Pokračovat k ubytování →</button></div>
+      <div id="tfAlt"></div></div>`;
     $('#tfBack').onclick = () => go('flights');
     $('#tfNext').onclick = () => setStep('stay');
+    $('#tfVerify').onclick = () => verifyFlight();
+  }
+
+  /** Živé ceny všech aerolinek pro zvolená data a letiště (Kiwi.com). */
+  async function verifyFlight() {
+    const t = T();
+    const f = t.flight;
+    const host = $('#tfAlt');
+    host.innerHTML = '<div class="loading-row"><span class="spin dark"></span> Ověřuji aktuální ceny u všech aerolinek…</div>';
+    try {
+      const qs = new URLSearchParams({ from: f.out.from, to: f.out.to, out: f.out.date, adults: t.adults });
+      if (f.back) qs.set('back', f.back.date);
+      const r = await fetch('api/verify?' + qs);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      if (!j.available) { host.innerHTML = '<div class="note info" style="margin-top:12px">ℹ️ <div>Živé ověření není v tomto režimu dostupné.</div></div>'; return; }
+      if (!j.items.length) { host.innerHTML = `<div class="note warn" style="margin-top:12px">⚠️ <div>Pro tato data jsem živé nabídky nenašel${j.error ? ` (${esc(j.error)})` : ''}. Cenu ověř přímo u aerolinky.</div></div>`; return; }
+      const cur = f.flightCzk;
+      host.innerHTML = `<div class="divider"></div><div class="muted" style="font-size:13px;margin-bottom:8px">Živé nabídky pro ${dayLbl(f.out.date)}${f.back ? ` – ${dayLbl(f.back.date)}` : ''} (${f.out.from} → ${f.out.to}), cena na osobu:</div>
+        <div class="alt-flights">${j.items.map((x, i) => `<div class="alt-f">
+          <div><b>${esc(x.out.carrierName || '')}</b> <span class="faint">${x.out.stops ? `${x.out.stops}× přestup` : 'přímý'}${x.back ? ` · zpět ${esc(x.back.carrierName || '')}${x.back.stops ? ` (${x.back.stops}× přestup)` : ''}` : ''}</span>
+            <div class="faint" style="font-size:12px">${hhmm(x.out.dep)}–${hhmm(x.out.arr)}${x.back ? ` · zpět ${hhmm(x.back.dep)}–${hhmm(x.back.arr)}` : ''}</div></div>
+          <div class="alt-p ${x.flightCzk < cur ? 'good' : ''}">${czk(x.flightCzk)}</div>
+          <div class="row" style="gap:6px"><button class="btn sm" data-alt="${i}">Použít</button>${x.bookUrl ? `<a class="btn sm ghost" href="${esc(x.bookUrl)}" target="_blank" rel="noopener">Kiwi ↗</a>` : ''}</div></div>`).join('')}</div>
+        ${j.items.some(x => x.out.stops) ? '<div class="faint" style="font-size:11.5px;margin-top:6px">Lety s přestupem přes Kiwi.com bývají samostatné letenky – Kiwi ručí za návaznost svou garancí.</div>' : ''}`;
+      $$('[data-alt]', host).forEach(b => b.onclick = () => {
+        const x = j.items[+b.dataset.alt];
+        t.flight = { ...x, groundCzk: t.flight.groundCzk, perPersonCzk: x.flightCzk + (t.flight.groundCzk || 0), totalCzk: (x.flightCzk + (t.flight.groundCzk || 0)) * t.adults };
+        persist(); render(); flightStep(); toast('Let aktualizován');
+      });
+    } catch (e) {
+      host.innerHTML = `<div class="note warn" style="margin-top:12px">⚠️ <div>${esc(e.message)}</div></div>`;
+    }
   }
 
   /* ---------- ubytování ---------- */
@@ -172,7 +206,7 @@
     const key = `${t.dest.label}|${checkin}|${checkout}|${t.adults}`;
     if (!staysData || staysData.key !== key) {
       try {
-        const qs = new URLSearchParams({ city: t.dest.label.replace(/ \(.*\)$/, ''), country: t.dest.country || '', cc: t.dest.cc || '', checkin, checkout, adults: t.adults });
+        const qs = new URLSearchParams({ city: t.dest.label.replace(/ \(.*\)$/, ''), country: t.dest.country || '', cc: t.dest.cc || '', iata: t.flight.out.to, checkin, checkout, adults: t.adults });
         if (t.dest.lat != null) { qs.set('lat', t.dest.lat); qs.set('lon', t.dest.lon); }
         const r = await fetch('api/stays?' + qs);
         const j = await r.json();
@@ -225,7 +259,8 @@
       host.innerHTML = `<div class="note info">ℹ️ <div>${d.providers.length ? 'Pro tento termín nemám přímé nabídky' : 'Přímé nabídky ubytování zatím nejsou zapnuté'} – otevři si hledání u partnerů, je už <b>předvyplněné na tvoje data a seřazené podle hodnocení a ceny</b>. Až si vybereš, zadej cenu níže.${errs ? `<br><span class="faint">${errs}</span>` : ''}</div></div>${links}`;
       return;
     }
-    host.innerHTML = `<div class="stay-tools">
+    const testNote = d.providers.some(p => p.ok && p.test && p.count) ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>Ukázková / testovací nabídka</b> – hotely a ceny nejsou skutečné (demo režim nebo testovací klíč LiteAPI). Skutečné ceny ověř přes odkazy na partnery dole.</div></div>` : '';
+    host.innerHTML = `${testNote}<div class="stay-tools">
         <select id="staySort">${[['value', '🏆 Nejlepší poměr cena/hodnocení'], ['price', '💰 Nejlevnější'], ['rating', '⭐ Nejlépe hodnocené'], ['dist', '📍 Nejblíž centru']].map(o => `<option value="${o[0]}" ${stayView.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
         <div class="seg" id="stayMin">${[[0, 'vše'], [7, '7+'], [8, '8+'], [9, '9+']].map(o => `<button type="button" data-v="${o[0]}" class="${stayView.minRating === o[0] ? 'on' : ''}">${o[1]}</button>`).join('')}</div>
         ${types.length > 1 ? `<select id="stayType"><option value="">všechny typy</option>${types.map(x => `<option ${stayView.type === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}

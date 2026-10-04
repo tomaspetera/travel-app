@@ -137,6 +137,22 @@ export function planItinerary(pois, opts) {
     const order = clusters.map((cl, i) => ({ cl, i, mins: cl.reduce((s, p) => s + p.visitMin, 0) })).sort((a, b) => b.mins - a.mins);
     const dayOrder = cityDays.map((c) => days.find((d) => d.date === c.date)).sort((a, b) => b.cap - a.cap);
     order.forEach((o, idx) => { dayOrder[idx].items = o.cl; dayOrder[idx].center = centers[o.i]; });
+    // Pestrost: nejvýš 3 kostely a 2 náměstí za den – přebytek přesuň jinam (nebo vynech).
+    const CAP = { church: 3, square: 2, monument: 3 };
+    for (const d of dayOrder) {
+      d.items.sort((a, b) => weight(b) - weight(a));
+      const seen = {};
+      const keep = [];
+      for (const p of d.items) {
+        seen[p.category] = (seen[p.category] || 0) + 1;
+        if (CAP[p.category] && seen[p.category] > CAP[p.category]) {
+          const target = dayOrder.find((x) => x !== d && x.items.filter((q) => q.category === p.category).length < CAP[p.category]
+            && x.items.reduce((sum, q) => sum + q.visitMin, 0) + p.visitMin <= x.cap);
+          if (target) target.items.push(p);
+        } else keep.push(p);
+      }
+      d.items = keep;
+    }
     // Vyvážení: co přeteče kapacitu dne, přesuň do dne s volnou kapacitou (nejbližší místo napřed).
     for (const d of dayOrder) {
       d.items.sort((a, b) => weight(b) - weight(a));

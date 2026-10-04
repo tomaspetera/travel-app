@@ -6,6 +6,7 @@ import { stubFetch, ymdPlus } from './helpers.js';
 process.env.ATLAS_MOCK = '0';
 process.env.RYANAIR_ENABLED = '1';
 process.env.WIZZ_ENABLED = '0';
+process.env.KIWI_ENABLED = '0';
 process.env.TRAVELPAYOUTS_TOKEN = '';
 const { search } = await import('../server/lib/search.js');
 

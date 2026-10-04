@@ -4,8 +4,33 @@ Cestovní aplikace, která **skutečně hledá letenky**: napíšeš „Brno“,
 ATLAS najde všechna letiště v okolí, prohledá je najednou u více aerolinek a ukáže nejlevnější lety **kamkoliv na světě**
 (nebo do konkrétního cíle) – včetně ceny cesty na letiště.
 
+Z vybraného letu pak průvodce **Cesta** poskládá celou dovolenou: **let → ubytování → auto → program → shrnutí**
+s celkovou cenou, seznamem, co v jakém pořadí zarezervovat, a časovou osou. Sekce **Objevuj** funguje i samostatně:
+zadáš místo a ATLAS najde, co tam stojí za vidění, a rozplánuje to do dnů.
+
 K tomu zůstalo vše z původního ATLAS: mapa navštívených zemí, přehled zemí s počasím a bezpečností, doporučení
 podle měsíce a plánovač cest.
+
+## Celá cesta krok za krokem
+
+1. **Let** – v hledání klikneš u letu na *Vybrat a pokračovat*. Tlačítkem *Ověřit živou cenu* se dotáže Kiwi.com
+   na přesnou cenu a nabídne i jiné aerolinky na stejný termín (low-cost i klasické, přestupy, kombinace).
+2. **Ubytování** – nabídky na tvoje data seřazené podle **nejlepšího poměru cena / hodnocení** (hodnocení je očištěné
+   o malý počet recenzí, takže 10/10 ze 2 recenzí nepřebije 8,9 z 2 000). Přepneš na nejlevnější, nejlépe hodnocené
+   nebo nejblíž centru, filtruješ 7+/8+/9+, typ a max. cenu za noc. Bez klíče LiteAPI dostaneš předvyplněné hledání
+   na Booking.com (seřazené podle hodnocení a ceny), Airbnb, Google Hotels a Hostelworld a cenu jen zapíšeš.
+3. **Auto** (nepovinné) – vyzvednutí na letišti 45 min po příletu, vrácení 2 h před odletem, předvyplněné srovnávače.
+4. **Program** – místa k vidění kolem ubytování rozdělená do dnů podle polohy (den příletu a odletu je kratší),
+   každý den jako pěší trasa s odkazem do Google Map; volíš zájmy a tempo, místa můžeš vyřadit nebo přidat.
+5. **Shrnutí** – cena celkem a na osobu, co zarezervovat a v jakém pořadí, časová osa, uložení do plánovače a odkaz
+   na sdílení.
+
+### Je to umělá inteligence?
+
+Ne. Ceny letenek jsou **skutečné odpovědi API aerolinek a vyhledávačů** (Ryanair, Wizz Air, Kiwi.com, Aviasales).
+Nejlevnější kombinace, pořadí hotelů i program dnů počítají **deterministické algoritmy** (optimalizátor kombinací,
+bayesovské hodnocení, shlukování míst k-means + trasa nejbližší soused / 2-opt). Místa k vidění a jejich popisy jsou
+z Wikidat a Wikipedie. Stejný dotaz tedy dá stejný výsledek a nic si nevymýšlí.
 
 ## V čem je lepší než Skyscanner
 
@@ -27,9 +52,14 @@ podle měsíce a plánovač cest.
 |---|---|---|
 | **Ryanair** (Fare Finder API webu ryanair.com) | živé ceny, „kamkoliv“ jedním dotazem na letiště, ceny po dnech | není potřeba |
 | **Wizz Air** (API webu wizzair.com – mapa tras + `timetableV2`) | živé ceny po dnech na trasách | není potřeba |
+| **Kiwi.com** (veřejný MCP server `mcp.kiwi.com`) | živé ceny všech aerolinek (low-cost i klasické, přestupy, kombinace různých aerolinek) pro konkrétní trasu – v hledání do cíle a při ověření vybraného letu | není potřeba |
 | **Travelpayouts / Aviasales Data API** | všechny ostatní aerolinky (i s přestupy, dálkové lety), ceny z vyhledávání uživatelů za posledních ~48 h | **zdarma** token z [travelpayouts.com](https://www.travelpayouts.com/) |
+| **LiteAPI** (ubytování) | hotely s cenou na zadané dny, hodnocením hostů a fotkou | **zdarma** klíč z [liteapi.travel](https://www.liteapi.travel/) |
+| **Wikidata + Wikipedie** (program) | místa k vidění, typ, význam, fotky, české popisy | není potřeba |
 
-> Amadeus Self-Service API bylo v červenci 2026 vypnuto a Kiwi Tequila ani Skyscanner API nepřijímají nové vývojáře,
+> Amadeus Self-Service API bylo v červenci 2026 vypnuto a Kiwi Tequila ani Skyscanner API nepřijímají nové vývojáře
+> (Kiwi.com je proto napojené přes svůj veřejný MCP server; jeho podmínky pro neagentní použití nejsou zveřejněné –
+> kdyby ho Kiwi omezilo, vypne se `KIWI_ENABLED=0` a zbytek běží dál),
 > proto ATLAS staví na zdrojích výše. Adaptéry jsou oddělené (`server/providers/`), další zdroj se přidá jedním souborem.
 
 Ceny Ryanair a Wizz Air jsou živé, ale do rezervace se mohou změnit; ceny z Travelpayouts jsou označené „⏱ z cache“
@@ -56,6 +86,10 @@ Zkopíruj `.env.example` na `.env`:
 |---|---|---|
 | `TRAVELPAYOUTS_TOKEN` | – | zapne další aerolinky (zdarma na travelpayouts.com → Developers → API token) |
 | `TRAVELPAYOUTS_MARKER` | – | tvůj affiliate marker – připojí se k odkazům na Aviasales |
+| `TRAVELPAYOUTS_MARKET` | `cz` | trh Aviasales, z jehož vyhledávání se berou ceny (bez něj API čte ruský trh) |
+| `KIWI_ENABLED` | `1` | Kiwi.com: živá cena a porovnání aerolinek k vybranému letu (zdarma, bez klíče); `0` = vypnout |
+| `LITEAPI_KEY` | – | hotely s cenou na tvoje data a hodnocením hostů (zdarma klíč na dashboard.liteapi.travel; `sand_…` = testovací data) |
+| `LITEAPI_WHITELABEL` | – | doména white-label rezervační stránky LiteAPI – tlačítko „detail“ pak vede tam místo na Booking.com |
 | `PORT` | `8080` | port serveru |
 | `MAX_ORIGINS` | `8` | kolik nejbližších letišť se v jednom hledání prohledá |
 | `WIZZ_MAX_CALLS` | `60` | Wizz Air nemá „kamkoliv“ – kolik dotazů na trasy smí jedno hledání udělat |
@@ -119,6 +153,12 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `GET /api/places?q=vid` | našeptávač (`ap:VIE`, `metro:LON`, `cc:CZ`, `rg:kanary`, `geo:lat,lon\|Název`) |
 | `GET /api/origins?from=ap:BRQ&radius=200` | letiště, která se prohledají, se vzdáleností a odhadem dopravy |
 | `POST /api/search` | hledání, viz `normalizeQuery` v `server/lib/search.js`; odpověď je NDJSON (průběh, pak výsledek) |
+| `GET /api/verify?from=BGY&to=BCN&out=2026-11-10&back=2026-11-14&adults=2` | živá cena a alternativy z Kiwi.com |
+| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery |
+| `GET /api/cars?pickup=BGY&dropoff=MXP&from=2026-11-10T09:00&to=2026-11-14T18:00` | předvyplněné odkazy na půjčovny |
+| `GET /api/poi?lat=…&lon=…&radius=8` | místa k vidění (Wikidata + Wikipedie) |
+| `POST /api/itinerary` | rozplánování míst do dnů (`lat`, `lon`, `start`, `end`, `arrivalTime`, `departureTime`, `pace`, `interests`, `exclude`, `include`) |
+| `GET /api/diag` | živý test, jestli server dosáhne na jednotlivé zdroje |
 
 Příklad:
 

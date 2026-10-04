@@ -51,16 +51,37 @@ export function parsePricesForDates(json, { adults = 1 } = {}) {
   return out;
 }
 
-async function pfd(params) {
-  const qs = new URLSearchParams({ currency: 'czk', sorting: 'price', limit: '1000', page: '1', unique: 'false', ...params });
-  return cache.wrap(`tp:${qs}`, TTL, () => limit(() => request(`${URL_PFD}?${qs}`, {
+// Trh (market) určuje, z čí mezipaměti hledání se čte – bez něj API bere ruský trh.
+// Kdyby API zvolený trh nepřijalo, zkusí se dotaz bez něj (a trh se pro běh serveru vypne).
+let marketOk = true;
+
+async function fetchPfd(qs) {
+  const j = await limit(() => request(`${URL_PFD}?${qs}`, {
     headers: { 'X-Access-Token': config.travelpayoutsToken },
     timeoutMs: 15000,
     retries: 1,
-  })).then((j) => {
-    if (j && j.success === false) throw new Error(`Travelpayouts: ${j.error || 'chyba'}`);
-    return j;
   }));
+  if (j && j.success === false) {
+    const err = new Error(`Travelpayouts: ${j.error || 'chyba'}`);
+    err.status = 400;
+    throw err;
+  }
+  return j;
+}
+
+async function pfd(params) {
+  const base = { currency: 'czk', sorting: 'price', limit: '1000', page: '1', unique: 'false', ...params };
+  const market = marketOk ? config.travelpayoutsMarket : '';
+  const qs = new URLSearchParams(market ? { ...base, market } : base);
+  return cache.wrap(`tp:${qs}`, TTL, async () => {
+    try {
+      return await fetchPfd(qs);
+    } catch (e) {
+      if (!market || (e.status && e.status !== 400 && e.status !== 422)) throw e;
+      marketOk = false;
+      return fetchPfd(new URLSearchParams(base));
+    }
+  });
 }
 
 export const travelpayouts = {

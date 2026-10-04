@@ -23,8 +23,16 @@ export const config = {
   mock: env.ATLAS_MOCK === '1' || process.argv.includes('--demo'),
   ryanair: env.RYANAIR_ENABLED !== '0',
   wizz: env.WIZZ_ENABLED !== '0',
+  // Kiwi.com MCP (zdarma, bez klíče) – živé ceny všech aerolinek pro konkrétní cíl.
+  kiwi: env.KIWI_ENABLED !== '0',
   travelpayoutsToken: env.TRAVELPAYOUTS_TOKEN || '',
   travelpayoutsMarker: env.TRAVELPAYOUTS_MARKER || '',
+  // Trh Aviasales, z jehož hledání se berou ceny (cz, de, gb, …); prázdné = výchozí trh API.
+  travelpayoutsMarket: (env.TRAVELPAYOUTS_MARKET ?? 'cz').toLowerCase(),
+  // Hotely s cenou a hodnocením (liteapi.travel). Bez klíče jen odkazy na Booking/Airbnb/Google.
+  liteapiKey: env.LITEAPI_KEY || '',
+  // Volitelná white-label rezervační stránka LiteAPI (např. moje.nuitee.link) – jinak odkaz na Booking.com.
+  liteapiWhitelabel: env.LITEAPI_WHITELABEL || '',
   // Kolik odletových letišť nejvýše prohledat v jednom dotazu.
   maxOrigins: num(env.MAX_ORIGINS, 8),
   // Wizz Air nemá „kamkoliv“ endpoint → 1 dotaz na trasu; strop na jedno hledání.

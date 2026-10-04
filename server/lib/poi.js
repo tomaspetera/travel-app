@@ -99,7 +99,7 @@ export function groupBindings(rows, center) {
     const her = qid(val(b, 'her'));
     if (her) { p.heritage = true; if (her === UNESCO) p.unesco = true; }
     const img = val(b, 'img');
-    if (img && !p.image) p.image = `${img.replace(/^http:/, 'https:')}?width=480`;
+    if (img && !p.image) p.image = `${img.replace(/^http:/, 'https:')}?width=500`;
   }
   const out = [];
   for (const p of by.values()) {
@@ -138,7 +138,7 @@ async function enrich(places) {
       const batch = need.slice(i, i + 20);
       const qs = new URLSearchParams({
         action: 'query', format: 'json', formatversion: '2', redirects: '1', prop: 'extracts|pageimages',
-        exintro: '1', explaintext: '1', exsentences: '3', exlimit: '20', piprop: 'thumbnail', pithumbsize: '480', pilimit: '20',
+        exintro: '1', explaintext: '1', exsentences: '3', exlimit: '20', piprop: 'thumbnail', pithumbsize: '500', pilimit: '20',
         titles: batch.map((p) => p.wiki[lang]).join('|'),
       });
       try {
@@ -171,6 +171,92 @@ async function enrich(places) {
   return places;
 }
 
+// ---------- záloha bez SPARQL: Wikipedia geosearch + počet jazykových verzí z Wikidat ----------
+
+// Klasifikace podle krátkého popisu (Wikidata description) a názvu – cs i en.
+const TEXT_CATS = [
+  ['museum', /muzeum|museum|museo|musée/],
+  ['gallery', /galerie|gallery|pinacoteca|galleria/],
+  ['church', /kostel|katedrál|bazilik|chrám|klášter|kaple|mešit|synagog|church|cathedral|basilica|monastery|abbey|chapel|mosque|synagogue|temple|duomo/],
+  ['castle', /hrad|pevnost|tvrz|castle|fortress|citadel|fort\b/],
+  ['palace', /palác|zámek|palace|palazzo|château|schloss/],
+  ['oldtown', /historické centrum|staré město|old town|historic (centre|center|district)/],
+  ['square', /náměstí|square|piazza|plaza|platz/],
+  ['park', /park|zahrad|garden|giardino/],
+  ['viewpoint', /vyhlídk|viewpoint|lookout|belvedere/],
+  ['nature', /jezero|hora|vodopád|jeskyn|národní park|lake|mountain|waterfall|cave|national park|island|ostrov/],
+  ['beach', /pláž|beach|playa|spiaggia/],
+  ['zoo', /zoo|akvárium|aquarium/],
+  ['theme', /zábavní park|amusement park|theme park/],
+  ['bridge', /\bmost\b|bridge|ponte|puente/],
+  ['tower', /věž|mrakodrap|maják|tower|skyscraper|lighthouse|torre/],
+  ['ruins', /zřícenin|archeolog|ruins|archaeological|roman (theatre|amphitheatre)|amfiteátr/],
+  ['theatre', /divadlo|opera|theatre|theater|concert hall|teatro/],
+  ['monument', /pomník|památník|socha|kašna|fontána|monument|memorial|statue|fountain/],
+  ['market', /tržnice|trh\b|market|mercado|mercato/],
+];
+const TEXT_EXCLUDE = /nádraží|stanice|zastávk|ulice|třída|škola|univerzit|nemocnic|firma|společnost|čtvrť|městská část|obec|okres|station|street|avenue|school|university|hospital|company|district|neighbourhood|neighborhood|municipality|metro|hotel|airport|letiště|football club|fotbalový klub|human settlement|commune|comune|village|town in|city in/;
+
+export function classifyText(text) {
+  const t = String(text || '').toLowerCase();
+  if (TEXT_EXCLUDE.test(t)) return null;
+  for (const [cat, re] of TEXT_CATS) if (re.test(t)) return cat;
+  return null;
+}
+
+async function wikiGeosearch(lang, lat, lon) {
+  const qs = new URLSearchParams({
+    action: 'query', format: 'json', formatversion: '2', generator: 'geosearch', ggscoord: `${lat}|${lon}`,
+    ggsradius: '10000', ggslimit: '50', prop: 'coordinates|pageimages|description|pageprops', ppprop: 'wikibase_item',
+    piprop: 'thumbnail', pithumbsize: '500', pilimit: '50', colimit: '50',
+  });
+  const j = await limitWiki(() => request(`https://${lang}.wikipedia.org/w/api.php?${qs}`, { headers: { 'User-Agent': UA }, timeoutMs: 15000, retries: 1 }));
+  return (j.query?.pages || []).map((pg) => ({ lang, ...pg }));
+}
+
+async function sitelinkCounts(qids) {
+  const out = new Map();
+  for (let i = 0; i < qids.length; i += 50) {
+    const qs = new URLSearchParams({ action: 'query', format: 'json', formatversion: '2', prop: 'pageprops', ppprop: 'wb-sitelinks', titles: qids.slice(i, i + 50).join('|') });
+    try {
+      const j = await limitWiki(() => request(`https://www.wikidata.org/w/api.php?${qs}`, { headers: { 'User-Agent': UA }, timeoutMs: 15000, retries: 1 }));
+      for (const pg of j.query?.pages || []) out.set(pg.title, Number(pg.pageprops?.['wb-sitelinks']) || 0);
+    } catch { /* bez významnosti */ }
+  }
+  return out;
+}
+
+export async function findPlacesViaWikipedia({ lat, lon }) {
+  const center = { lat, lon };
+  const lists = await Promise.allSettled([wikiGeosearch('cs', lat, lon), wikiGeosearch('en', lat, lon)]);
+  const by = new Map();
+  for (const r of lists) {
+    if (r.status !== 'fulfilled') continue;
+    for (const pg of r.value) {
+      const q = pg.pageprops?.wikibase_item;
+      const c = pg.coordinates?.[0];
+      if (!q || !c) continue;
+      const p = by.get(q) || { id: q, name: pg.title, description: pg.description || '', lat: c.lat, lon: c.lon, sitelinks: 0, heritage: false, unesco: false, image: null, wiki: {} };
+      if (pg.lang === 'cs') { p.name = pg.title; p.description = pg.description || p.description; }
+      p.wiki[pg.lang] = pg.title;
+      if (!p.image && pg.thumbnail?.source) p.image = pg.thumbnail.source;
+      by.set(q, p);
+    }
+  }
+  if (!by.size && lists.every((r) => r.status === 'rejected')) throw lists[0].reason;
+  const counts = await sitelinkCounts([...by.keys()]);
+  const out = [];
+  for (const p of by.values()) {
+    p.category = classifyText(`${p.description} ${p.name}`);
+    if (!p.category) continue;
+    p.sitelinks = counts.get(p.id) || 0;
+    p.distanceKm = Math.round(haversineKm(center.lat, center.lon, p.lat, p.lon) * 10) / 10;
+    p.score = scorePlace(p);
+    out.push(p);
+  }
+  return out.sort((a, b) => b.score - a.score);
+}
+
 /** DEMO režim (ATLAS_MOCK=1): vymyšlená místa kolem bodu, jasně označená. */
 export function mockPlaces({ lat, lon }) {
   const cats = ['museum', 'church', 'castle', 'park', 'viewpoint', 'square', 'gallery', 'oldtown', 'monument', 'market', 'bridge', 'zoo'];
@@ -196,10 +282,20 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
   const key = `poi:${lat.toFixed(3)}:${lon.toFixed(3)}:${r}:${dayTrips}:${limit}`;
   return cache.wrap(key, 7 * 864e5, async () => {
     const center = { lat, lon };
-    const [cityRows, tripRows] = await Promise.all([
-      wdqs(sparqlNear(lat, lon, r, 4, 4000)),
-      dayTrips ? wdqs(sparqlNear(lat, lon, 120, 45, 3000)).catch(() => []) : [],
-    ]);
+    let cityRows;
+    let tripRows = [];
+    try {
+      [cityRows, tripRows] = await Promise.all([
+        wdqs(sparqlNear(lat, lon, r, 4, 4000)),
+        dayTrips ? wdqs(sparqlNear(lat, lon, 120, 45, 3000)).catch(() => []) : [],
+      ]);
+    } catch {
+      // Wikidata SPARQL nedostupné (výpadek, limit, přechod na QLever) → záloha přes Wikipedii.
+      const fb = await findPlacesViaWikipedia({ lat, lon });
+      const picked = fb.slice(0, limit);
+      await enrich(picked);
+      return picked.map((p) => ({ ...p, categoryLabel: CATEGORY_CS[p.category] || p.category }));
+    }
     const city = groupBindings(cityRows, center).filter((p) => p.category !== 'town' || p.distanceKm > 2);
     for (const p of city) if (p.category === 'town') p.category = 'oldtown';
     const trips = groupBindings(tripRows, center)

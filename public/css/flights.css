@@ -261,3 +261,6 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 [data-theme=light] .note.info{color:#075985}
 [data-theme=light] .b.hot{color:#be123c}
 [data-theme=light] .b.warn{color:#8a5a00}
+ol.guide{padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+ol.guide a{color:var(--accent)}
+ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radius:6px;font-size:12.5px}

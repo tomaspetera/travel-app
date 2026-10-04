@@ -6,6 +6,7 @@ import { stubFetch, ymdPlus } from './helpers.js';
 process.env.ATLAS_MOCK = '0';
 process.env.RYANAIR_ENABLED = '0';
 process.env.WIZZ_ENABLED = '0';
+process.env.KIWI_ENABLED = '0';
 process.env.TRAVELPAYOUTS_TOKEN = 'test-token';
 const { search } = await import('../server/lib/search.js');
 
@@ -31,6 +32,7 @@ test('Travelpayouts: dotaz na každou dvojici letišť a měsíc, token v hlavi�
     assert.equal(tp.length, 2 * months.size, 'VIE→LHR a BTS→LHR, jednou za měsíc');
     assert.ok(tp.every((c) => c.init.headers['X-Access-Token'] === 'test-token'));
     assert.ok(tp.every((c) => !c.url.includes('test-token')), 'token se neposílá v URL');
+    assert.ok(tp.every((c) => new URL(c.url).searchParams.get('market') === 'cz'), 'čte český trh, ne výchozí ruský');
     assert.equal(r.mode, 'route');
     const best = r.top[0];
     assert.equal(best.out.from, 'BTS');
@@ -38,6 +40,21 @@ test('Travelpayouts: dotaz na každou dvojici letišť a měsíc, token v hlavi�
     assert.equal(best.flightCzk, 2900);
     assert.match(best.bookUrl, /^https:\/\/www\.aviasales\.com\/search\/BTSxLHR/);
     assert.equal(r.providers[0].id, 'travelpayouts');
+  } finally {
+    stub.restore();
+  }
+});
+
+test('Travelpayouts: když API trh nepřijme, zopakuje dotaz bez něj', async () => {
+  const stub = stubFetch((url) => {
+    const u = new URL(url);
+    if (u.searchParams.get('market')) return { status: 400, body: { success: false, error: 'unknown market' } };
+    return { body: { success: true, data: [{ origin: 'PRG', destination: 'LON', origin_airport: 'PRG', destination_airport: 'STN', price: 999, airline: 'FR', flight_number: '1', departure_at: `${ymdPlus(9)}T07:00:00+01:00`, transfers: 0, link: '/search/x' }] } };
+  });
+  try {
+    const r = await search({ from: ['ap:PRG'], radiusKm: 0, to: ['ap:STN'], dateFrom: ymdPlus(5), dateTo: ymdPlus(15), trip: 'oneway', kmRate: 0 });
+    assert.equal(r.top[0].flightCzk, 999);
+    assert.ok(stub.calls.some((c) => !new URL(c.url).searchParams.get('market')));
   } finally {
     stub.restore();
   }

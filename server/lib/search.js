@@ -149,6 +149,10 @@ export async function search(raw, emit = () => {}) {
 
   async function exploreProvider(p) {
     const st = stOf(p);
+    if (!p.explore && !p.destinations) {
+      st.note = 'hledá jen ke konkrétnímu cíli – zadej, kam letíš';
+      return;
+    }
     const stations = await p.stations();
     const ors = origins.airports.filter((a) => !stations || stations.has(a.iata));
     if (!ors.length) {
@@ -252,7 +256,13 @@ export async function search(raw, emit = () => {}) {
       }));
       return;
     }
-    const capped = pairs.slice(0, 40);
+    // Pomalejší zdroje (Kiwi) jen pro pár nejvýznamnějších letišť: velká a blízká napřed.
+    if (p.maxPairs) {
+      const rank = { L: 0, M: 1, S: 2 };
+      const dist = new Map(origins.airports.map((a) => [a.iata, a.distKm]));
+      pairs.sort((x, y) => rank[getAirport(x.o).type] - rank[getAirport(y.o).type] || dist.get(x.o) - dist.get(y.o));
+    }
+    const capped = pairs.slice(0, p.maxPairs || 40);
     const tasks = [];
     for (const { o, d } of capped) {
       tasks.push(async () => {

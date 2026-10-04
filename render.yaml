@@ -14,5 +14,6 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
-# Token Travelpayouts (další aerolinky) se přidává až potom: služba → Environment → TRAVELPAYOUTS_TOKEN.
+# Klíče se přidávají až potom: služba → Environment →
+#   TRAVELPAYOUTS_TOKEN (další aerolinky), LITEAPI_KEY (hotely s cenou a hodnocením).
 # PORT nenastavovat – Render ho dodá sám a server ho čte.

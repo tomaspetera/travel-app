@@ -750,7 +750,25 @@
 
   function renderSources() {
     const box = $('#srcBox'); if (!box || !health) return;
-    box.innerHTML = `<div class="src-t">Zdroje cen</div>` + health.providers.map(p => `<div class="src ${p.enabled ? 'on' : ''}" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${p.enabled ? (p.blocked ? 'blokováno' : p.kind === 'cached' ? 'cache' : p.kind === 'demo' ? 'demo' : 'živě') : 'vypnuto'}</span></div>`).join('');
+    box.innerHTML = `<div class="src-t">Zdroje cen</div>` + health.providers.map(p => `<div class="src ${p.enabled ? 'on' : ''}" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${p.enabled ? (p.blocked ? 'blokováno' : p.kind === 'cached' ? 'cache' : p.kind === 'demo' ? 'demo' : 'živě') : 'vypnuto'}</span></div>`).join('')
+      + (health.providers.some(p => p.id === 'travelpayouts' && !p.enabled) ? '<button type="button" class="linkbtn" id="tpHelp" style="margin-top:6px">➕ Zapnout všechny aerolinky</button>' : '');
+    const h = $('#tpHelp'); if (h) h.onclick = showTpGuide;
+  }
+
+  /** Návod: bezplatný token Travelpayouts = stovky dalších aerolinek (nízkonákladové i dálkové). */
+  function showTpGuide() {
+    modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button>
+      <div class="modal-hero-inner"><h2 style="font-size:23px">Zapnout všechny aerolinky</h2><div style="opacity:.85;font-size:13px">easyJet, Vueling, Lufthansa, Emirates, Qatar, Turkish… – zdarma, asi 5 minut</div></div></div>
+      <div class="modal-body">
+        <p class="muted" style="font-size:14px;margin-bottom:12px">Ryanair a Wizz Air ATLAS hledá přímo. Ostatní aerolinky (nízkonákladové i dálkové lety s přestupy) přidá bezplatný přístup k datům <b>Travelpayouts / Aviasales</b>:</p>
+        <ol class="guide">
+          <li>Zaregistruj se zdarma na <a href="https://www.travelpayouts.com/" target="_blank" rel="noopener">travelpayouts.com</a> (stačí e-mail).</li>
+          <li>V profilu otevři <b>Profile → API token</b> (nebo Tools → API) a zkopíruj <b>API token</b>.</li>
+          <li>Na <a href="https://dashboard.render.com/" target="_blank" rel="noopener">dashboard.render.com</a> otevři službu <b>atlas-letenky</b> → <b>Environment</b> → <b>Add Environment Variable</b>.</li>
+          <li>Key: <code>TRAVELPAYOUTS_TOKEN</code>, Value: tvůj token → <b>Save Changes</b>. Render aplikaci za minutu sám restartuje.</li>
+        </ol>
+        <div class="note info" style="margin-top:12px">ℹ️ <div>Ceny z Travelpayouts pocházejí z hledání ostatních uživatelů za poslední dny – u výsledků jsou označené „z cache“ a před nákupem je ověř. Pokud budeš chtít z odkazů provize, doplň i <code>TRAVELPAYOUTS_MARKER</code> (tvoje partnerské ID).</div></div>
+      </div>`);
   }
 
   async function init() {

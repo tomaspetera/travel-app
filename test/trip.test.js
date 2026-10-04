@@ -90,3 +90,9 @@ test('stays/cars: validace dotazu a odkazy s předvyplněnými daty', () => {
   const kayak = r.links.find((l) => l.id === 'kayak').url;
   assert.match(kayak, /\/cars\/BGY\/MXP\/2026-11-10-8h\/2026-11-14-19h/);
 });
+
+test('planItinerary: nejvýš 3 kostely za den', () => {
+  const churches = Array.from({ length: 8 }, (_, i) => P(`ch${i}`, 45.464 + i * 0.0008, 9.19 + i * 0.0008, 90 - i, 'church'));
+  const plan = planItinerary(churches, { center: C, start: '2026-11-10', end: '2026-11-12', arrivalTime: '08:00', departureTime: '21:00', pace: 'intense' });
+  for (const d of plan.days) assert.ok(d.items.filter((p) => p.category === 'church').length <= 3, `${d.date}: příliš mnoho kostelů`);
+});
