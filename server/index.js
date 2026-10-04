@@ -8,11 +8,12 @@ import zlib from 'node:zlib';
 import { config } from './config.js';
 import { suggest, describe, resolveOrigins } from './lib/places.js';
 import { search, UserError } from './lib/search.js';
-import { providerStatus } from './providers/index.js';
+import { activeProviders, providerStatus } from './providers/index.js';
 import { fxInfo, loadRates } from './lib/fx.js';
 import { cache } from './lib/cache.js';
 import { airportsNear, getAirport } from './lib/airports.js';
 import { groundEstimate } from './lib/geo.js';
+import { addDays, todayYmd } from './lib/dates.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -136,10 +137,46 @@ async function handleSearch(req, res) {
   else res.end();
 }
 
+// Ostrý test zdrojů: malý skutečný dotaz na každého poskytovatele (výsledek cachován 5 min).
+// Slouží k ověření po nasazení, že server na hostingu na API aerolinek dosáhne.
+async function diagnose() {
+  return cache.wrap('diag', 5 * 60e3, async () => {
+    const from = addDays(todayYmd(), 14);
+    const to = addDays(from, 6);
+    const probes = activeProviders().map(async (p) => {
+      const t0 = Date.now();
+      try {
+        let detail;
+        if (p.explore) {
+          const trips = await p.explore({ origin: 'VIE', dateFrom: from, dateTo: to, adults: 1 });
+          detail = `${trips.length} destinací z VIE`;
+        } else if (p.network) {
+          detail = `${(await p.network()).size} letišť v síti`;
+        } else {
+          detail = `${(await p.daily({ from: 'VIE', to: 'BCN', dateFrom: from, dateTo: to })).length} dní s cenou`;
+        }
+        return { id: p.id, ok: true, ms: Date.now() - t0, detail };
+      } catch (e) {
+        return { id: p.id, ok: false, ms: Date.now() - t0, error: e.message || String(e) };
+      }
+    });
+    const rates = await loadRates();
+    return { at: new Date().toISOString(), demo: config.mock, providers: await Promise.all(probes), fx: { source: rates.source, eurCzk: rates.rates.CZK } };
+  });
+}
+
 async function route(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const p = url.pathname;
 
+  if (p === '/healthz') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end('ok');
+  }
+  if (p === '/api/diag') {
+    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků' });
+    return sendJson(req, res, 200, await diagnose());
+  }
   if (p === '/api/health') {
     await loadRates();
     return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, providers: providerStatus(), fx: fxInfo(), cache: cache.stats() });
@@ -185,7 +222,13 @@ async function route(req, res) {
   if (p === '/data/countries.json') {
     if (serveFile(req, res, path.join(DATA, 'countries.json'), { maxAge: 3600 })) return;
   }
-  const rel = decodeURIComponent(p === '/' ? '/index.html' : p);
+  let rel;
+  try {
+    rel = decodeURIComponent(p === '/' ? '/index.html' : p);
+  } catch {
+    res.writeHead(400);
+    return res.end('Bad request');
+  }
   const file = path.normalize(path.join(PUBLIC, rel));
   if (!file.startsWith(PUBLIC + path.sep)) {
     res.writeHead(403);
@@ -207,6 +250,28 @@ export function createServer() {
   });
 }
 
+// Po startu předehřej kurzy a seznamy letišť a vypiš, jestli jsou zdroje dostupné (vidět v logu hostingu).
+async function warmUp() {
+  await loadRates();
+  console.log(`Kurzy: ${fxInfo().source}, 1 EUR = ${fxInfo().eurCzk} Kč`);
+  if (config.mock) return;
+  for (const p of activeProviders()) {
+    try {
+      if (p.network) {
+        console.log(`${p.name}: OK (${(await p.network()).size} letišť)`);
+      } else if (p.id === 'ryanair') {
+        const set = await p.stations();
+        if (set) console.log(`${p.name}: OK (${set.size} letišť)`);
+        else console.warn(`${p.name}: seznam letišť se nepodařilo načíst – ověř /api/diag`);
+      } else {
+        console.log(`${p.name}: zapnuto`);
+      }
+    } catch (e) {
+      console.warn(`${p.name}: nedostupný – ${e.message}`);
+    }
+  }
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === path.join(config.root, 'server', 'index.js')) {
   const server = createServer();
   server.listen(config.port, config.host, () => {
@@ -216,5 +281,14 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.join(config.root, 
     if (!config.mock && !config.travelpayoutsToken) {
       console.log('Tip: zdarma token z travelpayouts.com (TRAVELPAYOUTS_TOKEN v .env) přidá všechny ostatní aerolinky.');
     }
+    warmUp().catch((e) => console.warn('Předehřátí selhalo:', e.message));
   });
+  // Hosting při nasazení nové verze posílá SIGTERM – dokonči rozběhnuté požadavky a skonči.
+  const shutdown = (sig) => {
+    console.log(`${sig}: ukončuji server…`);
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 10000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }

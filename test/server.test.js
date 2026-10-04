@@ -43,6 +43,18 @@ test('GET /api/health', async () => {
   assert.ok(j.providers.length >= 1);
 });
 
+test('GET /healthz a /api/diag (ostrý test zdrojů)', async () => {
+  const h = await fetch(`${base}/healthz`);
+  assert.equal(h.status, 200);
+  assert.equal(await h.text(), 'ok');
+  const d = await (await fetch(`${base}/api/diag`)).json();
+  assert.equal(d.demo, true);
+  assert.ok(d.providers.length >= 1);
+  assert.ok(d.providers.every((p) => p.ok && p.detail));
+  const bad = await rawGet('/%E0%A4%A');
+  assert.equal(bad.status, 400);
+});
+
 test('GET /api/places a /api/origins', async () => {
   const p = await (await fetch(`${base}/api/places?q=brno&remote=0`)).json();
   assert.equal(p.items[0].id, 'ap:BRQ');
