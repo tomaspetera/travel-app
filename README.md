@@ -41,7 +41,7 @@ z Wikidat a Wikipedie. Stejný dotaz tedy dá stejný výsledek a nic si nevymý
 | **Kamkoliv z více letišť** | Jedno hledání = všechny destinace ze všech letišť v okolí, seskupené podle města (Londýn = STN + LTN + LGW…). |
 | **Kombinace, které jinde nenajdeš** | Tam s Ryanairem, zpět s Wizz Air. Odlet z Vídně, návrat do Bratislavy. Přílet do Bergama, odlet z Malpensy. Optimalizátor skládá i takové cesty. |
 | **Kalendář celých cest** | V režimu konkrétního cíle ukáže pro každý den nejlevnější *celou cestu tam a zpět* (se zadaným počtem nocí), ne jen jednosměrný let. |
-| **Flexibilní termíny** | Rozsah dat odletu + počet nocí, víkendy (čt/pá/so → ne/po), prodloužené víkendy, vlastní dny v týdnu. |
+| **Přesná data i flexibilně** | *📅 Přesná data*: zadáš den odletu a návratu a hledá se jen v tyto dny (volitelně ±1–3 dny). *🔀 Flexibilně*: rozsah dat odletu + počet nocí, víkendy (čt/pá/so → ne/po), prodloužené víkendy, vlastní dny v týdnu. |
 | **Skóre výhodnosti** | 🔥 Super cena / 👍 Výhodné podle vzdálenosti a ostatních výsledků, ↓ zlevnění (Ryanair posílá předchozí cenu), ☀️ ideální sezóna z dat ATLAS. |
 | **Mapa výsledků** | Všechny destinace na mapě obarvené podle ceny. |
 | **Hlídání cen + živý radar** | Ulož hledání ♡ a na přehledu jedním klikem zjistíš, jestli cena klesla. Radar ukazuje nejlevnější lety z tvého okolí na příštích 6 týdnů. |
@@ -160,6 +160,9 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `GET /api/poi?lat=…&lon=…&radius=8` | místa k vidění (Wikidata + Wikipedie) |
 | `POST /api/itinerary` | rozplánování míst do dnů (`lat`, `lon`, `start`, `end`, `arrivalTime`, `departureTime`, `pace`, `interests`, `exclude`, `include`) |
 | `GET /api/diag` | živý test, jestli server dosáhne na jednotlivé zdroje |
+
+Přesná data: místo `dateFrom`/`dateTo` + nocí pošli `"exactOut": "2026-11-14", "exactBack": "2026-11-21"` (a volitelně
+`"flexDays": 1` = každé datum ±1 den); u `"trip": "oneway"` stačí `exactOut`.
 
 Příklad:
 

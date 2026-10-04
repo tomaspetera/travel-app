@@ -198,7 +198,15 @@
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ghost" id="staySkip">Ubytování neřeším →</button>${t.stay ? '<button class="btn primary" id="stayNext">Pokračovat →</button>' : ''}</div>
     </div>`;
     const ow = $('#owNights');
-    if (ow) ow.onchange = () => { t.nightsOneWay = Math.min(30, Math.max(1, +ow.value || 3)); staysData = null; persist(); render(); };
+    if (ow) ow.onchange = () => {
+      t.nightsOneWay = Math.min(30, Math.max(1, +ow.value || 3));
+      staysData = null;
+      t.plan = null; // program pro jiný počet dní neplatí
+      // Cena vybraného hotelu platila pro původní počet nocí → vyber znovu (ruční cenu nech, ale upozorni).
+      if (t.stay && t.stay.mode === 'pick') { t.stay = null; toast('Počet nocí se změnil – vyber ubytování znovu'); }
+      else if (t.stay && t.stay.mode === 'manual') toast('Zkontroluj cenu ubytování pro nový počet nocí');
+      persist(); render();
+    };
     $('#manSave').onclick = () => {
       const price = +$('#manPrice').value;
       if (!(price > 0)) return toast('Zadej cenu ubytování', 'err');
@@ -226,7 +234,8 @@
         return;
       }
     }
-    if (T() !== t || t.step !== 'stay') return;
+    // Mezitím se změnil počet nocí (novější dotaz) nebo krok → tuhle odpověď nevykresluj.
+    if (T() !== t || t.step !== 'stay' || !staysData || staysData.key !== key) return;
     renderStays();
   }
 
@@ -246,6 +255,7 @@
       <div class="st-main">
         <div class="st-name">${esc(h.name)} <span class="st-stars">${stars(h.stars)}</span></div>
         <div class="faint" style="font-size:12.5px">${esc([h.typeLabel, h.address, h.distanceKm != null ? `${h.distanceKm.toFixed(1)} km od centra` : ''].filter(Boolean).join(' · '))}</div>
+        ${h.rating != null ? `<div class="st-rate-inline"><b>${h.rating.toFixed(1)}</b> ${ratingWord(h.rating)}${h.reviews ? ` · ${h.reviews.toLocaleString('cs')} recenzí` : ''}</div>` : ''}
         <div class="st-badges">${badges}${h.freeCancellation ? '<span class="b good">zdarma storno</span>' : ''}${h.breakfast ? '<span class="b">snídaně</span>' : ''}</div>
       </div>
       <div class="st-rating">${h.rating != null ? `<div class="rt">${h.rating.toFixed(1)}</div><div class="faint">${ratingWord(h.rating)}${h.reviews ? `<br>${h.reviews.toLocaleString('cs')} recenzí` : ''}</div>` : '<div class="faint">bez hodnocení</div>'}</div>
@@ -487,12 +497,16 @@
    * HTML (<, >, uvozovky, `), čísla převeď na čísla a odkazy pustí dál jen safeUrl při vykreslení.
    */
   function sanitizeTrip(raw) {
-    const clean = v => typeof v === 'string' ? v.replace(/[<>"'`]/g, '').slice(0, 300)
+    // Odkazy (…url/Url) mohou být dlouhé (Ryanair ~400 znaků) – nezkracovat; texty do 300 znaků.
+    const clean = (v, key = '') => typeof v === 'string' ? v.replace(/[<>"'`]/g, '').slice(0, /url$/i.test(key) ? 4000 : 300)
       : typeof v === 'number' ? (Number.isFinite(v) ? v : 0)
       : typeof v === 'boolean' || v == null ? v
-      : Array.isArray(v) ? v.slice(0, 200).map(clean)
-      : typeof v === 'object' ? Object.fromEntries(Object.entries(v).slice(0, 200).filter(([k]) => /^[\w-]{1,40}$/.test(k)).map(([k, x]) => [k, clean(x)])) : null;
+      : Array.isArray(v) ? v.slice(0, 200).map(x => clean(x, key))
+      : typeof v === 'object' ? Object.fromEntries(Object.entries(v).slice(0, 200).filter(([k]) => /^[\w-]{1,40}$/.test(k)).map(([k, x]) => [k, clean(x, k)])) : null;
     const t = clean(raw);
+    const isLeg = l => l && typeof l === 'object' && typeof l.from === 'string' && typeof l.to === 'string' && typeof l.date === 'string' && (l.dep == null || typeof l.dep === 'string') && (l.arr == null || typeof l.arr === 'string');
+    if (!t || typeof t.flight !== 'object' || !isLeg(t.flight.out) || (t.flight.back != null && !isLeg(t.flight.back))) throw new Error('neplatný let');
+    if (t.dest != null && (typeof t.dest !== 'object' || typeof (t.dest.label ?? '') !== 'string' || typeof (t.dest.cc ?? '') !== 'string')) throw new Error('neplatný cíl');
     const num = (v, min, max, def) => { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def; };
     const iata = v => /^[A-Z0-9]{3}$/.test(v || '') ? v : '???';
     const leg = l => l && typeof l === 'object' ? { ...l, from: iata(l.from), to: iata(l.to), date: /^\d{4}-\d{2}-\d{2}$/.test(l.date || '') ? l.date : '1970-01-01' } : null;
@@ -517,6 +531,12 @@
       const parsed = JSON.parse(b64urlDecode(m[1]));
       if (!parsed || !parsed.flight || !parsed.flight.out) throw new Error('neplatná data');
       const t = sanitizeTrip(parsed);
+      const mine = S.trip;
+      if (mine && mine.flight && JSON.stringify(mine.flight.out) !== JSON.stringify(t.flight.out)
+        && !confirm(`Otevíráš sdílenou cestu do ${t.dest.label || t.flight.out.to}. Nahradit jí tvoji rozpracovanou cestu do ${mine.dest?.label || mine.flight.out.to}?`)) {
+        history.replaceState(null, '', '#trip');
+        return false;
+      }
       S.trip = { ...t, booked: {}, step: 'summary', created: Date.now() };
       persist();
       history.replaceState(null, '', '#trip');
@@ -528,5 +548,19 @@
     }
   }
 
-  window.Trip = { start, render, importFromHash, costs };
+  // Poškozená uložená cesta nesmí zablokovat celou sekci – nabídni ji zahodit.
+  function safeRender() {
+    try {
+      render();
+    } catch (e) {
+      console.error(e);
+      const root = $('#tripRoot');
+      if (root) {
+        root.innerHTML = `<div class="card step-card"><div class="note warn">⚠️ <div>Uloženou cestu se nepodařilo zobrazit (${esc(e.message)}).</div></div><div class="row" style="gap:8px;margin-top:12px"><button class="btn primary" id="tripReset">Zahodit a začít znovu</button></div></div>`;
+        $('#tripReset').onclick = () => { S.trip = null; persist(); go('flights'); };
+      }
+    }
+  }
+
+  window.Trip = { start, render: safeRender, importFromHash, costs };
 })();

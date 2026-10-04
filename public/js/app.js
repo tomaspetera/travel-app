@@ -55,16 +55,21 @@ let activeView = 'dashboard';
 function ico(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
 function buildNav() {
   $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : ''}</div>`).join('');
-  // Na mobilu jen hlavní sekce (zbytek je dostupný z přehledu).
+  // Na mobilu hlavní sekce + „Více“ (mapa, země, doporučení).
   const MOBILE = ['dashboard', 'flights', 'trip', 'explore', 'planner'];
-  $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span></div>`).join('');
+  $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span></div>`).join('')
+    + `<div class="mi" id="moreNav">${ico('M5 12h.01M12 12h.01M19 12h.01')}<span>Více</span></div>`;
   $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
+  $('#moreNav').onclick = () => {
+    modalOpen(`<div class="modal-body"><h3 style="margin-bottom:12px">Další sekce</h3><div class="more-nav">${NAV.filter(n => !MOBILE.includes(n[0])).map(n => `<button type="button" class="btn ghost" data-mv="${n[0]}" style="justify-content:flex-start;width:100%;margin-bottom:8px">${ico(n[3])} ${n[1]} <span class="faint" style="font-weight:400;margin-left:6px">${n[2]}</span></button>`).join('')}</div></div>`);
+    $$('[data-mv]').forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
+  };
 }
 function go(v, opts = {}) {
   activeView = v;
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
   $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === v));
-  $$('.mobile-nav .mi').forEach(el => el.classList.toggle('active', el.dataset.view === v));
+  $$('.mobile-nav .mi').forEach(el => el.classList.toggle('active', el.dataset.view === v || (el.id === 'moreNav' && ['map', 'countries', 'recommend'].includes(v))));
   const n = NAV.find(x => x[0] === v); $('#pageTitle').textContent = n[1]; $('#pageSub').textContent = n[2];
   if (!opts.keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
   if (location.hash.slice(1) !== v && !opts.noHash) history.replaceState(null, '', '#' + v);

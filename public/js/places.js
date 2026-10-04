@@ -96,7 +96,8 @@
 
   function planHtml(plan, center) {
     if (!plan) return '';
-    return plan.days.map((d, i) => {
+    const warn = (plan.warnings || []).map(w => `<div class="note warn" style="margin-bottom:10px">⚠️ <div>${esc(w)}</div></div>`).join('');
+    return warn + plan.days.map((d, i) => {
       const url = d.kind !== 'daytrip' ? gmapsDay(center, d.items) : (d.items[0] ? `https://www.google.com/maps/dir/?api=1&origin=${center.lat},${center.lon}&destination=${d.items[0].lat},${d.items[0].lon}&travelmode=transit` : null);
       return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${d.kind === 'daytrip' ? ' · celodenní výlet' : ''}</span>
         ${url ? `<a class="linkbtn" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">trasa v Google Maps ↗</a>` : ''}</h4>
@@ -125,8 +126,12 @@
     const j = await getJson('api/itinerary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     st.items = j.places;
     st.demo = j.demo;
-    return { days: j.days, spare: j.spare, center, created: Date.now() };
+    // Termín, pro který program platí – při změně dat se uložený program znovu nepoužije.
+    const span = { start: dates.start, end: dates.end, arrivalTime: dates.arrivalTime || null, departureTime: dates.departureTime || null };
+    return { days: j.days, spare: j.spare, warnings: j.warnings || [], center, span, created: Date.now() };
   }
+  const sameSpan = (plan, o) => plan.span && plan.span.start === o.start && plan.span.end === o.end
+    && plan.span.arrivalTime === (o.arrivalTime || null) && plan.span.departureTime === (o.departureTime || null);
 
   /**
    * Program v rámci cesty: opts { lat, lon, label, cc, start, end, arrivalTime, departureTime, plan, onPlan }
@@ -136,12 +141,16 @@
     const center = { lat: opts.lat, lon: opts.lon, label: opts.label };
     host.innerHTML = `${plannerControls(st)}<div class="ex-layout"><div><div id="tpPlan"><div class="loading-row"><span class="spin dark"></span> Hledám, co stojí za vidění, a skládám program…</div></div></div><div class="ex-map" id="tpMap"></div></div>`;
     st.map = makeMap($('#tpMap', host), center);
+    let seq = 0;
     const run = async () => {
+      const my = ++seq; // jen poslední dotaz smí vykreslit (rychlé klikání na zájmy)
       try {
         const plan = await makePlan(st, center, opts);
+        if (my !== seq) return;
         opts.onPlan && opts.onPlan(plan);
         paint(plan);
       } catch (e) {
+        if (my !== seq) return;
         $('#tpPlan', host).innerHTML = `<div class="note warn">⚠️ <div>Program se nepodařilo sestavit: ${esc(e.message)}</div></div>`;
       }
     };
@@ -154,7 +163,7 @@
     };
     $$('[data-int]', host).forEach(b => b.onclick = () => { st.interests.has(b.dataset.int) ? st.interests.delete(b.dataset.int) : st.interests.add(b.dataset.int); b.classList.toggle('on'); run(); });
     $('[data-pace]', host).onchange = e => { st.pace = e.target.value; run(); };
-    if (opts.plan && opts.plan.days && opts.plan.center && Math.abs(opts.plan.center.lat - center.lat) < 1e-4) {
+    if (opts.plan && opts.plan.days && opts.plan.center && Math.abs(opts.plan.center.lat - center.lat) < 1e-4 && Math.abs(opts.plan.center.lon - center.lon) < 1e-4 && sameSpan(opts.plan, opts)) {
       try { const j = await getJson(`api/poi?lat=${center.lat}&lon=${center.lon}`); st.items = j.items; st.demo = j.demo; } catch { st.items = []; }
       paint(opts.plan);
     } else run();
@@ -207,14 +216,18 @@
     };
   }
 
+  let exSeq = 0;
   async function loadExplore() {
     const body = $('#exBody'); if (!body) return;
     const p = ex.place;
+    const my = ++exSeq; // pomalá starší odpověď nesmí přepsat novější místo/okruh
     body.innerHTML = `<div class="loading-row"><span class="spin dark"></span> Hledám zajímavá místa kolem: ${esc(p.label)}…</div>`;
     try {
       const j = await getJson(`api/poi?lat=${p.lat}&lon=${p.lon}&radius=${ex.radius}`);
+      if (my !== exSeq) return;
       ex.items = j.items; ex.demo = j.demo;
     } catch (e) {
+      if (my !== exSeq) return;
       body.innerHTML = `<div class="note warn">⚠️ <div>Místa se nepodařilo načíst: ${esc(e.message)}</div></div>`;
       return;
     }
@@ -252,12 +265,19 @@
     $('#exPlan', body).onclick = async () => {
       const btn = $('#exPlan'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Skládám…';
       try {
-        ex.plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '09:00', departureTime: null });
+        const plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '09:00', departureTime: null });
+        if (ex.place !== p) return; // mezitím jiné místo
+        ex.plan = plan;
         paintExplore();
         $('#exPlanOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (e) { toast(e.message, 'err'); btn.disabled = false; btn.textContent = 'Sestavit program'; }
     };
-    $$('[data-drop]', body).forEach(b => b.onclick = async () => { st.exclude.add(b.dataset.drop); ex.plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '09:00' }); paintExplore(); });
+    $$('[data-drop]', body).forEach(b => b.onclick = async () => {
+      st.exclude.add(b.dataset.drop);
+      const plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '09:00' });
+      if (ex.place !== p) return;
+      ex.plan = plan; paintExplore();
+    });
     const sv = $('#exSave', body);
     if (sv) sv.onclick = () => {
       const days = {};
