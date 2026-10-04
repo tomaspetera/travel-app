@@ -29,17 +29,35 @@ async function hotelsInCity(cc, city) {
   });
 }
 
-/** Nejlevnější cena hotelu z odpovědi /hotels/rates (různé verze API). */
+/** Rozdělení dospělých do pokojů (co nejrovnoměrněji), stejné pro cenu i odkaz na rezervaci. */
+export function occupancies(q) {
+  return Array.from({ length: q.rooms }, (_, i) => ({ adults: Math.floor(q.adults / q.rooms) + (i < q.adults % q.rooms ? 1 : 0), children: [] }));
+}
+
+/**
+ * Nejlevnější nabídka hotelu z odpovědi /hotels/rates. Nabídka (roomType) platí pro všechny pokoje:
+ * offerRetailRate je cena za všechny; jinak se sečtou sazby jednotlivých pokojů (occupancyNumber).
+ */
 export function cheapestRate(entry) {
+  const total = (r) => (Array.isArray(r.retailRate?.total) ? r.retailRate.total[0] : r.retailRate?.total);
   let best = null;
   for (const rt of entry?.roomTypes || []) {
-    const cands = [];
-    if (rt.offerRetailRate?.amount) cands.push({ amount: rt.offerRetailRate.amount, currency: rt.offerRetailRate.currency, rate: rt.rates?.[0] });
-    for (const r of rt.rates || []) {
-      const tot = Array.isArray(r.retailRate?.total) ? r.retailRate.total[0] : r.retailRate?.total;
-      if (tot?.amount) cands.push({ amount: tot.amount, currency: tot.currency, rate: r });
+    let cand = null;
+    if (rt.offerRetailRate?.amount) cand = { amount: rt.offerRetailRate.amount, currency: rt.offerRetailRate.currency, rate: rt.rates?.[0] };
+    else {
+      const perRoom = new Map(); // occupancyNumber → nejlevnější sazba
+      for (const r of rt.rates || []) {
+        const t = total(r);
+        if (!t?.amount) continue;
+        const k = r.occupancyNumber ?? 1;
+        if (!perRoom.has(k) || t.amount < perRoom.get(k).t.amount) perRoom.set(k, { r, t });
+      }
+      if (perRoom.size) {
+        const parts = [...perRoom.values()];
+        cand = { amount: parts.reduce((s, x) => s + x.t.amount, 0), currency: parts[0].t.currency, rate: parts[0].r };
+      }
     }
-    for (const c of cands) if (!best || c.amount < best.amount) best = c;
+    if (cand && (!best || cand.amount < best.amount)) best = cand;
   }
   return best;
 }
@@ -50,7 +68,7 @@ export function bookingSearchUrl(name, city, q) {
 }
 
 function whiteLabelUrl(hotelId, q) {
-  const occ = Buffer.from(JSON.stringify([{ adults: q.adults, children: [] }])).toString('base64');
+  const occ = Buffer.from(JSON.stringify(occupancies(q))).toString('base64');
   const p = new URLSearchParams({ checkin: q.checkin, checkout: q.checkout, occupancies: occ });
   return `https://${config.liteapiWhitelabel.replace(/^https?:\/\//, '').replace(/\/$/, '')}/hotels/${encodeURIComponent(hotelId)}?${p}`;
 }
@@ -121,7 +139,7 @@ export const liteapi = {
       hotelIds: ids,
       checkin: q.checkin,
       checkout: q.checkout,
-      occupancies: Array.from({ length: q.rooms }, (_, i) => ({ adults: Math.ceil((q.adults - i) / q.rooms) || 1, children: [] })),
+      occupancies: occupancies(q),
       currency: 'EUR',
       guestNationality: 'CZ',
       maxRatesPerHotel: 1,

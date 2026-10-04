@@ -262,7 +262,12 @@ export async function search(raw, emit = () => {}) {
       const dist = new Map(origins.airports.map((a) => [a.iata, a.distKm]));
       pairs.sort((x, y) => rank[getAirport(x.o).type] - rank[getAirport(y.o).type] || dist.get(x.o) - dist.get(y.o));
     }
-    const capped = pairs.slice(0, p.maxPairs || 40);
+    let maxPairs = p.maxPairs || 40;
+    if (p.maxCalls && p.callsPerRoute) {
+      const perPair = p.callsPerRoute(q.dateFrom, q.dateTo) * (ret ? 2 : 1);
+      maxPairs = Math.max(1, Math.min(maxPairs, Math.floor(p.maxCalls / perPair)));
+    }
+    const capped = pairs.slice(0, maxPairs);
     const tasks = [];
     for (const { o, d } of capped) {
       tasks.push(async () => {

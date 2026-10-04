@@ -98,6 +98,15 @@ export function localToUtcMs(localIso, tz) {
   }
 }
 
+/** UTC milisekundy → místní čas v časové zóně tz jako 'YYYY-MM-DDTHH:MM:00'. */
+export function utcToLocalIso(utcMs, tz) {
+  let off = 0;
+  try {
+    off = tz ? tzOffsetMin(tz, utcMs) : 0;
+  } catch { /* neznámá zóna → UTC */ }
+  return new Date(utcMs + off * 60000).toISOString().slice(0, 16) + ':00';
+}
+
 export function flightMinutes(depLocal, depTz, arrLocal, arrTz) {
   if (!depLocal || !arrLocal) return null;
   const a = localToUtcMs(depLocal, depTz);

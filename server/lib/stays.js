@@ -6,6 +6,7 @@ import { stayLinks } from './links.js';
 import { stayProviders } from '../providers/stays/index.js';
 import { getAirport, METRO_BY_CODE } from './airports.js';
 import { geocode } from './places.js';
+import { haversineKm } from './geo.js';
 
 export class StayQueryError extends Error {
   constructor(msg) {
@@ -20,26 +21,33 @@ export function normalizeStayQuery(raw = {}) {
   if (!isYmd(checkin) || !isYmd(checkout)) throw new StayQueryError('Chybí datum příjezdu nebo odjezdu.');
   if (checkin < addDays(todayYmd(), -1)) throw new StayQueryError('Datum příjezdu je v minulosti.');
   const nights = daysBetween(checkin, checkout);
-  if (nights < 1 || nights > 30) throw new StayQueryError('Pobyt musí mít 1 až 30 nocí.');
+  if (nights < 1 || nights > 45) throw new StayQueryError('Pobyt musí mít 1 až 45 nocí.');
   const lat = Number(raw.lat);
   const lon = Number(raw.lon);
   const city = String(raw.city || '').slice(0, 80).trim();
   if (!city && !(Number.isFinite(lat) && Number.isFinite(lon))) throw new StayQueryError('Chybí cílové město.');
   const ap = getAirport(raw.iata);
   const metro = ap?.metro ? METRO_BY_CODE.get(ap.metro) : null;
+  // Poloha = souřadnice samotného letiště (cíl mimo metropoli) → nepoužít, vzdálenost hotelů se
+  // má měřit od centra města (dopočte se geokódováním v searchStays).
+  const atAirport = ap && Number.isFinite(lat) && Number.isFinite(lon) && haversineKm(lat, lon, ap.lat, ap.lon) < 1.5;
+  const hasPos = Number.isFinite(lat) && Number.isFinite(lon) && raw.lat !== '' && raw.lat != null && raw.lon !== '' && raw.lon != null && !atAirport;
+  const adults = Math.min(9, Math.max(1, Math.round(Number(raw.adults) || 2)));
+  // Pokoje: zadané (nejvýš tolik, kolik je dospělých), jinak po dvou na pokoj.
+  const rooms = Math.min(adults, 5, Math.max(1, Math.round(Number(raw.rooms) || Math.ceil(adults / 2))));
   return {
     city,
     cityEn: String(raw.cityEn || metro?.en || ap?.city || city).slice(0, 80),
     country: String(raw.country || '').slice(0, 60),
     cc: String(raw.cc || ap?.cc || '').toUpperCase().slice(0, 2),
     iata: ap?.iata || null,
-    lat: Number.isFinite(lat) && raw.lat !== '' && raw.lat != null ? lat : metro?.lat ?? null,
-    lon: Number.isFinite(lon) && raw.lon !== '' && raw.lon != null ? lon : metro?.lon ?? null,
+    lat: hasPos ? lat : metro?.lat ?? null,
+    lon: hasPos ? lon : metro?.lon ?? null,
     checkin,
     checkout,
     nights,
-    adults: Math.min(9, Math.max(1, Math.round(Number(raw.adults) || 2))),
-    rooms: Math.min(5, Math.max(1, Math.round(Number(raw.rooms) || 1))),
+    adults,
+    rooms,
   };
 }
 
@@ -82,7 +90,8 @@ export function rankStays(items) {
 
 export async function searchStays(raw) {
   const q = normalizeStayQuery(raw);
-  const providers = stayProviders();
+  // Ceny hotelů API vrací nejvýš pro 30 nocí; delší pobyt → jen odkazy na partnery.
+  const providers = q.nights <= 30 ? stayProviders() : [];
   // Střed města kvůli vzdálenosti hotelů (u metropolí známe z databáze, jinak geokódování).
   if (q.lat == null && providers.length && q.city) {
     try {

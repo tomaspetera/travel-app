@@ -1,6 +1,7 @@
 // Půjčení auta: normalizace dotazu + odkazy na srovnávače s předvyplněným letištěm a časy.
 import { getAirport } from './airports.js';
 import { carLinks } from './links.js';
+import { addDays, todayYmd } from './dates.js';
 
 export class CarQueryError extends Error {
   constructor(msg) {
@@ -18,7 +19,10 @@ export function normalizeCarQuery(raw = {}) {
   const to = String(raw.to || '').slice(0, 16);
   if (!getAirport(pickup)) throw new CarQueryError('Neznámé letiště vyzvednutí.');
   if (!getAirport(dropoff)) throw new CarQueryError('Neznámé letiště vrácení.');
-  if (!DT.test(from) || !DT.test(to)) throw new CarQueryError('Chybí datum a čas vyzvednutí nebo vrácení.');
+  // Tvar i skutečné datum (2026-13-45 projde regexem, ale ne kontrolou přes Date).
+  const real = (dt) => DT.test(dt) && !Number.isNaN(Date.parse(`${dt}:00Z`)) && new Date(`${dt}:00Z`).toISOString().slice(0, 16) === dt;
+  if (!real(from) || !real(to)) throw new CarQueryError('Chybí datum a čas vyzvednutí nebo vrácení.');
+  if (from.slice(0, 10) < addDays(todayYmd(), -1)) throw new CarQueryError('Vyzvednutí je v minulosti.');
   if (to <= from) throw new CarQueryError('Vrácení musí být po vyzvednutí.');
   const days = Math.ceil((Date.parse(`${to}:00Z`) - Date.parse(`${from}:00Z`)) / 864e5);
   if (days > 60) throw new CarQueryError('Pronájem může mít nejvýše 60 dní.');

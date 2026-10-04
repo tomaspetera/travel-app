@@ -140,3 +140,17 @@ test('normalizeQuery: validace a výchozí hodnoty', () => {
   assert.equal(q.trip, 'return');
   assert.ok(referencePrice(1000) < referencePrice(5000));
 });
+
+test('makeLeg: chybějící přílet se dopočte v místním čase cíle (z délky letu, jinak odhad)', async () => {
+  const { makeLeg } = await import('../server/lib/fares.js');
+  // Travelpayouts: odlet + délka letu, Praha (UTC+1 v listopadu) → Dubaj (UTC+4)
+  const tp = makeLeg({ provider: 'travelpayouts', from: 'PRG', to: 'DXB', dep: '2026-11-10T22:00:00', durationMin: 345, czk: 5000 });
+  assert.equal(tp.arr.slice(0, 16), '2026-11-11T06:45');
+  assert.equal(tp.arrEst, false);
+  // Wizz: jen čas odletu → odhad ze vzdálenosti, označený
+  const wz = makeLeg({ provider: 'wizzair', from: 'VIE', to: 'BCN', dep: '2026-11-10T20:15:00', czk: 1200 });
+  assert.equal(wz.arrEst, true);
+  assert.ok(wz.arr > '2026-11-10T22:00' && wz.arr < '2026-11-10T23:15', wz.arr);
+  // Bez času odletu nic nevymýšlí
+  assert.equal(makeLeg({ provider: 'x', from: 'VIE', to: 'BCN', dep: '2026-11-10', czk: 1 }).arr, null);
+});

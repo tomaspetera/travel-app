@@ -25,6 +25,7 @@
   const addDaysYmd = (ymd, n) => { const d = new Date(ymd + 'T12:00:00'); d.setDate(d.getDate() + n); return fmtYMD(d); };
   const dayLbl = ymd => { const d = new Date(ymd + 'T12:00:00'); return `${DOW[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`; };
   const hhmm = s => (s && s.length >= 16 ? s.slice(11, 16) : '');
+  const arrHm = l => (l.arr && l.hasTime ? (l.arrEst ? '~' : '') + hhmm(l.arr) : '');
   const nightsTxt = n => n === 1 ? '1 noc' : n >= 2 && n <= 4 ? `${n} noci` : `${n} nocí`;
   const daysTxt = n => n === 1 ? '1 den' : n >= 2 && n <= 4 ? `${n} dny` : `${n} dní`;
   const minutesToHm = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
@@ -46,9 +47,11 @@
   }
 
   function stayDates(t) {
-    const checkin = arrivalAt(t.flight.out).slice(0, 10);
+    // Přílet po půlnoci (do 5:00) → pokoj už od předchozího večera, ať je kde přespat.
+    const arr = arrivalAt(t.flight.out);
+    const checkin = t.flight.out.hasTime && +arr.slice(11, 13) < 5 ? addDaysYmd(arr.slice(0, 10), -1) : arr.slice(0, 10);
     const checkout = t.flight.back ? t.flight.back.date : addDaysYmd(checkin, t.nightsOneWay || 3);
-    return { checkin, checkout, nights: Math.max(1, Math.round((new Date(checkout) - new Date(checkin)) / 864e5)) };
+    return { checkin, checkout, nights: Math.max(0, Math.round((new Date(checkout) - new Date(checkin)) / 864e5)) };
   }
 
   function costs(t) {
@@ -125,7 +128,7 @@
 
   function legLine(l, back) {
     return `<div class="tl-leg"><span class="cbadge" style="background:#5b8cff">${esc(l.carrier || '✈')}</span>
-      <b>${dayLbl(l.date)}</b> ${l.from} ${hhmm(l.dep)} → ${l.to} ${l.arr && l.hasTime ? hhmm(l.arr) : ''} <span class="faint">${esc(l.carrierName || '')}${l.flightNo ? ' · ' + esc(l.flightNo) : ''}</span>${back ? '' : ''}</div>`;
+      <b>${dayLbl(l.date)}</b> ${l.from} ${hhmm(l.dep)} → ${l.to} ${arrHm(l)} <span class="faint">${esc(l.carrierName || '')}${l.flightNo ? ' · ' + esc(l.flightNo) : ''}</span>${back ? '' : ''}</div>`;
   }
 
   function flightStep() {
@@ -203,6 +206,10 @@
     $('#staySkip').onclick = () => { t.stay = { mode: 'skip', name: 'bez ubytování', totalCzk: 0 }; persist(); setStep('car'); };
     const nx = $('#stayNext'); if (nx) nx.onclick = () => setStep('car');
 
+    if (nights < 1) {
+      $('#stayBody').innerHTML = '<div class="note info">ℹ️ <div>Zpáteční let je ještě týž den – ubytování není potřeba. Klikni na <b>Ubytování neřeším</b>.</div></div>';
+      return;
+    }
     const key = `${t.dest.label}|${checkin}|${checkout}|${t.adults}`;
     if (!staysData || staysData.key !== key) {
       try {
@@ -351,6 +358,9 @@
     const t = T();
     const host = $('#tripStep');
     const { checkin, checkout, nights } = stayDates(t);
+    // Program začíná dnem příletu (při příletu po půlnoci je check-in o den dřív, program ne).
+    const progStart = arrivalAt(t.flight.out).slice(0, 10);
+    const progDays = Math.max(1, Math.round((new Date(checkout) - new Date(progStart)) / 864e5) + 1);
     let center = t.stay && t.stay.lat != null ? { lat: t.stay.lat, lon: t.stay.lon, label: t.stay.name } : null;
     if (!center) {
       // Střed města (souřadnice cíle bývají poloha letiště, které může být daleko od centra).
@@ -366,14 +376,14 @@
     }
     if (T() !== t || t.step !== 'program') return;
     host.innerHTML = `<div class="card step-card"><div class="sc-head"><div><h3>🗺️ Co dělat v ${esc(t.dest.label)}</h3>
-      <div class="muted">Návrh programu na ${daysTxt(nights + 1)}${t.stay && t.stay.lat != null ? ' kolem tvého ubytování' : ''} – můžeš ho upravit.</div></div></div>
+      <div class="muted">Návrh programu na ${daysTxt(progDays)}${t.stay && t.stay.lat != null ? ' kolem tvého ubytování' : ''} – můžeš ho upravit.</div></div></div>
       <div id="tripPlaces"></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn primary" id="progNext">Pokračovat ke shrnutí →</button></div></div>`;
     $('#progNext').onclick = () => setStep('summary');
     if (window.Places && center.lat != null) {
       Places.renderPlanner($('#tripPlaces'), {
         lat: center.lat, lon: center.lon, label: center.label || t.dest.label, cc: t.dest.cc,
-        start: checkin, end: checkout, plan: t.plan,
+        start: progStart, end: checkout, plan: t.plan,
         arrivalTime: arrivalAt(t.flight.out).slice(11, 16),
         departureTime: t.flight.back && t.flight.back.hasTime ? t.flight.back.dep.slice(11, 16) : null,
         onPlan: plan => { T().plan = plan; persist(); },
@@ -406,7 +416,7 @@
     const timeline = [];
     if (t.ground.out) timeline.push([f.out.date, '🚌', `Cesta na letiště ${f.out.from} (~${minutesToHm(t.ground.out.minutes)}, odhad)`]);
     if (f.back && t.ground.back) timeline.push([f.back.date + '~', '🚌', `Cesta z letiště ${f.back.to} domů (~${minutesToHm(t.ground.back.minutes)})`]);
-    timeline.push([f.out.date, '🛫', `${f.out.from} ${hhmm(f.out.dep)} → ${f.out.to} ${f.out.arr && f.out.hasTime ? hhmm(f.out.arr) : ''} · ${esc(f.out.carrierName || '')}`]);
+    timeline.push([f.out.date, '🛫', `${f.out.from} ${hhmm(f.out.dep)} → ${f.out.to} ${arrHm(f.out)} · ${esc(f.out.carrierName || '')}`]);
     if (t.car && t.car.mode !== 'skip' && t.car.from) timeline.push([t.car.from.slice(0, 10), '🚗', `Vyzvednutí auta ${esc(t.car.pickup)} ${t.car.from.slice(11, 16)}`]);
     if (t.stay && t.stay.mode !== 'skip') timeline.push([checkin, '🏨', `Ubytování: ${esc(t.stay.name || '')}`]);
     for (const d of (t.plan?.days || [])) timeline.push([d.date, '📍', d.items.map(x => esc(x.name)).join(' · ') || 'volný den']);

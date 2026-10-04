@@ -179,6 +179,8 @@ export const kiwi = {
   callsPerRoute: (dateFrom, dateTo) => chunkRange(dateFrom, dateTo, 7).length,
   // Dotazy jsou pomalejší (~1–2 s) → v režimu konkrétního cíle jen pár hlavních letišť.
   maxPairs: 3,
+  // Rozpočet dotazů na jedno hledání (~1–2 s každý, 2 souběžně) – u dlouhého rozsahu dat méně letišť.
+  maxCalls: 24,
 
   /** Nejlevnější let po dnech: okna po 7 dnech (datum ± 3 dny). */
   async daily({ from, to, dateFrom, dateTo, adults = 1 }) {

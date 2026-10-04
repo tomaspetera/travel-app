@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { planItinerary, dayCapacities, orderRoute } from '../server/lib/itinerary.js';
-import { rankStays, adjustedRating, normalizeStayQuery } from '../server/lib/stays.js';
+import { rankStays, adjustedRating, normalizeStayQuery, searchStays } from '../server/lib/stays.js';
 import { normalizeCarQuery, searchCars } from '../server/lib/cars.js';
 import { stayLinks } from '../server/lib/links.js';
 import { haversineKm } from '../server/lib/geo.js';
@@ -84,13 +84,14 @@ test('stays/cars: validace dotazu a odkazy s předvyplněnými daty', () => {
   assert.equal(booking.searchParams.get('nflt'), 'review_score=80', '…s hodnocením 8+');
   assert.equal(new URL(stayLinks(q)[1].url).searchParams.get('order'), 'review_score_and_price');
 
-  assert.throws(() => normalizeCarQuery({ pickup: 'XXX', from: '2026-11-10T09:00', to: '2026-11-12T09:00' }), /letiště/);
-  assert.throws(() => normalizeCarQuery({ pickup: 'BGY', from: '2026-11-12T09:00', to: '2026-11-10T09:00' }), /po vyzvednutí/);
-  const r = searchCars({ pickup: 'BGY', dropoff: 'MXP', from: '2026-11-10T08:30', to: '2026-11-14T19:00' });
+  const [d1, d3, d5] = [ymdPlus(40), ymdPlus(42), ymdPlus(44)];
+  assert.throws(() => normalizeCarQuery({ pickup: 'XXX', from: `${d1}T09:00`, to: `${d3}T09:00` }), /letiště/);
+  assert.throws(() => normalizeCarQuery({ pickup: 'BGY', from: `${d3}T09:00`, to: `${d1}T09:00` }), /po vyzvednutí/);
+  const r = searchCars({ pickup: 'BGY', dropoff: 'MXP', from: `${d1}T08:30`, to: `${d5}T19:00` });
   assert.equal(r.query.days, 5);
   assert.match(r.query.pickupName, /Bergamo/);
   const kayak = r.links.find((l) => l.id === 'kayak').url;
-  assert.match(kayak, /\/cars\/BGY\/MXP\/2026-11-10-8h\/2026-11-14-19h/);
+  assert.ok(kayak.includes(`/cars/BGY/MXP/${d1}-8h/${d5}-19h`), kayak);
 });
 
 test('planItinerary: nejvýš 3 kostely za den', () => {
@@ -100,13 +101,14 @@ test('planItinerary: nejvýš 3 kostely za den', () => {
 });
 
 test('cars: Rentalcars/Booking Cars s kódem letiště, celé půlhodiny, řazení podle ceny', () => {
-  const r = searchCars({ pickup: 'BGY', dropoff: 'MXP', from: '2026-11-10T08:45', to: '2026-11-14T19:10' });
+  const [d1, d5] = [ymdPlus(40), ymdPlus(44)];
+  const r = searchCars({ pickup: 'BGY', dropoff: 'MXP', from: `${d1}T08:45`, to: `${d5}T19:10` });
   const rc = new URL(r.links.find((l) => l.id === 'rentalcars').url);
   assert.equal(rc.pathname, '/search-results');
   assert.equal(rc.searchParams.get('locationIata'), 'BGY');
   assert.equal(rc.searchParams.get('dropLocationIata'), 'MXP');
   assert.equal(rc.searchParams.get('ftsType'), 'A');
-  assert.deepEqual(['puDay', 'puMonth', 'puHour', 'puMinute', 'doHour', 'doMinute'].map((k) => rc.searchParams.get(k)), ['10', '11', '8', '30', '19', '0']);
+  assert.deepEqual(['puDay', 'puMonth', 'puHour', 'puMinute', 'doHour', 'doMinute'].map((k) => rc.searchParams.get(k)), [String(+d1.slice(8)), String(+d1.slice(5, 7)), '8', '30', '19', '0']);
   assert.equal(rc.searchParams.get('filterCriteria_sortBy'), 'PRICE');
   assert.equal(new URL(r.links.find((l) => l.id === 'bookingcars').url).host, 'cars.booking.com');
   assert.ok(!r.links.some((l) => l.id === 'google'), 'žádný neověřený formát');
@@ -139,4 +141,24 @@ test('affiliate: bez čísla projektu (trs) zůstávají odkazy přímé; s ním
     config.travelpayoutsMarker = prev.m;
     config.travelpayoutsTrs = prev.t;
   }
+});
+
+test('stays: pokoje po dvou, poloha letiště se nebere jako centrum, delší pobyt jen s odkazy', async () => {
+  const base = { city: 'Vídeň', iata: 'VIE', checkin: ymdPlus(20), checkout: ymdPlus(23) };
+  assert.equal(normalizeStayQuery({ ...base, adults: 6 }).rooms, 3);
+  assert.equal(normalizeStayQuery({ ...base, adults: 2, rooms: 3 }).rooms, 2, 'víc pokojů než lidí nejde');
+  const vie = normalizeStayQuery({ ...base, lat: 48.1103, lon: 16.5697 });
+  assert.equal(vie.lat, null, 'souřadnice letiště Schwechat nejsou centrum Vídně');
+  assert.equal(normalizeStayQuery({ ...base, lat: 48.2082, lon: 16.3738 }).lat, 48.2082);
+  const { occupancies } = await import('../server/providers/stays/liteapi.js');
+  assert.deepEqual(occupancies({ adults: 5, rooms: 2 }).map((o) => o.adults), [3, 2]);
+  const long = await searchStays({ ...base, checkout: ymdPlus(60) });
+  assert.equal(long.query.nights, 40);
+  assert.equal(long.providers.length, 0);
+  assert.ok(long.links.length > 0);
+});
+
+test('cars: nesmyslné nebo minulé datum → 400', () => {
+  assert.throws(() => normalizeCarQuery({ pickup: 'BGY', from: '2026-13-45T09:00', to: '2026-14-50T09:00' }), /datum/);
+  assert.throws(() => normalizeCarQuery({ pickup: 'BGY', from: '2020-01-10T09:00', to: '2020-01-12T09:00' }), /minulosti/);
 });
