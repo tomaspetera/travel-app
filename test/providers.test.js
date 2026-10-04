@@ -2,7 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { ONE_WAY, ROUND_TRIP, CHEAPEST_PER_DAY } from './fixtures/ryanair.js';
 import { stubFetch, ymdPlus } from './helpers.js';
-import { ryanair, parseOneWay, parseRoundTrip, parseCheapestPerDay, bookingUrl as frUrl } from '../server/providers/ryanair.js';
+import { ryanair, parseOneWay, parseRoundTrip, parseCheapestPerDay, bookingUrl as frUrl, warmSession } from '../server/providers/ryanair.js';
 import { wizzair, parseNetwork, parseTimetable, scrapeVersion, bookingUrl as w6Url } from '../server/providers/wizzair.js';
 import { parsePricesForDates, bookingUrl as tpUrl } from '../server/providers/travelpayouts.js';
 import { setRates, FALLBACK_EUR } from '../server/lib/fx.js';
@@ -67,8 +67,9 @@ test('Ryanair explore: správné parametry dotazu a rozdělení dlouhého interv
   const stub = stubFetch(() => ({ body: ONE_WAY }));
   try {
     const trips = await ryanair.explore({ origin: 'VIE', dateFrom: from, dateTo: to, country: 'IT', adults: 1 });
-    assert.ok(stub.calls.length >= 2, 'interval > 62 dní se dělí na víc dotazů');
-    const u = new URL(stub.calls[0].url);
+    const fares = stub.calls.filter((c) => c.url.includes('/farfnd/'));
+    assert.ok(fares.length >= 2, 'interval > 62 dní se dělí na víc dotazů');
+    const u = new URL(fares[0].url);
     assert.equal(u.pathname, '/farfnd/v4/oneWayFares');
     assert.equal(u.searchParams.get('departureAirportIataCode'), 'VIE');
     assert.equal(u.searchParams.get('outboundDepartureDateFrom'), from);
@@ -86,7 +87,7 @@ test('Ryanair explore zpáteční: posílá okno návratu a délku pobytu', asyn
   const stub = stubFetch(() => ({ body: ROUND_TRIP }));
   try {
     await ryanair.explore({ origin: 'BTS', dateFrom: from, dateTo: to, ret: { nightsMin: 2, nightsMax: 5 } });
-    const u = new URL(stub.calls[0].url);
+    const u = new URL(stub.calls.find((c) => c.url.includes('/farfnd/')).url);
     assert.equal(u.pathname, '/farfnd/v4/roundTripFares');
     assert.equal(u.searchParams.get('durationFrom'), '2');
     assert.equal(u.searchParams.get('durationTo'), '5');
@@ -102,6 +103,41 @@ test('Ryanair: při chybě services-api zkusí záložní doménu www.ryanair.co
     const trips = await ryanair.explore({ origin: 'PRG', dateFrom: ymdPlus(3), dateTo: ymdPlus(10) });
     assert.ok(stub.calls.some((c) => c.url.startsWith('https://www.ryanair.com/api/farfnd/v4/oneWayFares')));
     assert.equal(trips.length, 2);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('Ryanair: „studený“ 403 → obnoví cookies z ryanair.com a dotaz zopakuje s nimi', async () => {
+  let warmed = 0;
+  const stub = stubFetch((url, init) => {
+    if (url === 'https://www.ryanair.com/ie/en') {
+      warmed++;
+      return { body: '<html></html>', headers: { 'content-type': 'text/html', 'set-cookie': `rid=session${warmed}; path=/` } };
+    }
+    if (url.includes('/farfnd/')) {
+      return init.headers.Cookie === 'rid=session2' ? { body: ONE_WAY } : { status: 403, body: 'Forbidden' };
+    }
+    return { status: 404, body: '{}' };
+  });
+  try {
+    await warmSession(true);
+    assert.equal(warmed, 1);
+    const trips = await ryanair.explore({ origin: 'KTW', dateFrom: ymdPlus(4), dateTo: ymdPlus(9) });
+    assert.equal(warmed, 2, 'po 403 se session obnoví právě jednou');
+    assert.equal(trips.length, 2);
+    const fares = stub.calls.filter((c) => c.url.includes('/farfnd/'));
+    assert.equal(fares.at(-1).init.headers.Cookie, 'rid=session2');
+  } finally {
+    stub.restore();
+  }
+});
+
+test('Ryanair: trvalý 403 skončí chybou, ne nekonečným opakováním', async () => {
+  const stub = stubFetch((url) => (url.includes('/farfnd/') ? { status: 403, body: 'Forbidden' } : { body: '<html></html>', headers: { 'content-type': 'text/html' } }));
+  try {
+    await assert.rejects(ryanair.explore({ origin: 'GDN', dateFrom: ymdPlus(4), dateTo: ymdPlus(9) }), /HTTP 403/);
+    assert.equal(stub.calls.filter((c) => c.url.includes('/farfnd/')).length, 4, '2 domény × 2 pokusy');
   } finally {
     stub.restore();
   }

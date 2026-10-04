@@ -3,7 +3,7 @@ import { config } from '../config.js';
 import { activeProviders } from '../providers/index.js';
 import { resolveDestinations, resolveOrigins, describe } from './places.js';
 import { destInfo, getAirport } from './airports.js';
-import { addDays, clampRange, daysBetween } from './dates.js';
+import { addDays, clampRange, daysBetween, isYmd, todayYmd } from './dates.js';
 import { bestOneWays, bestRoundTrips, calendarArray, dateOk, oneWayCalendar } from './optimizer.js';
 import { fxInfo, loadRates } from './fx.js';
 import { haversineKm } from './geo.js';
@@ -26,12 +26,37 @@ const ids = (v) => (Array.isArray(v) ? v : v ? [v] : []).map(String).filter(Bool
 export function normalizeQuery(raw = {}) {
   const from = ids(raw.from);
   if (!from.length) throw new UserError('Zadej, odkud chceš letět (město, letiště nebo zemi).');
-  const [dateFrom, dateTo] = clampRange(raw.dateFrom, raw.dateTo);
+  let [dateFrom, dateTo] = clampRange(raw.dateFrom, raw.dateTo);
   const trip = raw.trip === 'oneway' ? 'oneway' : 'return';
   let nightsMin = int(raw.nightsMin, 2, 0, 45);
   let nightsMax = int(raw.nightsMax, 7, 0, 45);
   if (nightsMax < nightsMin) [nightsMin, nightsMax] = [nightsMax, nightsMin];
+  // Přesná data: odlet tam = exactOut, návrat = exactBack (± flexDays) – nic jiného se nenabídne.
+  let exact = null;
+  if (raw.exactOut != null && raw.exactOut !== '') {
+    const out = String(raw.exactOut);
+    const back = trip === 'return' ? String(raw.exactBack || '') : null;
+    const flex = int(raw.flexDays, 0, 0, 3);
+    const today = todayYmd();
+    if (!isYmd(out)) throw new UserError('Zadej datum odletu.');
+    if (out < today) throw new UserError('Datum odletu je v minulosti.');
+    if (out > addDays(today, 360)) throw new UserError('Datum odletu je příliš daleko (nejvýš rok dopředu).');
+    if (trip === 'return' && !isYmd(back)) throw new UserError('Zadej datum návratu.');
+    if (back && back < out) throw new UserError('Návrat musí být stejný den nebo po odletu.');
+    if (back && daysBetween(out, back) > 45) throw new UserError('Pobyt může mít nejvýš 45 nocí.');
+    dateFrom = addDays(out, -flex) < today ? today : addDays(out, -flex);
+    dateTo = addDays(out, flex);
+    exact = { out, back, flex };
+    if (back) {
+      const backFrom = addDays(back, -flex) < dateFrom ? dateFrom : addDays(back, -flex);
+      exact.backFrom = backFrom;
+      exact.backTo = addDays(back, flex);
+      nightsMin = Math.max(0, daysBetween(dateTo, backFrom));
+      nightsMax = daysBetween(dateFrom, exact.backTo);
+    }
+  }
   return {
+    exact,
     from,
     to: ids(raw.to).filter((x) => x !== 'anywhere'),
     radiusKm: int(raw.radiusKm, 200, 0, 600),
@@ -40,8 +65,8 @@ export function normalizeQuery(raw = {}) {
     trip,
     nightsMin,
     nightsMax,
-    outDays: days(raw.outDays),
-    backDays: trip === 'return' ? days(raw.backDays) : [],
+    outDays: exact ? [] : days(raw.outDays),
+    backDays: trip === 'return' && !exact ? days(raw.backDays) : [],
     adults: int(raw.adults, 1, 1, 9),
     maxPrice: raw.maxPrice ? int(raw.maxPrice, null, 0, 1e7) : null,
     directOnly: Boolean(raw.directOnly),
@@ -101,12 +126,14 @@ export async function search(raw, emit = () => {}) {
   const groundMap = new Map(origins.airports.map((a) => [a.iata, a.ground ? a.ground.czk : 0]));
   const groundOf = (iata) => groundMap.get(iata) ?? 0;
 
-  const ret = q.trip === 'return' ? { nightsMin: q.nightsMin, nightsMax: q.nightsMax } : null;
-  const backFrom = addDays(q.dateFrom, ret ? ret.nightsMin : 0);
-  const backTo = addDays(q.dateTo, ret ? ret.nightsMax : 0);
+  const ret = q.trip === 'return' ? { nightsMin: q.nightsMin, nightsMax: q.nightsMax, backFrom: q.exact?.backFrom, backTo: q.exact?.backTo } : null;
+  const backFrom = q.exact?.backFrom || addDays(q.dateFrom, ret ? ret.nightsMin : 0);
+  const backTo = q.exact?.backTo || addDays(q.dateTo, ret ? ret.nightsMax : 0);
   const constraints = {
     nightsMin: q.nightsMin, nightsMax: q.nightsMax, outDays: q.outDays, backDays: q.backDays,
     openJawHome: q.openJaw, openJawDest: q.openJaw,
+    // Přesná data: odlet jen v okně dateFrom..dateTo, návrat jen v okně backFrom..backTo.
+    ...(q.exact ? { outFrom: q.dateFrom, outTo: q.dateTo, backFrom: q.exact.backFrom, backTo: q.exact.backTo } : {}),
   };
 
   const providers = activeProviders();
@@ -149,6 +176,10 @@ export async function search(raw, emit = () => {}) {
 
   async function exploreProvider(p) {
     const st = stOf(p);
+    if (!p.explore && !p.destinations) {
+      st.note = 'hledá jen ke konkrétnímu cíli – zadej, kam letíš';
+      return;
+    }
     const stations = await p.stations();
     const ors = origins.airports.filter((a) => !stations || stations.has(a.iata));
     if (!ors.length) {
@@ -252,17 +283,31 @@ export async function search(raw, emit = () => {}) {
       }));
       return;
     }
-    const capped = pairs.slice(0, 40);
+    // Pomalejší zdroje (Kiwi) jen pro pár nejvýznamnějších letišť: velká a blízká napřed.
+    if (p.maxPairs) {
+      const rank = { L: 0, M: 1, S: 2 };
+      const dist = new Map(origins.airports.map((a) => [a.iata, a.distKm]));
+      pairs.sort((x, y) => rank[getAirport(x.o).type] - rank[getAirport(y.o).type] || dist.get(x.o) - dist.get(y.o));
+    }
+    let maxPairs = p.maxPairs || 40;
+    if (p.maxCalls && p.callsPerRoute) {
+      // Skutečný počet dotazů na dvojici letišť: okna cesty tam + okna (delší) cesty zpět.
+      const perPair = p.callsPerRoute(q.dateFrom, q.dateTo) + (ret ? p.callsPerRoute(backFrom, backTo) : 0);
+      maxPairs = Math.max(1, Math.min(maxPairs, Math.floor(p.maxCalls / perPair)));
+    }
+    // Pomalý zdroj má na hledání časový limit; co nestihne, vynechá (hledání nečeká).
+    const deadline = p.maxMs ? Date.now() + p.maxMs : null;
+    const capped = pairs.slice(0, maxPairs);
     const tasks = [];
     for (const { o, d } of capped) {
       tasks.push(async () => {
-        const legs = await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults, directOnly: q.directOnly });
+        const legs = await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults, directOnly: q.directOnly, deadline });
         outLegs.push(...legs);
         st.found += legs.length;
       });
       if (ret) {
         tasks.push(async () => {
-          const legs = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, adults: q.adults, directOnly: q.directOnly });
+          const legs = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, adults: q.adults, directOnly: q.directOnly, deadline });
           backLegs.push(...legs);
           st.found += legs.length;
         });
@@ -270,6 +315,7 @@ export async function search(raw, emit = () => {}) {
     }
     if (pairs.length > capped.length) st.note = `prohledáno ${capped.length} z ${pairs.length} kombinací letišť`;
     await runTasks(st, tasks);
+    if (deadline && Date.now() > deadline) st.note = [st.note, `po ${Math.round(p.maxMs / 1000)} s ukončeno – část termínů vynechána`].filter(Boolean).join(' · ');
   }
 
   await Promise.all(providers.map((p) => settle(() => (routeMode ? routeProvider(p) : exploreProvider(p)), stOf(p))));

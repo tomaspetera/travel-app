@@ -4,6 +4,7 @@
 import { limiter, request } from '../lib/http.js';
 import { cache } from '../lib/cache.js';
 import { config } from '../config.js';
+import { affiliate, affiliateOn } from '../lib/links.js';
 import { makeLeg, makeTrip } from '../lib/fares.js';
 import { airlineName } from '../lib/airlines.js';
 import { getAirport } from '../lib/airports.js';
@@ -19,7 +20,9 @@ export function bookingUrl(link, { from, to, dateOut, dateIn = null, adults = 1 
   const base = link
     ? `https://www.aviasales.com${link.startsWith('/') ? '' : '/'}${link}`
     : `https://www.aviasales.com/search/${from}${ddmm(dateOut)}${to}${dateIn ? ddmm(dateIn) : ''}${adults}`;
+  if (affiliateOn('aviasales')) return affiliate(base, 'aviasales');
   if (!config.travelpayoutsMarker) return base;
+  // Bez čísla projektu (trs) aspoň přímý odkaz s markerem – Aviasales ho při otevření přečte.
   return `${base}${base.includes('?') ? '&' : '?'}marker=${encodeURIComponent(config.travelpayoutsMarker)}`;
 }
 
@@ -51,16 +54,44 @@ export function parsePricesForDates(json, { adults = 1 } = {}) {
   return out;
 }
 
-async function pfd(params) {
-  const qs = new URLSearchParams({ currency: 'czk', sorting: 'price', limit: '1000', page: '1', unique: 'false', ...params });
-  return cache.wrap(`tp:${qs}`, TTL, () => limit(() => request(`${URL_PFD}?${qs}`, {
+// Trh (market) určuje, z čí mezipaměti hledání se čte – bez něj API bere ruský trh.
+// Kdyby API zvolený trh nepřijalo, zkusí se dotaz bez něj (a trh se pro běh serveru vypne).
+let marketOk = true;
+
+async function fetchPfd(qs) {
+  const j = await limit(() => request(`${URL_PFD}?${qs}`, {
     headers: { 'X-Access-Token': config.travelpayoutsToken },
     timeoutMs: 15000,
     retries: 1,
-  })).then((j) => {
-    if (j && j.success === false) throw new Error(`Travelpayouts: ${j.error || 'chyba'}`);
-    return j;
   }));
+  if (j && j.success === false) {
+    const err = new Error(`Travelpayouts: ${j.error || 'chyba'}`);
+    err.status = 400;
+    throw err;
+  }
+  return j;
+}
+
+async function pfd(params) {
+  const base = { currency: 'czk', sorting: 'price', limit: '1000', page: '1', unique: 'false', ...params };
+  const market = marketOk ? config.travelpayoutsMarket : '';
+  const qs = new URLSearchParams(market ? { ...base, market } : base);
+  return cache.wrap(`tp:${qs}`, TTL, async () => {
+    try {
+      return await fetchPfd(qs);
+    } catch (e) {
+      // Jen odmítnutí dotazu (400/422) může znamenat nepodporovaný trh; výpadek sítě nebo timeout ne.
+      if (!market || (e.status !== 400 && e.status !== 422)) throw e;
+      let res;
+      try {
+        res = await fetchPfd(new URLSearchParams(base));
+      } catch {
+        throw e; // bez trhu taky chyba → trh za to nemůže, nech ho zapnutý
+      }
+      marketOk = false; // bez trhu prošlo → API trh nepřijímá
+      return res;
+    }
+  });
 }
 
 export const travelpayouts = {

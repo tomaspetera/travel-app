@@ -7,6 +7,10 @@ const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '
 const flag = iso => iso && iso.length === 2 ? String.fromCodePoint(...[...iso.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65)) : '🏳️';
 const enc = encodeURIComponent;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Do odkazů jen http(s) – sdílený odkaz na cestu nebo odpověď API nesmí podstrčit javascript: apod.
+const safeUrl = u => /^https?:\/\//i.test(String(u ?? '').trim()) ? String(u).trim() : '#';
+// URL do CSS url('…') – uvozovky a závorky zakódovat, aby nešlo vyskočit z hodnoty.
+const cssUrl = u => safeUrl(u).replace(/['"()\\\s]/g, c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'));
 const MNS = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'];
 const MNS_FULL = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
 const CONTS = ['Evropa', 'Asie', 'Afrika', 'Severní Amerika', 'Jižní Amerika', 'Oceánie'];
@@ -41,6 +45,8 @@ function initCountries(list) {
 /* ================= NAV / SHELL ================= */
 const NAV = [['dashboard', 'Přehled', 'Radar cen a tvoje cesty', 'M3 12l9-9 9 9M5 10v10h14V10'],
 ['flights', 'Lety', 'Nejlevnější letenky ze všech letišť v okolí', 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z'],
+['trip', 'Cesta', 'Let → ubytování → auto → program → shrnutí', 'M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13'],
+['explore', 'Objevuj', 'Co vidět a kam vyrazit kdekoliv na světě', 'M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zM12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z'],
 ['map', 'Mapa', 'Procestuj svět a odškrtávej země', 'M9 20l-5.5 2.5V5L9 2.5m0 17.5l6-3m-6 3V2.5m6 14.5l5.5 2.5V5L15 2.5m0 14.5V2.5m-6 0l6 3'],
 ['countries', 'Země', 'Počasí, ceny, bezpečnost a tipy', 'M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2c2.5 2.7 4 6.3 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.3-4-10s1.5-7.3 4-10z'],
 ['planner', 'Plánovač', 'Naplánuj si celou cestu', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z'],
@@ -49,14 +55,21 @@ let activeView = 'dashboard';
 function ico(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
 function buildNav() {
   $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : ''}</div>`).join('');
-  $('#mobileNav').innerHTML = NAV.map(n => `<div class="mi" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span></div>`).join('');
+  // Na mobilu hlavní sekce + „Více“ (mapa, země, doporučení).
+  const MOBILE = ['dashboard', 'flights', 'trip', 'explore', 'planner'];
+  $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span></div>`).join('')
+    + `<div class="mi" id="moreNav">${ico('M5 12h.01M12 12h.01M19 12h.01')}<span>Více</span></div>`;
   $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
+  $('#moreNav').onclick = () => {
+    modalOpen(`<div class="modal-body"><h3 style="margin-bottom:12px">Další sekce</h3><div class="more-nav">${NAV.filter(n => !MOBILE.includes(n[0])).map(n => `<button type="button" class="btn ghost" data-mv="${n[0]}" style="justify-content:flex-start;width:100%;margin-bottom:8px">${ico(n[3])} ${n[1]} <span class="faint" style="font-weight:400;margin-left:6px">${n[2]}</span></button>`).join('')}</div></div>`);
+    $$('[data-mv]').forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
+  };
 }
 function go(v, opts = {}) {
   activeView = v;
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
   $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === v));
-  $$('.mobile-nav .mi').forEach(el => el.classList.toggle('active', el.dataset.view === v));
+  $$('.mobile-nav .mi').forEach(el => el.classList.toggle('active', el.dataset.view === v || (el.id === 'moreNav' && ['map', 'countries', 'recommend'].includes(v))));
   const n = NAV.find(x => x[0] === v); $('#pageTitle').textContent = n[1]; $('#pageSub').textContent = n[2];
   if (!opts.keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
   if (location.hash.slice(1) !== v && !opts.noHash) history.replaceState(null, '', '#' + v);
@@ -65,6 +78,8 @@ function go(v, opts = {}) {
   if (v === 'recommend') renderRecs();
   if (v === 'planner') renderPlanner();
   if (v === 'dashboard') renderDash();
+  if (v === 'trip' && window.Trip) Trip.render();
+  if (v === 'explore' && window.Places) Places.renderExplore($('#exploreRoot'));
 }
 function toast(msg, kind) { const t = $('#toast'); t.innerHTML = (kind === 'err' ? '⚠️ ' : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`) + esc(msg); t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2600); }
 
@@ -381,7 +396,8 @@ async function boot() {
   }
   if (window.Flights) await Flights.init();
   refreshStats();
-  const v = location.hash.slice(1);
+  const shared = window.Trip && Trip.importFromHash();
+  const v = shared ? 'trip' : location.hash.slice(1);
   go(NAV.some(n => n[0] === v) ? v : 'dashboard', { noHash: true });
 }
 document.addEventListener('DOMContentLoaded', boot);

@@ -24,7 +24,7 @@
   const today = () => fmtYMD(new Date());
   const dayLabel = s => { const d = new Date(s.slice(0, 10) + 'T12:00:00'); return `${DOW[d.getDay()].toLowerCase()} ${d.getDate()}. ${d.getMonth() + 1}.`; };
   const timeOf = l => l.hasTime ? l.dep.slice(11, 16) : '';
-  const arrTime = l => l.arr && l.hasTime ? l.arr.slice(11, 16) : '';
+  const arrTime = l => l.arr && l.hasTime ? (l.arrEst ? '~' : '') + l.arr.slice(11, 16) : '';
   const dur = m => m ? `${Math.floor(m / 60)} h ${pad(m % 60)} min` : '';
   const hm = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
   const yymmdd = s => s.slice(2, 10).replace(/-/g, '');
@@ -130,6 +130,7 @@
       from: S.home?.from || [], to: [], radius: S.home?.radius ?? 200, trip: 'return', len: 'week', nMin: 5, nMax: 9,
       dFrom: addDays(today(), 7), dTo: addDays(today(), 60), adults: 2, maxPrice: '', ground: true, kmRate: 1.1,
       openJaw: true, directOnly: false, outDays: [], backDays: [], exclude: [],
+      dateMode: 'flex', xOut: addDays(today(), 14), xBack: addDays(today(), 21), xFlex: 0,
     };
   }
   function getForm() {
@@ -141,11 +142,16 @@
       openJaw: $('#openJaw').checked, directOnly: $('#directOnly').checked,
       outDays: $$('#outDays .on').map(b => +b.dataset.d), backDays: $$('#backDays .on').map(b => +b.dataset.d),
       exclude: originPreview.filter(a => a.off).map(a => a.iata),
+      dateMode: $('#dateMode .on').dataset.v, xOut: $('#xOut').value, xBack: $('#xBack').value, xFlex: +($('#xFlex .on')?.dataset.f || 0),
     };
   }
   function setForm(f) {
     f = { ...defaultForm(), ...f };
     if (f.dFrom < today()) { const span = Math.max(14, (new Date(f.dTo) - new Date(f.dFrom)) / 864e5 | 0); f.dFrom = addDays(today(), 3); f.dTo = addDays(f.dFrom, span); }
+    if (!f.xOut || f.xOut < today()) { const n = f.xOut && f.xBack ? Math.max(0, (new Date(f.xBack) - new Date(f.xOut)) / 864e5 | 0) : 7; f.xOut = addDays(today(), 14); f.xBack = addDays(f.xOut, n); }
+    $$('#dateMode button').forEach(b => b.classList.toggle('on', b.dataset.v === f.dateMode));
+    $('#xOut').value = f.xOut; $('#xBack').value = f.xBack || addDays(f.xOut, 7);
+    $$('#xFlex button').forEach(b => b.classList.toggle('on', +b.dataset.f === (f.xFlex || 0)));
     fromInput.set(f.from, true); toInput.set(f.to, true);
     $('#radius').value = f.radius; $('#radiusVal').textContent = f.radius + ' km';
     $$('#tripType button').forEach(b => b.classList.toggle('on', b.dataset.v === f.trip));
@@ -160,17 +166,35 @@
   }
   let pendingExclude = new Set();
   function payloadOf(f) {
+    const exact = f.dateMode === 'exact';
     return {
       from: f.from.map(x => x.id), to: f.to.map(x => x.id), radiusKm: f.radius,
       dateFrom: f.dFrom, dateTo: f.dTo, trip: f.trip, nightsMin: f.nMin, nightsMax: f.nMax,
-      outDays: f.outDays, backDays: f.backDays, adults: f.adults, maxPrice: f.maxPrice ? +f.maxPrice : null,
+      outDays: exact ? [] : f.outDays, backDays: exact ? [] : f.backDays, adults: f.adults, maxPrice: f.maxPrice ? +f.maxPrice : null,
       directOnly: f.directOnly, kmRate: f.ground ? f.kmRate : 0, openJaw: f.openJaw, exclude: f.exclude,
+      // Přesná data: server hledá jen odlet xOut a návrat xBack (± xFlex dní).
+      ...(exact ? { exactOut: f.xOut, exactBack: f.trip === 'return' ? f.xBack : null, flexDays: f.xFlex || 0 } : {}),
     };
   }
   function syncFormUI() {
     const ret = $('#tripType .on').dataset.v === 'return';
-    $('#lenField').style.display = ret ? '' : 'none';
-    $('#backDaysField').style.display = ret ? '' : 'none';
+    const exact = $('#dateMode .on').dataset.v === 'exact';
+    $('#lenField').style.display = ret && !exact ? '' : 'none';
+    $('#flexField').style.display = exact ? 'none' : '';
+    $('#exactField').hidden = !exact;
+    $('#xBackWrap').style.display = ret ? '' : 'none';
+    $('#xBackLbl').style.display = ret ? '' : 'none';
+    // Dny v týdnu při přesných datech nedávají smysl.
+    $('#backDaysField').style.display = ret && !exact ? '' : 'none';
+    $('#outDays').closest('.field').style.display = exact ? 'none' : '';
+    if (exact) {
+      const out = $('#xOut').value, back = $('#xBack').value, fl = +($('#xFlex .on')?.dataset.f || 0);
+      const n = out && back ? Math.round((new Date(back) - new Date(out)) / 864e5) : null;
+      $('#xInfo').textContent = !out ? 'Vyber datum odletu.'
+        : ret && (!back || n < 0) ? '⚠️ Návrat musí být stejný den nebo po odletu.'
+        : ret ? `${fmtDate(out)} → ${fmtDate(back)} · ${n === 0 ? 'týž den' : n === 1 ? '1 noc' : n <= 4 ? n + ' noci' : n + ' nocí'}${fl ? ` · každé datum ± ${fl} ${fl === 1 ? 'den' : 'dny'}` : ' · jen tyto dva dny'}`
+        : `odlet ${fmtDate(out)}${fl ? ` ± ${fl} ${fl === 1 ? 'den' : 'dny'}` : ' · jen tento den'}`;
+    }
     const f = getForm();
     const bits = [];
     if (f.adults !== 1) bits.push(`${f.adults} os.`);
@@ -217,6 +241,17 @@
     $('#backDays').innerHTML = DOW_ORDER.map(d => `<button type="button" data-d="${d}">${DOW[d]}</button>`).join('');
     $$('#outDays button, #backDays button').forEach(b => b.onclick = () => { b.classList.toggle('on'); $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); syncFormUI(); });
     $$('#tripType button').forEach(b => b.onclick = () => { $$('#tripType button').forEach(x => x.classList.toggle('on', x === b)); syncFormUI(); });
+    $$('#dateMode button').forEach(b => b.onclick = () => { $$('#dateMode button').forEach(x => x.classList.toggle('on', x === b)); syncFormUI(); });
+    $$('#xFlex button').forEach(b => b.onclick = () => { $$('#xFlex button').forEach(x => x.classList.toggle('on', x === b)); syncFormUI(); });
+    $('#xOut').min = today(); $('#xBack').min = today();
+    $('#xOut').onchange = () => {
+      // Posun odletu posune i návrat (zachová počet nocí), ať návrat není před odletem.
+      const prev = $('#xOut').dataset.prev, back = $('#xBack').value, out = $('#xOut').value;
+      if (prev && back && out) { const n = Math.round((new Date(back) - new Date(prev)) / 864e5); if (n >= 0) $('#xBack').value = addDays(out, n); }
+      $('#xOut').dataset.prev = out; syncFormUI();
+    };
+    $('#xOut').onfocus = () => { $('#xOut').dataset.prev = $('#xOut').value; };
+    $('#xBack').onchange = syncFormUI;
     $$('#lenPreset button').forEach(b => b.onclick = () => applyPreset(b.dataset.v));
     ['#nMin', '#nMax'].forEach(s => $(s).oninput = () => { $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); });
     $('#radius').oninput = () => { $('#radiusVal').textContent = $('#radius').value + ' km'; refreshOrigins(); updateHomeChip(); };
@@ -273,7 +308,11 @@
   async function startSearch(opts = {}) {
     const f = getForm();
     if (!f.from.length) { toast('Zadej, odkud chceš letět', 'err'); fromInput.input.focus(); return; }
-    if (f.dTo < f.dFrom) { toast('Konec rozsahu je před začátkem', 'err'); return; }
+    if (f.dateMode !== 'exact' && f.dTo < f.dFrom) { toast('Konec rozsahu je před začátkem', 'err'); return; }
+    if (f.dateMode === 'exact') {
+      if (!f.xOut || f.xOut < today()) { toast('Zadej datum odletu (dnes nebo později)', 'err'); $('#xOut').focus(); return; }
+      if (f.trip === 'return' && (!f.xBack || f.xBack < f.xOut)) { toast('Návrat musí být stejný den nebo po odletu', 'err'); $('#xBack').focus(); return; }
+    }
     S.form = f; S.home = { from: f.from, radius: f.radius }; save(); updateHomeChip();
     const payload = payloadOf(f);
     lastPayload = payload;
@@ -309,7 +348,7 @@
         <span class="pst">${st}${p.found ? ` · ${p.found} nálezů` : ''}${p.ms && !starting && p.state !== 'running' ? ` · ${(p.ms / 1000).toFixed(1)} s` : ''}</span>
         ${p.note ? `<div class="pnote">${esc(p.note)}</div>` : ''}${p.error ? `<div class="pnote err">${esc(p.error)}</div>` : ''}</div>`;
     }).join('');
-    const disabled = (health?.providers || []).filter(p => !p.enabled && p.hint).map(p => `<div class="prow off"><span class="pdot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="pst">vypnuto</span><div class="pnote">${esc(p.hint)}</div></div>`).join('');
+    const disabled = (health?.providers || []).filter(p => !p.enabled && p.hint && p.kind !== 'stays').map(p => `<div class="prow off"><span class="pdot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="pst">vypnuto</span><div class="pnote">${esc(p.hint)}</div></div>`).join('');
     const head = res ? `Prohledáno ${res.origins.length} letišť za ${(res.stats.ms / 1000).toFixed(1)} s` : `<span class="spin"></span> Prohledávám letiště${originPreview.length ? ` (${originPreview.filter(a => !a.off).slice(0, health?.maxOrigins || 8).map(a => a.iata).join(', ')})` : ''}…`;
     host.innerHTML = `<div class="card progress-card ${res ? 'done' : ''}"><div class="ph">${head}</div>${rows}${res ? disabled : ''}</div>`;
   }
@@ -375,7 +414,7 @@
     }
     const summary = `<div class="res-head">
       <div><h2>${isRoute ? `✈️ ${destTxt}` : `🌍 ${res.groups.length} destinací ${res.destination.kind === 'countries' ? '· ' + destTxt : ''}`}</h2>
-      <div class="muted" style="font-size:13px">z ${res.origins.map(o => `<b>${o.iata}</b>`).join(', ')} · ${fmtDate(res.query.dateFrom)}–${fmtDate(res.query.dateTo)} · ${res.query.trip === 'return' ? `${res.query.nightsMin}–${res.query.nightsMax} nocí` : 'jen tam'} · ${res.query.adults} os.
+      <div class="muted" style="font-size:13px">z ${res.origins.map(o => `<b>${o.iata}</b>`).join(', ')} · ${whenTxt(res.query)} · ${res.query.adults} os.
       ${best ? ` · nejlevněji <b class="good">${czk(best.perPersonCzk)}</b>/os.` : ''}</div></div>
       <div class="res-tools">
         <select id="sortSel" title="Řazení">
@@ -391,7 +430,8 @@
         ${view.outDate ? `<button type="button" class="fchip on" id="fDate">odlet ${fmtDate(view.outDate)} ✕</button>` : ''}
       </div>
       ${res.demo ? `<div class="note warn" style="margin-bottom:14px">⚠️ <div><b>DEMO data</b> – ceny i lety jsou vymyšlené, slouží jen k vyzkoušení aplikace.</div></div>` : ''}
-      ${res.fx && res.fx.source === 'approx' && !res.demo ? `<div class="note warn" style="margin-bottom:14px">💱 <div>Kurzy měn se nepodařilo načíst – přepočet do Kč je orientační.</div></div>` : ''}`;
+      ${res.fx && res.fx.source === 'approx' && !res.demo ? `<div class="note warn" style="margin-bottom:14px">💱 <div>Kurzy měn se nepodařilo načíst – přepočet do Kč je orientační.</div></div>` : ''}
+      <div class="faint rank-note">Pořadí určuje jen zvolené řazení (cena, termín, vzdálenost) – žádná aerolinka ani partner si za lepší pozici neplatí.${health?.affiliate ? ' Odkazy na Aviasales jsou partnerské (affiliate, <span class="ad-tag">reklama</span>): při nákupu přes ně může ATLAS dostat provizi, cenu to pro tebe nemění.' : ''}</div>`;
 
     let body = '';
     if (view.mode === 'map') body = `<div class="card res-map-card"><div id="resMap" class="res-map"></div><div class="map-legend"><span><i class="lg-dot" style="background:#34d399"></i>nejlevnější</span><span><i class="lg-dot" style="background:#fbbf24"></i>střední</span><span><i class="lg-dot" style="background:#fb7185"></i>dražší</span><span class="faint">klikni na bod → detail</span></div></div><div id="mapList"></div>`;
@@ -442,7 +482,7 @@
   }
 
   function bookButtons(t) {
-    const btn = (url, label, prov) => url ? `<a class="btn sm book" style="--pc:${provColor(prov)}" href="${esc(url)}" target="_blank" rel="noopener">${label}</a>` : `<span class="btn sm ghost" title="Demo data nemají rezervační odkaz" style="opacity:.55">${label}</span>`;
+    const btn = (url, label, prov) => url ? `<a class="btn sm book" style="--pc:${provColor(prov)}" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">${label}</a>` : `<span class="btn sm ghost" title="Demo data nemají rezervační odkaz" style="opacity:.55">${label}</span>`;
     if (t.bookUrl) return btn(t.bookUrl, `Koupit ${t.combined ? 'na Aviasales' : 'u ' + esc(provName(t.provider))} ↗`, t.provider);
     if (!t.back) return btn(t.out.bookUrl, `Koupit u ${esc(provName(t.out.provider))} ↗`, t.out.provider);
     return btn(t.out.bookUrl, `Tam: ${esc(provName(t.out.provider))} ↗`, t.out.provider) + btn(t.back.bookUrl, `Zpět: ${esc(provName(t.back.provider))} ↗`, t.back.provider);
@@ -471,9 +511,9 @@
     return `<div class="trip-row" data-tid="${esc(t.id)}">
       <div class="tr-legs">${legHtml(t.out)}${t.back ? legHtml(t.back, true) : ''}<div class="tr-badges">${badges(t, g)}</div></div>
       ${priceBox(t)}
-      <div class="tr-act">${bookButtons(t)}
-        <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}</div>
-        <div class="tr-more"><button type="button" class="linkbtn" data-plan="${idx}">+ Do plánu</button>${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>` : ''}</div>
+      <div class="tr-act"><button type="button" class="btn sm primary" data-pick="${idx}">Vybrat a pokračovat →</button>
+        <div class="tr-buy">${bookButtons(t)}</div>
+        <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>` : ''}</div>
       </div></div>`;
   }
 
@@ -551,7 +591,7 @@
     const fdt = $('#fDate', host); if (fdt) fdt.onclick = () => { view.outDate = null; rerender(); };
     $$('[data-exp]', host).forEach(b => b.onclick = () => { const k = b.dataset.exp; view.expanded.has(k) ? view.expanded.delete(k) : view.expanded.add(k); rerender(true); });
     $$('[data-day]', host).forEach(c => c.onclick = () => { view.outDate = view.outDate === c.dataset.day ? null : c.dataset.day; rerender(true); });
-    $$('[data-plan]', host).forEach(b => b.onclick = () => planTrip(rowRegistry[+b.dataset.plan]));
+    $$('[data-pick]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pick]; Trip.start({ t: r.t, g: r.g, result: lastResult }); });
     $$('[data-country]', host).forEach(b => b.onclick = () => openCountry(b.dataset.country));
   }
   function rerender(keepScroll) {
@@ -561,14 +601,6 @@
     if (keepScroll) window.scrollTo(0, y);
   }
 
-  function planTrip({ t, g }) {
-    const pax = lastResult.query.adults;
-    const flightTxt = `${t.out.from}→${t.out.to} ${fmtDate(t.out.date)} ${timeOf(t.out)} (${provName(t.out.provider)})${t.back ? `, zpět ${t.back.from}→${t.back.to} ${fmtDate(t.back.date)} ${timeOf(t.back)} (${provName(t.back.provider)})` : ''} · ${czk(t.totalCzk)} za ${pax} os.`;
-    newTrip(byIso[g?.dest.cc] || null, {
-      name: `${g?.dest.label || t.out.to} ${fmtDate(t.out.date)}`, dest: g?.dest.label || t.out.to, iso: g?.dest.cc,
-      start: t.out.date, end: t.back ? t.back.date : '', pax, budget: t.totalCzk, flight: flightTxt,
-    });
-  }
 
   /* ---------- mapa výsledků ---------- */
   async function drawResultMap(groups) {
@@ -621,6 +653,15 @@
   }
 
   /* ---------- hlídané ceny ---------- */
+  // Popis termínu: přesná data („tam 14.11. · zpět 21.11.“) nebo rozsah + počet nocí.
+  function whenTxt(q) {
+    const x = q.exact;
+    if (x) {
+      const pm = x.flex ? ` ±${x.flex}` : '';
+      return `📅 tam ${fmtDate(x.out)}${pm}${x.back ? ` · zpět ${fmtDate(x.back)}${pm}` : ' · jen tam'}${x.flex ? '' : ' (přesná data)'}`;
+    }
+    return `${fmtDate(q.dateFrom)}–${fmtDate(q.dateTo)} · ${q.trip === 'return' ? `${q.nightsMin}–${q.nightsMax} nocí` : 'jen tam'}`;
+  }
   function watchLabel(f) {
     const from = f.from.map(x => x.label).join(', ');
     const to = f.to.length ? f.to.map(x => x.label).join(', ') : 'kamkoliv';
@@ -640,7 +681,7 @@
     if (!res) return;
     const b = bestOf(res);
     S.watch = S.watch || [];
-    S.watch.unshift({ id: Date.now().toString(36), label: watchLabel(f), sub: `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? `${f.nMin}–${f.nMax} nocí` : 'jen tam'}`, form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now() });
+    S.watch.unshift({ id: Date.now().toString(36), label: watchLabel(f), sub: f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? `${f.nMin}–${f.nMax} nocí` : 'jen tam'}`, form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now() });
     S.watch = S.watch.slice(0, 12); save();
     toast('Hledání uloženo – cenu najdeš na Přehledu');
   }
@@ -669,6 +710,7 @@
     try {
       const f = { ...defaultForm(), ...w.form };
       if (f.dFrom < today()) f.dFrom = today();
+      if (f.dateMode === 'exact' && f.xOut < today()) { toast(`${w.label}: termín už proběhl`, 'err'); if (card) card.classList.remove('loading'); return; }
       const res = await runSearch(payloadOf(f));
       const b = bestOf(res);
       const prev = w.best?.czk;
@@ -737,7 +779,7 @@
     $$('[data-qf]').forEach(el => el.onclick = () => {
       const q = QF[+el.dataset.qf][3];
       go('flights');
-      const base = { ...defaultForm(), ...(S.form || {}), from: (S.home?.from || fromInput.items), to: [], dFrom: addDays(today(), 3), dTo: addDays(today(), 60) };
+      const base = { ...defaultForm(), ...(S.form || {}), from: (S.home?.from || fromInput.items), to: [], dFrom: addDays(today(), 3), dTo: addDays(today(), 60), dateMode: 'flex' };
       const f = { ...base, ...q };
       if (q.len && PRESETS[q.len]) Object.assign(f, { nMin: PRESETS[q.len].nMin, nMax: PRESETS[q.len].nMax, outDays: PRESETS[q.len].out, backDays: PRESETS[q.len].back });
       else Object.assign(f, { len: 'week', nMin: 3, nMax: 9, outDays: [], backDays: [] });
@@ -758,8 +800,39 @@
 
   function renderSources() {
     const box = $('#srcBox'); if (!box || !health) return;
-    box.innerHTML = `<div class="src-t">Zdroje cen</div>` + health.providers.map(p => `<div class="src ${p.enabled ? 'on' : ''}" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${p.enabled ? (p.blocked ? 'blokováno' : p.kind === 'cached' ? 'cache' : p.kind === 'demo' ? 'demo' : 'živě') : 'vypnuto'}</span></div>`).join('');
+    box.innerHTML = `<div class="src-t">Zdroje cen</div>` + health.providers.map(p => `<div class="src ${p.enabled ? 'on' : ''}" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${p.enabled ? (p.blocked ? 'blokováno' : p.kind === 'cached' ? 'cache' : p.kind === 'demo' ? 'demo' : 'živě') : 'vypnuto'}</span></div>`).join('')
+      + (health.providers.some(p => (p.id === 'travelpayouts' || p.id === 'liteapi') && !p.enabled)
+        ? `<button type="button" class="linkbtn" id="tpHelp" style="margin-top:6px">➕ Zapnout ${health.providers.some(p => p.id === 'travelpayouts' && !p.enabled) ? 'všechny aerolinky' : 'hotely s cenami'}</button>` : '');
+    const h = $('#tpHelp'); if (h) h.onclick = () => window.showSetupGuide(health.providers.some(p => p.id === 'travelpayouts' && !p.enabled) ? null : 'guideStays');
   }
+
+  /** Návod: bezplatný token Travelpayouts = stovky dalších aerolinek (nízkonákladové i dálkové). */
+  function showTpGuide() {
+    modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button>
+      <div class="modal-hero-inner"><h2 style="font-size:23px">Zapnout všechny aerolinky a hotely</h2><div style="opacity:.85;font-size:13px">easyJet, Vueling, Lufthansa, Emirates, Qatar, Turkish… + hotely s hodnocením – zdarma, asi 5 minut</div></div></div>
+      <div class="modal-body">
+        <p class="muted" style="font-size:14px;margin-bottom:12px">Ryanair a Wizz Air ATLAS hledá přímo. Ostatní aerolinky (nízkonákladové i dálkové lety s přestupy) přidá bezplatný přístup k datům <b>Travelpayouts / Aviasales</b>:</p>
+        <ol class="guide">
+          <li>Zaregistruj se zdarma na <a href="https://www.travelpayouts.com/" target="_blank" rel="noopener">travelpayouts.com</a> (stačí e-mail).</li>
+          <li>V profilu otevři <b>Profile → API token</b> (nebo Tools → API) a zkopíruj <b>API token</b>.</li>
+          <li>Na <a href="https://dashboard.render.com/" target="_blank" rel="noopener">dashboard.render.com</a> otevři službu <b>atlas-letenky</b> → <b>Environment</b> → <b>Add Environment Variable</b>.</li>
+          <li>Key: <code>TRAVELPAYOUTS_TOKEN</code>, Value: tvůj token → <b>Save Changes</b>. Render aplikaci za minutu sám restartuje.</li>
+        </ol>
+        <div class="note info" style="margin-top:12px">ℹ️ <div>Ceny z Travelpayouts pocházejí z hledání ostatních uživatelů za poslední dny – u výsledků jsou označené „z cache“ a před nákupem je ověř. Pokud budeš chtít z odkazů provize, doplň i <code>TRAVELPAYOUTS_MARKER</code> (tvoje partnerské ID).</div></div>
+        <p class="muted" style="font-size:14px;margin:12px 0 8px"><b>Živé ceny všech aerolinek k vybranému letu</b> (Kiwi.com) jsou zapnuté samy – klíč nepotřebují.</p>
+        <h3 id="guideStays" style="font-size:16px;margin:18px 0 8px">🏨 Hotely s cenou a hodnocením</h3>
+        <ol class="guide">
+          <li>Zaregistruj se zdarma na <a href="https://dashboard.liteapi.travel/" target="_blank" rel="noopener">dashboard.liteapi.travel</a>.</li>
+          <li>V části <b>API Keys</b> zkopíruj klíč. <b>Sandbox</b> (začíná <code>sand_</code>) dává jen testovací hotely – pro skutečné ceny zapni <b>Production</b> (chce kartu, ale za hledání se neplatí).</li>
+          <li>Na Renderu přidej proměnnou <code>LITEAPI_KEY</code> se zkopírovaným klíčem → <b>Save Changes</b>.</li>
+        </ol>
+        <p class="muted" style="font-size:13px">Bez klíče ATLAS u ubytování nabídne předvyplněné hledání na Booking.com (hodnocení 8+, od nejlevnějšího), Airbnb a Google Hotels.</p>
+      </div>`);
+  }
+  window.showSetupGuide = (section) => {
+    showTpGuide();
+    if (section) setTimeout(() => { const el = document.getElementById(section); if (el) el.scrollIntoView({ block: 'start' }); }, 50);
+  };
 
   async function init() {
     try {

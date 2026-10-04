@@ -1,7 +1,8 @@
 // Jednotný tvar letu (leg) a cesty (trip) napříč poskytovateli.
 import { toCzk } from './fx.js';
 import { getAirport } from './airports.js';
-import { daysBetween, flightMinutes } from './dates.js';
+import { daysBetween, flightMinutes, localToUtcMs, utcToLocalIso } from './dates.js';
+import { haversineKm } from './geo.js';
 
 /**
  * Leg = jeden let A → B.
@@ -11,8 +12,21 @@ export function makeLeg(o) {
   const fa = getAirport(o.from);
   const ta = getAirport(o.to);
   const dep = String(o.dep || '').slice(0, 19);
-  const arr = o.arr ? String(o.arr).slice(0, 19) : null;
+  let arr = o.arr ? String(o.arr).slice(0, 19) : null;
   const czk = o.czk != null ? Math.round(o.czk) : toCzk(o.price, o.currency);
+  const hasTime = dep.length >= 16 && !/T00:00(:00)?$/.test(dep);
+  const durationMin = o.durationMin ?? flightMinutes(dep, fa?.tz, arr, ta?.tz);
+  // Bez času příletu (Wizz Air, Travelpayouts): dopočti ho v místním čase cíle – z délky letu,
+  // jinak odhadem ze vzdálenosti (~780 km/h + 35 min na vzlet a přistání), označený arrEst.
+  let arrEst = false;
+  if (!arr && hasTime && fa && ta) {
+    const depMs = localToUtcMs(dep, fa.tz);
+    const mins = durationMin || Math.round((haversineKm(fa.lat, fa.lon, ta.lat, ta.lon) / 780) * 60 + 35);
+    if (depMs != null) {
+      arr = utcToLocalIso(depMs + mins * 60000, ta.tz);
+      arrEst = !durationMin;
+    }
+  }
   return {
     provider: o.provider,
     carrier: o.carrier || null,
@@ -22,14 +36,15 @@ export function makeLeg(o) {
     to: o.to,
     dep,
     arr,
+    arrEst,
     date: dep.slice(0, 10),
-    hasTime: dep.length >= 16 && !/T00:00(:00)?$/.test(dep),
+    hasTime,
     price: o.price != null ? Math.round(Number(o.price) * 100) / 100 : null,
     currency: o.currency || null,
     czk,
     prevCzk: o.prevPrice != null ? toCzk(o.prevPrice, o.currency) : null,
     stops: o.stops ?? 0,
-    durationMin: o.durationMin ?? flightMinutes(dep, fa?.tz, arr, ta?.tz),
+    durationMin,
     live: o.live !== false,
     bookUrl: o.bookUrl || null,
     foundAt: o.foundAt || null,

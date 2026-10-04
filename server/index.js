@@ -6,7 +6,7 @@ import { createReadStream, statSync } from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { config } from './config.js';
-import { suggest, describe, resolveOrigins } from './lib/places.js';
+import { suggest, describe, resolveOrigins, geocode } from './lib/places.js';
 import { search, UserError } from './lib/search.js';
 import { activeProviders, providerStatus } from './providers/index.js';
 import { fxInfo, loadRates } from './lib/fx.js';
@@ -14,6 +14,14 @@ import { cache } from './lib/cache.js';
 import { airportsNear, getAirport } from './lib/airports.js';
 import { groundEstimate } from './lib/geo.js';
 import { addDays, todayYmd } from './lib/dates.js';
+import { searchStays } from './lib/stays.js';
+import { searchCars } from './lib/cars.js';
+import { findPlaces, mockPlaces } from './lib/poi.js';
+import { planItinerary } from './lib/itinerary.js';
+import { kiwi } from './providers/kiwi.js';
+import { isYmd, daysBetween } from './lib/dates.js';
+import { affiliateOn } from './lib/links.js';
+import { makeTrip } from './lib/fares.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -160,8 +168,27 @@ async function diagnose() {
         return { id: p.id, ok: false, ms: Date.now() - t0, error: e.message || String(e) };
       }
     });
+    const probe = async (id, fn) => {
+      const t0 = Date.now();
+      try {
+        const detail = await fn();
+        return { id, ok: true, ms: Date.now() - t0, detail };
+      } catch (e) {
+        return { id, ok: false, ms: Date.now() - t0, error: e.message || String(e) };
+      }
+    };
+    const extra = [];
+    if (!config.mock && config.liteapiKey) {
+      extra.push(probe('liteapi', async () => {
+        const r = await searchStays({ city: 'Vídeň', iata: 'VIE', checkin: from, checkout: addDays(from, 2), adults: 2 });
+        const st = r.providers.find((x) => x.id === 'liteapi');
+        if (st && !st.ok) throw new Error(st.error);
+        return `${r.items.length} hotelů ve Vídni${st?.test ? ' (testovací klíč)' : ''}`;
+      }));
+    }
+    if (!config.mock) extra.push(probe('wikidata', async () => `${(await findPlaces({ lat: 48.2082, lon: 16.3738, radiusKm: 3, dayTrips: false })).length} míst ve Vídni`));
     const rates = await loadRates();
-    return { at: new Date().toISOString(), demo: config.mock, providers: await Promise.all(probes), fx: { source: rates.source, eurCzk: rates.rates.CZK } };
+    return { at: new Date().toISOString(), demo: config.mock, providers: await Promise.all(probes), services: await Promise.all(extra), fx: { source: rates.source, eurCzk: rates.rates.CZK } };
   });
 }
 
@@ -179,12 +206,25 @@ async function route(req, res) {
   }
   if (p === '/api/health') {
     await loadRates();
-    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, providers: providerStatus(), fx: fxInfo(), cache: cache.stats() });
+    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), fx: fxInfo(), cache: cache.stats() });
   }
   if (p === '/api/places') {
     const q = (url.searchParams.get('q') || '').slice(0, 80);
     const remote = url.searchParams.get('remote') !== '0';
     return sendJson(req, res, 200, { items: await suggest(q, { remote }) });
+  }
+  if (p === '/api/geocode') {
+    // Města a místa (střed města, ne letiště) – pro objevování a program.
+    const q = (url.searchParams.get('q') || '').slice(0, 80);
+    let items = [];
+    try {
+      items = await geocode(q);
+    } catch (e) {
+      return sendJson(req, res, 502, { error: `Geokódování nedostupné: ${e.message}` });
+    }
+    const cc = (url.searchParams.get('cc') || '').toUpperCase();
+    if (cc) items = [...items.filter((x) => x.cc === cc), ...items.filter((x) => x.cc !== cc)];
+    return sendJson(req, res, 200, { items });
   }
   if (p === '/api/place') {
     const d = describe(url.searchParams.get('id'));
@@ -215,6 +255,79 @@ async function route(req, res) {
       }),
     });
   }
+  if (p === '/api/stays') {
+    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    return sendJson(req, res, 200, await searchStays(Object.fromEntries(url.searchParams)));
+  }
+  if (p === '/api/verify') {
+    // Živé ověření konkrétních dat napříč aerolinkami (Kiwi.com) pro průvodce cestou.
+    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    const from = (url.searchParams.get('from') || '').toUpperCase();
+    const to = (url.searchParams.get('to') || '').toUpperCase();
+    const out = url.searchParams.get('out') || '';
+    const back = url.searchParams.get('back') || '';
+    const adults = Math.min(9, Math.max(1, Number(url.searchParams.get('adults')) || 1));
+    // Návrat z/do jiného letiště (open-jaw): backFrom/backTo, výchozí = obráceně než tam.
+    const backFrom = (url.searchParams.get('backFrom') || to).toUpperCase();
+    const backTo = (url.searchParams.get('backTo') || from).toUpperCase();
+    if (!getAirport(from) || !getAirport(to) || !isYmd(out) || (back && !isYmd(back)) || (back && (!getAirport(backFrom) || !getAirport(backTo)))) {
+      return sendJson(req, res, 400, { error: 'Neplatné letiště nebo datum.' });
+    }
+    if (config.mock || !config.kiwi) return sendJson(req, res, 200, { available: false, items: [] });
+    await loadRates();
+    try {
+      let trips;
+      if (back && (backFrom !== to || backTo !== from)) {
+        // Open-jaw = dvě jednosměrné letenky: nejlevnější kombinace tam × zpět.
+        const [outs, backs] = await Promise.all([
+          kiwi.exact({ from, to, dateOut: out, adults }),
+          kiwi.exact({ from: backFrom, to: backTo, dateOut: back, adults }),
+        ]);
+        const top = (xs) => xs.filter((t) => t.flightCzk > 0).sort((a, b) => a.flightCzk - b.flightCzk).slice(0, 5);
+        trips = top(outs).flatMap((o) => top(backs).map((b) => makeTrip(o.out, b.out)));
+      } else {
+        trips = await kiwi.exact({ from, to, dateOut: out, dateBack: back || null, adults });
+      }
+      return sendJson(req, res, 200, { available: true, items: trips.filter((t) => t.flightCzk > 0).sort((a, b) => a.flightCzk - b.flightCzk).slice(0, 12) });
+    } catch (e) {
+      return sendJson(req, res, 200, { available: true, items: [], error: e.message });
+    }
+  }
+  if (p === '/api/cars') return sendJson(req, res, 200, searchCars(Object.fromEntries(url.searchParams)));
+  if (p === '/api/poi') {
+    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    const lat = Number(url.searchParams.get('lat'));
+    const lon = Number(url.searchParams.get('lon'));
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
+    const radiusKm = Math.min(25, Math.max(1, Number(url.searchParams.get('radius')) || 10));
+    const dayTrips = url.searchParams.get('dayTrips') !== '0';
+    const items = config.mock ? mockPlaces({ lat, lon }) : await findPlaces({ lat, lon, radiusKm, dayTrips });
+    return sendJson(req, res, 200, { demo: config.mock, items });
+  }
+  if (p === '/api/itinerary' && req.method === 'POST') {
+    let b;
+    try {
+      b = JSON.parse((await readBody(req)) || '{}');
+    } catch {
+      return sendJson(req, res, 400, { error: 'Neplatný JSON' });
+    }
+    const lat = Number(b.lat);
+    const lon = Number(b.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
+    if (!isYmd(b.start) || !isYmd(b.end) || daysBetween(b.start, b.end) < 0 || daysBetween(b.start, b.end) > 30) return sendJson(req, res, 400, { error: 'Neplatné datum (max. 31 dní).' });
+    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    const places = config.mock ? mockPlaces({ lat, lon }) : await findPlaces({ lat, lon, radiusKm: 10, dayTrips: true });
+    const exclude = new Set(Array.isArray(b.exclude) ? b.exclude.map(String) : []);
+    const must = new Set(Array.isArray(b.include) ? b.include.map(String) : []);
+    const pool = places.filter((x) => !exclude.has(x.id)).map((x) => (must.has(x.id) ? { ...x, score: x.score + 1000, pinned: true } : x));
+    const interests = b.interests && typeof b.interests === 'object' ? Object.fromEntries(Object.entries(b.interests).filter(([, v]) => Number.isFinite(Number(v))).map(([k, v]) => [k, Math.min(3, Math.max(0, Number(v)))])) : {};
+    const plan = planItinerary(pool, {
+      center: { lat, lon }, start: b.start, end: b.end, pace: ['relaxed', 'normal', 'intense'].includes(b.pace) ? b.pace : 'normal',
+      arrivalTime: /^\d{2}:\d{2}$/.test(b.arrivalTime || '') ? b.arrivalTime : '09:00',
+      departureTime: /^\d{2}:\d{2}$/.test(b.departureTime || '') ? b.departureTime : null, interests,
+    });
+    return sendJson(req, res, 200, { demo: config.mock, ...plan, places });
+  }
   if (p === '/api/search' && req.method === 'POST') return handleSearch(req, res);
   if (p.startsWith('/api/')) return sendJson(req, res, 404, { error: 'Neznámý endpoint' });
 
@@ -243,7 +356,7 @@ async function route(req, res) {
 export function createServer() {
   return http.createServer((req, res) => {
     route(req, res).catch((e) => {
-      console.error(e);
+      if (!e.status || e.status >= 500) console.error(e);
       if (!res.headersSent) sendJson(req, res, e.status || 500, { error: e.message });
       else res.end();
     });

@@ -22,11 +22,13 @@ export function cheapestPerDay(legs) {
 
 /**
  * Omezení termínů.
- * c: { nightsMin, nightsMax, outDays?: number[], backDays?: number[], dateFrom, dateTo }
+ * c: { nightsMin, nightsMax, outDays?: number[], backDays?: number[], outFrom?, outTo?, backFrom?, backTo? }
  */
 export function dateOk(outDate, backDate, c) {
   if (c.outDays && c.outDays.length && !c.outDays.includes(weekday(outDate))) return false;
+  if (c.outFrom && (outDate < c.outFrom || outDate > c.outTo)) return false;
   if (!backDate) return true;
+  if (c.backFrom && (backDate < c.backFrom || backDate > c.backTo)) return false;
   if (c.backDays && c.backDays.length && !c.backDays.includes(weekday(backDate))) return false;
   const n = daysBetween(outDate, backDate);
   return n >= c.nightsMin && n <= c.nightsMax;
