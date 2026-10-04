@@ -471,9 +471,9 @@
     return `<div class="trip-row" data-tid="${esc(t.id)}">
       <div class="tr-legs">${legHtml(t.out)}${t.back ? legHtml(t.back, true) : ''}<div class="tr-badges">${badges(t, g)}</div></div>
       ${priceBox(t)}
-      <div class="tr-act">${bookButtons(t)}
-        <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}</div>
-        <div class="tr-more"><button type="button" class="linkbtn" data-plan="${idx}">+ Do plánu</button>${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>` : ''}</div>
+      <div class="tr-act"><button type="button" class="btn sm primary" data-pick="${idx}">Vybrat a pokračovat →</button>
+        <div class="tr-buy">${bookButtons(t)}</div>
+        <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>` : ''}</div>
       </div></div>`;
   }
 
@@ -551,7 +551,7 @@
     const fdt = $('#fDate', host); if (fdt) fdt.onclick = () => { view.outDate = null; rerender(); };
     $$('[data-exp]', host).forEach(b => b.onclick = () => { const k = b.dataset.exp; view.expanded.has(k) ? view.expanded.delete(k) : view.expanded.add(k); rerender(true); });
     $$('[data-day]', host).forEach(c => c.onclick = () => { view.outDate = view.outDate === c.dataset.day ? null : c.dataset.day; rerender(true); });
-    $$('[data-plan]', host).forEach(b => b.onclick = () => planTrip(rowRegistry[+b.dataset.plan]));
+    $$('[data-pick]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pick]; Trip.start({ t: r.t, g: r.g, result: lastResult }); });
     $$('[data-country]', host).forEach(b => b.onclick = () => openCountry(b.dataset.country));
   }
   function rerender(keepScroll) {
@@ -561,14 +561,6 @@
     if (keepScroll) window.scrollTo(0, y);
   }
 
-  function planTrip({ t, g }) {
-    const pax = lastResult.query.adults;
-    const flightTxt = `${t.out.from}→${t.out.to} ${fmtDate(t.out.date)} ${timeOf(t.out)} (${provName(t.out.provider)})${t.back ? `, zpět ${t.back.from}→${t.back.to} ${fmtDate(t.back.date)} ${timeOf(t.back)} (${provName(t.back.provider)})` : ''} · ${czk(t.totalCzk)} za ${pax} os.`;
-    newTrip(byIso[g?.dest.cc] || null, {
-      name: `${g?.dest.label || t.out.to} ${fmtDate(t.out.date)}`, dest: g?.dest.label || t.out.to, iso: g?.dest.cc,
-      start: t.out.date, end: t.back ? t.back.date : '', pax, budget: t.totalCzk, flight: flightTxt,
-    });
-  }
 
   /* ---------- mapa výsledků ---------- */
   async function drawResultMap(groups) {

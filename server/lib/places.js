@@ -102,7 +102,8 @@ export function localSuggestions(query, limit = 10) {
 
 export async function geocode(query) {
   const q = String(query || '').trim();
-  if (q.length < 3) return [];
+  if (q.length < 2) return [];
+  if (config.mock) return localCityCenters(q);
   return cache.wrap(`geo:${normalize(q)}`, 7 * 864e5, async () => {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=cs&format=json`;
     const j = await request(url, { timeoutMs: 6000, retries: 0 });
@@ -113,6 +114,13 @@ export async function geocode(query) {
       lat: r.latitude, lon: r.longitude,
     }));
   });
+}
+
+/** Střed města z vlastních dat (metropole; jinak poloha letiště) – záloha bez sítě. */
+export function localCityCenters(query) {
+  return localSuggestions(query, 6)
+    .filter((s) => s.lat != null && (s.type === 'metro' || s.type === 'airport'))
+    .map((s) => ({ ...s, id: `geo:${s.lat.toFixed(4)},${s.lon.toFixed(4)}|${s.label}`, type: 'place' }));
 }
 
 export async function suggest(query, { limit = 10, remote = true } = {}) {

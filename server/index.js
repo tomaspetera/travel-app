@@ -6,7 +6,7 @@ import { createReadStream, statSync } from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { config } from './config.js';
-import { suggest, describe, resolveOrigins } from './lib/places.js';
+import { suggest, describe, resolveOrigins, geocode } from './lib/places.js';
 import { search, UserError } from './lib/search.js';
 import { activeProviders, providerStatus } from './providers/index.js';
 import { fxInfo, loadRates } from './lib/fx.js';
@@ -14,6 +14,11 @@ import { cache } from './lib/cache.js';
 import { airportsNear, getAirport } from './lib/airports.js';
 import { groundEstimate } from './lib/geo.js';
 import { addDays, todayYmd } from './lib/dates.js';
+import { searchStays } from './lib/stays.js';
+import { searchCars } from './lib/cars.js';
+import { findPlaces, mockPlaces } from './lib/poi.js';
+import { planItinerary } from './lib/itinerary.js';
+import { isYmd, daysBetween } from './lib/dates.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -186,6 +191,19 @@ async function route(req, res) {
     const remote = url.searchParams.get('remote') !== '0';
     return sendJson(req, res, 200, { items: await suggest(q, { remote }) });
   }
+  if (p === '/api/geocode') {
+    // Města a místa (střed města, ne letiště) – pro objevování a program.
+    const q = (url.searchParams.get('q') || '').slice(0, 80);
+    let items = [];
+    try {
+      items = await geocode(q);
+    } catch (e) {
+      return sendJson(req, res, 502, { error: `Geokódování nedostupné: ${e.message}` });
+    }
+    const cc = (url.searchParams.get('cc') || '').toUpperCase();
+    if (cc) items = [...items.filter((x) => x.cc === cc), ...items.filter((x) => x.cc !== cc)];
+    return sendJson(req, res, 200, { items });
+  }
   if (p === '/api/place') {
     const d = describe(url.searchParams.get('id'));
     return d ? sendJson(req, res, 200, d) : sendJson(req, res, 404, { error: 'Neznámé místo' });
@@ -215,6 +233,45 @@ async function route(req, res) {
       }),
     });
   }
+  if (p === '/api/stays') {
+    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    return sendJson(req, res, 200, await searchStays(Object.fromEntries(url.searchParams)));
+  }
+  if (p === '/api/cars') return sendJson(req, res, 200, searchCars(Object.fromEntries(url.searchParams)));
+  if (p === '/api/poi') {
+    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    const lat = Number(url.searchParams.get('lat'));
+    const lon = Number(url.searchParams.get('lon'));
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
+    const radiusKm = Math.min(25, Math.max(1, Number(url.searchParams.get('radius')) || 10));
+    const dayTrips = url.searchParams.get('dayTrips') !== '0';
+    const items = config.mock ? mockPlaces({ lat, lon }) : await findPlaces({ lat, lon, radiusKm, dayTrips });
+    return sendJson(req, res, 200, { demo: config.mock, items });
+  }
+  if (p === '/api/itinerary' && req.method === 'POST') {
+    let b;
+    try {
+      b = JSON.parse((await readBody(req)) || '{}');
+    } catch {
+      return sendJson(req, res, 400, { error: 'Neplatný JSON' });
+    }
+    const lat = Number(b.lat);
+    const lon = Number(b.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
+    if (!isYmd(b.start) || !isYmd(b.end) || daysBetween(b.start, b.end) < 0 || daysBetween(b.start, b.end) > 30) return sendJson(req, res, 400, { error: 'Neplatné datum (max. 31 dní).' });
+    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    const places = config.mock ? mockPlaces({ lat, lon }) : await findPlaces({ lat, lon, radiusKm: 10, dayTrips: true });
+    const exclude = new Set(Array.isArray(b.exclude) ? b.exclude.map(String) : []);
+    const must = new Set(Array.isArray(b.include) ? b.include.map(String) : []);
+    const pool = places.filter((x) => !exclude.has(x.id)).map((x) => (must.has(x.id) ? { ...x, score: x.score + 1000 } : x));
+    const interests = b.interests && typeof b.interests === 'object' ? Object.fromEntries(Object.entries(b.interests).filter(([, v]) => Number.isFinite(Number(v))).map(([k, v]) => [k, Math.min(3, Math.max(0, Number(v)))])) : {};
+    const plan = planItinerary(pool, {
+      center: { lat, lon }, start: b.start, end: b.end, pace: ['relaxed', 'normal', 'intense'].includes(b.pace) ? b.pace : 'normal',
+      arrivalTime: /^\d{2}:\d{2}$/.test(b.arrivalTime || '') ? b.arrivalTime : '09:00',
+      departureTime: /^\d{2}:\d{2}$/.test(b.departureTime || '') ? b.departureTime : null, interests,
+    });
+    return sendJson(req, res, 200, { demo: config.mock, ...plan, places });
+  }
   if (p === '/api/search' && req.method === 'POST') return handleSearch(req, res);
   if (p.startsWith('/api/')) return sendJson(req, res, 404, { error: 'Neznámý endpoint' });
 
@@ -243,7 +300,7 @@ async function route(req, res) {
 export function createServer() {
   return http.createServer((req, res) => {
     route(req, res).catch((e) => {
-      console.error(e);
+      if (!e.status || e.status >= 500) console.error(e);
       if (!res.headersSent) sendJson(req, res, e.status || 500, { error: e.message });
       else res.end();
     });

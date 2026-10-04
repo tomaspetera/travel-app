@@ -11,6 +11,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/atlas.css">
 <link rel="stylesheet" href="css/flights.css">
+<link rel="stylesheet" href="css/trip.css">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 </head>
 <body>
 <div class="app">
@@ -171,6 +173,16 @@
         <div class="tip-list" id="flightTips"></div>
       </section>
 
+      <!-- TRIP BUILDER -->
+      <section class="view" id="view-trip">
+        <div id="tripRoot"></div>
+      </section>
+
+      <!-- EXPLORE -->
+      <section class="view" id="view-explore">
+        <div id="exploreRoot"></div>
+      </section>
+
       <!-- MAP -->
       <section class="view" id="view-map">
         <div class="map-layout">
@@ -253,8 +265,11 @@
 
 <script src="vendor/d3.min.js"></script>
 <script src="vendor/topojson-client.min.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
 <script src="js/data.js"></script>
 <script src="js/app.js"></script>
+<script src="js/places.js"></script>
+<script src="js/trip.js"></script>
 <script src="js/flights.js"></script>
 </body>
 </html>

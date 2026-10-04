@@ -1,0 +1,176 @@
+// Plánovač programu: rozdělí místa do dnů podle polohy a v každém dni je seřadí do trasy.
+// Bez AI – deterministický algoritmus: výběr podle skóre a zájmů → k-means shluky po dnech
+// (s vyvážením kapacity) → pořadí nejbližší soused + 2-opt → časy chůze.
+import { haversineKm } from './geo.js';
+import { addDays, daysBetween } from './dates.js';
+
+// Typická délka návštěvy podle kategorie (min).
+export const VISIT_MIN = {
+  museum: 120, gallery: 90, castle: 100, palace: 90, church: 30, monument: 20, square: 30, oldtown: 90,
+  viewpoint: 30, park: 60, garden: 60, nature: 150, beach: 180, zoo: 180, theme: 240, market: 45,
+  bridge: 15, tower: 45, ruins: 60, theatre: 30, sight: 45, daytrip: 360,
+};
+const PACE = { relaxed: 240, normal: 360, intense: 480 }; // minut programu na celý den
+
+const toXY = (p, lat0) => [p.lon * 111.32 * Math.cos((lat0 * Math.PI) / 180), p.lat * 110.57];
+
+export function walkKm(a, b) {
+  return haversineKm(a.lat, a.lon, b.lat, b.lon) * 1.3;
+}
+
+/** Kapacita dnů v minutách podle příletu/odletu. */
+export function dayCapacities({ start, end, arrivalTime = '12:00', departureTime = null, pace = 'normal' }) {
+  const n = Math.max(1, daysBetween(start, end) + 1);
+  const full = PACE[pace] || PACE.normal;
+  const hour = (t) => {
+    const [h, m] = String(t || '12:00').split(':').map(Number);
+    return (h || 0) + (m || 0) / 60;
+  };
+  const caps = [];
+  for (let i = 0; i < n; i++) {
+    let cap = full;
+    if (i === 0) cap = Math.max(0, Math.min(full, (20 - (hour(arrivalTime) + 1.5)) * 60 * (full / 600)));
+    if (i === n - 1 && n > 1 && departureTime) cap = Math.max(0, Math.min(full, (hour(departureTime) - 3 - 9) * 60 * (full / 600)));
+    caps.push({ date: addDays(start, i), cap: Math.round(cap) });
+  }
+  return caps;
+}
+
+function kmeans(points, k, lat0, iters = 25) {
+  const xy = points.map((p) => toXY(p, lat0));
+  // Inicializace: nejvzdálenější body (deterministicky, začni nejvýznamnějším).
+  const centers = [xy[0]];
+  while (centers.length < k) {
+    let best = -1;
+    let bestD = -1;
+    xy.forEach((q, i) => {
+      const d = Math.min(...centers.map((c) => (c[0] - q[0]) ** 2 + (c[1] - q[1]) ** 2));
+      if (d > bestD) { bestD = d; best = i; }
+    });
+    centers.push(xy[best]);
+  }
+  let assign = new Array(xy.length).fill(0);
+  for (let it = 0; it < iters; it++) {
+    assign = xy.map((q) => {
+      let bi = 0;
+      let bd = Infinity;
+      centers.forEach((c, i) => {
+        const d = (c[0] - q[0]) ** 2 + (c[1] - q[1]) ** 2;
+        if (d < bd) { bd = d; bi = i; }
+      });
+      return bi;
+    });
+    for (let c = 0; c < k; c++) {
+      const mem = xy.filter((_, i) => assign[i] === c);
+      if (mem.length) centers[c] = [mem.reduce((s, q) => s + q[0], 0) / mem.length, mem.reduce((s, q) => s + q[1], 0) / mem.length];
+    }
+  }
+  return { assign, centers };
+}
+
+/** Pořadí návštěv: nejbližší soused od startu + 2-opt. */
+export function orderRoute(start, items) {
+  if (items.length < 2) return items.slice();
+  const rest = items.slice();
+  const route = [];
+  let cur = start;
+  while (rest.length) {
+    let bi = 0;
+    let bd = Infinity;
+    rest.forEach((p, i) => {
+      const d = haversineKm(cur.lat, cur.lon, p.lat, p.lon);
+      if (d < bd) { bd = d; bi = i; }
+    });
+    cur = rest.splice(bi, 1)[0];
+    route.push(cur);
+  }
+  const len = (r) => r.reduce((s, p, i) => s + haversineKm((i ? r[i - 1] : start).lat, (i ? r[i - 1] : start).lon, p.lat, p.lon), 0);
+  let improved = true;
+  let best = route;
+  let bestLen = len(route);
+  while (improved) {
+    improved = false;
+    for (let i = 0; i < best.length - 1; i++) {
+      for (let j = i + 1; j < best.length; j++) {
+        const cand = [...best.slice(0, i), ...best.slice(i, j + 1).reverse(), ...best.slice(j + 1)];
+        const l = len(cand);
+        if (l + 1e-9 < bestLen) { best = cand; bestLen = l; improved = true; }
+      }
+    }
+  }
+  return best;
+}
+
+/**
+ * pois: [{ id, name, lat, lon, score, category, ... }] (vyšší score = zajímavější)
+ * opts: { center:{lat,lon}, start, end, arrivalTime, departureTime, pace, interests:{category:weight}, maxDayTripKm }
+ */
+export function planItinerary(pois, opts) {
+  const { center, interests = {}, pace = 'normal' } = opts;
+  const caps = dayCapacities(opts);
+  const weight = (p) => p.score * (interests[p.category] ?? 1);
+  const near = pois.filter((p) => p.category !== 'daytrip');
+  const trips = pois.filter((p) => p.category === 'daytrip').sort((a, b) => weight(b) - weight(a));
+
+  // Celodenní výlety mimo město, když je na ně čas (od 4 dnů, max. každý třetí den).
+  const fullDays = caps.filter((c) => c.cap >= (PACE[pace] || 360) * 0.9);
+  const tripDays = Math.min(trips.length, fullDays.length >= 4 ? Math.floor(fullDays.length / 3) : 0);
+  const tripDayDates = new Set(fullDays.slice(1).filter((_, i) => i % 3 === 1).slice(0, tripDays).map((c) => c.date));
+
+  const cityDays = caps.filter((c) => !tripDayDates.has(c.date) && c.cap > 0);
+  const totalCap = cityDays.reduce((s, c) => s + c.cap, 0);
+  const chosen = [];
+  let used = 0;
+  for (const p of [...near].sort((a, b) => weight(b) - weight(a))) {
+    const dur = p.visitMin || VISIT_MIN[p.category] || 45;
+    if (used + dur > totalCap * 0.95) continue;
+    chosen.push({ ...p, visitMin: dur });
+    used += dur;
+  }
+
+  const days = caps.map((c) => ({ date: c.date, cap: c.cap, items: [], kind: tripDayDates.has(c.date) ? 'daytrip' : c.cap ? 'city' : 'travel' }));
+  if (chosen.length && cityDays.length) {
+    const k = Math.min(cityDays.length, chosen.length);
+    const { assign, centers } = kmeans(chosen, k, center.lat);
+    const clusters = Array.from({ length: k }, (_, i) => chosen.filter((_, j) => assign[j] === i));
+    // Přiřazení shluků ke dnům: největší program do nejdelších dnů.
+    const order = clusters.map((cl, i) => ({ cl, i, mins: cl.reduce((s, p) => s + p.visitMin, 0) })).sort((a, b) => b.mins - a.mins);
+    const dayOrder = cityDays.map((c) => days.find((d) => d.date === c.date)).sort((a, b) => b.cap - a.cap);
+    order.forEach((o, idx) => { dayOrder[idx].items = o.cl; dayOrder[idx].center = centers[o.i]; });
+    // Vyvážení: co přeteče kapacitu dne, přesuň do dne s volnou kapacitou (nejbližší místo napřed).
+    for (const d of dayOrder) {
+      d.items.sort((a, b) => weight(b) - weight(a));
+      let mins = d.items.reduce((s, p) => s + p.visitMin, 0);
+      while (mins > d.cap * 1.1 && d.items.length > 1) {
+        const p = d.items.pop();
+        mins -= p.visitMin;
+        const target = dayOrder
+          .filter((x) => x !== d && x.items.reduce((s, q) => s + q.visitMin, 0) + p.visitMin <= x.cap)
+          .sort((a, b) => distToItems(a, p) - distToItems(b, p))[0];
+        if (target) target.items.push(p);
+      }
+    }
+  }
+  trips.slice(0, tripDays).forEach((p, i) => {
+    const d = days.find((x) => x.date === [...tripDayDates][i]);
+    if (d) d.items = [{ ...p, visitMin: VISIT_MIN.daytrip }];
+  });
+
+  for (const d of days) {
+    d.items = orderRoute(center, d.items).map((p, i, arr) => {
+      const prev = i ? arr[i - 1] : center;
+      const km = walkKm(prev, p);
+      return { ...p, fromPrevKm: Math.round(km * 10) / 10, fromPrevMin: Math.round((km / 4.8) * 60), transit: km > 3 };
+    });
+    d.walkKm = Math.round(d.items.reduce((s, p) => s + (p.transit ? 0 : p.fromPrevKm), 0) * 10) / 10;
+    d.minutes = d.items.reduce((s, p) => s + p.visitMin, 0);
+    delete d.center;
+  }
+  const usedIds = new Set(days.flatMap((d) => d.items.map((p) => p.id)));
+  return { days, spare: pois.filter((p) => !usedIds.has(p.id)).slice(0, 30) };
+}
+
+function distToItems(day, p) {
+  if (!day.items.length) return 1e9;
+  return Math.min(...day.items.map((q) => haversineKm(q.lat, q.lon, p.lat, p.lon)));
+}
