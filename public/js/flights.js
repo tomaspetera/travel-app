@@ -130,6 +130,7 @@
       from: S.home?.from || [], to: [], radius: S.home?.radius ?? 200, trip: 'return', len: 'week', nMin: 5, nMax: 9,
       dFrom: addDays(today(), 7), dTo: addDays(today(), 60), adults: 2, maxPrice: '', ground: true, kmRate: 1.1,
       openJaw: true, directOnly: false, outDays: [], backDays: [], exclude: [],
+      dateMode: 'flex', xOut: addDays(today(), 14), xBack: addDays(today(), 21), xFlex: 0,
     };
   }
   function getForm() {
@@ -141,11 +142,16 @@
       openJaw: $('#openJaw').checked, directOnly: $('#directOnly').checked,
       outDays: $$('#outDays .on').map(b => +b.dataset.d), backDays: $$('#backDays .on').map(b => +b.dataset.d),
       exclude: originPreview.filter(a => a.off).map(a => a.iata),
+      dateMode: $('#dateMode .on').dataset.v, xOut: $('#xOut').value, xBack: $('#xBack').value, xFlex: +($('#xFlex .on')?.dataset.f || 0),
     };
   }
   function setForm(f) {
     f = { ...defaultForm(), ...f };
     if (f.dFrom < today()) { const span = Math.max(14, (new Date(f.dTo) - new Date(f.dFrom)) / 864e5 | 0); f.dFrom = addDays(today(), 3); f.dTo = addDays(f.dFrom, span); }
+    if (!f.xOut || f.xOut < today()) { const n = f.xOut && f.xBack ? Math.max(0, (new Date(f.xBack) - new Date(f.xOut)) / 864e5 | 0) : 7; f.xOut = addDays(today(), 14); f.xBack = addDays(f.xOut, n); }
+    $$('#dateMode button').forEach(b => b.classList.toggle('on', b.dataset.v === f.dateMode));
+    $('#xOut').value = f.xOut; $('#xBack').value = f.xBack || addDays(f.xOut, 7);
+    $$('#xFlex button').forEach(b => b.classList.toggle('on', +b.dataset.f === (f.xFlex || 0)));
     fromInput.set(f.from, true); toInput.set(f.to, true);
     $('#radius').value = f.radius; $('#radiusVal').textContent = f.radius + ' km';
     $$('#tripType button').forEach(b => b.classList.toggle('on', b.dataset.v === f.trip));
@@ -160,17 +166,35 @@
   }
   let pendingExclude = new Set();
   function payloadOf(f) {
+    const exact = f.dateMode === 'exact';
     return {
       from: f.from.map(x => x.id), to: f.to.map(x => x.id), radiusKm: f.radius,
       dateFrom: f.dFrom, dateTo: f.dTo, trip: f.trip, nightsMin: f.nMin, nightsMax: f.nMax,
-      outDays: f.outDays, backDays: f.backDays, adults: f.adults, maxPrice: f.maxPrice ? +f.maxPrice : null,
+      outDays: exact ? [] : f.outDays, backDays: exact ? [] : f.backDays, adults: f.adults, maxPrice: f.maxPrice ? +f.maxPrice : null,
       directOnly: f.directOnly, kmRate: f.ground ? f.kmRate : 0, openJaw: f.openJaw, exclude: f.exclude,
+      // Přesná data: server hledá jen odlet xOut a návrat xBack (± xFlex dní).
+      ...(exact ? { exactOut: f.xOut, exactBack: f.trip === 'return' ? f.xBack : null, flexDays: f.xFlex || 0 } : {}),
     };
   }
   function syncFormUI() {
     const ret = $('#tripType .on').dataset.v === 'return';
-    $('#lenField').style.display = ret ? '' : 'none';
-    $('#backDaysField').style.display = ret ? '' : 'none';
+    const exact = $('#dateMode .on').dataset.v === 'exact';
+    $('#lenField').style.display = ret && !exact ? '' : 'none';
+    $('#flexField').style.display = exact ? 'none' : '';
+    $('#exactField').hidden = !exact;
+    $('#xBackWrap').style.display = ret ? '' : 'none';
+    $('#xBackLbl').style.display = ret ? '' : 'none';
+    // Dny v týdnu při přesných datech nedávají smysl.
+    $('#backDaysField').style.display = ret && !exact ? '' : 'none';
+    $('#outDays').closest('.field').style.display = exact ? 'none' : '';
+    if (exact) {
+      const out = $('#xOut').value, back = $('#xBack').value, fl = +($('#xFlex .on')?.dataset.f || 0);
+      const n = out && back ? Math.round((new Date(back) - new Date(out)) / 864e5) : null;
+      $('#xInfo').textContent = !out ? 'Vyber datum odletu.'
+        : ret && (!back || n < 0) ? '⚠️ Návrat musí být stejný den nebo po odletu.'
+        : ret ? `${fmtDate(out)} → ${fmtDate(back)} · ${n === 0 ? 'týž den' : n === 1 ? '1 noc' : n <= 4 ? n + ' noci' : n + ' nocí'}${fl ? ` · každé datum ± ${fl} ${fl === 1 ? 'den' : 'dny'}` : ' · jen tyto dva dny'}`
+        : `odlet ${fmtDate(out)}${fl ? ` ± ${fl} ${fl === 1 ? 'den' : 'dny'}` : ' · jen tento den'}`;
+    }
     const f = getForm();
     const bits = [];
     if (f.adults !== 1) bits.push(`${f.adults} os.`);
@@ -217,6 +241,17 @@
     $('#backDays').innerHTML = DOW_ORDER.map(d => `<button type="button" data-d="${d}">${DOW[d]}</button>`).join('');
     $$('#outDays button, #backDays button').forEach(b => b.onclick = () => { b.classList.toggle('on'); $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); syncFormUI(); });
     $$('#tripType button').forEach(b => b.onclick = () => { $$('#tripType button').forEach(x => x.classList.toggle('on', x === b)); syncFormUI(); });
+    $$('#dateMode button').forEach(b => b.onclick = () => { $$('#dateMode button').forEach(x => x.classList.toggle('on', x === b)); syncFormUI(); });
+    $$('#xFlex button').forEach(b => b.onclick = () => { $$('#xFlex button').forEach(x => x.classList.toggle('on', x === b)); syncFormUI(); });
+    $('#xOut').min = today(); $('#xBack').min = today();
+    $('#xOut').onchange = () => {
+      // Posun odletu posune i návrat (zachová počet nocí), ať návrat není před odletem.
+      const prev = $('#xOut').dataset.prev, back = $('#xBack').value, out = $('#xOut').value;
+      if (prev && back && out) { const n = Math.round((new Date(back) - new Date(prev)) / 864e5); if (n >= 0) $('#xBack').value = addDays(out, n); }
+      $('#xOut').dataset.prev = out; syncFormUI();
+    };
+    $('#xOut').onfocus = () => { $('#xOut').dataset.prev = $('#xOut').value; };
+    $('#xBack').onchange = syncFormUI;
     $$('#lenPreset button').forEach(b => b.onclick = () => applyPreset(b.dataset.v));
     ['#nMin', '#nMax'].forEach(s => $(s).oninput = () => { $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); });
     $('#radius').oninput = () => { $('#radiusVal').textContent = $('#radius').value + ' km'; refreshOrigins(); updateHomeChip(); };
@@ -273,7 +308,11 @@
   async function startSearch(opts = {}) {
     const f = getForm();
     if (!f.from.length) { toast('Zadej, odkud chceš letět', 'err'); fromInput.input.focus(); return; }
-    if (f.dTo < f.dFrom) { toast('Konec rozsahu je před začátkem', 'err'); return; }
+    if (f.dateMode !== 'exact' && f.dTo < f.dFrom) { toast('Konec rozsahu je před začátkem', 'err'); return; }
+    if (f.dateMode === 'exact') {
+      if (!f.xOut || f.xOut < today()) { toast('Zadej datum odletu (dnes nebo později)', 'err'); $('#xOut').focus(); return; }
+      if (f.trip === 'return' && (!f.xBack || f.xBack < f.xOut)) { toast('Návrat musí být stejný den nebo po odletu', 'err'); $('#xBack').focus(); return; }
+    }
     S.form = f; S.home = { from: f.from, radius: f.radius }; save(); updateHomeChip();
     const payload = payloadOf(f);
     lastPayload = payload;
@@ -375,7 +414,7 @@
     }
     const summary = `<div class="res-head">
       <div><h2>${isRoute ? `✈️ ${destTxt}` : `🌍 ${res.groups.length} destinací ${res.destination.kind === 'countries' ? '· ' + destTxt : ''}`}</h2>
-      <div class="muted" style="font-size:13px">z ${res.origins.map(o => `<b>${o.iata}</b>`).join(', ')} · ${fmtDate(res.query.dateFrom)}–${fmtDate(res.query.dateTo)} · ${res.query.trip === 'return' ? `${res.query.nightsMin}–${res.query.nightsMax} nocí` : 'jen tam'} · ${res.query.adults} os.
+      <div class="muted" style="font-size:13px">z ${res.origins.map(o => `<b>${o.iata}</b>`).join(', ')} · ${whenTxt(res.query)} · ${res.query.adults} os.
       ${best ? ` · nejlevněji <b class="good">${czk(best.perPersonCzk)}</b>/os.` : ''}</div></div>
       <div class="res-tools">
         <select id="sortSel" title="Řazení">
@@ -614,6 +653,15 @@
   }
 
   /* ---------- hlídané ceny ---------- */
+  // Popis termínu: přesná data („tam 14.11. · zpět 21.11.“) nebo rozsah + počet nocí.
+  function whenTxt(q) {
+    const x = q.exact;
+    if (x) {
+      const pm = x.flex ? ` ±${x.flex}` : '';
+      return `📅 tam ${fmtDate(x.out)}${pm}${x.back ? ` · zpět ${fmtDate(x.back)}${pm}` : ' · jen tam'}${x.flex ? '' : ' (přesná data)'}`;
+    }
+    return `${fmtDate(q.dateFrom)}–${fmtDate(q.dateTo)} · ${q.trip === 'return' ? `${q.nightsMin}–${q.nightsMax} nocí` : 'jen tam'}`;
+  }
   function watchLabel(f) {
     const from = f.from.map(x => x.label).join(', ');
     const to = f.to.length ? f.to.map(x => x.label).join(', ') : 'kamkoliv';
@@ -633,7 +681,7 @@
     if (!res) return;
     const b = bestOf(res);
     S.watch = S.watch || [];
-    S.watch.unshift({ id: Date.now().toString(36), label: watchLabel(f), sub: `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? `${f.nMin}–${f.nMax} nocí` : 'jen tam'}`, form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now() });
+    S.watch.unshift({ id: Date.now().toString(36), label: watchLabel(f), sub: f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? `${f.nMin}–${f.nMax} nocí` : 'jen tam'}`, form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now() });
     S.watch = S.watch.slice(0, 12); save();
     toast('Hledání uloženo – cenu najdeš na Přehledu');
   }
@@ -662,6 +710,7 @@
     try {
       const f = { ...defaultForm(), ...w.form };
       if (f.dFrom < today()) f.dFrom = today();
+      if (f.dateMode === 'exact' && f.xOut < today()) { toast(`${w.label}: termín už proběhl`, 'err'); if (card) card.classList.remove('loading'); return; }
       const res = await runSearch(payloadOf(f));
       const b = bestOf(res);
       const prev = w.best?.czk;
@@ -730,7 +779,7 @@
     $$('[data-qf]').forEach(el => el.onclick = () => {
       const q = QF[+el.dataset.qf][3];
       go('flights');
-      const base = { ...defaultForm(), ...(S.form || {}), from: (S.home?.from || fromInput.items), to: [], dFrom: addDays(today(), 3), dTo: addDays(today(), 60) };
+      const base = { ...defaultForm(), ...(S.form || {}), from: (S.home?.from || fromInput.items), to: [], dFrom: addDays(today(), 3), dTo: addDays(today(), 60), dateMode: 'flex' };
       const f = { ...base, ...q };
       if (q.len && PRESETS[q.len]) Object.assign(f, { nMin: PRESETS[q.len].nMin, nMax: PRESETS[q.len].nMax, outDays: PRESETS[q.len].out, backDays: PRESETS[q.len].back });
       else Object.assign(f, { len: 'week', nMin: 3, nMax: 9, outDays: [], backDays: [] });

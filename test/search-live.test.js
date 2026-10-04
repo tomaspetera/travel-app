@@ -60,3 +60,32 @@ test('chyba poskytovatele se propíše do stavu, hledání nespadne', async () =
     stub.restore();
   }
 });
+
+test('přesná data: Ryanair dostane přesné okno návratu, výsledky jen v zadané dny', async () => {
+  const out = ymdPlus(20);
+  const back = ymdPlus(24);
+  const stub = stubFetch((url) => {
+    if (url.includes('/views/locate/5/airports/en/active')) return { body: [{ code: 'VIE' }, { code: 'STN' }, { code: 'BGY' }] };
+    if (url.includes('open.er-api.com')) return { body: { result: 'success', rates: { EUR: 1, CZK: 25 }, time_last_update_utc: 'test' } };
+    if (url.includes('roundTripFares')) {
+      // STN přesně v zadané dny, BGY levněji, ale s návratem o den později → nesmí projít.
+      return { body: { fares: [fare('VIE', 'STN', out, 30, { date: back, value: 30 }), fare('VIE', 'BGY', out, 10, { date: ymdPlus(25), value: 10 })] } };
+    }
+    if (url.includes('cheapestPerDay')) return { body: { outbound: { fares: [] } } };
+    return { status: 404, body: '{}' };
+  });
+  try {
+    const r = await search({ from: ['ap:VIE'], radiusKm: 0, trip: 'return', exactOut: out, exactBack: back, adults: 1, kmRate: 0 });
+    const call = new URL(stub.calls.find((c) => c.url.includes('roundTripFares')).url);
+    assert.deepEqual(
+      ['outboundDepartureDateFrom', 'outboundDepartureDateTo', 'inboundDepartureDateFrom', 'inboundDepartureDateTo'].map((k) => call.searchParams.get(k)),
+      [out, out, back, back],
+    );
+    const trips = r.groups.map((g) => g.best);
+    assert.ok(trips.some((t) => t.out.to === 'STN'));
+    for (const t of trips) assert.deepEqual([t.out.date, t.back.date], [out, back]);
+    assert.ok(!trips.some((t) => t.out.to === 'BGY' && t.back.date !== back));
+  } finally {
+    stub.restore();
+  }
+});

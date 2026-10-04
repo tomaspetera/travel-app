@@ -28,9 +28,11 @@ export function dayCapacities({ start, end, arrivalTime = '12:00', departureTime
   };
   const caps = [];
   for (let i = 0; i < n; i++) {
-    let cap = full;
-    if (i === 0) cap = Math.max(0, Math.min(full, (20 - (hour(arrivalTime) + 1.5)) * 60 * (full / 600)));
-    if (i === n - 1 && n > 1 && departureTime) cap = Math.max(0, Math.min(full, (hour(departureTime) - 3 - 9) * 60 * (full / 600)));
+    // Okno dne: od 9:00 (den příletu 1,5 h po příletu) do 20:00 (den odletu 3 h před odletem);
+    // u jednodenní cesty platí obojí naráz.
+    const from = i === 0 ? hour(arrivalTime) + 1.5 : 9;
+    const to = i === n - 1 && departureTime ? Math.min(20, hour(departureTime) - 3) : 20;
+    const cap = Math.max(0, Math.min(full, (to - from) * 60 * (full / 600)));
     caps.push({ date: addDays(start, i), cap: Math.round(cap) });
   }
   return caps;
@@ -112,20 +114,34 @@ export function planItinerary(pois, opts) {
   const near = pois.filter((p) => p.category !== 'daytrip');
   const trips = pois.filter((p) => p.category === 'daytrip').sort((a, b) => weight(b) - weight(a));
 
-  // Celodenní výlety mimo město, když je na ně čas (od 4 dnů, max. každý třetí den).
-  const fullDays = caps.filter((c) => c.cap >= (PACE[pace] || 360) * 0.9);
-  const tripDays = Math.min(trips.length, fullDays.length >= 4 ? Math.floor(fullDays.length / 3) : 0);
-  const tripDayDates = new Set(fullDays.slice(1).filter((_, i) => i % 3 === 1).slice(0, tripDays).map((c) => c.date));
+  // Celodenní výlety mimo město, když je na ně čas (od 4 plných dnů, max. každý třetí den).
+  // Nikdy ne první ani poslední den (přílet / odlet); výlet, který si uživatel připnul, má přednost.
+  const full = PACE[pace] || 360;
+  const fullDays = caps.filter((c) => c.cap >= full * 0.9);
+  const tripEligible = fullDays.filter((c) => c.date !== caps[0].date && c.date !== caps.at(-1).date);
+  const pinnedTrips = trips.filter((p) => p.pinned).length;
+  const baseTrips = fullDays.length >= 4 ? Math.floor(fullDays.length / 3) : 0;
+  const tripDays = Math.min(trips.length, tripEligible.length, Math.max(baseTrips, pinnedTrips));
+  const spaced = tripEligible.filter((_, i) => i % 3 === 1);
+  const tripDayDates = new Set([...spaced, ...tripEligible.filter((c) => !spaced.includes(c))].slice(0, tripDays).map((c) => c.date));
+  const warnings = [];
+  if (pinnedTrips > tripDays) warnings.push('Na celodenní výlet mimo město je pobyt krátký – potřebuje celý den mezi příletem a odletem.');
 
   const cityDays = caps.filter((c) => !tripDayDates.has(c.date) && c.cap > 0);
   const totalCap = cityDays.reduce((s, c) => s + c.cap, 0);
+  // Výběr podle významu s limitem kategorií už tady (jinak by např. 20 kostelů vyčerpalo čas
+  // a pestrost by je pak jen vyškrtala, takže by dny zůstaly poloprázdné).
+  const CAP = { church: 3, square: 2, monument: 3 };
+  const catLimit = (cat) => (CAP[cat] ? CAP[cat] * Math.max(1, cityDays.length) : Infinity);
+  const ranked = [...near].sort((a, b) => weight(b) - weight(a)).map((p) => ({ ...p, visitMin: p.visitMin || VISIT_MIN[p.category] || 45 }));
   const chosen = [];
+  const perCat = {};
   let used = 0;
-  for (const p of [...near].sort((a, b) => weight(b) - weight(a))) {
-    const dur = p.visitMin || VISIT_MIN[p.category] || 45;
-    if (used + dur > totalCap * 0.95) continue;
-    chosen.push({ ...p, visitMin: dur });
-    used += dur;
+  for (const p of ranked) {
+    if (used + p.visitMin > totalCap * 0.95 || (perCat[p.category] || 0) >= catLimit(p.category)) continue;
+    chosen.push(p);
+    perCat[p.category] = (perCat[p.category] || 0) + 1;
+    used += p.visitMin;
   }
 
   const days = caps.map((c) => ({ date: c.date, cap: c.cap, items: [], kind: tripDayDates.has(c.date) ? 'daytrip' : c.cap ? 'city' : 'travel' }));
@@ -138,7 +154,6 @@ export function planItinerary(pois, opts) {
     const dayOrder = cityDays.map((c) => days.find((d) => d.date === c.date)).sort((a, b) => b.cap - a.cap);
     order.forEach((o, idx) => { dayOrder[idx].items = o.cl; dayOrder[idx].center = centers[o.i]; });
     // Pestrost: nejvýš 3 kostely a 2 náměstí za den – přebytek přesuň jinam (nebo vynech).
-    const CAP = { church: 3, square: 2, monument: 3 };
     for (const d of dayOrder) {
       d.items.sort((a, b) => weight(b) - weight(a));
       const seen = {};
@@ -157,13 +172,29 @@ export function planItinerary(pois, opts) {
     for (const d of dayOrder) {
       d.items.sort((a, b) => weight(b) - weight(a));
       let mins = d.items.reduce((s, p) => s + p.visitMin, 0);
-      while (mins > d.cap * 1.1 && d.items.length > 1) {
+      // I poslední místo, když se do krátkého dne (přílet večer, odlet ráno) vůbec nevejde.
+      while (mins > d.cap * 1.1 && d.items.length) {
         const p = d.items.pop();
         mins -= p.visitMin;
         const target = dayOrder
           .filter((x) => x !== d && x.items.reduce((s, q) => s + q.visitMin, 0) + p.visitMin <= x.cap)
           .sort((a, b) => distToItems(a, p) - distToItems(b, p))[0];
         if (target) target.items.push(p);
+      }
+    }
+    // Doplnění: dny s volným časem doplň dalšími místy z pořadí (nejdřív blízko už naplánovaných).
+    const inPlan = new Set(dayOrder.flatMap((d) => d.items.map((p) => p.id)));
+    for (const d of dayOrder) {
+      let free = d.cap - d.items.reduce((sum, q) => sum + q.visitMin, 0);
+      while (free >= 20) {
+        const cnt = (cat) => d.items.filter((q) => q.category === cat).length;
+        const fits = ranked.filter((p) => !inPlan.has(p.id) && p.visitMin <= free * 1.1 && !(CAP[p.category] && cnt(p.category) >= CAP[p.category]));
+        const near = d.items.length ? fits.filter((p) => distToItems(d, p) <= 3) : fits;
+        const p = (near.length ? near : fits)[0];
+        if (!p) break;
+        d.items.push(p);
+        inPlan.add(p.id);
+        free -= p.visitMin;
       }
     }
   }
@@ -183,7 +214,7 @@ export function planItinerary(pois, opts) {
     delete d.center;
   }
   const usedIds = new Set(days.flatMap((d) => d.items.map((p) => p.id)));
-  return { days, spare: pois.filter((p) => !usedIds.has(p.id)).slice(0, 30) };
+  return { days, spare: pois.filter((p) => !usedIds.has(p.id)).slice(0, 30), warnings };
 }
 
 function distToItems(day, p) {

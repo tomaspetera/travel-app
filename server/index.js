@@ -319,7 +319,7 @@ async function route(req, res) {
     const places = config.mock ? mockPlaces({ lat, lon }) : await findPlaces({ lat, lon, radiusKm: 10, dayTrips: true });
     const exclude = new Set(Array.isArray(b.exclude) ? b.exclude.map(String) : []);
     const must = new Set(Array.isArray(b.include) ? b.include.map(String) : []);
-    const pool = places.filter((x) => !exclude.has(x.id)).map((x) => (must.has(x.id) ? { ...x, score: x.score + 1000 } : x));
+    const pool = places.filter((x) => !exclude.has(x.id)).map((x) => (must.has(x.id) ? { ...x, score: x.score + 1000, pinned: true } : x));
     const interests = b.interests && typeof b.interests === 'object' ? Object.fromEntries(Object.entries(b.interests).filter(([, v]) => Number.isFinite(Number(v))).map(([k, v]) => [k, Math.min(3, Math.max(0, Number(v)))])) : {};
     const plan = planItinerary(pool, {
       center: { lat, lon }, start: b.start, end: b.end, pace: ['relaxed', 'normal', 'intense'].includes(b.pace) ? b.pace : 'normal',

@@ -50,6 +50,14 @@
 .search-card{padding:22px;margin-bottom:18px;position:relative;z-index:5}
 .sf-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .sf-when{grid-template-columns:auto 1.3fr 1.2fr}
+#exactField{grid-column:span 2}
+#exactField{min-width:0}
+.exact-dates{flex-wrap:wrap}
+.exact-dates .xd{display:flex;align-items:center;gap:6px;flex:1 1 190px;min-width:0}
+#xFlex button.on{color:var(--text);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.exact-dates input{min-width:0;width:100%}
+.exact-dates .xd .faint{font-size:12px;min-width:28px}
+.exact-on .dow-field{opacity:.45;pointer-events:none}
 .lab-hint{text-transform:none;letter-spacing:0;font-weight:500;color:var(--faint);margin-left:6px}
 .radius-row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:13px}
 .radius-row input{flex:1;accent-color:var(--accent)}
@@ -237,6 +245,7 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 @media(max-width:860px){
   .demo-banner{padding:8px 16px}
   .sf-grid,.sf-when{grid-template-columns:1fr}
+  #exactField{grid-column:auto}
   .hero-search2{grid-template-columns:1fr}
   .hero-search2 .btn{padding:12px}
   .home-chip{max-width:160px}

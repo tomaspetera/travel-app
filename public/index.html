@@ -112,6 +112,19 @@
             <div class="field">
               <label>Cesta</label>
               <div class="seg" id="tripType"><button type="button" class="on" data-v="return">Tam i zpět</button><button type="button" data-v="oneway">Jen tam</button></div>
+              <label style="margin-top:12px">Termín</label>
+              <div class="seg" id="dateMode"><button type="button" data-v="exact">📅 Přesná data</button><button type="button" class="on" data-v="flex">🔀 Flexibilně</button></div>
+            </div>
+            <div class="field" id="exactField" hidden>
+              <label>Odlet tam<span id="xBackLbl"> a návrat zpět</span> <span class="lab-hint">hledá jen tyto dny</span></label>
+              <div class="row exact-dates" style="gap:8px">
+                <div class="xd"><span class="faint">tam</span><input class="input" type="date" id="xOut"></div>
+                <div class="xd" id="xBackWrap"><span class="faint">zpět</span><input class="input" type="date" id="xBack"></div>
+              </div>
+              <div class="quick-range" id="xFlex">
+                <button type="button" data-f="0" class="on">přesně tyto dny</button><button type="button" data-f="1">± 1 den</button><button type="button" data-f="2">± 2 dny</button><button type="button" data-f="3">± 3 dny</button>
+              </div>
+              <div class="faint" id="xInfo" style="font-size:12px;margin-top:6px"></div>
             </div>
             <div class="field" id="lenField">
               <label>Délka pobytu</label>
@@ -126,7 +139,7 @@
                 <input class="input sm" type="number" id="nMin" min="0" max="45" value="5"> – <input class="input sm" type="number" id="nMax" min="0" max="45" value="9"> nocí
               </div>
             </div>
-            <div class="field">
+            <div class="field" id="flexField">
               <label>Odlet mezi</label>
               <div class="row" style="gap:8px">
                 <input class="input" type="date" id="dFrom">

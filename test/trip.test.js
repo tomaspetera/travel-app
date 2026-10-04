@@ -162,3 +162,37 @@ test('cars: nesmyslné nebo minulé datum → 400', () => {
   assert.throws(() => normalizeCarQuery({ pickup: 'BGY', from: '2026-13-45T09:00', to: '2026-14-50T09:00' }), /datum/);
   assert.throws(() => normalizeCarQuery({ pickup: 'BGY', from: '2020-01-10T09:00', to: '2020-01-12T09:00' }), /minulosti/);
 });
+
+test('planItinerary: hodně kostelů nevyčerpá čas – dny se doplní muzei', () => {
+  const pts = [
+    ...Array.from({ length: 20 }, (_, i) => P(`ch${i}`, 45.46 + i * 0.001, 9.19, 200 - i, 'church')),
+    ...Array.from({ length: 20 }, (_, i) => P(`mu${i}`, 45.46 + i * 0.001, 9.191, 100 - i, 'museum')),
+  ];
+  const plan = planItinerary(pts, { center: C, start: '2026-11-10', end: '2026-11-11', arrivalTime: '09:00', departureTime: '21:00' });
+  const all = plan.days.flatMap((d) => d.items);
+  assert.ok(all.some((p) => p.category === 'museum'), 'muzea v plánu');
+  for (const d of plan.days) {
+    assert.ok(d.items.filter((p) => p.category === 'church').length <= 3);
+    assert.ok(d.minutes >= d.cap * 0.6, `${d.date}: jen ${d.minutes} z ${d.cap} min`);
+  }
+});
+
+test('planItinerary: jednodenní cesta respektuje odlet; krátký den nedostane dlouhou návštěvu', () => {
+  const sameDay = planItinerary(POIS, { center: C, start: '2026-11-10', end: '2026-11-10', arrivalTime: '08:00', departureTime: '13:00' });
+  assert.ok(sameDay.days[0].minutes <= 20, `${sameDay.days[0].minutes} min programu, i když se letí ve 13:00`);
+  const evening = planItinerary(POIS, { center: C, start: '2026-11-10', end: '2026-11-12', arrivalTime: '18:00', departureTime: '13:00' });
+  assert.ok(evening.days[0].minutes <= evening.days[0].cap * 1.1, `večer po příletu ${evening.days[0].minutes} min při kapacitě ${evening.days[0].cap}`);
+  assert.ok(evening.days.at(-1).minutes <= evening.days.at(-1).cap * 1.1 + 1);
+});
+
+test('planItinerary: výlet mimo město nikdy v den odletu; připnutý výlet se naplánuje i u kratšího pobytu', () => {
+  const trips = [P('como', 45.81, 9.08, 90, 'daytrip'), P('bergamo', 45.69, 9.67, 85, 'daytrip')];
+  const six = planItinerary([...POIS.slice(0, 12), ...trips], { center: C, start: '2026-11-01', end: '2026-11-06', arrivalTime: '09:00', departureTime: '21:00' });
+  assert.notEqual(six.days.at(-1).kind, 'daytrip');
+  assert.notEqual(six.days[0].kind, 'daytrip');
+  const pinned = planItinerary([...POIS.slice(0, 12), { ...trips[1], pinned: true }], { center: C, start: '2026-11-10', end: '2026-11-12', arrivalTime: '10:00', departureTime: '18:00' });
+  assert.equal(pinned.days.filter((d) => d.kind === 'daytrip').length, 1);
+  assert.equal(pinned.days.find((d) => d.kind === 'daytrip').date, '2026-11-11');
+  const tooShort = planItinerary([...POIS.slice(0, 12), { ...trips[1], pinned: true }], { center: C, start: '2026-11-10', end: '2026-11-11', arrivalTime: '10:00', departureTime: '18:00' });
+  assert.ok(tooShort.warnings.length > 0);
+});

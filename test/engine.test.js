@@ -154,3 +154,31 @@ test('makeLeg: chybějící přílet se dopočte v místním čase cíle (z dél
   // Bez času odletu nic nevymýšlí
   assert.equal(makeLeg({ provider: 'x', from: 'VIE', to: 'BCN', dep: '2026-11-10', czk: 1 }).arr, null);
 });
+
+test('přesná data: odlet i návrat jen v zadané dny (± tolerance)', async () => {
+  const { normalizeQuery } = await import('../server/lib/search.js');
+  const { dateOk } = await import('../server/lib/optimizer.js');
+  const out = ymdPlus(20);
+  const back = ymdPlus(27);
+  const q = normalizeQuery({ from: ['ap:VIE'], trip: 'return', exactOut: out, exactBack: back, outDays: [5] });
+  assert.equal(q.dateFrom, out);
+  assert.equal(q.dateTo, out);
+  assert.deepEqual([q.nightsMin, q.nightsMax], [7, 7]);
+  assert.deepEqual(q.outDays, [], 'dny v týdnu se při přesných datech ignorují');
+  const c = { nightsMin: q.nightsMin, nightsMax: q.nightsMax, outFrom: q.dateFrom, outTo: q.dateTo, backFrom: q.exact.backFrom, backTo: q.exact.backTo };
+  assert.ok(dateOk(out, back, c));
+  assert.ok(!dateOk(ymdPlus(21), ymdPlus(28), c), 'stejný počet nocí, ale jiné dny → ne');
+
+  const f = normalizeQuery({ from: ['ap:VIE'], trip: 'return', exactOut: out, exactBack: back, flexDays: 1 });
+  assert.deepEqual([f.dateFrom, f.dateTo, f.exact.backFrom, f.exact.backTo], [ymdPlus(19), ymdPlus(21), ymdPlus(26), ymdPlus(28)]);
+  assert.deepEqual([f.nightsMin, f.nightsMax], [5, 9]);
+  const fc = { nightsMin: f.nightsMin, nightsMax: f.nightsMax, outFrom: f.dateFrom, outTo: f.dateTo, backFrom: f.exact.backFrom, backTo: f.exact.backTo };
+  assert.ok(dateOk(ymdPlus(21), ymdPlus(26), fc));
+  assert.ok(!dateOk(ymdPlus(19), ymdPlus(24), fc), 'návrat mimo ±1 den');
+
+  const ow = normalizeQuery({ from: ['ap:VIE'], trip: 'oneway', exactOut: out });
+  assert.deepEqual([ow.dateFrom, ow.dateTo, ow.exact.back], [out, out, null]);
+  assert.throws(() => normalizeQuery({ from: ['ap:VIE'], trip: 'return', exactOut: out, exactBack: ymdPlus(10) }), /Návrat/);
+  assert.throws(() => normalizeQuery({ from: ['ap:VIE'], trip: 'return', exactOut: out }), /návratu/);
+});
+

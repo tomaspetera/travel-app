@@ -48,14 +48,23 @@ export const CATEGORY_CS = {
 };
 const CAT_BONUS = { museum: 4, castle: 5, palace: 4, oldtown: 6, viewpoint: 3, church: 2, nature: 4, beach: 3, square: 2, ruins: 4 };
 
-function sparqlNear(lat, lon, radiusKm, minLinks, limit) {
+/**
+ * Místa v okruhu: poddotaz nejdřív vybere `items` nejvýznamnějších položek (podle počtu jazykových
+ * verzí), teprve k nim se dotahují typy, fotka a památková ochrana. LIMIT na vnějším dotazu by
+ * počítal řádky (jedna položka = mnoho řádků) a ve velkých městech by usekl náhodná místa.
+ */
+function sparqlNear(lat, lon, radiusKm, minLinks, items) {
   return `SELECT ?item ?itemLabel ?itemDescription ?lat ?lon ?sl ?type ?img ?her ?cs ?en WHERE {
-  SERVICE wikibase:around {
-    ?item wdt:P625 ?coord .
-    bd:serviceParam wikibase:center "Point(${lon} ${lat})"^^geo:wktLiteral .
-    bd:serviceParam wikibase:radius "${radiusKm}" .
+  {
+    SELECT ?item ?coord ?sl WHERE {
+      SERVICE wikibase:around {
+        ?item wdt:P625 ?coord .
+        bd:serviceParam wikibase:center "Point(${lon} ${lat})"^^geo:wktLiteral .
+        bd:serviceParam wikibase:radius "${radiusKm}" .
+      }
+      ?item wikibase:sitelinks ?sl . FILTER(?sl >= ${minLinks})
+    } ORDER BY DESC(?sl) LIMIT ${items}
   }
-  ?item wikibase:sitelinks ?sl . FILTER(?sl >= ${minLinks})
   ?item wdt:P31/wdt:P279? ?type .
   BIND(geof:latitude(?coord) AS ?lat) BIND(geof:longitude(?coord) AS ?lon)
   OPTIONAL { ?item wdt:P18 ?img }
@@ -63,7 +72,7 @@ function sparqlNear(lat, lon, radiusKm, minLinks, limit) {
   OPTIONAL { ?cs schema:about ?item ; schema:isPartOf <https://cs.wikipedia.org/> }
   OPTIONAL { ?en schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "cs,en,[AUTO_LANGUAGE]". }
-} LIMIT ${limit}`;
+} LIMIT 30000`;
 }
 
 async function wdqs(query) {
@@ -330,7 +339,8 @@ export function mockPlaces({ lat, lon }) {
 export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, limit = 60 }) {
   const r = Math.min(25, Math.max(1, radiusKm));
   const key = `poi:${lat.toFixed(3)}:${lon.toFixed(3)}:${r}:${dayTrips}:${limit}`;
-  return cache.wrap(key, 7 * 864e5, async () => {
+  // Úplný výsledek platí týden; náhradní (Wikipedie) nebo bez výletů jen 15 min, ať se Wikidata zkusí znovu.
+  return cache.wrap(key, (v) => (v.degraded ? 15 * 60e3 : 7 * 864e5), async () => {
     const center = { lat, lon };
     let cityRows;
     let tripRows = [];
@@ -338,17 +348,23 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     const wvP = wikivoyageListings(lat, lon).catch(() => []);
     try {
       [cityRows, tripRows] = await Promise.all([
-        wdqs(sparqlNear(lat, lon, r, 4, 4000)),
-        dayTrips ? wdqs(sparqlNear(lat, lon, 120, 45, 3000)).catch(() => []) : [],
+        wdqs(sparqlNear(lat, lon, r, 4, 500)),
+        dayTrips ? wdqs(sparqlNear(lat, lon, 120, 45, 300)).catch(() => null) : [],
       ]);
     } catch {
       // Wikidata SPARQL nedostupné (výpadek, limit, přechod na QLever) → záloha přes Wikipedii.
       const fb = applyWikivoyage(await findPlacesViaWikipedia({ lat, lon }), await wvP).sort((a, b) => b.score - a.score);
       const picked = fb.slice(0, limit);
       await enrich(picked);
-      return picked.map((p) => ({ ...p, categoryLabel: CATEGORY_CS[p.category] || p.category }));
+      const out = picked.map((p) => ({ ...p, categoryLabel: CATEGORY_CS[p.category] || p.category }));
+      out.degraded = true;
+      return out;
     }
-    const city = groupBindings(cityRows, center).filter((p) => p.category !== 'town' || p.distanceKm > 2);
+    const tripsFailed = tripRows === null;
+    if (tripsFailed) tripRows = [];
+    // Obce a předměstí (italské comuni, francouzské communes…) nejsou „místa k vidění“ – ve městě
+    // zůstanou jen s výrazným znakem (UNESCO); samotné město v centru se vyřadí vždy.
+    const city = groupBindings(cityRows, center).filter((p) => p.category !== 'town' || (p.unesco && p.distanceKm > 2));
     for (const p of city) if (p.category === 'town') p.category = 'oldtown';
     const trips = groupBindings(tripRows, center)
       .filter((p) => p.distanceKm > Math.max(r, 15) && (p.category === 'town' || p.category === 'nature' || p.category === 'castle' || p.unesco))
@@ -357,6 +373,8 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     applyWikivoyage(city, await wvP);
     const picked = [...city.sort((a, b) => b.score - a.score).slice(0, limit), ...trips.sort((a, b) => b.score - a.score).slice(0, 8)];
     await enrich(picked);
-    return picked.map((p) => ({ ...p, categoryLabel: CATEGORY_CS[p.category] || p.category }));
+    const out = picked.map((p) => ({ ...p, categoryLabel: CATEGORY_CS[p.category] || p.category }));
+    if (tripsFailed) out.degraded = true;
+    return out;
   });
 }

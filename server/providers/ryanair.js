@@ -187,8 +187,9 @@ export const ryanair = {
           ...base,
           outboundDepartureDateFrom: from,
           outboundDepartureDateTo: to,
-          inboundDepartureDateFrom: from,
-          inboundDepartureDateTo: addDays(to, q.ret.nightsMax),
+          // Přesná data → jen okno návratu; jinak od začátku okna odletu po konec + max. nocí.
+          inboundDepartureDateFrom: q.ret.backFrom || from,
+          inboundDepartureDateTo: q.ret.backTo || addDays(to, q.ret.nightsMax),
           inboundDepartureTimeFrom: '00:00',
           inboundDepartureTimeTo: '23:59',
           durationFrom: String(q.ret.nightsMin),

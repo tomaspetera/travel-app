@@ -44,7 +44,8 @@ export class TTLCache {
     const p = (async () => {
       try {
         const val = await fn();
-        this.set(key, val, ttlMs);
+        // ttlMs může být funkce výsledku (např. kratší platnost pro náhradní/neúplná data).
+        this.set(key, val, typeof ttlMs === 'function' ? ttlMs(val) : ttlMs);
         return val;
       } finally {
         this.inflight.delete(key);
