@@ -58,7 +58,7 @@ Zkopíruj `.env.example` na `.env`:
 | `TRAVELPAYOUTS_MARKER` | – | tvůj affiliate marker – připojí se k odkazům na Aviasales |
 | `PORT` | `8080` | port serveru |
 | `MAX_ORIGINS` | `8` | kolik nejbližších letišť se v jednom hledání prohledá |
-| `WIZZ_MAX_CALLS` | `90` | Wizz Air nemá „kamkoliv“ – kolik dotazů na trasy smí jedno hledání udělat |
+| `WIZZ_MAX_CALLS` | `60` | Wizz Air nemá „kamkoliv“ – kolik dotazů na trasy smí jedno hledání udělat |
 | `RYANAIR_ENABLED` / `WIZZ_ENABLED` | `1` | `0` = zdroj vypnout |
 | `SEARCH_RATE_LIMIT` | `40` | max. hledání z jedné IP za 10 minut (ochrana při veřejném nasazení, `0` = bez limitu) |
 | `ATLAS_MOCK` | `0` | `1` = demo data (totéž co `npm run demo`) |
@@ -75,9 +75,11 @@ Zkopíruj `.env.example` na `.env`:
 Varianty provozu:
 
 - **Zdarma** – po 15 minutách bez návštěvy aplikace usne a první načtení pak trvá 30–60 s.
-  Lze ji udržet vzhůru bezplatným hlídačem (např. UptimeRobot, monitor na `…/healthz` každých 5 min); jedna služba
-  se tak vejde do 750 bezplatných hodin měsíčně, Render to ale nedoporučuje.
-- **Starter za 7 $ měsíčně** (služba → Settings → Instance Type → Starter) – běží nonstop bez usínání.
+  Technicky ji jde držet vzhůru pravidelným „pingováním“ (např. UptimeRobot na `…/healthz` každých 5 min),
+  ale zaměstnanci Renderu to označují za zneužití bezplatného tarifu – hrozí pozastavení služby. Nedoporučuji.
+- **Starter za 7 $ měsíčně** (služba → Settings → General → Instance Type → Starter) – běží nonstop bez usínání.
+- Automatické nasazení po každé změně funguje, když je Render propojený s GitHubem (přihlášení přes GitHub).
+  Kdyby se nové verze nenasazovaly, v Renderu u služby klikni **Manual Deploy → Deploy latest commit**.
 
 Každá nová verze na GitHubu se nasadí sama, odkaz zůstává stejný.
 
@@ -136,6 +138,10 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 - Kombinace dvou aerolinek / různých letišť jsou **dvě samostatné letenky** – při zpoždění prvního letu druhá aerolinka
   nečeká. Aplikace to u výsledku označí.
 - Odhad dopravy na letiště je orientační.
+- Podmínky Ryanairu zakazují automatické stahování dat pro komerční účely – aplikace je určená pro osobní použití.
+  Pro komerční provoz je potřeba smluvní zdroj dat (např. Travelpayouts / Aviasales jako affiliate partner).
+- Render může pozastavit bezplatnou službu, která volá externí API v neobvykle velkém objemu; proto má server
+  limit hledání na IP (`SEARCH_RATE_LIMIT`) a strop dotazů na Wizz Air (`WIZZ_MAX_CALLS`).
 
 ## Data a licence
 

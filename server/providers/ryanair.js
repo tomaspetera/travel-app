@@ -4,7 +4,7 @@
 //   farfnd/v4/oneWayFares/A/B/cheapestPerDay  nejlevnější cena po dnech (kalendář)
 //   views/locate/5/airports/en/active         letiště, která Ryanair obsluhuje
 //   views/locate/searchWidget/routes/en/airport/X  trasy z letiště
-import { request, limiter } from '../lib/http.js';
+import { CookieJar, request, limiter } from '../lib/http.js';
 import { cache } from '../lib/cache.js';
 import { makeLeg, makeTrip } from '../lib/fares.js';
 import { addDays, chunkRange, monthsInRange } from '../lib/dates.js';
@@ -15,17 +15,49 @@ const HEADERS = { Origin: 'https://www.ryanair.com', Referer: 'https://www.ryana
 const FARE_TTL = 20 * 60e3;
 const limit = limiter(6);
 
+// Session cookies z webu ryanair.com: API občas odmítne „studený“ dotaz bez nich (403).
+// Stejně to dělají knihovny ryanair-py a ryanair-mcp. Obnovuje se po 30 min nebo po 403.
+const HOME = 'https://www.ryanair.com/ie/en';
+const session = { jar: new CookieJar(), at: 0, pending: null };
+
+export async function warmSession(force = false) {
+  if (!force && session.at && Date.now() - session.at < 30 * 60e3) return;
+  if (session.pending) return session.pending;
+  session.pending = (async () => {
+    const jar = new CookieJar();
+    try {
+      await request(HOME, { as: 'text', jar, headers: { Accept: 'text/html,application/xhtml+xml' }, timeoutMs: 10000, retries: 0 });
+      session.jar = jar;
+    } catch {
+      // Bez cookies to většinou jde taky – nezdržuj hledání.
+    } finally {
+      session.at = Date.now();
+      session.pending = null;
+    }
+  })();
+  return session.pending;
+}
+
+async function get(url) {
+  await warmSession();
+  return limit(() => request(url, { headers: HEADERS, jar: session.jar, timeoutMs: 15000, retries: 1 }));
+}
+
 async function farfnd(path, params) {
   const qs = new URLSearchParams(params).toString();
   let lastErr;
-  for (const base of FARFND) {
-    try {
-      return await limit(() => request(`${base}/${path}?${qs}`, { headers: HEADERS, timeoutMs: 15000, retries: 1 }));
-    } catch (e) {
-      lastErr = e;
-      // 4xx kromě 404/403 = chyba dotazu, druhá doména nepomůže.
-      if (e.status && e.status < 500 && ![403, 404].includes(e.status)) throw e;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    for (const base of FARFND) {
+      try {
+        return await get(`${base}/${path}?${qs}`);
+      } catch (e) {
+        lastErr = e;
+        // 4xx kromě 404/403 = chyba dotazu, druhá doména nepomůže.
+        if (e.status && e.status < 500 && ![403, 404].includes(e.status)) throw e;
+      }
     }
+    if (lastErr?.status !== 403 || attempt) break;
+    await warmSession(true); // studený 403 → obnov cookies a zkus to ještě jednou
   }
   throw lastErr;
 }
@@ -105,7 +137,7 @@ export const ryanair = {
   async stations() {
     try {
       return await cache.wrap('fr:stations', 24 * 3600e3, async () => {
-        const list = await request(`${VIEWS}/5/airports/en/active`, { headers: HEADERS, timeoutMs: 12000 });
+        const list = await get(`${VIEWS}/5/airports/en/active`);
         const set = new Set(list.map((a) => a.code || a.iataCode).filter(Boolean));
         if (!set.size) throw new Error('prázdný seznam letišť');
         return set;
@@ -119,7 +151,7 @@ export const ryanair = {
   async routes(origin) {
     try {
       return await cache.wrap(`fr:routes:${origin}`, 24 * 3600e3, async () => {
-        const list = await request(`${VIEWS}/searchWidget/routes/en/airport/${origin}`, { headers: HEADERS, timeoutMs: 12000 });
+        const list = await get(`${VIEWS}/searchWidget/routes/en/airport/${origin}`);
         return new Set(list.map((r) => r.arrivalAirport?.code).filter(Boolean));
       });
     } catch {

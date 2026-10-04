@@ -13,7 +13,9 @@ const API = 'https://be.wizzair.com';
 const DEFAULT_VERSION = '29.14.0';
 const FARE_TTL = 30 * 60e3;
 const WINDOW_DAYS = 30;
-const limit = limiter(4);
+const limit = limiter(3);
+// Malá náhodná pauza mezi dotazy – dávky bez prodlev z cloudu Wizz Air omezuje.
+const pause = () => new Promise((r) => setTimeout(r, 150 + Math.random() * 450));
 
 const BASE_HEADERS = {
   Origin: 'https://www.wizzair.com',
@@ -61,7 +63,10 @@ async function api(method, path, body, retried = false) {
   const tok = s.jar.get('RequestVerificationToken');
   if (tok) headers['X-RequestVerificationToken'] = tok;
   try {
-    return await limit(() => request(`${API}/${s.version}/Api/${path}`, { method, body, headers, jar: s.jar, timeoutMs: 15000, retries: 1 }));
+    return await limit(async () => {
+      await pause();
+      return request(`${API}/${s.version}/Api/${path}`, { method, body, headers, jar: s.jar, timeoutMs: 15000, retries: 1 });
+    });
   } catch (e) {
     if (e.status === 429) {
       state.blockedUntil = Date.now() + 10 * 60e3;

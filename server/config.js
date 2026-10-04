@@ -28,7 +28,7 @@ export const config = {
   // Kolik odletových letišť nejvýše prohledat v jednom dotazu.
   maxOrigins: num(env.MAX_ORIGINS, 8),
   // Wizz Air nemá „kamkoliv“ endpoint → 1 dotaz na trasu; strop na jedno hledání.
-  wizzMaxCalls: num(env.WIZZ_MAX_CALLS, 90),
+  wizzMaxCalls: num(env.WIZZ_MAX_CALLS, 60),
   // Ochrana veřejně nasazeného serveru: max. počet hledání z jedné IP za 10 minut (0 = bez limitu).
   searchesPer10Min: num(env.SEARCH_RATE_LIMIT, 40),
 };
