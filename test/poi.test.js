@@ -118,3 +118,45 @@ test('findPlaces: při výpadku Wikidata SPARQL použije Wikipedia geosearch + p
     stub.restore();
   }
 });
+
+test('Wikivoyage: doporučená místa (see/do) dostanou body a značku, výpadek nevadí', async () => {
+  const { parseListings, applyWikivoyage } = await import('../server/lib/poi.js');
+  const wt = `== See ==
+* {{see
+| name=[[Milan Cathedral|Duomo di Milano]] | alt=Duomo | wikidata=Q18068
+| content=The {{cathedral|x}} is great.
+}}
+* {{listing | type=see | name='''Castello Sforzesco''' | wikidata= }}
+* {{listing | type=eat | name=Pizzeria Uno }}
+* {{do | name=Navigli boat tour }}
+* {{sleep | name=Hotel X }}`;
+  const ls = parseListings(wt);
+  assert.deepEqual(ls.map((l) => l.name), ['Duomo di Milano', 'Castello Sforzesco', 'Navigli boat tour']);
+  assert.equal(ls[0].wikidata, 'Q18068');
+  const places = applyWikivoyage([
+    { id: 'Q18068', name: 'Milánská katedrála', score: 50, category: 'church' },
+    { id: 'Q5', name: 'Castello Sforzesco', score: 40, category: 'castle' },
+    { id: 'Q9', name: 'Pizzeria Uno', score: 10, category: 'sight' },
+  ], ls);
+  assert.deepEqual(places.map((p) => [p.id, p.score, Boolean(p.wikivoyage)]), [['Q18068', 58, true], ['Q5', 48, true], ['Q9', 10, false]]);
+
+  // Integrace: findPlaces použije Wikivoyage, když odpoví; když ne, výsledek je stejný bez značek.
+  const stub = stubFetch((url) => {
+    if (url.startsWith('https://query.wikidata.org/sparql')) {
+      const q = decodeURIComponent(new URL(url).searchParams.get('query'));
+      return { body: { results: { bindings: q.includes('"120"') ? [] : CITY } } };
+    }
+    if (url.startsWith('https://en.wikivoyage.org/w/api.php') && url.includes('list=geosearch')) return { body: { query: { geosearch: [{ title: 'Milan' }] } } };
+    if (url.startsWith('https://en.wikivoyage.org/w/api.php')) return { body: { query: { pages: [{ title: 'Milan', revisions: [{ slots: { main: { content: wt } } }] }] } } };
+    if (url.includes('wikipedia.org/w/api.php')) return { body: { query: { pages: [] } } };
+    return { status: 404, body: '{}' };
+  });
+  try {
+    const items = await findPlaces({ lat: 45.4642 + 1e-4, lon: 9.19, radiusKm: 10, dayTrips: false });
+    assert.equal(items.find((p) => p.id === 'Q18068').wikivoyage, true);
+    assert.ok(!items.find((p) => p.id === 'Q1060').wikivoyage);
+    assert.ok(stub.calls.some((c) => c.url.includes('wikivoyage') && c.init.headers['User-Agent'].startsWith('ATLAS-travel/')));
+  } finally {
+    stub.restore();
+  }
+});

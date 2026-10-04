@@ -309,7 +309,7 @@
         <span class="pst">${st}${p.found ? ` · ${p.found} nálezů` : ''}${p.ms && !starting && p.state !== 'running' ? ` · ${(p.ms / 1000).toFixed(1)} s` : ''}</span>
         ${p.note ? `<div class="pnote">${esc(p.note)}</div>` : ''}${p.error ? `<div class="pnote err">${esc(p.error)}</div>` : ''}</div>`;
     }).join('');
-    const disabled = (health?.providers || []).filter(p => !p.enabled && p.hint).map(p => `<div class="prow off"><span class="pdot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="pst">vypnuto</span><div class="pnote">${esc(p.hint)}</div></div>`).join('');
+    const disabled = (health?.providers || []).filter(p => !p.enabled && p.hint && p.kind !== 'stays').map(p => `<div class="prow off"><span class="pdot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="pst">vypnuto</span><div class="pnote">${esc(p.hint)}</div></div>`).join('');
     const head = res ? `Prohledáno ${res.origins.length} letišť za ${(res.stats.ms / 1000).toFixed(1)} s` : `<span class="spin"></span> Prohledávám letiště${originPreview.length ? ` (${originPreview.filter(a => !a.off).slice(0, health?.maxOrigins || 8).map(a => a.iata).join(', ')})` : ''}…`;
     host.innerHTML = `<div class="card progress-card ${res ? 'done' : ''}"><div class="ph">${head}</div>${rows}${res ? disabled : ''}</div>`;
   }
@@ -391,7 +391,8 @@
         ${view.outDate ? `<button type="button" class="fchip on" id="fDate">odlet ${fmtDate(view.outDate)} ✕</button>` : ''}
       </div>
       ${res.demo ? `<div class="note warn" style="margin-bottom:14px">⚠️ <div><b>DEMO data</b> – ceny i lety jsou vymyšlené, slouží jen k vyzkoušení aplikace.</div></div>` : ''}
-      ${res.fx && res.fx.source === 'approx' && !res.demo ? `<div class="note warn" style="margin-bottom:14px">💱 <div>Kurzy měn se nepodařilo načíst – přepočet do Kč je orientační.</div></div>` : ''}`;
+      ${res.fx && res.fx.source === 'approx' && !res.demo ? `<div class="note warn" style="margin-bottom:14px">💱 <div>Kurzy měn se nepodařilo načíst – přepočet do Kč je orientační.</div></div>` : ''}
+      <div class="faint rank-note">Pořadí určuje jen zvolené řazení (cena, termín, vzdálenost) – žádná aerolinka ani partner si za lepší pozici neplatí.${health?.affiliate ? ' Odkazy na Aviasales jsou partnerské (affiliate, <span class="ad-tag">reklama</span>): při nákupu přes ně může ATLAS dostat provizi, cenu to pro tebe nemění.' : ''}</div>`;
 
     let body = '';
     if (view.mode === 'map') body = `<div class="card res-map-card"><div id="resMap" class="res-map"></div><div class="map-legend"><span><i class="lg-dot" style="background:#34d399"></i>nejlevnější</span><span><i class="lg-dot" style="background:#fbbf24"></i>střední</span><span><i class="lg-dot" style="background:#fb7185"></i>dražší</span><span class="faint">klikni na bod → detail</span></div></div><div id="mapList"></div>`;
@@ -442,7 +443,7 @@
   }
 
   function bookButtons(t) {
-    const btn = (url, label, prov) => url ? `<a class="btn sm book" style="--pc:${provColor(prov)}" href="${esc(url)}" target="_blank" rel="noopener">${label}</a>` : `<span class="btn sm ghost" title="Demo data nemají rezervační odkaz" style="opacity:.55">${label}</span>`;
+    const btn = (url, label, prov) => url ? `<a class="btn sm book" style="--pc:${provColor(prov)}" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">${label}</a>` : `<span class="btn sm ghost" title="Demo data nemají rezervační odkaz" style="opacity:.55">${label}</span>`;
     if (t.bookUrl) return btn(t.bookUrl, `Koupit ${t.combined ? 'na Aviasales' : 'u ' + esc(provName(t.provider))} ↗`, t.provider);
     if (!t.back) return btn(t.out.bookUrl, `Koupit u ${esc(provName(t.out.provider))} ↗`, t.out.provider);
     return btn(t.out.bookUrl, `Tam: ${esc(provName(t.out.provider))} ↗`, t.out.provider) + btn(t.back.bookUrl, `Zpět: ${esc(provName(t.back.provider))} ↗`, t.back.provider);
@@ -751,14 +752,15 @@
   function renderSources() {
     const box = $('#srcBox'); if (!box || !health) return;
     box.innerHTML = `<div class="src-t">Zdroje cen</div>` + health.providers.map(p => `<div class="src ${p.enabled ? 'on' : ''}" title="${esc(p.note || '')}${p.hint ? ' – ' + esc(p.hint) : ''}"><i style="background:${p.color}"></i>${esc(p.name)}<span>${p.enabled ? (p.blocked ? 'blokováno' : p.kind === 'cached' ? 'cache' : p.kind === 'demo' ? 'demo' : 'živě') : 'vypnuto'}</span></div>`).join('')
-      + (health.providers.some(p => p.id === 'travelpayouts' && !p.enabled) ? '<button type="button" class="linkbtn" id="tpHelp" style="margin-top:6px">➕ Zapnout všechny aerolinky</button>' : '');
-    const h = $('#tpHelp'); if (h) h.onclick = showTpGuide;
+      + (health.providers.some(p => (p.id === 'travelpayouts' || p.id === 'liteapi') && !p.enabled)
+        ? `<button type="button" class="linkbtn" id="tpHelp" style="margin-top:6px">➕ Zapnout ${health.providers.some(p => p.id === 'travelpayouts' && !p.enabled) ? 'všechny aerolinky' : 'hotely s cenami'}</button>` : '');
+    const h = $('#tpHelp'); if (h) h.onclick = () => window.showSetupGuide(health.providers.some(p => p.id === 'travelpayouts' && !p.enabled) ? null : 'guideStays');
   }
 
   /** Návod: bezplatný token Travelpayouts = stovky dalších aerolinek (nízkonákladové i dálkové). */
   function showTpGuide() {
     modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button>
-      <div class="modal-hero-inner"><h2 style="font-size:23px">Zapnout všechny aerolinky</h2><div style="opacity:.85;font-size:13px">easyJet, Vueling, Lufthansa, Emirates, Qatar, Turkish… – zdarma, asi 5 minut</div></div></div>
+      <div class="modal-hero-inner"><h2 style="font-size:23px">Zapnout všechny aerolinky a hotely</h2><div style="opacity:.85;font-size:13px">easyJet, Vueling, Lufthansa, Emirates, Qatar, Turkish… + hotely s hodnocením – zdarma, asi 5 minut</div></div></div>
       <div class="modal-body">
         <p class="muted" style="font-size:14px;margin-bottom:12px">Ryanair a Wizz Air ATLAS hledá přímo. Ostatní aerolinky (nízkonákladové i dálkové lety s přestupy) přidá bezplatný přístup k datům <b>Travelpayouts / Aviasales</b>:</p>
         <ol class="guide">
@@ -768,8 +770,20 @@
           <li>Key: <code>TRAVELPAYOUTS_TOKEN</code>, Value: tvůj token → <b>Save Changes</b>. Render aplikaci za minutu sám restartuje.</li>
         </ol>
         <div class="note info" style="margin-top:12px">ℹ️ <div>Ceny z Travelpayouts pocházejí z hledání ostatních uživatelů za poslední dny – u výsledků jsou označené „z cache“ a před nákupem je ověř. Pokud budeš chtít z odkazů provize, doplň i <code>TRAVELPAYOUTS_MARKER</code> (tvoje partnerské ID).</div></div>
+        <p class="muted" style="font-size:14px;margin:12px 0 8px"><b>Živé ceny všech aerolinek k vybranému letu</b> (Kiwi.com) jsou zapnuté samy – klíč nepotřebují.</p>
+        <h3 id="guideStays" style="font-size:16px;margin:18px 0 8px">🏨 Hotely s cenou a hodnocením</h3>
+        <ol class="guide">
+          <li>Zaregistruj se zdarma na <a href="https://dashboard.liteapi.travel/" target="_blank" rel="noopener">dashboard.liteapi.travel</a>.</li>
+          <li>V části <b>API Keys</b> zkopíruj klíč. <b>Sandbox</b> (začíná <code>sand_</code>) dává jen testovací hotely – pro skutečné ceny zapni <b>Production</b> (chce kartu, ale za hledání se neplatí).</li>
+          <li>Na Renderu přidej proměnnou <code>LITEAPI_KEY</code> se zkopírovaným klíčem → <b>Save Changes</b>.</li>
+        </ol>
+        <p class="muted" style="font-size:13px">Bez klíče ATLAS u ubytování nabídne předvyplněné hledání na Booking.com (hodnocení 8+, od nejlevnějšího), Airbnb a Google Hotels.</p>
       </div>`);
   }
+  window.showSetupGuide = (section) => {
+    showTpGuide();
+    if (section) setTimeout(() => { const el = document.getElementById(section); if (el) el.scrollIntoView({ block: 'start' }); }, 50);
+  };
 
   async function init() {
     try {

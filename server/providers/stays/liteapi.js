@@ -7,6 +7,7 @@ import { cache } from '../../lib/cache.js';
 import { config } from '../../config.js';
 import { toCzk } from '../../lib/fx.js';
 import { haversineKm } from '../../lib/geo.js';
+import { affiliate } from '../../lib/links.js';
 
 const API = 'https://api.liteapi.travel/v3.0';
 const limit = limiter(2);
@@ -95,7 +96,7 @@ export function mapHotels(hotels, ratesData, q, center, extra = []) {
       pricePerNightCzk: Math.round(total / q.nights),
       freeCancellation: /RFN|refundable/i.test(best.rate?.cancellationPolicies?.refundableTag || '') && !/NRFN|non/i.test(best.rate?.cancellationPolicies?.refundableTag || ''),
       breakfast: /breakfast|snídan/i.test(best.rate?.boardName || ''),
-      bookUrl: config.liteapiWhitelabel ? whiteLabelUrl(h.id, q) : bookingSearchUrl(h.name, q.city, q),
+      bookUrl: config.liteapiWhitelabel ? whiteLabelUrl(h.id, q) : affiliate(bookingSearchUrl(h.name, q.city, q), 'booking'),
     });
   }
   return out;

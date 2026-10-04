@@ -20,6 +20,7 @@ import { findPlaces, mockPlaces } from './lib/poi.js';
 import { planItinerary } from './lib/itinerary.js';
 import { kiwi } from './providers/kiwi.js';
 import { isYmd, daysBetween } from './lib/dates.js';
+import { affiliateOn } from './lib/links.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -204,7 +205,7 @@ async function route(req, res) {
   }
   if (p === '/api/health') {
     await loadRates();
-    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, providers: providerStatus(), fx: fxInfo(), cache: cache.stats() });
+    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), fx: fxInfo(), cache: cache.stats() });
   }
   if (p === '/api/places') {
     const q = (url.searchParams.get('q') || '').slice(0, 80);

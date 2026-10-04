@@ -27,6 +27,8 @@ export const config = {
   kiwi: env.KIWI_ENABLED !== '0',
   travelpayoutsToken: env.TRAVELPAYOUTS_TOKEN || '',
   travelpayoutsMarker: env.TRAVELPAYOUTS_MARKER || '',
+  // Číslo projektu (trs) z app.travelpayouts.com → Profile → Sources; bez něj zůstanou odkazy přímé.
+  travelpayoutsTrs: env.TRAVELPAYOUTS_TRS || '',
   // Trh Aviasales, z jehož hledání se berou ceny (cz, de, gb, …); prázdné = výchozí trh API.
   travelpayoutsMarket: (env.TRAVELPAYOUTS_MARKET ?? 'cz').toLowerCase(),
   // Hotely s cenou a hodnocením (liteapi.travel). Bez klíče jen odkazy na Booking/Airbnb/Google.

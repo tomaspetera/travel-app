@@ -4,6 +4,7 @@
 import { limiter, request } from '../lib/http.js';
 import { cache } from '../lib/cache.js';
 import { config } from '../config.js';
+import { affiliate, affiliateOn } from '../lib/links.js';
 import { makeLeg, makeTrip } from '../lib/fares.js';
 import { airlineName } from '../lib/airlines.js';
 import { getAirport } from '../lib/airports.js';
@@ -19,7 +20,9 @@ export function bookingUrl(link, { from, to, dateOut, dateIn = null, adults = 1 
   const base = link
     ? `https://www.aviasales.com${link.startsWith('/') ? '' : '/'}${link}`
     : `https://www.aviasales.com/search/${from}${ddmm(dateOut)}${to}${dateIn ? ddmm(dateIn) : ''}${adults}`;
+  if (affiliateOn('aviasales')) return affiliate(base, 'aviasales');
   if (!config.travelpayoutsMarker) return base;
+  // Bez čísla projektu (trs) aspoň přímý odkaz s markerem – Aviasales ho při otevření přečte.
   return `${base}${base.includes('?') ? '&' : '?'}marker=${encodeURIComponent(config.travelpayoutsMarker)}`;
 }
 

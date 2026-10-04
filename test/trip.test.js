@@ -80,7 +80,9 @@ test('stays/cars: validace dotazu a odkazy s předvyplněnými daty', () => {
   assert.equal(booking.hostname, 'www.booking.com');
   assert.equal(booking.searchParams.get('checkin'), ymdPlus(10));
   assert.equal(booking.searchParams.get('group_adults'), '2');
-  assert.equal(booking.searchParams.get('order'), 'review_score_and_price');
+  assert.equal(booking.searchParams.get('order'), 'price', 'nejlevnější…');
+  assert.equal(booking.searchParams.get('nflt'), 'review_score=80', '…s hodnocením 8+');
+  assert.equal(new URL(stayLinks(q)[1].url).searchParams.get('order'), 'review_score_and_price');
 
   assert.throws(() => normalizeCarQuery({ pickup: 'XXX', from: '2026-11-10T09:00', to: '2026-11-12T09:00' }), /letiště/);
   assert.throws(() => normalizeCarQuery({ pickup: 'BGY', from: '2026-11-12T09:00', to: '2026-11-10T09:00' }), /po vyzvednutí/);
@@ -95,4 +97,46 @@ test('planItinerary: nejvýš 3 kostely za den', () => {
   const churches = Array.from({ length: 8 }, (_, i) => P(`ch${i}`, 45.464 + i * 0.0008, 9.19 + i * 0.0008, 90 - i, 'church'));
   const plan = planItinerary(churches, { center: C, start: '2026-11-10', end: '2026-11-12', arrivalTime: '08:00', departureTime: '21:00', pace: 'intense' });
   for (const d of plan.days) assert.ok(d.items.filter((p) => p.category === 'church').length <= 3, `${d.date}: příliš mnoho kostelů`);
+});
+
+test('cars: Rentalcars/Booking Cars s kódem letiště, celé půlhodiny, řazení podle ceny', () => {
+  const r = searchCars({ pickup: 'BGY', dropoff: 'MXP', from: '2026-11-10T08:45', to: '2026-11-14T19:10' });
+  const rc = new URL(r.links.find((l) => l.id === 'rentalcars').url);
+  assert.equal(rc.pathname, '/search-results');
+  assert.equal(rc.searchParams.get('locationIata'), 'BGY');
+  assert.equal(rc.searchParams.get('dropLocationIata'), 'MXP');
+  assert.equal(rc.searchParams.get('ftsType'), 'A');
+  assert.deepEqual(['puDay', 'puMonth', 'puHour', 'puMinute', 'doHour', 'doMinute'].map((k) => rc.searchParams.get(k)), ['10', '11', '8', '30', '19', '0']);
+  assert.equal(rc.searchParams.get('filterCriteria_sortBy'), 'PRICE');
+  assert.equal(new URL(r.links.find((l) => l.id === 'bookingcars').url).host, 'cars.booking.com');
+  assert.ok(!r.links.some((l) => l.id === 'google'), 'žádný neověřený formát');
+});
+
+test('affiliate: bez čísla projektu (trs) zůstávají odkazy přímé; s ním jen ověřené značky přes tp.media', async () => {
+  const { config } = await import('../server/config.js');
+  const { affiliate } = await import('../server/lib/links.js');
+  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs };
+  try {
+    config.travelpayoutsMarker = '123456';
+    config.travelpayoutsTrs = '';
+    const q = normalizeStayQuery({ city: 'Milán', iata: 'BGY', checkin: ymdPlus(10), checkout: ymdPlus(12) });
+    assert.match(stayLinks(q)[0].url, /^https:\/\/www\.booking\.com\//, 'marker bez trs → přímý odkaz (tp.media by hlásil chybu)');
+    assert.ok(!stayLinks(q).some((l) => l.sponsored));
+
+    config.travelpayoutsTrs = '987654';
+    const links = stayLinks(q);
+    const tp = new URL(links[0].url);
+    assert.equal(tp.host, 'tp.media');
+    assert.equal(tp.pathname, '/r');
+    assert.deepEqual(['marker', 'trs', 'p', 'campaign_id'].map((k) => tp.searchParams.get(k)), ['123456', '987654', '2076', '84']);
+    assert.match(tp.searchParams.get('u'), /^https:\/\/www\.booking\.com\/searchresults/);
+    assert.equal(links[0].sponsored, true);
+    const hw = links.find((l) => l.id === 'hostelworld');
+    assert.match(hw.url, /^https:\/\/www\.hostelworld\.com\//, 'značka bez ověřených ID se neobaluje');
+    assert.ok(!hw.sponsored);
+    assert.equal(affiliate('https://www.kayak.com/cars/BGY', 'kayak'), 'https://www.kayak.com/cars/BGY');
+  } finally {
+    config.travelpayoutsMarker = prev.m;
+    config.travelpayoutsTrs = prev.t;
+  }
 });

@@ -84,11 +84,11 @@
   /* ---------- karty ---------- */
   function poiCard(p, opts = {}) {
     return `<div class="poi" data-poi="${esc(p.id)}">
-      <div class="poi-img" ${p.image ? `style="background-image:url('${esc(p.image)}')"` : ''}>${p.image ? '' : icon(p.category)}</div>
+      <div class="poi-img" ${p.image ? `style="background-image:url('${esc(cssUrl(p.image))}')"` : ''}>${p.image ? '' : icon(p.category)}</div>
       <div><div class="poi-name">${icon(p.category)} ${esc(p.name)}</div>
-        <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${p.distanceKm} km` : ''}${p.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : p.heritage ? ' · památka' : ''}</div>
+        <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${p.distanceKm} km` : ''}${p.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : p.heritage ? ' · památka' : ''}${p.wikivoyage ? ' · <b style="color:var(--good)" title="Místo doporučuje cestovní průvodce Wikivoyage">👍 doporučuje Wikivoyage</b>' : ''}</div>
         <div class="poi-desc">${esc(p.extract || p.description || '')}</div>
-        <div class="poi-acts">${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Wikipedie ↗</a>` : ''}
+        <div class="poi-acts">${p.url ? `<a href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Wikipedie ↗</a>` : ''}
           <a href="https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Mapa ↗</a>
           ${opts.toggle ? `<button type="button" class="linkbtn" data-must="${esc(p.id)}">${opts.must?.has(p.id) ? '★ v plánu' : '+ chci vidět'}</button>` : ''}</div></div>
     </div>`;
@@ -99,7 +99,7 @@
     return plan.days.map((d, i) => {
       const url = d.kind !== 'daytrip' ? gmapsDay(center, d.items) : (d.items[0] ? `https://www.google.com/maps/dir/?api=1&origin=${center.lat},${center.lon}&destination=${d.items[0].lat},${d.items[0].lon}&travelmode=transit` : null);
       return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${d.kind === 'daytrip' ? ' · celodenní výlet' : ''}</span>
-        ${url ? `<a class="linkbtn" href="${esc(url)}" target="_blank" rel="noopener">trasa v Google Maps ↗</a>` : ''}</h4>
+        ${url ? `<a class="linkbtn" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">trasa v Google Maps ↗</a>` : ''}</h4>
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${minTxt(p.visitMin)}</span>
           <div class="dp-walk">${j === 0 ? 'od ubytování' : 'dál'} ${p.transit ? `${p.fromPrevKm} km – MHD/taxi` : `${p.fromPrevKm} km pěšky (~${minTxt(p.fromPrevMin)})`}</div></div>
           <button type="button" title="Vyřadit z plánu" data-drop="${esc(p.id)}">✕</button></div>`).join('')

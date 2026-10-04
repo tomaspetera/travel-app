@@ -162,7 +162,7 @@
           <div><b>${esc(x.out.carrierName || '')}</b> <span class="faint">${x.out.stops ? `${x.out.stops}× přestup` : 'přímý'}${x.back ? ` · zpět ${esc(x.back.carrierName || '')}${x.back.stops ? ` (${x.back.stops}× přestup)` : ''}` : ''}</span>
             <div class="faint" style="font-size:12px">${hhmm(x.out.dep)}–${hhmm(x.out.arr)}${x.back ? ` · zpět ${hhmm(x.back.dep)}–${hhmm(x.back.arr)}` : ''}</div></div>
           <div class="alt-p ${x.flightCzk < cur ? 'good' : ''}">${czk(x.flightCzk)}</div>
-          <div class="row" style="gap:6px"><button class="btn sm" data-alt="${i}">Použít</button>${x.bookUrl ? `<a class="btn sm ghost" href="${esc(x.bookUrl)}" target="_blank" rel="noopener">Kiwi ↗</a>` : ''}</div></div>`).join('')}</div>
+          <div class="row" style="gap:6px"><button class="btn sm" data-alt="${i}">Použít</button>${x.bookUrl ? `<a class="btn sm ghost" href="${esc(safeUrl(x.bookUrl))}" target="_blank" rel="noopener">Kiwi ↗</a>` : ''}</div></div>`).join('')}</div>
         ${j.items.some(x => x.out.stops) ? '<div class="faint" style="font-size:11.5px;margin-top:6px">Lety s přestupem přes Kiwi.com bývají samostatné letenky – Kiwi ručí za návaznost svou garancí.</div>' : ''}`;
       $$('[data-alt]', host).forEach(b => b.onclick = () => {
         const x = j.items[+b.dataset.alt];
@@ -221,12 +221,19 @@
     renderStays();
   }
 
+  // Odkazy na partnery; affiliate odkazy viditelně označené (zákon o ochraně spotřebitele, rel=sponsored).
+  const SPONSOR_NOTE = '<div class="faint" style="font-size:11.5px;margin-top:6px">Odkazy označené „reklama“ jsou partnerské (affiliate): při rezervaci přes ně může ATLAS dostat provizi. Cenu pro tebe to nezvyšuje a pořadí nabídek to neovlivňuje.</div>';
+  function linkGrid(links, color) {
+    const html = links.map(l => `<a class="result-link" href="${esc(safeUrl(l.url))}" target="_blank" rel="${l.sponsored ? 'sponsored nofollow noopener' : 'noopener'}"><div class="lg" style="background:${color}">${esc(l.name.slice(0, 2))}</div><div><div class="rl-t">${esc(l.name)}${l.sponsored ? ' <span class="ad-tag">reklama</span>' : ''}</div><div class="rl-s">${esc(l.note)}</div></div><div class="go">↗</div></a>`).join('');
+    return `<div class="link-grid">${html}</div>${links.some(l => l.sponsored) ? SPONSOR_NOTE : ''}`;
+  }
+
   function stayCard(h, i) {
     const t = T();
     const chosen = t.stay && t.stay.mode === 'pick' && t.stay.id === h.id;
     const badges = (h.badges || []).map(b => STAY_BADGES[b] ? `<span class="b ${STAY_BADGES[b][1]}">${STAY_BADGES[b][0]}</span>` : '').join('');
     return `<div class="stay ${chosen ? 'chosen' : ''}">
-      <div class="st-img" ${h.photo ? `style="background-image:url('${esc(h.photo)}')"` : ''}>${h.photo ? '' : '🏨'}</div>
+      <div class="st-img" ${h.photo ? `style="background-image:url('${esc(cssUrl(h.photo))}')"` : ''}>${h.photo ? '' : '🏨'}</div>
       <div class="st-main">
         <div class="st-name">${esc(h.name)} <span class="st-stars">${stars(h.stars)}</span></div>
         <div class="faint" style="font-size:12.5px">${esc([h.typeLabel, h.address, h.distanceKm != null ? `${h.distanceKm.toFixed(1)} km od centra` : ''].filter(Boolean).join(' · '))}</div>
@@ -235,7 +242,7 @@
       <div class="st-rating">${h.rating != null ? `<div class="rt">${h.rating.toFixed(1)}</div><div class="faint">${ratingWord(h.rating)}${h.reviews ? `<br>${h.reviews.toLocaleString('cs')} recenzí` : ''}</div>` : '<div class="faint">bez hodnocení</div>'}</div>
       <div class="st-price">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">celkem · ${czk(h.pricePerNightCzk)}/noc</div>` : '<div class="faint">cena na webu</div>'}
         <button class="btn sm primary" data-pick="${i}">${chosen ? '✓ Vybráno' : 'Vybrat'}</button>
-        ${h.bookUrl ? `<a class="linkbtn" href="${esc(h.bookUrl)}" target="_blank" rel="noopener">detail ↗</a>` : ''}</div>
+        ${h.bookUrl ? `<a class="linkbtn" href="${esc(safeUrl(h.bookUrl))}" target="_blank" rel="noopener">detail ↗</a>` : ''}</div>
     </div>`;
   }
 
@@ -253,10 +260,11 @@
     };
     items = [...items].sort(sorters[stayView.sort]);
     const types = [...new Set(d.items.map(h => h.type).filter(Boolean))];
-    const links = `<div class="link-grid">${d.links.map(l => `<a class="result-link" href="${esc(l.url)}" target="_blank" rel="noopener"><div class="lg" style="background:#003580">${esc(l.name.slice(0, 2))}</div><div><div class="rl-t">${esc(l.name)}</div><div class="rl-s">${esc(l.note)}</div></div><div class="go">↗</div></a>`).join('')}</div>`;
+    const links = linkGrid(d.links, '#003580');
     const errs = d.providers.filter(p => !p.ok).map(p => `${esc(p.name)}: ${esc(p.error)}`).join(' · ');
     if (!d.items.length) {
-      host.innerHTML = `<div class="note info">ℹ️ <div>${d.providers.length ? 'Pro tento termín nemám přímé nabídky' : 'Přímé nabídky ubytování zatím nejsou zapnuté'} – otevři si hledání u partnerů, je už <b>předvyplněné na tvoje data a seřazené podle hodnocení a ceny</b>. Až si vybereš, zadej cenu níže.${errs ? `<br><span class="faint">${errs}</span>` : ''}</div></div>${links}`;
+      host.innerHTML = `<div class="note info">ℹ️ <div>${d.providers.length ? 'Pro tento termín nemám přímé nabídky' : 'Přímé nabídky ubytování zatím nejsou zapnuté'} – otevři si hledání u partnerů, je už <b>předvyplněné na tvoje data a seřazené podle hodnocení a ceny</b>. Až si vybereš, zadej cenu níže.${errs ? `<br><span class="faint">${errs}</span>` : ''}${!d.providers.length && window.showSetupGuide ? ` <a href="#" id="stayGuide">Jak zapnout hotely s cenou a hodnocením přímo tady →</a>` : ''}</div></div>${links}`;
+      const g = $('#stayGuide'); if (g) g.onclick = e => { e.preventDefault(); window.showSetupGuide('guideStays'); };
       return;
     }
     const testNote = d.providers.some(p => p.ok && p.test && p.count) ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>Ukázková / testovací nabídka</b> – hotely a ceny nejsou skutečné (demo režim nebo testovací klíč LiteAPI). Skutečné ceny ověř přes odkazy na partnery dole.</div></div>` : '';
@@ -321,7 +329,7 @@
         if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
         carsData = j;
         $('#carBody').innerHTML = `<div class="muted" style="font-size:13px;margin-bottom:8px">Srovnávače půjčoven – <b>předvyplněné na letiště ${esc(j.query.pickupName || q.pickup)} a tvoje časy</b>:</div>
-          <div class="link-grid">${j.links.map(l => `<a class="result-link" href="${esc(l.url)}" target="_blank" rel="noopener"><div class="lg" style="background:#ff690f">${esc(l.name.slice(0, 2))}</div><div><div class="rl-t">${esc(l.name)}</div><div class="rl-s">${esc(l.note)}</div></div><div class="go">↗</div></a>`).join('')}</div>`;
+          ${linkGrid(j.links, '#ff690f')}`;
       } catch (e) {
         $('#carBody').innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
       }
@@ -414,7 +422,7 @@
         <div class="faint" style="font-size:12px;margin-top:8px">Letenky bez zavazadel. Ceny u partnerů ověř před zaplacením.</div>
       </div>
       <div class="card step-card"><h3>✅ Co zarezervovat (v tomhle pořadí)</h3>
-        ${steps.map((s, i) => `<label class="check"><input type="checkbox" data-bk="${s.id}" ${t.booked[s.id] ? 'checked' : ''}><span>${i + 1}. ${esc(s.label)}</span>${s.url ? `<a class="btn sm" href="${esc(s.url)}" target="_blank" rel="noopener" style="margin-left:auto">Otevřít ↗</a>` : ''}</label>`).join('')}
+        ${steps.map((s, i) => `<label class="check"><input type="checkbox" data-bk="${s.id}" ${t.booked[s.id] ? 'checked' : ''}><span>${i + 1}. ${esc(s.label)}</span>${s.url ? `<a class="btn sm" href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener" style="margin-left:auto">Otevřít ↗</a>` : ''}</label>`).join('')}
         ${f.back && f.back.provider !== f.out.provider ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Lety tam a zpět jsou dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká.</div></div>' : ''}
       </div></div>
       <div class="card step-card"><h3>🗓️ Průběh cesty</h3><div class="timeline">${timeline.map(x => `<div class="tl-row"><span class="tl-d">${dayLbl(x[0])}</span><span class="tl-i">${x[1]}</span><span>${x[2]}</span></div>`).join('')}</div></div>

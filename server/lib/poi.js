@@ -5,7 +5,7 @@
 // Wikimedia vyžaduje popisný User-Agent: https://meta.wikimedia.org/wiki/User-Agent_policy
 import { request, limiter } from './http.js';
 import { cache } from './cache.js';
-import { haversineKm } from './geo.js';
+import { haversineKm, normalize } from './geo.js';
 
 const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; hobby travel planner)';
 const WDQS = 'https://query.wikidata.org/sparql';
@@ -257,6 +257,56 @@ export async function findPlacesViaWikipedia({ lat, lon }) {
   return out.sort((a, b) => b.score - a.score);
 }
 
+/**
+ * Položky „see“/„do“ z wikitextu Wikivoyage ({{see|name=…|wikidata=Q…}}, {{listing|type=see…}}).
+ * Wikivoyage je ručně psaný průvodce – co v něm je, to místní a cestovatelé opravdu doporučují.
+ */
+export function parseListings(wikitext) {
+  const out = [];
+  const re = /\{\{\s*(see|do|listing)\s*\n?\|((?:[^{}]|\{\{[^{}]*\}\})*)\}\}/gi;
+  for (const m of String(wikitext || '').matchAll(re)) {
+    const body = m[2];
+    // Hodnota pole končí svislítkem, které není uvnitř odkazu [[cíl|text]] ani šablony {{…|…}}.
+    const field = (k) => (body.match(new RegExp(`(?:^|\\|)\\s*${k}\\s*=\\s*((?:\\[\\[[^\\]]*\\]\\]|\\{\\{[^}]*\\}\\}|[^|])*)`, 'i'))?.[1] || '').trim();
+    if (m[1].toLowerCase() === 'listing' && !/^(see|do)$/i.test(field('type'))) continue;
+    const name = field('name').replace(/\[\[(?:[^|\]]*\|)?([^\]]*)\]\]/g, '$1').replace(/'{2,}/g, '').trim();
+    const wd = field('wikidata');
+    if (name || /^Q\d+$/.test(wd)) out.push({ name, wikidata: /^Q\d+$/.test(wd) ? wd : null });
+  }
+  return out;
+}
+
+/** Doporučení z nejbližších článků anglické Wikivoyage (město, případně jeho čtvrti). */
+async function wikivoyageListings(lat, lon) {
+  const geo = new URLSearchParams({
+    action: 'query', format: 'json', formatversion: '2', list: 'geosearch', gscoord: `${lat}|${lon}`,
+    gsradius: '15000', gslimit: '3', gsnamespace: '0',
+  });
+  const g = await limitWiki(() => request(`https://en.wikivoyage.org/w/api.php?${geo}`, { headers: { 'User-Agent': UA }, timeoutMs: 12000, retries: 0 }));
+  const titles = (g.query?.geosearch || []).map((x) => x.title);
+  if (!titles.length) return [];
+  const rev = new URLSearchParams({
+    action: 'query', format: 'json', formatversion: '2', prop: 'revisions', rvprop: 'content', rvslots: 'main', titles: titles.join('|'),
+  });
+  const j = await limitWiki(() => request(`https://en.wikivoyage.org/w/api.php?${rev}`, { headers: { 'User-Agent': UA }, timeoutMs: 15000, retries: 0 }));
+  return (j.query?.pages || []).flatMap((pg) => parseListings(pg.revisions?.[0]?.slots?.main?.content || pg.revisions?.[0]?.content));
+}
+
+/** Označí místa, která doporučuje Wikivoyage, a přidá jim body (podle QID nebo názvu). */
+export function applyWikivoyage(places, listings) {
+  if (!listings.length) return places;
+  const qids = new Set(listings.map((l) => l.wikidata).filter(Boolean));
+  const names = new Set(listings.map((l) => normalize(l.name)).filter((n) => n.length > 3));
+  for (const p of places) {
+    const hit = qids.has(p.id) || [p.name, p.wiki?.en, p.wiki?.cs].some((n) => n && names.has(normalize(n)));
+    if (hit && p.category !== 'daytrip') {
+      p.wikivoyage = true;
+      p.score = Math.round((p.score + 8) * 10) / 10;
+    }
+  }
+  return places;
+}
+
 /** DEMO režim (ATLAS_MOCK=1): vymyšlená místa kolem bodu, jasně označená. */
 export function mockPlaces({ lat, lon }) {
   const cats = ['museum', 'church', 'castle', 'park', 'viewpoint', 'square', 'gallery', 'oldtown', 'monument', 'market', 'bridge', 'zoo'];
@@ -284,6 +334,8 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     const center = { lat, lon };
     let cityRows;
     let tripRows = [];
+    // Doporučení z Wikivoyage běží souběžně a jejich výpadek nic nerozbije.
+    const wvP = wikivoyageListings(lat, lon).catch(() => []);
     try {
       [cityRows, tripRows] = await Promise.all([
         wdqs(sparqlNear(lat, lon, r, 4, 4000)),
@@ -291,7 +343,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
       ]);
     } catch {
       // Wikidata SPARQL nedostupné (výpadek, limit, přechod na QLever) → záloha přes Wikipedii.
-      const fb = await findPlacesViaWikipedia({ lat, lon });
+      const fb = applyWikivoyage(await findPlacesViaWikipedia({ lat, lon }), await wvP).sort((a, b) => b.score - a.score);
       const picked = fb.slice(0, limit);
       await enrich(picked);
       return picked.map((p) => ({ ...p, categoryLabel: CATEGORY_CS[p.category] || p.category }));
@@ -302,6 +354,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
       .filter((p) => p.distanceKm > Math.max(r, 15) && (p.category === 'town' || p.category === 'nature' || p.category === 'castle' || p.unesco))
       .map((p) => ({ ...p, category: 'daytrip', tripKind: p.category }));
     for (const p of [...city, ...trips]) p.score = scorePlace(p);
+    applyWikivoyage(city, await wvP);
     const picked = [...city.sort((a, b) => b.score - a.score).slice(0, limit), ...trips.sort((a, b) => b.score - a.score).slice(0, 8)];
     await enrich(picked);
     return picked.map((p) => ({ ...p, categoryLabel: CATEGORY_CS[p.category] || p.category }));

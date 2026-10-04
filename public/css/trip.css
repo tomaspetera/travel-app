@@ -89,3 +89,7 @@ table.cost tr.tot td{font:800 17px Sora,sans-serif;border-bottom:none;padding-to
 .alt-p{font:800 17px Sora,sans-serif}
 .alt-p.good{color:var(--good)}
 @media(max-width:560px){.alt-f{grid-template-columns:1fr auto}.alt-f>.row{grid-column:1/-1}}
+
+/* označení partnerských (affiliate) odkazů a průhlednost řazení */
+.ad-tag{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;padding:1px 5px;border-radius:4px;border:1px solid var(--line, rgba(127,127,127,.35));color:var(--muted, #9aa3b2);vertical-align:1px;margin-left:4px}
+.rank-note{font-size:11.5px;margin:-4px 0 12px}
