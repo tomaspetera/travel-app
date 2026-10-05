@@ -205,7 +205,8 @@ export function planTrips(candidates, opts) {
       const dm = tr.min(prev, s);
       const depart = hhmm(clock);
       clock += dm;
-      const item = { ...s, travelKm: km, travelMin: dm, depart, arrive: hhmm(clock), visitMin: visitMin(s) };
+      // driveKm/driveMin: staré názvy pro stránky otevřené před nasazením (jedna verze, pak pryč)
+      const item = { ...s, travelKm: km, travelMin: dm, driveKm: km, driveMin: dm, depart, arrive: hhmm(clock), visitMin: visitMin(s) };
       clock += item.visitMin;
       prev = s;
       return item;
@@ -223,18 +224,26 @@ export function planTrips(candidates, opts) {
       overnight: backHome ? null : { id: stops.at(-1).id, name: stops.at(-1).name, lat: stops.at(-1).lat, lon: stops.at(-1).lon, bookUrl: overnightUrl(stops.at(-1).name, addDays(start, i), opts.adults) },
       travelMin: travelTotal,
       travelKm: kmTotal,
+      driveMin: travelTotal,
+      driveKm: kmTotal,
       minutes: stops.reduce((s, x) => s + x.visitMin, 0) + travelTotal,
     };
   });
   const usedIds = new Set(result.flatMap((d) => d.stops.map((s) => s.id)));
+  // Cíl, který si uživatel přidal, ale do plánu se nevešel (vlakem moc daleko na jednodenní výlet…).
+  const missed = valid.filter((c) => c.pinned && !usedIds.has(c.id)).map((c) => c.name);
+  const notes = [
+    !result.length || result.length >= days ? null
+      : mode === 'day' ? `V dosahu jednodenního výletu jsem našel cíle jen na ${dniTxt(result.length)}.`
+        : `Trasa se vešla do ${result.length === 1 ? 'jednoho dne' : `${result.length} dní`} – víc cílů v okolí není.`,
+    missed.length ? `Do plánu se nevešlo: ${missed.join(', ')} – ${tr.id === 'transit' ? 'vlakem a autobusem' : 'autem'} je to na ${mode === 'day' ? 'jednodenní výlet' : 'tento okruh'} moc daleko.` : null,
+  ].filter(Boolean);
   return {
     mode,
     transport: tr.id,
     days: result,
     spare: pool.filter((c) => !usedIds.has(c.id)).slice(0, 12),
-    note: !result.length || result.length >= days ? null
-      : mode === 'day' ? `V dosahu jednodenního výletu jsem našel cíle jen na ${dniTxt(result.length)}.`
-        : `Trasa se vešla do ${result.length === 1 ? 'jednoho dne' : `${result.length} dní`} – víc cílů v okolí není.`,
+    note: notes.length ? notes.join(' ') : null,
   };
 }
 

@@ -399,14 +399,15 @@
   }
 
   // Úsek cesty: autem km a čas; vlakem/busem odhad času + odkaz na skutečné spoje v Google Maps.
-  const legTxt = (transit, km, min, fromQ, toQ) => (transit
-    ? `🚆 ~${minTxt(min)} vlakem / busem (odhad) · <a href="${esc(safeUrl(gmDir(fromQ, [toQ], 'transit')))}" target="_blank" rel="noopener">spoje ↗</a>`
+  // Google Maps z odkazu neumí převzít datum a čas odjezdu – napoví je titulek odkazu.
+  const legTxt = (transit, km, min, fromQ, toQ, when) => (transit
+    ? `🚆 ~${minTxt(min)} vlakem / busem (odhad) · <a href="${esc(safeUrl(gmDir(fromQ, [toQ], 'transit')))}" target="_blank" rel="noopener" title="${esc(`V Google Maps nastav odjezd: ${when}`)}">spoje ↗</a>`
     : `🚗 ${km} km (~${minTxt(min)})`);
 
-  function tripStopHtml(s, j, transit, fromQ) {
+  function tripStopHtml(s, j, transit, fromQ, date) {
     return `<div class="dp-item" data-poi="${esc(s.id)}"><span class="dp-n">${j + 1}</span><div>
       <b>${tripIcon(s)} ${esc(s.name)}</b> <span class="faint">· ${esc(s.categoryLabel || '')}${s.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : s.unescoPart ? ' · <span style="color:var(--warn)">část památky UNESCO</span>' : ''}</span>
-      <div class="dp-walk">${legTxt(transit, s.travelKm, s.travelMin, fromQ, s.name)} · ${transit ? `odjezd ~${esc(s.depart)} · ` : ''}příjezd ~${esc(s.arrive)} · na místě ~${minTxt(s.visitMin)}</div>
+      <div class="dp-walk">${legTxt(transit, s.travelKm, s.travelMin, fromQ, s.name, `${dayLbl(date)} ~${s.depart}`)} · ${transit ? `odjezd ~${esc(s.depart)} · ` : ''}příjezd ~${esc(s.arrive)} · na místě ~${minTxt(s.visitMin)}</div>
       ${s.highlights?.length ? `<div class="dp-walk">👀 Uvidíš: ${esc(s.highlights.join(', '))}</div>` : ''}
       ${s.extract ? `<div class="poi-desc" style="-webkit-line-clamp:2">${esc(s.extract)}</div>` : ''}
       <div class="poi-acts">${s.url ? `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}<a href="${esc(gmSearch(s.name))}" target="_blank" rel="noopener">Google Maps ↗</a></div></div>
@@ -435,8 +436,8 @@
       return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> ${title} · ${dayLbl(d.date)}${way}</span>
         ${url ? `<a class="linkbtn" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">trasa autem v Google Maps ↗</a>` : ''}</h4>
         <div class="dp-walk" style="margin:2px 0 4px">${transit ? 'vyrazit kolem' : 'odjezd'} ~09:00 z: ${esc(d.from.name)}</div>
-        ${d.stops.map((s, j) => tripStopHtml(s, j, transit, j === 0 ? from : d.stops[j - 1].name)).join('')}
-        ${d.back ? `<div class="dp-end">🏁 zpět na start (${esc(center.label)}) ~${esc(d.back.arrive)} · ${legTxt(transit, d.back.km, d.back.min, lastQ, origin || center.label)}</div>`
+        ${d.stops.map((s, j) => tripStopHtml(s, j, transit, j === 0 ? from : d.stops[j - 1].name, d.date)).join('')}
+        ${d.back ? `<div class="dp-end">🏁 zpět na start (${esc(center.label)})${transit ? ` · odjezd ~${esc(d.back.depart)}` : ''} · příjezd ~${esc(d.back.arrive)} · ${legTxt(transit, d.back.km, d.back.min, lastQ, origin || center.label, `${dayLbl(d.date)} ~${d.back.depart}`)}</div>`
           : `<div class="dp-end">🛏️ přespání: <b>${esc(d.overnight.name)}</b> · <a href="${esc(safeUrl(d.overnight.bookUrl))}" target="_blank" rel="noopener">najít ubytování ↗</a></div>`}
         <div class="faint" style="font-size:11.5px;margin-top:4px">${transit ? `na cestě ~${minTxt(d.travelMin)}` : `za volantem ~${minTxt(d.travelMin)} (${d.travelKm} km)`} · celkem ~${minTxt(d.minutes)}</div>
       </div>`;
@@ -462,7 +463,9 @@
     return ex.ms;
   }
 
-  let replanSeq = 0;
+  // Pořadí dotazů zvlášť pro každý plán (město, výlety autem, vlakem…): starší odpověď téhož plánu
+  // se zahodí, odpověď jiného plánu se uloží.
+  const replanSeq = {};
   function paintExplore() {
     const body = $('#exBody'); if (!body) return;
     const p = ex.place;
@@ -485,7 +488,7 @@
       <div class="card step-card"><h3>🗓️ Naplánovat</h3>
         <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${MODES.map(([id, l]) => `<button type="button" data-mode="${id}" class="${ex.mode === id ? 'on' : ''}">${l}</button>`).join('')}</div>
         <div class="muted" style="font-size:13px;margin:-4px 0 10px">${ex.mode === 'city' ? 'Pěší program po památkách – každý den jiná část města.'
-          : ex.mode === 'day' ? `Ráno ${ex.transport === 'transit' ? 'vlakem nebo busem' : 'autem'} ven, večer zpátky: města, hrady a příroda do ~2 h cesty. Každý výlet jiný.`
+          : ex.mode === 'day' ? `Ráno ${ex.transport === 'transit' ? 'vlakem nebo busem' : 'autem'} ven, večer zpátky: města, hrady a příroda do ~${ex.transport === 'transit' ? '3' : '2,5'} h cesty. Každý výlet jiný.`
           : `Okruh ${ex.transport === 'transit' ? 'vlakem a autobusem' : 'autem'} s přespáním po cestě – každý den pár zastávek, poslední den zpět na start.`}</div>
         <div class="row wrap" style="gap:10px;align-items:end">
           <div class="field" style="margin:0"><label>Od</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
@@ -524,32 +527,36 @@
     $('#exDays', body).onchange = e => { if (road) ex.tripDays[ex.mode] = +e.target.value; else ex.days = +e.target.value; };
     const mode = ex.mode;
     const transport = ex.transport;
+    const seqKey = road ? tripKey(mode, transport) : 'city';
     const replan = async btn => {
-      const my = ++replanSeq; // jen poslední dotaz smí vykreslit (rychlé klikání na ✕ / +)
+      const my = replanSeq[seqKey] = (replanSeq[seqKey] || 0) + 1; // jen poslední dotaz smí vykreslit (rychlé klikání na ✕ / +)
       if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spin"></span> ${road ? 'Hledám cíle výletů…' : 'Skládám…'}`; }
       try {
         if (road) {
           const t = await makeTrip(p, mode, transport);
-          if (my !== replanSeq || ex.place !== p) return; // mezitím jiné místo nebo novější dotaz
+          if (my !== replanSeq[seqKey] || ex.place !== p) return; // mezitím jiné místo nebo novější dotaz
           ex.trips[tripKey(mode, transport)] = t;
         } else {
           const plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '09:00', departureTime: null });
-          if (my !== replanSeq || ex.place !== p) return;
+          if (my !== replanSeq[seqKey] || ex.place !== p) return;
           ex.plan = plan;
         }
         if (ex.mode !== mode || ex.transport !== transport) return; // uložené, ale uživatel přepnul režim
         paintExplore();
         if (btn) $('#exPlanOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (e) {
-        if (my !== replanSeq) return;
+        if (my !== replanSeq[seqKey]) return;
         toast(e.message, 'err');
         if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = road ? 'Naplánovat výlet' : 'Sestavit program'; }
       }
     };
     $('#exPlan', body).onclick = () => replan($('#exPlan'));
     $$('[data-drop]', body).forEach(b => b.onclick = () => { st.exclude.add(b.dataset.drop); replan(); });
-    $$('[data-tdrop]', body).forEach(b => b.onclick = () => { ex.tripEx.add(b.dataset.tdrop); ex.tripMust.delete(b.dataset.tdrop); replan(); });
-    $$('[data-tmust]', body).forEach(b => b.onclick = e => { e.stopPropagation(); ex.tripMust.add(b.dataset.tmust); ex.tripEx.delete(b.dataset.tmust); replan(); });
+    // Vyřazení / přidání cíle platí pro všechny výlety – ostatní uložené plány (jiný režim, doprava)
+    // by ho ještě obsahovaly, proto se zahodí a při přepnutí se naplánují znovu.
+    const onlyThisTrip = () => { for (const k of Object.keys(ex.trips)) if (k !== seqKey) delete ex.trips[k]; };
+    $$('[data-tdrop]', body).forEach(b => b.onclick = () => { ex.tripEx.add(b.dataset.tdrop); ex.tripMust.delete(b.dataset.tdrop); onlyThisTrip(); replan(); });
+    $$('[data-tmust]', body).forEach(b => b.onclick = e => { e.stopPropagation(); ex.tripMust.add(b.dataset.tmust); ex.tripEx.delete(b.dataset.tmust); onlyThisTrip(); replan(); });
     const sv = $('#exSave', body);
     if (sv) sv.onclick = () => {
       const days = {};

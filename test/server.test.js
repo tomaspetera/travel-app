@@ -133,6 +133,11 @@ test('POST /api/roadtrip – jednodenní výlety i okruh s přespáním (DEMO)',
   assert.ok(!loop.days.flatMap((d) => d.stops).some((s) => s.id === 'demoTrip0'), 'vyřazený cíl v plánu není');
   const bad = await post({ lat: 'x', start });
   assert.equal(bad.status, 400);
+  const tr = await (await post({ lat: 50.08, lon: 14.42, label: 'Praha', start, days: 2, mode: 'day', transport: 'transit' })).json();
+  assert.equal(tr.transport, 'transit', 'doprava se předá plánovači');
+  assert.ok(tr.days.every((d) => d.stops.length <= 2 && d.stops.every((s) => /^\d{2}:\d{2}$/.test(s.depart) && s.travelMin > 0)));
+  const bogus = await (await post({ lat: 50.08, lon: 14.42, label: 'Praha', start, days: 1, mode: 'day', transport: 'plane' })).json();
+  assert.equal(bogus.transport, 'car', 'neznámá doprava → auto');
   const nul = await fetch(`${base}/api/roadtrip`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: 'null' });
   assert.equal(nul.status, 400, 'tělo null → 400, ne pád');
   // připnutý cíl je v plánu a vrací se s původním skóre

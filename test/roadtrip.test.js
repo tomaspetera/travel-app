@@ -146,3 +146,10 @@ test('roadtrip: výlety vlakem a busem – méně zastávek za den, limity dne, 
   for (const d of loop.days) assert.ok(d.minutes <= CAP && d.travelMin <= 360 && d.stops.length <= 2);
   assert.ok(loop.days.slice(0, -1).every((d) => d.overnight), 'přespání po cestě i bez auta');
 });
+
+test('roadtrip: přidaný cíl, který se vlakem nevejde do dne, ohlásí poznámka', () => {
+  const far = { id: 'far', name: 'Vzdálený hrad', lat: 50.0875, lon: 14.4213 + 1.53, tripKind: 'castle', score: 1060, pinned: true };
+  const r = planTrips([far, ...C], { base: PRAHA, start: START, days: 2, mode: 'day', transport: 'transit' });
+  assert.ok(!r.days.some((d) => d.stops.some((s) => s.id === 'far')));
+  assert.match(r.note, /Do plánu se nevešlo: Vzdálený hrad – vlakem a autobusem je to na jednodenní výlet moc daleko\./);
+});
