@@ -58,10 +58,11 @@
     const pax = t.adults;
     const flights = Math.round(t.flight.flightCzk * pax);
     const ground = Math.round((t.flight.groundCzk || 0) * pax);
+    const bags = Math.round((t.flight.bagCzk || 0) * pax); // odhad příplatku za zavazadla z hledání letů
     const stay = t.stay && t.stay.mode !== 'skip' ? Math.round(t.stay.totalCzk || 0) : 0;
     const car = t.car && t.car.mode !== 'skip' ? Math.round(t.car.totalCzk || 0) : 0;
-    const total = flights + ground + stay + car;
-    return { flights, ground, stay, car, total, perPerson: Math.round(total / pax) };
+    const total = flights + bags + ground + stay + car;
+    return { flights, bags, ground, stay, car, total, perPerson: Math.round(total / pax) };
   }
 
   /* ---------- start z výsledků hledání ---------- */
@@ -72,6 +73,7 @@
       v: 1,
       created: Date.now(),
       adults: result.query.adults,
+      bags: result.query.bags || 'none',
       flight: t,
       dest: { label: dest.label, country: dest.country, cc: dest.cc, lat: dest.lat, lon: dest.lon, id: dest.id },
       home: result.home ? result.home.label : null,
@@ -139,7 +141,7 @@
     $$('.stepbar .st').forEach(b => b.classList.toggle('on', b.dataset.step === 'flight'));
     host.innerHTML = `<div class="card step-card"><h3>✈️ Vybraný let</h3>
       ${legLine(t.flight.out)}${t.flight.back ? legLine(t.flight.back, true) : ''}
-      <div class="muted" style="margin-top:8px;font-size:13px">Letenky ${czk(t.flight.flightCzk)}/os.${t.flight.groundCzk ? ` + doprava na letiště ${czk(t.flight.groundCzk)}/os.` : ''}</div>
+      <div class="muted" style="margin-top:8px;font-size:13px">Letenky ${czk(t.flight.flightCzk)}/os.${t.flight.bagCzk ? ` + zavazadla ~${czk(t.flight.bagCzk)}/os.` : ''}${t.flight.groundCzk ? ` + doprava na letiště ${czk(t.flight.groundCzk)}/os.` : ''}</div>
       <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="tfBack">↩ Vybrat jiný let</button><button class="btn" id="tfVerify">🔄 Ověřit živou cenu a porovnat aerolinky</button><button class="btn primary" id="tfNext">Pokračovat k ubytování →</button></div>
       <div id="tfAlt"></div></div>`;
     $('#tfBack').onclick = () => go('flights');
@@ -176,6 +178,7 @@
       $$('[data-alt]', host).forEach(b => b.onclick = () => {
         const x = j.items[+b.dataset.alt];
         t.flight = { ...x, groundCzk: t.flight.groundCzk, perPersonCzk: x.flightCzk + (t.flight.groundCzk || 0), totalCzk: (x.flightCzk + (t.flight.groundCzk || 0)) * t.adults };
+        t.bags = 'none'; // u jiné nabídky příplatek za zavazadla neznáme
         persist(); render(); toast('Let aktualizován');
       });
     } catch (e) {
@@ -418,6 +421,7 @@
     const f = t.flight;
     const rows = [
       ['✈️', `Letenky (${t.adults} os.)`, c.flights],
+      c.bags ? ['🧳', 'Zavazadla (odhad příplatku)', c.bags] : null,
       c.ground ? ['🚌', 'Doprava na letiště a zpět (odhad)', c.ground] : null,
       t.stay && t.stay.mode !== 'skip' ? ['🏨', `Ubytování · ${nightsTxt(nights)}${t.stay.name ? ' · ' + t.stay.name : ''}`, c.stay] : null,
       t.car && t.car.mode !== 'skip' ? ['🚗', 'Auto', c.car] : null,
@@ -446,7 +450,7 @@
       <div class="card step-card"><h3>🧾 Cena cesty</h3>
         <table class="cost">${rows.map(r => `<tr><td>${r[0]}</td><td>${esc(r[1])}</td><td>${czk(r[2])}</td></tr>`).join('')}
         <tr class="tot"><td></td><td>Celkem</td><td>${czk(c.total)}</td></tr><tr><td></td><td class="faint">na osobu</td><td class="faint">${czk(c.perPerson)}</td></tr></table>
-        <div class="faint" style="font-size:12px;margin-top:8px">Letenky bez zavazadel. Ceny u partnerů ověř před zaplacením.</div>
+        <div class="faint" style="font-size:12px;margin-top:8px">${c.bags ? 'Zavazadla jsou odhad podle dopravce.' : t.bags && t.bags !== 'none' ? 'Zavazadlo je podle ceníku dopravce v ceně letenky.' : 'Letenky bez zavazadel.'} Ceny u partnerů ověř před zaplacením.</div>
       </div>
       <div class="card step-card"><h3>✅ Co zarezervovat (v tomhle pořadí)</h3>
         ${steps.map((s, i) => `<label class="check"><input type="checkbox" data-bk="${s.id}" ${t.booked[s.id] ? 'checked' : ''}><span>${i + 1}. ${esc(s.label)}</span>${s.url ? `<a class="btn sm" href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener" style="margin-left:auto">Otevřít ↗</a>` : ''}</label>`).join('')}
@@ -569,6 +573,7 @@
     t.flight.back = leg(t.flight.back);
     t.flight.flightCzk = num(t.flight.flightCzk, 0, 1e7, 0);
     t.flight.groundCzk = num(t.flight.groundCzk, 0, 1e6, 0);
+    t.flight.bagCzk = num(t.flight.bagCzk, 0, 1e6, 0);
     for (const k of ['stay', 'car']) if (t[k] && typeof t[k] === 'object') t[k].totalCzk = num(t[k].totalCzk, 0, 1e7, 0);
     if (!t.dest || typeof t.dest !== 'object') t.dest = { label: t.flight.out.to };
     if (!t.ground || typeof t.ground !== 'object') t.ground = {};

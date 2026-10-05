@@ -196,7 +196,8 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 
 - Ryanair a Wizz Air nemají veřejné API pro vývojáře; ATLAS používá stejná rozhraní jako jejich weby. Když je změní,
   je potřeba upravit adaptér (testy v `test/providers.test.js` popisují očekávaný tvar odpovědí).
-- Ceny jsou základní tarif bez zavazadel a příplatků.
+- Ceny jsou základní tarif bez příplatků. Kabinový nebo odbavený kufr umí ATLAS přičíst (🧳 Zavazadla v „Další možnosti“),
+  ale jen jako odhad podle dopravce (`server/lib/baggage.js`, stav 10/2026) – přesnou cenu ukáže až rezervace.
 - Kombinace dvou aerolinek / různých letišť jsou **dvě samostatné letenky** – při zpoždění prvního letu druhá aerolinka
   nečeká. Aplikace to u výsledku označí.
 - Odhad dopravy na letiště je orientační.

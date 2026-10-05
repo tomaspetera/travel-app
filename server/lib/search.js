@@ -7,9 +7,10 @@ import { addDays, chunkRange, clampRange, daysBetween, isYmd, monthsInRange, tod
 import { CONTINENT_BY_KEY, FAR_KM, LONG_HAUL_SWEEP, WARM_SWEEP, farAirport, farCountry, hubsNear, hubsOf } from './longhaul.js';
 import { monthClimate, warmAirports, warmShare, warmestHi } from './climate.js';
 import { bestOneWays, bestRoundTrips, calendarArray, dateOk, oneWayCalendar } from './optimizer.js';
-import { fxInfo, loadRates } from './fx.js';
+import { fxInfo, loadRates, toCzk } from './fx.js';
 import { haversineKm } from './geo.js';
 import { validTrip } from './fares.js';
+import { legBagEur } from './baggage.js';
 
 export class UserError extends Error {
   constructor(msg) {
@@ -78,7 +79,16 @@ export function normalizeQuery(raw = {}) {
     exclude: (Array.isArray(raw.exclude) ? raw.exclude : []).map((x) => String(x).toUpperCase()).filter((x) => /^[A-Z]{3}$/.test(x)),
     // „Za teplem“: jen cíle, kde je v měsíci odletu průměrné denní maximum aspoň tolik °C.
     minTemp: raw.minTemp && Number.isFinite(Number(raw.minTemp)) ? int(raw.minTemp, null, 15, 35) : null,
+    // Zavazadla započítaná do ceny: jen malé pod sedadlo (v ceně) / + kabinový kufr / + kufr k odbavení.
+    bags: raw.bags === 'cabin' || raw.bags === 'checked' ? raw.bags : 'none',
   };
+}
+
+// Odhad příplatku za zavazadlo k jednomu letu (Kč/os., kurz jako u letenek); dálkový let podle vzdálenosti letišť.
+export function legBagCzk(leg, bags) {
+  if (!leg || bags === 'none') return { czk: 0, estimated: false };
+  const f = legBagEur(leg, bags, { longHaul: distKm(leg.from, leg.to) > FAR_KM });
+  return { czk: toCzk(f.eur, 'EUR') ?? 0, estimated: f.estimated };
 }
 
 // Orientační „běžná“ cena jednosměrné letenky podle vzdálenosti (Kč/os.) pro skóre výhodnosti.
@@ -139,6 +149,8 @@ export async function search(raw, emit = () => {}) {
     openJawHome: q.openJaw, openJawDest: q.openJaw,
     // Přesná data: odlet jen v okně dateFrom..dateTo, návrat jen v okně backFrom..backTo.
     ...(q.exact ? { outFrom: q.dateFrom, outTo: q.dateTo, backFrom: q.exact.backFrom, backTo: q.exact.backTo } : {}),
+    // Zavazadla patří do ceny už při skládání cest a v kalendáři, ne až ve výpisu.
+    ...(q.bags !== 'none' ? { extra: (l) => legBagCzk(l, q.bags).czk } : {}),
   };
 
   const providers = activeProviders();
@@ -484,7 +496,7 @@ export async function search(raw, emit = () => {}) {
       // Celé zpáteční letenky (Travelpayouts, dálkové hledání Kiwi) patří do kalendáře taky.
       for (const t of trips) {
         if (!t.back || !t.combined) continue;
-        const cost = t.flightCzk + groundOf(t.out.from) + groundOf(t.back.to);
+        const cost = t.flightCzk + groundOf(t.out.from) + groundOf(t.back.to) + legBagCzk(t.out, q.bags).czk + legBagCzk(t.back, q.bags).czk;
         const entry = { cost, from: t.out.from, to: t.out.to, backTo: t.back.to, outDate: t.out.date, backDate: t.back.date, provider: t.provider };
         for (const [map, date] of [[maps.out, t.out.date], [maps.back, t.back.date]]) {
           const prev = map.get(date);
@@ -576,7 +588,12 @@ function buildGroups(trips, { q, originSet, groundOf }) {
     const gOut = groundOf(t.out.from);
     const gBack = t.back ? groundOf(t.back.to) : 0;
     t.groundCzk = gOut + gBack;
-    t.perPersonCzk = t.flightCzk + t.groundCzk;
+    // Zavazadla: odhad příplatku u každého dopravce tam i zpět; do ceny letenky ani do skóre výhodnosti nepatří.
+    const bOut = legBagCzk(t.out, q.bags);
+    const bBack = legBagCzk(t.back, q.bags);
+    t.bagCzk = bOut.czk + bBack.czk;
+    t.bagEst = bOut.estimated || bBack.estimated || undefined; // dopravce mimo ceník → obecný odhad
+    t.perPersonCzk = t.flightCzk + t.groundCzk + t.bagCzk;
     t.totalCzk = t.perPersonCzk * q.adults;
     if (q.maxPrice && t.perPersonCzk > q.maxPrice) continue;
     // Dlouhodobý průměr denních maxim v cíli v měsíci odletu (NASA POWER); neznámé podnebí za teplem nepustí.
