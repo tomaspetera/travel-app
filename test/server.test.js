@@ -148,3 +148,25 @@ test('POST /api/roadtrip – jednodenní výlety i okruh s přespáním (DEMO)',
   assert.ok(got, 'připnutý cíl je v plánu');
   assert.equal(got.score, all.find((x) => x.id === pick.id).score);
 });
+
+test('POST /api/bike – okruh na kole (DEMO), kontrola polohy a voleb', async () => {
+  const post = (body) => fetch(`${base}/api/bike`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+  const r = await post({ lat: 50.0875, lon: 14.4213, km: 60, bike: 'road', scenery: 'nature', hills: 'flat' });
+  assert.equal(r.status, 200);
+  const j = await r.json();
+  assert.equal(j.demo, true);
+  assert.equal(j.km, 60);
+  assert.equal(j.bike, 'road');
+  assert.equal(j.scenery, 'nature');
+  assert.equal(j.hills, 'flat');
+  assert.ok(j.geometry.length > 10 && j.geometry[0].length === 3, 'trasa [lon, lat, výška]');
+  assert.match(j.mapyUrl, /routeType=bike_road/);
+  const d = await (await post({ lat: 50, lon: 14, scenery: 'mars', hills: 'x' })).json();
+  assert.equal(d.scenery, 'mixed');
+  assert.equal(d.hills, 'normal');
+  assert.equal(d.km, 30);
+  assert.equal((await post({ lat: 'x', lon: 14 })).status, 400);
+  assert.equal((await post({ lat: 95, lon: 14 })).status, 400);
+  assert.equal((await post('null')).status, 400);
+  assert.equal((await post('{nope')).status, 400);
+});

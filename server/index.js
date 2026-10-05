@@ -18,6 +18,7 @@ import { searchStays } from './lib/stays.js';
 import { searchCars } from './lib/cars.js';
 import { findPlaces, findTrips, mockPlaces, mockTrips } from './lib/poi.js';
 import { planTrips } from './lib/roadtrip.js';
+import { bikeLoop, mockBikeLoop } from './lib/bike.js';
 import { planItinerary } from './lib/itinerary.js';
 import { kiwi } from './providers/kiwi.js';
 import { isYmd, daysBetween } from './lib/dates.js';
@@ -360,6 +361,7 @@ async function route(req, res) {
       days: Number(b.days) || 1,
       mode: b.mode === 'loop' ? 'loop' : 'day',
       transport: b.transport === 'transit' ? 'transit' : 'car',
+      interests: Array.isArray(b.interests) ? b.interests.map(String).slice(0, 6) : [],
       pace: ['relaxed', 'normal', 'intense'].includes(b.pace) ? b.pace : 'normal',
       adults: Math.min(9, Math.max(1, Number(b.adults) || 2)),
     });
@@ -367,7 +369,45 @@ async function route(req, res) {
     const unpin = ({ baseScore, ...x }) => (x.pinned ? { ...x, score: baseScore } : x);
     for (const d of plan.days) d.stops = d.stops.map(unpin);
     plan.spare = plan.spare.map(unpin);
+    // Přírodní cíle se pro nové místo načítají déle – zvolil-li uživatel přírodu, ať to ví.
+    if (candidates.natureLoading && plan.note !== undefined && Array.isArray(b.interests) && b.interests.includes('nature')) {
+      plan.note = ['Přírodní cíle se pro toto místo ještě načítají – za minutu naplánuj znovu, bude jich víc.', plan.note].filter(Boolean).join(' ');
+    }
     return sendJson(req, res, 200, { demo: config.mock, degraded: Boolean(candidates.degraded), candidates: candidates.length, ...plan });
+  }
+  if (p === '/api/bike' && req.method === 'POST') {
+    let b;
+    try {
+      b = JSON.parse((await readBody(req)) || '{}');
+    } catch {
+      return sendJson(req, res, 400, { error: 'Neplatný JSON' });
+    }
+    if (!b || typeof b !== 'object' || Array.isArray(b)) return sendJson(req, res, 400, { error: 'Neplatný JSON' });
+    const lat = Number(b.lat);
+    const lon = Number(b.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
+    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    const q = {
+      lat, lon, km: Number(b.km) || 30, bike: String(b.bike || 'trekking'), variant: Number(b.variant) || 0,
+      scenery: ['city', 'mixed', 'nature'].includes(b.scenery) ? b.scenery : 'mixed',
+      hills: ['flat', 'normal', 'hilly'].includes(b.hills) ? b.hills : 'normal',
+    };
+    if (config.mock) return sendJson(req, res, 200, { demo: true, ...mockBikeLoop(q) });
+    try {
+      if (q.scenery === 'city') {
+        // Památky po cestě: ty, které už má načtené stránka Objevuj (nejlepší první), jinak stejná data ze serveru.
+        const sent = Array.isArray(b.sights) ? b.sights.slice(0, 40)
+          .map((x) => ({ name: String(x?.name || '').slice(0, 120), lat: Number(x?.lat), lon: Number(x?.lon), score: Number(x?.score) || 0 }))
+          .filter((x) => x.name && Number.isFinite(x.lat) && Number.isFinite(x.lon)) : [];
+        const places = sent.length >= 3 ? sent
+          : await findPlaces({ lat, lon, radiusKm: Math.min(25, Math.max(3, q.km / 5)), dayTrips: false }).catch(() => []);
+        q.sights = places.filter((x) => x.category !== 'daytrip').sort((x, y) => (y.score || 0) - (x.score || 0)).map((x) => ({ name: x.name, lat: x.lat, lon: x.lon }));
+      }
+      return sendJson(req, res, 200, { demo: false, ...(await bikeLoop(q)) });
+    } catch (e) {
+      console.warn(`bike: ${e.message}`);
+      return sendJson(req, res, 503, { error: 'Trasu na kolo se teď nepodařilo naplánovat (plánovač tras neodpovídá) – zkus to prosím za chvíli.' });
+    }
   }
   if (p === '/api/search' && req.method === 'POST') return handleSearch(req, res);
   if (p.startsWith('/api/')) return sendJson(req, res, 404, { error: 'Neznámý endpoint' });

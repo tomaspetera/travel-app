@@ -10,7 +10,18 @@ import { addDays } from './dates.js';
 import { affiliate } from './links.js';
 
 const DAY_MIN = { relaxed: 540, normal: 630, intense: 720 }; // čas dne vč. jízdy (min)
-const VISIT = { town: 150, castle: 120, nature: 180, oldtown: 150, palace: 120, ruins: 90 };
+const VISIT = { town: 150, castle: 120, nature: 180, oldtown: 150, palace: 120, ruins: 90, monastery: 90, zoo: 180, theme: 300 };
+const NATURE_VISIT = { park: 240, waterfall: 90, cave: 120, gorge: 150, rock: 150, mountain: 150, lake: 120, reserve: 150 };
+
+// Zájmy výletu → které cíle se počítají.
+export const INTERESTS = {
+  towns: (p) => p.tripKind === 'town' && !p.spa,
+  sights: (p) => ['castle', 'palace', 'ruins', 'monastery'].includes(p.tripKind) || Boolean(p.unesco),
+  culture: (p) => p.tripKind === 'town' && ((p.sights || 0) >= 2 || Boolean(p.unesco)),
+  nature: (p) => p.tripKind === 'nature',
+  spa: (p) => Boolean(p.spa),
+  kids: (p) => ['zoo', 'theme'].includes(p.tripKind),
+};
 
 // Autem: silnice ≈ 1,3 × vzdušná vzdálenost, průměr 70 km/h + 10 min na parkování.
 export const roadKm = (a, b) => Math.round(haversineKm(a.lat, a.lon, b.lat, b.lon) * 1.3);
@@ -38,6 +49,7 @@ export const TRANSPORT = {
 const CAR = TRANSPORT.car;
 // Město s víc památkami = delší prohlídka (2 h + půl hodiny za každou další, max. 3,5 h).
 export const visitMin = (p) => p.visitMin
+  || (p.natureKind && NATURE_VISIT[p.natureKind])
   || (p.tripKind === 'town' && p.sights ? 120 + 30 * Math.min(3, p.sights - 1) : VISIT[p.tripKind] || (p.unesco ? 150 : 120));
 // Hodnota cíle roste se skóre exponenciálně: jeden opravdu významný cíl (Drážďany, Kutná Hora)
 // má přednost před několika průměrnými po cestě.
@@ -168,7 +180,8 @@ export function planLoop(base, pool, days, cap, maxStops = 3, tr = CAR) {
 
 /**
  * candidates: [{ id, name, lat, lon, score, tripKind, unesco, image, extract, url }] (cíle mimo město)
- * opts: { base:{lat,lon,label}, start:'YYYY-MM-DD', days, mode:'day'|'loop', pace, transport:'car'|'transit' }
+ * opts: { base:{lat,lon,label}, start:'YYYY-MM-DD', days, mode:'day'|'loop', pace, transport:'car'|'transit',
+ *         interests: ['towns'|'sights'|'culture'|'nature'|'spa'|'kids'] }
  */
 export function planTrips(candidates, opts) {
   const { base, start, mode = 'day', pace = 'normal' } = opts;
@@ -178,10 +191,25 @@ export function planTrips(candidates, opts) {
   const cap = DAY_MIN[pace] || DAY_MIN.normal;
   // Jen dosažitelné cíle (tam a zpět v rámci dne pro jednodenní výlety), seřazené podle skóre.
   const valid = candidates.filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lon) && c.score > 0);
-  // Slabé cíle (o 25+ bodů horší než nejlepší, nebo pod 55) jen jako „vata“ do trasy nepatří.
-  const top = Math.max(0, ...valid.map((c) => c.score));
-  const pool = valid
-    .filter((c) => c.score >= Math.min(55, top - 25))
+  // Zájmy: když je odpovídajících cílů dost, plánuje se jen z nich; jinak mají přednost a zbytek doplní.
+  const interests = (opts.interests || []).filter((i) => INTERESTS[i]);
+  const matches = (c) => interests.some((i) => INTERESTS[i](c));
+  let cands = valid;
+  let fewForInterests = false;
+  if (interests.length) {
+    const m = valid.filter(matches);
+    if (m.length >= Math.min(3, days + 1)) cands = m;
+    else {
+      fewForInterests = true;
+      cands = valid.map((c) => (matches(c) ? { ...c, score: c.score + 15 } : c));
+    }
+  }
+  // Slabé cíle (o 25+ bodů horší než nejlepší, nebo pod 55) jen jako „vata“ do trasy nepatří;
+  // u zvolených zájmů (hrady, příroda – méně známá místa) je laťka nižší.
+  const top = Math.max(0, ...cands.filter((c) => c.score < 1000).map((c) => c.score));
+  const floor = interests.length && !fewForInterests ? Math.min(45, top - 30) : Math.min(55, top - 25);
+  const pool = cands
+    .filter((c) => c.score >= floor)
     .filter((c) => mode === 'loop' || (tr.min(base, c) + tr.min(c, base) + visitMin(c) <= cap && tr.min(base, c) + tr.min(c, base) <= tr.maxDay))
     .sort((a, b) => b.score - a.score);
   const out = [];
@@ -243,7 +271,7 @@ export function planTrips(candidates, opts) {
     transport: tr.id,
     days: result,
     spare: pool.filter((c) => !usedIds.has(c.id)).slice(0, 12),
-    note: notes.length ? notes.join(' ') : null,
+    note: (fewForInterests ? [`Pro zvolené zájmy je v okolí málo cílů – doplnil jsem i další.`, ...notes] : notes).join(' ') || null,
   };
 }
 

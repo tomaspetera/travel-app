@@ -198,6 +198,13 @@ test('groupBindings: stadion/letiště ani jako památka, stát/událost ne, pam
 // části rozsáhlé sériové památky.
 const LIS = { lat: 38.7223, lon: -9.1393 };
 const desc = (d) => ({ itemDescription: lit(d) });
+const NAT = (q, label, lat, lon, sl, t) => ({ item: uri(`http://www.wikidata.org/entity/${q}`), itemLabel: lit(label), lat: lit(lat), lon: lit(lon), sl: lit(sl), t: uri(`http://www.wikidata.org/entity/${t}`) });
+const LIS_NATURE = [
+  NAT('Q2001', 'Parque Natural de Sintra-Cascais', 38.76, -9.45, 12, 'Q46169'),
+  NAT('Q2002', 'Serra da Arrábida', 38.48, -8.98, 20, 'Q8502'),
+  NAT('Q2003', 'Gruta de Mira de Aire', 39.54, -8.71, 6, 'Q35509'),
+  NAT('Q2004', 'Monsanto', 38.73, -9.19, 15, 'Q8502'), // v okruhu města → ne výlet
+];
 const LIS_TRIPS = [
   row('Q597', 'Lisabon', 38.7223, -9.1393, 250, 'Q515'),
   row('Q190187', 'Sintra', 38.7974, -9.3904, 72, 'Q515', desc('sídlo v kraji Lisabon v Portugalsku')),
@@ -221,7 +228,7 @@ test('findTrips: města podle památek a UNESCO v okolí, bez krajů a okresů, 
   const stub = stubFetch((url) => {
     if (url.startsWith('https://query.wikidata.org/sparql')) {
       const q = decodeURIComponent(new URL(url).searchParams.get('query'));
-      return { body: { results: { bindings: q.includes('P757') ? LIS_UNESCO : q.includes('"120"') ? LIS_TRIPS : [] } } };
+      return { body: { results: { bindings: q.includes('P757') ? LIS_UNESCO : q.includes('"120"') ? LIS_TRIPS : q.includes('VALUES ?t') && q.includes('Q46169') ? LIS_NATURE : [] } } };
     }
     if (url.includes('wikipedia.org/w/api.php')) return { body: { query: { pages: [] } } };
     return { status: 404, body: '{}' };
@@ -243,6 +250,13 @@ test('findTrips: města podle památek a UNESCO v okolí, bez krajů a okresů, 
     assert.ok(mining.score < sintra.score);
     assert.deepEqual(ids, [...trips].sort((a, b) => b.score - a.score).map((t) => t.id), 'seřazeno podle skóre');
     assert.ok(!trips.degraded);
+    // přírodní cíle z dotazu podle typu (národní park, hora, jeskyně), ne ty v okruhu města
+    const park = trips.find((t) => t.id === 'Q2001');
+    assert.equal(park?.tripKind, 'nature');
+    assert.equal(park.natureKind, 'park');
+    assert.equal(park.categoryLabel, 'Národní park');
+    assert.ok(trips.some((t) => t.id === 'Q2003' && t.natureKind === 'cave'));
+    assert.ok(!trips.some((t) => t.id === 'Q2004'), 'Monsanto je v Lisabonu');
   } finally {
     stub.restore();
   }
@@ -252,6 +266,30 @@ test('findTrips: výpadek Wikidata → chyba (endpoint ji převede na 503)', asy
   const stub = stubFetch(() => ({ status: 500, body: 'error' }));
   try {
     await assert.rejects(findTrips({ lat: 40.4168, lon: -3.7038 }));
+  } finally {
+    stub.restore();
+  }
+});
+
+test('groupBindings/findTrips: lázně poznané podle popisu', async () => {
+  const { stubFetch: sf } = await import('./helpers.js');
+  const rows = [
+    row('Q501', 'Karlovy Vary', 50.2306, 12.8711, 100, 'Q515', { itemDescription: lit('lázeňské město v Česku') }),
+    row('Q502', 'Plzeň', 49.7475, 13.3776, 120, 'Q515', { itemDescription: lit('statutární město') }),
+  ];
+  const stub = sf((url) => {
+    if (url.startsWith('https://query.wikidata.org/sparql')) {
+      const q = decodeURIComponent(new URL(url).searchParams.get('query'));
+      return { body: { results: { bindings: q.includes('"120"') ? rows : [] } } };
+    }
+    return { body: { query: { pages: [] } } };
+  });
+  try {
+    const trips = await findTrips({ lat: 50.0875, lon: 14.4213 });
+    const kv = trips.find((t) => t.id === 'Q501');
+    assert.equal(kv.spa, true);
+    assert.equal(kv.categoryLabel, 'Lázně');
+    assert.ok(!trips.find((t) => t.id === 'Q502').spa);
   } finally {
     stub.restore();
   }
