@@ -89,6 +89,8 @@ test('POST /api/search – konkrétní cíl, víkend, kalendář', async () => {
   assert.ok(r.top.length > 0);
   for (const t of r.top) {
     assert.ok(['LHR', 'LGW', 'STN', 'LTN', 'LCY', 'SEN'].includes(t.out.to));
+    assert.match(t.out.fromTz, /^Europe\//);
+    assert.deepEqual([t.out.toTz, t.back.fromTz], ['Europe/London', 'Europe/London'], 'zóny letišť pro export do kalendáře');
     assert.ok([4, 5, 6].includes(new Date(t.out.date + 'T12:00:00Z').getUTCDay()));
     assert.ok([0, 1].includes(new Date(t.back.date + 'T12:00:00Z').getUTCDay()));
   }

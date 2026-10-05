@@ -147,6 +147,9 @@ test('makeLeg: chybějící přílet se dopočte v místním čase cíle (z dél
   const tp = makeLeg({ provider: 'travelpayouts', from: 'PRG', to: 'DXB', dep: '2026-11-10T22:00:00', durationMin: 345, czk: 5000 });
   assert.equal(tp.arr.slice(0, 16), '2026-11-11T06:45');
   assert.equal(tp.arrEst, false);
+  // Zóny letišť pro export do kalendáře; neznámé letiště → null
+  assert.deepEqual([tp.fromTz, tp.toTz], ['Europe/Prague', 'Asia/Dubai']);
+  assert.equal(makeLeg({ provider: 'x', from: 'PRG', to: 'ZZZ', dep: '2026-11-10T10:00:00', czk: 1 }).toTz, null);
   // Wizz: jen čas odletu → odhad ze vzdálenosti, označený
   const wz = makeLeg({ provider: 'wizzair', from: 'VIE', to: 'BCN', dep: '2026-11-10T20:15:00', czk: 1200 });
   assert.equal(wz.arrEst, true);

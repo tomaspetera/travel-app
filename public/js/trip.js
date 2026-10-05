@@ -456,12 +456,61 @@
       <div class="row wrap" style="gap:8px;margin-top:6px">
         <button class="btn primary" id="sumSave">💾 Uložit do plánovače</button>
         <button class="btn" id="sumShare">🔗 Zkopírovat odkaz na cestu</button>
+        <button class="btn" id="sumIcs">📅 Do kalendáře</button>
+        <a class="btn ghost" href="${esc(safeUrl(Ics.gcalUrl(tripEvent(t))))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>
         <button class="btn ghost" id="sumNew">Začít novou cestu</button>
       </div>`;
     $$('[data-bk]', host).forEach(cb => cb.onchange = () => { t.booked[cb.dataset.bk] = cb.checked; persist(); });
     $('#sumSave').onclick = () => saveToPlanner();
     $('#sumShare').onclick = () => share();
+    $('#sumIcs').onclick = () => {
+      const ev = calendarEvents(t);
+      Ics.download(`atlas-${t.dest.label}-${checkin}`, ev, { name: `Cesta: ${t.dest.label}` });
+      toast(`Staženo do kalendáře: ${ev.length} ${ev.length === 1 ? 'událost' : ev.length < 5 ? 'události' : 'událostí'}`);
+    };
     $('#sumNew').onclick = () => { if (confirm('Zahodit rozpracovanou cestu?')) { S.trip = null; persist(); go('flights'); } };
+  }
+
+  /* ---------- kalendář ---------- */
+  /** Let ve tvaru pro kalendář a plánovač: místní časy + zóny letišť (bez času odletu dep = null). */
+  const legBrief = l => ({
+    from: l.from, to: l.to, date: l.date, dep: l.hasTime ? l.dep.slice(0, 16) : null, arr: l.hasTime && l.arr ? l.arr.slice(0, 16) : null,
+    arrEst: !!l.arrEst, fromTz: l.fromTz || null, toTz: l.toTz || null, carrier: l.carrierName || l.carrier || '', flightNo: l.flightNo || '', durationMin: l.durationMin || null,
+  });
+
+  /** Lety tam a zpět (s časy), pobyt, auto a dny programu jako události kalendáře. */
+  function calendarEvents(t) {
+    const f = t.flight, dest = t.dest.label;
+    const { checkin, checkout, nights } = stayDates(t);
+    const ev = [Ics.flightEvent(legBrief(f.out), { url: f.out.bookUrl || f.bookUrl, note: `Cesta: ${dest} · ${t.adults} os.` })];
+    if (f.back) ev.push(Ics.flightEvent(legBrief(f.back), { url: f.back.bookUrl || f.bookUrl, note: `Zpáteční let · ${dest}` }));
+    if (t.stay && t.stay.mode !== 'skip' && nights >= 1) {
+      ev.push({
+        title: `🏨 ${t.stay.name || 'Ubytování'}`, start: checkin, end: checkout, location: [t.stay.name, dest].filter(Boolean).join(', '), url: t.stay.url,
+        description: [`Ubytování · ${dest} · ${nightsTxt(nights)}`, `Check-in ${dayLbl(checkin)}, check-out ${dayLbl(checkout)}`, t.stay.totalCzk ? `Cena celkem ${czk(t.stay.totalCzk)}` : ''].filter(Boolean).join('\n'),
+      });
+    }
+    if (t.car && t.car.mode !== 'skip' && t.car.from && t.car.to) {
+      // Zóna letiště vyzvednutí/vrácení z letů (auto se půjčuje na letišti příletu/odletu).
+      const tz = { [f.out.to]: f.out.toTz, ...(f.back ? { [f.back.from]: f.back.fromTz } : {}) };
+      const note = `Auto na místě${t.car.totalCzk ? ` · ${czk(t.car.totalCzk)}` : ''}`;
+      ev.push({ title: `🚗 Vyzvednutí auta (${t.car.pickup})`, start: t.car.from, tz: tz[t.car.pickup], durationMin: 30, location: `Letiště ${t.car.pickup}`, description: note });
+      ev.push({ title: `🚗 Vrácení auta (${t.car.dropoff})`, start: t.car.to, tz: tz[t.car.dropoff], durationMin: 30, location: `Letiště ${t.car.dropoff}`, description: note });
+    }
+    (t.plan?.days || []).forEach((d, i) => {
+      if (d.items && d.items.length) ev.push({ title: `Den ${i + 1} – ${dest}`, start: d.date, location: dest, description: d.items.map(x => `• ${x.name}${x.note ? ` – ${x.note}` : ''}`).join('\n') });
+    });
+    return ev;
+  }
+
+  /** Celá cesta jako jedna celodenní událost (odkaz do Google Kalendáře). */
+  function tripEvent(t) {
+    const f = t.flight, { checkout } = stayDates(t);
+    const fl = l => `✈️ ${[l.from, l.hasTime && hhmm(l.dep), '→', l.to, arrHm(l)].filter(Boolean).join(' ')} (${fmtDate(l.date)}${l.carrierName ? ', ' + l.carrierName : ''})`;
+    return {
+      title: `🧳 Cesta: ${t.dest.label}`, start: f.out.date, end: f.back ? f.back.date : checkout, location: t.dest.label,
+      description: [fl(f.out), f.back ? fl(f.back) : '', t.stay && t.stay.mode !== 'skip' ? `🏨 ${t.stay.name || 'Ubytování'}` : '', t.car && t.car.mode !== 'skip' ? '🚗 Auto na místě' : ''].filter(Boolean).join('\n'),
+    };
   }
 
   function saveToPlanner() {
@@ -479,7 +528,7 @@
     S.trips.push({
       name: `${t.dest.label} ${fmtDate(checkin)}`, dest: t.dest.label, iso: byIso[t.dest.cc] ? t.dest.cc : null,
       start: f.out.date, end: f.back ? f.back.date : checkout, pax: String(t.adults), budget: String(c.total), flight: flightTxt,
-      days, checklist: PACK.map(x => ({ t: x, done: false })), notes,
+      legs: [f.out, f.back].filter(Boolean).map(legBrief), days, checklist: PACK.map(x => ({ t: x, done: false })), notes,
     });
     persist();
     toast('Cesta uložena do plánovače');

@@ -342,10 +342,11 @@ function saveTrip(iso, flightTxt) {
 function openTrip(i) {
   const t = S.trips[i]; if (!t) return; const c = t.iso ? byIso[t.iso] : null; const city = c && c.cap ? c.cap : t.dest;
   const days = dateRange(t.start, t.end);
-  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? ' – ' + fmtDate(t.end) : '') : ''} · ${t.pax} os.</div></div></div>
+  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? ' – ' + fmtDate(t.end) : '') : ''} · ${t.pax} os.</div></div></div>
   <div class="modal-body">
     ${t.flight ? `<div class="note info" style="margin-bottom:14px">✈️ <div>${esc(t.flight)}</div></div>` : ''}
-    <div class="row wrap"><button class="btn primary" onclick="modalClose();${c ? `fromCountrySearch('${t.iso}')` : `go('flights')`}">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" onclick="openStay('${esc(city)}','${t.start || ''}','${t.end || ''}')">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
+    <div class="row wrap"><button class="btn primary" onclick="modalClose();${c ? `fromCountrySearch('${t.iso}')` : `go('flights')`}">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
+    <div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>
     <div class="divider"></div>
     <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + ' dní' : 'doplň termíny'}</span></div>
     <div style="margin-top:10px">${days.length ? days.map((d, di) => { const acts = t.days[d] || []; return `<div class="day-block"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span></h4>${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button onclick="delAct(${i},'${d}',${ai})">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" placeholder="Přidej aktivitu…" onkeydown="if(event.key==='Enter')addAct(${i},'${d}')"><button class="btn sm" onclick="addAct(${i},'${d}')">Přidat</button></div></div>`; }).join('') : `<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Doplň termíny cesty a objeví se itinerář den po dni.</div></div>`}</div>
@@ -357,6 +358,61 @@ function openTrip(i) {
     <div class="divider"></div>
     <button class="btn ghost block" style="color:var(--bad);border-color:rgba(251,113,133,.3)" onclick="delTrip(${i})">Smazat cestu</button>
   </div>`);
+  $('#tripStay').onclick = () => openStay(city, t.start || '', t.end || '');
+  const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
+  $('#tripShare').onclick = () => sharePlan(i);
+}
+
+/* kalendář (.ics) a sdílení plánu odkazem #plan=… */
+function planEvents(t) {
+  const days = dateRange(t.start, t.end); if (!days.length) return [];
+  const dest = t.dest && t.dest !== '—' ? t.dest : '';
+  const info = [dest && 'Cíl: ' + dest, `Cestující: ${t.pax || 1}`, +t.budget ? 'Rozpočet: ' + czk(+t.budget) : '', t.flight ? '✈️ ' + t.flight : '', t.notes || ''].filter(Boolean).join('\n');
+  const ev = [{ title: '🧳 ' + t.name, start: t.start, end: t.end || t.start, description: info, location: dest }];
+  // Let uložený z průvodce cestou má přesné časy a zóny letišť; jinak jen text v den odjezdu.
+  if (t.legs && t.legs.length) t.legs.forEach(l => ev.push(Ics.flightEvent(l, { note: t.name })));
+  else if (t.flight) ev.push({ title: `✈️ Let – ${dest || t.name}`, start: t.start, description: t.flight, location: dest });
+  days.forEach((d, di) => { const acts = (t.days || {})[d] || []; if (acts.length) ev.push({ title: `Den ${di + 1} – ${dest || t.name}`, start: d, description: acts.map(a => '• ' + a).join('\n'), location: dest }); });
+  return ev;
+}
+function exportPlan(i) {
+  const t = S.trips[i], ev = planEvents(t);
+  if (!ev.length) return toast('Nejdřív doplň termíny cesty', 'err');
+  Ics.download('atlas-' + t.name, ev, { name: t.name });
+  toast(`Staženo do kalendáře: ${ev.length} ${ev.length === 1 ? 'událost' : ev.length < 5 ? 'události' : 'událostí'}`);
+}
+function sharePlan(i) {
+  const url = `${location.origin}${location.pathname}#plan=${PlanShare.encode(S.trips[i])}`;
+  const manual = () => prompt('Zkopíruj odkaz na plán:', url);
+  if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast('Odkaz na plán zkopírován – pošli ho komukoliv'), manual); else manual();
+}
+/** Sdílený plán z #plan=… (při startu a při změně adresy): náhled a import do plánovače. */
+function importPlanFromHash() {
+  if (!/^#plan=/.test(location.hash)) return false;
+  let p = null;
+  try { p = PlanShare.fromHash(location.hash); } catch (e) { toast('Odkaz na plán je poškozený', 'err'); }
+  history.replaceState(null, '', '#planner');
+  if (p) previewPlan(p);
+  return true;
+}
+function previewPlan(p) {
+  const c = p.iso ? byIso[p.iso] : null, days = Object.keys(p.days).sort(), acts = days.reduce((n, d) => n + p.days[d].length, 0);
+  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(p.iso) : '🧳'}</div><h2 style="font-size:24px;margin-top:4px;overflow-wrap:anywhere">${esc(p.name)}</h2><div style="opacity:.85;font-size:13px">Sdílený plán · ${esc(p.dest)}${p.start ? ' · ' + fmtDate(p.start) + (p.end && p.end !== p.start ? ' – ' + fmtDate(p.end) : '') : ''} · ${esc(p.pax)} os.</div></div></div>
+  <div class="modal-body">
+    <p class="muted" style="font-size:14px;margin-bottom:12px">Někdo ti poslal plán cesty. Zkontroluj ho a přidej si ho do plánovače – uloží se jen u tebe.</p>
+    ${p.flight ? `<div class="note info" style="margin-bottom:12px">✈️ <div>${esc(p.flight)}</div></div>` : ''}
+    ${days.slice(0, 6).map(d => `<div class="act"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${fmtDate(d)}</b> ${esc(p.days[d].join(' · '))}</span></div>`).join('')}
+    <div class="faint" style="font-size:12.5px;margin-top:8px">${acts} ${acts === 1 ? 'aktivita' : acts >= 2 && acts <= 4 ? 'aktivity' : 'aktivit'}${days.length > 6 ? ` · ${days.length} dní s programem` : ''}${+p.budget ? ' · rozpočet ' + czk(+p.budget) : ''}${p.notes ? ' · s poznámkami' : ''}</div>
+    <div class="row wrap" style="gap:8px;margin-top:16px"><button class="btn primary" id="planImport">Přidat do plánovače</button><button class="btn ghost" id="planSkip">Nepřidávat</button></div>
+  </div>`);
+  $('#planSkip').onclick = modalClose;
+  $('#planImport').onclick = () => {
+    const key = x => { const { checklist, ...rest } = PlanShare.sanitize(x); return JSON.stringify(rest); };
+    let i = S.trips.findIndex(t => key(t) === key(p));
+    if (i < 0) { S.trips.push({ ...p, checklist: p.checklist.length ? p.checklist : PACK.map(t => ({ t, done: false })) }); i = S.trips.length - 1; save(); toast('Plán přidán do plánovače'); }
+    else toast('Tenhle plán už v plánovači máš');
+    modalClose(); go('planner'); setTimeout(() => openTrip(i), 250);
+  };
 }
 window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.value.trim(); if (!v) return; S.trips[i].days[d] = S.trips[i].days[d] || []; S.trips[i].days[d].push(v); save(); openTrip(i); };
 window.delAct = (i, d, ai) => { S.trips[i].days[d].splice(ai, 1); save(); openTrip(i); };
@@ -384,6 +440,8 @@ function wireEvents() {
   ['#rMonth', '#rVibe', '#rBudget', '#rSafe'].forEach(s => $(s).onchange = renderRecs);
   $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; S.radar = null; save(); toast('Data aktualizována'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') renderDash(); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') modalClose(); });
+  // Odkaz na plán vložený do už otevřené stránky (mění se jen #).
+  window.addEventListener('hashchange', () => { if (importPlanFromHash()) go('planner', { noHash: true }); });
 }
 function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
 
@@ -397,7 +455,8 @@ async function boot() {
   if (window.Flights) await Flights.init();
   refreshStats();
   const shared = window.Trip && Trip.importFromHash();
-  const v = shared ? 'trip' : location.hash.slice(1);
+  const plan = !shared && importPlanFromHash();
+  const v = shared ? 'trip' : plan ? 'planner' : location.hash.slice(1);
   go(NAV.some(n => n[0] === v) ? v : 'dashboard', { noHash: true });
 }
 document.addEventListener('DOMContentLoaded', boot);
