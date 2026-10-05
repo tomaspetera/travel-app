@@ -117,3 +117,29 @@ test('statické soubory, data a ochrana proti path traversal', async () => {
   const js = await fetch(`${base}/js/flights.js`, { headers: { 'accept-encoding': 'gzip' } });
   assert.equal(js.status, 200);
 });
+
+test('POST /api/roadtrip – jednodenní výlety i okruh s přespáním (DEMO)', async () => {
+  const post = (body) => fetch(`${base}/api/roadtrip`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const start = new Date(Date.now() + 10 * 864e5).toISOString().slice(0, 10);
+  const day = await (await post({ lat: 50.08, lon: 14.42, label: 'Praha', start, days: 2, mode: 'day' })).json();
+  assert.equal(day.demo, true);
+  assert.equal(day.mode, 'day');
+  assert.ok(day.days.length >= 1);
+  assert.ok(day.days.every((d) => d.back && !d.overnight && d.stops.length));
+  const loop = await (await post({ lat: 50.08, lon: 14.42, label: 'Praha', start, days: 3, mode: 'loop', exclude: ['demoTrip0'] })).json();
+  assert.equal(loop.mode, 'loop');
+  assert.ok(loop.days.length >= 2);
+  assert.ok(loop.days[0].overnight?.bookUrl.includes('booking.com'));
+  assert.ok(!loop.days.flatMap((d) => d.stops).some((s) => s.id === 'demoTrip0'), 'vyřazený cíl v plánu není');
+  const bad = await post({ lat: 'x', start });
+  assert.equal(bad.status, 400);
+  const nul = await fetch(`${base}/api/roadtrip`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: 'null' });
+  assert.equal(nul.status, 400, 'tělo null → 400, ne pád');
+  // připnutý cíl je v plánu a vrací se s původním skóre
+  const all = [...day.days.flatMap((d) => d.stops), ...day.spare];
+  const pick = day.spare[day.spare.length - 1];
+  const pinned = await (await post({ lat: 50.08, lon: 14.42, label: 'Praha', start, days: 2, mode: 'day', include: [pick.id] })).json();
+  const got = pinned.days.flatMap((d) => d.stops).find((x) => x.id === pick.id);
+  assert.ok(got, 'připnutý cíl je v plánu');
+  assert.equal(got.score, all.find((x) => x.id === pick.id).score);
+});

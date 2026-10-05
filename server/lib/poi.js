@@ -372,6 +372,113 @@ export function mockPlaces({ lat, lon }) {
   return out.sort((a, b) => b.score - a.score);
 }
 
+/** DEMO režim: vymyšlené cíle výletů 30–110 km od bodu. */
+export function mockTrips({ lat, lon }) {
+  const kinds = ['town', 'castle', 'nature', 'town', 'castle', 'nature', 'town', 'town', 'nature', 'castle'];
+  return kinds.map((tripKind, i) => {
+    const a = (i * 97 * Math.PI) / 180;
+    const d = 0.3 + (i % 5) * 0.17;
+    const p = { id: `demoTrip${i}`, name: `Ukázkový výlet ${i + 1}`, description: 'demo data', lat: lat + Math.sin(a) * d, lon: lon + Math.cos(a) * d * 1.4, sitelinks: 90 - i * 4, unesco: i === 0, category: 'daytrip', tripKind, extract: 'Vymyšlený cíl výletu (DEMO režim).', url: null };
+    p.distanceKm = Math.round(haversineKm(lat, lon, p.lat, p.lon));
+    p.score = scorePlace(p);
+    p.categoryLabel = tripKind === 'town' ? 'Město / obec' : CATEGORY_CS[tripKind];
+    return p;
+  });
+}
+
+// Cíle výletů: města, příroda, hrady (a cokoli s UNESCO) dál než `minKm` od středu.
+// U měst rozhoduje, co v nich je k vidění: významné památky do 3 km (z téhož dotazu) přidají body,
+// UNESCO (Wikidata ho dává památce, ne městu – Kutná Hora) a výčet „uvidíš“; město bez jediné
+// významné památky (průmyslové město, předměstí) cílem výletu není.
+// road = true: skóre bez penalizace vzdálenosti (plánovač výletů autem počítá s časem jízdy sám).
+// Kraj, okres, provincie… mívají ve Wikidatech typ obce a souřadnice hlavního města (Alentejo = Évora).
+const REGION_DESC = /^(kraj|region|regione|región|okres|district|distrikt|distretto|provincie|province|provincia|county|departement|département|spolková země|federal state|state of|autonomní|autonomous community|comarca|voivodeship|vojvodství)\b/i;
+
+function tripsFromRows(rows, center, minKm, { road = false, unesco = [] } = {}) {
+  const all = groupBindings(rows, center);
+  const sights = all.filter((p) => p.category !== 'town' && !p.island && !p.serial);
+  const towns = [];
+  const trips = [];
+  for (const p of all) {
+    // ne ostrovy (Tenerife na Tenerife, jiné ostrovy přes moře) a ne památky rozeseté po mnoha místech
+    if (!(p.distanceKm > minKm) || p.island || p.serial) continue;
+    if (!(p.category === 'town' || p.category === 'nature' || p.category === 'castle' || p.unesco)) continue;
+    if (p.category === 'town' && REGION_DESC.test(p.description)) continue;
+    const t = { ...p, category: 'daytrip', tripKind: p.category };
+    if (p.category === 'town') {
+      const near = sights.filter((x) => haversineKm(p.lat, p.lon, x.lat, x.lon) <= 3).sort((a, b) => b.sitelinks - a.sitelinks);
+      // památka UNESCO bývá kousek za středem (Kulturní krajina Sintry ~4 km od náměstí)
+      const whs = unesco.filter((u) => haversineKm(p.lat, p.lon, u.lat, u.lon) <= 5);
+      t.sights = near.length;
+      t.highlights = [...new Set([...whs.map((u) => u.name), ...near.map((x) => x.name)])]
+        .filter((n) => normalize(n) !== normalize(p.name)).slice(0, 3);
+      t.highlightIds = near.map((x) => x.id);
+      if (whs.some((u) => !u.serial) || near.some((x) => x.unesco)) t.unesco = true;
+      else if (whs.length) t.unescoPart = true; // jen část rozsáhlé sériové památky
+      towns.push(t);
+    }
+    trips.push(t);
+  }
+  // Hrad nebo památka, která je už „k vidění“ v některém městě výletu, není samostatný cíl.
+  const inTown = new Set(towns.flatMap((t) => t.highlightIds));
+  const out = trips.filter((t) => t.tripKind === 'town' || !inTown.has(t.id));
+  for (const t of out) {
+    t.score = scorePlace(road ? { ...t, category: t.tripKind, distanceKm: 0 } : t) + Math.min(4, t.sights || 0) * 6 + (t.unescoPart ? 4 : 0);
+    // město bez jediné známé památky (průmyslové, předměstí) je slabší cíl než menší památkové
+    if (t.tripKind === 'town' && !t.sights && !t.unesco && !t.unescoPart && !t.heritage) t.score -= 8;
+    t.score = Math.round(t.score * 10) / 10;
+    t.highlightIds = undefined;
+  }
+  // Jedno místo pod víc položkami (město a stejnojmenná obec/okres) → jen to nejlepší v okruhu 4 km.
+  const kept = [];
+  for (const t of out.sort((a, b) => b.score - a.score)) {
+    if (!kept.some((k) => haversineKm(k.lat, k.lon, t.lat, t.lon) < 4)) kept.push(t);
+  }
+  return kept;
+}
+
+// Památky UNESCO (vč. částí sériových) v obdélníku kolem bodu – rychlý dotaz bez wikibase:around.
+// Wikidata dávají UNESCO památce, ne městu (Kutná Hora, Telč), proto se k městům přiřazují podle polohy.
+function sparqlUnesco(lat, lon, km) {
+  const dLat = km / 111 + 0.05;
+  const dLon = km / (111 * Math.max(0.2, Math.cos((lat * Math.PI) / 180))) + 0.05;
+  const f = (x) => x.toFixed(3);
+  return `SELECT ?item ?itemLabel ?lat ?lon ?whs WHERE {
+  ?item wdt:P757 ?whs ; wdt:P625 ?coord .
+  BIND(geof:latitude(?coord) AS ?lat) BIND(geof:longitude(?coord) AS ?lon)
+  FILTER(?lat > ${f(lat - dLat)} && ?lat < ${f(lat + dLat)} && ?lon > ${f(lon - dLon)} && ?lon < ${f(lon + dLon)})
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "cs,en". }
+} LIMIT 2000`;
+}
+// Části sériové památky (Hornický region Krušnohoří: ~20 dolů a městeček) mají stejné číslo před
+// pomlčkou (1478-001, 1478-002…); u takových je bonus jen malý, jinak by zaplavily výběr.
+const unescoQuery = (lat, lon) => cache.wrap(`wdqs-unesco:${lat.toFixed(1)}:${lon.toFixed(1)}`, 30 * 864e5, async () => {
+  const list = (await wdqs(sparqlUnesco(lat, lon, 125), 40000))
+    .map((b) => ({ name: val(b, 'itemLabel'), lat: Number(val(b, 'lat')), lon: Number(val(b, 'lon')), site: String(val(b, 'whs') || '').split('-')[0] }))
+    .filter((u) => u.name && !/^Q\d+$/.test(u.name) && Number.isFinite(u.lat) && Number.isFinite(u.lon));
+  const parts = new Map();
+  for (const u of list) parts.set(u.site, (parts.get(u.site) || 0) + 1);
+  return list.map((u) => ({ ...u, serial: u.site !== '' && parts.get(u.site) > 3 }));
+});
+
+const tripsQuery = (lat, lon) => cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.toFixed(2)}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, 120, 45, 300), 58000));
+
+/**
+ * Cíle výletů do ~120 km (pro plánovač jednodenních a okružních výletů) – víc než 8 ve findPlaces,
+ * s popisem a fotkou. Čeká na pomalý dotaz celý (max. ~1 min, pak je v mezipaměti týden).
+ */
+export async function findTrips({ lat, lon, limit = 30 }) {
+  const key = `trips:${lat.toFixed(2)}:${lon.toFixed(2)}:${limit}`;
+  return cache.wrap(key, (v) => (v.degraded ? 15 * 60e3 : 7 * 864e5), async () => {
+    const [rows, unesco] = await Promise.all([tripsQuery(lat, lon), unescoQuery(lat, lon).catch(() => null)]);
+    const picked = tripsFromRows(rows, { lat, lon }, 15, { road: true, unesco: unesco || [] }).sort((a, b) => b.score - a.score).slice(0, limit);
+    const failed = (await enrich(picked)) || !unesco;
+    const out = picked.map(({ partOf, island, serial, ...p }) => ({ ...p, categoryLabel: p.tripKind === 'town' ? 'Město / obec' : CATEGORY_CS[p.tripKind] || CATEGORY_CS.daytrip }));
+    if (failed) out.degraded = true;
+    return out;
+  });
+}
+
 /**
  * Místa k návštěvě kolem bodu.
  * opts: { lat, lon, radiusKm (město, max 25), dayTrips (true = i výlety do 120 km), limit }
@@ -388,9 +495,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     const wvP = wikivoyageListings(lat, lon).catch(() => { wvFailed = true; return []; });
     // Výlety (okruh 120 km) jsou pomalejší dotaz: běží na pozadí a výsledek se uloží zvlášť, takže
     // když nestihne první zobrazení, příští načtení už ho má.
-    const tripsP = dayTrips
-      ? cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.toFixed(2)}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, 120, 45, 300), 58000)).catch(() => null)
-      : Promise.resolve([]);
+    const tripsP = dayTrips ? tripsQuery(lat, lon).catch(() => null) : Promise.resolve([]);
     let cityRows;
     try {
       cityRows = await wdqs(sparqlNear(lat, lon, r, 4, 500));
@@ -411,12 +516,8 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     // zůstanou jen s výrazným znakem (UNESCO); samotné město v centru se vyřadí vždy.
     const city = groupBindings(cityRows, center).filter((p) => p.category !== 'town' || (p.unesco && p.distanceKm > 2));
     for (const p of city) if (p.category === 'town') p.category = 'oldtown';
-    const trips = groupBindings(tripRows, center)
-      // ne ostrovy (Tenerife na Tenerife, jiné ostrovy přes moře) a ne památky rozeseté po mnoha místech
-      .filter((p) => p.distanceKm > Math.max(r, 15) && !p.island && !p.serial
-        && (p.category === 'town' || p.category === 'nature' || p.category === 'castle' || p.unesco))
-      .map((p) => ({ ...p, category: 'daytrip', tripKind: p.category }));
-    for (const p of [...city, ...trips]) p.score = scorePlace(p);
+    const trips = tripsFromRows(tripRows, center, Math.max(r, 15));
+    for (const p of city) p.score = scorePlace(p);
     applyWikivoyage(city, await wvP);
     const top = city.sort((a, b) => b.score - a.score).slice(0, limit);
     // Části jiného vybraného místa (Sixtinská kaple ve Vatikánských muzeích, katedrála na Hradě)

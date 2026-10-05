@@ -85,7 +85,7 @@ function toast(msg, kind) { const t = $('#toast'); t.innerHTML = (kind === 'err'
 
 /* theme */
 function applyTheme() { document.documentElement.dataset.theme = S.theme; $('#themeLabel').textContent = S.theme === 'dark' ? 'Tmavý režim' : 'Světlý režim'; }
-$('#themeToggle').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (window.Flights) Flights.repaintMap(); };
+$('#themeToggle').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (window.Flights) Flights.repaintMap(); if (window.Places) Places.retheme(); };
 
 /* ================= STATS ================= */
 function stats() {

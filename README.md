@@ -6,7 +6,9 @@ ATLAS najde všechna letiště v okolí, prohledá je najednou u více aerolinek
 
 Z vybraného letu pak průvodce **Cesta** poskládá celou dovolenou: **let → ubytování → auto → program → shrnutí**
 s celkovou cenou, seznamem, co v jakém pořadí zarezervovat, a časovou osou. Sekce **Objevuj** funguje i samostatně:
-zadáš místo a ATLAS najde, co tam stojí za vidění, a rozplánuje to do dnů.
+zadáš místo a ATLAS najde, co tam stojí za vidění, a rozplánuje to do dnů – jako pěší program ve městě,
+**jednodenní výlety** autem (ráno ven, večer zpět) nebo **vícedenní okruh** s přespáním po cestě. Mapa je zdarma
+a bez klíče (MapLibre + OpenFreeMap, záloha OpenStreetMap) a odkazy do Google Map hledají místo podle názvu.
 
 K tomu zůstalo vše z původního ATLAS: mapa navštívených zemí, přehled zemí s počasím a bezpečností, doporučení
 podle měsíce a plánovač cest.
@@ -113,10 +115,17 @@ Varianty provozu:
   Technicky ji jde držet vzhůru pravidelným „pingováním“ (např. UptimeRobot na `…/healthz` každých 5 min),
   ale zaměstnanci Renderu to označují za zneužití bezplatného tarifu – hrozí pozastavení služby. Nedoporučuji.
 - **Starter za 7 $ měsíčně** (služba → Settings → General → Instance Type → Starter) – běží nonstop bez usínání.
-- Automatické nasazení po každé změně funguje, když je Render propojený s GitHubem (přihlášení přes GitHub).
-  Kdyby se nové verze nenasazovaly, v Renderu u služby klikni **Manual Deploy → Deploy latest commit**.
 
-Každá nová verze na GitHubu se nasadí sama, odkaz zůstává stejný.
+#### Automatické nasazení po každé změně
+
+Služba vytvořená z adresy veřejného repozitáře se na Renderu sama nenasazuje. Nasazení proto spouští GitHub Actions
+(`.github/workflows/deploy.yml`): u každé změny v `main` proběhnou testy, a když projdou, zavolá se Deploy Hook Renderu.
+
+1. Render → služba → **Settings → Deploy Hook** → zkopíruj adresu (je tajná, nikam ji nevkládej veřejně).
+2. GitHub → repozitář → **Settings → Secrets and variables → Actions → New repository secret**,
+   název `RENDER_DEPLOY_HOOK`, hodnota = adresa z kroku 1 → **Add secret**.
+3. Hotovo – každá nová verze v `main` se nasadí sama (průběh v záložce **Actions**), odkaz zůstává stejný.
+   Ručně jde nasazení spustit v Renderu přes **Manual Deploy → Deploy latest commit**.
 
 Funguje i kdekoliv jinde, kde běží Node.js – **Railway** (Hobby 5 $/měs.), **Fly.io**, vlastní VPS. Je přiložen `Dockerfile`:
 
@@ -158,6 +167,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery |
 | `GET /api/cars?pickup=BGY&dropoff=MXP&from=2026-11-10T09:00&to=2026-11-14T18:00` | předvyplněné odkazy na půjčovny |
 | `GET /api/poi?lat=…&lon=…&radius=8` | místa k vidění (Wikidata + Wikipedie) |
+| `POST /api/roadtrip` | výlety autem z místa: `mode` `day` (jednodenní) nebo `loop` (okruh s přespáním), `lat`, `lon`, `label`, `start`, `days`, `pace`, `exclude`, `include` |
 | `POST /api/itinerary` | rozplánování míst do dnů (`lat`, `lon`, `start`, `end`, `arrivalTime`, `departureTime`, `pace`, `interests`, `exclude`, `include`) |
 | `GET /api/diag` | živý test, jestli server dosáhne na jednotlivé zdroje |
 
@@ -192,5 +202,7 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 - Letiště: [OurAirports](https://ourairports.com/data/) (public domain) + názvy měst a časová pásma z
   [OpenFlights](https://openflights.org/data) (ODbL). Aktualizace: `npm run build:airports`.
 - Geokódování a počasí: [Open-Meteo](https://open-meteo.com/). Kurzy: open.er-api.com, ECB.
-- Mapa: d3, topojson-client, world-atlas (ISC, přibaleno v `public/vendor/`).
+- Mapa světa: d3, topojson-client, world-atlas (ISC, přibaleno v `public/vendor/`).
+- Mapy míst: MapLibre GL JS (BSD-3-Clause, přibaleno v `public/vendor/maplibre/`), podklad OpenFreeMap
+  (© OpenMapTiles, data © přispěvatelé OpenStreetMap, ODbL), záloha dlaždice OpenStreetMap.
 - Původní jednosouborová verze aplikace je pro srovnání v `legacy/ATLAS-puvodni.html`.

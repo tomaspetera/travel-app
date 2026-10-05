@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { stubFetch } from './helpers.js';
-import { findPlaces, groupBindings, scorePlace } from '../server/lib/poi.js';
+import { findPlaces, findTrips, groupBindings, scorePlace } from '../server/lib/poi.js';
 
 // Tvar odpovědi Wikidata Query Service (application/sparql-results+json).
 const lit = (v) => ({ type: 'literal', value: String(v) });
@@ -29,6 +29,8 @@ const TRIPS = [
   row('Q6414', 'Como', 45.8081, 9.0852, 110, 'Q747074', { en: uri('https://en.wikipedia.org/wiki/Como') }),
   row('Q6413', 'Bergamo', 45.695, 9.67, 120, 'Q747074'),
   row('Q99', 'Nějaká firma', 45.6, 9.3, 60, 'Q4830453'),
+  row('Q1120', 'Katedrála v Comu', 45.8115, 9.0838, 50, 'Q2977', { her: uri('http://www.wikidata.org/entity/Q9259') }),
+  row('Q7000', 'Legnano', 45.5956, 8.9142, 70, 'Q747074'), // město bez známých památek
 ];
 
 test('groupBindings: sloučí řádky, rozpozná kategorie, vyřadí nádraží a položky bez názvu', () => {
@@ -74,6 +76,11 @@ test('findPlaces: Wikidata + popisy z Wikipedie, výlety mimo město, User-Agent
     assert.equal(items.find((p) => p.id === 'Q1060').extractLang, 'en');
     const como = items.find((p) => p.id === 'Q6414');
     assert.equal(como.category, 'daytrip');
+    assert.deepEqual(como.highlights, ['Katedrála v Comu'], 'co je ve městě k vidění');
+    assert.equal(como.unesco, true, 'UNESCO z památky ve městě');
+    assert.ok(!items.some((p) => p.id === 'Q1120'), 'katedrála je součástí výletu do Coma, ne zvlášť');
+    const legnano = items.find((p) => p.id === 'Q7000');
+    assert.ok(legnano && como.score > legnano.score + 20, 'město s památkou (UNESCO) má přednost před městem bez památek');
     assert.ok(!items.some((p) => p.id === 'Q99'), 'firma není výlet');
     assert.ok(!items.some((p) => p.id === 'Q490'), 'samotné město (v centru) není „místo k návštěvě“');
   } finally {
@@ -185,4 +192,65 @@ test('groupBindings: stadion/letiště ani jako památka, stát/událost ne, pam
   assert.equal(cat['Tančící dům'], 'sight');
   assert.equal(cat['Karlův most'], 'bridge');
   assert.equal(cat['Španělské schody'], 'sight');
+});
+
+// Cíle výletů z Lisabonu: obec/okres/kraj se stejnými souřadnicemi, UNESCO o kus dál od středu,
+// části rozsáhlé sériové památky.
+const LIS = { lat: 38.7223, lon: -9.1393 };
+const desc = (d) => ({ itemDescription: lit(d) });
+const LIS_TRIPS = [
+  row('Q597', 'Lisabon', 38.7223, -9.1393, 250, 'Q515'),
+  row('Q190187', 'Sintra', 38.7974, -9.3904, 72, 'Q515', desc('sídlo v kraji Lisabon v Portugalsku')),
+  row('Q1048', 'Palácio da Pena', 38.7876, -9.3906, 60, 'Q16560'),
+  row('Q179948', 'Évora', 38.5725, -7.9072, 79, 'Q515', desc('sídlo v kraji Alentejo')),
+  row('Q274118', 'Évora', 38.5697, -7.9097, 50, 'Q515', desc('district in Alentejo, Portugal')),
+  row('Q26824', 'Alentejo', 38.5667, -7.9, 56, 'Q515', desc('kraj v Portugalsku')),
+  row('Q173699', 'Setúbal', 38.5243, -8.8926, 80, 'Q515', desc('sídlo v Portugalsku')),
+  row('Q9001', 'Hornické městečko', 39.3, -8.5, 60, 'Q515', desc('městečko')),
+];
+const whs = (q, label, lat, lon, id) => ({ item: uri(`http://www.wikidata.org/entity/${q}`), itemLabel: lit(label), lat: lit(lat), lon: lit(lon), whs: lit(id) });
+const LIS_UNESCO = [
+  whs('Q3848197', 'Kulturní krajina Sintry', 38.7883, -9.4338, '723'),
+  whs('Q8343770', 'Historické centrum Évory', 38.573, -7.9077, '361'),
+  ...[1, 2, 3, 4].map((i) => whs(`Q99${i}`, `Důl ${i}`, 39.3 + i * 0.01, -8.5, `999-00${i}`)),
+];
+
+test('findTrips: města podle památek a UNESCO v okolí, bez krajů a okresů, sériové památky jen s malým bonusem', async () => {
+  const stub = stubFetch((url) => {
+    if (url.startsWith('https://query.wikidata.org/sparql')) {
+      const q = decodeURIComponent(new URL(url).searchParams.get('query'));
+      return { body: { results: { bindings: q.includes('P757') ? LIS_UNESCO : q.includes('"120"') ? LIS_TRIPS : [] } } };
+    }
+    if (url.includes('wikipedia.org/w/api.php')) return { body: { query: { pages: [] } } };
+    return { status: 404, body: '{}' };
+  });
+  try {
+    const trips = await findTrips({ lat: LIS.lat, lon: LIS.lon });
+    const ids = trips.map((t) => t.id);
+    assert.ok(!ids.includes('Q597'), 'výchozí město není výlet');
+    assert.ok(!ids.includes('Q274118') && !ids.includes('Q26824'), 'okres a kraj se souřadnicemi Évory nejsou cíl');
+    assert.ok(!ids.includes('Q1048'), 'palác je součástí výletu do Sintry');
+    const sintra = trips.find((t) => t.id === 'Q190187');
+    assert.equal(sintra.unesco, true, 'UNESCO 4 km od středu města');
+    assert.deepEqual(sintra.highlights, ['Kulturní krajina Sintry', 'Palácio da Pena']);
+    assert.equal(sintra.categoryLabel, 'Město / obec');
+    const setubal = trips.find((t) => t.id === 'Q173699');
+    assert.ok(sintra.score > setubal.score + 15, 'památkové město před větším městem bez památek');
+    const mining = trips.find((t) => t.id === 'Q9001');
+    assert.ok(mining.unescoPart && !mining.unesco, 'část sériové památky');
+    assert.ok(mining.score < sintra.score);
+    assert.deepEqual(ids, [...trips].sort((a, b) => b.score - a.score).map((t) => t.id), 'seřazeno podle skóre');
+    assert.ok(!trips.degraded);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('findTrips: výpadek Wikidata → chyba (endpoint ji převede na 503)', async () => {
+  const stub = stubFetch(() => ({ status: 500, body: 'error' }));
+  try {
+    await assert.rejects(findTrips({ lat: 40.4168, lon: -3.7038 }));
+  } finally {
+    stub.restore();
+  }
 });

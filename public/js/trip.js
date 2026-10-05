@@ -398,7 +398,7 @@
     $('#progNext').onclick = () => setStep('summary');
     if (window.Places && center.lat != null) {
       Places.renderPlanner($('#tripPlaces'), {
-        lat: center.lat, lon: center.lon, label: center.label || t.dest.label, cc: t.dest.cc,
+        lat: center.lat, lon: center.lon, label: center.label || t.dest.label, city: t.cityCenter ? t.cityCenter.label : t.dest.label.replace(/ \(.*\)$/, ''), country: t.dest.country || '', cc: t.dest.cc,
         start: progStart, end: checkout, plan: t.plan,
         arrivalTime: arrivalAt(t.flight.out).slice(11, 16),
         departureTime: t.flight.back && t.flight.back.hasTime ? t.flight.back.dep.slice(11, 16) : null,

@@ -9,6 +9,7 @@ process.env.WIZZ_ENABLED = '0';
 process.env.KIWI_ENABLED = '0';
 process.env.TRAVELPAYOUTS_TOKEN = 'test-token';
 const { search } = await import('../server/lib/search.js');
+const { resetTravelpayouts } = await import('../server/providers/travelpayouts.js');
 
 test('Travelpayouts: dotaz na každou dvojici letišť a měsíc, token v hlavičce, výsledek se společnou cenou', async () => {
   const d1 = ymdPlus(10);
@@ -55,6 +56,31 @@ test('Travelpayouts: když API trh nepřijme, zopakuje dotaz bez něj', async ()
     const r = await search({ from: ['ap:PRG'], radiusKm: 0, to: ['ap:STN'], dateFrom: ymdPlus(5), dateTo: ymdPlus(15), trip: 'oneway', kmRate: 0 });
     assert.equal(r.top[0].flightCzk, 999);
     assert.ok(stub.calls.some((c) => !new URL(c.url).searchParams.get('market')));
+  } finally {
+    stub.restore();
+  }
+});
+
+test('Travelpayouts: odmítnutá trasa (HTTP 400) = žádné ceny, ne „dotaz selhal“', async () => {
+  resetTravelpayouts(); // výchozí stav jako v provozu: dotazy s trhem cz
+  const stub = stubFetch((url) => {
+    const u = new URL(url);
+    if (u.searchParams.get('destination') === 'LTN') return { status: 400, body: { error: 'destination: invalid value' } };
+    return { body: { success: true, data: [{ origin: 'PRG', destination: 'LON', origin_airport: 'PRG', destination_airport: 'STN', price: 1111, airline: 'FR', flight_number: '1', departure_at: `${ymdPlus(105)}T07:00:00+01:00`, transfers: 0, link: '/search/y' }] } };
+  });
+  try {
+    const r = await search({ from: ['ap:PRG'], radiusKm: 0, to: ['ap:STN', 'ap:LTN'], dateFrom: ymdPlus(100), dateTo: ymdPlus(110), trip: 'oneway', kmRate: 0 });
+    assert.ok(stub.calls.some((c) => new URL(c.url).searchParams.get('destination') === 'LTN'), 'na LTN se ptal');
+    assert.equal(r.top[0].flightCzk, 1111);
+    const st = r.providers.find((p) => p.id === 'travelpayouts');
+    assert.equal(st.error, null, 'odmítnutá trasa se nehlásí jako chyba');
+    assert.equal(st.state, 'done');
+    const ltn = stub.calls.filter((c) => new URL(c.url).searchParams.get('destination') === 'LTN').map((c) => new URL(c.url).searchParams.get('market'));
+    assert.ok(ltn.includes('cz') && ltn.includes(null), 'zkusil s trhem i bez něj');
+    // trh za odmítnutí nemohl → zůstává zapnutý pro další hledání
+    stub.calls.length = 0;
+    await search({ from: ['ap:PRG'], radiusKm: 0, to: ['ap:STN'], dateFrom: ymdPlus(160), dateTo: ymdPlus(165), trip: 'oneway', kmRate: 0 });
+    assert.ok(stub.calls.some((c) => new URL(c.url).searchParams.get('market') === 'cz'));
   } finally {
     stub.restore();
   }

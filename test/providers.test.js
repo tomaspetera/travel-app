@@ -28,8 +28,15 @@ test('Ryanair: oneWayFares → jednosměrné cesty v Kč, vyprodané se zahodí'
   // Cena v marockých dirhamech se přepočte přes kurz
   assert.equal(rak.out.currency, 'MAD');
   assert.equal(rak.out.czk, Math.round((399 / 10) * 25));
-  // Maroko má v listopadu UTC+1 jako Vídeň → 3 h 25 min
-  assert.equal(rak.out.durationMin, 205);
+  // 10:15 Vídeň → 13:40 Marrákeš místního času. Posun Maroka se v datech časových pásem mění
+  // (ramadán, nová pravidla v aktualizacích tzdata), proto se očekávání počítá z dat tohoto Node:
+  // 3 h 25 min + rozdíl posunů Vídně a Casablanky.
+  const off = (tz, utc) => {
+    const name = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' }).formatToParts(new Date(utc)).find((x) => x.type === 'timeZoneName').value;
+    const m = name.match(/GMT(?:([+-])(\d{2}):(\d{2}))?/);
+    return m[1] ? (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : 0;
+  };
+  assert.equal(rak.out.durationMin, 205 + off('Europe/Vienna', '2026-11-12T09:15:00Z') - off('Africa/Casablanca', '2026-11-12T12:40:00Z'));
 });
 
 test('Délka letu počítá s časovými pásmy (Vídeň UTC+1 → Lisabon UTC+0)', () => {
