@@ -86,7 +86,11 @@ async function withRetry(fn, { end, ctx }) {
     } catch (e) {
       const max = e.status === 429 ? 1 : 2;
       const wait = (e.status === 429 ? 3 : 3 ** i) * RETRY.baseMs + Math.random() * RETRY.baseMs * 0.2;
-      if (i >= max || !transient(e) || Date.now() + wait + 3000 > end) throw e;
+      // e.retried: chyba, kterou už opakoval vnořený withRetry (initialize) – znovu ne, jinak by se pokusy násobily.
+      if (i >= max || !transient(e) || e.retried || Date.now() + wait + 3000 > end) {
+        e.retried = true;
+        throw e;
+      }
       if (ctx) ctx.retried++;
       await sleep(wait);
     }

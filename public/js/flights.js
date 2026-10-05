@@ -635,21 +635,29 @@
     for (const s of sides) if (view.leg[s] && !trips.some(t => t[s] && SearchHelp.legSig(t[s]) === view.leg[s])) view.leg[s] = null;
     if (!trips.length) return flatList(trips);
     const sel = view.leg.out || view.leg.back;
-    const picked = trips.filter(t => (!view.leg.out || SearchHelp.legSig(t.out) === view.leg.out) && (!view.leg.back || (t.back && SearchHelp.legSig(t.back) === view.leg.back)));
+    // sloupce napřed: legCol plní legReg (i se složenými dvojicemi samostatných letenek)
+    const cols = sides.map(side => legCol(trips, side, ret, res)).join('');
+    let picked = trips.filter(t => (!view.leg.out || SearchHelp.legSig(t.out) === view.leg.out) && (!view.leg.back || (t.back && SearchHelp.legSig(t.back) === view.leg.back)));
+    if (!picked.length && view.leg.out && view.leg.back) {
+      // dvojice mezi nejlepšími kombinacemi ze serveru není → složit ze dvou samostatných letenek
+      const xb = legReg.back.find(x => x.sig === view.leg.back);
+      if (xb && xb.paired) picked = [xb.paired];
+    }
     const n = view.legMore ? 30 : sel ? 3 : 1;
     const byKey = new Map(res.groups.map(g => [g.dest.key, g]));
     const rows = picked.slice(0, n).map(t => { const g = byKey.get(t.destKey); return tripRow(t, g, reg(t, g)); }).join('');
     const title = sel ? (view.leg.out && view.leg.back ? 'Vybraná cesta' : `Kombinace s vybraným letem ${view.leg.out ? 'tam' : 'zpět'}`) : ret ? 'Nejlevnější celá cesta' : 'Nejlevnější let';
     return `<div class="legs-bar"><span class="faint">${ret ? 'Vyber let tam a zpět – cena je za celou cestu na osobu vč. dopravy na letiště.' : 'Cena na osobu vč. dopravy na letiště.'}</span>
         <div class="seg" id="legSort">${[['price', 'Nejlevnější'], ['time', 'Podle času']].map(o => `<button type="button" data-ls="${o[0]}" class="${view.legSort === o[0] ? 'on' : ''}">${o[1]}</button>`).join('')}</div></div>
-      <div class="legs-cols${ret ? '' : ' one'}">${sides.map(side => legCol(trips, side, ret)).join('')}</div>
+      <div class="legs-cols${ret ? '' : ' one'}">${cols}</div>
       <div class="section-head legs-pick" id="legPick"><h2>${title}</h2>${sel ? '<button type="button" class="linkbtn" data-lclear="1">Zrušit výběr</button>' : ''}</div>
-      ${picked.length ? `<div class="card res-card flat">${rows}</div>` : '<div class="empty">Tahle dvojice letů mezi nalezenými kombinacemi není – vyber jiný let.</div>'}
+      ${picked.length ? `<div class="card res-card flat">${rows}</div>` : '<div class="empty">Tyhle dva lety spolu zkombinovat nejdou – vyber jiný let.</div>'}
       ${picked.length > n ? `<button type="button" class="more-btn" data-lmore="1">▼ ${ret ? 'Další kombinace' : 'Další lety'} (${Math.min(30, picked.length) - n})</button>` : ''}`;
   }
-  function legCol(trips, side, ret) {
+  function legCol(trips, side, ret, res) {
     const pair = ret ? view.leg[side === 'out' ? 'back' : 'out'] : null;
-    const list = SearchHelp.sortLegs(SearchHelp.distinctLegs(trips, side, pair), view.legSort, pair);
+    const opts = { adults: res.query.adults, openJaw: res.query.openJaw, keep: t => visibleTrips([t]).length > 0 };
+    const list = SearchHelp.sortLegs(SearchHelp.distinctLegs(trips, side, pair, opts), view.legSort, pair);
     legReg[side] = list;
     const shown = view.legAll[side] || list.length <= 12 ? list : list.slice(0, 10);
     const days = [...new Set(list.map(x => x.leg.date))].sort();
@@ -710,8 +718,8 @@
     const who = k.others.map(id => ({ ryanair: 'Ryanairu', wizzair: 'Wizz Air' }[id])).join(' a ');
     const left = k.level === 'blocked' ? Math.ceil((lastResultAt + k.retryAfter * 1000 - Date.now()) / 1000) : 0;
     const txt = k.level === 'partial'
-      ? `<b>Kiwi.com odpovědělo jen zčásti</b> – ${k.failed ? `${plural(k.failed, 'dotaz', 'dotazy', 'dotazů')} ani napodruhé ${k.failed === 1 ? 'neprošel' : k.failed <= 4 ? 'neprošly' : 'neprošlo'}` : 'část dotazů nestihlo'}, takže některé lety (hlavně jiných aerolinek a s přestupem) můžou chybět.`
-      : `<b>Kiwi.com teď neodpovědělo</b> – ${who ? `vidíš jen nejlevnější let dne od ${who}` : 'lety ostatních aerolinek (i dálkové) teď chybí'}.${k.level === 'blocked' ? ' Po výpadku ho ATLAS na chvíli vynechává.' : ''}`;
+      ? `<b>Kiwi.com odpovědělo jen zčásti</b> – ${k.failed ? `${plural(k.failed, 'dotaz', 'dotazy', 'dotazů')} ${k.failed === 1 ? 'selhal' : k.failed <= 4 ? 'selhaly' : 'selhalo'}` : 'část dotazů nestihlo'}, takže některé lety (hlavně jiných aerolinek a s přestupem) můžou chybět.`
+      : `<b>Kiwi.com teď neodpovědělo</b> – ${who ? (res.mode === 'route' ? `vidíš jen nejlevnější let dne od ${who}` : `vidíš jen nabídky ${who}`) : 'lety ostatních aerolinek (i dálkové) teď chybí'}.${k.level === 'blocked' ? ' Po výpadku ho ATLAS na chvíli vynechává.' : ''}`;
     return `<div class="note ${k.level === 'partial' ? 'warn' : 'bad'} kiwi-note"><span>📡</span><div>${txt}</div><button type="button" class="btn sm" id="kiwiRetry"${left > 0 ? ` disabled data-until="${lastResultAt + k.retryAfter * 1000}"` : ''}>↻ Zkusit znovu${left > 0 ? ` za ${left} s` : ''}</button></div>`;
   }
   function filterChips(res) {

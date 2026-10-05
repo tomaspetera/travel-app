@@ -596,7 +596,7 @@ export async function search(raw, emit = () => {}) {
     }
   }
 
-  const { groups, flat, warm, hidden } = buildGroups(trips, { q, originSet: allOrigins, groundOf });
+  const { groups, flat, warm, hidden } = buildGroups(trips, { q, originSet: allOrigins, groundOf, legCosts: routeMode && Boolean(q.exact) });
   // Další odlety Ryanairu téhož dne z letového řádu (bez cen) – jen u zobrazených tras, pár dotazů.
   const fr = providers.find((p) => p.departures);
   if (fr && (routeMode || q.exact)) await attachDepartures(fr, flat);
@@ -736,19 +736,22 @@ export function nearbyDays(legs, range, win, { groundOf = () => 0, extra = () =>
   };
 }
 
-function nearbyOf({ out, back, q, nearOut, nearBack, groundOf, extra = () => 0 }) {
+export function nearbyOf({ out, back, q, nearOut, nearBack, groundOf, extra = () => 0 }) {
   const opts = { groundOf, extra, directOnly: q.directOnly };
   const res = {
     out: { around: q.exact.out, ...nearbyDays(out, nearOut, { from: q.dateFrom, to: q.dateTo }, opts) },
     back: nearBack ? { around: q.exact.back, ...nearbyDays(back, nearBack, { from: q.exact.backFrom, to: q.exact.backTo }, opts) } : null,
     hint: null,
   };
-  // Nápověda: v zadaný den nízkonákladovky nelétají, ale den či dva vedle ano.
+  // Nápověda: v zadaný den nízkonákladovky volný let nemají (nelétají, nebo je vyprodáno), ale den či dva vedle ano.
+  // Aerolinky zvlášť pro odlet a návrat (každý směr může obsluhovat jiná).
   const miss = [['odletu', res.out], ['návratu', res.back]].filter(([, x]) => x && !x.lowcostOnDay && x.lowcostNear.length);
   if (miss.length) {
-    const names = [...new Set(miss.flatMap(([, x]) => x.lowcostNames))];
-    const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} ani ${names.at(-1)}` : names[0];
-    res.hint = miss.map(([what, x]) => `V den ${what} ${who} ${names.length > 1 ? 'nelétají' : 'nelétá'} – nejbližší lety: ${x.lowcostNear.slice(0, 4).map(dm).join(', ')}`).join(' · ');
+    res.hint = miss.map(([what, x]) => {
+      const names = x.lowcostNames;
+      const who = names.length > 1 ? `nemají ${names.slice(0, -1).join(', ')} ani ${names.at(-1)}` : `nemá ${names[0]}`;
+      return `V den ${what} ${who} volný let – nejbližší lety: ${x.lowcostNear.slice(0, 4).map(dm).join(', ')}`;
+    }).join(' · ');
   }
   return res;
 }
@@ -807,7 +810,7 @@ function shareDepartures(legs, flat, provider, carrier) {
   }
 }
 
-function buildGroups(trips, { q, originSet, groundOf }) {
+function buildGroups(trips, { q, originSet, groundOf, legCosts = false }) {
   const map = new Map();
   const seen = new Set();
   const flat = [];
@@ -819,11 +822,11 @@ function buildGroups(trips, { q, originSet, groundOf }) {
     if (!validTrip(t) || seen.has(t.id)) continue;
     if (!originSet.has(t.out.from)) continue;
     if (t.back && !originSet.has(t.back.to)) continue;
+    if (t.out.date < q.dateFrom || t.out.date > q.dateTo) continue;
     if (q.directOnly && (t.out.stops > 0 || (t.back && t.back.stops > 0))) {
       hiddenIds.directOnly.add(t.id);
       continue;
     }
-    if (t.out.date < q.dateFrom || t.out.date > q.dateTo) continue;
     seen.add(t.id);
     const gOut = groundOf(t.out.from);
     const gBack = t.back ? groundOf(t.back.to) : 0;
@@ -833,6 +836,12 @@ function buildGroups(trips, { q, originSet, groundOf }) {
     const bBack = legBagCzk(t.back, q.bags);
     t.bagCzk = bOut.czk + bBack.czk;
     t.bagEst = bOut.estimated || bBack.estimated || undefined; // dopravce mimo ceník → obecný odhad
+    if (legCosts) {
+      // Přesná data (pohled „Lety“): doprava a zavazadla po letech – UI pak spočítá cenu libovolné dvojice
+      // samostatných letenek tam a zpět, i když ta kombinace mezi nejlepšími není.
+      Object.assign(t.out, { groundCzk: gOut, bagCzk: bOut.czk }, bOut.estimated ? { bagEst: true } : {});
+      if (t.back) Object.assign(t.back, { groundCzk: gBack, bagCzk: bBack.czk }, bBack.estimated ? { bagEst: true } : {});
+    }
     t.perPersonCzk = t.flightCzk + t.groundCzk + t.bagCzk;
     t.totalCzk = t.perPersonCzk * q.adults;
     if (q.maxPrice && t.perPersonCzk > q.maxPrice) {

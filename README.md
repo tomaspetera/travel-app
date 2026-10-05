@@ -196,10 +196,13 @@ Přesná data: místo `dateFrom`/`dateTo` + nocí pošli `"exactOut": "2026-11-1
 `"flexDays": 1` = každé datum ±1 den); u `"trip": "oneway"` stačí `exactOut`. U přesných dat se na den a trasu nechají
 všechny přímé lety (+ lety s přestupem, nejvýš ~12 variant), Kiwi se ptá se seznamy letišť a zvlášť jen na přímé lety.
 Odpověď navíc má `nearby` (konkrétní cíl: nejlevnější známá cena po dnech ±3 kolem odletu/návratu z už stažených dat,
-`lowcostOnDay` / `lowcostNear` a česká nápověda `hint`, když v zadaný den Ryanair/Wizz nelétá), lety Ryanairu a Wizz Air
-mají `otherDeps` (další odlety téhož dne bez ceny, Ryanair z letového řádu `timtbl`). Ceny v `nearby` jsou vč. dopravy na
-domácí letiště (u návratu na letiště příletu). `hubs` = přestupní letiště, ze kterých se u dálkových cílů hledalo navíc
-(i když z nich nic nevyšlo – UI je pak v nápovědě znovu nenabízí).
+`lowcostOnDay` / `lowcostNear` a česká nápověda `hint`, když v zadaný den Ryanair/Wizz nemá volný let – nelétá, nebo je
+vyprodáno), lety Ryanairu a Wizz Air mají `otherDeps` (další odlety téhož dne bez ceny, Ryanair z letového řádu `timtbl`).
+Ceny v `nearby` jsou vč. dopravy na domácí letiště (u návratu na letiště příletu). `hubs` = přestupní letiště, ze kterých
+se u dálkových cílů hledalo navíc (i když z nich nic nevyšlo – UI je pak v nápovědě znovu nenabízí). Lety v `top`/`groups`
+mají u přesných dat ke konkrétnímu cíli `groundCzk` a `bagCzk` (doprava na domácí letiště a zavazadla k tomu letu, Kč/os.)
+– pohled ✈︎ Lety z nich spočítá i dvojici samostatných letenek, která mezi kombinacemi není. Návrat se s letem tam
+nepáruje, když odlétá dřív než 2 h po jeho příletu.
 
 Každá odpověď má `filters` (`maxPrice`, `directOnly`, `active`, `hidden` = kolik nabídek filtr skryl) a u každého zdroje
 v `providers` (i v průběhu) `failed`, `retried`, `outage` (`null` / `partial` / `down` / `blocked`), `retryable` a

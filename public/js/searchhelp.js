@@ -14,24 +14,72 @@
   /** Totožný let (trasa, odlet, dopravce, přestupy) – stejný klíč jako na serveru (topWithDays). */
   const legSig = l => `${l.from}|${l.to}|${l.dep}|${l.carrier}|${l.stops}`;
 
+  // Návrat nejdřív 2 h po příletu tam – stejné pravidlo jako server (optimizer.js returnFits).
+  const localMs = s => Date.parse(String(s).slice(0, 16) + ':00Z');
+  function returnFits(o, b) {
+    if (!o.arr || !b.hasTime) return true;
+    const gap = localMs(b.dep) - localMs(o.arr);
+    return !Number.isFinite(gap) || gap >= 120 * 60000;
+  }
+
+  /**
+   * Cesta ze dvou samostatných letenek: let tam z kombinace ot a let zpět z kombinace bt (přesná data, pohled „Lety“),
+   * i když tahle dvojice mezi nejlepšími kombinacemi ze serveru není. Cena stejně jako na serveru: letenky + doprava
+   * na domácí letiště + zavazadla (leg.groundCzk / leg.bagCzk). Společná zpáteční letenka, jiné město, návrat na jiné
+   * letiště bez open-jaw nebo návrat dřív než 2 h po příletu → null.
+   */
+  function composeTrip(ot, bt, { adults = 1, openJaw = true } = {}) {
+    const o = ot && ot.out, b = bt && bt.back;
+    if (!o || !b || ot.combined || bt.combined) return null;
+    if (![o, b].every(l => l.czk > 0 && Number.isFinite(l.groundCzk) && Number.isFinite(l.bagCzk))) return null;
+    if (b.from !== o.to && !(openJaw && ot.destKey && ot.destKey === bt.destKey)) return null;
+    if (b.to !== o.from && !openJaw) return null;
+    if (b.date < o.date || !returnFits(o, b)) return null;
+    const flightCzk = o.czk + b.czk, groundCzk = o.groundCzk + b.groundCzk, bagCzk = o.bagCzk + b.bagCzk;
+    const perPersonCzk = flightCzk + groundCzk + bagCzk;
+    return {
+      id: [o.provider, o.from, o.to, o.dep, b.provider, b.from, b.to, b.dep].join('|'),
+      out: o, back: b, flightCzk, groundCzk, bagCzk, bagEst: o.bagEst || b.bagEst || undefined,
+      perPersonCzk, totalCzk: perPersonCzk * adults, nights: diffDays(o.date, b.date),
+      provider: o.provider === b.provider ? o.provider : 'mix', combined: false, bookUrl: null,
+      distanceKm: ot.distanceKm, tempHi: ot.tempHi, destKey: ot.destKey,
+      deal: { level: 'normal', score: null, drop: null }, composed: true,
+    };
+  }
+
   /**
    * Odlišné lety jedním směrem (side = 'out' | 'back') z kombinací: ke každému nejlevnější kombinace s ním (best),
    * počet kombinací a – je-li vybraný let druhým směrem (pair = jeho legSig) – nejlevnější kombinace právě s ním (paired).
+   * Když taková kombinace mezi výsledky není, ale oba lety jsou samostatné letenky, složí ji composeTrip
+   * (opts: adults, openJaw, keep(trip) = projde filtry výpisu).
    */
-  function distinctLegs(trips, side, pair = null) {
+  function distinctLegs(trips, side, pair = null, opts = {}) {
     const other = side === 'out' ? 'back' : 'out';
     const map = new Map();
+    let sel = null; // nejlevnější kombinace (samostatné letenky) s vybraným letem druhým směrem
     for (const t of trips || []) {
       const l = t[side];
       if (!l) continue;
       const k = legSig(l);
       let x = map.get(k);
-      if (!x) map.set(k, x = { sig: k, leg: l, best: t, paired: null, count: 0 });
+      if (!x) map.set(k, x = { sig: k, leg: l, best: t, paired: null, count: 0, sep: null });
       x.count++;
       if (t.perPersonCzk < x.best.perPersonCzk) x.best = t;
-      if (pair && t[other] && legSig(t[other]) === pair && (!x.paired || t.perPersonCzk < x.paired.perPersonCzk)) x.paired = t;
+      if (!t.combined && (!x.sep || t.perPersonCzk < x.sep.perPersonCzk)) x.sep = t;
+      if (pair && t[other] && legSig(t[other]) === pair) {
+        if (!x.paired || t.perPersonCzk < x.paired.perPersonCzk) x.paired = t;
+        if (!t.combined && (!sel || t.perPersonCzk < sel.perPersonCzk)) sel = t;
+      }
     }
-    return [...map.values()];
+    const list = [...map.values()];
+    if (sel) {
+      for (const x of list) {
+        if (x.paired || !x.sep) continue;
+        const t = side === 'back' ? composeTrip(sel, x.sep, opts) : composeTrip(x.sep, sel, opts);
+        if (t && (!opts.keep || opts.keep(t))) x.paired = t;
+      }
+    }
+    return list;
   }
 
   /** Řazení letů: by = 'time' (odlet) nebo 'price' (cena kombinace; se spárovanými lety napřed). */
@@ -77,7 +125,7 @@
   }
 
   /**
-   * Zvýrazněná věta k „nejbližším dnům“ při malém počtu výsledků: „V den odletu Ryanair nelétá – 13. 11. od 1 290 Kč“,
+   * Zvýrazněná věta k „nejbližším dnům“ při malém počtu výsledků: „V den odletu nemá Ryanair volný let – 13. 11. od 1 290 Kč“,
    * jinak nejlevnější den poblíž, je-li zřetelně levnější než zadaný (nebo zadaný den nemá cenu).
    */
   function nearHeadline(nb) {
@@ -85,14 +133,15 @@
     const parts = [];
     for (const [what, x] of [['odletu', nb.out], ['návratu', nb.back]]) {
       if (!x || x.lowcostOnDay || !(x.lowcostNear || []).length) continue;
+      // „nemá volný let“: nelétá, nebo je let vyprodaný (obojí ve zdrojích chybí stejně)
       const names = x.lowcostNames || [];
-      const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} ani ${names[names.length - 1]}` : names[0] || 'nízkonákladové aerolinky';
+      const who = names.length > 1 ? `nemají ${names.slice(0, -1).join(', ')} ani ${names[names.length - 1]}` : names.length ? `nemá ${names[0]}` : 'nemají nízkonákladovky';
       const near = x.lowcostNear.slice().sort((a, b) => Math.abs(diffDays(x.around, a)) - Math.abs(diffDays(x.around, b)) || a.localeCompare(b)).slice(0, 2).sort();
       const price = d => { const y = (x.days || []).find(z => z.date === d); return y ? ` od ${kc(y.cost)}` : ''; };
       // nejlevnější den poblíž, pokud to není jeden z nejbližších
       const cheap = (x.days || []).filter(d => d.date !== x.around).reduce((m, d) => (!m || d.cost < m.cost ? d : m), null);
       const extra = cheap && !near.includes(cheap.date) ? ` · nejlevněji ${dm(cheap.date)} od ${kc(cheap.cost)}` : '';
-      parts.push(`V den ${what} ${who} ${names.length > 1 ? 'nelétají' : 'nelétá'} – ${near.map(d => dm(d) + price(d)).join(', ')}${extra}`);
+      parts.push(`V den ${what} ${who} volný let – ${near.map(d => dm(d) + price(d)).join(', ')}${extra}`);
     }
     if (parts.length) return parts.join(' · ');
     const cheaper = [];
@@ -235,5 +284,5 @@
     return acts.filter(a => !seen.has(a.key) && seen.add(a.key));
   }
 
-  window.SearchHelp = { legSig, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays };
+  window.SearchHelp = { legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays };
 })();

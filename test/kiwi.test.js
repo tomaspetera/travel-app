@@ -184,6 +184,18 @@ test('kiwi: 503 u search-flight i u initialize se zkusí znovu (krátká pauza),
   }
 });
 
+test('kiwi: initialize trvale 503 → nejvýš 3 pokusy na dotaz (opakování se nenásobí s opakováním search-flight)', async () => {
+  const stub = scripted((n, body) => (body.method === 'initialize' ? { status: 503, body: 'Service Unavailable' } : null));
+  try {
+    const ctx = kiwiContext();
+    await assert.rejects(kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: ymdPlus(155), dateTo: ymdPlus(157), ctx }), /503/);
+    assert.deepEqual(methods(stub), ['initialize', 'initialize', 'initialize']);
+    assert.deepEqual([ctx.failed, ctx.retried], [1, 2]);
+  } finally {
+    stub.restore();
+  }
+});
+
 test('kiwi: 429 se zkusí jen jednou, chyba nástroje (špatný dotaz) vůbec', async () => {
   const stub = scripted((n, body) => (body.method === 'tools/call' ? { status: 429, body: 'slow down' } : null));
   try {

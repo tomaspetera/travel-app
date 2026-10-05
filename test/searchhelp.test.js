@@ -35,6 +35,38 @@ test('distinctLegs: každý let tam/zpět jednou, s nejlevnější kombinací a 
   assert.deepEqual(plain(backs.map((x) => [x.leg.dep.slice(11, 16), x.best.perPersonCzk, x.paired?.perPersonCzk ?? null])), [['07:50', 3000, 3200], ['21:50', 2900, null]]);
 });
 
+test('distinctLegs + composeTrip: dvojice samostatných letenek mimo výsledky se dopočítá (vč. dopravy a zavazadel), společná letenka ne', () => {
+  const c = { groundCzk: 0, bagCzk: 0 };
+  const o1 = leg('PRG', 'BCN', '2026-11-12T06:00:00', 'FR', { ...c, czk: 1000, arr: '2026-11-12T08:30:00' });
+  const o2 = leg('VIE', 'BCN', '2026-11-12T14:50:00', 'W6', { groundCzk: 400, bagCzk: 0, czk: 900, arr: '2026-11-12T17:20:00' });
+  const b1 = leg('BCN', 'PRG', '2026-11-16T07:50:00', 'VY', { ...c, czk: 1200 });
+  const b2 = leg('GRO', 'PRG', '2026-11-16T21:50:00', 'FR', { groundCzk: 0, bagCzk: 300, czk: 800 });
+  const T = (o, b, extra = {}) => ({ id: `${o.dep}|${b.dep}`, out: o, back: b, destKey: 'BCN', combined: false, distanceKm: 1100, tempHi: 17,
+    perPersonCzk: o.czk + o.groundCzk + o.bagCzk + b.czk + b.groundCzk + b.bagCzk, ...extra });
+  const trips = [T(o1, b1), T(o2, b2)]; // o1+b2 a o2+b1 mezi výsledky nejsou
+  const backs = H.distinctLegs(trips, 'back', H.legSig(o1), { adults: 2, openJaw: true });
+  const x = backs.find((y) => y.leg === b2);
+  assert.equal(x.paired.perPersonCzk, 1000 + 800 + 300, 'cena složené cesty = letenky + zavazadla + doprava');
+  assert.deepEqual(plain([x.paired.composed, x.paired.totalCzk, x.paired.nights, x.paired.provider, x.paired.groundCzk, x.paired.bagCzk]), [true, 4200, 4, 'kiwi', 0, 300]);
+  assert.equal(x.paired.back.from, 'GRO', 'open-jaw v cíli (stejné město podle destKey)');
+  const outs = H.distinctLegs(trips, 'out', H.legSig(b1), { openJaw: true });
+  assert.equal(outs.find((y) => y.leg === o2).paired.perPersonCzk, 900 + 400 + 1200, 'odlet z jiného domácího letiště + doprava na něj');
+  // bez open-jaw: návrat jinam / z jiného letiště → nejde
+  assert.equal(H.distinctLegs(trips, 'back', H.legSig(o1), { openJaw: false }).find((y) => y.leg === b2).paired, null);
+  // filtry výpisu (keep) i společná zpáteční letenka → nedopočítá se
+  assert.equal(H.distinctLegs(trips, 'back', H.legSig(o1), { keep: (t) => t.perPersonCzk < 2000 }).find((y) => y.leg === b2).paired, null);
+  const combined = [T(o1, b1), T(o2, b2, { combined: true })];
+  assert.equal(H.distinctLegs(combined, 'back', H.legSig(o1)).find((y) => y.leg === b2).paired, null);
+  // stejný den: návrat dřív než 2 h po příletu nejde
+  const sameDay = leg('BCN', 'PRG', '2026-11-12T09:30:00', 'VY', { ...c, czk: 500 });
+  const late = leg('BCN', 'PRG', '2026-11-12T19:00:00', 'VY', { ...c, czk: 600 });
+  const day = [T(o2, sameDay), T(o2, late)];
+  const dayBacks = H.distinctLegs(day, 'back', H.legSig(o1), {});
+  assert.equal(H.composeTrip(T(o1, b1), T(o2, sameDay)), null);
+  assert.equal(dayBacks.length, 2);
+  assert.equal(H.composeTrip(T(o1, b1), T(o2, late)).perPersonCzk, 1600);
+});
+
 test('sortLegs: podle ceny (spárované napřed) nebo podle času odletu', () => {
   const outs = H.distinctLegs(TRIPS, 'out');
   assert.deepEqual(plain(H.sortLegs(outs, 'price').map((x) => x.leg.dep.slice(11, 16))), ['09:45', '06:00', '14:50']);
@@ -64,7 +96,7 @@ const NB = {
     around: '2026-11-16', from: '2026-11-13', to: '2026-11-19',
     days: [{ date: '2026-11-16', cost: 1613, carrierName: 'Ryanair', stops: 0 }], lowcostOnDay: true, lowcostNear: [], lowcostNames: ['Ryanair'],
   },
-  hint: 'V den odletu Ryanair nelétá – nejbližší lety: 10. 11., 13. 11., 15. 11.',
+  hint: 'V den odletu nemá Ryanair volný let – nejbližší lety: 10. 11., 13. 11., 15. 11.',
 };
 
 test('nearStrip: 7 dní kolem data, ceny, zadaný a nejlevnější den, návrat ne před odletem', () => {
@@ -79,12 +111,12 @@ test('nearStrip: 7 dní kolem data, ceny, zadaný a nejlevnější den, návrat 
   assert.deepEqual(plain(H.nearStrip(null)), []);
 });
 
-test('nearHeadline: v zadaný den nízkonákladovka nelétá → nejbližší dny s cenou; jinak levnější den vedle', () => {
-  assert.equal(H.nearHeadline(NB), `V den odletu Ryanair nelétá – 10. 11. od ${kc(1290)}, 13. 11. od ${kc(1500)}`);
+test('nearHeadline: v zadaný den nízkonákladovka nemá volný let → nejbližší dny s cenou; jinak levnější den vedle', () => {
+  assert.equal(H.nearHeadline(NB), `V den odletu nemá Ryanair volný let – 10. 11. od ${kc(1290)}, 13. 11. od ${kc(1500)}`);
   const cheapFar = { out: { ...NB.out, lowcostNear: ['2026-11-11', '2026-11-13', '2026-11-15'], days: [{ date: '2026-11-11', cost: 1500 }, { date: '2026-11-13', cost: 1400 }, { date: '2026-11-15', cost: 900 }] } };
-  assert.equal(H.nearHeadline(cheapFar), `V den odletu Ryanair nelétá – 11. 11. od ${kc(1500)}, 13. 11. od ${kc(1400)} · nejlevněji 15. 11. od ${kc(900)}`);
+  assert.equal(H.nearHeadline(cheapFar), `V den odletu nemá Ryanair volný let – 11. 11. od ${kc(1500)}, 13. 11. od ${kc(1400)} · nejlevněji 15. 11. od ${kc(900)}`);
   const two = { ...NB, out: { ...NB.out, lowcostNames: ['Ryanair', 'Wizz Air'] } };
-  assert.match(H.nearHeadline(two), /^V den odletu Ryanair ani Wizz Air nelétají – /);
+  assert.match(H.nearHeadline(two), /^V den odletu nemají Ryanair ani Wizz Air volný let – /);
   const flies = { out: { ...NB.out, lowcostOnDay: true }, back: NB.back };
   assert.equal(H.nearHeadline(flies), `Levněji vedle: tam 10. 11. od ${kc(1290)}`);
   const same = { out: { ...NB.out, lowcostOnDay: true, days: [{ date: '2026-11-12', cost: 1000 }, { date: '2026-11-13', cost: 980 }] }, back: null };

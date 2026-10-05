@@ -10,7 +10,7 @@ process.env.RYANAIR_ENABLED = '1';
 process.env.WIZZ_ENABLED = '1';
 process.env.KIWI_ENABLED = '1';
 process.env.TRAVELPAYOUTS_TOKEN = '';
-const { search, nearbyDays } = await import('../server/lib/search.js');
+const { search, nearbyDays, nearbyOf } = await import('../server/lib/search.js');
 const { resetKiwi, kiwiBlocked } = await import('../server/providers/kiwi.js');
 const { setRates, FALLBACK_EUR } = await import('../server/lib/fx.js');
 
@@ -149,6 +149,8 @@ test('PRG→BCN přesně: Kiwi zvlášť i jen přímé lety, všechny přímé 
     const backs = new Set(r.top.map((t) => legSig(t.back)));
     assert.ok(backs.has('VY 07:30') && backs.has('FR 19:00') && backs.has('U2 19:10+1'));
     assert.ok(r.top.some((t) => !t.out.stops && !t.back.stops), 'přímo tam i zpět');
+    // doprava a zavazadla po letech → UI spočítá i dvojici letů, která mezi kombinacemi není
+    assert.ok(r.top.every((t) => [t.out, t.back].every((l) => l.groundCzk === 0 && l.bagCzk === 0)));
     // nejbližší dny: z měsíčních dat Ryanairu (žádný dotaz navíc) + Kiwi v zadaný den
     assert.equal(r.nearby.out.around, OUT);
     assert.deepEqual(r.nearby.out.days.map((d) => d.date), [plus(OUT, -2), OUT, plus(OUT, 1)]);
@@ -178,7 +180,7 @@ test('přesné datum, kdy Ryanair nelétá (ale den vedle ano) → nápověda s 
     assert.equal(r.nearby.out.lowcostOnDay, false);
     assert.deepEqual(r.nearby.out.lowcostNear, [plus(D, -1), plus(D, 2)]);
     const dm = (d) => `${Number(d.slice(8))}. ${Number(d.slice(5, 7))}.`;
-    assert.equal(r.nearby.hint, `V den odletu Ryanair nelétá – nejbližší lety: ${dm(plus(D, -1))}, ${dm(plus(D, 2))}`);
+    assert.equal(r.nearby.hint, `V den odletu nemá Ryanair volný let – nejbližší lety: ${dm(plus(D, -1))}, ${dm(plus(D, 2))}`);
   } finally {
     stub.restore();
   }
@@ -348,4 +350,15 @@ test('nejbližší dny: cena vč. dopravy na domácí letiště i u návratu (p�
   assert.deepEqual(back.days.map((d) => [d.date, d.to, d.czk, d.cost]), [['2026-11-16', 'PRG', 1000, 1060]],
     'návrat do Vídně (800 + 300) vyjde dráž; let s přestupem při „jen přímé“ ne');
   assert.equal(nearbyDays([l('PRG', 'BCN', '2026-11-16', 1000)], range, range, { groundOf }).days[0].cost, 1060);
+});
+
+test('nápověda nejbližších dnů: aerolinky zvlášť pro odlet a návrat, „nemá volný let“ (i vyprodáno)', () => {
+  const l = (provider, carrierName, from, to, date) => ({ provider, carrierName, from, to, date, czk: 1000, stops: 0 });
+  const q = { exact: { out: '2026-11-12', back: '2026-11-16', backFrom: '2026-11-16', backTo: '2026-11-16' }, dateFrom: '2026-11-12', dateTo: '2026-11-12', directOnly: false };
+  const near = { nearOut: { from: '2026-11-09', to: '2026-11-15' }, nearBack: { from: '2026-11-13', to: '2026-11-19' }, groundOf: () => 0, q };
+  const r = nearbyOf({ ...near, out: [l('ryanair', 'Ryanair', 'PRG', 'BCN', '2026-11-11')],
+    back: [l('wizzair', 'Wizz Air', 'BCN', 'PRG', '2026-11-17'), l('ryanair', 'Ryanair', 'BCN', 'PRG', '2026-11-16')] });
+  assert.equal(r.hint, 'V den odletu nemá Ryanair volný let – nejbližší lety: 11. 11.', 'Wizz Air (jen návrat) se k odletu nepíše');
+  const both = nearbyOf({ ...near, out: [l('ryanair', 'Ryanair', 'PRG', 'BCN', '2026-11-11')], back: [l('wizzair', 'Wizz Air', 'BCN', 'PRG', '2026-11-17')] });
+  assert.equal(both.hint, 'V den odletu nemá Ryanair volný let – nejbližší lety: 11. 11. · V den návratu nemá Wizz Air volný let – nejbližší lety: 17. 11.');
 });

@@ -253,3 +253,18 @@ test('přesná data: zpáteční kombinace – každý let tam i zpět aspoň je
   assert.ok(all.length <= 10 * 11, `${all.length} kombinací`);
   assert.ok(all.length > 10 * 8);
 });
+
+test('zpáteční kombinace: návrat nesmí odletět dřív, než let tam přistane (stejný den / přílet po půlnoci)', () => {
+  const L = (from, to, dep, arr, czk) => makeLeg({ provider: 'kiwi', carrier: 'FR', from, to, dep, arr, czk, price: czk, currency: 'CZK' });
+  const out = [L('PRG', 'BCN', '2026-11-06T18:00:00', '2026-11-06T20:20:00', 1000), L('PRG', 'BCN', '2026-11-06T06:00:00', '2026-11-06T08:20:00', 1500)];
+  const back = [L('BCN', 'PRG', '2026-11-06T07:00:00', '2026-11-06T09:20:00', 900), L('BCN', 'PRG', '2026-11-06T21:00:00', '2026-11-06T23:20:00', 1200)];
+  const trips = bestRoundTrips(out, back, () => 0, { nightsMin: 0, nightsMax: 0, legsPerDay: 12, variety: true, limit: 50, perDestLimit: 50 });
+  const pairs = trips.map((t) => `${t.out.dep.slice(11, 16)}>${t.back.dep.slice(11, 16)}`).sort();
+  // 18:00 (přílet 20:20) → 21:00 je moc těsně (< 2 h na místě), 07:00 je před příletem
+  assert.deepEqual(pairs, ['06:00>21:00'], 'jen návrat, který stihneš');
+  // přílet po půlnoci (dálkový let), návrat ten den ráno → nejde
+  const late = [L('PRG', 'JFK', '2026-11-06T22:00:00', '2026-11-07T01:30:00', 9000)];
+  const early = [L('JFK', 'PRG', '2026-11-07T00:30:00', '2026-11-07T14:00:00', 8000), { ...L('JFK', 'PRG', '2026-11-07T18:00:00', '2026-11-08T08:00:00', 8500), carrier: 'LO' }];
+  const lt = bestRoundTrips(late, early, () => 0, { nightsMin: 0, nightsMax: 2, legsPerDay: 2, limit: 50, perDestLimit: 50 });
+  assert.deepEqual(lt.map((t) => t.back.dep.slice(11, 16)), ['18:00']);
+});

@@ -129,6 +129,16 @@ export function dateOk(outDate, backDate, c) {
   return n >= c.nightsMin && n <= c.nightsMax;
 }
 
+// Návrat nejdřív 2 h po příletu tam (stejný den, přílet po půlnoci): jinak by vznikly kombinace,
+// které nejdou stihnout. Oba časy jsou místní v cílové oblasti; bez času se nekontroluje.
+const MIN_STAY_MS = 120 * 60000;
+const localMs = (s) => Date.parse(`${String(s).slice(0, 16)}:00Z`);
+export function returnFits(o, b) {
+  if (!o.arr || !b.hasTime) return true;
+  const gap = localMs(b.dep) - localMs(o.arr);
+  return !Number.isFinite(gap) || gap >= MIN_STAY_MS;
+}
+
 /**
  * Výběr rozmanitých výsledků: nejdřív perDay nejlepších pro každý den odletu (aby šlo
  * filtrovat v kalendáři), pak nejlevnější celkově s limitem perDestLimit na cílové město.
@@ -224,7 +234,7 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
       for (const { b, cost } of list) {
         if (b.from !== o.to && !(openJawDest && destKey(b.from) === oDest)) continue;
         if (b.to !== o.from && !openJawHome) continue;
-        if (!dateOk(o.date, b.date, opts)) continue;
+        if (!dateOk(o.date, b.date, opts) || !returnFits(o, b)) continue;
         if (taken >= cap && !(variety && !b.stops && direct < 3)) {
           if (!variety || direct >= 3) break;
           continue;
