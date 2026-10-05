@@ -4,9 +4,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { AIRPORTS, airportsInCountry, getAirport } from './airports.js';
-import { hubsOf } from './longhaul.js';
-import { haversineKm } from './geo.js';
+import { AIRPORTS, COUNTRY_BY_ISO, airportsInCountry, getAirport } from './airports.js';
+import { HUBS } from './longhaul.js';
+import { haversineKm, normalize } from './geo.js';
 
 const FILE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'data', 'climate.json');
 let DATA = null;
@@ -106,10 +106,22 @@ export function warmShare(point, months, minTemp, km) {
   return all ? warm / all : 0;
 }
 
+// Hlavní letiště země: oblíbené dálkové (HUBS), jinak velké letiště hlavního města, jinak první velké
+// (abecedně první by bylo třeba u Česka České Budějovice, u Portugalska Azory). Kypr: Larnaka, ne Ercan.
+const MAIN = { CY: 'LCA' };
+export function mainAirport(cc) {
+  const hub = [MAIN[cc], ...(HUBS[cc] || [])].find((x) => getAirport(x));
+  if (hub) return hub;
+  const list = airportsInCountry(cc); // velká napřed
+  const cap = normalize(COUNTRY_BY_ISO.get(cc)?.cap);
+  const isCap = (s) => ` ${normalize(s)} `.includes(` ${cap} `);
+  return ((cap && list.find((a) => isCap(a.city) || isCap(a.name))) || list[0])?.iata || null;
+}
+
 /** Podnebí hlavního letiště země (detail země) → { iata, city, hi, lo, p } | null. */
 export function countryClimate(cc) {
   const code = String(cc || '').toUpperCase();
-  const iata = hubsOf(code, 1)[0] || airportsInCountry(code)[0]?.iata;
+  const iata = mainAirport(code);
   const c = iata ? airportClimate(iata) : null;
   return c ? { iata, city: getAirport(iata).cityCs, ...c } : null;
 }

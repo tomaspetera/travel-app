@@ -89,3 +89,35 @@ test('přesná data: Ryanair dostane přesné okno návratu, výsledky jen v zad
     stub.restore();
   }
 });
+
+test('za teplem: nejlevnější termín Ryanairu v chladném měsíci → dohledá se po dnech termín v teplém', async () => {
+  const { monthClimate } = await import('../server/lib/climate.js');
+  // dva dny ~ 2 měsíce od sebe a cíl, kde je v jednom z těch měsíců znatelně tepleji
+  const days = [ymdPlus(15), ymdPlus(75)];
+  const pick = ['HRG', 'AYT', 'LCA', 'AGP', 'DXB'].map((iata) => {
+    const hi = days.map((d) => monthClimate(iata, d).hi);
+    return { iata, hi, minTemp: Math.min(35, Math.max(...hi)) };
+  }).find((x) => x.minTemp >= 15 && Math.min(...x.hi) < x.minTemp);
+  const warmDay = days[pick.hi[0] >= pick.minTemp ? 0 : 1];
+  const coldDay = days[pick.hi[0] >= pick.minTemp ? 1 : 0];
+  const dayFare = (d, value) => ({ day: d, departureDate: `${d}T07:00:00`, arrivalDate: `${d}T11:00:00`, price: { value, currencyCode: 'EUR' }, soldOut: false, unavailable: false });
+  const stub = stubFetch((url) => {
+    if (url.includes('/views/locate/5/airports/en/active')) return { body: [{ code: 'VIE' }, { code: pick.iata }] };
+    if (url.includes('open.er-api.com')) return { body: { result: 'success', rates: { EUR: 1, CZK: 25 }, time_last_update_utc: 'test' } };
+    if (url.includes('cheapestPerDay')) {
+      const m = new URL(url).searchParams.get('outboundMonthOfDate').slice(0, 7);
+      return { body: { outbound: { fares: [dayFare(warmDay, 40), dayFare(coldDay, 10)].filter((f) => f.day.startsWith(m)) } } };
+    }
+    // Fare Finder vrátí jen nejlevnější termín – v chladném měsíci
+    if (url.includes('oneWayFares')) return { body: { fares: [fare('VIE', pick.iata, coldDay, 10)] } };
+    return { status: 404, body: '{}' };
+  });
+  try {
+    const r = await search({ from: ['ap:VIE'], radiusKm: 0, dateFrom: ymdPlus(10), dateTo: ymdPlus(80), trip: 'oneway', adults: 1, kmRate: 0, minTemp: pick.minTemp });
+    const g = r.groups.find((x) => x.dest.airports.includes(pick.iata));
+    assert.ok(g, `${pick.iata} v teplejším měsíci (${pick.hi}, ≥ ${pick.minTemp} °C)`);
+    assert.ok(g.options.every((t) => t.out.date === warmDay && t.tempHi >= pick.minTemp));
+  } finally {
+    stub.restore();
+  }
+});

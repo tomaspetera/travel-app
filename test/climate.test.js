@@ -17,13 +17,19 @@ const { setRates, FALLBACK_EUR } = await import('../server/lib/fx.js');
 
 setRates({ base: 'EUR', rates: { ...FALLBACK_EUR, CZK: 25 }, source: 'test' });
 
-// Nejbližší budoucí měsíc m (1–12) aspoň týden od dneška: [od, do] = dny 5–25.
+// Nejbližší budoucí měsíc m (1–12): [od, do] = dny 5–25, oříznuté na okno hledání (od týdne
+// po necelý rok dopředu) – jinak by test v posledních dnech před měsícem m hledal mimo rozsah.
 function nextMonth(m) {
-  const t = new Date();
-  let y = t.getFullYear();
-  if (new Date(Date.UTC(y, m - 1, 5)) < new Date(Date.now() + 7 * 864e5)) y++;
-  const p = (d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-  return [p(5), p(25)];
+  const ymd = (ms) => new Date(ms).toISOString().slice(0, 10);
+  const soon = ymd(Date.now() + 7 * 864e5);
+  const last = ymd(Date.now() + 355 * 864e5);
+  const y0 = new Date().getUTCFullYear();
+  for (const y of [y0, y0 + 1]) {
+    const p = (d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const a = p(5) > soon ? p(5) : soon;
+    const b = p(25) < last ? p(25) : last;
+    if (a <= b) return [a, b];
+  }
 }
 
 test('buňky po 0,5°: zaokrouhlení i u záporných souřadnic', () => {
@@ -66,6 +72,15 @@ test('teplá letiště země a podnebí hlavního letiště země', () => {
   assert.equal(th.city, 'Bangkok');
   assert.equal(th.hi.length, 12);
   assert.equal(countryClimate('XX'), null);
+  // bez oblíbeného dálkového letiště: hlavní město, ne abecedně první velké letiště
+  // (dřív Česko = České Budějovice, Portugalsko = Azory, Rusko = Abakan, Francie = Basilej)
+  assert.equal(countryClimate('CZ').iata, 'PRG');
+  assert.equal(countryClimate('PT').iata, 'LIS');
+  assert.equal(countryClimate('ES').iata, 'MAD');
+  assert.ok(['CDG', 'ORY'].includes(countryClimate('FR').iata));
+  assert.ok(['SVO', 'DME', 'VKO'].includes(countryClimate('RU').iata));
+  assert.equal(countryClimate('EG').iata, 'HRG', 'oblíbené dálkové letiště má přednost');
+  assert.equal(countryClimate('CY').iata, 'LCA', 'Larnaka, ne Ercan na severu ostrova');
 });
 
 test('normalizeQuery: minTemp je null nebo celé číslo 15–35', () => {
@@ -74,6 +89,9 @@ test('normalizeQuery: minTemp je null nebo celé číslo 15–35', () => {
   assert.equal(q(null), null);
   assert.equal(q(''), null);
   assert.equal(q(0), null);
+  assert.equal(q('0'), null, 'řetězec „0“ = bez filtru jako číslo 0');
+  assert.equal(q(' '), null);
+  assert.equal(q(-5), null);
   assert.equal(q('abc'), null);
   assert.equal(q(25), 25);
   assert.equal(q('20'), 20);
@@ -157,7 +175,17 @@ test('za teplem v červenci: teplo je i ve většině Evropy → „kamkoliv“ 
   assert.ok(es && !es.includes('BIO'), `Španělsko bez chladnějšího severu: ${es}`);
   assert.ok(to.includes('GR'), String(to));
   assert.ok(calls.length <= 1 + LONG_HAUL_SWEEP.length);
-  assert.ok(calls.every((a) => a.flyFrom === 'PRG'), 'do Evropy bez přestupních letišť');
+  assert.ok(calls.filter((a) => a.flyTo === 'GR' || a.flyTo === es).every((a) => a.flyFrom === 'PRG'), 'do Evropy bez přestupních letišť');
+});
+
+test('za teplem v září: kromě jižní Evropy i teplé dálkové země (Egypt, Emiráty) jako bez filtru', async () => {
+  const [dateFrom, dateTo] = nextMonth(9);
+  const { calls } = await kiwiSearch({ dateFrom, dateTo, minTemp: 25 });
+  const to = calls.map((a) => a.flyTo);
+  assert.ok(to.includes('EG') && to.includes('AE'), `dálkové teplé země: ${to}`);
+  assert.ok(to.includes('GR'), `i blízké: ${to}`);
+  assert.ok(calls.length <= 1 + LONG_HAUL_SWEEP.length);
+  assert.ok(calls.find((a) => a.flyTo === 'EG').flyFrom.split(',').length > 1, 'do Egypta i z přestupních letišť');
 });
 
 test('země za teplem: Španělsko v listopadu = Kanárské ostrovy, ne celá země', async () => {

@@ -45,7 +45,7 @@ export const WARM_SWEEP = ['ES', 'PT', 'GR', 'IT', 'HR', 'CY', 'MT', 'TR', 'ME',
 
 // Hlavní letiště dálkových zemí (Travelpayouts vrací ceny z cache hledání ke konkrétnímu cíli
 // výrazně spolehlivěji než „odkudkoliv kamkoliv“). Ostatní země: 2 velká letiště z databáze.
-const HUBS = {
+export const HUBS = {
   AE: ['DXB', 'AUH'], QA: ['DOH'], OM: ['MCT'], JO: ['AMM'], IL: ['TLV'], SA: ['JED', 'RUH'], BH: ['BAH'], LB: ['BEY'],
   IN: ['DEL', 'BOM', 'GOI'], LK: ['CMB'], MV: ['MLE'], NP: ['KTM'], MU: ['MRU'], SC: ['SEZ'],
   TH: ['BKK', 'HKT'], VN: ['SGN', 'HAN'], ID: ['DPS', 'CGK'], MY: ['KUL'], SG: ['SIN'], PH: ['MNL'],
