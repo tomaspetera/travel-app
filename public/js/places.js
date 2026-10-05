@@ -125,6 +125,14 @@
     liveMaps.add(map);
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.touchZoomRotate.disableRotation();
+    // Na úzké mapě (mobil) by rozbalená atribuce zakryla spodek mapy: sbal ji do tlačítka ⓘ (klepnutím se rozbalí).
+    const foldAttrib = () => {
+      const a = el.querySelector('.maplibregl-ctrl-attrib.maplibregl-compact-show');
+      if (!a) return;
+      a.classList.remove('maplibregl-compact-show');
+      map.off('sourcedata', foldAttrib);
+    };
+    if (el.offsetWidth <= 640) map.on('sourcedata', foldAttrib);
     // Když vektorová mapa nenaběhne (výpadek OpenFreeMap), přepni na rastrové dlaždice OpenStreetMap.
     const toRaster = () => { if (ms.raster || !liveMaps.has(map)) return; ms.raster = true; ms.styleReady = false; map.setStyle(OSM_STYLE, { diff: false }); };
     const timer = setTimeout(() => { if (!ms.styleReady) toRaster(); }, 8000);
@@ -199,7 +207,8 @@
       const b = new maplibregl.LngLatBounds([center.lon, center.lat], [center.lon, center.lat]);
       fit.forEach(pt => b.extend([pt.lon, pt.lat]));
       fitLines.forEach(l => l.coords.forEach(c => b.extend([c[0], c[1]])));
-      map.fitBounds(b, { padding: 40, maxZoom: 15, duration: 0 });
+      // dole víc místa, ať start trasy neskončí pod atribucí
+      map.fitBounds(b, { padding: { top: 40, right: 40, bottom: 56, left: 40 }, maxZoom: 15, duration: 0 });
     }
   }
 

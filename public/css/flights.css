@@ -287,6 +287,8 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
   .pbox{text-align:left;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
   .ld{min-width:0}
   .search-card{padding:16px}
+  .res-tools{width:100%}
+  .res-tools select{flex:1 1 100%}
   .radar-grid{grid-template-columns:1fr 1fr}
   .dow button{width:38px}
 }
