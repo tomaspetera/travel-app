@@ -101,7 +101,8 @@ a{color:inherit}
   background:var(--surface-2);color:var(--text);font-weight:700;font-size:14px;cursor:pointer;transition:.16s var(--ease);font-family:inherit;text-decoration:none;white-space:nowrap
 }
 .btn:hover{transform:translateY(-1px);border-color:var(--accent)}
-.btn svg{width:17px;height:17px}
+.btn svg{width:17px;height:17px;flex-shrink:0}
+.more-nav .btn .faint{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .btn.primary{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 10px 26px -10px rgba(91,140,255,.75)}
 .btn.primary:hover{box-shadow:0 14px 32px -10px rgba(168,85,247,.8)}
 .btn.warm{background:var(--grad-warm);border-color:transparent;color:#fff}
@@ -230,6 +231,11 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .months .m{text-align:center;font-size:10.5px;font-weight:700;padding:8px 2px;border-radius:8px;background:var(--surface);color:var(--faint);border:1px solid var(--border)}
 .months .m.best{background:rgba(52,211,153,.16);color:var(--good);border-color:rgba(52,211,153,.3)}
 .months .m.now{outline:2px solid var(--accent);outline-offset:1px}
+.clim-k{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clim-k span{text-transform:none;letter-spacing:0;font-weight:500}
+.months.clim{gap:4px;margin-top:6px}
+.months.clim .m{padding:5px 1px;color:var(--muted);font-weight:600}
+.months.clim .m b{display:block;font-size:12.5px;font-weight:800;color:var(--text);margin-top:1px}
 .note{padding:13px 15px;border-radius:13px;font-size:13px;display:flex;gap:10px;align-items:flex-start}
 .note.warn{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.28);color:#f5d488}
 .note.bad{background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.3);color:#f7a6b3}
@@ -304,4 +310,4 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
   .modal-hero{padding:20px}.modal-body{padding:18px}
   .forecast{grid-template-columns:repeat(4,1fr)}
 }
-@media(max-width:520px){.stat-grid{grid-template-columns:1fr 1fr}.dest-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.stat-grid{grid-template-columns:1fr 1fr}.dest-grid{grid-template-columns:1fr 1fr}.months{grid-template-columns:repeat(6,minmax(0,1fr))}}

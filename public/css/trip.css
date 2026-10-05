@@ -117,3 +117,13 @@ table.cost tr.tot td{font:800 17px Sora,sans-serif;border-bottom:none;padding-to
 .bike-stats b{color:var(--text);font-size:16px}
 .elev{display:block;width:100%;height:80px;margin-top:10px;background:var(--surface);border-radius:8px}
 .elev-axis{display:flex;justify-content:space-between;font-size:11px;margin-top:2px}
+.ride-train{font-size:13.5px;margin:2px 0 8px;line-height:1.5}
+.ride-train a{color:var(--accent);font-weight:700;font-size:12.5px}
+/* počasí u dne plánu a u trasy (weather.js): štítek předpovědi, při dešti do modra, čárkovaně dlouhodobý průměr */
+.wx{display:inline-block;margin-left:8px;padding:1px 9px;border-radius:20px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font:600 11.5px/1.6 Inter,sans-serif;white-space:nowrap;vertical-align:1px}
+.wx small{font-size:inherit;font-weight:500;opacity:.7}
+.wx.wet{background:rgba(56,189,248,.14);border-color:rgba(56,189,248,.35);color:#a5dbf5}
+.wx.avg{background:none;border-style:dashed;color:var(--muted)}
+[data-theme="light"] .wx.wet{color:#075985}
+.wx-day{min-height:22px;margin:4px 0 6px;font-size:12.5px;color:var(--muted)}
+.wx-day .note{margin-top:8px}

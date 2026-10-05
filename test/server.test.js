@@ -89,11 +89,82 @@ test('POST /api/search – konkrétní cíl, víkend, kalendář', async () => {
   assert.ok(r.top.length > 0);
   for (const t of r.top) {
     assert.ok(['LHR', 'LGW', 'STN', 'LTN', 'LCY', 'SEN'].includes(t.out.to));
+    assert.match(t.out.fromTz, /^Europe\//);
+    assert.deepEqual([t.out.toTz, t.back.fromTz], ['Europe/London', 'Europe/London'], 'zóny letišť pro export do kalendáře');
     assert.ok([4, 5, 6].includes(new Date(t.out.date + 'T12:00:00Z').getUTCDay()));
     assert.ok([0, 1].includes(new Date(t.back.date + 'T12:00:00Z').getUTCDay()));
   }
   assert.ok(r.calendar.out.length > 0);
   assert.ok(r.calendar.out.every((d) => [4, 5, 6].includes(new Date(d.date + 'T12:00:00Z').getUTCDay())));
+});
+
+test('GET /api/climate – letiště, poloha, země; kontrola vstupu a dlouhá cache', async () => {
+  const r = await fetch(`${base}/api/climate?iata=bkk`);
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('cache-control'), /max-age=\d{6,}/);
+  const j = await r.json();
+  assert.equal(j.iata, 'BKK');
+  assert.ok([j.hi, j.lo, j.p].every((a) => a.length === 12));
+  assert.ok(j.hi[0] >= 28);
+  assert.match(j.source, /NASA POWER/);
+  const cc = await (await fetch(`${base}/api/climate?cc=TH`)).json();
+  assert.deepEqual(cc.hi, j.hi, 'země = její hlavní letiště');
+  assert.equal(cc.city, 'Bangkok');
+  const pt = await (await fetch(`${base}/api/climate?lat=50.08&lon=14.42`)).json();
+  assert.ok(pt.hi[6] > pt.hi[0]);
+  for (const [q, status] of [['', 400], ['?iata=XXX', 400], ['?iata=12', 400], ['?cc=XYZ', 400], ['?cc=XX', 404], ['?lat=95&lon=0', 400], ['?lat=abc&lon=1', 400], ['?lat=50', 400], ['?lat=0&lon=-30', 404]]) {
+    const x = await fetch(`${base}/api/climate${q}`);
+    assert.equal(x.status, status, q);
+    assert.match((await x.json()).error, /\S/);
+    assert.equal(x.headers.get('cache-control'), 'no-store', 'chyby se necachují');
+  }
+});
+
+test('POST /api/search – za teplem: jen teplé cíle, teplota u každé cesty, méně dotazů', async () => {
+  const body = { from: ['ap:BRQ'], radiusKm: 150, dateFrom: ymdPlus(10), dateTo: ymdPlus(40), trip: 'return', nightsMin: 3, nightsMax: 8 };
+  const all = (await searchStream(body)).last.result;
+  const warm = (await searchStream({ ...body, minTemp: 20 })).last.result;
+  assert.equal(all.warm, null);
+  assert.ok(all.groups.every((g) => g.options.every((t) => t.tempHi == null || Number.isInteger(t.tempHi))));
+  assert.ok(all.groups.some((g) => g.best.tempHi < 20), 'bez filtru i chladnější cíle');
+  assert.equal(warm.query.minTemp, 20);
+  assert.equal(warm.warm.minTemp, 20);
+  assert.ok(warm.groups.length > 0 && warm.stats.trips < all.stats.trips);
+  for (const g of warm.groups) {
+    assert.ok(g.options.every((t) => t.tempHi >= 20), g.dest.label);
+    assert.equal(g.dest.climate.hi, g.best.tempHi);
+    assert.equal(g.dest.climate.m, Number(g.best.out.date.slice(5, 7)));
+  }
+  const calls = (r) => r.providers.reduce((s, p) => s + p.calls, 0);
+  assert.ok(calls(warm) < calls(all), 'trasy do chladných cílů se neprohledávají');
+});
+
+test('POST /api/search – za teplem přes víc měsíců: levnější chladné termíny nevytlačí teplé', async () => {
+  // Cíl, kde je teplo jen v prvních týdnech, nesmí v delším hledání zmizet jen proto, že jeho
+  // nejlevnější termíny vyšly na chladnější měsíce (a filtr je pak vyřadil).
+  const body = { from: ['ap:PRG'], to: ['cc:ES', 'cc:IT', 'cc:GR', 'cc:PT', 'cc:TR', 'cc:EG', 'cc:MA', 'cc:AE'], radiusKm: 0, trip: 'oneway', minTemp: 20, dateFrom: ymdPlus(10) };
+  const short = (await searchStream({ ...body, dateTo: ymdPlus(30) })).last.result;
+  const long = (await searchStream({ ...body, dateTo: ymdPlus(100) })).last.result;
+  assert.ok(short.groups.length > 0 && long.groups.length < 150);
+  const found = new Set(long.groups.map((g) => g.dest.key));
+  assert.deepEqual(short.groups.filter((g) => !found.has(g.dest.key)).map((g) => g.dest.label), []);
+});
+
+test('POST /api/search – konkrétní cíl za teplem: kalendář i nabídky jen v dost teplých měsících', async (t) => {
+  const dateFrom = ymdPlus(10);
+  const dateTo = ymdPlus(70);
+  const clim = await (await fetch(`${base}/api/climate?iata=AYT`)).json();
+  const months = new Set();
+  for (let i = 10; i <= 70; i++) months.add(Number(ymdPlus(i).slice(5, 7)));
+  const his = [...months].map((m) => clim.hi[m - 1]);
+  const minTemp = Math.min(35, Math.max(...his));
+  if (minTemp < 15 || Math.min(...his) >= minTemp) return t.skip('v těchto měsících je v Antalyi stejně teplo');
+  const r = (await searchStream({ from: ['ap:PRG'], to: ['ap:AYT'], radiusKm: 0, dateFrom, dateTo, trip: 'return', nightsMin: 3, nightsMax: 7, minTemp })).last.result;
+  assert.equal(r.mode, 'route');
+  assert.ok(r.top.length > 0 && r.top.every((x) => x.tempHi >= minTemp));
+  const cal = [...r.calendar.out, ...r.calendar.back];
+  assert.ok(cal.length > 0);
+  for (const d of cal) assert.ok(clim.hi[Number(d.outDate.slice(5, 7)) - 1] >= minTemp, `kalendář: ${d.date} (odlet ${d.outDate})`);
 });
 
 test('POST /api/search – chybějící odkud → srozumitelná chyba', async () => {
@@ -105,7 +176,10 @@ test('POST /api/search – chybějící odkud → srozumitelná chyba', async ()
 test('statické soubory, data a ochrana proti path traversal', async () => {
   const html = await fetch(`${base}/`);
   assert.equal(html.status, 200);
-  assert.match(await html.text(), /<title>ATLAS/);
+  const page = await html.text();
+  assert.match(page, /<title>ATLAS/);
+  assert.ok(page.indexOf('js/alerts.js') > 0 && page.indexOf('js/alerts.js') < page.indexOf('js/flights.js'), 'hlídání cen se načte před flights.js');
+  assert.equal((await fetch(`${base}/js/alerts.js`)).status, 200);
   const c = await (await fetch(`${base}/data/countries.json`)).json();
   assert.ok(c.length > 150);
   // fetch() by „..“ normalizoval, proto surový HTTP požadavek.
@@ -169,4 +243,43 @@ test('POST /api/bike – okruh na kole (DEMO), kontrola polohy a voleb', async (
   assert.equal((await post({ lat: 95, lon: 14 })).status, 400);
   assert.equal((await post('null')).status, 400);
   assert.equal((await post('{nope')).status, 400);
+});
+
+test('POST /api/hike – pěší okruh (DEMO): délka 2–40 km, odkazy pěšky, stejné kontroly jako kolo', async () => {
+  const post = (body) => fetch(`${base}/api/hike`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+  const j = await (await post({ lat: 50.0875, lon: 14.4213, km: 12, scenery: 'nature', hills: 'hilly', bike: 'road' })).json();
+  assert.equal(j.demo, true);
+  assert.equal(j.activity, 'hike');
+  assert.equal(j.km, 12);
+  assert.equal(j.scenery, 'nature');
+  assert.equal(j.hills, 'hilly');
+  assert.equal(j.bike, undefined, 'pěšky bez kola');
+  assert.ok(Number.isFinite(j.trailPct) && j.minutes > 180, 'čas chůze (12 km ≥ 3 h)');
+  assert.match(j.mapyUrl, /routeType=foot_hiking/);
+  assert.match(j.googleUrl, /travelmode=walking/);
+  const d = await (await post({ lat: 50, lon: 14, km: 500, scenery: 'mars' })).json();
+  assert.equal(d.km, 40, 'nejvýš 40 km');
+  assert.equal(d.scenery, 'mixed');
+  assert.equal((await (await post({ lat: 50, lon: 14 })).json()).km, 10, 'výchozí 10 km');
+  assert.equal((await post({ lat: 'x', lon: 14 })).status, 400);
+  assert.equal((await post('[]')).status, 400);
+  assert.equal((await post('{nope')).status, 400);
+});
+
+test('POST /api/bike kind=train – vlakem tam, na kole zpět (DEMO)', async () => {
+  const post = (body) => fetch(`${base}/api/bike`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await (await post({ lat: 50.0875, lon: 14.4213, km: 40, bike: 'gravel', kind: 'train', label: 'Praha', cc: 'CZ' })).json();
+  assert.equal(j.demo, true);
+  assert.equal(j.kind, 'train');
+  assert.equal(j.bike, 'gravel');
+  assert.ok(j.station.name && j.station.lat > 50.0875, 'nádraží na sever');
+  assert.match(j.train.idosUrl, /^https:\/\/idos\.cz\/vlakyautobusy\/spojeni\/\?f=Praha&t=/);
+  assert.match(j.train.googleUrl, /travelmode=transit/);
+  const m = new URL(j.mapyUrl);
+  assert.notEqual(m.searchParams.get('start'), m.searchParams.get('end'), 'z nádraží domů');
+  const geo = await (await post({ lat: 50.0875, lon: 14.4213, km: 40, kind: 'train', label: '', cc: 'bad' })).json();
+  assert.equal(geo.train.idosUrl, null, 'bez názvu domova (Moje okolí) jen Google');
+  const loop = await (await post({ lat: 50.0875, lon: 14.4213, km: 40, kind: 'plane' })).json();
+  assert.equal(loop.kind, 'loop', 'neznámý druh → okruh');
+  assert.equal(loop.station, undefined);
 });

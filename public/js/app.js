@@ -54,10 +54,11 @@ const NAV = [['dashboard', 'Přehled', 'Radar cen a tvoje cesty', 'M3 12l9-9 9 9
 let activeView = 'dashboard';
 function ico(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
 function buildNav() {
-  $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : ''}</div>`).join('');
+  // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js).
+  $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
   // Na mobilu hlavní sekce + „Více“ (mapa, země, doporučení).
   const MOBILE = ['dashboard', 'flights', 'trip', 'explore', 'planner'];
-  $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span></div>`).join('')
+  $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden></i>' : ''}</div>`).join('')
     + `<div class="mi" id="moreNav">${ico('M5 12h.01M12 12h.01M19 12h.01')}<span>Více</span></div>`;
   $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
   $('#moreNav').onclick = () => {
@@ -108,7 +109,7 @@ function renderDash() {
   const w = (S.watch || []).length;
   $('#statGrid').innerHTML = [
     ['Navštívené země', `${st.count}<small> / ${TOT}</small>`, `${st.pct}% světa`, `<div class="progress"><span style="width:${st.pct}%"></span></div>`],
-    ['Hlídané ceny', `${w}`, w ? 'Zkontroluj je níže' : 'Ulož hledání tlačítkem ♡', ''],
+    ['Hlídané ceny', `<span id="watchStatVal">${w}</span>`, `<span id="watchStatSub">${window.Flights ? Flights.watchStatTxt() : ''}</span>`, ''],
     ['Naplánované cesty', `${S.trips.length}`, S.trips.length ? 'Mrkni do plánovače' : 'Začni plánovat', ''],
     ['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs : '', ''],
   ].map(s => `<div class="card stat"><div class="lab">${s[0]}</div><div class="val">${s[1]}</div><div class="sub">${s[2]}</div>${s[3] || ''}</div>`).join('');
@@ -179,6 +180,32 @@ function modalOpen(html) { $('#modal').innerHTML = html; $('#modalBg').classList
 function modalClose() { $('#modalBg').classList.remove('show'); }
 $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) modalClose(); };
 function monthsStrip(best) { const now = new Date().getMonth() + 1; return `<div class="months">${MNS.map((m, i) => `<div class="m ${best && best.includes(i + 1) ? 'best' : ''} ${i + 1 === now ? 'now' : ''}">${m}</div>`).join('')}</div>`; }
+// Průměrná denní maxima po měsících (NASA POWER, /api/climate); bez dat jen zástupné buňky stejné výšky.
+const tempBg = t => `hsl(${Math.max(0, Math.min(220, 220 - (t + 5) * 6.3))} 85% 55% / .28)`;
+function climStrip(c) {
+  const now = new Date().getMonth() + 1;
+  const r = (a, i) => Math.round(+a[i]);
+  return `<div class="months clim">${MNS.map((m, i) => c
+    ? `<div class="m ${i + 1 === now ? 'now' : ''}" style="background:${tempBg(r(c.hi, i))}" title="${MNS_FULL[i]}: přes den ~${r(c.hi, i)} °C, v noci ~${r(c.lo, i)} °C, srážky ~${r(c.p, i)} mm">${m}<b>${r(c.hi, i)}°</b></div>`
+    : `<div class="m ${i + 1 === now ? 'now' : ''}">${m}<b>·</b></div>`).join('')}</div>`;
+}
+const CLIM = {};
+async function loadClimate(iso) {
+  try {
+    if (!CLIM[iso]) {
+      const r = await fetch('api/climate?cc=' + enc(iso));
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      CLIM[iso] = await r.json();
+    }
+    const c = CLIM[iso], box = $('#climBox');
+    if (curIso !== iso || !box || !Array.isArray(c.hi)) return;
+    $('.months', box).outerHTML = climStrip(c);
+    $('#climWhere').textContent = c.city ? `· ${c.city} (${c.iata})` : '';
+  } catch (e) {
+    // bez údajů o podnebí se řádek prostě nezobrazí
+    const box = $('#climBox'); if (box && curIso === iso) box.remove();
+  }
+}
 
 function openCountry(iso) {
   const c = byIso[iso]; if (!c) return; curIso = iso;
@@ -207,6 +234,7 @@ function openCountry(iso) {
        <div><div class="k">Měna</div><div class="v" style="font-size:15px">${c.cur || '—'}</div><div class="faint" id="fxLine" style="font-size:12px"></div></div>
      </div>
      <div style="margin-top:14px"><div class="k" style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em">Nejlepší období${c.months ? '' : ' — orientačně'}</div>${monthsStrip(c.months)}</div>
+     <div id="climBox" style="margin-top:12px" title="Dlouhodobý průměr let 2001–2020 (NASA POWER) – není to předpověď"><div class="k clim-k">Průměrná denní maxima <span id="climWhere" class="faint"></span></div>${climStrip(null)}</div>
      ${c.tags ? `<div class="tags" style="margin-top:16px">${c.tags.map(t => `<span class="chip accent">${t}</span>`).join('')}</div>` : ''}
      ${c.blurb ? `<p class="muted" style="margin-top:14px;font-size:14px">${c.blurb}</p>` : ''}
      <div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Bezpečnostní a geopolitická situace se mění. Před cestou si vždy ověř aktuální doporučení na <a href="${mzv}" target="_blank" rel="noopener" style="color:var(--info);text-decoration:underline">MZV ČR</a>.</div></div>
@@ -220,6 +248,7 @@ function openCountry(iso) {
    </div>`);
   loadWeather(c);
   loadFx(c);
+  loadClimate(iso);
 }
 window.modalClose = modalClose;
 window.toggleVis = iso => { const on = !visited.has(iso); setVisited(iso, on); const b = $('#visBtn'); if (b) { b.textContent = on ? '✓ Navštíveno' : 'Označit jako navštívené'; b.className = 'btn ' + (on ? 'warm' : 'ghost'); } toast(on ? 'Přidáno: ' + byIso[iso].cs : 'Odebráno: ' + byIso[iso].cs); renderCountries(); };
@@ -308,7 +337,7 @@ function mapFallback(msg) {
 }
 
 /* ================= PLANNER ================= */
-function dateRange(a, b) { if (!a) return []; const out = []; let d = new Date(a), end = b ? new Date(b) : new Date(a); let n = 0; while (d <= end && n < 31) { out.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); n++; } return out; }
+function dateRange(a, b) { if (!a) return []; const out = []; let d = new Date(a), end = b ? new Date(b) : new Date(a); let n = 0; while (d <= end && n < 31) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); n++; } return out; }
 function resolveCountry(text) { const t = norm(text); if (!t) return null; let c = COUNTRIES.find(c => norm(c.cs) === t || norm(c.en) === t); if (!c) c = COUNTRIES.find(c => norm(c.cs).startsWith(t) && t.length > 2); return c || null; }
 function renderPlanner() {
   const host = $('#plannerList');
@@ -342,12 +371,13 @@ function saveTrip(iso, flightTxt) {
 function openTrip(i) {
   const t = S.trips[i]; if (!t) return; const c = t.iso ? byIso[t.iso] : null; const city = c && c.cap ? c.cap : t.dest;
   const days = dateRange(t.start, t.end);
-  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? ' – ' + fmtDate(t.end) : '') : ''} · ${t.pax} os.</div></div></div>
+  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? ' – ' + fmtDate(t.end) : '') : ''} · ${t.pax} os.</div></div></div>
   <div class="modal-body">
     ${t.flight ? `<div class="note info" style="margin-bottom:14px">✈️ <div>${esc(t.flight)}</div></div>` : ''}
-    <div class="row wrap"><button class="btn primary" onclick="modalClose();${c ? `fromCountrySearch('${t.iso}')` : `go('flights')`}">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" onclick="openStay('${esc(city)}','${t.start || ''}','${t.end || ''}')">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
+    <div class="row wrap"><button class="btn primary" onclick="modalClose();${c ? `fromCountrySearch('${t.iso}')` : `go('flights')`}">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
+    <div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>
     <div class="divider"></div>
-    <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + ' dní' : 'doplň termíny'}</span></div>
+    <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + (days.length === 1 ? ' den' : days.length < 5 ? ' dny' : ' dní') : 'doplň termíny'}</span></div>
     <div style="margin-top:10px">${days.length ? days.map((d, di) => { const acts = t.days[d] || []; return `<div class="day-block"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span></h4>${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button onclick="delAct(${i},'${d}',${ai})">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" placeholder="Přidej aktivitu…" onkeydown="if(event.key==='Enter')addAct(${i},'${d}')"><button class="btn sm" onclick="addAct(${i},'${d}')">Přidat</button></div></div>`; }).join('') : `<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Doplň termíny cesty a objeví se itinerář den po dni.</div></div>`}</div>
     <div class="divider"></div>
     <div class="grid" style="grid-template-columns:1fr 1fr;gap:20px">
@@ -357,6 +387,67 @@ function openTrip(i) {
     <div class="divider"></div>
     <button class="btn ghost block" style="color:var(--bad);border-color:rgba(251,113,133,.3)" onclick="delTrip(${i})">Smazat cestu</button>
   </div>`);
+  $('#tripStay').onclick = () => openStay(city, t.start || '', t.end || '');
+  const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
+  // Poznámky se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
+  const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(S.trips[i])[0])); });
+  $('#tripShare').onclick = () => sharePlan(i);
+}
+
+/* kalendář (.ics) a sdílení plánu odkazem #plan=… */
+function planEvents(t) {
+  const days = dateRange(t.start, t.end); if (!days.length) return [];
+  const dest = t.dest && t.dest !== '—' ? t.dest : '';
+  const info = [dest && 'Cíl: ' + dest, `Cestující: ${t.pax || 1}`, +t.budget ? 'Rozpočet: ' + czk(+t.budget) : '', t.flight ? '✈️ ' + t.flight : '', t.notes || ''].filter(Boolean).join('\n');
+  const ev = [{ title: '🧳 ' + t.name, start: t.start, end: t.end || t.start, description: info, location: dest }];
+  // Let uložený z průvodce cestou má přesné časy a zóny letišť; jinak jen text v den odjezdu.
+  if (t.legs && t.legs.length) t.legs.forEach(l => ev.push(Ics.flightEvent(l, { note: t.name })));
+  else if (t.flight) ev.push({ title: `✈️ Let – ${dest || t.name}`, start: t.start, description: t.flight, location: dest });
+  days.forEach((d, di) => { const acts = (t.days || {})[d] || []; if (acts.length) ev.push({ title: `Den ${di + 1} – ${dest || t.name}`, start: d, description: acts.map(a => '• ' + a).join('\n'), location: dest }); });
+  return ev;
+}
+function exportPlan(i) {
+  const t = S.trips[i], ev = planEvents(t);
+  if (!ev.length) return toast('Nejdřív doplň termíny cesty', 'err');
+  icsDownload('atlas-' + t.name, ev, { name: t.name });
+}
+/** Stáhne .ics (i z průvodce cestou); do kalendáře se události dostanou až otevřením souboru. */
+function icsDownload(filename, events, opts) {
+  const n = Ics.download(filename, events, opts).split('\r\nBEGIN:VEVENT\r\n').length - 1;
+  toast(`Soubor .ics stažen (${n} ${n === 1 ? 'událost' : n >= 2 && n <= 4 ? 'události' : 'událostí'}) – otevři ho v kalendáři`);
+}
+function sharePlan(i) {
+  const url = `${location.origin}${location.pathname}#plan=${PlanShare.encode(S.trips[i])}`;
+  const manual = () => prompt('Zkopíruj odkaz na plán:', url);
+  if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast('Odkaz na plán zkopírován – pošli ho komukoliv'), manual); else manual();
+}
+/** Sdílený plán z #plan=… (při startu a při změně adresy): náhled a import do plánovače. */
+function importPlanFromHash() {
+  if (!/^#plan=/.test(location.hash)) return false;
+  let p = null;
+  try { p = PlanShare.fromHash(location.hash); } catch (e) { toast('Odkaz na plán je poškozený', 'err'); }
+  history.replaceState(null, '', '#planner');
+  if (p) previewPlan(p);
+  return true;
+}
+function previewPlan(p) {
+  const c = p.iso ? byIso[p.iso] : null, days = Object.keys(p.days).sort(), acts = days.reduce((n, d) => n + p.days[d].length, 0);
+  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(p.iso) : '🧳'}</div><h2 style="font-size:24px;margin-top:4px;overflow-wrap:anywhere">${esc(p.name)}</h2><div style="opacity:.85;font-size:13px">Sdílený plán · ${esc(p.dest)}${p.start ? ' · ' + fmtDate(p.start) + (p.end && p.end !== p.start ? ' – ' + fmtDate(p.end) : '') : ''} · ${esc(p.pax)} os.</div></div></div>
+  <div class="modal-body">
+    <p class="muted" style="font-size:14px;margin-bottom:12px">Někdo ti poslal plán cesty. Zkontroluj ho a přidej si ho do plánovače – uloží se jen u tebe.</p>
+    ${p.flight ? `<div class="note info" style="margin-bottom:12px">✈️ <div>${esc(p.flight)}</div></div>` : ''}
+    ${days.slice(0, 6).map(d => `<div class="act"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${fmtDate(d)}</b> ${esc(p.days[d].join(' · '))}</span></div>`).join('')}
+    <div class="faint" style="font-size:12.5px;margin-top:8px">${acts} ${acts === 1 ? 'aktivita' : acts >= 2 && acts <= 4 ? 'aktivity' : 'aktivit'}${days.length > 6 ? ` · ${days.length} dní s programem` : ''}${+p.budget ? ' · rozpočet ' + czk(+p.budget) : ''}${p.notes ? ' · s poznámkami' : ''}</div>
+    <div class="row wrap" style="gap:8px;margin-top:16px"><button class="btn primary" id="planImport">Přidat do plánovače</button><button class="btn ghost" id="planSkip">Nepřidávat</button></div>
+  </div>`);
+  $('#planSkip').onclick = modalClose;
+  $('#planImport').onclick = () => {
+    const key = x => { const { checklist, ...rest } = PlanShare.sanitize(x); return JSON.stringify(rest); };
+    let i = S.trips.findIndex(t => key(t) === key(p));
+    if (i < 0) { S.trips.push({ ...p, checklist: p.checklist.length ? p.checklist : PACK.map(t => ({ t, done: false })) }); i = S.trips.length - 1; save(); toast('Plán přidán do plánovače'); }
+    else toast('Tenhle plán už v plánovači máš');
+    modalClose(); go('planner'); setTimeout(() => openTrip(i), 250);
+  };
 }
 window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.value.trim(); if (!v) return; S.trips[i].days[d] = S.trips[i].days[d] || []; S.trips[i].days[d].push(v); save(); openTrip(i); };
 window.delAct = (i, d, ai) => { S.trips[i].days[d].splice(ai, 1); save(); openTrip(i); };
@@ -384,6 +475,8 @@ function wireEvents() {
   ['#rMonth', '#rVibe', '#rBudget', '#rSafe'].forEach(s => $(s).onchange = renderRecs);
   $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; S.radar = null; save(); toast('Data aktualizována'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') renderDash(); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') modalClose(); });
+  // Odkaz na plán vložený do už otevřené stránky (mění se jen #).
+  window.addEventListener('hashchange', () => { if (importPlanFromHash()) go('planner', { noHash: true }); });
 }
 function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
 
@@ -397,7 +490,8 @@ async function boot() {
   if (window.Flights) await Flights.init();
   refreshStats();
   const shared = window.Trip && Trip.importFromHash();
-  const v = shared ? 'trip' : location.hash.slice(1);
+  const plan = !shared && importPlanFromHash();
+  const v = shared ? 'trip' : plan ? 'planner' : location.hash.slice(1);
   go(NAV.some(n => n[0] === v) ? v : 'dashboard', { noHash: true });
 }
 document.addEventListener('DOMContentLoaded', boot);

@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="css/atlas.css">
 <link rel="stylesheet" href="css/flights.css">
 <link rel="stylesheet" href="css/trip.css">
+<script src="js/flags.js"></script>
 </head>
 <body>
 <div class="app">
@@ -102,6 +103,10 @@
               <label>Kam <span class="lab-hint">nech prázdné = kamkoliv</span></label>
               <div class="place-input" id="toInput"></div>
               <div class="quick-dest" id="quickDest"></div>
+              <div class="warm-row" title="Jen cíle, kde je v měsíci odletu dlouhodobý průměr denních maxim aspoň tolik (NASA POWER) – není to předpověď počasí.">
+                <span class="muted">🌡️ Za teplem</span>
+                <div class="seg" id="minTemp"><button type="button" data-t="0" class="on">Kdekoliv</button><button type="button" data-t="20">≥ 20 °C</button><button type="button" data-t="25">≥ 25 °C</button><button type="button" data-t="30">≥ 30 °C</button></div>
+              </div>
             </div>
           </div>
 
@@ -162,6 +167,9 @@
                 <label class="check-inline"><input type="checkbox" id="openJaw" checked> návrat i na jiné letiště v okolí</label>
                 <label class="check-inline"><input type="checkbox" id="directOnly"> jen přímé lety</label>
               </div>
+              <div class="field" style="grid-column:1/-1"><label>🧳 Zavazadla <span class="lab-hint">odhad příplatku aerolinky se přičte k ceně</span></label>
+                <div class="seg wrap" id="bags"><button type="button" data-b="none" class="on">Jen malé pod sedadlo (v ceně)</button><button type="button" data-b="cabin">+ kabinový kufr do 10 kg</button><button type="button" data-b="checked">+ kufr k odbavení 20 kg</button></div>
+              </div>
               <div class="field" style="grid-column:1/-1"><label>Dny odletu <span class="lab-hint">nic = libovolný den</span></label>
                 <div class="dow" id="outDays"></div>
               </div>
@@ -173,7 +181,7 @@
 
           <div class="row wrap" style="margin-top:16px">
             <button class="btn primary big" id="doSearch" type="submit">🔎 Najít nejlevnější lety</button>
-            <button class="btn ghost" id="watchBtn" type="button" title="Uložit hledání a hlídat cenu">♡ Hlídat cenu</button>
+            <button class="btn ghost" id="watchBtn" type="button" title="Uložit hledání – cenu pak kontroluji sám, dokud máš ATLAS otevřený v prohlížeči">♡ Hlídat cenu</button>
             <span class="faint" id="searchHint" style="font-size:12.5px"></span>
           </div>
         </form>
@@ -278,9 +286,13 @@
 <script src="vendor/d3.min.js"></script>
 <script src="vendor/topojson-client.min.js"></script>
 <script src="js/data.js"></script>
+<script src="js/ics.js"></script>
+<script src="js/planshare.js"></script>
+<script src="js/weather.js"></script>
 <script src="js/app.js"></script>
 <script src="js/places.js"></script>
 <script src="js/trip.js"></script>
+<script src="js/alerts.js"></script>
 <script src="js/flights.js"></script>
 </body>
 </html>

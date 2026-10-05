@@ -37,9 +37,15 @@ export function continentCountries(key) {
 // „Kamkoliv“: kromě Evropy i nejhledanější dálkové země.
 export const LONG_HAUL_SWEEP = ['AE', 'TH', 'EG', 'MA', 'US', 'JP', 'MX', 'KE'];
 
+// „Kamkoliv za teplem“: kandidáti v pořadí oblíbenosti (blízké napřed); prohledají se jen ty,
+// kde je v měsících odletu aspoň jedno velké letiště dost teplé (viz climate.js).
+export const WARM_SWEEP = ['ES', 'PT', 'GR', 'IT', 'HR', 'CY', 'MT', 'TR', 'ME', 'AL', 'BG', 'FR', 'EG', 'MA', 'TN', 'CV',
+  'AE', 'OM', 'JO', 'IL', 'QA', 'TH', 'MX', 'DO', 'LK', 'MV', 'ID', 'VN', 'KE', 'TZ', 'CU', 'IN', 'MY', 'PH', 'MU', 'SC',
+  'JM', 'CR', 'BR', 'US', 'SG', 'ZA', 'AU'];
+
 // Hlavní letiště dálkových zemí (Travelpayouts vrací ceny z cache hledání ke konkrétnímu cíli
 // výrazně spolehlivěji než „odkudkoliv kamkoliv“). Ostatní země: 2 velká letiště z databáze.
-const HUBS = {
+export const HUBS = {
   AE: ['DXB', 'AUH'], QA: ['DOH'], OM: ['MCT'], JO: ['AMM'], IL: ['TLV'], SA: ['JED', 'RUH'], BH: ['BAH'], LB: ['BEY'],
   IN: ['DEL', 'BOM', 'GOI'], LK: ['CMB'], MV: ['MLE'], NP: ['KTM'], MU: ['MRU'], SC: ['SEZ'],
   TH: ['BKK', 'HKT'], VN: ['SGN', 'HAN'], ID: ['DPS', 'CGK'], MY: ['KUL'], SG: ['SIN'], PH: ['MNL'],

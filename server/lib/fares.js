@@ -31,9 +31,14 @@ export function makeLeg(o) {
     provider: o.provider,
     carrier: o.carrier || null,
     carrierName: o.carrierName || null,
+    // Let s přestupem: dopravci jednotlivých úseků (Kiwi) – kvůli poplatkům za zavazadla.
+    ...(o.carriers && o.carriers.length > 1 ? { carriers: o.carriers } : {}),
     flightNo: o.flightNo || null,
     from: o.from,
     to: o.to,
+    // IANA zóny letišť – místní časy dep/arr pak jdou převést (export do kalendáře).
+    fromTz: fa?.tz || null,
+    toTz: ta?.tz || null,
     dep,
     arr,
     arrEst,

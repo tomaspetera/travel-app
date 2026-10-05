@@ -204,6 +204,7 @@ function legOf(l, itinerary, currency, adults, combined) {
   return makeLeg({
     provider: 'kiwi',
     carrier: carriers[0] || null,
+    carriers: segs.map((s) => s.carrier).filter(Boolean), // po úsecích – kvůli poplatkům za zavazadla
     carrierName: carriers.map(airlineName).join(' + ') || 'Kiwi.com',
     flightNo: segs.map(flightNoOf).filter(Boolean).join(', ') || null,
     from,

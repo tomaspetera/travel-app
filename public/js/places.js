@@ -18,9 +18,11 @@
   ];
   const DAY_COLORS = ['#5b8cff', '#f59e0b', '#22c55e', '#ec4899', '#14b8a6', '#a855f7', '#ef4444', '#0ea5e9'];
   const ex = { place: null, items: [], cat: '', radius: 10, plan: null, interests: new Set(), pace: 'normal', days: 3, start: '', mode: 'city', transport: 'car', trips: {}, tripDays: { day: 2, loop: 4 }, tripEx: new Set(), tripMust: new Set(), tripInterests: new Set(), ms: null,
-    bike: { km: 40, bike: 'trekking', scenery: 'mixed', hills: 'normal', variant: 0 }, bikeRoute: null };
+    bike: { km: 40, bike: 'trekking', scenery: 'mixed', hills: 'normal', variant: 0, kind: 'loop' }, bikeRoute: null, trainRoute: null,
+    hike: { km: 10, scenery: 'mixed', hills: 'normal', variant: 0 }, hikeRoute: null };
   const TRIP_INTERESTS = [['towns', '🏘️ Města'], ['sights', '🏰 Památky'], ['culture', '🏛️ Poznávací'], ['nature', '🌲 Příroda'], ['spa', '♨️ Lázně'], ['kids', '🧒 S dětmi']];
-  const MODES = [['city', '🏙️ Program ve městě'], ['day', '🎒 Jednodenní výlety'], ['loop', '🧭 Vícedenní okruh'], ['bike', '🚴 Na kole']];
+  const MODES = [['city', '🏙️ Program ve městě'], ['day', '🎒 Jednodenní výlety'], ['loop', '🧭 Vícedenní okruh'], ['bike', '🚴 Na kole'], ['hike', '🥾 Pěšky']];
+  const BIKE_KINDS = [['loop', '🔁 Okruh'], ['train', '🚆 Vlakem tam, na kole zpět']];
   const BIKE_TYPES = [['road', '🏎️ Silniční'], ['trekking', '🚲 Trek / město'], ['gravel', '🪨 Gravel'], ['mtb', '🚵 Horské']];
   const BIKE_SCENERY = [['city', '🏙️ Městem'], ['mixed', '🔀 Smíšeně'], ['nature', '🌲 Přírodou']];
   const BIKE_HILLS = [['flat', '〰️ Spíš rovina'], ['normal', '⛰️ Normálně'], ['hilly', '🏔️ Do kopců']];
@@ -123,6 +125,14 @@
     liveMaps.add(map);
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.touchZoomRotate.disableRotation();
+    // Na úzké mapě (mobil) by rozbalená atribuce zakryla spodek mapy: sbal ji do tlačítka ⓘ (klepnutím se rozbalí).
+    const foldAttrib = () => {
+      const a = el.querySelector('.maplibregl-ctrl-attrib.maplibregl-compact-show');
+      if (!a) return;
+      a.classList.remove('maplibregl-compact-show');
+      map.off('sourcedata', foldAttrib);
+    };
+    if (el.offsetWidth <= 640) map.on('sourcedata', foldAttrib);
     // Když vektorová mapa nenaběhne (výpadek OpenFreeMap), přepni na rastrové dlaždice OpenStreetMap.
     const toRaster = () => { if (ms.raster || !liveMaps.has(map)) return; ms.raster = true; ms.styleReady = false; map.setStyle(OSM_STYLE, { diff: false }); };
     const timer = setTimeout(() => { if (!ms.styleReady) toRaster(); }, 8000);
@@ -197,7 +207,8 @@
       const b = new maplibregl.LngLatBounds([center.lon, center.lat], [center.lon, center.lat]);
       fit.forEach(pt => b.extend([pt.lon, pt.lat]));
       fitLines.forEach(l => l.coords.forEach(c => b.extend([c[0], c[1]])));
-      map.fitBounds(b, { padding: 40, maxZoom: 15, duration: 0 });
+      // dole víc místa, ať start trasy neskončí pod atribucí
+      map.fitBounds(b, { padding: { top: 40, right: 40, bottom: 56, left: 40 }, maxZoom: 15, duration: 0 });
     }
   }
 
@@ -241,11 +252,62 @@
     paintMap(state.map, center, pts, lines, onClick);
   }
 
-  // Kolo: trasa plnou čarou, památky po cestě očíslované.
-  function drawBike(state, center, r) {
+  // Kolo a pěšky: trasa plnou čarou, památky po cestě očíslované, u „vlakem tam“ nádraží (domov = střed mapy).
+  const routeColor = r => (r.activity === 'hike' ? '#f97316' : '#22c55e');
+  function drawRoute(state, center, r) {
     if (!state.map || !r) return;
-    const pts = r.via.map((v, i) => ({ id: `via${i}`, lat: v.lat, lon: v.lon, color: '#22c55e', num: i + 1, label: v.name, q: gq(v.name, cityOf(center)) }));
-    paintMap(state.map, center, pts, [{ color: '#22c55e', coords: r.geometry.map(c => [c[0], c[1]]), solid: true, fit: true }]);
+    const col = routeColor(r);
+    const pts = r.via.map((v, i) => ({ id: `via${i}`, lat: v.lat, lon: v.lon, color: col, num: i + 1, label: v.name, q: gq(v.name, cityOf(center)) }));
+    if (r.station) {
+      const st = r.station;
+      pts.push({ id: 'station', lat: st.lat, lon: st.lon, color: '#0ea5e9', num: '🚆', big: true, label: `🚆 ${st.name} – start jízdy`, q: /nádr|station|bahnhof|hbf/i.test(st.name) ? st.name : `${st.name} nádraží` });
+    }
+    paintMap(state.map, center, pts, [{ color: col, coords: r.geometry.map(c => [c[0], c[1]]), solid: true, fit: true }]);
+  }
+
+  /* ---------- počasí (weather.js: předpověď Open-Meteo, dál než 15 dní dlouhodobý průměr) ---------- */
+  // Plán na počasí nečeká: vykreslí se s prázdným místem [data-wx="lat,lon,datum"] a fillWx ho doplní,
+  // až předpověď dorazí. Stejné dotazy (plán se překresluje často) drží hodinu v paměti weather.js.
+  const wxKey = (pt, date) => `${pt.lat},${pt.lon},${date || ''}`;
+  // route = řádek u trasy na kole / pěšky (se dnem a tipem na lepší den), jinak štítek v nadpisu dne
+  const wxSlot = (pt, date, route) => (window.Weather && pt && pt.lat != null && pt.lon != null
+    ? (route ? `<div class="wx-day" data-wx="${esc(wxKey(pt, date))}"></div>` : `<span data-wx="${esc(wxKey(pt, date))}"></span>`) : '');
+  const WX_SRC = 'Počasí: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0)';
+  const WX_IN = ['V neděli', 'V pondělí', 'V úterý', 'Ve středu', 'Ve čtvrtek', 'V pátek', 'V sobotu'];
+  const WX_BYL = ['byla', 'bylo', 'bylo', 'byla', 'byl', 'byl', 'byla'];
+  const dow = ymd => new Date(ymd + 'T12:00:00').getDay();
+  // „V sobotu hrozí déšť (70 %) – lepší by byl čtvrtek 8. 10.: ☀️ 21°“; best = nejlepší z nejbližších 7 dní
+  function rainTip(w, best) {
+    const alt = best && best.date !== w.date && !Weather.rainy(best);
+    return `${WX_IN[dow(w.date)]} hrozí déšť${w.pop != null ? ` (${w.pop} %)` : ''}${alt
+      ? ` – lepší by ${WX_BYL[dow(best.date)]} <b>${Weather.dayName(best.date)} ${+best.date.slice(8)}. ${+best.date.slice(5, 7)}.</b>: ${wIco(best.code)[0]} ${best.hi}°` : ''}`;
+  }
+  async function fillWx(host) {
+    const W = window.Weather;
+    const slots = $$('[data-wx]', host).map(el => { const [lat, lon, date] = el.dataset.wx.split(','); return { el, key: el.dataset.wx, lat: +lat, lon: +lon, date, route: el.classList.contains('wx-day') }; });
+    if (!W || !slots.length) return;
+    // Odpověď patří jen svému místu: po překreslení (jiné místo, režim) už ve stránce není,
+    // po změně data čeká na jiný den – starší předpověď se do něj nezapíše. Bez údajů se řádek u trasy schová.
+    const put = (s, html) => { if (s.el.isConnected && s.el.dataset.wx === s.key) { s.el.innerHTML = html; s.el.hidden = !html; } };
+    try {
+      const ws = await W.forecast(slots); // jeden dotaz na všechny dny a místa plánu; null = mimo dosah / chyba
+      await Promise.all(slots.map(async (s, i) => {
+        const w = ws[i];
+        if (w) {
+          const line = s.route ? `<span class="faint">Počasí ${dayLbl(s.date)}:</span>${W.badge(w)}` : W.badge(w);
+          put(s, line);
+          if (s.route && W.rainy(w)) {
+            const best = W.bestDay(await W.days(s.lat, s.lon, fmtYMD(new Date()), 7));
+            put(s, `${line}<div class="note info">🌧️ <div>${rainTip(w, best)}</div></div>`);
+          }
+        } else if (W.daysAhead(s.date) > W.AHEAD) {
+          const n = await W.normal(s.lat, s.lon, s.date);
+          const why = 'dlouhodobý průměr (NASA POWER), ne předpověď – ta je nejvýš na 15 dní dopředu';
+          put(s, !n ? '' : s.route ? `📅 ${esc(n.text)} <span class="faint">– ${why}</span>`
+            : `<span class="wx avg" title="${esc(`${n.text} – ${why}`)}">obvykle ${esc(n.hi)}°<small> / ${esc(n.lo)}°</small></span>`);
+        } else put(s, '');
+      }));
+    } catch { /* bez počasí se plán obejde */ }
   }
 
   /* ---------- karty ---------- */
@@ -267,7 +329,7 @@
     const warn = (plan.warnings || []).map(w => `<div class="note warn" style="margin-bottom:10px">⚠️ <div>${esc(w)}</div></div>`).join('');
     return warn + plan.days.map((d, i) => {
       const url = d.kind !== 'daytrip' ? gmDir(centerQ(center), d.items.map(p => poiQ(p, center)), 'walking') : gmDir(centerQ(center), d.items.slice(0, 1).map(p => p.name), 'transit');
-      return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${d.kind === 'daytrip' ? ' · celodenní výlet' : ''}</span>
+      return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${d.kind === 'daytrip' ? ' · celodenní výlet' : ''}${wxSlot((d.kind === 'daytrip' && d.items[0]) || center, d.date)}</span>
         ${url ? `<a class="linkbtn" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">trasa v Google Maps ↗</a>` : ''}</h4>
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${minTxt(p.visitMin)}</span>
           <div class="dp-walk">${j === 0 ? 'od ubytování' : 'dál'} ${p.transit ? `${p.fromPrevKm} km – MHD/taxi` : `${p.fromPrevKm} km pěšky (~${minTxt(p.fromPrevMin)})`}</div></div>
@@ -324,7 +386,9 @@
     };
     const paint = plan => {
       $('#tpPlan', host).innerHTML = (st.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : '') + planHtml(plan, center)
-        + (plan.spare?.length ? `<details class="more"><summary>Další místa v okolí (${plan.spare.length})</summary><div class="poi-list" style="margin-top:10px">${plan.spare.slice(0, 15).map(p => poiCard(p, { toggle: true, must: st.must, center })).join('')}</div></details>` : '');
+        + (plan.spare?.length ? `<details class="more"><summary>Další místa v okolí (${plan.spare.length})</summary><div class="poi-list" style="margin-top:10px">${plan.spare.slice(0, 15).map(p => poiCard(p, { toggle: true, must: st.must, center })).join('')}</div></details>` : '')
+        + (window.Weather ? `<div class="faint" style="font-size:11.5px;margin-top:8px">${WX_SRC}</div>` : '');
+      fillWx($('#tpPlan', host));
       drawOnMap(st, center, st.items.filter(p => plan.days.some(d => d.items.some(q => q.id === p.id)) || p.category !== 'daytrip'), plan, p => { const el = $(`[data-poi="${CSS.escape(p.id)}"]`, host); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
       $$('[data-drop]', host).forEach(b => b.onclick = () => { st.exclude.add(b.dataset.drop); st.must.delete(b.dataset.drop); run(); });
       $$('[data-must]', host).forEach(b => b.onclick = e => { e.stopPropagation(); st.must.add(b.dataset.must); st.exclude.delete(b.dataset.must); run(); });
@@ -365,7 +429,7 @@
       // země podle kódu (česky, „Španělsko“) – kontext pro odkazy do Google Map
       const country = s.geo ? '' : (typeof byIso !== 'undefined' && byIso[s.cc]?.cs) || '';
       ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc, geo: Boolean(s.geo), country };
-      ex.plan = null; ex.trips = {}; ex.bikeRoute = null; ex.tripEx.clear(); ex.tripMust.clear(); q.value = s.label; dd.hidden = true; loadExplore();
+      ex.plan = null; ex.trips = {}; ex.bikeRoute = null; ex.trainRoute = null; ex.hikeRoute = null; ex.tripEx.clear(); ex.tripMust.clear(); q.value = s.label; dd.hidden = true; loadExplore();
     };
     let t;
     q.oninput = () => {
@@ -451,7 +515,9 @@
       const title = trip.mode === 'day' ? `Výlet ${i + 1}` : `Den ${i + 1}`;
       const way = trip.mode === 'loop' ? ` · ${esc(d.from.name)} → ${esc(d.overnight ? d.overnight.name : center.label)}` : '';
       const lastQ = d.stops.length ? d.stops.at(-1).name : from;
-      return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> ${title} · ${dayLbl(d.date)}${way}</span>
+      // Počasí dne: u okruhu v místě přespání (poslední den u poslední zastávky), u výletu v hlavním cíli (nejvyšší skóre).
+      const wxAt = trip.mode === 'loop' ? d.overnight || d.stops.at(-1) : d.stops.reduce((b, s) => (b && (b.score || 0) >= (s.score || 0) ? b : s), null);
+      return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> ${title} · ${dayLbl(d.date)}${way}${wxSlot(wxAt, d.date)}</span>
         ${url ? `<a class="linkbtn" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">trasa autem v Google Maps ↗</a>` : ''}</h4>
         <div class="dp-walk" style="margin:2px 0 4px">${transit ? 'vyrazit kolem' : 'odjezd'} ~09:00 z: ${esc(d.from.name)}</div>
         ${d.stops.map((s, j) => tripStopHtml(s, j, transit, j === 0 ? from : d.stops[j - 1].name, d.date)).join('')}
@@ -467,7 +533,7 @@
         : 'Časy jízdy jsou orientační odhad autem; přesnou trasu ukáže Google Maps.'} Cíle do ~120 km od místa.</div>`;
   }
 
-  /* ---------- na kole ---------- */
+  /* ---------- na kole a pěšky ---------- */
   const BIKE_LBL = Object.fromEntries(BIKE_TYPES);
   const kmBetween = (a, b) => {
     const r = Math.PI / 180;
@@ -475,7 +541,7 @@
     return Math.hypot(x, (b[1] - a[1]) * r) * 6371;
   };
   // Výškový profil trasy (vzdálenost × nadmořská výška).
-  function elevSvg(geom) {
+  function elevSvg(geom, col = '#22c55e') {
     const pts = geom.filter(c => c[2] != null);
     if (pts.length < 2) return '';
     const xs = [0];
@@ -488,7 +554,7 @@
     const W = 600, H = 80;
     const line = pts.map((c, i) => `${((xs[i] / total) * W).toFixed(1)},${(H - 4 - ((c[2] - lo) / span) * (H - 12)).toFixed(1)}`).join(' ');
     return `<svg class="elev" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Výškový profil ${lo}–${hi} m n. m.">
-      <polygon points="0,${H} ${line} ${W},${H}" fill="rgba(34,197,94,.18)"/><polyline points="${line}" fill="none" stroke="#22c55e" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+      <polygon points="0,${H} ${line} ${W},${H}" fill="${col}" fill-opacity=".18"/><polyline points="${line}" fill="none" stroke="${col}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
       <div class="faint elev-axis"><span>výška ${lo}–${hi} m n. m.</span><span>${Math.round(total)} km</span></div>`;
   }
   // GPX pro navigaci (Mapy.com, Garmin, Komoot, Strava…).
@@ -505,28 +571,52 @@
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
   const slug = s => String(s || 'trasa').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'trasa';
-  const bikeName = (r, center) => `Na kole z: ${center.label} – ${r.km} km`;
+  const routeName = (r, center) => (r.activity === 'hike' ? `Pěšky z: ${center.label} – ${r.km} km`
+    : r.kind === 'train' ? `Na kole z: ${r.station.name} do: ${center.label} – ${r.km} km` : `Na kole z: ${center.label} – ${r.km} km`);
+  // Řádky do plánovače (den výletu).
+  const routeLines = (r, center) => (r.activity === 'hike' ? [`🥾 Pěšky: ${r.km} km, ↗ ${r.ascent} m, ~${minTxt(r.minutes)} chůze`]
+    : r.kind === 'train' ? [`🚆 Vlakem: ${center.label} → ${r.station.name}`, `🚴 Na kole zpět: ${r.km} km, ↗ ${r.ascent} m, ~${minTxt(r.minutes)} (${BIKE_LBL[r.bike] || ''})`]
+    : [`🚴 Okruh na kole: ${r.km} km, ↗ ${r.ascent} m, ~${minTxt(r.minutes)} (${BIKE_LBL[r.bike] || ''})`]);
 
-  function bikeHtml(r, center) {
+  // Výsledek trasy na kole (okruh / vlakem tam, na kole zpět) i pěšky; date = zvolený den (počasí na startu).
+  function routeHtml(r, center, date) {
     if (!r) return '';
-    const off = Math.abs(r.km - r.target) / r.target > 0.15;
+    const hike = r.activity === 'hike';
+    const train = r.kind === 'train';
+    const link = (url, txt) => `<a href="${esc(safeUrl(url))}" target="_blank" rel="noopener">${txt}</a>`;
+    // u vlaku je délka jízdy zpět přijatelná v 75–135 % zvolené (nádraží nejsou všude)
+    const off = train ? r.km < r.target * 0.75 || r.km > r.target * 1.35 : Math.abs(r.km - r.target) / r.target > 0.15;
     const head = [
-      r.demo ? '<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>DEMO data</b> – trasa je jen ukázkový kruh.</div></div>' : '',
-      off ? `<div class="note info" style="margin-bottom:10px">ℹ️ <div>Trasa vyšla na ${r.km} km místo ${r.target} km${r.via.length ? ' – vede přes památky po cestě' : ' – v okolí se přesněji naplánovat nedala'}. Zkus „Jiná trasa“.</div></div>` : '',
+      r.demo ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>DEMO data</b> – ${train ? 'nádraží i trasa jsou vymyšlené' : 'trasa je jen ukázkový kruh'}.</div></div>` : '',
+      off ? `<div class="note info" style="margin-bottom:10px">ℹ️ <div>${train ? `Jízda z nádraží vyšla na ${r.km} km místo ${r.target} km – z okolních nádraží se zvolené délce přiblížit nepodařilo. Zkus „Jiné nádraží“ nebo jinou délku.`
+        : `Trasa vyšla na ${r.km} km místo ${r.target} km${r.via.length ? ' – vede přes památky po cestě' : ' – v okolí se přesněji naplánovat nedala'}. Zkus „Jiná trasa“.`}</div></div>` : '',
     ].join('');
-    const surface = [`${r.unpavedPct} % nezpevněné cesty`, `${r.cyclePct} % cyklostezky a cyklotrasy`, r.busyPct ? `${r.busyPct} % rušnější silnice` : ''].filter(Boolean).join(' · ');
-    return `${head}<div class="day-plan"><h4><span>🚴 Okruh z: ${esc(center.label)} · ${esc(BIKE_LBL[r.bike] || '')}</span></h4>
-      <div class="bike-stats"><b>${r.km} km</b><span>↗ ${r.ascent} m stoupání</span><span>⏱️ ~${minTxt(r.minutes)} v sedle</span></div>
+    const surface = (hike
+      ? [`${r.trailPct} % po značených turistických trasách`, `${r.unpavedPct} % nezpevněné cesty`,
+        r.roadPct ? `<span title="Silnice s provozem aut, u kterých mapa OpenStreetMap neuvádí chodník (nemusí ho mít zakreslený).">${r.roadPct} % po silnici bez chodníku</span>` : '',
+        r.busyPct ? `${r.busyPct} % podél rušnější silnice` : '']
+      : [`${r.unpavedPct} % nezpevněné cesty`, `${r.cyclePct} % cyklostezky a cyklotrasy`, r.busyPct ? `${r.busyPct} % rušnější silnice` : '']).filter(Boolean).join(' · ');
+    const title = hike ? `🥾 Pěšky z: ${esc(center.label)}` : train ? `🚆 Vlakem tam, 🚴 na kole zpět · ${esc(BIKE_LBL[r.bike] || '')}` : `🚴 Okruh z: ${esc(center.label)} · ${esc(BIKE_LBL[r.bike] || '')}`;
+    const st = r.station;
+    const trainHtml = train ? `<div class="ride-train">🚆 Vlakem: <b>${esc(center.label)}</b> → <b>${esc(st.name)}</b> <span class="faint">(${Math.round(kmBetween([center.lon, center.lat], [st.lon, st.lat]))} km vzdušnou čarou)</span>
+        <div>${r.train.idosUrl ? `${link(r.train.idosUrl, 'spojení na IDOS ↗')} · ` : ''}${link(r.train.googleUrl, 'spoje v Google Maps ↗')}</div></div>` : '';
+    return `${head}<div class="day-plan"><h4><span>${title}</span></h4>
+      ${wxSlot(train ? st : center, date, true)}
+      ${trainHtml}
+      <div class="bike-stats">${train ? '<span>🚴 Na kole zpět:</span>' : ''}<b>${r.km} km</b><span>↗ ${r.ascent} m stoupání</span>${train ? `<span>↘ ${r.descent ?? r.ascent} m klesání</span>` : ''}<span>⏱️ ~${minTxt(r.minutes)} ${hike ? 'chůze' : 'v sedle'}</span></div>
       <div class="dp-walk">${surface}</div>
       ${r.via.length ? `<div class="dp-walk">👀 Po cestě: ${r.via.map((v, i) => `${i + 1}. ${esc(v.name)}`).join(' · ')}</div>` : ''}
-      ${elevSvg(r.geometry)}
+      ${elevSvg(r.geometry, routeColor(r))}
+      ${train ? `<div class="note info" style="margin-top:10px">🚲 <div>Kolo ve vlaku obvykle potřebuje vlastní jízdenku${st.cc === 'CZ' ? ' (v Česku „jízdní kolo“ jako spoluzavazadlo)' : ''} a některé vlaky vyžadují rezervaci místa pro kolo – ověř to u konkrétního spoje.</div></div>` : ''}
       <div class="row wrap" style="gap:8px;margin-top:10px">
-        <button class="btn" id="bikeOther">🔄 Jiná trasa</button>
-        <button class="btn" id="bikeGpx">⬇️ Stáhnout GPX</button>
+        <button class="btn" id="routeOther">🔄 ${train ? 'Jiné nádraží' : 'Jiná trasa'}</button>
+        <button class="btn" id="routeGpx">⬇️ Stáhnout GPX</button>
         <a class="btn" href="${esc(safeUrl(r.mapyUrl))}" target="_blank" rel="noopener">Otevřít v Mapy.com ↗</a>
         <a class="btn" href="${esc(safeUrl(r.googleUrl))}" target="_blank" rel="noopener">Google Maps ↗</a>
       </div></div>
-      <div class="faint" style="font-size:11.5px;margin-top:6px">Trasa: BRouter (brouter.de) nad mapou © OpenStreetMap. Čas je odhad podle kola a převýšení, bez zastávek.
+      <div class="faint" style="font-size:11.5px;margin-top:6px">${hike
+        ? 'Trasa: BRouter (profil pěší turistiky) nad mapou © OpenStreetMap. Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu), bez přestávek. „Spíš rovina“ se vyhýbá stoupání, „Do kopců“ dává přednost pěšinám a horským stezkám (kopce ale plánovač sám nevyhledá).'
+        : `${train ? 'Nádraží: Wikidata. ' : ''}Trasa: BRouter (brouter.de) nad mapou © OpenStreetMap. Čas je odhad podle kola a převýšení, bez zastávek.`}
         GPX nahraješ do Mapy.com, Garminu, Komootu či Stravy; odkazy do Mapy.com a Google Map vedou trasu přes několik bodů, takže se může mírně lišit.</div>`;
   }
 
@@ -554,36 +644,46 @@
     const list = ex.items.filter(x => !ex.cat || x.category === ex.cat);
     const st = ex.planState || (ex.planState = { interests: ex.interests, pace: ex.pace, exclude: new Set(), must: new Set(), items: [], map: null });
     const bikeMode = ex.mode === 'bike';
+    const hikeMode = ex.mode === 'hike';
+    const routeMode = bikeMode || hikeMode;
     const road = ex.mode === 'day' || ex.mode === 'loop';
     const trip = road ? ex.trips[tripKey(ex.mode, ex.transport)] : null;
-    const br = bikeMode ? ex.bikeRoute : null;
+    // Volby a trasa kola / pěšky; okruh a „vlakem tam“ mají každý svou trasu.
+    const ro = hikeMode ? ex.hike : ex.bike;
+    const train = bikeMode && ex.bike.kind === 'train';
+    const rr = hikeMode ? ex.hikeRoute : train ? ex.trainRoute : bikeMode ? ex.bikeRoute : null;
     const dayOpts = ex.mode === 'loop' ? [2, 3, 4, 5, 6, 7, 10] : ex.mode === 'day' ? [1, 2, 3, 4, 5, 7] : [1, 2, 3, 4, 5, 6, 7, 10];
     const curDays = road ? ex.tripDays[ex.mode] : ex.days;
-    const hasPlan = bikeMode ? br : road ? trip && trip.days.length : ex.plan;
-    const out = bikeMode ? bikeHtml(br, p) : road ? tripHtml(trip, p) : ex.plan ? planHtml(ex.plan, p) : '';
+    const hasPlan = routeMode ? rr : road ? trip && trip.days.length : ex.plan;
+    const out = routeMode ? routeHtml(rr, p, ex.start) : road ? tripHtml(trip, p) : ex.plan ? planHtml(ex.plan, p) : '';
     // V režimu výletů jde z výpisu přidat jen výlet mimo město (do programu ve městě patří ostatní).
     const card = x => (road
       ? poiCard(x, x.category === 'daytrip' ? { tripToggle: true, center: p } : { center: p })
-      : bikeMode ? poiCard(x, { center: p }) : poiCard(x, { toggle: true, must: st.must, center: p }));
+      : routeMode ? poiCard(x, { center: p }) : poiCard(x, { toggle: true, must: st.must, center: p }));
     const segBtns = (list, attr, cur) => list.map(([id, l]) => `<button type="button" ${attr}="${id}" class="${cur === id ? 'on' : ''}">${l}</button>`).join('');
     const saveBtn = hasPlan ? '<button class="btn" id="exSave">💾 Uložit do plánovače</button>' : '';
-    const bikeCtl = `<div class="row wrap" style="gap:10px;align-items:end">
+    // Vlakem tam: jízda nevede přes památky, „městem“ = smíšeně.
+    const scen = train ? BIKE_SCENERY.filter(([id]) => id !== 'city') : BIKE_SCENERY;
+    const routeCtl = `${bikeMode ? `<div class="seg wrap" style="margin:0 0 10px">${segBtns(BIKE_KINDS, 'data-bkind', ex.bike.kind)}</div>` : ''}
+        <div class="row wrap" style="gap:10px;align-items:end">
           <div class="field" style="margin:0"><label>Kdy</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
-          <div class="field" style="margin:0"><label>Délka okruhu</label><select id="bikeKm">${[15, 25, 40, 60, 80, 100, 130].map(n => `<option value="${n}" ${ex.bike.km === n ? 'selected' : ''}>${n} km</option>`).join('')}</select></div>
+          <div class="field" style="margin:0"><label>${train ? 'Délka jízdy zpět' : 'Délka okruhu'}</label><select id="routeKm">${(hikeMode ? [5, 8, 10, 12, 15, 20, 25, 30] : [15, 25, 40, 60, 80, 100, 130]).map(n => `<option value="${n}" ${ro.km === n ? 'selected' : ''}>${n} km</option>`).join('')}</select></div>
           <button class="btn primary" id="exPlan">Naplánovat trasu</button>${saveBtn}
         </div>
-        <div class="row wrap" style="gap:8px;margin:10px 0"><div class="seg wrap">${segBtns(BIKE_TYPES, 'data-bike', ex.bike.bike)}</div></div>
-        <div class="row wrap" style="gap:8px;margin:0 0 10px"><div class="seg wrap">${segBtns(BIKE_SCENERY, 'data-scen', ex.bike.scenery)}</div><div class="seg wrap">${segBtns(BIKE_HILLS, 'data-hills', ex.bike.hills)}</div></div>`;
+        ${bikeMode ? `<div class="row wrap" style="gap:8px;margin:10px 0 0"><div class="seg wrap">${segBtns(BIKE_TYPES, 'data-bike', ex.bike.bike)}</div></div>` : ''}
+        <div class="row wrap" style="gap:8px;margin:10px 0"><div class="seg wrap">${segBtns(scen, 'data-scen', train && ro.scenery === 'city' ? 'mixed' : ro.scenery)}</div><div class="seg wrap">${segBtns(BIKE_HILLS, 'data-hills', ro.hills)}</div></div>`;
     body.innerHTML = `${ex.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
       <div class="section-head" style="margin-top:6px"><h2>${flag(p.cc || '')} ${esc(p.label)} · ${ex.items.length} míst</h2></div>
       <div class="ex-cats"><button type="button" data-cat="" class="${!ex.cat ? 'on' : ''}">Vše</button>${cats.map(c => `<button type="button" data-cat="${c}" class="${ex.cat === c ? 'on' : ''}">${icon(c)} ${(CAT[c] || CAT.sight)[1]}</button>`).join('')}</div>
       <div class="card step-card"><h3>🗓️ Naplánovat</h3>
         <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${MODES.map(([id, l]) => `<button type="button" data-mode="${id}" class="${ex.mode === id ? 'on' : ''}">${l}</button>`).join('')}</div>
         <div class="muted" style="font-size:13px;margin:-4px 0 10px">${ex.mode === 'city' ? 'Pěší program po památkách – každý den jiná část města.'
+          : train ? `Vlakem z místa (${esc(p.label)}) na nádraží v dosahu zvolené délky jízdy a na kole zpátky: zvol délku, kolo a krajinu. Najdu nádraží, trasu domů a odkaz na spojení vlakem.`
           : bikeMode ? `Okruh na kole ze startu (${esc(p.label)}) a zpět: zvol délku, kolo a krajinu. Trasa vede hlavně po cyklostezkách a klidných cestách.`
+          : hikeMode ? `Pěší okruh ze startu (${esc(p.label)}) a zpět: zvol délku, krajinu a kopce. Plánovač dává přednost pěšinám, turistickým trasám a klidným cestám.`
           : ex.mode === 'day' ? `Ráno ${ex.transport === 'transit' ? 'vlakem nebo busem' : 'autem'} ven, večer zpátky: města, hrady a příroda do ~${ex.transport === 'transit' ? '3' : '2,5'} h cesty. Každý výlet jiný.`
           : `Okruh ${ex.transport === 'transit' ? 'vlakem a autobusem' : 'autem'} s přespáním po cestě – každý den pár zastávek, poslední den zpět na start.`}</div>
-        ${bikeMode ? bikeCtl : `<div class="row wrap" style="gap:10px;align-items:end">
+        ${routeMode ? routeCtl : `<div class="row wrap" style="gap:10px;align-items:end">
           <div class="field" style="margin:0"><label>Od</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
           <div class="field" style="margin:0"><label>${ex.mode === 'day' ? 'Počet výletů' : 'Počet dní'}</label><select id="exDays">${dayOpts.map(n => `<option ${curDays === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
           <button class="btn primary" id="exPlan">${road ? 'Naplánovat výlet' : 'Sestavit program'}</button>${saveBtn}
@@ -591,7 +691,8 @@
         <div class="row wrap" style="gap:8px;margin:0 0 10px"><span class="faint" style="font-size:12.5px;align-self:center">Co tě láká:</span>${TRIP_INTERESTS.map(([id, l]) => `<button type="button" class="fchip ${ex.tripInterests.has(id) ? 'on' : ''}" data-tint="${id}">${l}</button>`).join('')}</div>` : plannerControls(st)}`}
         <div id="exPlanOut">${out}</div></div>
       <div class="ex-layout"><div class="poi-list" id="exList">${list.map(card).join('') || '<div class="empty">Nic v této kategorii.</div>'}</div><div id="exMapSlot"></div></div>
-      <div class="faint" style="font-size:11.5px;margin-top:10px">Zdroj: Wikidata a Wikipedie (CC BY-SA), mapa © OpenFreeMap, OpenMapTiles, OpenStreetMap. Otevírací doby ověř na webu místa.</div>`;
+      <div class="faint" style="font-size:11.5px;margin-top:10px">Zdroj: Wikidata a Wikipedie (CC BY-SA), mapa © OpenFreeMap, OpenMapTiles, OpenStreetMap. ${WX_SRC}. Otevírací doby ověř na webu místa.</div>`;
+    fillWx($('#exPlanOut', body));
     const ms = exploreMap(p);
     $('#exMapSlot', body).replaceWith(ms.el);
     if (ms.map) ms.map.resize();
@@ -600,9 +701,9 @@
       const el = $(`#exPlanOut [data-poi="${CSS.escape(x.id)}"]`) || $(`#exList [data-poi="${CSS.escape(x.id)}"]`);
       if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('hl'); setTimeout(() => el.classList.remove('hl'), 1500); }
     };
-    if (br) drawBike(st, p, br);
+    if (rr) drawRoute(st, p, rr);
     else if (trip) drawTrips(st, p, trip, hl);
-    else drawOnMap(st, p, ex.plan && !bikeMode ? ex.items : list, bikeMode ? null : ex.plan, hl);
+    else drawOnMap(st, p, ex.plan && !routeMode ? ex.items : list, routeMode ? null : ex.plan, hl);
     // Na mapě je jen to, co je na ní nakreslené – bez značky se nikam neletí.
     const focus = x => { if (x && ms.byId?.has(x.id)) focusOnMap(ms, x); };
     $$('[data-cat]', body).forEach(b => b.onclick = () => { ex.cat = b.dataset.cat; paintExplore(); });
@@ -626,32 +727,59 @@
     $$('[data-int]', body).forEach(b => b.onclick = () => { st.interests.has(b.dataset.int) ? st.interests.delete(b.dataset.int) : st.interests.add(b.dataset.int); b.classList.toggle('on'); });
     const on = (sel, ev, fn) => { const el = $(sel, body); if (el) el[ev] = fn; };
     on('[data-pace]', 'onchange', e => { st.pace = e.target.value; ex.pace = e.target.value; });
-    on('#exStart', 'onchange', e => { ex.start = e.target.value; });
+    on('#exStart', 'onchange', e => {
+      ex.start = e.target.value;
+      // Trasa kola / pěšky na datu nezávisí – stačí k ní doplnit počasí nově zvoleného dne.
+      const wx = rr && $('#exPlanOut .wx-day', body);
+      if (!wx) return;
+      const [lat, lon] = wx.dataset.wx.split(',');
+      wx.dataset.wx = wxKey({ lat, lon }, ex.start);
+      wx.innerHTML = '';
+      wx.hidden = false;
+      fillWx(wx.parentNode);
+    });
     on('#exDays', 'onchange', e => { if (road) ex.tripDays[ex.mode] = +e.target.value; else ex.days = +e.target.value; });
-    // Kolo: volby platí pro příští „Naplánovat trasu“ (jiná volba = zase první varianta trasy).
-    on('#bikeKm', 'onchange', e => { ex.bike.km = +e.target.value; ex.bike.variant = 0; });
+    // Kolo a pěšky: volby platí pro příští „Naplánovat trasu“ (jiná volba = zase první varianta trasy).
+    on('#routeKm', 'onchange', e => { ro.km = +e.target.value; ro.variant = 0; });
     for (const [attr, key] of [['data-bike', 'bike'], ['data-scen', 'scenery'], ['data-hills', 'hills']]) {
       $$(`[${attr}]`, body).forEach(b => b.onclick = () => {
-        ex.bike[key] = b.getAttribute(attr);
-        ex.bike.variant = 0;
+        ro[key] = b.getAttribute(attr);
+        ro.variant = 0;
         $$(`[${attr}]`, body).forEach(x => x.classList.toggle('on', x === b));
       });
     }
+    // Okruh / vlakem tam: jiné popisky i volby, každý režim ukazuje svou trasu.
+    $$('[data-bkind]', body).forEach(b => b.onclick = () => {
+      if (ex.bike.kind === b.dataset.bkind) return;
+      ex.bike.kind = b.dataset.bkind;
+      ex.bike.variant = (ex.bike.kind === 'train' ? ex.trainRoute : ex.bikeRoute)?.variant || 0;
+      paintExplore();
+    });
     const mode = ex.mode;
     const transport = ex.transport;
-    const seqKey = bikeMode ? 'bike' : road ? tripKey(mode, transport) : 'city';
-    const planLbl = bikeMode ? 'Naplánovat trasu' : road ? 'Naplánovat výlet' : 'Sestavit program';
+    const seqKey = routeMode ? (train ? 'train' : mode) : road ? tripKey(mode, transport) : 'city';
+    const planLbl = routeMode ? 'Naplánovat trasu' : road ? 'Naplánovat výlet' : 'Sestavit program';
     const replan = async btn => {
       const my = replanSeq[seqKey] = (replanSeq[seqKey] || 0) + 1; // jen poslední dotaz smí vykreslit (rychlé klikání na ✕ / +)
       const lbl = btn?.textContent;
-      if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spin"></span> ${bikeMode ? 'Plánuju trasu…' : road ? 'Hledám cíle výletů…' : 'Skládám…'}`; }
+      if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spin"></span> ${train ? 'Hledám nádraží a trasu…' : routeMode ? 'Plánuju trasu…' : road ? 'Hledám cíle výletů…' : 'Skládám…'}`; }
       try {
-        if (bikeMode) {
+        if (routeMode) {
           // Městem: památky, které už jsou načtené (server je nemusí hledat znovu).
-          const sights = ex.bike.scenery === 'city' ? ex.items.filter(x => x.category !== 'daytrip').slice(0, 40).map(x => ({ name: x.name, lat: x.lat, lon: x.lon, score: x.score })) : undefined;
-          const r = await getJson('api/bike', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: p.lat, lon: p.lon, ...ex.bike, sights }) });
+          const sights = ro.scenery === 'city' && !train ? ex.items.filter(x => x.category !== 'daytrip').slice(0, 40).map(x => ({ name: x.name, lat: x.lat, lon: x.lon, score: x.score })) : undefined;
+          // Vlakem tam: název a země domova pro odkaz na spojení (u „Moje okolí“ název není).
+          const home = train ? { label: p.geo ? '' : p.label, cc: p.cc || '' } : {};
+          const ask = () => getJson(hikeMode ? 'api/hike' : 'api/bike', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: p.lat, lon: p.lon, ...ro, ...home, sights }) });
+          // Nádraží z Wikidat napoprvé (prázdná mezipaměť) občas nestihnou – jednou to zkusím znovu jako u výletů.
+          const r = await ask().catch(e => {
+            if (!train || e.status !== 503) throw e;
+            if (btn?.isConnected) btn.innerHTML = '<span class="spin"></span> Odpověď trvá déle – zkouším znovu…';
+            return ask();
+          });
           if (my !== replanSeq[seqKey] || ex.place !== p) return;
-          ex.bikeRoute = r;
+          // u vlaku server mohl přeskočit nádraží s nevhodnou délkou – „Jiné nádraží“ pokračuje za tím ukázaným
+          if (r.kind === 'train' && ro.kind === 'train') ro.variant = r.variant;
+          if (hikeMode) ex.hikeRoute = r; else if (r.kind === 'train') ex.trainRoute = r; else ex.bikeRoute = r;
         } else if (road) {
           // Po uspání serveru (prázdná mezipaměť) Wikidata napoprvé často nestihne – dotazy ale běží dál,
           // takže hned druhý pokus už většinou projde.
@@ -667,7 +795,7 @@
           if (my !== replanSeq[seqKey] || ex.place !== p) return;
           ex.plan = plan;
         }
-        if (ex.mode !== mode || ex.transport !== transport) return; // uložené, ale uživatel přepnul režim
+        if (ex.mode !== mode || ex.transport !== transport || (bikeMode && (ex.bike.kind === 'train') !== train)) return; // uložené, ale uživatel přepnul režim
         paintExplore();
         if (btn) $('#exPlanOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (e) {
@@ -677,8 +805,8 @@
       }
     };
     $('#exPlan', body).onclick = () => replan($('#exPlan'));
-    on('#bikeOther', 'onclick', () => { ex.bike.variant = (ex.bike.variant + 1) % 10; replan($('#bikeOther')); });
-    on('#bikeGpx', 'onclick', () => downloadText(`atlas-kolo-${slug(p.label)}-${br.km}km.gpx`, gpxOf(br, bikeName(br, p)), 'application/gpx+xml'));
+    on('#routeOther', 'onclick', () => { ro.variant = (ro.variant + 1) % 10; replan($('#routeOther')); });
+    on('#routeGpx', 'onclick', () => downloadText(`atlas-${hikeMode ? 'pesky' : rr.kind === 'train' ? 'vlak-kolo' : 'kolo'}-${slug(p.label)}-${rr.km}km.gpx`, gpxOf(rr, routeName(rr, p)), 'application/gpx+xml'));
     $$('[data-drop]', body).forEach(b => b.onclick = () => { st.exclude.add(b.dataset.drop); replan(); });
     // Vyřazení / přidání cíle platí pro všechny výlety – ostatní uložené plány (jiný režim, doprava)
     // by ho ještě obsahovaly, proto se zahodí a při přepnutí se naplánují znovu.
@@ -689,11 +817,11 @@
     if (sv) sv.onclick = () => {
       const days = {};
       let name, dates, notes = '';
-      if (br) {
+      if (rr) {
         const day = ex.start || fmtYMD(new Date());
-        days[day] = [`🚴 Okruh na kole: ${br.km} km, ↗ ${br.ascent} m, ~${minTxt(br.minutes)} (${BIKE_LBL[br.bike] || ''})`];
-        notes = `Trasa v Mapy.com: ${br.mapyUrl}\nGoogle Maps: ${br.googleUrl}`;
-        name = bikeName(br, p);
+        days[day] = routeLines(rr, p);
+        notes = `${rr.train ? `Spojení vlakem: ${rr.train.idosUrl || rr.train.googleUrl}\n` : ''}Trasa v Mapy.com: ${rr.mapyUrl}\nGoogle Maps: ${rr.googleUrl}`;
+        name = routeName(rr, p);
         dates = [day, day];
       } else if (trip) {
         trip.days.forEach(d => {
