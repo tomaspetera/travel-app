@@ -359,6 +359,7 @@ async function route(req, res) {
       start: b.start,
       days: Number(b.days) || 1,
       mode: b.mode === 'loop' ? 'loop' : 'day',
+      transport: b.transport === 'transit' ? 'transit' : 'car',
       pace: ['relaxed', 'normal', 'intense'].includes(b.pace) ? b.pace : 'normal',
       adults: Math.min(9, Math.max(1, Number(b.adults) || 2)),
     });

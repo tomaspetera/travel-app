@@ -202,6 +202,8 @@ const LIS_TRIPS = [
   row('Q597', 'Lisabon', 38.7223, -9.1393, 250, 'Q515'),
   row('Q190187', 'Sintra', 38.7974, -9.3904, 72, 'Q515', desc('sídlo v kraji Lisabon v Portugalsku')),
   row('Q1048', 'Palácio da Pena', 38.7876, -9.3906, 60, 'Q16560'),
+  row('Q1049', 'palácio da pena', 38.7877, -9.3907, 45, 'Q16560'), // totéž jinak napsané
+  row('Q1050', 'Kulturní krajina Sintry s paláci', 38.789, -9.43, 46, 'Q16560'), // delší varianta jména
   row('Q179948', 'Évora', 38.5725, -7.9072, 79, 'Q515', desc('sídlo v kraji Alentejo')),
   row('Q274118', 'Évora', 38.5697, -7.9097, 50, 'Q515', desc('district in Alentejo, Portugal')),
   row('Q26824', 'Alentejo', 38.5667, -7.9, 56, 'Q515', desc('kraj v Portugalsku')),
