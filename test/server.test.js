@@ -139,6 +139,34 @@ test('POST /api/search – za teplem: jen teplé cíle, teplota u každé cesty,
   assert.ok(calls(warm) < calls(all), 'trasy do chladných cílů se neprohledávají');
 });
 
+test('POST /api/search – za teplem přes víc měsíců: levnější chladné termíny nevytlačí teplé', async () => {
+  // Cíl, kde je teplo jen v prvních týdnech, nesmí v delším hledání zmizet jen proto, že jeho
+  // nejlevnější termíny vyšly na chladnější měsíce (a filtr je pak vyřadil).
+  const body = { from: ['ap:PRG'], to: ['cc:ES', 'cc:IT', 'cc:GR', 'cc:PT', 'cc:TR', 'cc:EG', 'cc:MA', 'cc:AE'], radiusKm: 0, trip: 'oneway', minTemp: 20, dateFrom: ymdPlus(10) };
+  const short = (await searchStream({ ...body, dateTo: ymdPlus(30) })).last.result;
+  const long = (await searchStream({ ...body, dateTo: ymdPlus(100) })).last.result;
+  assert.ok(short.groups.length > 0 && long.groups.length < 150);
+  const found = new Set(long.groups.map((g) => g.dest.key));
+  assert.deepEqual(short.groups.filter((g) => !found.has(g.dest.key)).map((g) => g.dest.label), []);
+});
+
+test('POST /api/search – konkrétní cíl za teplem: kalendář i nabídky jen v dost teplých měsících', async (t) => {
+  const dateFrom = ymdPlus(10);
+  const dateTo = ymdPlus(70);
+  const clim = await (await fetch(`${base}/api/climate?iata=AYT`)).json();
+  const months = new Set();
+  for (let i = 10; i <= 70; i++) months.add(Number(ymdPlus(i).slice(5, 7)));
+  const his = [...months].map((m) => clim.hi[m - 1]);
+  const minTemp = Math.min(35, Math.max(...his));
+  if (minTemp < 15 || Math.min(...his) >= minTemp) return t.skip('v těchto měsících je v Antalyi stejně teplo');
+  const r = (await searchStream({ from: ['ap:PRG'], to: ['ap:AYT'], radiusKm: 0, dateFrom, dateTo, trip: 'return', nightsMin: 3, nightsMax: 7, minTemp })).last.result;
+  assert.equal(r.mode, 'route');
+  assert.ok(r.top.length > 0 && r.top.every((x) => x.tempHi >= minTemp));
+  const cal = [...r.calendar.out, ...r.calendar.back];
+  assert.ok(cal.length > 0);
+  for (const d of cal) assert.ok(clim.hi[Number(d.outDate.slice(5, 7)) - 1] >= minTemp, `kalendář: ${d.date} (odlet ${d.outDate})`);
+});
+
 test('POST /api/search – chybějící odkud → srozumitelná chyba', async () => {
   const { last } = await searchStream({ to: ['cc:ES'] });
   assert.equal(last.type, 'error');
