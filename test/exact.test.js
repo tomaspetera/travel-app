@@ -324,7 +324,9 @@ test('výpadek Kiwi (503): opakuje se, v průběhu hledání outage + retryable;
     assert.equal(k1.outage, 'down');
     assert.equal(k1.retryable, true);
     assert.equal(k1.failed, 2);
-    assert.equal(k1.retried, 4, 'každý ze 2 dotazů ještě 2×');
+    // opakuje se, ale po 3 neúspěšných pokusech za sebou v hledání už ne (dřív 2 dotazy × 3 pokusy = 6)
+    assert.ok(k1.retried >= 1 && k1.retried <= 2, `opakování ${k1.retried}`);
+    assert.ok(kiwiCalls.length <= 4, `${kiwiCalls.length} dotazů na Kiwi`);
     assert.equal(events.at(-1).providers.find((p) => p.id === 'kiwi').outage, 'down', 'i v posledním průběhu (pro UI)');
     assert.equal(kiwiBlocked(), false, 'série 503 v jednom hledání nevypne Kiwi ostatním');
     await search(q(1));

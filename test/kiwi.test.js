@@ -196,6 +196,25 @@ test('kiwi: initialize trvale 503 → nejvýš 3 pokusy na dotaz (opakování se
   }
 });
 
+test('kiwi: úplný výpadek – po 3 neúspěšných pokusech za sebou v jednom hledání se už neopakuje (souběžné dotazy)', async () => {
+  const stub = scripted((n, body) => (body.method === 'tools/call' ? { status: 503, body: 'down' } : null));
+  try {
+    resetKiwi({ retryMs: 100 }); // pauza před opakováním delší než rozestup souběžných dotazů (jako 500 ms v provozu)
+    const ctx = kiwiContext();
+    const calls = [200, 210, 220].map((d) => kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: ymdPlus(d), dateTo: ymdPlus(d), ctx }));
+    const res = await Promise.allSettled(calls);
+    assert.ok(res.every((r) => r.status === 'rejected'));
+    assert.equal(methods(stub).filter((m) => m === 'tools/call').length, 3, '3 souběžné dotazy, žádné opakování (dřív 9)');
+    assert.deepEqual([ctx.failed, ctx.retried, ctx.down], [3, 0, true]);
+    // jiné hledání (jiný ctx) se zkouší znovu normálně
+    const other = kiwiContext();
+    await assert.rejects(kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: ymdPlus(230), dateTo: ymdPlus(230), ctx: other }));
+    assert.equal(other.retried, 2);
+  } finally {
+    stub.restore();
+  }
+});
+
 test('kiwi: 429 se zkusí jen jednou, chyba nástroje (špatný dotaz) vůbec', async () => {
   const stub = scripted((n, body) => (body.method === 'tools/call' ? { status: 429, body: 'slow down' } : null));
   try {
@@ -255,6 +274,9 @@ test('kiwi.daily: seznam letišť jedním dotazem (flyFrom/flyTo s čárkami), l
     assert.equal(a[0].flyTo, 'LIS,OPO');
     assert.equal(a[0].max_sector_stopovers, 0);
     assert.ok(legs.length > 0 && legs.every((l) => l.from === 'VIE' && !l.stops));
+    // let do letiště, na které se hledání neptalo, se zahodí
+    const other = await kiwi.daily({ from: ['VIE'], to: ['OPO'], dateFrom: ymdPlus(191), dateTo: ymdPlus(191) });
+    assert.deepEqual(other, [], 'odpověď VIE→LIS na dotaz VIE→OPO');
   } finally {
     stub.restore();
   }

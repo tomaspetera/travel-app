@@ -82,17 +82,27 @@ const sessionError = (e) => e.status === 400 || e.status === 404 || /session/i.t
 async function withRetry(fn, { end, ctx }) {
   for (let i = 0; ; i++) {
     try {
-      return await fn(end - Date.now());
+      const out = await fn(end - Date.now());
+      if (ctx) ctx.attemptStreak = 0;
+      return out;
     } catch (e) {
       const max = e.status === 429 ? 1 : 2;
       const wait = (e.status === 429 ? 3 : 3 ** i) * RETRY.baseMs + Math.random() * RETRY.baseMs * 0.2;
+      // 3 neúspěšné pokusy za sebou v tomto hledání (i souběžných dotazů) bez úspěchu mezi nimi = Kiwi teď
+      // nejede → už neopakovat. Kontrola i po pauze: souběžné dotazy mezitím mohly selhat taky.
+      if (ctx && transient(e)) ctx.attemptStreak = (ctx.attemptStreak || 0) + 1;
+      const down = () => ctx && ctx.attemptStreak >= 3;
       // e.retried: chyba, kterou už opakoval vnořený withRetry (initialize) – znovu ne, jinak by se pokusy násobily.
-      if (i >= max || !transient(e) || e.retried || Date.now() + wait + 3000 > end) {
+      if (i >= max || !transient(e) || e.retried || down() || Date.now() + wait + 3000 > end) {
+        e.retried = true;
+        throw e;
+      }
+      await sleep(wait);
+      if (down()) {
         e.retried = true;
         throw e;
       }
       if (ctx) ctx.retried++;
-      await sleep(wait);
     }
   }
 }
@@ -346,19 +356,22 @@ export const kiwi = {
     let failed = 0;
     let lastErr = null;
     const froms = [].concat(from).slice(0, 25);
+    const tos = [].concat(to).slice(0, 25);
+    // jen lety mezi zadanými letišti (odpověď je cizí data – jiné letiště by se ve výsledcích jen tvářilo jako cíl)
     const fromSet = new Set(froms);
+    const toSet = new Set(tos);
     const windows = chunkRange(dateFrom, dateTo, 7);
     for (const [a, b] of windows) {
       if (deadline && Date.now() > deadline) { failed++; lastErr = lastErr || new Error('Kiwi: vypršel čas na hledání'); continue; }
       try {
         // Okno [a..b] jedním dotazem (departureDate + departureDateTo); ceny za všechny cestující.
         const json = await searchFlight({
-          flyFrom: froms.join(','), flyTo: [].concat(to).slice(0, 25).join(','), departureDate: dmy(a), ...(b > a ? { departureDateTo: dmy(b) } : {}),
+          flyFrom: froms.join(','), flyTo: tos.join(','), departureDate: dmy(a), ...(b > a ? { departureDateTo: dmy(b) } : {}),
           adults, sort: 'price', currency: 'EUR', locale: 'en', cabinClass: 'M',
           ...(directOnly ? { max_sector_stopovers: 0 } : {}),
         }, { deadline, ctx });
         for (const t of parseKiwiSearch(json, { adults })) {
-          if (t.out.date >= a && t.out.date <= b && fromSet.has(t.out.from)) legs.push(t.out);
+          if (t.out.date >= a && t.out.date <= b && fromSet.has(t.out.from) && toSet.has(t.out.to)) legs.push(t.out);
         }
       } catch (e) {
         failed++;

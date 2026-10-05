@@ -527,8 +527,8 @@
   }
 
   function legHtml(l, back) {
-    const ap = a => `<b>${a}</b>`;
-    const t1 = timeOf(l), t2 = arrTime(l);
+    const ap = a => `<b>${esc(a)}</b>`;
+    const t1 = esc(timeOf(l)), t2 = esc(arrTime(l));
     return `<div class="leg ${back ? 'back' : ''}">
       <span class="cbadge" style="background:${provColor(l.provider)}" title="${esc(l.carrierName || provName(l.provider))}">${esc(l.carrier || '?')}</span>
       <span class="ld">${dayLabel(l.date)}</span>

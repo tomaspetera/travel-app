@@ -207,7 +207,8 @@ nepáruje, když odlétá dřív než 2 h po jeho příletu.
 Každá odpověď má `filters` (`maxPrice`, `directOnly`, `active`, `hidden` = kolik nabídek filtr skryl) a u každého zdroje
 v `providers` (i v průběhu) `failed`, `retried`, `outage` (`null` / `partial` / `down` / `blocked`), `retryable` a
 `retryAfter` (s) – UI podle toho ukáže „Kiwi.com neodpovědělo“ s tlačítkem Zkusit znovu. Kiwi při 503/429/výpadku
-spojení dotaz zopakuje; na chvíli (1–3 min) se vynechá až po výpadku ve dvou různých hledáních.
+spojení dotaz zopakuje (po 3 neúspěšných pokusech za sebou v jednom hledání už ne); na chvíli (1–3 min) se vynechá až po
+výpadku ve dvou různých hledáních.
 
 Příklad:
 
