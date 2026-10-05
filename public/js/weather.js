@@ -60,8 +60,10 @@
   const dayScore = w => (w.pop ?? 50) + (w.rain ?? 0) * 5 + Math.abs((w.hi ?? 22) - 22) * 2;
   const bestDay = list => list.filter(Boolean).reduce((b, w) => (!b || dayScore(w) < dayScore(b) ? w : b), null);
 
-  const icon = code => (typeof root.wIco === 'function' ? root.wIco(code) : ['🌡️', ''])[0];
-  const label = code => (typeof root.wIco === 'function' ? root.wIco(code) : ['', ''])[1];
+  // wIco je v data.js jako „const“ – vlastností window se sám nestane, proto i přímé jméno (v testech ho dodává window.wIco).
+  const wi = code => (typeof root.wIco === 'function' ? root.wIco : typeof wIco === 'function' ? wIco : () => ['🌡️', ''])(code);
+  const icon = code => wi(code)[0];
+  const label = code => wi(code)[1];
   /** Krátký štítek „☀️ 22° / 11° · 💧 10 %“ (HTML; čísla a texty z vlastní tabulky). */
   function badge(w) {
     if (!w) return '';
