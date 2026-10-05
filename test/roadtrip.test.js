@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planTrips, driveMin, roadKm } from '../server/lib/roadtrip.js';
+import { planTrips, driveMin, roadKm, transitMin } from '../server/lib/roadtrip.js';
 import { addDays } from '../server/lib/dates.js';
 
 const PRAHA = { lat: 50.0875, lon: 14.4213, label: 'Praha' };
@@ -42,7 +42,7 @@ test('roadtrip: jednodenní výlety – každý den jiné cíle, návrat večer,
     assert.equal(d.overnight, null);
     assert.ok(d.stops.length >= 1 && d.stops.length <= 3);
     assert.ok(d.minutes <= CAP, `den ${i + 1}: ${d.minutes} min`);
-    assert.ok(d.driveMin <= 330);
+    assert.ok(d.travelMin <= 300);
     assert.match(d.stops[0].arrive, /^\d{2}:\d{2}$/);
   });
   assert.ok(r.spare.length > 0);
@@ -68,7 +68,7 @@ test('roadtrip: okružní cesta – přespání po cestě, další den začíná
       assert.equal(r.days[i + 1].from.name, d.overnight.name);
     }
     assert.ok(d.minutes <= CAP, `den ${i + 1}: ${d.minutes} min`);
-    assert.ok(d.driveMin <= 330, `den ${i + 1}: ${d.driveMin} min za volantem`);
+    assert.ok(d.travelMin <= 330, `den ${i + 1}: ${d.travelMin} min za volantem`);
   });
   assert.ok(ids.length >= 4, 'za 3 dny víc cílů než za jeden');
 });
@@ -81,7 +81,7 @@ test('roadtrip: okruh s cíli na opačných stranách – žádný den přes kap
     const cap = pace === 'relaxed' ? 540 : 630;
     for (const d of r.days) {
       assert.ok(d.minutes <= cap, `${pace}: ${d.minutes} min`);
-      assert.ok(d.driveMin <= 330, `${pace}: ${d.driveMin} min za volantem`);
+      assert.ok(d.travelMin <= 330, `${pace}: ${d.travelMin} min za volantem`);
     }
     assert.ok(r.days.length <= 2);
   }
@@ -105,4 +105,44 @@ test('roadtrip: připnutý cíl je v plánu, prázdný seznam → žádné dny',
     assert.equal(empty.days.length, 0);
     assert.equal(empty.note, null);
   }
+});
+
+test('roadtrip: veřejná doprava – odhad času odpovídá skutečným spojům', () => {
+  const kh = C.find((c) => c.id === 'kh');
+  const ks = C.find((c) => c.id === 'karlstejn');
+  const DD = { lat: 51.0504, lon: 13.7373, tripKind: 'town' };
+  // Praha–Kutná Hora vlakem ~1–1,5 h, Praha–Drážďany ~2,5 h, Karlštejn s cestou na hrad ~1 h 15 min
+  assert.ok(transitMin(PRAHA, kh) >= 70 && transitMin(PRAHA, kh) <= 110, `Kutná Hora ${transitMin(PRAHA, kh)}`);
+  assert.ok(transitMin(PRAHA, DD) >= 130 && transitMin(PRAHA, DD) <= 180, `Drážďany ${transitMin(PRAHA, DD)}`);
+  assert.ok(transitMin(PRAHA, ks) >= 60 && transitMin(PRAHA, ks) <= 95, `Karlštejn ${transitMin(PRAHA, ks)}`);
+  assert.equal(transitMin(PRAHA, ks), transitMin(ks, PRAHA), 'tam i zpět stejně');
+  assert.ok(transitMin(PRAHA, kh) > driveMin(PRAHA, kh) - 15, 'veřejnou dopravou ne výrazně rychleji než autem');
+  const ck = C.find((c) => c.id === 'ck');
+  assert.ok(transitMin(PRAHA, ck) >= 170 && transitMin(PRAHA, ck) <= 215, `Český Krumlov ${transitMin(PRAHA, ck)} (bus ~3 h)`);
+});
+
+test('roadtrip: výlety vlakem a busem – méně zastávek za den, limity dne, údaje o cestě', () => {
+  const day = planTrips(C, { base: PRAHA, start: START, days: 3, mode: 'day', transport: 'transit' });
+  assert.equal(day.transport, 'transit');
+  assert.ok(day.days.length >= 1);
+  for (const d of day.days) {
+    assert.ok(d.stops.length <= 2, 'normální tempo: nejvýš 2 zastávky');
+    assert.ok(d.minutes <= CAP && d.travelMin <= 360, `${d.minutes} / ${d.travelMin}`);
+    assert.ok(d.back && d.back.depart && d.back.arrive);
+    for (const s of d.stops) {
+      assert.match(s.depart, /^\d{2}:\d{2}$/);
+      assert.equal(s.travelMin > 0, true);
+    }
+  }
+  const car = planTrips(C, { base: PRAHA, start: START, days: 3, mode: 'day' });
+  assert.equal(car.transport, 'car');
+  const n = (r) => r.days.reduce((x, d) => x + d.stops.length, 0);
+  assert.ok(n(day) <= n(car), 'veřejnou dopravou se nestihne víc než autem');
+  // dva cíle na opačných stranách (Kutná Hora na východ, Karlštejn na západ) vlakem v jednom dni ne
+  const kh = day.days.find((d) => d.stops.some((s) => s.id === 'kh'));
+  if (kh) assert.ok(!kh.stops.some((s) => s.id === 'karlstejn' || s.id === 'krivoklat'), 'Kutná Hora a Karlštejn ne v jeden den');
+  const loop = planTrips(C, { base: PRAHA, start: START, days: 4, mode: 'loop', transport: 'transit' });
+  assert.ok(loop.days.length >= 2 && loop.days.length <= 4);
+  for (const d of loop.days) assert.ok(d.minutes <= CAP && d.travelMin <= 360 && d.stops.length <= 2);
+  assert.ok(loop.days.slice(0, -1).every((d) => d.overnight), 'přespání po cestě i bez auta');
 });

@@ -410,8 +410,10 @@ function tripsFromRows(rows, center, minKm, { road = false, unesco = [] } = {}) 
       // památka UNESCO bývá kousek za středem (Kulturní krajina Sintry ~4 km od náměstí)
       const whs = unesco.filter((u) => haversineKm(p.lat, p.lon, u.lat, u.lon) <= 5);
       t.sights = near.length;
-      t.highlights = [...new Set([...whs.map((u) => u.name), ...near.map((x) => x.name)])]
-        .filter((n) => normalize(n) !== normalize(p.name)).slice(0, 3);
+      // bez jména samotného města a bez delších variant téhož („Historické centrum Kutné Hory s kostelem
+      // sv. Barbory a s chrámem…“ vedle „Historické centrum Kutné Hory s kostelem sv. Barbory“)
+      const names = [...new Set([...whs.map((u) => u.name), ...near.map((x) => x.name)])].filter((n) => normalize(n) !== normalize(p.name));
+      t.highlights = names.filter((n) => !names.some((o) => o !== n && normalize(n).startsWith(normalize(o)))).slice(0, 3);
       t.highlightIds = near.map((x) => x.id);
       if (whs.some((u) => !u.serial) || near.some((x) => x.unesco)) t.unesco = true;
       else if (whs.length) t.unescoPart = true; // jen část rozsáhlé sériové památky
@@ -453,7 +455,10 @@ function sparqlUnesco(lat, lon, km) {
 // Části sériové památky (Hornický region Krušnohoří: ~20 dolů a městeček) mají stejné číslo před
 // pomlčkou (1478-001, 1478-002…); u takových je bonus jen malý, jinak by zaplavily výběr.
 const unescoQuery = (lat, lon) => cache.wrap(`wdqs-unesco:${lat.toFixed(1)}:${lon.toFixed(1)}`, 30 * 864e5, async () => {
-  const list = (await wdqs(sparqlUnesco(lat, lon, 125), 40000))
+  const q = sparqlUnesco(lat, lon, 125);
+  // krátký dotaz – při chybě (typicky 429 „příliš mnoho dotazů“) jeden pokus znovu po 3 s
+  const rows = await wdqs(q, 40000).catch(() => new Promise((res) => setTimeout(res, 3000)).then(() => wdqs(q, 40000)));
+  const list = rows
     .map((b) => ({ name: val(b, 'itemLabel'), lat: Number(val(b, 'lat')), lon: Number(val(b, 'lon')), site: String(val(b, 'whs') || '').split('-')[0] }))
     .filter((u) => u.name && !/^Q\d+$/.test(u.name) && Number.isFinite(u.lat) && Number.isFinite(u.lon));
   const parts = new Map();
