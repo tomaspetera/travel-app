@@ -216,6 +216,24 @@ test('pěší okruh: profil hiking-mountain, poloměr ~km / 4,9 s korekcí, čas
   }
 });
 
+test('okruh: když korekce délky selže (BRouter 400 „target island“), zůstane první trasa', async () => {
+  const stub = stubFetch((url) => (stub.calls.length === 1
+    ? { body: brouter({ km: 13, ascend: 150, coords: ring(14.42, 50.09, 13) }) }
+    : { status: 400, body: 'target island detected for section 2' }));
+  try {
+    const r = await hikeLoop({ lat: 50.09, lon: 14.42, km: 10 });
+    assert.equal(stub.calls.length, 2, 'korekce se zkusila');
+    assert.equal(r.km, 13);
+    assert.equal(r.minutes, hikeMinutes(13, 150, r.descent));
+    // nesmyslná varianta (1e400 v JSON = Infinity) → první směr, ne direction=NaN
+    const inf = await hikeLoop({ lat: 50.09, lon: 14.42, km: 10, variant: Infinity });
+    assert.equal(inf.variant, 0);
+    assert.equal(new URL(stub.calls[0].url).searchParams.get('direction'), '30');
+  } finally {
+    stub.restore();
+  }
+});
+
 test('pěší okruh městem: památky v pěším dosahu (~km / 5), délka 2–40 km', async () => {
   const sights = [
     { name: 'Kostel', lat: 49.208, lon: 16.6 }, { name: 'Hrad', lat: 49.195, lon: 16.612 }, { name: 'Muzeum', lat: 49.193, lon: 16.594 },
@@ -324,6 +342,31 @@ test('vlakem tam: bez vhodného nádraží srozumitelná chyba; výpadek Wikidat
     await assert.rejects(bikeFromStation({ lat: 48.8, lon: 17.0, km: 40 }), (e) => e.code === 'NO_STATION' && /nádraží/.test(e.message));
     fail = true;
     await assert.rejects(bikeFromStation({ lat: 47.3, lon: 12.0, km: 40 }), (e) => e.code === 'WDQS');
+  } finally {
+    stub.restore();
+  }
+});
+
+test('vlakem tam: když délku nesplní žádné nádraží, „Jiné nádraží“ přesto ukáže jiné', async () => {
+  // dvě nádraží, z obou je to domů moc daleko (bližší je B) – každá varianta musí ukázat jiné
+  const two = [
+    { id: 'Q1', name: 'Áčkov', sitelinks: 5, cc: 'CZ', ...at(30, 0) },
+    { id: 'Q2', name: 'Béčkov', sitelinks: 4, cc: 'CZ', ...at(30, 180) },
+  ].map((s) => ({ ...s, lat: s.lat - 1.5 }));
+  const stub = stubFetch((url) => {
+    if (url.startsWith('https://query.wikidata.org/')) return { body: wdqsRows(two) };
+    const from = new URL(url).searchParams.get('lonlats').split('|')[0].split(',').map(Number);
+    return { body: brouter({ km: Math.abs(from[1] - two[0].lat) < 1e-6 ? 75 : 62, coords: ring(15.5, 48.4, 40) }) };
+  });
+  try {
+    const q = { lat: 48.4, lon: 15.5, km: 40, bike: 'trekking' };
+    const a = await bikeFromStation({ ...q, variant: 0 });
+    const b = await bikeFromStation({ ...q, variant: a.variant + 1 });
+    assert.notEqual(b.station.name, a.station.name, `obě varianty: ${a.station.name}`);
+    const c = await bikeFromStation({ ...q, variant: b.variant + 1 });
+    assert.equal(c.station.name, a.station.name, 'pak zase od začátku');
+    // nesmyslná varianta (1e400 v JSON = Infinity) nespadne
+    assert.ok((await bikeFromStation({ ...q, variant: Infinity })).station.name);
   } finally {
     stub.restore();
   }

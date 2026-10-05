@@ -191,7 +191,7 @@ export function pickSights(q, km, variant = 0, { radius = Math.max(1.5, km / 6),
  */
 async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights }) {
   const start = [Math.round(q.lon * 1e4) / 1e4, Math.round(q.lat * 1e4) / 1e4];
-  const variant = Math.max(0, Math.round(Number(q.variant) || 0)) % 10;
+  const variant = Math.max(0, Math.round(Number(q.variant) || 0)) % 10 || 0;
   let r;
   let via = [];
   if (q.scenery === 'city') {
@@ -210,7 +210,9 @@ async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights }) {
     r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace);
     if (Math.abs(r.km - km) / km > 0.12) {
       radiusM *= km / Math.max(1, r.km);
-      r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace);
+      // korekce může skončit na odříznuté cestě („target island“) – pak platí první trasa
+      const first = r;
+      r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace).catch(() => first);
     }
     via = [];
   }
@@ -348,7 +350,7 @@ export async function bikeFromStation(q) {
   const vars = profileVars(bike, q.scenery, q.hills);
   const km = Math.min(150, Math.max(5, Number(q.km) || 30));
   const home = [Math.round(q.lon * 1e4) / 1e4, Math.round(q.lat * 1e4) / 1e4];
-  const variant = Math.max(0, Math.round(Number(q.variant) || 0));
+  const variant = Math.max(0, Math.round(Number(q.variant) || 0)) % 1000 || 0;
   const stations = await stationsNear(q.lat, q.lon, (1.15 * km) / 1.3).catch((e) => {
     throw Object.assign(new Error(`Nádraží: ${e.message}`), { code: 'WDQS' });
   });
@@ -356,13 +358,14 @@ export async function bikeFromStation(q) {
   if (!cands.length) {
     throw Object.assign(new Error(`Ve vzdálenosti ~${Math.round(km / 1.3)} km vzdušnou čarou jsem nenašel vhodné nádraží – zkus jinou délku jízdy.`), { code: 'NO_STATION' });
   }
+  // Nesedí-li žádné, zůstane první zkoušené – „Jiné nádraží“ (varianta + 1) pak vždy ukáže jiné.
   let best = null;
   for (let i = 0; i < Math.min(3, cands.length); i++) {
     const idx = (variant + i) % cands.length;
     const st = cands[idx];
     const r = await route({ profile, vars, lonlats: `${st.lon},${st.lat}|${home[0]},${home[1]}` }, pace);
     const ok = r.km >= km * 0.75 && r.km <= km * 1.35;
-    if (ok || !best || Math.abs(r.km - km) < Math.abs(best.r.km - km)) best = { r, st, idx };
+    if (ok || !best) best = { r, st, idx };
     if (ok) break;
   }
   const { r, st, idx } = best;

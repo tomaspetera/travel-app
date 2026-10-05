@@ -18,7 +18,7 @@
   ];
   const DAY_COLORS = ['#5b8cff', '#f59e0b', '#22c55e', '#ec4899', '#14b8a6', '#a855f7', '#ef4444', '#0ea5e9'];
   const ex = { place: null, items: [], cat: '', radius: 10, plan: null, interests: new Set(), pace: 'normal', days: 3, start: '', mode: 'city', transport: 'car', trips: {}, tripDays: { day: 2, loop: 4 }, tripEx: new Set(), tripMust: new Set(), tripInterests: new Set(), ms: null,
-    bike: { km: 40, bike: 'trekking', scenery: 'mixed', hills: 'normal', variant: 0, kind: 'loop' }, bikeRoute: null,
+    bike: { km: 40, bike: 'trekking', scenery: 'mixed', hills: 'normal', variant: 0, kind: 'loop' }, bikeRoute: null, trainRoute: null,
     hike: { km: 10, scenery: 'mixed', hills: 'normal', variant: 0 }, hikeRoute: null };
   const TRIP_INTERESTS = [['towns', '🏘️ Města'], ['sights', '🏰 Památky'], ['culture', '🏛️ Poznávací'], ['nature', '🌲 Příroda'], ['spa', '♨️ Lázně'], ['kids', '🧒 S dětmi']];
   const MODES = [['city', '🏙️ Program ve městě'], ['day', '🎒 Jednodenní výlety'], ['loop', '🧭 Vícedenní okruh'], ['bike', '🚴 Na kole'], ['hike', '🥾 Pěšky']];
@@ -373,7 +373,7 @@
       // země podle kódu (česky, „Španělsko“) – kontext pro odkazy do Google Map
       const country = s.geo ? '' : (typeof byIso !== 'undefined' && byIso[s.cc]?.cs) || '';
       ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc, geo: Boolean(s.geo), country };
-      ex.plan = null; ex.trips = {}; ex.bikeRoute = null; ex.hikeRoute = null; ex.tripEx.clear(); ex.tripMust.clear(); q.value = s.label; dd.hidden = true; loadExplore();
+      ex.plan = null; ex.trips = {}; ex.bikeRoute = null; ex.trainRoute = null; ex.hikeRoute = null; ex.tripEx.clear(); ex.tripMust.clear(); q.value = s.label; dd.hidden = true; loadExplore();
     };
     let t;
     q.oninput = () => {
@@ -530,7 +530,7 @@
     const off = train ? r.km < r.target * 0.75 || r.km > r.target * 1.35 : Math.abs(r.km - r.target) / r.target > 0.15;
     const head = [
       r.demo ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>DEMO data</b> – ${train ? 'nádraží i trasa jsou vymyšlené' : 'trasa je jen ukázkový kruh'}.</div></div>` : '',
-      off ? `<div class="note info" style="margin-bottom:10px">ℹ️ <div>${train ? `Jízda z nádraží vyšla na ${r.km} km místo ${r.target} km – blíž zvolené délce jsem nádraží nenašel. Zkus „Jiné nádraží“ nebo jinou délku.`
+      off ? `<div class="note info" style="margin-bottom:10px">ℹ️ <div>${train ? `Jízda z nádraží vyšla na ${r.km} km místo ${r.target} km – z okolních nádraží se zvolené délce přiblížit nepodařilo. Zkus „Jiné nádraží“ nebo jinou délku.`
         : `Trasa vyšla na ${r.km} km místo ${r.target} km${r.via.length ? ' – vede přes památky po cestě' : ' – v okolí se přesněji naplánovat nedala'}. Zkus „Jiná trasa“.`}</div></div>` : '',
     ].join('');
     const surface = (hike
@@ -548,7 +548,7 @@
       <div class="dp-walk">${surface}</div>
       ${r.via.length ? `<div class="dp-walk">👀 Po cestě: ${r.via.map((v, i) => `${i + 1}. ${esc(v.name)}`).join(' · ')}</div>` : ''}
       ${elevSvg(r.geometry, routeColor(r))}
-      ${train ? `<div class="note info" style="margin-top:10px">🚲 <div>Kolo ve vlaku potřebuje vlastní jízdenku${st.cc === 'CZ' ? ' (v Česku „jízdní kolo“ jako spoluzavazadlo)' : ''} a některé vlaky vyžadují rezervaci místa pro kolo – ověř to u konkrétního spoje.</div></div>` : ''}
+      ${train ? `<div class="note info" style="margin-top:10px">🚲 <div>Kolo ve vlaku obvykle potřebuje vlastní jízdenku${st.cc === 'CZ' ? ' (v Česku „jízdní kolo“ jako spoluzavazadlo)' : ''} a některé vlaky vyžadují rezervaci místa pro kolo – ověř to u konkrétního spoje.</div></div>` : ''}
       <div class="row wrap" style="gap:8px;margin-top:10px">
         <button class="btn" id="routeOther">🔄 ${train ? 'Jiné nádraží' : 'Jiná trasa'}</button>
         <button class="btn" id="routeGpx">⬇️ Stáhnout GPX</button>
@@ -589,10 +589,10 @@
     const routeMode = bikeMode || hikeMode;
     const road = ex.mode === 'day' || ex.mode === 'loop';
     const trip = road ? ex.trips[tripKey(ex.mode, ex.transport)] : null;
-    // Volby a trasa kola / pěšky; trasa kola se ukáže jen k režimu, pro který vznikla (okruh / vlakem).
+    // Volby a trasa kola / pěšky; okruh a „vlakem tam“ mají každý svou trasu.
     const ro = hikeMode ? ex.hike : ex.bike;
     const train = bikeMode && ex.bike.kind === 'train';
-    const rr = hikeMode ? ex.hikeRoute : bikeMode && ex.bikeRoute && (ex.bikeRoute.kind || 'loop') === ex.bike.kind ? ex.bikeRoute : null;
+    const rr = hikeMode ? ex.hikeRoute : train ? ex.trainRoute : bikeMode ? ex.bikeRoute : null;
     const dayOpts = ex.mode === 'loop' ? [2, 3, 4, 5, 6, 7, 10] : ex.mode === 'day' ? [1, 2, 3, 4, 5, 7] : [1, 2, 3, 4, 5, 6, 7, 10];
     const curDays = road ? ex.tripDays[ex.mode] : ex.days;
     const hasPlan = routeMode ? rr : road ? trip && trip.days.length : ex.plan;
@@ -619,9 +619,9 @@
       <div class="card step-card"><h3>🗓️ Naplánovat</h3>
         <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${MODES.map(([id, l]) => `<button type="button" data-mode="${id}" class="${ex.mode === id ? 'on' : ''}">${l}</button>`).join('')}</div>
         <div class="muted" style="font-size:13px;margin:-4px 0 10px">${ex.mode === 'city' ? 'Pěší program po památkách – každý den jiná část města.'
-          : train ? `Vlakem z místa (${esc(p.label)}) na nádraží v dosahu zvolené délky jízdy a na kole zpátky: zvol délku, kolo a krajinu. Najdu nádraží, trasu domů i spojení vlakem.`
+          : train ? `Vlakem z místa (${esc(p.label)}) na nádraží v dosahu zvolené délky jízdy a na kole zpátky: zvol délku, kolo a krajinu. Najdu nádraží, trasu domů a odkaz na spojení vlakem.`
           : bikeMode ? `Okruh na kole ze startu (${esc(p.label)}) a zpět: zvol délku, kolo a krajinu. Trasa vede hlavně po cyklostezkách a klidných cestách.`
-          : hikeMode ? `Pěší okruh ze startu (${esc(p.label)}) a zpět: zvol délku, krajinu a kopce. Trasa vede hlavně po turistických trasách, pěšinách a klidných cestách.`
+          : hikeMode ? `Pěší okruh ze startu (${esc(p.label)}) a zpět: zvol délku, krajinu a kopce. Plánovač dává přednost pěšinám, turistickým trasám a klidným cestám.`
           : ex.mode === 'day' ? `Ráno ${ex.transport === 'transit' ? 'vlakem nebo busem' : 'autem'} ven, večer zpátky: města, hrady a příroda do ~${ex.transport === 'transit' ? '3' : '2,5'} h cesty. Každý výlet jiný.`
           : `Okruh ${ex.transport === 'transit' ? 'vlakem a autobusem' : 'autem'} s přespáním po cestě – každý den pár zastávek, poslední den zpět na start.`}</div>
         ${routeMode ? routeCtl : `<div class="row wrap" style="gap:10px;align-items:end">
@@ -679,10 +679,15 @@
       });
     }
     // Okruh / vlakem tam: jiné popisky i volby, každý režim ukazuje svou trasu.
-    $$('[data-bkind]', body).forEach(b => b.onclick = () => { if (ex.bike.kind !== b.dataset.bkind) { ex.bike.kind = b.dataset.bkind; ex.bike.variant = 0; paintExplore(); } });
+    $$('[data-bkind]', body).forEach(b => b.onclick = () => {
+      if (ex.bike.kind === b.dataset.bkind) return;
+      ex.bike.kind = b.dataset.bkind;
+      ex.bike.variant = (ex.bike.kind === 'train' ? ex.trainRoute : ex.bikeRoute)?.variant || 0;
+      paintExplore();
+    });
     const mode = ex.mode;
     const transport = ex.transport;
-    const seqKey = routeMode ? mode : road ? tripKey(mode, transport) : 'city';
+    const seqKey = routeMode ? (train ? 'train' : mode) : road ? tripKey(mode, transport) : 'city';
     const planLbl = routeMode ? 'Naplánovat trasu' : road ? 'Naplánovat výlet' : 'Sestavit program';
     const replan = async btn => {
       const my = replanSeq[seqKey] = (replanSeq[seqKey] || 0) + 1; // jen poslední dotaz smí vykreslit (rychlé klikání na ✕ / +)
@@ -694,11 +699,17 @@
           const sights = ro.scenery === 'city' && !train ? ex.items.filter(x => x.category !== 'daytrip').slice(0, 40).map(x => ({ name: x.name, lat: x.lat, lon: x.lon, score: x.score })) : undefined;
           // Vlakem tam: název a země domova pro odkaz na spojení (u „Moje okolí“ název není).
           const home = train ? { label: p.geo ? '' : p.label, cc: p.cc || '' } : {};
-          const r = await getJson(hikeMode ? 'api/hike' : 'api/bike', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: p.lat, lon: p.lon, ...ro, ...home, sights }) });
+          const ask = () => getJson(hikeMode ? 'api/hike' : 'api/bike', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: p.lat, lon: p.lon, ...ro, ...home, sights }) });
+          // Nádraží z Wikidat napoprvé (prázdná mezipaměť) občas nestihnou – jednou to zkusím znovu jako u výletů.
+          const r = await ask().catch(e => {
+            if (!train || e.status !== 503) throw e;
+            if (btn?.isConnected) btn.innerHTML = '<span class="spin"></span> Odpověď trvá déle – zkouším znovu…';
+            return ask();
+          });
           if (my !== replanSeq[seqKey] || ex.place !== p) return;
           // u vlaku server mohl přeskočit nádraží s nevhodnou délkou – „Jiné nádraží“ pokračuje za tím ukázaným
           if (r.kind === 'train' && ro.kind === 'train') ro.variant = r.variant;
-          if (hikeMode) ex.hikeRoute = r; else ex.bikeRoute = r;
+          if (hikeMode) ex.hikeRoute = r; else if (r.kind === 'train') ex.trainRoute = r; else ex.bikeRoute = r;
         } else if (road) {
           // Po uspání serveru (prázdná mezipaměť) Wikidata napoprvé často nestihne – dotazy ale běží dál,
           // takže hned druhý pokus už většinou projde.
@@ -714,7 +725,7 @@
           if (my !== replanSeq[seqKey] || ex.place !== p) return;
           ex.plan = plan;
         }
-        if (ex.mode !== mode || ex.transport !== transport) return; // uložené, ale uživatel přepnul režim
+        if (ex.mode !== mode || ex.transport !== transport || (bikeMode && (ex.bike.kind === 'train') !== train)) return; // uložené, ale uživatel přepnul režim
         paintExplore();
         if (btn) $('#exPlanOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (e) {
