@@ -614,6 +614,8 @@ export async function search(raw, emit = () => {}) {
     mode: routeMode ? 'route' : 'explore',
     home: origins.home,
     origins: [...origins.airports, ...usedHubs].map((a) => ({ ...airportPublic(a.iata), distKm: a.distKm, ground: a.ground, ...(a.hub ? { hub: true } : {}) })),
+    // Přestupní letiště, ze kterých se (dálkové lety) hledalo navíc – i když z nich nic nevyšlo (UI je pak znovu nenabízí).
+    hubs: hubs.map((h) => h.iata),
     destination: { kind: dest.kind, label: dest.label || 'Kamkoliv', airports: routeMode ? destAirports : null, countries: dest.countries || null },
     destinationLabels: q.to.map((id) => describe(id)).filter(Boolean),
     groups,
@@ -711,7 +713,8 @@ export function nearbyDays(legs, range, win, { groundOf = () => 0, extra = () =>
   const isLowcost = (l) => LOWCOST.has(l.provider) || l.provider?.startsWith('demo-');
   for (const l of legs) {
     if (l.date < range.from || l.date > range.to || !(l.czk > 0) || (directOnly && l.stops)) continue;
-    const cost = l.czk + groundOf(l.from) + extra(l);
+    // doprava na letiště doma: u cesty tam odletové, u návratu příletové (cílová letiště mají 0)
+    const cost = l.czk + groundOf(l.from) + groundOf(l.to) + extra(l);
     const prev = best.get(l.date);
     if (!prev || cost < prev.cost) {
       best.set(l.date, { date: l.date, czk: l.czk, cost, from: l.from, to: l.to, provider: l.provider, carrier: l.carrier, carrierName: l.carrierName, stops: l.stops });
@@ -745,7 +748,7 @@ function nearbyOf({ out, back, q, nearOut, nearBack, groundOf, extra = () => 0 }
   if (miss.length) {
     const names = [...new Set(miss.flatMap(([, x]) => x.lowcostNames))];
     const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} ani ${names.at(-1)}` : names[0];
-    res.hint = miss.map(([what, x]) => `V den ${what} ${who} nelétá${names.length > 1 ? 'jí' : ''} – nejbližší lety: ${x.lowcostNear.slice(0, 4).map(dm).join(', ')}`).join(' · ');
+    res.hint = miss.map(([what, x]) => `V den ${what} ${who} ${names.length > 1 ? 'nelétají' : 'nelétá'} – nejbližší lety: ${x.lowcostNear.slice(0, 4).map(dm).join(', ')}`).join(' · ');
   }
   return res;
 }

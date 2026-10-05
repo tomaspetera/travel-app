@@ -177,9 +177,88 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .empty-res{padding:34px;text-align:center}
 .empty-res .ei{font-size:42px}
 .empty-res h2{margin:8px 0}
-.empty-res .hints{text-align:left;max-width:440px;margin:14px auto 0;color:var(--muted);font-size:13.5px;line-height:1.8}
 .empty-res ul{padding-left:18px}
 .warm-retry{justify-content:center;gap:6px;margin-top:12px}
+
+/* výpadek Kiwi.com, aktivní filtry */
+.kiwi-note{align-items:center;margin-bottom:14px}
+.kiwi-note>div{flex:1;min-width:0}
+.kiwi-note .btn{flex:none}
+.af-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 2px 10px;font-size:12.5px}
+.fchip.af{color:var(--text);border-color:rgba(91,140,255,.42);background:rgba(91,140,255,.13)}
+.fchip.af small{color:var(--muted)}
+.fchip.af span{color:var(--muted);font-size:11px}
+.fchip.af:hover span{color:var(--bad)}
+
+/* přesná data: nejbližší dny */
+.nb-card{padding:12px 16px;margin-bottom:14px}
+.nb-card.hot{border-color:rgba(251,191,36,.55);box-shadow:0 0 0 1px rgba(251,191,36,.22),var(--shadow)}
+.nb-h{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;font-size:14px;margin-bottom:6px}
+.nb-h .faint{font-size:12px}
+.nb-hint{font-size:13.5px;font-weight:700;color:var(--warn);margin:2px 0 6px}
+.nb-row{display:flex;align-items:center;gap:10px;margin-top:6px}
+.nb-lab{font-size:12.5px;font-weight:700;color:var(--muted);min-width:64px}
+.nb-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;flex:1;min-width:0}
+.nb-d{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;padding:5px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;font:600 11px Inter,sans-serif;cursor:pointer;min-width:0}
+.nb-d span{color:var(--muted);font-size:10.5px;white-space:nowrap;line-height:1.25}
+.nb-d b{font-size:12.5px;font-weight:800;white-space:nowrap}
+.nb-d.best b{color:var(--good)}
+.nb-d.none b{color:var(--faint);font-weight:700}
+.nb-d:hover:not(:disabled){border-color:var(--accent)}
+.nb-d.on{border-color:var(--accent);background:rgba(91,140,255,.18);cursor:default}
+.nb-d:disabled:not(.on){opacity:.35;cursor:not-allowed}
+
+/* přesná data: lety tam a zpět (jako Google Flights) */
+.legs-bar{display:flex;justify-content:space-between;align-items:center;gap:8px 14px;flex-wrap:wrap;margin:0 2px 10px;font-size:12.5px}
+.legs-bar .seg button{padding:6px 11px;font-size:12.5px}
+.legs-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.legs-cols.one{grid-template-columns:minmax(0,760px)}
+.lcol{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px;min-width:0}
+.lcol-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:2px 4px 8px;font-size:13px;color:var(--muted)}
+.lcol-h b{font-size:15px;color:var(--text)}
+.lcol-h .faint{margin-left:auto;font-size:12px}
+.lcol-list{display:flex;flex-direction:column;gap:4px}
+.lcol .more-btn{margin-top:6px}
+.lrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;padding:9px 10px;border-radius:11px;border:1px solid transparent;background:var(--surface);color:var(--text);font:inherit;cursor:pointer;transition:.12s}
+.lrow:hover{border-color:var(--border-2)}
+.lrow.sel{border-color:var(--accent);background:rgba(91,140,255,.15)}
+.lrow.dim{opacity:.55}
+.lrow.dim:hover{opacity:.85}
+.lr-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lr-t{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 4px;font-size:15px}
+.lr-t b{font-weight:800}
+.lr-t .ld{min-width:0;margin-right:4px}
+.lr-ap{color:var(--muted);font-size:12.5px;font-weight:700;margin-left:6px}
+.lr-x{font-size:12px;color:var(--faint);overflow-wrap:anywhere}
+.lr-od,.lod{font-size:11.5px;color:var(--muted)}
+.lr-od i,.lod i{font-style:normal;color:var(--faint)}
+.lod{flex-basis:100%;padding-left:40px;margin-top:-2px}
+.lr-p{display:flex;flex-direction:column;align-items:flex-end;text-align:right;white-space:nowrap}
+.lr-p b{font:800 16px Sora,sans-serif}
+.lr-p small{font-size:11px;color:var(--muted)}
+.lr-p small.lr-f{color:var(--faint)}
+.lrow.dim .lr-p small:first-child{white-space:normal;max-width:96px}
+.legs-pick{margin-top:20px}
+.lcol,.legs-pick,.smart-guide{scroll-margin-top:100px} /* pod lepicí hlavičkou */
+
+/* chytrá nápověda a průvodce hledáním */
+.smart-help{margin-top:16px}
+.smart-help.card{padding:14px 16px;margin:14px 0 0}
+.smart-help h3{font-size:15px;margin-bottom:8px}
+.sh-h{font-size:13.5px;margin-bottom:8px}
+.sh-acts{display:flex;flex-wrap:wrap;gap:6px}
+.empty-res .sh-acts{justify-content:center}
+.smart-help .btn{white-space:normal;text-align:left}
+.sh-guide{margin-top:10px;font-size:12.5px}
+.guide-link{font-size:12.5px}
+.smart-guide{padding:0;margin-top:18px;overflow:hidden}
+.smart-guide summary{cursor:pointer;list-style:none;padding:14px 18px;display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;font-weight:800;font-size:15px;user-select:none}
+.smart-guide summary::-webkit-details-marker{display:none}
+.smart-guide summary::after{content:'▾';margin-left:auto;color:var(--muted)}
+.smart-guide[open] summary::after{content:'▴'}
+.smart-guide summary .faint{font-size:12.5px;font-weight:600}
+.sg-list{margin:0;padding:0 18px 16px 38px;display:flex;flex-direction:column;gap:9px;font-size:13.5px;color:var(--muted);line-height:1.55}
+.sg-list b{color:var(--text)}
 
 /* mapa výsledků */
 .res-map-card{padding:0;overflow:hidden;margin-bottom:14px}
@@ -281,6 +360,7 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
   .prow .pst{grid-column:2/-1}
   .radar-setup{grid-template-columns:1fr}
   .res-tools select{min-width:0;flex:1}
+  .legs-cols{grid-template-columns:1fr}
 }
 @media(max-width:560px){
   .trip-row{grid-template-columns:1fr}
@@ -291,6 +371,21 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
   .res-tools select{flex:1 1 100%}
   .radar-grid{grid-template-columns:1fr 1fr}
   .dow button{width:38px}
+  .res-tools .seg{display:flex;width:100%}
+  .res-tools .seg button{flex:1 1 auto;padding:8px 5px;font-size:12.5px}
+  .kiwi-note{flex-wrap:wrap}
+  .kiwi-note .btn{width:100%}
+  .nb-card{padding:12px}
+  .nb-row{flex-direction:column;align-items:stretch;gap:4px}
+  .nb-days{gap:3px}
+  .nb-d span{font-size:10px}
+  .nb-d b{font-size:11.5px}
+  .lcol{padding:8px}
+  .lrow{gap:8px;padding:8px}
+  .lr-t{font-size:14px}
+  .lr-p b{font-size:15px}
+  .lod{padding-left:0}
+  .sg-list{padding:0 14px 14px 32px}
 }
 
 /* kontrast upozornění ve světlém režimu */
@@ -301,6 +396,7 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 [data-theme=light] .b.warn{color:#8a5a00}
 [data-theme=light] .b.sun{color:#c2410c}
 [data-theme=light] .nav-badge.drop{color:#047857}
+[data-theme=light] .nb-hint{color:#8a5a00}
 ol.guide{padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:14px}
 ol.guide a{color:var(--accent)}
 ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radius:6px;font-size:12.5px}

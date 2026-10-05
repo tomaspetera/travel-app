@@ -10,7 +10,7 @@ process.env.RYANAIR_ENABLED = '1';
 process.env.WIZZ_ENABLED = '1';
 process.env.KIWI_ENABLED = '1';
 process.env.TRAVELPAYOUTS_TOKEN = '';
-const { search } = await import('../server/lib/search.js');
+const { search, nearbyDays } = await import('../server/lib/search.js');
 const { resetKiwi, kiwiBlocked } = await import('../server/providers/kiwi.js');
 const { setRates, FALLBACK_EUR } = await import('../server/lib/fx.js');
 
@@ -336,4 +336,16 @@ test('výpadek Kiwi (503): opakuje se, v průběhu hledání outage + retryable;
   } finally {
     stub.restore();
   }
+});
+
+test('nejbližší dny: cena vč. dopravy na domácí letiště i u návratu (příletové letiště)', () => {
+  const ground = { PRG: 60, VIE: 300 };
+  const groundOf = (iata) => ground[iata] ?? 0;
+  const l = (from, to, date, czk, stops = 0) => ({ from, to, date, czk, stops, provider: 'kiwi', carrier: 'FR', carrierName: 'Ryanair' });
+  const range = { from: '2026-11-13', to: '2026-11-19' };
+  const legs = [l('BCN', 'PRG', '2026-11-16', 1000), l('BCN', 'VIE', '2026-11-16', 800), l('BCN', 'PRG', '2026-11-17', 900, 1)];
+  const back = nearbyDays(legs, range, range, { groundOf, directOnly: true });
+  assert.deepEqual(back.days.map((d) => [d.date, d.to, d.czk, d.cost]), [['2026-11-16', 'PRG', 1000, 1060]],
+    'návrat do Vídně (800 + 300) vyjde dráž; let s přestupem při „jen přímé“ ne');
+  assert.equal(nearbyDays([l('PRG', 'BCN', '2026-11-16', 1000)], range, range, { groundOf }).days[0].cost, 1060);
 });
