@@ -4,6 +4,7 @@
 //   farfnd/v4/oneWayFares/A/B/cheapestPerDay  nejlevnější cena po dnech (kalendář)
 //   views/locate/5/airports/en/active         letiště, která Ryanair obsluhuje
 //   views/locate/searchWidget/routes/en/airport/X  trasy z letiště
+//   timtbl/3/schedules/A/B/years/Y/months/M       letový řád trasy (všechny lety dne, bez cen)
 import { CookieJar, request, limiter } from '../lib/http.js';
 import { cache } from '../lib/cache.js';
 import { makeLeg, makeTrip } from '../lib/fares.js';
@@ -11,6 +12,7 @@ import { addDays, chunkRange, monthsInRange } from '../lib/dates.js';
 
 const FARFND = ['https://services-api.ryanair.com/farfnd/v4', 'https://www.ryanair.com/api/farfnd/v4'];
 const VIEWS = 'https://www.ryanair.com/api/views/locate';
+const TIMTBL = 'https://www.ryanair.com/api/timtbl/3/schedules';
 const HEADERS = { Origin: 'https://www.ryanair.com', Referer: 'https://www.ryanair.com/' };
 const FARE_TTL = 20 * 60e3;
 const limit = limiter(6);
@@ -132,6 +134,8 @@ export const ryanair = {
   id: 'ryanair',
   name: 'Ryanair',
   live: true,
+  // Kódy letů skupiny Ryanair v letovém řádu (i u stejných letů nalezených přes Kiwi).
+  carriers: ['FR', 'RK'],
 
   /** Množina IATA kódů letišť, kam Ryanair létá (null = neznámo). */
   async stations() {
@@ -172,7 +176,8 @@ export const ryanair = {
       outboundDepartureTimeTo: '23:59',
       currency: 'EUR',
     };
-    if (q.country) base.arrivalCountryCode = q.country;
+    // API bere kód země jen malými písmeny („it“ → destinace, „IT“ → nic).
+    if (q.country) base.arrivalCountryCode = String(q.country).toLowerCase();
     if (q.destination) base.arrivalAirportIataCode = q.destination;
     // Fare Finder hledá max. ~ několik měsíců dopředu; delší intervaly rozděl.
     const windows = chunkRange(q.dateFrom, q.dateTo, 62);
@@ -211,8 +216,12 @@ export const ryanair = {
     return results;
   },
 
-  /** Nejlevnější cena po dnech na trase from → to v intervalu (pro kalendář a optimalizaci). */
-  async daily({ from, to, dateFrom, dateTo, adults = 1 }) {
+  /**
+   * Nejlevnější cena po dnech na trase from → to v intervalu (pro kalendář a optimalizaci).
+   * near = { from, to }: širší okno (dny kolem přesného data) – vrátí i ty dny, ale jen z měsíců,
+   * na které se stejně ptá (žádný dotaz navíc).
+   */
+  async daily({ from, to, dateFrom, dateTo, adults = 1, near = null }) {
     const months = monthsInRange(dateFrom, dateTo);
     const parts = await Promise.all(months.map((m) =>
       cache.wrap(`fr:cpd:${from}:${to}:${m}`, FARE_TTL, () =>
@@ -224,6 +233,41 @@ export const ryanair = {
           throw e;
         }),
     ));
-    return parts.flat().filter((l) => l.date >= dateFrom && l.date <= dateTo);
+    const a = near && near.from < dateFrom ? near.from : dateFrom;
+    const b = near && near.to > dateTo ? near.to : dateTo;
+    return parts.flat().filter((l) => l.date >= a && l.date <= b);
+  },
+
+  /**
+   * Odlety Ryanairu na trase v daných dnech podle letového řádu (bez cen): { 'YYYY-MM-DD': ['06:10', …] }.
+   * Jeden dotaz na trasu a měsíc (v mezipaměti 12 h); chyba = prázdný výsledek.
+   */
+  async departures(from, to, days) {
+    const out = {};
+    const months = [...new Set(days.map((d) => d.slice(0, 7)))];
+    await Promise.all(months.map(async (ym) => {
+      let json;
+      try {
+        json = await cache.wrap(`fr:tt:${from}:${to}:${ym}`, 12 * 3600e3, () =>
+          limit(() => request(`${TIMTBL}/${from}/${to}/years/${ym.slice(0, 4)}/months/${Number(ym.slice(5, 7))}`, { headers: HEADERS, jar: session.jar, timeoutMs: 8000, retries: 0 })));
+      } catch {
+        return;
+      }
+      Object.assign(out, parseSchedule(json, ym, days));
+    }));
+    return out;
   },
 };
+
+/** timtbl schedules → { den: seřazené časy odletů } jen pro požadované dny. */
+export function parseSchedule(json, ym, days) {
+  const want = new Set(days);
+  const out = {};
+  for (const d of json?.days || []) {
+    const date = `${ym}-${String(d.day).padStart(2, '0')}`;
+    if (!want.has(date)) continue;
+    const times = (d.flights || []).map((f) => String(f.departureTime || '').slice(0, 5)).filter((t) => /^\d{2}:\d{2}$/.test(t));
+    out[date] = [...new Set(times)].sort();
+  }
+  return out;
+}

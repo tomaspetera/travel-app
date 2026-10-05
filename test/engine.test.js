@@ -203,3 +203,68 @@ test('legsPerDay: na den nejlevnější + nejlevnější přímý + jiné aeroli
   assert.ok(trips.length >= 4);
   assert.ok(trips.some((t) => !t.out.stops && !t.back.stops), 'existuje varianta přímo tam i zpět');
 });
+
+test('přesná data (variety): všechny přímé lety, přestupní let nezabere místo přímému téže aerolinky, různé části dne', async () => {
+  const { legsPerDay, dayVariety } = await import('../server/lib/optimizer.js');
+  const L = (provider, carrier, dep, czk, stops = 0) => makeLeg({ provider, carrier, from: 'PRG', to: 'BCN', dep: `2026-11-06T${dep}:00`, czk, price: czk, currency: 'CZK', stops });
+  const day = [
+    L('kiwi', 'FR', '21:55', 2400, 2), // levnější FR s přestupy (self-transfer)
+    L('kiwi', 'FR', '06:30', 2500, 1),
+    L('kiwi', 'FR', '07:10', 2550, 1),
+    L('kiwi', 'DE', '12:10', 4100, 2),
+    L('kiwi', 'SN', '06:50', 4300, 1),
+    L('kiwi', 'W4', '15:10', 4600, 1),
+    L('ryanair', 'FR', '10:05', 2700), // přímý FR – dřív ho vytlačil přestupní FR
+    L('kiwi', 'FR', '10:05', 2690), // týž let přes Kiwi (o 10 Kč levněji) → přednost má Ryanair
+    L('kiwi', 'QS', '11:35', 5300),
+    L('kiwi', 'VY', '10:40', 6400),
+    L('kiwi', 'VY', '16:20', 7400), // druhý přímý let téže aerolinky
+    L('kiwi', 'LH', '18:30', 6900, 1),
+  ];
+  const old = legsPerDay(day, 4);
+  assert.ok(!old.some((l) => l.provider === 'ryanair'), 'flexibilní hledání beze změny (přímý FR od Ryanairu tam chybí)');
+  const v = legsPerDay(day, 12, () => 0, { variety: true });
+  const direct = v.filter((l) => !l.stops);
+  assert.deepEqual(direct.map((l) => `${l.carrier} ${l.dep.slice(11, 16)}`).sort(), ['FR 10:05', 'QS 11:35', 'VY 10:40', 'VY 16:20'], 'všechny přímé lety, i 2× VY');
+  assert.equal(direct.find((l) => l.carrier === 'FR').provider, 'ryanair', 'týž let: přímo od aerolinky');
+  assert.equal(v.filter((l) => `${l.carrier}|${l.dep}` === 'FR|2026-11-06T10:05:00').length, 1, 'stejný let jen jednou');
+  const conns = v.filter((l) => l.stops);
+  assert.equal(conns[0].czk, 2400, 'nejlevnější let s přestupem zůstává');
+  assert.ok(v.length <= 12);
+  // málo místa: z přestupních nejlevnější + jiná část dne (ráno), ne dva nejlevnější za sebou
+  const tight = dayVariety([...day].sort((a, b) => a.czk - b.czk), 6);
+  const tc = tight.filter((l) => l.stops).map((l) => l.dep.slice(11, 13));
+  assert.deepEqual(tc, ['21', '06'], 'večer (nejlevnější) a ráno');
+});
+
+test('přesná data: zpáteční kombinace – každý let tam i zpět aspoň jednou, párování omezené, přímo tam i zpět', () => {
+  const L = (from, to, date, carrier, dep, czk, stops = 0) => makeLeg({ provider: 'kiwi', carrier, from, to, dep: `${date}T${dep}:00`, czk, price: czk, currency: 'CZK', stops });
+  const out = [];
+  const back = [];
+  for (let i = 0; i < 10; i++) out.push(L('PRG', 'BCN', '2026-11-06', `C${i}`, `${String(6 + i).padStart(2, '0')}:00`, 2000 + i * 300, i % 3 ? 1 : 0));
+  for (let i = 0; i < 14; i++) back.push(L('BCN', 'PRG', '2026-11-10', `R${i}`, `${String(6 + i).padStart(2, '0')}:30`, 1500 + i * 200, i < 11 ? 1 : 0));
+  const trips = bestRoundTrips(out, back, () => 0, { nightsMin: 4, nightsMax: 4, legsPerDay: 12, variety: true, limit: 20, perDestLimit: 20 });
+  assert.equal(new Set(trips.map((t) => t.out.carrier)).size, 10, 'každý let tam ve výsledcích');
+  const backs = new Set(trips.map((t) => t.back.carrier));
+  assert.ok(['R11', 'R12', 'R13'].every((r) => backs.has(r)), 'dražší přímé návraty se nabídnou');
+  assert.ok(trips.some((t) => !t.out.stops && !t.back.stops), 'varianta přímo tam i zpět');
+  // počet kombinací: nejvýš (8 + 3) návratů na let tam, ne 10 × 14
+  const all = bestRoundTrips(out, back, () => 0, { nightsMin: 4, nightsMax: 4, legsPerDay: 12, variety: true, limit: 1000, perDestLimit: 1000 });
+  assert.ok(all.length <= 10 * 11, `${all.length} kombinací`);
+  assert.ok(all.length > 10 * 8);
+});
+
+test('zpáteční kombinace: návrat nesmí odletět dřív, než let tam přistane (stejný den / přílet po půlnoci)', () => {
+  const L = (from, to, dep, arr, czk) => makeLeg({ provider: 'kiwi', carrier: 'FR', from, to, dep, arr, czk, price: czk, currency: 'CZK' });
+  const out = [L('PRG', 'BCN', '2026-11-06T18:00:00', '2026-11-06T20:20:00', 1000), L('PRG', 'BCN', '2026-11-06T06:00:00', '2026-11-06T08:20:00', 1500)];
+  const back = [L('BCN', 'PRG', '2026-11-06T07:00:00', '2026-11-06T09:20:00', 900), L('BCN', 'PRG', '2026-11-06T21:00:00', '2026-11-06T23:20:00', 1200)];
+  const trips = bestRoundTrips(out, back, () => 0, { nightsMin: 0, nightsMax: 0, legsPerDay: 12, variety: true, limit: 50, perDestLimit: 50 });
+  const pairs = trips.map((t) => `${t.out.dep.slice(11, 16)}>${t.back.dep.slice(11, 16)}`).sort();
+  // 18:00 (přílet 20:20) → 21:00 je moc těsně (< 2 h na místě), 07:00 je před příletem
+  assert.deepEqual(pairs, ['06:00>21:00'], 'jen návrat, který stihneš');
+  // přílet po půlnoci (dálkový let), návrat ten den ráno → nejde
+  const late = [L('PRG', 'JFK', '2026-11-06T22:00:00', '2026-11-07T01:30:00', 9000)];
+  const early = [L('JFK', 'PRG', '2026-11-07T00:30:00', '2026-11-07T14:00:00', 8000), { ...L('JFK', 'PRG', '2026-11-07T18:00:00', '2026-11-08T08:00:00', 8500), carrier: 'LO' }];
+  const lt = bestRoundTrips(late, early, () => 0, { nightsMin: 0, nightsMax: 2, legsPerDay: 2, limit: 50, perDestLimit: 50 });
+  assert.deepEqual(lt.map((t) => t.back.dep.slice(11, 16)), ['18:00']);
+});

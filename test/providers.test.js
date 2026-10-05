@@ -2,9 +2,9 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { ONE_WAY, ROUND_TRIP, CHEAPEST_PER_DAY } from './fixtures/ryanair.js';
 import { stubFetch, ymdPlus } from './helpers.js';
-import { ryanair, parseOneWay, parseRoundTrip, parseCheapestPerDay, bookingUrl as frUrl, warmSession } from '../server/providers/ryanair.js';
+import { ryanair, parseOneWay, parseRoundTrip, parseCheapestPerDay, parseSchedule, bookingUrl as frUrl, warmSession } from '../server/providers/ryanair.js';
 import { wizzair, parseNetwork, parseTimetable, scrapeVersion, bookingUrl as w6Url } from '../server/providers/wizzair.js';
-import { parsePricesForDates, bookingUrl as tpUrl } from '../server/providers/travelpayouts.js';
+import { travelpayouts, parsePricesForDates, bookingUrl as tpUrl } from '../server/providers/travelpayouts.js';
 import { setRates, FALLBACK_EUR } from '../server/lib/fx.js';
 import { flightMinutes } from '../server/lib/dates.js';
 
@@ -71,7 +71,11 @@ test('Ryanair: rezervační URL', () => {
 test('Ryanair explore: správné parametry dotazu a rozdělení dlouhého intervalu', async () => {
   const from = ymdPlus(5);
   const to = ymdPlus(100);
-  const stub = stubFetch(() => ({ body: ONE_WAY }));
+  // Jako skutečné API: kód země bere jen malými písmeny („it“), na „IT“ vrátí prázdný seznam.
+  const stub = stubFetch((url) => {
+    const cc = new URL(url).searchParams.get('arrivalCountryCode');
+    return { body: cc && cc !== cc.toLowerCase() ? { fares: [] } : ONE_WAY };
+  });
   try {
     const trips = await ryanair.explore({ origin: 'VIE', dateFrom: from, dateTo: to, country: 'IT', adults: 1 });
     const fares = stub.calls.filter((c) => c.url.includes('/farfnd/'));
@@ -80,9 +84,9 @@ test('Ryanair explore: správné parametry dotazu a rozdělení dlouhého interv
     assert.equal(u.pathname, '/farfnd/v4/oneWayFares');
     assert.equal(u.searchParams.get('departureAirportIataCode'), 'VIE');
     assert.equal(u.searchParams.get('outboundDepartureDateFrom'), from);
-    assert.equal(u.searchParams.get('arrivalCountryCode'), 'IT');
+    assert.equal(u.searchParams.get('arrivalCountryCode'), 'it', 'kód země malými písmeny');
     assert.equal(u.searchParams.get('currency'), 'EUR');
-    assert.ok(trips.length >= 2);
+    assert.ok(trips.length >= 2, 'do Itálie se něco najde');
   } finally {
     stub.restore();
   }
@@ -173,6 +177,9 @@ test('Wizz Air: timetable – obě podoby departureDates, vyprodané/neceněné 
   assert.equal(legs.length, 2);
   assert.equal(legs[0].dep, '2026-11-03T18:40:00');
   assert.equal(legs[1].dep, '2026-11-04T07:00:00');
+  // další odlety téhož dne (bez ceny) – jen ty, které nejsou samotným letem
+  assert.deepEqual(legs[0].otherDeps, ['06:10']);
+  assert.equal(legs[1].otherDeps, undefined);
   assert.equal(legs[0].carrierName, 'Wizz Air');
   assert.equal(legs[0].bookUrl, 'https://wizzair.com/cs-cz/booking/select-flight/VIE/BCN/2026-11-03/null/2/0/0/null');
   assert.equal(w6Url({ from: 'BUD', to: 'LTN', dateOut: '2026-11-03', dateIn: '2026-11-07' }), 'https://wizzair.com/cs-cz/booking/select-flight/BUD/LTN/2026-11-03/2026-11-07/1/0/0/null');
@@ -203,6 +210,110 @@ test('Wizz Air: session, verze a POST timetableV2 s tokenem', async () => {
     assert.equal(legs.length, 2);
   } finally {
     stub.restore();
+  }
+});
+
+test('Wizz Air: dny kolem přesného data (near) v témž dotazu, ne dotaz navíc', async () => {
+  const day = ymdPlus(60);
+  const stub = stubFetch((url, init) => {
+    if (url.startsWith('https://www.wizzair.com/')) return { body: '<script>apiUrl:"https://be.wizzair.com/30.1.0/Api"</script>', headers: { 'content-type': 'text/html' } };
+    if (url.endsWith('/userSession/new')) return { body: '{}' };
+    if (url.includes('/search/timetableV2')) {
+      const f = JSON.parse(init.body).flightList[0];
+      const days = [];
+      for (let d = f.from; d <= f.to; d = new Date(Date.parse(`${d}T12:00:00Z`) + 864e5).toISOString().slice(0, 10)) days.push(d);
+      return { body: { outboundFlights: days.map((d) => ({ departureStation: 'VIE', arrivalStation: 'CRL', departureDate: `${d}T00:00:00`, price: { amount: 19.99, currencyCode: 'EUR' }, priceType: 'price', departureDates: [`${d}T08:00:00`, `${d}T20:00:00`] })) } };
+    }
+    return { status: 404, body: '{}' };
+  });
+  try {
+    const near = { from: ymdPlus(57), to: ymdPlus(63) };
+    const legs = await wizzair.daily({ from: 'VIE', to: 'CRL', dateFrom: day, dateTo: day, near });
+    const posts = stub.calls.filter((c) => c.url.includes('timetableV2'));
+    assert.equal(posts.length, 1, '±3 dny jedním dotazem');
+    assert.deepEqual([JSON.parse(posts[0].init.body).flightList[0].from, JSON.parse(posts[0].init.body).flightList[0].to], [near.from, near.to]);
+    assert.equal(legs.length, 7);
+    assert.deepEqual(legs.find((l) => l.date === day).otherDeps, ['20:00']);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('Ryanair daily: dny kolem přesného data jen z už stahovaných měsíců (žádný dotaz navíc)', async () => {
+  const dayFare = (d, value) => ({ day: d, departureDate: `${d}T07:00:00`, arrivalDate: `${d}T09:00:00`, price: { value, currencyCode: 'EUR' }, soldOut: false, unavailable: false });
+  // poslední den v měsíci: sousední dny zčásti v dalším měsíci, o který se neptá
+  const base = new Date(Date.parse(`${ymdPlus(70)}T12:00:00Z`));
+  const last = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+  const prev = new Date(Date.parse(`${last}T12:00:00Z`) - 2 * 864e5).toISOString().slice(0, 10);
+  const stub = stubFetch((url) => {
+    if (url.includes('cheapestPerDay')) {
+      const m = new URL(url).searchParams.get('outboundMonthOfDate').slice(0, 7);
+      return { body: { outbound: { fares: [dayFare(last, 30), dayFare(prev, 20)].filter((f) => f.day.startsWith(m)) } } };
+    }
+    return { body: '<html></html>', headers: { 'content-type': 'text/html' } };
+  });
+  try {
+    const next = new Date(Date.parse(`${last}T12:00:00Z`) + 3 * 864e5).toISOString().slice(0, 10);
+    const legs = await ryanair.daily({ from: 'BTS', to: 'STN', dateFrom: last, dateTo: last, near: { from: prev, to: next } });
+    assert.equal(stub.calls.filter((c) => c.url.includes('cheapestPerDay')).length, 1, 'jen měsíc přesného data');
+    assert.deepEqual(legs.map((l) => l.date).sort(), [prev, last]);
+    const plain = await ryanair.daily({ from: 'BTS', to: 'STN', dateFrom: last, dateTo: last });
+    assert.deepEqual(plain.map((l) => l.date), [last], 'bez near jen zadané dny');
+  } finally {
+    stub.restore();
+  }
+});
+
+test('Ryanair: letový řád trasy (timtbl) → další odlety dne, jeden dotaz na trasu a měsíc', async () => {
+  assert.deepEqual(parseSchedule({ month: 11, days: [{ day: 3, flights: [{ departureTime: '17:25' }, { departureTime: '06:10' }, { departureTime: '06:10' }] }, { day: 4, flights: [{ departureTime: '09:00' }] }] }, '2026-11', ['2026-11-03']),
+    { '2026-11-03': ['06:10', '17:25'] });
+  const d1 = ymdPlus(40);
+  const d2 = ymdPlus(41);
+  const stub = stubFetch((url) => {
+    if (url.includes('/timtbl/')) {
+      return { body: { month: Number(d1.slice(5, 7)), days: [{ day: Number(d1.slice(8)), flights: [{ carrierCode: 'FR', number: '1', departureTime: '06:10' }, { carrierCode: 'RK', number: '2', departureTime: '19:40' }] }] } };
+    }
+    return { body: '<html></html>', headers: { 'content-type': 'text/html' } };
+  });
+  try {
+    const t = await ryanair.departures('PRG', 'STN', [d1]);
+    const calls = stub.calls.filter((c) => c.url.includes('/timtbl/'));
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, `https://www.ryanair.com/api/timtbl/3/schedules/PRG/STN/years/${d1.slice(0, 4)}/months/${Number(d1.slice(5, 7))}`);
+    assert.deepEqual(t[d1], ['06:10', '19:40']);
+    if (d2.slice(0, 7) === d1.slice(0, 7)) {
+      await ryanair.departures('PRG', 'STN', [d2]);
+      assert.equal(stub.calls.filter((c) => c.url.includes('/timtbl/')).length, 1, 'měsíc trasy z mezipaměti');
+    }
+  } finally {
+    stub.restore();
+  }
+});
+
+test('Travelpayouts: přesné datum → departure_at/return_at po dnech, rozsah → po měsících', async () => {
+  const { config } = await import('../server/config.js');
+  const token = config.travelpayoutsToken;
+  config.travelpayoutsToken = 'tok';
+  const out = ymdPlus(33);
+  const back = ymdPlus(38);
+  const stub = stubFetch(() => ({ body: { success: true, data: [
+    { origin: 'PRG', destination: 'BCN', origin_airport: 'PRG', destination_airport: 'BCN', price: 3100, airline: 'VY', flight_number: '1', departure_at: `${out}T10:40:00+02:00`, return_at: `${back}T07:30:00+02:00`, transfers: 0, return_transfers: 0, link: '/x' },
+  ] } }));
+  try {
+    const trips = await travelpayouts.explore({ origin: 'PRG', destination: 'BCN', dateFrom: out, dateTo: out, ret: { nightsMin: 5, nightsMax: 5, backFrom: back, backTo: back } });
+    let u = new URL(stub.calls[0].url);
+    assert.equal(u.searchParams.get('departure_at'), out);
+    assert.equal(u.searchParams.get('return_at'), back);
+    assert.equal(trips.length, 1);
+    await travelpayouts.daily({ from: 'PRG', to: 'BCN', dateFrom: out, dateTo: out });
+    u = new URL(stub.calls.at(-1).url);
+    assert.equal(u.searchParams.get('departure_at'), out);
+    assert.equal(u.searchParams.get('return_at'), null);
+    await travelpayouts.explore({ origin: 'PRG', destination: 'BCN', dateFrom: ymdPlus(50), dateTo: ymdPlus(60) });
+    assert.match(new URL(stub.calls.at(-1).url).searchParams.get('departure_at'), /^\d{4}-\d{2}$/, 'rozsah dat = měsíc');
+  } finally {
+    stub.restore();
+    config.travelpayoutsToken = token;
   }
 });
 
