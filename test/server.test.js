@@ -170,3 +170,42 @@ test('POST /api/bike – okruh na kole (DEMO), kontrola polohy a voleb', async (
   assert.equal((await post('null')).status, 400);
   assert.equal((await post('{nope')).status, 400);
 });
+
+test('POST /api/hike – pěší okruh (DEMO): délka 2–40 km, odkazy pěšky, stejné kontroly jako kolo', async () => {
+  const post = (body) => fetch(`${base}/api/hike`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+  const j = await (await post({ lat: 50.0875, lon: 14.4213, km: 12, scenery: 'nature', hills: 'hilly', bike: 'road' })).json();
+  assert.equal(j.demo, true);
+  assert.equal(j.activity, 'hike');
+  assert.equal(j.km, 12);
+  assert.equal(j.scenery, 'nature');
+  assert.equal(j.hills, 'hilly');
+  assert.equal(j.bike, undefined, 'pěšky bez kola');
+  assert.ok(Number.isFinite(j.trailPct) && j.minutes > 180, 'čas chůze (12 km ≥ 3 h)');
+  assert.match(j.mapyUrl, /routeType=foot_hiking/);
+  assert.match(j.googleUrl, /travelmode=walking/);
+  const d = await (await post({ lat: 50, lon: 14, km: 500, scenery: 'mars' })).json();
+  assert.equal(d.km, 40, 'nejvýš 40 km');
+  assert.equal(d.scenery, 'mixed');
+  assert.equal((await (await post({ lat: 50, lon: 14 })).json()).km, 10, 'výchozí 10 km');
+  assert.equal((await post({ lat: 'x', lon: 14 })).status, 400);
+  assert.equal((await post('[]')).status, 400);
+  assert.equal((await post('{nope')).status, 400);
+});
+
+test('POST /api/bike kind=train – vlakem tam, na kole zpět (DEMO)', async () => {
+  const post = (body) => fetch(`${base}/api/bike`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await (await post({ lat: 50.0875, lon: 14.4213, km: 40, bike: 'gravel', kind: 'train', label: 'Praha', cc: 'CZ' })).json();
+  assert.equal(j.demo, true);
+  assert.equal(j.kind, 'train');
+  assert.equal(j.bike, 'gravel');
+  assert.ok(j.station.name && j.station.lat > 50.0875, 'nádraží na sever');
+  assert.match(j.train.idosUrl, /^https:\/\/idos\.cz\/vlakyautobusy\/spojeni\/\?f=Praha&t=/);
+  assert.match(j.train.googleUrl, /travelmode=transit/);
+  const m = new URL(j.mapyUrl);
+  assert.notEqual(m.searchParams.get('start'), m.searchParams.get('end'), 'z nádraží domů');
+  const geo = await (await post({ lat: 50.0875, lon: 14.4213, km: 40, kind: 'train', label: '', cc: 'bad' })).json();
+  assert.equal(geo.train.idosUrl, null, 'bez názvu domova (Moje okolí) jen Google');
+  const loop = await (await post({ lat: 50.0875, lon: 14.4213, km: 40, kind: 'plane' })).json();
+  assert.equal(loop.kind, 'loop', 'neznámý druh → okruh');
+  assert.equal(loop.station, undefined);
+});
