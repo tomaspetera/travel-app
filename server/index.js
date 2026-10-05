@@ -25,6 +25,7 @@ import { isYmd, daysBetween } from './lib/dates.js';
 import { affiliateOn } from './lib/links.js';
 import { HttpError } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
+import { airportClimate, climateAt, climateSource, countryClimate } from './lib/climate.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -38,9 +39,9 @@ function wantsGzip(req) {
   return /\bgzip\b/.test(req.headers['accept-encoding'] || '');
 }
 
-function sendJson(req, res, status, obj) {
+function sendJson(req, res, status, obj, extra = {}) {
   const body = Buffer.from(JSON.stringify(obj));
-  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra };
   if (wantsGzip(req) && body.length > 1024) {
     headers['Content-Encoding'] = 'gzip';
     res.writeHead(status, headers);
@@ -295,6 +296,30 @@ async function route(req, res) {
     } catch (e) {
       return sendJson(req, res, 200, { available: true, items: [], error: e.message });
     }
+  }
+  if (p === '/api/climate') {
+    // Dlouhodobé podnebí (NASA POWER) u letiště, místa nebo hlavního letiště země – data se nemění.
+    const sp = url.searchParams;
+    const iata = (sp.get('iata') || '').toUpperCase();
+    const cc = (sp.get('cc') || '').toUpperCase();
+    let c;
+    if (cc) {
+      if (!/^[A-Z]{2}$/.test(cc)) return sendJson(req, res, 400, { error: 'Neplatný kód země.' });
+      c = countryClimate(cc);
+    } else if (iata) {
+      if (!/^[A-Z]{3}$/.test(iata) || !getAirport(iata)) return sendJson(req, res, 400, { error: 'Neznámé letiště.' });
+      const ac = airportClimate(iata);
+      c = ac && { iata, city: getAirport(iata).cityCs, ...ac };
+    } else if (sp.get('lat') && sp.get('lon')) {
+      const lat = Number(sp.get('lat'));
+      const lon = Number(sp.get('lon'));
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Neplatná poloha (lat/lon).' });
+      c = climateAt(lat, lon);
+    } else {
+      return sendJson(req, res, 400, { error: 'Zadej letiště (iata), polohu (lat, lon) nebo zemi (cc).' });
+    }
+    if (!c) return sendJson(req, res, 404, { error: 'Pro toto místo nemám údaje o podnebí.' });
+    return sendJson(req, res, 200, { ...c, source: climateSource() }, { 'Cache-Control': 'public, max-age=604800' });
   }
   if (p === '/api/cars') return sendJson(req, res, 200, searchCars(Object.fromEntries(url.searchParams)));
   if (p === '/api/poi') {

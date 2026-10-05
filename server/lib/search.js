@@ -2,9 +2,10 @@
 import { config } from '../config.js';
 import { activeProviders } from '../providers/index.js';
 import { resolveDestinations, resolveOrigins, describe } from './places.js';
-import { destInfo, getAirport } from './airports.js';
-import { addDays, chunkRange, clampRange, daysBetween, isYmd, todayYmd } from './dates.js';
-import { CONTINENT_BY_KEY, LONG_HAUL_SWEEP, farAirport, farCountry, hubsNear, hubsOf } from './longhaul.js';
+import { airportsInCountry, destInfo, destKey, getAirport } from './airports.js';
+import { addDays, chunkRange, clampRange, daysBetween, isYmd, monthsInRange, todayYmd } from './dates.js';
+import { CONTINENT_BY_KEY, FAR_KM, LONG_HAUL_SWEEP, WARM_SWEEP, farAirport, farCountry, hubsNear, hubsOf } from './longhaul.js';
+import { monthClimate, warmAirports, warmShare, warmestHi } from './climate.js';
 import { bestOneWays, bestRoundTrips, calendarArray, dateOk, oneWayCalendar } from './optimizer.js';
 import { fxInfo, loadRates } from './fx.js';
 import { haversineKm } from './geo.js';
@@ -75,6 +76,8 @@ export function normalizeQuery(raw = {}) {
     openJaw: raw.openJaw !== false,
     // Letiště, která uživatel z okruhu ručně vyřadil.
     exclude: (Array.isArray(raw.exclude) ? raw.exclude : []).map((x) => String(x).toUpperCase()).filter((x) => /^[A-Z]{3}$/.test(x)),
+    // „Za teplem“: jen cíle, kde je v měsíci odletu průměrné denní maximum aspoň tolik °C.
+    minTemp: raw.minTemp && Number.isFinite(Number(raw.minTemp)) ? int(raw.minTemp, null, 15, 35) : null,
   };
 }
 
@@ -174,20 +177,52 @@ export async function search(raw, emit = () => {}) {
       .sort((x, y) => Number(chosen.has(y.iata)) - Number(chosen.has(x.iata)) || rank[getAirport(x.iata).type] - rank[getAirport(y.iata).type] || x.distKm - y.distKm)
       .slice(0, n).map((a) => a.iata);
   };
-  // Pořadí zemí pro Kiwi: u světadílu nejdřív ty oblíbené (každá země = jeden dotaz).
-  const exploreTargets = () => {
-    if (!countries) return [{ to: 'anywhere', far: false }, ...LONG_HAUL_SWEEP.map((cc) => ({ to: cc, far: true }))];
+  // „Za teplem“: měsíce odletu (1–12) a teplé země – aspoň jedno velké letiště tam má v některém z měsíců
+  // průměrné maximum ≥ minTemp; je-li teplá jen menší část země, Kiwi se ptá rovnou na teplá letiště.
+  const monthsOf = (a, b) => [...new Set(monthsInRange(a, b).map((d) => Number(d.slice(5, 7))))];
+  const allMonths = monthsOf(q.dateFrom, q.dateTo);
+  const warmOk = (iata) => !q.minTemp || (warmestHi(iata, allMonths) ?? -99) >= q.minTemp;
+  const warmTargets = (order, months, max) => {
+    const out = [];
+    for (const cc of order) {
+      const w = warmAirports(cc, months, q.minTemp);
+      if (!w) continue;
+      out.push(w.most ? { to: cc, cc, airports: w.airports, far: farCountry(home, cc) }
+        : { to: w.airports.slice(0, 15).join(','), cc, airports: w.airports, far: w.airports.some((x) => farAirport(home, x)) });
+      if (out.length >= max) break;
+    }
+    return out;
+  };
+  // Pořadí zemí pro Kiwi: u světadílu nejdřív ty oblíbené (každá země = jeden dotaz). Za teplem jen teplé
+  // země (dotazů není víc) a „kamkoliv“ jen tehdy, když je teplo i na většině blízkých letišť (léto).
+  const pickTargets = (months) => {
+    if (!countries) {
+      const sweep = [{ to: 'anywhere', far: false }, ...LONG_HAUL_SWEEP.map((cc) => ({ to: cc, cc, far: true }))];
+      if (!q.minTemp) return sweep;
+      const any = warmShare(home || getAirport(origins.airports[0].iata), months, q.minTemp, FAR_KM) >= 0.5;
+      const warm = warmTargets(WARM_SWEEP, months, sweep.length - (any ? 1 : 0));
+      return warm.length ? [...(any ? [sweep[0]] : []), ...warm] : sweep;
+    }
     const order = [];
     for (const key of dest.continents || []) for (const cc of CONTINENT_BY_KEY.get(key).sweep) if (countries.has(cc)) order.push(cc);
     for (const cc of countries) order.push(cc);
-    return [...new Set(order)].slice(0, 12).map((cc) => ({ to: cc, far: farCountry(home, cc) }));
+    const list = [...new Set(order)];
+    const warm = q.minTemp ? warmTargets(list, months, 12) : [];
+    return warm.length ? warm : list.slice(0, 12).map((cc) => ({ to: cc, cc, far: farCountry(home, cc) }));
   };
-  // Travelpayouts u zemí: kromě „odkudkoliv“ i dotaz přímo na hlavní letiště země (víc cen z cache).
+  // Cíle pro okno dat a..b (za teplem se liší podle měsíců okna).
+  const targetMemo = new Map();
+  const exploreTargets = (a = q.dateFrom, b = q.dateTo) => {
+    const key = q.minTemp ? `${a}|${b}` : '';
+    if (!targetMemo.has(key)) targetMemo.set(key, pickTargets(monthsOf(a, b)));
+    return targetMemo.get(key);
+  };
+  // Travelpayouts u zemí: kromě „odkudkoliv“ i dotaz přímo na hlavní (za teplem teplá) letiště země.
   const tpHubTargets = () => {
     if (!countries) return [];
-    const list = exploreTargets().map((t) => t.to);
+    const list = exploreTargets();
     const per = list.length <= 3 ? 3 : list.length <= 6 ? 2 : 1;
-    return list.flatMap((cc) => hubsOf(cc, per)).slice(0, 16);
+    return list.flatMap((t) => (t.airports || hubsOf(t.cc, per)).slice(0, per)).slice(0, 16);
   };
 
   // Spustí úlohy s počítáním průběhu; chyba jedné úlohy nezastaví ostatní.
@@ -217,7 +252,7 @@ export async function search(raw, emit = () => {}) {
     let skipped = 0;
     const tasks = [];
     for (const [a, b] of windows) {
-      for (const t of targets) {
+      for (const t of exploreTargets(a, b)) {
         tasks.push(async () => {
           if (Date.now() > deadline - 1500) { skipped++; return; }
           let res;
@@ -242,8 +277,10 @@ export async function search(raw, emit = () => {}) {
       }
     }
     await runTasks(st, tasks);
-    const parts = [`${countries ? `${targets.length} ${targets.length === 1 ? 'země' : targets.length < 5 ? 'země' : 'zemí'}` : 'celý svět + dálkové země'}`];
-    if (hubs.length) parts.push(`i z ${hubs.map((h) => h.iata).join(', ')}`);
+    const used = windows.flatMap(([a, b]) => exploreTargets(a, b));
+    const parts = [q.minTemp ? `za teplem ≥ ${q.minTemp} °C: ${[...new Set(used.map((t) => t.cc || 'kamkoliv'))].join(', ')}`
+      : `${countries ? `${targets.length} ${targets.length === 1 ? 'země' : targets.length < 5 ? 'země' : 'zemí'}` : 'celý svět + dálkové země'}`];
+    if (hubs.length && used.some((t) => t.far)) parts.push(`i z ${hubs.map((h) => h.iata).join(', ')}`);
     if (skipped) parts.push(`po ${Math.round((p.exploreMs || 25000) / 1000)} s ukončeno – ${skipped} z ${tasks.length} dotazů vynecháno`);
     st.note = parts.join(' · ');
   }
@@ -276,7 +313,8 @@ export async function search(raw, emit = () => {}) {
           if (dateOk(t.out.date, t.back?.date, constraints)) {
             trips.push(t);
             st.found++;
-          } else if (p.daily) {
+          } else if (p.daily && warmOk(t.out.to)) {
+            // dohledávat po dnech jen cíle, které můžou projít filtrem „za teplem“
             refine.push(t);
           }
         }
@@ -304,7 +342,7 @@ export async function search(raw, emit = () => {}) {
     }
     // Poskytovatel bez „kamkoliv“: projdi jednotlivé trasy v rámci rozpočtu volání.
     const lists = await Promise.all(ors.map(async (o) => (await p.destinations(o.iata, singleCountry))
-      .filter((d) => destOk(d) && !originSet.has(d))
+      .filter((d) => destOk(d) && !originSet.has(d) && warmOk(d))
       .map((d) => ({ o: o.iata, d, km: distKm(o.iata, d) }))
       .sort((a, b) => a.km - b.km)));
     const routes = roundRobin(lists);
@@ -460,7 +498,13 @@ export async function search(raw, emit = () => {}) {
     }
   }
 
-  const { groups, flat } = buildGroups(trips, { q, originSet: allOrigins, groundOf });
+  const { groups, flat, warm } = buildGroups(trips, { q, originSet: allOrigins, groundOf });
+  if (warm && !groups.length && dest.kind !== 'anywhere') {
+    // Konkrétní cíl, kam se za teplem nic nenašlo: jak teplo tam v těch měsících vůbec bývá (pro vysvětlení).
+    const aps = routeMode ? destAirports : [...countries].flatMap((cc) => airportsInCountry(cc).map((a) => a.iata));
+    const his = aps.map((a) => warmestHi(a, allMonths)).filter((x) => x != null);
+    warm.destHi = his.length ? Math.max(...his) : null;
+  }
   const usedHubs = hubs.filter((h) => flat.some((t) => t.out.from === h.iata || t.back?.to === h.iata));
   return {
     query: q,
@@ -473,6 +517,8 @@ export async function search(raw, emit = () => {}) {
     // V režimu konkrétního cíle i plochý žebříček nejlepších kombinací (data × letiště × aerolinky).
     top: routeMode ? topWithDays(flat) : null,
     calendar: cal,
+    // Za teplem: kolik nabídek filtr vyřadil (a nejvyšší průměrné maximum mezi nimi) – pro prázdný výsledek.
+    warm,
     providers: status,
     fx: fxInfo(),
     demo: config.mock,
@@ -518,6 +564,8 @@ function buildGroups(trips, { q, originSet, groundOf }) {
   const map = new Map();
   const seen = new Set();
   const flat = [];
+  const warm = q.minTemp ? { minTemp: q.minTemp, dropped: 0, dests: 0, maxHi: null } : null;
+  const coldDests = new Set();
   for (const t of trips) {
     if (!validTrip(t) || seen.has(t.id)) continue;
     if (!originSet.has(t.out.from)) continue;
@@ -531,6 +579,14 @@ function buildGroups(trips, { q, originSet, groundOf }) {
     t.perPersonCzk = t.flightCzk + t.groundCzk;
     t.totalCzk = t.perPersonCzk * q.adults;
     if (q.maxPrice && t.perPersonCzk > q.maxPrice) continue;
+    // Dlouhodobý průměr denních maxim v cíli v měsíci odletu (NASA POWER); neznámé podnebí za teplem nepustí.
+    t.tempHi = monthClimate(t.out.to, t.out.date)?.hi ?? null;
+    if (warm && (t.tempHi == null || t.tempHi < q.minTemp)) {
+      warm.dropped++;
+      if (t.tempHi != null) warm.maxHi = Math.max(warm.maxHi ?? -99, t.tempHi);
+      coldDests.add(destKey(t.out.to));
+      continue;
+    }
     t.distanceKm = Math.round(distKm(t.out.from, t.out.to));
     t.nights = t.back ? daysBetween(t.out.date, t.back.date) : null;
     t.deal = dealOf(t);
@@ -555,7 +611,7 @@ function buildGroups(trips, { q, originSet, groundOf }) {
       if (picked.length >= 6) break;
     }
     groups.push({
-      dest: { ...g.dest, airports: [...new Set(g.trips.map((t) => t.out.to))] },
+      dest: { ...g.dest, airports: [...new Set(g.trips.map((t) => t.out.to))], climate: monthClimate(picked[0].out.to, picked[0].out.date) },
       best: picked[0],
       options: picked,
       count: g.trips.length,
@@ -568,5 +624,6 @@ function buildGroups(trips, { q, originSet, groundOf }) {
   for (const t of flat) {
     if (t.deal.level === 'super' && t.perPersonCzk > p20) t.deal.level = 'good';
   }
-  return { groups: groups.slice(0, 150), flat };
+  if (warm) warm.dests = [...coldDests].filter((k) => !map.has(k)).length;
+  return { groups: groups.slice(0, 150), flat, warm };
 }

@@ -96,6 +96,47 @@ test('POST /api/search – konkrétní cíl, víkend, kalendář', async () => {
   assert.ok(r.calendar.out.every((d) => [4, 5, 6].includes(new Date(d.date + 'T12:00:00Z').getUTCDay())));
 });
 
+test('GET /api/climate – letiště, poloha, země; kontrola vstupu a dlouhá cache', async () => {
+  const r = await fetch(`${base}/api/climate?iata=bkk`);
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('cache-control'), /max-age=\d{6,}/);
+  const j = await r.json();
+  assert.equal(j.iata, 'BKK');
+  assert.ok([j.hi, j.lo, j.p].every((a) => a.length === 12));
+  assert.ok(j.hi[0] >= 28);
+  assert.match(j.source, /NASA POWER/);
+  const cc = await (await fetch(`${base}/api/climate?cc=TH`)).json();
+  assert.deepEqual(cc.hi, j.hi, 'země = její hlavní letiště');
+  assert.equal(cc.city, 'Bangkok');
+  const pt = await (await fetch(`${base}/api/climate?lat=50.08&lon=14.42`)).json();
+  assert.ok(pt.hi[6] > pt.hi[0]);
+  for (const [q, status] of [['', 400], ['?iata=XXX', 400], ['?iata=12', 400], ['?cc=XYZ', 400], ['?cc=XX', 404], ['?lat=95&lon=0', 400], ['?lat=abc&lon=1', 400], ['?lat=50', 400], ['?lat=0&lon=-30', 404]]) {
+    const x = await fetch(`${base}/api/climate${q}`);
+    assert.equal(x.status, status, q);
+    assert.match((await x.json()).error, /\S/);
+    assert.equal(x.headers.get('cache-control'), 'no-store', 'chyby se necachují');
+  }
+});
+
+test('POST /api/search – za teplem: jen teplé cíle, teplota u každé cesty, méně dotazů', async () => {
+  const body = { from: ['ap:BRQ'], radiusKm: 150, dateFrom: ymdPlus(10), dateTo: ymdPlus(40), trip: 'return', nightsMin: 3, nightsMax: 8 };
+  const all = (await searchStream(body)).last.result;
+  const warm = (await searchStream({ ...body, minTemp: 20 })).last.result;
+  assert.equal(all.warm, null);
+  assert.ok(all.groups.every((g) => g.options.every((t) => t.tempHi == null || Number.isInteger(t.tempHi))));
+  assert.ok(all.groups.some((g) => g.best.tempHi < 20), 'bez filtru i chladnější cíle');
+  assert.equal(warm.query.minTemp, 20);
+  assert.equal(warm.warm.minTemp, 20);
+  assert.ok(warm.groups.length > 0 && warm.stats.trips < all.stats.trips);
+  for (const g of warm.groups) {
+    assert.ok(g.options.every((t) => t.tempHi >= 20), g.dest.label);
+    assert.equal(g.dest.climate.hi, g.best.tempHi);
+    assert.equal(g.dest.climate.m, Number(g.best.out.date.slice(5, 7)));
+  }
+  const calls = (r) => r.providers.reduce((s, p) => s + p.calls, 0);
+  assert.ok(calls(warm) < calls(all), 'trasy do chladných cílů se neprohledávají');
+});
+
 test('POST /api/search – chybějící odkud → srozumitelná chyba', async () => {
   const { last } = await searchStream({ to: ['cc:ES'] });
   assert.equal(last.type, 'error');

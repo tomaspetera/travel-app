@@ -8,7 +8,7 @@
     week: { nMin: 5, nMax: 9, out: [], back: [] },
     '2weeks': { nMin: 11, nMax: 16, out: [], back: [] },
   };
-  const WARM = ['ES', 'PT', 'IT', 'GR', 'CY', 'MT', 'TR', 'EG', 'MA', 'TN', 'HR'];
+  const MNS_IN = ['lednu', 'únoru', 'březnu', 'dubnu', 'květnu', 'červnu', 'červenci', 'srpnu', 'září', 'říjnu', 'listopadu', 'prosinci'];
   const EXOTIC = ['TH', 'ID', 'VN', 'AE', 'LK', 'MV', 'JP', 'MX', 'DO', 'CU', 'KE', 'TZ', 'OM', 'JO'];
   const PROV = {}; // id → {name,color,kind,note}
   let health = null;
@@ -29,6 +29,7 @@
   const hm = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
   const yymmdd = s => s.slice(2, 10).replace(/-/g, '');
   const nightsTxt = n => n === 1 ? '1 noc' : n >= 2 && n <= 4 ? `${n} noci` : `${n} nocí`;
+  const plural = (n, one, few, many) => `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
   const provName = id => PROV[id]?.name || id;
   const provColor = id => PROV[id]?.color || '#64748b';
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
@@ -130,7 +131,7 @@
     return {
       from: S.home?.from || [], to: [], radius: S.home?.radius ?? 200, trip: 'return', len: 'week', nMin: 5, nMax: 9,
       dFrom: addDays(today(), 7), dTo: addDays(today(), 60), adults: 2, maxPrice: '', ground: true, kmRate: 1.1,
-      openJaw: true, directOnly: false, outDays: [], backDays: [], exclude: [],
+      openJaw: true, directOnly: false, outDays: [], backDays: [], exclude: [], minTemp: 0,
       dateMode: 'flex', xOut: addDays(today(), 14), xBack: addDays(today(), 21), xFlex: 0,
     };
   }
@@ -142,7 +143,7 @@
       adults: +$('#adults').value, maxPrice: $('#maxPrice').value, ground: $('#groundOn').checked, kmRate: +$('#kmRate').value,
       openJaw: $('#openJaw').checked, directOnly: $('#directOnly').checked,
       outDays: $$('#outDays .on').map(b => +b.dataset.d), backDays: $$('#backDays .on').map(b => +b.dataset.d),
-      exclude: originPreview.filter(a => a.off).map(a => a.iata),
+      exclude: originPreview.filter(a => a.off).map(a => a.iata), minTemp: +($('#minTemp .on')?.dataset.t || 0),
       dateMode: $('#dateMode .on').dataset.v, xOut: $('#xOut').value, xBack: $('#xBack').value, xFlex: +($('#xFlex .on')?.dataset.f || 0),
     };
   }
@@ -160,12 +161,15 @@
     $('#nMin').value = f.nMin; $('#nMax').value = f.nMax; $('#dFrom').value = f.dFrom; $('#dTo').value = f.dTo;
     $('#adults').value = String(f.adults); $('#maxPrice').value = f.maxPrice || ''; $('#groundOn').checked = f.ground; $('#kmRate').value = f.kmRate;
     $('#openJaw').checked = f.openJaw; $('#directOnly').checked = f.directOnly;
+    setMinTemp(f.minTemp);
     $$('#outDays button').forEach(b => b.classList.toggle('on', f.outDays.includes(+b.dataset.d)));
     $$('#backDays button').forEach(b => b.classList.toggle('on', f.backDays.includes(+b.dataset.d)));
     originPreview = []; pendingExclude = new Set(f.exclude || []);
     syncFormUI(); refreshOrigins();
   }
   let pendingExclude = new Set();
+  // Za teplem: 0 = kdekoliv, jinak 20 / 25 / 30 °C (starší uložená hledání pole nemají).
+  function setMinTemp(t) { $$('#minTemp button').forEach(b => b.classList.toggle('on', +b.dataset.t === (+t || 0))); }
   function payloadOf(f) {
     const exact = f.dateMode === 'exact';
     return {
@@ -173,6 +177,7 @@
       dateFrom: f.dFrom, dateTo: f.dTo, trip: f.trip, nightsMin: f.nMin, nightsMax: f.nMax,
       outDays: exact ? [] : f.outDays, backDays: exact ? [] : f.backDays, adults: f.adults, maxPrice: f.maxPrice ? +f.maxPrice : null,
       directOnly: f.directOnly, kmRate: f.ground ? f.kmRate : 0, openJaw: f.openJaw, exclude: f.exclude,
+      ...(f.minTemp ? { minTemp: +f.minTemp } : {}),
       // Přesná data: server hledá jen odlet xOut a návrat xBack (± xFlex dní).
       ...(exact ? { exactOut: f.xOut, exactBack: f.trip === 'return' ? f.xBack : null, flexDays: f.xFlex || 0 } : {}),
     };
@@ -244,6 +249,7 @@
     $$('#tripType button').forEach(b => b.onclick = () => { $$('#tripType button').forEach(x => x.classList.toggle('on', x === b)); syncFormUI(); });
     $$('#dateMode button').forEach(b => b.onclick = () => { $$('#dateMode button').forEach(x => x.classList.toggle('on', x === b)); syncFormUI(); });
     $$('#xFlex button').forEach(b => b.onclick = () => { $$('#xFlex button').forEach(x => x.classList.toggle('on', x === b)); syncFormUI(); });
+    $$('#minTemp button').forEach(b => b.onclick = () => setMinTemp(b.dataset.t));
     $('#xOut').min = today(); $('#xBack').min = today();
     $('#xOut').onchange = () => {
       // Posun odletu posune i návrat (zachová počet nocí), ať návrat není před odletem.
@@ -268,19 +274,17 @@
         $('#dFrom').value = from; $('#dTo').value = addDays(from, +b.dataset.d);
       }
     });
+    // „Za teplem“ už není pevný seznam zemí – je to filtr podle podnebí pod tímto řádkem.
     $('#quickDest').innerHTML = [
-      ['🌍 Kamkoliv', null, 'any'],
-      ['☀️ Za teplem', WARM],
-      ['🏙️ Evropa', null, 'eu'],
-      ['🌏 Exotika', EXOTIC],
-    ].map((q, i) => `<button type="button" class="qd" data-qd="${i}" ${q[2] === 'any' ? 'data-any="1"' : ''}>${q[0]}</button>`).join('');
+      ['🌍 Kamkoliv', 'any'],
+      ['🏙️ Evropa', 'eu'],
+      ['🌏 Exotika', 'exotic'],
+    ].map(q => `<button type="button" class="qd" data-qd="${q[1]}" ${q[1] === 'any' ? 'data-any="1"' : ''}>${q[0]}</button>`).join('');
     $$('#quickDest [data-qd]').forEach(b => b.onclick = () => {
-      const i = +b.dataset.qd;
-      if (i === 0) toInput.set([]);
-      else if (i === 1) toInput.set(WARM.map(cc => ({ id: 'cc:' + cc, label: byIso[cc]?.cs || cc, flag: flag(cc) })));
-      else if (i === 2) toInput.set([]);
-      else toInput.set(EXOTIC.slice(0, 5).map(cc => ({ id: 'cc:' + cc, label: byIso[cc]?.cs || cc, flag: flag(cc) })));
-      if (i === 2) toast('Evropa = kamkoliv; seřaď výsledky podle ceny 😉');
+      const k = b.dataset.qd;
+      if (k === 'exotic') toInput.set(EXOTIC.slice(0, 5).map(cc => ({ id: 'cc:' + cc, label: byIso[cc]?.cs || cc, flag: flag(cc) })));
+      else toInput.set([]);
+      if (k === 'eu') toast('Evropa = kamkoliv; seřaď výsledky podle ceny 😉');
     });
     $('#geoBtn').onclick = () => useMyLocation(fromInput);
     $('#searchForm').onsubmit = e => { e.preventDefault(); startSearch(); };
@@ -374,6 +378,7 @@
       case 'flight': return t.flightCzk;
       case 'deal': return -t.deal.score;
       case 'season': { const s = seasonOk(g?.dest.cc || '', t.out.date); const c = countryInfo(g?.dest.cc); return t.perPersonCzk * (s === true ? 0.65 : s === false ? 1.2 : 1) * (c && c.safety ? (1.25 - c.safety * 0.05) : 1); }
+      case 'warm': return -(t.tempHi ?? -99);
       case 'near': return t.distanceKm;
       case 'far': return -t.distanceKm;
       case 'date': return t.out.date + (t.out.dep || '');
@@ -411,6 +416,7 @@
 
     if (!res.groups.length) {
       host.innerHTML = emptyState(res);
+      $$('[data-mt]', host).forEach(b => b.onclick = () => { setMinTemp(b.dataset.mt); startSearch({ noScroll: true }); });
       return;
     }
     const summary = `<div class="res-head">
@@ -419,7 +425,7 @@
       ${best ? ` · nejlevněji <b class="good">${czk(best.perPersonCzk)}</b>/os.` : ''}</div></div>
       <div class="res-tools">
         <select id="sortSel" title="Řazení">
-          ${[['total', 'Nejlevnější celkem (vč. dopravy)'], ['flight', 'Nejlevnější letenka'], ['deal', 'Nejvýhodnější vůči běžné ceně'], ['season', 'Cena + ideální sezóna'], ['date', 'Nejdřívější odlet'], ['near', 'Nejblíž'], ['far', 'Nejdál']].map(o => `<option value="${o[0]}" ${view.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}
+          ${[['total', 'Nejlevnější celkem (vč. dopravy)'], ['flight', 'Nejlevnější letenka'], ['deal', 'Nejvýhodnější vůči běžné ceně'], ['season', 'Cena + ideální sezóna'], ['warm', 'Nejtepleji'], ['date', 'Nejdřívější odlet'], ['near', 'Nejblíž'], ['far', 'Nejdál']].map(o => `<option value="${o[0]}" ${view.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}
         </select>
         <div class="seg" id="viewSeg">${[['list', '☰ Seznam'], ['map', '🗺️ Mapa'], ...(isRoute ? [['cal', '📅 Kalendář']] : [])].map(v => `<button type="button" data-v="${v[0]}" class="${view.mode === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div>
       </div></div>
@@ -430,6 +436,7 @@
         <button type="button" class="fchip ${view.onlyDeals ? 'on' : ''}" id="fDeals">🔥 jen výhodné</button>
         ${view.outDate ? `<button type="button" class="fchip on" id="fDate">odlet ${fmtDate(view.outDate)} ✕</button>` : ''}
       </div>
+      ${res.warm ? `<div class="note info" style="margin-bottom:14px">🌡️ <div><b>Za teplem ≥ ${res.warm.minTemp} °C:</b> jen cíle, kde je v měsíci odletu dlouhodobý průměr denních maxim aspoň ${res.warm.minTemp} °C${res.warm.dropped ? ` – ${plural(res.warm.dropped, 'nabídka', 'nabídky', 'nabídek')} do chladnějších míst ${res.warm.dropped === 1 ? 'vyřazena' : res.warm.dropped <= 4 ? 'vyřazeny' : 'vyřazeno'}` : ''}.</div></div>` : ''}
       ${res.demo ? `<div class="note warn" style="margin-bottom:14px">⚠️ <div><b>DEMO data</b> – ceny i lety jsou vymyšlené, slouží jen k vyzkoušení aplikace.</div></div>` : ''}
       ${res.fx && res.fx.source === 'approx' && !res.demo ? `<div class="note warn" style="margin-bottom:14px">💱 <div>Kurzy měn se nepodařilo načíst – přepočet do Kč je orientační.</div></div>` : ''}
       <div class="faint rank-note">Pořadí určuje jen zvolené řazení (cena, termín, vzdálenost) – žádná aerolinka ani partner si za lepší pozici neplatí.${health?.affiliate ? ' Odkazy na Aviasales jsou partnerské (affiliate, <span class="ad-tag">reklama</span>): při nákupu přes ně může ATLAS dostat provizi, cenu to pro tebe nemění.' : ''}</div>`;
@@ -439,7 +446,7 @@
     else if (view.mode === 'cal' && isRoute) body = calendarHtml(res) + `<div class="section-head"><h2>Nejlepší kombinace${view.outDate ? ' · odlet ' + fmtDate(view.outDate) : ''}</h2></div>` + flatList(flat);
     else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(g.vis[0].perPersonCzk)}</b></span>`).join('')}</div>` : '') + flatList(flat) : groups.map(g => groupCard(g)).join('');
     if (!body.trim() || (view.mode === 'list' && !groups.length)) body += `<div class="empty">Filtrům nic neodpovídá. Uvolni filtr ceny, letišť nebo aerolinek.</div>`;
-    host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za osobu bez zavazadel, vč. odhadu dopravy na letiště${res.query.kmRate ? ` (${res.query.kmRate} Kč/km)` : ' (vypnuto)'}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2)} Kč (${esc(res.fx.source)})` : '—'}.</div>`;
+    host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za osobu bez zavazadel, vč. odhadu dopravy na letiště${res.query.kmRate ? ` (${res.query.kmRate} Kč/km)` : ' (vypnuto)'}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2)} Kč (${esc(res.fx.source)})` : '—'}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (NASA POWER, 2001–2020, okolí letiště) – ne předpověď počasí.</div>`;
     wireResults();
     if (view.mode === 'map') drawResultMap(groups);
   }
@@ -447,8 +454,20 @@
   function emptyState(res) {
     const errs = res.providers.filter(p => p.error).map(p => `<li><b>${esc(provName(p.id))}:</b> ${esc(p.error)}</li>`).join('');
     const notes = res.providers.filter(p => p.note).map(p => `<li><b>${esc(provName(p.id))}:</b> ${esc(p.note)}</li>`).join('');
-    return `<div class="card empty-res"><div class="ei">🧭</div><h2>Nic jsem nenašel</h2>
-      <p class="muted">Z letišť ${res.origins.map(o => o.iata).join(', ')} jsem pro zadané termíny nenašel žádný let${res.destination.kind !== 'anywhere' ? ' do cíle ' + esc(res.destination.label) : ''}.</p>
+    const aps = res.origins.map(o => o.iata).join(', ');
+    // Za teplem: vysvětli, že lety jsou, jen ne do tepla, a nabídni nižší limit (zvýrazněný ten, který už něco pustí).
+    const w = res.warm;
+    const lower = w ? [25, 20].filter(x => x < w.minTemp) : [];
+    const warmest = w ? w.maxHi ?? w.destHi ?? null : null;
+    const fits = warmest != null ? lower.find(x => x <= warmest) : null;
+    const msg = w && w.dropped
+      ? `Z letišť ${aps} jsem našel ${plural(w.dropped, 'nabídku', 'nabídky', 'nabídek')}, ale žádná nevede tam, kde je v měsíci odletu průměrně aspoň ${w.minTemp} °C${w.maxHi != null ? ` – nejtepleji bylo kolem ${w.maxHi} °C` : ''}.`
+      : w && w.destHi != null && w.destHi < w.minTemp
+      ? `V cíli ${esc(res.destination.label)} bývá v měsících odletu průměrně nejvýš ~${w.destHi} °C – na filtr „za teplem“ ≥ ${w.minTemp} °C to nestačí.`
+      : `Z letišť ${aps} jsem pro zadané termíny nenašel žádný let${res.destination.kind !== 'anywhere' ? ' do cíle ' + esc(res.destination.label) : ''}.${w ? ` Filtr „za teplem“ pouští jen cíle, kde je v měsíci odletu průměrně aspoň ${w.minTemp} °C.` : ''}`;
+    return `<div class="card empty-res"><div class="ei">${w ? '🌡️' : '🧭'}</div><h2>Nic jsem nenašel</h2>
+      <p class="muted">${msg}</p>
+      ${w ? `<div class="row wrap warm-retry">${lower.map(x => `<button type="button" class="btn sm ${x === fits ? 'primary' : ''}" data-mt="${x}">Snížit na ≥ ${x} °C</button>`).join('')}<button type="button" class="btn sm ghost" data-mt="0">Hledat bez teplotního filtru</button></div>` : ''}
       <ul class="hints"><li>Zvětši okruh letišť (posuvník „+ letiště do“).</li><li>Rozšiř rozsah dat nebo počet nocí, zruš omezení dnů.</li><li>Zkus „🌍 Kamkoliv“ – uvidíš, kam se z okolí dá letět.</li></ul>
       ${errs ? `<div class="note bad" style="text-align:left;margin-top:12px"><div><b>Chyby zdrojů:</b><ul>${errs}</ul></div></div>` : ''}
       ${notes ? `<div class="note info" style="text-align:left;margin-top:12px"><div><ul>${notes}</ul></div></div>` : ''}</div>`;
@@ -478,6 +497,7 @@
     if (t.back && t.back.provider !== t.out.provider) out.push('<span class="b info" title="Dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká">🔀 2 aerolinky</span>');
     const s = g ? seasonOk(g.dest.cc, t.out.date) : null;
     if (s === true) out.push('<span class="b good" title="Podle ATLAS je to ideální období pro tuto zemi">☀️ ideální sezóna</span>');
+    if (t.tempHi != null) out.push(`<span class="b ${t.tempHi >= 25 ? 'sun' : t.tempHi < 15 ? 'info' : ''}" title="Dlouhodobý průměr denních maxim v ${MNS_IN[+t.out.date.slice(5, 7) - 1]} (NASA POWER) – není to předpověď">🌡️ ~${t.tempHi} °C</span>`);
     if (g && g.dest.airportDistKm > 30) out.push(`<span class="b" title="Vzdálenost letiště od centra">📏 ${g.dest.airportDistKm} km od centra</span>`);
     return out.join('');
   }
@@ -634,7 +654,7 @@
     g0.append('g').selectAll('circle').data(pts).join('circle')
       .attr('cx', d => proj([d.lon, d.lat])[0]).attr('cy', d => proj([d.lon, d.lat])[1])
       .attr('r', d => d.t.deal.level === 'super' ? 7 : 5.5).attr('class', 'rm-dot').attr('fill', d => col(d.t.perPersonCzk))
-      .on('mousemove', (e, d) => { tip.innerHTML = `${flag(d.g.dest.cc)} ${esc(d.g.dest.label)} · <span style="color:var(--good)">${czk(d.t.perPersonCzk)}</span>`; tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY + 'px'; tip.style.opacity = 1; })
+      .on('mousemove', (e, d) => { tip.innerHTML = `${flag(d.g.dest.cc)} ${esc(d.g.dest.label)} · <span style="color:var(--good)">${czk(d.t.perPersonCzk)}</span>${d.t.tempHi != null ? ` · 🌡️ ~${d.t.tempHi} °C` : ''}`; tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY + 'px'; tip.style.opacity = 1; })
       .on('mouseleave', () => tip.style.opacity = 0)
       .on('click', (e, d) => { tip.style.opacity = 0; showMapDetail(d.g); });
     // popisky nejlevnějších
@@ -682,7 +702,7 @@
     if (!res) return;
     const b = bestOf(res);
     S.watch = S.watch || [];
-    S.watch.unshift({ id: Date.now().toString(36), label: watchLabel(f), sub: f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? `${f.nMin}–${f.nMax} nocí` : 'jen tam'}`, form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now() });
+    S.watch.unshift({ id: Date.now().toString(36), label: watchLabel(f), sub: f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? `${f.nMin}–${f.nMax} nocí` : 'jen tam'}${f.minTemp ? ` · 🌡️ ≥ ${f.minTemp} °C` : ''}`, form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now() });
     S.watch = S.watch.slice(0, 12); save();
     toast('Hledání uloženo – cenu najdeš na Přehledu');
   }
@@ -772,7 +792,7 @@
   function renderQuick() {
     const QF = [
       ['🌍', 'Kamkoliv nejlevněji', 'Celý svět z tvého okolí, příští 2 měsíce', { to: [] }],
-      ['☀️', 'Za teplem', 'Španělsko, Portugalsko, Řecko, Kypr, Malta…', { to: WARM.map(cc => ({ id: 'cc:' + cc, label: byIso[cc]?.cs || cc, flag: flag(cc) })) }],
+      ['☀️', 'Za teplem', 'Kamkoliv, kde je průměrně 25 °C a víc · příští 2 měsíce · 5–10 nocí', { to: [], minTemp: 25, trip: 'return', len: 'custom', nMin: 5, nMax: 10 }],
       ['🏙️', 'Víkend v Evropě', 'Čt/Pá–Ne/Po, příštích 6 týdnů', { to: [], len: 'weekend', dTo: addDays(today(), 45) }],
       ['🌏', 'Dálky a exotika', 'Thajsko, Bali, Emiráty, Maledivy…', { to: EXOTIC.slice(0, 6).map(cc => ({ id: 'cc:' + cc, label: byIso[cc]?.cs || cc, flag: flag(cc) })), len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 90) }],
       ['🏯', 'Asie', 'Thajsko, Vietnam, Japonsko, Bali, Srí Lanka…', { to: [{ id: 'ct:asia', label: 'Asie', flag: '🌏' }], len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 60) }],
@@ -783,7 +803,7 @@
     $$('[data-qf]').forEach(el => el.onclick = () => {
       const q = QF[+el.dataset.qf][3];
       go('flights');
-      const base = { ...defaultForm(), ...(S.form || {}), from: (S.home?.from || fromInput.items), to: [], dFrom: addDays(today(), 3), dTo: addDays(today(), 60), dateMode: 'flex' };
+      const base = { ...defaultForm(), ...(S.form || {}), from: (S.home?.from || fromInput.items), to: [], dFrom: addDays(today(), 3), dTo: addDays(today(), 60), dateMode: 'flex', minTemp: 0 };
       const f = { ...base, ...q };
       if (q.len && PRESETS[q.len]) Object.assign(f, { nMin: PRESETS[q.len].nMin, nMax: PRESETS[q.len].nMax, outDays: PRESETS[q.len].out, backDays: PRESETS[q.len].back });
       else if (q.nMin != null) Object.assign(f, { outDays: [], backDays: [] }); // vlastní počet nocí (dálkové lety)
