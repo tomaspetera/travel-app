@@ -1,4 +1,4 @@
-/* ATLAS – vyhledávač letenek (UI). Data z /api/search (server prohledává Ryanair, Wizz Air, Travelpayouts). */
+/* ATLAS – vyhledávač letenek (UI). Data z /api/search (server prohledává Ryanair, Wizz Air, Kiwi.com, Travelpayouts). */
 (function () {
   const DOW = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
   const DOW_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -67,8 +67,9 @@
 
   /* ---------- PlaceInput: čipy + našeptávač ---------- */
   class PlaceInput {
-    constructor(el, { placeholder, max = 5, onChange, dark = false, allowAnywhere = false }) {
+    constructor(el, { placeholder, max = 5, onChange, dark = false, allowAnywhere = false, origin = false }) {
       this.el = el; this.items = []; this.max = max; this.onChange = onChange || (() => { }); this.allowAnywhere = allowAnywhere;
+      this.origin = origin; // odkud: světadíl nedává smysl
       el.classList.add('pi'); if (dark) el.classList.add('pi-dark');
       el.innerHTML = `<div class="pi-chips"></div><input class="pi-input" placeholder="${esc(placeholder || '')}" autocomplete="off" spellcheck="false"><div class="pi-dd" hidden></div>`;
       this.chipsEl = $('.pi-chips', el); this.input = $('.pi-input', el); this.dd = $('.pi-dd', el);
@@ -89,11 +90,11 @@
         const r = await fetch('api/places?q=' + enc(q), { signal: this.ctl.signal });
         const j = await r.json();
         if (q !== this.input.value.trim()) return;
-        this.sugs = j.items || []; this.active = this.sugs.length ? 0 : -1; this.open();
+        this.sugs = (j.items || []).filter(s => !this.origin || s.type !== 'continent'); this.active = this.sugs.length ? 0 : -1; this.open();
       } catch (e) { if (e.name !== 'AbortError') { this.sugs = []; this.open(true); } }
     }
     open(err) {
-      const typeLbl = { airport: 'letiště', metro: 'město', country: 'země', region: 'oblast', place: 'místo' };
+      const typeLbl = { airport: 'letiště', metro: 'město', country: 'země', region: 'oblast', place: 'místo', continent: 'světadíl' };
       this.dd.innerHTML = this.sugs.length ? this.sugs.map((s, i) => `<div class="pi-opt ${i === this.active ? 'on' : ''}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span><span class="pi-type">${typeLbl[s.type] || ''}</span></div>`).join('')
         : `<div class="pi-empty">${err ? 'Našeptávač je nedostupný' : 'Nic nenalezeno – zkus jiný název nebo kód letiště'}</div>`;
       this.dd.hidden = false;
@@ -235,8 +236,8 @@
   }, 200);
 
   function buildForm() {
-    fromInput = new PlaceInput($('#fromInput'), { placeholder: 'Např. Brno, Vídeň, Česko, Jihlava…', onChange: () => { refreshOrigins(); updateHomeChip(); } });
-    toInput = new PlaceInput($('#toInput'), { placeholder: 'Kamkoliv 🌍 – nebo napiš zemi, město, ostrov…', onChange: syncFormUI });
+    fromInput = new PlaceInput($('#fromInput'), { origin: true, placeholder: 'Např. Brno, Vídeň, Česko, Jihlava…', onChange: () => { refreshOrigins(); updateHomeChip(); } });
+    toInput = new PlaceInput($('#toInput'), { placeholder: 'Kamkoliv 🌍 – nebo napiš zemi, město, ostrov, světadíl…', onChange: syncFormUI });
     $('#outDays').innerHTML = DOW_ORDER.map(d => `<button type="button" data-d="${d}">${DOW[d]}</button>`).join('');
     $('#backDays').innerHTML = DOW_ORDER.map(d => `<button type="button" data-d="${d}">${DOW[d]}</button>`).join('');
     $$('#outDays button, #backDays button').forEach(b => b.onclick = () => { b.classList.toggle('on'); $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); syncFormUI(); });
@@ -423,7 +424,7 @@
         <div class="seg" id="viewSeg">${[['list', '☰ Seznam'], ['map', '🗺️ Mapa'], ...(isRoute ? [['cal', '📅 Kalendář']] : [])].map(v => `<button type="button" data-v="${v[0]}" class="${view.mode === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div>
       </div></div>
       <div class="res-filters">
-        <div class="rf-group"><span class="faint">Letiště:</span>${res.origins.map(o => `<button type="button" class="fchip ${view.excludeOrigins.has(o.iata) ? '' : 'on'}" data-fo="${o.iata}" title="${esc(o.name || '')}">${o.iata}${o.ground && o.ground.czk ? ` <small>+${o.ground.czk}</small>` : ''}</button>`).join('')}</div>
+        <div class="rf-group"><span class="faint">Letiště:</span>${res.origins.map(o => `<button type="button" class="fchip ${view.excludeOrigins.has(o.iata) ? '' : 'on'}" data-fo="${o.iata}" title="${esc((o.name || '') + (o.hub ? ` – velké přestupní letiště pro dálkové lety (${o.distKm} km, cesta ~${o.ground?.czk || 0} Kč započtena)` : ''))}">${o.hub ? '✈︎ ' : ''}${o.iata}${o.ground && o.ground.czk ? ` <small>+${o.ground.czk}</small>` : ''}</button>`).join('')}</div>
         ${usedProviders.length > 1 ? `<div class="rf-group"><span class="faint">Aerolinky:</span>${usedProviders.map(p => `<button type="button" class="fchip ${!view.carriers.size || view.carriers.has(p) ? 'on' : ''}" data-fc="${p}"><i style="background:${provColor(p)}"></i>${esc(provName(p))}</button>`).join('')}</div>` : ''}
         <div class="rf-group rf-price"><span class="faint">Max.</span><input type="range" id="fPrice" min="0" max="${Math.ceil(maxP / 100) * 100}" step="100" value="${view.maxPrice || Math.ceil(maxP / 100) * 100}"><b id="fPriceVal">${view.maxPrice ? czk(view.maxPrice) : 'bez limitu'}</b></div>
         <button type="button" class="fchip ${view.onlyDeals ? 'on' : ''}" id="fDeals">🔥 jen výhodné</button>
@@ -732,7 +733,7 @@
     if (!S.home || !S.home.from?.length) {
       $('#radarSub').textContent = '';
       host.innerHTML = `<div class="card radar-setup"><div><b>Odkud obvykle létáš?</b><div class="muted" style="font-size:13px">Nastav výchozí místo a radar ti tu bude ukazovat nejlevnější lety z okolí na příštích 6 týdnů.</div></div><div class="place-input" id="radarFrom"></div><button class="btn primary" id="radarGo">Nastavit</button></div>`;
-      const pi = new PlaceInput($('#radarFrom'), { placeholder: 'Např. Brno, Praha, Vídeň…' });
+      const pi = new PlaceInput($('#radarFrom'), { origin: true, placeholder: 'Např. Brno, Praha, Vídeň…' });
       $('#radarGo').onclick = () => { if (!pi.items.length) return toast('Vyber místo ze seznamu', 'err'); S.home = { from: pi.items, radius: 200 }; save(); updateHomeChip(); if (fromInput && !fromInput.items.length) { fromInput.set(pi.items); } renderRadar(true); heroFrom && heroFrom.set(pi.items, true); };
       return;
     }
@@ -773,7 +774,10 @@
       ['🌍', 'Kamkoliv nejlevněji', 'Celý svět z tvého okolí, příští 2 měsíce', { to: [] }],
       ['☀️', 'Za teplem', 'Španělsko, Portugalsko, Řecko, Kypr, Malta…', { to: WARM.map(cc => ({ id: 'cc:' + cc, label: byIso[cc]?.cs || cc, flag: flag(cc) })) }],
       ['🏙️', 'Víkend v Evropě', 'Čt/Pá–Ne/Po, příštích 6 týdnů', { to: [], len: 'weekend', dTo: addDays(today(), 45) }],
-      ['🌏', 'Dálky a exotika', 'Thajsko, Bali, Emiráty, Maledivy…', { to: EXOTIC.slice(0, 6).map(cc => ({ id: 'cc:' + cc, label: byIso[cc]?.cs || cc, flag: flag(cc) })), len: '2weeks', dTo: addDays(today(), 120) }],
+      ['🌏', 'Dálky a exotika', 'Thajsko, Bali, Emiráty, Maledivy…', { to: EXOTIC.slice(0, 6).map(cc => ({ id: 'cc:' + cc, label: byIso[cc]?.cs || cc, flag: flag(cc) })), len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 90) }],
+      ['🏯', 'Asie', 'Thajsko, Vietnam, Japonsko, Bali, Srí Lanka…', { to: [{ id: 'ct:asia', label: 'Asie', flag: '🌏' }], len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 60) }],
+      ['🦁', 'Afrika', 'Egypt, Maroko, Keňa, Zanzibar, Kapské Město…', { to: [{ id: 'ct:africa', label: 'Afrika', flag: '🌍' }], len: 'custom', nMin: 7, nMax: 16, dTo: addDays(today(), 60) }],
+      ['🗽', 'Amerika', 'New York, Mexiko, Karibik, Kuba…', { to: [{ id: 'ct:namerica', label: 'Severní a Střední Amerika', flag: '🗽' }], len: 'custom', nMin: 7, nMax: 21, dTo: addDays(today(), 60) }],
     ];
     $('#quickFlights').innerHTML = QF.map((q, i) => `<div class="card dest" data-qf="${i}"><div class="flag">${q[0]}</div><div class="cname">${q[1]}</div><div class="cblurb">${q[2]}</div><div class="meta"><span class="chip accent">Hledat lety</span><span>→</span></div></div>`).join('');
     $$('[data-qf]').forEach(el => el.onclick = () => {
@@ -782,6 +786,7 @@
       const base = { ...defaultForm(), ...(S.form || {}), from: (S.home?.from || fromInput.items), to: [], dFrom: addDays(today(), 3), dTo: addDays(today(), 60), dateMode: 'flex' };
       const f = { ...base, ...q };
       if (q.len && PRESETS[q.len]) Object.assign(f, { nMin: PRESETS[q.len].nMin, nMax: PRESETS[q.len].nMax, outDays: PRESETS[q.len].out, backDays: PRESETS[q.len].back });
+      else if (q.nMin != null) Object.assign(f, { outDays: [], backDays: [] }); // vlastní počet nocí (dálkové lety)
       else Object.assign(f, { len: 'week', nMin: 3, nMax: 9, outDays: [], backDays: [] });
       setForm(f);
       if (!f.from.length) { toast('Zadej, odkud letíš'); fromInput.input.focus(); return; }
@@ -848,7 +853,7 @@
     buildForm();
     setForm(S.form || defaultForm());
     updateHomeChip();
-    heroFrom = new PlaceInput($('#heroFrom'), { placeholder: 'Brno, Vídeň, Česko…', dark: true, max: 3 });
+    heroFrom = new PlaceInput($('#heroFrom'), { origin: true, placeholder: 'Brno, Vídeň, Česko…', dark: true, max: 3 });
     heroTo = new PlaceInput($('#heroTo'), { placeholder: 'kamkoliv 🌍', dark: true, max: 4 });
     heroFrom.set(S.home?.from || [], true);
     $('#heroSearch').onsubmit = e => {

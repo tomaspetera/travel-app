@@ -2,7 +2,8 @@
 // Živé ceny prakticky všech aerolinek (nízkonákladové i klasické, včetně kombinací
 // s přestupem na samostatné letenky – „virtual interlining“) + odkaz na rezervaci.
 // Protokol: JSON-RPC 2.0 přes MCP Streamable HTTP (odpověď může být JSON i SSE),
-// nástroj `search-flight`. Vyžaduje cílové letiště → jen pro konkrétní cíl, ne „kamkoliv“.
+// nástroj `search-flight`. Cílem může být letiště, víc letišť („BKK,HKT“), země („TH“) i „anywhere“;
+// odkud také víc letišť najednou („PRG,VIE,MUC“). Jeden dotaz vrací nejvýš 15 itinerářů.
 import { limiter } from '../lib/http.js';
 import { cache } from '../lib/cache.js';
 import { makeLeg, makeTrip } from '../lib/fares.js';
@@ -13,7 +14,7 @@ import { toCzk } from '../lib/fx.js';
 const ENDPOINT = 'https://mcp.kiwi.com';
 const PROTOCOL = '2025-06-18';
 const TTL = 30 * 60e3;
-const limit = limiter(2);
+const limit = limiter(3);
 const pause = () => new Promise((r) => setTimeout(r, 400));
 const session = { id: null, at: 0, pending: null };
 let rpcId = 10;
@@ -257,6 +258,8 @@ export const kiwi = {
   // a nejvýš 20 s, pak se hledání vrátí s tím, co Kiwi stihlo.
   maxCalls: 24,
   maxMs: 20000,
+  // Hledání do zemí / „kamkoliv“: dotazy po zemích a měsících, nejvýš 25 s.
+  exploreMs: 25000,
 
   /**
    * Nejlevnější lety po dnech: okna po 7 dnech (rozsah departureDate..departureDateTo). Chyba jednoho okna nezahodí ostatní;
@@ -287,6 +290,28 @@ export const kiwi = {
     if (failed === windows.length && lastErr) throw lastErr;
     // Jen přímé lety: přestupové vyřadit už tady, jinak by v kalendáři přebily dražší přímý let.
     return legs.filter((l) => l.date >= dateFrom && l.date <= dateTo && (!directOnly || !l.stops));
+  },
+
+  /**
+   * Hledání do země / světadílu / „kamkoliv“ nebo zpáteční letenky na dálkové trase – jeden dotaz
+   * na okno dat (nejvýš ~31 dní). origins/to: seznamy kódů (letiště; u `to` i země nebo 'anywhere').
+   * ret: { nightsMin, nightsMax } nebo exact { backFrom, backTo } → zpáteční se společnou cenou.
+   * oneForCity: jeden (nejlevnější) výsledek na cílové město – víc různých cílů v 15 výsledcích.
+   */
+  async search({ origins, to, dateFrom, dateTo, ret = null, exact = null, adults = 1, directOnly = false, outDays = [], backDays = [], oneForCity = false, deadline = null }) {
+    const args = {
+      flyFrom: origins.join(','), flyTo: [].concat(to).join(','),
+      departureDate: dmy(dateFrom), ...(dateTo > dateFrom ? { departureDateTo: dmy(dateTo) } : {}),
+      ...(exact?.backFrom ? { returnDate: dmy(exact.backFrom), returnDateTo: dmy(exact.backTo) }
+        : ret ? { nights_in_dst_from: ret.nightsMin, nights_in_dst_to: ret.nightsMax } : {}),
+      ...(outDays.length ? { fly_days: outDays.join(',') } : {}),
+      ...(ret && backDays.length ? { ret_fly_days: backDays.join(',') } : {}),
+      ...(oneForCity ? { one_for_city: true } : {}),
+      ...(directOnly ? { max_sector_stopovers: 0 } : {}),
+      adults, sort: 'price', currency: 'EUR', locale: 'en', cabinClass: 'M',
+    };
+    const json = await searchFlight(args, { deadline });
+    return parseKiwiSearch(json, { adults }).filter((t) => (!ret || t.back) && (!directOnly || (!t.out.stops && !t.back?.stops)));
   },
 
   /** Živé ověření konkrétních dat (průvodce cestou): zpáteční i jednosměrné. */

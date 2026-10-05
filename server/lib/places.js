@@ -5,11 +5,13 @@
 //   metro:LON         metropolitní oblast (všechna letiště)
 //   cc:CZ             země
 //   rg:kanary         turistický region / souostroví
+//   ct:asia           světadíl / oblast (Asie, Afrika, Blízký východ…) – cíl jako seznam zemí
 //   geo:LAT,LON|Název libovolné místo (geokódováno přes Open-Meteo)
 import {
   AIRPORTS, COUNTRIES, COUNTRY_BY_ISO, METRO_BY_CODE, airportsInCountry, airportsNear, getAirport,
 } from './airports.js';
 import { COUNTRY_ALIASES, REGIONS } from './names.js';
+import { CONTINENTS, CONTINENT_BY_KEY, continentCountries } from './longhaul.js';
 import { groundEstimate, haversineKm, normalize } from './geo.js';
 import { cache } from './cache.js';
 import { request } from './http.js';
@@ -50,6 +52,10 @@ function metroSuggestion(m) {
   };
 }
 
+function continentSuggestion(c) {
+  return { id: `ct:${c.key}`, type: 'continent', label: c.cs, flag: c.flag, sub: `celý světadíl · ${continentCountries(c.key).length} zemí` };
+}
+
 function regionSuggestion(r) {
   return { id: `rg:${r.key}`, type: 'region', label: r.cs, flag: '🏝️', sub: `region · ${r.airports.join(', ')}` };
 }
@@ -72,6 +78,10 @@ export function localSuggestions(query, limit = 10) {
     const sc = matchScore(q, alias);
     const c = COUNTRY_BY_ISO.get(iso);
     if (c && sc >= 80) push(countrySuggestion(c), sc + 10);
+  }
+  for (const c of CONTINENTS) {
+    const sc = Math.max(matchScore(q, c.cs), ...c.aliases.map((al) => matchScore(q, al)));
+    if (sc >= 60) push(continentSuggestion(c), sc + 14);
   }
   for (const r of REGIONS) {
     const sc = Math.max(matchScore(q, r.cs), ...r.aliases.map((al) => matchScore(q, al)));
@@ -145,6 +155,7 @@ export function describe(id) {
   if (kind === 'metro') { const m = METRO_BY_CODE.get(rest); return m ? metroSuggestion(m) : null; }
   if (kind === 'cc') { const c = COUNTRY_BY_ISO.get(rest); return c ? countrySuggestion(c) : null; }
   if (kind === 'rg') { const r = REGIONS.find((x) => x.key === rest); return r ? regionSuggestion(r) : null; }
+  if (kind === 'ct') { const c = CONTINENT_BY_KEY.get(rest); return c ? continentSuggestion(c) : null; }
   if (kind === 'geo') {
     const p = parseGeo(rest);
     return p ? { id, type: 'place', label: p.label, lat: p.lat, lon: p.lon, sub: '' } : null;
@@ -249,12 +260,17 @@ export function resolveDestinations(ids) {
   if (!ids || !ids.length || ids.includes('anywhere')) return { kind: 'anywhere', label: 'Kamkoliv' };
   const countries = new Set();
   const airports = new Set();
+  const continents = [];
   const labels = [];
   for (const id of ids) {
     const [kind, rest] = splitId(id);
     const d = describe(id);
     if (d) labels.push(d.label);
     if (kind === 'cc') countries.add(rest);
+    else if (kind === 'ct' && CONTINENT_BY_KEY.has(rest)) {
+      continents.push(rest);
+      continentCountries(rest).forEach((cc) => countries.add(cc));
+    }
     else if (kind === 'ap' && getAirport(rest)) airports.add(rest);
     else if (kind === 'metro') METRO_BY_CODE.get(rest)?.airports.forEach((a) => airports.add(a));
     else if (kind === 'rg') REGIONS.find((r) => r.key === rest)?.airports.forEach((a) => getAirport(a) && airports.add(a));
@@ -264,9 +280,10 @@ export function resolveDestinations(ids) {
     }
   }
   const label = labels.join(', ');
-  if (countries.size && !airports.size) return { kind: 'countries', countries: [...countries], label };
+  if (countries.size && !airports.size) return { kind: 'countries', countries: [...countries], continents, label };
   if (countries.size) {
-    for (const cc of countries) airportsInCountry(cc).forEach((a) => airports.add(a.iata));
+    // Světadíl + konkrétní letiště: světadíl jako jeho velká letiště (jinak by to byly stovky letišť).
+    for (const cc of countries) airportsInCountry(cc).filter((a) => !continents.length || a.type === 'L').forEach((a) => airports.add(a.iata));
   }
   return { kind: 'airports', airports: [...airports], label };
 }
