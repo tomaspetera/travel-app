@@ -125,7 +125,22 @@
     map.on('error', e => {
       if (!ms.styleReady || (e.sourceId && !e.tile) || (e.tile && ++ms.errors >= 3)) toRaster();
     });
-    map.on('style.load', () => { ms.styleReady = true; clearTimeout(timer); addLines(ms); });
+    // Dlaždice, které se „zaseknou“ (požadavek visí bez chyby), by nechaly mapu prázdnou: když po
+    // 15 s od načtení stylu dorazila nejvýš jedna, přepni také na OpenStreetMap.
+    let tiles = 0;
+    let watchdog = null;
+    map.on('data', e => { if (e.dataType === 'source' && e.tile) tiles++; });
+    map.once('remove', () => clearTimeout(watchdog));
+    map.on('style.load', () => {
+      ms.styleReady = true;
+      clearTimeout(timer);
+      addLines(ms);
+      clearTimeout(watchdog);
+      if (!ms.raster) {
+        tiles = 0;
+        watchdog = setTimeout(() => { if (tiles < 2 && !map.areTilesLoaded()) toRaster(); }, 15000);
+      }
+    });
   }
 
   function addLines(ms) {
