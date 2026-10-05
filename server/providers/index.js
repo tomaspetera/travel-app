@@ -10,7 +10,7 @@ import { config } from '../config.js';
 import { ryanair } from './ryanair.js';
 import { wizzair } from './wizzair.js';
 import { travelpayouts } from './travelpayouts.js';
-import { kiwi, kiwiBlocked } from './kiwi.js';
+import { kiwi, kiwiBlocked, kiwiRetryAfter } from './kiwi.js';
 import { mockProviders } from './mock.js';
 
 export const PROVIDER_INFO = {
@@ -39,7 +39,7 @@ export function providerStatus() {
   return [
     { id: 'ryanair', ...PROVIDER_INFO.ryanair, enabled: config.ryanair },
     { id: 'wizzair', ...PROVIDER_INFO.wizzair, enabled: config.wizz, blocked: wizzair.isBlocked() },
-    { id: 'kiwi', ...PROVIDER_INFO.kiwi, enabled: config.kiwi, blocked: kiwiBlocked() },
+    { id: 'kiwi', ...PROVIDER_INFO.kiwi, enabled: config.kiwi, blocked: kiwiBlocked(), retryAfter: kiwiRetryAfter() },
     { id: 'liteapi', name: 'Hotely (LiteAPI)', color: '#7c3aed', kind: 'stays', note: 'hotely s cenou a hodnocením hostů', enabled: Boolean(config.liteapiKey), hint: config.liteapiKey ? null : 'Zdarma klíč na liteapi.travel → LITEAPI_KEY zapne nabídky hotelů s hodnocením' },
     {
       id: 'travelpayouts', ...PROVIDER_INFO.travelpayouts, enabled: Boolean(config.travelpayoutsToken),

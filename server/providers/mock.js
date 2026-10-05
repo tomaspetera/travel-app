@@ -56,12 +56,18 @@ export function makeMock({ id, name, code, seed, share }) {
     // Přílet v místním čase cíle – pro demo stačí bez rozdílu časových pásem.
     const arrMs = Date.parse(`${dep}Z`) + dur * 60000;
     const arr = new Date(arrMs).toISOString().slice(0, 19);
-    return makeLeg({
+    const leg = makeLeg({
       provider: id, carrier: code, carrierName: name, flightNo: `${code} ${100 + Math.floor(rnd(seed, 'n', from, to) * 8800)}`,
       from, to, dep, arr, price: eur, currency: 'EUR', durationMin: dur,
       prevPrice: rnd(seed, 'prev', from, to, date) < 0.1 ? Math.round(eur * 1.3) : null,
       bookUrl: null,
     });
+    // Jako u Wizz Air / Ryanairu: další (neceněné) odlety téhož dne.
+    const extra = Math.floor(rnd(seed, 'x', from, to, date) * 3);
+    const other = [...new Set(Array.from({ length: extra }, (_, i) => `${pad(6 + Math.floor(rnd(seed, 'o', i, from, to, date) * 16))}:${pad(mm)}`))]
+      .filter((t) => t !== `${pad(hh)}:${pad(mm)}`).sort();
+    if (other.length) leg.otherDeps = other;
+    return leg;
   }
 
   return {
@@ -79,11 +85,14 @@ export function makeMock({ id, name, code, seed, share }) {
       return destinations(origin).filter((d) => !country || getAirport(d)?.cc === country);
     },
     callsPerRoute: () => 1,
-    async daily({ from, to, dateFrom, dateTo }) {
+    // near = { from, to }: dny kolem přesného data (demo je má zadarmo).
+    async daily({ from, to, dateFrom, dateTo, near = null }) {
       if (!destinations(from).includes(to) && !destinations(to).includes(from)) return [];
+      const a = near && near.from < dateFrom ? near.from : dateFrom;
+      const b = near && near.to > dateTo ? near.to : dateTo;
       const out = [];
-      for (let i = 0, n = daysBetween(dateFrom, dateTo); i <= n; i++) {
-        const leg = fare(from, to, addDays(dateFrom, i));
+      for (let i = 0, n = daysBetween(a, b); i <= n; i++) {
+        const leg = fare(from, to, addDays(a, i));
         if (leg) out.push(leg);
       }
       return out;

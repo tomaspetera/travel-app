@@ -106,8 +106,11 @@ export function parseNetwork(json) {
   return net;
 }
 
-function pickDeparture(f) {
-  const list = (f.departureDates || []).map((d) => (typeof d === 'string' ? { date: d } : d)).filter((d) => d && d.date);
+function departureList(f) {
+  return (f.departureDates || []).map((d) => (typeof d === 'string' ? { date: d } : d)).filter((d) => d && d.date);
+}
+
+function pickDeparture(list, f) {
   const cheapest = list.find((d) => d.isCheapestOfTheDay) || list[0];
   return cheapest ? cheapest.date : f.departureDate;
 }
@@ -117,13 +120,19 @@ export function parseTimetable(list, adults = 1) {
   for (const f of list || []) {
     const amount = f.price?.amount;
     if (!(amount > 0) || f.priceType === 'soldOut' || f.priceType === 'checkPrice') continue;
-    const dep = pickDeparture(f);
-    out.push(makeLeg({
+    const deps = departureList(f);
+    const dep = pickDeparture(deps, f);
+    const leg = makeLeg({
       provider: 'wizzair', carrier: 'W6', carrierName: 'Wizz Air',
       from: f.departureStation, to: f.arrivalStation, dep,
       price: amount, currency: f.price.currencyCode,
       bookUrl: bookingUrl({ from: f.departureStation, to: f.arrivalStation, dateOut: String(dep).slice(0, 10), adults }),
-    }));
+    });
+    // Další odlety téhož dne (cena jen u nejlevnějšího) – zobrazí se jako „další lety tento den“.
+    const own = String(dep).slice(11, 16);
+    const other = [...new Set(deps.map((d) => String(d.date).slice(11, 16)))].filter((t) => /^\d{2}:\d{2}$/.test(t) && t !== own && t !== '00:00').sort();
+    if (other.length) leg.otherDeps = other;
+    out.push(leg);
   }
   return out;
 }
@@ -179,8 +188,15 @@ export const wizzair = {
     return [...st.connections].filter((d) => !country || net.get(d)?.cc === country);
   },
 
-  async daily({ from, to, dateFrom, dateTo, adults = 1 }) {
-    return timetable(from, to, dateFrom, dateTo, adults);
+  /**
+   * Ceny po dnech. near = { from, to }: dny kolem přesného data – vejde-li se širší okno do jednoho
+   * dotazu (≤ 30 dní), zeptá se rovnou na něj (žádný dotaz navíc), jinak jen na dateFrom..dateTo.
+   */
+  async daily({ from, to, dateFrom, dateTo, adults = 1, near = null }) {
+    const a = near && near.from < dateFrom ? near.from : dateFrom;
+    const b = near && near.to > dateTo ? near.to : dateTo;
+    const wide = chunkRange(a, b, WINDOW_DAYS).length <= chunkRange(dateFrom, dateTo, WINDOW_DAYS).length;
+    return timetable(from, to, wide ? a : dateFrom, wide ? b : dateTo, adults);
   },
 
   isBlocked: () => Date.now() < state.blockedUntil,

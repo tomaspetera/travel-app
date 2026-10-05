@@ -119,13 +119,18 @@ export const travelpayouts = {
     return null;
   },
 
-  /** q: { origin, dateFrom, dateTo, ret?: {nightsMin,nightsMax}, destination?, country?, directOnly, adults } */
+  /**
+   * q: { origin, dateFrom, dateTo, ret?: {nightsMin,nightsMax,backFrom?,backTo?}, destination?, country?, directOnly, adults }
+   * Přesné datum (dateFrom = dateTo, u zpáteční i backFrom = backTo) → dotaz na konkrétní den
+   * (departure_at/return_at = YYYY-MM-DD), jinak po měsících.
+   */
   async explore(q) {
-    const months = monthsInRange(q.dateFrom, q.dateTo).map((m) => m.slice(0, 7));
-    const parts = await Promise.all(months.map((m) => pfd({
+    const back = q.ret?.backFrom && q.ret.backFrom === q.ret.backTo ? q.ret.backFrom : null;
+    const parts = await Promise.all(periods(q.dateFrom, q.dateTo).map((m) => pfd({
       origin: q.origin,
       ...(q.destination ? { destination: q.destination } : {}),
       departure_at: m,
+      ...(back && m.length === 10 ? { return_at: back } : {}),
       one_way: q.ret ? 'false' : 'true',
       direct: q.directOnly ? 'true' : 'false',
     }).then((j) => parsePricesForDates(j, q))));
@@ -141,13 +146,17 @@ export const travelpayouts = {
   },
 
   async daily({ from, to, dateFrom, dateTo, adults = 1, directOnly = false }) {
-    const months = monthsInRange(dateFrom, dateTo).map((m) => m.slice(0, 7));
-    const parts = await Promise.all(months.map((m) => pfd({
+    const parts = await Promise.all(periods(dateFrom, dateTo).map((m) => pfd({
       origin: from, destination: to, departure_at: m, one_way: 'true', direct: directOnly ? 'true' : 'false',
     }).then((j) => parsePricesForDates(j, { adults }))));
     return parts.flat().filter((t) => !t.back && t.out.date >= dateFrom && t.out.date <= dateTo).map((t) => t.out);
   },
 };
+
+// Období pro departure_at: jeden den → 'YYYY-MM-DD' (přesná data), jinak měsíce 'YYYY-MM'.
+function periods(dateFrom, dateTo) {
+  return dateFrom === dateTo ? [dateFrom] : monthsInRange(dateFrom, dateTo).map((m) => m.slice(0, 7));
+}
 
 function countryMatch(iata, cc) {
   const a = getAirport(iata);

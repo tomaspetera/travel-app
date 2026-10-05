@@ -192,7 +192,16 @@ Další pole hledání: `minTemp` (15–35 °C, jen teplé cíle; každá nabíd
 (`none` / `cabin` / `checked`; poplatek `bagCzk` je započtený v `perPersonCzk`, `flightCzk` zůstává čistá letenka).
 
 Přesná data: místo `dateFrom`/`dateTo` + nocí pošli `"exactOut": "2026-11-14", "exactBack": "2026-11-21"` (a volitelně
-`"flexDays": 1` = každé datum ±1 den); u `"trip": "oneway"` stačí `exactOut`.
+`"flexDays": 1` = každé datum ±1 den); u `"trip": "oneway"` stačí `exactOut`. U přesných dat se na den a trasu nechají
+všechny přímé lety (+ lety s přestupem, nejvýš ~12 variant), Kiwi se ptá se seznamy letišť a zvlášť jen na přímé lety.
+Odpověď navíc má `nearby` (konkrétní cíl: nejlevnější známá cena po dnech ±3 kolem odletu/návratu z už stažených dat,
+`lowcostOnDay` / `lowcostNear` a česká nápověda `hint`, když v zadaný den Ryanair/Wizz nelétá), lety Ryanairu a Wizz Air
+mají `otherDeps` (další odlety téhož dne bez ceny, Ryanair z letového řádu `timtbl`).
+
+Každá odpověď má `filters` (`maxPrice`, `directOnly`, `active`, `hidden` = kolik nabídek filtr skryl) a u každého zdroje
+v `providers` (i v průběhu) `failed`, `retried`, `outage` (`null` / `partial` / `down` / `blocked`), `retryable` a
+`retryAfter` (s) – UI podle toho ukáže „Kiwi.com neodpovědělo“ s tlačítkem Zkusit znovu. Kiwi při 503/429/výpadku
+spojení dotaz zopakuje; na chvíli (1–3 min) se vynechá až po výpadku ve dvou různých hledáních.
 
 Příklad:
 
