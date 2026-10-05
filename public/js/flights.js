@@ -324,6 +324,7 @@
     const btn = $('#doSearch'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Hledám…';
     renderProgress({ providers: [] }, true);
     if (!opts.noScroll) $('#progress').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    busySearches++;
     try {
       const res = await runSearch(payload, { onProgress: ev => renderProgress(ev), signal: searchCtl.signal });
       lastResult = res;
@@ -334,6 +335,7 @@
       if (e.name === 'AbortError') return;
       $('#progress').innerHTML = `<div class="note bad">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(e.message)}</div></div>`;
     } finally {
+      busySearches--;
       btn.disabled = false; btn.innerHTML = '🔎 Najít nejlevnější lety';
     }
   }
@@ -682,45 +684,222 @@
     if (!res) return;
     const b = bestOf(res);
     S.watch = S.watch || [];
-    S.watch.unshift({ id: Date.now().toString(36), label: watchLabel(f), sub: f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? `${f.nMin}–${f.nMax} nocí` : 'jen tam'}`, form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now() });
+    const czk0 = b ? b.czk : null;
+    S.watch.unshift({ id: Date.now().toString(36), label: watchLabel(f), sub: f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? `${f.nMin}–${f.nMax} nocí` : 'jen tam'}`, form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null });
     S.watch = S.watch.slice(0, 12); save();
-    toast('Hledání uloženo – cenu najdeš na Přehledu');
+    updateWatchBadges();
+    toast('Hledání uloženo – cenu hlídám na Přehledu, dokud máš ATLAS otevřený');
+  }
+
+  // Stav karet během kontroly: id → 'wait' (ve frontě) | 'run' (právě se kontroluje).
+  const wState = new Map();
+  let busySearches = 0; // hledání spuštěná uživatelem – automatická kontrola počká
+  const sched = Alerts.scheduler({
+    list: () => S.watch || [],
+    check: id => checkOne(id, true),
+    sync: syncWatches,
+    today,
+    sleep: ms => new Promise(r => setTimeout(r, ms)),
+    canRun: () => !document.hidden && !busySearches,
+  });
+  const cardSel = id => `#watchList [data-w="${CSS.escape(id)}"]`;
+  const notifOk = () => Alerts.notifState(window.Notification, window.isSecureContext !== false);
+
+  function sparkSvg(w) {
+    const W = 120, H = 34, sp = Alerts.sparkPath(w.history, W, H, 4);
+    if (!sp) return '';
+    const n = (w.history || []).length;
+    const lab = `Vývoj ceny za ${n} ${n < 5 ? 'kontroly' : 'kontrol'}: ${czk(sp.min)} až ${czk(sp.max)}`;
+    const tgt = w.target >= sp.min && w.target <= sp.max ? `<path class="ws-tgt" d="M0 ${sp.y(w.target)}H${W}"/>` : '';
+    return `<svg class="w-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(lab)}"><title>${esc(lab)}</title>${tgt}<path class="ws-line" d="${sp.d}"/><path class="ws-dot" d="M${sp.last[0]} ${sp.last[1]}h0"/></svg>`;
+  }
+  function watchBar() {
+    const n = {
+      default: '<button type="button" class="btn sm ghost" id="notifBtn">🔔 Upozorňovat i v prohlížeči</button>',
+      granted: '<span class="w-ntf">🔔 Upozornění v prohlížeči jsou zapnutá.</span>',
+      denied: '<span class="w-ntf">🔕 Upozornění má prohlížeč pro ATLAS zablokovaná – povolíš je v nastavení webu (ikona vedle adresy).</span>',
+      unsupported: '<span class="w-ntf">Tento prohlížeč upozornění neumí – zlevnění uvidíš tady a u položky Přehled.</span>',
+    }[notifOk()];
+    return `<div class="watch-bar"><span>🔄 Každé hledání kontroluji automaticky zhruba jednou za 6 h – ale jen dokud máš ATLAS otevřený v prohlížeči a panel není schovaný na pozadí. Zavřená stránka nehlídá nic.</span>${n}</div>`;
+  }
+  function watchCard(w, now = Date.now()) {
+    const h = w.history || [];
+    const cur = w.best?.czk;
+    const prev = h.length > 1 ? h[h.length - 2].czk : null;
+    const diff = prev && cur ? cur - prev : 0;
+    const past = Alerts.isPast(w.form, today());
+    const st = wState.get(w.id);
+    const since = Alerts.pctChange(w.base ?? h[0]?.czk, cur);
+    const low = Alerts.lowest([w.low, ...h.map(x => x.czk), cur]);
+    const drop = Alerts.isDropped(w);
+    const id = esc(w.id);
+    const when = st === 'run' ? '<span class="spin dark"></span> kontroluji…' : st === 'wait' ? '⏳ čeká na kontrolu…'
+      : w.checked ? `naposledy zkontrolováno <span data-ago="${+w.checked}" title="${esc(new Date(w.checked).toLocaleString('cs-CZ'))}">${Alerts.agoTxt(now - w.checked)}</span>` : 'zatím nezkontrolováno';
+    return `<div class="card watch${st ? ' checking' : ''}${past ? ' past' : ''}${drop ? ' dropped' : ''}" data-w="${id}">
+        <div class="w-head"><div class="w-t">${esc(w.label)}</div>${drop ? '<span class="b good">📉 zlevnilo</span>' : ''}</div>
+        <div class="faint" style="font-size:12px">${esc(w.sub)}</div>
+        <div class="w-main"><div class="w-p">${cur ? czk(cur) : '—'}<small>/os.</small> ${diff ? `<span class="${diff < 0 ? 'good' : 'bad'}" title="Oproti minulé kontrole">${diff < 0 ? '↓' : '↑'} ${czk(Math.abs(diff))}</span>` : ''}</div>${sparkSvg(w)}</div>
+        <div class="w-stats">${since != null ? `<span>od uložení <b class="${since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>` : ''}${low ? `<span>nejnižší cena ${czk(low)}</span>` : ''}</div>
+        <div class="faint" style="font-size:12px">${esc(w.best?.desc || 'zatím bez výsledku')}</div>
+        ${past ? '<div class="note warn w-past">⌛ <div>Termín proběhl – tohle hledání už hlídat nejde. Smaž ho, nebo ho otevři a vyber nové datum.</div></div>'
+        : `<label class="w-target">Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target ? '' : 'hidden'}>✓ splněno</span></label>`}
+        <div class="w-st faint">${when}</div>
+        <div class="row w-act">${past ? `<button class="btn sm" data-wd="${id}">🗑 Smazat</button><button class="btn sm ghost" data-wo="${id}">Otevřít</button>`
+        : `<button class="btn sm" data-wc="${id}" ${st ? 'disabled' : ''}>↻ Zkontrolovat</button><button class="btn sm ghost" data-wo="${id}">Otevřít</button><button class="btn sm ghost" data-wd="${id}" title="Smazat">✕</button>`}</div>
+      </div>`;
+  }
+  // Rozepsanou cílovou cenu při překreslení nezahodit.
+  function keepTyping(fn) {
+    const a = document.activeElement, k = a && a.dataset && a.dataset.wt ? { id: a.dataset.wt, v: a.value } : null;
+    fn();
+    const el = k && $(`#watchList [data-wt="${CSS.escape(k.id)}"]`);
+    if (el) { el.value = k.v; el.focus(); }
   }
   function renderWatch() {
-    const list = S.watch || [];
+    const list = S.watch || [], host = $('#watchList');
     $('#watchHead').hidden = !list.length;
-    $('#watchList').innerHTML = list.length ? `<div class="watch-grid">${list.map(w => {
-      const h = w.history || []; const prev = h.length > 1 ? h[h.length - 2].czk : null; const cur = w.best?.czk;
-      const diff = prev && cur ? cur - prev : 0;
-      return `<div class="card watch" data-w="${w.id}">
-        <div class="w-t">${esc(w.label)}</div><div class="faint" style="font-size:12px">${esc(w.sub)}</div>
-        <div class="w-p">${cur ? czk(cur) : '—'}<small>/os.</small> ${diff ? `<span class="${diff < 0 ? 'good' : 'bad'}">${diff < 0 ? '↓' : '↑'} ${czk(Math.abs(diff))}</span>` : ''}</div>
-        <div class="faint" style="font-size:12px">${esc(w.best?.desc || 'zatím bez výsledku')}</div>
-        <div class="faint" style="font-size:11px">kontrola ${new Date(w.checked).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-        <div class="row" style="gap:6px;margin-top:10px"><button class="btn sm" data-wc="${w.id}">↻ Zkontrolovat</button><button class="btn sm ghost" data-wo="${w.id}">Otevřít</button><button class="btn sm ghost" data-wd="${w.id}" title="Smazat">✕</button></div>
-      </div>`;
-    }).join('')}</div>` : '';
-    $$('[data-wc]').forEach(b => b.onclick = () => checkWatch(b.dataset.wc));
-    $$('[data-wo]').forEach(b => b.onclick = () => { const w = S.watch.find(x => x.id === b.dataset.wo); go('flights'); setForm(w.form); startSearch(); });
-    $$('[data-wd]').forEach(b => b.onclick = () => { S.watch = S.watch.filter(x => x.id !== b.dataset.wd); save(); renderWatch(); });
-    $('#watchCheckAll').onclick = async () => { for (const w of S.watch) await checkWatch(w.id); };
+    const now = Date.now();
+    keepTyping(() => { host.innerHTML = list.length ? `${watchBar()}<div class="watch-grid">${list.map(w => watchCard(w, now)).join('')}</div>` : ''; });
+    host.onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.id === 'notifBtn') askNotif();
+      else if (b.dataset.wc) checkWatch(b.dataset.wc);
+      else if (b.dataset.wo) openWatch(b.dataset.wo);
+      else if (b.dataset.wd) { S.watch = S.watch.filter(x => x.id !== b.dataset.wd); save(); renderWatch(); }
+    };
+    // ukládat průběžně (překreslení karty během psaní nic neztratí), potvrdit až po dopsání
+    host.oninput = e => { if (e.target.dataset.wt) setTarget(e.target.dataset.wt, e.target.value); };
+    host.onchange = e => { if (e.target.dataset.wt) setTarget(e.target.dataset.wt, e.target.value, true); };
+    $('#watchCheckAll').onclick = () => Promise.all((S.watch || []).filter(w => !Alerts.isPast(w.form, today())).map(w => checkWatch(w.id)));
+    updateWatchBadges();
+    observeSeen();
   }
-  async function checkWatch(id) {
-    const w = S.watch.find(x => x.id === id); if (!w) return;
-    const card = $(`[data-w="${id}"]`); if (card) card.classList.add('loading');
+  function paintCard(id) {
+    const el = $(cardSel(id)), w = (S.watch || []).find(x => x.id === id);
+    if (el && w) keepTyping(() => { el.outerHTML = watchCard(w); });
+  }
+  function setState(id, st) { st ? wState.set(id, st) : wState.delete(id); paintCard(id); }
+  function openWatch(id) {
+    const w = (S.watch || []).find(x => x.id === id); if (!w) return;
+    go('flights'); setForm(w.form); startSearch();
+  }
+  function setTarget(id, v, done) {
+    const w = (S.watch || []).find(x => x.id === id); if (!w) return;
+    const n = Math.round(+v), cur = w.best?.czk;
+    w.target = n > 0 ? n : null;
+    const met = !!(cur && w.target && cur <= w.target);
+    const hit = $(`${cardSel(id)} .w-hit`); if (hit) hit.hidden = !met;
+    // Už teď splněno → tuhle cenu znovu nehlásit, ozvat se až při dalším zlevnění.
+    if (done && met) w.notified = cur;
+    save();
+    if (done) toast(!w.target ? 'Cílová cena zrušena' : met ? `Už teď stojí ${czk(cur)} – ozvu se, až cena ještě klesne` : `Upozorním, až bude cena ${czk(w.target)} nebo méně`);
+  }
+  /** Ruční kontrola – zařadí se do stejné fronty jako automatická, takže se nikdy nepotkají. */
+  function checkWatch(id) {
+    if (wState.has(id)) return Promise.resolve();
+    setState(id, 'wait');
+    const asked = Date.now();
+    return sched.exclusive(() => {
+      const w = (S.watch || []).find(x => x.id === id);
+      // mezitím ho zkontrolovala automatická kontrola → jen ukázat výsledek
+      if (w && w.checked >= asked) return toast(`${w.label}: ${w.best ? czk(w.best.czk) : 'nic nenalezeno'}`);
+      return checkOne(id, false);
+    }).finally(() => { if (wState.get(id) === 'wait') setState(id, null); });
+  }
+  async function checkOne(id, auto) {
+    const w = (S.watch || []).find(x => x.id === id); if (!w) return;
+    if (Alerts.isPast(w.form, today())) { if (!auto) toast(`${w.label}: termín už proběhl`, 'err'); return; }
+    setState(id, 'run');
+    const ctl = new AbortController(), tm = auto ? setTimeout(() => ctl.abort(), Alerts.CFG.timeoutMs) : 0;
     try {
       const f = { ...defaultForm(), ...w.form };
       if (f.dFrom < today()) f.dFrom = today();
-      if (f.dateMode === 'exact' && f.xOut < today()) { toast(`${w.label}: termín už proběhl`, 'err'); if (card) card.classList.remove('loading'); return; }
-      const res = await runSearch(payloadOf(f));
-      const b = bestOf(res);
-      const prev = w.best?.czk;
-      w.best = b; w.checked = Date.now(); if (b) w.history = [...(w.history || []), { at: Date.now(), czk: b.czk }].slice(-30);
-      save();
-      if (b && prev && b.czk < prev) toast(`📉 ${w.label}: cena klesla na ${czk(b.czk)}!`);
-      else toast(`${w.label}: ${b ? czk(b.czk) : 'nic nenalezeno'}`);
-    } catch (e) { toast(e.message, 'err'); }
-    renderWatch();
+      const res = await runSearch(payloadOf(f), { signal: ctl.signal });
+      const cur = (S.watch || []).find(x => x.id === id); if (!cur) return; // mezitím smazané
+      const r = Alerts.applyCheck(cur, bestOf(res), Date.now());
+      Object.assign(cur, r.w); save();
+      const b = cur.best;
+      if (r.why) alertDrop(cur, r.why, r.prev);
+      else if (!auto) toast(b && r.prev && b.czk < r.prev ? `📉 ${cur.label}: cena klesla na ${czk(b.czk)}!` : `${cur.label}: ${b ? czk(b.czk) : 'nic nenalezeno'}`);
+    } catch (e) {
+      // automatická kontrola chybu jen zapíše a zkusí to příští cyklus
+      w.tried = Date.now(); save();
+      if (!auto) toast(e.message, 'err');
+    } finally {
+      clearTimeout(tm); setState(id, null); updateWatchBadges(); observeSeen();
+    }
+  }
+  function alertDrop(w, why, prev) {
+    const cur = w.best.czk, pct = Alerts.pctChange(prev, cur);
+    const more = why === 'drop' && pct ? `${Alerts.fmtPct(pct)} od minulé kontroly` : w.target ? `tvůj limit ${czk(w.target)}` : '';
+    toast(`${why === 'target' ? '🎯' : '📉'} ${w.label}: ${czk(cur)}${more ? ' · ' + more : ''}`);
+    if (notifOk() !== 'granted') return;
+    try {
+      const n = new Notification(why === 'target' ? `ATLAS: ${czk(cur)} – pod tvou cenou` : `ATLAS: cena klesla na ${czk(cur)}`, { body: `${w.label} · ${w.sub || ''}${more ? `\n${more}` : ''}\nKlikni a otevřu hledání.`, tag: 'atlas-watch-' + w.id });
+      n.onclick = () => { window.focus(); n.close(); openWatch(w.id); };
+    } catch (e) { } // např. Android Chrome umí upozornění jen přes service worker
+  }
+  function askNotif() {
+    if (notifOk() !== 'default') return renderWatch();
+    let done = false;
+    const fin = p => {
+      if (done) return; done = true;
+      if (p === 'granted') toast('Upozornění zapnutá – ozvu se, až cena klesne');
+      renderWatch();
+    };
+    try { const r = Notification.requestPermission(fin); if (r && r.then) r.then(fin, () => fin(Notification.permission)); } catch (e) { fin(Notification.permission); }
+  }
+  // Jiný panel s ATLASem mohl mezitím kontrolovat – převzít jeho novější výsledky (a neupozorňovat dvakrát).
+  function syncWatches() {
+    try {
+      const d = JSON.parse(localStorage.getItem(LS)), stored = d && Array.isArray(d.watch) ? d.watch : [];
+      let n = 0;
+      for (const w of S.watch || []) {
+        const s = stored.find(x => x && x.id === w.id);
+        if (s && (s.checked || 0) > (w.checked || 0)) { Object.assign(w, s); n++; }
+      }
+      return n;
+    } catch (e) { return 0; }
+  }
+
+  /* ukazatel „zlevnilo od minule“ – zmizí, když si uživatel seznam na přehledu prohlédne */
+  function watchStatTxt() {
+    const list = S.watch || [], n = Alerts.droppedCount(list);
+    return n ? `<b class="good">📉 Zlevnilo od minule: ${n}</b>` : list.length ? 'Hlídám, dokud máš ATLAS otevřený' : 'Ulož hledání tlačítkem ♡';
+  }
+  function updateWatchBadges() {
+    const n = Alerts.droppedCount(S.watch);
+    const nb = $('#navDrops'); if (nb) { nb.hidden = !n; nb.textContent = '📉 ' + n; }
+    const md = $('#mobDrops'); if (md) md.hidden = !n;
+    const val = $('#watchStatVal'); if (val) val.textContent = (S.watch || []).length;
+    const sub = $('#watchStatSub');
+    if (sub) { sub.innerHTML = watchStatTxt(); sub.onclick = n ? () => $('#watchHead').scrollIntoView({ behavior: 'smooth', block: 'start' }) : null; sub.classList.toggle('jump', !!n); }
+  }
+  let seenIO = null, seenT = 0;
+  function observeSeen() {
+    const el = $('#watchList'); if (!el || !window.IntersectionObserver) return;
+    seenIO = seenIO || new IntersectionObserver(es => { clearTimeout(seenT); if (es.some(e => e.isIntersecting)) seenT = setTimeout(markSeen, 1500); });
+    seenIO.unobserve(el); seenIO.observe(el); // znovu vyhodnotit i bez posunu stránky
+  }
+  function markSeen() {
+    if (activeView !== 'dashboard' || document.hidden) return;
+    let ch = 0;
+    for (const w of S.watch || []) if (w.best?.czk > 0 && w.seen !== w.best.czk) { w.seen = w.best.czk; ch++; }
+    if (ch) { save(); updateWatchBadges(); }
+  }
+
+  /** Automatické kontroly: chvíli po startu a pak každých 30 min, jen v otevřeném a viditelném panelu. */
+  function startAutoCheck() {
+    const C = Alerts.CFG, tick = () => sched.cycle();
+    setTimeout(tick, C.startMs);
+    setInterval(tick, C.cycleMs);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      if (Date.now() - sched.lastCycle >= C.cycleMs) setTimeout(tick, 1500);
+      observeSeen();
+    });
+    window.addEventListener('storage', e => { if (e.key === LS && syncWatches()) renderWatch(); });
+    setInterval(() => $$('#watchList [data-ago]').forEach(el => { el.textContent = Alerts.agoTxt(Date.now() - +el.dataset.ago); }), 60e3);
   }
 
   /* ---------- živý radar na přehledu ---------- */
@@ -743,13 +922,14 @@
     $('#radarReload').onclick = () => renderRadar(true);
     if (!force && S.radar && S.radar.key === key && Date.now() - S.radar.at < 30 * 60e3) return paintRadar(S.radar);
     host.innerHTML = `<div class="radar-grid">${Array.from({ length: 8 }, () => '<div class="card radar-card skel"></div>').join('')}</div>`;
+    busySearches++;
     try {
       const res = await runSearch(p);
       S.radar = { key, at: Date.now(), demo: res.demo, items: res.groups.slice(0, 12).map(g => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: g.best.perPersonCzk, from: g.best.out.from, to: g.best.out.to, d1: g.best.out.date, d2: g.best.back?.date, deal: g.best.deal.level, prov: g.best.out.provider })) };
       save(); paintRadar(S.radar);
     } catch (e) {
       host.innerHTML = `<div class="note warn">⚠️ <div>Radar se nepodařilo načíst: ${esc(e.message)}</div></div>`;
-    }
+    } finally { busySearches--; }
   }
   function paintRadar(r) {
     const host = $('#radar');
@@ -863,7 +1043,9 @@
       setForm({ ...defaultForm(), ...(S.form || {}), from: heroFrom.items, to: heroTo.items });
       startSearch();
     };
+    updateWatchBadges();
+    startAutoCheck();
   }
 
-  window.Flights = { init, renderQuick, renderWatch, renderRadar, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch };
+  window.Flights = { init, renderQuick, renderWatch, renderRadar, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt };
 })();

@@ -105,7 +105,10 @@ test('POST /api/search – chybějící odkud → srozumitelná chyba', async ()
 test('statické soubory, data a ochrana proti path traversal', async () => {
   const html = await fetch(`${base}/`);
   assert.equal(html.status, 200);
-  assert.match(await html.text(), /<title>ATLAS/);
+  const page = await html.text();
+  assert.match(page, /<title>ATLAS/);
+  assert.ok(page.indexOf('js/alerts.js') > 0 && page.indexOf('js/alerts.js') < page.indexOf('js/flights.js'), 'hlídání cen se načte před flights.js');
+  assert.equal((await fetch(`${base}/js/alerts.js`)).status, 200);
   const c = await (await fetch(`${base}/data/countries.json`)).json();
   assert.ok(c.length > 150);
   // fetch() by „..“ normalizoval, proto surový HTTP požadavek.
