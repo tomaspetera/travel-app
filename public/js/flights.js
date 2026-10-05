@@ -29,7 +29,8 @@
   const today = () => fmtYMD(new Date());
   const dayLabel = s => { const d = new Date(s.slice(0, 10) + 'T12:00:00'); return `${DOW[d.getDay()].toLowerCase()} ${d.getDate()}. ${d.getMonth() + 1}.`; };
   const timeOf = l => l.hasTime ? l.dep.slice(11, 16) : '';
-  const arrTime = l => l.arr && l.hasTime ? (l.arrEst ? '~' : '') + l.arr.slice(11, 16) : '';
+  // přílet další den (noční a dálkové lety) → „00:20 +1“
+  const arrTime = l => l.arr && l.hasTime ? (l.arrEst ? '~' : '') + l.arr.slice(11, 16) + (l.arr.slice(0, 10) > l.date ? ` +${SearchHelp.diffDays(l.date, l.arr.slice(0, 10))}` : '') : '';
   const dur = m => m ? `${Math.floor(m / 60)} h ${pad(m % 60)} min` : '';
   const hm = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
   const yymmdd = s => s.slice(2, 10).replace(/-/g, '');
