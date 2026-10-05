@@ -55,7 +55,7 @@ let activeView = 'dashboard';
 function ico(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
 function buildNav() {
   // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js).
-  $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minula zlevnily" hidden></span>' : ''}</div>`).join('');
+  $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
   // Na mobilu hlavní sekce + „Více“ (mapa, země, doporučení).
   const MOBILE = ['dashboard', 'flights', 'trip', 'explore', 'planner'];
   $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden></i>' : ''}</div>`).join('')

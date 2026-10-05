@@ -40,14 +40,16 @@
 
   /**
    * Upozornit? 'target' = cena je na cílové částce nebo pod ní, 'drop' = o ≥ pct % levnější než minulá kontrola.
-   * Stejnou (± pct %) cenu, kterou už jsme hlásili, nehlásíme znovu; pod cílem až když je o pct % níž než minule.
+   * Stejnou (± pct %) cenu, kterou už jsme hlásili, nehlásíme znovu; první cenu pod cílem ale vždy,
+   * dál pod cílem až když je o pct % níž než minule.
    */
   function shouldNotify({ prev, cur, target, notified } = {}, pct = CFG.dropPct) {
     cur = num(cur); prev = num(prev); target = num(target); notified = num(notified);
     if (!cur) return null;
-    const k = pct / 100;
+    const k = pct / 100, under = !!target && cur <= target;
+    if (under && !(notified && notified <= target)) return 'target';
     if (notified && Math.abs(cur - notified) < notified * k) return null;
-    if (target && cur <= target && !(notified && notified <= target && cur > notified)) return 'target';
+    if (under && cur < notified) return 'target';
     if (prev && cur <= prev * (1 - k)) return 'drop';
     return null;
   }
@@ -106,6 +108,21 @@
     return !!(cur && seen && cur <= seen * (1 - pct / 100));
   }
   function droppedCount(list) { return (list || []).filter(w => isDropped(w)).length; }
+
+  /**
+   * Seznam uložený jiným panelem (localStorage) → jeho složení a úpravy platí (přidané, smazané, cíl…),
+   * jen vlastní novější výsledek kontroly zůstane. Beze změny vrací stejné objekty.
+   */
+  function mergeWatches(mine, stored) {
+    mine = mine || [];
+    if (!Array.isArray(stored)) return { list: mine, changed: false };
+    const byId = new Map(mine.map(w => [w && w.id, w]));
+    const list = stored.filter(s => s && s.id != null).map(s => {
+      const m = byId.get(s.id);
+      return m && ((num(m.checked) || 0) > (num(s.checked) || 0) || JSON.stringify(m) === JSON.stringify(s)) ? m : s;
+    });
+    return { list, changed: list.length !== mine.length || list.some((w, i) => w !== mine[i]) };
+  }
 
   /**
    * Křivka ceny pro <svg viewBox="0 0 width height">: osa x podle času kontroly (když chybí, rovnoměrně),
@@ -174,5 +191,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, isDropped, droppedCount, sparkPath, notifState, scheduler };
+  window.Alerts = { CFG, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, isDropped, droppedCount, mergeWatches, sparkPath, notifState, scheduler };
 })();

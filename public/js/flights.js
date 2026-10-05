@@ -703,7 +703,9 @@
     canRun: () => !document.hidden && !busySearches,
   });
   const cardSel = id => `#watchList [data-w="${CSS.escape(id)}"]`;
-  const notifOk = () => Alerts.notifState(window.Notification, window.isSecureContext !== false);
+  // Chrome na Androidu Notification má, ale ze stránky ho vytvořit nejde (jen přes service worker) → jako by ho neměl.
+  const notifCtor = !(navigator.userAgentData && /Android/i.test(navigator.userAgent));
+  const notifOk = () => notifCtor ? Alerts.notifState(window.Notification, window.isSecureContext !== false) : 'unsupported';
 
   function sparkSvg(w) {
     const W = 120, H = 34, sp = Alerts.sparkPath(w.history, W, H, 4);
@@ -753,7 +755,8 @@
     const a = document.activeElement, k = a && a.dataset && a.dataset.wt ? { id: a.dataset.wt, v: a.value } : null;
     fn();
     const el = k && $(`#watchList [data-wt="${CSS.escape(k.id)}"]`);
-    if (el) { el.value = k.v; el.focus(); }
+    // hodnotu nastavit až po fokusu (přes prázdnou), jinak kurzor skončí na začátku a „15“ + „00“ = „0015“
+    if (el && el !== a) { el.focus(); el.value = ''; el.value = k.v; }
   }
   function renderWatch() {
     const list = S.watch || [], host = $('#watchList');
@@ -810,7 +813,8 @@
     const w = (S.watch || []).find(x => x.id === id); if (!w) return;
     if (Alerts.isPast(w.form, today())) { if (!auto) toast(`${w.label}: termín už proběhl`, 'err'); return; }
     setState(id, 'run');
-    const ctl = new AbortController(), tm = auto ? setTimeout(() => ctl.abort(), Alerts.CFG.timeoutMs) : 0;
+    // limit i pro ruční kontrolu – zaseknuté spojení by jinak navždy drželo frontu
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), Alerts.CFG.timeoutMs);
     try {
       const f = { ...defaultForm(), ...w.form };
       if (f.dFrom < today()) f.dFrom = today();
@@ -823,8 +827,8 @@
       else if (!auto) toast(b && r.prev && b.czk < r.prev ? `📉 ${cur.label}: cena klesla na ${czk(b.czk)}!` : `${cur.label}: ${b ? czk(b.czk) : 'nic nenalezeno'}`);
     } catch (e) {
       // automatická kontrola chybu jen zapíše a zkusí to příští cyklus
-      w.tried = Date.now(); save();
-      if (!auto) toast(e.message, 'err');
+      ((S.watch || []).find(x => x.id === id) || w).tried = Date.now(); save();
+      if (!auto) toast(e.name === 'AbortError' ? `${w.label}: kontrola trvala moc dlouho – zkus to později` : e.message, 'err');
     } finally {
       clearTimeout(tm); setState(id, null); updateWatchBadges(); observeSeen();
     }
@@ -849,17 +853,14 @@
     };
     try { const r = Notification.requestPermission(fin); if (r && r.then) r.then(fin, () => fin(Notification.permission)); } catch (e) { fin(Notification.permission); }
   }
-  // Jiný panel s ATLASem mohl mezitím kontrolovat – převzít jeho novější výsledky (a neupozorňovat dvakrát).
+  // Jiný panel s ATLASem mohl mezitím kontrolovat, přidat nebo smazat hledání – převzít to
+  // (neupozorňovat dvakrát a při příštím uložení jeho změny nepřepsat starým seznamem).
   function syncWatches() {
     try {
-      const d = JSON.parse(localStorage.getItem(LS)), stored = d && Array.isArray(d.watch) ? d.watch : [];
-      let n = 0;
-      for (const w of S.watch || []) {
-        const s = stored.find(x => x && x.id === w.id);
-        if (s && (s.checked || 0) > (w.checked || 0)) { Object.assign(w, s); n++; }
-      }
-      return n;
-    } catch (e) { return 0; }
+      const d = JSON.parse(localStorage.getItem(LS)), r = Alerts.mergeWatches(S.watch, d && d.watch);
+      if (r.changed) S.watch = r.list;
+      return r.changed;
+    } catch (e) { return false; }
   }
 
   /* ukazatel „zlevnilo od minule“ – zmizí, když si uživatel seznam na přehledu prohlédne */
@@ -877,9 +878,10 @@
   }
   let seenIO = null, seenT = 0;
   function observeSeen() {
-    const el = $('#watchList'); if (!el || !window.IntersectionObserver) return;
-    seenIO = seenIO || new IntersectionObserver(es => { clearTimeout(seenT); if (es.some(e => e.isIntersecting)) seenT = setTimeout(markSeen, 1500); });
-    seenIO.unobserve(el); seenIO.observe(el); // znovu vyhodnotit i bez posunu stránky
+    const el = $('#watchList .watch-grid'); if (!el || !window.IntersectionObserver) return;
+    // karty musí být opravdu na obrazovce (ne jen okraj pod ohybem stránky)
+    seenIO = seenIO || new IntersectionObserver(es => { clearTimeout(seenT); if (es.some(e => e.isIntersecting)) seenT = setTimeout(markSeen, 1500); }, { rootMargin: '0px 0px -25% 0px' });
+    seenIO.disconnect(); seenIO.observe(el); // znovu vyhodnotit i bez posunu stránky
   }
   function markSeen() {
     if (activeView !== 'dashboard' || document.hidden) return;
