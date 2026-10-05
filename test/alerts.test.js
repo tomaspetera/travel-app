@@ -63,6 +63,9 @@ test('shouldNotify: pokles o ≥ 3 %, cílová cena, bez opakování stejné cen
   assert.equal(A.shouldNotify({ prev: 2000, cur: 1900, target: 2100, notified: 2000 }), 'target');
   // dříve hlášený pokles nad cílem → první překročení cíle se hlásí
   assert.equal(A.shouldNotify({ prev: 2600, cur: 2050, target: 2100, notified: 2500 }), 'target');
+  // první cena pod cílem se hlásí, i když je blízko minule hlášeného poklesu nad cílem
+  assert.equal(A.shouldNotify({ prev: 2000, cur: 1985, target: 1990, notified: 2000 }), 'target');
+  assert.equal(A.shouldNotify({ prev: 1985, cur: 1980, target: 1990, notified: 1985 }), null, 'pak už ne');
   // cena vyskočila a pak zase výrazně klesla (jinde než minule)
   assert.equal(A.shouldNotify({ prev: 3000, cur: 2800, notified: 2000 }), 'drop');
   assert.equal(A.shouldNotify({ prev: 2000, cur: 0 }), null);
@@ -104,6 +107,21 @@ test('isDropped / droppedCount: zlevnění od poslední návštěvy přehledu', 
   assert.equal(A.isDropped({ best: { czk: 1980 }, seen: 2000 }), true, '−1 % už ano');
   assert.equal(A.droppedCount(list), 1);
   assert.equal(A.droppedCount(undefined), 0);
+});
+
+test('mergeWatches: složení a úpravy z jiného panelu platí, vlastní novější kontrola se neztratí', () => {
+  const mine = [{ id: 'a', checked: 10, best: { czk: 900 } }, { id: 'b', checked: 5 }, { id: 'c', checked: 7, target: null }];
+  // jiný panel: přidal „n“, smazal „b“, u „c“ nastavil cíl, „a“ má starší kontrolu
+  const stored = [{ id: 'n', checked: 1 }, { id: 'a', checked: 8, best: { czk: 1000 } }, { id: 'c', checked: 7, target: 1500 }, null];
+  const r = A.mergeWatches(mine, stored);
+  assert.deepEqual(plain(r.list.map((w) => w.id)), ['n', 'a', 'c']);
+  assert.equal(r.list[1], mine[0], 'novější vlastní výsledek zůstává');
+  assert.equal(r.list[2].target, 1500);
+  assert.equal(r.changed, true);
+  const same = A.mergeWatches(mine, plain(mine));
+  assert.equal(same.changed, false);
+  assert.ok(same.list.every((w, i) => w === mine[i]), 'beze změny stejné objekty');
+  assert.equal(A.mergeWatches(mine, undefined).list, mine, 'nic uloženého → beze změny');
 });
 
 test('sparkPath: x podle času, levnější = níž, rovná čára uprostřed, < 2 body nic', () => {
