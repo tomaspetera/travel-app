@@ -180,7 +180,10 @@ test('statické soubory, data a ochrana proti path traversal', async () => {
   assert.match(page, /<title>ATLAS/);
   assert.ok(page.indexOf('js/alerts.js') > 0 && page.indexOf('js/alerts.js') < page.indexOf('js/flights.js'), 'hlídání cen se načte před flights.js');
   assert.equal((await fetch(`${base}/js/alerts.js`)).status, 200);
-  const c = await (await fetch(`${base}/data/countries.json`)).json();
+  assert.ok(page.indexOf('js/searchhelp.js') > 0 && page.indexOf('js/searchhelp.js') < page.indexOf('js/flights.js'), 'pomoc s výsledky se načte před flights.js');
+  assert.equal((await fetch(`${base}/js/searchhelp.js`)).status, 200);
+  assert.match(page, /id="smartGuide"/, 'průvodce „Jak hledat chytře“ na stránce letů');
+  const c =await (await fetch(`${base}/data/countries.json`)).json();
   assert.ok(c.length > 150);
   // fetch() by „..“ normalizoval, proto surový HTTP požadavek.
   for (const p of ['/../server/config.js', '/%2e%2e%2fserver%2fconfig.js', '/..%2f..%2f.env']) {
@@ -282,4 +285,36 @@ test('POST /api/bike kind=train – vlakem tam, na kole zpět (DEMO)', async () 
   const loop = await (await post({ lat: 50.0875, lon: 14.4213, km: 40, kind: 'plane' })).json();
   assert.equal(loop.kind, 'loop', 'neznámý druh → okruh');
   assert.equal(loop.station, undefined);
+});
+
+test('POST /api/stayplan – trasa přes víc míst (DEMO): návrh open-jaw, přepočet upravené trasy, chyby', async () => {
+  const post = (body) => fetch(`${base}/api/stayplan`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+  const r = await post({ arrival: 'BGY', departure: 'FCO', nights: 8, transport: 'car' });
+  assert.equal(r.status, 200);
+  const j = await r.json();
+  assert.equal(j.demo, true);
+  assert.equal(j.mode, 'suggest');
+  assert.equal(j.openJaw, true);
+  assert.equal(j.want, 3);
+  assert.ok(j.bases.length >= 2 && j.bases.length <= 4);
+  assert.equal(j.bases[0].anchor, 'arrival');
+  assert.equal(j.bases.reduce((s, b) => s + b.nights, 0), 8, 'noci dohromady = délka pobytu');
+  assert.ok(j.bases.every((b) => b.nights >= 1 && b.name && Number.isFinite(b.lat) && Number.isFinite(b.lon)));
+  assert.equal(j.transfers.length, j.bases.length - 1);
+  assert.ok(j.transfers.every((x) => x.km > 0 && x.carMin > 0 && x.transitMin > 0 && /^https:\/\/www\.google\.com\/maps\/dir\//.test(x.carUrl) && /travelmode=transit/.test(x.transitUrl)));
+  assert.equal(j.departure.iata, 'FCO');
+  assert.ok(j.legs.departure.carMin > 0);
+  assert.ok(Array.isArray(j.candidates) && j.candidates.length > 0);
+  // jen tam a vlakem
+  const ow = await (await post({ arrival: 'LIS', nights: 5, transport: 'transit', count: 2 })).json();
+  assert.equal(ow.transport, 'transit');
+  assert.equal(ow.legs.departure, null);
+  assert.equal(ow.bases.length, 2);
+  // přepočet upravené trasy
+  const ev = await (await post({ arrival: 'BGY', departure: 'FCO', bases: j.bases.slice().reverse().map(({ name, lat, lon, cc }) => ({ name, lat, lon, cc })) })).json();
+  assert.equal(ev.mode, 'evaluate');
+  assert.equal(ev.transfers.length, j.bases.length - 1);
+  for (const bad of [{ arrival: 'BGY', nights: 0 }, { arrival: 'XYZ', nights: 3 }, { arrival: 'BGY', bases: [{ name: 'x', lat: 'a', lon: 1 }] }, 'null', '[]', '{nope']) {
+    assert.equal((await post(bad)).status, 400, JSON.stringify(bad));
+  }
 });

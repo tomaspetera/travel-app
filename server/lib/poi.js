@@ -627,6 +627,54 @@ export async function findTrips({ lat, lon, limit = 30 }) {
 }
 
 /**
+ * Města do ~120 km – kandidáti na další místo pobytu (trasa přes víc míst). Stejné dotazy
+ * a mezipaměť jako výlety (hlavní seznam + UNESCO), bez pomalých dotazů na hrady a přírodu
+ * a bez popisů z Wikipedie (trasa ukazuje jen, co ve městě je) – méně dotazů na Wikimedii.
+ */
+export async function findTowns({ lat, lon, limit = 25 }) {
+  const key = `towns:${lat.toFixed(2)}:${lon.toFixed(2)}:${limit}`;
+  return cache.wrap(key, (v) => (v.degraded ? 15 * 60e3 : 7 * 864e5), async () => {
+    const [rows, unesco] = await Promise.all([tripsQuery(lat, lon), unescoQuery(lat, lon).catch(() => null)]);
+    // I města hned u bodu hledání (bod mezi letišti může ležet u města, které je z okolních bodů
+    // dál než okruh dotazu); blízko města příletu/odletu je vyřadí až návrh trasy.
+    const out = tripsFromRows(rows, { lat, lon }, 0, { road: true, unesco: unesco || [] })
+      .filter((t) => t.tripKind === 'town')
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map(({ partOf, island, serial, wiki, ...p }) => ({
+        // anglický název z článku Wikipedie („Bologna“, „Santa Maria (Rio Grande do Sul)“ → „Santa Maria, Rio Grande do Sul“)
+        // pro odkazy na partnery ubytování, které český název („Boloňa“) nepoznají
+        ...p, nameEn: wiki.en ? wiki.en.replace(/ \((.+)\)$/, ', $1') : null, categoryLabel: p.spa ? 'Lázně' : 'Město / obec',
+        url: wiki.cs ? `https://cs.wikipedia.org/wiki/${encodeURIComponent(wiki.cs.replace(/ /g, '_'))}` : wiki.en ? `https://en.wikipedia.org/wiki/${encodeURIComponent(wiki.en.replace(/ /g, '_'))}` : `https://www.wikidata.org/wiki/${p.id}`,
+      }));
+    if (!unesco) out.degraded = true; // bez UNESCO jsou skóre měst slabší – zkusit znovu za 15 min
+    return out;
+  });
+}
+
+// DEMO: vymyšlené názvy měst (deterministicky podle polohy, ať se okolí různých bodů liší).
+const DEMO_TOWNS = ['Ukázkov', 'Vzorovice', 'Příkladov', 'Testín', 'Pokusná Lhota', 'Náhledov', 'Šablonov', 'Modelín', 'Makétov', 'Zkušebná', 'Prototypy', 'Nanečisto'];
+const DEMO_SUFFIX = ['nad Řekou', 'u Lesa', 'pod Horou', 'na Pláni', 'v Údolí', 'u Jezera', 'na Kopci', 'u Moře'];
+
+/** DEMO režim: vymyšlená města 30–200 km od bodu (kandidáti na místa pobytu). */
+export function mockTowns({ lat, lon }) {
+  const off = Math.abs(Math.round(lat * 7 + lon * 13));
+  return Array.from({ length: 10 }, (_, i) => {
+    const a = ((i * 137.5 + off * 31) * Math.PI) / 180;
+    const d = 0.3 + (i % 5) * 0.25;
+    const p = {
+      id: `demoTown:${lat.toFixed(2)},${lon.toFixed(2)}:${i}`, name: `${DEMO_TOWNS[(i + off) % DEMO_TOWNS.length]} ${DEMO_SUFFIX[off % DEMO_SUFFIX.length]}`, description: 'demo data',
+      lat: lat + Math.sin(a) * d, lon: lon + Math.cos(a) * d * 1.4, sitelinks: 160 - i * 11, unesco: i === 1, heritage: i % 2 === 0,
+      category: 'daytrip', tripKind: 'town', sights: 4 - (i % 4), highlights: ['Ukázková katedrála', 'Ukázkový hrad', 'Staré náměstí'].slice(0, 3 - (i % 3)),
+      extract: 'Vymyšlené město pro ukázku aplikace (DEMO režim).', url: null, image: null, categoryLabel: 'Město / obec',
+    };
+    p.distanceKm = Math.round(haversineKm(lat, lon, p.lat, p.lon));
+    p.score = Math.round(scorePlace({ ...p, category: 'town', distanceKm: 0 }) + p.sights * 6);
+    return p;
+  }).sort((a, b) => b.score - a.score);
+}
+
+/**
  * Místa k návštěvě kolem bodu.
  * opts: { lat, lon, radiusKm (město, max 25), dayTrips (true = i výlety do 120 km), limit }
  */

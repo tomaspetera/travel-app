@@ -45,7 +45,7 @@ function initCountries(list) {
 /* ================= NAV / SHELL ================= */
 const NAV = [['dashboard', 'Přehled', 'Radar cen a tvoje cesty', 'M3 12l9-9 9 9M5 10v10h14V10'],
 ['flights', 'Lety', 'Nejlevnější letenky ze všech letišť v okolí', 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z'],
-['trip', 'Cesta', 'Let → ubytování → auto → program → shrnutí', 'M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13'],
+['trip', 'Cesta', 'Let → trasa → ubytování → auto → program → shrnutí', 'M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13'],
 ['explore', 'Objevuj', 'Co vidět a kam vyrazit kdekoliv na světě', 'M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zM12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z'],
 ['map', 'Mapa', 'Procestuj svět a odškrtávej země', 'M9 20l-5.5 2.5V5L9 2.5m0 17.5l6-3m-6 3V2.5m6 14.5l5.5 2.5V5L15 2.5m0 14.5V2.5m-6 0l6 3'],
 ['countries', 'Země', 'Počasí, ceny, bezpečnost a tipy', 'M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2c2.5 2.7 4 6.3 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.3-4-10s1.5-7.3 4-10z'],

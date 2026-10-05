@@ -236,6 +236,15 @@
     paintMap(state.map, center, pts, lines, onClick, fitIds);
   }
 
+  /**
+   * Mapa trasy pobytu (průvodce cestou): střed = letiště příletu, body { id, lat, lon, color, num, label, q },
+   * přejezdy jednou čárkovanou čarou. Vrací funkci (body, souřadnice [[lon, lat]…]) pro překreslení téže mapy.
+   */
+  function routeMap(el, center) {
+    const ms = makeMap(el, center);
+    return (pts, coords) => paintMap(ms, center, pts, [{ color: '#5b8cff', coords }], null);
+  }
+
   // Výlety autem: cíle očíslované po dnech, trasa dne (start → cíle → přespání / návrat).
   function drawTrips(state, center, trip, onClick) {
     if (!state.map || !trip) return;
@@ -850,5 +859,5 @@
     }
   }
 
-  window.Places = { renderExplore, renderPlanner, retheme };
+  window.Places = { renderExplore, renderPlanner, retheme, routeMap };
 })();

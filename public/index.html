@@ -182,12 +182,26 @@
           <div class="row wrap" style="margin-top:16px">
             <button class="btn primary big" id="doSearch" type="submit">🔎 Najít nejlevnější lety</button>
             <button class="btn ghost" id="watchBtn" type="button" title="Uložit hledání – cenu pak kontroluji sám, dokud máš ATLAS otevřený v prohlížeči">♡ Hlídat cenu</button>
+            <button type="button" class="linkbtn guide-link" id="guideLink">💡 Jak hledat chytře</button>
             <span class="faint" id="searchHint" style="font-size:12.5px"></span>
           </div>
         </form>
 
         <div id="progress"></div>
         <div id="results"></div>
+
+        <details class="card smart-guide" id="smartGuide">
+          <summary><span>💡 Jak hledat chytře</span><span class="faint">hlavně dálkové lety – Amerika, Asie</span></summary>
+          <ol class="sg-list">
+            <li><b>Buď flexibilní ± 3 dny.</b> U přesných dat zvol „± 3 dny“, nebo hledej „Flexibilně“ a otevři pohled 📅 Kalendář. Posun o den dva může ušetřit stovky, u dálkových letů i tisíce korun. U přesných dat ukáže pruh 📅 Nejbližší dny ceny okolních dnů, pokud je zná (hlavně Ryanair a Wizz Air) – jinak jiný den vyhledáš jedním kliknutím.</li>
+            <li><b>Nejdřív celá země nebo světadíl, pak město.</b> Do „Kam“ napiš třeba „USA“ nebo „Asie“ – uvidíš, kam je to nejlevnější (New York, Miami, Bangkok…). Pak hledej to nejlevnější město na přesná data.</li>
+            <li><b>Přidej přestupní letiště – Vídeň, Mnichov, Berlín, Frankfurt.</b> Bývá odtud víc přímých dálkových letů a často i nižší ceny. U dálkových cílů je ATLAS přidává sám, jinak je zadej do „Odkud“ vedle svého města. Cena cesty na letiště je v ceně započtená.</li>
+            <li><b>Zkus jednosměrné letenky každým směrem.</b> Hledej „Jen tam“ zvlášť tam a zvlášť zpět – dvě jednosměrné letenky bývají někdy levnější než zpáteční. Stejně složíš i open-jaw: tam do New Yorku, zpět z Bostonu (Odkud „Boston“, Kam „Praha“).</li>
+            <li><b>Dálkové lety rezervuj obvykle 2–5 měsíců předem</b> a hledání si ulož tlačítkem ♡ Hlídat cenu – ATLAS cenu kontroluje, dokud máš stránku otevřenou, a ozve se, když klesne.</li>
+            <li><b>Ověř cenu i jinde.</b> Kiwi.com neprodává všechny aerolinky (např. British Airways). U výsledků proklikni „Ověřit: Google Flights · Skyscanner“ – uvidíš i lety, které ATLAS nenajde.</li>
+            <li><b>Odlet uprostřed týdne</b> (út–čt) bývá často levnější než v pátek nebo v neděli – není to ale pravidlo, záleží na trase a sezóně.</li>
+          </ol>
+        </details>
 
         <div class="section-head"><h2>Jak ulovit nejlevnější letenku</h2></div>
         <div class="tip-list" id="flightTips"></div>
@@ -293,6 +307,7 @@
 <script src="js/places.js"></script>
 <script src="js/trip.js"></script>
 <script src="js/alerts.js"></script>
+<script src="js/searchhelp.js"></script>
 <script src="js/flights.js"></script>
 </body>
 </html>

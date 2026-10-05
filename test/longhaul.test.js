@@ -92,6 +92,7 @@ test('Kiwi do světadílu: dotaz na každou oblíbenou zemi, z domova i přestup
     const vie = r.origins.find((o) => o.iata === 'VIE');
     assert.equal(vie?.hub, true, 'použité přestupní letiště je mezi odletovými');
     assert.ok(!r.origins.some((o) => o.iata === 'BER'), 'nepoužité přestupní letiště se neukazuje');
+    assert.deepEqual(r.hubs, ['BER', 'MUC', 'VIE'], 'prohledaná přestupní letiště i ta bez výsledku (UI je znovu nenabízí)');
   } finally {
     stub.restore();
   }
