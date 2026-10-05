@@ -23,8 +23,11 @@
     return;
   }
   const range = 'U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F';
+  // Chrome skládá rodinu jen z řezů stejné váhy – vlajkový řez proto musí mít každá váha, kterou
+  // načítá Google Fonts (index.html: Inter 400–800, Sora 600–800); rozsah „100 900“ nestačí.
+  const faces = [['Inter', [400, 500, 600, 700, 800]], ['Sora', [600, 700, 800]], ['Twemoji Country Flags', [400]]];
   const style = document.createElement('style');
-  style.textContent = ['Inter', 'Sora', 'Twemoji Country Flags'].map(f => `@font-face{font-family:"${f}";unicode-range:${range};src:url("vendor/flags/TwemojiCountryFlags.woff2") format("woff2");font-weight:100 900;font-display:swap}`).join('\n');
+  style.textContent = faces.flatMap(([f, ws]) => ws.map(w => `@font-face{font-family:"${f}";unicode-range:${range};src:url("vendor/flags/TwemojiCountryFlags.woff2") format("woff2");font-weight:${w};font-display:swap}`)).join('\n');
   document.head.appendChild(style);
   document.documentElement.classList.add('flag-font');
 })();
