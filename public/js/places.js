@@ -43,7 +43,7 @@
   async function getJson(url, opts) {
     const r = await fetch(url, opts);
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    if (!r.ok) throw Object.assign(new Error(j.error || `HTTP ${r.status}`), { status: r.status });
     return j;
   }
 
@@ -653,7 +653,13 @@
           if (my !== replanSeq[seqKey] || ex.place !== p) return;
           ex.bikeRoute = r;
         } else if (road) {
-          const t = await makeTrip(p, mode, transport);
+          // Po uspání serveru (prázdná mezipaměť) Wikidata napoprvé často nestihne – dotazy ale běží dál,
+          // takže hned druhý pokus už většinou projde.
+          const t = await makeTrip(p, mode, transport).catch(e => {
+            if (e.status !== 503) throw e;
+            if (btn?.isConnected) btn.innerHTML = '<span class="spin"></span> Wikidata odpovídá pomalu – zkouším znovu…';
+            return makeTrip(p, mode, transport);
+          });
           if (my !== replanSeq[seqKey] || ex.place !== p) return; // mezitím jiné místo nebo novější dotaz
           ex.trips[tripKey(mode, transport)] = t;
         } else {
