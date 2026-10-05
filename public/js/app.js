@@ -337,7 +337,7 @@ function mapFallback(msg) {
 }
 
 /* ================= PLANNER ================= */
-function dateRange(a, b) { if (!a) return []; const out = []; let d = new Date(a), end = b ? new Date(b) : new Date(a); let n = 0; while (d <= end && n < 31) { out.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); n++; } return out; }
+function dateRange(a, b) { if (!a) return []; const out = []; let d = new Date(a), end = b ? new Date(b) : new Date(a); let n = 0; while (d <= end && n < 31) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); n++; } return out; }
 function resolveCountry(text) { const t = norm(text); if (!t) return null; let c = COUNTRIES.find(c => norm(c.cs) === t || norm(c.en) === t); if (!c) c = COUNTRIES.find(c => norm(c.cs).startsWith(t) && t.length > 2); return c || null; }
 function renderPlanner() {
   const host = $('#plannerList');
@@ -375,7 +375,7 @@ function openTrip(i) {
   <div class="modal-body">
     ${t.flight ? `<div class="note info" style="margin-bottom:14px">✈️ <div>${esc(t.flight)}</div></div>` : ''}
     <div class="row wrap"><button class="btn primary" onclick="modalClose();${c ? `fromCountrySearch('${t.iso}')` : `go('flights')`}">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
-    <div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>
+    <div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>
     <div class="divider"></div>
     <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + ' dní' : 'doplň termíny'}</span></div>
     <div style="margin-top:10px">${days.length ? days.map((d, di) => { const acts = t.days[d] || []; return `<div class="day-block"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span></h4>${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button onclick="delAct(${i},'${d}',${ai})">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" placeholder="Přidej aktivitu…" onkeydown="if(event.key==='Enter')addAct(${i},'${d}')"><button class="btn sm" onclick="addAct(${i},'${d}')">Přidat</button></div></div>`; }).join('') : `<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Doplň termíny cesty a objeví se itinerář den po dni.</div></div>`}</div>
@@ -389,6 +389,8 @@ function openTrip(i) {
   </div>`);
   $('#tripStay').onclick = () => openStay(city, t.start || '', t.end || '');
   const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
+  // Poznámky se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
+  const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(S.trips[i])[0])); });
   $('#tripShare').onclick = () => sharePlan(i);
 }
 
@@ -407,8 +409,12 @@ function planEvents(t) {
 function exportPlan(i) {
   const t = S.trips[i], ev = planEvents(t);
   if (!ev.length) return toast('Nejdřív doplň termíny cesty', 'err');
-  Ics.download('atlas-' + t.name, ev, { name: t.name });
-  toast(`Staženo do kalendáře: ${ev.length} ${ev.length === 1 ? 'událost' : ev.length < 5 ? 'události' : 'událostí'}`);
+  icsDownload('atlas-' + t.name, ev, { name: t.name });
+}
+/** Stáhne .ics (i z průvodce cestou); do kalendáře se události dostanou až otevřením souboru. */
+function icsDownload(filename, events, opts) {
+  const n = Ics.download(filename, events, opts).split('\r\nBEGIN:VEVENT\r\n').length - 1;
+  toast(`Soubor .ics stažen (${n} ${n === 1 ? 'událost' : n >= 2 && n <= 4 ? 'události' : 'událostí'}) – otevři ho v kalendáři`);
 }
 function sharePlan(i) {
   const url = `${location.origin}${location.pathname}#plan=${PlanShare.encode(S.trips[i])}`;
