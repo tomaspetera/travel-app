@@ -34,6 +34,9 @@ export function makeLeg(o) {
     flightNo: o.flightNo || null,
     from: o.from,
     to: o.to,
+    // IANA zóny letišť – místní časy dep/arr pak jdou převést (export do kalendáře).
+    fromTz: fa?.tz || null,
+    toTz: ta?.tz || null,
     dep,
     arr,
     arrEst,
