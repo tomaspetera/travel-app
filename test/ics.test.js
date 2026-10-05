@@ -152,6 +152,9 @@ test('Ics.gcalUrl: odkaz do Google Kalendáře (celodenní exkluzivně, časy v 
   const t = new URL(Ics.gcalUrl({ title: 'Let', start: '2026-07-15T10:00', end: '2026-07-15T12:00', tz: 'Europe/Prague' }));
   assert.equal(t.searchParams.get('dates'), '20260715T080000Z/20260715T100000Z');
   assert.equal(Ics.gcalUrl({ title: 'x', start: 'nikdy' }), null);
+  // Zkrácený popis nerozpůlí emoji (v adrese by z půlky byl znak �).
+  const long = new URL(Ics.gcalUrl({ title: 'x', start: '2026-11-10', description: 'a' + '🏰'.repeat(900) })).searchParams.get('details');
+  assert.equal(long, 'a' + '🏰'.repeat(749));
 });
 
 test('PlanShare: odkaz na plán – tam a zpět beze ztráty (čeština, emoji, lety)', () => {
@@ -227,6 +230,25 @@ test('PlanShare: škodlivý odkaz – texty bez HTML/JS, data ověřená, pole o
     assert.throws(() => PlanShare.decode(bad), undefined, `má selhat: ${bad.slice(0, 30)}`);
   }
   assert.throws(() => PlanShare.fromHash('#plan=<script>'));
+});
+
+test('Plánovač: dny cesty přes změnu času – žádný den dvakrát ani chybějící (export po dnech)', () => {
+  // dateRange z app.js (celý app.js potřebuje DOM) v místní zóně prohlížeče uživatele.
+  const src = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8').match(/^function dateRange\(.*$/m)[0];
+  const days = (a, n) => Array.from({ length: n }, (_, i) => new Date(Date.parse(a) + i * 864e5).toISOString().slice(0, 10));
+  const tz0 = process.env.TZ;
+  try {
+    for (const tz of ['Europe/Prague', 'America/New_York', 'Australia/Sydney', 'UTC']) {
+      process.env.TZ = tz;
+      const dateRange = vm.runInNewContext(src + '; dateRange');
+      for (const [a, b, n] of [['2026-03-27', '2026-03-31', 5], ['2026-03-06', '2026-03-10', 5], ['2026-10-02', '2026-10-06', 5], ['2026-10-23', '2026-10-27', 5], ['2026-07-01', '2026-07-01', 1]]) {
+        assert.deepEqual([...dateRange(a, b)], days(a, n), `${tz}: ${a} – ${b}`);
+      }
+      assert.equal(dateRange('2026-01-01', '2026-12-31').length, 31, 'nejvýš 31 dní');
+    }
+  } finally {
+    if (tz0 === undefined) delete process.env.TZ; else process.env.TZ = tz0;
+  }
 });
 
 test('index.html: ics.js a planshare.js se načtou před skripty, které je používají', () => {

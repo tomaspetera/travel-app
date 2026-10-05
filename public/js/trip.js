@@ -463,11 +463,7 @@
     $$('[data-bk]', host).forEach(cb => cb.onchange = () => { t.booked[cb.dataset.bk] = cb.checked; persist(); });
     $('#sumSave').onclick = () => saveToPlanner();
     $('#sumShare').onclick = () => share();
-    $('#sumIcs').onclick = () => {
-      const ev = calendarEvents(t);
-      Ics.download(`atlas-${t.dest.label}-${checkin}`, ev, { name: `Cesta: ${t.dest.label}` });
-      toast(`Staženo do kalendáře: ${ev.length} ${ev.length === 1 ? 'událost' : ev.length < 5 ? 'události' : 'událostí'}`);
-    };
+    $('#sumIcs').onclick = () => icsDownload(`atlas-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` });
     $('#sumNew').onclick = () => { if (confirm('Zahodit rozpracovanou cestu?')) { S.trip = null; persist(); go('flights'); } };
   }
 

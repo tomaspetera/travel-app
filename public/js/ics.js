@@ -162,7 +162,7 @@
     const ev = prepare(e);
     if (!ev) return null;
     const qs = new URLSearchParams({ action: 'TEMPLATE', text: ev.title, dates: `${ev.dtStart}/${ev.dtEnd}` });
-    const details = withUrl(ev).slice(0, 1500);
+    const details = cut(withUrl(ev), 1500);
     if (details) qs.set('details', details);
     if (ev.location) qs.set('location', ev.location);
     return 'https://calendar.google.com/calendar/render?' + qs;
