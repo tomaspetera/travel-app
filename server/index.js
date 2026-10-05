@@ -20,6 +20,7 @@ import { findPlaces, findTrips, mockPlaces, mockTrips } from './lib/poi.js';
 import { planTrips } from './lib/roadtrip.js';
 import { bikeLoop, mockBikeLoop, hikeLoop, mockHikeLoop, bikeFromStation, mockBikeFromStation } from './lib/bike.js';
 import { planItinerary } from './lib/itinerary.js';
+import { planStay, StayPlanError } from './lib/stayplan.js';
 import { kiwi } from './providers/kiwi.js';
 import { isYmd, daysBetween } from './lib/dates.js';
 import { affiliateOn } from './lib/links.js';
@@ -399,6 +400,23 @@ async function route(req, res) {
       plan.note = ['Přírodní cíle se pro toto místo ještě načítají – za minutu naplánuj znovu, bude jich víc.', plan.note].filter(Boolean).join(' ');
     }
     return sendJson(req, res, 200, { demo: config.mock, degraded: Boolean(candidates.degraded), candidates: candidates.length, ...plan });
+  }
+  if (p === '/api/stayplan' && req.method === 'POST') {
+    // Pobyt na víc místech: návrh trasy (města z Wikidat), nebo jen přepočet přejezdů upravené trasy.
+    let b;
+    try {
+      b = JSON.parse((await readBody(req)) || '{}');
+    } catch {
+      return sendJson(req, res, 400, { error: 'Neplatný JSON' });
+    }
+    if (b && typeof b === 'object' && b.bases === undefined && rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    try {
+      return sendJson(req, res, 200, { demo: config.mock, ...(await planStay(b, { mock: config.mock })) });
+    } catch (e) {
+      if (e instanceof StayPlanError) return sendJson(req, res, 400, { error: e.message });
+      console.warn(`stayplan: ${e.message}`);
+      return sendJson(req, res, 503, { error: 'Návrh trasy se teď nepodařilo připravit (Wikidata neodpovídá) – zkus to prosím za chvíli, nebo přidej místa ručně.' });
+    }
   }
   if ((p === '/api/bike' || p === '/api/hike') && req.method === 'POST') {
     const hike = p === '/api/hike';
