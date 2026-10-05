@@ -18,13 +18,14 @@ import { searchStays } from './lib/stays.js';
 import { searchCars } from './lib/cars.js';
 import { findPlaces, findTrips, mockPlaces, mockTrips } from './lib/poi.js';
 import { planTrips } from './lib/roadtrip.js';
-import { bikeLoop, mockBikeLoop } from './lib/bike.js';
+import { bikeLoop, mockBikeLoop, hikeLoop, mockHikeLoop, bikeFromStation, mockBikeFromStation } from './lib/bike.js';
 import { planItinerary } from './lib/itinerary.js';
 import { kiwi } from './providers/kiwi.js';
 import { isYmd, daysBetween } from './lib/dates.js';
 import { affiliateOn } from './lib/links.js';
 import { HttpError } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
+import { airportClimate, climateAt, climateSource, countryClimate } from './lib/climate.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -38,9 +39,9 @@ function wantsGzip(req) {
   return /\bgzip\b/.test(req.headers['accept-encoding'] || '');
 }
 
-function sendJson(req, res, status, obj) {
+function sendJson(req, res, status, obj, extra = {}) {
   const body = Buffer.from(JSON.stringify(obj));
-  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra };
   if (wantsGzip(req) && body.length > 1024) {
     headers['Content-Encoding'] = 'gzip';
     res.writeHead(status, headers);
@@ -296,6 +297,30 @@ async function route(req, res) {
       return sendJson(req, res, 200, { available: true, items: [], error: e.message });
     }
   }
+  if (p === '/api/climate') {
+    // Dlouhodobé podnebí (NASA POWER) u letiště, místa nebo hlavního letiště země – data se nemění.
+    const sp = url.searchParams;
+    const iata = (sp.get('iata') || '').toUpperCase();
+    const cc = (sp.get('cc') || '').toUpperCase();
+    let c;
+    if (cc) {
+      if (!/^[A-Z]{2}$/.test(cc)) return sendJson(req, res, 400, { error: 'Neplatný kód země.' });
+      c = countryClimate(cc);
+    } else if (iata) {
+      if (!/^[A-Z]{3}$/.test(iata) || !getAirport(iata)) return sendJson(req, res, 400, { error: 'Neznámé letiště.' });
+      const ac = airportClimate(iata);
+      c = ac && { iata, city: getAirport(iata).cityCs, ...ac };
+    } else if (sp.get('lat') && sp.get('lon')) {
+      const lat = Number(sp.get('lat'));
+      const lon = Number(sp.get('lon'));
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Neplatná poloha (lat/lon).' });
+      c = climateAt(lat, lon);
+    } else {
+      return sendJson(req, res, 400, { error: 'Zadej letiště (iata), polohu (lat, lon) nebo zemi (cc).' });
+    }
+    if (!c) return sendJson(req, res, 404, { error: 'Pro toto místo nemám údaje o podnebí.' });
+    return sendJson(req, res, 200, { ...c, source: climateSource() }, { 'Cache-Control': 'public, max-age=604800' });
+  }
   if (p === '/api/cars') return sendJson(req, res, 200, searchCars(Object.fromEntries(url.searchParams)));
   if (p === '/api/poi') {
     if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
@@ -375,7 +400,8 @@ async function route(req, res) {
     }
     return sendJson(req, res, 200, { demo: config.mock, degraded: Boolean(candidates.degraded), candidates: candidates.length, ...plan });
   }
-  if (p === '/api/bike' && req.method === 'POST') {
+  if ((p === '/api/bike' || p === '/api/hike') && req.method === 'POST') {
+    const hike = p === '/api/hike';
     let b;
     try {
       b = JSON.parse((await readBody(req)) || '{}');
@@ -388,13 +414,19 @@ async function route(req, res) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
     const q = {
-      lat, lon, km: Number(b.km) || 30, bike: String(b.bike || 'trekking'), variant: Number(b.variant) || 0,
+      lat, lon, km: Number(b.km) || (hike ? 10 : 30), variant: Number(b.variant) || 0,
       scenery: ['city', 'mixed', 'nature'].includes(b.scenery) ? b.scenery : 'mixed',
       hills: ['flat', 'normal', 'hilly'].includes(b.hills) ? b.hills : 'normal',
     };
-    if (config.mock) return sendJson(req, res, 200, { demo: true, ...mockBikeLoop(q) });
+    // Kolo: typ kola; „vlakem tam, na kole zpět“ potřebuje i název a zemi domova (odkaz do IDOS).
+    if (!hike) {
+      Object.assign(q, { bike: String(b.bike || 'trekking'), kind: b.kind === 'train' ? 'train' : 'loop' });
+      if (q.kind === 'train') Object.assign(q, { label: String(b.label || '').slice(0, 120), cc: /^[A-Z]{2}$/.test(b.cc) ? b.cc : '' });
+    }
+    const plan = hike ? hikeLoop : q.kind === 'train' ? bikeFromStation : bikeLoop;
+    if (config.mock) return sendJson(req, res, 200, { demo: true, ...(hike ? mockHikeLoop : q.kind === 'train' ? mockBikeFromStation : mockBikeLoop)(q) });
     try {
-      if (q.scenery === 'city') {
+      if (q.scenery === 'city' && q.kind !== 'train') {
         // Památky po cestě: ty, které už má načtené stránka Objevuj (nejlepší první), jinak stejná data ze serveru.
         const sent = Array.isArray(b.sights) ? b.sights.slice(0, 40)
           .map((x) => ({ name: String(x?.name || '').slice(0, 120), lat: Number(x?.lat), lon: Number(x?.lon), score: Number(x?.score) || 0 }))
@@ -403,10 +435,13 @@ async function route(req, res) {
           : await findPlaces({ lat, lon, radiusKm: Math.min(25, Math.max(3, q.km / 5)), dayTrips: false }).catch(() => []);
         q.sights = places.filter((x) => x.category !== 'daytrip').sort((x, y) => (y.score || 0) - (x.score || 0)).map((x) => ({ name: x.name, lat: x.lat, lon: x.lon }));
       }
-      return sendJson(req, res, 200, { demo: false, ...(await bikeLoop(q)) });
+      return sendJson(req, res, 200, { demo: false, ...(await plan(q)) });
     } catch (e) {
-      console.warn(`bike: ${e.message}`);
-      return sendJson(req, res, 503, { error: 'Trasu na kolo se teď nepodařilo naplánovat (plánovač tras neodpovídá) – zkus to prosím za chvíli.' });
+      console.warn(`${hike ? 'hike' : 'bike'}: ${e.message}`);
+      if (e.code === 'NO_STATION') return sendJson(req, res, 404, { error: e.message });
+      const error = e.code === 'WDQS' ? 'Nádraží v okolí se teď nepodařilo načíst (Wikidata neodpovídá) – zkus to prosím za chvíli.'
+        : `${hike ? 'Pěší trasu' : 'Trasu na kolo'} se teď nepodařilo naplánovat (plánovač tras neodpovídá) – zkus to prosím za chvíli.`;
+      return sendJson(req, res, 503, { error });
     }
   }
   if (p === '/api/search' && req.method === 'POST') return handleSearch(req, res);

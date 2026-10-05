@@ -90,7 +90,7 @@ function sparqlNear(lat, lon, radiusKm, minLinks, items) {
 } LIMIT 30000`;
 }
 
-async function wdqs(query, timeoutMs = 45000) {
+export async function wdqs(query, timeoutMs = 45000) {
   const url = `${WDQS}?format=json&query=${encodeURIComponent(query)}`;
   const j = await limitWdqs(() => request(url, { headers: { 'User-Agent': UA, Accept: 'application/sparql-results+json' }, timeoutMs, retries: 0 }));
   return j.results?.bindings || [];
