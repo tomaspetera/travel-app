@@ -190,6 +190,36 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .fchip.af span{color:var(--muted);font-size:11px}
 .fchip.af:hover span{color:var(--bad)}
 
+/* filtry času a přestupů */
+.fchip.tf-toggle{color:var(--muted)}
+.fchip.tf-toggle.on{color:var(--text);border-color:rgba(91,140,255,.42);background:rgba(91,140,255,.13)}
+.tf-n{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:#fff;font-size:10.5px}
+.tf-panel{padding:12px 16px;margin:-6px 0 16px}
+.tf-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;font-size:14px;margin-bottom:10px}
+.tf-head .faint{font-size:12.5px}
+.tf-head .faint b{color:var(--text)}
+.tf-x{margin-left:auto;border:none;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;padding:4px 7px;border-radius:7px}
+.tf-x:hover{color:var(--text);background:var(--surface-2)}
+.tf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px 22px}
+.tf-f{display:flex;flex-direction:column;gap:6px;min-width:0}
+.tf-l{font-size:12px;font-weight:700;color:var(--muted)}
+.tf-l small{font-size:11.5px;font-weight:600;color:var(--faint)}
+.tf-parts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.tf-parts button{border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:9px;padding:5px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;font:inherit;cursor:pointer;min-width:0}
+.tf-parts b{font-size:12.5px;font-weight:700;white-space:nowrap}
+.tf-parts small{font-size:10.5px;color:var(--faint);white-space:nowrap}
+.tf-parts button:hover{border-color:var(--border-2)}
+.tf-parts button.on{border-color:var(--accent);background:rgba(91,140,255,.18);color:var(--text)}
+.tf-arr{grid-template-columns:repeat(5,minmax(0,1fr))}
+.tf-arr button{padding:8px 2px}
+.tf-seg{display:flex;flex-wrap:wrap;width:fit-content;max-width:100%}
+.tf-seg button{padding:6px 10px;font-size:12.5px}
+.tf-range{display:flex;align-items:center;gap:10px;min-height:34px}
+.tf-range input{flex:1;min-width:0;accent-color:var(--accent)}
+.tf-range b{min-width:96px;font-size:13px;text-align:right}
+.tf-note{font-size:11.5px;margin-top:10px}
+.cd.gone b{color:var(--faint);font-weight:700}
+
 /* přesná data: nejbližší dny */
 .nb-card{padding:12px 16px;margin-bottom:14px}
 .nb-card.hot{border-color:rgba(251,191,36,.55);box-shadow:0 0 0 1px rgba(251,191,36,.22),var(--shadow)}
@@ -386,6 +416,12 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
   .lr-p b{font-size:15px}
   .lod{padding-left:0}
   .sg-list{padding:0 14px 14px 32px}
+  .tf-panel{padding:10px 12px}
+  .tf-grid{grid-template-columns:minmax(0,1fr);gap:10px}
+  .tf-parts b{font-size:12px}
+  .tf-seg{width:100%}
+  .tf-seg button{flex:1 1 auto;padding:6px 7px}
+  .tf-range b{min-width:84px}
 }
 
 /* kontrast upozornění ve světlém režimu */

@@ -275,6 +275,22 @@ export function flightNoOf(seg) {
   return c ? `${c} ${num.trim()}` : num;
 }
 
+/**
+ * Přestupy z úseků: čekání mezi příletem a dalším odletem (oba časy místní na témže letišti) → [{ at, min }].
+ * Chybí-li čas některého úseku (nebo nedává smysl), null – let se pak filtrem délky přestupu neskrývá.
+ */
+export function layoversOf(segs) {
+  if (!Array.isArray(segs) || segs.length < 2) return null;
+  const ms = (s) => (/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(String(s || '')) ? Date.parse(`${String(s).slice(0, 16)}:00Z`) : NaN);
+  const out = [];
+  for (let i = 1; i < segs.length; i++) {
+    const min = Math.round((ms(segs[i].departureTime) - ms(segs[i - 1].arrivalTime)) / 60000);
+    if (!Number.isFinite(min) || min < 0) return null;
+    out.push({ at: segs[i].from || segs[i - 1].to || null, min });
+  }
+  return out;
+}
+
 function legOf(l, itinerary, currency, adults, combined) {
   if (!l) return null;
   const segs = l.segments || [];
@@ -297,6 +313,7 @@ function legOf(l, itinerary, currency, adults, combined) {
     currency,
     stops: Number.isFinite(l.stops) && l.stops > 0 ? l.stops : Math.max(0, segs.length - 1),
     durationMin: l.durationSeconds ? Math.round(l.durationSeconds / 60) : null,
+    layovers: layoversOf(segs),
     bookUrl: itinerary.bookingUrl || null,
   });
 }

@@ -98,6 +98,20 @@ test('POST /api/search – konkrétní cíl, víkend, kalendář', async () => {
   assert.ok(r.calendar.out.every((d) => [4, 5, 6].includes(new Date(d.date + 'T12:00:00Z').getUTCDay())));
 });
 
+test('POST /api/search – DEMO: přesná data i s lety s přestupem (časy přestupů pro filtr), nejlevnější let dne zůstává přímý', async () => {
+  const body = { from: ['ap:BRQ'], to: ['metro:LON'], radiusKm: 200, trip: 'return' };
+  const r = (await searchStream({ ...body, exactOut: ymdPlus(20), exactBack: ymdPlus(27) })).last.result;
+  const legs = r.top.flatMap((t) => [t.out, t.back]);
+  const conn = legs.filter((l) => l.stops > 0);
+  assert.ok(conn.length > 0 && legs.some((l) => !l.stops), 'přímé i s přestupem');
+  for (const l of conn) {
+    assert.equal(l.layovers.length, l.stops);
+    assert.ok(l.layovers.every((x) => /^[A-Z]{3}$/.test(x.at) && x.min >= 45 && x.min < l.durationMin), JSON.stringify(l.layovers));
+  }
+  const flex = (await searchStream({ ...body, dateFrom: ymdPlus(10), dateTo: ymdPlus(40), nightsMin: 3, nightsMax: 7 })).last.result;
+  assert.ok(flex.top.length > 0 && flex.top.every((t) => !t.out.stops && !t.back.stops), 'přestupní varianta je v demu vždy dražší');
+});
+
 test('GET /api/climate – letiště, poloha, země; kontrola vstupu a dlouhá cache', async () => {
   const r = await fetch(`${base}/api/climate?iata=bkk`);
   assert.equal(r.status, 200);

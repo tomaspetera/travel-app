@@ -15,6 +15,8 @@ function rnd(...parts) {
 }
 
 const pad = (n) => String(n).padStart(2, '0');
+// Přestupní letiště pro ukázkové lety s přestupem.
+const HUBS = ['VIE', 'MUC', 'FRA', 'AMS', 'ZRH', 'WAW', 'IST', 'CDG', 'FCO', 'MAD', 'BUD', 'ATH', 'CPH', 'LIS'];
 
 export function makeMock({ id, name, code, seed, share }) {
   const destCache = new Map();
@@ -70,6 +72,36 @@ export function makeMock({ id, name, code, seed, share }) {
     return leg;
   }
 
+  // K delším trasám někdy i let s jedním přestupem přes velké letiště po cestě – vždy dražší než přímý,
+  // takže nejlevnější let dne (a s ním výsledky „kamkoliv“ i kalendář) zůstává stejný.
+  function connection(from, to, date, direct) {
+    const a = getAirport(from);
+    const b = getAirport(to);
+    const d = haversineKm(a.lat, a.lon, b.lat, b.lon);
+    if (d < 900 || rnd(seed, 'c', from, to, date) >= 0.55) return null;
+    const km = (x, y) => haversineKm(x.lat, x.lon, y.lat, y.lon);
+    let hub = null;
+    for (const code of HUBS) {
+      const h = getAirport(code);
+      if (!h || code === from || code === to || km(a, h) < 250 || km(h, b) < 250) continue;
+      const via = km(a, h) + km(h, b);
+      if (via <= d * 1.3 && (!hub || via < hub.via)) hub = { code, h, via };
+    }
+    if (!hub) return null;
+    const mins = (x, y) => Math.round((km(x, y) / 780) * 60 + 35);
+    const lay = [45, 70, 95, 130, 185, 260, 420][Math.floor(rnd(seed, 'lay', from, to, date) * 7)];
+    const hh = 6 + Math.floor(rnd(seed, 'ch', from, to, date) * 15);
+    const dep = `${date}T${pad(hh)}:${pad([5, 20, 40][Math.floor(rnd(seed, 'cm', from, to, date) * 3)])}:00`;
+    const dur = mins(a, hub.h) + lay + mins(hub.h, b);
+    const arr = new Date(Date.parse(`${dep}Z`) + dur * 60000).toISOString().slice(0, 19);
+    const n = 100 + Math.floor(rnd(seed, 'cn', from, to) * 8800);
+    return makeLeg({
+      provider: id, carrier: code, carrierName: name, flightNo: `${code} ${n}, ${code} ${n + 1}`,
+      from, to, dep, arr, price: Math.round(direct.price * (1.1 + rnd(seed, 'cp', from, to, date) * 0.4)) + 0.99, currency: 'EUR',
+      durationMin: dur, stops: 1, layovers: [{ at: hub.code, min: lay }], bookUrl: null,
+    });
+  }
+
   return {
     id,
     name,
@@ -93,7 +125,10 @@ export function makeMock({ id, name, code, seed, share }) {
       const out = [];
       for (let i = 0, n = daysBetween(a, b); i <= n; i++) {
         const leg = fare(from, to, addDays(a, i));
-        if (leg) out.push(leg);
+        if (!leg) continue;
+        out.push(leg);
+        const via = connection(from, to, leg.date, leg);
+        if (via) out.push(via);
       }
       return out;
     },
