@@ -635,12 +635,16 @@ export async function findTowns({ lat, lon, limit = 25 }) {
   const key = `towns:${lat.toFixed(2)}:${lon.toFixed(2)}:${limit}`;
   return cache.wrap(key, (v) => (v.degraded ? 15 * 60e3 : 7 * 864e5), async () => {
     const [rows, unesco] = await Promise.all([tripsQuery(lat, lon), unescoQuery(lat, lon).catch(() => null)]);
-    const out = tripsFromRows(rows, { lat, lon }, 15, { road: true, unesco: unesco || [] })
+    // I města hned u bodu hledání (bod mezi letišti může ležet u města, které je z okolních bodů
+    // dál než okruh dotazu); blízko města příletu/odletu je vyřadí až návrh trasy.
+    const out = tripsFromRows(rows, { lat, lon }, 0, { road: true, unesco: unesco || [] })
       .filter((t) => t.tripKind === 'town')
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
       .map(({ partOf, island, serial, wiki, ...p }) => ({
-        ...p, categoryLabel: p.spa ? 'Lázně' : 'Město / obec',
+        // anglický název z článku Wikipedie („Bologna“, „Santa Maria (Rio Grande do Sul)“ → „Santa Maria, Rio Grande do Sul“)
+        // pro odkazy na partnery ubytování, které český název („Boloňa“) nepoznají
+        ...p, nameEn: wiki.en ? wiki.en.replace(/ \((.+)\)$/, ', $1') : null, categoryLabel: p.spa ? 'Lázně' : 'Město / obec',
         url: wiki.cs ? `https://cs.wikipedia.org/wiki/${encodeURIComponent(wiki.cs.replace(/ /g, '_'))}` : wiki.en ? `https://en.wikipedia.org/wiki/${encodeURIComponent(wiki.en.replace(/ /g, '_'))}` : `https://www.wikidata.org/wiki/${p.id}`,
       }));
     if (!unesco) out.degraded = true; // bez UNESCO jsou skóre měst slabší – zkusit znovu za 15 min

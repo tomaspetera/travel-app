@@ -11,7 +11,7 @@ const T = (id, name, lat, lon, score, extra = {}) => ({ id, name, lat, lon, scor
 // Severní a střední Itálie (skóre zhruba jako z Wikidat).
 const ITALY = [
   T('Q1', 'Bergamo', 45.6983, 9.6773, 88), T('Q2', 'Como', 45.8081, 9.0852, 86), T('Q3', 'Verona', 45.4384, 10.9916, 96, { unesco: true, sights: 4 }),
-  T('Q4', 'Bologna', 44.4949, 11.3426, 95, { sights: 4 }), T('Q5', 'Florencie', 43.7696, 11.2558, 118, { unesco: true, sights: 6, highlights: ['Dóm', 'Uffizi', 'Ponte Vecchio', 'Palazzo Pitti'] }),
+  T('Q4', 'Bologna', 44.4949, 11.3426, 95, { sights: 4 }), T('Q5', 'Florencie', 43.7696, 11.2558, 118, { unesco: true, sights: 6, highlights: ['Dóm', 'Uffizi', 'Ponte Vecchio', 'Palazzo Pitti'], nameEn: 'Florence' }),
   T('Q6', 'Siena', 43.3188, 11.3308, 100, { unesco: true }), T('Q7', 'Pisa', 43.7228, 10.4017, 97), T('Q8', 'Orvieto', 42.7185, 12.1107, 84),
   T('Q9', 'Assisi', 43.0707, 12.6196, 92, { unesco: true }), T('Q10', 'Parma', 44.8015, 10.3279, 85), T('Q11', 'Monza', 45.5845, 9.2744, 80),
 ];
@@ -79,6 +79,8 @@ test('suggestRoute: open-jaw Milán → Řím – začíná městem příletu, k
     assert.equal(r.bases.at(-1).anchor, 'departure');
     for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) assert.ok(km(r.bases[i], r.bases[j]) >= 50, `${names[i]}–${names[j]} jsou moc blízko`);
     assert.ok(names.includes('Florencie'), 'nejvýznamnější město po cestě');
+    assert.equal(r.bases.find((b) => b.name === 'Florencie').nameEn, 'Florence', 'anglický název pro odkazy na ubytování');
+    assert.equal(r.bases[0].nameEn, '');
     assert.deepEqual(r.notes, []);
   }
   // Na 2 místa se Milán–Řím za 3 h nedá: delší přejezd, evaluateRoute ho označí.
@@ -213,7 +215,9 @@ test('findTowns: jen města z dotazu na výlety (stejná mezipaměť), bez hrad�
   const uri = (v) => ({ type: 'uri', value: v });
   const row = (q, label, lat, lon, sl, type, extra = {}) => ({ item: uri(`http://www.wikidata.org/entity/${q}`), itemLabel: lit(label), lat: lit(lat), lon: lit(lon), sl: lit(sl), type: uri(`http://www.wikidata.org/entity/${type}`), ...extra });
   const rows = [
-    row('Q2044', 'Florencie', 43.7696, 11.2558, 200, 'Q515'),
+    row('Q2044', 'Florencie', 43.7696, 11.2558, 200, 'Q515', { en: uri('https://en.wikipedia.org/wiki/Florence') }),
+    row('Q1891', 'Boloňa', 44.4939, 11.3428, 190, 'Q515', { en: uri('https://en.wikipedia.org/wiki/Bologna') }),
+    row('Q9', 'Santa Maria', 44.2, 11.0, 50, 'Q515', { en: uri('https://en.wikipedia.org/wiki/Santa_Maria_(Emilia)') }),
     row('Q1', 'Dóm ve Florencii', 43.7731, 11.256, 120, 'Q2977'),
     row('Q2', 'Uffizi', 43.7678, 11.2553, 110, 'Q33506'),
     row('Q3', 'Hrad Poppi', 43.7213, 11.7633, 60, 'Q23413'),
@@ -228,11 +232,12 @@ test('findTowns: jen města z dotazu na výlety (stejná mezipaměť), bez hrad�
   });
   try {
     const towns = await findTowns({ lat: 44.4949, lon: 11.3426 });
-    assert.deepEqual(towns.map((t) => t.name), ['Florencie']);
+    assert.deepEqual(towns.map((t) => t.name), ['Florencie', 'Boloňa', 'Santa Maria'], 'i město hned u bodu hledání (bod mezi letišti)');
+    assert.deepEqual(towns.map((t) => t.nameEn), ['Florence', 'Bologna', 'Santa Maria, Emilia'], 'anglický název pro partnery ubytování');
     assert.equal(towns[0].tripKind, 'town');
     assert.deepEqual(towns[0].highlights, ['Dóm ve Florencii', 'Uffizi']);
     assert.ok(towns[0].score > 0);
-    assert.equal(towns[0].url, 'https://www.wikidata.org/wiki/Q2044');
+    assert.equal(towns[0].url, 'https://en.wikipedia.org/wiki/Florence');
     assert.ok(!stub.calls.some((c) => c.url.includes('wikipedia.org/w/api.php')), 'bez dotazů na popisy z Wikipedie');
     const before = stub.calls.length;
     await findTowns({ lat: 44.4949, lon: 11.3426 });

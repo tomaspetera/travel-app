@@ -121,7 +121,7 @@ test('sanitizeTrip: trasa ze sdíleného odkazu – škodlivá místa, odkazy, �
   const xss = '<img src=x onerror=alert(1)>"\'`';
   const raw = multiTrip();
   raw.route.bases = [
-    { ...raw.route.bases[0], name: `${xss}Milán`, id: 'x" onclick="alert(1)', anchor: 'evil', cc: 'it', reason: xss, highlights: [xss, 5, { a: 1 }, ...Array(10).fill('h')], onload: 'alert(1)', extra: { deep: true },
+    { ...raw.route.bases[0], name: `${xss}Milán`, nameEn: `${xss}Milan`, id: 'x" onclick="alert(1)', anchor: 'evil', cc: 'it', reason: xss, highlights: [xss, 5, { a: 1 }, ...Array(10).fill('h')], onload: 'alert(1)', extra: { deep: true },
       searchUrl: 'javascript:alert(1)', stay: { mode: 'pick', name: xss, totalCzk: 1e12, url: 'javascript:alert(1)', lat: 999, rating: 42, checkin: '2026-11-10"><script>' } },
     { ...raw.route.bases[1], stay: { mode: 'hack', totalCzk: 5 }, plan: { center: { lat: 'x', lon: 1 }, days: [] } },
     { ...raw.route.bases[2], plan: { center: { lat: 41.9, lon: 12.5 }, days: [day('2026-11-17', ['Koloseum']), { date: 'zítra', items: [] }, { date: '2026-11-18', items: [{ name: 'bez polohy' }, 'x'] }] } },
@@ -151,7 +151,9 @@ test('sanitizeTrip: trasa ze sdíleného odkazu – škodlivá místa, odkazy, �
   assert.equal(r.want, null);
   assert.deepEqual(r.bases.map((b) => b.name), ['img src=x onerror=alert(1)Milán', 'Florencie', 'Řím'], 'neplatná místa vyřazená, texty bez HTML');
   const [m, f, rome] = r.bases;
-  assert.deepEqual(Object.keys(m).sort(), ['anchor', 'cc', 'country', 'highlights', 'id', 'lat', 'lon', 'name', 'nights', 'plan', 'reason', 'searchUrl', 'stay'].sort(), 'jen známá pole');
+  assert.deepEqual(Object.keys(m).sort(), ['anchor', 'cc', 'country', 'highlights', 'id', 'lat', 'lon', 'name', 'nameEn', 'nights', 'plan', 'reason', 'searchUrl', 'stay'].sort(), 'jen známá pole');
+  assert.equal(m.nameEn, 'img src=x onerror=alert(1)Milan');
+  assert.equal(f.nameEn, '', 'chybějící anglický název = prázdný');
   assert.equal(m.id, 'b0', 'podezřelé id nahrazené');
   assert.equal(m.anchor, null);
   assert.equal(m.cc, '');
@@ -199,3 +201,21 @@ test('sanitizeTrip: trasa ze sdíleného odkazu – škodlivá místa, odkazy, �
   assert.equal(so.route, null);
   assert.equal(Trip.costs(so).stay, 99999);
 });
+
+test('trip: program místa po změně trasy neplatí – shrnutí, kalendář ani plánovač ho nepoužijí', () => {
+  const t = multiTrip();
+  // Program sestavený plánovačem nese termín, pro který platí (span).
+  t.route.bases[0].plan.span = { start: '2026-11-10', end: '2026-11-13', arrivalTime: '08:30', departureTime: '14:00' };
+  t.route.bases[2].plan.span = { start: '2026-11-16', end: '2026-11-18', arrivalTime: '14:00', departureTime: '19:00' };
+  const days = (tt) => plain(Trip.calendarEvents(tt)).filter((e) => e.title.startsWith('Den ')).map((e) => [e.title, e.start]);
+  assert.deepEqual(days(t), [['Den 1 – Milán', '2026-11-10'], ['Den 2 – Milán', '2026-11-11'], ['Den 1 – Řím', '2026-11-17']]);
+  // Milán o noc kratší, Florencie o noc delší: Milán končí 12. 11. → jeho program (do 13. 11.) neplatí; Řím beze změny.
+  t.route.bases[0].nights = 2;
+  t.route.bases[1].nights = 4;
+  assert.deepEqual(days(t), [['Den 1 – Řím', '2026-11-17']]);
+  // Program bez termínu (starší sdílený odkaz): platí, jen když všechny dny leží v termínu místa.
+  delete t.route.bases[2].plan.span;
+  t.route.bases[2].plan.days.push({ date: '2026-11-15', items: [{ id: 'x', name: 'Mimo termín', lat: 41.9, lon: 12.5 }] });
+  assert.deepEqual(days(t), []);
+});
+
