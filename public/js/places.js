@@ -17,7 +17,8 @@
     ['trips', '🚆 Výlety mimo město', { daytrip: 1.8 }],
   ];
   const DAY_COLORS = ['#5b8cff', '#f59e0b', '#22c55e', '#ec4899', '#14b8a6', '#a855f7', '#ef4444', '#0ea5e9'];
-  const ex = { place: null, items: [], cat: '', radius: 10, plan: null, interests: new Set(), pace: 'normal', days: 3, start: '', mode: 'city', transport: 'car', trips: {}, tripDays: { day: 2, loop: 4 }, tripEx: new Set(), tripMust: new Set(), ms: null };
+  const ex = { place: null, items: [], cat: '', radius: 10, plan: null, interests: new Set(), pace: 'normal', days: 3, start: '', mode: 'city', transport: 'car', trips: {}, tripDays: { day: 2, loop: 4 }, tripEx: new Set(), tripMust: new Set(), tripInterests: new Set(), ms: null };
+  const TRIP_INTERESTS = [['towns', '🏘️ Města'], ['sights', '🏰 Památky'], ['culture', '🏛️ Poznávací'], ['nature', '🌲 Příroda'], ['spa', '♨️ Lázně'], ['kids', '🧒 S dětmi']];
   const MODES = [['city', '🏙️ Program ve městě'], ['day', '🎒 Jednodenní výlety'], ['loop', '🧭 Vícedenní okruh']];
   const TRANSPORTS = [['car', '🚗 Autem'], ['transit', '🚆 Vlakem a busem']];
 
@@ -26,8 +27,9 @@
   const plusDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00'); d.setDate(d.getDate() + n); return fmtYMD(d); };
   const dayLbl = ymd => { const d = new Date(ymd + 'T12:00:00'); return `${['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'][d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`; };
   const minTxt = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
-  const TRIP_ICON = { town: '🏘️', castle: '🏰', nature: '⛰️' };
-  const tripIcon = p => TRIP_ICON[p.tripKind] || icon(p.tripKind || p.category);
+  const TRIP_ICON = { town: '🏘️', castle: '🏰', nature: '⛰️', monastery: '⛪', palace: '🏯', ruins: '🏚️' };
+  const NATURE_ICON = { park: '🏞️', waterfall: '💧', cave: '🕳️', gorge: '🏞️', rock: '🪨', mountain: '⛰️', lake: '🌊', reserve: '🌿' };
+  const tripIcon = p => (p.spa ? '♨️' : NATURE_ICON[p.natureKind] || TRIP_ICON[p.tripKind] || icon(p.tripKind || p.category));
   const interestWeights = set => {
     const w = {};
     for (const [id, , m] of INTERESTS) if (set.has(id)) for (const [k, v] of Object.entries(m)) w[k] = Math.max(w[k] || 1, v);
@@ -393,7 +395,7 @@
   // Výsledky výletů zvlášť pro každý režim a dopravu (přepnutím se nic neztratí ani nesmíchá).
   const tripKey = (mode, transport) => `${mode}:${transport}`;
   async function makeTrip(p, mode, transport) {
-    const body = { lat: p.lat, lon: p.lon, label: p.label, start: ex.start, days: ex.tripDays[mode], mode, transport, pace: ex.pace,
+    const body = { lat: p.lat, lon: p.lon, label: p.label, start: ex.start, days: ex.tripDays[mode], mode, transport, pace: ex.pace, interests: [...ex.tripInterests],
       exclude: [...ex.tripEx], include: [...ex.tripMust] };
     return getJson('api/roadtrip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   }
@@ -495,7 +497,8 @@
           <div class="field" style="margin:0"><label>${ex.mode === 'day' ? 'Počet výletů' : 'Počet dní'}</label><select id="exDays">${dayOpts.map(n => `<option ${curDays === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
           <button class="btn primary" id="exPlan">${road ? 'Naplánovat výlet' : 'Sestavit program'}</button>
           ${hasPlan ? '<button class="btn" id="exSave">💾 Uložit do plánovače</button>' : ''}
-        </div>${road ? `<div class="row wrap" style="gap:8px;margin:10px 0"><div class="seg" id="exTransport">${TRANSPORTS.map(([id, l]) => `<button type="button" data-transport="${id}" class="${ex.transport === id ? 'on' : ''}">${l}</button>`).join('')}</div><select data-pace style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', '🐢 V klidu'], ['normal', '🚶 Normálně'], ['intense', '🏃 Nabitě']].map(o => `<option value="${o[0]}" ${ex.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>` : plannerControls(st)}
+        </div>${road ? `<div class="row wrap" style="gap:8px;margin:10px 0"><div class="seg" id="exTransport">${TRANSPORTS.map(([id, l]) => `<button type="button" data-transport="${id}" class="${ex.transport === id ? 'on' : ''}">${l}</button>`).join('')}</div><select data-pace style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', '🐢 V klidu'], ['normal', '🚶 Normálně'], ['intense', '🏃 Nabitě']].map(o => `<option value="${o[0]}" ${ex.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+        <div class="row wrap" style="gap:8px;margin:0 0 10px"><span class="faint" style="font-size:12.5px;align-self:center">Co tě láká:</span>${TRIP_INTERESTS.map(([id, l]) => `<button type="button" class="fchip ${ex.tripInterests.has(id) ? 'on' : ''}" data-tint="${id}">${l}</button>`).join('')}</div>` : plannerControls(st)}
         <div id="exPlanOut">${out}</div></div>
       <div class="ex-layout"><div class="poi-list" id="exList">${list.map(card).join('') || '<div class="empty">Nic v této kategorii.</div>'}</div><div id="exMapSlot"></div></div>
       <div class="faint" style="font-size:11.5px;margin-top:10px">Zdroj: Wikidata a Wikipedie (CC BY-SA), mapa © OpenFreeMap, OpenMapTiles, OpenStreetMap. Otevírací doby ověř na webu místa.</div>`;
@@ -514,6 +517,14 @@
     $$('[data-cat]', body).forEach(b => b.onclick = () => { ex.cat = b.dataset.cat; paintExplore(); });
     $$('[data-mode]', body).forEach(b => b.onclick = () => { if (ex.mode !== b.dataset.mode) { ex.mode = b.dataset.mode; paintExplore(); } });
     $$('[data-transport]', body).forEach(b => b.onclick = () => { if (ex.transport !== b.dataset.transport) { ex.transport = b.dataset.transport; paintExplore(); } });
+    // Zájmy platí pro všechny výlety: uložené plány se zahodí; byl-li plán zobrazený, hned se přeplánuje.
+    $$('[data-tint]', body).forEach(b => b.onclick = () => {
+      const id = b.dataset.tint;
+      ex.tripInterests.has(id) ? ex.tripInterests.delete(id) : ex.tripInterests.add(id);
+      const had = Boolean(trip);
+      ex.trips = {};
+      if (had) replan(); else b.classList.toggle('on');
+    });
     $$('#exList [data-poi]', body).forEach(c => c.onclick = () => focus(ex.items.find(i => i.id === c.dataset.poi)));
     $$('#exPlanOut [data-poi]', body).forEach(c => c.onclick = e => {
       if (e.target.closest('a,button')) return;

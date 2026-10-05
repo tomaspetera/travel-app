@@ -360,6 +360,7 @@ async function route(req, res) {
       days: Number(b.days) || 1,
       mode: b.mode === 'loop' ? 'loop' : 'day',
       transport: b.transport === 'transit' ? 'transit' : 'car',
+      interests: Array.isArray(b.interests) ? b.interests.map(String).slice(0, 6) : [],
       pace: ['relaxed', 'normal', 'intense'].includes(b.pace) ? b.pace : 'normal',
       adults: Math.min(9, Math.max(1, Number(b.adults) || 2)),
     });
@@ -367,6 +368,10 @@ async function route(req, res) {
     const unpin = ({ baseScore, ...x }) => (x.pinned ? { ...x, score: baseScore } : x);
     for (const d of plan.days) d.stops = d.stops.map(unpin);
     plan.spare = plan.spare.map(unpin);
+    // Přírodní cíle se pro nové místo načítají déle – zvolil-li uživatel přírodu, ať to ví.
+    if (candidates.natureLoading && plan.note !== undefined && Array.isArray(b.interests) && b.interests.includes('nature')) {
+      plan.note = ['Přírodní cíle se pro toto místo ještě načítají – za minutu naplánuj znovu, bude jich víc.', plan.note].filter(Boolean).join(' ');
+    }
     return sendJson(req, res, 200, { demo: config.mock, degraded: Boolean(candidates.degraded), candidates: candidates.length, ...plan });
   }
   if (p === '/api/search' && req.method === 'POST') return handleSearch(req, res);

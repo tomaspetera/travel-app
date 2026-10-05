@@ -374,14 +374,16 @@ export function mockPlaces({ lat, lon }) {
 
 /** DEMO režim: vymyšlené cíle výletů 30–110 km od bodu. */
 export function mockTrips({ lat, lon }) {
-  const kinds = ['town', 'castle', 'nature', 'town', 'castle', 'nature', 'town', 'town', 'nature', 'castle'];
+  const kinds = ['town', 'castle', 'nature', 'town', 'castle', 'nature', 'town', 'town', 'nature', 'castle', 'palace', 'zoo'];
   return kinds.map((tripKind, i) => {
     const a = (i * 97 * Math.PI) / 180;
     const d = 0.3 + (i % 5) * 0.17;
     const p = { id: `demoTrip${i}`, name: `Ukázkový výlet ${i + 1}`, description: 'demo data', lat: lat + Math.sin(a) * d, lon: lon + Math.cos(a) * d * 1.4, sitelinks: 90 - i * 4, unesco: i === 0, category: 'daytrip', tripKind, extract: 'Vymyšlený cíl výletu (DEMO režim).', url: null };
     p.distanceKm = Math.round(haversineKm(lat, lon, p.lat, p.lon));
     p.score = scorePlace(p);
-    p.categoryLabel = tripKind === 'town' ? 'Město / obec' : CATEGORY_CS[tripKind];
+    if (tripKind === 'nature') p.natureKind = ['park', 'waterfall', 'mountain'][i % 3];
+    if (i === 7) p.spa = true;
+    p.categoryLabel = p.natureKind ? NATURE_LABEL[p.natureKind] : tripKind === 'town' ? (p.spa ? 'Lázně' : 'Město / obec') : CATEGORY_CS[tripKind];
     return p;
   });
 }
@@ -394,6 +396,11 @@ export function mockTrips({ lat, lon }) {
 // Kraj, okres, provincie… mívají ve Wikidatech typ obce a souřadnice hlavního města (Alentejo = Évora).
 const REGION_DESC = /^(kraj|region|regione|región|okres|district|distrikt|distretto|provincie|province|provincia|county|departement|département|spolková země|federal state|state of|autonomní|autonomous community|comarca|voivodeship|vojvodství)\b/i;
 
+const DAYTRIP_KINDS = new Set(['town', 'nature', 'castle']);
+const ROAD_KINDS = new Set(['town', 'nature', 'castle', 'palace', 'ruins', 'zoo', 'theme']);
+// Lázně: „lázeňské město“, „spa town“, německé „Bad …“, „Kurort“.
+const SPA = /lázn|lázeň|spa town|kurort|\bbad [a-zäöü]|thermal|termál|banja|uzdrowisk/i;
+
 function tripsFromRows(rows, center, minKm, { road = false, unesco = [] } = {}) {
   const all = groupBindings(rows, center);
   const sights = all.filter((p) => p.category !== 'town' && !p.island && !p.serial);
@@ -402,9 +409,12 @@ function tripsFromRows(rows, center, minKm, { road = false, unesco = [] } = {}) 
   for (const p of all) {
     // ne ostrovy (Tenerife na Tenerife, jiné ostrovy přes moře) a ne památky rozeseté po mnoha místech
     if (!(p.distanceKm > minKm) || p.island || p.serial) continue;
-    if (!(p.category === 'town' || p.category === 'nature' || p.category === 'castle' || p.unesco)) continue;
+    // Výlety autem/vlakem (road) berou i zámky, zříceniny, zoo a zábavní parky (podle zájmů výletu).
+    const kinds = road ? ROAD_KINDS : DAYTRIP_KINDS;
+    if (!(kinds.has(p.category) || p.unesco)) continue;
     if (p.category === 'town' && REGION_DESC.test(p.description)) continue;
     const t = { ...p, category: 'daytrip', tripKind: p.category };
+    if (p.category === 'town' && SPA.test(`${p.name} ${p.description}`)) t.spa = true;
     if (p.category === 'town') {
       const near = sights.filter((x) => haversineKm(p.lat, p.lon, x.lat, x.lon) <= 3).sort((a, b) => b.sitelinks - a.sitelinks);
       // památka UNESCO bývá kousek za středem (Kulturní krajina Sintry ~4 km od náměstí)
@@ -475,6 +485,112 @@ const unescoQuery = (lat, lon) => cache.wrap(`wdqs-unesco:${lat.toFixed(1)}:${lo
   return list.map((u) => ({ ...u, serial: u.site !== '' && parts.get(u.site) > 3 }));
 });
 
+// Přírodní cíle: mají málo jazykových verzí, takže je dotaz na nejvýznamnější místa nenajde.
+// Dotaz podle typu (národní park, vodopád, jeskyně, soutěska, skály / hory, jezera, rezervace)
+// a obdélníku kolem bodu – pomalý (~45 s), proto v mezipaměti 30 dní a na pozadí.
+const NATURE_TYPES = [
+  // [typ, druh, min. jazykových verzí]
+  ['Q46169', 'park', 3], ['Q34038', 'waterfall', 3], ['Q35509', 'cave', 3], ['Q150784', 'gorge', 3], ['Q207326', 'rock', 3],
+  ['Q1640011', 'rock', 3], ['Q2245405', 'rock', 3], ['Q1286517', 'park', 3],
+  ['Q8502', 'mountain', 8], ['Q23397', 'lake', 8], ['Q179049', 'reserve', 8],
+];
+function sparqlNature(lat, lon, km, types, minLinks) {
+  const dLat = km / 111;
+  const dLon = km / (111 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)));
+  const f = (x) => x.toFixed(3);
+  return `SELECT ?item ?itemLabel ?itemDescription ?lat ?lon ?sl ?t ?cs ?en ?img WHERE {
+  VALUES ?t { ${types.map((t) => `wd:${t}`).join(' ')} }
+  ?item wdt:P31 ?t ; wdt:P625 ?c ; wikibase:sitelinks ?sl .
+  FILTER(?sl >= ${minLinks})
+  BIND(geof:latitude(?c) AS ?lat) BIND(geof:longitude(?c) AS ?lon)
+  FILTER(?lat > ${f(lat - dLat)} && ?lat < ${f(lat + dLat)} && ?lon > ${f(lon - dLon)} && ?lon < ${f(lon + dLon)})
+  OPTIONAL { ?item wdt:P18 ?img }
+  OPTIONAL { ?cs schema:about ?item ; schema:isPartOf <https://cs.wikipedia.org/> }
+  OPTIONAL { ?en schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "cs,en". }
+} LIMIT 3000`;
+}
+const natureQuery = (lat, lon) => cache.wrap(`wdqs-nature:${lat.toFixed(1)}:${lon.toFixed(1)}`, 30 * 864e5, async () => {
+  const groups = [3, 8].map((min) => NATURE_TYPES.filter((t) => t[2] === min).map((t) => t[0]));
+  const parts = await Promise.all(groups.map((types, i) => wdqs(sparqlNature(lat, lon, 125, types, i ? 8 : 3), 58000)));
+  const kindOf = new Map(NATURE_TYPES.map(([t, k]) => [t, k]));
+  const by = new Map();
+  for (const b of parts.flat()) {
+    const id = qid(val(b, 'item'));
+    const name = val(b, 'itemLabel');
+    if (!id || !name || /^Q\d+$/.test(name) || by.has(id)) continue;
+    const lat2 = Number(val(b, 'lat'));
+    const lon2 = Number(val(b, 'lon'));
+    if (!Number.isFinite(lat2) || !Number.isFinite(lon2)) continue;
+    const img = val(b, 'img');
+    by.set(id, {
+      id, name, description: val(b, 'itemDescription') || '', lat: lat2, lon: lon2, sitelinks: Number(val(b, 'sl')) || 0,
+      natureKind: kindOf.get(qid(val(b, 't'))) || 'nature', image: img ? `${img.replace(/^http:/, 'https:')}?width=500` : null,
+      wiki: { cs: title(val(b, 'cs')), en: title(val(b, 'en')) }, heritage: false, unesco: false,
+    });
+  }
+  return [...by.values()];
+});
+// Hrady, zámky, kláštery, zříceniny – stejný postup (podle typu + obdélník), rychlý (~15 s).
+const HERITAGE_TYPES = [['Q23413', 'castle'], ['Q17715832', 'ruins'], ['Q57821', 'castle'], ['Q751876', 'palace'], ['Q16560', 'palace'], ['Q44613', 'monastery']];
+const heritageQuery = (lat, lon) => cache.wrap(`wdqs-heritage:${lat.toFixed(1)}:${lon.toFixed(1)}`, 30 * 864e5, async () => {
+  const rows = await wdqs(sparqlNature(lat, lon, 125, HERITAGE_TYPES.map((t) => t[0]), 6), 58000);
+  const kindOf = new Map(HERITAGE_TYPES);
+  const by = new Map();
+  for (const b of rows) {
+    const id = qid(val(b, 'item'));
+    const name = val(b, 'itemLabel');
+    const kind = kindOf.get(qid(val(b, 't')));
+    if (!id || !name || /^Q\d+$/.test(name)) continue;
+    const prev = by.get(id);
+    // hrad i zámek zároveň (Konopiště) → zámek; zřícenina má přednost před hradem
+    if (prev) { if (kind === 'ruins' || (kind === 'palace' && prev.tripKind === 'castle')) prev.tripKind = kind; continue; }
+    const lat2 = Number(val(b, 'lat'));
+    const lon2 = Number(val(b, 'lon'));
+    if (!Number.isFinite(lat2) || !Number.isFinite(lon2)) continue;
+    const img = val(b, 'img');
+    by.set(id, {
+      id, name, description: val(b, 'itemDescription') || '', lat: lat2, lon: lon2, sitelinks: Number(val(b, 'sl')) || 0, tripKind: kind,
+      image: img ? `${img.replace(/^http:/, 'https:')}?width=500` : null, wiki: { cs: title(val(b, 'cs')), en: title(val(b, 'en')) }, heritage: true, unesco: false,
+    });
+  }
+  return [...by.values()];
+});
+
+/** Hrady a zámky → kandidáti (bez těch ve městě výletu – ty jsou v „uvidíš“ – a bez duplicit). */
+function heritageTrips(rows, center, minKm, existing) {
+  const out = [];
+  for (const p of rows) {
+    const distanceKm = Math.round(haversineKm(center.lat, center.lon, p.lat, p.lon) * 10) / 10;
+    if (distanceKm <= minKm || distanceKm > 125) continue;
+    const town = existing.find((x) => x.tripKind === 'town' && haversineKm(x.lat, x.lon, p.lat, p.lon) < 1.2);
+    if (town) {
+      if (!(town.highlights || []).includes(p.name) && (town.highlights || []).length < 3) town.highlights = [...(town.highlights || []), p.name];
+      continue;
+    }
+    if ([...existing, ...out].some((x) => x.id === p.id || (x.tripKind !== 'town' && x.tripKind !== 'nature' && haversineKm(x.lat, x.lon, p.lat, p.lon) < 1))) continue;
+    const score = Math.round((Math.log2(p.sitelinks + 1) * 10 + (CAT_BONUS[p.tripKind] || 3)) * 10) / 10;
+    out.push({ ...p, distanceKm, category: 'daytrip', score });
+  }
+  return out;
+}
+
+const NATURE_BONUS = { park: 14, waterfall: 6, cave: 6, gorge: 6, rock: 6, mountain: 2, lake: 2, reserve: 0 };
+const NATURE_LABEL = { park: 'Národní park', waterfall: 'Vodopád', cave: 'Jeskyně', gorge: 'Soutěska / kaňon', rock: 'Skalní útvar', mountain: 'Hora / vyhlídka', lake: 'Jezero', reserve: 'Přírodní rezervace' };
+
+/** Přírodní cíle → kandidáti výletů (bez těch v okruhu města a duplicit s jinými cíli do 3 km). */
+function natureTrips(rows, center, minKm, existing) {
+  const out = [];
+  for (const p of rows) {
+    const distanceKm = Math.round(haversineKm(center.lat, center.lon, p.lat, p.lon) * 10) / 10;
+    if (distanceKm <= minKm || distanceKm > 125) continue;
+    if ([...existing, ...out].some((x) => x.id === p.id || (x.tripKind === 'nature' && haversineKm(x.lat, x.lon, p.lat, p.lon) < 3))) continue;
+    const score = Math.round((Math.log2(p.sitelinks + 1) * 10 + (NATURE_BONUS[p.natureKind] || 0)) * 10) / 10;
+    out.push({ ...p, distanceKm, category: 'daytrip', tripKind: 'nature', score });
+  }
+  return out;
+}
+
 const tripsQuery = (lat, lon) => cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.toFixed(2)}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, 120, 45, 300), 58000));
 
 /**
@@ -483,12 +599,29 @@ const tripsQuery = (lat, lon) => cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.
  */
 export async function findTrips({ lat, lon, limit = 30 }) {
   const key = `trips:${lat.toFixed(2)}:${lon.toFixed(2)}:${limit}`;
-  return cache.wrap(key, (v) => (v.degraded ? 15 * 60e3 : 7 * 864e5), async () => {
-    const [rows, unesco] = await Promise.all([tripsQuery(lat, lon), unescoQuery(lat, lon).catch(() => null)]);
-    const picked = tripsFromRows(rows, { lat, lon }, 15, { road: true, unesco: unesco || [] }).sort((a, b) => b.score - a.score).slice(0, limit);
-    const failed = (await enrich(picked)) || !unesco;
-    const out = picked.map(({ partOf, island, serial, ...p }) => ({ ...p, categoryLabel: p.tripKind === 'town' ? 'Město / obec' : CATEGORY_CS[p.tripKind] || CATEGORY_CS.daytrip }));
+  return cache.wrap(key, (v) => (v.natureLoading ? 60e3 : v.degraded ? 15 * 60e3 : 7 * 864e5), async () => {
+    // Hlavní seznam a UNESCO mají přednost (fronta dotazů); hrady/zámky a příroda běží souběžně –
+    // co nestihne zbytek (o 10 s), doběhne na pozadí a příští plán to už má (výsledek se drží jen minutu).
+    const tripsP = tripsQuery(lat, lon);
+    const unescoP = unescoQuery(lat, lon).catch(() => null);
+    const heritageP = heritageQuery(lat, lon).catch(() => null);
+    const natureP = natureQuery(lat, lon).catch(() => null);
+    const [rows, unesco] = await Promise.all([tripsP, unescoP]);
+    const wait = (p) => Promise.race([p, new Promise((res) => setTimeout(() => res(undefined), 10000))]);
+    const [heritage, nature] = await Promise.all([wait(heritageP), wait(natureP)]);
+    const main = tripsFromRows(rows, { lat, lon }, 15, { road: true, unesco: unesco || [] }).sort((a, b) => b.score - a.score).slice(0, limit);
+    // doplňkových cílů víc než hlavních by bylo moc – nejvýš 15 hradů/zámků a 15 přírodních
+    const her = heritageTrips(heritage || [], { lat, lon }, 15, main).sort((a, b) => b.score - a.score).slice(0, 15);
+    const nat = natureTrips(nature || [], { lat, lon }, 15, [...main, ...her]).sort((a, b) => b.score - a.score).slice(0, 15);
+    const picked = [...main, ...her, ...nat];
+    const failed = (await enrich(picked)) || !unesco || !nature || !heritage;
+    // lázně i podle první věty článku („… jsou krajské, statutární a lázeňské město“)
+    for (const p of picked) if (p.tripKind === 'town' && !p.spa && SPA.test(String(p.extract || '').split(/\.\s/)[0])) p.spa = true;
+    const out = picked.map(({ partOf, island, serial, ...p }) => ({
+      ...p, categoryLabel: p.natureKind ? NATURE_LABEL[p.natureKind] : p.tripKind === 'town' ? (p.spa ? 'Lázně' : 'Město / obec') : p.tripKind === 'monastery' ? 'Klášter' : CATEGORY_CS[p.tripKind] || CATEGORY_CS.daytrip,
+    }));
     if (failed) out.degraded = true;
+    if (nature === undefined || heritage === undefined) out.natureLoading = true;
     return out;
   });
 }

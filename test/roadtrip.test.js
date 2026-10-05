@@ -153,3 +153,27 @@ test('roadtrip: přidaný cíl, který se vlakem nevejde do dne, ohlásí pozná
   assert.ok(!r.days.some((d) => d.stops.some((s) => s.id === 'far')));
   assert.match(r.note, /Do plánu se nevešlo: Vzdálený hrad – vlakem a autobusem je to na jednodenní výlet moc daleko\./);
 });
+
+test('roadtrip: zájmy – „Příroda“ plánuje jen přírodu, při nedostatku doplní ostatní s poznámkou', () => {
+  const nat = [
+    { id: 'np', name: 'NP České Švýcarsko', lat: 50.88, lon: 14.27, tripKind: 'nature', natureKind: 'park', score: 62 },
+    { id: 'snez', name: 'Sněžka', lat: 50.736, lon: 15.74, tripKind: 'nature', natureKind: 'mountain', score: 61 },
+    { id: 'rip', name: 'Říp', lat: 50.386, lon: 14.289, tripKind: 'nature', natureKind: 'mountain', score: 50 },
+    { id: 'vod', name: 'Vodopád', lat: 49.9, lon: 13.6, tripKind: 'nature', natureKind: 'waterfall', score: 40 },
+  ];
+  const all = [...C, ...nat];
+  const r = planTrips(all, { base: PRAHA, start: START, days: 2, mode: 'day', interests: ['nature'] });
+  const stops = r.days.flatMap((d) => d.stops);
+  assert.ok(stops.length && stops.every((x) => x.tripKind === 'nature'), `jen příroda: ${stops.map((x) => x.id)}`);
+  assert.equal(r.note, null);
+  // park na 4 h, vodopád na hodinu a půl
+  const np = r.days.flatMap((d) => d.stops).find((x) => x.id === 'np');
+  if (np) assert.equal(np.visitMin, 240);
+  // „S dětmi“ bez zoo v okolí → doplní ostatní a řekne to
+  const kids = planTrips(all, { base: PRAHA, start: START, days: 2, mode: 'day', interests: ['kids'] });
+  assert.ok(kids.days.length > 0);
+  assert.match(kids.note, /málo cílů/);
+  // bez zájmů se plánuje ze všeho jako dřív
+  const any = planTrips(all, { base: PRAHA, start: START, days: 2, mode: 'day', interests: [] });
+  assert.ok(any.days.flatMap((d) => d.stops).some((x) => x.tripKind === 'town'));
+});

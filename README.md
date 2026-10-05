@@ -8,7 +8,9 @@ Z vybraného letu pak průvodce **Cesta** poskládá celou dovolenou: **let → 
 s celkovou cenou, seznamem, co v jakém pořadí zarezervovat, a časovou osou. Sekce **Objevuj** funguje i samostatně:
 zadáš místo a ATLAS najde, co tam stojí za vidění, a rozplánuje to do dnů – jako pěší program ve městě,
 **jednodenní výlety** (ráno ven, večer zpět) nebo **vícedenní okruh** s přespáním po cestě, autem i vlakem
-a autobusem (čas cesty je odhad, skutečné spoje ukáže odkaz do Google Map u každého úseku). Mapa je zdarma
+a autobusem (čas cesty je odhad, skutečné spoje ukáže odkaz do Google Map u každého úseku). U výletů si zvolíš,
+co tě láká – města, památky (hrady, zámky, kláštery), poznávací, přírodu (národní parky, hory, vodopády, jeskyně,
+skály), lázně nebo výlety s dětmi. Mapa je zdarma
 a bez klíče (MapLibre + OpenFreeMap, záloha OpenStreetMap) a odkazy do Google Map hledají místo podle názvu.
 
 K tomu zůstalo vše z původního ATLAS: mapa navštívených zemí, přehled zemí s počasím a bezpečností, doporučení
@@ -169,7 +171,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery |
 | `GET /api/cars?pickup=BGY&dropoff=MXP&from=2026-11-10T09:00&to=2026-11-14T18:00` | předvyplněné odkazy na půjčovny |
 | `GET /api/poi?lat=…&lon=…&radius=8` | místa k vidění (Wikidata + Wikipedie) |
-| `POST /api/roadtrip` | výlety z místa: `mode` `day` (jednodenní) nebo `loop` (okruh s přespáním), `transport` `car` nebo `transit` (vlak a autobus), `lat`, `lon`, `label`, `start`, `days`, `pace`, `exclude`, `include` |
+| `POST /api/roadtrip` | výlety z místa: `mode` `day` (jednodenní) nebo `loop` (okruh s přespáním), `transport` `car` nebo `transit` (vlak a autobus), `interests` (`towns`, `sights`, `culture`, `nature`, `spa`, `kids`), `lat`, `lon`, `label`, `start`, `days`, `pace`, `exclude`, `include` |
 | `POST /api/itinerary` | rozplánování míst do dnů (`lat`, `lon`, `start`, `end`, `arrivalTime`, `departureTime`, `pace`, `interests`, `exclude`, `include`) |
 | `GET /api/diag` | živý test, jestli server dosáhne na jednotlivé zdroje |
 
