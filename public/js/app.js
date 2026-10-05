@@ -54,10 +54,11 @@ const NAV = [['dashboard', 'Přehled', 'Radar cen a tvoje cesty', 'M3 12l9-9 9 9
 let activeView = 'dashboard';
 function ico(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
 function buildNav() {
-  $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : ''}</div>`).join('');
+  // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js).
+  $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minula zlevnily" hidden></span>' : ''}</div>`).join('');
   // Na mobilu hlavní sekce + „Více“ (mapa, země, doporučení).
   const MOBILE = ['dashboard', 'flights', 'trip', 'explore', 'planner'];
-  $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span></div>`).join('')
+  $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden></i>' : ''}</div>`).join('')
     + `<div class="mi" id="moreNav">${ico('M5 12h.01M12 12h.01M19 12h.01')}<span>Více</span></div>`;
   $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
   $('#moreNav').onclick = () => {
@@ -108,7 +109,7 @@ function renderDash() {
   const w = (S.watch || []).length;
   $('#statGrid').innerHTML = [
     ['Navštívené země', `${st.count}<small> / ${TOT}</small>`, `${st.pct}% světa`, `<div class="progress"><span style="width:${st.pct}%"></span></div>`],
-    ['Hlídané ceny', `${w}`, w ? 'Zkontroluj je níže' : 'Ulož hledání tlačítkem ♡', ''],
+    ['Hlídané ceny', `<span id="watchStatVal">${w}</span>`, `<span id="watchStatSub">${window.Flights ? Flights.watchStatTxt() : ''}</span>`, ''],
     ['Naplánované cesty', `${S.trips.length}`, S.trips.length ? 'Mrkni do plánovače' : 'Začni plánovat', ''],
     ['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs : '', ''],
   ].map(s => `<div class="card stat"><div class="lab">${s[0]}</div><div class="val">${s[1]}</div><div class="sub">${s[2]}</div>${s[3] || ''}</div>`).join('');
