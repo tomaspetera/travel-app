@@ -32,6 +32,8 @@
   const plural = (n, one, few, many) => `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
   const provName = id => PROV[id]?.name || id;
   const provColor = id => PROV[id]?.color || '#64748b';
+  // Na tlačítko jen jméno prodejce („Kiwi.com“), bez vysvětlivky v závorce.
+  const shopName = id => provName(id).replace(/\s*\(.*\)\s*$/, '');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
   async function api(path) {
@@ -522,9 +524,9 @@
 
   function bookButtons(t) {
     const btn = (url, label, prov) => url ? `<a class="btn sm book" style="--pc:${provColor(prov)}" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">${label}</a>` : `<span class="btn sm ghost" title="Demo data nemají rezervační odkaz" style="opacity:.55">${label}</span>`;
-    if (t.bookUrl) return btn(t.bookUrl, `Koupit ${t.provider === 'travelpayouts' ? 'na Aviasales' : 'u ' + esc(provName(t.provider))} ↗`, t.provider);
-    if (!t.back) return btn(t.out.bookUrl, `Koupit u ${esc(provName(t.out.provider))} ↗`, t.out.provider);
-    return btn(t.out.bookUrl, `Tam: ${esc(provName(t.out.provider))} ↗`, t.out.provider) + btn(t.back.bookUrl, `Zpět: ${esc(provName(t.back.provider))} ↗`, t.back.provider);
+    if (t.bookUrl) return btn(t.bookUrl, `Koupit ${t.provider === 'travelpayouts' ? 'na Aviasales' : 'u ' + esc(shopName(t.provider))} ↗`, t.provider);
+    if (!t.back) return btn(t.out.bookUrl, `Koupit u ${esc(shopName(t.out.provider))} ↗`, t.out.provider);
+    return btn(t.out.bookUrl, `Tam: ${esc(shopName(t.out.provider))} ↗`, t.out.provider) + btn(t.back.bookUrl, `Zpět: ${esc(shopName(t.back.provider))} ↗`, t.back.provider);
   }
 
   function verifyLinks(t) {
