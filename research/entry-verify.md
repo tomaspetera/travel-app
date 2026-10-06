@@ -6,11 +6,11 @@ Základ: `data/entry.json` na `origin/main` (05aa83e), 197 zemí. Soubor jsem ne
 
 | | Zemí |
 |---|---|
-| Ověřeno bez rozdílu | 131 |
+| Ověřeno bez rozdílu | 132 |
 | S navrženou změnou | 14 (14 změn) |
 | Jen s nejistou položkou (hlavní pole text nepotvrdil ani nevyvrátil) | 47 |
 | Neověřitelné (oficiální text se nepodařilo získat) | 4 |
-| Nezkontrolováno | 1 – CL |
+| Nezkontrolováno | 0 |
 
 Nejistých položek je celkem 168 u 106 zemí (část z nich u zemí, které jsou jinak ověřené).
 
@@ -90,9 +90,11 @@ Pravidlo pro očkování: obecná věta MZV „očkování není povinné“ nev
 - **SN Senegal – `vaccinesRequired`** (návrh ""): Záznam uvádí jen podmíněný požadavek (přílet z rizikové země, i tranzit); obecná věta MZV, že očkování proti žluté zimnici není pro Senegal povinné a průkaz se na hranicích nepředkládá, popisuje běžnou cestu z ČR a příjezd z rizikové země vůbec neřeší. Text tedy podmíněný požadavek nevyvrací a smazání pole nepodporuje.
 - **CH Švýcarsko – `maxStayDays`** (návrh 90): Citace v textu je a je přesná, ale záznam má režim „eu“, pro který je maxStayDays podle zadání dat (BRIEF.md: pro „eu“ použij null) záměrně null – stejně jako u všech 31 zemí s volným pohybem včetně LI se shodnou formulací 90/180 a AT, BE, BG z téže dávky s tříměsíční hranicí pro ohlášení. Limit 90 dnů za 180 dnů bez povolení k pobytu už je v poznámce záznamu, takže nejde o chybu, ale o konvenci pole.
 
-## Ověřeno bez rozdílu (131)
+## Ověřeno bez rozdílu (132)
 
-AE, AG, AL, AM, AO, AT, AU, BA, BB, BD, BE, BF, BG, BI, BN, BO, BR, BS, CA, CD, CF, CG, CH, CI, CM, CN, CU, DE, DK, DM, EE, ES, FI, FR, GA, GB, GD, GE, GH, GN, GQ, GR, GT, HN, HR, HT, HU, ID, IE, IL, IN, IS, IT, JM, JP, KG, KM, KP, KR, KW, LA, LB, LC, LI, LK, LS, LT, LU, LV, LY, MA, MC, MD, MG, MK, MN, MT, MU, MV, MX, MY, NE, NI, NL, NO, NP, NR, NZ, OM, PA, PE, PG, PH, PL, PT, PW, PY, RO, RW, SA, SB, SC, SE, SG, SK, SM, SN, SS, ST, SZ, TH, TL, TN, TO, TR, TT, TV, TW, UA, UG, US, UY, UZ, VE, VN, VU, WS, XK, ZA, ZM, ZW
+AE, AG, AL, AM, AO, AT, AU, BA, BB, BD, BE, BF, BG, BI, BN, BO, BR, BS, CA, CD, CF, CG, CH, CI, CL, CM, CN, CU, DE, DK, DM, EE, ES, FI, FR, GA, GB, GD, GE, GH, GN, GQ, GR, GT, HN, HR, HT, HU, ID, IE, IL, IN, IS, IT, JM, JP, KG, KM, KP, KR, KW, LA, LB, LC, LI, LK, LS, LT, LU, LV, LY, MA, MC, MD, MG, MK, MN, MT, MU, MV, MX, MY, NE, NI, NL, NO, NP, NR, NZ, OM, PA, PE, PG, PH, PL, PT, PW, PY, RO, RW, SA, SB, SC, SE, SG, SK, SM, SN, SS, ST, SZ, TH, TL, TN, TO, TR, TT, TV, TW, UA, UG, US, UY, UZ, VE, VN, VU, WS, XK, ZA, ZM, ZW
+
+Z toho jen ručně (agent zemi ve své dávce vynechal): CL.
 
 ## Co zůstalo nejisté (168 položek)
 

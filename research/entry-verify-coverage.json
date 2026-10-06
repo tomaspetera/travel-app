@@ -27,6 +27,7 @@
   "CG",
   "CH",
   "CI",
+  "CL",
   "CM",
   "CN",
   "CU",
@@ -206,15 +207,14 @@
   "KN",
   "MH"
  ],
- "notChecked": [
-  "CL"
- ],
+ "notChecked": [],
  "alsoCheckedByHand": [
   "AG",
   "AU",
   "BD",
   "BO",
   "CD",
+  "CL",
   "CV",
   "DM",
   "EG",
