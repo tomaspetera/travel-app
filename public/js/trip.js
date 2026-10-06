@@ -125,6 +125,8 @@
       adults: result.query.adults,
       bags: result.query.bags || 'none',
       flight: t,
+      // „Je to dobrá cena?“ v kroku Let: ceny letenek z hledání, ze kterého let je (bez paměti tras – ta je v prohlížeči)
+      priceStats: (() => { const st = (g && g.priceStats) || result.priceStats; return st ? { ...st, mins: undefined } : null; })(),
       dest: { label: dest.label, country: dest.country, cc: dest.cc, lat: dest.lat, lon: dest.lon, id: dest.id },
       home: result.home ? result.home.label : null,
       ground: {
@@ -204,14 +206,18 @@
     const t = T();
     const host = $('#tripStep');
     $$('.stepbar .st').forEach(b => b.classList.toggle('on', b.dataset.step === 'flight'));
+    // úroveň ceny ze serveru, u živé nabídky (Ověřit) dopočítaná ze statistiky hledání
+    const pl = window.PriceCheck && window.Flights && Flights.priceTag ? PriceCheck.assess(t.flight, t.priceStats || null) : null;
     host.innerHTML = `<div class="card step-card"><h3>✈️ Vybraný let</h3>
       ${legLine(t.flight.out)}${t.flight.back ? legLine(t.flight.back, true) : ''}
       <div class="muted" style="margin-top:8px;font-size:13px">Letenky ${czk(t.flight.flightCzk)}/os.${t.flight.bagCzk ? ` + zavazadla ~${czk(t.flight.bagCzk)}/os.` : ''}${t.flight.groundCzk ? ` + doprava na letiště ${czk(t.flight.groundCzk)}/os.` : ''}</div>
+      ${pl ? `<div class="tf-price">${Flights.priceTag(t.flight, null, pl)}<span class="faint">${esc(pl.reason)}</span><button type="button" class="linkbtn" id="tfPrice">Je to dobrá cena?</button></div>` : ''}
       <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="tfBack">↩ Vybrat jiný let</button><button class="btn" id="tfVerify">🔄 Ověřit živou cenu a porovnat aerolinky</button><button class="btn primary" id="tfNext">Pokračovat →</button></div>
       <div id="tfAlt"></div></div>`;
     $('#tfBack').onclick = () => go('flights');
     $('#tfNext').onclick = () => setStep('route');
     $('#tfVerify').onclick = () => verifyFlight();
+    const pb = $('#tfPrice'); if (pb) pb.onclick = () => Flights.priceCheck(t.flight, { stats: t.priceStats || null, label: t.dest.label, inResults: false });
     // Při prvním zobrazení vybraného letu ověř cenu automaticky (jednou za cestu).
     if (!t.verifiedAt) { t.verifiedAt = Date.now(); persist(); verifyFlight({ auto: true }); }
   }
@@ -242,7 +248,8 @@
         ${j.items.some(x => x.out.stops) ? '<div class="faint" style="font-size:11.5px;margin-top:6px">Lety s přestupem přes Kiwi.com bývají samostatné letenky – Kiwi ručí za návaznost svou garancí.</div>' : ''}`;
       $$('[data-alt]', host).forEach(b => b.onclick = () => {
         const x = j.items[+b.dataset.alt];
-        t.flight = { ...x, groundCzk: t.flight.groundCzk, perPersonCzk: x.flightCzk + (t.flight.groundCzk || 0), totalCzk: (x.flightCzk + (t.flight.groundCzk || 0)) * t.adults };
+        // vzdálenost a cílové město zůstávají (pro „Je to dobrá cena?“ – úroveň se u živé nabídky dopočítá)
+        t.flight = { ...x, distanceKm: t.flight.distanceKm, destKey: t.flight.destKey, groundCzk: t.flight.groundCzk, perPersonCzk: x.flightCzk + (t.flight.groundCzk || 0), totalCzk: (x.flightCzk + (t.flight.groundCzk || 0)) * t.adults };
         t.bags = 'none'; // u jiné nabídky příplatek za zavazadla neznáme
         toast('Let aktualizován');
         if (isMulti(t)) reconcileStays(t); // jiný čas příletu může posunout termíny míst trasy (upozorní vlastní zprávou)

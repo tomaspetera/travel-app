@@ -158,6 +158,29 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .b.warn{background:rgba(251,191,36,.14);color:var(--warn)}
 .b.info{background:rgba(56,189,248,.12);color:var(--info)}
 .b.sun{background:rgba(251,146,60,.15);color:#fb923c}
+.b.dear{background:rgba(248,113,113,.13);color:#f87171}
+/* „Je to dobrá cena?“: štítek je tlačítko, panel v modálním okně */
+button.b{border:0;cursor:pointer;font-family:inherit;line-height:inherit}
+button.b:hover{filter:brightness(1.18);text-decoration:underline}
+.pbox .pc-ask{display:block;margin:5px 0 0 auto;font-size:12px}
+.pc-verdict{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;font-size:14px;font-weight:600}
+.pc-verdict .b{font-size:14px;padding:6px 12px}
+.pc-sec{padding:12px 0;border-top:1px solid var(--border)}
+.pc-sec h4{font-size:14px;font-weight:800;margin-bottom:6px}
+.pc-sec h4 small{font-weight:500;font-size:12px}
+.pc-sec p{font-size:13.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+.pc-sec p b{color:var(--text)}
+.pc-sec .pc-warn{color:var(--warn)}
+.pc-bar{position:relative;height:10px;border-radius:6px;margin:12px 6px 4px;background:linear-gradient(90deg,rgba(52,211,153,.6),rgba(251,191,36,.6),rgba(248,113,113,.6))}
+.pc-bar i{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--text);opacity:.35}
+.pc-bar i.med{opacity:.7}
+.pc-bar .pc-me{top:-5px;bottom:-5px;width:14px;margin-left:-7px;border-radius:50%;opacity:1;border:3px solid var(--surface-solid);box-shadow:0 0 0 1px var(--text)}
+.pc-scale{display:flex;justify-content:space-between;font-size:11.5px;color:var(--faint);margin:0 2px}
+.pc-trend.down b{color:var(--good)}
+.pc-trend.up b{color:#f87171}
+.pc-advice{margin-top:10px}
+.pc-act{gap:8px;margin-top:14px}
+.pc-foot{font-size:12px;margin-top:12px;line-height:1.5}
 .pbox{text-align:right}
 .pp{font:800 24px Sora,sans-serif;line-height:1.1}
 .pl{font-size:11.5px;color:var(--muted)}
@@ -422,6 +445,8 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
   .tf-seg{width:100%}
   .tf-seg button{flex:1 1 auto;padding:6px 7px}
   .tf-range b{min-width:84px}
+  .pbox .pc-ask{margin:0;flex-basis:100%;text-align:left}
+  .pc-act .btn{flex:1 1 100%;justify-content:center}
 }
 
 /* kontrast upozornění ve světlém režimu */
@@ -431,6 +456,8 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 [data-theme=light] .b.hot{color:#be123c}
 [data-theme=light] .b.warn{color:#8a5a00}
 [data-theme=light] .b.sun{color:#c2410c}
+[data-theme=light] .b.dear{color:#b91c1c}
+[data-theme=light] .pc-trend.up b{color:#b91c1c}
 [data-theme=light] .nav-badge.drop{color:#047857}
 [data-theme=light] .nb-hint{color:#8a5a00}
 ol.guide{padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:14px}

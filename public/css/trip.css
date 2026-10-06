@@ -21,6 +21,7 @@
 .spin.dark{border-color:var(--border-2);border-top-color:var(--accent)}
 .manual-row{display:grid;grid-template-columns:auto 1fr 170px auto;gap:8px;align-items:center}
 .link-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
+.tf-price{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:13px}
 .tl-leg{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;font-size:14px}
 .tr-buy{display:flex;flex-direction:column;gap:6px}
 .tr-buy .btn{width:100%}

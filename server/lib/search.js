@@ -11,6 +11,9 @@ import { fxInfo, loadRates, toCzk } from './fx.js';
 import { haversineKm } from './geo.js';
 import { validTrip } from './fares.js';
 import { legBagEur } from './baggage.js';
+import { priceLevelOf, priceStats, refOf, referencePrice } from './pricelevel.js';
+
+export { referencePrice, refOf };
 
 export class UserError extends Error {
   constructor(msg) {
@@ -91,14 +94,9 @@ export function legBagCzk(leg, bags) {
   return { czk: toCzk(f.eur, 'EUR') ?? 0, estimated: f.estimated };
 }
 
-// Orientační „běžná“ cena jednosměrné letenky podle vzdálenosti (Kč/os.) pro skóre výhodnosti.
-export function referencePrice(km) {
-  return km < 3000 ? 600 + 1.35 * km : 4650 + 1.6 * (km - 3000);
-}
-
+// Skóre výhodnosti vůči běžné ceně na vzdálenost (referencePrice v pricelevel.js).
 export function dealOf(trip) {
-  const km = trip.distanceKm || 0;
-  const ref = referencePrice(km) * (trip.back ? 1.9 : 1);
+  const ref = refOf(trip);
   const score = ref / trip.flightCzk;
   const legs = [trip.out, trip.back].filter(Boolean);
   const prev = legs.every((l) => l.prevCzk || l.czk) ? legs.reduce((s, l) => s + (l.prevCzk || l.czk || 0), 0) : null;
@@ -596,7 +594,7 @@ export async function search(raw, emit = () => {}) {
     }
   }
 
-  const { groups, flat, warm, hidden } = buildGroups(trips, { q, originSet: allOrigins, groundOf, legCosts: routeMode && Boolean(q.exact) });
+  const { groups, flat, warm, hidden, priceStats: routeStats } = buildGroups(trips, { q, originSet: allOrigins, groundOf, legCosts: routeMode && Boolean(q.exact) });
   // Další odlety Ryanairu téhož dne z letového řádu (bez cen) – jen u zobrazených tras, pár dotazů.
   const fr = providers.find((p) => p.departures);
   if (fr && (routeMode || q.exact)) await attachDepartures(fr, flat);
@@ -621,6 +619,8 @@ export async function search(raw, emit = () => {}) {
     groups,
     // V režimu konkrétního cíle i plochý žebříček nejlepších kombinací (data × letiště × aerolinky).
     top: routeMode ? topWithDays(flat, { exact: Boolean(q.exact) }) : null,
+    // „Je to dobrá cena?“ u konkrétního cíle: ceny letenek všech nalezených nabídek trasy (skupiny mají svou priceStats).
+    priceStats: routeMode ? routeStats : null,
     calendar: cal,
     // Přesná data: nejlevnější známá cena po dnech ±3 kolem odletu/návratu (z už stažených dat) + nápověda,
     // když v zadaný den Ryanair/Wizz nelétá, ale vedle ano.
@@ -818,6 +818,8 @@ function buildGroups(trips, { q, originSet, groundOf, legCosts = false }) {
   const coldDests = new Set();
   // Nabídky skryté uživatelskými filtry (jen ty, které došly až sem – Kiwi u „jen přímé“ hledá rovnou přímé).
   const hiddenIds = { maxPrice: new Set(), directOnly: new Set() };
+  // „Je to dobrá cena?“: ceny letenek všech nabídek podle cíle (i těch nad limitem ceny, které výpis skryje).
+  const pools = new Map();
   for (const t of trips) {
     if (!validTrip(t) || seen.has(t.id)) continue;
     if (!originSet.has(t.out.from)) continue;
@@ -844,13 +846,20 @@ function buildGroups(trips, { q, originSet, groundOf, legCosts = false }) {
     }
     t.perPersonCzk = t.flightCzk + t.groundCzk + t.bagCzk;
     t.totalCzk = t.perPersonCzk * q.adults;
+    // Dlouhodobý průměr denních maxim v cíli v měsíci odletu (NASA POWER); neznámé podnebí za teplem nepustí.
+    t.tempHi = monthClimate(t.out.to, t.out.date)?.hi ?? null;
+    const cold = warm && (t.tempHi == null || t.tempHi < q.minTemp);
+    // do statistiky cen nepatří jen chladné termíny, které hledání za teplem vůbec nechce
+    if (!cold) {
+      const k = destKey(t.out.to);
+      if (!pools.has(k)) pools.set(k, []);
+      pools.get(k).push({ czk: t.flightCzk, date: t.out.date, from: t.out.from });
+    }
     if (q.maxPrice && t.perPersonCzk > q.maxPrice) {
       hiddenIds.maxPrice.add(t.id);
       continue;
     }
-    // Dlouhodobý průměr denních maxim v cíli v měsíci odletu (NASA POWER); neznámé podnebí za teplem nepustí.
-    t.tempHi = monthClimate(t.out.to, t.out.date)?.hi ?? null;
-    if (warm && (t.tempHi == null || t.tempHi < q.minTemp)) {
+    if (cold) {
       warm.dropped++;
       if (t.tempHi != null) warm.maxHi = Math.max(warm.maxHi ?? -99, t.tempHi);
       coldDests.add(destKey(t.out.to));
@@ -866,8 +875,9 @@ function buildGroups(trips, { q, originSet, groundOf, legCosts = false }) {
     flat.push(t);
   }
   flat.sort((a, b) => a.perPersonCzk - b.perPersonCzk);
+  const stats = new Map([...pools].map(([k, list]) => [k, priceStats(list)]));
   const groups = [];
-  for (const g of map.values()) {
+  for (const [key, g] of map) {
     g.trips.sort((a, b) => a.perPersonCzk - b.perPersonCzk);
     // Alternativy: různá letiště/data/aerolinky, ne jen 5× totéž o den vedle.
     const picked = [];
@@ -885,15 +895,20 @@ function buildGroups(trips, { q, originSet, groundOf, legCosts = false }) {
       options: picked,
       count: g.trips.length,
       minFlightCzk: Math.min(...g.trips.map((t) => t.flightCzk)),
+      priceStats: stats.get(key),
     });
   }
   groups.sort((a, b) => a.best.perPersonCzk - b.best.perPersonCzk);
   // „Super cena“ jen pro to nejlepší z výsledků: absolutní skóre i relativní pořadí (horních 20 %).
   const p20 = groups.length ? groups[Math.floor((groups.length - 1) * 0.2)].best.perPersonCzk : 0;
+  const sorted = new Map([...pools].map(([k, list]) => [k, list.map((e) => e.czk).sort((a, b) => a - b)]));
   for (const t of flat) {
     if (t.deal.level === 'super' && t.perPersonCzk > p20) t.deal.level = 'good';
+    t.priceLevel = priceLevelOf(t, stats.get(t.destKey), sorted.get(t.destKey));
+    // 🔥 Super cena / 👍 Výhodné jen u dobré ceny – na jedné nabídce nikdy „výhodné“ a zároveň „běžná / dražší“
+    if (t.priceLevel.level !== 'low' && (t.deal.level === 'super' || t.deal.level === 'good')) t.deal.level = 'normal';
   }
   if (warm) warm.dests = [...coldDests].filter((k) => !map.has(k)).length;
   const hidden = { maxPrice: hiddenIds.maxPrice.size, directOnly: hiddenIds.directOnly.size };
-  return { groups: groups.slice(0, 150), flat, warm, hidden };
+  return { groups: groups.slice(0, 150), flat, warm, hidden, priceStats: priceStats([...pools.values()].flat()) };
 }

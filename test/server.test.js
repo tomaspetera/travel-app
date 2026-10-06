@@ -96,6 +96,29 @@ test('POST /api/search – konkrétní cíl, víkend, kalendář', async () => {
   }
   assert.ok(r.calendar.out.length > 0);
   assert.ok(r.calendar.out.every((d) => [4, 5, 6].includes(new Date(d.date + 'T12:00:00Z').getUTCDay())));
+  // „Je to dobrá cena?“: statistika ze všech nabídek trasy, úroveň u každé nabídky, žádné protichůdné štítky
+  const st = r.priceStats;
+  assert.ok(st.n >= r.top.length && st.min <= st.p25 && st.p25 <= st.median && st.median <= st.p75 && st.p75 <= st.max, JSON.stringify(st));
+  assert.equal(r.groups[0].priceStats.n, st.n, 'jeden cíl (Londýn): statistika skupiny = statistika trasy');
+  assert.ok(st.dateFrom <= st.dateTo && st.mins.every(([from, m, czk]) => r.origins.some((o) => o.iata === from) && /^\d{4}-\d{2}$/.test(m) && czk >= st.min));
+  assert.ok(r.top.some((t) => t.flightCzk === st.min));
+  for (const t of r.top) {
+    assert.ok(['low', 'normal', 'high'].includes(t.priceLevel.level) && t.priceLevel.reason.length > 10, JSON.stringify(t.priceLevel));
+    assert.equal(t.priceLevel.n, st.n);
+    if (['super', 'good'].includes(t.deal.level)) assert.equal(t.priceLevel.level, 'low', '🔥/👍 jen u dobré ceny');
+  }
+});
+
+test('POST /api/search – kamkoliv: statistika cen u každého cíle, trasa ne', async () => {
+  const r = (await searchStream({ from: ['ap:BRQ'], radiusKm: 150, dateFrom: ymdPlus(10), dateTo: ymdPlus(40), trip: 'oneway' })).last.result;
+  assert.equal(r.priceStats, null);
+  for (const g of r.groups.slice(0, 30)) {
+    assert.ok(g.priceStats.n >= g.options.length && g.priceStats.min === g.minFlightCzk, g.dest.label);
+    for (const t of g.options) {
+      assert.equal(t.priceLevel.n, g.priceStats.n);
+      if (t.priceLevel.n < 5) assert.equal(t.priceLevel.basis, 'distance', 'málo nabídek → jen podle vzdálenosti');
+    }
+  }
 });
 
 test('POST /api/search – DEMO: přesná data i s lety s přestupem (časy přestupů pro filtr), nejlevnější let dne zůstává přímý', async () => {
@@ -196,6 +219,8 @@ test('statické soubory, data a ochrana proti path traversal', async () => {
   assert.equal((await fetch(`${base}/js/alerts.js`)).status, 200);
   assert.ok(page.indexOf('js/searchhelp.js') > 0 && page.indexOf('js/searchhelp.js') < page.indexOf('js/flights.js'), 'pomoc s výsledky se načte před flights.js');
   assert.equal((await fetch(`${base}/js/searchhelp.js`)).status, 200);
+  assert.ok(page.indexOf('js/pricecheck.js') > 0 && page.indexOf('js/pricecheck.js') < page.indexOf('js/flights.js'), '„Je to dobrá cena?“ se načte před flights.js');
+  assert.equal((await fetch(`${base}/js/pricecheck.js`)).status, 200);
   assert.match(page, /id="smartGuide"/, 'průvodce „Jak hledat chytře“ na stránce letů');
   const c =await (await fetch(`${base}/data/countries.json`)).json();
   assert.ok(c.length > 150);

@@ -354,6 +354,7 @@
     try {
       const res = await runSearch(payload, { onProgress: ev => renderProgress(ev), signal: searchCtl.signal });
       lastResult = res; lastResultAt = Date.now();
+      PriceCheck.remember(res); // paměť cen v tomto prohlížeči („Je to dobrá cena?“)
       if (legsOk(res) && view.mode === 'list' && legsPref) view.mode = 'legs';
       else if (!legsOk(res) && view.mode === 'legs') view.mode = 'list';
       renderProgress({ providers: res.providers }, false, res);
@@ -400,7 +401,7 @@
     if (t.back && view.excludeOrigins.has(t.back.to)) return false;
     if (view.carriers.size && !view.carriers.has(t.out.provider) && !(t.back && view.carriers.has(t.back.provider))) return false;
     if (view.maxPrice && t.perPersonCzk > view.maxPrice) return false;
-    if (view.onlyDeals && !['super', 'good'].includes(t.deal.level)) return false;
+    if (view.onlyDeals && !goodPrice(t)) return false;
     if (view.outDate && t.out.date !== view.outDate) return false;
     return true;
   }
@@ -485,7 +486,7 @@
         <div class="rf-group"><span class="faint">Letiště:</span>${res.origins.map(o => `<button type="button" class="fchip ${view.excludeOrigins.has(o.iata) ? '' : 'on'}" data-fo="${o.iata}" title="${esc((o.name || '') + (o.hub ? ` – velké přestupní letiště pro dálkové lety (${o.distKm} km, cesta ~${o.ground?.czk || 0} Kč započtena)` : ''))}">${o.hub ? '✈︎ ' : ''}${o.iata}${o.ground && o.ground.czk ? ` <small>+${o.ground.czk}</small>` : ''}</button>`).join('')}</div>
         ${usedProviders.length > 1 ? `<div class="rf-group"><span class="faint">Aerolinky:</span>${usedProviders.map(p => `<button type="button" class="fchip ${!view.carriers.size || view.carriers.has(p) ? 'on' : ''}" data-fc="${p}"><i style="background:${provColor(p)}"></i>${esc(provName(p))}</button>`).join('')}</div>` : ''}
         <div class="rf-group rf-price"><span class="faint">Max.</span><input type="range" id="fPrice" min="0" max="${Math.ceil(maxP / 100) * 100}" step="100" value="${view.maxPrice || Math.ceil(maxP / 100) * 100}"><b id="fPriceVal">${view.maxPrice ? czk(view.maxPrice) : 'bez limitu'}</b></div>
-        <button type="button" class="fchip ${view.onlyDeals ? 'on' : ''}" id="fDeals">🔥 jen výhodné</button>
+        <button type="button" class="fchip ${view.onlyDeals ? 'on' : ''}" id="fDeals" title="Jen nabídky s 🔥 Super cenou nebo 💚 Dobrou cenou">🔥 jen výhodné</button>
         <button type="button" class="fchip tf-toggle ${nTime ? 'on' : ''}" id="fTime" aria-expanded="${view.timeOpen}" aria-controls="tfPanel">🕐 Čas a přestupy${nTime ? ` <b class="tf-n">${nTime}</b>` : ''} <span aria-hidden="true">${view.timeOpen ? '▴' : '▾'}</span></button>
       </div>
       ${view.timeOpen ? timePanel(res, SearchHelp.timeStats(base), th) : ''}
@@ -562,12 +563,13 @@
     return deps.length ? `<span class="${cls}">další lety tento den: ${deps.map(esc).join(', ')} <i>(cena v rezervaci u aerolinky)</i></span>` : '';
   }
 
-  function badges(t, g) {
+  function badges(t, g, idx) {
     const out = [];
     if (t.nights != null) out.push(`<span class="b">🌙 ${nightsTxt(t.nights)}</span>`);
-    if (t.deal.level === 'super') out.push('<span class="b hot">🔥 Super cena</span>');
-    else if (t.deal.level === 'good') out.push('<span class="b good">👍 Výhodné</span>');
-    if (t.deal.drop) out.push(`<span class="b good">↓ zlevnilo o ${t.deal.drop} %</span>`);
+    const pb = priceTag(t, idx); if (pb) out.push(pb);
+    // zlevnění u dopravce vedle „🔺 Dráž než obvykle“ bez zelené – jinak by štítky mluvily proti sobě
+    const dear = (levelFor(t) || {}).level === 'high';
+    if (t.deal.drop) out.push(`<span class="b ${dear ? '' : 'good'}" title="Oproti předchozí ceně u dopravce${dear ? ' – i tak je dráž než obvykle' : ''}">↓ zlevnilo o ${t.deal.drop} %</span>`);
     if (!t.out.live || (t.back && !t.back.live)) out.push('<span class="b warn" title="Cena z vyhledávání jiných uživatelů za posledních ~48 h – před nákupem ověř">⏱ z cache</span>');
     if (t.back && t.back.to !== t.out.from) out.push(`<span class="b info" title="Návrat na jiné letiště než odlet">↩ návrat do ${t.back.to}</span>`);
     if (t.back && t.back.from !== t.out.to) out.push(`<span class="b info" title="Zpět z jiného letiště v cílové oblasti">✈ zpět z ${t.back.from}</span>`);
@@ -600,17 +602,18 @@
     return `<a href="${gq(t.out.from, t.out.to, t.out.date)}" target="_blank" rel="noopener">tam (Google)</a> · <a href="${gq(t.back.from, t.back.to, t.back.date)}" target="_blank" rel="noopener">zpět (Google)</a>`;
   }
 
-  function priceBox(t) {
+  function priceBox(t, idx) {
     const pax = lastResult.query.adults;
     return `<div class="pbox"><div class="pp">${czk(t.perPersonCzk)}</div><div class="pl">na osobu</div>
       <div class="pd">letenky ${czk(t.flightCzk)}${t.bagCzk ? ` + <span title="Odhad příplatku za ${BAG_LBL[lastResult.query.bags] || 'zavazadlo'}${t.bagEst ? ' – hrubý, dopravce se nepodařilo ověřit' : ' – typická cena u dopravce'}">zavazadla ~${czk(t.bagCzk)}</span>` : ''}${t.groundCzk ? ` + doprava ${czk(t.groundCzk)}` : ''}</div>
-      ${pax > 1 ? `<div class="pd">celkem ${pax} os.: <b>${czk(t.totalCzk)}</b></div>` : ''}</div>`;
+      ${pax > 1 ? `<div class="pd">celkem ${pax} os.: <b>${czk(t.totalCzk)}</b></div>` : ''}
+      ${levelFor(t) ? `<button type="button" class="linkbtn pc-ask" data-pc="${idx}">Je to dobrá cena?</button>` : ''}</div>`;
   }
 
   function tripRow(t, g, idx) {
     return `<div class="trip-row" data-tid="${esc(t.id)}">
-      <div class="tr-legs">${legHtml(t.out)}${t.back ? legHtml(t.back, true) : ''}<div class="tr-badges">${badges(t, g)}</div></div>
-      ${priceBox(t)}
+      <div class="tr-legs">${legHtml(t.out)}${t.back ? legHtml(t.back, true) : ''}<div class="tr-badges">${badges(t, g, idx)}</div></div>
+      ${priceBox(t, idx)}
       <div class="tr-act"><button type="button" class="btn sm primary" data-pick="${idx}">Vybrat a pokračovat →</button>
         <div class="tr-buy">${bookButtons(t)}</div>
         <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>` : ''}</div>
@@ -943,6 +946,7 @@
     $$('[data-exp]', host).forEach(b => b.onclick = () => { const k = b.dataset.exp; view.expanded.has(k) ? view.expanded.delete(k) : view.expanded.add(k); rerender(true); });
     $$('[data-day]', host).forEach(c => c.onclick = () => { view.outDate = view.outDate === c.dataset.day ? null : c.dataset.day; rerender(true); });
     $$('[data-pick]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pick]; Trip.start({ t: r.t, g: r.g, result: lastResult }); });
+    $$('[data-pc]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pc]; if (r) openPriceCheck(r.t, { g: r.g }); });
     $$('[data-country]', host).forEach(b => b.onclick = () => openCountry(b.dataset.country));
   }
   function rerender(keepScroll) {
@@ -955,6 +959,110 @@
     if (keepScroll) window.scrollTo(0, y);
     const el = sel && $(sel, $('#results'));
     if (el) el.focus({ preventScroll: true });
+  }
+
+  /* ---------- „Je to dobrá cena?“: štítek u nabídky a panel s vysvětlením ---------- */
+  const PL_BADGE = { low: ['good', '💚 Dobrá cena'], normal: ['', 'Běžná cena'], high: ['dear', '🔺 Dráž než obvykle'] };
+  const groupOf = (t, res = lastResult) => (res && t.destKey ? res.groups.find(g => g.dest.key === t.destKey) : null) || null;
+  // Statistika cen pro cestu: skupina jejího cíle, jinak celá trasa (konkrétní cíl).
+  const statsFor = (t, res = lastResult) => (groupOf(t, res) || {}).priceStats || (res && res.priceStats) || null;
+  // Úroveň ceny je ze serveru; cestu složenou v prohlížeči ze dvou letenek ohodnotí PriceCheck stejným pravidlem.
+  function levelFor(t) {
+    if (t && !t.priceLevel && t.composed) t.priceLevel = PriceCheck.assess(t, statsFor(t));
+    return (t && t.priceLevel) || null;
+  }
+  const goodPrice = t => ['super', 'good'].includes(t.deal.level) || (levelFor(t) || {}).level === 'low';
+  // 🔥 Super cena je silnější „dobrá cena“ – na nabídce je vždy jen jeden cenový štítek.
+  const tagOf = (t, pl) => (t.deal && t.deal.level === 'super' && pl.level === 'low' ? ['hot', '🔥 Super cena'] : PL_BADGE[pl.level] || PL_BADGE.normal);
+  /** Cenový štítek: ve výpisu tlačítko (idx = řádek v rowRegistry) otevře panel, jinde jen štítek. */
+  function priceTag(t, idx = null, pl = levelFor(t)) {
+    if (!pl) return t.deal && t.deal.level === 'super' ? '<span class="b hot">🔥 Super cena</span>' : '';
+    const [cls, txt] = tagOf(t, pl);
+    return idx == null ? `<span class="b ${cls}" title="${esc(pl.reason)}">${txt}</span>`
+      : `<button type="button" class="b pc-b ${cls}" data-pc="${idx}" title="${esc(pl.reason + ' – klikni: Je to dobrá cena?')}">${txt}</button>`;
+  }
+
+  /**
+   * Panel „Je to dobrá cena?“. opts: g = skupina cíle, stats = statistika cen (průvodce cestou si ji nese sám),
+   * label = cílové město, inResults = otevřeno z výsledků (nabídne ♡ hlídání tohoto hledání).
+   */
+  function openPriceCheck(t, { g = null, stats = null, label = null, inResults = true } = {}) {
+    if (inResults) g = g || groupOf(t);
+    stats = stats || (g && g.priceStats) || (inResults ? statsFor(t) : null);
+    // trasa, která se při hledání do paměti nevešla (limit nových tras z jednoho hledání), se zapíše teď
+    const key = PriceCheck.tripKey(t);
+    if (inResults && lastResult && key) PriceCheck.remember(lastResult, { only: key, now: lastResultAt || Date.now() });
+    const x = PriceCheck.explain(t, { stats, store: PriceCheck.load(), now: Date.now(), today: today(), query: inResults && lastResult ? lastResult.query : null });
+    if (!x) return;
+    modalOpen(priceCheckHtml(t, x, { label: label || (g && g.dest.label) || t.out.to, inResults }));
+    $('#modal').scrollTop = 0; // okno si jinak drží posun z minulého otevření
+    const w = $('#pcWatch'); if (w) w.onclick = () => { modalClose(); addWatch(); };
+  }
+  // Rozpětí cen hledání: nejlevnější … nejdražší, čárky = čtvrtina nejlevnějších a medián, puntík = tahle letenka.
+  // Pár extrémně drahých nabídek by stupnici stlačilo – pravý konec nejvýš p75 + 1,5 × mezikvartilové rozpětí.
+  function pcBar(st, v) {
+    const fence = st.p75 + 1.5 * (st.p75 - st.p25);
+    const hi = Math.round(Math.max(v, fence > st.median ? Math.min(st.max, fence) : st.max));
+    const span = Math.max(1, hi - st.min);
+    const at = x => Math.min(100, Math.max(0, (x - st.min) / span * 100)).toFixed(1);
+    return `<div class="pc-bar" role="img" aria-label="${esc(`Ceny v hledání ${czk(st.min)} až ${czk(st.max)}, medián ${czk(st.median)}, tahle letenka ${czk(v)}`)}">
+      <i class="pc-tick" style="left:${at(st.p25)}%"></i><i class="pc-tick med" style="left:${at(st.median)}%"></i><i class="pc-me" style="left:${at(v)}%"></i></div>
+      <div class="pc-scale"><span>${czk(st.min)}</span><span>${czk(hi)}${hi < st.max ? ' a víc' : ''}</span></div>`;
+  }
+  function priceCheckHtml(t, x, { label, inResults }) {
+    const { pl, stats: st, mem, days } = x;
+    const [cls, txt] = tagOf(t, pl);
+    const ret = Boolean(t.back);
+    const month = MNS_IN[+t.out.date.slice(5, 7) - 1];
+    const sec = (icon, title, body) => `<div class="pc-sec"><h4>${icon} ${title}</h4>${body}</div>`;
+    // 1) ostatní nabídky tohoto hledání
+    let search;
+    if (st && st.n >= 2) {
+      const span = st.dateFrom === st.dateTo ? fmtDate(st.dateFrom) : `${fmtDate(st.dateFrom)}–${fmtDate(st.dateTo)}`;
+      const where = pl.pos == null ? 'Pozice mezi nabídkami není známá' : pl.pos === 0 ? 'Nejlevnější nabídka v tomto hledání' : pl.pos === 100 ? 'Nejdražší nabídka v tomto hledání'
+        : pl.pos <= 50 ? `Levnější než ${100 - pl.pos} % nabídek v tomto hledání` : `Dražší než ${pl.pos} % nabídek v tomto hledání`;
+      search = `${pcBar(st, t.flightCzk)}<p><b>${where}</b>${pl.est && pl.pos != null ? ' (odhad)' : ''} – celkem ${st.n}, ${st.dateFrom === st.dateTo ? 'odlet' : 'odlety'} ${span}</p>
+        <p>Nejlevnější ${czk(st.min)}, čtvrtina nejlevnějších do ${czk(st.p25)}, medián ${czk(st.median)}, nejdražší ${czk(st.max)}.</p>
+        ${st.n < PriceCheck.CFG.smallN ? '<p class="pc-warn">⚠️ Nabídek je na spolehlivé srovnání málo – odhad se proto řídí hlavně průměrnou cenou na vzdálenost.</p>' : ''}`;
+    } else search = '<p>Jiné nabídky k porovnání tohle hledání nemá – odhad se řídí průměrnou cenou na vzdálenost.</p>';
+    // 2) průměrná cena na vzdálenost (prahy jako distanceLevel: výhodná ≥ ~41 % pod, dražší > 25 % nad)
+    const vs = pl.vsRef <= -5 ? `o <b>${-pl.vsRef} %</b> levnější` : pl.vsRef >= 5 ? `o <b>${pl.vsRef} %</b> dražší` : 'zhruba stejně drahá';
+    const dist = t.distanceKm ? `<p>Na ${t.distanceKm.toLocaleString('cs')} km ${ret ? 'tam i zpět' : 'jedním směrem'} stojí letenka v průměru kolem <b>${czk(pl.ref)}</b>/os. Tahle je ${vs}.
+      <span class="faint">Nízkonákladovky bývají pod průměrem běžně – za výhodnou ATLAS bere letenku zhruba od 40 % pod ním, za dražší než obvykle od 25 % nad ním. Hrubé pravidlo podle vzdálenosti, ne podle konkrétní trasy.</span></p>`
+      : '<p>Vzdálenost letu neznám.</p>';
+    // 3) paměť cen v tomto prohlížeči
+    const route = `${t.out.from} → ${label}, odlet v ${month}, ${ret ? 'zpáteční' : 'jen tam'}`;
+    let memo;
+    if (!mem) memo = `<p>Na trase <b>${esc(route)}</b> zatím ATLAS žádné ceny nemá. Ukládá si nejlevnější letenky z každého hledání a příště porovná.</p>`;
+    else {
+      const tr = mem.trend;
+      const arrow = tr ? { down: '↓ zlevňuje', flat: '→ beze změny', up: '↑ zdražuje' }[tr.dir] : '';
+      const when = tr ? (tr.days ? `o ${plural(tr.days, 'den', 'dny', 'dní')} dřív` : 'dřív téhož dne') : '';
+      // trasu zná jen z posledních ~24 h (často jen z tohoto hledání) – nepředstírat dlouhou historii
+      memo = `<p>${mem.sinceDays > 0 ? `Nejlevnější letenka, co ATLAS na trase <b>${esc(route)}</b> viděl: <b>${czk(mem.min)}</b>/os. (${PriceCheck.agoTxt(mem.ago)}, trasu sleduje ${plural(mem.sinceDays, 'den', 'dny', 'dní')}).`
+          : `Trasu <b>${esc(route)}</b> ATLAS sleduje teprve od dneška – nejlevnější letenka, co na ní zatím viděl: <b>${czk(mem.min)}</b>/os.`}
+        ${x.vsMem <= 0 ? 'Tahle je zatím nejlevnější.' : `Tahle je o ${x.vsMem} % dražší.`}</p>
+        ${tr ? `<p class="pc-trend ${tr.dir}"><b>${arrow}</b> – nejlevnější letenka stejného hledání ${when}: ${czk(tr.prev)} → teď ${czk(tr.cur)} (${tr.pct > 0 ? '+' : tr.pct < 0 ? '−' : ''}${Math.abs(tr.pct)} %)</p>`
+        : '<p class="faint">Trend (↓ / → / ↑) se ukáže, až stejné hledání zopakuješ později (za 6 h a víc) – třeba když ho uložíš ♡ a ATLAS ho bude kontrolovat.</p>'}`;
+    }
+    // 4) čas do odletu
+    const left = days == null ? '' : days <= 0 ? 'Odlet je dnes.' : days === 1 ? 'Odlet je zítra.'
+      : `Do odletu zbývá ${plural(days, 'den', 'dny', 'dní')}${days >= 14 ? ` (asi ${plural(Math.round(days / 7), 'týden', 'týdny', 'týdnů')})` : ''}.`;
+    const adv = x.advice;
+    const cache = !t.out.live || (t.back && !t.back.live);
+    return `<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()" aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>
+      <div class="modal-hero-inner"><h2 style="font-size:23px">Je to dobrá cena?</h2><div style="opacity:.85;font-size:13px">${esc(t.out.from)} → ${esc(label)} · ${fmtDate(t.out.date)}${t.back ? '–' + fmtDate(t.back.date) : ''} · letenky ${czk(t.flightCzk)}/os.</div></div></div>
+      <div class="modal-body pc-body">
+        <div class="pc-verdict"><span class="b ${cls}">${txt}</span><span>${esc(pl.reason)}</span></div>
+        ${sec('📊', 'Oproti ostatním nabídkám v tomto hledání', search)}
+        ${sec('📏', 'Oproti průměrné ceně na tuto vzdálenost', dist)}
+        ${sec('🧠', 'Co ATLAS na této trase viděl <small class="faint">(v tomto prohlížeči)</small>', memo)}
+        ${left ? sec('📅', 'Do odletu', `<p>${left}</p>`) : ''}
+        ${adv ? `<div class="note info pc-advice">💡<div><b>Co s tím?</b> ${esc(adv.text)}</div></div>` : ''}
+        ${cache ? '<div class="note warn pc-advice">⏱<div>Cena je z cache (z hledání jiných uživatelů za posledních ~48 h) – před nákupem ji ověř.</div></div>' : ''}
+        <div class="row wrap pc-act">${inResults ? '<button type="button" class="btn primary" id="pcWatch">♡ Hlídat cenu tohoto hledání</button>' : ''}<button type="button" class="btn ghost" onclick="modalClose()">Zavřít</button></div>
+        <p class="faint pc-foot">Je to odhad, ne předpověď. ATLAS porovnává cenu letenek na osobu (bez dopravy na letiště a zavazadel) s ostatními nabídkami tohoto hledání, s hrubou průměrnou cenou na vzdálenost a s cenami, které viděl v tomto prohlížeči. Jak se cena dál vyvine, dopředu nikdo neví.</p>
+      </div>`;
   }
 
 
@@ -1172,6 +1280,7 @@
       const f = { ...defaultForm(), ...w.form };
       if (f.dFrom < today()) f.dFrom = today();
       const res = await runSearch(payloadOf(f), { signal: ctl.signal });
+      PriceCheck.remember(res); // každá kontrola hlídaného hledání = další bod trendu ceny
       const cur = (S.watch || []).find(x => x.id === id); if (!cur) return; // mezitím smazané
       const r = Alerts.applyCheck(cur, bestOf(res), Date.now());
       Object.assign(cur, r.w); save();
@@ -1280,6 +1389,7 @@
     busySearches++;
     try {
       const res = await runSearch(p);
+      PriceCheck.remember(res);
       S.radar = { key, at: Date.now(), demo: res.demo, items: res.groups.slice(0, 12).map(g => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: g.best.perPersonCzk, from: g.best.out.from, to: g.best.out.to, d1: g.best.out.date, d2: g.best.back?.date, deal: g.best.deal.level, prov: g.best.out.provider })) };
       save(); paintRadar(S.radar);
     } catch (e) {
@@ -1402,5 +1512,5 @@
     startAutoCheck();
   }
 
-  window.Flights = { init, renderQuick, renderWatch, renderRadar, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt };
+  window.Flights = { init, renderQuick, renderWatch, renderRadar, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag };
 })();
