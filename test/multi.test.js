@@ -45,7 +45,7 @@ test('normalizeQuery: lety cesty přes víc měst – počet, místa, data po so
   assert.equal(normalizeQuery({ from: ['ap:PRG'], trip: 'oneway' }).trip, 'oneway');
 });
 
-test('legFits: stejné letiště aspoň 3 h, jiné letiště téhož města 5 h, jiné město nejdřív další den', () => {
+test('legFits: stejné letiště aspoň 3 h, jiné letiště téhož města 5 h, jiné město nejdřív další den a aspoň 8 h', () => {
   const arr = leg('PRG', 'FCO', `${D}T07:00`, `${D}T09:00`);
   // stejné letiště
   assert.equal(legFits(arr, leg('FCO', 'NAP', `${D}T12:00`, `${D}T13:00`)), null);
@@ -57,6 +57,14 @@ test('legFits: stejné letiště aspoň 3 h, jiné letiště téhož města 5 h,
   // jiné město (přejezd Řím → Neapol): týž den ne, další den ano
   assert.deepEqual(legFits(arr, leg('NAP', 'PRG', `${D}T20:00`, `${D}T22:00`)), { why: 'nextday' });
   assert.equal(legFits(arr, leg('NAP', 'PRG', `${plus(D, 1)}T06:00`, `${plus(D, 1)}T08:00`)), null);
+  // jiné město další den, ale hned po půlnoci: přílet do Říma 23:50, odlet z Neapole 0:30 nestihneš (aspoň 8 h)
+  const late = leg('PRG', 'FCO', `${D}T21:50`, `${D}T23:50`, { fromTz: 'Europe/Prague', toTz: 'Europe/Rome' });
+  const tz = { fromTz: 'Europe/Rome', toTz: 'Europe/Prague' };
+  assert.deepEqual(legFits(late, leg('NAP', 'PRG', `${plus(D, 1)}T00:30`, `${plus(D, 1)}T02:20`, tz)), { why: 'short', gapMin: 40, needMin: 480, move: true });
+  assert.equal(legFits(late, leg('NAP', 'PRG', `${plus(D, 1)}T07:50`, `${plus(D, 1)}T09:40`, tz)), null);
+  // mezi městy v různých časových zónách skutečný čas: přílet Londýn 23:00 (= 0:00 v Paříži), odlet Paříž 7:30 → 7 h 30 min
+  const lon = leg('PRG', 'STN', `${D}T21:30`, `${D}T23:00`, { fromTz: 'Europe/Prague', toTz: 'Europe/London' });
+  assert.deepEqual(legFits(lon, leg('CDG', 'PRG', `${plus(D, 1)}T07:30`, `${plus(D, 1)}T09:10`, { fromTz: 'Europe/Paris' })), { why: 'short', gapMin: 450, needMin: 480, move: true });
   // den předem nikdy
   assert.deepEqual(legFits(arr, leg('FCO', 'NAP', `${plus(D, -1)}T20:00`, `${plus(D, -1)}T21:00`)), { why: 'early' });
   // noční let s příletem po půlnoci: další let téhož (odletového) dne nejde, druhý den ráno až po příletu

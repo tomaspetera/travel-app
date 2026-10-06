@@ -74,11 +74,11 @@
     const distTxt = distanceText(distanceLevel(t), vsRef);
     let reason;
     if (n < CFG.smallN) reason = `${distTxt} (${n <= 1 ? 'jiné nabídky k porovnání nejsou' : `k porovnání jen ${offersTxt(n)}`})`;
-    else if (basis === 'mixed') reason = czk <= st.median ? 'levná v tomto hledání, ale nad průměrnou cenou na tuto vzdálenost' : 'hluboko pod průměrem na tuto vzdálenost, v hledání jsou ale levnější nabídky';
+    else if (basis === 'mixed') reason = czk <= st.median ? 'levná mezi nabídkami do tohoto cíle, ale nad průměrnou cenou na tuto vzdálenost' : 'hluboko pod průměrem na tuto vzdálenost, do tohoto cíle jsou ale levnější nabídky';
     else if (basis === 'distance') reason = distTxt;
-    else if (level === 'low') reason = pos === 0 ? 'nejlevnější nabídka v tomto hledání' : `levnější než ${100 - pos} % nabídek v tomto hledání`;
-    else if (level === 'high') reason = pos === 100 ? 'nejdražší nabídka v tomto hledání' : `dráž než ${pos} % nabídek v tomto hledání`;
-    else reason = `kolem obvyklé ceny v tomto hledání (polovina nabídek do ${kc(st.median)})`;
+    else if (level === 'low') reason = pos === 0 ? 'nejlevnější nabídka do tohoto cíle v tomto hledání' : `levnější než ${100 - pos} % nabídek do tohoto cíle`;
+    else if (level === 'high') reason = pos === 100 ? 'nejdražší nabídka do tohoto cíle v tomto hledání' : `dráž než ${pos} % nabídek do tohoto cíle`;
+    else reason = `kolem obvyklé ceny do tohoto cíle (polovina nabídek stojí nejvýš ${kc(st.median)})`;
     return { level, basis, reason, ref, vsRef, pos, n, est: true };
   }
 
@@ -231,10 +231,10 @@
     }
     const dear = level === 'high' ? 'Cena je vyšší než obvykle. ' : '';
     if (days > 49) {
-      return { kind: 'watch', text: `${dear}Do odletu zbývá ${Math.floor(days / 7)} týdnů, takže je čas cenu sledovat: ulož hledání ♡ s cílovou cenou a ATLAS se ozve, až zlevní (kontroluje, jen dokud máš stránku otevřenou). Zaručené to není – ceny můžou i stoupnout.` };
+      return { kind: 'watch', text: `${dear}Do odletu zbývá ${Math.floor(days / 7)} týdnů, takže je čas cenu sledovat: ulož hledání ♡ s cílovou cenou a ATLAS se ozve, jestli zlevní (kontroluje, jen dokud máš stránku otevřenou). Zaručené to není – ceny můžou i stoupnout.` };
     }
     if (days >= 21) {
-      return { kind: 'compare', text: `${dear}Do odletu zbývá pár týdnů. Čekání se už spíš nevyplatí – ceny u nízkonákladovek se před odletem obvykle zvedají. Víc ušetříš jiným dnem nebo letištěm (📅 kalendář, okolní letiště).` };
+      return { kind: 'compare', text: `${dear}Do odletu zbývá pár týdnů. Čekání se už spíš nevyplatí – ceny u nízkonákladovek se před odletem obvykle zvedají. Ušetřit se dá spíš jiným dnem nebo letištěm (📅 kalendář, okolní letiště).` };
     }
     return { kind: 'late', text: `${dear}Do odletu zbývá málo a levněji už to nejspíš nebude – ceny u nízkonákladovek se před odletem obvykle zvedají. Jestli ti cena nesedí, zkus jiné dny nebo letiště.` };
   }

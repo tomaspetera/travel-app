@@ -128,10 +128,10 @@ export function priceLevelOf(trip, stats, sorted = null) {
   const distTxt = distanceText(distanceLevel(trip), vsRef);
   let reason;
   if (n < SMALL_N) reason = `${distTxt} (${n <= 1 ? 'jiné nabídky k porovnání nejsou' : `k porovnání jen ${offersTxt(n)}`})`;
-  else if (basis === 'mixed') reason = czk <= stats.median ? 'levná v tomto hledání, ale nad průměrnou cenou na tuto vzdálenost' : 'hluboko pod průměrem na tuto vzdálenost, v hledání jsou ale levnější nabídky';
+  else if (basis === 'mixed') reason = czk <= stats.median ? 'levná mezi nabídkami do tohoto cíle, ale nad průměrnou cenou na tuto vzdálenost' : 'hluboko pod průměrem na tuto vzdálenost, do tohoto cíle jsou ale levnější nabídky';
   else if (basis === 'distance') reason = distTxt;
-  else if (level === 'low') reason = pos === 0 ? 'nejlevnější nabídka v tomto hledání' : `levnější než ${100 - (pos ?? 25)} % nabídek v tomto hledání`;
-  else if (level === 'high') reason = pos === 100 ? 'nejdražší nabídka v tomto hledání' : `dráž než ${pos ?? 75} % nabídek v tomto hledání`;
-  else reason = `kolem obvyklé ceny v tomto hledání (polovina nabídek do ${kc(stats.median)})`;
+  else if (level === 'low') reason = pos === 0 ? 'nejlevnější nabídka do tohoto cíle v tomto hledání' : `levnější než ${100 - (pos ?? 25)} % nabídek do tohoto cíle`;
+  else if (level === 'high') reason = pos === 100 ? 'nejdražší nabídka do tohoto cíle v tomto hledání' : `dráž než ${pos ?? 75} % nabídek do tohoto cíle`;
+  else reason = `kolem obvyklé ceny do tohoto cíle (polovina nabídek stojí nejvýš ${kc(stats.median)})`;
   return { level, basis, reason, ref, vsRef, pos, n };
 }

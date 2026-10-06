@@ -1,6 +1,7 @@
 // Cesta přes víc měst (multi-city, návrat z jiného místa): stihne se další let, výběr letů na úsek
 // a skládání celých cest. Čistá logika bez dotazů na zdroje – hledání úseků řídí search.js (searchMulti).
 import { destKey } from './airports.js';
+import { localToUtcMs } from './dates.js';
 
 export const MULTI = {
   maxLegs: 4,
@@ -8,9 +9,11 @@ export const MULTI = {
   options: 16,
   // Kolik nejlevnějších celých cest vrátit.
   combos: 30,
-  // Rezerva mezi příletem a dalším odletem: stejné letiště 3 h, jiné letiště téhož města 5 h.
+  // Rezerva mezi příletem a dalším odletem: stejné letiště 3 h, jiné letiště téhož města 5 h, jiné město
+  // (přejezd po zemi) další den a aspoň 8 h – ne přílet ve 23:50 a odlet z jiného města v 0:30.
   sameAirportMin: 180,
   sameCityMin: 300,
+  otherCityMin: 480,
   // Úseky se hledají nejvýš po dvou najednou; dvojice letišť pro Ryanair / Wizz Air na celé hledání
   // (rozdělené mezi úseky) a dotazy na letový řád Ryanairu na úsek.
   concurrency: 2,
@@ -26,15 +29,17 @@ const legSig = (l) => `${l.from}|${l.to}|${l.dep}|${l.carrier}|${l.stops}`;
  * Stihne se let `next` po letu `prev`? null = ano, jinak důvod:
  *  { why: 'early' }                     – odlétá dřív, než předchozí let přistane (nebo v dřívější den),
  *  { why: 'short', gapMin, needMin }    – stejné letiště / město, ale rezerva kratší než 3 h (jiné letiště 5 h),
- *  { why: 'nextday' }                   – jiné město (přejezd po zemi) nebo neznámý čas: nejdřív další den.
- * Časy jsou místní; na stejném letišti i v témže městě se dají porovnat přímo.
+ *  { why: 'nextday' }                   – jiné město (přejezd po zemi) nebo neznámý čas: nejdřív další den,
+ *  { why: 'short', …, move: true }      – jiné město další den, ale dřív než 8 h po příletu.
+ * Časy jsou místní; na stejném letišti i v témže městě se dají porovnat přímo, mezi dvěma městy přes časové zóny.
  */
 export function legFits(prev, next) {
   const aDate = arrDate(prev);
   if (next.date < aDate) return { why: 'early' };
   const sameAp = prev.to === next.from;
   const sameCity = sameAp || destKey(prev.to) === destKey(next.from);
-  if (sameCity && prev.arr && prev.hasTime && next.hasTime) {
+  const timed = Boolean(prev.arr && prev.hasTime && next.hasTime);
+  if (sameCity && timed) {
     const gapMin = Math.round((localMs(next.dep) - localMs(prev.arr)) / 60000);
     const needMin = sameAp ? MULTI.sameAirportMin : MULTI.sameCityMin;
     if (Number.isFinite(gapMin)) {
@@ -42,7 +47,12 @@ export function legFits(prev, next) {
       return gapMin < needMin ? { why: 'short', gapMin, needMin } : null;
     }
   }
-  return next.date > aDate ? null : { why: 'nextday' };
+  if (next.date <= aDate) return { why: 'nextday' };
+  if (!sameCity && timed) {
+    const gapMin = Math.round(((localToUtcMs(next.dep, next.fromTz) ?? NaN) - (localToUtcMs(prev.arr, prev.toTz) ?? NaN)) / 60000);
+    if (Number.isFinite(gapMin) && gapMin < MULTI.otherCityMin) return { why: 'short', gapMin, needMin: MULTI.otherCityMin, move: true };
+  }
+  return null;
 }
 
 // Část dne odletu: 0 ráno (do 12 h), 1 odpoledne (do 18 h), 2 večer; bez času -1.
