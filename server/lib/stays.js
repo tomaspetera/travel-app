@@ -3,36 +3,12 @@
 import { cache } from './cache.js';
 import { daysBetween, isYmd, todayYmd, addDays } from './dates.js';
 import { stayLinks } from './links.js';
+import { partnerIds } from './partnerids.js';
 import { stayProviders } from '../providers/stays/index.js';
 import { getAirport, METRO_BY_CODE, COUNTRY_BY_ISO, countryAt } from './airports.js';
 import { geocode, englishName } from './places.js';
 import { haversineKm } from './geo.js';
-import { request } from './http.js';
 import { config } from '../config.js';
-
-/**
- * Má Hostelworld stránku města? Jen u míst s hostely – menší místa (Sabbioneta) vrací 404. Jeden dotaz HEAD
- * na stránku (v mezipaměti 30 dní, timeout 4 s): true / false (404), null = nevíme (chyba, ochrana proti robotům).
- */
-export function hostelworldHas(url, { get = request } = {}) {
-  return cache.wrap(`hw-page:${url}`, (v) => (v === null ? 3600e3 : 30 * 864e5), async () => {
-    try {
-      await get(url, { method: 'HEAD', as: 'text', timeoutMs: 4000, retries: 0 });
-      return true;
-    } catch (e) {
-      return e.status === 404 ? false : null;
-    }
-  });
-}
-
-/** Odkaz na Hostelworld: místo bez stránky města → stránka země (/hostels/<kontinent>/<země>/). */
-async function hostelworldLink(links, has) {
-  const hw = links.find((l) => l.id === 'hostelworld');
-  if (!has || !hw || !/^https:\/\/www\.hostelworld\.com\/hostels\/[\w-]+\/[\w-]+\/[\w-]+\/$/.test(hw.url)) return;
-  if ((await has(hw.url).catch(() => null)) === false) {
-    Object.assign(hw, { url: hw.url.replace(/[\w-]+\/$/, ''), prefill: 'none', note: 'hostely v zemi – vyber místo a data' });
-  }
-}
 
 export class StayQueryError extends Error {
   constructor(msg) {
@@ -119,8 +95,11 @@ export function rankStays(items) {
   return items.sort((a, b) => (b.value ?? -1) - (a.value ?? -1) || (a.pricePerNightCzk ?? Infinity) - (b.pricePerNightCzk ?? Infinity));
 }
 
-/** deps: english (anglický název místa), hostel (má Hostelworld stránku města? – null = neověřovat, bez sítě) */
-export async function searchStays(raw, { english = englishName, hostel = null } = {}) {
+/**
+ * deps: english (anglický název místa), partners (dohledání ID místa u partnerů ubytování – partnerLookups()
+ * z partnerids.js; null = odkazy bez ID, bez sítě: DEMO, testy, PARTNER_LOOKUP=0)
+ */
+export async function searchStays(raw, { english = englishName, partners = null } = {}) {
   const q = normalizeStayQuery(raw);
   // Místo bez anglického názvu (přidané ručně, z Wikidat bez článku): partneři i LiteAPI hledají anglicky
   // („Boloňa“ → „Bologna“) – název z geokódování v okolí místa (v mezipaměti).
@@ -128,9 +107,9 @@ export async function searchStays(raw, { english = englishName, hostel = null } 
     const gid = /^\d{1,10}$/.test(String(raw.gid ?? '')) ? String(raw.gid) : null;
     q.cityEn = (await english(q.city, q.lat, q.lon, q.cc, gid).catch(() => null)) || q.cityEn;
   }
-  // Odkazy na partnery; stránka města na Hostelworldu se ověří souběžně s hledáním hotelů.
-  const links = stayLinks(q);
-  const hwDone = hostelworldLink(links, hostel);
+  // ID místa u partnerů (Trip.com, Agoda, Hostelworld) se dohledá souběžně s hledáním hotelů – každý dotaz nejvýš
+  // 4 s, chyba nic neshodí (odkaz pak zůstane bez ID).
+  const ids = partnerIds(q, partners).catch(() => ({}));
   // Ceny hotelů API vrací nejvýš pro 30 nocí; delší pobyt → jen odkazy na partnery.
   const providers = q.nights <= 30 ? stayProviders() : [];
   // Střed města kvůli vzdálenosti hotelů (u metropolí známe z databáze, jinak geokódování).
@@ -168,6 +147,6 @@ export async function searchStays(raw, { english = englishName, hostel = null } 
     query: q,
     providers: status,
     items: rankStays([...best.values()]).slice(0, 60),
-    links: await hwDone.then(() => links),
+    links: stayLinks(q, await ids),
   };
 }

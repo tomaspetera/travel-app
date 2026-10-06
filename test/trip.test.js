@@ -230,12 +230,27 @@ test('stayLinks: víc partnerů – co je předvyplněné (místo, termín, host
   assert.equal(gh.searchParams.get('ts'), googleHotelsTs(q.checkin, q.checkout, 3));
   assert.equal(by.hostelworld.url, 'https://www.hostelworld.com/hostels/europe/czechia/kutna-hora/', 'stránka města (jiný název země Hostelworld přesměruje)');
   assert.equal(by.agoda.url, 'https://www.agoda.com/cs-cz/');
+  assert.equal(by.trip.note, 'silný v Asii – potvrď Hledat', 'jen s názvem Trip.com nabídky ukáže až po potvrzení');
   assert.match(by.airbnb.url, /^https:\/\/www\.airbnb\.cz\/s\/Kutn%C3%A1%20Hora--Czechia\/homes\?checkin=/);
+  // s ID místa u partnerů (dohledá server, partnerids.js): Trip.com, Agoda i Hostelworld rovnou s termínem a hosty
+  const ids = stayLinks(q, { trip: 38742, agoda: 67491, hostelworld: 10508 });
+  const withId = Object.fromEntries(ids.map((l) => [l.id, l]));
+  assert.ok(ids.every((l) => l.prefill === 'full'), 'všechny odkazy předvyplněné');
+  assert.ok(ids.every((l) => !/zadej|potvrď/.test(l.note)), ids.map((l) => l.note).join(' | '));
+  assert.equal(withId.trip.url, `https://www.trip.com/hotels/list?cityId=38742&checkin=${q.checkin}&checkout=${q.checkout}&crn=2&adult=3&children=0&curr=CZK&locale=cs-CZ`);
+  assert.equal(withId.agoda.url, `https://www.agoda.com/search?city=67491&checkIn=${q.checkin}&checkOut=${q.checkout}&los=3&rooms=2&adults=3&children=0`);
+  assert.equal(withId.hostelworld.url, `https://www.hostelworld.com/pwa/s?type=city&id=10508&from=${q.checkin}&to=${q.checkout}&guests=3`);
+  assert.deepEqual(ids.filter((l) => !['trip', 'agoda', 'hostelworld'].includes(l.id)), links.filter((l) => !['trip', 'agoda', 'hostelworld'].includes(l.id)), 'ostatní beze změny');
+  // Hostelworld místo nemá (404) → stránka země; neplatné ID → odkaz bez něj
+  const country = stayLinks(q, { hostelworld: false }).find((l) => l.id === 'hostelworld');
+  assert.deepEqual([country.url, country.prefill, country.note], ['https://www.hostelworld.com/hostels/europe/czechia/', 'none', 'hostely v zemi – vyber místo a data']);
+  assert.deepEqual(stayLinks(q, { trip: '38742', agoda: -1, hostelworld: true }).map((l) => l.url), links.map((l) => l.url));
   // Benin, Afrika; neznámá země → Hostelworld jen úvodní stránka
   const bj = stayLinks({ city: 'Porto Novo', cityEn: 'Porto-Novo', cc: 'BJ', checkin: '2026-11-10', checkout: '2026-11-13', adults: 2, rooms: 1 });
   assert.equal(bj.find((l) => l.id === 'hostelworld').url, 'https://www.hostelworld.com/hostels/africa/benin/porto-novo/');
   assert.equal(bj.find((l) => l.id === 'kayak').url, 'https://www.kayak.com/hotels/Porto-Novo-Benin/2026-11-10/2026-11-13/2adults');
-  assert.equal(stayLinks({ city: 'Nikde', cc: '', checkin: '2026-11-10', checkout: '2026-11-13', adults: 2, rooms: 1 }).find((l) => l.id === 'hostelworld').url, 'https://www.hostelworld.com/');
+  const nowhere = stayLinks({ city: 'Nikde', cc: '', checkin: '2026-11-10', checkout: '2026-11-13', adults: 2, rooms: 1 }).find((l) => l.id === 'hostelworld');
+  assert.deepEqual([nowhere.url, nowhere.prefill, nowhere.note], ['https://www.hostelworld.com/', 'none', 'hostely a levná lůžka – zadej místo a data']);
   // partnerský odkaz jen u značky, kterou má aplikace nastavenou (Booking.com) – ostatní vždy přímo
   const { config } = await import('../server/config.js');
   const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs };

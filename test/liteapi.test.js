@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { stubFetch, ymdPlus } from './helpers.js';
 import { config } from '../server/config.js';
 import { liteapi, cheapestRate, mapHotels } from '../server/providers/stays/liteapi.js';
-import { normalizeStayQuery, searchStays, hostelworldHas } from '../server/lib/stays.js';
+import { normalizeStayQuery, searchStays } from '../server/lib/stays.js';
 
 const HOTELS = [
   { id: 'lp1', name: 'Hotel Duomo', latitude: 45.465, longitude: 9.19, address: 'Piazza 1', main_photo: 'https://x/1.jpg', stars: 4, rating: 8.9, reviewCount: 2100 },
@@ -139,34 +139,6 @@ test('ubytování na dalších místech trasy: země podle polohy, anglický ná
     await searchStays({ ...base, gid: '2392087', checkout: ymdPlus(45) }, { english: async (...a) => { english.push(a); return null; } });
     await searchStays({ ...base, gid: '1;drop', checkout: ymdPlus(46) }, { english: async (...a) => { english.push(a); return null; } });
     assert.deepEqual(english.map((a) => a[4]), ['2392087', null]);
-  } finally {
-    stub.restore();
-    config.liteapiKey = prev;
-  }
-});
-
-test('Hostelworld: místo bez stránky města (404 – menší města) → stránka země; ověří se jednou (mezipaměť), chyba nechá město', async () => {
-  const prev = config.liteapiKey;
-  config.liteapiKey = '';
-  const stub = stubFetch((url) => ({ status: url.includes('/sabbioneta/') ? 404 : url.includes('/verona/') ? 200 : 503, body: '' }));
-  const hw = (r) => r.links.find((l) => l.id === 'hostelworld');
-  const hwCalls = () => stub.calls.filter((c) => c.url.includes('hostelworld.com')).length;
-  try {
-    const base = { city: 'Sabbioneta', cityEn: 'Sabbioneta', cc: 'IT', lat: 44.999, lon: 10.489, checkin: ymdPlus(50), checkout: ymdPlus(52), adults: 2 };
-    const r = await searchStays(base, { hostel: hostelworldHas });
-    assert.deepEqual([hw(r).url, hw(r).prefill], ['https://www.hostelworld.com/hostels/europe/italy/', 'none']);
-    assert.match(hw(r).note, /vyber místo a data/);
-    assert.equal(stub.calls[0].init.method, 'HEAD');
-    await searchStays({ ...base, checkout: ymdPlus(53) }, { hostel: hostelworldHas });
-    assert.equal(hwCalls(), 1, 'druhé hledání z mezipaměti');
-    const vr = await searchStays({ ...base, city: 'Verona', cityEn: 'Verona', lat: 45.438, lon: 10.992 }, { hostel: hostelworldHas });
-    assert.deepEqual([hw(vr).url, hw(vr).prefill], ['https://www.hostelworld.com/hostels/europe/italy/verona/', 'city']);
-    const down = await searchStays({ ...base, city: 'Mantova', cityEn: 'Mantua', lat: 45.156, lon: 10.791 }, { hostel: hostelworldHas });
-    assert.equal(hw(down).url, 'https://www.hostelworld.com/hostels/europe/italy/mantua/', 'chyba (ne 404) → stránka města zůstane');
-    // bez ověření (výchozí – DEMO, testy) se Hostelworldu nic neptá
-    const n = stub.calls.length;
-    await searchStays({ ...base, city: 'Pavia', cityEn: 'Pavia', checkout: ymdPlus(54) });
-    assert.equal(stub.calls.length, n);
   } finally {
     stub.restore();
     config.liteapiKey = prev;

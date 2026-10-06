@@ -136,8 +136,9 @@
   const kindTxt = x => (x && x.transitKind === 'bus' ? 'autobusem / minibusem' : 'vlakem / busem');
   const legMin = (x, tr) => x ? (tr === 'transit' ? x.transitMin : x.carMin) : null;
   const legTxt = (x, tr) => tr === 'transit' ? `~${minutesToHm(x.transitMin)} ${kindTxt(x)}` : `${x.km} km · ~${minutesToHm(x.carMin)} autem`;
-  // Autem podle trasy z plánovače (s provozem a hranicí), jinak odhad; veřejná doprava je vždy odhad.
-  const estTxt = (x, tr) => (tr !== 'transit' && x.basis === 'route' ? 'podle trasy' : 'odhad');
+  // Autem podle trasy z plánovače (s provozem a hranicí), jinak odhad; veřejná doprava je odhad, jen přímý vlak
+  // z tabulky spojů (fast ze serveru) má čas podle jízdního řádu.
+  const estTxt = (x, tr) => (tr === 'transit' ? (x.fast ? 'jízdní řád' : 'odhad') : x.basis === 'route' ? 'podle trasy' : 'odhad');
   const ccName = cc => (typeof byIso !== 'undefined' && byIso[cc] ? byIso[cc].cs : cc);
   /** Přechod hranice na přejezdu: s čím počítat (vstupní podmínky další země, jsou-li načtené) a odkaz na ně. */
   function borderNote(bd) {
@@ -1102,11 +1103,11 @@
       const xs = r.bases.slice(1).map((b, i) => r.transfers && r.transfers[i]);
       const rows = r.bases.slice(1).map((b, i) => {
         const x = xs[i];
-        return `<div>${dayLbl(dates[i].checkout)} · ${esc(r.bases[i].name)} → ${esc(b.name)}${x ? ` · ${trIcon('transit', x)} ~${minutesToHm(x.transitMin)} ${kindTxt(x)} (odhad) · <a href="${esc(safeUrl(x.transitUrl))}" target="_blank" rel="noopener">ověř spoje v Google Maps ↗</a>` : ''}</div>`;
+        return `<div>${dayLbl(dates[i].checkout)} · ${esc(r.bases[i].name)} → ${esc(b.name)}${x ? ` · ${trIcon('transit', x)} ~${minutesToHm(x.transitMin)} ${kindTxt(x)} (${estTxt(x, 'transit')}) · <a href="${esc(safeUrl(x.transitUrl))}" target="_blank" rel="noopener">ověř spoje v Google Maps ↗</a>` : ''}</div>`;
       }).join('');
       const bus = xs.length && xs.every(x => x && x.transitKind === 'bus');
       return `<div class="note info" style="margin-bottom:12px">${bus ? '🚌' : '🚆'} <div><b>Mezi místy pojedeš ${bus ? 'autobusem nebo minibusem' : 'vlakem nebo autobusem'}</b> – auto nepotřebuješ (půjčit si ho můžeš i jen na pár dní).
-        <div class="rt-trains">${rows}</div><div style="font-size:12px">Čas je odhad – skutečné spoje ukáže odkaz; jízdenky koupíš ${bus ? 'na autobusovém nádraží nebo u dopravce' : 'u národního dopravce nebo na nádraží'}.</div></div></div>`;
+        <div class="rt-trains">${rows}</div><div style="font-size:12px">Čas je odhad${xs.some(x => x && x.fast) ? ' (u přímého vlaku podle jízdního řádu)' : ''} – skutečné spoje ukáže odkaz; jízdenky koupíš ${bus ? 'na autobusovém nádraží nebo u dopravce' : 'u národního dopravce nebo na nádraží'}.</div></div></div>`;
     }
     // s vlakem/busem místo letu se jede z města příjezdu (ne z letiště)
     const ends = ovOn(t) ? overlandLegs(t) : r.legs || {};

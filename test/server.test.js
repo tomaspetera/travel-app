@@ -2,7 +2,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { ymdPlus } from './helpers.js';
+import { stubFetch, ymdPlus } from './helpers.js';
 
 process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
@@ -514,5 +514,23 @@ test('POST /api/stayplan – trasa přes víc míst (DEMO): návrh open-jaw, př
   assert.equal(ev.transfers.length, j.bases.length - 1);
   for (const bad of [{ arrival: 'BGY', nights: 0 }, { arrival: 'XYZ', nights: 3 }, { arrival: 'BGY', bases: [{ name: 'x', lat: 'a', lon: 1 }] }, 'null', '[]', '{nope']) {
     assert.equal((await post(bad)).status, 400, JSON.stringify(bad));
+  }
+});
+
+test('GET /api/stays v DEMO: odkazy na partnery bez dotazů na jejich weby (ID místa u Trip.com, Agody a Hostelworldu se nehledá)', async () => {
+  // rawGet jde přes http.request, takže zachycený fetch vidí jen dotazy serveru ven
+  const stub = stubFetch(() => ({ status: 500, body: '{}' }));
+  try {
+    const { status, body } = await rawGet(`/api/stays?city=Cotonou&cityEn=Cotonou&cc=BJ&lat=6.3654&lon=2.4183&checkin=${ymdPlus(40)}&checkout=${ymdPlus(43)}&adults=2`);
+    assert.equal(status, 200);
+    assert.equal(stub.calls.length, 0, stub.calls.map((c) => c.url).join(' '));
+    const j = JSON.parse(body);
+    assert.ok(j.items.length > 0, 'DEMO nabídky');
+    const by = Object.fromEntries(j.links.map((l) => [l.id, l]));
+    assert.match(by.trip.url, /searchWord=Cotonou%2C\+Benin/);
+    assert.deepEqual([by.agoda.url, by.agoda.prefill], ['https://www.agoda.com/cs-cz/', 'none']);
+    assert.deepEqual([by.hostelworld.url, by.hostelworld.prefill], ['https://www.hostelworld.com/hostels/africa/benin/cotonou/', 'city']);
+  } finally {
+    stub.restore();
   }
 });
