@@ -36,7 +36,7 @@
     if (!date) return null;
     const dur = Math.round(Number(l.durationMin));
     return {
-      from: l.from, to: l.to, date, dep, arr: dep ? localDt(l.arr) : null, arrEst: l.arrEst === true,
+      from: l.from, to: l.to, date, dep, arr: dep ? localDt(l.arr) : null, arrEst: l.arrEst === true, ...(l.arrUnknown === true && !localDt(l.arr) ? { arrUnknown: true } : {}),
       fromTz: tz(l.fromTz), toTz: tz(l.toTz), carrier: txt(l.carrier, 60), flightNo: txt(l.flightNo, 12),
       durationMin: dur > 0 && dur < 48 * 60 ? dur : null,
     };

@@ -197,15 +197,15 @@ export function outageOf(st, p, ctx) {
   };
 }
 
+/** Poznámka v průběhu hledání, když zdroj bez „kamkoliv“ (Wizz Air) prošel jen část tras (od nejbližších) – pro uživatele, bez názvu proměnné WIZZ_MAX_CALLS. */
+export const routesNote = (take, total) => `prohledáno ${take} nejbližších z ${total} tras – zbytek kvůli limitu dotazů`;
+
 /**
  * Hlavní hledání. emit(event) dostává průběh: { type: 'progress', providers }.
  * opts (pro hledání úseků cesty přes víc měst a testy): providers = zdroje místo activeProviders(),
  * limits = { maxPairs (dvojic letišť na zdroj), departures (dotazů na letový řád Ryanairu) }, hubs: false = bez
  * přestupních letišť v okolí.
  */
-/** Poznámka v průběhu hledání, když zdroj bez „kamkoliv“ (Wizz Air) prošel jen část tras – pro uživatele, bez názvu proměnné WIZZ_MAX_CALLS. */
-export const routesNote = (take, total) => `prohledáno ${take} z ${total} tras (nejbližší) – zbytek kvůli limitu dotazů`;
-
 export async function search(raw, emit = () => {}, opts = {}) {
   const t0 = Date.now();
   const q = normalizeQuery(raw);

@@ -53,6 +53,16 @@ test('Ground.worth / planeOptions v prohlížeči = server (stejné pravidlo i t
   const a = Ground.planeOptions(trips, doorOf), b = S.planeOptions(trips, doorOf);
   assert.deepEqual([a.cheap.t.perPersonCzk, a.cheap.doorMin, a.fast.t.perPersonCzk, a.fast.doorMin], [b.cheap.t.perPersonCzk, b.cheap.doorMin, b.fast.t.perPersonCzk, b.fast.doorMin]);
   assert.deepEqual([a.cheap.t.perPersonCzk, a.fast.t.perPersonCzk, a.fast.doorMin], [4045, 11994, 275]);
+  // zpáteční: nejrychlejší podle pomalejšího směru (tripDoor) – v prohlížeči stejně jako na serveru
+  const legDoor = (l, ap) => Ground.flightDoor(l, ap === 'PRG' ? 30 : 0, 30);
+  const rts = [{ out: { from: 'PRG', durationMin: 860 }, back: { to: 'PRG', durationMin: 1135 }, perPersonCzk: 4045 },
+    { out: { from: 'PRG', durationMin: 50 }, back: { to: 'PRG', durationMin: 1135 }, perPersonCzk: 10282 },
+    { out: { from: 'PRG', durationMin: 50 }, back: { to: 'PRG', durationMin: 50 }, perPersonCzk: 11994 }];
+  for (const t of rts) assert.equal(Ground.tripDoor(t, legDoor), S.tripDoor(t, legDoor));
+  const c = Ground.planeOptions(rts, (t) => legDoor(t.out, 'PRG'), (t) => Ground.tripDoor(t, legDoor));
+  const d = S.planeOptions(rts, (t) => legDoor(t.out, 'PRG'), (t) => S.tripDoor(t, legDoor));
+  assert.deepEqual([c.cheap.doorMin, c.fast.t.perPersonCzk, c.fast.doorMin], [d.cheap.doorMin, d.fast.t.perPersonCzk, d.fast.doorMin]);
+  assert.equal(c.fast.t.perPersonCzk, 11994, 'ne přímý let tam s návratem s přestupem (10 282 Kč)');
 });
 
 test('Ground: text čipu, délka cesty, převod spoje a odhadu na úsek cesty, cena za všechny', () => {
@@ -263,6 +273,16 @@ test('PlanShare + Ics: plán s vlakem/busem (#plan=) – úseky projdou kontrolo
   assert.match(ics, /SUMMARY:🚆 Vídeň → Praha \(vlak \/ bus\)/);
   // plán bez vlaku se nemění
   assert.equal(PlanShare.decode(PlanShare.encode({ name: 'x', start: '2026-11-11' })).ground, undefined);
+});
+
+test('Let s přestupem z cache bez známého příletu: plánovač, sdílený odkaz i kalendář přílet nevymýšlí', () => {
+  const l = { from: 'PRG', to: 'BCN', date: '2026-10-30', dep: '2026-10-30T20:30:00', arr: null, arrEst: false, arrUnknown: true, hasTime: true, stops: 1, durationMin: null, fromTz: 'Europe/Prague', toTz: 'Europe/Madrid', carrier: 'U2', carrierName: 'easyJet' };
+  const b = plain(Trip.legBrief(l));
+  assert.deepEqual([b.arr, b.arrUnknown, b.durationMin], [null, true, null]);
+  assert.equal(Trip.legBrief({ ...l, arrUnknown: undefined }).arrUnknown, undefined, 'jen u neznámého příletu');
+  const p = PlanShare.decode(PlanShare.encode({ name: 'Barcelona', start: '2026-10-30', legs: [b] }));
+  assert.deepEqual([p.legs[0].arr, p.legs[0].arrUnknown], [null, true]);
+  assert.match(Ics.flightEvent(p.legs[0]).description, /Přílet neznámý \(let s přestupem z cache\)/);
 });
 
 test('Ground.load: stejný dotaz se 10 min neopakuje (překreslení výsledků), chyba ani „RegioJet nejde“ se nepamatuje', async () => {

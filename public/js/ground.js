@@ -33,21 +33,30 @@
     const fly = l && l.durationMin > 0 ? l.durationMin : l && l.estMin > 0 ? l.estMin : null;
     return fly ? Math.round(accessMin + AIRPORT_BEFORE + fly + AIRPORT_AFTER + egressMin) : null;
   }
+  /** Cesta od dveří ke dveřím: u zpáteční pomalejší ze dvou směrů (legDoor(leg, letiště domova) → minuty | null). */
+  function tripDoor(t, legDoor) {
+    const a = legDoor(t.out, t.out.from);
+    if (!t.back) return a > 0 ? a : null;
+    const b = legDoor(t.back, t.back.to);
+    return a > 0 && b > 0 ? Math.max(a, b) : null;
+  }
   /**
-   * Nejlevnější cesta i s časem svého letu a nejrychlejší, je-li jiná a aspoň o hodinu rychlejší (cena i čas vždy
-   * z téže cesty). doorOf(t) → minuty | null. → { cheap: { t, doorMin } | null, fast: { t, doorMin } | null }
+   * Nejlevnější cesta i s časem svého letu tam a nejrychlejší (podle slowOf – u zpáteční i návrat), je-li jiná a aspoň
+   * o hodinu rychlejší (cena i čas vždy z téže cesty). doorOf / slowOf(t) → minuty | null.
+   * → { cheap: { t, doorMin } | null, fast: { t, doorMin } | null }
    */
-  function planeOptions(trips, doorOf) {
+  function planeOptions(trips, doorOf, slowOf = doorOf) {
     let cheap = null, fast = null;
     for (const t of trips || []) {
       if (!t || !t.out || !(t.perPersonCzk > 0)) continue;
       if (!cheap || t.perPersonCzk < cheap.t.perPersonCzk) cheap = { t };
-      const d = doorOf(t);
+      const d = slowOf(t);
       if (d > 0 && (!fast || d < fast.doorMin || (d === fast.doorMin && t.perPersonCzk < fast.t.perPersonCzk))) fast = { t, doorMin: d };
     }
     if (!cheap) return { cheap: null, fast: null };
     cheap.doorMin = doorOf(cheap.t) || null;
-    const much = fast && fast.t !== cheap.t && (!cheap.doorMin || fast.doorMin <= cheap.doorMin - FAST_GAP);
+    const slow = slowOf(cheap.t) || null;
+    const much = fast && fast.t !== cheap.t && (!slow || fast.doorMin <= slow - FAST_GAP);
     return { cheap, fast: much ? fast : null };
   }
   /**
@@ -209,5 +218,5 @@
     fill('out', opts.date);
   }
 
-  window.Ground = { hm, round5, flightDoor, planeOptions, worth, kindsTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, debounce, panel };
+  window.Ground = { hm, round5, flightDoor, tripDoor, planeOptions, worth, kindsTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, debounce, panel };
 })();

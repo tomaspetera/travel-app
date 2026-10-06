@@ -272,23 +272,37 @@ export const legFlyMin = (l) => (l && l.durationMin > 0 ? l.durationMin : l && l
 export const FAST_GAP = 60;
 
 /**
+ * Cesta tam i zpět od dveří ke dveřím: pomalejší ze dvou směrů (u jednosměrné let tam). legDoor(leg, homeIata) →
+ * minuty | null; null = délku některého letu neznáme. Nejrychlejší „tam i zpět“ tak nemůže být přímý let tam
+ * s návratem s přestupem na celý den. Stejně v prohlížeči (Ground.tripDoor).
+ */
+export function tripDoor(t, legDoor) {
+  const a = legDoor(t.out, t.out.from);
+  if (!t.back) return a > 0 ? a : null;
+  const b = legDoor(t.back, t.back.to);
+  return a > 0 && b > 0 ? Math.max(a, b) : null;
+}
+
+/**
  * Letadlo pro srovnání s vlakem/busem: nejlevnější cesta i s časem jejího vlastního letu tam (vč. přestupů) a
  * nejrychlejší cesta, je-li jiná a aspoň o FAST_GAP min rychlejší (cena i čas vždy z téže cesty).
- * doorOf(t) = od dveří ke dveřím v minutách, nebo null (délku letu neznáme). → { cheap: { t, doorMin } | null, fast }
+ * doorOf(t) = let tam od dveří ke dveřím v minutách, nebo null (délku letu neznáme); slowOf(t) = celá cesta
+ * (tripDoor – u zpáteční pomalejší směr), podle ní se hledá nejrychlejší. → { cheap: { t, doorMin } | null, fast }
  * Stejně v prohlížeči (public/js/ground.js, Ground.planeOptions).
  */
-export function planeOptions(trips, doorOf) {
+export function planeOptions(trips, doorOf, slowOf = doorOf) {
   let cheap = null;
   let fast = null;
   for (const t of trips || []) {
     if (!t || !t.out || !(t.perPersonCzk > 0)) continue;
     if (!cheap || t.perPersonCzk < cheap.t.perPersonCzk) cheap = { t };
-    const d = doorOf(t);
+    const d = slowOf(t);
     if (d > 0 && (!fast || d < fast.doorMin || (d === fast.doorMin && t.perPersonCzk < fast.t.perPersonCzk))) fast = { t, doorMin: d };
   }
   if (!cheap) return { cheap: null, fast: null };
   cheap.doorMin = doorOf(cheap.t) || null;
-  const much = fast && fast.t !== cheap.t && (!cheap.doorMin || fast.doorMin <= cheap.doorMin - FAST_GAP);
+  const slow = slowOf(cheap.t) || null;
+  const much = fast && fast.t !== cheap.t && (!slow || fast.doorMin <= slow - FAST_GAP);
   return { cheap, fast: much ? fast : null };
 }
 
@@ -638,9 +652,10 @@ export function groundForDest({ home = null, from = null, dest, trip = null, tri
     const toAp = getAirport(trip.out.to);
     const egressKm = dest.airportDistKm ?? (toAp ? haversineKm(toAp.lat, toAp.lon, b.lat, b.lon) : 20);
     egressMin = groundEstimate(egressKm).minutes;
-    // cena i čas vždy z téže cesty: nejlevnější s časem svého letu, nejrychlejší se svou cenou
-    const doorOf = (t) => { const fly = legFlyMin(t.out); return fly ? flightDoor({ accessMin: home ? accessOf(t.out.from) : 0, flightMin: fly, egressMin }) : null; };
-    const p = planeOptions([trip, ...trips.filter((t) => t !== trip)], doorOf);
+    // cena i čas vždy z téže cesty: nejlevnější s časem svého letu tam, nejrychlejší (i zpět) se svou cenou
+    const legDoor = (l, ap) => { const fly = legFlyMin(l); return fly ? flightDoor({ accessMin: home ? accessOf(ap) : 0, flightMin: fly, egressMin }) : null; };
+    const doorOf = (t) => legDoor(t.out, t.out.from);
+    const p = planeOptions([trip, ...trips.filter((t) => t !== trip)], doorOf, (t) => tripDoor(t, legDoor));
     const cheap = p.cheap && p.cheap.t === trip ? p.cheap : { t: trip, doorMin: doorOf(trip) };
     w = worth(est, { doorMin: cheap.doorMin, czk: trip.perPersonCzk || 0, trips: trip.back ? 2 : 1, fast: p.fast && { doorMin: p.fast.doorMin, czk: p.fast.t.perPersonCzk } });
   } else {

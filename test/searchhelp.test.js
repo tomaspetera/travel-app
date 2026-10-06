@@ -344,6 +344,29 @@ test('fillLegs: „Jen přímé“ Praha → Vídeň – přímé lety tam i zp�
   }
 });
 
+test('fastPair: nejrychlejší dvojice samostatných letenek tam i zpět – přímý let tam s návratem s přestupem nestačí (QA 6, P2)', () => {
+  // ze serveru jen nejlevnější kombinace: přímý Austrian vždy s Ryanairem s přestupem druhým směrem
+  const c = { groundCzk: 60, bagCzk: 0, provider: 'kiwi' };
+  const fr = (from, to, dep, arr, czk) => TL(from, to, dep, arr, { ...c, czk, carrier: 'FR', stops: 1, durationMin: 860 });
+  const os = (from, to, dep, arr, czk) => TL(from, to, dep, arr, { ...c, czk, carrier: 'OS', durationMin: 50 });
+  const frOut = fr('PRG', 'VIE', '2026-10-20T07:20:00', '2026-10-20T21:40:00', 1308);
+  const frBack = fr('VIE', 'PRG', '2026-10-23T13:45:00', '2026-10-24T08:40:00', 2617);
+  const osOut = [os('PRG', 'VIE', '2026-10-20T07:30:00', '2026-10-20T08:20:00', 7643), os('PRG', 'VIE', '2026-10-20T11:15:00', '2026-10-20T12:05:00', 7545)];
+  const osBack = [os('VIE', 'PRG', '2026-10-23T09:45:00', '2026-10-23T10:35:00', 4329), os('VIE', 'PRG', '2026-10-23T15:20:00', '2026-10-23T16:10:00', 4366)];
+  const T = (o, b) => ({ id: `${o.dep}|${b.dep}`, out: o, back: b, destKey: 'VIE', combined: false, perPersonCzk: o.czk + b.czk + 120 });
+  const trips = [T(frOut, frBack), ...osOut.map((o) => T(o, frBack)), ...osBack.map((b) => T(frOut, b))];
+  const door = (l) => (l.durationMin ? 30 + 120 + l.durationMin + 45 + 30 : null);
+  const f = H.fastPair(trips, door, { adults: 2 });
+  assert.deepEqual(plain([f.out.dep.slice(11, 16), f.back.dep.slice(11, 16), f.perPersonCzk, f.composed]), ['11:15', '09:45', 7545 + 4329 + 120, true]);
+  // filtry výpisu (keep): návrat ráno ne → nejlevnější přímý návrat odpoledne
+  const g = H.fastPair(trips, door, { adults: 2, keep: (t) => t.back.dep.slice(11, 13) >= '12' });
+  assert.deepEqual(plain([g.out.dep.slice(11, 16), g.back.dep.slice(11, 16)]), ['11:15', '15:20']);
+  // bez známé délky letu se nepočítá; společná zpáteční letenka se nerozkládá
+  assert.equal(H.fastPair(trips, () => null), null);
+  assert.equal(H.fastPair(trips.map((t) => ({ ...t, combined: true })), door), null);
+  assert.equal(H.fastPair([], door), null);
+});
+
 test('multiPlan: nejlevnější celá cesta přes víc měst podle výběru, cena s každým letem a nenavazující lety', () => {
   // 3 kroky; links[i][a][b] = null (navazuje) | důvod
   const no = { why: 'short', gapMin: 60, needMin: 180 };

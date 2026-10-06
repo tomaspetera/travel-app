@@ -169,7 +169,7 @@
   }
 
   /**
-   * Let jako událost: { from, to, date, dep, arr?, arrEst?, fromTz?, toTz?, carrier?, flightNo?, durationMin? }
+   * Let jako událost: { from, to, date, dep, arr?, arrEst?, arrUnknown?, fromTz?, toTz?, carrier?, flightNo?, durationMin? }
    * dep/arr jsou místní časy letišť; bez času odletu (dep null) celodenní událost v den letu.
    */
   function flightEvent(l, { url, note } = {}) {
@@ -177,7 +177,9 @@
     const hm = s => s.slice(11, 16);
     const timed = isLocal(l.dep);
     const lines = timed
-      ? [`Odlet ${hm(l.dep)} místního času (${l.from})`, isLocal(l.arr) ? `Přílet ${l.arrEst ? '~' : ''}${hm(l.arr)} místního času (${l.to})${l.arrEst ? ' – odhad' : ''}` : '']
+      ? [`Odlet ${hm(l.dep)} místního času (${l.from})`, isLocal(l.arr) ? `Přílet ${l.arrEst ? '~' : ''}${hm(l.arr)} místního času (${l.to})${l.arrEst ? ' – odhad' : ''}`
+        // let s přestupem z cache bez věrohodné délky: konec události je jen orientační
+        : l.arrUnknown ? 'Přílet neznámý (let s přestupem z cache) – čas příletu ověř v rezervaci.' : '']
       : ['Čas odletu ověř u aerolinky.'];
     const ev = {
       title: `✈️ ${l.from} → ${l.to}${who ? ' · ' + who : ''}`,

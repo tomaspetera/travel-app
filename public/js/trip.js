@@ -1275,7 +1275,7 @@
   /** Let ve tvaru pro kalendář a plánovač: místní časy + zóny letišť (bez času odletu dep = null). */
   const legBrief = l => ({
     from: l.from, to: l.to, date: l.date, dep: l.hasTime ? l.dep.slice(0, 16) : null, arr: l.hasTime && l.arr ? l.arr.slice(0, 16) : null,
-    arrEst: !!l.arrEst, fromTz: l.fromTz || null, toTz: l.toTz || null, carrier: l.carrierName || l.carrier || '', flightNo: l.flightNo || '', durationMin: l.durationMin || null,
+    arrEst: !!l.arrEst, ...(l.arrUnknown && !l.arr ? { arrUnknown: true } : {}), fromTz: l.fromTz || null, toTz: l.toTz || null, carrier: l.carrierName || l.carrier || '', flightNo: l.flightNo || '', durationMin: l.durationMin || null,
   });
 
   /** Úsek vlakem/busem pro kalendář a plánovač: místní časy a zóny měst (bez spoje jen den). */

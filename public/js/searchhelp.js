@@ -257,6 +257,37 @@
     return added;
   }
 
+  /**
+   * Nejrychlejší cesta tam i zpět ze dvou samostatných letenek (přesná data, srovnání s vlakem/busem): server posílá
+   * nejlevnější kombinace, takže přímý let tam bývá jen s levným návratem s přestupem na celý den. Z letů v kombinacích
+   * složí dvojici, jejíž pomalejší směr je nejkratší (při shodě nejlevnější). door(leg, side) → minuty od dveří ke
+   * dveřím | null, opts = { adults, openJaw, keep } jako u composeTrip. → složená cesta | null
+   */
+  function fastPair(trips, door, opts = {}) {
+    const legs = side => {
+      const m = new Map();
+      for (const t of trips || []) {
+        const l = t[side];
+        if (!l || t.combined || m.has(legSig(l))) continue;
+        const d = door(l, side);
+        if (d > 0) m.set(legSig(l), { t, d });
+      }
+      return [...m.values()];
+    };
+    const backs = legs('back');
+    let best = null;
+    for (const o of legs('out')) {
+      for (const b of backs) {
+        const d = Math.max(o.d, b.d);
+        if (best && d > best.d) continue;
+        const c = composeTrip(o.t, b.t, opts);
+        if (!c || (opts.keep && !opts.keep(c))) continue;
+        if (!best || d < best.d || c.perPersonCzk < best.c.perPersonCzk) best = { c, d };
+      }
+    }
+    return best ? best.c : null;
+  }
+
   /** Kolik nabídek skrývá každý filtr sám (by), všechny dohromady (any) a z kolika (total). */
   function timeHidden(trips, tf) {
     const by = {};
@@ -507,6 +538,6 @@
 
   window.SearchHelp = {
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
-    DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
+    DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
   };
 })();

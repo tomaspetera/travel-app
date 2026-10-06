@@ -273,6 +273,6 @@ test('zpáteční kombinace: návrat nesmí odletět dřív, než let tam přist
 });
 
 test('routesNote: průběh hledání u Wizz Air česky, bez názvu proměnné z konfigurace', () => {
-  assert.equal(routesNote(15, 22), 'prohledáno 15 z 22 tras (nejbližší) – zbytek kvůli limitu dotazů');
+  assert.equal(routesNote(15, 22), 'prohledáno 15 nejbližších z 22 tras – zbytek kvůli limitu dotazů');
   assert.doesNotMatch(routesNote(1, 2), /WIZZ|MAX_CALLS/);
 });

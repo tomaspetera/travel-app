@@ -160,8 +160,10 @@ i s cestou na letiště a odbavením – a mnohem levnější. ATLAS to ukáže 
   tam i zpět – *· tam i zpět od ~598 Kč* –, ať jde porovnat s cenou letenek vedle; u cesty delší než ~8 h jen,
   když se vyplatí). U hledání ke konkrétnímu
   blízkému cíli nahoře srovnání **letadlo × vlak/bus** (cena na osobu, čas od dveří ke dveřím; letadlo = nejlevnější
-  nabídka do tohoto cíle, která projde filtry výpisu, i s časem **svého** letu tam vč. přestupů – a když je jiný let
-  aspoň o hodinu rychlejší, druhý řádek *⚡ nejrychlejší ~4 h 35 od 11 994 Kč*; cena a čas jsou vždy z téhož letu.
+  nabídka do tohoto cíle, která projde filtry výpisu, i s časem **svého** letu tam vč. přestupů – a když je jiná cesta
+  aspoň o hodinu rychlejší, druhý řádek *⚡ nejrychlejší ~4 h 35 od 11 994 Kč*; cena a čas jsou vždy z téže cesty a
+  u zpáteční platí čas pro oba směry (přímý let tam s návratem s přestupem na celý den „nejrychlejší“ není; u přesných
+  dat ATLAS nejrychlejší dvojici samostatných letenek složí sám, i když ji server mezi nejlevnějšími kombinacemi neposlal).
   Když neprojde žádná, napíše „skryto filtry“) a tlačítko *Ukázat spoje*:
   skutečné spoje RegioJetu na zvolený den (čas, délka, přestupy, vlak/bus, cena od–do, volná místa), na vyžádání i zpět,
   a odkazy na RegioJet, FlixBus, IDOS a Google Mapy. Když se let nenajde nebo je jich málo, nabídne vlak/bus i chytrá
@@ -173,7 +175,7 @@ i s cestou na letiště a odbavením – a mnohem levnější. ATLAS to ukáže 
 **Kde to dává smysl:** obě místa na pevnině Evropy (ne Velká Británie, Irsko, Island, Malta, Kypr ani ostrovy jako
 Mallorca, Kanáry, Korsika, Sardinie, Sicílie, Kréta) a nejvýš ~1 100 km vzdušnou čarou (do Švédska a Norska po souši přes Øresundský most – Stockholm ani Oslo už ne). **Zvýrazní se**, když platí
 jednoduché pravidlo: cesta po zemi (+30 min na nádraží) je nejvýš o 1,5 h delší než letadlo od dveří ke dveřím
-(cesta na letiště + 2 h před odletem + nejrychlejší nalezený let + 45 min po přistání + cesta do města), **nebo** trvá do 6,5 h, **nebo** je
+(cesta na letiště + 2 h před odletem + nejrychlejší nalezený let – u zpáteční cesty pomalejší z obou směrů – + 45 min po přistání + cesta do města), **nebo** trvá do 6,5 h, **nebo** je
 aspoň o polovinu levnější než nejlevnější let a do 10 h. Důvod se u srovnání vždy napíše česky a jmenuje let, se kterým
 srovnává („rychleji než letadlem (nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11 994 Kč)“). Ve výsledcích se
 počítá z nabídek, které výpis po filtrech ukazuje (stejné pravidlo na serveru i v prohlížeči).
