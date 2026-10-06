@@ -1,0 +1,84 @@
+{
+  "note": "Pravidla přejezdů mezi místy trasy (server/lib/transfers.js). Faktory platí navíc k času z BRouteru (profil car-fast, volný provoz bez kolon); nastavené podle referenčních cest – viz README, oddíl Přejezdy mezi místy.",
+  "regions": {
+    "weu": { "label": "západní a severní Evropa (OSN)", "f": 1.1, "v": 105, "detour": 1.2, "bus": 1.2,
+      "cc": ["AT", "BE", "CH", "DE", "FR", "LI", "LU", "MC", "NL", "DK", "EE", "FI", "GB", "IE", "IS", "LT", "LV", "NO", "SE", "FO", "GG", "IM", "JE"] },
+    "seu": { "label": "jižní a východní Evropa (OSN, vč. Česka), Turecko, Kypr", "f": 1.15, "v": 100, "detour": 1.2, "bus": 1.2,
+      "cc": ["AD", "AL", "BA", "ES", "GI", "GR", "HR", "IT", "ME", "MK", "MT", "PT", "RS", "SI", "SM", "VA", "XK", "BG", "BY", "CZ", "HU", "MD", "PL", "RO", "RU", "SK", "UA", "TR", "CY"] },
+    "nam": { "label": "USA a Kanada", "f": 1.1, "v": 105, "detour": 1.2, "bus": 1.2, "cc": ["US", "CA", "BM", "PM", "GL"] },
+    "lam": { "label": "Latinská Amerika a Karibik", "f": 1.2, "v": 80, "detour": 1.3, "bus": 1.3,
+      "cc": ["MX", "GT", "BZ", "SV", "HN", "NI", "CR", "PA", "CU", "DO", "HT", "JM", "PR", "TT", "BS", "BB", "AG", "DM", "GD", "KN", "LC", "VC", "AW", "BQ", "CW", "SX", "KY", "TC", "VG", "VI", "AI", "MS", "GP", "MQ", "BL", "MF", "AR", "BO", "BR", "CL", "CO", "EC", "GY", "PY", "PE", "SR", "UY", "VE", "GF", "FK"] },
+    "eas": { "label": "východní Asie", "f": 1.15, "v": 100, "detour": 1.2, "bus": 1.2, "cc": ["CN", "JP", "KR", "KP", "TW", "HK", "MO", "MN"] },
+    "sas": { "label": "jižní Asie", "f": 1.4, "v": 85, "detour": 1.3, "bus": 1.3, "cc": ["IN", "PK", "BD", "LK", "NP", "BT", "MV", "AF"] },
+    "sea": { "label": "jihovýchodní Asie", "f": 1.35, "v": 90, "detour": 1.3, "bus": 1.3, "cc": ["TH", "VN", "KH", "LA", "MM", "MY", "SG", "ID", "PH", "BN", "TL"] },
+    "mea": { "label": "severní Afrika, Blízký východ, Kavkaz a Střední Asie", "f": 1.15, "v": 100, "detour": 1.25, "bus": 1.2,
+      "cc": ["MA", "DZ", "TN", "LY", "EG", "EH", "IL", "PS", "JO", "LB", "SY", "IQ", "IR", "SA", "AE", "QA", "BH", "KW", "OM", "YE", "GE", "AM", "AZ", "KZ", "UZ", "KG", "TJ", "TM"] },
+    "waf": { "label": "západní Afrika", "f": 1.0, "v": 65, "detour": 1.3, "bus": 1.3, "cc": ["NG", "BJ", "TG", "GH", "CI", "BF", "ML", "NE", "SN", "GM", "GN", "GW", "SL", "LR", "MR", "CV", "SH"] },
+    "caf": { "label": "střední Afrika", "f": 1.3, "v": 55, "detour": 1.35, "bus": 1.3, "cc": ["CM", "CF", "TD", "CG", "CD", "GA", "GQ", "ST", "AO"] },
+    "eaf": { "label": "východní Afrika", "f": 1.3, "v": 80, "detour": 1.3, "bus": 1.3, "cc": ["KE", "TZ", "UG", "RW", "BI", "ET", "ER", "DJ", "SO", "SS", "SD", "MW", "MZ", "ZM", "ZW", "MG", "MU", "SC", "KM", "RE", "YT"] },
+    "saf": { "label": "jižní Afrika", "f": 1.1, "v": 95, "detour": 1.25, "bus": 1.2, "cc": ["ZA", "NA", "BW", "LS", "SZ"] },
+    "oce": { "label": "Austrálie a Oceánie", "f": 1.05, "v": 100, "detour": 1.2, "bus": 1.2, "cc": ["AU", "NZ", "FJ", "PG", "NC", "PF", "WS", "TO", "VU", "SB", "KI", "MH", "FM", "NR", "PW", "TV", "CK", "NU", "WF", "AS", "GU", "MP", "UM", "CC", "CX", "NF"] }
+  },
+  "rail": {
+    "note": "Země, kde se mezi městy běžně jezdí vlakem (jinde autobusy a minibusy).",
+    "cc": ["AT", "BE", "CH", "CZ", "DE", "DK", "ES", "FI", "FR", "GB", "IE", "IT", "LU", "NL", "NO", "PL", "PT", "SE", "SK", "HU", "LI", "MC", "JP", "KR", "CN", "TW", "IN", "RU", "BY", "UA"]
+  },
+  "openBorders": {
+    "note": "Bez hraničních kontrol: Schengen (vč. Monaka, San Marina a Vatikánu) a společný prostor Británie a Irska.",
+    "groups": [
+      ["AT", "BE", "BG", "CH", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GR", "HR", "HU", "IS", "IT", "LI", "LT", "LU", "LV", "MT", "NL", "NO", "PL", "PT", "RO", "SE", "SI", "SK", "MC", "SM", "VA"],
+      ["GB", "IE", "IM", "JE", "GG"]
+    ]
+  },
+  "border": {
+    "note": "Minuty navíc za přechod hranice. Autem fronta a kontrola; autobusem vystupují všichni a kontrolují se zavazadla, v Africe se na hranici většinou přesedá do jiného minibusu.",
+    "car": { "europe": 30, "other": 45 },
+    "rail": { "europe": 30, "other": 60 },
+    "bus": { "europe": 45, "africa": 120, "other": 75 }
+  },
+  "congestion": {
+    "note": "Velké metropole se zácpami (orientačně podle TomTom Traffic Index a INRIX Global Traffic Scorecard): minuty navíc, když přejezd začíná nebo končí do km od středu. [název, šířka, délka, km, minuty]",
+    "cities": [
+      ["Lagos", 6.455, 3.3841, 35, 30], ["Káhira", 30.0444, 31.2357, 30, 30], ["Nairobi", -1.2921, 36.8219, 25, 30],
+      ["Kinshasa", -4.3217, 15.3126, 25, 30], ["Kampala", 0.3476, 32.5825, 20, 30], ["Dar es Salaam", -6.7924, 39.2083, 20, 30],
+      ["Luanda", -8.839, 13.2894, 20, 30], ["Accra", 5.6037, -0.187, 20, 20], ["Dakar", 14.6928, -17.4467, 20, 20],
+      ["Addis Abeba", 9.03, 38.74, 20, 20], ["Johannesburg", -26.2041, 28.0473, 30, 15],
+      ["Dháka", 23.8103, 90.4125, 25, 45], ["Jakarta", -6.2088, 106.8456, 35, 45], ["Manila", 14.5995, 120.9842, 30, 40],
+      ["Bangkok", 13.7563, 100.5018, 30, 30], ["Ho Či Minovo Město", 10.8231, 106.6297, 25, 30], ["Hanoj", 21.0278, 105.8342, 20, 20],
+      ["Kuala Lumpur", 3.139, 101.6869, 25, 20], ["Bombaj", 19.076, 72.8777, 35, 40], ["Dillí", 28.6139, 77.209, 35, 40],
+      ["Bengalúru", 12.9716, 77.5946, 25, 40], ["Kalkata", 22.5726, 88.3639, 25, 30], ["Karáčí", 24.8607, 67.0011, 25, 30],
+      ["Ciudad de México", 19.4326, -99.1332, 35, 30], ["São Paulo", -23.5505, -46.6333, 40, 40], ["Rio de Janeiro", -22.9068, -43.1729, 30, 30],
+      ["Lima", -12.0464, -77.0428, 30, 30], ["Bogotá", 4.711, -74.0721, 25, 40], ["Istanbul", 41.0082, 28.9784, 40, 30], ["Teherán", 35.6892, 51.389, 30, 30]
+    ]
+  },
+  "hsr": {
+    "note": "Města na vysokorychlostních tratích (a britských rychlíkových tratích 200 km/h). Mezi dvěma takovými městy v téže zemi bývá vlak rychlejší než auto. [země, název, šířka, délka]",
+    "cities": [
+      ["IT", "Turín", 45.0703, 7.6869], ["IT", "Milán", 45.4642, 9.19], ["IT", "Brescia", 45.5416, 10.2118], ["IT", "Verona", 45.4384, 10.9916],
+      ["IT", "Padova", 45.4064, 11.8768], ["IT", "Benátky", 45.4408, 12.3155], ["IT", "Boloňa", 44.4949, 11.3426], ["IT", "Reggio Emilia", 44.6983, 10.6312],
+      ["IT", "Florencie", 43.7696, 11.2558], ["IT", "Řím", 41.9028, 12.4964], ["IT", "Neapol", 40.8518, 14.2681], ["IT", "Salerno", 40.6824, 14.7681],
+      ["FR", "Paříž", 48.8566, 2.3522], ["FR", "Lille", 50.6292, 3.0573], ["FR", "Lyon", 45.764, 4.8357], ["FR", "Marseille", 43.2965, 5.3698],
+      ["FR", "Avignon", 43.9493, 4.8055], ["FR", "Aix-en-Provence", 43.5297, 5.4474], ["FR", "Montpellier", 43.6108, 3.8767], ["FR", "Nîmes", 43.8367, 4.3601],
+      ["FR", "Bordeaux", 44.8378, -0.5792], ["FR", "Tours", 47.3941, 0.6848], ["FR", "Rennes", 48.1173, -1.6778], ["FR", "Nantes", 47.2184, -1.5536],
+      ["FR", "Štrasburk", 48.5734, 7.7521], ["FR", "Remeš", 49.2583, 4.0317],
+      ["ES", "Madrid", 40.4168, -3.7038], ["ES", "Barcelona", 41.3874, 2.1686], ["ES", "Zaragoza", 41.6488, -0.8891], ["ES", "Girona", 41.9794, 2.8214],
+      ["ES", "Tarragona", 41.1189, 1.2445], ["ES", "Valencie", 39.4699, -0.3763], ["ES", "Alicante", 38.3452, -0.481], ["ES", "Córdoba", 37.8882, -4.7794],
+      ["ES", "Sevilla", 37.3891, -5.9845], ["ES", "Málaga", 36.7213, -4.4214], ["ES", "Valladolid", 41.6523, -4.7245], ["ES", "Granada", 37.1773, -3.5986],
+      ["DE", "Berlín", 52.52, 13.405], ["DE", "Hamburk", 53.5511, 9.9937], ["DE", "Hannover", 52.3759, 9.732], ["DE", "Kolín nad Rýnem", 50.9375, 6.9603],
+      ["DE", "Düsseldorf", 51.2277, 6.7735], ["DE", "Frankfurt nad Mohanem", 50.1109, 8.6821], ["DE", "Mannheim", 49.4875, 8.466], ["DE", "Stuttgart", 48.7758, 9.1829],
+      ["DE", "Mnichov", 48.1351, 11.582], ["DE", "Norimberk", 49.4521, 11.0767], ["DE", "Lipsko", 51.3397, 12.3731], ["DE", "Erfurt", 50.9848, 11.0299],
+      ["GB", "Londýn", 51.5074, -0.1278], ["GB", "Birmingham", 52.4862, -1.8904], ["GB", "Manchester", 53.4808, -2.2426], ["GB", "Leeds", 53.8008, -1.5491],
+      ["GB", "York", 53.96, -1.0873], ["GB", "Newcastle", 54.9783, -1.6178], ["GB", "Edinburgh", 55.9533, -3.1883], ["GB", "Bristol", 51.4545, -2.5879],
+      ["JP", "Tokio", 35.6812, 139.7671], ["JP", "Jokohama", 35.4437, 139.638], ["JP", "Nagoja", 35.1709, 136.8815], ["JP", "Kjóto", 34.9858, 135.7588],
+      ["JP", "Ósaka", 34.7025, 135.4959], ["JP", "Kóbe", 34.6913, 135.183], ["JP", "Okajama", 34.6655, 133.9184], ["JP", "Hirošima", 34.3973, 132.4754],
+      ["JP", "Fukuoka", 33.5902, 130.4207], ["JP", "Sendai", 38.2601, 140.8824], ["JP", "Kanazawa", 36.578, 136.648], ["JP", "Nagano", 36.6431, 138.1886],
+      ["CN", "Peking", 39.9042, 116.4074], ["CN", "Šanghaj", 31.2304, 121.4737], ["CN", "Kanton", 23.1291, 113.2644], ["CN", "Šen-čen", 22.5431, 114.0579],
+      ["CN", "Chang-čou", 30.2741, 120.1551], ["CN", "Nanking", 32.0603, 118.7969], ["CN", "Su-čou", 31.2989, 120.5853], ["CN", "Wu-chan", 30.5928, 114.3055],
+      ["CN", "Si-an", 34.3416, 108.9398], ["CN", "Čcheng-tu", 30.5728, 104.0668], ["CN", "Čchung-čching", 29.563, 106.5516], ["CN", "Kuej-lin", 25.2736, 110.29],
+      ["KR", "Soul", 37.5547, 126.9707], ["KR", "Tedžon", 36.3504, 127.3845], ["KR", "Tegu", 35.8714, 128.6014], ["KR", "Pusan", 35.1796, 129.0756],
+      ["KR", "Kwangdžu", 35.1595, 126.8526], ["KR", "Kjongdžu", 35.8562, 129.2247],
+      ["TW", "Tchaj-pej", 25.033, 121.5654], ["TW", "Tchaj-čung", 24.1477, 120.6736], ["TW", "Tchaj-nan", 22.9999, 120.227], ["TW", "Kao-siung", 22.6273, 120.3014],
+      ["AT", "Vídeň", 48.2082, 16.3738], ["AT", "Sankt Pölten", 48.2047, 15.6256], ["AT", "Linec", 48.3069, 14.2858], ["AT", "Salcburk", 47.8095, 13.055]
+    ]
+  }
+}

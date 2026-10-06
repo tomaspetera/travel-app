@@ -1,15 +1,18 @@
 // Pobyt na víc místech: ATLAS navrhne trasu 2–4 míst (každé s vlastním ubytováním) v zemi cíle.
 // Trasa začíná ve městě příletu a končí v dosahu letiště odletu – i jiného než příletu (open-jaw).
-// Bez AI: města podle významu (stejné skóre z Wikidat jako cíle výletů), přejezd nejvýš ~3 h autem
-// (3,5 h vlakem), z možných pořadí to s nejvyšším součtem skóre po odečtení času na cestě;
-// noci podle významu místa (D'Hondtova metoda, každé místo aspoň 1 noc).
+// Bez AI: města podle významu (stejné skóre z Wikidat jako cíle výletů), přejezd nejvýš ~3 h 20 min autem
+// (3 h 45 min veřejnou dopravou), z možných pořadí to s nejvyšším součtem skóre po odečtení času na cestě;
+// noci podle významu místa (D'Hondtova metoda, každé místo aspoň 1 noc). Časy přejezdů: transfers.js
+// (trasa autem z BRouteru + provoz, hranice, vlak jen kde jezdí – jinak autobus / minibus).
 import { haversineKm, normalize } from './geo.js';
-import { getAirport, destInfo, airportLabel, COUNTRY_BY_ISO } from './airports.js';
+import { getAirport, destInfo, airportLabel, COUNTRY_BY_ISO, countryAt } from './airports.js';
 import { findTowns, mockTowns } from './poi.js';
 import { geocode } from './places.js';
+import { transferTimes, routeTransfers, driveRoute, routeKey, cachedRoute } from './transfers.js';
 
 export const MAX_BASES = 6; // ručně sestavená trasa; návrh dává nejvýš 4 místa
-export const TRANSFER_MAX = { car: 180, transit: 210 }; // nejdelší běžný přejezd (min)
+// nejdelší běžný přejezd (min) – časy už počítají s provozem, hranicí i čekáním na spoj
+export const TRANSFER_MAX = { car: 200, transit: 225 };
 const GAP_KM = 50; // blíž než tohle = jednodenní výlet z předchozího místa, ne další ubytování
 
 export class StayPlanError extends Error {
@@ -19,19 +22,10 @@ export class StayPlanError extends Error {
   }
 }
 
-/**
- * Odhad přejezdu (delší úseky po dálnici a rychlíkem než u výletů – proto jiné tempo než v roadtrip.js):
- * autem silnice ≈ 1,2 × vzdušná, průměr 55 km/h (krátký úsek) až 100 km/h (od 200 km) + 10 min;
- * vlakem/busem 25 min na nádraží a čekání + ~90 km/h vzdušnou čarou, nad 100 km přestup (+15 min).
- * Praha–Brno: autem ~2 h 20 min, vlakem ~2 h 40 min; Milán–Florencie autem ~3 h 10 min.
- */
-export function transferEstimate(a, b) {
-  const air = haversineKm(a.lat, a.lon, b.lat, b.lon);
-  if (air < 1) return { km: Math.round(air), carMin: 0, transitMin: 0 };
-  const km = Math.round(air * 1.2);
-  const speed = 55 + 45 * Math.min(1, km / 200);
-  return { km, carMin: Math.round((km / speed) * 60 + 10), transitMin: Math.round(25 + air * 0.65 + (air > 100 ? 15 : 0)) };
-}
+/** Odhad přejezdu bez trasy z plánovače (vzdušná vzdálenost + stejná pravidla jako u trasy, viz transfers.js). */
+export const transferEstimate = (a, b) => transferTimes(a, b, null);
+// Trasa autem pro přejezd: z výsledků tohoto dotazu, jinak z mezipaměti (null = odhad).
+const routeFor = (routes, a, b) => routes?.get(routeKey(a, b)) ?? cachedRoute(a, b);
 
 // Odkazy do Google Map podle názvu (letiště podle kódu, město se zemí, je-li známá).
 const placeQ = (p) => (p.iata ? `${p.iata} airport` : [p.name, p.country].filter(Boolean).join(', '));
@@ -39,9 +33,12 @@ const gmDir = (a, b, mode) => `https://www.google.com/maps/dir/?${new URLSearchP
 const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`);
 const minOf = (e, tr) => (tr === 'transit' ? e.transitMin : e.carMin);
 
-/** Přejezd a → b: km, čas autem i vlakem, odkazy na trasu; long = delší než běžný přejezd zvolenou dopravou. */
-export function transfer(a, b, transport = 'car') {
-  const e = transferEstimate(a, b);
+/**
+ * Přejezd a → b: { km, carMin, transitMin, transitKind 'rail'|'bus', border {from, to}|null, basis 'route'|'estimate',
+ * long (delší než běžný přejezd zvolenou dopravou), carUrl, transitUrl }; route = trasa autem z BRouteru, nebo null.
+ */
+export function transfer(a, b, transport = 'car', route = null) {
+  const e = transferTimes(a, b, route);
   return { ...e, long: minOf(e, transport) > TRANSFER_MAX[transport], carUrl: gmDir(a, b, 'driving'), transitUrl: gmDir(a, b, 'transit') };
 }
 
@@ -94,7 +91,16 @@ const baseOut = (b, nights) => ({
  */
 export function suggestRoute(candidates, opts) {
   const tr = opts.transport === 'transit' ? 'transit' : 'car';
-  const mins = (a, b) => minOf(transferEstimate(a, b), tr);
+  // Časy přejezdů (opts.times – i s trasami z plánovače, výchozí: trasa z mezipaměti, jinak odhad);
+  // hledání se ptá na stejné dvojice mnohokrát, proto v paměti.
+  const times = opts.times || ((a, b) => transferTimes(a, b, cachedRoute(a, b)));
+  const memo = new WeakMap();
+  const mins = (a, b) => {
+    let m = memo.get(a);
+    if (!m) memo.set(a, (m = new WeakMap()));
+    if (!m.has(b)) m.set(b, minOf(times(a, b), tr));
+    return m.get(b);
+  };
   const nights = Math.max(0, Math.round(opts.nights || 0));
   const want = Math.min(4, nights, Math.max(1, Math.round(opts.count || defaultCount(nights))));
   const exclude = new Set((opts.exclude || []).map(String));
@@ -163,25 +169,54 @@ export function suggestRoute(candidates, opts) {
   };
 }
 
-/** Přejezdy mezi místy a z/na letiště + upozornění na dlouhé úseky. */
-export function evaluateRoute(bases, { arrival = null, departure = null, transport = 'car' } = {}) {
+/** Dvojice míst, mezi kterými trasa vede (přejezdy a cesta z/na letiště) – pro výpočet tras autem. */
+function routePairs(bases, { arrival = null, departure = null, ground = null } = {}) {
+  const pairs = bases.slice(1).map((b, i) => [bases[i], b]);
+  if (bases.length) {
+    if (arrival) pairs.push([arrival, bases[0]]);
+    if (departure) pairs.push([bases.at(-1), departure]);
+    if (ground) pairs.push([ground, bases[0]], [bases.at(-1), ground]);
+  }
+  return pairs;
+}
+
+const kindTxt = (x) => (x.transitKind === 'rail' ? 'vlak' : 'autobus');
+/**
+ * Přejezdy mezi místy a z/na letiště + upozornění na dlouhé úseky. ground = město, kam se jede vlakem/busem
+ * místo letu ({ name, lat, lon, cc }) → groundLegs: přejezd z něj na 1. místo a z posledního místa zpět.
+ * routes: trasy autem (Map z routeTransfers), chybějící z mezipaměti, jinak odhad.
+ */
+export function evaluateRoute(bases, { arrival = null, departure = null, transport = 'car', ground = null, routes = null } = {}) {
   const tr = transport === 'transit' ? 'transit' : 'car';
-  const transfers = bases.slice(1).map((b, i) => transfer(bases[i], b, tr));
+  const tf = (a, b) => transfer(a, b, tr, routeFor(routes, a, b));
+  const transfers = bases.slice(1).map((b, i) => tf(bases[i], b));
   const legs = {
-    arrival: arrival && bases.length ? transfer(arrival, bases[0], tr) : null,
-    departure: departure && bases.length ? transfer(bases.at(-1), departure, tr) : null,
+    arrival: arrival && bases.length ? tf(arrival, bases[0]) : null,
+    departure: departure && bases.length ? tf(bases.at(-1), departure) : null,
   };
   const notes = [];
   transfers.forEach((x, i) => {
-    if (x.long) notes.push(`Přejezd ${bases[i].name} → ${bases[i + 1].name} trvá ~${hm(minOf(x, tr))} – na jeden přesun je to hodně, zvaž místo mezi nimi nebo ${tr === 'car' ? 'vlak' : 'auto'}.`);
+    // druhá doprava jako tip, jen když je opravdu rychlejší
+    const other = tr === 'car' ? (x.transitMin < x.carMin ? ` nebo ${kindTxt(x)}` : '') : (x.carMin < x.transitMin ? ' nebo auto' : '');
+    if (x.long) notes.push(`Přejezd ${bases[i].name} → ${bases[i + 1].name} trvá ~${hm(minOf(x, tr))} – na jeden přesun je to hodně, zvaž místo mezi nimi${other}.`);
   });
   if (legs.departure?.long) notes.push(`Z posledního místa (${bases.at(-1).name}) na letiště ${departure.iata} je to ~${hm(minOf(legs.departure, tr))} – v den odletu vyraz včas, nebo poslední noc stráv blíž letišti.`);
-  return { transport: tr, transfers, legs, notes };
+  if (tr === 'car' && [...transfers, legs.arrival, legs.departure].some((x) => x?.border)) {
+    notes.push('Trasa vede přes hranici – s půjčeným autem do jiné země často nesmíš (nebo za příplatek); ověř to u půjčovny, jinak počítej s taxi nebo řidičem.');
+  }
+  const out = { transport: tr, transfers, legs, notes };
+  if (ground && bases.length) out.groundLegs = { arrival: tf(ground, bases[0]), departure: tf(bases.at(-1), ground) };
+  return out;
 }
 
 const num = (v) => (v === '' || v == null ? NaN : Number(v));
 const validPos = (lat, lon) => Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
-const airportOut = (ap) => ({ iata: ap.iata, name: airportLabel(ap.iata), lat: ap.lat, lon: ap.lon });
+const airportOut = (ap) => ({ iata: ap.iata, name: airportLabel(ap.iata), lat: ap.lat, lon: ap.lon, cc: ap.cc });
+/** Kód země místa: zadaný, jinak podle polohy (nejbližší letiště); k tomu český název země. */
+function withCountry(p) {
+  const cc = /^[A-Z]{2}$/.test(p.cc || '') ? p.cc : countryAt(p.lat, p.lon);
+  return { ...p, cc, country: (cc && COUNTRY_BY_ISO.get(cc)?.cs) || p.country || '' };
+}
 
 /** Město u letiště: střed metropole z databáze, jinak geokódovaný střed města (nebo poloha letiště). */
 async function anchorCity(ap, hint, { mock, geo }) {
@@ -199,13 +234,24 @@ async function anchorCity(ap, hint, { mock, geo }) {
   return base;
 }
 
+const cleanPlace = (b) => {
+  const lat = num(b?.lat);
+  const lon = num(b?.lon);
+  const name = typeof b?.name === 'string' ? b.name.trim().slice(0, 80) : '';
+  if (!name || !validPos(lat, lon)) return null;
+  return withCountry({ name, lat, lon, cc: /^[A-Z]{2}$/.test(b.cc || '') ? b.cc : '' });
+};
+
 /**
  * POST /api/stayplan. Dva režimy:
  *  • návrh: { arrival: IATA, departure: IATA|null, nights, transport, count?, exclude?, city?: { lat, lon } }
- *  • přepočet upravené trasy: { arrival, departure, transport, bases: [{ name, lat, lon, cc }] } – bez Wikidat
- * deps (testy): { mock, towns, demoTowns, geo }
+ *  • přepočet upravené trasy: { arrival, departure, transport, bases: [{ name, lat, lon, cc }], ground?: { name, lat, lon, cc } }
+ *    – bez Wikidat; ground = město, kam se jede vlakem/busem místo letu (→ groundLegs)
+ * Odpověď má u přejezdů časy z trasy autem (BRouter) tam, kde ji plánovač stihl spočítat; pending = kolik
+ * přejezdů se ještě počítá (za pár sekund je přinese další přepočet z mezipaměti).
+ * deps (testy): { mock, towns, demoTowns, geo, route (trasa autem a → b; null = jen odhad), deadlineMs }
  */
-export async function planStay(raw, { mock = false, towns = findTowns, demoTowns = mockTowns, geo = geocode } = {}) {
+export async function planStay(raw, { mock = false, towns = findTowns, demoTowns = mockTowns, geo = geocode, route = driveRoute, deadlineMs = 9000 } = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new StayPlanError('Neplatný požadavek.');
   const arrAp = getAirport(raw.arrival);
   if (!arrAp) throw new StayPlanError('Neznámé letiště příletu.');
@@ -214,18 +260,21 @@ export async function planStay(raw, { mock = false, towns = findTowns, demoTowns
   const transport = raw.transport === 'transit' ? 'transit' : 'car';
   const arrival = airportOut(arrAp);
   const departure = depAp ? airportOut(depAp) : null;
+  const router = mock ? null : route; // DEMO bez sítě = jen odhad
+  // Trasy autem pro přejezdy (s rozpočtem dotazů a času), co nestihne, počítá dál na pozadí.
+  const routesFor = (bases, ground, ms = deadlineMs) => routeTransfers(routePairs(bases, { arrival, departure, ground }), { route: router, deadlineMs: ms });
 
   if (raw.bases !== undefined) {
     if (!Array.isArray(raw.bases) || raw.bases.length < 1 || raw.bases.length > MAX_BASES) throw new StayPlanError('Neplatná místa trasy.');
-    const bases = raw.bases.map((b) => {
-      const lat = num(b?.lat);
-      const lon = num(b?.lon);
-      const name = typeof b?.name === 'string' ? b.name.trim().slice(0, 80) : '';
-      if (!name || !validPos(lat, lon)) throw new StayPlanError('Neplatná místa trasy.');
-      const cc = /^[A-Z]{2}$/.test(b.cc || '') ? b.cc : '';
-      return { name, lat, lon, cc, country: cc ? COUNTRY_BY_ISO.get(cc)?.cs || '' : '' };
-    });
-    return { mode: 'evaluate', arrival, departure, ...evaluateRoute(bases, { arrival, departure, transport }) };
+    const bases = raw.bases.map(cleanPlace);
+    if (bases.some((b) => !b)) throw new StayPlanError('Neplatná místa trasy.');
+    const ground = raw.ground ? cleanPlace(raw.ground) : null;
+    const { routes, pending } = await routesFor(bases, ground);
+    return {
+      mode: 'evaluate', arrival, departure, ...evaluateRoute(bases, { arrival, departure, transport, ground, routes }), pending,
+      // země míst (i dopočtená z polohy) – prohlížeč si ji doplní k místům přidaným ručně
+      bases: bases.map(({ name, cc, country }) => ({ name, cc, country })),
+    };
   }
 
   const nights = num(raw.nights);
@@ -262,17 +311,30 @@ export async function planStay(raw, { mock = false, towns = findTowns, demoTowns
     if (!c || seen.has(c.id) || seen.has(k)) return false;
     seen.add(c.id).add(k);
     return true;
-  });
-  const plan = suggestRoute(cands, {
-    arrival: city, departureCity: sameCity ? null : depCity, depAirport: departure, nights, transport, count, exclude,
-  });
-  const ev = evaluateRoute(plan.bases, { arrival, departure, transport });
+  }).map((c) => (Number.isFinite(c.lat) && Number.isFinite(c.lon) ? withCountry(c) : c));
+  const opts = { arrival: city, departureCity: sameCity ? null : depCity, depAirport: departure, nights, transport, count, exclude };
+  let plan = suggestRoute(cands, opts);
+  // Návrh počítá s odhadem (a trasami z mezipaměti); trasy autem pro navržené přejezdy se dopočtou.
+  // Vyjde-li podle nich některý přejezd dlouhý, návrh se jednou zopakuje už s nimi.
+  const t0 = Date.now();
+  let { routes, pending } = await routesFor(plan.bases, null);
+  let ev = evaluateRoute(plan.bases, { arrival, departure, transport, routes });
+  if ([...ev.transfers, ev.legs.departure].some((x) => x?.long && x.basis === 'route')) {
+    const known = new Map(routes);
+    const again = suggestRoute(cands, { ...opts, times: (a, b) => transferTimes(a, b, routeFor(known, a, b)) });
+    if (again.bases.map((b) => b.id).join() !== plan.bases.map((b) => b.id).join()) {
+      plan = again;
+      ({ routes, pending } = await routesFor(plan.bases, null, Math.max(1500, deadlineMs - (Date.now() - t0))));
+      for (const [k, v] of known) if (v && !routes.get(k)) routes.set(k, v);
+      ev = evaluateRoute(plan.bases, { arrival, departure, transport, routes });
+    }
+  }
   const degraded = failed > 0 || lists.some((l) => l && l.degraded);
   // Upozornit jen, když okolí některého bodu chybí úplně (bez UNESCO je návrh jen o něco slabší).
   return {
     mode: 'suggest', transport, nights, want: count || defaultCount(nights), count: plan.bases.length, arrival, departure,
     openJaw: Boolean(depAp) && depAp.iata !== arrAp.iata,
-    bases: plan.bases, transfers: ev.transfers, legs: ev.legs, candidates: plan.spare,
+    bases: plan.bases, transfers: ev.transfers, legs: ev.legs, candidates: plan.spare, pending,
     notes: [...plan.notes, ...ev.notes, ...(failed ? ['Část dat z Wikidat se nenačetla – návrh může být chudší, zkus ho za chvíli zopakovat.'] : [])],
     degraded,
   };

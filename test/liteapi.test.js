@@ -101,3 +101,77 @@ test('searchStays: chyba poskytovatele → hlášení + odkazy na partnery (nic 
     config.liteapiKey = prev;
   }
 });
+
+test('ubytování na dalších místech trasy: země podle polohy, anglický název, hotely kolem bodu, když název města nesedí', async () => {
+  // Místo trasy z Wikidat / přidané ručně: bez kódu země a anglického názvu (dřív „LiteAPI: chybí město nebo země“).
+  const base = { city: 'Porto Novo', lat: 6.4969, lon: 2.6289, checkin: ymdPlus(40), checkout: ymdPlus(43), adults: 2 };
+  const q = normalizeStayQuery(base);
+  assert.deepEqual([q.cc, q.country, q.cityEn], ['BJ', 'Benin', 'Porto Novo']);
+  assert.equal(normalizeStayQuery({ ...base, cc: 'ng' }).cc, 'NG', 'zadaný kód má přednost');
+  assert.equal(normalizeStayQuery({ ...base, lat: '', lon: '' }).cc, '', 'bez polohy a letiště se nehádá');
+  const prev = config.liteapiKey;
+  config.liteapiKey = 'sand_test';
+  const english = [];
+  const stub = stubFetch((url) => {
+    if (url.includes('/data/hotels') && url.includes('cityName=')) return { body: { data: [] } }; // „Porto-Novo“ podle názvu nenajde
+    if (url.includes('/data/hotels') && url.includes('latitude=')) return { body: { data: HOTELS } };
+    if (url.endsWith('/hotels/rates')) return { body: RATES };
+    return { status: 404, body: '{}' };
+  });
+  try {
+    const r = await searchStays(base, { english: async (...a) => { english.push(a); return 'Porto-Novo'; } });
+    assert.deepEqual(english, [['Porto Novo', 6.4969, 2.6289, 'BJ', null]]);
+    assert.equal(r.query.cityEn, 'Porto-Novo');
+    const byName = new URL(stub.calls.find((c) => c.url.includes('cityName=')).url);
+    assert.deepEqual([byName.searchParams.get('countryCode'), byName.searchParams.get('cityName')], ['BJ', 'Porto-Novo']);
+    const near = new URL(stub.calls.find((c) => c.url.includes('latitude=')).url);
+    assert.deepEqual(['countryCode', 'latitude', 'longitude', 'radius'].map((k) => near.searchParams.get(k)), ['BJ', '6.49690', '2.62890', '15000']);
+    assert.equal(r.providers[0].ok, true, r.providers[0].error);
+    assert.equal(r.items.length, 2);
+    const hw = r.links.find((l) => l.id === 'hostelworld');
+    assert.equal(hw.url, 'https://www.hostelworld.com/hostels/africa/benin/porto-novo/');
+    assert.match(r.links[0].url, /ss=Porto-Novo%2C\+Benin/);
+    // zadaný anglický název (z Wikidat) se nepřekládá
+    english.length = 0;
+    await searchStays({ ...base, cityEn: 'Porto-Novo', checkout: ymdPlus(44) }, { english: async () => { english.push(1); return 'x'; } });
+    assert.equal(english.length, 0);
+    // místo vybrané v hledání: ID GeoNames jde dál (anglický název podle něj), nesmyslné ID ne
+    await searchStays({ ...base, gid: '2392087', checkout: ymdPlus(45) }, { english: async (...a) => { english.push(a); return null; } });
+    await searchStays({ ...base, gid: '1;drop', checkout: ymdPlus(46) }, { english: async (...a) => { english.push(a); return null; } });
+    assert.deepEqual(english.map((a) => a[4]), ['2392087', null]);
+  } finally {
+    stub.restore();
+    config.liteapiKey = prev;
+  }
+});
+
+test('englishName: podle ID GeoNames (místo z hledání) – „Benátky“ → „Venice“, jen když ID sedí k poloze', async () => {
+  const { englishName } = await import('../server/lib/places.js');
+  const stub = stubFetch((url) => {
+    if (url.includes('/v1/get?id=3164603&language=en')) return { body: { id: 3164603, name: 'Venice', latitude: 45.43713, longitude: 12.33265, country_code: 'IT' } };
+    return { body: { results: [] } };
+  });
+  try {
+    assert.equal(await englishName('Benátky', 45.4408, 12.3155, 'IT', 3164603), 'Venice');
+    assert.equal(await englishName('Praha', 50.08, 14.42, 'CZ', 3164603), null, 'ID jiného místa (sdílený odkaz) se nepoužije');
+    assert.equal(stub.calls.filter((c) => c.url.includes('/v1/get')).length, 1, 'ID z mezipaměti');
+  } finally {
+    stub.restore();
+  }
+});
+
+test('englishName: anglický název z geokódování jen v okolí místa a ve stejné zemi', async () => {
+  const { englishName } = await import('../server/lib/places.js');
+  const stub = stubFetch((url) => {
+    assert.match(url, /^https:\/\/geocoding-api\.open-meteo\.com\/v1\/search\?name=Bolo%C5%88a&count=10&language=en/);
+    return { body: { results: [{ name: 'Bologna', latitude: 44.4938, longitude: 11.3387, country_code: 'IT' }, { name: 'Bologna', latitude: -33.1, longitude: 26.3, country_code: 'ZA' }] } };
+  });
+  try {
+    assert.equal(await englishName('Boloňa', 44.4949, 11.3426, 'IT'), 'Bologna');
+    assert.equal(await englishName('Boloňa', 45.4642, 9.19, 'IT'), null, 'Milán je od Boloni moc daleko');
+    assert.equal(await englishName('Boloňa', 44.4949, 11.3426, 'IT'), 'Bologna');
+    assert.equal(stub.calls.length, 2, 'podruhé z mezipaměti');
+  } finally {
+    stub.restore();
+  }
+});
