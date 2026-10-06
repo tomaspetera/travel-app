@@ -41,9 +41,11 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
    o malý počet recenzí, takže 10/10 ze 2 recenzí nepřebije 8,9 z 2 000). Přepneš na nejlevnější, nejlépe hodnocené
    nebo nejblíž centru, filtruješ 7+/8+/9+, typ a max. cenu za noc. U každého místa trasy (i přidaného ručně) jsou
    navíc odkazy na partnery: **Booking.com** (dvakrát – hodnocení 8+ od nejlevnějšího a nejlepší poměr), **Airbnb**,
-   **Trip.com**, **Hotels.com**, **Kayak** a **Google Hotels** předvyplněné na místo, tvoje data a počet hostů;
-   **Hostelworld** otevře místo (data zadáš na webu – označeno „zadej data“; menší místo, které Hostelworld nemá,
-   otevře jeho stránku země), **Agoda** úvodní stránku. Bez klíče LiteAPI zůstanou jen odkazy a cenu zapíšeš ručně.
+   **Trip.com**, **Hotels.com**, **Kayak**, **Google Hotels**, **Agoda** a **Hostelworld** předvyplněné na místo, tvoje
+   data a počet hostů. U Trip.com, Agody a Hostelworldu k tomu server jednou dohledá jejich vlastní ID místa (v mezipaměti
+   30 dní); kde ho partner nemá, zůstane odkaz bez něj – Trip.com vyplní místo a data do formuláře (označeno „potvrď
+   Hledat“), Agoda otevře úvodní stránku, Hostelworld stránku města (data zadáš na webu – označeno „zadej data“), menší
+   místo, které Hostelworld nemá, jeho stránku země. Bez klíče LiteAPI zůstanou jen odkazy a cenu zapíšeš ručně.
 4. **Auto** (nepovinné) – vyzvednutí na letišti 45 min po příletu, vrácení 2 h před odletem, předvyplněné srovnávače.
 5. **Program** – místa k vidění kolem ubytování rozdělená do dnů podle polohy (den příletu a odletu je kratší),
    každý den jako pěší trasa s odkazem do Google Map; volíš zájmy a tempo, místa můžeš vyřadit nebo přidat.
@@ -352,6 +354,7 @@ Zkopíruj `.env.example` na `.env`:
 | `KIWI_ENABLED` | `1` | Kiwi.com: živá cena a porovnání aerolinek k vybranému letu (zdarma, bez klíče); `0` = vypnout |
 | `LITEAPI_KEY` | – | hotely s cenou na tvoje data a hodnocením hostů (zdarma klíč na dashboard.liteapi.travel; `sand_…` = testovací data) |
 | `LITEAPI_WHITELABEL` | – | doména white-label rezervační stránky LiteAPI – tlačítko „detail“ pak vede tam místo na Booking.com |
+| `PARTNER_LOOKUP` | `1` | odkazy na Trip.com, Agodu a Hostelworld s termínem a hosty: server u nich jednou dohledá ID místa (jeden dotaz na místo a partnera, timeout 4 s, mezipaměť 30 dní); `0` = bez dotazů, odkazy jen s názvem místa (Trip.com hledání potvrdíš, Agoda úvodní stránka, Hostelworld stránka města bez dat). V DEMO se neptá nikdy |
 | `PORT` | `8080` | port serveru |
 | `MAX_ORIGINS` | `8` | kolik nejbližších letišť se v jednom hledání prohledá |
 | `WIZZ_MAX_CALLS` | `60` | Wizz Air nemá „kamkoliv“ – kolik dotazů na trasy smí jedno hledání udělat |
@@ -432,7 +435,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `GET /api/fuel` | aktuální ceny paliva v Kč/l po zemích `CZ`, `DE`, `AT`, `SK`, `PL`, `HU` – `{ diesel, petrol, date, source, label }` (`source` `czso` / `wob` / `builtin` / `demo`) – a `updated`, `sources`, `defaultFuel`, `lPer100`; `ev` = nabíjení elektroauta `{ default: 16, range: [13, 22], date: "2026-10-06", label, kwhPer100: 19, operators: [{ name, ac?, dc?, price?, note?, secondary?, text }] }`. Cache 1 h |
 | `POST /api/search` | hledání, viz `normalizeQuery` v `server/lib/search.js`; odpověď je NDJSON (průběh, pak výsledek) |
 | `GET /api/verify?from=BGY&to=BCN&out=2026-11-10&back=2026-11-14&adults=2` | živá cena a alternativy z Kiwi.com |
-| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery (`links[]` s `prefill`: `full` / `city` / `none`); bez `cc` se země dopočte z `lat`/`lon`, bez `cityEn` anglický název z geokódování (podle `gid` – ID GeoNames místa vybraného v hledání, jinak podle názvu v okolí) |
+| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery (`links[]` s `prefill`: `full` / `city` / `none`; Trip.com, Agoda a Hostelworld s ID místa dohledaným u partnera, viz `PARTNER_LOOKUP`); bez `cc` se země dopočte z `lat`/`lon`, bez `cityEn` anglický název z geokódování (podle `gid` – ID GeoNames místa vybraného v hledání, jinak podle názvu v okolí) |
 | `POST /api/stayplan` | trasa přes víc míst: návrh `{ arrival, departure, nights, transport, count?, exclude? }`, nebo přepočet `{ arrival, departure, transport, bases: [{ name, lat, lon, cc }], ground? }`. Přejezdy `{ km, carMin, transitMin, transitKind: 'rail'\|'bus', border: { from, to }\|null, basis: 'route'\|'estimate', hsr?: true, fast?: true, long, carUrl, transitUrl }` (`hsr` = odhad tempa rychlovlaku, `fast` = přímý vlak z tabulky jízdních řádů), `pending` = kolik tras autem se ještě počítá; u přepočtu i `bases[{ cc, country }]` a s `ground` (město, kam se jede vlakem/busem) `groundLegs`. Přepočet nad limitem přepočtů na IP odpoví bez nových tras z BRouteru |
 | `GET /api/cars?pickup=BGY&dropoff=MXP&from=2026-11-10T09:00&to=2026-11-14T18:00` | předvyplněné odkazy na půjčovny |
 | `GET /api/ground?from=ap:PRG&to=ap:VIE&date=2026-11-10&adults=2` | vlak nebo bus místo letadla: `from`/`to` jako v hledání (`ap:`, `metro:`, `geo:`, kód letiště) nebo `fromLat`/`fromLon`/`fromName`/`fromCc`; volitelně `flightCzk`, `trips` (2 = cena letu tam i zpět), `flightMin`, `live=0`. Odpověď `{ from, to, km, est: { minutes, czk, basis }, worth: { worth, rule, reason, doorMin }, why, links, live? }` – `live` (spoje RegioJetu) jen s datem; `why` = proč se po zemi nedá (ostrov, moře, daleko) |
@@ -557,7 +560,7 @@ cesta z města příjezdu (ne z letiště):
   nic, jinde jako u ostatních vlaků; Eurostar z/do Londýna má v minutách **odbavení 60 min** (Eurostar doporučuje přijít
   75 min před odjezdem v Londýně, 45–90 min jinde; kontrola pasů je jeho součástí), hranice se proto nepřičítá podruhé.
   K nádražím daleko za městem minuty navíc (Whoosh: Halim +25, Tegalluar +42; Buchara-Kogon +15). Takový přejezd má
-  v odpovědi `fast: true`.
+  v odpovědi `fast: true` a průvodce u jeho času veřejnou dopravou píše *(jízdní řád)* místo *(odhad)*.
 - **Zdroje tabulky (ověřeno 6. 10. 2026):** ÖBB Scotty (fahrplan.oebb.at – jízdní řády evropských železnic v systému
   HAFAS): všechny přímé vlaky dne v út 27. 10. a čt 12. 11. 2026 (při výluce – méně vlaků, objížďka – hodnota ze dne bez
   ní, kontrolně út 13. 10.); Amtrak GTFS (feed z 6. 10. 2026); seat61.com (Maroko, Turecko, Uzbekistán, Indie, Indonésie –
@@ -631,12 +634,18 @@ cesta z města příjezdu (ne z letiště):
   jede, výluky, zpoždění ani změny jízdního řádu po 12. 12. 2026 v ní nejsou; živé jízdní řády ATLAS nenačítá) – konkrétní
   spoj ověř přes odkaz. Země bez kódu z Wikidat se dopočítá podle nejbližšího letiště, takže
   u místa těsně u hranice může vyjít sousední země (Basilej → Francie).
-- Odkazy na partnery ubytování: Booking.com, Airbnb, Trip.com, Hotels.com, Kayak a Google Hotels dostanou místo, data
-  i počet hostů (Trip.com je vyplní do formuláře – hledání potvrdíš; Kayak dostane „Město-Země“ anglicky, protože
-  samotné jméno víceznačné místo pošle jinam – Lagos do Portugalska; Google Hotels termín a hosty v parametru `ts`,
-  jehož formát Google nezveřejňuje – kdyby ho změnil, zůstane jen místo), Hostelworld jen místo, Agoda jen úvodní
-  stránku (bez jejího ID města nejde nic předvyplnit). Hostelworld má stránky jen měst s hostely (jinak 404) – server
-  to ověří jedním dotazem HEAD (v mezipaměti 30 dní) a u menšího místa odkáže na stránku země. Ověřeno 10/2026 ve
+- Odkazy na partnery ubytování: Booking.com, Airbnb, Hotels.com, Kayak a Google Hotels dostanou místo, data i počet hostů
+  (Kayak „Město-Země“ anglicky, protože samotné jméno víceznačné místo pošle jinam – Lagos do Portugalska; Google Hotels
+  termín a hosty v parametru `ts`, jehož formát Google nezveřejňuje – kdyby ho změnil, zůstane jen místo). Trip.com,
+  Agoda a Hostelworld potřebují k předvyplnění své vlastní ID místa: server ho u každého jednou dohledá – Trip.com
+  v našeptávači svého webu (`cityId`; ze stejnojmenných měst to nejbližší k místu, nejvýš 50 km – „Porto Novo“ je
+  i na Kapverdách), Agoda ze stránky města `/city/<město>-<země>.html`, Hostelworld ze stránky města (odkaz na jeho
+  hledání) – a výsledek drží v mezipaměti 30 dní (chybu hodinu). Na místo a partnera je to jeden dotaz s timeoutem 4 s
+  bez opakování, souběžně s hledáním hotelů, a když selže, hledání ubytování nespadne. S ID odkaz rovnou ukáže nabídky
+  na termín a hosty. Kde ID není (Agoda nemá stránku Porto-Novo, Hostelworld u Mikulova stránku bez odkazu s ID), nebo
+  kdyby partner svůj web změnil, zůstane dosavadní odkaz: Trip.com vyplní místo, termín i hosty do formuláře (hledání
+  potvrdíš), Agoda otevře úvodní stránku, Hostelworld stránku města (data zadáš), a místo, které Hostelworld nemá
+  (404), jeho stránku země. `PARTNER_LOOKUP=0` dohledávání vypne, DEMO se partnerů neptá. Ověřeno 6. 10. 2026 ve
   skutečném Chromu (Hotels.com předvyplní místo, termín i hosty).
 - Vlak mimo tabulku přímých spojů je čas autem + cesta na nádraží: na regionálních tratích sedí, na rychlé trati,
   která v tabulce chybí, bývá ve skutečnosti kratší (mezi městy z tabulky platí jízdní řád – Vídeň → Brno ~1 h 50 min).
