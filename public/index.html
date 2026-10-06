@@ -87,7 +87,7 @@
         <form class="card search-card" id="searchForm" autocomplete="off">
           <div class="sf-grid">
             <div class="field sf-from">
-              <label>Odkud <span class="lab-hint">město, letiště, země nebo tvoje poloha</span></label>
+              <label>Odkud <span class="lab-hint" id="fromHint">město, letiště, země nebo tvoje poloha</span></label>
               <div class="row" style="gap:8px;align-items:stretch">
                 <div class="place-input" id="fromInput" style="flex:1"></div>
                 <button class="btn ghost sm" type="button" id="geoBtn" title="Použít moji polohu">📍</button>
@@ -108,6 +108,11 @@
                 <div class="seg" id="minTemp"><button type="button" data-t="0" class="on">Kdekoliv</button><button type="button" data-t="20">≥ 20 °C</button><button type="button" data-t="25">≥ 25 °C</button><button type="button" data-t="30">≥ 30 °C</button></div>
               </div>
             </div>
+            <div class="field ml-hint" id="multiHint" hidden>
+              <label>🗺️ Víc měst v jedné cestě</label>
+              <p>Zadej 2–4 lety jedním směrem – třeba <b>Praha → Řím</b> a zpět <b>Neapol → Praha</b> (tlačítko ↩ Návrat z jiného města). Každý let hledám zvlášť a skládám je tak, aby na sebe navazovaly: na stejném letišti aspoň 3 h, přejezd do jiného města nejdřív další den.</p>
+              <p class="faint">Odkud = začátek cesty: okruh letišť a doprava na letiště platí pro 1. let a pro návrat domů (poslední let do místa Odkud). Každý let je samostatná letenka.</p>
+            </div>
           </div>
 
           <div class="divider"></div>
@@ -115,9 +120,18 @@
           <div class="sf-grid sf-when">
             <div class="field">
               <label>Cesta</label>
-              <div class="seg" id="tripType"><button type="button" class="on" data-v="return">Tam i zpět</button><button type="button" data-v="oneway">Jen tam</button></div>
-              <label style="margin-top:12px">Termín</label>
+              <div class="seg wrap" id="tripType"><button type="button" class="on" data-v="return">Tam i zpět</button><button type="button" data-v="oneway">Jen tam</button><button type="button" data-v="multi" title="Víc měst v jedné cestě, návrat z jiného místa">🗺️ Víc měst</button></div>
+              <label style="margin-top:12px" id="dateModeLbl">Termín</label>
               <div class="seg" id="dateMode"><button type="button" data-v="exact">📅 Přesná data</button><button type="button" class="on" data-v="flex">🔀 Flexibilně</button></div>
+            </div>
+            <div class="field" id="multiField" hidden>
+              <label>Lety <span class="lab-hint">2–4 lety jedním směrem · každý je samostatná letenka</span></label>
+              <div class="ml-list" id="mlList"></div>
+              <div class="row wrap ml-tools">
+                <button type="button" class="btn sm" id="mlAdd">➕ Přidat let</button>
+                <button type="button" class="btn sm ghost" id="mlOpenJaw" title="Tam do jednoho města, zpět z jiného (2 lety)">↩ Návrat z jiného města</button>
+              </div>
+              <div class="faint" id="mlInfo" style="font-size:12px;margin-top:6px"></div>
             </div>
             <div class="field" id="exactField" hidden>
               <label>Odlet tam<span id="xBackLbl"> a návrat zpět</span> <span class="lab-hint">hledá jen tyto dny</span></label>
@@ -196,7 +210,7 @@
             <li><b>Buď flexibilní ± 3 dny.</b> U přesných dat zvol „± 3 dny“, nebo hledej „Flexibilně“ a otevři pohled 📅 Kalendář. Posun o den dva může ušetřit stovky, u dálkových letů i tisíce korun. U přesných dat ukáže pruh 📅 Nejbližší dny ceny okolních dnů, pokud je zná (hlavně Ryanair a Wizz Air) – jinak jiný den vyhledáš jedním kliknutím.</li>
             <li><b>Nejdřív celá země nebo světadíl, pak město.</b> Do „Kam“ napiš třeba „USA“ nebo „Asie“ – uvidíš, kam je to nejlevnější (New York, Miami, Bangkok…). Pak hledej to nejlevnější město na přesná data.</li>
             <li><b>Přidej přestupní letiště – Vídeň, Mnichov, Berlín, Frankfurt.</b> Bývá odtud víc přímých dálkových letů a často i nižší ceny. U dálkových cílů je ATLAS přidává sám, jinak je zadej do „Odkud“ vedle svého města. Cena cesty na letiště je v ceně započtená.</li>
-            <li><b>Zkus jednosměrné letenky každým směrem.</b> Hledej „Jen tam“ zvlášť tam a zvlášť zpět – dvě jednosměrné letenky bývají někdy levnější než zpáteční. Stejně složíš i open-jaw: tam do New Yorku, zpět z Bostonu (Odkud „Boston“, Kam „Praha“).</li>
+            <li><b>Zkus jednosměrné letenky každým směrem.</b> Hledej „Jen tam“ zvlášť tam a zvlášť zpět – dvě jednosměrné letenky bývají někdy levnější než zpáteční. Tam do New Yorku a zpět z Bostonu nebo cestu přes víc měst slož v <b>🗺️ Víc měst</b> (tlačítko ↩ Návrat z jiného města) – každý let hledám zvlášť a hlídám, aby na sebe navazovaly.</li>
             <li><b>Dálkové lety rezervuj obvykle 2–5 měsíců předem</b> a hledání si ulož tlačítkem ♡ Hlídat cenu – ATLAS cenu kontroluje, dokud máš stránku otevřenou, a ozve se, když klesne.</li>
             <li><b>Ověř cenu i jinde.</b> Kiwi.com neprodává všechny aerolinky (např. British Airways). U výsledků proklikni „Ověřit: Google Flights · Skyscanner“ – uvidíš i lety, které ATLAS nenajde.</li>
             <li><b>Odlet uprostřed týdne</b> (út–čt) bývá často levnější než v pátek nebo v neděli – není to ale pravidlo, záleží na trase a sezóně.</li>

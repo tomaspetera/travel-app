@@ -286,3 +286,33 @@ test('smartActions: filtry času a přestupů, které skryly nabídky, napřed �
   const single = H.smartActions(FORM, RES, { today: '2026-10-05', country, flag, time: { chips: H.timeChips(tf({ maxLay: 60, arrBy: 20 }), { hidden: { maxLay: 2 } }), any: 2 } });
   assert.deepEqual(plain(keys(single).slice(0, 2)), ['clear:maxLay', 'flex1'], 'filtr, který nic neskryl, se nenabízí');
 });
+
+test('multiPlan: nejlevnější celá cesta přes víc měst podle výběru, cena s každým letem a nenavazující lety', () => {
+  // 3 kroky; links[i][a][b] = null (navazuje) | důvod
+  const no = { why: 'short', gapMin: 60, needMin: 180 };
+  const costs = [[1000, 1500], [300, 600, 400], [2000, 900]];
+  const links = [
+    [[no, null, null], [null, null, null]], // 1. let a=0 nestihne 2. let b=0
+    [[null, { why: 'early' }], [null, null], [null, null]], // 2. let b=0 nestihne 3. let c=1
+  ];
+  const p = H.multiPlan(costs, links, []);
+  // bez výběru: 1000 + 400 + 900 = 2300 (a=0 s b=0 nejde, b=0 s c=1 nejde)
+  assert.deepEqual(plain(p.best), { picks: [0, 2, 1], total: 2300 });
+  assert.deepEqual(plain(p.through), [[2300, 2800], [3800, 2500, 2300], [3400, 2300]]);
+  // vybraný 2. let b=0 → jen 1. let a=1 a 3. let c=0
+  const q = H.multiPlan(costs, links, [null, 0, null]);
+  assert.deepEqual(plain(q.best), { picks: [1, 0, 0], total: 3800 });
+  assert.deepEqual(plain(q.through[0]), [null, 3800], 'a=0 s vybraným b=0 nejde');
+  assert.deepEqual(plain(q.through[1]), [3800, 2500, 2300], 'vlastní výběr kroku se při cenách jeho letů nebere v úvahu');
+  assert.deepEqual(plain(q.through[2]), [3800, null]);
+  // výběr, který nejde spojit
+  assert.equal(H.multiPlan(costs, links, [0, 0, null]).best, null);
+  // krok bez letů
+  assert.equal(H.multiPlan([[100], []], [[[]]], []).best, null);
+  // důvody česky
+  assert.match(H.multiWhy(no, 'prev'), /od příletu předchozího letu jen 1 h – potřeba aspoň 3 h/);
+  assert.match(H.multiWhy({ why: 'short', gapMin: 95, needMin: 300 }, 'next'), /do odletu vybraného dalšího letu jen 1 h 35 min – potřeba aspoň 5 h/);
+  assert.match(H.multiWhy({ why: 'early' }, 'prev'), /dřív, než vybraný předchozí let přistane/);
+  assert.match(H.multiWhy({ why: 'nextday' }, 'prev'), /nejdřív další den/);
+  assert.equal(H.multiWhy(null), '');
+});

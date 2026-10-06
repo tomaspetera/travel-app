@@ -1276,5 +1276,5 @@
     }
   }
 
-  window.Trip = { start, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, baseDates };
+  window.Trip = { start, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, baseDates, legBrief };
 })();

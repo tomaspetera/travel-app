@@ -389,8 +389,66 @@
     return acts.filter(a => !seen.has(a.key) && seen.add(a.key));
   }
 
+  /* ---------- cesta přes víc měst: výběr letu na každý úsek ---------- */
+  /**
+   * costs[i][a] = cena letu a v úseku i (Kč/os.), links[i][a][b] = null, když se let b úseku i+1 po letu a stihne
+   * (jinak důvod ze serveru), picks[i] = vybraný let úseku i nebo null. Vrací
+   *  through[i][a] = cena nejlevnější celé cesty s letem a (ostatní úseky podle výběru; vlastní výběr úseku i se
+   *                  nebere v úvahu – jde o to, kolik by stála cesta, kdyby si vybral tenhle let) nebo null,
+   *  best = { picks, total } nejlevnější celá cesta podle výběru, nebo null (vybrané lety nejdou spojit).
+   */
+  function multiPlan(costs, links, picks = []) {
+    const n = costs.length;
+    const ok = (i, a) => picks[i] == null || picks[i] === a;
+    const fits = (i, a, b) => !(links[i] && links[i][a] && links[i][a][b]);
+    // f[i][a] = nejlevnější úseky 0..i končící letem a, g[i][a] = nejlevnější úseky i..n-1 začínající letem a
+    const f = [], g = [];
+    for (let i = 0; i < n; i++) {
+      f[i] = costs[i].map((c, a) => {
+        if (!i) return c;
+        let m = Infinity;
+        costs[i - 1].forEach((_, x) => { if (ok(i - 1, x) && fits(i - 1, x, a) && f[i - 1][x] < m) m = f[i - 1][x]; });
+        return m + c;
+      });
+    }
+    for (let i = n - 1; i >= 0; i--) {
+      g[i] = costs[i].map((c, a) => {
+        if (i === n - 1) return c;
+        let m = Infinity;
+        costs[i + 1].forEach((_, y) => { if (ok(i + 1, y) && fits(i, a, y) && g[i + 1][y] < m) m = g[i + 1][y]; });
+        return m + c;
+      });
+    }
+    const through = costs.map((row, i) => row.map((c, a) => { const v = f[i][a] + g[i][a] - c; return Number.isFinite(v) ? v : null; }));
+    // nejlevnější cesta: g už počítá s výběrem v dalších úsecích, takže stačí brát nejlevnější navazující let
+    const path = [];
+    for (let i = 0; i < n; i++) {
+      let best = -1;
+      costs[i].forEach((_, a) => {
+        if (!ok(i, a) || (i && !fits(i - 1, path[i - 1], a)) || !Number.isFinite(g[i][a])) return;
+        if (best < 0 || g[i][a] < g[i][best]) best = a;
+      });
+      if (best < 0) return { through, best: null };
+      path.push(best);
+    }
+    return { through, best: n ? { picks: path, total: g[0][path[0]] } : null };
+  }
+
+  /**
+   * Proč se let nedá navázat (důvod ze serveru: early / short / nextday), česky. side = 'prev': tenhle let po vybraném
+   * předchozím, 'next': po tomhle letu vybraný další.
+   */
+  function multiWhy(x, side = 'prev') {
+    if (!x) return '';
+    const next = side === 'next';
+    if (x.why === 'early') return next ? 'přistane až po odletu vybraného dalšího letu' : 'odlétá dřív, než vybraný předchozí let přistane';
+    if (x.why === 'short') return `${next ? 'do odletu vybraného dalšího letu' : 'od příletu předchozího letu'} jen ${hm(Math.max(0, x.gapMin))} – potřeba aspoň ${hm(x.needMin)}`;
+    return next ? 'další let je z jiného letiště nebo bez času – musel by být nejdřív další den'
+      : 'jiné letiště než přílet předchozího letu (nebo neznámý čas) – odlet nejdřív další den';
+  }
+
   window.SearchHelp = {
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
-    DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, timeHidden, timeStats, timeChips, hm,
+    DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
   };
 })();

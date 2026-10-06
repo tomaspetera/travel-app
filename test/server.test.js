@@ -210,6 +210,38 @@ test('POST /api/search – chybějící odkud → srozumitelná chyba', async ()
   assert.match(last.error, /odkud/i);
 });
 
+test('POST /api/search – cesta přes víc měst (DEMO): průběh po letech, lety na úsek, návaznosti a nejlevnější cesty', async () => {
+  const d1 = ymdPlus(30);
+  const d2 = ymdPlus(35);
+  const { progress, last } = await searchStream({
+    trip: 'multi', adults: 2, radiusKm: 200,
+    legs: [{ from: ['ap:PRG'], to: ['ap:BLQ'], date: d1 }, { from: ['ap:FLR'], to: ['ap:PRG'], date: d2, flexDays: 1 }],
+  });
+  assert.equal(last.type, 'result');
+  assert.ok(progress.length >= 2 && progress.every((p) => Array.isArray(p.legs) && p.legs.length === 2));
+  assert.deepEqual(progress[0].legs.map((l) => l.label), ['Praha → Boloňa', 'Florencie → Praha']);
+  const r = last.result;
+  assert.equal(r.mode, 'multi');
+  assert.equal(r.destination.label, 'Praha → Boloňa · Florencie → Praha');
+  assert.equal(r.returnsHome, true);
+  assert.equal(r.legs.length, 2);
+  assert.ok(r.legs.every((l) => l.options.length > 0));
+  assert.ok(r.legs[0].options.every((o) => o.out.date === d1 && o.out.to === 'BLQ'));
+  assert.ok(r.legs[1].options.every((o) => o.out.from === 'FLR' && o.out.date >= ymdPlus(34) && o.out.date <= ymdPlus(36)));
+  assert.equal(r.links.length, 1);
+  assert.ok(r.combos.length > 0);
+  const c = r.combos[0];
+  assert.equal(c.perPersonCzk, r.legs[0].options[c.picks[0]].perPersonCzk + r.legs[1].options[c.picks[1]].perPersonCzk);
+  assert.equal(c.totalCzk, c.perPersonCzk * 2);
+  assert.ok(r.origins.some((o) => o.iata === 'PRG'));
+  // chyby: jeden let, země jako cíl
+  const one = await searchStream({ trip: 'multi', legs: [{ from: ['ap:PRG'], to: ['ap:BLQ'], date: d1 }] });
+  assert.equal(one.last.type, 'error');
+  assert.match(one.last.error, /aspoň 2 lety/);
+  const cc = await searchStream({ trip: 'multi', legs: [{ from: ['ap:PRG'], to: ['cc:IT'], date: d1 }, { from: ['ap:FLR'], to: ['ap:PRG'], date: d2 }] });
+  assert.match(cc.last.error, /1\. let: zadej konkrétní město/);
+});
+
 test('statické soubory, data a ochrana proti path traversal', async () => {
   const html = await fetch(`${base}/`);
   assert.equal(html.status, 200);

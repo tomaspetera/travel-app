@@ -120,6 +120,8 @@ async function handleSearch(req, res) {
   } catch (e) {
     return sendJson(req, res, 400, { error: e instanceof UserError ? e.message : 'Neplatný JSON' });
   }
+  // Cesta přes víc měst = hledání několika úseků → do limitu se počítá dvakrát.
+  if (body && body.trip === 'multi' && rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho hledání za krátkou dobu – zkus to za pár minut.' });
   const gzip = wantsGzip(req);
   res.writeHead(200, {
     'Content-Type': 'application/x-ndjson; charset=utf-8',

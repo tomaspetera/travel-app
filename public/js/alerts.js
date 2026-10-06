@@ -22,9 +22,13 @@
     return !at || now - at >= maxAge;
   }
 
-  /** Termín celý v minulosti: přesná data → odlet už byl (server minulý odlet nehledá); flexibilně → konec rozsahu. */
+  /**
+   * Termín celý v minulosti: přesná data → odlet už byl (server minulý odlet nehledá); flexibilně → konec rozsahu;
+   * cesta přes víc měst → první let už byl.
+   */
   function isPast(form, today) {
     const f = form || {};
+    if (f.trip === 'multi') return (f.legs || []).some(l => l && l.date && l.date < today);
     if (f.dateMode === 'exact') return !!f.xOut && f.xOut < today;
     return !!f.dTo && f.dTo < today;
   }

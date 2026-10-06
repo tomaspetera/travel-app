@@ -110,8 +110,10 @@ export function makeMock({ id, name, code, seed, share }) {
     async stations() {
       return null;
     },
+    // Trasa platí oběma směry (jako daily) – i let jen tam z cíle zpáteční trasy (cesta přes víc měst).
     async routes(origin) {
-      return new Set(destinations(origin));
+      const own = new Set(destinations(origin));
+      return { has: (d) => own.has(d) || destinations(d).includes(origin) };
     },
     async destinations(origin, country = null) {
       return destinations(origin).filter((d) => !country || getAirport(d)?.cc === country);
