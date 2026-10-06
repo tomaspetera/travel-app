@@ -155,3 +155,18 @@ test('průvodce: let s přestupem – krok Let i průběh cesty ukážou kde (k 
   // přímý let beze změny
   assert.match(render(c, trip({ route: null, overland: null })), /🛫<\/span><span>PRG 07:00 → VIE 08:00 · Demo Air<\/span>/);
 });
+
+test('průvodce: přílet / příjezd další den má „+1“ jako ve výsledcích (noční let, noční bus)', () => {
+  const c = load();
+  const t = trip({ route: null, overland: null, step: 'flight' });
+  t.flight.out = { ...t.flight.out, dep: '2026-11-10T21:25:00', arr: '2026-11-11T00:51:00' };
+  assert.match(render(c, t), /PRG 21:25 → VIE 00:51 \+1 <span class="faint">/);
+  assert.match(render(c, { ...t, step: 'summary' }), /PRG 21:25 → VIE 00:51 \+1 · Demo Air/);
+  // noční bus zpět: krok Let, shrnutí i odkaz do Google Kalendáře
+  const ov = OV({ back: { ...OV().back, dep: '2026-11-15T22:40', arr: '2026-11-16T06:28', kinds: ['BUS'] } });
+  const o = trip({ route: null, step: 'flight', overland: ov });
+  assert.match(render(c, o), /Zpět: Vídeň → Praha<\/b> · ne 15\. 11\. 22:40 → 06:28 \+1/);
+  assert.match(render(c, { ...o, step: 'summary' }), /🚌<\/span><span>Vídeň → Praha · 22:40 → 06:28 \+1 · bus/);
+  assert.match(c.window.Trip.tripEvent(o).description, /🚌 Vídeň → Praha 22:40 → 06:28 \+1/);
+  assert.doesNotMatch(render(c, { ...o, step: 'summary' }), /06:01 → 10:21 \+/, 'týž den bez +1');
+});
