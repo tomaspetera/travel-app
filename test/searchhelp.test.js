@@ -287,6 +287,30 @@ test('smartActions: filtry času a přestupů, které skryly nabídky, napřed �
   assert.deepEqual(plain(keys(single).slice(0, 2)), ['clear:maxLay', 'flex1'], 'filtr, který nic neskryl, se nenabízí');
 });
 
+test('fillLegs: filtr návratu neschová lety tam, které mu nevadí – složí se s návratem, který filtry prošel', () => {
+  const c = { groundCzk: 0, bagCzk: 0 };
+  const o1 = TL('PRG', 'BCN', '2026-11-12T07:00:00', '2026-11-12T09:15:00', { ...c, czk: 1000, carrier: 'FR' });
+  const o2 = TL('PRG', 'BCN', '2026-11-12T19:00:00', '2026-11-12T21:15:00', { ...c, czk: 900, carrier: 'VY' });
+  const b1 = TL('BCN', 'PRG', '2026-11-16T08:00:00', '2026-11-16T10:15:00', { ...c, czk: 1200, carrier: 'FR' });
+  const b2 = TL('BCN', 'PRG', '2026-11-16T20:00:00', '2026-11-16T22:15:00', { ...c, czk: 700, carrier: 'VY' });
+  const T = (o, b, extra = {}) => ({ id: `${o.dep}|${b.dep}`, out: o, back: b, destKey: 'BCN', combined: false, distanceKm: 1100,
+    perPersonCzk: o.czk + b.czk, ...extra });
+  // ze serveru: večerní let tam (o2) jen s večerním návratem (b2)
+  const pre = [T(o2, b2), T(o1, b2), T(o1, b1)];
+  const f = tf({ back: ['morning'] });
+  const vis = pre.filter((t) => H.timeOk(t, f));
+  assert.deepEqual(vis.map((t) => t.id), [T(o1, b1).id]);
+  const add = H.fillLegs(pre, vis, f, { adults: 2 });
+  assert.deepEqual(plain(add.map((t) => [t.out.dep, t.back.dep, t.perPersonCzk, t.totalCzk, t.composed])), [['2026-11-12T19:00:00', '2026-11-16T08:00:00', 2100, 4200, true]]);
+  assert.ok(add.every((t) => H.timeOk(t, f)));
+  // let tam, který vadí filtru svého směru, ani návrat, který vadí, se nepřidá
+  assert.deepEqual(plain(H.fillLegs(pre, pre.filter((t) => H.timeOk(t, tf({ out: ['morning'], back: ['morning'] }))), tf({ out: ['morning'], back: ['morning'] }))), []);
+  // ostatní filtry výpisu (keep), společná letenka a bez filtrů času → nic
+  assert.deepEqual(plain(H.fillLegs(pre, vis, f, { keep: (t) => t.perPersonCzk <= 2000 })), []);
+  assert.deepEqual(plain(H.fillLegs([T(o2, b2, { combined: true }), T(o1, b1)], vis, f)), []);
+  assert.deepEqual(plain(H.fillLegs(pre, pre, tf({}))), []);
+});
+
 test('multiPlan: nejlevnější celá cesta přes víc měst podle výběru, cena s každým letem a nenavazující lety', () => {
   // 3 kroky; links[i][a][b] = null (navazuje) | důvod
   const no = { why: 'short', gapMin: 60, needMin: 180 };
@@ -312,6 +336,7 @@ test('multiPlan: nejlevnější celá cesta přes víc měst podle výběru, cen
   // důvody česky
   assert.match(H.multiWhy(no, 'prev'), /od příletu předchozího letu jen 1 h – potřeba aspoň 3 h/);
   assert.match(H.multiWhy({ why: 'short', gapMin: 95, needMin: 300 }, 'next'), /do odletu vybraného dalšího letu jen 1 h 35 min – potřeba aspoň 5 h/);
+  assert.match(H.multiWhy({ why: 'short', gapMin: 40, needMin: 480, move: true }, 'prev'), /jen 40 min – s přejezdem do jiného města potřeba aspoň 8 h/);
   assert.match(H.multiWhy({ why: 'early' }, 'prev'), /dřív, než vybraný předchozí let přistane/);
   assert.match(H.multiWhy({ why: 'nextday' }, 'prev'), /nejdřív další den/);
   assert.equal(H.multiWhy(null), '');

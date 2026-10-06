@@ -47,14 +47,16 @@ test('positionIn: 0 jen nejlevnější, 100 jen nejdražší, shodné ceny napů
 
 test('priceLevelOf: hledání rozhoduje kvantily, málo nabídek → průměrná cena na vzdálenost', () => {
   const low = priceLevelOf(trip(2000), ST, SORTED);
-  assert.deepEqual([low.level, low.basis, low.reason, low.pos, low.n], ['low', 'search', 'nejlevnější nabídka v tomto hledání', 0, 10]);
+  assert.deepEqual([low.level, low.basis, low.reason, low.pos, low.n], ['low', 'search', 'nejlevnější nabídka do tohoto cíle v tomto hledání', 0, 10]);
   assert.equal(low.ref, refOf(trip(2000)));
   assert.equal(low.vsRef, Math.round((2000 / low.ref - 1) * 100));
   const mid = priceLevelOf(trip(3500), ST, SORTED);
-  assert.deepEqual([mid.level, mid.reason], ['normal', `kolem obvyklé ceny v tomto hledání (polovina nabídek do ${(3350).toLocaleString('cs-CZ')} Kč)`]);
+  assert.deepEqual([mid.level, mid.reason], ['normal', `kolem obvyklé ceny do tohoto cíle (polovina nabídek stojí nejvýš ${(3350).toLocaleString('cs-CZ')} Kč)`]);
   const high = priceLevelOf(trip(4700), ST, SORTED);
-  assert.deepEqual([high.level, high.basis, high.reason], ['high', 'search', 'nejdražší nabídka v tomto hledání']);
-  assert.equal(priceLevelOf(trip(4400), ST, SORTED).reason, 'dráž než 89 % nabídek v tomto hledání');
+  assert.deepEqual([high.level, high.basis, high.reason], ['high', 'search', 'nejdražší nabídka do tohoto cíle v tomto hledání']);
+  assert.equal(priceLevelOf(trip(4400), ST, SORTED).reason, 'dráž než 89 % nabídek do tohoto cíle');
+  // statistika je za jeden cíl – u „kamkoliv“ nesmí víc cílů tvrdit „nejlevnější v hledání“
+  for (const t of [low, mid, high]) assert.doesNotMatch(t.reason, /nabídk\w* v tomto hledání|obvyklé ceny v tomto hledání/);
   // málo nabídek: jen podle vzdálenosti, a reason to přizná
   const few = priceStats(entries([1500, 1600, 9000]));
   const f = priceLevelOf(trip(1500), few, [1500, 1600, 9000]);
@@ -76,12 +78,12 @@ test('priceLevelOf: levná na vzdálenost platí jen pod mediánem; když si mě
   assert.deepEqual(plain(levelOf(trip(1600), st)), ['normal', 'search']);
   // nejdražší z levných: v hledání drahá, na vzdálenost levná → běžná (mixed)
   const mixed = priceLevelOf(trip(2300), st, cheap);
-  assert.deepEqual([mixed.level, mixed.basis, mixed.reason], ['normal', 'mixed', 'hluboko pod průměrem na tuto vzdálenost, v hledání jsou ale levnější nabídky']);
+  assert.deepEqual([mixed.level, mixed.basis, mixed.reason], ['normal', 'mixed', 'hluboko pod průměrem na tuto vzdálenost, do tohoto cíle jsou ale levnější nabídky']);
   // drahé období: nad mediánem a dražší než průměr → dráž než obvykle; nejlevnější z drahých → běžná
   const dear = [5000, 5100, 5200, 5300, 5400, 5500, 5600, 5700, 5800, 5900];
   const sd = priceStats(entries(dear));
   assert.deepEqual(plain(levelOf(trip(5600), sd)), ['high', 'distance']);
-  assert.equal(priceLevelOf(trip(5000), sd, dear).reason, 'levná v tomto hledání, ale nad průměrnou cenou na tuto vzdálenost');
+  assert.equal(priceLevelOf(trip(5000), sd, dear).reason, 'levná mezi nabídkami do tohoto cíle, ale nad průměrnou cenou na tuto vzdálenost');
 });
 
 test('prohlížeč počítá úroveň stejně jako server (cesty složené ze dvou letenek)', () => {
@@ -235,6 +237,8 @@ test('rada: koupit / hlídat / zkusit jiné dny podle úrovně a dní do odletu,
   assert.equal(P.advice('high', 21).kind, 'compare');
   assert.equal(P.advice('normal', 20).kind, 'late');
   assert.match(P.advice('normal', 3).text, /nízkonákladovek se před odletem obvykle zvedají/);
+  // žádné sliby: „ozve se, jestli zlevní“, ne „až zlevní“; „dá se ušetřit spíš“, ne „ušetříš“
+  for (const [lv, d] of [['low', 10], ['low', 90], ['normal', 70], ['high', 30], ['normal', 5]]) assert.doesNotMatch(P.advice(lv, d).text, /až zlevní|ušetříš/);
   assert.equal(P.advice('low', -1), null);
   assert.equal(P.advice('low', null), null);
 });
