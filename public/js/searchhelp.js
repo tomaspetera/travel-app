@@ -216,35 +216,41 @@
   const timeOk = (t, tf) => timeFails(t, tf).length === 0;
 
   /**
-   * Pohled „Lety“ s filtry času a přestupů: let jednoho směru, který filtrům svého směru vyhoví, ale žádná jeho kombinace
-   * ze serveru ne (vadil let druhým směrem – třeba „odlet zpět ráno“), se složí s nejlevnějším letem druhým směrem
-   * z kombinací, které filtry prošly. Jinak by filtr návratu schoval i lety tam (a naopak).
+   * Přesná data s filtry času a přestupů: let jednoho směru, který filtrům svého směru vyhoví, ale žádná jeho kombinace
+   * ze serveru ne (vadil let druhým směrem – třeba „odlet zpět ráno“, nebo „jen přímé“, když server poslal jen
+   * levnější dvojice s přestupem jedním směrem), se složí s nejlevnějším letem druhým směrem, který filtrům svého
+   * směru vyhoví – i když žádná jeho kombinace ze serveru filtry neprošla. Jinak by filtr schoval i lety, které mu
+   * vyhovují („Jen přímé“ Praha → Vídeň: přímé lety tam i zpět jsou, jen ne v jedné kombinaci).
    * pre = kombinace po ostatních filtrech, vis = kombinace, které prošly všemi filtry, opts = { adults, openJaw, keep }
-   * jako u composeTrip. → nové složené cesty (jen ze samostatných letenek).
+   * jako u composeTrip. → nové složené cesty (jen ze samostatných letenek), každá jednou.
    */
   function fillLegs(pre, vis, tf, opts = {}) {
     if (!timeActive(tf)) return [];
     const cost = l => l.czk + l.groundCzk + l.bagCzk;
-    const added = [];
+    const one = (side, l) => timeFails(side === 'out' ? { out: l } : { back: l }, tf).length === 0;
+    const added = [], ids = new Set();
     for (const [side, other] of [['out', 'back'], ['back', 'out']]) {
       const have = new Set((vis || []).filter(t => t[side]).map(t => legSig(t[side])));
-      // lety druhým směrem z prošlých kombinací, každý jednou, od nejlevnějšího (cena složené cesty = součet letů)
+      // lety druhým směrem, které filtrům svého směru vyhoví, každý jednou, od nejlevnějšího (cena složené cesty = součet letů)
       const seen = new Set();
-      const partners = (vis || []).filter(t => {
+      const partners = [...(vis || []), ...(pre || [])].filter(t => {
         const l = t[other];
         if (t.combined || !l || !Number.isFinite(cost(l)) || seen.has(legSig(l))) return false;
         seen.add(legSig(l));
-        return true;
+        return one(other, l);
       }).sort((a, b) => cost(a[other]) - cost(b[other]));
       const done = new Set();
       for (const t of pre || []) {
         const l = t[side];
         if (!l || t.combined || have.has(legSig(l)) || done.has(legSig(l))) continue;
         done.add(legSig(l));
-        if (timeFails(side === 'out' ? { out: l } : { back: l }, tf).length) continue;
+        if (!one(side, l)) continue;
         for (const p of partners) {
           const c = side === 'out' ? composeTrip(t, p, opts) : composeTrip(p, t, opts);
-          if (c && (!opts.keep || opts.keep(c))) { added.push(c); break; }
+          if (c && (!opts.keep || opts.keep(c))) {
+            if (!ids.has(c.id)) { ids.add(c.id); added.push(c); }
+            break;
+          }
         }
       }
     }
@@ -485,13 +491,15 @@
   }
 
   /**
-   * Proč se let nedá navázat (důvod ze serveru: early / short / nextday), česky. side = 'prev': tenhle let po vybraném
-   * předchozím, 'next': po tomhle letu vybraný další.
+   * Proč se let nedá navázat (důvod ze serveru: early / short / nextday / unknown), česky. side = 'prev': tenhle let po
+   * vybraném předchozím, 'next': po tomhle letu vybraný další.
    */
   function multiWhy(x, side = 'prev') {
     if (!x) return '';
     const next = side === 'next';
     if (x.why === 'early') return next ? 'přistane až po odletu vybraného dalšího letu' : 'odlétá dřív, než vybraný předchozí let přistane';
+    // let s přestupem z cache bez známého příletu → další let nejdřív 24 h po jeho odletu
+    if (x.why === 'unknown') return `${next ? 'tenhle let má' : 'vybraný předchozí let má'} přestup a neznámý přílet (z cache) – ${next ? 'další let' : 'tenhle let'} nejdřív ${hm(x.needMin || 1440)} po jeho odletu`;
     if (x.why === 'short') return `${next ? 'do odletu vybraného dalšího letu' : 'od příletu předchozího letu'} jen ${hm(Math.max(0, x.gapMin))} – ${x.move ? 's přejezdem do jiného města ' : ''}potřeba aspoň ${hm(x.needMin)}`;
     return next ? 'další let je z jiného letiště nebo bez času – musel by být nejdřív další den'
       : 'jiné letiště než přílet předchozího letu (nebo neznámý čas) – odlet nejdřív další den';

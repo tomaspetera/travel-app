@@ -31,6 +31,30 @@ const live = (over = {}) => ({
   seats: 339, bookable: true, fromStation: 'hl.n.', toStation: 'Wien Hbf', ...over,
 });
 
+test('Ground.worth / planeOptions v prohlížeči = server (stejné pravidlo i texty, jen nad nabídkami po filtrech)', async () => {
+  const S = await import('../server/lib/ground.js');
+  const e = (minutes, czk = 299) => ({ ok: true, km: 280, minutes, czk, basis: 'measured' });
+  const cases = [
+    [e(234), { doorMin: 1085, czk: 4045, trips: 2, fast: { doorMin: 275, czk: 11994 } }],
+    [e(320), { doorMin: 1085, czk: 4045, trips: 2, fast: { doorMin: 275, czk: 11994 } }],
+    [e(540, 600), { doorMin: 1085, czk: 4045, trips: 2, fast: { doorMin: 275, czk: 11994 } }],
+    [e(540, 600), { doorMin: null, czk: 4045, trips: 2, fast: { doorMin: 275, czk: 11994 } }],
+    [e(700, 300), { doorMin: 1085, czk: 4045, trips: 1, fast: { doorMin: 275, czk: 11994 } }],
+    [e(400), { doorMin: 350 }], [e(200), { doorMin: 300 }], [e(360)], [e(540, 900), { doorMin: 300, czk: 4000, trips: 2 }],
+    [e(700), { doorMin: 300 }], [e(234), { doorMin: 300, fast: { doorMin: 400, czk: 1 } }], [{ ok: false, why: 'ostrov' }],
+  ];
+  for (const [est, f] of cases) assert.deepEqual(plain(Ground.worth(est, f)), plain(S.worth(est, f)), JSON.stringify([est, f]));
+  // od dveří ke dveřím z letu tam (i odhad délky), neznámá délka → null
+  assert.equal(Ground.flightDoor({ durationMin: 50 }, 40, 25), S.flightDoor({ accessMin: 40, flightMin: 50, egressMin: 25 }));
+  assert.equal(Ground.flightDoor({ estMin: 155 }), 120 + 155 + 45);
+  assert.equal(Ground.flightDoor({ stops: 1, durationMin: null }), null);
+  const trips = [{ out: { durationMin: 860, stops: 1 }, perPersonCzk: 4045 }, { out: { durationMin: 50 }, perPersonCzk: 11994 }, { out: { durationMin: 50 }, perPersonCzk: 12500 }];
+  const doorOf = (t) => Ground.flightDoor(t.out, 30, 30);
+  const a = Ground.planeOptions(trips, doorOf), b = S.planeOptions(trips, doorOf);
+  assert.deepEqual([a.cheap.t.perPersonCzk, a.cheap.doorMin, a.fast.t.perPersonCzk, a.fast.doorMin], [b.cheap.t.perPersonCzk, b.cheap.doorMin, b.fast.t.perPersonCzk, b.fast.doorMin]);
+  assert.deepEqual([a.cheap.t.perPersonCzk, a.fast.t.perPersonCzk, a.fast.doorMin], [4045, 11994, 275]);
+});
+
 test('Ground: text čipu, délka cesty, převod spoje a odhadu na úsek cesty, cena za všechny', () => {
   assert.equal(Ground.chipText({ min: 260, czk: 299 }), '🚆 i vlakem/busem ~4 h 20 · od ~299 Kč');
   // zpáteční hledání: cena tam i zpět jako u letenek vedle čipu

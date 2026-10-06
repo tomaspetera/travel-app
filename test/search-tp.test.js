@@ -85,3 +85,31 @@ test('Travelpayouts: odmítnutá trasa (HTTP 400) = žádné ceny, ne „dotaz s
     stub.restore();
   }
 });
+
+test('Travelpayouts ve „Víc měst“: let s přestupem s nemožnou délkou má neznámý přílet a další let nejdřív 24 h po odletu', async () => {
+  resetTravelpayouts();
+  const d1 = ymdPlus(40);
+  const d2 = ymdPlus(41);
+  const row = (o, d, day, hm, airline, transfers, min, price) => ({ origin: o, destination: d, origin_airport: o, destination_airport: d, price, airline, flight_number: '1', departure_at: `${day}T${hm}:00+01:00`, transfers, duration_to: min, link: `/search/${o}${d}${hm}` });
+  const stub = stubFetch((url) => {
+    const u = new URL(url);
+    const day = u.searchParams.get('departure_at');
+    if (u.searchParams.get('origin') === 'PRG') return { body: { success: true, data: [row('PRG', 'BCN', day, '20:30', 'U2', 1, 185, 1173), row('PRG', 'BCN', day, '10:40', 'VY', 0, 150, 1990)] } };
+    return { body: { success: true, data: [row('BCN', 'PRG', day, '07:00', 'FR', 0, 150, 1500), row('BCN', 'PRG', day, '21:30', 'VY', 0, 150, 1700)] } };
+  });
+  try {
+    const r = await search({ trip: 'multi', from: ['ap:PRG'], radiusKm: 0, kmRate: 0, legs: [{ from: ['ap:PRG'], to: ['ap:BCN'], date: d1 }, { from: ['ap:BCN'], to: ['ap:PRG'], date: d2 }] });
+    assert.equal(r.mode, 'multi');
+    const o1 = r.legs[0].options, o2 = r.legs[1].options;
+    const u2 = o1.findIndex((o) => o.out.carrier === 'U2'), vy = o1.findIndex((o) => o.out.carrier === 'VY');
+    const early = o2.findIndex((o) => o.out.carrier === 'FR'), late = o2.findIndex((o) => o.out.carrier === 'VY');
+    assert.ok(u2 >= 0 && vy >= 0 && early >= 0 && late >= 0, JSON.stringify([u2, vy, early, late]));
+    assert.deepEqual([o1[u2].out.arr, o1[u2].out.durationMin, o1[u2].out.arrUnknown], [null, null, true], 'žádný vymyšlený přílet 23:35');
+    assert.equal(r.links[0][u2][early].why, 'unknown', 'ráno po večerním odletu s přestupem nenavazuje');
+    assert.equal(r.links[0][u2][late], null, 'večer dalšího dne (25 h po odletu) ano');
+    assert.equal(r.links[0][vy][early], null, 'přímý let se známým příletem jako dřív');
+    assert.ok(r.combos.length && r.combos.every((c) => !(c.picks[0] === u2 && c.picks[1] === early)), 'celá cesta nespojí U2 s ranním letem');
+  } finally {
+    stub.restore();
+  }
+});

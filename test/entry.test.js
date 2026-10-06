@@ -321,6 +321,10 @@ test('„Před cestou“: doklady s datem platnosti pasu, registrace s cenou a o
   assert.match(html, /platí i při přestupu/);
   assert.match(html, /💉 Povinné očkování: žlutá zimnice při příletu z rizikové země/);
   assert.match(html, /aspoň do 14\. 6\. 2027/);
+  // platnost pasu s popiskem, ne holá závorka za „OP nestačí“ (QA: „… nestačí (po dobu pobytu)“)
+  assert.match(sp(Entry.checklistHtml(['GB'], { ret: '2026-12-14' })), /🛂 Cestovní pas – občanský průkaz nestačí <span class="faint">· platnost pasu: po celou dobu pobytu<\/span>/);
+  assert.match(html, /nestačí <span class="faint">· platnost pasu: 6 měsíců po vstupu<\/span>/);
+  assert.match(sp(Entry.checklistHtml(['AL'], { ret: '2026-12-14' })), /· platnost dokladu: /);
   assert.match(html, /před cestou vždy ověř aktuální podmínky na <a href="https:\/\/www\.mzv\.gov\.cz\/jnp\/cz\/cestujeme\/index\.html"/);
   assert.equal(Entry.checklistHtml(['CZ'], {}), '');
   assert.equal(Entry.checklistHtml([], {}), '');
@@ -357,6 +361,7 @@ test('detail země: režim česky, pobyt, doklad, platnost pasu, cena v € a K�
   assert.match(us, /Nutná i při přestupu/);
   assert.match(us, />🛂 jen pas</);
   assert.match(us, />90 dní</);
+  assert.match(us, /<div class="ed-wide"><div class="k">Platnost pasu<\/div>/, 'na mobilu přes celou šířku');
   assert.match(us, /Zdroj: MZV ČR \(ověřeno 10\/2026\)/);
   assert.match(Entry.detailHtml('DE'), /EU \/ Schengen – volný pohyb, stačí občanský průkaz/);
   assert.match(Entry.detailHtml('DE'), />volný pohyb osob</);

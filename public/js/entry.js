@@ -257,6 +257,8 @@
     const dest = uniq(isos), have = new Set(dest.map(canon));
     return [...dest.map(iso => ({ iso, transit: false })), ...uniq(via).filter(x => !have.has(canon(x))).map(iso => ({ iso, transit: true }))];
   };
+  // „po dobu pobytu“ → „po celou dobu pobytu“ (za popiskem „platnost pasu:“ se to čte líp)
+  const ruleTxt = t => String(t).replace(/^po dobu pobytu/, 'po celou dobu pobytu');
   /** Doklad a platnost pasu jednou větou. */
   function docsTxt(r, until, rec) {
     const recTxt = rec ? `doporučená platnost aspoň do ${dmy(rec)}` : '';
@@ -308,7 +310,8 @@
     const rows = items.map(({ iso, rec: r, kind: k, transit: tr, docs, rule, lead, expired: old }) => {
       const li = [];
       if (old) li.push(`<li class="ed-unv">⏳ ${esc(untilTxt(r))}</li>`);
-      li.push(`<li>${esc(docs)}${rule ? ` <span class="faint">(${esc(rule)})</span>` : ''}</li>`);
+      // platnost s popiskem („platnost pasu: po celou dobu pobytu“), ne holá závorka za „OP nestačí“
+      li.push(`<li>${esc(docs)}${rule ? ` <span class="faint">· ${r.idCard ? 'platnost dokladu' : 'platnost pasu'}: ${esc(ruleTxt(rule))}</span>` : ''}</li>`);
       if (k.need) {
         const f = fee(r);
         li.push(`<li><b>${esc(k.icon)} ${esc(k.text)}</b>${f ? ` · ${esc(f)}` : ''}${lead ? ` · <span class="faint">žádej aspoň ${daysTxt(lead)} předem</span>` : ''}${r.etaUrl ? ` · ${link(r.etaUrl, 'oficiální web ↗')}` : ''}${r.transitEta ? ` <span class="faint">· ${esc(transitTxt(r))}</span>` : ''}</li>`);
@@ -341,7 +344,7 @@
       <div class="kv ed-kv">
         <div><div class="k">Doklad</div><div class="v">${r.idCard ? '🪪 stačí OP' : '🛂 jen pas'}</div></div>
         <div><div class="k">Max. pobyt</div><div class="v">${esc(stayTxt(r))}</div></div>
-        <div><div class="k">Platnost pasu</div><div class="ed-small">${esc(r.passportValidity || '—')}</div></div>
+        <div class="ed-wide"><div class="k">${r.idCard ? 'Platnost dokladu' : 'Platnost pasu'}</div><div class="ed-small">${esc(r.passportValidity || '—')}</div></div>
       </div>
       <div class="ed-vac"><b>💉 Povinné očkování:</b> ${esc(r.vaccinesRequired || 'žádné')}</div>
       ${r.vaccinesRecommended ? `<div class="ed-vac"><b>💉 Doporučené:</b> ${esc(r.vaccinesRecommended)}</div>` : ''}

@@ -18,9 +18,10 @@ export function makeLeg(o) {
   const durationMin = o.durationMin ?? flightMinutes(dep, fa?.tz, arr, ta?.tz);
   // Bez času příletu (Wizz Air, Travelpayouts): dopočti ho v místním čase cíle – z délky letu,
   // jinak odhadem ze vzdálenosti (~780 km/h + 35 min na vzlet a přistání), označený arrEst.
+  // arrUnknown (let s přestupem z cache bez věrohodné délky): přílet ani délku nedopočítávat – neznámé, ne vymyšlené.
   let arrEst = false;
   let estMin = null;
-  if (!arr && hasTime && fa && ta) {
+  if (!arr && hasTime && fa && ta && !o.arrUnknown) {
     const depMs = localToUtcMs(dep, fa.tz);
     const mins = durationMin || Math.round((haversineKm(fa.lat, fa.lon, ta.lat, ta.lon) / 780) * 60 + 35);
     if (depMs != null) {
@@ -44,6 +45,7 @@ export function makeLeg(o) {
     dep,
     arr,
     arrEst,
+    ...(o.arrUnknown && !arr ? { arrUnknown: true } : {}),
     date: dep.slice(0, 10),
     hasTime,
     price: o.price != null ? Math.round(Number(o.price) * 100) / 100 : null,

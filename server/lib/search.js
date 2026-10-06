@@ -203,6 +203,9 @@ export function outageOf(st, p, ctx) {
  * limits = { maxPairs (dvojic letišť na zdroj), departures (dotazů na letový řád Ryanairu) }, hubs: false = bez
  * přestupních letišť v okolí.
  */
+/** Poznámka v průběhu hledání, když zdroj bez „kamkoliv“ (Wizz Air) prošel jen část tras – pro uživatele, bez názvu proměnné WIZZ_MAX_CALLS. */
+export const routesNote = (take, total) => `prohledáno ${take} z ${total} tras (nejbližší) – zbytek kvůli limitu dotazů`;
+
 export async function search(raw, emit = () => {}, opts = {}) {
   const t0 = Date.now();
   const q = normalizeQuery(raw);
@@ -482,7 +485,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     const perRoute = (p.callsPerRoute ? p.callsPerRoute(q.dateFrom, q.dateTo) : 1) * (ret ? 2 : 1);
     const budget = p.id === 'wizzair' ? config.wizzMaxCalls : Infinity;
     const take = Math.max(1, Math.min(routes.length, Math.floor(budget / perRoute)));
-    if (take < routes.length) st.note = `prohledáno ${take} z ${routes.length} tras (limit WIZZ_MAX_CALLS)`;
+    if (take < routes.length) st.note = routesNote(take, routes.length);
     await runTasks(st, routes.slice(0, take).map((r) => async () => {
       const found = await routeTrips(p, r.o, r.d, { perPair: 2 });
       trips.push(...found);

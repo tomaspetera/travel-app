@@ -317,6 +317,33 @@ test('fillLegs: filtr návratu neschová lety tam, které mu nevadí – složí
   assert.deepEqual(plain(H.fillLegs(pre, pre, tf({}))), []);
 });
 
+test('fillLegs: „Jen přímé“ Praha → Vídeň – přímé lety tam i zpět jsou, jen každý v kombinaci s přestupem (QA 6, B1)', () => {
+  // ze serveru jen nejlevnější dvojice: Ryanair přes Krakov (přestup) jedním nebo oběma směry, přímý Austrian nikdy s Austrianem
+  const c = { groundCzk: 0, bagCzk: 0, provider: 'kiwi' };
+  const fr = (from, to, dep, arr) => TL(from, to, dep, arr, { ...c, czk: 1900, carrier: 'FR', stops: 1, durationMin: 860, layovers: [{ at: 'KRK', min: 610 }] });
+  const os = (from, to, dep, arr, czk) => TL(from, to, dep, arr, { ...c, czk, carrier: 'OS', durationMin: 50 });
+  const frOut = fr('PRG', 'VIE', '2026-10-20T09:15:00', '2026-10-20T23:35:00');
+  const frBack = fr('VIE', 'PRG', '2026-10-23T06:00:00', '2026-10-23T22:55:00');
+  const osOut = [os('PRG', 'VIE', '2026-10-20T07:30:00', '2026-10-20T08:20:00', 7900), os('PRG', 'VIE', '2026-10-20T11:15:00', '2026-10-20T12:05:00', 7545), os('PRG', 'VIE', '2026-10-20T16:50:00', '2026-10-20T17:40:00', 8100)];
+  const osBack = [os('VIE', 'PRG', '2026-10-23T09:45:00', '2026-10-23T10:35:00', 4329), os('VIE', 'PRG', '2026-10-23T15:20:00', '2026-10-23T16:10:00', 4600), os('VIE', 'PRG', '2026-10-23T21:00:00', '2026-10-23T21:50:00', 5200)];
+  const T = (o, b) => ({ id: `${o.dep}|${b.dep}`, out: o, back: b, destKey: 'VIE', combined: false, distanceKm: 250, perPersonCzk: o.czk + b.czk });
+  const pre = [T(frOut, frBack), ...osOut.map((o) => T(o, frBack)), ...osBack.map((b) => T(frOut, b))];
+  const legs = (trips) => ['out', 'back'].map((side) => H.distinctLegs(trips, side).map((x) => x.leg.dep.slice(11, 16)).sort());
+  for (const [what, f] of [['jen přímé', tf({ stops: 0 })], ['přílet do 22:00', tf({ arrBy: 22 })], ['cesta max. 6 h', tf({ maxDur: 360 })], ['přestup max. 2 h', tf({ maxLay: 120 })]]) {
+    const vis = pre.filter((t) => H.timeOk(t, f));
+    assert.equal(vis.length, 0, `${what}: žádná kombinace ze serveru neprojde`);
+    const add = H.fillLegs(pre, vis, f, { adults: 2 });
+    assert.ok(add.every((t) => H.timeOk(t, f) && t.composed && !t.out.stops && !t.back.stops), what);
+    assert.equal(new Set(add.map((t) => t.id)).size, add.length, `${what}: každá dvojice jednou`);
+    assert.deepEqual(plain(legs(add)), [['07:30', '11:15', '16:50'], ['09:45', '15:20', '21:00']], `${what}: 3 lety tam, 3 zpět`);
+    const best = add.reduce((m, t) => (t.perPersonCzk < m.perPersonCzk ? t : m));
+    assert.deepEqual(plain([best.out.dep.slice(11, 16), best.back.dep.slice(11, 16), best.perPersonCzk, best.totalCzk]), ['11:15', '09:45', 7545 + 4329, 2 * (7545 + 4329)], `${what}: nejlevnější přímá dvojice`);
+    // vybraný let tam → ke každému přímému návratu složená cesta s ním (sloupec Zpět, „Vybraná cesta“)
+    const sel = H.distinctLegs(add, 'back', H.legSig(osOut[0]), { adults: 2, keep: (t) => H.timeOk(t, f) });
+    assert.ok(sel.every((x) => x.paired && x.paired.out === osOut[0]), `${what}: s vybraným letem tam se spárují všechny přímé návraty`);
+  }
+});
+
 test('multiPlan: nejlevnější celá cesta přes víc měst podle výběru, cena s každým letem a nenavazující lety', () => {
   // 3 kroky; links[i][a][b] = null (navazuje) | důvod
   const no = { why: 'short', gapMin: 60, needMin: 180 };
@@ -345,5 +372,7 @@ test('multiPlan: nejlevnější celá cesta přes víc měst podle výběru, cen
   assert.match(H.multiWhy({ why: 'short', gapMin: 40, needMin: 480, move: true }, 'prev'), /jen 40 min – s přejezdem do jiného města potřeba aspoň 8 h/);
   assert.match(H.multiWhy({ why: 'early' }, 'prev'), /dřív, než vybraný předchozí let přistane/);
   assert.match(H.multiWhy({ why: 'nextday' }, 'prev'), /nejdřív další den/);
+  assert.equal(H.multiWhy({ why: 'unknown', gapMin: 630, needMin: 1440 }, 'prev'), 'vybraný předchozí let má přestup a neznámý přílet (z cache) – tenhle let nejdřív 24 h po jeho odletu');
+  assert.match(H.multiWhy({ why: 'unknown', needMin: 1440 }, 'next'), /^tenhle let má přestup a neznámý přílet \(z cache\) – další let nejdřív 24 h/);
   assert.equal(H.multiWhy(null), '');
 });

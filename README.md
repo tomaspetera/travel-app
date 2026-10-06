@@ -108,7 +108,7 @@ až po startu, takže nezdržuje první vykreslení.
 | **Víc měst v jedné cestě** | *🗺️ Víc měst*: 2–4 lety jedním směrem (třeba Praha → Řím, Neapol → Praha), každý na přesné datum ± 0–3 dny; rychlá volba *↩ Návrat z jiného města*. Každý let se hledá zvlášť a ATLAS skládá jen lety, které na sebe navazují: na stejném letišti aspoň 3 h, z jiného letiště téhož města 5 h, z jiného města nejdřív další den a aspoň 8 h po příletu. Ve výsledku vybíráš let po krocích (nenavazující lety zešednou s důvodem), vidíš nejlevnější kombinace a ke každému letu tlačítko Koupit – jsou to samostatné letenky. Dva lety tam a zpět domů pokračují do průvodce cestou, delší cesta se uloží do plánovače i s lety v kalendáři (.ics). |
 | **Kalendář celých cest** | V režimu konkrétního cíle ukáže pro každý den nejlevnější *celou cestu tam a zpět* (se zadaným počtem nocí), ne jen jednosměrný let. |
 | **Přesná data i flexibilně** | *📅 Přesná data*: zadáš den odletu a návratu a hledá se jen v tyto dny (volitelně ±1–3 dny). Pohled *✈︎ Lety* ukáže jako Google Flights všechny nalezené lety tam a zpět zvlášť (čas, aerolinka, přímý / s přestupem, cena celé cesty, další odlety dne bez ceny), pruh *📅 Nejbližší dny* ceny ±3 dny kolem data a jedním kliknutím hledá jiný den. *🔀 Flexibilně*: rozsah dat odletu + počet nocí, víkendy (čt/pá/so → ne/po), prodloužené víkendy, vlastní dny v týdnu. |
-| **Čas a přestupy** | Filtr *🕐 Čas a přestupy* ve výsledcích filtruje hned, bez nového hledání: čas odletu tam i zpět (ráno 5–12, odpoledne 12–18, večer 18–24, v noci 0–5 h, víc najednou), přílet nejpozději do 18 / 20 / 22 h nebo před půlnocí (přílet v noci 0–5 h se počítá jako pozdní, ráno dalšího dne ne), jen přímé lety nebo max. 1 přestup, max. délka cesty jedním směrem a nejdelší přestup (posuvníky podle nalezených letů). Časy jsou místní časy letišť. Platí v seznamu, na mapě, v kombinacích, v kalendáři i ve sloupcích ✈︎ Lety – tam jen pro svůj směr (když chceš návrat ráno, zůstanou všechny lety tam a každý se spáruje s nejlevnějším ranním návratem jako dvě samostatné letenky). Aktivní filtry jsou čipy s počtem skrytých nabídek a ✕, chytrá nápověda je nabídne zrušit. Lety bez známého času, délky nebo časů přestupů se neskrývají. U letů s přestupem je vidět, kde a jak dlouho se čeká („1× přestup (MUC 1 h 35 min)“). |
+| **Čas a přestupy** | Filtr *🕐 Čas a přestupy* ve výsledcích filtruje hned, bez nového hledání: čas odletu tam i zpět (ráno 5–12, odpoledne 12–18, večer 18–24, v noci 0–5 h, víc najednou), přílet nejpozději do 18 / 20 / 22 h nebo před půlnocí (přílet v noci 0–5 h se počítá jako pozdní, ráno dalšího dne ne), jen přímé lety nebo max. 1 přestup, max. délka cesty jedním směrem a nejdelší přestup (posuvníky podle nalezených letů). Časy jsou místní časy letišť. Platí v seznamu, na mapě, v kombinacích, v kalendáři i ve sloupcích ✈︎ Lety – tam jen pro svůj směr (když chceš návrat ráno, zůstanou všechny lety tam a každý se spáruje s nejlevnějším ranním návratem jako dvě samostatné letenky). U přesných dat se takhle skládají i filtry pro oba směry (*Jen přímé*, přílet, délka, přestup): když server poslal jen nejlevnější dvojice s přestupem jedním směrem, ATLAS spáruje přímé lety tam a zpět sám – ve sloupcích, v kombinacích i v kalendáři, s poznámkou, že jde o dvě samostatné letenky. Aktivní filtry jsou čipy s počtem skrytých nabídek a ✕, chytrá nápověda je nabídne zrušit. Lety bez známého času, délky nebo časů přestupů se neskrývají. U letů s přestupem je vidět, kde a jak dlouho se čeká („1× přestup (MUC 1 h 35 min)“). |
 | **Chytrá nápověda** | Když je výsledků málo nebo žádné, nabídne konkrétní úpravy jedním kliknutím (± dny, přestupní letiště – ne v zemi cíle ani hned vedle něj, celá země / světadíl, jen tam, celý měsíc, zrušit filtr) a průvodce *💡 Jak hledat chytře* pro dálkové lety. Aktivní filtry jsou vidět jako čipy s ✕, výpadek Kiwi.com hlásí s tlačítkem *Zkusit znovu*. |
 | **Skóre výhodnosti** | 🔥 Super cena / 👍 Výhodné podle vzdálenosti a ostatních výsledků, ↓ zlevnění (Ryanair posílá předchozí cenu), ☀️ ideální sezóna z dat ATLAS. |
 | **Je to dobrá cena?** | U každé nabídky štítek 💚 Dobrá cena / Běžná cena / 🔺 Dráž než obvykle a panel s vysvětlením: srovnání s ostatními nabídkami do stejného cíle v tomto hledání, s průměrnou cenou na vzdálenost a s tím, co ATLAS na trase viděl dřív (trend ↓ / → / ↑), plus opatrná rada, jestli koupit, nebo cenu hlídat – viz [Je to dobrá cena?](#je-to-dobrá-cena). |
@@ -134,8 +134,11 @@ až po startu, takže nezdržuje první vykreslení.
 > kdyby ho Kiwi omezilo, vypne se `KIWI_ENABLED=0` a zbytek běží dál),
 > proto ATLAS staví na zdrojích výše. Adaptéry jsou oddělené (`server/providers/`), další zdroj se přidá jedním souborem.
 
-Ceny Ryanair a Wizz Air jsou živé, ale do rezervace se mohou změnit; ceny z Travelpayouts jsou označené „⏱ z cache“
-a je dobré je ověřit (u každého výsledku je odkaz na rezervaci a na ověření v Google Flights / Skyscanneru).
+Ceny Ryanair a Wizz Air jsou živé, ale do rezervace se mohou změnit; ceny z Travelpayouts jsou označené „⏱ z cache – ověř“
+(ve výpisu, ve sloupcích ✈︎ Lety i v krocích „Víc měst“) a je dobré je ověřit (u každého výsledku je odkaz na rezervaci
+a na ověření v Google Flights / Skyscanneru). U letů s přestupem z cache bývá uvedená délka kratší, než je možné
+(nejspíš jen čas ve vzduchu bez přestupu) – když nestačí na přímý let (+10 %) a 80 min na každý přestup, ATLAS délku ani
+přílet nedopočítává: ukáže „přílet ?“, filtry času je neskrývají a „Víc měst“ na takový let naváže další nejdřív 24 h po jeho odletu.
 
 ## Je to dobrá cena?
 
@@ -154,10 +157,12 @@ Do blízkých měst (Vídeň, Berlín, Mnichov, Budapešť, Krakov…) bývá vl
 i s cestou na letiště a odbavením – a mnohem levnější. ATLAS to ukáže sám, jen v Evropě a jen tam, kde to dává smysl:
 
 - **Výsledky letů** – u cílů v dosahu čip *🚆 i vlakem/busem ~4 h 20 · od ~299 Kč* (odhad; u zpátečního hledání cena
-  tam i zpět – *· tam i zpět od ~598 Kč* –, ať jde porovnat s cenou letenek vedle; u cesty delší než ~12 h jen,
+  tam i zpět – *· tam i zpět od ~598 Kč* –, ať jde porovnat s cenou letenek vedle; u cesty delší než ~8 h jen,
   když se vyplatí). U hledání ke konkrétnímu
   blízkému cíli nahoře srovnání **letadlo × vlak/bus** (cena na osobu, čas od dveří ke dveřím; letadlo = nejlevnější
-  nabídka do tohoto cíle, která projde filtry výpisu – když neprojde žádná, napíše „skryto filtry“) a tlačítko *Ukázat spoje*:
+  nabídka do tohoto cíle, která projde filtry výpisu, i s časem **svého** letu tam vč. přestupů – a když je jiný let
+  aspoň o hodinu rychlejší, druhý řádek *⚡ nejrychlejší ~4 h 35 od 11 994 Kč*; cena a čas jsou vždy z téhož letu.
+  Když neprojde žádná, napíše „skryto filtry“) a tlačítko *Ukázat spoje*:
   skutečné spoje RegioJetu na zvolený den (čas, délka, přestupy, vlak/bus, cena od–do, volná místa), na vyžádání i zpět,
   a odkazy na RegioJet, FlixBus, IDOS a Google Mapy. Když se let nenajde nebo je jich málo, nabídne vlak/bus i chytrá
   nápověda.
@@ -168,8 +173,10 @@ i s cestou na letiště a odbavením – a mnohem levnější. ATLAS to ukáže 
 **Kde to dává smysl:** obě místa na pevnině Evropy (ne Velká Británie, Irsko, Island, Malta, Kypr ani ostrovy jako
 Mallorca, Kanáry, Korsika, Sardinie, Sicílie, Kréta) a nejvýš ~1 100 km vzdušnou čarou (do Švédska a Norska po souši přes Øresundský most – Stockholm ani Oslo už ne). **Zvýrazní se**, když platí
 jednoduché pravidlo: cesta po zemi (+30 min na nádraží) je nejvýš o 1,5 h delší než letadlo od dveří ke dveřím
-(cesta na letiště + 2 h před odletem + nejkratší nalezený let + 45 min po přistání + cesta do města), **nebo** trvá do 6,5 h, **nebo** je
-aspoň o polovinu levnější a do 10 h. Důvod se u srovnání vždy napíše česky.
+(cesta na letiště + 2 h před odletem + nejrychlejší nalezený let + 45 min po přistání + cesta do města), **nebo** trvá do 6,5 h, **nebo** je
+aspoň o polovinu levnější než nejlevnější let a do 10 h. Důvod se u srovnání vždy napíše česky a jmenuje let, se kterým
+srovnává („rychleji než letadlem (nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11 994 Kč)“). Ve výsledcích se
+počítá z nabídek, které výpis po filtrech ukazuje (stejné pravidlo na serveru i v prohlížeči).
 
 **Co je odhad a co živá data:**
 
@@ -320,7 +327,7 @@ nepáruje, když odlétá dřív než 2 h po jeho příletu.
 
 Je to dobrá cena: každá skupina má `priceStats` (`n`, `min`, `p25`, `median`, `p75`, `max`, `dateFrom`, `dateTo`, `mins`), u konkrétního cíle i `priceStats` celé trasy; každá nabídka má `priceLevel` (`level` `low` / `normal` / `high`, `basis`, `reason`, `ref`, `vsRef`, `pos`, `n`).
 
-Cesta přes víc měst: `"trip": "multi", "legs": [{ "from": ["ap:PRG"], "to": ["metro:ROM"], "date": "2026-11-03" }, { "from": ["ap:NAP"], "to": ["ap:PRG"], "date": "2026-11-08", "flexDays": 1 }]` – 2 až 4 lety jedním směrem, data po sobě (týž den smí), nejvýš 90 dní. Cílem (a místem odletu dalších letů) musí být město nebo letiště, ne země. `radiusKm`, `kmRate`, `exclude` platí pro odlet 1. letu; když je cíl posledního letu stejný jako odkud 1. letu, letí se na kterékoliv letiště začátku cesty (s `openJaw: false` jen na letiště samotného místa) a doprava z něj domů se přičte. Úseky se hledají nejvýš po dvou najednou s rozpočtem 24 dvojic letišť na zdroj. Průběh má navíc `legs: [{ label, state }]`. Odpověď má `mode: "multi"`, `legs: [{ label, from, to, date, flex, dest, options, count, nearby }]` (options = nejvýš 16 jednosměrných letů s `perPersonCzk` vč. dopravy a zavazadel), `links[i][a][b]` (`null` = let b úseku i+1 se po letu a stihne, jinak `{ why: "early" | "short" | "nextday", gapMin?, needMin?, move? }`), `combos: [{ picks, perPersonCzk, totalCzk, flightCzk, groundCzk, bagCzk }]` (30 nejlevnějších navazujících cest), `returnsHome` a `stats.feasible`. `maxPrice` platí na celou cestu.
+Cesta přes víc měst: `"trip": "multi", "legs": [{ "from": ["ap:PRG"], "to": ["metro:ROM"], "date": "2026-11-03" }, { "from": ["ap:NAP"], "to": ["ap:PRG"], "date": "2026-11-08", "flexDays": 1 }]` – 2 až 4 lety jedním směrem, data po sobě (týž den smí), nejvýš 90 dní. Cílem (a místem odletu dalších letů) musí být město nebo letiště, ne země. `radiusKm`, `kmRate`, `exclude` platí pro odlet 1. letu; když je cíl posledního letu stejný jako odkud 1. letu, letí se na kterékoliv letiště začátku cesty (s `openJaw: false` jen na letiště samotného místa) a doprava z něj domů se přičte. Úseky se hledají nejvýš po dvou najednou s rozpočtem 24 dvojic letišť na zdroj. Průběh má navíc `legs: [{ label, state }]`. Odpověď má `mode: "multi"`, `legs: [{ label, from, to, date, flex, dest, options, count, nearby }]` (options = nejvýš 16 jednosměrných letů s `perPersonCzk` vč. dopravy a zavazadel), `links[i][a][b]` (`null` = let b úseku i+1 se po letu a stihne, jinak `{ why: "early" | "short" | "nextday" | "unknown", gapMin?, needMin?, move? }`; `unknown` = let a s přestupem bez známého příletu, další nejdřív 24 h po jeho odletu), `combos: [{ picks, perPersonCzk, totalCzk, flightCzk, groundCzk, bagCzk }]` (30 nejlevnějších navazujících cest), `returnsHome` a `stats.feasible`. `maxPrice` platí na celou cestu.
 
 Skupiny v dosahu vlaku/busu mají `ground` (`km`, `min`, `czk`, `basis` – `measured` / `distance`, `worth`, `rule`,
 `reason`, `doorMin`, `from`, `to`, `regiojet`, `flixbus` a `q` pro `/api/ground`); u hledání ke konkrétnímu cíli má

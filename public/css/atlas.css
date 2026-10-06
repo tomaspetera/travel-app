@@ -338,5 +338,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .ed-note{margin-top:10px;font-size:12.5px}
 .entry-detail a,.entry-card a{color:var(--info);text-decoration:underline;overflow-wrap:anywhere}
 @media(max-width:520px){#view-countries .toolbar select{min-width:0;flex:1 1 40%}}
+/* detail země na mobilu: delší text (platnost pasu) přes celou šířku, ne čtyři řádky v polovině */
+@media(max-width:560px){.ed-kv .ed-wide{grid-column:1/-1}}
 .ed-regime.ec-free{background:var(--surface-2)}
 [data-theme="light"] .entry-detail a,[data-theme="light"] .entry-card a{color:#0369a1}
