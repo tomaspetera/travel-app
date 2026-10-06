@@ -130,6 +130,7 @@ test('POST /api/search – DEMO: přesná data i s lety s přestupem (časy pře
   for (const l of conn) {
     assert.equal(l.layovers.length, l.stops);
     assert.ok(l.layovers.every((x) => /^[A-Z]{3}$/.test(x.at) && x.min >= 45 && x.min < l.durationMin), JSON.stringify(l.layovers));
+    assert.ok(l.layovers.every((x) => /^[A-Z]{2}$/.test(x.cc)), 'země přestupu (vstupní podmínky pro tranzit)');
   }
   const flex = (await searchStream({ ...body, dateFrom: ymdPlus(10), dateTo: ymdPlus(40), nightsMin: 3, nightsMax: 7 })).last.result;
   assert.ok(flex.top.length > 0 && flex.top.every((t) => !t.out.stops && !t.back.stops), 'přestupní varianta je v demu vždy dražší');
@@ -234,6 +235,8 @@ test('POST /api/search – cesta přes víc měst (DEMO): průběh po letech, le
   assert.equal(c.perPersonCzk, r.legs[0].options[c.picks[0]].perPersonCzk + r.legs[1].options[c.picks[1]].perPersonCzk);
   assert.equal(c.totalCzk, c.perPersonCzk * 2);
   assert.ok(r.origins.some((o) => o.iata === 'PRG'));
+  // země cíle a místa odletu (open-jaw) – vstupní podmínky pro všechny země cesty
+  assert.deepEqual([r.legs[0].dest.cc, r.legs[0].fromCc, r.legs[1].fromCc], ['IT', null, 'IT']);
   // chyby: jeden let, země jako cíl
   const one = await searchStream({ trip: 'multi', legs: [{ from: ['ap:PRG'], to: ['ap:BLQ'], date: d1 }] });
   assert.equal(one.last.type, 'error');
@@ -256,6 +259,16 @@ test('statické soubory, data a ochrana proti path traversal', async () => {
   assert.match(page, /id="smartGuide"/, 'průvodce „Jak hledat chytře“ na stránce letů');
   const c =await (await fetch(`${base}/data/countries.json`)).json();
   assert.ok(c.length > 150);
+  // vstupní podmínky: zvlášť, komprimované a s hodinovou cache; entry.js po app.js a před trip.js
+  const e = await fetch(`${base}/data/entry.json`, { headers: { 'accept-encoding': 'gzip' } });
+  assert.equal(e.status, 200);
+  assert.equal(e.headers.get('content-encoding'), 'gzip');
+  assert.match(e.headers.get('cache-control'), /max-age=3600/);
+  const ej = await e.json();
+  assert.equal(ej.countries.length, c.length);
+  assert.ok(page.indexOf('js/entry.js') > page.indexOf('js/app.js') && page.indexOf('js/entry.js') < page.indexOf('js/trip.js'), 'entry.js po app.js, před trip.js');
+  assert.equal((await fetch(`${base}/js/entry.js`)).status, 200);
+  assert.match(page, /id="sgEntry"/, 'vstupní podmínky v průvodci „Jak hledat chytře“');
   // fetch() by „..“ normalizoval, proto surový HTTP požadavek.
   for (const p of ['/../server/config.js', '/%2e%2e%2fserver%2fconfig.js', '/..%2f..%2f.env']) {
     const { status, body } = await rawGet(p);

@@ -182,3 +182,14 @@ table.cost tr.tot td{font:800 17px Sora,sans-serif;border-bottom:none;padding-to
 @media(max-width:1080px){.route-layout{grid-template-columns:1fr}.route-map{height:320px}}
 @media(max-width:860px){.route-choice{grid-template-columns:1fr}}
 @media(max-width:560px){.rb{grid-template-columns:30px minmax(0,1fr) auto;row-gap:8px}.rb-main{grid-column:2/-1}.rb-nights{grid-column:2}.rb-acts{grid-column:3}.rt-tr,.rt-leg{padding:8px 6px 8px 10px}}
+/* 🛂 Před cestou (vstupní podmínky) */
+.entry-card .pc-country{padding:10px 0;border-bottom:1px solid var(--border)}
+.entry-card .pc-country:last-of-type{border-bottom:none}
+.entry-card .pc-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14.5px}
+.entry-card .pc-h .ec{margin-top:0}
+.entry-card .pc-list{margin:6px 0 0 18px;font-size:13.5px}
+.entry-card .pc-list li{margin:3px 0}
+.entry-card .pc-src{font-size:12px;margin-top:4px}
+table.cost tr.entry-fee td{font-size:13px;color:var(--muted)}
+table.cost tr.entry-fee td:last-child{color:var(--text)}
+table.cost tr.entry-tot td{font-weight:800;border-bottom:none}

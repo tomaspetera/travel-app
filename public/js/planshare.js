@@ -74,6 +74,9 @@
       notes: txt(raw.notes, 3000, true),
     };
     if (legs.length) plan.legs = legs;
+    // cesta přes víc zemí: jen kódy zemí (vstupní podmínky si plánovač dopočítá z dat)
+    const isos = Array.isArray(raw.isos) ? [...new Set(raw.isos.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x)))].slice(0, 8) : [];
+    if (isos.length) plan.isos = isos;
     return plan;
   }
 

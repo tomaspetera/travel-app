@@ -115,8 +115,16 @@
     return { flights, bags, ground, stay, car, total, perPerson: Math.round(total / pax) };
   }
 
+  /** Země cesty pro vstupní podmínky: cíl, místa trasy a země z cesty přes víc měst (bez Česka). */
+  function tripCountries(t) {
+    const list = [t.dest && t.dest.cc, ...(isMulti(t) ? t.route.bases.map(b => b.cc) : []), ...(Array.isArray(t.ccs) ? t.ccs : [])];
+    return [...new Set(list.filter(cc => /^[A-Z]{2}$/.test(cc || '') && cc !== 'CZ'))];
+  }
+  /** Datum návratu: let zpět, jinak konec pobytu (cesta jen tam). */
+  const returnDate = t => (t.flight.back ? t.flight.back.date : stayDates(t).checkout);
+
   /* ---------- start z výsledků hledání ---------- */
-  function start({ t, g, result }) {
+  function start({ t, g, result, ccs = null }) {
     const originsBy = Object.fromEntries((result.origins || []).map(o => [o.iata, o]));
     const dest = g ? g.dest : { label: t.out.to, cc: '', country: '', lat: null, lon: null };
     S.trip = {
@@ -129,6 +137,8 @@
       priceStats: (() => { const st = (g && g.priceStats) || result.priceStats; return st ? { ...st, mins: undefined } : null; })(),
       dest: { label: dest.label, country: dest.country, cc: dest.cc, lat: dest.lat, lon: dest.lon, id: dest.id },
       home: result.home ? result.home.label : null,
+      // cesta přes víc měst: všechny země na cestě (vstupní podmínky), jen kódy
+      ...(Array.isArray(ccs) && ccs.length ? { ccs: ccs.slice(0, 8) } : {}),
       ground: {
         out: originsBy[t.out.from]?.ground || null,
         back: t.back ? (originsBy[t.back.to]?.ground || null) : null,
@@ -976,6 +986,10 @@
       ] : [t.stay && t.stay.mode !== 'skip' ? ['🏨', `Ubytování · ${nightsTxt(nights)}${t.stay.name ? ' · ' + t.stay.name : ''}`, c.stay] : null]),
       t.car && t.car.mode !== 'skip' ? ['🚗', 'Auto', c.car] : null,
     ].filter(Boolean);
+    // vstupní poplatky (ESTA, e-vízum…): zvlášť pod součtem, do „Celkem“ se nezapočítávají – platí se mimo cestu
+    const isos = tripCountries(t);
+    const fees = window.Entry && Entry.ready() ? Entry.costs(isos, t.adults) : [];
+    const feeCzk = fees.reduce((s, x) => s + x.czk, 0);
     const provLabel = p => ({ kiwi: 'Kiwi.com', travelpayouts: 'Aviasales', ryanair: 'Ryanair', wizzair: 'Wizz Air' })[p] || p;
     const flightLinks = f.bookUrl ? [[f.combined ? `Koupit letenky (${provLabel(f.provider)})` : 'Koupit letenky', f.bookUrl]]
       : [[`Letenka tam (${f.out.carrierName || f.out.provider})`, f.out.bookUrl], ...(f.back ? [[`Letenka zpět (${f.back.carrierName || f.back.provider})`, f.back.bookUrl]] : [])];
@@ -1015,7 +1029,9 @@
     host.innerHTML = `<div class="sum-grid">
       <div class="card step-card"><h3>🧾 Cena cesty</h3>
         <table class="cost">${rows.map(r => `<tr><td>${r[0]}</td><td>${esc(r[1])}</td><td>${czk(r[2])}</td></tr>`).join('')}
-        <tr class="tot"><td></td><td>Celkem</td><td>${czk(c.total)}</td></tr><tr><td></td><td class="faint">na osobu</td><td class="faint">${czk(c.perPerson)}</td></tr></table>
+        <tr class="tot"><td></td><td>Celkem</td><td>${czk(c.total)}</td></tr><tr><td></td><td class="faint">na osobu</td><td class="faint">${czk(c.perPerson)}</td></tr>
+        ${fees.map(x => `<tr class="entry-fee"><td>🛂</td><td>${esc(x.label)} <span class="faint">– vstupní poplatek, orientačně</span></td><td>+ ${czk(x.czk)}</td></tr>`).join('')}
+        ${fees.length ? `<tr class="entry-tot"><td></td><td>Celkem i se vstupními poplatky</td><td>${czk(c.total + feeCzk)}</td></tr>` : ''}</table>
         <div class="faint" style="font-size:12px;margin-top:8px">${c.bags ? 'Zavazadla jsou odhad podle dopravce.' : t.bags && t.bags !== 'none' ? 'Zavazadlo je podle ceníku dopravce v ceně letenky.' : 'Letenky bez zavazadel.'} Ceny u partnerů ověř před zaplacením.</div>
       </div>
       <div class="card step-card"><h3>✅ Co zarezervovat (v tomhle pořadí)</h3>
@@ -1023,6 +1039,7 @@
         ${f.back && f.back.provider !== f.out.provider ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Lety tam a zpět jsou dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká.</div></div>' : ''}
       </div></div>
       ${multi && nightsLeft(t) !== 0 ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div>Noci v trase nesedí s délkou pobytu – uprav je v kroku <b>Trasa</b>, jinak termíny ubytování nebudou navazovat na lety.</div></div>' : ''}
+      ${window.Entry && Entry.ready() ? Entry.checklistHtml(isos, { ret: returnDate(t), pax: t.adults }) : '<div id="tripEntry"></div>'}
       <div class="card step-card"><h3>🗓️ Průběh cesty</h3><div class="timeline">${timeline.map(x => `<div class="tl-row"><span class="tl-d">${dayLbl(x[0])}</span><span class="tl-i">${x[1]}</span><span>${x[2]}</span></div>`).join('')}</div></div>
       <div class="row wrap" style="gap:8px;margin-top:6px">
         <button class="btn primary" id="sumSave">💾 Uložit do plánovače</button>
@@ -1036,6 +1053,8 @@
     $('#sumShare').onclick = () => share();
     $('#sumIcs').onclick = () => icsDownload(`atlas-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` });
     $('#sumNew').onclick = () => { if (confirm('Zahodit rozpracovanou cestu?')) { S.trip = null; persist(); go('flights'); } };
+    // vstupní podmínky dorazily až po vykreslení → shrnutí znovu (jen když je pořád otevřené)
+    if (window.Entry && !Entry.ready()) Entry.whenReady(() => { if ($('#tripEntry') && T() && T().step === 'summary') summaryStep(); });
   }
 
   /* ---------- kalendář ---------- */
@@ -1084,6 +1103,8 @@
       ev.push({ title: `🚗 Vyzvednutí auta (${t.car.pickup})`, start: t.car.from, tz: tz[t.car.pickup], durationMin: 30, location: `Letiště ${t.car.pickup}`, description: note });
       ev.push({ title: `🚗 Vrácení auta (${t.car.dropoff})`, start: t.car.to, tz: tz[t.car.dropoff], durationMin: 30, location: `Letiště ${t.car.dropoff}`, description: note });
     }
+    // „🛂 Vyřídit ESTA (USA)“ ~14 dní před odletem (déle, když data uvádějí delší vyřízení)
+    if (window.Entry) for (const iso of tripCountries(t)) { const r = Entry.reminder(iso, f.out.date, fmtYMD(new Date())); if (r) ev.push(r); }
     const progDays = multi ? t.route.bases.map((b, i) => [b.name, basePlan(t, i)?.days || []]) : [[dest, t.plan?.days || []]];
     for (const [place, days] of progDays) {
       days.forEach((d, i) => {
@@ -1127,6 +1148,7 @@
     ].filter(Boolean).join('\n');
     S.trips.push({
       name: `${t.dest.label} ${fmtDate(checkin)}`, dest: t.dest.label, iso: byIso[t.dest.cc] ? t.dest.cc : null,
+      ...(tripCountries(t).length > 1 ? { isos: tripCountries(t) } : {}),
       start: f.out.date, end: f.back ? f.back.date : checkout, pax: String(t.adults), budget: String(c.total), flight: flightTxt,
       legs: [f.out, f.back].filter(Boolean).map(legBrief), days, checklist: PACK.map(x => ({ t: x, done: false })), notes,
     });
@@ -1181,6 +1203,7 @@
     if (!t.ground || typeof t.ground !== 'object') t.ground = {};
     if (t.plan && !Array.isArray(t.plan.days)) t.plan = null;
     t.route = cleanRoute(t.route);
+    t.ccs = Array.isArray(t.ccs) ? [...new Set(t.ccs.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x)))].slice(0, 8) : undefined;
     return t;
   }
 
@@ -1276,5 +1299,5 @@
     }
   }
 
-  window.Trip = { start, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, baseDates, legBrief };
+  window.Trip = { start, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, baseDates, legBrief, tripCountries };
 })();
