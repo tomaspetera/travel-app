@@ -27,6 +27,7 @@ import { affiliateOn } from './lib/links.js';
 import { HttpError } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
 import { airportClimate, climateAt, climateSource, countryClimate } from './lib/climate.js';
+import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -321,6 +322,22 @@ async function route(req, res) {
     }
     if (!c) return sendJson(req, res, 404, { error: 'Pro toto místo nemám údaje o podnebí.' });
     return sendJson(req, res, 200, { ...c, source: climateSource() }, { 'Cache-Control': 'public, max-age=604800' });
+  }
+  if (p === '/api/ground') {
+    // Vlak nebo bus místo letadla: odhad, srovnání s letadlem, odkazy; s datem i živé spoje RegioJetu (na vyžádání).
+    let q;
+    try {
+      q = groundQuery(url.searchParams);
+    } catch (e) {
+      if (e instanceof GroundError) return sendJson(req, res, 400, { error: e.message });
+      throw e;
+    }
+    // Živé spoje počítá stejný limit jako hledání; po vyčerpání jen odhad a odkazy.
+    const limited = q.date && q.live && rateLimited(req);
+    if (limited) q.live = false;
+    const out = await groundInfo(q);
+    if (limited && out.est) out.live = { ok: false, busy: true, error: 'Příliš mnoho dotazů za krátkou dobu – platí odhad, spoje ověř přes odkaz.' };
+    return sendJson(req, res, 200, out);
   }
   if (p === '/api/cars') return sendJson(req, res, 200, searchCars(Object.fromEntries(url.searchParams)));
   if (p === '/api/poi') {

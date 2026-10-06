@@ -17,7 +17,7 @@
   let view = { mode: 'list', sort: 'total', legSort: 'price', maxPrice: null, onlyDeals: false, excludeOrigins: new Set(), carriers: new Set(), outDate: null, expanded: new Set(), timeOpen: false, ...freshView() };
   // Výpis per hledání: vybraný let tam/zpět (sig), rozbalené sloupce letů, kolik kombinací ukázat, filtry času a přestupů
   // (jako 🔥 jen výhodné platí do dalšího hledání; otevřený panel filtrů zůstává).
-  function freshView() { return { leg: { out: null, back: null }, legAll: {}, legMore: false, flatN: 40, time: SearchHelp.freshTime() }; }
+  function freshView() { return { leg: { out: null, back: null }, legAll: {}, legMore: false, flatN: 40, time: SearchHelp.freshTime(), gndOpen: false }; }
   let legsPref = true; // přesná data: začínat pohledem „✈︎ Lety“ (dokud si uživatel nevybere kombinace)
   let lastForm = null; // formulář posledního hledání – z něj vycházejí úpravy jedním kliknutím
   let lastResultAt = 0;
@@ -465,6 +465,7 @@
       host.innerHTML = emptyState(res);
       $$('[data-mt]', host).forEach(b => b.onclick = () => { setMinTemp(b.dataset.mt); startSearch({ noScroll: true }); });
       wireHelp(host);
+      if (view.gndOpen) showGround(true, false);
       return;
     }
     const thin = SearchHelp.isThin(res);
@@ -480,6 +481,7 @@
         </select>
         <div class="seg" id="viewSeg">${modes.map(v => `<button type="button" data-v="${v[0]}" class="${view.mode === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div>
       </div></div>
+      ${groundBanner(res)}
       ${filterChips(chips)}
       <div class="res-filters">
         <div class="rf-group"><span class="faint">Letiště:</span>${res.origins.map(o => `<button type="button" class="fchip ${view.excludeOrigins.has(o.iata) ? '' : 'on'}" data-fo="${o.iata}" title="${esc((o.name || '') + (o.hub ? ` – velké přestupní letiště pro dálkové lety (${o.distKm} km, cesta ~${o.ground?.czk || 0} Kč započtena)` : ''))}">${o.hub ? '✈︎ ' : ''}${o.iata}${o.ground && o.ground.czk ? ` <small>+${o.ground.czk}</small>` : ''}</button>`).join('')}</div>
@@ -507,6 +509,7 @@
     host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za osobu ${bagFoot(res.query.bags)}, vč. odhadu dopravy na letiště${res.query.kmRate ? ` (${res.query.kmRate} Kč/km)` : ' (vypnuto)'}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2)} Kč (${esc(res.fx.source)})` : '—'}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (NASA POWER, 2001–2020, okolí letiště) – ne předpověď počasí.</div>`;
     wireResults();
     wireHelp(host);
+    if (view.gndOpen) showGround(true, false);
     if (view.mode === 'map') drawResultMap(groups);
   }
 
@@ -536,7 +539,7 @@
       : w && w.destHi != null && w.destHi < w.minTemp
       ? `V cíli ${esc(res.destination.label)} bývá v měsících odletu přes den průměrně nejvýš ~${w.destHi} °C – na filtr „za teplem“ ≥ ${w.minTemp} °C to nestačí.`
       : `Z letišť ${aps} jsem pro zadané termíny nenašel žádný let${res.destination.kind !== 'anywhere' ? ' do cíle ' + esc(res.destination.label) : ''}.${w ? ` Filtr „za teplem“ pouští jen cíle, kde bývá v měsíci odletu přes den aspoň ${w.minTemp} °C.` : ''}`;
-    return `${kiwiBanner(res)}${nearbyHtml(res, true)}<div class="card empty-res"><div class="ei">${w ? '🌡️' : '🧭'}</div><h2>${hid.length && !(w && w.dropped) ? 'Filtrům nic neodpovídá' : 'Nic jsem nenašel'}</h2>
+    return `${kiwiBanner(res)}${groundBanner(res)}${nearbyHtml(res, true)}<div class="card empty-res"><div class="ei">${w ? '🌡️' : '🧭'}</div><h2>${hid.length && !(w && w.dropped) ? 'Filtrům nic neodpovídá' : 'Nic jsem nenašel'}</h2>
       <p class="muted">${msg}</p>
       ${w ? `<div class="row wrap warm-retry">${lower.map(x => `<button type="button" class="btn sm ${x === fits ? 'primary' : ''}" data-mt="${x}">Snížit na ≥ ${x} °C</button>`).join('')}<button type="button" class="btn sm ghost" data-mt="0">Hledat bez teplotního filtru</button></div>` : ''}
       ${smartHelp(res, true)}
@@ -630,6 +633,7 @@
         <div class="rc-flag">${flag(g.dest.cc)}</div>
         <div class="rc-name"><h3>${esc(g.dest.label)}</h3><div class="faint">${esc(g.dest.country || '')}${g.dest.airports.length > 1 ? ` · letiště ${g.dest.airports.join(', ')}` : ` · ${g.dest.airports[0]}`}${t.distanceKm ? ` · ${t.distanceKm.toLocaleString('cs')} km` : ''}${c && c.cost ? ` · ceny na místě ${costDots(c.cost)}` : ''}</div></div>
       </div>
+      ${g.ground ? groundChip(g) : ''}
       ${tripRow(t, g, reg(t, g))}
       ${others.length ? `<button type="button" class="more-btn" data-exp="${esc(g.dest.key)}">${exp ? '▲ Skrýt' : `▼ Další termíny a letiště (${others.length})`}</button>
         ${exp ? `<div class="alt-list">${others.map(o => tripRow(o, g, reg(o, g))).join('')}</div>` : ''}` : ''}
@@ -732,6 +736,63 @@
     rerun(patch);
   }
 
+  /* ---------- vlak nebo bus místo letadla (odhad ze serveru, spoje až na vyžádání) ---------- */
+  // Datum spojů: přesná data → den odletu a návratu; den vybraný v kalendáři; jinak dny nejlevnější cesty
+  // (bez letů začátek rozsahu).
+  function groundDates(res, t) {
+    const q = res.query;
+    if (q.exact) return { out: q.exact.out, back: q.exact.back || null };
+    if (view.outDate) return { out: view.outDate, back: null };
+    if (t) return { out: t.out.date, back: t.back ? t.back.date : null };
+    return { out: q.dateFrom < today() ? today() : q.dateFrom, back: null };
+  }
+  const groundBest = res => (res.top || [])[0] || (res.groups[0] && res.groups[0].best) || null;
+  function groundChip(g) {
+    const x = g.ground;
+    return `<button type="button" class="gnd-chip${x.worth ? ' hot' : ''}" data-gchip="${esc(g.dest.key)}" title="${esc(x.reason || '')} Klikni pro spoje a odkazy.">${esc(Ground.chipText(x))} <small>odhad</small></button>`;
+  }
+  // Srovnání letadlo × vlak/bus: cena na osobu a čas od dveří ke dveřím (vlak/bus = jízda + 30 min na nádraží).
+  function groundCompare(x, t, ret) {
+    const n = ret ? 2 : 1;
+    return `<div class="gb-cmp">
+      <div class="gb-col"><span class="gb-l">✈️ Letadlo</span>${t ? `<b>od ${czk(t.perPersonCzk)}</b><small>na osobu${ret ? ', tam i zpět' : ''}</small>` : '<b>nic nenalezeno</b><small>pro zadané termíny</small>'}<span>${x.doorMin ? `~${Ground.hm(x.doorMin)} od dveří ke dveřím${t ? ' (nejrychlejší nalezený let)' : ''}` : ''}</span></div>
+      <div class="gb-col win"><span class="gb-l">🚆 Vlak / bus <em>odhad</em></span><b>od ~${czk(x.czk * n)}</b><small>na osobu${ret ? ', tam i zpět' : ''}</small><span>~${Ground.hm(x.min + 30)} od dveří ke dveřím</span></div>
+    </div>`;
+  }
+  function groundBanner(res) {
+    const x = res.ground;
+    if (!x) return '';
+    const t = groundBest(res), ret = res.query.trip === 'return';
+    const src = `${x.regiojet ? 'RegioJet – živé ceny po kliknutí' : 'RegioJet tu nejezdí'}${x.flixbus ? ' · FlixBus – jen odkaz' : ''} · IDOS a Google Mapy – odkazy`;
+    if (!x.worth && t) {
+      return `<div class="gnd-line">🚆 <div>Vlakem/busem ${esc(x.from)} → ${esc(x.to)} ~${esc(Ground.hm(x.min))} · od ~${czk(x.czk)} (odhad) – letadlo tu vychází lépe. <button type="button" class="linkbtn" data-gshow="1">Spoje a odkazy</button></div></div><div id="gndPanel"></div>`;
+    }
+    return `<div class="card gnd-banner">
+      <div class="gb-h"><span class="gb-ic">🚆</span><div><b>${esc(x.from)} → ${esc(x.to)} i vlakem nebo busem</b><div class="muted">${esc(x.reason || '')}</div></div></div>
+      ${groundCompare(x, t, ret)}
+      <div class="gb-act"><button type="button" class="btn sm primary" data-gshow="1">${view.gndOpen ? 'Skrýt spoje' : 'Ukázat spoje'}</button><span class="faint">${esc(src)}</span></div>
+      <div id="gndPanel"></div></div>`;
+  }
+  /** Panel se spoji pod srovnáním (výsledky ke konkrétnímu cíli i prázdný výsledek). */
+  function showGround(open, scroll = true) {
+    const res = lastResult, x = res && res.ground, host = $('#gndPanel');
+    view.gndOpen = Boolean(open && x && host);
+    $$('[data-gshow]').forEach(b => { if (b.classList.contains('btn')) b.textContent = view.gndOpen ? 'Skrýt spoje' : 'Ukázat spoje'; });
+    if (!host) return;
+    if (!view.gndOpen) { host.innerHTML = ''; return; }
+    const t = groundBest(res), d = groundDates(res, t);
+    Ground.panel(host, { q: x.q, date: d.out, back: d.back, adults: res.query.adults, flight: { czk: t ? t.perPersonCzk : null, trips: t && t.back ? 2 : 1, min: t ? t.out.durationMin : null } });
+    if (scroll) host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  /** Spoje k jedné destinaci z „kamkoliv“ (čip u výsledku) v okně. */
+  function openGroundModal(g) {
+    const x = g.ground, res = lastResult, t = (g.vis && g.vis[0]) || g.best, d = groundDates(res, t);
+    modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()" aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>
+      <div class="modal-hero-inner"><h2 style="font-size:22px">🚆 ${esc(x.from)} → ${esc(x.to)}</h2><div style="opacity:.88;font-size:13px">vlakem nebo busem · ~${x.km.toLocaleString('cs')} km vzdušnou čarou · ${esc(Ground.basisTxt(x.basis))}</div></div></div>
+      <div class="modal-body"><div class="muted gm-why">${esc(x.reason || '')}</div>${groundCompare(x, t, Boolean(t && t.back))}<div id="gndModalPanel"></div></div>`);
+    Ground.panel($('#gndModalPanel'), { q: x.q, date: d.out, back: d.back, adults: res.query.adults, flight: { czk: t.perPersonCzk, trips: t.back ? 2 : 1, min: t.out.durationMin } });
+  }
+
   /* ---------- výpadek Kiwi.com, aktivní filtry, chytrá nápověda ---------- */
   function kiwiBanner(res) {
     const k = SearchHelp.kiwiOutage(res.providers);
@@ -818,7 +879,8 @@
   // Ovládání nápovědy, nejbližších dnů, filtrů a pohledu „Lety“ (výsledky i prázdný stav).
   function wireHelp(host) {
     // akce s clear zruší filtr výpisu hned, ostatní upraví formulář a hledají znovu
-    $$('[data-act]', host).forEach(b => b.onclick = () => { const a = actReg[+b.dataset.act]; if (a) a.clear ? clearFilter(a.clear) : rerun(a.patch); });
+    $$('[data-act]', host).forEach(b => b.onclick = () => { const a = actReg[+b.dataset.act]; if (a) a.ground ? showGround(true) : a.clear ? clearFilter(a.clear) : rerun(a.patch); });
+    $$('[data-gshow]', host).forEach(b => b.onclick = () => showGround(!view.gndOpen));
     $$('[data-guide]', host).forEach(b => b.onclick = openGuide);
     $$('[data-nb]', host).forEach(b => b.onclick = () => { const [w, d] = b.dataset.nb.split(':'); pickNearDay(w, d); });
     $$('[data-af]', host).forEach(b => b.onclick = () => clearFilter(b.dataset.af));
@@ -944,6 +1006,7 @@
     $$('[data-day]', host).forEach(c => c.onclick = () => { view.outDate = view.outDate === c.dataset.day ? null : c.dataset.day; rerender(true); });
     $$('[data-pick]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pick]; Trip.start({ t: r.t, g: r.g, result: lastResult }); });
     $$('[data-country]', host).forEach(b => b.onclick = () => openCountry(b.dataset.country));
+    $$('[data-gchip]', host).forEach(b => b.onclick = () => { const g = lastResult.groups.find(x => x.dest.key === b.dataset.gchip); if (g) openGroundModal(g); });
   }
   function rerender(keepScroll) {
     const y = window.scrollY;

@@ -171,6 +171,8 @@
   const PART_TXT = { morning: 'ráno', afternoon: 'odpoledne', evening: 'večer', night: 'v noci' };
   const freshTime = () => ({ out: [], back: [], arrBy: null, stops: null, maxDur: null, maxLay: null });
   const hm = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
+  // „4 h 20“ (jako u odhadu cesty vlakem/busem)
+  const hhmmTxt = m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + pad(m % 60) : ''}` : `${m} min`; };
   const clock = s => { const x = String(s || ''); const h = +x.slice(11, 13), m = +x.slice(14, 16); return x.length >= 16 && Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null; };
 
   /** Část dne odletu letu, nebo null (čas neznámý). */
@@ -314,6 +316,7 @@
    * Konkrétní úpravy hledání pro prázdný nebo chudý výsledek – každá je jedno kliknutí (patch formuláře → nové hledání).
    * form = formulář, se kterým se hledalo (položky Odkud/Kam jako {id,label,flag,type}); res = výsledek;
    * opts.country(cc) → { name, cont } (česky), opts.flag(cc) → vlajka. Vrací [{ key, label, patch }], nejslibnější první.
+   * Cíl v dosahu vlaku/busu (res.ground, odhad ze serveru) → { key: 'ground', label, ground: true } – otevře spoje po zemi.
    * opts.time = { chips, any }: čipy filtrů času a přestupů (timeChips) a kolik nabídek skryly dohromady – ty, které
    * něco skryly, jdou úplně napřed jako { key, label, clear } (zruší se hned ve výpisu, bez nového hledání).
    */
@@ -331,6 +334,9 @@
     // Filtr, který nabídky opravdu skryl, je nejpravděpodobnější příčina.
     if (f.maxPrice && hidden.maxPrice) add('noPrice', `Zrušit limit ceny (skryl ${hidden.maxPrice})`, { maxPrice: '' });
     if (f.directOnly && hidden.directOnly) add('noDirect', `I lety s přestupem (skryto ${hidden.directOnly})`, { directOnly: false });
+    // Blízký cíl: vlak nebo bus (když se to vyplatí, nebo když letadlem nic není).
+    const g = r.ground;
+    if (g && g.min > 0 && (g.worth || !(r.groups || []).length)) acts.push({ key: 'ground', label: `🚆 Vlakem/busem ~${hhmmTxt(g.min)} · od ~${kc(g.czk)} (odhad)`, ground: true });
     if (exact) {
       const fl = +f.xFlex || 0;
       if (fl < 1) add('flex1', '± 1 den', { xFlex: 1 });

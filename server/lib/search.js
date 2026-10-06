@@ -11,6 +11,7 @@ import { fxInfo, loadRates, toCzk } from './fx.js';
 import { haversineKm } from './geo.js';
 import { validTrip } from './fares.js';
 import { legBagEur } from './baggage.js';
+import { attachGround } from './ground.js';
 
 export class UserError extends Error {
   constructor(msg) {
@@ -609,6 +610,9 @@ export async function search(raw, emit = () => {}) {
     warm.destHi = his.length ? Math.max(...his) : null;
   }
   const usedHubs = hubs.filter((h) => flat.some((t) => t.out.from === h.iata || t.back?.to === h.iata));
+  // Vlak/bus místo letadla: odhad bez sítě ke skupinám v dosahu (Evropa po souši) a u konkrétního cíle i celkově.
+  const destinationLabels = q.to.map((id) => describe(id)).filter(Boolean);
+  const ground = attachGround({ home: origins.home, origins: [...origins.airports, ...hubs], groups, flat, dests: routeMode ? destinationLabels : [] });
   return {
     query: q,
     mode: routeMode ? 'route' : 'explore',
@@ -617,7 +621,9 @@ export async function search(raw, emit = () => {}) {
     // Přestupní letiště, ze kterých se (dálkové lety) hledalo navíc – i když z nich nic nevyšlo (UI je pak znovu nenabízí).
     hubs: hubs.map((h) => h.iata),
     destination: { kind: dest.kind, label: dest.label || 'Kamkoliv', airports: routeMode ? destAirports : null, countries: dest.countries || null },
-    destinationLabels: q.to.map((id) => describe(id)).filter(Boolean),
+    destinationLabels,
+    // Konkrétní cíl v dosahu: srovnání letadla s vlakem/busem (odhad) – i když se žádný let nenašel.
+    ground,
     groups,
     // V režimu konkrétního cíle i plochý žebříček nejlepších kombinací (data × letiště × aerolinky).
     top: routeMode ? topWithDays(flat, { exact: Boolean(q.exact) }) : null,
