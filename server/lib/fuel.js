@@ -29,6 +29,35 @@ export const COUNTRIES = ['CZ', 'DE', 'AT', 'SK', 'PL', 'HU'];
 export const DEFAULT_L_PER_100 = { diesel: 6, petrol: 7 };
 const FUEL_CS = { diesel: 'nafta', petrol: 'benzín N95' };
 
+// Elektroauto: nabíjení bez předplatného (ad hoc, Kč/kWh) podle ceníků provozovatelů k 6. 10. 2026 (průzkum webů;
+// Tesla, Shell a MOL ze sekundárních zdrojů). ac / dc = cena na AC / DC nabíječce, price = cena bez rozlišení.
+// Cesta na letiště po dálnici = rychlonabíjení DC: odhad 16 Kč/kWh (běžně 13–22; liší se podle provozovatele, výkonu
+// nabíječky a členství či předplatného – s ním bývá levněji). Spotřeba 19 kWh/100 km (dálnice, celoročně).
+export const DEFAULT_KWH_PER_100 = 19;
+export const EV_DC = {
+  default: 16,
+  range: [13, 22],
+  date: '2026-10-06',
+  operators: [
+    { name: 'ČEZ', ac: 16.9, dc: 22.9 },
+    { name: 'PRE', ac: 13, dc: 15 },
+    { name: 'E.ON', price: [10.5, 20] },
+    { name: 'IONITY', dc: 21 },
+    { name: 'Shell Recharge', price: 15, secondary: true },
+    { name: 'MOL Plugee', ac: 14.5, dc: 15.5, secondary: true },
+    { name: 'Tesla Supercharger', dc: [8, 14], note: 'pro auta jiných značek', secondary: true },
+  ],
+};
+export const EV_LABEL = 'nabíjení DC ~16 Kč/kWh (ceníky ČEZ, PRE, E.ON, IONITY, Tesla – stav 6. 10. 2026)';
+
+// 16,9 → „16,90“, 13 → „13“, [8, 14] → „8–14“
+const kwh = (v) => (Array.isArray(v) ? v.map(kwh).join('–') : Number.isInteger(v) ? String(v) : v.toFixed(2).replace('.', ','));
+/** Řádek ceníku: „ČEZ 16,90 (AC) / 22,90 (DC)“, „Tesla Supercharger 8–14 (DC, pro auta jiných značek)“. */
+export function evOperatorText(o) {
+  const parts = [o.ac != null ? `${kwh(o.ac)} (AC)` : '', o.dc != null ? `${kwh(o.dc)} (DC${o.note && o.ac == null ? `, ${o.note}` : ''})` : '', o.price != null ? kwh(o.price) : ''];
+  return `${o.name} ${parts.filter(Boolean).join(' / ')}${o.note && o.dc == null ? ` (${o.note})` : ''}${o.secondary ? ' *' : ''}`;
+}
+
 // Vestavěné ceny (Kč/l): ČR = ČSÚ 40. týden 2026 (28. 9.–4. 10.), ostatní = Weekly Oil Bulletin k 28. 9. 2026
 // přepočtený kurzem ECB 24,397 Kč/EUR ze stejného dne.
 export const FALLBACK = {
@@ -376,10 +405,11 @@ export async function fuelPrices() {
   return (await fuelData()).prices;
 }
 
-/** Pro GET /api/fuel: ceny po zemích + { updated, sources, defaultFuel, lPer100 }. */
+/** Pro GET /api/fuel: ceny po zemích + { updated, sources, defaultFuel, lPer100, ev } (ev = nabíjení elektroauta). */
 export async function fuelInfo() {
   const d = await fuelData();
-  return { ...d.prices, updated: d.updated, sources: d.sources, defaultFuel: DEFAULT_FUEL, lPer100: DEFAULT_L_PER_100, ...(d.demo ? { demo: true } : {}) };
+  const ev = { ...EV_DC, label: EV_LABEL, kwhPer100: DEFAULT_KWH_PER_100, operators: EV_DC.operators.map((o) => ({ ...o, text: evOperatorText(o) })) };
+  return { ...d.prices, updated: d.updated, sources: d.sources, defaultFuel: DEFAULT_FUEL, lPer100: DEFAULT_L_PER_100, ev, ...(d.demo ? { demo: true } : {}) };
 }
 
 /** Cena litru v zemi (neznámá země → ČR): { country, fuel, perLitre, date, source, label }. Synchronní. */

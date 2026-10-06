@@ -1,4 +1,4 @@
-// GET /api/fuel přes HTTP v DEMO režimu: ceny nafty a benzínu po zemích + zdroje, bez sítě.
+// GET /api/fuel přes HTTP v DEMO režimu: ceny nafty a benzínu po zemích + zdroje a ceník nabíjení elektroauta, bez sítě.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -31,4 +31,23 @@ test('GET /api/fuel: ceny po zemích (Kč/l), zdroj, datum, výchozí nafta', as
   assert.deepEqual(j.lPer100, { diesel: 6, petrol: 7 });
   assert.equal(j.updated, null);
   assert.ok(Array.isArray(j.sources) && j.sources.length >= 1);
+});
+
+test('GET /api/fuel: elektroauto – odhad nabíjení DC s datem a ceníky provozovatelů (stav 6. 10. 2026)', async () => {
+  const { ev } = await (await fetch(`${base}/api/fuel`)).json();
+  assert.equal(ev.default, 16);
+  assert.deepEqual(ev.range, [13, 22]);
+  assert.equal(ev.date, '2026-10-06');
+  assert.equal(ev.kwhPer100, 19);
+  assert.equal(ev.label, 'nabíjení DC ~16 Kč/kWh (ceníky ČEZ, PRE, E.ON, IONITY, Tesla – stav 6. 10. 2026)');
+  assert.deepEqual(ev.operators.map((o) => o.text), [
+    'ČEZ 16,90 (AC) / 22,90 (DC)', 'PRE 13 (AC) / 15 (DC)', 'E.ON 10,50–20', 'IONITY 21 (DC)', 'Shell Recharge 15 *',
+    'MOL Plugee 14,50 (AC) / 15,50 (DC) *', 'Tesla Supercharger 8–14 (DC, pro auta jiných značek) *',
+  ]);
+  const by = Object.fromEntries(ev.operators.map((o) => [o.name, o]));
+  assert.deepEqual([by['ČEZ'].ac, by['ČEZ'].dc, by.PRE.dc, by['E.ON'].price, by.IONITY.dc, by['Tesla Supercharger'].dc], [16.9, 22.9, 15, [10.5, 20], 21, [8, 14]]);
+  assert.deepEqual(ev.operators.filter((o) => o.secondary).map((o) => o.name), ['Shell Recharge', 'MOL Plugee', 'Tesla Supercharger'], 'ze sekundárních zdrojů');
+  // odhad v rozpětí DC cen provozovatelů
+  const dc = ev.operators.flatMap((o) => [o.dc, o.price].flat()).filter((x) => x != null);
+  assert.ok(ev.default >= ev.range[0] && ev.default <= ev.range[1] && Math.min(...dc) <= ev.range[0] && Math.max(...dc) >= ev.range[1]);
 });

@@ -339,4 +339,31 @@ test('sanitizeTrip: doprava na letiště ze sdíleného odkazu – autem, veřej
   assert.equal(san({ groundMode: '<img src=x>' }).groundMode, 'transit');
   // cena dopravy na letiště (autem i s parkováním) zůstává v ceně cesty
   assert.equal(Trip.costs(san({ groundMode: 'car' })).ground, 400);
+  // pohon auta: jen známé hodnoty, veřejnou dopravou žádný; starší odkaz bez pole = „palivo“
+  assert.equal(san({ groundMode: 'car', carFuel: 'ev' }).carFuel, 'ev');
+  assert.equal(san({ groundMode: 'car', carFuel: 'petrol' }).carFuel, 'petrol');
+  for (const bad of ['<img src=x>', 'constructor', '__proto__', 7, ['ev'], { ev: 1 }]) assert.equal(san({ groundMode: 'car', carFuel: bad }).carFuel, null, String(bad));
+  assert.equal(san({ groundMode: 'transit', carFuel: 'ev' }).carFuel, null);
+  assert.equal(san({ groundMode: 'car' }).carFuel, null);
+});
+
+test('průvodce cestou: souhrn a průběh cesty autem uvádí pohon (nafta, benzín, elektroauto), veřejnou dopravou beze změny', () => {
+  const g = (over) => plain(Trip.groundLines(Trip.sanitizeTrip(plain(trip({ overland: null, ground: { out: { minutes: 45 }, back: { minutes: 50 } }, ...over })))));
+  assert.deepEqual(g({ groundMode: 'car', carFuel: 'diesel' }), {
+    icon: '🚗', row: 'Autem na letiště a zpět (nafta, parkování, odhad)',
+    out: 'Autem na letiště PRG (nafta, ~45 min, odhad)', back: 'Autem z letiště PRG domů (nafta, ~50 min)',
+  });
+  assert.equal(g({ groundMode: 'car', carFuel: 'petrol' }).row, 'Autem na letiště a zpět (benzín, parkování, odhad)');
+  assert.deepEqual(g({ groundMode: 'car', carFuel: 'ev' }), {
+    icon: '🚗', row: 'Elektroautem na letiště a zpět (nabíjení, parkování, odhad)',
+    out: 'Elektroautem na letiště PRG (~45 min, odhad)', back: 'Elektroautem z letiště PRG domů (~50 min)',
+  });
+  // starší cesta autem bez pohonu
+  assert.deepEqual([g({ groundMode: 'car' }).row, g({ groundMode: 'car' }).out], ['Autem na letiště a zpět (palivo, parkování, odhad)', 'Autem na letiště PRG (palivo, ~45 min, odhad)']);
+  assert.deepEqual(g({ groundMode: 'transit' }), {
+    icon: '🚌', row: 'Doprava na letiště a zpět (odhad)', out: 'Cesta na letiště PRG (~45 min, odhad)', back: 'Cesta z letiště PRG domů (~50 min)',
+  });
+  // jen tam, cesta na letiště neznámá
+  const oneWay = plain(Trip.groundLines(Trip.sanitizeTrip(plain(trip({ overland: null, groundMode: 'car', carFuel: 'ev', ground: {}, flight: { ...trip().flight, back: null } })))));
+  assert.deepEqual(oneWay, { icon: '🚗', row: 'Elektroautem na letiště (nabíjení, parkování, odhad)', out: null, back: null });
 });

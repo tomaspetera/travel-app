@@ -541,11 +541,128 @@
   /* ---------- doprava na letiště (stejně jako server/lib/access.js) ---------- */
 
   const LEGACY_KM_RATE = 1.1; // dřív Kč/km s výchozími 1,1 – uložená hledání a hlídané ceny
-  /** Formulář uložený dřív (bez groundMode, kmRate v Kč/km) → veřejnou dopravou, kmRate jako násobek odhadu (1,1 → 1). */
+  // Auto: pohon, jednotka, výchozí spotřeba na 100 km a meze spotřeby a vlastní ceny – jako server (access.js CAR_FUELS).
+  const CAR_FUELS = {
+    diesel: { name: 'nafta', unit: 'l', cons: 6, consRange: [2, 30], priceRange: [5, 150] },
+    petrol: { name: 'benzín N95', unit: 'l', cons: 7, consRange: [2, 30], priceRange: [5, 150] },
+    ev: { name: 'nabíjení', unit: 'kWh', cons: 19, consRange: [8, 40], priceRange: [1, 40] },
+  };
+  const FUEL_KEYS = ['diesel', 'petrol', 'ev'];
+  const CAR_KM_CZK = 2.6; // dřívější výchozí Kč/km za auto (formulář s carKm, dotaz s carKmCzk)
+  const FUEL_IN = { DE: 'v Německu', AT: 'v Rakousku', SK: 'na Slovensku', PL: 'v Polsku', HU: 'v Maďarsku' };
+  const given = v => v != null && v !== '';
+  const clamp = (x, r) => Math.min(r[1], Math.max(r[0], x));
+  const comma = x => String(x).replace('.', ',');
+  /** Cena za litr / kWh v popisku: nafta a benzín na haléře („50,65“), nabíjení celé bez desetin („16“, „8,50“). */
+  const priceTxt = (fuel, x) => (CAR_FUELS[fuel] && CAR_FUELS[fuel].unit === 'l') || !Number.isInteger(x) ? x.toFixed(2).replace('.', ',') : String(x);
+
+  /** Auto z dotazu / formuláře → { carFuel, carCons, carPrice, carKmCzk } – jako server (access.js normalizeCar). */
+  function carOpts(raw) {
+    const r = raw || {};
+    if (!given(r.carFuel) && given(r.carKmCzk)) {
+      const km = Number(r.carKmCzk);
+      return { carFuel: null, carCons: null, carPrice: null, carKmCzk: km > 0 ? Math.round(clamp(km, [0.5, 10]) * 10) / 10 : CAR_KM_CZK };
+    }
+    const fuel = FUEL_KEYS.includes(r.carFuel) ? r.carFuel : 'diesel';
+    const f = CAR_FUELS[fuel], cons = Number(r.carCons), price = Number(r.carPrice);
+    return {
+      carFuel: fuel,
+      carCons: given(r.carCons) && cons > 0 ? Math.round(clamp(cons, f.consRange) * 10) / 10 : f.cons,
+      carPrice: given(r.carPrice) && price > 0 ? Math.round(clamp(price, f.priceRange) * 100) / 100 : null,
+      carKmCzk: null,
+    };
+  }
+
+  /**
+   * Cena pohonu auta – jako server (access.js carEnergy): { fuel, cons, unit, price, priceLabel, kmCzk, custom, country,
+   * date, source } | null. info = odpověď /api/fuel (ceny po zemích, ev = nabíjení), cc = země domova (neznámá → ČR).
+   * Bez cen (info ještě nedorazilo) jen s vlastní cenou, jinak null.
+   */
+  function carEnergy(raw, info, cc = 'CZ') {
+    const c = carOpts(raw);
+    if (!c.carFuel) return null;
+    const f = CAR_FUELS[c.carFuel];
+    let price, priceLabel, src;
+    if (c.carPrice) {
+      price = c.carPrice;
+      priceLabel = `${f.name} ${priceTxt(c.carFuel, price)} Kč/${f.unit} · vlastní cena`;
+      src = { country: null, date: null, source: 'custom' };
+    } else if (c.carFuel === 'ev') {
+      const ev = info && info.ev;
+      if (!ev || !(ev.default > 0)) return null;
+      price = ev.default;
+      priceLabel = ev.label;
+      src = { country: null, date: ev.date, source: 'ev' };
+    } else {
+      const has = k => /^[A-Z]{2}$/.test(k) && Boolean(info && info[k]) && Number.isFinite(info[k][c.carFuel]);
+      const code = has(String(cc || '').toUpperCase()) ? String(cc).toUpperCase() : 'CZ';
+      if (!has(code)) return null;
+      const p = info[code];
+      price = p[c.carFuel];
+      priceLabel = `${f.name} ${priceTxt(c.carFuel, price)} Kč/l${FUEL_IN[code] ? ` ${FUEL_IN[code]}` : ''} · ${p.label}`;
+      src = { country: code, date: p.date, source: p.source };
+    }
+    return { fuel: c.carFuel, cons: c.carCons, unit: f.unit, price, priceLabel, kmCzk: Math.round(c.carCons * price / 100 * 1e5) / 1e5, custom: Boolean(c.carPrice), ...src };
+  }
+  /** Palivo za cestu po silnici (Kč, jedním směrem) – jako server (access.js carAccess fuelCzk). */
+  const fuelCzk = (roadKm, kmCzk) => Math.round(roadKm * kmCzk);
+  /** „≈ 3,04 Kč/km“ bez ≈ – Kč/km na haléře. */
+  const kmTxt = x => (Math.round(x * 100) / 100).toFixed(2).replace('.', ',');
+  const FUEL_WORD = { diesel: 'nafta', petrol: 'benzín', ev: 'elektroauto' };
+  /** „nafta 6 l/100 km ≈ 3,04 Kč/km“ (e = carEnergy nebo položka fuel z rozpisu cesty autem). */
+  const energyTxt = e => (e && e.fuel ? `${FUEL_WORD[e.fuel]} ${comma(e.cons)} ${e.unit}/100 km ≈ ${kmTxt(e.kmCzk)} Kč/km` : '');
+  /** Řádek s cenou ve formuláři: „nafta 50,65 Kč/l · ČSÚ, týden 28. 9.–4. 10.“ (u ČSÚ kratší než priceLabel). */
+  function fuelLine(e) {
+    if (!e) return '';
+    if (e.source === 'czso' && /^\d{4}-\d{2}-\d{2}$/.test(e.date || '')) return `${CAR_FUELS[e.fuel].name} ${priceTxt(e.fuel, e.price)} Kč/l · ČSÚ, týden ${dm(e.date)}–${dm(addDays(e.date, 6))}`;
+    return e.priceLabel;
+  }
+  /** Položka paliva z rozpisu cesty autem (ground.breakdown) s pohonem a cenou, jinak null (dřívější Kč/km, vypnuto). */
+  const fuelItem = g => (g && (g.breakdown || []).find(x => x.k === 'fuel' && x.fuel)) || null;
+  /**
+   * Palivo jedním směrem za auto: „palivo 330 km × 6 l/100 km × 50,65 Kč/l = 1 003 Kč“ (elektroauto „nabíjení … kWh …“,
+   * dřívější Kč/km „palivo 330 km × 2,6 Kč/km = 858 Kč“). g = ground autem ze serveru.
+   */
+  function fuelFormula(g) {
+    if (!g || !(g.roadKm > 0)) return '';
+    const e = fuelItem(g);
+    if (e) return `${e.fuel === 'ev' ? 'nabíjení' : 'palivo'} ${g.roadKm} km × ${comma(e.cons)} ${e.unit}/100 km × ${priceTxt(e.fuel, e.price)} Kč/${e.unit} = ${kc(g.fuelCzk)}`;
+    return `palivo ${g.roadKm} km × ${comma(g.carKmCzk)} Kč/km = ${kc(g.fuelCzk)}`;
+  }
+
+  /**
+   * Formulář uložený dřív → dnešní tvar. Bez groundMode s kmRate v Kč/km → veřejnou dopravou, kmRate jako násobek
+   * odhadu (1,1 → 1). Auto: carFuel + spotřeba a vlastní cena pro každý pohon zvlášť (carCons / carPrice = { diesel,
+   * petrol, ev }); dřívější Kč/km za auto (carKm) jiné než výchozí 2,6 → vlastní cena nafty při 6 l/100 km (3 Kč/km =
+   * 50 Kč/l), výchozí 2,6 → aktuální ceny. Formulář v dnešním tvaru vrací beze změny.
+   */
   function groundForm(f) {
-    if (!f || typeof f !== 'object' || f.groundMode != null || f.kmRate == null) return f;
-    const k = Number(f.kmRate);
-    return { ...f, groundMode: 'transit', kmRate: Number.isFinite(k) && k >= 0 ? Math.round(k / LEGACY_KM_RATE * 10) / 10 : 1 };
+    if (!f || typeof f !== 'object') return f;
+    let out = f;
+    if (f.groundMode == null && f.kmRate != null) {
+      const k = Number(f.kmRate);
+      out = { ...out, groundMode: 'transit', kmRate: Number.isFinite(k) && k >= 0 ? Math.round(k / LEGACY_KM_RATE * 10) / 10 : 1 };
+    }
+    const obj = v => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+    if (FUEL_KEYS.includes(f.carFuel) && obj(f.carCons) && obj(f.carPrice) && !('carKm' in f)) return out;
+    const cons = {}, price = {};
+    for (const k of FUEL_KEYS) {
+      const c = carOpts({ carFuel: k, carCons: obj(f.carCons) ? f.carCons[k] : null, carPrice: obj(f.carPrice) ? f.carPrice[k] : null });
+      cons[k] = c.carCons;
+      price[k] = c.carPrice;
+    }
+    const km = Number(f.carKm);
+    if (!FUEL_KEYS.includes(f.carFuel) && km > 0 && Math.abs(km - CAR_KM_CZK) > 0.001) {
+      price.diesel = carOpts({ carFuel: 'diesel', carPrice: km * 100 / cons.diesel }).carPrice;
+    }
+    const { carKm, ...rest } = out;
+    return { ...rest, carFuel: FUEL_KEYS.includes(f.carFuel) ? f.carFuel : 'diesel', carCons: cons, carPrice: price };
+  }
+  /** Auto do dotazu z formuláře: { carFuel, carCons, carPrice? } – spotřeba a cena zvoleného pohonu. */
+  function carPayload(f) {
+    const fuel = FUEL_KEYS.includes(f && f.carFuel) ? f.carFuel : 'diesel';
+    const c = carOpts({ carFuel: fuel, carCons: f && f.carCons && f.carCons[fuel], carPrice: f && f.carPrice && f.carPrice[fuel] });
+    return { carFuel: c.carFuel, carCons: c.carCons, ...(c.carPrice ? { carPrice: c.carPrice } : {}) };
   }
   const tollSum = (g, pick) => (g.tolls || []).filter(pick).reduce((s, t) => s + t.czk, 0);
   /** Dní parkování pro cestu s N nocemi (odlet ráno, návrat večer = N + 1 započatých dní). */
@@ -575,16 +692,19 @@
   function accessLabel(g, { nights = null } = {}) {
     if (!g || g.off || !(g.czk >= 0)) return null;
     if (g.mode === 'car') {
-      const t = carTrip(g, nights), n = g.adults || 1;
+      const t = carTrip(g, nights), n = g.adults || 1, e = fuelItem(g);
       const tolls = (g.tolls || []).map(x => ` + ${x.label} ~${kc(x.days ? x.czk : 2 * x.czk)}`).join('');
-      const fuel = `palivo tam i zpět ${2 * g.roadKm} km × ${rate(g.carKmCzk)} Kč = ~${kc(t.fuel)}`;
+      // palivo jedním směrem: km × spotřeba × aktuální cena, pak tam i zpět (dřívější dotaz: Kč/km)
+      const fuel = e ? `${fuelFormula(g)}, tam i zpět ~${kc(t.fuel)}`
+        : `palivo tam i zpět ${2 * g.roadKm} km × ${rate(g.carKmCzk)} Kč = ~${kc(t.fuel)}`;
+      const src = e ? ` Cena: ${e.priceLabel}.${e.fuel === 'ev' ? ' Parkování a známky platí elektroauto stejně.' : ''}` : '';
       const per = `~${kc(t.total)} za auto, na osobu (${n} os.) ~${kc(t.perPerson)}`;
       if (g.dropOff) {
-        return { text: `~${kc(r10(t.perPerson))}/os. (odvoz)`, title: `Autem jen tam: počítám, že tě někdo odveze a vrátí se (parkování neznámé) – ${fuel}${tolls} = ${per}. ~${hm(g.minutes)} jízdy. Odhad.` };
+        return { text: `~${kc(r10(t.perPerson))}/os. (odvoz)`, title: `Autem jen tam: počítám, že tě někdo odveze a vrátí se (parkování neznámé) – ${fuel}${tolls} = ${per}. ~${hm(g.minutes)} jízdy.${src} Odhad.` };
       }
       return {
         text: `~${kc(r10(t.perPerson))}/os. vč. parkování na ${t.days} ${dnu(t.days)}`,
-        title: `Autem ${g.roadKm} km (~${hm(g.minutes)}): ${fuel} + parkování ~${kc(g.parkDayCzk)}/den × ${t.days} ${dnu(t.days)} = ~${kc(t.park)}${tolls} = ${per}. Parkování ve výsledcích podle skutečné délky cesty. Odhad.`,
+        title: `Autem ${g.roadKm} km (~${hm(g.minutes)}): ${fuel} + parkování ~${kc(g.parkDayCzk)}/den × ${t.days} ${dnu(t.days)} = ~${kc(t.park)}${tolls} = ${per}.${src} Parkování ve výsledcích podle skutečné délky cesty. Odhad.`,
       };
     }
     const items = (g.breakdown || []).map(x => `${x.label} ~${kc(x.czk)}`);
@@ -594,6 +714,7 @@
 
   window.SearchHelp = {
     groundForm, parkDays, parkCzk, carTrip, accessLabel,
+    CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
   };

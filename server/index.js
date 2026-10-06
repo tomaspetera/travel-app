@@ -12,7 +12,7 @@ import { activeProviders, providerStatus } from './providers/index.js';
 import { fxInfo, loadRates } from './lib/fx.js';
 import { cache } from './lib/cache.js';
 import { airportsNear, getAirport } from './lib/airports.js';
-import { airportAccess, carTrip, normalizeAccess } from './lib/access.js';
+import { accessOpts, airportAccess, carTrip, fuelCountry, normalizeAccess } from './lib/access.js';
 import { addDays, todayYmd } from './lib/dates.js';
 import { searchStays, hostelworldHas } from './lib/stays.js';
 import { searchCars } from './lib/cars.js';
@@ -154,6 +154,21 @@ async function handleSearch(req, res) {
   else res.end();
 }
 
+/**
+ * Volby cesty na letiště z parametrů adresy (/api/origins, /api/nearby) – stejná kontrola jako u hledání (normalizeAccess):
+ * groundMode, kmRate, carFuel, carCons, carPrice (dřívější carKmCzk), adults, trip (oneway = odvoz), nights (výchozí 7).
+ * → { opts (pro airportAccess), nights, echo (použité volby do odpovědi) }
+ */
+function accessParams(sp) {
+  const acc = normalizeAccess(Object.fromEntries(['kmRate', 'groundMode', 'carFuel', 'carCons', 'carPrice', 'carKmCzk'].map((k) => [k, sp.get(k)])));
+  const adults = Math.min(9, Math.max(1, Math.round(Number(sp.get('adults'))) || 1));
+  const nights = Math.min(90, Math.max(0, Math.round(Number(sp.get('nights') ?? 7)) || 0));
+  const oneWay = sp.get('trip') === 'oneway';
+  return { opts: accessOpts({ ...acc, adults }, oneWay), nights, echo: { ...acc, adults, nights: oneWay ? null : nights, trip: oneWay ? 'oneway' : 'return' } };
+}
+// Autem navíc celá cesta tam i zpět s parkováním na `nights` nocí (ground.trip).
+const withTrip = (g, nights) => (g && g.mode === 'car' ? { ...g, trip: carTrip(g, nights) } : g);
+
 // Ostrý test zdrojů: malý skutečný dotaz na každého poskytovatele (výsledek cachován 5 min).
 // Slouží k ověření po nasazení, že server na hostingu na API aerolinek dosáhne.
 async function diagnose() {
@@ -240,35 +255,33 @@ async function route(req, res) {
     return d ? sendJson(req, res, 200, d) : sendJson(req, res, 404, { error: 'Neznámé místo' });
   }
   if (p === '/api/nearby') {
+    // Letiště v okolí bodu s cestou na letiště; volby jako u /api/origins (výchozí veřejnou dopravou).
     const lat = Number(url.searchParams.get('lat'));
     const lon = Number(url.searchParams.get('lon'));
     const radius = Math.min(600, Number(url.searchParams.get('radius')) || 250);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return sendJson(req, res, 400, { error: 'Chybí lat/lon' });
+    const ap = accessParams(url.searchParams);
     const items = airportsNear(lat, lon, radius).slice(0, 15).map((a) => ({
       iata: a.iata, name: a.name, city: a.cityCs, cc: a.cc, lat: a.lat, lon: a.lon,
-      distKm: Math.round(a.distKm), ground: airportAccess({ lat, lon }, a.iata),
+      distKm: Math.round(a.distKm), ground: withTrip(airportAccess({ lat, lon }, a.iata, ap.opts), ap.nights),
     }));
-    return sendJson(req, res, 200, { items });
+    return sendJson(req, res, 200, { access: { ...ap.echo, fuelCc: fuelCountry({ lat, lon }) }, items });
   }
   if (p === '/api/origins') {
     // Náhled letišť, která se prohledají (pro výběr v UI), s cestou na letiště jako v hledání: groundMode, kmRate,
-    // carKmCzk, adults, trip (oneway = autem odvoz) a nights (autem: parkování na typickou délku cesty → ground.trip).
+    // carFuel, carCons, carPrice (dřívější carKmCzk), adults, trip (oneway = autem odvoz) a nights (autem: parkování
+    // na typickou délku cesty → ground.trip). access.fuelCc = země, jejíž cena paliva platí (cena ve formuláři).
     const sp = url.searchParams;
     const ids = sp.getAll('from').slice(0, 8);
     const radiusKm = Math.min(600, Math.max(0, Number(sp.get('radius')) || 0));
-    const acc = normalizeAccess({ kmRate: sp.get('kmRate'), groundMode: sp.get('groundMode'), carKmCzk: sp.get('carKmCzk') });
-    const adults = Math.min(9, Math.max(1, Math.round(Number(sp.get('adults'))) || 1));
-    const nights = Math.min(90, Math.max(0, Math.round(Number(sp.get('nights') ?? 7)) || 0));
-    const oneWay = sp.get('trip') === 'oneway';
-    const access = { mode: acc.groundMode, scale: acc.kmRate, carKmCzk: acc.carKmCzk, adults, oneWay };
-    const r = resolveOrigins(ids, { radiusKm, access, maxAirports: 20 });
+    const ap = accessParams(sp);
+    const r = resolveOrigins(ids, { radiusKm, access: ap.opts, maxAirports: 20 });
     return sendJson(req, res, 200, {
       home: r.home,
-      access: { ...acc, adults, nights: oneWay ? null : nights, trip: oneWay ? 'oneway' : 'return' },
+      access: { ...ap.echo, fuelCc: fuelCountry(r.home) },
       airports: r.airports.map((a) => {
-        const ap = getAirport(a.iata);
-        const g = a.ground && a.ground.mode === 'car' ? { ...a.ground, trip: carTrip(a.ground, nights) } : a.ground;
-        return { ...a, ground: g, name: ap.name, city: ap.cityCs, cc: ap.cc, type: ap.type, lat: ap.lat, lon: ap.lon };
+        const x = getAirport(a.iata);
+        return { ...a, ground: withTrip(a.ground, ap.nights), name: x.name, city: x.cityCs, cc: x.cc, type: x.type, lat: x.lat, lon: x.lon };
       }),
     });
   }
@@ -349,7 +362,8 @@ async function route(req, res) {
   }
   if (p === '/api/cars') return sendJson(req, res, 200, searchCars(Object.fromEntries(url.searchParams)));
   if (p === '/api/fuel') {
-    // Aktuální ceny nafty a benzínu (Kč/l) v ČR a okolních zemích pro cenu cesty autem (ČSÚ, Oil Bulletin EU).
+    // Aktuální ceny nafty a benzínu (Kč/l) v ČR a okolních zemích pro cenu cesty autem (ČSÚ, Oil Bulletin EU)
+    // a ceník nabíjení elektroauta (ev: odhad DC Kč/kWh, ceníky provozovatelů s datem).
     return sendJson(req, res, 200, await fuelInfo(), { 'Cache-Control': 'public, max-age=3600' });
   }
   if (p === '/api/poi') {
