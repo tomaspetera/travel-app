@@ -83,11 +83,11 @@ test('GET /api/origins – doprava na letiště: veřejnou dopravou, autem s par
   for (const a of c.airports) {
     const g = a.ground;
     assert.equal(g.mode, 'car');
-    assert.ok(g.roadKm > 0 && g.fuelCzk === Math.round(g.roadKm * 3) && g.parkDayCzk > 0 && Array.isArray(g.tolls) && g.adults === 2);
+    assert.ok(g.roadKm > 0 && g.fuelCzk === Math.round(g.roadKm * 3) && g.parkBaseCzk > 0 && g.parkDayCzk > 0 && Array.isArray(g.tolls) && g.adults === 2);
     assert.deepEqual(g.breakdown.map((x) => x.k), ['fuel', 'park', ...g.tolls.map(() => 'toll')]);
     assert.equal(g.trip.days, 6);
-    assert.equal(g.trip.park, g.parkDayCzk * 6);
-    assert.equal(g.trip.perPerson, 2 * g.czk + Math.round((g.parkDayCzk * 6 + g.tolls.filter((x) => x.days && x.days < 6).reduce((s, x) => s + x.czk, 0)) / 2));
+    assert.equal(g.trip.park, g.parkBaseCzk + g.parkDayCzk * 6);
+    assert.equal(g.trip.perPerson, 2 * g.czk + Math.round((g.parkBaseCzk + g.parkDayCzk * 6 + g.tolls.filter((x) => x.days && x.days < 6).reduce((s, x) => s + x.czk, 0)) / 2));
   }
   // jen tam autem = odvoz
   const ow = await get('groundMode=car&trip=oneway');

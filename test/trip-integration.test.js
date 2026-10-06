@@ -159,7 +159,7 @@ test('průvodce: let s přestupem – krok Let i průběh cesty ukážou kde (k 
   assert.match(h, /Demo Air · DA 1 · 2× přestup \(YYZ 1 h 5 min, FRA&lt;b&gt;\)<\/span>/, 'texty z dat escapované');
   const s = render(c, { ...t, step: 'summary' });
   assert.match(s, /🛫<\/span><span>PRG 07:00 → CUN 08:00 · Demo Air · 1× přestup \(JFK 2 h 30 min\)<\/span>/);
-  assert.match(s, /🛬<\/span><span>CUN 19:00 → PRG · Demo Air · 2× přestup/);
+  assert.match(s, /🛬<\/span><span>CUN 19:00 → PRG 20:00 · Demo Air · 2× přestup/, 'i přílet zpět');
   // přímý let beze změny
   assert.match(render(c, trip({ route: null, overland: null })), /🛫<\/span><span>PRG 07:00 → VIE 08:00 · Demo Air<\/span>/);
 });
@@ -177,6 +177,21 @@ test('průvodce: přílet / příjezd další den má „+1“ jako ve výsledc�
   assert.match(render(c, { ...o, step: 'summary' }), /🚌<\/span><span>Vídeň → Praha · 22:40 → 06:28 \+1 · bus/);
   assert.match(c.window.Trip.tripEvent(o).description, /🚌 Vídeň → Praha 22:40 → 06:28 \+1/);
   assert.doesNotMatch(render(c, { ...o, step: 'summary' }), /06:01 → 10:21 \+/, 'týž den bez +1');
+});
+
+test('průběh cesty: noční let – z letiště na 1. místo až v den příletu, zpět i s časem příletu a domů v den přistání', () => {
+  const c = load();
+  const t = trip({ overland: null, ground: { out: { minutes: 45 }, back: { minutes: 45 } } });
+  t.flight.out = { ...t.flight.out, dep: '2026-11-10T21:25:00', arr: '2026-11-11T00:51:00' };
+  t.flight.back = { ...t.flight.back, dep: '2026-11-14T23:30:00', arr: '2026-11-15T00:40:00' };
+  const s = render(c, t);
+  const row = (day, text) => new RegExp(`<span class="tl-d">${day}</span><span class="tl-i">[^<]*</span><span>${text}`);
+  assert.match(s, row('út 10\\. 11\\.', 'Cesta na letiště PRG'));
+  assert.match(s, row('út 10\\. 11\\.', 'PRG 21:25 → VIE 00:51 \\+1'));
+  assert.match(s, row('st 11\\. 11\\.', 'Z letiště VIE → Vídeň'), 'přejezd z letiště v den příletu');
+  assert.match(s, row('so 14\\. 11\\.', 'VIE 23:30 → PRG 00:40 \\+1 · Demo Air'), 'let zpět i s příletem');
+  assert.match(s, row('ne 15\\. 11\\.', 'Cesta z letiště PRG domů'), 'domů v den přistání');
+  assert.doesNotMatch(s, row('út 10\\. 11\\.', 'Z letiště VIE'));
 });
 
 test('průvodce: západní Afrika – čas podle trasy, autobusem / minibusem (ne vlakem), přechod hranice; sdílený odkaz', () => {

@@ -109,6 +109,7 @@
   /**
    * Pruh „Nejbližší dny“ pro jeden směr (nearby.out / nearby.back): každý den from..to s nejlevnější známou
    * cenou (cost, nebo null), zadaný den (around), nejlevnější den (best) a dny, které vybrat nejde (před minDate).
+   * Autem tam i zpět je v ceně dne i parkování na celou cestu (parkCzk Kč/os. na parkDays dní, jinak null).
    */
   function nearStrip(side, { minDate = null } = {}) {
     if (!side || !side.from || !side.to) return [];
@@ -120,6 +121,7 @@
       const x = byDate.get(d);
       out.push({
         date: d, cost: x ? x.cost : null, carrierName: x ? x.carrierName : null, stops: x ? x.stops : null,
+        parkCzk: x && x.parkCzk ? x.parkCzk : null, parkDays: x && x.parkCzk ? x.parkDays : null,
         around: d === side.around, best: Boolean(x && x.cost === min && costs.length > 1), disabled: Boolean(minDate && d < minDate),
       });
     }
@@ -485,8 +487,25 @@
    *  through[i][a] = cena nejlevnější celé cesty s letem a (ostatní úseky podle výběru; vlastní výběr úseku i se
    *                  nebere v úvahu – jde o to, kolik by stála cesta, kdyby si vybral tenhle let) nebo null,
    *  best = { picks, total } nejlevnější celá cesta podle výběru, nebo null (vybrané lety nejdou spojit).
+   * ends = autem s návratem domů { from: [letiště odletu každého letu 1. úseku], to: [letiště příletu každého letu
+   * posledního úseku] }: cesta se vrací na letiště, kde auto parkuje (jako nejlevnější kombinace ze serveru). Jen když
+   * taková cesta s vybranými lety není (ručně vybraný návrat jinam), platí cesta bez této podmínky.
    */
-  function multiPlan(costs, links, picks = []) {
+  function multiPlan(costs, links, picks = [], ends = null) {
+    const free = planLegs(costs, links, picks);
+    const n = costs.length;
+    if (!ends || n < 2) return free;
+    let best = null;
+    const through = free.through.map(row => row.map(() => null));
+    for (const h of new Set(ends.from)) {
+      const c = costs.map((row, i) => row.map((x, a) => ((i === 0 && ends.from[a] !== h) || (i === n - 1 && ends.to[a] !== h) ? Infinity : x)));
+      const r = planLegs(c, links, picks);
+      r.through.forEach((row, i) => row.forEach((v, a) => { if (v != null && (through[i][a] == null || v < through[i][a])) through[i][a] = v; }));
+      if (r.best && (!best || r.best.total < best.total)) best = r.best;
+    }
+    return { through: through.map((row, i) => row.map((v, a) => (v != null ? v : free.through[i][a]))), best: best || free.best };
+  }
+  function planLegs(costs, links, picks) {
     const n = costs.length;
     const ok = (i, a) => picks[i] == null || picks[i] === a;
     const fits = (i, a, b) => !(links[i] && links[i][a] && links[i][a][b]);
@@ -667,18 +686,20 @@
   const tollSum = (g, pick) => (g.tolls || []).filter(pick).reduce((s, t) => s + t.czk, 0);
   /** Dní parkování pro cestu s N nocemi (odlet ráno, návrat večer = N + 1 započatých dní). */
   const parkDays = n => Math.max(1, Math.round(Number(n) || 0) + 1);
+  /** Parkování za auto na `days` dní: základ + sazba za den (online předem) – jako server (access.js parkStay). */
+  const parkStay = (g, days) => (Number(g.parkBaseCzk) || 0) + g.parkDayCzk * days;
   /** Autem tam i zpět s N nocemi: parkování (+ druhá známka, když první nevystačí), Kč/os. – jako server (access.js parkCzk). */
   function parkCzk(g, nights) {
     if (!g || g.mode !== 'car' || g.off || g.dropOff) return 0;
     const days = parkDays(nights);
-    return Math.round((g.parkDayCzk * days + tollSum(g, t => t.days && days > t.days)) / (g.adults || 1));
+    return Math.round((parkStay(g, days) + tollSum(g, t => t.days && days > t.days)) / (g.adults || 1));
   }
   /** Celá cesta autem: { days, perPerson, fuel, park, tolls, total } (za auto kromě perPerson) – jako server (access.js carTrip). */
   function carTrip(g, nights) {
     if (!g || g.mode !== 'car') return null;
     const once = tollSum(g, t => t.days), each = tollSum(g, t => !t.days);
     if (g.dropOff) return { days: 0, perPerson: g.czk, fuel: 2 * g.fuelCzk, park: 0, tolls: once + 2 * each, total: 2 * g.fuelCzk + once + 2 * each };
-    const days = parkDays(nights), park = g.parkDayCzk * days, tolls = once + tollSum(g, t => t.days && days > t.days) + 2 * each;
+    const days = parkDays(nights), park = parkStay(g, days), tolls = once + tollSum(g, t => t.days && days > t.days) + 2 * each;
     return { days, perPerson: g.off ? 0 : 2 * g.czk + parkCzk(g, nights), fuel: 2 * g.fuelCzk, park, tolls, total: 2 * g.fuelCzk + park + tolls };
   }
   const r10 = n => Math.round(n / 10) * 10;
@@ -702,9 +723,11 @@
       if (g.dropOff) {
         return { text: `~${kc(r10(t.perPerson))}/os. (odvoz)`, title: `Autem jen tam: počítám, že tě někdo odveze a vrátí se (parkování neznámé) – ${fuel}${tolls} = ${per}. ~${hm(g.minutes)} jízdy.${src} Odhad.` };
       }
+      // parkování online předem: základ + sazba za den (starší odpověď bez základu jen za den)
+      const base = Number(g.parkBaseCzk) || 0;
       return {
         text: `~${kc(r10(t.perPerson))}/os. vč. parkování na ${t.days} ${dnu(t.days)}`,
-        title: `Autem ${g.roadKm} km (~${hm(g.minutes)}): ${fuel} + parkování ~${kc(g.parkDayCzk)}/den × ${t.days} ${dnu(t.days)} = ~${kc(t.park)}${tolls} = ${per}.${src} Parkování ve výsledcích podle skutečné délky cesty. Odhad.`,
+        title: `Autem ${g.roadKm} km (~${hm(g.minutes)}): ${fuel} + parkování ${base ? `online předem ~${kc(base)} + ` : '~'}${kc(g.parkDayCzk)}/den × ${t.days} ${dnu(t.days)} = ~${kc(t.park)}${tolls} = ${per}.${src} Parkování ve výsledcích podle skutečné délky cesty. Odhad.`,
       };
     }
     const items = (g.breakdown || []).map(x => `${x.label} ~${kc(x.czk)}`);
@@ -713,7 +736,7 @@
   }
 
   window.SearchHelp = {
-    groundForm, parkDays, parkCzk, carTrip, accessLabel,
+    groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,

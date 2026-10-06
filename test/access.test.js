@@ -78,7 +78,9 @@ test('veřejnou dopravou: cílové rozsahy na osobu jedním směrem z Prahy a z 
 test('příplatek za mezinárodní spoj: jen přes hranici, mezi Českem, Slovenskem, Polskem a Maďarskem menší', () => {
   const border = (h, iata) => transit(h, iata).breakdown.find((x) => x.k === 'border')?.czk || 0;
   for (const iata of ['PRG', 'KLV', 'PED', 'JCL', 'BRQ', 'OSR']) assert.equal(border(PRAHA, iata), 0, iata);
-  assert.ok(border(PRAHA, 'DRS') >= 50 && border(PRAHA, 'VIE') >= 50 && border(PRAHA, 'BER') >= 50);
+  assert.ok(border(PRAHA, 'LEJ') >= 50 && border(PRAHA, 'VIE') >= 50 && border(PRAHA, 'BER') >= 50);
+  // Praha → Drážďany: změřená cena konkrétních spojů (FlixBus 319–339 Kč) – příplatek už v ní je
+  assert.equal(border(PRAHA, 'DRS'), 0);
   assert.equal(border(BRNO, 'BTS'), 30);
   assert.equal(border(PRAHA, 'KTW'), 30);
   assert.equal(A.borderCzk('CZ', 'AT', 500), 100);
@@ -115,27 +117,73 @@ test('autem: palivo tam i zpět, parkování podle nocí, známka – na osobu p
   assert.equal(g.fuelCzk, Math.round(g.roadKm * 3.039));
   assert.ok(g.roadKm > 280 && g.roadKm < 380, `silnice ${g.roadKm} km`);
   assert.deepEqual(plain(g.tolls).map((t) => t.cc), ['AT']);
-  assert.equal(g.parkDayCzk, 300);
+  // parkování online předem: základ + za den (Vídeň 850 + 150 Kč)
+  assert.deepEqual([g.parkBaseCzk, g.parkDayCzk], [850, 150]);
   // na let: palivo jedním směrem + půl známky, děleno 2 cestujícími
   assert.equal(g.czk, Math.round((g.fuelCzk + 320 / 2) / 2));
   // 7 nocí = 8 dní parkování; 12 nocí = 13 dní → známka na 10 dní nevystačí, druhá
   assert.equal(A.parkDays(7), 8);
-  assert.equal(A.parkCzk(g, 7), Math.round((300 * 8) / 2));
-  assert.equal(A.parkCzk(g, 12), Math.round((300 * 13 + 320) / 2));
+  assert.equal(A.parkStay(g, 8), 850 + 150 * 8);
+  assert.equal(A.parkCzk(g, 7), Math.round((850 + 150 * 8) / 2));
+  assert.equal(A.parkCzk(g, 12), Math.round((850 + 150 * 13 + 320) / 2));
   const t7 = A.carTrip(g, 7);
-  assert.deepEqual([t7.days, t7.fuel, t7.park, t7.tolls], [8, 2 * g.fuelCzk, 2400, 320]);
-  assert.equal(t7.total, 2 * g.fuelCzk + 2400 + 320);
+  assert.deepEqual([t7.days, t7.fuel, t7.park, t7.tolls], [8, 2 * g.fuelCzk, 2050, 320]);
+  assert.equal(t7.total, 2 * g.fuelCzk + 2050 + 320);
   assert.equal(t7.perPerson, 2 * g.czk + A.parkCzk(g, 7));
   assert.ok(Math.abs(t7.perPerson - t7.total / 2) <= 1);
   // víc lidí v autě = levněji na osobu; delší cesta = dražší parkování
   const g4 = car(PRAHA_GEO, 'VIE', { adults: 4 });
   assert.ok(A.carTrip(g4, 7).perPerson < t7.perPerson / 1.9);
-  assert.ok(A.carTrip(g, 14).perPerson > t7.perPerson + 1000);
+  assert.ok(A.carTrip(g, 14).perPerson > t7.perPerson + 500);
   // dřívější Kč/km (dotaz jen s carKmCzk)
   assert.equal(car(PRAHA_GEO, 'VIE', { carKmCzk: 4 }).fuelCzk, g.roadKm * 4);
   // Praha → Ruzyně autem: palivo zanedbatelné, parkování ne
   const prg = A.carTrip(car(PRAHA, 'PRG', { adults: 1 }), 7);
-  assert.ok(prg.park === 1600 && prg.fuel < 100 && prg.perPerson > 1600);
+  assert.ok(prg.park === 590 + 120 * 8 && prg.fuel < 100 && prg.perPerson > 1550);
+});
+
+test('parkování u letiště online předem: základ + za den, proložené změřenými cenami (Praha, Vídeň 10/2026)', () => {
+  // auto přijíždějící 27. 10. 2026, ceny na 1, 3, 7 a 14 dní (booking.prg.aero / aeroparking.cz, Mazur online)
+  const measured = { PRG: [780, 850, 1450, 2280], VIE: [791, 1420, 2096, 2828] };
+  for (const [iata, prices] of Object.entries(measured)) {
+    const g = car(PRAHA, iata, { adults: 1 });
+    [1, 3, 7, 14].forEach((d, i) => {
+      const model = A.parkStay(g, d), real = prices[i];
+      // víkend až dva týdny do ±15 %, jeden den (krátké stání) do ±30 %
+      assert.ok(Math.abs(model - real) <= real * (d === 1 ? 0.3 : 0.15), `${iata} ${d} dní: ${model} Kč, změřeno ${real} Kč`);
+    });
+    // krátké stání je na den dražší než dlouhé
+    assert.ok(A.parkStay(g, 1) > A.parkStay(g, 14) / 14 * 3, iata);
+  }
+  assert.deepEqual(['PRG', 'VIE', 'BER'].map((x) => { const g = car(PRAHA, x); return [g.parkBaseCzk, g.parkDayCzk]; }), [[590, 120], [850, 150], [850, 150]]);
+  // velká letiště dražší základ než regionální (Pardubice, Karlovy Vary, Budějovice, Brno, Bratislava, Linec, Drážďany)
+  const muc = car(PRAHA, 'MUC');
+  assert.ok(muc.parkBaseCzk >= 850 && muc.parkDayCzk >= 150);
+  for (const x of ['PED', 'KLV', 'JCL', 'BRQ', 'BTS', 'LNZ', 'DRS']) {
+    const g = car(PRAHA, x);
+    assert.ok(g.parkBaseCzk > 0 && g.parkBaseCzk < 590 && g.parkDayCzk > 0, `${x}: ${g.parkBaseCzk} + ${g.parkDayCzk}`);
+  }
+  // letiště mimo tabulku: odhad podle velikosti, taky základ + za den
+  const far = car(PRAHA, 'BCN');
+  assert.ok(far.parkBaseCzk > 0 && far.parkDayCzk > 0);
+  // rozpis: položka parkování za den se základem a popisem „online předem“
+  const pk = car(PRAHA, 'PRG').breakdown.find((x) => x.k === 'park');
+  assert.deepEqual([pk.czk, pk.base], [120, 590]);
+  assert.match(pk.label, /online předem/);
+  // autem jen tam (odvoz) se neparkuje
+  assert.equal(A.parkCzk(car(PRAHA, 'PRG', { oneWay: true }), 7), 0);
+});
+
+test('veřejnou dopravou: Praha → Drážďany změřeně (bus ~340 Kč + S-Bahn), Praha letiště MHD a Airport Express 200 Kč', () => {
+  const drs = transit(PRAHA, 'DRS');
+  assert.deepEqual(drs.breakdown.map((x) => [x.k, x.czk]), [['intercity', 340], ['access', 90]]);
+  assert.equal(drs.czk, 430);
+  assert.match(drs.breakdown[0].label, /^Praha → Drážďany busem \(FlixBus, RegioJet\)$/);
+  assert.equal(transit(PRAHA_GEO, 'DRS').czk, 430, 'i z polohy v Praze');
+  // jinde do Drážďan dál model (z Plzně s příplatkem za mezinárodní spoj)
+  assert.deepEqual(transit({ lat: 49.7384, lon: 13.3736, label: 'Plzeň' }, 'DRS').breakdown.map((x) => x.k), ['intercity', 'access', 'border']);
+  // PID: linka 59 + metro A, Airport Express 200 Kč (pid.cz, 6. 10. 2026)
+  assert.match(transit(PRAHA, 'PRG').breakdown[0].label, /bus 59 \+ metro A.*Airport Express 200 Kč/);
 });
 
 test('autem: dálniční známky a mýtné jen v cizině, cesta přes sousední země', () => {
@@ -153,7 +201,7 @@ test('autem: dálniční známky a mýtné jen v cizině, cesta přes sousední 
   assert.deepEqual(A.tollsOn('CZ', 'HR').map((t) => [t.cc, t.days]), [['AT', 10], ['SI', 7], ['HR', 0]]);
   // Lublaň na 8 nocí: slovinská známka na 7 dní nevystačí, rakouská na 10 ano
   const lju = car(PRAHA, 'LJU', { adults: 1 });
-  assert.equal(A.parkCzk(lju, 8), lju.parkDayCzk * 9 + 400);
+  assert.equal(A.parkCzk(lju, 8), A.parkStay(lju, 9) + 400);
 });
 
 test('autem jen tam: odvoz – palivo tam i zpět, celá známka, bez parkování', () => {
@@ -296,16 +344,20 @@ test('prohlížeč: stejné parkování a cesta autem jako server, štítky leti
   assert.match(c.text, /^~[\d\s ]+ Kč\/os\. vč\. parkování na 8 dní$/);
   // palivo jedním směrem: km × spotřeba × aktuální cena = Kč (přesně fuelCzk), pak tam i zpět
   const kc = (n) => n.toLocaleString('cs-CZ');
-  assert.ok(c.title.includes(`palivo ${vie.roadKm} km × 6 l/100 km × 50,65 Kč/l = ${kc(vie.fuelCzk)} Kč, tam i zpět ~${kc(2 * vie.fuelCzk)} Kč + parkování ~300 Kč/den × 8 dní = ~${kc(2400)} Kč + dálniční známka Rakousko (10 dní) ~320 Kč`), c.title);
+  assert.ok(c.title.includes(`palivo ${vie.roadKm} km × 6 l/100 km × 50,65 Kč/l = ${kc(vie.fuelCzk)} Kč, tam i zpět ~${kc(2 * vie.fuelCzk)} Kč + parkování online předem ~850 Kč + 150 Kč/den × 8 dní = ~${kc(2050)} Kč + dálniční známka Rakousko (10 dní) ~320 Kč`), c.title);
   assert.match(c.title, /Cena: nafta 50,65 Kč\/l · orientačně, k 28\. 9\. 2026\./);
   const ev = H.accessLabel(plain(car(PRAHA_GEO, 'VIE', { adults: 2, carFuel: 'ev', carCons: 17 })), { nights: 7 });
-  assert.match(ev.title, /: nabíjení \d+ km × 17 kWh\/100 km × 16 Kč\/kWh = [\d\s ]+ Kč, tam i zpět ~[\d\s ]+ Kč \+ parkování ~300 Kč\/den/);
+  assert.match(ev.title, /: nabíjení \d+ km × 17 kWh\/100 km × 16 Kč\/kWh = [\d\s ]+ Kč, tam i zpět ~[\d\s ]+ Kč \+ parkování online předem ~850 Kč \+ 150 Kč\/den/);
   assert.match(ev.title, /Cena: nabíjení DC ~16 Kč\/kWh \(ceníky ČEZ, PRE, E\.ON, IONITY, Tesla – stav 6\. 10\. 2026\)\. Parkování a známky platí elektroauto stejně\./);
   const own = H.accessLabel(plain(car(PRAHA_GEO, 'VIE', { carFuel: 'petrol', carCons: 7.5, carPrice: 44.9 })), { nights: 7 });
   assert.match(own.title, /palivo \d+ km × 7,5 l\/100 km × 44,90 Kč\/l = .* Cena: benzín N95 44,90 Kč\/l · vlastní cena\./);
   // dřívější dotaz v Kč/km: popisek jako dřív
   const legacy = H.accessLabel(plain(car(PRAHA_GEO, 'VIE', { adults: 2, carKmCzk: 2.6 })), { nights: 7 });
-  assert.match(legacy.title, /palivo tam i zpět \d+ km × 2,6 Kč = ~[\d\s ]+ Kč \+ parkování ~300 Kč\/den × 8 dní = ~2[\s ]400 Kč \+ dálniční známka Rakousko \(10 dní\) ~320 Kč/);
+  assert.match(legacy.title, /palivo tam i zpět \d+ km × 2,6 Kč = ~[\d\s ]+ Kč \+ parkování online předem ~850 Kč \+ 150 Kč\/den × 8 dní = ~2[\s ]050 Kč \+ dálniční známka Rakousko \(10 dní\) ~320 Kč/);
+  // starší odpověď serveru bez základu parkování (jen sazba za den): počítá a popisuje se jako dřív
+  const old = { ...plain(vie), parkBaseCzk: undefined, parkDayCzk: 300 };
+  assert.equal(H.parkCzk(old, 7), Math.round(300 * 8 / 2));
+  assert.match(H.accessLabel(old, { nights: 7 }).title, / \+ parkování ~300 Kč\/den × 8 dní = ~2[\s ]400 Kč/);
   assert.doesNotMatch(legacy.title, /Cena:/);
   assert.match(H.accessLabel(plain(car(PRAHA_GEO, 'VIE', { adults: 2 })), { nights: 2 }).text, /na 3 dny$/);
   const drop = H.accessLabel(plain(car(PRAHA_GEO, 'VIE', { oneWay: true, carFuel: 'ev' })));
@@ -556,6 +608,36 @@ test('hledání tam i zpět autem: palivo + parkování podle nocí v ceně, ná
   }
 });
 
+test('přesná data autem: nejbližší dny i s parkováním na celou cestu – stejně jako cena cest ve výpisu', async () => {
+  const fx = fxStub();
+  const D = ymdPlus(30);
+  const B = new Date(Date.parse(`${D}T12:00:00Z`) + 4 * 864e5).toISOString().slice(0, 10);
+  const p = stubProvider('stub', [fare('PRG', 'BCN', D, 1500), fare('BCN', 'PRG', B, 1400), fare('BCN', 'KLV', B, 300)]);
+  const base = { from: ['ap:PRG'], to: ['ap:BCN'], radiusKm: 120, trip: 'return', exactOut: D, exactBack: B, adults: 2 };
+  try {
+    const r = await search({ ...base, groundMode: 'car' }, () => {}, { providers: [p], hubs: false });
+    const g = r.origins.find((o) => o.iata === 'PRG').ground;
+    const t = r.top.find((x) => x.out.from === 'PRG' && x.back.to === 'PRG');
+    assert.ok(t && r.top.every((x) => x.back.to === x.out.from), 'autem zpět na letiště odletu');
+    const pk = A.parkCzk(g, 4);
+    assert.equal(t.parkCzk, pk);
+    const out = r.nearby.out.days.find((d) => d.date === D);
+    const back = r.nearby.back.days.find((d) => d.date === B);
+    // den tam: let + palivo jedním směrem + parkování na celou cestu (4 noci = 5 dní)
+    assert.deepEqual([out.cost, out.parkCzk, out.parkDays], [t.out.czk + g.czk + pk, pk, 5]);
+    // cena cesty ve výpisu = den tam + let zpět s palivem (parkování jen jednou)
+    assert.equal(t.perPersonCzk, out.cost + t.back.czk + g.czk);
+    // den zpět: každý směr zvlášť – nejlevnější je návrat do Karlových Varů, s parkováním u KLV (tam by auto stálo)
+    const gk = r.origins.find((o) => o.iata === 'KLV').ground;
+    assert.deepEqual([back.to, back.cost, back.parkCzk], ['KLV', 300 + gk.czk + A.parkCzk(gk, 4), A.parkCzk(gk, 4)]);
+    // veřejnou dopravou bez parkování
+    const rt = await search({ ...base, groundMode: 'transit' }, () => {}, { providers: [p], hubs: false });
+    assert.ok(rt.nearby.out.days.every((d) => d.parkCzk === undefined));
+  } finally {
+    fx.restore();
+  }
+});
+
 test('studený start, zdroje cen paliva visí: hledání autem na síť nečeká – vestavěná cena s datem, stahování na pozadí', async () => {
   const D = ymdPlus(30);
   const B = new Date(Date.parse(`${D}T12:00:00Z`) + 4 * 864e5).toISOString().slice(0, 10);
@@ -632,6 +714,10 @@ test('cesta přes víc měst autem s návratem domů: palivo u 1. letu a návrat
     assert.ok(rc.combos.length >= 2 && rc.combos.every((c) => { const [a, b] = ends(rc, c); return a === b; }), JSON.stringify(rc.combos.map((c) => ends(rc, c))));
     const rt = await search({ ...wide, groundMode: 'transit' }, () => {}, { providers: [stubProvider('stub', world)] });
     assert.deepEqual(ends(rt, rt.combos[0]), ['KLV', 'PRG'], 'veřejnou dopravou smí návrat jinam');
+    // i bez open-jaw (zaškrtávátko je autem vypnuté): návrat se hledá na všechna letiště začátku cesty a kombinace se vrací
+    // tam, kde auto parkuje – ne jen na pražské letiště
+    const rn = await search({ ...wide, groundMode: 'car', openJaw: false }, () => {}, { providers: [stubProvider('stub', world)] });
+    assert.ok(rn.combos.some((c) => ends(rn, c)[0] === 'KLV') && rn.combos.every((c) => { const [a, b] = ends(rn, c); return a === b; }), JSON.stringify(rn.combos.map((c) => ends(rn, c))));
     // bez návratu domů: odvoz na začátku cesty
     const ow = await search({
       trip: 'multi', adults: 2, radiusKm: 0, groundMode: 'car',
