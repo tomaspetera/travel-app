@@ -259,3 +259,68 @@ test('findTowns: jen města z dotazu na výlety (stejná mezipaměť), bez hrad�
     stub.restore();
   }
 });
+
+// Odpověď BRouteru (GeoJSON) s délkou v m a časem v s.
+const brouterGeo = (m, s) => ({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { 'track-length': String(m), 'total-time': String(s) } }] });
+
+test('planStay přepočet nad limitem přepočtů na IP (allowRoutes): bez nových dotazů na BRouter – trasy z mezipaměti, jinak odhad', async () => {
+  process.env.BROUTER_GAP_MS = '0';
+  // body jinde než v ostatních testech (mezipaměť tras je společná)
+  const A = { name: 'Siena', lat: 43.3189, lon: 11.3309, cc: 'IT' };
+  const B = { name: 'Pisa', lat: 43.7229, lon: 10.4018, cc: 'IT' };
+  const C = { name: 'Lucca', lat: 43.8431, lon: 10.5028, cc: 'IT' };
+  let asked = 0;
+  const allow = (v) => () => { asked++; return v; };
+  const stub = stubFetch(() => ({ body: brouterGeo(90000, 4200) }));
+  try {
+    // v limitu: nové trasy z BRouteru (let PSA → Siena a Siena → Pisa), limit se ptá jednou za přepočet
+    const ok = await planStay({ arrival: 'PSA', bases: [A, B] }, { allowRoutes: allow(true) });
+    assert.deepEqual([stub.calls.length, asked, ok.transfers[0].basis, ok.legs.arrival.basis], [2, 1, 'route', 'route']);
+    // nad limitem: spočítané úseky z mezipaměti, nový Pisa → Lucca odhadem a ne pending (prohlížeč se znovu neptá)
+    const over = await planStay({ arrival: 'PSA', bases: [A, B, C] }, { allowRoutes: allow(false) });
+    assert.equal(stub.calls.length, 2, 'žádný nový dotaz na BRouter');
+    assert.deepEqual([over.mode, over.transfers.map((x) => x.basis), over.pending, asked], ['evaluate', ['route', 'estimate'], 0, 2]);
+    // všechno v mezipaměti → limit se vůbec neptá (do limitu se počítají jen přepočty s novými trasami)
+    await planStay({ arrival: 'PSA', bases: [A, B] }, { allowRoutes: allow(false) });
+    assert.equal(asked, 2);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('POST /api/stayplan: přepočty mají vlastní limit na IP – nad ním 200 bez nových tras, limit hledání nespotřebují', async () => {
+  process.env.BROUTER_GAP_MS = '0';
+  const { createServer } = await import('../server/index.js');
+  const { config } = await import('../server/config.js');
+  const saved = { ...config };
+  const local = globalThis.fetch; // na vlastní server bez podstrčení
+  const stub = stubFetch(() => ({ body: brouterGeo(70000, 3600) }));
+  const server = createServer();
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const post = (body) => local(`http://127.0.0.1:${server.address().port}/api/stayplan`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const place = (i) => ({ name: `Místo ${i}`, lat: 42.2 + i * 0.07, lon: 12.6 + i * 0.05, cc: 'IT' });
+  Object.assign(config, { mock: false, searchesPer10Min: 1, rechecksPer10Min: 2 });
+  try {
+    for (const i of [0, 3]) {
+      const r = await post({ arrival: 'FCO', bases: [place(i), place(i + 1)] });
+      assert.equal(r.status, 200);
+      assert.equal((await r.json()).transfers[0].basis, 'route');
+    }
+    const n = stub.calls.length;
+    assert.equal(n, 4, 'dva přepočty × (z letiště + přejezd)');
+    const over = await post({ arrival: 'FCO', bases: [place(10), place(11)] });
+    assert.equal(over.status, 200, 'nad limitem přepočtů žádné 429');
+    const j = await over.json();
+    assert.deepEqual([j.transfers[0].basis, j.legs.arrival.basis, j.pending, stub.calls.length], ['estimate', 'estimate', 0, n], 'bez nových dotazů na BRouter');
+    const cached = await (await post({ arrival: 'FCO', bases: [place(0), place(1)] })).json();
+    assert.equal(cached.transfers[0].basis, 'route', 'spočítané trasy i nad limitem z mezipaměti');
+    // přepočty limit hledání nespotřebovaly: návrh (DEMO, bez sítě) projde, další už ne
+    config.mock = true;
+    assert.equal((await post({ arrival: 'FCO', nights: 3 })).status, 200);
+    assert.equal((await post({ arrival: 'FCO', nights: 3 })).status, 429);
+  } finally {
+    Object.assign(config, saved);
+    stub.restore();
+    await new Promise((r) => server.close(r));
+  }
+});

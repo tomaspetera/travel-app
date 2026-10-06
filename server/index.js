@@ -100,16 +100,16 @@ function readBody(req, limit = 64 * 1024) {
 }
 
 const hits = new Map();
-function rateLimited(req) {
-  const max = config.searchesPer10Min;
+const rechecks = new Map(); // přepočty trasy přes víc míst (stayplan s bases): vlastní limit, do hledání se nepočítají
+function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
   if (!max) return false;
   const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
   const now = Date.now();
-  const list = (hits.get(ip) || []).filter((t) => now - t < 10 * 60e3);
+  const list = (bucket.get(ip) || []).filter((t) => now - t < 10 * 60e3);
   if (list.length >= max) return true;
   list.push(now);
-  hits.set(ip, list);
-  if (hits.size > 5000) hits.clear();
+  bucket.set(ip, list);
+  if (bucket.size > 5000) bucket.clear();
   return false;
 }
 
@@ -439,8 +439,10 @@ async function route(req, res) {
       return sendJson(req, res, 400, { error: 'Neplatný JSON' });
     }
     if (b && typeof b === 'object' && b.bases === undefined && rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    // Přepočet nad svým limitem se neodmítá: odpoví bez nových dotazů na BRouter (trasy z mezipaměti, jinak odhad).
+    const allowRoutes = () => !rateLimited(req, config.rechecksPer10Min, rechecks);
     try {
-      return sendJson(req, res, 200, { demo: config.mock, ...(await planStay(b, { mock: config.mock })) });
+      return sendJson(req, res, 200, { demo: config.mock, ...(await planStay(b, { mock: config.mock, allowRoutes })) });
     } catch (e) {
       if (e instanceof StayPlanError) return sendJson(req, res, 400, { error: e.message });
       console.warn(`stayplan: ${e.message}`);

@@ -257,8 +257,10 @@ const cleanPlace = (b) => {
  * Odpověď má u přejezdů časy z trasy autem (BRouter) tam, kde ji plánovač stihl spočítat; pending = kolik
  * přejezdů se ještě počítá (za pár sekund je přinese další přepočet z mezipaměti).
  * deps (testy): { mock, towns, demoTowns, geo, route (trasa autem a → b; null = jen odhad), deadlineMs }
+ * allowRoutes: () => smí přepočet počítat nové trasy (limit přepočtů na IP v server/index.js); zavolá se nejvýš
+ * jednou a jen když je nová trasa potřeba – jinak trasy z mezipaměti a odhad. Návrh trasy hlídá limit hledání.
  */
-export async function planStay(raw, { mock = false, towns = findTowns, demoTowns = mockTowns, geo = geocode, route = driveRoute, deadlineMs = 9000 } = {}) {
+export async function planStay(raw, { mock = false, towns = findTowns, demoTowns = mockTowns, geo = geocode, route = driveRoute, deadlineMs = 9000, allowRoutes = null } = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new StayPlanError('Neplatný požadavek.');
   const arrAp = getAirport(raw.arrival);
   if (!arrAp) throw new StayPlanError('Neznámé letiště příletu.');
@@ -269,14 +271,14 @@ export async function planStay(raw, { mock = false, towns = findTowns, demoTowns
   const departure = depAp ? airportOut(depAp) : null;
   const router = mock ? null : route; // DEMO bez sítě = jen odhad
   // Trasy autem pro přejezdy (s rozpočtem dotazů a času), co nestihne, počítá dál na pozadí.
-  const routesFor = (bases, ground, ms = deadlineMs) => routeTransfers(routePairs(bases, { arrival, departure, ground }), { route: router, deadlineMs: ms });
+  const routesFor = (bases, ground, ms = deadlineMs, allow = null) => routeTransfers(routePairs(bases, { arrival, departure, ground }), { route: router, deadlineMs: ms, allow });
 
   if (raw.bases !== undefined) {
     if (!Array.isArray(raw.bases) || raw.bases.length < 1 || raw.bases.length > MAX_BASES) throw new StayPlanError('Neplatná místa trasy.');
     const bases = raw.bases.map(cleanPlace);
     if (bases.some((b) => !b)) throw new StayPlanError('Neplatná místa trasy.');
     const ground = raw.ground ? cleanPlace(raw.ground) : null;
-    const { routes, pending } = await routesFor(bases, ground);
+    const { routes, pending } = await routesFor(bases, ground, deadlineMs, allowRoutes);
     return {
       mode: 'evaluate', arrival, departure, ...evaluateRoute(bases, { arrival, departure, transport, ground, routes }), pending,
       // země míst (i dopočtená z polohy) – prohlížeč si ji doplní k místům přidaným ručně
