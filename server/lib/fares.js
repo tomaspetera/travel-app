@@ -19,12 +19,14 @@ export function makeLeg(o) {
   // Bez času příletu (Wizz Air, Travelpayouts): dopočti ho v místním čase cíle – z délky letu,
   // jinak odhadem ze vzdálenosti (~780 km/h + 35 min na vzlet a přistání), označený arrEst.
   let arrEst = false;
+  let estMin = null;
   if (!arr && hasTime && fa && ta) {
     const depMs = localToUtcMs(dep, fa.tz);
     const mins = durationMin || Math.round((haversineKm(fa.lat, fa.lon, ta.lat, ta.lon) / 780) * 60 + 35);
     if (depMs != null) {
       arr = utcToLocalIso(depMs + mins * 60000, ta.tz);
       arrEst = !durationMin;
+      if (arrEst) estMin = mins;
     }
   }
   return {
@@ -50,6 +52,11 @@ export function makeLeg(o) {
     prevCzk: o.prevPrice != null ? toCzk(o.prevPrice, o.currency) : null,
     stops: o.stops ?? 0,
     durationMin,
+    // Odhad délky letu bez známého příletu (jako arrEst) – jen pro filtr délky cesty, v UI se neukazuje.
+    ...(estMin ? { estMin } : {}),
+    // Přestupy z časů úseků (Kiwi): [{ at: letiště, min: čekání }].
+    // cc = země letiště přestupu (z databáze letišť) – kvůli vstupním podmínkám i pro tranzit (ESTA v USA).
+    ...(Array.isArray(o.layovers) && o.layovers.length ? { layovers: o.layovers.map((x) => ({ ...x, cc: getAirport(x.at)?.cc || null })) } : {}),
     live: o.live !== false,
     bookUrl: o.bookUrl || null,
     foundAt: o.foundAt || null,

@@ -21,6 +21,9 @@
 .spin.dark{border-color:var(--border-2);border-top-color:var(--accent)}
 .manual-row{display:grid;grid-template-columns:auto 1fr 170px auto;gap:8px;align-items:center}
 .link-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
+.tf-price{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:13px}
+/* dlouhé tlačítko („Ověřit živou cenu a porovnat aerolinky“) na úzkém displeji zalomit, ne vytlačit z karty */
+.step-card .row .btn{max-width:100%;white-space:normal;text-align:center}
 .tl-leg{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;font-size:14px}
 .tr-buy{display:flex;flex-direction:column;gap:6px}
 .tr-buy .btn{width:100%}
@@ -181,3 +184,26 @@ table.cost tr.tot td{font:800 17px Sora,sans-serif;border-bottom:none;padding-to
 @media(max-width:1080px){.route-layout{grid-template-columns:1fr}.route-map{height:320px}}
 @media(max-width:860px){.route-choice{grid-template-columns:1fr}}
 @media(max-width:560px){.rb{grid-template-columns:30px minmax(0,1fr) auto;row-gap:8px}.rb-main{grid-column:2/-1}.rb-nights{grid-column:2}.rb-acts{grid-column:3}.rt-tr,.rt-leg{padding:8px 6px 8px 10px}}
+
+/* vlak / bus místo letu */
+.gnd-offer{margin-top:14px}
+.gnd-offer.hot{border-color:rgba(52,211,153,.45)}
+.ov-dates{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;margin:12px 0}
+.ov-dates .field{min-width:150px}
+.ov-dates label.check{margin:0}
+.ov-sum{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:12px;font-size:13.5px}
+.ov-sum b{font:800 18px Sora,sans-serif}
+.ov-leg{display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:13.5px}
+.ov-leg .ov-ic{font-size:18px;line-height:1.2}
+.ov-leg small{display:block;color:var(--muted);font-size:12px}
+/* 🛂 Před cestou (vstupní podmínky) */
+.entry-card .pc-country{padding:10px 0;border-bottom:1px solid var(--border)}
+.entry-card .pc-country:last-of-type{border-bottom:none}
+.entry-card .pc-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14.5px}
+.entry-card .pc-h .ec{margin-top:0}
+.entry-card .pc-list{margin:6px 0 0 18px;font-size:13.5px}
+.entry-card .pc-list li{margin:3px 0}
+.entry-card .pc-src{font-size:12px;margin-top:4px}
+table.cost tr.entry-fee td{font-size:13px;color:var(--muted)}
+table.cost tr.entry-fee td:last-child{color:var(--text)}
+table.cost tr.entry-tot td{font-weight:800;border-bottom:none}

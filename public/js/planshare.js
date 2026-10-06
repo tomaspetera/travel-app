@@ -42,6 +42,20 @@
     };
   }
 
+  // Cesta vlakem/busem z průvodce cestou (místo letu): názvy měst, místní časy a zóny, druh a dopravce.
+  function ground(g) {
+    if (!obj(g) || !txt(g.from, 80) || !txt(g.to, 80)) return null;
+    const dep = localDt(g.dep);
+    const date = isYmd(g.date) ? g.date : dep ? dep.slice(0, 10) : null;
+    if (!date) return null;
+    const min = Math.round(Number(g.min));
+    return {
+      from: txt(g.from, 80), to: txt(g.to, 80), date, dep, arr: dep ? localDt(g.arr) : null, fromTz: tz(g.fromTz), toTz: tz(g.toTz),
+      kind: txt(g.kind, 20), carrier: txt(g.carrier, 40), min: min > 0 && min < 3000 ? min : null,
+      fromStation: txt(g.fromStation, 60), toStation: txt(g.toStation, 60),
+    };
+  }
+
   /** Bezpečná kopie plánu: jen známá pole, ověřená data, omezené délky a počty. */
   function sanitize(raw) {
     if (!obj(raw)) throw new Error('neplatný plán');
@@ -60,6 +74,7 @@
     const pax = Math.round(Number(raw.pax));
     const budget = Number(raw.budget);
     const legs = Array.isArray(raw.legs) ? raw.legs.slice(0, 4).map(leg).filter(Boolean) : [];
+    const grounds = Array.isArray(raw.ground) ? raw.ground.slice(0, 4).map(ground).filter(Boolean) : [];
     const plan = {
       name: txt(raw.name, 120) || 'Sdílená cesta',
       dest: txt(raw.dest, 120) || '—',
@@ -74,6 +89,13 @@
       notes: txt(raw.notes, 3000, true),
     };
     if (legs.length) plan.legs = legs;
+    if (grounds.length) plan.ground = grounds;
+    // cesta přes víc zemí: jen kódy zemí (vstupní podmínky si plánovač dopočítá z dat)
+    const codes = v => (Array.isArray(v) ? [...new Set(v.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x)))].slice(0, 8) : []);
+    const isos = codes(raw.isos), via = codes(raw.via);
+    if (isos.length) plan.isos = isos;
+    // přestupy v zemích, kde registrace platí i pro tranzit (ESTA v USA…)
+    if (via.length) plan.via = via;
     return plan;
   }
 

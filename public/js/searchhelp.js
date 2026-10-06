@@ -1,6 +1,6 @@
 /* ATLAS – pomoc s výsledky hledání letů: čistá logika bez DOM, aby šla testovat v node (test/searchhelp.test.js).
-   Lety po jednotlivých letech u přesných dat, „nejbližší dny“, výpadek Kiwi.com, aktivní filtry a návrhy,
-   jak hledání jedním kliknutím rozšířit, když je výsledků málo. */
+   Lety po jednotlivých letech u přesných dat, „nejbližší dny“, výpadek Kiwi.com, aktivní filtry (i čas a přestupy)
+   a návrhy, jak hledání jedním kliknutím rozšířit, když je výsledků málo. */
 (function () {
   const pad = n => String(n).padStart(2, '0');
   const kc = n => Math.round(n).toLocaleString('cs-CZ') + ' Kč';
@@ -165,11 +165,149 @@
     return { level: k.outage, retryAfter: Math.max(0, Math.round(+k.retryAfter || 0)), failed: +k.failed || 0, others };
   }
 
+  /* ---------- filtry času a přestupů (ve výpisu, bez nového hledání) ---------- */
+  // Části dne podle hodiny odletu (místní čas): [klíč, popisek, od, do).
+  const DAYPARTS = [['morning', 'Ráno', 5, 12], ['afternoon', 'Odpoledne', 12, 18], ['evening', 'Večer', 18, 24], ['night', 'Noc', 0, 5]];
+  const PART_TXT = { morning: 'ráno', afternoon: 'odpoledne', evening: 'večer', night: 'v noci' };
+  const freshTime = () => ({ out: [], back: [], arrBy: null, stops: null, maxDur: null, maxLay: null });
+  const hm = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
+  // „4 h 20“ (jako u odhadu cesty vlakem/busem)
+  const hhmmTxt = m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + pad(m % 60) : ''}` : `${m} min`; };
+  const clock = s => { const x = String(s || ''); const h = +x.slice(11, 13), m = +x.slice(14, 16); return x.length >= 16 && Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null; };
+
+  /** Část dne odletu letu, nebo null (čas neznámý). */
+  function dayPart(l) {
+    const m = l && l.hasTime ? clock(l.dep) : null;
+    if (m == null) return null;
+    const h = Math.floor(m / 60);
+    const p = DAYPARTS.find(x => h >= x[2] && h < x[3]);
+    return p ? p[0] : null;
+  }
+  /** Délka letu v minutách (i odhad, když chybí čas příletu), jinak null. */
+  const legMinutes = l => (l && l.durationMin > 0 ? l.durationMin : l && l.estMin > 0 ? l.estMin : null);
+  /** Nejdelší přestup letu v minutách; null = přímý let nebo časy úseků neznáme. */
+  const maxLayover = l => (l && l.stops > 0 && Array.isArray(l.layovers) && l.layovers.length ? Math.max(...l.layovers.map(x => +x.min || 0)) : null);
+  /** Přílet po hodině `by` (místní čas) nebo v noci (0–5 h; i po půlnoci dalšího dne). Ráno dalšího dne nevadí. */
+  function arrLate(l, by) {
+    const m = l && l.hasTime && l.arr ? clock(l.arr) : null;
+    return m != null && (m > by * 60 || m < 5 * 60);
+  }
+  const timeActive = tf => Boolean(tf && ((tf.out || []).length || (tf.back || []).length || tf.arrBy != null || tf.stops != null || tf.maxDur || tf.maxLay));
+
+  /**
+   * Které filtry času a přestupů cesta porušuje: ['tOut', 'tBack', 'arrBy', 'stops', 'maxDur', 'maxLay'] (prázdné = projde).
+   * tf = { out: [části dne odletu tam], back: [… zpět], arrBy: hodina (přílet nejpozději, tam i zpět), stops: max. přestupů,
+   * maxDur: max. délka cesty jedním směrem (min), maxLay: max. délka jednoho přestupu (min) }.
+   * Co o letu nevíme (čas, délku, časy úseků), filtr neskrývá.
+   */
+  function timeFails(t, tf) {
+    const out = [];
+    if (!t || !timeActive(tf)) return out;
+    const legs = [t.out, t.back].filter(Boolean);
+    const partOk = (l, parts) => { const p = dayPart(l); return p == null || parts.includes(p); };
+    if ((tf.out || []).length && t.out && !partOk(t.out, tf.out)) out.push('tOut');
+    if ((tf.back || []).length && t.back && !partOk(t.back, tf.back)) out.push('tBack');
+    if (tf.arrBy != null && legs.some(l => arrLate(l, tf.arrBy))) out.push('arrBy');
+    if (tf.stops != null && legs.some(l => (l.stops || 0) > tf.stops)) out.push('stops');
+    if (tf.maxDur && legs.some(l => (legMinutes(l) || 0) > tf.maxDur)) out.push('maxDur');
+    if (tf.maxLay && legs.some(l => (maxLayover(l) || 0) > tf.maxLay)) out.push('maxLay');
+    return out;
+  }
+  const timeOk = (t, tf) => timeFails(t, tf).length === 0;
+
+  /**
+   * Pohled „Lety“ s filtry času a přestupů: let jednoho směru, který filtrům svého směru vyhoví, ale žádná jeho kombinace
+   * ze serveru ne (vadil let druhým směrem – třeba „odlet zpět ráno“), se složí s nejlevnějším letem druhým směrem
+   * z kombinací, které filtry prošly. Jinak by filtr návratu schoval i lety tam (a naopak).
+   * pre = kombinace po ostatních filtrech, vis = kombinace, které prošly všemi filtry, opts = { adults, openJaw, keep }
+   * jako u composeTrip. → nové složené cesty (jen ze samostatných letenek).
+   */
+  function fillLegs(pre, vis, tf, opts = {}) {
+    if (!timeActive(tf)) return [];
+    const cost = l => l.czk + l.groundCzk + l.bagCzk;
+    const added = [];
+    for (const [side, other] of [['out', 'back'], ['back', 'out']]) {
+      const have = new Set((vis || []).filter(t => t[side]).map(t => legSig(t[side])));
+      // lety druhým směrem z prošlých kombinací, každý jednou, od nejlevnějšího (cena složené cesty = součet letů)
+      const seen = new Set();
+      const partners = (vis || []).filter(t => {
+        const l = t[other];
+        if (t.combined || !l || !Number.isFinite(cost(l)) || seen.has(legSig(l))) return false;
+        seen.add(legSig(l));
+        return true;
+      }).sort((a, b) => cost(a[other]) - cost(b[other]));
+      const done = new Set();
+      for (const t of pre || []) {
+        const l = t[side];
+        if (!l || t.combined || have.has(legSig(l)) || done.has(legSig(l))) continue;
+        done.add(legSig(l));
+        if (timeFails(side === 'out' ? { out: l } : { back: l }, tf).length) continue;
+        for (const p of partners) {
+          const c = side === 'out' ? composeTrip(t, p, opts) : composeTrip(p, t, opts);
+          if (c && (!opts.keep || opts.keep(c))) { added.push(c); break; }
+        }
+      }
+    }
+    return added;
+  }
+
+  /** Kolik nabídek skrývá každý filtr sám (by), všechny dohromady (any) a z kolika (total). */
+  function timeHidden(trips, tf) {
+    const by = {};
+    let any = 0;
+    for (const t of trips || []) {
+      const f = timeFails(t, tf);
+      if (f.length) any++;
+      for (const k of f) by[k] = (by[k] || 0) + 1;
+    }
+    return { by, any, total: (trips || []).length };
+  }
+
+  /** Posuvník z rozsahu dat [a, b] v minutách: krok 15 / 30 / 60 min podle rozpětí. */
+  function rangeOf(r) {
+    if (!r) return null;
+    const step = r[1] - r[0] > 600 ? 60 : r[1] - r[0] > 180 ? 30 : 15;
+    const min = Math.max(step, Math.floor(r[0] / step) * step), max = Math.ceil(r[1] / step) * step;
+    return max > min ? { min, max, step } : null;
+  }
+  /** Z dat výsledků: rozsah délky letu (dur) a nejdelšího přestupu (lay) pro posuvníky, nejvíc přestupů (maxStops). */
+  function timeStats(trips) {
+    const durs = [], lays = [];
+    let maxStops = 0;
+    for (const t of trips || []) {
+      for (const l of [t.out, t.back]) {
+        if (!l) continue;
+        const d = legMinutes(l), w = maxLayover(l);
+        if (d) durs.push(d);
+        if (w != null) lays.push(w);
+        maxStops = Math.max(maxStops, l.stops || 0);
+      }
+    }
+    const span = a => (a.length ? [Math.min(...a), Math.max(...a)] : null);
+    return { dur: rangeOf(span(durs)), lay: rangeOf(span(lays)), maxStops };
+  }
+
+  /** Čipy aktivních filtrů času a přestupů (opts.hidden = počty z timeHidden.by, opts.ret = zpáteční let). */
+  function timeChips(tf, { hidden = {}, ret = true } = {}) {
+    if (!timeActive(tf)) return [];
+    const parts = list => DAYPARTS.filter(p => list.includes(p[0])).map(p => PART_TXT[p[0]]).join(', ');
+    const out = [];
+    const add = (key, label) => out.push({ key, label, hidden: hidden[key] || 0, time: true });
+    if ((tf.out || []).length) add('tOut', `🛫 odlet ${ret ? 'tam ' : ''}${parts(tf.out)}`);
+    if (ret && (tf.back || []).length) add('tBack', `🛬 odlet zpět ${parts(tf.back)}`);
+    if (tf.arrBy != null) add('arrBy', tf.arrBy >= 24 ? 'přílet před půlnocí' : `přílet do ${tf.arrBy}:00`);
+    if (tf.stops != null) add('stops', tf.stops === 0 ? 'bez přestupu' : `max. ${tf.stops} přestup`);
+    if (tf.maxDur) add('maxDur', `⏱ cesta max. ${hm(tf.maxDur)}`);
+    if (tf.maxLay) add('maxLay', `⌛ přestup max. ${hm(tf.maxLay)}`);
+    return out;
+  }
+
   /**
    * Aktivní filtry jako čipy: ze serveru (max. cena, jen přímé – zrušení = nové hledání, hidden = kolik nabídek skryly)
-   * i z výpisu (🔥 jen výhodné, posuvník ceny, den odletu, vypnutá letiště, aerolinky – zruší se hned).
+   * i z výpisu (🔥 jen výhodné, posuvník ceny, den odletu, vypnutá letiště, aerolinky, čas a přestupy – zruší se hned).
+   * time = { hidden, ret } pro čipy času a přestupů (viz timeChips).
    */
-  function activeFilters(filters, v = {}, names = {}) {
+  function activeFilters(filters, v = {}, names = {}, time = {}) {
     const f = filters || {};
     const h = f.hidden || {};
     const out = [];
@@ -180,7 +318,7 @@
     if (v.outDate) out.push({ key: 'outDate', label: `odlet ${dm(v.outDate)}` });
     if (v.excludeOrigins && v.excludeOrigins.size) out.push({ key: 'origins', label: `bez ${[...v.excludeOrigins].join(', ')}` });
     if (v.carriers && v.carriers.size) out.push({ key: 'carriers', label: `jen ${[...v.carriers].map(c => names[c] || c).join(', ')}` });
-    return out;
+    return out.concat(timeChips(v.time, time));
   }
 
   /** Málo výsledků: u konkrétního cíle méně než 3 kombinace, jinak méně než 3 destinace. */
@@ -198,12 +336,19 @@
     const x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;
     return 12742 * Math.asin(Math.sqrt(x));
   };
-  /** Nejbližší přestupní letiště do 450 km, která hledání ještě neprošlo (ani jako odletová, ani jako přestupní). */
+  /**
+   * Nejbližší přestupní letiště do 450 km, která hledání ještě neprošlo (ani jako odletová, ani jako přestupní).
+   * Cíl sám (Berlín → „přidat Berlín“), letiště v zemi cíle a do 150 km od cíle (Bratislava → Vídeň) se nenabízejí.
+   */
   function nearHubs(res, max = 3) {
     const at = res && (res.home || (res.origins || []).find(o => o.lat != null));
     if (!at || at.lat == null) return [];
-    const have = new Set([...(res.origins || []).map(o => o.iata), ...(res.hubs || [])]);
-    return HUBS.filter(h => !have.has(h[0])).map(h => ({ iata: h[0], city: h[1], cc: h[2], km: km(at.lat, at.lon, h[3], h[4]) }))
+    const dest = res.destination || {};
+    const have = new Set([...(res.origins || []).map(o => o.iata), ...(res.hubs || []), ...(dest.airports || [])]);
+    const labels = (res.destinationLabels || []).filter(Boolean);
+    const destCc = new Set([...labels.map(x => x.cc), ...(dest.countries || [])].filter(Boolean));
+    const nearDest = h => labels.some(x => Number.isFinite(x.lat) && Number.isFinite(x.lon) && km(x.lat, x.lon, h[3], h[4]) < 150);
+    return HUBS.filter(h => !have.has(h[0]) && !destCc.has(h[2]) && !nearDest(h)).map(h => ({ iata: h[0], city: h[1], cc: h[2], km: km(at.lat, at.lon, h[3], h[4]) }))
       .filter(h => h.km <= 450).sort((a, b) => a.km - b.km).slice(0, max);
   }
 
@@ -214,8 +359,11 @@
    * Konkrétní úpravy hledání pro prázdný nebo chudý výsledek – každá je jedno kliknutí (patch formuláře → nové hledání).
    * form = formulář, se kterým se hledalo (položky Odkud/Kam jako {id,label,flag,type}); res = výsledek;
    * opts.country(cc) → { name, cont } (česky), opts.flag(cc) → vlajka. Vrací [{ key, label, patch }], nejslibnější první.
+   * Cíl v dosahu vlaku/busu (res.ground, odhad ze serveru) → { key: 'ground', label, ground: true } – otevře spoje po zemi.
+   * opts.time = { chips, any }: čipy filtrů času a přestupů (timeChips) a kolik nabídek skryly dohromady – ty, které
+   * něco skryly, jdou úplně napřed jako { key, label, clear } (zruší se hned ve výpisu, bez nového hledání).
    */
-  function smartActions(form, res, { today, country = () => null, flag = () => '' } = {}) {
+  function smartActions(form, res, { today, country = () => null, flag = () => '', time = null } = {}) {
     const f = form || {};
     const r = res || {};
     const acts = [];
@@ -223,9 +371,16 @@
     const hidden = (r.filters && r.filters.hidden) || {};
     const exact = f.dateMode === 'exact';
     const ret = f.trip === 'return';
+    const tc = ((time && time.chips) || []).filter(c => c.hidden > 0).sort((a, b) => b.hidden - a.hidden);
+    if (tc.length > 1) acts.push({ key: 'clearTime', label: `Zrušit filtry času a přestupů (skryly ${time.any || tc[0].hidden})`, clear: 'time' });
+    for (const c of tc.slice(0, 3)) acts.push({ key: 'clear:' + c.key, label: `Zrušit „${c.label}“ (skryto ${c.hidden})`, clear: c.key });
     // Filtr, který nabídky opravdu skryl, je nejpravděpodobnější příčina.
     if (f.maxPrice && hidden.maxPrice) add('noPrice', `Zrušit limit ceny (skryl ${hidden.maxPrice})`, { maxPrice: '' });
     if (f.directOnly && hidden.directOnly) add('noDirect', `I lety s přestupem (skryto ${hidden.directOnly})`, { directOnly: false });
+    // Blízký cíl: vlak nebo bus (když se to vyplatí, nebo když letadlem nic není).
+    const g = r.ground;
+    // cena jako ve srovnání nad nápovědou: u zpáteční cesty tam i zpět (jinak by vedle „od ~598 Kč tam i zpět“ stálo „od ~299 Kč“)
+    if (g && g.min > 0 && (g.worth || !(r.groups || []).length)) acts.push({ key: 'ground', label: `🚆 Vlakem/busem ~${hhmmTxt(g.min)} · ${ret ? `tam i zpět od ~${kc(g.czk * 2)}` : `od ~${kc(g.czk)}`} (odhad)`, ground: true });
     if (exact) {
       const fl = +f.xFlex || 0;
       if (fl < 1) add('flex1', '± 1 den', { xFlex: 1 });
@@ -284,5 +439,66 @@
     return acts.filter(a => !seen.has(a.key) && seen.add(a.key));
   }
 
-  window.SearchHelp = { legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays };
+  /* ---------- cesta přes víc měst: výběr letu na každý úsek ---------- */
+  /**
+   * costs[i][a] = cena letu a v úseku i (Kč/os.), links[i][a][b] = null, když se let b úseku i+1 po letu a stihne
+   * (jinak důvod ze serveru), picks[i] = vybraný let úseku i nebo null. Vrací
+   *  through[i][a] = cena nejlevnější celé cesty s letem a (ostatní úseky podle výběru; vlastní výběr úseku i se
+   *                  nebere v úvahu – jde o to, kolik by stála cesta, kdyby si vybral tenhle let) nebo null,
+   *  best = { picks, total } nejlevnější celá cesta podle výběru, nebo null (vybrané lety nejdou spojit).
+   */
+  function multiPlan(costs, links, picks = []) {
+    const n = costs.length;
+    const ok = (i, a) => picks[i] == null || picks[i] === a;
+    const fits = (i, a, b) => !(links[i] && links[i][a] && links[i][a][b]);
+    // f[i][a] = nejlevnější úseky 0..i končící letem a, g[i][a] = nejlevnější úseky i..n-1 začínající letem a
+    const f = [], g = [];
+    for (let i = 0; i < n; i++) {
+      f[i] = costs[i].map((c, a) => {
+        if (!i) return c;
+        let m = Infinity;
+        costs[i - 1].forEach((_, x) => { if (ok(i - 1, x) && fits(i - 1, x, a) && f[i - 1][x] < m) m = f[i - 1][x]; });
+        return m + c;
+      });
+    }
+    for (let i = n - 1; i >= 0; i--) {
+      g[i] = costs[i].map((c, a) => {
+        if (i === n - 1) return c;
+        let m = Infinity;
+        costs[i + 1].forEach((_, y) => { if (ok(i + 1, y) && fits(i, a, y) && g[i + 1][y] < m) m = g[i + 1][y]; });
+        return m + c;
+      });
+    }
+    const through = costs.map((row, i) => row.map((c, a) => { const v = f[i][a] + g[i][a] - c; return Number.isFinite(v) ? v : null; }));
+    // nejlevnější cesta: g už počítá s výběrem v dalších úsecích, takže stačí brát nejlevnější navazující let
+    const path = [];
+    for (let i = 0; i < n; i++) {
+      let best = -1;
+      costs[i].forEach((_, a) => {
+        if (!ok(i, a) || (i && !fits(i - 1, path[i - 1], a)) || !Number.isFinite(g[i][a])) return;
+        if (best < 0 || g[i][a] < g[i][best]) best = a;
+      });
+      if (best < 0) return { through, best: null };
+      path.push(best);
+    }
+    return { through, best: n ? { picks: path, total: g[0][path[0]] } : null };
+  }
+
+  /**
+   * Proč se let nedá navázat (důvod ze serveru: early / short / nextday), česky. side = 'prev': tenhle let po vybraném
+   * předchozím, 'next': po tomhle letu vybraný další.
+   */
+  function multiWhy(x, side = 'prev') {
+    if (!x) return '';
+    const next = side === 'next';
+    if (x.why === 'early') return next ? 'přistane až po odletu vybraného dalšího letu' : 'odlétá dřív, než vybraný předchozí let přistane';
+    if (x.why === 'short') return `${next ? 'do odletu vybraného dalšího letu' : 'od příletu předchozího letu'} jen ${hm(Math.max(0, x.gapMin))} – ${x.move ? 's přejezdem do jiného města ' : ''}potřeba aspoň ${hm(x.needMin)}`;
+    return next ? 'další let je z jiného letiště nebo bez času – musel by být nejdřív další den'
+      : 'jiné letiště než přílet předchozího letu (nebo neznámý čas) – odlet nejdřív další den';
+  }
+
+  window.SearchHelp = {
+    legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
+    DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
+  };
 })();

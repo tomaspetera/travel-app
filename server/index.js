@@ -27,6 +27,7 @@ import { affiliateOn } from './lib/links.js';
 import { HttpError } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
 import { airportClimate, climateAt, climateSource, countryClimate } from './lib/climate.js';
+import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -120,6 +121,8 @@ async function handleSearch(req, res) {
   } catch (e) {
     return sendJson(req, res, 400, { error: e instanceof UserError ? e.message : 'Neplatný JSON' });
   }
+  // Cesta přes víc měst = hledání několika úseků → do limitu se počítá dvakrát.
+  if (body && body.trip === 'multi' && rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho hledání za krátkou dobu – zkus to za pár minut.' });
   const gzip = wantsGzip(req);
   res.writeHead(200, {
     'Content-Type': 'application/x-ndjson; charset=utf-8',
@@ -322,6 +325,18 @@ async function route(req, res) {
     if (!c) return sendJson(req, res, 404, { error: 'Pro toto místo nemám údaje o podnebí.' });
     return sendJson(req, res, 200, { ...c, source: climateSource() }, { 'Cache-Control': 'public, max-age=604800' });
   }
+  if (p === '/api/ground') {
+    // Vlak nebo bus místo letadla: odhad, srovnání s letadlem, odkazy; s datem i živé spoje RegioJetu (na vyžádání).
+    let q;
+    try {
+      q = groundQuery(url.searchParams);
+    } catch (e) {
+      if (e instanceof GroundError) return sendJson(req, res, 400, { error: e.message });
+      throw e;
+    }
+    // Dotaz na RegioJet počítá stejný limit jako hledání (odpověď z mezipaměti ne); po vyčerpání jen odhad a odkazy.
+    return sendJson(req, res, 200, await groundInfo(q, { allowLive: () => !rateLimited(req) }));
+  }
   if (p === '/api/cars') return sendJson(req, res, 200, searchCars(Object.fromEntries(url.searchParams)));
   if (p === '/api/poi') {
     if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
@@ -466,8 +481,9 @@ async function route(req, res) {
   if (p.startsWith('/api/')) return sendJson(req, res, 404, { error: 'Neznámý endpoint' });
 
   // Statické soubory
-  if (p === '/data/countries.json') {
-    if (serveFile(req, res, path.join(DATA, 'countries.json'), { maxAge: 3600 })) return;
+  if (p === '/data/countries.json' || p === '/data/entry.json') {
+    // entry.json = vstupní podmínky pro občany ČR; prohlížeč ho načítá až po startu (nezdržuje první vykreslení)
+    if (serveFile(req, res, path.join(DATA, p.slice(6)), { maxAge: 3600 })) return;
   }
   let rel;
   try {

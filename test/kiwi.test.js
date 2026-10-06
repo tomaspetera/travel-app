@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { stubFetch, ymdPlus } from './helpers.js';
-import { kiwi, parseKiwiSearch, parseRpcBody, kiwiBlocked, kiwiContext, kiwiRetryAfter, resetKiwi } from '../server/providers/kiwi.js';
+import { kiwi, parseKiwiSearch, parseRpcBody, kiwiBlocked, kiwiContext, kiwiRetryAfter, resetKiwi, layoversOf } from '../server/providers/kiwi.js';
 import { setRates, FALLBACK_EUR } from '../server/lib/fx.js';
 
 setRates({ base: 'EUR', rates: { ...FALLBACK_EUR, CZK: 25 }, source: 'test' });
@@ -35,12 +35,25 @@ test('parseKiwiSearch: přestupy, více aerolinek, cena na osobu, zpáteční = 
   assert.equal(a.out.flightNo, 'W6 2347, VY 8460');
   assert.equal(a.out.czk, Math.round(60 * 25), '120 € za 2 osoby = 60 € na osobu');
   assert.equal(a.out.durationMin, 270);
+  assert.deepEqual(a.out.layovers, [{ at: 'BCN', min: 40, cc: 'ES' }], 'přestup z časů úseků (místní čas na letišti přestupu), země z databáze letišť');
+  assert.equal(a.out.estMin, undefined, 'známý přílet → žádný odhad');
   assert.equal(a.bookUrl, 'https://www.kiwi.com/booking?token=a');
   assert.equal(b.out.stops, 0);
+  assert.equal(b.out.layovers, undefined, 'přímý let');
   const rt = parseKiwiSearch({ currency: 'EUR', itineraries: [{ ...SEARCH(d).itineraries[1], price: 300, inbound: { from: 'LIS', to: 'VIE', departureTime: `${ymdPlus(25)}T15:00:00`, arrivalTime: `${ymdPlus(25)}T19:30:00`, stops: 0, segments: [] } }] }, { adults: 1 });
   assert.equal(rt[0].combined, true);
   assert.equal(rt[0].flightCzk, 7500);
   assert.equal(rt[0].back.from, 'LIS');
+});
+
+test('layoversOf: čekání mezi úseky (i přes noc a se zónou v čase), bez časů úseků nic', () => {
+  const s = (from, to, dep, arr) => ({ from, to, departureTime: dep, arrivalTime: arr });
+  assert.deepEqual(layoversOf([s('PRG', 'IST', '2026-11-12T10:00:00', '2026-11-12T14:05:00'), s('IST', 'BKK', '2026-11-12T20:35:00', '2026-11-13T10:00:00'),
+    s('BKK', 'HKT', '2026-11-14T07:15:00+07:00', '2026-11-14T08:40:00+07:00')]), [{ at: 'IST', min: 390 }, { at: 'BKK', min: 21 * 60 + 15 }]);
+  assert.equal(layoversOf([s('PRG', 'IST', '2026-11-12T10:00:00', null), s('IST', 'BKK', '2026-11-12T20:35:00', '2026-11-13T10:00:00')]), null);
+  assert.equal(layoversOf([s('PRG', 'IST', '2026-11-12T10:00:00', '2026-11-12T14:05:00'), s('IST', 'BKK', '2026-11-12T12:00:00', '2026-11-13T10:00:00')]), null, 'odlet před příletem = nesmysl');
+  assert.equal(layoversOf([s('PRG', 'IST', '2026-11-12T10:00:00', '2026-11-12T14:05:00')]), null);
+  assert.equal(layoversOf(undefined), null);
 });
 
 // krátké pauzy mezi opakováními, ať testy netrvají

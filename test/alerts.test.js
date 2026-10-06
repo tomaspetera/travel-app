@@ -30,6 +30,15 @@ test('isPast: přesná data podle odletu, flexibilní podle konce rozsahu', () =
   assert.equal(A.isPast(undefined, TODAY), false);
 });
 
+test('isPast: cesta přes víc měst podle 1. letu (i když jsou ve formuláři zbytky flexibilního termínu)', () => {
+  const multi = (...dates) => ({ trip: 'multi', dateMode: 'flex', dFrom: '2026-12-01', dTo: '2026-12-31', legs: dates.map((date) => ({ from: [], to: [], date })) });
+  assert.equal(A.isPast(multi('2026-10-04', '2026-10-09'), TODAY), true);
+  assert.equal(A.isPast(multi('2026-10-05', '2026-10-09'), TODAY), false, 'první let dnes ještě jde');
+  assert.equal(A.isPast({ trip: 'multi', legs: [] }, TODAY), false);
+  const list = [{ id: 'm', form: multi('2026-10-04', '2026-10-09') }, { id: 'n', form: multi('2026-10-20', '2026-10-25') }];
+  assert.deepEqual(plain(A.dueWatches(list, { now: NOW, today: TODAY }).map((w) => w.id)), ['n']);
+});
+
 test('dueWatches: jen zastaralé a neproběhlé, nejdéle nezkoušené napřed, max. 4', () => {
   const f = flex('2026-10-10', '2026-12-01');
   const list = [

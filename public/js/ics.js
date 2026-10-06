@@ -192,5 +192,29 @@
       : { ...ev, start: isYmd(l.date) ? l.date : String(l.dep || '').slice(0, 10) };
   }
 
-  window.Ics = { build, download, gcalUrl, flightEvent, tzOffset, localToUtc, fold, escText };
+  /**
+   * Cesta vlakem/busem jako událost: { from, to, date, dep?, arr?, fromTz?, toTz?, kind?, carrier?, min?, fromStation?, toStation? }
+   * dep/arr jsou místní časy (zóna města odjezdu / příjezdu); bez spoje (jen odhad) celodenní událost v den cesty.
+   */
+  function groundEvent(g, { url, note } = {}) {
+    const hm = s => s.slice(11, 16);
+    const timed = isLocal(g.dep);
+    const icon = /^bus$/.test(g.kind || '') ? '🚌' : '🚆';
+    const where = (city, st) => (st ? `${city} – ${st}` : city);
+    const dur = Number(g.min) > 0 ? `${Math.floor(g.min / 60)} h ${String(Math.round(g.min % 60)).padStart(2, '0')} min` : '';
+    const lines = timed
+      ? [`Odjezd ${hm(g.dep)} místního času (${where(g.from, g.fromStation)})`, isLocal(g.arr) ? `Příjezd ${hm(g.arr)} místního času (${where(g.to, g.toStation)})` : '']
+      : [`Konkrétní spoj vyber a ověř u dopravce${dur ? ` – cesta trvá ~${dur} (odhad)` : ''}.`];
+    const ev = {
+      title: `${icon} ${g.from} → ${g.to}${g.carrier ? ' · ' + g.carrier : ''}${g.kind ? ` (${g.kind})` : ''}`,
+      description: [...lines, note || ''].filter(Boolean).join('\n'),
+      location: where(g.from, g.fromStation),
+      url,
+    };
+    return timed
+      ? { ...ev, start: g.dep.slice(0, 16), tz: g.fromTz, end: isLocal(g.arr) ? g.arr.slice(0, 16) : null, endTz: g.toTz || g.fromTz, durationMin: g.min || 240 }
+      : { ...ev, start: isYmd(g.date) ? g.date : String(g.dep || '').slice(0, 10) };
+  }
+
+  window.Ics = { build, download, gcalUrl, flightEvent, groundEvent, tzOffset, localToUtc, fold, escText };
 })();
