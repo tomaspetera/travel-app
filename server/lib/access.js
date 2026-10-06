@@ -7,17 +7,21 @@
 //   (vázaný spoj v daný čas, méně levných jízdenek přes hranici). Letiště ve městě domova = jen jízdenka MHD,
 //   letiště do 50 km za humny (blíž než jeho město) = regionální bus/vlak rovnou na letiště; jede-li z města domova
 //   přímý bus až na letiště (Praha → Mnichov, Vídeň, Berlín; Brno → Vídeň – tabulka DIRECT), počítá se levnější.
-// 🚗 Autem: palivo tam i zpět (silniční km × Kč/km, výchozí 6,5 l/100 km × ~40 Kč/l = 2,6 Kč/km) + parkování
-//   u letiště podle délky cesty + dálniční známka / mýtné v cizině, vše děleno počtem cestujících. Jen tam
-//   (parkování neznámé) = někdo tě odveze: palivo tam i zpět, bez parkování.
-// Vždy jen odhad bez sítě – ceníky dopravců a parkovišť 2025/26 zaokrouhlené (~25 Kč/€, ~5,8 Kč/zł,
-// ~0,065 Kč/Ft); RegioJet se tu neptá. Zdroje a předpoklady viz README → „Doprava na letiště“.
+// 🚗 Autem: palivo tam i zpět (silniční km × spotřeba / 100 × cena – nafta 6 l/100 km nebo benzín 7 l/100 km za
+//   aktuální cenu v zemi domova z fuel.js, elektroauto 19 kWh/100 km za nabíjení DC ~16 Kč/kWh, nebo vlastní cena)
+//   + parkování u letiště podle délky cesty + dálniční známka / mýtné v cizině, vše děleno počtem cestujících. Jen tam
+//   (parkování neznámé) = někdo tě odveze: palivo tam i zpět, bez parkování. Dřívější dotazy jen s Kč/km (carKmCzk
+//   bez carFuel) počítají jako dřív: silniční km × Kč/km.
+// Vždy jen odhad, na síť se nečeká – ceníky dopravců a parkovišť 2025/26 zaokrouhlené (~25 Kč/€, ~5,8 Kč/zł,
+// ~0,065 Kč/Ft), ceny paliva poslední stažené z fuel.js; RegioJet se tu neptá. Zdroje a předpoklady viz README →
+// „Doprava na letiště“.
 //
 // Pozor: cyklus importů places.js → access.js → ground.js → places.js – na nejvyšší úrovni modulu proto nic
 // z ground.js nevolat (jen uvnitř funkcí).
 import { haversineKm } from './geo.js';
 import { airportsNear, getAirport } from './airports.js';
 import { CHEAP_CC, CITIES, MEASURED, MOUNTAIN_SLOW, PRAHA_RJ, distanceModel, groundPlace, landKm, mountainsOn } from './ground.js';
+import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV_LABEL, fuelPrice } from './fuel.js';
 
 // Letiště do ~450 km od Česka: [šířka, délka středu města, které obsluhuje, město, jízdné město → letiště (Kč/os.),
 // minuty, čím, parkování Kč/den za auto (levné dlouhodobé parkoviště – oficiální s rezervací online, nebo smluvní
@@ -98,8 +102,18 @@ const VIA = {
   HU: { CZ: ['SK', 'CZ'], DE: ['AT', 'DE'], PL: ['SK', 'PL'] },
 };
 
-export const CAR_KM_CZK = 2.6; // 6,5 l/100 km × ~40 Kč/l
+export const CAR_KM_CZK = 2.6; // dřívější výchozí Kč/km za auto (6,5 l/100 km × ~40 Kč/l) – jen dotazy s carKmCzk
 export const LEGACY_KM_RATE = 1.1; // dřívější výchozí sazba Kč/km (uložená hledání a hlídané ceny)
+// Pohon auta: název v popiscích, jednotka, výchozí spotřeba na 100 km a meze spotřeby a vlastní ceny (Kč/l, Kč/kWh).
+// Prohlížeč má totéž (SearchHelp.CAR_FUELS) – test hlídá shodu.
+export const CAR_FUELS = {
+  diesel: { name: 'nafta', unit: 'l', cons: DEFAULT_L_PER_100.diesel, consRange: [2, 30], priceRange: [5, 150] },
+  petrol: { name: 'benzín N95', unit: 'l', cons: DEFAULT_L_PER_100.petrol, consRange: [2, 30], priceRange: [5, 150] },
+  ev: { name: 'nabíjení', unit: 'kWh', cons: DEFAULT_KWH_PER_100, consRange: [8, 40], priceRange: [1, 40] },
+};
+export const DEFAULT_CAR_FUEL = 'diesel';
+// cena v sousední zemi: „nafta 55,11 Kč/l v Rakousku · Oil Bulletin EU, k 28. 9. 2026“
+const FUEL_IN = { DE: 'v Německu', AT: 'v Rakousku', SK: 'na Slovensku', PL: 'v Polsku', HU: 'v Maďarsku' };
 const CITY_KM = 15; // domov do 15 km od středu města letiště = cesta MHD
 const NEAR_KM = 50; // letiště za humny: regionální spoj rovnou na letiště
 const ROAD = 1.25; // silnice ≈ 1,25 × vzdušná čára
@@ -142,6 +156,16 @@ function origin(home) {
   const c = a && ACCESS[a.iata];
   if (c && haversineKm(a.lat, a.lon, c[0], c[1]) <= 35) return { lat: c[0], lon: c[1], label: c[2], cc: a.cc };
   return { lat: home.lat, lon: home.lon, label: home.label || '', cc: String(home.cc || '').toUpperCase() || ccNear(home) };
+}
+
+/**
+ * Země, jejíž cena nafty a benzínu platí pro cestu autem z domova (jako carAccess): CZ, DE, AT, SK, PL, HU, jiná → CZ.
+ * Poloha bez kódu země podle nejbližšího města. Pro prohlížeč (access.fuelCc v /api/origins a /api/nearby).
+ */
+export function fuelCountry(home) {
+  if (!home || !Number.isFinite(home.lat) || !Number.isFinite(home.lon)) return 'CZ';
+  const cc = origin(home).cc;
+  return FUEL_CC.includes(cc) ? cc : 'CZ';
 }
 
 /** Vlak / bus mezi městy (Kč/os., min): změřená cesta z/do Prahy, jinak model podle vzdálenosti, na kratší regionální jízdné. */
@@ -207,33 +231,99 @@ export function tollsOn(fromCc, toCc) {
   return via.filter((cc) => cc !== fromCc && TOLLS[cc]).map((cc) => ({ cc, ...TOLLS[cc] }));
 }
 
+const given = (v) => v != null && v !== '';
+const clamp = (x, [lo, hi]) => Math.min(hi, Math.max(lo, x));
+const comma = (x) => String(x).replace('.', ',');
+/** Cena za litr / kWh v popisku: nafta a benzín vždy na haléře („50,65“), nabíjení celé bez desetin („16“, „8,50“). */
+export const priceTxt = (fuel, x) => (CAR_FUELS[fuel]?.unit === 'l' || !Number.isInteger(x) ? x.toFixed(2).replace('.', ',') : String(x));
+
 /**
- * Autem na letiště: { mode: 'car', km, roadKm, minutes, czk, fuelCzk, carKmCzk, parkDayCzk, tolls, adults, dropOff, breakdown }.
- * fuelCzk = palivo jedním směrem za auto, parkDayCzk = parkování za den za auto, tolls = známky / mýtné za auto,
- * breakdown = totéž jako rozpis [{ k: 'fuel' | 'park' | 'toll', label, czk }] (za auto; parkování za den).
- * czk = na osobu a jeden let: palivo jedním směrem + půl známky (+ mýtné za jízdu); parkování podle délky cesty
- * přidá optimalizátor (parkCzk). dropOff (jen tam): někdo tě odveze – palivo tam i zpět, celá známka, bez parkování.
+ * Auto z dotazu: { carFuel, carCons, carPrice, carKmCzk }. carFuel 'diesel' (výchozí) | 'petrol' | 'ev', carCons =
+ * spotřeba l nebo kWh na 100 km (výchozí 6 / 7 / 19, meze CAR_FUELS), carPrice = vlastní cena Kč/l nebo Kč/kWh (null =
+ * aktuální). Dřívější dotaz jen s carKmCzk (bez carFuel – starší klient) zůstává v Kč/km: carFuel null, carKmCzk 0,5–10.
  */
-export function carAccess(home, a, { carKmCzk = CAR_KM_CZK, adults = 1, oneWay = false } = {}) {
+export function normalizeCar(raw = {}) {
+  if (!given(raw.carFuel) && given(raw.carKmCzk)) {
+    const km = Number(raw.carKmCzk);
+    return { carFuel: null, carCons: null, carPrice: null, carKmCzk: km > 0 ? Math.round(clamp(km, [0.5, 10]) * 10) / 10 : CAR_KM_CZK };
+  }
+  const fuel = ['diesel', 'petrol', 'ev'].includes(raw.carFuel) ? raw.carFuel : DEFAULT_CAR_FUEL;
+  const f = CAR_FUELS[fuel];
+  const cons = Number(raw.carCons);
+  const price = Number(raw.carPrice);
+  return {
+    carFuel: fuel,
+    carCons: given(raw.carCons) && cons > 0 ? Math.round(clamp(cons, f.consRange) * 10) / 10 : f.cons,
+    carPrice: given(raw.carPrice) && price > 0 ? Math.round(clamp(price, f.priceRange) * 100) / 100 : null,
+    carKmCzk: null,
+  };
+}
+
+/**
+ * Cena pohonu auta: { fuel, cons, unit, price, priceLabel, kmCzk, custom, country, date, source } | null (dřívější Kč/km).
+ * price = vlastní cena, jinak u nafty a benzínu aktuální cena v zemi domova `country` (fuel.js – hned, bez čekání na síť;
+ * neznámá země → ČR), u elektroauta odhad nabíjení DC (EV_DC). kmCzk = spotřeba / 100 × cena (Kč/km, přesně).
+ * Stejně v prohlížeči SearchHelp.carEnergy (s cenami z /api/fuel).
+ */
+export function carEnergy(raw = {}, country = 'CZ') {
+  const c = normalizeCar(raw);
+  if (!c.carFuel) return null;
+  const f = CAR_FUELS[c.carFuel];
+  let price;
+  let priceLabel;
+  let src;
+  if (c.carPrice) {
+    price = c.carPrice;
+    priceLabel = `${f.name} ${priceTxt(c.carFuel, price)} Kč/${f.unit} · vlastní cena`;
+    src = { country: null, date: null, source: 'custom' };
+  } else if (c.carFuel === 'ev') {
+    price = EV_DC.default;
+    priceLabel = EV_LABEL;
+    src = { country: null, date: EV_DC.date, source: 'ev' };
+  } else {
+    const p = fuelPrice(country, c.carFuel);
+    price = p.perLitre;
+    priceLabel = `${f.name} ${priceTxt(c.carFuel, price)} Kč/l${FUEL_IN[p.country] ? ` ${FUEL_IN[p.country]}` : ''} · ${p.label}`;
+    src = { country: p.country, date: p.date, source: p.source };
+  }
+  return { fuel: c.carFuel, cons: c.carCons, unit: f.unit, price, priceLabel, kmCzk: Math.round((c.carCons * price) / 100 * 1e5) / 1e5, custom: Boolean(c.carPrice), ...src };
+}
+
+/**
+ * Autem na letiště: { mode: 'car', km, roadKm, minutes, czk, fuelCzk, carKmCzk, carFuel, parkDayCzk, tolls, adults, dropOff,
+ * breakdown }. fuelCzk = palivo jedním směrem za auto (round(roadKm × carKmCzk)), parkDayCzk = parkování za den za auto,
+ * tolls = známky / mýtné za auto, breakdown = totéž jako rozpis [{ k: 'fuel' | 'park' | 'toll', label, czk }] (za auto;
+ * parkování za den); položka fuel navíc { fuel, cons, unit, price, priceLabel, kmCzk, fuelCzk, custom, country, date,
+ * source } (carEnergy; u dřívějšího Kč/km jen kmCzk a fuelCzk). czk = na osobu a jeden let: palivo jedním směrem + půl
+ * známky (+ mýtné za jízdu); parkování podle délky cesty přidá optimalizátor (parkCzk). dropOff (jen tam): někdo tě
+ * odveze – palivo tam i zpět, celá známka, bez parkování. Elektroauto platí parkování i známky stejně (výjimky ne).
+ */
+export function carAccess(home, a, opts = {}) {
+  const { adults = 1, oneWay = false } = opts;
   const o = origin(home);
   const c = airportCity(a);
   const km = haversineKm(o.lat, o.lon, a.lat, a.lon);
   const roadKm = Math.max(3, Math.round(km * ROAD));
-  const fuelCzk = Math.round(roadKm * carKmCzk);
+  const e = carEnergy(opts, o.cc || 'CZ');
+  const kmCzk = e ? e.kmCzk : normalizeCar(opts).carKmCzk;
+  const fuelCzk = Math.round(roadKm * kmCzk);
   const drive = (Math.min(roadKm, 30) / 40) * 60 + (Math.max(0, roadKm - 30) / 90) * 60;
   const tolls = tollsOn(o.cc, a.cc);
   const once = tolls.filter((t) => t.days).reduce((s, t) => s + t.czk, 0);
   const each = tolls.filter((t) => !t.days).reduce((s, t) => s + t.czk, 0);
   const n = Math.max(1, Math.round(adults) || 1);
   const czk = oneWay ? (2 * fuelCzk + once + 2 * each) / n : (fuelCzk + once / 2 + each) / n;
+  const fuel = e
+    ? { k: 'fuel', label: `${e.fuel === 'ev' ? 'nabíjení' : 'palivo'} jedním směrem (${roadKm} km × ${comma(e.cons)} ${e.unit}/100 km × ${priceTxt(e.fuel, e.price)} Kč/${e.unit})`, czk: fuelCzk, ...e, fuelCzk }
+    : { k: 'fuel', label: `palivo jedním směrem (${roadKm} km × ${comma(kmCzk)} Kč)`, czk: fuelCzk, kmCzk, fuelCzk };
   const breakdown = [
-    { k: 'fuel', label: `palivo jedním směrem (${roadKm} km × ${String(carKmCzk).replace('.', ',')} Kč)`, czk: fuelCzk },
+    fuel,
     ...(oneWay ? [] : [{ k: 'park', label: 'parkování u letiště za den', czk: c.parkDay }]),
     ...tolls.map((t) => ({ k: 'toll', label: t.label, czk: t.czk })),
   ];
   return {
     mode: 'car', km: Math.round(km), roadKm, minutes: r5(drive + 15), czk: Math.round(czk), local: false,
-    fuelCzk, carKmCzk, parkDayCzk: c.parkDay, tolls, adults: n, dropOff: Boolean(oneWay), breakdown,
+    fuelCzk, carKmCzk: kmCzk, carFuel: e ? e.fuel : null, parkDayCzk: c.parkDay, tolls, adults: n, dropOff: Boolean(oneWay), breakdown,
   };
 }
 
@@ -270,7 +360,8 @@ export function carTrip(g, nights) {
 
 /**
  * Cesta z domova na letiště podle voleb hledání: opts = { mode: 'transit' | 'car', scale (kmRate, 0 = nepočítat),
- * carKmCzk, adults, oneWay }. Vypnutá doprava (scale 0) → czk 0 a off (čas zůstává pro srovnání od dveří ke dveřím).
+ * carFuel, carCons, carPrice (nebo dřívější carKmCzk), adults, oneWay }. Vypnutá doprava (scale 0) → czk 0 a off
+ * (čas zůstává pro srovnání od dveří ke dveřím).
  */
 export function airportAccess(home, iata, opts = {}) {
   const a = typeof iata === 'string' ? getAirport(iata) : iata;
@@ -281,21 +372,23 @@ export function airportAccess(home, iata, opts = {}) {
 }
 
 /**
- * Volby dopravy na letiště z dotazu: { groundMode: 'transit' | 'car', kmRate, carKmCzk }. kmRate = násobek odhadu
- * jízdného (0 = nepočítat, 1 = výchozí). Bez groundMode jde o dřívější Kč/km (výchozí 1,1 → 1).
+ * Volby dopravy na letiště z dotazu: { groundMode: 'transit' | 'car', kmRate, carFuel, carCons, carPrice, carKmCzk }.
+ * kmRate = násobek odhadu jízdného (0 = nepočítat, 1 = výchozí). Bez groundMode jde o dřívější Kč/km (výchozí 1,1 → 1).
+ * Auto viz normalizeCar (carKmCzk jen u dřívějších dotazů bez carFuel, jinak null).
  */
 export function normalizeAccess(raw = {}) {
-  const given = raw.kmRate != null && raw.kmRate !== '';
-  let rate = given ? Number(raw.kmRate) : 1;
+  let rate = given(raw.kmRate) ? Number(raw.kmRate) : 1;
   if (!Number.isFinite(rate)) rate = 1;
-  else if (given && (raw.groundMode == null || raw.groundMode === '')) rate /= LEGACY_KM_RATE;
-  const car = Number(raw.carKmCzk);
+  else if (given(raw.kmRate) && !given(raw.groundMode)) rate /= LEGACY_KM_RATE;
   return {
     groundMode: raw.groundMode === 'car' ? 'car' : 'transit',
     kmRate: Math.round(Math.min(5, Math.max(0, rate)) * 100) / 100,
-    carKmCzk: raw.carKmCzk != null && raw.carKmCzk !== '' && Number.isFinite(car) && car > 0 ? Math.round(Math.min(10, Math.max(0.5, car)) * 10) / 10 : CAR_KM_CZK,
+    ...normalizeCar(raw),
   };
 }
 
+/** Pole auta pro další dotaz (úseky cesty přes víc měst): carFuel, carCons, carPrice, nebo dřívější carKmCzk. */
+export const carQuery = (q) => (q.carFuel ? { carFuel: q.carFuel, carCons: q.carCons, ...(q.carPrice ? { carPrice: q.carPrice } : {}) } : { carKmCzk: q.carKmCzk });
+
 /** Volby pro airportAccess z normalizovaného dotazu (normalizeQuery). */
-export const accessOpts = (q, oneWay = false) => ({ mode: q.groundMode, scale: q.kmRate, carKmCzk: q.carKmCzk, adults: q.adults, oneWay });
+export const accessOpts = (q, oneWay = false) => ({ mode: q.groundMode, scale: q.kmRate, ...carQuery(q), adults: q.adults, oneWay });

@@ -9,7 +9,7 @@ import { mainAirport, monthClimate, warmAirports, warmShare, warmestHi } from '.
 import { bestOneWays, bestRoundTrips, calendarArray, dateOk, oneWayCalendar } from './optimizer.js';
 import { fxInfo, loadRates, toCzk } from './fx.js';
 import { haversineKm } from './geo.js';
-import { accessOpts, normalizeAccess, parkCzk } from './access.js';
+import { accessOpts, carQuery, normalizeAccess, parkCzk } from './access.js';
 import { validTrip } from './fares.js';
 import { legBagEur } from './baggage.js';
 import { priceLevelOf, priceStats, refOf, referencePrice } from './pricelevel.js';
@@ -89,7 +89,8 @@ const sharedQuery = (raw) => ({
   maxPrice: raw.maxPrice ? int(raw.maxPrice, null, 0, 1e7) : null,
   directOnly: Boolean(raw.directOnly),
   // Doprava na letiště: groundMode 'transit' (veřejnou dopravou) | 'car' (autem), kmRate = násobek odhadu jízdného
-  // (0 = nepočítat; bez groundMode dřívější Kč/km, 1,1 → 1), carKmCzk = Kč/km za auto (palivo). Viz access.js.
+  // (0 = nepočítat; bez groundMode dřívější Kč/km, 1,1 → 1), auto: carFuel (nafta / benzín / elektro), carCons
+  // (spotřeba na 100 km), carPrice (vlastní cena), dřívější carKmCzk (Kč/km bez carFuel). Viz access.js.
   ...normalizeAccess(raw),
   openJaw: raw.openJaw !== false,
   // Letiště, která uživatel z okruhu ručně vyřadil.
@@ -784,7 +785,7 @@ async function searchMulti(q, emit, opts = {}) {
         to: places[i].to.map((x) => `ap:${x}`),
         trip: 'oneway', exactOut: l.date, flexDays: l.flex,
         radiusKm: i === 0 ? q.radiusKm : 0, kmRate: i === 0 ? q.kmRate : 0, exclude: i === 0 ? q.exclude : [],
-        groundMode: q.groundMode, carKmCzk: q.carKmCzk,
+        groundMode: q.groundMode, ...carQuery(q),
         adults: q.adults, directOnly: q.directOnly, bags: q.bags,
       }, (ev) => {
         if (ev.type !== 'progress') return;

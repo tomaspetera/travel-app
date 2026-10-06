@@ -66,7 +66,7 @@ test('GET /api/places a /api/origins', async () => {
 test('GET /api/origins – doprava na letiště: veřejnou dopravou, autem s parkováním, dřívější kmRate, vypnuto', async () => {
   const get = async (qs) => (await fetch(`${base}/api/origins?from=ap:PRG&radius=200&${qs}`)).json();
   const t = await get('groundMode=transit&kmRate=1');
-  assert.deepEqual(t.access, { groundMode: 'transit', kmRate: 1, carKmCzk: 2.6, adults: 1, nights: 7, trip: 'return' });
+  assert.deepEqual(t.access, { groundMode: 'transit', kmRate: 1, carFuel: 'diesel', carCons: 6, carPrice: null, carKmCzk: null, adults: 1, nights: 7, trip: 'return', fuelCc: 'CZ' });
   const prg = t.airports.find((a) => a.iata === 'PRG');
   assert.deepEqual([prg.ground.mode, prg.ground.czk, prg.ground.local], ['transit', 50, true]);
   for (const a of t.airports) {
@@ -77,9 +77,9 @@ test('GET /api/origins – doprava na letiště: veřejnou dopravou, autem s par
   const legacy = await get('kmRate=1.1');
   assert.equal(legacy.access.kmRate, 1);
   assert.deepEqual(legacy.airports.map((a) => a.ground.czk), t.airports.map((a) => a.ground.czk));
-  // autem, 2 lidé, 5 nocí: rozpis za auto i celá cesta na osobu
+  // autem (dřívější odkaz jen s Kč/km), 2 lidé, 5 nocí: rozpis za auto i celá cesta na osobu
   const c = await get('groundMode=car&carKmCzk=3&adults=2&nights=5');
-  assert.deepEqual([c.access.groundMode, c.access.carKmCzk, c.access.adults, c.access.nights], ['car', 3, 2, 5]);
+  assert.deepEqual([c.access.groundMode, c.access.carFuel, c.access.carKmCzk, c.access.adults, c.access.nights], ['car', null, 3, 2, 5]);
   for (const a of c.airports) {
     const g = a.ground;
     assert.equal(g.mode, 'car');
@@ -96,6 +96,66 @@ test('GET /api/origins – doprava na letiště: veřejnou dopravou, autem s par
   // vypnuto
   const off = await get('groundMode=transit&kmRate=0');
   assert.ok(off.airports.every((a) => a.ground.czk === 0 && a.ground.off));
+});
+
+test('GET /api/origins a /api/nearby – autem podle pohonu: nafta, benzín, elektro, vlastní cena a spotřeba, meze (DEMO ceny)', async () => {
+  const get = async (qs) => (await fetch(`${base}/api/origins?from=ap:PRG&radius=200&groundMode=car&adults=2&${qs}`)).json();
+  const fuelOf = (a) => a.ground.breakdown.find((x) => x.k === 'fuel');
+  // výchozí nafta (i bez carFuel) za cenu z fuel.js (DEMO pevná 50,65 Kč/l)
+  for (const qs of ['carFuel=diesel', '']) {
+    const d = await get(qs);
+    assert.deepEqual([d.access.carFuel, d.access.carCons, d.access.carPrice, d.access.carKmCzk], ['diesel', 6, null, null]);
+    for (const a of d.airports) {
+      const f = fuelOf(a);
+      assert.deepEqual([f.fuel, f.cons, f.unit, f.price, f.priceLabel, f.kmCzk, f.custom, f.country, f.source],
+        ['diesel', 6, 'l', 50.65, 'nafta 50,65 Kč/l · DEMO – pevná cena', 3.039, false, 'CZ', 'demo'], a.iata);
+      assert.equal(f.fuelCzk, Math.round(a.ground.roadKm * 3.039));
+      assert.deepEqual([a.ground.fuelCzk, f.czk, a.ground.carFuel, a.ground.carKmCzk], [f.fuelCzk, f.fuelCzk, 'diesel', 3.039]);
+      assert.equal(f.label, `palivo jedním směrem (${a.ground.roadKm} km × 6 l/100 km × 50,65 Kč/l)`);
+      assert.equal(a.ground.trip.fuel, 2 * f.fuelCzk);
+    }
+  }
+  // benzín se spotřebou 8 l a elektro s 17 kWh/100 km (16 Kč/kWh, ceníky k 6. 10. 2026)
+  const p = await get('carFuel=petrol&carCons=8');
+  assert.deepEqual([fuelOf(p.airports[0]).price, fuelOf(p.airports[0]).kmCzk, fuelOf(p.airports[0]).priceLabel], [45.87, 3.6696, 'benzín N95 45,87 Kč/l · DEMO – pevná cena']);
+  const e = await get('carFuel=ev&carCons=17');
+  for (const a of e.airports) {
+    const f = fuelOf(a);
+    assert.deepEqual([f.fuel, f.cons, f.unit, f.price, f.kmCzk, f.date, f.source], ['ev', 17, 'kWh', 16, 2.72, '2026-10-06', 'ev']);
+    assert.equal(f.priceLabel, 'nabíjení DC ~16 Kč/kWh (ceníky ČEZ, PRE, E.ON, IONITY, Tesla – stav 6. 10. 2026)');
+    assert.equal(a.ground.fuelCzk, Math.round(a.ground.roadKm * 2.72));
+    assert.ok(a.ground.parkDayCzk > 0, 'parkování platí i elektroauto');
+  }
+  // vlastní cena a meze (spotřeba 0 = výchozí, cena 999 → 40 Kč/kWh)
+  const own = await get('carFuel=ev&carCons=0&carPrice=999');
+  assert.deepEqual([own.access.carCons, own.access.carPrice], [19, 40]);
+  assert.deepEqual([fuelOf(own.airports[0]).price, fuelOf(own.airports[0]).custom, fuelOf(own.airports[0]).priceLabel], [40, true, 'nabíjení 40 Kč/kWh · vlastní cena']);
+  const bad = await get('carFuel=lpg&carCons=abc&carPrice=-1');
+  assert.deepEqual([bad.access.carFuel, bad.access.carCons, bad.access.carPrice], ['diesel', 6, null]);
+  // s carFuel se dřívější carKmCzk nepoužije
+  const both = await get('carFuel=petrol&carKmCzk=9');
+  assert.deepEqual([both.access.carFuel, both.access.carKmCzk, fuelOf(both.airports[0]).fuel], ['petrol', null, 'petrol']);
+  // země domova: poloha bez kódu země ve Vídni → rakouská nafta; access.fuelCc = stejná země pro řádek ceny ve formuláři
+  const vie = await (await fetch(`${base}/api/origins?from=${encodeURIComponent('geo:48.2082,16.3738|Vídeň')}&radius=80&groundMode=car&carFuel=diesel`)).json();
+  assert.equal(vie.access.fuelCc, 'AT');
+  assert.ok(vie.airports.length && vie.airports.every((a) => fuelOf(a).country === 'AT' && fuelOf(a).price === 55.11));
+  assert.equal(fuelOf(vie.airports[0]).priceLabel, 'nafta 55,11 Kč/l v Rakousku · DEMO – pevná cena');
+  // vlastní cena nebo elektroauto: položka bez země, fuelCc zůstává (aktuální cena ve formuláři pro srovnání)
+  const vieEv = await (await fetch(`${base}/api/origins?from=${encodeURIComponent('geo:48.2082,16.3738|Vídeň')}&radius=80&groundMode=car&carFuel=ev`)).json();
+  assert.deepEqual([vieEv.access.fuelCc, fuelOf(vieEv.airports[0]).country, fuelOf(vieEv.airports[0]).price], ['AT', null, 16]);
+  assert.equal((await (await fetch(`${base}/api/origins?from=${encodeURIComponent('geo:45.46,9.19|Milán')}&radius=60&groundMode=car`)).json()).access.fuelCc, 'CZ', 'země bez ceny → Česko');
+  // /api/nearby: stejné volby (výchozí veřejnou dopravou)
+  const near = await (await fetch(`${base}/api/nearby?lat=50.0755&lon=14.4378&radius=150`)).json();
+  assert.ok(near.items.length && near.items.every((x) => x.ground.mode === 'transit'));
+  assert.deepEqual([near.access.groundMode, near.access.fuelCc], ['transit', 'CZ']);
+  const nc = await (await fetch(`${base}/api/nearby?lat=50.0755&lon=14.4378&radius=150&groundMode=car&carFuel=ev&carPrice=9.5&adults=3&nights=4`)).json();
+  assert.deepEqual([nc.access.carFuel, nc.access.carPrice, nc.access.adults, nc.access.nights], ['ev', 9.5, 3, 4]);
+  for (const x of nc.items) {
+    const f = x.ground.breakdown[0];
+    assert.deepEqual([x.ground.mode, f.fuel, f.price, f.kmCzk, x.ground.adults, x.ground.trip.days], ['car', 'ev', 9.5, 1.805, 3, 5]);
+  }
+  const nl = await (await fetch(`${base}/api/nearby?lat=50.0755&lon=14.4378&radius=150&groundMode=car&carKmCzk=2`)).json();
+  assert.ok(nl.items.every((x) => x.ground.carFuel === null && x.ground.fuelCzk === x.ground.roadKm * 2));
 });
 
 test('POST /api/search – kamkoliv, zpáteční, průběh se streamuje', async () => {
@@ -142,6 +202,25 @@ test('POST /api/search – konkrétní cíl, víkend, kalendář', async () => {
     assert.equal(t.priceLevel.n, st.n);
     if (['super', 'good'].includes(t.deal.level)) assert.equal(t.priceLevel.level, 'low', '🔥/👍 jen u dobré ceny');
   }
+});
+
+test('POST /api/search – DEMO autem: elektroauto / benzín s vlastní cenou v ceně cesty, dřívější carKmCzk', async () => {
+  const q = { from: ['ap:PRG'], to: ['ap:BCN'], radiusKm: 120, dateFrom: ymdPlus(10), dateTo: ymdPlus(30), trip: 'return', nightsMin: 3, nightsMax: 5, adults: 2, groundMode: 'car', kmRate: 1 };
+  const ev = (await searchStream({ ...q, carFuel: 'ev', carCons: 18 })).last.result;
+  assert.deepEqual([ev.query.carFuel, ev.query.carCons, ev.query.carPrice, ev.query.carKmCzk], ['ev', 18, null, null]);
+  assert.ok(ev.top.length > 0);
+  for (const o of ev.origins) {
+    const f = o.ground.breakdown[0];
+    assert.deepEqual([f.fuel, f.unit, f.price, f.kmCzk], ['ev', 'kWh', 16, 2.88], o.iata);
+  }
+  for (const t of ev.top) {
+    const g = ev.origins.find((o) => o.iata === t.out.from).ground;
+    assert.equal(t.groundCzk, 2 * g.czk + t.parkCzk, 'nabíjení tam i zpět + parkování');
+  }
+  const pe = (await searchStream({ ...q, carFuel: 'petrol', carCons: 7, carPrice: 40 })).last.result;
+  assert.deepEqual([pe.origins[0].ground.breakdown[0].priceLabel, pe.origins[0].ground.carKmCzk], ['benzín N95 40,00 Kč/l · vlastní cena', 2.8]);
+  const old = (await searchStream({ ...q, carKmCzk: 2.6 })).last.result;
+  assert.deepEqual([old.query.carFuel, old.query.carKmCzk, old.origins[0].ground.fuelCzk], [null, 2.6, Math.round(old.origins[0].ground.roadKm * 2.6)]);
 });
 
 test('POST /api/search – kamkoliv: statistika cen u každého cíle, trasa ne', async () => {
