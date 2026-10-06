@@ -4,7 +4,7 @@ Cestovní aplikace, která **skutečně hledá letenky**: napíšeš „Brno“,
 ATLAS najde všechna letiště v okolí, prohledá je najednou u více aerolinek a ukáže nejlevnější lety **kamkoliv na světě**
 (nebo do konkrétního cíle) – včetně ceny cesty na letiště.
 
-Z vybraného letu pak průvodce **Cesta** poskládá celou dovolenou: **let → ubytování → auto → program → shrnutí**
+Z vybraného letu pak průvodce **Cesta** poskládá celou dovolenou: **let → trasa → ubytování → auto → program → shrnutí**
 s celkovou cenou, seznamem, co v jakém pořadí zarezervovat, a časovou osou. Sekce **Objevuj** funguje i samostatně:
 zadáš místo a ATLAS najde, co tam stojí za vidění, a rozplánuje to do dnů – jako pěší program ve městě,
 **jednodenní výlety** (ráno ven, večer zpět) nebo **vícedenní okruh** s přespáním po cestě, autem i vlakem
@@ -26,17 +26,23 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
 
 ## Celá cesta krok za krokem
 
-1. **Let** – v hledání klikneš u letu na *Vybrat a pokračovat*. Tlačítkem *Ověřit živou cenu* se dotáže Kiwi.com
+1. **Let** – v hledání klikneš u letu na *Vybrat a pokračovat*. Let ukáže i přestupy a štítek ceny s odkazem
+   *Je to dobrá cena?*. Tlačítkem *Ověřit živou cenu* se dotáže Kiwi.com
    na přesnou cenu a nabídne i jiné aerolinky na stejný termín (low-cost i klasické, přestupy, kombinace).
    U blízkého cíle můžeš místo letu zvolit *🚆 Pojedu vlakem / busem* (viz [Vlak nebo bus místo letadla](#vlak-nebo-bus-místo-letadla)).
-2. **Ubytování** – nabídky na tvoje data seřazené podle **nejlepšího poměru cena / hodnocení** (hodnocení je očištěné
+2. **Trasa** – celý pobyt na jednom místě, nebo trasa přes 2–4 zajímavá města: ATLAS je navrhne v okolí (autem nebo
+   vlakem a busem, odhad přejezdů s odkazem do Google Map) a rozdělí noci; místa přidáš, odebereš nebo přesuneš
+   a noci upravíš. Trasa začíná u letiště příletu (u vlaku/busu ve městě příjezdu) a končí u letiště odletu,
+   i jiného (open-jaw); cesta z posledního místa na letiště nebo zpět k vlaku/busu je v časové ose.
+   Ubytování a program pak vybíráš pro každé místo zvlášť.
+3. **Ubytování** – nabídky na tvoje data seřazené podle **nejlepšího poměru cena / hodnocení** (hodnocení je očištěné
    o malý počet recenzí, takže 10/10 ze 2 recenzí nepřebije 8,9 z 2 000). Přepneš na nejlevnější, nejlépe hodnocené
    nebo nejblíž centru, filtruješ 7+/8+/9+, typ a max. cenu za noc. Bez klíče LiteAPI dostaneš předvyplněné hledání
    na Booking.com (seřazené podle hodnocení a ceny), Airbnb, Google Hotels a Hostelworld a cenu jen zapíšeš.
-3. **Auto** (nepovinné) – vyzvednutí na letišti 45 min po příletu, vrácení 2 h před odletem, předvyplněné srovnávače.
-4. **Program** – místa k vidění kolem ubytování rozdělená do dnů podle polohy (den příletu a odletu je kratší),
+4. **Auto** (nepovinné) – vyzvednutí na letišti 45 min po příletu, vrácení 2 h před odletem, předvyplněné srovnávače.
+5. **Program** – místa k vidění kolem ubytování rozdělená do dnů podle polohy (den příletu a odletu je kratší),
    každý den jako pěší trasa s odkazem do Google Map; volíš zájmy a tempo, místa můžeš vyřadit nebo přidat.
-5. **Shrnutí** – cena celkem a na osobu, co zarezervovat a v jakém pořadí, **🛂 Před cestou** (doklady, registrace
+6. **Shrnutí** – cena celkem a na osobu, co zarezervovat a v jakém pořadí, **🛂 Před cestou** (doklady, registrace
    nebo vízum, očkování pro každou zemi cesty), časová osa, uložení do plánovače a odkaz na sdílení.
 
 ### Je to umělá inteligence?
