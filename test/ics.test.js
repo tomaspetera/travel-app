@@ -133,6 +133,9 @@ test('Ics: let přes časová pásma, plovoucí čas bez zóny, délka místo ch
   const floating = build([{ title: 'x', start: '2026-01-15T10:00', end: '2026-01-15T12:30' }, { title: 'y', start: '2026-01-15T10:00', tz: 'Mars/Olympus' }, { title: 'z', start: '2026-01-15T10:00', tz: 'Europe/Prague"; X' }]);
   assert.deepEqual(props(floating, 'DTSTART'), ['20260115T100000', '20260115T100000', '20260115T100000']);
   assert.deepEqual(props(floating, 'DTEND'), ['20260115T123000', '20260115T110000', '20260115T110000']);
+  // Let s přestupem z cache bez známého příletu: žádný vymyšlený přílet, v popisu upozornění
+  const unk = prop(build([Ics.flightEvent({ from: 'PRG', to: 'BCN', date: '2026-10-30', dep: '2026-10-30T20:30', arr: null, arrUnknown: true, fromTz: 'Europe/Prague', toTz: 'Europe/Madrid' })]), 'DESCRIPTION');
+  assert.match(unk, /^Odlet 20:30 místního času \(PRG\)\\nPřílet neznámý \(let s přestupem z cache\) – čas příletu ověř v rezervaci\.$/);
   // Let bez času odletu → celodenní událost v den letu.
   const allDay = build([Ics.flightEvent({ from: 'VIE', to: 'BCN', date: '2026-11-10', dep: null })]);
   assert.equal(prop(allDay, 'DTSTART'), '20261110');

@@ -6,7 +6,7 @@ import { localSuggestions, resolveOrigins, resolveDestinations, describe } from 
 import { groundEstimate, haversineKm } from '../server/lib/geo.js';
 import { convert, setRates, FALLBACK_EUR } from '../server/lib/fx.js';
 import { chunkRange, monthsInRange, weekday } from '../server/lib/dates.js';
-import { normalizeQuery, referencePrice } from '../server/lib/search.js';
+import { normalizeQuery, referencePrice, routesNote } from '../server/lib/search.js';
 import { ymdPlus } from './helpers.js';
 
 const leg = (provider, from, to, date, czk) => makeLeg({ provider, from, to, dep: `${date}T10:00:00`, czk, price: czk, currency: 'CZK' });
@@ -156,6 +156,9 @@ test('makeLeg: chybějící přílet se dopočte v místním čase cíle (z dél
   assert.ok(wz.arr > '2026-11-10T22:00' && wz.arr < '2026-11-10T23:15', wz.arr);
   // Bez času odletu nic nevymýšlí
   assert.equal(makeLeg({ provider: 'x', from: 'VIE', to: 'BCN', dep: '2026-11-10', czk: 1 }).arr, null);
+  // Let s přestupem bez věrohodné délky (cache): přílet neznámý – ani odhad ze vzdálenosti (byl by jako přímý let)
+  const unk = makeLeg({ provider: 'travelpayouts', from: 'PRG', to: 'BCN', dep: '2026-10-30T20:30:00', stops: 1, durationMin: null, arrUnknown: true, czk: 1173 });
+  assert.deepEqual([unk.arr, unk.arrEst, unk.arrUnknown, unk.durationMin, unk.estMin, unk.hasTime], [null, false, true, null, undefined, true]);
 });
 
 test('přesná data: odlet i návrat jen v zadané dny (± tolerance)', async () => {
@@ -267,4 +270,9 @@ test('zpáteční kombinace: návrat nesmí odletět dřív, než let tam přist
   const early = [L('JFK', 'PRG', '2026-11-07T00:30:00', '2026-11-07T14:00:00', 8000), { ...L('JFK', 'PRG', '2026-11-07T18:00:00', '2026-11-08T08:00:00', 8500), carrier: 'LO' }];
   const lt = bestRoundTrips(late, early, () => 0, { nightsMin: 0, nightsMax: 2, legsPerDay: 2, limit: 50, perDestLimit: 50 });
   assert.deepEqual(lt.map((t) => t.back.dep.slice(11, 16)), ['18:00']);
+});
+
+test('routesNote: průběh hledání u Wizz Air česky, bez názvu proměnné z konfigurace', () => {
+  assert.equal(routesNote(15, 22), 'prohledáno 15 nejbližších z 22 tras – zbytek kvůli limitu dotazů');
+  assert.doesNotMatch(routesNote(1, 2), /WIZZ|MAX_CALLS/);
 });

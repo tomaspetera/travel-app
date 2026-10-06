@@ -75,6 +75,14 @@ test('legFits: stejné letiště aspoň 3 h, jiné letiště téhož města 5 h,
   const noTime = leg('PRG', 'FCO', `${D}T00:00`, null, { hasTime: false });
   assert.deepEqual(legFits(noTime, leg('FCO', 'NAP', `${D}T20:00`, `${D}T21:00`)), { why: 'nextday' });
   assert.equal(legFits(noTime, leg('FCO', 'NAP', `${plus(D, 1)}T06:00`, `${plus(D, 1)}T07:00`)), null);
+  // let s přestupem z cache bez známého příletu (arrUnknown): nejdřív 24 h po odletu, ne jen „další den“
+  const unk = leg('PRG', 'BCN', `${D}T20:30`, null, { stops: 1, arrUnknown: true, fromTz: 'Europe/Prague', toTz: 'Europe/Madrid' });
+  const es = { fromTz: 'Europe/Madrid' };
+  assert.deepEqual(legFits(unk, leg('BCN', 'LIS', `${plus(D, 1)}T07:00`, `${plus(D, 1)}T08:00`, es)), { why: 'unknown', gapMin: 630, needMin: 1440 });
+  assert.equal(legFits(unk, leg('LIS', 'PRG', `${plus(D, 1)}T17:00`, `${plus(D, 1)}T21:00`, { fromTz: 'Europe/Lisbon' })).why, 'unknown', 'jiné město další den odpoledne – pořád do 24 h');
+  assert.equal(legFits(unk, leg('BCN', 'LIS', `${plus(D, 1)}T20:30`, `${plus(D, 1)}T21:30`, es)), null);
+  assert.equal(legFits(unk, leg('LIS', 'PRG', `${plus(D, 5)}T06:00`, `${plus(D, 5)}T10:00`, { fromTz: 'Europe/Lisbon' })), null);
+  assert.equal(legFits(unk, leg('BCN', 'LIS', `${plus(D, 1)}T00:00`, null, { ...es, hasTime: false })).why, 'unknown', 'další let bez času od půlnoci');
 });
 
 test('pickOptions: každý let jednou, nejlevnější, přímý, každý den a ráno / odpoledne / večer, nejvýš max', () => {

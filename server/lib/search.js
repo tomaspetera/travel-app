@@ -197,6 +197,9 @@ export function outageOf(st, p, ctx) {
   };
 }
 
+/** Poznámka v průběhu hledání, když zdroj bez „kamkoliv“ (Wizz Air) prošel jen část tras (od nejbližších) – pro uživatele, bez názvu proměnné WIZZ_MAX_CALLS. */
+export const routesNote = (take, total) => `prohledáno ${take} nejbližších z ${total} tras – zbytek kvůli limitu dotazů`;
+
 /**
  * Hlavní hledání. emit(event) dostává průběh: { type: 'progress', providers }.
  * opts (pro hledání úseků cesty přes víc měst a testy): providers = zdroje místo activeProviders(),
@@ -482,7 +485,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     const perRoute = (p.callsPerRoute ? p.callsPerRoute(q.dateFrom, q.dateTo) : 1) * (ret ? 2 : 1);
     const budget = p.id === 'wizzair' ? config.wizzMaxCalls : Infinity;
     const take = Math.max(1, Math.min(routes.length, Math.floor(budget / perRoute)));
-    if (take < routes.length) st.note = `prohledáno ${take} z ${routes.length} tras (limit WIZZ_MAX_CALLS)`;
+    if (take < routes.length) st.note = routesNote(take, routes.length);
     await runTasks(st, routes.slice(0, take).map((r) => async () => {
       const found = await routeTrips(p, r.o, r.d, { perPair: 2 });
       trips.push(...found);

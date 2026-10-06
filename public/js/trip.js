@@ -47,14 +47,15 @@
   const stars = n => n ? '★'.repeat(Math.round(n)) : '';
   const ratingWord = r => r >= 9 ? 'Výjimečné' : r >= 8.5 ? 'Vynikající' : r >= 8 ? 'Velmi dobré' : r >= 7 ? 'Dobré' : r >= 6 ? 'Ucházející' : 'Slabé';
 
-  /** Přílet tam: čas příletu, nebo odlet + délka letu, nebo poledne. */
+  /** Přílet tam: čas příletu, nebo odlet + délka letu, nebo poledne (neznámý přílet – let s přestupem z cache – nejdřív v čas odletu). */
   function arrivalAt(leg) {
     if (leg.arr && leg.hasTime) return leg.arr.slice(0, 16);
     if (leg.hasTime && leg.durationMin) {
       const d = new Date(leg.dep.slice(0, 16) + ':00Z'); d.setUTCMinutes(d.getUTCMinutes() + leg.durationMin);
       return d.toISOString().slice(0, 16);
     }
-    return `${leg.date}T12:00`;
+    const noon = `${leg.date}T12:00`, dep = leg.hasTime ? String(leg.dep).slice(0, 16) : '';
+    return dep > noon ? dep : noon;
   }
   function shiftDt(dt, minutes) {
     const d = new Date(dt.slice(0, 16) + ':00Z'); d.setUTCMinutes(d.getUTCMinutes() + minutes);
@@ -1274,7 +1275,7 @@
   /** Let ve tvaru pro kalendář a plánovač: místní časy + zóny letišť (bez času odletu dep = null). */
   const legBrief = l => ({
     from: l.from, to: l.to, date: l.date, dep: l.hasTime ? l.dep.slice(0, 16) : null, arr: l.hasTime && l.arr ? l.arr.slice(0, 16) : null,
-    arrEst: !!l.arrEst, fromTz: l.fromTz || null, toTz: l.toTz || null, carrier: l.carrierName || l.carrier || '', flightNo: l.flightNo || '', durationMin: l.durationMin || null,
+    arrEst: !!l.arrEst, ...(l.arrUnknown && !l.arr ? { arrUnknown: true } : {}), fromTz: l.fromTz || null, toTz: l.toTz || null, carrier: l.carrierName || l.carrier || '', flightNo: l.flightNo || '', durationMin: l.durationMin || null,
   });
 
   /** Úsek vlakem/busem pro kalendář a plánovač: místní časy a zóny měst (bez spoje jen den). */

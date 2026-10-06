@@ -149,6 +149,55 @@ test('worth: srovnání s letadlem od dveří ke dveřím – čas, krátká ces
   assert.equal(G.flightDoor({ accessMin: 40, flightMin: 60, egressMin: 30 }), 40 + 120 + 60 + 45 + 30);
 });
 
+test('worth + planeOptions: cena i čas z téže cesty – nejlevnější se svým časem, nejrychlejší se svou cenou', () => {
+  // Praha → Vídeň (QA 6): nejlevnější Ryanair přes Krakov 14 h 20, přímý Austrian 50 min za 11 994 Kč
+  const leg = (min, stops = 0) => ({ from: 'PRG', to: 'VIE', durationMin: min, stops });
+  const cheap = { out: leg(860, 1), back: {}, perPersonCzk: 4045 };
+  const direct = { out: leg(50), back: {}, perPersonCzk: 11994 };
+  const mixed = { out: leg(50), back: {}, perPersonCzk: 12500 };
+  const unknown = { out: { from: 'PRG', to: 'VIE', stops: 1, durationMin: null }, back: {}, perPersonCzk: 3900 };
+  const doorOf = (t) => (t.out.durationMin ? G.flightDoor({ accessMin: 30, flightMin: t.out.durationMin, egressMin: 30 }) : null);
+  const p = G.planeOptions([direct, mixed, cheap], doorOf);
+  assert.equal(p.cheap.t, cheap);
+  assert.equal(p.cheap.doorMin, 30 + 120 + 860 + 45 + 30);
+  assert.equal(p.fast.t, direct, 'nejrychlejší let, při stejném čase nejlevnější cesta s ním');
+  assert.equal(p.fast.doorMin, 275);
+  assert.equal(G.planeOptions([cheap, { ...cheap, perPersonCzk: 5000 }], doorOf).fast, null, 'stejně rychlý let jako nejlevnější → bez druhého řádku');
+  assert.equal(G.planeOptions([{ ...direct, perPersonCzk: 3000 }, { ...direct, out: leg(80) }], doorOf).fast, null, 'o méně než hodinu rychlejší → ne');
+  const u = G.planeOptions([unknown, direct], doorOf);
+  assert.deepEqual([u.cheap.t, u.cheap.doorMin, u.fast.t], [unknown, null, direct], 'nejlevnější bez známé délky (cache s přestupem) → čas neznámý, nejrychlejší zvlášť');
+  assert.deepEqual(G.planeOptions([], doorOf), { cheap: null, fast: null });
+  // zpáteční cesta: nejrychlejší podle pomalejšího směru – přímý let tam s návratem s přestupem na celý den není „~5 h“
+  const legDoor = (l) => (l.durationMin ? G.flightDoor({ accessMin: 30, flightMin: l.durationMin, egressMin: 30 }) : null);
+  const rt = (o, b, czk) => ({ out: leg(o, o > 60 ? 1 : 0), back: { from: 'VIE', to: 'PRG', durationMin: b }, perPersonCzk: czk });
+  const cheapRt = rt(860, 1135, 4045), halfFast = rt(50, 1135, 10282), bothFast = rt(50, 50, 11994);
+  const slowOf = (t) => G.tripDoor(t, legDoor);
+  assert.equal(G.tripDoor(halfFast, legDoor), 30 + 120 + 1135 + 45 + 30, 'pomalejší směr');
+  assert.equal(G.tripDoor({ out: leg(50), back: { durationMin: null } }, legDoor), null, 'návrat bez známé délky');
+  assert.equal(G.tripDoor({ out: leg(50) }, legDoor), 275, 'jen tam = let tam');
+  const q = G.planeOptions([cheapRt, halfFast, bothFast], (t) => legDoor(t.out), slowOf);
+  assert.deepEqual([q.cheap.t, q.cheap.doorMin, q.fast.t, q.fast.doorMin], [cheapRt, 1085, bothFast, 275]);
+  // nejlevnější má přímý let tam, ale návrat s přestupem: rychlejší cesta oběma směry se nabídne i tak
+  const r = G.planeOptions([rt(50, 1135, 9000), bothFast], (t) => legDoor(t.out), slowOf);
+  assert.deepEqual([r.cheap.doorMin, r.fast.t], [275, bothFast]);
+  assert.equal(G.planeOptions([cheapRt, halfFast], (t) => legDoor(t.out), slowOf).fast, null, 'žádná cesta rychlá oběma směry → bez druhého řádku');
+  // pravidlo „čas“ srovnává s nejrychlejším letem a jmenuje ho i s cenou; „levněji“ s nejlevnějším
+  const e = (minutes, czk = 299) => ({ ok: true, km: 280, minutes, czk, basis: 'measured' });
+  const w = G.worth(e(234), { doorMin: p.cheap.doorMin, czk: 4045, trips: 2, fast: { doorMin: p.fast.doorMin, czk: 11994 } });
+  assert.equal(w.rule, 'time');
+  assert.equal(w.reason.replace(/\u00a0/g, ' '), 'Vlakem/busem ~3 h 54 – rychleji než letadlem (nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11 994 Kč).');
+  assert.deepEqual([w.doorMin, w.fast.doorMin, w.fast.czk], [1085, 275, 11994]);
+  const slow = G.worth(e(700, 300), { doorMin: 1085, czk: 4045, trips: 2, fast: { doorMin: 275, czk: 11994 } });
+  assert.equal(slow.rule, null);
+  assert.match(slow.reason, /letadlo tu vychází lépe \(nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11[\s\u00a0]994 Kč\)/);
+  const c = G.worth(e(540, 600), { doorMin: 1085, czk: 4045, trips: 2, fast: { doorMin: 275, czk: 11994 } });
+  assert.equal(c.rule, 'cheap');
+  assert.match(c.reason, /o ~2[\s\u00a0]800 Kč levněji na osobu než nejlevnější let \(~18 h 05 od dveří ke dveřím\)/);
+  // nejrychlejší „pomalejší“ než nejlevnější se nebere; bez rychlejšího letu zůstává původní text
+  assert.equal(G.worth(e(234), { doorMin: 300, fast: { doorMin: 400, czk: 1 } }).fast, undefined);
+  assert.match(G.worth(e(234), { doorMin: 300 }).reason, /rychleji než letadlem \(letadlem ~5 h i s cestou na letiště a odbavením\)/);
+});
+
 test('links: RegioJet a FlixBus jen se známými ID, IDOS a Google vždy; formáty data a kódování', () => {
   const l = G.links(PRAHA, VIDEN, '2026-10-06', 2);
   assert.deepEqual(l.map((x) => x.id), ['regiojet', 'flixbus', 'idos', 'google']);
@@ -345,17 +394,22 @@ test('regiojet: víc než 5 čekajících dotazů dostane hned odhad', async () 
 test('attachGround: odhad ke skupinám v dosahu, od dveří ke dveřím s nejkratším nalezeným letem, i bez letů', () => {
   stub = stubFetch(() => ({ body: RJ_PRAHA_VIDEN })); // hledání se RegioJetu nikdy neptá (jen odhad bez sítě)
   const dest = (k, label, cc, lat, lon) => ({ key: k, id: `ap:${k}`, label, cc, lat, lon });
-  const trip = (to, min, czk) => ({ out: { from: 'PRG', to, durationMin: min }, back: { from: to, to: 'PRG' }, perPersonCzk: czk, destKey: to });
+  const trip = (to, min, czk, backMin = min) => ({ out: { from: 'PRG', to, durationMin: min }, back: { from: to, to: 'PRG', durationMin: backMin }, perPersonCzk: czk, destKey: to });
   const home = { lat: 50.0755, lon: 14.4378, label: 'Praha' };
   const origins = [{ iata: 'PRG', ground: { minutes: 40 } }];
   const vie = { dest: dest('VIE', 'Vídeň', 'AT', 48.1103, 16.5697), best: trip('VIE', 640, 5843), options: [trip('VIE', 640, 5843)] };
   const lis = { dest: dest('LIS', 'Lisabon', 'PT', 38.7742, -9.1342), best: trip('LIS', 180, 3000), options: [] };
-  const flat = [vie.best, trip('VIE', 50, 10172), lis.best];
+  // přímý let tam s návratem s přestupem na celý den (levnější) není „nejrychlejší tam i zpět“ – jen přímý oběma směry
+  const flat = [vie.best, trip('VIE', 50, 10172), trip('VIE', 50, 8200, 1135), lis.best];
   const point = [{ id: 'ap:VIE', type: 'airport', label: 'Vídeň', cc: 'AT', lat: 48.1103, lon: 16.5697 }];
   const r = G.attachGround({ home, origins, groups: [vie, lis], flat, dests: point });
   assert.equal(lis.ground, undefined, 'Lisabon mimo dosah');
-  assert.ok(vie.ground.doorMin >= 40 + 120 + 50 + 45 && vie.ground.doorMin < 360, `přímý let 50 min, ne nejlevnější s přestupem: ${vie.ground.doorMin}`);
+  // cena i čas z téže cesty: nejlevnější (s přestupem, 640 min) se svým časem, nejrychlejší (přímý 50 min) se svou cenou
+  assert.equal(vie.ground.doorMin, Math.round((40 + 120 + 640 + 45 + vie.ground.egressMin) / 5) * 5);
+  assert.ok(vie.ground.fast.doorMin >= 40 + 120 + 50 + 45 && vie.ground.fast.doorMin < 360, `přímý let 50 min: ${vie.ground.fast.doorMin}`);
+  assert.equal(vie.ground.fast.czk, 10172);
   assert.equal(vie.ground.rule, 'time');
+  assert.match(vie.ground.reason, /rychleji než letadlem \(nejrychlejší let ~\d h( \d\d)? od dveří ke dveřím, od 10[\s\u00a0]172 Kč\)/);
   assert.equal(vie.ground.q.to, 'ap:VIE');
   assert.match(vie.ground.q.from, /^geo:50\.0755,14\.4378\|Praha$/);
   assert.deepEqual([r.to, r.flightCzk, r.trips], ['Vídeň', 5843, 2]);

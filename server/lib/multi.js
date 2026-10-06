@@ -14,6 +14,9 @@ export const MULTI = {
   sameAirportMin: 180,
   sameCityMin: 300,
   otherCityMin: 480,
+  // Let s přestupem bez známého příletu (cache Aviasales, arrUnknown): další let nejdřív 24 h po jeho odletu
+  // (i s nočním přestupem bývá na místě do druhého dne; „další den“ nestačí – odlet 20:30, další let v 7:00).
+  unknownArrMin: 1440,
   // Úseky se hledají nejvýš po dvou najednou; dvojice letišť pro Ryanair / Wizz Air na celé hledání
   // (rozdělené mezi úseky) a dotazy na letový řád Ryanairu na úsek.
   concurrency: 2,
@@ -30,12 +33,18 @@ const legSig = (l) => `${l.from}|${l.to}|${l.dep}|${l.carrier}|${l.stops}`;
  *  { why: 'early' }                     – odlétá dřív, než předchozí let přistane (nebo v dřívější den),
  *  { why: 'short', gapMin, needMin }    – stejné letiště / město, ale rezerva kratší než 3 h (jiné letiště 5 h),
  *  { why: 'nextday' }                   – jiné město (přejezd po zemi) nebo neznámý čas: nejdřív další den,
- *  { why: 'short', …, move: true }      – jiné město další den, ale dřív než 8 h po příletu.
+ *  { why: 'short', …, move: true }      – jiné město další den, ale dřív než 8 h po příletu,
+ *  { why: 'unknown', gapMin, needMin }  – předchozí let s přestupem nemá známý přílet: nejdřív 24 h po jeho odletu.
  * Časy jsou místní; na stejném letišti i v témže městě se dají porovnat přímo, mezi dvěma městy přes časové zóny.
  */
 export function legFits(prev, next) {
   const aDate = arrDate(prev);
   if (next.date < aDate) return { why: 'early' };
+  if (!prev.arr && prev.hasTime && prev.stops > 0) {
+    const gapMin = Math.round(((localToUtcMs(next.dep, next.fromTz) ?? NaN) - (localToUtcMs(prev.dep, prev.fromTz) ?? NaN)) / 60000);
+    // další let bez času se bere od půlnoci (nejdřívější možný odlet)
+    return gapMin >= MULTI.unknownArrMin ? null : { why: 'unknown', gapMin: Number.isFinite(gapMin) ? gapMin : null, needMin: MULTI.unknownArrMin };
+  }
   const sameAp = prev.to === next.from;
   const sameCity = sameAp || destKey(prev.to) === destKey(next.from);
   const timed = Boolean(prev.arr && prev.hasTime && next.hasTime);

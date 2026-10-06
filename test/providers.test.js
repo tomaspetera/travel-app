@@ -4,7 +4,7 @@ import { ONE_WAY, ROUND_TRIP, CHEAPEST_PER_DAY } from './fixtures/ryanair.js';
 import { stubFetch, ymdPlus } from './helpers.js';
 import { ryanair, parseOneWay, parseRoundTrip, parseCheapestPerDay, parseSchedule, bookingUrl as frUrl, warmSession } from '../server/providers/ryanair.js';
 import { wizzair, parseNetwork, parseTimetable, scrapeVersion, bookingUrl as w6Url } from '../server/providers/wizzair.js';
-import { travelpayouts, parsePricesForDates, bookingUrl as tpUrl } from '../server/providers/travelpayouts.js';
+import { travelpayouts, parsePricesForDates, cachedDuration, bookingUrl as tpUrl } from '../server/providers/travelpayouts.js';
 import { setRates, FALLBACK_EUR } from '../server/lib/fx.js';
 import { flightMinutes } from '../server/lib/dates.js';
 
@@ -346,6 +346,33 @@ test('Travelpayouts: jednosměrné i zpáteční letenky (zpáteční = jedna sp
   assert.equal(stn.flightCzk, 899);
   assert.equal(stn.out.durationMin, 115);
   assert.equal(tpUrl(null, { from: 'VIE', to: 'BCN', dateOut: '2026-11-03', dateIn: '2026-11-10', adults: 2 }), 'https://www.aviasales.com/search/VIE0311BCN10112');
+});
+
+test('Travelpayouts: let s přestupem s nemožnou délkou → přílet a délka neznámé (ne vymyšlené), přímý let beze změny', () => {
+  // QA 6: U2 PRG→BCN 20:30 → 23:35 „3 h 05, 1× přestup“ (přímý let trvá 2 h 30), FR LIS→PRG 4 h 15 s přestupem
+  const trips = parsePricesForDates({ success: true, data: [
+    { origin: 'PRG', destination: 'BCN', origin_airport: 'PRG', destination_airport: 'BCN', price: 1173, airline: 'U2', flight_number: '5', departure_at: '2026-10-30T20:30:00+01:00', transfers: 1, duration_to: 185, link: '/a' },
+    { origin: 'LIS', destination: 'PRG', origin_airport: 'LIS', destination_airport: 'PRG', price: 2851, airline: 'FR', flight_number: '7', departure_at: '2026-11-04T06:00:00+00:00', transfers: 1, duration_to: 255, link: '/b' },
+    { origin: 'PRG', destination: 'BCN', origin_airport: 'PRG', destination_airport: 'BCN', price: 1990, airline: 'VY', flight_number: '9', departure_at: '2026-10-30T10:40:00+01:00', transfers: 0, duration_to: 150, link: '/c' },
+    { origin: 'PRG', destination: 'BCN', origin_airport: 'PRG', destination_airport: 'BCN', price: 2500, airline: 'LX', flight_number: '1', departure_at: '2026-10-30T07:00:00+01:00', transfers: 1, duration_to: 300, link: '/d' },
+    { origin: 'PRG', destination: 'BCN', origin_airport: 'PRG', destination_airport: 'BCN', price: 3100, airline: 'VY', flight_number: '1', departure_at: '2026-10-30T10:40:00+01:00', return_at: '2026-11-04T07:30:00+01:00', transfers: 0, return_transfers: 1, duration_to: 150, duration_back: 170, link: '/e' },
+  ] });
+  const [u2, fr, vy, lx, rt] = trips;
+  for (const l of [u2.out, fr.out, rt.back]) {
+    assert.deepEqual([l.stops, l.durationMin, l.arr, l.arrEst, l.arrUnknown, l.estMin], [1, null, null, false, true, undefined], `${l.from}→${l.to}`);
+    assert.equal(l.hasTime, true, 'čas odletu zůstává');
+  }
+  assert.deepEqual([vy.out.durationMin, vy.out.arr, vy.out.arrUnknown], [150, '2026-10-30T13:10:00', undefined], 'přímý let: délka i přílet ze zdroje');
+  assert.deepEqual([lx.out.durationMin, lx.out.arr], [300, '2026-10-30T12:00:00'], 'věrohodná délka s přestupem (5 h) zůstává');
+  assert.deepEqual([rt.out.durationMin, rt.out.arrUnknown], [150, undefined]);
+  // hranice: přímý let (odhad ze vzdálenosti) +10 % a 80 min na každý přestup
+  assert.equal(cachedDuration('PRG', 'BCN', 185, 1), null);
+  assert.equal(cachedDuration('PRG', 'BCN', 245, 1), 245);
+  assert.equal(cachedDuration('PRG', 'BKK', 760, 1), null, 'Praha–Bangkok s přestupem za 12 h 40 – jen čas ve vzduchu');
+  assert.equal(cachedDuration('PRG', 'BKK', 910, 1), 910);
+  assert.equal(cachedDuration('PRG', 'BCN', 150, 0), 150, 'přímý let se nekontroluje');
+  assert.equal(cachedDuration('XXX', 'BCN', 400, 1), null, 'neznámé letiště → neověřitelné');
+  assert.equal(cachedDuration('PRG', 'BCN', 0, 1), null);
 });
 
 after(() => setRates({ base: 'EUR', rates: FALLBACK_EUR, source: 'approx', date: null }));

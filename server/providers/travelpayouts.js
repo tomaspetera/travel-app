@@ -9,6 +9,7 @@ import { makeLeg, makeTrip } from '../lib/fares.js';
 import { airlineName } from '../lib/airlines.js';
 import { getAirport } from '../lib/airports.js';
 import { daysBetween, monthsInRange } from '../lib/dates.js';
+import { haversineKm } from '../lib/geo.js';
 
 const URL_PFD = 'https://api.travelpayouts.com/aviasales/v3/prices_for_dates';
 const TTL = 60 * 60e3;
@@ -26,6 +27,24 @@ export function bookingUrl(link, { from, to, dateOut, dateIn = null, adults = 1 
   return `${base}${base.includes('?') ? '&' : '?'}marker=${encodeURIComponent(config.travelpayoutsMarker)}`;
 }
 
+/**
+ * Délka letu z cache Aviasales (duration_to / duration_back), nebo null, když jí nejde věřit. U letů s přestupem
+ * bývá kratší, než je možné – nejspíš čistý čas ve vzduchu bez čekání na přestup (QA: U2 PRG→BCN 20:30 → 23:35
+ * „3 h 05, 1× přestup“, přímý let trvá 2 h 30; FR LIS→PRG 4 h 15 s přestupem, přímý TAP 3 h 35). S ní by přílet
+ * vyšel dřív, než je možné (a „Víc měst“ by na něj navázalo další let). Věří se jí jen, když stačí na přímý let
+ * (odhad ze vzdálenosti, +10 % na objížďku přes přestupní letiště) a na každý přestup 80 min (přistání a vzlet navíc
+ * a aspoň ~45 min na přestup). Jinak null – přílet a délka jsou pak neznámé (arrUnknown), filtry je neskrývají.
+ */
+export function cachedDuration(from, to, min, stops) {
+  const m = Number(min) > 0 ? Math.round(Number(min)) : null;
+  if (!m || !(stops > 0)) return m;
+  const a = getAirport(from);
+  const b = getAirport(to);
+  if (!a || !b) return null;
+  const direct = (haversineKm(a.lat, a.lon, b.lat, b.lon) / 780) * 60 + 35;
+  return m >= direct * 1.1 + stops * 80 ? m : null;
+}
+
 export function parsePricesForDates(json, { adults = 1 } = {}) {
   const out = [];
   for (const d of json?.data || []) {
@@ -36,10 +55,12 @@ export function parsePricesForDates(json, { adults = 1 } = {}) {
     const roundTrip = Boolean(d.return_at);
     const url = bookingUrl(d.link, { from, to, dateOut: d.departure_at.slice(0, 10), dateIn: roundTrip ? d.return_at.slice(0, 10) : null, adults });
     const common = { provider: 'travelpayouts', carrier: d.airline || null, carrierName: airlineName(d.airline), live: false, bookUrl: url };
+    // let s přestupem bez věrohodné délky: přílet neznámý (arrUnknown), ne dopočtený z nesmyslné délky
+    const timed = (a, b, min, stops) => { const m = cachedDuration(a, b, min, stops); return { stops, durationMin: m, ...(stops > 0 && !m ? { arrUnknown: true } : {}) }; };
     const outLeg = makeLeg({
       ...common, flightNo, from, to, dep: d.departure_at,
       czk: roundTrip ? null : d.price, price: roundTrip ? null : d.price, currency: 'CZK',
-      stops: d.transfers ?? 0, durationMin: d.duration_to || (roundTrip ? null : d.duration) || null,
+      ...timed(from, to, d.duration_to || (roundTrip ? null : d.duration), d.transfers ?? 0),
     });
     if (!roundTrip) {
       out.push(makeTrip(outLeg, null, { bookUrl: url }));
@@ -47,7 +68,7 @@ export function parsePricesForDates(json, { adults = 1 } = {}) {
     }
     const backLeg = makeLeg({
       ...common, flightNo: null, from: to, to: from, dep: d.return_at, czk: null, price: null, currency: 'CZK',
-      stops: d.return_transfers ?? 0, durationMin: d.duration_back || null,
+      ...timed(to, from, d.duration_back, d.return_transfers ?? 0),
     });
     out.push(makeTrip(outLeg, backLeg, { combinedCzk: d.price, bookUrl: url }));
   }
