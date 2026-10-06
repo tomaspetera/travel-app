@@ -29,11 +29,39 @@ export function affiliate(url, brand) {
 const HW_CONT = { Evropa: 'europe', Afrika: 'africa', Asie: 'asia', 'Severní Amerika': 'north-america', 'Jižní Amerika': 'south-america', 'Oceánie': 'oceania' };
 const slug = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+// Kayak zná zemi pod svým názvem – kde se liší od našeho anglického (Czechia), jeho jméno.
+const KAYAK_COUNTRY = { CZ: 'Czech Republic', US: 'United States' };
+
+/**
+ * Google Hotels: parametr ts (termín, počet dospělých, měna) – zpráva protobuf v base64url, formát odpozorovaný
+ * z adres, které Google sám vytváří (ověřeno 10/2026 v Chromu na 5 termínech vč. přelomu roku). Délky jsou
+ * jednobajtové – nad 127 nocí nebo 30 dospělých null (odkaz pak jen s místem). Kdyby ho Google změnil, místo v q platí dál.
+ */
+export function googleHotelsTs(checkin, checkout, adults, currency = 'CZK') {
+  const date = (iso) => {
+    const [y, m, d] = String(iso).split('-').map(Number);
+    return [0x08, (y & 0x7f) | 0x80, y >> 7, 0x10, m, 0x18, d];
+  };
+  const nights = Math.round((Date.parse(checkout) - Date.parse(checkin)) / 864e5);
+  const n = Number(adults);
+  if (!(nights >= 1 && nights <= 127) || !Number.isInteger(n) || n < 1 || n > 30) return null;
+  const guests = [...Array.from({ length: n }, () => [0x0a, 0x02, 0x08, 0x03]).flat(), 0x10, 0x00];
+  const d1 = date(checkin);
+  const d2 = date(checkout);
+  const dates = [0x0a, d1.length, ...d1, 0x12, d2.length, ...d2];
+  const stay = [0x12, dates.length, ...dates, 0x18, nights, 0x32, 0x02, 0x10, 0x00];
+  const f3 = [0x0a, 0x02, 0x1a, 0x00, 0x12, stay.length, ...stay];
+  const cur = [...Buffer.from(currency)];
+  const f5 = [0x0a, cur.length + 2, 0x3a, cur.length, ...cur, 0x1a, 0x00];
+  return Buffer.from([0x08, 0x01, 0x12, guests.length, ...guests, 0x1a, f3.length, ...f3, 0x2a, f5.length, ...f5])
+    .toString('base64url');
+}
+
 /**
  * Odkazy na partnery ubytování. q: { city, cityEn, cc, country, checkin, checkout, adults, rooms }
  * prefill: 'full' = místo, termín i hosté předvyplněné; 'city' = jen místo (data zadáš na webu); 'none' = úvodní stránka.
- * Ověřeno 10/2026: Booking.com, Airbnb a Kayak předvyplní vše (Kayak si název města přeloží na své ID místa), Trip.com
- * vyplní místo, termín i hosty do formuláře (hledání se potvrdí tlačítkem); Google Hotels a Hostelworld jen místo;
+ * Ověřeno 10/2026: Booking.com, Airbnb, Kayak (si „Město-Země“ přeloží na své ID místa) a Google Hotels (termín a hosté
+ * v ts) předvyplní vše, Trip.com vyplní místo, termín i hosty do formuláře (hledání se potvrdí tlačítkem); Hostelworld jen místo;
  * Agoda bez vlastního ID města neumí ani místo. Hotels.com: formát hledání Expedia Group (z ověřovacího prostředí
  * ho zablokovala ochrana proti robotům).
  */
@@ -58,8 +86,12 @@ export function stayLinks(q) {
   const airbnbSlug = [cityEn, countryEn].filter(Boolean).join('--');
   const trip = new URLSearchParams({ searchWord: place, checkin: q.checkin, checkout: q.checkout, adult: String(q.adults), crn: String(q.rooms), curr: 'CZK', locale: 'cs-CZ' });
   const hotels = new URLSearchParams({ destination: place, startDate: q.checkin, endDate: q.checkout, adults: String(q.adults), rooms: String(q.rooms) });
-  // Kayak: jen název města – tvar „Město, Země“ přesměruje na úvodní stránku bez místa i dat (ověřeno 10/2026 v Chromu).
-  const kayak = `https://www.kayak.com/hotels/${enc(String(cityEn).split(',')[0].replace(/[/;]/g, ' ').trim())}/${q.checkin}/${q.checkout}/${q.adults}adults`;
+  // Kayak: „Město-Země“ anglicky s pomlčkami (Porto-Novo-Benin) – samotné jméno pošle Lagos do Portugalska a Porto Novo
+  // na Kapverdy, tvar „Město, Země“ s čárkou skončí na úvodní stránce bez místa i dat (ověřeno 10/2026 v Chromu).
+  const kayakPlace = [String(cityEn).split(',')[0], KAYAK_COUNTRY[q.cc] || countryEn]
+    .filter(Boolean).join(' ').replace(/[/;,]/g, ' ').trim().replace(/\s+/g, '-');
+  const kayak = `https://www.kayak.com/hotels/${enc(kayakPlace)}/${q.checkin}/${q.checkout}/${q.adults}adults`;
+  const gts = googleHotelsTs(q.checkin, q.checkout, q.adults);
   const hwCity = slug(String(cityEn).split(',')[0]);
   const hostelworld = HW_CONT[c?.cont] && countryEn && hwCity
     ? `https://www.hostelworld.com/hostels/${HW_CONT[c.cont]}/${slug(countryEn)}/${hwCity}/`
@@ -72,7 +104,7 @@ export function stayLinks(q) {
     { id: 'trip', name: 'Trip.com', note: 'silný v Asii – potvrď Hledat', prefill: 'full', url: `https://www.trip.com/hotels/list?${trip}` },
     { id: 'hotelscom', name: 'Hotels.com', note: 'hotely (Expedia)', prefill: 'full', url: `https://www.hotels.com/Hotel-Search?${hotels}` },
     { id: 'kayak', name: 'Kayak', note: 'srovnání cen více webů', prefill: 'full', url: kayak },
-    { id: 'google', name: 'Google Hotels', note: 'srovnání cen – zadej data', prefill: 'city', url: `https://www.google.com/travel/search?q=${enc(`hotels ${place}`)}&hl=cs&curr=CZK` },
+    { id: 'google', name: 'Google Hotels', note: gts ? 'srovnání cen' : 'srovnání cen – zadej data', prefill: gts ? 'full' : 'city', url: `https://www.google.com/travel/search?q=${enc(`hotels ${place}`)}&hl=cs&curr=CZK${gts ? `&ts=${gts}` : ''}` },
     { id: 'hostelworld', name: 'Hostelworld', note: 'hostely a levná lůžka – zadej data', prefill: 'city', url: hostelworld },
     { id: 'agoda', name: 'Agoda', note: 'silná v Asii – zadej místo a data', prefill: 'none', url: 'https://www.agoda.com/cs-cz/' },
   ];

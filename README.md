@@ -41,8 +41,8 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
    o malý počet recenzí, takže 10/10 ze 2 recenzí nepřebije 8,9 z 2 000). Přepneš na nejlevnější, nejlépe hodnocené
    nebo nejblíž centru, filtruješ 7+/8+/9+, typ a max. cenu za noc. U každého místa trasy (i přidaného ručně) jsou
    navíc odkazy na partnery: **Booking.com** (dvakrát – hodnocení 8+ od nejlevnějšího a nejlepší poměr), **Airbnb**,
-   **Trip.com**, **Hotels.com** a **Kayak** předvyplněné na místo, tvoje data a počet hostů; **Google Hotels**
-   a **Hostelworld** otevřou místo (data zadáš na webu – označeno „zadej data“; menší místo, které Hostelworld nemá,
+   **Trip.com**, **Hotels.com**, **Kayak** a **Google Hotels** předvyplněné na místo, tvoje data a počet hostů;
+   **Hostelworld** otevře místo (data zadáš na webu – označeno „zadej data“; menší místo, které Hostelworld nemá,
    otevře jeho stránku země), **Agoda** úvodní stránku. Bez klíče LiteAPI zůstanou jen odkazy a cenu zapíšeš ručně.
 4. **Auto** (nepovinné) – vyzvednutí na letišti 45 min po příletu, vrácení 2 h před odletem, předvyplněné srovnávače.
 5. **Program** – místa k vidění kolem ubytování rozdělená do dnů podle polohy (den příletu a odletu je kratší),
@@ -631,13 +631,15 @@ cesta z města příjezdu (ne z letiště):
   jede, výluky, zpoždění ani změny jízdního řádu po 12. 12. 2026 v ní nejsou; živé jízdní řády ATLAS nenačítá) – konkrétní
   spoj ověř přes odkaz. Země bez kódu z Wikidat se dopočítá podle nejbližšího letiště, takže
   u místa těsně u hranice může vyjít sousední země (Basilej → Francie).
-- Odkazy na partnery ubytování: Booking.com, Airbnb, Trip.com, Hotels.com a Kayak dostanou místo, data i počet hostů
-  (Trip.com je vyplní do formuláře – hledání potvrdíš), Google Hotels a Hostelworld jen místo, Agoda jen úvodní stránku
-  (bez jejího ID města nejde nic předvyplnit). Hostelworld má stránky jen měst s hostely (jinak 404) – server to
-  ověří jedním dotazem HEAD (v mezipaměti 30 dní) a u menšího místa odkáže na stránku země. Hotels.com se
-  z ověřovacího prostředí nedalo otevřít (ochrana proti robotům) – formát odkazu je standardní hledání Expedia Group.
-- Vlak mimo vysokorychlostní tratě je čas autem + cesta na nádraží: na rychlých hlavních tratích bývá ve skutečnosti
-  kratší (Vídeň → Brno ATLAS ~2 h 40 min, Railjet 1 h 30 min), na regionálních tratích sedí.
+- Odkazy na partnery ubytování: Booking.com, Airbnb, Trip.com, Hotels.com, Kayak a Google Hotels dostanou místo, data
+  i počet hostů (Trip.com je vyplní do formuláře – hledání potvrdíš; Kayak dostane „Město-Země“ anglicky, protože
+  samotné jméno víceznačné místo pošle jinam – Lagos do Portugalska; Google Hotels termín a hosty v parametru `ts`,
+  jehož formát Google nezveřejňuje – kdyby ho změnil, zůstane jen místo), Hostelworld jen místo, Agoda jen úvodní
+  stránku (bez jejího ID města nejde nic předvyplnit). Hostelworld má stránky jen měst s hostely (jinak 404) – server
+  to ověří jedním dotazem HEAD (v mezipaměti 30 dní) a u menšího místa odkáže na stránku země. Ověřeno 10/2026 ve
+  skutečném Chromu (Hotels.com předvyplní místo, termín i hosty).
+- Vlak mimo tabulku přímých spojů je čas autem + cesta na nádraží: na regionálních tratích sedí, na rychlé trati,
+  která v tabulce chybí, bývá ve skutečnosti kratší (mezi městy z tabulky platí jízdní řád – Vídeň → Brno ~1 h 50 min).
 - Cesta přes víc měst = samostatné letenky na každý let; přejezdy mezi městy (třeba Řím → Neapol) ATLAS nepočítá do ceny ani nehledá.
 - Vlak/bus je mimo změřené trasy z Prahy jen **odhad podle vzdálenosti** (Alpy a Dinárské hory s přirážkou ~25 %) –
   pomalé tratě bez hor bývají delší (Praha–Linec, Ostrava–Krakov), rychlé kratší (Praha–Ostrava 3 h 16 místo ~4 h 15).
