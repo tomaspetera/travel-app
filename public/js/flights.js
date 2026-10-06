@@ -522,6 +522,7 @@
       PriceCheck.remember(res); // paměť cen v tomto prohlížeči („Je to dobrá cena?“)
       if (legsOk(res) && view.mode === 'list' && legsPref) view.mode = 'legs';
       else if (!legsOk(res) && view.mode === 'legs') view.mode = 'list';
+      if (view.mode === 'cal' && res.mode !== 'route') view.mode = 'list'; // kalendář je jen u konkrétního cíle
       renderProgress({ providers: res.providers }, false, res);
       renderResults();
       return res;
@@ -995,9 +996,16 @@
     const sum = k => opts.reduce((s, o) => s + (o[k] || 0), 0);
     const total = sum('perPersonCzk');
     const wiz = n === 2 && res.returnsHome;
-    // vstupní podmínky v zemích na cestě (bez návratu domů) – čip u letu do země, kde je co vyřizovat
-    const visit = mVisit(res);
-    const entry = i => (window.Entry && i < visit.length ? Entry.flightChip(res.legs[i].dest?.cc, (opts[i + 1] || opts[i]).out.date) : '');
+    // vstupní podmínky v zemích na cestě (bez návratu domů) – čip u letu do země, kde je co vyřizovat;
+    // odlet z jiné země, než kam vedl předchozí let (přejezd: tam do Turecka, zpět z Egypta), má čip té země u svého letu
+    const visit = mVisit(res), chipped = new Set(visit.map(l => l.dest && l.dest.cc));
+    const entry = i => {
+      if (!window.Entry) return '';
+      const to = i < visit.length ? Entry.flightChip(res.legs[i].dest?.cc, (opts[i + 1] || opts[i]).out.date) : '';
+      const cc = i ? res.legs[i].fromCc : null;
+      const from = cc && !chipped.has(cc) && cc !== res.legs[i - 1].dest?.cc ? Entry.flightChip(cc, opts[i].out.date) : '';
+      return from + to;
+    };
     const legs = opts.map((o, i) => `${i ? mGap(res, i, opts[i - 1].out, o.out) : ''}<div class="mc-leg"><div class="mc-lh"><span class="mc-n">${i + 1}. let</span><span class="mc-lab">${esc(res.legs[i].label)}</span>${entry(i)}<b>${czk(o.perPersonCzk)}</b></div>${legHtml(o.out)}<div class="mc-buy">${mBuy(o, i)}</div></div>`).join('');
     const badges = [`<span class="b info" title="Každý let kupuješ zvlášť – při zpoždění jednoho letu další aerolinka nečeká">🎫 ${plural(n, 'samostatná letenka', 'samostatné letenky', 'samostatných letenek')}</span>`,
       window.Entry ? Entry.transitHtml(opts.map(o => o.out), mCountries(res)) : '',
@@ -1157,16 +1165,22 @@
     if (t) return { out: t.out.date, back: t.back ? t.back.date : null };
     return { out: q.dateFrom < today() ? today() : q.dateFrom, back: null };
   }
-  const groundBest = res => (res.top || [])[0] || (res.groups[0] && res.groups[0].best) || null;
+  // Nabídky do cíle srovnání s vlakem/busem: u víc cílů v hledání (Berlín, Budapešť…) jen do toho, ke kterému je odhad.
+  const groundTrips = res => { const k = res.ground && res.ground.destKey, g = k && res.groups.find(x => x.dest.key === k); return g ? g.options : []; };
+  // Nejlevnější let pro srovnání – jen z nabídek, které projdou filtry výpisu (čas, přestupy, cena…).
+  const groundBest = res => visibleTrips(groundTrips(res)).reduce((m, t) => (!m || t.perPersonCzk < m.perPersonCzk ? t : m), null);
+  // Lety se našly, jen je skryly filtry (ze vstupu, za teplem nebo ve výpisu) – ne „nic nenalezeno“.
+  const groundHidden = res => groundTrips(res).length > 0 || (!res.groups.length && (Object.values((res.filters && res.filters.hidden) || {}).some(n => n > 0) || Boolean(res.warm && res.warm.dropped > 0)));
   function groundChip(g) {
     const x = g.ground;
-    return `<button type="button" class="gnd-chip${x.worth ? ' hot' : ''}" data-gchip="${esc(g.dest.key)}" title="${esc(x.reason || '')} Klikni pro spoje a odkazy.">${esc(Ground.chipText(x))} <small>odhad</small></button>`;
+    return `<button type="button" class="gnd-chip${x.worth ? ' hot' : ''}" data-gchip="${esc(g.dest.key)}" title="${esc(x.reason || '')} Klikni pro spoje a odkazy.">${esc(Ground.chipText(x, lastResult.query.trip === 'return'))} <small>odhad</small></button>`;
   }
   // Srovnání letadlo × vlak/bus: cena na osobu a čas od dveří ke dveřím (vlak/bus = jízda + 30 min na nádraží).
-  function groundCompare(x, t, ret) {
+  // hidden = lety jsou, ale žádný neprošel filtry.
+  function groundCompare(x, t, ret, hidden = false) {
     const n = ret ? 2 : 1;
     return `<div class="gb-cmp">
-      <div class="gb-col"><span class="gb-l">✈️ Letadlo</span>${t ? `<b>od ${czk(t.perPersonCzk)}</b><small>na osobu${ret ? ', tam i zpět' : ''}</small>` : '<b>nic nenalezeno</b><small>pro zadané termíny</small>'}<span>${x.doorMin ? `~${Ground.hm(x.doorMin)} od dveří ke dveřím${t ? ' (nejrychlejší nalezený let)' : ''}` : ''}</span></div>
+      <div class="gb-col"><span class="gb-l">✈️ Letadlo</span>${t ? `<b>od ${czk(t.perPersonCzk)}</b><small>na osobu${ret ? ', tam i zpět' : ''}</small>` : hidden ? '<b>skryto filtry</b><small>lety jsou, ale žádný neprošel filtry</small>' : '<b>nic nenalezeno</b><small>pro zadané termíny</small>'}<span>${x.doorMin ? `~${Ground.hm(x.doorMin)} od dveří ke dveřím${t ? ' (nejrychlejší nalezený let)' : ''}` : ''}</span></div>
       <div class="gb-col win"><span class="gb-l">🚆 Vlak / bus <em>odhad</em></span><b>od ~${czk(x.czk * n)}</b><small>na osobu${ret ? ', tam i zpět' : ''}</small><span>~${Ground.hm(x.min + 30)} od dveří ke dveřím</span></div>
     </div>`;
   }
@@ -1176,11 +1190,11 @@
     const t = groundBest(res), ret = res.query.trip === 'return';
     const src = `${x.regiojet ? 'RegioJet – živé ceny po kliknutí' : 'RegioJet tu nejezdí'}${x.flixbus ? ' · FlixBus – jen odkaz' : ''} · IDOS a Google Mapy – odkazy`;
     if (!x.worth && t) {
-      return `<div class="gnd-line">🚆 <div>Vlakem/busem ${esc(x.from)} → ${esc(x.to)} ~${esc(Ground.hm(x.min))} · od ~${czk(x.czk)} (odhad) – letadlo tu vychází lépe. <button type="button" class="linkbtn" data-gshow="1">Spoje a odkazy</button></div></div><div id="gndPanel"></div>`;
+      return `<div class="gnd-line">🚆 <div>Vlakem/busem ${esc(x.from)} → ${esc(x.to)} ~${esc(Ground.hm(x.min))} · ${ret ? `tam i zpět od ~${czk(x.czk * 2)}` : `od ~${czk(x.czk)}`} (odhad) – letadlo tu vychází lépe. <button type="button" class="linkbtn" data-gshow="1">Spoje a odkazy</button></div></div><div id="gndPanel"></div>`;
     }
     return `<div class="card gnd-banner">
       <div class="gb-h"><span class="gb-ic">🚆</span><div><b>${esc(x.from)} → ${esc(x.to)} i vlakem nebo busem</b><div class="muted">${esc(x.reason || '')}</div></div></div>
-      ${groundCompare(x, t, ret)}
+      ${groundCompare(x, t, ret, !t && groundHidden(res))}
       <div class="gb-act"><button type="button" class="btn sm primary" data-gshow="1">${view.gndOpen ? 'Skrýt spoje' : 'Ukázat spoje'}</button><span class="faint">${esc(src)}</span></div>
       <div id="gndPanel"></div></div>`;
   }
@@ -1418,7 +1432,8 @@
     $$('[data-pick]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pick]; Trip.start({ t: r.t, g: r.g, result: lastResult }); });
     $$('[data-pc]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pc]; if (r) openPriceCheck(r.t, { g: r.g }); });
     $$('[data-country]', host).forEach(b => b.onclick = () => openCountry(b.dataset.country));
-    $$('[data-gchip]', host).forEach(b => b.onclick = () => { const g = lastResult.groups.find(x => x.dest.key === b.dataset.gchip); if (g) openGroundModal(g); });
+    // skupina i s nabídkami po filtrech výpisu (vis) – okno porovná s letem, který karta ukazuje
+    $$('[data-gchip]', host).forEach(b => b.onclick = () => { const k = b.dataset.gchip, g = computeGroups().find(x => x.dest.key === k) || lastResult.groups.find(x => x.dest.key === k); if (g) openGroundModal(g); });
   }
   function rerender(keepScroll) {
     const y = window.scrollY;
