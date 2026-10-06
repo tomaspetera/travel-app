@@ -27,6 +27,7 @@ import { affiliateOn } from './lib/links.js';
 import { HttpError } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
 import { airportClimate, climateAt, climateSource, countryClimate } from './lib/climate.js';
+import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -323,6 +324,18 @@ async function route(req, res) {
     }
     if (!c) return sendJson(req, res, 404, { error: 'Pro toto místo nemám údaje o podnebí.' });
     return sendJson(req, res, 200, { ...c, source: climateSource() }, { 'Cache-Control': 'public, max-age=604800' });
+  }
+  if (p === '/api/ground') {
+    // Vlak nebo bus místo letadla: odhad, srovnání s letadlem, odkazy; s datem i živé spoje RegioJetu (na vyžádání).
+    let q;
+    try {
+      q = groundQuery(url.searchParams);
+    } catch (e) {
+      if (e instanceof GroundError) return sendJson(req, res, 400, { error: e.message });
+      throw e;
+    }
+    // Dotaz na RegioJet počítá stejný limit jako hledání (odpověď z mezipaměti ne); po vyčerpání jen odhad a odkazy.
+    return sendJson(req, res, 200, await groundInfo(q, { allowLive: () => !rateLimited(req) }));
   }
   if (p === '/api/cars') return sendJson(req, res, 200, searchCars(Object.fromEntries(url.searchParams)));
   if (p === '/api/poi') {

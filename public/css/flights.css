@@ -533,3 +533,63 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   .mc-gap{margin-left:4px}
 }
 [data-theme=light] .mc-why{color:#8a5a00}
+/* ---------- vlak nebo bus místo letadla ---------- */
+.gnd-chip{display:inline-flex;align-items:center;gap:6px;margin:0 0 4px;padding:5px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font:700 12px Inter,sans-serif;cursor:pointer;text-align:left;max-width:100%}
+.gnd-chip small{font-weight:600;color:var(--faint);font-size:11px}
+.gnd-chip:hover{border-color:var(--accent);color:var(--text)}
+.gnd-chip.hot{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.4);color:var(--good)}
+.gnd-banner{padding:14px 16px;margin-bottom:14px;border-color:rgba(52,211,153,.45);box-shadow:0 0 0 1px rgba(52,211,153,.15),var(--shadow)}
+.gb-h{display:flex;gap:10px;align-items:flex-start}
+.gb-h b{font-size:15px}
+.gb-h .muted{font-size:12.5px;margin-top:2px}
+.gb-ic{font-size:24px;line-height:1}
+.gb-cmp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.gb-col{display:flex;flex-direction:column;gap:1px;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface)}
+.gb-col.win{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.07)}
+.gb-col b{font:800 19px Sora,sans-serif}
+.gb-col small,.gb-col span{font-size:12px;color:var(--muted)}
+.gb-l{font-weight:700;color:var(--text)!important;font-size:12.5px!important}
+.gb-l em{font-style:normal;font-weight:700;font-size:10.5px;color:var(--warn);background:rgba(251,191,36,.14);border-radius:6px;padding:1px 6px;margin-left:4px}
+.gb-act{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:12px}
+.gnd-line{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted);margin:0 0 12px;padding:9px 12px;border-radius:12px;border:1px dashed var(--border-2)}
+.gnd-panel{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.gp-dir{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:var(--surface)}
+.gp-dh{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.gp-dh .input{max-width:170px;padding:6px 10px}
+.gp-note{font-size:11.5px}
+.gc-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:6px;font-size:12px}
+.gc-head .btn{margin-left:auto}
+.gc-list{display:flex;flex-direction:column}
+.gc-row{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:7px 4px;border-top:1px solid var(--border);font-size:13px}
+.gc-row:first-child{border-top:none}
+.gc-row.off{opacity:.55}
+.gc-row.est .gc-t b{color:var(--muted)}
+.gc-row.sel{grid-template-columns:22px 150px minmax(0,1fr) auto;cursor:pointer;border-radius:8px}
+.gc-row.sel:hover{background:var(--surface-2)}
+.gc-row.sel input{accent-color:var(--accent);width:16px;height:16px}
+.gc-row.sel:has(input:checked){background:rgba(91,140,255,.12)}
+.gc-t b{font-weight:800}
+.gc-t small{color:var(--warn);font-weight:700;margin-left:3px}
+.gc-x{color:var(--muted);font-size:12px;min-width:0}
+.gc-x .warn{color:var(--warn)}
+.gc-p{text-align:right;white-space:nowrap}
+.gc-p small{display:block;color:var(--faint);font-size:11px}
+.gc-more,.gc-demo{font-size:11.5px;margin-top:4px}
+.gnd-links{display:flex;flex-wrap:wrap;gap:6px}
+.gnd-link{display:inline-flex;align-items:baseline;gap:6px;padding:7px 11px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);text-decoration:none;font-size:12.5px}
+.gnd-link small{color:var(--faint);font-size:11px}
+.gnd-link:hover{border-color:var(--accent)}
+.gm-why{font-size:13px;margin-bottom:4px}
+@media(max-width:560px){
+  .gnd-banner{padding:12px}
+  .gb-col{padding:8px 10px}
+  .gb-col b{font-size:16px}
+  .gc-row{grid-template-columns:minmax(0,1fr) auto}
+  .gc-row .gc-x{grid-column:1/-1;grid-row:2}
+  .gc-row.sel{grid-template-columns:22px minmax(0,1fr) auto}
+  .gc-row.sel .gc-x{grid-column:2/-1}
+  .gc-head .btn{margin-left:0}
+  .gp-dh .input{max-width:none;flex:1}
+}
+[data-theme=light] .gnd-chip.hot{color:#047857}
+[data-theme=light] .gb-l em,[data-theme=light] .gc-t small,[data-theme=light] .gc-x .warn{color:#8a5a00}
