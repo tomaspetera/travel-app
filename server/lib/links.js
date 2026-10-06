@@ -32,7 +32,7 @@ const slug = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g,
 /**
  * Odkazy na partnery ubytování. q: { city, cityEn, cc, country, checkin, checkout, adults, rooms }
  * prefill: 'full' = místo, termín i hosté předvyplněné; 'city' = jen místo (data zadáš na webu); 'none' = úvodní stránka.
- * Ověřeno 10/2026: Booking.com, Airbnb a Kayak předvyplní vše (Kayak si název přeloží na své ID místa), Trip.com
+ * Ověřeno 10/2026: Booking.com, Airbnb a Kayak předvyplní vše (Kayak si název města přeloží na své ID místa), Trip.com
  * vyplní místo, termín i hosty do formuláře (hledání se potvrdí tlačítkem); Google Hotels a Hostelworld jen místo;
  * Agoda bez vlastního ID města neumí ani místo. Hotels.com: formát hledání Expedia Group (z ověřovacího prostředí
  * ho zablokovala ochrana proti robotům).
@@ -58,7 +58,8 @@ export function stayLinks(q) {
   const airbnbSlug = [cityEn, countryEn].filter(Boolean).join('--');
   const trip = new URLSearchParams({ searchWord: place, checkin: q.checkin, checkout: q.checkout, adult: String(q.adults), crn: String(q.rooms), curr: 'CZK', locale: 'cs-CZ' });
   const hotels = new URLSearchParams({ destination: place, startDate: q.checkin, endDate: q.checkout, adults: String(q.adults), rooms: String(q.rooms) });
-  const kayak = `https://www.kayak.com/hotels/${enc(place.replace(/[/;]/g, ' '))}/${q.checkin}/${q.checkout}/${q.adults}adults`;
+  // Kayak: jen název města – tvar „Město, Země“ přesměruje na úvodní stránku bez místa i dat (ověřeno 10/2026 v Chromu).
+  const kayak = `https://www.kayak.com/hotels/${enc(String(cityEn).split(',')[0].replace(/[/;]/g, ' ').trim())}/${q.checkin}/${q.checkout}/${q.adults}adults`;
   const hwCity = slug(String(cityEn).split(',')[0]);
   const hostelworld = HW_CONT[c?.cont] && countryEn && hwCity
     ? `https://www.hostelworld.com/hostels/${HW_CONT[c.cont]}/${slug(countryEn)}/${hwCity}/`

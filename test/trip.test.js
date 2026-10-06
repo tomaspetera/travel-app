@@ -223,7 +223,7 @@ test('stayLinks: víc partnerů – co je předvyplněné (místo, termín, host
   const hc = new URL(by.hotelscom.url);
   assert.equal(hc.origin + hc.pathname, 'https://www.hotels.com/Hotel-Search');
   assert.deepEqual(['destination', 'startDate', 'endDate', 'adults', 'rooms'].map((k) => hc.searchParams.get(k)), ['Kutná Hora, Czechia', q.checkin, q.checkout, '3', '2']);
-  assert.equal(by.kayak.url, `https://www.kayak.com/hotels/Kutn%C3%A1%20Hora%2C%20Czechia/${q.checkin}/${q.checkout}/3adults`);
+  assert.equal(by.kayak.url, `https://www.kayak.com/hotels/Kutn%C3%A1%20Hora/${q.checkin}/${q.checkout}/3adults`); // „Město, Země“ Kayak nepozná
   assert.equal(by.hostelworld.url, 'https://www.hostelworld.com/hostels/europe/czechia/kutna-hora/', 'stránka města (jiný název země Hostelworld přesměruje)');
   assert.equal(by.agoda.url, 'https://www.agoda.com/cs-cz/');
   assert.match(by.airbnb.url, /^https:\/\/www\.airbnb\.cz\/s\/Kutn%C3%A1%20Hora--Czechia\/homes\?checkin=/);

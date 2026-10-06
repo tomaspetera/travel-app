@@ -616,7 +616,7 @@
       ${x ? `<b>${legTxt(x, tr)}</b> <span class="faint">(${estTxt(x, tr)}; ${other})</span>` : '<span class="faint">počítám přejezd…</span>'}
       <div class="faint">${dayLbl(date)} · ${esc(a.name)} → ${esc(b.name)}${link ? ` · ${link}` : ''}</div>
       ${x ? borderNote(x.border) : ''}
-      ${x && x.long ? '<div class="rt-warn">⚠️ Dlouhý přejezd – zvaž místo mezi nimi.</div>' : ''}</div></div>`;
+      ${x && x.long ? '<div class="rt-warn">⚠️ Dlouhý přejezd</div>' : ''}</div></div>`;
   }
 
   function paintRoute() {

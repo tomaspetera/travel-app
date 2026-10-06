@@ -370,7 +370,7 @@ test('detail země: režim česky, pobyt, doklad, platnost pasu, cena v € a K�
   assert.match(Entry.detailHtml('GB'), /Nutná i při přestupu, pokud procházíš pasovou kontrolou/);
   assert.doesNotMatch(Entry.detailHtml('AU'), /Bez víza/);
   assert.match(Entry.detailHtml('TH'), /Bez víza – jen s cestovním pasem/);
-  assert.match(Entry.detailHtml('EG'), /Vízum při příletu na hranici, nebo předem online: e-Visa/);
+  assert.match(Entry.detailHtml('EG'), /Vízum při příletu, nebo předem online: e-Visa/);
   assert.match(Entry.detailHtml('CN'), /Vízum předem na zastupitelském úřadě/);
   assert.match(Entry.detailHtml('AL'), />🪪 stačí OP</);
   assert.match(Entry.detailHtml('SY'), /stav 10\/2026, neověřeno na oficiální stránce/);
