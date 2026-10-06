@@ -359,9 +359,11 @@ test('attachGround: odhad ke skupinám v dosahu, od dveří ke dveřím s nejkra
   assert.equal(vie.ground.q.to, 'ap:VIE');
   assert.match(vie.ground.q.from, /^geo:50\.0755,14\.4378\|Praha$/);
   assert.deepEqual([r.to, r.flightCzk, r.trips], ['Vídeň', 5843, 2]);
+  assert.equal(r.destKey, 'VIE', 'skupina letů do cíle srovnání (víc cílů v hledání)');
   // bez letů: srovnání pro cíl i tak (chytrá nápověda pak nabídne vlak/bus)
   const none = G.attachGround({ home, origins, groups: [], dests: point });
   assert.equal(none.flightCzk, null);
+  assert.equal(none.destKey, null);
   assert.equal(none.worth, true);
   // odlet ze země (bez domova): z hlavního letiště odletu; kamkoliv (bez cíle) a země nic
   assert.equal(G.attachGround({ home: null, origins: [{ iata: 'PRG' }], groups: [], dests: point }).q.from, 'ap:PRG');
@@ -371,7 +373,7 @@ test('attachGround: odhad ke skupinám v dosahu, od dveří ke dveřím s nejkra
   const szg = { dest: dest('SZG', 'Salcburk', 'AT', 47.7933, 13.0043), best: trip('SZG', 55, 2400), options: [] };
   const hal = [{ id: 'geo:47.5622,13.6493|Hallstatt', type: 'place', label: 'Hallstatt', lat: 47.5622, lon: 13.6493 }];
   const h = G.attachGround({ home, origins, groups: [szg], flat: [szg.best], dests: hal });
-  assert.deepEqual([h.to, h.dest, h.q.to, h.flightCzk], ['Hallstatt', 'Hallstatt', 'geo:47.5622,13.6493|Hallstatt', 2400]);
+  assert.deepEqual([h.to, h.dest, h.q.to, h.flightCzk, h.destKey], ['Hallstatt', 'Hallstatt', 'geo:47.5622,13.6493|Hallstatt', 2400, 'SZG']);
   assert.equal(szg.ground.to, 'Salcburk', 'čip u skupiny zůstává k městu letiště');
   assert.ok(h.min > szg.ground.min && h.doorMin > szg.ground.doorMin, `do Hallstattu déle i letadlem (z letiště ještě ~55 km): ${h.min}/${h.doorMin} vs ${szg.ground.min}/${szg.ground.doorMin}`);
   // letiště u města (Vídeň-Schwechat ~18 km): odhad skupiny

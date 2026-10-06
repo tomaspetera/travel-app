@@ -651,7 +651,8 @@ export function attachGround({ home, origins = [], groups = [], dests = [], flat
     const x = g && !far ? { ...g.ground }
       : g ? groundForDest({ home: hp, from, dest, trip: g.best, flightMin: Number.isFinite(fm) ? fm : 0, accessOf })
         : from || fallback ? groundForDest({ home: hp || groundPlace(fallback), from: from || fallback, dest }) : null;
-    if (x) return { ...x, flightCzk: g ? g.best.perPersonCzk : null, trips: g ? (g.best.back ? 2 : 1) : null, dest: d.label };
+    // destKey = skupina letů do tohoto cíle (u víc cílů v hledání srovnává UI jen s lety sem, ne s nejlevnějším celkově)
+    if (x) return { ...x, flightCzk: g ? g.best.perPersonCzk : null, trips: g ? (g.best.back ? 2 : 1) : null, dest: d.label, destKey: g ? g.dest.key : null };
   }
   return null;
 }

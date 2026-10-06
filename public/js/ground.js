@@ -13,8 +13,12 @@
   const days = (a, b) => Math.round((Date.parse(b.slice(0, 10) + 'T12:00:00Z') - Date.parse(a.slice(0, 10) + 'T12:00:00Z')) / 864e5);
   const dm = d => `${+d.slice(8, 10)}. ${+d.slice(5, 7)}.`;
 
-  /** Text čipu u výsledku letu (odhad): „🚆 i vlakem/busem ~4 h 20 · od ~299 Kč“ */
-  const chipText = g => `🚆 i vlakem/busem ~${hm(g.min)} · od ~${kc(g.czk)}`;
+  /**
+   * Text čipu u výsledku letu (odhad): „🚆 i vlakem/busem ~4 h 20 · od ~299 Kč“; ret = zpáteční hledání → cena tam
+   * i zpět („· tam i zpět od ~598 Kč“), ať jde porovnat s cenou letenek vedle (ta je za celou cestu). Ta je
+   * s pevnými mezerami – na mobilu se zalomí celá, ne „od“ / „~598 Kč“.
+   */
+  const chipText = (g, ret = false) => `🚆 i vlakem/busem ~${hm(g.min)} · ${ret ? `tam i zpět od ~${kc(g.czk * 2)}`.replace(/ /g, '\u00a0') : `od ~${kc(g.czk)}`}`;
   /** Původ odhadu: změřené spoje z Prahy, nebo model podle vzdálenosti (přes hory delší). */
   const basisTxt = (b, hills) => b === 'measured' ? 'odhad podle skutečných spojů z 13. 10.' : `odhad podle vzdálenosti${hills ? ` (přes ${hills === 'Alpy' ? 'Alpy' : 'hory'} déle)` : ''}`;
 

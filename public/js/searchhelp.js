@@ -336,12 +336,19 @@
     const x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;
     return 12742 * Math.asin(Math.sqrt(x));
   };
-  /** Nejbližší přestupní letiště do 450 km, která hledání ještě neprošlo (ani jako odletová, ani jako přestupní). */
+  /**
+   * Nejbližší přestupní letiště do 450 km, která hledání ještě neprošlo (ani jako odletová, ani jako přestupní).
+   * Cíl sám (Berlín → „přidat Berlín“), letiště v zemi cíle a do 150 km od cíle (Bratislava → Vídeň) se nenabízejí.
+   */
   function nearHubs(res, max = 3) {
     const at = res && (res.home || (res.origins || []).find(o => o.lat != null));
     if (!at || at.lat == null) return [];
-    const have = new Set([...(res.origins || []).map(o => o.iata), ...(res.hubs || [])]);
-    return HUBS.filter(h => !have.has(h[0])).map(h => ({ iata: h[0], city: h[1], cc: h[2], km: km(at.lat, at.lon, h[3], h[4]) }))
+    const dest = res.destination || {};
+    const have = new Set([...(res.origins || []).map(o => o.iata), ...(res.hubs || []), ...(dest.airports || [])]);
+    const labels = (res.destinationLabels || []).filter(Boolean);
+    const destCc = new Set([...labels.map(x => x.cc), ...(dest.countries || [])].filter(Boolean));
+    const nearDest = h => labels.some(x => Number.isFinite(x.lat) && Number.isFinite(x.lon) && km(x.lat, x.lon, h[3], h[4]) < 150);
+    return HUBS.filter(h => !have.has(h[0]) && !destCc.has(h[2]) && !nearDest(h)).map(h => ({ iata: h[0], city: h[1], cc: h[2], km: km(at.lat, at.lon, h[3], h[4]) }))
       .filter(h => h.km <= 450).sort((a, b) => a.km - b.km).slice(0, max);
   }
 
@@ -372,7 +379,8 @@
     if (f.directOnly && hidden.directOnly) add('noDirect', `I lety s přestupem (skryto ${hidden.directOnly})`, { directOnly: false });
     // Blízký cíl: vlak nebo bus (když se to vyplatí, nebo když letadlem nic není).
     const g = r.ground;
-    if (g && g.min > 0 && (g.worth || !(r.groups || []).length)) acts.push({ key: 'ground', label: `🚆 Vlakem/busem ~${hhmmTxt(g.min)} · od ~${kc(g.czk)} (odhad)`, ground: true });
+    // cena jako ve srovnání nad nápovědou: u zpáteční cesty tam i zpět (jinak by vedle „od ~598 Kč tam i zpět“ stálo „od ~299 Kč“)
+    if (g && g.min > 0 && (g.worth || !(r.groups || []).length)) acts.push({ key: 'ground', label: `🚆 Vlakem/busem ~${hhmmTxt(g.min)} · ${ret ? `tam i zpět od ~${kc(g.czk * 2)}` : `od ~${kc(g.czk)}`} (odhad)`, ground: true });
     if (exact) {
       const fl = +f.xFlex || 0;
       if (fl < 1) add('flex1', '± 1 den', { xFlex: 1 });
