@@ -55,7 +55,8 @@ export function makeLeg(o) {
     // Odhad délky letu bez známého příletu (jako arrEst) – jen pro filtr délky cesty, v UI se neukazuje.
     ...(estMin ? { estMin } : {}),
     // Přestupy z časů úseků (Kiwi): [{ at: letiště, min: čekání }].
-    ...(Array.isArray(o.layovers) && o.layovers.length ? { layovers: o.layovers } : {}),
+    // cc = země letiště přestupu (z databáze letišť) – kvůli vstupním podmínkám i pro tranzit (ESTA v USA).
+    ...(Array.isArray(o.layovers) && o.layovers.length ? { layovers: o.layovers.map((x) => ({ ...x, cc: getAirport(x.at)?.cc || null })) } : {}),
     live: o.live !== false,
     bookUrl: o.bookUrl || null,
     foundAt: o.foundAt || null,

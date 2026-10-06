@@ -129,9 +129,12 @@ function destCard(c, score) {
     <div class="flag">${flag(c.iso2)}</div>
     <div class="cname">${c.cs}</div><div class="ccont">${c.cont}${c.cap ? ' · ' + c.cap : ''}</div>
     <div class="cblurb">${c.blurb || 'Objev tuto zemi – počasí, ceny i odkazy najdeš uvnitř.'}</div>
-    <div class="meta">${c.cost ? costDots(c.cost) : '<span></span>'}${months ? `<span>${months}</span>` : ''}</div>
+    ${entryChip(c.iso2)}<div class="meta">${c.cost ? costDots(c.cost) : '<span></span>'}${months ? `<span>${months}</span>` : ''}</div>
   </div>`;
 }
+// Vstupní podmínky (entry.js): čip na kartě; data se načítají po startu, pak se čipy doplní (paintEntryChips).
+const entryChip = iso => (window.Entry && Entry.ready() ? Entry.cardChip(iso) : '');
+function paintEntryChips() { $$('.dest[data-iso]').forEach(el => { const m = $('.meta', el); if (m && !$('.ec', el)) m.insertAdjacentHTML('beforebegin', entryChip(el.dataset.iso)); }); }
 function bindDest(sel) { $$(sel + ' .dest[data-iso]').forEach(el => el.onclick = () => openCountry(el.dataset.iso)); }
 
 /* ================= RECOMMENDATIONS ENGINE ================= */
@@ -157,19 +160,20 @@ function renderRecs() {
       <div class="flag">${flag(c.iso2)}</div><div class="cname">${c.cs}</div><div class="ccont">${c.cont}</div>
       <div class="cblurb">${c.blurb}</div>
       <div class="tags">${reasons.map(x => `<span class="tag" style="color:var(--good)">✓ ${x}</span>`).join('')}</div>
-      <div class="meta">${costDots(c.cost)}<span>${c.months.slice(0, 3).map(x => MNS[x - 1]).join(' · ')}</span></div></div>`;
+      ${entryChip(c.iso2)}<div class="meta">${costDots(c.cost)}<span>${c.months.slice(0, 3).map(x => MNS[x - 1]).join(' · ')}</span></div></div>`;
   }).join('');
   bindDest('#recGrid');
 }
 
 /* ================= COUNTRIES GRID ================= */
 function renderCountries() {
-  const q = norm($('#cSearch').value), cont = $('#cCont').value, cost = $('#cCost').value, sort = $('#cSort').value, vis = $('#cVisited .on').dataset.v;
+  const q = norm($('#cSearch').value), cont = $('#cCont').value, cost = $('#cCost').value, sort = $('#cSort').value, vis = $('#cVisited .on').dataset.v, ent = $('#cEntry').value;
   let list = COUNTRIES.slice();
   if (q) list = list.filter(c => norm(c.cs).includes(q) || norm(c.en).includes(q) || (c.tags || []).some(t => norm(t).includes(q)));
   if (cont) list = list.filter(c => c.cont === cont);
   if (cost) list = list.filter(c => c.cost && (cost === '1' ? c.cost <= 1 : cost === '2' ? c.cost <= 2 : c.cost >= 3));
   if (vis === 'yes') list = list.filter(c => visited.has(c.iso2)); else if (vis === 'no') list = list.filter(c => !visited.has(c.iso2));
+  if (ent && window.Entry) list = list.filter(c => c.iso2 !== 'CZ' && Entry.matches(c.iso2, ent));
   if (sort === 'cost') list.sort((a, b) => (a.cost || 9) - (b.cost || 9)); else if (sort === 'safety') list.sort((a, b) => (b.safety || 0) - (a.safety || 0)); else list.sort((a, b) => a.cs.localeCompare(b.cs, 'cs'));
   $('#countryGrid').innerHTML = list.length ? list.map(c => destCard(c)).join('') : `<div class="empty" style="grid-column:1/-1"><div class="ei">${ico('M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20')}</div><div>Nic nenalezeno. Zkus jiný filtr.</div></div>`;
   bindDest('#countryGrid');
@@ -233,6 +237,7 @@ function openCountry(iso) {
        <div><div class="k">Bezpečnost</div><div class="v" style="color:${c.safety >= 4 ? 'var(--good)' : c.safety >= 3 ? 'var(--warn)' : 'var(--bad)'}">${safeTxt}</div></div>
        <div><div class="k">Měna</div><div class="v" style="font-size:15px">${c.cur || '—'}</div><div class="faint" id="fxLine" style="font-size:12px"></div></div>
      </div>
+     ${iso !== 'CZ' && window.Entry ? `<div id="entryBox">${Entry.ready() ? Entry.detailHtml(iso) : `<div class="faint" style="font-size:12.5px;margin-top:12px">🛂 Načítám vstupní podmínky… (jinak je najdeš na <a href="${mzv}" target="_blank" rel="noopener">webu MZV ČR</a>)</div>`}</div>` : ''}
      <div style="margin-top:14px"><div class="k" style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em">Nejlepší období${c.months ? '' : ' — orientačně'}</div>${monthsStrip(c.months)}</div>
      <div id="climBox" style="margin-top:12px" title="Dlouhodobý průměr let 2001–2020 (NASA POWER) – není to předpověď"><div class="k clim-k">Průměrná denní maxima <span id="climWhere" class="faint"></span></div>${climStrip(null)}</div>
      ${c.tags ? `<div class="tags" style="margin-top:16px">${c.tags.map(t => `<span class="chip accent">${t}</span>`).join('')}</div>` : ''}
@@ -249,6 +254,8 @@ function openCountry(iso) {
   loadWeather(c);
   loadFx(c);
   loadClimate(iso);
+  // data ještě nedorazila (nebo se načtení nepovedlo – zkusit znovu)
+  if (window.Entry && !Entry.ready()) { Entry.whenReady(() => { const b = $('#entryBox'); if (b && curIso === iso) b.innerHTML = Entry.detailHtml(iso); }); Entry.load().catch(() => { }); }
 }
 window.modalClose = modalClose;
 window.toggleVis = iso => { const on = !visited.has(iso); setVisited(iso, on); const b = $('#visBtn'); if (b) { b.textContent = on ? '✓ Navštíveno' : 'Označit jako navštívené'; b.className = 'btn ' + (on ? 'warm' : 'ghost'); } toast(on ? 'Přidáno: ' + byIso[iso].cs : 'Odebráno: ' + byIso[iso].cs); renderCountries(); };
@@ -378,6 +385,7 @@ function openTrip(i) {
   <div class="modal-body">
     ${t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${esc(t.flight.replace(/^🚆\s*/u, ''))}</div></div>` : ''}
     <div class="row wrap"><button class="btn primary" onclick="modalClose();${c ? `fromCountrySearch('${t.iso}')` : `go('flights')`}">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
+    ${tripEntryHtml(t)}
     <div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>
     <div class="divider"></div>
     <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + (days.length === 1 ? ' den' : days.length < 5 ? ' dny' : ' dní') : 'doplň termíny'}</span></div>
@@ -397,6 +405,11 @@ function openTrip(i) {
   $('#tripShare').onclick = () => sharePlan(i);
 }
 
+/* vstupní podmínky cesty z plánovače: země z kódu (iso, u cesty přes víc zemí isos; via = přestupy s registrací) – nic dalšího se neukládá */
+const tripIsos = t => (Array.isArray(t.isos) && t.isos.length ? t.isos : t.iso ? [t.iso] : []);
+const tripVia = t => (Array.isArray(t.via) ? t.via : []);
+const tripEntryHtml = t => (window.Entry && Entry.ready() ? `<div style="margin-top:14px">${Entry.checklistHtml(tripIsos(t), { ret: t.end || t.start || null, pax: +t.pax || 1, via: tripVia(t) })}</div>` : '');
+
 /* kalendář (.ics) a sdílení plánu odkazem #plan=… */
 function planEvents(t) {
   const days = dateRange(t.start, t.end); if (!days.length) return [];
@@ -408,6 +421,8 @@ function planEvents(t) {
   else if (t.ground && t.ground.length) t.ground.forEach(g => ev.push(Ics.groundEvent(g, { note: t.name })));
   else if (t.flight) ev.push({ title: `${planIco(t.flight)} ${/^🚆/u.test(t.flight) ? 'Cesta' : 'Let'} – ${dest || t.name}`, start: t.start, description: t.flight, location: dest });
   days.forEach((d, di) => { const acts = (t.days || {})[d] || []; if (acts.length) ev.push({ title: `Den ${di + 1} – ${dest || t.name}`, start: d, description: acts.map(a => '• ' + a).join('\n'), location: dest }); });
+  // připomínka „🛂 Vyřídit ESTA (USA)“ před odletem, když země cesty chce registraci nebo vízum
+  if (window.Entry) ev.push(...Entry.reminders(tripIsos(t), t.start, fmtYMD(new Date()), tripVia(t)));
   return ev;
 }
 function exportPlan(i) {
@@ -475,7 +490,7 @@ function fillSelects() {
 }
 function wireEvents() {
   $$('#cVisited button').forEach(b => b.onclick = () => { $$('#cVisited button').forEach(x => x.classList.remove('on')); b.classList.add('on'); renderCountries(); });
-  ['#cSearch', '#cCont', '#cCost', '#cSort'].forEach(s => { const el = $(s); el.oninput = renderCountries; el.onchange = renderCountries; });
+  ['#cSearch', '#cCont', '#cCost', '#cSort', '#cEntry'].forEach(s => { const el = $(s); el.oninput = renderCountries; el.onchange = renderCountries; });
   ['#rMonth', '#rVibe', '#rBudget', '#rSafe'].forEach(s => $(s).onchange = renderRecs);
   $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; S.radar = null; save(); toast('Data aktualizována'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') renderDash(); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') modalClose(); });
@@ -486,6 +501,11 @@ function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="
 
 async function boot() {
   applyTheme(); buildNav(); fillSelects(); wireEvents(); renderTips();
+  if (window.Entry) {
+    // vstupní podmínky (~20 kB gzip) souběžně se startem; po načtení doplnit čipy a otevřený seznam zemí
+    Entry.whenReady(() => { paintEntryChips(); if (activeView === 'countries' && $('#cEntry').value) renderCountries(); });
+    Entry.load().catch(() => { });
+  }
   try {
     initCountries(await (await fetch('data/countries.json')).json());
   } catch (e) {

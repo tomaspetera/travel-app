@@ -311,3 +311,32 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
   .forecast{grid-template-columns:repeat(4,1fr)}
 }
 @media(max-width:520px){.stat-grid{grid-template-columns:1fr 1fr}.dest-grid{grid-template-columns:1fr 1fr}.months{grid-template-columns:repeat(6,minmax(0,1fr))}}
+/* ============ VSTUPNÍ PODMÍNKY (entry.js) ============ */
+.ec{display:inline-flex;align-items:center;max-width:100%;margin-top:9px;padding:2px 8px;border-radius:7px;font-size:11px;font-weight:700;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface-2);color:var(--muted)}
+.dest .ec+.meta{margin-top:8px}
+.ec-ok,.b.ec-ok{background:rgba(52,211,153,.12);color:var(--good)}
+.ec-reg,.b.ec-reg{background:rgba(56,189,248,.12);color:var(--info)}
+.ec-visa,.b.ec-visa{background:rgba(251,191,36,.13);color:var(--warn)}
+.ec-hard,.b.ec-hard{background:rgba(251,113,133,.13);color:var(--bad)}
+.b.ec-warn{white-space:normal}
+.ec-id{white-space:nowrap}
+[data-theme="light"] .ec-ok{color:#047857}[data-theme="light"] .ec-reg{color:#075985}[data-theme="light"] .ec-visa{color:#8a5a00}[data-theme="light"] .ec-hard{color:#be123c}
+.entry-detail{margin-top:16px;padding:14px 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.entry-detail h3{font-size:15px;margin-bottom:8px}
+.ed-regime{display:block;margin:0;padding:8px 11px;border-radius:10px;font-size:13.5px;font-weight:700;white-space:normal}
+.ed-reg{margin-top:8px;font-size:13px}
+.ed-transit{margin-top:4px;color:var(--bad);font-weight:600}
+.ed-unv{margin-top:8px;font-size:12.5px;font-weight:600;color:var(--warn)}
+[data-theme="light"] .ed-unv{color:#8a5a00}
+.ed-kv{margin-top:12px}
+.ed-kv .v{font-size:14px}
+.ed-small{font-size:12.5px;margin-top:3px;color:var(--text)}
+.ed-vac{font-size:13px;margin-top:6px;color:var(--muted)}
+.ed-vac b{color:var(--text)}
+.ed-notes{font-size:13px;margin-top:8px;color:var(--muted)}
+.ed-src{font-size:12px;margin-top:8px}
+.ed-note{margin-top:10px;font-size:12.5px}
+.entry-detail a,.entry-card a{color:var(--info);text-decoration:underline;overflow-wrap:anywhere}
+@media(max-width:520px){#view-countries .toolbar select{min-width:0;flex:1 1 40%}}
+.ed-regime.ec-free{background:var(--surface-2)}
+[data-theme="light"] .entry-detail a,[data-theme="light"] .entry-card a{color:#0369a1}

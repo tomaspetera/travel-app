@@ -21,7 +21,8 @@ dlouhodobý průměr. Mapa je zdarma a bez klíče (MapLibre + OpenFreeMap, zál
 hledají místo podle názvu. Plán jde **exportovat do kalendáře** (.ics, Google Kalendář) a **sdílet odkazem**.
 
 K tomu zůstalo vše z původního ATLAS: mapa navštívených zemí, přehled všech 197 zemí s cenovou hladinou, nejlepšími
-měsíci, průměrnými teplotami a aktuálními varováními MZV ČR, doporučení podle měsíce a plánovač cest.
+měsíci, průměrnými teplotami a aktuálními varováními MZV ČR, doporučení podle měsíce a plánovač cest. Nově u každé
+země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registrace, občanský průkaz, očkování – viz níže).
 
 ## Celá cesta krok za krokem
 
@@ -35,8 +36,8 @@ měsíci, průměrnými teplotami a aktuálními varováními MZV ČR, doporuče
 3. **Auto** (nepovinné) – vyzvednutí na letišti 45 min po příletu, vrácení 2 h před odletem, předvyplněné srovnávače.
 4. **Program** – místa k vidění kolem ubytování rozdělená do dnů podle polohy (den příletu a odletu je kratší),
    každý den jako pěší trasa s odkazem do Google Map; volíš zájmy a tempo, místa můžeš vyřadit nebo přidat.
-5. **Shrnutí** – cena celkem a na osobu, co zarezervovat a v jakém pořadí, časová osa, uložení do plánovače a odkaz
-   na sdílení.
+5. **Shrnutí** – cena celkem a na osobu, co zarezervovat a v jakém pořadí, **🛂 Před cestou** (doklady, registrace
+   nebo vízum, očkování pro každou zemi cesty), časová osa, uložení do plánovače a odkaz na sdílení.
 
 ### Je to umělá inteligence?
 
@@ -44,6 +45,48 @@ Ne. Ceny letenek jsou **skutečné odpovědi API aerolinek a vyhledávačů** (R
 Nejlevnější kombinace, pořadí hotelů i program dnů počítají **deterministické algoritmy** (optimalizátor kombinací,
 bayesovské hodnocení, shlukování míst k-means + trasa nejbližší soused / 2-opt). Místa k vidění a jejich popisy jsou
 z Wikidat a Wikipedie. Stejný dotaz tedy dá stejný výsledek a nic si nevymýšlí.
+
+## Vstupní podmínky pro občany ČR
+
+U všech 197 zemí ATLAS ukazuje, co je potřeba k cestě s českým pasem nebo občankou (turistická cesta):
+
+- **Karta země** má malý štítek: 🪪 stačí OP · bez víza · 🛂 ESTA / eTA / ETA (registrace předem) · 🛂 e-vízum ·
+  🛂 vízum na hranici · 📄 vízum předem. Seznam zemí jde filtrovat (*Vstup: stačí OP / bez víza a registrace*).
+- **Detail země** (🛂 Vstup pro občany ČR): režim srozumitelně česky, max. délka pobytu, jestli stačí OP, požadovaná
+  platnost pasu, název a cena registrace / e-víza v € i Kč s odkazem **jen na oficiální web** (žádní zprostředkovatelé),
+  povinná a doporučená očkování, poznámky a odkaz na zdroj.
+- **Výsledky letů**: štítek jen tam, kde je něco potřeba vyřídit (např. „🛂 ESTA 36 €“, podrobnosti v bublině).
+  Když spoj **přestupuje v USA nebo Kanadě**, upozorní „✈︎ přestup v USA – i tranzit vyžaduje ESTA“; při přestupu
+  **ve Velké Británii** „s pasovou kontrolou nutná ETA“ (podle MZV stačí bez ETA jen tranzit bez opuštění tranzitního
+  prostoru – u samostatných letenek se ale obvykle prochází kontrolou). Země přestupu se bere z databáze letišť
+  (Portoriko a další území USA platí jako USA); jiné země takové pravidlo v datech nemají.
+- **Průvodce cestou a plánovač**: seznam 🛂 Před cestou pro každou zemi cesty (i cesty přes víc měst nebo míst)
+  a pro země, kde jen přestupuješ a registrace platí i pro tranzit („jen přestup“) – doklady s datem, do kdy musí
+  pas platit (počítáno od návratu, např. „pas platný aspoň do 14. 6. 2027“; když zdroj lhůtu jen doporučuje, píše
+  „doporučená platnost“, a u „po dobu pobytu“ datum nepočítá), registrace či vízum s odkazem a předstihem, očkování.
+  Poplatky (ESTA atd. × počet cestujících, i za přestup v USA) jsou ve shrnutí jako zvláštní řádek pod součtem
+  („Celkem i se vstupními poplatky“). Export do kalendáře (.ics) přidá připomínku „🛂 Vyřídit ESTA (USA)“ 14 dní
+  před odletem (u víza 30 dní, déle, když data uvádějí delší vyřízení). Sdílené odkazy nesou jen kódy zemí
+  (a zemí přestupu), podmínky se dopočítají z dat.
+- **Neověřené záznamy** (3 země) mají u štítku „?“ a v detailu i seznamu upozornění, ať je bereš jen orientačně.
+- **Dočasné režimy** (Jižní Korea bez K-ETA, Bělorusko a Mongolsko bez víza – vše zatím do 31. 12. 2026): když cesta
+  vychází později, ukáže let štítek „⏳ ověř vstup“ a seznam Před cestou upozornění.
+
+**Zdroj a stav:** MZV ČR – Informace pro cestovatele (Encyklopedie států, „Víza a vstupní režim“), u registrací
+a e-víz oficiální weby cílových zemí, u očkování seznamy WHO a CDC; ověřeno **10/2026** (194 ze 197 zemí přímo na
+oficiální stránce, neověřené jsou označené). **Je to informativní přehled** – pravidla se mění a ATLAS za ně neručí;
+před cestou si podmínky vždy ověř na [webu MZV ČR](https://www.mzv.gov.cz/jnp/cz/cestujeme/index.html) a u úřadů
+cílové země.
+
+**Aktualizace dat:** nahraď `data/entry.json` (stejná pole: `iso2`, `visa` = `none | eu | eta | evisa | voa | visa`,
+`idCard`, `maxStayDays`, `etaName`, `etaCostEur`, `etaUrl`, volitelně `transitEta` (`true` = registrace i pro
+letištní tranzit, `"landside"` = jen při přestupu s pasovou kontrolou), `passportValidity`,
+`vaccinesRequired`, `vaccinesRecommended`, `notes`, volitelně `validUntil` (do kdy dočasný režim platí, YYYY-MM-DD),
+`source`, `verified`; nahoře `checked` = měsíc ověření) a spusť
+`npm test`. Test `test/entry.test.js` zkontroluje, že jsou všechny země z `data/countries.json`, hodnoty, https odkazy,
+délku poznámek, žádné HTML a že odkazy na registrace nevedou na zprostředkovatele (nový nevládní web je potřeba
+ručně ověřit a doplnit do seznamu v testu). Prohlížeč si soubor načítá zvlášť (`/data/entry.json`, gzip, cache 1 h)
+až po startu, takže nezdržuje první vykreslení.
 
 ## V čem je lepší než Skyscanner
 
@@ -316,6 +359,8 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 - „Za teplem“ pracuje s dlouhodobými průměry z buněk 0,5° kolem letiště; u pobřežních letovisek bývají o 1–4 °C nižší
   než skutečnost (buňka zahrnuje i moře). Předpověď počasí jde nejvýš 15 dní dopředu.
 - Bezpečnostní hodnocení zemí odpovídá doporučením MZV ČR k 5. 10. 2026 – před cestou si je vždy ověř na webu MZV.
+- Vstupní podmínky jsou stav k 10/2026 pro turistickou cestu s běžným pasem; ceny registrací a víz jsou orientační
+  (přepočet z místní měny) a datum platnosti pasu se počítá pro jistotu od návratu.
 - Render může pozastavit bezplatnou službu, která volá externí API v neobvykle velkém objemu; proto má server
   limit hledání na IP (`SEARCH_RATE_LIMIT`) a strop dotazů na Wizz Air (`WIZZ_MAX_CALLS`).
 
@@ -330,7 +375,7 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 - Podnebí: [NASA POWER](https://power.larc.nasa.gov/) Climatology API (MERRA-2, 2001–2020), sestavuje
   `node scripts/build-climate.mjs` do `data/climate.json`.
 - Země: cenová hladina podle Světové banky (PPP / směnný kurz, upravená na turistické ceny), bezpečnost podle MZV ČR,
-  FCDO a US State Dept.
+  FCDO a US State Dept. Vstupní podmínky (`data/entry.json`): MZV ČR, oficiální weby e-víz a registrací, WHO a CDC.
 - Vlajky na Windows: písmo Twemoji Country Flags (Twemoji, CC BY 4.0; detekce z country-flag-emoji-polyfill, MIT),
   přibaleno v `public/vendor/flags/`.
 - Mapa světa: d3, topojson-client, world-atlas (ISC, přibaleno v `public/vendor/`).

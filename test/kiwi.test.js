@@ -35,7 +35,7 @@ test('parseKiwiSearch: přestupy, více aerolinek, cena na osobu, zpáteční = 
   assert.equal(a.out.flightNo, 'W6 2347, VY 8460');
   assert.equal(a.out.czk, Math.round(60 * 25), '120 € za 2 osoby = 60 € na osobu');
   assert.equal(a.out.durationMin, 270);
-  assert.deepEqual(a.out.layovers, [{ at: 'BCN', min: 40 }], 'přestup z časů úseků (místní čas na letišti přestupu)');
+  assert.deepEqual(a.out.layovers, [{ at: 'BCN', min: 40, cc: 'ES' }], 'přestup z časů úseků (místní čas na letišti přestupu), země z databáze letišť');
   assert.equal(a.out.estMin, undefined, 'známý přílet → žádný odhad');
   assert.equal(a.bookUrl, 'https://www.kiwi.com/booking?token=a');
   assert.equal(b.out.stops, 0);

@@ -481,8 +481,9 @@ async function route(req, res) {
   if (p.startsWith('/api/')) return sendJson(req, res, 404, { error: 'Neznámý endpoint' });
 
   // Statické soubory
-  if (p === '/data/countries.json') {
-    if (serveFile(req, res, path.join(DATA, 'countries.json'), { maxAge: 3600 })) return;
+  if (p === '/data/countries.json' || p === '/data/entry.json') {
+    // entry.json = vstupní podmínky pro občany ČR; prohlížeč ho načítá až po startu (nezdržuje první vykreslení)
+    if (serveFile(req, res, path.join(DATA, p.slice(6)), { maxAge: 3600 })) return;
   }
   let rel;
   try {

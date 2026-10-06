@@ -796,6 +796,8 @@ async function searchMulti(q, emit, opts = {}) {
       dateFrom: l.dateFrom,
       dateTo: l.dateTo,
       dest: g ? { key: g.dest.key, id: g.dest.id, label: g.dest.label, cc: g.dest.cc, country: g.dest.country, lat: g.dest.lat, lon: g.dest.lon } : null,
+      // země místa odletu (open-jaw: odlet z jiné země než přílet) – kvůli vstupním podmínkám
+      fromCc: i > 0 ? getAirport(places[i].from[0])?.cc || null : null,
       options: pickOptions(trips),
       count: trips.length,
       nearby: r.nearby ? r.nearby.out : null,

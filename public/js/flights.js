@@ -755,6 +755,8 @@
     if (s === true) out.push('<span class="b good" title="Podle ATLAS je to ideální období pro tuto zemi">☀️ ideální sezóna</span>');
     if (t.tempHi != null) out.push(`<span class="b ${t.tempHi >= 25 ? 'sun' : t.tempHi < 15 ? 'info' : ''}" title="Dlouhodobý průměr denních maxim v ${MNS_IN[+t.out.date.slice(5, 7) - 1]} (NASA POWER) – není to předpověď">🌡️ ~${t.tempHi} °C</span>`);
     if (g && g.dest.airportDistKm > 30) out.push(`<span class="b" title="Vzdálenost letiště od centra">📏 ${g.dest.airportDistKm} km od centra</span>`);
+    // vstupní podmínky: jen když je co vyřizovat (ESTA, e-vízum…) nebo cesta vychází po konci dočasného režimu, a přestup v zemi, kde registrace platí i pro tranzit
+    if (window.Entry) out.push(Entry.flightChip(g?.dest.cc, (t.back || t.out).date), Entry.transitHtml([t.out, t.back], g?.dest.cc));
     return out.join('');
   }
 
@@ -791,7 +793,7 @@
       ${priceBox(t, idx)}
       <div class="tr-act"><button type="button" class="btn sm primary" data-pick="${idx}">Vybrat a pokračovat →</button>
         <div class="tr-buy">${bookButtons(t)}</div>
-        <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>` : ''}</div>
+        <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>${window.Entry && Entry.idNote(g.dest.cc) ? ' · ' + Entry.idNote(g.dest.cc) : ''}` : ''}</div>
       </div></div>`;
   }
 
@@ -891,6 +893,11 @@
     return legs.map((l, i) => (!i ? `${l.from} → ${l.to}` : l.from === legs[i - 1].to ? ` → ${l.to}` : ` · ${l.from} → ${l.to}`)).join('');
   }
   const mOpt = (res, i, a) => res.legs[i].options[a];
+  // Lety do míst na cestě (bez posledního letu domů); země cesty = jejich cíle + země odletu (open-jaw) – vstupní podmínky.
+  const mVisit = res => res.legs.slice(0, res.returnsHome ? res.legs.length - 1 : res.legs.length);
+  const mCountries = res => [...new Set([...mVisit(res).map(l => l.dest && l.dest.cc), ...res.legs.slice(1).map(l => l.fromCc)].filter(cc => cc && cc !== 'CZ'))];
+  // země přestupů vybraných letů, kde registrace platí i pro tranzit (jen kódy)
+  const mVia = (res, opts) => (window.Entry ? Entry.transitCcs(opts.map(o => o.out), mCountries(res)) : []);
   // Vybrané lety platné pro tento výsledek (jinak null).
   const mPicks = res => res.legs.map((l, i) => { const a = view.mPicks[i]; return Number.isInteger(a) && a >= 0 && a < l.options.length ? a : null; });
   const mPlan = (res, picks = mPicks(res)) => SearchHelp.multiPlan(res.legs.map(l => l.options.map(o => o.perPersonCzk)), res.links, picks);
@@ -988,8 +995,12 @@
     const sum = k => opts.reduce((s, o) => s + (o[k] || 0), 0);
     const total = sum('perPersonCzk');
     const wiz = n === 2 && res.returnsHome;
-    const legs = opts.map((o, i) => `${i ? mGap(res, i, opts[i - 1].out, o.out) : ''}<div class="mc-leg"><div class="mc-lh"><span class="mc-n">${i + 1}. let</span><span class="mc-lab">${esc(res.legs[i].label)}</span><b>${czk(o.perPersonCzk)}</b></div>${legHtml(o.out)}<div class="mc-buy">${mBuy(o, i)}</div></div>`).join('');
+    // vstupní podmínky v zemích na cestě (bez návratu domů) – čip u letu do země, kde je co vyřizovat
+    const visit = mVisit(res);
+    const entry = i => (window.Entry && i < visit.length ? Entry.flightChip(res.legs[i].dest?.cc, (opts[i + 1] || opts[i]).out.date) : '');
+    const legs = opts.map((o, i) => `${i ? mGap(res, i, opts[i - 1].out, o.out) : ''}<div class="mc-leg"><div class="mc-lh"><span class="mc-n">${i + 1}. let</span><span class="mc-lab">${esc(res.legs[i].label)}</span>${entry(i)}<b>${czk(o.perPersonCzk)}</b></div>${legHtml(o.out)}<div class="mc-buy">${mBuy(o, i)}</div></div>`).join('');
     const badges = [`<span class="b info" title="Každý let kupuješ zvlášť – při zpoždění jednoho letu další aerolinka nečeká">🎫 ${plural(n, 'samostatná letenka', 'samostatné letenky', 'samostatných letenek')}</span>`,
+      window.Entry ? Entry.transitHtml(opts.map(o => o.out), mCountries(res)) : '',
       new Set(opts.map(o => o.out.provider)).size > 1 ? '<span class="b info">🔀 víc aerolinek</span>' : '',
       opts.some(o => !o.out.live) ? '<span class="b warn" title="Cena z vyhledávání jiných uživatelů za posledních ~48 h – před nákupem ověř">⏱ z cache</span>' : '',
       BAG_LBL[res.query.bags] && opts.every(o => !o.bagCzk) ? `<span class="b good">🧳 ${res.query.bags === 'cabin' ? 'kabinový kufr' : 'kufr'} v ceně</span>` : ''].join('');
@@ -1068,17 +1079,21 @@
       distanceKm: a.distanceKm, destKey: a.destKey, tempHi: a.tempHi, deal: { level: 'normal', score: null, drop: null },
     };
     const dest = res.legs[0].dest || { label: res.legs[0].to, cc: '', country: '', lat: null, lon: null };
-    Trip.start({ t, g: { dest }, result: { origins: res.origins, query: res.query, home: res.home, priceStats: null } });
+    Trip.start({ t, g: { dest }, result: { origins: res.origins, query: res.query, home: res.home, priceStats: null }, ccs: mCountries(res) });
   }
   /** Cesta do plánovače: všechny lety (časy a zóny pro kalendář), odkazy na koupi v poznámkách. */
   function multiSave(res, picks) {
     const opts = picks.map((p, i) => mOpt(res, i, p)), n = opts.length, last = opts[n - 1].out;
     const per = opts.reduce((s, o) => s + o.perPersonCzk, 0), pax = res.query.adults;
     const visit = res.legs.slice(0, res.returnsHome ? n - 1 : n);
-    const ccs = [...new Set(visit.map(l => l.dest && l.dest.cc).filter(Boolean))];
+    const ccs = [...new Set(visit.map(l => l.dest && l.dest.cc).filter(Boolean))], all = mCountries(res), via = mVia(res, opts);
     S.trips.push({
       name: res.destination.label.slice(0, 120), dest: [...new Set(visit.map(l => l.to))].join(', ').slice(0, 120) || '—',
       iso: ccs.length === 1 && byIso[ccs[0]] ? ccs[0] : null,
+      // víc zemí na cestě: jen kódy zemí (vstupní podmínky se dopočítají z dat, sdílený odkaz zůstane krátký)
+      ...(all.length > 1 ? { isos: all } : {}),
+      // přestupy v zemích, kde registrace platí i pro tranzit (ESTA v USA…)
+      ...(via.length ? { via } : {}),
       start: opts[0].out.date, end: last.arr && last.hasTime ? last.arr.slice(0, 10) : last.date,
       pax: String(pax), budget: String(Math.round(per * pax)),
       flight: `${opts.map((o, i) => `${i + 1}. ${o.out.from}→${o.out.to} ${fmtDate(o.out.date)} ${timeOf(o.out)} (${o.out.carrierName || provName(o.out.provider)})`).join(', ')} · ${plural(n, 'samostatná letenka', 'samostatné letenky', 'samostatných letenek')}`.slice(0, 500),
@@ -1097,6 +1112,8 @@
     const ev = [{ title: `🧳 ${route}`, start: opts[0].out.date, end: last.arr && last.hasTime ? last.arr.slice(0, 10) : last.date,
       description: `${plural(n, 'let', 'lety', 'letů')} · ${res.query.adults} os. · každý let je samostatná letenka`, location: res.legs.map(l => l.to).join(', ') },
     ...opts.map((o, i) => Ics.flightEvent(Trip.legBrief(o.out), { url: o.bookUrl || o.out.bookUrl || undefined, note: `${i + 1}. let z ${n} · ${route} · samostatná letenka` }))];
+    // „🛂 Vyřídit ESTA (USA)“ před prvním odletem – země cesty i přestupy s registrací
+    if (window.Entry) ev.push(...Entry.reminders(mCountries(res), opts[0].out.date, fmtYMD(new Date()), mVia(res, opts)));
     icsDownload(`atlas-${route}`, ev, { name: route });
   }
 
@@ -1949,14 +1966,30 @@
     if (section) setTimeout(() => { const el = document.getElementById(section); if (el) el.scrollIntoView({ block: 'start' }); }, 50);
   };
 
+  // „💡 Jak hledat chytře“: ceny registrací z dat vstupních podmínek (ne napevno v textu)
+  function guideEntry() {
+    const el = $('#sgEntry');
+    if (!el || !['US', 'CA', 'GB'].every(iso => Entry.get(iso))) return;
+    // „ESTA (~36 €, i na přestup)“ – tranzit podle dat (transitEta), u Británie jen s pasovou kontrolou
+    const reg = iso => {
+      const r = Entry.get(iso), eur = Number(r.etaCostEur);
+      const bits = [r.etaCostEur != null && eur >= 0 ? `~${eur} €` : '', r.transitEta === true ? 'i na přestup' : r.transitEta ? 'i na přestup s pasovou kontrolou' : ''].filter(Boolean);
+      return `${esc(Entry.regName(r))}${bits.length ? ` (${bits.join(', ')})` : ''}`;
+    };
+    el.innerHTML = `<b>Hlídej vstupní podmínky.</b> Do USA potřebuješ ${reg('US')}, do Kanady ${reg('CA')}, do Británie ${reg('GB')}. Vyřizuj je jen na oficiálních webech (zprostředkovatelé si účtují víc). ATLAS je ukáže u výsledků (🛂) a podrobně v detailu země – zdroj MZV ČR, ověřeno ${esc(Entry.checkedTxt())}.`;
+  }
+
   async function init() {
     try {
       health = await api('api/health');
       for (const p of health.providers) PROV[p.id] = p;
       if (health.demo) $('#demoBanner').hidden = false;
+      if (window.Entry && health.fx) Entry.setRate(health.fx.eurCzk); // vstupní poplatky v € → Kč
     } catch (e) {
       toast('Server ATLAS neodpovídá – vyhledávání letů nepůjde', 'err');
     }
+    // výsledky vykreslené dřív, než dorazily vstupní podmínky, doplnit o čipy
+    if (window.Entry) Entry.whenReady(() => { guideEntry(); if (lastResult) rerender(true); });
     PROV.travelpayouts = PROV.travelpayouts || { name: 'Ostatní aerolinky', color: '#ff6b00' };
     PROV.mix = { name: 'kombinace', color: '#5b8cff' };
     renderSources();
