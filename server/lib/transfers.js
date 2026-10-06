@@ -25,6 +25,7 @@ const RAIL = new Set(RULES.rail.cc);
 const OPEN = RULES.openBorders.groups.map((g) => new Set(g));
 const JAMS = RULES.congestion.cities.map(([name, lat, lon, km, min]) => ({ name, lat, lon, km, min }));
 const HSR = RULES.hsr.cities.map(([cc, name, lat, lon]) => ({ cc, name, lat, lon }));
+const HSR_PACE = RULES.hsr.minPerKm; // min/km vzdušnou čarou podle země
 
 const ccOf = (p) => (/^[A-Z]{2}$/.test(p?.cc || '') ? p.cc : countryAt(p.lat, p.lon));
 export const regionKey = (cc) => REGION_OF.get(cc) || null;
@@ -71,8 +72,10 @@ export function hsrMin(a, b, air = haversineKm(a.lat, a.lon, b.lat, b.lon)) {
   const hub = (p) => HSR.find((h) => haversineKm(p.lat, p.lon, h.lat, h.lon) <= 12);
   const ha = hub(a);
   const hb = hub(b);
-  // ~170 km/h vzdušnou čarou + cesta na nádraží a čekání (Milán–Boloňa ~1 h 50 min, Milán–Řím ~3 h 30 min)
-  return ha && hb && ha !== hb && ha.cc === hb.cc ? Math.round(40 + air * 0.35) : null;
+  // tempo podle země (Itálie ~170 km/h vzdušnou čarou, Rakousko ~120 km/h) + cesta na nádraží a čekání
+  // (Milán–Boloňa ~1 h 50 min, Vídeň–Salcburk ~2 h 45 min)
+  if (!ha || !hb || ha === hb || ha.cc !== hb.cc) return null;
+  return Math.round(40 + air * (HSR_PACE[ha.cc] ?? HSR_PACE.other));
 }
 
 /** Čas autem bez kolon jen ze vzdušné vzdálenosti (když trasa z BRouteru není): rychlost podle regionu. */
@@ -184,19 +187,22 @@ export function driveRoute(a, b, { get = brouterGet } = {}) {
 /**
  * Trasy pro přejezdy (pairs [[a, b]…]) s rozpočtem: nejvýš maxNew nových výpočtů a čekání do deadlineMs.
  * Co do termínu nedoběhne, počítá se dál na pozadí (výsledek se uloží do mezipaměti) a vrací se jako
- * pending – další přepočet ho už vezme z mezipaměti. → { routes: Map(klíč → { km, min } | null), pending }
+ * pending – další přepočet ho už vezme z mezipaměti; pending jsou i přejezdy nad rozpočet (spočítají se při
+ * dalším přepočtu). → { routes: Map(klíč → { km, min } | null), pending }
  */
 export async function routeTransfers(pairs, { route = driveRoute, deadlineMs = 9000, maxNew = 8 } = {}) {
   const got = new Map(); // klíč → { km, min } | null | undefined (ještě se počítá)
   const jobs = [];
   let started = 0;
+  let later = 0; // nevešly se do rozpočtu – spočítají se při dalším přepočtu (taky pending)
   for (const [a, b] of pairs) {
     const key = routeKey(a, b);
     if (got.has(key)) continue;
     const hit = cache.get(key);
     if (hit) { got.set(key, hit.fail ? null : hit); continue; }
     const air = haversineKm(a.lat, a.lon, b.lat, b.lon);
-    if (!route || air < 2 || air > MAX_AIR_KM || started >= maxNew) { got.set(key, null); continue; }
+    if (!route || air < 2 || air > MAX_AIR_KM) { got.set(key, null); continue; }
+    if (started >= maxNew) { got.set(key, null); later++; continue; }
     started++;
     got.set(key, undefined);
     jobs.push(Promise.resolve().then(() => route(a, b)).then((v) => { got.set(key, v && !v.fail ? v : null); }, () => { got.set(key, null); }));
@@ -205,5 +211,5 @@ export async function routeTransfers(pairs, { route = driveRoute, deadlineMs = 9
   await Promise.race([Promise.all(jobs), new Promise((res) => { timer = setTimeout(res, deadlineMs); })]);
   clearTimeout(timer);
   const routes = new Map([...got].map(([k, v]) => [k, v ?? null]));
-  return { routes, pending: [...got.values()].filter((v) => v === undefined).length };
+  return { routes, pending: [...got.values()].filter((v) => v === undefined).length + later };
 }

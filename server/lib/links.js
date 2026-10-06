@@ -24,7 +24,8 @@ export function affiliate(url, brand) {
 }
 
 // Hostelworld: stránka města /hostels/<kontinent>/<země>/<město>/ (jiný kontinent nebo název země sám přesměruje,
-// „united-kingdom“ → „england“); data hledání z adresy nebere.
+// „united-kingdom“ → „england“); data hledání z adresy nebere. Stránku mají jen města s hostely (jinak 404) –
+// ověří ji searchStays (hostelworldHas) a u menšího místa odkáže na stránku země.
 const HW_CONT = { Evropa: 'europe', Afrika: 'africa', Asie: 'asia', 'Severní Amerika': 'north-america', 'Jižní Amerika': 'south-america', 'Oceánie': 'oceania' };
 const slug = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 

@@ -173,9 +173,14 @@ export function suggestRoute(candidates, opts) {
 function routePairs(bases, { arrival = null, departure = null, ground = null } = {}) {
   const pairs = bases.slice(1).map((b, i) => [bases[i], b]);
   if (bases.length) {
-    if (arrival) pairs.push([arrival, bases[0]]);
-    if (departure) pairs.push([bases.at(-1), departure]);
-    if (ground) pairs.push([ground, bases[0]], [bases.at(-1), ground]);
+    // vlakem/busem místo letu: cesta z/na letiště se neukazuje – počítá se z města příjezdu
+    if (ground) {
+      pairs.push([ground, bases[0]]);
+      if (departure) pairs.push([bases.at(-1), ground]); // bez cesty zpět (jen tam) se nejede
+    } else {
+      if (arrival) pairs.push([arrival, bases[0]]);
+      if (departure) pairs.push([bases.at(-1), departure]);
+    }
   }
   return pairs;
 }
@@ -201,11 +206,13 @@ export function evaluateRoute(bases, { arrival = null, departure = null, transpo
     if (x.long) notes.push(`Přejezd ${bases[i].name} → ${bases[i + 1].name} trvá ~${hm(minOf(x, tr))} – na jeden přesun je to hodně, zvaž místo mezi nimi${other}.`);
   });
   if (legs.departure?.long) notes.push(`Z posledního místa (${bases.at(-1).name}) na letiště ${departure.iata} je to ~${hm(minOf(legs.departure, tr))} – v den odletu vyraz včas, nebo poslední noc stráv blíž letišti.`);
-  if (tr === 'car' && [...transfers, legs.arrival, legs.departure].some((x) => x?.border)) {
-    notes.push('Trasa vede přes hranici – s půjčeným autem do jiné země často nesmíš (nebo za příplatek); ověř to u půjčovny, jinak počítej s taxi nebo řidičem.');
-  }
   const out = { transport: tr, transfers, legs, notes };
   if (ground && bases.length) out.groundLegs = { arrival: tf(ground, bases[0]), departure: tf(bases.at(-1), ground) };
+  // hranice na cestě, která se opravdu jede (s vlakem/busem místo letu z města příjezdu, ne z letiště)
+  const ends = out.groundLegs ? [out.groundLegs.arrival, departure ? out.groundLegs.departure : null] : [legs.arrival, legs.departure];
+  if (tr === 'car' && [...transfers, ...ends].some((x) => x?.border)) {
+    notes.push('Trasa vede přes hranici – s půjčeným autem do jiné země často nesmíš (nebo za příplatek); ověř to u půjčovny, jinak počítej s taxi nebo řidičem.');
+  }
   return out;
 }
 

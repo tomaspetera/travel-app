@@ -22,6 +22,7 @@ const P = {
   milano: { name: 'Milán', lat: 45.4642, lon: 9.19, cc: 'IT' },
   bologna: { name: 'Boloňa', lat: 44.4949, lon: 11.3426, cc: 'IT' },
   wien: { name: 'Vídeň', lat: 48.2082, lon: 16.3738, cc: 'AT' },
+  salzburg: { name: 'Salcburk', lat: 47.8095, lon: 13.055, cc: 'AT' },
 };
 // Odpověď BRouteru (GeoJSON) s délkou v m a časem v s.
 const geo = (m, s) => ({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { 'track-length': String(m), 'total-time': String(s) }, geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] } }] });
@@ -45,6 +46,10 @@ test('kalibrace: Lagos → Porto Novo, Porto Novo → Abeokuta (hranice Nigérie
   between(mb.carMin, 135, 165, 'Milán → Boloňa autem (~2 h 30 min)');
   between(mb.transitMin, 75, 120, 'Milán → Boloňa rychlovlakem');
   assert.equal(mb.hsr, true);
+  // Vídeň → Salcburk (BRouter 296 km / 174 min): Railjet 2 h 22 min po Westbahn (ne 300 km/h) + nádraží
+  const ws = transferTimes(P.wien, P.salzburg, { km: 296.2, min: 174.3 });
+  between(ws.carMin, 180, 205, 'Vídeň → Salcburk autem');
+  between(ws.transitMin, 150, 180, 'Vídeň → Salcburk vlakem (i s cestou na nádraží)');
   // bez trasy (odhad) vyjdou stejná pravidla podobně
   const est = transferTimes(P.lagos, P.portoNovo, null);
   assert.equal(est.basis, 'estimate');
@@ -169,7 +174,7 @@ test('routeTransfers: rozpočet dotazů a času, nedokončené dál na pozadí (
   const route = async () => ({ km: 80, min: 60 + n++ });
   const r1 = await routeTransfers([...pairs, [pts[1], pts[0]]], { route, maxNew: 3 });
   assert.equal(n, 3, 'nejvýš 3 nové výpočty, zpáteční dvojice se nepočítá znovu');
-  assert.equal(r1.pending, 0);
+  assert.equal(r1.pending, 2, 'nad rozpočet → pending: prohlížeč se zeptá znovu a spočítají se');
   assert.equal([...r1.routes.values()].filter(Boolean).length, 3);
   assert.equal(r1.routes.get(routeKey(pts[4], pts[5])), null, 'mimo rozpočet → odhad');
   // pomalý výpočet: po termínu odpověď bez něj (pending), výsledek se uloží do mezipaměti
@@ -217,6 +222,39 @@ test('planStay: časy z trasy autem (basis), pending, hranice a země přidanýc
   assert.ok(g.groundLegs.arrival.carMin > 0 && g.groundLegs.departure.border);
   assert.deepEqual(g.groundLegs.arrival.border, { from: 'BJ', to: 'NG' });
   assert.equal((await planStay({ arrival: 'LOS', bases, ground: { name: '', lat: 1, lon: 1 } }, { route: null })).groundLegs, undefined, 'neplatné město → bez přejezdů z něj');
+  // s vlakem/busem se cesta z/na letiště nejede: trasy autem jen pro přejezdy a cestu z města příjezdu (a zpět, je-li)
+  const nigeria = [{ name: 'Lagos', lat: 6.455, lon: 3.3841, cc: 'NG' }, { name: 'Abeokuta', lat: 7.1557, lon: 3.3451, cc: 'NG' }];
+  const seen = [];
+  const rt = async (a, b) => { seen.push(`${a.lat},${a.lon}>${b.lat},${b.lon}`); return { km: 100, min: 90 }; };
+  const viaCotonou = await planStay({ arrival: 'LOS', departure: 'LOS', transport: 'car', bases: nigeria, ground: { name: 'Cotonou', lat: 6.3654, lon: 2.4183, cc: 'BJ' } }, { route: rt });
+  assert.equal(seen.length, 3, `přejezd + z Cotonou + zpět, ne k letišti LOS: ${seen.join(' | ')}`);
+  assert.ok(!seen.some((s) => s.includes('6.5774')), 'letiště se nepočítá');
+  assert.ok(viaCotonou.notes.some((x) => /přes hranici/.test(x)), 'hranice Benin–Nigérie na cestě z Cotonou');
+  seen.length = 0;
+  const oneWay = await planStay({ arrival: 'LOS', transport: 'car', bases: nigeria.map((b) => ({ ...b, lat: b.lat + 0.01 })), ground: { name: 'Cotonou', lat: 6.3654, lon: 2.4183, cc: 'BJ' } }, { route: rt });
+  assert.equal(seen.length, 2, 'jen tam: bez cesty zpět');
+  assert.ok(oneWay.notes.some((x) => /přes hranici/.test(x)));
+  const home = await planStay({ arrival: 'LOS', departure: 'LOS', transport: 'car', bases: nigeria, ground: { name: 'Ikeja', lat: 6.6018, lon: 3.3515, cc: 'NG' } }, { route: null });
+  assert.ok(!home.notes.some((x) => /přes hranici/.test(x)), 'bez hranice na cestě, která se jede');
+});
+
+test('planStay přepočet se skutečným klientem BRouteru: dotazy jen na nové úseky (počítané přes podstrčený fetch)', async () => {
+  // Peterova trasa Lagos → Cotonou → Porto Novo (let LOS tam i zpět), body o kus jinde než v ostatních testech (mezipaměť)
+  const B = [{ name: 'Lagos', lat: 6.4561, lon: 3.3851, cc: 'NG' }, { name: 'Cotonou', lat: 6.3664, lon: 2.4193, cc: 'BJ' }, { name: 'Porto Novo', lat: 6.4979, lon: 2.6299, cc: 'BJ' }];
+  const stub = stubFetch(() => ({ body: geo(120000, 7200) }));
+  try {
+    const a = await planStay({ arrival: 'LOS', departure: 'LOS', transport: 'car', bases: B });
+    assert.equal(stub.calls.length, 4, '2 přejezdy + z letiště + na letiště');
+    assert.ok(stub.calls.every((c) => new URL(c.url).searchParams.get('profile') === 'car-fast'));
+    assert.ok([...a.transfers, a.legs.arrival, a.legs.departure].every((x) => x.basis === 'route'));
+    await planStay({ arrival: 'LOS', departure: 'LOS', transport: 'transit', bases: B });
+    assert.equal(stub.calls.length, 4, 'jiná doprava, stejné úseky → z mezipaměti');
+    // přehození míst: Lagos → Porto Novo → Cotonou – nové jsou jen Lagos → Porto Novo a Cotonou → letiště
+    await planStay({ arrival: 'LOS', departure: 'LOS', transport: 'car', bases: [B[0], B[2], B[1]] });
+    assert.equal(stub.calls.length, 6);
+  } finally {
+    stub.restore();
+  }
 });
 
 test('planStay návrh: trasa autem ukáže dlouhý přejezd → návrh se jednou zopakuje s ní', async () => {

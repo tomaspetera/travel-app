@@ -219,6 +219,27 @@ test('průvodce: západní Afrika – čas podle trasy, autobusem / minibusem (n
   const cal = plain(c.window.Trip.calendarEvents(t)).filter((e) => /Přejezd/.test(e.title));
   assert.deepEqual(cal.map((e) => [e.title, e.durationMin]), [['🚌 Přejezd Lagos → Porto Novo', 370], ['🚌 Přejezd Porto Novo → Abeokuta', 410]]);
   assert.match(cal[0].description, /🛂 Přechod hranice Nigérie → Benin/);
+  // Lagos → Cotonou → Porto Novo: cesta z posledního místa na letiště vede přes hranici – i v časové ose a v plánovači
+  const b2 = [bases[0], { id: 'Q43595', name: 'Cotonou', lat: 6.3654, lon: 2.4183, cc: 'BJ', country: 'Benin', nights: 2, stay: null, plan: null }, { ...bases[1] }];
+  const ev2 = evaluateRoute(b2, { arrival: LOS, departure: LOS, transport: 'car' });
+  const t2 = { ...t, step: 'summary', route: { ...t.route, transport: 'car', bases: b2, ...ev2, legs: { arrival: { ...ev2.legs.arrival, carMin: 50 }, departure: { ...ev2.legs.departure, carMin: 190 } } } };
+  const dep = t2.route.legs.departure;
+  assert.deepEqual(dep.border, { from: 'BJ', to: 'NG' });
+  const s2 = render(c, t2);
+  assert.ok(s2.includes(`Porto Novo → letiště LOS · ${dep.km} km · ~3 h 10 min autem (odhad) · 🛂 hranice Benin → Nigérie`), s2.slice(s2.indexOf('Porto Novo → letiště'), s2.indexOf('Porto Novo → letiště') + 160));
+  vm.runInContext("var PACK = ['Pas']; S.trips = [];", c);
+  c.__els['#sumSave'].onclick();
+  const x0 = t2.route.transfers[0];
+  const notes = c.S.trips[0].notes.split('\n');
+  assert.ok(notes.includes(`Přejezd Lagos → Cotonou: ${x0.km} km · ~${hm(x0.carMin)} autem (odhad) · 🛂 hranice Nigérie → Benin`), notes.join('\n'));
+  assert.ok(notes.includes(`Přejezd Porto Novo → letiště LOS: ${dep.km} km · ~3 h 10 min autem (odhad) · 🛂 hranice Benin → Nigérie`));
+  assert.ok(notes.some((n) => n.startsWith('Přejezd letiště LOS → Lagos: ')));
+  // program: cestu z/na letiště nad hodinu (kterou kryje rezerva programu) ubere z prvního a posledního dne
+  const [p0, p2] = [0, 2].map((i) => c.window.Trip.baseProgram(t2, i));
+  assert.equal(p0.arrivalTime, '15:00', 'z letiště 50 min – stačí rezerva 1,5 h po příletu');
+  assert.equal(p2.departureTime, '17:45', 'odlet 20:00, na letiště 3 h 10 min → program jako před odletem v 17:45 (do 14:45)');
+  const far = { ...t2, route: { ...t2.route, legs: { ...t2.route.legs, arrival: { ...t2.route.legs.arrival, carMin: 200 } } } };
+  assert.equal(c.window.Trip.baseProgram(far, 0).arrivalTime, '17:30', 'přílet 15:00 + 3 h 20 min cesty');
   // sdílený odkaz: nová pole přejezdu se zachovají, škodlivá pryč
   const raw = JSON.parse(JSON.stringify(t));
   raw.route.transfers[1] = { ...raw.route.transfers[1], transitKind: '<b>', basis: 'x', border: { from: 'BJ', to: 'N<' }, hsr: 'yes' };

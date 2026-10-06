@@ -53,6 +53,8 @@
   },
   "hsr": {
     "note": "Města na vysokorychlostních tratích (a britských rychlíkových tratích 200 km/h). Mezi dvěma takovými městy v téže zemi bývá vlak rychlejší než auto. [země, název, šířka, délka]",
+    "minPerKm": { "note": "Minuty na km vzdušnou čarou podle země (+40 min nádraží a čekání), nastavené podle jízdních řádů 2026: Milán–Boloňa 1 h 05, Paříž–Lyon 1 h 57, Madrid–Barcelona 2 h 30, Vídeň–Salcburk 2 h 22 (Westbahn ~200 km/h se zastávkami), Berlín–Mnichov 4 h, Stuttgart–Mnichov 2 h 15, Londýn–Manchester 2 h 05, Tokio–Ósaka 2 h 15, Soul–Pusan 2 h 40.",
+      "IT": 0.35, "FR": 0.3, "ES": 0.3, "DE": 0.45, "AT": 0.5, "GB": 0.4, "JP": 0.3, "CN": 0.25, "KR": 0.4, "TW": 0.3, "other": 0.35 },
     "cities": [
       ["IT", "Turín", 45.0703, 7.6869], ["IT", "Milán", 45.4642, 9.19], ["IT", "Brescia", 45.5416, 10.2118], ["IT", "Verona", 45.4384, 10.9916],
       ["IT", "Padova", 45.4064, 11.8768], ["IT", "Benátky", 45.4408, 12.3155], ["IT", "Boloňa", 44.4949, 11.3426], ["IT", "Reggio Emilia", 44.6983, 10.6312],

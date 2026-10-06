@@ -14,7 +14,7 @@ import { cache } from './lib/cache.js';
 import { airportsNear, getAirport } from './lib/airports.js';
 import { groundEstimate } from './lib/geo.js';
 import { addDays, todayYmd } from './lib/dates.js';
-import { searchStays } from './lib/stays.js';
+import { searchStays, hostelworldHas } from './lib/stays.js';
 import { searchCars } from './lib/cars.js';
 import { findPlaces, findTrips, mockPlaces, mockTrips } from './lib/poi.js';
 import { planTrips } from './lib/roadtrip.js';
@@ -265,7 +265,8 @@ async function route(req, res) {
   }
   if (p === '/api/stays') {
     if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
-    return sendJson(req, res, 200, await searchStays(Object.fromEntries(url.searchParams)));
+    // Hostelworld: stránka města jen u míst s hostely – ověří se (v DEMO bez sítě ne)
+    return sendJson(req, res, 200, await searchStays(Object.fromEntries(url.searchParams), { hostel: config.mock ? null : hostelworldHas }));
   }
   if (p === '/api/verify') {
     // Živé ověření konkrétních dat napříč aerolinkami (Kiwi.com) pro průvodce cestou.
