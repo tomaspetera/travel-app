@@ -154,7 +154,8 @@ Do blízkých měst (Vídeň, Berlín, Mnichov, Budapešť, Krakov…) bývá vl
 i s cestou na letiště a odbavením – a mnohem levnější. ATLAS to ukáže sám, jen v Evropě a jen tam, kde to dává smysl:
 
 - **Výsledky letů** – u cílů v dosahu čip *🚆 i vlakem/busem ~4 h 20 · od ~299 Kč* (odhad; u zpátečního hledání cena
-  tam i zpět – *· tam i zpět od ~598 Kč* –, ať jde porovnat s cenou letenek vedle). U hledání ke konkrétnímu
+  tam i zpět – *· tam i zpět od ~598 Kč* –, ať jde porovnat s cenou letenek vedle; u cesty delší než ~12 h jen,
+  když se vyplatí). U hledání ke konkrétnímu
   blízkému cíli nahoře srovnání **letadlo × vlak/bus** (cena na osobu, čas od dveří ke dveřím; letadlo = nejlevnější
   nabídka do tohoto cíle, která projde filtry výpisu – když neprojde žádná, napíše „skryto filtry“) a tlačítko *Ukázat spoje*:
   skutečné spoje RegioJetu na zvolený den (čas, délka, přestupy, vlak/bus, cena od–do, volná místa), na vyžádání i zpět,

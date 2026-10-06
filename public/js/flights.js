@@ -811,7 +811,7 @@
         <div class="rc-flag">${flag(g.dest.cc)}</div>
         <div class="rc-name"><h3>${esc(g.dest.label)}</h3><div class="faint">${esc(g.dest.country || '')}${g.dest.airports.length > 1 ? ` · letiště ${g.dest.airports.join(', ')}` : ` · ${g.dest.airports[0]}`}${t.distanceKm ? ` · ${t.distanceKm.toLocaleString('cs')} km` : ''}${c && c.cost ? ` · ceny na místě ${costDots(c.cost)}` : ''}</div></div>
       </div>
-      ${g.ground ? groundChip(g) : ''}
+      ${g.ground && (g.ground.worth || g.ground.min <= GROUND_CHIP_MAX_MIN) ? groundChip(g) : ''}
       ${tripRow(t, g, reg(t, g))}
       ${others.length ? `<button type="button" class="more-btn" data-exp="${esc(g.dest.key)}">${exp ? '▲ Skrýt' : `▼ Další termíny a letiště (${others.length})`}</button>
         ${exp ? `<div class="alt-list">${others.map(o => tripRow(o, g, reg(o, g))).join('')}</div>` : ''}` : ''}
@@ -1171,6 +1171,8 @@
   const groundBest = res => visibleTrips(groundTrips(res)).reduce((m, t) => (!m || t.perPersonCzk < m.perPersonCzk ? t : m), null);
   // Lety se našly, jen je skryly filtry (ze vstupu, za teplem nebo ve výpisu) – ne „nic nenalezeno“.
   const groundHidden = res => groundTrips(res).length > 0 || (!res.groups.length && (Object.values((res.filters && res.filters.hidden) || {}).some(n => n > 0) || Boolean(res.warm && res.warm.dropped > 0)));
+  // Čip u cílů kamkoliv jen pro rozumně dlouhou cestu (Řím ~20 h vlakem by jen zahlcoval výpis), výhodnou vždy.
+  const GROUND_CHIP_MAX_MIN = 12 * 60;
   function groundChip(g) {
     const x = g.ground;
     return `<button type="button" class="gnd-chip${x.worth ? ' hot' : ''}" data-gchip="${esc(g.dest.key)}" title="${esc(x.reason || '')} Klikni pro spoje a odkazy.">${esc(Ground.chipText(x, lastResult.query.trip === 'return'))} <small>odhad</small></button>`;
