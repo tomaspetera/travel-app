@@ -98,7 +98,7 @@ i s cestou na letiště a odbavením – a mnohem levnější. ATLAS to ukáže 
   v ceně ve Shrnutí, v plánovači, ve sdíleném odkazu i v kalendáři (.ics) – a jedním kliknutím jde vrátit zpět k letu.
 
 **Kde to dává smysl:** obě místa na pevnině Evropy (ne Velká Británie, Irsko, Island, Malta, Kypr ani ostrovy jako
-Mallorca, Kanáry, Korsika, Sardinie, Sicílie, Kréta) a nejvýš ~1 100 km vzdušnou čarou. **Zvýrazní se**, když platí
+Mallorca, Kanáry, Korsika, Sardinie, Sicílie, Kréta) a nejvýš ~1 100 km vzdušnou čarou (do Švédska a Norska po souši přes Øresundský most – Stockholm ani Oslo už ne). **Zvýrazní se**, když platí
 jednoduché pravidlo: cesta po zemi (+30 min na nádraží) je nejvýš o 1,5 h delší než letadlo od dveří ke dveřím
 (cesta na letiště + 2 h před odletem + nejkratší nalezený let + 45 min po přistání + cesta do města), **nebo** trvá do 6,5 h, **nebo** je
 aspoň o polovinu levnější a do 10 h. Důvod se u srovnání vždy napíše česky.
@@ -107,13 +107,13 @@ aspoň o polovinu levnější a do 10 h. Důvod se u srovnání vždy napíše �
 
 | | Zdroj | Jak |
 |---|---|---|
-| **Odhad** (čip, srovnání, „od ~X Kč“) | Praha ↔ Vídeň, Berlín, Mnichov, Budapešť, Krakov, Benátky, Paříž, Amsterdam, Curych: **změřeno** 13. 10. 2026 (nejrychlejší spoj a nejnižší cena RegioJetu a FlixBusu, `research/ground.md`); jinde **model podle vzdálenosti** kalibrovaný na téže tabulce (do 450 km ~66 km/h, dál ~55 km/h + přestupy; cena ~120 Kč + 0,62 Kč/km, nad 450 km víc) | bez sítě, počítá se u každého hledání a hledání nezpomalí; vždy označeno „odhad“ |
-| **RegioJet – živé ceny** | veřejné rozhraní webu regiojet.cz (`brn-ybus-pubapi.sa.cz`, bez klíče) | **jen ze serveru** (z prohlížeče cizího webu vrací 403) a **jen na vyžádání** – po kliknutí na *Ukázat spoje* nebo při výběru spoje v průvodci; mezipaměť 3 h, jeden dotaz naráz, aspoň 1 s mezi dotazy, nejvýš 60 za hodinu, timeout 8 s, jedno opakování; při chybě platí odhad |
+| **Odhad** (čip, srovnání, „od ~X Kč“) | Praha ↔ Vídeň, Berlín, Mnichov, Budapešť, Krakov, Benátky, Paříž, Amsterdam, Curych: **změřeno** 5. 10. 2026 na den 13. 10. 2026 (nejrychlejší spoj a nejnižší cena RegioJetu a FlixBusu, průzkum `research/ground.md` ve větvi `pc-research`); jinde **model podle vzdálenosti** kalibrovaný na téže tabulce (do 450 km ~66 km/h, dál ~55 km/h + přestupy; cena ~120 Kč + 0,62 Kč/km, nad 450 km víc – jen po Česku, Slovensku, Polsku, Maďarsku a Ukrajině dál stejně levně, tam jezdí levné vlaky) a ověřený na dalších 24 trasách RegioJetu (většinou ±10–20 %); vede-li přímka přes Alpy nebo Dinárské hory, je čas o čtvrtinu delší (Praha–Klagenfurt ~7 h 20, ne 5 h 50); do Švédska a Norska se počítá cesta po souši přes Øresundský most | bez sítě, počítá se u každého hledání a hledání nezpomalí; vždy označeno „odhad“ |
+| **RegioJet – živé ceny** | veřejné rozhraní webu regiojet.cz (`brn-ybus-pubapi.sa.cz`, bez klíče) | **jen ze serveru** (z prohlížeče cizího webu vrací 403) a **jen na vyžádání** – po kliknutí na *Ukázat spoje* nebo při výběru spoje v průvodci; mezipaměť 3 h, jeden dotaz naráz, aspoň 1 s mezi dotazy, nejvýš 60 za hodinu, timeout 8 s, jedno opakování (také s odstupem a v hodinovém stropu); při chybě platí odhad |
 | **FlixBus – jen odkaz** | jen UUID měst pro předvyplněný odkaz do e-shopu | podmínky FlixBusu zakazují automatické (komerční) využívání dat bez písemné smlouvy, proto ATLAS jeho ceny ani spoje **nenačítá**; UUID se zjistila jednorázově ve skriptu `scripts/build-ground.mjs` |
 | **IDOS, Google Mapy – odkazy** | IDOS (vlaky ČD i zahraniční, autobusy) s datem; Google Mapy veřejnou dopravou bez data | ÖBB, DB, ČD, Trainline ani Omio data bez partnerské smlouvy nedávají – jen odkazy |
 
 Města a jejich ID jsou v `data/ground.json` (262 měst: 170 měst RegioJetu s polohou hlavní zastávky z jeho seznamu,
-106 z nich i s UUID FlixBusu, a 92 dalších větších evropských měst z našich dat do ~1 300 km od Česka, která FlixBus zná –
+107 z nich i s UUID FlixBusu, a 92 dalších větších evropských měst z našich dat do ~1 300 km od Česka, která FlixBus zná –
 poloha středu města z FlixBusu). Místní názvy („Wien“, „Napoli“) jsou kvůli odkazům do IDOS a Google Map. Sestavení:
 `npm run build:ground -- --cache <adresář>` (RegioJet 1 dotaz, FlixBus nejvýš 1 dotaz za sekundu, mezipaměť
 v `--cache`, přerušené sestavení pokračuje). V DEMO režimu (`ATLAS_MOCK=1`) jsou spoje RegioJetu vymyšlené a označené.
@@ -151,7 +151,7 @@ Zkopíruj `.env.example` na `.env`:
 | `MAX_ORIGINS` | `8` | kolik nejbližších letišť se v jednom hledání prohledá |
 | `WIZZ_MAX_CALLS` | `60` | Wizz Air nemá „kamkoliv“ – kolik dotazů na trasy smí jedno hledání udělat |
 | `RYANAIR_ENABLED` / `WIZZ_ENABLED` | `1` | `0` = zdroj vypnout |
-| `SEARCH_RATE_LIMIT` | `40` | max. hledání z jedné IP za 10 minut (ochrana při veřejném nasazení, `0` = bez limitu); počítají se do něj i živé spoje RegioJetu |
+| `SEARCH_RATE_LIMIT` | `40` | max. hledání z jedné IP za 10 minut (ochrana při veřejném nasazení, `0` = bez limitu); počítají se do něj i dotazy na živé spoje RegioJetu (jen ty, které opravdu jdou na RegioJet – odpověď z mezipaměti ne) |
 | `REGIOJET_LIVE` | `1` | `0` = vypnout živé spoje RegioJetu (vlak/bus místo letadla zůstane jako odhad a odkazy) |
 | `REGIOJET_MAX_PER_HOUR` | `60` | nejvýš tolik dotazů na RegioJet za hodinu (pak jen odhad) |
 | `REGIOJET_GAP_MS` | `1000` | nejmenší odstup dotazů na RegioJet (ms) |
@@ -277,8 +277,17 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 - Kombinace dvou aerolinek / různých letišť jsou **dvě samostatné letenky** – při zpoždění prvního letu druhá aerolinka
   nečeká. Aplikace to u výsledku označí.
 - Odhad dopravy na letiště je orientační.
-- Vlak/bus je mimo změřené trasy z Prahy jen **odhad podle vzdálenosti** – přes Alpy nebo s přestupy bývá skutečná cesta
-  delší (třeba Praha–Klagenfurt), kolem rychlých tratí kratší. Živé spoje má jen RegioJet; ostatní dopravce ukáže až odkaz.
+- Vlak/bus je mimo změřené trasy z Prahy jen **odhad podle vzdálenosti** (Alpy a Dinárské hory s přirážkou ~25 %) –
+  pomalé tratě bez hor bývají delší (Praha–Linec, Ostrava–Krakov), rychlé kratší (Praha–Ostrava 3 h 16 místo ~4 h 15).
+  Živé spoje má jen RegioJet – a do Rakouska ukazuje i pomalé spoje s přestupem přes partnery; ostatní dopravce ukáže
+  až odkaz. Cena „od ~X Kč“ je kalibrovaná na nejnižší ceně RegioJetu i FlixBusu – kde jezdí jen RegioJet, bývá
+  skutečná cena vyšší (Praha–Frankfurt: RegioJet od 739 Kč, odhad ~380 Kč; FlixBus může být levnější, ATLAS ho nenačítá).
+- Kolín nad Rýnem vede RegioJet jen jako zastávku letiště Kolín/Bonn: v datech je to město Kolín (odkazy na Köln),
+  spoje RegioJetu ale končí na letišti. Místa, která v `data/ground.json` nejsou (Lutych, Terst, Zelená Hora), mají
+  v odkazech do IDOS a Google Map český název – ten tam nemusí projít.
+- Odkaz na RegioJet nese jeden `tariffs=REGULAR` na cestujícího – tak adresu skládá i web RegioJetu (počet cestujících
+  = počet tarifů). Odkazy RegioJet, FlixBus i IDOS jsou ověřené v prohlížeči 6. 10. 2026 (předvyplní města, den
+  i počet cestujících a rovnou hledají).
 - Podmínky Ryanairu zakazují automatické stahování dat pro komerční účely – aplikace je určená pro osobní použití.
   Pro komerční provoz je potřeba smluvní zdroj dat (např. Travelpayouts / Aviasales jako affiliate partner).
 - Hlídané ceny se kontrolují jen v otevřeném a viditelném panelu prohlížeče (data jsou v localStorage, server nemá účty
@@ -295,7 +304,7 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
   [OpenFlights](https://openflights.org/data) (ODbL). Aktualizace: `npm run build:airports`.
 - Geokódování a počasí: [Open-Meteo](https://open-meteo.com/) (předpověď CC BY 4.0). Kurzy: open.er-api.com, ECB.
 - Vlak a bus: seznam měst a zastávek RegioJetu (`brn-ybus-pubapi.sa.cz/restapi/consts/locations`), UUID měst FlixBusu
-  (jen pro odkazy), změřené spoje z Prahy z `research/ground.md`; sestavuje `node scripts/build-ground.mjs` do
+  (jen pro odkazy), změřené spoje z Prahy z průzkumu `research/ground.md` (větev `pc-research`); sestavuje `node scripts/build-ground.mjs` do
   `data/ground.json` (zdroj a datum jsou v souboru).
 - Podnebí: [NASA POWER](https://power.larc.nasa.gov/) Climatology API (MERRA-2, 2001–2020), sestavuje
   `node scripts/build-climate.mjs` do `data/climate.json`.

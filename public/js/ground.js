@@ -15,8 +15,8 @@
 
   /** Text čipu u výsledku letu (odhad): „🚆 i vlakem/busem ~4 h 20 · od ~299 Kč“ */
   const chipText = g => `🚆 i vlakem/busem ~${hm(g.min)} · od ~${kc(g.czk)}`;
-  /** Původ odhadu: změřené spoje z Prahy, nebo model podle vzdálenosti. */
-  const basisTxt = b => b === 'measured' ? 'odhad podle skutečných spojů z 13. 10.' : 'odhad podle vzdálenosti';
+  /** Původ odhadu: změřené spoje z Prahy, nebo model podle vzdálenosti (přes hory delší). */
+  const basisTxt = (b, hills) => b === 'measured' ? 'odhad podle skutečných spojů z 13. 10.' : `odhad podle vzdálenosti${hills ? ` (přes ${hills === 'Alpy' ? 'Alpy' : 'hory'} déle)` : ''}`;
 
   /** Spoj RegioJetu (z /api/ground live.items) → úsek cesty po zemi pro průvodce cestou. */
   function legFromLive(x, date) {
@@ -62,7 +62,7 @@
   /** Odhad jako řádek (i k výběru: „ponechat odhad“). */
   function estRow(est, sel) {
     if (!est) return '';
-    const inner = `<span class="gc-t">🚆 <b>~${esc(hm(est.minutes))}</b></span><span class="gc-x">${esc(basisTxt(est.basis))} · konkrétní spoj vyber přes odkaz</span><span class="gc-p"><b>od ~${czk(est.czk)}</b><small>odhad</small></span>`;
+    const inner = `<span class="gc-t">🚆 <b>~${esc(hm(est.minutes))}</b></span><span class="gc-x">${esc(basisTxt(est.basis, est.hills))} · konkrétní spoj vyber přes odkaz</span><span class="gc-p"><b>od ~${czk(est.czk)}</b><small>odhad</small></span>`;
     if (!sel) return `<div class="gc-row est">${inner}</div>`;
     return `<label class="gc-row sel est"><input type="radio" name="${esc(sel.name)}" value="" ${sel.checked ? 'checked' : ''}>${inner}</label>`;
   }
@@ -85,14 +85,27 @@
     return html;
   }
 
+  // Odpovědi na 10 min: překreslení výsledků, znovu otevřené okno nebo výběr v průvodci se serveru znovu neptají.
+  const cache = new Map();
   /** GET api/ground → JSON (chyba = výjimka s českou zprávou ze serveru). */
-  async function load(params, signal) {
-    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== '').map(([k, v]) => [k, String(v)]));
-    const r = await fetch('api/ground?' + qs, { signal });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-    return j;
+  function load(params) {
+    const qs = String(new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== '').map(([k, v]) => [k, String(v)])));
+    const hit = cache.get(qs);
+    if (hit && Date.now() - hit.at < 6e5) return hit.p;
+    const p = (async () => {
+      const r = await fetch('api/ground?' + qs);
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      return j;
+    })();
+    if (cache.size > 60) cache.delete(cache.keys().next().value);
+    cache.set(qs, { at: Date.now(), p });
+    // chybu ani „RegioJet teď nejde“ si nepamatuj – příště to zkus znovu
+    p.then(j => { if (j.live && !j.live.ok && (j.live.busy || !j.live.off && !j.live.none)) cache.delete(qs); }, () => cache.delete(qs));
+    return p;
   }
+  /** Zavolá fn až po ms bez dalšího volání (šipky v poli data nemají poslat dotaz na každý den). */
+  const debounce = (fn, ms = 450) => { let tm = 0; return (...a) => { clearTimeout(tm); tm = setTimeout(() => fn(...a), ms); }; };
 
   /**
    * Panel se spoji pro výsledky letů: datum (lze změnit), spoje tam (RegioJet živě / odhad), na vyžádání spoje zpět
@@ -101,7 +114,7 @@
   function panel(host, opts) {
     if (!host) return;
     const seq = { out: 0, back: 0 };
-    const today = new Date().toISOString().slice(0, 10);
+    const today = fmtYMD(new Date()); // místní den (v noci UTC ještě včera)
     const dirHtml = (which, date) => `<div class="gp-dir" data-gdir="${which}"><div class="gp-dh"><b>${which === 'out' ? 'Tam' : 'Zpět'}</b>
       <input type="date" class="input gp-date" value="${esc(date || '')}" min="${today}" aria-label="Datum ${which === 'out' ? 'tam' : 'zpět'}"></div><div class="gp-body"><div class="loading-row"><span class="spin dark"></span> Hledám spoje…</div></div></div>`;
     host.innerHTML = `<div class="gnd-panel">${dirHtml('out', opts.date)}${opts.back ? `<div class="gp-backbtn"><button type="button" class="btn sm" data-gback>↩ Ukázat i spoje zpět (${esc(dm(opts.back))})</button></div>` : ''}<div class="gp-links"></div>
@@ -122,16 +135,17 @@
         if (box.isConnected && my === seq[which]) box.innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
       }
     };
-    host.querySelectorAll('.gp-date').forEach(inp => inp.onchange = () => { const w = inp.closest('[data-gdir]').dataset.gdir; if (inp.value) fill(w, inp.value); });
+    const later = { out: debounce(fill), back: debounce(fill) };
+    host.querySelectorAll('.gp-date').forEach(inp => inp.onchange = () => { const w = inp.closest('[data-gdir]').dataset.gdir; if (inp.value) later[w](w, inp.value); });
     const bb = host.querySelector('[data-gback]');
     if (bb) bb.onclick = () => {
       bb.parentElement.outerHTML = dirHtml('back', opts.back);
       const inp = host.querySelector('[data-gdir="back"] .gp-date');
-      inp.onchange = () => { if (inp.value) fill('back', inp.value); };
+      inp.onchange = () => { if (inp.value) later.back('back', inp.value); };
       fill('back', opts.back);
     };
     fill('out', opts.date);
   }
 
-  window.Ground = { hm, kindsTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, panel };
+  window.Ground = { hm, kindsTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, debounce, panel };
 })();

@@ -52,7 +52,7 @@ test('estimate: jen pevninská Evropa do ~1100 km – ostrovy, moře a daleké c
   const no = [
     ['Lisabon', 'PT', 38.7223, -9.1393], ['Londýn', 'GB', 51.5074, -0.1278], ['Dublin', 'IE', 53.35, -6.26], ['Malta', 'MT', 35.9, 14.5],
     ['Larnaka', 'CY', 34.92, 33.62], ['Reykjavík', 'IS', 64.14, -21.94], ['Palma de Mallorca', 'ES', 39.57, 2.65], ['Tenerife', 'ES', 28.29, -16.63],
-    ['Ajaccio (Korsika)', 'FR', 41.93, 8.74], ['Heraklion (Kréta)', 'GR', 35.34, 25.13], ['Olbia (Sardinie)', 'IT', 40.92, 9.5], ['Istanbul', 'TR', 41.01, 28.98],
+    ['Ajaccio (Korsika)', 'FR', 41.93, 8.74], ['Heraklion (Kréta)', 'GR', 35.34, 25.13], ['Olbia (Sardinie)', 'IT', 40.92, 9.5], ['Istanbul', 'TR', 41.01, 28.98], ['Marina di Campo (Elba)', 'IT', 42.76, 10.24],
   ];
   for (const [label, cc, lat, lon] of no) {
     const e = G.estimate(PRAHA, P(label, cc, lat, lon));
@@ -62,11 +62,65 @@ test('estimate: jen pevninská Evropa do ~1100 km – ostrovy, moře a daleké c
   assert.match(G.estimate(PRAHA, P('Malta', 'MT', 35.9, 14.5)).why, /přes moře/);
   assert.match(G.estimate(PRAHA, P('Palma', 'ES', 39.57, 2.65)).why, /Baleáry – ostrov/);
   assert.match(G.estimate(PRAHA, P('Lisabon', 'PT', 38.72, -9.14)).why, /km vzdušnou čarou/);
+  assert.match(G.estimate(PRAHA, P('Marina di Campo', 'IT', 42.76, 10.24)).why, /Elba – ostrov/);
+  assert.match(G.estimate(PRAHA, P('Londýn', 'GB', 51.5, -0.13)).why, /Eurotunel/, 'do Británie vede tunel – ne „bez trajektu nejede“');
   // Pevnina: Split (Chorvatsko), Kodaň (mosty), Řím (~920 km)
   for (const [label, cc, lat, lon] of [['Split', 'HR', 43.51, 16.44], ['Kodaň', 'DK', 55.68, 12.57], ['Řím', 'IT', 41.9, 12.5]]) {
     assert.equal(G.estimate(PRAHA, P(label, cc, lat, lon)).ok, true, label);
   }
   assert.equal(G.estimate(PRAHA, P('Praha-Letňany', 'CZ', 50.13, 14.52)).ok, false, 'stejné místo');
+});
+
+test('estimate: přes Alpy a Dinárské hory o čtvrtinu déle (Klagenfurt není 5 h 50), rovina a švýcarská plošina ne', () => {
+  // skutečnost 10/2026 (RegioJet, FlixBus, ÖBB): Praha–Klagenfurt ~7 h 30–8 h 30, Praha–Štýrský Hradec ~6 h 30
+  const klu = G.estimate(PRAHA, P('Klagenfurt', 'AT', 46.62, 14.31));
+  assert.equal(klu.hills, 'Alpy');
+  assert.ok(klu.minutes >= 420 && klu.minutes <= 480, `Praha–Klagenfurt ${klu.minutes} min`);
+  assert.notEqual(G.worth(klu).rule, 'short', 'už to není „cesta do 6,5 h“');
+  assert.ok(G.estimate(PRAHA, P('Štýrský Hradec', 'AT', 47.07, 15.44)).minutes >= 360);
+  assert.equal(G.estimate(PRAHA, P('Split', 'HR', 43.51, 16.44)).hills, 'Alpy', 'přímka vede nejdřív přes Alpy');
+  assert.equal(G.estimate(BUDAPEST, P('Sarajevo', 'BA', 43.86, 18.41)).hills, 'Dinárské hory');
+  assert.equal(G.estimate(VIDEN, P('Štýrský Hradec', 'AT', 47.07, 15.44)).hills, 'Alpy');
+  // z Prahy vedou přímky do Curychu a Ženevy severně od Alp (přes plošinu), do Bělehradu přes Panonskou nížinu
+  for (const [label, cc, lat, lon] of [['Mnichov', 'DE', 48.14, 11.58], ['Curych', 'CH', 47.38, 8.54], ['Ženeva', 'CH', 46.2, 6.15], ['Bělehrad', 'RS', 44.82, 20.46], ['Lyon', 'FR', 45.73, 4.83], ['Osijek', 'HR', 45.55, 18.69]]) {
+    const e = G.estimate(PRAHA, P(label, cc, lat, lon));
+    assert.equal(e.hills, undefined, label);
+    assert.deepEqual([e.minutes, e.czk], [G.distanceModel(e.km).minutes, G.distanceModel(e.km).czk], `${label}: čistý model`);
+  }
+  // změřená cesta z Prahy zůstává změřená (Benátky 11 h 50)
+  const vce = G.estimate(PRAHA, P('Benátky', 'IT', 45.48, 12.24, 10202080));
+  assert.deepEqual([vce.basis, vce.minutes, vce.hills], ['measured', 710, undefined]);
+  // model přes Alpy je blíž změřeným Benátkám než bez nich
+  const plain = G.distanceModel(vce.km).minutes;
+  const hilly = G.distanceModel(vce.km, G.MOUNTAIN_SLOW).minutes;
+  assert.ok(Math.abs(hilly - 710) < Math.abs(plain - 710), `${hilly} vs ${plain}`);
+});
+
+test('estimate: na východě levné vlaky i dál než 450 km, na západě dražší; do Skandinávie po souši přes Øresund', () => {
+  // RegioJet 13. 10. 2026: Praha–Košice 499 Kč, Praha–Varšava 499 Kč, Praha–Lvov 389 Kč, Praha–Düsseldorf 869 Kč
+  for (const [label, cc, lat, lon, real] of [['Košice', 'SK', 48.72, 21.27, 499], ['Varšava', 'PL', 52.23, 21.0, 499], ['Lvov', 'UA', 49.84, 24.03, 389]]) {
+    const e = G.estimate(PRAHA, P(label, cc, lat, lon));
+    assert.ok(e.km > 450 && e.czk <= real * 1.45 && e.czk >= real * 0.8, `${label}: ${e.czk} Kč (RegioJet od ${real})`);
+  }
+  const dus = G.estimate(PRAHA, P('Düsseldorf', 'DE', 51.22, 6.79));
+  assert.ok(Math.abs(dus.czk - 869) / 869 < 0.15, `Düsseldorf ${dus.czk} Kč`);
+  assert.ok(G.estimate(VIDEN, P('Varšava', 'PL', 52.23, 21.0)).czk > 600, 'z Rakouska už ne levný východ');
+  // Švédsko a Norsko: přes Øresundský most (a Göteborg, Oslo) – přímka přes moře by cestu zkrátila
+  const mal = G.estimate(PRAHA, P('Malmö', 'SE', 55.6, 13.0));
+  assert.equal(mal.ok, true);
+  assert.ok(mal.minutes - G.distanceModel(mal.km).minutes <= 20, `Malmö leží u mostu: ${mal.minutes} min`);
+  const klr = G.estimate(PRAHA, P('Kalmar', 'SE', 56.66, 16.36));
+  assert.ok(klr.ok && klr.km < 760 && klr.minutes > G.distanceModel(klr.km).minutes + 60, `Kalmar ${klr.km} km, ${klr.minutes} min`);
+  assert.equal(G.landKm(PRAHA, P('Kalmar', 'SE', 56.66, 16.36)), G.landKm(P('Kalmar', 'SE', 56.66, 16.36), PRAHA), 'oběma směry');
+  for (const [label, lat, lon] of [['Kristiansand', 58.15, 8.0], ['Oslo-Torp', 59.19, 10.26]]) {
+    const e = G.estimate(PRAHA, P(label, 'NO', lat, lon));
+    assert.equal(e.ok, false, label);
+    assert.match(e.why, /po souši přes Øresundský most/, label);
+  }
+  assert.equal(G.estimate(PRAHA, P('Stockholm', 'SE', 59.33, 18.07)).ok, false, 'Stockholm po souši přes 1100 km');
+  const got = P('Göteborg', 'SE', 57.7, 11.97);
+  const osl = P('Oslo', 'NO', 59.91, 10.75);
+  assert.equal(G.landKm(got, osl), G.estimate(got, osl).km, 'uvnitř Skandinávie vzdušnou čarou');
 });
 
 test('worth: srovnání s letadlem od dveří ke dveřím – čas, krátká cesta, výrazně levněji', () => {
@@ -151,6 +205,19 @@ test('groundPlace: letiště a města z výsledků → město z dat (ID RegioJet
   const nowhere = G.groundPlace({ label: 'Někde', lat: 48.85, lon: 13.8 }); // Šumava, bez země: země z nejbližšího letiště
   assert.equal(nowhere.cc, 'CZ');
   assert.equal(nowhere.rj, null);
+  // letiště Basilej leží ve Francii, město ve Švýcarsku: Basilej (ne Mulhouse) – i v odkazech
+  const bsl = G.groundPlace(G.pointOf('ap:BSL'));
+  assert.deepEqual([bsl.label, bsl.cc, bsl.loc, bsl.tz], ['Basilej', 'CH', 'Basel', 'Europe/Zurich']);
+  assert.equal(bsl.fb, '40de3026-8646-11e6-9066-549f350fcb0c', 'FlixBus Basel, ne Mulhouse');
+  assert.equal(new URL(G.links(prg, bsl, '2026-11-20').find((l) => l.id === 'idos').url).searchParams.get('t'), 'Basel');
+  // Lutych nemá ve městech záznam: nesmí dostat Maastricht v sousední zemi (do 30 km jen stejná země)
+  const lgg = G.groundPlace(G.pointOf('ap:LGG'));
+  assert.deepEqual([lgg.label, lgg.cc, lgg.fb, lgg.rj], ['Lutych', 'BE', null, null]);
+  // RegioJet vede Kolín nad Rýnem jen jako zastávku letiště: v datech město Kolín (Köln) s ID RegioJetu i FlixBusu
+  const cgn = G.groundPlace(G.pointOf('ap:CGN'));
+  assert.deepEqual([cgn.label, cgn.loc, cgn.rj, Boolean(cgn.fb)], ['Kolín nad Rýnem', 'Köln', 241620000, true]);
+  assert.deepEqual(G.links(prg, cgn, '2026-11-20').map((l) => l.id), ['regiojet', 'flixbus', 'idos', 'google']);
+  assert.equal(new URL(G.links(prg, cgn, '2026-11-20').find((l) => l.id === 'idos').url).searchParams.get('t'), 'Köln');
 });
 
 /* ---------- živé spoje RegioJetu ---------- */
@@ -235,13 +302,28 @@ test('regiojet: hodinový strop, vypínač REGIOJET_LIVE=0 a chyba → žádná 
 
   G.resetRegiojet();
   delete process.env.REGIOJET_LIVE;
-  stub = stubFetch(() => ({ status: 503, body: 'nope' }));
+  delete process.env.REGIOJET_MAX_PER_HOUR;
+  process.env.REGIOJET_GAP_MS = '120';
+  const at = [];
+  stub = stubFetch(() => {
+    at.push(Date.now());
+    return { status: 503, body: 'nope' };
+  });
   const err = await G.regiojet(1, 2, '2026-10-13');
   assert.equal(err.ok, false);
   assert.match(err.error, /neodpovídá/);
   assert.equal(stub.calls.length, 2, 'jedno opakování');
+  assert.ok(at[1] - at[0] >= 110, `i opakování čeká na odstup: ${at[1] - at[0]} ms`);
   await G.regiojet(1, 2, '2026-10-13');
   assert.equal(stub.calls.length, 2, 'chyba se na chvíli pamatuje (RegioJet se nebombarduje)');
+  stub.restore();
+
+  // 4xx (např. 429 ochrana) se neopakuje
+  G.resetRegiojet();
+  process.env.REGIOJET_GAP_MS = '0';
+  stub = stubFetch(() => ({ status: 429, body: 'slow down' }));
+  assert.equal((await G.regiojet(1, 2, '2026-10-13')).ok, false);
+  assert.equal(stub.calls.length, 1, '429 bez opakování');
   stub.restore();
 
   G.resetRegiojet();
@@ -261,6 +343,7 @@ test('regiojet: víc než 5 čekajících dotazů dostane hned odhad', async () 
 
 /* ---------- výsledky hledání (bez sítě) ---------- */
 test('attachGround: odhad ke skupinám v dosahu, od dveří ke dveřím s nejkratším nalezeným letem, i bez letů', () => {
+  stub = stubFetch(() => ({ body: RJ_PRAHA_VIDEN })); // hledání se RegioJetu nikdy neptá (jen odhad bez sítě)
   const dest = (k, label, cc, lat, lon) => ({ key: k, id: `ap:${k}`, label, cc, lat, lon });
   const trip = (to, min, czk) => ({ out: { from: 'PRG', to, durationMin: min }, back: { from: to, to: 'PRG' }, perPersonCzk: czk, destKey: to });
   const home = { lat: 50.0755, lon: 14.4378, label: 'Praha' };
@@ -284,6 +367,17 @@ test('attachGround: odhad ke skupinám v dosahu, od dveří ke dveřím s nejkra
   assert.equal(G.attachGround({ home: null, origins: [{ iata: 'PRG' }], groups: [], dests: point }).q.from, 'ap:PRG');
   assert.equal(G.attachGround({ home, origins, groups: [], dests: [] }), null);
   assert.equal(G.attachGround({ home, origins, groups: [], dests: [{ id: 'cc:AT', type: 'country', label: 'Rakousko' }] }), null);
+  // Místo ~55 km od města letiště (Hallstatt, let do Salcburku): vlakem/busem až do Hallstattu, letadlem přes Salcburk
+  const szg = { dest: dest('SZG', 'Salcburk', 'AT', 47.7933, 13.0043), best: trip('SZG', 55, 2400), options: [] };
+  const hal = [{ id: 'geo:47.5622,13.6493|Hallstatt', type: 'place', label: 'Hallstatt', lat: 47.5622, lon: 13.6493 }];
+  const h = G.attachGround({ home, origins, groups: [szg], flat: [szg.best], dests: hal });
+  assert.deepEqual([h.to, h.dest, h.q.to, h.flightCzk], ['Hallstatt', 'Hallstatt', 'geo:47.5622,13.6493|Hallstatt', 2400]);
+  assert.equal(szg.ground.to, 'Salcburk', 'čip u skupiny zůstává k městu letiště');
+  assert.ok(h.min > szg.ground.min && h.doorMin > szg.ground.doorMin, `do Hallstattu déle i letadlem (z letiště ještě ~55 km): ${h.min}/${h.doorMin} vs ${szg.ground.min}/${szg.ground.doorMin}`);
+  // letiště u města (Vídeň-Schwechat ~18 km): odhad skupiny
+  const v2 = G.attachGround({ home, origins, groups: [vie], flat, dests: [{ ...point[0], id: 'metro:VIE', type: 'metro', lat: 48.2082, lon: 16.3738 }] });
+  assert.equal(v2.doorMin, vie.ground.doorMin);
+  assert.equal(stub.calls.length, 0, 'žádný dotaz na RegioJet');
 });
 
 /* ---------- dotaz /api/ground ---------- */
@@ -307,6 +401,27 @@ test('groundQuery: místa z ID aplikace i z polohy, kontrola data a počtu cestu
     'from=ap:PRG&to=ap:VIE&adults=0', 'from=ap:PRG&to=ap:VIE&adults=10', 'from=ap:PRG&to=ap:VIE&adults=2x',
   ];
   for (const qs of bad) assert.throws(() => G.groundQuery(new URLSearchParams(qs)), G.GroundError, qs);
+});
+
+test('groundInfo: limit dotazů z jedné IP se ptá jen před skutečným dotazem na RegioJet (ne z mezipaměti, ne vypnuto)', async () => {
+  if (!G.CITIES.length) return;
+  stub = stubFetch(() => ({ body: RJ_PRAHA_VIDEN }));
+  let asked = 0;
+  const allow = (ok) => () => { asked++; return ok; };
+  const q = (days) => G.groundQuery(new URLSearchParams(`from=ap:PRG&to=ap:VIE&date=${ymdPlus(days)}`));
+  assert.equal((await G.groundInfo(q(7), { allowLive: allow(true) })).live.ok, true);
+  assert.deepEqual([asked, stub.calls.length], [1, 1]);
+  // totéž znovu (překreslení výsledků, znovu otevřené okno) – z mezipaměti, limit se nečerpá
+  assert.equal((await G.groundInfo(q(7), { allowLive: allow(false) })).live.ok, true);
+  assert.deepEqual([asked, stub.calls.length], [1, 1]);
+  // jiný den po vyčerpání limitu: jen odhad a odkazy, RegioJet se neptá
+  const lim = await G.groundInfo(q(8), { allowLive: allow(false) });
+  assert.deepEqual([lim.live.ok, lim.live.busy, stub.calls.length], [false, true, 1]);
+  assert.ok(lim.est && lim.links.length);
+  // vypnuto: limit se vůbec neřeší
+  process.env.REGIOJET_LIVE = '0';
+  const off = await G.groundInfo(q(9), { allowLive: allow(false) });
+  assert.deepEqual([off.live.off, asked, stub.calls.length], [true, 2, 1]);
 });
 
 test('groundInfo: Praha → Vídeň s datem = odhad, srovnání, odkazy a živé spoje; Lisabon = mimo dosah', async () => {

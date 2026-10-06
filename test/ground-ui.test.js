@@ -18,9 +18,10 @@ function load() {
   vm.runInContext(src('ground.js'), ctx, { filename: 'ground.js' });
   vm.runInContext(src('searchhelp.js'), ctx, { filename: 'searchhelp.js' });
   vm.runInContext(src('trip.js'), ctx, { filename: 'trip.js' });
-  return ctx.window;
+  return ctx;
 }
-const W = load();
+const CTX = load();
+const W = CTX.window;
 const { Ground, SearchHelp, Trip, Ics, PlanShare } = W;
 const plain = (x) => JSON.parse(JSON.stringify(x));
 const XSS = '<img src=x onerror=alert(1)>"\'`';
@@ -37,6 +38,8 @@ test('Ground: text čipu, délka cesty, převod spoje a odhadu na úsek cesty, c
   assert.equal(Ground.hm(65), '1 h 05');
   assert.match(Ground.basisTxt('measured'), /skutečných spojů/);
   assert.match(Ground.basisTxt('distance'), /vzdálenosti/);
+  assert.match(Ground.basisTxt('distance', 'Alpy'), /přes Alpy déle/);
+  assert.match(Ground.basisTxt('distance', 'Dinárské hory'), /přes hory déle/);
   const l = plain(Ground.legFromLive(live(), '2026-11-10'));
   assert.deepEqual(l, { source: 'regiojet', id: '8730597632', date: '2026-11-10', dep: '2026-11-10T06:01', arr: '2026-11-10T10:21', min: 260, czk: 299, kinds: ['TRAIN'], transfers: 0, fromStation: 'hl.n.', toStation: 'Wien Hbf' });
   const e = plain(Ground.legFromEst('2026-11-14', { minutes: 234, czk: 299, basis: 'measured' }));
@@ -202,6 +205,13 @@ test('sanitizeTrip: vlak/bus ze sdíleného odkazu – škodlivé texty, odkazy,
   const so = Trip.sanitizeTrip(JSON.parse(JSON.stringify(old)));
   assert.equal(so.overland, null);
   assert.equal(Trip.costs(so).flights, 6000);
+  // DEMO spoj zůstane označený (kalendář: „RegioJet DEMO“), u odhadu příznak nedává smysl
+  const demo = trip();
+  demo.overland.out.demo = true;
+  demo.overland.back.demo = true;
+  const sd = Trip.sanitizeTrip(JSON.parse(JSON.stringify(demo)));
+  assert.deepEqual([sd.overland.out.demo, sd.overland.back.demo], [true, undefined]);
+  assert.equal(plain(Trip.calendarEvents(sd))[0].title, '🚆 Praha → Vídeň · RegioJet DEMO (vlak)');
 });
 
 test('PlanShare + Ics: plán s vlakem/busem (#plan=) – úseky projdou kontrolou a dají události kalendáře', () => {
@@ -226,4 +236,51 @@ test('PlanShare + Ics: plán s vlakem/busem (#plan=) – úseky projdou kontrolo
   assert.match(ics, /SUMMARY:🚆 Vídeň → Praha \(vlak \/ bus\)/);
   // plán bez vlaku se nemění
   assert.equal(PlanShare.decode(PlanShare.encode({ name: 'x', start: '2026-11-11' })).ground, undefined);
+});
+
+test('Ground.load: stejný dotaz se 10 min neopakuje (překreslení výsledků), chyba ani „RegioJet nejde“ se nepamatuje', async () => {
+  const calls = [];
+  let reply = { status: 200, body: { est: { minutes: 234 }, live: { ok: true, items: [] } } };
+  CTX.fetch = async (url) => {
+    calls.push(url);
+    const r = reply;
+    return { ok: r.status === 200, status: r.status, json: async () => r.body };
+  };
+  const q = { from: 'ap:PRG', to: 'ap:VIE', date: '2026-11-10', adults: 2, flightCzk: null };
+  const a = await Ground.load(q);
+  const b = await Ground.load({ ...q });
+  assert.equal(calls.length, 1, 'podruhé z paměti');
+  assert.equal(a, b);
+  assert.equal(calls[0], 'api/ground?from=ap%3APRG&to=ap%3AVIE&date=2026-11-10&adults=2', 'prázdné parametry vynechané');
+  await Ground.load({ ...q, date: '2026-11-11' });
+  assert.equal(calls.length, 2, 'jiný den = nový dotaz');
+  // RegioJet neodpověděl / limit → příště znovu
+  reply = { status: 200, body: { est: {}, live: { ok: false, busy: true, error: 'limit' } } };
+  await Ground.load({ ...q, date: '2026-11-12' });
+  await new Promise((r) => setTimeout(r, 0));
+  await Ground.load({ ...q, date: '2026-11-12' });
+  assert.equal(calls.length, 4);
+  // vypnuto (REGIOJET_LIVE=0) se pamatuje – odpověď se nezmění
+  reply = { status: 200, body: { est: {}, live: { ok: false, off: true } } };
+  await Ground.load({ ...q, date: '2026-11-13' });
+  await new Promise((r) => setTimeout(r, 0));
+  await Ground.load({ ...q, date: '2026-11-13' });
+  assert.equal(calls.length, 5);
+  // chyba serveru: výjimka s českou zprávou a bez paměti
+  reply = { status: 400, body: { error: 'Neplatné datum' } };
+  await assert.rejects(Ground.load({ ...q, date: '2026-11-14' }), /Neplatné datum/);
+  await new Promise((r) => setTimeout(r, 0));
+  await assert.rejects(Ground.load({ ...q, date: '2026-11-14' }), /Neplatné datum/);
+  assert.equal(calls.length, 7);
+  delete CTX.fetch;
+});
+
+test('Ground.debounce: šipky v poli data pošlou jeden dotaz až po chvíli klidu', async () => {
+  const got = [];
+  CTX.setTimeout = setTimeout;
+  CTX.clearTimeout = clearTimeout;
+  const f = Ground.debounce((w, d) => got.push(`${w} ${d}`), 30);
+  for (const d of ['2026-11-10', '2026-11-11', '2026-11-12']) f('out', d);
+  await new Promise((r) => setTimeout(r, 60));
+  assert.deepEqual(got, ['out 2026-11-12']);
 });

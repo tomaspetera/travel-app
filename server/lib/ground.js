@@ -10,7 +10,7 @@ import { haversineKm, normalize, groundEstimate } from './geo.js';
 import { COUNTRY_BY_ISO, airportsNear, getAirport } from './airports.js';
 import { describe } from './places.js';
 import { isYmd, addDays, todayYmd } from './dates.js';
-import { request, limiter } from './http.js';
+import { request, limiter, HttpError } from './http.js';
 import { TTLCache } from './cache.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -33,7 +33,7 @@ const ISLANDS = [
   ['Skiathos', 39.05, 39.25, 23.35, 23.9], ['Brač', 43.25, 43.42, 16.38, 16.92], ['Hvar', 43.1, 43.22, 16.4, 16.9],
   ['Korčula', 42.9, 43.0, 16.6, 17.14], ['Vis', 43.0, 43.1, 16.0, 16.3], ['Cres a Lošinj', 44.5, 44.98, 14.25, 14.55],
   ['Bornholm', 54.98, 55.3, 14.68, 15.2], ['Gotland', 56.9, 58.0, 18.05, 19.4], ['Alandy', 59.9, 60.5, 19.3, 21.1],
-  ['Saaremaa a Hiiumaa', 57.9, 59.1, 21.8, 23.4], ['Helgoland', 54.15, 54.2, 7.85, 7.92],
+  ['Saaremaa a Hiiumaa', 57.9, 59.1, 21.8, 23.4], ['Helgoland', 54.15, 54.2, 7.85, 7.92], ['Elba', 42.7, 42.9, 10.05, 10.45],
 ];
 export const MAX_KM = 1100; // dál je vlakem i busem celý den a víc
 
@@ -49,6 +49,8 @@ export function landOk(p) {
   const cc = String(p.cc || '').toUpperCase();
   if (cc && !LAND_CC.has(cc)) {
     const country = COUNTRY_BY_ISO.get(cc)?.cs || cc;
+    // Do Británie vede Eurotunel (vlak, bus na vlaku) – ale z Česka je to i tak celý den a víc.
+    if (cc === 'GB') return { ok: false, why: `${country} – přes moře (Eurotunel nebo trajekt), vlakem či busem z Česka celý den a víc` };
     return { ok: false, why: SEA_CC.has(cc) ? `${country} – přes moře, vlak ani bus tam bez trajektu nejede` : `${country} – mimo pevninskou Evropu` };
   }
   if (!cc && (p.lat < 34 || p.lat > 72 || p.lon < -11 || p.lon > 41)) return { ok: false, why: 'mimo Evropu' };
@@ -102,8 +104,9 @@ const namesOf = (s) => {
 };
 
 /**
- * Město z dat ke zvolenému místu: stejný název (český nebo místní) a země do 60 km (letiště „Vídeň“
- * → město Vídeň), jinak nejbližší město do 30 km. Bez shody null.
+ * Město z dat ke zvolenému místu: stejný název (český nebo místní) do 60 km (letiště „Vídeň“ → město Vídeň,
+ * i přes hranici: letiště Basilej je ve Francii), jinak nejbližší město téže země do 30 km (letiště Lutych
+ * nesmí dostat Maastricht v Nizozemsku). Bez shody null.
  */
 export function cityNear(p) {
   if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lon) || !CITIES.length) return null;
@@ -114,8 +117,8 @@ export function cityNear(p) {
   for (const c of CITIES) {
     if (Math.abs(c.lat - p.lat) > 1 || Math.abs(c.lon - p.lon) > 1.6) continue;
     const d = haversineKm(p.lat, p.lon, c.lat, c.lon);
-    const same = (!cc || c.cc === cc) && names.some((n) => n === c._n || n === c._l);
-    const score = same && d <= 60 ? d - 1000 : d <= 30 ? d : Infinity;
+    const same = names.some((n) => n === c._n || n === c._l);
+    const score = same && d <= 60 ? d - 1000 : d <= 30 && (!cc || c.cc === cc) ? d : Infinity;
     if (score < bestD) {
       bestD = score;
       best = c;
@@ -163,18 +166,63 @@ const roundCzk = (x) => (x < 1000 ? Math.round(x / 10) * 10 : Math.round(x / 50)
  *  - čas: do 450 km ~66 km/h (Vídeň 64, Berlín 67, Mnichov 67, Krakov 68, Budapešť 72), dál ~55 km/h
  *    a k tomu až hodina na přestupy a noční spoje (Curych 55, Amsterdam 58, Benátky 45, Paříž 69);
  *  - nejnižší cena: do 450 km ~120 Kč + 0,62 Kč/km (280–400 Kč), dál rychle stoupá (méně dopravců,
- *    noční spoje) až k ~400 Kč + 0,86 Kč/km (Curych 849, Benátky 979, Amsterdam 1 098, Paříž 1 158 Kč).
+ *    noční spoje) až k ~400 Kč + 0,86 Kč/km (Curych 849, Benátky 979, Amsterdam 1 098, Paříž 1 158 Kč);
+ *    cheap = cesta jen po Česku, Slovensku, Polsku, Maďarsku a Ukrajině – tam levné vlaky jezdí i dál
+ *    (RegioJet 10/2026: Praha–Košice i Praha–Varšava od 499 Kč, Praha–Lvov od 389 Kč), cena roste dál pomalu.
  */
-export function distanceModel(km) {
+export function distanceModel(km, slow = 1, cheap = false) {
   const far = Math.max(0, km - 450);
-  const minutes = (Math.min(km, 450) / 66) * 60 + (far / 55) * 60 + 60 * Math.min(1, far / 150);
-  const czk = km <= 450 ? 120 + 0.62 * km : Math.min(399 + 5 * far, 398 + 0.86 * km);
+  const minutes = ((Math.min(km, 450) / 66) * 60 + (far / 55) * 60 + 60 * Math.min(1, far / 150)) * slow;
+  const czk = km <= 450 || cheap ? 120 + 0.62 * km : Math.min(399 + 5 * far, 398 + 0.86 * km);
   return { minutes: round5(Math.max(45, minutes)), czk: roundCzk(Math.max(150, czk)) };
+}
+const CHEAP_CC = new Set(['CZ', 'SK', 'PL', 'HU', 'UA']);
+
+// Do Švédska a Norska se z pevniny jede po souši přes Øresundský most (Kodaň–Malmö), do Norska dál přes
+// Göteborg a Oslo – přímka přes Baltské moře nebo Skagerrak by cestu zkrátila (Praha–Kalmar, Kristiansand).
+const ORESUND = { lat: 55.6, lon: 12.85 };
+const NO_VIA = [{ lat: 57.7, lon: 11.97 }, { lat: 59.91, lon: 10.75 }]; // Göteborg, Oslo
+const NORDIC = new Set(['SE', 'NO']);
+/** Vzdálenost pro odhad (km): vzdušnou čarou, do Skandinávie přes Øresund (do Norska i přes Göteborg a Oslo). */
+export function landKm(a, b) {
+  const km = haversineKm(a.lat, a.lon, b.lat, b.lon);
+  const na = NORDIC.has(String(a.cc || '').toUpperCase());
+  const nb = NORDIC.has(String(b.cc || '').toUpperCase());
+  if (na === nb) return Math.round(km);
+  const [x, y] = na ? [b, a] : [a, b];
+  let d = 0;
+  let p = x;
+  for (const w of [ORESUND, ...(String(y.cc).toUpperCase() === 'NO' ? NO_VIA : []), y]) {
+    d += haversineKm(p.lat, p.lon, w.lat, w.lon);
+    p = w;
+  }
+  return Math.round(Math.max(km, d));
+}
+
+// Hory, přes které vede přímka mezi místy [název, lat od, lat do, lon od, lon do]: koleje i silnice je
+// objíždějí údolími, takže cesta trvá ~o čtvrtinu déle (RegioJet/FlixBus 10/2026: Praha–Benátky 11 h 50
+// místo ~9 h podle modelu, Praha–Klagenfurt/Štýrský Hradec ~7–8 h místo ~5–6 h). Švýcarská plošina
+// (Curych, Bern, Ženeva), Mnichov, Vídeň ani rovina k Bělehradu do pásem nepatří.
+const MOUNTAINS = [
+  ['Alpy', 46.3, 47.6, 9.5, 16.4], ['Alpy', 45.8, 46.4, 7.3, 9.5], ['Dinárské hory', 42.4, 45.2, 14.5, 19.0],
+];
+export const MOUNTAIN_SLOW = 1.25;
+
+/** Vede přímka a → b přes Alpy nebo Dinárské hory? → název pohoří, nebo null. */
+export function mountainsOn(a, b) {
+  for (let i = 0; i <= 24; i++) {
+    const lat = a.lat + ((b.lat - a.lat) * i) / 24;
+    const lon = a.lon + ((b.lon - a.lon) * i) / 24;
+    const m = MOUNTAINS.find(([, la, lb, oa, ob]) => lat >= la && lat <= lb && lon >= oa && lon <= ob);
+    if (m) return m[0];
+  }
+  return null;
 }
 
 /**
- * Odhad cesty po zemi mezi dvěma místy ({ lat, lon, cc, rj? }): { ok, km, minutes, czk, basis, why }.
- * basis 'measured' = změřená cesta z/do Prahy, 'distance' = model podle vzdálenosti. Vždy jen odhad.
+ * Odhad cesty po zemi mezi dvěma místy ({ lat, lon, cc, rj? }): { ok, km, minutes, czk, basis, why, hills? }.
+ * basis 'measured' = změřená cesta z/do Prahy, 'distance' = model podle vzdálenosti (přes hory – hills –
+ * o čtvrtinu déle, do Skandinávie přes Øresund). km je vždy vzdušnou čarou. Vždy jen odhad.
  */
 export function estimate(a, b) {
   if (!a || !b || ![a.lat, a.lon, b.lat, b.lon].every(Number.isFinite)) return null;
@@ -183,12 +231,18 @@ export function estimate(a, b) {
     const l = landOk(p);
     if (!l.ok) return { ok: false, km, why: l.why };
   }
-  if (km > MAX_KM) return { ok: false, km, why: `${km.toLocaleString('cs-CZ')} km vzdušnou čarou – vlakem nebo busem celý den a víc` };
+  const land = landKm(a, b);
+  if (land > MAX_KM) {
+    const how = land > km + 30 ? `~${land.toLocaleString('cs-CZ')} km po souši přes Øresundský most` : `${km.toLocaleString('cs-CZ')} km vzdušnou čarou`;
+    return { ok: false, km, why: `${how} – vlakem nebo busem celý den a víc` };
+  }
   if (km < 20) return { ok: false, km, why: 'Stejné místo – letadlo ani dálkový spoj tu nedává smysl' };
   const other = a.rj === PRAHA_RJ ? b.rj : b.rj === PRAHA_RJ ? a.rj : null;
   const m = other && MEASURED[other];
   if (m) return { ok: true, km, minutes: m.min, czk: m.czk, basis: 'measured', measuredAt: MEASURED_DATE };
-  return { ok: true, km, ...distanceModel(km), basis: 'distance' };
+  const hills = mountainsOn(a, b);
+  const cheap = CHEAP_CC.has(String(a.cc || '').toUpperCase()) && CHEAP_CC.has(String(b.cc || '').toUpperCase());
+  return { ok: true, km, ...distanceModel(land, hills ? MOUNTAIN_SLOW : 1, cheap), basis: 'distance', ...(hills ? { hills } : {}) };
 }
 
 /** „4 h 20“, „45 min“ */
@@ -394,9 +448,17 @@ export async function regiojet(fromId, toId, date, est = null) {
   const key = `${fromId}|${toId}|${date}`;
   return rjCache.wrap(key, (v) => (v.ok ? 3 * 3600e3 : v.busy ? 1 : 5 * 60e3), async () => {
     const qs = new URLSearchParams({ tariffs: 'REGULAR', fromLocationType: 'CITY', fromLocationId: String(fromId), toLocationType: 'CITY', toLocationId: String(toId), departureDate: date });
+    // Bez hlavičky Origin (z prohlížeče cizího webu API vrací 403) – proto jen ze serveru.
+    const get = () => politely(() => request(`${RJ_API}/routes/search/simple?${qs}`, { headers: { 'X-Lang': 'cs', 'X-Currency': 'CZK' }, timeoutMs: 8000, retries: 0 }));
     try {
-      // Bez hlavičky Origin (z prohlížeče cizího webu API vrací 403) – proto jen ze serveru.
-      const j = await politely(() => request(`${RJ_API}/routes/search/simple?${qs}`, { headers: { 'X-Lang': 'cs', 'X-Currency': 'CZK' }, timeoutMs: 8000, retries: 1 }));
+      let j;
+      try {
+        j = await get();
+      } catch (e) {
+        // jedno opakování (výpadek, 5xx) – i ono přes omezovač, tedy s odstupem a do hodinového stropu
+        if (e instanceof BusyError || (e instanceof HttpError && e.status < 500)) throw e;
+        j = await get();
+      }
       const items = parseRoutes(j, date);
       return { ok: true, source: 'regiojet', date, at: new Date().toISOString(), items, ...liveSummary(items) };
     } catch (e) {
@@ -405,6 +467,12 @@ export async function regiojet(fromId, toId, date, est = null) {
       return { ok: false, error: 'RegioJet teď neodpovídá – platí odhad, spoje ověř přes odkaz.' };
     }
   });
+}
+
+/** Je odpověď RegioJetu pro tuto cestu a den v mezipaměti (nebo se právě načítá)? Pak dotaz nic nestojí. */
+export function regiojetCached(fromId, toId, date) {
+  const key = `${fromId}|${toId}|${date}`;
+  return rjCache.get(key) !== undefined || rjCache.inflight.has(key);
 }
 
 /* ---------- dotaz /api/ground ---------- */
@@ -480,8 +548,11 @@ export function doorByAir(a, b, flightMin = 0) {
 
 const pub = (p) => ({ label: p.label, cc: p.cc, lat: Math.round(p.lat * 1e4) / 1e4, lon: Math.round(p.lon * 1e4) / 1e4, tz: p.tz, regiojet: Boolean(p.rj), flixbus: Boolean(p.fb) });
 
-/** Odpověď /api/ground: místa, vzdálenost, odhad, srovnání s letadlem, odkazy a (je-li datum) živé spoje RegioJetu. */
-export async function groundInfo(q) {
+/**
+ * Odpověď /api/ground: místa, vzdálenost, odhad, srovnání s letadlem, odkazy a (je-li datum) živé spoje RegioJetu.
+ * allowLive() se zeptá (limit dotazů z jedné IP) jen tehdy, když by se opravdu volal RegioJet – ne u mezipaměti.
+ */
+export async function groundInfo(q, { allowLive = () => true } = {}) {
   const a = groundPlace(q.from);
   const b = groundPlace(q.to);
   const est = estimate(a, b);
@@ -490,15 +561,17 @@ export async function groundInfo(q) {
   const ok = Boolean(est && est.ok);
   const res = {
     from: pub(a), to: pub(b), km: est ? est.km : Math.round(haversineKm(a.lat, a.lon, b.lat, b.lon)),
-    est: ok ? { minutes: est.minutes, czk: est.czk, basis: est.basis, ...(est.measuredAt ? { measuredAt: est.measuredAt } : {}) } : null,
+    est: ok ? { minutes: est.minutes, czk: est.czk, basis: est.basis, ...(est.measuredAt ? { measuredAt: est.measuredAt } : {}), ...(est.hills ? { hills: est.hills } : {}) } : null,
     why: est && !est.ok ? est.why : null,
     worth: w, date: q.date, adults: q.adults,
     links: ok ? links(a, b, q.date, q.adults) : [],
     demo: config.mock,
   };
   if (ok && q.date && q.live) {
-    res.live = a.rj && b.rj ? await regiojet(a.rj, b.rj, q.date, est)
-      : { ok: false, none: true, error: 'RegioJet mezi těmito městy nejezdí – spoje najdeš přes odkazy.' };
+    if (!(a.rj && b.rj)) res.live = { ok: false, none: true, error: 'RegioJet mezi těmito městy nejezdí – spoje najdeš přes odkazy.' };
+    else if (regiojetOn() && !config.mock && !regiojetCached(a.rj, b.rj, q.date) && !allowLive()) {
+      res.live = { ok: false, busy: true, error: 'Příliš mnoho dotazů za krátkou dobu – platí odhad, spoje ověř přes odkaz.' };
+    } else res.live = await regiojet(a.rj, b.rj, q.date, est);
   }
   return res;
 }
@@ -534,7 +607,7 @@ export function groundForDest({ home = null, from = null, dest, trip = null, fli
   }
   const w = worth(est, { doorMin, czk: trip?.perPersonCzk || 0, trips: trip?.back ? 2 : 1 });
   return {
-    km: est.km, min: est.minutes, czk: est.czk, basis: est.basis,
+    km: est.km, min: est.minutes, czk: est.czk, basis: est.basis, ...(est.hills ? { hills: est.hills } : {}),
     worth: w.worth, rule: w.rule, reason: w.reason, doorMin: w.doorMin,
     from: a.label, to: b.label, regiojet: Boolean(a.rj && b.rj), flixbus: Boolean(a.fb && b.fb),
     q: { from: from?.id || (from && Number.isFinite(from.lat) ? geoId(from) : `ap:${trip.out.from}`), to: dest.id && /^(ap|metro|geo):/.test(dest.id) ? dest.id : geoId(dest) },
@@ -572,7 +645,12 @@ export function attachGround({ home, origins = [], groups = [], dests = [], flat
     const dest = { id: d.id, label: d.label, cc: d.cc || '', lat: d.lat, lon: d.lon };
     const near = groups.filter((g) => g.ground && g.dest.lat != null && haversineKm(g.dest.lat, g.dest.lon, d.lat, d.lon) < 80);
     const g = near.sort((x, y) => x.best.perPersonCzk - y.best.perPersonCzk)[0];
-    const x = g ? { ...g.ground } : from || fallback ? groundForDest({ home: hp || groundPlace(fallback), from: from || fallback, dest }) : null;
+    // Místo dál od města letiště (Hallstatt, letiště Salcburk): vlakem/busem až k němu, letadlem přes skupinu.
+    const far = g && haversineKm(g.dest.lat, g.dest.lon, d.lat, d.lon) > 25;
+    const fm = g && fastest(g);
+    const x = g && !far ? { ...g.ground }
+      : g ? groundForDest({ home: hp, from, dest, trip: g.best, flightMin: Number.isFinite(fm) ? fm : 0, accessOf })
+        : from || fallback ? groundForDest({ home: hp || groundPlace(fallback), from: from || fallback, dest }) : null;
     if (x) return { ...x, flightCzk: g ? g.best.perPersonCzk : null, trips: g ? (g.best.back ? 2 : 1) : null, dest: d.label };
   }
   return null;

@@ -42,6 +42,9 @@ const LANG = {
 };
 // RegioJet má pro Velkou Británii kód „UK“.
 const ccOf = (code) => (code === 'UK' ? 'GB' : String(code || '').toUpperCase());
+// RegioJet vede Kolín nad Rýnem jen jako zastávku letiště Kolín/Bonn: v datech je to město Kolín nad Rýnem
+// (název ve výpisu, IDOS, Google Mapy a FlixBus Köln); ID i zastávka zůstávají – spoje ukážou „… letiště Terminál 2“.
+const RJ_RENAME = { 241620000: { name: 'Kolín nad Rýnem', aliases: ['Köln'] } };
 
 async function fresh(file, days) {
   try {
@@ -92,13 +95,15 @@ async function regiojetCities() {
       const p = haversineKm(main.latitude, main.longitude, avg.lat, avg.lon) < 15 ? { lat: main.latitude, lon: main.longitude } : avg;
       // latinkou psané jiné názvy (Salzburg, Luxemburg…) – záložní dotaz na FlixBus
       const aliases = (c.aliases || []).filter((a) => /^[\p{Script=Latin}\s.'-]+$/u.test(a) && normalize(a) !== normalize(c.name));
-      cities.push({ name: c.name, cc: ccOf(country.code), lat: round(p.lat), lon: round(p.lon), rj: c.id, src: 'rj', aliases });
+      cities.push({ name: c.name, cc: ccOf(country.code), lat: round(p.lat), lon: round(p.lon), rj: c.id, src: 'rj', aliases, ...RJ_RENAME[c.id] });
     }
   }
   return { cities, stations, count: cities.length };
 }
 
 /* ---------- naše větší města (velká letiště na pevnině do ~1300 km) ---------- */
+// Letiště za hranicí svého města (EuroAirport Basilej leží ve Francii u Mulhouse): země, anglický název a střed města.
+const CITY_ACROSS = { BSL: { cc: 'CH', en: 'Basel', lat: 47.5476, lon: 7.5897 } };
 function ourCities() {
   const by = new Map();
   for (const a of AIRPORTS.values()) {
@@ -107,7 +112,8 @@ function ourCities() {
     const d = destInfo(a.iata);
     if (by.has(d.key)) continue;
     // „Memmingen (Mnichov)“ → Memmingen; metropole má střed města, jinak poloha letiště
-    by.set(d.key, { name: d.label.replace(/\s*\(.*\)$/, ''), en: a.city, cc: a.cc, lat: d.lat, lon: d.lon, src: 'ap' });
+    const x = CITY_ACROSS[a.iata] || {};
+    by.set(d.key, { name: d.label.replace(/\s*\(.*\)$/, ''), en: x.en || a.city, cc: x.cc || a.cc, lat: x.lat ?? d.lat, lon: x.lon ?? d.lon, src: 'ap' });
   }
   return [...by.values()];
 }

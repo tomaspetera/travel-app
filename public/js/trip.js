@@ -77,7 +77,7 @@
   const gTime = g => (g.dep ? `${hhmm(g.dep)} → ${hhmm(g.arr)}` : `~${minutesToHm(g.min || 0)}, čas ověř`);
   // Odkaz na jízdenku: RegioJet u vybraného spoje, jinak první odkaz (RegioJet, FlixBus, IDOS).
   const gUrl = (g, links) => ((links || []).find(l => l.id === (g.source === 'regiojet' ? 'regiojet' : l.id)) || {}).url || null;
-  const gWho = g => (g.source === 'regiojet' ? 'RegioJet' : 'odhad');
+  const gWho = g => (g.source === 'regiojet' ? (g.demo ? 'RegioJet DEMO' : 'RegioJet') : 'odhad');
 
   function stayDates(t) {
     // Přílet po půlnoci (do 5:00) → pokoj už od předchozího večera, ať je kde přespat.
@@ -305,7 +305,7 @@
     host.innerHTML = `<div class="card step-card"><h3>🚆 Cesta vlakem / busem</h3>
       <div class="muted" style="font-size:13px;margin-bottom:6px">~${+ov.km || 0} km vzdušnou čarou · místo letu ${esc(f.out.from)} → ${esc(f.out.to)}</div>
       ${leg(ov.out, 'Tam', ov.from.label, ov.to.label)}${leg(ov.back, 'Zpět', ov.to.label, ov.from.label)}
-      <div class="ov-sum"><span>Vlak / bus celkem za ${t.adults} os.:</span><b>${czk(costs(t).overland)}</b>${[ov.out, ov.back].some(g => g && g.source !== 'regiojet') ? '<span class="b warn">odhad – cenu ověř v odkazu</span>' : '<span class="b good">ceny RegioJetu z hledání</span>'}</div>
+      <div class="ov-sum"><span>Vlak / bus celkem za ${t.adults} os.:</span><b>${czk(costs(t).overland)}</b>${[ov.out, ov.back].some(g => g && g.source !== 'regiojet') ? '<span class="b warn">odhad – cenu ověř v odkazu</span>' : [ov.out, ov.back].some(g => g && g.demo) ? '<span class="b warn">DEMO – vymyšlené spoje a ceny</span>' : '<span class="b good">ceny RegioJetu z hledání</span>'}</div>
       ${window.Ground ? Ground.linksHtml(ov.links && ov.links.out) : ''}
       <div class="faint" style="font-size:12px;margin-top:6px">Jízdenky ATLAS neprodává – kup je u dopravce (RegioJet, FlixBus, ČD přes IDOS). Ceny i volná místa se mohou změnit.</div>
       <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="ovFly">✈️ Radši letět (${esc(f.out.from)} → ${esc(f.out.to)})</button>${ov.q ? '<button class="btn" id="ovEdit">🔄 Změnit spoje</button>' : ''}<button class="btn primary" id="tfNext">Pokračovat →</button></div>
@@ -354,13 +354,14 @@
       const j = st[w]; if (!j || !j.est) return null;
       const id = st.pick[w];
       const x = id && j.live && j.live.ok && (j.live.items || []).find(i => i.id === id && i.bookable);
-      return x ? Ground.legFromLive(x, dateOf(w)) : Ground.legFromEst(dateOf(w), j.est);
+      // DEMO: vymyšlené spoje zůstanou označené i ve shrnutí
+      return x ? { ...Ground.legFromLive(x, dateOf(w)), ...(j.live.demo ? { demo: true } : {}) } : Ground.legFromEst(dateOf(w), j.est);
     };
     const sum = () => {
       const legs = ['out', ...($('#ovRet').checked ? ['back'] : [])].map(pickedLeg);
       const ok = legs.every(Boolean);
       $('#ovUse').disabled = !ok;
-      $('#ovSum').innerHTML = ok ? `<span>Za ${t.adults} os.:</span><b>${czk(legs.reduce((a, l) => a + (l.czk || 0), 0) * t.adults)}</b>${legs.some(l => l.source !== 'regiojet') ? '<span class="b warn">odhad</span>' : '<span class="b good">RegioJet – živé ceny</span>'}` : '<span class="faint">Načítám spoje…</span>';
+      $('#ovSum').innerHTML = ok ? `<span>Za ${t.adults} os.:</span><b>${czk(legs.reduce((a, l) => a + (l.czk || 0), 0) * t.adults)}</b>${legs.some(l => l.source !== 'regiojet') ? '<span class="b warn">odhad</span>' : `<span class="b good">RegioJet – živé ceny${legs.some(l => l.demo) ? ' (DEMO)' : ''}</span>`}` : '<span class="faint">Načítám spoje…</span>';
     };
     const load = async w => {
       const date = dateOf(w), list = $(w === 'out' ? '#ovOutList' : '#ovBackList');
@@ -383,11 +384,14 @@
         if (list.isConnected) list.innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
       }
     };
+    // změna dne: hned zneplatnit výběr, dotaz až po chvíli klidu (šipky v poli data)
+    const loadSoon = { out: Ground.debounce(load), back: Ground.debounce(load) };
+    const reload = w => { st[w] = null; sum(); loadSoon[w](w); };
     $('#ovOut').onchange = () => {
-      if ($('#ovRet').checked && dateOf('back') < dateOf('out')) { $('#ovBack').value = dateOf('out'); load('back'); }
-      load('out');
+      if ($('#ovRet').checked && dateOf('back') < dateOf('out')) { $('#ovBack').value = dateOf('out'); reload('back'); }
+      reload('out');
     };
-    $('#ovBack').onchange = () => { if (dateOf('back') < dateOf('out')) { $('#ovBack').value = dateOf('out'); toast('Návrat nemůže být před cestou tam', 'err'); } load('back'); };
+    $('#ovBack').onchange = () => { if (dateOf('back') < dateOf('out')) { $('#ovBack').value = dateOf('out'); toast('Návrat nemůže být před cestou tam', 'err'); } reload('back'); };
     $('#ovRet').onchange = () => {
       const on = $('#ovRet').checked;
       $('#ovBackF').hidden = !on; $('#ovBackBox').hidden = !on;
@@ -1123,7 +1127,7 @@
     const ov = ovOn(t) ? t.overland : null;
     const unpriced = multi ? r.bases.filter(b => !stayCzk(b.stay)).map(b => b.name) : [];
     const rows = [
-      ov ? ['🚆', `Vlak / bus ${ov.back ? 'tam i zpět' : 'tam'} (${t.adults} os.)${[ov.out, ov.back].some(g => g && g.source !== 'regiojet') ? ' – odhad' : ''}`, c.overland] : ['✈️', `Letenky (${t.adults} os.)`, c.flights],
+      ov ? ['🚆', `Vlak / bus ${ov.back ? 'tam i zpět' : 'tam'} (${t.adults} os.)${[ov.out, ov.back].some(g => g && g.source !== 'regiojet') ? ' – odhad' : [ov.out, ov.back].some(g => g && g.demo) ? ' – DEMO' : ''}`, c.overland] : ['✈️', `Letenky (${t.adults} os.)`, c.flights],
       c.bags ? ['🧳', 'Zavazadla (odhad příplatku)', c.bags] : null,
       c.ground ? ['🚌', 'Doprava na letiště a zpět (odhad)', c.ground] : null,
       ...(multi ? [
@@ -1137,7 +1141,7 @@
       : [[`Letenka tam (${f.out.carrierName || f.out.provider})`, f.out.bookUrl], ...(f.back ? [[`Letenka zpět (${f.back.carrierName || f.back.provider})`, f.back.bookUrl]] : [])];
     // Vlak/bus: jízdenka tam a zpět (RegioJet u vybraného spoje, jinak první odkaz – RegioJet, FlixBus, IDOS).
     const groundSteps = ov ? [[ov.out, 'tam', ov.from.label, ov.to.label, ov.links && ov.links.out], [ov.back, 'zpět', ov.to.label, ov.from.label, ov.links && ov.links.back]]
-      .filter(x => x[0]).map(([g, what, a, b, links], i) => ({ id: `ground${i}:${g.date}`, label: `Jízdenka ${what}: ${a} → ${b} (${fmtDate(g.date)}${g.dep ? ' ' + hhmm(g.dep) : ''}${g.source === 'regiojet' ? ', RegioJet' : ''})`, url: gUrl(g, links) })) : null;
+      .filter(x => x[0]).map(([g, what, a, b, links], i) => ({ id: `ground${i}:${g.date}`, label: `Jízdenka ${what}: ${a} → ${b} (${fmtDate(g.date)}${g.dep ? ' ' + hhmm(g.dep) : ''}${g.source === 'regiojet' ? ', ' + gWho(g) : ''})`, url: gUrl(g, links) })) : null;
     const steps = [
       ...(groundSteps || flightLinks.map(([label, url], i) => ({ id: 'flight' + i, label, url }))),
       ...(multi ? r.bases.map((b, i) => b.stay && b.stay.mode === 'skip' ? null : {
@@ -1212,7 +1216,7 @@
   /** Úsek vlakem/busem pro kalendář a plánovač: místní časy a zóny měst (bez spoje jen den). */
   const groundBrief = (g, a, b) => ({
     from: a.label, to: b.label, date: g.date, dep: g.dep || null, arr: g.arr || null, fromTz: a.tz || null, toTz: b.tz || null,
-    kind: gKind(g), carrier: g.source === 'regiojet' ? 'RegioJet' : '', min: g.min || null, fromStation: g.fromStation || '', toStation: g.toStation || '',
+    kind: gKind(g), carrier: g.source === 'regiojet' ? gWho(g) : '', min: g.min || null, fromStation: g.fromStation || '', toStation: g.toStation || '',
   });
   /** Úseky vlakem/busem tam (a zpět) ve tvaru groundBrief. */
   const groundBriefs = ov => [ov.out && groundBrief(ov.out, ov.from, ov.to), ov.back && groundBrief(ov.back, ov.to, ov.from)].filter(Boolean);
@@ -1295,7 +1299,7 @@
     }
     const dates = multi ? baseDates(t) : [];
     const ov = ovOn(t) ? t.overland : null;
-    const gTxt = (g, a, b) => `${a}→${b} ${fmtDate(g.date)}${g.dep ? ' ' + hhmm(g.dep) : ''} (${g.source === 'regiojet' ? 'RegioJet, ' : ''}${gKind(g)}${g.source === 'regiojet' ? '' : ', odhad'})`;
+    const gTxt = (g, a, b) => `${a}→${b} ${fmtDate(g.date)}${g.dep ? ' ' + hhmm(g.dep) : ''} (${g.source === 'regiojet' ? gWho(g) + ', ' : ''}${gKind(g)}${g.source === 'regiojet' ? '' : ', odhad'})`;
     const flightTxt = ov ? `🚆 ${gTxt(ov.out, ov.from.label, ov.to.label)}${ov.back ? `, zpět ${gTxt(ov.back, ov.to.label, ov.from.label)}` : ''}`
       : `${f.out.from}→${f.out.to} ${fmtDate(f.out.date)} ${hhmm(f.out.dep)} (${f.out.carrierName || f.out.provider})${f.back ? `, zpět ${f.back.from}→${f.back.to} ${fmtDate(f.back.date)} ${hhmm(f.back.dep)} (${f.back.carrierName || f.back.provider})` : ''}`;
     const notes = [
@@ -1383,6 +1387,7 @@
       dep: dep && arr ? dep : null, arr: dep && arr ? arr : null, min: okFin(g.min, 1, 3000) ? Math.round(g.min) : null, czk: okFin(g.czk, 0, 1e5) ? Math.round(g.czk) : 0,
       kinds: Array.isArray(g.kinds) ? [...new Set(g.kinds.filter(k => k === 'TRAIN' || k === 'BUS'))] : [], transfers: okFin(g.transfers, 0, 9) ? Math.round(g.transfers) : null,
       fromStation: okStr(g.fromStation, 60), toStation: okStr(g.toStation, 60),
+      ...(g.demo === true && g.source === 'regiojet' && dep && arr ? { demo: true } : {}),
     };
   }
   function cleanGroundPlace(p) {

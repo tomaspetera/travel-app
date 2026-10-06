@@ -332,12 +332,8 @@ async function route(req, res) {
       if (e instanceof GroundError) return sendJson(req, res, 400, { error: e.message });
       throw e;
     }
-    // Živé spoje počítá stejný limit jako hledání; po vyčerpání jen odhad a odkazy.
-    const limited = q.date && q.live && rateLimited(req);
-    if (limited) q.live = false;
-    const out = await groundInfo(q);
-    if (limited && out.est) out.live = { ok: false, busy: true, error: 'Příliš mnoho dotazů za krátkou dobu – platí odhad, spoje ověř přes odkaz.' };
-    return sendJson(req, res, 200, out);
+    // Dotaz na RegioJet počítá stejný limit jako hledání (odpověď z mezipaměti ne); po vyčerpání jen odhad a odkazy.
+    return sendJson(req, res, 200, await groundInfo(q, { allowLive: () => !rateLimited(req) }));
   }
   if (p === '/api/cars') return sendJson(req, res, 200, searchCars(Object.fromEntries(url.searchParams)));
   if (p === '/api/poi') {
