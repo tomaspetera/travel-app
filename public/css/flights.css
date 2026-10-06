@@ -97,6 +97,10 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .field label.check-inline{display:flex;font-size:13.5px;font-weight:500;color:var(--text);text-transform:none;letter-spacing:0;margin:6px 0}
 .gm-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
 .field .gm-row label.check-inline{margin:0}
+@media(max-width:380px){.warm-row .seg button{padding:6px 6px;font-size:12px}}
+/* autem: „návrat i na jiné letiště“ vypnuté (vracíš se k autu) */
+.field label.check-inline.dis{opacity:.55;cursor:not-allowed}
+.oj-hint{font-size:12px;line-height:1.4;margin:-2px 0 6px 25px}
 .gm-lbl{font-size:13px;color:var(--muted)}
 .gm-row .seg button{padding:6px 11px;font-size:12.5px;white-space:nowrap}
 .gm-opt{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:8px;font-size:13px}
@@ -429,7 +433,11 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 }
 @media(max-width:860px){
   .demo-banner{padding:8px 16px}
-  .sf-grid,.sf-when{grid-template-columns:1fr}
+  /* minmax(0,…): sloupec se smí zúžit pod nejširší obsah (dvě pole data vedle sebe), jinak formulář přetéká */
+  .sf-grid,.sf-when{grid-template-columns:minmax(0,1fr)}
+  #flexField .row{flex-wrap:wrap}
+  #flexField .row .input{flex:1 1 130px;min-width:0}
+  .warm-row .seg{flex-wrap:wrap;max-width:100%}
   #exactField{grid-column:auto}
   .hero-search2{grid-template-columns:1fr}
   .hero-search2 .btn{padding:12px}
@@ -448,7 +456,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
   .search-card{padding:16px}
   .res-tools{width:100%}
   .res-tools select{flex:1 1 100%}
-  .radar-grid{grid-template-columns:1fr 1fr}
+  .radar-grid{grid-template-columns:repeat(2,minmax(0,1fr))} /* dlouhý název města se zkrátí (…), sloupce zůstanou stejně široké */
   .dow button{width:38px}
   .res-tools .seg{display:flex;width:100%}
   .res-tools .seg button{flex:1 1 auto;padding:8px 5px;font-size:12.5px}

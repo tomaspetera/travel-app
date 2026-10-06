@@ -492,7 +492,10 @@ function fillSelects() {
 }
 function wireEvents() {
   $$('#cVisited button').forEach(b => b.onclick = () => { $$('#cVisited button').forEach(x => x.classList.remove('on')); b.classList.add('on'); renderCountries(); });
-  ['#cSearch', '#cCont', '#cCost', '#cSort', '#cEntry'].forEach(s => { const el = $(s); el.oninput = renderCountries; el.onchange = renderCountries; });
+  // Hledání země jen při psaní: „change“ po opuštění pole by mřížku překreslil uprostřed kliknutí na kartu (karta pod
+  // myší zmizí a první klik by detail neotevřel).
+  $('#cSearch').oninput = renderCountries;
+  ['#cCont', '#cCost', '#cSort', '#cEntry'].forEach(s => { const el = $(s); el.oninput = renderCountries; el.onchange = renderCountries; });
   ['#rMonth', '#rVibe', '#rBudget', '#rSafe'].forEach(s => $(s).onchange = renderRecs);
   $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; S.radar = null; save(); toast('Data aktualizována'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') renderDash(); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') modalClose(); });

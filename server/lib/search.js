@@ -9,7 +9,7 @@ import { mainAirport, monthClimate, warmAirports, warmShare, warmestHi } from '.
 import { bestOneWays, bestRoundTrips, calendarArray, dateOk, oneWayCalendar } from './optimizer.js';
 import { fxInfo, loadRates, toCzk } from './fx.js';
 import { haversineKm } from './geo.js';
-import { accessOpts, carQuery, normalizeAccess, parkCzk } from './access.js';
+import { accessOpts, carQuery, normalizeAccess, parkCzk, parkDays } from './access.js';
 import { validTrip } from './fares.js';
 import { legBagEur } from './baggage.js';
 import { priceLevelOf, priceStats, refOf, referencePrice } from './pricelevel.js';
@@ -711,7 +711,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     calendar: cal,
     // Přesná data: nejlevnější známá cena po dnech ±3 kolem odletu/návratu (z už stažených dat) + nápověda,
     // když v zadaný den Ryanair/Wizz nelétá, ale vedle ano.
-    nearby: routeMode && q.exact ? nearbyOf({ out: nearLegs.out, back: nearLegs.back, q, nearOut, nearBack, groundOf, extra: constraints.extra }) : null,
+    nearby: routeMode && q.exact ? nearbyOf({ out: nearLegs.out, back: nearLegs.back, q, nearOut, nearBack, groundOf, extra: constraints.extra, park }) : null,
     // Aktivní uživatelské filtry (UI je ukáže a nabídne zrušit) a kolik nabídek kvůli nim zmizelo.
     filters: { maxPrice: q.maxPrice, directOnly: q.directOnly, active: Boolean(q.maxPrice || q.directOnly), hidden },
     // Za teplem: kolik nabídek filtr vyřadil (a nejvyšší průměrné maximum mezi nimi) – pro prázdný výsledek.
@@ -747,9 +747,10 @@ async function searchMulti(q, emit, opts = {}) {
   const places = q.legs.map((l, i) => {
     let to;
     if (i === n - 1 && homeReturn) {
-      // návrat domů: s open-jaw na kterékoliv letiště začátku cesty, jinak na letiště samotného místa
+      // návrat domů: s open-jaw na kterékoliv letiště začátku cesty, jinak na letiště samotného místa; autem vždy na
+      // kterékoliv – auto parkuje u letiště 1. letu (i vzdálenějšího) a kombinace se pak vrací tam, kde stojí
       const near = origins.airports.filter((a) => a.distKm < 25);
-      to = (q.openJaw ? origins.airports : near.length ? near : origins.airports.slice(0, 1)).map((a) => a.iata);
+      to = (q.openJaw || homeNights != null ? origins.airports : near.length ? near : origins.airports.slice(0, 1)).map((a) => a.iata);
     } else {
       const d = resolveDestinations(l.to);
       if (d.kind !== 'airports' || !d.airports.length) throw new UserError(`${i + 1}. let: zadej konkrétní město nebo letiště, ne celou zemi či světadíl.`);
@@ -946,18 +947,24 @@ const dm = (d) => `${Number(d.slice(8, 10))}. ${Number(d.slice(5, 7))}.`;
  * Nejlevnější známá cena letu po dnech kolem přesného data – z dat, která už hledání stáhlo (Ryanair
  * celý měsíc, Wizz okno ±3 dny, Kiwi jen zadané dny). lowcostOnDay/lowcostNear: létá v zadaný den
  * Ryanair / Wizz Air (v demu ukázkové aerolinky), nebo jen ve dnech vedle?
+ * park(leg) → { czk, days } | null: autem tam i zpět parkování na celou cestu, kdyby se změnil jen tento den (jako ve
+ * výsledcích) – patří k ceně dne, ať je den s levnějším letem, ale delším parkováním vidět jako dražší.
  */
-export function nearbyDays(legs, range, win, { groundOf = () => 0, extra = () => 0, directOnly = false } = {}) {
+export function nearbyDays(legs, range, win, { groundOf = () => 0, extra = () => 0, directOnly = false, park = null } = {}) {
   const best = new Map();
   const lowcost = new Map();
   const isLowcost = (l) => LOWCOST.has(l.provider) || l.provider?.startsWith('demo-');
   for (const l of legs) {
     if (l.date < range.from || l.date > range.to || !(l.czk > 0) || (directOnly && l.stops)) continue;
     // doprava na letiště doma: u cesty tam odletové, u návratu příletové (cílová letiště mají 0)
-    const cost = l.czk + groundOf(l.from) + groundOf(l.to) + extra(l);
+    const pk = park ? park(l) : null;
+    const cost = l.czk + groundOf(l.from) + groundOf(l.to) + extra(l) + (pk ? pk.czk : 0);
     const prev = best.get(l.date);
     if (!prev || cost < prev.cost) {
-      best.set(l.date, { date: l.date, czk: l.czk, cost, from: l.from, to: l.to, provider: l.provider, carrier: l.carrier, carrierName: l.carrierName, stops: l.stops });
+      best.set(l.date, {
+        date: l.date, czk: l.czk, cost, from: l.from, to: l.to, provider: l.provider, carrier: l.carrier, carrierName: l.carrierName, stops: l.stops,
+        ...(pk && pk.czk ? { parkCzk: pk.czk, parkDays: pk.days } : {}),
+      });
     }
     if (isLowcost(l)) {
       if (!lowcost.has(l.date)) lowcost.set(l.date, new Set());
@@ -976,11 +983,20 @@ export function nearbyDays(legs, range, win, { groundOf = () => 0, extra = () =>
   };
 }
 
-export function nearbyOf({ out, back, q, nearOut, nearBack, groundOf, extra = () => 0 }) {
+/**
+ * Nejbližší dny tam (a zpět) kolem přesných dat. park(iata, nights) = parkování Kč/os. na celou cestu (autem tam i zpět,
+ * jako ve výsledcích): u dne tam se počítá s návratem v zadaný den (kdyby byl dřív než odlet, posune se se stejným počtem
+ * nocí – jako po kliknutí na den), u dne zpět s odletem v zadaný den; auto parkuje u letiště odletu = příletu zpět.
+ */
+export function nearbyOf({ out, back, q, nearOut, nearBack, groundOf, extra = () => 0, park = null }) {
   const opts = { groundOf, extra, directOnly: q.directOnly };
+  const { out: o, back: b } = q.exact;
+  const stay = (iata, nights) => ({ czk: park(iata, nights), days: parkDays(nights) });
+  const outPark = park && b ? (l) => stay(l.from, l.date <= b ? daysBetween(l.date, b) : daysBetween(o, b)) : null;
+  const backPark = park ? (l) => stay(l.to, Math.max(0, daysBetween(o, l.date))) : null;
   const res = {
-    out: { around: q.exact.out, ...nearbyDays(out, nearOut, { from: q.dateFrom, to: q.dateTo }, opts) },
-    back: nearBack ? { around: q.exact.back, ...nearbyDays(back, nearBack, { from: q.exact.backFrom, to: q.exact.backTo }, opts) } : null,
+    out: { around: o, ...nearbyDays(out, nearOut, { from: q.dateFrom, to: q.dateTo }, { ...opts, park: outPark }) },
+    back: nearBack ? { around: b, ...nearbyDays(back, nearBack, { from: q.exact.backFrom, to: q.exact.backTo }, { ...opts, park: backPark }) } : null,
     hint: null,
   };
   // Nápověda: v zadaný den nízkonákladovky volný let nemají (nelétají, nebo je vyprodáno), ale den či dva vedle ano.

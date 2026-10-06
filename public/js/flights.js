@@ -163,7 +163,7 @@
       nMin: +$('#nMin').value, nMax: +$('#nMax').value, dFrom: $('#dFrom').value, dTo: $('#dTo').value,
       adults: +$('#adults').value, maxPrice: $('#maxPrice').value, ground: $('#groundOn').checked,
       groundMode: $('#groundMode .on')?.dataset.g === 'car' ? 'car' : 'transit', kmRate: +$('#kmRate').value, ...carForm(),
-      openJaw: $('#openJaw').checked, directOnly: $('#directOnly').checked,
+      openJaw: ojPref, directOnly: $('#directOnly').checked,
       outDays: $$('#outDays .on').map(b => +b.dataset.d), backDays: $$('#backDays .on').map(b => +b.dataset.d),
       // náhled letišť se po setForm načítá se zpožděním – do té doby platí vyřazená letiště z formuláře
       exclude: originPreview.length ? originPreview.filter(a => a.off).map(a => a.iata) : [...pendingExclude], minTemp: +($('#minTemp .on')?.dataset.t || 0),
@@ -186,8 +186,9 @@
     $$('#lenPreset button').forEach(b => b.classList.toggle('on', b.dataset.v === f.len));
     $('#nMin').value = f.nMin; $('#nMax').value = f.nMax; $('#dFrom').value = f.dFrom; $('#dTo').value = f.dTo;
     $('#adults').value = String(f.adults); $('#maxPrice').value = f.maxPrice || ''; $('#groundOn').checked = f.ground; $('#kmRate').value = f.kmRate;
+    ojPref = f.openJaw !== false;
     setGroundMode(f.groundMode); setCar(f);
-    $('#openJaw').checked = f.openJaw; $('#directOnly').checked = f.directOnly;
+    $('#directOnly').checked = f.directOnly;
     mlSet(f);
     setMinTemp(f.minTemp);
     setBags(f.bags);
@@ -207,9 +208,21 @@
     const car = m === 'car';
     $$('#groundMode button').forEach(b => { b.classList.toggle('on', (b.dataset.g === 'car') === car); b.setAttribute('aria-pressed', String((b.dataset.g === 'car') === car)); });
     $('#gmTransit').hidden = car; $('#gmCar').hidden = !car;
+    syncOpenJaw();
     if (car) loadFuel();
   }
   const carMode = () => $('#groundMode .on')?.dataset.g === 'car';
+  // „Návrat i na jiné letiště v okolí“: autem se vracíš k autu – zaškrtávátko je vypnuté a prázdné (server autem návrat
+  // na jiné letiště nehledá), volba z veřejné dopravy se pamatuje (ojPref) a v dotazu platí jen pro letiště v cíli.
+  let ojPref = true;
+  function syncOpenJaw() {
+    const cb = $('#openJaw'), car = carMode();
+    cb.disabled = car;
+    cb.checked = car ? false : ojPref;
+    $('#openJawLbl').classList.toggle('dis', car);
+    $('#openJawLbl').title = car ? 'Autem se vracíš na letiště, kde parkuje auto – návrat na jiné letiště v okolí v režimu autem nehledám.' : '';
+    $('#ojHint').hidden = !car;
+  }
 
   /* ---------- autem: pohon, spotřeba a cena paliva / nabíjení (aktuální z /api/fuel, nebo vlastní) ---------- */
   const FUELS = ['diesel', 'petrol', 'ev'];
@@ -569,7 +582,8 @@
       $(s).oninput = carInfo;
       $(s).onchange = () => { const c = readCar(); $('#gmCons').value = c.carCons; $('#gmPrice').value = c.carPrice ?? ''; carInfo(); refreshOrigins(); syncFormUI(); };
     });
-    ['#maxPrice', '#directOnly', '#openJaw'].forEach(s => $(s).onchange = syncFormUI);
+    ['#maxPrice', '#directOnly'].forEach(s => $(s).onchange = syncFormUI);
+    $('#openJaw').onchange = () => { if (!carMode()) ojPref = $('#openJaw').checked; syncFormUI(); };
     // autem: cena na osobu a parkování závisí na počtu cestujících a délce cesty
     $('#adults').onchange = () => { syncFormUI(); if (carMode()) refreshOrigins(); };
     ['#nMin', '#nMax', '#xOut', '#xBack'].forEach(s => $(s).addEventListener('change', () => { if (carMode()) refreshOrigins(); }));
@@ -767,7 +781,7 @@
       const pk = t.parkCzk || 0, nights = t.back ? SearchHelp.diffDays(t.out.date, t.back.date) : 0, days = SearchHelp.parkDays(nights);
       const e = SearchHelp.fuelItem(g), fuel = e && e.fuel === 'ev' ? 'nabíjení' : 'palivo';
       tip = `Autem na letiště ${t.out.from}${t.back ? ' a zpět' : ` – odvoz: někdo tě odveze a vrátí se (${fuel} tam i zpět)`}: ${fuel}${(g.tolls || []).length ? ' a dálniční známky' : ''} ~${czk(t.groundCzk - pk)}/os.`
-        + (pk ? ` + parkování na ${days} ${days === 1 ? 'den' : days <= 4 ? 'dny' : 'dní'} ~${czk(pk)}/os.` : '')
+        + (pk ? ` + parkování online předem na ${days} ${days === 1 ? 'den' : days <= 4 ? 'dny' : 'dní'} ~${czk(pk)}/os.` : '')
         + ` (${SearchHelp.fuelFormula(g)} za auto každým směrem, ${g.adults} os. v autě${e ? `; ${e.priceLabel}` : ''}) – odhad.`;
     } else {
       const a = originGround(res, t.out.from), b = t.back ? originGround(res, t.back.to) : null;
@@ -1095,7 +1109,10 @@
   const mVia = (res, opts) => (window.Entry ? Entry.transitCcs(opts.map(o => o.out), mCountries(res)) : []);
   // Vybrané lety platné pro tento výsledek (jinak null).
   const mPicks = res => res.legs.map((l, i) => { const a = view.mPicks[i]; return Number.isInteger(a) && a >= 0 && a < l.options.length ? a : null; });
-  const mPlan = (res, picks = mPicks(res)) => SearchHelp.multiPlan(res.legs.map(l => l.options.map(o => o.perPersonCzk)), res.links, picks);
+  // autem s návratem domů (parkování, ne odvoz): nejlevnější cesta se vrací na letiště, kde auto parkuje – jako kombinace ze serveru
+  const mEnds = res => (res.query.groundMode === 'car' && res.returnsHome && res.legs.length >= 2 && res.origins.some(o => o.ground && o.ground.mode === 'car' && !o.ground.dropOff)
+    ? { from: res.legs[0].options.map(o => o.out.from), to: res.legs[res.legs.length - 1].options.map(o => o.out.to) } : null);
+  const mPlan = (res, picks = mPicks(res)) => SearchHelp.multiPlan(res.legs.map(l => l.options.map(o => o.perPersonCzk)), res.links, picks, mEnds(res));
 
   function renderMulti(res) {
     const host = $('#results');
@@ -1329,18 +1346,21 @@
     // bez cen v okolních dnech má pruh smysl jen jako rychlý výběr jiného dne, když je výsledků málo
     const other = [nb.out, nb.back].some(x => x && x.days.some(d => d.date !== x.around));
     if (!hot && !other) return '';
+    // autem tam i zpět: cena dne i s parkováním na celou cestu (kdyby se změnil jen tento den) – jako ve výsledcích
+    const carRet = res.query.groundMode === 'car' && res.query.trip === 'return';
     const row = (side, which) => {
       const cells = SearchHelp.nearStrip(side, { minDate: which === 'back' ? res.query.exact.out : null });
       return `<div class="nb-row"><span class="nb-lab">${which === 'out' ? '🛫 Tam' : '🛬 Zpět'}</span><div class="nb-days">${cells.map(c => {
         const d = new Date(c.date + 'T12:00:00');
-        const tip = c.cost != null ? `${dayLabel(c.date)}: nejlevnější let od ${czk(c.cost)}/os.${c.carrierName ? ` (${c.carrierName}${c.stops ? ', s přestupem' : ''})` : ''}`
+        const tip = c.cost != null ? `${dayLabel(c.date)}: nejlevnější let od ${czk(c.cost)}/os.${c.carrierName ? ` (${c.carrierName}${c.stops ? ', s přestupem' : ''})` : ''}${c.parkCzk ? ` – vč. parkování na ${plural(c.parkDays, 'den', 'dny', 'dní')} ~${czk(c.parkCzk)}/os.` : ''}`
           : c.around ? `${dayLabel(c.date)}: nic nenalezeno` : `${dayLabel(c.date)}: cenu zatím neznám – klikni a vyhledám`;
         return `<button type="button" class="nb-d${c.around ? ' on' : ''}${c.best ? ' best' : ''}${c.cost == null ? ' none' : ''}" data-nb="${which}:${esc(c.date)}" ${c.around || c.disabled ? 'disabled' : ''} title="${esc(tip)}"><span>${DOW[d.getDay()]}</span><span>${d.getDate()}. ${d.getMonth() + 1}.</span><b>${c.cost != null ? Math.round(c.cost).toLocaleString('cs-CZ') : c.around ? '—' : '?'}</b></button>`;
       }).join('')}</div></div>`;
     };
     const head = hot ? SearchHelp.nearHeadline(nb) : null;
     const priced = [nb.out, nb.back].some(x => x && x.days.length);
-    return `<div class="card nb-card${hot ? ' hot' : ''}"><div class="nb-h"><b>📅 Nejbližší dny</b><span class="faint">${priced ? 'nejlevnější let daného dne v Kč/os. vč. dopravy na letiště' : 'ceny okolních dnů zatím neznám'} · klikni na den a hledám znovu</span></div>
+    const what = carRet ? 'vč. cesty autem a parkování na celou cestu (kdyby se změnil jen tento den)' : 'vč. dopravy na letiště';
+    return `<div class="card nb-card${hot ? ' hot' : ''}"><div class="nb-h"><b>📅 Nejbližší dny</b><span class="faint">${priced ? `nejlevnější let daného dne v Kč/os. ${what}` : 'ceny okolních dnů zatím neznám'} · klikni na den a hledám znovu</span></div>
       ${head ? `<div class="nb-hint">💡 ${esc(head)}</div>` : ''}${row(nb.out, 'out')}${nb.back ? row(nb.back, 'back') : ''}</div>`;
   }
   function pickNearDay(which, d) {
