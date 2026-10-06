@@ -275,11 +275,13 @@ async function geocode(c) {
 async function loadWeather(c) {
   const cache = S.weather[c.iso2];
   if (cache && Date.now() - cache.ts < 3600000) { return paintWeather(cache.data); }
-  const g = await geocode(c); if (!g) { $('#wxBox').innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.<br>Zkontroluj připojení a dej Aktualizovat.</div>'; return; }
+  // odpověď kreslit jen do okna téže země – mezitím mohla být otevřená jiná (nebo okno zavřené)
+  const box = () => (curIso === c.iso2 ? $('#wxBox') : null);
+  const g = await geocode(c); if (!g) { if (box()) box().innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.<br>Zkontroluj připojení a dej Aktualizovat.</div>'; return; }
   try {
     const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=auto`);
-    const j = await r.json(); S.weather[c.iso2] = { ts: Date.now(), data: j }; save(); paintWeather(j);
-  } catch (e) { $('#wxBox').innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.</div>'; }
+    const j = await r.json(); S.weather[c.iso2] = { ts: Date.now(), data: j }; save(); if (box()) paintWeather(j);
+  } catch (e) { if (box()) box().innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.</div>'; }
 }
 function paintWeather(j) {
   if (!$('#wxBox') || !j || !j.current) return;
@@ -291,7 +293,7 @@ function paintWeather(j) {
 async function loadFx(c) {
   if (!c.cur || c.cur === 'CZK') { const el = $('#fxLine'); if (el) el.textContent = c.cur === 'CZK' ? 'domácí měna' : ''; return; }
   if (!S.fx || Date.now() - S.fx.ts > 86400000) { try { const r = await fetch('https://open.er-api.com/v6/latest/CZK'); const j = await r.json(); if (j && j.rates) { S.fx = { ts: Date.now(), rates: j.rates }; save(); } } catch (e) { } }
-  const el = $('#fxLine'); if (!el) return;
+  const el = $('#fxLine'); if (!el || curIso !== c.iso2) return; // mezitím otevřená jiná země
   if (S.fx && S.fx.rates[c.cur]) { const v = 1 / S.fx.rates[c.cur]; el.textContent = `1 ${c.cur} ≈ ${v.toFixed(v < 1 ? 3 : 2)} Kč`; }
 }
 function provLink(name, sub, url, color, lab) { return `<a class="result-link" href="${url}" target="_blank" rel="noopener"><div class="lg" style="background:${color}">${lab}</div><div><div class="rl-t">${name}</div><div class="rl-s">${sub}</div></div><div class="go">${ico('M5 12h14M13 6l6 6-6 6')}</div></a>`; }
