@@ -52,9 +52,19 @@ test('veřejnou dopravou: cílové rozsahy na osobu jedním směrem z Prahy a z 
   assert.deepEqual(klv.breakdown.map((x) => x.k), ['intercity', 'access']);
   assert.match(klv.breakdown[0].label, /^Praha → Karlovy Vary vlakem \/ busem$/);
   assert.ok(klv.minutes > 100 && klv.minutes < 200, `KLV ${klv.minutes} min`);
-  // Mnichov: změřená cena Praha–Mnichov (299 Kč) + S-Bahn na letiště + mezinárodní spoj
+  // Mnichov z Prahy: přímý bus až na letiště (RegioJet, FlixBus, změřeno) – ne bus do města (299 Kč) + S-Bahn ~350 Kč
   const muc = transit(PRAHA, 'MUC');
-  assert.deepEqual(muc.breakdown.map((x) => [x.k, x.czk]), [['intercity', 300], ['access', 350], ['border', 60]]);
+  assert.deepEqual(muc.breakdown.map((x) => [x.k, x.czk]), [['intercity', 400], ['border', 80]]);
+  assert.match(muc.breakdown[0].label, /^Praha → letiště Mnichov přímým busem/);
+  // bez přímého busu (Plzeň) přes město a S-Bahn; Memmingen přes Mnichov a letištní bus
+  const plzen = { lat: 49.7384, lon: 13.3736, label: 'Plzeň' };
+  assert.deepEqual(transit(plzen, 'MUC').breakdown.map((x) => x.k), ['intercity', 'access', 'border']);
+  assert.deepEqual(transit(PRAHA, 'FMM').breakdown.map((x) => [x.k, x.czk]), [['intercity', 300], ['access', 450], ['border', 60]]);
+  // přímý bus jen když vyjde levněji: Praha → Vídeň a Berlín, Brno → Vídeň
+  for (const [h, iata, czk] of [[PRAHA, 'VIE', 440], [PRAHA, 'BER', 500], [BRNO, 'VIE', 300]]) {
+    const g = transit(h, iata);
+    assert.deepEqual([g.czk, g.breakdown.map((x) => x.k)], [czk, ['intercity', 'border']], `${h.label} → ${iata}`);
+  }
   // letiště za humny (blíž než jeho město): regionální spoj rovnou na letiště (Kladno → Ruzyně, Bratislava → Schwechat)
   assert.deepEqual(transit({ lat: 50.1473, lon: 14.1029, label: 'Kladno' }, 'PRG').breakdown.map((x) => x.k), ['regional']);
   const bv = transit(BRATISLAVA, 'VIE');
@@ -71,6 +81,15 @@ test('příplatek za mezinárodní spoj: jen přes hranici, mezi Českem, Sloven
   assert.equal(A.borderCzk('CZ', 'AT', 500), 100);
   assert.equal(A.borderCzk('CZ', 'DE', 100), 50);
   assert.equal(A.borderCzk('CZ', 'CZ', 500), 0);
+  // poloha bez země u hranice: sever Čech má nejblíž letiště Drážďany, pořád je to ale Česko (do Prahy bez příplatku
+  // a bez české známky, do Drážďan s příplatkem)
+  for (const [label, lat, lon] of [['Ústí nad Labem', 50.6607, 14.0323], ['Děčín', 50.7736, 14.1964], ['Varnsdorf', 50.9116, 14.6183]]) {
+    const h = { lat, lon, label };
+    assert.equal(border(h, 'PRG'), 0, label);
+    assert.ok(border(h, 'DRS') >= 50, label);
+    assert.deepEqual(plain(car(h, 'PRG').tolls), [], label);
+  }
+  assert.equal(border(BRATISLAVA, 'BTS'), 0, 'Bratislava = Slovensko');
 });
 
 test('násobek jízdného (kmRate) a vypnutá doprava', () => {
@@ -121,6 +140,7 @@ test('autem: dálniční známky a mýtné jen v cizině, cesta přes sousední 
   assert.deepEqual(cc(PRAHA, 'LNZ'), ['AT']);
   assert.deepEqual(cc(PRAHA, 'BTS'), ['SK']);
   assert.deepEqual(cc(PRAHA, 'BUD'), ['SK', 'HU'], 'do Budapešti přes Slovensko');
+  assert.deepEqual(plain(car(PRAHA, 'BUD').tolls).map((t) => t.czk), [270, 430], 'Slovensko 10,80 €, Maďarsko 6 900 Ft (2026)');
   assert.deepEqual(cc(PRAHA, 'LJU'), ['AT', 'SI']);
   assert.deepEqual(cc(PRAHA, 'MUC'), [], 'Německo pro auta bez známky');
   assert.deepEqual(cc(PRAHA, 'KTW'), [], 'Polsko (A1) bez poplatku');

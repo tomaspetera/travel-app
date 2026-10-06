@@ -5,7 +5,8 @@
 //   cenách RegioJetu a FlixBusu, Praha ↔ Vídeň, Berlín, Mnichov… změřené; na kratší vzdálenost regionální jízdné)
 //   + cesta z města na letiště (MHD, S-Bahn, letištní bus – tabulka ACCESS) + příplatek za mezinárodní spoj
 //   (vázaný spoj v daný čas, méně levných jízdenek přes hranici). Letiště ve městě domova = jen jízdenka MHD,
-//   letiště do 50 km za humny (blíž než jeho město) = regionální bus/vlak rovnou na letiště.
+//   letiště do 50 km za humny (blíž než jeho město) = regionální bus/vlak rovnou na letiště; jede-li z města domova
+//   přímý bus až na letiště (Praha → Mnichov, Vídeň, Berlín; Brno → Vídeň – tabulka DIRECT), počítá se levnější.
 // 🚗 Autem: palivo tam i zpět (silniční km × Kč/km, výchozí 6,5 l/100 km × ~40 Kč/l = 2,6 Kč/km) + parkování
 //   u letiště podle délky cesty + dálniční známka / mýtné v cizině, vše děleno počtem cestujících. Jen tam
 //   (parkování neznámé) = někdo tě odveze: palivo tam i zpět, bez parkování.
@@ -16,10 +17,12 @@
 // z ground.js nevolat (jen uvnitř funkcí).
 import { haversineKm } from './geo.js';
 import { airportsNear, getAirport } from './airports.js';
-import { CHEAP_CC, MEASURED, MOUNTAIN_SLOW, PRAHA_RJ, distanceModel, groundPlace, landKm, mountainsOn } from './ground.js';
+import { CHEAP_CC, CITIES, MEASURED, MOUNTAIN_SLOW, PRAHA_RJ, distanceModel, groundPlace, landKm, mountainsOn } from './ground.js';
 
 // Letiště do ~450 km od Česka: [šířka, délka středu města, které obsluhuje, město, jízdné město → letiště (Kč/os.),
-// minuty, čím, parkování Kč/den za auto (nejlevnější oficiální dlouhodobé / online parkoviště, zaokrouhleno)].
+// minuty, čím, parkování Kč/den za auto (levné dlouhodobé parkoviště – oficiální s rezervací online, nebo smluvní
+// s kyvadlovou dopravou; zaokrouhleno. Ověřeno 10/2026: Praha Smart 1 740 Kč/týden, soukromá od ~1 250 Kč; Vídeň mimo
+// areál 85–97 €/týden; Mnichov Economy 107 €/7 dní)].
 // Memmingen obsluhuje Mnichov (letištní bus), Modlin Varšavu. Ostatní letiště: výchozí hodnoty podle velikosti.
 export const ACCESS = {
   PRG: [50.0755, 14.4378, 'Praha', 46, 45, 'MHD – bus 119 + metro (PID 90 min; Airport Express 100 Kč)', 200],
@@ -57,16 +60,28 @@ export const ACCESS = {
   LJU: [46.0569, 14.5058, 'Lublaň', 105, 50, 'bus z autobusového nádraží (~4,10 €)', 250],
   ZAG: [45.8150, 15.9819, 'Záhřeb', 200, 35, 'letištní bus Pleso (~8 €)', 200],
 };
+// Přímý bus z města domova až na letiště (bez přestupu ve městě letiště): [nejnižší cena Kč/os., minuty jízdy, čím].
+// Změřeno 6. 10. 2026 v API RegioJetu a FlixBusu na odjezdy 20. 10. a 12. 11. 2026: Praha → Mnichov letiště RegioJet
+// 1× denně 299–499 Kč, FlixBus 2–3× 449–479 Kč (počítá se 399); Praha → Vídeň-Schwechat RegioJet 4× denně od 369 Kč,
+// FlixBus 7× od 439 Kč; Praha → Berlín BER FlixBus 9–12× od 419 Kč; Brno → Vídeň-Schwechat RegioJet i FlixBus
+// 10–14× denně od 249 Kč. Přes město + S-Bahn by Mnichov vyšel na ~710 Kč. Klíč: město z ground.json > letiště.
+const DIRECT = {
+  'Praha>MUC': [399, 300, 'přímým busem (RegioJet, FlixBus)'],
+  'Praha>VIE': [369, 295, 'přímým busem (RegioJet, FlixBus)'],
+  'Praha>BER': [419, 250, 'přímým busem (FlixBus)'],
+  'Brno>VIE': [249, 110, 'přímým busem (RegioJet, FlixBus)'],
+};
 // Jízdenka MHD na ~60–90 min podle země (Kč) – pro letiště mimo tabulku.
 export const LOCAL_TICKET = { CZ: 30, SK: 35, PL: 25, HU: 30, AT: 80, DE: 85, SI: 40, HR: 40, IT: 50, CH: 100, _: 60 };
 // Parkování Kč/den za auto u letiště mimo tabulku, podle velikosti (L velké, M střední, S malé).
 const PARK_DEFAULT = { L: 250, M: 150, S: 100 };
-// Dálniční známky a mýtné pro hrubý odhad (Kč za auto, 2025/26). days = platnost (na delší cestu druhá),
-// 0 = mýtné za každou jízdu. Německo a Polsko (A1, A4 k Vratislavi) pro auta bez poplatku.
+// Dálniční známky a mýtné pro hrubý odhad (Kč za auto, 2026: Rakousko 12,80 €, Slovensko 10,80 €, Maďarsko 6 900 Ft,
+// Slovinsko 16 € – ověřeno 10/2026). days = platnost (na delší cestu druhá), 0 = mýtné za každou jízdu. Německo a Polsko
+// (A1, A4 k Vratislavi) pro auta bez poplatku.
 export const TOLLS = {
   AT: { czk: 320, days: 10, label: 'dálniční známka Rakousko (10 dní)' },
-  SK: { czk: 300, days: 10, label: 'e-známka Slovensko (10 dní)' },
-  HU: { czk: 400, days: 10, label: 'e-známka Maďarsko (10 dní)' },
+  SK: { czk: 270, days: 10, label: 'e-známka Slovensko (10 dní)' },
+  HU: { czk: 430, days: 10, label: 'e-známka Maďarsko (10 dní)' },
   SI: { czk: 400, days: 7, label: 'e-známka Slovinsko (7 dní)' },
   CZ: { czk: 290, days: 10, label: 'e-známka Česko (10 dní)' },
   CH: { czk: 1050, days: 365, label: 'dálniční známka Švýcarsko (rok)' },
@@ -105,7 +120,22 @@ export function airportCity(a) {
   };
 }
 
-const ccNear = (p) => airportsNear(p.lat, p.lon, 150, { includeSmall: true, limit: 1 })[0]?.cc || '';
+// Země místa bez kódu země (poloha, město z geokódování): nejbližší město z dat ground.json do 60 km, jinak nejbližší
+// letiště. Jen podle letiště by sever Čech (Ústí n. L., Teplice, Děčín, Varnsdorf – nejblíž Drážďany) vyšel jako
+// Německo: příplatek za mezinárodní spoj do Prahy a česká dálniční známka navíc.
+function ccNear(p) {
+  let best = null;
+  let bestD = 60;
+  for (const c of CITIES) {
+    if (Math.abs(c.lat - p.lat) > 0.6 || Math.abs(c.lon - p.lon) > 0.9) continue;
+    const d = haversineKm(p.lat, p.lon, c.lat, c.lon);
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  }
+  return best?.cc || airportsNear(p.lat, p.lon, 150, { includeSmall: true, limit: 1 })[0]?.cc || '';
+}
 // Odkud se jede: výchozí místo; zadané letiště (ap:PRG = „Praha“) → střed jeho města (do 35 km od letiště).
 function origin(home) {
   const a = home.iata ? getAirport(home.iata) : null;
@@ -153,9 +183,16 @@ export function transitAccess(home, a, { scale = 1 } = {}) {
     minutes = regionalMin(km) + 10;
   } else {
     const ic = intercity(o, { lat: c.lat, lon: c.lon, label: c.label, cc: a.cc });
-    items.push({ k: 'intercity', label: `${o.label ? `${o.label} → ` : ''}${c.label} vlakem / busem`, czk: ic.czk, min: ic.min });
-    items.push({ k: 'access', label: c.how, czk: c.czk, min: c.min });
-    minutes = ic.min + c.min + 20; // na nádraží a přestup
+    const d = DIRECT[`${groundPlace(o)?.label}>${a.iata}`];
+    const via = ic.czk + c.czk + borderCzk(o.cc, a.cc, ic.czk);
+    if (d && d[0] + borderCzk(o.cc, a.cc, d[0]) < via) {
+      items.push({ k: 'intercity', label: `${o.label ? `${o.label} → ` : ''}letiště ${c.label} ${d[2]}`, czk: d[0], min: d[1] });
+      minutes = d[1] + 20; // na nádraží
+    } else {
+      items.push({ k: 'intercity', label: `${o.label ? `${o.label} → ` : ''}${c.label} vlakem / busem`, czk: ic.czk, min: ic.min });
+      items.push({ k: 'access', label: c.how, czk: c.czk, min: c.min });
+      minutes = ic.min + c.min + 20; // na nádraží a přestup
+    }
   }
   const b = borderCzk(o.cc, a.cc, items[0].czk);
   if (b) items.push({ k: 'border', label: 'příplatek za mezinárodní spoj', czk: b });

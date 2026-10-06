@@ -169,26 +169,36 @@ nebo **🚗 autem**, případně dopravu nezapočítáš vůbec. Vždy je to odh
   Budapešť bus 100E ~140 Kč; Memmingen = letištní bus z Mnichova), jinde jízdenka MHD země + 20–40 Kč podle velikosti
   letiště. Příplatek přes hranici: mezi Českem, Slovenskem, Polskem a Maďarskem 30 Kč, jinak 20 % jízdného (aspoň
   50 Kč) – na letiště jedeš konkrétním spojem v danou hodinu, ne nejlevnější akční jízdenkou.
+- **Přímý bus až na letiště** z Prahy do Mnichova, Vídně a Berlína a z Brna do Vídně se počítá místo cesty přes město,
+  když vyjde levněji (ceny změřené 6. 10. 2026: Praha → letiště Mnichov RegioJet 1× denně 299–499 Kč, FlixBus
+  449–479 Kč; Vídeň od 369 Kč, Berlín BER od 419 Kč, Brno → Vídeň od 249 Kč; Mnichov přes město a S-Bahn ~710 Kč).
 - **Letiště za humny** (do 50 km a blíž než jeho město) → regionální bus / vlak rovnou na letiště (Kladno → Ruzyně,
   Bratislava → Vídeň-Schwechat).
+- Země výchozího místa bez kódu země (📍 poloha, město z vyhledávání) podle nejbližšího města v datech, ne podle
+  nejbližšího letiště – z Ústí nad Labem nebo Děčína (nejblíž Drážďany) se do Prahy nepočítá příplatek přes hranici
+  ani česká dálniční známka.
 - **Jízdné ×** násobí celý odhad (0,5 = sleva 50 % pro žáky, studenty a seniory, 0 = nepočítat).
 
-Z Prahy na osobu tam: PRG ~50 Kč, PED ~200 Kč, KLV ~220 Kč, JCL ~230 Kč, DRS ~330 Kč, VIE ~470 Kč, BER ~520 Kč,
-MUC ~710 Kč; z Brna: BRQ ~30 Kč, BTS ~270 Kč, VIE ~350 Kč. Čas = jízda podle téhož modelu + cesta na letiště + ~20 min
-na nádraží a přestup.
+Z Prahy na osobu tam: PRG ~50 Kč, PED ~200 Kč, KLV ~220 Kč, JCL ~230 Kč, DRS ~330 Kč, VIE ~440 Kč, MUC ~480 Kč,
+BER ~500 Kč; z Brna: BRQ ~30 Kč, BTS ~270 Kč, VIE ~300 Kč. Čas = jízda podle téhož modelu + cesta na letiště + ~20 min
+na nádraží a přestup. Ověřeno proti živým cenám RegioJetu a FlixBusu (6. 10. 2026, odjezdy 20. 10. a 12. 11.): Praha →
+Karlovy Vary 139–259 Kč, Pardubice 119–169 Kč, České Budějovice 179–279 Kč, Drážďany 259–419 Kč (+ S-Bahn ~85 Kč –
+model je u Drážďan spíš na spodní hraně), Brno → Bratislava 129–279 Kč.
 
 **🚗 Autem** (za auto, pak děleno počtem cestujících):
 
 - **Palivo tam i zpět** = silniční km (≈ 1,25 × vzdušná čára) × **Kč/km za auto** (výchozí 2,6 = 6,5 l/100 km × ~40 Kč/l,
   nastavitelné).
-- **Parkování u letiště podle délky cesty**: N nocí = N + 1 započatých dní × denní sazba nejlevnějšího oficiálního
-  dlouhodobého / online parkoviště (PRG ~200 Kč, BRQ ~120 Kč, regionální letiště v Česku 80–100 Kč, VIE a BER ~300 Kč,
-  MUC ~400 Kč za den; jinde 100–250 Kč podle velikosti letiště). Počítá se u každé nabídky podle jejích nocí
-  (optimalizátor), ne za letiště – na víkend může vyjít Vídeň, na dva týdny Praha.
-- **Dálniční známka / mýtné** jen v cizině (domácí známku máš): Rakousko ~320 Kč, Slovensko ~300 Kč, Maďarsko ~400 Kč
-  (10 dní), Slovinsko ~400 Kč (7 dní), Švýcarsko ~1 050 Kč (rok), Chorvatsko a Itálie mýtné za jízdu; Německo a Polsko
-  (A1) bez poplatku. Do Budapešti přes Slovensko, do Lublaně a Záhřebu přes Rakousko. Když cesta trvá déle, než známka
-  platí, počítá se druhá.
+- **Parkování u letiště podle délky cesty**: N nocí = N + 1 započatých dní × denní sazba levného dlouhodobého
+  parkoviště – oficiálního s rezervací online, nebo smluvního s kyvadlovou dopravou (PRG ~200 Kč, BRQ ~120 Kč,
+  regionální letiště v Česku 80–100 Kč, VIE a BER ~300 Kč, MUC ~400 Kč za den; jinde 100–250 Kč podle velikosti
+  letiště). Pro srovnání 10/2026: Praha Smart 1 740 Kč/týden, soukromá parkoviště od ~1 250 Kč; Vídeň mimo areál
+  85–97 €/týden; Mnichov Economy 107 €/7 dní. Počítá se u každé nabídky podle jejích nocí (optimalizátor), ne za
+  letiště – na víkend může vyjít Vídeň, na dva týdny Praha.
+- **Dálniční známka / mýtné** jen v cizině (domácí známku máš): Rakousko ~320 Kč (12,80 €), Slovensko ~270 Kč
+  (10,80 €), Maďarsko ~430 Kč (6 900 Ft; vše 10 dní), Slovinsko ~400 Kč (16 €, 7 dní), Švýcarsko ~1 050 Kč (rok),
+  Chorvatsko a Itálie mýtné za jízdu; Německo a Polsko (A1) bez poplatku. Do Budapešti přes Slovensko, do Lublaně
+  a Záhřebu přes Rakousko. Když cesta trvá déle, než známka platí, počítá se druhá.
 - Autem se vracíš na letiště, kde auto stojí – návrat na jiné letiště v okolí (open-jaw) se v režimu autem nenabízí.
 - **Jen tam** (parkování neznámé): počítá se, že tě někdo odveze a vrátí se – palivo tam i zpět, známka, bez parkování.
   Cesta přes víc měst s návratem domů: palivo u 1. letu i u návratu, parkování na celou plánovanou cestu (nejlevnější
