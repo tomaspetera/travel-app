@@ -529,9 +529,9 @@ cesta z města příjezdu (ne z letiště):
   Káhira–Alexandrie, Dillí–Ágra. Minuty = typický nejrychlejší **pravidelný** přímý vlak jízdního řádu 2026 (v každém
   směru 3. nejkratší jízda dne – ne jediný výjimečný spoj; průměr obou směrů; bez dočasných výluk) + **20 min** na cestu
   na nádraží, z něj a čekání. Leží-li obě místa do **15 km** od nádraží spoje, je přejezd vždy *🚆 vlakem* (i v zemi,
-  kde se jinak jezdí autobusem) a trvá nejvýš tolik – kratší zůstane jen odhad z času autem (Praha → Brno s trasou
-  2 h 50 min, vlak 2 h 37 min + 20 min); odhad tempa rychlovlaku spoj nahradí (Frankfurt → Mnichov 3 h 35 min místo
-  2 h 55 min). Místo **15–60 km** od nádraží jede přes uzel: místní spoj k nádraží (týž odhad jako jiné přejezdy)
+  kde se jinak jezdí autobusem) a trvá právě tolik – jízdní řád nahradí odhad z času autem, i když by vyšel kratší
+  (Praha → Brno: odhad s trasou 2 h 50 min, vlak 2 h 37 min + 20 min = ~2 h 55 min), i odhad tempa rychlovlaku
+  (Frankfurt → Mnichov 3 h 35 min místo 2 h 55 min). Místo **15–60 km** od nádraží jede přes uzel: místní spoj k nádraží (týž odhad jako jiné přejezdy)
   + 10 min přestup + spoj – ale jen když je to rychlejší než odhad (Lovaň → Brusel → Paříž ano, Baden → Vídeň → Brno
   ne); dál se spoj nepoužije. Letiště nikdy není „u nádraží“, cesta z něj k vlaku se počítá vždy. Hranice: v Schengenu
   nic, jinde jako u ostatních vlaků; Eurostar z/do Londýna má v minutách **odbavení 60 min** (Eurostar doporučuje přijít

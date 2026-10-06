@@ -113,9 +113,10 @@ test('přímé vlaky z tabulky (jízdní řád 2026): oba směry, přes uzel jen
   assert.deepEqual([wb.transitMin, wb.transitKind, wb.fast, wb.border, wb.hsr], [r5(link('wien', 'brno') + RL.overheadMin), 'rail', true, null, undefined]);
   assert.deepEqual([bw.transitMin, bw.fast], [wb.transitMin, true], 'oba směry stejně');
   between(wb.transitMin, 100, 120, 'Vídeň → Brno vlakem (skutečně ~1 h 50 min i s nádražím)');
-  // Praha → Brno s trasou z BRouteru: odhad z času autem (2 h 50 min) je kratší než vlak (2 h 37 min + nádraží) → zůstane
+  // Praha → Brno s trasou z BRouteru: odhad z času autem (2 h 50 min) by byl kratší než vlak (2 h 37 min + nádraží),
+  // mezi nádražími přímého spoje ale platí jízdní řád – rychleji to vlakem nejede
   const pb = transferTimes(P.praha, P.brno, { km: 208.3, min: 117 });
-  assert.deepEqual([pb.transitKind, pb.fast, pb.transitMin], ['rail', undefined, 170]);
+  assert.deepEqual([pb.transitKind, pb.fast, pb.transitMin], ['rail', true, 175]);
   // spoj z tabulky nahradí odhad tempa rychlovlaku (Frankfurt → Mnichov ICE 3 h 15 min, tempo by dalo 2 h 55 min)
   const fm = transferTimes(Q.frankfurt, Q.munchen);
   assert.deepEqual([fm.transitMin, fm.fast, fm.hsr], [r5(link('frankfurt', 'munchen') + RL.overheadMin), true, undefined]);

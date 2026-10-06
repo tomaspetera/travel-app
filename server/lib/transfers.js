@@ -161,8 +161,8 @@ export function railLink(a, b) {
  * Auto: čas trasy × provoz regionu + 5 min (start a cíl ve městě) + zácpy v metropoli + hranice.
  * Vlak: auto bez hranice + nádraží a čekání (10–30 min) + hranice; mezi městy na VRT nejvýš hsrMin.
  * Autobus / minibus: auto × 1,2–1,3 (zastávky) + čekání (15–45 min) + hranice (v Africe 2 h – přestup na hranici).
- * Přímý vlak z tabulky (railLink): mezi jeho nádražími vždy vlak a nejvýš čas podle jízdního řádu (místo odhadu
- * tempa rychlovlaku), přes uzel do 60 km jen tehdy, když je rychlejší než odhad → fast: true.
+ * Přímý vlak z tabulky (railLink): mezi jeho nádražími vždy vlak a čas podle jízdního řádu (místo odhadu i tempa
+ * rychlovlaku), přes uzel do 60 km jen tehdy, když je rychlejší než odhad → fast: true.
  */
 export function transferTimes(a, b, route = null) {
   const e = estimate(a, b, route);
@@ -171,12 +171,9 @@ export function transferTimes(a, b, route = null) {
   let transit = e.transit;
   let used = e.hsr ? 'hsr' : null;
   const link = railLink(a, b);
-  if (link?.direct) {
-    kind = 'rail';
-    transit = e.kind === 'rail' ? e.generic : Infinity; // autobus v zemi bez vlaků není čas vlaku
-    used = null;
-  }
-  if (link && link.min < transit) {
+  // Mezi nádražími přímého spoje platí jízdní řád (i když by odhad podle auta vyšel kratší – rychleji
+  // to vlakem nejede); přes uzel jen tehdy, když je to rychlejší než odhad.
+  if (link && (link.direct || link.min < transit)) {
     kind = 'rail';
     transit = link.min;
     used = 'link';
