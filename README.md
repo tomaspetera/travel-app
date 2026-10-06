@@ -418,7 +418,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `POST /api/search` | hledání, viz `normalizeQuery` v `server/lib/search.js`; odpověď je NDJSON (průběh, pak výsledek) |
 | `GET /api/verify?from=BGY&to=BCN&out=2026-11-10&back=2026-11-14&adults=2` | živá cena a alternativy z Kiwi.com |
 | `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery (`links[]` s `prefill`: `full` / `city` / `none`); bez `cc` se země dopočte z `lat`/`lon`, bez `cityEn` anglický název z geokódování (podle `gid` – ID GeoNames místa vybraného v hledání, jinak podle názvu v okolí) |
-| `POST /api/stayplan` | trasa přes víc míst: návrh `{ arrival, departure, nights, transport, count?, exclude? }`, nebo přepočet `{ arrival, departure, transport, bases: [{ name, lat, lon, cc }], ground? }`. Přejezdy `{ km, carMin, transitMin, transitKind: 'rail'\|'bus', border: { from, to }\|null, basis: 'route'\|'estimate', long, carUrl, transitUrl }`, `pending` = kolik tras autem se ještě počítá; u přepočtu i `bases[{ cc, country }]` a s `ground` (město, kam se jede vlakem/busem) `groundLegs` |
+| `POST /api/stayplan` | trasa přes víc míst: návrh `{ arrival, departure, nights, transport, count?, exclude? }`, nebo přepočet `{ arrival, departure, transport, bases: [{ name, lat, lon, cc }], ground? }`. Přejezdy `{ km, carMin, transitMin, transitKind: 'rail'\|'bus', border: { from, to }\|null, basis: 'route'\|'estimate', hsr?: true, fast?: true, long, carUrl, transitUrl }` (`hsr` = odhad tempa rychlovlaku, `fast` = přímý vlak z tabulky jízdních řádů), `pending` = kolik tras autem se ještě počítá; u přepočtu i `bases[{ cc, country }]` a s `ground` (město, kam se jede vlakem/busem) `groundLegs`. Přepočet nad limitem přepočtů na IP odpoví bez nových tras z BRouteru |
 | `GET /api/cars?pickup=BGY&dropoff=MXP&from=2026-11-10T09:00&to=2026-11-14T18:00` | předvyplněné odkazy na půjčovny |
 | `GET /api/ground?from=ap:PRG&to=ap:VIE&date=2026-11-10&adults=2` | vlak nebo bus místo letadla: `from`/`to` jako v hledání (`ap:`, `metro:`, `geo:`, kód letiště) nebo `fromLat`/`fromLon`/`fromName`/`fromCc`; volitelně `flightCzk`, `trips` (2 = cena letu tam i zpět), `flightMin`, `live=0`. Odpověď `{ from, to, km, est: { minutes, czk, basis }, worth: { worth, rule, reason, doorMin }, why, links, live? }` – `live` (spoje RegioJetu) jen s datem; `why` = proč se po zemi nedá (ostrov, moře, daleko) |
 | `GET /api/poi?lat=…&lon=…&radius=8` | místa k vidění (Wikidata + Wikipedie) |
@@ -518,8 +518,34 @@ cesta z města příjezdu (ne z letiště):
   v téže zemi (Itálie, Francie, Španělsko, Německo, Rakousko, Británie, Japonsko, Čína, Korea, Tchaj-wan) nejvýš
   40 min + 0,25–0,5 min/km vzdušnou čarou podle země (Čína 0,25; Francie, Španělsko, Japonsko, Tchaj-wan 0,3;
   Itálie 0,35; Británie a Korea 0,4; Německo 0,45; Rakousko 0,5 – Westbahn jezdí ~200 km/h se zastávkami). Jinde
-  *🚌 autobusem / minibusem* – čas autem × 1,2 (Evropa) až 1,3 + 15–45 min čekání + hranice. Vždy „odhad“; odkaz
-  do Google Map je „ověř spoje“.
+  *🚌 autobusem / minibusem* – čas autem × 1,2 (Evropa) až 1,3 + 15–45 min čekání + hranice. Vždy „odhad“ (mimo
+  tabulku přímých vlaků níže); odkaz do Google Map je „ověř spoje“.
+- **Přímé rychlé vlaky podle jízdního řádu:** tabulka ~100 ověřených spojů mezi hlavními nádražími ~80 měst
+  (`railLinks` v `data/transfers.json`) – Česko a sousedé (Praha–Brno/Olomouc/Ostrava/Pardubice/Plzeň/Drážďany/Berlín/
+  Vídeň/Bratislava, Vídeň–Brno/Bratislava/Budapešť, Žilina–Košice, Koralmbahn Štýrský Hradec–Klagenfurt 42 min…),
+  Německo, Polsko, Švýcarsko, Benelux, Paříž (Eurostar, TGV Lyria, ICE), Skandinávie, Finsko, Portugalsko, sever Itálie
+  a pár rychlých tratí jinde: Al Boraq Tanger–Casablanca–Rabat, Acela New York–Washington/Filadelfie/Boston, YHT
+  Istanbul–Ankara–Konya, Haramain Mekka–Medína, Afrosiyob Taškent–Samarkand–Buchara, Whoosh Jakarta–Bandung,
+  Káhira–Alexandrie, Dillí–Ágra. Minuty = typický nejrychlejší **pravidelný** přímý vlak jízdního řádu 2026 (v každém
+  směru 3. nejkratší jízda dne – ne jediný výjimečný spoj; průměr obou směrů; bez dočasných výluk) + **20 min** na cestu
+  na nádraží, z něj a čekání. Leží-li obě místa do **15 km** od nádraží spoje, je přejezd vždy *🚆 vlakem* (i v zemi,
+  kde se jinak jezdí autobusem) a trvá nejvýš tolik – kratší zůstane jen odhad z času autem (Praha → Brno s trasou
+  2 h 50 min, vlak 2 h 37 min + 20 min); odhad tempa rychlovlaku spoj nahradí (Frankfurt → Mnichov 3 h 35 min místo
+  2 h 55 min). Místo **15–60 km** od nádraží jede přes uzel: místní spoj k nádraží (týž odhad jako jiné přejezdy)
+  + 10 min přestup + spoj – ale jen když je to rychlejší než odhad (Lovaň → Brusel → Paříž ano, Baden → Vídeň → Brno
+  ne); dál se spoj nepoužije. Letiště nikdy není „u nádraží“, cesta z něj k vlaku se počítá vždy. Hranice: v Schengenu
+  nic, jinde jako u ostatních vlaků; Eurostar z/do Londýna má v minutách **odbavení 60 min** (Eurostar doporučuje přijít
+  75 min před odjezdem v Londýně, 45–90 min jinde; kontrola pasů je jeho součástí), hranice se proto nepřičítá podruhé.
+  K nádražím daleko za městem minuty navíc (Whoosh: Halim +25, Tegalluar +42; Buchara-Kogon +15). Takový přejezd má
+  v odpovědi `fast: true`.
+- **Zdroje tabulky (ověřeno 6. 10. 2026):** ÖBB Scotty (fahrplan.oebb.at – jízdní řády evropských železnic v systému
+  HAFAS): všechny přímé vlaky dne v út 27. 10. a čt 12. 11. 2026 (při výluce – méně vlaků, objížďka – hodnota ze dne bez
+  ní, kontrolně út 13. 10.); Amtrak GTFS (feed z 6. 10. 2026); seat61.com (Maroko, Turecko, Uzbekistán, Indie, Indonésie –
+  stránky z června až září 2026); blog.wego.com a Saudipedia (Haramain, 2026); ask-aladdin.com (Egypt 2026); eurostar.com
+  (odbavení). Vynechané: Casablanca–Marrákeš (od 9/2025 výluky kvůli stavbě rychlotrati Kenitra–Marrákeš, jízdní
+  řád se mění), Madrid–Lisabon (přímý vlak v roce 2026 nejezdí), Budapešť–Bělehrad (v jízdním řádu 2026 žádný spoj,
+  provoz po nové trati odložený), Lublaň–Záhřeb (5 vlaků denně, pomalejší než autobus), Bangkok–Ajutthaja (vlak není
+  jasně rychlejší); Barcelona–Paříž jezdí přímo jen 2× denně, proto typický dobrý spoj i s přestupem (~6 h 55 min).
 - **Bez trasy** (BRouter neodpoví, je mimo rozpočet, přejezd delší než 500 km vzdušnou čarou, DEMO) platí stejná
   pravidla nad odhadem ze vzdušné vzdálenosti (zajížďka 1,2–1,35, rychlost podle regionu) a u času autem je
   „odhad“ místo „podle trasy“.
@@ -529,6 +555,9 @@ cesta z města příjezdu (ne z letiště):
   se ukládají 30 dní podle bodů zaokrouhlených na ~1 km a bez ohledu na směr, takže úprava trasy už spočítané úseky
   znovu nepočítá; nenalezená trasa 6 h, výpadek 10 min.
   Střed města v pěší zóně („target island“) se zkusí znovu s body o kus blíž k sobě, jiná chyba výpočtu profilem `car-eco`.
+  Přepočty trasy z jedné IP mají vlastní limit – 3× `SEARCH_RATE_LIMIT` za 10 minut, zvlášť od hledání (do jeho limitu se
+  nepočítají) a počítá se jen přepočet, který opravdu potřebuje novou trasu. Nad limitem přepočet neodmítne (žádné 429),
+  jen nespustí nové výpočty: trasy z mezipaměti, ostatní odhadem (a ne „pending“, prohlížeč se znovu neptá).
 - **Návrh trasy** počítá s týmiž časy: běžný přejezd je nejvýš ~3 h 20 min autem a ~3 h 45 min veřejnou dopravou
   (6hodinový přejezd přes hranici tedy „krátký“ není); když skutečná trasa ukáže delší přejezd než odhad, návrh se
   jednou zopakuje s ní.
@@ -541,8 +570,25 @@ cesta z města příjezdu (ne z letiště):
 | Porto Novo → Abeokuta (208 km, hranice) | ~3 h 55 min | 🚌 ~6 h 50 min – vlak tam nejezdí |
 | Praha → Brno (208 km) | ~2 h 20 min | 🚆 ~2 h 50 min |
 | Milán → Boloňa (215 km) | ~2 h 40 min | 🚆 ~1 h 50 min (rychlovlak) |
-| Vídeň → Salcburk (296 km) | ~3 h 15 min | 🚆 ~2 h 45 min (Railjet 2 h 22 min + nádraží) |
-| Paříž → Lyon (463 km) | ~4 h 35 min | 🚆 ~2 h 35 min (rychlovlak) |
+| Vídeň → Salcburk (296 km) | ~3 h 15 min | 🚆 ~2 h 45 min (Railjet 2 h 25 min + 20 min, z tabulky spojů) |
+| Paříž → Lyon (463 km) | ~4 h 35 min | 🚆 ~2 h 15 min (TGV 1 h 55 min + 20 min, z tabulky spojů) |
+
+**Přímé vlaky z tabulky** (odhad bez trasy z BRouteru; dřív = čas autem + nádraží, v závorce jízdní řád 2026):
+
+| Přejezd | Dřív | Teď |
+|---|---|---|
+| Vídeň → Brno | 🚆 2 h 30 min | 🚆 1 h 50 min (Railjet 1 h 31 min) |
+| Praha → Pardubice / Olomouc / Ostrava | 🚆 2 h 20 / 3 h 30 / 4 h 25 min | 🚆 1 h 15 / 2 h 35 / 3 h 40 min (57 min / 2 h 14 / 3 h 18) |
+| Krakov → Varšava | 🚆 4 h 05 min | 🚆 2 h 45 min (EIP 2 h 27 min) |
+| Curych → Bern | 🚆 2 h 10 min | 🚆 1 h 15 min (IC 56 min) |
+| Brusel → Paříž | 🚆 3 h 55 min | 🚆 1 h 45 min (Eurostar 1 h 26 min) |
+| Londýn → Paříž | 🚆 5 h 25 min | 🚆 3 h 50 min (Eurostar 2 h 28 min + odbavení 60 min) |
+| Frankfurt → Mnichov | 🚆 2 h 55 min (odhad tempa VRT) | 🚆 3 h 35 min (ICE 3 h 16 min) |
+| Stockholm → Göteborg | 🚆 5 h 35 min | 🚆 3 h 50 min (3 h 28 min) |
+| Tanger → Casablanca | 🚌 5 h 55 min | 🚆 2 h 30 min (Al Boraq 2 h 10 min) |
+| New York → Washington | 🚌 5 h 50 min | 🚆 3 h 20 min (Acela 2 h 58 min) |
+| Lovaň → Paříž (26 km od Bruselu) | 🚆 4 h 05 min | 🚆 3 h 00 min (přes Brusel) |
+| Baden → Brno (23 km od Vídně) | 🚆 2 h 40 min | 🚆 2 h 40 min (přes Vídeň by to bylo pomalejší) |
 
 ## Omezení (upřímně)
 
@@ -559,8 +605,10 @@ cesta z města příjezdu (ne z letiště):
   v Polsku; u cesty přes víc měst si ručním výběrem letů můžeš složit i návrat na jiné letiště, než kde auto parkuje
   (cena pak počítá, jako by ses vrátil k autu).
 - Přejezdy mezi místy trasy: čas autem je z trasy BRouteru s **průměrnými** faktory provozu a hranic – skutečná zácpa,
-  stavba nebo fronta na hranici může cestu prodloužit o hodiny. Veřejná doprava je vždy odhad z času autem (jízdní řády
-  ATLAS nenačítá) – konkrétní spoj ověř přes odkaz. Země bez kódu z Wikidat se dopočítá podle nejbližšího letiště, takže
+  stavba nebo fronta na hranici může cestu prodloužit o hodiny. Veřejná doprava je odhad z času autem, jen mezi městy
+  z tabulky ~100 přímých vlaků čas podle jízdního řádu 2026 (typický nejrychlejší pravidelný spoj – ne každý vlak tak
+  jede, výluky, zpoždění ani změny jízdního řádu po 12. 12. 2026 v ní nejsou; živé jízdní řády ATLAS nenačítá) – konkrétní
+  spoj ověř přes odkaz. Země bez kódu z Wikidat se dopočítá podle nejbližšího letiště, takže
   u místa těsně u hranice může vyjít sousední země (Basilej → Francie).
 - Odkazy na partnery ubytování: Booking.com, Airbnb, Trip.com, Hotels.com a Kayak dostanou místo, data i počet hostů
   (Trip.com je vyplní do formuláře – hledání potvrdíš), Google Hotels a Hostelworld jen místo, Agoda jen úvodní stránku

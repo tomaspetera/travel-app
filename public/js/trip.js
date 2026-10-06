@@ -1628,7 +1628,7 @@
       km: Math.round(x.km), carMin: Math.round(x.carMin), transitMin: Math.round(x.transitMin), long: x.long === true, carUrl: url(x.carUrl), transitUrl: url(x.transitUrl),
       // bez druhu dopravy = přejezd ze starší verze → v kroku Trasa se přepočítá
       ...(x.transitKind === 'bus' || x.transitKind === 'rail' ? { transitKind: x.transitKind } : {}), basis: x.basis === 'route' ? 'route' : 'estimate',
-      border: obj(x.border) && cc2(x.border.from) && cc2(x.border.to) ? { from: x.border.from, to: x.border.to } : null, ...(x.hsr === true ? { hsr: true } : {}),
+      border: obj(x.border) && cc2(x.border.from) && cc2(x.border.to) ? { from: x.border.from, to: x.border.to } : null, ...(x.hsr === true ? { hsr: true } : {}), ...(x.fast === true ? { fast: true } : {}),
     } : null);
     // přejezdy z města příjezdu vlakem/busem: klíč = poloha města a prvního/posledního místa
     const gl = r.groundLegs;

@@ -243,6 +243,8 @@ test('průvodce: západní Afrika – čas podle trasy, autobusem / minibusem (n
   // sdílený odkaz: nová pole přejezdu se zachovají, škodlivá pryč
   const raw = JSON.parse(JSON.stringify(t));
   raw.route.transfers[1] = { ...raw.route.transfers[1], transitKind: '<b>', basis: 'x', border: { from: 'BJ', to: 'N<' }, hsr: 'yes' };
+  Object.assign(raw.route.transfers[0], { fast: true }); // přímý vlak z tabulky spojů
+  Object.assign(raw.route.transfers[1], { fast: 'yes' });
   raw.route.groundLegs = { key: '1,2|3,4|5,6', arrival: raw.route.transfers[0], departure: null, extra: 1 };
   Object.assign(raw.route.bases[1], { gid: 2392087 });
   Object.assign(raw.route.bases[2], { gid: '1;drop' });
@@ -250,6 +252,7 @@ test('průvodce: západní Afrika – čas podle trasy, autobusem / minibusem (n
   assert.deepEqual(r.bases.map((b) => b.gid), [undefined, 2392087, undefined], 'ID GeoNames jen jako celé číslo');
   assert.deepEqual([r.transfers[0].transitKind, r.transfers[0].basis, r.transfers[0].border], ['bus', 'route', { from: 'NG', to: 'BJ' }]);
   assert.deepEqual([r.transfers[1].transitKind, r.transfers[1].basis, r.transfers[1].border, r.transfers[1].hsr], [undefined, 'estimate', null, undefined], 'neznámý druh dopravy → přepočítá se');
+  assert.deepEqual([r.transfers[0].fast, r.transfers[1].fast], [true, undefined], 'příznak přímého vlaku jen jako true');
   assert.deepEqual(Object.keys(r.groundLegs), ['key', 'arrival', 'departure']);
   assert.equal(r.groundLegs.arrival.carMin, t.route.transfers[0].carMin);
   raw.route.groundLegs.key = '<script>';

@@ -1,7 +1,8 @@
 // Přejezdy mezi místy trasy (a z/na letiště): silniční vzdálenost a čas autem z plánovače tras BRouter
 // (profil car-fast, volný provoz), k tomu provoz podle regionu, zácpy ve velkých metropolích, hraniční
 // kontrola a veřejná doprava podle země – vlakem jen tam, kde se mezi městy jezdí vlakem, jinde autobusem
-// či minibusem. Když trasa není (bez sítě, mimo rozpočet dotazů, chyba), stejná pravidla nad odhadem ze
+// či minibusem; mezi městy z tabulky přímých rychlých vlaků (railLinks) čas podle jízdního řádu 2026.
+// Když trasa není (bez sítě, mimo rozpočet dotazů, chyba), stejná pravidla nad odhadem ze
 // vzdušné vzdálenosti. Pravidla a zdroje: data/transfers.json, kalibrace v README (Přejezdy mezi místy).
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -86,36 +87,108 @@ export function freeEstimate(air, reg) {
 }
 
 /**
- * Přejezd a → b ({ lat, lon, cc? }); route = { km, min } z BRouteru (volný provoz), nebo null = odhad.
- * Auto: čas trasy × provoz regionu + 5 min (start a cíl ve městě) + zácpy v metropoli + hranice.
- * Vlak: auto bez hranice + nádraží a čekání (10–30 min) + hranice; mezi městy na VRT nejvýš hsrMin.
- * Autobus / minibus: auto × 1,2–1,3 (zastávky) + čekání (15–45 min) + hranice (v Africe 2 h – přestup na hranici).
+ * Přejezd bez tabulky přímých vlaků (i místní spoj k nádraží uzlu), minuty nezaokrouhlené:
+ * { air, ccA, ccB, kind, km, drive (auto bez hranice), generic (vlak/bus z času autem), transit (nejvýš rychlovlak), hsr }
  */
-export function transferTimes(a, b, route = null) {
+function estimate(a, b, route) {
   const air = haversineKm(a.lat, a.lon, b.lat, b.lon);
   const ccA = ccOf(a);
   const ccB = ccOf(b);
   const kind = transitKind(a, b, ccA, ccB);
-  if (air < 1) return { km: 0, carMin: 0, transitMin: 0, transitKind: kind, border: null, basis: 'estimate' };
   const ra = regionOf(ccA);
   const rb = regionOf(ccB);
   const reg = ra.f >= rb.f ? ra : rb; // přes dva regiony platí pomalejší
   const free = route && route.min > 0 ? route : freeEstimate(air, reg);
   const drive = free.min * reg.f + 5 + congestionMin(a, b);
   const share = Math.min(1, air / 60); // krátký přejezd (letiště → město) = kratší čekání na spoj
-  let transit = kind === 'rail'
+  const generic = kind === 'rail'
     ? drive + 10 + 20 * share + borderMin(ccA, ccB, 'rail')
     : drive * reg.bus + 15 + 30 * share + borderMin(ccA, ccB, 'bus');
   const hsr = kind === 'rail' && ccA === ccB ? hsrMin(a, b, air) : null;
-  if (hsr && hsr < transit) transit = hsr;
+  return { air, ccA, ccB, kind, km: free.km, drive, generic, transit: hsr && hsr < generic ? hsr : generic, hsr: Boolean(hsr && hsr < generic) };
+}
+
+/* ---------- přímé rychlé vlaky podle jízdního řádu (data/transfers.json → railLinks) ---------- */
+
+const RL = RULES.railLinks;
+// [id, země, název, šířka, délka, minuty navíc z centra k nádraží daleko za městem]
+const LINK_CITIES = RL.cities.map(([id, cc, name, lat, lon, extra = 0]) => ({ id, cc, name, lat, lon, extra }));
+const LINKS = new Map(); // 'idA>idB' (oba směry) → { min, checkIn }
+for (const [x, y, min, , checkIn = 0] of RL.links) {
+  LINKS.set(`${x}>${y}`, { min, checkIn });
+  LINKS.set(`${y}>${x}`, { min, checkIn });
+}
+
+// Města z tabulky do viaKm od místa; „u nádraží“ (at) do hubKm – letiště nikdy, cesta z něj k vlaku se počítá vždy.
+function hubsNear(p) {
+  const out = [];
+  for (const city of LINK_CITIES) {
+    const km = haversineKm(p.lat, p.lon, city.lat, city.lon);
+    if (km <= RL.viaKm) out.push({ city, at: km <= RL.hubKm && !p.iata });
+  }
+  return out;
+}
+// Cesta k vlaku: u nádraží nic (je v overheadMin), jinak místní spoj k uzlu (týž model jako ostatní přejezdy,
+// bez trasy z plánovače, i s jeho hranicí) + přestup; k nádraží daleko za městem minuty navíc.
+const access = (p, h) => (h.at ? 0 : estimate(p, h.city, null).generic + RL.changeMin) + h.city.extra;
+
+/**
+ * Nejrychlejší cesta a → b přímým vlakem z tabulky (oba směry): { min, direct } nebo null (žádný spoj).
+ * min = [místní spoj k uzlu + přestup] + jízda podle jízdního řádu + overheadMin (cesta na nádraží, čekání)
+ * + hranice mimo Schengen mezi městy spoje (ne u spojů s odbavením – Eurostar má kontrolu v minutách spoje)
+ * + [přestup + místní spoj]. direct = obě místa do hubKm od nádraží téhož spoje (bez místního spoje).
+ */
+export function railLink(a, b) {
+  const ha = hubsNear(a);
+  const hb = ha.length ? hubsNear(b) : [];
+  let best = null;
+  let direct = false;
+  for (const x of ha) {
+    for (const y of hb) {
+      const l = x.city !== y.city && LINKS.get(`${x.city.id}>${y.city.id}`);
+      if (!l) continue;
+      direct ||= x.at && y.at;
+      const border = l.checkIn ? 0 : borderMin(x.city.cc, y.city.cc, 'rail');
+      const min = access(a, x) + l.min + RL.overheadMin + border + access(b, y);
+      if (best === null || min < best) best = min;
+    }
+  }
+  return best === null ? null : { min: best, direct };
+}
+
+/**
+ * Přejezd a → b ({ lat, lon, cc?, iata? }); route = { km, min } z BRouteru (volný provoz), nebo null = odhad.
+ * Auto: čas trasy × provoz regionu + 5 min (start a cíl ve městě) + zácpy v metropoli + hranice.
+ * Vlak: auto bez hranice + nádraží a čekání (10–30 min) + hranice; mezi městy na VRT nejvýš hsrMin.
+ * Autobus / minibus: auto × 1,2–1,3 (zastávky) + čekání (15–45 min) + hranice (v Africe 2 h – přestup na hranici).
+ * Přímý vlak z tabulky (railLink): mezi jeho nádražími vždy vlak a nejvýš čas podle jízdního řádu (místo odhadu
+ * tempa rychlovlaku), přes uzel do 60 km jen tehdy, když je rychlejší než odhad → fast: true.
+ */
+export function transferTimes(a, b, route = null) {
+  const e = estimate(a, b, route);
+  if (e.air < 1) return { km: 0, carMin: 0, transitMin: 0, transitKind: e.kind, border: null, basis: 'estimate' };
+  let kind = e.kind;
+  let transit = e.transit;
+  let used = e.hsr ? 'hsr' : null;
+  const link = railLink(a, b);
+  if (link?.direct) {
+    kind = 'rail';
+    transit = e.kind === 'rail' ? e.generic : Infinity; // autobus v zemi bez vlaků není čas vlaku
+    used = null;
+  }
+  if (link && link.min < transit) {
+    kind = 'rail';
+    transit = link.min;
+    used = 'link';
+  }
   return {
-    km: Math.round(route?.km ?? free.km),
-    carMin: round5(drive + borderMin(ccA, ccB, 'car')),
+    km: Math.round(route?.km ?? e.km),
+    carMin: round5(e.drive + borderMin(e.ccA, e.ccB, 'car')),
     transitMin: round5(transit),
     transitKind: kind,
-    border: openBorder(ccA, ccB) ? null : { from: ccA, to: ccB },
+    border: openBorder(e.ccA, e.ccB) ? null : { from: e.ccA, to: e.ccB },
     basis: route && route.min > 0 ? 'route' : 'estimate',
-    ...(hsr && transit === hsr ? { hsr: true } : {}),
+    ...(used === 'hsr' ? { hsr: true } : used === 'link' ? { fast: true } : {}),
   };
 }
 
@@ -188,13 +261,15 @@ export function driveRoute(a, b, { get = brouterGet } = {}) {
  * Trasy pro přejezdy (pairs [[a, b]…]) s rozpočtem: nejvýš maxNew nových výpočtů a čekání do deadlineMs.
  * Co do termínu nedoběhne, počítá se dál na pozadí (výsledek se uloží do mezipaměti) a vrací se jako
  * pending – další přepočet ho už vezme z mezipaměti; pending jsou i přejezdy nad rozpočet (spočítají se při
- * dalším přepočtu). → { routes: Map(klíč → { km, min } | null), pending }
+ * dalším přepočtu). allow() = smí se počítat nové trasy (limit přepočtů na IP) – zavolá se nejvýš jednou, až když
+ * je nová trasa potřeba (z mezipaměti se nepočítá); false → odhad a ne pending. → { routes: Map(klíč → { km, min } | null), pending }
  */
-export async function routeTransfers(pairs, { route = driveRoute, deadlineMs = 9000, maxNew = 8 } = {}) {
+export async function routeTransfers(pairs, { route = driveRoute, deadlineMs = 9000, maxNew = 8, allow = null } = {}) {
   const got = new Map(); // klíč → { km, min } | null | undefined (ještě se počítá)
   const jobs = [];
   let started = 0;
   let later = 0; // nevešly se do rozpočtu – spočítají se při dalším přepočtu (taky pending)
+  let allowed = allow ? null : true;
   for (const [a, b] of pairs) {
     const key = routeKey(a, b);
     if (got.has(key)) continue;
@@ -203,6 +278,8 @@ export async function routeTransfers(pairs, { route = driveRoute, deadlineMs = 9
     const air = haversineKm(a.lat, a.lon, b.lat, b.lon);
     if (!route || air < 2 || air > MAX_AIR_KM) { got.set(key, null); continue; }
     if (started >= maxNew) { got.set(key, null); later++; continue; }
+    allowed ??= Boolean(allow());
+    if (!allowed) { got.set(key, null); continue; }
     started++;
     got.set(key, undefined);
     jobs.push(Promise.resolve().then(() => route(a, b)).then((v) => { got.set(key, v && !v.fail ? v : null); }, () => { got.set(key, null); }));

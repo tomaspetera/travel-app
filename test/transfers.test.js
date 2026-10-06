@@ -7,6 +7,7 @@ import { stubFetch } from './helpers.js';
 import { cache } from '../server/lib/cache.js';
 import {
   transferTimes, driveRoute, routeTransfers, routeKey, cachedRoute, parseDrive, openBorder, borderMin, congestionMin, transitKind, hsrMin, regionKey,
+  railLink, RULES,
 } from '../server/lib/transfers.js';
 import { planStay, evaluateRoute } from '../server/lib/stayplan.js';
 
@@ -92,6 +93,64 @@ test('pravidla: hranice (Schengen, Británie a Irsko), zácpy v metropoli, vlak 
   assert.equal(hsrMin(P.milano, { lat: 48.8566, lon: 2.3522 }), null, 'Milán – Paříž: jiná země');
   // krátký přejezd v témže místě
   assert.deepEqual({ ...transferTimes(P.praha, { ...P.praha }) }, { km: 0, carMin: 0, transitMin: 0, transitKind: 'rail', border: null, basis: 'estimate' });
+});
+
+test('přímé vlaky z tabulky (jízdní řád 2026): oba směry, přes uzel jen když je rychlejší, daleko ne, hranice, i mimo země s vlaky', () => {
+  const RL = RULES.railLinks;
+  const link = (x, y) => RL.links.find(([p, q]) => (p === x && q === y) || (p === y && q === x))[2];
+  const r5 = (m) => Math.max(5, Math.round(m / 5) * 5);
+  const Q = {
+    paris: { lat: 48.8566, lon: 2.3522, cc: 'FR' }, london: { lat: 51.5074, lon: -0.1278, cc: 'GB' },
+    frankfurt: { lat: 50.1109, lon: 8.6821, cc: 'DE' }, munchen: { lat: 48.1351, lon: 11.582, cc: 'DE' },
+    pardubice: { lat: 50.0343, lon: 15.7812, cc: 'CZ' }, tanger: { lat: 35.7595, lon: -5.834, cc: 'MA' }, casablanca: { lat: 33.5731, lon: -7.5898, cc: 'MA' },
+    leuven: { lat: 50.8798, lon: 4.7005, cc: 'BE' }, baden: { lat: 48.0059, lon: 16.2308, cc: 'AT' }, ceuta: { lat: 35.8894, lon: -5.3213, cc: 'ES' },
+    far: { lat: 49.19, lon: 15.24, cc: 'CZ' }, // ~100 km západně od Brna, žádné město z tabulky do 60 km
+  };
+  assert.ok(RL.links.length >= 70 && RL.links.every(([x, y, min]) => RL.cities.some((c) => c[0] === x) && RL.cities.some((c) => c[0] === y) && min > 0));
+  // Vídeň ↔ Brno: Railjet 1 h 31 min + cesta na nádraží (dřív jako auto + 30 min = 2 h 30 min)
+  const wb = transferTimes(P.wien, P.brno);
+  const bw = transferTimes(P.brno, P.wien);
+  assert.deepEqual([wb.transitMin, wb.transitKind, wb.fast, wb.border, wb.hsr], [r5(link('wien', 'brno') + RL.overheadMin), 'rail', true, null, undefined]);
+  assert.deepEqual([bw.transitMin, bw.fast], [wb.transitMin, true], 'oba směry stejně');
+  between(wb.transitMin, 100, 120, 'Vídeň → Brno vlakem (skutečně ~1 h 50 min i s nádražím)');
+  // Praha → Brno s trasou z BRouteru: odhad z času autem (2 h 50 min) je kratší než vlak (2 h 37 min + nádraží) → zůstane
+  const pb = transferTimes(P.praha, P.brno, { km: 208.3, min: 117 });
+  assert.deepEqual([pb.transitKind, pb.fast, pb.transitMin], ['rail', undefined, 170]);
+  // spoj z tabulky nahradí odhad tempa rychlovlaku (Frankfurt → Mnichov ICE 3 h 15 min, tempo by dalo 2 h 55 min)
+  const fm = transferTimes(Q.frankfurt, Q.munchen);
+  assert.deepEqual([fm.transitMin, fm.fast, fm.hsr], [r5(link('frankfurt', 'munchen') + RL.overheadMin), true, undefined]);
+  assert.ok(hsrMin(Q.frankfurt, Q.munchen) < fm.transitMin);
+  // přes uzel (místo 15–60 km od nádraží): místní spoj + přestup + spoj, jen když je rychlejší než odhad
+  const lp = railLink(Q.leuven, Q.paris);
+  assert.equal(lp.direct, false, 'Lovaň je 26 km od Bruselu');
+  const lv = transferTimes(Q.leuven, Q.paris);
+  assert.deepEqual([lv.transitMin, lv.fast, lv.transitKind], [r5(lp.min), true, 'rail'], 'Lovaň → Brusel → Eurostar do Paříže');
+  assert.ok(lp.min > link('brussel', 'paris') + RL.overheadMin + RL.changeMin, 'i s místním spojem a přestupem');
+  const bd = transferTimes(Q.baden, P.brno);
+  assert.ok(railLink(Q.baden, P.brno).min > bd.transitMin && !bd.fast, 'Baden → Vídeň → Brno je pomalejší než přímo – zůstane odhad');
+  // ~100 km od nádraží: spoj se nepoužije
+  assert.equal(railLink(Q.far, P.wien), null);
+  assert.equal(transferTimes(Q.far, P.wien).fast, undefined);
+  // letiště není „u nádraží“ (z Ruzyně se na hlavní nádraží jede ~40 min) – přes uzel, ne jako ze středu Prahy
+  const prg = { iata: 'PRG', lat: 50.1008, lon: 14.26, cc: 'CZ' };
+  const fromPrg = transferTimes(prg, Q.pardubice);
+  const fromPoint = transferTimes({ lat: prg.lat, lon: prg.lon, cc: 'CZ' }, Q.pardubice);
+  assert.deepEqual([fromPoint.transitMin, fromPoint.fast], [r5(link('praha', 'pardubice') + RL.overheadMin), true]);
+  assert.ok(fromPrg.transitMin >= fromPoint.transitMin + 30, `${fromPrg.transitMin} vs ${fromPoint.transitMin}`);
+  // mimo Schengen: Eurostar má odbavení s kontrolou pasů v minutách spoje → hranice se nepřičítá podruhé
+  const lo = transferTimes(Q.london, Q.paris);
+  assert.equal(RL.links.find(([x, y]) => x === 'london' && y === 'paris')[4], 60, 'odbavení 60 min');
+  assert.deepEqual([lo.transitMin, lo.border, lo.fast], [r5(link('london', 'paris') + RL.overheadMin), { from: 'GB', to: 'FR' }, true]);
+  assert.equal(transferTimes(Q.paris, Q.london).transitMin, lo.transitMin);
+  // mimo Schengen bez odbavení: hranice zůstane (Ceuta → přes hranici do Tangeru → Al Boraq do Casablanky)
+  const ce = transferTimes(Q.ceuta, Q.casablanca);
+  assert.deepEqual([ce.transitKind, ce.fast, ce.border], ['rail', true, { from: 'ES', to: 'MA' }]);
+  assert.ok(railLink(Q.ceuta, Q.casablanca).min >= link('tanger', 'casablanca') + RL.overheadMin + RL.changeMin + borderMin('ES', 'MA', 'bus'), 'místní spoj i s hranicí');
+  // země bez vlaků mezi městy (Maroko, USA…): spoj z tabulky je vlak, čas podle jízdního řádu
+  assert.equal(transitKind(Q.tanger, Q.casablanca), 'bus');
+  const tc = transferTimes(Q.tanger, Q.casablanca);
+  assert.deepEqual([tc.transitKind, tc.transitMin, tc.fast], ['rail', r5(link('tanger', 'casablanca') + RL.overheadMin), true]);
+  between(tc.transitMin, 140, 160, 'Tanger → Casablanca Al Boraqem (2 h 10 min + nádraží)');
 });
 
 test('driveRoute: dotaz na BRouter (car-fast), rozbor, mezipaměť bez ohledu na směr, záložní pokusy', async () => {
