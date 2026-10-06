@@ -331,3 +331,12 @@ test('Ground.debounce: šipky v poli data pošlou jeden dotaz až po chvíli kli
   await new Promise((r) => setTimeout(r, 60));
   assert.deepEqual(got, ['out 2026-11-12']);
 });
+
+test('sanitizeTrip: doprava na letiště ze sdíleného odkazu – autem, veřejnou dopravou, starší odkaz bez pole', () => {
+  const san = (over) => Trip.sanitizeTrip(JSON.parse(JSON.stringify(trip({ overland: null, ...over }))));
+  assert.equal(san({ groundMode: 'car' }).groundMode, 'car');
+  assert.equal(san({}).groundMode, 'transit', 'starší odkaz = veřejnou dopravou');
+  assert.equal(san({ groundMode: '<img src=x>' }).groundMode, 'transit');
+  // cena dopravy na letiště (autem i s parkováním) zůstává v ceně cesty
+  assert.equal(Trip.costs(san({ groundMode: 'car' })).ground, 400);
+});

@@ -108,13 +108,13 @@ test('resolveDestinations', () => {
   assert.deepEqual(resolveDestinations(['rg:kreta']).airports, ['HER', 'CHQ']);
 });
 
-test('geo + doprava na letiště', () => {
+test('geo + čas cesty mezi letištěm a městem', () => {
   const d = haversineKm(50.0755, 14.4378, 48.2082, 16.3738); // Praha–Vídeň
   assert.ok(d > 245 && d < 260);
-  const g = groundEstimate(d, 1.1);
+  const g = groundEstimate(d);
   assert.ok(g.minutes > 200 && g.minutes < 300);
-  assert.ok(g.czk > 300 && g.czk < 400);
-  assert.equal(groundEstimate(10, 0).czk, 0);
+  assert.equal(g.czk, undefined, 'cena cesty na letiště je v access.js');
+  assert.deepEqual(groundEstimate(10), { km: 10, minutes: 42, local: true });
 });
 
 test('fx: převod měn přes EUR', () => {
