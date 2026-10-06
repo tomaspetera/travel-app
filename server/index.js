@@ -28,6 +28,7 @@ import { HttpError } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
 import { airportClimate, climateAt, climateSource, countryClimate } from './lib/climate.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
+import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -338,6 +339,10 @@ async function route(req, res) {
     return sendJson(req, res, 200, await groundInfo(q, { allowLive: () => !rateLimited(req) }));
   }
   if (p === '/api/cars') return sendJson(req, res, 200, searchCars(Object.fromEntries(url.searchParams)));
+  if (p === '/api/fuel') {
+    // Aktuální ceny nafty a benzínu (Kč/l) v ČR a okolních zemích pro cenu cesty autem (ČSÚ, Oil Bulletin EU).
+    return sendJson(req, res, 200, await fuelInfo(), { 'Cache-Control': 'public, max-age=3600' });
+  }
   if (p === '/api/poi') {
     if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
     const lat = Number(url.searchParams.get('lat'));
@@ -528,6 +533,7 @@ async function warmUp() {
   await loadRates();
   console.log(`Kurzy: ${fxInfo().source}, 1 EUR = ${fxInfo().eurCzk} Kč`);
   if (config.mock) return;
+  refreshFuel().then(() => console.log(`Ceny PHM: ${fuelText('CZ', 'diesel')}`)).catch(() => {});
   for (const p of activeProviders()) {
     try {
       if (p.network) {
