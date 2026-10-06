@@ -3,28 +3,10 @@
 // profil hiking-mountain; krajina → přednost lesům a řekám / památkám ve městě, kopce → cena stoupání.
 // Na kole i „vlakem tam, na kole zpět“: nádraží (Wikidata) v dosahu zvolené délky a trasa z něj domů.
 // Výsledek: délka, stoupání, odhad času, povrch, trasa (pro mapu a GPX) a odkazy do Mapy.com a Google Map.
-import { request, limiter } from './http.js';
 import { cache } from './cache.js';
 import { haversineKm, normalize } from './geo.js';
 import { wdqs } from './poi.js';
-
-const BROUTER = (process.env.BROUTER_URL || 'https://brouter.de/brouter').replace(/\/$/, '');
-const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; hobby travel planner)';
-// Veřejný server: jeden dotaz naráz a aspoň 1 s mezi dotazy (ohleduplné použití).
-const GAP_MS = Number(process.env.BROUTER_GAP_MS ?? 1000);
-const limit = limiter(1);
-let lastCall = 0;
-async function politely(fn) {
-  return limit(async () => {
-    const wait = lastCall + GAP_MS - Date.now();
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    try {
-      return await fn();
-    } finally {
-      lastCall = Date.now();
-    }
-  });
-}
+import { BROUTER, brouterGet } from './brouter.js';
 
 // mapy = routeType v Mapy.com (silniční / horské kolo), pace = násobek času BRouteru (počítá ~100 W).
 export const BIKES = {
@@ -162,10 +144,7 @@ export function googleUrl(start, geometry, travelmode = 'bicycling', end = start
 
 async function route(args, pace) {
   const url = brouterUrl(args);
-  return cache.wrap(`brouter:${url}`, 7 * 864e5, () => politely(async () => {
-    const j = await request(url, { headers: { 'User-Agent': UA }, timeoutMs: 45000, retries: 1 });
-    return parseRoute(j, { pace });
-  }));
+  return cache.wrap(`brouter:${url}`, 7 * 864e5, async () => parseRoute(await brouterGet(url), { pace }));
 }
 
 /**
@@ -288,6 +267,20 @@ export async function stationsNear(lat, lon, km) {
     }
     return [...by.values()];
   });
+}
+
+/**
+ * Je u místa nádraží (do km)? Jen z mezipaměti stationsNear – bez dotazu na Wikidata: true / false,
+ * nebo null, když okolí ještě nikdo nehledal (pak rozhoduje, jestli se v zemi jezdí vlakem).
+ */
+export function stationNearCached(lat, lon, km = 10) {
+  const la = Math.round(lat * 10) / 10;
+  const lo = Math.round(lon * 10) / 10;
+  for (const R of [40, 80, 120, 160]) {
+    const list = cache.get(`wdqs-stations:${la}:${lo}:${R}`);
+    if (Array.isArray(list) && list.length) return list.some((s) => haversineKm(lat, lon, s.lat, s.lon) <= km);
+  }
+  return null;
 }
 
 // Město z názvu nádraží („Beroun-Závodí“, „Kutná Hora hlavní nádraží“ → beroun, kutna hora).

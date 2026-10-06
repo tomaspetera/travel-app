@@ -45,6 +45,12 @@ export function airportsNear(lat, lon, radiusKm, { includeSmall = false, limit =
   return out.slice(0, limit);
 }
 
+/** Země podle polohy: země nejbližšího letiště do maxKm (i malého), jinak ''. Záloha, když místo nemá kód země. */
+export function countryAt(lat, lon, maxKm = 150) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+  return airportsNear(lat, lon, maxKm, { includeSmall: true, limit: 1 })[0]?.cc || '';
+}
+
 export function airportsInCountry(cc, { includeSmall = false } = {}) {
   const out = [];
   for (const a of AIRPORTS.values()) {

@@ -6,6 +6,7 @@
 import { request, limiter } from './http.js';
 import { cache } from './cache.js';
 import { haversineKm, normalize } from './geo.js';
+import { countryAt, COUNTRY_BY_ISO } from './airports.js';
 
 const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; hobby travel planner)';
 const WDQS = 'https://query.wikidata.org/sparql';
@@ -67,7 +68,7 @@ const CAT_BONUS = { museum: 4, castle: 5, palace: 4, oldtown: 6, viewpoint: 3, c
  * počítal řádky (jedna položka = mnoho řádků) a ve velkých městech by usekl náhodná místa.
  */
 function sparqlNear(lat, lon, radiusKm, minLinks, items) {
-  return `SELECT ?item ?itemLabel ?itemDescription ?lat ?lon ?sl ?type ?img ?her ?cs ?en ?part WHERE {
+  return `SELECT ?item ?itemLabel ?itemDescription ?lat ?lon ?sl ?type ?img ?her ?cs ?en ?part ?cc WHERE {
   {
     SELECT ?item ?coord ?sl WHERE {
       SERVICE wikibase:around {
@@ -81,6 +82,7 @@ function sparqlNear(lat, lon, radiusKm, minLinks, items) {
   }
   ?item wdt:P31/wdt:P279? ?type .
   OPTIONAL { ?item wdt:P361 ?part }
+  OPTIONAL { ?item wdt:P17 ?ctry . ?ctry wdt:P297 ?cc }
   BIND(geof:latitude(?coord) AS ?lat) BIND(geof:longitude(?coord) AS ?lon)
   OPTIONAL { ?item wdt:P18 ?img }
   OPTIONAL { ?item wdt:P1435 ?her }
@@ -114,10 +116,13 @@ export function groupBindings(rows, center) {
       p = {
         id, name: val(b, 'itemLabel') || id, description: val(b, 'itemDescription') || '', lat, lon,
         sitelinks: Number(val(b, 'sl')) || 0, types: new Set(), heritage: false, unesco: false,
-        image: null, wiki: { cs: title(val(b, 'cs')), en: title(val(b, 'en')) }, coords: new Set(), partOf: new Set(),
+        image: null, wiki: { cs: title(val(b, 'cs')), en: title(val(b, 'en')) }, coords: new Set(), partOf: new Set(), cc: '',
       };
       by.set(id, p);
     }
+    // země (P17 → ISO kód) – pro ubytování, hranice na trase a vstupní podmínky
+    const cc = String(val(b, 'cc') || '').toUpperCase();
+    if (!p.cc && /^[A-Z]{2}$/.test(cc)) p.cc = cc;
     if (Number.isFinite(lat)) p.coords.add(`${lat.toFixed(2)},${lon.toFixed(2)}`);
     const t = qid(val(b, 'type'));
     if (t) p.types.add(t);
@@ -643,13 +648,20 @@ export async function findTowns({ lat, lon, limit = 25 }) {
       .slice(0, limit)
       .map(({ partOf, island, serial, wiki, ...p }) => ({
         // anglický název z článku Wikipedie („Bologna“, „Santa Maria (Rio Grande do Sul)“ → „Santa Maria, Rio Grande do Sul“)
-        // pro odkazy na partnery ubytování, které český název („Boloňa“) nepoznají
-        ...p, nameEn: wiki.en ? wiki.en.replace(/ \((.+)\)$/, ', $1') : null, categoryLabel: p.spa ? 'Lázně' : 'Město / obec',
+        // pro odkazy na partnery ubytování, které český název („Boloňa“) nepoznají; země z Wikidat (P17),
+        // jinak podle polohy (nejbližší letiště)
+        ...p, nameEn: wiki.en ? wiki.en.replace(/ \((.+)\)$/, ', $1') : null, ...countryOf(p), categoryLabel: p.spa ? 'Lázně' : 'Město / obec',
         url: wiki.cs ? `https://cs.wikipedia.org/wiki/${encodeURIComponent(wiki.cs.replace(/ /g, '_'))}` : wiki.en ? `https://en.wikipedia.org/wiki/${encodeURIComponent(wiki.en.replace(/ /g, '_'))}` : `https://www.wikidata.org/wiki/${p.id}`,
       }));
     if (!unesco) out.degraded = true; // bez UNESCO jsou skóre měst slabší – zkusit znovu za 15 min
     return out;
   });
+}
+
+/** { cc, country } místa: kód země z Wikidat, jinak podle polohy; český název země. */
+function countryOf(p) {
+  const cc = p.cc || countryAt(p.lat, p.lon);
+  return { cc, country: (cc && COUNTRY_BY_ISO.get(cc)?.cs) || '' };
 }
 
 // DEMO: vymyšlené názvy měst (deterministicky podle polohy, ať se okolí různých bodů liší).
@@ -670,7 +682,7 @@ export function mockTowns({ lat, lon }) {
     };
     p.distanceKm = Math.round(haversineKm(lat, lon, p.lat, p.lon));
     p.score = Math.round(scorePlace({ ...p, category: 'town', distanceKm: 0 }) + p.sights * 6);
-    return p;
+    return Object.assign(p, countryOf(p));
   }).sort((a, b) => b.score - a.score);
 }
 

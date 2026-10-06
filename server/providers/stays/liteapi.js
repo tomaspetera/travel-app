@@ -29,6 +29,18 @@ async function hotelsInCity(cc, city) {
   });
 }
 
+/** Hotely kolem bodu (latitude/longitude/radius v m) – když hledání podle názvu města nic nenajde („Porto Novo“ × „Porto-Novo“). */
+async function hotelsNear(cc, lat, lon) {
+  return cache.wrap(`lite:near:${cc}:${lat.toFixed(2)}:${lon.toFixed(2)}`, 24 * 3600e3, async () => {
+    const qs = new URLSearchParams({ countryCode: cc, latitude: lat.toFixed(5), longitude: lon.toFixed(5), radius: '15000', limit: '200' });
+    const j = await limit(() => request(`${API}/data/hotels?${qs}`, { headers: headers(), timeoutMs: 20000, retries: 1 })).catch((e) => {
+      if (e.status === 400) return null; // hledání podle polohy API nezná → bez hotelů
+      throw e;
+    });
+    return Array.isArray(j?.data) ? j.data : [];
+  });
+}
+
 /** Rozdělení dospělých do pokojů (co nejrovnoměrněji), stejné pro cenu i odkaz na rezervaci. */
 export function occupancies(q) {
   return Array.from({ length: q.rooms }, (_, i) => ({ adults: Math.floor(q.adults / q.rooms) + (i < q.adults % q.rooms ? 1 : 0), children: [] }));
@@ -127,7 +139,8 @@ export const liteapi = {
   testData: () => /^sand_/i.test(config.liteapiKey),
   async search(q) {
     if (!q.cityEn || !q.cc) throw new Error('chybí město nebo země');
-    const hotels = await hotelsInCity(q.cc, q.cityEn);
+    let hotels = await hotelsInCity(q.cc, q.cityEn);
+    if (!hotels.length && q.lat != null) hotels = await hotelsNear(q.cc, q.lat, q.lon);
     if (!hotels.length) return [];
     // Nejlépe hodnocené napřed – ceny se zjišťují pro max. 100 hotelů.
     const rev = (h) => Number(h.reviewCount ?? h.review_count) || 0;

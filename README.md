@@ -31,14 +31,19 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
    na přesnou cenu a nabídne i jiné aerolinky na stejný termín (low-cost i klasické, přestupy, kombinace).
    U blízkého cíle můžeš místo letu zvolit *🚆 Pojedu vlakem / busem* (viz [Vlak nebo bus místo letadla](#vlak-nebo-bus-místo-letadla)).
 2. **Trasa** – celý pobyt na jednom místě, nebo trasa přes 2–4 zajímavá města: ATLAS je navrhne v okolí (autem nebo
-   vlakem a busem, odhad přejezdů s odkazem do Google Map) a rozdělí noci; místa přidáš, odebereš nebo přesuneš
-   a noci upravíš. Trasa začíná u letiště příletu (u vlaku/busu ve městě příjezdu) a končí u letiště odletu,
-   i jiného (open-jaw); cesta z posledního místa na letiště nebo zpět k vlaku/busu je v časové ose.
-   Ubytování a program pak vybíráš pro každé místo zvlášť.
+   veřejnou dopravou) a rozdělí noci; místa přidáš, odebereš nebo přesuneš a noci upravíš. U každého přejezdu je
+   vzdálenost a čas **autem podle skutečné trasy** (s provozem, zácpami ve velkých městech a hraniční kontrolou)
+   i **veřejnou dopravou** – vlakem jen tam, kde se mezi městy vlakem jezdí, jinde *autobusem / minibusem* – a přechod
+   hranice s odkazem na vstupní podmínky (viz [Přejezdy mezi místy](#přejezdy-mezi-místy)). Trasa začíná u letiště
+   příletu (u vlaku/busu ve městě příjezdu) a končí u letiště odletu, i jiného (open-jaw); cesta z posledního místa
+   na letiště nebo zpět k vlaku/busu je v časové ose. Ubytování a program pak vybíráš pro každé místo zvlášť.
 3. **Ubytování** – nabídky na tvoje data seřazené podle **nejlepšího poměru cena / hodnocení** (hodnocení je očištěné
    o malý počet recenzí, takže 10/10 ze 2 recenzí nepřebije 8,9 z 2 000). Přepneš na nejlevnější, nejlépe hodnocené
-   nebo nejblíž centru, filtruješ 7+/8+/9+, typ a max. cenu za noc. Bez klíče LiteAPI dostaneš předvyplněné hledání
-   na Booking.com (seřazené podle hodnocení a ceny), Airbnb, Google Hotels a Hostelworld a cenu jen zapíšeš.
+   nebo nejblíž centru, filtruješ 7+/8+/9+, typ a max. cenu za noc. U každého místa trasy (i přidaného ručně) jsou
+   navíc odkazy na partnery: **Booking.com** (dvakrát – hodnocení 8+ od nejlevnějšího a nejlepší poměr), **Airbnb**,
+   **Trip.com**, **Hotels.com** a **Kayak** předvyplněné na místo, tvoje data a počet hostů; **Google Hotels**
+   a **Hostelworld** otevřou místo (data zadáš na webu – označeno „zadej data“; menší místo, které Hostelworld nemá,
+   otevře jeho stránku země), **Agoda** úvodní stránku. Bez klíče LiteAPI zůstanou jen odkazy a cenu zapíšeš ručně.
 4. **Auto** (nepovinné) – vyzvednutí na letišti 45 min po příletu, vrácení 2 h před odletem, předvyplněné srovnávače.
 5. **Program** – místa k vidění kolem ubytování rozdělená do dnů podle polohy (den příletu a odletu je kratší),
    každý den jako pěší trasa s odkazem do Google Map; volíš zájmy a tempo, místa můžeš vyřadit nebo přidat.
@@ -298,7 +303,8 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `GET /api/origins?from=ap:BRQ&radius=200` | letiště, která se prohledají, se vzdáleností a odhadem dopravy |
 | `POST /api/search` | hledání, viz `normalizeQuery` v `server/lib/search.js`; odpověď je NDJSON (průběh, pak výsledek) |
 | `GET /api/verify?from=BGY&to=BCN&out=2026-11-10&back=2026-11-14&adults=2` | živá cena a alternativy z Kiwi.com |
-| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery |
+| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery (`links[]` s `prefill`: `full` / `city` / `none`); bez `cc` se země dopočte z `lat`/`lon`, bez `cityEn` anglický název z geokódování (podle `gid` – ID GeoNames místa vybraného v hledání, jinak podle názvu v okolí) |
+| `POST /api/stayplan` | trasa přes víc míst: návrh `{ arrival, departure, nights, transport, count?, exclude? }`, nebo přepočet `{ arrival, departure, transport, bases: [{ name, lat, lon, cc }], ground? }`. Přejezdy `{ km, carMin, transitMin, transitKind: 'rail'\|'bus', border: { from, to }\|null, basis: 'route'\|'estimate', long, carUrl, transitUrl }`, `pending` = kolik tras autem se ještě počítá; u přepočtu i `bases[{ cc, country }]` a s `ground` (město, kam se jede vlakem/busem) `groundLegs` |
 | `GET /api/cars?pickup=BGY&dropoff=MXP&from=2026-11-10T09:00&to=2026-11-14T18:00` | předvyplněné odkazy na půjčovny |
 | `GET /api/ground?from=ap:PRG&to=ap:VIE&date=2026-11-10&adults=2` | vlak nebo bus místo letadla: `from`/`to` jako v hledání (`ap:`, `metro:`, `geo:`, kód letiště) nebo `fromLat`/`fromLon`/`fromName`/`fromCc`; volitelně `flightCzk`, `trips` (2 = cena letu tam i zpět), `flightMin`, `live=0`. Odpověď `{ from, to, km, est: { minutes, czk, basis }, worth: { worth, rule, reason, doorMin }, why, links, live? }` – `live` (spoje RegioJetu) jen s datem; `why` = proč se po zemi nedá (ostrov, moře, daleko) |
 | `GET /api/poi?lat=…&lon=…&radius=8` | místa k vidění (Wikidata + Wikipedie) |
@@ -351,6 +357,59 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 }'
 ```
 
+## Přejezdy mezi místy
+
+Trasa přes víc míst ukazuje u každého přejezdu (i z letiště na první místo a z posledního na letiště) stejná čísla
+v kroku Trasa, ve Shrnutí, v časové ose, v kalendáři (.ics) i v poznámkách cesty uložené do plánovače – počítá je server
+(`server/lib/transfers.js`, pravidla a zdroje v `data/transfers.json`), prohlížeč je jen zobrazí. Podle nich je i čas
+příjezdu v Programu; cesta z letiště na první místo a z posledního na letiště nad hodinu zkrátí program prvního
+a posledního dne (hodinu kryje rezerva 1,5 h po příletu a 3 h před odletem). S vlakem/busem místo letu se počítá
+cesta z města příjezdu (ne z letiště):
+
+- **Autem:** silniční vzdálenost a čas bez kolon z plánovače tras [BRouter](https://brouter.de/) (profil `car-fast`,
+  nad OpenStreetMap) × **provoz podle regionu** + 5 min na start a cíl ve městě + **zácpy**, začíná-li nebo končí-li
+  přejezd v jedné z ~30 velkých metropolí (Lagos, Káhira, Nairobi, Dháka, Jakarta, Manila, Bangkok, Bombaj, Dillí,
+  Ciudad de México, São Paulo, Lima, Istanbul…; +15–45 min, orientačně podle TomTom Traffic Index a INRIX) + **hranice**.
+  Faktory platí navíc k času BRouteru, který už sám počítá s typem silnice – proto jsou menší, než by byly u
+  „volného“ plánovače: západní a severní Evropa, USA a Kanada 1,1; jižní a východní Evropa (vč. Česka), východní Asie,
+  Blízký východ a severní Afrika 1,15; Latinská Amerika 1,2; jihovýchodní Asie 1,35; jižní Asie 1,4; východní a
+  střední Afrika 1,3; západní Afrika 1,0 (BRouter tam už jezdí ~60 km/h – Lagos → Porto Novo 123 min, OSRM 82 min).
+- **Hranice:** v Schengenu (a mezi Británií a Irskem) nic; jinde autem +30 min v Evropě, +45 min mimo ni; autobusem
+  +45 min v Evropě, +75 min jinde a **+2 h v Africe** (vystupují všichni, kontrola zavazadel, přestup do jiného
+  minibusu). U přejezdu je *🛂 přechod hranice Nigérie → Benin – počítej s kontrolou a vízem* se stavem vstupních
+  podmínek další země a odkazem na ně; autem upozorní, že s půjčeným autem přes hranici často nesmíš.
+- **Veřejnou dopravou:** *🚆 vlakem / busem* jen v zemích, kde se mezi městy běžně jezdí vlakem (většina EU,
+  Švýcarsko, Británie, Japonsko, Korea, Čína, Tchaj-wan, Indie…; a ne u místa, o kterém mezipaměť nádraží z výletů
+  na kole ví, že u něj žádné není) – čas autem + 10–30 min na nádraží; mezi dvěma městy na vysokorychlostní trati
+  v téže zemi (Itálie, Francie, Španělsko, Německo, Rakousko, Británie, Japonsko, Čína, Korea, Tchaj-wan) nejvýš
+  40 min + 0,25–0,5 min/km vzdušnou čarou podle země (Čína 0,25; Francie, Španělsko, Japonsko, Tchaj-wan 0,3;
+  Itálie 0,35; Británie a Korea 0,4; Německo 0,45; Rakousko 0,5 – Westbahn jezdí ~200 km/h se zastávkami). Jinde
+  *🚌 autobusem / minibusem* – čas autem × 1,2 (Evropa) až 1,3 + 15–45 min čekání + hranice. Vždy „odhad“; odkaz
+  do Google Map je „ověř spoje“.
+- **Bez trasy** (BRouter neodpoví, je mimo rozpočet, přejezd delší než 500 km vzdušnou čarou, DEMO) platí stejná
+  pravidla nad odhadem ze vzdušné vzdálenosti (zajížďka 1,2–1,35, rychlost podle regionu) a u času autem je
+  „odhad“ místo „podle trasy“.
+- **Ohleduplně k BRouteru:** jeden dotaz naráz, aspoň 1 s mezi dotazy (společná fronta s trasami na kole), nejvýš
+  20 čekajících; na jeden přepočet trasy nejvýš 8 nových výpočtů a 9 s čekání – co nedoběhne, počítá se dál na pozadí
+  (a co se do 8 nevešlo, spočítá další přepočet) a prohlížeč si to za pár sekund vyžádá znovu (nejvýš 3×). Trasy
+  se ukládají 30 dní podle bodů zaokrouhlených na ~1 km a bez ohledu na směr, takže úprava trasy už spočítané úseky
+  znovu nepočítá; nenalezená trasa 6 h, výpadek 10 min.
+  Střed města v pěší zóně („target island“) se zkusí znovu s body o kus blíž k sobě, jiná chyba výpočtu profilem `car-eco`.
+- **Návrh trasy** počítá s týmiž časy: běžný přejezd je nejvýš ~3 h 20 min autem a ~3 h 45 min veřejnou dopravou
+  (6hodinový přejezd přes hranici tedy „krátký“ není); když skutečná trasa ukáže delší přejezd než odhad, návrh se
+  jednou zopakuje s ní.
+
+**Kalibrace** (čas BRouteru z 6. 10. 2026 → výsledek):
+
+| Přejezd | Autem | Veřejnou dopravou |
+|---|---|---|
+| Lagos → Porto Novo (122 km, hranice Nigérie–Benin) | ~3 h 25 min (skutečně 3 h a víc) | 🚌 ~6 h 10 min (skutečně ~6 h) |
+| Porto Novo → Abeokuta (208 km, hranice) | ~3 h 55 min | 🚌 ~6 h 50 min – vlak tam nejezdí |
+| Praha → Brno (208 km) | ~2 h 20 min | 🚆 ~2 h 50 min |
+| Milán → Boloňa (215 km) | ~2 h 40 min | 🚆 ~1 h 50 min (rychlovlak) |
+| Vídeň → Salcburk (296 km) | ~3 h 15 min | 🚆 ~2 h 45 min (Railjet 2 h 22 min + nádraží) |
+| Paříž → Lyon (463 km) | ~4 h 35 min | 🚆 ~2 h 35 min (rychlovlak) |
+
 ## Omezení (upřímně)
 
 - Ryanair a Wizz Air nemají veřejné API pro vývojáře; ATLAS používá stejná rozhraní jako jejich weby. Když je změní,
@@ -360,6 +419,17 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 - Kombinace dvou aerolinek / různých letišť jsou **dvě samostatné letenky** – při zpoždění prvního letu druhá aerolinka
   nečeká. Aplikace to u výsledku označí.
 - Odhad dopravy na letiště je orientační.
+- Přejezdy mezi místy trasy: čas autem je z trasy BRouteru s **průměrnými** faktory provozu a hranic – skutečná zácpa,
+  stavba nebo fronta na hranici může cestu prodloužit o hodiny. Veřejná doprava je vždy odhad z času autem (jízdní řády
+  ATLAS nenačítá) – konkrétní spoj ověř přes odkaz. Země bez kódu z Wikidat se dopočítá podle nejbližšího letiště, takže
+  u místa těsně u hranice může vyjít sousední země (Basilej → Francie).
+- Odkazy na partnery ubytování: Booking.com, Airbnb, Trip.com, Hotels.com a Kayak dostanou místo, data i počet hostů
+  (Trip.com je vyplní do formuláře – hledání potvrdíš), Google Hotels a Hostelworld jen místo, Agoda jen úvodní stránku
+  (bez jejího ID města nejde nic předvyplnit). Hostelworld má stránky jen měst s hostely (jinak 404) – server to
+  ověří jedním dotazem HEAD (v mezipaměti 30 dní) a u menšího místa odkáže na stránku země. Hotels.com se
+  z ověřovacího prostředí nedalo otevřít (ochrana proti robotům) – formát odkazu je standardní hledání Expedia Group.
+- Vlak mimo vysokorychlostní tratě je čas autem + cesta na nádraží: na rychlých hlavních tratích bývá ve skutečnosti
+  kratší (Vídeň → Brno ATLAS ~2 h 40 min, Railjet 1 h 30 min), na regionálních tratích sedí.
 - Cesta přes víc měst = samostatné letenky na každý let; přejezdy mezi městy (třeba Řím → Neapol) ATLAS nepočítá do ceny ani nehledá.
 - Vlak/bus je mimo změřené trasy z Prahy jen **odhad podle vzdálenosti** (Alpy a Dinárské hory s přirážkou ~25 %) –
   pomalé tratě bez hor bývají delší (Praha–Linec, Ostrava–Krakov), rychlé kratší (Praha–Ostrava 3 h 16 místo ~4 h 15).
@@ -401,6 +471,6 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 - Mapa světa: d3, topojson-client, world-atlas (ISC, přibaleno v `public/vendor/`).
 - Mapy míst: MapLibre GL JS (BSD-3-Clause, přibaleno v `public/vendor/maplibre/`), podklad OpenFreeMap
   (© OpenMapTiles, data © přispěvatelé OpenStreetMap, ODbL), záloha dlaždice OpenStreetMap.
-- Trasy na kole: [BRouter](https://brouter.de/) (veřejný server, bez klíče; jiný server přes `BROUTER_URL`),
-  data © přispěvatelé OpenStreetMap. Odkazy do [Mapy.com](https://mapy.com/) přes jejich veřejné URL API (bez klíče).
+- Trasy na kole a přejezdy autem mezi místy trasy: [BRouter](https://brouter.de/) (veřejný server, bez klíče; jiný
+  server přes `BROUTER_URL`), data © přispěvatelé OpenStreetMap. Odkazy do [Mapy.com](https://mapy.com/) přes jejich veřejné URL API (bez klíče).
 - Původní jednosouborová verze aplikace je pro srovnání v `legacy/ATLAS-puvodni.html`.
