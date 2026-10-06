@@ -1,0 +1,500 @@
+{
+ "checked": "2026-10-06",
+ "base": "data/entry.json na origin/main (05aa83e)",
+ "total": 197,
+ "verifiedByAgent": [
+  "AE",
+  "AM",
+  "AO",
+  "BA",
+  "BB",
+  "CA",
+  "GB",
+  "GH",
+  "HU",
+  "IE",
+  "IS",
+  "IT",
+  "LI",
+  "LT",
+  "LU",
+  "LV",
+  "MT",
+  "NL",
+  "SB",
+  "SG",
+  "SM",
+  "ST",
+  "SZ",
+  "TL",
+  "TN",
+  "US"
+ ],
+ "verifiedManually": [
+  "AG",
+  "AU",
+  "BD",
+  "BO",
+  "CD",
+  "CV",
+  "DM",
+  "EG",
+  "FM",
+  "GE",
+  "GY",
+  "JM",
+  "KG",
+  "KR",
+  "TH"
+ ],
+ "withProposedChanges": [
+  "AF",
+  "CO",
+  "PK",
+  "SD",
+  "YE"
+ ],
+ "uncertainOnly": [
+  "AD",
+  "AL",
+  "AR",
+  "MW",
+  "MZ",
+  "NG",
+  "RS",
+  "SN",
+  "SR",
+  "SV",
+  "SY",
+  "TJ",
+  "TM"
+ ],
+ "screenedByScriptOnly": [
+  "AT",
+  "AZ",
+  "BE",
+  "BF",
+  "BG",
+  "BH",
+  "BI",
+  "BJ",
+  "BN",
+  "BR",
+  "BS",
+  "BT",
+  "BW",
+  "BY",
+  "BZ",
+  "CF",
+  "CG",
+  "CH",
+  "CI",
+  "CL",
+  "CN",
+  "CR",
+  "CU",
+  "CY",
+  "CZ",
+  "DE",
+  "DJ",
+  "DK",
+  "DO",
+  "DZ",
+  "EC",
+  "EE",
+  "ER",
+  "ES",
+  "ET",
+  "FI",
+  "FJ",
+  "FR",
+  "GD",
+  "GL",
+  "GM",
+  "GN",
+  "GR",
+  "GT",
+  "GW",
+  "HN",
+  "HR",
+  "HT",
+  "ID",
+  "IL",
+  "IN",
+  "IQ",
+  "IR",
+  "JO",
+  "JP",
+  "KE",
+  "KH",
+  "KI",
+  "KM",
+  "KN",
+  "KP",
+  "KW",
+  "KZ",
+  "LA",
+  "LB",
+  "LC",
+  "LK",
+  "LR",
+  "LS",
+  "LY",
+  "MA",
+  "MC",
+  "MD",
+  "ME",
+  "MG",
+  "MH",
+  "MK",
+  "ML",
+  "MM",
+  "MN",
+  "MR",
+  "MU",
+  "MV",
+  "MX",
+  "MY",
+  "NA",
+  "NE",
+  "NI",
+  "NO",
+  "NP",
+  "NR",
+  "NZ",
+  "OM",
+  "PA",
+  "PE",
+  "PH",
+  "PL",
+  "PT",
+  "PW",
+  "PY",
+  "QA",
+  "RO",
+  "RU",
+  "RW",
+  "SA",
+  "SC",
+  "SE",
+  "SI",
+  "SK",
+  "SL",
+  "SO",
+  "SS",
+  "TD",
+  "TG",
+  "TO",
+  "TR",
+  "TT",
+  "TV",
+  "TW",
+  "TZ",
+  "UG",
+  "UY",
+  "UZ",
+  "VC",
+  "VE",
+  "VN",
+  "VU",
+  "WS",
+  "XK",
+  "ZA",
+  "ZM",
+  "ZW"
+ ],
+ "unverifiable": [
+  "CM",
+  "GA",
+  "GQ",
+  "PG",
+  "PS",
+  "UA"
+ ],
+ "uncertain": [
+  {
+   "iso2": "AD",
+   "field": "idCard",
+   "note": "MZV uvádí, že v praxi úřady uznávají i OP, ale současně že podle andorrské a české legislativy lze vstoupit jen s pasem; text si v tom odporuje, true je v praxi podporováno jen částečně.",
+   "by": "agent"
+  },
+  {
+   "iso2": "AD",
+   "field": "passportValidity",
+   "note": "Text MZV o požadované platnosti dokladu mlčí; hodnota 'po dobu pobytu' nelze z textu ověřit.",
+   "by": "agent"
+  },
+  {
+   "iso2": "AF",
+   "field": "vaccinesRequired",
+   "note": "MZV (Doklady): „Očkování není povinné.“ Záznam uvádí podmíněný požadavek na obrnu při pobytu nad 4 týdny – z textu MZV ho nelze potvrdit ani vyvrátit.",
+   "by": "manual"
+  },
+  {
+   "iso2": "AL",
+   "field": "vaccinesRequired",
+   "note": "MZV: „Pro vstup do Albánie není předepsáno žádné povinné očkování, očkovací průkaz není vyžadován.“ Záznam uvádí podmíněný požadavek (žlutá zimnice při příletu z rizikové země), který obecná věta MZV nevyvrací – ponecháno k posouzení.",
+   "by": "agent"
+  },
+  {
+   "iso2": "AO",
+   "field": "vaccinesRequired",
+   "note": "MZV uvádí jen podmíněně, že při příjezdu ze země s endemickou žlutou zimnicí může být očkovací průkaz vyžadován; tvrzení 'povinná pro všechny od 9 měsíců (WHO/CDC)' text nepotvrzuje.",
+   "by": "agent"
+  },
+  {
+   "iso2": "AO",
+   "field": "notes",
+   "note": "Poznámka zmiňuje e-vízum (evisa.ao) pro jiné účely; text MZV e-vízum nezmiňuje a uvádí, že ostatní víza vystavuje velvyslanectví Angoly v Berlíně.",
+   "by": "agent"
+  },
+  {
+   "iso2": "AR",
+   "field": "passportValidity",
+   "note": "Text MZV o minimální platnosti pasu mlčí; tvrzení, že se minimální platnost nevyžaduje, nelze z textu ověřit (visa, idCard a maxStayDays jsou potvrzeny).",
+   "by": "agent"
+  },
+  {
+   "iso2": "BD",
+   "field": "maxStayDays",
+   "note": "Délku pobytu 30 dní stránka MZV výslovně neuvádí.",
+   "by": "manual"
+  },
+  {
+   "iso2": "CA",
+   "field": "notes",
+   "note": "Oficiální web uvádí 'Ebola disease: Temporary measures extended until November 27, 2026', ale text neříká, koho a jak se opatření týkají; poznámka je nezmiňuje. Zmínka o lesních požárech v textu není (nevyvráceno).",
+   "by": "agent"
+  },
+  {
+   "iso2": "CD",
+   "field": "etaCostEur",
+   "note": "MZV uvádí jen vízum na ambasádě v Praze; e-vízum a jeho cenu (300 USD) z textu potvrdit nelze.",
+   "by": "manual"
+  },
+  {
+   "iso2": "CO",
+   "field": "visa",
+   "note": "Záznam „none“; podle MZV je Check-Mig oficiálně vyžadován – zvážit, zda nemá být „eta“ (bezplatná povinná předregistrace).",
+   "by": "manual"
+  },
+  {
+   "iso2": "DJ",
+   "field": "etaCostEur",
+   "note": "Strojové prosetí: záznam 21 € (12/23 USD); MZV: „Celkový poplatek za vízum závisí na výši servisního poplatku a může činit i více než 100 USD.“",
+   "by": "manual"
+  },
+  {
+   "iso2": "EG",
+   "field": "vaccinesRequired",
+   "note": "MZV: „Mezinárodní očkovací průkaz není při vstupu do země vyžadován.“ Záznam uvádí žlutou zimnici při příletu z rizikové země – podmíněný požadavek text nepotvrzuje ani nevyvrací.",
+   "by": "manual"
+  },
+  {
+   "iso2": "GB",
+   "field": "passportValidity",
+   "note": "Text (MZV ani gov.uk) o požadované platnosti pasu mlčí; gov.uk uvádí jen, že ETA je vázána na cestovní pas, s nímž se cestuje. Hodnota 'po dobu pobytu' z textu ověřit nelze.",
+   "by": "agent"
+  },
+  {
+   "iso2": "GH",
+   "field": "etaCostEur",
+   "note": "Text neobsahuje žádnou cenu e-víza (oficiální web jen odkazuje na sekci 'Fees and processing speed' bez čísel), 260 USD tedy ověřit nelze. Ostatní klíčová pole (e-visa, pobyt až 60 dní, 6 měsíců platnost pasu, žlutá zimnice) text potvrzuje.",
+   "by": "agent"
+  },
+  {
+   "iso2": "GY",
+   "field": "etaCostEur",
+   "note": "Poplatek 25 USD ve staženém textu není; režim (Česko není v seznamu zemí bez víz, vízum při příletu po online žádosti) text potvrzuje.",
+   "by": "manual"
+  },
+  {
+   "iso2": "KN",
+   "field": "maxStayDays",
+   "note": "Strojové prosetí: záznam 90, text počet dní neuvádí; poznámka záznamu sama zmiňuje rozpor s MZV (až 6 měsíců).",
+   "by": "manual"
+  },
+  {
+   "iso2": "LI",
+   "field": "maxStayDays",
+   "note": "MZV uvádí turistický pobyt 90 dnů v průběhu 180 kalendářních dnů bez víza (pobytového povolení), záznam má režim eu a maxStayDays null (poznámka 90/180 obsahuje). Je to otázka konvence pro režim eu, text nic jiného než 90/180 neříká; rozhodnutí ponecháno na posuzovateli.",
+   "by": "agent"
+  },
+  {
+   "iso2": "MW",
+   "field": "maxStayDays",
+   "note": "Žádná sekce (MZV ani evisa.gov.mw) neuvádí délku povoleného pobytu; hodnotu 30 dnů z textu ověřit nelze.",
+   "by": "agent"
+  },
+  {
+   "iso2": "MW",
+   "field": "notes",
+   "note": "Oficiální web od 24. 2. 2026 umožňuje vízum při příletu jen 'Category Two Countries' a ČR mezi nimi v textu není jmenována; MZV píše jen, že vízum 'může být v některých případech dostupné i na hraničním přechodu'. Tvrzení 'pro občany ČR' a '30 dní, prodloužení na 90' z textu nevyplývá. Poplatek 50 USD (cca 45 €) a e-visa jako doporučený postup text potvrzuje.",
+   "by": "agent"
+  },
+  {
+   "iso2": "MZ",
+   "field": "maxStayDays",
+   "note": "Sekce si odporují: MZV uvádí vízum 'dvouvstupé s platností 30 dní' (hranice), oficiální web e-víza pro turistiku uvádí pobyt 'of 90 days or less'. Záznam má 30; z textu nelze jednoznačně určit.",
+   "by": "agent"
+  },
+  {
+   "iso2": "MZ",
+   "field": "etaCostEur",
+   "note": "Text neuvádí žádnou cenu víza ani eVisa (soubor je u oficiálního webu zkrácen); hodnotu 170 € (cca 190 USD) nelze ověřit, poznámka sama říká 'cena neověřena'.",
+   "by": "agent"
+  },
+  {
+   "iso2": "NG",
+   "field": "visa",
+   "note": "MZV píše, že o vízum je třeba požádat velvyslanectví Nigérie v Praze, a 'je možné' žádat také on-line (portal.immigration.gov.ng). Text tak nerozlišuje jednoznačně mezi 'visa' a 'evisa'; tvrzení 'při příletu se víza nevydávají' v textu není.",
+   "by": "agent"
+  },
+  {
+   "iso2": "NG",
+   "field": "maxStayDays",
+   "note": "Text neuvádí délku povoleného pobytu ani platnost víza; hodnotu 30 dnů nelze ověřit.",
+   "by": "agent"
+  },
+  {
+   "iso2": "NG",
+   "field": "etaCostEur",
+   "note": "Text neuvádí žádný poplatek za vízum (288 USD ani jinou částku); hodnotu 257 € nelze ověřit.",
+   "by": "agent"
+  },
+  {
+   "iso2": "NG",
+   "field": "passportValidity",
+   "note": "MZV (obě sekce) uvádí platnost pasu alespoň 3 měsíce po předpokládaném odjezdu z Nigérie; údaj NIS o 6 měsících v souboru není (chybí sekce oficiálního webu), záznam proto z textu potvrdit nelze.",
+   "by": "agent"
+  },
+  {
+   "iso2": "RS",
+   "field": "maxStayDays",
+   "note": "Stránka MZV délku bezvízového pobytu neuvádí (jen odkaz na web srbského MZV); '90 dní během 6 měsíců' z textu nevyplývá. Bezvízový vstup a platnost OP jsou potvrzeny.",
+   "by": "agent"
+  },
+  {
+   "iso2": "RS",
+   "field": "passportValidity",
+   "note": "Text o požadované platnosti pasu/OP nic neříká, nelze ověřit.",
+   "by": "agent"
+  },
+  {
+   "iso2": "SB",
+   "field": "notes",
+   "note": "Poznámka zmiňuje nový e-visa systém od 6. 9. 2026; stránka MZV o něm nic neříká a potvrzuje jen bezvízový vstup s povolením k pobytu na 3 měsíce udělovaným při příletu.",
+   "by": "agent"
+  },
+  {
+   "iso2": "SD",
+   "field": "vaccinesRequired",
+   "note": "MZV uvádí, že očkovací průkaz není vyžadován, výjimkou je trasa Chartúm–Káhira (žlutá zimnice, požaduje Egypt). Zmínka o britském FCDO v textu není, nelze ověřit.",
+   "by": "agent"
+  },
+  {
+   "iso2": "SG",
+   "field": "visa",
+   "note": "MZV potvrzuje bezvízový pobyt 90 dní, ale zároveň vyžaduje povinný elektronický Arrival Card před příletem (zdarma); zda to klasifikovat jako 'none' nebo 'eta', text neurčuje. Poznámka kartu uvádí.",
+   "by": "agent"
+  },
+  {
+   "iso2": "SM",
+   "field": "visa",
+   "note": "Stránka MZV je obecná šablona o volném pohybu v EU a San Marino jako členský stát nijak neuvádí; potvrzuje jen uznání OP i pasu a pobyt do 3 měsíců bez formalit, takže 'none' vs 'eu' z textu nelze rozlišit.",
+   "by": "agent"
+  },
+  {
+   "iso2": "SN",
+   "field": "vaccinesRequired",
+   "note": "MZV: „Očkování proti žluté zimnici, spalničkám, vzteklině a žloutence A a B není pro Senegal povinné, je pouze doporučeno.“ Záznam uvádí podmíněný požadavek (žlutá zimnice při příletu z rizikové země (od 9 měsíců věku, i tranzit)), který obecná věta MZV nevyvrací – ponecháno k posouzení.",
+   "by": "agent"
+  },
+  {
+   "iso2": "SR",
+   "field": "etaCostEur",
+   "note": "Jediný zdroj v souboru (MZV, 2 sekce) uvádí poplatek 25 USD nebo 25 EUR (cca 22-25 €), záznam má 50 € a tvrdí, že MZV je zastaralé. Sekce oficiálního webu v souboru chybí, takže 50 € ani 8 € VFS z textu nelze potvrdit ani vyvrátit.",
+   "by": "agent"
+  },
+  {
+   "iso2": "SR",
+   "field": "notes",
+   "note": "Formulář ICF (icf.sr), poplatek VFS 8 € ani zastaralost údaje MZV text nezmiňuje; text potvrzuje jen bezvízový pobyt do 90 dnů, povinný poplatek Entry Fee online přes VFS a pas platný min. 6 měsíců od prvního vstupu.",
+   "by": "agent"
+  },
+  {
+   "iso2": "SV",
+   "field": "maxStayDays",
+   "note": "Záznam 180 (poznámka sama říká, že MZV uvádí 90); MZV: „Občané ČR mohou na území státu pobývat po dobu 90 dnů bez víza“ a v rámci C4 se počítá 90 dní celkem.",
+   "by": "manual"
+  },
+  {
+   "iso2": "SY",
+   "field": "visa",
+   "note": "Záznam „voa“ (neověřený, podle neoficiálních zdrojů); MZV: „Krátkodobý cestovatel musí zažádat o vízum na Velvyslanectví Syrské arabské republiky v Praze“.",
+   "by": "manual"
+  },
+  {
+   "iso2": "SY",
+   "field": "maxStayDays",
+   "note": "Záznam 30; MZV: vízum „je považováno jako vstupní na dobu pobytu 15 dnů“.",
+   "by": "manual"
+  },
+  {
+   "iso2": "TJ",
+   "field": "idCard",
+   "note": "Stránka MZV neuvádí, jaký doklad je pro vstup nutný (ani zda stačí OP); bezvízový pobyt do 30 dní je potvrzen.",
+   "by": "agent"
+  },
+  {
+   "iso2": "TJ",
+   "field": "passportValidity",
+   "note": "Text platnost pasu vůbec neuvádí, '6 měsíců po odjezdu' nelze ověřit.",
+   "by": "agent"
+  },
+  {
+   "iso2": "TM",
+   "field": "visa",
+   "note": "Záznam „evisa“ (neověřený) stojí na novém portálu e-víz; MZV dál píše: „Na občany ČR se vztahuje vízová povinnost, a to i v případě tranzitu přes území Turkmenistánu“ a popisuje vízum na ambasádě s pozváním. Z oficiálního textu e-vízum potvrdit nelze.",
+   "by": "manual"
+  },
+  {
+   "iso2": "VC",
+   "field": "maxStayDays",
+   "note": "Strojové prosetí: záznam 90; MZV: povolení ke vstupu „platí pro země schengenského prostoru šest (6) měsíců“ (poznámka záznamu rozpor zmiňuje).",
+   "by": "manual"
+  }
+ ],
+ "unverifiableDetail": [
+  {
+   "iso2": "PS",
+   "reason": "Soubor obsahuje jen rozcestník MZV (menu, seznam států, odkaz na 'Palestinská autonomní území: varování před cestami'); žádný údaj o vízech, ETA-IL, pobytu, pasu ani očkování. Potvrzena je pouze existence varování MZV.",
+   "by": "agent"
+  },
+  {
+   "iso2": "CM",
+   "reason": "Zdrojovou stránku se nepodařilo stáhnout (https://www.evisacam.cm/).",
+   "by": "screen"
+  },
+  {
+   "iso2": "GA",
+   "reason": "Zdrojovou stránku se nepodařilo stáhnout (https://evisa.dgdi.ga/).",
+   "by": "screen"
+  },
+  {
+   "iso2": "GQ",
+   "reason": "Zdrojovou stránku se nepodařilo stáhnout (https://www.equatorialguinea-evisa.com/information).",
+   "by": "screen"
+  },
+  {
+   "iso2": "PG",
+   "reason": "Zdrojovou stránku se nepodařilo stáhnout (https://evisa.ica.gov.pg/evisa/account/Apply).",
+   "by": "screen"
+  },
+  {
+   "iso2": "UA",
+   "reason": "Zdrojovou stránku se nepodařilo stáhnout (https://mfa.gov.ua/en/consular-affairs/entry-and-stay-foreigners-ukraine/entry-regime-ukraine-foreign-citizens).",
+   "by": "screen"
+  }
+ ]
+}

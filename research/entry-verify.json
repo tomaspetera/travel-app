@@ -1,0 +1,68 @@
+[
+ {
+  "iso2": "AF",
+  "field": "maxStayDays",
+  "old": 30,
+  "new": 90,
+  "source": "https://mzv.gov.cz/jnp/cz/encyklopedie_statu/asie/afghanistan/cestovani/visa.html",
+  "quote": "Víza jsou vydávána na dobu pobytu do 3 měsíců.",
+  "date": "staženo 2026-10-06",
+  "why": "MZV uvádí víza na pobyt do 3 měsíců; 30 dní odpovídá jen e-vízu z Dubaje zmíněnému v poznámce.",
+  "checkedBy": "manual"
+ },
+ {
+  "iso2": "CO",
+  "field": "etaName",
+  "old": "Check-Mig (nepovinný online předregistrační formulář)",
+  "new": "Check-Mig (online předregistrace, 72 h až 1 h před cestou)",
+  "source": "https://mzv.gov.cz/jnp/cz/encyklopedie_statu/jizni_amerika/kolumbie/cestovani/visa.html",
+  "quote": "Pro vstup je oficiálně vyžadováno vyplnění formuláře CheckMig",
+  "date": "staženo 2026-10-06",
+  "why": "MZV formulář uvádí jako oficiálně vyžadovaný a web Migración Colombia ho popisuje jako krok před cestou; označení „nepovinný“ nemá ve stažených oficiálních textech oporu.",
+  "checkedBy": "manual"
+ },
+ {
+  "iso2": "PK",
+  "field": "notes",
+  "old": "E-vízum online (1 vstup, až 3 měsíce, 7–10 prac. dní); bezplatné VPA portál od 2026 nenabízí. MZV varuje před cestami do některých oblastí.",
+  "new": "E-vízum online (MZV: vícevstupní na 90 dnů, prodloužení o dalších 90; 7–10 prac. dní); bezplatné VPA portál od 2026 nenabízí. Nad 30 dnů registrace u policie. Některé oblasti nepřístupné.",
+  "source": "https://mzv.gov.cz/jnp/cz/encyklopedie_statu/asie/pakistan/cestovani/visa.html",
+  "quote": "on-line podání žádosti o vícevstupní vízum na 90 pobytových dnů s možností jeho prodloužení v Pákistánu o dalších 90 dnů",
+  "date": "staženo 2026-10-06",
+  "why": "Poznámka uvádí 1 vstup, ale MZV píše o vícevstupním víze na 90 dnů s prodloužením o dalších 90.",
+  "checkedBy": "agent"
+ },
+ {
+  "iso2": "SD",
+  "field": "passportValidity",
+  "old": "6 měsíců po vstupu",
+  "new": "6 měsíců ode dne podání žádosti o vízum",
+  "source": "https://mzv.gov.cz/jnp/cz/encyklopedie_statu/afrika/sudan/cestovani/documents.html",
+  "quote": "Pro vstup do Súdánu je vyžadován cestovní pas s dobou platnosti nejméně šest měsíců ode dne požádní žádosti o vízum.",
+  "date": "staženo 2026-10-06",
+  "why": "MZV počítá šestiměsíční platnost pasu od podání žádosti o vízum, ne od vstupu do země.",
+  "checkedBy": "agent"
+ },
+ {
+  "iso2": "SD",
+  "field": "notes",
+  "old": "MZV varuje před cestami (ozbrojený konflikt). Vízum jen předem na ambasádě Súdánu (Vídeň), 1 vstup; registrace do 3 dnů; s izraelským razítkem vstup nelze.",
+  "new": "MZV varuje před cestami (ozbrojený konflikt). Vízum jen předem na ambasádě Súdánu (Vídeň), 1 vstup; registrace do 7 dní; s izraelským razítkem vstup nelze.",
+  "source": "https://mzv.gov.cz/jnp/cz/encyklopedie_statu/afrika/sudan/cestovani/visa.html",
+  "quote": "Každý individuální návštěvník Súdánu se musí zaregistrovat v průběhu 7 dní na oddělení cizinecké policie Ministerstva vnitra Súdánu.",
+  "date": "staženo 2026-10-06",
+  "why": "Lhůta pro registraci u cizinecké policie je podle MZV 7 dní, ne 3 dny.",
+  "checkedBy": "agent"
+ },
+ {
+  "iso2": "YE",
+  "field": "notes",
+  "old": "MZV varuje před všemi cestami (vč. Sokotry). Vízum jen předem na ambasádě, na hranici se nevydává; izraelské razítko v pase může vést k odepření vstupu.",
+  "new": "MZV varuje před všemi cestami (vč. Sokotry). Vízum jen předem na ambasádě, ne na hranici; mimo Sanaá nutné povolení Immigration and Passport Authority; izraelské razítko může vést k odepření vstupu.",
+  "source": "https://mzv.gov.cz/jnp/cz/encyklopedie_statu/blizky_vychod/jemen/cestovani/visa.html",
+  "quote": "Pro cestu či pobyt cizince mimo hlavní město Sanaá je nutné získat povolení od tzv. Immigration and Passport Authority.",
+  "date": "staženo 2026-10-06",
+  "why": "Text uvádí povinné povolení pro pobyt a cestování mimo Sanaá, které poznámka ani ostatní pole nepokrývají.",
+  "checkedBy": "agent"
+ }
+]
