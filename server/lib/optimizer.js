@@ -191,15 +191,17 @@ function pickDiverse(results, { limit, perDestLimit, perDay = 0, perLeg = false 
  * Najde nejlevnější zpáteční kombinace.
  * outLegs: lety domov → cíl, backLegs: lety cíl → domov.
  * groundOf(iata) → cena dopravy na/z letiště domova (na osobu).
- * opts: { nightsMin, nightsMax, outDays, backDays, openJawHome, openJawDest, limit, perDestLimit, perDay, calendar, extra, legsPerDay, variety }
+ * opts: { nightsMin, nightsMax, outDays, backDays, openJawHome, openJawDest, limit, perDestLimit, perDay, calendar, extra, legsPerDay, variety, park }
  * opts.variety (přesná data) → víc letů na den (legsPerDay/dayVariety) a každý let aspoň v jedné kombinaci.
  * opts.extra(leg) → příplatek k letu na osobu (zavazadla), započítá se do pořadí i kalendáře.
  * opts.calendar = { out: Map, back: Map } → doplní nejlevnější celou cestu podle dne odletu/návratu.
+ * opts.park(fromIata, nights) → parkování auta u letiště odletu na celou cestu (na osobu); závisí na počtu nocí,
+ * proto se přičítá k cestě, ne k letišti (autem se vracíš na stejné letiště – openJawHome: false).
  */
 export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
   const {
     nightsMin = 1, nightsMax = 30, openJawHome = true, openJawDest = true, limit = 300, perDestLimit = 12, perDay = 0,
-    calendar: cal = null, legsPerDay: k = 1, extra = () => 0, variety = false,
+    calendar: cal = null, legsPerDay: k = 1, extra = () => 0, variety = false, park = null,
   } = opts;
   const backs = legsPerDay(backLegs, k, extra, { variety });
   // Index: datum → seznam návratů seřazený podle (cena + doprava domů).
@@ -229,6 +231,7 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
     for (let n = nightsMin; n <= nightsMax; n++) {
       const list = byDate.get(addDays(o.date, n));
       if (!list) continue;
+      const pk = park ? park(o.from, n) : 0; // stejné pro všechny návraty toho dne (týž počet nocí)
       let taken = 0;
       let direct = 0;
       for (const { b, cost } of list) {
@@ -241,7 +244,7 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
         }
         taken++;
         if (!b.stops) direct++;
-        const total = oCost + cost;
+        const total = oCost + cost + pk;
         results.push({ o, b, cost: total, sig: `${oDest}|${o.from}|${b.to}|${o.date}|${b.date}|${o.carrier}|${o.dep}|${b.carrier}|${b.dep}` });
         if (cal) {
           note(cal.out, o.date, total, o, b);

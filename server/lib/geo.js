@@ -1,4 +1,4 @@
-// Geografické výpočty a odhad dopravy na letiště.
+// Geografické výpočty a odhad času cesty mezi letištěm a městem.
 
 const R = 6371;
 const rad = (d) => (d * Math.PI) / 180;
@@ -19,17 +19,13 @@ export const normalize = (s) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-// Odhad cesty z výchozího bodu na letiště veřejnou dopravou (bus/vlak).
+// Odhad času cesty mezi letištěm a městem veřejnou dopravou (bus/vlak) – jen čas, např. z letiště příletu do cíle.
 // Silniční vzdálenost ≈ 1,25 × vzdušná; průměr 80 km/h + 30 min na přestupy a rezervu.
-// Cena: kmRate Kč za km (střední Evropa: RegioJet/Flixbus/ÖBB vychází cca 0,9–1,5 Kč/km).
-export function groundEstimate(distKm, kmRate = 1.1) {
+// Cena a čas cesty z domova na letiště odletu (veřejnou dopravou i autem) viz access.js.
+export function groundEstimate(distKm) {
   const km = Math.round(distKm);
-  if (distKm < 30) {
-    // Městská/příměstská doprava.
-    return { km, minutes: Math.round(30 + distKm * 1.2), czk: kmRate > 0 ? 60 : 0, local: true };
-  }
+  // Městská/příměstská doprava.
+  if (distKm < 30) return { km, minutes: Math.round(30 + distKm * 1.2), local: true };
   const roadKm = distKm * 1.25;
-  const minutes = Math.round((roadKm / 80) * 60 + 30);
-  const czk = kmRate > 0 ? Math.max(80, Math.round((roadKm * kmRate) / 10) * 10) : 0;
-  return { km, minutes, czk, local: false };
+  return { km, minutes: Math.round((roadKm / 80) * 60 + 30), local: false };
 }

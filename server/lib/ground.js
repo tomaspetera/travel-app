@@ -176,7 +176,7 @@ export function distanceModel(km, slow = 1, cheap = false) {
   const czk = km <= 450 || cheap ? 120 + 0.62 * km : Math.min(399 + 5 * far, 398 + 0.86 * km);
   return { minutes: round5(Math.max(45, minutes)), czk: roundCzk(Math.max(150, czk)) };
 }
-const CHEAP_CC = new Set(['CZ', 'SK', 'PL', 'HU', 'UA']);
+export const CHEAP_CC = new Set(['CZ', 'SK', 'PL', 'HU', 'UA']);
 
 // Do Švédska a Norska se z pevniny jede po souši přes Øresundský most (Kodaň–Malmö), do Norska dál přes
 // Göteborg a Oslo – přímka přes Baltské moře nebo Skagerrak by cestu zkrátila (Praha–Kalmar, Kristiansand).

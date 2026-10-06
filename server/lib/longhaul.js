@@ -2,7 +2,8 @@
 // dálkových zemí (Travelpayouts se ptá po cílech) a velká přestupní letiště v okolí domova,
 // odkud se do Asie, Afriky nebo Ameriky často letí levněji (Vídeň, Mnichov, Berlín…).
 import { COUNTRIES, airportsInCountry, getAirport } from './airports.js';
-import { groundEstimate, haversineKm } from './geo.js';
+import { haversineKm } from './geo.js';
+import { airportAccess } from './access.js';
 
 // Světadíly / oblasti. `cont` = hodnota z data/countries.json, `list` = výčet zemí.
 // `sweep` = nejoblíbenější země v pořadí, ve kterém se prohledávají (Kiwi: 1 dotaz na zemi).
@@ -71,9 +72,9 @@ export const FAR_KM = 2500;
 
 /**
  * Přestupní letiště do `maxKm` od domova, která ještě nejsou mezi odletovými (nejbližší první).
- * Vrací stejný tvar jako resolveOrigins: { iata, distKm, ground, hub: true }.
+ * Vrací stejný tvar jako resolveOrigins: { iata, distKm, ground, hub: true }; access = volby cesty na letiště (access.js).
  */
-export function hubsNear(home, existing, { kmRate = 1.1, maxKm = 450, max = 3, exclude = [] } = {}) {
+export function hubsNear(home, existing, { access = {}, maxKm = 450, max = 3, exclude = [] } = {}) {
   if (!home) return [];
   return HUB_ORIGINS
     .filter((iata) => !existing.has(iata) && !exclude.includes(iata))
@@ -84,7 +85,7 @@ export function hubsNear(home, existing, { kmRate = 1.1, maxKm = 450, max = 3, e
     .filter((x) => x && x.distKm <= maxKm)
     .sort((x, y) => x.distKm - y.distKm)
     .slice(0, max)
-    .map((x) => ({ ...x, ground: groundEstimate(x.distKm, kmRate), hub: true }));
+    .map((x) => ({ ...x, ground: airportAccess(home, x.iata, access), hub: true }));
 }
 
 /** Je letiště / země daleko od domova (dálkový let)? */

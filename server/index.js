@@ -12,7 +12,7 @@ import { activeProviders, providerStatus } from './providers/index.js';
 import { fxInfo, loadRates } from './lib/fx.js';
 import { cache } from './lib/cache.js';
 import { airportsNear, getAirport } from './lib/airports.js';
-import { groundEstimate } from './lib/geo.js';
+import { airportAccess, carTrip, normalizeAccess } from './lib/access.js';
 import { addDays, todayYmd } from './lib/dates.js';
 import { searchStays } from './lib/stays.js';
 import { searchCars } from './lib/cars.js';
@@ -245,21 +245,29 @@ async function route(req, res) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return sendJson(req, res, 400, { error: 'Chybí lat/lon' });
     const items = airportsNear(lat, lon, radius).slice(0, 15).map((a) => ({
       iata: a.iata, name: a.name, city: a.cityCs, cc: a.cc, lat: a.lat, lon: a.lon,
-      distKm: Math.round(a.distKm), ground: groundEstimate(a.distKm),
+      distKm: Math.round(a.distKm), ground: airportAccess({ lat, lon }, a.iata),
     }));
     return sendJson(req, res, 200, { items });
   }
   if (p === '/api/origins') {
-    // Náhled letišť, která se prohledají (pro výběr v UI).
-    const ids = url.searchParams.getAll('from').slice(0, 8);
-    const radiusKm = Math.min(600, Math.max(0, Number(url.searchParams.get('radius')) || 0));
-    const kmRate = Math.min(5, Math.max(0, Number(url.searchParams.get('kmRate') ?? 1.1) || 0));
-    const r = resolveOrigins(ids, { radiusKm, kmRate, maxAirports: 20 });
+    // Náhled letišť, která se prohledají (pro výběr v UI), s cestou na letiště jako v hledání: groundMode, kmRate,
+    // carKmCzk, adults, trip (oneway = autem odvoz) a nights (autem: parkování na typickou délku cesty → ground.trip).
+    const sp = url.searchParams;
+    const ids = sp.getAll('from').slice(0, 8);
+    const radiusKm = Math.min(600, Math.max(0, Number(sp.get('radius')) || 0));
+    const acc = normalizeAccess({ kmRate: sp.get('kmRate'), groundMode: sp.get('groundMode'), carKmCzk: sp.get('carKmCzk') });
+    const adults = Math.min(9, Math.max(1, Math.round(Number(sp.get('adults'))) || 1));
+    const nights = Math.min(90, Math.max(0, Math.round(Number(sp.get('nights') ?? 7)) || 0));
+    const oneWay = sp.get('trip') === 'oneway';
+    const access = { mode: acc.groundMode, scale: acc.kmRate, carKmCzk: acc.carKmCzk, adults, oneWay };
+    const r = resolveOrigins(ids, { radiusKm, access, maxAirports: 20 });
     return sendJson(req, res, 200, {
       home: r.home,
+      access: { ...acc, adults, nights: oneWay ? null : nights, trip: oneWay ? 'oneway' : 'return' },
       airports: r.airports.map((a) => {
         const ap = getAirport(a.iata);
-        return { ...a, name: ap.name, city: ap.cityCs, cc: ap.cc, type: ap.type, lat: ap.lat, lon: ap.lon };
+        const g = a.ground && a.ground.mode === 'car' ? { ...a.ground, trip: carTrip(a.ground, nights) } : a.ground;
+        return { ...a, ground: g, name: ap.name, city: ap.cityCs, cc: ap.cc, type: ap.type, lat: ap.lat, lon: ap.lon };
       }),
     });
   }

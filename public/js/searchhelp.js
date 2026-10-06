@@ -26,20 +26,22 @@
    * Cesta ze dvou samostatných letenek: let tam z kombinace ot a let zpět z kombinace bt (přesná data, pohled „Lety“),
    * i když tahle dvojice mezi nejlepšími kombinacemi ze serveru není. Cena stejně jako na serveru: letenky + doprava
    * na domácí letiště + zavazadla (leg.groundCzk / leg.bagCzk). Společná zpáteční letenka, jiné město, návrat na jiné
-   * letiště bez open-jaw nebo návrat dřív než 2 h po příletu → null.
+   * letiště bez open-jaw nebo návrat dřív než 2 h po příletu → null. Autem (park(fromIata, nights) → parkování Kč/os.
+   * na celou cestu jako na serveru): návrat jen na letiště, kde auto parkuje.
    */
-  function composeTrip(ot, bt, { adults = 1, openJaw = true } = {}) {
+  function composeTrip(ot, bt, { adults = 1, openJaw = true, park = null } = {}) {
     const o = ot && ot.out, b = bt && bt.back;
     if (!o || !b || ot.combined || bt.combined) return null;
     if (![o, b].every(l => l.czk > 0 && Number.isFinite(l.groundCzk) && Number.isFinite(l.bagCzk))) return null;
     if (b.from !== o.to && !(openJaw && ot.destKey && ot.destKey === bt.destKey)) return null;
-    if (b.to !== o.from && !openJaw) return null;
+    if (b.to !== o.from && (!openJaw || park)) return null;
     if (b.date < o.date || !returnFits(o, b)) return null;
-    const flightCzk = o.czk + b.czk, groundCzk = o.groundCzk + b.groundCzk, bagCzk = o.bagCzk + b.bagCzk;
+    const pk = park ? park(o.from, diffDays(o.date, b.date)) || 0 : 0;
+    const flightCzk = o.czk + b.czk, groundCzk = o.groundCzk + b.groundCzk + pk, bagCzk = o.bagCzk + b.bagCzk;
     const perPersonCzk = flightCzk + groundCzk + bagCzk;
     return {
       id: [o.provider, o.from, o.to, o.dep, b.provider, b.from, b.to, b.dep].join('|'),
-      out: o, back: b, flightCzk, groundCzk, bagCzk, bagEst: o.bagEst || b.bagEst || undefined,
+      out: o, back: b, flightCzk, groundCzk, ...(pk ? { parkCzk: pk } : {}), bagCzk, bagEst: o.bagEst || b.bagEst || undefined,
       perPersonCzk, totalCzk: perPersonCzk * adults, nights: diffDays(o.date, b.date),
       provider: o.provider === b.provider ? o.provider : 'mix', combined: false, bookUrl: null,
       distanceKm: ot.distanceKm, tempHi: ot.tempHi, destKey: ot.destKey,
@@ -536,7 +538,62 @@
       : 'jiné letiště než přílet předchozího letu (nebo neznámý čas) – odlet nejdřív další den';
   }
 
+  /* ---------- doprava na letiště (stejně jako server/lib/access.js) ---------- */
+
+  const LEGACY_KM_RATE = 1.1; // dřív Kč/km s výchozími 1,1 – uložená hledání a hlídané ceny
+  /** Formulář uložený dřív (bez groundMode, kmRate v Kč/km) → veřejnou dopravou, kmRate jako násobek odhadu (1,1 → 1). */
+  function groundForm(f) {
+    if (!f || typeof f !== 'object' || f.groundMode != null || f.kmRate == null) return f;
+    const k = Number(f.kmRate);
+    return { ...f, groundMode: 'transit', kmRate: Number.isFinite(k) && k >= 0 ? Math.round(k / LEGACY_KM_RATE * 10) / 10 : 1 };
+  }
+  const tollSum = (g, pick) => (g.tolls || []).filter(pick).reduce((s, t) => s + t.czk, 0);
+  /** Dní parkování pro cestu s N nocemi (odlet ráno, návrat večer = N + 1 započatých dní). */
+  const parkDays = n => Math.max(1, Math.round(Number(n) || 0) + 1);
+  /** Autem tam i zpět s N nocemi: parkování (+ druhá známka, když první nevystačí), Kč/os. – jako server (access.js parkCzk). */
+  function parkCzk(g, nights) {
+    if (!g || g.mode !== 'car' || g.off || g.dropOff) return 0;
+    const days = parkDays(nights);
+    return Math.round((g.parkDayCzk * days + tollSum(g, t => t.days && days > t.days)) / (g.adults || 1));
+  }
+  /** Celá cesta autem: { days, perPerson, fuel, park, tolls, total } (za auto kromě perPerson) – jako server (access.js carTrip). */
+  function carTrip(g, nights) {
+    if (!g || g.mode !== 'car') return null;
+    const once = tollSum(g, t => t.days), each = tollSum(g, t => !t.days);
+    if (g.dropOff) return { days: 0, perPerson: g.czk, fuel: 2 * g.fuelCzk, park: 0, tolls: once + 2 * each, total: 2 * g.fuelCzk + once + 2 * each };
+    const days = parkDays(nights), park = g.parkDayCzk * days, tolls = once + tollSum(g, t => t.days && days > t.days) + 2 * each;
+    return { days, perPerson: g.off ? 0 : 2 * g.czk + parkCzk(g, nights), fuel: 2 * g.fuelCzk, park, tolls, total: 2 * g.fuelCzk + park + tolls };
+  }
+  const r10 = n => Math.round(n / 10) * 10;
+  const dnu = n => (n === 1 ? 'den' : n >= 2 && n <= 4 ? 'dny' : 'dní');
+  const rate = x => String(x).replace('.', ',');
+  /**
+   * Cesta z domova na letiště odletu (g = ground ze serveru) pro štítek a popisek: veřejnou dopravou „~X Kč/os. tam“,
+   * autem tam i zpět „~X Kč/os. vč. parkování na N dní“ (nights = délka cesty), autem jen tam odvoz. → { text, title } | null
+   * (doprava vypnutá nebo neznámá). Texty jsou čisté – do HTML jen přes esc().
+   */
+  function accessLabel(g, { nights = null } = {}) {
+    if (!g || g.off || !(g.czk >= 0)) return null;
+    if (g.mode === 'car') {
+      const t = carTrip(g, nights), n = g.adults || 1;
+      const tolls = (g.tolls || []).map(x => ` + ${x.label} ~${kc(x.days ? x.czk : 2 * x.czk)}`).join('');
+      const fuel = `palivo tam i zpět ${2 * g.roadKm} km × ${rate(g.carKmCzk)} Kč = ~${kc(t.fuel)}`;
+      const per = `~${kc(t.total)} za auto, na osobu (${n} os.) ~${kc(t.perPerson)}`;
+      if (g.dropOff) {
+        return { text: `~${kc(r10(t.perPerson))}/os. (odvoz)`, title: `Autem jen tam: počítám, že tě někdo odveze a vrátí se (parkování neznámé) – ${fuel}${tolls} = ${per}. ~${hm(g.minutes)} jízdy. Odhad.` };
+      }
+      return {
+        text: `~${kc(r10(t.perPerson))}/os. vč. parkování na ${t.days} ${dnu(t.days)}`,
+        title: `Autem ${g.roadKm} km (~${hm(g.minutes)}): ${fuel} + parkování ~${kc(g.parkDayCzk)}/den × ${t.days} ${dnu(t.days)} = ~${kc(t.park)}${tolls} = ${per}. Parkování ve výsledcích podle skutečné délky cesty. Odhad.`,
+      };
+    }
+    const items = (g.breakdown || []).map(x => `${x.label} ~${kc(x.czk)}`);
+    const sum = items.length > 1 ? `${items.join(' + ')} = ~${kc(g.czk)}` : items.length ? items[0] : `~${kc(g.czk)}`;
+    return { text: `~${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: ${sum} na osobu jedním směrem (zpět totéž), ~${hm(g.minutes)}. Odhad podle vzdálenosti a ceníků dopravců, ne jízdní řád.` };
+  }
+
   window.SearchHelp = {
+    groundForm, parkDays, parkCzk, carTrip, accessLabel,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
   };

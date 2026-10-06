@@ -63,6 +63,41 @@ test('GET /api/places a /api/origins', async () => {
   assert.ok(o.airports.every((a) => a.city && a.lat));
 });
 
+test('GET /api/origins – doprava na letiště: veřejnou dopravou, autem s parkováním, dřívější kmRate, vypnuto', async () => {
+  const get = async (qs) => (await fetch(`${base}/api/origins?from=ap:PRG&radius=200&${qs}`)).json();
+  const t = await get('groundMode=transit&kmRate=1');
+  assert.deepEqual(t.access, { groundMode: 'transit', kmRate: 1, carKmCzk: 2.6, adults: 1, nights: 7, trip: 'return' });
+  const prg = t.airports.find((a) => a.iata === 'PRG');
+  assert.deepEqual([prg.ground.mode, prg.ground.czk, prg.ground.local], ['transit', 50, true]);
+  for (const a of t.airports) {
+    assert.ok(a.ground.czk > 0 && a.ground.minutes > 0 && a.ground.km >= 0, a.iata);
+    assert.ok(Array.isArray(a.ground.breakdown) && a.ground.breakdown.every((x) => typeof x.label === 'string' && x.czk > 0));
+  }
+  // dřívější odkaz s kmRate 1,1 (Kč/km) bez groundMode = výchozí odhad
+  const legacy = await get('kmRate=1.1');
+  assert.equal(legacy.access.kmRate, 1);
+  assert.deepEqual(legacy.airports.map((a) => a.ground.czk), t.airports.map((a) => a.ground.czk));
+  // autem, 2 lidé, 5 nocí: rozpis za auto i celá cesta na osobu
+  const c = await get('groundMode=car&carKmCzk=3&adults=2&nights=5');
+  assert.deepEqual([c.access.groundMode, c.access.carKmCzk, c.access.adults, c.access.nights], ['car', 3, 2, 5]);
+  for (const a of c.airports) {
+    const g = a.ground;
+    assert.equal(g.mode, 'car');
+    assert.ok(g.roadKm > 0 && g.fuelCzk === Math.round(g.roadKm * 3) && g.parkDayCzk > 0 && Array.isArray(g.tolls) && g.adults === 2);
+    assert.deepEqual(g.breakdown.map((x) => x.k), ['fuel', 'park', ...g.tolls.map(() => 'toll')]);
+    assert.equal(g.trip.days, 6);
+    assert.equal(g.trip.park, g.parkDayCzk * 6);
+    assert.equal(g.trip.perPerson, 2 * g.czk + Math.round((g.parkDayCzk * 6 + g.tolls.filter((x) => x.days && x.days < 6).reduce((s, x) => s + x.czk, 0)) / 2));
+  }
+  // jen tam autem = odvoz
+  const ow = await get('groundMode=car&trip=oneway');
+  assert.ok(ow.airports.every((a) => a.ground.dropOff && a.ground.trip.days === 0));
+  assert.equal(ow.access.nights, null);
+  // vypnuto
+  const off = await get('groundMode=transit&kmRate=0');
+  assert.ok(off.airports.every((a) => a.ground.czk === 0 && a.ground.off));
+});
+
 test('POST /api/search – kamkoliv, zpáteční, průběh se streamuje', async () => {
   const { progress, last } = await searchStream({ from: ['ap:BRQ'], radiusKm: 150, dateFrom: ymdPlus(10), dateTo: ymdPlus(40), trip: 'return', nightsMin: 2, nightsMax: 6, adults: 2 });
   assert.ok(progress.length >= 1);

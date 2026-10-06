@@ -12,7 +12,8 @@ import {
 } from './airports.js';
 import { COUNTRY_ALIASES, REGIONS } from './names.js';
 import { CONTINENTS, CONTINENT_BY_KEY, continentCountries } from './longhaul.js';
-import { groundEstimate, haversineKm, normalize } from './geo.js';
+import { haversineKm, normalize } from './geo.js';
+import { airportAccess } from './access.js';
 import { cache } from './cache.js';
 import { request } from './http.js';
 import { config } from '../config.js';
@@ -178,9 +179,10 @@ function parseGeo(rest) {
 
 /**
  * Výchozí místa → letiště odletu.
- * Vrací { home: {lat,lon,label}|null, airports: [{iata, distKm, ground}] } seřazená podle vzdálenosti.
+ * Vrací { home: {lat,lon,label,cc?,iata?}|null, airports: [{iata, distKm, ground}] } seřazená podle vzdálenosti.
+ * ground = cesta z domova na letiště (access.js: veřejnou dopravou / autem podle `access`, viz airportAccess).
  */
-export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOrigins, kmRate = 1.1 } = {}) {
+export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOrigins, access = {} } = {}) {
   let home = null;
   const picked = new Map();
   const add = (a, dist) => {
@@ -193,13 +195,13 @@ export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOr
     if (kind === 'ap') {
       const a = getAirport(rest);
       if (!a) continue;
-      point = { lat: a.lat, lon: a.lon, label: a.cityCs };
+      point = { lat: a.lat, lon: a.lon, label: a.cityCs, cc: a.cc, iata: a.iata };
       add(a, 0);
       picked.get(a.iata).explicit = true;
     } else if (kind === 'metro') {
       const m = METRO_BY_CODE.get(rest);
       if (!m) continue;
-      point = { lat: m.lat, lon: m.lon, label: m.cs };
+      point = { lat: m.lat, lon: m.lon, label: m.cs, cc: m.cc };
       for (const code of m.airports) {
         const a = getAirport(code);
         add(a, haversineKm(m.lat, m.lon, a.lat, a.lon));
@@ -248,7 +250,7 @@ export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOr
     airports: list.map((x) => ({
       iata: x.iata,
       distKm: Math.round(x.distKm),
-      ground: home ? groundEstimate(x.distKm, kmRate) : null,
+      ground: home ? airportAccess(home, x.iata, access) : null,
     })),
   };
 }
