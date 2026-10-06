@@ -752,8 +752,8 @@
     if (s === true) out.push('<span class="b good" title="Podle ATLAS je to ideální období pro tuto zemi">☀️ ideální sezóna</span>');
     if (t.tempHi != null) out.push(`<span class="b ${t.tempHi >= 25 ? 'sun' : t.tempHi < 15 ? 'info' : ''}" title="Dlouhodobý průměr denních maxim v ${MNS_IN[+t.out.date.slice(5, 7) - 1]} (NASA POWER) – není to předpověď">🌡️ ~${t.tempHi} °C</span>`);
     if (g && g.dest.airportDistKm > 30) out.push(`<span class="b" title="Vzdálenost letiště od centra">📏 ${g.dest.airportDistKm} km od centra</span>`);
-    // vstupní podmínky: jen když je co vyřizovat (ESTA, e-vízum…), a přestup v zemi, kde registrace platí i pro tranzit
-    if (window.Entry) out.push(Entry.flightChip(g?.dest.cc), Entry.transitHtml([t.out, t.back], g?.dest.cc));
+    // vstupní podmínky: jen když je co vyřizovat (ESTA, e-vízum…) nebo cesta vychází po konci dočasného režimu, a přestup v zemi, kde registrace platí i pro tranzit
+    if (window.Entry) out.push(Entry.flightChip(g?.dest.cc, (t.back || t.out).date), Entry.transitHtml([t.out, t.back], g?.dest.cc));
     return out.join('');
   }
 
@@ -888,6 +888,8 @@
   // Lety do míst na cestě (bez posledního letu domů); země cesty = jejich cíle + země odletu (open-jaw) – vstupní podmínky.
   const mVisit = res => res.legs.slice(0, res.returnsHome ? res.legs.length - 1 : res.legs.length);
   const mCountries = res => [...new Set([...mVisit(res).map(l => l.dest && l.dest.cc), ...res.legs.slice(1).map(l => l.fromCc)].filter(cc => cc && cc !== 'CZ'))];
+  // země přestupů vybraných letů, kde registrace platí i pro tranzit (jen kódy)
+  const mVia = (res, opts) => (window.Entry ? Entry.transitCcs(opts.map(o => o.out), mCountries(res)) : []);
   // Vybrané lety platné pro tento výsledek (jinak null).
   const mPicks = res => res.legs.map((l, i) => { const a = view.mPicks[i]; return Number.isInteger(a) && a >= 0 && a < l.options.length ? a : null; });
   const mPlan = (res, picks = mPicks(res)) => SearchHelp.multiPlan(res.legs.map(l => l.options.map(o => o.perPersonCzk)), res.links, picks);
@@ -987,7 +989,7 @@
     const wiz = n === 2 && res.returnsHome;
     // vstupní podmínky v zemích na cestě (bez návratu domů) – čip u letu do země, kde je co vyřizovat
     const visit = mVisit(res);
-    const entry = i => (window.Entry && i < visit.length ? Entry.flightChip(res.legs[i].dest?.cc) : '');
+    const entry = i => (window.Entry && i < visit.length ? Entry.flightChip(res.legs[i].dest?.cc, (opts[i + 1] || opts[i]).out.date) : '');
     const legs = opts.map((o, i) => `${i ? mGap(res, i, opts[i - 1].out, o.out) : ''}<div class="mc-leg"><div class="mc-lh"><span class="mc-n">${i + 1}. let</span><span class="mc-lab">${esc(res.legs[i].label)}</span>${entry(i)}<b>${czk(o.perPersonCzk)}</b></div>${legHtml(o.out)}<div class="mc-buy">${mBuy(o, i)}</div></div>`).join('');
     const badges = [`<span class="b info" title="Každý let kupuješ zvlášť – při zpoždění jednoho letu další aerolinka nečeká">🎫 ${plural(n, 'samostatná letenka', 'samostatné letenky', 'samostatných letenek')}</span>`,
       window.Entry ? Entry.transitHtml(opts.map(o => o.out), mCountries(res)) : '',
@@ -1076,12 +1078,14 @@
     const opts = picks.map((p, i) => mOpt(res, i, p)), n = opts.length, last = opts[n - 1].out;
     const per = opts.reduce((s, o) => s + o.perPersonCzk, 0), pax = res.query.adults;
     const visit = res.legs.slice(0, res.returnsHome ? n - 1 : n);
-    const ccs = [...new Set(visit.map(l => l.dest && l.dest.cc).filter(Boolean))], all = mCountries(res);
+    const ccs = [...new Set(visit.map(l => l.dest && l.dest.cc).filter(Boolean))], all = mCountries(res), via = mVia(res, opts);
     S.trips.push({
       name: res.destination.label.slice(0, 120), dest: [...new Set(visit.map(l => l.to))].join(', ').slice(0, 120) || '—',
       iso: ccs.length === 1 && byIso[ccs[0]] ? ccs[0] : null,
       // víc zemí na cestě: jen kódy zemí (vstupní podmínky se dopočítají z dat, sdílený odkaz zůstane krátký)
       ...(all.length > 1 ? { isos: all } : {}),
+      // přestupy v zemích, kde registrace platí i pro tranzit (ESTA v USA…)
+      ...(via.length ? { via } : {}),
       start: opts[0].out.date, end: last.arr && last.hasTime ? last.arr.slice(0, 10) : last.date,
       pax: String(pax), budget: String(Math.round(per * pax)),
       flight: `${opts.map((o, i) => `${i + 1}. ${o.out.from}→${o.out.to} ${fmtDate(o.out.date)} ${timeOf(o.out)} (${o.out.carrierName || provName(o.out.provider)})`).join(', ')} · ${plural(n, 'samostatná letenka', 'samostatné letenky', 'samostatných letenek')}`.slice(0, 500),
@@ -1100,6 +1104,8 @@
     const ev = [{ title: `🧳 ${route}`, start: opts[0].out.date, end: last.arr && last.hasTime ? last.arr.slice(0, 10) : last.date,
       description: `${plural(n, 'let', 'lety', 'letů')} · ${res.query.adults} os. · každý let je samostatná letenka`, location: res.legs.map(l => l.to).join(', ') },
     ...opts.map((o, i) => Ics.flightEvent(Trip.legBrief(o.out), { url: o.bookUrl || o.out.bookUrl || undefined, note: `${i + 1}. let z ${n} · ${route} · samostatná letenka` }))];
+    // „🛂 Vyřídit ESTA (USA)“ před prvním odletem – země cesty i přestupy s registrací
+    if (window.Entry) ev.push(...Entry.reminders(mCountries(res), opts[0].out.date, fmtYMD(new Date()), mVia(res, opts)));
     icsDownload(`atlas-${route}`, ev, { name: route });
   }
 
@@ -1894,9 +1900,15 @@
 
   // „💡 Jak hledat chytře“: ceny registrací z dat vstupních podmínek (ne napevno v textu)
   function guideEntry() {
-    const el = $('#sgEntry'), reg = iso => { const r = Entry.get(iso); return r ? `${esc(Entry.regName(r))}${r.etaCostEur != null ? ` (~${r.etaCostEur} €)` : ''}` : ''; };
-    if (!el || !Entry.get('US')) return;
-    el.innerHTML = `<b>Hlídej vstupní podmínky.</b> Do USA potřebuješ ${reg('US')}${Entry.get('US').transitEta ? ' – i když tam jen přestupuješ' : ''}, do Kanady ${reg('CA')}, do Británie ${reg('GB')}. Vyřizuj je jen na oficiálních webech (zprostředkovatelé si účtují víc). ATLAS je ukáže u výsledků (🛂) a podrobně v detailu země – zdroj MZV ČR, ověřeno ${esc(Entry.checkedTxt())}.`;
+    const el = $('#sgEntry');
+    if (!el || !['US', 'CA', 'GB'].every(iso => Entry.get(iso))) return;
+    // „ESTA (~36 €, i na přestup)“ – tranzit podle dat (transitEta), u Británie jen s pasovou kontrolou
+    const reg = iso => {
+      const r = Entry.get(iso), eur = Number(r.etaCostEur);
+      const bits = [r.etaCostEur != null && eur >= 0 ? `~${eur} €` : '', r.transitEta === true ? 'i na přestup' : r.transitEta ? 'i na přestup s pasovou kontrolou' : ''].filter(Boolean);
+      return `${esc(Entry.regName(r))}${bits.length ? ` (${bits.join(', ')})` : ''}`;
+    };
+    el.innerHTML = `<b>Hlídej vstupní podmínky.</b> Do USA potřebuješ ${reg('US')}, do Kanady ${reg('CA')}, do Británie ${reg('GB')}. Vyřizuj je jen na oficiálních webech (zprostředkovatelé si účtují víc). ATLAS je ukáže u výsledků (🛂) a podrobně v detailu země – zdroj MZV ČR, ověřeno ${esc(Entry.checkedTxt())}.`;
   }
 
   async function init() {

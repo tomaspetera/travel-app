@@ -35,7 +35,7 @@ const sp = (s) => String(s).replace(/\u00a0/g, ' ');
 
 /* ---------- data ---------- */
 const ENUM = ['none', 'eu', 'eta', 'evisa', 'voa', 'visa'];
-const KEYS = ['iso2', 'visa', 'idCard', 'maxStayDays', 'etaName', 'etaCostEur', 'etaUrl', 'transitEta', 'passportValidity', 'vaccinesRequired', 'vaccinesRecommended', 'notes', 'source', 'verified'];
+const KEYS = ['iso2', 'visa', 'idCard', 'maxStayDays', 'etaName', 'etaCostEur', 'etaUrl', 'transitEta', 'passportValidity', 'vaccinesRequired', 'vaccinesRecommended', 'notes', 'validUntil', 'source', 'verified'];
 // Zprostředkovatelé a agentury – na jejich weby nikdy neodkazovat (vybírají několikanásobek poplatku).
 const AGENCY = /ivisa|visahq|atlys|visasnews|visa-?central|cibt|evisa-?express|esta-?(online|us|form|apply)|(online|apply|fast|easy|my|go)-?visa|visa-?(online|apply|service|go|direct)|e-?visas?\.(com|org|net|co)\b|travel-?visa|eta-?(online|form|apply|canada|uk)|(canada|uk|us)-?eta|visagov|govisa|esta\.us/i;
 // Oficiální weby, které nemají vládní doménu (portály úřadů, provozovatelé pověření vládou) – nový musí někdo zkontrolovat.
@@ -71,7 +71,14 @@ test('entry.json: pole, typy a hodnoty každé země', () => {
     for (const [k, v] of Object.entries(r)) if (typeof v === 'string') assert.ok(!/[<>\u0000-\u001f]|&[a-z#0-9]+;/i.test(v), `${at}.${k}: HTML nebo řídicí znak`);
     assert.match(r.source, /^https:\/\/[^\s]+$/, `${at}: zdroj`);
     if (r.etaUrl !== null) assert.match(r.etaUrl, /^https:\/\/[^\s]+$/, `${at}: etaUrl`);
+    // dočasný režim: datum a totéž datum v poznámce
+    if (r.validUntil !== undefined) {
+      assert.match(r.validUntil, /^\d{4}-\d{2}-\d{2}$/, `${at}: validUntil`);
+      const [y, m, d] = r.validUntil.split('-').map(Number);
+      assert.ok(r.notes.includes(`${d}. ${m}. ${y}`), `${at}: datum ${r.validUntil} v poznámce`);
+    }
   }
+  assert.deepEqual(ENTRY.countries.filter((r) => r.validUntil).map((r) => r.iso2).sort(), ['BY', 'KR', 'MN']);
 });
 
 test('entry.json: režimy dávají smysl (registrace má název a web, OP jen bez víza, tranzit jen u registrace)', () => {
@@ -86,12 +93,13 @@ test('entry.json: režimy dávají smysl (registrace má název a web, OP jen be
     if (r.idCard) assert.ok(r.visa === 'eu' || r.visa === 'none', `${at}: OP stačí jen bez víza`);
     if (r.visa === 'eu') assert.ok(r.idCard, `${at}: EU bez OP`);
     if (r.transitEta !== undefined) {
-      assert.equal(r.transitEta, true, at);
+      // true = i letištní tranzit, 'landside' = jen přestup přes pasovou kontrolu
+      assert.ok(r.transitEta === true || r.transitEta === 'landside', at);
       assert.equal(r.visa, 'eta', `${at}: tranzit jen u registrace`);
       assert.match(r.notes, /tranzit/i, `${at}: tranzit musí být v poznámce`);
     }
   }
-  assert.deepEqual(ENTRY.countries.filter((r) => r.transitEta).map((r) => r.iso2).sort(), ['CA', 'US']);
+  assert.deepEqual(ENTRY.countries.filter((r) => r.transitEta).map((r) => `${r.iso2}:${r.transitEta}`).sort(), ['CA:true', 'GB:landside', 'US:true']);
   assert.equal(ENTRY.countries.filter((r) => r.visa === 'eu').length, 31, 'EU + Island, Norsko, Lichtenštejnsko, Švýcarsko');
 });
 
@@ -127,13 +135,24 @@ test('kind/čip země: stačí OP, registrace, e-vízum, vízum na hranici, víz
   assert.deepEqual(plain(k('EG')), ['voa', '🛂', 'vízum na hranici', true]);
   assert.deepEqual(plain(k('CN')), ['visa', '📄', 'vízum předem', true]);
   assert.equal(Entry.kind(null), null);
+  // Austrálie: eVisitor je podle MZV vízum – text nesmí tvrdit „bez víza“; názvy se závorkou se nevnořují
+  assert.equal(Entry.kind(Entry.get('AU')).text, 'Nutná online registrace předem: eVisitor (subclass 651)');
+  assert.equal(Entry.kind(Entry.get('CA')).text, 'Nutná online registrace předem: eTA (Canada)');
+  assert.equal(Entry.kind(Entry.get('IN')).text, 'Nutné e-vízum, vyřídíš online předem: e-Visa (e-Tourist Visa)');
+  assert.equal(Entry.kind(Entry.get('IR')).text, 'Vízum předem na zastupitelském úřadě; online žádost: E-VISA (online žádost, vízum vydá ambasáda)');
+  for (const r of ENTRY.countries) assert.ok(!/\([^()]*\(/.test(Entry.kind(r).text), `${r.iso2}: vnořené závorky`);
+  // neověřený záznam: „?“ za štítkem a v bublině „neověřeno“, ne „ověřeno 10/2026“
+  assert.match(Entry.cardChip('SY'), />🛂 vízum na hranici\?<\/span>$/);
+  assert.match(Entry.cardChip('SY'), /stav 10\/2026, neověřeno na oficiální stránce/);
+  assert.doesNotMatch(Entry.cardChip('SY'), /ověřeno 10\/2026\)/);
+  assert.match(Entry.flightChip('TM'), />🛂 e-vízum\?<\/span>$/);
 
   assert.match(Entry.cardChip('US'), /^<span class="ec ec-reg" title="[^"<>]*">🛂 ESTA<\/span>$/);
   assert.match(Entry.cardChip('DE'), />🪪 stačí OP</);
   assert.match(Entry.cardChip('TH'), />bez víza</);
   assert.equal(Entry.cardChip('CZ'), '', 'domov bez čipu');
   assert.equal(Entry.cardChip('XX'), '');
-  assert.match(Entry.cardChip('US'), /title="Spojené státy americké: Bez víza, ale nutná online registrace předem \(ESTA\) – ~36 € \(≈ 900 Kč\)\. Pobyt: 90 dní\./);
+  assert.match(Entry.cardChip('US'), /title="Spojené státy americké: Nutná online registrace předem: ESTA – ~36 € \(≈ 900 Kč\)\. Pobyt: 90 dní\./);
 });
 
 test('čip u letu jen když je co vyřizovat; cena v €, „zdarma“, escapování textů z dat', () => {
@@ -144,6 +163,11 @@ test('čip u letu jen když je co vyřizovat; cena v €, „zdarma“, escapov�
   assert.match(Entry.flightChip('EG'), />🛂 vízum na hranici</);
   assert.match(Entry.flightChip('CN'), />📄 vízum předem</);
   for (const iso of ['DE', 'AL', 'TH', 'TR', 'CZ', '', null, 'XX']) assert.equal(Entry.flightChip(iso), '', String(iso));
+  // Korea: výjimka z K-ETA do 31. 12. 2026 – cesta v lednu 2027 dostane „⏳ ověř vstup“, prosincová ne
+  assert.match(Entry.flightChip('KR', '2027-01-05'), /^<span class="b ec-b ec-visa" title="Jižní Korea: Tento režim platí podle MZV zatím do 31\. 12\. 2026[^"]*">⏳ ověř vstup<\/span>$/);
+  assert.equal(Entry.flightChip('KR', '2026-12-31'), '');
+  assert.equal(Entry.flightChip('KR'), '');
+  assert.match(Entry.flightChip('US', '2027-01-05'), />🛂 ESTA 36 €</);
   assert.match(Entry.idNote('AL'), /🪪 stačí OP/);
   assert.equal(Entry.idNote('US'), '');
   assert.equal(Entry.idNote('CZ'), '');
@@ -151,9 +175,11 @@ test('čip u letu jen když je co vyřizovat; cena v €, „zdarma“, escapov�
   const evil = load();
   const data = JSON.parse(JSON.stringify(ENTRY));
   Object.assign(data.countries.find((r) => r.iso2 === 'US'), { etaName: '<img src=x onerror=alert(1)>', notes: '"><script>alert(1)</script>', etaUrl: 'javascript:alert(1)' });
+  Object.assign(data.countries.find((r) => r.iso2 === 'IN'), { etaCostEur: '<script>alert(2)</script>', etaName: '<b>x</b>' });
   evil.window.Entry.set(data);
-  for (const html of [evil.window.Entry.flightChip('US'), evil.window.Entry.cardChip('US'), evil.window.Entry.detailHtml('US'), evil.window.Entry.checklistHtml(['US'], { ret: '2027-01-10' })]) {
-    assert.ok(!/<img|<script|javascript:/i.test(html), html.slice(0, 200));
+  for (const html of [evil.window.Entry.flightChip('US'), evil.window.Entry.cardChip('US'), evil.window.Entry.detailHtml('US'), evil.window.Entry.checklistHtml(['US'], { ret: '2027-01-10' }),
+    evil.window.Entry.flightChip('IN'), evil.window.Entry.detailHtml('IN'), evil.window.Entry.checklistHtml(['IN'], { ret: '2027-01-10' }), evil.window.Entry.transitHtml([{ layovers: [{ at: '<i>', cc: 'US' }] }], 'MX')]) {
+    assert.ok(!/<img|<script|javascript:|<b>x<|<i>/i.test(html), html.slice(0, 200));
   }
 });
 
@@ -166,10 +192,26 @@ test('tranzit: přestup v USA / Kanadě → varování; cíl v té zemi, jiné z
   assert.equal(Entry.transit([via(['JFK', 'US']), via(['MIA', 'US'], ['MAD', 'ES'])], 'CR').length, 1);
   assert.equal(Entry.transit([via(['JFK', 'US'])], 'US').length, 0);
   assert.equal(Entry.transit([via(['YYZ', 'CA'], ['JFK', 'US'])], ['US', 'CA']).length, 0, 'víc cílových zemí');
-  assert.equal(Entry.transit([via(['LHR', 'GB'], ['IST', 'TR'], ['DXB', 'AE'])], 'TH').length, 0, 'jen země s transitEta');
+  assert.equal(Entry.transit([via(['IST', 'TR'], ['DXB', 'AE'], ['NBO', 'KE'])], 'TH').length, 0, 'jen země s transitEta (Keňa: letištní tranzit bez eTA)');
+  // Británie: ETA jen při přestupu přes pasovou kontrolu (MZV) – podmíněné varování
+  const uk = plain(Entry.transit([via(['LHR', 'GB'])], 'US'));
+  assert.deepEqual(uk.map((w) => [w.cc, w.landside, w.text]), [['GB', true, '✈︎ přestup ve Velké Británii – s pasovou kontrolou nutná ETA']]);
+  assert.match(uk[0].title, /pasovou kontrolou/);
+  assert.match(Entry.transitHtml([via(['LHR', 'GB'])], 'US'), /^<span class="b warn ec-warn"/);
+  // území USA (Portoriko): v databázi letišť PR, pravidla USA – cíl San Juan = ESTA, přestup tam = jako v USA
+  assert.deepEqual(plain(Entry.transit([via(['SJU', 'PR'])], 'DO')).map((w) => w.text), ['✈︎ přestup v USA – i tranzit vyžaduje ESTA']);
+  assert.equal(Entry.transit([via(['JFK', 'US'])], 'PR').length, 0, 'cíl Portoriko = USA');
+  assert.match(Entry.flightChip('PR'), />🛂 ESTA 36 €</);
+  assert.match(Entry.flightChip('PR'), /title="Portoriko \(USA\): /);
+  assert.deepEqual(plain(Entry.transitCcs([via(['JFK', 'US'], ['LHR', 'GB'])], 'MX')), ['US', 'GB']);
+  // kód země ze sdíleného odkazu (cizí vstup) nesmí sáhnout na Object.prototype
+  for (const cc of ['constructor', 'CONSTRUCTOR', '__proto__', 'toString', 'hasOwnProperty']) {
+    assert.equal(Entry.get(cc), null, cc);
+    assert.equal(Entry.transit([via(['XXX', cc])], 'MX').length, 0, cc);
+  }
   assert.equal(Entry.transit([{ stops: 0 }, null, { layovers: [{ at: 'JFK', min: 90 }] }], 'MX').length, 0, 'bez země přestupu nic');
   const html = Entry.transitHtml([via(['JFK', 'US'])], 'MX');
-  assert.match(html, /^<span class="b hot ec-warn" title="JFK: Spojené státy americké vyžaduje ESTA i při přestupu na letišti[^"]*">✈︎ přestup v USA – i tranzit vyžaduje ESTA<\/span>$/);
+  assert.match(sp(html), /^<span class="b hot ec-warn" title="JFK: ESTA je nutná i při přestupu na letišti – ~36 € \(≈ 900 Kč\)\. Zdroj: MZV ČR \(ověřeno 10\/2026\)\.">✈︎ přestup v USA – i tranzit vyžaduje ESTA<\/span>$/);
 });
 
 test('makeLeg: přestupy dostanou zemi letiště z databáze (JFK → US), neznámé letiště null', () => {
@@ -185,13 +227,21 @@ test('platnost pasu: měsíce i dny od data návratu, konec měsíce, přestupn�
   assert.equal(Entry.passportUntil('6 měsíců', '2027-08-31'), '2028-02-29', 'přestupný rok');
   assert.equal(Entry.passportUntil('1 měsíc po vstupu', '2026-01-31'), '2026-02-28');
   assert.equal(Entry.passportUntil('min. 150 dní od vstupu (60 dní po skončení povoleného pobytu)', '2026-12-01'), '2027-04-30');
-  assert.equal(Entry.passportUntil('3 měsíce po plánovaném odjezdu (doporučeno 6 měsíců)', '2026-12-14'), '2027-06-14', 'přísnější lhůta');
+  // doporučení zvlášť: povinná lhůta 3 měsíce, doporučeno 6
+  assert.deepEqual(plain(Entry.passportDates('3 měsíce po plánovaném odjezdu (doporučeno 6 měsíců)', '2026-12-14')), { until: '2027-03-14', rec: '2027-06-14' });
+  assert.deepEqual(plain(Entry.passportDates('po dobu pobytu (doporučeno o 2 měsíce déle)', '2026-12-14')), { until: null, rec: '2027-02-14' });
+  assert.deepEqual(plain(Entry.passportDates('6 měsíců po odjezdu (doporučeno)', '2026-12-14')), { until: null, rec: '2027-06-14' }, 'doporučení v závorce za lhůtou');
+  assert.deepEqual(plain(Entry.passportDates('doporučeno 6 měsíců; MZV: min. 3 měsíce po skončení pobytu', '2026-12-14')), { until: '2027-03-14', rec: '2027-06-14' });
+  assert.deepEqual(plain(Entry.passportDates('30 dní po plánovaném odjezdu (MZV doporučuje 90 dní), 2 volné strany', '2026-12-14')), { until: '2027-01-13', rec: '2027-03-14' });
+  // zápor: „6 měsíců není úředně vyžadováno“ (Austrálie) není lhůta
+  assert.deepEqual(plain(Entry.passportDates(BY.AU.passportValidity, '2026-12-14')), { until: null, rec: null });
+  assert.equal(Entry.passportUntil(BY.KR.passportValidity, '2026-12-14'), '2027-06-14', 'Korea: MZV „musí být alespoň 6 měsíců“');
   assert.equal(Entry.passportUntil('biometrický pas min. 6 měsíců (180 dnů) od data vstupu', '2026-12-14'), '2027-06-14');
   assert.equal(Entry.passportUntil('po dobu pobytu', '2026-12-14'), null);
   assert.equal(Entry.passportUntil('stačí platný OP nebo pas', '2026-12-14'), null);
   assert.equal(Entry.passportUntil('6 měsíců po vstupu', null), null);
   assert.equal(Entry.passportUntil('6 měsíců po vstupu', '2026-13-01'), null);
-  assert.deepEqual(plain(Entry.passportRule('6 měsíců po vstupu, 2 volné stránky')), { months: 6, days: 0 }, 'stránky nejsou lhůta');
+  assert.deepEqual(plain(Entry.passportRule('6 měsíců po vstupu, 2 volné stránky')), { months: 6, days: 0, recMonths: 0, recDays: 0 }, 'stránky nejsou lhůta');
   // všechna pravidla v datech se dají přečíst (bez výjimky)
   for (const r of ENTRY.countries) Entry.passportUntil(r.passportValidity, '2026-12-31');
 });
@@ -221,7 +271,9 @@ test('připomínka do kalendáře: „🛂 Vyřídit ESTA (USA)“ 14 dní před
   assert.match(r.description, /Jen oficiální web: https:\/\/esta\.cbp\.dhs\.gov\//);
   assert.match(r.description, /Odlet: 20\. 12\. 2026\. Zdroj: MZV ČR \(ověřeno 10\/2026\)/);
   assert.equal(Entry.reminder('IN', '2026-12-20', '2026-10-06').title, '🛂 Vyřídit e-vízum (Indie)');
-  assert.match(Entry.reminder('IN', '2026-12-20', '2026-10-06').description, /aspoň s 4 dny/);
+  assert.match(Entry.reminder('IN', '2026-12-20', '2026-10-06').description, /Na vyřízení si nech aspoň 4 dny\./);
+  assert.match(Entry.reminder('KE', '2026-12-20', '2026-10-06').description, /aspoň 5 dní\./);
+  assert.equal(r.uid, 'atlas-entry-US-2026-12-20', 'stálé UID – nový export připomínku přepíše');
   assert.equal(Entry.reminder('CN', '2026-12-20', '2026-10-06').start, '2026-11-20');
   assert.equal(Entry.reminder('CN', '2026-12-20', '2026-10-06').title, '🛂 Vyřídit vízum (Čína)');
   assert.equal(Entry.reminder('GN', '2026-12-20', '2026-10-06').start, '2026-10-29');
@@ -229,8 +281,16 @@ test('připomínka do kalendáře: „🛂 Vyřídit ESTA (USA)“ 14 dní před
   assert.equal(Entry.reminder('US', '2026-10-10', '2026-10-06').start, '2026-10-06', 'na 14 dní předem už je pozdě → dnes');
   assert.equal(Entry.reminder('US', '2026-10-06', '2026-10-06'), null, 'v den odletu už ne');
   assert.equal(Entry.reminder('US', 'zítra', '2026-10-06'), null);
+  // všechny země cesty najednou: USA + Portoriko = jedna ESTA; přestup v USA (cíl Mexiko) má vlastní připomínku, Británie (jen s pasovou kontrolou) ne
+  const all = plain(Entry.reminders(['US', 'PR', 'IN', 'TH'], '2026-12-20', '2026-10-06'));
+  assert.deepEqual(all.map((x) => x.title), ['🛂 Vyřídit ESTA (USA)', '🛂 Vyřídit e-vízum (Indie)']);
+  const tr = plain(Entry.reminders(['MX'], '2026-12-20', '2026-10-06', ['US', 'GB']));
+  assert.deepEqual(tr.map((x) => [x.title, x.start]), [['🛂 Vyřídit ESTA (USA – přestup)', '2026-12-06']]);
+  assert.match(tr[0].description, /Platí i při přestupu\./);
+  assert.equal(Entry.reminders(['US'], '2026-12-20', '2026-10-06', ['US']).length, 1, 'cíl i přestup v USA = jedna připomínka');
 
   const ics = Ics.build([r], { now: Date.UTC(2026, 9, 6) }).replace(/\r\n /g, '');
+  assert.match(ics, /\r\nUID:atlas-entry-US-2026-12-20\r\n/);
   assert.match(ics, /\r\nSUMMARY:🛂 Vyřídit ESTA \(USA\)\r\n/);
   assert.match(ics, /\r\nDTSTART;VALUE=DATE:20261206\r\n/);
   assert.match(ics, /\r\nURL:https:\/\/esta\.cbp\.dhs\.gov\/\r\n/);
@@ -241,13 +301,22 @@ test('„Před cestou“: doklady s datem platnosti pasu, registrace s cenou a o
   const items = Entry.checklist(['TH', 'CZ', 'TH', 'AL', 'US', 'XX'], { ret: '2026-12-14' });
   assert.deepEqual(plain(items.map((x) => x.iso)), ['TH', 'AL', 'US']);
   assert.equal(items[0].docs, '🛂 Cestovní pas platný aspoň do 14. 6. 2027 – občanský průkaz nestačí');
-  assert.equal(items[1].docs, '🪪 Stačí platný občanský průkaz (nebo pas) – platný aspoň do 14. 3. 2027');
+  assert.equal(items[1].docs, '🪪 Stačí občanský průkaz (nebo pas) platný aspoň do 14. 3. 2027');
   assert.equal(items[2].docs, '🛂 Cestovní pas – občanský průkaz nestačí', 'USA: platnost po dobu pobytu');
-  assert.equal(Entry.checklist(['DE'], {})[0].docs, '🪪 Stačí platný občanský průkaz (nebo pas)');
+  assert.equal(Entry.checklist(['DE'], {})[0].docs, '🪪 Stačí občanský průkaz (nebo pas)');
+  // doporučení není povinnost: Japonsko „po dobu pobytu (doporučeno o 2 měsíce déle)“, Austrálie „6 měsíců není vyžadováno“
+  assert.equal(Entry.checklist(['JP'], { ret: '2026-12-14' })[0].docs, '🛂 Cestovní pas (doporučená platnost aspoň do 14. 2. 2027) – občanský průkaz nestačí');
+  assert.equal(Entry.checklist(['AU'], { ret: '2026-12-14' })[0].docs, '🛂 Cestovní pas – občanský průkaz nestačí');
+  assert.equal(Entry.checklist(['ZA'], { ret: '2026-12-14' })[0].docs, '🛂 Cestovní pas platný aspoň do 13. 1. 2027 (doporučená platnost aspoň do 14. 3. 2027) – občanský průkaz nestačí');
+  assert.equal(Entry.checklist(['MD'], { ret: '2026-12-14' })[0].docs, '🪪 Stačí občanský průkaz (nebo pas) – doporučená platnost aspoň do 14. 3. 2027');
+  // přestup: země jen přestupu jako zvláštní položka, cílová země se neopakuje
+  const via = plain(Entry.checklist(['MX'], { ret: '2026-12-14', via: ['US', 'MX', 'PR'] }));
+  assert.deepEqual(via.map((x) => [x.iso, x.transit]), [['MX', false], ['US', true]]);
+  assert.equal(plain(Entry.checklist(['MX'], { ret: '2026-12-14', via: ['CA'] }))[1].docs, '🛂 Cestovní pas – občanský průkaz nestačí', 'přestup: bez data platnosti (lhůta je pro vstup)');
 
   const html = sp(Entry.checklistHtml(['US', 'TH'], { ret: '2026-12-14', pax: 2 }));
   assert.match(html, /<h3>🛂 Před cestou<\/h3>/);
-  assert.match(html, /Bez víza, ale nutná online registrace předem \(ESTA\)<\/b> · ~36 € \(≈ 900 Kč\) na osobu \(2 os\. ≈ 1 800 Kč\)/);
+  assert.match(html, /Nutná online registrace předem: ESTA<\/b> · ~36 € \(≈ 900 Kč\) na osobu \(2 os\. ≈ 1 800 Kč\)/);
   assert.match(html, /<a href="https:\/\/esta\.cbp\.dhs\.gov\/" target="_blank" rel="noopener">oficiální web ↗<\/a>/);
   assert.match(html, /platí i při přestupu/);
   assert.match(html, /💉 Povinné očkování: žlutá zimnice při příletu z rizikové země/);
@@ -255,31 +324,53 @@ test('„Před cestou“: doklady s datem platnosti pasu, registrace s cenou a o
   assert.match(html, /před cestou vždy ověř aktuální podmínky na <a href="https:\/\/www\.mzv\.gov\.cz\/jnp\/cz\/cestujeme\/index\.html"/);
   assert.equal(Entry.checklistHtml(['CZ'], {}), '');
   assert.equal(Entry.checklistHtml([], {}), '');
+  // přestup v USA na cestě do Mexika: ESTA s poznámkou, bez pobytu a očkování USA; Británie s podmínkou pasové kontroly
+  const tr = sp(Entry.checklistHtml(['MX'], { ret: '2026-12-14', via: ['US', 'GB'] }));
+  assert.match(tr, /<b>Spojené státy americké<\/b> <span class="faint">– jen přestup<\/span>/);
+  assert.match(tr, /<b>Spojené království<\/b> <span class="faint">– jen přestup<\/span>/);
+  assert.match(tr, /nutná i při přestupu, pokud procházíš pasovou kontrolou/);
+  assert.equal((tr.match(/Pobyt nejvýš/g) || []).length, 1, 'pobyt jen u Mexika');
+  // dočasný režim: upozornění jen když cesta končí po jeho konci
+  assert.match(Entry.checklistHtml(['KR'], { ret: '2027-01-10' }), /<li class="ed-unv">⏳ Tento režim platí podle MZV zatím do 31\. 12\. 2026 – pro pozdější cestu ověř, co platí potom\.<\/li>/);
+  assert.doesNotMatch(Entry.checklistHtml(['KR'], { ret: '2026-11-10' }), /⏳/);
+  assert.match(Entry.detailHtml('MN'), /class="ed-unv">⏳ Tento režim platí podle MZV zatím do 31\. 12\. 2026/);
+  // neověřený záznam: varování v seznamu
+  assert.match(Entry.checklistHtml(['SY'], {}), /Tento záznam se nepodařilo ověřit na oficiální stránce/);
+  assert.match(Entry.checklistHtml(['SY'], {}), />🛂 vízum na hranici\?<\/span>/);
 });
 
 test('vstupní poplatky: na osobu × cestující v Kč, jen kde se platí (zdarma a bez víza ne)', () => {
   assert.deepEqual(plain(Entry.costs(['US', 'DE', 'LK', 'AU', 'TH'], 2)), [{ iso: 'US', label: 'ESTA (USA) · 2 × ~36 €', eur: 72, czk: 1800 }]);
   assert.deepEqual(plain(Entry.costs(['EG'], 1)), [{ iso: 'EG', label: 'e-Visa (Egypt) · 1 × ~27 €', eur: 27, czk: 680 }]);
   assert.deepEqual(plain(Entry.costs(['CN'], 3)), [], 'vízum bez udané ceny');
-  assert.equal(Entry.costs(['US', 'CA'], 1).length, 2);
+  assert.deepEqual(plain(Entry.costs(['US', 'CA'], 1)).map((x) => x.label), ['ESTA (USA) · 1 × ~36 €', 'eTA (Kanada) · 1 × ~4 €']);
+  // přestup: ESTA ano (platí vždy), britská ETA ne (jen s pasovou kontrolou – nejistá); USA + Portoriko jednou
+  assert.deepEqual(plain(Entry.costs(['MX'], 2, ['US', 'GB'])), [{ iso: 'US', label: 'ESTA (USA, přestup) · 2 × ~36 €', eur: 72, czk: 1800 }]);
+  assert.equal(Entry.costs(['US', 'PR'], 1).length, 1);
 });
 
 test('detail země: režim česky, pobyt, doklad, platnost pasu, cena v € a Kč, zdroj a upozornění', () => {
   const us = sp(Entry.detailHtml('US'));
   assert.match(us, /<h3>🛂 Vstup pro občany ČR<\/h3>/);
-  assert.match(us, /Bez víza, ale nutná online registrace předem \(ESTA\)/);
+  assert.match(us, /Nutná online registrace předem: ESTA/);
   assert.match(us, /ESTA · <b>~36 € \(≈ 900 Kč\)<\/b> na osobu/);
   assert.match(us, /Nutná i při přestupu/);
   assert.match(us, />🛂 jen pas</);
   assert.match(us, />90 dní</);
   assert.match(us, /Zdroj: MZV ČR \(ověřeno 10\/2026\)/);
   assert.match(Entry.detailHtml('DE'), /EU \/ Schengen – volný pohyb, stačí občanský průkaz/);
-  assert.match(Entry.detailHtml('DE'), /bez omezení \(EU\)/);
+  assert.match(Entry.detailHtml('DE'), />volný pohyb osob</);
+  assert.match(Entry.detailHtml('CH'), />volný pohyb osob</, 'Švýcarsko není v EU');
+  assert.match(Entry.detailHtml('CN'), />podle víza</);
+  assert.match(Entry.detailHtml('GB'), /Nutná i při přestupu, pokud procházíš pasovou kontrolou/);
+  assert.doesNotMatch(Entry.detailHtml('AU'), /Bez víza/);
   assert.match(Entry.detailHtml('TH'), /Bez víza – jen s cestovním pasem/);
-  assert.match(Entry.detailHtml('EG'), /Vízum při příletu na hranici, nebo předem online \(e-Visa\)/);
+  assert.match(Entry.detailHtml('EG'), /Vízum při příletu na hranici, nebo předem online: e-Visa/);
   assert.match(Entry.detailHtml('CN'), /Vízum předem na zastupitelském úřadě/);
   assert.match(Entry.detailHtml('AL'), />🪪 stačí OP</);
-  assert.match(Entry.detailHtml('SY'), /neověřeno na oficiální stránce/);
+  assert.match(Entry.detailHtml('SY'), /stav 10\/2026, neověřeno na oficiální stránce/);
+  assert.match(Entry.detailHtml('SY'), /class="ed-unv">⚠️ Tento záznam se nepodařilo ověřit/);
+  assert.doesNotMatch(Entry.detailHtml('US'), /ed-unv/);
   assert.equal(Entry.detailHtml('CZ'), '');
   assert.ok(Entry.matches('AL', 'op') && !Entry.matches('TH', 'op') && Entry.matches('TH', 'free') && !Entry.matches('US', 'free') && Entry.matches('US', ''));
 });
@@ -310,7 +401,19 @@ test('průvodce cestou: shrnutí má „🛂 Před cestou“ a vstupní poplatky
   c.S.trip = { ...usTrip(), dest: { label: 'Berlín', country: 'Německo', cc: 'DE' } };
   c.window.Trip.render();
   assert.doesNotMatch(host.innerHTML, /entry-fee|Celkem i se/);
-  assert.match(host.innerHTML, /🪪 Stačí platný občanský průkaz/);
+  assert.match(host.innerHTML, /🪪 Stačí občanský průkaz/);
+  // Cancún s přestupem v New Yorku: ESTA v „Před cestou“, poplatek i připomínka (cíl Mexiko registraci nechce)
+  const mx = { ...usTrip(), dest: { label: 'Cancún', country: 'Mexiko', cc: 'MX' } };
+  mx.flight = { ...mx.flight, out: { ...mx.flight.out, to: 'CUN', stops: 1, layovers: [{ at: 'JFK', min: 150, cc: 'US' }] }, back: { ...mx.flight.back, from: 'CUN', stops: 1, layovers: [{ at: 'LHR', min: 120, cc: 'GB' }] } };
+  c.S.trip = mx;
+  c.window.Trip.render();
+  const m = sp(host.innerHTML);
+  assert.match(m, /<b>Spojené státy americké<\/b> <span class="faint">– jen přestup<\/span>/);
+  assert.match(m, /<td>ESTA \(USA, přestup\) · 2 × ~36 € <span class="faint">– vstupní poplatek, orientačně<\/span><\/td><td>\+ 1 800 Kč<\/td>/);
+  assert.match(m, /– jen přestup<\/span> <span class="ec ec-reg">🛂 ETA<\/span>/, 'Británie s podmínkou, bez poplatku');
+  assert.equal((m.match(/entry-fee/g) || []).length, 1);
+  assert.deepEqual(plain(c.window.Trip.tripVia(mx)), ['US', 'GB']);
+  assert.deepEqual(plain(c.window.Trip.calendarEvents(mx)).filter((e) => e.title.startsWith('🛂')).map((e) => [e.title, e.start]), [['🛂 Vyřídit ESTA (USA – přestup)', '2030-03-06']]);
 });
 
 test('průvodce cestou: země cesty (cíl, místa trasy, víc měst) a připomínka v kalendáři', () => {
@@ -339,4 +442,8 @@ test('plánovač: sdílený plán (#plan=) nese jen kódy zemí, ne vstupní dat
   assert.equal(back.iso, null);
   assert.ok(!('isos' in PlanShare.sanitize({ ...plan, isos: undefined })));
   assert.ok(PlanShare.encode(plan).length < 400, 'krátký odkaz');
+  // přestupy s registrací (via) jen jako kódy
+  const v = PlanShare.decode(PlanShare.encode({ ...plan, isos: undefined, iso: 'MX', via: ['US', 'x', 'US', 'GB'] }));
+  assert.deepEqual(plain(v.via), ['US', 'GB']);
+  assert.ok(!('via' in PlanShare.sanitize(plan)));
 });

@@ -75,8 +75,11 @@
     };
     if (legs.length) plan.legs = legs;
     // cesta přes víc zemí: jen kódy zemí (vstupní podmínky si plánovač dopočítá z dat)
-    const isos = Array.isArray(raw.isos) ? [...new Set(raw.isos.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x)))].slice(0, 8) : [];
+    const codes = v => (Array.isArray(v) ? [...new Set(v.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x)))].slice(0, 8) : []);
+    const isos = codes(raw.isos), via = codes(raw.via);
     if (isos.length) plan.isos = isos;
+    // přestupy v zemích, kde registrace platí i pro tranzit (ESTA v USA…)
+    if (via.length) plan.via = via;
     return plan;
   }
 

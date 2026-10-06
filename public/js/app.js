@@ -254,7 +254,8 @@ function openCountry(iso) {
   loadWeather(c);
   loadFx(c);
   loadClimate(iso);
-  if (window.Entry && !Entry.ready()) Entry.whenReady(() => { const b = $('#entryBox'); if (b && curIso === iso) b.innerHTML = Entry.detailHtml(iso); });
+  // data ještě nedorazila (nebo se načtení nepovedlo – zkusit znovu)
+  if (window.Entry && !Entry.ready()) { Entry.whenReady(() => { const b = $('#entryBox'); if (b && curIso === iso) b.innerHTML = Entry.detailHtml(iso); }); Entry.load().catch(() => { }); }
 }
 window.modalClose = modalClose;
 window.toggleVis = iso => { const on = !visited.has(iso); setVisited(iso, on); const b = $('#visBtn'); if (b) { b.textContent = on ? '✓ Navštíveno' : 'Označit jako navštívené'; b.className = 'btn ' + (on ? 'warm' : 'ghost'); } toast(on ? 'Přidáno: ' + byIso[iso].cs : 'Odebráno: ' + byIso[iso].cs); renderCountries(); };
@@ -401,9 +402,10 @@ function openTrip(i) {
   $('#tripShare').onclick = () => sharePlan(i);
 }
 
-/* vstupní podmínky cesty z plánovače: země z kódu (iso, u cesty přes víc zemí isos) – nic dalšího se neukládá */
+/* vstupní podmínky cesty z plánovače: země z kódu (iso, u cesty přes víc zemí isos; via = přestupy s registrací) – nic dalšího se neukládá */
 const tripIsos = t => (Array.isArray(t.isos) && t.isos.length ? t.isos : t.iso ? [t.iso] : []);
-const tripEntryHtml = t => (window.Entry && Entry.ready() ? `<div style="margin-top:14px">${Entry.checklistHtml(tripIsos(t), { ret: t.end || t.start || null, pax: +t.pax || 1 })}</div>` : '');
+const tripVia = t => (Array.isArray(t.via) ? t.via : []);
+const tripEntryHtml = t => (window.Entry && Entry.ready() ? `<div style="margin-top:14px">${Entry.checklistHtml(tripIsos(t), { ret: t.end || t.start || null, pax: +t.pax || 1, via: tripVia(t) })}</div>` : '');
 
 /* kalendář (.ics) a sdílení plánu odkazem #plan=… */
 function planEvents(t) {
@@ -416,7 +418,7 @@ function planEvents(t) {
   else if (t.flight) ev.push({ title: `✈️ Let – ${dest || t.name}`, start: t.start, description: t.flight, location: dest });
   days.forEach((d, di) => { const acts = (t.days || {})[d] || []; if (acts.length) ev.push({ title: `Den ${di + 1} – ${dest || t.name}`, start: d, description: acts.map(a => '• ' + a).join('\n'), location: dest }); });
   // připomínka „🛂 Vyřídit ESTA (USA)“ před odletem, když země cesty chce registraci nebo vízum
-  if (window.Entry) for (const iso of tripIsos(t)) { const r = Entry.reminder(iso, t.start, fmtYMD(new Date())); if (r) ev.push(r); }
+  if (window.Entry) ev.push(...Entry.reminders(tripIsos(t), t.start, fmtYMD(new Date()), tripVia(t)));
   return ev;
 }
 function exportPlan(i) {

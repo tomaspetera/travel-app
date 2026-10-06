@@ -120,6 +120,8 @@
     const list = [t.dest && t.dest.cc, ...(isMulti(t) ? t.route.bases.map(b => b.cc) : []), ...(Array.isArray(t.ccs) ? t.ccs : [])];
     return [...new Set(list.filter(cc => /^[A-Z]{2}$/.test(cc || '') && cc !== 'CZ'))];
   }
+  /** Země přestupů (let tam i zpět), kde registrace platí i pro tranzit – ESTA při přestupu v USA apod. */
+  const tripVia = t => (window.Entry && Entry.ready() ? Entry.transitCcs([t.flight.out, t.flight.back], tripCountries(t)) : []);
   /** Datum návratu: let zpět, jinak konec pobytu (cesta jen tam). */
   const returnDate = t => (t.flight.back ? t.flight.back.date : stayDates(t).checkout);
 
@@ -987,8 +989,8 @@
       t.car && t.car.mode !== 'skip' ? ['🚗', 'Auto', c.car] : null,
     ].filter(Boolean);
     // vstupní poplatky (ESTA, e-vízum…): zvlášť pod součtem, do „Celkem“ se nezapočítávají – platí se mimo cestu
-    const isos = tripCountries(t);
-    const fees = window.Entry && Entry.ready() ? Entry.costs(isos, t.adults) : [];
+    const isos = tripCountries(t), via = tripVia(t);
+    const fees = window.Entry && Entry.ready() ? Entry.costs(isos, t.adults, via) : [];
     const feeCzk = fees.reduce((s, x) => s + x.czk, 0);
     const provLabel = p => ({ kiwi: 'Kiwi.com', travelpayouts: 'Aviasales', ryanair: 'Ryanair', wizzair: 'Wizz Air' })[p] || p;
     const flightLinks = f.bookUrl ? [[f.combined ? `Koupit letenky (${provLabel(f.provider)})` : 'Koupit letenky', f.bookUrl]]
@@ -1039,7 +1041,7 @@
         ${f.back && f.back.provider !== f.out.provider ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Lety tam a zpět jsou dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká.</div></div>' : ''}
       </div></div>
       ${multi && nightsLeft(t) !== 0 ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div>Noci v trase nesedí s délkou pobytu – uprav je v kroku <b>Trasa</b>, jinak termíny ubytování nebudou navazovat na lety.</div></div>' : ''}
-      ${window.Entry && Entry.ready() ? Entry.checklistHtml(isos, { ret: returnDate(t), pax: t.adults }) : '<div id="tripEntry"></div>'}
+      ${window.Entry && Entry.ready() ? Entry.checklistHtml(isos, { ret: returnDate(t), pax: t.adults, via }) : '<div id="tripEntry"></div>'}
       <div class="card step-card"><h3>🗓️ Průběh cesty</h3><div class="timeline">${timeline.map(x => `<div class="tl-row"><span class="tl-d">${dayLbl(x[0])}</span><span class="tl-i">${x[1]}</span><span>${x[2]}</span></div>`).join('')}</div></div>
       <div class="row wrap" style="gap:8px;margin-top:6px">
         <button class="btn primary" id="sumSave">💾 Uložit do plánovače</button>
@@ -1103,8 +1105,8 @@
       ev.push({ title: `🚗 Vyzvednutí auta (${t.car.pickup})`, start: t.car.from, tz: tz[t.car.pickup], durationMin: 30, location: `Letiště ${t.car.pickup}`, description: note });
       ev.push({ title: `🚗 Vrácení auta (${t.car.dropoff})`, start: t.car.to, tz: tz[t.car.dropoff], durationMin: 30, location: `Letiště ${t.car.dropoff}`, description: note });
     }
-    // „🛂 Vyřídit ESTA (USA)“ ~14 dní před odletem (déle, když data uvádějí delší vyřízení)
-    if (window.Entry) for (const iso of tripCountries(t)) { const r = Entry.reminder(iso, f.out.date, fmtYMD(new Date())); if (r) ev.push(r); }
+    // „🛂 Vyřídit ESTA (USA)“ ~14 dní před odletem (déle, když data uvádějí delší vyřízení), i za přestup v USA
+    if (window.Entry) ev.push(...Entry.reminders(tripCountries(t), f.out.date, fmtYMD(new Date()), tripVia(t)));
     const progDays = multi ? t.route.bases.map((b, i) => [b.name, basePlan(t, i)?.days || []]) : [[dest, t.plan?.days || []]];
     for (const [place, days] of progDays) {
       days.forEach((d, i) => {
@@ -1148,7 +1150,9 @@
     ].filter(Boolean).join('\n');
     S.trips.push({
       name: `${t.dest.label} ${fmtDate(checkin)}`, dest: t.dest.label, iso: byIso[t.dest.cc] ? t.dest.cc : null,
-      ...(tripCountries(t).length > 1 ? { isos: tripCountries(t) } : {}),
+      // víc zemí, nebo území mimo seznam zemí (Portoriko → pravidla USA): kódy zemí pro vstupní podmínky
+      ...(tripCountries(t).length > 1 || (tripCountries(t).length && !byIso[t.dest.cc]) ? { isos: tripCountries(t) } : {}),
+      ...(tripVia(t).length ? { via: tripVia(t) } : {}),
       start: f.out.date, end: f.back ? f.back.date : checkout, pax: String(t.adults), budget: String(c.total), flight: flightTxt,
       legs: [f.out, f.back].filter(Boolean).map(legBrief), days, checklist: PACK.map(x => ({ t: x, done: false })), notes,
     });
@@ -1299,5 +1303,5 @@
     }
   }
 
-  window.Trip = { start, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, baseDates, legBrief, tripCountries };
+  window.Trip = { start, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, baseDates, legBrief, tripCountries, tripVia };
 })();

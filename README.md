@@ -55,14 +55,21 @@ U všech 197 zemí ATLAS ukazuje, co je potřeba k cestě s českým pasem nebo 
   platnost pasu, název a cena registrace / e-víza v € i Kč s odkazem **jen na oficiální web** (žádní zprostředkovatelé),
   povinná a doporučená očkování, poznámky a odkaz na zdroj.
 - **Výsledky letů**: štítek jen tam, kde je něco potřeba vyřídit (např. „🛂 ESTA 36 €“, podrobnosti v bublině).
-  Když spoj **přestupuje v USA nebo Kanadě**, upozorní „✈︎ přestup v USA – i tranzit vyžaduje ESTA“ (země přestupu
-  se bere z databáze letišť; jiné země takové pravidlo v datech nemají).
-- **Průvodce cestou a plánovač**: seznam 🛂 Před cestou pro každou zemi cesty (i cesty přes víc měst nebo míst) –
-  doklady s datem, do kdy musí pas platit (počítáno od návratu, např. „pas platný aspoň do 14. 6. 2027“), registrace
-  či vízum s odkazem a předstihem, očkování. Poplatky (ESTA atd. × počet cestujících) jsou ve shrnutí jako zvláštní
-  řádek pod součtem („Celkem i se vstupními poplatky“). Export do kalendáře (.ics) přidá připomínku
-  „🛂 Vyřídit ESTA (USA)“ 14 dní před odletem (u víza 30 dní, déle, když data uvádějí delší vyřízení).
-  Sdílené odkazy nesou jen kódy zemí, podmínky se dopočítají z dat.
+  Když spoj **přestupuje v USA nebo Kanadě**, upozorní „✈︎ přestup v USA – i tranzit vyžaduje ESTA“; při přestupu
+  **ve Velké Británii** „s pasovou kontrolou nutná ETA“ (podle MZV stačí bez ETA jen tranzit bez opuštění tranzitního
+  prostoru – u samostatných letenek se ale obvykle prochází kontrolou). Země přestupu se bere z databáze letišť
+  (Portoriko a další území USA platí jako USA); jiné země takové pravidlo v datech nemají.
+- **Průvodce cestou a plánovač**: seznam 🛂 Před cestou pro každou zemi cesty (i cesty přes víc měst nebo míst)
+  a pro země, kde jen přestupuješ a registrace platí i pro tranzit („jen přestup“) – doklady s datem, do kdy musí
+  pas platit (počítáno od návratu, např. „pas platný aspoň do 14. 6. 2027“; když zdroj lhůtu jen doporučuje, píše
+  „doporučená platnost“, a u „po dobu pobytu“ datum nepočítá), registrace či vízum s odkazem a předstihem, očkování.
+  Poplatky (ESTA atd. × počet cestujících, i za přestup v USA) jsou ve shrnutí jako zvláštní řádek pod součtem
+  („Celkem i se vstupními poplatky“). Export do kalendáře (.ics) přidá připomínku „🛂 Vyřídit ESTA (USA)“ 14 dní
+  před odletem (u víza 30 dní, déle, když data uvádějí delší vyřízení). Sdílené odkazy nesou jen kódy zemí
+  (a zemí přestupu), podmínky se dopočítají z dat.
+- **Neověřené záznamy** (3 země) mají u štítku „?“ a v detailu i seznamu upozornění, ať je bereš jen orientačně.
+- **Dočasné režimy** (Jižní Korea bez K-ETA, Bělorusko a Mongolsko bez víza – vše zatím do 31. 12. 2026): když cesta
+  vychází později, ukáže let štítek „⏳ ověř vstup“ a seznam Před cestou upozornění.
 
 **Zdroj a stav:** MZV ČR – Informace pro cestovatele (Encyklopedie států, „Víza a vstupní režim“), u registrací
 a e-víz oficiální weby cílových zemí, u očkování seznamy WHO a CDC; ověřeno **10/2026** (194 ze 197 zemí přímo na
@@ -71,8 +78,10 @@ před cestou si podmínky vždy ověř na [webu MZV ČR](https://www.mzv.gov.cz/
 cílové země.
 
 **Aktualizace dat:** nahraď `data/entry.json` (stejná pole: `iso2`, `visa` = `none | eu | eta | evisa | voa | visa`,
-`idCard`, `maxStayDays`, `etaName`, `etaCostEur`, `etaUrl`, volitelně `transitEta`, `passportValidity`,
-`vaccinesRequired`, `vaccinesRecommended`, `notes`, `source`, `verified`; nahoře `checked` = měsíc ověření) a spusť
+`idCard`, `maxStayDays`, `etaName`, `etaCostEur`, `etaUrl`, volitelně `transitEta` (`true` = registrace i pro
+letištní tranzit, `"landside"` = jen při přestupu s pasovou kontrolou), `passportValidity`,
+`vaccinesRequired`, `vaccinesRecommended`, `notes`, volitelně `validUntil` (do kdy dočasný režim platí, YYYY-MM-DD),
+`source`, `verified`; nahoře `checked` = měsíc ověření) a spusť
 `npm test`. Test `test/entry.test.js` zkontroluje, že jsou všechny země z `data/countries.json`, hodnoty, https odkazy,
 délku poznámek, žádné HTML a že odkazy na registrace nevedou na zprostředkovatele (nový nevládní web je potřeba
 ručně ověřit a doplnit do seznamu v testu). Prohlížeč si soubor načítá zvlášť (`/data/entry.json`, gzip, cache 1 h)

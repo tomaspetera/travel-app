@@ -13,7 +13,11 @@
   const LEAD = { eta: 14, evisa: 14, visa: 30 };
   // Krátké názvy do čipů a připomínek a země v 6. pádě pro „přestup v …“.
   const SHORT_CS = { US: 'USA', GB: 'Velká Británie', AE: 'SAE', CD: 'DR Kongo' };
-  const IN_CS = { US: 'v USA', CA: 'v Kanadě', GB: 've Spojeném království' };
+  const IN_CS = { US: 'v USA', CA: 'v Kanadě', GB: 've Velké Británii' };
+  // Území USA s imigračními pravidly USA (ESTA) – v databázi letišť mají vlastní kód, v datech zemí nejsou.
+  const ALIAS = { PR: 'US', VI: 'US', GU: 'US', MP: 'US' };
+  const TERR_CS = { PR: 'Portoriko (USA)', VI: 'Americké Panenské ostrovy (USA)', GU: 'Guam (USA)', MP: 'Severní Mariany (USA)' };
+  const canon = iso => (Object.hasOwn(ALIAS, iso) ? ALIAS[iso] : iso);
 
   const isYmd = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + 'T00:00:00Z'));
   const ymdOf = d => d.toISOString().slice(0, 10);
@@ -27,7 +31,7 @@
     return ymdOf(first);
   }
   const dmy = ymd => { const [y, m, d] = ymd.split('-').map(Number); return `${d}. ${m}. ${y}`; };
-  const name = iso => (typeof byIso !== 'undefined' && byIso[iso] ? byIso[iso].cs : iso);
+  const name = iso => (Object.hasOwn(TERR_CS, iso) ? TERR_CS[iso] : null) || (typeof byIso !== 'undefined' && byIso[iso] ? byIso[iso].cs : iso);
   const shortName = iso => SHORT_CS[iso] || name(iso);
   // pevné mezery: „≈ 890 Kč“ se nezalomí
   const kc = n => (Math.round(n / 10) * 10).toLocaleString('cs-CZ') + '\u00a0Kč';
@@ -49,7 +53,8 @@
   const ready = () => Boolean(DATA);
   /** fn hned, nebo až se data načtou (jednou). */
   function whenReady(fn) { if (DATA) fn(); else waiting.push(fn); }
-  const get = iso => BY[String(iso || '').toUpperCase()] || null;
+  // jen vlastní klíče – kód ze sdíleného odkazu nesmí sáhnout na Object.prototype
+  const get = iso => { const k = String(iso || '').toUpperCase(); return (Object.hasOwn(BY, k) && BY[k]) || (Object.hasOwn(ALIAS, k) && BY[ALIAS[k]]) || null; };
   const meta = () => (DATA ? { checked: DATA.checked, source: DATA.source, sourceUrl: DATA.sourceUrl, note: DATA.note } : null);
   // „2026-10“ → „10/2026“
   const checkedTxt = () => { const m = /^(\d{4})-(\d{2})$/.exec((DATA && DATA.checked) || ''); return m ? `${+m[2]}/${m[1]}` : ''; };
@@ -73,21 +78,31 @@
   /** Režim pro čip a texty: { key, icon, label, cls, need, text }. */
   function kind(r) {
     if (!r) return null;
-    const via = r.etaName ? ` (${r.etaName})` : '';
+    // název za dvojtečkou – vlastní závorky názvu („eTA (Canada)“) se tak nevnořují
+    const via = r.etaName ? `: ${r.etaName}` : '';
     switch (r.visa) {
       case 'eu': return { key: 'op', icon: '🪪', label: 'stačí OP', cls: 'ok', need: false, text: 'EU / Schengen – volný pohyb, stačí občanský průkaz' };
       case 'none': return r.idCard
         ? { key: 'op', icon: '🪪', label: 'stačí OP', cls: 'ok', need: false, text: 'Bez víza – stačí i občanský průkaz' }
         : { key: 'free', icon: '', label: 'bez víza', cls: 'free', need: false, text: 'Bez víza – jen s cestovním pasem' };
-      case 'eta': return { key: 'eta', icon: '🛂', label: regName(r), cls: 'reg', need: true, text: `Bez víza, ale nutná online registrace předem${via}` };
-      case 'evisa': return { key: 'evisa', icon: '🛂', label: 'e-vízum', cls: 'visa', need: true, text: `Nutné e-vízum – vyřídíš online předem${via}` };
+      // „bez víza“ tu neříkat: australský eVisitor je podle MZV vízum (jen online a zdarma)
+      case 'eta': return { key: 'eta', icon: '🛂', label: regName(r), cls: 'reg', need: true, text: `Nutná online registrace předem${via}` };
+      case 'evisa': return { key: 'evisa', icon: '🛂', label: 'e-vízum', cls: 'visa', need: true, text: `Nutné e-vízum, vyřídíš online předem${via}` };
       case 'voa': return { key: 'voa', icon: '🛂', label: 'vízum na hranici', cls: 'visa', need: true, text: `Vízum při příletu na hranici${r.etaName ? `, nebo předem online${via}` : ''}` };
-      case 'visa': return { key: 'visa', icon: '📄', label: 'vízum předem', cls: 'hard', need: true, text: `Vízum předem na zastupitelském úřadě${r.etaName ? ` (online žádost: ${r.etaName})` : ''}` };
+      case 'visa': return { key: 'visa', icon: '📄', label: 'vízum předem', cls: 'hard', need: true, text: `Vízum předem na zastupitelském úřadě${r.etaName ? `; online žádost${via}` : ''}` };
       default: return null;
     }
   }
-  const stayTxt = r => (r.visa === 'eu' ? 'bez omezení (EU)' : r.maxStayDays ? `${r.maxStayDays} dní` : 'neuvedeno');
-  const srcTxt = r => `Zdroj: ${/(^|\.)mzv\.gov\.cz$/.test(hostOf(r.source)) ? 'MZV ČR' : hostOf(r.source)} (ověřeno ${checkedTxt()})${r.verified ? '' : ' – neověřeno na oficiální stránce'}`;
+  // EU, EHP a Švýcarsko: volný pohyb osob – ne „bez omezení (EU)“, Švýcarsko ani Norsko v EU nejsou
+  const stayTxt = r => (r.visa === 'eu' ? 'volný pohyb osob' : r.maxStayDays ? `${r.maxStayDays} dní` : r.visa === 'visa' ? 'podle víza' : 'neuvedeno');
+  // neověřený záznam nesmí znít jako „ověřeno 10/2026“
+  const srcTxt = r => `Zdroj: ${/(^|\.)mzv\.gov\.cz$/.test(hostOf(r.source)) ? 'MZV ČR' : hostOf(r.source)} (${r.verified ? `ověřeno ${checkedTxt()}` : `stav ${checkedTxt()}, neověřeno na oficiální stránce`})`;
+  const UNVERIFIED = 'Tento záznam se nepodařilo ověřit na oficiální stránce – ber ho jen orientačně a před cestou si ho ověř na webu MZV ČR.';
+  // „?“ za štítkem u neověřeného záznamu
+  const q = r => (r.verified ? '' : '?');
+  // časově omezený režim (validUntil, např. výjimka z K-ETA do 31. 12. 2026): cesta po tomto datu → ověřit
+  const expired = (r, date) => Boolean(r && r.validUntil && isYmd(date) && date > r.validUntil);
+  const untilTxt = r => `Tento režim platí podle MZV zatím do ${dmy(r.validUntil)} – pro pozdější cestu ověř, co platí potom.`;
   function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
   /** Bublina u čipu: režim, pobyt, cena, poznámky a zdroj (prostý text – do title přes esc). */
   function tip(iso, r, k) {
@@ -100,14 +115,19 @@
   function cardChip(iso) {
     const r = get(iso), k = kind(r);
     if (!k || r.iso2 === 'CZ') return '';
-    return `<span class="ec ec-${k.cls}" title="${esc(tip(iso, r, k))}">${k.icon ? k.icon + ' ' : ''}${esc(k.label)}</span>`;
+    return `<span class="ec ec-${k.cls}" title="${esc(tip(iso, r, k))}">${k.icon ? k.icon + ' ' : ''}${esc(k.label + q(r))}</span>`;
   }
-  /** Čip k letu – jen když je co vyřizovat (registrace, e-vízum, vízum na hranici, vízum). */
-  function flightChip(iso) {
+  /**
+   * Čip k letu – jen když je co vyřizovat (registrace, e-vízum, vízum na hranici, vízum), nebo když cesta (date)
+   * vychází po konci časově omezeného bezvízového režimu („⏳ ověř vstup“).
+   */
+  function flightChip(iso, date) {
     const r = get(iso), k = kind(r);
+    if (k && !k.need && expired(r, date)) return `<span class="b ec-b ec-visa" title="${esc(`${name(iso)}: ${untilTxt(r)} ${r.notes || ''} ${srcTxt(r)}.`)}">⏳ ověř vstup</span>`;
     if (!k || !k.need) return '';
-    const cost = (r.visa === 'eta' || r.visa === 'evisa') && r.etaCostEur != null ? (r.etaCostEur === 0 ? ' zdarma' : ` ${r.etaCostEur} €`) : '';
-    return `<span class="b ec-b ec-${k.cls}" title="${esc(tip(iso, r, k))}">${k.icon} ${esc(k.label)}${cost}</span>`;
+    const eur = Number(r.etaCostEur);
+    const cost = (r.visa === 'eta' || r.visa === 'evisa') && r.etaCostEur != null && eur >= 0 ? (eur === 0 ? ' zdarma' : ` ${eur} €`) : '';
+    return `<span class="b ec-b ec-${k.cls}" title="${esc(tip(iso, r, k))}">${k.icon} ${esc(k.label + q(r) + cost)}</span>`;
   }
   /** „🪪 stačí OP“ do rozbaleného detailu letu (jen kde OP stačí). */
   function idNote(iso) {
@@ -117,41 +137,64 @@
 
   /* ---------- tranzit ---------- */
   /**
-   * Přestupy v zemích, kde registrace platí i pro letecký tranzit (transitEta – USA, Kanada).
+   * Přestupy v zemích, kde registrace platí i pro tranzit: transitEta true = i bez pasové kontroly (USA, Kanada),
+   * 'landside' = jen když se při přestupu prochází pasovou kontrolou (Velká Británie – typicky samostatné letenky).
    * legs: lety s layovers [{ at, min, cc }]; cílové země (kód nebo seznam) se vynechají – ty řeší čip cíle.
    */
   function transit(legs, destCc) {
-    const out = [], seen = new Set([].concat(destCc || []));
+    const out = [], seen = new Set([].concat(destCc || []).map(canon));
     for (const l of legs || []) {
       for (const x of (l && l.layovers) || []) {
-        const r = get(x.cc);
-        if (!r || !r.transitEta || seen.has(x.cc)) continue;
-        seen.add(x.cc);
-        const where = IN_CS[x.cc] || `v zemi ${name(x.cc)}`;
-        out.push({ cc: x.cc, at: x.at, text: `✈︎ přestup ${where} – i tranzit vyžaduje ${regName(r)}`, title: `${x.at}: ${name(x.cc)} vyžaduje ${r.etaName || 'registraci'} i při přestupu na letišti (${priceTxt(r.etaCostEur)}). ${srcTxt(r)}.` });
+        const r = get(x.cc), cc = canon(x.cc);
+        if (!r || !r.transitEta || seen.has(cc)) continue;
+        seen.add(cc);
+        const where = IN_CS[cc] || `v zemi ${name(x.cc)}`, reg = regName(r), land = r.transitEta === 'landside', price = priceTxt(r.etaCostEur);
+        out.push({
+          cc, at: x.at, landside: land,
+          text: land ? `✈︎ přestup ${where} – s pasovou kontrolou nutná ${reg}` : `✈︎ přestup ${where} – i tranzit vyžaduje ${reg}`,
+          title: land
+            ? `${x.at}: ${r.etaName || 'registrace'} je nutná i při přestupu, pokud procházíš pasovou kontrolou (samostatné letenky, vyzvedávání zavazadel); bez ní jen tranzit bez opuštění tranzitního prostoru${price ? ` – ${price}` : ''}. ${srcTxt(r)}.`
+            : `${x.at}: ${r.etaName || 'registrace'} je nutná i při přestupu na letišti${price ? ` – ${price}` : ''}. ${srcTxt(r)}.`,
+        });
       }
     }
     return out;
   }
-  const transitHtml = (legs, destCc) => transit(legs, destCc).map(w => `<span class="b hot ec-warn" title="${esc(w.title)}">${esc(w.text)}</span>`).join('');
+  const transitHtml = (legs, destCc) => transit(legs, destCc).map(w => `<span class="b ${w.landside ? 'warn' : 'hot'} ec-warn" title="${esc(w.title)}">${esc(w.text)}</span>`).join('');
+  /** Země přestupu, kde je potřeba registrace (pro „Před cestou“, poplatky a připomínku) – kódy zemí. */
+  const transitCcs = (legs, destCc) => transit(legs, destCc).map(w => w.cc);
 
   /* ---------- platnost pasu ---------- */
-  /** Nejdelší lhůta z textu pravidla (měsíce i dny) – raději přísnější: „6 měsíců po vstupu“ → { months: 6, days: 0 }. */
+  /**
+   * Lhůty z textu pravidla (měsíce i dny), nejdelší vyhrává – raději přísnější. Část s „doporuč…“ je jen doporučení
+   * (rec…), část se záporem („6 měsíců není úředně vyžadováno“) se nepočítá.
+   * „6 měsíců po vstupu“ → { months: 6, days: 0, recMonths: 0, recDays: 0 }; „po dobu pobytu (doporučeno 6 měsíců)“ → recMonths: 6.
+   */
   function passportRule(text) {
-    const s = String(text || '');
-    let months = 0, days = 0;
-    for (const m of s.matchAll(/(\d+)\s*(?:měsíc[eů]?|měs\.)/g)) months = Math.max(months, +m[1]);
-    for (const m of s.matchAll(/(\d+)\s*(?:dní|dnů|dny|den)(?![\p{L}])/gu)) days = Math.max(days, +m[1]);
-    return { months, days };
+    const out = { months: 0, days: 0, recMonths: 0, recDays: 0 };
+    const parts = String(text || '').split(/[;()]/);
+    parts.forEach((p, i) => {
+      if (/(^|\s)ne(ní|vyžad|požad)/i.test(p)) return;
+      // „6 měsíců po odjezdu (doporučeno)“ – doporučení v závorce za číslem
+      const rec = /doporuč/i.test(p) || (/doporuč/i.test(parts[i + 1] || '') && !/\d/.test(parts[i + 1]));
+      for (const m of p.matchAll(/(\d+)\s*(?:měsíc[eů]?|měs\.)/g)) { const k = rec ? 'recMonths' : 'months'; out[k] = Math.max(out[k], +m[1]); }
+      for (const m of p.matchAll(/(\d+)\s*(?:dní|dnů|dny|den)(?![\p{L}])/gu)) { const k = rec ? 'recDays' : 'days'; out[k] = Math.max(out[k], +m[1]); }
+    });
+    return out;
   }
-  /** Do kdy musí pas platit, počítáno od návratu (pro jistotu, i když pravidlo mluví o vstupu); null = lhůta neuvedena. */
-  function passportUntil(text, ret) {
-    if (!isYmd(ret)) return null;
-    const { months, days } = passportRule(text);
-    if (!months && !days) return null;
-    const a = months ? addMonths(ret, months) : ret, b = days ? addDays(ret, days) : ret;
-    return a > b ? a : b;
+  const later = (ret, months, days) => { const a = months ? addMonths(ret, months) : ret, b = days ? addDays(ret, days) : ret; return a > b ? a : b; };
+  /**
+   * Do kdy musí (until) a do kdy je doporučeno (rec, jen když je později) pas platit, počítáno od návratu
+   * (pro jistotu, i když pravidlo mluví o vstupu); null = lhůta neuvedena („po dobu pobytu“).
+   */
+  function passportDates(text, ret) {
+    if (!isYmd(ret)) return { until: null, rec: null };
+    const { months, days, recMonths, recDays } = passportRule(text);
+    const until = months || days ? later(ret, months, days) : null;
+    const rec = recMonths || recDays ? later(ret, recMonths, recDays) : null;
+    return { until, rec: rec && (!until || rec > until) ? rec : null };
   }
+  const passportUntil = (text, ret) => passportDates(text, ret).until;
 
   /* ---------- předstih a připomínka ---------- */
   /** Kolik dní předem žádat podle poznámek („žádat min. 4 dny předem“, „vyřízení 3 prac. dny“, „až 45 dní“); null = neuvedeno. */
@@ -174,24 +217,28 @@
     return Math.max(LEAD[r.visa] || 14, lead ? lead + 7 : 0);
   }
   const what = r => (r.visa === 'visa' ? 'vízum' : r.visa === 'evisa' ? 'e-vízum' : regName(r));
+  const daysTxt = n => `${n} ${n === 1 ? 'den' : n < 5 ? 'dny' : 'dní'}`;
   /**
    * Událost do kalendáře „🛂 Vyřídit ESTA (USA)“ před odletem; null, když se nic předem nevyřizuje.
    * today: dnešek (YYYY-MM-DD) – připomínka v minulosti se posune na dnešek, po odletu žádná.
+   * transit: země jen přestupu (registrace platí i pro tranzit).
    */
-  function reminder(iso, depart, today) {
+  function reminder(iso, depart, today, { transit: via = false } = {}) {
     const r = get(iso);
     if (!r || !ARRANGE.includes(r.visa) || !isYmd(depart)) return null;
     let date = addDays(depart, -remindDays(r));
     if (isYmd(today) && date < today) { if (today >= depart) return null; date = today; }
     const lead = leadDays(r);
     return {
-      title: `🛂 Vyřídit ${what(r)} (${shortName(iso)})`,
+      title: `🛂 Vyřídit ${what(r)} (${shortName(iso)}${via ? ' – přestup' : ''})`,
       start: date,
+      // stálé UID: nový export (třeba s připomínkou posunutou na dnešek) událost v kalendáři přepíše, nezdvojí
+      uid: `atlas-entry-${canon(iso)}-${depart}`,
       url: safeUrl(r.etaUrl || r.source) === '#' ? undefined : safeUrl(r.etaUrl || r.source),
       description: [
-        `${name(iso)}: ${kind(r).text}.`,
+        `${name(iso)}: ${kind(r).text}.${via ? ' Platí i při přestupu.' : ''}`,
         r.etaCostEur != null ? `Poplatek: ${priceTxt(r.etaCostEur)} na osobu.` : '',
-        lead ? `Vyřízení podle MZV / úřadů: počítej aspoň s ${lead} ${lead === 1 ? 'dnem' : 'dny'}.` : '',
+        lead ? `Na vyřízení si nech aspoň ${daysTxt(lead)}.` : '',
         r.notes || '',
         r.etaUrl ? `Jen oficiální web: ${r.etaUrl}` : '',
         `Odlet: ${dmy(depart)}. ${srcTxt(r)} – před cestou ověř na ${(DATA && DATA.sourceUrl) || 'mzv.gov.cz'}.`,
@@ -200,49 +247,79 @@
   }
 
   /* ---------- před cestou ---------- */
-  const uniq = list => [...new Set((list || []).filter(x => /^[A-Z]{2}$/.test(x || '') && x !== 'CZ'))];
-  /** Položky „Před cestou“ pro země cesty: doklady, registrace/vízum, očkování, poznámky. ret = datum návratu. */
-  function checklist(isos, { ret = null } = {}) {
-    return uniq(isos).map(iso => {
+  // platné kódy bez Česka; území USA (Portoriko…) a USA jsou jedna položka (stejná ESTA)
+  const uniq = list => {
+    const seen = new Set();
+    return (list || []).filter(x => /^[A-Z]{2}$/.test(x || '') && x !== 'CZ' && !seen.has(canon(x)) && seen.add(canon(x)));
+  };
+  /** Cílové země + země jen přestupu (via), které cílem nejsou: [{ iso, transit }]. */
+  const tripList = (isos, via) => {
+    const dest = uniq(isos), have = new Set(dest.map(canon));
+    return [...dest.map(iso => ({ iso, transit: false })), ...uniq(via).filter(x => !have.has(canon(x))).map(iso => ({ iso, transit: true }))];
+  };
+  /** Doklad a platnost pasu jednou větou. */
+  function docsTxt(r, until, rec) {
+    const recTxt = rec ? `doporučená platnost aspoň do ${dmy(rec)}` : '';
+    return r.idCard
+      ? `🪪 Stačí občanský průkaz (nebo pas)${until ? ` platný aspoň do ${dmy(until)}` : ''}${recTxt ? ` – ${recTxt}` : ''}`
+      : `🛂 Cestovní pas${until ? ` platný aspoň do ${dmy(until)}` : ''}${recTxt ? ` (${recTxt})` : ''} – občanský průkaz nestačí`;
+  }
+  /**
+   * Položky „Před cestou“ pro země cesty: doklady, registrace/vízum, očkování, poznámky. ret = datum návratu,
+   * via = země přestupu, kde registrace platí i pro tranzit (transit: true).
+   */
+  function checklist(isos, { ret = null, via = [] } = {}) {
+    return tripList(isos, via).map(({ iso, transit: tr }) => {
       const r = get(iso), k = kind(r);
       if (!k) return null;
-      const until = passportUntil(r.passportValidity, ret);
-      const docs = r.idCard
-        ? `🪪 Stačí platný občanský průkaz (nebo pas)${until ? ` – platný aspoň do ${dmy(until)}` : ''}`
-        : `🛂 Cestovní pas${until ? ` platný aspoň do ${dmy(until)}` : ''} – občanský průkaz nestačí`;
-      return { iso, rec: r, kind: k, docs, rule: r.visa === 'eu' ? '' : r.passportValidity || '', until, lead: leadDays(r) };
+      // jen přestup: lhůta platnosti pasu se týká vstupu do země, datum se nepočítá
+      const { until, rec } = passportDates(r.passportValidity, tr ? null : ret);
+      return { iso, rec: r, kind: k, transit: tr, docs: docsTxt(r, until, rec), rule: r.visa === 'eu' ? '' : r.passportValidity || '', until, recUntil: rec, lead: leadDays(r), expired: expired(r, ret) };
+    }).filter(Boolean);
+  }
+  /** Připomínky do kalendáře pro všechny země cesty (i přestupy s registrací) – každá registrace jednou. */
+  function reminders(isos, depart, today, via = []) {
+    return tripList(isos, via).map(x => {
+      const r = get(x.iso);
+      // podmíněný tranzit (jen s pasovou kontrolou) bez připomínky – rozhoduje typ letenky
+      return x.transit && r && r.transitEta !== true ? null : reminder(x.iso, depart, today, { transit: x.transit });
     }).filter(Boolean);
   }
   /** Vstupní poplatky na celou skupinu: [{ iso, label, eur, czk }] (registrace, e-vízum, vízum s udanou cenou). */
-  function costs(isos, pax = 1) {
+  function costs(isos, pax = 1, via = []) {
     const k = eurCzk();
-    return uniq(isos).map(iso => {
+    return tripList(isos, via).map(({ iso, transit: tr }) => {
       const r = get(iso);
-      if (!r || !NEED.includes(r.visa) || !(r.etaCostEur > 0)) return null;
+      if (!r || !NEED.includes(r.visa) || !(r.etaCostEur > 0) || (tr && r.transitEta !== true)) return null;
       const p = Math.max(1, pax | 0);
       // na desítky Kč jako ostatní orientační částky
-      return { iso, label: `${r.etaName || what(r)} (${shortName(iso)}) · ${p} × ~${r.etaCostEur} €`, eur: r.etaCostEur * p, czk: Math.round(r.etaCostEur * p * k / 10) * 10 };
+      return { iso, label: `${what(r)} (${shortName(iso)}${tr ? ', přestup' : ''}) · ${p} × ~${r.etaCostEur} €`, eur: r.etaCostEur * p, czk: Math.round(r.etaCostEur * p * k / 10) * 10 };
     }).filter(Boolean);
   }
   const link = (u, txt) => (safeUrl(u) === '#' ? '' : `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${esc(txt)}</a>`);
   const disclaimer = () => `Informativní přehled ${DATA && DATA.source ? `(${esc(DATA.source)}, ověřeno ${esc(checkedTxt())})` : ''} – pravidla se mění, před cestou vždy ověř aktuální podmínky na ${link((DATA && DATA.sourceUrl) || 'https://www.mzv.gov.cz/jnp/cz/cestujeme/index.html', 'webu MZV ČR')}.`;
+  // u přestupu: platí vždy, nebo jen s pasovou kontrolou
+  const transitTxt = r => (r.transitEta === 'landside' ? 'nutná i při přestupu, pokud procházíš pasovou kontrolou (samostatné letenky, vyzvedávání zavazadel)' : 'platí i při přestupu');
   /** Karta „🛂 Před cestou“ (průvodce cestou, plánovač); '' když data nejsou nebo cesta nemá zemi. */
-  function checklistHtml(isos, { ret = null, pax = 1 } = {}) {
-    const items = checklist(isos, { ret });
+  function checklistHtml(isos, { ret = null, pax = 1, via = [] } = {}) {
+    const items = checklist(isos, { ret, via });
     if (!items.length) return '';
     const fee = r => (r.etaCostEur > 0 ? `${priceTxt(r.etaCostEur)} na osobu${pax > 1 ? ` (${pax} os. ≈ ${kc(r.etaCostEur * pax * eurCzk())})` : ''}` : r.etaCostEur === 0 ? 'zdarma' : '');
-    const rows = items.map(({ iso, rec: r, kind: k, docs, rule, lead }) => {
+    const rows = items.map(({ iso, rec: r, kind: k, transit: tr, docs, rule, lead, expired: old }) => {
       const li = [];
+      if (old) li.push(`<li class="ed-unv">⏳ ${esc(untilTxt(r))}</li>`);
       li.push(`<li>${esc(docs)}${rule ? ` <span class="faint">(${esc(rule)})</span>` : ''}</li>`);
       if (k.need) {
         const f = fee(r);
-        li.push(`<li><b>${esc(k.icon)} ${esc(k.text)}</b>${f ? ` · ${esc(f)}` : ''}${lead ? ` · <span class="faint">žádej aspoň ${lead} ${lead === 1 ? 'den' : lead < 5 ? 'dny' : 'dní'} předem</span>` : ''}${r.etaUrl ? ` · ${link(r.etaUrl, 'oficiální web ↗')}` : ''}${r.transitEta ? ' <span class="faint">· platí i při přestupu</span>' : ''}</li>`);
+        li.push(`<li><b>${esc(k.icon)} ${esc(k.text)}</b>${f ? ` · ${esc(f)}` : ''}${lead ? ` · <span class="faint">žádej aspoň ${daysTxt(lead)} předem</span>` : ''}${r.etaUrl ? ` · ${link(r.etaUrl, 'oficiální web ↗')}` : ''}${r.transitEta ? ` <span class="faint">· ${esc(transitTxt(r))}</span>` : ''}</li>`);
       } else if (r.etaName) li.push(`<li>${esc(r.etaName)}${r.etaUrl ? ` · ${link(r.etaUrl, 'web ↗')}` : ''}</li>`);
-      if (r.maxStayDays && r.visa !== 'eu') li.push(`<li>Pobyt nejvýš ${esc(stayTxt(r))}</li>`);
-      if (r.vaccinesRequired) li.push(`<li>💉 Povinné očkování: ${esc(r.vaccinesRequired)}</li>`);
-      if (r.vaccinesRecommended) li.push(`<li>💉 Doporučené očkování: ${esc(r.vaccinesRecommended)}</li>`);
+      // jen přestup: pobyt a očkování země se netýkají
+      if (!tr && r.maxStayDays && r.visa !== 'eu') li.push(`<li>Pobyt nejvýš ${esc(stayTxt(r))}</li>`);
+      if (!tr && r.vaccinesRequired) li.push(`<li>💉 Povinné očkování: ${esc(r.vaccinesRequired)}</li>`);
+      if (!tr && r.vaccinesRecommended) li.push(`<li>💉 Doporučené očkování: ${esc(r.vaccinesRecommended)}</li>`);
       if (r.notes) li.push(`<li class="faint">${esc(r.notes)}</li>`);
-      return `<div class="pc-country"><div class="pc-h">${typeof flag === 'function' ? flag(iso) + ' ' : ''}<b>${esc(name(iso))}</b> <span class="ec ec-${k.cls}">${k.icon ? k.icon + ' ' : ''}${esc(k.label)}</span></div>
+      if (!r.verified) li.push(`<li class="ed-unv">⚠️ ${esc(UNVERIFIED)}</li>`);
+      return `<div class="pc-country"><div class="pc-h">${typeof flag === 'function' ? flag(iso) + ' ' : ''}<b>${esc(name(iso))}</b>${tr ? ' <span class="faint">– jen přestup</span>' : ''} <span class="ec ec-${k.cls}">${k.icon ? k.icon + ' ' : ''}${esc(k.label + q(r))}</span></div>
         <ul class="pc-list">${li.join('')}</ul><div class="faint pc-src">${link(r.source, srcTxt(r))}</div></div>`;
     }).join('');
     return `<div class="card step-card entry-card"><h3>🛂 Před cestou</h3>${rows}<div class="note warn" style="margin-top:10px">⚠️ <div>${disclaimer()}</div></div></div>`;
@@ -253,11 +330,14 @@
     const r = get(iso), k = kind(r);
     if (!k) return '';
     if (r.iso2 === 'CZ') return '';
-    const reg = r.etaName ? `<div class="ed-reg">${esc(r.etaName)}${r.etaCostEur != null ? ` · <b>${esc(priceTxt(r.etaCostEur))}</b>${k.need ? ' na osobu' : ''}` : ''}${r.etaUrl ? ` · ${link(r.etaUrl, 'oficiální web ↗')}` : ''}${r.transitEta ? '<div class="ed-transit">✈︎ Nutná i při přestupu (leteckém tranzitu) v této zemi.</div>' : ''}</div>` : '';
+    const tr = r.transitEta === 'landside' ? '✈︎ Nutná i při přestupu, pokud procházíš pasovou kontrolou (samostatné letenky, vyzvedávání zavazadel).' : '✈︎ Nutná i při přestupu (leteckém tranzitu) v této zemi.';
+    const reg = r.etaName ? `<div class="ed-reg">${esc(r.etaName)}${r.etaCostEur != null ? ` · <b>${esc(priceTxt(r.etaCostEur))}</b>${k.need ? ' na osobu' : ''}` : ''}${r.etaUrl ? ` · ${link(r.etaUrl, 'oficiální web ↗')}` : ''}${r.transitEta ? `<div class="ed-transit">${esc(tr)}</div>` : ''}</div>` : '';
     return `<div class="entry-detail">
       <h3>🛂 Vstup pro občany ČR</h3>
       <div class="ed-regime ec-${k.cls}">${k.icon ? k.icon + ' ' : ''}${esc(k.text)}</div>
       ${reg}
+      ${r.verified ? '' : `<div class="ed-unv">⚠️ ${esc(UNVERIFIED)}</div>`}
+      ${r.validUntil ? `<div class="ed-unv">⏳ ${esc(untilTxt(r))}</div>` : ''}
       <div class="kv ed-kv">
         <div><div class="k">Doklad</div><div class="v">${r.idCard ? '🪪 stačí OP' : '🛂 jen pas'}</div></div>
         <div><div class="k">Max. pobyt</div><div class="v">${esc(stayTxt(r))}</div></div>
@@ -280,7 +360,7 @@
   }
 
   window.Entry = {
-    set, load, ready, whenReady, get, meta, setRate, eurCzk, kind, regName, cardChip, flightChip, idNote, transit, transitHtml,
-    passportRule, passportUntil, addMonths, leadDays, remindDays, reminder, checklist, costs, checklistHtml, detailHtml, matches, checkedTxt,
+    set, load, ready, whenReady, get, meta, setRate, eurCzk, kind, regName, cardChip, flightChip, idNote, transit, transitHtml, transitCcs,
+    passportRule, passportDates, passportUntil, addMonths, leadDays, remindDays, reminder, reminders, checklist, costs, checklistHtml, detailHtml, matches, checkedTxt,
   };
 })();
