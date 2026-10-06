@@ -21,6 +21,15 @@
 .spin.dark{border-color:var(--border-2);border-top-color:var(--accent)}
 .manual-row{display:grid;grid-template-columns:auto 1fr 170px auto;gap:8px;align-items:center}
 .link-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}
+/* partneři ubytování: menší karty, na telefonu dva sloupce */
+.link-grid.compact{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.link-grid.compact .result-link{gap:10px;padding:10px 12px;border-radius:12px}
+.link-grid.compact .lg{width:34px;height:34px;border-radius:9px;font-size:13px}
+.link-grid.compact .rl-b{min-width:0}
+.link-grid.compact .rl-t{font-size:13.5px}
+.link-grid.compact .rl-s{font-size:11.5px;line-height:1.3}
+.rt-border{font-size:12px;margin-top:3px;color:var(--text)}
+.rt-border .linkbtn{font-size:12px}
 .tf-price{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:13px}
 /* dlouhé tlačítko („Ověřit živou cenu a porovnat aerolinky“) na úzkém displeji zalomit, ne vytlačit z karty */
 .step-card .row .btn{max-width:100%;white-space:normal;text-align:center}
@@ -183,6 +192,7 @@ table.cost tr.tot td{font:800 17px Sora,sans-serif;border-bottom:none;padding-to
 .bt-t small{display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:1080px){.route-layout{grid-template-columns:1fr}.route-map{height:320px}}
 @media(max-width:860px){.route-choice{grid-template-columns:1fr}}
+@media(max-width:560px){.link-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))}.link-grid.compact .result-link{padding:9px;gap:8px}.link-grid.compact .lg{width:28px;height:28px;font-size:12px}.link-grid.compact .go{display:none}}
 @media(max-width:560px){.rb{grid-template-columns:30px minmax(0,1fr) auto;row-gap:8px}.rb-main{grid-column:2/-1}.rb-nights{grid-column:2}.rb-acts{grid-column:3}.rt-tr,.rt-leg{padding:8px 6px 8px 10px}}
 
 /* vlak / bus místo letu */

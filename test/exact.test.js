@@ -354,6 +354,35 @@ test('nejbližší dny: cena vč. dopravy na domácí letiště i u návratu (p�
   assert.equal(nearbyDays([l('PRG', 'BCN', '2026-11-16', 1000)], range, range, { groundOf }).days[0].cost, 1060);
 });
 
+test('nejbližší dny autem tam i zpět: cena dne i s parkováním na celou cestu, kdyby se změnil jen ten den', () => {
+  const l = (from, to, date, czk) => ({ from, to, date, czk, stops: 0, provider: 'kiwi', carrier: 'FR', carrierName: 'Ryanair' });
+  // odlet 12. 11., návrat 14. 11. (2 noci); parkování za auto online předem základ + za den, 1 cestující
+  const q = { exact: { out: '2026-11-12', back: '2026-11-14', backFrom: '2026-11-14', backTo: '2026-11-14' }, dateFrom: '2026-11-12', dateTo: '2026-11-12', directOnly: false };
+  const rate = { PRG: [590, 120], VIE: [850, 150] };
+  const park = (iata, nights) => rate[iata][0] + rate[iata][1] * (nights + 1);
+  const groundOf = (iata) => ({ PRG: 25, VIE: 500 })[iata] ?? 0;
+  const near = { q, nearOut: { from: '2026-11-09', to: '2026-11-15' }, nearBack: { from: '2026-11-11', to: '2026-11-17' }, groundOf };
+  const out = [l('PRG', 'BCN', '2026-11-11', 1000), l('PRG', 'BCN', '2026-11-12', 1000), l('VIE', 'BCN', '2026-11-12', 700), l('PRG', 'BCN', '2026-11-15', 900)];
+  const back = [l('BCN', 'PRG', '2026-11-14', 1000), l('BCN', 'PRG', '2026-11-16', 950)];
+  const r = nearbyOf({ ...near, out, back, park });
+  const day = (side, d) => side.days.find((x) => x.date === d);
+  // o den dřív tam = o den parkování víc
+  assert.deepEqual([day(r.out, '2026-11-11').cost, day(r.out, '2026-11-11').parkCzk, day(r.out, '2026-11-11').parkDays], [1000 + 25 + 590 + 120 * 4, 590 + 120 * 4, 4]);
+  // levnější let z Vídně vyjde s cestou autem a dražším parkováním dráž než z Prahy
+  assert.deepEqual([day(r.out, '2026-11-12').from, day(r.out, '2026-11-12').cost], ['PRG', 1000 + 25 + 590 + 120 * 3]);
+  // den tam po zadaném návratu: návrat se posune se stejným počtem nocí (jako po kliknutí na den)
+  assert.equal(day(r.out, '2026-11-15').parkDays, 3);
+  // zpět: auto stojí u letiště příletu zpět, noci od zadaného odletu
+  assert.deepEqual([day(r.back, '2026-11-16').cost, day(r.back, '2026-11-16').parkDays], [950 + 25 + 590 + 120 * 5, 5]);
+  assert.equal(day(r.back, '2026-11-14').cost, 1000 + 25 + 590 + 120 * 3);
+  // veřejnou dopravou (bez parkování) beze změny: jen let a doprava na letiště
+  const t = nearbyOf({ ...near, out, back });
+  assert.deepEqual([day(t.out, '2026-11-12').from, day(t.out, '2026-11-12').cost, day(t.out, '2026-11-12').parkCzk], ['PRG', 1025, undefined]);
+  // jen tam (bez návratu) se neparkuje
+  const ow = nearbyOf({ ...near, q: { ...q, exact: { out: '2026-11-12', back: null } }, nearBack: null, out, back: [], park });
+  assert.equal(day(ow.out, '2026-11-12').parkCzk, undefined);
+});
+
 test('nápověda nejbližších dnů: aerolinky zvlášť pro odlet a návrat, „nemá volný let“ (i vyprodáno)', () => {
   const l = (provider, carrierName, from, to, date) => ({ provider, carrierName, from, to, date, czk: 1000, stops: 0 });
   const q = { exact: { out: '2026-11-12', back: '2026-11-16', backFrom: '2026-11-16', backTo: '2026-11-16' }, dateFrom: '2026-11-12', dateTo: '2026-11-12', directOnly: false };

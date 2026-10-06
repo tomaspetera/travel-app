@@ -31,14 +31,19 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
    na přesnou cenu a nabídne i jiné aerolinky na stejný termín (low-cost i klasické, přestupy, kombinace).
    U blízkého cíle můžeš místo letu zvolit *🚆 Pojedu vlakem / busem* (viz [Vlak nebo bus místo letadla](#vlak-nebo-bus-místo-letadla)).
 2. **Trasa** – celý pobyt na jednom místě, nebo trasa přes 2–4 zajímavá města: ATLAS je navrhne v okolí (autem nebo
-   vlakem a busem, odhad přejezdů s odkazem do Google Map) a rozdělí noci; místa přidáš, odebereš nebo přesuneš
-   a noci upravíš. Trasa začíná u letiště příletu (u vlaku/busu ve městě příjezdu) a končí u letiště odletu,
-   i jiného (open-jaw); cesta z posledního místa na letiště nebo zpět k vlaku/busu je v časové ose.
-   Ubytování a program pak vybíráš pro každé místo zvlášť.
+   veřejnou dopravou) a rozdělí noci; místa přidáš, odebereš nebo přesuneš a noci upravíš. U každého přejezdu je
+   vzdálenost a čas **autem podle skutečné trasy** (s provozem, zácpami ve velkých městech a hraniční kontrolou)
+   i **veřejnou dopravou** – vlakem jen tam, kde se mezi městy vlakem jezdí, jinde *autobusem / minibusem* – a přechod
+   hranice s odkazem na vstupní podmínky (viz [Přejezdy mezi místy](#přejezdy-mezi-místy)). Trasa začíná u letiště
+   příletu (u vlaku/busu ve městě příjezdu) a končí u letiště odletu, i jiného (open-jaw); cesta z posledního místa
+   na letiště nebo zpět k vlaku/busu je v časové ose. Ubytování a program pak vybíráš pro každé místo zvlášť.
 3. **Ubytování** – nabídky na tvoje data seřazené podle **nejlepšího poměru cena / hodnocení** (hodnocení je očištěné
    o malý počet recenzí, takže 10/10 ze 2 recenzí nepřebije 8,9 z 2 000). Přepneš na nejlevnější, nejlépe hodnocené
-   nebo nejblíž centru, filtruješ 7+/8+/9+, typ a max. cenu za noc. Bez klíče LiteAPI dostaneš předvyplněné hledání
-   na Booking.com (seřazené podle hodnocení a ceny), Airbnb, Google Hotels a Hostelworld a cenu jen zapíšeš.
+   nebo nejblíž centru, filtruješ 7+/8+/9+, typ a max. cenu za noc. U každého místa trasy (i přidaného ručně) jsou
+   navíc odkazy na partnery: **Booking.com** (dvakrát – hodnocení 8+ od nejlevnějšího a nejlepší poměr), **Airbnb**,
+   **Trip.com**, **Hotels.com**, **Kayak** a **Google Hotels** předvyplněné na místo, tvoje data a počet hostů;
+   **Hostelworld** otevře místo (data zadáš na webu – označeno „zadej data“; menší místo, které Hostelworld nemá,
+   otevře jeho stránku země), **Agoda** úvodní stránku. Bez klíče LiteAPI zůstanou jen odkazy a cenu zapíšeš ručně.
 4. **Auto** (nepovinné) – vyzvednutí na letišti 45 min po příletu, vrácení 2 h před odletem, předvyplněné srovnávače.
 5. **Program** – místa k vidění kolem ubytování rozdělená do dnů podle polohy (den příletu a odletu je kratší),
    každý den jako pěší trasa s odkazem do Google Map; volíš zájmy a tempo, místa můžeš vyřadit nebo přidat.
@@ -101,7 +106,7 @@ až po startu, takže nezdržuje první vykreslení.
 | | ATLAS |
 |---|---|
 | **Odlet odkudkoliv** | Zadáš město, obec, zemi nebo polohu → prohledá *všechna* letiště v okruhu (např. z Jihlavy PED, BRQ, PRG, VIE, BTS, LNZ…). Letiště lze ručně vyřadit. |
-| **Cena včetně cesty na letiště** | Ke každé letence přičte odhad dopravy na letiště (vzdálenost × Kč/km, nastavitelné). Let z Vídně za 600 Kč tak férově porovná s letem z Brna za 900 Kč. |
+| **Cena včetně cesty na letiště** | Ke každé letence přičte odhad cesty na letiště a zpět – 🚌 veřejnou dopravou (vlak/bus do města letiště + MHD na letiště + příplatek za spoj přes hranici), nebo 🚗 autem (nafta, benzín nebo nabíjení elektroauta za aktuální ceny, parkování podle délky cesty, dálniční známky). Let z Vídně za 600 Kč tak férově porovná s letem z Brna za 900 Kč. Viz [Doprava na letiště](#doprava-na-letiště). |
 | **Kamkoliv z více letišť** | Jedno hledání = všechny destinace ze všech letišť v okolí, seskupené podle města (Londýn = STN + LTN + LGW…). |
 | **Dálkové lety** | Cílem může být i světadíl (Asie, Afrika, Blízký východ, Amerika, Oceánie). Do vzdálených zemí se hledá i z velkých přestupních letišť v okolí (Vídeň, Mnichov, Berlín…) – cena cesty na ně je započtená. |
 | **Kombinace, které jinde nenajdeš** | Tam s Ryanairem, zpět s Wizz Air. Odlet z Vídně, návrat do Bratislavy. Přílet do Bergama, odlet z Malpensy. Optimalizátor skládá i takové cesty. |
@@ -128,6 +133,7 @@ až po startu, takže nezdržuje první vykreslení.
 | **Travelpayouts / Aviasales Data API** | všechny ostatní aerolinky (i s přestupy, dálkové lety), ceny z vyhledávání uživatelů za posledních ~48 h | **zdarma** token z [travelpayouts.com](https://www.travelpayouts.com/) |
 | **LiteAPI** (ubytování) | hotely s cenou na zadané dny, hodnocením hostů a fotkou | **zdarma** klíč z [liteapi.travel](https://www.liteapi.travel/) |
 | **Wikidata + Wikipedie** (program) | místa k vidění, typ, význam, fotky, české popisy | není potřeba |
+| **ČSÚ + Weekly Oil Bulletin EU** (cesta autem na letiště) | týdenní ceny nafty a Natural 95 v Česku a sousedních zemích; elektroauto podle ceníků nabíjení – viz [Aktuální ceny paliva a nabíjení](#aktuální-ceny-paliva-a-nabíjení) | není potřeba |
 
 > Amadeus Self-Service API bylo v červenci 2026 vypnuto a Kiwi Tequila ani Skyscanner API nepřijímají nové vývojáře
 > (Kiwi.com je proto napojené přes svůj veřejný MCP server; jeho podmínky pro neagentní použití nejsou zveřejněné –
@@ -150,6 +156,128 @@ U každé nabídky letenky je štítek **💚 Dobrá cena**, **Běžná cena** n
 - **Do odletu** a opatrná rada: nízká cena krátce před odletem → spíš koupit; víc než ~7 týdnů do odletu → hlídat cenu ♡ s cílovou cenou; jinak zkusit jiné dny nebo letiště. Ceny u nízkonákladovek se před odletem obvykle zvedají.
 
 Je to odhad, ne předpověď: porovnává se cena letenek na osobu bez dopravy na letiště a zavazadel.
+
+## Doprava na letiště
+
+K ceně letenek ATLAS přičítá odhad cesty z domova na letiště odletu a zpět, na osobu – letiště 300 km daleko tak férově
+porovná s tím za humny. V *Další možnosti → Doprava na letiště* zvolíš **Na letiště: 🚌 veřejnou dopravou** (výchozí)
+nebo **🚗 autem**, případně dopravu nezapočítáš vůbec. Vždy je to odhad (`server/lib/access.js`), ne jízdní řád ani
+ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva se stahují jednou denně na pozadí – viz
+[Aktuální ceny paliva a nabíjení](#aktuální-ceny-paliva-a-nabíjení)).
+
+**🚌 Veřejnou dopravou** (na osobu a jeden směr, zpět totéž):
+
+- **Letiště ve tvém městě** → jízdenka MHD (Praha: bus 59 nebo 100 + metro, PID na 90 min 50 Kč, v aplikaci 46 Kč
+  → ~50 Kč; Airport Express za 200 Kč se nepočítá – pid.cz 6. 10. 2026; Brno: IDS JMK ~30 Kč).
+- **Letiště jinde** → vlak / bus do města letiště **+** cesta z města na letiště **+** příplatek za mezinárodní spoj.
+  Vlak / bus: model podle vzdálenosti kalibrovaný na nejnižších cenách RegioJetu a FlixBusu (Praha ↔ Vídeň, Berlín,
+  Mnichov, Budapešť, Krakov… změřeno, viz [Vlak nebo bus místo letadla](#vlak-nebo-bus-místo-letadla)); na kratší
+  vzdálenost regionální jízdné ~30 Kč + 1,5 Kč/km. Z města na letiště: tabulka ~35 letišť do ~450 km od Česka (MHD,
+  S-Bahn, letištní bus – např. Vídeň vlak S7 ~110 Kč, Mnichov S-Bahn ~350 Kč, Berlín ~120 Kč, Drážďany ~85 Kč,
+  Budapešť bus 100E ~140 Kč; Memmingen = letištní bus z Mnichova), jinde jízdenka MHD země + 20–40 Kč podle velikosti
+  letiště. Příplatek přes hranici: mezi Českem, Slovenskem, Polskem a Maďarskem 30 Kč, jinak 20 % jízdného (aspoň
+  50 Kč) – na letiště jedeš konkrétním spojem v danou hodinu, ne nejlevnější akční jízdenkou.
+- **Přímý bus až na letiště** z Prahy do Mnichova, Vídně a Berlína a z Brna do Vídně se počítá místo cesty přes město,
+  když vyjde levněji (ceny změřené 6. 10. 2026: Praha → letiště Mnichov RegioJet 1× denně 299–499 Kč, FlixBus
+  449–479 Kč; Vídeň od 369 Kč, Berlín BER od 419 Kč, Brno → Vídeň od 249 Kč; Mnichov přes město a S-Bahn ~710 Kč).
+- **Změřená cesta do města letiště**: Praha → Drážďany busem FlixBus 319–339 Kč, RegioJet 369 Kč (vlak ČD / DB
+  623–647 Kč; 6. 10. 2026) → počítá se 340 Kč + S-Bahn ~90 Kč, bez příplatku za mezinárodní spoj (je to cena
+  konkrétních spojů, ne „od“); model podle vzdálenosti tu dával jen ~240 Kč.
+- **Letiště za humny** (do 50 km a blíž než jeho město) → regionální bus / vlak rovnou na letiště (Kladno → Ruzyně,
+  Bratislava → Vídeň-Schwechat).
+- Země výchozího místa bez kódu země (📍 poloha, město z vyhledávání) podle nejbližšího města v datech, ne podle
+  nejbližšího letiště – z Ústí nad Labem nebo Děčína (nejblíž Drážďany) se do Prahy nepočítá příplatek přes hranici
+  ani česká dálniční známka.
+- **Jízdné ×** násobí celý odhad (0,5 = sleva 50 % pro žáky, studenty a seniory, 0 = nepočítat).
+
+Z Prahy na osobu tam: PRG ~50 Kč, PED ~200 Kč, KLV ~220 Kč, JCL ~230 Kč, DRS ~430 Kč, VIE ~440 Kč, MUC ~480 Kč,
+BER ~500 Kč; z Brna: BRQ ~30 Kč, BTS ~270 Kč, VIE ~300 Kč. Čas = jízda podle téhož modelu + cesta na letiště + ~20 min
+na nádraží a přestup. Ověřeno proti živým cenám RegioJetu a FlixBusu (6. 10. 2026, odjezdy 20. 10. a 12. 11.): Praha →
+Karlovy Vary 139–259 Kč, Pardubice 119–169 Kč, České Budějovice 179–279 Kč, Drážďany busem 319–369 Kč (+ S-Bahn ~85 Kč;
+počítá se změřená cena, viz výše), Brno → Bratislava 129–279 Kč.
+
+**🚗 Autem** (za auto, pak děleno počtem cestujících):
+
+- **Palivo tam i zpět** = silniční km (≈ 1,25 × vzdušná čára) × spotřeba / 100 × cena. Pohon zvolíš v *Další možnosti →
+  Doprava na letiště → 🚗 autem*: **⛽ nafta** (výchozí, 6 l/100 km), **⛽ benzín** Natural 95 (7 l/100 km) nebo
+  **⚡ elektro** (19 kWh/100 km, nabíjení). Spotřebu můžeš změnit (jednotka se přepne l/100 km ↔ kWh/100 km a pamatuje se
+  pro každý pohon zvlášť); cena je aktuální (viz [Aktuální ceny paliva a nabíjení](#aktuální-ceny-paliva-a-nabíjení)),
+  nebo zadáš **vlastní cenu** v Kč/l či Kč/kWh. Formulář ukáže aktuální cenu (*nafta 50,65 Kč/l · ČSÚ, týden
+  28. 9.–4. 10.*) a z ní Kč/km (*≈ 3,04 Kč/km*). Praha → Vídeň-Schwechat: 335 km × 6 l/100 km × 50,65 Kč/l = 1 018 Kč
+  jedním směrem (dřívějších 2,6 Kč/km dávalo 871 Kč); elektroautem 335 km × 19 kWh/100 km × 16 Kč/kWh = 1 018 Kč.
+- **Parkování u letiště podle délky cesty – online předem**: N nocí = N + 1 započatých dní; cena = **základ + sazba
+  za den** levného dlouhodobého parkoviště s rezervací online (oficiálního, nebo smluvního s kyvadlovou dopravou) –
+  krátké stání vyjde na den dráž než dlouhé. Změřeno 6. 10. 2026 pro auto přijíždějící 27. 10. 2026 (1 / 3 / 7 / 14 dní)
+  a proloženo nejmenšími čtverci: **Praha** (booking.prg.aero, aeroparking.cz: 780 / 850 / 1 450 / 2 280 Kč) →
+  **590 Kč + 120 Kč/den** (710 / 950 / 1 430 / 2 270 Kč); **Vídeň** (Mazur online s kyvadlovou dopravou: 791 / 1 420 /
+  2 096 / 2 828 Kč) → **850 Kč + 150 Kč/den** (1 000 / 1 300 / 1 900 / 2 950 Kč). Bez rezervace bývá dráž (Praha před T3
+  1 000 / 1 700 / 2 500 / 3 900 Kč, Vídeň Parkplatz C online 827 / 2 196 / 3 057 / 4 071 Kč). Ostatní letiště jsou
+  **odhad** z dřívější denní sazby p (týden ≈ 8 × p): velká (p ≥ 250 Kč) jako Praha a Vídeň – základ ≈ 2,9 × p
+  + ≈ 0,55 × p za den (Mnichov 1 160 + 220, Frankfurt 1 450 + 280, Salcburk 870 + 170, Berlín jako Vídeň), menší
+  a regionální nižší základ ≈ 1,5 × p + ≈ 0,8 × p za den (Pardubice, Karlovy Vary, Ostrava 150 + 80, Budějovice
+  120 + 60, Brno 180 + 100, Bratislava a Linec 260 + 140, Drážďany 300 + 160 Kč…; letiště mimo tabulku podle
+  velikosti). Týden tak vyjde skoro stejně jako dřív, víkend dráž a dva týdny levněji. Počítá se u každé nabídky
+  podle jejích nocí (optimalizátor), ne za letiště – na víkend může vyjít Vídeň, na dva týdny Praha.
+- **Dálniční známka / mýtné** jen v cizině (domácí známku máš): Rakousko ~320 Kč (12,80 €), Slovensko ~270 Kč
+  (10,80 €), Maďarsko ~430 Kč (6 900 Ft; vše 10 dní), Slovinsko ~400 Kč (16 €, 7 dní), Švýcarsko ~1 050 Kč (rok),
+  Chorvatsko a Itálie mýtné za jízdu; Německo a Polsko (A1) bez poplatku. Do Budapešti přes Slovensko, do Lublaně
+  a Záhřebu přes Rakousko. Když cesta trvá déle, než známka platí, počítá se druhá.
+- Autem se vracíš na letiště, kde auto stojí – návrat na jiné letiště v okolí (open-jaw) se v režimu autem nenabízí
+  (zaškrtávátko *návrat i na jiné letiště v okolí* je vypnuté s vysvětlením; přílet a odlet z různých letišť cílového
+  města zůstává). Stejně u nejlevnější celé cesty přes víc měst.
+- **Jen tam** (parkování neznámé): počítá se, že tě někdo odveze a vrátí se – palivo tam i zpět, známka, bez parkování.
+  Cesta přes víc měst s návratem domů: palivo u 1. letu i u návratu, parkování na celou plánovanou cestu (nejlevnější
+  kombinace se vrací na letiště, kde auto parkuje); bez návratu domů odvoz.
+- **Elektroauto** platí parkování i dálniční známky stejně jako spalovací auto – výjimky a slevy pro elektroauta (kde
+  existují) se nepočítají.
+
+**Kde to uvidíš:** u letišť pod polem Odkud (*~220 Kč/os. tam*, autem *~750 Kč/os. vč. parkování na 8 dní* pro typickou
+délku cesty z formuláře; po najetí myší rozpis – autem *palivo 335 km × 6 l/100 km × 50,65 Kč/l = 1 018 Kč, tam i zpět
+~2 036 Kč + parkování online předem ~850 Kč + 150 Kč/den × 8 dní …* a odkud je cena), u ceny nabídky (*+ doprava na
+letiště a zpět 450 Kč/os.*, autem *+ autem na letiště a zpět …* s rozpisem paliva a parkování), v pruhu *📅 Nejbližší
+dny* (autem i s parkováním na celou cestu, kdyby se změnil jen ten den – den odletu dřív = den parkování navíc), v patičce
+výsledků a v průvodci cestou (*Autem na letiště a zpět (nafta, parkování, odhad)*, *Elektroautem na letiště PRG …*).
+*Je to dobrá cena?* dál srovnává jen cenu letenek. Uložená hledání
+a hlídané ceny z doby, kdy se doprava zadávala v Kč/km (1,1 Kč/km), se převedou na výchozí odhad veřejnou dopravou;
+dřívější Kč/km za auto: výchozích 2,6 → nafta za aktuální cenu, jiná hodnota → vlastní cena nafty se stejnými Kč/km
+(3,5 Kč/km = 58,33 Kč/l při 6 l/100 km).
+
+Jízdné a parkování jsou orientační (ceníky dopravců 2025/26, parkování v Praze a ve Vídni změřené 10/2026, jinde odhad;
+~25 Kč/€, ~5,8 Kč/zł, ~0,065 Kč/Ft) – skutečná cena záleží na spoji, slevách, termínu a parkovišti.
+
+### Aktuální ceny paliva a nabíjení
+
+Ceny nafty a benzínu bere ATLAS z otevřených dat (`server/lib/fuel.js`, `GET /api/fuel`):
+
+- **Česko:** ČSÚ – *Průměrné spotřebitelské ceny pohonných hmot – týdenní* (DataStat API, sada
+  [CENPHMT](https://data.csu.gov.cz/datastat/info/SADA/CENPHMT), otevřená data CC0): nafta a Natural 95 v Kč/l za poslední
+  úplný týden, nový týden vychází v pátek ráno. Např. 40. týden 2026 (28. 9.–4. 10.): nafta 50,65 Kč/l, Natural 95
+  45,87 Kč/l.
+- **Sousední země** (Německo, Rakousko, Slovensko, Polsko, Maďarsko) a záloha pro Česko: Evropská komise –
+  [Weekly Oil Bulletin](https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en), ceny s daněmi (EUR za 1000 l
+  k pondělí), na Kč aktuálním kurzem. Platí cena v zemi, odkud jedeš (z Bratislavy slovenská nafta, z Vídně rakouská;
+  jiná země → česká cena). Českou cenu z bulletinu ATLAS vezme, jen když ČSÚ neodpoví nebo je o víc než týden starší.
+- **Obnovení:** každý zdroj nejvýš jednou za 24 hodin (po chybě znovu za 2 h, timeout 8 s). Hledání na síť nikdy
+  nečeká – počítá s posledními staženými cenami a nové stáhne na pozadí. Když zdroje nejsou k dispozici, platí
+  **vestavěné ceny s datem** (ČSÚ za 40. týden 2026, bulletin k 28. 9. 2026 při kurzu ECB 24,397 Kč/€) s popiskem
+  *orientačně, k 28. 9. 2026*. DEMO (`ATLAS_MOCK=1`) a `FUEL_LIVE=0` = pevné ceny bez sítě.
+- **⚡ Elektroauto:** na cestě po dálnici se počítá rychlonabíjení (DC), odhad **16 Kč/kWh** (běžně 13–22 Kč/kWh), popisek
+  *nabíjení DC ~16 Kč/kWh (ceníky ČEZ, PRE, E.ON, IONITY, Tesla – stav 6. 10. 2026)*. Ceny nabíjení bez předplatného
+  (ad hoc) podle ceníků provozovatelů k **6. 10. 2026**:
+
+  | Provozovatel | Kč/kWh |
+  |---|---|
+  | ČEZ | 16,90 (AC) / 22,90 (DC) |
+  | PRE | 13 (AC) / 15 (DC) |
+  | E.ON | 10,50–20 |
+  | IONITY | 21 (DC) |
+  | Shell Recharge¹ | 15 |
+  | MOL Plugee¹ | 14,50 (AC) / 15,50 (DC) |
+  | Tesla Supercharger – auta jiných značek¹ | 8–14 (DC) |
+
+  ¹ ze sekundárních zdrojů. Skutečná cena se liší podle provozovatele, výkonu nabíječky a členství či předplatného (s ním
+  bývá nabíjení levnější, doma ještě levnější) – kdo nabíjí jinak, zadá *vlastní cenu*. Tabulka je v
+  `server/lib/fuel.js` (`EV_DC`) a v `GET /api/fuel` (`ev`).
 
 ## Vlak nebo bus místo letadla
 
@@ -232,6 +360,8 @@ Zkopíruj `.env.example` na `.env`:
 | `REGIOJET_LIVE` | `1` | `0` = vypnout živé spoje RegioJetu (vlak/bus místo letadla zůstane jako odhad a odkazy) |
 | `REGIOJET_MAX_PER_HOUR` | `60` | nejvýš tolik dotazů na RegioJet za hodinu (pak jen odhad) |
 | `REGIOJET_GAP_MS` | `1000` | nejmenší odstup dotazů na RegioJet (ms) |
+| `FUEL_LIVE` | `1` | `0` = ceny paliva bez sítě (vestavěné orientační ceny s datem místo ČSÚ a Oil Bulletinu) |
+| `FUEL_TIMEOUT_MS` | `8000` | timeout stahování cen paliva z ČSÚ a Oil Bulletinu (ms) |
 | `ATLAS_MOCK` | `0` | `1` = demo data (totéž co `npm run demo`) |
 
 ### Nasazení na internet (trvalý odkaz)
@@ -287,7 +417,9 @@ prohlížeč (public/)                         server (server/, Node bez závisl
   počet nocí nebo dny v týdnu, ATLAS dohledá ceny po dnech a termín složí přesně.
 - **Konkrétní cíl**: pro každou dvojici letišť (domov × cíl) stáhne ceny po dnech oběma směry od všech aerolinek a
   optimalizátor najde nejlevnější kombinace v rámci počtu nocí – včetně návratu na jiné letiště v okolí.
-- **Doprava na letiště** je odhad: silniční vzdálenost ≈ 1,25 × vzdušná, 80 km/h + 30 min, cena = km × sazba.
+- **Doprava na letiště** je odhad (`server/lib/access.js`): veřejnou dopravou vlak/bus do města letiště + cesta na letiště
+  + příplatek přes hranici, autem palivo nebo nabíjení (spotřeba × aktuální cena z `server/lib/fuel.js`) + parkování podle
+  počtu nocí (přičítá optimalizátor k celé cestě) + známky – viz [Doprava na letiště](#doprava-na-letiště).
 
 ### API
 
@@ -295,10 +427,13 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 |---|---|
 | `GET /api/health` | stav zdrojů, kurzy |
 | `GET /api/places?q=vid` | našeptávač (`ap:VIE`, `metro:LON`, `cc:CZ`, `rg:kanary`, `geo:lat,lon\|Název`) |
-| `GET /api/origins?from=ap:BRQ&radius=200` | letiště, která se prohledají, se vzdáleností a odhadem dopravy |
+| `GET /api/origins?from=ap:BRQ&radius=200` | letiště, která se prohledají, se vzdáleností a cestou na letiště (`ground`); volitelně jako u hledání `groundMode`, `kmRate`, `carFuel`, `carCons`, `carPrice` (dřívější `carKmCzk`), `adults`, `trip=oneway` a `nights` (autem parkování na typickou délku cesty, výchozí 7). Odpověď má i `access` (použité volby a `fuelCc` – země domova, jejíž cena nafty a benzínu platí) |
+| `GET /api/nearby?lat=49.2&lon=16.6&radius=250` | letiště v okolí bodu (nejvýš 15) s cestou na letiště (`ground`); volby jako u `/api/origins` (výchozí veřejnou dopravou), odpověď má i `access` |
+| `GET /api/fuel` | aktuální ceny paliva v Kč/l po zemích `CZ`, `DE`, `AT`, `SK`, `PL`, `HU` – `{ diesel, petrol, date, source, label }` (`source` `czso` / `wob` / `builtin` / `demo`) – a `updated`, `sources`, `defaultFuel`, `lPer100`; `ev` = nabíjení elektroauta `{ default: 16, range: [13, 22], date: "2026-10-06", label, kwhPer100: 19, operators: [{ name, ac?, dc?, price?, note?, secondary?, text }] }`. Cache 1 h |
 | `POST /api/search` | hledání, viz `normalizeQuery` v `server/lib/search.js`; odpověď je NDJSON (průběh, pak výsledek) |
 | `GET /api/verify?from=BGY&to=BCN&out=2026-11-10&back=2026-11-14&adults=2` | živá cena a alternativy z Kiwi.com |
-| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery |
+| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery (`links[]` s `prefill`: `full` / `city` / `none`); bez `cc` se země dopočte z `lat`/`lon`, bez `cityEn` anglický název z geokódování (podle `gid` – ID GeoNames místa vybraného v hledání, jinak podle názvu v okolí) |
+| `POST /api/stayplan` | trasa přes víc míst: návrh `{ arrival, departure, nights, transport, count?, exclude? }`, nebo přepočet `{ arrival, departure, transport, bases: [{ name, lat, lon, cc }], ground? }`. Přejezdy `{ km, carMin, transitMin, transitKind: 'rail'\|'bus', border: { from, to }\|null, basis: 'route'\|'estimate', hsr?: true, fast?: true, long, carUrl, transitUrl }` (`hsr` = odhad tempa rychlovlaku, `fast` = přímý vlak z tabulky jízdních řádů), `pending` = kolik tras autem se ještě počítá; u přepočtu i `bases[{ cc, country }]` a s `ground` (město, kam se jede vlakem/busem) `groundLegs`. Přepočet nad limitem přepočtů na IP odpoví bez nových tras z BRouteru |
 | `GET /api/cars?pickup=BGY&dropoff=MXP&from=2026-11-10T09:00&to=2026-11-14T18:00` | předvyplněné odkazy na půjčovny |
 | `GET /api/ground?from=ap:PRG&to=ap:VIE&date=2026-11-10&adults=2` | vlak nebo bus místo letadla: `from`/`to` jako v hledání (`ap:`, `metro:`, `geo:`, kód letiště) nebo `fromLat`/`fromLon`/`fromName`/`fromCc`; volitelně `flightCzk`, `trips` (2 = cena letu tam i zpět), `flightMin`, `live=0`. Odpověď `{ from, to, km, est: { minutes, czk, basis }, worth: { worth, rule, reason, doorMin }, why, links, live? }` – `live` (spoje RegioJetu) jen s datem; `why` = proč se po zemi nedá (ostrov, moře, daleko) |
 | `GET /api/poi?lat=…&lon=…&radius=8` | místa k vidění (Wikidata + Wikipedie) |
@@ -312,6 +447,29 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 
 Další pole hledání: `minTemp` (15–35 °C, jen teplé cíle; každá nabídka má `tempHi`, skupina `dest.climate`) a `bags`
 (`none` / `cabin` / `checked`; poplatek `bagCzk` je započtený v `perPersonCzk`, `flightCzk` zůstává čistá letenka).
+`openJaw` (výchozí `true`) = návrat i na jiné letiště v okolí domova a přílet / odlet z různých letišť cílového města;
+autem (`groundMode: "car"`) se návrat vždy vrací na letiště odletu, kde auto stojí – `openJaw` pak platí jen pro cíl.
+
+Doprava na letiště: `groundMode` `transit` (výchozí) / `car`, `kmRate` = násobek odhadu jízdného (0 = nepočítat,
+výchozí 1; **bez `groundMode` jde o dřívější Kč/km a dělí se 1,1** – starší odkazy a hlídané ceny s `kmRate: 1.1` tak
+dostanou výchozí odhad). Auto: `carFuel` `diesel` (výchozí) / `petrol` / `ev`, `carCons` = spotřeba na 100 km (nafta
+a benzín 2–30 l, výchozí 6 / 7; elektro 8–40 kWh, výchozí 19), `carPrice` = vlastní cena v Kč/l (5–150) nebo Kč/kWh
+(1–40), bez ní aktuální cena v zemi domova (`fuel.js`) a u elektroauta odhad nabíjení DC 16 Kč/kWh; Kč/km = `carCons` /
+100 × cena. **Dotaz jen s `carKmCzk` (0,5–10) bez `carFuel`** – starší klienti, uložená hledání a odkazy – počítá jako
+dřív silniční km × Kč/km. Dotaz (`query`) vrací `carFuel`, `carCons`, `carPrice` a `carKmCzk` (`null`, kromě dřívějšího
+Kč/km, kde je naopak `carFuel` `null`). Každé letiště v `origins` má `ground`: veřejnou dopravou
+`{ mode: "transit", km, minutes, czk, local, breakdown: [{ k, label, czk, min? }] }` (`czk` = na osobu jedním směrem,
+`breakdown` = rozpis `intercity` / `regional` / `access` / `border`), autem `{ mode: "car", km, roadKm, minutes, czk,
+fuelCzk, carKmCzk, carFuel, parkBaseCzk, parkDayCzk, tolls: [{ cc, czk, days, label }], adults, dropOff, breakdown }`
+(`czk` = na osobu a let: palivo jedním směrem + půl známky; u `dropOff` – jen tam – palivo tam i zpět a celá známka;
+`fuelCzk` = round(`roadKm` × `carKmCzk`); parkování online předem = `parkBaseCzk` + `parkDayCzk` × počet dní; `tolls`
+a `breakdown` – `fuel` / `park` (`czk` za den, `base` základ) / `toll` – za auto). Položka
+`fuel` navíc nese pohon a cenu: `{ fuel, cons, unit: "l" | "kWh", price, priceLabel, kmCzk, fuelCzk, custom, country,
+date, source }` – `priceLabel` např. „nafta 50,65 Kč/l · ČSÚ, 40. týden 2026 (28. 9.–4. 10.)“, `source` `czso` / `wob` /
+`builtin` / `demo` / `ev` / `custom` (u dřívějšího Kč/km jen `kmCzk` a `fuelCzk`). Vypnuto `off: true`, `czk: 0` a prázdný
+`breakdown`. `/api/origins` autem navíc `ground.trip: { days, perPerson, fuel, park, tolls, total }`. Nabídky mají
+`groundCzk` (doprava tam i zpět na osobu, autem i s parkováním) a autem tam i zpět `parkCzk` (parkování na osobu, podle
+nocí té nabídky); `perPersonCzk = flightCzk + groundCzk + bagCzk`.
 
 Přesná data: místo `dateFrom`/`dateTo` + nocí pošli `"exactOut": "2026-11-14", "exactBack": "2026-11-21"` (a volitelně
 `"flexDays": 1` = každé datum ±1 den); u `"trip": "oneway"` stačí `exactOut`. U přesných dat se na den a trasu nechají
@@ -319,7 +477,9 @@ všechny přímé lety (+ lety s přestupem, nejvýš ~12 variant), Kiwi se ptá
 Odpověď navíc má `nearby` (konkrétní cíl: nejlevnější známá cena po dnech ±3 kolem odletu/návratu z už stažených dat,
 `lowcostOnDay` / `lowcostNear` a česká nápověda `hint`, když v zadaný den Ryanair/Wizz nemá volný let – nelétá, nebo je
 vyprodáno), lety Ryanairu a Wizz Air mají `otherDeps` (další odlety téhož dne bez ceny, Ryanair z letového řádu `timtbl`).
-Ceny v `nearby` jsou vč. dopravy na domácí letiště (u návratu na letiště příletu). `hubs` = přestupní letiště, ze kterých
+Ceny v `nearby` jsou vč. dopravy na domácí letiště (u návratu na letiště příletu), autem tam i zpět i s parkováním na
+celou cestu, kdyby se změnil jen ten den (`parkCzk` Kč/os. na `parkDays` dní; den tam s návratem v zadaný den, den zpět
+s odletem v zadaný den – stejně jako po kliknutí na den v pruhu). `hubs` = přestupní letiště, ze kterých
 se u dálkových cílů hledalo navíc (i když z nich nic nevyšlo – UI je pak v nápovědě znovu nenabízí). Lety v `top`/`groups`
 mají u přesných dat ke konkrétnímu cíli `groundCzk` a `bagCzk` (doprava na domácí letiště a zavazadla k tomu letu, Kč/os.)
 – pohled ✈︎ Lety z nich spočítá i dvojici samostatných letenek, která mezi kombinacemi není. Návrat se s letem tam
@@ -329,7 +489,7 @@ nepáruje, když odlétá dřív než 2 h po jeho příletu.
 
 Je to dobrá cena: každá skupina má `priceStats` (`n`, `min`, `p25`, `median`, `p75`, `max`, `dateFrom`, `dateTo`, `mins`), u konkrétního cíle i `priceStats` celé trasy; každá nabídka má `priceLevel` (`level` `low` / `normal` / `high`, `basis`, `reason`, `ref`, `vsRef`, `pos`, `n`).
 
-Cesta přes víc měst: `"trip": "multi", "legs": [{ "from": ["ap:PRG"], "to": ["metro:ROM"], "date": "2026-11-03" }, { "from": ["ap:NAP"], "to": ["ap:PRG"], "date": "2026-11-08", "flexDays": 1 }]` – 2 až 4 lety jedním směrem, data po sobě (týž den smí), nejvýš 90 dní. Cílem (a místem odletu dalších letů) musí být město nebo letiště, ne země. `radiusKm`, `kmRate`, `exclude` platí pro odlet 1. letu; když je cíl posledního letu stejný jako odkud 1. letu, letí se na kterékoliv letiště začátku cesty (s `openJaw: false` jen na letiště samotného místa) a doprava z něj domů se přičte. Úseky se hledají nejvýš po dvou najednou s rozpočtem 24 dvojic letišť na zdroj. Průběh má navíc `legs: [{ label, state }]`. Odpověď má `mode: "multi"`, `legs: [{ label, from, to, date, flex, dest, options, count, nearby }]` (options = nejvýš 16 jednosměrných letů s `perPersonCzk` vč. dopravy a zavazadel), `links[i][a][b]` (`null` = let b úseku i+1 se po letu a stihne, jinak `{ why: "early" | "short" | "nextday" | "unknown", gapMin?, needMin?, move? }`; `unknown` = let a s přestupem bez známého příletu, další nejdřív 24 h po jeho odletu), `combos: [{ picks, perPersonCzk, totalCzk, flightCzk, groundCzk, bagCzk }]` (30 nejlevnějších navazujících cest), `returnsHome` a `stats.feasible`. `maxPrice` platí na celou cestu.
+Cesta přes víc měst: `"trip": "multi", "legs": [{ "from": ["ap:PRG"], "to": ["metro:ROM"], "date": "2026-11-03" }, { "from": ["ap:NAP"], "to": ["ap:PRG"], "date": "2026-11-08", "flexDays": 1 }]` – 2 až 4 lety jedním směrem, data po sobě (týž den smí), nejvýš 90 dní. Cílem (a místem odletu dalších letů) musí být město nebo letiště, ne země. `radiusKm`, `kmRate`, `groundMode`, `carFuel`, `carCons`, `carPrice` (dřívější `carKmCzk`), `exclude` platí pro odlet 1. letu (autem s návratem domů parkování na celou cestu u 1. letu); když je cíl posledního letu stejný jako odkud 1. letu, letí se na kterékoliv letiště začátku cesty (s `openJaw: false` jen na letiště samotného místa; autem vždy na kterékoliv – nejlevnější kombinace se vrací tam, kde auto parkuje) a doprava z něj domů se přičte. Úseky se hledají nejvýš po dvou najednou s rozpočtem 24 dvojic letišť na zdroj. Průběh má navíc `legs: [{ label, state }]`. Odpověď má `mode: "multi"`, `legs: [{ label, from, to, date, flex, dest, options, count, nearby }]` (options = nejvýš 16 jednosměrných letů s `perPersonCzk` vč. dopravy a zavazadel), `links[i][a][b]` (`null` = let b úseku i+1 se po letu a stihne, jinak `{ why: "early" | "short" | "nextday" | "unknown", gapMin?, needMin?, move? }`; `unknown` = let a s přestupem bez známého příletu, další nejdřív 24 h po jeho odletu), `combos: [{ picks, perPersonCzk, totalCzk, flightCzk, groundCzk, bagCzk }]` (30 nejlevnějších navazujících cest), `returnsHome` a `stats.feasible`. `maxPrice` platí na celou cestu.
 
 Skupiny v dosahu vlaku/busu mají `ground` (`km`, `min`, `czk`, `basis` – `measured` / `distance`, `worth`, `rule`,
 `reason`, `doorMin`, `from`, `to`, `regiojet`, `flixbus` a `q` pro `/api/ground`); u hledání ke konkrétnímu cíli má
@@ -351,6 +511,105 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 }'
 ```
 
+## Přejezdy mezi místy
+
+Trasa přes víc míst ukazuje u každého přejezdu (i z letiště na první místo a z posledního na letiště) stejná čísla
+v kroku Trasa, ve Shrnutí, v časové ose, v kalendáři (.ics) i v poznámkách cesty uložené do plánovače – počítá je server
+(`server/lib/transfers.js`, pravidla a zdroje v `data/transfers.json`), prohlížeč je jen zobrazí. Podle nich je i čas
+příjezdu v Programu; cesta z letiště na první místo a z posledního na letiště nad hodinu zkrátí program prvního
+a posledního dne (hodinu kryje rezerva 1,5 h po příletu a 3 h před odletem). S vlakem/busem místo letu se počítá
+cesta z města příjezdu (ne z letiště):
+
+- **Autem:** silniční vzdálenost a čas bez kolon z plánovače tras [BRouter](https://brouter.de/) (profil `car-fast`,
+  nad OpenStreetMap) × **provoz podle regionu** + 5 min na start a cíl ve městě + **zácpy**, začíná-li nebo končí-li
+  přejezd v jedné z ~30 velkých metropolí (Lagos, Káhira, Nairobi, Dháka, Jakarta, Manila, Bangkok, Bombaj, Dillí,
+  Ciudad de México, São Paulo, Lima, Istanbul…; +15–45 min, orientačně podle TomTom Traffic Index a INRIX) + **hranice**.
+  Faktory platí navíc k času BRouteru, který už sám počítá s typem silnice – proto jsou menší, než by byly u
+  „volného“ plánovače: západní a severní Evropa, USA a Kanada 1,1; jižní a východní Evropa (vč. Česka), východní Asie,
+  Blízký východ a severní Afrika 1,15; Latinská Amerika 1,2; jihovýchodní Asie 1,35; jižní Asie 1,4; východní a
+  střední Afrika 1,3; západní Afrika 1,0 (BRouter tam už jezdí ~60 km/h – Lagos → Porto Novo 123 min, OSRM 82 min).
+- **Hranice:** v Schengenu (a mezi Británií a Irskem) nic; jinde autem +30 min v Evropě, +45 min mimo ni; autobusem
+  +45 min v Evropě, +75 min jinde a **+2 h v Africe** (vystupují všichni, kontrola zavazadel, přestup do jiného
+  minibusu). U přejezdu je *🛂 přechod hranice Nigérie → Benin – počítej s kontrolou a vízem* se stavem vstupních
+  podmínek další země a odkazem na ně; autem upozorní, že s půjčeným autem přes hranici často nesmíš.
+- **Veřejnou dopravou:** *🚆 vlakem / busem* jen v zemích, kde se mezi městy běžně jezdí vlakem (většina EU,
+  Švýcarsko, Británie, Japonsko, Korea, Čína, Tchaj-wan, Indie…; a ne u místa, o kterém mezipaměť nádraží z výletů
+  na kole ví, že u něj žádné není) – čas autem + 10–30 min na nádraží; mezi dvěma městy na vysokorychlostní trati
+  v téže zemi (Itálie, Francie, Španělsko, Německo, Rakousko, Británie, Japonsko, Čína, Korea, Tchaj-wan) nejvýš
+  40 min + 0,25–0,5 min/km vzdušnou čarou podle země (Čína 0,25; Francie, Španělsko, Japonsko, Tchaj-wan 0,3;
+  Itálie 0,35; Británie a Korea 0,4; Německo 0,45; Rakousko 0,5 – Westbahn jezdí ~200 km/h se zastávkami). Jinde
+  *🚌 autobusem / minibusem* – čas autem × 1,2 (Evropa) až 1,3 + 15–45 min čekání + hranice. Vždy „odhad“ (mimo
+  tabulku přímých vlaků níže); odkaz do Google Map je „ověř spoje“.
+- **Přímé rychlé vlaky podle jízdního řádu:** tabulka ~100 ověřených spojů mezi hlavními nádražími ~80 měst
+  (`railLinks` v `data/transfers.json`) – Česko a sousedé (Praha–Brno/Olomouc/Ostrava/Pardubice/Plzeň/Drážďany/Berlín/
+  Vídeň/Bratislava, Vídeň–Brno/Bratislava/Budapešť, Žilina–Košice, Koralmbahn Štýrský Hradec–Klagenfurt 42 min…),
+  Německo, Polsko, Švýcarsko, Benelux, Paříž (Eurostar, TGV Lyria, ICE), Skandinávie, Finsko, Portugalsko, sever Itálie
+  a pár rychlých tratí jinde: Al Boraq Tanger–Casablanca–Rabat, Acela New York–Washington/Filadelfie/Boston, YHT
+  Istanbul–Ankara–Konya, Haramain Mekka–Medína, Afrosiyob Taškent–Samarkand–Buchara, Whoosh Jakarta–Bandung,
+  Káhira–Alexandrie, Dillí–Ágra. Minuty = typický nejrychlejší **pravidelný** přímý vlak jízdního řádu 2026 (v každém
+  směru 3. nejkratší jízda dne – ne jediný výjimečný spoj; průměr obou směrů; bez dočasných výluk) + **20 min** na cestu
+  na nádraží, z něj a čekání. Leží-li obě místa do **15 km** od nádraží spoje, je přejezd vždy *🚆 vlakem* (i v zemi,
+  kde se jinak jezdí autobusem) a trvá právě tolik – jízdní řád nahradí odhad z času autem, i když by vyšel kratší
+  (Praha → Brno: odhad s trasou 2 h 50 min, vlak 2 h 37 min + 20 min = ~2 h 55 min), i odhad tempa rychlovlaku
+  (Frankfurt → Mnichov 3 h 35 min místo 2 h 55 min). Místo **15–60 km** od nádraží jede přes uzel: místní spoj k nádraží (týž odhad jako jiné přejezdy)
+  + 10 min přestup + spoj – ale jen když je to rychlejší než odhad (Lovaň → Brusel → Paříž ano, Baden → Vídeň → Brno
+  ne); dál se spoj nepoužije. Letiště nikdy není „u nádraží“, cesta z něj k vlaku se počítá vždy. Hranice: v Schengenu
+  nic, jinde jako u ostatních vlaků; Eurostar z/do Londýna má v minutách **odbavení 60 min** (Eurostar doporučuje přijít
+  75 min před odjezdem v Londýně, 45–90 min jinde; kontrola pasů je jeho součástí), hranice se proto nepřičítá podruhé.
+  K nádražím daleko za městem minuty navíc (Whoosh: Halim +25, Tegalluar +42; Buchara-Kogon +15). Takový přejezd má
+  v odpovědi `fast: true`.
+- **Zdroje tabulky (ověřeno 6. 10. 2026):** ÖBB Scotty (fahrplan.oebb.at – jízdní řády evropských železnic v systému
+  HAFAS): všechny přímé vlaky dne v út 27. 10. a čt 12. 11. 2026 (při výluce – méně vlaků, objížďka – hodnota ze dne bez
+  ní, kontrolně út 13. 10.); Amtrak GTFS (feed z 6. 10. 2026); seat61.com (Maroko, Turecko, Uzbekistán, Indie, Indonésie –
+  stránky z června až září 2026); blog.wego.com a Saudipedia (Haramain, 2026); ask-aladdin.com (Egypt 2026); eurostar.com
+  (odbavení). Vynechané: Casablanca–Marrákeš (od 9/2025 výluky kvůli stavbě rychlotrati Kenitra–Marrákeš, jízdní
+  řád se mění), Madrid–Lisabon (přímý vlak v roce 2026 nejezdí), Budapešť–Bělehrad (v jízdním řádu 2026 žádný spoj,
+  provoz po nové trati odložený), Lublaň–Záhřeb (5 vlaků denně, pomalejší než autobus), Bangkok–Ajutthaja (vlak není
+  jasně rychlejší); Barcelona–Paříž jezdí přímo jen 2× denně, proto typický dobrý spoj i s přestupem (~6 h 55 min).
+- **Bez trasy** (BRouter neodpoví, je mimo rozpočet, přejezd delší než 500 km vzdušnou čarou, DEMO) platí stejná
+  pravidla nad odhadem ze vzdušné vzdálenosti (zajížďka 1,2–1,35, rychlost podle regionu) a u času autem je
+  „odhad“ místo „podle trasy“.
+- **Ohleduplně k BRouteru:** jeden dotaz naráz, aspoň 1 s mezi dotazy (společná fronta s trasami na kole), nejvýš
+  20 čekajících; na jeden přepočet trasy nejvýš 8 nových výpočtů a 9 s čekání – co nedoběhne, počítá se dál na pozadí
+  (a co se do 8 nevešlo, spočítá další přepočet) a prohlížeč si to za pár sekund vyžádá znovu (nejvýš 3×). Trasy
+  se ukládají 30 dní podle bodů zaokrouhlených na ~1 km a bez ohledu na směr, takže úprava trasy už spočítané úseky
+  znovu nepočítá; nenalezená trasa 6 h, výpadek 10 min.
+  Střed města v pěší zóně („target island“) se zkusí znovu s body o kus blíž k sobě, jiná chyba výpočtu profilem `car-eco`.
+  Přepočty trasy z jedné IP mají vlastní limit – 3× `SEARCH_RATE_LIMIT` za 10 minut, zvlášť od hledání (do jeho limitu se
+  nepočítají) a počítá se jen přepočet, který opravdu potřebuje novou trasu. Nad limitem přepočet neodmítne (žádné 429),
+  jen nespustí nové výpočty: trasy z mezipaměti, ostatní odhadem (a ne „pending“, prohlížeč se znovu neptá).
+- **Návrh trasy** počítá s týmiž časy: běžný přejezd je nejvýš ~3 h 20 min autem a ~3 h 45 min veřejnou dopravou
+  (6hodinový přejezd přes hranici tedy „krátký“ není); když skutečná trasa ukáže delší přejezd než odhad, návrh se
+  jednou zopakuje s ní.
+
+**Kalibrace** (čas BRouteru z 6. 10. 2026 → výsledek):
+
+| Přejezd | Autem | Veřejnou dopravou |
+|---|---|---|
+| Lagos → Porto Novo (122 km, hranice Nigérie–Benin) | ~3 h 25 min (skutečně 3 h a víc) | 🚌 ~6 h 10 min (skutečně ~6 h) |
+| Porto Novo → Abeokuta (208 km, hranice) | ~3 h 55 min | 🚌 ~6 h 50 min – vlak tam nejezdí |
+| Praha → Brno (208 km) | ~2 h 20 min | 🚆 ~2 h 50 min |
+| Milán → Boloňa (215 km) | ~2 h 40 min | 🚆 ~1 h 50 min (rychlovlak) |
+| Vídeň → Salcburk (296 km) | ~3 h 15 min | 🚆 ~2 h 45 min (Railjet 2 h 25 min + 20 min, z tabulky spojů) |
+| Paříž → Lyon (463 km) | ~4 h 35 min | 🚆 ~2 h 15 min (TGV 1 h 55 min + 20 min, z tabulky spojů) |
+
+**Přímé vlaky z tabulky** (odhad bez trasy z BRouteru; dřív = čas autem + nádraží, v závorce jízdní řád 2026):
+
+| Přejezd | Dřív | Teď |
+|---|---|---|
+| Vídeň → Brno | 🚆 2 h 30 min | 🚆 1 h 50 min (Railjet 1 h 31 min) |
+| Praha → Pardubice / Olomouc / Ostrava | 🚆 2 h 20 / 3 h 30 / 4 h 25 min | 🚆 1 h 15 / 2 h 35 / 3 h 40 min (57 min / 2 h 14 / 3 h 18) |
+| Krakov → Varšava | 🚆 4 h 05 min | 🚆 2 h 45 min (EIP 2 h 27 min) |
+| Curych → Bern | 🚆 2 h 10 min | 🚆 1 h 15 min (IC 56 min) |
+| Brusel → Paříž | 🚆 3 h 55 min | 🚆 1 h 45 min (Eurostar 1 h 26 min) |
+| Londýn → Paříž | 🚆 5 h 25 min | 🚆 3 h 50 min (Eurostar 2 h 28 min + odbavení 60 min) |
+| Frankfurt → Mnichov | 🚆 2 h 55 min (odhad tempa VRT) | 🚆 3 h 35 min (ICE 3 h 16 min) |
+| Stockholm → Göteborg | 🚆 5 h 35 min | 🚆 3 h 50 min (3 h 28 min) |
+| Tanger → Casablanca | 🚌 5 h 55 min | 🚆 2 h 30 min (Al Boraq 2 h 10 min) |
+| New York → Washington | 🚌 5 h 50 min | 🚆 3 h 20 min (Acela 2 h 58 min) |
+| Lovaň → Paříž (26 km od Bruselu) | 🚆 4 h 05 min | 🚆 3 h 00 min (přes Brusel) |
+| Baden → Brno (23 km od Vídně) | 🚆 2 h 40 min | 🚆 2 h 40 min (přes Vídeň by to bylo pomalejší) |
+
 ## Omezení (upřímně)
 
 - Ryanair a Wizz Air nemají veřejné API pro vývojáře; ATLAS používá stejná rozhraní jako jejich weby. Když je změní,
@@ -359,7 +618,28 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
   ale jen jako odhad podle dopravce (`server/lib/baggage.js`, stav 10/2026) – přesnou cenu ukáže až rezervace.
 - Kombinace dvou aerolinek / různých letišť jsou **dvě samostatné letenky** – při zpoždění prvního letu druhá aerolinka
   nečeká. Aplikace to u výsledku označí.
-- Odhad dopravy na letiště je orientační.
+- Doprava na letiště je jen odhad: jízdné podle vzdálenosti a tabulky cest na ~35 letišť (ne jízdní řád ani živé ceny),
+  parkování online předem jako základ + sazba za den (Praha a Vídeň proložené změřenými cenami 10/2026, ostatní letiště
+  odhad) a dálniční známky podle orientačních ceníků 2025/26. Cena nafty a benzínu je celostátní týdenní průměr
+  (u dálnice bývá vyšší, za hranicí platí cena země, odkud jedeš), spotřeba je zadaná, ne podle auta, rychlosti a zimy;
+  elektroauto počítá s rychlonabíjením za odhad 16 Kč/kWh. Autem se nepočítá opotřebení auta ani mýtné za úseky
+  v Polsku; u cesty přes víc měst si ručním výběrem letů můžeš složit i návrat na jiné letiště, než kde auto parkuje
+  (cena pak počítá, jako by ses vrátil k autu).
+- Přejezdy mezi místy trasy: čas autem je z trasy BRouteru s **průměrnými** faktory provozu a hranic – skutečná zácpa,
+  stavba nebo fronta na hranici může cestu prodloužit o hodiny. Veřejná doprava je odhad z času autem, jen mezi městy
+  z tabulky ~100 přímých vlaků čas podle jízdního řádu 2026 (typický nejrychlejší pravidelný spoj – ne každý vlak tak
+  jede, výluky, zpoždění ani změny jízdního řádu po 12. 12. 2026 v ní nejsou; živé jízdní řády ATLAS nenačítá) – konkrétní
+  spoj ověř přes odkaz. Země bez kódu z Wikidat se dopočítá podle nejbližšího letiště, takže
+  u místa těsně u hranice může vyjít sousední země (Basilej → Francie).
+- Odkazy na partnery ubytování: Booking.com, Airbnb, Trip.com, Hotels.com, Kayak a Google Hotels dostanou místo, data
+  i počet hostů (Trip.com je vyplní do formuláře – hledání potvrdíš; Kayak dostane „Město-Země“ anglicky, protože
+  samotné jméno víceznačné místo pošle jinam – Lagos do Portugalska; Google Hotels termín a hosty v parametru `ts`,
+  jehož formát Google nezveřejňuje – kdyby ho změnil, zůstane jen místo), Hostelworld jen místo, Agoda jen úvodní
+  stránku (bez jejího ID města nejde nic předvyplnit). Hostelworld má stránky jen měst s hostely (jinak 404) – server
+  to ověří jedním dotazem HEAD (v mezipaměti 30 dní) a u menšího místa odkáže na stránku země. Ověřeno 10/2026 ve
+  skutečném Chromu (Hotels.com předvyplní místo, termín i hosty).
+- Vlak mimo tabulku přímých spojů je čas autem + cesta na nádraží: na regionálních tratích sedí, na rychlé trati,
+  která v tabulce chybí, bývá ve skutečnosti kratší (mezi městy z tabulky platí jízdní řád – Vídeň → Brno ~1 h 50 min).
 - Cesta přes víc měst = samostatné letenky na každý let; přejezdy mezi městy (třeba Řím → Neapol) ATLAS nepočítá do ceny ani nehledá.
 - Vlak/bus je mimo změřené trasy z Prahy jen **odhad podle vzdálenosti** (Alpy a Dinárské hory s přirážkou ~25 %) –
   pomalé tratě bez hor bývají delší (Praha–Linec, Ostrava–Krakov), rychlé kratší (Praha–Ostrava 3 h 16 místo ~4 h 15).
@@ -389,6 +669,8 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 - Letiště: [OurAirports](https://ourairports.com/data/) (public domain) + názvy měst a časová pásma z
   [OpenFlights](https://openflights.org/data) (ODbL). Aktualizace: `npm run build:airports`.
 - Geokódování a počasí: [Open-Meteo](https://open-meteo.com/) (předpověď CC BY 4.0). Kurzy: open.er-api.com, ECB.
+- Ceny paliva: ČSÚ (DataStat, sada CENPHMT, CC0) a Evropská komise – Weekly Oil Bulletin; ceny nabíjení elektroaut:
+  ceníky provozovatelů (ČEZ, PRE, E.ON, IONITY; Shell, MOL a Tesla ze sekundárních zdrojů) k 6. 10. 2026.
 - Vlak a bus: seznam měst a zastávek RegioJetu (`brn-ybus-pubapi.sa.cz/restapi/consts/locations`), UUID měst FlixBusu
   (jen pro odkazy), změřené spoje z Prahy z průzkumu `research/ground.md` (větev `pc-research`); sestavuje `node scripts/build-ground.mjs` do
   `data/ground.json` (zdroj a datum jsou v souboru).
@@ -401,6 +683,6 @@ curl -N -X POST localhost:8080/api/search -H 'content-type: application/json' -d
 - Mapa světa: d3, topojson-client, world-atlas (ISC, přibaleno v `public/vendor/`).
 - Mapy míst: MapLibre GL JS (BSD-3-Clause, přibaleno v `public/vendor/maplibre/`), podklad OpenFreeMap
   (© OpenMapTiles, data © přispěvatelé OpenStreetMap, ODbL), záloha dlaždice OpenStreetMap.
-- Trasy na kole: [BRouter](https://brouter.de/) (veřejný server, bez klíče; jiný server přes `BROUTER_URL`),
-  data © přispěvatelé OpenStreetMap. Odkazy do [Mapy.com](https://mapy.com/) přes jejich veřejné URL API (bez klíče).
+- Trasy na kole a přejezdy autem mezi místy trasy: [BRouter](https://brouter.de/) (veřejný server, bez klíče; jiný
+  server přes `BROUTER_URL`), data © přispěvatelé OpenStreetMap. Odkazy do [Mapy.com](https://mapy.com/) přes jejich veřejné URL API (bez klíče).
 - Původní jednosouborová verze aplikace je pro srovnání v `legacy/ATLAS-puvodni.html`.

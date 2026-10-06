@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { planItinerary, dayCapacities, orderRoute } from '../server/lib/itinerary.js';
 import { rankStays, adjustedRating, normalizeStayQuery, searchStays } from '../server/lib/stays.js';
 import { normalizeCarQuery, searchCars } from '../server/lib/cars.js';
-import { stayLinks } from '../server/lib/links.js';
+import { stayLinks, googleHotelsTs } from '../server/lib/links.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { ymdPlus } from './helpers.js';
 
@@ -207,4 +207,52 @@ test('planItinerary: limit kostelů platí i s krátkým dnem příletu a odletu
       assert.ok(d.items.filter((p) => p.category === 'square').length <= 2);
     }
   }
+});
+
+test('stayLinks: víc partnerů – co je předvyplněné (místo, termín, hosté) a co jen otevře místo', async () => {
+  const q = normalizeStayQuery({ city: 'Kutná Hora', cityEn: 'Kutná Hora', lat: 49.948, lon: 15.268, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 3, rooms: 2 });
+  assert.equal(q.cc, 'CZ', 'země podle polohy');
+  const links = stayLinks(q);
+  const by = Object.fromEntries(links.map((l) => [l.id, l]));
+  assert.deepEqual(links.map((l) => l.id), ['booking', 'booking-best', 'airbnb', 'trip', 'hotelscom', 'kayak', 'google', 'hostelworld', 'agoda']);
+  assert.deepEqual(links.filter((l) => l.prefill !== 'full').map((l) => [l.id, l.prefill]), [['hostelworld', 'city'], ['agoda', 'none']]);
+  assert.ok(links.filter((l) => l.prefill !== 'full').every((l) => /zadej/.test(l.note)), 'bez termínu v odkazu: „zadej data“');
+  const trip = new URL(by.trip.url);
+  assert.equal(trip.origin + trip.pathname, 'https://www.trip.com/hotels/list');
+  assert.deepEqual(['searchWord', 'checkin', 'checkout', 'adult', 'crn'].map((k) => trip.searchParams.get(k)), ['Kutná Hora, Czechia', q.checkin, q.checkout, '3', '2']);
+  const hc = new URL(by.hotelscom.url);
+  assert.equal(hc.origin + hc.pathname, 'https://www.hotels.com/Hotel-Search');
+  assert.deepEqual(['destination', 'startDate', 'endDate', 'adults', 'rooms'].map((k) => hc.searchParams.get(k)), ['Kutná Hora, Czechia', q.checkin, q.checkout, '3', '2']);
+  // Kayak: „Město-Země“ (samotné jméno pošle Lagos do Portugalska, „Město, Země“ s čárkou na úvodní stránku)
+  assert.equal(by.kayak.url, `https://www.kayak.com/hotels/Kutn%C3%A1-Hora-Czech-Republic/${q.checkin}/${q.checkout}/3adults`);
+  const gh = new URL(by.google.url);
+  assert.equal(gh.searchParams.get('q'), 'hotels Kutná Hora, Czechia');
+  assert.equal(gh.searchParams.get('ts'), googleHotelsTs(q.checkin, q.checkout, 3));
+  assert.equal(by.hostelworld.url, 'https://www.hostelworld.com/hostels/europe/czechia/kutna-hora/', 'stránka města (jiný název země Hostelworld přesměruje)');
+  assert.equal(by.agoda.url, 'https://www.agoda.com/cs-cz/');
+  assert.match(by.airbnb.url, /^https:\/\/www\.airbnb\.cz\/s\/Kutn%C3%A1%20Hora--Czechia\/homes\?checkin=/);
+  // Benin, Afrika; neznámá země → Hostelworld jen úvodní stránka
+  const bj = stayLinks({ city: 'Porto Novo', cityEn: 'Porto-Novo', cc: 'BJ', checkin: '2026-11-10', checkout: '2026-11-13', adults: 2, rooms: 1 });
+  assert.equal(bj.find((l) => l.id === 'hostelworld').url, 'https://www.hostelworld.com/hostels/africa/benin/porto-novo/');
+  assert.equal(bj.find((l) => l.id === 'kayak').url, 'https://www.kayak.com/hotels/Porto-Novo-Benin/2026-11-10/2026-11-13/2adults');
+  assert.equal(stayLinks({ city: 'Nikde', cc: '', checkin: '2026-11-10', checkout: '2026-11-13', adults: 2, rooms: 1 }).find((l) => l.id === 'hostelworld').url, 'https://www.hostelworld.com/');
+  // partnerský odkaz jen u značky, kterou má aplikace nastavenou (Booking.com) – ostatní vždy přímo
+  const { config } = await import('../server/config.js');
+  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs };
+  try {
+    Object.assign(config, { travelpayoutsMarker: '123456', travelpayoutsTrs: '987654' });
+    const aff = stayLinks(q);
+    assert.deepEqual(aff.filter((l) => l.sponsored).map((l) => l.id), ['booking', 'booking-best']);
+    assert.ok(aff.filter((l) => !l.id.startsWith('booking')).every((l) => !l.url.includes('tp.media')));
+  } finally {
+    Object.assign(config, { travelpayoutsMarker: prev.m, travelpayoutsTrs: prev.t });
+  }
+});
+
+test('googleHotelsTs: termín a hosté pro Google Hotels (formát ověřený v Chromu 10/2026)', () => {
+  assert.equal(googleHotelsTs('2026-11-22', '2026-11-23', 1), 'CAESBgoCCAMQABogCgIaABIaEhIKBwjqDxALGBYSBwjqDxALGBcYATICEAAqCQoFOgNDWksaAA');
+  assert.match(googleHotelsTs('2026-12-27', '2027-01-10', 4), /^[\w-]+$/, 'přes konec roku, 4 hosté – base64url bez výplně');
+  assert.equal(googleHotelsTs('2026-11-22', '2026-11-22', 2), null, 'žádná noc');
+  assert.equal(googleHotelsTs('2026-01-01', '2026-06-01', 2), null, 'nad 127 nocí jednobajtová délka nestačí');
+  assert.equal(googleHotelsTs('2026-11-22', '2026-11-23', 0), null);
 });

@@ -41,4 +41,7 @@ export const config = {
   wizzMaxCalls: num(env.WIZZ_MAX_CALLS, 60),
   // Ochrana veřejně nasazeného serveru: max. počet hledání z jedné IP za 10 minut (0 = bez limitu).
   searchesPer10Min: num(env.SEARCH_RATE_LIMIT, 40),
+  // Přepočty trasy přes víc míst (každý až 8 nových tras z veřejného BRouteru): z jedné IP za 10 minut 3× tolik
+  // co hledání, zvlášť; nad limitem přepočet odpoví bez nových tras (z mezipaměti, jinak odhad), ne chybou.
+  rechecksPer10Min: 3 * num(env.SEARCH_RATE_LIMIT, 40),
 };

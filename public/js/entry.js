@@ -88,7 +88,7 @@
       // „bez víza“ tu neříkat: australský eVisitor je podle MZV vízum (jen online a zdarma)
       case 'eta': return { key: 'eta', icon: '🛂', label: regName(r), cls: 'reg', need: true, text: `Nutná online registrace předem${via}` };
       case 'evisa': return { key: 'evisa', icon: '🛂', label: 'e-vízum', cls: 'visa', need: true, text: `Nutné e-vízum, vyřídíš online předem${via}` };
-      case 'voa': return { key: 'voa', icon: '🛂', label: 'vízum na hranici', cls: 'visa', need: true, text: `Vízum při příletu na hranici${r.etaName ? `, nebo předem online${via}` : ''}` };
+      case 'voa': return { key: 'voa', icon: '🛂', label: 'vízum na hranici', cls: 'visa', need: true, text: `Vízum při příletu${r.etaName ? `, nebo předem online${via}` : ''}` };
       case 'visa': return { key: 'visa', icon: '📄', label: 'vízum předem', cls: 'hard', need: true, text: `Vízum předem na zastupitelském úřadě${r.etaName ? `; online žádost${via}` : ''}` };
       default: return null;
     }

@@ -76,7 +76,7 @@ export const AIRPORT_CITY_CS = {
   KLX: 'Kalamata', SMI: 'Samos', MJT: 'Lesbos', JSI: 'Skiathos', LCA: 'Larnaka', PFO: 'Pafos',
   MLA: 'Malta', IST: 'Istanbul', SAW: 'Istanbul-Sabiha', AYT: 'Antalya', DLM: 'Dalaman', BJV: 'Bodrum',
   ADB: 'Izmir', ESB: 'Ankara', GZP: 'Alanya', TLV: 'Tel Aviv', AMM: 'Ammán', AQJ: 'Akaba',
-  DXB: 'Dubaj', DWC: 'Dubaj-Al Maktoum', AUH: 'Abú Dhabí', SHJ: 'Šardžá', DOH: 'Dauhá', MCT: 'Maskat',
+  DXB: 'Dubaj', DWC: 'Dubaj-Al Maktoum', AUH: 'Abú Dhabí', SHJ: 'Šardžá', DOH: 'Dauhá', DIA: 'Dauhá', MCT: 'Maskat',
   BAH: 'Bahrajn', KWI: 'Kuvajt', RUH: 'Rijád', JED: 'Džidda', BEY: 'Bejrút', RKT: 'Ras al-Chajma',
   CAI: 'Káhira', HRG: 'Hurghada', SSH: 'Šarm aš-Šajch', RMF: 'Marsa Alam', RAK: 'Marrákeš', AGA: 'Agadir',
   FEZ: 'Fès', TNG: 'Tanger', CMN: 'Casablanca', RBA: 'Rabat', NDR: 'Nador', ESU: 'Essaouira',

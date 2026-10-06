@@ -11,7 +11,8 @@ export function stubFetch(handler) {
     calls.push({ url: String(url), init });
     const r = await handler(String(url), init);
     const status = r?.status ?? 200;
-    const body = typeof r?.body === 'string' ? r.body : JSON.stringify(r?.body ?? {});
+    // řetězec a binární data (Buffer, např. XLSX) beze změny, ostatní jako JSON
+    const body = typeof r?.body === 'string' || r?.body instanceof Uint8Array ? r.body : JSON.stringify(r?.body ?? {});
     return new Response(body, { status, headers: r?.headers || { 'content-type': 'application/json' } });
   };
   return { calls, restore: () => { globalThis.fetch = original; } };

@@ -12,9 +12,9 @@ import { activeProviders, providerStatus } from './providers/index.js';
 import { fxInfo, loadRates } from './lib/fx.js';
 import { cache } from './lib/cache.js';
 import { airportsNear, getAirport } from './lib/airports.js';
-import { groundEstimate } from './lib/geo.js';
+import { accessOpts, airportAccess, carTrip, fuelCountry, normalizeAccess } from './lib/access.js';
 import { addDays, todayYmd } from './lib/dates.js';
-import { searchStays } from './lib/stays.js';
+import { searchStays, hostelworldHas } from './lib/stays.js';
 import { searchCars } from './lib/cars.js';
 import { findPlaces, findTrips, mockPlaces, mockTrips } from './lib/poi.js';
 import { planTrips } from './lib/roadtrip.js';
@@ -28,6 +28,7 @@ import { HttpError } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
 import { airportClimate, climateAt, climateSource, countryClimate } from './lib/climate.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
+import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -99,16 +100,16 @@ function readBody(req, limit = 64 * 1024) {
 }
 
 const hits = new Map();
-function rateLimited(req) {
-  const max = config.searchesPer10Min;
+const rechecks = new Map(); // přepočty trasy přes víc míst (stayplan s bases): vlastní limit, do hledání se nepočítají
+function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
   if (!max) return false;
   const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
   const now = Date.now();
-  const list = (hits.get(ip) || []).filter((t) => now - t < 10 * 60e3);
+  const list = (bucket.get(ip) || []).filter((t) => now - t < 10 * 60e3);
   if (list.length >= max) return true;
   list.push(now);
-  hits.set(ip, list);
-  if (hits.size > 5000) hits.clear();
+  bucket.set(ip, list);
+  if (bucket.size > 5000) bucket.clear();
   return false;
 }
 
@@ -152,6 +153,21 @@ async function handleSearch(req, res) {
   if (out) out.end();
   else res.end();
 }
+
+/**
+ * Volby cesty na letiště z parametrů adresy (/api/origins, /api/nearby) – stejná kontrola jako u hledání (normalizeAccess):
+ * groundMode, kmRate, carFuel, carCons, carPrice (dřívější carKmCzk), adults, trip (oneway = odvoz), nights (výchozí 7).
+ * → { opts (pro airportAccess), nights, echo (použité volby do odpovědi) }
+ */
+function accessParams(sp) {
+  const acc = normalizeAccess(Object.fromEntries(['kmRate', 'groundMode', 'carFuel', 'carCons', 'carPrice', 'carKmCzk'].map((k) => [k, sp.get(k)])));
+  const adults = Math.min(9, Math.max(1, Math.round(Number(sp.get('adults'))) || 1));
+  const nights = Math.min(90, Math.max(0, Math.round(Number(sp.get('nights') ?? 7)) || 0));
+  const oneWay = sp.get('trip') === 'oneway';
+  return { opts: accessOpts({ ...acc, adults }, oneWay), nights, echo: { ...acc, adults, nights: oneWay ? null : nights, trip: oneWay ? 'oneway' : 'return' } };
+}
+// Autem navíc celá cesta tam i zpět s parkováním na `nights` nocí (ground.trip).
+const withTrip = (g, nights) => (g && g.mode === 'car' ? { ...g, trip: carTrip(g, nights) } : g);
 
 // Ostrý test zdrojů: malý skutečný dotaz na každého poskytovatele (výsledek cachován 5 min).
 // Slouží k ověření po nasazení, že server na hostingu na API aerolinek dosáhne.
@@ -239,33 +255,40 @@ async function route(req, res) {
     return d ? sendJson(req, res, 200, d) : sendJson(req, res, 404, { error: 'Neznámé místo' });
   }
   if (p === '/api/nearby') {
+    // Letiště v okolí bodu s cestou na letiště; volby jako u /api/origins (výchozí veřejnou dopravou).
     const lat = Number(url.searchParams.get('lat'));
     const lon = Number(url.searchParams.get('lon'));
     const radius = Math.min(600, Number(url.searchParams.get('radius')) || 250);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return sendJson(req, res, 400, { error: 'Chybí lat/lon' });
+    const ap = accessParams(url.searchParams);
     const items = airportsNear(lat, lon, radius).slice(0, 15).map((a) => ({
       iata: a.iata, name: a.name, city: a.cityCs, cc: a.cc, lat: a.lat, lon: a.lon,
-      distKm: Math.round(a.distKm), ground: groundEstimate(a.distKm),
+      distKm: Math.round(a.distKm), ground: withTrip(airportAccess({ lat, lon }, a.iata, ap.opts), ap.nights),
     }));
-    return sendJson(req, res, 200, { items });
+    return sendJson(req, res, 200, { access: { ...ap.echo, fuelCc: fuelCountry({ lat, lon }) }, items });
   }
   if (p === '/api/origins') {
-    // Náhled letišť, která se prohledají (pro výběr v UI).
-    const ids = url.searchParams.getAll('from').slice(0, 8);
-    const radiusKm = Math.min(600, Math.max(0, Number(url.searchParams.get('radius')) || 0));
-    const kmRate = Math.min(5, Math.max(0, Number(url.searchParams.get('kmRate') ?? 1.1) || 0));
-    const r = resolveOrigins(ids, { radiusKm, kmRate, maxAirports: 20 });
+    // Náhled letišť, která se prohledají (pro výběr v UI), s cestou na letiště jako v hledání: groundMode, kmRate,
+    // carFuel, carCons, carPrice (dřívější carKmCzk), adults, trip (oneway = autem odvoz) a nights (autem: parkování
+    // na typickou délku cesty → ground.trip). access.fuelCc = země, jejíž cena paliva platí (cena ve formuláři).
+    const sp = url.searchParams;
+    const ids = sp.getAll('from').slice(0, 8);
+    const radiusKm = Math.min(600, Math.max(0, Number(sp.get('radius')) || 0));
+    const ap = accessParams(sp);
+    const r = resolveOrigins(ids, { radiusKm, access: ap.opts, maxAirports: 20 });
     return sendJson(req, res, 200, {
       home: r.home,
+      access: { ...ap.echo, fuelCc: fuelCountry(r.home) },
       airports: r.airports.map((a) => {
-        const ap = getAirport(a.iata);
-        return { ...a, name: ap.name, city: ap.cityCs, cc: ap.cc, type: ap.type, lat: ap.lat, lon: ap.lon };
+        const x = getAirport(a.iata);
+        return { ...a, ground: withTrip(a.ground, ap.nights), name: x.name, city: x.cityCs, cc: x.cc, type: x.type, lat: x.lat, lon: x.lon };
       }),
     });
   }
   if (p === '/api/stays') {
     if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
-    return sendJson(req, res, 200, await searchStays(Object.fromEntries(url.searchParams)));
+    // Hostelworld: stránka města jen u míst s hostely – ověří se (v DEMO bez sítě ne)
+    return sendJson(req, res, 200, await searchStays(Object.fromEntries(url.searchParams), { hostel: config.mock ? null : hostelworldHas }));
   }
   if (p === '/api/verify') {
     // Živé ověření konkrétních dat napříč aerolinkami (Kiwi.com) pro průvodce cestou.
@@ -338,6 +361,11 @@ async function route(req, res) {
     return sendJson(req, res, 200, await groundInfo(q, { allowLive: () => !rateLimited(req) }));
   }
   if (p === '/api/cars') return sendJson(req, res, 200, searchCars(Object.fromEntries(url.searchParams)));
+  if (p === '/api/fuel') {
+    // Aktuální ceny nafty a benzínu (Kč/l) v ČR a okolních zemích pro cenu cesty autem (ČSÚ, Oil Bulletin EU)
+    // a ceník nabíjení elektroauta (ev: odhad DC Kč/kWh, ceníky provozovatelů s datem).
+    return sendJson(req, res, 200, await fuelInfo(), { 'Cache-Control': 'public, max-age=3600' });
+  }
   if (p === '/api/poi') {
     if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
     const lat = Number(url.searchParams.get('lat'));
@@ -425,8 +453,10 @@ async function route(req, res) {
       return sendJson(req, res, 400, { error: 'Neplatný JSON' });
     }
     if (b && typeof b === 'object' && b.bases === undefined && rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    // Přepočet nad svým limitem se neodmítá: odpoví bez nových dotazů na BRouter (trasy z mezipaměti, jinak odhad).
+    const allowRoutes = () => !rateLimited(req, config.rechecksPer10Min, rechecks);
     try {
-      return sendJson(req, res, 200, { demo: config.mock, ...(await planStay(b, { mock: config.mock })) });
+      return sendJson(req, res, 200, { demo: config.mock, ...(await planStay(b, { mock: config.mock, allowRoutes })) });
     } catch (e) {
       if (e instanceof StayPlanError) return sendJson(req, res, 400, { error: e.message });
       console.warn(`stayplan: ${e.message}`);
@@ -528,6 +558,7 @@ async function warmUp() {
   await loadRates();
   console.log(`Kurzy: ${fxInfo().source}, 1 EUR = ${fxInfo().eurCzk} Kč`);
   if (config.mock) return;
+  refreshFuel().then(() => console.log(`Ceny PHM: ${fuelText('CZ', 'diesel')}`)).catch(() => {});
   for (const p of activeProviders()) {
     try {
       if (p.network) {

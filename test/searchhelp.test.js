@@ -367,6 +367,25 @@ test('fastPair: nejrychlejší dvojice samostatných letenek tam i zpět – př
   assert.equal(H.fastPair([], door), null);
 });
 
+test('multiPlan autem s návratem domů: nejlevnější cesta se vrací na letiště, kde auto parkuje (QA 7)', () => {
+  // 1. let: z PED (levnější) nebo z PRG; 2. let domů: do PRG (levnější) nebo do PED; všechno navazuje
+  const costs = [[2255, 2536], [910, 1997]];
+  const links = [[[null, null], [null, null]]];
+  const ends = { from: ['PED', 'PRG'], to: ['PRG', 'PED'] };
+  // bez podmínky by vyšlo PED → … → PRG (auto by stálo jinde)
+  assert.deepEqual(plain(H.multiPlan(costs, links, []).best), { picks: [0, 0], total: 3165 });
+  const p = H.multiPlan(costs, links, [], ends);
+  assert.deepEqual(plain(p.best), { picks: [1, 0], total: 3446 }, 'PRG → … → PRG');
+  // cena celé cesty s každým letem: odlet z PED jen s návratem do PED, návrat do PED jen s odletem z PED
+  assert.deepEqual(plain(p.through), [[2255 + 1997, 3446], [3446, 2255 + 1997]]);
+  // ručně vybraný návrat jinam, než auto stojí: cesta bez podmínky (UI ji označí štítkem „auto stojí u …“)
+  assert.deepEqual(plain(H.multiPlan(costs, links, [0, 0], ends).best), { picks: [0, 0], total: 3165 });
+  // vybraný 1. let z PED → nejlevnější návrat do PED
+  assert.deepEqual(plain(H.multiPlan(costs, links, [0, null], ends).best), { picks: [0, 1], total: 2255 + 1997 });
+  // bez letu, který by se vracel na stejné letiště: aspoň něco (jako server)
+  assert.deepEqual(plain(H.multiPlan(costs, links, [], { from: ['PED', 'PED'], to: ['PRG', 'PRG'] }).best), { picks: [0, 0], total: 3165 });
+});
+
 test('multiPlan: nejlevnější celá cesta přes víc měst podle výběru, cena s každým letem a nenavazující lety', () => {
   // 3 kroky; links[i][a][b] = null (navazuje) | důvod
   const no = { why: 'short', gapMin: 60, needMin: 180 };

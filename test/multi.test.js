@@ -243,7 +243,7 @@ test('search multi: úseky se zdroji, rozpočet dotazů, nejvýš 2 úseky najed
     assert.ok(klv.groundCzk > 60 && klv.perPersonCzk === 900 + klv.groundCzk);
     const lej = res.legs[3].options.find((o) => o.out.to === 'LEJ');
     const prg = res.legs[3].options.find((o) => o.out.to === 'PRG');
-    assert.equal(prg.groundCzk, 60, 'Praha: městská doprava');
+    assert.equal(prg.groundCzk, 50, 'Praha: MHD (jízdenka PID ~46 Kč)');
     assert.ok(lej.groundCzk > 200 && lej.arrGroundCzk === lej.groundCzk && lej.perPersonCzk === 800 + lej.groundCzk);
     // mezi městy cesty se doprava nepočítá
     assert.ok(res.legs[1].options.every((o) => o.groundCzk === 0));

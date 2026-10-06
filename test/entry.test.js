@@ -78,7 +78,7 @@ test('entry.json: pole, typy a hodnoty každé země', () => {
       assert.ok(r.notes.includes(`${d}. ${m}. ${y}`), `${at}: datum ${r.validUntil} v poznámce`);
     }
   }
-  assert.deepEqual(ENTRY.countries.filter((r) => r.validUntil).map((r) => r.iso2).sort(), ['BY', 'KR', 'MN']);
+  assert.deepEqual(ENTRY.countries.filter((r) => r.validUntil).map((r) => r.iso2).sort(), ['KR', 'MN']); // BY: přes letiště Minsk bez data, do 31. 12. 2026 jen pozemní hranice
 });
 
 test('entry.json: režimy dávají smysl (registrace má název a web, OP jen bez víza, tranzit jen u registrace)', () => {
@@ -370,7 +370,7 @@ test('detail země: režim česky, pobyt, doklad, platnost pasu, cena v € a K�
   assert.match(Entry.detailHtml('GB'), /Nutná i při přestupu, pokud procházíš pasovou kontrolou/);
   assert.doesNotMatch(Entry.detailHtml('AU'), /Bez víza/);
   assert.match(Entry.detailHtml('TH'), /Bez víza – jen s cestovním pasem/);
-  assert.match(Entry.detailHtml('EG'), /Vízum při příletu na hranici, nebo předem online: e-Visa/);
+  assert.match(Entry.detailHtml('EG'), /Vízum při příletu, nebo předem online: e-Visa/);
   assert.match(Entry.detailHtml('CN'), /Vízum předem na zastupitelském úřadě/);
   assert.match(Entry.detailHtml('AL'), />🪪 stačí OP</);
   assert.match(Entry.detailHtml('SY'), /stav 10\/2026, neověřeno na oficiální stránce/);

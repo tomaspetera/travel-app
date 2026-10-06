@@ -64,7 +64,7 @@ test('světadíly: v našeptávači, jako cíl = seznam zemí (oblíbené napře
 });
 
 test('přestupní letiště pro dálkové lety: velká letiště do 450 km, ne ta, ze kterých se už letí', () => {
-  const h = hubsNear(PRAHA, new Set(['PRG', 'DRS']), { kmRate: 1.1 });
+  const h = hubsNear(PRAHA, new Set(['PRG', 'DRS']), { access: { mode: 'transit', scale: 1 } });
   assert.deepEqual(h.map((x) => x.iata).sort(), ['BER', 'MUC', 'VIE']);
   assert.ok(h.every((x) => x.hub && x.ground.czk > 0 && x.distKm < 450));
   assert.deepEqual(hubsNear(PRAHA, new Set(['VIE']), { exclude: ['MUC'] }).map((x) => x.iata), ['BER', 'FRA']);

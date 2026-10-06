@@ -174,11 +174,29 @@
             <div class="sf-grid more-grid">
               <div class="field"><label>Cestující</label><select id="adults"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
               <div class="field"><label>Max. cena na osobu</label><input class="input" type="number" id="maxPrice" placeholder="bez limitu" min="0" step="100"></div>
-              <div class="field"><label>Doprava na letiště</label>
-                <label class="check-inline"><input type="checkbox" id="groundOn" checked> započítat (<input class="input xs" type="number" id="kmRate" value="1.1" step="0.1" min="0" max="5"> Kč/km)</label>
+              <div class="field gm-field" style="grid-column:1/-1"><label>Doprava na letiště <span class="lab-hint">odhad na osobu, přičte se k ceně letenek</span></label>
+                <div class="gm-row">
+                  <label class="check-inline"><input type="checkbox" id="groundOn" checked> započítat</label>
+                  <span class="gm-lbl">Na letiště:</span>
+                  <div class="seg" id="groundMode" role="group" aria-label="Na letiště"><button type="button" data-g="transit" class="on" aria-pressed="true">🚌 veřejnou dopravou</button><button type="button" data-g="car" aria-pressed="false">🚗 autem</button></div>
+                </div>
+                <div class="gm-opt" id="gmTransit"><span title="Násobek odhadu jízdného: 1 = plné jízdné, 0,5 = sleva 50 % (žák, student, senior), 0 = nepočítat">jízdné × <input class="input xs" type="number" id="kmRate" value="1" step="0.1" min="0" max="5" aria-label="Násobek odhadu jízdného"></span>
+                  <span class="faint">vlak / bus do města letiště + MHD nebo vlak na letiště (+ příplatek za spoj přes hranici), tam i zpět</span></div>
+                <div class="gm-opt gm-car" id="gmCar" hidden>
+                  <div class="gm-line">
+                    <div class="seg" id="gmFuel" role="group" aria-label="Pohon auta"><button type="button" data-f="diesel" class="on" aria-pressed="true">⛽ nafta</button><button type="button" data-f="petrol" aria-pressed="false">⛽ benzín</button><button type="button" data-f="ev" aria-pressed="false">⚡ elektro</button></div>
+                    <label class="gm-in">Spotřeba <input class="input xs" type="number" id="gmCons" value="6" step="0.1" min="2" max="30" inputmode="decimal"> <span id="gmConsUnit">l/100 km</span></label>
+                    <span class="gm-km" id="gmKm" title="Kč za kilometr = spotřeba / 100 × cena (palivo jedním směrem = silniční km × Kč/km)"></span>
+                  </div>
+                  <div class="gm-line">
+                    <span class="gm-price" id="gmPriceLine">načítám aktuální cenu…</span>
+                    <label class="gm-in" title="Nech prázdné = aktuální cena (nafta a benzín: týdenní průměr ČSÚ, v sousedních zemích Oil Bulletin EU; elektroauto: odhad nabíjení DC)">vlastní cena <input class="input xs" type="number" id="gmPrice" step="0.01" min="5" max="150" inputmode="decimal"> <span id="gmPriceUnit">Kč/l</span></label>
+                  </div>
+                  <span class="faint"><span id="gmWhat">palivo</span> tam i zpět + parkování u letiště podle délky cesty + dálniční známky v cizině, děleno počtem cestujících; „Jen tam“ = někdo tě odveze (jízda tam i zpět, bez parkování)<span id="gmEvNote" hidden>; elektroauto platí parkování i známky stejně (výjimky nepočítám)</span></span></div>
               </div>
               <div class="field"><label>Kombinace</label>
-                <label class="check-inline"><input type="checkbox" id="openJaw" checked> návrat i na jiné letiště v okolí</label>
+                <label class="check-inline" id="openJawLbl"><input type="checkbox" id="openJaw" checked> návrat i na jiné letiště v okolí</label>
+                <div class="faint oj-hint" id="ojHint" hidden>🚗 Autem se vracíš na letiště, kde parkuje auto – návrat na jiné letiště nehledám.</div>
                 <label class="check-inline"><input type="checkbox" id="directOnly"> jen přímé lety</label>
               </div>
               <div class="field" style="grid-column:1/-1"><label>🧳 Zavazadla <span class="lab-hint">odhad příplatku aerolinky se přičte k ceně</span></label>
