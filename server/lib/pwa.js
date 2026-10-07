@@ -5,6 +5,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 
 // Data, která aplikace stahuje až za běhu (ne přes <script>/<link> v index.html) a bez kterých by offline chyběly
 // země (přehled, plánovač), vstupní podmínky, karta „Co zařídit a co sbalit“ a mapa navštívených zemí. data/…
@@ -133,4 +134,44 @@ export function serveServiceWorker(req, res, dirs) {
   }
   res.writeHead(200, { ...headers, 'Content-Length': sw.body.length });
   res.end(sw.body);
+}
+
+const BUILD_META_RE = /<meta name="atlas-build" content="[^"]*">/;
+let indexMemo = null;
+
+/**
+ * GET/HEAD stránky aplikace (/, /index.html i neznámé adresy): index.html s dosazenou verzí do <meta name="atlas-build">
+ * – pwa.js tak zná verzi stránky, i když ji service worker dal z uložené kopie, a hned pozná novější na serveru.
+ * no-cache + ETag podle obsahu (levné 304), gzip podle Accept-Encoding.
+ */
+export function serveIndex(req, res, dirs) {
+  const file = path.join(dirs.publicDir, 'index.html');
+  let st, build = null;
+  try {
+    st = statSync(file);
+  } catch {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('Not found');
+  }
+  try {
+    build = serviceWorker(dirs).build;
+  } catch (e) {
+    console.error('[index.html]', e.message); // bez verze – aplikace ji zjistí jako dřív (HEAD /sw.js)
+  }
+  const key = `${build}|${st.size}|${st.mtimeMs}`;
+  if (!indexMemo || indexMemo.key !== key) {
+    const html = readFileSync(file, 'utf8');
+    const body = Buffer.from(build ? html.replace(BUILD_META_RE, `<meta name="atlas-build" content="${build}">`) : html);
+    indexMemo = { key, body, gz: zlib.gzipSync(body), etag: `"ix-${createHash('sha256').update(body).digest('hex').slice(0, 16)}"` };
+  }
+  const { body, gz, etag } = indexMemo;
+  const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag, Vary: 'Accept-Encoding' };
+  if ((req.headers['if-none-match'] || '').split(/\s*,\s*/).includes(etag)) {
+    res.writeHead(304, headers);
+    return res.end();
+  }
+  const zip = /\bgzip\b/.test(req.headers['accept-encoding'] || '');
+  const out = zip ? gz : body;
+  res.writeHead(200, { ...headers, ...(zip ? { 'Content-Encoding': 'gzip' } : {}), 'Content-Length': out.length });
+  res.end(req.method === 'HEAD' ? undefined : out);
 }

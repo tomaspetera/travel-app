@@ -164,12 +164,42 @@
   });
   const cachedBuild = () => askSw('atlas-build');
 
-  async function checkVersion(force) {
-    if (!mine || !nativeFetch || navigator.onLine === false || (!force && Date.now() - lastCheck < 5 * 60e3)) return;
+  // verze stránky dosazená serverem (server/lib/pwa.js serveIndex) – platí i pro stránku z uložené kopie
+  const pageBuild = () => {
+    const m = document.querySelector('meta[name="atlas-build"]');
+    const v = m && m.getAttribute('content');
+    return v && v !== 'dev' ? v : null;
+  };
+  const isApp = () => Boolean(standaloneMq && standaloneMq.matches) || navigator.standalone === true;
+  // Obnovit se sama smí aplikace jen „v klidu“: nikde kurzor, žádné otevřené okno ani hledání či výsledky (ty by
+  // zmizely) a pohled, jehož stav je uložený (přehled, cesta, mapa, země, plánovač, doporučení).
+  const QUIET_VIEWS = ['view-dashboard', 'view-trip', 'view-map', 'view-countries', 'view-planner', 'view-recommend'];
+  function quietToReload() {
+    const a = document.activeElement;
+    if (a && /^(?:INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+    if (document.querySelector('.modal-bg.show, .map-pop.show')) return false;
+    const results = document.getElementById('results'), progress = document.getElementById('progress');
+    if ((results && results.children.length) || (progress && progress.children.length)) return false;
+    const view = document.querySelector('.view.active');
+    return Boolean(view && QUIET_VIEWS.includes(view.id));
+  }
+
+  /**
+   * Je na serveru novější verze? Aplikace na ploše se po návratu (resumed) rovnou obnoví – úvodní animace a nová verze –
+   * když server odpoví hned a nic rozdělaného by nezmizelo; jinak (a v prohlížeči vždy) nabídne „Obnovit“.
+   */
+  async function checkVersion(force, resumed = false) {
+    if (!mine || !nativeFetch || navigator.onLine === false || (!force && Date.now() - lastCheck < 15e3)) return;
     lastCheck = Date.now();
+    const t0 = Date.now();
     if (reg) reg.update().catch(() => { });
     const b = await serverBuild().catch(() => null);
-    if (b && b !== mine && b !== dismissed) showUpdate(b);
+    if (!b || b === mine || b === dismissed) return;
+    if (resumed && Date.now() - t0 < 4000 && isApp() && quietToReload()) {
+      location.reload();
+      return;
+    }
+    showUpdate(b);
   }
   function showUpdate(b) {
     if (!updBar) {
@@ -192,14 +222,23 @@
         .catch((e) => console.warn('ATLAS: service worker se nepodařilo zaregistrovat –', e && e.message));
     }
     if (!nativeFetch) return;
-    // verze stránky: ze sítě = verze na serveru; z uložené kopie (offline, pomalá síť, uspaný server) = uložená sada –
-    // po probuzení serveru se hned ověří, jestli není novější (checkVersion)
-    const fromCache = (await askSw('atlas-served')) === 'cache';
-    mine = fromCache ? null : await serverBuild().catch(() => null);
-    if (!mine) mine = await cachedBuild();
-    lastCheck = Date.now();
-    if (fromCache) { lastCheck = 0; checkVersion(true); }
+    // verze stránky: dosazená serverem do stránky (i u uložené kopie); u starší stránky bez ní ze sítě = verze na
+    // serveru, z uložené kopie (offline, pomalá síť, uspaný server) = uložená sada
+    mine = pageBuild();
+    if (!mine) {
+      const fromCache = (await askSw('atlas-served')) === 'cache';
+      mine = fromCache ? null : await serverBuild().catch(() => null);
+      if (!mine) mine = await cachedBuild();
+    }
+    lastCheck = 0;
+    checkVersion(true); // stránka z uložené kopie: po probuzení serveru hned nabídne novější verzi
     setInterval(() => checkVersion(), 30 * 60e3);
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
+    // návrat do aplikace nebo na panel: ověřit hned (nejvýš jednou za 15 s); po delší nepřítomnosti se aplikace na ploše
+    // smí rovnou obnovit (checkVersion)
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+      checkVersion(false, hiddenAt > 0 && Date.now() - hiddenAt > 30e3);
+    });
   });
 })();

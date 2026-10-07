@@ -704,9 +704,18 @@ k internetu a zkus to znovu.“ (při připojení, ale nedostupném serveru „S
   `index.html` (skripty, styly, manifest a jeho ikony) + `data/countries.json`, `data/entry.json` a mapa světa.
   Přejmenovaný skript se do seznamu dostane sám, chybějící soubor se vynechá.
 - Nové nasazení = jiný `sw.js` → prohlížeč nainstaluje nový service worker, ten si uloží novou sadu souborů, hned
-  převezme otevřené stránky a staré mezipaměti smaže. Otevřený panel novou verzi zjistí (po návratu na panel, po
-  připojení k internetu a každých 30 minut – hlavička `X-Atlas-Build` z `HEAD /sw.js`) a ukáže **„✨ Je k dispozici nová
-  verze ATLASu – Obnovit“**. Sám se neobnoví, aby nezmizel rozepsaný formulář ani výsledky hledání.
+  převezme otevřené stránky a staré mezipaměti smaže. Verzi stránky nese stránka sama – server ji dosadí do
+  `<meta name="atlas-build">` (`serveIndex` v `server/lib/pwa.js`, platí i pro uloženou kopii). Otevřená stránka porovná
+  verzi se serverem (hlavička `X-Atlas-Build` z `HEAD /sw.js`) při načtení, **hned po návratu do aplikace či na panel**
+  (nejvýš jednou za 15 s), po připojení k internetu a každých 30 minut:
+  - **aplikace na ploše** se po návratu (pryč aspoň 30 s) **sama obnoví** – úvodní animace a nová verze –, pokud je
+    „v klidu“: nikde kurzor, žádné otevřené okno, hledání ani výsledky a pohled s uloženým stavem (přehled, cesta,
+    mapa, země, plánovač, doporučení);
+  - jinak (a v prohlížeči vždy) ukáže **„✨ Je k dispozici nová verze ATLASu – Obnovit“** – nic se neobnoví samo, aby
+    nezmizel rozepsaný formulář ani výsledky hledání.
+- Ikonu, název a úvodní obrazovku nainstalované aplikace na Androidu má Android uložené v instalaci (WebAPK); Chrome
+  je podle manifestu aktualizuje sám – manifest kontroluje při spuštění nejvýš jednou denně, u změny ikony či názvu se
+  může zeptat „Aktualizovat?“. Obsah aplikace se přeinstalováním neřeší – ten je vždy nejnovější.
 - Kontrola v prohlížeči: DevTools → Application → Manifest, Service workers a Cache storage (`atlas-<verze>`).
 
 **Ikony** (`public/icons/`) mají stejnou značku jako favicon – papírové letadlo na přechodu barev ATLAS: 192 a 512 px,
