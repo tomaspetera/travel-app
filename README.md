@@ -710,9 +710,10 @@ k internetu a zkus to znovu.“ (při připojení, ale nedostupném serveru „S
 - Kontrola v prohlížeči: DevTools → Application → Manifest, Service workers a Cache storage (`atlas-<verze>`).
 
 **Ikony** (`public/icons/`) mají stejnou značku jako favicon – papírové letadlo na přechodu barev ATLAS: 192 a 512 px,
-maskovatelná 512 px pro Android, 180 px pro iOS a 96 px pro zkratky v manifestu. Maskovatelná má kolem zaobleného
-čtverce s přechodem tenký okraj v barvě pozadí aplikace (`#080c1a`): na ploše ho Android ořízne (vidět je jen přechod),
-na úvodní obrazovce ji Chrome ukáže celou – okraj splyne s pozadím a zbude zaoblená ikona, ne ostrý čtverec. Proto je
+maskovatelná 512 px pro Android, 180 px pro iOS a 96 px pro zkratky v manifestu. Maskovatelná má přechod přes celou
+plochu a jen zaoblené rohy (0,17 strany) v barvě pozadí aplikace (`#080c1a`): na ploše a v přehledu aplikací ji Android
+ořízne do kruhu či zaobleného čtverce (Xiaomi ukáže skoro celou plochu, rohy ale zaoblí víc – vidět je jen přechod), na
+úvodní obrazovce ji Chrome ukáže celou – tmavé rohy splynou s pozadím a zbude zaoblená ikona, ne ostrý čtverec. Proto je
 i `name` v manifestu jen „ATLAS“ (Chrome ho píše dole na úvodní obrazovku); úvodní obrazovka v aplikaci (`#launch`
 v `index.html`) má stejnou ikonu i nápis na stejném místě, takže na sebe navazují. Vytváří je `npm run build:icons`
 (`scripts/build-icons.mjs` bez závislostí: tvary vykreslí po pixelech s vyhlazením a PNG zakóduje přes `node:zlib`);
