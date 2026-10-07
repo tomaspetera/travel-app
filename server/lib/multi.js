@@ -106,10 +106,10 @@ export function linkMatrix(legs) {
 
 /**
  * Nejlevnější celé cesty: z každého úseku jeden let, sousední lety se musí stihnout (links).
- * Cena letu = option.perPersonCzk (letenka + doprava na/z domácího letiště + zavazadla, na osobu).
+ * Cena letu = option.perPersonCzk (letenka + doprava na/z domácího letiště + zavazadla + cesta z letiště do města, na osobu).
  * Návaznost závisí jen na posledním letu, takže stačí držet `limit` nejlevnějších začátků cesty pro každý
  * poslední let – výsledek je přesně `limit` nejlevnějších cest. maxPrice (Kč/os.) skryje dražší cesty.
- * Vrací { combos: [{ picks, perPersonCzk, flightCzk, groundCzk, bagCzk }], feasible = počet všech navazujících
+ * Vrací { combos: [{ picks, perPersonCzk, flightCzk, groundCzk, bagCzk, arrCzk }], feasible = počet všech navazujících
  * cest, hidden = kolik z nich je dražších než maxPrice }.
  */
 export function buildCombos(legs, links, { limit = MULTI.combos, maxPrice = null } = {}) {
@@ -151,6 +151,7 @@ export function buildCombos(legs, links, { limit = MULTI.combos, maxPrice = null
     flightCzk: Math.round(sum(p.picks, 'flightCzk')),
     groundCzk: Math.round(sum(p.picks, 'groundCzk')),
     bagCzk: Math.round(sum(p.picks, 'bagCzk')),
+    arrCzk: Math.round(sum(p.picks, 'arrCzk')),
   }));
   return { combos, hidden: feasible - within, feasible };
 }

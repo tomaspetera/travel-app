@@ -62,7 +62,8 @@ test('veřejnou dopravou: cílové rozsahy na osobu jedním směrem z Prahy a z 
   // bez přímého busu (Plzeň) přes město a S-Bahn; Memmingen přes Mnichov a letištní bus
   const plzen = { lat: 49.7384, lon: 13.3736, label: 'Plzeň' };
   assert.deepEqual(transit(plzen, 'MUC').breakdown.map((x) => x.k), ['intercity', 'access', 'border']);
-  assert.deepEqual(transit(PRAHA, 'FMM').breakdown.map((x) => [x.k, x.czk]), [['intercity', 300], ['access', 450], ['border', 60]]);
+  // Allgäu Airport Express z Mnichova online od 15 € (ověřeno 10/2026, stejně jako v data/arrival.json)
+  assert.deepEqual(transit(PRAHA, 'FMM').breakdown.map((x) => [x.k, x.czk]), [['intercity', 300], ['access', 370], ['border', 60]]);
   // přímý bus jen když vyjde levněji: Praha → Vídeň a Berlín, Brno → Vídeň
   for (const [h, iata, czk] of [[PRAHA, 'VIE', 440], [PRAHA, 'BER', 500], [BRNO, 'VIE', 300]]) {
     const g = transit(h, iata);

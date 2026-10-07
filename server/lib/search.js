@@ -14,6 +14,7 @@ import { validTrip } from './fares.js';
 import { legBagEur } from './baggage.js';
 import { priceLevelOf, priceStats, refOf, referencePrice } from './pricelevel.js';
 import { MULTI, buildCombos, linkMatrix, mergeStatus, pairsPerLeg, pickOptions, runLimited } from './multi.js';
+import { arrivalOn, arrivalsFor, legArrivalCzk } from './arrival.js';
 
 export { referencePrice, refOf };
 import { attachGround } from './ground.js';
@@ -97,6 +98,9 @@ const sharedQuery = (raw) => ({
   exclude: (Array.isArray(raw.exclude) ? raw.exclude : []).map((x) => String(x).toUpperCase()).filter((x) => /^[A-Z]{3}$/.test(x)),
   // Zavazadla započítaná do ceny: jen malé pod sedadlo (v ceně) / + kabinový kufr / + kufr k odbavení.
   bags: raw.bags === 'cabin' || raw.bags === 'checked' ? raw.bags : 'none',
+  // Cesta z letiště příletu do města a zpět na letiště (arrival.js) v ceně: formulář posílá vždy (výchozí zapnuto),
+  // dřívější dotazy a hlídané ceny pole nemají → bez ní (ceny se nezmění).
+  arrival: arrivalOn(raw.arrival),
 });
 
 /**
@@ -243,14 +247,20 @@ export async function search(raw, emit = () => {}, opts = {}) {
   const park = car && ret ? (iata, nights) => parkCzk(groundBy.get(iata), nights) : null;
   const backFrom = q.exact?.backFrom || addDays(q.dateFrom, ret ? ret.nightsMin : 0);
   const backTo = q.exact?.backTo || addDays(q.dateTo, ret ? ret.nightsMax : 0);
+  // Cesta z letiště příletu do města a zpět na letiště odletu (arrival.js): k letu jako zavazadla – v pořadí, kalendáři
+  // i nejbližších dnech. Letiště domova (odletová a přestupní, u cesty přes víc měst opts.arrivalHome) se nepočítají;
+  // nastaví se, až budou známá přestupní letiště (lety se skládají až potom).
+  let arrHome = new Set();
+  const arrOf = q.arrival ? (l) => legArrivalCzk(l, arrHome) : () => 0;
+  const bagOf = q.bags !== 'none' ? (l) => legBagCzk(l, q.bags).czk : null;
   const constraints = {
     nightsMin: q.nightsMin, nightsMax: q.nightsMax, outDays: q.outDays, backDays: q.backDays,
     openJawHome: q.openJaw && !car, openJawDest: q.openJaw,
     ...(park ? { park } : {}),
     // Přesná data: odlet jen v okně dateFrom..dateTo, návrat jen v okně backFrom..backTo.
     ...(q.exact ? { outFrom: q.dateFrom, outTo: q.dateTo, backFrom: q.exact.backFrom, backTo: q.exact.backTo } : {}),
-    // Zavazadla patří do ceny už při skládání cest a v kalendáři, ne až ve výpisu.
-    ...(q.bags !== 'none' ? { extra: (l) => legBagCzk(l, q.bags).czk } : {}),
+    // Zavazadla a cesta z letiště do města patří do ceny už při skládání cest a v kalendáři, ne až ve výpisu.
+    ...(bagOf || q.arrival ? { extra: (l) => (bagOf ? bagOf(l) : 0) + arrOf(l) } : {}),
   };
 
   const providers = opts.providers || activeProviders();
@@ -290,6 +300,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     : countries ? [...countries].some((cc) => farCountry(home, cc)) : true;
   const hubs = farDest && opts.hubs !== false ? hubsNear(home, originSet, { access, exclude: q.exclude }) : [];
   const allOrigins = new Set([...originSet, ...hubs.map((h) => h.iata)]);
+  arrHome = opts.arrivalHome ? new Set(opts.arrivalHome) : allOrigins;
   hubs.forEach(setGround);
   // Hlavní odletová letiště pro dotazy z víc letišť najednou: zadaná / nejbližší, pak velká.
   const chosen = new Set(q.from.filter((x) => x.startsWith('ap:')).map((x) => x.slice(3).toUpperCase()));
@@ -662,7 +673,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       for (const t of trips) {
         if (!t.back || !t.combined || !warmLeg(t.out) || (car && t.back.to !== t.out.from)) continue;
         const cost = t.flightCzk + groundOf(t.out.from) + groundOf(t.back.to) + legBagCzk(t.out, q.bags).czk + legBagCzk(t.back, q.bags).czk
-          + (park ? park(t.out.from, daysBetween(t.out.date, t.back.date)) : 0);
+          + arrOf(t.out) + arrOf(t.back) + (park ? park(t.out.from, daysBetween(t.out.date, t.back.date)) : 0);
         const entry = { cost, from: t.out.from, to: t.out.to, backTo: t.back.to, outDate: t.out.date, backDate: t.back.date, provider: t.provider };
         for (const [map, date] of [[maps.out, t.out.date], [maps.back, t.back.date]]) {
           const prev = map.get(date);
@@ -676,7 +687,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     }
   }
 
-  const { groups, flat, warm, hidden, priceStats: routeStats } = buildGroups(trips, { q, originSet: allOrigins, groundOf, park, legCosts: routeMode && Boolean(q.exact) });
+  const { groups, flat, warm, hidden, priceStats: routeStats } = buildGroups(trips, { q, originSet: allOrigins, groundOf, park, arrOf, legCosts: routeMode && Boolean(q.exact) });
   // Další odlety Ryanairu téhož dne z letového řádu (bez cen) – jen u zobrazených tras, pár dotazů.
   const fr = providers.find((p) => p.departures);
   if (fr && (routeMode || q.exact)) await attachDepartures(fr, flat, limits.departures);
@@ -703,6 +714,9 @@ export async function search(raw, emit = () => {}, opts = {}) {
     destinationLabels,
     // Konkrétní cíl v dosahu: srovnání letadla s vlakem/busem (odhad) – i když se žádný let nenašel.
     ground,
+    // Cesta z letiště příletu do města (a zpět na letiště) u letišť ve výsledcích – pro štítek u nabídek i bez volby
+    // „v ceně“ (query.arrival); trip.arrCzk = kolik z ní je v ceně nabídky.
+    arrivals: arrivalsFor(flat, arrHome),
     groups,
     // V režimu konkrétního cíle i plochý žebříček nejlepších kombinací (data × letiště × aerolinky).
     top: routeMode ? topWithDays(flat, { exact: Boolean(q.exact) }) : null,
@@ -787,12 +801,16 @@ async function searchMulti(q, emit, opts = {}) {
         trip: 'oneway', exactOut: l.date, flexDays: l.flex,
         radiusKm: i === 0 ? q.radiusKm : 0, kmRate: i === 0 ? q.kmRate : 0, exclude: i === 0 ? q.exclude : [],
         groundMode: q.groundMode, ...carQuery(q),
-        adults: q.adults, directOnly: q.directOnly, bags: q.bags,
+        adults: q.adults, directOnly: q.directOnly, bags: q.bags, arrival: q.arrival,
       }, (ev) => {
         if (ev.type !== 'progress') return;
         per[i] = ev.providers;
         progress();
-      }, { providers: opts.providers, limits, hubs: i === 0, ...(i === 0 && homeNights != null ? { homeNights } : {}) });
+      }, {
+        providers: opts.providers, limits, hubs: i === 0, ...(i === 0 && homeNights != null ? { homeNights } : {}),
+        // cesta z letiště do města: další lety začínají ve městě (ne doma) – doma jsou jen letiště začátku cesty
+        ...(i > 0 ? { arrivalHome: [...homeGround.keys()] } : {}),
+      });
       per[i] = r.providers;
       legState[i] = 'done';
       return r;
@@ -860,6 +878,7 @@ async function searchMulti(q, emit, opts = {}) {
     returnsHome: homeReturn || places[n - 1].to.every((x) => homeGround.has(x)),
     destination: { kind: 'multi', label: route, airports: null, countries: null },
     destinationLabels: [],
+    arrivals: Object.assign({}, ...results.map((r) => r.arrivals || {})),
     groups: [],
     top: null,
     priceStats: null,
@@ -1126,7 +1145,7 @@ function shareDepartures(legs, flat, provider, carrier) {
   }
 }
 
-function buildGroups(trips, { q, originSet, groundOf, park = null, legCosts = false }) {
+function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () => 0, legCosts = false }) {
   const map = new Map();
   const seen = new Set();
   const flat = [];
@@ -1157,13 +1176,17 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, legCosts = fa
     const bBack = legBagCzk(t.back, q.bags);
     t.bagCzk = bOut.czk + bBack.czk;
     t.bagEst = bOut.estimated || bBack.estimated || undefined; // dopravce mimo ceník → obecný odhad
+    // Cesta z letiště příletu do města a zpět na letiště (jen když je v ceně – volba arrival)
+    const aOut = arrOf(t.out);
+    const aBack = t.back ? arrOf(t.back) : 0;
+    t.arrCzk = aOut + aBack;
     if (legCosts) {
-      // Přesná data (pohled „Lety“): doprava a zavazadla po letech – UI pak spočítá cenu libovolné dvojice
-      // samostatných letenek tam a zpět, i když ta kombinace mezi nejlepšími není.
-      Object.assign(t.out, { groundCzk: gOut, bagCzk: bOut.czk }, bOut.estimated ? { bagEst: true } : {});
-      if (t.back) Object.assign(t.back, { groundCzk: gBack, bagCzk: bBack.czk }, bBack.estimated ? { bagEst: true } : {});
+      // Přesná data (pohled „Lety“): doprava, zavazadla a cesta do města po letech – UI pak spočítá cenu libovolné
+      // dvojice samostatných letenek tam a zpět, i když ta kombinace mezi nejlepšími není.
+      Object.assign(t.out, { groundCzk: gOut, bagCzk: bOut.czk, arrCzk: aOut }, bOut.estimated ? { bagEst: true } : {});
+      if (t.back) Object.assign(t.back, { groundCzk: gBack, bagCzk: bBack.czk, arrCzk: aBack }, bBack.estimated ? { bagEst: true } : {});
     }
-    t.perPersonCzk = t.flightCzk + t.groundCzk + t.bagCzk;
+    t.perPersonCzk = t.flightCzk + t.groundCzk + t.bagCzk + t.arrCzk;
     t.totalCzk = t.perPersonCzk * q.adults;
     // Dlouhodobý průměr denních maxim v cíli v měsíci odletu (NASA POWER); neznámé podnebí za teplem nepustí.
     t.tempHi = monthClimate(t.out.to, t.out.date)?.hi ?? null;

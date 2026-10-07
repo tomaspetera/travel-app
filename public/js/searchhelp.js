@@ -25,10 +25,13 @@
   /**
    * Cesta ze dvou samostatných letenek: let tam z kombinace ot a let zpět z kombinace bt (přesná data, pohled „Lety“),
    * i když tahle dvojice mezi nejlepšími kombinacemi ze serveru není. Cena stejně jako na serveru: letenky + doprava
-   * na domácí letiště + zavazadla (leg.groundCzk / leg.bagCzk). Společná zpáteční letenka, jiné město, návrat na jiné
-   * letiště bez open-jaw nebo návrat dřív než 2 h po příletu → null. Autem (park(fromIata, nights) → parkování Kč/os.
-   * na celou cestu jako na serveru): návrat jen na letiště, kde auto parkuje.
+   * na domácí letiště + zavazadla + cesta z letiště do města (leg.groundCzk / leg.bagCzk / leg.arrCzk – starší výsledky
+   * bez arrCzk = 0). Společná zpáteční letenka, jiné město, návrat na jiné letiště bez open-jaw nebo návrat dřív než 2 h
+   * po příletu → null. Autem (park(fromIata, nights) → parkování Kč/os. na celou cestu jako na serveru): návrat jen na
+   * letiště, kde auto parkuje.
    */
+  // cesta z letiště do města k letu (přesná data, po letech ze serveru); starší výsledky ji nemají
+  const legArr = l => (l && Number.isFinite(l.arrCzk) ? l.arrCzk : 0);
   function composeTrip(ot, bt, { adults = 1, openJaw = true, park = null } = {}) {
     const o = ot && ot.out, b = bt && bt.back;
     if (!o || !b || ot.combined || bt.combined) return null;
@@ -37,11 +40,11 @@
     if (b.to !== o.from && (!openJaw || park)) return null;
     if (b.date < o.date || !returnFits(o, b)) return null;
     const pk = park ? park(o.from, diffDays(o.date, b.date)) || 0 : 0;
-    const flightCzk = o.czk + b.czk, groundCzk = o.groundCzk + b.groundCzk + pk, bagCzk = o.bagCzk + b.bagCzk;
-    const perPersonCzk = flightCzk + groundCzk + bagCzk;
+    const flightCzk = o.czk + b.czk, groundCzk = o.groundCzk + b.groundCzk + pk, bagCzk = o.bagCzk + b.bagCzk, arrCzk = legArr(o) + legArr(b);
+    const perPersonCzk = flightCzk + groundCzk + bagCzk + arrCzk;
     return {
       id: [o.provider, o.from, o.to, o.dep, b.provider, b.from, b.to, b.dep].join('|'),
-      out: o, back: b, flightCzk, groundCzk, ...(pk ? { parkCzk: pk } : {}), bagCzk, bagEst: o.bagEst || b.bagEst || undefined,
+      out: o, back: b, flightCzk, groundCzk, ...(pk ? { parkCzk: pk } : {}), bagCzk, bagEst: o.bagEst || b.bagEst || undefined, arrCzk,
       perPersonCzk, totalCzk: perPersonCzk * adults, nights: diffDays(o.date, b.date),
       provider: o.provider === b.provider ? o.provider : 'mix', combined: false, bookUrl: null,
       distanceKm: ot.distanceKm, tempHi: ot.tempHi, destKey: ot.destKey,
@@ -233,7 +236,7 @@
    */
   function fillLegs(pre, vis, tf, opts = {}) {
     if (!timeActive(tf)) return [];
-    const cost = l => l.czk + l.groundCzk + l.bagCzk;
+    const cost = l => l.czk + l.groundCzk + l.bagCzk + legArr(l);
     const one = (side, l) => timeFails(side === 'out' ? { out: l } : { back: l }, tf).length === 0;
     const added = [], ids = new Set();
     for (const [side, other] of [['out', 'back'], ['back', 'out']]) {
@@ -744,7 +747,82 @@
     return { text: `~${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: ${sum} na osobu jedním směrem (zpět totéž), ~${hm(g.minutes)}. Odhad podle vzdálenosti a ceníků dopravců, ne jízdní řád.` };
   }
 
+  /* ---------- cesta z letiště do města (stejně jako server/lib/arrival.js, data/arrival.json) ---------- */
+  // Zvýraznit drahou nebo dlouhou cestu do města („levná“ letenka na vzdálené letiště) – stejné meze jako server
+  // (ARRIVAL_WARN, test hlídá shodu): přes 350 Kč/os. jedním směrem nebo přes hodinu.
+  const ARRIVAL_WARN = { czk: 350, min: 60 };
+  const ARR_ICON = { bus: '🚌', train: '🚆', metro: '🚇', tram: '🚊' };
+  const CUR_SIGN = { EUR: '€', GBP: '£', USD: '$', CZK: 'Kč', PLN: 'zł', HUF: 'Ft', RON: 'lei' };
+  const fareNum = x => (Number.isInteger(x) ? x.toLocaleString('cs-CZ') : x.toFixed(2).replace('.', ','));
+  /** Jízdné „17,90 € (~440 Kč)“, „od 9,90 £ (~280 Kč)“ (cena online předem), bez ověřeného jízdného „~150 Kč“. */
+  function arrivalFare(a) {
+    if (!a) return '';
+    if (!(a.fare > 0) || !a.cur || a.cur === 'CZK') return `~${kc(a.czk)}`;
+    return `${a.from ? 'od ' : ''}${fareNum(a.fare)} ${CUR_SIGN[a.cur] || a.cur} (~${kc(a.czk)})`;
+  }
+  /** Drahá (> 350 Kč/os.) nebo dlouhá (> 60 min) cesta do města. */
+  const arrivalWarn = a => Boolean(a) && (a.czk > ARRIVAL_WARN.czk || a.min > ARRIVAL_WARN.min);
+  const srcHost = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } };
+  /** Předložka „z“ / „ze“ před 2. pádem: „z Paříže“, „ze Stockholmu“, „ze Splitu“. */
+  const zeOf = w => (/^[szšž]/i.test(w) ? 'ze' : 'z');
+  /**
+   * Spoj opačným směrem (z města na letiště) bez cíle cesty do města: „metro 14 do Châtelet“ → „metro 14“, s přestupem
+   * v opačném pořadí („autobus 33 + metro E do centra“ → „metro E + autobus 33“).
+   */
+  function arrivalVia(how) {
+    const parts = String(how || '').split(' + '), cut = parts.map(p => p.replace(/ (?:do|na|ke) .*$/, ''));
+    return (cut[cut.length - 1] !== parts[parts.length - 1] ? cut.reverse() : cut).join(' + ');
+  }
+  /**
+   * Jeden směr čistým textem: „Z letiště BVA do Paříže: autobus Aérobus do Paris Porte Maillot – 17,90 € (~440 Kč) na osobu,
+   * ~1 h 15. Online; na místě 18 €.“ dir = 'from' (z letiště do města) | 'to' (z města na letiště). Odhad (letiště mimo
+   * ověřenou tabulku) to říká i s tím, z čeho vychází.
+   */
+  function arrivalLine(a, dir = 'from') {
+    if (!a) return '';
+    const city = a.gen || `centra (${a.city})`;
+    const where = dir === 'to' ? `${zeOf(city) === 'ze' ? 'Ze' : 'Z'} ${city} na letiště ${a.iata}` : `Z letiště ${a.iata} do ${city}`;
+    const how = dir === 'to' ? arrivalVia(a.how) : a.how;
+    if (a.basis === 'estimate') return `${where}: odhad ~${kc(a.czk)} na osobu, ~${hhmmTxt(a.min)} – podle vzdálenosti letiště od města (~${a.km} km) a cenové hladiny země, spoj si ověř.`;
+    if (a.basis === 'access') return `${where}: ${how} ~${kc(a.czk)} na osobu, ~${hhmmTxt(a.min)} (odhad podle tabulky dopravy na letiště).`;
+    return `${where}: ${how} – ${arrivalFare(a)} na osobu, ~${hhmmTxt(a.min)}.${a.note ? ` ${a.note[0].toUpperCase()}${a.note.slice(1)}.` : ''}`;
+  }
+  /** Odkud je jízdné: „Zdroj: aeroportparisbeauvais.com, ověřeno 7. 10. 2026.“ (odhad bez zdroje → ''). */
+  const arrivalSource = a => (a && a.basis === 'table' && a.src ? `Zdroj${a.sec ? ' (sekundární, oficiální neuvádí)' : ''}: ${srcHost(a.src)}, ověřeno ${dm(a.date)} ${String(a.date).slice(0, 4)}.` : '');
+  const inPrice = (on, czk, both) => (on ? ` V ceně nabídky ${both ? 'tam i zpět ' : ''}~${kc(czk)}/os.` : ' Do ceny nabídky se nepočítá (vypnuto v Další možnosti).');
+  const arrChip = (x, text, title) => ({
+    text: `${ARR_ICON[x.mode] || '🚌'} ${text} ${arrivalFare(x)} · ${hhmmTxt(x.min)}${x.basis !== 'table' ? ' (odhad)' : ''}`,
+    title: [title, arrivalSource(x)].filter(Boolean).join(' '), warn: arrivalWarn(x),
+  });
+  /**
+   * Štítky u nabídky t („🚌 z letiště BVA do Paříže 17,90 € (~440 Kč) · 1 h 15“): k letišti příletu a u návratu z jiného
+   * letiště (open-jaw v cíli) i k němu. arrivals = výsledek hledání (res.arrivals), on = cesta je v ceně (query.arrival;
+   * kolik přesně, říká t.arrCzk). → [{ text, title, warn }] – čisté texty, do HTML jen přes esc().
+   */
+  function arrivalChips(t, arrivals, { on = false } = {}) {
+    if (!t || !t.out || !arrivals) return [];
+    const a = arrivals[t.out.to] || null, b = t.back ? arrivals[t.back.from] || null : null;
+    const same = Boolean(a && b && a.iata === b.iata);
+    const out = [];
+    if (a) out.push(arrChip(a, `z letiště ${a.iata} do ${a.gen || 'centra'}`, arrivalLine(a) + (same ? ' Zpět na letiště totéž.' : '') + inPrice(on, same ? t.arrCzk || 2 * a.czk : a.czk, same)));
+    if (b && !same) out.push(arrChip(b, `zpět na letiště ${b.iata}`, arrivalLine(b, 'to') + inPrice(on, b.czk, false)));
+    return out;
+  }
+  /**
+   * Let cesty přes víc měst: štítek z města na letiště odletu („🚌 z Barcelony na letiště REU …“) a z letiště příletu do
+   * města – kromě letišť domova (home: Set IATA). Tvar jako arrivalChips.
+   */
+  function arrivalLegChips(l, arrivals, home, { on = false } = {}) {
+    if (!l || !arrivals) return [];
+    const pick = x => (x && !(home && home.has(x)) && arrivals[x]) || null;
+    const d = pick(l.from), a = pick(l.to), out = [];
+    if (d) out.push(arrChip(d, `${zeOf(d.gen || 'centra')} ${d.gen || 'centra'} na letiště ${d.iata}`, arrivalLine(d, 'to') + inPrice(on, d.czk, false)));
+    if (a) out.push(arrChip(a, `z letiště ${a.iata} do ${a.gen || 'centra'}`, arrivalLine(a) + inPrice(on, a.czk, false)));
+    return out;
+  }
+
   window.SearchHelp = {
+    ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
