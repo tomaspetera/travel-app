@@ -26,7 +26,8 @@ const WANTED = ['BVA', 'CDG', 'ORY', 'CRL', 'BRU', 'STN', 'LTN', 'LGW', 'LHR', '
   // 2. kolo (10/2026): nejčastější cíle z Prahy a okolí bez ověření (živé hledání „kamkoli“ ve třech obdobích)
   'TFS', 'LPA', 'FUE', 'OVD', 'FNC', 'CFU', 'CHQ', 'JSI', 'TIA', 'BEG', 'RMO', 'CTA', 'BRI', 'PMO', 'CAG', 'GOA', 'BDS', 'RMI', 'MRS',
   'NCE', 'TLS', 'LYS', 'BJV', 'KUT', 'TBS', 'BUS', 'EVN', 'AGA', 'RBA', 'FEZ', 'TNG', 'AUH', 'SHJ', 'DOH', 'CAI', 'HKT', 'KBV', 'CNX',
-  'MLE', 'CUN', 'JFK', 'EWR', 'NRT', 'HND', 'BRS', 'LPL', 'EMA', 'LBA', 'GLA', 'BOH', 'CPH', 'VNO', 'HEL', 'HAM', 'GVA', 'TOS', 'RVN'];
+  'MLE', 'CUN', 'JFK', 'EWR', 'NRT', 'HND', 'BRS', 'LPL', 'EMA', 'LBA', 'GLA', 'CPH', 'VNO', 'HEL', 'HAM', 'GVA', 'TOS', 'RVN',
+  'SBZ', 'VAR'];
 const ESTIMATED = ['HRG', 'SSH'];
 
 test('tabulka: každé letiště má zdroj, datum ověření, město ve 2. pádě, rozumné jízdné a čas', () => {
