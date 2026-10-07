@@ -12,9 +12,9 @@
 //   + parkování u letiště podle délky cesty + dálniční známka / mýtné v cizině, vše děleno počtem cestujících. Jen tam
 //   (parkování neznámé) = někdo tě odveze: palivo tam i zpět, bez parkování. Dřívější dotazy jen s Kč/km (carKmCzk
 //   bez carFuel) počítají jako dřív: silniční km × Kč/km.
-// Vždy jen odhad, na síť se nečeká – ceníky dopravců a parkovišť 2025/26 zaokrouhlené (~25 Kč/€, ~5,8 Kč/zł,
-// ~0,065 Kč/Ft), ceny paliva poslední stažené z fuel.js; RegioJet se tu neptá. Zdroje a předpoklady viz README →
-// „Doprava na letiště“.
+// Vždy jen odhad, na síť se nečeká – ceníky dopravců 2025/26 zaokrouhlené (~25 Kč/€, ~5,8 Kč/zł, ~0,065 Kč/Ft),
+// parkoviště ověřená 10/2026 (24,4 Kč/€, 5,8 Kč/zł, 0,064 Kč/Ft), ceny paliva poslední stažené z fuel.js; RegioJet se tu
+// neptá. Zdroje a předpoklady viz README → „Doprava na letiště“.
 //
 // Pozor: cyklus importů places.js → access.js → ground.js → places.js – na nejvyšší úrovni modulu proto nic
 // z ground.js nevolat (jen uvnitř funkcí).
@@ -24,43 +24,62 @@ import { CHEAP_CC, CITIES, MEASURED, MOUNTAIN_SLOW, PRAHA_RJ, distanceModel, gro
 import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV_LABEL, fuelPrice } from './fuel.js';
 
 // Letiště do ~450 km od Česka: [šířka, délka středu města, které obsluhuje, město, jízdné město → letiště (Kč/os.),
-// minuty, čím, parkování za auto [základ Kč, Kč za každý den]]. Parkování = levné dlouhodobé parkoviště s rezervací
-// online předem (oficiální, nebo smluvní s kyvadlovou dopravou): celkem základ + den × počet dní – krátké stání bývá
-// dražší na den než dlouhé. Změřeno 6. 10. 2026 pro auto přijíždějící 27. 10. 2026 a proložené nejmenšími čtverci
-// přes 1, 3, 7 a 14 dní: Praha (booking.prg.aero, aeroparking.cz: 780 / 850 / 1 450 / 2 280 Kč) → 590 + 120 Kč/den,
-// Vídeň (Mazur online s kyvadlovou dopravou: 791 / 1 420 / 2 096 / 2 828 Kč) → 850 + 150 Kč/den; na místě bez
-// rezervace bývá dráž (Praha před T3 1 000 / 1 700 / 2 500 / 3 900 Kč). Ostatní letiště jsou odhad z dřívější denní
-// sazby p (týden ≈ 8 × p): velká (p ≥ 250 Kč) jako Praha a Vídeň – základ ≈ 2,9 × p + ≈ 0,55 × p za den (Berlín
-// jako Vídeň), menší a regionální (p ≤ 220 Kč) nižší základ ≈ 1,5 × p + ≈ 0,8 × p za den. Týden tak vyjde skoro stejně
-// jako dřív, víkend dráž a dva týdny levněji.
+// minuty, čím, parkování za auto [základ Kč, Kč za každý den]]. Parkování = nejlevnější oficiální dlouhodobé parkoviště
+// s rezervací online předem (nebo smluvní s kyvadlovou dopravou, když je zjevně levnější): celkem základ + den × počet
+// dní – krátké stání bývá dražší na den než dlouhé; [0, 0] = zdarma. Ověřeno 10/2026: ceny zjištěné 6. 10. 2026 pro auto
+// přijíždějící 27. 10. (Praha, Vídeň) a 28. 10. 2026 (ostatní; 24,4 Kč/€, 5,8 Kč/zł, 0,064 Kč/Ft) na 1 / 3 / 7 / 14 dní
+// proložené nejmenšími čtverci; * = ceník po týdnech, jedna přímka přes 1–14 dní sedí špatně → proloženo jen 3–14 dní
+// (typická cesta), jeden den pak vyjde dráž. V závorce pro srovnání většinou cena na místě bez rezervace (bývá dráž):
+//   PRG booking.prg.aero, aeroparking.cz 780 / 850 / 1 450 / 2 280 Kč → 590 + 120 (před T3 1 000 / 1 700 / 2 500 / 3 900)
+//   VIE Mazur s kyvadlovou dopravou 791 / 1 420 / 2 096 / 2 828 Kč → 850 + 150 (Parkplatz C online 827 / … / 4 071)
+//   BRQ ceník letiště od 1. 1. 2025 (online voucher stejně) 300 / 650 / 1 300 / 2 350 Kč → 170 + 160
+//   OSR P3–P6 130 Kč/den, rezervace online (parkum.app) za stejnou cenu → 0 + 130; PED P1 + P2 zdarma bez rezervace
+//   KLV P4 / P5 online 500 Kč za započatý týden (8 dní): 500 / 500 / 500 / 1 000 Kč → 280 + 50* (P4 200 / 400 / 700 /
+//       1 300 Kč; P7 zdarma, ale bez záruky volného místa)
+//   BTS Parking Airport Bratislava (parkingairport.sk, kyvadlová doprava zdarma) 35 / 41 / 50 / 90 € → 670 + 100;
+//       letiště P2 online 36 / 55 / 95 / 170 €
+//   LNZ C1 Charter, rezervace nejde: 16,70 / 40 / 63 / 86 € → 740 + 100*
+//   SZG P3 / P7, ceník na místě (sezóna B 24. 10.–1. 11.; online obchod nedostupný) 27 / 59 / 65 / 90 € → 1 170 + 70*
+//   MUC Economy online 33,99 / 45,99 / 63,99 / 87,99 € → 790 + 100 (34 / 66 / 107 / 160 €)
+//   NUE P31 / P4 Standard online, hlavní sezóna do 8. 11.: 38 / 91 / 131 / 192 € → 1 580 + 220* (18. 11. jen 30 / 65 /
+//       87 / 129 €; P3 na místě 57 / 112 / 163 / 234 €)
+//   BER Economy online (APCOA) 34 / 64 / 80 / 109 € → 1 260 + 100* (P107 24 €/den, 89 €/týden)
+//   DRS P2 Flex Plus online 27 / 37 / 57 / 92 € → 540 + 120 (Parkhaus 40 / 80 / 105 / 140 €)
+//   LEJ nejlevnější online (P6, P2, Parkhaus) 30 / 50 / 90 / 115 € → 750 + 160 (P2 60 / 75 / 95 / 130 €)
+//   KTW P4 / P5 online (−5 %) 37 / 66 / 132 / 189 zł → 190 + 70 (39 / 69 / 139 / 199 zł)
+//   KRK KRK Parking (350 m od terminálu) online 80 / 120 / 200 / 280 zł → 430 + 90 (P2 / P3 160 / 200 / 280 / 420 zł)
+//   BUD Relax Parking (bus k terminálu) online 5 831 / 9 150 / 13 200 / 16 725 Ft → 400 + 50 (7 800 / … / 32 400 Ft)
+// Ostatní letiště jsou odhad z dřívější denní sazby p (týden ≈ 8 × p): velká (p ≥ 250 Kč) jako Praha a Vídeň – základ
+// ≈ 2,9 × p + ≈ 0,55 × p za den, menší a regionální (p ≤ 220 Kč) nižší základ ≈ 1,5 × p + ≈ 0,8 × p za den (Vratislav
+// neověřena – web letiště je za ochranou proti botům). Zdroje viz README → „Doprava na letiště“.
 // Memmingen obsluhuje Mnichov (letištní bus), Modlin Varšavu. Ostatní letiště: výchozí hodnoty podle velikosti.
 export const ACCESS = {
-  PRG: [50.0755, 14.4378, 'Praha', 46, 45, 'MHD – bus 59 + metro A (PID 90 min; Airport Express 200 Kč)', [590, 120]],
-  BRQ: [49.1951, 16.6068, 'Brno', 30, 30, 'bus E76 z hlavního nádraží (IDS JMK)', [180, 100]],
-  OSR: [49.8346, 18.2820, 'Ostrava', 50, 45, 'vlak do Mošnova (ODIS)', [150, 80]],
-  PED: [50.0343, 15.7812, 'Pardubice', 25, 20, 'MHD Pardubice', [150, 80]],
-  KLV: [50.2310, 12.8714, 'Karlovy Vary', 30, 20, 'MHD Karlovy Vary', [150, 80]],
+  PRG: [50.0755, 14.4378, 'Praha', 46, 45, 'MHD – bus 59 + metro A (PID 90 min; Airport Express 200 Kč)', [590, 120]], // ověřeno 10/2026
+  BRQ: [49.1951, 16.6068, 'Brno', 30, 30, 'bus E76 z hlavního nádraží (IDS JMK)', [170, 160]], // ověřeno 10/2026
+  OSR: [49.8346, 18.2820, 'Ostrava', 50, 45, 'vlak do Mošnova (ODIS)', [0, 130]], // ověřeno 10/2026
+  PED: [50.0343, 15.7812, 'Pardubice', 25, 20, 'MHD Pardubice', [0, 0]], // ověřeno 10/2026: zdarma
+  KLV: [50.2310, 12.8714, 'Karlovy Vary', 30, 20, 'MHD Karlovy Vary', [280, 50]], // ověřeno 10/2026
   JCL: [48.9745, 14.4743, 'České Budějovice', 25, 25, 'MHD České Budějovice', [120, 60]],
-  VIE: [48.2082, 16.3738, 'Vídeň', 110, 40, 'vlak S7 / Railjet z centra (~4,40 €; CAT 14,90 €)', [850, 150]],
-  BTS: [48.1486, 17.1077, 'Bratislava', 35, 30, 'MHD bus 61 (60 min)', [260, 140]],
-  LNZ: [48.3069, 14.2858, 'Linec', 90, 30, 'bus / vlak do Hörschingu (~3,50 €)', [260, 140]],
-  SZG: [47.8095, 13.0550, 'Salcburk', 65, 25, 'trolejbus 2 / 10 (~2,50 €)', [870, 170]],
-  MUC: [48.1374, 11.5755, 'Mnichov', 350, 45, 'S-Bahn S1 / S8 z centra (MVV ~14 €)', [1160, 220]],
-  NUE: [49.4521, 11.0767, 'Norimberk', 95, 20, 'metro U2 (VGN ~3,80 €)', [730, 140]],
+  VIE: [48.2082, 16.3738, 'Vídeň', 110, 40, 'vlak S7 / Railjet z centra (~4,40 €; CAT 14,90 €)', [850, 150]], // ověřeno 10/2026
+  BTS: [48.1486, 17.1077, 'Bratislava', 35, 30, 'MHD bus 61 (60 min)', [670, 100]], // ověřeno 10/2026
+  LNZ: [48.3069, 14.2858, 'Linec', 90, 30, 'bus / vlak do Hörschingu (~3,50 €)', [740, 100]], // ověřeno 10/2026
+  SZG: [47.8095, 13.0550, 'Salcburk', 65, 25, 'trolejbus 2 / 10 (~2,50 €)', [1170, 70]], // ověřeno 10/2026
+  MUC: [48.1374, 11.5755, 'Mnichov', 350, 45, 'S-Bahn S1 / S8 z centra (MVV ~14 €)', [790, 100]], // ověřeno 10/2026
+  NUE: [49.4521, 11.0767, 'Norimberk', 95, 20, 'metro U2 (VGN ~3,80 €)', [1580, 220]], // ověřeno 10/2026
   FMM: [48.1374, 11.5755, 'Mnichov', 450, 110, 'Allgäu Airport Express z Mnichova (~18 €)', [230, 120]],
-  BER: [52.5200, 13.4050, 'Berlín', 120, 40, 'S-Bahn / FEX z centra (BVG ABC ~4,70 €)', [850, 150]],
-  DRS: [51.0504, 13.7373, 'Drážďany', 85, 25, 'S-Bahn S2 z Hauptbahnhofu (DVB ~3,40 €)', [300, 160]],
-  LEJ: [51.3397, 12.3731, 'Lipsko', 130, 20, 'S-Bahn z Hauptbahnhofu (MDV ~5 €)', [300, 160]],
+  BER: [52.5200, 13.4050, 'Berlín', 120, 40, 'S-Bahn / FEX z centra (BVG ABC ~4,70 €)', [1260, 100]], // ověřeno 10/2026
+  DRS: [51.0504, 13.7373, 'Drážďany', 85, 25, 'S-Bahn S2 z Hauptbahnhofu (DVB ~3,40 €)', [540, 120]], // ověřeno 10/2026
+  LEJ: [51.3397, 12.3731, 'Lipsko', 130, 20, 'S-Bahn z Hauptbahnhofu (MDV ~5 €)', [750, 160]], // ověřeno 10/2026
   ERF: [50.9787, 11.0328, 'Erfurt', 70, 25, 'tramvaj 4 (~2,60 €)', [230, 120]],
   FRA: [50.1109, 8.6821, 'Frankfurt nad Mohanem', 155, 20, 'S-Bahn S8 / S9 z centra (RMV ~6,20 €)', [1450, 280]],
-  KTW: [50.2649, 19.0238, 'Katovice', 150, 50, 'letištní bus do Pyrzowic (~25 zł)', [230, 120]],
-  KRK: [50.0647, 19.9450, 'Krakov', 80, 30, 'vlak z Kraków Główny (~14 zł)', [230, 120]],
+  KTW: [50.2649, 19.0238, 'Katovice', 150, 50, 'letištní bus do Pyrzowic (~25 zł)', [190, 70]], // ověřeno 10/2026
+  KRK: [50.0647, 19.9450, 'Krakov', 80, 30, 'vlak z Kraków Główny (~14 zł)', [430, 90]], // ověřeno 10/2026
   WRO: [51.1079, 17.0385, 'Vratislav', 30, 35, 'MHD bus 106 (~4,60 zł)', [230, 120]],
   POZ: [52.4064, 16.9252, 'Poznaň', 30, 30, 'MHD bus 159 (~5 zł)', [230, 120]],
   WAW: [52.2297, 21.0122, 'Varšava', 30, 30, 'vlak / bus 175 (ZTM ~4,40 zł)', [300, 160]],
   WMI: [52.2297, 21.0122, 'Varšava', 120, 60, 'vlak KM + bus do Modlinu (~20 zł)', [180, 100]],
   IEG: [51.9356, 15.5062, 'Zelená Hora', 85, 50, 'bus do Babimostu (~15 zł)', [120, 60]],
-  BUD: [47.4979, 19.0402, 'Budapešť', 140, 45, 'bus 100E z centra (2 200 Ft)', [330, 180]],
+  BUD: [47.4979, 19.0402, 'Budapešť', 140, 45, 'bus 100E z centra (2 200 Ft)', [400, 50]], // ověřeno 10/2026
   KSC: [48.7164, 21.2611, 'Košice', 30, 25, 'MHD bus 23 (~1 €)', [230, 120]],
   TAT: [49.0598, 20.2975, 'Poprad', 30, 15, 'MHD / taxi', [150, 80]],
   SLD: [48.7363, 19.1462, 'Banská Bystrica', 60, 30, 'bus z Banské Bystrice (~2 €)', [150, 80]],
@@ -135,6 +154,9 @@ const r10 = (x) => Math.round(x / 10) * 10;
 const r5 = (m) => Math.max(5, Math.round(m / 5) * 5);
 const regionalCzk = (km) => 30 + 1.5 * km; // regionální bus / vlak (~10 km 45 Kč, ~50 km 105 Kč)
 const regionalMin = (km) => 15 + 1.1 * km;
+// Parkování v rozpisu: „online předem (590 Kč + 120 Kč za den)“, bez základu jen sazba za den (Ostrava), [0, 0] zdarma.
+const parkLabel = (base, day) => (!base && !day ? 'parkování u letiště zdarma'
+  : `parkování u letiště online předem (${base ? `${base} Kč + ` : ''}${day} Kč za den)`);
 
 /**
  * Město, které letiště obsluhuje, a cesta z něj na letiště: { lat, lon, label, czk, min, how, parkBase, parkDay, known }.
@@ -316,7 +338,8 @@ export function carEnergy(raw = {}, country = 'CZ') {
  * Autem na letiště: { mode: 'car', km, roadKm, minutes, czk, fuelCzk, carKmCzk, carFuel, parkBaseCzk, parkDayCzk, tolls, adults,
  * dropOff, breakdown }. fuelCzk = palivo jedním směrem za auto (round(roadKm × carKmCzk)), parkování za auto online předem
  * = parkBaseCzk + parkDayCzk × počet dní (parkStay), tolls = známky / mýtné za auto, breakdown = totéž jako rozpis
- * [{ k: 'fuel' | 'park' | 'toll', label, czk }] (za auto; parkování czk = za den, base = základ); položka fuel navíc
+ * [{ k: 'fuel' | 'park' | 'toll', label, czk }] (za auto; parkování czk = za den, base = základ, obojí 0 = zdarma –
+ * Pardubice); položka fuel navíc
  * { fuel, cons, unit, price, priceLabel, kmCzk, fuelCzk, custom, country, date,
  * source } (carEnergy; u dřívějšího Kč/km jen kmCzk a fuelCzk). czk = na osobu a jeden let: palivo jedním směrem + půl
  * známky (+ mýtné za jízdu); parkování podle délky cesty přidá optimalizátor (parkCzk). dropOff (jen tam): někdo tě
@@ -342,7 +365,7 @@ export function carAccess(home, a, opts = {}) {
     : { k: 'fuel', label: `palivo jedním směrem (${roadKm} km × ${comma(kmCzk)} Kč)`, czk: fuelCzk, kmCzk, fuelCzk };
   const breakdown = [
     fuel,
-    ...(oneWay ? [] : [{ k: 'park', label: `parkování u letiště online předem (${c.parkBase} Kč + ${c.parkDay} Kč za den)`, czk: c.parkDay, base: c.parkBase }]),
+    ...(oneWay ? [] : [{ k: 'park', label: parkLabel(c.parkBase, c.parkDay), czk: c.parkDay, base: c.parkBase }]),
     ...tolls.map((t) => ({ k: 'toll', label: t.label, czk: t.czk })),
   ];
   return {

@@ -208,18 +208,11 @@ počítá se změřená cena, viz výše), Brno → Bratislava 129–279 Kč.
   28. 9.–4. 10.*) a z ní Kč/km (*≈ 3,04 Kč/km*). Praha → Vídeň-Schwechat: 335 km × 6 l/100 km × 50,65 Kč/l = 1 018 Kč
   jedním směrem (dřívějších 2,6 Kč/km dávalo 871 Kč); elektroautem 335 km × 19 kWh/100 km × 16 Kč/kWh = 1 018 Kč.
 - **Parkování u letiště podle délky cesty – online předem**: N nocí = N + 1 započatých dní; cena = **základ + sazba
-  za den** levného dlouhodobého parkoviště s rezervací online (oficiálního, nebo smluvního s kyvadlovou dopravou) –
-  krátké stání vyjde na den dráž než dlouhé. Změřeno 6. 10. 2026 pro auto přijíždějící 27. 10. 2026 (1 / 3 / 7 / 14 dní)
-  a proloženo nejmenšími čtverci: **Praha** (booking.prg.aero, aeroparking.cz: 780 / 850 / 1 450 / 2 280 Kč) →
-  **590 Kč + 120 Kč/den** (710 / 950 / 1 430 / 2 270 Kč); **Vídeň** (Mazur online s kyvadlovou dopravou: 791 / 1 420 /
-  2 096 / 2 828 Kč) → **850 Kč + 150 Kč/den** (1 000 / 1 300 / 1 900 / 2 950 Kč). Bez rezervace bývá dráž (Praha před T3
-  1 000 / 1 700 / 2 500 / 3 900 Kč, Vídeň Parkplatz C online 827 / 2 196 / 3 057 / 4 071 Kč). Ostatní letiště jsou
-  **odhad** z dřívější denní sazby p (týden ≈ 8 × p): velká (p ≥ 250 Kč) jako Praha a Vídeň – základ ≈ 2,9 × p
-  + ≈ 0,55 × p za den (Mnichov 1 160 + 220, Frankfurt 1 450 + 280, Salcburk 870 + 170, Berlín jako Vídeň), menší
-  a regionální nižší základ ≈ 1,5 × p + ≈ 0,8 × p za den (Pardubice, Karlovy Vary, Ostrava 150 + 80, Budějovice
-  120 + 60, Brno 180 + 100, Bratislava a Linec 260 + 140, Drážďany 300 + 160 Kč…; letiště mimo tabulku podle
-  velikosti). Týden tak vyjde skoro stejně jako dřív, víkend dráž a dva týdny levněji. Počítá se u každé nabídky
-  podle jejích nocí (optimalizátor), ne za letiště – na víkend může vyjít Vídeň, na dva týdny Praha.
+  za den** nejlevnějšího oficiálního dlouhodobého parkoviště s rezervací online (nebo smluvního s kyvadlovou dopravou,
+  když je zjevně levnější – Vídeň, Bratislava) – krátké stání vyjde na den dráž než dlouhé. U 17 letišť ověřeno 10/2026:
+  ceny na 1, 3, 7 a 14 dní proložené nejmenšími čtverci (tabulka níže); v Pardubicích se parkuje zdarma. Ostatní
+  letiště jsou **odhad** (viz pod tabulkou). Počítá se u každé nabídky podle jejích nocí (optimalizátor), ne za letiště –
+  na víkend může vyjít Vídeň, na dva týdny Praha.
 - **Dálniční známka / mýtné** jen v cizině (domácí známku máš): Rakousko ~320 Kč (12,80 €), Slovensko ~270 Kč
   (10,80 €), Maďarsko ~430 Kč (6 900 Ft; vše 10 dní), Slovinsko ~400 Kč (16 €, 7 dní), Švýcarsko ~1 050 Kč (rok),
   Chorvatsko a Itálie mýtné za jízdu; Německo a Polsko (A1) bez poplatku. Do Budapešti přes Slovensko, do Lublaně
@@ -233,6 +226,38 @@ počítá se změřená cena, viz výše), Brno → Bratislava 129–279 Kč.
 - **Elektroauto** platí parkování i dálniční známky stejně jako spalovací auto – výjimky a slevy pro elektroauta (kde
   existují) se nepočítají.
 
+**Parkování na ověřených letištích** – ceny online předem zjištěné 6. 10. 2026 pro auto přijíždějící 27. 10. (Praha,
+Vídeň) a 28. 10. 2026 (ostatní), přepočet 24,4 Kč/€, 5,8 Kč/zł, 0,064 Kč/Ft; model = základ + Kč za den:
+
+| Letiště | Parkoviště, zdroj | Online 1 / 3 / 7 / 14 dní | Pro srovnání | Model (Kč) |
+|---|---|---|---|---|
+| Praha | booking.prg.aero, aeroparking.cz | 780 / 850 / 1 450 / 2 280 Kč | před T3 bez rezervace 1 000 / 1 700 / 2 500 / 3 900 Kč | 590 + 120 |
+| Vídeň | Mazur s kyvadlovou dopravou | 791 / 1 420 / 2 096 / 2 828 Kč | Parkplatz C online 827 / 2 196 / 3 057 / 4 071 Kč | 850 + 150 |
+| Brno | ceník brno-airport.cz od 1. 1. 2025 (online voucher stejně) | 300 / 650 / 1 300 / 2 350 Kč | – | 170 + 160 |
+| Ostrava | P3–P6, airport-ostrava.cz (rezervace parkum.app stejně) | 130 Kč za každý den | P1 před terminálem 360 Kč/den | 0 + 130 |
+| Pardubice | P1 + P2, airport-pardubice.cz | zdarma, bez rezervace | – | zdarma |
+| Karlovy Vary | P4 / P5 online, airport-k-vary.cz | 500 Kč za započatý týden (8 dní) | P4 na místě 200 / 400 / 700 / 1 300 Kč; P7 zdarma, místo nezaručené | 280 + 50 \* |
+| Bratislava | Parking Airport Bratislava, parkingairport.sk (kyvadlová doprava zdarma, ceník od 1. 10. 2026) | 35 / 41 / 50 / 90 € | letiště P2 online 36 / 55 / 95 / 170 € | 670 + 100 |
+| Linec | C1 Charter, linz-airport.com (ceník od 1. 1. 2026, rezervace nejde) | 16,70 / 40 / 63 / 86 € | – | 740 + 100 \* |
+| Salcburk | P3 / P7, salzburg-airport.com (sezóna 24. 10.–1. 11.; online obchod nedostupný) | 27 / 59 / 65 / 90 € | mimo sezónu 25 / 57 / 61 / 82 € | 1 170 + 70 \* |
+| Mnichov | Economy, parken.munich-airport.de | 33,99 / 45,99 / 63,99 / 87,99 € | na místě 34 / 66 / 107 / 160 € | 790 + 100 |
+| Norimberk | P31 / P4 Standard, parking.airport-nuernberg.de (hlavní sezóna do 8. 11.) | 38 / 91 / 131 / 192 € | 18. 11. online 30 / 65 / 87 / 129 €; P3 na místě 57 / 112 / 163 / 234 € | 1 580 + 220 \* |
+| Berlín | Economy, ber.apcoa.de | 34 / 64 / 80 / 109 € | P107 na místě 24 €/den, 89 €/týden | 1 260 + 100 \* |
+| Drážďany | P2 Flex Plus, parken.dresden-airport.de | 27 / 37 / 57 / 92 € | Parkhaus na místě 40 / 80 / 105 / 140 € | 540 + 120 |
+| Lipsko | nejlevnější volné (P6, P2, Parkhaus), parken.leipzig-halle-airport.de | 30 / 50 / 90 / 115 € | P2 na místě 60 / 75 / 95 / 130 € | 750 + 160 |
+| Katovice | P4 / P5 (online −5 %), katowice-airport.com | 37 / 66 / 132 / 189 zł | na místě 39 / 69 / 139 / 199 zł | 190 + 70 |
+| Krakov | KRK Parking 350 m od terminálu, krakowairportparking.pl (oficiální parkoviště) | 80 / 120 / 200 / 280 zł | P2 / P3 na místě 160 / 200 / 280 / 420 zł | 430 + 90 |
+| Budapešť | Relax Parking (bus k terminálu), parkolo.bud.hu | 5 831 / 9 150 / 13 200 / 16 725 Ft | na místě 7 800 / 12 400 / 20 400 / 32 400 Ft | 400 + 50 |
+
+Přímka přes 1–14 dní sedí do ±15 % (jeden den do ±30 %). \* Ceník po týdnech, kde jedna přímka sedí špatně: proloženo jen
+3–14 dní, typickou cestu (Linec, Salcburk, Norimberk, Berlín do ±7 %; v Karlových Varech cena po 8 dnech skočí z 500 na
+1 000 Kč a přímka je místy až o třetinu vedle) – jeden den pak vyjde až 2× dráž. Norimberk je 28. 10. ještě v hlavní
+sezóně, v listopadu je o třetinu levnější. **Odhad** zůstává u Vratislavi (web letiště i rezervace za ochranou proti
+botům, ověřit nešlo) a u ostatních letišť – z dřívější denní sazby p (týden ≈ 8 × p): velká (p ≥ 250 Kč) základ
+≈ 2,9 × p + ≈ 0,55 × p za den (Frankfurt 1 450 + 280, Štýrský Hradec, Innsbruck, Lublaň 730 + 140), menší a regionální
+nižší základ ≈ 1,5 × p + ≈ 0,8 × p za den (Vratislav, Poznaň, Košice 230 + 120, Budějovice 120 + 60…); letiště mimo
+tabulku podle velikosti.
+
 **Kde to uvidíš:** u letišť pod polem Odkud (*~220 Kč/os. tam*, autem *~750 Kč/os. vč. parkování na 8 dní* pro typickou
 délku cesty z formuláře; po najetí myší rozpis – autem *palivo 335 km × 6 l/100 km × 50,65 Kč/l = 1 018 Kč, tam i zpět
 ~2 036 Kč + parkování online předem ~850 Kč + 150 Kč/den × 8 dní …* a odkud je cena), u ceny nabídky (*+ doprava na
@@ -244,8 +269,9 @@ a hlídané ceny z doby, kdy se doprava zadávala v Kč/km (1,1 Kč/km), se pře
 dřívější Kč/km za auto: výchozích 2,6 → nafta za aktuální cenu, jiná hodnota → vlastní cena nafty se stejnými Kč/km
 (3,5 Kč/km = 58,33 Kč/l při 6 l/100 km).
 
-Jízdné a parkování jsou orientační (ceníky dopravců 2025/26, parkování v Praze a ve Vídni změřené 10/2026, jinde odhad;
-~25 Kč/€, ~5,8 Kč/zł, ~0,065 Kč/Ft) – skutečná cena záleží na spoji, slevách, termínu a parkovišti.
+Jízdné a parkování jsou orientační (ceníky dopravců 2025/26, ~25 Kč/€, ~5,8 Kč/zł, ~0,065 Kč/Ft; parkování na
+17 letištích ověřené 10/2026, jinde odhad) – skutečná cena záleží na spoji, slevách, termínu, sezóně a obsazenosti
+parkoviště.
 
 ### Aktuální ceny paliva a nabíjení
 
@@ -622,8 +648,9 @@ cesta z města příjezdu (ne z letiště):
 - Kombinace dvou aerolinek / různých letišť jsou **dvě samostatné letenky** – při zpoždění prvního letu druhá aerolinka
   nečeká. Aplikace to u výsledku označí.
 - Doprava na letiště je jen odhad: jízdné podle vzdálenosti a tabulky cest na ~35 letišť (ne jízdní řád ani živé ceny),
-  parkování online předem jako základ + sazba za den (Praha a Vídeň proložené změřenými cenami 10/2026, ostatní letiště
-  odhad) a dálniční známky podle orientačních ceníků 2025/26. Cena nafty a benzínu je celostátní týdenní průměr
+  parkování online předem jako základ + sazba za den (17 letišť proložených ceníky ověřenými 10/2026 – u týdenních ceníků
+  přesně jen na 3–14 dní –, ostatní odhad; skutečná cena se mění se sezónou a obsazeností) a dálniční známky podle
+  orientačních ceníků 2025/26. Cena nafty a benzínu je celostátní týdenní průměr
   (u dálnice bývá vyšší, za hranicí platí cena země, odkud jedeš), spotřeba je zadaná, ne podle auta, rychlosti a zimy;
   elektroauto počítá s rychlonabíjením za odhad 16 Kč/kWh. Autem se nepočítá opotřebení auta ani mýtné za úseky
   v Polsku; u cesty přes víc měst si ručním výběrem letů můžeš složit i návrat na jiné letiště, než kde auto parkuje

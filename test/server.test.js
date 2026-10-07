@@ -83,7 +83,10 @@ test('GET /api/origins – doprava na letiště: veřejnou dopravou, autem s par
   for (const a of c.airports) {
     const g = a.ground;
     assert.equal(g.mode, 'car');
-    assert.ok(g.roadKm > 0 && g.fuelCzk === Math.round(g.roadKm * 3) && g.parkBaseCzk > 0 && g.parkDayCzk > 0 && Array.isArray(g.tolls) && g.adults === 2);
+    // Pardubice: parkování zdarma (P1 + P2 bez rezervace, airport-pardubice.cz, ověřeno 10/2026), jinde základ + za den
+    const freePark = a.iata === 'PED';
+    assert.ok(g.roadKm > 0 && g.fuelCzk === Math.round(g.roadKm * 3) && Array.isArray(g.tolls) && g.adults === 2);
+    assert.ok(freePark ? g.parkBaseCzk === 0 && g.parkDayCzk === 0 : g.parkBaseCzk > 0 && g.parkDayCzk > 0, a.iata);
     assert.deepEqual(g.breakdown.map((x) => x.k), ['fuel', 'park', ...g.tolls.map(() => 'toll')]);
     assert.equal(g.trip.days, 6);
     assert.equal(g.trip.park, g.parkBaseCzk + g.parkDayCzk * 6);
@@ -124,7 +127,8 @@ test('GET /api/origins a /api/nearby – autem podle pohonu: nafta, benzín, ele
     assert.deepEqual([f.fuel, f.cons, f.unit, f.price, f.kmCzk, f.date, f.source], ['ev', 17, 'kWh', 16, 2.72, '2026-10-06', 'ev']);
     assert.equal(f.priceLabel, 'nabíjení DC ~16 Kč/kWh (ceníky ČEZ, PRE, E.ON, IONITY, Tesla – stav 6. 10. 2026)');
     assert.equal(a.ground.fuelCzk, Math.round(a.ground.roadKm * 2.72));
-    assert.ok(a.ground.parkDayCzk > 0, 'parkování platí i elektroauto');
+    // parkování platí i elektroauto (Pardubice zdarma pro všechny – airport-pardubice.cz, ověřeno 10/2026)
+    assert.ok(a.iata === 'PED' ? a.ground.parkDayCzk === 0 : a.ground.parkDayCzk > 0, a.iata);
   }
   // vlastní cena a meze (spotřeba 0 = výchozí, cena 999 → 40 Kč/kWh)
   const own = await get('carFuel=ev&carCons=0&carPrice=999');
@@ -215,7 +219,8 @@ test('POST /api/search – DEMO autem: elektroauto / benzín s vlastní cenou v 
   }
   for (const t of ev.top) {
     const g = ev.origins.find((o) => o.iata === t.out.from).ground;
-    assert.equal(t.groundCzk, 2 * g.czk + t.parkCzk, 'nabíjení tam i zpět + parkování');
+    // Pardubice parkování zdarma (airport-pardubice.cz, ověřeno 10/2026) → parkCzk chybí
+    assert.equal(t.groundCzk, 2 * g.czk + (t.parkCzk ?? 0), 'nabíjení tam i zpět + parkování');
   }
   const pe = (await searchStream({ ...q, carFuel: 'petrol', carCons: 7, carPrice: 40 })).last.result;
   assert.deepEqual([pe.origins[0].ground.breakdown[0].priceLabel, pe.origins[0].ground.carKmCzk], ['benzín N95 40,00 Kč/l · vlastní cena', 2.8]);

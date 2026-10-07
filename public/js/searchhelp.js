@@ -707,8 +707,8 @@
   const rate = x => String(x).replace('.', ',');
   /**
    * Cesta z domova na letiště odletu (g = ground ze serveru) pro štítek a popisek: veřejnou dopravou „~X Kč/os. tam“,
-   * autem tam i zpět „~X Kč/os. vč. parkování na N dní“ (nights = délka cesty), autem jen tam odvoz. → { text, title } | null
-   * (doprava vypnutá nebo neznámá). Texty jsou čisté – do HTML jen přes esc().
+   * autem tam i zpět „~X Kč/os. vč. parkování na N dní“ (nights = délka cesty; Pardubice „…, parkování zdarma“), autem jen
+   * tam odvoz. → { text, title } | null (doprava vypnutá nebo neznámá). Texty jsou čisté – do HTML jen přes esc().
    */
   function accessLabel(g, { nights = null } = {}) {
     if (!g || g.off || !(g.czk >= 0)) return null;
@@ -723,8 +723,14 @@
       if (g.dropOff) {
         return { text: `~${kc(r10(t.perPerson))}/os. (odvoz)`, title: `Autem jen tam: počítám, že tě někdo odveze a vrátí se (parkování neznámé) – ${fuel}${tolls} = ${per}. ~${hm(g.minutes)} jízdy.${src} Odhad.` };
       }
-      // parkování online předem: základ + sazba za den (starší odpověď bez základu jen za den)
+      // parkování online předem: základ + sazba za den (starší odpověď bez základu jen za den); základ i sazba 0 = zdarma
       const base = Number(g.parkBaseCzk) || 0;
+      if (!base && !g.parkDayCzk) {
+        return {
+          text: `~${kc(r10(t.perPerson))}/os. tam i zpět, parkování zdarma`,
+          title: `Autem ${g.roadKm} km (~${hm(g.minutes)}): ${fuel} + parkování u letiště zdarma${tolls} = ${per}.${src} Odhad.`,
+        };
+      }
       return {
         text: `~${kc(r10(t.perPerson))}/os. vč. parkování na ${t.days} ${dnu(t.days)}`,
         title: `Autem ${g.roadKm} km (~${hm(g.minutes)}): ${fuel} + parkování ${base ? `online předem ~${kc(base)} + ` : '~'}${kc(g.parkDayCzk)}/den × ${t.days} ${dnu(t.days)} = ~${kc(t.park)}${tolls} = ${per}.${src} Parkování ve výsledcích podle skutečné délky cesty. Odhad.`,
