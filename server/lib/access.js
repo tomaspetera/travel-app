@@ -53,6 +53,8 @@ import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV
 // ≈ 2,9 × p + ≈ 0,55 × p za den, menší a regionální (p ≤ 220 Kč) nižší základ ≈ 1,5 × p + ≈ 0,8 × p za den (Vratislav
 // neověřena – web letiště je za ochranou proti botům). Zdroje viz README → „Doprava na letiště“.
 // Memmingen obsluhuje Mnichov (letištní bus), Modlin Varšavu. Ostatní letiště: výchozí hodnoty podle velikosti.
+// Jízdné a čas u letišť, která jsou i v tabulce cesty z letiště do města (data/arrival.json – FMM, FRA, KRK, BUD, ZAG,
+// WAW, WMI), odpovídají ověřeným cenám dopravců ze 7. 10. 2026 (test hlídá shodu).
 export const ACCESS = {
   PRG: [50.0755, 14.4378, 'Praha', 46, 45, 'MHD – bus 59 + metro A (PID 90 min; Airport Express 200 Kč)', [590, 120]], // ověřeno 10/2026
   BRQ: [49.1951, 16.6068, 'Brno', 30, 30, 'bus E76 z hlavního nádraží (IDS JMK)', [170, 160]], // ověřeno 10/2026
@@ -66,20 +68,20 @@ export const ACCESS = {
   SZG: [47.8095, 13.0550, 'Salcburk', 65, 25, 'trolejbus 2 / 10 (~2,50 €)', [1170, 70]], // ověřeno 10/2026
   MUC: [48.1374, 11.5755, 'Mnichov', 350, 45, 'S-Bahn S1 / S8 z centra (MVV ~14 €)', [790, 100]], // ověřeno 10/2026
   NUE: [49.4521, 11.0767, 'Norimberk', 95, 20, 'metro U2 (VGN ~3,80 €)', [1580, 220]], // ověřeno 10/2026
-  FMM: [48.1374, 11.5755, 'Mnichov', 450, 110, 'Allgäu Airport Express z Mnichova (~18 €)', [230, 120]],
+  FMM: [48.1374, 11.5755, 'Mnichov', 370, 80, 'Allgäu Airport Express z Mnichova (online od 15 €)', [230, 120]], // jízdné ověřeno 10/2026
   BER: [52.5200, 13.4050, 'Berlín', 120, 40, 'S-Bahn / FEX z centra (BVG ABC ~4,70 €)', [1260, 100]], // ověřeno 10/2026
   DRS: [51.0504, 13.7373, 'Drážďany', 85, 25, 'S-Bahn S2 z Hauptbahnhofu (DVB ~3,40 €)', [540, 120]], // ověřeno 10/2026
   LEJ: [51.3397, 12.3731, 'Lipsko', 130, 20, 'S-Bahn z Hauptbahnhofu (MDV ~5 €)', [750, 160]], // ověřeno 10/2026
   ERF: [50.9787, 11.0328, 'Erfurt', 70, 25, 'tramvaj 4 (~2,60 €)', [230, 120]],
-  FRA: [50.1109, 8.6821, 'Frankfurt nad Mohanem', 155, 20, 'S-Bahn S8 / S9 z centra (RMV ~6,20 €)', [1450, 280]],
+  FRA: [50.1109, 8.6821, 'Frankfurt nad Mohanem', 170, 15, 'S-Bahn S8 / S9 z centra (RMV 6,90 €)', [1450, 280]], // jízdné ověřeno 10/2026
   KTW: [50.2649, 19.0238, 'Katovice', 150, 50, 'letištní bus do Pyrzowic (~25 zł)', [190, 70]], // ověřeno 10/2026
-  KRK: [50.0647, 19.9450, 'Krakov', 80, 30, 'vlak z Kraków Główny (~14 zł)', [430, 90]], // ověřeno 10/2026
+  KRK: [50.0647, 19.9450, 'Krakov', 110, 20, 'vlak z Kraków Główny (20 zł)', [430, 90]], // ověřeno 10/2026
   WRO: [51.1079, 17.0385, 'Vratislav', 30, 35, 'MHD bus 106 (~4,60 zł)', [230, 120]],
   POZ: [52.4064, 16.9252, 'Poznaň', 30, 30, 'MHD bus 159 (~5 zł)', [230, 120]],
   WAW: [52.2297, 21.0122, 'Varšava', 30, 30, 'vlak / bus 175 (ZTM ~4,40 zł)', [300, 160]],
   WMI: [52.2297, 21.0122, 'Varšava', 120, 60, 'vlak KM + bus do Modlinu (~20 zł)', [180, 100]],
   IEG: [51.9356, 15.5062, 'Zelená Hora', 85, 50, 'bus do Babimostu (~15 zł)', [120, 60]],
-  BUD: [47.4979, 19.0402, 'Budapešť', 140, 45, 'bus 100E z centra (2 200 Ft)', [400, 50]], // ověřeno 10/2026
+  BUD: [47.4979, 19.0402, 'Budapešť', 170, 40, 'bus 100E z centra (2 500 Ft)', [400, 50]], // ověřeno 10/2026
   KSC: [48.7164, 21.2611, 'Košice', 30, 25, 'MHD bus 23 (~1 €)', [230, 120]],
   TAT: [49.0598, 20.2975, 'Poprad', 30, 15, 'MHD / taxi', [150, 80]],
   SLD: [48.7363, 19.1462, 'Banská Bystrica', 60, 30, 'bus z Banské Bystrice (~2 €)', [150, 80]],
@@ -87,7 +89,7 @@ export const ACCESS = {
   KLU: [46.6365, 14.3122, 'Klagenfurt', 75, 20, 'bus (~2,80 €)', [300, 160]],
   INN: [47.2692, 11.4041, 'Innsbruck', 80, 20, 'bus F (~3 €)', [730, 140]],
   LJU: [46.0569, 14.5058, 'Lublaň', 105, 50, 'bus z autobusového nádraží (~4,10 €)', [730, 140]],
-  ZAG: [45.8150, 15.9819, 'Záhřeb', 200, 35, 'letištní bus Pleso (~8 €)', [300, 160]],
+  ZAG: [45.8150, 15.9819, 'Záhřeb', 220, 35, 'letištní bus Pleso (9 €)', [300, 160]], // jízdné ověřeno 10/2026
 };
 // Přímý bus z města domova až na letiště (bez přestupu ve městě letiště): [nejnižší cena Kč/os., minuty jízdy, čím].
 // Změřeno 6. 10. 2026 v API RegioJetu a FlixBusu na odjezdy 20. 10. a 12. 11. 2026: Praha → Mnichov letiště RegioJet
@@ -152,8 +154,9 @@ const ROAD = 1.25; // silnice ≈ 1,25 × vzdušná čára
 
 const r10 = (x) => Math.round(x / 10) * 10;
 const r5 = (m) => Math.max(5, Math.round(m / 5) * 5);
-const regionalCzk = (km) => 30 + 1.5 * km; // regionální bus / vlak (~10 km 45 Kč, ~50 km 105 Kč)
-const regionalMin = (km) => 15 + 1.1 * km;
+// regionální bus / vlak (~10 km 45 Kč, ~50 km 105 Kč) – i odhad cesty z letiště příletu do města (arrival.js)
+export const regionalCzk = (km) => 30 + 1.5 * km;
+export const regionalMin = (km) => 15 + 1.1 * km;
 // Parkování v rozpisu: „online předem (590 Kč + 120 Kč za den)“, bez základu jen sazba za den (Ostrava), [0, 0] zdarma.
 const parkLabel = (base, day) => (!base && !day ? 'parkování u letiště zdarma'
   : `parkování u letiště online předem (${base ? `${base} Kč + ` : ''}${day} Kč za den)`);

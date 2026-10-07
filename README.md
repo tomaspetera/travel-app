@@ -176,7 +176,7 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
   Mnichov, Budapešť, Krakov… změřeno, viz [Vlak nebo bus místo letadla](#vlak-nebo-bus-místo-letadla)); na kratší
   vzdálenost regionální jízdné ~30 Kč + 1,5 Kč/km. Z města na letiště: tabulka ~35 letišť do ~450 km od Česka (MHD,
   S-Bahn, letištní bus – např. Vídeň vlak S7 ~110 Kč, Mnichov S-Bahn ~350 Kč, Berlín ~120 Kč, Drážďany ~85 Kč,
-  Budapešť bus 100E ~140 Kč; Memmingen = letištní bus z Mnichova), jinde jízdenka MHD země + 20–40 Kč podle velikosti
+  Budapešť bus 100E ~170 Kč; Memmingen = letištní bus z Mnichova), jinde jízdenka MHD země + 20–40 Kč podle velikosti
   letiště. Příplatek přes hranici: mezi Českem, Slovenskem, Polskem a Maďarskem 30 Kč, jinak 20 % jízdného (aspoň
   50 Kč) – na letiště jedeš konkrétním spojem v danou hodinu, ne nejlevnější akční jízdenkou.
 - **Přímý bus až na letiště** z Prahy do Mnichova, Vídně a Berlína a z Brna do Vídně se počítá místo cesty přes město,
@@ -306,6 +306,135 @@ Ceny nafty a benzínu bere ATLAS z otevřených dat (`server/lib/fuel.js`, `GET 
   ¹ ze sekundárních zdrojů. Skutečná cena se liší podle provozovatele, výkonu nabíječky a členství či předplatného (s ním
   bývá nabíjení levnější, doma ještě levnější) – kdo nabíjí jinak, zadá *vlastní cenu*. Tabulka je v
   `server/lib/fuel.js` (`EV_DC`) a v `GET /api/fuel` (`ev`).
+
+## Z letiště do města
+
+„Levná“ letenka na vzdálené letiště levná být nemusí: z Paříže-Beauvais jede do Paříže autobus za 17,90 € a 1 h 15,
+z Girony do Barcelony za 22 €, z Torpu do Osla za 279 NOK a přes hodinu a půl – a to každým směrem. ATLAS proto
+u každé nabídky ukáže, kolik stojí a jak dlouho trvá cesta z letiště příletu do města (a z města na letiště odletu),
+a v *Další možnosti → Z letiště do města* ji se zaškrtnutým **vč. cesty z letiště do města** (výchozí) přičte k ceně –
+tam i zpět, na osobu.
+
+- **Štítek u nabídky:** *🚌 z letiště BVA do Paříže 17,90 € (~440 Kč) · 1 h 15*; návrat z jiného letiště v cíli
+  (open-jaw) má vlastní štítek *🚆 zpět na letiště CDG 14 € (~340 Kč) · 35 min* (nahrazuje dřívější *✈ zpět z CDG*).
+  **Žlutě**, když cesta stojí přes **350 Kč/os.** jedním směrem nebo trvá **přes hodinu** – Beauvais, Charleroi,
+  Hahn, Weeze, Girona, Reus, Skavsta, Västerås, Torp, Southend, Memmingen, Keflavík, Malpensa (vlak 15 €) a istanbulská
+  letiště (autobus ~1,5 h). Mez je 350 Kč, ne 300 Kč, aby se nezvýrazňovala Paříž-CDG a Orly ani Řím-Fiumicino
+  (vlak / metro za 14 € ≈ 340 Kč, do 35 min) – tam je to cena běžné cesty do města, ne past. Po najetí myší rozpis:
+  čím a kam, jízdné v místní měně, čas, poznámka (online předem / na místě dráž, rychlejší dražší spoj), zdroj
+  a datum ověření; u odhadu z čeho vychází. U cesty přes víc měst má štítky každý let (z města na letiště odletu
+  a z letiště příletu do města, doma ne). Štítek nahrazuje dřívější *📏 X km od centra*.
+- **V ceně:** u ceny nabídky *+ z letiště do města a zpět ~780 Kč/os.*; podle ceny i s cestou do města se řadí,
+  filtruje (*Max. cena*), počítá kalendář cen, pruh *📅 Nejbližší dny*, složení dvou samostatných letenek u přesných
+  dat i nejlevnější celá cesta přes víc měst (cesta mezi letištěm a městem u každého místa na cestě). Patička výsledků
+  řekne, jestli je cesta do města v ceně. Vypnutá volba cestu do města jen nepřičítá – štítky zůstanou.
+- **Průvodce cestou:** v kroku ✈️ Let a v časové ose řádky *Z letiště BVA → Paříž · autobus Aérobus do Paris Porte
+  Maillot · ~1 h 15 min · 17,90 € (~440 Kč)/os.* a *Paříž → letiště ORY · metro 14 · ~25 min · 14 € (~340 Kč)/os.*,
+  ve Shrnutí položka **Doprava z letiště do města a zpět (odhad)** – jen když byla v ceně hledání. Úsek, který nahradí
+  auto půjčené na letišti příletu (nebo vrácené na letišti odletu), odpadá. U trasy přes víc míst je jízdné u přejezdu
+  z letiště na první místo a z posledního místa na letiště, leží-li to místo ve městě letiště (do 25 km).
+- **Hlídané ceny** uložené před touto volbou se dál počítají bez cesty do města, ať jde nová cena porovnat s dřívější;
+  dotaz na API bez pole `arrival` taky (viz [API](#api)).
+
+**Odkud jsou čísla** (`data/arrival.json`, `server/lib/arrival.js`) – na osobu a jeden směr, jízdenka pro dospělého,
+nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra (taxi ani soukromé transfery ne); „od“ = cena
+online předem:
+
+1. **Ověřená tabulka 74 letišť** z oficiálních stránek letiště, dopravce nebo dopravního svazu, **ověřeno 7. 10. 2026**.
+   U 6 letišť (²) jen sekundární zdroj – oficiální stránka cenu neuvádí nebo se nedala načíst; u 9 dalších (Alicante,
+   Palma, Soluň, Larnaka, Pafos, Malta, Sofie, Tel Aviv, Dubaj) je jízdné oficiální a jen čas jízdy ze sekundárních
+   zdrojů (uvedeno v poznámce). Přepočet na Kč kurzem ČNB k 6. 10. 2026 (MAD, EGP, AED kurzy ostatních měn k 30. 9.
+   2026), zaokrouhleno na 10 Kč.
+2. **Letiště z tabulky [cesty na letiště](#doprava-na-letiště)** (~35 letišť do ~450 km od Česka, `access.js`) – stejný
+   spoj obráceně (Vídeň, Mnichov, Berlín, Drážďany…), s popiskem odhad. Letiště v obou tabulkách mají stejné jízdné
+   a čas: podle ověření 10/2026 se v `access.js` opravily Memmingen (450 → 370 Kč, online od 15 €), Frankfurt (155 → 170
+   Kč), Krakov (80 → 110 Kč), Budapešť (140 → 170 Kč) a Záhřeb (200 → 220 Kč); test hlídá shodu.
+3. **Odhad** pro ostatní letiště: vzdálenost do centra (letiště metropole s víc letišti od jejího středu, jinak typicky
+   15 km u velkého, 10 km u středního a 6 km u malého letiště) → regionální jízdné z cesty na letiště (30 Kč + 1,5 Kč/km;
+   15 min + 1,1 min/km + 10 min čekání) × cenová hladina země 1–5 z přehledu zemí (×0,5 / ×1 / ×2 / ×2,8 / ×4), aspoň
+   jízdenka MHD země. Na ověřené tabulce dává odhad v geometrickém průměru ~0,9 skutečné ceny, u tří čtvrtin letišť do
+   dvojnásobku (test). Ze zadaných letišť zůstaly odhadem **Antalya, Hurghada a Šarm aš-Šajch** – oficiální jízdné
+   do města se ověřit nepodařilo: ~60 Kč, ~40 min, s popiskem *odhad*.
+
+| Letiště | Čím do centra | Jízdné | Kč | Čas | Zdroj |
+|---|---|---|---|---|---|
+| BVA Paříž | autobus Aérobus do Paris Porte Maillot | 17,90 € | 440 ⚠ | 1 h 15 | [aeroportparisbeauvais.com](https://www.aeroportparisbeauvais.com/acces-et-parking/navette-aerobus-paris-aeroport) |
+| CDG Paříž | vlak RER B do centra (Gare du Nord, Châtelet) | 14 € | 340 | 35 min | [iledefrance-mobilites.fr](https://www.iledefrance-mobilites.fr/titres-et-tarifs/detail/ticket-paris-region-aeroports) |
+| ORY Paříž | metro 14 do Châtelet | 14 € | 340 | 25 min | [iledefrance-mobilites.fr](https://www.iledefrance-mobilites.fr/titres-et-tarifs/detail/ticket-paris-region-aeroports) |
+| CRL Brusel | autobus flibco do Bruxelles-Midi | od 14,99 € | 370 ⚠ | 55 min | [flibco.com](https://www.flibco.com/en/shuttle/bus-brussels-charleroi-airport) |
+| BRU Brusel | autobus STIB Airport Line 12 do evropské čtvrti | 7,90 € | 190 | 30 min | [stib-mivb.be](https://www.stib-mivb.be/travel/other-mobility-solutions/airport-line) |
+| STN Londýn | vlak Stansted Express do Liverpool Street | od 9,90 £ | 280 | 48 min | [stanstedexpress.com](https://www.stanstedexpress.com/tickets-fares/ticket-types) |
+| LTN Londýn | Luton DART + vlak Luton Airport Express do St Pancras | od 10 £ | 290 | 32 min | [london-luton.co.uk](https://www.london-luton.co.uk/to-and-from-lla/trains/luton-airport-express) |
+| LGW Londýn | vlak Southern / Thameslink do Victoria nebo London Bridge | 10,70 £ | 310 | 35 min | [lasttrip.uk](https://lasttrip.uk/blog/cheapest-way-london-to-gatwick.html) ² |
+| LHR Londýn | metro Piccadilly line do centra | od 5,50 £ | 160 | 50 min | [heathrow.com](https://www.heathrow.com/transport-and-directions/getting-to-central-london) |
+| SEN Londýn | vlak Greater Anglia do Liverpool Street | od 13,40 £ | 390 ⚠ | 52 min | [londonsouthendairport.com](https://londonsouthendairport.com/getting-to-and-from/trains/) |
+| MAN Manchester | vlak do Manchester Piccadilly | od 2,90 £ | 80 | 20 min | [tpexpress.co.uk](https://www.tpexpress.co.uk/travelling-with-us/routes/trains-from-manchester-airport-to-manchester-piccadilly) |
+| EDI Edinburgh | autobus Airlink 100 na Waverley Bridge | 6 £ | 170 | 30 min | [lothianbuses.com](https://www.lothianbuses.com/our-services/airport-buses/) |
+| DUB Dublin | městský autobus Dublin Bus 16 do centra | 2,60 € | 60 | 40 min | [dublinbus.ie](https://www.dublinbus.ie/journey-information/dublin-airport-hub) |
+| BGY Milán | autobus Terravision do Milano Centrale | od 5 € | 120 | 50 min | [terravision.eu](https://www.terravision.eu/airport_transfer/bus-bergamo-airport-milan/) |
+| MXP Milán | vlak Malpensa Express do Milano Cadorna | 15 € | 370 ⚠ | 37 min | [malpensaexpress.it](https://www.malpensaexpress.it/en/travel-documents/tickets/) |
+| LIN Milán | metro M4 do San Babila | 2,20 € | 50 | 12 min | [atm.it](https://www.atm.it/en/ViaggiaConNoi/InfoTraffico/Pages/M4passengerserviceinformation2.aspx) |
+| TSF Benátky | autobus Barzi Service do Mestre a na Piazzale Roma | 10 € | 240 | 40 min | [barziservice.com](https://barziservice.com/en/travel-with-us/treviso-airport-line/) |
+| VCE Benátky | autobus ACTV 5 Aerobus na Piazzale Roma | 10 € | 240 | 20 min | [veneziaunica.it](https://www.veneziaunica.it/en/buy-tickets/airport-transfers-marco-polo-and-canova) |
+| CIA Řím | autobus SIT Bus Shuttle do Roma Termini | 6 € | 150 | 40 min | [sitbusshuttle.com](https://www.sitbusshuttle.com/en/transfer-ciampino-airport/) |
+| FCO Řím | vlak Leonardo Express do Roma Termini | 14 € | 340 | 32 min | [trenitalia.com](https://www.trenitalia.com/en/connections/leonardo-express.html) |
+| NAP Neapol | autobus Alibus na Napoli Centrale a do přístavu | 5 € | 120 | 15 min | [aeroportodinapoli.it](https://www.aeroportodinapoli.it/en/by-bus) |
+| BLQ Boloňa | Marconi Express na Bologna Centrale | 8,20 € | 200 | 7 min | [marconiexpress.it](https://www.marconiexpress.it/en/tickets/fares/) |
+| PSA Pisa | PisaMover na Pisa Centrale | 6,50 € | 160 | 5 min | [trenitalia.com](https://www.trenitalia.com/it/regionale/collegamenti-regionale/collegamenti-con-l-aeroporto-galileo-galilei-di-pisa.html) |
+| FLR Florencie | tramvaj T2 do centra (Unità – Santa Maria Novella) | 2 € | 50 | 20 min | [files.at-bus.it](https://files.at-bus.it/s3fs-public/documents/Nuove%20tariffe%20AT%202026.pdf) |
+| NYO Stockholm | autobus Flygbussarna do Stockholm C (Cityterminalen) | od 229 SEK | 500 ⚠ | 1 h 20 | [flygbussarna.se](https://www.flygbussarna.se/en/skavsta) |
+| ARN Stockholm | autobus Flygbussarna do Stockholm C (Cityterminalen) | od 129 SEK | 280 | 40 min | [flygbussarna.se](https://www.flygbussarna.se/en/arlanda) |
+| VST Stockholm | autobus Flygbussarna do Stockholm C (Cityterminalen) | od 229 SEK | 500 ⚠ | 1 h 20 | [flygbussarna.se](https://www.flygbussarna.se/en/vasteras) |
+| GOT Göteborg | autobus Flygbussarna do Göteborg C | 129 SEK | 280 | 20 min | [flygbussarna.se](https://www.flygbussarna.se/en/landvetter) |
+| TRF Oslo | autobus Torp-ekspressen do centra Osla | od 279 NOK | 630 ⚠ | 1 h 35 | [en.torpekspressen.no](https://en.torpekspressen.no/tickets-and-prices/) |
+| OSL Oslo | regionální vlak Vy na Oslo S | 129 NOK | 290 | 23 min | [visitoslo.com](https://www.visitoslo.com/no/transport/transport-flyplass/oslo-gardermoen) ² |
+| HHN Frankfurt | autobus flibco do Frankfurt Hbf | od 18,99 € | 460 ⚠ | 2 h 10 | [flibco.com](https://www.flibco.com/en/shuttle/bus-frankfurt-hahn-airport) |
+| FRA Frankfurt | S-Bahn S8 / S9 do centra (Hauptbahnhof ~11 min) | 6,90 € | 170 | 15 min | [vgf-ffm.de](https://www.vgf-ffm.de/fileadmin/VGF/Tickets__Tarife__Plaene/Fahrpreise/Documents/Preisliste_2026.pdf) |
+| NRN Düsseldorf | autobus Airport Weeze Shuttle do Düsseldorf Hbf | 24 € | 590 ⚠ | 1 h 15 | [airport-weeze.com](https://airport-weeze.com/en/neuer-busdienst-vom-hauptbahnhof-duesseldorf-zum-airport-weeze/) |
+| DUS Düsseldorf | S-Bahn / tramvaj U80 na Düsseldorf Hbf | 3,80 € | 90 | 18 min | [vrr.de](https://www.vrr.de/fileadmin/user_upload/pdf/service/downloads/Weitere_Broschueren_und_Tarifinformationen/VRR_Preise_2026.pdf) |
+| CGN Kolín nad Rýnem | S-Bahn S19 na Köln Hbf | 4 € | 100 | 15 min | [vrs.de](https://www.vrs.de/fileadmin/01_Tickets/Rheinlandtarif/VRS_Preistabelle_06-2026_final.pdf) |
+| FMM Mnichov | autobus Allgäu Airport Express do München Hbf | od 15 € | 370 ⚠ | 1 h 20 | [allgaeu-airport.de](https://www.allgaeu-airport.de/mit-dem-bus-zum-flieger/) |
+| GRO Barcelona | autobus Sagalés Airport Line na Barcelona Nord | 22 € | 540 ⚠ | 1 h 15 | [sagalesairportline.com](https://www.sagalesairportline.com/en) |
+| REU Barcelona | autobus Monbus na Barcelona Sants | 18,50 € | 450 ⚠ | 1 h 40 | [catalunya.monbus.es](https://catalunya.monbus.es/wp-content/uploads/2026/04/H_AeropuertoReus_2026-04.pdf) |
+| BCN Barcelona | autobus Aerobús na Plaça de Catalunya | 7,45 € | 180 | 35 min | [aerobusbarcelona.es](https://aerobusbarcelona.es/en/rates/) |
+| MAD Madrid | autobus Exprés Aeropuerto na Atochu | 5 € | 120 | 35 min | [emtmadrid.es](https://www.emtmadrid.es/Aeropuerto?lang=en-GB) |
+| AGP Málaga | autobus A Express do centra | 4 € | 100 | 15 min | [aena.es](https://www.aena.es/en/malaga-costa-del-sol/getting-there/bus.html) |
+| ALC Alicante | autobus C-6 do centra a na nádraží | 4,60 € | 110 | 25 min | [alicante.vectalia.es](https://alicante.vectalia.es/notificacion/modificacion-tarifas/) |
+| PMI Palma | autobus EMT A1 na Plaça d'Espanya | 5 € | 120 | 25 min | [aena.es](https://www.aena.es/en/palma-de-mallorca/getting-there/bus.html) |
+| VLC Valencie | metro 3 / 5 do centra (Xàtiva, Colón) | 4,80 € | 120 | 20 min | [metrovalencia.es](https://www.metrovalencia.es/en/fares/) |
+| SVQ Sevilla | autobus EA (Tussam) do centra | 6 € | 150 | 35 min | [tussam.es](https://www.tussam.es/en/node/1397) |
+| OPO Porto | metro E na Trindade | 2,25 € | 50 | 27 min | [en.metrodoporto.pt](https://en.metrodoporto.pt/pages/397) |
+| LIS Lisabon | metro (červená linka) do centra | 1,90 € | 50 | 20 min | [metrolisboa.pt](https://www.metrolisboa.pt/en/2025/12/19/new-fares-2026-2/) |
+| FAO Faro | autobus Próximo 16 na autobusové nádraží | 2,50 € | 60 | 15 min | [citiesinsider.com](https://citiesinsider.com/country/portugal/faro/guides/faro-transport/de) ² |
+| ATH Atény | autobus X95 na Syntagma | 5,50 € | 130 | 1 h | [oasa.gr](https://www.oasa.gr/en/visit-athens/airport-express-bus-lines/) |
+| SKG Soluň | autobus 01X do centra a na nádraží | 1,80 € | 40 | 45 min | [skg-airport.gr](https://www.skg-airport.gr/en/category-detailed/ctg_id-37/nd_id-425) |
+| LCA Larnaka | městský autobus do centra (Finikoudes) | 1,50 € | 40 | 20 min | [cyprusbybus.com](https://www.cyprusbybus.com/busfares.aspx) |
+| PFO Pafos | městský autobus 612 do Kato Pafos (přístav) | 1,50 € | 40 | 35 min | [cyprusbybus.com](https://www.cyprusbybus.com/busfares.aspx) |
+| MLA Valletta | autobus Airport Direct TD4 do Valletty | 3 € | 70 | 25 min | [publictransport.com.mt](https://www.publictransport.com.mt/easy-and-convenient-airport-transfers-with-airport-direct/) |
+| DBV Dubrovník | autobus Platanus ke starému městu a do Gruže | 10 € | 240 | 35 min | [platanus.hr](https://platanus.hr/dubrovnik-airport-shuttle/) |
+| SPU Split | autobus Platanus na autobusové nádraží | 10 € | 240 | 30 min | [platanus.hr](https://platanus.hr/split-airport-shuttle-bus/) |
+| ZAG Záhřeb | autobus Pleso prijevoz na autobusové nádraží | 9 € | 220 | 35 min | [plesoprijevoz.hr](https://www.plesoprijevoz.hr/en) |
+| BUD Budapešť | autobus 100E na Deák Ferenc tér | 2 500 Ft | 170 | 40 min | [bkk.hu](https://bkk.hu/en/tickets-and-passes/prices/airport-shuttle-bus-single-ticket/) |
+| OTP Bukurešť | vlak CFR na Gara de Nord | 6,50 lei | 30 | 25 min | [cfrcalatori.ro](https://www.cfrcalatori.ro/en/bucuresti-nord-railway-station-henri-coanda-airport/) |
+| SOF Sofie | metro M4 do centra (Serdika) | 0,80 € | 20 | 25 min | [metropolitan.bg](https://www.metropolitan.bg/en/information-for-citizens/trip-cards-sofia-metro) |
+| KRK Krakov | vlak Koleje Małopolskie na Kraków Główny | 20 zł | 110 | 20 min | [krakowairport.pl](https://krakowairport.pl/en/train-en) |
+| WAW Varšava | vlak SKM / KM nebo autobus 175 do centra | 4,40 zł | 20 | 30 min | [wtp.waw.pl](https://www.wtp.waw.pl/en/public-transport-step-by-step/airports-transport/) |
+| WMI Varšava | autobus KM na nádraží Modlin + vlak KM do centra | 20 zł | 110 | 1 h | [mazowieckie.com.pl](https://www.mazowieckie.com.pl/en/travelers-area/airport-ticket-special-offer) |
+| GDN Gdaňsk | autobus 210 na Gdańsk Główny | 4,80 zł | 30 | 40 min | [airport.gdansk.pl](https://www.airport.gdansk.pl/en/before-travel/getting-to-the-airport/bus) |
+| AMS Amsterdam | vlak NS na Amsterdam Centraal | 5,60 € | 140 | 17 min | [amsterdamtips.com](https://www.amsterdamtips.com/?p=2759) ² |
+| EIN Eindhoven | autobus Hermes 400 na Eindhoven Centraal | 5,15 € | 130 | 20 min | [eindhovenairport.nl](https://www.eindhovenairport.nl/en/public-transport) |
+| RTM Rotterdam | autobus 33 + metro E do centra | 5,50 € | 130 | 20 min | [ret.nl](https://www.ret.nl/en/home/travel-products/tourist/rotterdam-the-hague-airport.html) |
+| KEF Reykjavík | autobus Flybus na terminál BSÍ | od 3 999 ISK | 710 ⚠ | 45 min | [flybus.is](https://flybus.is/keflavik-reykjavik-airport-transfer/) |
+| IST Istanbul | autobus Havaist na Taksim | 426 TRY | 190 ⚠ | 1 h 30 | [hava.ist](https://www.hava.ist/) |
+| SAW Istanbul | autobus Havabüs na Taksim | 485 TRY | 210 ⚠ | 1 h 30 | [havabus.com](https://www.havabus.com/yolcuservisi/taksim-sabihagokcenhavalimani.aspx) |
+| TLV Tel Aviv | vlak Israel Railways do Tel Avivu (HaHagana, Savidor) | 13,50 ILS | 100 | 20 min | [visit.tel-aviv.gov.il](https://visit.tel-aviv.gov.il/move/airport) |
+| RAK Marrákeš | autobus 19 (ALSA) na Jemaa el-Fna | 30 MAD | 70 | 25 min | [pointswithacrew.com](https://www.pointswithacrew.com/how-to-use-marrakech-airport-bus-19-to-marrakech-city-center-a-step-by-step-guide/) ² |
+| CMN Casablanca | vlak ONCF do Casa Voyageurs | 50 MAD | 110 | 30 min | [onda.ma](https://www.onda.ma/fr/Nos-A%C3%A9roports/A%C3%A9roport-Casablanca-Mohammed-V/Acc%C3%A8s-Facilitations/Par-train) |
+| DXB Dubaj | metro Red Line do centra (Burj Khalifa / Dubai Mall) | 7,50 AED | 40 | 27 min | [rta.ae](https://www.rta.ae/wps/portal/rta/ae/public-transport/Nol-Fares) |
+| BKK Bangkok | vlak Airport Rail Link na Phaya Thai | 45 THB | 30 | 26 min | [railtravelstation.com](https://railtravelstation.com/airport-rail-link-city-line-suvarnabhumi-airport-to-bangkok-city-by-train/) ² |
+
+⚠ = zvýrazněno (přes 350 Kč nebo přes 60 min). ² = sekundární zdroj. Čas je typická jízda bez čekání na spoj (u vlaku
+a metra podle jízdního řádu, u autobusu podle dopravce).
 
 ## Vlak nebo bus místo letadla
 
@@ -498,7 +627,16 @@ date, source }` – `priceLabel` např. „nafta 50,65 Kč/l · ČSÚ, 40. týde
 `builtin` / `demo` / `ev` / `custom` (u dřívějšího Kč/km jen `kmCzk` a `fuelCzk`). Vypnuto `off: true`, `czk: 0` a prázdný
 `breakdown`. `/api/origins` autem navíc `ground.trip: { days, perPerson, fuel, park, tolls, total }`. Nabídky mají
 `groundCzk` (doprava tam i zpět na osobu, autem i s parkováním) a autem tam i zpět `parkCzk` (parkování na osobu, podle
-nocí té nabídky); `perPersonCzk = flightCzk + groundCzk + bagCzk`.
+nocí té nabídky); `perPersonCzk = flightCzk + groundCzk + bagCzk + arrCzk`.
+
+Cesta z letiště do města (`server/lib/arrival.js`): `"arrival": true` přičte k ceně jízdné z letiště příletu do města
+a z města na letiště odletu (letiště domova ne) – i v řazení, kalendáři, `nearby`, `maxPrice` a u cesty přes víc měst;
+**bez pole se nepřičítá** (dřívější klienti, odkazy a hlídané ceny), formulář ho posílá vždy. Nabídky mají `arrCzk`
+(Kč/os. tam i zpět; u přesných dat i každý let), kombinace cesty přes víc měst taky. Odpověď má vždy (i s `arrival:
+false`) `arrivals` – `{ "BVA": { iata, city, gen, lat, lon, mode: "bus" | "train" | "metro" | "tram", how, fare, cur,
+from?, czk, min, km, note?, src, date, sec?, basis: "table" } }` k letištím příletu a odletu ve výsledcích (`gen` =
+město ve 2. pádě, `from` = cena online předem, `sec` = sekundární zdroj); letiště z tabulky cesty na letiště
+`basis: "access"`, ostatní `basis: "estimate"` s `est: true` (bez `fare`, `src`, `date`).
 
 Přesná data: místo `dateFrom`/`dateTo` + nocí pošli `"exactOut": "2026-11-14", "exactBack": "2026-11-21"` (a volitelně
 `"flexDays": 1` = každé datum ±1 den); u `"trip": "oneway"` stačí `exactOut`. U přesných dat se na den a trasu nechají
@@ -518,7 +656,7 @@ nepáruje, když odlétá dřív než 2 h po jeho příletu.
 
 Je to dobrá cena: každá skupina má `priceStats` (`n`, `min`, `p25`, `median`, `p75`, `max`, `dateFrom`, `dateTo`, `mins`), u konkrétního cíle i `priceStats` celé trasy; každá nabídka má `priceLevel` (`level` `low` / `normal` / `high`, `basis`, `reason`, `ref`, `vsRef`, `pos`, `n`).
 
-Cesta přes víc měst: `"trip": "multi", "legs": [{ "from": ["ap:PRG"], "to": ["metro:ROM"], "date": "2026-11-03" }, { "from": ["ap:NAP"], "to": ["ap:PRG"], "date": "2026-11-08", "flexDays": 1 }]` – 2 až 4 lety jedním směrem, data po sobě (týž den smí), nejvýš 90 dní. Cílem (a místem odletu dalších letů) musí být město nebo letiště, ne země. `radiusKm`, `kmRate`, `groundMode`, `carFuel`, `carCons`, `carPrice` (dřívější `carKmCzk`), `exclude` platí pro odlet 1. letu (autem s návratem domů parkování na celou cestu u 1. letu); když je cíl posledního letu stejný jako odkud 1. letu, letí se na kterékoliv letiště začátku cesty (s `openJaw: false` jen na letiště samotného místa; autem vždy na kterékoliv – nejlevnější kombinace se vrací tam, kde auto parkuje) a doprava z něj domů se přičte. Úseky se hledají nejvýš po dvou najednou s rozpočtem 24 dvojic letišť na zdroj. Průběh má navíc `legs: [{ label, state }]`. Odpověď má `mode: "multi"`, `legs: [{ label, from, to, date, flex, dest, options, count, nearby }]` (options = nejvýš 16 jednosměrných letů s `perPersonCzk` vč. dopravy a zavazadel), `links[i][a][b]` (`null` = let b úseku i+1 se po letu a stihne, jinak `{ why: "early" | "short" | "nextday" | "unknown", gapMin?, needMin?, move? }`; `unknown` = let a s přestupem bez známého příletu, další nejdřív 24 h po jeho odletu), `combos: [{ picks, perPersonCzk, totalCzk, flightCzk, groundCzk, bagCzk }]` (30 nejlevnějších navazujících cest), `returnsHome` a `stats.feasible`. `maxPrice` platí na celou cestu.
+Cesta přes víc měst: `"trip": "multi", "legs": [{ "from": ["ap:PRG"], "to": ["metro:ROM"], "date": "2026-11-03" }, { "from": ["ap:NAP"], "to": ["ap:PRG"], "date": "2026-11-08", "flexDays": 1 }]` – 2 až 4 lety jedním směrem, data po sobě (týž den smí), nejvýš 90 dní. Cílem (a místem odletu dalších letů) musí být město nebo letiště, ne země. `radiusKm`, `kmRate`, `groundMode`, `carFuel`, `carCons`, `carPrice` (dřívější `carKmCzk`), `exclude` platí pro odlet 1. letu (autem s návratem domů parkování na celou cestu u 1. letu); když je cíl posledního letu stejný jako odkud 1. letu, letí se na kterékoliv letiště začátku cesty (s `openJaw: false` jen na letiště samotného místa; autem vždy na kterékoliv – nejlevnější kombinace se vrací tam, kde auto parkuje) a doprava z něj domů se přičte. Úseky se hledají nejvýš po dvou najednou s rozpočtem 24 dvojic letišť na zdroj. Průběh má navíc `legs: [{ label, state }]`. Odpověď má `mode: "multi"`, `legs: [{ label, from, to, date, flex, dest, options, count, nearby }]` (options = nejvýš 16 jednosměrných letů s `perPersonCzk` vč. dopravy a zavazadel), `links[i][a][b]` (`null` = let b úseku i+1 se po letu a stihne, jinak `{ why: "early" | "short" | "nextday" | "unknown", gapMin?, needMin?, move? }`; `unknown` = let a s přestupem bez známého příletu, další nejdřív 24 h po jeho odletu), `combos: [{ picks, perPersonCzk, totalCzk, flightCzk, groundCzk, bagCzk, arrCzk }]` (30 nejlevnějších navazujících cest), `returnsHome` a `stats.feasible`. `maxPrice` platí na celou cestu.
 
 Skupiny v dosahu vlaku/busu mají `ground` (`km`, `min`, `czk`, `basis` – `measured` / `distance`, `worth`, `rule`,
 `reason`, `doorMin`, `from`, `to`, `regiojet`, `flixbus` a `q` pro `/api/ground`); u hledání ke konkrétnímu cíli má
@@ -655,6 +793,12 @@ cesta z města příjezdu (ne z letiště):
   elektroauto počítá s rychlonabíjením za odhad 16 Kč/kWh. Autem se nepočítá opotřebení auta ani mýtné za úseky
   v Polsku; u cesty přes víc měst si ručním výběrem letů můžeš složit i návrat na jiné letiště, než kde auto parkuje
   (cena pak počítá, jako by ses vrátil k autu).
+- Cesta z letiště do města: jízdné z ověřené tabulky (74 letišť, 7. 10. 2026) se mění – dopravci zdražují, „od“ platí
+  jen online předem a u řidiče nebo ve špičce bývá dráž; čas je typická jízda bez čekání (po půlnoci letištní bus často
+  nejede a zbývá taxi). Počítá se jízdenka pro dospělého na osobu do jednoho místa v centru (nádraží, terminál), ne
+  k ubytování – rodinné, skupinové a časové jízdenky, slevy pro děti ani taxi pro víc lidí se nepočítají. Ostatní
+  letiště jsou odhad podle vzdálenosti a cenové hladiny země. U letovisek (Antalya, Hurghada, Šarm aš-Šajch) cesta
+  do centra města neříká nic o cestě do hotelu v letovisku – tam se obvykle jede transferem nebo taxi, které stojí víc.
 - Přejezdy mezi místy trasy: čas autem je z trasy BRouteru s **průměrnými** faktory provozu a hranic – skutečná zácpa,
   stavba nebo fronta na hranici může cestu prodloužit o hodiny. Veřejná doprava je odhad z času autem, jen mezi městy
   z tabulky ~100 přímých vlaků čas podle jízdního řádu 2026 (typický nejrychlejší pravidelný spoj – ne každý vlak tak
@@ -707,6 +851,8 @@ cesta z města příjezdu (ne z letiště):
 - Geokódování a počasí: [Open-Meteo](https://open-meteo.com/) (předpověď CC BY 4.0). Kurzy: open.er-api.com, ECB.
 - Ceny paliva: ČSÚ (DataStat, sada CENPHMT, CC0) a Evropská komise – Weekly Oil Bulletin; ceny nabíjení elektroaut:
   ceníky provozovatelů (ČEZ, PRE, E.ON, IONITY; Shell, MOL a Tesla ze sekundárních zdrojů) k 6. 10. 2026.
+- Cesta z letiště do města: ceníky letišť, dopravců a dopravních svazů (zdroj u každého letiště v `data/arrival.json`
+  a v tabulce [Z letiště do města](#z-letiště-do-města), ověřeno 7. 10. 2026), kurzy ČNB.
 - Vlak a bus: seznam měst a zastávek RegioJetu (`brn-ybus-pubapi.sa.cz/restapi/consts/locations`), UUID měst FlixBusu
   (jen pro odkazy), změřené spoje z Prahy z průzkumu `research/ground.md` (větev `pc-research`); sestavuje `node scripts/build-ground.mjs` do
   `data/ground.json` (zdroj a datum jsou v souboru).
