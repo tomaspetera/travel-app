@@ -2204,49 +2204,67 @@
     setInterval(() => $$('#watchList [data-ago]').forEach(el => { el.textContent = Alerts.agoTxt(Date.now() - +el.dataset.ago); }), 60e3);
   }
 
-  /* ---------- živý radar na přehledu ---------- */
-  function radarPayload() {
-    const h = S.home;
-    return { from: h.from.map(x => x.id), radiusKm: h.radius ?? 200, to: [], dateFrom: addDays(today(), 3), dateTo: addDays(today(), 45), trip: 'return', nightsMin: 2, nightsMax: 7, adults: 1, kmRate: 1, groundMode: 'transit', arrival: true };
-  }
+  /* ---------- živý radar na přehledu (Kdykoliv / Víkendy – SearchHelp.radarQuery) ---------- */
+  // Rozběhnuté hledání radaru podle dotazu: přepnutí tam a zpět ani nové vykreslení přehledu ho nespustí podruhé.
+  const radarJobs = {};
+  let radarWant = null; // dotaz, jehož výsledek má radar ukázat – pozdě doběhlé hledání druhého režimu se jen uloží
   async function renderRadar(force) {
-    const host = $('#radar');
+    const host = $('#radar'), modes = $('#radarModes');
     if (!S.home || !S.home.from?.length) {
+      radarWant = null;
+      modes.hidden = true;
       $('#radarSub').textContent = '';
       host.innerHTML = `<div class="card radar-setup"><div><b>Odkud obvykle létáš?</b><div class="muted" style="font-size:13px">Nastav výchozí místo a radar ti tu bude ukazovat nejlevnější lety z okolí na příštích 6 týdnů.</div></div><div class="place-input" id="radarFrom"></div><button class="btn primary" id="radarGo">Nastavit</button></div>`;
       const pi = new PlaceInput($('#radarFrom'), { origin: true, placeholder: 'Např. Brno, Praha, Vídeň…' });
       $('#radarGo').onclick = () => { if (!pi.items.length) return toast('Vyber místo ze seznamu', 'err'); S.home = { from: pi.items, radius: 200 }; save(); updateHomeChip(); if (fromInput && !fromInput.items.length) { fromInput.set(pi.items); } renderRadar(true); heroFrom && heroFrom.set(pi.items, true); };
       return;
     }
-    const p = radarPayload();
-    const key = JSON.stringify(p);
-    $('#radarSub').textContent = `· ${S.home.from.map(x => x.label).join(', ')} +${S.home.radius ?? 200} km · zpáteční 2–7 nocí · příštích 6 týdnů`;
+    const q = SearchHelp.radarQuery(S.radarMode, S.home, today()), key = JSON.stringify(q.payload);
+    radarWant = key;
+    modes.hidden = false;
+    $$('button', modes).forEach(b => {
+      b.classList.toggle('on', b.dataset.m === q.mode);
+      b.onclick = () => { if (b.dataset.m !== q.mode) { S.radarMode = b.dataset.m; save(); renderRadar(); } };
+    });
+    $('#radarSub').textContent = q.sub;
     $('#radarReload').onclick = () => renderRadar(true);
-    if (!force && S.radar && S.radar.key === key && Date.now() - S.radar.at < 30 * 60e3) return paintRadar(S.radar);
+    const c = S.radar && S.radar[q.mode];
+    if (!force && c && c.key === key && Date.now() - c.at < 30 * 60e3) return paintRadar(c, q);
     host.innerHTML = `<div class="radar-grid">${Array.from({ length: 8 }, () => '<div class="card radar-card skel"></div>').join('')}</div>`;
+    const job = radarJobs[key] || (radarJobs[key] = radarSearch(q, key).finally(() => { delete radarJobs[key]; }));
+    try {
+      const r = await job;
+      if (radarWant === key) paintRadar(r, q);
+    } catch (e) {
+      if (radarWant === key) host.innerHTML = `<div class="note warn">⚠️ <div>Radar se nepodařilo načíst: ${esc(e.message)}</div></div>`;
+    }
+  }
+  async function radarSearch(q, key) {
     busySearches++;
     try {
-      const res = await runSearch(p);
+      const res = await runSearch(q.payload);
       PriceCheck.remember(res);
-      S.radar = { key, at: Date.now(), demo: res.demo, items: res.groups.slice(0, 12).map(g => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: g.best.perPersonCzk, from: g.best.out.from, to: g.best.out.to, d1: g.best.out.date, d2: g.best.back?.date, deal: g.best.deal.level, prov: g.best.out.provider })) };
-      save(); paintRadar(S.radar);
-    } catch (e) {
-      host.innerHTML = `<div class="note warn">⚠️ <div>Radar se nepodařilo načíst: ${esc(e.message)}</div></div>`;
+      const r = { key, at: Date.now(), demo: res.demo, items: res.groups.slice(0, 12).map(g => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: g.best.perPersonCzk, from: g.best.out.from, to: g.best.out.to, d1: g.best.out.date, d2: g.best.back?.date, deal: g.best.deal.level, prov: g.best.out.provider })) };
+      S.radar = { all: S.radar?.all, weekend: S.radar?.weekend, [q.mode]: r }; // každý režim zvlášť (dřívější tvar se zahodí)
+      save();
+      return r;
     } finally { busySearches--; }
   }
-  function paintRadar(r) {
+  function paintRadar(r, q) {
     const host = $('#radar');
-    if (!r.items.length) { host.innerHTML = '<div class="note info">ℹ️ <div>Na příštích 6 týdnů jsem z okolí nic nenašel. Zkus větší okruh.</div></div>'; return; }
+    if (!r.items.length) { host.innerHTML = `<div class="note info">ℹ️ <div>${esc(q.empty)}</div></div>`; return; }
+    // u víkendů i den v týdnu (Pá 17.10.–Ne 19.10.) – s datem nerozdělitelně, zalomí se nejvýš za pomlčkou
+    const day = d => (q.mode === 'weekend' ? DOW[new Date(d + 'T12:00:00Z').getUTCDay()] + '\u00a0' : '') + fmtDate(d);
     host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="radar-grid">${r.items.map((x, i) => `<div class="card radar-card ${x.deal === 'super' ? 'hot' : ''}" data-ri="${i}">
       <div class="rc-top"><span class="rcf">${flag(x.cc)}</span>${x.deal === 'super' ? '<span class="b hot">🔥</span>' : ''}</div>
       <div class="rc-city">${esc(x.label)}</div>
       <div class="rc-price">${czk(x.czk)}<small>/os.</small></div>
-      <div class="faint" style="font-size:12px">${x.from} → ${x.to} · ${fmtDate(x.d1)}${x.d2 ? '–' + fmtDate(x.d2) : ''}</div>
+      <div class="faint" style="font-size:12px">${x.from} → ${x.to} · ${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}</div>
     </div>`).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${new Date(r.at).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })} · vč. dopravy na letiště · klikni pro všechny termíny</div>`;
     $$('[data-ri]', host).forEach(c => c.onclick = () => {
       const x = r.items[+c.dataset.ri];
       go('flights');
-      setForm({ ...defaultForm(), from: S.home.from, radius: S.home.radius ?? 200, to: [{ id: x.id, label: x.label, flag: flag(x.cc) }], dFrom: addDays(today(), 3), dTo: addDays(today(), 45), nMin: 2, nMax: 7, len: 'custom', adults: 1 });
+      setForm({ ...defaultForm(), from: S.home.from, to: [{ id: x.id, label: x.label, flag: flag(x.cc) }], ...q.form });
       startSearch();
     });
   }

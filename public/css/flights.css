@@ -434,6 +434,8 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .skel{background:linear-gradient(90deg,var(--surface) 0%,var(--surface-2) 50%,var(--surface) 100%);background-size:200% 100%;animation:skel 1.2s ease-in-out infinite}
 @keyframes skel{0%{background-position:100% 0}100%{background-position:-100% 0}}
 .radar-setup{padding:16px 18px;display:grid;grid-template-columns:1.2fr 1.4fr auto;gap:14px;align-items:center}
+.radar-modes{margin:-4px 2px 12px}
+.radar-modes[hidden]{display:none}
 
 @media(max-width:1080px){
   .trip-row{grid-template-columns:1fr 150px;}

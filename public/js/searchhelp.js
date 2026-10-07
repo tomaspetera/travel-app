@@ -821,11 +821,37 @@
     return out;
   }
 
+  /* Živý radar na přehledu: nejlevnější zpáteční lety z okolí domova na příštích 6 týdnů – kdykoliv (2–7 nocí),
+     nebo jen víkendy (odlet v pátek nebo sobotu, návrat v neděli nebo pondělí, 1–3 noci). */
+  const RADAR = {
+    all: { nMin: 2, nMax: 7, out: [], back: [], what: 'zpáteční 2–7 nocí', empty: 'Na příštích 6 týdnů jsem z okolí nic nenašel. Zkus větší okruh.' },
+    weekend: { nMin: 1, nMax: 3, out: [5, 6], back: [0, 1], what: 'víkendy: odlet Pá/So, návrat Ne/Po', empty: 'Na víkendy v příštích 6 týdnech jsem z okolí nic nenašel. Zkus větší okruh nebo Kdykoliv.' },
+  };
+  /**
+   * Radar v režimu mode ('all' | 'weekend', jiný → 'all') z domova home ({ from: [{ id, label }], radius }) ke dni today:
+   * { mode, payload (hledání), form (formulář po kliknutí na kartu – stejné podmínky, ukáže všechny termíny), sub, empty }.
+   */
+  function radarQuery(mode, home, today) {
+    const m = RADAR[mode] ? mode : 'all', r = RADAR[m], radiusKm = home.radius ?? 200;
+    const dateFrom = addDays(today, 3), dateTo = addDays(today, 45);
+    return {
+      mode: m,
+      payload: {
+        from: home.from.map(x => x.id), radiusKm, to: [], dateFrom, dateTo, trip: 'return', nightsMin: r.nMin, nightsMax: r.nMax,
+        ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), adults: 1, kmRate: 1, groundMode: 'transit', arrival: true,
+      },
+      form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, len: 'custom', adults: 1 },
+      sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · ${r.what} · příštích 6 týdnů`,
+      empty: r.empty,
+    };
+  }
+
   window.SearchHelp = {
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
+    radarQuery,
   };
 })();
