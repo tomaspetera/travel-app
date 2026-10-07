@@ -186,6 +186,11 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .b.info{background:rgba(56,189,248,.12);color:var(--info)}
 .b.sun{background:rgba(251,146,60,.15);color:#fb923c}
 .b.dear{background:rgba(248,113,113,.13);color:#f87171}
+/* cesta z letiště do města: delší štítek se smí zalomit (mobil), drahá nebo dlouhá cesta varovně i s rámečkem */
+.b.arrv{white-space:normal;line-height:1.35}
+.b.arrv.warn{box-shadow:inset 0 0 0 1px rgba(251,191,36,.5)}
+.mc-arr{display:flex;flex-wrap:wrap;gap:5px;margin:3px 0 4px}
+.arr-hint{font-size:12px;line-height:1.4;margin:-2px 0 6px 25px}
 /* „Je to dobrá cena?“: štítek je tlačítko, panel v modálním okně */
 button.b{border:0;cursor:pointer;font-family:inherit;line-height:inherit}
 button.b:hover{filter:brightness(1.18);text-decoration:underline}
