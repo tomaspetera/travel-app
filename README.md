@@ -228,7 +228,7 @@ krém…).
 | **Mapa výsledků** | Všechny destinace na mapě obarvené podle ceny. |
 | **Kam za teplem** | Volba 🌡️ Za teplem (≥ 20 / 25 / 30 °C) pustí jen cíle, kde je v měsíci odletu dlouhodobě aspoň tolik stupňů (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020). U každé nabídky je štítek s teplotou a řazení „Nejtepleji“. |
 | **Cena i se zavazadly** | 🧳 Zavazadla (kabinový kufr / kufr k odbavení) přičte odhad poplatku podle dopravce (~95 aerolinek, ověřeno na jejich webech 10/2026) – nízkonákladovky se tak férově porovnají s klasickými aerolinkami. |
-| **Hlídání cen + živý radar** | Ulož hledání ♡ a nastav cílovou cenu. Dokud máš ATLAS otevřený v prohlížeči, kontroluje ho sám zhruba jednou za 6 h, kreslí vývoj ceny a při zlevnění o 3 % nebo pod cílovou částku se ozve (i upozorněním prohlížeče); se zavřeným ATLASem je 2× denně zkontroluje GitHub a upozorní do mobilu – viz [Upozornění do mobilu](#upozornění-do-mobilu). Stejné hledání (stejný dotaz – nezáleží na pořadí míst) se hlídá jen jednou: uložíš-li ho znovu (♡ pod formulářem i v *Je to dobrá cena?*), jen se mu aktualizuje cena a panel ukáže *✓ Tohle hledání už hlídáš*. Radar ukazuje nejlevnější lety z tvého okolí na příštích 6 týdnů. |
+| **Hlídání cen + živý radar** | Ulož hledání ♡ a nastav cílovou cenu. Dokud máš ATLAS otevřený v prohlížeči, kontroluje ho sám zhruba jednou za 6 h, kreslí vývoj ceny a při zlevnění o 3 % nebo pod cílovou částku se ozve (i upozorněním prohlížeče). Stejné hledání (stejný dotaz – nezáleží na pořadí míst) se hlídá jen jednou: uložíš-li ho znovu (♡ pod formulářem i v *Je to dobrá cena?*), jen se mu aktualizuje cena a panel ukáže *✓ Tohle hledání už hlídáš*. Radar ukazuje nejlevnější lety z tvého okolí na příštích 6 týdnů. |
 
 ## Odkud bere ceny
 
@@ -830,36 +830,6 @@ a teď má 4 945, plán z plánovače (Lisabon, 5 dní s lety a programem) má 1
   „Odkaz na cestu je poškozený“ a data projdou stejným pročištěním jako dřív (`Trip.sanitizeTrip`, `PlanShare.sanitize`).
 - Krátký odkaz typu `…/s/abc123` by potřeboval úložiště na serveru. Bezplatný Render ale při každém nasazení disk
   smaže a odkazy by přestaly fungovat.
-
-## Upozornění do mobilu
-
-Hlídané ceny v aplikaci se kontrolují jen v otevřeném prohlížeči. **📲 Hlídat i v mobilu** (u Hlídaných cen na Přehledu)
-je předá GitHubu: plán `.github/workflows/watch.yml` spouští `scripts/watch.mjs`, který hledá na živém serveru ATLASu
-(stejné ceny jako v aplikaci; uspaný server nejdřív probudí) a zprávy posílá přes [ntfy](https://ntfy.sh) – aplikace
-zdarma a bez registrace pro Android i iPhone.
-
-| Kdy (letní čas, v zimním o hodinu dřív) | Co |
-|---|---|
-| denně 7:17 a 17:17 | **Hlídané ceny** z kódu: zlevnění aspoň o 3 % od minulé kontroly nebo cena pod cílovou částkou – stejná pravidla jako v aplikaci (`Alerts.shouldNotify`), stejnou cenu podruhé nehlásí. Klepnutí na zprávu otevře Přehled. |
-| denně 7:17 a 17:17 | **Hledá ATLAS?** Zkušební hledání kamkoliv z Prahy: server neodpovídá nebo nic nenajde → zpráva hned; chyba jednoho dopravce → až když trvá dvě kontroly po sobě (Wizz Air občas jednorázově odmítne); po opravě „✅ ATLAS zase hledá“. |
-| čtvrtek 8:23 | **Tip na víkendy:** 8 nejlevnějších zpátečních letů na víkend (odlet v pátek nebo sobotu, návrat v neděli nebo pondělí, 1–3 noci) v příštích 8 týdnech z „Odkud obvykle létáš“ (bez nastavení z Prahy), na osobu i s dopravou na letiště a do města. |
-
-**Nastavení (jednou, asi 5 minut):**
-
-1. Do mobilu nainstaluj aplikaci **ntfy** a přihlas se k odběru tématu s těžko uhodnutelným názvem (třeba `atlas-`
-   a náhodné znaky) – kdo název zná, zprávy vidí.
-2. Na GitHubu: repozitář → **Settings → Secrets and variables → Actions → New repository secret**, název `NTFY_TOPIC`,
-   hodnota = název tématu.
-3. V ATLASu na Přehledu u Hlídaných cen **📲 Hlídat i v mobilu** → kód je ve schránce → stejně nový tajný údaj
-   `ATLAS_WATCH` = kód. Po změně hlídaných hledání (nové, smazané, cílová cena) kód vlož znovu – GitHub o změnách
-   v prohlížeči neví.
-4. Vyzkoušení: záložka **Actions → Upozornění do mobilu → Run workflow** (třeba `health alerts tips`).
-
-Kód je seznam hlídaných hledání (dotazy na server, cílová, poslední a hlášená cena) a místo „Odkud obvykle létáš“,
-zkomprimovaný stejně jako sdílené odkazy. Repozitář je veřejný, proto je kód jen v tajném údaji; v mezipaměti GitHubu
-(`.watch-state.json` – co už bylo hlášeno) jsou jen otisky hledání a ceny. Bez `NTFY_TOPIC` se zprávy jen vypíšou do
-logu běhu. Plánované běhy GitHub u veřejného repozitáře po 60 dnech bez commitu vypne (zapnou se v záložce Actions)
-a při velkém provozu je spouští s pár minutami zpoždění.
 
 ## Jak to funguje
 

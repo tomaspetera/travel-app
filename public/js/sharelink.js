@@ -174,14 +174,13 @@
 
   // Připravené odkazy podle obsahu (posledních pár) – kliknutí na „Sdílet“ pak najde hotový.
   const ready = new Map();
-  /** Odkaz {url (až po kompresi), done: Promise<url>} pro #<kind>=…; kind '' = jen kód bez adresy (hlídání v mobilu).
-   *  Volá se už při vykreslení tlačítka. */
+  /** Odkaz {url (až po kompresi), done: Promise<url>} pro #<kind>=…; volá se už při vykreslení tlačítka. */
   function prepare(kind, json) {
     const key = kind + '\n' + json;
     let e = ready.get(key);
     if (!e) {
       e = { url: null };
-      e.done = pack(json).then(p => (e.url = kind ? `${location.origin}${location.pathname}#${kind}=${p}` : p));
+      e.done = pack(json).then(p => (e.url = `${location.origin}${location.pathname}#${kind}=${p}`));
       ready.set(key, e);
       if (ready.size > 4) ready.delete(ready.keys().next().value);
     }
