@@ -1936,9 +1936,16 @@
     const g = res.groups.find(x => x.best === t);
     return { czk: t.perPersonCzk, desc: `${g.dest.label} · ${fmtDate(t.out.date)}${t.back ? '–' + fmtDate(t.back.date) : ''} · z ${t.out.from}` };
   }
-  // Stejné hledání = stejný dotaz na server (starší uložené formuláře doplněné jako při kontrole) – hlídá se jen jednou.
+  // Formulář hlídaného hledání tak, jak se kontroluje: starší uložené doplněné o výchozí hodnoty (kmRate v Kč/km);
+  // hlídané před cestou z letiště do města bez ní (cena i historie bez ní).
+  function watchForm(w) {
+    const f = { ...defaultForm(), ...SearchHelp.groundForm(w.form) };
+    if (w.form && w.form.arrival == null) f.arrival = false;
+    return f;
+  }
+  // Stejné hledání = stejný dotaz na server (jako při kontrole) – hlídá se jen jednou.
   function watchKey(w) {
-    try { return Alerts.searchKey(payloadOf({ ...defaultForm(), ...SearchHelp.groundForm(w.form) })); } catch (e) { return `?${w.id}`; }
+    try { return Alerts.searchKey(payloadOf(watchForm(w))); } catch (e) { return `?${w.id}`; }
   }
   const isWatched = f => { const k = watchKey({ form: f }); return (S.watch || []).some(w => watchKey(w) === k); };
   async function addWatch() {
@@ -2082,8 +2089,7 @@
     // limit i pro ruční kontrolu – zaseknuté spojení by jinak navždy drželo frontu
     const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), Alerts.CFG.timeoutMs);
     try {
-      const f = { ...defaultForm(), ...SearchHelp.groundForm(w.form) }; // starší hlídané ceny: kmRate v Kč/km
-      if (w.form && w.form.arrival == null) f.arrival = false; // hlídané před cestou do města: cena bez ní (historie sedí)
+      const f = watchForm(w);
       if (f.dFrom < today()) f.dFrom = today();
       const res = await runSearch(payloadOf(f), { signal: ctl.signal });
       PriceCheck.remember(res); // každá kontrola hlídaného hledání = další bod trendu ceny
