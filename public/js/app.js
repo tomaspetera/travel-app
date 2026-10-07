@@ -514,7 +514,20 @@ function wireEvents() {
 }
 function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
 
+/* Úvodní obrazovka aplikace na ploše (index.html #launch): zmizí, až je přehled vykreslený a písma načtená (na písma
+   nejvýš 0,8 s) – start bez poskakování obsahu. Pojistka: nejpozději 3,5 s po spuštění skriptu. */
+function launchDone() {
+  const el = $('#launch'); if (!el || el.dataset.out) return;
+  el.dataset.out = '1';
+  const fonts = document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]) : Promise.resolve();
+  fonts.then(() => requestAnimationFrame(() => requestAnimationFrame(() => { el.classList.add('out'); setTimeout(() => el.remove(), 700); })));
+}
+setTimeout(launchDone, 3500);
 async function boot() {
+  try { await start(); } finally { launchDone(); }
+}
+async function start() {
+  if (window.Flights) Flights.warm(); // stav serveru souběžně s daty zemí – rychlejší start
   applyTheme(); applyMapStyle(); buildNav(); fillSelects(); wireEvents(); renderTips();
   if (window.Entry) {
     // vstupní podmínky (~20 kB gzip) souběžně se startem; po načtení doplnit čipy a otevřený seznam zemí
