@@ -207,7 +207,7 @@ export async function runTips({ code, base, today, topic, fetch, sleep, log = co
   await notify({
     title: `✈️ Levné víkendy · ${home.label} +${home.radiusKm} km`,
     message: `Nejlevnější zpáteční na víkend v příštích 8 týdnech (na osobu, s dopravou na letiště):\n${lines.join('\n')}`,
-    priority: 2, click: `${base}/#flights`,
+    priority: 3, click: `${base}/#flights`, // běžná priorita – jednou týdně smí pípnout (nízká chodí potichu)
   }, { topic, fetch, log });
   return { sent: 1, rows: rows.length };
 }
