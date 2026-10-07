@@ -25,23 +25,37 @@
   root.setAttribute('data-map', s && s.mapStyle === 'dark' ? 'dark' : 'light');
   var m = document.querySelectorAll('meta[name="theme-color"]');
   for (var i = 0; i < m.length; i++) m[i].setAttribute('content', light ? '#eef2fb' : '#080c1a');
+  window.atlasLaunchAt = performance.now(); // úvodní obrazovka se začne kreslit teď (vzlet vlaštovky – app.js launchDone)
 })();
 </script>
 <style>
 /* Úvodní obrazovka aplikace na ploše: navazuje na úvodní obrazovku Chromu na Androidu (pozadí background_color,
-   maskovatelná ikona 128 dp kousek nad středem, dole název z manifestu) a zmizí, až je přehled hotový
-   (app.js → launchDone) – start bez poskakování obsahu. V okně prohlížeče se neukazuje; bez skriptu zmizí sama. */
+   maskovatelná ikona 128 dp kousek nad středem, dole název z manifestu). Pak z ikony vylétne papírová vlaštovka,
+   za letu se promění v letadlo a ikona zmizí (~0,9 s); není-li přehled ještě hotový, letadlo krouží přes obrazovku.
+   Jakmile je přehled hotový (app.js → launchDone, nejdřív po vzletu), obrazovka se rozplyne – start bez poskakování
+   obsahu. V okně prohlížeče se neukazuje; bez skriptu zmizí sama. */
 #launch{display:none}
 @media (display-mode:standalone),(display-mode:fullscreen),(display-mode:minimal-ui){
-  #launch{position:fixed;inset:0;z-index:10000;display:block;background:#080c1a;color:#fff;
-    transition:opacity .4s ease,visibility 0s linear .4s;animation:launch-off 0s linear 6s forwards}
-  #launch svg{position:absolute;left:50%;top:45%;width:128px;height:128px;margin:-64px 0 0 -64px;transition:transform .4s ease}
+  #launch{position:fixed;inset:0;z-index:10000;display:block;overflow:hidden;background:#080c1a;color:#fff;
+    transition:opacity .35s ease,visibility 0s linear .35s;animation:launch-off 0s linear 6s forwards}
+  #launch .l-ico{position:absolute;left:50%;top:45%;width:128px;height:128px;margin:-64px 0 0 -64px;overflow:visible}
+  #launch .l-jet{position:absolute;left:0;top:41%;width:48px;height:48px;opacity:0;animation:l-jet 1.9s linear .9s infinite}
   #launch b{position:absolute;left:0;right:0;bottom:52px;text-align:center;font:400 21px/24px Roboto,system-ui,-apple-system,"Segoe UI",sans-serif}
   #launch.out{opacity:0;visibility:hidden}
-  #launch.out svg{transform:scale(1.06)}
+  #launch .l-sq,#launch .l-pp{transform-box:fill-box;transform-origin:center}
+  #launch .l-sq{animation:l-sq .45s ease-in .3s forwards}
+  #launch .l-pp{animation:l-fly .74s cubic-bezier(.5,0,.9,.55) .16s forwards}
+  #launch .l-paper{animation:l-out .18s linear .3s forwards}
+  #launch .l-air{opacity:0;animation:l-in .18s linear .3s forwards}
 }
-@media (prefers-reduced-motion:reduce){#launch.out svg{transform:none}}
+/* vzlet ve směru špičky vlaštovky (−38,5°); pak (čeká-li se dál) letadlo přelétá zleva doprava s mírným stoupáním */
+@keyframes l-fly{to{transform:translate(1150px,-915px) scale(1.15)}}
+@keyframes l-jet{0%{opacity:1;transform:translate(-64px,26px)}100%{opacity:1;transform:translate(calc(100vw + 16px),-26px)}}
+@keyframes l-sq{to{opacity:0;transform:scale(.88)}}
+@keyframes l-out{to{opacity:0}}
+@keyframes l-in{to{opacity:1}}
 @keyframes launch-off{to{opacity:0;visibility:hidden}}
+@media (prefers-reduced-motion:reduce){#launch .l-sq,#launch .l-pp,#launch .l-paper{animation:none}#launch .l-air,#launch .l-jet{display:none}}
 </style>
 <link rel="stylesheet" href="css/pwa.css">
 <script src="js/pwa.js" defer></script>
@@ -55,7 +69,7 @@
 <script src="js/flags.js"></script>
 </head>
 <body>
-<div id="launch" aria-hidden="true"><svg viewBox="0 0 512 512"><defs><linearGradient id="launchG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset=".45" stop-color="#5b8cff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><rect x="15.36" y="15.36" width="481.28" height="481.28" rx="71.68" fill="url(#launchG)"/><path d="M372 165.4 218.4 272.9 126.2 226.8z" fill="#fff"/><path d="M372 165.4 264.4 365.1 218.4 272.9z" fill="#fff" fill-opacity=".8"/></svg><b>ATLAS</b></div>
+<div id="launch" aria-hidden="true"><svg class="l-ico" viewBox="0 0 512 512"><defs><linearGradient id="launchG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset=".45" stop-color="#5b8cff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs><rect class="l-sq" x="15.36" y="15.36" width="481.28" height="481.28" rx="71.68" fill="url(#launchG)"/><g class="l-pp"><g class="l-paper"><path d="M372 165.4 218.4 272.9 126.2 226.8z" fill="#fff"/><path d="M372 165.4 264.4 365.1 218.4 272.9z" fill="#fff" fill-opacity=".8"/></g><path class="l-air" transform="translate(250 262) rotate(-38.5) scale(2.2) translate(-50 -50)" fill="#fff" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></g></svg><svg class="l-jet" viewBox="0 0 100 100"><path fill="#fff" transform="rotate(-7 50 50)" d="M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z"/></svg><b>ATLAS</b></div>
 <div class="app">
   <!-- ===== SIDEBAR ===== -->
   <aside class="sidebar">

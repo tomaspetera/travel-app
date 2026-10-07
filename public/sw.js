@@ -16,7 +16,7 @@ const CACHE = PREFIX + BUILD;
 // Pomalá síť nebo uspaný server (Render zdarma se probouzí až minutu): stránka, která do PAGE_TIMEOUT ms nepřijde
 // ze sítě, se otevře z uložené kopie a její soubory taky (stejná verze). Že je na serveru novější verze, pak řekne
 // pwa.js („Je k dispozici nová verze – Obnovit“), stejně jako když se verze změní za běhu.
-const PAGE_TIMEOUT = 2500;
+const PAGE_TIMEOUT = 1500;
 const fromCache = new Set(); // klienti (otevřené stránky), kterým se dala uložená stránka
 
 /**
