@@ -68,8 +68,9 @@ test('manifest: česky, standalone, barvy z atlas.css, ikony 192/512 i maskovate
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('content-type'), 'application/manifest+json');
   const m = JSON.parse(await r.text());
+  // Chrome na Androidu píše name dole na úvodní obrazovku aplikace – krátce, popis je v description
   assert.equal(m.short_name, 'ATLAS');
-  assert.match(m.name, /^ATLAS – /);
+  assert.equal(m.name, 'ATLAS');
   assert.ok(m.description.length > 40);
   assert.deepEqual([m.id, m.start_url, m.scope, m.display, m.lang], ['/', '/', '/', 'standalone', 'cs']);
   assert.equal(m.theme_color, themeBg('dark'), 'výchozí motiv ATLASu je tmavý');
@@ -87,7 +88,17 @@ test('manifest: česky, standalone, barvy z atlas.css, ikony 192/512 i maskovate
     const img = readPng(Buffer.from(await res.arrayBuffer()), icon.src);
     assert.equal(`${img.width}x${img.height}`, icon.sizes, `${icon.src}: skutečné rozměry`);
     const opaque = img.px.every((v, i) => i % 4 !== 3 || v === 255);
-    if (icon.purpose === 'maskable') assert.ok(opaque, `${icon.src}: maskovatelná ikona bez průhlednosti (Android ji ořízne)`);
+    if (icon.purpose === 'maskable') {
+      assert.ok(opaque, `${icon.src}: maskovatelná ikona bez průhlednosti (Android ji ořízne)`);
+      // úvodní obrazovka Chromu ji ukáže celou: rohy v barvě pozadí (splynou s background_color), jinak přechod
+      const rgbAt = (x, y) => { const o = (y * img.width + x) * 4; return '#' + [0, 1, 2].map((j) => img.px[o + j].toString(16).padStart(2, '0')).join(''); };
+      assert.equal(rgbAt(0, 0), m.background_color, `${icon.src}: roh = pozadí úvodní obrazovky`);
+      assert.equal(rgbAt(img.width - 1, img.height - 1), m.background_color);
+      // na ploše je vidět střed ikony (podle Androidu a Chromu 67–87 %): kruh 87 % i čtverec 80 % jen přechod
+      const k = Math.round(img.width * (0.5 - 0.87 / 2 / Math.SQRT2)), q = Math.round(img.width * 0.1);
+      assert.notEqual(rgbAt(k, k), m.background_color, `${icon.src}: na ploše žádný tmavý okraj (kruh)`);
+      assert.notEqual(rgbAt(q, q), m.background_color, `${icon.src}: na ploše žádný tmavý okraj (čtverec)`);
+    }
     else {
       assert.equal(alphaAt(img, 0, 0), 0, `${icon.src}: průhledný zaoblený roh`);
       assert.equal(alphaAt(img, img.width >> 1, img.height >> 1), 255);

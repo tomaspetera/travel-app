@@ -6,8 +6,10 @@
 //   node scripts/build-icons.mjs        (= npm run build:icons)
 //
 //  icon-192.png, icon-512.png  „any“ – zaoblený čtverec s průhlednými rohy (Chrome a Edge na počítači, Android bez masky)
-//  icon-maskable-512.png       „maskable“ – přechod přes celou plochu bez průhlednosti, letadlo v bezpečné zóně
-//                              (Android ikonu ořízne do kruhu či „squircle“; podstatné musí být do 40 % šířky od středu)
+//  icon-maskable-512.png       „maskable“ – bez průhlednosti: zaoblený čtverec s přechodem přes 94 % plochy na tmavém
+//                              pozadí aplikace (#080c1a), letadlo v bezpečné zóně. Na ploše ho Android ořízne do kruhu
+//                              či „squircle“ (vidět je jen přechod – podstatné musí být do 40 % šířky od středu); na
+//                              úvodní obrazovce ho Chrome ukáže celý – tmavý okraj splyne s pozadím a zbude zaoblená ikona.
 //  apple-touch-icon.png        180 × 180 pro iPhone a iPad – bez průhlednosti (rohy zaoblí iOS sám)
 //  icon-96.png                 zkratky v manifestu (dlouhé podržení ikony na Androidu)
 //
@@ -31,12 +33,16 @@ const LOW_ALPHA = 0.8;
 // Kotva letadla: střed mezi středem obrysu (12; 12,5) a těžištěm plochy (12,9; 11,25) – opticky uprostřed.
 const ANCHOR = [12.45, 11.9];
 
-/** Ikony: soubor, rozměr, zaoblení rohů (podíl strany, 0 = celá plocha), velikost letadla (1 = jako ve faviconu). */
+/**
+ * Ikony: soubor, rozměr, zaoblení rohů (podíl strany, 0 = celá plocha), velikost letadla (1 = jako ve faviconu),
+ * volitelně okraj kolem čtverce s přechodem (podíl strany) a barva pozadí v něm (jinak průhledné).
+ */
+export const BG = [0x08, 0x0c, 0x1a]; // --bg tmavého motivu = background_color v manifestu
 export const ICONS = [
   { file: 'icon-192.png', size: 192, radius: 0.22, plane: 0.94 },
   { file: 'icon-512.png', size: 512, radius: 0.22, plane: 0.94 },
   { file: 'icon-96.png', size: 96, radius: 0.22, plane: 0.94 },
-  { file: 'icon-maskable-512.png', size: 512, radius: 0, plane: 0.72 },
+  { file: 'icon-maskable-512.png', size: 512, radius: 0.14, plane: 0.72, inset: 0.03, bg: BG },
   { file: 'apple-touch-icon.png', size: 180, radius: 0, plane: 0.86 },
 ];
 
@@ -88,22 +94,24 @@ const EDGES = [[A, C], [C, D], [D, A], [A, B], [B, C]];
 const NEAR = 0.75; // px – víc než půl úhlopříčky pixelu: dál od všech hran mají všechny vzorky pixelu stejný výsledek
 
 /** Vykreslí ikonu → RGBA (Uint8Array, size × size × 4, nepremultiplikované). */
-export function renderIcon({ size, radius, plane }) {
+export function renderIcon({ size, radius, plane, inset = 0, bg = null }) {
   const px = new Uint8Array(size * size * 4);
   const unit = (size / 24) * plane; // pixelů na jednotku faviconu
   // souřadnice pixelu → souřadnice letadla (viewBox faviconu)
   const toPlane = (v, i) => (v - size / 2) / unit + ANCHOR[i];
   const r = radius * size;
+  const off = inset * size, w = size - 2 * off; // čtverec s přechodem: [off, off + w]
+  const inRect = (x, y) => inRoundRect(x - off, y - off, w, r);
   const n = SS * SS;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const g = gradient((x + 0.5 + y + 0.5) / (2 * size));
       let inside = 0, top = 0, low = 0;
       const cu = toPlane(x + 0.5, 0), cv = toPlane(y + 0.5, 1);
-      const edge = (r > 0 && Math.abs(roundRectDist(x + 0.5, y + 0.5, size, r)) < NEAR) || EDGES.some((e) => segDist(cu, cv, e) * unit < NEAR);
+      const edge = ((r > 0 || off > 0) && Math.abs(roundRectDist(x + 0.5 - off, y + 0.5 - off, w, r)) < NEAR) || EDGES.some((e) => segDist(cu, cv, e) * unit < NEAR);
       if (!edge) {
         // celý pixel na jedné straně všech hran = stejně jako 8 × 8 vzorků se stejným výsledkem
-        if (inRoundRect(x + 0.5, y + 0.5, size, r)) {
+        if (inRect(x + 0.5, y + 0.5)) {
           inside = n;
           if (inTri(cu, cv, TOP_WING)) top = n;
           else if (inTri(cu, cv, LOW_WING)) low = n;
@@ -113,7 +121,7 @@ export function renderIcon({ size, radius, plane }) {
           const yy = y + (sy + 0.5) / SS;
           for (let sx = 0; sx < SS; sx++) {
             const xx = x + (sx + 0.5) / SS;
-            if (!inRoundRect(xx, yy, size, r)) continue;
+            if (!inRect(xx, yy)) continue;
             inside++;
             const u = toPlane(xx, 0), v = toPlane(yy, 1);
             if (inTri(u, v, TOP_WING)) top++;
@@ -122,6 +130,15 @@ export function renderIcon({ size, radius, plane }) {
         }
       }
       const o = (y * size + x) * 4;
+      if (bg) {
+        // neprůhledná ikona: mimo čtverec barva pozadí, na hraně jejich směs
+        for (let j = 0; j < 3; j++) {
+          const lowC = g[j] + (255 - g[j]) * LOW_ALPHA;
+          px[o + j] = Math.round((g[j] * (inside - top - low) + 255 * top + lowC * low + bg[j] * (n - inside)) / n);
+        }
+        px[o + 3] = 255;
+        continue;
+      }
       if (!inside) continue;
       for (let j = 0; j < 3; j++) {
         const lowC = g[j] + (255 - g[j]) * LOW_ALPHA;
