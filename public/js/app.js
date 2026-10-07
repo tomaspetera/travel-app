@@ -522,8 +522,11 @@ function launchDone(now) {
   el.dataset.out = '1';
   const out = () => { el.classList.add('out'); setTimeout(() => el.remove(), 700); };
   if (now === true) return out();
+  // vlaštovka musí nejdřív vzlétnout (~0,9 s od prvního vykreslení; bez animací se nečeká)
+  const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const takeoff = new Promise(r => setTimeout(r, calm ? 0 : Math.max(0, (window.atlasLaunchAt || 0) + 950 - performance.now())));
   const fonts = document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]) : Promise.resolve();
-  fonts.then(() => requestAnimationFrame(() => requestAnimationFrame(out)));
+  Promise.all([fonts, takeoff]).then(() => requestAnimationFrame(() => requestAnimationFrame(out)));
 }
 setTimeout(() => launchDone(true), Math.max(2000, 3100 - performance.now()));
 async function boot() {

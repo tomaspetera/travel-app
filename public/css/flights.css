@@ -637,3 +637,14 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 }
 [data-theme=light] .gnd-chip.hot{color:#047857}
 [data-theme=light] .gb-l em,[data-theme=light] .gc-t small,[data-theme=light] .gc-x .warn{color:#8a5a00}
+
+/* Čekám na server (uspaný server na Renderu zdarma – flights.js wakeBar): letadlo letí po trase, dokud server neodpoví */
+.wake-bar{display:flex;align-items:center;gap:14px;padding:9px 26px;font-size:13px;color:var(--text);background:linear-gradient(90deg,rgba(91,140,255,.14),rgba(168,85,247,.14));border-bottom:1px solid rgba(91,140,255,.32)}
+.wake-bar span{min-width:0}
+.wake-track{position:relative;flex:0 0 132px;height:22px;border-bottom:1.5px dashed rgba(148,163,200,.55)}
+.wake-jet{position:absolute;left:0;bottom:-10px;width:20px;height:20px;color:var(--accent);animation:wake-fly 30s cubic-bezier(.2,.65,.35,1) forwards}
+@keyframes wake-fly{to{left:calc(92% - 20px)}}
+.wake-bar.done .wake-jet{animation:none;left:calc(100% - 20px);transition:left .5s ease-in}
+.wake-bar.done{background:linear-gradient(90deg,rgba(52,211,153,.16),rgba(91,140,255,.12));border-bottom-color:rgba(52,211,153,.4)}
+@media(max-width:860px){.wake-bar{padding:8px 16px;gap:10px;font-size:12.5px}.wake-track{flex-basis:64px}}
+@media(prefers-reduced-motion:reduce){.wake-jet{animation:none;left:40%}}
