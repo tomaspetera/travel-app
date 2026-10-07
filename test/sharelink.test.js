@@ -149,19 +149,6 @@ test('copy: ClipboardItem s Promise (Safari), odmítnutý ClipboardItem → writ
   assert.deepEqual([res4.copied, /#plan=z/.test(res4.url)], [false, true]);
 });
 
-test('kind \'\' = jen kód bez adresy (hlídání v mobilu) – stejná komprese, rozbalí ho i scripts/watch.mjs', async () => {
-  const copied = [];
-  const S = load({ clipboard: { writeText: (u) => { copied.push(u); return Promise.resolve(); } } });
-  const r = await S.copy('', TRIP);
-  assert.equal(r.copied, true);
-  assert.match(r.url, /^z[A-Za-z0-9_-]+$/);
-  assert.deepEqual(copied, [r.url]);
-  assert.equal(await S.unpack(r.url), TRIP);
-  const { decodeWatch } = await import('../scripts/watch.mjs');
-  const code = await S.pack(JSON.stringify({ v: 1, w: [{ id: 'a', label: 'x', p: { from: ['ap:PRG'] } }] }));
-  assert.deepEqual(decodeWatch(code).watches.map((w) => w.id), ['a']);
-});
-
 test('prepare: drží jen pár posledních odkazů', async () => {
   const S = load();
   const first = S.prepare('trip', '{"i":0}');

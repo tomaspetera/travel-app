@@ -2021,28 +2021,7 @@
       denied: '<span class="w-ntf">🔕 Upozornění má prohlížeč pro ATLAS zablokovaná – povolíš je v nastavení webu (ikona vedle adresy).</span>',
       unsupported: '<span class="w-ntf">Tento prohlížeč upozornění neumí – zlevnění uvidíš tady a u položky Přehled.</span>',
     }[notifOk()];
-    return `<div class="watch-bar"><span>🔄 Každé hledání kontroluji automaticky zhruba jednou za 6 h – ale jen dokud máš ATLAS otevřený v prohlížeči a panel není schovaný na pozadí. Zavřená stránka nehlídá nic – na to je 📲 hlídání v mobilu.</span>${n}<button type="button" class="btn sm ghost" id="phoneBtn">📲 Hlídat i v mobilu</button></div>`;
-  }
-  /* ---------- hlídání i se zavřeným ATLASem: kód pro GitHub (scripts/watch.mjs, notifikace přes ntfy) ---------- */
-  const PHONE_SECRETS = 'https://github.com/tomaspetera/travel-app/settings/secrets/actions';
-  const phoneJson = () => JSON.stringify(Alerts.phoneExport(S.watch || [], { home: S.home, payload: w => payloadOf(watchForm(w)), today: today() }));
-  function phoneWatch() {
-    const json = phoneJson(), n = JSON.parse(json).w.length;
-    // kód je připravený už z vykreslení seznamu (ShareLink.prepare) – zkopíruje se ještě v obsluze kliknutí
-    ShareLink.copy('', json).then(r => {
-      if (r.copied) toast('Kód pro hlídání v mobilu zkopírován');
-      modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">📲</div><h2 style="font-size:23px;margin-top:4px">Hlídání i se zavřeným ATLASem</h2><div style="opacity:.85;font-size:13px">${n} hledání · kontrola 2× denně (kolem 7:15 a 17:15)</div></div></div>
-      <div class="modal-body">
-        <p class="muted" style="font-size:14px;margin-bottom:12px">GitHub tvoje hlídaná hledání dvakrát denně zkontroluje na serveru ATLASu a při zlevnění o 3 % nebo pod cílovou cenou ti pošle upozornění do mobilu přes aplikaci <b>ntfy</b>. Ve čtvrtek ráno navíc přijde tip na nejlevnější víkendy z místa, odkud obvykle létáš.</p>
-        <ol style="font-size:14px;line-height:1.55;padding-left:20px;margin:0 0 12px">
-          <li>${r.copied ? 'Kód je ve schránce' : 'Zkopíruj kód níže'}.</li>
-          <li>Otevři <a href="${PHONE_SECRETS}" target="_blank" rel="noopener">tajné údaje ATLASu na GitHubu ↗</a>, u <b>ATLAS_WATCH</b> klikni na tužku (poprvé <b>New repository secret</b> s názvem ATLAS_WATCH) a kód vlož.</li>
-          <li>Jednou: v aplikaci ntfy se přihlas k odběru tématu, které je na stejném místě uložené jako <b>NTFY_TOPIC</b>.</li>
-        </ol>
-        <textarea class="input" readonly rows="3" style="width:100%;font:12px/1.4 ui-monospace,monospace;word-break:break-all" onclick="this.select()">${esc(r.url)}</textarea>
-        <div class="faint" style="font-size:12.5px;margin-top:8px">Po každé změně hlídaných hledání (nové, smazané, cílová cena) kód vlož znovu – GitHub o změnách v prohlížeči neví.</div>
-      </div>`);
-    });
+    return `<div class="watch-bar"><span>🔄 Každé hledání kontroluji automaticky zhruba jednou za 6 h – ale jen dokud máš ATLAS otevřený v prohlížeči a panel není schovaný na pozadí. Zavřená stránka nehlídá nic.</span>${n}</div>`;
   }
   function watchCard(w, now = Date.now()) {
     const h = w.history || [];
@@ -2086,7 +2065,6 @@
     host.onclick = e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.id === 'notifBtn') askNotif();
-      else if (b.id === 'phoneBtn') phoneWatch();
       else if (b.dataset.wc) checkWatch(b.dataset.wc);
       else if (b.dataset.wo) openWatch(b.dataset.wo);
       else if (b.dataset.wd) { S.watch = S.watch.filter(x => x.id !== b.dataset.wd); save(); renderWatch(); }
@@ -2095,7 +2073,6 @@
     host.oninput = e => { if (e.target.dataset.wt) setTarget(e.target.dataset.wt, e.target.value); };
     host.onchange = e => { if (e.target.dataset.wt) setTarget(e.target.dataset.wt, e.target.value, true); };
     $('#watchCheckAll').onclick = () => Promise.all((S.watch || []).filter(w => !Alerts.isPast(w.form, today())).map(w => checkWatch(w.id)));
-    if (list.length && window.ShareLink) ShareLink.prepare('', phoneJson()); // kód pro 📲 hotový dřív, než se klikne
     updateWatchBadges();
     observeSeen();
   }
