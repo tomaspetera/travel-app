@@ -427,8 +427,9 @@ tam i zpět, na osobu.
 - **Štítek u nabídky:** *🚌 z letiště BVA do Paříže 17,90 € (~440 Kč) · 1 h 15*; návrat z jiného letiště v cíli
   (open-jaw) má vlastní štítek *🚆 zpět na letiště CDG 14 € (~340 Kč) · 35 min* (nahrazuje dřívější *✈ zpět z CDG*).
   **Žlutě**, když cesta stojí přes **350 Kč/os.** jedním směrem nebo trvá **přes hodinu** – Beauvais, Charleroi,
-  Hahn, Weeze, Girona, Reus, Skavsta, Västerås, Torp, Southend, Memmingen, Keflavík, Malpensa (vlak 15 €) a istanbulská
-  letiště (autobus ~1,5 h). Mez je 350 Kč, ne 300 Kč, aby se nezvýrazňovala Paříž-CDG a Orly ani Řím-Fiumicino
+  Hahn, Weeze, Girona, Reus, Skavsta, Västerås, Torp, Southend, Memmingen, Keflavík, Malpensa (vlak 15 €), Marseille
+  (autobus 15 €), Newark (vlak 17,25 $), istanbulská letiště (autobus ~1,5 h), Tokio-Narita (vlak ~1 h 20) a Phuket
+  (autobus ~1 h 15). Mez je 350 Kč, ne 300 Kč, aby se nezvýrazňovala Paříž-CDG a Orly ani Řím-Fiumicino
   (vlak / metro za 14 € ≈ 340 Kč, do 35 min) – tam je to cena běžné cesty do města, ne past. Po najetí myší rozpis:
   čím a kam, jízdné v místní měně, čas, poznámka (online předem / na místě dráž, rychlejší dražší spoj), zdroj
   a datum ověření; u odhadu z čeho vychází. U cesty přes víc měst má štítky každý let (z města na letiště odletu
@@ -449,11 +450,14 @@ tam i zpět, na osobu.
 nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra (taxi ani soukromé transfery ne); „od“ = cena
 online předem:
 
-1. **Ověřená tabulka 74 letišť** z oficiálních stránek letiště, dopravce nebo dopravního svazu, **ověřeno 7. 10. 2026**.
-   U 6 letišť (²) jen sekundární zdroj – oficiální stránka cenu neuvádí nebo se nedala načíst; u 9 dalších (Alicante,
-   Palma, Soluň, Larnaka, Pafos, Malta, Sofie, Tel Aviv, Dubaj) je jízdné oficiální a jen čas jízdy ze sekundárních
-   zdrojů (uvedeno v poznámce). Přepočet na Kč kurzem ČNB k 6. 10. 2026 (MAD, EGP, AED kurzy ostatních měn k 30. 9.
-   2026), zaokrouhleno na 10 Kč.
+1. **Ověřená tabulka 132 letišť** z oficiálních stránek letiště, dopravce nebo dopravního svazu, **ověřeno 7. 10. 2026**:
+   74 z prvního kola a 58 nejčastějších dalších cílů z Prahy a okolí (živé hledání „kamkoli“ ve třech obdobích –
+   britská regionální letiště, Itálie, Francie, Kanáry, Madeira, Řecko, Balkán, Kavkaz, Maroko, Perský záliv, Thajsko,
+   Male, Cancún, New York, Tokio). U 21 letišť (²) jen sekundární zdroj – oficiální stránka cenu neuvádí, ukazuje ji až
+   skriptem nebo se nedala načíst; u 15 dalších je jízdné oficiální a jen čas jízdy ze sekundárních zdrojů nebo odhadem
+   (uvedeno v poznámce). Přepočet na Kč kurzem ČNB k 6. 10. 2026 (MAD, EGP, AED, ALL, RSD, MDL, GEL, AMD, QAR, MVR
+   kurzy ostatních měn k 30. 9. 2026), zaokrouhleno na 10 Kč a aspoň 10 Kč (městský autobus v Tbilisi, Batumi nebo
+   Kišiněvě stojí méně).
 2. **Letiště z tabulky [cesty na letiště](#doprava-na-letiště)** (~35 letišť do ~450 km od Česka, `access.js`) – stejný
    spoj obráceně (Vídeň, Mnichov, Berlín, Drážďany…), s popiskem odhad. Letiště v obou tabulkách mají stejné jízdné
    a čas: podle ověření 10/2026 se v `access.js` opravily Memmingen (450 → 370 Kč, online od 15 €), Frankfurt (155 → 170
@@ -461,9 +465,10 @@ online předem:
 3. **Odhad** pro ostatní letiště: vzdálenost do centra (letiště metropole s víc letišti od jejího středu, jinak typicky
    15 km u velkého, 10 km u středního a 6 km u malého letiště) → regionální jízdné z cesty na letiště (30 Kč + 1,5 Kč/km;
    15 min + 1,1 min/km + 10 min čekání) × cenová hladina země 1–5 z přehledu zemí (×0,5 / ×1 / ×2 / ×2,8 / ×4), aspoň
-   jízdenka MHD země. Na ověřené tabulce dává odhad v geometrickém průměru ~0,9 skutečné ceny, u tří čtvrtin letišť do
-   dvojnásobku (test). Ze zadaných letišť zůstaly odhadem **Antalya, Hurghada a Šarm aš-Šajch** – oficiální jízdné
-   do města se ověřit nepodařilo: ~60 Kč, ~40 min, s popiskem *odhad*.
+   jízdenka MHD země. Na ověřené tabulce dává odhad v geometrickém průměru ~1,2× skutečné ceny, u ~60 % letišť do
+   dvojnásobku (test) – městský autobus za pár korun (Tbilisi, Dauhá, Bari) i expres za 10–15 € (Řím, Milán, Marseille)
+   jeden vzorec netrefí, proto se nejčastější cíle ověřují. Odhadem zůstávají mimo jiné **Hurghada, Šarm aš-Šajch
+   a Marsa Alam** – z letiště tam veřejná doprava nejezdí (jen taxi a hotelové transfery), a Sibiu a Varna.
 
 | Letiště | Čím do centra | Jízdné | Kč | Čas | Zdroj |
 |---|---|---|---|---|---|
@@ -541,6 +546,64 @@ online předem:
 | CMN Casablanca | vlak ONCF do Casa Voyageurs | 50 MAD | 110 | 30 min | [onda.ma](https://www.onda.ma/fr/Nos-A%C3%A9roports/A%C3%A9roport-Casablanca-Mohammed-V/Acc%C3%A8s-Facilitations/Par-train) |
 | DXB Dubaj | metro Red Line do centra (Burj Khalifa / Dubai Mall) | 7,50 AED | 40 | 27 min | [rta.ae](https://www.rta.ae/wps/portal/rta/ae/public-transport/Nol-Fares) |
 | BKK Bangkok | vlak Airport Rail Link na Phaya Thai | 45 THB | 30 | 26 min | [railtravelstation.com](https://railtravelstation.com/airport-rail-link-city-line-suvarnabhumi-airport-to-bangkok-city-by-train/) ² |
+| TFS Los Cristianos | autobus TITSA 40 do Los Cristianos a Playa de las Américas | 3,70 € | 90 | 40 min | [titsa.com](https://www.titsa.com/images/PDF_aeroexpress_web_linea40.pdf) |
+| LPA Las Palmas | autobus Global 60 do centra (San Telmo) | 2,30 € | 60 | 20 min | [guaguasglobal.com](https://guaguasglobal.com/en/routes-timetables/touristic-information/airport/) ² |
+| FUE Puerto del Rosario | autobus Tiadhe 3 do centra Puerto del Rosario | 1,40 € | 30 | 15 min | [aena.es](https://www.aena.es/en/fuerteventura/getting-there/bus.html) ² |
+| OVD Oviedo | autobus ALSA na autobusové nádraží | 9 € | 220 | 45 min | [ctaconecta.com](https://www.ctaconecta.com/es/preguntas-frecuentes-2/) |
+| FNC Funchal | autobus 702 (dříve 113) do centra Funchalu | od 2 € | 50 | 50 min | [siga.madeira.gov.pt](https://siga.madeira.gov.pt/faq) ² |
+| CFU Kerkyra | městský autobus 15 na náměstí San Rocco | od 1,10 € | 30 | 15 min | [astikoktelkerkyras.gr](https://astikoktelkerkyras.gr/en/connection-with-the-airport/) ² |
+| CHQ Chania | autobus KTEL na autobusové nádraží | 2,50 € | 60 | 25 min | [davestravelpages.com](https://www.davestravelpages.com/chania-airport-to-chania-town/) ² |
+| JSI Skiathos | autobus do města ke konečné u přístavu (zastávka 0) | 3 € | 70 | 10 min | [ontheluce.com](https://www.ontheluce.com/skiathos-without-a-car/) ² |
+| TIA Tirana | letištní autobus k Opeře na Skanderbegově náměstí | 400 ALL | 110 | 35 min | [tirana-airport.com](https://www.tirana-airport.com/en/transport-and-directions/15/By-Bus) |
+| BEG Bělehrad | minibus A1 na náměstí Slavija | 400 RSD | 80 | 30 min | [bgprevoz.rs](https://bgprevoz.rs/vesti/nove-cene-prevoza-na-minibus-ekspres-linijama) |
+| RMO Kišiněv | trolejbus 30 do centra (bulvár Ștefan cel Mare) | 7 MDL | 10 | 30 min | [rtec.md](https://rtec.md/tarife/) |
+| HKT Phuket | letištní autobus 8411 na autobusové nádraží Phuket Town | 100 THB | 60 ⚠ | 1 h 15 | [phuket.airportthai.co.th](https://phuket.airportthai.co.th/) ² |
+| KBV Krabi | letištní autobus 8415 do Krabi Town (pokračuje do Ao Nangu) | 90 THB | 60 | 30 min | [krabibus.com](https://krabibus.com/) |
+| CNX Čiang Mai | městský autobus RTC (okružní linky z letiště) do starého města | 50 THB | 30 | 30 min | [aseannow.com](https://aseannow.com/thailand-news/chiang-mai-city-buses-to-resume-on-august-31-r3432/) ² |
+| MLE Male | autobus R3 přes most Sinamalé do Male (West Park) | 10 MVR | 10 | 25 min | [maldivesairport.com](https://maldivesairport.com/transport/taxi-bus) ² |
+| CUN Cancún | autobus ADO z letiště na autobusové nádraží ADO v centru | 145 MXN | 180 | 55 min | [international.ado.com.mx](https://international.ado.com.mx/result?retailerPartnerNumber=343401&departureArea=MXCUNCA&arrivalStation=MXCUNCAB&pax=1) |
+| JFK New York | AirTrain do Jamaica + metro E do Manhattanu (Penn Station) | 11,75 USD | 250 | 50 min | [jfkairport.com](https://www.jfkairport.com/transportation/public-transport) |
+| EWR New York | AirTrain + vlak NJ Transit do New York Penn Station | 17,25 USD | 370 ⚠ | 30 min | [njtransit.com](https://www.njtransit.com/destinations/newark-liberty-international-airport) |
+| NRT Tokio | vlak Keisei Main Line (Limited Express) do Keisei-Ueno | 1 060 JPY | 150 ⚠ | 1 h 20 | [keisei.co.jp](https://www.keisei.co.jp/keisei/tetudou/fare/pdf/145a.pdf) |
+| HND Tokio | vlak Keikyu do stanice Shinagawa | 330 JPY | 50 | 11 min | [keikyu.co.jp](https://www.keikyu.co.jp/ride/ticket/) |
+| AYT Antalya | tramvaj AntRay T1A do centra (İsmetpaşa u Kaleiçi) | 50 TRY | 20 | 31 min | [antalyakart.com.tr](https://www.antalyakart.com.tr/Page/Faqs) |
+| BJV Bodrum | autobus Havaş do centra Bodrumu (Merkez Otogar) | 270 TRY | 120 | 45 min | [havas.net](https://www.havas.net/otobus-hizmetleri) |
+| KUT Kutaisi | letištní shuttle bus do centra (Kutaisi Tourism Center) | 5 GEL | 40 | 40 min | [kutaisi.travel](https://kutaisi.travel/en/10093/shuttle-buses-will-serve-passengers-from-kutaisi-international-airport-to-the-city-center/) |
+| TBS Tbilisi | městský autobus 337 do centra (náměstí Svobody, Rustaveliho třída) | 1 GEL | 10 | 50 min | [tbilisiairport.com](https://www.tbilisiairport.com/en-EN/bus/page/bus) |
+| BUS Batumi | městský autobus 10 do centra | 0,30 GEL | 10 | 20 min | [batumiairport.com](https://www.batumiairport.com/en-EN/bus/page/bus) |
+| EVN Jerevan | autobus 201 (Elitebus) do centra (náměstí Republiky) | 300 AMD | 20 | 35 min | [zvartnots.aero](https://www.zvartnots.aero/EN/Content/Transport) |
+| AGA Agadir | autobus AE Aerobus (ALSA) do centra (Vallée des Oiseaux) | 50 MAD | 110 | 50 min | [lematin.ma](https://lematin.ma/express/2023/agadir-nouvelle-ligne-reliant-leroport-al-massira-centre-ville/392528.html) ² |
+| RBA Rabat | letištní autobus ALSA na nádraží Rabat Ville a Rabat Agdal | 25 MAD | 60 | 35 min | [travelextra.ie](https://www.travelextra.ie/airport-guide-rabat-what-passengers-can-expect/) ² |
+| FEZ Fès | městský autobus 16 na nádraží Fès (Ville Nouvelle) | 4 MAD | 10 | 40 min | [vanupied.com](https://www.vanupied.com/fes/venir-fes/aeroport-de-fes-maroc-et-navette-vers-la-medina.html) ² |
+| TNG Tanger | autobus AE (ALSA) na nádraží Tanger Ville | 40 MAD | 90 | 40 min | [philipmallis.com](https://philipmallis.com/2025/08/06/how-to-use-the-tangier-airport-bus/) ² |
+| AUH Abú Zabí | autobus A1 / A2 do centra (Al Zahiyah, Corniche) | 4 AED | 20 | 50 min | [admobility.gov.ae](https://admobility.gov.ae/en/pb-bus-service/hafilat-public-buses-fees) |
+| SHJ Šardžá | městský autobus na autobusové nádraží Al Jubail (centrum) | 8 AED | 50 | 35 min | [en.wikivoyage.org](https://en.wikivoyage.org/wiki/Sharjah) ² |
+| DOH Dauhá | metro Red Line do centra (Msheireb) | 2 QAR | 10 | 20 min | [metrotram.qa](https://www.metrotram.qa/media/pdf/pocket_map.pdf) |
+| CAI Káhira | městský autobus CTA z nádraží u T1 do centra (Ramses, Tahrir) | 15 EGP | 10 | 1 h | [airconnect.live](https://airconnect.live/en/airports/cairo-airport-bus-guide) ² |
+| CTA Catania | autobus Alibus do centra (Via Dusmet) a na nádraží Catania Centrale | 4 € | 100 | 15 min | [amts.ct.it](https://www.amts.ct.it/alibus) |
+| BRI Bari | městský autobus AMTAB 16 na nádraží Bari Centrale | od 1 € | 20 | 50 min | [amtab.it](https://www.amtab.it/it/117-prova/servizi-di-trasporti/1038-biglietti01) |
+| PMO Palermo | autobus Prestia e Comandè do centra (Politeama, Via Roma) a na nádraží | od 6 € | 150 | 45 min | [prestiaecomande.it](https://www.prestiaecomande.it/wp-content/uploads/2026/07/LineaPalermoAeroporto-V4.pdf) |
+| CAG Cagliari | vlak Trenitalia na nádraží Cagliari v centru | 1,30 € | 30 | 8 min | [trenitalia.com](https://www.trenitalia.com/it/regionale/collegamenti-regionale/aeroporto-elmas-di-cagliari.html) |
+| GOA Janov | autobus Airlink na nádraží Sestri Ponente + vlak do Genova Piazza Principe | 2,20 € | 50 | 35 min | [amt.genova.it](https://www.amt.genova.it/amt/biglietti-e-abbonamenti-2/biglietti-e-carnet/) |
+| BDS Brindisi | autobus STP AP na nádraží a do centra k přístavu (Via del Mare) | od 1,20 € | 30 | 12 min | [stpbrindisi.it](https://www.stpbrindisi.it/images/pdf/tariffe/2015-09/Tariffario_Urbano_Brindisi_ultimate_stampa.pdf) |
+| RMI Rimini | autobus Start Romagna 9 do centra (Arco d'Augusto) a na nádraží Rimini | 2 € | 50 | 25 min | [startromagna.it](https://www.startromagna.it/biglietti/startap-sistema-emv/) |
+| MRS Marseille | autobus A1 (navette) na nádraží Marseille Saint-Charles | 15 € | 370 ⚠ | 25 min | [store.marseille.aeroport.fr](https://store.marseille.aeroport.fr/fr_FR/reservation/navettes-bus/) |
+| NCE Nice | tramvaj 2 do centra (Jean Médecin) a k přístavu (Port Lympia) | od 1,70 € | 40 | 30 min | [lignesdazur.com](https://www.lignesdazur.com/uploads/Guide_des_tarifs_Septembre_2026_compressed_1_4e2d1aa321.pdf) |
+| TLS Toulouse | autobus 31 na Guyenne-Berry + tramvaj T1 do centra (Palais de Justice) | od 1,90 € | 50 | 45 min | [toulouse.aeroport.fr](https://www.toulouse.aeroport.fr/transports-et-acces/transports-en-commun) |
+| LYS Lyon | autobus TCL C200 do Vaulx-en-Velin La Soie + metro A do centra | od 2,10 € | 50 | 1 h | [lyonaeroports.com](https://www.lyonaeroports.com/en/access-transports/bus-lines-tcl) |
+| BRS Bristol | autobus Airport Flyer A1 přes Temple Meads na autobusové nádraží | 9,50 £ | 270 | 40 min | [firstbus.co.uk](https://www.firstbus.co.uk/bristol-bath-and-west/your-services/airport-flyer-services) |
+| LPL Liverpool | autobus Arriva 500 na autobusové nádraží Liverpool ONE | 2 £ | 60 | 35 min | [merseytravel.gov.uk](https://www.merseytravel.gov.uk/tickets-and-pricing/ticket-types/adult-single-fare/) |
+| EMA Nottingham | autobus Skylink Express do centra Nottinghamu (Friar Lane) | 3 £ | 90 | 36 min | [trentbarton.co.uk](https://www.trentbarton.co.uk/news-and-media/our-news/article/singlefarescheme) |
+| LBA Leeds | autobus Flyer A1 do centra (nádraží Leeds, autobusové nádraží) | 2,50 £ | 70 | 40 min | [westyorks-ca.gov.uk](https://www.westyorks-ca.gov.uk/transport/buses/bus-service-improvement-plan/) |
+| GLA Glasgow | autobus Glasgow Airport Express 500 na Buchanan Bus Station | 2 £ | 60 | 25 min | [firstbus.co.uk](https://www.firstbus.co.uk/greater-glasgow/tickets/ps2-fare-cap) |
+| BOH Bournemouth | autobus morebus 737 přes nádraží do centra (The Triangle) | 3 £ | 90 | 50 min | [data.bus-data.dft.gov.uk](https://data.bus-data.dft.gov.uk/fares/dataset/20939/) |
+| CPH Kodaň | metro M2 do centra (Kongens Nytorv, Nørreport) | 30 DKK | 100 | 15 min | [dinoffentligetransport.dk](https://dinoffentligetransport.dk/en/find-tickets/single-tickets/single-tickets-2-8-zones) |
+| VNO Vilnius | autobus 3G / 88 do centra | 1 € | 20 | 20 min | [judu.lt](https://judu.lt/viesojo-transporto-keleiviams/bilietu-rusys-ir-kainos/) |
+| HEL Helsinky | vlak HSL I / P na hlavní nádraží | 4,50 € | 110 | 30 min | [infopalvelut.storage.hsldev.com](https://infopalvelut.storage.hsldev.com/gtfs/hsl.zip) |
+| HAM Hamburk | S-Bahn S1 na Hamburg Hbf | 4,10 € | 100 | 25 min | [hvv.de](https://www.hvv.de/en/tickets/single-day-tickets) |
+| GVA Ženeva | vlak na Genève-Cornavin | 3 CHF | 80 | 7 min | [gva.ch](https://www.gva.ch/en/passengers/access-and-transport/trains/train-access) |
+| TOS Tromsø | městský autobus 40 / 42 do centra | 50 NOK | 110 | 18 min | [svipper.no](https://svipper.no/meny/billetter-og-priser/busspriser/) |
+| RVN Rovaniemi | autobus Airport Express do centra a na nádraží | 8 € | 200 | 15 min | [airportbus.fi](https://www.airportbus.fi/pages/timetables-summer) |
 
 ⚠ = zvýrazněno (přes 350 Kč nebo přes 60 min). ² = sekundární zdroj. Čas je typická jízda bez čekání na spoj (u vlaku
 a metra podle jízdního řádu, u autobusu podle dopravce).
