@@ -142,9 +142,18 @@ test('autem: palivo tam i zpět, parkování podle nocí, známka – na osobu p
   assert.ok(prg.park === 590 + 120 * 8 && prg.fuel < 100 && prg.perPerson > 1550);
 });
 
-test('parkování u letiště online předem: základ + za den, proložené změřenými cenami (Praha, Vídeň 10/2026)', () => {
-  // auto přijíždějící 27. 10. 2026, ceny na 1, 3, 7 a 14 dní (booking.prg.aero / aeroparking.cz, Mazur online)
-  const measured = { PRG: [780, 850, 1450, 2280], VIE: [791, 1420, 2096, 2828] };
+test('parkování u letiště online předem: základ + za den, proložené ceníky ověřenými 10/2026', () => {
+  // Ceny online předem na 1, 3, 7 a 14 dní v Kč (24,4 Kč/€, 5,8 Kč/zł, 0,064 Kč/Ft) zjištěné 6. 10. 2026 pro auto
+  // přijíždějící 27. 10. (Praha, Vídeň) a 28. 10. 2026; zdroje u tabulky ACCESS v access.js a v README: Praha
+  // booking.prg.aero / aeroparking.cz, Vídeň Mazur, Brno ceník letiště 300 / 650 / 1 300 / 2 350 Kč, Ostrava P3–P6
+  // 130 Kč/den, Bratislava parkingairport.sk 35 / 41 / 50 / 90 €, Mnichov Economy 33,99 / 45,99 / 63,99 / 87,99 €,
+  // Drážďany P2 Flex Plus 27 / 37 / 57 / 92 €, Lipsko 30 / 50 / 90 / 115 €, Katovice P4 / P5 37 / 66 / 132 / 189 zł,
+  // Krakov KRK Parking 80 / 120 / 200 / 280 zł, Budapešť Relax Parking 5 831 / 9 150 / 13 200 / 16 725 Ft
+  const measured = {
+    PRG: [780, 850, 1450, 2280], VIE: [791, 1420, 2096, 2828], BRQ: [300, 650, 1300, 2350], OSR: [130, 390, 910, 1820],
+    BTS: [854, 1000, 1220, 2196], MUC: [829, 1122, 1561, 2147], DRS: [659, 903, 1391, 2245], LEJ: [732, 1220, 2196, 2806],
+    KTW: [215, 383, 766, 1096], KRK: [464, 696, 1160, 1624], BUD: [373, 586, 845, 1070],
+  };
   for (const [iata, prices] of Object.entries(measured)) {
     const g = car(PRAHA, iata, { adults: 1 });
     [1, 3, 7, 14].forEach((d, i) => {
@@ -152,14 +161,39 @@ test('parkování u letiště online předem: základ + za den, proložené změ
       // víkend až dva týdny do ±15 %, jeden den (krátké stání) do ±30 %
       assert.ok(Math.abs(model - real) <= real * (d === 1 ? 0.3 : 0.15), `${iata} ${d} dní: ${model} Kč, změřeno ${real} Kč`);
     });
-    // krátké stání je na den dražší než dlouhé
-    assert.ok(A.parkStay(g, 1) > A.parkStay(g, 14) / 14 * 3, iata);
+    // krátké stání není na den levnější než dlouhé (Ostrava stejně, jinde dráž)
+    assert.ok(A.parkStay(g, 1) >= A.parkStay(g, 14) / 14, iata);
   }
-  assert.deepEqual(['PRG', 'VIE', 'BER'].map((x) => { const g = car(PRAHA, x); return [g.parkBaseCzk, g.parkDayCzk]; }), [[590, 120], [850, 150], [850, 150]]);
-  // velká letiště dražší základ než regionální (Pardubice, Karlovy Vary, Budějovice, Brno, Bratislava, Linec, Drážďany)
-  const muc = car(PRAHA, 'MUC');
-  assert.ok(muc.parkBaseCzk >= 850 && muc.parkDayCzk >= 150);
-  for (const x of ['PED', 'KLV', 'JCL', 'BRQ', 'BTS', 'LNZ', 'DRS']) {
+  for (const x of ['PRG', 'VIE']) assert.ok(A.parkStay(car(PRAHA, x), 1) > A.parkStay(car(PRAHA, x), 14) / 14 * 3, x);
+  // Ceník po týdnech, jedna přímka přes 1–14 dní sedí špatně → proloženo 3–14 dní (typická cesta, do ±10 %), jeden den
+  // vyjde dráž: Linec C1 16,70 / 40 / 63 / 86 € (linz-airport.com, ceník od 1. 1. 2026), Salcburk P3 / P7 v sezóně
+  // 24. 10.–1. 11. 27 / 59 / 65 / 90 €, Norimberk P31 / P4 online 38 / 91 / 131 / 192 €, Berlín Economy online
+  // 34 / 64 / 80 / 109 €
+  const weekly = { LNZ: [407, 976, 1537, 2098], SZG: [659, 1440, 1586, 2196], NUE: [927, 2220, 3196, 4685], BER: [830, 1562, 1952, 2660] };
+  for (const [iata, prices] of Object.entries(weekly)) {
+    const g = car(PRAHA, iata, { adults: 1 });
+    [3, 7, 14].forEach((d, i) => assert.ok(Math.abs(A.parkStay(g, d) - prices[i + 1]) <= prices[i + 1] * 0.1, `${iata} ${d} dní: ${A.parkStay(g, d)} Kč`));
+    assert.ok(A.parkStay(g, 1) > prices[0], `${iata} 1 den vyjde dráž`);
+  }
+  // Karlovy Vary: P4 / P5 online 500 Kč za každý započatý týden (8 dní, airport-k-vary.cz) → přímka 280 + 50 Kč/den
+  // přes 3–14 dní: týden 680 Kč (skutečně 500), 9 dní 730 Kč (skutečně 1 000), 14 dní 980 Kč
+  const klv = car(PRAHA, 'KLV');
+  assert.deepEqual([A.parkStay(klv, 8), A.parkStay(klv, 9), A.parkStay(klv, 14)], [680, 730, 980]);
+  // Pardubice: P1 + P2 zdarma bez rezervace (airport-pardubice.cz) – parkování 0 a popis „zdarma“
+  const ped = car(PRAHA, 'PED', { adults: 2 });
+  assert.deepEqual([ped.parkBaseCzk, ped.parkDayCzk, A.parkCzk(ped, 7), A.carTrip(ped, 7).park], [0, 0, 0, 0]);
+  assert.equal(ped.breakdown.find((x) => x.k === 'park').label, 'parkování u letiště zdarma');
+  // Ostrava bez základu (130 Kč za každý den, online i na místě): popis jen se sazbou za den
+  assert.equal(car(PRAHA, 'OSR').breakdown.find((x) => x.k === 'park').label, 'parkování u letiště online předem (130 Kč za den)');
+  // proložení základ + Kč/den u ověřených letišť (ceníky výše a u tabulky ACCESS)
+  const verified = ['PRG', 'VIE', 'BRQ', 'OSR', 'PED', 'KLV', 'BTS', 'LNZ', 'SZG', 'MUC', 'NUE', 'BER', 'DRS', 'LEJ', 'KTW', 'KRK', 'BUD'];
+  assert.deepEqual(Object.fromEntries(verified.map((x) => { const g = car(PRAHA, x); return [x, [g.parkBaseCzk, g.parkDayCzk]]; })), {
+    PRG: [590, 120], VIE: [850, 150], BRQ: [170, 160], OSR: [0, 130], PED: [0, 0], KLV: [280, 50], BTS: [670, 100],
+    LNZ: [740, 100], SZG: [1170, 70], MUC: [790, 100], NUE: [1580, 220], BER: [1260, 100], DRS: [540, 120],
+    LEJ: [750, 160], KTW: [190, 70], KRK: [430, 90], BUD: [400, 50],
+  });
+  // neověřená regionální letiště zůstávají odhadem z dřívější denní sazby (Budějovice; Vratislav – web za ochranou proti botům)
+  for (const x of ['JCL', 'WRO']) {
     const g = car(PRAHA, x);
     assert.ok(g.parkBaseCzk > 0 && g.parkBaseCzk < 590 && g.parkDayCzk > 0, `${x}: ${g.parkBaseCzk} + ${g.parkDayCzk}`);
   }
@@ -329,7 +363,8 @@ test('auto: dřívější dotaz jen s carKmCzk (starší klient, uložené hled�
 
 test('prohlížeč: stejné parkování a cesta autem jako server, štítky letišť, starší uložený formulář', () => {
   for (const [g, nights] of [[car(PRAHA_GEO, 'VIE', { adults: 2 }), 7], [car(PRAHA_GEO, 'VIE', { adults: 3 }), 12], [car(PRAHA, 'LJU'), 8],
-    [car(PRAHA, 'PRG', { adults: 4 }), 0], [car(PRAHA, 'VIE', { oneWay: true, adults: 2 }), 5], [car(PRAHA, 'ZAG', { adults: 2 }), 9]]) {
+    [car(PRAHA, 'PRG', { adults: 4 }), 0], [car(PRAHA, 'VIE', { oneWay: true, adults: 2 }), 5], [car(PRAHA, 'ZAG', { adults: 2 }), 9],
+    [car(PRAHA, 'PED', { adults: 2 }), 7], [car(BRNO, 'OSR'), 3]]) {
     const x = plain(g);
     assert.equal(H.parkCzk(x, nights), A.parkCzk(g, nights));
     assert.deepEqual(plain(H.carTrip(x, nights)), plain(A.carTrip(g, nights)));
@@ -360,6 +395,13 @@ test('prohlížeč: stejné parkování a cesta autem jako server, štítky leti
   assert.match(H.accessLabel(old, { nights: 7 }).title, / \+ parkování ~300 Kč\/den × 8 dní = ~2[\s ]400 Kč/);
   assert.doesNotMatch(legacy.title, /Cena:/);
   assert.match(H.accessLabel(plain(car(PRAHA_GEO, 'VIE', { adults: 2 })), { nights: 2 }).text, /na 3 dny$/);
+  // Pardubice: parkování zdarma (P1 + P2 bez rezervace) – štítek i popisek bez „0 Kč/den“
+  const ped = H.accessLabel(plain(car(PRAHA, 'PED', { adults: 2 })), { nights: 7 });
+  assert.match(ped.text, /^~[\d\s ]+ Kč\/os\. tam i zpět, parkování zdarma$/);
+  assert.match(ped.title, / \+ parkování u letiště zdarma = ~[\d\s ]+ Kč za auto, na osobu \(2 os\.\)/);
+  assert.doesNotMatch(ped.title, /0 Kč\/den/);
+  // Ostrava bez základu: jen sazba za den
+  assert.match(H.accessLabel(plain(car(BRNO, 'OSR')), { nights: 7 }).title, / \+ parkování ~130 Kč\/den × 8 dní = ~1[\s ]040 Kč/);
   const drop = H.accessLabel(plain(car(PRAHA_GEO, 'VIE', { oneWay: true, carFuel: 'ev' })));
   assert.match(drop.text, /\(odvoz\)$/);
   assert.match(drop.title, /^Autem jen tam: .* – nabíjení \d+ km × 19 kWh\/100 km × 16 Kč\/kWh = [\d\s ]+ Kč, tam i zpět ~/);
@@ -511,7 +553,8 @@ test('resolveOrigins a přestupní letiště: doprava podle zvoleného způsobu'
   const klv = r.airports.find((a) => a.iata === 'KLV');
   assert.ok(klv.ground.czk >= 180 && klv.ground.czk <= 300, `KLV ${klv.ground.czk}`);
   const rc = resolveOrigins(['ap:PRG'], { radiusKm: 200, access: { mode: 'car', adults: 2, carKmCzk: 3 } });
-  assert.ok(rc.airports.every((a) => a.ground.mode === 'car' && a.ground.adults === 2 && a.ground.carKmCzk === 3 && a.ground.parkDayCzk > 0));
+  // parkování za den všude kromě Pardubic (P1 + P2 zdarma bez rezervace – airport-pardubice.cz, ověřeno 10/2026)
+  assert.ok(rc.airports.every((a) => a.ground.mode === 'car' && a.ground.adults === 2 && a.ground.carKmCzk === 3 && (a.iata === 'PED' || a.ground.parkDayCzk > 0)));
   const off = resolveOrigins(['ap:PRG'], { radiusKm: 200, access: { scale: 0 } });
   assert.ok(off.airports.every((a) => a.ground.czk === 0 && a.ground.off));
   // země bez výchozího místa: bez dopravy
@@ -574,7 +617,7 @@ test('hledání tam i zpět autem: palivo + parkování podle nocí v ceně, ná
     for (const t of rc.top) {
       assert.equal(t.back.to, t.out.from, 'autem zpět na letiště odletu');
       const pk = A.parkCzk(g(t.out.from), 4);
-      assert.equal(t.parkCzk, pk);
+      assert.equal(t.parkCzk ?? 0, pk, t.out.from); // Pardubice parkování zdarma → parkCzk chybí
       assert.equal(t.groundCzk, 2 * g(t.out.from).czk + pk);
       assert.equal(t.perPersonCzk, t.flightCzk + t.groundCzk);
     }
