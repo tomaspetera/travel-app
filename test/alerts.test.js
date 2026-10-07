@@ -109,6 +109,59 @@ test('applyCheck: historie max. 60 bodů, staré záznamy se 30 body fungují, n
   assert.equal(back.why, 'drop');
 });
 
+// Dotaz na server tak, jak ho ze formuláře skládá flights.js (payloadOf) – zkrácený tvar pro testy klíče.
+const payload = (f) => ({
+  from: f.from, to: f.to, radiusKm: f.radius ?? 200, dateFrom: f.dFrom, dateTo: f.dTo, trip: f.trip, nightsMin: f.nMin, nightsMax: f.nMax,
+  outDays: f.exact ? [] : f.outDays || [], backDays: f.exact ? [] : f.backDays || [], adults: f.adults ?? 2, maxPrice: f.maxPrice ? +f.maxPrice : null,
+  directOnly: Boolean(f.directOnly), kmRate: 1, groundMode: f.groundMode || 'transit', openJaw: true, exclude: f.exclude || [],
+  ...(f.exact ? { exactOut: f.exact[0], exactBack: f.trip === 'return' ? f.exact[1] : null, flexDays: 0 } : {}),
+});
+const FORM = { from: ['geo:50.08,14.43|Praha'], to: ['city:LOS'], dFrom: '2026-10-12', dTo: '2026-11-30', trip: 'return', nMin: 5, nMax: 9, exact: ['2026-10-28', '2026-11-11'] };
+
+test('searchKey: stejné hledání = stejný klíč (pořadí míst a klíčů, prázdné hodnoty, pole mimo hledání nevadí)', () => {
+  const k = A.searchKey(payload(FORM));
+  assert.equal(A.searchKey(payload({ ...FORM })), k);
+  const shuffled = Object.fromEntries(Object.entries(payload(FORM)).reverse());
+  assert.equal(A.searchKey(shuffled), k, 'pořadí klíčů');
+  assert.equal(A.searchKey({ ...payload(FORM), maxPrice: undefined, exclude: [] }), k, 'prázdné hodnoty');
+  assert.equal(A.searchKey(payload({ ...FORM, dFrom: '2026-10-20', nMin: 2 })), k, 'u přesných dat rozsah a noci flexibilního termínu hledání nemění');
+  const two = (from) => A.searchKey(payload({ ...FORM, from }));
+  assert.equal(two(['ap:PRG', 'ap:BRQ']), two(['ap:BRQ', 'ap:PRG']), 'Praha + Brno = Brno + Praha');
+  // jiné hledání = jiný klíč
+  for (const f of [{ exact: ['2026-10-29', '2026-11-11'] }, { to: ['city:ACC'] }, { adults: 3 }, { groundMode: 'car' }, { directOnly: true }, { trip: 'oneway' }]) {
+    assert.notEqual(A.searchKey(payload({ ...FORM, ...f })), k, JSON.stringify(f));
+  }
+  // jen tam: návrat ani noci nerozhodují
+  const ow = (x) => A.searchKey(payload({ ...FORM, trip: 'oneway', ...x }));
+  assert.equal(ow({ nMin: 1 }), ow({ nMin: 7 }));
+  // cesta přes víc měst: lety v pořadí (tam a zpět prohozené je jiná cesta)
+  const legs = [{ from: ['ap:PRG'], to: ['ap:FCO'], date: '2026-11-01', flexDays: 0 }, { from: ['ap:NAP'], to: ['ap:PRG'], date: '2026-11-08', flexDays: 0 }];
+  assert.notEqual(A.searchKey({ trip: 'multi', legs }), A.searchKey({ trip: 'multi', legs: [...legs].reverse() }));
+  assert.equal(A.searchKey({ trip: 'multi', legs }), A.searchKey({ legs: plain(legs), trip: 'multi' }));
+});
+
+test('upsertWatch: stejné hledání podruhé (♡ z „Je to dobrá cena?“ a pak pod formulářem) se nepřidá, jen se aktualizuje', () => {
+  const keyOf = (w) => A.searchKey(payload(w.form));
+  const watch = (id, form, czk, at) => ({ id, label: 'Praha → Lagos', sub: 'tam 28.10. · zpět 11.11.', form, best: { czk }, history: [{ at, czk }], checked: at, base: czk, low: czk, seen: czk, target: null });
+  const other = watch('o', { ...FORM, to: ['city:ACC'] }, 9000, NOW - 9 * H);
+  const r1 = A.upsertWatch([other], watch('a', FORM, 12556, NOW - 2 * H), keyOf, { now: NOW - 2 * H });
+  assert.equal(r1.dup, false);
+  assert.deepEqual(plain(r1.list.map((w) => w.id)), ['a', 'o']);
+  const first = { ...r1.list[0], target: 12000 };
+  const r2 = A.upsertWatch([first, other], watch('b', { ...FORM }, 12400, NOW), keyOf, { now: NOW });
+  assert.equal(r2.dup, true);
+  assert.deepEqual(plain(r2.list.map((w) => w.id)), ['a', 'o'], 'jen jednou, s původním id');
+  assert.equal(r2.w, r2.list[0]);
+  assert.deepEqual([r2.w.best.czk, r2.w.history.length, r2.w.checked, r2.w.target, r2.w.base], [12400, 2, NOW, 12000, 12556], 'nová cena do historie, cíl a výchozí cena zůstanou');
+  assert.equal(first.history.length, 1, 'vstup se nemění');
+  // starší položka níž v seznamu se posune nahoru; limit 12 položek platí dál
+  const many = Array.from({ length: 12 }, (_, i) => watch(`w${i}`, { ...FORM, adults: i + 1 }, 1000 + i, NOW - H));
+  const r3 = A.upsertWatch(many, watch('x', { ...FORM, adults: 5 }, 999, NOW), keyOf, { now: NOW });
+  assert.deepEqual([r3.dup, r3.list.length, r3.list[0].id, r3.list.filter((w) => w.id === 'w4').length], [true, 12, 'w4', 1]);
+  const r4 = A.upsertWatch(many, watch('y', { ...FORM, adults: 13 }, 999, NOW), keyOf, { now: NOW });
+  assert.deepEqual([r4.dup, r4.list.length, r4.list[0].id, r4.list.at(-1).id], [false, 12, 'y', 'w10']);
+});
+
 test('isDropped / droppedCount: zlevnění od poslední návštěvy přehledu', () => {
   const list = [{ best: { czk: 1800 }, seen: 2000 }, { best: { czk: 2000 }, seen: 2000 }, { best: { czk: 2200 }, seen: 2000 }, { best: { czk: 900 } }, {}, { best: { czk: 1990 }, seen: 2000 }];
   assert.equal(A.isDropped(list[0]), true);

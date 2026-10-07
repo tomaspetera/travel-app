@@ -102,13 +102,13 @@ test('průvodce: vlak/bus + víc míst – přejezd z posledního místa zpět k
   assert.ok(fly.includes('Salcburk → letiště VIE · 304 km · ~3 h 20 min autem (odhad)'));
 });
 
-test('průvodce: přímý vlak z tabulky jízdních řádů (fast) – u času vlakem „(jízdní řád)“ místo „(odhad)“, jinak beze změny', () => {
+test('průvodce: přímý vlak z tabulky jízdních řádů (fast) – „vlakem (jízdní řád)“ místo „vlakem / busem (odhad)“, jinak beze změny', () => {
   const c = load();
   const t = trip({ overland: null, step: 'route' });
   t.route.transport = 'transit';
   const x = t.route.transfers[0];
   assert.equal(x.fast, true, 'Vídeň → Salcburk je v tabulce přímých vlaků');
-  const time = `~${hm(x.transitMin)} vlakem / busem`;
+  const time = `~${hm(x.transitMin)} vlakem`;
   // krok Trasa
   render(c, t);
   const list = sp(c.__els['#rtList'].innerHTML);
@@ -121,18 +121,19 @@ test('průvodce: přímý vlak z tabulky jízdních řádů (fast) – u času v
   const s = render(c, { ...t, step: 'summary' });
   assert.ok(s.includes(`Přejezd Vídeň → Salcburk · ${time} (jízdní řád)`), s.slice(s.indexOf('Přejezd'), s.indexOf('Přejezd') + 200));
   const cal = plain(c.window.Trip.calendarEvents({ ...t, step: 'summary' })).find((e) => /Přejezd/.test(e.title));
-  assert.match(cal.description, /vlakem \/ busem \(jízdní řád\)/);
+  assert.match(cal.description, /~\d.* vlakem \(jízdní řád\)/);
+  assert.ok(!cal.description.includes('vlakem / busem'), cal.description);
   vm.runInContext("var byIso = { AT: { cs: 'Rakousko' } }; var PACK = ['Pas']; S.trips = [];", c);
   c.__els['#sumSave'].onclick();
   assert.ok(c.S.trips[0].notes.split('\n').includes(`Přejezd Vídeň → Salcburk: ${time} (jízdní řád)`), c.S.trips[0].notes);
   // odhad (bez fast) a autem beze změny
   delete x.fast;
   render(c, t);
-  assert.ok(sp(c.__els['#rtList'].innerHTML).includes(`<b>${time}</b> <span class="faint">(odhad; autem ~${hm(x.carMin)})</span>`));
+  assert.ok(sp(c.__els['#rtList'].innerHTML).includes(`<b>~${hm(x.transitMin)} vlakem / busem</b> <span class="faint">(odhad; autem ~${hm(x.carMin)})</span>`));
   assert.ok(!render(c, { ...t, step: 'car' }).includes('jízdního řádu'));
   x.fast = true;
   render(c, { ...t, route: { ...t.route, transport: 'car' } });
-  assert.ok(sp(c.__els['#rtList'].innerHTML).includes(`<b>${x.km} km · ~${hm(x.carMin)} autem</b> <span class="faint">(odhad; 🚆 vlakem / busem ~${hm(x.transitMin)})</span>`), 'autem je čas dál odhad');
+  assert.ok(sp(c.__els['#rtList'].innerHTML).includes(`<b>${x.km} km · ~${hm(x.carMin)} autem</b> <span class="faint">(odhad; 🚆 vlakem ~${hm(x.transitMin)})</span>`), 'autem je čas dál odhad');
 });
 
 test('průvodce: zpět k letu s jiným termínem – poslední hlášení řekne, že vybraný hotel je pryč', () => {

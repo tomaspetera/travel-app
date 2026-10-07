@@ -91,7 +91,7 @@ test('stays/cars: validace dotazu a odkazy s předvyplněnými daty', () => {
   assert.equal(r.query.days, 5);
   assert.match(r.query.pickupName, /Bergamo/);
   const kayak = r.links.find((l) => l.id === 'kayak').url;
-  assert.ok(kayak.includes(`/cars/BGY/MXP/${d1}-8h/${d5}-19h`), kayak);
+  assert.equal(kayak, `https://www.cz.kayak.com/cars/BGY/MXP/${d1}-8h/${d5}-19h?sort=price_a`, 'česká verze Kayaku v Kč');
 });
 
 test('planItinerary: nejvýš 3 kostely za den', () => {
@@ -223,8 +223,9 @@ test('stayLinks: víc partnerů – co je předvyplněné (místo, termín, host
   const hc = new URL(by.hotelscom.url);
   assert.equal(hc.origin + hc.pathname, 'https://www.hotels.com/Hotel-Search');
   assert.deepEqual(['destination', 'startDate', 'endDate', 'adults', 'rooms'].map((k) => hc.searchParams.get(k)), ['Kutná Hora, Czechia', q.checkin, q.checkout, '3', '2']);
-  // Kayak: „Město-Země“ (samotné jméno pošle Lagos do Portugalska, „Město, Země“ s čárkou na úvodní stránku)
-  assert.equal(by.kayak.url, `https://www.kayak.com/hotels/Kutn%C3%A1-Hora-Czech-Republic/${q.checkin}/${q.checkout}/3adults`);
+  // Kayak: „Město-Země“ (samotné jméno pošle Lagos do Portugalska, „Město, Země“ s čárkou na úvodní stránku), česká
+  // verze webu (cz.kayak.com – česky a v Kč, ověřeno 10/2026)
+  assert.equal(by.kayak.url, `https://www.cz.kayak.com/hotels/Kutn%C3%A1-Hora-Czech-Republic/${q.checkin}/${q.checkout}/3adults`);
   const gh = new URL(by.google.url);
   assert.equal(gh.searchParams.get('q'), 'hotels Kutná Hora, Czechia');
   assert.equal(gh.searchParams.get('ts'), googleHotelsTs(q.checkin, q.checkout, 3));
@@ -241,14 +242,17 @@ test('stayLinks: víc partnerů – co je předvyplněné (místo, termín, host
   assert.equal(withId.agoda.url, `https://www.agoda.com/search?city=67491&checkIn=${q.checkin}&checkOut=${q.checkout}&los=3&rooms=2&adults=3&children=0`);
   assert.equal(withId.hostelworld.url, `https://www.hostelworld.com/pwa/s?type=city&id=10508&from=${q.checkin}&to=${q.checkout}&guests=3`);
   assert.deepEqual(ids.filter((l) => !['trip', 'agoda', 'hostelworld'].includes(l.id)), links.filter((l) => !['trip', 'agoda', 'hostelworld'].includes(l.id)), 'ostatní beze změny');
-  // Hostelworld místo nemá (404) → stránka země; neplatné ID → odkaz bez něj
-  const country = stayLinks(q, { hostelworld: false }).find((l) => l.id === 'hostelworld');
-  assert.deepEqual([country.url, country.prefill, country.note], ['https://www.hostelworld.com/hostels/europe/czechia/', 'none', 'hostely v zemi – vyber místo a data']);
+  // Hostelworld v místě hostely nemá (404 nebo „0 Hostels“) → stránka země, poctivá poznámka a až na konec seznamu;
+  // neplatné ID → odkaz bez něj
+  const none = stayLinks(q, { hostelworld: false });
+  const country = none.at(-1);
+  assert.deepEqual([country.id, country.url, country.prefill, country.note], ['hostelworld', 'https://www.hostelworld.com/hostels/europe/czechia/', 'none', 'v místě hostely nemá – zkus jinde v zemi']);
+  assert.deepEqual(none.slice(0, -1), links.filter((l) => l.id !== 'hostelworld'), 'ostatní beze změny a ve stejném pořadí');
   assert.deepEqual(stayLinks(q, { trip: '38742', agoda: -1, hostelworld: true }).map((l) => l.url), links.map((l) => l.url));
   // Benin, Afrika; neznámá země → Hostelworld jen úvodní stránka
   const bj = stayLinks({ city: 'Porto Novo', cityEn: 'Porto-Novo', cc: 'BJ', checkin: '2026-11-10', checkout: '2026-11-13', adults: 2, rooms: 1 });
   assert.equal(bj.find((l) => l.id === 'hostelworld').url, 'https://www.hostelworld.com/hostels/africa/benin/porto-novo/');
-  assert.equal(bj.find((l) => l.id === 'kayak').url, 'https://www.kayak.com/hotels/Porto-Novo-Benin/2026-11-10/2026-11-13/2adults');
+  assert.equal(bj.find((l) => l.id === 'kayak').url, 'https://www.cz.kayak.com/hotels/Porto-Novo-Benin/2026-11-10/2026-11-13/2adults');
   const nowhere = stayLinks({ city: 'Nikde', cc: '', checkin: '2026-11-10', checkout: '2026-11-13', adults: 2, rooms: 1 }).find((l) => l.id === 'hostelworld');
   assert.deepEqual([nowhere.url, nowhere.prefill, nowhere.note], ['https://www.hostelworld.com/', 'none', 'hostely a levná lůžka – zadej místo a data']);
   // partnerský odkaz jen u značky, kterou má aplikace nastavenou (Booking.com) – ostatní vždy přímo

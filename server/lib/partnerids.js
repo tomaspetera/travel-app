@@ -1,9 +1,9 @@
 // ID místa u partnerů ubytování (Trip.com, Agoda, Hostelworld): s ním odkaz z links.js rovnou ukáže nabídky
 // na termín a počet hostů – bez něj Trip.com termín jen vyplní do formuláře, Agoda otevře úvodní stránku
-// a Hostelworld stránku města bez dat (ověřeno 6. 10. 2026 ve skutečném Chromu). Na každé místo nejvýš jeden
-// dotaz u každého partnera (bez opakování, timeout 4 s), výsledek v mezipaměti 30 dní, chyba nebo nečekaná
-// odpověď 1 h. Když partner web změní, ID se nenajde a odkaz zůstane ve tvaru bez ID. DEMO (ATLAS_MOCK=1)
-// a PARTNER_LOOKUP=0 = bez dotazů.
+// a Hostelworld stránku města bez dat, místo bez hostelů jeho stránku země (ověřeno 6. a 7. 10. 2026 ve skutečném
+// Chromu). Na každé místo nejvýš jeden dotaz u každého partnera (bez opakování, timeout 4 s), výsledek v mezipaměti
+// 30 dní, chyba nebo nečekaná odpověď 1 h. Když partner web změní, ID se nenajde a odkaz zůstane ve tvaru bez ID.
+// DEMO (ATLAS_MOCK=1) a PARTNER_LOOKUP=0 = bez dotazů.
 import { cache } from './cache.js';
 import { request } from './http.js';
 import { haversineKm } from './geo.js';
@@ -92,15 +92,27 @@ function hostelworldId(html) {
 }
 
 /**
- * Hostelworld: stránka města (jedno GET místo dřívějšího HEAD; přesměrování na jiný název země projde). Stránku mají
- * jen města s hostely (menší místa 404) a ne každá má odkaz s ID (Mikulov ne).
- * → ID | true (stránka bez ID) | false (404 – místo nemá) | null (nevíme – chyba, ochrana proti robotům)
+ * Počet hostelů ze záhlaví stránky města („0 Hostels in Lagos, Nigeria“, „61 Hostels in Prague, Czech Republic“ –
+ * vykreslené na serveru, ověřeno 7. 10. 2026 na 12 stránkách); null = záhlaví s počtem na stránce není.
+ */
+function hostelworldCount(html) {
+  const m = String(html).match(/>\s*(\d[\d,]*)\s+Hostels?\s+in\s/);
+  return m ? Number(m[1].replace(/,/g, '')) : null;
+}
+
+/**
+ * Hostelworld: stránka města (jedno GET místo dřívějšího HEAD; přesměrování na jiný název země projde). Menší místa
+ * stránku nemají (404) a některá ji mají prázdnou – „0 Hostels in Lagos“ bez odkazu s ID a bez termínu (Lagos,
+ * Porto-Novo, Abeokuta, Mikulov, Telč 10/2026): místo hostely nemá stejně jako u 404. Města s hostely odkaz s ID mají.
+ * → ID | true (stránka bez ID, počet neznámý) | false (404 nebo 0 hostelů – místo nemá) | null (nevíme – chyba,
+ * ochrana proti robotům)
  */
 export function hostelworldCity(url, { get = request, timeoutMs = TIMEOUT_MS } = {}) {
   if (!/^https:\/\/www\.hostelworld\.com\/hostels\/[\w-]+\/[\w-]+\/[\w-]+\/$/.test(url || '')) return Promise.resolve(null);
   return cache.wrap(`hw-city:${url}`, ttl, async () => {
     try {
-      return hostelworldId(await get(url, { as: 'text', headers: HTML, timeoutMs, retries: 0 })) ?? true;
+      const html = await get(url, { as: 'text', headers: HTML, timeoutMs, retries: 0 });
+      return hostelworldId(html) ?? (hostelworldCount(html) === 0 ? false : true);
     } catch (e) {
       return e.status === 404 ? false : null;
     }

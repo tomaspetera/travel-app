@@ -26,10 +26,11 @@ import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV
 // Letiště do ~450 km od Česka: [šířka, délka středu města, které obsluhuje, město, jízdné město → letiště (Kč/os.),
 // minuty, čím, parkování za auto [základ Kč, Kč za každý den]]. Parkování = nejlevnější oficiální dlouhodobé parkoviště
 // s rezervací online předem (nebo smluvní s kyvadlovou dopravou, když je zjevně levnější): celkem základ + den × počet
-// dní – krátké stání bývá dražší na den než dlouhé; [0, 0] = zdarma. Ověřeno 10/2026: ceny zjištěné 6. 10. 2026 pro auto
-// přijíždějící 27. 10. (Praha, Vídeň) a 28. 10. 2026 (ostatní; 24,4 Kč/€, 5,8 Kč/zł, 0,064 Kč/Ft) na 1 / 3 / 7 / 14 dní
-// proložené nejmenšími čtverci; * = ceník po týdnech, jedna přímka přes 1–14 dní sedí špatně → proloženo jen 3–14 dní
-// (typická cesta), jeden den pak vyjde dráž. V závorce pro srovnání většinou cena na místě bez rezervace (bývá dráž):
+// dní – krátké stání bývá dražší na den než dlouhé; [0, 0] = zdarma. Ověřeno 10/2026: ceny zjištěné 6. 10. 2026 (Vratislav
+// 7. 10.) pro auto přijíždějící 27. 10. (Praha, Vídeň) a 28. 10. 2026 (ostatní; 24,4 Kč/€, 5,8 Kč/zł, 0,064 Kč/Ft) na
+// 1 / 3 / 7 / 14 dní proložené nejmenšími čtverci; * = ceník po týdnech (nebo silně degresivní – Vratislav), jedna přímka
+// přes 1–14 dní sedí špatně → proloženo jen 3–14 dní (typická cesta), jeden den pak vyjde dráž. V závorce pro srovnání
+// většinou cena na místě bez rezervace (bývá dráž):
 //   PRG booking.prg.aero, aeroparking.cz 780 / 850 / 1 450 / 2 280 Kč → 590 + 120 (před T3 1 000 / 1 700 / 2 500 / 3 900)
 //   VIE Mazur s kyvadlovou dopravou 791 / 1 420 / 2 096 / 2 828 Kč → 850 + 150 (Parkplatz C online 827 / … / 4 071)
 //   BRQ ceník letiště od 1. 1. 2025 (online voucher stejně) 300 / 650 / 1 300 / 2 350 Kč → 170 + 160
@@ -48,10 +49,13 @@ import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV
 //   LEJ nejlevnější online (P6, P2, Parkhaus) 30 / 50 / 90 / 115 € → 750 + 160 (P2 60 / 75 / 95 / 130 €)
 //   KTW P4 / P5 online (−5 %) 37 / 66 / 132 / 189 zł → 190 + 70 (39 / 69 / 139 / 199 zł)
 //   KRK KRK Parking (350 m od terminálu) online 80 / 120 / 200 / 280 zł → 430 + 90 (P2 / P3 160 / 200 / 280 / 420 zł)
+//   WRO Parking D dlouhodobý online (rezerwacja.airport.wroclaw.pl, ověřeno 10/2026) 79 / 139 / 199 / 269 zł → 630 + 70*
+//       (první den 79 zł, 7–9 dní stejně 199 zł; celý online ceník 3–16 dní sedí do ±11 %; bez rezervace 99 / 189 / 319 /
+//       389 zł)
 //   BUD Relax Parking (bus k terminálu) online 5 831 / 9 150 / 13 200 / 16 725 Ft → 400 + 50 (7 800 / … / 32 400 Ft)
 // Ostatní letiště jsou odhad z dřívější denní sazby p (týden ≈ 8 × p): velká (p ≥ 250 Kč) jako Praha a Vídeň – základ
-// ≈ 2,9 × p + ≈ 0,55 × p za den, menší a regionální (p ≤ 220 Kč) nižší základ ≈ 1,5 × p + ≈ 0,8 × p za den (Vratislav
-// neověřena – web letiště je za ochranou proti botům). Zdroje viz README → „Doprava na letiště“.
+// ≈ 2,9 × p + ≈ 0,55 × p za den, menší a regionální (p ≤ 220 Kč) nižší základ ≈ 1,5 × p + ≈ 0,8 × p za den. Zdroje viz
+// README → „Doprava na letiště“.
 // Memmingen obsluhuje Mnichov (letištní bus), Modlin Varšavu. Ostatní letiště: výchozí hodnoty podle velikosti.
 export const ACCESS = {
   PRG: [50.0755, 14.4378, 'Praha', 46, 45, 'MHD – bus 59 + metro A (PID 90 min; Airport Express 200 Kč)', [590, 120]], // ověřeno 10/2026
@@ -74,7 +78,7 @@ export const ACCESS = {
   FRA: [50.1109, 8.6821, 'Frankfurt nad Mohanem', 155, 20, 'S-Bahn S8 / S9 z centra (RMV ~6,20 €)', [1450, 280]],
   KTW: [50.2649, 19.0238, 'Katovice', 150, 50, 'letištní bus do Pyrzowic (~25 zł)', [190, 70]], // ověřeno 10/2026
   KRK: [50.0647, 19.9450, 'Krakov', 80, 30, 'vlak z Kraków Główny (~14 zł)', [430, 90]], // ověřeno 10/2026
-  WRO: [51.1079, 17.0385, 'Vratislav', 30, 35, 'MHD bus 106 (~4,60 zł)', [230, 120]],
+  WRO: [51.1079, 17.0385, 'Vratislav', 30, 35, 'MHD bus 106 (~4,60 zł)', [630, 70]], // ověřeno 10/2026
   POZ: [52.4064, 16.9252, 'Poznaň', 30, 30, 'MHD bus 159 (~5 zł)', [230, 120]],
   WAW: [52.2297, 21.0122, 'Varšava', 30, 30, 'vlak / bus 175 (ZTM ~4,40 zł)', [300, 160]],
   WMI: [52.2297, 21.0122, 'Varšava', 120, 60, 'vlak KM + bus do Modlinu (~20 zł)', [180, 100]],
