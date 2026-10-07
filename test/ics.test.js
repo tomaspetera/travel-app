@@ -177,7 +177,7 @@ test('PlanShare: odkaz na plán – tam a zpět beze ztráty (čeština, emoji, 
   assert.deepEqual(JSON.parse(JSON.stringify(p.days)), trip.days);
   assert.equal(p.legs[0].toTz, 'Europe/Lisbon');
   assert.equal(p.legs[0].dep, '2026-07-01T06:30');
-  assert.deepEqual(JSON.parse(JSON.stringify(p.checklist)), [{ t: 'Pas / OP', done: false }, { t: 'Opalovací krém', done: false }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(p.checklist)), [{ t: 'Pas / OP', done: true }, { t: 'Opalovací krém', done: false }], 'i s odškrtnutím');
   assert.equal(p.notes, trip.notes);
   assert.equal(PlanShare.fromHash('#planner'), null);
   assert.equal(PlanShare.fromHash('#trip=abc'), null);
@@ -218,7 +218,7 @@ test('PlanShare: škodlivý odkaz – texty bez HTML/JS, data ověřená, pole o
   assert.equal(p.polluted, undefined);
   assert.equal({}.polluted, undefined);
   assert.equal(p.checklist.length, 80);
-  assert.ok(p.checklist.every((x) => x.done === false && !/[<>]/.test(x.t)));
+  assert.ok(p.checklist.every((x) => typeof x.done === 'boolean' && !/[<>]/.test(x.t)));
   assert.equal(p.legs.length, 3, 'nejvýš 4 lety, neplatné vyřazené');
   assert.deepEqual([p.legs[0].from, p.legs[0].dep, p.legs[0].fromTz, p.legs[0].toTz], ['PRG', null, null, null]);
   assert.deepEqual(Object.keys(p).sort(), ['budget', 'checklist', 'days', 'dest', 'end', 'flight', 'iso', 'legs', 'name', 'notes', 'pax', 'start']);
@@ -233,6 +233,41 @@ test('PlanShare: škodlivý odkaz – texty bez HTML/JS, data ověřená, pole o
     assert.throws(() => PlanShare.decode(bad), undefined, `má selhat: ${bad.slice(0, 30)}`);
   }
   assert.throws(() => PlanShare.fromHash('#plan=<script>'));
+});
+
+test('PlanShare: odškrtnutí „Sbaleno“ – maska v odkazu tam a zpět, starší odkaz bez ní, podvržená maska nic neodškrtne', () => {
+  const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const raw = (payload) => JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  const plain = (x) => JSON.parse(JSON.stringify(x));
+  const list = Array.from({ length: 80 }, (_, i) => ({ t: `Věc ${i + 1}`, done: i % 3 === 0 || i === 79 }));
+  const trip = { name: 'Sbaleno', dest: 'Lisabon', start: '2026-07-01', end: '2026-07-05', checklist: list };
+  const payload = PlanShare.encode(trip);
+  const r = raw(payload);
+  // formát: verze 1 jako dosud, texty jako dosud, odškrtnutí ve volitelném poli done (4 položky na znak)
+  assert.equal(r.v, 1);
+  assert.deepEqual(r.checklist, list.map((x) => x.t));
+  assert.equal(r.done, '9249249249249249249' + '3');
+  assert.deepEqual(plain(PlanShare.decode(payload).checklist), list);
+  // malá režie: 80 položek = 20 znaků masky, odkaz delší jen o pár desítek znaků
+  const none = PlanShare.encode({ ...trip, checklist: list.map((x) => ({ ...x, done: false })) });
+  assert.equal(raw(none).done, undefined, 'nic odškrtnuté = bez pole');
+  assert.ok(payload.length - none.length <= 40, `+${payload.length - none.length} znaků`);
+  // koncové neodškrtnuté položky masku neprodlužují
+  assert.equal(raw(PlanShare.encode({ ...trip, checklist: [{ t: 'a', done: true }, ...Array.from({ length: 30 }, (_, i) => ({ t: `b${i}`, done: false }))] })).done, '8');
+  // starší odkaz (bez masky): texty bez odškrtnutí, nic se nerozbije
+  const old = enc({ v: 1, name: 'Starý plán', start: '2026-07-01', end: '2026-07-03', checklist: ['Pas / OP', 'Opalovací krém'], notes: '' });
+  assert.deepEqual(plain(PlanShare.decode(old).checklist), [{ t: 'Pas / OP', done: false }, { t: 'Opalovací krém', done: false }]);
+  assert.equal(PlanShare.decode(old).name, 'Starý plán');
+  // podvržená nebo poškozená maska → nic odškrtnuté, žádná výjimka ani pole navíc
+  for (const done of ['zz', 'F', 'f'.repeat(21), '<script>', '', 7, true, ['f'], { 0: 'f' }, null]) {
+    const p = PlanShare.decode(enc({ v: 1, checklist: ['a', 'b', 'c'], done }));
+    assert.ok(p.checklist.every((x) => x.done === false), JSON.stringify(done));
+    assert.equal(p.done, undefined);
+  }
+  // položka jako objekt: odškrtnutá jen s done === true
+  assert.deepEqual(plain(PlanShare.decode(enc({ v: 1, checklist: [{ t: 'a', done: 'true' }, { t: 'b', done: 1 }, { t: 'c', done: true }] })).checklist).map((x) => x.done), [false, false, true]);
+  // maska patří k pořadí v odkazu – vyřazená (prázdná) položka neposune odškrtnutí ostatních
+  assert.deepEqual(plain(PlanShare.decode(enc({ v: 1, checklist: ['a', '<>', 'c', 'd'], done: '3' })).checklist), [{ t: 'a', done: false }, { t: 'c', done: true }, { t: 'd', done: true }]);
 });
 
 test('Plánovač: dny cesty přes změnu času – žádný den dvakrát ani chybějící (export po dnech)', () => {

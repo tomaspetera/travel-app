@@ -1558,6 +1558,8 @@
   function share() {
     const t = T();
     const slim = { ...t, booked: {}, created: undefined };
+    // „Co zařídit a co sbalit“: aktivity, vlastní položky i odškrtnutí (ta jsou jinak jen v localStorage tohoto prohlížeče)
+    if (window.PreTrip) slim.pretrip = PreTrip.shareState(t);
     if (t.route) {
       // Program míst jen s tím, co vykreslí plánovač a shrnutí (bez popisů, fotek a „dalších míst“) – kratší odkaz.
       const item = x => ({ id: x.id, name: x.name, lat: x.lat, lon: x.lon, category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, transit: x.transit, note: x.note });
@@ -1609,6 +1611,9 @@
     const pl = t.flight.priceLevel;
     if (pl != null && !(okObj(pl) && ['low', 'normal', 'high'].includes(pl.level) && typeof pl.reason === 'string' && okFin(pl.ref, 0, 1e7) && okFin(pl.vsRef, -100, 1e5) && (pl.pos == null || okFin(pl.pos, 0, 100)))) delete t.flight.priceLevel;
     t.ccs = Array.isArray(t.ccs) ? [...new Set(t.ccs.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x)))].slice(0, 8) : undefined;
+    // „Co zařídit a co sbalit“: jen známé aktivity, pročištěné vlastní položky a id odškrtnutí ve známém tvaru (pretrip.js)
+    const pt = window.PreTrip ? PreTrip.sanitize(t.pretrip) : undefined;
+    if (pt) t.pretrip = pt; else delete t.pretrip;
     return t;
   }
 
@@ -1755,6 +1760,8 @@
         return false;
       }
       S.trip = { ...t, booked: {}, step: 'summary', created: Date.now() };
+      // odškrtnutí z odkazu k nové cestě do localStorage (odškrtnutí ostatních cest zůstanou)
+      if (window.PreTrip) PreTrip.adopt(S.trip);
       persist();
       history.replaceState(null, '', '#trip');
       toast('Načetl jsem sdílenou cestu');
