@@ -418,3 +418,28 @@ test('multiPlan: nejlevnější celá cesta přes víc měst podle výběru, cen
   assert.match(H.multiWhy({ why: 'unknown', needMin: 1440 }, 'next'), /^tenhle let má přestup a neznámý přílet \(z cache\) – další let nejdřív 24 h/);
   assert.equal(H.multiWhy(null), '');
 });
+
+test('radarQuery: Kdykoliv jako dřív, Víkendy jen odlet Pá/So a návrat Ne/Po (1–3 noci); po kliknutí na kartu stejné podmínky', () => {
+  const home = { from: [{ id: 'ap:BRQ', label: 'Brno' }, { id: 'ap:VIE', label: 'Vídeň' }], radius: 150 };
+  const all = plain(H.radarQuery('all', home, '2026-10-07'));
+  assert.equal(all.mode, 'all');
+  // stejné hledání jako radar před přepínačem (i pořadí polí – klíč uloženého výsledku)
+  assert.equal(JSON.stringify(all.payload), JSON.stringify({ from: ['ap:BRQ', 'ap:VIE'], radiusKm: 150, to: [], dateFrom: '2026-10-10', dateTo: '2026-11-21', trip: 'return', nightsMin: 2, nightsMax: 7, adults: 1, kmRate: 1, groundMode: 'transit', arrival: true }));
+  assert.deepEqual(all.form, { radius: 150, dFrom: '2026-10-10', dTo: '2026-11-21', nMin: 2, nMax: 7, outDays: [], backDays: [], len: 'custom', adults: 1 });
+  assert.equal(all.sub, '· Brno, Vídeň +150 km · zpáteční 2–7 nocí · příštích 6 týdnů');
+
+  const wk = plain(H.radarQuery('weekend', home, '2026-10-07'));
+  assert.equal(wk.mode, 'weekend');
+  assert.deepEqual(wk.payload, { ...all.payload, nightsMin: 1, nightsMax: 3, outDays: [5, 6], backDays: [0, 1] });
+  assert.deepEqual(wk.form, { ...all.form, nMin: 1, nMax: 3, outDays: [5, 6], backDays: [0, 1] });
+  assert.equal(wk.sub, '· Brno, Vídeň +150 km · víkendy: odlet Pá/So, návrat Ne/Po · příštích 6 týdnů');
+  assert.match(wk.empty, /víkendy/);
+  // každý den odletu má v rozsahu nocí návrat v neděli nebo v pondělí a naopak – a jiný návrat rozsah nepřipustí
+  const nights = [1, 2, 3];
+  for (const d of [5, 6]) assert.ok(nights.some((n) => [0, 1].includes((d + n) % 7)), `odlet ${d}`);
+  for (const b of [0, 1]) assert.ok(nights.some((n) => [5, 6].includes((b - n + 7) % 7)), `návrat ${b}`);
+
+  // neznámý režim → Kdykoliv, domov bez okruhu → 200 km
+  assert.equal(H.radarQuery('xyz', home, '2026-10-07').mode, 'all');
+  assert.equal(H.radarQuery(undefined, { from: [{ id: 'ap:PRG', label: 'Praha' }] }, '2026-10-07').payload.radiusKm, 200);
+});

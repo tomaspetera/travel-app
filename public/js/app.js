@@ -27,7 +27,7 @@ let TOT = 197; const CONT_TOT = {};
 const LS = 'atlas_v1';
 let S = load();
 function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return Object.assign(defState(), d); } catch (e) { } return defState(); }
-function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, radar: null }; }
+function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, radar: null, radarMode: 'all' }; }
 function save() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { } }
 let curIso = null;
 const visited = new Set(S.visited);
