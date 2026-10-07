@@ -80,7 +80,9 @@ a{color:inherit}
 .main{min-width:0;display:flex;flex-direction:column}
 .topbar{
   position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;padding:16px 26px;
-  background:linear-gradient(180deg,var(--bg) 35%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  /* pod textem plné pozadí – čitelné i tam, kde se rozmazání nevykreslí (WebKit pro Windows, starší prohlížeče);
+     do průhledna přechází jen spodní okraj bez textu (14 px ≤ padding) */
+  background:linear-gradient(180deg,var(--bg) calc(100% - 14px),transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
 }
 .page-title{font-size:22px;font-weight:800}
 .page-sub{font-size:12.5px;color:var(--muted)}

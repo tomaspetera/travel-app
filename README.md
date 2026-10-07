@@ -728,6 +728,12 @@ v `index.html`) má stejnou ikonu i nápis na stejném místě, takže na sebe n
 (`scripts/build-icons.mjs` bez závislostí: tvary vykreslí po pixelech s vyhlazením a PNG zakóduje přes `node:zlib`);
 test hlídá, že uložené PNG odpovídají skriptu – po změně vzhledu ho stačí spustit znovu.
 
+**Prohlížeče**: ověřeno v Chromu, Edge a ve WebKitu, jádru Safari (Playwright WebKit 26.6, profil iPhone 13 i Safari
+na počítači) – bez chyb, se stejnými cenami. Starším Safari (do 15.3) doplní `index.html` `Object.hasOwn`
+a `Array.prototype.at`. Rozmazání pod průhlednými prvky (`backdrop-filter`) je jen ozdoba: horní lišta má pod textem
+plné pozadí a do průhledna přechází jen spodní okraj, takže zůstane čitelná i tam, kde se rozmazání nevykreslí.
+Na skutečném iPhonu zbývá ověřit přidání na plochu, úvodní animaci a okraje displeje.
+
 ## Jak to funguje
 
 ```
