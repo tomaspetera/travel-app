@@ -6,10 +6,11 @@
 //   node scripts/build-icons.mjs        (= npm run build:icons)
 //
 //  icon-192.png, icon-512.png  „any“ – zaoblený čtverec s průhlednými rohy (Chrome a Edge na počítači, Android bez masky)
-//  icon-maskable-512.png       „maskable“ – bez průhlednosti: zaoblený čtverec s přechodem přes 94 % plochy na tmavém
-//                              pozadí aplikace (#080c1a), letadlo v bezpečné zóně. Na ploše ho Android ořízne do kruhu
-//                              či „squircle“ (vidět je jen přechod – podstatné musí být do 40 % šířky od středu); na
-//                              úvodní obrazovce ho Chrome ukáže celý – tmavý okraj splyne s pozadím a zbude zaoblená ikona.
+//  icon-maskable-512.png       „maskable“ – bez průhlednosti: přechod přes celou plochu, jen rohy zaoblené (0,17 strany)
+//                              v barvě pozadí aplikace (#080c1a), letadlo v bezpečné zóně. Na ploše a v přehledu aplikací
+//                              ho Android ořízne do kruhu či zaobleného čtverce (Xiaomi ukáže skoro celou plochu – rohy
+//                              ořízne zaoblením aspoň 0,17, takže je vidět jen přechod); na úvodní obrazovce ho Chrome
+//                              ukáže celý – tmavé rohy splynou s pozadím a zbude zaoblená ikona.
 //  apple-touch-icon.png        180 × 180 pro iPhone a iPad – bez průhlednosti (rohy zaoblí iOS sám)
 //  icon-96.png                 zkratky v manifestu (dlouhé podržení ikony na Androidu)
 //
@@ -42,7 +43,7 @@ export const ICONS = [
   { file: 'icon-192.png', size: 192, radius: 0.22, plane: 0.94 },
   { file: 'icon-512.png', size: 512, radius: 0.22, plane: 0.94 },
   { file: 'icon-96.png', size: 96, radius: 0.22, plane: 0.94 },
-  { file: 'icon-maskable-512.png', size: 512, radius: 0.14, plane: 0.72, inset: 0.03, bg: BG },
+  { file: 'icon-maskable-512.png', size: 512, radius: 0.17, plane: 0.72, bg: BG },
   { file: 'apple-touch-icon.png', size: 180, radius: 0, plane: 0.86 },
 ];
 
