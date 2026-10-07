@@ -792,13 +792,24 @@ ořízne do kruhu či zaobleného čtverce (Xiaomi ukáže skoro celou plochu, r
 i `name` v manifestu jen „ATLAS“ (Chrome ho píše dole na úvodní obrazovku); úvodní obrazovka v aplikaci (`#launch`
 v `index.html`) má stejnou ikonu i nápis na stejném místě, takže na sebe navazují. Vytváří je `npm run build:icons`
 (`scripts/build-icons.mjs` bez závislostí: tvary vykreslí po pixelech s vyhlazením a PNG zakóduje přes `node:zlib`);
-test hlídá, že uložené PNG odpovídají skriptu – po změně vzhledu ho stačí spustit znovu.
+test hlídá, že uložené PNG odpovídají skriptu – po změně vzhledu ho stačí spustit znovu. Stejnou vlaštovku (velikost
+a kotva jako ikona) má i logo v bočním panelu aplikace – dřív tam byla zeměkoule.
+
+**Úvodní obrazovka na iPhonu a iPadu**: iOS ukáže od klepnutí na ikonu do prvního vykreslení stránky obrázek
+`apple-touch-startup-image` – bez něj bílou plochu, která u tmavé aplikace problikne. ATLAS má pro každý displej
+(13 iPhonů na výšku, 9 iPadů na výšku i na šířku) jednobarevný obrázek v barvě úvodní obrazovky aplikace (`#080c1a`,
+`public/icons/splash/`, 1bitové PNG s paletou, 184–786 B, dohromady 16 kB). Odkazy v `index.html` vytvoří stejný
+`npm run build:icons` a test hlídá, že obrázky mají rozměry podle `media`. Ikonu a název dokreslí až úvodní obrazovka
+v aplikaci: kde přesně na displeji bude, záleží na výšce stavového řádku (styl `black` posouvá stránku pod něj), a obrázek
+s ikonou jen o kousek vedle by při prvním vykreslení poskočil. Service worker obrázky dopředu nestahuje – iOS si je
+načte jednou při přidání na plochu.
 
 **Prohlížeče**: ověřeno v Chromu, Edge a ve WebKitu, jádru Safari (Playwright WebKit 26.6, profil iPhone 13 i Safari
 na počítači) – bez chyb, se stejnými cenami. Starším Safari (do 15.3) doplní `index.html` `Object.hasOwn`
 a `Array.prototype.at`. Rozmazání pod průhlednými prvky (`backdrop-filter`) je jen ozdoba: horní lišta má pod textem
 plné pozadí a do průhledna přechází jen spodní okraj, takže zůstane čitelná i tam, kde se rozmazání nevykreslí.
-Na skutečném iPhonu zbývá ověřit přidání na plochu, úvodní animaci a okraje displeje.
+Na skutečném iPhonu zbývá ověřit přidání na plochu, tmavou úvodní obrazovku místo bílé, úvodní animaci a okraje
+displeje.
 
 ## Sdílení odkazem
 

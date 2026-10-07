@@ -13,10 +13,12 @@
 //                              ukáže celý – tmavé rohy splynou s pozadím a zbude zaoblená ikona.
 //  apple-touch-icon.png        180 × 180 pro iPhone a iPad – bez průhlednosti (rohy zaoblí iOS sám)
 //  icon-96.png                 zkratky v manifestu (dlouhé podržení ikony na Androidu)
+//  splash/<š>x<v>.png          úvodní obrazovky aplikace na ploše iPhonu a iPadu (apple-touch-startup-image, viz SPLASH)
+//                              + jejich odkazy v public/index.html mezi značkami <!-- ios-splash --> a <!-- /ios-splash -->
 //
 // Výpočet je deterministický (jen sčítání, násobení a porovnání) – test/pwa.test.js ověřuje, že uložené PNG
 // odpovídají tomuto skriptu, takže po změně vzhledu stačí skript znovu spustit.
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -32,7 +34,7 @@ const TOP_WING = [A, C, D]; // bílé
 const LOW_WING = [A, B, C]; // bílá s 80 % krytím – přehyb papíru
 const LOW_ALPHA = 0.8;
 // Kotva letadla: střed mezi středem obrysu (12; 12,5) a těžištěm plochy (12,9; 11,25) – opticky uprostřed.
-const ANCHOR = [12.45, 11.9];
+export const ANCHOR = [12.45, 11.9];
 
 /**
  * Ikony: soubor, rozměr, zaoblení rohů (podíl strany, 0 = celá plocha), velikost letadla (1 = jako ve faviconu),
@@ -46,6 +48,34 @@ export const ICONS = [
   { file: 'icon-maskable-512.png', size: 512, radius: 0.17, plane: 0.72, bg: BG },
   { file: 'apple-touch-icon.png', size: 180, radius: 0, plane: 0.86 },
 ];
+
+/*
+ * Úvodní obrazovka aplikace na ploše iPhonu a iPadu: iOS ji ukáže od klepnutí na ikonu do prvního vykreslení stránky –
+ * bez ní tam svítí bílá. Jen pozadí úvodní obrazovky aplikace (#launch v index.html, BG); ikonu a název dokreslí #launch
+ * hned po načtení. Poloha ikony na displeji záleží na výšce stavového řádku (styl „black“ posouvá stránku pod něj) –
+ * obrázek s ikonou o kousek vedle by při prvním vykreslení poskočil. iOS vezme jen obrázek přesně v rozlišení displeje
+ * (media v index.html), proto jeden na každý displej: [šířka, výška v CSS px na výšku, poměr pixelů, i na šířku?].
+ */
+export const SPLASH = [
+  // iPhone (jen na výšku): SE 1, 6s–8 a SE 2/3, Plus, X–13 mini, XR a 11, XS Max a 11 Pro Max, 12–14 a 16e,
+  // 12–14 Pro Max a 14 Plus, 14 Pro–16, 14 Pro Max–16 Plus, 16 Pro a 17, 16 Pro Max a 17 Pro Max, Air
+  [320, 568, 2], [375, 667, 2], [414, 736, 3], [375, 812, 3], [414, 896, 2], [414, 896, 3], [390, 844, 3],
+  [428, 926, 3], [393, 852, 3], [430, 932, 3], [402, 874, 3], [440, 956, 3], [420, 912, 3],
+  // iPad (na výšku i na šířku): 9,7", mini 6/7, 10,2", Air 4/5 a 10./11. generace, 10,5", Pro 11", Pro 11" M4,
+  // 12,9" a Air 13", Pro 13" M4
+  [768, 1024, 2, true], [744, 1133, 2, true], [810, 1080, 2, true], [820, 1180, 2, true], [834, 1112, 2, true],
+  [834, 1194, 2, true], [834, 1210, 2, true], [1024, 1366, 2, true], [1032, 1376, 2, true],
+];
+
+/** Úvodní obrazovky: soubor, rozměry v pixelech a media dotaz pro <link rel="apple-touch-startup-image">. */
+export const splashImages = () => SPLASH.flatMap(([w, h, ratio, both]) => ['portrait', ...(both ? ['landscape'] : [])].map((o) => {
+  const [pw, ph] = o === 'portrait' ? [w * ratio, h * ratio] : [h * ratio, w * ratio];
+  return { file: `splash/${pw}x${ph}.png`, width: pw, height: ph, media: `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${ratio}) and (orientation: ${o})` };
+}));
+
+/** Odkazy na úvodní obrazovky do index.html (mezi značkami). */
+export const splashLinks = () => ['<!-- ios-splash: úvodní obrazovky aplikace na ploše iPhonu a iPadu – scripts/build-icons.mjs -->',
+  ...splashImages().map((s) => `<link rel="apple-touch-startup-image" media="${s.media}" href="icons/${s.file}">`), '<!-- /ios-splash -->'].join('\n');
 
 const SS = 8; // vzorků na pixel v každém směru
 
@@ -176,6 +206,19 @@ const paeth = (a, b, c) => {
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
 };
 
+const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** Jednobarevné PNG: paleta s jedinou barvou, 1 bit na pixel (samé nuly) – i 2 752 × 2 064 má jen pár set bajtů. */
+export function solidPng(width, height, rgb) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 1; // bitová hloubka
+  ihdr[9] = 3; // paleta
+  const rows = Buffer.alloc((1 + Math.ceil(width / 8)) * height); // filtr 0 a barva 0 z palety v každém řádku
+  return Buffer.concat([SIGNATURE, chunk('IHDR', ihdr), chunk('PLTE', Buffer.from(rgb)), chunk('IDAT', zlib.deflateSync(rows, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
+}
+
 /** RGBA → PNG (bez průhlednosti jako RGB). Každý řádek s filtrem, který dá nejmenší součet rozdílů (běžná heuristika). */
 export function encodePng(rgba, size) {
   let opaque = true;
@@ -210,7 +253,7 @@ export function encodePng(rgba, size) {
   ihdr[8] = 8; // bitová hloubka
   ihdr[9] = opaque ? 2 : 6; // RGB / RGBA
   return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    SIGNATURE,
     chunk('IHDR', ihdr),
     chunk('IDAT', zlib.deflateSync(Buffer.concat(rows), { level: 9 })),
     chunk('IEND', Buffer.alloc(0)),
@@ -224,4 +267,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     writeFileSync(path.join(OUT_DIR, icon.file), png);
     console.log(`${icon.file}: ${icon.size}×${icon.size}, ${(png.length / 1024).toFixed(1)} kB`);
   }
+  mkdirSync(path.join(OUT_DIR, 'splash'), { recursive: true });
+  for (const s of splashImages()) writeFileSync(path.join(OUT_DIR, s.file), solidPng(s.width, s.height, BG));
+  const index = path.join(root, 'public', 'index.html');
+  const html = readFileSync(index, 'utf8');
+  const block = /<!-- ios-splash[^\n]*-->\n(?:<link rel="apple-touch-startup-image"[^\n]*\n)*<!-- \/ios-splash -->/;
+  if (!block.test(html)) throw new Error('public/index.html: chybí značky <!-- ios-splash … --> a <!-- /ios-splash -->');
+  writeFileSync(index, html.replace(block, splashLinks()));
+  console.log(`splash/: ${splashImages().length} úvodních obrazovek pro iOS, odkazy v public/index.html`);
 }

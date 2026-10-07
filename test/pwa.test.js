@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, copyFileSync, rmSy
 process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
 const { serviceWorker, shellAssets, manifestIcons, RUNTIME_ASSETS } = await import('../server/lib/pwa.js');
-const { ICONS, renderIcon, crc32 } = await import('../scripts/build-icons.mjs');
+const { ICONS, renderIcon, crc32, ANCHOR, BG, splashImages, splashLinks, solidPng } = await import('../scripts/build-icons.mjs');
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const PUB = path.join(ROOT, 'public');
@@ -116,6 +116,58 @@ test('ikony v public/icons/ odpovídají scripts/build-icons.mjs (po změně vzh
   const apple = readPng(readFileSync(path.join(PUB, 'icons', 'apple-touch-icon.png')), 'apple-touch-icon.png');
   assert.equal(apple.width, 180);
   assert.equal(apple.color, 2, 'RGB bez průhlednosti');
+});
+
+test('iOS: úvodní obrazovky aplikace na ploše – jednobarevné v barvě #launch, rozlišení podle media, odkazy ze skriptu', async () => {
+  const imgs = splashImages();
+  assert.equal(imgs.length, 31, '13 iPhonů na výšku + 9 iPadů na výšku i na šířku');
+  assert.equal(new Set(imgs.map((s) => s.file)).size, imgs.length);
+  assert.ok(INDEX.includes(splashLinks() + '\n'), 'odkazy v index.html = scripts/build-icons.mjs (npm run build:icons)');
+  assert.equal((INDEX.match(/rel="apple-touch-startup-image"/g) || []).length, imgs.length);
+  // barva = pozadí úvodní obrazovky aplikace (#launch) = background_color v manifestu
+  const hex = '#' + BG.map((v) => v.toString(16).padStart(2, '0')).join('');
+  assert.equal(INDEX.match(/#launch\{position:fixed;[^}]*background:(#[0-9a-f]{6})/)[1], hex);
+  assert.equal(JSON.parse(read('public/manifest.webmanifest')).background_color, hex);
+  for (const s of imgs) {
+    // media: CSS rozměry displeje na výšku × poměr pixelů = rozměry obrázku v dané orientaci
+    const [, w, h, r, o] = s.media.match(/^\(device-width: (\d+)px\) and \(device-height: (\d+)px\) and \(-webkit-device-pixel-ratio: ([23])\) and \(orientation: (portrait|landscape)\)$/).map((x, i) => (i && i < 4 ? +x : x));
+    assert.deepEqual([s.width, s.height], o === 'portrait' ? [w * r, h * r] : [h * r, w * r], s.media);
+    assert.ok(w < h, `${s.media}: device-width je kratší strana`);
+    const buf = readFileSync(path.join(PUB, 'icons', s.file));
+    assert.ok(buf.equals(solidPng(s.width, s.height, BG)), `${s.file}: jako ze skriptu`);
+    // PNG: podpis, CRC, 1bitová paleta s jedinou barvou a samé nuly (= ta barva) v každém řádku
+    assert.deepEqual([...buf.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const chunks = {};
+    for (let off = 8; off < buf.length;) {
+      const len = buf.readUInt32BE(off), type = buf.toString('ascii', off + 4, off + 8);
+      assert.equal(buf.readUInt32BE(off + 8 + len), crc32(buf.subarray(off + 4, off + 8 + len)), `${s.file}: CRC ${type}`);
+      chunks[type] = buf.subarray(off + 8, off + 8 + len);
+      off += 12 + len;
+    }
+    assert.deepEqual([chunks.IHDR.readUInt32BE(0), chunks.IHDR.readUInt32BE(4), chunks.IHDR[8], chunks.IHDR[9], chunks.IHDR[12]], [s.width, s.height, 1, 3, 0]);
+    assert.deepEqual([...chunks.PLTE], BG);
+    const raw = zlib.inflateSync(chunks.IDAT);
+    assert.equal(raw.length, (1 + Math.ceil(s.width / 8)) * s.height);
+    assert.ok(raw.every((v) => v === 0));
+    assert.ok(buf.length < 1024, `${s.file}: ${buf.length} B`);
+  }
+  // server je pošle jako obrázek; service worker si je nestahuje dopředu (iOS je načte jednou při přidání na plochu)
+  const r = await fetch(`${base}/icons/splash/1170x2532.png`);
+  assert.deepEqual([r.status, r.headers.get('content-type')], [200, 'image/png']);
+  assert.ok(!serviceWorker({ publicDir: PUB, dataDir: path.join(ROOT, 'data') }).precache.some((u) => /splash/.test(u)));
+});
+
+test('boční panel: ikona ATLASu je stejná vlaštovka jako ikona aplikace a favicon', () => {
+  const logo = INDEX.match(/<div class="brand-logo">([\s\S]*?)<\/div>/)[1];
+  // trojúhelníky horního a spodního (80 %) křídla = favicon „M20 6l-7 13-3-6-6-3z“ rozdělený přehybem
+  assert.match(logo, /<path d="M20 6 10 13 4 10z" fill="#fff"\/><path d="M20 6 13 19 10 13z" fill="#fff" fill-opacity="\.8"\/>/);
+  assert.match(INDEX, /<link rel="icon" href="data:image\/svg\+xml,[^"]*M20 6l-7 13-3-6-6-3z/);
+  // velikost a kotva jako ikona „any“ (build-icons.mjs) – v celém čtverci loga
+  const [x, y, w, h] = logo.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+  const plane = ICONS.find((i) => i.file === 'icon-192.png').plane;
+  assert.equal(w, h);
+  assert.ok(Math.abs(w - 24 / plane) < 0.001 && Math.abs(x + w / 2 - ANCHOR[0]) < 0.001 && Math.abs(y + h / 2 - ANCHOR[1]) < 0.001, `${x} ${y} ${w}`);
+  assert.match(CSS, /\.brand-logo svg\{width:100%;height:100%\}/);
 });
 
 test('index.html: manifest, barva lišty pro tmavý i světlý motiv, ikona pro iOS a pwa.js', () => {
