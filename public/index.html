@@ -16,6 +16,11 @@
 <meta name="apple-mobile-web-app-title" content="ATLAS">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script>
+/* Safari a iOS starší než 15.4: Object.hasOwn a Array.prototype.at (bez nich by část aplikace spadla) */
+if (!Object.hasOwn) Object.hasOwn = function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); };
+if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configurable: true, writable: true, value: function (i) { i = Math.trunc(i) || 0; if (i < 0) i += this.length; return this[i]; } });
+</script>
+<script>
 /* Motiv, mapa a barva lišty hned při startu (ne až po načtení skriptů) – bez probliknutí; dál je hlídá app.js a pwa.js */
 (function () {
   var s = null;

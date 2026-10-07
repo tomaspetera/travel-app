@@ -67,7 +67,7 @@
   body{background:#fff !important;color:#000}
   .sidebar,.topbar,.demo-banner,.mobile-nav,.modal-bg,.toast,.stepbar,.pt-tools .btn,.pt-acts,.pt-add,.pt-del{display:none !important}
   .app{display:block}
-  .card{box-shadow:none !important;backdrop-filter:none !important;background:#fff !important;border-color:#bbb !important;break-inside:avoid}
+  .card{box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;background:#fff !important;border-color:#bbb !important;break-inside:avoid}
   .pt-card a,[data-theme] .pt-card a{color:#000 !important}
   /* štítky černobíle s rámečkem (barevný text na bílé se špatně čte) */
   .pt-lv,.pt-v,.pt-prog{background:none !important;color:#000 !important;border:1px solid #888}
