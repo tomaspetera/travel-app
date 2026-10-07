@@ -24,9 +24,9 @@ export function affiliate(url, brand) {
 }
 
 // Hostelworld: stránka města /hostels/<kontinent>/<země>/<město>/ (jiný kontinent nebo název země sám přesměruje,
-// „united-kingdom“ → „england“); data hledání z adresy nebere. Stránku mají jen města s hostely (jinak 404) a na ní
-// je odkaz na hledání webu s ID města – searchStays ho dohledá (partnerids.js): s ID vede odkaz na hledání /pwa/s
-// s termínem a hosty, bez stránky města na stránku země.
+// „united-kingdom“ → „england“); data hledání z adresy nebere. Města s hostely na ní mají odkaz na hledání webu s ID
+// města – searchStays ho dohledá (partnerids.js): s ID vede odkaz na hledání /pwa/s s termínem a hosty; místo bez
+// hostelů (stránka 404 nebo „0 Hostels“) na stránku země s poznámkou a až na konec seznamu.
 const HW_CONT = { Evropa: 'europe', Afrika: 'africa', Asie: 'asia', 'Severní Amerika': 'north-america', 'Jižní Amerika': 'south-america', 'Oceánie': 'oceania' };
 const slug = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 // ID místa u partnera (z partnerids.js): kladné celé číslo, jinak nic.
@@ -60,8 +60,10 @@ function plainName(x) {
   return String(x || '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[-‐–]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-// Kayak zná zemi pod svým názvem – kde se liší od našeho anglického (Czechia), jeho jméno.
+// Kayak zná zemi pod svým názvem – kde se liší od našeho anglického (Czechia), jeho jméno. Česká verze webu
+// (cz.kayak.com) má stejné adresy jako kayak.com a otevře se česky s cenami v Kč (ověřeno 10/2026: hotely i auta).
 const KAYAK_COUNTRY = { CZ: 'Czech Republic', US: 'United States' };
+const KAYAK = 'https://www.cz.kayak.com';
 
 /**
  * Google Hotels: parametr ts (termín, počet dospělých, měna) – zpráva protobuf v base64url, formát odpozorovaný
@@ -91,13 +93,15 @@ export function googleHotelsTs(checkin, checkout, adults, currency = 'CZK') {
 /**
  * Odkazy na partnery ubytování. q: { city, cityEn, cc, country, checkin, checkout, adults, rooms }
  * ids: ID místa u partnerů dohledaná na serveru (partnerids.js) – { trip, agoda, hostelworld }: číslo = ID,
- * hostelworld false = Hostelworld místo nemá (404 → stránka země); cokoli jiného = odkaz bez ID.
+ * hostelworld false = Hostelworld v místě hostely nemá (404 nebo „0 Hostels“ → stránka země na konci seznamu); cokoli
+ * jiného = odkaz bez ID.
  * prefill: 'full' = místo, termín i hosté předvyplněné; 'city' = jen místo (data zadáš na webu); 'none' = úvodní stránka.
- * Ověřeno 10/2026 ve skutečném Chromu: Booking.com, Airbnb, Kayak (si „Město-Země“ přeloží na své ID místa) a Google
- * Hotels (termín a hosté v ts) předvyplní vše. Trip.com s ID města (cityId) rovnou ukáže nabídky, jen s názvem
- * (searchWord) vyplní místo, termín i hosty do formuláře a hledání se potvrdí tlačítkem. Agoda s ID města otevře
- * hledání s termínem a hosty, bez něj jen úvodní stránku. Hostelworld s ID města hledání s termínem a hosty, bez něj
- * stránku města (data z adresy nebere). Hotels.com: formát hledání Expedia Group (z ověřovacího prostředí ho
+ * Ověřeno 10/2026 ve skutečném Chromu: Booking.com, Airbnb, Kayak (si „Město-Země“ přeloží na své ID místa; česká
+ * verze v Kč) a Google Hotels (termín a hosté v ts) předvyplní vše. Trip.com s ID města (cityId) rovnou ukáže nabídky,
+ * jen s názvem (searchWord) vyplní místo, termín i hosty do formuláře a hledání se potvrdí tlačítkem (anglicky v USD –
+ * česká verze s Kč neexistuje). Agoda s ID města otevře hledání s termínem a hosty, bez něj jen úvodní stránku.
+ * Hostelworld s ID města hledání s termínem a hosty, bez něj stránku města (data z adresy nebere), místo bez hostelů
+ * (false) stránku země na konci seznamu. Hotels.com: formát hledání Expedia Group (z ověřovacího prostředí ho
  * zablokovala ochrana proti robotům).
  */
 export function stayLinks(q, ids = {}) {
@@ -131,15 +135,17 @@ export function stayLinks(q, ids = {}) {
   // na Kapverdy, tvar „Město, Země“ s čárkou skončí na úvodní stránce bez místa i dat (ověřeno 10/2026 v Chromu).
   const kayakPlace = [String(cityEn).split(',')[0], KAYAK_COUNTRY[q.cc] || countryEn]
     .filter(Boolean).join(' ').replace(/[/;,]/g, ' ').trim().replace(/\s+/g, '-');
-  const kayak = `https://www.kayak.com/hotels/${enc(kayakPlace)}/${q.checkin}/${q.checkout}/${q.adults}adults`;
+  const kayak = `${KAYAK}/hotels/${enc(kayakPlace)}/${q.checkin}/${q.checkout}/${q.adults}adults`;
   const gts = googleHotelsTs(q.checkin, q.checkout, q.adults);
-  // Hostelworld: s ID města vlastní hledání webu (místo doplní samo), bez stránky města (404) stránka země.
+  // Hostelworld: s ID města vlastní hledání webu (místo doplní samo); místo bez hostelů (404 nebo „0 Hostels“, Lagos,
+  // Mikulov) stránka země – i stránka města by s daty nic nenašla.
   const hwId = partnerId(ids.hostelworld);
   const hwPage = hostelworldCityPage(q);
+  const hwNone = Boolean(hwPage) && ids.hostelworld === false;
   const hostelworld = hwId
     ? { note: 'hostely a levná lůžka', prefill: 'full', url: `https://www.hostelworld.com/pwa/s?${new URLSearchParams({ type: 'city', id: String(hwId), from: q.checkin, to: q.checkout, guests: String(q.adults) })}` }
-    : hwPage && ids.hostelworld === false
-      ? { note: 'hostely v zemi – vyber místo a data', prefill: 'none', url: hwPage.replace(/[\w-]+\/$/, '') }
+    : hwNone
+      ? { note: 'v místě hostely nemá – zkus jinde v zemi', prefill: 'none', url: hwPage.replace(/[\w-]+\/$/, '') }
       : hwPage
         ? { note: 'hostely a levná lůžka – zadej data', prefill: 'city', url: hwPage }
         : { note: 'hostely a levná lůžka – zadej místo a data', prefill: 'none', url: 'https://www.hostelworld.com/' };
@@ -148,7 +154,7 @@ export function stayLinks(q, ids = {}) {
   const agoda = agodaId
     ? { note: 'silná v Asii', prefill: 'full', url: `https://www.agoda.com/search?${new URLSearchParams({ city: String(agodaId), checkIn: q.checkin, checkOut: q.checkout, los: String(nights), rooms: String(q.rooms), adults: String(q.adults), children: '0' })}` }
     : { note: 'silná v Asii – zadej místo a data', prefill: 'none', url: 'https://www.agoda.com/cs-cz/' };
-  return [
+  const links = [
     // nflt=review_score=80 → jen hodnocení 8+, order=price → od nejlevnějšího.
     { id: 'booking', name: 'Booking.com', note: 'hodnocení 8+, od nejlevnějšího', prefill: 'full', url: affiliate(`https://www.booking.com/searchresults.cs.html?${booking({ order: 'price', nflt: 'review_score=80' })}`, 'booking'), sponsored: affiliateOn('booking') },
     { id: 'booking-best', name: 'Booking.com', note: 'nejlepší poměr hodnocení a ceny', prefill: 'full', url: affiliate(`https://www.booking.com/searchresults.cs.html?${booking({ order: 'review_score_and_price' })}`, 'booking'), sponsored: affiliateOn('booking') },
@@ -160,6 +166,8 @@ export function stayLinks(q, ids = {}) {
     { id: 'hostelworld', name: 'Hostelworld', ...hostelworld },
     { id: 'agoda', name: 'Agoda', ...agoda },
   ];
+  // místo bez hostelů: Hostelworld (jen stránka země) až na konec
+  return hwNone ? [...links.filter((l) => l.id !== 'hostelworld'), links.find((l) => l.id === 'hostelworld')] : links;
 }
 
 /** Datum a čas „YYYY-MM-DDTHH:MM“ → části. */
@@ -175,8 +183,9 @@ export function carLinks(q) {
   const a = parts(q.from);
   const b = parts(q.to);
   const drop = q.dropoff && q.dropoff !== q.pickup ? q.dropoff : null;
-  // Kayak: /cars/{PU}[/{DO}]/{datum}-{hodina}h/… – hodina celá (16:30 → 16h), řazení od nejlevnějšího.
-  const kayak = `https://www.kayak.com/cars/${q.pickup}${drop ? `/${drop}` : ''}/${a.d}-${a.hh}h/${b.d}-${b.hh}h?sort=price_a`;
+  // Kayak: /cars/{PU}[/{DO}]/{datum}-{hodina}h/… – hodina celá (16:30 → 16h), řazení od nejlevnějšího; česká verze
+  // v Kč (cz.kayak.com/cars/BGY/MXP/… ověřeno 10/2026: místa, termín i řazení stejně jako na kayak.com).
+  const kayak = `${KAYAK}/cars/${q.pickup}${drop ? `/${drop}` : ''}/${a.d}-${a.hh}h/${b.d}-${b.hh}h?sort=price_a`;
   // Rentalcars.com a Booking.com Cars mají stejné vyhledávání; letiště se zadává kódem IATA (ftsType=A),
   // minuty jen 0 nebo 30, čísla bez úvodních nul, řazení podle ceny.
   const half = (m) => (m >= 30 ? 30 : 0);

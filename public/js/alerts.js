@@ -106,6 +106,45 @@
     return { w: out, why, prev };
   }
 
+  /**
+   * Klíč hledání pro hlídané ceny: dotaz na server (payload) bez pořadí klíčů a seznamů (Praha + Brno = Brno + Praha,
+   * lety cesty přes víc měst ale v pořadí), bez prázdných hodnot a bez polí, která hledání nemění (u přesných dat
+   * rozsah a noci flexibilního termínu, u cesty jen tam noci a návrat). Stejný klíč = stejné hledání.
+   */
+  function searchKey(payload) {
+    const p = { ...(payload || {}) };
+    if (p.exactOut) ['dateFrom', 'dateTo', 'nightsMin', 'nightsMax', 'outDays', 'backDays'].forEach(k => delete p[k]);
+    if (p.trip === 'oneway') ['nightsMin', 'nightsMax', 'backDays', 'exactBack'].forEach(k => delete p[k]);
+    const str = x => JSON.stringify(x === undefined ? null : x);
+    const norm = v => {
+      if (Array.isArray(v)) {
+        const a = v.map(norm);
+        return a.every(x => x == null || typeof x !== 'object') ? a.sort((x, y) => (str(x) < str(y) ? -1 : str(x) > str(y) ? 1 : 0)) : a;
+      }
+      if (!v || typeof v !== 'object') return v;
+      const o = {};
+      for (const k of Object.keys(v).sort()) {
+        const x = norm(v[k]);
+        if (x !== undefined && x !== null && x !== '' && !(Array.isArray(x) && !x.length)) o[k] = x;
+      }
+      return o;
+    };
+    return JSON.stringify(norm(p));
+  }
+
+  /**
+   * Uložení hledání do hlídaných: stejné hledání (keyOf(w) → searchKey) se podruhé nepřidá – stávající položka
+   * dostane novou cenu (applyCheck, cíl a historie zůstanou), popis a formulář z nového uložení a posune se nahoru.
+   * Původní seznam nemění. → { list, w (uložená položka), dup (už se hlídalo) }
+   */
+  function upsertWatch(list, w, keyOf, { now = Date.now(), cap = 12 } = {}) {
+    const key = keyOf(w);
+    const old = (list || []).find(x => x && keyOf(x) === key);
+    if (!old) return { list: [w, ...(list || [])].slice(0, cap), w, dup: false };
+    const upd = { ...applyCheck(old, w.best, now).w, label: w.label, sub: w.sub, form: w.form };
+    return { list: [upd, ...list.filter(x => x !== old)].slice(0, cap), w: upd, dup: true };
+  }
+
   /** Zlevnilo (aspoň o pct %) od chvíle, kdy se uživatel naposledy díval na seznam. */
   function isDropped(w, pct = CFG.seenPct) {
     const cur = num(w && w.best && w.best.czk), seen = num(w && w.seen);
@@ -195,5 +234,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, isDropped, droppedCount, mergeWatches, sparkPath, notifState, scheduler };
+  window.Alerts = { CFG, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, searchKey, upsertWatch, isDropped, droppedCount, mergeWatches, sparkPath, notifState, scheduler };
 })();

@@ -947,8 +947,8 @@ const dm = (d) => `${Number(d.slice(8, 10))}. ${Number(d.slice(5, 7))}.`;
  * Nejlevnější známá cena letu po dnech kolem přesného data – z dat, která už hledání stáhlo (Ryanair
  * celý měsíc, Wizz okno ±3 dny, Kiwi jen zadané dny). lowcostOnDay/lowcostNear: létá v zadaný den
  * Ryanair / Wizz Air (v demu ukázkové aerolinky), nebo jen ve dnech vedle?
- * park(leg) → { czk, days } | null: autem tam i zpět parkování na celou cestu, kdyby se změnil jen tento den (jako ve
- * výsledcích) – patří k ceně dne, ať je den s levnějším letem, ale delším parkováním vidět jako dražší.
+ * park(leg) → { czk, days, adj? } | null | false: autem tam i zpět parkování (u řádku Zpět jen jeho změna) a úprava
+ * adj, aby šly řádky Tam a Zpět sečíst (viz carNear); false = s tímto letem cesta autem nejde (k autu se nevrátíš).
  */
 export function nearbyDays(legs, range, win, { groundOf = () => 0, extra = () => 0, directOnly = false, park = null } = {}) {
   const best = new Map();
@@ -956,19 +956,21 @@ export function nearbyDays(legs, range, win, { groundOf = () => 0, extra = () =>
   const isLowcost = (l) => LOWCOST.has(l.provider) || l.provider?.startsWith('demo-');
   for (const l of legs) {
     if (l.date < range.from || l.date > range.to || !(l.czk > 0) || (directOnly && l.stops)) continue;
-    // doprava na letiště doma: u cesty tam odletové, u návratu příletové (cílová letiště mají 0)
+    if (isLowcost(l)) {
+      if (!lowcost.has(l.date)) lowcost.set(l.date, new Set());
+      lowcost.get(l.date).add(l.carrierName || l.provider);
+    }
     const pk = park ? park(l) : null;
-    const cost = l.czk + groundOf(l.from) + groundOf(l.to) + extra(l) + (pk ? pk.czk : 0);
+    if (pk === false) continue;
+    // doprava na letiště doma: u cesty tam odletové, u návratu příletové (cílová letiště mají 0)
+    const cost = l.czk + groundOf(l.from) + groundOf(l.to) + extra(l) + (pk ? pk.czk + (pk.adj || 0) : 0);
     const prev = best.get(l.date);
     if (!prev || cost < prev.cost) {
       best.set(l.date, {
         date: l.date, czk: l.czk, cost, from: l.from, to: l.to, provider: l.provider, carrier: l.carrier, carrierName: l.carrierName, stops: l.stops,
         ...(pk && pk.czk ? { parkCzk: pk.czk, parkDays: pk.days } : {}),
+        ...(pk && pk.adj ? { tripAdj: pk.adj } : {}),
       });
-    }
-    if (isLowcost(l)) {
-      if (!lowcost.has(l.date)) lowcost.set(l.date, new Set());
-      lowcost.get(l.date).add(l.carrierName || l.provider);
     }
   }
   const inWin = (d) => d >= win.from && d <= win.to;
@@ -984,19 +986,77 @@ export function nearbyDays(legs, range, win, { groundOf = () => 0, extra = () =>
 }
 
 /**
+ * Autem tam i zpět: ceny „nejbližších dnů“ tak, aby Tam + Zpět dalo cenu celé cesty (dřív měl parkování na celou cestu
+ * každý řádek a součet ho počítal dvakrát). Auto parkuje u letiště odletu a vrací se k němu; parkování je přímka
+ * základ + Kč/den. Výchozí cesta = nejlevnější v zadané dny o → b (letiště A): Tam(o) = let tam + palivo + parkování na
+ * celou cestu, Zpět(b) = let zpět + palivo. Den tam t = cena cesty t → b (kdyby se změnil jen tento den) − Zpět(b): přes
+ * A let tam + palivo + parkování t → b, přes jiné letiště X navíc rozdíl návratu k autu do X proti návratu do A (adj).
+ * Den zpět z = cena cesty o → z − Tam(o): přes A let zpět + palivo + změna parkování proti zadanému návratu (den dřív =
+ * záporná), přes X navíc rozdíl odletu z X proti odletu z A. Když se mění jen jeden den, je součet přesně cena nejlevnější
+ * cesty autem v ty dny (z letů, které hledání zná); když oba, jen přibližně (zaokrouhlení, druhá dálniční známka, jiné
+ * letiště). Den tam po zadaném návratu: návrat se posune se stejným počtem nocí (jako po kliknutí na den). Bez výchozí
+ * cesty (v zadané dny žádná nevychází) každé letiště zvlášť: Tam s parkováním do zadaného návratu, Zpět se změnou
+ * parkování. → { out(leg), back(leg) } pro nearbyDays.
+ */
+function carNear({ out, back, q, nearOut, nearBack, groundOf, extra, directOnly, park }) {
+  const { out: o, back: b } = q.exact;
+  const n0 = daysBetween(o, b);
+  // návrat k autu: na letiště odletu; v cíli s open-jaw z kteréhokoli letiště téhož města (jako optimalizátor)
+  const slot = (home, dest) => `${home}|${q.openJaw ? destKey(dest) : dest}`;
+  const cheapest = (legs, range, home, dest) => {
+    const m = new Map();
+    for (const l of legs) {
+      if (l.date < range.from || l.date > range.to || !(l.czk > 0) || (directOnly && l.stops)) continue;
+      const k = `${slot(l[home], l[dest])}|${l.date}`;
+      const c = l.czk + groundOf(l.from) + groundOf(l.to) + extra(l);
+      if (!(m.get(k) <= c)) m.set(k, c);
+    }
+    return (s, d) => m.get(`${s}|${d}`) ?? null;
+  };
+  const OUT = cheapest(out, nearOut, 'from', 'to');
+  const BACK = cheapest(back, nearBack, 'to', 'from');
+  let ref = null;
+  for (const l of out) {
+    if (l.date !== o) continue;
+    const s = slot(l.from, l.to);
+    const x = OUT(s, o);
+    const y = BACK(s, b);
+    if (x == null || y == null) continue;
+    const pk = park(l.from, n0);
+    if (!ref || x + y + pk < ref.cost) ref = { s, home: l.from, cost: x + y + pk, out: x, back: y };
+  }
+  return {
+    out: (l) => {
+      const back2 = l.date <= b ? b : addDays(l.date, n0);
+      const n = daysBetween(l.date, back2);
+      const stay = { czk: park(l.from, n), days: parkDays(n) };
+      if (!ref) return stay;
+      const y = BACK(slot(l.from, l.to), back2);
+      // posunutý návrat (den tam po zadaném návratu) leží mimo stažené dny – počítá se jako návrat v zadaný den
+      if (y == null) return l.date > b ? stay : false;
+      return { ...stay, adj: y - ref.back };
+    },
+    back: (l) => {
+      if (l.date < o) return false;
+      const n = daysBetween(o, l.date);
+      if (!ref) return { czk: park(l.to, n) - park(l.to, n0), days: parkDays(n) };
+      const x = OUT(slot(l.to, l.from), o);
+      return x == null ? false : { czk: park(l.to, n) - park(ref.home, n0), days: parkDays(n), adj: x - ref.out };
+    },
+  };
+}
+
+/**
  * Nejbližší dny tam (a zpět) kolem přesných dat. park(iata, nights) = parkování Kč/os. na celou cestu (autem tam i zpět,
- * jako ve výsledcích): u dne tam se počítá s návratem v zadaný den (kdyby byl dřív než odlet, posune se se stejným počtem
- * nocí – jako po kliknutí na den), u dne zpět s odletem v zadaný den; auto parkuje u letiště odletu = příletu zpět.
+ * jako ve výsledcích) – řádky Tam a Zpět se pak dají sečíst na cenu cesty (carNear); veřejnou dopravou každý směr zvlášť.
  */
 export function nearbyOf({ out, back, q, nearOut, nearBack, groundOf, extra = () => 0, park = null }) {
   const opts = { groundOf, extra, directOnly: q.directOnly };
   const { out: o, back: b } = q.exact;
-  const stay = (iata, nights) => ({ czk: park(iata, nights), days: parkDays(nights) });
-  const outPark = park && b ? (l) => stay(l.from, l.date <= b ? daysBetween(l.date, b) : daysBetween(o, b)) : null;
-  const backPark = park ? (l) => stay(l.to, Math.max(0, daysBetween(o, l.date))) : null;
+  const car = park && b && nearBack ? carNear({ out, back, q, nearOut, nearBack, ...opts, park }) : null;
   const res = {
-    out: { around: o, ...nearbyDays(out, nearOut, { from: q.dateFrom, to: q.dateTo }, { ...opts, park: outPark }) },
-    back: nearBack ? { around: b, ...nearbyDays(back, nearBack, { from: q.exact.backFrom, to: q.exact.backTo }, { ...opts, park: backPark }) } : null,
+    out: { around: o, ...nearbyDays(out, nearOut, { from: q.dateFrom, to: q.dateTo }, { ...opts, park: car && car.out }) },
+    back: nearBack ? { around: b, ...nearbyDays(back, nearBack, { from: q.exact.backFrom, to: q.exact.backTo }, { ...opts, park: car && car.back }) } : null,
     hint: null,
   };
   // Nápověda: v zadaný den nízkonákladovky volný let nemají (nelétají, nebo je vyprodáno), ale den či dva vedle ano.

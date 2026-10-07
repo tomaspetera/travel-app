@@ -168,13 +168,26 @@ test('parkování u letiště online předem: základ + za den, proložené cen�
   // Ceník po týdnech, jedna přímka přes 1–14 dní sedí špatně → proloženo 3–14 dní (typická cesta, do ±10 %), jeden den
   // vyjde dráž: Linec C1 16,70 / 40 / 63 / 86 € (linz-airport.com, ceník od 1. 1. 2026), Salcburk P3 / P7 v sezóně
   // 24. 10.–1. 11. 27 / 59 / 65 / 90 €, Norimberk P31 / P4 online 38 / 91 / 131 / 192 €, Berlín Economy online
-  // 34 / 64 / 80 / 109 €
-  const weekly = { LNZ: [407, 976, 1537, 2098], SZG: [659, 1440, 1586, 2196], NUE: [927, 2220, 3196, 4685], BER: [830, 1562, 1952, 2660] };
+  // 34 / 64 / 80 / 109 €; Vratislav (degresivní, 7–9 dní za stejnou cenu) Parking D online 79 / 139 / 199 / 269 zł
+  const weekly = {
+    LNZ: [407, 976, 1537, 2098], SZG: [659, 1440, 1586, 2196], NUE: [927, 2220, 3196, 4685], BER: [830, 1562, 1952, 2660],
+    WRO: [458, 806, 1154, 1560],
+  };
   for (const [iata, prices] of Object.entries(weekly)) {
     const g = car(PRAHA, iata, { adults: 1 });
     [3, 7, 14].forEach((d, i) => assert.ok(Math.abs(A.parkStay(g, d) - prices[i + 1]) <= prices[i + 1] * 0.1, `${iata} ${d} dní: ${A.parkStay(g, d)} Kč`));
     assert.ok(A.parkStay(g, 1) > prices[0], `${iata} 1 den vyjde dráž`);
   }
+  // Vratislav: celý online ceník Parking D (rezerwacja.airport.wroclaw.pl, příjezd st 28. 10. 2026) – přímka 630 + 70 Kč/den
+  // sedí na 3–16 dní do ±11 % (jeden den 700 Kč místo 458 Kč, dva dny 770 Kč místo 632 Kč)
+  const wroZl = { 2: 109, 3: 139, 4: 159, 5: 179, 6: 189, 7: 199, 8: 199, 9: 199, 10: 209, 11: 219, 12: 239, 13: 249, 14: 269, 15: 269, 16: 289 };
+  const wro = car(PRAHA, 'WRO', { adults: 1 });
+  for (const [d, zl] of Object.entries(wroZl)) {
+    const model = A.parkStay(wro, +d), real = zl * 5.8;
+    if (+d >= 3) assert.ok(Math.abs(model - real) <= real * 0.11, `WRO ${d} dní: ${model} Kč, ceník ${Math.round(real)} Kč`);
+  }
+  assert.deepEqual([A.parkStay(wro, 1), A.parkStay(wro, 2), A.parkStay(wro, 8)], [700, 770, 1190]);
+  assert.equal(wro.breakdown.find((x) => x.k === 'park').label, 'parkování u letiště online předem (630 Kč + 70 Kč za den)');
   // Karlovy Vary: P4 / P5 online 500 Kč za každý započatý týden (8 dní, airport-k-vary.cz) → přímka 280 + 50 Kč/den
   // přes 3–14 dní: týden 680 Kč (skutečně 500), 9 dní 730 Kč (skutečně 1 000), 14 dní 980 Kč
   const klv = car(PRAHA, 'KLV');
@@ -186,14 +199,14 @@ test('parkování u letiště online předem: základ + za den, proložené cen�
   // Ostrava bez základu (130 Kč za každý den, online i na místě): popis jen se sazbou za den
   assert.equal(car(PRAHA, 'OSR').breakdown.find((x) => x.k === 'park').label, 'parkování u letiště online předem (130 Kč za den)');
   // proložení základ + Kč/den u ověřených letišť (ceníky výše a u tabulky ACCESS)
-  const verified = ['PRG', 'VIE', 'BRQ', 'OSR', 'PED', 'KLV', 'BTS', 'LNZ', 'SZG', 'MUC', 'NUE', 'BER', 'DRS', 'LEJ', 'KTW', 'KRK', 'BUD'];
+  const verified = ['PRG', 'VIE', 'BRQ', 'OSR', 'PED', 'KLV', 'BTS', 'LNZ', 'SZG', 'MUC', 'NUE', 'BER', 'DRS', 'LEJ', 'KTW', 'KRK', 'WRO', 'BUD'];
   assert.deepEqual(Object.fromEntries(verified.map((x) => { const g = car(PRAHA, x); return [x, [g.parkBaseCzk, g.parkDayCzk]]; })), {
     PRG: [590, 120], VIE: [850, 150], BRQ: [170, 160], OSR: [0, 130], PED: [0, 0], KLV: [280, 50], BTS: [670, 100],
     LNZ: [740, 100], SZG: [1170, 70], MUC: [790, 100], NUE: [1580, 220], BER: [1260, 100], DRS: [540, 120],
-    LEJ: [750, 160], KTW: [190, 70], KRK: [430, 90], BUD: [400, 50],
+    LEJ: [750, 160], KTW: [190, 70], KRK: [430, 90], WRO: [630, 70], BUD: [400, 50],
   });
-  // neověřená regionální letiště zůstávají odhadem z dřívější denní sazby (Budějovice; Vratislav – web za ochranou proti botům)
-  for (const x of ['JCL', 'WRO']) {
+  // neověřená regionální letiště zůstávají odhadem z dřívější denní sazby (Budějovice, Poznaň)
+  for (const x of ['JCL', 'POZ']) {
     const g = car(PRAHA, x);
     assert.ok(g.parkBaseCzk > 0 && g.parkBaseCzk < 590 && g.parkDayCzk > 0, `${x}: ${g.parkBaseCzk} + ${g.parkDayCzk}`);
   }
@@ -651,7 +664,7 @@ test('hledání tam i zpět autem: palivo + parkování podle nocí v ceně, ná
   }
 });
 
-test('přesná data autem: nejbližší dny i s parkováním na celou cestu – stejně jako cena cest ve výpisu', async () => {
+test('přesná data autem: nejbližší dny – parkování na celou cestu jen u Tam, Tam + Zpět = cena cesty ve výpisu', async () => {
   const fx = fxStub();
   const D = ymdPlus(30);
   const B = new Date(Date.parse(`${D}T12:00:00Z`) + 4 * 864e5).toISOString().slice(0, 10);
@@ -668,14 +681,64 @@ test('přesná data autem: nejbližší dny i s parkováním na celou cestu – 
     const back = r.nearby.back.days.find((d) => d.date === B);
     // den tam: let + palivo jedním směrem + parkování na celou cestu (4 noci = 5 dní)
     assert.deepEqual([out.cost, out.parkCzk, out.parkDays], [t.out.czk + g.czk + pk, pk, 5]);
-    // cena cesty ve výpisu = den tam + let zpět s palivem (parkování jen jednou)
-    assert.equal(t.perPersonCzk, out.cost + t.back.czk + g.czk);
-    // den zpět: každý směr zvlášť – nejlevnější je návrat do Karlových Varů, s parkováním u KLV (tam by auto stálo)
-    const gk = r.origins.find((o) => o.iata === 'KLV').ground;
-    assert.deepEqual([back.to, back.cost, back.parkCzk], ['KLV', 300 + gk.czk + A.parkCzk(gk, 4), A.parkCzk(gk, 4)]);
-    // veřejnou dopravou bez parkování
+    // den zpět: let + palivo, parkování už je u Tam – součet je cena cesty ve výpisu (dřív parkování dvakrát)
+    assert.deepEqual([back.to, back.cost, back.parkCzk], ['PRG', t.back.czk + g.czk, undefined]);
+    assert.equal(out.cost + back.cost, t.perPersonCzk);
+    // levný návrat do Karlových Varů autem nejde (auto stojí v Praze) – do řádku Zpět se nepočítá
+    assert.ok(!r.nearby.back.days.some((d) => d.to === 'KLV'));
+    // veřejnou dopravou bez parkování a beze změny: každý směr zvlášť, návrat do KLV je nejlevnější
     const rt = await search({ ...base, groundMode: 'transit' }, () => {}, { providers: [p], hubs: false });
     assert.ok(rt.nearby.out.days.every((d) => d.parkCzk === undefined));
+    assert.equal(rt.nearby.back.days.find((d) => d.date === B).to, 'KLV');
+  } finally {
+    fx.restore();
+  }
+});
+
+test('přesná data autem: Tam + Zpět v „Nejbližších dnech“ = cena nejlevnější cesty v ty dny (ověřeno novým hledáním)', async () => {
+  const fx = fxStub();
+  const D = ymdPlus(30);
+  const day = (d, n) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
+  const B = day(D, 5);
+  // zdroj vrací i dny kolem přesného data (jako Ryanair celý měsíc) – z nich je pruh „Nejbližší dny“
+  const near = (fares) => ({
+    ...stubProvider('stub', fares),
+    async daily({ from, to, dateFrom, dateTo, near: nr }) {
+      const a = nr && nr.from < dateFrom ? nr.from : dateFrom;
+      const b = nr && nr.to > dateTo ? nr.to : dateTo;
+      return stubProvider('stub', fares).daily({ from, to, dateFrom: a, dateTo: b });
+    },
+  });
+  const prg = [fare('PRG', 'BCN', day(D, -1), 1400), fare('PRG', 'BCN', D, 1500), fare('PRG', 'BCN', day(D, 1), 1300),
+    fare('BCN', 'PRG', day(B, -1), 1200), fare('BCN', 'PRG', B, 1400), fare('BCN', 'PRG', day(B, 2), 1100)];
+  // Pardubice: parkování zdarma, levný let tam jen den po zadaném odletu a návrat jen v zadaný den
+  const ped = [fare('PED', 'BCN', day(D, 1), 600), fare('BCN', 'PED', B, 1000)];
+  const best = async (p, radiusKm, o, b) => {
+    const r = await search({ from: ['ap:PRG'], to: ['ap:BCN'], radiusKm, trip: 'return', exactOut: o, exactBack: b, adults: 2, groundMode: 'car' }, () => {}, { providers: [p], hubs: false });
+    return Math.min(...r.top.map((t) => t.perPersonCzk));
+  };
+  try {
+    for (const [fares, radiusKm, label] of [[prg, 0, 'jen Praha'], [[...prg, ...ped], 120, 'Praha + Pardubice']]) {
+      const p = near(fares);
+      const r = await search({ from: ['ap:PRG'], to: ['ap:BCN'], radiusKm, trip: 'return', exactOut: D, exactBack: B, adults: 2, groundMode: 'car' }, () => {}, { providers: [p], hubs: false });
+      const tam = (d) => r.nearby.out.days.find((x) => x.date === d)?.cost;
+      const zpet = (d) => r.nearby.back.days.find((x) => x.date === d)?.cost;
+      assert.equal(tam(D) + zpet(B), Math.min(...r.top.map((t) => t.perPersonCzk)), `${label}: zadané dny = nejlevnější cesta ve výpisu`);
+      // změní-li se jen jeden den (jako po kliknutí na den v pruhu): přesně cena nejlevnější cesty z nového hledání
+      for (const t of [day(D, -1), day(D, 1)]) assert.equal(tam(t) + zpet(B), await best(p, radiusKm, t, B), `${label}: tam ${t}`);
+      for (const z of [day(B, -1), day(B, 2)]) assert.equal(tam(D) + zpet(z), await best(p, radiusKm, D, z), `${label}: zpět ${z}`);
+      if (radiusKm === 0) {
+        // jediné letiště: parkování je přímka základ + Kč/den, takže sedí i každá jiná dvojice dnů
+        for (const t of [day(D, -1), day(D, 1)]) for (const z of [day(B, -1), day(B, 2)]) assert.equal(tam(t) + zpet(z), await best(p, 0, t, z), `${t} → ${z}`);
+      } else {
+        // den po odletu je nejlevnější přes Pardubice: auto stojí tam (zdarma) a vrací se tam – v ceně dne je i rozdíl
+        // návratu do Pardubic proti návratu do Prahy v řádku Zpět
+        const gc = (iata) => r.origins.find((o) => o.iata === iata).ground.czk;
+        const x = r.nearby.out.days.find((d) => d.date === day(D, 1));
+        assert.deepEqual([x.from, x.parkCzk, x.tripAdj], ['PED', undefined, 1000 + gc('PED') - (1400 + gc('PRG'))]);
+        assert.equal(x.cost, 600 + gc('PED') + x.tripAdj);
+      }
+    }
   } finally {
     fx.restore();
   }

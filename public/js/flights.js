@@ -1346,21 +1346,36 @@
     // bez cen v okolních dnech má pruh smysl jen jako rychlý výběr jiného dne, když je výsledků málo
     const other = [nb.out, nb.back].some(x => x && x.days.some(d => d.date !== x.around));
     if (!hot && !other) return '';
-    // autem tam i zpět: cena dne i s parkováním na celou cestu (kdyby se změnil jen tento den) – jako ve výsledcích
-    const carRet = res.query.groundMode === 'car' && res.query.trip === 'return';
+    // autem tam i zpět: řádky se sčítají na cenu celé cesty (server, carNear) – parkování na celou cestu je u Tam,
+    // u Zpět jen jeho změna proti zadanému návratu (a rozdíl, kdyby auto stálo u jiného letiště)
+    const carRet = res.query.groundMode === 'car' && res.query.trip === 'return' && Boolean(nb.back);
+    const sgn = v => `${v > 0 ? '+' : '−'}${czk(Math.abs(v))}`;
+    const days0 = carRet ? SearchHelp.parkDays(SearchHelp.diffDays(res.query.exact.out, res.query.exact.back)) : 0;
+    const carTip = (c, which) => {
+      if (which === 'out') {
+        return ` – let tam + cesta autem na letiště${c.parkCzk ? ` + parkování na ${plural(c.parkDays, 'den', 'dny', 'dní')} ~${czk(c.parkCzk)}/os.` : ''}`
+          + `${c.tripAdj ? ` + návrat k autu do ${c.from} ${sgn(c.tripAdj)} proti řádku Zpět` : ''}`;
+      }
+      if (c.tripAdj) return ` – let zpět + cesta autem domů; auto by stálo u ${c.to}: let tam odtud ${sgn(c.tripAdj)}${c.parkCzk ? `, parkování ${sgn(c.parkCzk)}` : ''} proti řádku Tam`;
+      const k = c.parkDays ? Math.abs(c.parkDays - days0) : 0;
+      const pk = !c.parkCzk ? '' : k ? ` ${c.parkCzk > 0 ? '+' : '−'} o ${plural(k, 'den', 'dny', 'dní')} ${c.parkCzk > 0 ? 'delší' : 'kratší'} parkování ~${czk(Math.abs(c.parkCzk))}/os.`
+        : ` ${c.parkCzk > 0 ? '+' : '−'} rozdíl parkování ~${czk(Math.abs(c.parkCzk))}/os.`;
+      return ` – let zpět + cesta autem domů${pk} (parkování na celou cestu je v řádku Tam)`;
+    };
     const row = (side, which) => {
       const cells = SearchHelp.nearStrip(side, { minDate: which === 'back' ? res.query.exact.out : null });
       return `<div class="nb-row"><span class="nb-lab">${which === 'out' ? '🛫 Tam' : '🛬 Zpět'}</span><div class="nb-days">${cells.map(c => {
         const d = new Date(c.date + 'T12:00:00');
-        const tip = c.cost != null ? `${dayLabel(c.date)}: nejlevnější let od ${czk(c.cost)}/os.${c.carrierName ? ` (${c.carrierName}${c.stops ? ', s přestupem' : ''})` : ''}${c.parkCzk ? ` – vč. parkování na ${plural(c.parkDays, 'den', 'dny', 'dní')} ~${czk(c.parkCzk)}/os.` : ''}`
-          : c.around ? `${dayLabel(c.date)}: nic nenalezeno` : `${dayLabel(c.date)}: cenu zatím neznám – klikni a vyhledám`;
+        const tip = c.cost != null ? `${dayLabel(c.date)}: ${carRet ? '' : 'nejlevnější let '}od ${czk(c.cost)}/os.${c.carrierName ? ` (${c.carrierName}${c.stops ? ', s přestupem' : ''})` : ''}${carRet ? carTip(c, which) : c.parkCzk ? ` – vč. parkování na ${plural(c.parkDays, 'den', 'dny', 'dní')} ~${czk(c.parkCzk)}/os.` : ''}`
+          : c.around ? `${dayLabel(c.date)}: nic nenalezeno` : c.disabled ? `${dayLabel(c.date)}: návrat před odletem nejde` : `${dayLabel(c.date)}: cenu zatím neznám – klikni a vyhledám`;
         return `<button type="button" class="nb-d${c.around ? ' on' : ''}${c.best ? ' best' : ''}${c.cost == null ? ' none' : ''}" data-nb="${which}:${esc(c.date)}" ${c.around || c.disabled ? 'disabled' : ''} title="${esc(tip)}"><span>${DOW[d.getDay()]}</span><span>${d.getDate()}. ${d.getMonth() + 1}.</span><b>${c.cost != null ? Math.round(c.cost).toLocaleString('cs-CZ') : c.around ? '—' : '?'}</b></button>`;
       }).join('')}</div></div>`;
     };
     const head = hot ? SearchHelp.nearHeadline(nb) : null;
     const priced = [nb.out, nb.back].some(x => x && x.days.length);
-    const what = carRet ? 'vč. cesty autem a parkování na celou cestu (kdyby se změnil jen tento den)' : 'vč. dopravy na letiště';
-    return `<div class="card nb-card${hot ? ' hot' : ''}"><div class="nb-h"><b>📅 Nejbližší dny</b><span class="faint">${priced ? `nejlevnější let daného dne v Kč/os. ${what}` : 'ceny okolních dnů zatím neznám'} · klikni na den a hledám znovu</span></div>
+    const what = carRet ? 'cena dne v Kč/os. (let + cesta autem) – parkování na celou cestu je u Tam, u Zpět jen o kolik se změní, takže Tam + Zpět = cena celé cesty'
+      : 'nejlevnější let daného dne v Kč/os. vč. dopravy na letiště';
+    return `<div class="card nb-card${hot ? ' hot' : ''}"><div class="nb-h"><b>📅 Nejbližší dny</b><span class="faint">${priced ? what : 'ceny okolních dnů zatím neznám'} · klikni na den a hledám znovu</span></div>
       ${head ? `<div class="nb-hint">💡 ${esc(head)}</div>` : ''}${row(nb.out, 'out')}${nb.back ? row(nb.back, 'back') : ''}</div>`;
   }
   function pickNearDay(which, d) {
@@ -1809,7 +1824,7 @@
         ${left ? sec('📅', 'Do odletu', `<p>${left}</p>`) : ''}
         ${adv ? `<div class="note info pc-advice">💡<div><b>Co s tím?</b> ${esc(adv.text)}</div></div>` : ''}
         ${cache ? '<div class="note warn pc-advice">⏱<div>Cena je z cache (z hledání jiných uživatelů za posledních ~48 h) – před nákupem ji ověř.</div></div>' : ''}
-        <div class="row wrap pc-act">${inResults ? '<button type="button" class="btn primary" id="pcWatch">♡ Hlídat cenu tohoto hledání</button>' : ''}<button type="button" class="btn ghost" onclick="modalClose()">Zavřít</button></div>
+        <div class="row wrap pc-act">${!inResults ? '' : isWatched(getForm()) ? '<button type="button" class="btn" id="pcWatch" disabled title="Hledání už je v hlídaných cenách na Přehledu">✓ Tohle hledání už hlídáš</button>' : '<button type="button" class="btn primary" id="pcWatch">♡ Hlídat cenu tohoto hledání</button>'}<button type="button" class="btn ghost" onclick="modalClose()">Zavřít</button></div>
         <p class="faint pc-foot">Je to odhad, ne předpověď. ATLAS porovnává cenu letenek na osobu (bez dopravy na letiště a zavazadel) s ostatními nabídkami tohoto hledání, s hrubou průměrnou cenou na vzdálenost a s cenami, které viděl v tomto prohlížeči. Jak se cena dál vyvine, dopředu nikdo neví.</p>
       </div>`;
   }
@@ -1894,19 +1909,25 @@
     const g = res.groups.find(x => x.best === t);
     return { czk: t.perPersonCzk, desc: `${g.dest.label} · ${fmtDate(t.out.date)}${t.back ? '–' + fmtDate(t.back.date) : ''} · z ${t.out.from}` };
   }
+  // Stejné hledání = stejný dotaz na server (starší uložené formuláře doplněné jako při kontrole) – hlídá se jen jednou.
+  function watchKey(w) {
+    try { return Alerts.searchKey(payloadOf({ ...defaultForm(), ...SearchHelp.groundForm(w.form) })); } catch (e) { return `?${w.id}`; }
+  }
+  const isWatched = f => { const k = watchKey({ form: f }); return (S.watch || []).some(w => watchKey(w) === k); };
   async function addWatch() {
     const f = getForm();
     if (!f.from.length) return toast('Nejdřív zadej, odkud letíš', 'err');
     let res = lastResult && JSON.stringify(lastPayload) === JSON.stringify(payloadOf(f)) ? lastResult : await startSearch({ noScroll: true });
     if (!res) return;
     const b = bestOf(res);
-    S.watch = S.watch || [];
     const czk0 = b ? b.czk : null;
     const legs = f.trip === 'multi' ? f.legs : null;
-    S.watch.unshift({ id: Date.now().toString(36), label: watchLabel(f), sub: (legs ? `🗺️ ${plural(legs.length, 'let', 'lety', 'letů')} · ${fmtDate(legs[0].date)} → ${fmtDate(legs[legs.length - 1].date)}` : f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? `${f.nMin}–${f.nMax} nocí` : 'jen tam'}${f.minTemp ? ` · 🌡️ ≥ ${f.minTemp} °C` : ''}`) + (BAG_LBL[f.bags] ? ` · 🧳 ${BAG_LBL[f.bags]}` : '') + (f.ground && f.groundMode === 'car' ? ` · 🚗 na letiště autem (${FUEL_SHORT[f.carFuel] || 'nafta'})` : ''), form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null });
-    S.watch = S.watch.slice(0, 12); save();
+    const w = { id: Date.now().toString(36), label: watchLabel(f), sub: (legs ? `🗺️ ${plural(legs.length, 'let', 'lety', 'letů')} · ${fmtDate(legs[0].date)} → ${fmtDate(legs[legs.length - 1].date)}` : f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? `${f.nMin}–${f.nMax} nocí` : 'jen tam'}${f.minTemp ? ` · 🌡️ ≥ ${f.minTemp} °C` : ''}`) + (BAG_LBL[f.bags] ? ` · 🧳 ${BAG_LBL[f.bags]}` : '') + (f.ground && f.groundMode === 'car' ? ` · 🚗 na letiště autem (${FUEL_SHORT[f.carFuel] || 'nafta'})` : ''), form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null };
+    // stejné hledání podruhé (♡ pod formulářem i v „Je to dobrá cena?“) jen aktualizuje cenu té, co už je
+    const r = Alerts.upsertWatch(S.watch || [], w, watchKey, { now: Date.now(), cap: 12 });
+    S.watch = r.list; save();
     updateWatchBadges();
-    toast('Hledání uloženo – cenu hlídám na Přehledu, dokud máš ATLAS otevřený');
+    toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : 'Hledání uloženo – cenu hlídám na Přehledu, dokud máš ATLAS otevřený');
   }
 
   // Stav karet během kontroly: id → 'wait' (ve frontě) | 'run' (právě se kontroluje).
