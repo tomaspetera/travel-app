@@ -244,7 +244,7 @@ class BasicResponse extends Response {
 }
 function loadSw(src = read('public/sw.js')) {
   const handlers = {}, calls = { skip: 0, claim: 0 }, store = new Map();
-  const net = { offline: false, files: {}, log: [] };
+  const net = { offline: false, delay: 0, files: {}, log: [] };
   const keyOf = (r) => (typeof r === 'string' ? new URL(r, SCOPE).href : r.url).split('#')[0];
   const caches = {
     async open(name) {
@@ -265,9 +265,10 @@ function loadSw(src = read('public/sw.js')) {
     }
   }
   const ctx = {
-    caches, Request, Response, Headers, URL, console,
+    caches, Request, Response, Headers, URL, console, setTimeout, clearTimeout,
     async fetch(req) {
       net.log.push(req);
+      if (net.delay) await new Promise((r) => setTimeout(r, net.delay));
       if (net.offline) throw new TypeError('Failed to fetch');
       const f = net.files[req.url];
       return f ? new BasicResponse(f.body, { status: f.status || 200, headers: { 'content-type': f.type || 'text/javascript' } }) : new BasicResponse('', { status: 404 });
@@ -316,6 +317,48 @@ test('service worker – směrování (čistá funkce): API, POST, cizí weby a 
   assert.equal(route('/atlas/js/app.js', {}, sub), 'asset');
   assert.equal(route('/jina/js/app.js', {}, sub), null, 'mimo rozsah');
   assert.equal(ctx.route({ method: 'GET', url: 'nesmysl' }, SCOPE), null);
+});
+
+test('service worker: pomalá síť nebo uspaný server → uložená stránka a k ní soubory z uložené sady; jiné stránky dál ze sítě', async () => {
+  const src = read('public/sw.js').replace(/^const BUILD = .*$/m, "const BUILD = 'v1';")
+    .replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(['./', 'js/app.js'])};`)
+    .replace(/^const PAGE_TIMEOUT = .*$/m, 'const PAGE_TIMEOUT = 30;');
+  const sw = loadSw(src);
+  const { net, event, handlers } = sw;
+  const file = (p, body, type = 'text/javascript') => { net.files[SCOPE + p] = { body, type }; };
+  const text = async (ev) => (await ev.responded).text();
+  const ask = (id) => new Promise((resolve) => handlers.message({ data: 'atlas-served', ports: [{ postMessage: resolve }], source: { id } }));
+  file('', '<html>v1</html>', 'text/html; charset=utf-8');
+  file('js/app.js', 'app v1');
+  await Promise.all(event('install').waits);
+
+  // na serveru je nová verze, ale odpovídá pomalu (probouzí se)
+  file('', '<html>v2</html>', 'text/html; charset=utf-8');
+  file('js/app.js', 'app v2');
+  net.delay = 150;
+  assert.equal(await text(event('fetch', { request: req('/', { mode: 'navigate' }), resultingClientId: 'c1' })), '<html>v1</html>', 'po PAGE_TIMEOUT uložená stránka');
+  assert.equal(await text(event('fetch', { request: req('/js/app.js'), clientId: 'c1' })), 'app v1', 'její soubory z uložené sady – stejná verze, žádná směs');
+  assert.equal(await ask('c1'), 'cache', 'pwa.js se dozví, že stránka je z uložené kopie (verzi ověří, až server odpoví)');
+  assert.equal(await text(event('fetch', { request: req('/js/app.js'), clientId: 'c2' })), 'app v2', 'stránka ze sítě: soubory dál ze sítě');
+  assert.equal(await ask('c2'), 'network');
+  assert.equal(await text(event('fetch', { request: req('/js/novy.js'), clientId: 'c1' })), '', 'co v uložené sadě není, jde ze sítě (tady 404)');
+
+  // server vrací chybu (5xx při probouzení): uložená stránka místo chybové
+  net.delay = 0;
+  net.files[SCOPE] = { body: 'Service Unavailable', type: 'text/html', status: 503 };
+  assert.equal(await text(event('fetch', { request: req('/', { mode: 'navigate' }), resultingClientId: 'c4' })), '<html>v1</html>');
+  assert.equal(await ask('c4'), 'cache');
+  file('', '<html>v2</html>', 'text/html; charset=utf-8');
+
+  // rychlá síť: jako dřív vždy ze sítě
+  assert.equal(await text(event('fetch', { request: req('/', { mode: 'navigate' }), resultingClientId: 'c3' })), '<html>v2</html>');
+  assert.equal(await ask('c3'), 'network');
+
+  // první návštěva (nic uloženého) a pomalá síť: počká na síť
+  const fresh = loadSw(src);
+  fresh.net.files = net.files;
+  fresh.net.delay = 80;
+  assert.equal(await text(fresh.event('fetch', { request: req('/', { mode: 'navigate' }), resultingClientId: 'x' })), '<html>v2</html>');
 });
 
 test('service worker v akci: instalace ze sítě s ověřením, aktivace smaže staré verze, síť má vždy přednost, offline kopie, API nikdy', async () => {

@@ -680,6 +680,11 @@ k internetu a zkus to znovu.“ (při připojení, ale nedostupném serveru „S
 - Service worker bere stránku i soubory aplikace (HTML, JS, CSS, `vendor/`, `data/*.json`) **vždy nejdřív ze sítě**
   s ověřením u serveru a každou úspěšnou odpověď si uloží; uloženou kopii použije, **jen když síť selže**. Na `/api/*`,
   jiné metody než GET a cizí weby (dlaždice map, písma, partneři) nesahá – jdou rovnou na server a nic z nich neukládá.
+- **Pomalá síť nebo uspaný server** (Render zdarma po 15 minutách bez návštěvy usne a probouzí se až minutu): stránka,
+  která ze sítě nepřijde do 2,5 s, se otevře z uložené kopie a **všechny její soubory taky** (stejná verze, nikdy směs
+  staré stránky s novými skripty). `pwa.js` se od service workeru dozví, že stránka je z uložené kopie, vezme si její
+  verzi a po probuzení serveru hned ověří, jestli není novější – pak nabídne „Obnovit“ (viz níže). Na stav serveru
+  (`/api/health`) start čeká nejvýš 1,5 s, zdroje cen se doplní, až odpoví.
 - Server posílá kód aplikace (HTML, JS, CSS, manifest) s `Cache-Control: no-cache`: prohlížeč se při každém načtení
   zeptá (nezměněný soubor = `304` bez dat). S `max-age` by otevřený panel po obnovení vzal soubor z paměti bez ptaní –
   ani service worker by se o tom nedozvěděl – a po nasazení by běžel starý kód. Obrázky, písma a data mapy mezipaměť mají dál.

@@ -362,9 +362,10 @@
     if (ovOn(t)) return overlandStep();
     // úroveň ceny ze serveru, u živé nabídky (Ověřit) dopočítaná ze statistiky hledání
     const pl = window.PriceCheck && window.Flights && Flights.priceTag ? PriceCheck.assess(t.flight, t.priceStats || null) : null;
+    const arr = arrivalCzk(t); // úsek, který nahradí auto půjčené na letišti, se nepočítá (jako v souhrnu)
     host.innerHTML = `<div class="card step-card"><h3>✈️ Vybraný let</h3>
       ${legLine(t.flight.out)}${t.flight.back ? legLine(t.flight.back, true) : ''}
-      <div class="muted" style="margin-top:8px;font-size:13px">Letenky ${czk(t.flight.flightCzk)}/os.${t.flight.bagCzk ? ` + zavazadla ~${czk(t.flight.bagCzk)}/os.` : ''}${t.flight.groundCzk ? ` + ${groundWhat(t)}${t.groundMode === 'car' && carFuelOk(t.carFuel) && t.carFuel !== 'ev' ? ` (${carFuelTxt(t)})` : ''} ${czk(t.flight.groundCzk)}/os.` : ''}${t.flight.arrCzk ? ` + z letiště do města${t.flight.back ? ' a zpět' : ''} ~${czk(t.flight.arrCzk)}/os.` : ''}</div>
+      <div class="muted" style="margin-top:8px;font-size:13px">Letenky ${czk(t.flight.flightCzk)}/os.${t.flight.bagCzk ? ` + zavazadla ~${czk(t.flight.bagCzk)}/os.` : ''}${t.flight.groundCzk ? ` + ${groundWhat(t)}${t.groundMode === 'car' && carFuelOk(t.carFuel) && t.carFuel !== 'ev' ? ` (${carFuelTxt(t)})` : ''} ${czk(t.flight.groundCzk)}/os.` : ''}${arr ? ` + z letiště do města${t.flight.back ? ' a zpět' : ''} ~${czk(arr)}/os.${arr < t.flight.arrCzk ? ' (bez úseku autem)' : ''}` : ''}</div>
       ${t.arrival && t.arrival.out ? `<div class="faint" style="font-size:12.5px;margin-top:4px">${ARR_ICO[t.arrival.out.mode] || '🚌'} ${esc(arrivalRow(t.arrival.out))}${t.arrival.back && t.arrival.back.iata !== t.arrival.out.iata ? `<br>${ARR_ICO[t.arrival.back.mode] || '🚌'} ${esc(arrivalRow(t.arrival.back, true))}` : ''}</div>` : ''}
       ${pl ? `<div class="tf-price">${Flights.priceTag(t.flight, null, pl)}<span class="faint">${esc(pl.reason)}</span><button type="button" class="linkbtn" id="tfPrice">Je to dobrá cena?</button></div>` : ''}
       <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="tfBack">↩ Vybrat jiný let</button><button class="btn" id="tfVerify">🔄 Ověřit živou cenu a porovnat aerolinky</button><button class="btn primary" id="tfNext">Pokračovat →</button></div>

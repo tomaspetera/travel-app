@@ -153,13 +153,16 @@
   const secure = location.protocol === 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
   let reg = null, mine = null, lastCheck = 0, dismissed = null, updBar = null;
   const serverBuild = () => nativeFetch('sw.js', { method: 'HEAD', cache: 'no-store' }).then((r) => (r.ok && r.headers.get('x-atlas-build')) || null);
-  const cachedBuild = () => new Promise((resolve) => {
+  // dotaz na service worker, který stránku obsluhuje: 'atlas-build' (verze uložené sady), 'atlas-served' ('cache' =
+  // stránka otevřená z uložené kopie, protože síť nebo server nestihly odpovědět) → odpověď, nebo null
+  const askSw = (msg) => new Promise((resolve) => {
     if (!sw || !sw.controller || typeof MessageChannel !== 'function') return resolve(null);
     const ch = new MessageChannel();
     const t = setTimeout(() => resolve(null), 2000);
     ch.port1.onmessage = (e) => { clearTimeout(t); resolve(typeof e.data === 'string' ? e.data : null); };
-    sw.controller.postMessage('atlas-build', [ch.port2]);
+    sw.controller.postMessage(msg, [ch.port2]);
   });
+  const cachedBuild = () => askSw('atlas-build');
 
   async function checkVersion(force) {
     if (!mine || !nativeFetch || navigator.onLine === false || (!force && Date.now() - lastCheck < 5 * 60e3)) return;
@@ -189,9 +192,13 @@
         .catch((e) => console.warn('ATLAS: service worker se nepodařilo zaregistrovat –', e && e.message));
     }
     if (!nativeFetch) return;
-    mine = await serverBuild().catch(() => null);
-    if (!mine) mine = await cachedBuild(); // stránka otevřená offline
+    // verze stránky: ze sítě = verze na serveru; z uložené kopie (offline, pomalá síť, uspaný server) = uložená sada –
+    // po probuzení serveru se hned ověří, jestli není novější (checkVersion)
+    const fromCache = (await askSw('atlas-served')) === 'cache';
+    mine = fromCache ? null : await serverBuild().catch(() => null);
+    if (!mine) mine = await cachedBuild();
     lastCheck = Date.now();
+    if (fromCache) { lastCheck = 0; checkVersion(true); }
     setInterval(() => checkVersion(), 30 * 60e3);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
   });

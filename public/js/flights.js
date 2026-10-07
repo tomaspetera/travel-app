@@ -2341,13 +2341,21 @@
   let healthReq = null;
   const warm = () => { if (!healthReq) { healthReq = api('api/health'); healthReq.catch(() => { }); } return healthReq; };
   async function init() {
+    const useHealth = h => {
+      health = h;
+      for (const p of h.providers) PROV[p.id] = p;
+      if (h.demo) $('#demoBanner').hidden = false;
+      if (window.Entry && h.fx) Entry.setRate(h.fx.eurCzk); // vstupní poplatky v € → Kč
+    };
+    const down = e => { if (!e.offline) toast('Server ATLAS neodpovídá – vyhledávání letů nepůjde', 'err'); }; // offline: pruh „Jsi offline“ (pwa.js)
     try {
-      health = await warm();
-      for (const p of health.providers) PROV[p.id] = p;
-      if (health.demo) $('#demoBanner').hidden = false;
-      if (window.Entry && health.fx) Entry.setRate(health.fx.eurCzk); // vstupní poplatky v € → Kč
+      // Na stav serveru se při startu čeká nejvýš 1,5 s: uspaný server (Render zdarma) se probouzí až minutu –
+      // aplikace se zatím vykreslí bez něj a zdroje cen se doplní, až odpoví.
+      const h = await Promise.race([warm(), new Promise(r => setTimeout(r, 1500, null))]);
+      if (h) useHealth(h);
+      else warm().then(x => { useHealth(x); renderSources(); }, down);
     } catch (e) {
-      if (!e.offline) toast('Server ATLAS neodpovídá – vyhledávání letů nepůjde', 'err'); // offline: pruh „Jsi offline“ (pwa.js)
+      down(e);
     }
     // výsledky vykreslené dřív, než dorazily vstupní podmínky, doplnit o čipy
     if (window.Entry) Entry.whenReady(() => { guideEntry(); if (lastResult) rerender(true); });

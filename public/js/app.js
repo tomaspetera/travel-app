@@ -515,14 +515,17 @@ function wireEvents() {
 function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
 
 /* Úvodní obrazovka aplikace na ploše (index.html #launch): zmizí, až je přehled vykreslený a písma načtená (na písma
-   nejvýš 0,8 s) – start bez poskakování obsahu. Pojistka: nejpozději 3,5 s po spuštění skriptu. */
-function launchDone() {
+   nejvýš 0,8 s) – start bez poskakování obsahu. Pojistka: 3,1 s od otevření stránky začne mizet (bez čekání na písma),
+   za 3,5 s je pryč; přišla-li stránka pozdě (pomalá síť, uspaný server), drží se aspoň 2 s, než se přehled vykreslí. */
+function launchDone(now) {
   const el = $('#launch'); if (!el || el.dataset.out) return;
   el.dataset.out = '1';
+  const out = () => { el.classList.add('out'); setTimeout(() => el.remove(), 700); };
+  if (now === true) return out();
   const fonts = document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 800))]) : Promise.resolve();
-  fonts.then(() => requestAnimationFrame(() => requestAnimationFrame(() => { el.classList.add('out'); setTimeout(() => el.remove(), 700); })));
+  fonts.then(() => requestAnimationFrame(() => requestAnimationFrame(out)));
 }
-setTimeout(launchDone, 3500);
+setTimeout(() => launchDone(true), Math.max(2000, 3100 - performance.now()));
 async function boot() {
   try { await start(); } finally { launchDone(); }
 }
