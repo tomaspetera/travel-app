@@ -154,7 +154,16 @@ test('server: /sw.js bez mezipaměti s verzí a 304, HEAD; kód aplikace (HTML, 
     assert.equal(h.status, 200, p);
     assert.match(h.headers.get('content-type'), /^text\/html/, p);
     assert.equal(h.headers.get('cache-control'), 'no-cache', `${p}: HTML se vždy ověří u serveru`);
+    // verze aplikace přímo ve stránce (i v uložené kopii) – pwa.js podle ní pozná novou verzi i v aplikaci na ploše
+    const html = await h.text();
+    assert.ok(html.includes(`<meta name="atlas-build" content="${build}">`), `${p}: stránka nese verzi ${build}`);
+    assert.ok(!html.includes('content="dev"'), p);
+    const same = await fetch(`${base}${p}`, { headers: { 'if-none-match': h.headers.get('etag') } });
+    assert.equal(same.status, 304, `${p}: nezměněná stránka = 304`);
   }
+  const headPage = await fetch(`${base}/`, { method: 'HEAD' });
+  assert.equal(headPage.status, 200);
+  assert.equal(await headPage.text(), '');
   // Kód aplikace vždy ověřit: s max-age by ho otevřený panel po obnovení vzal z paměti bez ptaní (ani service worker
   // by se o požadavku nedozvěděl) a po nasazení by běžel starý kód. Obrázky, písma a data mapy mezipaměť mají dál.
   const cc = async (p) => (await fetch(`${base}${p}`)).headers.get('cache-control');

@@ -30,7 +30,7 @@ import { makeTrip } from './lib/fares.js';
 import { airportClimate, climateAt, climateSource, countryClimate } from './lib/climate.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
-import { serveServiceWorker } from './lib/pwa.js';
+import { serveIndex, serveServiceWorker } from './lib/pwa.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -521,9 +521,11 @@ async function route(req, res) {
     // entry.json = vstupní podmínky pro občany ČR; prohlížeč ho načítá až po startu (nezdržuje první vykreslení)
     if (serveFile(req, res, path.join(DATA, p.slice(6)), { maxAge: 3600 })) return;
   }
+  // Stránka aplikace s dosazenou verzí (pwa.js podle ní pozná novou verzi i v aplikaci na ploše)
+  if (p === '/' || p === '/index.html') return serveIndex(req, res, { publicDir: PUBLIC, dataDir: DATA });
   let rel;
   try {
-    rel = decodeURIComponent(p === '/' ? '/index.html' : p);
+    rel = decodeURIComponent(p);
   } catch {
     res.writeHead(400);
     return res.end('Bad request');
@@ -539,7 +541,7 @@ async function route(req, res) {
   const maxAge = /\.(?:html|js|css|webmanifest)$/.test(rel) ? 0 : rel.startsWith('/vendor/') ? 86400 * 30 : 60;
   if (serveFile(req, res, file, { maxAge })) return;
   // SPA fallback
-  serveFile(req, res, path.join(PUBLIC, 'index.html'), { maxAge: 0 }) || (res.writeHead(404), res.end('Not found'));
+  serveIndex(req, res, { publicDir: PUBLIC, dataDir: DATA });
 }
 
 export function createServer() {
