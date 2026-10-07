@@ -138,7 +138,7 @@ a seznam věcí na míru cestě (země, termín, doprava, zavazadla z hledání,
   souhrnný zdroj.
 - **💉 Očkování** – připomene poradit se s lékařem, když vstupní podmínky uvádějí povinná nebo doporučená očkování.
 - **🎒 Co sbalit** – skupiny *Doklady a peníze*, *Zdraví a hygiena*, *Oblečení*, *Na výlety, pláž a hory*,
-  *Elektronika*. Podle **podnebí v měsících cesty** u každého místa trasy (NASA POWER, průměrná denní maxima a minima,
+  *Elektronika*. Podle **podnebí v měsících cesty** u každého místa trasy (meteostanice u letiště, jinak NASA POWER; průměrná denní maxima a minima,
   srážky: horko → lehké oblečení, pokrývka hlavy, opalovací krém; chlad a mráz → bunda, čepice, termoprádlo; období
   dešťů → nepromokavá bunda, jinak deštník; v mrazu bez deštníku), **délky cesty** (prádlo nejvýš na 7 dní, déle
   praní), **dopravy a zavazadel** z hledání (jen pod sedadlo / kabinový kufr / kufr k odbavení: tekutiny do 100 ml,
@@ -196,7 +196,7 @@ a seznam věcí na míru cestě (země, termín, doprava, zavazadla z hledání,
   kde napětí nebo zásuvky zmiňuje MZV (např. Japonsko 100 V, USA 110–120 V, Keňa a Tanzanie britský typ), porovnáno
   s texty MZV – sedí kromě Ekvádoru (MZV píše 220 V, ponecháno 120 V). Jižní Súdán a Marshallovy ostrovy v přehledu
   nejsou („ověř“).
-- Podnebí: `data/climate.json` (NASA POWER, viz níže), vstupní podmínky a očkování: `data/entry.json`.
+- Podnebí: `data/climate.json` (meteostanice u letišť, jinak NASA POWER – viz níže), vstupní podmínky a očkování: `data/entry.json`.
 
 **Je to informativní přehled** – pravidla se mění, ATLAS za ně neručí; karta vždy odkazuje na oficiální zdroj.
 **Aktualizace dat:** `public/data/pretrip.json` (statický soubor, prohlížeč ho načte až u shrnutí): `checked`,
@@ -226,7 +226,7 @@ krém…).
 | **Je to dobrá cena?** | U každé nabídky štítek 💚 Dobrá cena / Běžná cena / 🔺 Dráž než obvykle a panel s vysvětlením: srovnání s ostatními nabídkami do stejného cíle v tomto hledání, s průměrnou cenou na vzdálenost a s tím, co ATLAS na trase viděl dřív (trend ↓ / → / ↑), plus opatrná rada, jestli koupit, nebo cenu hlídat – viz [Je to dobrá cena?](#je-to-dobrá-cena). |
 | **Vlak nebo bus místo letadla** | U blízkých cílů v Evropě odhad cesty vlakem/busem, srovnání s letadlem od dveří ke dveřím a na vyžádání skutečné spoje RegioJetu s cenami; FlixBus, IDOS a Google Mapy jako odkazy. |
 | **Mapa výsledků** | Všechny destinace na mapě obarvené podle ceny. |
-| **Kam za teplem** | Volba 🌡️ Za teplem (≥ 20 / 25 / 30 °C) pustí jen cíle, kde je v měsíci odletu dlouhodobě aspoň tolik stupňů (NASA POWER, průměr 2001–2020). U každé nabídky je štítek s teplotou a řazení „Nejtepleji“. |
+| **Kam za teplem** | Volba 🌡️ Za teplem (≥ 20 / 25 / 30 °C) pustí jen cíle, kde je v měsíci odletu dlouhodobě aspoň tolik stupňů (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020). U každé nabídky je štítek s teplotou a řazení „Nejtepleji“. |
 | **Cena i se zavazadly** | 🧳 Zavazadla (kabinový kufr / kufr k odbavení) přičte odhad poplatku podle dopravce (~95 aerolinek, ověřeno na jejich webech 10/2026) – nízkonákladovky se tak férově porovnají s klasickými aerolinkami. |
 | **Hlídání cen + živý radar** | Ulož hledání ♡ a nastav cílovou cenu. Dokud máš ATLAS otevřený v prohlížeči, kontroluje ho sám zhruba jednou za 6 h, kreslí vývoj ceny a při zlevnění o 3 % nebo pod cílovou částku se ozve (i upozorněním prohlížeče). Stejné hledání (stejný dotaz – nezáleží na pořadí míst) se hlídá jen jednou: uložíš-li ho znovu (♡ pod formulářem i v *Je to dobrá cena?*), jen se mu aktualizuje cena a panel ukáže *✓ Tohle hledání už hlídáš*. Radar ukazuje nejlevnější lety z tvého okolí na příštích 6 týdnů. |
 
@@ -776,7 +776,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `POST /api/bike` | okruh na kole: `lat`, `lon`, `km` (5–150), `bike` (`road`, `trekking`, `gravel`, `mtb`), `scenery` (`city`, `mixed`, `nature`), `hills` (`flat`, `normal`, `hilly`), `variant` (jiná trasa) → délka, stoupání, čas, povrch, geometrie a odkazy do Mapy.com / Google Map |
 | `POST /api/bike` (`kind: "train"`) | „Vlakem tam, na kole zpět“: navíc `label` a `cc` domova; odpověď má `station { name, lat, lon, cc }` a `train { idosUrl, googleUrl }`, trasa vede z nádraží domů. 404 = v dosahu není vhodné nádraží |
 | `POST /api/hike` | pěší okruh: `lat`, `lon`, `km` (2–40), `scenery`, `hills`, `variant` → jako `/api/bike` + `trailPct` (značené trasy), `roadPct`, `descent`; čas chůze podle DIN 33466 |
-| `GET /api/climate?iata=BKK` / `?lat=&lon=` / `?cc=TH` | dlouhodobé podnebí: `hi[12]`, `lo[12]` (průměrná denní maxima a minima °C), `p[12]` (srážky mm/měsíc), NASA POWER 2001–2020 |
+| `GET /api/climate?iata=BKK` / `?lat=&lon=` / `?cc=TH` | dlouhodobé podnebí: `hi[12]`, `lo[12]` (průměrná denní maxima a minima °C), `p[12]` (srážky mm/měsíc), `src` (`wmo` / `ghcn` = meteostanice, `nasa` = model) a `source` (popis zdroje) |
 | `POST /api/itinerary` | rozplánování míst do dnů (`lat`, `lon`, `start`, `end`, `arrivalTime`, `departureTime`, `pace`, `interests`, `exclude`, `include`) |
 | `GET /api/diag` | živý test, jestli server dosáhne na jednotlivé zdroje |
 
@@ -1017,8 +1017,10 @@ cesta z města příjezdu (ne z letiště):
   Pro komerční provoz je potřeba smluvní zdroj dat (např. Travelpayouts / Aviasales jako affiliate partner).
 - Hlídané ceny se kontrolují jen v otevřeném a viditelném panelu prohlížeče (data jsou v localStorage, server nemá účty
   ani úložiště a bezplatný Render usíná). Zavřená stránka nehlídá nic.
-- „Za teplem“ pracuje s dlouhodobými průměry z buněk 0,5° kolem letiště; u pobřežních letovisek bývají o 1–4 °C nižší
-  než skutečnost (buňka zahrnuje i moře). Předpověď počasí jde nejvýš 15 dní dopředu.
+- „Za teplem“ a podnebí berou dlouhodobé průměry z meteostanice u letiště. Kde stanice není (do 10 km, ve stejné
+  zemi do 25 km – třeba Rhodos, Kos, Santorini, Pula, Istanbul), zůstává buňka NASA POWER 0,5°, která u pobřežních
+  letovisek dává maxima o 1–5 °C nižší (buňka zahrnuje i moře). Stanice je na letišti, ne na pláži: na Mallorce či
+  Kypru jsou noci u letiště chladnější než v letovisku u moře. Předpověď počasí jde nejvýš 15 dní dopředu.
 - Bezpečnostní hodnocení zemí odpovídá doporučením MZV ČR k 5. 10. 2026 – před cestou si je vždy ověř na webu MZV.
 - Vstupní podmínky jsou stav k 10/2026 pro turistickou cestu s běžným pasem; ceny registrací a víz jsou orientační
   (přepočet z místní měny) a datum platnosti pasu se počítá pro jistotu od návratu.
@@ -1037,8 +1039,11 @@ cesta z města příjezdu (ne z letiště):
 - Vlak a bus: seznam měst a zastávek RegioJetu (`brn-ybus-pubapi.sa.cz/restapi/consts/locations`), UUID měst FlixBusu
   (jen pro odkazy), změřené spoje z Prahy z průzkumu `research/ground.md` (větev `pc-research`); sestavuje `node scripts/build-ground.mjs` do
   `data/ground.json` (zdroj a datum jsou v souboru).
-- Podnebí: [NASA POWER](https://power.larc.nasa.gov/) Climatology API (MERRA-2, 2001–2020), sestavuje
-  `node scripts/build-climate.mjs` do `data/climate.json`.
+- Podnebí: meteostanice u letišť – [normály WMO 1991–2020](https://www.ncei.noaa.gov/products/wmo-climate-normals)
+  (NOAA NCEI) a průměry 1991–2020 spočítané z denních měření [NOAA GHCN-Daily](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily)
+  (každý měsíc průměr aspoň ze 100 změřených dní z 5 různých let), sestavuje `node scripts/build-climate-stations.mjs`;
+  jinde [NASA POWER](https://power.larc.nasa.gov/) Climatology API (MERRA-2, 2001–2020, buňky 0,5°), sestavuje
+  `node scripts/build-climate.mjs` (po něm je třeba znovu spustit i skript se stanicemi). Obojí do `data/climate.json`.
 - Země: cenová hladina podle Světové banky (PPP / směnný kurz, upravená na turistické ceny), bezpečnost podle MZV ČR,
   FCDO a US State Dept. Vstupní podmínky (`data/entry.json`): MZV ČR, oficiální weby e-víz a registrací, WHO a CDC.
 - Před cestou (`public/data/pretrip.json`): MZV ČR, Kancelář zdravotního pojištění, VZP, Portál veřejné správy, OSN

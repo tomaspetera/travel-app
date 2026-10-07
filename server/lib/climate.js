@@ -1,5 +1,7 @@
-// Dlouhodobé podnebí z data/climate.json (NASA POWER, průměr 2001–2020; sestavuje scripts/build-climate.mjs):
-// průměrná denní maxima a minima (°C) a srážky (mm) po měsících v buňkách 0,5° u každého letiště.
+// Dlouhodobé podnebí z data/climate.json: průměrná denní maxima a minima (°C) a srážky (mm) po měsících.
+// U letišť s meteostanicí její průměry 1991–2020 (normály WMO nebo denní měření NOAA GHCN-Daily, sestavuje
+// scripts/build-climate-stations.mjs), jinde buňky 0,5° z NASA POWER (průměr 2001–2020, scripts/build-climate.mjs) –
+// ty u pobřeží zahrnují i moře, takže maxima letovisek v nich vycházejí o 1–5 °C nižší.
 // Pro hledání „za teplem“ a detail země – je to dlouhodobý průměr, ne předpověď.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -18,21 +20,46 @@ function data() {
   return DATA;
 }
 
-export const climateSource = () => data().source;
+const SOURCES = {
+  wmo: 'meteostanice u letiště – normály WMO 1991–2020 (NOAA NCEI)',
+  ghcn: 'meteostanice u letiště – průměr 1991–2020 z denních měření (NOAA GHCN-Daily), srážky NASA POWER',
+  nasa: 'NASA POWER – průměr 2001–2020 za okolí ~50 km (u pobřeží bývají maxima nižší než ve skutečnosti)',
+};
+/** Popis zdroje dat pro uživatele (src z výsledků níže). */
+export const sourceText = (src) => SOURCES[src] || SOURCES.nasa;
 
 /** Klíč buňky 0,5° – stejně jako ve scripts/build-climate.mjs. */
 export const cellKey = (lat, lon) => `${Math.round(lat * 2) / 2},${Math.round(lon * 2) / 2}`;
 
-const unpack = (v) => (v ? { hi: v.slice(0, 12), lo: v.slice(12, 24), p: v.slice(24, 36) } : null);
+// src: 'wmo' | 'ghcn' = meteostanice (klíč „wmo:…“ / „ghcn:…“), 'nasa' = buňka modelu
+const srcOf = (key) => (String(key).startsWith('wmo:') ? 'wmo' : String(key).startsWith('ghcn:') ? 'ghcn' : 'nasa');
+const unpack = (v, key) => (v ? { hi: v.slice(0, 12), lo: v.slice(12, 24), p: v.slice(24, 36), src: srcOf(key) } : null);
 
-/** Podnebí místa: jeho buňka, a když chybí, nejbližší buňka do 1° → { hi, lo, p } (po 12 měsících) | null. */
+const NEAR_KM = 10;
+
+/**
+ * Podnebí místa → { hi, lo, p, src } (po 12 měsících) | null: do 10 km od letiště se stanicí (letiště nejvýš
+ * 600 m n. m. – výš se okolí od letiště často liší) data té stanice, jinak buňka místa, a když chybí,
+ * nejbližší buňka do 1°.
+ */
 export function climateAt(lat, lon) {
   lat = Number(lat);
   lon = Number(lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
-  const { cells } = data();
+  const { cells, near = [] } = data();
+  let station = null;
+  let stationKm = NEAR_KM;
+  for (const [la, lo, key] of near) {
+    if (Math.abs(la - lat) > 0.1) continue; // 0,1° ≈ 11 km
+    const km = haversineKm(lat, lon, la, lo);
+    if (km <= stationKm && cells[key]) {
+      stationKm = km;
+      station = key;
+    }
+  }
+  if (station) return unpack(cells[station], station);
   const hit = cells[cellKey(lat, lon)];
-  if (hit) return unpack(hit);
+  if (hit) return unpack(hit, 'nasa');
   const la0 = Math.round(lat * 2) / 2;
   const lo0 = Math.round(lon * 2) / 2;
   let best = null;
@@ -53,17 +80,17 @@ export function climateAt(lat, lon) {
       }
     }
   }
-  return unpack(best);
+  return unpack(best, 'nasa');
 }
 
-/** Podnebí u letiště → { hi, lo, p } | null. */
+/** Podnebí u letiště (stanice, jinak buňka NASA) → { hi, lo, p, src } | null. */
 export function airportClimate(iata) {
   const code = String(iata || '').toUpperCase();
   if (byIata.has(code)) return byIata.get(code);
   const key = data().airports[code];
   const a = getAirport(code);
   if (!key && !a) return null;
-  const c = (key && unpack(data().cells[key])) || (a ? climateAt(a.lat, a.lon) : null);
+  const c = (key && unpack(data().cells[key], key)) || (a ? climateAt(a.lat, a.lon) : null);
   byIata.set(code, c);
   return c;
 }

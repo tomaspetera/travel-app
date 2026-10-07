@@ -263,7 +263,11 @@ test('GET /api/climate – letiště, poloha, země; kontrola vstupu a dlouhá c
   assert.equal(j.iata, 'BKK');
   assert.ok([j.hi, j.lo, j.p].every((a) => a.length === 12));
   assert.ok(j.hi[0] >= 28);
-  assert.match(j.source, /NASA POWER/);
+  assert.ok(['wmo', 'ghcn'].includes(j.src), j.src);
+  assert.match(j.source, /meteostanice/);
+  const rho = await (await fetch(`${base}/api/climate?iata=RHO`)).json();
+  assert.equal(rho.src, 'nasa', 'Rhodos stanici nemá');
+  assert.match(rho.source, /NASA POWER/);
   const cc = await (await fetch(`${base}/api/climate?cc=TH`)).json();
   assert.deepEqual(cc.hi, j.hi, 'země = její hlavní letiště');
   assert.equal(cc.city, 'Bangkok');

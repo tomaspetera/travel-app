@@ -274,7 +274,7 @@ test('seznam věcí: zima → teplé oblečení; pláž + horko → plavky a opa
   const c1 = itemIds(cold, { climate: [at('TOS', 'Tromsø')] });
   for (const id of ['cl-warm', 'cl-hat', 'cl-thermo', 'cl-boots', 'cl-sweater']) assert.ok(c1.includes(id), id);
   assert.ok(!c1.includes('cl-umbrella') && !c1.includes('ac-swim') && !c1.includes('hl-sun'), c1.join());
-  assert.equal(items(cold, { climate: [at('TOS', 'Tromsø')] }).find((x) => x.id === 'cl-warm').note, 'ráno kolem −11 °C');
+  assert.equal(items(cold, { climate: [at('TOS', 'Tromsø')] }).find((x) => x.id === 'cl-warm').note, 'ráno kolem −5 °C');
   // Barcelona v červenci: horko a pláže (štítek země) → plavky, opalovací krém, lehké oblečení
   const beach = trip({ cc: 'ES', bags: 'cabin' });
   const cx = ctxOf(beach, { climate: [at('BCN', 'Barcelona')] });
@@ -366,8 +366,10 @@ test('balit na vrstvy: ve stálém horku ne (Bangkok, Phuket), v chladu, při ve
   assert.doesNotMatch(tip(tenNights('07', { cc: 'ES' }), [at('BCN')]), /vrstvy/);
   assert.match(tip(tenNights('01', { cc: 'JP' }), [at('NRT')]), layered);
   assert.match(tip(tenNights('11', { cc: 'ES' }), [at('BCN')]), layered);
-  // velký rozdíl dne a noci: Lisabon v červnu (~28 / 14 °C), Dubaj v lednu (~24 / 13 °C); teplé noci (Dubaj v červenci) ne
-  assert.match(tip(tenNights('06', { cc: 'PT' }), [at('LIS')]), layered);
+  // velký rozdíl dne a noci: Madrid v červnu (~30 / 15 °C), Dubaj v lednu (~24 / 15 °C); teplé noci (Dubaj v červenci,
+  // Lisabon v červnu ~26 / 17 °C) ne
+  assert.match(tip(tenNights('06', { cc: 'ES' }), [at('MAD')]), layered);
+  assert.doesNotMatch(tip(tenNights('06', { cc: 'PT', pretrip: { acts: ['city'] } }), [at('LIS')]), /vrstvy/);
   assert.match(tip(tenNights('01', { cc: 'AE' }), [at('DXB')]), layered);
   assert.doesNotMatch(tip(tenNights('07', { cc: 'AE' }), [at('DXB')]), /vrstvy/);
   // hory a sníh: zvolená turistika i v teple, sníh i bez známého podnebí

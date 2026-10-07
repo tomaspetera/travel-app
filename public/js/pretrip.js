@@ -1,7 +1,7 @@
 /* ATLAS – „Před cestou“: co zařídit (cestovní pojištění, EHIC, DROZD, řidičský průkaz, zásuvky, měna, očkování)
    a chytrý seznam věcí na cestu podle podnebí v termínu cesty, délky pobytu, dopravy a zavazadel, dokladů,
    očkování a aktivit. Data: public/data/pretrip.json (ověřeno 10/2026, zdroje v README), vstupní podmínky z Entry
-   (data/entry.json), podnebí z api/climate (NASA POWER, dlouhodobý průměr). Odškrtnuté položky jsou v localStorage
+   (data/entry.json), podnebí z api/climate (dlouhodobý průměr: meteostanice u letiště, jinak NASA POWER). Odškrtnuté položky jsou v localStorage
    pro každou cestu zvlášť (atlas_pretrip_v1); zvolené aktivity a vlastní položky jsou v cestě (t.pretrip.acts,
    t.pretrip.custom). Sdílený odkaz #trip= nese i odškrtnutí (t.pretrip.done – po importu se přesunou do localStorage
    nové cesty). Texty vždy přes esc(), odkazy přes safeUrl() (obojí z app.js). */
@@ -558,14 +558,14 @@
 
   /**
    * Má smysl balit na vrstvy? Chladno (přes den do 18 °C nebo ráno do 10 °C), velký rozdíl mezi dnem a nocí (aspoň
-   * 10 °C a noci do 16 °C), sníh, nebo hory (turistika zvolená u cesty, nebo výchozí v zemi s horami – ne jen kvůli
-   * vodopádům a národním parkům). Ve stálém horku (Bangkok: přes den 30–34 °C, v noci 21–27 °C) ne; bez podnebí
+   * 9 °C a noci do 16 °C – Dubaj v lednu ~24 / 15 °C), sníh, nebo hory (turistika zvolená u cesty, nebo výchozí
+   * v zemi s horami – ne jen kvůli vodopádům a národním parkům). Ve stálém horku (Bangkok: přes den 30–34 °C, v noci 21–27 °C) ne; bez podnebí
    * jen na hory a sníh.
    */
   function layers(ctx) {
     if (ctx.acts.has('snow') || (ctx.acts.has('hike') && (ctx.actsChosen || MOUNTAIN_TAGS.test(ctx.tags)))) return true;
     const c = ctx.climate;
-    return Boolean(c) && (c.minHi <= 18 || c.lo <= 10 || c.places.some(p => p.lo <= 16 && p.hi - p.lo >= 10));
+    return Boolean(c) && (c.minHi <= 18 || c.lo <= 10 || c.places.some(p => p.lo <= 16 && p.hi - p.lo >= 9));
   }
   /** Tipy k zavazadlu podle dopravy a zavazadel z hledání letů (bags: none = jen pod sedadlo, cabin, checked). */
   function bagTips(ctx) {
@@ -630,7 +630,7 @@
     const c = ctx.climate;
     if (!c) return ctx.pending ? '<div class="pt-clim faint">🌡️ Načítám podnebí v termínu cesty…</div>' : '';
     const rows = c.places.map(p => `<b>${esc(p.name)}</b>: přes den ${span(p.minHi, p.hi)} °C, v noci ${span(p.lo, p.maxLo)} °C, srážky do ~${p.p} mm za měsíc`);
-    return `<div class="pt-clim">🌡️ ${rows.join('<br>')} <span class="faint">(dlouhodobý průměr NASA POWER pro měsíce cesty, ne předpověď)</span></div>`;
+    return `<div class="pt-clim">🌡️ ${rows.join('<br>')} <span class="faint">(dlouhodobý průměr pro měsíce cesty z meteostanic, jinde z NASA POWER – ne předpověď)</span></div>`;
   }
   function chk(kind, id, done) {
     return `<input type="checkbox" data-ptk="${esc(`${kind}:${id}`)}" ${done[`${kind}:${id}`] ? 'checked' : ''}>`;
