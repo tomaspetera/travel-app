@@ -1359,6 +1359,7 @@
       </div></div>
       ${multi && nightsLeft(t) !== 0 ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div>Noci v trase nesedí s délkou pobytu – uprav je v kroku <b>Trasa</b>, jinak termíny ubytování nebudou navazovat na lety.</div></div>' : ''}
       ${window.Entry && Entry.ready() ? Entry.checklistHtml(isos, { ret: returnDate(t), pax: t.adults, via }) : '<div id="tripEntry"></div>'}
+      ${window.PreTrip ? PreTrip.html(t, { isos, via, ret: returnDate(t) }) : ''}
       <div class="card step-card"><h3>🗓️ Průběh cesty</h3><div class="timeline">${timeline.map(x => `<div class="tl-row"><span class="tl-d">${dayLbl(x[0])}</span><span class="tl-i">${x[1]}</span><span>${x[2]}</span></div>`).join('')}</div></div>
       <div class="row wrap" style="gap:8px;margin-top:6px">
         <button class="btn primary" id="sumSave">💾 Uložit do plánovače</button>
@@ -1435,6 +1436,8 @@
     }
     // „🛂 Vyřídit ESTA (USA)“ ~14 dní před odletem (déle, když data uvádějí delší vyřízení), i za přestup v USA
     if (window.Entry) ev.push(...Entry.reminders(tripCountries(t), outLeg(t).date, fmtYMD(new Date()), tripVia(t)));
+    // „🛡️ Sjednat cestovní pojištění“, „🚘 Vyřídit MŘP“ (jen když je nutný), „📝 Registrace v DROZD“ (pretrip.js)
+    if (window.PreTrip) ev.push(...PreTrip.reminders(t, { isos: tripCountries(t), via: tripVia(t), ret: returnDate(t), today: fmtYMD(new Date()) }));
     const progDays = multi ? t.route.bases.map((b, i) => [b.name, basePlan(t, i)?.days || []]) : [[dest, t.plan?.days || []]];
     for (const [place, days] of progDays) {
       days.forEach((d, i) => {
@@ -1495,7 +1498,9 @@
       ...(tripCountries(t).length > 1 || (tripCountries(t).length && !byIso[t.dest.cc]) ? { isos: tripCountries(t) } : {}),
       ...(tripVia(t).length ? { via: tripVia(t) } : {}),
       start: outLeg(t).date, end: backLeg(t) ? backLeg(t).date : checkout, pax: String(t.adults), budget: String(c.total), flight: flightTxt,
-      ...(ov ? { ground: groundBriefs(ov) } : { legs: [f.out, f.back].filter(Boolean).map(legBrief) }), days, checklist: PACK.map(x => ({ t: x, done: false })), notes,
+      ...(ov ? { ground: groundBriefs(ov) } : { legs: [f.out, f.back].filter(Boolean).map(legBrief) }), days,
+      // „Sbaleno“: seznam z „Před cestou“ (úkoly a věci na míru, i s odškrtnutím), bez dat obecný PACK
+      checklist: (window.PreTrip && PreTrip.plannerChecklist(t, { isos: tripCountries(t), via: tripVia(t), ret: returnDate(t) })) || PACK.map(x => ({ t: x, done: false })), notes,
     });
     persist();
     toast('Cesta uložena do plánovače');

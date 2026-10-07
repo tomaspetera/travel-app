@@ -103,6 +103,102 @@ délku poznámek, žádné HTML a že odkazy na registrace nevedou na zprostřed
 ručně ověřit a doplnit do seznamu v testu). Prohlížeč si soubor načítá zvlášť (`/data/entry.json`, gzip, cache 1 h)
 až po startu, takže nezdržuje první vykreslení.
 
+## Před cestou: co zařídit a co sbalit
+
+Ve shrnutí průvodce cestou je pod „🛂 Před cestou“ karta **🧭 Co zařídit a co sbalit** – praktický checklist
+a seznam věcí na míru cestě (země, termín, doprava, zavazadla z hledání, auto, program):
+
+- **🛡️ Cestovní pojištění** – vždy (MZV: bez pojištění léčebných výloh nedoporučuje vůbec vycestovat). Mimo EU, EHP,
+  Švýcarsko a Velkou Británii s důrazem: ošetření se platí na místě a česká zdravotní pojišťovna proplatí jen
+  neodkladnou péči, nejvýš do výše českých cen; pojištění kryje i převoz domů a asistenční službu. V EU kvůli
+  spoluúčasti, převozu a asistenci, které EHIC nekryje. Když vstupní podmínky pojištění vyžadují (Bělorusko
+  min. 10 000 EUR, Gruzie, Tanzanie, Kuba, Rusko, Chile…), ukáže příslušnou větu z dat „🛂 Před cestou“; u turistiky
+  a hor připomene ověřit krytí sportovních úrazů. Žádné odkazy na pojišťovny.
+- **💳 EHIC** (Evropský průkaz zdravotního pojištění) – země EU, EHP, Švýcarsko a Velká Británie: lékařsky nezbytná
+  péče za stejných podmínek jako místní (se spoluúčastí), nekryje převoz domů a cestovní pojištění nenahrazuje.
+  Smluvní státy jen nutná a neodkladná péče: Srbsko a Černá Hora (s EHIC na pobočku místního fondu, formulář INO-1),
+  Severní Makedonie (EHIC přímo u lékaře), Turecko, Albánie a Tunisko (formulář CZ/TR 111, CZ/AL 111, CZ/TN 111 od
+  pojišťovny), Bosna a Hercegovina (doklad ověř u pojišťovny).
+- **📝 DROZD** – dobrovolná registrace u MZV pro cesty mimo EU/Schengen a do zemí s bezpečností ≤ 3 (hodnota
+  `safety` z `data/countries.json`); u bezpečnosti 1–2 jako důležité s odkazem na upozornění MZV. Text uvádí, k čemu
+  registrace je (varování e-mailem/SMS, pomoc při mimořádné události, výmaz 30 dní po návratu, i v aplikaci Portál
+  občana) a nouzovou linku MZV +420 222 420 222.
+- **🚗 Řidičský průkaz** – jen když cesta počítá s autem na místě (vybrané auto, nebo trasa autem přes víc míst).
+  V EU a EHP stačí český ŘP; jinde podle tabulky níže (MŘP = mezinárodní řidičský průkaz, vzor 1949 podle Ženevské,
+  vzor 1968 podle Vídeňské úmluvy). Když země v tabulce není, napíše „neověřeno – ověř na webu MZV (Doklady)“ a podle
+  seznamů OSN doplní, které úmluvě je země stranou (tedy jaký vzor MŘP by měla uznávat), nebo že není stranou žádné.
+  Z dokladů spočítá, jaký vzor vyřídit (USA + Vietnam = oba vzory, dva průkazy) a jak: obecní úřad obce s rozšířenou
+  působností, na počkání, 200 Kč, řidičák, doklad totožnosti a fotka 3,5 × 4,5 cm; vzor 1949 platí 1 rok, 1968 3 roky.
+- **🔌 Zásuvky a napětí** pro 195 zemí: typy zásuvek, napětí a frekvence a jestli pasují české zástrčky (typ E/F),
+  jen ploché dvoukolíkové „europlug“ (typ C), nebo je potřeba adaptér (USA a Japonsko = jeden adaptér A/B);
+  u 100–127 V upozornění, že fungují jen spotřebiče se štítkem 100–240 V.
+- **💶 Měna** – česky podle kódu měny země (Intl). Jestli se dá platit kartou, ATLAS neuvádí – na to není spolehlivý
+  souhrnný zdroj.
+- **💉 Očkování** – připomene poradit se s lékařem, když vstupní podmínky uvádějí povinná nebo doporučená očkování.
+- **🎒 Co sbalit** – skupiny *Doklady a peníze*, *Zdraví a hygiena*, *Oblečení*, *Na výlety, pláž a hory*,
+  *Elektronika*. Podle **podnebí v měsících cesty** u každého místa trasy (NASA POWER, průměrná denní maxima a minima,
+  srážky: horko → lehké oblečení, pokrývka hlavy, opalovací krém; chlad a mráz → bunda, čepice, termoprádlo; období
+  dešťů → nepromokavá bunda, jinak deštník; v mrazu bez deštníku), **délky cesty** (prádlo nejvýš na 7 dní, déle
+  praní), **dopravy a zavazadel** z hledání (jen pod sedadlo / kabinový kufr / kufr k odbavení: tekutiny do 100 ml,
+  powerbanka jen do kabiny; vlak/bus jízdenky), **dokladů** (občanský průkaz, nebo pas s datem platnosti; potvrzení
+  ESTA, eTA, e-víza), **zdraví** (repelent a antimalarika jen podle doporučených očkování a v teple, očkovací průkaz
+  u žluté zimnice), **auta** (řidičák, MŘP) a **aktivit**: 🏖️ pláž, 🥾 turistika, 🏙️ města, ⛷️ sníh – výchozí výběr
+  podle programu (kategorie míst), štítků země a podnebí, přepíná se čipy; u kostelů a chrámů v programu oblečení
+  zakrývající ramena a kolena.
+- **Odškrtávání** se ukládá jen v prohlížeči, pro každou cestu zvlášť (`localStorage` `atlas_pretrip_v1`, posledních
+  30 cest; zakázané úložiště nevadí). Zvolené aktivity jsou součástí cesty (`pretrip.acts`), takže je nese i sdílený
+  odkaz `#trip=`; odškrtnutí ne. **💾 Uložit do plánovače** převezme úkoly a věci (i s odškrtnutím) do seznamu
+  „Sbaleno“ místo obecného seznamu – a tím i do sdíleného plánu `#plan=` (formát se nemění, starší odkazy fungují).
+- **🖨️ Vytisknout** vytiskne jen tuto kartu (seznam věcí ve dvou sloupcích se zaškrtávátky); tisk celé stránky skryje
+  navigaci a tlačítka.
+- **📅 Do kalendáře** (.ics) přidá připomínky „🛡️ Sjednat cestovní pojištění“ (14 dní před odjezdem), „🚘 Vyřídit
+  mezinárodní řidičský průkaz“ (21 dní, jen když je nutný) a „📝 Registrace v systému DROZD“ (3 dny, když se
+  doporučuje); připomínka, která by vyšla do minulosti, se posune na dnešek.
+
+**Řidičský průkaz podle MZV (stránky zemí „Doklady“ a „Specifika“, 71 zemí):**
+
+| Co platí | Země |
+| --- | --- |
+| stačí český ŘP | EU a EHP, Švýcarsko, Velká Británie (do 12 měsíců, gov.uk), Argentina, Bělorusko, Bosna a Hercegovina, Grónsko, Izrael, Kosovo, Maroko, Mauricius, Monako, Omán, Paraguay |
+| MŘP doporučen | vzor 1949: Alžírsko, Dominikánská republika, Guatemala, Chile, Jamajka, Kanada, Venezuela · vzor 1968: Arménie, Saúdská Arábie, Turkmenistán · kterýkoli: Albánie, Černá Hora, Thajsko (MZV: motorku bez MŘP nepůjčovat), Zimbabwe · vzor neuveden: Bolívie, Jemen |
+| nutný MŘP (s českým ŘP) | vzor 1949: Bangladéš, Botswana, **Japonsko** (vzor 1968 neplatí), Jižní Korea, Jordánsko, Lesotho, Libanon, Madagaskar, Malawi, Namibie, Singapur, **USA** (jen vzor 1949) · vzor 1968: Brazílie, Írán, Katar, Kuvajt, Maledivy, Nepál, Tádžikistán, Uruguay, **Vietnam** · kterýkoli: Bahrajn, **Egypt**, Jihoafrická republika, **SAE**, Uzbekistán · vzor neuveden: Angola, Eswatini, Kolumbie, **Mexiko** (půjčovny), Mosambik, Zambie |
+| český ŘP s úředním překladem, nebo MŘP | Austrálie, Nový Zéland (vzor 1949), Gruzie, Kyrgyzstán, Kazachstán |
+| nutné místní povolení | Čína, Etiopie, Kambodža (český ani MŘP neplatí), Srí Lanka (MŘP 1949 + „Recognition Permit“), Grenada (dočasné povolení na základě MŘP) |
+| neověřeno → „ověř“ | ostatní, mj. Turecko, Indonésie, Indie, Peru, Srbsko, Ukrajina, Tunisko (s nápovědou podle úmluv OSN) |
+
+**Zdroje a stav (ověřeno 10/2026):**
+
+- DROZD: [drozd.mzv.gov.cz](https://drozd.mzv.gov.cz/) a [MZV – DROZD](https://mzv.gov.cz/jnp/cz/cestujeme/drozd/index.html);
+  pojištění, kopie dokladů, léky, kontaktní osoba a nouzová linka: [MZV – Desatero na cesty](https://mzv.gov.cz/jnp/cz/cestujeme/uzitecne_informace_pri_cestach/desatero_na_cesty.html)
+  (aktualizováno 9. 10. 2025); [MZV – upozornění na cesty](https://mzv.gov.cz/jnp/cz/cestujeme/aktualni_doporuceni_a_varovani/index.html).
+- EHIC a smluvní státy: Kancelář zdravotního pojištění – [Pobyt mimo ČR (turisté)](https://kancelarzp.cz/pobyt-mimo-cr-turiste-studenti/),
+  [Na jakou péči mám nárok](https://kancelarzp.cz/zdr-pojisteni-a-pece-v-eu-a-smluvnich-statech/na-jakou-peci-mam-narok/),
+  [Cestovní pojištění](https://kancelarzp.cz/zdr-pojisteni-a-pece-v-eu-a-smluvnich-statech/cestovni-pojisteni/) a
+  [podmínky v jednotlivých státech](https://www.kancelarzp.cz/app/); [VZP – Evropský průkaz zdravotního pojištění](https://www.vzp.cz/pojistenci/cestovani-a-pobyt-v-zahranici/evropsky-prukaz-zdravotniho-pojisteni);
+  [MZd – nárok na péči v zahraničí](https://mzd.gov.cz/narok-na-cerpani-zdravotnich-sluzeb-ceskymi-pojistenci-v-zahranici/).
+- Mezinárodní řidičský průkaz: [Portál veřejné správy – Vydání MŘP](https://portal.gov.cz/sluzby-vs/vydani-mezinarodniho-ridicskeho-prukazu-S94)
+  (vzory, platnost, poplatek, kde); požadavky jednotlivých zemí ze stránek MZV *Encyklopedie států → Cestování →
+  Doklady / Specifika* (odkaz u každé země v kartě); Velká Británie [gov.uk](https://www.gov.uk/driving-nongb-licence);
+  smluvní strany úmluv: OSN – [Ženevská úmluva 1949](https://treaties.un.org/Pages/ViewDetailsV.aspx?src=TREATY&mtdsg_no=XI-B-1&chapter=11&lang=en)
+  a [Vídeňská úmluva 1968](https://treaties.un.org/Pages/ViewDetailsIII.aspx?src=TREATY&mtdsg_no=XI-B-19&chapter=11&Temp=mtdsg3&clang=_en)
+  (jen ratifikace nebo přístup, pouhý podpis se nepočítá).
+- Zásuvky a napětí: [Mains electricity by country](https://en.wikipedia.org/wiki/Mains_electricity_by_country)
+  (Wikipedie, CC BY-SA 4.0; vychází z přehledu IEC World Plugs, který IEC mezitím ze svého webu stáhla); u 29 zemí,
+  kde napětí nebo zásuvky zmiňuje MZV (např. Japonsko 100 V, USA 110–120 V, Keňa a Tanzanie britský typ), porovnáno
+  s texty MZV – sedí kromě Ekvádoru (MZV píše 220 V, ponecháno 120 V). Jižní Súdán a Marshallovy ostrovy v přehledu
+  nejsou („ověř“).
+- Podnebí: `data/climate.json` (NASA POWER, viz níže), vstupní podmínky a očkování: `data/entry.json`.
+
+**Je to informativní přehled** – pravidla se mění, ATLAS za ně neručí; karta vždy odkazuje na oficiální zdroj.
+**Aktualizace dat:** `public/data/pretrip.json` (statický soubor, prohlížeč ho načte až u shrnutí): `checked`,
+`sources`, `phones`, `health.ehic` (země EHIC), `health.contract` (smluvní státy: text), `eea`, `driving`
+(`n` = `ok | rec | req | transl | local`, volitelně `f` = `1949 | 1968 | any`, `t` = poznámka, `s` = zdroj),
+`conv` (strany úmluv: `1949 | 1968 | both`), `plugs` (`t` typy, volitelně `m` hlavní typ pro adaptér, `v` napětí,
+`hz`). `npm test` (`test/pretrip.test.js`) zkontroluje kódy zemí, hodnoty, https zdroje (u řidičáků jen MZV nebo
+gov.uk), že v textech není HTML, a pravidla (Japonsko + auto → MŘP 1949, Itálie → stačí český ŘP, Bělorusko →
+pojištění jako podmínka vstupu, EU → EHIC, mimo EU → DROZD, zima → teplé oblečení, pláž v horku → plavky a opalovací
+krém…).
+
 ## V čem je lepší než Skyscanner
 
 | | ATLAS |
@@ -714,6 +810,9 @@ cesta z města příjezdu (ne z letiště):
   `node scripts/build-climate.mjs` do `data/climate.json`.
 - Země: cenová hladina podle Světové banky (PPP / směnný kurz, upravená na turistické ceny), bezpečnost podle MZV ČR,
   FCDO a US State Dept. Vstupní podmínky (`data/entry.json`): MZV ČR, oficiální weby e-víz a registrací, WHO a CDC.
+- Před cestou (`public/data/pretrip.json`): MZV ČR, Kancelář zdravotního pojištění, VZP, Portál veřejné správy, OSN
+  (úmluvy o silničním provozu), gov.uk; zásuvky a napětí z Wikipedie (CC BY-SA 4.0), viz
+  [Před cestou: co zařídit a co sbalit](#před-cestou-co-zařídit-a-co-sbalit).
 - Vlajky na Windows: písmo Twemoji Country Flags (Twemoji, CC BY 4.0; detekce z country-flag-emoji-polyfill, MIT),
   přibaleno v `public/vendor/flags/`.
 - Mapa světa: d3, topojson-client, world-atlas (ISC, přibaleno v `public/vendor/`).
