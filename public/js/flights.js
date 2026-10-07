@@ -2311,9 +2311,12 @@
     el.innerHTML = `<b>Hlídej vstupní podmínky.</b> Do USA potřebuješ ${reg('US')}, do Kanady ${reg('CA')}, do Británie ${reg('GB')}. Vyřizuj je jen na oficiálních webech (zprostředkovatelé si účtují víc). ATLAS je ukáže u výsledků (🛂) a podrobně v detailu země – zdroj MZV ČR, ověřeno ${esc(Entry.checkedTxt())}.`;
   }
 
+  // Stav serveru (aerolinky, DEMO, kurz) se začne stahovat hned při startu aplikace (app.js) souběžně s daty zemí.
+  let healthReq = null;
+  const warm = () => { if (!healthReq) { healthReq = api('api/health'); healthReq.catch(() => { }); } return healthReq; };
   async function init() {
     try {
-      health = await api('api/health');
+      health = await warm();
       for (const p of health.providers) PROV[p.id] = p;
       if (health.demo) $('#demoBanner').hidden = false;
       if (window.Entry && health.fx) Entry.setRate(health.fx.eurCzk); // vstupní poplatky v € → Kč
@@ -2342,5 +2345,5 @@
     startAutoCheck();
   }
 
-  window.Flights = { init, renderQuick, renderWatch, renderRadar, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag };
+  window.Flights = { init, warm, renderQuick, renderWatch, renderRadar, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag };
 })();
