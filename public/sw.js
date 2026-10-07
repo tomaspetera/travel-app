@@ -13,6 +13,11 @@ const BUILD = 'dev'; // server dosadí otisk obsahu aplikace
 const PRECACHE = ['./']; // server dosadí stránku, soubory z index.html a data, která aplikace stahuje za běhu
 const PREFIX = 'atlas-';
 const CACHE = PREFIX + BUILD;
+// Pomalá síť nebo uspaný server (Render zdarma se probouzí až minutu): stránka, která do PAGE_TIMEOUT ms nepřijde
+// ze sítě, se otevře z uložené kopie a její soubory taky (stejná verze). Že je na serveru novější verze, pak řekne
+// pwa.js („Je k dispozici nová verze – Obnovit“), stejně jako když se verze změní za běhu.
+const PAGE_TIMEOUT = 2500;
+const fromCache = new Set(); // klienti (otevřené stránky), kterým se dala uložená stránka
 
 /**
  * Kam s požadavkem (čistá funkce – test/pwa.test.js):
@@ -52,15 +57,49 @@ function fresh(req, kind) {
   }
 }
 
-/** Síť; offline uložená kopie (u stránky poslední uložená stránka aplikace). */
+/** Uložená kopie (u stránky poslední uložená stránka aplikace), nebo undefined. */
+async function cached(req, kind) {
+  const cache = await caches.open(CACHE);
+  return (await cache.match(req)) || (kind === 'page' ? await cache.match(shellKey()) : undefined);
+}
+
+/**
+ * Síť; offline uložená kopie. Stránka, která ze sítě nepřijde do PAGE_TIMEOUT, se vezme z uložené kopie (je-li) a
+ * soubory takto otevřené stránky taky – pozdní odpověď ze sítě se zahodí (aspoň probudí server).
+ */
 async function networkFirst(event, kind) {
   const req = event.request;
+  if (kind === 'asset' && event.clientId && fromCache.has(event.clientId)) {
+    const hit = await cached(req, kind);
+    if (hit) return hit;
+  }
+  const net = fetch(fresh(req, kind));
   let res;
   try {
-    res = await fetch(fresh(req, kind));
+    if (kind === 'page') {
+      let timer;
+      const slow = new Promise((resolve) => { timer = setTimeout(resolve, PAGE_TIMEOUT, 'slow'); });
+      const first = await Promise.race([net, slow]).finally(() => clearTimeout(timer));
+      if (first === 'slow') {
+        const hit = await cached(req, kind);
+        if (hit) {
+          if (event.resultingClientId) fromCache.add(event.resultingClientId);
+          net.catch(() => { });
+          return hit;
+        }
+      }
+    }
+    res = await net;
+    // chyba serveru (5xx – třeba při probouzení) místo stránky aplikace: uložená stránka, je-li
+    if (kind === 'page' && res.status >= 500) {
+      const hit = await cached(req, kind);
+      if (hit) {
+        if (event.resultingClientId) fromCache.add(event.resultingClientId);
+        return hit;
+      }
+    }
   } catch (err) {
-    const cache = await caches.open(CACHE);
-    const hit = (await cache.match(req)) || (kind === 'page' ? await cache.match(shellKey()) : undefined);
+    const hit = await cached(req, kind);
     if (hit) return hit;
     throw err;
   }
@@ -107,6 +146,10 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Stránka načtená offline se ptá, z jaké verze je její uložená kopie (pwa.js – upozornění na novou verzi).
+// pwa.js: 'atlas-build' → verze uložené sady; 'atlas-served' → 'cache', když se tazateli dala uložená stránka.
 self.addEventListener('message', (event) => {
-  if (event.data === 'atlas-build' && event.ports && event.ports[0]) event.ports[0].postMessage(BUILD);
+  const port = event.ports && event.ports[0];
+  if (!port) return;
+  if (event.data === 'atlas-build') port.postMessage(BUILD);
+  else if (event.data === 'atlas-served') port.postMessage(event.source && fromCache.has(event.source.id) ? 'cache' : 'network');
 });
