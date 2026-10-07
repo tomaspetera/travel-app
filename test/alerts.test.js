@@ -310,3 +310,23 @@ test('scheduler: skrytá stránka → čeká, po limitu to vzdá', async () => {
   assert.equal(await p, 1, 'jakmile je stránka vidět, zkontroluje');
   assert.ok(h.sched.lastCycle > 0);
 });
+
+test('phoneExport: kód pro hlídání v mobilu – dotazy na server, ceny, domov; proběhlé termíny vynechá', () => {
+  const list = [
+    { id: 'a', label: 'Praha → Barcelona', form: flex('2026-11-01', '2026-11-30'), target: 3000, best: { czk: 3400 }, notified: 3500 },
+    { id: 'b', label: 'Praha → Řím', form: exact('2026-10-04', '2026-10-08'), best: { czk: 1900 } },
+    { id: 'c', label: 'Brno → kamkoliv', form: flex('2026-10-05', '2026-12-01'), target: 'x', best: null },
+  ];
+  const home = { from: [{ id: 'ap:PRG', label: 'Praha' }, { id: 'ap:BRQ', label: 'Brno' }], radius: 150 };
+  const out = plain(A.phoneExport(list, { home, payload: (w) => ({ q: w.id }), today: TODAY }));
+  assert.deepEqual(out, {
+    v: 1, home: { from: ['ap:PRG', 'ap:BRQ'], radiusKm: 150, label: 'Praha, Brno' },
+    w: [
+      { id: 'a', label: 'Praha → Barcelona', p: { q: 'a' }, target: 3000, czk: 3400, notified: 3500 },
+      { id: 'c', label: 'Brno → kamkoliv', p: { q: 'c' }, target: null, czk: null, notified: null },
+    ],
+  });
+  assert.equal(plain(A.phoneExport([], { home: null, payload: () => ({}), today: TODAY })).home, null, 'bez domova tip z Prahy');
+  assert.equal(plain(A.phoneExport([], { home: { from: [] }, payload: () => ({}), today: TODAY })).home, null);
+  assert.equal(plain(A.phoneExport([], { home: { from: [{ id: 'ap:VIE', label: 'Vídeň' }] }, payload: () => ({}), today: TODAY })).home.radiusKm, 200, 'výchozí okruh jako v aplikaci');
+});

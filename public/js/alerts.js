@@ -234,5 +234,21 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, searchKey, upsertWatch, isDropped, droppedCount, mergeWatches, sparkPath, notifState, scheduler };
+  /**
+   * Hlídání i se zavřeným ATLASem (scripts/watch.mjs na GitHubu): hlídaná hledání jako dotazy na server
+   * (payload(w) = payloadOf(watchForm(w)) z flights.js), cílová, poslední a hlášená cena; proběhlé termíny vynechá.
+   * home = „Odkud obvykle létáš“ pro týdenní tip. Kód z toho udělá ShareLink (JSON zkomprimovaný jako sdílené odkazy).
+   */
+  function phoneExport(list, { home, payload, today }) {
+    const h = home && Array.isArray(home.from) && home.from.length ? home : null;
+    return {
+      v: 1,
+      home: h ? { from: h.from.map(x => x.id), radiusKm: h.radius ?? 200, label: h.from.map(x => x.label).join(', ') } : null,
+      w: (list || []).filter(w => w && !isPast(w.form, today)).map(w => ({
+        id: w.id, label: w.label, p: payload(w), target: num(w.target), czk: num(w.best && w.best.czk), notified: num(w.notified),
+      })),
+    };
+  }
+
+  window.Alerts = { CFG, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, searchKey, upsertWatch, isDropped, droppedCount, mergeWatches, sparkPath, notifState, scheduler, phoneExport };
 })();
