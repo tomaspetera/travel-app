@@ -27,7 +27,7 @@ let TOT = 197; const CONT_TOT = {};
 const LS = 'atlas_v1';
 let S = load();
 function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return Object.assign(defState(), d); } catch (e) { } return defState(); }
-function defState() { return { visited: [], trips: [], theme: 'dark', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, radar: null }; }
+function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, radar: null }; }
 function save() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { } }
 let curIso = null;
 const visited = new Set(S.visited);
@@ -88,6 +88,15 @@ function toast(msg, kind) { const t = $('#toast'); t.innerHTML = (kind === 'err'
 /* theme */
 function applyTheme() { document.documentElement.dataset.theme = S.theme; $('#themeLabel').textContent = S.theme === 'dark' ? 'Tmavý režim' : 'Světlý režim'; }
 $('#themeToggle').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (window.Flights) Flights.repaintMap(); if (window.Places) Places.retheme(); };
+/* mapy: světlé (čitelné i na slunci, výchozí) nebo tmavé – přepínač u mapy světa platí pro všechny mapy v aplikaci */
+const MOON = 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z', SUN = 'M12 7a5 5 0 1 0 0 10a5 5 0 1 0 0-10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4';
+function applyMapStyle() {
+  const dark = S.mapStyle === 'dark';
+  document.documentElement.dataset.map = dark ? 'dark' : 'light';
+  const b = $('#mapStyle'); if (!b) return;
+  b.title = dark ? 'Světlá mapa (čitelná i na slunci)' : 'Tmavá mapa'; b.setAttribute('aria-label', b.title); b.innerHTML = ico(dark ? SUN : MOON);
+}
+$('#mapStyle').onclick = () => { S.mapStyle = S.mapStyle === 'dark' ? 'light' : 'dark'; save(); applyMapStyle(); if (window.Places) Places.retheme(); };
 
 /* ================= STATS ================= */
 function stats() {
@@ -506,7 +515,7 @@ function wireEvents() {
 function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
 
 async function boot() {
-  applyTheme(); buildNav(); fillSelects(); wireEvents(); renderTips();
+  applyTheme(); applyMapStyle(); buildNav(); fillSelects(); wireEvents(); renderTips();
   if (window.Entry) {
     // vstupní podmínky (~20 kB gzip) souběžně se startem; po načtení doplnit čipy a otevřený seznam zemí
     Entry.whenReady(() => { paintEntryChips(); if (activeView === 'countries' && $('#cEntry').value) renderCountries(); });

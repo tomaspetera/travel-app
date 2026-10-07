@@ -15,7 +15,6 @@
   --surface-solid:#111a32; --card:rgba(20,28,52,.66);
   --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.16);
   --text:#eaf0ff; --muted:#94a3c8; --faint:#6b779c;
-  --map-land:#1c2747; --map-sea:transparent;
 }
 [data-theme="light"]{
   --bg:#eef2fb; --bg2:#ffffff; --bg-grad:radial-gradient(1200px 700px at 85% -10%,rgba(168,85,247,.12),transparent 60%),radial-gradient(1000px 600px at -10% 5%,rgba(34,211,238,.12),transparent 55%),#eef2fb;
@@ -23,7 +22,18 @@
   --surface-solid:#ffffff; --card:rgba(255,255,255,.8);
   --border:rgba(13,22,48,.1); --border-2:rgba(13,22,48,.18);
   --text:#0f1830; --muted:#56638a; --faint:#8a96b8;
-  --map-land:#d6def2; --map-sea:transparent;
+}
+/* Mapy (svět, výsledky letů, výlety): světlé jako atlas – čitelné i na slunci, v tmavém i světlém režimu.
+   Tmavé jen na přání (přepínač u mapy světa → <html data-map="dark">). */
+:root{
+  --map-sea:#cfe2f4; --map-land:#fdfcf9; --map-hover:#e3ebf7; --map-line:#6b7a9c;
+  --map-text:#0f1830; --map-halo:#ffffff;
+  --map-cheap:#059669; --map-mid:#d97706; --map-pricey:#e11d48;
+}
+:root[data-map="dark"]{
+  --map-sea:#0c1329; --map-land:#2a3864; --map-hover:#3a4b80; --map-line:#8696c8;
+  --map-text:#eaf0ff; --map-halo:#080c1a;
+  --map-cheap:#34d399; --map-mid:#fbbf24; --map-pricey:#fb7185;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -188,15 +198,19 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 
 /* ============ MAP ============ */
 .map-layout{display:grid;grid-template-columns:1fr 300px;gap:18px}
-.map-wrap{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:var(--card);min-height:520px}
+.map-wrap{position:relative;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:var(--map-sea);min-height:520px}
 #worldmap{width:100%;height:100%;display:block;cursor:grab}
 #worldmap:active{cursor:grabbing}
-.map-path{fill:var(--map-land);stroke:var(--bg);stroke-width:.4px;transition:fill .25s,opacity .2s}
-.map-path:hover{fill:#2e3c66}
-.map-path.visited{fill:url(#vg)}
+/* hranice a pobřeží vždy stejně tenké (i po přiblížení) a dost tmavé, aby byly vidět i na slunci */
+.map-path{fill:var(--map-land);stroke:var(--map-line);stroke-width:.7px;vector-effect:non-scaling-stroke;transition:fill .25s,opacity .2s}
+.map-path:hover{fill:var(--map-hover)}
+.map-path.visited{fill:url(#vgl)}
+[data-map="dark"] .map-path.visited{fill:url(#vg)}
 .map-path.visited:hover{filter:brightness(1.12)}
 .map-zoom{position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;gap:6px}
-.map-zoom button{width:38px;height:38px;border-radius:11px;border:1px solid var(--border-2);background:var(--surface-solid);color:var(--text);font-size:20px;cursor:pointer;display:grid;place-items:center}
+.map-zoom button{width:38px;height:38px;border-radius:11px;border:1px solid var(--border-2);background:var(--surface-solid);color:var(--text);font-size:20px;cursor:pointer;display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.map-zoom button svg{width:18px;height:18px}
+.legend .land-dot{background:var(--map-land);box-shadow:inset 0 0 0 1px var(--map-line)}
 .map-tooltip{position:fixed;pointer-events:none;z-index:200;background:var(--surface-solid);border:1px solid var(--border-2);padding:8px 12px;border-radius:10px;font-size:13px;font-weight:700;box-shadow:var(--shadow);opacity:0;transition:opacity .12s;transform:translate(-50%,-130%)}
 .map-pop{position:fixed;z-index:210;width:230px;transform:translate(-50%,calc(-100% - 14px));padding:14px;display:none}
 .map-pop.show{display:block;animation:fade .2s}

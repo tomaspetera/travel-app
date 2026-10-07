@@ -109,7 +109,7 @@
     for (const m of liveMaps) if (!document.body.contains(m.getContainer())) { m.remove(); liveMaps.delete(m); }
     if (!document.body.contains(el)) { ms.dead = true; return; } // mezitím překresleno
     el.innerHTML = '';
-    const dark = document.documentElement.dataset.theme === 'dark';
+    const dark = document.documentElement.dataset.map === 'dark'; // světlá/tmavá mapa (app.js), ne režim aplikace
     let map;
     try {
       map = new maplibregl.Map({
@@ -850,7 +850,7 @@
 
   // Přepnutí světlý/tmavý režim: otevřené mapy dostanou odpovídající styl (rastrová záloha zůstane).
   function retheme() {
-    const dark = document.documentElement.dataset.theme === 'dark';
+    const dark = document.documentElement.dataset.map === 'dark'; // světlá/tmavá mapa (app.js), ne režim aplikace
     for (const m of liveMaps) {
       const ms = m.atlasState;
       if (!ms || ms.raster || !document.body.contains(m.getContainer())) continue;
