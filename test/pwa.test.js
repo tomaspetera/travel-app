@@ -221,6 +221,14 @@ test('server/lib/pwa.js: seznam z index.html, verze podle obsahu (ne času změn
     const v3 = serviceWorker(dirs).build;
     writeFileSync(path.join(data, 'countries.json'), '[{}]');
     assert.notEqual(serviceWorker(dirs).build, v3);
+    // data/… jako server: countries.json ze složky data/ (i když je kopie v public/data/), pretrip.json z public/data/
+    mkdirSync(path.join(pub, 'data'));
+    writeFileSync(path.join(pub, 'data/pretrip.json'), '{}');
+    writeFileSync(path.join(pub, 'data/countries.json'), 'stara kopie');
+    const v4 = serviceWorker(dirs);
+    assert.deepEqual(v4.precache, ['./', 'js/app-2.js', 'data/countries.json', 'data/pretrip.json']);
+    writeFileSync(path.join(data, 'countries.json'), '[{},{}]');
+    assert.notEqual(serviceWorker(dirs).build, v4.build, 'verze se řídí tím, co server opravdu posílá');
     // sw.js bez řádků pro dosazení = chyba (test na serveru by ji odhalil dřív než prohlížeč)
     writeFileSync(path.join(pub, 'sw.js'), 'self.addEventListener("fetch", () => {});');
     assert.throws(() => serviceWorker(dirs), /const BUILD/);

@@ -7,8 +7,9 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 // Data, která aplikace stahuje až za běhu (ne přes <script>/<link> v index.html) a bez kterých by offline chyběly
-// země (přehled, plánovač), vstupní podmínky a mapa navštívených zemí. data/… server čte ze složky data/.
-export const RUNTIME_ASSETS = ['data/countries.json', 'data/entry.json', 'vendor/countries-110m.json'];
+// země (přehled, plánovač), vstupní podmínky, karta „Co zařídit a co sbalit“ a mapa navštívených zemí. data/…
+// jako server: ze složky data/ (countries.json, entry.json), a když tam soubor není, z public/data/ (pretrip.json).
+export const RUNTIME_ASSETS = ['data/countries.json', 'data/entry.json', 'data/pretrip.json', 'vendor/countries-110m.json'];
 const LINK_RELS = /^(?:stylesheet|manifest|icon|shortcut icon|apple-touch-icon)$/i;
 
 /** Místní soubory, na které odkazuje index.html: skripty, styly, manifest a ikony (ne cizí weby, data: ani preconnect). */
@@ -48,7 +49,7 @@ export function manifestIcons(json, manifestRel = 'manifest.webmanifest') {
   return out;
 }
 
-/** Soubor na disku pro adresu ze seznamu (data/… ze složky data/, ostatní z public/); mimo ně nebo neexistující → null. */
+/** Soubor na disku pro adresu ze seznamu (data/… nejdřív ze složky data/ jako server, jinak z public/); mimo ně nebo neexistující → null. */
 function fileFor(rel, { publicDir, dataDir }) {
   let p;
   try {
@@ -56,15 +57,17 @@ function fileFor(rel, { publicDir, dataDir }) {
   } catch {
     return null;
   }
-  const [dir, sub] = p.startsWith('data/') ? [dataDir, p.slice(5)] : [publicDir, p];
-  const abs = path.normalize(path.join(dir, sub));
-  if (!abs.startsWith(dir + path.sep)) return null;
-  try {
-    const st = statSync(abs);
-    return st.isFile() ? { abs, size: st.size, mtime: st.mtimeMs } : null;
-  } catch {
-    return null;
-  }
+  const at = (dir, sub) => {
+    const abs = path.normalize(path.join(dir, sub));
+    if (!abs.startsWith(dir + path.sep)) return null;
+    try {
+      const st = statSync(abs);
+      return st.isFile() ? { abs, size: st.size, mtime: st.mtimeMs } : null;
+    } catch {
+      return null;
+    }
+  };
+  return (p.startsWith('data/') && at(dataDir, p.slice(5))) || at(publicDir, p);
 }
 
 function walk(dir, prefix) {
