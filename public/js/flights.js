@@ -2263,7 +2263,7 @@
       if (health.demo) $('#demoBanner').hidden = false;
       if (window.Entry && health.fx) Entry.setRate(health.fx.eurCzk); // vstupní poplatky v € → Kč
     } catch (e) {
-      toast('Server ATLAS neodpovídá – vyhledávání letů nepůjde', 'err');
+      if (!e.offline) toast('Server ATLAS neodpovídá – vyhledávání letů nepůjde', 'err'); // offline: pruh „Jsi offline“ (pwa.js)
     }
     // výsledky vykreslené dřív, než dorazily vstupní podmínky, doplnit o čipy
     if (window.Entry) Entry.whenReady(() => { guideEntry(); if (lastResult) rerender(true); });

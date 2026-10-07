@@ -428,6 +428,45 @@ docker build -t atlas . && docker run -p 8080:8080 --env-file .env atlas
 
 GitHub Pages nestačí (je to jen statický hosting bez serveru).
 
+## Aplikace na ploše a offline
+
+ATLAS jde přidat na plochu telefonu i počítače jako aplikaci (PWA): otevře se přes celou obrazovku bez lišty prohlížeče
+a s vlastní ikonou a **uložené cesty a plány uvidíš i bez internetu**.
+
+- **Chrome, Edge, Android**: v postranním panelu (na mobilu v nabídce **Více**) je **📲 Přidat ATLAS na plochu** –
+  otevře instalační dialog prohlížeče. Na počítači jde instalovat i ikonou v adresním řádku.
+- **iPhone a iPad**: Safari instalaci nabídnout neumí, ATLAS proto ukáže návod **Sdílet → Přidat na plochu → Přidat**.
+- Spuštěnému z plochy se položka už nenabízí. Instalace a offline režim fungují jen přes https (Render) a na `localhost`.
+
+**Offline funguje**: aplikace se otevře z uložené kopie (nahoře pruh „📴 Jsi offline“), plánovač s uloženými cestami,
+rozpracovaná cesta z průvodce, hlídané ceny a navštívené země (vše je v localStorage prohlížeče), přehled zemí
+s doporučeními, vstupní podmínky a mapa navštívených zemí. **Nefunguje** nic, co potřebuje server nebo cizí web – hledání
+letů, ceny, ubytování, počasí, dlaždice map. Místo „Failed to fetch“ pak ATLAS napíše „Jsi offline – připoj se
+k internetu a zkus to znovu.“ (při připojení, ale nedostupném serveru „Server ATLAS je teď nedostupný…“).
+
+**Proč nikdy neukáže starý kód** (`public/sw.js`, `server/lib/pwa.js`, `public/js/pwa.js`):
+
+- Service worker bere stránku i soubory aplikace (HTML, JS, CSS, `vendor/`, `data/*.json`) **vždy nejdřív ze sítě**
+  s ověřením u serveru a každou úspěšnou odpověď si uloží; uloženou kopii použije, **jen když síť selže**. Na `/api/*`,
+  jiné metody než GET a cizí weby (dlaždice map, písma, partneři) nesahá – jdou rovnou na server a nic z nich neukládá.
+- Server posílá kód aplikace (HTML, JS, CSS, manifest) s `Cache-Control: no-cache`: prohlížeč se při každém načtení
+  zeptá (nezměněný soubor = `304` bez dat). S `max-age` by otevřený panel po obnovení vzal soubor z paměti bez ptaní –
+  ani service worker by se o tom nedozvěděl – a po nasazení by běžel starý kód. Obrázky, písma a data mapy mezipaměť mají dál.
+- `/sw.js` skládá server: verze je otisk obsahu všech souborů v `public/` a uložených dat (ne čas změny – nasazení
+  se stejnými soubory nic nezmění) a seznam souborů k uložení při instalaci je stránka + vše, na co odkazuje
+  `index.html` (skripty, styly, manifest a jeho ikony) + `data/countries.json`, `data/entry.json` a mapa světa.
+  Přejmenovaný skript se do seznamu dostane sám, chybějící soubor se vynechá.
+- Nové nasazení = jiný `sw.js` → prohlížeč nainstaluje nový service worker, ten si uloží novou sadu souborů, hned
+  převezme otevřené stránky a staré mezipaměti smaže. Otevřený panel novou verzi zjistí (po návratu na panel, po
+  připojení k internetu a každých 30 minut – hlavička `X-Atlas-Build` z `HEAD /sw.js`) a ukáže **„✨ Je k dispozici nová
+  verze ATLASu – Obnovit“**. Sám se neobnoví, aby nezmizel rozepsaný formulář ani výsledky hledání.
+- Kontrola v prohlížeči: DevTools → Application → Manifest, Service workers a Cache storage (`atlas-<verze>`).
+
+**Ikony** (`public/icons/`) mají stejnou značku jako favicon – papírové letadlo na přechodu barev ATLAS: 192 a 512 px,
+maskovatelná 512 px pro Android, 180 px pro iOS a 96 px pro zkratky v manifestu. Vytváří je `npm run build:icons`
+(`scripts/build-icons.mjs` bez závislostí: tvary vykreslí po pixelech s vyhlazením a PNG zakóduje přes `node:zlib`);
+test hlídá, že uložené PNG odpovídají skriptu – po změně vzhledu ho stačí spustit znovu.
+
 ## Jak to funguje
 
 ```

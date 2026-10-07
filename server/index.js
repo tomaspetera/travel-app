@@ -30,6 +30,7 @@ import { makeTrip } from './lib/fares.js';
 import { airportClimate, climateAt, climateSource, countryClimate } from './lib/climate.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
+import { serveServiceWorker } from './lib/pwa.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -65,7 +66,8 @@ function serveFile(req, res, file, { maxAge = 300 } = {}) {
     return false;
   }
   const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
-  const headers = { 'Content-Type': type, 'Cache-Control': `public, max-age=${maxAge}`, 'Last-Modified': st.mtime.toUTCString() };
+  // maxAge 0 = no-cache: prohlížeč (i service worker) se u každého použití zeptá serveru (304 je levné)
+  const headers = { 'Content-Type': type, 'Cache-Control': maxAge > 0 ? `public, max-age=${maxAge}` : 'no-cache', 'Last-Modified': st.mtime.toUTCString() };
   if (req.headers['if-modified-since'] && new Date(req.headers['if-modified-since']) >= new Date(st.mtime.toUTCString())) {
     res.writeHead(304, headers);
     res.end();
@@ -511,6 +513,9 @@ async function route(req, res) {
   if (p === '/api/search' && req.method === 'POST') return handleSearch(req, res);
   if (p.startsWith('/api/')) return sendJson(req, res, 404, { error: 'Neznámý endpoint' });
 
+  // Service worker (aplikace na ploše, offline): verze a seznam souborů z obsahu public/ – server/lib/pwa.js
+  if (p === '/sw.js') return serveServiceWorker(req, res, { publicDir: PUBLIC, dataDir: DATA });
+
   // Statické soubory
   if (p === '/data/countries.json' || p === '/data/entry.json') {
     // entry.json = vstupní podmínky pro občany ČR; prohlížeč ho načítá až po startu (nezdržuje první vykreslení)
@@ -528,7 +533,10 @@ async function route(req, res) {
     res.writeHead(403);
     return res.end('Forbidden');
   }
-  const maxAge = rel.startsWith('/vendor/') ? 86400 * 30 : 60;
+  // Kód aplikace (HTML, JS, CSS, manifest) se vždy ověří u serveru (no-cache → levné 304): po nasazení nikdy stará
+  // verze – ani z paměti otevřeného panelu, která by soubor s max-age použila bez ptaní. Obrázky, písma a data mapy
+  // ve vendor/ mají mezipaměť jako dřív.
+  const maxAge = /\.(?:html|js|css|webmanifest)$/.test(rel) ? 0 : rel.startsWith('/vendor/') ? 86400 * 30 : 60;
   if (serveFile(req, res, file, { maxAge })) return;
   // SPA fallback
   serveFile(req, res, path.join(PUBLIC, 'index.html'), { maxAge: 0 }) || (res.writeHead(404), res.end('Not found'));

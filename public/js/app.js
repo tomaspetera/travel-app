@@ -64,6 +64,7 @@ function buildNav() {
   $('#moreNav').onclick = () => {
     modalOpen(`<div class="modal-body"><h3 style="margin-bottom:12px">Další sekce</h3><div class="more-nav">${NAV.filter(n => !MOBILE.includes(n[0])).map(n => `<button type="button" class="btn ghost" data-mv="${n[0]}" style="justify-content:flex-start;width:100%;margin-bottom:8px">${ico(n[3])} ${n[1]} <span class="faint" style="font-weight:400;margin-left:6px">${n[2]}</span></button>`).join('')}</div></div>`);
     $$('[data-mv]').forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
+    if (window.Pwa) Pwa.addToMenu($('.more-nav', $('#modal'))); // 📲 Přidat ATLAS na plochu (pwa.js)
   };
 }
 function go(v, opts = {}) {
