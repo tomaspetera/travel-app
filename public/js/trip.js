@@ -1417,6 +1417,8 @@
     $$('[data-bk]', host).forEach(cb => cb.onchange = () => { t.booked[cb.dataset.bk] = cb.checked; persist(); });
     $('#sumSave').onclick = () => saveToPlanner();
     $('#sumShare').onclick = () => share();
+    // odkaz se zkomprimuje hned, aby ho kliknutí jen zkopírovalo (Safari dovolí zápis do schránky jen v obsluze kliknutí)
+    if (window.ShareLink) ShareLink.prepare('trip', shareJson(t));
     $('#sumIcs').onclick = () => icsDownload(`atlas-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` });
     $('#sumNew').onclick = () => { if (confirm('Zahodit rozpracovanou cestu?')) { S.trip = null; persist(); go('flights'); } };
     // vstupní podmínky dorazily až po vykreslení → shrnutí znovu (jen když je pořád otevřené)
@@ -1553,11 +1555,8 @@
     go('planner');
   }
 
-  function b64urlEncode(str) { return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
-  function b64urlDecode(s) { return decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))); }
-
-  function share() {
-    const t = T();
+  /** JSON cesty do sdíleného odkazu (#trip=…, zkomprimovaný – sharelink.js): bez odškrtnutých rezervací a času založení. */
+  function shareJson(t) {
     const slim = { ...t, booked: {}, created: undefined };
     // „Co zařídit a co sbalit“: aktivity, vlastní položky i odškrtnutí (ta jsou jinak jen v localStorage tohoto prohlížeče)
     if (window.PreTrip) slim.pretrip = PreTrip.shareState(t);
@@ -1567,8 +1566,12 @@
       const plan = p => (p ? { ...p, spare: undefined, days: (p.days || []).map(d => ({ ...d, items: (d.items || []).map(item) })) } : null);
       slim.route = { ...t.route, candidates: undefined, bases: (t.route.bases || []).map((b, i) => ({ ...b, plan: plan(isMulti(t) ? basePlan(t, i) : b.plan) })) };
     }
-    const url = `${location.origin}${location.pathname}#trip=${b64urlEncode(JSON.stringify(slim))}`;
-    navigator.clipboard?.writeText(url).then(() => toast('Odkaz zkopírován – pošli ho komukoliv'), () => prompt('Zkopíruj odkaz:', url));
+    return JSON.stringify(slim);
+  }
+
+  /** Zkopíruje odkaz na cestu (připravený už při vykreslení shrnutí); vrací Promise kvůli testům. */
+  function share() {
+    return ShareLink.copy('trip', shareJson(T())).then(r => (r.copied ? toast('Odkaz zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz:', r.url)));
   }
 
   /**
@@ -1746,12 +1749,12 @@
     };
   }
 
-  /** Načte sdílenou cestu z #trip=… (volá app.js při startu). */
-  function importFromHash() {
+  /** Načte sdílenou cestu z #trip=… (volá app.js při startu) → Promise<boolean>. */
+  async function importFromHash() {
     const m = location.hash.match(/^#trip=([A-Za-z0-9_-]+)$/);
     if (!m) return false;
     try {
-      const parsed = JSON.parse(b64urlDecode(m[1]));
+      const parsed = JSON.parse(await ShareLink.unpack(m[1]));
       if (!parsed || !parsed.flight || !parsed.flight.out) throw new Error('neplatná data');
       const t = sanitizeTrip(parsed);
       const mine = S.trip;
