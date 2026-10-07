@@ -1,5 +1,6 @@
-/* ATLAS – sdílení plánu cesty z plánovače odkazem #plan=<base64url JSON>.
-   Data z odkazu jsou cizí vstup: sanitize() z nich postaví nový objekt jen se známými poli. */
+/* ATLAS – sdílení plánu cesty z plánovače odkazem #plan=… (JSON plánu zkomprimovaný – sharelink.js; dřívější odkazy
+   #plan=<base64url JSON> fungují dál). Data z odkazu jsou cizí vstup: sanitize() z nich postaví nový objekt jen se
+   známými poli. */
 (function () {
   const MAX_HASH = 150000; // ~110 kB JSON – víc plán z plánovače nemá
   const b64urlEncode = str => {
@@ -109,24 +110,34 @@
     return plan;
   }
 
-  /** Část odkazu za #plan= (plán se před zakódováním pročistí stejně jako při načtení). */
-  function encode(trip) {
+  /** JSON plánu do odkazu (plán se před zakódováním pročistí stejně jako při načtení). */
+  function json(trip) {
     const p = sanitize(trip), done = doneMask(p.checklist);
-    return b64urlEncode(JSON.stringify({ v: 1, ...p, checklist: p.checklist.map(x => x.t), ...(done ? { done } : {}) }));
+    return JSON.stringify({ v: 1, ...p, checklist: p.checklist.map(x => x.t), ...(done ? { done } : {}) });
   }
 
-  function decode(payload) {
+  const checked = payload => {
     if (typeof payload !== 'string' || !/^[A-Za-z0-9_-]+$/.test(payload) || payload.length > MAX_HASH) throw new Error('poškozený odkaz');
-    const raw = JSON.parse(b64urlDecode(payload));
+    return payload;
+  };
+  const fromJson = text => {
+    const raw = JSON.parse(text);
     if (!obj(raw) || (raw.v != null && raw.v !== 1)) throw new Error('neznámý formát plánu');
     return sanitize(raw);
-  }
+  };
 
-  /** Plán z adresy (#plan=…); null, když adresa žádný plán nenese. Poškozený odkaz → výjimka. */
-  function fromHash(hash) {
+  /** Dřívější tvar odkazu: base64url JSON bez komprese (ten nový dělá ShareLink.pack z json()). */
+  const encode = trip => b64urlEncode(json(trip));
+  const decode = payload => fromJson(b64urlDecode(checked(payload)));
+
+  /** Část odkazu za #plan= v novém (zkomprimovaném) i dřívějším tvaru → Promise s plánem. */
+  const unpack = async payload => fromJson(await ShareLink.unpack(checked(payload)));
+
+  /** Plán z adresy (#plan=…) → Promise; null, když adresa žádný plán nenese. Poškozený odkaz → zamítnutí. */
+  async function fromHash(hash) {
     const m = String(hash || '').match(/^#plan=(.*)$/);
-    return m ? decode(m[1]) : null;
+    return m ? unpack(m[1]) : null;
   }
 
-  window.PlanShare = { sanitize, encode, decode, fromHash };
+  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash };
 })();

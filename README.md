@@ -800,6 +800,26 @@ a `Array.prototype.at`. Rozmazání pod průhlednými prvky (`backdrop-filter`) 
 plné pozadí a do průhledna přechází jen spodní okraj, takže zůstane čitelná i tam, kde se rozmazání nevykreslí.
 Na skutečném iPhonu zbývá ověřit přidání na plochu, úvodní animaci a okraje displeje.
 
+## Sdílení odkazem
+
+**🔗 Zkopírovat odkaz na cestu** (shrnutí průvodce) a **🔗 Sdílet plán** (plánovač) vytvoří odkaz, který nese celou
+cestu nebo plán. Na server se nic neukládá (část adresy za `#` prohlížeč na server neposílá), takže odkaz platí, dokud
+ho někdo má, i po novém nasazení. JSON je v odkazu zkomprimovaný (`public/js/sharelink.js`: deflate-raw přímo
+v prohlížeči přes `CompressionStream`, base64url se značkou `z` na začátku). Odkaz je asi 3,7× kratší: cesta do
+Barcelony autem na letiště s trasou Barcelona → Lloret de Mar → Tarragona a programem na 7 nocí měla 18 135 znaků
+a teď má 4 945, plán z plánovače (Lisabon, 5 dní s lety a programem) má 1 935 znaků (živá data, 7. 10. 2026).
+
+- Odkaz se zkomprimuje už při vykreslení tlačítka a kliknutí ho jen zkopíruje, protože Safari dovolí zápis do schránky
+  jen přímo v obsluze kliknutí. Když se obsah mezitím změnil, zapíše se přes `ClipboardItem` s Promise (Safari), jinak
+  přes `writeText` po kompresi. Když schránka nejde vůbec, nabídne se odkaz k ručnímu zkopírování.
+- Dřívější odkazy (`#trip=` / `#plan=` + base64url JSON, začínají vždy `ey`) fungují dál. Prohlížeč bez
+  komprese deflate-raw (Safari do 16.3, Chrome do 102, Firefox do 112) vytvoří odkaz postaru a zkomprimovaný rozbalí
+  vlastním inflate podle RFC 1951 (test ho porovnává se zlib na stovkách vstupů).
+- Odkaz je cizí vstup: rozbalí se nejvýš 1 MB (ochrana proti „kompresní bombě“), poškozený odkaz ukáže hlášku
+  „Odkaz na cestu je poškozený“ a data projdou stejným pročištěním jako dřív (`Trip.sanitizeTrip`, `PlanShare.sanitize`).
+- Krátký odkaz typu `…/s/abc123` by potřeboval úložiště na serveru. Bezplatný Render ale při každém nasazení disk
+  smaže a odkazy by přestaly fungovat.
+
 ## Jak to funguje
 
 ```
@@ -1037,7 +1057,7 @@ cesta z města příjezdu (ne z letiště):
   elektroauto počítá s rychlonabíjením za odhad 16 Kč/kWh. Autem se nepočítá opotřebení auta ani mýtné za úseky
   v Polsku; u cesty přes víc měst si ručním výběrem letů můžeš složit i návrat na jiné letiště, než kde auto parkuje
   (cena pak počítá, jako by ses vrátil k autu).
-- Cesta z letiště do města: jízdné z ověřené tabulky (74 letišť, 7. 10. 2026) se mění – dopravci zdražují, „od“ platí
+- Cesta z letiště do města: jízdné z ověřené tabulky (133 letišť, u 13 jen sekundární zdroj; 7. 10. 2026) se mění – dopravci zdražují, „od“ platí
   jen online předem a u řidiče nebo ve špičce bývá dráž; čas je typická jízda bez čekání (po půlnoci letištní bus často
   nejede a zbývá taxi). Počítá se jízdenka pro dospělého na osobu do jednoho místa v centru (nádraží, terminál), ne
   k ubytování – rodinné, skupinové a časové jízdenky, slevy pro děti ani taxi pro víc lidí se nepočítají. Ostatní

@@ -416,6 +416,7 @@ function openTrip(i) {
   // Poznámky se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
   const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(S.trips[i])[0])); });
   $('#tripShare').onclick = () => sharePlan(i);
+  ShareLink.prepare('plan', PlanShare.json(t)); // kliknutí pak jen zkopíruje hotový odkaz (Safari)
 }
 
 /* vstupní podmínky cesty z plánovače: země z kódu (iso, u cesty přes víc zemí isos; via = přestupy s registrací) – nic dalšího se neukládá */
@@ -448,17 +449,17 @@ function icsDownload(filename, events, opts) {
   const n = Ics.download(filename, events, opts).split('\r\nBEGIN:VEVENT\r\n').length - 1;
   toast(`Soubor .ics stažen (${n} ${n === 1 ? 'událost' : n >= 2 && n <= 4 ? 'události' : 'událostí'}) – otevři ho v kalendáři`);
 }
+/** Odkaz na plán (zkomprimovaný – sharelink.js; připravený už při otevření plánu) do schránky, jinak k ručnímu zkopírování. */
 function sharePlan(i) {
-  const url = `${location.origin}${location.pathname}#plan=${PlanShare.encode(S.trips[i])}`;
-  const manual = () => prompt('Zkopíruj odkaz na plán:', url);
-  if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast('Odkaz na plán zkopírován – pošli ho komukoliv'), manual); else manual();
+  return ShareLink.copy('plan', PlanShare.json(S.trips[i])).then(r => (r.copied ? toast('Odkaz na plán zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz na plán:', r.url)));
 }
-/** Sdílený plán z #plan=… (při startu a při změně adresy): náhled a import do plánovače. */
-function importPlanFromHash() {
-  if (!/^#plan=/.test(location.hash)) return false;
-  let p = null;
-  try { p = PlanShare.fromHash(location.hash); } catch (e) { toast('Odkaz na plán je poškozený', 'err'); }
+/** Sdílený plán z #plan=… (při startu a při změně adresy): náhled a import do plánovače → Promise<boolean>. */
+async function importPlanFromHash() {
+  const hash = location.hash;
+  if (!/^#plan=/.test(hash)) return false;
   history.replaceState(null, '', '#planner');
+  let p = null;
+  try { p = await PlanShare.fromHash(hash); } catch (e) { toast('Odkaz na plán je poškozený', 'err'); }
   if (p) previewPlan(p);
   return true;
 }
@@ -511,7 +512,7 @@ function wireEvents() {
   $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; S.radar = null; save(); toast('Data aktualizována'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') renderDash(); };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') modalClose(); });
   // Odkaz na plán vložený do už otevřené stránky (mění se jen #).
-  window.addEventListener('hashchange', () => { if (importPlanFromHash()) go('planner', { noHash: true }); });
+  window.addEventListener('hashchange', async () => { if (await importPlanFromHash()) go('planner', { noHash: true }); });
 }
 function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
 
@@ -548,8 +549,8 @@ async function start() {
   }
   if (window.Flights) await Flights.init();
   refreshStats();
-  const shared = window.Trip && Trip.importFromHash();
-  const plan = !shared && importPlanFromHash();
+  const shared = window.Trip && await Trip.importFromHash();
+  const plan = !shared && await importPlanFromHash();
   const v = shared ? 'trip' : plan ? 'planner' : location.hash.slice(1);
   go(NAV.some(n => n[0] === v) ? v : 'dashboard', { noHash: true });
 }

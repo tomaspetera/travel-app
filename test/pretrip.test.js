@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
+import { inflateRawSync } from 'node:zlib';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const PT = JSON.parse(read('public/data/pretrip.json'));
@@ -16,10 +17,12 @@ const EU = 'AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO
 
 /** Kontext jako v prohlížeči: helpery z app.js, země, vstupní podmínky, pretrip.js; volitelně trip.js a úložiště. */
 function load({ withTrip = false, storage = null, data = PT } = {}) {
-  const ctx = { window: {}, URLSearchParams, TextEncoder, TextDecoder, btoa, atob, console, URL, Intl, setTimeout, clearTimeout };
+  const ctx = { window: {}, URLSearchParams, TextEncoder, TextDecoder, btoa, atob, console, URL, Intl, setTimeout, clearTimeout, CompressionStream, DecompressionStream, location: { origin: 'https://atlas.example', pathname: '/', hash: '' } };
   if (storage) ctx.localStorage = storage;
   vm.createContext(ctx);
   vm.runInContext(read('public/js/ics.js'), ctx, { filename: 'ics.js' });
+  vm.runInContext(read('public/js/sharelink.js'), ctx, { filename: 'sharelink.js' });
+  vm.runInContext('var ShareLink = window.ShareLink;', ctx);
   const helpers = read('public/js/app.js').match(/^const (esc|safeUrl|pad|fmtYMD|fmtDate|czk) = .*$/gm);
   assert.equal(helpers.length, 6);
   vm.runInContext(`const Ics = window.Ics;\n${helpers.join('\n')}\nvar byIso = {}; var S = {}; var flag = (iso) => '[' + iso + ']'; var PACK = ['Pas / OP'];`, ctx, { filename: 'app-helpers.js' });
@@ -593,8 +596,13 @@ function tokyo() {
   return t;
 }
 const tripHash = (t) => '#trip=' + Buffer.from(JSON.stringify(t)).toString('base64url');
+/** JSON ze sdíleného odkazu na cestu: zkomprimovaný („z“ + deflate-raw) i dřívější base64url JSON. */
+const sentOf = (url) => {
+  const p = url.split('#trip=')[1];
+  return JSON.parse((p[0] === 'z' ? inflateRawSync(Buffer.from(p.slice(1), 'base64url')) : Buffer.from(p, 'base64url')).toString('utf8'));
+};
 
-test('sdílený odkaz na cestu (#trip=): odškrtnutí a vlastní položky tam a zpět, odškrtnutí jiných cest příjemce zůstanou, starší odkazy', () => {
+test('sdílený odkaz na cestu (#trip=): odškrtnutí a vlastní položky tam a zpět, odškrtnutí jiných cest příjemce zůstanou, starší odkazy', async () => {
   // odesílatel: dvě odškrtnutí, dvě vlastní položky (druhá odškrtnutá), zvolené aktivity
   const a = wizard(memStorage());
   const t = tokyo();
@@ -605,10 +613,11 @@ test('sdílený odkaz na cestu (#trip=): odškrtnutí a vlastní položky tam a 
   const key = a.P.tripKey(t);
   for (const id of ['todo:ins', 'pack:doc-pass', 'pack:my-2']) a.P.setDone(key, id, true);
   a.Trip.render();
-  a.els['#sumShare'].onclick();
+  await a.els['#sumShare'].onclick();
   const url = a.c.copied[0];
-  assert.match(url, /^https:\/\/atlas\.example\/#trip=[A-Za-z0-9_-]+$/);
-  const sent = JSON.parse(Buffer.from(url.split('#trip=')[1], 'base64url').toString('utf8'));
+  assert.match(url, /^https:\/\/atlas\.example\/#trip=z[A-Za-z0-9_-]+$/, 'zkomprimovaný odkaz');
+  const sent = sentOf(url);
+  assert.ok(url.length < tripHash(sent).length * 0.6, `kratší než dřív: ${url.length} vs ${tripHash(sent).length}`);
   const custom = [{ id: 'my-1', text: 'Nabíječka na hodinky' }, { id: 'my-2', text: 'Dárek pro Keiko' }];
   assert.deepEqual(sent.pretrip, { acts: ['hike', 'city'], custom, done: ['todo:ins', 'pack:doc-pass', 'pack:my-2'] });
   assert.equal(sent.created, undefined);
@@ -617,7 +626,7 @@ test('sdílený odkaz na cestu (#trip=): odškrtnutí a vlastní položky tam a 
   const st = memStorage();
   st.setItem('atlas_pretrip_v1', JSON.stringify({ 'jina:cesta': { d: { 'pack:cl-hat': 1 }, at: 1 } }));
   const b = wizard(st, url.slice(url.indexOf('#')));
-  assert.equal(b.Trip.importFromHash(), true);
+  assert.equal(await b.Trip.importFromHash(), true);
   const got = b.c.S.trip;
   assert.equal(b.c.location.hash, '#trip');
   assert.deepEqual(plain(got.pretrip), { acts: ['hike', 'city'], custom }, 'odškrtnutí se z cesty přesunula do localStorage');
@@ -635,21 +644,21 @@ test('sdílený odkaz na cestu (#trip=): odškrtnutí a vlastní položky tam a 
   assert.deepEqual(plain(b.P.shareState(got)).done.sort(), ['pack:doc-pass', 'pack:my-2', 'todo:ins']);
   // starší odkaz bez stavu karty, nebo jen s aktivitami: funguje dál, nic odškrtnuté
   const old = wizard(memStorage(), tripHash({ ...sent, pretrip: undefined }));
-  assert.equal(old.Trip.importFromHash(), true);
+  assert.equal(await old.Trip.importFromHash(), true);
   assert.equal(old.c.S.trip.pretrip, undefined);
   assert.deepEqual(plain(old.P.doneOf(old.P.tripKey(old.c.S.trip))), {});
   const acts = wizard(memStorage(), tripHash({ ...sent, pretrip: { acts: ['beach'] } }));
-  assert.equal(acts.Trip.importFromHash(), true);
+  assert.equal(await acts.Trip.importFromHash(), true);
   assert.deepEqual(plain(acts.c.S.trip.pretrip), { acts: ['beach'] });
   // nic k sdílení → odkaz bez pole
   const n = wizard(memStorage());
   n.c.S.trip = tokyo();
   n.Trip.render();
-  n.els['#sumShare'].onclick();
-  assert.equal(JSON.parse(Buffer.from(n.c.copied[0].split('#trip=')[1], 'base64url').toString('utf8')).pretrip, undefined);
+  await n.els['#sumShare'].onclick();
+  assert.equal(sentOf(n.c.copied[0]).pretrip, undefined);
 });
 
-test('sdílený odkaz na cestu: podvržený stav karty – jen známé aktivity, pročištěné vlastní položky, id odškrtnutí ve známém tvaru, omezené počty', () => {
+test('sdílený odkaz na cestu: podvržený stav karty – jen známé aktivity, pročištěné vlastní položky, id odškrtnutí ve známém tvaru, omezené počty', async () => {
   const b = wizard(memStorage());
   const evil = {
     acts: ['beach', '<img src=x onerror=alert(1)>', 'snow', 'toString', '__proto__'],
@@ -683,7 +692,7 @@ test('sdílený odkaz na cestu: podvržený stav karty – jen známé aktivity,
   for (const bad of ['<b>', 5, ['beach'], null, {}, { acts: 'beach', custom: 'x', done: 'todo:ins' }]) assert.equal(b.P.sanitize(bad), undefined, JSON.stringify(bad));
   // import: odškrtnutí jen pod klíčem nové cesty, karta bez HTML z odkazu
   const imp = wizard(memStorage(), '#trip=' + Buffer.from(json).toString('base64url'));
-  assert.equal(imp.Trip.importFromHash(), true);
+  assert.equal(await imp.Trip.importFromHash(), true);
   const got = imp.c.S.trip;
   assert.equal(got.pretrip.done, undefined);
   const stored = JSON.parse(imp.c.localStorage.getItem('atlas_pretrip_v1'));

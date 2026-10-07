@@ -4,15 +4,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
+import { deflateRawSync, inflateRawSync } from 'node:zlib';
 
-const load = (file) => {
-  const ctx = { window: {}, URLSearchParams, TextEncoder, TextDecoder, btoa, atob };
+const load = (...files) => {
+  const ctx = { window: {}, URLSearchParams, TextEncoder, TextDecoder, btoa, atob, CompressionStream, DecompressionStream };
   vm.createContext(ctx);
-  vm.runInContext(readFileSync(new URL(`../public/js/${file}`, import.meta.url), 'utf8'), ctx, { filename: file });
+  for (const file of files) vm.runInContext(readFileSync(new URL(`../public/js/${file}`, import.meta.url), 'utf8'), ctx, { filename: file });
+  vm.runInContext('var ShareLink = window.ShareLink;', ctx);
   return ctx.window;
 };
 const { Ics } = load('ics.js');
-const { PlanShare } = load('planshare.js');
+const { PlanShare, ShareLink } = load('sharelink.js', 'planshare.js');
 
 const NOW = Date.UTC(2026, 9, 5, 12, 0, 0);
 const build = (events, opts = {}) => Ics.build(events, { now: NOW, ...opts });
@@ -160,16 +162,23 @@ test('Ics.gcalUrl: odkaz do Google Kalendáře (celodenní exkluzivně, časy v 
   assert.equal(long, 'a' + '🏰'.repeat(749));
 });
 
-test('PlanShare: odkaz na plán – tam a zpět beze ztráty (čeština, emoji, lety)', () => {
+test('PlanShare: odkaz na plán – tam a zpět beze ztráty (čeština, emoji, lety), zkomprimovaný i dřívější', async () => {
   const trip = {
     name: 'Léto v Portugalsku 🌞', dest: 'Lisabon', iso: 'PT', start: '2026-07-01', end: '2026-07-05', pax: '2', budget: '42000',
     flight: 'PRG→LIS 1.7. 06:30 (Ryanair)', days: { '2026-07-01': ['Belém', 'Tramvaj 28'], '2026-07-02': ['Sintra – Pena'] },
     legs: [{ from: 'PRG', to: 'LIS', date: '2026-07-01', dep: '2026-07-01T06:30', arr: '2026-07-01T09:05', fromTz: 'Europe/Prague', toTz: 'Europe/Lisbon', carrier: 'Ryanair', flightNo: 'FR123', durationMin: 215 }],
     checklist: [{ t: 'Pas / OP', done: true }, { t: 'Opalovací krém', done: false }], notes: 'Rezervace č. 123\nDruhý řádek',
   };
-  const payload = PlanShare.encode(trip);
-  assert.match(payload, /^[A-Za-z0-9_-]+$/);
-  const p = PlanShare.fromHash('#plan=' + payload);
+  // nový odkaz: JSON plánu zkomprimovaný (deflate-raw) se značkou „z“ – kratší než dřívější base64url JSON
+  const json = PlanShare.json(trip);
+  const payload = await ShareLink.pack(json);
+  assert.match(payload, /^z[A-Za-z0-9_-]+$/);
+  assert.equal(inflateRawSync(Buffer.from(payload.slice(1), 'base64url')).toString('utf8'), json, 'standardní deflate-raw');
+  const legacy = PlanShare.encode(trip);
+  assert.ok(payload.length < legacy.length * 0.8, `${payload.length} vs ${legacy.length} znaků`);
+  const p = await PlanShare.fromHash('#plan=' + payload);
+  assert.deepEqual(JSON.parse(JSON.stringify(p)), JSON.parse(JSON.stringify(await PlanShare.fromHash('#plan=' + legacy))), 'dřívější odkaz dá totéž');
+  assert.deepEqual(JSON.parse(JSON.stringify(p)), JSON.parse(JSON.stringify(PlanShare.decode(legacy))));
   assert.equal(p.name, trip.name);
   assert.equal(p.dest, 'Lisabon');
   assert.equal(p.iso, 'PT');
@@ -179,14 +188,14 @@ test('PlanShare: odkaz na plán – tam a zpět beze ztráty (čeština, emoji, 
   assert.equal(p.legs[0].dep, '2026-07-01T06:30');
   assert.deepEqual(JSON.parse(JSON.stringify(p.checklist)), [{ t: 'Pas / OP', done: true }, { t: 'Opalovací krém', done: false }], 'i s odškrtnutím');
   assert.equal(p.notes, trip.notes);
-  assert.equal(PlanShare.fromHash('#planner'), null);
-  assert.equal(PlanShare.fromHash('#trip=abc'), null);
+  assert.equal(await PlanShare.fromHash('#planner'), null);
+  assert.equal(await PlanShare.fromHash('#trip=abc'), null);
   // Plán bez dat a bez letů je platný (jen se nedá exportovat do kalendáře).
   const bare = PlanShare.decode(PlanShare.encode({ name: 'Někdy', dest: 'Tatry' }));
   assert.deepEqual([bare.start, bare.end, bare.legs, bare.flight], ['', '', undefined, null]);
 });
 
-test('PlanShare: škodlivý odkaz – texty bez HTML/JS, data ověřená, pole omezená', () => {
+test('PlanShare: škodlivý odkaz – texty bez HTML/JS, data ověřená, pole omezená', async () => {
   const enc = (o) => Buffer.from(typeof o === 'string' ? o : JSON.stringify(o)).toString('base64url');
   const xss = '<img src=x onerror=alert(1)>"\'`\\';
   const evil = {
@@ -232,7 +241,13 @@ test('PlanShare: škodlivý odkaz – texty bez HTML/JS, data ověřená, pole o
   for (const bad of ['', '!!!', 'a'.repeat(200001), enc([1, 2]), enc('text'), enc(null), enc({ v: 2, name: 'x' }), Buffer.from('{"name":').toString('base64url'), Buffer.from([0xff, 0xfe, 0x7b]).toString('base64url')]) {
     assert.throws(() => PlanShare.decode(bad), undefined, `má selhat: ${bad.slice(0, 30)}`);
   }
-  assert.throws(() => PlanShare.fromHash('#plan=<script>'));
+  await assert.rejects(PlanShare.fromHash('#plan=<script>'));
+  // totéž ve zkomprimovaném odkazu: stejné pročištění, poškozená komprimovaná data → zamítnutí
+  const z = (text) => 'z' + deflateRawSync(Buffer.from(text)).toString('base64url');
+  assert.deepEqual(JSON.parse(JSON.stringify(await PlanShare.unpack(z(json)))), JSON.parse(JSON.stringify(p)));
+  for (const bad of ['z', 'zzzz', z('{"name":'), z('[1,2]'), z(JSON.stringify({ v: 2 })), 'z' + 'A'.repeat(200001)]) {
+    await assert.rejects(PlanShare.unpack(bad), undefined, `má selhat: ${bad.slice(0, 30)}`);
+  }
 });
 
 test('PlanShare: odškrtnutí „Sbaleno“ – maska v odkazu tam a zpět, starší odkaz bez ní, podvržená maska nic neodškrtne', () => {
@@ -289,10 +304,11 @@ test('Plánovač: dny cesty přes změnu času – žádný den dvakrát ani chy
   }
 });
 
-test('index.html: ics.js a planshare.js se načtou před skripty, které je používají', () => {
+test('index.html: ics.js, sharelink.js a planshare.js se načtou před skripty, které je používají', () => {
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   const at = (f) => html.indexOf(`<script src="js/${f}"></script>`);
-  for (const f of ['ics.js', 'planshare.js']) {
+  assert.ok(at('sharelink.js') > 0 && at('sharelink.js') < at('planshare.js'), 'sharelink.js před planshare.js');
+  for (const f of ['ics.js', 'sharelink.js', 'planshare.js']) {
     assert.ok(at(f) > 0, f);
     for (const user of ['app.js', 'trip.js']) assert.ok(at(f) < at(user), `${f} před ${user}`);
   }
