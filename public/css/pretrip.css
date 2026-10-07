@@ -38,6 +38,14 @@
 .pt-grp h5{font:800 13.5px Inter,sans-serif;margin:10px 0 4px}
 .pt-pack li{padding:5px 0;border-bottom:1px solid var(--border);font-size:13.5px}
 .pt-pack li:last-child{border-bottom:none}
+/* vlastní položky: ✕ vpravo, pole pro přidání pod seznamem */
+.pt-pack li.pt-own{display:flex;align-items:flex-start;gap:6px}
+.pt-own .pt-row{flex:1}
+/* ✕ aspoň 26 × 24 px pro prst, záporný okraj – řádek kvůli němu nezvýší */
+.pt-del{flex:none;min-width:26px;min-height:24px;margin:-2px 0;padding:0 6px;background:none;border:none;border-radius:7px;color:var(--faint);font:inherit;font-size:12px;line-height:1;cursor:pointer}
+.pt-del:hover,.pt-del:focus-visible{color:var(--bad);background:var(--surface-2)}
+.pt-add{display:flex;gap:8px;margin-top:10px}
+.pt-add .input{flex:1;min-width:0;padding:8px 11px}
 .pt-src{font-size:11.5px;margin-top:12px;line-height:1.5}
 [data-theme="light"] .pt-prog,[data-theme="light"] .pt-v-ok{color:#047857}
 [data-theme="light"] .pt-lv,[data-theme="light"] .pt-v-rec{color:#8a5a00}
@@ -57,7 +65,7 @@
   /* celá stránka: bez navigace, tlačítek a tmavého pozadí */
   :root,[data-theme]{--text:#000;--muted:#333;--faint:#555;--border:#bbb;--border-2:#888;--surface:transparent;--surface-2:#eee;--card:#fff;--bg-grad:#fff}
   body{background:#fff !important;color:#000}
-  .sidebar,.topbar,.demo-banner,.mobile-nav,.modal-bg,.toast,.stepbar,.pt-tools .btn,.pt-acts{display:none !important}
+  .sidebar,.topbar,.demo-banner,.mobile-nav,.modal-bg,.toast,.stepbar,.pt-tools .btn,.pt-acts,.pt-add,.pt-del{display:none !important}
   .app{display:block}
   .card{box-shadow:none !important;backdrop-filter:none !important;background:#fff !important;border-color:#bbb !important;break-inside:avoid}
   .pt-card a,[data-theme] .pt-card a{color:#000 !important}

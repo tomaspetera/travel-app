@@ -28,6 +28,15 @@
   const tz = s => typeof s === 'string' && s.length <= 40 && /^[A-Za-z][\w+-]*(\/[\w+-]+){0,2}$/.test(s) ? s : null;
   const iata = s => typeof s === 'string' && /^[A-Z0-9]{3}$/.test(s) ? s : null;
   const obj = v => v && typeof v === 'object' && !Array.isArray(v);
+  // Odškrtnutí seznamu „Sbaleno“ v odkazu: volitelné pole done = bitová maska šestnáctkově (4 položky na znak, první
+  // položka = nejvyšší bit prvního znaku, koncové nuly se vynechají – 80 položek nejvýš 20 znaků). Verze zůstává 1 jako
+  // u dřívějších nových polí: starší odkazy pole nemají (vše neodškrtnuté) a starší verze aplikace ho přeskočí.
+  const doneMask = list => {
+    let s = '';
+    for (let i = 0; i < list.length; i += 4) s += list.slice(i, i + 4).reduce((n, x, j) => n | (x.done ? 8 >> j : 0), 0).toString(16);
+    return s.replace(/0+$/, '');
+  };
+  const doneAt = (mask, i) => typeof mask === 'string' && /^[0-9a-f]{1,20}$/.test(mask) && (parseInt(mask[i >> 2] || '0', 16) & (8 >> (i & 3))) > 0;
 
   function leg(l) {
     if (!obj(l) || !iata(l.from) || !iata(l.to)) return null;
@@ -84,8 +93,9 @@
       budget: raw.budget !== '' && Number.isFinite(budget) && budget > 0 ? String(Math.round(Math.min(budget, 1e8))) : '',
       flight: txt(raw.flight, 500) || null,
       days,
+      // položka { t, done } z plánovače, nebo text z odkazu s odškrtnutím v masce done (index = pořadí v odkazu)
       checklist: (Array.isArray(raw.checklist) ? raw.checklist.slice(0, 80) : [])
-        .map(x => txt(obj(x) ? x.t : x, 120)).filter(Boolean).map(t => ({ t, done: false })),
+        .map((x, i) => ({ t: txt(obj(x) ? x.t : x, 120), done: obj(x) ? x.done === true : doneAt(raw.done, i) })).filter(x => x.t),
       notes: txt(raw.notes, 3000, true),
     };
     if (legs.length) plan.legs = legs;
@@ -101,8 +111,8 @@
 
   /** Část odkazu za #plan= (plán se před zakódováním pročistí stejně jako při načtení). */
   function encode(trip) {
-    const p = sanitize(trip);
-    return b64urlEncode(JSON.stringify({ v: 1, ...p, checklist: p.checklist.map(x => x.t) }));
+    const p = sanitize(trip), done = doneMask(p.checklist);
+    return b64urlEncode(JSON.stringify({ v: 1, ...p, checklist: p.checklist.map(x => x.t), ...(done ? { done } : {}) }));
   }
 
   function decode(payload) {

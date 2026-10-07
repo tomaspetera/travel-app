@@ -2,8 +2,9 @@
    a chytrý seznam věcí na cestu podle podnebí v termínu cesty, délky pobytu, dopravy a zavazadel, dokladů,
    očkování a aktivit. Data: public/data/pretrip.json (ověřeno 10/2026, zdroje v README), vstupní podmínky z Entry
    (data/entry.json), podnebí z api/climate (NASA POWER, dlouhodobý průměr). Odškrtnuté položky jsou v localStorage
-   pro každou cestu zvlášť (atlas_pretrip_v1); zvolené aktivity jsou v cestě (t.pretrip.acts), takže je nese i sdílený
-   odkaz. Texty vždy přes esc(), odkazy přes safeUrl() (obojí z app.js). */
+   pro každou cestu zvlášť (atlas_pretrip_v1); zvolené aktivity a vlastní položky jsou v cestě (t.pretrip.acts,
+   t.pretrip.custom). Sdílený odkaz #trip= nese i odškrtnutí (t.pretrip.done – po importu se přesunou do localStorage
+   nové cesty). Texty vždy přes esc(), odkazy přes safeUrl() (obojí z app.js). */
 (function () {
   let DATA = null;
   let loading = null;
@@ -12,6 +13,10 @@
   let refreshTimer = null;
   const LS = 'atlas_pretrip_v1';
   const KEEP = 30; // odškrtnuté položky si pamatujeme u nejvýš tolika cest
+  // Id odškrtnutí ze sdíleného odkazu (cizí vstup) jen ve známém tvaru: úkol (todo:ins) nebo věc ze seznamu
+  // (pack:doc-pass, pack:tc-adapter-AB, vlastní pack:my-3); nejvýš DONE_MAX. Vlastních položek nejvýš OWN_MAX po OWN_LEN znacích.
+  const DONE_ID = /^(todo:[a-z]{2,8}|pack:[a-z]{2,4}-[A-Za-z0-9-]{1,24})$/;
+  const DONE_MAX = 200, OWN_MAX = 30, OWN_LEN = 80;
   // Území USA mají pravidla USA (stejně jako v entry.js)
   const ALIAS = { PR: 'US', VI: 'US', GU: 'US', MP: 'US' };
   const canon = iso => (Object.hasOwn(ALIAS, iso) ? ALIAS[iso] : iso);
@@ -23,6 +28,8 @@
   const CITY_CATS = ['museum', 'gallery', 'church', 'castle', 'palace', 'monument', 'square', 'oldtown', 'tower', 'bridge', 'market', 'theatre', 'sight', 'ruins'];
   const BEACH_TAGS = /pláž|moře|ostrov|karibik|lagun|atol|surf|potápě|resort|jadran/i;
   const HIKE_TAGS = /hory|treky|alpy|andy|himálaj|sopky|fjordy|pyreneje|patagonie|vodopád|národní park/i;
+  // hory (ne vodopády a národní parky): výchozí turistika tam vede do chladnějších výšek – rada balit na vrstvy
+  const MOUNTAIN_TAGS = /hory|treky|alpy|andy|himálaj|sopky|fjordy|pyreneje|patagonie/i;
   const SNOW_TAGS = /lyže|alpy|hory|himálaj|andy/i;
   const SACRED_TAGS = /chrám|klášter|mešit/i;
   const MOSQUITO = /malári|antimalari|dengue|komár|žlut\S* zimnic|japonsk\S* encefalitid|zika|chikungunya/i;
@@ -88,16 +95,53 @@
     const x = store()[key];
     return x && x.d && typeof x.d === 'object' ? x.d : {};
   }
-  function setDone(key, id, on) {
+  /** Změní odškrtnutí u cesty (ids: { 'pack:doc-pass': true|false }) a uloží jen posledních KEEP cest. */
+  function writeDone(key, ids) {
     const s = store();
     const x = s[key] && s[key].d && typeof s[key].d === 'object' ? s[key] : { d: {} };
-    if (on) x.d[id] = 1; else delete x.d[id];
+    for (const [id, on] of Object.entries(ids)) { if (on) x.d[id] = 1; else delete x.d[id]; }
     x.at = Date.now();
     s[key] = x;
     // jen posledních KEEP cest
     const keys = Object.keys(s).filter(k => s[k] && typeof s[k] === 'object').sort((a, b) => (s[b].at || 0) - (s[a].at || 0));
     for (const k of keys.slice(KEEP)) delete s[k];
     try { localStorage.setItem(LS, JSON.stringify(s)); } catch (e) { /* plné nebo zakázané úložiště – odškrtnutí jen do obnovení stránky */ }
+  }
+  const setDone = (key, id, on) => writeDone(key, { [id]: on });
+
+  /* ---------- sdílený odkaz (#trip=) ---------- */
+  /** Id odškrtnutí ve známém tvaru, bez duplicit, nejvýš DONE_MAX (vlastní položky jen ty, které cesta má). */
+  function cleanDone(list, custom) {
+    const own = new Set(custom.map(x => `pack:${x.id}`));
+    return [...new Set((Array.isArray(list) ? list : []).filter(id => typeof id === 'string' && DONE_ID.test(id) && (!id.startsWith('pack:my-') || own.has(id))))].slice(0, DONE_MAX);
+  }
+  /** { acts?, custom?, done? } jen s neprázdnými částmi (zvolené „žádné aktivity“ = acts: [] zůstane); undefined, když nic. */
+  function shared(acts, custom, done) {
+    const o = { ...(acts ? { acts } : {}), ...(custom.length ? { custom } : {}), ...(done.length ? { done } : {}) };
+    return Object.keys(o).length ? o : undefined;
+  }
+  /** Stav karty do sdíleného odkazu: zvolené aktivity, vlastní položky a odškrtnutí této cesty z localStorage. */
+  function shareState(t) {
+    const custom = customOf(t);
+    return shared(actsOf(t), custom, cleanDone(Object.keys(doneOf(tripKey(t))), custom));
+  }
+  /** t.pretrip ze sdíleného odkazu (cizí vstup): jen známé aktivity, pročištěné vlastní položky a odškrtnutí; jinak undefined. */
+  function sanitize(p) {
+    if (!p || typeof p !== 'object' || Array.isArray(p)) return undefined;
+    const custom = customOf({ pretrip: p });
+    return shared(actsOf({ pretrip: p }), custom, cleanDone(p.done, custom));
+  }
+  /**
+   * Sdílená cesta po importu (už s vlastním t.created): odškrtnutí z odkazu (t.pretrip.done) uloží k ní do localStorage
+   * – jen pod jejím klíčem, odškrtnutí jiných cest zůstanou – a z cesty je odebere. Vrací počet převzatých položek.
+   */
+  function adopt(t) {
+    const p = t && t.pretrip;
+    if (!p || typeof p !== 'object' || !('done' in p)) return 0;
+    const done = cleanDone(p.done, customOf(t));
+    delete p.done;
+    if (done.length) writeDone(tripKey(t), Object.fromEntries(done.map(id => [id, true])));
+    return done.length;
   }
 
   /* ---------- podnebí ---------- */
@@ -190,7 +234,7 @@
     const ctx = {
       isos, via, start, end, nights: start && end ? nightsBetween(start, end) : t.nightsOneWay || 3, car,
       mode: ov ? 'ground' : 'flight', bags: ov ? null : ['none', 'cabin', 'checked'].includes(t.bags) ? t.bags : 'none',
-      cats, tags, climate, pending,
+      cats, tags, climate, pending, custom: customOf(t),
     };
     const chosen = actsOf(t);
     ctx.acts = new Set(chosen || defaultActs(ctx));
@@ -201,6 +245,22 @@
   function actsOf(t) {
     const a = t && t.pretrip && Array.isArray(t.pretrip.acts) ? t.pretrip.acts : null;
     return a ? ACT_IDS.filter(id => a.includes(id)) : null;
+  }
+  /**
+   * Text vlastní položky: bez znaků pro HTML (<>"`), řídicích znaků a obracení směru textu, apostrof typografický
+   * (obyčejný by sdílený odkaz vypustil), mezery sloučené, nejvýš OWN_LEN znaků (i bez rozpůleného emoji).
+   */
+  const ownText = v => (typeof v === 'string' ? v.replace(/'/g, '’').replace(/[<>"`\u202a-\u202e\u2066-\u2069]/g, '').replace(/[\x00-\x1f\x7f]/g, ' ')
+    .replace(/\s+/g, ' ').trim().slice(0, OWN_LEN).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDFFF]/g, m => (m.length === 2 ? m : '')).trim() : '');
+  /** Vlastní položky seznamu věcí (t.pretrip.custom – i ze sdíleného odkazu, proto znovu pročištěné): [{ id: 'my-3', text }]. */
+  function customOf(t) {
+    const out = [];
+    for (const x of t && t.pretrip && Array.isArray(t.pretrip.custom) ? t.pretrip.custom : []) {
+      const id = x && typeof x.id === 'string' && /^my-\d{1,3}$/.test(x.id) ? x.id : '', text = x ? ownText(x.text) : '';
+      if (id && text && !out.some(y => y.id === id)) out.push({ id, text });
+      if (out.length >= OWN_MAX) break;
+    }
+    return out;
   }
   /** Výchozí aktivity: podle kategorií v programu, štítků země a podnebí v termínu. */
   function defaultActs(ctx) {
@@ -489,14 +549,29 @@
       for (const [types, list] of need) add(tech, `tc-adapter-${types.replace(/\//g, '')}`, `Adaptér do zásuvky typu ${types}`, names(list));
     }
 
+    // vlastní položky (přidané v kartě nebo ze sdíleného odkazu) – v kartě s tlačítkem smazat
+    const mine = group('own', '✏️', 'Vlastní položky');
+    for (const x of ctx.custom || []) mine.items.push({ id: x.id, text: x.text, own: true });
+
     return groups.filter(g => g.items.length);
   }
 
+  /**
+   * Má smysl balit na vrstvy? Chladno (přes den do 18 °C nebo ráno do 10 °C), velký rozdíl mezi dnem a nocí (aspoň
+   * 10 °C a noci do 16 °C), sníh, nebo hory (turistika zvolená u cesty, nebo výchozí v zemi s horami – ne jen kvůli
+   * vodopádům a národním parkům). Ve stálém horku (Bangkok: přes den 30–34 °C, v noci 21–27 °C) ne; bez podnebí
+   * jen na hory a sníh.
+   */
+  function layers(ctx) {
+    if (ctx.acts.has('snow') || (ctx.acts.has('hike') && (ctx.actsChosen || MOUNTAIN_TAGS.test(ctx.tags)))) return true;
+    const c = ctx.climate;
+    return Boolean(c) && (c.minHi <= 18 || c.lo <= 10 || c.places.some(p => p.lo <= 16 && p.hi - p.lo >= 10));
+  }
   /** Tipy k zavazadlu podle dopravy a zavazadel z hledání letů (bags: none = jen pod sedadlo, cabin, checked). */
   function bagTips(ctx) {
     if (ctx.mode !== 'flight') return [];
     const tips = [];
-    if (ctx.bags === 'none') tips.push(`Letíš jen s malým zavazadlem pod sedadlo – rozměry ověř u aerolinky${ctx.nights >= 5 ? `; na ${ctx.nights} nocí bal na vrstvy a počítej s praním` : ''}.`);
+    if (ctx.bags === 'none') tips.push(`Letíš jen s malým zavazadlem pod sedadlo – rozměry ověř u aerolinky${ctx.nights >= 5 ? `; na ${ctx.nights} nocí ${layers(ctx) ? 'bal na vrstvy a ' : ''}počítej s praním` : ''}.`);
     else if (ctx.bags === 'cabin') tips.push('Kabinový kufr: rozměry a váhu ověř u aerolinky.');
     else tips.push('Kufr k odbavení: powerbanku a náhradní baterie dej do příručního zavazadla.');
     if (ctx.bags !== 'checked') tips.push('Tekutiny v příručním zavazadle: balení do 100 ml v průhledném uzavíratelném sáčku do 1 l (některá letiště s novými skenery povolují víc – ověř u letiště).');
@@ -589,7 +664,8 @@
     const chips = ACTS.map(([id, label]) => `<button type="button" class="fchip${ctx.acts.has(id) ? ' on' : ''}" data-pt-act="${id}" aria-pressed="${ctx.acts.has(id)}">${esc(label)}</button>`).join('');
     const tips = bagTips(ctx);
     const packHtml = groups.map(g => `<div class="pt-grp"><h5>${esc(g.icon)} ${esc(g.title)}</h5>
-      <ul class="pt-pack">${g.items.map(x => `<li class="${done[`pack:${x.id}`] ? 'done' : ''}"><label class="pt-row">${chk('pack', x.id, done)}<span>${esc(x.text)}${x.note ? ` <span class="faint">– ${esc(x.note)}</span>` : ''}</span></label></li>`).join('')}</ul></div>`).join('');
+      <ul class="pt-pack">${g.items.map(x => `<li class="${[x.own && 'pt-own', done[`pack:${x.id}`] && 'done'].filter(Boolean).join(' ')}"><label class="pt-row">${chk('pack', x.id, done)}<span>${esc(x.text)}${x.note ? ` <span class="faint">– ${esc(x.note)}</span>` : ''}</span></label>${x.own ? `<button type="button" class="pt-del" data-pt-del="${esc(x.id)}" title="Smazat položku" aria-label="Smazat položku ${esc(x.text)}">✕</button>` : ''}</li>`).join('')}</ul></div>`).join('');
+    const addHtml = `<form class="pt-add" data-pt-add><input class="input" maxlength="${OWN_LEN}" placeholder="Přidat vlastní položku…" aria-label="Přidat vlastní položku do seznamu věcí" autocomplete="off" enterkeyhint="done"><button type="submit" class="btn sm">+ Přidat</button></form>`;
     const total = list.filter(x => x.level !== 'info').length + groups.reduce((s, g) => s + g.items.length, 0);
     const ticked = list.filter(x => x.level !== 'info' && done[`todo:${x.id}`]).length + groups.reduce((s, g) => s + g.items.filter(x => done[`pack:${x.id}`]).length, 0);
     const S = src();
@@ -600,9 +676,9 @@
         <section class="pt-sec"><h4>📋 Co zařídit</h4><ul class="pt-todo">${todoHtml}</ul></section>
         <section class="pt-sec"><h4>🎒 Co sbalit</h4>
           <div class="pt-acts" role="group" aria-label="Co budeš na cestě dělat"><span class="faint">Co budeš dělat:</span> ${chips}</div>
-          ${climateHtml(ctx)}${tips.length ? `<ul class="pt-tips">${tips.map(x => `<li>🧳 ${esc(x)}</li>`).join('')}</ul>` : ''}<div class="pt-groups">${packHtml}</div></section>
+          ${climateHtml(ctx)}${tips.length ? `<ul class="pt-tips">${tips.map(x => `<li>🧳 ${esc(x)}</li>`).join('')}</ul>` : ''}<div class="pt-groups">${packHtml}</div>${addHtml}</section>
       </div>
-      <div class="faint pt-src">Informativní přehled (stav ${esc(checkedTxt())}): ${link(S.desatero, 'MZV ČR')}, ${link(S.kzpTourist, 'Kancelář zdravotního pojištění')}, ${link(S.vzpEhic, 'VZP')}, ${link(S.idp, 'Portál veřejné správy')}, ${link(S.untc1949, 'OSN – úmluvy o silničním provozu')}, ${link(S.plugs, 'přehled zásuvek')}. Pravidla se mění – před cestou je vždy ověř. Odškrtnutí se ukládá jen v tomto prohlížeči.</div>
+      <div class="faint pt-src">Informativní přehled (stav ${esc(checkedTxt())}): ${link(S.desatero, 'MZV ČR')}, ${link(S.kzpTourist, 'Kancelář zdravotního pojištění')}, ${link(S.vzpEhic, 'VZP')}, ${link(S.idp, 'Portál veřejné správy')}, ${link(S.untc1949, 'OSN – úmluvy o silničním provozu')}, ${link(S.plugs, 'přehled zásuvek')}. Pravidla se mění – před cestou je vždy ověř. Odškrtnutí se ukládá v tomto prohlížeči a odkaz na cestu ho přenese i s vlastními položkami.</div>
     </div>`;
   }
 
@@ -611,22 +687,70 @@
     if (typeof document === 'undefined' || !last) return;
     const el = document.getElementById('preTrip');
     if (!el || el.dataset.ptkey !== tripKey(last.t)) return;
+    // rozepsaná vlastní položka překreslení přežije (podnebí může dorazit zrovna při psaní)
+    const inp = el.querySelector('[data-pt-add] input'), typed = inp ? inp.value : '', focused = Boolean(inp) && document.activeElement === inp;
     el.outerHTML = html(last.t, last.o);
+    const again = typed || focused ? document.querySelector('#preTrip [data-pt-add] input') : null;
+    if (again) { again.value = typed; if (focused) again.focus(); }
   }
   function scheduleRefresh() {
     if (refreshTimer) return;
     refreshTimer = setTimeout(() => { refreshTimer = null; refresh(); }, 30);
   }
+  /** Uloží změnu stavu karty do cesty (t.pretrip; save() z app.js). */
+  function patch(t, o) {
+    t.pretrip = { ...(t.pretrip && typeof t.pretrip === 'object' ? t.pretrip : {}), ...o };
+    if (typeof save === 'function') save();
+  }
   function toggleAct(id) {
     if (!last || !ACT_IDS.includes(id)) return;
     const t = last.t, ctx = contextOf(t, last.o), on = new Set(ctx.acts);
     if (on.has(id)) on.delete(id); else on.add(id);
-    t.pretrip = { ...(t.pretrip && typeof t.pretrip === 'object' ? t.pretrip : {}), acts: ACT_IDS.filter(x => on.has(x)) };
-    if (typeof save === 'function') save();
+    patch(t, { acts: ACT_IDS.filter(x => on.has(x)) });
     refresh();
     // překreslením karta přijde o fokus – vrátit ho na stejný čip (ovládání klávesnicí)
     const chip = document.querySelector(`#preTrip [data-pt-act="${id}"]`);
     if (chip) chip.focus();
+  }
+  /** Přidá vlastní položku do seznamu věcí; vrátí '' (přidáno), nebo proč ne. */
+  function addCustom(t, text) {
+    const list = customOf(t), v = ownText(text);
+    if (!v) return 'Napiš, co chceš přidat.';
+    if (list.length >= OWN_MAX) return `Vlastních položek může být nejvýš ${OWN_MAX}.`;
+    if (list.some(x => x.text.toLowerCase() === v.toLowerCase())) return 'Tahle položka už v seznamu je.';
+    let n = 1; // nejmenší volné číslo – smazaná položka si odškrtnutí vzala s sebou
+    while (list.some(x => x.id === `my-${n}`)) n++;
+    patch(t, { custom: [...list, { id: `my-${n}`, text: v }] });
+    return '';
+  }
+  /** Smaže vlastní položku i s jejím odškrtnutím; false = cesta takovou nemá. */
+  function delCustom(t, id) {
+    const list = customOf(t), key = tripKey(t);
+    if (!list.some(x => x.id === id)) return false;
+    if (doneOf(key)[`pack:${id}`]) setDone(key, `pack:${id}`, false);
+    patch(t, { custom: list.filter(x => x.id !== id) });
+    return true;
+  }
+  /** „+ Přidat“ v kartě: přidá položku a překreslí kartu; fokus zůstane v poli pro další položku. */
+  function addFromForm(form) {
+    const inp = form.querySelector('input');
+    if (!last || !inp || !inp.value.trim()) return;
+    const err = addCustom(last.t, inp.value);
+    if (err) { if (typeof toast === 'function') toast(err, 'err'); return; }
+    inp.value = '';
+    refresh();
+    const again = document.querySelector('#preTrip [data-pt-add] input');
+    if (again) again.focus();
+  }
+  /** ✕ u vlastní položky: smaže ji a fokus dá na sousední ✕ (po poslední položce z klávesnice do pole pro přidání). */
+  function delFromCard(id, keyboard) {
+    if (!last) return;
+    const ids = customOf(last.t).map(x => x.id), i = ids.indexOf(id);
+    if (!delCustom(last.t, id)) return;
+    refresh();
+    const rest = ids.filter(x => x !== id), next = rest[Math.min(i, rest.length - 1)];
+    const el = next ? document.querySelector(`#preTrip [data-pt-del="${next}"]`) : keyboard ? document.querySelector('#preTrip [data-pt-add] input') : null;
+    if (el) el.focus();
   }
   function progress(root) {
     const boxes = [...root.querySelectorAll('input[data-ptk]')];
@@ -655,9 +779,21 @@
       if (!t) return;
       const a = t.closest('#preTrip [data-pt-act]');
       if (a) { toggleAct(a.dataset.ptAct); return; }
+      // klik z klávesnice (Enter, mezerník) má detail 0
+      const del = t.closest('#preTrip [data-pt-del]');
+      if (del) { delFromCard(del.dataset.ptDel, e.detail === 0); return; }
       if (t.closest('#preTrip [data-pt-print]')) printList();
+    });
+    document.addEventListener('submit', e => {
+      const f = e.target && e.target.closest ? e.target.closest('#preTrip [data-pt-add]') : null;
+      if (!f) return;
+      e.preventDefault();
+      addFromForm(f);
     });
   }
 
-  window.PreTrip = { set, load, ready, contextOf, defaultActs, summarize, monthsOf, insuranceNote, drivingOf, plugOf, idpPlan, todos, pack, bagTips, reminders, plannerChecklist, html, tripKey, doneOf, setDone, ACTS };
+  window.PreTrip = {
+    set, load, ready, contextOf, defaultActs, summarize, monthsOf, insuranceNote, drivingOf, plugOf, idpPlan, todos, pack, bagTips, layers, reminders,
+    plannerChecklist, html, tripKey, doneOf, setDone, customOf, addCustom, delCustom, shareState, sanitize, adopt, ACTS,
+  };
 })();
