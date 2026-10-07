@@ -7,11 +7,11 @@
 
 ## Shrnutí
 
-Ze 45 položek:
+Z 38 položek (řádků tabulek níže):
 
-- **18 potvrzeno** na oficiální stránce (z toho 3 jen zčásti – viz poznámky);
+- **16 potvrzeno** na oficiální stránce (z toho 3 jen zčásti – viz poznámky);
 - **4 mají na oficiální stránce jinou hodnotu** než `arrival.json`: Korfu (1,30 € místo 1,10 €), Chania (2,20 € místo ~2,50 €), Skiathos (3,00 € nebo 2,20 €, ne 2 nebo 3 €) a Marseille (čas 30–50 min místo 25 min);
-- **23 se potvrdit nepodařilo** – oficiální stránka cenu neukazuje, nenačte se, blokuje automatizovaný prohlížeč, nebo jsem ji nenašel. U těch uvádím, co říká sekundární zdroj z vyhledávače, a je to tak i označeno.
+- **18 se potvrdit nepodařilo** – oficiální stránka cenu neukazuje, nenačte se, blokuje automatizovaný prohlížeč, nebo jsem ji nenašel. U těch uvádím, co říká sekundární zdroj z vyhledávače, a je to tak i označeno.
 
 Nejdůležitější opravy pro `arrival.json`: **CFU 1,30 €**, **CHQ 2,20 €**, **JSI 3,00 €** (linka z letiště je „jízdenka 1“), **MRS čas 30–50 min**, **LGW ve špičce 19,20 £** (jen sekundární zdroj), doplnit **SBZ 3,5 lei** a **VAR 1,00 €**.
 
