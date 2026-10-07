@@ -1,0 +1,49 @@
+· [Chrome] nasazené sestavení – a071ee74e633
+✓ [Chrome] cesta sestavena (cíl, víc míst) – Barcelona, PRG-BCN 2026-12-05, místa: Barcelona:6, Besalú:1, Lloret de Mar:1; odškrtnuto todo:ins, pack:doc-op
+✓ [Chrome] sdílení cesty: odkaz zapsán do schránky – write, výsledek ok, voláno přímo v obsluze kliknutí (1 ms od události); hláška: „Odkaz zkopírován – pošli ho komukoliv“
+✓ [Chrome] odkaz na cestu je krátký (začíná „z“) – celý odkaz 2488 znaků, část za #trip= 2447 znaků, začátek „z7VjNbttIEn4…“
+✓ [Chrome] ve schránce je opravdu tento odkaz (čtení zpět) – shoda
+· [Chrome] kontrola prostředí: zápis do schránky 300 ms po kliknutí – výsledek ok, po obsluze (305 ms)
+✓ [Chrome] krátký odkaz na cestu se otevře v čistém prohlížeči (stejná cesta) – Barcelona, PRG-BCN 2026-12-05, místa: Barcelona:6, Besalú:1, Lloret de Mar:1
+✓ [Chrome] shrnutí cesty je po otevření odkazu stejné – 5247 znaků
+✓ [Chrome] odkaz na cestu přenese odškrtnuté úkoly – odesláno todo:ins, pack:doc-op; přijato todo:ins, pack:doc-op
+✓ [Chrome] bez chyb při otevření odkazu na cestu
+✓ [Chrome] sdílení plánu: odkaz zapsán do schránky – writeText, výsledek ok, voláno přímo v obsluze kliknutí (0 ms od události); hláška „Odkaz na plán zkopírován – pošli ho komukoliv“
+✓ [Chrome] odkaz na plán je krátký (začíná „z“) – celý odkaz 1725 znaků, část za #plan= 1684 znaků
+✓ [Chrome] krátký odkaz na plán: náhled a import v čistém prohlížeči – Barcelona 5.12., 2026-12-05–2026-12-13, 24 položek, 0 dní; náhled: 🇪🇸 Barcelona 5.12. Sdílený plán · Barcelona · 5.12. – 13.12. · 2 os. Někdo ti 
+✓ [Chrome] odkaz na plán přenese odškrtnuté položky – odesláno 3 (0,2,5), přijato 3 (0,2,5)
+✓ [Chrome] bez chyb při otevření odkazu na plán
+✓ [Chrome] 📲 Hlídat i v mobilu: okno s kódem – tlačítko „📲 Hlídat i v mobilu“; kód 388 znaků, začátek „zbZDNSsNAF…“; okno: 📲 Hlídání i se zavřeným ATLASem 1 hledání · kontrola 2× denně (kolem 7:15 a 17:15) GitHub tvoje hlídaná hledá
+✓ [Chrome] 📲 kód je i ve schránce – writeText, výsledek ok, voláno přímo v obsluze kliknutí (1 ms od události), shodný s kódem v okně
+✓ [Chrome] bez chyb stránky při celém průchodu
+✓ [Chrome] logo v bočním panelu (snímek logo-Chrome.png) – text „ATLAS letenky odkudkoliv kamkoliv“, viewBox -0.316 -0.866 25.532 25.532, cesty: M20 6 10 13 4 10z | M20 6 13 19 10 13z
+· [WebKit] nasazené sestavení – a071ee74e633
+✓ [WebKit] cesta sestavena (cíl, víc míst) – Barcelona, PRG-BCN 2026-12-05, místa: Barcelona:6, Besalú:1, Lloret de Mar:1; odškrtnuto todo:ins, pack:doc-op
+✓ [WebKit] sdílení cesty: odkaz zapsán do schránky – write, výsledek ok, voláno přímo v obsluze kliknutí (2 ms od události); hláška: „Odkaz zkopírován – pošli ho komukoliv“
+✓ [WebKit] odkaz na cestu je krátký (začíná „z“) – celý odkaz 2508 znaků, část za #trip= 2467 znaků, začátek „z7ZjdbtvIFcd…“
+· [WebKit] kontrola prostředí: zápis do schránky 300 ms po kliknutí – výsledek ok, po obsluze (307 ms)
+✓ [WebKit] krátký odkaz na cestu se otevře v čistém prohlížeči (stejná cesta) – Barcelona, PRG-BCN 2026-12-05, místa: Barcelona:6, Besalú:1, Lloret de Mar:1
+✓ [WebKit] shrnutí cesty je po otevření odkazu stejné – 5245 znaků
+✓ [WebKit] odkaz na cestu přenese odškrtnuté úkoly – odesláno todo:ins, pack:doc-op; přijato todo:ins, pack:doc-op
+✓ [WebKit] bez chyb při otevření odkazu na cestu
+✓ [WebKit] sdílení plánu: odkaz zapsán do schránky – writeText, výsledek ok, voláno přímo v obsluze kliknutí (1 ms od události); hláška „Odkaz na plán zkopírován – pošli ho komukoliv“
+✓ [WebKit] odkaz na plán je krátký (začíná „z“) – celý odkaz 1732 znaků, část za #plan= 1691 znaků
+✓ [WebKit] krátký odkaz na plán: náhled a import v čistém prohlížeči – Barcelona 5.12., 2026-12-05–2026-12-13, 24 položek, 0 dní; náhled: 🇪🇸 Barcelona 5.12. Sdílený plán · Barcelona · 5.12. – 13.12. · 2 os. Někdo ti 
+✓ [WebKit] odkaz na plán přenese odškrtnuté položky – odesláno 3 (0,2,5), přijato 3 (0,2,5)
+✓ [WebKit] bez chyb při otevření odkazu na plán
+✓ [WebKit] 📲 Hlídat i v mobilu: okno s kódem – tlačítko „📲 Hlídat i v mobilu“; kód 388 znaků, začátek „zbZDNSsNAF…“; okno: 📲 Hlídání i se zavřeným ATLASem 1 hledání · kontrola 2× denně (kolem 7:15 a 17:15) GitHub tvoje hlídaná hledá
+✓ [WebKit] 📲 kód je i ve schránce – writeText, výsledek ok, voláno přímo v obsluze kliknutí (1 ms od události), shodný s kódem v okně
+✓ [WebKit] bez chyb stránky při celém průchodu
+✓ [WebKit] logo v bočním panelu (snímek logo-WebKit.png) – text „ATLAS letenky odkudkoliv kamkoliv“, viewBox -0.316 -0.866 25.532 25.532, cesty: M20 6 10 13 4 10z | M20 6 13 19 10 13z
+✓ [WebKit] úvodní obrazovka iPhone 13: právě jeden obrázek v rozlišení displeje – 390x844@3 na výšku → icons/splash/1170x2532.png (1170x2532, čeká se 1170x2532); roh 8,12,26,255, střed 8,12,26,255; odkazů celkem 31
+· [WebKit] značky pro plochu iPhonu – apple-mobile-web-app-capable=yes, mobile-web-app-capable=yes, název=ATLAS, ikona=icons/apple-touch-icon.png
+✓ [WebKit] úvodní obrazovka iPhone 15 Pro Max: právě jeden obrázek v rozlišení displeje – 430x932@3 na výšku → icons/splash/1290x2796.png (1290x2796, čeká se 1290x2796); roh 8,12,26,255, střed 8,12,26,255; odkazů celkem 31
+✓ [WebKit] úvodní obrazovka iPhone SE: právě jeden obrázek v rozlišení displeje – 320x568@2 na výšku → icons/splash/640x1136.png (640x1136, čeká se 640x1136); roh 8,12,26,255, střed 8,12,26,255; odkazů celkem 31
+· [WebKit] úvodní obrazovka iPhone 13 landscape: pravidla pro tento rozměr – (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) → icons/splash/1170x2532.png ;; (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) →
+✗ [WebKit] úvodní obrazovka iPhone 13 landscape: právě jeden obrázek v rozlišení displeje – 390x844@3 na šířku → žádný (–, čeká se 2532x1170); ; odkazů celkem 31
+✓ [WebKit] úvodní obrazovka iPad Pro 11: právě jeden obrázek v rozlišení displeje – 834x1194@2 na výšku → icons/splash/1668x2388.png (1668x2388, čeká se 1668x2388); roh 8,12,26,255, střed 8,12,26,255; odkazů celkem 31
+· [WebKit] úvodní obrazovka iPad Pro 11 landscape: pravidla pro tento rozměr – (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) → icons/splash/1170x2532.png ;; (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) →
+✗ [WebKit] úvodní obrazovka iPad Pro 11 landscape: právě jeden obrázek v rozlišení displeje – 1194x834@2 na šířku → žádný (–, čeká se 2388x1668); ; odkazů celkem 31
+✓ [WebKit] úvodní obrazovka iPad Mini: právě jeden obrázek v rozlišení displeje – 768x1024@2 na výšku → icons/splash/1536x2048.png (1536x2048, čeká se 1536x2048); roh 8,12,26,255, střed 8,12,26,255; odkazů celkem 31
+
+HOTOVO: 38/40 v pořádku; selhalo: [WebKit] úvodní obrazovka iPhone 13 landscape: právě jeden obrázek v rozlišení displeje; [WebKit] úvodní obrazovka iPad Pro 11 landscape: právě jeden obrázek v rozlišení displeje

@@ -1,0 +1,284 @@
+[
+ {
+  "eng": "Chrome",
+  "name": "nasazené sestavení",
+  "pass": null,
+  "info": "a071ee74e633"
+ },
+ {
+  "eng": "Chrome",
+  "name": "cesta sestavena (cíl, víc míst)",
+  "pass": true,
+  "info": "Barcelona, PRG-BCN 2026-12-05, místa: Barcelona:6, Besalú:1, Lloret de Mar:1; odškrtnuto todo:ins, pack:doc-op"
+ },
+ {
+  "eng": "Chrome",
+  "name": "sdílení cesty: odkaz zapsán do schránky",
+  "pass": true,
+  "info": "write, výsledek ok, voláno přímo v obsluze kliknutí (1 ms od události); hláška: „Odkaz zkopírován – pošli ho komukoliv“"
+ },
+ {
+  "eng": "Chrome",
+  "name": "odkaz na cestu je krátký (začíná „z“)",
+  "pass": true,
+  "info": "celý odkaz 2488 znaků, část za #trip= 2447 znaků, začátek „z7VjNbttIEn4…“"
+ },
+ {
+  "eng": "Chrome",
+  "name": "ve schránce je opravdu tento odkaz (čtení zpět)",
+  "pass": true,
+  "info": "shoda"
+ },
+ {
+  "eng": "Chrome",
+  "name": "kontrola prostředí: zápis do schránky 300 ms po kliknutí",
+  "pass": null,
+  "info": "výsledek ok, po obsluze (305 ms)"
+ },
+ {
+  "eng": "Chrome",
+  "name": "krátký odkaz na cestu se otevře v čistém prohlížeči (stejná cesta)",
+  "pass": true,
+  "info": "Barcelona, PRG-BCN 2026-12-05, místa: Barcelona:6, Besalú:1, Lloret de Mar:1"
+ },
+ {
+  "eng": "Chrome",
+  "name": "shrnutí cesty je po otevření odkazu stejné",
+  "pass": true,
+  "info": "5247 znaků"
+ },
+ {
+  "eng": "Chrome",
+  "name": "odkaz na cestu přenese odškrtnuté úkoly",
+  "pass": true,
+  "info": "odesláno todo:ins, pack:doc-op; přijato todo:ins, pack:doc-op"
+ },
+ {
+  "eng": "Chrome",
+  "name": "bez chyb při otevření odkazu na cestu",
+  "pass": true,
+  "info": ""
+ },
+ {
+  "eng": "Chrome",
+  "name": "sdílení plánu: odkaz zapsán do schránky",
+  "pass": true,
+  "info": "writeText, výsledek ok, voláno přímo v obsluze kliknutí (0 ms od události); hláška „Odkaz na plán zkopírován – pošli ho komukoliv“"
+ },
+ {
+  "eng": "Chrome",
+  "name": "odkaz na plán je krátký (začíná „z“)",
+  "pass": true,
+  "info": "celý odkaz 1725 znaků, část za #plan= 1684 znaků"
+ },
+ {
+  "eng": "Chrome",
+  "name": "krátký odkaz na plán: náhled a import v čistém prohlížeči",
+  "pass": true,
+  "info": "Barcelona 5.12., 2026-12-05–2026-12-13, 24 položek, 0 dní; náhled: 🇪🇸 Barcelona 5.12. Sdílený plán · Barcelona · 5.12. – 13.12. · 2 os. Někdo ti "
+ },
+ {
+  "eng": "Chrome",
+  "name": "odkaz na plán přenese odškrtnuté položky",
+  "pass": true,
+  "info": "odesláno 3 (0,2,5), přijato 3 (0,2,5)"
+ },
+ {
+  "eng": "Chrome",
+  "name": "bez chyb při otevření odkazu na plán",
+  "pass": true,
+  "info": ""
+ },
+ {
+  "eng": "Chrome",
+  "name": "📲 Hlídat i v mobilu: okno s kódem",
+  "pass": true,
+  "info": "tlačítko „📲 Hlídat i v mobilu“; kód 388 znaků, začátek „zbZDNSsNAF…“; okno: 📲 Hlídání i se zavřeným ATLASem 1 hledání · kontrola 2× denně (kolem 7:15 a 17:15) GitHub tvoje hlídaná hledá"
+ },
+ {
+  "eng": "Chrome",
+  "name": "📲 kód je i ve schránce",
+  "pass": true,
+  "info": "writeText, výsledek ok, voláno přímo v obsluze kliknutí (1 ms od události), shodný s kódem v okně"
+ },
+ {
+  "eng": "Chrome",
+  "name": "bez chyb stránky při celém průchodu",
+  "pass": true,
+  "info": ""
+ },
+ {
+  "eng": "Chrome",
+  "name": "logo v bočním panelu (snímek logo-Chrome.png)",
+  "pass": true,
+  "info": "text „ATLAS letenky odkudkoliv kamkoliv“, viewBox -0.316 -0.866 25.532 25.532, cesty: M20 6 10 13 4 10z | M20 6 13 19 10 13z"
+ },
+ {
+  "eng": "WebKit",
+  "name": "nasazené sestavení",
+  "pass": null,
+  "info": "a071ee74e633"
+ },
+ {
+  "eng": "WebKit",
+  "name": "cesta sestavena (cíl, víc míst)",
+  "pass": true,
+  "info": "Barcelona, PRG-BCN 2026-12-05, místa: Barcelona:6, Besalú:1, Lloret de Mar:1; odškrtnuto todo:ins, pack:doc-op"
+ },
+ {
+  "eng": "WebKit",
+  "name": "sdílení cesty: odkaz zapsán do schránky",
+  "pass": true,
+  "info": "write, výsledek ok, voláno přímo v obsluze kliknutí (2 ms od události); hláška: „Odkaz zkopírován – pošli ho komukoliv“"
+ },
+ {
+  "eng": "WebKit",
+  "name": "odkaz na cestu je krátký (začíná „z“)",
+  "pass": true,
+  "info": "celý odkaz 2508 znaků, část za #trip= 2467 znaků, začátek „z7ZjdbtvIFcd…“"
+ },
+ {
+  "eng": "WebKit",
+  "name": "kontrola prostředí: zápis do schránky 300 ms po kliknutí",
+  "pass": null,
+  "info": "výsledek ok, po obsluze (307 ms)"
+ },
+ {
+  "eng": "WebKit",
+  "name": "krátký odkaz na cestu se otevře v čistém prohlížeči (stejná cesta)",
+  "pass": true,
+  "info": "Barcelona, PRG-BCN 2026-12-05, místa: Barcelona:6, Besalú:1, Lloret de Mar:1"
+ },
+ {
+  "eng": "WebKit",
+  "name": "shrnutí cesty je po otevření odkazu stejné",
+  "pass": true,
+  "info": "5245 znaků"
+ },
+ {
+  "eng": "WebKit",
+  "name": "odkaz na cestu přenese odškrtnuté úkoly",
+  "pass": true,
+  "info": "odesláno todo:ins, pack:doc-op; přijato todo:ins, pack:doc-op"
+ },
+ {
+  "eng": "WebKit",
+  "name": "bez chyb při otevření odkazu na cestu",
+  "pass": true,
+  "info": ""
+ },
+ {
+  "eng": "WebKit",
+  "name": "sdílení plánu: odkaz zapsán do schránky",
+  "pass": true,
+  "info": "writeText, výsledek ok, voláno přímo v obsluze kliknutí (1 ms od události); hláška „Odkaz na plán zkopírován – pošli ho komukoliv“"
+ },
+ {
+  "eng": "WebKit",
+  "name": "odkaz na plán je krátký (začíná „z“)",
+  "pass": true,
+  "info": "celý odkaz 1732 znaků, část za #plan= 1691 znaků"
+ },
+ {
+  "eng": "WebKit",
+  "name": "krátký odkaz na plán: náhled a import v čistém prohlížeči",
+  "pass": true,
+  "info": "Barcelona 5.12., 2026-12-05–2026-12-13, 24 položek, 0 dní; náhled: 🇪🇸 Barcelona 5.12. Sdílený plán · Barcelona · 5.12. – 13.12. · 2 os. Někdo ti "
+ },
+ {
+  "eng": "WebKit",
+  "name": "odkaz na plán přenese odškrtnuté položky",
+  "pass": true,
+  "info": "odesláno 3 (0,2,5), přijato 3 (0,2,5)"
+ },
+ {
+  "eng": "WebKit",
+  "name": "bez chyb při otevření odkazu na plán",
+  "pass": true,
+  "info": ""
+ },
+ {
+  "eng": "WebKit",
+  "name": "📲 Hlídat i v mobilu: okno s kódem",
+  "pass": true,
+  "info": "tlačítko „📲 Hlídat i v mobilu“; kód 388 znaků, začátek „zbZDNSsNAF…“; okno: 📲 Hlídání i se zavřeným ATLASem 1 hledání · kontrola 2× denně (kolem 7:15 a 17:15) GitHub tvoje hlídaná hledá"
+ },
+ {
+  "eng": "WebKit",
+  "name": "📲 kód je i ve schránce",
+  "pass": true,
+  "info": "writeText, výsledek ok, voláno přímo v obsluze kliknutí (1 ms od události), shodný s kódem v okně"
+ },
+ {
+  "eng": "WebKit",
+  "name": "bez chyb stránky při celém průchodu",
+  "pass": true,
+  "info": ""
+ },
+ {
+  "eng": "WebKit",
+  "name": "logo v bočním panelu (snímek logo-WebKit.png)",
+  "pass": true,
+  "info": "text „ATLAS letenky odkudkoliv kamkoliv“, viewBox -0.316 -0.866 25.532 25.532, cesty: M20 6 10 13 4 10z | M20 6 13 19 10 13z"
+ },
+ {
+  "eng": "WebKit",
+  "name": "úvodní obrazovka iPhone 13: právě jeden obrázek v rozlišení displeje",
+  "pass": true,
+  "info": "390x844@3 na výšku → icons/splash/1170x2532.png (1170x2532, čeká se 1170x2532); roh 8,12,26,255, střed 8,12,26,255; odkazů celkem 31"
+ },
+ {
+  "eng": "WebKit",
+  "name": "značky pro plochu iPhonu",
+  "pass": null,
+  "info": "apple-mobile-web-app-capable=yes, mobile-web-app-capable=yes, název=ATLAS, ikona=icons/apple-touch-icon.png"
+ },
+ {
+  "eng": "WebKit",
+  "name": "úvodní obrazovka iPhone 15 Pro Max: právě jeden obrázek v rozlišení displeje",
+  "pass": true,
+  "info": "430x932@3 na výšku → icons/splash/1290x2796.png (1290x2796, čeká se 1290x2796); roh 8,12,26,255, střed 8,12,26,255; odkazů celkem 31"
+ },
+ {
+  "eng": "WebKit",
+  "name": "úvodní obrazovka iPhone SE: právě jeden obrázek v rozlišení displeje",
+  "pass": true,
+  "info": "320x568@2 na výšku → icons/splash/640x1136.png (640x1136, čeká se 640x1136); roh 8,12,26,255, střed 8,12,26,255; odkazů celkem 31"
+ },
+ {
+  "eng": "WebKit",
+  "name": "úvodní obrazovka iPhone 13 landscape: pravidla pro tento rozměr",
+  "pass": null,
+  "info": "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) → icons/splash/1170x2532.png ;; (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) → icons/splash/1668x2224.png ;; (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape) → icons/splash/2224x1668.png ;; (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) → icons/splash/1668x2388.png ;; (device-width: 8"
+ },
+ {
+  "eng": "WebKit",
+  "name": "úvodní obrazovka iPhone 13 landscape: právě jeden obrázek v rozlišení displeje",
+  "pass": false,
+  "info": "390x844@3 na šířku → žádný (–, čeká se 2532x1170); ; odkazů celkem 31"
+ },
+ {
+  "eng": "WebKit",
+  "name": "úvodní obrazovka iPad Pro 11: právě jeden obrázek v rozlišení displeje",
+  "pass": true,
+  "info": "834x1194@2 na výšku → icons/splash/1668x2388.png (1668x2388, čeká se 1668x2388); roh 8,12,26,255, střed 8,12,26,255; odkazů celkem 31"
+ },
+ {
+  "eng": "WebKit",
+  "name": "úvodní obrazovka iPad Pro 11 landscape: pravidla pro tento rozměr",
+  "pass": null,
+  "info": "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) → icons/splash/1170x2532.png ;; (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) → icons/splash/1668x2224.png ;; (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape) → icons/splash/2224x1668.png ;; (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) → icons/splash/1668x2388.png ;; (device-width: 8"
+ },
+ {
+  "eng": "WebKit",
+  "name": "úvodní obrazovka iPad Pro 11 landscape: právě jeden obrázek v rozlišení displeje",
+  "pass": false,
+  "info": "1194x834@2 na šířku → žádný (–, čeká se 2388x1668); ; odkazů celkem 31"
+ },
+ {
+  "eng": "WebKit",
+  "name": "úvodní obrazovka iPad Mini: právě jeden obrázek v rozlišení displeje",
+  "pass": true,
+  "info": "768x1024@2 na výšku → icons/splash/1536x2048.png (1536x2048, čeká se 1536x2048); roh 8,12,26,255, střed 8,12,26,255; odkazů celkem 31"
+ }
+]
