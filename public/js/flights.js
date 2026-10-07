@@ -2337,6 +2337,28 @@
     el.innerHTML = `<b>Hlídej vstupní podmínky.</b> Do USA potřebuješ ${reg('US')}, do Kanady ${reg('CA')}, do Británie ${reg('GB')}. Vyřizuj je jen na oficiálních webech (zprostředkovatelé si účtují víc). ATLAS je ukáže u výsledků (🛂) a podrobně v detailu země – zdroj MZV ČR, ověřeno ${esc(Entry.checkedTxt())}.`;
   }
 
+  /* Pruh „Čekám na server“ s letadlem (uspaný server na Renderu zdarma): 'wait' ukázat, 'ok' doletět a zmizet, jinak zmizet. */
+  const JET = 'M97 50C97 47 94 45.5 90 45.5H60L40 9H33L45 45.5H22L14 31H9L12 47L11 50L12 53L9 69H14L22 54.5H45L33 91H40L60 54.5H90C94 54.5 97 53 97 50Z';
+  function wakeBar(state) {
+    let bar = $('#wakeBar');
+    if (state === 'wait') {
+      if (bar || navigator.onLine === false) return;
+      bar = document.createElement('div');
+      bar.id = 'wakeBar';
+      bar.className = 'wake-bar';
+      bar.setAttribute('role', 'status');
+      bar.innerHTML = `<div class="wake-track" aria-hidden="true"><svg class="wake-jet" viewBox="0 0 100 100"><path fill="currentColor" d="${JET}"/></svg></div><span><b>Čekám na server ATLASu…</b> Na bezplatném hostingu usíná, probudí se do půl minuty. Uložené cesty fungují hned.</span>`;
+      const demo = $('#demoBanner'), main = $('.main');
+      if (demo) demo.after(bar); else if (main) main.prepend(bar);
+      return;
+    }
+    if (!bar) return;
+    if (state !== 'ok') return bar.remove();
+    bar.classList.add('done');
+    bar.querySelector('span').innerHTML = '<b>✓ Server je vzhůru</b> – hledání letů a ceny jsou k dispozici.';
+    setTimeout(() => bar.remove(), 2400);
+  }
+
   // Stav serveru (aerolinky, DEMO, kurz) se začne stahovat hned při startu aplikace (app.js) souběžně s daty zemí.
   let healthReq = null;
   const warm = () => { if (!healthReq) { healthReq = api('api/health'); healthReq.catch(() => { }); } return healthReq; };
@@ -2349,11 +2371,15 @@
     };
     const down = e => { if (!e.offline) toast('Server ATLAS neodpovídá – vyhledávání letů nepůjde', 'err'); }; // offline: pruh „Jsi offline“ (pwa.js)
     try {
-      // Na stav serveru se při startu čeká nejvýš 1,5 s: uspaný server (Render zdarma) se probouzí až minutu –
-      // aplikace se zatím vykreslí bez něj a zdroje cen se doplní, až odpoví.
-      const h = await Promise.race([warm(), new Promise(r => setTimeout(r, 1500, null))]);
+      // Na stav serveru se při startu čeká nejvýš 1 s: uspaný server (Render zdarma) se probouzí až půl minuty –
+      // aplikace se zatím vykreslí bez něj a zdroje cen se doplní, až odpoví. Trvá-li to přes 2,5 s, nahoře je pruh
+      // s letadlem, dokud server neodpoví.
+      const h = await Promise.race([warm(), new Promise(r => setTimeout(r, 1000, null))]);
       if (h) useHealth(h);
-      else warm().then(x => { useHealth(x); renderSources(); }, down);
+      else {
+        const t = setTimeout(() => wakeBar('wait'), 1500);
+        warm().then(x => { clearTimeout(t); useHealth(x); renderSources(); wakeBar('ok'); }, e => { clearTimeout(t); wakeBar('fail'); down(e); });
+      }
     } catch (e) {
       down(e);
     }
