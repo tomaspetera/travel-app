@@ -142,15 +142,22 @@ a seznam věcí na míru cestě (země, termín, doprava, zavazadla z hledání,
   srážky: horko → lehké oblečení, pokrývka hlavy, opalovací krém; chlad a mráz → bunda, čepice, termoprádlo; období
   dešťů → nepromokavá bunda, jinak deštník; v mrazu bez deštníku), **délky cesty** (prádlo nejvýš na 7 dní, déle
   praní), **dopravy a zavazadel** z hledání (jen pod sedadlo / kabinový kufr / kufr k odbavení: tekutiny do 100 ml,
-  powerbanka jen do kabiny; vlak/bus jízdenky), **dokladů** (občanský průkaz, nebo pas s datem platnosti; potvrzení
-  ESTA, eTA, e-víza), **zdraví** (repelent a antimalarika jen podle doporučených očkování a v teple, očkovací průkaz
-  u žluté zimnice), **auta** (řidičák, MŘP) a **aktivit**: 🏖️ pláž, 🥾 turistika, 🏙️ města, ⛷️ sníh – výchozí výběr
-  podle programu (kategorie míst), štítků země a podnebí, přepíná se čipy; u kostelů a chrámů v programu oblečení
-  zakrývající ramena a kolena.
-- **Odškrtávání** se ukládá jen v prohlížeči, pro každou cestu zvlášť (`localStorage` `atlas_pretrip_v1`, posledních
-  30 cest; zakázané úložiště nevadí). Zvolené aktivity jsou součástí cesty (`pretrip.acts`), takže je nese i sdílený
-  odkaz `#trip=`; odškrtnutí ne. **💾 Uložit do plánovače** převezme úkoly a věci (i s odškrtnutím) do seznamu
-  „Sbaleno“ místo obecného seznamu – a tím i do sdíleného plánu `#plan=` (formát se nemění, starší odkazy fungují).
+  powerbanka jen do kabiny; s malým zavazadlem na delší cestu „bal na vrstvy“ jen v chladu, při velkém rozdílu dne
+  a noci, na horách nebo na sněhu – ve stálém horku ne; vlak/bus jízdenky), **dokladů** (občanský průkaz, nebo pas
+  s datem platnosti; potvrzení ESTA, eTA, e-víza), **zdraví** (repelent a antimalarika jen podle doporučených očkování
+  a v teple, očkovací průkaz u žluté zimnice), **auta** (řidičák, MŘP) a **aktivit**: 🏖️ pláž, 🥾 turistika, 🏙️ města,
+  ⛷️ sníh – výchozí výběr podle programu (kategorie míst), štítků země a podnebí, přepíná se čipy; u kostelů a chrámů
+  v programu oblečení zakrývající ramena a kolena.
+- **Vlastní položky** – pole „Přidat vlastní položku…“ pod seznamem věcí. Položky (nejvýš 30 po 80 znacích, bez HTML)
+  jsou součástí cesty (`pretrip.custom`), dají se smazat (✕) a tisknou se se seznamem.
+- **Odškrtávání** se ukládá v prohlížeči, pro každou cestu zvlášť (`localStorage` `atlas_pretrip_v1`, posledních
+  30 cest; zakázané úložiště nevadí). Sdílený odkaz `#trip=` nese zvolené aktivity, vlastní položky i odškrtnutí
+  (`pretrip.acts`, `pretrip.custom`, `pretrip.done`); po otevření se odškrtnutí uloží k nové cestě příjemce (jeho
+  ostatní cesty zůstanou beze změny). Z odkazu projdou jen známé aktivity, pročištěné položky a id ve známém tvaru
+  (nejvýš 200); starší odkazy bez těchto polí fungují dál. **💾 Uložit do plánovače** převezme úkoly a věci (i
+  s odškrtnutím a vlastními položkami) do seznamu „Sbaleno“ místo obecného seznamu – a tím i do sdíleného plánu
+  `#plan=`: odškrtnutí nese volitelné pole `done` (bitová maska šestnáctkově, 80 položek = nejvýš 20 znaků); verze
+  formátu zůstává 1 a starší odkazy fungují dál (vše neodškrtnuté).
 - **🖨️ Vytisknout** vytiskne jen tuto kartu (seznam věcí ve dvou sloupcích se zaškrtávátky); tisk celé stránky skryje
   navigaci a tlačítka.
 - **📅 Do kalendáře** (.ics) přidá připomínky „🛡️ Sjednat cestovní pojištění“ (14 dní před odjezdem), „🚘 Vyřídit

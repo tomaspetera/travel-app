@@ -331,7 +331,8 @@ test('seznam věcí: doklady (OP vs. pas, registrace), očkování a antimalarik
   assert.ok(itemIds(trip({ cc: 'MX' }), { via: ['US'] }).includes('doc-reg-US'));
   // zavazadla: jen pod sedadlo / kabinový kufr / kufr k odbavení / vlak
   const tips = (t) => P.bagTips(ctxOf(t));
-  assert.match(tips(trip({ out: '2027-07-01', back: '2027-07-11' }))[0], /^Letíš jen s malým zavazadlem pod sedadlo – rozměry ověř u aerolinky; na 10 nocí bal na vrstvy a počítej s praním\.$/);
+  // (bez podnebí jen praní – kdy balit na vrstvy, ukazuje test níže)
+  assert.match(tips(trip({ out: '2027-07-01', back: '2027-07-11' }))[0], /^Letíš jen s malým zavazadlem pod sedadlo – rozměry ověř u aerolinky; na 10 nocí počítej s praním\.$/);
   assert.match(tips(trip())[1], /balení do 100 ml v průhledném uzavíratelném sáčku do 1 l/);
   assert.equal(tips(trip({ bags: 'checked' })).length, 1);
   assert.match(tips(trip({ bags: 'checked' }))[0], /powerbanku a náhradní baterie dej do příručního zavazadla/);
@@ -342,6 +343,48 @@ test('seznam věcí: doklady (OP vs. pas, registrace), očkování a antimalarik
   // délka cesty: prádlo na nejvýš 7 dní, déle praní
   assert.deepEqual(plain(items(trip({ out: '2027-07-01', back: '2027-07-03' })).find((x) => x.id === 'cl-under')), { id: 'cl-under', text: 'Spodní prádlo a ponožky (3×)' });
   assert.equal(items(trip({ out: '2027-07-01', back: '2027-07-15' })).find((x) => x.id === 'cl-under').note, 'na delší cestu počítej s praním');
+});
+
+test('balit na vrstvy: ve stálém horku ne (Bangkok, Phuket), v chladu, při velkém rozdílu dne a noci, na horách a na sněhu ano', () => {
+  const layered = /; na 10 nocí bal na vrstvy a počítej s praním\.$/;
+  const tip = (t, climate) => P.bagTips(ctxOf(t, { climate }))[0];
+  const tenNights = (month, over = {}) => trip({ out: `2027-${month}-05`, back: `2027-${month}-15`, ...over });
+  // Bangkok v lednu (data/climate.json: přes den ~31 °C, v noci ~22 °C) – jen praní
+  const bkk = tenNights('01', { cc: 'TH', label: 'Bangkok' });
+  assert.equal(tip(bkk, [at('BKK', 'Bangkok')]), 'Letíš jen s malým zavazadlem pod sedadlo – rozměry ověř u aerolinky; na 10 nocí počítej s praním.');
+  const card = strip(P.html(bkk, { isos: ['TH'], climate: [at('BKK', 'Bangkok')] }));
+  assert.match(card, /Bangkok: přes den/);
+  assert.doesNotMatch(card, /vrstv/);
+  // Bangkok a Phuket v kterémkoli měsíci (s výchozími aktivitami: pláž a město) – nikdy
+  for (let m = 1; m <= 12; m++) {
+    for (const ap of ['BKK', 'HKT']) {
+      const t = tenNights(String(m).padStart(2, '0'), { cc: 'TH' });
+      assert.equal(P.layers(ctxOf(t, { climate: [at(ap)] })), false, `${ap} ${m}`);
+    }
+  }
+  // horké léto u moře (Barcelona v červenci ~30 / 19 °C) ne; chladno (Tokio v lednu, Barcelona v listopadu) ano
+  assert.doesNotMatch(tip(tenNights('07', { cc: 'ES' }), [at('BCN')]), /vrstvy/);
+  assert.match(tip(tenNights('01', { cc: 'JP' }), [at('NRT')]), layered);
+  assert.match(tip(tenNights('11', { cc: 'ES' }), [at('BCN')]), layered);
+  // velký rozdíl dne a noci: Lisabon v červnu (~28 / 14 °C), Dubaj v lednu (~24 / 13 °C); teplé noci (Dubaj v červenci) ne
+  assert.match(tip(tenNights('06', { cc: 'PT' }), [at('LIS')]), layered);
+  assert.match(tip(tenNights('01', { cc: 'AE' }), [at('DXB')]), layered);
+  assert.doesNotMatch(tip(tenNights('07', { cc: 'AE' }), [at('DXB')]), /vrstvy/);
+  // hory a sníh: zvolená turistika i v teple, sníh i bez známého podnebí
+  assert.match(tip(tenNights('01', { cc: 'TH', pretrip: { acts: ['hike'] } }), [at('BKK')]), layered);
+  assert.match(tip(tenNights('01', { cc: 'AT', pretrip: { acts: ['snow'] } }), []), layered);
+  // výchozí turistika: v zemi s horami ano (Peru – Andy, i když Lima je v únoru ~23 / 17 °C), kvůli vodopádům
+  // ve stálém horku ne (Jamajka ~28 / 24 °C)
+  const peru = ctxOf(tenNights('02', { cc: 'PE' }), { climate: [at('LIM')] });
+  assert.ok(peru.acts.has('hike') && !peru.actsChosen);
+  assert.match(P.bagTips(peru)[0], layered);
+  const jam = ctxOf(tenNights('01', { cc: 'JM' }), { climate: [at('MBJ')] });
+  assert.ok(jam.acts.has('hike') && !jam.actsChosen, 'turistika podle štítku „vodopády“');
+  assert.doesNotMatch(P.bagTips(jam)[0], /vrstvy/);
+  assert.match(tip(tenNights('01', { cc: 'JM', pretrip: { acts: ['beach', 'hike'] } }), [at('MBJ')]), layered);
+  // podnebí neznámé (a bez hor) → bez rady o vrstvách; krátká cesta → bez rady o balení vůbec
+  assert.doesNotMatch(tip(tenNights('01', { cc: 'JP', pretrip: { acts: ['city'] } }), []), /vrstvy/);
+  assert.equal(tip(trip({ cc: 'JP', out: '2027-01-05', back: '2027-01-08' }), [at('NRT')]), 'Letíš jen s malým zavazadlem pod sedadlo – rozměry ověř u aerolinky.');
 });
 
 test('aktivity: výchozí podle programu, země a podnebí; zvolené u cesty jen ze známých hodnot', () => {
@@ -522,7 +565,187 @@ test('průvodce: shrnutí má kartu „Co zařídit a co sbalit“, kalendář p
   const saved = c.S.trips.at(-1);
   assert.ok(saved.checklist.some((x) => x.t === 'Zařídit: mezinárodní řidičský průkaz (vzor 1949)'), JSON.stringify(saved.checklist.slice(0, 5)));
   assert.ok(!saved.checklist.some((x) => x.t === 'Pas / OP'), 'obecný seznam jen bez dat');
-  // sdílený odkaz nese zvolené aktivity (t.pretrip), odškrtnutí ne
+  // sdílený odkaz nese zvolené aktivity (t.pretrip) jen ze známých hodnot (odškrtnutí a vlastní položky v testech níže)
   const shared = c.window.Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...t, pretrip: { acts: ['beach', '<x>'] } })));
   assert.deepEqual([...c.window.PreTrip.contextOf(shared, { climate: [] }).acts], ['beach']);
+});
+
+/** localStorage v paměti. */
+const memStorage = () => { const mem = new Map(); return { mem, getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)) }; };
+/** Průvodce cestou v node:vm jako v prohlížeči: shrnutí do falešných prvků (tlačítka v els), adresa, historie a schránka. */
+function wizard(storage, hash = '') {
+  const c = load({ withTrip: true, storage });
+  const els = {};
+  vm.runInContext('var $ = (s) => (s === "#tripRoot" ? __root : s === "#tripStep" ? __host : (__els[s] ||= { innerHTML: "", value: "" })); var $$ = () => []; var go = () => {}; var toast = () => {}; var save = () => {};', c);
+  Object.assign(c, { __root: { innerHTML: '' }, __host: { innerHTML: '' }, __els: els, confirm: () => true, copied: [] });
+  c.location = { origin: 'https://atlas.example', pathname: '/', hash };
+  c.history = { replaceState: (s, title, h) => { c.location.hash = h; } };
+  c.navigator = { clipboard: { writeText: (u) => { c.copied.push(u); return Promise.resolve(); } } };
+  c.S.trips = [];
+  return { c, els, P: c.window.PreTrip, Trip: c.window.Trip };
+}
+/** Cesta do Tokia tak, jak ji uloží průvodce (s polohou cíle a letištěm). */
+function tokyo() {
+  const t = { ...trip({ cc: 'JP', label: 'Tokio', out: '2027-03-12', back: '2027-03-21' }), dest: { label: 'Tokio', country: 'Japonsko', cc: 'JP', lat: 35.7, lon: 139.7 } };
+  t.flight.out.to = 'NRT'; t.flight.back.from = 'NRT';
+  return t;
+}
+const tripHash = (t) => '#trip=' + Buffer.from(JSON.stringify(t)).toString('base64url');
+
+test('sdílený odkaz na cestu (#trip=): odškrtnutí a vlastní položky tam a zpět, odškrtnutí jiných cest příjemce zůstanou, starší odkazy', () => {
+  // odesílatel: dvě odškrtnutí, dvě vlastní položky (druhá odškrtnutá), zvolené aktivity
+  const a = wizard(memStorage());
+  const t = tokyo();
+  a.c.S.trip = t;
+  assert.equal(a.P.addCustom(t, 'Nabíječka na hodinky'), '');
+  assert.equal(a.P.addCustom(t, 'Dárek pro Keiko'), '');
+  t.pretrip.acts = ['city', 'hike'];
+  const key = a.P.tripKey(t);
+  for (const id of ['todo:ins', 'pack:doc-pass', 'pack:my-2']) a.P.setDone(key, id, true);
+  a.Trip.render();
+  a.els['#sumShare'].onclick();
+  const url = a.c.copied[0];
+  assert.match(url, /^https:\/\/atlas\.example\/#trip=[A-Za-z0-9_-]+$/);
+  const sent = JSON.parse(Buffer.from(url.split('#trip=')[1], 'base64url').toString('utf8'));
+  const custom = [{ id: 'my-1', text: 'Nabíječka na hodinky' }, { id: 'my-2', text: 'Dárek pro Keiko' }];
+  assert.deepEqual(sent.pretrip, { acts: ['hike', 'city'], custom, done: ['todo:ins', 'pack:doc-pass', 'pack:my-2'] });
+  assert.equal(sent.created, undefined);
+  assert.equal(t.pretrip.done, undefined, 'odesílateli se cesta nemění');
+  // příjemce: jiný prohlížeč s odškrtnutím jiné cesty
+  const st = memStorage();
+  st.setItem('atlas_pretrip_v1', JSON.stringify({ 'jina:cesta': { d: { 'pack:cl-hat': 1 }, at: 1 } }));
+  const b = wizard(st, url.slice(url.indexOf('#')));
+  assert.equal(b.Trip.importFromHash(), true);
+  const got = b.c.S.trip;
+  assert.equal(b.c.location.hash, '#trip');
+  assert.deepEqual(plain(got.pretrip), { acts: ['hike', 'city'], custom }, 'odškrtnutí se z cesty přesunula do localStorage');
+  assert.notEqual(b.P.tripKey(got), key, 'nová cesta má vlastní klíč');
+  assert.deepEqual(Object.keys(plain(b.P.doneOf(b.P.tripKey(got)))).sort(), ['pack:doc-pass', 'pack:my-2', 'todo:ins']);
+  assert.deepEqual(plain(b.P.doneOf('jina:cesta')), { 'pack:cl-hat': 1 }, 'odškrtnutí jiné cesty příjemce zůstala');
+  // karta u příjemce: odškrtnuté položky i vlastní položky
+  const h = sp(b.P.html(got, { isos: ['JP'], climate: [] }));
+  assert.match(h, /data-ptk="todo:ins" checked/);
+  assert.match(h, /data-ptk="pack:doc-pass" checked/);
+  assert.match(h, /<li class="pt-own"><label class="pt-row"><input type="checkbox" data-ptk="pack:my-1" ><span>Nabíječka na hodinky<\/span>/);
+  assert.match(h, /<li class="pt-own done"><label class="pt-row"><input type="checkbox" data-ptk="pack:my-2" checked><span>Dárek pro Keiko<\/span>/);
+  assert.match(h, /✔ 3\/\d+/);
+  // a sdílí je dál (z localStorage své cesty)
+  assert.deepEqual(plain(b.P.shareState(got)).done.sort(), ['pack:doc-pass', 'pack:my-2', 'todo:ins']);
+  // starší odkaz bez stavu karty, nebo jen s aktivitami: funguje dál, nic odškrtnuté
+  const old = wizard(memStorage(), tripHash({ ...sent, pretrip: undefined }));
+  assert.equal(old.Trip.importFromHash(), true);
+  assert.equal(old.c.S.trip.pretrip, undefined);
+  assert.deepEqual(plain(old.P.doneOf(old.P.tripKey(old.c.S.trip))), {});
+  const acts = wizard(memStorage(), tripHash({ ...sent, pretrip: { acts: ['beach'] } }));
+  assert.equal(acts.Trip.importFromHash(), true);
+  assert.deepEqual(plain(acts.c.S.trip.pretrip), { acts: ['beach'] });
+  // nic k sdílení → odkaz bez pole
+  const n = wizard(memStorage());
+  n.c.S.trip = tokyo();
+  n.Trip.render();
+  n.els['#sumShare'].onclick();
+  assert.equal(JSON.parse(Buffer.from(n.c.copied[0].split('#trip=')[1], 'base64url').toString('utf8')).pretrip, undefined);
+});
+
+test('sdílený odkaz na cestu: podvržený stav karty – jen známé aktivity, pročištěné vlastní položky, id odškrtnutí ve známém tvaru, omezené počty', () => {
+  const b = wizard(memStorage());
+  const evil = {
+    acts: ['beach', '<img src=x onerror=alert(1)>', 'snow', 'toString', '__proto__'],
+    custom: [
+      { id: 'my-1', text: '<img src=x onerror=alert(1)>Nabíječka & kabel' }, { id: 'my-1', text: 'stejné id podruhé' }, { id: '__proto__', text: 'x' },
+      { id: 'my-2', text: 'a'.repeat(500) }, { id: 'my-3', text: '   ' }, { id: 'my-4', text: { toString: 'x' } }, { id: 'my-5"><b>', text: 'x' }, 'jen text', null,
+      ...Array.from({ length: 100 }, (_, i) => ({ id: `my-${i + 10}`, text: `věc ${i}` })),
+    ],
+    done: [
+      'todo:ins', 'pack:doc-pass', 'pack:my-1', 'pack:my-999', '"><script>alert(1)</script>', 'todo:__proto__', 'constructor', 'pack:doc pass', 'javascript:alert(1)', { id: 'todo:ins' }, 'todo:ins',
+      ...Array.from({ length: 500 }, (_, i) => `pack:cl-x${i}`),
+    ],
+    html: '<b>navíc</b>', d: { 'todo:ins': 1 },
+  };
+  // „__proto__“ jako vlastní klíč (JSON.parse ho tak vytvoří) – nesmí se stát prototypem
+  const json = JSON.stringify({ ...tokyo(), pretrip: evil }).replace('"pretrip":{', '"pretrip":{"__proto__":{"polluted":true},');
+  const t = b.Trip.sanitizeTrip(JSON.parse(json));
+  assert.deepEqual(Object.keys(t.pretrip).sort(), ['acts', 'custom', 'done']);
+  assert.equal({}.polluted, undefined);
+  assert.equal(t.pretrip.polluted, undefined);
+  assert.deepEqual(plain(t.pretrip.acts), ['beach', 'snow']);
+  assert.equal(t.pretrip.custom.length, 30, 'nejvýš 30 vlastních položek');
+  assert.deepEqual(plain(t.pretrip.custom.slice(0, 3)), [{ id: 'my-1', text: 'img src=x onerror=alert(1)Nabíječka & kabel' }, { id: 'my-2', text: 'a'.repeat(80) }, { id: 'my-10', text: 'věc 0' }]);
+  assert.ok(t.pretrip.custom.every((x) => /^my-\d+$/.test(x.id) && x.text.length <= 80 && !/[<>"'`]/.test(x.text)));
+  // odškrtnutí: známý tvar, bez duplicit, jen vlastní položky, které cesta má; obecné pročištění odkazu bere nejvýš 200 prvků pole
+  assert.deepEqual(plain(t.pretrip.done.slice(0, 4)), ['todo:ins', 'pack:doc-pass', 'pack:my-1', 'pack:cl-x0']);
+  assert.equal(t.pretrip.done.length, 3 + 189);
+  assert.ok(t.pretrip.done.every((id) => /^(todo|pack):[\w-]+$/.test(id)));
+  // samotné pročištění stavu karty: nejvýš 200 odškrtnutí
+  assert.equal(b.P.sanitize({ done: Array.from({ length: 500 }, (_, i) => `pack:cl-x${i}`) }).done.length, 200);
+  for (const bad of ['<b>', 5, ['beach'], null, {}, { acts: 'beach', custom: 'x', done: 'todo:ins' }]) assert.equal(b.P.sanitize(bad), undefined, JSON.stringify(bad));
+  // import: odškrtnutí jen pod klíčem nové cesty, karta bez HTML z odkazu
+  const imp = wizard(memStorage(), '#trip=' + Buffer.from(json).toString('base64url'));
+  assert.equal(imp.Trip.importFromHash(), true);
+  const got = imp.c.S.trip;
+  assert.equal(got.pretrip.done, undefined);
+  const stored = JSON.parse(imp.c.localStorage.getItem('atlas_pretrip_v1'));
+  assert.deepEqual(Object.keys(stored), [imp.P.tripKey(got)]);
+  assert.equal(Object.keys(stored[imp.P.tripKey(got)].d).length, 192);
+  const h = imp.P.html(got, { isos: ['JP'], climate: [] });
+  assert.ok(!/<img|<script|<b>navíc/i.test(h));
+  assert.match(h, /<span>img src=x onerror=alert\(1\)Nabíječka &amp; kabel<\/span>/);
+  // neplatný stav karty (ne objekt) → cesta bez něj, import projde
+  for (const bad of ['<b>', 5, ['beach'], null]) assert.equal(b.Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...tokyo(), pretrip: bad }))).pretrip, undefined);
+});
+
+test('vlastní položky: přidat, pročistit, nejvýš 30, smazat i s odškrtnutím; uložené s cestou, v kartě escapované, v tisku i v plánovači', () => {
+  const c = load({ storage: memStorage() });
+  let saves = 0;
+  c.save = () => { saves++; };
+  const P2 = c.window.PreTrip;
+  const t = trip({ cc: 'JP', label: 'Tokio' });
+  const key = P2.tripKey(t);
+  // bez HTML, řídicích znaků a obracení textu, mezery sloučené, apostrof typografický (obyčejný by sdílený odkaz vypustil)
+  assert.equal(P2.addCustom(t, "  Nabíječka\tna <b>hodinky</b>\n \"Garmin\" & dětské 'žabky' \u202e "), '');
+  assert.deepEqual(plain(t.pretrip.custom), [{ id: 'my-1', text: 'Nabíječka na bhodinky/b Garmin & dětské ’žabky’' }]);
+  assert.equal(saves, 1, 'uloží se s cestou (save z app.js)');
+  assert.equal(P2.addCustom(t, 'NABÍJEČKA na bhodinky/b garmin & dětské ’žabky’'), 'Tahle položka už v seznamu je.');
+  assert.equal(P2.addCustom(t, ' <> '), 'Napiš, co chceš přidat.');
+  // nejvýš 80 znaků (bez rozpůleného emoji)
+  assert.equal(P2.addCustom(t, 'a' + '🧦'.repeat(60)), '');
+  assert.equal(t.pretrip.custom[1].text, 'a' + '🧦'.repeat(39));
+  // nejvýš 30 položek
+  for (let i = 0; t.pretrip.custom.length < 30; i++) assert.equal(P2.addCustom(t, `věc ${i}`), '');
+  assert.equal(P2.addCustom(t, 'třicátá první'), 'Vlastních položek může být nejvýš 30.');
+  assert.equal(t.pretrip.custom.length, 30);
+  // smazání i s odškrtnutím; uvolněné číslo se použije znovu, ale bez starého odškrtnutí
+  P2.setDone(key, 'pack:my-2', true);
+  assert.equal(P2.delCustom(t, 'my-2'), true);
+  assert.equal(P2.delCustom(t, 'my-2'), false);
+  assert.equal(P2.doneOf(key)['pack:my-2'], undefined);
+  assert.equal(P2.addCustom(t, 'Ponožky navíc'), '');
+  assert.deepEqual(plain(t.pretrip.custom.at(-1)), { id: 'my-2', text: 'Ponožky navíc' });
+  // uložená cesta (JSON v localStorage) po obnovení stránky stejná; aktivity a vlastní položky se navzájem nepřepíšou
+  assert.deepEqual(plain(P2.customOf(JSON.parse(JSON.stringify(t)))), plain(t.pretrip.custom));
+  // karta: skupina „Vlastní položky“ se ✕, pole pro přidání; text vždy escapovaný (i z poškozené uložené cesty)
+  P2.setDone(key, 'pack:my-1', true);
+  t.pretrip.custom[0] = { id: 'my-1', text: '<img src=x onerror=alert(1)> & "x"' };
+  const h = sp(P2.html(t, { isos: ['JP'], climate: [] }));
+  assert.match(h, /<h5>✏️ Vlastní položky<\/h5>/);
+  assert.match(h, /<li class="pt-own done"><label class="pt-row"><input type="checkbox" data-ptk="pack:my-1" checked><span>img src=x onerror=alert\(1\) &amp; x<\/span><\/label><button type="button" class="pt-del" data-pt-del="my-1" title="Smazat položku" aria-label="Smazat položku img src=x onerror=alert\(1\) &amp; x">✕<\/button><\/li>/);
+  assert.match(h, /<\/div><form class="pt-add" data-pt-add><input class="input" maxlength="80" placeholder="Přidat vlastní položku…" aria-label="Přidat vlastní položku do seznamu věcí"[^>]*><button type="submit" class="btn sm">\+ Přidat<\/button><\/form><\/section>/);
+  assert.ok(!/<img|<b>hodinky/.test(h));
+  const boxes = (h.match(/data-ptk="pack:my-/g) || []).length;
+  assert.equal(boxes, 30, 'všechny vlastní položky se zaškrtávátkem');
+  // tisk: vlastní položky jsou v seznamu (tiskne se celý), skryté jsou jen ovládací prvky
+  const css = read('public/css/pretrip.css'), print = css.slice(css.indexOf('@media print'));
+  assert.match(print, /\.pt-add,\.pt-del\{display:none !important\}/);
+  assert.doesNotMatch(print, /pt-own|pt-groups\{display:none/);
+  // plánovač („💾 Uložit do plánovače“) i sdílený odkaz je nesou
+  const list = plain(P2.plannerChecklist(t, { isos: ['JP'], climate: [] }));
+  assert.ok(list.some((x) => x.t === 'img src=x onerror=alert(1) & x' && x.done), JSON.stringify(list.slice(-3)));
+  assert.ok(list.some((x) => x.t === 'Ponožky navíc' && !x.done));
+  const shared = plain(P2.shareState(t));
+  assert.equal(shared.custom.length, 30);
+  assert.deepEqual(shared.done, ['pack:my-1']);
+  // aktivity se přidáním položky nepřepíšou (a naopak)
+  t.pretrip.acts = ['beach'];
+  P2.addCustom(t, 'Šnorchl');
+  assert.deepEqual(plain(t.pretrip.acts), ['beach']);
 });
