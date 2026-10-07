@@ -1891,14 +1891,40 @@
       .on('mousemove', (e, d) => { tip.innerHTML = `${flag(d.g.dest.cc)} ${esc(d.g.dest.label)} · <span style="color:var(--good)">${czk(d.t.perPersonCzk)}</span>${d.t.tempHi != null ? ` · 🌡️ ~${d.t.tempHi} °C` : ''}`; tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY + 'px'; tip.style.opacity = 1; })
       .on('mouseleave', () => tip.style.opacity = 0)
       .on('click', (e, d) => { tip.style.opacity = 0; showMapDetail(d.g); });
-    // popisky nejlevnějších
-    g0.append('g').selectAll('text').data(pts.slice().sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk).slice(0, 12)).join('text')
-      .attr('x', d => proj([d.lon, d.lat])[0] + 8).attr('y', d => proj([d.lon, d.lat])[1] + 4).attr('class', 'rm-lbl')
-      .text(d => `${d.g.dest.label} ${Math.round(d.t.perPersonCzk).toLocaleString('cs')}`);
-    g0.append('g').selectAll('rect').data(orig).join('rect')
-      .attr('x', d => proj([d.lon, d.lat])[0] - 4).attr('y', d => proj([d.lon, d.lat])[1] - 4).attr('width', 8).attr('height', 8).attr('class', 'rm-origin');
+    // Popisky nejlevnějších bez překrývání: od nejlevnějšího vpravo od bodu, jinak vlevo, nad nebo pod ním; co se
+    // nevejde, vynechá se (cena je i v bublině a v seznamu). Po přiblížení se rozmístí znovu a přibudou další.
+    const byPrice = pts.slice().sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk);
+    const lblTxt = d => `${d.g.dest.label} ${Math.round(d.t.perPersonCzk).toLocaleString('cs')}`;
+    const lblG = g0.append('g');
+    // velikost písma v jednotkách mapy: na obrazovce 11 px, po přiblížení nejvýš 15 px
+    const lblSize = k => Math.min(11 * Math.sqrt(k), 15) / k;
+    let lblK = 0;
+    const placeLabels = k => {
+      if (k === lblK) return;
+      lblK = k;
+      const f = lblSize(k), r = 7 / Math.sqrt(k) + 3 / k, max = Math.round((W < 520 ? 6 : 12) * Math.sqrt(k));
+      const boxes = [], out = [];
+      for (const d of byPrice) {
+        if (out.length >= max) break;
+        const [x, y] = proj([d.lon, d.lat]), w = lblTxt(d).length * f * 0.6, h = f * 1.2;
+        const spot = [[x + r, y - h / 2, 'start'], [x - r - w, y - h / 2, 'end'], [x - w / 2, y - r - h, 'middle'], [x - w / 2, y + r, 'middle']]
+          .find(([bx, by]) => bx >= 0 && by >= 0 && bx + w <= W && by + h <= H && !boxes.some(b => bx < b[2] && bx + w > b[0] && by < b[3] && by + h > b[1]));
+        if (!spot) continue;
+        const [bx, by, anchor] = spot;
+        boxes.push([bx, by, bx + w, by + h]);
+        out.push({ d, anchor, x: anchor === 'start' ? bx : anchor === 'end' ? bx + w : bx + w / 2, y: by + f * 0.9 });
+      }
+      lblG.selectAll('text').data(out).join('text').attr('class', 'rm-lbl').attr('text-anchor', o => o.anchor)
+        .attr('x', o => o.x).attr('y', o => o.y).style('font-size', f + 'px').text(o => lblTxt(o.d));
+    };
+    placeLabels(1);
+    const origins = g0.append('g').selectAll('rect').data(orig).join('rect').attr('class', 'rm-origin');
+    const sizeOrigins = k => { const a = 8 / Math.sqrt(k); origins.attr('x', d => proj([d.lon, d.lat])[0] - a / 2).attr('y', d => proj([d.lon, d.lat])[1] - a / 2).attr('width', a).attr('height', a); };
+    sizeOrigins(1);
     if (home) svg.append('circle').attr('cx', proj(home)[0]).attr('cy', proj(home)[1]).attr('r', 4).attr('class', 'rm-home');
-    svg.call(d3.zoom().scaleExtent([1, 10]).on('zoom', ev => { g0.attr('transform', ev.transform); g0.selectAll('circle').attr('r', d => (d.t.deal.level === 'super' ? 7 : 5.5) / Math.sqrt(ev.transform.k)); g0.selectAll('.rm-lbl').style('font-size', 11 / Math.sqrt(ev.transform.k) + 'px'); }));
+    svg.call(d3.zoom().scaleExtent([1, 10])
+      .on('zoom', ev => { const k = ev.transform.k; g0.attr('transform', ev.transform); g0.selectAll('circle').attr('r', d => (d.t.deal.level === 'super' ? 7 : 5.5) / Math.sqrt(k)); sizeOrigins(k); g0.selectAll('.rm-lbl').style('font-size', lblSize(k) + 'px'); })
+      .on('end', ev => placeLabels(ev.transform.k)));
   }
   function showMapDetail(g) {
     rowRegistry = [];
