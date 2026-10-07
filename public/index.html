@@ -48,8 +48,9 @@
   #launch .l-paper{animation:l-out .18s linear .3s forwards}
   #launch .l-air{opacity:0;animation:l-in .18s linear .3s forwards}
 }
-/* vzlet ve směru špičky vlaštovky (−38,5°); pak (čeká-li se dál) letadlo přelétá zleva doprava s mírným stoupáním */
-@keyframes l-fly{to{transform:translate(1150px,-915px) scale(1.15)}}
+/* vzlet ve směru špičky vlaštovky (−38,5°) – na konci se rozplyne (na širokém okně by jinak zůstalo stát u okraje); pak
+   (čeká-li se dál) letadlo přelétá zleva doprava s mírným stoupáním */
+@keyframes l-fly{70%{opacity:1}to{transform:translate(1150px,-915px) scale(1.15);opacity:0}}
 @keyframes l-jet{0%{opacity:1;transform:translate(-64px,26px)}100%{opacity:1;transform:translate(calc(100vw + 16px),-26px)}}
 @keyframes l-sq{to{opacity:0;transform:scale(.88)}}
 @keyframes l-out{to{opacity:0}}

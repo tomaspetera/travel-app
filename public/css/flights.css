@@ -8,6 +8,7 @@
 
 /* zdroje v sidebaru */
 .src-box{border:1px solid var(--border);border-radius:13px;padding:10px 12px;background:var(--surface);font-size:12px}
+.src-box:empty{display:none} /* než odpoví server (uspaný server na Renderu) – žádný prázdný rámeček */
 .src-t{font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:10.5px;margin-bottom:6px}
 .src{display:flex;align-items:center;gap:7px;padding:3px 0;color:var(--faint)}
 .src i{width:8px;height:8px;border-radius:50%;opacity:.4}
