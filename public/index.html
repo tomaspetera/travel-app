@@ -267,7 +267,7 @@
         <div class="map-layout">
           <div class="map-wrap" id="mapWrap">
             <svg id="worldmap" viewBox="0 0 960 500" preserveAspectRatio="xMidYMid meet"></svg>
-            <div class="map-zoom"><button id="zoomIn">+</button><button id="zoomOut">−</button><button id="zoomReset" title="Reset" style="font-size:13px">⤢</button></div>
+            <div class="map-zoom"><button id="zoomIn">+</button><button id="zoomOut">−</button><button id="zoomReset" title="Reset" style="font-size:13px">⤢</button><button id="mapStyle" title="Tmavá mapa" aria-label="Tmavá mapa"></button></div>
           </div>
           <div>
             <div class="card" style="padding:20px;margin-bottom:16px">
@@ -282,7 +282,7 @@
             </div>
             <div class="legend">
               <span class="row" style="gap:7px"><i class="badge-dot" style="background:var(--accent)"></i> navštíveno</span>
-              <span class="row" style="gap:7px"><i class="badge-dot" style="background:var(--map-land)"></i> zbývá objevit</span>
+              <span class="row" style="gap:7px"><i class="badge-dot land-dot"></i> zbývá objevit</span>
               <span class="faint">klikni do mapy</span>
             </div>
           </div>
@@ -340,6 +340,9 @@
 <svg width="0" height="0" style="position:absolute"><defs>
   <linearGradient id="vg" x1="0" y1="0" x2="1" y2="1">
     <stop offset="0" stop-color="#22d3ee"/><stop offset="0.5" stop-color="#5b8cff"/><stop offset="1" stop-color="#a855f7"/>
+  </linearGradient>
+  <linearGradient id="vgl" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#0891b2"/><stop offset="0.5" stop-color="#3b6cf0"/><stop offset="1" stop-color="#9333ea"/>
   </linearGradient>
 </defs></svg>
 

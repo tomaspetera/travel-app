@@ -881,7 +881,7 @@
     let body = '';
     if (view.mode === 'legs' && exactRoute) body = legsView(flat, res, pre);
     // mapa bez nabídek (všechny skryly filtry) by kreslila z nekonečných souřadnic → jen hláška, že filtrům nic neodpovídá
-    else if (view.mode === 'map') body = !groups.length ? '' : `<div class="card res-map-card"><div id="resMap" class="res-map"></div><div class="map-legend"><span><i class="lg-dot" style="background:#34d399"></i>nejlevnější</span><span><i class="lg-dot" style="background:#fbbf24"></i>střední</span><span><i class="lg-dot" style="background:#fb7185"></i>dražší</span><span class="faint">klikni na bod → detail</span></div></div><div id="mapList"></div>`;
+    else if (view.mode === 'map') body = !groups.length ? '' : `<div class="card res-map-card"><div id="resMap" class="res-map"></div><div class="map-legend"><span><i class="lg-dot t0"></i>nejlevnější</span><span><i class="lg-dot t1"></i>střední</span><span><i class="lg-dot t2"></i>dražší</span><span class="faint">klikni na bod → detail</span></div></div><div id="mapList"></div>`;
     // kalendář ukazuje všechny dny i s vybraným dnem odletu → složené dvojice i pro ostatní dny (jinak by měly ✕)
     else if (view.mode === 'cal' && isRoute) body = calendarHtml(res, view.outDate ? anyDay(fill) : filledNow) + `<div class="section-head"><h2>Nejlepší kombinace${view.outDate ? ' · odlet ' + fmtDate(view.outDate) : ''}</h2></div>` + flatList(flat);
     else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(g.vis[0].perPersonCzk)}</b></span>`).join('')}</div>` : '') + flatList(flat) : groups.map(g => groupCard(g)).join('');
@@ -1849,18 +1849,18 @@
     g0.append('g').selectAll('path').data(feats).join('path').attr('d', path).attr('class', 'rm-land');
     const prices = pts.map(p => p.t.perPersonCzk).sort((a, b) => a - b);
     const qOf = v => prices.length > 1 ? prices.findIndex(x => x >= v) / (prices.length - 1) : 0;
-    const col = v => { const q = qOf(v); return q < .33 ? '#34d399' : q < .66 ? '#fbbf24' : '#fb7185'; };
+    const tier = v => { const q = qOf(v); return q < .33 ? 't0' : q < .66 ? 't1' : 't2'; }; // barvy v CSS (paleta mapy)
     const home = res.home ? [res.home.lon, res.home.lat] : (orig[0] ? [orig[0].lon, orig[0].lat] : null);
     const lines = g0.append('g');
     pts.slice().sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk).slice(0, 25).forEach(p => {
       const o = res.origins.find(x => x.iata === p.t.out.from) || orig[0];
       if (!o) return;
-      lines.append('path').datum({ type: 'LineString', coordinates: [[o.lon, o.lat], [p.lon, p.lat]] }).attr('d', path).attr('class', 'rm-arc').attr('stroke', col(p.t.perPersonCzk));
+      lines.append('path').datum({ type: 'LineString', coordinates: [[o.lon, o.lat], [p.lon, p.lat]] }).attr('d', path).attr('class', `rm-arc ${tier(p.t.perPersonCzk)}`);
     });
     const tip = $('#mapTip');
     g0.append('g').selectAll('circle').data(pts).join('circle')
       .attr('cx', d => proj([d.lon, d.lat])[0]).attr('cy', d => proj([d.lon, d.lat])[1])
-      .attr('r', d => d.t.deal.level === 'super' ? 7 : 5.5).attr('class', 'rm-dot').attr('fill', d => col(d.t.perPersonCzk))
+      .attr('r', d => d.t.deal.level === 'super' ? 7 : 5.5).attr('class', d => `rm-dot ${tier(d.t.perPersonCzk)}`)
       .on('mousemove', (e, d) => { tip.innerHTML = `${flag(d.g.dest.cc)} ${esc(d.g.dest.label)} · <span style="color:var(--good)">${czk(d.t.perPersonCzk)}</span>${d.t.tempHi != null ? ` · 🌡️ ~${d.t.tempHi} °C` : ''}`; tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY + 'px'; tip.style.opacity = 1; })
       .on('mouseleave', () => tip.style.opacity = 0)
       .on('click', (e, d) => { tip.style.opacity = 0; showMapDetail(d.g); });

@@ -345,16 +345,20 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 
 /* mapa výsledků */
 .res-map-card{padding:0;overflow:hidden;margin-bottom:14px}
-.res-map{width:100%;min-height:380px;background:var(--card)}
+.res-map{width:100%;min-height:380px;background:var(--map-sea)}
 .rm-svg{width:100%;height:auto;display:block;cursor:grab}
-.rm-land{fill:var(--map-land);stroke:var(--bg);stroke-width:.4px}
-.rm-arc{fill:none;stroke-width:1.1px;opacity:.55;vector-effect:non-scaling-stroke}
-.rm-dot{stroke:var(--bg);stroke-width:1.5px;cursor:pointer;vector-effect:non-scaling-stroke}
-.rm-dot:hover{stroke:var(--text)}
-.rm-lbl{font:700 11px Inter,sans-serif;fill:var(--text);paint-order:stroke;stroke:var(--bg);stroke-width:3px;pointer-events:none}
-.rm-origin{fill:#fff;stroke:var(--accent);stroke-width:2px;vector-effect:non-scaling-stroke}
-[data-theme=light] .rm-origin{fill:var(--accent)}
-.rm-home{fill:var(--accent2)}
+.rm-land{fill:var(--map-land);stroke:var(--map-line);stroke-width:.7px;vector-effect:non-scaling-stroke}
+.rm-arc{fill:none;stroke-width:1.3px;opacity:.6;vector-effect:non-scaling-stroke}
+.rm-dot{stroke:var(--map-halo);stroke-width:1.5px;cursor:pointer;vector-effect:non-scaling-stroke}
+.rm-dot:hover{stroke:var(--map-text)}
+/* cena: barvy z palety mapy (na světlé mapě sytější, aby byly vidět) */
+.rm-arc.t0{stroke:var(--map-cheap)} .rm-arc.t1{stroke:var(--map-mid)} .rm-arc.t2{stroke:var(--map-pricey)}
+.rm-dot.t0,.lg-dot.t0{fill:var(--map-cheap);background:var(--map-cheap)}
+.rm-dot.t1,.lg-dot.t1{fill:var(--map-mid);background:var(--map-mid)}
+.rm-dot.t2,.lg-dot.t2{fill:var(--map-pricey);background:var(--map-pricey)}
+.rm-lbl{font:700 11px Inter,sans-serif;fill:var(--map-text);paint-order:stroke;stroke:var(--map-halo);stroke-width:3px;pointer-events:none}
+.rm-origin{fill:var(--accent);stroke:var(--map-halo);stroke-width:2px;vector-effect:non-scaling-stroke}
+.rm-home{fill:var(--accent2);stroke:var(--map-halo);stroke-width:1.5px;vector-effect:non-scaling-stroke}
 .map-legend{display:flex;gap:16px;flex-wrap:wrap;padding:10px 16px;font-size:12px;color:var(--muted);border-top:1px solid var(--border)}
 .map-legend span{display:flex;align-items:center;gap:6px}
 .lg-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
