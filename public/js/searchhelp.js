@@ -109,7 +109,9 @@
   /**
    * Pruh „Nejbližší dny“ pro jeden směr (nearby.out / nearby.back): každý den from..to s nejlevnější známou
    * cenou (cost, nebo null), zadaný den (around), nejlevnější den (best) a dny, které vybrat nejde (před minDate).
-   * Autem tam i zpět je v ceně dne i parkování na celou cestu (parkCzk Kč/os. na parkDays dní, jinak null).
+   * Autem tam i zpět (server, carNear): u Tam parkování na celou cestu (parkCzk Kč/os. na parkDays dní), u Zpět jen
+   * jeho změna proti řádku Tam (parkCzk ±, jinak null) a tripAdj = rozdíl, když by auto stálo u jiného letiště
+   * (from u Tam, to u Zpět) – Tam + Zpět je pak cena celé cesty.
    */
   function nearStrip(side, { minDate = null } = {}) {
     if (!side || !side.from || !side.to) return [];
@@ -121,7 +123,8 @@
       const x = byDate.get(d);
       out.push({
         date: d, cost: x ? x.cost : null, carrierName: x ? x.carrierName : null, stops: x ? x.stops : null,
-        parkCzk: x && x.parkCzk ? x.parkCzk : null, parkDays: x && x.parkCzk ? x.parkDays : null,
+        from: x ? x.from : null, to: x ? x.to : null,
+        parkCzk: x && x.parkCzk ? x.parkCzk : null, parkDays: x && x.parkDays ? x.parkDays : null, tripAdj: x && x.tripAdj ? x.tripAdj : null,
         around: d === side.around, best: Boolean(x && x.cost === min && costs.length > 1), disabled: Boolean(minDate && d < minDate),
       });
     }

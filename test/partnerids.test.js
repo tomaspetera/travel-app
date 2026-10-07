@@ -24,8 +24,11 @@ const tripKeyword = (init) => JSON.parse(init.body).queryInfo.keyword;
 const page = (s) => ({ body: `<!doctype html><html><head><title>x</title></head><body>${s}</body></html>`, headers: { 'content-type': 'text/html; charset=utf-8' } });
 // Agoda: nastavení vyhledávacího pole stránky města (v HTML je „&“ zapsané jako \u0026, „cityId“ je 0).
 const agodaPage = (id) => page(`<script>window.__x={"searchbox":{"maxRooms":9,"defaultSearchURL":"/search?city=${id}\\u0026checkIn=2026-10-16\\u0026los=1\\u0026rooms=1\\u0026adults=2\\u0026children=0","failSafeUrl":"/api/cronos/search/redirect","cityId":0}}</script>`);
-// Hostelworld: odkaz „zobrazit na mapě“ na stránce města vede na hledání webu s ID města.
-const hwPage = (id, city, country) => page(`<a class="map" href="https://www.hostelworld.com/pwa/s?q=${city}%2C+${country}&amp;country=${country}&amp;city=${city}&amp;type=city&amp;id=${id}&amp;page=1&amp;display=map">Mapa</a>`);
+// Hostelworld: v záhlaví stránky města počet hostelů, odkaz „zobrazit na mapě“ vede na hledání webu s ID města.
+const hwHead = (n, city, country) => `<h1 class="headline-main-label" data-v-9eb3450c>Hostels in ${city}</h1><span class="headline-sub-label" data-v-9eb3450c>${n} Hostels  in ${city}, ${country}</span>`;
+const hwPage = (id, city, country, n = 2) => page(`${hwHead(n, city, country)}<a class="map" href="https://www.hostelworld.com/pwa/s?q=${city}%2C+${country}&amp;country=${country}&amp;city=${city}&amp;type=city&amp;id=${id}&amp;page=1&amp;display=map">Mapa</a>`);
+// Stránka města bez hostelů (Lagos, Porto-Novo, Abeokuta, Mikulov 10/2026): „0 Hostels“, žádný odkaz s ID ani nabídky.
+const hwEmpty = (city, country) => page(`${hwHead(0, city, country)}<h3 class="faq-item-question">Alternatives to Hostels in ${city}?</h3><p>Looking for Hostels in ${city}? Check real user reviews.</p><script>window.__NUXT__={data:{numberOfProperties:0,properties:[]}}</script>`);
 // Kolik zbývá do vypršení položky v mezipaměti (30 dní u nalezeného i nenalezeného, hodina u chyby).
 const ttlLeft = (key) => cache.map.get(key).exp - Date.now();
 const DAY = 864e5;
@@ -212,10 +215,12 @@ test('Agoda: ID města ze stránky města → hledání s termínem a hosty; str
   }
 });
 
-test('Hostelworld: jedno GET na stránku města – s ID hledání s termínem a hosty, bez ID stránka města, 404 stránka země, chyba nechá město', async () => {
+test('Hostelworld: jedno GET na stránku města – s ID hledání s termínem a hosty, bez ID stránka města, 404 i „0 Hostels“ stránka země, chyba nechá město', async () => {
   const stub = stubFetch((url, init) => {
     if (url.endsWith('/africa/benin/cotonou/')) return hwPage(5504, 'Cotonou', 'Benin');
-    if (url.endsWith('/europe/czechia/mikulov/')) return page('<h1>Hostels in Mikulov</h1>'); // stránka bez odkazu s ID
+    if (url.endsWith('/europe/czechia/kutna-hora/')) return page('<h1>Hostels in Kutna Hora</h1>'); // bez odkazu s ID i bez počtu
+    if (url.endsWith('/europe/czechia/mikulov/')) return hwEmpty('Mikulov', 'Czech Republic');
+    if (url.endsWith('/africa/nigeria/lagos/')) return hwEmpty('Lagos', 'Nigeria');
     if (url.endsWith('/europe/italy/sabbioneta/')) return { status: 404, body: '<h1>404</h1>', headers: { 'content-type': 'text/html' } };
     if (url.endsWith('/europe/italy/cremona/')) return hang(init);
     return { status: 503, body: '', headers: { 'content-type': 'text/html' } };
@@ -229,14 +234,24 @@ test('Hostelworld: jedno GET na stránku města – s ID hledání s termínem a
     assert.equal(hw(co).url, `https://www.hostelworld.com/pwa/s?type=city&id=5504&from=${ymdPlus(30)}&to=${ymdPlus(33)}&guests=2`);
     assert.deepEqual([hw(co).prefill, hw(co).note], ['full', 'hostely a levná lůžka']);
 
-    const mi = await stays({ city: 'Mikulov', cityEn: 'Mikulov', cc: 'CZ', lat: 48.8056, lon: 16.6378 }, { hostelworld: hostelworldCity });
-    assert.deepEqual([hw(mi).url, hw(mi).prefill, hw(mi).note], ['https://www.hostelworld.com/hostels/europe/czechia/mikulov/', 'city', 'hostely a levná lůžka – zadej data']);
-    assert.ok(ttlLeft('hw-city:https://www.hostelworld.com/hostels/europe/czechia/mikulov/') > 29 * DAY, 'stránka bez ID je stálý stav → 30 dní');
+    // stránka bez odkazu s ID (a bez počtu hostelů) → stránka města, data zadáš na webu
+    const kh = await stays({ city: 'Kutná Hora', cityEn: 'Kutna Hora', cc: 'CZ', lat: 49.948, lon: 15.268 }, { hostelworld: hostelworldCity });
+    assert.deepEqual([hw(kh).url, hw(kh).prefill, hw(kh).note], ['https://www.hostelworld.com/hostels/europe/czechia/kutna-hora/', 'city', 'hostely a levná lůžka – zadej data']);
+    assert.ok(ttlLeft('hw-city:https://www.hostelworld.com/hostels/europe/czechia/kutna-hora/') > 29 * DAY, 'stránka bez ID je stálý stav → 30 dní');
+    // „0 Hostels in Mikulov“ / „0 Hostels in Lagos“: místo hostely nemá (ani s daty nic) → stránka země, poctivá poznámka,
+    // na konci seznamu; stálý stav → 30 dní
+    for (const [city, cc, lat, lon, country] of [['Mikulov', 'CZ', 48.8056, 16.6378, 'europe/czechia'], ['Lagos', 'NG', 6.455, 3.394, 'africa/nigeria']]) {
+      const r = await stays({ city, cityEn: city, cc, lat, lon }, { hostelworld: hostelworldCity });
+      assert.deepEqual([hw(r).url, hw(r).prefill, hw(r).note], [`https://www.hostelworld.com/hostels/${country}/`, 'none', 'v místě hostely nemá – zkus jinde v zemi'], city);
+      assert.equal(r.links.at(-1).id, 'hostelworld', `${city}: Hostelworld na konci`);
+      assert.ok(ttlLeft(`hw-city:https://www.hostelworld.com/hostels/${country}/${city.toLowerCase()}/`) > 29 * DAY, `${city}: 30 dní`);
+    }
+    assert.equal(await hostelworldCity('https://www.hostelworld.com/hostels/africa/nigeria/lagos/'), false, 'z mezipaměti');
+    assert.equal(stub.calls.filter((c) => c.url.includes('/lagos/')).length, 1);
 
     const base = { city: 'Sabbioneta', cityEn: 'Sabbioneta', cc: 'IT', lat: 44.999, lon: 10.489 };
     const sa = await stays(base, { hostelworld: hostelworldCity });
-    assert.deepEqual([hw(sa).url, hw(sa).prefill], ['https://www.hostelworld.com/hostels/europe/italy/', 'none']);
-    assert.match(hw(sa).note, /vyber místo a data/);
+    assert.deepEqual([hw(sa).url, hw(sa).prefill, hw(sa).note], ['https://www.hostelworld.com/hostels/europe/italy/', 'none', 'v místě hostely nemá – zkus jinde v zemi']);
     assert.ok(ttlLeft('hw-city:https://www.hostelworld.com/hostels/europe/italy/sabbioneta/') > 29 * DAY, '404 → 30 dní');
     await stays({ ...base, checkout: ymdPlus(35) }, { hostelworld: hostelworldCity });
     assert.equal(stub.calls.filter((c) => c.url.includes('/sabbioneta/')).length, 1, 'druhé hledání z mezipaměti');

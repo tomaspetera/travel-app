@@ -354,7 +354,7 @@ test('nejbližší dny: cena vč. dopravy na domácí letiště i u návratu (p�
   assert.equal(nearbyDays([l('PRG', 'BCN', '2026-11-16', 1000)], range, range, { groundOf }).days[0].cost, 1060);
 });
 
-test('nejbližší dny autem tam i zpět: cena dne i s parkováním na celou cestu, kdyby se změnil jen ten den', () => {
+test('nejbližší dny autem tam i zpět: parkování na celou cestu u Tam, u Zpět jen jeho změna – Tam + Zpět = cena cesty', () => {
   const l = (from, to, date, czk) => ({ from, to, date, czk, stops: 0, provider: 'kiwi', carrier: 'FR', carrierName: 'Ryanair' });
   // odlet 12. 11., návrat 14. 11. (2 noci); parkování za auto online předem základ + za den, 1 cestující
   const q = { exact: { out: '2026-11-12', back: '2026-11-14', backFrom: '2026-11-14', backTo: '2026-11-14' }, dateFrom: '2026-11-12', dateTo: '2026-11-12', directOnly: false };
@@ -366,18 +366,38 @@ test('nejbližší dny autem tam i zpět: cena dne i s parkováním na celou ces
   const back = [l('BCN', 'PRG', '2026-11-14', 1000), l('BCN', 'PRG', '2026-11-16', 950)];
   const r = nearbyOf({ ...near, out, back, park });
   const day = (side, d) => side.days.find((x) => x.date === d);
-  // o den dřív tam = o den parkování víc
-  assert.deepEqual([day(r.out, '2026-11-11').cost, day(r.out, '2026-11-11').parkCzk, day(r.out, '2026-11-11').parkDays], [1000 + 25 + 590 + 120 * 4, 590 + 120 * 4, 4]);
-  // levnější let z Vídně vyjde s cestou autem a dražším parkováním dráž než z Prahy
-  assert.deepEqual([day(r.out, '2026-11-12').from, day(r.out, '2026-11-12').cost], ['PRG', 1000 + 25 + 590 + 120 * 3]);
+  const cost = (side, d) => day(side, d)?.cost;
+  // cesta autem přes PRG: lety + palivo (25) každým směrem + parkování na celou cestu jen jednou
+  const trip = (o, b) => 1000 + 25 + ({ '2026-11-14': 1000, '2026-11-16': 950 })[b] + 25 + park('PRG', (Date.parse(b) - Date.parse(o)) / 864e5);
+  // zadané dny: Tam = let + palivo + parkování na celou cestu (2 noci = 3 dny), Zpět = let + palivo – parkování jen jednou
+  assert.deepEqual([cost(r.out, '2026-11-12'), day(r.out, '2026-11-12').parkCzk, day(r.out, '2026-11-12').parkDays], [1000 + 25 + 950, 950, 3]);
+  assert.deepEqual([cost(r.back, '2026-11-14'), day(r.back, '2026-11-14').parkCzk], [1000 + 25, undefined]);
+  assert.equal(cost(r.out, '2026-11-12') + cost(r.back, '2026-11-14'), trip('2026-11-12', '2026-11-14'));
+  // o den dřív tam = o den parkování víc; zpět o dva dny později = jen změna parkování (+2 dny) u Zpět
+  assert.deepEqual([cost(r.out, '2026-11-11'), day(r.out, '2026-11-11').parkDays], [1025 + 590 + 120 * 4, 4]);
+  assert.deepEqual([cost(r.back, '2026-11-16'), day(r.back, '2026-11-16').parkCzk, day(r.back, '2026-11-16').parkDays], [950 + 25 + 240, 240, 5]);
+  // Tam + Zpět = cena celé cesty pro každou dvojici dnů (parkování je přímka základ + Kč/den)
+  for (const o of ['2026-11-11', '2026-11-12']) {
+    for (const b of ['2026-11-14', '2026-11-16']) assert.equal(cost(r.out, o) + cost(r.back, b), trip(o, b), `${o} → ${b}`);
+  }
+  // levnější let z Vídně: auto by stálo ve Vídni, kam se v den návratu nevrací žádný let → s ním cesta autem nejde
+  assert.equal(day(r.out, '2026-11-12').from, 'PRG');
   // den tam po zadaném návratu: návrat se posune se stejným počtem nocí (jako po kliknutí na den)
   assert.equal(day(r.out, '2026-11-15').parkDays, 3);
-  // zpět: auto stojí u letiště příletu zpět, noci od zadaného odletu
-  assert.deepEqual([day(r.back, '2026-11-16').cost, day(r.back, '2026-11-16').parkDays], [950 + 25 + 590 + 120 * 5, 5]);
-  assert.equal(day(r.back, '2026-11-14').cost, 1000 + 25 + 590 + 120 * 3);
+  // jiné letiště: návrat do Vídně 14. 11. a levný odlet z Vídně 13. 11. → den tam 13. 11. přes Vídeň i s rozdílem
+  // návratu k autu (do Vídně místo do Prahy), den zpět přes Vídeň s rozdílem odletu (z Vídně místo z Prahy)
+  const out2 = [...out, l('VIE', 'BCN', '2026-11-13', 100)];
+  const back2 = [...back, l('BCN', 'VIE', '2026-11-14', 600)];
+  const r2 = nearbyOf({ ...near, out: out2, back: back2, park });
+  const v = day(r2.out, '2026-11-13');
+  assert.deepEqual([v.from, v.cost, v.parkCzk, v.tripAdj], ['VIE', 100 + 500 + park('VIE', 1) + (600 + 500 - 1025), park('VIE', 1), 600 + 500 - 1025]);
+  assert.equal(v.cost + cost(r2.back, '2026-11-14'), 600 + 1100 + park('VIE', 1), 'cesta 13. → 14. 11. přes Vídeň');
+  assert.equal(cost(r2.back, '2026-11-14'), 1025, 'návrat do Prahy (tam stojí auto nejlevnější cesty) zůstává');
   // veřejnou dopravou (bez parkování) beze změny: jen let a doprava na letiště
   const t = nearbyOf({ ...near, out, back });
   assert.deepEqual([day(t.out, '2026-11-12').from, day(t.out, '2026-11-12').cost, day(t.out, '2026-11-12').parkCzk], ['PRG', 1025, undefined]);
+  assert.equal(cost(t.out, '2026-11-15'), 925);
+  assert.equal(cost(t.back, '2026-11-16'), 975);
   // jen tam (bez návratu) se neparkuje
   const ow = nearbyOf({ ...near, q: { ...q, exact: { out: '2026-11-12', back: null } }, nearBack: null, out, back: [], park });
   assert.equal(day(ow.out, '2026-11-12').parkCzk, undefined);

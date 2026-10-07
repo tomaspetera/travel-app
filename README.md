@@ -44,8 +44,10 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
    **Trip.com**, **Hotels.com**, **Kayak**, **Google Hotels**, **Agoda** a **Hostelworld** předvyplněné na místo, tvoje
    data a počet hostů. U Trip.com, Agody a Hostelworldu k tomu server jednou dohledá jejich vlastní ID místa (v mezipaměti
    30 dní); kde ho partner nemá, zůstane odkaz bez něj – Trip.com vyplní místo a data do formuláře (označeno „potvrď
-   Hledat“), Agoda otevře úvodní stránku, Hostelworld stránku města (data zadáš na webu – označeno „zadej data“), menší
-   místo, které Hostelworld nemá, jeho stránku země. Bez klíče LiteAPI zůstanou jen odkazy a cenu zapíšeš ručně.
+   Hledat“), Agoda otevře úvodní stránku, Hostelworld stránku města (data zadáš na webu – označeno „zadej data“); místo,
+   kde Hostelworld hostely nemá (stránka města chybí nebo hlásí „0 Hostels“ – Lagos, Porto-Novo, Mikulov), dostane
+   stránku země s poznámkou „v místě hostely nemá – zkus jinde v zemi“ a až na konci seznamu. Kayak se otevře česky
+   a v Kč (cz.kayak.com). Bez klíče LiteAPI zůstanou jen odkazy a cenu zapíšeš ručně.
 4. **Auto** (nepovinné) – vyzvednutí na letišti 45 min po příletu, vrácení 2 h před odletem, předvyplněné srovnávače.
 5. **Program** – místa k vidění kolem ubytování rozdělená do dnů podle polohy (den příletu a odletu je kratší),
    každý den jako pěší trasa s odkazem do Google Map; volíš zájmy a tempo, místa můžeš vyřadit nebo přidat.
@@ -123,7 +125,7 @@ až po startu, takže nezdržuje první vykreslení.
 | **Mapa výsledků** | Všechny destinace na mapě obarvené podle ceny. |
 | **Kam za teplem** | Volba 🌡️ Za teplem (≥ 20 / 25 / 30 °C) pustí jen cíle, kde je v měsíci odletu dlouhodobě aspoň tolik stupňů (NASA POWER, průměr 2001–2020). U každé nabídky je štítek s teplotou a řazení „Nejtepleji“. |
 | **Cena i se zavazadly** | 🧳 Zavazadla (kabinový kufr / kufr k odbavení) přičte odhad poplatku podle dopravce (~95 aerolinek, ověřeno na jejich webech 10/2026) – nízkonákladovky se tak férově porovnají s klasickými aerolinkami. |
-| **Hlídání cen + živý radar** | Ulož hledání ♡ a nastav cílovou cenu. Dokud máš ATLAS otevřený v prohlížeči, kontroluje ho sám zhruba jednou za 6 h, kreslí vývoj ceny a při zlevnění o 3 % nebo pod cílovou částku se ozve (i upozorněním prohlížeče). Radar ukazuje nejlevnější lety z tvého okolí na příštích 6 týdnů. |
+| **Hlídání cen + živý radar** | Ulož hledání ♡ a nastav cílovou cenu. Dokud máš ATLAS otevřený v prohlížeči, kontroluje ho sám zhruba jednou za 6 h, kreslí vývoj ceny a při zlevnění o 3 % nebo pod cílovou částku se ozve (i upozorněním prohlížeče). Stejné hledání (stejný dotaz – nezáleží na pořadí míst) se hlídá jen jednou: uložíš-li ho znovu (♡ pod formulářem i v *Je to dobrá cena?*), jen se mu aktualizuje cena a panel ukáže *✓ Tohle hledání už hlídáš*. Radar ukazuje nejlevnější lety z tvého okolí na příštích 6 týdnů. |
 
 ## Odkud bere ceny
 
@@ -209,7 +211,7 @@ počítá se změřená cena, viz výše), Brno → Bratislava 129–279 Kč.
   jedním směrem (dřívějších 2,6 Kč/km dávalo 871 Kč); elektroautem 335 km × 19 kWh/100 km × 16 Kč/kWh = 1 018 Kč.
 - **Parkování u letiště podle délky cesty – online předem**: N nocí = N + 1 započatých dní; cena = **základ + sazba
   za den** nejlevnějšího oficiálního dlouhodobého parkoviště s rezervací online (nebo smluvního s kyvadlovou dopravou,
-  když je zjevně levnější – Vídeň, Bratislava) – krátké stání vyjde na den dráž než dlouhé. U 17 letišť ověřeno 10/2026:
+  když je zjevně levnější – Vídeň, Bratislava) – krátké stání vyjde na den dráž než dlouhé. U 18 letišť ověřeno 10/2026:
   ceny na 1, 3, 7 a 14 dní proložené nejmenšími čtverci (tabulka níže); v Pardubicích se parkuje zdarma. Ostatní
   letiště jsou **odhad** (viz pod tabulkou). Počítá se u každé nabídky podle jejích nocí (optimalizátor), ne za letiště –
   na víkend může vyjít Vídeň, na dva týdny Praha.
@@ -226,8 +228,8 @@ počítá se změřená cena, viz výše), Brno → Bratislava 129–279 Kč.
 - **Elektroauto** platí parkování i dálniční známky stejně jako spalovací auto – výjimky a slevy pro elektroauta (kde
   existují) se nepočítají.
 
-**Parkování na ověřených letištích** – ceny online předem zjištěné 6. 10. 2026 pro auto přijíždějící 27. 10. (Praha,
-Vídeň) a 28. 10. 2026 (ostatní), přepočet 24,4 Kč/€, 5,8 Kč/zł, 0,064 Kč/Ft; model = základ + Kč za den:
+**Parkování na ověřených letištích** – ceny online předem zjištěné 6. 10. 2026 (Vratislav 7. 10.) pro auto přijíždějící
+27. 10. (Praha, Vídeň) a 28. 10. 2026 (ostatní), přepočet 24,4 Kč/€, 5,8 Kč/zł, 0,064 Kč/Ft; model = základ + Kč za den:
 
 | Letiště | Parkoviště, zdroj | Online 1 / 3 / 7 / 14 dní | Pro srovnání | Model (Kč) |
 |---|---|---|---|---|
@@ -247,22 +249,26 @@ Vídeň) a 28. 10. 2026 (ostatní), přepočet 24,4 Kč/€, 5,8 Kč/zł, 0,064 
 | Lipsko | nejlevnější volné (P6, P2, Parkhaus), parken.leipzig-halle-airport.de | 30 / 50 / 90 / 115 € | P2 na místě 60 / 75 / 95 / 130 € | 750 + 160 |
 | Katovice | P4 / P5 (online −5 %), katowice-airport.com | 37 / 66 / 132 / 189 zł | na místě 39 / 69 / 139 / 199 zł | 190 + 70 |
 | Krakov | KRK Parking 350 m od terminálu, krakowairportparking.pl (oficiální parkoviště) | 80 / 120 / 200 / 280 zł | P2 / P3 na místě 160 / 200 / 280 / 420 zł | 430 + 90 |
+| Vratislav | Parking D dlouhodobý, rezerwacja.airport.wroclaw.pl (rezervace aspoň 4 dny i 1–3 dny předem stejně) | 79 / 139 / 199 / 269 zł | bez rezervace 99 / 189 / 319 / 389 zł; Parking A/B/C/D online 89 / 169 / 299 / 519 zł | 630 + 70 \* |
 | Budapešť | Relax Parking (bus k terminálu), parkolo.bud.hu | 5 831 / 9 150 / 13 200 / 16 725 Ft | na místě 7 800 / 12 400 / 20 400 / 32 400 Ft | 400 + 50 |
 
-Přímka přes 1–14 dní sedí do ±15 % (jeden den do ±30 %). \* Ceník po týdnech, kde jedna přímka sedí špatně: proloženo jen
-3–14 dní, typickou cestu (Linec, Salcburk, Norimberk, Berlín do ±7 %; v Karlových Varech cena po 8 dnech skočí z 500 na
-1 000 Kč a přímka je místy až o třetinu vedle) – jeden den pak vyjde až 2× dráž. Norimberk je 28. 10. ještě v hlavní
-sezóně, v listopadu je o třetinu levnější. **Odhad** zůstává u Vratislavi (web letiště i rezervace za ochranou proti
-botům, ověřit nešlo) a u ostatních letišť – z dřívější denní sazby p (týden ≈ 8 × p): velká (p ≥ 250 Kč) základ
-≈ 2,9 × p + ≈ 0,55 × p za den (Frankfurt 1 450 + 280, Štýrský Hradec, Innsbruck, Lublaň 730 + 140), menší a regionální
-nižší základ ≈ 1,5 × p + ≈ 0,8 × p za den (Vratislav, Poznaň, Košice 230 + 120, Budějovice 120 + 60…); letiště mimo
-tabulku podle velikosti.
+Přímka přes 1–14 dní sedí do ±15 % (jeden den do ±30 %). \* Ceník po týdnech (nebo silně degresivní), kde jedna přímka
+sedí špatně: proloženo jen 3–14 dní, typickou cestu (Linec, Salcburk, Norimberk, Berlín do ±7 %; Vratislav – první den
+79 zł, 7–9 dní stejně 199 zł – do ±5 %, celý online ceník 3–16 dní do ±11 %; v Karlových Varech cena po 8 dnech skočí
+z 500 na 1 000 Kč a přímka je místy až o třetinu vedle) – jeden den pak vyjde až 2× dráž (Vratislav 700 Kč místo 458 Kč).
+Norimberk je 28. 10. ještě v hlavní sezóně, v listopadu je o třetinu levnější. **Odhad** zůstává u ostatních letišť – z
+dřívější denní sazby p (týden ≈ 8 × p): velká (p ≥ 250 Kč) základ ≈ 2,9 × p + ≈ 0,55 × p za den (Frankfurt 1 450 + 280,
+Štýrský Hradec, Innsbruck, Lublaň 730 + 140), menší a regionální nižší základ ≈ 1,5 × p + ≈ 0,8 × p za den (Poznaň,
+Košice 230 + 120, Budějovice 120 + 60…); letiště mimo tabulku podle velikosti.
 
 **Kde to uvidíš:** u letišť pod polem Odkud (*~220 Kč/os. tam*, autem *~750 Kč/os. vč. parkování na 8 dní* pro typickou
 délku cesty z formuláře; po najetí myší rozpis – autem *palivo 335 km × 6 l/100 km × 50,65 Kč/l = 1 018 Kč, tam i zpět
 ~2 036 Kč + parkování online předem ~850 Kč + 150 Kč/den × 8 dní …* a odkud je cena), u ceny nabídky (*+ doprava na
 letiště a zpět 450 Kč/os.*, autem *+ autem na letiště a zpět …* s rozpisem paliva a parkování), v pruhu *📅 Nejbližší
-dny* (autem i s parkováním na celou cestu, kdyby se změnil jen ten den – den odletu dřív = den parkování navíc), v patičce
+dny* (autem se řádky Tam a Zpět sečtou na cenu celé cesty: parkování na celou cestu je u Tam – den odletu dřív = den
+parkování navíc –, u Zpět jen o kolik se změní proti zadanému návratu; den, kdy by auto stálo u jiného letiště, má
+v ceně i rozdíl letu k autu a zpět; např. Praha → Londýn 28. 10.–2. 11. s cenami ze 7. 10. 2026: Tam 3 145 + Zpět
+818 = 3 963 Kč/os., dřív Zpět 1 473 s parkováním podruhé), v patičce
 výsledků a v průvodci cestou (*Autem na letiště a zpět (nafta, parkování, odhad)*, *Elektroautem na letiště PRG …*).
 *Je to dobrá cena?* dál srovnává jen cenu letenek. Uložená hledání
 a hlídané ceny z doby, kdy se doprava zadávala v Kč/km (1,1 Kč/km), se převedou na výchozí odhad veřejnou dopravou;
@@ -270,7 +276,7 @@ dřívější Kč/km za auto: výchozích 2,6 → nafta za aktuální cenu, jin�
 (3,5 Kč/km = 58,33 Kč/l při 6 l/100 km).
 
 Jízdné a parkování jsou orientační (ceníky dopravců 2025/26, ~25 Kč/€, ~5,8 Kč/zł, ~0,065 Kč/Ft; parkování na
-17 letištích ověřené 10/2026, jinde odhad) – skutečná cena záleží na spoji, slevách, termínu, sezóně a obsazenosti
+18 letištích ověřené 10/2026, jinde odhad) – skutečná cena záleží na spoji, slevách, termínu, sezóně a obsazenosti
 parkoviště.
 
 ### Aktuální ceny paliva a nabíjení
@@ -625,7 +631,8 @@ cesta z města příjezdu (ne z letiště):
   nic, jinde jako u ostatních vlaků; Eurostar z/do Londýna má v minutách **odbavení 60 min** (Eurostar doporučuje přijít
   75 min před odjezdem v Londýně, 45–90 min jinde; kontrola pasů je jeho součástí), hranice se proto nepřičítá podruhé.
   K nádražím daleko za městem minuty navíc (Whoosh: Halim +25, Tegalluar +42; Buchara-Kogon +15). Takový přejezd má
-  v odpovědi `fast: true` a průvodce u jeho času veřejnou dopravou píše *(jízdní řád)* místo *(odhad)*.
+  v odpovědi `fast: true` a průvodce u jeho času veřejnou dopravou píše jen *vlakem (jízdní řád)* místo *vlakem / busem
+  (odhad)* – v trase, shrnutí, kalendáři i poznámkách plánovače (Vídeň → Brno *~1 h 50 min vlakem (jízdní řád)*).
 - **Zdroje tabulky (ověřeno 6. 10. 2026):** ÖBB Scotty (fahrplan.oebb.at – jízdní řády evropských železnic v systému
   HAFAS): všechny přímé vlaky dne v út 27. 10. a čt 12. 11. 2026 (při výluce – méně vlaků, objížďka – hodnota ze dne bez
   ní, kontrolně út 13. 10.); Amtrak GTFS (feed z 6. 10. 2026); seat61.com (Maroko, Turecko, Uzbekistán, Indie, Indonésie –
@@ -687,7 +694,7 @@ cesta z města příjezdu (ne z letiště):
 - Kombinace dvou aerolinek / různých letišť jsou **dvě samostatné letenky** – při zpoždění prvního letu druhá aerolinka
   nečeká. Aplikace to u výsledku označí.
 - Doprava na letiště je jen odhad: jízdné podle vzdálenosti a tabulky cest na ~35 letišť (ne jízdní řád ani živé ceny),
-  parkování online předem jako základ + sazba za den (17 letišť proložených ceníky ověřenými 10/2026 – u týdenních ceníků
+  parkování online předem jako základ + sazba za den (18 letišť proložených ceníky ověřenými 10/2026 – u týdenních ceníků
   přesně jen na 3–14 dní –, ostatní odhad; skutečná cena se mění se sezónou a obsazeností) a dálniční známky podle
   orientačních ceníků 2025/26. Cena nafty a benzínu je celostátní týdenní průměr
   (u dálnice bývá vyšší, za hranicí platí cena země, odkud jedeš), spotřeba je zadaná, ne podle auta, rychlosti a zimy;
@@ -701,18 +708,21 @@ cesta z města příjezdu (ne z letiště):
   spoj ověř přes odkaz. Země bez kódu z Wikidat se dopočítá podle nejbližšího letiště, takže
   u místa těsně u hranice může vyjít sousední země (Basilej → Francie).
 - Odkazy na partnery ubytování: Booking.com, Airbnb, Hotels.com, Kayak a Google Hotels dostanou místo, data i počet hostů
-  (Kayak „Město-Země“ anglicky, protože samotné jméno víceznačné místo pošle jinam – Lagos do Portugalska; Google Hotels
+  (Kayak „Město-Země“ anglicky, protože samotné jméno víceznačné místo pošle jinam – Lagos do Portugalska, a na české
+  verzi cz.kayak.com, která se otevře česky s cenami v Kč – stejně odkaz na půjčení auta; Google Hotels
   termín a hosty v parametru `ts`, jehož formát Google nezveřejňuje – kdyby ho změnil, zůstane jen místo). Trip.com,
   Agoda a Hostelworld potřebují k předvyplnění své vlastní ID místa: server ho u každého jednou dohledá – Trip.com
   v našeptávači svého webu (`cityId`; ze stejnojmenných měst to nejbližší k místu, nejvýš 50 km – „Porto Novo“ je
   i na Kapverdách), Agoda ze stránky města `/city/<město>-<země>.html`, Hostelworld ze stránky města (odkaz na jeho
   hledání) – a výsledek drží v mezipaměti 30 dní (chybu hodinu). Na místo a partnera je to jeden dotaz s timeoutem 4 s
   bez opakování, souběžně s hledáním hotelů, a když selže, hledání ubytování nespadne. S ID odkaz rovnou ukáže nabídky
-  na termín a hosty. Kde ID není (Agoda nemá stránku Porto-Novo, Hostelworld u Mikulova stránku bez odkazu s ID), nebo
-  kdyby partner svůj web změnil, zůstane dosavadní odkaz: Trip.com vyplní místo, termín i hosty do formuláře (hledání
-  potvrdíš), Agoda otevře úvodní stránku, Hostelworld stránku města (data zadáš), a místo, které Hostelworld nemá
-  (404), jeho stránku země. `PARTNER_LOOKUP=0` dohledávání vypne, DEMO se partnerů neptá. Ověřeno 6. 10. 2026 ve
-  skutečném Chromu (Hotels.com předvyplní místo, termín i hosty).
+  na termín a hosty. Kde ID není (Agoda nemá stránku Porto-Novo), nebo kdyby partner svůj web změnil, zůstane dosavadní
+  odkaz: Trip.com vyplní místo, termín i hosty do formuláře (hledání potvrdíš), Agoda otevře úvodní stránku, Hostelworld
+  stránku města (data zadáš). Místo, kde Hostelworld hostely nemá – stránka města chybí (404) nebo v záhlaví hlásí
+  „0 Hostels in …“ a odkaz s ID nemá (Lagos, Porto-Novo, Abeokuta, Mikulov, Telč 10/2026; i s daty by na ní nic nebylo)
+  –, dostane stránku země s poznámkou „v místě hostely nemá – zkus jinde v zemi“ a odkaz se přesune na konec seznamu.
+  `PARTNER_LOOKUP=0` dohledávání vypne, DEMO se partnerů neptá. Ověřeno 6. a 7. 10. 2026 ve skutečném Chromu (Hotels.com
+  předvyplní místo, termín i hosty; Trip.com zůstává anglicky v USD – česká verze s Kč neexistuje).
 - Vlak mimo tabulku přímých spojů je čas autem + cesta na nádraží: na regionálních tratích sedí, na rychlé trati,
   která v tabulce chybí, bývá ve skutečnosti kratší (mezi městy z tabulky platí jízdní řád – Vídeň → Brno ~1 h 50 min).
 - Cesta přes víc měst = samostatné letenky na každý let; přejezdy mezi městy (třeba Řím → Neapol) ATLAS nepočítá do ceny ani nehledá.

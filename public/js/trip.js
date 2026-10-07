@@ -131,9 +131,10 @@
   // Cena vybraného ubytování (hotel nebo ručně zadaná cena; „jen odkazy“ a „neřeším“ = 0).
   const stayCzk = s => s && (s.mode === 'pick' || s.mode === 'manual') ? Math.round(s.totalCzk || 0) : 0;
   const hotelName = s => s && (s.mode === 'pick' || s.mode === 'manual') ? s.name || '' : '';
-  // Veřejná doprava přejezdu (ze serveru): 'rail' = mezi městy se jezdí vlakem, 'bus' = autobusy a minibusy.
+  // Veřejná doprava přejezdu (ze serveru): 'rail' = mezi městy se jezdí vlakem, 'bus' = autobusy a minibusy;
+  // přímý vlak z tabulky spojů (fast, čas podle jízdního řádu) jen „vlakem“.
   const trIcon = (tr, x) => tr === 'transit' ? (x && x.transitKind === 'bus' ? '🚌' : '🚆') : '🚗';
-  const kindTxt = x => (x && x.transitKind === 'bus' ? 'autobusem / minibusem' : 'vlakem / busem');
+  const kindTxt = x => (x && x.transitKind === 'bus' ? 'autobusem / minibusem' : x && x.fast ? 'vlakem' : 'vlakem / busem');
   const legMin = (x, tr) => x ? (tr === 'transit' ? x.transitMin : x.carMin) : null;
   const legTxt = (x, tr) => tr === 'transit' ? `~${minutesToHm(x.transitMin)} ${kindTxt(x)}` : `${x.km} km · ~${minutesToHm(x.carMin)} autem`;
   // Autem podle trasy z plánovače (s provozem a hranicí), jinak odhad; veřejná doprava je odhad, jen přímý vlak
