@@ -16,7 +16,7 @@
 .src.on{color:var(--text)}.src.on i{opacity:1}.src.on span{color:var(--good)}
 
 /* hero */
-.hero-search2{margin-top:22px;display:grid;grid-template-columns:1fr 1fr auto;gap:10px;max-width:860px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:8px;border-radius:16px;backdrop-filter:blur(10px)}
+.hero-search2{margin-top:22px;display:grid;grid-template-columns:1fr 1fr auto;gap:10px;max-width:860px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:8px;border-radius:16px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .hs-field{display:flex;flex-direction:column;padding:4px 8px;min-width:0}
 .hs-lab{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:rgba(255,255,255,.7)}
 .hero-search2 .btn{align-self:stretch;padding:0 22px}
@@ -88,7 +88,8 @@
 .input.sm{width:68px;padding:8px 10px;text-align:center}
 .input.xs{width:62px;padding:4px 6px;display:inline-block;text-align:center}
 details.more{margin-top:16px;border-top:1px solid var(--border);padding-top:12px}
-details.more summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--muted);list-style:none;user-select:none}
+details.more summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--muted);list-style:none;-webkit-user-select:none;user-select:none}
+details.more summary::-webkit-details-marker{display:none} /* Safari: bez vlastní šipky navíc */
 details.more summary::before{content:'⚙️ ';}
 details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .more-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
@@ -341,7 +342,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .sh-guide{margin-top:10px;font-size:12.5px}
 .guide-link{font-size:12.5px}
 .smart-guide{padding:0;margin-top:18px;overflow:hidden}
-.smart-guide summary{cursor:pointer;list-style:none;padding:14px 18px;display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;font-weight:800;font-size:15px;user-select:none}
+.smart-guide summary{cursor:pointer;list-style:none;padding:14px 18px;display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;font-weight:800;font-size:15px;-webkit-user-select:none;user-select:none}
 .smart-guide summary::-webkit-details-marker{display:none}
 .smart-guide summary::after{content:'▾';margin-left:auto;color:var(--muted)}
 .smart-guide[open] summary::after{content:'▴'}
