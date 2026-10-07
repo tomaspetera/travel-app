@@ -311,7 +311,7 @@
           }
         } else if (W.daysAhead(s.date) > W.AHEAD) {
           const n = await W.normal(s.lat, s.lon, s.date);
-          const why = 'dlouhodobý průměr (NASA POWER), ne předpověď – ta je nejvýš na 15 dní dopředu';
+          const why = 'dlouhodobý průměr (meteostanice u blízkého letiště, jinak NASA POWER), ne předpověď – ta je nejvýš na 15 dní dopředu';
           put(s, !n ? '' : s.route ? `📅 ${esc(n.text)} <span class="faint">– ${why}</span>`
             : `<span class="wx avg" title="${esc(`${n.text} – ${why}`)}">obvykle ${esc(n.hi)}°<small> / ${esc(n.lo)}°</small></span>`);
         } else put(s, '');

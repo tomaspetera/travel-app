@@ -1,7 +1,8 @@
-// Podnebí (NASA POWER, data/climate.json) a hledání „za teplem“: buňky, filtr podle teploty,
+// Podnebí (meteostanice u letišť a NASA POWER, data/climate.json) a hledání „za teplem“: buňky, filtr podle teploty,
 // Kiwi prohledává jen teplé země (stejný nebo menší počet dotazů).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { stubFetch } from './helpers.js';
 
 process.env.ATLAS_MOCK = '0';
@@ -52,11 +53,42 @@ test('podnebí u letiště, v měsíci a náhradní sousední buňka do 1°', ()
   assert.equal(monthClimate('ZZZ', '2027-01-10'), null);
   // stejná buňka jako letiště
   assert.deepEqual(climateAt(50.1, 14.26), airportClimate('PRG'));
-  // oceán u Ascensionu: vlastní buňka chybí → nejbližší sousední (letiště ASI)
-  assert.deepEqual(climateAt(-8.8, -15.2), airportClimate('ASI'));
+  // oceán u Ascensionu: vlastní buňka chybí → nejbližší sousední (buňka letiště ASI; bod v ní 25 km od letiště,
+  // tedy mimo dosah jeho meteostanice)
+  assert.deepEqual(climateAt(-8.8, -15.2), climateAt(-8.1, -14.6));
+  assert.equal(climateAt(-8.8, -15.2).src, 'nasa');
   assert.equal(climateAt(0, -30), null, 'uprostřed Atlantiku nic do 1°');
   assert.equal(climateAt(95, 0), null);
   assert.equal(climateAt('x', 14), null);
+});
+
+test('meteostanice u letišť: přednost před buňkou NASA, zdroj a místa do 10 km', () => {
+  const tfs = airportClimate('TFS');
+  assert.equal(tfs.src, 'wmo', 'Tenerife Jih: normály WMO 1991–2020');
+  assert.ok(tfs.hi[0] >= 22, `Tenerife Jih v lednu přes den ~23 °C (buňka NASA s mořem jen 19): ${tfs.hi[0]}`);
+  const her = airportClimate('HER');
+  assert.equal(her.src, 'ghcn', 'Heraklion: Řecko normály WMO neposlalo → průměr z denních měření GHCN');
+  assert.ok(her.hi[6] >= 28 && her.hi[6] <= 32, `Heraklion v červenci: ${her.hi[6]}`);
+  // centrum Málagy 8 km od letiště → stanice na letišti
+  assert.deepEqual(climateAt(36.72, -4.42), airportClimate('AGP'));
+  // Santa Cruz de Tenerife u letiště Tenerife Sever (632 m n. m., chladnější než město u moře) → buňka NASA
+  assert.equal(climateAt(28.46, -16.25).src, 'nasa');
+  assert.equal(airportClimate('RHO').src, 'nasa', 'Rhodos stanici s daty nemá');
+});
+
+test('data/climate.json: každé letiště vede na data, stanice mají 12 měsíců a maxima nad minimy', () => {
+  const d = JSON.parse(readFileSync(new URL('../data/climate.json', import.meta.url), 'utf8'));
+  let stations = 0;
+  for (const [iata, key] of Object.entries(d.airports)) {
+    if (!key.includes(':')) continue;
+    stations++;
+    const v = d.cells[key];
+    assert.equal(v?.length, 36, `${iata} → ${key}`);
+    assert.ok(v.slice(0, 12).every((h, i) => h >= v[12 + i]), key);
+    assert.ok(d.stations[key], `${key} má popis stanice`);
+  }
+  assert.ok(stations > 2000, `letišť se stanicí: ${stations}`);
+  assert.ok(d.near.length > 1500 && d.near.every(([la, lo, key]) => Math.abs(la) <= 90 && Math.abs(lo) <= 180 && d.cells[key]));
 });
 
 test('teplá letiště země a podnebí hlavního letiště země', () => {
@@ -152,7 +184,7 @@ test('kamkoliv za teplem v lednu: místo „kamkoliv“ a Evropy jen teplé zem�
   assert.equal(bkk.dest.climate.m, 1);
   assert.equal(bkk.dest.climate.hi, bkk.best.tempHi);
   assert.equal(r.warm.minTemp, 25);
-  assert.ok(r.warm.dropped >= 1 && r.warm.dests === 1);
+  assert.ok(r.warm.dests >= 1 && r.warm.dropped >= r.warm.dests, `vyřazené chladné cíle (Barcelona, Dubaj ~24 °C): ${JSON.stringify(r.warm)}`);
   assert.ok(r.warm.maxHi < 25);
 });
 
@@ -171,11 +203,14 @@ test('za teplem v červenci: teplo je i ve většině Evropy → „kamkoliv“ 
   const { calls } = await kiwiSearch({ dateFrom, dateTo, minTemp: 25 });
   const to = calls.map((a) => a.flyTo);
   assert.equal(to[0], 'anywhere');
-  const es = to.find((x) => x.split(',').includes('AGP'));
-  assert.ok(es && !es.includes('BIO'), `Španělsko bez chladnějšího severu: ${es}`);
+  // Španělsko je v červenci teplé skoro celé (chladnější jsou jen Asturie a Santiago) → dotaz na zemi;
+  // z Portugalska jen teplá letiště, bez chladnějšího Porta
+  assert.ok(to.includes('ES'), String(to));
+  const pt = to.find((x) => x.split(',').includes('LIS'));
+  assert.ok(pt && pt.includes('FAO') && !pt.includes('OPO'), `Portugalsko bez chladnějšího severu: ${pt}`);
   assert.ok(to.includes('GR'), String(to));
   assert.ok(calls.length <= 1 + LONG_HAUL_SWEEP.length);
-  assert.ok(calls.filter((a) => a.flyTo === 'GR' || a.flyTo === es).every((a) => a.flyFrom === 'PRG'), 'do Evropy bez přestupních letišť');
+  assert.ok(calls.filter((a) => a.flyTo === 'GR' || a.flyTo === 'ES').every((a) => a.flyFrom === 'PRG'), 'do Evropy bez přestupních letišť');
 });
 
 test('za teplem v září: kromě jižní Evropy i teplé dálkové země (Egypt, Emiráty) jako bez filtru', async () => {

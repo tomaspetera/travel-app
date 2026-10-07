@@ -194,7 +194,7 @@ function modalOpen(html) { $('#modal').innerHTML = html; $('#modalBg').classList
 function modalClose() { $('#modalBg').classList.remove('show'); }
 $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) modalClose(); };
 function monthsStrip(best) { const now = new Date().getMonth() + 1; return `<div class="months">${MNS.map((m, i) => `<div class="m ${best && best.includes(i + 1) ? 'best' : ''} ${i + 1 === now ? 'now' : ''}">${m}</div>`).join('')}</div>`; }
-// Průměrná denní maxima po měsících (NASA POWER, /api/climate); bez dat jen zástupné buňky stejné výšky.
+// Průměrná denní maxima po měsících (/api/climate: meteostanice u hlavního letiště, jinak NASA POWER); bez dat jen zástupné buňky stejné výšky.
 const tempBg = t => `hsl(${Math.max(0, Math.min(220, 220 - (t + 5) * 6.3))} 85% 55% / .28)`;
 function climStrip(c) {
   const now = new Date().getMonth() + 1;
@@ -215,6 +215,7 @@ async function loadClimate(iso) {
     if (curIso !== iso || !box || !Array.isArray(c.hi)) return;
     $('.months', box).outerHTML = climStrip(c);
     $('#climWhere').textContent = c.city ? `· ${c.city} (${c.iata})` : '';
+    if (c.source) box.title = `Dlouhodobý průměr: ${c.source}. Není to předpověď.`;
   } catch (e) {
     // bez údajů o podnebí se řádek prostě nezobrazí
     const box = $('#climBox'); if (box && curIso === iso) box.remove();
@@ -249,7 +250,7 @@ function openCountry(iso) {
      </div>
      ${iso !== 'CZ' && window.Entry ? `<div id="entryBox">${Entry.ready() ? Entry.detailHtml(iso) : `<div class="faint" style="font-size:12.5px;margin-top:12px">🛂 Načítám vstupní podmínky… (jinak je najdeš na <a href="${mzv}" target="_blank" rel="noopener">webu MZV ČR</a>)</div>`}</div>` : ''}
      <div style="margin-top:14px"><div class="k" style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em">Nejlepší období${c.months ? '' : ' — orientačně'}</div>${monthsStrip(c.months)}</div>
-     <div id="climBox" style="margin-top:12px" title="Dlouhodobý průměr let 2001–2020 (NASA POWER) – není to předpověď"><div class="k clim-k">Průměrná denní maxima <span id="climWhere" class="faint"></span></div>${climStrip(null)}</div>
+     <div id="climBox" style="margin-top:12px" title="Dlouhodobý průměr – není to předpověď"><div class="k clim-k">Průměrná denní maxima <span id="climWhere" class="faint"></span></div>${climStrip(null)}</div>
      ${c.tags ? `<div class="tags" style="margin-top:16px">${c.tags.map(t => `<span class="chip accent">${t}</span>`).join('')}</div>` : ''}
      ${c.blurb ? `<p class="muted" style="margin-top:14px;font-size:14px">${c.blurb}</p>` : ''}
      <div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Bezpečnostní a geopolitická situace se mění. Před cestou si vždy ověř aktuální doporučení na <a href="${mzv}" target="_blank" rel="noopener" style="color:var(--info);text-decoration:underline">MZV ČR</a>.</div></div>

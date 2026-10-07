@@ -27,7 +27,7 @@ import { isYmd, daysBetween } from './lib/dates.js';
 import { affiliateOn } from './lib/links.js';
 import { HttpError } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
-import { airportClimate, climateAt, climateSource, countryClimate } from './lib/climate.js';
+import { airportClimate, climateAt, countryClimate, sourceText } from './lib/climate.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 import { serveIndex, serveServiceWorker } from './lib/pwa.js';
@@ -328,7 +328,7 @@ async function route(req, res) {
     }
   }
   if (p === '/api/climate') {
-    // Dlouhodobé podnebí (NASA POWER) u letiště, místa nebo hlavního letiště země – data se nemění.
+    // Dlouhodobé podnebí (meteostanice u letiště, jinak NASA POWER) u letiště, místa nebo hlavního letiště země – data se nemění.
     const sp = url.searchParams;
     const iata = (sp.get('iata') || '').toUpperCase();
     const cc = (sp.get('cc') || '').toUpperCase();
@@ -349,7 +349,7 @@ async function route(req, res) {
       return sendJson(req, res, 400, { error: 'Zadej letiště (iata), polohu (lat, lon) nebo zemi (cc).' });
     }
     if (!c) return sendJson(req, res, 404, { error: 'Pro toto místo nemám údaje o podnebí.' });
-    return sendJson(req, res, 200, { ...c, source: climateSource() }, { 'Cache-Control': 'public, max-age=604800' });
+    return sendJson(req, res, 200, { ...c, source: sourceText(c.src) }, { 'Cache-Control': 'public, max-age=604800' });
   }
   if (p === '/api/ground') {
     // Vlak nebo bus místo letadla: odhad, srovnání s letadlem, odkazy; s datem i živé spoje RegioJetu (na vyžádání).

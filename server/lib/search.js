@@ -1188,7 +1188,7 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
     }
     t.perPersonCzk = t.flightCzk + t.groundCzk + t.bagCzk + t.arrCzk;
     t.totalCzk = t.perPersonCzk * q.adults;
-    // Dlouhodobý průměr denních maxim v cíli v měsíci odletu (NASA POWER); neznámé podnebí za teplem nepustí.
+    // Dlouhodobý průměr denních maxim v cíli v měsíci odletu (meteostanice u letiště, jinak NASA POWER); neznámé podnebí za teplem nepustí.
     t.tempHi = monthClimate(t.out.to, t.out.date)?.hi ?? null;
     const cold = warm && (t.tempHi == null || t.tempHi < q.minTemp);
     // do statistiky cen nepatří jen chladné termíny, které hledání za teplem vůbec nechce
