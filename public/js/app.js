@@ -431,7 +431,7 @@ function openTrip(i) {
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? ' – ' + fmtDate(t.end) : '') : ''} · ${t.pax} os.</div></div></div>
   <div class="modal-body">
     ${t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${esc(t.flight.replace(/^🚆\s*/u, ''))}</div></div>` : ''}
-    <div class="row wrap"><button class="btn primary" onclick="modalClose();${c ? `fromCountrySearch('${t.iso}')` : `go('flights')`}">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
+    <div class="row wrap"><button class="btn primary" onclick="modalClose();${c ? `fromCountrySearch('${t.iso}')` : `go('flights')`}">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${t.wizard && window.Trip ? '<button class="btn" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
     ${tripEntryHtml(t)}${visitedPrompt(t)}
     <div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>
     <div class="divider"></div>
@@ -449,6 +449,7 @@ function openTrip(i) {
   // ubytování v zadaném městě; země („Itálie“) nebo víc míst („Lisabon, Porto“) → hlavní město
   const oneCity = t.dest && t.dest !== '—' && !/[,;+&/]|\s(a|–|-)\s/.test(t.dest) && !resolveCountry(t.dest);
   $('#tripStay').onclick = () => openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2);
+  const tw = $('#tripWizard'); if (tw) tw.onclick = () => { modalClose(); Trip.openSaved(t.wizard, t.tripId); };
   const tv = $('#tripVisited');
   if (tv) tv.onclick = () => { const ccs = tripNotVisited(t); ccs.forEach(cc => setVisited(cc, true)); toast(`Na mapě navštívených: ${ccs.map(cc => byIso[cc].cs).join(', ')}`); openTrip(i); };
   const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
