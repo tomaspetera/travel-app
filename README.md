@@ -229,7 +229,7 @@ krém…).
 | **Mapa výsledků** | Všechny destinace na mapě obarvené podle ceny. |
 | **Kam za teplem** | Volba 🌡️ Za teplem (≥ 20 / 25 / 30 °C) pustí jen cíle, kde je v měsíci odletu dlouhodobě aspoň tolik stupňů (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020). U každé nabídky je štítek s teplotou a řazení „Nejtepleji“. |
 | **Cena i se zavazadly** | 🧳 Zavazadla (kabinový kufr / kufr k odbavení) přičte odhad poplatku podle dopravce (~95 aerolinek, ověřeno na jejich webech 10/2026) – nízkonákladovky se tak férově porovnají s klasickými aerolinkami. |
-| **Hlídání cen + živý radar** | Ulož hledání ♡ a nastav cílovou cenu. Dokud máš ATLAS otevřený v prohlížeči, kontroluje ho sám zhruba jednou za 6 h, kreslí vývoj ceny a při zlevnění o 3 % nebo pod cílovou částku se ozve (i upozorněním prohlížeče). Stejné hledání (stejný dotaz – nezáleží na pořadí míst) se hlídá jen jednou: uložíš-li ho znovu (♡ pod formulářem i v *Je to dobrá cena?*), jen se mu aktualizuje cena a panel ukáže *✓ Tohle hledání už hlídáš*. Radar ukazuje nejlevnější zpáteční lety z tvého okolí na příštích 6 týdnů. Přepínač *🗓️ Kdykoliv / 🏙️ Víkendy*: Kdykoliv = 2–7 nocí, Víkendy = odlet v pátek nebo v sobotu a návrat v neděli nebo v pondělí (1–3 noci, u karet i den v týdnu). Volbu si ATLAS pamatuje, výsledky obou režimů drží půl hodiny (přepnutí tam a zpět nic znovu nehledá) a klik na kartu otevře vyhledávač se stejnými podmínkami. |
+| **Hlídání cen + živý radar** | Ulož hledání ♡ a nastav cílovou cenu. Dokud máš ATLAS otevřený v prohlížeči, kontroluje ho sám zhruba jednou za 6 h (po otevření hned všechna, která to potřebují, pak nejvýš 4 za půl hodiny), kreslí vývoj ceny a při zlevnění o 3 % nebo pod cílovou částku se ozve (i upozorněním prohlížeče). Stejné hledání (stejný dotaz – nezáleží na pořadí míst) se hlídá jen jednou: uložíš-li ho znovu (♡ pod formulářem i v *Je to dobrá cena?*), jen se mu aktualizuje cena a panel ukáže *✓ Tohle hledání už hlídáš*. Radar ukazuje nejlevnější zpáteční lety z tvého okolí na příštích 6 týdnů. Přepínač *🗓️ Kdykoliv / 🏙️ Víkendy / 🎉 Svátky*: Kdykoliv = 2–7 nocí, Víkendy = odlet v pátek nebo v sobotu a návrat v neděli nebo v pondělí (1–3 noci, u karet i den v týdnu), Svátky = nejbližší prodloužený víkend kolem českého svátku (aspoň 3 volné dny; svátek v úterý nebo ve čtvrtek se přemostí jedním dnem volna, středa se přeskočí; Velikonoce podle data Velikonoc) – odlet večer předem nebo první volný den, návrat poslední volný den. Volbu si ATLAS pamatuje, výsledky všech režimů drží půl hodiny (přepnutí tam a zpět nic znovu nehledá) a klik na kartu otevře vyhledávač se stejnými podmínkami. |
 
 ## Odkud bere ceny
 
@@ -963,6 +963,11 @@ v kroku Trasa, ve Shrnutí, v časové ose, v kalendáři (.ics) i v poznámkác
 příjezdu v Programu; cesta z letiště na první místo a z posledního na letiště nad hodinu zkrátí program prvního
 a posledního dne (hodinu kryje rezerva 1,5 h po příletu a 3 h před odletem). S vlakem/busem místo letu se počítá
 cesta z města příjezdu (ne z letiště):
+
+Cena přejezdů je ve Shrnutí a v „Celkem“ jako odhad: **autem palivo** za auto (nafta 6 l/100 km za cenu v zemi startu,
+`server/lib/fuel.js`; i z letiště na první místo a z posledního zpět), **vlakem / autobusem jízdenky** na osobu mezi
+místy podle vzdálenosti (stejný model jako cesta vlakem místo letu, `distanceModel` v `server/lib/ground.js`; z letiště
+a na letiště je v dopravě z letiště do města).
 
 - **Autem:** silniční vzdálenost a čas bez kolon z plánovače tras [BRouter](https://brouter.de/) (profil `car-fast`,
   nad OpenStreetMap) × **provoz podle regionu** + 5 min na start a cíl ve městě + **zácpy**, začíná-li nebo končí-li

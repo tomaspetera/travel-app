@@ -6,6 +6,7 @@ import { suggestRoute, splitNights, transferEstimate, evaluateRoute, planStay, d
 import { findTowns } from '../server/lib/poi.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { stubFetch } from './helpers.js';
+process.env.FUEL_LIVE = '0'; // přejezdy počítají palivo – ceny vestavěné, bez sítě (ČSÚ, Evropská komise, ECB)
 
 const T = (id, name, lat, lon, score, extra = {}) => ({ id, name, lat, lon, score, tripKind: 'town', category: 'daytrip', ...extra });
 // Severní a střední Itálie (skóre zhruba jako z Wikidat).

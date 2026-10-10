@@ -272,7 +272,7 @@ test('texty: procenta, „před 2 h“, stav upozornění', () => {
 });
 
 /* fronta kontrol s falešným časem */
-function harness(list, { failIds = [], visible = () => true, sync } = {}) {
+function harness(list, { failIds = [], visible = () => true, sync, firstMax = 0 } = {}) {
   let now = NOW;
   const log = [];
   let running = 0, maxRunning = 0;
@@ -284,6 +284,7 @@ function harness(list, { failIds = [], visible = () => true, sync } = {}) {
     sleep: async (ms) => { now += ms; await tick(); },
     canRun: visible,
     sync,
+    firstMax,
     check: async (id) => {
       running++; maxRunning = Math.max(maxRunning, running);
       log.push(id);
@@ -356,4 +357,28 @@ test('scheduler: skrytá stránka → čeká, po limitu to vzdá', async () => {
   vis = true;
   assert.equal(await p, 1, 'jakmile je stránka vidět, zkontroluje');
   assert.ok(h.sched.lastCycle > 0);
+});
+
+test('news: řádek „Od minula“ – pod cílovou cenou, zlevněná od posledního pohledu (nejvíc první), změny radaru', () => {
+  const w = (id, czk, seen, target = null) => ({ id, label: id, best: { czk }, seen, target });
+  const n = A.news([w('a', 900, 1000), w('b', 1500, 2000), w('c', 800, 1000, 850), w('d', 1000, 1000), { id: 'e', best: null }], {
+    items: [{ czk: 500, was: { czk: 600 } }, { czk: 700, was: { czk: 650 } }, { czk: 400, newAt: 1 }, null],
+  });
+  assert.deepEqual(plain(n.hits), [{ id: 'c', label: 'c', czk: 800 }]);
+  assert.deepEqual(plain(n.watch.map((x) => [x.id, x.d])), [['b', 500], ['a', 100]], 'c je pod cílem, d beze změny');
+  assert.deepEqual([n.down, n.fresh], [1, 1]);
+  assert.deepEqual(plain(A.news(null, null)), { hits: [], watch: [], down: 0, fresh: 0 });
+  // proběhlý termín se nehlásí
+  const past = { ...w('p', 500, 600, 1000), form: { dateMode: 'flex', dFrom: '2026-08-01', dTo: '2026-09-01' } };
+  assert.deepEqual(plain(A.news([past], null, '2026-10-10').hits), []);
+  assert.equal(A.news([past], null).hits.length, 1, 'bez dneška jako dřív');
+});
+
+test('scheduler: první cyklus po otevření zkontroluje všechna zastaralá (firstMax), další zase po 4', async () => {
+  const f = flex('2026-10-10', '2026-12-01');
+  const list = Array.from({ length: 10 }, (_, i) => ({ id: 'w' + i, form: f, checked: NOW - (20 + i) * H }));
+  const h = harness(list, { firstMax: 12 });
+  assert.equal(await h.sched.cycle(), 10);
+  list.forEach((w) => { w.checked = 0; });
+  assert.equal(await h.sched.cycle(), 4, 'další cyklus zase s limitem');
 });

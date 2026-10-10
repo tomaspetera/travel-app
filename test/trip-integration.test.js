@@ -7,6 +7,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { transferEstimate, evaluateRoute } from '../server/lib/stayplan.js';
 import { routeKey } from '../server/lib/transfers.js';
+process.env.FUEL_LIVE = '0'; // přejezdy počítají palivo – ceny vestavěné, bez sítě (ČSÚ, Evropská komise, ECB)
 
 const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
 function load() {

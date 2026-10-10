@@ -193,7 +193,10 @@
       trend = { dir: pct <= -CFG.trendPct ? 'down' : pct >= CFG.trendPct ? 'up' : 'flat', pct, prev: prev[1], cur: cur[1], days: Math.max(0, Math.round((cur[0] - prev[0]) / DAY)) };
     }
     const days = x => Math.max(0, Math.floor((now - x) / DAY));
-    return { min: r.min, ago: days(r.at), sinceDays: days(r.since), n: obs.length, trend };
+    // nejlevnější z téhož hledání (stejné noci, dny v týdnu, termín) – s ním se dá letenka srovnat napřímo
+    const low = same.length ? same.reduce((m, o) => (o[1] < m[1] ? o : m)) : null;
+    return { min: r.min, ago: days(r.at), sinceDays: days(r.since), n: obs.length, trend,
+      ...(low && scope != null && sc === scope ? { scopeMin: low[1], scopeAgo: days(low[0]) } : {}) };
   }
   function load(ls) {
     try { return clean(JSON.parse((ls || window.localStorage).getItem(STORE_KEY))); } catch (e) { return clean(null); }
@@ -250,9 +253,14 @@
     const key = tripKey(t);
     // trend hledání, ze kterého cesta je (query), když ho paměť má; jinak naposledy pozorovaného
     const mem = key && store ? memoryOf(store, key, now, query ? scopeOf(query, ym(t.out.date)) : null) : null;
+    // S nejnižší cenou téhož hledání; levnější letenka z jiného hledání trasy (třeba na 2 noci místo týdne) jen zvlášť
+    // jako „otherMin“ – jinak by panel tvrdil „Super cena“ a hned pod tím „o 48 % dražší“.
+    const scoped = Boolean(mem && mem.scopeMin);
     return {
       pl, stats, days, key, mem,
-      vsMem: mem ? Math.round((t.flightCzk / mem.min - 1) * 100) : null,
+      vsMem: mem ? Math.round((t.flightCzk / (scoped ? mem.scopeMin : mem.min) - 1) * 100) : null,
+      scoped,
+      otherMin: scoped && mem.min < mem.scopeMin ? { czk: mem.min, ago: mem.ago } : null,
       advice: advice(pl.level, days),
     };
   }

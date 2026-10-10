@@ -289,7 +289,7 @@ test('outageOf: Wizz Air po 429 (vlastní blokace bez ctx) = blocked s odpočtem
 test('resolveOrigins: z okolí letiště, odkud se opravdu létá (cestující z Wikidat), ne podle typu z OurAirports', async () => {
   const { sizePenaltyKm, getAirport } = await import('../server/lib/airports.js');
   const ids = (o) => o.airports.map((a) => a.iata);
-  const brno = ids(resolveOrigins(['ap:BRQ'], 300, { maxAirports: 8 }));
+  const brno = ids(resolveOrigins(['ap:BRQ'], { radiusKm: 300, maxAirports: 8 }));
   assert.ok(brno.includes('KRK') && brno.includes('KTW') && brno.includes('VIE'), brno.join());
   assert.ok(!brno.includes('PED'), 'Pardubice (~100 tis. cestujících) ustoupí Krakovu');
   assert.equal(brno[0], 'BRQ', 'zadané letiště zůstane');
@@ -309,4 +309,15 @@ test('build-airport-pax: rok po covidu, jinak před covidem, součet 12 měsíc�
     ['ZZZ', '1000000', '2024-01-01T00:00:00Z', '9'],
   ];
   assert.deepEqual(paxTable(rows, known), { AAA: [11000, 2023], BBB: [500, 2018], CCC: [120, 2024] });
+});
+
+test('resolveOrigins: vypnutá letiště nezaberou místo a pořadí výběru (rank) pro náhled ve formuláři', () => {
+  const all = resolveOrigins(['ap:BRQ'], { radiusKm: 300, maxAirports: 20 });
+  const top8 = new Set([...all.airports].sort((x, y) => x.rank - y.rank).slice(0, 8).map((a) => a.iata));
+  const used = resolveOrigins(['ap:BRQ'], { radiusKm: 300, maxAirports: 8 }).airports.map((a) => a.iata);
+  assert.deepEqual([...top8].sort(), [...used].sort(), 'náhled (rank) = to, co se prohledá');
+  const off = resolveOrigins(['ap:BRQ'], { radiusKm: 300, maxAirports: 8, exclude: ['VIE', 'BTS'] }).airports.map((a) => a.iata);
+  assert.equal(off.length, 8);
+  assert.ok(!off.includes('VIE') && !off.includes('BTS'));
+  assert.ok(off.includes('BUD'), 'místo vypnutých další velké: ' + off.join());
 });
