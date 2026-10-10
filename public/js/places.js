@@ -1112,6 +1112,7 @@
     // o.other = „Jiná trasa“ / „Jiné nádraží“: další varianta se zapamatuje až po úspěchu (chyba = zkusit znovu tutéž).
     const replan = async (btn, o = {}) => {
       const key = seqKey;
+      clearTimeout(soonT); // čekající odložené přeplánování by poslalo totéž znovu
       const my = replanSeq[key] = (replanSeq[key] || 0) + 1; // jen poslední dotaz smí vykreslit (rychlé klikání na ✕ / +)
       delete ex.errs[key];
       const b0 = busy[key] = { my, kind, t0: Date.now(), other: Boolean(o.other) };

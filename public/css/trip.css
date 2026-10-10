@@ -103,7 +103,7 @@ table.cost tr.tot td{font:800 17px Sora,sans-serif;border-bottom:none;padding-to
 .ex-main>.ex-map{grid-area:map}
 .ex-main>.ex-places{grid-area:places;min-width:0}
 .ex-main>details.ex-places{margin-top:0}
-.ex-places>summary::before{content:none}
+details.more.ex-places>summary::before{content:none}
 .ex-places .ex-cats{margin-top:0}
 .ex-head-more{font-size:13px;font-weight:600;color:var(--muted)}
 .ex-recent{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;font-size:12.5px}
