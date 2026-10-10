@@ -933,14 +933,13 @@
   const liveKey = (t, adults) => [t.out.from, t.out.to, t.out.date, t.back ? `${t.back.from}>${t.back.to}@${t.back.date}` : '', adults].join('|');
   /**
    * Verdikt živého ověření ceny letenky cachedCzk (na osobu) z nabídek /api/verify (items[].flightCzk): o víc než 10 %
-   * dráž → dearer, o víc než 10 % levněji → cheaper, jinak ok (stejné pravidlo jako průvodce cestou); bez nabídek none,
-   * s chybou err. → { st, min }
+   * dráž → dearer, jinak ok (stejné pravidlo jako průvodce cestou); bez nabídek none, s chybou err. → { st, min }
    */
   function liveVerdict(cachedCzk, items, error = null) {
     const prices = (Array.isArray(items) ? items : []).map(x => +(x && x.flightCzk)).filter(x => x > 0);
     if (!prices.length) return { st: error ? 'err' : 'none', min: null };
     const min = Math.min(...prices);
-    return { st: min > cachedCzk * 1.1 ? 'dearer' : min < cachedCzk * 0.9 ? 'cheaper' : 'ok', min };
+    return { st: min > cachedCzk * 1.1 ? 'dearer' : 'ok', min };
   }
   /** Které nabídky ověřit automaticky: první nabídka (vis[0]) z prvních rows skupin s cenou z mezipaměti, nejvýš max. */
   function livePick(groups, { rows = 10, max = 3, adults = 1, done = () => false } = {}) {

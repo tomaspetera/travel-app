@@ -435,7 +435,7 @@
       const cur = f.flightCzk;
       const openJaw = f.back && (f.back.from !== f.out.to || f.back.to !== f.out.from);
       // Cena z mezipaměti (Aviasales, až 48 h stará), kterou živě nikdo nenabízí: upozornit nahoře i ve Shrnutí
-      const cached = f.provider === 'travelpayouts' || f.out.provider === 'travelpayouts';
+      const cached = SearchHelp.isCached(f) || f.provider === 'travelpayouts' || f.out.provider === 'travelpayouts'; // i starší uložené cesty bez příznaku live
       // stejné pravidlo jako ve výpisu (SearchHelp.liveVerdict): o víc než 10 % dráž = cena z mezipaměti neplatí
       const v = SearchHelp.liveVerdict(cur, j.items);
       if (cached && (v.st === 'dearer' || f.liveMin)) { f.liveMin = v.st === 'dearer' ? v.min : null; f.liveAt = Date.now(); persist(); }

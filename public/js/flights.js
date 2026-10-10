@@ -43,12 +43,13 @@
   const cacheTag = l => (l && l.live === false ? `<span class="b warn cache-tag" title="${esc(l.arrUnknown ? `${CACHE_TIP} ${UNK_TIP}` : CACHE_TIP)}">⏱ z cache – ověř</span>` : '');
 
   /* ---------- živé ověření cen z mezipaměti (Aviasales) přes /api/verify (Kiwi.com) ---------- */
-  // Po hledání „kamkoliv“ se v pozadí ověří nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli (2 najednou, při chybě
-  // nebo limitu stop – Kiwi má pojistku proti výpadkům pro všechny); ostatní tlačítkem „⚡ Ověřit cenu živě“.
-  const liveChk = new Map(); // klíč (SearchHelp.liveKey) → { st: 'run' | 'ok' | 'cheaper' | 'dearer' | 'none', min, at }
+  // Po hledání „kamkoliv“ se v pozadí ověří nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli – po jedné (Kiwi má
+  // pojistku proti výpadkům pro všechny: 3 chyby za sebou ho na minutu vypnou), při chybě nebo limitu stop;
+  // ostatní tlačítkem „⚡ Ověřit cenu živě“. Rozběhnuté ověření nové hledání neruší (výsledek platí pro tutéž cestu).
+  const liveChk = new Map(); // klíč (SearchHelp.liveKey) → { st: 'run' | 'ok' | 'dearer' | 'none', min, at }
   const liveTrips = new Map(); // klíč → nabídka naposledy vykreslená (pro přepsání štítku na místě)
   const LIVE_TTL = 30 * 60e3; // jako mezipaměť Kiwi na serveru
-  let liveCtl = null;
+  let liveGen = 0; // nové hledání → fronta automatického ověřování předchozího skončí
   const liveAdults = () => (lastResult && lastResult.query && lastResult.query.adults) || 1;
   const liveGet = k => { const x = liveChk.get(k); return x && (x.st === 'run' || Date.now() - x.at < LIVE_TTL) ? x : null; };
   const liveWhen = x => new Date(x.at).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
@@ -59,12 +60,11 @@
     if (!SearchHelp.isCached(t)) return '';
     const k = SearchHelp.liveKey(t, liveAdults()), x = liveGet(k);
     liveTrips.set(k, t);
-    let cls = 'warn', txt = '⏱ z cache', title = CACHE_TIP;
-    if (x && x.st === 'run') { cls = 'faint'; txt = '<span class="spin dark"></span> ověřuji živě…'; title = ''; }
-    else if (x && x.st === 'ok') { cls = 'good'; txt = '✓ cena platí'; title = `Živě na stejné dny od ${czk(liveTotal(t, x))}/os. (Kiwi.com, ověřeno ${liveWhen(x)})`; }
-    else if (x && x.st === 'cheaper') { cls = 'good'; txt = `✓ živě ${czk(liveTotal(t, x))}`; title = `Živě na stejné dny dokonce levněji: od ${czk(liveTotal(t, x))}/os. (Kiwi.com, ověřeno ${liveWhen(x)})`; }
-    else if (x && x.st === 'dearer') { txt = `⚠ živě ${czk(liveTotal(t, x))}`; title = `Cena ${czk(t.perPersonCzk)} je z mezipaměti Aviasales (až 2 dny stará) a živě ji teď nikdo nenabízí – nejlevnější živá nabídka na stejné dny je ${czk(liveTotal(t, x))}/os. (Kiwi.com, ověřeno ${liveWhen(x)})`; }
-    else if (x && x.st === 'none') { cls = 'faint'; txt = 'živě nenalezeno'; title = 'Kiwi.com na tyhle dny živou nabídku nenašlo – cenu ověř u aerolinky nebo na Aviasales.'; }
+    let cls = 'faint', txt = '⏱ z cache', title = CACHE_TIP;
+    if (x && x.st === 'run') { txt = '<span class="spin dark"></span> ověřuji živě…'; title = ''; }
+    else if (x && x.st === 'ok') { cls = 'good'; txt = `✓ živě od ${czk(liveTotal(t, x))}`; title = `Nejlevnější živá nabídka na stejné dny: ${czk(liveTotal(t, x))}/os. (Kiwi.com, ověřeno ${liveWhen(x)})`; }
+    else if (x && x.st === 'dearer') { cls = 'warn'; txt = `⚠ živě ${czk(liveTotal(t, x))}`; title = `Cena ${czk(t.perPersonCzk)} je z mezipaměti Aviasales (až 2 dny stará) a živě ji teď nikdo nenabízí – nejlevnější živá nabídka na stejné dny je ${czk(liveTotal(t, x))}/os. (Kiwi.com, ověřeno ${liveWhen(x)})`; }
+    else if (x && x.st === 'none') { txt = 'živě nenalezeno'; title = 'Kiwi.com na tyhle dny živou nabídku nenašlo – cenu ověř u aerolinky nebo na Aviasales.'; }
     return `<span class="cmp-live ${cls}" data-lk="${esc(k)}"${title ? ` title="${esc(title)}"` : ''}>${txt}</span>`;
   }
   /** Štítek v kartě nabídky: bez ověření „⏱ z cache – ověř“, po ověření výsledek. */
@@ -76,7 +76,7 @@
     if (x.st === 'run') return `<span class="b live-b" ${lk}><span class="spin dark"></span> ověřuji živě…</span>`;
     if (x.st === 'dearer') return `<span class="b warn live-b" ${lk} title="${esc(`Nejlevnější živá nabídka na stejné dny (Kiwi.com, ověřeno ${liveWhen(x)})`)}">⚠ z cache – živě od ${czk(liveTotal(t, x))}/os.</span>`;
     if (x.st === 'none') return `<span class="b warn live-b" ${lk}>⏱ z cache – živě nenalezeno</span>`;
-    return `<span class="b good live-b" ${lk} title="Kiwi.com, ověřeno ${liveWhen(x)}">${x.st === 'cheaper' ? `✓ živě i levněji: od ${czk(liveTotal(t, x))}` : `✓ ověřeno živě (od ${czk(liveTotal(t, x))})`}</span>`;
+    return `<span class="b good live-b" ${lk} title="${esc(`Nejlevnější živá nabídka na stejné dny (Kiwi.com, ověřeno ${liveWhen(x)})`)}">✓ ověřeno živě: od ${czk(liveTotal(t, x))}/os.</span>`;
   }
   /** Přepsat stav ověření u nabídky klíče k na místě (bez nového vykreslení – posun stránky ani otevřená karta se nemění). */
   function patchLive(k) {
@@ -89,17 +89,17 @@
       if (b) b.classList.toggle('stale', (liveGet(k) || {}).st === 'dearer');
     });
   }
-  /** Živé ověření jedné nabídky → 'ok' | 'cheaper' | 'dearer' | 'none' | 'limit' (429) | 'off' (nedostupné) | 'err'. */
-  async function verifyOne(t, signal = null) {
+  /** Živé ověření jedné nabídky → 'ok' | 'dearer' | 'none' | 'run' (už se ověřuje) | 'limit' (429) | 'off' (nedostupné) | 'err'. */
+  async function verifyOne(t) {
     const adults = liveAdults(), k = SearchHelp.liveKey(t, adults);
     liveTrips.set(k, t);
     const prev = liveGet(k); // při chybě nechat dřívější výsledek ověření
+    if (prev && prev.st === 'run') return 'run';
     liveChk.set(k, { st: 'run', at: Date.now() }); patchLive(k);
     const qs = new URLSearchParams({ from: t.out.from, to: t.out.to, out: t.out.date, adults });
     if (t.back) { qs.set('back', t.back.date); qs.set('backFrom', t.back.from); qs.set('backTo', t.back.to); }
-    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 30000);
-    const stop = () => ctl.abort();
-    if (signal) signal.addEventListener('abort', stop);
+    // Kiwi na serveru má na dotaz až 40 s i s opakováním
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 45000);
     const fail = st => { if (prev && prev.st !== 'run') liveChk.set(k, prev); else liveChk.delete(k); patchLive(k); return st; };
     try {
       const r = await fetch('api/verify?' + qs, { signal: ctl.signal });
@@ -114,24 +114,18 @@
       return fail('err');
     } finally {
       clearTimeout(tm);
-      if (signal) signal.removeEventListener('abort', stop);
     }
   }
   /** Po hledání „kamkoliv“ / do zemí: v pozadí ověřit nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli. */
   async function autoVerify(res) {
-    if (liveCtl) liveCtl.abort();
-    liveCtl = null;
+    const gen = ++liveGen;
     if (!res || res.mode !== 'explore' || res.demo || document.hidden || SearchHelp.kiwiOutage(res.providers)) return;
-    const ctl = liveCtl = new AbortController();
     const todo = SearchHelp.livePick(computeGroups(), { rows: 10, max: 3, adults: liveAdults(), done: k => Boolean(liveGet(k)) });
-    let halt = false;
-    const worker = async () => {
-      while (todo.length && !halt && !ctl.signal.aborted) {
-        const st = await verifyOne(todo.shift(), ctl.signal);
-        if (st === 'limit' || st === 'off' || st === 'err') halt = true;
-      }
-    };
-    await Promise.all([worker(), worker()]);
+    await new Promise(r => setTimeout(r, 1000)); // ať nejde v jedné dávce s posledními dotazy hledání
+    while (todo.length && gen === liveGen) {
+      const st = await verifyOne(todo.shift());
+      if (st === 'limit' || st === 'off' || st === 'err') return;
+    }
   }
   // přílet „?“ u letu s přestupem bez známé délky (místo vymyšleného času)
   const arrUnk = l => (l && l.arrUnknown && l.hasTime ? `<span class="tm unk" title="${esc(UNK_TIP)}">přílet ?</span>` : '');
@@ -805,7 +799,7 @@
     lastPayload = payload; lastForm = f;
     // jiné hledání (uživatel změnil formulář): předchozí zrušit (i živé ověřování jeho cen)
     if (running) running.ctl.abort();
-    if (liveCtl) { liveCtl.abort(); liveCtl = null; }
+    liveGen++;
     const ctl = new AbortController();
     // filtry výpisu (i 🔥 jen výhodné, čas a přestupy) platí jen pro jedno hledání
     view = { ...view, excludeOrigins: new Set(), carriers: new Set(), outDate: null, expanded: new Set(), maxPrice: null, onlyDeals: false, ...freshView() };
@@ -2054,6 +2048,7 @@
       b.disabled = true;
       const st = await verifyOne(r.t);
       b.disabled = false;
+      if (st === 'run') return;
       if (st === 'limit') toast('Živé ověření je teď vytížené – zkus to za pár minut.', 'err');
       else if (st === 'off') toast('Živé ověření teď není dostupné.');
       else if (st === 'err') toast('Ověření se nepodařilo – zkus to znovu.', 'err');

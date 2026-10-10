@@ -695,7 +695,7 @@ test('živé ověření cen z mezipaměti: isCached, liveKey, liveVerdict, liveP
   // ±10 % jako průvodce cestou
   assert.deepEqual(plain(H.liveVerdict(2000, [{ flightCzk: 2150 }, { flightCzk: 2600 }])), { st: 'ok', min: 2150 });
   assert.deepEqual(plain(H.liveVerdict(2000, [{ flightCzk: 2300 }])), { st: 'dearer', min: 2300 });
-  assert.deepEqual(plain(H.liveVerdict(2000, [{ flightCzk: 1700 }])), { st: 'cheaper', min: 1700 });
+  assert.deepEqual(plain(H.liveVerdict(2000, [{ flightCzk: 1700 }])), { st: 'ok', min: 1700 });
   assert.deepEqual(plain(H.liveVerdict(2000, [{ flightCzk: 0 }, {}])), { st: 'none', min: null });
   assert.deepEqual(plain(H.liveVerdict(2000, [], 'Kiwi: HTTP 500')), { st: 'err', min: null });
   assert.deepEqual(plain(H.liveVerdict(2000, undefined)), { st: 'none', min: null });
