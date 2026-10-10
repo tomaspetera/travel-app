@@ -1695,7 +1695,7 @@
       const f = { ...o.flight };
       for (const k of ['id', 'perPersonCzk', 'totalCzk', 'tempHi', 'nights']) delete f[k];
       if (f.deal) f.deal = { level: f.deal.level }; // „🔥 Super cena“ v kroku letu
-      const leg = l => { if (!l) return l; const x = { ...l }; for (const k of ['foundAt', 'prevCzk', 'otherDeps', 'price', 'currency', 'czk']) delete x[k]; if (x.arrEst === false) delete x.arrEst; if (x.live === true) delete x.live; return x; };
+      const leg = l => { if (!l) return l; const x = { ...l }; for (const k of ['foundAt', 'prevCzk', 'otherDeps', 'price', 'currency', 'czk']) delete x[k]; if (x.arrEst === false) delete x.arrEst; return x; }; // live zůstane – „Je to dobrá cena?“ podle něj pozná živou cenu
       o.flight = { ...f, out: leg(f.out), back: leg(f.back) };
     }
     if (o.ground) o.ground = Object.fromEntries(['out', 'back'].filter(k => o.ground[k]).map(k => [k, { minutes: o.ground[k].minutes }])); // jen groundLines
@@ -1703,6 +1703,9 @@
     if (o.arrival) o.arrival = { out: arr(o.arrival.out), back: arr(o.arrival.back) };
     o.stay = geo(o.stay); o.cityCenter = geo(o.cityCenter);
     o.plan = plan(o.plan);
+    // trasa po přepnutí zpět na jedno místo (Víc míst → Jedno místo): příjemce ji neukáže
+    if (o.route && o.route.mode !== 'multi') delete o.route;
+    // souřadnice míst trasy a cesty po zemi se nezaokrouhlují – groundKey je porovnává přes toFixed(3)
     if (o.route && Array.isArray(o.route.bases)) {
       o.route = { ...o.route, bases: o.route.bases.map(b => {
         const nb = { ...b, stay: geo(b.stay), plan: plan(b.plan) };

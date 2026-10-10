@@ -769,7 +769,10 @@ test('sdílený odkaz na cestu do jednoho místa: program bez popisů, fotek a �
     description: 'muzeum', extract: 'x'.repeat(400), image: 'https://upload.wikimedia.org/' + 'y'.repeat(150), url: 'https://cs.wikipedia.org/wiki/M', sitelinks: 40, score: 12.5 });
   const plan = { days: [{ date: '2027-07-11', items: [poi(1), poi(2)], walkKm: 0.8, minutes: 120 }, { date: '2027-07-12', items: [{ ...poi(3), transit: true }], walkKm: 0, minutes: 60 }],
     spare: Array.from({ length: 30 }, (_, i) => poi(10 + i)), center: { lat: 41.3851234567, lon: 2.1734123456 }, span: { start: '2027-07-11', days: 2 }, created: 1 };
-  const t = trip({ plan, cityCenter: { lat: 41.3851234567, lon: 2.1734123456, name: 'Barcelona' }, stay: { mode: 'pick', name: 'Hotel', lat: 41.390000123, lon: 2.16000099, url: 'https://www.booking.com/x' } });
+  // stará trasa po „Víc míst“ → „Jedno místo celý pobyt“ (mode 'single') do odkazu nepatří
+  const base = (name, lat) => ({ name, lat, lon: 2.1, nights: 2, plan: { days: [{ items: [poi(50), poi(51)] }], spare: [poi(60)], center: { lat, lon: 2.1 } }, searchUrl: 'https://www.booking.com/searchresults.cs.html?ss=' + name });
+  const route = { mode: 'single', bases: [base('Barcelona', 41.38), base('Girona', 41.98), base('Sitges', 41.23)], transfers: [{ mode: 'car' }, { mode: 'car' }] };
+  const t = trip({ plan, route, cityCenter: { lat: 41.3851234567, lon: 2.1734123456, name: 'Barcelona' }, stay: { mode: 'pick', name: 'Hotel', lat: 41.390000123, lon: 2.16000099, url: 'https://www.booking.com/x' } });
   Object.assign(t.flight, { id: 'abc', perPersonCzk: 6000, totalCzk: 12000, deal: { level: 'super', pct: 40, ref: 9000 } });
   Object.assign(t.flight.out, { live: false, foundAt: 1, otherDeps: [{ dep: 'x' }], czk: 2500, price: 99, currency: 'EUR' });
   Object.assign(t.flight.back, { live: true, arrEst: false });
@@ -789,7 +792,9 @@ test('sdílený odkaz na cestu do jednoho místa: program bez popisů, fotek a �
   for (const k of ['id', 'perPersonCzk', 'totalCzk']) assert.equal(sent.flight[k], undefined, k);
   assert.equal(sent.flight.out.live, false, 'cena z mezipaměti se pozná i u příjemce');
   for (const k of ['foundAt', 'otherDeps', 'czk', 'price', 'currency']) assert.equal(sent.flight.out[k], undefined, k);
-  assert.equal('live' in sent.flight.back || 'arrEst' in sent.flight.back, false);
+  assert.equal(sent.flight.back.live, true, 'živá cena zůstane živá (Je to dobrá cena?)');
+  assert.equal('arrEst' in sent.flight.back, false);
+  assert.equal(sent.route, undefined, 'bez trasy (cesta do jednoho místa)');
   assert.equal(sent.flight.flightCzk, 5000);
   assert.ok(url.length < 2500, `krátký odkaz: ${url.length}`);
   assert.equal(t.plan.spare.length, 30, 'odesílateli se cesta nemění');
@@ -799,4 +804,5 @@ test('sdílený odkaz na cestu do jednoho místa: program bez popisů, fotek a �
   const got = b.c.S.trip;
   assert.deepEqual(plain(got.plan.days.map((d) => d.items.map((x) => x.name))), [['Místo 1', 'Místo 2'], ['Místo 3']]);
   assert.equal(got.flight.deal.level, 'super');
+  assert.ok(!got.route || got.route.mode !== 'multi', 'příjemce má cestu do jednoho místa');
 });
