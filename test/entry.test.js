@@ -452,3 +452,11 @@ test('plánovač: sdílený plán (#plan=) nese jen kódy zemí, ne vstupní dat
   assert.deepEqual(plain(v.via), ['US', 'GB']);
   assert.ok(!('via' in PlanShare.sanitize(plan)));
 });
+
+test('countries.json: hlavní města i česky (capCs, jen když se liší), anglický název zůstává pro odkazy', () => {
+  const by = Object.fromEntries(COUNTRIES.map((c) => [c.iso2, c]));
+  assert.deepEqual(['CZ', 'AT', 'PT', 'IT', 'CN', 'MX'].map((cc) => by[cc].capCs), ['Praha', 'Vídeň', 'Lisabon', 'Řím', 'Peking', 'Mexiko']);
+  assert.equal(by.CZ.cap, 'Prague');
+  assert.equal(by.SK.capCs, undefined, 'Bratislava je stejně');
+  for (const c of COUNTRIES) if ('capCs' in c) assert.ok(typeof c.capCs === 'string' && c.capCs && c.capCs !== c.cap, c.iso2);
+});

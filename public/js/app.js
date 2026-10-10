@@ -158,7 +158,7 @@ function destCard(c, score) {
   return `<div class="card dest ${visited.has(c.iso2) ? 'visited' : ''}" data-iso="${c.iso2}">
     ${score ? `<div class="score-pill">${score}</div>` : `<div class="vmark"><svg viewBox="0 0 24 24" width="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>`}
     <div class="flag">${flag(c.iso2)}</div>
-    <div class="cname">${c.cs}</div><div class="ccont">${c.cont}${c.cap ? ' · ' + c.cap : ''}</div>
+    <div class="cname">${c.cs}</div><div class="ccont">${c.cont}${c.cap ? ' · ' + (c.capCs || c.cap) : ''}</div>
     <div class="cblurb">${c.blurb || 'Objev tuto zemi – počasí, ceny i odkazy najdeš uvnitř.'}</div>
     ${entryChip(c.iso2)}<div class="meta">${c.cost ? costDots(c.cost) : '<span></span>'}${months ? `<span>${months}</span>` : ''}</div>
   </div>`;
@@ -256,7 +256,7 @@ function openCountry(iso) {
      <div class="modal-hero-inner">
        <div style="font-size:54px;line-height:1">${flag(iso)}</div>
        <h2 style="font-size:28px;margin-top:6px">${c.cs}</h2>
-       <div style="opacity:.85;font-size:13.5px">${c.en} · ${c.cont}${c.cap ? ' · ' + c.cap : ''}</div>
+       <div style="opacity:.85;font-size:13.5px">${c.en} · ${c.cont}${c.cap ? ' · ' + (c.capCs || c.cap) : ''}</div>
      </div>
    </div>
    <div class="modal-body">
