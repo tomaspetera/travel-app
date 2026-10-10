@@ -194,14 +194,24 @@ async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights }) {
   if (!r) {
     // Deset různých směrů: varianty 0–4 po 72° jako dřív (trasy v mezipaměti platí), 5–9 mezi nimi.
     const direction = (variant < 5 ? variant * 72 + 30 : (variant - 5) * 72 + 66) % 360;
-    let radiusM = (km * 1000) / factor;
+    const radius0 = (km * 1000) / factor;
+    let radiusM = radius0;
     const lonlats = `${start[0]},${start[1]}`;
+    const tryRound = (R, fallback) => route({ profile, vars, lonlats, round: { radiusM: R, direction } }, pace, q.onMiss)
+      .catch((e) => (isLimit(e) ? Promise.reject(e) : fallback));
     r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace, q.onMiss);
     if (Math.abs(r.km - km) / km > 0.12) {
       radiusM *= km / Math.max(1, r.km);
       // korekce může skončit na odříznuté cestě („target island“) – pak platí první trasa
       const first = r;
-      r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace, q.onMiss).catch((e) => (isLimit(e) ? Promise.reject(e) : first));
+      r = await tryRound(radiusM, first);
+      // Délka okruhu s poloměrem neroste rovnoměrně: u moře a v kopcích BRouter objíždí (Barcelona, 40 km: poloměr
+      // 7,7 km → 62 km, korekce na 5 km → 23 km). Přestřelí-li korekce o víc než 20 % na druhou stranu, jednou ještě
+      // poloměr mezi oběma (sečna – Barcelona 46 km); platí okruh nejblíž zadané délce.
+      if (r !== first && Math.abs(r.km - km) / km > 0.2 && (r.km - km) * (first.km - km) < 0) {
+        const third = await tryRound(radiusM + ((km - r.km) * (radius0 - radiusM)) / (first.km - r.km), null);
+        r = [r, first, third].filter(Boolean).sort((a, b) => Math.abs(a.km - km) - Math.abs(b.km - km))[0];
+      }
     }
     via = [];
   }

@@ -107,6 +107,36 @@ test('okruh: BRouter round-trip s profilem kola, korekce poloměru na zadanou d�
   }
 });
 
+test('okruh (Barcelona, změřeno živě): korekce přestřelí o víc než 20 % → ještě jednou poloměr mezi oběma', async () => {
+  // BRouter 10/2026, trekking, 40 km, směr 30°: poloměr 7692 m → 62,0 km; korekce ~4960 m → 23,0 km; 6151 m → 45,8 km
+  const stub = stubFetch((url) => {
+    const R = Number(new URL(url).searchParams.get('roundTripDistance'));
+    const km = R > 7000 ? 62 : R < 5500 ? 23 : 45.8;
+    return { body: brouter({ km, coords: ring(2.1686, 41.3874, km) }) };
+  });
+  try {
+    const r = await bikeLoop({ lat: 41.3874, lon: 2.1686, km: 40, bike: 'trekking', scenery: 'mixed', variant: 0 });
+    const radii = stub.calls.map((c) => Number(new URL(c.url).searchParams.get('roundTripDistance')));
+    assert.equal(radii.length, 3, 'první trasa, korekce, sečna');
+    assert.deepEqual(radii.slice(0, 2), [7692, 4963]);
+    assert.ok(radii[2] > 6000 && radii[2] < 6300, `sečna ${radii[2]} m`);
+    assert.equal(r.km, 45.8, 'nejblíž zadaným 40 km (dřív 23 km)');
+  } finally {
+    stub.restore();
+  }
+  // korekce, která cíl jen nedotáhne (obě kratší), další dotaz nespouští
+  const stub2 = stubFetch((url) => {
+    const R = Number(new URL(url).searchParams.get('roundTripDistance'));
+    return { body: brouter({ km: R > 7000 ? 30 : 31, coords: ring(2.1686, 41.39, 30) }) };
+  });
+  try {
+    await bikeLoop({ lat: 41.39, lon: 2.1686, km: 40, bike: 'trekking', scenery: 'mixed', variant: 0 });
+    assert.equal(stub2.calls.length, 2);
+  } finally {
+    stub2.restore();
+  }
+});
+
 test('„Jiná trasa“: deset různých směrů okruhu, varianty 0–4 jako dřív', async () => {
   const stub = stubFetch(() => ({ body: brouter({ km: 30, coords: ring(14.3, 49.3, 30) }) }));
   try {
