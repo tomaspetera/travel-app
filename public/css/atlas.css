@@ -363,3 +363,4 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 @media(max-width:560px){.ed-kv .ed-wide{grid-column:1/-1}}
 .ed-regime.ec-free{background:var(--surface-2)}
 [data-theme="light"] .entry-detail a,[data-theme="light"] .entry-card a{color:#0369a1}
+.cm-acts{margin-bottom:16px;gap:8px}

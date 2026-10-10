@@ -661,6 +661,7 @@
     }
     // domov radaru („Odkud obvykle létáš“) jen poprvé – zkušební hledání z Mnichova ho nepřepíše (mění se v radaru)
     S.form = f; if (!S.home || !S.home.from?.length) S.home = { from: f.from, radius: f.radius }; save(); updateHomeChip();
+    collapseForm(f);
     const payload = payloadOf(f);
     // Kalendář cen zůstane jen u hledání do stejného cíle (nebo na vyžádání) – jiný cíl začne seznamem.
     if (view.mode === 'cal' && !opts.cal && JSON.stringify((lastPayload || {}).to || null) !== JSON.stringify(payload.to || null)) view.mode = 'list';
@@ -720,12 +721,26 @@
     if (!c) return;
     lastResult = c.res; lastResultAt = c.at; lastPayload = c.payload; lastForm = { ...defaultForm(), ...c.form }; restored = true;
     fitMode(c.res);
+    collapseForm(lastForm);
     renderRestored();
     renderResults();
   }
   function renderRestored() {
     $('#progress').innerHTML = `<div class="note info last-note"><span>🕘</span><div>Výsledky hledání z ${esc(SearchHelp.savedWhen(lastResultAt, Date.now()))} – ceny se mezitím mohly změnit.</div><button type="button" class="btn sm" id="lastRerun">↻ Hledat znovu</button></div>`;
     $('#lastRerun').onclick = () => rerun();
+  }
+  /**
+   * Na telefonu se po hledání formulář sbalí do řádku „Brno → kamkoliv · 17.10.–9.12. · 5–9 nocí · 2 os. [✎ Upravit] [♡]“,
+   * aby výsledky začínaly nahoře (formulář má na výšku přes obrazovku). Na širší obrazovce zůstane (CSS).
+   */
+  function collapseForm(f) {
+    const sum = $('#searchSum'); if (!sum || !f || !f.from?.length) return;
+    const when = f.trip !== 'multi' && f.dateMode !== 'exact' ? `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ` : '';
+    sum.innerHTML = `<div class="ss-txt"><b>${esc(watchLabel(f))}</b><span class="faint">${esc(when + recentSub(f))} · ${+f.adults || 1} os.</span></div><button type="button" class="btn sm ghost" id="ssWatch">♡</button><button type="button" class="btn sm" id="ssEdit">✎ Upravit</button>`;
+    sum.hidden = false;
+    $('#searchForm').classList.add('collapsed');
+    $('#ssEdit').onclick = () => { sum.hidden = true; $('#searchForm').classList.remove('collapsed'); $('#searchForm').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    updateWatchBtn();
   }
   // Kratší popis hledání na čip: termín nebo počet nocí.
   function recentSub(f) {
@@ -2117,6 +2132,8 @@
     b.textContent = on ? '♥ Hlídáš – na Přehledu' : '♡ Hlídat cenu';
     b.classList.toggle('on', on);
     b.onclick = on ? () => { go('dashboard'); setTimeout(() => $('#watchHead')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300); } : () => addWatch();
+    const w = $('#ssWatch'); // ♡ ve sbaleném formuláři (telefon)
+    if (w) { w.textContent = on ? '♥' : '♡'; w.title = b.textContent; w.classList.toggle('on', on); w.onclick = b.onclick; }
   }
 
   // Stav karet během kontroly: id → 'wait' (ve frontě) | 'run' (právě se kontroluje).
