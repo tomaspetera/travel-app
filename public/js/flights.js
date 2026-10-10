@@ -2487,12 +2487,12 @@
     const stale = !st ? '' : `<div class="faint radar-stale">${st.error ? `⚠️ Aktuální ceny se nepodařilo načíst (${esc(st.error)}) – ukazuji ceny z ${when}.` : `<span class="spin"></span> Ukazuji ceny z ${when}, hledám aktuální…<span class="rp"></span>`}</div>`;
     // 🔥 jen u 3 karet nejvýhodnějších vůči běžné ceně na tu vzdálenost – u 12 nejlevnějších cílů má „super cenu“ skoro každý
     const hot = new Set(r.items.map((x, i) => [x, i]).filter(([x]) => x.deal === 'super').sort((a, b) => (b[0].score || 0) - (a[0].score || 0)).slice(0, 3).map(([, i]) => i));
-    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}${stale}<div class="radar-grid${st ? ' stale' : ''}">${r.items.map((x, i) => `<div class="card radar-card ${hot.has(i) ? 'hot' : ''}" data-ri="${i}">
+    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu: zpáteční letenka + cesta na letiště a z letiště do města</div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${r.items.map((x, i) => `<div class="card radar-card ${hot.has(i) ? 'hot' : ''}" data-ri="${i}">
       <div class="rc-top"><span class="rcf">${flag(x.cc)}</span><span class="rc-badges">${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>' : ''}</span></div>
       <div class="rc-city">${esc(x.label)}</div>
       <div class="rc-price">${czk(x.czk)}<small>/os.</small></div>
       <div class="faint" style="font-size:12px">${x.from} → ${x.to} · ${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}</div>
-    </div>`).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · vč. dopravy na letiště · klikni pro všechny termíny</div>`;
+    </div>`).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klikni pro všechny termíny</div>`;
     $$('[data-ri]', host).forEach(c => c.onclick = () => {
       const x = r.items[+c.dataset.ri];
       go('flights');
