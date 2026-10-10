@@ -393,9 +393,15 @@
         $('#tpPlan', host).innerHTML = `<div class="note warn">⚠️ <div>Program se nepodařilo sestavit: ${esc(e.message)}</div></div>`;
       }
     };
+    // „další místa“ z programu, u sdíleného odkazu (bez nich) z už načtených míst v okolí
+    const spare = plan => {
+      if (plan.spare?.length) return plan.spare;
+      const used = new Set(plan.days.flatMap(d => d.items.map(q => q.id)));
+      return (st.items || []).filter(p => !used.has(p.id) && p.category !== 'daytrip').slice(0, 30);
+    };
     const paint = plan => {
       $('#tpPlan', host).innerHTML = (st.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : '') + planHtml(plan, center)
-        + (plan.spare?.length ? `<details class="more"><summary>Další místa v okolí (${plan.spare.length})</summary><div class="poi-list" style="margin-top:10px">${plan.spare.slice(0, 15).map(p => poiCard(p, { toggle: true, must: st.must, center })).join('')}</div></details>` : '')
+        + (spare(plan).length ? `<details class="more"><summary>Další místa v okolí (${spare(plan).length})</summary><div class="poi-list" style="margin-top:10px">${spare(plan).slice(0, 15).map(p => poiCard(p, { toggle: true, must: st.must, center })).join('')}</div></details>` : '')
         + (window.Weather ? `<div class="faint" style="font-size:11.5px;margin-top:8px">${WX_SRC}</div>` : '');
       fillWx($('#tpPlan', host));
       drawOnMap(st, center, st.items.filter(p => plan.days.some(d => d.items.some(q => q.id === p.id)) || p.category !== 'daytrip'), plan, p => { const el = $(`[data-poi="${CSS.escape(p.id)}"]`, host); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });

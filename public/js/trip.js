@@ -1474,7 +1474,7 @@
     $('#sumSave').onclick = () => saveToPlanner();
     $('#sumShare').onclick = () => share();
     // odkaz se zkomprimuje hned, aby ho kliknutí jen zkopírovalo (Safari dovolí zápis do schránky jen v obsluze kliknutí)
-    if (window.ShareLink) ShareLink.prepare('trip', shareJson(t));
+    if (window.ShareLink) ShareLink.prepare('trip', linkJson(t));
     $('#sumIcs').onclick = () => icsDownload(`atlas-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` });
     $('#sumNew').onclick = () => { if (confirm('Zahodit rozpracovanou cestu?')) { S.trip = null; persist(); go('flights'); } };
     // vstupní podmínky dorazily až po vykreslení → shrnutí znovu (jen když je pořád otevřené)
@@ -1678,10 +1678,44 @@
     }
     return JSON.stringify(slim);
   }
+  /**
+   * Odkaz na cestu (#trip=): shareJson bez toho, co příjemce nevykreslí – program bez popisů, fotek a „dalších míst“
+   * (i u cesty do jednoho místa), souřadnice na 5 desetinných míst (~1 m; program se znovu použije do 1e-4°), u letu
+   * jen to, co čte průvodce. Seznam vynechaných polí (ne povolených), ať pole nových funkcí cestují dál. Formát stejný
+   * – odkaz otevře i starší verze aplikace. Kopie v plánovači (wizardJson) zůstávají celé.
+   */
+  function linkJson(t) {
+    const o = JSON.parse(shareJson(t));
+    const r5 = v => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 1e5) / 1e5 : v);
+    const geo = x => (x && x.lat != null ? { ...x, lat: r5(x.lat), lon: r5(x.lon) } : x);
+    const item = x => ({ id: x.id, name: x.name, lat: r5(x.lat), lon: r5(x.lon), category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, ...(x.transit ? { transit: true } : {}), note: x.note });
+    const plan = p => (p && Array.isArray(p.days) ? { ...p, spare: undefined, created: undefined, center: geo(p.center), days: p.days.map(d => ({ ...d, items: (d.items || []).map(item) })) } : p);
+    delete o.step; delete o.booked; delete o.created; // příjemce je nastaví sám (importFromHash)
+    if (o.flight) {
+      const f = { ...o.flight };
+      for (const k of ['id', 'perPersonCzk', 'totalCzk', 'tempHi', 'nights']) delete f[k];
+      if (f.deal) f.deal = { level: f.deal.level }; // „🔥 Super cena“ v kroku letu
+      const leg = l => { if (!l) return l; const x = { ...l }; for (const k of ['foundAt', 'prevCzk', 'otherDeps', 'price', 'currency', 'czk']) delete x[k]; if (x.arrEst === false) delete x.arrEst; if (x.live === true) delete x.live; return x; };
+      o.flight = { ...f, out: leg(f.out), back: leg(f.back) };
+    }
+    if (o.ground) o.ground = Object.fromEntries(['out', 'back'].filter(k => o.ground[k]).map(k => [k, { minutes: o.ground[k].minutes }])); // jen groundLines
+    const arr = a => { if (!a) return a; const x = { ...a }; for (const k of ['note', 'src', 'date', 'sec', 'gen', 'km']) delete x[k]; return x; };
+    if (o.arrival) o.arrival = { out: arr(o.arrival.out), back: arr(o.arrival.back) };
+    o.stay = geo(o.stay); o.cityCenter = geo(o.cityCenter);
+    o.plan = plan(o.plan);
+    if (o.route && Array.isArray(o.route.bases)) {
+      o.route = { ...o.route, bases: o.route.bases.map(b => {
+        const nb = { ...b, stay: geo(b.stay), plan: plan(b.plan) };
+        if (b.stay && b.stay.mode === 'pick' && b.stay.url) delete nb.searchUrl; // hledání ubytování jen bez vybraného hotelu
+        return nb;
+      }) };
+    }
+    return JSON.stringify(o);
+  }
 
   /** Zkopíruje odkaz na cestu (připravený už při vykreslení shrnutí); vrací Promise kvůli testům. */
   function share() {
-    return ShareLink.copy('trip', shareJson(T())).then(r => (r.copied ? toast('Odkaz zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz:', r.url)));
+    return ShareLink.copy('trip', linkJson(T())).then(r => (r.copied ? toast('Odkaz zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz:', r.url)));
   }
 
   /**
