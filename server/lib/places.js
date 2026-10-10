@@ -45,8 +45,8 @@ function airportSuggestion(a) {
     sub: `${a.name} · ${a.iata} · ${a.country}`, cc: a.cc, lat: a.lat, lon: a.lon,
     // velké letiště (≥ 2 mil. cestujících za rok, bez údaje podle typu) – plánovač podle něj pozná hlavní město jména
     big: a.pax != null ? a.pax >= 2000 : a.type === 'L',
-    // velikost (tisíce cestujících, bez údaje odhad podle typu) – když jedno letiště jména jasně převyšuje ostatní
-    size: a.pax ?? (a.type === 'L' ? 1000 : a.type === 'M' ? 100 : 10),
+    // cestujících za rok v tisících (null = údaj chybí) – když jedno letiště jména jasně převyšuje ostatní
+    size: a.pax ?? null,
   };
 }
 
