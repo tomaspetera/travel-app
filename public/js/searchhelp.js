@@ -938,11 +938,14 @@
     return out;
   }
   /**
-   * Radar v režimu mode ('all' | 'weekend', jiný → 'all') z domova home ({ from: [{ id, label }], radius }) ke dni today:
+   * Radar v režimu mode ('all' | 'weekend' | 'holiday', jiný → 'all') z domova home ({ from: [{ id, label }], radius,
+   * adults – počet cestujících, výchozí 1 }) ke dni today:
    * { mode, payload (hledání), form (formulář po kliknutí na kartu – stejné podmínky, ukáže všechny termíny), sub, empty }.
    */
   function radarQuery(mode, home, today, pick = null) {
     const m = RADAR[mode] ? mode : 'all', radiusKm = home.radius ?? 200;
+    // cena za osobu pro tolik lidí, kolik jich bývá ve formuláři – jinak by proklik z karty (2 os.) ukázal jinou cenu
+    const adults = Math.min(9, Math.max(1, Math.round(+home.adults) || 1));
     let r = RADAR[m], dateFrom = addDays(today, 3), dateTo = addDays(today, 45), when = 'příštích 6 týdnů', lw = null;
     if (m === 'holiday') {
       // odlet večer před prvním volným dnem nebo ráno, návrat poslední volný den
@@ -964,7 +967,7 @@
       ...(lw ? { lw } : {}),
       payload: {
         from: home.from.map(x => x.id), radiusKm, to: [], dateFrom, dateTo, trip: 'return', nightsMin: r.nMin, nightsMax: r.nMax,
-        ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), ...(r.depAfter ? { depAfter: r.depAfter } : {}), adults: 1, kmRate: 1, groundMode: 'transit', arrival: true,
+        ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), ...(r.depAfter ? { depAfter: r.depAfter } : {}), adults, kmRate: 1, groundMode: 'transit', arrival: true,
       },
       // formulář po kliknutí na kartu: tvar cesty z radaru, počet lidí a ostatní nastavení zůstanou uživatele
       form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, ...(r.depAfter ? { depAfter: r.depAfter } : {}), len: 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
@@ -1022,12 +1025,14 @@
   /* ---------- řazení „cena + délka cesty“ ---------- */
   /**
    * Délka letu v minutách pro řazení: známá (durationMin / odhad estMin), jinak opatrný odhad ze vzdálenosti – 750 km/h,
-   * půl hodiny navíc a u přestupu 4 h na každý (dálkové lety z cache bez délky tak nepředběhnou ty se známým přestupem).
+   * půl hodiny navíc a u přestupu 6 h na každý: přestup bez známých časů bývá dlouhý (Air Arabia přes Šardžá) a nabídka
+   * s nejistou délkou nemá předběhnout skoro stejně drahou se známým přestupem (živě Bangkok: 11 419 Kč bez délky
+   * vs. 11 871 Kč se 14 h 40 – při 4 h na přestup vyhrála ta nejistá o 7 Kč).
    */
   function tripMinutes(l, km) {
     const m = legMinutes(l);
     if (m) return m;
-    return Math.round((Number(km) || 1000) / 750 * 60 + 30 + (l && l.stops ? l.stops * 240 : 0));
+    return Math.round((Number(km) || 1000) / 750 * 60 + 30 + (l && l.stops ? l.stops * 360 : 0));
   }
   /**
    * Klíč řazení: cena na osobu + 250 Kč za každou hodinu cesty tam i zpět (čas v letadle a na přestupech) i cesty

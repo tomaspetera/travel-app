@@ -441,6 +441,11 @@ test('radarQuery: Kdykoliv jako dřív, Víkendy jen odlet Pá/So a návrat Ne/P
 
   // neznámý režim → Kdykoliv, domov bez okruhu → 200 km
   assert.equal(H.radarQuery('xyz', home, '2026-10-07').mode, 'all');
+  // cena za osobu pro počet cestujících z formuláře (proklik z karty hledá pro stejný počet)
+  assert.equal(H.radarQuery('all', home, '2026-10-07').payload.adults, 1);
+  assert.equal(H.radarQuery('weekend', { ...home, adults: 2 }, '2026-10-07').payload.adults, 2);
+  assert.equal(H.radarQuery('all', { ...home, adults: 'x' }, '2026-10-07').payload.adults, 1);
+  assert.equal(H.radarQuery('all', { ...home, adults: 50 }, '2026-10-07').payload.adults, 9);
   assert.equal(H.radarQuery(undefined, { from: [{ id: 'ap:PRG', label: 'Praha' }] }, '2026-10-07').payload.radiusKm, 200);
 });
 
@@ -593,15 +598,19 @@ test('dataAge: stáří ověřeného údaje – čerstvé nic, od 3 měsíců �
   assert.match(H.arrivalSource(a, '2027-05-10'), /, ověřeno 7\. 10\. 2026 · před 7 měsíci – mohlo se změnit\.$/);
 });
 
-test('fastKey: cena + délka cesty – neznámá délka s přestupem se odhadne opatrně (4 h na přestup)', () => {
+test('fastKey: cena + délka cesty – neznámá délka s přestupem se odhadne opatrně (6 h na přestup)', () => {
   const l = (durationMin, stops = 0) => ({ durationMin, stops });
   assert.equal(H.tripMinutes(l(600, 1), 9000), 600);
-  assert.equal(H.tripMinutes({ stops: 1 }, 9000), Math.round(9000 / 750 * 60 + 30 + 240));
+  assert.equal(H.tripMinutes({ stops: 1 }, 9000), Math.round(9000 / 750 * 60 + 30 + 360));
   assert.equal(H.tripMinutes({ stops: 0 }, 750), 90);
   // dálkový let: levnější o 450 Kč, ale bez známé délky a s přestupem → za dražším se známými 14 h 40 min
   const known = { perPersonCzk: 11871, distanceKm: 8500, out: l(880, 1), back: l(900, 1) };
   const unknown = { perPersonCzk: 11419, distanceKm: 8500, out: { stops: 1 }, back: { stops: 1 } };
   assert.ok(H.fastKey(known) < H.fastKey(unknown));
+  // živá data Brno → Bangkok (10/2026): Air Arabia bez délky 11 419 Kč vs. Air China 14 h 40 / 15 h 05 za 11 871 Kč
+  const ca = { perPersonCzk: 11871, distanceKm: 8451, out: l(880, 1), back: l(905, 1) };
+  const g9 = { perPersonCzk: 11419, distanceKm: 8451, out: { stops: 1 }, back: { stops: 1 } };
+  assert.ok(H.fastKey(ca) < H.fastKey(g9), `${H.fastKey(ca)} < ${H.fastKey(g9)}`);
   // jen tam
   assert.equal(H.fastKey({ perPersonCzk: 1000, distanceKm: 500, out: l(120) }), 1000 + 2 * 250);
   assert.equal(H.fastKey({ perPersonCzk: 1000, distanceKm: 500, out: l(120) }, 250, 180), 1000 + 5 * 250, 'i 3 h cesty na letiště');
