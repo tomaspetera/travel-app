@@ -542,6 +542,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 [data-theme=light] .note.warn{color:#7a4f00}
 [data-theme=light] .note.bad{color:#9f1239}
 [data-theme=light] .note.info{color:#075985}
+[data-theme=light] .note.good{color:#065f46}
 [data-theme=light] .b.hot{color:#be123c}
 [data-theme=light] .b.warn{color:#8a5a00}
 [data-theme=light] .b.sun{color:#c2410c}
