@@ -253,8 +253,11 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
                 <button type="button" data-v="long">Prodl. víkend</button>
                 <button type="button" class="on" data-v="week">Týden</button>
                 <button type="button" data-v="2weeks">2 týdny</button>
+                <button type="button" data-v="holiday" title="Prodloužený víkend kolem českého svátku – vyber který">🎉 Svátky</button>
                 <button type="button" data-v="custom">Vlastní</button>
               </div>
+              <div class="len-lw" id="lenLw" role="group" aria-label="Prodloužený víkend" hidden></div>
+              <div class="faint len-lw-hint" id="lenLwHint" hidden></div>
               <div class="nights-row" id="nightsRow">
                 <input class="input sm" type="number" id="nMin" min="0" max="45" value="5"> – <input class="input sm" type="number" id="nMax" min="0" max="45" value="9"> nocí
               </div>

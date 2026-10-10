@@ -963,6 +963,58 @@
     }
     return out;
   }
+  /** Prodloužené víkendy na výběr ke dni today – radar i formulář (Délka pobytu → 🎉 Svátky): nejbližší tři, začátek aspoň za 2 dny. */
+  const holidayList = today => longWeekends(addDays(today, 2));
+  /**
+   * Termín prodlouženého víkendu lw pro hledání ke dni today (karta radaru i předvolba 🎉 Svátky ve formuláři):
+   * odlet večer před prvním volným dnem (od 16:00) nebo ráno první volný den, návrat poslední volný den (jinak by odlet
+   * ráno s nejvíc nocemi vracel až v pracovní den) → { dFrom, dTo, nMin, nMax, outDays, backDays, depAfter | null }.
+   */
+  function holidayDates(lw, today) {
+    const dFrom = [addDays(today, 1), addDays(lw.start, -1)].sort()[1], dTo = lw.start;
+    const dow = d => new Date(d + 'T12:00:00Z').getUTCDay();
+    return {
+      dFrom, dTo, nMin: Math.max(1, lw.nights), nMax: diffDays(dFrom, lw.end), outDays: [...new Set([dow(dFrom), dow(dTo)])], backDays: [dow(lw.end)],
+      // v předvečer jen odlety po práci – server je vyřadí hned (stejné výsledky v radaru i ve formuláři)
+      depAfter: dFrom < lw.start ? { date: dFrom, time: LW_DEP } : null,
+    };
+  }
+  /** Prodloužený víkend, jehož termín (dFrom, dTo) formulář f ke dni today má → lw ze seznamu, nebo null (termín upravený). */
+  function holidayOf(f, today) {
+    return (f && holidayList(today).find(lw => { const h = holidayDates(lw, today); return f.dFrom === h.dFrom && f.dTo === h.dTo; })) || null;
+  }
+  /** „14.–17. 11.“, „24.–27. 12.“, „31. 12.–3. 1.“ – rozsah dnů na čip (měsíc jen jednou, když je stejný). */
+  const dmRange = (a, b) => (a.slice(0, 7) === b.slice(0, 7) ? `${+a.slice(8, 10)}.–${dm(b)}` : `${dm(a)}–${dm(b)}`);
+  const DOW_LC = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
+  /** Řádek pod čipy svátků: „Odlet pá 13. 11. od 16:00 nebo so 14. 11. · návrat út 17. 11. · s volnem po 16. 11.“ */
+  function holidayHint(lw, today) {
+    if (!lw) return '';
+    const h = holidayDates(lw, today), d = x => `${DOW_LC[new Date(x + 'T12:00:00Z').getUTCDay()]} ${dm(x)}`;
+    const out = h.depAfter ? `${d(h.dFrom)} od ${h.depAfter.time} nebo ${d(h.dTo)}` : d(h.dTo);
+    return `Odlet ${out} · návrat ${d(lw.end)}${lw.bridge ? ` · s volnem ${d(lw.bridge)}` : ''}`;
+  }
+  /**
+   * Ceny prodloužených víkendů z uložených výsledků radaru – bez nového hledání. map = { [začátek víkendu]: záznam radaru
+   * ({ key, at, items }) }, keyOf(lw) = klíč dotazu radaru pro ten víkend teď (jiný domov, okruh nebo počet lidí → nic).
+   * Jen záznamy mladší než maxAge a karty s odletem od dneška → { [začátek]: { czk, at, partial } }.
+   */
+  function lwPrices(map, list, keyOf, now, today, maxAge = 12 * 36e5) {
+    const out = {};
+    for (const lw of list || []) {
+      const e = map && map[lw.start];
+      if (!e || typeof e.key !== 'string' || !Array.isArray(e.items) || !(now - e.at < maxAge) || !radarSame(e.key, keyOf(lw))) continue;
+      const p = e.items.filter(x => x && x.d1 >= today && x.czk > 0).map(x => x.czk);
+      if (p.length) out[lw.start] = { czk: Math.min(...p), at: e.at, partial: Boolean(e.partial) };
+    }
+    return out;
+  }
+  /** Uložené výsledky radaru po víkendech: záznam entry víkendu start, z ostatních jen víkendy ze seznamu list (minulé zmizí). */
+  function lwKeep(map, list, start, entry) {
+    const keep = new Set((list || []).map(x => x.start)), out = {};
+    if (map && typeof map === 'object' && !Array.isArray(map)) for (const k of Object.keys(map)) if (keep.has(k) && map[k] && typeof map[k].key === 'string') out[k] = map[k];
+    out[start] = entry;
+    return out;
+  }
   /**
    * Radar v režimu mode ('all' | 'weekend' | 'holiday', jiný → 'all') z domova home ({ from: [{ id, label }], radius,
    * adults – počet cestujících, výchozí 1 }) ke dni today:
@@ -976,16 +1028,13 @@
     if (m === 'holiday') {
       // odlet večer před prvním volným dnem nebo ráno, návrat poslední volný den
       // vybraný víkend (pick = jeho začátek), jinak nejbližší
-      const lws = longWeekends(addDays(today, 2));
+      const lws = holidayList(today);
       lw = lws.find(x => x.start === pick) || lws[0] || null;
       if (lw) lw = { ...lw, all: lws };
       if (!lw) return { mode: m, none: true, sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · prodloužené víkendy`, empty: 'V příštích 5 měsících není prodloužený víkend kolem svátku – zkus Kdykoliv nebo Víkendy.' };
-      dateFrom = [addDays(today, 1), addDays(lw.start, -1)].sort()[1]; dateTo = lw.start;
-      // návrat jen poslední volný den (jinak by odlet ráno s nejvíc nocemi vracel až v pracovní den)
-      const dow = d => new Date(d + 'T12:00:00Z').getUTCDay();
-      r = { ...r, nMin: Math.max(1, lw.nights), nMax: diffDays(dateFrom, lw.end), out: [...new Set([dow(dateFrom), dow(dateTo)])], back: [dow(lw.end)] };
-      // v předvečer jen odlety po práci – server je vyřadí hned, i po kliknutí na kartu (stejné výsledky jako karta)
-      if (dateFrom < lw.start) r.depAfter = { date: dateFrom, time: LW_DEP };
+      const h = holidayDates(lw, today);
+      dateFrom = h.dFrom; dateTo = h.dTo;
+      r = { ...r, nMin: h.nMin, nMax: h.nMax, out: h.outDays, back: h.backDays, ...(h.depAfter ? { depAfter: h.depAfter } : {}) };
       when = `prodloužený víkend ${dm(lw.start)}–${dm(lw.end)} (${lw.name}${lw.bridge ? `, s volnem ${dm(lw.bridge)}` : ''})`;
     }
     return {
@@ -996,7 +1045,7 @@
         ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), ...(r.depAfter ? { depAfter: r.depAfter } : {}), adults, kmRate: 1, groundMode: 'transit', arrival: true,
       },
       // formulář po kliknutí na kartu: tvar cesty z radaru, počet lidí a ostatní nastavení zůstanou uživatele
-      form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, ...(r.depAfter ? { depAfter: r.depAfter } : {}), len: 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
+      form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, ...(r.depAfter ? { depAfter: r.depAfter } : {}), len: m === 'holiday' ? 'holiday' : 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
       sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · ${m === 'holiday' ? when : `${r.what} · ${when}`}`,
       empty: r.empty,
     };
@@ -1130,7 +1179,7 @@
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
   };
 })();

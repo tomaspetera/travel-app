@@ -460,6 +460,7 @@
     $('#dateMode').style.display = $('#dateModeLbl').style.display = multi ? 'none' : '';
     $('#fromHint').textContent = multi ? 'začátek cesty – okruh letišť a doprava platí pro 1. let a návrat domů' : 'město, letiště, země nebo tvoje poloha';
     $('#lenField').style.display = ret && !exact ? '' : 'none';
+    syncHoliday();
     $('#flexField').style.display = exact || multi ? 'none' : '';
     $('#exactField').hidden = !exact;
     $('#xBackWrap').style.display = ret ? '' : 'none';
@@ -491,7 +492,43 @@
     $('#moreSummary').textContent = bits.length ? '· ' + bits.join(' · ') : '';
     $('#quickDest').querySelectorAll('[data-any]').forEach(b => b.classList.toggle('on', !toInput.items.length));
   }
+  /* Délka pobytu → 🎉 Svátky: termín prodlouženého víkendu jako karta radaru (SearchHelp.holidayDates) */
+  let lwPick = null; // začátek víkendu vybraného ve formuláři (výchozí při dalším klepnutí na 🎉 Svátky)
+  function applyHoliday(start) {
+    const list = SearchHelp.holidayList(today());
+    const lw = list.find(x => x.start === start) || list.find(x => x.start === lwPick) || list.find(x => x.start === S.radarHoliday) || list[0];
+    if (!lw) { toast('V příštích 5 měsících není prodloužený víkend kolem svátku'); return applyPreset('custom'); }
+    const h = SearchHelp.holidayDates(lw, today());
+    lwPick = lw.start;
+    $$('#lenPreset button').forEach(b => b.classList.toggle('on', b.dataset.v === 'holiday'));
+    $('#nMin').value = h.nMin; $('#nMax').value = h.nMax; $('#dFrom').value = h.dFrom; $('#dTo').value = h.dTo;
+    $$('#outDays button').forEach(b => b.classList.toggle('on', h.outDays.includes(+b.dataset.d)));
+    $$('#backDays button').forEach(b => b.classList.toggle('on', h.backDays.includes(+b.dataset.d)));
+    depAfterVal = h.depAfter; $('#depAfterOn').checked = true;
+    syncFormUI();
+    if (carMode()) refreshOrigins(); // parkování podle počtu nocí
+  }
+  /** Čipy víkendů pod 🎉 Svátky; upravený termín (datum, „2 týdny“…) předvolbu zruší → Vlastní. */
+  function syncHoliday() {
+    const box = $('#lenLw'), hint = $('#lenLwHint');
+    let on = $('#lenPreset .on')?.dataset.v === 'holiday';
+    const vis = on && $('#lenField').style.display !== 'none';
+    const cur = vis ? SearchHelp.holidayOf({ dFrom: $('#dFrom').value, dTo: $('#dTo').value }, today()) : null;
+    if (vis && !cur) {
+      // termín už není víkend se svátkem (jiné datum, „2 týdny“, víkend minul): Vlastní, bez dnů odletu a návratu svátku
+      on = false;
+      $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom'));
+      $$('#outDays button, #backDays button').forEach(x => x.classList.remove('on'));
+    }
+    box.hidden = hint.hidden = !(vis && cur);
+    if (box.hidden) return;
+    lwPick = cur.start;
+    box.innerHTML = SearchHelp.holidayList(today()).map(x => `<button type="button" class="fchip ${x.start === cur.start ? 'on' : ''}" data-lw="${x.start}" aria-pressed="${x.start === cur.start}" title="${esc(x.name)}${x.bridge ? ` – s volnem ${SearchHelp.dm(x.bridge)}` : ''}">🎉 ${SearchHelp.dmRange(x.start, x.end)} <small>${esc(x.name)}</small></button>`).join('');
+    $$('[data-lw]', box).forEach(b => b.onclick = () => applyHoliday(b.dataset.lw));
+    hint.textContent = SearchHelp.holidayHint(cur, today());
+  }
   function applyPreset(k) {
+    if (k === 'holiday') return applyHoliday();
     const p = PRESETS[k];
     $$('#lenPreset button').forEach(b => b.classList.toggle('on', b.dataset.v === k));
     if (p) {
@@ -877,7 +914,8 @@
    */
   function collapseForm(f) {
     const sum = $('#searchSum'); if (!sum || !f || !f.from?.length) return;
-    const when = f.trip !== 'multi' && f.dateMode !== 'exact' ? `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ` : '';
+    const lw = f.len === 'holiday' && f.trip === 'return' && f.dateMode !== 'exact' && SearchHelp.holidayOf(f, today()); // „🎉 Vánoce 24.–27. 12.“ stačí
+    const when = f.trip !== 'multi' && f.dateMode !== 'exact' && !lw ? `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ` : '';
     sum.innerHTML = `<div class="ss-txt"><b>${esc(watchLabel(f))}</b><span class="faint">${esc(when + recentSub(f))} · ${+f.adults || 1} os.</span></div><button type="button" class="btn sm ghost" id="ssWatch">♡</button><button type="button" class="btn sm" id="ssEdit">✎ Upravit</button>`;
     sum.hidden = false;
     $('#searchForm').classList.add('collapsed');
@@ -887,6 +925,8 @@
   function expandForm() { const sum = $('#searchSum'); if (sum) sum.hidden = true; $('#searchForm').classList.remove('collapsed'); }
   // Kratší popis hledání na čip: termín nebo počet nocí.
   function recentSub(f) {
+    const lw = f.len === 'holiday' && f.trip === 'return' && f.dateMode !== 'exact' ? SearchHelp.holidayOf(f, today()) : null;
+    if (lw) return `🎉 ${lw.name} ${SearchHelp.dmRange(lw.start, lw.end)}`;
     if (f.trip === 'multi') return `${plural((f.legs || []).length, 'let', 'lety', 'letů')} od ${fmtDate(f.legs[0].date)}`;
     if (f.dateMode === 'exact') return `${fmtDate(f.xOut)}${f.trip === 'return' && f.xBack ? `–${fmtDate(f.xBack)}` : ' jen tam'}`;
     return f.trip === 'return' ? SearchHelp.nightsRange(f.nMin, f.nMax) : 'jen tam';
@@ -2518,7 +2558,7 @@
     const el = $('#newsLine'); if (!el) return;
     // radar jen pro současný domov a režim (po změně domova by hlásil změny starého)
     const q = S.home?.from?.length ? SearchHelp.radarQuery(S.radarMode, radarHome(), today(), S.radarHoliday) : null;
-    const r = q && !q.none && S.radar && S.radar[q.mode];
+    const r = radarCached(q);
     const n = Alerts.news(S.watch, r && SearchHelp.radarSame(r.key, radarKey(q)) ? r : null, today());
     const parts = [
       ...n.hits.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">🎯 ${esc(x.label)} pod tvou cenou (${czk(x.czk)})</button>`),
@@ -2575,7 +2615,7 @@
   // vidět, dokud nedorazí nové).
   document.addEventListener('visibilitychange', () => {
     if (document.hidden || !document.querySelector('#view-dashboard.active') || !(S.home && S.home.from?.length) || $('#radarGo')) return; // rozdělané „Odkud obvykle létáš?“ nechat
-    const c = S.radar && S.radar[radarModeKey()];
+    const c = radarCached(SearchHelp.radarQuery(S.radarMode, radarHome(), today(), S.radarHoliday));
     if (!c || Date.now() - c.at >= 30 * 60e3) renderRadar();
   });
   // Klíč výsledku radaru: dotaz, u svátků i který prodloužený víkend (jiný svátek = jiné hledání, žádné „↓ od minula“)
@@ -2585,6 +2625,19 @@
   const radarAdults = () => Math.min(9, Math.max(1, Math.round(+S.home?.adults) || 2));
   const radarHome = () => ({ ...S.home, adults: radarAdults() });
   const radarModeKey = () => (['weekend', 'holiday'].includes(S.radarMode) ? S.radarMode : 'all');
+  // uložený výsledek dotazu q: u svátků zvlášť pro každý prodloužený víkend (přepnutí čipu tam a zpět nehledá znovu)
+  const radarCached = q => (!q || q.none ? null : q.mode === 'holiday' ? (S.radar?.lw || {})[q.lw.start] : S.radar?.[q.mode]) || null;
+  /** Čipy prodloužených víkendů v radaru, u každého nejlevnější cena z uloženého výsledku (žádné hledání navíc). */
+  function paintLw(q) {
+    const lwBox = $('#radarLw'), all = (q.lw && q.lw.all) || [];
+    lwBox.hidden = all.length < 2;
+    if (all.length < 2) { lwBox.innerHTML = ''; return; }
+    const pr = SearchHelp.lwPrices(S.radar?.lw, all, x => radarKey(SearchHelp.radarQuery('holiday', radarHome(), today(), x.start)), Date.now(), today());
+    const known = Object.values(pr), best = known.length > 1 ? Math.min(...known.map(p => p.czk)) : null;
+    const at = t => { const d = new Date(t); return `${d.toDateString() === new Date().toDateString() ? '' : `${d.getDate()}. ${d.getMonth() + 1}. `}${d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`; };
+    lwBox.innerHTML = all.map(x => { const p = pr[x.start]; return `<button type="button" class="fchip ${x.start === q.lw.start ? 'on' : ''}" data-lw="${x.start}" title="${esc(x.name)}${x.bridge ? ' – s jedním dnem volna' : ''}${p ? ` · nejlevnější v radaru ${czk(p.czk)}/os. (${at(p.at)})${p.czk === best ? ' – nejlevnější ze tří' : ''}` : ' · cenu ukáže radar po klepnutí'}">🎉 ${SearchHelp.dmRange(x.start, x.end)} <small>${esc(x.name)}</small>${p ? ` <span class="lw-p${p.czk === best ? ' best' : ''}">od ${czk(p.czk)}</span>` : ''}</button>`; }).join('');
+    $$('[data-lw]', lwBox).forEach(b => b.onclick = () => { if (b.dataset.lw !== q.lw.start) { S.radarHoliday = b.dataset.lw; save(); renderRadar(); } });
+  }
   async function renderRadar(force) {
     const host = $('#radar'), modes = $('#radarModes');
     if (!S.home || !S.home.from?.length) return radarSetup();
@@ -2596,15 +2649,12 @@
       b.onclick = () => { if (b.dataset.m !== q.mode) { S.radarMode = b.dataset.m; save(); renderRadar(); } };
     });
     $('#radarSub').innerHTML = `${esc(q.sub)} <button type="button" class="linkbtn" id="radarHome">změnit</button>`;
-    // Svátky: výběr z nejbližších prodloužených víkendů
-    const lwBox = $('#radarLw'), all = (q.lw && q.lw.all) || [];
-    lwBox.hidden = all.length < 2;
-    lwBox.innerHTML = all.length < 2 ? '' : all.map(x => `<button type="button" class="fchip ${x.start === q.lw.start ? 'on' : ''}" data-lw="${x.start}" title="${esc(x.name)}${x.bridge ? ' – s jedním dnem volna' : ''}">🎉 ${SearchHelp.dm(x.start)}–${SearchHelp.dm(x.end)} <small>${esc(x.name)}</small></button>`).join('');
-    $$('[data-lw]', lwBox).forEach(b => b.onclick = () => { if (b.dataset.lw !== q.lw.start) { S.radarHoliday = b.dataset.lw; save(); renderRadar(); } });
+    // Svátky: výběr z nejbližších prodloužených víkendů (s cenou, kterou radar už zná)
+    paintLw(q);
     $('#radarHome').onclick = () => radarSetup(true);
     $('#radarReload').onclick = () => renderRadar(true);
     if (q.none) { renderNews(); host.innerHTML = `<div class="note info">🗓️ <div>${esc(q.empty)}</div></div>`; return; }
-    const c = S.radar && S.radar[q.mode];
+    const c = radarCached(q);
     if (!force && c && c.key === key && Date.now() - c.at < 30 * 60e3) return paintRadar(c, q);
     // Starší výsledek stejného dotazu se ukáže hned a nový se hledá na pozadí – po uspání serveru to trvá i přes minutu.
     const old = SearchHelp.radarStale(c, key, today());
@@ -2648,10 +2698,11 @@
         // odkaz na nabídku z karty – hledání do jednoho cíle ji nemusí vrátit (Kiwi dává pro „kamkoliv“ jiné nabídky)
         ...(t.bookUrl ? { buy: [[t.bookUrl, t.provider, 'all']] } : t.out.bookUrl || t.back?.bookUrl ? { buy: [...(t.out.bookUrl ? [[t.out.bookUrl, t.out.provider, 'out']] : []), ...(t.back?.bookUrl ? [[t.back.bookUrl, t.back.provider, 'back']] : [])] } : {}) }));
       // co se od minulého výsledku změnilo (↓ cena, nový cíl); s výpadkem zdroje bez značek
-      const r = SearchHelp.radarEntry(S.radar && S.radar[q.mode], items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers) });
+      const r = SearchHelp.radarEntry(radarCached(q), items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers) });
       // domov se mezitím změnil: starý dotaz už nic nepřepíše
       if (!S.home?.from?.length || radarKey(SearchHelp.radarQuery(q.mode, radarHome(), today(), S.radarHoliday)) !== key) return r;
-      S.radar = { all: S.radar?.all, weekend: S.radar?.weekend, holiday: S.radar?.holiday, [q.mode]: r }; // každý režim zvlášť (dřívější tvar se zahodí)
+      // každý režim zvlášť, svátky po víkendech (minulé víkendy a dřívější tvar se zahodí)
+      S.radar = { all: S.radar?.all, weekend: S.radar?.weekend, lw: S.radar?.lw, ...(q.mode === 'holiday' ? { lw: SearchHelp.lwKeep(S.radar?.lw, q.lw.all, q.lw.start, r) } : { [q.mode]: r }) };
       save();
       return r;
     } finally { busySearches--; }
@@ -2674,6 +2725,7 @@
   /** st: { busy } = starší výsledek, nový se hledá · { error } = starší výsledek, nový se nepodařilo načíst. */
   function paintRadar(r, q, st = null) {
     renderNews();
+    if (q.lw) paintLw(q);
     const host = $('#radar');
     if (!r.items.length) { host.innerHTML = `<div class="note info">ℹ️ <div>${esc(q.empty)}</div></div>`; return; }
     // u víkendů i den v týdnu (Pá 17.10.–Ne 19.10.) – s datem nerozdělitelně, zalomí se nejvýš za pomlčkou
