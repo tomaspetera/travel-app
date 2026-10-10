@@ -123,6 +123,7 @@ table.cost tr.tot td{font:800 17px Sora,sans-serif;border-bottom:none;padding-to
 .ex-err>div{flex:1;min-width:0}
 .ex-err .btn{flex:none}
 #exBody>.ex-err{margin-top:14px}
+#exPlanOut,.ex-err{scroll-margin-top:100px} /* odrolování k výsledku / chybě: ne pod přilepenou horní lištu */
 /* plovoucí „zpět na seznam / plán“ po odrolování k mapě (jen na telefonu) */
 .ex-back{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:55;padding:10px 18px;border-radius:999px;border:1px solid var(--border-2);background:var(--surface-solid);color:var(--text);font:700 13.5px Inter,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.4);cursor:pointer;white-space:nowrap}
 .ex-back[hidden]{display:none}

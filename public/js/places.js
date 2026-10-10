@@ -622,7 +622,8 @@
       dd.hidden = true;
       const text = q.value.trim();
       if (text.length < 2) return;
-      t = setTimeout(async () => { t = null; if (await fetchSugs(text) && q.value.trim() === text) show(); }, 220);
+      // pozdní odpověď po odchodu z pole (klik jinam) už nabídku znovu neotevře
+      t = setTimeout(async () => { t = null; if (await fetchSugs(text) && q.value.trim() === text && document.activeElement === q) show(); }, 220);
     };
     q.onkeydown = async e => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { if (!sugs.length) return; e.preventDefault(); act = (act + (e.key === 'ArrowDown' ? 1 : -1) + sugs.length) % sugs.length; show(); }
@@ -1213,6 +1214,6 @@
     renderExplore, renderPlanner, retheme, routeMap,
     // jen pro testy (test/places-ui.test.js)
     _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
-      uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS },
+      uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS },
   };
 })();
