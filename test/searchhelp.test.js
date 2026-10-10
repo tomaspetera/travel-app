@@ -577,3 +577,18 @@ test('radarEntry: výsledek s výpadkem zdroje bez značek a příští porovná
   const other = JSON.stringify({ from: ['ap:PRG'], radiusKm: 200, dateFrom: '2026-10-12', dateTo: '2026-11-21' });
   assert.equal(H.radarEntry(full, [it('a', 1)], other, 5, { partial: true }).base, null);
 });
+
+test('dataAge: stáří ověřeného údaje – čerstvé nic, od 3 měsíců „před N měsíci“, od půl roku „mohlo se změnit“', () => {
+  assert.equal(H.dataAge('2026-10', '2026-12-20').txt, '');
+  assert.equal(H.dataAge('2026-10-07', '2027-02-01').txt, ' · před 4 měsíci');
+  const old = H.dataAge('2026-10', '2027-06-15');
+  assert.deepEqual([old.months, old.old, old.txt], [8, true, ' · před 8 měsíci – mohlo se změnit']);
+  assert.equal(H.dataAge('2026-10', '2027-11-01').txt, ' · před rokem – mohlo se změnit');
+  assert.equal(H.dataAge('2026-10', '2029-01-01').txt, ' · před 2 lety – mohlo se změnit');
+  assert.equal(H.dataAge('', '2027-01-01').txt, '');
+  assert.equal(H.dataAge('2027-01', '2026-10-10').months, 0, 'budoucí datum = čerstvé');
+  // jízdné z letiště: zdroj i se stářím
+  const a = { basis: 'table', src: 'https://www.example.com/x', date: '2026-10-07' };
+  assert.match(H.arrivalSource(a, '2026-10-10'), /, ověřeno 7\. 10\. 2026\.$/);
+  assert.match(H.arrivalSource(a, '2027-05-10'), /, ověřeno 7\. 10\. 2026 · před 7 měsíci – mohlo se změnit\.$/);
+});

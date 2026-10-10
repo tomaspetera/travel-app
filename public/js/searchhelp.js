@@ -802,8 +802,8 @@
     if (a.basis === 'access') return `${where}: ${how} ~${kc(a.czk)} na osobu, ~${hhmmTxt(a.min)} (odhad podle tabulky dopravy na letiště).`;
     return `${where}: ${how} – ${arrivalFare(a)} na osobu, ~${hhmmTxt(a.min)}.${a.note ? ` ${a.note[0].toUpperCase()}${a.note.slice(1)}.` : ''}`;
   }
-  /** Odkud je jízdné: „Zdroj: aeroportparisbeauvais.com, ověřeno 7. 10. 2026.“ (odhad bez zdroje → ''). */
-  const arrivalSource = a => (a && a.basis === 'table' && a.src ? `Zdroj${a.sec ? ' (sekundární, oficiální neuvádí)' : ''}: ${srcHost(a.src)}, ověřeno ${dm(a.date)} ${String(a.date).slice(0, 4)}.` : '');
+  /** Odkud je jízdné: „Zdroj: aeroportparisbeauvais.com, ověřeno 7. 10. 2026.“ (odhad bez zdroje → ''), u staršího i stáří. */
+  const arrivalSource = (a, today = localToday()) => (a && a.basis === 'table' && a.src ? `Zdroj${a.sec ? ' (sekundární, oficiální neuvádí)' : ''}: ${srcHost(a.src)}, ověřeno ${dm(a.date)} ${String(a.date).slice(0, 4)}${dataAge(a.date, today).txt}.` : '');
   const inPrice = (on, czk, both) => (on ? ` V ceně nabídky ${both ? 'tam i zpět ' : ''}~${kc(czk)}/os.` : ' Do ceny nabídky se nepočítá (vypnuto v Další možnosti).');
   const arrChip = (x, text, title) => ({
     text: `${ARR_ICON[x.mode] || '🚌'} ${text} ${arrivalFare(x)} · ${hhmmTxt(x.min)}${x.basis !== 'table' ? ' (odhad)' : ''}`,
@@ -908,6 +908,22 @@
     return { key, at, demo, items: radarDiff(base, items, key, at) };
   }
 
+  /* ---------- stáří ověřených údajů ---------- */
+  const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  /**
+   * Jak starý je ověřený údaj (vstupní podmínky, jízdné z letiště, příprava na cestu): checked „2026-10“ nebo
+   * „2026-10-07“, today „YYYY-MM-DD“ → { months, txt, old }. txt se připojí za datum ověření: do 3 měsíců nic,
+   * pak „ · před 4 měsíci“, od půl roku „ · před 8 měsíci – mohlo se změnit“ (old). Nikdo to nemusí přepisovat.
+   */
+  function dataAge(checked, today = localToday()) {
+    const m = /^(\d{4})-(\d{2})/.exec(String(checked || '')), t = /^(\d{4})-(\d{2})/.exec(String(today || ''));
+    if (!m || !t) return { months: null, txt: '', old: false };
+    const months = Math.max(0, (+t[1] - +m[1]) * 12 + (+t[2] - +m[2]));
+    const ago = months < 12 ? `před ${months} měsíci` : months < 24 ? 'před rokem' : `před ${Math.floor(months / 12)} lety`;
+    const old = months >= 6;
+    return { months, old, txt: months < 3 ? '' : ` · ${ago}${old ? ' – mohlo se změnit' : ''}` };
+  }
+
   /* ---------- poslední výsledky a nedávná hledání (uložené v tomto prohlížeči) ---------- */
   /**
    * Poslední hledání k uložení ({ at, form, payload, res }) jako text: celé, nebo s nejvýš `keep` nabídkami na cíl, aby
@@ -956,6 +972,6 @@
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    lastPack, lastLoad, savedWhen, recentAdd, recentForm,
+    lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge,
   };
 })();

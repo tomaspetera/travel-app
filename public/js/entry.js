@@ -58,6 +58,8 @@
   const meta = () => (DATA ? { checked: DATA.checked, source: DATA.source, sourceUrl: DATA.sourceUrl, note: DATA.note } : null);
   // „2026-10“ → „10/2026“
   const checkedTxt = () => { const m = /^(\d{4})-(\d{2})$/.exec((DATA && DATA.checked) || ''); return m ? `${+m[2]}/${m[1]}` : ''; };
+  // „ · před 8 měsíci – mohlo se změnit“ (SearchHelp.dataAge), u čerstvých dat nic
+  const ageTxt = () => (window.SearchHelp && DATA ? SearchHelp.dataAge(DATA.checked).txt : '');
 
   /* ---------- kurz ---------- */
   function setRate(x) { if (Number(x) > 0) rate = Number(x); }
@@ -96,7 +98,7 @@
   // EU, EHP a Švýcarsko: volný pohyb osob – ne „bez omezení (EU)“, Švýcarsko ani Norsko v EU nejsou
   const stayTxt = r => (r.visa === 'eu' ? 'volný pohyb osob' : r.maxStayDays ? `${r.maxStayDays} dní` : r.visa === 'visa' ? 'podle víza' : 'neuvedeno');
   // neověřený záznam nesmí znít jako „ověřeno 10/2026“
-  const srcTxt = r => `Zdroj: ${/(^|\.)mzv\.gov\.cz$/.test(hostOf(r.source)) ? 'MZV ČR' : hostOf(r.source)} (${r.verified ? `ověřeno ${checkedTxt()}` : `stav ${checkedTxt()}, neověřeno na oficiální stránce`})`;
+  const srcTxt = r => `Zdroj: ${/(^|\.)mzv\.gov\.cz$/.test(hostOf(r.source)) ? 'MZV ČR' : hostOf(r.source)} (${r.verified ? `ověřeno ${checkedTxt()}` : `stav ${checkedTxt()}, neověřeno na oficiální stránce`}${ageTxt()})`;
   const UNVERIFIED = 'Tento záznam se nepodařilo ověřit na oficiální stránce – ber ho jen orientačně a před cestou si ho ověř na webu MZV ČR.';
   // „?“ za štítkem u neověřeného záznamu
   const q = r => (r.verified ? '' : '?');
@@ -299,7 +301,7 @@
     }).filter(Boolean);
   }
   const link = (u, txt) => (safeUrl(u) === '#' ? '' : `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${esc(txt)}</a>`);
-  const disclaimer = () => `Informativní přehled ${DATA && DATA.source ? `(${esc(DATA.source)}, ověřeno ${esc(checkedTxt())})` : ''} – pravidla se mění, před cestou vždy ověř aktuální podmínky na ${link((DATA && DATA.sourceUrl) || 'https://www.mzv.gov.cz/jnp/cz/cestujeme/index.html', 'webu MZV ČR')}.`;
+  const disclaimer = () => `Informativní přehled ${DATA && DATA.source ? `(${esc(DATA.source)}, ověřeno ${esc(checkedTxt() + ageTxt())})` : ''} – pravidla se mění, před cestou vždy ověř aktuální podmínky na ${link((DATA && DATA.sourceUrl) || 'https://www.mzv.gov.cz/jnp/cz/cestujeme/index.html', 'webu MZV ČR')}.`;
   // u přestupu: platí vždy, nebo jen s pasovou kontrolou
   const transitTxt = r => (r.transitEta === 'landside' ? 'nutná i při přestupu, pokud procházíš pasovou kontrolou (samostatné letenky, vyzvedávání zavazadel)' : 'platí i při přestupu');
   /** Karta „🛂 Před cestou“ (průvodce cestou, plánovač); '' když data nejsou nebo cesta nemá zemi. */
@@ -364,6 +366,6 @@
 
   window.Entry = {
     set, load, ready, whenReady, get, meta, setRate, eurCzk, kind, regName, cardChip, flightChip, idNote, transit, transitHtml, transitCcs,
-    passportRule, passportDates, passportUntil, addMonths, leadDays, remindDays, reminder, reminders, checklist, costs, checklistHtml, detailHtml, matches, checkedTxt,
+    passportRule, passportDates, passportUntil, addMonths, leadDays, remindDays, reminder, reminders, checklist, costs, checklistHtml, detailHtml, matches, checkedTxt, ageTxt,
   };
 })();

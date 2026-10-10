@@ -220,7 +220,7 @@ function parseGeo(rest) {
  * Vrací { home: {lat,lon,label,cc?,iata?}|null, airports: [{iata, distKm, ground}] } seřazená podle vzdálenosti.
  * ground = cesta z domova na letiště (access.js: veřejnou dopravou / autem podle `access`, viz airportAccess).
  */
-export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOrigins, access = {} } = {}) {
+export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOrigins, access = {}, exclude = [] } = {}) {
   let home = null;
   const picked = new Map();
   const add = (a, dist) => {
@@ -271,7 +271,8 @@ export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOr
       for (const a of airportsNear(point.lat, point.lon, radiusKm)) add(a, a.distKm);
     }
   }
-  let list = [...picked.values()];
+  const off = new Set(exclude);
+  let list = [...picked.values()].filter((x) => !off.has(x.iata)); // vypnutá letiště nezaberou místo
   if (home) {
     for (const x of list) {
       const a = getAirport(x.iata);
@@ -281,12 +282,14 @@ export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOr
   // Při omezení počtu letišť preferuj ta, odkud se opravdu létá: menší letiště „penalizuj“ fiktivními km.
   const eff = (x) => x.distKm + sizePenaltyKm(getAirport(x.iata));
   list.sort((x, y) => Number(y.explicit) - Number(x.explicit) || eff(x) - eff(y));
+  list.forEach((x, i) => { x.rank = i; }); // pořadí výběru (náhled ve formuláři ukáže, která se prohledají)
   list = list.slice(0, maxAirports).sort((x, y) => x.distKm - y.distKm);
   return {
     home,
     airports: list.map((x) => ({
       iata: x.iata,
       distKm: Math.round(x.distKm),
+      rank: x.rank,
       ground: home ? airportAccess(home, x.iata, access) : null,
     })),
   };

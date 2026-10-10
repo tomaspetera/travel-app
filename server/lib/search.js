@@ -227,8 +227,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
   // podle délky cesty (park); autem jen tam = odvoz (palivo tam i zpět, bez parkování).
   const homeNights = q.groundMode === 'car' && opts.homeNights != null ? opts.homeNights : null;
   const access = accessOpts(q, q.trip === 'oneway' && homeNights == null);
-  const origins = resolveOrigins(q.from, { radiusKm: q.radiusKm, access, maxAirports: config.maxOrigins + q.exclude.length });
-  origins.airports = origins.airports.filter((a) => !q.exclude.includes(a.iata)).slice(0, config.maxOrigins);
+  const origins = resolveOrigins(q.from, { radiusKm: q.radiusKm, access, maxAirports: config.maxOrigins, exclude: q.exclude });
   if (!origins.airports.length) throw new UserError('V okolí jsem nenašel žádné letiště s pravidelnými lety. Zvětši okruh.');
   const dest = resolveDestinations(q.to);
   const originSet = new Set(origins.airports.map((a) => a.iata));
@@ -768,8 +767,7 @@ async function searchMulti(q, emit, opts = {}) {
   const homeReturn = sameIds(q.legs[n - 1].to, q.legs[0].from);
   const homeNights = q.groundMode === 'car' && homeReturn ? daysBetween(q.legs[0].date, q.legs[n - 1].date) : null;
   const access = accessOpts(q, homeNights == null);
-  const origins = resolveOrigins(q.from, { radiusKm: q.radiusKm, access, maxAirports: config.maxOrigins + q.exclude.length });
-  origins.airports = origins.airports.filter((a) => !q.exclude.includes(a.iata)).slice(0, config.maxOrigins);
+  const origins = resolveOrigins(q.from, { radiusKm: q.radiusKm, access, maxAirports: config.maxOrigins, exclude: q.exclude });
   if (!origins.airports.length) throw new UserError('V okolí začátku cesty jsem nenašel žádné letiště s pravidelnými lety. Zvětši okruh.');
   const homeGround = new Map(origins.airports.map((a) => [a.iata, a.ground ? a.ground.czk : 0]));
   const label = (list) => list.map((id) => describe(id)?.label).filter(Boolean).join(', ') || '?';
