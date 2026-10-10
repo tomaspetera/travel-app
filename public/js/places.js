@@ -33,7 +33,8 @@
   const icon = c => (CAT[c] || CAT.sight)[0];
   const color = c => (CAT[c] || CAT.sight)[2];
   const plusDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00'); d.setDate(d.getDate() + n); return fmtYMD(d); };
-  const dayLbl = ymd => { const d = new Date(ymd + 'T12:00:00'); return `${['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'][d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`; };
+  // nezlomitelné mezery: „ne 11. 10.“ se na telefonu nerozdělí na dva řádky
+  const dayLbl = ymd => { const d = new Date(ymd + 'T12:00:00'); return `${['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'][d.getDay()]}\u00a0${d.getDate()}.\u00a0${d.getMonth() + 1}.`; };
   const minTxt = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
   const TRIP_ICON = { town: '🏘️', castle: '🏰', nature: '⛰️', monastery: '⛪', palace: '🏯', ruins: '🏚️' };
   const NATURE_ICON = { park: '🏞️', waterfall: '💧', cave: '🕳️', gorge: '🏞️', rock: '🪨', mountain: '⛰️', lake: '🌊', reserve: '🌿' };
@@ -193,9 +194,12 @@
     mUrl ? `<a class="linkbtn" href="${esc(safeUrl(mUrl))}" target="_blank" rel="noopener">Mapy.com ↗</a>` : '',
   ].filter(Boolean).join(' · ')}</span>` : '');
 
+  const gmBtn = center => (center?.label ? `<a class="btn" href="${esc(gmSearch(centerQ(center) || `${center.lat},${center.lon}`))}" target="_blank" rel="noopener">Otevřít v Google Maps ↗</a>` : '');
   function mapFallback(el, center, msg) {
-    el.innerHTML = `<div class="map-fallback"><div>🗺️ ${esc(msg)}</div>${center?.label ? `<a class="btn" href="${esc(gmSearch(centerQ(center) || `${center.lat},${center.lon}`))}" target="_blank" rel="noopener">Otevřít v Google Maps ↗</a>` : ''}</div>`;
+    el.innerHTML = `<div class="map-fallback"><div>🗺️ ${esc(msg)}</div>${gmBtn(center)}</div>`;
   }
+  // Mapa bez podkladu (nenačetly se dlaždice ani záložní OpenStreetMap): poznámka nad mapou, značky a trasa zůstanou.
+  const blankHtml = center => `<div class="map-blank" role="status"><div>🗺️ Mapa se nenačetla</div>${gmBtn(center)}</div>`;
 
   // Knihovna mapy (~1 MB) se načte až při prvním zobrazení mapy, ne s celou aplikací.
   let mapLibP = null;
@@ -262,17 +266,19 @@
     // 15 s od načtení stylu dorazila nejvýš jedna, přepni také na OpenStreetMap.
     let tiles = 0;
     let watchdog = null;
-    map.on('data', e => { if (e.dataType === 'source' && e.tile) tiles++; });
+    // dorazí-li dlaždice záložní mapy přece jen později, poznámka „Mapa se nenačetla“ zmizí
+    map.on('data', e => { if (e.dataType === 'source' && e.tile && ++tiles >= 2 && ms.raster) el.querySelector('.map-blank')?.remove(); });
     map.once('remove', () => clearTimeout(watchdog));
     map.on('style.load', () => {
       ms.styleReady = true;
       clearTimeout(timer);
       addLines(ms);
       clearTimeout(watchdog);
-      if (!ms.raster) {
-        tiles = 0;
-        watchdog = setTimeout(() => { if (tiles < 2 && !map.areTilesLoaded()) toRaster(); }, 15000);
-      }
+      tiles = 0;
+      // Vektorová mapa: viselé dlaždice → OpenStreetMap. Ani ta za 15 s nenaběhla (bez sítě, blokované dlaždice) →
+      // poznámka s odkazem do Google Map místo tmavé prázdné plochy (chybou skončené dlaždice se počítají jako hotové).
+      watchdog = !ms.raster ? setTimeout(() => { if (tiles < 2 && !map.areTilesLoaded()) toRaster(); }, 15000)
+        : setTimeout(() => { if (tiles < 2 && liveMaps.has(map) && !el.querySelector('.map-blank')) el.insertAdjacentHTML('beforeend', blankHtml(center)); }, 15000);
     });
   }
 
@@ -445,7 +451,10 @@
     const m = t.match(/^[\s\S]{20,240}?[a-z0-9)\]"'’\u00e0-\u024f]{2}[.!?](?=\s|$)/); // „St. Vitus“, „U.S.“ větu neukončí
     return m ? m[0] : t.length > 240 ? `${t.slice(0, 220).replace(/\s+\S*$/, '')}…` : t;
   };
-  const descHtml = (text, lang) => (!text ? '' : lang === 'en'
+  // Bez údaje o jazyku (starší server): text bez české diakritiky s několika běžnými anglickými slovy je anglický.
+  const EN_WORDS = /\b(the|of|and|is|was|were|located|built|which|its|with|from|by|known|has)\b/gi;
+  const looksEnglish = s => !/[ěščřžůťďň]/i.test(s) && (String(s).match(EN_WORDS) || []).length >= 3;
+  const descHtml = (text, lang) => (!text ? '' : lang === 'en' || (!lang && looksEnglish(text))
     ? `<span class="poi-lang" title="Český popis chybí – úryvek z anglické Wikipedie">anglicky</span> ${esc(firstSentence(text))}` : esc(text));
   // Části sloučené do celku (katedrála na Hradě, orloj u radnice) – jinak by v aplikaci nebyly vidět vůbec.
   const inclHtml = (p, cls) => (Array.isArray(p.includes) && p.includes.length
@@ -822,6 +831,9 @@
 
   /* ---------- na kole a pěšky ---------- */
   const BIKE_LBL = Object.fromEntries(BIKE_TYPES);
+  // „Jiná trasa“ u okruhu: server má 10 různých směrů (varianty 0–9), pak se kolečko opakuje.
+  const ROUTE_VARIANTS = 10;
+  const variantTxt = r => (r && r.kind !== 'train' && Number.isFinite(+r.variant) ? `varianta ${(Math.abs(Math.round(+r.variant)) % ROUTE_VARIANTS) + 1}/${ROUTE_VARIANTS}` : '');
   const kmBetween = (a, b) => {
     const r = Math.PI / 180;
     const x = (b[0] - a[0]) * r * Math.cos(((a[1] + b[1]) / 2) * r);
@@ -896,7 +908,7 @@
       ${elevSvg(r.geometry, routeColor(r))}
       ${train ? `<div class="note info" style="margin-top:10px">🚲 <div>Kolo ve vlaku obvykle potřebuje vlastní jízdenku${st.cc === 'CZ' ? ' (v Česku „jízdní kolo“ jako spoluzavazadlo)' : ''} a některé vlaky vyžadují rezervaci místa pro kolo – ověř to u konkrétního spoje.</div></div>` : ''}
       <div class="row wrap" style="gap:8px;margin-top:10px">
-        <button class="btn" id="routeOther">🔄 ${train ? 'Jiné nádraží' : 'Jiná trasa'}</button>
+        <button class="btn" id="routeOther">🔄 ${train ? 'Jiné nádraží' : 'Jiná trasa'}</button>${variantTxt(r) ? `<span class="faint route-var">${variantTxt(r)}</span>` : ''}
         <button class="btn" id="routeGpx">⬇️ Stáhnout GPX</button>
         <a class="btn" href="${esc(safeUrl(r.mapyUrl))}" target="_blank" rel="noopener">Otevřít v Mapy.com ↗</a>
         <a class="btn" href="${esc(safeUrl(r.googleUrl))}" target="_blank" rel="noopener">Google Maps ↗</a>
@@ -949,6 +961,12 @@
     soonT = setTimeout(() => { if (curKey() === key && ex.replanNow) ex.replanNow(); }, 400);
   };
   const mustHtml = n => (n ? `★ ${mustTxt(n)} <button type="button" class="linkbtn" data-mustclear>zrušit výběr</button>` : '');
+  // Prázdný okruh: rovnou největší okruh (jeden dotaz, menší pak filtruje prohlížeč) a u programu ve městě
+  // tip na režimy, které fungují i bez památek v okolí.
+  const MAX_R = RADII.at(-1);
+  const emptyHtml = (radius, mode) => `<div class="empty" style="padding:26px 12px">V okruhu ${radius} km jsem nic zajímavého nenašel.${
+    radius < MAX_R ? `<div style="margin-top:12px"><button type="button" class="btn sm" data-rad="${MAX_R}">Zvětšit okruh na ${MAX_R} km</button></div>` : ''}${
+    mode === 'city' ? `<div class="ex-alt"><span>I tady naplánuju:</span>${MODES.filter(([id]) => ['day', 'bike', 'hike'].includes(id)).map(([id, l]) => `<button type="button" class="fchip" data-mode="${id}">${l}</button>`).join('')}</div>` : ''}</div>`;
 
   function paintExplore() {
     const body = $('#exBody'); if (!body) return;
@@ -976,8 +994,11 @@
     const er = ex.errs[seqKey];
     const dayOpts = ex.mode === 'loop' ? [2, 3, 4, 5, 6, 7, 10] : ex.mode === 'day' ? [1, 2, 3, 4, 5, 7] : [1, 2, 3, 4, 5, 6, 7, 10];
     const curDays = road ? ex.tripDays[ex.mode] : ex.days;
-    const hasPlan = routeMode ? rr : road ? trip && trip.days.length : ex.plan;
-    const out = routeMode ? routeHtml(rr, p, ex.start) : road ? tripHtml(trip, p) : ex.plan ? planHtml(ex.plan, p) : '';
+    // Program bez jediného místa (prázdný okruh) se neukládá a místo dnů „Volno“ řekne proč.
+    const cityPlan = Boolean(ex.plan?.days.some(d => d.items.length));
+    const hasPlan = routeMode ? rr : road ? trip && trip.days.length : cityPlan;
+    const out = routeMode ? routeHtml(rr, p, ex.start) : road ? tripHtml(trip, p) : !ex.plan ? ''
+      : cityPlan ? planHtml(ex.plan, p) : `<div class="empty" style="padding:18px 12px">Program není z čeho sestavit – v okruhu ${ex.radius} km nejsou žádná místa.</div>`;
     const inPlan = ex.mode === 'city' ? planIds(ex.plan) : new Set();
     // V režimu výletů jde z výpisu přidat jen výlet mimo město (do programu ve městě patří ostatní).
     const card = x => (road
@@ -1000,10 +1021,7 @@
     // Chyba přímo ve výsledku (se „Zkusit znovu“), čekání nahoře nad dosavadním výsledkem.
     const errNote = er ? errHtml(errLead(kind, er.other), er.msg, 'exRetry', out ? KEPT[kind] : '') : '';
     const wait = bz ? waitHtml(bz.kind, Date.now() - bz.t0 >= SLOW_MS, '', bz.note) : '';
-    // Prázdný okruh: nabídni větší (bez dotazu, pokud je větší už načtený).
-    const bigger = RADII.find(r => r > ex.radius);
-    const empty = cityN ? '<div class="empty">Nic v této kategorii.</div>'
-      : `<div class="empty" style="padding:26px 12px">V okruhu ${ex.radius} km jsem nic zajímavého nenašel.${bigger ? `<div style="margin-top:12px"><button type="button" class="btn sm" data-rad="${bigger}">Zvětšit okruh na ${bigger} km</button></div>` : ''}</div>`;
+    const empty = cityN ? '<div class="empty">Nic v této kategorii.</div>' : emptyHtml(ex.radius, ex.mode);
     const placesIn = `<div class="ex-cats"><button type="button" data-cat="" class="${!ex.cat ? 'on' : ''}">Vše</button>${cats.map(c => `<button type="button" data-cat="${c}" class="${ex.cat === c ? 'on' : ''}">${icon(c)} ${(CAT[c] || CAT.sight)[1]}</button>`).join('')}</div>
         <div class="poi-list" id="exList">${list.map(card).join('') || empty}</div>`;
     // Na kole, pěšky a u výletů je hlavní výsledek trasa na mapě – seznam míst ve městě je sbalený.
@@ -1156,7 +1174,7 @@
       let ok = false;
       try {
         if (routeMode) {
-          const variant = o.other ? (ro.variant + 1) % 10 : ro.variant;
+          const variant = o.other ? (ro.variant + 1) % ROUTE_VARIANTS : ro.variant;
           // Městem: památky, které už jsou načtené (server je nemusí hledat znovu).
           const sights = ro.scenery === 'city' && !train ? ex.items.filter(x => x.category !== 'daytrip').slice(0, 40).map(x => ({ name: x.name, lat: x.lat, lon: x.lon, score: x.score })) : undefined;
           // Vlakem tam: název a země domova pro odkaz na spojení (u „Moje okolí“ název není).
@@ -1257,6 +1275,6 @@
     // jen pro testy (test/places-ui.test.js)
     _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
-      countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP },
+      countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish },
   };
 })();

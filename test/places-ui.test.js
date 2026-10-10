@@ -210,7 +210,7 @@ test('odkazy do Google Map, den a název souboru, GPX', () => {
   assert.equal(u.searchParams.get('waypoints'), 'A, Barcelona|B, Barcelona');
   assert.equal(u.searchParams.get('travelmode'), 'walking');
   assert.equal(T.gmDir('x', [], 'walking'), null);
-  assert.equal(T.dayLbl('2026-10-11'), 'ne 11. 10.');
+  assert.equal(T.dayLbl('2026-10-11'), 'ne\u00a011.\u00a010.', 'nezlomitelné mezery – na telefonu se nerozdělí');
   assert.equal(T.slug('Český Krumlov'), 'cesky-krumlov');
   assert.equal(T.slug(''), 'trasa');
   const gpx = T.gpxOf({ geometry: [[14.42, 50.08, 200], [14.43, 50.09], [14.44, 50.1, 210]] }, 'Pěšky z: <Praha>');
@@ -300,4 +300,37 @@ test('Mapy.com: nejvýš 15 mezizastávek, bez platných bodů žádný odkaz', 
   assert.equal(T.mapyDir({ lat: 50, lon: 14 }, [{ lat: null, lon: 14 }, { name: 'x' }], 'foot_fast'), null);
   assert.equal(T.mapyDir({}, pts, 'foot_fast'), null, 'bez startu nic');
   assert.equal(T.dayLinks(null, null), '');
+});
+
+// Trasa ve tvaru odpovědi /api/bike (zkráceně).
+const ROUTE = (o = {}) => ({ km: 40, target: 40, ascent: 320, minutes: 150, unpavedPct: 35, cyclePct: 81, trailPct: 0, roadPct: 0, busyPct: 0, via: [],
+  geometry: [[2.1686, 41.3874, 10], [2.2, 41.42, 60], [2.1686, 41.3874, 10]], activity: 'bike', kind: 'loop', bike: 'trekking', variant: 0,
+  mapyUrl: 'https://mapy.com/fnc/v1/route?x=1', googleUrl: 'https://www.google.com/maps/dir/?api=1', ...o });
+
+test('drobnosti: „varianta n/10“ u Jiné trasy, prázdný okruh, mapa bez podkladu, anglický popis bez údaje o jazyku', () => {
+  assert.equal(T.ROUTE_VARIANTS, 10);
+  assert.deepEqual([0, 4, 9, 10, 13].map((v) => T.variantTxt({ kind: 'loop', variant: v })), ['varianta 1/10', 'varianta 5/10', 'varianta 10/10', 'varianta 1/10', 'varianta 4/10']);
+  assert.equal(T.variantTxt({ kind: 'train', variant: 2 }), '', 'u nádraží počet variant neznáme');
+  assert.equal(T.variantTxt({ kind: 'loop' }), '');
+  assert.match(T.routeHtml(ROUTE({ variant: 6 }), BCN_C, '2026-10-12'), /🔄 Jiná trasa<\/button><span class="faint route-var">varianta 7\/10<\/span>/);
+  assert.ok(!T.routeHtml(ROUTE({ kind: 'train', variant: 1, station: { name: 'Vic', lat: 41.93, lon: 2.25, cc: 'ES' }, train: { googleUrl: 'https://www.google.com/maps/dir/?api=1' } }), BCN_C, '2026-10-12').includes('route-var'));
+
+  const e3 = T.emptyHtml(3, 'city');
+  assert.match(e3, /V okruhu 3 km jsem nic zajímavého nenašel\./);
+  assert.match(e3, /data-rad="20">Zvětšit okruh na 20 km</, 'rovnou největší okruh – menší pak filtruje prohlížeč');
+  assert.deepEqual([...e3.matchAll(/data-mode="(\w+)"/g)].map((m) => m[1]), ['day', 'bike', 'hike']);
+  assert.ok(!T.emptyHtml(20, 'city').includes('data-rad'), 'větší okruh už není');
+  assert.ok(!T.emptyHtml(5, 'bike').includes('data-mode'), 'v jiném režimu bez tipu na režimy');
+
+  const blank = T.blankHtml(BCN_C);
+  assert.match(blank, /🗺️ Mapa se nenačetla/);
+  assert.match(blank, /href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=Barcelona%2C%20%C5%A0pan%C4%9Blsko"[^>]*>Otevřít v Google Maps ↗/);
+  assert.ok(!T.blankHtml({}).includes('<a'), 'bez názvu místa bez odkazu');
+
+  const en = 'La Boqueria is a large public market in the Ciutat Vella district of Barcelona, Catalonia, Spain. It is one of the city\'s foremost tourist landmarks.';
+  assert.ok(T.looksEnglish(en));
+  assert.ok(!T.looksEnglish('Barokní kostel na Malé Straně, který je jednou z nejvýznamnějších staveb v Praze.'));
+  assert.ok(!T.looksEnglish('El Mercat de Sant Josep de la Boqueria és un mercat municipal de Barcelona.'), 'katalánsky ne');
+  assert.match(T.descHtml(en, undefined), /^<span class="poi-lang"[^>]*>anglicky<\/span> La Boqueria is a large public market in the Ciutat Vella district of Barcelona, Catalonia, Spain\.$/);
+  assert.ok(!T.descHtml(en, 'cs').includes('poi-lang'), 'server řekl česky – věříme mu');
 });
