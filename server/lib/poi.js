@@ -148,7 +148,7 @@ export function groupBindings(rows, center) {
     if (!p) {
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
       p = {
-        id, name: val(b, 'itemLabel') || id, description: val(b, 'itemDescription') || '', lat, lon, csName: null, locName: null, csDesc: null,
+        id, name: val(b, 'itemLabel') || id, description: val(b, 'itemDescription') || '', lat, lon,
         sitelinks: Number(val(b, 'sl')) || 0, types: new Set(), heritage: false, unesco: false,
         image: null, wiki: { cs: title(val(b, 'cs')), en: title(val(b, 'en')) }, coords: new Set(), partOf: new Set(), cc: '',
       };
@@ -182,7 +182,7 @@ export function groupBindings(rows, center) {
     // Popis česky, jinak (anglický) se značkou jazyka – aplikace ho zkrátí a označí „anglicky“.
     if (p.csDesc) p.description = p.csDesc;
     p.descLang = p.csDesc ? 'cs' : p.description ? 'en' : undefined;
-    p.csName = p.locName = p.csDesc = undefined;
+    delete p.csName; delete p.locName; delete p.csDesc;
     if (/^Q\d+$/.test(p.name)) continue; // bez názvu
     const types = [...p.types];
     const has = (list) => types.some((t) => list.includes(t));
@@ -709,14 +709,14 @@ function within(p, ms) {
 // S článkem na Wikivoyage: město, o kterém píše cestovní průvodce, je skutečný cíl (ne vesnice nebo předměstí).
 const tripsQuery = (lat, lon) => cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.toFixed(2)}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, 120, 45, 300, { wv: true, lang: localLang(lat, lon) }), 58000));
 
-/**
- * Cíle výletů do ~120 km (pro plánovač jednodenních a okružních výletů) – víc než 8 ve findPlaces,
- * s popisem a fotkou. Čeká na pomalý dotaz celý (max. ~1 min, pak je v mezipaměti týden).
- */
 const tripsKey = ({ lat, lon, limit = 30 }) => `trips:${lat.toFixed(2)}:${lon.toFixed(2)}:${limit}`;
 /** Jsou cíle výletů (findTrips se stejnými volbami) celé v mezipaměti – odpověď bez dotazu na Wikidata? */
 export const tripsCached = (opts) => cache.get(tripsKey(opts)) !== undefined;
 
+/**
+ * Cíle výletů do ~120 km (pro plánovač jednodenních a okružních výletů) – víc než 8 ve findPlaces,
+ * s popisem a fotkou. Čeká na pomalý dotaz celý (max. ~1 min, pak je v mezipaměti týden).
+ */
 export async function findTrips({ lat, lon, limit = 30 }) {
   const key = tripsKey({ lat, lon, limit });
   // Neúplný výsledek se drží krátce: příroda/hrady se ještě načítají 1 min, nenačtené popisy 2 min, jinak (chybí
@@ -812,14 +812,14 @@ export function mockTowns({ lat, lon }) {
   }).sort((a, b) => b.score - a.score);
 }
 
-/**
- * Místa k návštěvě kolem bodu.
- * opts: { lat, lon, radiusKm (město, max 25), dayTrips (true = i výlety do 120 km), limit }
- */
 const placesKey = ({ lat, lon, radiusKm = 10, dayTrips = true, limit = 60 }) => `poi:${lat.toFixed(3)}:${lon.toFixed(3)}:${Math.min(25, Math.max(1, radiusKm))}:${dayTrips}:${limit}`;
 /** Je výsledek findPlaces se stejnými volbami celý v mezipaměti – odpověď bez dotazu na Wikidata a Wikipedii? */
 export const placesCached = (opts) => cache.get(placesKey(opts)) !== undefined;
 
+/**
+ * Místa k návštěvě kolem bodu.
+ * opts: { lat, lon, radiusKm (město, max 25), dayTrips (true = i výlety do 120 km), limit }
+ */
 export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, limit = 60 }) {
   const r = Math.min(25, Math.max(1, radiusKm));
   const key = placesKey({ lat, lon, radiusKm: r, dayTrips, limit });
