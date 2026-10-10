@@ -812,7 +812,7 @@
     toast('Zjišťuji polohu…');
     navigator.geolocation.getCurrentPosition(p => {
       const lat = p.coords.latitude.toFixed(4), lon = p.coords.longitude.toFixed(4);
-      input.set([...input.items.filter(x => !x.id.startsWith('geo:')), { id: `geo:${lat},${lon}|Moje poloha`, label: 'Moje poloha', flag: '📍', type: 'place' }]);
+      input.set([...input.items.filter(x => !/\|Moje poloha$/.test(x.id)), { id: `geo:${lat},${lon}|Moje poloha`, label: 'Moje poloha', flag: '📍', type: 'place' }]);
     }, () => toast('Polohu se nepodařilo zjistit', 'err'), { timeout: 10000, maximumAge: 600000 });
   }
 

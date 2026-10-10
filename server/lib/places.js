@@ -32,6 +32,14 @@ function matchScore(q, text) {
   return 0;
 }
 
+/** Liší se řetězce nejvýš jedním písmenem (záměna, vložení, vynechání)? */
+function lev1(a, b) {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  return a.slice(i + 1) === b.slice(i + 1) || a.slice(i) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i);
+}
+
 // ---- pořadí v našeptávači: shoda názvu + velikost místa − vzdálenost od domova ----
 // velikost 0–20 bodů: letiště podle cestujících za rok (tisíce), město podle obyvatel; vzdálenost 0–15 bodů
 const paxBonus = (k) => (k > 0 ? Math.min(20, Math.max(0, 5 * Math.log10(k / 30))) : 0);
@@ -88,7 +96,7 @@ function metroSuggestion(m) {
 function citySuggestion(c, region = '') {
   const aps = cityAirports(c.lat, c.lon).map((a) => a.iata);
   return {
-    id: `geo:${c.lat.toFixed(4)},${c.lon.toFixed(4)}|${c.cs}`, type: 'city', label: c.cs, flag: flag(c.cc), cc: c.cc,
+    id: `geo:${c.lat.toFixed(4)},${c.lon.toFixed(4)}|${c.cs}`, type: 'city', label: c.cs, ...(c.en && c.en !== c.cs ? { en: c.en } : {}), flag: flag(c.cc), cc: c.cc,
     lat: c.lat, lon: c.lon, pop: c.pop || 0,
     sub: `${region ? `${region} · ` : ''}${aps.length ? `letiště v okolí: ${aps.join(', ')}` : 'město'}`,
   };
@@ -107,8 +115,9 @@ function localScored(query, home) {
   const q = normalize(query);
   if (!q) return [];
   const out = [];
-  const push = (s, m, score) => m > 0 && out.push({ s, m, score });
-  const near = (cc) => { const p = COUNTRY_POINT.get(cc); return p ? distPenalty(home, p.lat, p.lon) : 0; };
+  const push = (s, m, score, extra = {}) => m > 0 && out.push({ s, m, score, ...extra });
+  // země bez letiště (Andorra, Monako) nikdy nepředběhne skutečný cíl – přesná shoda názvu ji ale ukáže
+  const near = (cc) => { const p = COUNTRY_POINT.get(cc); return p ? distPenalty(home, p.lat, p.lon) : 15; };
   for (const c of COUNTRIES) {
     const sc = Math.max(matchScore(q, c.cs), matchScore(q, c.en));
     if (sc >= 60) push(countrySuggestion(c), sc, sc + (sc === 100 ? 15 : 5) - near(c.iso2));
@@ -159,7 +168,11 @@ function localScored(query, home) {
     const raw = String(query).trim();
     const upper = raw === raw.toUpperCase();
     const m = upper ? (out.some((c) => c.m === 100) ? 95 : 120) : 78;
-    if (a) push(airportSuggestion(a), m, m + apBonus(a) - distPenalty(home, a.lat, a.lon));
+    const as = a ? m + apBonus(a) - distPenalty(home, a.lat, a.lon) : null;
+    if (a) push(airportSuggestion(a), m, as, { code: true });
+    // kód metropole (NYC, LON, TYO): hned za letištěm se stejným kódem (BCN = letiště, pak celá Barcelona)
+    const mc = METRO_BY_CODE.get(q.toUpperCase());
+    if (mc) push(metroSuggestion(mc), m, a ? as - 0.5 : m + metroBonus(mc) - distPenalty(home, mc.lat, mc.lon), { code: true });
   }
   return out;
 }
@@ -172,17 +185,21 @@ function rank(cands, { role = 'to', limit = 10 } = {}) {
   const best = Math.max(0, ...cands.map((c) => c.m));
   let list = best >= 60 ? cands.filter((c) => c.m >= 60) : cands; // „obsahuje“ jen když nic lepšího
   // Slovo uvnitř názvu (Kisangani – BANGoka, Long Banga) jen u velkých nebo blízkých míst, když je i lepší shoda.
-  if (best >= 80) list = list.filter((c) => c.m >= 80 || c.score - c.m >= 4);
+  // Kód letiště psaný malými („boj“ = Burgas), země a velká letiště zůstanou vždy (Srí Lanka u „Lanka“, Punta Cana).
+  if (best >= 80) list = list.filter((c) => c.m >= 80 || c.code || c.s.type === 'country' || c.s.big || c.score - c.m >= 4);
   list.sort((x, y) => y.score - x.score);
   const seen = new Set();
   const res = [];
   for (const { s } of list) if (!seen.has(s.id)) { seen.add(s.id); res.push(s); }
   const twin = (city) => (s) => s.type === 'airport' && normalize(s.label) === normalize(city.label) && haversineKm(s.lat, s.lon, city.lat, city.lon) < 60;
   for (const city of res.filter((s) => s.type === 'city')) {
-    if (!res.some(twin(city))) continue;
+    const ap = res.find(twin(city));
+    if (!ap) continue;
+    // dvojice zůstane na vyšším z obou míst (vlastní město v poli Odkud nespadne pod cizí výsledky)
+    const at = Math.min(res.indexOf(city), res.indexOf(ap));
     res.splice(res.indexOf(city), 1);
-    const k = res.findIndex(twin(city));
-    res.splice(role === 'from' ? k : k + 1, 0, city);
+    res.splice(res.indexOf(ap), 1);
+    res.splice(at, 0, ...(role === 'from' ? [city, ap] : [ap, city]));
   }
   return res.slice(0, limit);
 }
@@ -237,8 +254,12 @@ export async function englishName(name, lat, lon, cc = '', gid = null) {
 
 /** Střed města z vlastních dat (města domova, metropole; jinak poloha letiště) – záloha bez sítě. */
 export function localCityCenters(query) {
-  return localSuggestions(query, 6)
+  const list = localSuggestions(query, 6, { role: 'from' }); // město před svým letištěm
+  const cities = list.filter((s) => s.type === 'city');
+  return list
     .filter((s) => s.lat != null && (s.type === 'city' || s.type === 'metro' || s.type === 'airport'))
+    // letiště města, které už v seznamu je, jako střed města nepatří (Brno ≠ Tuřany)
+    .filter((s) => !(s.type === 'airport' && cities.some((c) => normalize(c.label) === normalize(s.label) && haversineKm(c.lat, c.lon, s.lat, s.lon) < 60)))
     .map((s) => ({ ...s, id: `geo:${s.lat.toFixed(4)},${s.lon.toFixed(4)}|${s.label}`, type: 'place' }));
 }
 
@@ -262,16 +283,26 @@ export async function suggest(query, { limit = 8, remote = true, near = '', role
       // Geokódování je jen doplněk – při výpadku vrať lokální výsledky.
     }
     const kept = cands.map((c) => c.s);
-    for (const g of geo) {
+    // Silná shoda (vlastní místo nebo město z geokódování): pak vzdálené vesnice nepatří do návrhů. Bez ní ano –
+    // Portofino, Plitvice nebo Sveti Stefan mají v GeoNames pod 1000 obyvatel a jsou jediná správná odpověď.
+    // Cizí název (Munchen, Koln, Beograd, Geneve): geokodér vrátí český („Mnichov“) – jeho první velké město je správně;
+    // stejně tak název lišící se jedním písmenem (Agia / Ayia Napa).
+    const mOf = (g, gi) => {
       const m = matchScore(q, g.label);
+      return m < 60 && gi === 0 && q.length >= 4 && ((g.pop >= 100000 && /^PPL(C|A\d?)?$/.test(g.fc || '')) || (g.pop >= 1000 && lev1(q, normalize(g.label)))) ? 80 : m;
+    };
+    const strong = cands.some((c) => c.m >= 80) || geo.some((g, gi) => g.pop >= 1000 && !SKIP_FC.test(g.fc || '') && mOf(g, gi) >= 80);
+    for (const [gi, g] of geo.entries()) {
+      const m = mOf(g, gi);
       if (m < 60) continue; // „fuzzy“ geokodéru: Bruno u „Brno“, Winterthur u „Zli“, Brenggolo u „Bangkok“
       if (SKIP_FC.test(g.fc || '')) continue;
-      if (g.pop < 1000 && haversineKm(home.lat, home.lon, g.lat, g.lon) > 400) continue; // vesnice daleko od domova
+      if (strong && g.pop < 1000 && haversineKm(home.lat, home.lon, g.lat, g.lon) > 400) continue; // vesnice daleko od domova
       // Přesná shoda s místem z databáze (Brno, Toledo): jen stejnojmenná větší města (Toledo ve Španělsku vedle letišť
       // Toledo v USA a Brazílii) – ne jmenovci a vesnice (Brno v Plzeňském kraji, Vídeň na Vysočině).
       if (exact && !(m === 100 && g.pop >= 50000)) continue;
       // Duplikát nebo čtvrť nalezeného místa: do 25 km a název začíná jeho názvem (Brno-střed, Bratislava - Rača).
-      if (kept.some((l) => l.lat != null && haversineKm(l.lat, l.lon, g.lat, g.lon) < 25 && normalize(g.label).startsWith(normalize(l.label)))) continue;
+      // (i podle anglického názvu: Salzburg = Salcburk)
+      if (kept.some((l) => l.lat != null && haversineKm(l.lat, l.lon, g.lat, g.lon) < 25 && [l.label, l.en].some((n) => n && normalize(g.label).startsWith(normalize(n))))) continue;
       const city = g.pop >= 15000;
       const s = city ? { ...citySuggestion({ cs: g.label, cc: g.cc, lat: g.lat, lon: g.lon, pop: g.pop }, g.sub), gid: g.gid } : g;
       // malá místa (vesnice, pop neznámý) až za městy a letišti se stejným začátkem
@@ -345,8 +376,9 @@ export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOr
       if (!p) continue;
       point = p;
       const near = airportsNear(p.lat, p.lon, Math.max(radiusKm, 1));
-      // Ani v malém okruhu nezůstaň bez letiště – vezmi aspoň 2 nejbližší velká.
-      const list = near.length ? near : airportsNear(p.lat, p.lon, 600).slice(0, 2);
+      // Okruh 0 u města: jeho vlastní letiště (centrum → BRQ 8 km, MUC 29 km); jinak aspoň 2 nejbližší velká (Zlín).
+      const own = airportsNear(p.lat, p.lon, 40).slice(0, 1);
+      const list = near.length ? near : own.length ? own : airportsNear(p.lat, p.lon, 600).slice(0, 2);
       for (const a of list) add(a, a.distKm);
     } else if (kind === 'cc') {
       for (const a of airportsInCountry(rest)) {

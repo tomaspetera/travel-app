@@ -61,3 +61,57 @@ test('město „a letiště v okolí“: Odkud = okruh ze středu, Kam = vlastn�
   assert.deepEqual(resolveDestinations([brno.id]).airports, ['BRQ', 'VIE', 'BTS', 'OSR'], 'ne Pardubice před Vídní');
   assert.equal(resolveDestinations([brno.id]).label, 'Brno');
 });
+
+test('suggest: kódy letišť malými, cizí názvy měst, malá turistická místa, země bez letiště, okruh 0 u města', async () => {
+  // kód psaný malými nebo s velkým prvním písmenem (klávesnice telefonu) letiště nesmí schovat
+  for (const [q, id] of [['boj', 'ap:BOJ'], ['Boj', 'ap:BOJ'], ['mah', 'ap:MAH'], ['tia', 'ap:TIA'], ['cia', 'ap:CIA'], ['gro', 'ap:GRO'], ['bod', 'ap:BOD']]) {
+    assert.equal(localSuggestions(q, 8)[0].id, id, q);
+  }
+  assert.ok(localSuggestions('bri', 8).some((s) => s.id === 'ap:BRI'), 'bri = Bari');
+  assert.deepEqual(ids(localSuggestions('nyc', 3)), ['metro:NYC']);
+  assert.deepEqual(ids(localSuggestions('bcn', 2)), ['ap:BCN', 'metro:BCN'], 'letiště podle kódu před metropolí');
+  // země bez letiště jen při přesné shodě
+  assert.notEqual(localSuggestions('An', 3)[0].id, 'cc:AD');
+  assert.notEqual(localSuggestions('Pal', 3)[0].id, 'cc:PS');
+  assert.equal(localSuggestions('Monako', 3)[0].id, 'cc:MC');
+  // země a velká letiště shodou slova uvnitř názvu
+  assert.ok(localSuggestions('Lanka', 8).some((s) => s.id === 'cc:LK'));
+  assert.ok(localSuggestions('Cana', 8).some((s) => s.id === 'ap:LPA'));
+  assert.equal(localSuggestions('Wrocław', 3)[0].id, 'ap:WRO');
+  // dvojice město + letiště zůstane na vyšším místě: v Odkud z Brna je Brno první
+  assert.equal(localSuggestions('Br', 8, { home: homePoint('ap:BRQ'), role: 'from' })[0].id.split('|')[0], BRNO);
+  // okruh 0 u města: jeho letiště, ne druhé vzdálené
+  const og = (id, r) => resolveOrigins([id], { radiusKm: r }).airports.map((a) => a.iata);
+  assert.deepEqual(og('geo:49.1952,16.6080|Brno', 0), ['BRQ']);
+  assert.deepEqual(og('geo:48.1374,11.5755|Mnichov', 25), ['MUC']);
+  assert.equal(og('geo:49.2265,17.6707|Zlín', 0).length, 2, 'město bez letiště: dvě nejbližší');
+
+  const mock = config.mock;
+  config.mock = false;
+  // skutečné odpovědi Open-Meteo (language=cs, 10. 10. 2026)
+  const R = {
+    Munchen: [place('Mnichov', 48.1374, 11.5755, 'DE', 1260391, 'Bavorsko', 'PPLA'), place('München', 51.607, 13.3124, 'DE', 0, 'Braniborsko'), place('München', 48.6967, 13.4631, 'DE', 0, 'Bavorsko'), place('Münchendorf', 48.0333, 16.3833, 'AT', 2992, 'Dolní Rakousy', 'PPLA3')],
+    Koln: [place('Kolín nad Rýnem', 50.9333, 6.95, 'DE', 963395, 'Severní Porýní-Vestfálsko', 'PPLA2'), place('Kolno', 53.4115, 21.9291, 'PL', 10659, 'Podleské vojvodství'), place('Kolno', 53.9969, 20.9947, 'PL', 590)],
+    Beograd: [place('Bělehrad', 44.804, 20.4651, 'RS', 1273651, 'Central Serbia', 'PPLC')],
+    Salzburg: [place('Salzburg', 47.7994, 13.044, 'AT', 157245, 'Salcbursko', 'PPLA'), place('Salzburg', 50.6667, 8.05, 'DE', 238, 'Porýní-Falc', 'PPLA4')],
+    Portofino: [place('Portofino', 44.3035, 9.2094, 'IT', 406, 'Ligurie', 'PPLA3'), place('Portofino Vetta', 44.3343, 9.1715, 'IT', 0, 'Ligurie')],
+    Plitvice: [place('Plitvica', 46.672, 15.9237, 'SI', 106, 'Občina Apače'), place('Plitvica Selo', 44.8994, 15.5979, 'HR', 48), place('Plitvice Lakes National Park', 44.85, 15.6167, 'HR', 0, 'Lika-Senj County', 'PRK')],
+    'Agia Napa': [place('Ayia Napa', 34.9821, 34.0018, 'CY', 4717, 'Famagusta'), place('Agia Napa', 34.6757, 33.046, 'CY', 0, 'Distrikt Lemesos')],
+  };
+  const stub = stubFetch((url) => ({ body: { results: R[new URL(url).searchParams.get('name')] || [] } }));
+  try {
+    const first = async (q) => (await suggest(q))[0]?.label;
+    assert.equal(await first('Munchen'), 'Mnichov', 'cizí název → české jméno velkého města');
+    assert.equal(await first('Koln'), 'Kolín nad Rýnem');
+    assert.equal(await first('Beograd'), 'Bělehrad');
+    assert.equal(await first('Agia Napa'), 'Ayia Napa', 'liší se jedním písmenem');
+    const sz = await suggest('Salzburg');
+    assert.equal(sz.filter((s) => s.type === 'city').length, 1, 'Salcburk jen jednou (anglický název = duplikát)');
+    assert.ok((await suggest('Portofino')).some((s) => s.label === 'Portofino'), 'malé turistické místo, když nic jiného nesedí');
+    const pl = (await suggest('Plitvice')).map((s) => s.label);
+    assert.ok(pl.includes('Plitvice Lakes National Park') && !pl.includes('Plitvica'), pl.join(', '));
+  } finally {
+    stub.restore();
+    config.mock = mock;
+  }
+});

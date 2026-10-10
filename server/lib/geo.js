@@ -13,6 +13,7 @@ export function haversineKm(lat1, lon1, lat2, lon2) {
 export const normalize = (s) =>
   String(s || '')
     .toLowerCase()
+    .replace(/ł/g, 'l') // ł se v NFD nerozloží (Wrocław, Łódź)
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9 ]+/g, ' ')
