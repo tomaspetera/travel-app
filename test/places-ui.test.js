@@ -219,3 +219,85 @@ test('odkazy do Google Map, den a název souboru, GPX', () => {
   assert.match(gpx, /<name>Pěšky z: &lt;Praha&gt;<\/name>/);
   assert.match(gpx, /^<\?xml version="1.0" encoding="UTF-8"\?>\n<gpx version="1.1"/);
 });
+
+// Odkazy z HTML (href) jako URL
+const hrefs = (html) => [...html.matchAll(/href="([^"]+)"/g)].map((m) => new URL(m[1].replace(/&amp;/g, '&')));
+const BCN_C = { label: 'Barcelona', city: 'Barcelona', country: 'Španělsko', cc: 'ES', lat: 41.3874, lon: 2.1686 };
+// Výlet ve tvaru odpovědi /api/roadtrip (zkráceně): Montserrat a Vic, zpět do Barcelony.
+const STOP = (id, name, lat, lon, o = {}) => ({ id, name, cc: 'ES', lat, lon, travelKm: 50, travelMin: 55, visitMin: 120, arrive: '10:00', depart: '09:00', categoryLabel: 'Klášter', ...o });
+const tripOf = (mode, transport, days) => ({ mode, transport, spare: [], days });
+const DAY = (date, from, stops, back = { arrive: '19:25', depart: '18:10', km: 70, min: 75 }) => ({ date, from, stops, back, overnight: back ? null : { name: stops.at(-1).name, bookUrl: 'https://www.booking.com/x' }, travelMin: 200, travelKm: 180, minutes: 600 });
+
+test('odkazy u cílů výletů: název se zemí (Montserrat, Španělsko), ne jen název', () => {
+  const TB = load({ byIso: { ES: { cs: 'Španělsko' }, FR: { cs: 'Francie' } } }).window.Places._t;
+  assert.equal(TB.stopQ({ name: 'Montserrat', cc: 'ES' }, BCN_C), 'Montserrat, Španělsko');
+  assert.equal(TB.stopQ({ name: 'Collioure', cc: 'FR' }, BCN_C), 'Collioure, Francie', 'cíl za hranicí – jeho země');
+  assert.equal(TB.stopQ({ name: 'Vic' }, BCN_C), 'Vic, Španělsko', 'bez kódu – země výchozího místa');
+  assert.equal(TB.stopQ({ name: 'Karlštejn', cc: 'XX' }, { geo: true, country: '' }), 'Karlštejn', 'neznámá země a „Moje okolí“: jen název');
+  assert.equal(TB.poiQ({ name: 'Girona', category: 'daytrip', cc: 'ES' }, BCN_C), 'Girona, Španělsko');
+  assert.equal(TB.poiQ({ name: 'Casa Milà', category: 'sight' }, BCN_C), 'Casa Milà, Barcelona, Španělsko');
+  assert.equal(T.countryCs('ES'), '', 'bez data.js (byIso) prázdné');
+
+  // jednodenní výlet autem: Google i Mapy.com, hledání zastávky se zemí
+  const trip = tripOf('day', 'car', [DAY('2026-10-12', { name: 'Barcelona', lat: 41.3874, lon: 2.1686 },
+    [STOP('Q190', 'Montserrat', 41.5933, 1.8375), STOP('Q13985', 'Vic', 41.9301, 2.2549, { arrive: '14:20' })])]);
+  const links = hrefs(TB.tripHtml(trip, BCN_C));
+  const g = links.find((u) => u.pathname === '/maps/dir/');
+  assert.equal(g.searchParams.get('origin'), 'Barcelona, Španělsko');
+  assert.equal(g.searchParams.get('waypoints'), 'Montserrat, Španělsko|Vic, Španělsko');
+  assert.equal(g.searchParams.get('destination'), 'Barcelona, Španělsko');
+  const m = links.find((u) => u.hostname === 'mapy.com');
+  assert.equal(m.pathname, '/fnc/v1/route');
+  assert.deepEqual(['start', 'end', 'routeType', 'waypoints'].map((k) => m.searchParams.get(k)), ['2.16860,41.38740', '2.16860,41.38740', 'car_fast', '1.83750,41.59330;2.25490,41.93010']);
+  const search = links.filter((u) => u.pathname === '/maps/search/').map((u) => u.searchParams.get('query'));
+  assert.deepEqual(search, ['Montserrat, Španělsko', 'Vic, Španělsko']);
+
+  // okruh: druhý den začíná u přespání (se zemí), končí v posledním cíli (bez návratu)
+  const loop = tripOf('loop', 'car', [
+    DAY('2026-10-12', { name: 'Barcelona', lat: 41.3874, lon: 2.1686 }, [STOP('Q13985', 'Vic', 41.9301, 2.2549)], null),
+    DAY('2026-10-13', { name: 'Vic', lat: 41.9301, lon: 2.2549 }, [STOP('Q7038', 'Girona', 41.9833, 2.8167)]),
+  ]);
+  const l2 = hrefs(TB.tripHtml(loop, BCN_C)).filter((u) => u.pathname === '/maps/dir/');
+  assert.equal(l2[1].searchParams.get('origin'), 'Vic, Španělsko');
+  const lm = hrefs(TB.tripHtml(loop, BCN_C)).filter((u) => u.hostname === 'mapy.com');
+  assert.equal(lm.length, 2);
+  assert.deepEqual([lm[0].searchParams.get('end'), lm[0].searchParams.get('waypoints')], ['2.25490,41.93010', null], 'den s přespáním: cíl = přespání');
+
+  // vlakem a busem: bez trasy autem (Google ani Mapy.com), spoje se zemí
+  const tr = hrefs(TB.tripHtml({ ...trip, transport: 'transit' }, BCN_C));
+  assert.ok(!tr.some((u) => u.hostname === 'mapy.com'));
+  const spoje = tr.filter((u) => u.searchParams.get('travelmode') === 'transit').map((u) => u.searchParams.get('destination'));
+  assert.deepEqual(spoje, ['Montserrat, Španělsko', 'Vic, Španělsko', 'Barcelona, Španělsko']);
+});
+
+test('program ve městě: pěší den i v Mapy.com (start u ubytování), výlet mimo město jen spoje Google', () => {
+  const TB = load({ byIso: { ES: { cs: 'Španělsko' } } }).window.Places._t;
+  const items = BCN.items.filter((x) => x.category !== 'daytrip').slice(0, 3).map((p) => ({ ...p, visitMin: 60, fromPrevKm: 1, fromPrevMin: 15 }));
+  const gir = { ...BCN.items.find((x) => x.name === 'Girona'), cc: 'ES', visitMin: 300, fromPrevKm: 85, transit: true };
+  const plan = { days: [{ date: '2026-10-12', items, cap: 480, minutes: 180, walkKm: 3 }, { date: '2026-10-13', kind: 'daytrip', items: [gir], cap: 480 }] };
+  const html = TB.planHtml(plan, BCN_C);
+  const links = hrefs(html);
+  const m = links.filter((u) => u.hostname === 'mapy.com');
+  assert.equal(m.length, 1, 'výlet mimo město bez Mapy.com');
+  assert.equal(m[0].searchParams.get('routeType'), 'foot_fast');
+  assert.equal(m[0].searchParams.get('start'), '2.16860,41.38740');
+  assert.equal(m[0].searchParams.get('end'), `${items[2].lon.toFixed(5)},${items[2].lat.toFixed(5)}`);
+  assert.equal(m[0].searchParams.get('waypoints').split(';').length, 2);
+  const g = links.filter((u) => u.pathname === '/maps/dir/');
+  assert.equal(g[0].searchParams.get('travelmode'), 'walking');
+  assert.equal(g[1].searchParams.get('destination'), 'Girona, Španělsko');
+  assert.match(html, /<span class="dp-links">trasa: <a class="linkbtn"[^>]*>Google Maps ↗<\/a> · <a class="linkbtn"[^>]*>Mapy\.com ↗<\/a><\/span>/);
+});
+
+test('Mapy.com: nejvýš 15 mezizastávek, bez platných bodů žádný odkaz', () => {
+  const pts = Array.from({ length: 20 }, (_, i) => ({ lat: 50 + i / 100, lon: 14 + i / 100 }));
+  const u = new URL(T.mapyDir({ lat: 50, lon: 14 }, pts, 'foot_fast'));
+  assert.equal(u.searchParams.get('waypoints').split(';').length, T.MAPY_WP);
+  assert.equal(u.searchParams.get('end'), '14.19000,50.19000', 'cíl je poslední zastávka');
+  const back = new URL(T.mapyDir({ lat: 50, lon: 14 }, pts.slice(0, 3), 'car_fast', { lat: 50, lon: 14 }));
+  assert.equal(back.searchParams.get('waypoints').split(';').length, 3, 's návratem jsou mezizastávkami všechny cíle');
+  assert.equal(T.mapyDir({ lat: 50, lon: 14 }, [], 'foot_fast'), null);
+  assert.equal(T.mapyDir({ lat: 50, lon: 14 }, [{ lat: null, lon: 14 }, { name: 'x' }], 'foot_fast'), null);
+  assert.equal(T.mapyDir({}, pts, 'foot_fast'), null, 'bez startu nic');
+  assert.equal(T.dayLinks(null, null), '');
+});

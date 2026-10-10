@@ -168,7 +168,30 @@
   // název, tam zůstanou souřadnice.
   const centerQ = center => (center.geo ? `${(+center.lat).toFixed(5)},${(+center.lon).toFixed(5)}`
     : center.city && center.label && center.label !== center.city ? gq(center.label, cityOf(center)) : cityOf(center));
-  const poiQ = (p, center) => (p.category === 'daytrip' || p.tripKind ? p.name : gq(p.name, cityOf(center)));
+  // Země česky podle kódu (byIso z data.js).
+  const countryCs = cc => (cc && typeof byIso !== 'undefined' && byIso[cc]?.cs) || '';
+  // Cíl výletu (Montserrat, Vic, La Granada) se zemí – svou (cc z Wikidat), jinak zemí výchozího místa;
+  // jen s názvem by Google vybral stejnojmenné místo jinde (Montserrat v Karibiku).
+  const stopQ = (s, center) => gq(s.name, countryCs(s.cc) || center.country || '');
+  const poiQ = (p, center) => (p.category === 'daytrip' || p.tripKind ? stopQ(p, center) : gq(p.name, cityOf(center)));
+  // Mapy.com: trasa dne přes zastávky (pěšky po městě foot_fast, výlet autem car_fast) – stejný formát odkazu jako
+  // u tras na kole (server/lib/bike.js mapyUrl); Google Maps v mobilu bere jen pár mezizastávek, Mapy.com až 15.
+  const MAPY_WP = 15;
+  const mll = p => `${(+p.lon).toFixed(5)},${(+p.lat).toFixed(5)}`;
+  const okPt = p => p && p.lat != null && p.lon != null && Number.isFinite(+p.lat) && Number.isFinite(+p.lon);
+  function mapyDir(start, stops, routeType, end) {
+    const pts = stops.filter(okPt);
+    if (!okPt(start) || !pts.length) return null;
+    const qs = new URLSearchParams({ mapset: 'basic', start: mll(start), end: mll(okPt(end) ? end : pts.at(-1)), routeType });
+    const via = (okPt(end) ? pts : pts.slice(0, -1)).slice(0, MAPY_WP);
+    if (via.length) qs.set('waypoints', via.map(mll).join(';'));
+    return `https://mapy.com/fnc/v1/route?${qs}`;
+  }
+  // „trasa: Google Maps ↗ · Mapy.com ↗“ v nadpisu dne
+  const dayLinks = (gUrl, mUrl, what = 'trasa') => (gUrl || mUrl ? `<span class="dp-links">${what}: ${[
+    gUrl ? `<a class="linkbtn" href="${esc(safeUrl(gUrl))}" target="_blank" rel="noopener">Google Maps ↗</a>` : '',
+    mUrl ? `<a class="linkbtn" href="${esc(safeUrl(mUrl))}" target="_blank" rel="noopener">Mapy.com ↗</a>` : '',
+  ].filter(Boolean).join(' · ')}</span>` : '');
 
   function mapFallback(el, center, msg) {
     el.innerHTML = `<div class="map-fallback"><div>🗺️ ${esc(msg)}</div>${center?.label ? `<a class="btn" href="${esc(gmSearch(centerQ(center) || `${center.lat},${center.lon}`))}" target="_blank" rel="noopener">Otevřít v Google Maps ↗</a>` : ''}</div>`;
@@ -347,7 +370,7 @@
     trip.days.forEach((d, i) => {
       const col = DAY_COLORS[i % DAY_COLORS.length];
       d.stops.forEach((s, j) => pts.push({ id: s.id, lat: s.lat, lon: s.lon, color: col, num: j + 1, big: true,
-        label: `${tripIcon(s)} ${s.name} · den ${i + 1}${d.overnight && j === d.stops.length - 1 ? ' · přespání' : ''}`, q: s.name, place: s }));
+        label: `${tripIcon(s)} ${s.name} · den ${i + 1}${d.overnight && j === d.stops.length - 1 ? ' · přespání' : ''}`, q: stopQ(s, center), place: s }));
       const coords = [[d.from.lon, d.from.lat], ...d.stops.map(s => [s.lon, s.lat])];
       if (d.back) coords.push([center.lon, center.lat]);
       lines.push({ color: col, coords });
@@ -444,9 +467,12 @@
     if (!plan) return '';
     const warn = (plan.warnings || []).map(w => `<div class="note warn" style="margin-bottom:10px">⚠️ <div>${esc(w)}</div></div>`).join('');
     return warn + plan.days.map((d, i) => {
-      const url = d.kind !== 'daytrip' ? gmDir(centerQ(center), d.items.map(p => poiQ(p, center)), 'walking') : gmDir(centerQ(center), d.items.slice(0, 1).map(p => p.name), 'transit');
-      return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${d.kind === 'daytrip' ? ' · celodenní výlet' : ''}${wxSlot((d.kind === 'daytrip' && d.items[0]) || center, d.date)}</span>
-        ${url ? `<a class="linkbtn" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">trasa v Google Maps ↗</a>` : ''}</h4>
+      const trip = d.kind === 'daytrip';
+      const url = !trip ? gmDir(centerQ(center), d.items.map(p => poiQ(p, center)), 'walking') : gmDir(centerQ(center), d.items.slice(0, 1).map(p => poiQ(p, center)), 'transit');
+      // pěší den po městě i v Mapy.com (výlet mimo město veřejnou dopravou jen Google – spoje)
+      const mapy = !trip ? mapyDir(center, d.items, 'foot_fast') : null;
+      return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? ' · celodenní výlet' : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
+        ${dayLinks(url, mapy)}</h4>
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${minTxt(p.visitMin)}</span>
           ${inclHtml(p, 'dp-walk')}<div class="dp-walk">${j === 0 ? 'od ubytování' : 'dál'} ${p.transit ? `${p.fromPrevKm} km – MHD/taxi` : `${p.fromPrevKm} km pěšky (~${minTxt(p.fromPrevMin)})`}</div></div>
           <button type="button" title="Vyřadit z plánu" data-drop="${esc(p.id)}">✕</button></div>`).join('')
@@ -743,13 +769,14 @@
     ? `🚆 ~${minTxt(min)} vlakem / busem (odhad) · <a href="${esc(safeUrl(gmDir(fromQ, [toQ], 'transit')))}" target="_blank" rel="noopener" title="${esc(`V Google Maps nastav odjezd: ${when}`)}">spoje ↗</a>`
     : `🚗 ${km} km (~${minTxt(min)})`);
 
-  function tripStopHtml(s, j, transit, fromQ, date) {
+  function tripStopHtml(s, j, transit, fromQ, date, center) {
+    const q = stopQ(s, center);
     return `<div class="dp-item" data-poi="${esc(s.id)}"><span class="dp-n">${j + 1}</span><div>
       <b>${tripIcon(s)} ${esc(s.name)}</b> <span class="faint">· ${esc(s.categoryLabel || '')}${s.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : s.unescoPart ? ' · <span style="color:var(--warn)">část památky UNESCO</span>' : ''}</span>
-      <div class="dp-walk">${legTxt(transit, s.travelKm, s.travelMin, fromQ, s.name, `${dayLbl(date)} ~${s.depart}`)} · ${transit ? `odjezd ~${esc(s.depart)} · ` : ''}příjezd ~${esc(s.arrive)} · na místě ~${minTxt(s.visitMin)}</div>
+      <div class="dp-walk">${legTxt(transit, s.travelKm, s.travelMin, fromQ, q, `${dayLbl(date)} ~${s.depart}`)} · ${transit ? `odjezd ~${esc(s.depart)} · ` : ''}příjezd ~${esc(s.arrive)} · na místě ~${minTxt(s.visitMin)}</div>
       ${s.highlights?.length ? `<div class="dp-walk">👀 Uvidíš: ${esc(s.highlights.join(', '))}</div>` : ''}
       ${s.extract ? `<div class="poi-desc" style="-webkit-line-clamp:2">${descHtml(s.extract, s.descLang)}</div>` : ''}
-      <div class="poi-acts">${s.url ? `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}<a href="${esc(gmSearch(s.name))}" target="_blank" rel="noopener">Google Maps ↗</a></div></div>
+      <div class="poi-acts">${s.url ? `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}<a href="${esc(gmSearch(q))}" target="_blank" rel="noopener">Google Maps ↗</a></div></div>
       <button type="button" title="Vyřadit z výletu" data-tdrop="${esc(s.id)}">✕</button></div>`;
   }
 
@@ -764,26 +791,29 @@
     const origin = centerQ(center);
     const transit = trip.transport === 'transit';
     const days = trip.days.map((d, i) => {
-      const from = i === 0 || trip.mode === 'day' ? origin : d.from.name;
-      const route = [...d.stops.map(s => s.name), ...(d.back ? [origin || center.label] : [])].filter(Boolean);
+      // okruh: další den začíná u přespání (poslední zastávka předchozího dne – má zemi), ne u výchozího místa
+      const prev = trip.mode === 'loop' && i > 0 ? trip.days[i - 1].stops.at(-1) || d.from : null;
+      const from = prev ? stopQ(prev, center) : origin;
+      const route = [...d.stops.map(s => stopQ(s, center)), ...(d.back ? [origin || center.label] : [])].filter(Boolean);
       // Celodenní trasa s mezizastávkami jen autem (Google u veřejné dopravy mezizastávky neumí),
       // vlakem/busem má odkaz na spoje každý úsek zvlášť.
       const url = transit ? null : gmDir(from, route, 'driving');
+      const mapy = transit ? null : mapyDir(d.from, d.stops, 'car_fast', d.back ? center : null);
       const title = trip.mode === 'day' ? `Výlet ${i + 1}` : `Den ${i + 1}`;
       const way = trip.mode === 'loop' ? ` · ${esc(d.from.name)} → ${esc(d.overnight ? d.overnight.name : center.label)}` : '';
-      const lastQ = d.stops.length ? d.stops.at(-1).name : from;
+      const lastQ = d.stops.length ? stopQ(d.stops.at(-1), center) : from;
       // Počasí dne: u okruhu v místě přespání (poslední den u poslední zastávky), u výletu v hlavním cíli (nejvyšší skóre).
       const wxAt = trip.mode === 'loop' ? d.overnight || d.stops.at(-1) : d.stops.reduce((b, s) => (b && (b.score || 0) >= (s.score || 0) ? b : s), null);
       return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> ${title} · ${dayLbl(d.date)}${way}${wxSlot(wxAt, d.date)}</span>
-        ${url ? `<a class="linkbtn" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">trasa autem v Google Maps ↗</a>` : ''}</h4>
+        ${dayLinks(url, mapy, 'trasa autem')}</h4>
         <div class="dp-walk" style="margin:2px 0 4px">${transit ? 'vyrazit kolem' : 'odjezd'} ~09:00 z: ${esc(d.from.name)}</div>
-        ${d.stops.map((s, j) => tripStopHtml(s, j, transit, j === 0 ? from : d.stops[j - 1].name, d.date)).join('')}
+        ${d.stops.map((s, j) => tripStopHtml(s, j, transit, j === 0 ? from : stopQ(d.stops[j - 1], center), d.date, center)).join('')}
         ${d.back ? `<div class="dp-end">🏁 zpět na start (${esc(center.label)})${transit ? ` · odjezd ~${esc(d.back.depart)}` : ''} · příjezd ~${esc(d.back.arrive)} · ${legTxt(transit, d.back.km, d.back.min, lastQ, origin || center.label, `${dayLbl(d.date)} ~${d.back.depart}`)}</div>`
           : `<div class="dp-end">🛏️ přespání: <b>${esc(d.overnight.name)}</b> · <a href="${esc(safeUrl(d.overnight.bookUrl))}" target="_blank" rel="noopener">najít ubytování ↗</a></div>`}
         <div class="faint" style="font-size:11.5px;margin-top:4px">${transit ? `na cestě ~${minTxt(d.travelMin)}` : `za volantem ~${minTxt(d.travelMin)} (${d.travelKm} km)`} · celkem ~${minTxt(d.minutes)}</div>
       </div>`;
     }).join('');
-    const spare = trip.spare?.length ? `<details class="more"><summary>Další tipy na výlet (${trip.spare.length})</summary><div class="poi-list" style="margin-top:10px">${trip.spare.map(x => poiCard({ ...x, category: 'daytrip' }, { tripToggle: true })).join('')}</div></details>` : '';
+    const spare = trip.spare?.length ? `<details class="more"><summary>Další tipy na výlet (${trip.spare.length})</summary><div class="poi-list" style="margin-top:10px">${trip.spare.map(x => poiCard({ ...x, category: 'daytrip' }, { tripToggle: true, center })).join('')}</div></details>` : '';
     return head + days + spare
       + `<div class="faint" style="font-size:11.5px;margin-top:6px">${transit
         ? 'Časy vlakem a autobusem jsou orientační odhad (bez jízdních řádů) – konkrétní spoj a jízdenku najdeš přes odkaz „spoje ↗“ u každého úseku.'
@@ -1226,6 +1256,7 @@
     renderExplore, renderPlanner, retheme, routeMap,
     // jen pro testy (test/places-ui.test.js)
     _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
-      uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS },
+      uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
+      countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP },
   };
 })();
