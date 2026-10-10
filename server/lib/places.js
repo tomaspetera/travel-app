@@ -8,7 +8,7 @@
 //   ct:asia           světadíl / oblast (Asie, Afrika, Blízký východ…) – cíl jako seznam zemí
 //   geo:LAT,LON|Název libovolné místo (geokódováno přes Open-Meteo)
 import {
-  AIRPORTS, COUNTRIES, COUNTRY_BY_ISO, METRO_BY_CODE, airportsInCountry, airportsNear, getAirport,
+  AIRPORTS, COUNTRIES, COUNTRY_BY_ISO, METRO_BY_CODE, airportsInCountry, airportsNear, getAirport, sizePenaltyKm,
 } from './airports.js';
 import { COUNTRY_ALIASES, REGIONS } from './names.js';
 import { CONTINENTS, CONTINENT_BY_KEY, continentCountries } from './longhaul.js';
@@ -88,14 +88,22 @@ export function localSuggestions(query, limit = 10) {
     const sc = Math.max(matchScore(q, r.cs), ...r.aliases.map((al) => matchScore(q, al)));
     if (sc >= 60) push(regionSuggestion(r), sc + 12);
   }
+  // Nalezené metropole: jmenovec jinde (London v Kanadě u „Londýn“) až za letišti metropole.
+  const metroNames = new Set();
+  const metroAirports = new Set();
   for (const m of METRO_BY_CODE.values()) {
     const sc = Math.max(matchScore(q, m.cs), matchScore(q, m.en));
-    if (sc >= 60) push(metroSuggestion(m), sc + 10);
+    if (sc >= 60) {
+      push(metroSuggestion(m), sc + 10);
+      metroNames.add(normalize(m.cs)).add(normalize(m.en));
+      m.airports.forEach((x) => metroAirports.add(x));
+    }
   }
   for (const a of AIRPORTS.values()) {
     if (a.type === 'S' && q.length < 4) continue;
     const sc = Math.max(matchScore(q, a.cityCs), matchScore(q, a.city), matchScore(q, a.name) - 20);
-    if (sc > 0) push(airportSuggestion(a), sc + (a.type === 'L' ? 8 : a.type === 'M' ? 4 : 0));
+    const homonym = !metroAirports.has(a.iata) && (metroNames.has(normalize(a.cityCs)) || metroNames.has(normalize(a.city)));
+    if (sc > 0) push(airportSuggestion(a), sc + (a.type === 'L' ? 8 : a.type === 'M' ? 4 : 0) - (homonym ? 30 : 0));
   }
   scored.sort((x, y) => y.score - x.score);
   // Když existuje dobrá shoda, zahoď šum z „obsahuje“ (např. viden → provIDENciales).
@@ -123,6 +131,7 @@ export async function geocode(query) {
       type: 'place', label: r.name, flag: flag(r.country_code),
       sub: [r.admin1, r.country].filter(Boolean).join(', '), cc: r.country_code,
       lat: r.latitude, lon: r.longitude, gid: r.id, // gid = ID GeoNames (anglický název místa pro partnery ubytování)
+      pop: r.population || 0,
     }));
   });
 }
@@ -162,6 +171,7 @@ export function localCityCenters(query) {
 export async function suggest(query, { limit = 10, remote = true } = {}) {
   const local = localSuggestions(query, limit);
   const strong = local.filter((s) => s.type !== 'airport' || normalize(s.label).startsWith(normalize(query)));
+  const exact = local.some((s) => normalize(s.label) === normalize(query));
   if (!remote || normalize(query).length < 3 || strong.length >= 5) return local;
   let geo = [];
   try {
@@ -170,7 +180,10 @@ export async function suggest(query, { limit = 10, remote = true } = {}) {
     // Geokódování je jen doplněk – při výpadku vrať lokální výsledky.
   }
   // Vynech místa, která jsou jen duplikátem nalezeného letiště/metra (do 25 km).
-  const filtered = geo.filter((g) => !local.some((l) => l.lat != null && haversineKm(l.lat, l.lon, g.lat, g.lon) < 25 && normalize(l.label) === normalize(g.label)));
+  let filtered = geo.filter((g) => !local.some((l) => l.lat != null && haversineKm(l.lat, l.lon, g.lat, g.lon) < 25 && normalize(l.label) === normalize(g.label)));
+  // Přesná shoda s místem z databáze (Brno, Toledo): z geokódování jen stejnojmenná větší města (Toledo ve Španělsku
+  // vedle letišť Toledo v USA a Brazílii) – ne jmenovci a vesnice z celého světa (Bruno v Nebrasce, Brno v Plzeňském kraji).
+  if (exact) filtered = filtered.filter((g) => normalize(g.label) === normalize(query) && g.pop >= 50000);
   return [...local, ...filtered.slice(0, 4)].slice(0, limit + 2);
 }
 
@@ -265,9 +278,8 @@ export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOr
       x.distKm = haversineKm(home.lat, home.lon, a.lat, a.lon);
     }
   }
-  // Při omezení počtu letišť preferuj velká: menší letiště „penalizuj“ fiktivními km.
-  const penalty = { L: 0, M: 35, S: 90 };
-  const eff = (x) => x.distKm + penalty[getAirport(x.iata).type];
+  // Při omezení počtu letišť preferuj ta, odkud se opravdu létá: menší letiště „penalizuj“ fiktivními km.
+  const eff = (x) => x.distKm + sizePenaltyKm(getAirport(x.iata));
   list.sort((x, y) => Number(y.explicit) - Number(x.explicit) || eff(x) - eff(y));
   list = list.slice(0, maxAirports).sort((x, y) => x.distKm - y.distKm);
   return {

@@ -175,6 +175,21 @@
     return { level: k.outage, retryAfter: Math.max(0, Math.round(+k.retryAfter || 0)), failed: +k.failed || 0, others };
   }
 
+  /** Rozsah nocí česky: „1–3 noci“, „2–7 nocí“, „4 noci“ (tvar podle horní meze). */
+  function nightsRange(a, b) {
+    const w = n => (n === 1 ? 'noc' : n >= 2 && n <= 4 ? 'noci' : 'nocí');
+    return +a === +b ? `${a} ${w(+a)}` : `${a}–${b} ${w(+b)}`;
+  }
+
+  /**
+   * Výpadek Ryanairu nebo Wizz Air v tomto hledání (hlavní zdroje nejlevnějších letů) → [{ id, name, level }]
+   * (level 'down' | 'blocked' | 'partial'); bez výpadku []. Výsledky pak vypadají úplně, ale nejlevnější lety chybí.
+   */
+  function lowcostOutage(providers) {
+    const NAME = { ryanair: 'Ryanair', wizzair: 'Wizz Air' };
+    return (providers || []).filter(p => p && NAME[p.id] && ['down', 'blocked', 'partial'].includes(p.outage)).map(p => ({ id: p.id, name: NAME[p.id], level: p.outage, retryAfter: p.retryAfter || 0 }));
+  }
+
   /* ---------- filtry času a přestupů (ve výpisu, bez nového hledání) ---------- */
   // Části dne podle hodiny odletu (místní čas): [klíč, popisek, od, do).
   const DAYPARTS = [['morning', 'Ráno', 5, 12], ['afternoon', 'Odpoledne', 12, 18], ['evening', 'Večer', 18, 24], ['night', 'Noc', 0, 5]];
@@ -475,7 +490,7 @@
       if (ret && f.xBack) {
         const n = Math.max(0, diffDays(f.xOut, f.xBack));
         Object.assign(patch, { len: 'custom', nMin: Math.max(n ? 1 : 0, n - 2), nMax: Math.min(45, n + 2) });
-        txt = ` (${patch.nMin}–${patch.nMax} nocí)`;
+        txt = ` (${nightsRange(patch.nMin, patch.nMax)})`;
       }
       const m = +f.xOut.slice(5, 7) - 1;
       add('month', `${m === 8 ? 'Celé' : 'Celý'} ${MONTHS[m]} flexibilně${txt}`, patch);
@@ -840,18 +855,107 @@
         from: home.from.map(x => x.id), radiusKm, to: [], dateFrom, dateTo, trip: 'return', nightsMin: r.nMin, nightsMax: r.nMax,
         ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), adults: 1, kmRate: 1, groundMode: 'transit', arrival: true,
       },
-      form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, len: 'custom', adults: 1 },
+      // formulář po kliknutí na kartu: tvar cesty z radaru, počet lidí a ostatní nastavení zůstanou uživatele
+      form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, len: 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
       sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · ${r.what} · příštích 6 týdnů`,
       empty: r.empty,
     };
+  }
+
+  /**
+   * Starší uložený výsledek radaru k okamžitému zobrazení, než doběhne nové hledání (po uspání serveru to trvá i přes
+   * minutu): jen stejný dotaz (domov, okruh, režim – data rozsahu se den ode dne posouvají) a bez karet s odletem
+   * před dneškem. entry = { key, at, items: [{ d1, … }] }, key = dotaz teď (JSON) → { ...entry, items } nebo null.
+   */
+  function radarStale(entry, key, today) {
+    if (!entry || typeof entry.key !== 'string' || !Array.isArray(entry.items) || !radarSame(entry.key, key)) return null;
+    const items = entry.items.filter(x => x && typeof x.d1 === 'string' && x.d1 >= today);
+    return items.length ? { ...entry, items } : null;
+  }
+  /** Stejný dotaz radaru (JSON) až na rozsah dat, který se den ode dne posouvá. */
+  function radarSame(a, b) {
+    const strip = k => { try { const { dateFrom, dateTo, ...rest } = JSON.parse(k); return JSON.stringify(rest); } catch (e) { return null; } };
+    const x = strip(a);
+    return Boolean(x) && x === strip(b);
+  }
+  /**
+   * Co se na radaru změnilo od minula (náhrada upozornění – vidět při každém otevření): u karty dřívější cena téhož cíle
+   * (was = { czk, at }, jen při změně aspoň o 3 % a 30 Kč) a „nové“ (newAt) u cíle, který v minulém výsledku stejného
+   * dotazu nebyl. Nezměněná cena si značku z minula nechá (was 3 dny, nové 1 den) – nezmizí při obnovení za půl hodiny.
+   * prev = minulý uložený výsledek ({ key, at, items }) nebo null, key = dotaz teď → nové pole karet.
+   */
+  function radarDiff(prev, items, key, now) {
+    if (!prev || !Array.isArray(prev.items) || typeof prev.key !== 'string' || !radarSame(prev.key, key)) return items;
+    const old = new Map(prev.items.filter(x => x && x.id).map(x => [x.id, x]));
+    return items.map(x => {
+      const o = old.get(x.id), y = { ...x };
+      if (!o) return { ...y, newAt: now };
+      const moved = Math.abs(x.czk - o.czk) >= Math.max(30, o.czk * 0.03);
+      if (moved) y.was = { czk: o.czk, at: prev.at };
+      else if (o.was && now - o.was.at < 3 * 864e5) y.was = o.was;
+      if (o.newAt && now - o.newAt < 864e5) y.newAt = o.newAt;
+      return y;
+    });
+  }
+
+  /**
+   * Nový uložený výsledek radaru. Při výpadku zdroje (partial) bez značek změn a se základem pro příští porovnání
+   * z posledního úplného výsledku – jinak by vyšší ceny z výpadku příště ukázaly falešné „↓“ a vrácené cíle „nové“.
+   */
+  function radarEntry(prev, items, key, at, { demo = false, partial = false } = {}) {
+    const base = prev && prev.partial ? prev.base || null : prev || null;
+    if (partial) return { key, at, demo, items, partial: true, base: base && radarSame(base.key, key) ? { key: base.key, at: base.at, items: base.items } : null };
+    return { key, at, demo, items: radarDiff(base, items, key, at) };
+  }
+
+  /* ---------- poslední výsledky a nedávná hledání (uložené v tomto prohlížeči) ---------- */
+  /**
+   * Poslední hledání k uložení ({ at, form, payload, res }) jako text: celé, nebo s nejvýš `keep` nabídkami na cíl, aby
+   * nezabralo místo stavu aplikace (localStorage má kolem 5 MB); null = nevejde se ani tak.
+   */
+  function lastPack(c, cap = 1.2e6, keep = 3) {
+    let s = JSON.stringify(c);
+    if (s.length <= cap) return s;
+    const r = c.res || {};
+    s = JSON.stringify({ ...c, res: { ...r, groups: (r.groups || []).map(g => ({ ...g, options: (g.options || []).slice(0, keep) })), top: (r.top || []).slice(0, 40) } });
+    return s.length <= cap ? s : null;
+  }
+  /** Uložené poslední hledání zpět – jen mladší než maxAge (ceny stárnou), jinak null. */
+  function lastLoad(s, now, maxAge = 12 * 36e5) {
+    try {
+      const c = JSON.parse(s);
+      return c && c.res && Array.isArray(c.res.groups) && c.form && c.at > now - maxAge && c.at <= now + 6e4 ? c : null;
+    } catch (e) { return null; }
+  }
+  /** „9:12 (před 3 h)“, „včera 21:40 (před 11 h)“ – kdy se hledalo. */
+  function savedWhen(at, now) {
+    const d = new Date(at), n = new Date(now);
+    const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const dd = Math.round((day(n) - day(d)) / 864e5), m = Math.round((now - at) / 6e4);
+    const ago = m < 2 ? 'před chvílí' : m < 60 ? `před ${m} min` : `před ${Math.floor(m / 60)} h`;
+    return `${dd === 0 ? '' : dd === 1 ? 'včera ' : `${d.getDate()}. ${d.getMonth() + 1}. `}${d.getHours()}:${pad(d.getMinutes())} (${ago})`;
+  }
+  /** Nedávná hledání: nejnovější první, stejné hledání (podle klíče) jen jednou, nejvýš cap. */
+  function recentAdd(list, e, key, cap = 5) {
+    const k = key(e);
+    return [e, ...(Array.isArray(list) ? list : []).filter(x => x && x.form && key(x) !== k)].slice(0, cap);
+  }
+  /** Formulář nedávného hledání pro dnešek: termín celý v minulosti → null, rozsah, který už začal, od dneška. */
+  function recentForm(f, today) {
+    if (!f || !Array.isArray(f.from) || !f.from.length) return null;
+    if (f.trip === 'multi') return Array.isArray(f.legs) && f.legs.length && f.legs[0].date >= today ? f : null;
+    if (f.dateMode === 'exact') return f.xOut && f.xOut >= today ? f : null;
+    if (!f.dTo || f.dTo < today) return null;
+    return f.dFrom && f.dFrom >= today ? f : { ...f, dFrom: today };
   }
 
   window.SearchHelp = {
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
-    legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
+    legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
-    radarQuery,
+    radarQuery, radarStale, radarSame, radarDiff, radarEntry,
+    lastPack, lastLoad, savedWhen, recentAdd, recentForm,
   };
 })();

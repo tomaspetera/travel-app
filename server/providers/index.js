@@ -12,6 +12,7 @@ import { wizzair } from './wizzair.js';
 import { travelpayouts } from './travelpayouts.js';
 import { kiwi, kiwiBlocked, kiwiRetryAfter } from './kiwi.js';
 import { mockProviders } from './mock.js';
+import { liteapiTestKey } from './stays/index.js';
 
 export const PROVIDER_INFO = {
   ryanair: { name: 'Ryanair', color: '#073590', kind: 'live', note: 'živé ceny z ryanair.com' },
@@ -40,7 +41,11 @@ export function providerStatus() {
     { id: 'ryanair', ...PROVIDER_INFO.ryanair, enabled: config.ryanair },
     { id: 'wizzair', ...PROVIDER_INFO.wizzair, enabled: config.wizz, blocked: wizzair.isBlocked() },
     { id: 'kiwi', ...PROVIDER_INFO.kiwi, enabled: config.kiwi, blocked: kiwiBlocked(), retryAfter: kiwiRetryAfter() },
-    { id: 'liteapi', name: 'Hotely (LiteAPI)', color: '#7c3aed', kind: 'stays', note: 'hotely s cenou a hodnocením hostů', enabled: Boolean(config.liteapiKey), hint: config.liteapiKey ? null : 'Zdarma klíč na liteapi.travel → LITEAPI_KEY zapne nabídky hotelů s hodnocením' },
+    {
+      id: 'liteapi', name: 'Hotely (LiteAPI)', color: '#7c3aed', kind: 'stays', note: 'hotely s cenou a hodnocením hostů', enabled: Boolean(config.liteapiKey) && !liteapiTestKey(),
+      hint: !config.liteapiKey ? 'Zdarma klíč na liteapi.travel → LITEAPI_KEY zapne nabídky hotelů s hodnocením'
+        : liteapiTestKey() ? 'Testovací klíč LiteAPI (sand_…) vrací smyšlené hotely – ATLAS je neukazuje, jen odkazy na partnery. Ostrý klíč zapne skutečné nabídky.' : null,
+    },
     {
       id: 'travelpayouts', ...PROVIDER_INFO.travelpayouts, enabled: Boolean(config.travelpayoutsToken),
       hint: config.travelpayoutsToken ? null : 'Zdarma token na travelpayouts.com → TRAVELPAYOUTS_TOKEN v .env přidá stovky dalších aerolinek',

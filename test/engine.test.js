@@ -276,3 +276,37 @@ test('routesNote: průběh hledání u Wizz Air česky, bez názvu proměnné z 
   assert.equal(routesNote(15, 22), 'prohledáno 15 nejbližších z 22 tras – zbytek kvůli limitu dotazů');
   assert.doesNotMatch(routesNote(1, 2), /WIZZ|MAX_CALLS/);
 });
+
+test('outageOf: Wizz Air po 429 (vlastní blokace bez ctx) = blocked s odpočtem, jiná chyba = down', async () => {
+  const { outageOf } = await import('../server/lib/search.js');
+  const wizz = { isBlocked: () => true, retryAfter: () => 540 };
+  assert.deepEqual([outageOf({ state: 'error' }, wizz).outage, outageOf({ state: 'error' }, wizz).retryAfter], ['blocked', 540]);
+  assert.equal(outageOf({ state: 'error' }, { isBlocked: () => false }).outage, 'down');
+  assert.equal(outageOf({ state: 'done' }, wizz).outage, null, 'prošlo – žádný výpadek');
+  assert.equal(outageOf({ state: 'error' }, {}).outage, 'down');
+});
+
+test('resolveOrigins: z okolí letiště, odkud se opravdu létá (cestující z Wikidat), ne podle typu z OurAirports', async () => {
+  const { sizePenaltyKm, getAirport } = await import('../server/lib/airports.js');
+  const ids = (o) => o.airports.map((a) => a.iata);
+  const brno = ids(resolveOrigins(['ap:BRQ'], 300, { maxAirports: 8 }));
+  assert.ok(brno.includes('KRK') && brno.includes('KTW') && brno.includes('VIE'), brno.join());
+  assert.ok(!brno.includes('PED'), 'Pardubice (~100 tis. cestujících) ustoupí Krakovu');
+  assert.equal(brno[0], 'BRQ', 'zadané letiště zůstane');
+  assert.ok(sizePenaltyKm(getAirport('VIE')) < sizePenaltyKm(getAirport('BRQ')) && sizePenaltyKm(getAirport('BRQ')) < sizePenaltyKm(getAirport('PED')));
+  assert.ok(sizePenaltyKm(getAirport('KLV')) >= 150, 'Karlovy Vary jsou „large_airport“, ale skoro bez letů');
+  assert.equal(sizePenaltyKm(null), 130);
+});
+
+test('build-airport-pax: rok po covidu, jinak před covidem, součet 12 měsíců, jen známá letiště', async () => {
+  const { paxTable } = await import('../scripts/build-airport-pax.mjs');
+  const known = new Set(['AAA', 'BBB', 'CCC', 'DDD']);
+  const rows = [
+    ['AAA', '9000000', '2021-01-01T00:00:00Z', '9'], ['AAA', '11000000', '2023-01-01T00:00:00Z', '9'], ['AAA', '12000000', '2019-01-01T00:00:00Z', '9'],
+    ['BBB', '500000', '2018-01-01T00:00:00Z', '9'], ['BBB', '200000', '2021-01-01T00:00:00Z', '9'],
+    ...Array.from({ length: 12 }, (_, i) => ['CCC', '10000', `2024-${String(i + 1).padStart(2, '0')}-01T00:00:00Z`, '10']),
+    ['DDD', '5000', '2024-03-01T00:00:00Z', '10'],
+    ['ZZZ', '1000000', '2024-01-01T00:00:00Z', '9'],
+  ];
+  assert.deepEqual(paxTable(rows, known), { AAA: [11000, 2023], BBB: [500, 2018], CCC: [120, 2024] });
+});

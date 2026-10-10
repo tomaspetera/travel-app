@@ -218,23 +218,24 @@ export const ryanair = {
 
   /**
    * Nejlevnější cena po dnech na trase from → to v intervalu (pro kalendář a optimalizaci).
-   * near = { from, to }: širší okno (dny kolem přesného data) – vrátí i ty dny, ale jen z měsíců,
-   * na které se stejně ptá (žádný dotaz navíc).
+   * near = { from, to }: širší okno (dny kolem přesného data) – vrátí i ty dny, i když padnou do sousedního měsíce
+   * (u data na konci měsíce jeden dotaz navíc, v mezipaměti), jinak by „Nejbližší dny“ 29. 11. neukázaly 1. 12.
    */
   async daily({ from, to, dateFrom, dateTo, adults = 1, near = null }) {
-    const months = monthsInRange(dateFrom, dateTo);
+    const a = near && near.from < dateFrom ? near.from : dateFrom;
+    const b = near && near.to > dateTo ? near.to : dateTo;
+    const months = monthsInRange(a, b), core = new Set(monthsInRange(dateFrom, dateTo));
     const parts = await Promise.all(months.map((m) =>
       cache.wrap(`fr:cpd:${from}:${to}:${m}`, FARE_TTL, () =>
         farfnd(`oneWayFares/${from}/${to}/cheapestPerDay`, { outboundMonthOfDate: m, currency: 'EUR' }),
       ).then((json) => parseCheapestPerDay(json, from, to, adults))
         .catch((e) => {
-          // 404 = trasa v daném měsíci neexistuje
-          if (e.status === 404 || e.status === 400) return [];
+          // 404 = trasa v daném měsíci neexistuje; chyba sousedního měsíce (jen pro „Nejbližší dny“) neshodí ceny
+          // hledaných dní
+          if (e.status === 404 || e.status === 400 || !core.has(m)) return [];
           throw e;
         }),
     ));
-    const a = near && near.from < dateFrom ? near.from : dateFrom;
-    const b = near && near.to > dateTo ? near.to : dateTo;
     return parts.flat().filter((l) => l.date >= a && l.date <= b);
   },
 

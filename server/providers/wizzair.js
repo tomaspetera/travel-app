@@ -200,4 +200,5 @@ export const wizzair = {
   },
 
   isBlocked: () => Date.now() < state.blockedUntil,
+  retryAfter: () => Math.max(0, Math.ceil((state.blockedUntil - Date.now()) / 1000)), // s do konce blokace (pro „Zkusit znovu“)
 };

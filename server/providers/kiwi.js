@@ -368,7 +368,7 @@ export const kiwi = {
    * po termínu `deadline` (ms) se další okna už nedotazují – vrátí se, co je hotové.
    * from/to: letiště, nebo seznam letišť (víc letišť jedním dotazem, nejvýš 25 – limit 100 znaků).
    */
-  async daily({ from, to, dateFrom, dateTo, adults = 1, directOnly = false, deadline = null, ctx = null }) {
+  async daily({ from, to, dateFrom, dateTo, adults = 1, directOnly = false, exclude = [], deadline = null, ctx = null }) {
     const legs = [];
     let failed = 0;
     let lastErr = null;
@@ -386,6 +386,8 @@ export const kiwi = {
           flyFrom: froms.join(','), flyTo: tos.join(','), departureDate: dmy(a), ...(b > a ? { departureDateTo: dmy(b) } : {}),
           adults, sort: 'price', currency: 'EUR', locale: 'en', cabinClass: 'M',
           ...(directOnly ? { max_sector_stopovers: 0 } : {}),
+          // aerolinky, které ATLAS hledá vlastním zdrojem (Ryanair, Wizz Air) – ať 15 výsledků zaberou jiné
+          ...(exclude.length ? { exclude_airlines: exclude.join(',') } : {}),
         }, { deadline, ctx });
         for (const t of parseKiwiSearch(json, { adults })) {
           if (t.out.date >= a && t.out.date <= b && fromSet.has(t.out.from) && toSet.has(t.out.to)) legs.push(t.out);

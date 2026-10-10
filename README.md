@@ -86,7 +86,8 @@ U všech 197 zemí ATLAS ukazuje, co je potřeba k cestě s českým pasem nebo 
   před odletem (u víza 30 dní, déle, když data uvádějí delší vyřízení). Sdílené odkazy nesou jen kódy zemí
   (a zemí přestupu), podmínky se dopočítají z dat.
 - **Neověřené záznamy** (3 země) mají u štítku „?“ a v detailu i seznamu upozornění, ať je bereš jen orientačně.
-- **Dočasné režimy** (Jižní Korea bez K-ETA, Bělorusko a Mongolsko bez víza – vše zatím do 31. 12. 2026): když cesta
+- **Dočasné režimy** (Jižní Korea bez K-ETA, Bělorusko a Mongolsko bez víza – zatím do 31. 12. 2026; Vietnam bez víza
+  do 14. 8. 2028): když cesta
   vychází později, ukáže let štítek „⏳ ověř vstup“ a seznam Před cestou upozornění.
 
 **Zdroj a stav:** MZV ČR – Informace pro cestovatele (Encyklopedie států, „Víza a vstupní režim“), u registrací
@@ -847,8 +848,10 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 - **Kamkoliv**: Ryanair a Travelpayouts vrátí nejlevnější lety do všech destinací jedním dotazem na letiště.
   Wizz Air se prochází trasu po trase v rámci rozpočtu dotazů. Když Ryanair vrátí termín, který nesedí na zadaný
   počet nocí nebo dny v týdnu, ATLAS dohledá ceny po dnech a termín složí přesně.
-- **Konkrétní cíl**: pro každou dvojici letišť (domov × cíl) stáhne ceny po dnech oběma směry od všech aerolinek a
-  optimalizátor najde nejlevnější kombinace v rámci počtu nocí – včetně návratu na jiné letiště v okolí.
+- **Konkrétní cíl**: Ryanair a Wizz Air stáhnou ceny po dnech oběma směry pro každou dvojici letišť (domov × cíl), Kiwi
+  jedním dotazem na týden ze všech letišť v okolí na všechna cílová (bez Ryanairu a Wizz Air, ty jsou z vlastních zdrojů –
+  ve výsledcích Kiwi tak zbude místo pro easyJet, Vueling, Smartwings a další) a optimalizátor najde nejlevnější
+  kombinace v rámci počtu nocí – včetně návratu na jiné letiště v okolí.
 - **Doprava na letiště** je odhad (`server/lib/access.js`): veřejnou dopravou vlak/bus do města letiště + cesta na letiště
   + příplatek přes hranici, autem palivo nebo nabíjení (spotřeba × aktuální cena z `server/lib/fuel.js`) + parkování podle
   počtu nocí (přičítá optimalizátor k celé cestě) + známky – viz [Doprava na letiště](#doprava-na-letiště).
@@ -1063,7 +1066,7 @@ cesta z města příjezdu (ne z letiště):
 - Doprava na letiště je jen odhad: jízdné podle vzdálenosti a tabulky cest na ~35 letišť (ne jízdní řád ani živé ceny),
   parkování online předem jako základ + sazba za den (18 letišť proložených ceníky ověřenými 10/2026 – u týdenních ceníků
   přesně jen na 3–14 dní –, ostatní odhad; skutečná cena se mění se sezónou a obsazeností) a dálniční známky podle
-  orientačních ceníků 2025/26. Cena nafty a benzínu je celostátní týdenní průměr
+  orientačních ceníků 2026 (cena v původní měně, na Kč aktuálním kurzem). Cena nafty a benzínu je celostátní týdenní průměr
   (u dálnice bývá vyšší, za hranicí platí cena země, odkud jedeš), spotřeba je zadaná, ne podle auta, rychlosti a zimy;
   elektroauto počítá s rychlonabíjením za odhad 16 Kč/kWh. Autem se nepočítá opotřebení auta ani mýtné za úseky
   v Polsku; u cesty přes víc měst si ručním výběrem letů můžeš složit i návrat na jiné letiště, než kde auto parkuje
@@ -1128,6 +1131,9 @@ cesta z města příjezdu (ne z letiště):
 
 - Letiště: [OurAirports](https://ourairports.com/data/) (public domain) + názvy měst a časová pásma z
   [OpenFlights](https://openflights.org/data) (ODbL). Aktualizace: `npm run build:airports`.
+- Počty cestujících na letištích (výběr letišť z okolí – odkud se opravdu létá, ne podle typu z OurAirports):
+  [Wikidata](https://www.wikidata.org/) vlastnost P3872 (CC0), `data/airport-pax.json`. Aktualizace:
+  `node scripts/build-airport-pax.mjs`.
 - Geokódování a počasí: [Open-Meteo](https://open-meteo.com/) (předpověď CC BY 4.0). Kurzy: open.er-api.com, ECB.
 - Ceny paliva: ČSÚ (DataStat, sada CENPHMT, CC0) a Evropská komise – Weekly Oil Bulletin; ceny nabíjení elektroaut:
   ceníky provozovatelů (ČEZ, PRE, E.ON, IONITY; Shell, MOL a Tesla ze sekundárních zdrojů) k 6. 10. 2026.

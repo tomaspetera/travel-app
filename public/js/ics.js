@@ -194,6 +194,49 @@
       : { ...ev, start: isYmd(l.date) ? l.date : String(l.dep || '').slice(0, 10) };
   }
 
+  // Online check-in u Ryanairu a Wizz Air (ověřeno 10. 10. 2026, help.ryanair.com / wizzair.com): bez koupené místenky se
+  // otevírá 24 h před odletem; Ryanair ho zavírá 2 h před odletem a za odbavení na letišti účtuje 55 € za let a osobu
+  // (z Rakouska 40 €, ze Španělska 30 €), Wizz Air zavírá 3 h před odletem a na letišti si řekne zhruba 40–50 €.
+  const RY = ['Ryanair', 2, '55 €'], WZ = ['Wizz Air', 3, '40–50 €'];
+  const CHECKIN = { FR: RY, RK: RY, AL: RY, RR: RY, W6: WZ, W4: WZ, W9: WZ, '5W': WZ };
+  /**
+   * Let Ryanairu nebo Wizz Air s časem odletu → { airline, closeH, fee, open } (open = místní čas otevření online
+   * check-inu, 24 h před odletem), jinak null. carrier = kód (FR, W6…) nebo název dopravce.
+   */
+  function checkin(l) {
+    const who = String((l && l.carrier) || '').trim();
+    const c = CHECKIN[who.toUpperCase()] || (/^(ryanair|buzz|malta air|lauda)/i.test(who) ? RY : /^wizz/i.test(who) ? WZ : null);
+    if (!c || !isLocal(l.dep)) return null;
+    // poplatek Ryanairu podle země odletu (podle časového pásma letiště)
+    const cc = String(l.fromCc || '').toUpperCase(), tz = String(l.fromTz || '');
+    const fee = c !== RY ? c[2] : cc === 'AT' || tz === 'Europe/Vienna' ? '40 €' : cc === 'ES' || /^(Europe\/Madrid|Atlantic\/Canary|Africa\/Ceuta)$/.test(tz) ? '30 €' : c[2];
+    return { airline: c[0], closeH: c[1], fee, open: minus24h(l.dep.slice(0, 16), l.fromTz) };
+  }
+  // Místní čas o 24 skutečných hodin dřív – při změně letního času mezi tím o hodinu jinak než „stejný čas den předem“.
+  function minus24h(wall, tz) {
+    const w = Date.parse(wall + ':00Z');
+    const off = ms => { // posun pásma v minutách v okamžiku ms (UTC)
+      const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(ms));
+      const g = t => +p.find(x => x.type === t).value;
+      return (Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute')) - ms) / 6e4;
+    };
+    try {
+      if (!tz) throw 0;
+      const dep = w - off(w - off(w) * 6e4) * 6e4, open = dep - 864e5;
+      return new Date(open + off(open) * 6e4).toISOString().slice(0, 16);
+    } catch (e) { return new Date(w - 864e5).toISOString().slice(0, 16); }
+  }
+  /** Připomínka online check-inu jako událost (15 min v čase otevření), nebo null. */
+  function checkinEvent(l) {
+    const c = checkin(l);
+    if (!c) return null;
+    return {
+      title: `📲 Online check-in ${c.airline} · ${l.from} → ${l.to}`,
+      description: `Bez koupené místenky se online check-in otevírá 24 h před odletem (${l.dep.slice(11, 16)} místního času ${l.from}) a zavírá ${c.closeH} h před odletem. Odbavení na letišti stojí ~${c.fee} za osobu a let.`,
+      location: '', start: c.open, tz: l.fromTz, durationMin: 15,
+    };
+  }
+
   /**
    * Cesta vlakem/busem jako událost: { from, to, date, dep?, arr?, fromTz?, toTz?, kind?, carrier?, min?, fromStation?, toStation? }
    * dep/arr jsou místní časy (zóna města odjezdu / příjezdu); bez spoje (jen odhad) celodenní událost v den cesty.
@@ -218,5 +261,5 @@
       : { ...ev, start: isYmd(g.date) ? g.date : String(g.dep || '').slice(0, 10) };
   }
 
-  window.Ics = { build, download, gcalUrl, flightEvent, groundEvent, tzOffset, localToUtc, fold, escText };
+  window.Ics = { build, download, gcalUrl, flightEvent, groundEvent, checkin, checkinEvent, tzOffset, localToUtc, fold, escText };
 })();

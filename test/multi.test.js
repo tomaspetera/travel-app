@@ -192,7 +192,7 @@ test('search multi: úseky se zdroji, rozpočet dotazů, nejvýš 2 úseky najed
   const D3 = plus(D, 6);
   const world = [
     // 1. let Praha (+ okruh) → Řím
-    fare('PRG', 'FCO', D, '07:00', '09:00', 1500), fare('PRG', 'FCO', D, '12:30', '14:30', 1100), fare('KLV', 'FCO', D, '06:00', '08:00', 900),
+    fare('PRG', 'FCO', D, '07:00', '09:00', 1500), fare('PRG', 'FCO', D, '12:30', '14:30', 1100), fare('WRO', 'FCO', D, '06:00', '08:00', 900),
     fare('LEJ', 'CIA', D, '12:00', '14:00', 700), // Lipsko je v okruhu, ale na dvojice letišť už nezbyde rozpočet
     // 2. let Řím → Neapol týž den: z FCO 10:00 (jen 1 h po příletu) a 13:30, z CIA 13:00 a 16:00
     fare('FCO', 'NAP', D, '10:00', '11:00', 300), fare('FCO', 'NAP', D, '13:30', '14:30', 600),
@@ -226,7 +226,7 @@ test('search multi: úseky se zdroji, rozpočet dotazů, nejvýš 2 úseky najed
     assert.equal(byLeg.reduce((s, n) => s + n, 0), p.calls.length);
     assert.ok(p.calls.length <= MULTI.pairBudget);
     assert.equal(byLeg[0], per, 'okruh 400 km × 2 letiště Říma je víc dvojic, než dovolí rozpočet');
-    assert.ok(p.calls.includes('PRG-FCO') && p.calls.includes('KLV-FCO'), 'domovské a nejbližší letiště mají přednost');
+    assert.ok(p.calls.includes('PRG-FCO') && p.calls.includes('WRO-FCO') && !p.calls.includes('KLV-FCO'), 'domovské letiště a pak velká v okolí (ne Karlovy Vary s pár linkami)');
     assert.ok(!p.calls.includes('LEJ-CIA'));
     // průběh: stav úseků, nikdy víc než 2 běžící najednou
     assert.ok(events.length > 3);
@@ -238,9 +238,9 @@ test('search multi: úseky se zdroji, rozpočet dotazů, nejvýš 2 úseky najed
     assert.equal(res.destination.label, 'Praha → Řím → Neapol → Barcelona → Praha');
     assert.equal(res.returnsHome, true);
     assert.deepEqual(res.legs.map((l) => l.options.length), [3, 4, 1, 2]);
-    // 1. let: doprava na letiště odletu je v ceně (KLV ~96 km od Prahy), 4. let: doprava z letiště příletu domů
-    const klv = res.legs[0].options.find((o) => o.out.from === 'KLV');
-    assert.ok(klv.groundCzk > 60 && klv.perPersonCzk === 900 + klv.groundCzk);
+    // 1. let: doprava na letiště odletu je v ceně (Vratislav ~216 km od Prahy), 4. let: doprava z letiště příletu domů
+    const wro = res.legs[0].options.find((o) => o.out.from === 'WRO');
+    assert.ok(wro.groundCzk > 60 && wro.perPersonCzk === 900 + wro.groundCzk);
     const lej = res.legs[3].options.find((o) => o.out.to === 'LEJ');
     const prg = res.legs[3].options.find((o) => o.out.to === 'PRG');
     assert.equal(prg.groundCzk, 50, 'Praha: MHD (jízdenka PID ~46 Kč)');
@@ -253,7 +253,7 @@ test('search multi: úseky se zdroji, rozpočet dotazů, nejvýš 2 úseky najed
     assert.deepEqual(res.links[0][i0('PRG', '07:00')][i1('FCO', '10:00')], { why: 'short', gapMin: 60, needMin: 180 });
     assert.equal(res.links[0][i0('PRG', '07:00')][i1('FCO', '13:30')], null);
     assert.deepEqual(res.links[0][i0('PRG', '07:00')][i1('CIA', '13:00')], { why: 'short', gapMin: 240, needMin: 300 }, 'jiné letiště Říma: 5 h');
-    assert.equal(res.links[0][i0('KLV')][i1('CIA', '13:00')], null, 'přesně 5 h stačí');
+    assert.equal(res.links[0][i0('WRO')][i1('CIA', '13:00')], null, 'přesně 5 h stačí');
     assert.deepEqual(res.links[0][i0('PRG', '12:30')][i1('FCO', '13:30')], { why: 'early' }, 'přílet 14:30, odlet 13:30');
     // Neapol → Barcelona až za 3 dny: navazuje cokoliv
     assert.ok(res.links[1].every((row) => row.every((x) => x === null)));

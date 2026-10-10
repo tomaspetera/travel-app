@@ -109,6 +109,42 @@ test('applyCheck: historie max. 60 bodů, staré záznamy se 30 body fungují, n
   assert.equal(back.why, 'drop');
 });
 
+test('applyCheck při výpadku zdroje: dražší ani žádná cena se nezapíše (žádné falešné „zlevnilo“), levnější ano', () => {
+  assert.equal(A.incomplete([{ id: 'ryanair', outage: null }, { id: 'kiwi', outage: 'partial' }]), true);
+  assert.equal(A.incomplete([{ id: 'ryanair', outage: null }, { id: 'wizzair' }]), false);
+  assert.equal(A.incomplete(undefined), false);
+  const w0 = { id: 'w', best: { czk: 2000 }, history: [{ at: NOW - 7 * H, czk: 2000 }], checked: NOW - 7 * H };
+  // Ryanair neodpověděl → jen dražší Wizz: nezapsat, hledání zůstane k nové kontrole
+  const p1 = A.applyCheck(w0, { czk: 3500 }, NOW, undefined, { partial: true });
+  assert.equal(p1.skipped, true);
+  assert.equal(p1.why, null);
+  assert.equal(p1.w.best.czk, 2000);
+  assert.equal(p1.w.history.length, 1);
+  assert.equal(p1.w.checked, NOW - 7 * H, 'kontrola se nepočítá – zůstává zastaralé');
+  assert.equal(p1.w.tried, NOW);
+  assert.equal(A.isStale(p1.w, NOW + H), true);
+  // úplná kontrola pak 2000 → žádné falešné „zlevnilo“
+  const full = A.applyCheck(p1.w, { czk: 2000 }, NOW + H);
+  assert.equal(full.why, null);
+  assert.equal(full.w.partials, undefined, 'počítadlo neúplných kontrol se po úplné smaže');
+  // nic nenalezeno při výpadku → taky nezapsat
+  assert.equal(A.applyCheck(w0, null, NOW, undefined, { partial: true }).skipped, true);
+  // levnější cena platí i při výpadku
+  const cheap = A.applyCheck(w0, { czk: 1500 }, NOW, undefined, { partial: true });
+  assert.equal(cheap.skipped, undefined);
+  assert.equal(cheap.why, 'drop');
+  // třetí neúplná kontrola po sobě se vezme (dlouhý výpadek nesmí cenu zmrazit)
+  let w = w0;
+  for (let i = 0; i < 2; i++) w = A.applyCheck(w, { czk: 3500 }, NOW + i * H, undefined, { partial: true }).w;
+  assert.equal(w.partials, 2);
+  const third = A.applyCheck(w, { czk: 3500 }, NOW + 2 * H, undefined, { partial: true });
+  assert.equal(third.skipped, undefined);
+  assert.equal(third.w.best.czk, 3500);
+  assert.equal(third.w.partials, undefined);
+  // první kontrola (bez minulé ceny) se zapíše vždy
+  assert.equal(A.applyCheck({ id: 'n' }, { czk: 4000 }, NOW, undefined, { partial: true }).w.best.czk, 4000);
+});
+
 // Dotaz na server tak, jak ho ze formuláře skládá flights.js (payloadOf) – zkrácený tvar pro testy klíče.
 const payload = (f) => ({
   from: f.from, to: f.to, radiusKm: f.radius ?? 200, dateFrom: f.dFrom, dateTo: f.dTo, trip: f.trip, nightsMin: f.nMin, nightsMax: f.nMax,
@@ -160,6 +196,17 @@ test('upsertWatch: stejné hledání podruhé (♡ z „Je to dobrá cena?“ a 
   assert.deepEqual([r3.dup, r3.list.length, r3.list[0].id, r3.list.filter((w) => w.id === 'w4').length], [true, 12, 'w4', 1]);
   const r4 = A.upsertWatch(many, watch('y', { ...FORM, adults: 13 }, 999, NOW), keyOf, { now: NOW });
   assert.deepEqual([r4.dup, r4.list.length, r4.list[0].id, r4.list.at(-1).id], [false, 12, 'y', 'w10']);
+});
+
+test('upsertWatch: ♡ při výpadku zdroje vyšší cenu do hlídání nezapíše (jako kontrola)', () => {
+  const keyOf = (w) => A.searchKey(payload(w.form));
+  const w0 = { id: 'a', label: 'x', sub: 'y', form: FORM, best: { czk: 5000 }, history: [{ at: NOW - H, czk: 5000 }], checked: NOW - H, base: 5000, low: 5000, seen: 5000, target: null };
+  const hi = { ...w0, id: 'b', best: { czk: 8000 }, history: [{ at: NOW, czk: 8000 }] };
+  const r = A.upsertWatch([w0], hi, keyOf, { now: NOW, partial: true });
+  assert.deepEqual([r.dup, r.w.best.czk, r.w.history.length, r.w.partials], [true, 5000, 1, 1]);
+  const lo = A.upsertWatch([w0], { ...hi, best: { czk: 4000 } }, keyOf, { now: NOW, partial: true });
+  assert.equal(lo.w.best.czk, 4000, 'nižší cena platí i při výpadku');
+  assert.equal(A.upsertWatch([w0], hi, keyOf, { now: NOW }).w.best.czk, 8000);
 });
 
 test('isDropped / droppedCount: zlevnění od poslední návštěvy přehledu', () => {

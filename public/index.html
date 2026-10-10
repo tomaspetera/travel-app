@@ -101,7 +101,9 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <script src="js/pwa.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<!-- písma bez blokování startu: pomalý server Googlu nesmí zdržet aplikaci (do načtení systémové písmo) -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/atlas.css">
 <link rel="stylesheet" href="css/flights.css">
 <link rel="stylesheet" href="css/trip.css">
@@ -318,6 +320,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
             <button type="button" class="linkbtn guide-link" id="guideLink">💡 Jak hledat chytře</button>
             <span class="faint" id="searchHint" style="font-size:12.5px"></span>
           </div>
+          <div class="recent-row" id="recentSearches" hidden></div>
         </form>
 
         <div id="progress"></div>

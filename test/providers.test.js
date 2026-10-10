@@ -244,26 +244,47 @@ test('Wizz Air: dny kolem přesného data (near) v témž dotazu, ne dotaz naví
   }
 });
 
-test('Ryanair daily: dny kolem přesného data jen z už stahovaných měsíců (žádný dotaz navíc)', async () => {
+test('Ryanair daily: dny kolem přesného data i přes přelom měsíce (sousední měsíc jedním dotazem navíc)', async () => {
   const dayFare = (d, value) => ({ day: d, departureDate: `${d}T07:00:00`, arrivalDate: `${d}T09:00:00`, price: { value, currencyCode: 'EUR' }, soldOut: false, unavailable: false });
-  // poslední den v měsíci: sousední dny zčásti v dalším měsíci, o který se neptá
+  // poslední den v měsíci: sousední dny zčásti v dalším měsíci
   const base = new Date(Date.parse(`${ymdPlus(70)}T12:00:00Z`));
   const last = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
   const prev = new Date(Date.parse(`${last}T12:00:00Z`) - 2 * 864e5).toISOString().slice(0, 10);
+  const next1 = new Date(Date.parse(`${last}T12:00:00Z`) + 864e5).toISOString().slice(0, 10); // 1. den dalšího měsíce
   const stub = stubFetch((url) => {
     if (url.includes('cheapestPerDay')) {
       const m = new URL(url).searchParams.get('outboundMonthOfDate').slice(0, 7);
-      return { body: { outbound: { fares: [dayFare(last, 30), dayFare(prev, 20)].filter((f) => f.day.startsWith(m)) } } };
+      return { body: { outbound: { fares: [dayFare(last, 30), dayFare(prev, 20), dayFare(next1, 15)].filter((f) => f.day.startsWith(m)) } } };
     }
     return { body: '<html></html>', headers: { 'content-type': 'text/html' } };
   });
   try {
     const next = new Date(Date.parse(`${last}T12:00:00Z`) + 3 * 864e5).toISOString().slice(0, 10);
     const legs = await ryanair.daily({ from: 'BTS', to: 'STN', dateFrom: last, dateTo: last, near: { from: prev, to: next } });
-    assert.equal(stub.calls.filter((c) => c.url.includes('cheapestPerDay')).length, 1, 'jen měsíc přesného data');
-    assert.deepEqual(legs.map((l) => l.date).sort(), [prev, last]);
+    assert.equal(stub.calls.filter((c) => c.url.includes('cheapestPerDay')).length, 2, 'měsíc přesného data + sousední');
+    assert.deepEqual(legs.map((l) => l.date).sort(), [prev, last, next1], 'i 1. den dalšího měsíce');
+    const n = stub.calls.length;
     const plain = await ryanair.daily({ from: 'BTS', to: 'STN', dateFrom: last, dateTo: last });
     assert.deepEqual(plain.map((l) => l.date), [last], 'bez near jen zadané dny');
+    assert.equal(stub.calls.length, n, 'měsíc už v mezipaměti – žádný dotaz');
+  } finally {
+    stub.restore();
+  }
+});
+
+test('Ryanair daily: chyba sousedního měsíce (jen „Nejbližší dny“) neshodí ceny hledaného dne', async () => {
+  const base = new Date(Date.parse(`${ymdPlus(100)}T12:00:00Z`));
+  const last = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+  const next = new Date(Date.parse(`${last}T12:00:00Z`) + 3 * 864e5).toISOString().slice(0, 10);
+  const stub = stubFetch((url) => {
+    if (!url.includes('cheapestPerDay')) return { body: '<html></html>', headers: { 'content-type': 'text/html' } };
+    const m = new URL(url).searchParams.get('outboundMonthOfDate').slice(0, 7);
+    if (m !== last.slice(0, 7)) return { status: 500, body: { message: 'boom' } };
+    return { body: { outbound: { fares: [{ day: last, departureDate: `${last}T07:00:00`, arrivalDate: `${last}T09:00:00`, price: { value: 25, currencyCode: 'EUR' }, soldOut: false, unavailable: false }] } } };
+  });
+  try {
+    const legs = await ryanair.daily({ from: 'BTS', to: 'BGY', dateFrom: last, dateTo: last, near: { from: last, to: next } });
+    assert.deepEqual(legs.map((l) => l.date), [last]);
   } finally {
     stub.restore();
   }

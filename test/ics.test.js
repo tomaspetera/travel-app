@@ -313,3 +313,28 @@ test('index.html: ics.js, sharelink.js a planshare.js se načtou před skripty, 
     for (const user of ['app.js', 'trip.js']) assert.ok(at(f) < at(user), `${f} před ${user}`);
   }
 });
+
+test('Ics.checkin: online check-in Ryanair / Wizz Air 24 h před odletem (i přes půlnoc a přelom měsíce), jiní dopravci nic', () => {
+  const ry = Ics.checkin({ carrier: 'FR', dep: '2026-11-01T06:15', from: 'BRQ', to: 'STN' });
+  assert.deepEqual(JSON.parse(JSON.stringify(ry)), { airline: 'Ryanair', closeH: 2, fee: '55 €', open: '2026-10-31T06:15' });
+  assert.equal(Ics.checkin({ carrier: 'Wizz Air', dep: '2026-03-01T22:40' }).open, '2026-02-28T22:40');
+  assert.equal(Ics.checkin({ carrier: 'W6', dep: '2026-03-01T22:40' }).closeH, 3);
+  assert.equal(Ics.checkin({ carrier: 'Malta Air', dep: '2026-03-01T10:00' }).airline, 'Ryanair');
+  assert.equal(Ics.checkin({ carrier: 'OK', dep: '2026-03-01T10:00' }), null, 'ČSA');
+  assert.equal(Ics.checkin({ carrier: 'easyJet', dep: '2026-03-01T10:00' }), null);
+  assert.equal(Ics.checkin({ carrier: 'FR', dep: null, date: '2026-03-01' }), null, 'bez času odletu');
+  // změna času 25. 10. 2026 ve 3:00: odlet 10:00 SEČ = 24 h předtím 11:00 SELČ; bez pásma den předem ve stejný čas
+  assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-10-25T10:00', fromTz: 'Europe/Prague' }).open, '2026-10-24T11:00');
+  assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-03-29T10:00', fromTz: 'Europe/Prague' }).open, '2026-03-28T09:00', 'jarní změna');
+  assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-10-25T10:00' }).open, '2026-10-24T10:00');
+  assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-11-10T10:00', fromTz: 'Europe/Prague' }).open, '2026-11-09T10:00');
+  // poplatek za odbavení na letišti u Ryanairu podle země odletu
+  assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-11-10T10:00', fromTz: 'Europe/Vienna' }).fee, '40 €');
+  assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-11-10T10:00', fromTz: 'Atlantic/Canary' }).fee, '30 €');
+  assert.equal(Ics.checkin({ carrier: 'W6', dep: '2026-11-10T10:00', fromTz: 'Europe/Vienna' }).fee, '40–50 €');
+  const ev = Ics.checkinEvent({ carrier: 'FR', dep: '2026-11-01T06:15', from: 'BRQ', to: 'STN', fromTz: 'Europe/Prague' });
+  assert.match(ev.title, /Online check-in Ryanair · BRQ → STN/);
+  const ics = build([ev]);
+  assert.equal(prop(ics, 'DTSTART'), '20261031T051500Z', '6:15 v Brně (CET) den předem');
+  assert.match(unfold(ics), /zavírá 2 h před odletem/);
+});

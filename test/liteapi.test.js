@@ -88,7 +88,7 @@ test('LiteAPI: white-label odkaz na rezervaci a hodnocení 0–100 převedené n
 
 test('searchStays: chyba poskytovatele → hlášení + odkazy na partnery (nic nespadne)', async () => {
   const prev = config.liteapiKey;
-  config.liteapiKey = 'sand_test';
+  config.liteapiKey = 'prod_test';
   const stub = stubFetch(() => ({ status: 401, body: '{"error":"bad key"}' }));
   try {
     const r = await searchStays({ city: 'Milán', iata: 'MXP', checkin: ymdPlus(30), checkout: ymdPlus(32) });
@@ -110,7 +110,7 @@ test('ubytování na dalších místech trasy: země podle polohy, anglický ná
   assert.equal(normalizeStayQuery({ ...base, cc: 'ng' }).cc, 'NG', 'zadaný kód má přednost');
   assert.equal(normalizeStayQuery({ ...base, lat: '', lon: '' }).cc, '', 'bez polohy a letiště se nehádá');
   const prev = config.liteapiKey;
-  config.liteapiKey = 'sand_test';
+  config.liteapiKey = 'prod_test';
   const english = [];
   const stub = stubFetch((url) => {
     if (url.includes('/data/hotels') && url.includes('cityName=')) return { body: { data: [] } }; // „Porto-Novo“ podle názvu nenajde
@@ -139,6 +139,28 @@ test('ubytování na dalších místech trasy: země podle polohy, anglický ná
     await searchStays({ ...base, gid: '2392087', checkout: ymdPlus(45) }, { english: async (...a) => { english.push(a); return null; } });
     await searchStays({ ...base, gid: '1;drop', checkout: ymdPlus(46) }, { english: async (...a) => { english.push(a); return null; } });
     assert.deepEqual(english.map((a) => a[4]), ['2392087', null]);
+  } finally {
+    stub.restore();
+    config.liteapiKey = prev;
+  }
+});
+
+test('testovací klíč LiteAPI (sand_…): smyšlené hotely se v ostrém provozu neukazují, jen odkazy; zdroj vypnutý s vysvětlením', async () => {
+  const { providerStatus } = await import('../server/providers/index.js');
+  const prev = config.liteapiKey;
+  config.liteapiKey = 'sand_test';
+  const stub = stubFetch(() => ({ body: { data: HOTELS } }));
+  try {
+    const r = await searchStays({ city: 'Milán', iata: 'MXP', checkin: ymdPlus(30), checkout: ymdPlus(32) });
+    assert.equal(r.items.length, 0);
+    assert.equal(r.providers.length, 0);
+    assert.equal(stub.calls.filter((c) => c.url.includes('liteapi')).length, 0, 'na LiteAPI se vůbec neptá');
+    assert.ok(r.links.some((l) => l.url.includes('booking.com')));
+    const st = providerStatus().find((p) => p.id === 'liteapi');
+    if (st) {
+      assert.equal(st.enabled, false);
+      assert.match(st.hint, /Testovací klíč LiteAPI/);
+    }
   } finally {
     stub.restore();
     config.liteapiKey = prev;

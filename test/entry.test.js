@@ -78,7 +78,7 @@ test('entry.json: pole, typy a hodnoty každé země', () => {
       assert.ok(r.notes.includes(`${d}. ${m}. ${y}`), `${at}: datum ${r.validUntil} v poznámce`);
     }
   }
-  assert.deepEqual(ENTRY.countries.filter((r) => r.validUntil).map((r) => r.iso2).sort(), ['KR', 'MN']); // BY: přes letiště Minsk bez data, do 31. 12. 2026 jen pozemní hranice
+  assert.deepEqual(ENTRY.countries.filter((r) => r.validUntil).map((r) => r.iso2).sort(), ['KR', 'MN', 'VN']); // BY: přes letiště Minsk bez data, do 31. 12. 2026 jen pozemní hranice
 });
 
 test('entry.json: režimy dávají smysl (registrace má název a web, OP jen bez víza, tranzit jen u registrace)', () => {
@@ -451,4 +451,12 @@ test('plánovač: sdílený plán (#plan=) nese jen kódy zemí, ne vstupní dat
   const v = PlanShare.decode(PlanShare.encode({ ...plan, isos: undefined, iso: 'MX', via: ['US', 'x', 'US', 'GB'] }));
   assert.deepEqual(plain(v.via), ['US', 'GB']);
   assert.ok(!('via' in PlanShare.sanitize(plan)));
+});
+
+test('countries.json: hlavní města i česky (capCs, jen když se liší), anglický název zůstává pro odkazy', () => {
+  const by = Object.fromEntries(COUNTRIES.map((c) => [c.iso2, c]));
+  assert.deepEqual(['CZ', 'AT', 'PT', 'IT', 'CN', 'MX'].map((cc) => by[cc].capCs), ['Praha', 'Vídeň', 'Lisabon', 'Řím', 'Peking', 'Mexiko']);
+  assert.equal(by.CZ.cap, 'Prague');
+  assert.equal(by.SK.capCs, undefined, 'Bratislava je stejně');
+  for (const c of COUNTRIES) if ('capCs' in c) assert.ok(typeof c.capCs === 'string' && c.capCs && c.capCs !== c.cap, c.iso2);
 });

@@ -425,7 +425,7 @@ test('radarQuery: Kdykoliv jako dřív, Víkendy jen odlet Pá/So a návrat Ne/P
   assert.equal(all.mode, 'all');
   // stejné hledání jako radar před přepínačem (i pořadí polí – klíč uloženého výsledku)
   assert.equal(JSON.stringify(all.payload), JSON.stringify({ from: ['ap:BRQ', 'ap:VIE'], radiusKm: 150, to: [], dateFrom: '2026-10-10', dateTo: '2026-11-21', trip: 'return', nightsMin: 2, nightsMax: 7, adults: 1, kmRate: 1, groundMode: 'transit', arrival: true }));
-  assert.deepEqual(all.form, { radius: 150, dFrom: '2026-10-10', dTo: '2026-11-21', nMin: 2, nMax: 7, outDays: [], backDays: [], len: 'custom', adults: 1 });
+  assert.deepEqual(all.form, { radius: 150, dFrom: '2026-10-10', dTo: '2026-11-21', nMin: 2, nMax: 7, outDays: [], backDays: [], len: 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' });
   assert.equal(all.sub, '· Brno, Vídeň +150 km · zpáteční 2–7 nocí · příštích 6 týdnů');
 
   const wk = plain(H.radarQuery('weekend', home, '2026-10-07'));
@@ -442,4 +442,138 @@ test('radarQuery: Kdykoliv jako dřív, Víkendy jen odlet Pá/So a návrat Ne/P
   // neznámý režim → Kdykoliv, domov bez okruhu → 200 km
   assert.equal(H.radarQuery('xyz', home, '2026-10-07').mode, 'all');
   assert.equal(H.radarQuery(undefined, { from: [{ id: 'ap:PRG', label: 'Praha' }] }, '2026-10-07').payload.radiusKm, 200);
+});
+
+test('radarStale: starší výsledek stejného dotazu (i z jiného dne) bez prošlých odletů; jiný domov, režim nebo okruh ne', () => {
+  const home = { from: [{ id: 'ap:BRQ', label: 'Brno' }], radius: 200 };
+  const then = H.radarQuery('weekend', home, '2026-10-07'), now = H.radarQuery('weekend', home, '2026-10-10');
+  const entry = { key: JSON.stringify(then.payload), at: 1, items: [{ d1: '2026-10-09', label: 'Prošlý' }, { d1: '2026-10-10', label: 'Dnes' }, { d1: '2026-11-06', label: 'Listopad' }] };
+  const r = plain(H.radarStale(entry, JSON.stringify(now.payload), '2026-10-10'));
+  assert.deepEqual(r.items.map((x) => x.label), ['Dnes', 'Listopad']);
+  assert.equal(r.at, 1);
+  assert.equal(entry.items.length, 3, 'uložený výsledek se nemění');
+  // jiný režim, jiný domov nebo okruh → nic
+  assert.equal(H.radarStale(entry, JSON.stringify(H.radarQuery('all', home, '2026-10-10').payload), '2026-10-10'), null);
+  assert.equal(H.radarStale(entry, JSON.stringify(H.radarQuery('weekend', { ...home, radius: 150 }, '2026-10-10').payload), '2026-10-10'), null);
+  assert.equal(H.radarStale(entry, JSON.stringify(H.radarQuery('weekend', { from: [{ id: 'ap:PRG', label: 'Praha' }] }, '2026-10-10').payload), '2026-10-10'), null);
+  // všechno prošlé, chybějící nebo poškozený záznam → nic
+  assert.equal(H.radarStale({ ...entry, items: [{ d1: '2026-10-01' }] }, JSON.stringify(now.payload), '2026-10-10'), null);
+  assert.equal(H.radarStale(null, JSON.stringify(now.payload), '2026-10-10'), null);
+  assert.equal(H.radarStale({ key: '{nejson', items: [] }, JSON.stringify(now.payload), '2026-10-10'), null);
+});
+
+test('radarDiff: zlevnění a zdražení cíle od minula, nový cíl; značka vydrží nezměněnou cenu, šum kurzu ne', () => {
+  const home = { from: [{ id: 'ap:BRQ', label: 'Brno' }], radius: 200 };
+  const key = (d) => JSON.stringify(H.radarQuery('all', home, d).payload);
+  const T0 = Date.parse('2026-10-08T09:00:00Z'), T1 = T0 + 6 * 3600e3, T2 = T1 + 1800e3;
+  const it = (id, czk) => ({ id, label: id, czk, d1: '2026-11-01' });
+  const prev = { key: key('2026-10-08'), at: T0, items: [it('ROM', 2000), it('LON', 1500), it('BCN', 1800)] };
+  const now = plain(H.radarDiff(prev, [it('ROM', 1580), it('LON', 1520), it('BCN', 2100), it('OSL', 900)], key('2026-10-08'), T1));
+  const by = Object.fromEntries(now.map((x) => [x.id, x]));
+  assert.deepEqual(by.ROM.was, { czk: 2000, at: T0 }, 'zlevnilo o 420 Kč');
+  assert.equal(by.LON.was, undefined, '+20 Kč (1,3 %) je šum');
+  assert.deepEqual(by.BCN.was, { czk: 1800, at: T0 }, 'zdražilo');
+  assert.equal(by.OSL.newAt, T1, 'nový cíl');
+  assert.equal(by.ROM.newAt, undefined);
+  // za půl hodiny stejné ceny → značky zůstanou; další den (jiný rozsah dat) taky
+  const again = plain(H.radarDiff({ key: key('2026-10-08'), at: T1, items: now }, [it('ROM', 1580), it('OSL', 900)], key('2026-10-09'), T2));
+  assert.deepEqual(again[0].was, { czk: 2000, at: T0 });
+  assert.equal(again[1].newAt, T1);
+  // po 3 dnech značka zlevnění zmizí, „nové“ po dni
+  const late = plain(H.radarDiff({ key: key('2026-10-08'), at: T1, items: now }, [it('ROM', 1580), it('OSL', 900)], key('2026-10-11'), T0 + 4 * 864e5));
+  assert.equal(late[0].was, undefined);
+  assert.equal(late[1].newAt, undefined);
+  // jiný domov nebo žádný minulý výsledek → beze změn
+  const other = JSON.stringify(H.radarQuery('all', { from: [{ id: 'ap:PRG', label: 'Praha' }] }, '2026-10-08').payload);
+  assert.deepEqual(plain(H.radarDiff(prev, [it('ROM', 1)], other, T1)), [it('ROM', 1)]);
+  assert.deepEqual(plain(H.radarDiff(null, [it('ROM', 1)], key('2026-10-08'), T1)), [it('ROM', 1)]);
+});
+
+test('lowcostOutage: výpadek Ryanairu nebo Wizz Air (Kiwi a ostatní zdroje se sem nepočítají)', () => {
+  assert.deepEqual(plain(H.lowcostOutage([{ id: 'ryanair', outage: null }, { id: 'wizzair' }, { id: 'kiwi', outage: 'down' }])), []);
+  assert.deepEqual(plain(H.lowcostOutage([{ id: 'ryanair', outage: 'down' }, { id: 'wizzair', outage: 'blocked', retryAfter: 600 }, { id: 'travelpayouts', outage: 'down' }])),
+    [{ id: 'ryanair', name: 'Ryanair', level: 'down', retryAfter: 0 }, { id: 'wizzair', name: 'Wizz Air', level: 'blocked', retryAfter: 600 }]);
+  assert.deepEqual(plain(H.lowcostOutage([{ id: 'wizzair', outage: 'partial', failed: 2 }])), [{ id: 'wizzair', name: 'Wizz Air', level: 'partial', retryAfter: 0 }]);
+  assert.deepEqual(plain(H.lowcostOutage(undefined)), []);
+});
+
+test('nightsRange: české tvary podle horní meze', () => {
+  assert.equal(H.nightsRange(1, 3), '1–3 noci');
+  assert.equal(H.nightsRange(2, 7), '2–7 nocí');
+  assert.equal(H.nightsRange(5, 9), '5–9 nocí');
+  assert.equal(H.nightsRange(1, 1), '1 noc');
+  assert.equal(H.nightsRange(4, 4), '4 noci');
+  assert.equal(H.nightsRange(7, 7), '7 nocí');
+});
+
+test('lastPack/lastLoad: poslední výsledky – celé, zkrácené na 3 nabídky na cíl, nebo nic; staré se neobnoví', () => {
+  const opt = (i) => ({ id: 't' + i, perPersonCzk: 1000 + i, pad: 'x'.repeat(200) });
+  const res = { mode: 'explore', groups: Array.from({ length: 20 }, (_, g) => ({ dest: { key: 'd' + g }, best: opt(0), options: Array.from({ length: 8 }, (_, i) => opt(i)) })), top: [] };
+  const c = { at: 1000, form: { from: [{ id: 'ap:BRQ' }] }, payload: {}, res };
+  const full = H.lastPack(c, 1e7);
+  assert.equal(JSON.parse(full).res.groups[0].options.length, 8);
+  const slim = H.lastPack(c, JSON.stringify(c).length - 1);
+  assert.ok(slim);
+  assert.equal(JSON.parse(slim).res.groups[0].options.length, 3);
+  assert.equal(JSON.parse(slim).res.groups.length, 20);
+  assert.equal(H.lastPack(c, 100), null);
+  const now = 1000 + 3 * 36e5;
+  assert.equal(H.lastLoad(full, now).res.groups.length, 20);
+  assert.equal(H.lastLoad(full, 1000 + 13 * 36e5), null, 'starší než 12 h');
+  assert.equal(H.lastLoad('{', now), null);
+  assert.equal(H.lastLoad(null, now), null);
+  assert.equal(H.lastLoad(JSON.stringify({ at: 1000, res }), now), null, 'bez formuláře');
+});
+
+test('savedWhen: čas hledání a jak dávno', () => {
+  const at = new Date(2026, 9, 10, 9, 5).getTime();
+  assert.equal(H.savedWhen(at, at + 6e4), '9:05 (před chvílí)');
+  assert.equal(H.savedWhen(at, at + 25 * 6e4), '9:05 (před 25 min)');
+  assert.equal(H.savedWhen(at, at + 3.5 * 36e5), '9:05 (před 3 h)');
+  assert.equal(H.savedWhen(new Date(2026, 9, 9, 21, 40).getTime(), at), 'včera 21:40 (před 11 h)');
+});
+
+test('recentAdd/recentForm: nedávná hledání bez opakování, termíny v minulosti pryč, začatý rozsah od dneška', () => {
+  const key = (e) => e.form.k;
+  let l = H.recentAdd(null, { form: { k: 'a' } }, key);
+  l = H.recentAdd(l, { form: { k: 'b' } }, key);
+  l = H.recentAdd(l, { form: { k: 'a' } }, key);
+  assert.deepEqual(plain(l.map(key)), ['a', 'b']);
+  for (const k of 'cdefg') l = H.recentAdd(l, { form: { k } }, key);
+  assert.deepEqual(plain(l.map(key)), ['g', 'f', 'e', 'd', 'c']);
+  assert.deepEqual(plain(H.recentAdd([null, { x: 1 }], { form: { k: 'a' } }, key).map(key)), ['a'], 'poškozené položky pryč');
+
+  const T = '2026-10-10', from = [{ id: 'ap:BRQ' }];
+  assert.equal(H.recentForm({ from: [], dateMode: 'flex', dFrom: T, dTo: '2026-11-01' }, T), null);
+  assert.equal(H.recentForm({ from, dateMode: 'flex', dFrom: '2026-09-01', dTo: '2026-10-09' }, T), null);
+  assert.equal(H.recentForm({ from, dateMode: 'flex', dFrom: '2026-09-20', dTo: '2026-11-01' }, T).dFrom, T);
+  const f = { from, dateMode: 'flex', dFrom: '2026-10-20', dTo: '2026-11-01' };
+  assert.equal(H.recentForm(f, T), f);
+  assert.equal(H.recentForm({ from, dateMode: 'exact', xOut: '2026-10-09' }, T), null);
+  assert.ok(H.recentForm({ from, dateMode: 'exact', xOut: T }, T));
+  assert.equal(H.recentForm({ from, trip: 'multi', legs: [{ date: '2026-10-01' }] }, T), null);
+  assert.ok(H.recentForm({ from, trip: 'multi', legs: [{ date: '2026-10-12' }] }, T));
+});
+
+test('radarEntry: výsledek s výpadkem zdroje bez značek a příští porovnání proti poslednímu úplnému', () => {
+  const key = JSON.stringify({ from: ['ap:BRQ'], radiusKm: 200, dateFrom: '2026-10-12', dateTo: '2026-11-21' });
+  const it = (id, czk) => ({ id, label: id, czk });
+  const full = H.radarEntry(null, [it('a', 1000), it('b', 2000)], key, 1);
+  assert.deepEqual(plain(full.items), [it('a', 1000), it('b', 2000)]);
+  // výpadek: a zdražilo (Ryanair chyběl), b zmizelo, c nové – nic z toho se neukáže
+  const part = H.radarEntry(full, [it('a', 1900), it('c', 2500)], key, 2, { partial: true });
+  assert.equal(part.partial, true);
+  assert.ok(part.items.every((x) => !x.was && !x.newAt), 'bez značek');
+  assert.equal(part.base.at, 1);
+  // další výpadek – základ zůstane ten úplný
+  const part2 = H.radarEntry(part, [it('a', 1950)], key, 3, { partial: true });
+  assert.equal(part2.base.at, 1);
+  // zase úplný: porovná se s úplným z času 1 (a beze změny, c nové)
+  const back = H.radarEntry(part2, [it('a', 1000), it('c', 2500)], key, 4);
+  assert.equal(back.partial, undefined);
+  assert.equal(back.items[0].was, undefined, 'a se proti úplnému nezměnilo');
+  assert.equal(back.items[1].newAt, 4);
+  // jiný domov: základ se nepoužije
+  const other = JSON.stringify({ from: ['ap:PRG'], radiusKm: 200, dateFrom: '2026-10-12', dateTo: '2026-11-21' });
+  assert.equal(H.radarEntry(full, [it('a', 1)], other, 5, { partial: true }).base, null);
 });
