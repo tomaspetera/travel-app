@@ -1025,12 +1025,14 @@
   /* ---------- řazení „cena + délka cesty“ ---------- */
   /**
    * Délka letu v minutách pro řazení: známá (durationMin / odhad estMin), jinak opatrný odhad ze vzdálenosti – 750 km/h,
-   * půl hodiny navíc a u přestupu 4 h na každý (dálkové lety z cache bez délky tak nepředběhnou ty se známým přestupem).
+   * půl hodiny navíc a u přestupu 6 h na každý: přestup bez známých časů bývá dlouhý (Air Arabia přes Šardžá) a nabídka
+   * s nejistou délkou nemá předběhnout skoro stejně drahou se známým přestupem (živě Bangkok: 11 419 Kč bez délky
+   * vs. 11 871 Kč se 14 h 40 – při 4 h na přestup vyhrála ta nejistá o 7 Kč).
    */
   function tripMinutes(l, km) {
     const m = legMinutes(l);
     if (m) return m;
-    return Math.round((Number(km) || 1000) / 750 * 60 + 30 + (l && l.stops ? l.stops * 240 : 0));
+    return Math.round((Number(km) || 1000) / 750 * 60 + 30 + (l && l.stops ? l.stops * 360 : 0));
   }
   /**
    * Klíč řazení: cena na osobu + 250 Kč za každou hodinu cesty tam i zpět (čas v letadle a na přestupech) i cesty
