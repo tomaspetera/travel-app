@@ -19,6 +19,7 @@
 // Pozor: cyklus importů places.js → access.js → ground.js → places.js – na nejvyšší úrovni modulu proto nic
 // z ground.js nevolat (jen uvnitř funkcí).
 import { haversineKm } from './geo.js';
+import { toCzk } from './fx.js';
 import { airportsNear, getAirport } from './airports.js';
 import { CHEAP_CC, CITIES, MEASURED, MOUNTAIN_SLOW, PRAHA_RJ, distanceModel, groundPlace, landKm, mountainsOn } from './ground.js';
 import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV_LABEL, fuelPrice } from './fuel.js';
@@ -117,19 +118,21 @@ export const LOCAL_TICKET = { CZ: 30, SK: 35, PL: 25, HU: 30, AT: 80, DE: 85, SI
 // Parkování za auto [základ Kč, Kč za den] u letiště mimo tabulku, podle velikosti (L velké, M střední, S malé) – stejný
 // odhad jako v tabulce z dřívějších denních sazeb 250 / 150 / 100 Kč.
 const PARK_DEFAULT = { L: [730, 140], M: [230, 120], S: [150, 80] };
-// Dálniční známky a mýtné pro hrubý odhad (Kč za auto, 2026: Rakousko 12,80 €, Slovensko 10,80 €, Maďarsko 6 900 Ft,
-// Slovinsko 16 € – ověřeno 10/2026). days = platnost (na delší cestu druhá), 0 = mýtné za každou jízdu. Německo a Polsko
-// (A1, A4 k Vratislavi) pro auta bez poplatku.
+// Dálniční známky a mýtné pro hrubý odhad – cena v původní měně (ceníky 2026, ověřeno 10/2026), na Kč aktuálním kurzem
+// (fx.js; bez sítě záložní kurzy), zaokrouhleno na 10 Kč. days = platnost (na delší cestu druhá), 0 = mýtné za každou
+// jízdu (Chorvatsko, Itálie: hrubý odhad v Kč). Německo a Polsko (A1, A4 k Vratislavi) pro auta bez poplatku.
 export const TOLLS = {
-  AT: { czk: 320, days: 10, label: 'dálniční známka Rakousko (10 dní)' },
-  SK: { czk: 270, days: 10, label: 'e-známka Slovensko (10 dní)' },
-  HU: { czk: 430, days: 10, label: 'e-známka Maďarsko (10 dní)' },
-  SI: { czk: 400, days: 7, label: 'e-známka Slovinsko (7 dní)' },
-  CZ: { czk: 290, days: 10, label: 'e-známka Česko (10 dní)' },
-  CH: { czk: 1050, days: 365, label: 'dálniční známka Švýcarsko (rok)' },
-  HR: { czk: 150, days: 0, label: 'mýtné Chorvatsko (každá jízda)' },
-  IT: { czk: 300, days: 0, label: 'mýtné Itálie (každá jízda)' },
+  AT: { cur: 'EUR', price: 12.8, days: 10, label: 'dálniční známka Rakousko (10 dní)' },
+  SK: { cur: 'EUR', price: 10.8, days: 10, label: 'e-známka Slovensko (10 dní)' },
+  HU: { cur: 'HUF', price: 6900, days: 10, label: 'e-známka Maďarsko (10 dní)' },
+  SI: { cur: 'EUR', price: 16, days: 7, label: 'e-známka Slovinsko (7 dní)' },
+  CZ: { cur: 'CZK', price: 300, days: 10, label: 'e-známka Česko (10 dní)' },
+  CH: { cur: 'CHF', price: 40, days: 365, label: 'dálniční známka Švýcarsko (rok)' },
+  HR: { cur: 'CZK', price: 150, days: 0, label: 'mýtné Chorvatsko (každá jízda)' },
+  IT: { cur: 'CZK', price: 300, days: 0, label: 'mýtné Itálie (každá jízda)' },
 };
+/** Cena známky / mýtného v Kč (aktuální kurz, na 10 Kč). */
+export const tollCzk = (t) => Math.round((toCzk(t.price, t.cur) ?? t.price) / 10) * 10;
 // Přes které země vede cesta autem (domov → země letiště), když nejsou sousední; jinak jen země letiště.
 const VIA = {
   CZ: { HU: ['SK', 'HU'], SI: ['AT', 'SI'], HR: ['AT', 'SI', 'HR'], IT: ['AT', 'IT'], CH: ['DE', 'CH'] },
@@ -280,7 +283,7 @@ export function transitAccess(home, a, { scale = 1 } = {}) {
 export function tollsOn(fromCc, toCc) {
   if (!fromCc || !toCc || fromCc === toCc) return [];
   const via = VIA[fromCc]?.[toCc] || [toCc];
-  return via.filter((cc) => cc !== fromCc && TOLLS[cc]).map((cc) => ({ cc, ...TOLLS[cc] }));
+  return via.filter((cc) => cc !== fromCc && TOLLS[cc]).map((cc) => ({ cc, czk: tollCzk(TOLLS[cc]), days: TOLLS[cc].days, label: TOLLS[cc].label }));
 }
 
 const given = (v) => v != null && v !== '';

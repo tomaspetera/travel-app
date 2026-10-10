@@ -240,7 +240,11 @@ test('autem: dálniční známky a mýtné jen v cizině, cesta přes sousední 
   assert.deepEqual(cc(PRAHA, 'LNZ'), ['AT']);
   assert.deepEqual(cc(PRAHA, 'BTS'), ['SK']);
   assert.deepEqual(cc(PRAHA, 'BUD'), ['SK', 'HU'], 'do Budapešti přes Slovensko');
-  assert.deepEqual(plain(car(PRAHA, 'BUD').tolls).map((t) => t.czk), [270, 430], 'Slovensko 10,80 €, Maďarsko 6 900 Ft (2026)');
+  assert.deepEqual(plain(car(PRAHA, 'BUD').tolls).map((t) => t.czk), [A.tollCzk(A.TOLLS.SK), A.tollCzk(A.TOLLS.HU)], 'Slovensko 10,80 €, Maďarsko 6 900 Ft (2026) aktuálním kurzem');
+  assert.deepEqual([A.TOLLS.SK, A.TOLLS.HU].map((t) => [t.cur, t.price]), [['EUR', 10.8], ['HUF', 6900]]);
+  // kurz z fx.js: 6 900 Ft ≈ 460 Kč při 15 Ft/Kč, na 10 Kč
+  assert.ok(A.tollCzk(A.TOLLS.HU) % 10 === 0 && A.tollCzk(A.TOLLS.HU) > 380 && A.tollCzk(A.TOLLS.HU) < 520, String(A.tollCzk(A.TOLLS.HU)));
+  assert.equal(A.tollCzk(A.TOLLS.CZ), 300);
   assert.deepEqual(cc(PRAHA, 'LJU'), ['AT', 'SI']);
   assert.deepEqual(cc(PRAHA, 'MUC'), [], 'Německo pro auta bez známky');
   assert.deepEqual(cc(PRAHA, 'KTW'), [], 'Polsko (A1) bez poplatku');
@@ -249,7 +253,7 @@ test('autem: dálniční známky a mýtné jen v cizině, cesta přes sousední 
   assert.deepEqual(A.tollsOn('CZ', 'HR').map((t) => [t.cc, t.days]), [['AT', 10], ['SI', 7], ['HR', 0]]);
   // Lublaň na 8 nocí: slovinská známka na 7 dní nevystačí, rakouská na 10 ano
   const lju = car(PRAHA, 'LJU', { adults: 1 });
-  assert.equal(A.parkCzk(lju, 8), A.parkStay(lju, 9) + 400);
+  assert.equal(A.parkCzk(lju, 8), A.parkStay(lju, 9) + A.tollCzk(A.TOLLS.SI));
 });
 
 test('autem jen tam: odvoz – palivo tam i zpět, celá známka, bez parkování', () => {

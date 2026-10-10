@@ -86,7 +86,8 @@ U všech 197 zemí ATLAS ukazuje, co je potřeba k cestě s českým pasem nebo 
   před odletem (u víza 30 dní, déle, když data uvádějí delší vyřízení). Sdílené odkazy nesou jen kódy zemí
   (a zemí přestupu), podmínky se dopočítají z dat.
 - **Neověřené záznamy** (3 země) mají u štítku „?“ a v detailu i seznamu upozornění, ať je bereš jen orientačně.
-- **Dočasné režimy** (Jižní Korea bez K-ETA, Bělorusko a Mongolsko bez víza – vše zatím do 31. 12. 2026): když cesta
+- **Dočasné režimy** (Jižní Korea bez K-ETA, Bělorusko a Mongolsko bez víza – zatím do 31. 12. 2026; Vietnam bez víza
+  do 14. 8. 2028): když cesta
   vychází později, ukáže let štítek „⏳ ověř vstup“ a seznam Před cestou upozornění.
 
 **Zdroj a stav:** MZV ČR – Informace pro cestovatele (Encyklopedie států, „Víza a vstupní režim“), u registrací
@@ -1063,7 +1064,7 @@ cesta z města příjezdu (ne z letiště):
 - Doprava na letiště je jen odhad: jízdné podle vzdálenosti a tabulky cest na ~35 letišť (ne jízdní řád ani živé ceny),
   parkování online předem jako základ + sazba za den (18 letišť proložených ceníky ověřenými 10/2026 – u týdenních ceníků
   přesně jen na 3–14 dní –, ostatní odhad; skutečná cena se mění se sezónou a obsazeností) a dálniční známky podle
-  orientačních ceníků 2025/26. Cena nafty a benzínu je celostátní týdenní průměr
+  orientačních ceníků 2026 (cena v původní měně, na Kč aktuálním kurzem). Cena nafty a benzínu je celostátní týdenní průměr
   (u dálnice bývá vyšší, za hranicí platí cena země, odkud jedeš), spotřeba je zadaná, ne podle auta, rychlosti a zimy;
   elektroauto počítá s rychlonabíjením za odhad 16 Kč/kWh. Autem se nepočítá opotřebení auta ani mýtné za úseky
   v Polsku; u cesty přes víc měst si ručním výběrem letů můžeš složit i návrat na jiné letiště, než kde auto parkuje

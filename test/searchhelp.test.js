@@ -496,3 +496,12 @@ test('lowcostOutage: výpadek Ryanairu nebo Wizz Air (Kiwi a ostatní zdroje se 
   assert.deepEqual(plain(H.lowcostOutage([{ id: 'wizzair', outage: 'partial', failed: 2 }])), [{ id: 'wizzair', name: 'Wizz Air', level: 'partial' }]);
   assert.deepEqual(plain(H.lowcostOutage(undefined)), []);
 });
+
+test('nightsRange: české tvary podle horní meze', () => {
+  assert.equal(H.nightsRange(1, 3), '1–3 noci');
+  assert.equal(H.nightsRange(2, 7), '2–7 nocí');
+  assert.equal(H.nightsRange(5, 9), '5–9 nocí');
+  assert.equal(H.nightsRange(1, 1), '1 noc');
+  assert.equal(H.nightsRange(4, 4), '4 noci');
+  assert.equal(H.nightsRange(7, 7), '7 nocí');
+});

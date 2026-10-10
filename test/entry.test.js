@@ -78,7 +78,7 @@ test('entry.json: pole, typy a hodnoty každé země', () => {
       assert.ok(r.notes.includes(`${d}. ${m}. ${y}`), `${at}: datum ${r.validUntil} v poznámce`);
     }
   }
-  assert.deepEqual(ENTRY.countries.filter((r) => r.validUntil).map((r) => r.iso2).sort(), ['KR', 'MN']); // BY: přes letiště Minsk bez data, do 31. 12. 2026 jen pozemní hranice
+  assert.deepEqual(ENTRY.countries.filter((r) => r.validUntil).map((r) => r.iso2).sort(), ['KR', 'MN', 'VN']); // BY: přes letiště Minsk bez data, do 31. 12. 2026 jen pozemní hranice
 });
 
 test('entry.json: režimy dávají smysl (registrace má název a web, OP jen bez víza, tranzit jen u registrace)', () => {

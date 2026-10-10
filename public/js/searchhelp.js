@@ -175,6 +175,12 @@
     return { level: k.outage, retryAfter: Math.max(0, Math.round(+k.retryAfter || 0)), failed: +k.failed || 0, others };
   }
 
+  /** Rozsah nocí česky: „1–3 noci“, „2–7 nocí“, „4 noci“ (tvar podle horní meze). */
+  function nightsRange(a, b) {
+    const w = n => (n === 1 ? 'noc' : n >= 2 && n <= 4 ? 'noci' : 'nocí');
+    return +a === +b ? `${a} ${w(+a)}` : `${a}–${b} ${w(+b)}`;
+  }
+
   /**
    * Výpadek Ryanairu nebo Wizz Air v tomto hledání (hlavní zdroje nejlevnějších letů) → [{ id, name, level }]
    * (level 'down' | 'blocked' | 'partial'); bez výpadku []. Výsledky pak vypadají úplně, ale nejlevnější lety chybí.
@@ -484,7 +490,7 @@
       if (ret && f.xBack) {
         const n = Math.max(0, diffDays(f.xOut, f.xBack));
         Object.assign(patch, { len: 'custom', nMin: Math.max(n ? 1 : 0, n - 2), nMax: Math.min(45, n + 2) });
-        txt = ` (${patch.nMin}–${patch.nMax} nocí)`;
+        txt = ` (${nightsRange(patch.nMin, patch.nMax)})`;
       }
       const m = +f.xOut.slice(5, 7) - 1;
       add('month', `${m === 8 ? 'Celé' : 'Celý'} ${MONTHS[m]} flexibilně${txt}`, patch);
@@ -896,7 +902,7 @@
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
-    legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
+    legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff,
   };

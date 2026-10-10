@@ -511,7 +511,8 @@ function wireEvents() {
   $('#cSearch').oninput = renderCountries;
   ['#cCont', '#cCost', '#cSort', '#cEntry'].forEach(s => { const el = $(s); el.oninput = renderCountries; el.onchange = renderCountries; });
   ['#rMonth', '#rVibe', '#rBudget', '#rSafe'].forEach(s => $(s).onchange = renderRecs);
-  $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; S.radar = null; save(); toast('Data aktualizována'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') renderDash(); };
+  // ⟳: počasí a kurz znovu; radar se obnoví s dosavadními kartami (ne šedé dlaždice) a se značkami změn od minula
+  $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; save(); toast('Aktualizuji…'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') { renderDash(); Flights.renderRadar(true); } };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') modalClose(); });
   // Odkaz na plán vložený do už otevřené stránky (mění se jen #).
   window.addEventListener('hashchange', async () => { if (await importPlanFromHash()) go('planner', { noHash: true }); });
