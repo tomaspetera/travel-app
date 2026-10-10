@@ -841,23 +841,78 @@
   const RADAR = {
     all: { nMin: 2, nMax: 7, out: [], back: [], what: 'zpáteční 2–7 nocí', empty: 'Na příštích 6 týdnů jsem z okolí nic nenašel. Zkus větší okruh.' },
     weekend: { nMin: 1, nMax: 3, out: [5, 6], back: [0, 1], what: 'víkendy: odlet Pá/So, návrat Ne/Po', empty: 'Na víkendy v příštích 6 týdnech jsem z okolí nic nenašel. Zkus větší okruh nebo Kdykoliv.' },
+    holiday: { out: [], back: [], empty: 'Na nejbližší prodloužený víkend jsem z okolí nic nenašel. Zkus větší okruh nebo Kdykoliv.' },
   };
+
+  /* ---------- prodloužené víkendy kolem českých svátků ---------- */
+  /** Velikonoční neděle (gregoriánský kalendář, anonymní algoritmus) → 'YYYY-MM-DD'. */
+  function easter(y) {
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+    return `${y}-${pad(month)}-${pad(day)}`;
+  }
+  /** Státní svátky a ostatní svátky v Česku (zákon č. 245/2000 Sb.) v roce y → Map datum → název. */
+  function czHolidays(y) {
+    const e = easter(y);
+    return new Map([
+      [`${y}-01-01`, 'Nový rok'], [addDays(e, -2), 'Velký pátek'], [addDays(e, 1), 'Velikonoční pondělí'], [`${y}-05-01`, 'Svátek práce'],
+      [`${y}-05-08`, 'Den vítězství'], [`${y}-07-05`, 'Cyril a Metoděj'], [`${y}-07-06`, 'Mistr Jan Hus'], [`${y}-09-28`, 'Den české státnosti'],
+      [`${y}-10-28`, 'Vznik Československa'], [`${y}-11-17`, 'Den boje za svobodu'], [`${y}-12-24`, 'Vánoce'], [`${y}-12-25`, 'Vánoce'], [`${y}-12-26`, 'Vánoce'],
+    ]);
+  }
+  /**
+   * Nejbližší prodloužený víkend od data from (do horizon dní): aspoň 3 volné dny v řadě se svátkem, svátek v úterý
+   * nebo ve čtvrtek přemostí jeden den volna (bridge) → { start, end, nights, name, bridge } nebo null.
+   * Svátek ve středu (bez dvou dnů dovolené žádný dlouhý víkend) se přeskočí.
+   */
+  function longWeekend(from, horizon = 150) {
+    const y = +from.slice(0, 4), hol = new Map([...czHolidays(y), ...czHolidays(y + 1)]);
+    const free = d => { const w = new Date(d + 'T12:00:00Z').getUTCDay(); return w === 0 || w === 6 || hol.has(d); };
+    const last = addDays(from, horizon);
+    for (let d = from; d <= last; d = addDays(d, 1)) {
+      if (!hol.has(d)) continue;
+      let a = d, b = d, bridge = null;
+      while (free(addDays(a, -1))) a = addDays(a, -1);
+      while (free(addDays(b, 1))) b = addDays(b, 1);
+      if (diffDays(a, b) + 1 < 3) {
+        // jeden pracovní den mezi svátkem a víkendem (út → po, čt → pá)
+        if (free(addDays(a, -2))) { bridge = addDays(a, -1); a = addDays(a, -2); while (free(addDays(a, -1))) a = addDays(a, -1); }
+        else if (free(addDays(b, 2))) { bridge = addDays(b, 1); b = addDays(b, 2); while (free(addDays(b, 1))) b = addDays(b, 1); }
+      }
+      if (diffDays(a, b) + 1 < 3 || a < from) { d = b; continue; }
+      return { start: a, end: b, nights: diffDays(a, b), name: hol.get(d), bridge };
+    }
+    return null;
+  }
   /**
    * Radar v režimu mode ('all' | 'weekend', jiný → 'all') z domova home ({ from: [{ id, label }], radius }) ke dni today:
    * { mode, payload (hledání), form (formulář po kliknutí na kartu – stejné podmínky, ukáže všechny termíny), sub, empty }.
    */
   function radarQuery(mode, home, today) {
-    const m = RADAR[mode] ? mode : 'all', r = RADAR[m], radiusKm = home.radius ?? 200;
-    const dateFrom = addDays(today, 3), dateTo = addDays(today, 45);
+    const m = RADAR[mode] ? mode : 'all', radiusKm = home.radius ?? 200;
+    let r = RADAR[m], dateFrom = addDays(today, 3), dateTo = addDays(today, 45), when = 'příštích 6 týdnů', lw = null;
+    if (m === 'holiday') {
+      // odlet večer před prvním volným dnem nebo ráno, návrat poslední volný den
+      lw = longWeekend(addDays(today, 2));
+      if (!lw) return { mode: m, none: true, sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · prodloužené víkendy`, empty: 'V příštích 5 měsících není prodloužený víkend kolem svátku – zkus Kdykoliv nebo Víkendy.' };
+      dateFrom = [addDays(today, 1), addDays(lw.start, -1)].sort()[1]; dateTo = lw.start;
+      // návrat jen poslední volný den (jinak by odlet ráno s nejvíc nocemi vracel až v pracovní den)
+      const dow = d => new Date(d + 'T12:00:00Z').getUTCDay();
+      r = { ...r, nMin: Math.max(1, lw.nights), nMax: diffDays(dateFrom, lw.end), out: [...new Set([dow(dateFrom), dow(dateTo)])], back: [dow(lw.end)] };
+      when = `prodloužený víkend ${dm(lw.start)}–${dm(lw.end)} (${lw.name}${lw.bridge ? `, s volnem ${dm(lw.bridge)}` : ''})`;
+    }
     return {
       mode: m,
+      ...(lw ? { lw } : {}),
       payload: {
         from: home.from.map(x => x.id), radiusKm, to: [], dateFrom, dateTo, trip: 'return', nightsMin: r.nMin, nightsMax: r.nMax,
         ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), adults: 1, kmRate: 1, groundMode: 'transit', arrival: true,
       },
       // formulář po kliknutí na kartu: tvar cesty z radaru, počet lidí a ostatní nastavení zůstanou uživatele
       form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, len: 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
-      sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · ${r.what} · příštích 6 týdnů`,
+      sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · ${m === 'holiday' ? when : `${r.what} · ${when}`}`,
       empty: r.empty,
     };
   }
@@ -985,6 +1040,7 @@
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
+    easter, czHolidays, longWeekend,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
   };
 })();

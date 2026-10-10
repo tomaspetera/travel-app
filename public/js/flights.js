@@ -2338,7 +2338,7 @@
   /** „Od minula: 📉 Brno → Řím −380 Kč · 🎯 Londýn pod tvou cenou · 📡 radar: 3 cíle levněji“ hned pod hledáním. */
   function renderNews() {
     const el = $('#newsLine'); if (!el) return;
-    const r = S.radar && S.radar[S.radarMode === 'weekend' ? 'weekend' : 'all'];
+    const r = S.radar && S.radar[radarModeKey()];
     const n = Alerts.news(S.watch, r && S.home?.from?.length ? r : null);
     const parts = [
       ...n.hits.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">🎯 ${esc(x.label)} pod tvou cenou (${czk(x.czk)})</button>`),
@@ -2395,13 +2395,16 @@
   // vidět, dokud nedorazí nové).
   document.addEventListener('visibilitychange', () => {
     if (document.hidden || !document.querySelector('#view-dashboard.active') || !(S.home && S.home.from?.length) || $('#radarGo')) return; // rozdělané „Odkud obvykle létáš?“ nechat
-    const c = S.radar && S.radar[S.radarMode === 'weekend' ? 'weekend' : 'all'];
+    const c = S.radar && S.radar[radarModeKey()];
     if (!c || Date.now() - c.at >= 30 * 60e3) renderRadar();
   });
+  // Klíč výsledku radaru: dotaz, u svátků i který prodloužený víkend (jiný svátek = jiné hledání, žádné „↓ od minula“)
+  const radarKey = q => JSON.stringify(q.lw ? { ...q.payload, lw: q.lw.start } : q.payload || null);
+  const radarModeKey = () => (['weekend', 'holiday'].includes(S.radarMode) ? S.radarMode : 'all');
   async function renderRadar(force) {
     const host = $('#radar'), modes = $('#radarModes');
     if (!S.home || !S.home.from?.length) return radarSetup();
-    const q = SearchHelp.radarQuery(S.radarMode, S.home, today()), key = JSON.stringify(q.payload);
+    const q = SearchHelp.radarQuery(S.radarMode, S.home, today()), key = radarKey(q);
     radarWant = key;
     modes.hidden = false;
     $$('button', modes).forEach(b => {
@@ -2411,6 +2414,7 @@
     $('#radarSub').innerHTML = `${esc(q.sub)} <button type="button" class="linkbtn" id="radarHome">změnit</button>`;
     $('#radarHome').onclick = () => radarSetup(true);
     $('#radarReload').onclick = () => renderRadar(true);
+    if (q.none) { renderNews(); host.innerHTML = `<div class="note info">🗓️ <div>${esc(q.empty)}</div></div>`; return; }
     const c = S.radar && S.radar[q.mode];
     if (!force && c && c.key === key && Date.now() - c.at < 30 * 60e3) return paintRadar(c, q);
     // Starší výsledek stejného dotazu se ukáže hned a nový se hledá na pozadí – po uspání serveru to trvá i přes minutu.
@@ -2454,8 +2458,8 @@
       // co se od minulého výsledku změnilo (↓ cena, nový cíl); s výpadkem zdroje bez značek
       const r = SearchHelp.radarEntry(S.radar && S.radar[q.mode], items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers) });
       // domov se mezitím změnil: starý dotaz už nic nepřepíše
-      if (!S.home?.from?.length || JSON.stringify(SearchHelp.radarQuery(q.mode, S.home, today()).payload) !== key) return r;
-      S.radar = { all: S.radar?.all, weekend: S.radar?.weekend, [q.mode]: r }; // každý režim zvlášť (dřívější tvar se zahodí)
+      if (!S.home?.from?.length || radarKey(SearchHelp.radarQuery(q.mode, S.home, today())) !== key) return r;
+      S.radar = { all: S.radar?.all, weekend: S.radar?.weekend, holiday: S.radar?.holiday, [q.mode]: r }; // každý režim zvlášť (dřívější tvar se zahodí)
       save();
       return r;
     } finally { busySearches--; }
