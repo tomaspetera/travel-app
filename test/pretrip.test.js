@@ -555,7 +555,10 @@ test('průvodce: shrnutí má kartu „Co zařídit a co sbalit“, kalendář p
   vm.runInContext('var $ = (s) => (s === "#tripRoot" ? __root : s === "#tripStep" ? __host : (__els[s] ||= { innerHTML: "", value: "" })); var $$ = () => []; var go = () => {}; var toast = () => {}; var save = () => {}; var fmtYMD2 = 1;', c);
   c.__root = root; c.__host = host; c.__els = els;
   c.S.trips = [];
-  const t = { ...trip({ cc: 'JP', label: 'Tokio', out: '2027-03-12', back: '2027-03-21', car: { mode: 'manual', totalCzk: 9000, pickup: 'NRT', dropoff: 'NRT', from: '2027-03-13T10:00', to: '2027-03-21T08:00' } }), dest: { label: 'Tokio', country: 'Japonsko', cc: 'JP', lat: 35.7, lon: 139.7 } };
+  // termín vždy ~5 měsíců dopředu – připomínky v kalendáři se dávají jen na budoucí dny (test nesmí zastarat)
+  const day = (n) => { const d = new Date(Date.now() + n * 864e5); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const [o, b] = [day(150), day(159)];
+  const t = { ...trip({ cc: 'JP', label: 'Tokio', out: o, back: b, car: { mode: 'manual', totalCzk: 9000, pickup: 'NRT', dropoff: 'NRT', from: `${day(151)}T10:00`, to: `${b}T08:00` } }), dest: { label: 'Tokio', country: 'Japonsko', cc: 'JP', lat: 35.7, lon: 139.7 } };
   t.flight.out.to = 'NRT'; t.flight.back.from = 'NRT';
   c.S.trip = t;
   c.window.Trip.render();

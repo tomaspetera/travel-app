@@ -2259,7 +2259,7 @@
     const hit = $(`${cardSel(id)} .w-hit`); if (hit) hit.hidden = !met;
     // Už teď splněno → tuhle cenu znovu nehlásit, ozvat se až při dalším zlevnění.
     if (done && met) w.notified = cur;
-    save();
+    save(); renderNews(); // „🎯 pod tvou cenou“ v řádku Od minula hned podle nové cílové ceny
     if (done) toast(!w.target ? 'Cílová cena zrušena' : met ? `Už teď stojí ${czk(cur)} – ozvu se, až cena ještě klesne` : `Upozorním, až bude cena ${czk(w.target)} nebo méně`);
   }
   /** Ruční kontrola – zařadí se do stejné fronty jako automatická, takže se nikdy nepotkají. */
@@ -2343,12 +2343,14 @@
   /** „Od minula: 📉 Brno → Řím −380 Kč · 🎯 Londýn pod tvou cenou · 📡 radar: 3 cíle levněji“ hned pod hledáním. */
   function renderNews() {
     const el = $('#newsLine'); if (!el) return;
-    const r = S.radar && S.radar[radarModeKey()];
-    const n = Alerts.news(S.watch, r && S.home?.from?.length ? r : null);
+    // radar jen pro současný domov a režim (po změně domova by hlásil změny starého)
+    const q = S.home?.from?.length ? SearchHelp.radarQuery(S.radarMode, S.home, today()) : null;
+    const r = q && !q.none && S.radar && S.radar[q.mode];
+    const n = Alerts.news(S.watch, r && SearchHelp.radarSame(r.key, radarKey(q)) ? r : null, today());
     const parts = [
       ...n.hits.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">🎯 ${esc(x.label)} pod tvou cenou (${czk(x.czk)})</button>`),
       ...n.watch.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">📉 ${esc(x.label)} −${czk(x.d)}</button>`),
-      n.hits.length + n.watch.length > 4 ? `<span class="faint">+${n.hits.length + n.watch.length - 4} další</span>` : '',
+      n.hits.length + n.watch.length > Math.min(2, n.hits.length) + Math.min(2, n.watch.length) ? `<span class="faint">+${n.hits.length + n.watch.length - Math.min(2, n.hits.length) - Math.min(2, n.watch.length)} další</span>` : '',
       n.down || n.fresh ? `<button type="button" class="linkbtn" data-nl="radar">📡 radar: ${[n.down ? `${n.down} ${n.down === 1 ? 'cíl' : n.down <= 4 ? 'cíle' : 'cílů'} levněji` : '', n.fresh ? `${n.fresh} ${n.fresh === 1 ? 'nový' : n.fresh <= 4 ? 'nové' : 'nových'}` : ''].filter(Boolean).join(' · ')}</button>` : '',
     ].filter(Boolean);
     el.hidden = !parts.length;

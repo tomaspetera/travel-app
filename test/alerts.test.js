@@ -368,6 +368,10 @@ test('news: řádek „Od minula“ – pod cílovou cenou, zlevněná od posled
   assert.deepEqual(plain(n.watch.map((x) => [x.id, x.d])), [['b', 500], ['a', 100]], 'c je pod cílem, d beze změny');
   assert.deepEqual([n.down, n.fresh], [1, 1]);
   assert.deepEqual(plain(A.news(null, null)), { hits: [], watch: [], down: 0, fresh: 0 });
+  // proběhlý termín se nehlásí
+  const past = { ...w('p', 500, 600, 1000), form: { dateMode: 'flex', dFrom: '2026-08-01', dTo: '2026-09-01' } };
+  assert.deepEqual(plain(A.news([past], null, '2026-10-10').hits), []);
+  assert.equal(A.news([past], null).hits.length, 1, 'bez dneška jako dřív');
 });
 
 test('scheduler: první cyklus po otevření zkontroluje všechna zastaralá (firstMax), další zase po 4', async () => {

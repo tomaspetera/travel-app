@@ -297,7 +297,8 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   assert.equal(bva.text, '🚌 z letiště BVA do Paříže 17,90 € (~440 Kč) · 1 h 15');
   assert.equal(bva.warn, true);
   assert.match(bva.title, /^Z letiště BVA do Paříže: autobus Aérobus do Paris Porte Maillot – 17,90 € \(~440 Kč\) na osobu, ~1 h 15\. Online; na místě 18 €\. Zpět na letiště totéž\./);
-  assert.match(bva.title, /V ceně nabídky tam i zpět ~880 Kč\/os\. Zdroj: aeroportparisbeauvais\.com, ověřeno 7\. 10\. 2026\.$/);
+  // za čas se k datu ověření přidá stáří („· před 4 měsíci“) – test nesmí záviset na dnešku
+  assert.match(bva.title, /V ceně nabídky tam i zpět ~880 Kč\/os\. Zdroj: aeroportparisbeauvais\.com, ověřeno 7\. 10\. 2026(?: · [^.]+)?\.$/);
   // open-jaw v cíli: přílet BGY (od 5 € online), odlet MXP (vlak 15 € → varovně, přes 350 Kč)
   const jaw = H.arrivalChips({ out: { to: 'BGY' }, back: { from: 'MXP' }, arrCzk: 490 }, ARR, { on: true });
   assert.deepEqual(plain(jaw.map((c) => [c.text, c.warn])), [['🚌 z letiště BGY do Milána od 5 € (~120 Kč) · 50 min', false], ['🚆 zpět na letiště MXP 15 € (~370 Kč) · 37 min', true]]);

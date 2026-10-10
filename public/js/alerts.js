@@ -168,8 +168,9 @@
    * Řádek „Od minula“ nahoře na Přehledu: hlídání pod cílovou cenou (hits), zlevněná od posledního pohledu na seznam
    * (watch, o kolik, nejvíc první; bez těch pod cílem) a změny radaru (down = levněji než minule, fresh = nové cíle).
    */
-  function news(list, radar) {
-    const ws = (list || []).filter(w => w && w.best && num(w.best.czk));
+  function news(list, radar, today = null) {
+    // hledání s proběhlým termínem se už nehlídá – ani do „Od minula“
+    const ws = (list || []).filter(w => w && w.best && num(w.best.czk) && !(today && isPast(w.form, today)));
     const hits = ws.filter(w => num(w.target) && w.best.czk <= w.target).map(w => ({ id: w.id, label: w.label, czk: w.best.czk }));
     const hit = new Set(hits.map(x => x.id));
     const watch = ws.filter(w => !hit.has(w.id) && isDropped(w)).map(w => ({ id: w.id, label: w.label, d: num(w.seen) - w.best.czk })).sort((a, b) => b.d - a.d);

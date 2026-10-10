@@ -25,6 +25,7 @@ function load({ withTrip = false } = {}) {
   if (withTrip) vm.runInContext(read('public/js/trip.js'), ctx, { filename: 'trip.js' });
   ctx.window.Entry.set(JSON.parse(JSON.stringify(ENTRY)));
   ctx.window.Entry.setRate(25);
+  ctx.window.Entry.setToday(() => '2026-10-10'); // režimy s datem konce (Korea do 31. 12. 2026) – testy nezávisle na dnešku
   return ctx;
 }
 const ctx = load();

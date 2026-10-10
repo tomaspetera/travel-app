@@ -108,7 +108,9 @@
     : `Tento režim platí podle MZV zatím do ${dmy(r.validUntil)} – pro pozdější cestu ověř, co platí potom.`);
   // režim s datem konce už skončil (dnes po validUntil) – čipy zemí pak neříkají „bez víza“, ale „ověř vstup“
   const localYmd = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-  const over = (r, today = localYmd()) => Boolean(r && r.validUntil && today > r.validUntil);
+  let todayFn = localYmd; // testy si den nastaví (setToday)
+  const over = (r, today = todayFn()) => Boolean(r && r.validUntil && today > r.validUntil);
+  const setToday = fn => { todayFn = typeof fn === 'function' ? fn : localYmd; };
   function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
   /** Bublina u čipu: režim, pobyt, cena, poznámky a zdroj (prostý text – do title přes esc). */
   function tip(iso, r, k) {
@@ -371,6 +373,6 @@
 
   window.Entry = {
     set, load, ready, whenReady, get, meta, setRate, eurCzk, kind, regName, cardChip, flightChip, idNote, transit, transitHtml, transitCcs,
-    passportRule, passportDates, passportUntil, addMonths, leadDays, remindDays, reminder, reminders, checklist, costs, checklistHtml, detailHtml, matches, checkedTxt, ageTxt, over,
+    passportRule, passportDates, passportUntil, addMonths, leadDays, remindDays, reminder, reminders, checklist, costs, checklistHtml, detailHtml, matches, checkedTxt, ageTxt, over, setToday,
   };
 })();
