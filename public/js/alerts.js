@@ -249,6 +249,9 @@
         while (spent < max) {
           const w = dueWatches(list(), { now: now(), today: today(), max: 1, skip: tried, staleMs: cfg.staleMs })[0];
           if (!w) break;
+          // cena předem: cesta přes víc měst (2 hledání) se do zbytku rozpočtu nevejde → až příště (jako první, nehladoví)
+          const cost = Math.max(1, Number(costOf(w)) || 1);
+          if (spent && spent + cost > max) break;
           if (n && (await sleep(cfg.gapMs), !await ready())) break;
           tried.add(w.id);
           const ran = await exclusive(async () => {
@@ -259,7 +262,7 @@
             try { await check(w.id); } catch (e) { }
             return true;
           });
-          if (ran) { n++; spent += Math.max(1, Number(costOf(w)) || 1); }
+          if (ran) { n++; spent += cost; }
         }
       } finally { cycling = false; }
       return n;

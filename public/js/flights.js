@@ -158,6 +158,7 @@
       // cesta z letiště příletu do města a zpět na letiště (jízdné z ověřené tabulky, jinak odhad) v ceně
       arrival: true,
       openJaw: true, directOnly: false, outDays: [], backDays: [], exclude: [], minTemp: 0, bags: 'none',
+      depAfter: null, // prodloužený víkend z radaru: { date, time } – v předvečer jen odlety od time
       dateMode: 'flex', xOut: addDays(today(), 14), xBack: addDays(today(), 21), xFlex: 0,
       legs: [], // cesta přes víc měst: [{ from, to, date, flex }] (odkud 1. letu = from)
     };
@@ -173,6 +174,7 @@
       arrival: $('#arrivalOn').checked,
       openJaw: ojPref, directOnly: $('#directOnly').checked,
       outDays: $$('#outDays .on').map(b => +b.dataset.d), backDays: $$('#backDays .on').map(b => +b.dataset.d),
+      depAfter: depAfterOn() ? { ...depAfterVal } : null,
       // náhled letišť se po setForm načítá se zpožděním – do té doby platí vyřazená letiště z formuláře
       exclude: originPreview.length ? originPreview.filter(a => a.off).map(a => a.iata) : [...pendingExclude], minTemp: +($('#minTemp .on')?.dataset.t || 0),
       bags: $('#bags .on')?.dataset.b || 'none',
@@ -203,10 +205,26 @@
     setBags(f.bags);
     $$('#outDays button').forEach(b => b.classList.toggle('on', f.outDays.includes(+b.dataset.d)));
     $$('#backDays button').forEach(b => b.classList.toggle('on', f.backDays.includes(+b.dataset.d)));
+    const da = f.depAfter;
+    depAfterVal = da && /^\d{4}-\d{2}-\d{2}$/.test(da.date) && /^\d{2}:\d{2}$/.test(da.time) ? { date: da.date, time: da.time } : null;
+    $('#depAfterOn').checked = true;
     originPreview = []; pendingExclude = new Set(f.exclude || []);
     syncFormUI(); refreshOrigins();
   }
   let pendingExclude = new Set();
+  // Prodloužený víkend (karta radaru „Svátky“): v předvečer volna jen odlety od daného času. Platí, dokud je den
+  // v rozsahu odletu, hledání není přesná data / víc měst a uživatel ho nevypnul.
+  let depAfterVal = null;
+  function depAfterOn() {
+    const d = depAfterVal;
+    if (!d || !$('#depAfterOn').checked || $('#tripType .on').dataset.v === 'multi' || $('#dateMode .on').dataset.v === 'exact') return false;
+    return d.date >= $('#dFrom').value && d.date <= $('#dTo').value;
+  }
+  function syncDepAfter() {
+    const d = depAfterVal, show = Boolean(d) && $('#tripType .on').dataset.v !== 'multi' && $('#dateMode .on').dataset.v !== 'exact' && d.date >= $('#dFrom').value && d.date <= $('#dTo').value;
+    $('#depAfterLbl').hidden = !show;
+    if (show) $('#depAfterTxt').textContent = `${DOW[new Date(d.date + 'T12:00:00Z').getUTCDay()]} ${fmtDate(d.date)} (předvečer volna) jen odlety od ${d.time}`;
+  }
   // Za teplem: 0 = kdekoliv, jinak 20 / 25 / 30 °C (starší uložená hledání pole nemají).
   function setMinTemp(t) { $$('#minTemp button').forEach(b => b.classList.toggle('on', +b.dataset.t === (+t || 0))); }
   // Zavazadla: none = jen malé pod sedadlo (starší uložená hledání a hlídané ceny pole nemají).
@@ -334,6 +352,7 @@
       dateFrom: f.dFrom, dateTo: f.dTo, trip: f.trip, nightsMin: f.nMin, nightsMax: f.nMax,
       outDays: exact ? [] : f.outDays, backDays: exact ? [] : f.backDays, adults: f.adults, maxPrice: f.maxPrice ? +f.maxPrice : null,
       directOnly: f.directOnly, ...groundPayload(f), arrival: f.arrival !== false, openJaw: f.openJaw, exclude: f.exclude,
+      ...(!exact && f.depAfter ? { depAfter: f.depAfter } : {}),
       ...(f.minTemp ? { minTemp: +f.minTemp } : {}),
       ...(BAG_LBL[f.bags] ? { bags: f.bags } : {}),
       // Přesná data: server hledá jen odlet xOut a návrat xBack (± xFlex dní).
@@ -378,6 +397,8 @@
     if (f.directOnly) bits.push('jen přímé');
     if (BAG_LBL[f.bags]) bits.push('🧳 ' + BAG_LBL[f.bags]);
     if (f.outDays.length && !multi) bits.push('odlet ' + f.outDays.map(d => DOW[d]).join(','));
+    syncDepAfter();
+    if (f.depAfter) bits.push(`${fmtDate(f.depAfter.date)} odlet od ${f.depAfter.time}`);
     $('#moreSummary').textContent = bits.length ? '· ' + bits.join(' · ') : '';
     $('#quickDest').querySelectorAll('[data-any]').forEach(b => b.classList.toggle('on', !toInput.items.length));
   }
@@ -599,7 +620,7 @@
       $(s).oninput = carInfo;
       $(s).onchange = () => { const c = readCar(); $('#gmCons').value = c.carCons; $('#gmPrice').value = c.carPrice ?? ''; carInfo(); refreshOrigins(); syncFormUI(); };
     });
-    ['#maxPrice', '#directOnly', '#arrivalOn'].forEach(s => $(s).onchange = syncFormUI);
+    ['#maxPrice', '#directOnly', '#arrivalOn', '#depAfterOn', '#dFrom', '#dTo'].forEach(s => $(s).onchange = syncFormUI);
     $('#openJaw').onchange = () => { if (!carMode()) ojPref = $('#openJaw').checked; syncFormUI(); };
     // autem: cena na osobu a parkování závisí na počtu cestujících a délce cesty
     $('#adults').onchange = () => { syncFormUI(); if (carMode()) refreshOrigins(); };
@@ -614,6 +635,7 @@
         const from = $('#dFrom').value && $('#dFrom').value >= today() ? $('#dFrom').value : addDays(today(), 3);
         $('#dFrom').value = from; $('#dTo').value = addDays(from, +b.dataset.d);
       }
+      syncFormUI();
     });
     // „Za teplem“ už není pevný seznam zemí – je to filtr podle podnebí pod tímto řádkem.
     $('#quickDest').innerHTML = [
@@ -1986,7 +2008,7 @@
       const when = tr ? (tr.days ? `o ${plural(tr.days, 'den', 'dny', 'dní')} dřív` : 'dřív téhož dne') : '';
       // trasu zná jen z posledních ~24 h (často jen z tohoto hledání) – nepředstírat dlouhou historii
       const o = x.otherMin, oTxt = o ? `<span class="faint">${o.kind === 'other' ? 'V jiném hledání téže trasy' : 'Dřív na trase'} viděl i ${czk(o.czk)}/os. (${PriceCheck.agoTxt(o.ago)}).</span>` : '';
-      if (x.vsMem == null) memo = `<p>Tohle hledání ATLAS v paměti zatím nemá, takže letenku napřímo srovnat nemá s čím. ${oTxt}</p>`;
+      if (x.vsMem == null) memo = `<p>Tohle hledání ATLAS v paměti zatím nemá, takže letenku napřímo srovnat nemá s čím. ${x.cheapestSeen ? 'Levnější letenku na trase ale zatím neviděl.' : oTxt}</p>`;
       else {
         const low = x.scoped ? mem.scopeMin : mem.min, lowAgo = x.scoped ? mem.scopeAgo : mem.ago, inSearch = x.scoped ? ' v tomhle hledání' : '';
         memo = `<p>${mem.sinceDays > 0 ? `Nejlevnější letenka${inSearch}, co ATLAS na trase <b>${esc(route)}</b> viděl: <b>${czk(low)}</b>/os. (${PriceCheck.agoTxt(lowAgo)}, trasu sleduje ${plural(mem.sinceDays, 'den', 'dny', 'dní')}).`
@@ -2101,7 +2123,7 @@
       const pm = x.flex ? ` ±${x.flex}` : '';
       return `📅 tam ${fmtDate(x.out)}${pm}${x.back ? ` · zpět ${fmtDate(x.back)}${pm}` : ' · jen tam'}${x.flex ? '' : ' (přesná data)'}`;
     }
-    return `${fmtDate(q.dateFrom)}–${fmtDate(q.dateTo)} · ${q.trip === 'return' ? SearchHelp.nightsRange(q.nightsMin, q.nightsMax) : 'jen tam'}`;
+    return `${fmtDate(q.dateFrom)}–${fmtDate(q.dateTo)} · ${q.trip === 'return' ? SearchHelp.nightsRange(q.nightsMin, q.nightsMax) : 'jen tam'}${q.depAfter ? ` · ${fmtDate(q.depAfter.date)} odlet od ${q.depAfter.time}` : ''}`;
   }
   function watchLabel(f) {
     if (f.trip === 'multi') return multiRoute((f.legs || []).map((l, i) => ({ from: (i ? l.from : f.from).map(x => x.label).join(', '), to: l.to.map(x => x.label).join(', ') })));
@@ -2143,7 +2165,7 @@
     const b = bestOf(res);
     const czk0 = b ? b.czk : null;
     const legs = f.trip === 'multi' ? f.legs : null;
-    const w = { id: Date.now().toString(36), label: watchLabel(f), sub: (legs ? `🗺️ ${plural(legs.length, 'let', 'lety', 'letů')} · ${fmtDate(legs[0].date)} → ${fmtDate(legs[legs.length - 1].date)}` : f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? SearchHelp.nightsRange(f.nMin, f.nMax) : 'jen tam'}${f.minTemp ? ` · 🌡️ ≥ ${f.minTemp} °C` : ''}`) + (BAG_LBL[f.bags] ? ` · 🧳 ${BAG_LBL[f.bags]}` : '') + (f.ground && f.groundMode === 'car' ? ` · 🚗 na letiště autem (${FUEL_SHORT[f.carFuel] || 'nafta'})` : ''), form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null };
+    const w = { id: Date.now().toString(36), label: watchLabel(f), sub: (legs ? `🗺️ ${plural(legs.length, 'let', 'lety', 'letů')} · ${fmtDate(legs[0].date)} → ${fmtDate(legs[legs.length - 1].date)}` : f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? SearchHelp.nightsRange(f.nMin, f.nMax) : 'jen tam'}${f.depAfter ? ` · ${fmtDate(f.depAfter.date)} odlet od ${f.depAfter.time}` : ''}${f.minTemp ? ` · 🌡️ ≥ ${f.minTemp} °C` : ''}`) + (BAG_LBL[f.bags] ? ` · 🧳 ${BAG_LBL[f.bags]}` : '') + (f.ground && f.groundMode === 'car' ? ` · 🚗 na letiště autem (${FUEL_SHORT[f.carFuel] || 'nafta'})` : ''), form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null };
     // stejné hledání podruhé (♡ pod formulářem i v „Je to dobrá cena?“) jen aktualizuje cenu té, co už je
     const r = Alerts.upsertWatch(S.watch || [], w, watchKey, { now: Date.now(), cap: 12, partial: Alerts.incomplete(res.providers) });
     S.watch = r.list; save();
@@ -2562,7 +2584,7 @@
    * hledalo s okruhem a bez letišť hledání z Mnichova). Odkud a okruh doplní defaultForm() z domova (S.home).
    */
   function prefsOf(f) {
-    const { from, radius, exclude, to, trip, len, nMin, nMax, dFrom, dTo, outDays, backDays, dateMode, xOut, xBack, xFlex, legs, minTemp, maxPrice, ...rest } = singleTrip(f);
+    const { from, radius, exclude, to, trip, len, nMin, nMax, dFrom, dTo, outDays, backDays, depAfter, dateMode, xOut, xBack, xFlex, legs, minTemp, maxPrice, ...rest } = singleTrip(f);
     return rest;
   }
   function searchTo(items, { xOut = '', xBack = '' } = {}) {
@@ -2571,7 +2593,8 @@
     // termín cesty z plánovače (ještě před ní): přesná data, s návratem tam i zpět
     // v mezích serveru: odlet nejvýš ~rok dopředu, zpáteční nejvýš 45 nocí (delší pobyt → jen tam)
     const ymd = v => /^\d{4}-\d{2}-\d{2}$/.test(v);
-    const ex = ymd(xOut) && xOut >= today() && xOut <= addDays(today(), 360)
+    // (359: server v UTC má po půlnoci našeho času ještě včerejšek – jeho limit 360 dní by jinak den přetekl)
+    const ex = ymd(xOut) && xOut >= today() && xOut <= addDays(today(), 359)
       ? { dateMode: 'exact', xOut, xFlex: 0, ...(ymd(xBack) && xBack >= xOut && SearchHelp.diffDays(xOut, xBack) <= 45 ? { trip: 'return', xBack } : { trip: 'oneway' }) } : {};
     const f = { ...defaultForm(), ...prefsOf(S.form), ...o, ...ex, to: items }; // odkud jako minulé hledání
     setForm(f);

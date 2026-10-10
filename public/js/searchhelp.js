@@ -893,14 +893,17 @@
    */
   function radarPick(groups, lw = null, n = 12) {
     if (!lw) return (groups || []).filter(g => g && g.best).slice(0, n).map(g => ({ g, t: g.best }));
-    const ok = t => t.out.date >= lw.start || !t.out.hasTime || String(t.out.dep || '').slice(11, 16) >= '16:00';
+    // server už ranní odlety v předvečer vyřadil (depAfter) – tady jen pojistka
+    const ok = t => t && t.out && (t.out.date >= lw.start || !t.out.hasTime || String(t.out.dep || '').slice(11, 16) >= LW_DEP);
     const out = [];
     for (const g of groups || []) {
-      const t = (g.options || []).filter(ok).sort((a, b) => a.perPersonCzk - b.perPersonCzk)[0];
+      const t = [g && g.best, ...((g && g.options) || [])].filter(ok).sort((a, b) => a.perPersonCzk - b.perPersonCzk)[0];
       if (t) out.push({ g, t });
     }
     return out.sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk).slice(0, n);
   }
+  // odlet v předvečer prodlouženého víkendu nejdřív v (po práci)
+  const LW_DEP = '16:00';
   /** Nejbližších n prodloužených víkendů od data from (do horizon dní) – na výběr v radaru. */
   function longWeekends(from, n = 3, horizon = 200) {
     const out = [], last = addDays(from, horizon);
@@ -930,6 +933,8 @@
       // návrat jen poslední volný den (jinak by odlet ráno s nejvíc nocemi vracel až v pracovní den)
       const dow = d => new Date(d + 'T12:00:00Z').getUTCDay();
       r = { ...r, nMin: Math.max(1, lw.nights), nMax: diffDays(dateFrom, lw.end), out: [...new Set([dow(dateFrom), dow(dateTo)])], back: [dow(lw.end)] };
+      // v předvečer jen odlety po práci – server je vyřadí hned, i po kliknutí na kartu (stejné výsledky jako karta)
+      if (dateFrom < lw.start) r.depAfter = { date: dateFrom, time: LW_DEP };
       when = `prodloužený víkend ${dm(lw.start)}–${dm(lw.end)} (${lw.name}${lw.bridge ? `, s volnem ${dm(lw.bridge)}` : ''})`;
     }
     return {
@@ -937,10 +942,10 @@
       ...(lw ? { lw } : {}),
       payload: {
         from: home.from.map(x => x.id), radiusKm, to: [], dateFrom, dateTo, trip: 'return', nightsMin: r.nMin, nightsMax: r.nMax,
-        ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), adults: 1, kmRate: 1, groundMode: 'transit', arrival: true,
+        ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), ...(r.depAfter ? { depAfter: r.depAfter } : {}), adults: 1, kmRate: 1, groundMode: 'transit', arrival: true,
       },
       // formulář po kliknutí na kartu: tvar cesty z radaru, počet lidí a ostatní nastavení zůstanou uživatele
-      form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, len: 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
+      form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, ...(r.depAfter ? { depAfter: r.depAfter } : {}), len: 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
       sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · ${m === 'holiday' ? when : `${r.what} · ${when}`}`,
       empty: r.empty,
     };

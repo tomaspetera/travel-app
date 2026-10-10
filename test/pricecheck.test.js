@@ -275,7 +275,9 @@ test('explain: podklady panelu – úroveň, dny do odletu, paměť a rozdíl pr
   // hledání, které paměť nemá: nesrovnává se, nejnižší viděná jen jako „dřív“, žádný cizí trend
   const q3 = { ...q1, nightsMin: 7, nightsMax: 9 };
   const r5 = P.explain(trip(1100), { stats: ST, store: s2, now: NOW, today: '2026-10-05', query: q3 });
-  assert.deepEqual(plain([r5.scoped, r5.vsMem, r5.otherMin.kind, r5.mem.trend]), [false, null, 'earlier', null]);
+  assert.deepEqual(plain([r5.scoped, r5.vsMem, r5.otherMin, r5.mem.trend, r5.cheapestSeen]), [false, null, null, null, true], 'levnější než vše viděné – žádné „dřív viděl i“ dražší');
+  const r6 = P.explain(trip(r5.mem.min + 500), { stats: ST, store: s2, now: NOW, today: '2026-10-05', query: q3 });
+  assert.deepEqual(plain([r6.vsMem, r6.otherMin.kind, r6.otherMin.czk, r6.cheapestSeen]), [null, 'earlier', r5.mem.min, false]);
 });
 
 test('hledání: statistika ze všech nabídek i nad limitem ceny, 🔥/👍 nikdy u běžné nebo vyšší ceny', async () => {

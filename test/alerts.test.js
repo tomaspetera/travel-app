@@ -396,3 +396,18 @@ test('scheduler: velký cyklus i po dlouhé pauze (aplikace z pozadí); cesta p�
   h.advance(7 * H); // aplikace byla v pozadí přes 6 h
   assert.ok(await h.sched.cycle() >= 8, 'po pauze zase velký');
 });
+
+test('scheduler: rozpočet se nepřečerpá – cesta přes víc měst, která se nevejde, jde příště jako první', async () => {
+  const f = flex('2026-10-10', '2026-12-01');
+  // od nejstaršího: s0, s1, s2, m (víc měst), s3, s4
+  const ids = ['s0', 's1', 's2', 'm', 's3', 's4'];
+  const list = ids.map((id, i) => ({ id, form: id === 'm' ? { ...f, trip: 'multi' } : f, checked: NOW - (40 - i) * H }));
+  const cost = (w) => (w.form.trip === 'multi' ? 2 : 1);
+  const h = harness(list, { costOf: cost });
+  h.log.length = 0;
+  await h.sched.cycle(); // první cyklus bez firstMax: limit 4
+  assert.deepEqual(h.log, ['s0', 's1', 's2'], '3 + 2 > 4 → víc měst až příště');
+  h.log.length = 0;
+  await h.sched.cycle();
+  assert.deepEqual(h.log, ['m', 's3', 's4'], 'víc měst první: 2 + 1 + 1 = 4');
+});

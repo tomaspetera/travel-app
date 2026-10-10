@@ -413,27 +413,34 @@ async function saveTrip(iso, flightTxt) {
   // vše z formuláře hned – během dohledávání místa může uživatel okno zavřít nebo otevřít jiné
   const b = $('#ntSave');
   const f = { name: $('#ntName').value.trim() || 'Moje cesta', dest: $('#ntDest').value.trim(), start: $('#ntStart').value, end: $('#ntEnd').value, pax: $('#ntPax').value, budget: $('#ntBudget').value };
-  let fiso = iso, place = null; if (!fiso && f.dest) { const c = resolveCountry(f.dest); if (c) fiso = c.iso2; }
-  // město („Lisabon“): země a cíl pro „Hledat lety“ z našeptávače míst – jen přesná shoda názvu a jen když všechny
-  // takové shody leží v jedné zemi (Birmingham je v Anglii i v USA → nic nehádat); nejvýš 4 s čekání
+  // země jen při přesném názvu („Itálie“); začátek názvu („Kos“ → Kosovo) až když místo toho jména neexistuje
+  let fiso = iso, place = null; if (!fiso && f.dest) { const t = norm(f.dest), c = COUNTRIES.find(c => norm(c.cs) === t || norm(c.en) === t); if (c) fiso = c.iso2; }
+  // město („Lisabon“): země a cíl pro „Hledat lety“ z našeptávače míst – jen přesná shoda názvu. Metropole (Londýn,
+  // Barcelona) vyhrává nad stejnojmennými letišti jinde; jinak velká letiště, a jen když všechna leží v jedné zemi
+  // (Birmingham je v Anglii i v USA → nic nehádat); nejvýš 4 s čekání
   if (!fiso && f.dest) {
     if (b) { b.disabled = true; b.textContent = 'Hledám místo…'; }
     const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 4000);
     try {
       const j = await (await fetch(`api/places?q=${enc(f.dest)}`, { signal: ctl.signal })).json();
       const hits = (j.items || []).filter(s => s.cc && /^(ap|metro|geo):/.test(s.id || '') && norm(s.label) === norm(f.dest));
-      if (hits.length && new Set(hits.map(s => s.cc)).size === 1) {
-        const x = hits.find(s => /^metro:/.test(s.id)) || hits.find(s => /^ap:/.test(s.id)) || hits[0];
+      const metro = hits.find(s => /^metro:/.test(s.id)), big = hits.filter(s => s.big);
+      const pool = metro ? [metro] : big.length ? big : hits;
+      if (pool.length && new Set(pool.map(s => s.cc)).size === 1) {
+        const x = metro || pool.find(s => /^ap:/.test(s.id)) || pool[0];
         fiso = byIso[x.cc] ? x.cc : null;
         if (/^(ap|metro):/.test(x.id)) place = { id: x.id, label: x.label, flag: x.flag || '' };
       }
     } catch (e) { /* bez sítě nebo pomalý server: cesta bez země */ } finally { clearTimeout(tm); }
+    if (!fiso && !place) { const c = resolveCountry(f.dest); if (c) fiso = c.iso2; }
   }
-  S.trips.push({ name: f.name, dest: f.dest || '—', iso: fiso || null, ...(place ? { place } : {}), start: f.start, end: f.end, pax: f.pax, budget: f.budget, flight: flightTxt, days: {}, checklist: PACK.map(t => ({ t, done: false })), notes: '' });
+  const trip = { name: f.name, dest: f.dest || '—', iso: fiso || null, ...(place ? { place } : {}), start: f.start, end: f.end, pax: f.pax, budget: f.budget, flight: flightTxt, days: {}, checklist: PACK.map(t => ({ t, done: false })), notes: '' };
+  S.trips.push(trip);
   save();
   // okno mezitím zavřené nebo nahrazené jiným: uložit potichu, nic nezavírat ani neotevírat
   if (b && !(b.isConnected && $('#modalBg').classList.contains('show'))) { toast('Cesta vytvořena'); renderPlanner(); return; }
-  modalClose(); go('planner'); toast('Cesta vytvořena'); setTimeout(() => openTrip(S.trips.length - 1), 250);
+  // právě uložená cesta (jiné uložení z dřívějšího okna mohlo mezitím přidat další)
+  modalClose(); go('planner'); toast('Cesta vytvořena'); setTimeout(() => { const i = S.trips.indexOf(trip); if (i >= 0) openTrip(i); }, 250);
 }
 /** „Hledat lety“ u cesty v plánovači: do jejího města (nebo země) v termínu cesty, je-li ještě před ní. */
 window.planSearch = i => {

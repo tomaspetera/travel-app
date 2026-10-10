@@ -272,7 +272,10 @@
       pl, stats, days, key, mem,
       vsMem: base ? Math.round((t.flightCzk / base - 1) * 100) : null,
       scoped,
-      otherMin: scoped ? mem.other || null : mem && query ? { czk: mem.min, ago: mem.ago, kind: 'earlier' } : null,
+      // „dřív viděl i…“ jen levnější než tahle letenka (jinak by „i“ naznačovalo levnější, i když byla dražší)
+      otherMin: scoped ? mem.other || null : mem && query && mem.min < t.flightCzk ? { czk: mem.min, ago: mem.ago, kind: 'earlier' } : null,
+      // hledání v paměti není, ale levnější letenku na trase ATLAS ještě neviděl
+      cheapestSeen: Boolean(mem && query && !scoped && t.flightCzk <= mem.min),
       advice: advice(pl.level, days),
     };
   }

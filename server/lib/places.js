@@ -43,6 +43,8 @@ function airportSuggestion(a) {
   return {
     id: `ap:${a.iata}`, type: 'airport', label: a.cityCs, flag: flag(a.cc), iata: a.iata,
     sub: `${a.name} · ${a.iata} · ${a.country}`, cc: a.cc, lat: a.lat, lon: a.lon,
+    // velké letiště (≥ 2 mil. cestujících za rok, bez údaje podle typu) – plánovač podle něj pozná hlavní město jména
+    big: a.pax != null ? a.pax >= 2000 : a.type === 'L',
   };
 }
 

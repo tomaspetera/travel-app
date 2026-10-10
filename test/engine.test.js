@@ -321,3 +321,22 @@ test('resolveOrigins: vypnutá letiště nezaberou místo a pořadí výběru (r
   assert.ok(!off.includes('VIE') && !off.includes('BTS'));
   assert.ok(off.includes('BUD'), 'místo vypnutých další velké: ' + off.join());
 });
+
+test('normalizeQuery: depAfter (předvečer prodlouženého víkendu) jen platný, v rozsahu odletu a bez přesných dat', () => {
+  const a = ymdPlus(20), b = ymdPlus(21);
+  const base = { from: ['ap:VIE'], dateFrom: a, dateTo: b, trip: 'return', nightsMin: 2, nightsMax: 4 };
+  assert.deepEqual(normalizeQuery({ ...base, depAfter: { date: a, time: '16:00' } }).depAfter, { date: a, time: '16:00' });
+  assert.equal(normalizeQuery(base).depAfter, null);
+  assert.equal(normalizeQuery({ ...base, depAfter: { date: ymdPlus(25), time: '16:00' } }).depAfter, null, 'mimo rozsah odletu');
+  assert.equal(normalizeQuery({ ...base, depAfter: { date: a, time: '25:00' } }).depAfter, null, 'nesmyslný čas');
+  assert.equal(normalizeQuery({ ...base, depAfter: { date: a, time: '16:00x' } }).depAfter, null);
+  assert.equal(normalizeQuery({ ...base, depAfter: 'x' }).depAfter, null);
+  assert.equal(normalizeQuery({ ...base, exactOut: a, exactBack: ymdPlus(24), depAfter: { date: a, time: '16:00' } }).depAfter, null, 'přesná data');
+});
+
+test('našeptávač: velká letiště (big) – plánovač podle nich pozná, o které město jde', () => {
+  const big = (q) => Object.fromEntries(localSuggestions(q).filter((s) => s.id.startsWith('ap:')).map((s) => [s.iata, s.big]));
+  assert.deepEqual([big('Florencie').FLR, big('Florencie').FLO], [true, false]);
+  assert.deepEqual([big('Sydney').SYD, big('Sydney').YQY], [true, false]);
+  assert.deepEqual([big('Birmingham').BHX, big('Birmingham').BHM], [true, true], 'obě velká → plánovač nehádá');
+});
