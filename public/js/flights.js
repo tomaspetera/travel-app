@@ -1681,8 +1681,9 @@
     const c = fromCard;
     if (!c || res !== lastResult || JSON.stringify(lastResultPayload) !== c.key) return '';
     const x = c.x, all = [...(res.top || []), ...(res.groups || []).flatMap(g => [g.best, ...(g.options || [])])].filter(Boolean);
-    // srovnání podle ceny letenky (celková cena po prokliku počítá zavazadla a dopravu podle formuláře); prázdný výsledek = nabídka chybí
-    if (all.some(t => (x.fl != null ? t.flightCzk <= x.fl : t.perPersonCzk <= x.czk))) return '';
+    // let z karty (stejná letiště a dny) ve výsledku je → nic; celkové ceny se srovnat nedají (proklik počítá zavazadla
+    // a dopravu podle formuláře, jiný let může mít levnější letenku a dražší cestu na letiště); prázdný výsledek = chybí
+    if (all.some(t => t.out && t.out.from === x.from && t.out.to === x.to && t.out.date === x.d1 && (!x.d2 || (t.back && t.back.date === x.d2)))) return '';
     const buy = (Array.isArray(x.buy) ? x.buy : []).filter(b => Array.isArray(b) && /^https?:\/\//i.test(String(b[0] || '')));
     const shop = p => (p === 'travelpayouts' ? 'na Aviasales' : 'u ' + shopName(p));
     const links = buy.map(([u, p, leg]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${leg === 'out' ? 'Tam' : leg === 'back' ? 'Zpět' : 'Koupit nabídku z karty'} ${esc(shop(p))} ↗</a>`).join(' · ');
@@ -2521,8 +2522,6 @@
       // u svátků jen odlet první volný den nebo večer předem (SearchHelp.radarPick)
       const at = Date.now(), items = SearchHelp.radarPick(res.groups, q.lw).map(({ g, t }) => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: t.perPersonCzk, from: t.out.from, to: t.out.to, d1: t.out.date, d2: t.back?.date, deal: t.deal.level, score: t.deal.score, prov: t.out.provider,
         // odkaz na nabídku z karty – hledání do jednoho cíle ji nemusí vrátit (Kiwi dává pro „kamkoliv“ jiné nabídky)
-        // cena samotné letenky – proklik hledá s nastavením uživatele (zavazadla, auto…), celková cena se liší
-        fl: t.flightCzk,
         ...(t.bookUrl ? { buy: [[t.bookUrl, t.provider, 'all']] } : t.out.bookUrl || t.back?.bookUrl ? { buy: [...(t.out.bookUrl ? [[t.out.bookUrl, t.out.provider, 'out']] : []), ...(t.back?.bookUrl ? [[t.back.bookUrl, t.back.provider, 'back']] : [])] } : {}) }));
       // co se od minulého výsledku změnilo (↓ cena, nový cíl); s výpadkem zdroje bez značek
       const r = SearchHelp.radarEntry(S.radar && S.radar[q.mode], items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers) });
