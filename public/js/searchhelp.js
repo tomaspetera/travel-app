@@ -846,12 +846,48 @@
     };
   }
 
+  /**
+   * Starší uložený výsledek radaru k okamžitému zobrazení, než doběhne nové hledání (po uspání serveru to trvá i přes
+   * minutu): jen stejný dotaz (domov, okruh, režim – data rozsahu se den ode dne posouvají) a bez karet s odletem
+   * před dneškem. entry = { key, at, items: [{ d1, … }] }, key = dotaz teď (JSON) → { ...entry, items } nebo null.
+   */
+  function radarStale(entry, key, today) {
+    if (!entry || typeof entry.key !== 'string' || !Array.isArray(entry.items) || !radarSame(entry.key, key)) return null;
+    const items = entry.items.filter(x => x && typeof x.d1 === 'string' && x.d1 >= today);
+    return items.length ? { ...entry, items } : null;
+  }
+  /** Stejný dotaz radaru (JSON) až na rozsah dat, který se den ode dne posouvá. */
+  function radarSame(a, b) {
+    const strip = k => { try { const { dateFrom, dateTo, ...rest } = JSON.parse(k); return JSON.stringify(rest); } catch (e) { return null; } };
+    const x = strip(a);
+    return Boolean(x) && x === strip(b);
+  }
+  /**
+   * Co se na radaru změnilo od minula (náhrada upozornění – vidět při každém otevření): u karty dřívější cena téhož cíle
+   * (was = { czk, at }, jen při změně aspoň o 3 % a 30 Kč) a „nové“ (newAt) u cíle, který v minulém výsledku stejného
+   * dotazu nebyl. Nezměněná cena si značku z minula nechá (was 3 dny, nové 1 den) – nezmizí při obnovení za půl hodiny.
+   * prev = minulý uložený výsledek ({ key, at, items }) nebo null, key = dotaz teď → nové pole karet.
+   */
+  function radarDiff(prev, items, key, now) {
+    if (!prev || !Array.isArray(prev.items) || typeof prev.key !== 'string' || !radarSame(prev.key, key)) return items;
+    const old = new Map(prev.items.filter(x => x && x.id).map(x => [x.id, x]));
+    return items.map(x => {
+      const o = old.get(x.id), y = { ...x };
+      if (!o) return { ...y, newAt: now };
+      const moved = Math.abs(x.czk - o.czk) >= Math.max(30, o.czk * 0.03);
+      if (moved) y.was = { czk: o.czk, at: prev.at };
+      else if (o.was && now - o.was.at < 3 * 864e5) y.was = o.was;
+      if (o.newAt && now - o.newAt < 864e5) y.newAt = o.newAt;
+      return y;
+    });
+  }
+
   window.SearchHelp = {
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
-    radarQuery,
+    radarQuery, radarStale, radarSame, radarDiff,
   };
 })();

@@ -86,13 +86,24 @@
     return d === 1 ? 'před 1 dnem' : `před ${d} dny`;
   }
 
-  /** Výsledek kontroly → nový stav hledání + důvod upozornění. Původní objekt nemění. */
-  function applyCheck(w, best, now, cfg = CFG) {
+  /** Některý zdroj (Ryanair, Wizz Air, Kiwi…) v hledání neodpověděl celý – výsledek může být dražší než skutečnost. */
+  const incomplete = providers => (providers || []).some(p => p && p.outage);
+
+  /**
+   * Výsledek kontroly → nový stav hledání + důvod upozornění. Původní objekt nemění.
+   * partial = některý zdroj neodpověděl: vyšší nebo žádná cena může být jen výpadkem – nezapíše se (skipped, hledání
+   * zůstane k nové kontrole), nejvýš 2× po sobě, pak se vezme i neúplná. Nižší cena platí i při výpadku.
+   */
+  function applyCheck(w, best, now, cfg = CFG, { partial = false } = {}) {
     const h = Array.isArray(w.history) ? w.history : [];
     // minulá cena; když minulá kontrola nic nenašla, poslední známá z historie
     const prev = num(w.best && w.best.czk) || num(h.length && h[h.length - 1].czk);
     const cur = num(best && best.czk);
-    const out = { ...w, best: best || null, checked: now, tried: now };
+    if (partial && prev && !(cur && cur < prev) && (num(w.partials) || 0) < 2) {
+      return { w: { ...w, tried: now, partials: (num(w.partials) || 0) + 1 }, why: null, prev, skipped: true };
+    }
+    const { partials, ...rest } = w;
+    const out = { ...rest, best: best || null, checked: now, tried: now };
     if (out.base == null && h.length) out.base = h[0].czk; // starší uložená data bez výchozí ceny
     if (out.seen == null && prev) out.seen = prev;
     let why = null;
@@ -234,5 +245,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, searchKey, upsertWatch, isDropped, droppedCount, mergeWatches, sparkPath, notifState, scheduler };
+  window.Alerts = { CFG, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, incomplete, searchKey, upsertWatch, isDropped, droppedCount, mergeWatches, sparkPath, notifState, scheduler };
 })();

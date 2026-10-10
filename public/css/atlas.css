@@ -171,6 +171,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .progress>span{display:block;height:100%;border-radius:10px;background:var(--grad);transition:width 1s var(--ease)}
 
 .section-head{display:flex;align-items:center;justify-content:space-between;margin:26px 2px 14px}
+.section-head[hidden]{display:none}
 .section-head h2{font-size:18px;font-weight:800}
 .section-head .link{font-size:13px;color:var(--accent);cursor:pointer;font-weight:700}
 

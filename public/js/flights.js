@@ -2120,8 +2120,14 @@
       const res = await runSearch(payloadOf(f), { signal: ctl.signal });
       PriceCheck.remember(res); // každá kontrola hlídaného hledání = další bod trendu ceny
       const cur = (S.watch || []).find(x => x.id === id); if (!cur) return; // mezitím smazané
-      const r = Alerts.applyCheck(cur, bestOf(res), Date.now());
-      Object.assign(cur, r.w); save();
+      const r = Alerts.applyCheck(cur, bestOf(res), Date.now(), undefined, { partial: Alerts.incomplete(res.providers) });
+      if (r.skipped) {
+        // výpadek zdroje: cenu nepřepisovat (falešné „zlevnilo“ při další kontrole), za chvíli to zkusí znovu
+        Object.assign(cur, r.w); save();
+        if (!auto) toast(`${cur.label}: některá aerolinka teď neodpověděla – cenu ${czk(r.prev)} nechávám, zkusím to znovu později`);
+        return;
+      }
+      Object.assign(cur, r.w); delete cur.partials; save();
       const b = cur.best;
       if (r.why) alertDrop(cur, r.why, r.prev);
       else if (!auto) toast(b && r.prev && b.czk < r.prev ? `📉 ${cur.label}: cena klesla na ${czk(b.czk)}!` : `${cur.label}: ${b ? czk(b.czk) : 'nic nenalezeno'}`);
@@ -2208,6 +2214,13 @@
   // Rozběhnuté hledání radaru podle dotazu: přepnutí tam a zpět ani nové vykreslení přehledu ho nespustí podruhé.
   const radarJobs = {};
   let radarWant = null; // dotaz, jehož výsledek má radar ukázat – pozdě doběhlé hledání druhého režimu se jen uloží
+  // Návrat do aplikace (z plochy, z jiné karty) na otevřený přehled: zastaralý radar se sám obnoví (starší ceny zůstanou
+  // vidět, dokud nedorazí nové).
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !document.querySelector('#view-dashboard.active') || !(S.home && S.home.from?.length)) return;
+    const c = S.radar && S.radar[S.radarMode === 'weekend' ? 'weekend' : 'all'];
+    if (!c || Date.now() - c.at >= 30 * 60e3) renderRadar();
+  });
   async function renderRadar(force) {
     const host = $('#radar'), modes = $('#radarModes');
     if (!S.home || !S.home.from?.length) {
@@ -2230,13 +2243,18 @@
     $('#radarReload').onclick = () => renderRadar(true);
     const c = S.radar && S.radar[q.mode];
     if (!force && c && c.key === key && Date.now() - c.at < 30 * 60e3) return paintRadar(c, q);
-    host.innerHTML = `<div class="radar-grid">${Array.from({ length: 8 }, () => '<div class="card radar-card skel"></div>').join('')}</div>`;
+    // Starší výsledek stejného dotazu se ukáže hned a nový se hledá na pozadí – po uspání serveru to trvá i přes minutu.
+    const old = SearchHelp.radarStale(c, key, today());
+    if (old) paintRadar(old, q, { busy: true });
+    else host.innerHTML = `<div class="radar-grid">${Array.from({ length: 8 }, () => '<div class="card radar-card skel"></div>').join('')}</div>`;
     const job = radarJobs[key] || (radarJobs[key] = radarSearch(q, key).finally(() => { delete radarJobs[key]; }));
     try {
       const r = await job;
       if (radarWant === key) paintRadar(r, q);
     } catch (e) {
-      if (radarWant === key) host.innerHTML = `<div class="note warn">⚠️ <div>Radar se nepodařilo načíst: ${esc(e.message)}</div></div>`;
+      if (radarWant !== key) return;
+      if (old) paintRadar(old, q, { error: e.message });
+      else host.innerHTML = `<div class="note warn">⚠️ <div>Radar se nepodařilo načíst: ${esc(e.message)}</div></div>`;
     }
   }
   async function radarSearch(q, key) {
@@ -2244,23 +2262,38 @@
     try {
       const res = await runSearch(q.payload);
       PriceCheck.remember(res);
-      const r = { key, at: Date.now(), demo: res.demo, items: res.groups.slice(0, 12).map(g => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: g.best.perPersonCzk, from: g.best.out.from, to: g.best.out.to, d1: g.best.out.date, d2: g.best.back?.date, deal: g.best.deal.level, prov: g.best.out.provider })) };
+      const at = Date.now(), items = res.groups.slice(0, 12).map(g => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: g.best.perPersonCzk, from: g.best.out.from, to: g.best.out.to, d1: g.best.out.date, d2: g.best.back?.date, deal: g.best.deal.level, prov: g.best.out.provider }));
+      // co se od minulého výsledku změnilo (↓ cena, nový cíl)
+      const r = { key, at, demo: res.demo, items: SearchHelp.radarDiff(S.radar && S.radar[q.mode], items, key, at) };
       S.radar = { all: S.radar?.all, weekend: S.radar?.weekend, [q.mode]: r }; // každý režim zvlášť (dřívější tvar se zahodí)
       save();
       return r;
     } finally { busySearches--; }
   }
-  function paintRadar(r, q) {
+  /** Značka změny od minula: „↓ 420 Kč“ (zlevnilo), „↑ 300 Kč“ (zdražilo), „nové“ (cíl tu minule nebyl). */
+  function radarChange(x) {
+    const when = t => { const d = new Date(t); return `${d.getDate()}. ${d.getMonth() + 1}. ${d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`; };
+    if (x.was && x.was.czk !== x.czk) {
+      const down = x.czk < x.was.czk, d = Math.abs(x.czk - x.was.czk);
+      return `<span class="b ${down ? 'good' : 'dear'}" title="Předtím ${czk(x.was.czk)}/os. (${when(x.was.at)})">${down ? '↓' : '↑'} ${czk(d)}</span>`;
+    }
+    return x.newAt ? `<span class="b info" title="Minule mezi nejlevnějšími nebyl">nové</span>` : '';
+  }
+  /** st: { busy } = starší výsledek, nový se hledá · { error } = starší výsledek, nový se nepodařilo načíst. */
+  function paintRadar(r, q, st = null) {
     const host = $('#radar');
     if (!r.items.length) { host.innerHTML = `<div class="note info">ℹ️ <div>${esc(q.empty)}</div></div>`; return; }
     // u víkendů i den v týdnu (Pá 17.10.–Ne 19.10.) – s datem nerozdělitelně, zalomí se nejvýš za pomlčkou
     const day = d => (q.mode === 'weekend' ? DOW[new Date(d + 'T12:00:00Z').getUTCDay()] + '\u00a0' : '') + fmtDate(d);
-    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="radar-grid">${r.items.map((x, i) => `<div class="card radar-card ${x.deal === 'super' ? 'hot' : ''}" data-ri="${i}">
-      <div class="rc-top"><span class="rcf">${flag(x.cc)}</span>${x.deal === 'super' ? '<span class="b hot">🔥</span>' : ''}</div>
+    // čas výsledku, u staršího než dnešního i den (8.10. 9:12)
+    const at = new Date(r.at), when = (at.toDateString() === new Date().toDateString() ? '' : `${at.getDate()}.${at.getMonth() + 1}. `) + at.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
+    const stale = !st ? '' : `<div class="faint radar-stale">${st.error ? `⚠️ Aktuální ceny se nepodařilo načíst (${esc(st.error)}) – ukazuji ceny z ${when}.` : `<span class="spin"></span> Ukazuji ceny z ${when}, hledám aktuální…`}</div>`;
+    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}${stale}<div class="radar-grid${st ? ' stale' : ''}">${r.items.map((x, i) => `<div class="card radar-card ${x.deal === 'super' ? 'hot' : ''}" data-ri="${i}">
+      <div class="rc-top"><span class="rcf">${flag(x.cc)}</span><span class="rc-badges">${radarChange(x)}${x.deal === 'super' ? '<span class="b hot">🔥</span>' : ''}</span></div>
       <div class="rc-city">${esc(x.label)}</div>
       <div class="rc-price">${czk(x.czk)}<small>/os.</small></div>
       <div class="faint" style="font-size:12px">${x.from} → ${x.to} · ${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}</div>
-    </div>`).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${new Date(r.at).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })} · vč. dopravy na letiště · klikni pro všechny termíny</div>`;
+    </div>`).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when} · vč. dopravy na letiště · klikni pro všechny termíny</div>`;
     $$('[data-ri]', host).forEach(c => c.onclick = () => {
       const x = r.items[+c.dataset.ri];
       go('flights');

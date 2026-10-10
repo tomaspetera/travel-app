@@ -443,3 +443,48 @@ test('radarQuery: Kdykoliv jako dřív, Víkendy jen odlet Pá/So a návrat Ne/P
   assert.equal(H.radarQuery('xyz', home, '2026-10-07').mode, 'all');
   assert.equal(H.radarQuery(undefined, { from: [{ id: 'ap:PRG', label: 'Praha' }] }, '2026-10-07').payload.radiusKm, 200);
 });
+
+test('radarStale: starší výsledek stejného dotazu (i z jiného dne) bez prošlých odletů; jiný domov, režim nebo okruh ne', () => {
+  const home = { from: [{ id: 'ap:BRQ', label: 'Brno' }], radius: 200 };
+  const then = H.radarQuery('weekend', home, '2026-10-07'), now = H.radarQuery('weekend', home, '2026-10-10');
+  const entry = { key: JSON.stringify(then.payload), at: 1, items: [{ d1: '2026-10-09', label: 'Prošlý' }, { d1: '2026-10-10', label: 'Dnes' }, { d1: '2026-11-06', label: 'Listopad' }] };
+  const r = plain(H.radarStale(entry, JSON.stringify(now.payload), '2026-10-10'));
+  assert.deepEqual(r.items.map((x) => x.label), ['Dnes', 'Listopad']);
+  assert.equal(r.at, 1);
+  assert.equal(entry.items.length, 3, 'uložený výsledek se nemění');
+  // jiný režim, jiný domov nebo okruh → nic
+  assert.equal(H.radarStale(entry, JSON.stringify(H.radarQuery('all', home, '2026-10-10').payload), '2026-10-10'), null);
+  assert.equal(H.radarStale(entry, JSON.stringify(H.radarQuery('weekend', { ...home, radius: 150 }, '2026-10-10').payload), '2026-10-10'), null);
+  assert.equal(H.radarStale(entry, JSON.stringify(H.radarQuery('weekend', { from: [{ id: 'ap:PRG', label: 'Praha' }] }, '2026-10-10').payload), '2026-10-10'), null);
+  // všechno prošlé, chybějící nebo poškozený záznam → nic
+  assert.equal(H.radarStale({ ...entry, items: [{ d1: '2026-10-01' }] }, JSON.stringify(now.payload), '2026-10-10'), null);
+  assert.equal(H.radarStale(null, JSON.stringify(now.payload), '2026-10-10'), null);
+  assert.equal(H.radarStale({ key: '{nejson', items: [] }, JSON.stringify(now.payload), '2026-10-10'), null);
+});
+
+test('radarDiff: zlevnění a zdražení cíle od minula, nový cíl; značka vydrží nezměněnou cenu, šum kurzu ne', () => {
+  const home = { from: [{ id: 'ap:BRQ', label: 'Brno' }], radius: 200 };
+  const key = (d) => JSON.stringify(H.radarQuery('all', home, d).payload);
+  const T0 = Date.parse('2026-10-08T09:00:00Z'), T1 = T0 + 6 * 3600e3, T2 = T1 + 1800e3;
+  const it = (id, czk) => ({ id, label: id, czk, d1: '2026-11-01' });
+  const prev = { key: key('2026-10-08'), at: T0, items: [it('ROM', 2000), it('LON', 1500), it('BCN', 1800)] };
+  const now = plain(H.radarDiff(prev, [it('ROM', 1580), it('LON', 1520), it('BCN', 2100), it('OSL', 900)], key('2026-10-08'), T1));
+  const by = Object.fromEntries(now.map((x) => [x.id, x]));
+  assert.deepEqual(by.ROM.was, { czk: 2000, at: T0 }, 'zlevnilo o 420 Kč');
+  assert.equal(by.LON.was, undefined, '+20 Kč (1,3 %) je šum');
+  assert.deepEqual(by.BCN.was, { czk: 1800, at: T0 }, 'zdražilo');
+  assert.equal(by.OSL.newAt, T1, 'nový cíl');
+  assert.equal(by.ROM.newAt, undefined);
+  // za půl hodiny stejné ceny → značky zůstanou; další den (jiný rozsah dat) taky
+  const again = plain(H.radarDiff({ key: key('2026-10-08'), at: T1, items: now }, [it('ROM', 1580), it('OSL', 900)], key('2026-10-09'), T2));
+  assert.deepEqual(again[0].was, { czk: 2000, at: T0 });
+  assert.equal(again[1].newAt, T1);
+  // po 3 dnech značka zlevnění zmizí, „nové“ po dni
+  const late = plain(H.radarDiff({ key: key('2026-10-08'), at: T1, items: now }, [it('ROM', 1580), it('OSL', 900)], key('2026-10-11'), T0 + 4 * 864e5));
+  assert.equal(late[0].was, undefined);
+  assert.equal(late[1].newAt, undefined);
+  // jiný domov nebo žádný minulý výsledek → beze změn
+  const other = JSON.stringify(H.radarQuery('all', { from: [{ id: 'ap:PRG', label: 'Praha' }] }, '2026-10-08').payload);
+  assert.deepEqual(plain(H.radarDiff(prev, [it('ROM', 1)], other, T1)), [it('ROM', 1)]);
+  assert.deepEqual(plain(H.radarDiff(null, [it('ROM', 1)], key('2026-10-08'), T1)), [it('ROM', 1)]);
+});
