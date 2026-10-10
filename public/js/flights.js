@@ -630,7 +630,11 @@
     $('#geoBtn').onclick = () => useMyLocation(fromInput);
     $('#searchForm').onsubmit = e => { e.preventDefault(); startSearch(); };
     $('#watchBtn').onclick = () => addWatch();
-    $('#searchForm').addEventListener('change', () => { updateWatchBtn(); renderRecent(); }); // jiné hledání → zase „♡ Hlídat cenu“
+    $('#searchForm').addEventListener('change', () => {
+      // úprava formuláře (na širší obrazovce je vidět i „sbalený“) – souhrn by popisoval jiné hledání než ♡
+      if (!$('#searchSum').hidden) expandForm();
+      updateWatchBtn(); renderRecent(); // jiné hledání → zase „♡ Hlídat cenu“
+    });
     $('#guideLink').onclick = openGuide;
   }
 
