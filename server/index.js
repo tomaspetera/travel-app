@@ -438,8 +438,10 @@ async function route(req, res) {
     const lon = Number(b.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     if (!isYmd(b.start) || !isYmd(b.end) || daysBetween(b.start, b.end) < 0 || daysBetween(b.start, b.end) > 30) return sendJson(req, res, 400, { error: 'Neplatné datum (max. 31 dní).' });
-    if (exploreLimited(req, placesCached({ lat, lon, radiusKm: 10, dayTrips: true }))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
-    const places = config.mock ? mockPlaces({ lat, lon }) : await findPlaces({ lat, lon, radiusKm: 10, dayTrips: true });
+    // Okruh jako u seznamu míst (/api/poi) – program pak použije už načtená místa z mezipaměti; starší klient bez něj 10 km.
+    const near = { lat, lon, radiusKm: Math.min(25, Math.max(1, Number(b.radius) || 10)), dayTrips: true };
+    if (exploreLimited(req, placesCached(near))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
+    const places = config.mock ? mockPlaces({ lat, lon }) : await findPlaces(near);
     const exclude = new Set(Array.isArray(b.exclude) ? b.exclude.map(String) : []);
     const must = new Set(Array.isArray(b.include) ? b.include.map(String) : []);
     const pool = places.filter((x) => !exclude.has(x.id)).map((x) => (must.has(x.id) ? { ...x, score: x.score + 1000, pinned: true } : x));

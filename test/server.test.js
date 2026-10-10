@@ -643,13 +643,16 @@ test('Objevuj má vlastní limit: vyčerpaný → 429, hledání letů dál fung
     const stub = stubFetch((url) => {
       if (url.startsWith('https://query.wikidata.org/sparql')) {
         const q = decodeURIComponent(new URL(url).searchParams.get('query'));
-        return { body: { results: { bindings: q.includes('P757') || q.includes('VALUES ?t') ? [] : rows } } };
+        // okruh 20 km: navíc klášter za městem
+        const more = q.includes('"20"') ? [wrow('Q5', 'Klášter', 41.52, 2.05, 70, 'Q44613')] : [];
+        return { body: { results: { bindings: q.includes('P757') || q.includes('VALUES ?t') ? [] : [...rows, ...more] } } };
       }
       if (url.includes('brouter')) return { body: geo };
       return { body: { query: { pages: [] } } };
     });
     try {
       await findPlaces({ lat: 41.39, lon: 2.17, radiusKm: 10, dayTrips: true });
+      await findPlaces({ lat: 41.39, lon: 2.17, radiusKm: 20, dayTrips: true });
       await findTrips({ lat: 41.39, lon: 2.17 });
       await bikeLoop({ lat: 41.39, lon: 2.17, km: 30, bike: 'trekking', scenery: 'mixed', hills: 'normal', variant: 0 });
     } finally {
@@ -661,7 +664,13 @@ test('Objevuj má vlastní limit: vyčerpaný → 429, hledání letů dál fung
       assert.equal(r.status, 200);
       assert.ok((await r.json()).items.some((x) => x.id === 'Q1'));
     }
-    assert.equal((await post('/api/itinerary', { lat: 41.39, lon: 2.17, start, end: start })).status, 200);
+    // program bere místa ze stejného okruhu jako seznam (stejná položka mezipaměti), bez okruhu 10 km
+    const it10 = await post('/api/itinerary', { lat: 41.39, lon: 2.17, start, end: start });
+    assert.equal(it10.status, 200);
+    assert.ok(!(await it10.json()).places.some((x) => x.id === 'Q5'));
+    const it20 = await post('/api/itinerary', { lat: 41.39, lon: 2.17, start, end: start, radius: 20 });
+    assert.equal(it20.status, 200);
+    assert.ok((await it20.json()).places.some((x) => x.id === 'Q5'), 'okruh 20 km');
     const trip = await post('/api/roadtrip', { lat: 41.39, lon: 2.17, start, mode: 'day' });
     assert.equal(trip.status, 200);
     assert.equal((await trip.json()).days[0].stops[0].id, 'Q3');
