@@ -697,7 +697,9 @@
     S.form = f; if (!S.home || !S.home.from?.length) S.home = { from: f.from, radius: f.radius, adults: Math.min(6, Math.max(1, +f.adults || 2)) }; save(); updateHomeChip();
     collapseForm(f);
     const payload = payloadOf(f);
-    fromCard = opts.card ? { x: opts.card, key: JSON.stringify(payload) } : null;
+    // karta zůstane i pro totéž hledání znovu (↻ Zkusit znovu po výpadku zdroje)
+    const pkey = JSON.stringify(payload);
+    fromCard = opts.card ? { x: opts.card, key: pkey } : fromCard && fromCard.key === pkey ? fromCard : null;
     // Kalendář cen zůstane jen u hledání do stejného cíle (nebo na vyžádání) – jiný cíl začne seznamem.
     if (view.mode === 'cal' && !opts.cal && JSON.stringify((lastPayload || {}).to || null) !== JSON.stringify(payload.to || null)) view.mode = 'list';
     lastPayload = payload; lastForm = f;
@@ -719,7 +721,7 @@
       renderResults();
       S.recent = SearchHelp.recentAdd(S.recent, { form: f, at: lastResultAt }, watchKey); save(); renderRecent();
       const at = lastResultAt;
-      setTimeout(() => saveLast({ at, form: f, payload, res }), 0); // velký zápis až po vykreslení
+      setTimeout(() => saveLast({ at, form: f, payload, res, card: fromCard && fromCard.key === JSON.stringify(payload) ? fromCard.x : null }), 0); // velký zápis až po vykreslení
       return res;
     } catch (e) {
       if (e.name === 'AbortError') return;
@@ -756,6 +758,7 @@
     try { c = SearchHelp.lastLoad(localStorage.getItem(LAST_LS), Date.now()); } catch (e) { }
     if (!c) return;
     lastResult = c.res; lastResultAt = c.at; lastPayload = c.payload; lastResultPayload = c.payload; lastForm = { ...defaultForm(), ...c.form }; restored = true;
+    fromCard = c.card && typeof c.card === 'object' ? { x: c.card, key: JSON.stringify(c.payload) } : null;
     fitMode(c.res);
     // sbalit jen když formulář je to hledání (jinak – rozdělané pozdější hledání – zůstane formulář vidět)
     if (watchKey({ form: getForm() }) === watchKey({ form: lastForm })) collapseForm(lastForm);
@@ -1678,9 +1681,11 @@
     const c = fromCard;
     if (!c || res !== lastResult || JSON.stringify(lastResultPayload) !== c.key) return '';
     const x = c.x, all = [...(res.top || []), ...(res.groups || []).flatMap(g => [g.best, ...(g.options || [])])].filter(Boolean);
-    if (!all.length || all.some(t => t.perPersonCzk <= x.czk)) return '';
-    const buy = (x.buy || []).filter(([u]) => /^https?:\/\//i.test(String(u || '')));
-    const links = buy.map(([u, p], i) => `<a href="${esc(u)}" target="_blank" rel="noopener">${buy.length > 1 ? (i ? 'Zpět' : 'Tam') + ': ' : 'Koupit nabídku z karty '}${esc(shopName(p))} ↗</a>`).join(' · ');
+    // srovnání podle ceny letenky (celková cena po prokliku počítá zavazadla a dopravu podle formuláře); prázdný výsledek = nabídka chybí
+    if (all.some(t => (x.fl != null ? t.flightCzk <= x.fl : t.perPersonCzk <= x.czk))) return '';
+    const buy = (Array.isArray(x.buy) ? x.buy : []).filter(b => Array.isArray(b) && /^https?:\/\//i.test(String(b[0] || '')));
+    const shop = p => (p === 'travelpayouts' ? 'na Aviasales' : 'u ' + shopName(p));
+    const links = buy.map(([u, p, leg]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${leg === 'out' ? 'Tam' : leg === 'back' ? 'Zpět' : 'Koupit nabídku z karty'} ${esc(shop(p))} ↗</a>`).join(' · ');
     return `<div class="note info card-note">ℹ️ <div>Na kartě radaru bylo <b>${czk(x.czk)}/os.</b> (${esc(x.from)} → ${esc(x.to)} · ${fmtDate(x.d1)}${x.d2 ? '–' + fmtDate(x.d2) : ''}). Hledání do jednoho cíle tuhle nabídku teď nevrátilo – zdroje (hlavně Kiwi.com) dávají pro „kamkoliv“ a pro konkrétní cíl různé nabídky a ceny se mění.${links ? ` ${links}` : ''}</div></div>`;
   }
   /** Ryanair nebo Wizz Air neodpověděl: nejlevnější lety chybí a „nejlevněji“ může klamat – nahlas a se Zkusit znovu. */
@@ -2516,7 +2521,9 @@
       // u svátků jen odlet první volný den nebo večer předem (SearchHelp.radarPick)
       const at = Date.now(), items = SearchHelp.radarPick(res.groups, q.lw).map(({ g, t }) => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: t.perPersonCzk, from: t.out.from, to: t.out.to, d1: t.out.date, d2: t.back?.date, deal: t.deal.level, score: t.deal.score, prov: t.out.provider,
         // odkaz na nabídku z karty – hledání do jednoho cíle ji nemusí vrátit (Kiwi dává pro „kamkoliv“ jiné nabídky)
-        ...(t.bookUrl ? { buy: [[t.bookUrl, t.provider]] } : t.out.bookUrl ? { buy: [[t.out.bookUrl, t.out.provider], ...(t.back?.bookUrl ? [[t.back.bookUrl, t.back.provider]] : [])] } : {}) }));
+        // cena samotné letenky – proklik hledá s nastavením uživatele (zavazadla, auto…), celková cena se liší
+        fl: t.flightCzk,
+        ...(t.bookUrl ? { buy: [[t.bookUrl, t.provider, 'all']] } : t.out.bookUrl || t.back?.bookUrl ? { buy: [...(t.out.bookUrl ? [[t.out.bookUrl, t.out.provider, 'out']] : []), ...(t.back?.bookUrl ? [[t.back.bookUrl, t.back.provider, 'back']] : [])] } : {}) }));
       // co se od minulého výsledku změnilo (↓ cena, nový cíl); s výpadkem zdroje bez značek
       const r = SearchHelp.radarEntry(S.radar && S.radar[q.mode], items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers) });
       // domov se mezitím změnil: starý dotaz už nic nepřepíše
