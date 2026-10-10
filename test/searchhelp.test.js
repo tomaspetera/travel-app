@@ -651,3 +651,20 @@ test('radarPick: u svátků jen odlet první volný den nebo večer předem (od 
   assert.deepEqual(plain(p.map((x) => [x.g.dest.key, x.t.perPersonCzk])), [['c', 700], ['a', 1100]], 'b jen dopoledne v pátek → pryč');
   assert.deepEqual(plain(H.radarPick([g1, g2], null).map((x) => x.t.perPersonCzk)), [900, 500], 'bez svátků beze změny');
 });
+
+test('placeGuess (plánovač): metropole, velká letiště, jedno jasně větší; jinak nic nehádat', async () => {
+  const { localSuggestions } = await import('../server/lib/places.js');
+  const g = (name) => { const x = H.placeGuess(localSuggestions(name), name); return x ? `${x.cc} ${x.id}` : null; };
+  const want = {
+    'Londýn': 'GB metro:LON', Barcelona: 'ES metro:BCN', 'Řím': 'IT metro:ROM', // metropole vyhrává nad London (Kanada) / Barcelona (Venezuela)
+    Florencie: 'IT ap:FLR', Sydney: 'AU ap:SYD', Valencie: 'ES ap:VLC', Petrohrad: 'RU ap:LED', Aberdeen: 'GB ap:ABZ', Victoria: 'CA ap:YYJ',
+    Lisabon: 'PT ap:LIS', Kos: 'GR ap:KGS', lisabon: 'PT ap:LIS',
+    Birmingham: null, // 9,6 × 3 mil. cestujících – nehádat
+  };
+  for (const [name, exp] of Object.entries(want)) assert.equal(g(name), exp, name);
+  assert.equal(H.placeGuess([], 'Lisabon'), null);
+  assert.equal(H.placeGuess(null, ''), null);
+  // město z geokódování v jiné zemi (Toledo ve Španělsku) – letiště v USA ho nepřebije
+  const tol = [...localSuggestions('Toledo'), { id: 'geo:1', type: 'city', label: 'Toledo', cc: 'ES' }];
+  assert.equal(H.placeGuess(tol, 'Toledo'), null);
+});

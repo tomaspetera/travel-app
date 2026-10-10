@@ -105,7 +105,9 @@
       if (b > month + '-31') b = month + '-31';
     }
     const to = (q.to || []).slice().sort();
-    return hash(JSON.stringify([to, x ? [x.out, x.back, x.flex] : [a, b, q.nightsMin, q.nightsMax, q.outDays, q.backDays], q.trip, Boolean(q.directOnly), q.minTemp || 0]));
+    // prodloužený víkend „v předvečer jen od 16:00“ mění výsledky – jen když den padne do měsíce (jinak starý otisk)
+    const da = !x && q.depAfter && q.depAfter.date >= a && q.depAfter.date <= b ? [[q.depAfter.date, q.depAfter.time]] : [];
+    return hash(JSON.stringify([to, x ? [x.out, x.back, x.flex] : [a, b, q.nightsMin, q.nightsMax, q.outDays, q.backDays], q.trip, Boolean(q.directOnly), q.minTemp || 0, ...da]));
   }
   /**
    * Nejlevnější letenky výsledku podle trasy a měsíce (z priceStats.mins skupin, tj. ze všech nabídek hledání)

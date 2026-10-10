@@ -423,11 +423,8 @@ async function saveTrip(iso, flightTxt) {
     const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 4000);
     try {
       const j = await (await fetch(`api/places?q=${enc(f.dest)}`, { signal: ctl.signal })).json();
-      const hits = (j.items || []).filter(s => s.cc && /^(ap|metro|geo):/.test(s.id || '') && norm(s.label) === norm(f.dest));
-      const metro = hits.find(s => /^metro:/.test(s.id)), big = hits.filter(s => s.big);
-      const pool = metro ? [metro] : big.length ? big : hits;
-      if (pool.length && new Set(pool.map(s => s.cc)).size === 1) {
-        const x = metro || pool.find(s => /^ap:/.test(s.id)) || pool[0];
+      const x = SearchHelp.placeGuess(j.items, f.dest);
+      if (x) {
         fiso = byIso[x.cc] ? x.cc : null;
         if (/^(ap|metro):/.test(x.id)) place = { id: x.id, label: x.label, flag: x.flag || '' };
       }

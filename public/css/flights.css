@@ -97,6 +97,7 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .check-inline input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent)}
 /* zaškrtávátko v poli formuláře: ne velkými písmeny jako popisek pole */
 .field label.check-inline{display:flex;font-size:13.5px;font-weight:500;color:var(--text);text-transform:none;letter-spacing:0;margin:6px 0}
+.field label.check-inline[hidden]{display:none}
 .gm-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
 .field .gm-row label.check-inline{margin:0}
 @media(max-width:380px){.warm-row .seg button{padding:6px 6px;font-size:12px}}

@@ -904,6 +904,25 @@
   }
   // odlet v předvečer prodlouženého víkendu nejdřív v (po práci)
   const LW_DEP = '16:00';
+  /**
+   * Plánovač: místo k názvu cíle („Lisabon“) z našeptávače (items z /api/places) – jen přesná shoda názvu. Metropole
+   * (Londýn, Barcelona) vyhrává nad stejnojmennými letišti jinde; jinak velká letiště (big), a jen když všechna leží
+   * v jedné zemi (Birmingham je v Anglii i v USA → nic). Víc zemí: rozhodne letiště aspoň 4× větší (size) než každé
+   * stejnojmenné jinde (Petrohrad LED × St. Petersburg na Floridě) – jen proti letištím, ne proti městům z geokódování.
+   * → položka našeptávače ({ id, cc, label, flag }) nebo null.
+   */
+  function placeGuess(items, name) {
+    const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const n = norm(name);
+    if (!n) return null;
+    const hits = (items || []).filter(s => s && s.cc && /^(ap|metro|geo):/.test(s.id || '') && norm(s.label) === n);
+    const metro = hits.find(s => /^metro:/.test(s.id)), big = hits.filter(s => s.big);
+    let pool = metro ? [metro] : big.length ? big : hits;
+    const top = hits.filter(s => /^ap:/.test(s.id)).sort((a, b) => (b.size || 0) - (a.size || 0))[0];
+    if (!metro && new Set(pool.map(s => s.cc)).size > 1 && top && hits.every(s => s.cc === top.cc || (/^ap:/.test(s.id) && (s.size || 0) * 4 <= top.size))) pool = [top];
+    if (!pool.length || new Set(pool.map(s => s.cc)).size !== 1) return null;
+    return metro || pool.find(s => /^ap:/.test(s.id)) || pool[0];
+  }
   /** Nejbližších n prodloužených víkendů od data from (do horizon dní) – na výběr v radaru. */
   function longWeekends(from, n = 3, horizon = 200) {
     const out = [], last = addDays(from, horizon);
@@ -1077,7 +1096,7 @@
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    easter, czHolidays, longWeekend, longWeekends, radarPick,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
   };
 })();

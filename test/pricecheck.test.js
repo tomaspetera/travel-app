@@ -300,3 +300,12 @@ test('hledání: statistika ze všech nabídek i nad limitem ceny, 🔥/👍 nik
   const keys = new Set(P.entriesOf(all).map((e) => e.key));
   assert.ok(all.top.every((t) => keys.has(P.tripKey(t))));
 });
+
+test('scopeOf: pravidlo „v předvečer jen od 16:00“ je jiné hledání; bez něj nebo mimo měsíc otisk beze změny', () => {
+  const q = { from: ['ap:BRQ'], to: [], dateFrom: '2026-11-13', dateTo: '2026-11-14', trip: 'return', nightsMin: 3, nightsMax: 4, outDays: [5, 6], backDays: [2] };
+  const da = { ...q, depAfter: { date: '2026-11-13', time: '16:00' } };
+  assert.notEqual(P.scopeOf(da, '2026-11'), P.scopeOf(q, '2026-11'));
+  assert.equal(P.scopeOf({ ...q, depAfter: null }, '2026-11'), P.scopeOf(q, '2026-11'));
+  const dec = { ...q, dateFrom: '2026-11-30', dateTo: '2026-12-01', depAfter: { date: '2026-11-30', time: '16:00' } };
+  assert.equal(P.scopeOf(dec, '2026-12'), P.scopeOf({ ...dec, depAfter: null }, '2026-12'), 'předvečer v jiném měsíci');
+});
