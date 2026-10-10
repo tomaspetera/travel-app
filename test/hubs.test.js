@@ -45,3 +45,15 @@ test('cíl = přestupní letiště v okolí (Mnichov): cesta do města tam i zp�
   for (const x of all2) assert.equal(x.arrCzk, 2 * arrivalCzk(x.out.to), `${x.out.from}→${x.out.to}→${x.back.to}`);
   assert.ok(all2.some((x) => x.out.from === 'PRG' && x.out.to === 'VIE'));
 });
+
+test('kamkoliv: let mezi letišti v okruhu domova (Vídeň → Bratislava z cache) mezi cíli není', async () => {
+  const d = ymdPlus(20), r = ymdPlus(25);
+  const trip = (f, t) => makeTrip(makeLeg({ provider: 'travelpayouts', from: f, to: t, dep: `${d}T09:00:00`, czk: 900, price: 900, currency: 'CZK' }),
+    makeLeg({ provider: 'travelpayouts', from: t, to: f, dep: `${r}T18:00:00`, czk: 900, price: 900, currency: 'CZK' }), { combinedCzk: 1800 });
+  const tp = { id: 'travelpayouts', name: 'Fake TP', live: false, stations: async () => null, explore: async ({ origin }) => (origin === 'VIE' ? [trip('VIE', 'BTS'), trip('VIE', 'BCN')] : []) };
+  const res = await search({ from: ['ap:BRQ'], radiusKm: 200, to: [], dateFrom: ymdPlus(15), dateTo: ymdPlus(30), trip: 'return', nightsMin: 3, nightsMax: 7, arrival: true, kmRate: 1, groundMode: 'transit' },
+    () => {}, { providers: [tp] });
+  const dests = res.groups.map((g) => g.best.out.to);
+  assert.ok(dests.includes('BCN'), dests.join(','));
+  assert.ok(!dests.includes('BTS'), 'Bratislava je v okruhu domova: ' + dests.join(','));
+});

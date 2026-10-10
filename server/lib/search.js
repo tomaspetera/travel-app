@@ -489,7 +489,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
           adults: q.adults, directOnly: q.directOnly,
         });
         for (const t of res) {
-          if (!destOk(t.out.to)) continue;
+          // cíl v okruhu domova (z cache Travelpayouts třeba Vídeň → Bratislava) není „kamkoliv“ – jako u ostatních zdrojů
+          if (!destOk(t.out.to) || originSet.has(t.out.to)) continue;
           if (dateOk(t.out.date, t.back?.date, constraints) && depOk(t.out)) {
             trips.push(t);
             st.found++;
