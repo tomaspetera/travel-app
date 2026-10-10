@@ -690,7 +690,7 @@ Zkopíruj `.env.example` na `.env`:
 | `MAX_ORIGINS` | `8` | kolik nejbližších letišť se v jednom hledání prohledá |
 | `WIZZ_MAX_CALLS` | `60` | Wizz Air nemá „kamkoliv“ – kolik dotazů na trasy smí jedno hledání udělat (tam i zpět). Ceny tras si server pamatuje až 6 h a další hledání vezme nejdřív trasy, na které nedošlo, pak nejdéle nehledané – po 2–3 hledáních je prohledaná celá síť; ceny z paměti mají štítek „⏱ cena před …“ a při blokaci (429) se ukážou místo chyby |
 | `RYANAIR_ENABLED` / `WIZZ_ENABLED` | `1` | `0` = zdroj vypnout |
-| `SEARCH_RATE_LIMIT` | `40` | max. hledání z jedné IP za 10 minut (ochrana při veřejném nasazení, `0` = bez limitu); počítají se do něj i dotazy na živé spoje RegioJetu (jen ty, které opravdu jdou na RegioJet – odpověď z mezipaměti ne) |
+| `SEARCH_RATE_LIMIT` | `40` | max. hledání z jedné IP za 10 minut (ochrana při veřejném nasazení, `0` = bez limitu); počítají se do něj i dotazy na živé spoje RegioJetu (jen ty, které opravdu jdou na RegioJet – odpověď z mezipaměti ne). Stejné hledání z téže adresy, které ještě běží (obnovená stránka, dvojklik), se podruhé nepočítá; aplikace totéž běžící hledání nespouští znovu, jen na něj počká |
 | `REGIOJET_LIVE` | `1` | `0` = vypnout živé spoje RegioJetu (vlak/bus místo letadla zůstane jako odhad a odkazy) |
 | `REGIOJET_MAX_PER_HOUR` | `60` | nejvýš tolik dotazů na RegioJet za hodinu (pak jen odhad) |
 | `REGIOJET_GAP_MS` | `1000` | nejmenší odstup dotazů na RegioJet (ms) |

@@ -543,3 +543,37 @@ test('GET /api/stays v DEMO: odkazy na partnery bez dotazů na jejich weby (ID m
     stub.restore();
   }
 });
+
+test('POST /api/search – totéž hledání z téže adresy, které ještě běží, se do limitu nepočítá podruhé', async () => {
+  const { config } = await import('../server/config.js');
+  const { mockProviders } = await import('../server/providers/mock.js');
+  const prevLimit = config.searchesPer10Min;
+  const orig = mockProviders.map((p) => p.daily);
+  config.searchesPer10Min = 2;
+  // pomalé zdroje, ať první hledání ještě běží
+  mockProviders.forEach((p, i) => { p.daily = async (...a) => { await new Promise((r) => setTimeout(r, 40)); return orig[i].apply(p, a); }; });
+  const headers = { 'content-type': 'application/json', 'x-forwarded-for': '10.20.30.40' };
+  const q = { from: ['ap:VIE'], to: ['ap:BCN'], radiusKm: 0, dateFrom: ymdPlus(20), dateTo: ymdPlus(40), trip: 'return', nightsMin: 3, nightsMax: 5 };
+  const post = (body, signal) => fetch(`${base}/api/search`, { method: 'POST', headers, body: JSON.stringify(body), signal });
+  try {
+    const ctlA = new AbortController();
+    const a = await post(q, ctlA.signal); // 1. z limitu 2
+    assert.equal(a.status, 200);
+    ctlA.abort(); // klient ho zruší (obnovená stránka), na serveru ještě běží
+    const b = await post(q); // stejné, ještě běží → zdarma
+    assert.equal(b.status, 200);
+    assert.equal(JSON.parse((await b.text()).trim().split('\n').at(-1)).type, 'result');
+    const c = await post({ ...q, dateTo: ymdPlus(41) }); // jiné → 2. z limitu
+    assert.equal(c.status, 200);
+    await c.text();
+    const d = await post({ ...q, dateTo: ymdPlus(42) }); // 3. → přes limit
+    assert.equal(d.status, 429);
+    // doběhlé stejné hledání znovu už zdarma není
+    await new Promise((r) => setTimeout(r, 300));
+    const e = await post(q);
+    assert.equal(e.status, 429);
+  } finally {
+    config.searchesPer10Min = prevLimit;
+    mockProviders.forEach((p, i) => { p.daily = orig[i]; });
+  }
+});

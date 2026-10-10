@@ -105,9 +105,10 @@ function readBody(req, limit = 64 * 1024) {
 
 const hits = new Map();
 const rechecks = new Map(); // přepočty trasy přes víc míst (stayplan s bases): vlastní limit, do hledání se nepočítají
+const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
   if (!max) return false;
-  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const ip = clientIp(req);
   const now = Date.now();
   const list = (bucket.get(ip) || []).filter((t) => now - t < 10 * 60e3);
   if (list.length >= max) return true;
@@ -117,17 +118,38 @@ function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
   return false;
 }
 
+// Stejné hledání z téže adresy, které ještě běží: `${ip}|${tělo}` → počet běžících kopií
+const runningSearches = new Map();
+const TOO_MANY = { error: 'Příliš mnoho hledání za krátkou dobu – zkus to za pár minut.' };
+
 // Hledání streamuje průběh jako NDJSON (1 JSON objekt na řádek), na konci { type: 'result' }.
 async function handleSearch(req, res) {
-  if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho hledání za krátkou dobu – zkus to za pár minut.' });
+  let text;
   let body;
   try {
-    body = JSON.parse((await readBody(req)) || '{}');
+    text = await readBody(req);
+    body = JSON.parse(text || '{}');
   } catch (e) {
     return sendJson(req, res, 400, { error: e instanceof UserError ? e.message : 'Neplatný JSON' });
   }
+  // Stejné hledání z téže adresy ještě běží (obnovená stránka, druhý panel, dvojí spuštění): do limitu se podruhé
+  // nepočítá – dotazy na aerolinky sdílí s běžícím (cache.wrap, Kiwi). Zdarma jen jedna kopie navíc, víc ne.
+  const key = `${clientIp(req)}|${text}`;
+  const free = runningSearches.get(key) === 1;
+  if (!free && rateLimited(req)) return sendJson(req, res, 429, TOO_MANY);
   // Cesta přes víc měst = hledání několika úseků → do limitu se počítá dvakrát.
-  if (body && body.trip === 'multi' && rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho hledání za krátkou dobu – zkus to za pár minut.' });
+  if (!free && body && body.trip === 'multi' && rateLimited(req)) return sendJson(req, res, 429, TOO_MANY);
+  runningSearches.set(key, (runningSearches.get(key) || 0) + 1);
+  try {
+    await streamSearch(req, res, body);
+  } finally {
+    const n = (runningSearches.get(key) || 1) - 1;
+    if (n > 0) runningSearches.set(key, n);
+    else runningSearches.delete(key);
+  }
+}
+
+async function streamSearch(req, res, body) {
   const gzip = wantsGzip(req);
   res.writeHead(200, {
     'Content-Type': 'application/x-ndjson; charset=utf-8',

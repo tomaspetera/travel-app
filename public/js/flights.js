@@ -25,7 +25,7 @@
   // Poslední výsledky přežijí zavření aplikace (vlastní klíč – stav aplikace má přednost, viz save() v app.js).
   const LAST_LS = 'atlas_last';
   let restored = false; // výsledky na obrazovce jsou uložené z minula, ne z hledání teď
-  let searchCtl = null;
+  let running = null; // právě běžící hledání uživatele: { key (dotaz JSON), ctl (AbortController), job (Promise) }
   let fromInput, toInput, heroFrom, heroTo;
   let originPreview = [];
 
@@ -62,6 +62,8 @@
   }
 
   /** POST /api/search se streamem průběhu (NDJSON). */
+  // Pozn.: Chrome (DevTools, Playwright) u streamovaného hledání často hlásí net::ERR_ABORTED / (canceled), i když odpověď
+  // dorazila celá – jen hlášení prohlížeče. Skutečně se ruší jen přes AbortController (jiné hledání, kontrola hlídání po 3 min).
   async function runSearch(payload, { onProgress, signal } = {}) {
     const r = await fetch('api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
     if (!r.ok || !r.body) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
@@ -693,27 +695,35 @@
       if (!f.xOut || f.xOut < today()) { toast('Zadej datum odletu (dnes nebo později)', 'err'); $('#xOut').focus(); return; }
       if (f.trip === 'return' && (!f.xBack || f.xBack < f.xOut)) { toast('Návrat musí být stejný den nebo po odletu', 'err'); $('#xBack').focus(); return; }
     }
+    const payload = payloadOf(f);
+    const pkey = JSON.stringify(payload);
+    // Totéž hledání už běží (♡ Hlídat cenu během hledání, dvojklik na „Nedávno“, 2× Enter): počkat na něj – zrušit ho
+    // a spustit znovu by stálo další hledání z limitu serveru (40 za 10 min) a začalo by od nuly.
+    if (running && running.key === pkey) {
+      if (opts.card) fromCard = { x: opts.card, key: pkey };
+      return running.job;
+    }
     // domov radaru („Odkud obvykle létáš“) jen poprvé – zkušební hledání z Mnichova ho nepřepíše (mění se v radaru)
     S.form = f; if (!S.home || !S.home.from?.length) S.home = { from: f.from, radius: f.radius, adults: Math.min(6, Math.max(1, +f.adults || 2)) }; save(); updateHomeChip();
     collapseForm(f);
-    const payload = payloadOf(f);
     // karta zůstane i pro totéž hledání znovu (↻ Zkusit znovu po výpadku zdroje)
-    const pkey = JSON.stringify(payload);
     fromCard = opts.card ? { x: opts.card, key: pkey } : fromCard && fromCard.key === pkey ? fromCard : null;
     // Kalendář cen zůstane jen u hledání do stejného cíle (nebo na vyžádání) – jiný cíl začne seznamem.
     if (view.mode === 'cal' && !opts.cal && JSON.stringify((lastPayload || {}).to || null) !== JSON.stringify(payload.to || null)) view.mode = 'list';
     lastPayload = payload; lastForm = f;
-    if (searchCtl) searchCtl.abort();
-    searchCtl = new AbortController();
+    // jiné hledání (uživatel změnil formulář): předchozí zrušit
+    if (running) running.ctl.abort();
+    const ctl = new AbortController();
     // filtry výpisu (i 🔥 jen výhodné, čas a přestupy) platí jen pro jedno hledání
     view = { ...view, excludeOrigins: new Set(), carriers: new Set(), outDate: null, expanded: new Set(), maxPrice: null, onlyDeals: false, ...freshView() };
     $('#results').innerHTML = '';
     const btn = $('#doSearch'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Hledám…';
     renderProgress({ providers: [], ...(f.trip === 'multi' ? { legs: f.legs.map((l, i) => ({ label: `${(i ? l.from : f.from).map(x => x.label).join(', ')} → ${l.to.map(x => x.label).join(', ')}`, state: 'pending' })) } : {}) }, true);
     if (!opts.noScroll) $('#progress').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const job = (async () => {
     busySearches++;
     try {
-      const res = await runSearch(payload, { onProgress: ev => renderProgress(ev), signal: searchCtl.signal });
+      const res = await runSearch(payload, { onProgress: ev => renderProgress(ev), signal: ctl.signal });
       lastResult = res; lastResultAt = Date.now(); lastResultPayload = payload; restored = false;
       PriceCheck.remember(res); // paměť cen v tomto prohlížeči („Je to dobrá cena?“)
       fitMode(res);
@@ -729,8 +739,12 @@
       $('#progress').innerHTML = `<div class="note bad">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(e.message)}</div></div>`;
     } finally {
       busySearches--;
-      btn.disabled = false; btn.innerHTML = '🔎 Najít nejlevnější lety';
+      // tlačítko odemkne jen poslední hledání – zrušené předchozí by ho odemklo uprostřed běžícího
+      if (running && running.ctl === ctl) { running = null; btn.disabled = false; btn.innerHTML = '🔎 Najít nejlevnější lety'; }
     }
+    })();
+    running = { key: pkey, ctl, job };
+    return job;
   }
 
   /** Upravené hledání jedním kliknutím (jiný den, ± dny, zrušený filtr, širší cíl…): formulář + nové hledání. */
@@ -2188,7 +2202,9 @@
     const f = getForm();
     if (!f.from.length) return toast('Nejdřív zadej, odkud letíš', 'err');
     // výchozí cena hlídání z čerstvého výsledku – starší (i uložený z minula) se nejdřív dohledá
-    let res = lastResult && Date.now() - lastResultAt < 30 * 6e4 && JSON.stringify(lastResultPayload) === JSON.stringify(payloadOf(f)) ? lastResult : await startSearch({ noScroll: true });
+    const wkey = JSON.stringify(payloadOf(f));
+    if (running && running.key === wkey) toast('♡ Uložím, až hledání doběhne…');
+    let res = lastResult && Date.now() - lastResultAt < 30 * 6e4 && JSON.stringify(lastResultPayload) === wkey ? lastResult : await startSearch({ noScroll: true });
     if (!res) return;
     const b = bestOf(res);
     const czk0 = b ? b.czk : null;
@@ -2758,5 +2774,7 @@
     startAutoCheck();
   }
 
-  window.Flights = { init, warm, renderQuick, renderWatch, renderRadar, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag };
+  // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
+  const busy = () => busySearches > 0 || [...wState.values()].includes('run');
+  window.Flights = { init, warm, busy, renderQuick, renderWatch, renderRadar, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag };
 })();
