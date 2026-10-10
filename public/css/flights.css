@@ -704,3 +704,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   .search-sum #ssWatch.on{color:#fb7185;border-color:rgba(251,113,133,.4)}
   #searchForm.collapsed{display:none}
 }
+/* „Od minula“ pod hledáním na Přehledu */
+.news-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 6px;margin:-6px 2px 16px;font-size:13.5px}
+.news-line[hidden]{display:none}
+.news-line .linkbtn{font-size:13.5px;text-align:left}

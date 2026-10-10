@@ -357,3 +357,14 @@ test('scheduler: skrytá stránka → čeká, po limitu to vzdá', async () => {
   assert.equal(await p, 1, 'jakmile je stránka vidět, zkontroluje');
   assert.ok(h.sched.lastCycle > 0);
 });
+
+test('news: řádek „Od minula“ – pod cílovou cenou, zlevněná od posledního pohledu (nejvíc první), změny radaru', () => {
+  const w = (id, czk, seen, target = null) => ({ id, label: id, best: { czk }, seen, target });
+  const n = A.news([w('a', 900, 1000), w('b', 1500, 2000), w('c', 800, 1000, 850), w('d', 1000, 1000), { id: 'e', best: null }], {
+    items: [{ czk: 500, was: { czk: 600 } }, { czk: 700, was: { czk: 650 } }, { czk: 400, newAt: 1 }, null],
+  });
+  assert.deepEqual(plain(n.hits), [{ id: 'c', label: 'c', czk: 800 }]);
+  assert.deepEqual(plain(n.watch.map((x) => [x.id, x.d])), [['b', 500], ['a', 100]], 'c je pod cílem, d beze změny');
+  assert.deepEqual([n.down, n.fresh], [1, 1]);
+  assert.deepEqual(plain(A.news(null, null)), { hits: [], watch: [], down: 0, fresh: 0 });
+});

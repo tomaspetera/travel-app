@@ -2332,7 +2332,23 @@
     const list = S.watch || [], n = Alerts.droppedCount(list);
     return n ? `<b class="good">📉 Zlevnilo od minule: ${n}</b>` : list.length ? 'Hlídám, dokud máš ATLAS otevřený' : 'Ulož hledání tlačítkem ♡';
   }
+  /** „Od minula: 📉 Brno → Řím −380 Kč · 🎯 Londýn pod tvou cenou · 📡 radar: 3 cíle levněji“ hned pod hledáním. */
+  function renderNews() {
+    const el = $('#newsLine'); if (!el) return;
+    const r = S.radar && S.radar[S.radarMode === 'weekend' ? 'weekend' : 'all'];
+    const n = Alerts.news(S.watch, r && S.home?.from?.length ? r : null);
+    const parts = [
+      ...n.hits.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">🎯 ${esc(x.label)} pod tvou cenou (${czk(x.czk)})</button>`),
+      ...n.watch.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">📉 ${esc(x.label)} −${czk(x.d)}</button>`),
+      n.hits.length + n.watch.length > 4 ? `<span class="faint">+${n.hits.length + n.watch.length - 4} další</span>` : '',
+      n.down || n.fresh ? `<button type="button" class="linkbtn" data-nl="radar">📡 radar: ${[n.down ? `${n.down} ${n.down === 1 ? 'cíl' : n.down <= 4 ? 'cíle' : 'cílů'} levněji` : '', n.fresh ? `${n.fresh} ${n.fresh === 1 ? 'nový' : n.fresh <= 4 ? 'nové' : 'nových'}` : ''].filter(Boolean).join(' · ')}</button>` : '',
+    ].filter(Boolean);
+    el.hidden = !parts.length;
+    el.innerHTML = parts.length ? `<b>Od minula:</b> ${parts.join('<span class="faint"> · </span>')}` : '';
+    $$('[data-nl]', el).forEach(b => b.onclick = () => $(b.dataset.nl === 'radar' ? '#radar' : '#watchHead')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
   function updateWatchBadges() {
+    renderNews();
     const n = Alerts.droppedCount(S.watch);
     const nb = $('#navDrops'); if (nb) { nb.hidden = !n; nb.textContent = '📉 ' + n; }
     const md = $('#mobDrops'); if (md) md.hidden = !n;
@@ -2458,6 +2474,7 @@
   }
   /** st: { busy } = starší výsledek, nový se hledá · { error } = starší výsledek, nový se nepodařilo načíst. */
   function paintRadar(r, q, st = null) {
+    renderNews();
     const host = $('#radar');
     if (!r.items.length) { host.innerHTML = `<div class="note info">ℹ️ <div>${esc(q.empty)}</div></div>`; return; }
     // u víkendů i den v týdnu (Pá 17.10.–Ne 19.10.) – s datem nerozdělitelně, zalomí se nejvýš za pomlčkou
