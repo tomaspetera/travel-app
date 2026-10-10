@@ -211,8 +211,54 @@ export function outageOf(st, p, ctx) {
   };
 }
 
-/** Poznámka v průběhu hledání, když zdroj bez „kamkoliv“ (Wizz Air) prošel jen část tras (od nejbližších) – pro uživatele, bez názvu proměnné WIZZ_MAX_CALLS. */
-export const routesNote = (take, total) => `prohledáno ${take} nejbližších z ${total} tras – zbytek kvůli limitu dotazů`;
+/** Poznámka v průběhu hledání, když zdroj bez „kamkoliv“ a bez paměti tras prošel jen část tras (od nejbližších). */
+export const routesNoteNearest = (take, total) => `prohledáno ${take} nejbližších z ${total} tras – zbytek kvůli limitu dotazů`;
+
+const agoMin = (min) => (min < 60 ? `${Math.max(1, min)} min` : `${Math.round(min / 60)} h`);
+/**
+ * Poznámka k pokrytí tras zdroje bez „kamkoliv“ (Wizz Air) – pro uživatele, bez názvu proměnné WIZZ_MAX_CALLS.
+ * { total, live, memory, skipped, oldestMin, blocked } → text nebo null (všechny trasy teď / do 30 min).
+ * live = ceny teď nebo do 30 min, memory = z dřívějšího hledání (oldestMin = stáří nejstarší), skipped = na řadě příště.
+ */
+export function routesNote({ total, live, memory, skipped, oldestMin, blocked = false }) {
+  if (!memory && !skipped) return null;
+  const mem = memory ? `${memory} z nich s cenami z hledání před ${agoMin(oldestMin)}` : '';
+  if (blocked) return `Wizz Air teď blokuje dotazy – ${memory ? `${memory} z ${total} tras jen z paměti (ceny před ${agoMin(oldestMin)})` : 'žádná trasa v paměti'}`;
+  if (!skipped) return `všech ${total} tras, ${mem} (ověř v rezervaci)`;
+  const rest = skipped === 1 ? 'zbylá 1 přijde' : skipped < 5 ? `zbylé ${skipped} přijdou` : `zbylých ${skipped} přijde`;
+  return `prohledáno ${live + memory} z ${total} tras${mem ? `, ${mem}` : ''} – ${rest} na řadu při dalším hledání`;
+}
+
+/**
+ * Výběr tras pro hledání bez „kamkoliv“ s pamětí (p.routeState): 1) čerstvé (0 dotazů) vždy, 2) zbytek od tras bez dat,
+ * pak od nejdéle nehledaných (shoda: pořadí od nejbližších), dokud stačí rozpočet dotazů (tam i zpět), 3) co se nevejde
+ * a má celé období v paměti ≤ 6 h, z paměti. → { list: [{ o, d, mode }], summary }
+ */
+export function planRoutes(p, routes, { q, backFrom, backTo, ret, budget, now = Date.now() }) {
+  const rs = routes.map((r, i) => {
+    const out = p.routeState({ from: r.o, to: r.d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults }, now);
+    const back = ret ? p.routeState({ from: r.d, to: r.o, dateFrom: backFrom, dateTo: backTo, adults: q.adults }, now) : { calls: 0, usable: true, at: now };
+    return { ...r, i, calls: out.calls + back.calls, usable: out.usable && back.usable, at: Math.min(out.at ?? now, back.at ?? now) };
+  });
+  let left = budget;
+  const order = rs.filter((r) => r.calls).sort((a, b) => (a.usable ? a.at : -1) - (b.usable ? b.at : -1) || a.i - b.i);
+  for (const r of rs) if (!r.calls) r.mode = 'live';
+  for (const r of order) {
+    if (r.calls <= left) {
+      left -= r.calls;
+      r.mode = 'live';
+    } else r.mode = r.usable ? 'memory' : 'skip';
+  }
+  const mem = rs.filter((r) => r.mode === 'memory');
+  const list = rs.filter((r) => r.mode !== 'skip');
+  return {
+    list,
+    summary: {
+      total: rs.length, live: rs.filter((r) => r.mode === 'live').length, memory: mem.length, skipped: rs.length - list.length,
+      oldestMin: mem.length ? Math.round((now - Math.min(...mem.map((r) => r.at))) / 60e3) : 0, calls: budget - left,
+    },
+  };
+}
 
 /**
  * Hlavní hledání. emit(event) dostává průběh: { type: 'progress', providers }.
@@ -529,10 +575,33 @@ export async function search(raw, emit = () => {}, opts = {}) {
       .map((d) => ({ o: o.iata, d, km: distKm(o.iata, d) }))
       .sort((a, b) => a.km - b.km)));
     const routes = roundRobin(lists);
-    const perRoute = (p.callsPerRoute ? p.callsPerRoute(q.dateFrom, q.dateTo) : 1) * (ret ? 2 : 1);
     const budget = p.id === 'wizzair' ? config.wizzMaxCalls : Infinity;
+    if (p.routeState && Number.isFinite(budget)) {
+      // Paměť tras (Wizz Air): čerstvé trasy zdarma, rozpočet na trasy bez dat a pak na nejstarší; co se nevejde, z paměti.
+      const blocked = Boolean(p.isBlocked?.());
+      const plan = planRoutes(p, routes, { q, backFrom, backTo, ret, budget: blocked ? 0 : budget });
+      if (blocked && !plan.list.length) throw new Error('Wizz Air dočasně blokuje dotazy (429)'); // bez paměti jako dosud: výpadek s odpočtem
+      st.coverage = plan.summary; // UI: tlačítko „Prohledat zbylé trasy“
+      st.note = routesNote({ ...plan.summary, blocked });
+      if (blocked) st.error = 'Wizz Air dočasně blokuje dotazy (429) – ceny jen z paměti';
+      await runTasks(st, plan.list.map((r) => async () => {
+        let found;
+        try {
+          found = await routeTrips(p, r.o, r.d, { perPair: 2, memoryOnly: r.mode === 'memory' });
+        } catch (e) {
+          // blokace (429) uprostřed hledání: trasa s daty v paměti (≤ 6 h) se ukáže z ní, ne vůbec
+          if (r.mode === 'memory' || !r.usable) throw e;
+          found = await routeTrips(p, r.o, r.d, { perPair: 2, memoryOnly: true });
+        }
+        trips.push(...found);
+        st.found += found.length;
+      }));
+      return;
+    }
+    // dotazů na trasu: okna cesty tam + (delší) cesty zpět – jako u hledání ke konkrétnímu cíli
+    const perRoute = p.callsPerRoute ? p.callsPerRoute(q.dateFrom, q.dateTo) + (ret ? p.callsPerRoute(backFrom, backTo) : 0) : (ret ? 2 : 1);
     const take = Math.max(1, Math.min(routes.length, Math.floor(budget / perRoute)));
-    if (take < routes.length) st.note = routesNote(take, routes.length);
+    if (take < routes.length) st.note = routesNoteNearest(take, routes.length);
     await runTasks(st, routes.slice(0, take).map((r) => async () => {
       const found = await routeTrips(p, r.o, r.d, { perPair: 2 });
       trips.push(...found);
@@ -541,11 +610,11 @@ export async function search(raw, emit = () => {}, opts = {}) {
   }
 
   // Ceny po dnech pro jednu trasu → nejlepší cesty (bez open-jaw).
-  async function routeTrips(p, o, d, { perPair }) {
-    const out = (await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults, directOnly: q.directOnly })).filter((l) => warmLeg(l) && depOk(l));
+  async function routeTrips(p, o, d, { perPair, memoryOnly = false }) {
+    const out = (await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults, directOnly: q.directOnly, memoryOnly })).filter((l) => warmLeg(l) && depOk(l));
     if (!ret) return bestOneWays(out, groundOf, { ...constraints, perDestLimit: perPair, limit: perPair });
     if (!out.length) return [];
-    const back = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, adults: q.adults, directOnly: q.directOnly });
+    const back = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, adults: q.adults, directOnly: q.directOnly, memoryOnly });
     return bestRoundTrips(out, back, groundOf, { ...constraints, openJawHome: false, openJawDest: false, perDestLimit: perPair, limit: perPair });
   }
 

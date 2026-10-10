@@ -688,7 +688,7 @@ Zkopíruj `.env.example` na `.env`:
 | `PARTNER_LOOKUP` | `1` | odkazy na Trip.com, Agodu a Hostelworld s termínem a hosty: server u nich jednou dohledá ID místa (jeden dotaz na místo a partnera, timeout 4 s, mezipaměť 30 dní); `0` = bez dotazů, odkazy jen s názvem místa (Trip.com hledání potvrdíš, Agoda úvodní stránka, Hostelworld stránka města bez dat). V DEMO se neptá nikdy |
 | `PORT` | `8080` | port serveru |
 | `MAX_ORIGINS` | `8` | kolik nejbližších letišť se v jednom hledání prohledá |
-| `WIZZ_MAX_CALLS` | `60` | Wizz Air nemá „kamkoliv“ – kolik dotazů na trasy smí jedno hledání udělat |
+| `WIZZ_MAX_CALLS` | `60` | Wizz Air nemá „kamkoliv“ – kolik dotazů na trasy smí jedno hledání udělat (tam i zpět). Ceny tras si server pamatuje až 6 h a další hledání vezme nejdřív trasy, na které nedošlo, pak nejdéle nehledané – po 2–3 hledáních je prohledaná celá síť; ceny z paměti mají štítek „⏱ cena před …“ a při blokaci (429) se ukážou místo chyby |
 | `RYANAIR_ENABLED` / `WIZZ_ENABLED` | `1` | `0` = zdroj vypnout |
 | `SEARCH_RATE_LIMIT` | `40` | max. hledání z jedné IP za 10 minut (ochrana při veřejném nasazení, `0` = bez limitu); počítají se do něj i dotazy na živé spoje RegioJetu (jen ty, které opravdu jdou na RegioJet – odpověď z mezipaměti ne) |
 | `REGIOJET_LIVE` | `1` | `0` = vypnout živé spoje RegioJetu (vlak/bus místo letadla zůstane jako odhad a odkazy) |

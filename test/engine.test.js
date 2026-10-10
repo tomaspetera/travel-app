@@ -6,7 +6,7 @@ import { localSuggestions, resolveOrigins, resolveDestinations, describe } from 
 import { groundEstimate, haversineKm } from '../server/lib/geo.js';
 import { convert, setRates, FALLBACK_EUR } from '../server/lib/fx.js';
 import { chunkRange, monthsInRange, weekday } from '../server/lib/dates.js';
-import { normalizeQuery, referencePrice, routesNote } from '../server/lib/search.js';
+import { normalizeQuery, planRoutes, referencePrice, routesNote, routesNoteNearest } from '../server/lib/search.js';
 import { ymdPlus } from './helpers.js';
 
 const leg = (provider, from, to, date, czk) => makeLeg({ provider, from, to, dep: `${date}T10:00:00`, czk, price: czk, currency: 'CZK' });
@@ -273,8 +273,38 @@ test('zpáteční kombinace: návrat nesmí odletět dřív, než let tam přist
 });
 
 test('routesNote: průběh hledání u Wizz Air česky, bez názvu proměnné z konfigurace', () => {
-  assert.equal(routesNote(15, 22), 'prohledáno 15 nejbližších z 22 tras – zbytek kvůli limitu dotazů');
-  assert.doesNotMatch(routesNote(1, 2), /WIZZ|MAX_CALLS/);
+  assert.equal(routesNoteNearest(15, 22), 'prohledáno 15 nejbližších z 22 tras – zbytek kvůli limitu dotazů');
+  assert.equal(routesNote({ total: 39, live: 15, memory: 0, skipped: 24 }), 'prohledáno 15 z 39 tras – zbylých 24 přijde na řadu při dalším hledání');
+  assert.equal(routesNote({ total: 39, live: 25, memory: 10, skipped: 4, oldestMin: 120 }), 'prohledáno 35 z 39 tras, 10 z nich s cenami z hledání před 2 h – zbylé 4 přijdou na řadu při dalším hledání');
+  assert.equal(routesNote({ total: 39, live: 38, memory: 0, skipped: 1 }), 'prohledáno 38 z 39 tras – zbylá 1 přijde na řadu při dalším hledání');
+  assert.equal(routesNote({ total: 39, live: 15, memory: 24, skipped: 0, oldestMin: 45 }), 'všech 39 tras, 24 z nich s cenami z hledání před 45 min (ověř v rezervaci)');
+  assert.equal(routesNote({ total: 39, live: 39, memory: 0, skipped: 0 }), null, 'vše čerstvé – bez poznámky');
+  assert.match(routesNote({ total: 39, live: 0, memory: 30, skipped: 9, oldestMin: 40, blocked: true }), /^Wizz Air teď blokuje dotazy – 30 z 39 tras jen z paměti/);
+  for (const t of [routesNoteNearest(1, 2), routesNote({ total: 2, live: 1, memory: 0, skipped: 1 })]) assert.doesNotMatch(t, /WIZZ|MAX_CALLS/);
+});
+
+test('planRoutes: čerstvé trasy zdarma, rozpočet na trasy bez dat a pak nejstarší, zbytek z paměti nebo příště', () => {
+  const NOW = 1e12;
+  const mk = (states) => ({ routeState: ({ from, to }) => states[`${from}-${to}`] || { calls: 2, usable: false, at: null } });
+  const routes = Array.from({ length: 6 }, (_, i) => ({ o: 'BTS', d: 'D' + i }));
+  const q = { dateFrom: '2026-11-01', dateTo: '2026-11-30', adults: 1 };
+  // nic v paměti: 2 + 2 dotazy na trasu, rozpočet 10 → 2 trasy (od nejbližších), zbytek příště
+  let p = planRoutes(mk({}), routes, { q, backFrom: '2026-11-04', backTo: '2026-12-05', ret: true, budget: 10, now: NOW });
+  assert.deepEqual(p.list.map((r) => r.d), ['D0', 'D1']);
+  assert.deepEqual([p.summary.live, p.summary.skipped, p.summary.calls], [2, 4, 8]);
+  // D0, D1 čerstvé (0 dotazů), D2 v paměti 3 h, D3 1 h: nejdřív trasy bez dat, pak nejstarší
+  const fresh = { calls: 0, usable: true, at: NOW - 600e3 };
+  const st = { 'BTS-D0': fresh, 'D0-BTS': fresh, 'BTS-D1': fresh, 'D1-BTS': fresh,
+    'BTS-D2': { calls: 1, usable: true, at: NOW - 3 * 3600e3 }, 'D2-BTS': { calls: 1, usable: true, at: NOW - 3 * 3600e3 },
+    'BTS-D3': { calls: 1, usable: true, at: NOW - 3600e3 }, 'D3-BTS': { calls: 1, usable: true, at: NOW - 3600e3 } };
+  p = planRoutes(mk(st), routes, { q, backFrom: '2026-11-04', backTo: '2026-12-05', ret: true, budget: 6, now: NOW });
+  const mode = Object.fromEntries(p.list.map((r) => [r.d, r.mode]));
+  // D4 bez dat první (4 dotazy), D5 (4) se nevejde, zbylé 2 dotazy na nejstarší D2; D3 z paměti
+  assert.deepEqual(mode, { D0: 'live', D1: 'live', D2: 'live', D3: 'memory', D4: 'live' });
+  assert.deepEqual([p.summary.skipped, p.summary.memory, p.summary.oldestMin, p.summary.calls], [1, 1, 60, 6]);
+  // rozpočet 0 (blokace): jen čerstvé a z paměti
+  p = planRoutes(mk(st), routes, { q, backFrom: '2026-11-04', backTo: '2026-12-05', ret: true, budget: 0, now: NOW });
+  assert.deepEqual(p.list.map((r) => r.mode), ['live', 'live', 'memory', 'memory']);
 });
 
 test('outageOf: Wizz Air po 429 (vlastní blokace bez ctx) = blocked s odpočtem, jiná chyba = down', async () => {

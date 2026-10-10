@@ -822,9 +822,14 @@
     if (res) {
       // Po dohledání jen jeden řádek (na mobilu by jinak průběh odsunul první nabídku pod okraj), podrobnosti po rozkliknutí;
       // s chybou zdroje rozbalené.
-      const found = (ev.providers || []).filter(p => p.found).map(p => `${esc(shopName(p.id))} ${p.found}`).join(' · ');
+      // pokrytí tras (Wizz Air: na hledání jen část tras, další přijdou na řadu příště) – „Wizz Air 40 (20/39 tras)“
+      const cov = p => (p.coverage && p.coverage.skipped + p.coverage.memory > 0 ? ` (${p.coverage.total - p.coverage.skipped}/${p.coverage.total} tras)` : '');
+      const found = (ev.providers || []).filter(p => p.found).map(p => `${esc(shopName(p.id))} ${p.found}${cov(p)}`).join(' · ');
       const bad = (ev.providers || []).some(p => p.state === 'error');
-      host.innerHTML = `<details class="card progress-card done"${bad ? ' open' : ''}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">podrobnosti</span></summary>${rows}${disabled}</details>`;
+      const more = (ev.providers || []).find(p => p.coverage && p.coverage.skipped > 0);
+      host.innerHTML = `<details class="card progress-card done"${bad ? ' open' : ''}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">podrobnosti</span></summary>${rows}${disabled}</details>`
+        + (more ? `<div class="more-routes"><button type="button" class="btn sm" id="moreRoutes" title="Na jedno hledání smí ATLAS na ${esc(shopName(more.id))} jen omezený počet dotazů – další hledání vezme nejdřív trasy, na které nedošlo">Prohledat zbylé trasy ${esc(shopName(more.id))} (${more.coverage.skipped})</button></div>` : '');
+      const mr = $('#moreRoutes', host); if (mr) mr.onclick = () => rerun();
       return;
     }
     host.innerHTML = `<div class="card progress-card"><div class="ph">${head}</div>${legs}${rows}</div>`;
@@ -1096,6 +1101,8 @@
     return deps.length ? `<span class="${cls}">další lety tento den: ${deps.map(esc).join(', ')} <i>(cena v rezervaci u aerolinky)</i></span>` : '';
   }
 
+  // stáří ceny z paměti tras (Wizz Air, ≤ 6 h) v minutách; 0 = čerstvá
+  const memAge = t => Math.max(+(t.out && t.out.memAgeMin) || 0, +(t.back && t.back.memAgeMin) || 0);
   function badges(t, g, idx) {
     const out = [];
     if (t.nights != null) out.push(`<span class="b">🌙 ${nightsTxt(t.nights)}</span>`);
@@ -1107,6 +1114,8 @@
     const dear = (levelFor(t) || {}).level === 'high';
     if (t.deal.drop) out.push(`<span class="b ${dear ? '' : 'good'}" title="Oproti předchozí ceně u dopravce${dear ? ' – i tak je dráž než obvykle' : ''}">↓ zlevnilo o ${t.deal.drop} %</span>`);
     if (!t.out.live || (t.back && !t.back.live)) out.push(cacheTag([t.out, t.back].find(l => l && l.arrUnknown) || (!t.out.live ? t.out : t.back)));
+    const age = memAge(t);
+    if (age) out.push(`<span class="b warn" title="${esc(shopName(t.out.provider))}: tuhle trasu ATLAS prohledal ${Alerts.agoTxt(age * 60e3)} – na jedno hledání smí jen omezený počet dotazů, trasy se proto střídají. Aktuální cenu ukáže rezervace.">⏱ cena ${Alerts.agoTxt(age * 60e3)}</span>`);
     if (t.back && t.back.to !== t.out.from) out.push(`<span class="b info" title="Návrat na jiné letiště než odlet">↩ návrat do ${t.back.to}</span>`);
     // zpět z jiného letiště – štítek cesty „zpět na letiště X“ už to říká
     if (t.back && t.back.from !== t.out.to && arr.length < 2) out.push(`<span class="b info" title="Zpět z jiného letiště v cílové oblasti">✈ zpět z ${t.back.from}</span>`);
@@ -1175,7 +1184,7 @@
       return `<div class="cmp-row${open ? ' open' : ''}" data-cg="${esc(g.dest.key)}" role="button" tabindex="0" aria-expanded="${open}">
         <span class="cmp-flag">${flag(g.dest.cc)}</span>
         <div class="cmp-main"><div class="cmp-name"><b>${esc(g.dest.label)}</b>${hot.has(t.id) ? ' <span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>' : ''}${t.tempHi != null && lastResult?.query?.minTemp ? ` <span class="b sun">🌡️ ${Math.round(t.tempHi)} °C</span>` : ''}</div>
-          <div class="faint cmp-sub">${esc(t.out.from)} → ${esc(t.out.to)} · ${when}${who ? ' · ' + esc(who) : ''}</div></div>
+          <div class="faint cmp-sub">${esc(t.out.from)} → ${esc(t.out.to)} · ${when}${who ? ' · ' + esc(who) : ''}${memAge(t) ? ` · ⏱ ${Alerts.agoTxt(memAge(t) * 60e3)}` : ''}</div></div>
         <div class="cmp-price"><b>${czk(t.perPersonCzk)}</b><small>/os.</small></div><span class="cmp-chev" aria-hidden="true">${open ? '▴' : '▾'}</span>
       </div>${open ? `<div class="cmp-card">${groupCard(g)}</div>` : ''}`;
     };

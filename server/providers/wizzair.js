@@ -6,13 +6,18 @@
 import { CookieJar, limiter, request } from '../lib/http.js';
 import { cache } from '../lib/cache.js';
 import { makeLeg } from '../lib/fares.js';
-import { chunkRange } from '../lib/dates.js';
+import { addDays, chunkRange, daysBetween, todayYmd } from '../lib/dates.js';
 
 const HOME = 'https://www.wizzair.com/en-gb';
 const API = 'https://be.wizzair.com';
 const DEFAULT_VERSION = '29.14.0';
 const FARE_TTL = 30 * 60e3;
 const WINDOW_DAYS = 30;
+// Paměť tras: ceny po dnech z dřívějších dotazů. Do FARE_TTL čerstvé (i přesné hledání), do MEMORY_TTL je smí
+// „kamkoliv“ ukázat se stářím – tak se rozpočet dotazů na hledání může posunout na trasy, které ještě nikdo nehledal.
+export const MEMORY_TTL = 6 * 3600e3;
+const MEMORY_ROUTES = 300; // směr trasy × počet cestujících; nejdéle nepoužité pryč (~10–15 MB nejvýš)
+const memory = new Map(); // `${from}|${to}|${adults}` → { spans: [{ a, b, at }], days: Map<ymd, { at, f }> }
 // Wizz po každé odpovědi mění ověřovací token (cookie RequestVerificationToken) a souběžné dotazy
 // se starým tokenem odmítá (HTTP 400 InvalidProtocol). Proto 3 nezávislé relace, v každé dotazy
 // za sebou – token se čte až těsně před odesláním.
@@ -137,17 +142,88 @@ export function parseTimetable(list, adults = 1) {
   return out;
 }
 
-async function timetable(from, to, dateFrom, dateTo, adults) {
-  const legs = [];
-  for (const [a, b] of chunkRange(dateFrom, dateTo, WINDOW_DAYS)) {
-    const body = {
-      flightList: [{ departureStation: from, arrivalStation: to, from: a, to: b }],
-      priceType: 'regular', adultCount: adults, childCount: 0, infantCount: 0,
-    };
-    const json = await cache.wrap(`w6:tt:${from}:${to}:${a}:${b}:${adults}`, FARE_TTL, () => api('POST', 'search/timetableV2', body));
-    legs.push(...parseTimetable(json?.outboundFlights, adults));
+function memOf(key, create) {
+  let m = memory.get(key);
+  if (m) {
+    memory.delete(key);
+    memory.set(key, m); // nejnověji použité na konec
+  } else if (create) {
+    m = { spans: [], days: new Map() };
+    memory.set(key, m);
+    if (memory.size > MEMORY_ROUTES) memory.delete(memory.keys().next().value);
   }
-  return legs;
+  return m;
+}
+
+function prune(m, now) {
+  const min = now - MEMORY_TTL;
+  const today = todayYmd();
+  m.spans = m.spans.filter((x) => x.at >= min && x.b >= today);
+  for (const [d, x] of m.days) if (x.at < min || d < today) m.days.delete(d);
+}
+
+/** Dny a..b bez dat z doby po minAt → co nejméně oken dotazů (≤ 30 dní; mezi chybějícími dny i už známé). */
+export function missingWindows(spans, a, b, minAt) {
+  const out = [];
+  let cur = null;
+  for (let d = a; d <= b; d = addDays(d, 1)) {
+    if (spans.some((x) => x.at >= minAt && x.a <= d && d <= x.b)) continue;
+    if (cur && daysBetween(cur[0], d) < WINDOW_DAYS) cur[1] = d;
+    else out.push((cur = [d, d]));
+  }
+  return out;
+}
+
+function remember(m, a, b, list, at) {
+  for (let d = a; d <= b; d = addDays(d, 1)) m.days.delete(d); // vyprodané / zrušené dny nesmí zůstat se starou cenou
+  for (const f of list || []) {
+    const d = String(f.departureDate || '').slice(0, 10);
+    if (d >= a && d <= b) m.days.set(d, { at, f });
+  }
+  m.spans.push({ a, b, at });
+}
+
+/** Stav trasy v paměti: calls = dotazů k čerstvým cenám, usable = celé období v paměti (≤ 6 h), at = nejstarší použitá data. */
+function routeState({ from, to, dateFrom, dateTo, adults = 1 }, now = Date.now()) {
+  const m = memOf(`${from}|${to}|${adults}`, false);
+  const spans = m ? m.spans : [];
+  const calls = missingWindows(spans, dateFrom, dateTo, now - FARE_TTL).length;
+  const usable = !missingWindows(spans, dateFrom, dateTo, now - MEMORY_TTL).length;
+  let at = null;
+  if (usable) {
+    for (let d = dateFrom; d <= dateTo; d = addDays(d, 1)) {
+      const best = Math.max(...spans.filter((x) => x.a <= d && d <= x.b).map((x) => x.at));
+      if (at == null || best < at) at = best;
+    }
+  }
+  return { calls, usable, at };
+}
+
+async function timetable(from, to, dateFrom, dateTo, adults, { maxAgeMs = FARE_TTL, memoryOnly = false } = {}) {
+  const m = memOf(`${from}|${to}|${adults}`, true);
+  const now = Date.now();
+  prune(m, now);
+  if (!memoryOnly) {
+    for (const [a, b] of missingWindows(m.spans, dateFrom, dateTo, now - Math.min(maxAgeMs, MEMORY_TTL))) {
+      // cache jen pro souběžné stejné dotazy (dvě hledání najednou = jeden dotaz)
+      const json = await cache.wrap(`w6:tt:${from}:${to}:${a}:${b}:${adults}`, 60e3, () => api('POST', 'search/timetableV2', {
+        flightList: [{ departureStation: from, arrivalStation: to, from: a, to: b }],
+        priceType: 'regular', adultCount: adults, childCount: 0, infantCount: 0,
+      }));
+      remember(m, a, b, json?.outboundFlights, Date.now());
+    }
+  }
+  const legs = [];
+  const t = Date.now();
+  for (const [d, x] of m.days) {
+    if (d < dateFrom || d > dateTo) continue;
+    for (const leg of parseTimetable([x.f], adults)) {
+      leg.fetchedAt = x.at;
+      if (t - x.at > FARE_TTL) leg.memAgeMin = Math.round((t - x.at) / 60e3);
+      legs.push(leg);
+    }
+  }
+  return legs.sort((x, y) => (x.dep < y.dep ? -1 : 1));
 }
 
 export const wizzair = {
@@ -192,12 +268,15 @@ export const wizzair = {
    * Ceny po dnech. near = { from, to }: dny kolem přesného data – vejde-li se širší okno do jednoho
    * dotazu (≤ 30 dní), zeptá se rovnou na něj (žádný dotaz navíc), jinak jen na dateFrom..dateTo.
    */
-  async daily({ from, to, dateFrom, dateTo, adults = 1, near = null }) {
+  async daily({ from, to, dateFrom, dateTo, adults = 1, near = null, maxAgeMs, memoryOnly }) {
     const a = near && near.from < dateFrom ? near.from : dateFrom;
     const b = near && near.to > dateTo ? near.to : dateTo;
     const wide = chunkRange(a, b, WINDOW_DAYS).length <= chunkRange(dateFrom, dateTo, WINDOW_DAYS).length;
-    return timetable(from, to, wide ? a : dateFrom, wide ? b : dateTo, adults);
+    return timetable(from, to, wide ? a : dateFrom, wide ? b : dateTo, adults, { maxAgeMs, memoryOnly });
   },
+
+  routeState,
+  _resetMemory: () => memory.clear(), // testy
 
   isBlocked: () => Date.now() < state.blockedUntil,
   retryAfter: () => Math.max(0, Math.ceil((state.blockedUntil - Date.now()) / 1000)), // s do konce blokace (pro „Zkusit znovu“)
