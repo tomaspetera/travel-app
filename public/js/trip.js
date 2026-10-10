@@ -269,7 +269,7 @@
     if (mine && mine.flight && JSON.stringify(mine.flight.out) !== JSON.stringify(t.out)) {
       const done = [isMulti(mine) && 'trasu', mine.stay && 'ubytování', mine.car && 'auto', mine.plan && 'program',
         mine.booked && Object.values(mine.booked).some(Boolean) && 'odškrtnuté rezervace'].filter(Boolean);
-      if (done.length && !confirm(`Máš rozpracovanou cestu do ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
+      if (done.length && !confirm(`Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
     }
     S.trip = {
       v: 1,
