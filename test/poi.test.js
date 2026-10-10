@@ -294,3 +294,41 @@ test('groupBindings/findTrips: lázně poznané podle popisu', async () => {
     stub.restore();
   }
 });
+
+// ---------- živá data (říjen 2026): cíle výletů z Barcelony a Prahy ----------
+const { bindings, unescoBindings, BCN_TRIPS, PRA_TRIPS, PRA_UNESCO } = await import('./fixtures/wikidata.js');
+
+test('tripsFromRows (živá data, Barcelona): památková ochrana obce nerozhoduje, Montserrat místo obce pod ním', async () => {
+  const { tripsFromRows } = await import('../server/lib/poi.js');
+  const trips = tripsFromRows(bindings(BCN_TRIPS), { lat: 41.3874, lon: 2.1686 }, 15, { road: true });
+  const score = Object.fromEntries(trips.map((t) => [t.name, t.score]));
+  // La Granada a Avinyonet mají ochranu „kulturní statek Katalánska“ na celé obci – dřív to stačilo na víc bodů než Girona
+  for (const top of ['Girona', 'Sitges']) {
+    for (const village of ['La Granada', 'Avinyonet de Puigventós']) assert.ok(score[top] > score[village] + 5, `${top} ${score[top]} > ${village} ${score[village]}`);
+  }
+  assert.ok(score.Girona > score['Lloret de Mar'], 'Lloret de Mar bez bodů za ochranu obce');
+  // obec pojmenovaná po hoře hned vedle → cílem je hora, obec v „uvidíš“
+  const mont = trips.find((t) => t.id === 'Q732115');
+  assert.equal(mont?.name, 'Montserrat');
+  assert.equal(mont.tripKind, 'nature');
+  assert.equal(mont.gateway, 'Monistrol de Montserrat');
+  assert.deepEqual(mont.highlights, ['Monistrol de Montserrat']);
+  assert.ok(!trips.some((t) => t.id === 'Q16704'), 'obec Monistrol zvlášť ne');
+  assert.equal(trips.find((t) => t.name === 'Girona').wv, true, 'článek na Wikivoyage');
+  assert.ok(!trips.find((t) => t.name === 'La Granada').wv);
+});
+
+test('tripsFromRows (živá data, Praha): část sériové památky UNESCO je jen malé plus, celá památka hodně', async () => {
+  const { tripsFromRows, unescoSites } = await import('../server/lib/poi.js');
+  const unesco = unescoSites(unescoBindings(PRA_UNESCO));
+  const trips = tripsFromRows(bindings(PRA_TRIPS), { lat: 50.08804, lon: 14.42076 }, 15, { road: true, unesco });
+  const by = Object.fromEntries(trips.map((t) => [t.name, t]));
+  const mining = ['Annaberg-Buchholz', 'Olbernhau', 'Freiberg', 'Altenberg', 'Dippoldiswalde'].map((n) => by[n]).filter(Boolean);
+  assert.ok(mining.length >= 4);
+  assert.ok(mining.every((t) => t.unescoPart && !t.unesco), 'hornická městečka = část Hornického regionu Krušnohoří');
+  assert.equal(by['Kutná Hora'].unesco, true);
+  for (const t of mining) assert.ok(by['Kutná Hora'].score > t.score + 15, `Kutná Hora ${by['Kutná Hora'].score} ≫ ${t.name} ${t.score}`);
+  for (const t of mining) assert.ok(by['Drážďany'].score > t.score, `Drážďany před ${t.name}`);
+  // jedna položka s víc body (Žatec a krajina žateckého chmele) není sériová památka – Žatec je celé UNESCO
+  assert.equal(by['Žatec'].unesco, true);
+});

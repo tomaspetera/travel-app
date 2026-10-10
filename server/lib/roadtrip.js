@@ -51,6 +51,10 @@ const CAR = TRANSPORT.car;
 export const visitMin = (p) => p.visitMin
   || (p.natureKind && NATURE_VISIT[p.natureKind])
   || (p.tripKind === 'town' && p.sights ? 120 + 30 * Math.min(3, p.sights - 1) : VISIT[p.tripKind] || (p.unesco ? 150 : 120));
+// Druh zastávky pro pestrost dne: tři města (nebo tři hrady) za sebou jsou jeden dlouhý den téhož – nejvýš 2 za den.
+const kindOf = (p) => (p.spa ? 'spa' : p.tripKind || '');
+const SAME_MAX = 2;
+const tooSame = (stops) => stops.length > SAME_MAX && stops.some((s) => stops.filter((x) => kindOf(x) === kindOf(s)).length > SAME_MAX);
 // Hodnota cíle roste se skóre exponenciálně: jeden opravdu významný cíl (Drážďany, Kutná Hora)
 // má přednost před několika průměrnými po cestě.
 const value = (p) => Math.exp((p.score - 50) / 10);
@@ -81,6 +85,7 @@ export function bestDayLoop(base, pool, cap, maxStops = 3, tr = CAR) {
   const top = pool.slice(0, 12);
   for (let k = 1; k <= Math.min(3, maxStops); k++) {
     for (const c of combos(top, k)) {
+      if (tooSame(c)) continue;
       let order = null;
       let drive = Infinity;
       for (const perm of permutations(c)) {
@@ -126,7 +131,7 @@ export function splitDays(base, stops, cap, maxStops = 3, tr = CAR) {
     // u posledního cíle se počítá i cesta zpět
     const drive = tr.min(prev, s) + (i === stops.length - 1 ? tr.min(s, base) : 0);
     const add = drive + visitMin(s);
-    if (cur.stops.length && (cur.min + add > cap || cur.drive + drive > tr.maxLoop || cur.stops.length >= maxStops)) {
+    if (cur.stops.length && (cur.min + add > cap || cur.drive + drive > tr.maxLoop || cur.stops.length >= maxStops || tooSame([...cur.stops, s]))) {
       days.push(cur);
       cur = { stops: [], min: 0, drive: 0, from: prev };
     }

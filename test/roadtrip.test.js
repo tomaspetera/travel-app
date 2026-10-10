@@ -177,3 +177,35 @@ test('roadtrip: zájmy – „Příroda“ plánuje jen přírodu, při nedostat
   const any = planTrips(all, { base: PRAHA, start: START, days: 2, mode: 'day', interests: [] });
   assert.ok(any.days.flatMap((d) => d.stops).some((x) => x.tripKind === 'town'));
 });
+
+const sameKind = (d) => Math.max(...Object.values(d.stops.reduce((n, s) => ({ ...n, [s.spa ? 'spa' : s.tripKind]: (n[s.spa ? 'spa' : s.tripKind] || 0) + 1 }), {})));
+
+test('roadtrip: nejvýš dvě zastávky stejného druhu za den (ne tři města za sebou)', () => {
+  // devět měst blízko sebe a jeden hrad – dřív den „město → město → město“
+  const towns = Array.from({ length: 9 }, (_, i) => ({ id: `t${i}`, name: `Město ${i}`, lat: 50.25 + (i % 3) * 0.12, lon: 13.7 + Math.floor(i / 3) * 0.18, tripKind: 'town', score: 72 - i, category: 'daytrip' }));
+  const castle = { id: 'hrad', name: 'Hrad', lat: 50.3, lon: 13.9, tripKind: 'castle', score: 56, category: 'daytrip' };
+  for (const mode of ['day', 'loop']) {
+    const r = planTrips([...towns, castle], { base: PRAHA, start: START, days: 3, mode, pace: 'intense' });
+    assert.ok(r.days.length >= 2, mode);
+    for (const d of r.days) assert.ok(sameKind(d) <= 2, `${mode}: ${d.stops.map((s) => s.name).join(' → ')}`);
+    assert.ok(r.days.some((d) => d.stops.length >= 2), `${mode}: pořád víc zastávek za den`);
+  }
+});
+
+test('roadtrip (živá data, Praha): okruh už nejede tři hornická městečka za sebou', async () => {
+  const { tripsFromRows, unescoSites } = await import('../server/lib/poi.js');
+  const { bindings, unescoBindings, PRA_TRIPS, PRA_UNESCO } = await import('./fixtures/wikidata.js');
+  const base = { lat: 50.08804, lon: 14.42076, label: 'Praha' };
+  const cands = tripsFromRows(bindings(PRA_TRIPS), base, 15, { road: true, unesco: unescoSites(unescoBindings(PRA_UNESCO)) });
+  for (const transport of ['car', 'transit']) {
+    const r = planTrips(cands, { base, start: START, days: 4, mode: 'loop', transport });
+    for (const d of r.days) {
+      assert.ok(sameKind(d) <= 2, d.stops.map((s) => s.name).join(' → '));
+      assert.ok(d.stops.filter((s) => s.unescoPart).length <= 2);
+    }
+    // a jednodenní výlet do Drážďan nebere hornické Altenberg jen kvůli „části památky UNESCO“
+    const day = planTrips(cands, { base, start: START, days: 3, mode: 'day', transport });
+    const dd = day.days.find((d) => d.stops.some((s) => s.name === 'Drážďany'));
+    if (dd) assert.ok(!dd.stops.some((s) => s.name === 'Altenberg'), dd.stops.map((s) => s.name).join(' → '));
+  }
+});

@@ -67,8 +67,8 @@ const CAT_BONUS = { museum: 4, castle: 5, palace: 4, oldtown: 6, viewpoint: 3, c
  * verzí), teprve k nim se dotahují typy, fotka a památková ochrana. LIMIT na vnějším dotazu by
  * počítal řádky (jedna položka = mnoho řádků) a ve velkých městech by usekl náhodná místa.
  */
-function sparqlNear(lat, lon, radiusKm, minLinks, items) {
-  return `SELECT ?item ?itemLabel ?itemDescription ?lat ?lon ?sl ?type ?img ?her ?cs ?en ?part ?cc WHERE {
+function sparqlNear(lat, lon, radiusKm, minLinks, items, { wv = false } = {}) {
+  return `SELECT ?item ?itemLabel ?itemDescription ?lat ?lon ?sl ?type ?img ?her ?cs ?en ?part ?cc${wv ? ' ?wv' : ''} WHERE {
   {
     SELECT ?item ?coord ?sl WHERE {
       SERVICE wikibase:around {
@@ -87,7 +87,8 @@ function sparqlNear(lat, lon, radiusKm, minLinks, items) {
   OPTIONAL { ?item wdt:P18 ?img }
   OPTIONAL { ?item wdt:P1435 ?her }
   OPTIONAL { ?cs schema:about ?item ; schema:isPartOf <https://cs.wikipedia.org/> }
-  OPTIONAL { ?en schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> }
+  OPTIONAL { ?en schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> }${wv ? `
+  OPTIONAL { ?wv schema:about ?item ; schema:isPartOf <https://en.wikivoyage.org/> }` : ''}
   SERVICE wikibase:label { bd:serviceParam wikibase:language "cs,en,[AUTO_LANGUAGE]". }
 } LIMIT 30000`;
 }
@@ -130,6 +131,7 @@ export function groupBindings(rows, center) {
     if (part) p.partOf.add(part);
     const her = qid(val(b, 'her'));
     if (her) { p.heritage = true; if (her === UNESCO) p.unesco = true; }
+    if (val(b, 'wv')) p.wv = true; // má článek v cestovním průvodci Wikivoyage (jen dotaz na výlety)
     const img = val(b, 'img');
     if (img && !p.image) p.image = `${img.replace(/^http:/, 'https:')}?width=500`;
   }
@@ -406,7 +408,7 @@ const ROAD_KINDS = new Set(['town', 'nature', 'castle', 'palace', 'ruins', 'zoo'
 // Lázně: „lázeňské město“, „spa town“, německé „Bad …“, „Kurort“.
 const SPA = /lázn|lázeň|spa town|kurort|\bbad [a-zäöü]|thermal|termál|banja|uzdrowisk/i;
 
-function tripsFromRows(rows, center, minKm, { road = false, unesco = [] } = {}) {
+export function tripsFromRows(rows, center, minKm, { road = false, unesco = [] } = {}) {
   const all = groupBindings(rows, center);
   const sights = all.filter((p) => p.category !== 'town' && !p.island && !p.serial);
   const towns = [];
@@ -438,17 +440,33 @@ function tripsFromRows(rows, center, minKm, { road = false, unesco = [] } = {}) 
       t.highlightIds = near.map((x) => x.id);
       if (whs.some((u) => !u.serial) || near.some((x) => x.unesco)) t.unesco = true;
       else if (whs.length) t.unescoPart = true; // jen část rozsáhlé sériové památky
-      towns.push(t);
+      // Obec pojmenovaná po hoře nebo hradu hned vedle (Monistrol de Montserrat → Montserrat, Karlštejn → hrad)
+      // jezdí se tam kvůli té památce – cílem výletu je památka, obec zůstane v „uvidíš“.
+      const gate = near.find((x) => x.category !== 'town' && ROAD_KINDS.has(x.category) && normalize(x.name).length >= 4
+        && ` ${normalize(p.name)} `.includes(` ${normalize(x.name)} `) && p.sitelinks <= 2 * x.sitelinks);
+      if (gate) {
+        Object.assign(t, {
+          id: gate.id, name: gate.name, description: gate.description, lat: gate.lat, lon: gate.lon, image: gate.image || p.image, wiki: gate.wiki,
+          tripKind: gate.category, heritage: gate.heritage, wv: gate.wv || p.wv, sights: near.length - 1, spa: undefined, gateway: p.name,
+          highlights: [p.name, ...t.highlights.filter((n) => normalize(n) !== normalize(gate.name))].slice(0, 3),
+        });
+      } else towns.push(t);
     }
     trips.push(t);
   }
   // Hrad nebo památka, která je už „k vidění“ v některém městě výletu, není samostatný cíl.
   const inTown = new Set(towns.flatMap((t) => t.highlightIds));
-  const out = trips.filter((t) => t.tripKind === 'town' || !inTown.has(t.id));
+  const out = trips.filter((t) => t.tripKind === 'town' || t.gateway || !inTown.has(t.id));
   for (const t of out) {
-    t.score = scorePlace(road ? { ...t, category: t.tripKind, distanceKm: 0 } : t) + Math.min(4, t.sights || 0) * 6 + (t.unescoPart ? 4 : 0);
+    // Památková ochrana obce o ní jako o cíli nic neříká (v Katalánsku je „kulturním statkem“ i celá vesnice
+    // La Granada) – město boduje podle toho, co v něm je, a podle článku v průvodci Wikivoyage.
+    const town = t.tripKind === 'town';
+    const base = town ? { ...t, heritage: false } : t;
+    // Část rozsáhlé sériové památky UNESCO (jedno z hornických městeček Krušnohoří) je jen malé plus –
+    // celá památka (+15 ve scorePlace) je o hodně víc.
+    t.score = scorePlace(road ? { ...base, category: t.tripKind, distanceKm: 0 } : base) + Math.min(4, t.sights || 0) * 6 + (t.unescoPart ? 3 : 0) + (town && t.wv ? 6 : 0);
     // město bez jediné známé památky (průmyslové, předměstí) je slabší cíl než menší památkové
-    if (t.tripKind === 'town' && !t.sights && !t.unesco && !t.unescoPart && !t.heritage) t.score -= 8;
+    if (town && !t.sights && !t.unesco) t.score -= t.unescoPart ? 4 : 8;
     t.score = Math.round(t.score * 10) / 10;
     t.highlightIds = undefined;
   }
@@ -474,7 +492,16 @@ function sparqlUnesco(lat, lon, km) {
 } LIMIT 2000`;
 }
 // Části sériové památky (Hornický region Krušnohoří: ~20 dolů a městeček) mají stejné číslo před
-// pomlčkou (1478-001, 1478-002…); u takových je bonus jen malý, jinak by zaplavily výběr.
+// pomlčkou (1478-001, 1478-002…); u takových je bonus jen malý, jinak by zaplavily výběr. Počítají se
+// různé položky, ne řádky (Žatec a krajina žateckého chmele má jednu položku s šesti body – celá památka).
+export function unescoSites(rows) {
+  const list = rows
+    .map((b) => ({ id: qid(val(b, 'item')), name: val(b, 'itemLabel'), lat: Number(val(b, 'lat')), lon: Number(val(b, 'lon')), site: String(val(b, 'whs') || '').split('-')[0] }))
+    .filter((u) => u.name && !/^Q\d+$/.test(u.name) && Number.isFinite(u.lat) && Number.isFinite(u.lon));
+  const parts = new Map();
+  for (const u of list) parts.set(u.site, (parts.get(u.site) || new Set()).add(u.id));
+  return list.map((u) => ({ ...u, serial: u.site !== '' && parts.get(u.site).size > 3 }));
+}
 const unescoQuery = (lat, lon) => cache.wrap(`wdqs-unesco:${lat.toFixed(1)}:${lon.toFixed(1)}`, 30 * 864e5, async () => {
   const q = sparqlUnesco(lat, lon, 125);
   // krátký dotaz – při 429 („příliš mnoho dotazů“) jeden pokus znovu po 3 s; timeout ani jiná
@@ -482,12 +509,7 @@ const unescoQuery = (lat, lon) => cache.wrap(`wdqs-unesco:${lat.toFixed(1)}:${lo
   const rows = await wdqs(q, 40000).catch((e) => (e.status === 429
     ? new Promise((res) => setTimeout(res, 3000)).then(() => wdqs(q, 20000))
     : Promise.reject(e)));
-  const list = rows
-    .map((b) => ({ name: val(b, 'itemLabel'), lat: Number(val(b, 'lat')), lon: Number(val(b, 'lon')), site: String(val(b, 'whs') || '').split('-')[0] }))
-    .filter((u) => u.name && !/^Q\d+$/.test(u.name) && Number.isFinite(u.lat) && Number.isFinite(u.lon));
-  const parts = new Map();
-  for (const u of list) parts.set(u.site, (parts.get(u.site) || 0) + 1);
-  return list.map((u) => ({ ...u, serial: u.site !== '' && parts.get(u.site) > 3 }));
+  return unescoSites(rows);
 });
 
 // Přírodní cíle: mají málo jazykových verzí, takže je dotaz na nejvýznamnější místa nenajde.
@@ -602,7 +624,8 @@ function within(p, ms) {
   return Promise.race([p, new Promise((res) => { t = setTimeout(res, ms, undefined); })]).finally(() => clearTimeout(t));
 }
 
-const tripsQuery = (lat, lon) => cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.toFixed(2)}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, 120, 45, 300), 58000));
+// S článkem na Wikivoyage: město, o kterém píše cestovní průvodce, je skutečný cíl (ne vesnice nebo předměstí).
+const tripsQuery = (lat, lon) => cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.toFixed(2)}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, 120, 45, 300, { wv: true }), 58000));
 
 /**
  * Cíle výletů do ~120 km (pro plánovač jednodenních a okružních výletů) – víc než 8 ve findPlaces,
@@ -631,7 +654,7 @@ export async function findTrips({ lat, lon, limit = 30 }) {
     const failed = (await enrich(picked)) || !unesco || !nature || !heritage;
     // lázně i podle první věty článku („… jsou krajské, statutární a lázeňské město“)
     for (const p of picked) if (p.tripKind === 'town' && !p.spa && SPA.test(String(p.extract || '').split(/\.\s/)[0])) p.spa = true;
-    const out = picked.map(({ partOf, island, serial, ...p }) => ({
+    const out = picked.map(({ partOf, island, serial, wv, ...p }) => ({
       ...p, categoryLabel: p.natureKind ? NATURE_LABEL[p.natureKind] : p.tripKind === 'town' ? (p.spa ? 'Lázně' : 'Město / obec') : p.tripKind === 'monastery' ? 'Klášter' : CATEGORY_CS[p.tripKind] || CATEGORY_CS.daytrip,
     }));
     if (failed) out.degraded = true;
@@ -655,7 +678,7 @@ export async function findTowns({ lat, lon, limit = 25 }) {
       .filter((t) => t.tripKind === 'town')
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map(({ partOf, island, serial, wiki, ...p }) => ({
+      .map(({ partOf, island, serial, wiki, wv, ...p }) => ({
         // anglický název z článku Wikipedie („Bologna“, „Santa Maria (Rio Grande do Sul)“ → „Santa Maria, Rio Grande do Sul“)
         // pro odkazy na partnery ubytování, které český název („Boloňa“) nepoznají; země z Wikidat (P17),
         // jinak podle polohy (nejbližší letiště)
@@ -751,7 +774,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     });
     const picked = [...merged, ...trips.sort((a, b) => b.score - a.score).slice(0, 8)];
     const enrichFailed = await enrich(picked);
-    const out = picked.map(({ partOf, island, serial, ...p }) => ({ ...p, categoryLabel: CATEGORY_CS[p.category] || p.category }));
+    const out = picked.map(({ partOf, island, serial, wv, ...p }) => ({ ...p, categoryLabel: CATEGORY_CS[p.category] || p.category }));
     if (tripsMissing || enrichFailed || wvFailed) out.degraded = true;
     return out;
   });
