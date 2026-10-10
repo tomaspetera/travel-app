@@ -21,6 +21,7 @@
   let legsPref = true; // přesná data: začínat pohledem „✈︎ Lety“ (dokud si uživatel nevybere kombinace)
   let lastForm = null; // formulář posledního hledání – z něj vycházejí úpravy jedním kliknutím
   let lastResultAt = 0;
+  let lastResultPayload = null; // dotaz, ke kterému je lastResult (lastPayload je i nedokončeného hledání)
   // Poslední výsledky přežijí zavření aplikace (vlastní klíč – stav aplikace má přednost, viz save() v app.js).
   const LAST_LS = 'atlas_last';
   let restored = false; // výsledky na obrazovce jsou uložené z minula, ne z hledání teď
@@ -683,7 +684,7 @@
     busySearches++;
     try {
       const res = await runSearch(payload, { onProgress: ev => renderProgress(ev), signal: searchCtl.signal });
-      lastResult = res; lastResultAt = Date.now(); restored = false;
+      lastResult = res; lastResultAt = Date.now(); lastResultPayload = payload; restored = false;
       PriceCheck.remember(res); // paměť cen v tomto prohlížeči („Je to dobrá cena?“)
       fitMode(res);
       renderProgress({ providers: res.providers }, false, res);
@@ -694,6 +695,7 @@
       return res;
     } catch (e) {
       if (e.name === 'AbortError') return;
+      expandForm(); // chyba hledání: formulář zase vidět (hláška radí ho upravit)
       $('#progress').innerHTML = `<div class="note bad">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(e.message)}</div></div>`;
     } finally {
       busySearches--;
@@ -725,9 +727,10 @@
     let c = null;
     try { c = SearchHelp.lastLoad(localStorage.getItem(LAST_LS), Date.now()); } catch (e) { }
     if (!c) return;
-    lastResult = c.res; lastResultAt = c.at; lastPayload = c.payload; lastForm = { ...defaultForm(), ...c.form }; restored = true;
+    lastResult = c.res; lastResultAt = c.at; lastPayload = c.payload; lastResultPayload = c.payload; lastForm = { ...defaultForm(), ...c.form }; restored = true;
     fitMode(c.res);
-    collapseForm(lastForm);
+    // sbalit jen když formulář je to hledání (jinak – rozdělané pozdější hledání – zůstane formulář vidět)
+    if (watchKey({ form: getForm() }) === watchKey({ form: lastForm })) collapseForm(lastForm);
     renderRestored();
     renderResults();
   }
@@ -745,9 +748,10 @@
     sum.innerHTML = `<div class="ss-txt"><b>${esc(watchLabel(f))}</b><span class="faint">${esc(when + recentSub(f))} · ${+f.adults || 1} os.</span></div><button type="button" class="btn sm ghost" id="ssWatch">♡</button><button type="button" class="btn sm" id="ssEdit">✎ Upravit</button>`;
     sum.hidden = false;
     $('#searchForm').classList.add('collapsed');
-    $('#ssEdit').onclick = () => { sum.hidden = true; $('#searchForm').classList.remove('collapsed'); $('#searchForm').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    $('#ssEdit').onclick = () => { expandForm(); $('#searchForm').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
     updateWatchBtn();
   }
+  function expandForm() { const sum = $('#searchSum'); if (sum) sum.hidden = true; $('#searchForm').classList.remove('collapsed'); }
   // Kratší popis hledání na čip: termín nebo počet nocí.
   function recentSub(f) {
     if (f.trip === 'multi') return `${plural((f.legs || []).length, 'let', 'lety', 'letů')} od ${fmtDate(f.legs[0].date)}`;
@@ -2127,7 +2131,7 @@
     const f = getForm();
     if (!f.from.length) return toast('Nejdřív zadej, odkud letíš', 'err');
     // výchozí cena hlídání z čerstvého výsledku – starší (i uložený z minula) se nejdřív dohledá
-    let res = lastResult && Date.now() - lastResultAt < 30 * 6e4 && JSON.stringify(lastPayload) === JSON.stringify(payloadOf(f)) ? lastResult : await startSearch({ noScroll: true });
+    let res = lastResult && Date.now() - lastResultAt < 30 * 6e4 && JSON.stringify(lastResultPayload) === JSON.stringify(payloadOf(f)) ? lastResult : await startSearch({ noScroll: true });
     if (!res) return;
     const b = bestOf(res);
     const czk0 = b ? b.czk : null;

@@ -369,7 +369,9 @@ test('průvodce cestou: cesta z letiště do města v ceně (bez úseku, který 
   const carRoute = Trip.costs(trip({ route: route('car') }));
   assert.equal(carRoute.transfers, 420 + 240 + 270);
   assert.equal(carRoute.total, base + 930);
-  assert.equal(Trip.costs(trip({ route: route('transit') })).transfers, 210 * 2);
+  // vlakem: mezi místy a z posledního místa (Remeš, 130 km od Paříže) na letiště; z letiště do Paříže pokrývá doprava z letiště
+  assert.equal(Trip.costs(trip({ route: route('transit') })).transfers, (210 + 160) * 2);
+  assert.equal(Trip.costs(trip({ route: route('transit'), flight: { ...trip().flight, arrCzk: 0 } })).transfers, (150 + 210 + 160) * 2, 'bez dopravy z letiště v ceně i první úsek');
   assert.equal(Trip.costs(trip({ route: { ...route('car'), transfers: [x(140)], legs: {} } })).transfers, 0, 'starší trasa bez odhadu');
   assert.equal(Trip.sanitizeTrip(JSON.parse(JSON.stringify(trip({ route: route('car') })))).route.transfers[0].fuelCzk, 420);
   // sdílený odkaz: jen známá pole, čísla v mezích, zdroj jen https

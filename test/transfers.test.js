@@ -10,6 +10,7 @@ import {
   railLink, RULES,
 } from '../server/lib/transfers.js';
 import { planStay, evaluateRoute } from '../server/lib/stayplan.js';
+process.env.FUEL_LIVE = '0'; // přejezdy počítají palivo – ceny vestavěné, bez sítě (ČSÚ, Evropská komise, ECB)
 
 process.env.BROUTER_GAP_MS = '0';
 
