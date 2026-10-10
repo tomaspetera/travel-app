@@ -82,11 +82,12 @@ test('radar Svátky: v předvečer jen odlety od 16:00 (server je vyřadí hned)
 test('kamkoliv: cesta z letiště do města se počítá i u cíle, který je přestupním letištěm v okolí (Brno → Berlín)', async () => {
   const q = radarQuery('all', home, ymdPlus(0));
   const r = await search(q.payload);
-  const hubs = new Set(r.origins.filter((o) => o.hub).map((o) => o.iata));
+  const hubs = new Set(r.hubs);
   const bad = r.groups.filter((g) => !(g.best.arrCzk > 0)).map((g) => `${g.dest.label} ${g.best.out.to}`);
   assert.deepEqual(bad, [], 'u všech cílů je cesta do města v ceně');
   const g = r.groups.find((x) => hubs.has(x.best.out.to));
-  if (g) {
+  assert.ok(g, 'mezi cíli je přestupní letiště v okolí (Berlín, Mnichov, Budapešť)');
+  {
     // stejný let z hledání ke konkrétnímu cíli stojí totéž
     const rr = await search({ ...q.payload, to: ['ap:' + g.best.out.to] });
     const same = [...(rr.top || []), ...rr.groups.flatMap((x) => [x.best, ...x.options])]

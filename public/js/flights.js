@@ -693,7 +693,7 @@
       if (f.trip === 'return' && (!f.xBack || f.xBack < f.xOut)) { toast('Návrat musí být stejný den nebo po odletu', 'err'); $('#xBack').focus(); return; }
     }
     // domov radaru („Odkud obvykle létáš“) jen poprvé – zkušební hledání z Mnichova ho nepřepíše (mění se v radaru)
-    S.form = f; if (!S.home || !S.home.from?.length) S.home = { from: f.from, radius: f.radius }; save(); updateHomeChip();
+    S.form = f; if (!S.home || !S.home.from?.length) S.home = { from: f.from, radius: f.radius, adults: f.trip === 'multi' ? 2 : f.adults }; save(); updateHomeChip();
     collapseForm(f);
     const payload = payloadOf(f);
     // Kalendář cen zůstane jen u hledání do stejného cíle (nebo na vyžádání) – jiný cíl začne seznamem.
@@ -2437,8 +2437,10 @@
   });
   // Klíč výsledku radaru: dotaz, u svátků i který prodloužený víkend (jiný svátek = jiné hledání, žádné „↓ od minula“)
   const radarKey = q => JSON.stringify(q.lw ? { ...q.payload, lw: q.lw.start } : q.payload || null);
-  // domov radaru + počet cestujících z formuláře (proklik z karty hledá pro stejný počet lidí → stejná cena za osobu)
-  const radarHome = () => ({ ...S.home, adults: (S.form && +S.form.adults) || defaultForm().adults });
+  // domov radaru + počet cestujících radaru (nastavení domova, výchozí 2 jako ve formuláři) – ne z posledního hledání,
+  // jinak by střídání 1 a 2 lidí pokaždé zahodilo uložený radar; proklik z karty hledá pro stejný počet (stejná cena)
+  const radarAdults = () => Math.min(9, Math.max(1, Math.round(+S.home?.adults) || 2));
+  const radarHome = () => ({ ...S.home, adults: radarAdults() });
   const radarModeKey = () => (['weekend', 'holiday'].includes(S.radarMode) ? S.radarMode : 'all');
   async function renderRadar(force) {
     const host = $('#radar'), modes = $('#radarModes');
@@ -2482,12 +2484,12 @@
     $('#radarModes').hidden = true; $('#radarLw').hidden = true;
     $('#radarSub').textContent = '';
     const rad = +(S.home?.radius ?? 200);
-    host.innerHTML = `<div class="card radar-setup"><div><b>Odkud obvykle létáš?</b><div class="muted" style="font-size:13px">${edit ? 'Radar ukazuje nejlevnější lety z okolí tohoto místa. Jiná hledání ho nemění.' : 'Nastav výchozí místo a radar ti tu bude ukazovat nejlevnější lety z okolí na příštích 6 týdnů.'}</div></div><div class="rs-where"><div class="place-input" id="radarFrom"></div><label class="rs-radius faint">+ letiště do <select id="radarRadius">${[...new Set([0, 50, 100, 150, 200, 300, 400, 500, rad])].sort((a, b) => a - b).map(k => `<option value="${k}"${k === rad ? ' selected' : ''}>${k ? k + ' km' : '0 km (jen tohle)'}</option>`).join('')}</select></label></div><div class="row" style="gap:8px"><button class="btn primary" id="radarGo">${edit ? 'Uložit' : 'Nastavit'}</button>${edit ? '<button class="btn ghost" id="radarCancel">Zrušit</button>' : ''}</div></div>`;
+    host.innerHTML = `<div class="card radar-setup"><div><b>Odkud obvykle létáš?</b><div class="muted" style="font-size:13px">${edit ? 'Radar ukazuje nejlevnější lety z okolí tohoto místa. Jiná hledání ho nemění.' : 'Nastav výchozí místo a radar ti tu bude ukazovat nejlevnější lety z okolí na příštích 6 týdnů.'}</div></div><div class="rs-where"><div class="place-input" id="radarFrom"></div><label class="rs-radius faint">+ letiště do <select id="radarRadius">${[...new Set([0, 50, 100, 150, 200, 300, 400, 500, rad])].sort((a, b) => a - b).map(k => `<option value="${k}"${k === rad ? ' selected' : ''}>${k ? k + ' km' : '0 km (jen tohle)'}</option>`).join('')}</select></label><label class="rs-radius faint">ceny pro <select id="radarAdults">${[1, 2, 3, 4, 5, 6].map(n => `<option value="${n}"${n === Math.min(6, radarAdults()) ? ' selected' : ''}>${n} ${n === 1 ? 'osobu' : n < 5 ? 'osoby' : 'osob'}</option>`).join('')}</select></label></div><div class="row" style="gap:8px"><button class="btn primary" id="radarGo">${edit ? 'Uložit' : 'Nastavit'}</button>${edit ? '<button class="btn ghost" id="radarCancel">Zrušit</button>' : ''}</div></div>`;
     const pi = new PlaceInput($('#radarFrom'), { origin: true, placeholder: 'Např. Brno, Praha, Vídeň…' });
     if (edit) pi.set(S.home.from, true);
     $('#radarGo').onclick = () => {
       if (!pi.items.length) return toast('Vyber místo ze seznamu', 'err');
-      S.home = { from: pi.items.slice(), radius: +$('#radarRadius').value }; save(); updateHomeChip();
+      S.home = { from: pi.items.slice(), radius: +$('#radarRadius').value, adults: +$('#radarAdults').value || 2 }; save(); updateHomeChip();
       if (fromInput && !fromInput.items.length) fromInput.set(pi.items);
       renderRadar(true); heroFrom && heroFrom.set(pi.items, true);
     };
@@ -2545,7 +2547,8 @@
     $$('[data-ri]', host).forEach(c => c.onclick = () => {
       const x = r.items[+c.dataset.ri];
       go('flights');
-      setForm({ ...defaultForm(), ...prefsOf(S.form), from: S.home.from, to: [{ id: x.id, label: x.label, flag: flag(x.cc) }], ...q.form, directOnly: false }); // jako radar – i lety s přestupem
+      // jako radar – i lety s přestupem a pro stejný počet lidí (stejná cena za osobu jako na kartě)
+      setForm({ ...defaultForm(), ...prefsOf(S.form), from: S.home.from, to: [{ id: x.id, label: x.label, flag: flag(x.cc) }], ...q.form, adults: q.payload.adults, directOnly: false });
       startSearch();
     });
   }
