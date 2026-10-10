@@ -215,13 +215,14 @@
   // Prodloužený víkend (karta radaru „Svátky“): v předvečer volna jen odlety od daného času. Platí, dokud je den
   // v rozsahu odletu, hledání není přesná data / víc měst a uživatel ho nevypnul.
   let depAfterVal = null;
+  // jen v termínu z karty (odlet v předvečer nebo první volný den) – roztažený termín („3 měsíce“) už je jiné hledání
+  const depAfterWin = d => Boolean(d) && $('#dFrom').value === d.date && $('#dTo').value >= d.date && $('#dTo').value <= addDays(d.date, 1)
+    && $('#tripType .on').dataset.v !== 'multi' && $('#dateMode .on').dataset.v !== 'exact';
   function depAfterOn() {
-    const d = depAfterVal;
-    if (!d || !$('#depAfterOn').checked || $('#tripType .on').dataset.v === 'multi' || $('#dateMode .on').dataset.v === 'exact') return false;
-    return d.date >= $('#dFrom').value && d.date <= $('#dTo').value;
+    return depAfterWin(depAfterVal) && $('#depAfterOn').checked;
   }
   function syncDepAfter() {
-    const d = depAfterVal, show = Boolean(d) && $('#tripType .on').dataset.v !== 'multi' && $('#dateMode .on').dataset.v !== 'exact' && d.date >= $('#dFrom').value && d.date <= $('#dTo').value;
+    const d = depAfterVal, show = depAfterWin(d);
     $('#depAfterLbl').hidden = !show;
     if (show) $('#depAfterTxt').textContent = `${DOW[new Date(d.date + 'T12:00:00Z').getUTCDay()]} ${fmtDate(d.date)} (předvečer volna) jen odlety od ${d.time}`;
   }
@@ -696,6 +697,9 @@
     S.form = f; if (!S.home || !S.home.from?.length) S.home = { from: f.from, radius: f.radius, adults: Math.min(6, Math.max(1, +f.adults || 2)) }; save(); updateHomeChip();
     collapseForm(f);
     const payload = payloadOf(f);
+    // karta zůstane i pro totéž hledání znovu (↻ Zkusit znovu po výpadku zdroje)
+    const pkey = JSON.stringify(payload);
+    fromCard = opts.card ? { x: opts.card, key: pkey } : fromCard && fromCard.key === pkey ? fromCard : null;
     // Kalendář cen zůstane jen u hledání do stejného cíle (nebo na vyžádání) – jiný cíl začne seznamem.
     if (view.mode === 'cal' && !opts.cal && JSON.stringify((lastPayload || {}).to || null) !== JSON.stringify(payload.to || null)) view.mode = 'list';
     lastPayload = payload; lastForm = f;
@@ -717,7 +721,7 @@
       renderResults();
       S.recent = SearchHelp.recentAdd(S.recent, { form: f, at: lastResultAt }, watchKey); save(); renderRecent();
       const at = lastResultAt;
-      setTimeout(() => saveLast({ at, form: f, payload, res }), 0); // velký zápis až po vykreslení
+      setTimeout(() => saveLast({ at, form: f, payload, res, card: fromCard && fromCard.key === JSON.stringify(payload) ? fromCard.x : null }), 0); // velký zápis až po vykreslení
       return res;
     } catch (e) {
       if (e.name === 'AbortError') return;
@@ -754,6 +758,7 @@
     try { c = SearchHelp.lastLoad(localStorage.getItem(LAST_LS), Date.now()); } catch (e) { }
     if (!c) return;
     lastResult = c.res; lastResultAt = c.at; lastPayload = c.payload; lastResultPayload = c.payload; lastForm = { ...defaultForm(), ...c.form }; restored = true;
+    fromCard = c.card && typeof c.card === 'object' ? { x: c.card, key: JSON.stringify(c.payload) } : null;
     fitMode(c.res);
     // sbalit jen když formulář je to hledání (jinak – rozdělané pozdější hledání – zůstane formulář vidět)
     if (watchKey({ form: getForm() }) === watchKey({ form: lastForm })) collapseForm(lastForm);
@@ -1668,7 +1673,21 @@
 
   /* ---------- výpadek Kiwi.com, aktivní filtry, chytrá nápověda ---------- */
   function kiwiBanner(res) {
-    return lowcostBanner(res) + kiwiOnly(res);
+    return lowcostBanner(res) + kiwiOnly(res) + cardNote(res);
+  }
+  // Hledání z karty radaru: nabídku z karty hledání do jednoho cíle nevrátilo a vše je dražší – proč, a odkaz na ni.
+  let fromCard = null;
+  function cardNote(res) {
+    const c = fromCard;
+    if (!c || res !== lastResult || JSON.stringify(lastResultPayload) !== c.key) return '';
+    const x = c.x, all = [...(res.top || []), ...(res.groups || []).flatMap(g => [g.best, ...(g.options || [])])].filter(Boolean);
+    // let z karty (stejná letiště a dny) ve výsledku je → nic; celkové ceny se srovnat nedají (proklik počítá zavazadla
+    // a dopravu podle formuláře, jiný let může mít levnější letenku a dražší cestu na letiště); prázdný výsledek = chybí
+    if (all.some(t => t.out && t.out.from === x.from && t.out.to === x.to && t.out.date === x.d1 && (!x.d2 || (t.back && t.back.date === x.d2)))) return '';
+    const buy = (Array.isArray(x.buy) ? x.buy : []).filter(b => Array.isArray(b) && /^https?:\/\//i.test(String(b[0] || '')));
+    const shop = p => (p === 'travelpayouts' ? 'na Aviasales' : 'u ' + shopName(p));
+    const links = buy.map(([u, p, leg]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${leg === 'out' ? 'Tam' : leg === 'back' ? 'Zpět' : 'Koupit nabídku z karty'} ${esc(shop(p))} ↗</a>`).join(' · ');
+    return `<div class="note info card-note">ℹ️ <div>Na kartě radaru bylo <b>${czk(x.czk)}/os.</b> (${esc(x.from)} → ${esc(x.to)} · ${fmtDate(x.d1)}${x.d2 ? '–' + fmtDate(x.d2) : ''}). Hledání do jednoho cíle tuhle nabídku teď nevrátilo – zdroje (hlavně Kiwi.com) dávají pro „kamkoliv“ a pro konkrétní cíl různé nabídky a ceny se mění.${links ? ` ${links}` : ''}</div></div>`;
   }
   /** Ryanair nebo Wizz Air neodpověděl: nejlevnější lety chybí a „nejlevněji“ může klamat – nahlas a se Zkusit znovu. */
   function lowcostBanner(res) {
@@ -2501,7 +2520,9 @@
       const res = await runSearch(q.payload, { onProgress: ev => radarProgress(ev, key) });
       PriceCheck.remember(res);
       // u svátků jen odlet první volný den nebo večer předem (SearchHelp.radarPick)
-      const at = Date.now(), items = SearchHelp.radarPick(res.groups, q.lw).map(({ g, t }) => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: t.perPersonCzk, from: t.out.from, to: t.out.to, d1: t.out.date, d2: t.back?.date, deal: t.deal.level, score: t.deal.score, prov: t.out.provider }));
+      const at = Date.now(), items = SearchHelp.radarPick(res.groups, q.lw).map(({ g, t }) => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: t.perPersonCzk, from: t.out.from, to: t.out.to, d1: t.out.date, d2: t.back?.date, deal: t.deal.level, score: t.deal.score, prov: t.out.provider,
+        // odkaz na nabídku z karty – hledání do jednoho cíle ji nemusí vrátit (Kiwi dává pro „kamkoliv“ jiné nabídky)
+        ...(t.bookUrl ? { buy: [[t.bookUrl, t.provider, 'all']] } : t.out.bookUrl || t.back?.bookUrl ? { buy: [...(t.out.bookUrl ? [[t.out.bookUrl, t.out.provider, 'out']] : []), ...(t.back?.bookUrl ? [[t.back.bookUrl, t.back.provider, 'back']] : [])] } : {}) }));
       // co se od minulého výsledku změnilo (↓ cena, nový cíl); s výpadkem zdroje bez značek
       const r = SearchHelp.radarEntry(S.radar && S.radar[q.mode], items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers) });
       // domov se mezitím změnil: starý dotaz už nic nepřepíše
@@ -2549,7 +2570,7 @@
       go('flights');
       // jako radar – i lety s přestupem a pro stejný počet lidí (stejná cena za osobu jako na kartě)
       setForm({ ...defaultForm(), ...prefsOf(S.form), from: S.home.from, to: [{ id: x.id, label: x.label, flag: flag(x.cc) }], ...q.form, adults: q.payload.adults, directOnly: false });
-      startSearch();
+      startSearch({ card: x });
     });
   }
 
