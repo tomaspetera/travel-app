@@ -908,6 +908,19 @@
     return { key, at, demo, items: radarDiff(base, items, key, at) };
   }
 
+  /* ---------- řazení „cena + délka cesty“ ---------- */
+  /**
+   * Délka letu v minutách pro řazení: známá (durationMin / odhad estMin), jinak opatrný odhad ze vzdálenosti – 750 km/h,
+   * půl hodiny navíc a u přestupu 4 h na každý (dálkové lety z cache bez délky tak nepředběhnou ty se známým přestupem).
+   */
+  function tripMinutes(l, km) {
+    const m = legMinutes(l);
+    if (m) return m;
+    return Math.round((Number(km) || 1000) / 750 * 60 + 30 + (l && l.stops ? l.stops * 240 : 0));
+  }
+  /** Klíč řazení: cena na osobu + 250 Kč za každou hodinu cesty tam i zpět (čas v letadle a na přestupech). */
+  const fastKey = (t, perHour = 250) => t.perPersonCzk + ((tripMinutes(t.out, t.distanceKm) + (t.back ? tripMinutes(t.back, t.distanceKm) : 0)) / 60) * perHour;
+
   /* ---------- stáří ověřených údajů ---------- */
   const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
   /**
@@ -972,6 +985,6 @@
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge,
+    lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
   };
 })();

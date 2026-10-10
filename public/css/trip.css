@@ -217,3 +217,18 @@ table.cost tr.tot td{font:800 17px Sora,sans-serif;border-bottom:none;padding-to
 table.cost tr.entry-fee td{font-size:13px;color:var(--muted)}
 table.cost tr.entry-fee td:last-child{color:var(--text)}
 table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
+/* telefon: všech 6 kroků na šířku – u ostatních jen ikona, název u aktuálního */
+@media(max-width:560px){
+  .stepbar{gap:4px;overflow:visible}
+  .stepbar i{min-width:4px}
+  .stepbar .st:not(.on){font-size:0;gap:0;padding:6px}
+  .stepbar .st:not(.on) span{font-size:12px}
+  .stepbar .st.on{padding:6px 10px 6px 6px}
+}
+@media(max-width:360px){
+  .stepbar{gap:2px}
+  .stepbar i{min-width:2px}
+  .stepbar .st:not(.on){padding:4px}
+  .stepbar .st span{width:22px;height:22px}
+  .stepbar .st.on{padding:4px 8px 4px 4px;gap:6px}
+}

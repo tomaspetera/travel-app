@@ -592,3 +592,16 @@ test('dataAge: stáří ověřeného údaje – čerstvé nic, od 3 měsíců �
   assert.match(H.arrivalSource(a, '2026-10-10'), /, ověřeno 7\. 10\. 2026\.$/);
   assert.match(H.arrivalSource(a, '2027-05-10'), /, ověřeno 7\. 10\. 2026 · před 7 měsíci – mohlo se změnit\.$/);
 });
+
+test('fastKey: cena + délka cesty – neznámá délka s přestupem se odhadne opatrně (4 h na přestup)', () => {
+  const l = (durationMin, stops = 0) => ({ durationMin, stops });
+  assert.equal(H.tripMinutes(l(600, 1), 9000), 600);
+  assert.equal(H.tripMinutes({ stops: 1 }, 9000), Math.round(9000 / 750 * 60 + 30 + 240));
+  assert.equal(H.tripMinutes({ stops: 0 }, 750), 90);
+  // dálkový let: levnější o 450 Kč, ale bez známé délky a s přestupem → za dražším se známými 14 h 40 min
+  const known = { perPersonCzk: 11871, distanceKm: 8500, out: l(880, 1), back: l(900, 1) };
+  const unknown = { perPersonCzk: 11419, distanceKm: 8500, out: { stops: 1 }, back: { stops: 1 } };
+  assert.ok(H.fastKey(known) < H.fastKey(unknown));
+  // jen tam
+  assert.equal(H.fastKey({ perPersonCzk: 1000, distanceKm: 500, out: l(120) }), 1000 + 2 * 250);
+});

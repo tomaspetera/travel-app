@@ -349,7 +349,7 @@
           <div class="muted" id="thSub">${headSub(t)}</div></div></div>
         <div class="th-total" id="thTotal">${headTotal(t)}</div>
       </div>
-      <div class="stepbar">${STEPS.map((s, i) => `<button type="button" class="st ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${i < idx ? '✓' : s[1]}</span>${s[2]}</button>`).join('<i></i>')}</div>
+      <div class="stepbar">${STEPS.map((s, i) => `<button type="button" class="st ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${i < idx ? '✓' : s[1]}</span>${s[2]}</button>`).join('<i></i>')}</div>
       <div id="tripStep"></div>`;
     $$('.stepbar [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step));
     if (t.step === 'flight') flightStep();

@@ -815,6 +815,7 @@
   function sortKey(t, g) {
     switch (view.sort) {
       case 'flight': return t.flightCzk;
+      case 'fast': return SearchHelp.fastKey(t);
       case 'deal': return -t.deal.score;
       case 'season': { const s = seasonOk(g?.dest.cc || '', t.out.date); const c = countryInfo(g?.dest.cc); return t.perPersonCzk * (s === true ? 0.65 : s === false ? 1.2 : 1) * (c && c.safety ? (1.25 - c.safety * 0.05) : 1); }
       case 'warm': return -(t.tempHi ?? -99);
@@ -968,7 +969,7 @@
       ${best ? ` · nejlevněji <b class="good">${czk(best.perPersonCzk)}</b>/os.` : ''}</div></div>
       <div class="res-tools">
         <select id="sortSel" title="Řazení">
-          ${[['total', `Nejlevnější celkem (vč. dopravy${BAG_LBL[res.query.bags] ? ' a zavazadel' : ''})`], ['flight', 'Nejlevnější letenka'], ['deal', 'Nejvýhodnější vůči běžné ceně'], ['season', 'Cena + ideální sezóna'], ['warm', 'Nejtepleji'], ['date', 'Nejdřívější odlet'], ['near', 'Nejblíž'], ['far', 'Nejdál']].map(o => `<option value="${o[0]}" ${view.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}
+          ${[['total', `Nejlevnější celkem (vč. dopravy${BAG_LBL[res.query.bags] ? ' a zavazadel' : ''})`], ['flight', 'Nejlevnější letenka'], ['fast', 'Cena + délka cesty'], ['deal', 'Nejvýhodnější vůči běžné ceně'], ['season', 'Cena + ideální sezóna'], ['warm', 'Nejtepleji'], ['date', 'Nejdřívější odlet'], ['near', 'Nejblíž'], ['far', 'Nejdál']].map(o => `<option value="${o[0]}" ${view.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}
         </select>
         <div class="seg" id="viewSeg">${modes.map(v => `<button type="button" data-v="${v[0]}" class="${view.mode === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div>
       </div></div>
@@ -2537,10 +2538,13 @@
     const { from, radius, exclude, to, trip, len, nMin, nMax, dFrom, dTo, outDays, backDays, dateMode, xOut, xBack, xFlex, legs, minTemp, maxPrice, ...rest } = singleTrip(f);
     return rest;
   }
-  function searchTo(items) {
+  function searchTo(items, { xOut = '', xBack = '' } = {}) {
     go('flights');
     const o = S.form && S.form.from?.length ? { from: S.form.from, radius: S.form.radius ?? 200, exclude: S.form.exclude || [] } : {};
-    const f = { ...defaultForm(), ...prefsOf(S.form), ...o, to: items }; // odkud jako minulé hledání
+    // termín cesty z plánovače (ještě před ní): přesná data, s návratem tam i zpět
+    const ex = /^\d{4}-\d{2}-\d{2}$/.test(xOut) && xOut >= today()
+      ? { dateMode: 'exact', xOut, xFlex: 0, ...(/^\d{4}-\d{2}-\d{2}$/.test(xBack) && xBack >= xOut ? { trip: 'return', xBack } : { trip: 'oneway' }) } : {};
+    const f = { ...defaultForm(), ...prefsOf(S.form), ...o, ...ex, to: items }; // odkud jako minulé hledání
     setForm(f);
     if (!f.from.length) { toast('Zadej, odkud letíš'); setTimeout(() => fromInput.input.focus(), 300); return; }
     startSearch();
