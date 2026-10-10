@@ -629,3 +629,13 @@ test('prodloužené víkendy: Velikonoce, české svátky, most přes út/čt, s
   assert.equal(H.radarQuery('holiday', home, '2026-11-12').payload.dateFrom, '2026-11-13');
   assert.equal(H.radarQuery('holiday', home, '2026-11-13').lw.start, '2026-12-24', 'méně než 2 dny předem → další');
 });
+
+test('longWeekends: nejbližší tři prodloužené víkendy na výběr; radar podle vybraného, neplatný výběr → nejbližší', () => {
+  const l = H.longWeekends('2026-10-12');
+  assert.deepEqual(plain(l.map((x) => [x.start, x.end])), [['2026-11-14', '2026-11-17'], ['2026-12-24', '2026-12-27'], ['2027-01-01', '2027-01-03']]);
+  const home = { from: [{ id: 'ap:BRQ', label: 'Brno' }], radius: 200 };
+  const q = H.radarQuery('holiday', home, '2026-10-10', '2026-12-24');
+  assert.deepEqual(plain([q.lw.start, q.payload.dateFrom, q.payload.dateTo, q.lw.all.length]), ['2026-12-24', '2026-12-23', '2026-12-24', 3]);
+  assert.equal(H.radarQuery('holiday', home, '2026-10-10', '2020-01-01').lw.start, '2026-11-14');
+  assert.equal(H.radarQuery('holiday', home, '2026-10-10', null).lw.start, '2026-11-14');
+});

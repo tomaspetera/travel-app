@@ -886,16 +886,30 @@
     }
     return null;
   }
+  /** Nejbližších n prodloužených víkendů od data from (do horizon dní) – na výběr v radaru. */
+  function longWeekends(from, n = 3, horizon = 200) {
+    const out = [], last = addDays(from, horizon);
+    for (let d = from; out.length < n && d <= last;) {
+      const lw = longWeekend(d, diffDays(d, last));
+      if (!lw) break;
+      out.push(lw);
+      d = addDays(lw.end, 1);
+    }
+    return out;
+  }
   /**
    * Radar v režimu mode ('all' | 'weekend', jiný → 'all') z domova home ({ from: [{ id, label }], radius }) ke dni today:
    * { mode, payload (hledání), form (formulář po kliknutí na kartu – stejné podmínky, ukáže všechny termíny), sub, empty }.
    */
-  function radarQuery(mode, home, today) {
+  function radarQuery(mode, home, today, pick = null) {
     const m = RADAR[mode] ? mode : 'all', radiusKm = home.radius ?? 200;
     let r = RADAR[m], dateFrom = addDays(today, 3), dateTo = addDays(today, 45), when = 'příštích 6 týdnů', lw = null;
     if (m === 'holiday') {
       // odlet večer před prvním volným dnem nebo ráno, návrat poslední volný den
-      lw = longWeekend(addDays(today, 2));
+      // vybraný víkend (pick = jeho začátek), jinak nejbližší
+      const lws = longWeekends(addDays(today, 2));
+      lw = lws.find(x => x.start === pick) || lws[0] || null;
+      if (lw) lw = { ...lw, all: lws };
       if (!lw) return { mode: m, none: true, sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · prodloužené víkendy`, empty: 'V příštích 5 měsících není prodloužený víkend kolem svátku – zkus Kdykoliv nebo Víkendy.' };
       dateFrom = [addDays(today, 1), addDays(lw.start, -1)].sort()[1]; dateTo = lw.start;
       // návrat jen poslední volný den (jinak by odlet ráno s nejvíc nocemi vracel až v pracovní den)
@@ -1040,7 +1054,7 @@
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    easter, czHolidays, longWeekend,
+    easter, czHolidays, longWeekend, longWeekends,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
   };
 })();

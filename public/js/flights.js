@@ -2348,7 +2348,7 @@
   function renderNews() {
     const el = $('#newsLine'); if (!el) return;
     // radar jen pro současný domov a režim (po změně domova by hlásil změny starého)
-    const q = S.home?.from?.length ? SearchHelp.radarQuery(S.radarMode, S.home, today()) : null;
+    const q = S.home?.from?.length ? SearchHelp.radarQuery(S.radarMode, S.home, today(), S.radarHoliday) : null;
     const r = q && !q.none && S.radar && S.radar[q.mode];
     const n = Alerts.news(S.watch, r && SearchHelp.radarSame(r.key, radarKey(q)) ? r : null, today());
     const parts = [
@@ -2415,7 +2415,7 @@
   async function renderRadar(force) {
     const host = $('#radar'), modes = $('#radarModes');
     if (!S.home || !S.home.from?.length) return radarSetup();
-    const q = SearchHelp.radarQuery(S.radarMode, S.home, today()), key = radarKey(q);
+    const q = SearchHelp.radarQuery(S.radarMode, S.home, today(), S.radarHoliday), key = radarKey(q);
     radarWant = key;
     modes.hidden = false;
     $$('button', modes).forEach(b => {
@@ -2423,6 +2423,11 @@
       b.onclick = () => { if (b.dataset.m !== q.mode) { S.radarMode = b.dataset.m; save(); renderRadar(); } };
     });
     $('#radarSub').innerHTML = `${esc(q.sub)} <button type="button" class="linkbtn" id="radarHome">změnit</button>`;
+    // Svátky: výběr z nejbližších prodloužených víkendů
+    const lwBox = $('#radarLw'), all = (q.lw && q.lw.all) || [];
+    lwBox.hidden = all.length < 2;
+    lwBox.innerHTML = all.length < 2 ? '' : all.map(x => `<button type="button" class="fchip ${x.start === q.lw.start ? 'on' : ''}" data-lw="${x.start}" title="${esc(x.name)}${x.bridge ? ' – s jedním dnem volna' : ''}">🎉 ${SearchHelp.dm(x.start)}–${SearchHelp.dm(x.end)} <small>${esc(x.name)}</small></button>`).join('');
+    $$('[data-lw]', lwBox).forEach(b => b.onclick = () => { if (b.dataset.lw !== q.lw.start) { S.radarHoliday = b.dataset.lw; save(); renderRadar(); } });
     $('#radarHome').onclick = () => radarSetup(true);
     $('#radarReload').onclick = () => renderRadar(true);
     if (q.none) { renderNews(); host.innerHTML = `<div class="note info">🗓️ <div>${esc(q.empty)}</div></div>`; return; }
@@ -2446,7 +2451,7 @@
   function radarSetup(edit = false) {
     const host = $('#radar');
     radarWant = null;
-    $('#radarModes').hidden = true;
+    $('#radarModes').hidden = true; $('#radarLw').hidden = true;
     $('#radarSub').textContent = '';
     const rad = +(S.home?.radius ?? 200);
     host.innerHTML = `<div class="card radar-setup"><div><b>Odkud obvykle létáš?</b><div class="muted" style="font-size:13px">${edit ? 'Radar ukazuje nejlevnější lety z okolí tohoto místa. Jiná hledání ho nemění.' : 'Nastav výchozí místo a radar ti tu bude ukazovat nejlevnější lety z okolí na příštích 6 týdnů.'}</div></div><div class="rs-where"><div class="place-input" id="radarFrom"></div><label class="rs-radius faint">+ letiště do <select id="radarRadius">${[...new Set([0, 50, 100, 150, 200, 300, 400, 500, rad])].sort((a, b) => a - b).map(k => `<option value="${k}"${k === rad ? ' selected' : ''}>${k ? k + ' km' : '0 km (jen tohle)'}</option>`).join('')}</select></label></div><div class="row" style="gap:8px"><button class="btn primary" id="radarGo">${edit ? 'Uložit' : 'Nastavit'}</button>${edit ? '<button class="btn ghost" id="radarCancel">Zrušit</button>' : ''}</div></div>`;
@@ -2469,7 +2474,7 @@
       // co se od minulého výsledku změnilo (↓ cena, nový cíl); s výpadkem zdroje bez značek
       const r = SearchHelp.radarEntry(S.radar && S.radar[q.mode], items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers) });
       // domov se mezitím změnil: starý dotaz už nic nepřepíše
-      if (!S.home?.from?.length || radarKey(SearchHelp.radarQuery(q.mode, S.home, today())) !== key) return r;
+      if (!S.home?.from?.length || radarKey(SearchHelp.radarQuery(q.mode, S.home, today(), S.radarHoliday)) !== key) return r;
       S.radar = { all: S.radar?.all, weekend: S.radar?.weekend, holiday: S.radar?.holiday, [q.mode]: r }; // každý režim zvlášť (dřívější tvar se zahodí)
       save();
       return r;
