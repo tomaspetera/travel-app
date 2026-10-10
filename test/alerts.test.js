@@ -272,7 +272,7 @@ test('texty: procenta, „před 2 h“, stav upozornění', () => {
 });
 
 /* fronta kontrol s falešným časem */
-function harness(list, { failIds = [], visible = () => true, sync } = {}) {
+function harness(list, { failIds = [], visible = () => true, sync, firstMax = 0 } = {}) {
   let now = NOW;
   const log = [];
   let running = 0, maxRunning = 0;
@@ -284,6 +284,7 @@ function harness(list, { failIds = [], visible = () => true, sync } = {}) {
     sleep: async (ms) => { now += ms; await tick(); },
     canRun: visible,
     sync,
+    firstMax,
     check: async (id) => {
       running++; maxRunning = Math.max(maxRunning, running);
       log.push(id);
@@ -367,4 +368,13 @@ test('news: řádek „Od minula“ – pod cílovou cenou, zlevněná od posled
   assert.deepEqual(plain(n.watch.map((x) => [x.id, x.d])), [['b', 500], ['a', 100]], 'c je pod cílem, d beze změny');
   assert.deepEqual([n.down, n.fresh], [1, 1]);
   assert.deepEqual(plain(A.news(null, null)), { hits: [], watch: [], down: 0, fresh: 0 });
+});
+
+test('scheduler: první cyklus po otevření zkontroluje všechna zastaralá (firstMax), další zase po 4', async () => {
+  const f = flex('2026-10-10', '2026-12-01');
+  const list = Array.from({ length: 10 }, (_, i) => ({ id: 'w' + i, form: f, checked: NOW - (20 + i) * H }));
+  const h = harness(list, { firstMax: 12 });
+  assert.equal(await h.sched.cycle(), 10);
+  list.forEach((w) => { w.checked = 0; });
+  assert.equal(await h.sched.cycle(), 4, 'další cyklus zase s limitem');
 });

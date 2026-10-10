@@ -218,10 +218,11 @@
   /**
    * Fronta kontrol: v jednu chvíli běží nejvýš jedna kontrola (ruční i automatická),
    * cyklus nikdy dvakrát najednou. check(id) běží uvnitř zámku a smí vyhodit chybu (zkusí se příští cyklus).
-   * sync() před kontrolou převezme výsledky z jiného panelu.
+   * sync() před kontrolou převezme výsledky z jiného panelu. firstMax = kolik hledání smí zkontrolovat první cyklus po
+   * otevření (aplikace bývá otevřená jen chvíli – s limitem 4 by se 12 hlídaných dostalo na řadu až za pár návštěv).
    */
-  function scheduler({ list, check, today, now = () => Date.now(), sleep, canRun = () => true, sync = () => { }, cfg = CFG }) {
-    let lock = Promise.resolve(), cycling = false, lastCycle = 0;
+  function scheduler({ list, check, today, now = () => Date.now(), sleep, canRun = () => true, sync = () => { }, cfg = CFG, firstMax = 0 }) {
+    let lock = Promise.resolve(), cycling = false, lastCycle = 0, cycles = 0;
     const exclusive = fn => { const p = lock.then(() => fn()); lock = p.catch(() => { }); return p; };
     async function ready() {
       for (let t = 0; !canRun(); t += cfg.waitMs) {
@@ -238,7 +239,8 @@
       try {
         if (!await ready()) return 0;
         lastCycle = now();
-        while (n < cfg.maxPerCycle) {
+        const max = cycles++ === 0 && firstMax > cfg.maxPerCycle ? firstMax : cfg.maxPerCycle;
+        while (n < max) {
           const w = dueWatches(list(), { now: now(), today: today(), max: 1, skip: tried, staleMs: cfg.staleMs })[0];
           if (!w) break;
           if (n && (await sleep(cfg.gapMs), !await ready())) break;

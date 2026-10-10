@@ -2164,6 +2164,7 @@
     today,
     sleep: ms => new Promise(r => setTimeout(r, ms)),
     canRun: () => !document.hidden && !busySearches,
+    firstMax: 12, // po otevření zkontrolovat všechna zastaralá hlídání (nejvýš 12 = limit uložených), pak po 4
   });
   const cardSel = id => `#watchList [data-w="${CSS.escape(id)}"]`;
   // Chrome na Androidu Notification má, ale ze stránky ho vytvořit nejde (jen přes service worker) → jako by ho neměl.
