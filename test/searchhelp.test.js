@@ -441,6 +441,11 @@ test('radarQuery: Kdykoliv jako dřív, Víkendy jen odlet Pá/So a návrat Ne/P
 
   // neznámý režim → Kdykoliv, domov bez okruhu → 200 km
   assert.equal(H.radarQuery('xyz', home, '2026-10-07').mode, 'all');
+  // cena za osobu pro počet cestujících z formuláře (proklik z karty hledá pro stejný počet)
+  assert.equal(H.radarQuery('all', home, '2026-10-07').payload.adults, 1);
+  assert.equal(H.radarQuery('weekend', { ...home, adults: 2 }, '2026-10-07').payload.adults, 2);
+  assert.equal(H.radarQuery('all', { ...home, adults: 'x' }, '2026-10-07').payload.adults, 1);
+  assert.equal(H.radarQuery('all', { ...home, adults: 50 }, '2026-10-07').payload.adults, 9);
   assert.equal(H.radarQuery(undefined, { from: [{ id: 'ap:PRG', label: 'Praha' }] }, '2026-10-07').payload.radiusKm, 200);
 });
 

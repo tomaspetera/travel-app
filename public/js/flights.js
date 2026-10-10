@@ -2374,7 +2374,7 @@
   function renderNews() {
     const el = $('#newsLine'); if (!el) return;
     // radar jen pro současný domov a režim (po změně domova by hlásil změny starého)
-    const q = S.home?.from?.length ? SearchHelp.radarQuery(S.radarMode, S.home, today(), S.radarHoliday) : null;
+    const q = S.home?.from?.length ? SearchHelp.radarQuery(S.radarMode, radarHome(), today(), S.radarHoliday) : null;
     const r = q && !q.none && S.radar && S.radar[q.mode];
     const n = Alerts.news(S.watch, r && SearchHelp.radarSame(r.key, radarKey(q)) ? r : null, today());
     const parts = [
@@ -2437,11 +2437,13 @@
   });
   // Klíč výsledku radaru: dotaz, u svátků i který prodloužený víkend (jiný svátek = jiné hledání, žádné „↓ od minula“)
   const radarKey = q => JSON.stringify(q.lw ? { ...q.payload, lw: q.lw.start } : q.payload || null);
+  // domov radaru + počet cestujících z formuláře (proklik z karty hledá pro stejný počet lidí → stejná cena za osobu)
+  const radarHome = () => ({ ...S.home, adults: (S.form && +S.form.adults) || defaultForm().adults });
   const radarModeKey = () => (['weekend', 'holiday'].includes(S.radarMode) ? S.radarMode : 'all');
   async function renderRadar(force) {
     const host = $('#radar'), modes = $('#radarModes');
     if (!S.home || !S.home.from?.length) return radarSetup();
-    const q = SearchHelp.radarQuery(S.radarMode, S.home, today(), S.radarHoliday), key = radarKey(q);
+    const q = SearchHelp.radarQuery(S.radarMode, radarHome(), today(), S.radarHoliday), key = radarKey(q);
     radarWant = key;
     modes.hidden = false;
     $$('button', modes).forEach(b => {
@@ -2501,7 +2503,7 @@
       // co se od minulého výsledku změnilo (↓ cena, nový cíl); s výpadkem zdroje bez značek
       const r = SearchHelp.radarEntry(S.radar && S.radar[q.mode], items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers) });
       // domov se mezitím změnil: starý dotaz už nic nepřepíše
-      if (!S.home?.from?.length || radarKey(SearchHelp.radarQuery(q.mode, S.home, today(), S.radarHoliday)) !== key) return r;
+      if (!S.home?.from?.length || radarKey(SearchHelp.radarQuery(q.mode, radarHome(), today(), S.radarHoliday)) !== key) return r;
       S.radar = { all: S.radar?.all, weekend: S.radar?.weekend, holiday: S.radar?.holiday, [q.mode]: r }; // každý režim zvlášť (dřívější tvar se zahodí)
       save();
       return r;
@@ -2534,7 +2536,7 @@
     const stale = !st ? '' : `<div class="faint radar-stale">${st.error ? `⚠️ Aktuální ceny se nepodařilo načíst (${esc(st.error)}) – ukazuji ceny z ${when}.` : `<span class="spin"></span> Ukazuji ceny z ${when}, hledám aktuální…<span class="rp"></span>`}</div>`;
     // 🔥 jen u 3 karet nejvýhodnějších vůči běžné ceně na tu vzdálenost – u 12 nejlevnějších cílů má „super cenu“ skoro každý
     const hot = new Set(r.items.map((x, i) => [x, i]).filter(([x]) => x.deal === 'super').sort((a, b) => (b[0].score || 0) - (a[0].score || 0)).slice(0, 3).map(([, i]) => i));
-    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu: zpáteční letenka + cesta na letiště a z letiště do města</div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${r.items.map((x, i) => `<div class="card radar-card ${hot.has(i) ? 'hot' : ''}" data-ri="${i}">
+    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: zpáteční letenka + cesta na letiště a z letiště do města</div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${r.items.map((x, i) => `<div class="card radar-card ${hot.has(i) ? 'hot' : ''}" data-ri="${i}">
       <div class="rc-top"><span class="rcf">${flag(x.cc)}</span><span class="rc-badges">${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>' : ''}</span></div>
       <div class="rc-city">${esc(x.label)}</div>
       <div class="rc-price">${czk(x.czk)}<small>/os.</small></div>
