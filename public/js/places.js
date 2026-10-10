@@ -24,6 +24,12 @@
     hike: { km: 10, scenery: 'mixed', hills: 'normal', variant: 0 }, hikeRoute: null };
   const TRIP_INTERESTS = [['towns', '🏘️ Města'], ['sights', '🏰 Památky'], ['culture', '🏛️ Poznávací'], ['nature', '🌲 Příroda'], ['spa', '♨️ Lázně'], ['kids', '🧒 S dětmi']];
   const MODES = [['city', '🏙️ Program ve městě'], ['day', '🎒 Jednodenní výlety'], ['loop', '🧭 Vícedenní okruh'], ['bike', '🚴 Na kole'], ['hike', '🥾 Pěšky']];
+  // Na telefonu přepínač režimů v jednom řádku: ikona nad krátkým názvem (celý název čte čtečka i nápověda).
+  const MODE_SHORT = { city: 'Město', day: 'Výlety', loop: 'Okruh', bike: 'Kolo', hike: 'Pěšky' };
+  const modeBtns = cur => MODES.map(([id, l]) => {
+    const [ico, ...rest] = l.split(' ');
+    return `<button type="button" data-mode="${id}" class="${cur === id ? 'on' : ''}" aria-label="${rest.join(' ')}"><span class="m-long">${l}</span><span class="m-short"><b>${ico}</b>${MODE_SHORT[id]}</span></button>`;
+  }).join('');
   const BIKE_KINDS = [['loop', '🔁 Okruh'], ['train', '🚆 Vlakem tam, na kole zpět']];
   const BIKE_TYPES = [['road', '🏎️ Silniční'], ['trekking', '🚲 Trek / město'], ['gravel', '🪨 Gravel'], ['mtb', '🚵 Horské']];
   const BIKE_SCENERY = [['city', '🏙️ Městem'], ['mixed', '🔀 Smíšeně'], ['nature', '🌲 Přírodou']];
@@ -1083,7 +1089,7 @@
       <div class="section-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) : '📍'} ${esc(p.label)} · ${placesTxt(cityN)} do ${ex.radius} km${tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2></div>
       <div class="ex-layout ex-main">
       <div class="card step-card ex-plan"><h3>🗓️ Naplánovat</h3>
-        <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${MODES.map(([id, l]) => `<button type="button" data-mode="${id}" class="${ex.mode === id ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${modeBtns(ex.mode)}</div>
         <div class="muted" style="font-size:13px;margin:-4px 0 10px">${ex.mode === 'city' ? 'Pěší program po památkách – každý den jiná část města.'
           : train ? `Vlakem z místa (${esc(p.label)}) na nádraží v dosahu zvolené délky jízdy a na kole zpátky: zvol délku, kolo a krajinu. Najdu nádraží, trasu domů a odkaz na spojení vlakem.`
           : bikeMode ? `Okruh na kole ze startu (${esc(p.label)}) a zpět: zvol délku, kolo a krajinu. Trasa vede hlavně po cyklostezkách a klidných cestách.`
@@ -1330,6 +1336,6 @@
     _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
-      afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm },
+      afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns },
   };
 })();

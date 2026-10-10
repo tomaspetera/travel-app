@@ -105,6 +105,7 @@ table.cost tr.tot td{font:800 17px Sora,sans-serif;border-bottom:none;padding-to
 .ex-main>details.ex-places{margin-top:0}
 details.more.ex-places>summary::before{content:none}
 .ex-places .ex-cats{margin-top:0}
+#exMode .m-short{display:none}
 .ex-head-more{font-size:13px;font-weight:600;color:var(--muted)}
 .ex-recent{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;font-size:12.5px}
 .ex-recent[hidden]{display:none}
@@ -145,6 +146,12 @@ details.more.ex-places>summary::before{content:none}
   /* kategorie v jednom posuvném řádku místo pěti; chyba se „Zkusit znovu“ pod textem */
   .ex-cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
   .ex-cats button{flex:none;white-space:nowrap}
+  /* přepínač režimů v jednom řádku: ikona nad krátkým názvem (místo čtyř řádků dlouhých názvů) */
+  #exMode{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%}
+  #exMode button{padding:6px 2px;font-size:11.5px}
+  #exMode .m-long{display:none}
+  #exMode .m-short{display:flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap}
+  #exMode .m-short b{font-size:17px;font-weight:400;line-height:1.25}
   .ex-err{flex-wrap:wrap}.ex-err .btn{width:100%}}
 .alt-flights{display:flex;flex-direction:column;gap:8px}
 .alt-f{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);font-size:13.5px}
