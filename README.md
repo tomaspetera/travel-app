@@ -848,8 +848,10 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 - **Kamkoliv**: Ryanair a Travelpayouts vrátí nejlevnější lety do všech destinací jedním dotazem na letiště.
   Wizz Air se prochází trasu po trase v rámci rozpočtu dotazů. Když Ryanair vrátí termín, který nesedí na zadaný
   počet nocí nebo dny v týdnu, ATLAS dohledá ceny po dnech a termín složí přesně.
-- **Konkrétní cíl**: pro každou dvojici letišť (domov × cíl) stáhne ceny po dnech oběma směry od všech aerolinek a
-  optimalizátor najde nejlevnější kombinace v rámci počtu nocí – včetně návratu na jiné letiště v okolí.
+- **Konkrétní cíl**: Ryanair a Wizz Air stáhnou ceny po dnech oběma směry pro každou dvojici letišť (domov × cíl), Kiwi
+  jedním dotazem na týden ze všech letišť v okolí na všechna cílová (bez Ryanairu a Wizz Air, ty jsou z vlastních zdrojů –
+  ve výsledcích Kiwi tak zbude místo pro easyJet, Vueling, Smartwings a další) a optimalizátor najde nejlevnější
+  kombinace v rámci počtu nocí – včetně návratu na jiné letiště v okolí.
 - **Doprava na letiště** je odhad (`server/lib/access.js`): veřejnou dopravou vlak/bus do města letiště + cesta na letiště
   + příplatek přes hranici, autem palivo nebo nabíjení (spotřeba × aktuální cena z `server/lib/fuel.js`) + parkování podle
   počtu nocí (přičítá optimalizátor k celé cestě) + známky – viz [Doprava na letiště](#doprava-na-letiště).
