@@ -170,6 +170,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 
         <div class="section-head"><h2>📡 Živý cenový radar <span class="faint" id="radarSub" style="font-size:13px;font-weight:600"></span></h2><span class="link" id="radarReload">Obnovit →</span></div>
         <div class="seg radar-modes" id="radarModes" role="group" aria-label="Termíny radaru" hidden><button type="button" data-m="all">🗓️ Kdykoliv</button><button type="button" data-m="weekend">🏙️ Víkendy</button><button type="button" data-m="holiday" title="Nejbližší prodloužený víkend kolem českého svátku">🎉 Svátky</button></div>
+        <div class="radar-lw" id="radarLw" hidden></div>
         <div id="radar"></div>
 
         <div class="section-head" id="watchHead" hidden><h2>🔔 Hlídané ceny</h2><span class="link" id="watchCheckAll">Zkontrolovat vše →</span></div>
@@ -309,6 +310,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
               </div>
               <div class="field" style="grid-column:1/-1"><label>Dny odletu <span class="lab-hint">nic = libovolný den</span></label>
                 <div class="dow" id="outDays"></div>
+                <label class="check-inline" id="depAfterLbl" hidden><input type="checkbox" id="depAfterOn" checked> <span id="depAfterTxt"></span></label>
               </div>
               <div class="field" style="grid-column:1/-1" id="backDaysField"><label>Dny návratu</label>
                 <div class="dow" id="backDays"></div>

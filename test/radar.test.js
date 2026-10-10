@@ -52,3 +52,29 @@ test('radar Kdykoliv: zpáteční 2–7 nocí', async () => {
   assert.ok(r.groups.length >= 12);
   for (const g of r.groups) assert.ok(g.best.nights >= 2 && g.best.nights <= 7, `${g.best.nights} nocí`);
 });
+
+test('radar Svátky: v předvečer jen odlety od 16:00 (server je vyřadí hned), návrat poslední volný den; proklik na cíl stejně', async () => {
+  const q = radarQuery('holiday', home, ymdPlus(0));
+  if (q.none) return; // v příštích měsících žádný prodloužený víkend (posunuté datum testů)
+  const { lw, payload } = q;
+  assert.equal(Boolean(payload.depAfter), payload.dateFrom < lw.start, 'předvečer jen když je v rozsahu');
+  if (payload.depAfter) assert.deepEqual({ ...payload.depAfter }, { date: payload.dateFrom, time: '16:00' });
+  assert.deepEqual(q.form.depAfter ? { ...q.form.depAfter } : null, payload.depAfter ? { ...payload.depAfter } : null, 'formulář po kliknutí na kartu nese totéž');
+  const ok = (t) => t.out.date >= lw.start || !t.out.hasTime || t.out.dep.slice(11, 16) >= '16:00';
+  const r = await search(payload);
+  assert.ok(r.groups.length > 0);
+  if (payload.depAfter) assert.deepEqual({ ...r.query.depAfter }, { ...payload.depAfter });
+  for (const g of r.groups) {
+    for (const t of [g.best, ...g.options]) {
+      assert.ok(ok(t), `${g.dest.label}: odlet ${t.out.dep} v pracovní den dopoledne`);
+      assert.equal(t.back.date, lw.end);
+    }
+  }
+  // proklik z karty: hledání ke konkrétnímu cíli se stejným pravidlem
+  const g = r.groups[0];
+  const rr = await search({ ...payload, to: [g.dest.id] });
+  const all = [...(rr.top || []), ...rr.groups.flatMap((x) => [x.best, ...x.options])];
+  assert.ok(all.length > 0);
+  for (const t of all) assert.ok(ok(t), `cíl ${g.dest.label}: odlet ${t.out.dep}`);
+  for (const d of (rr.calendar?.out || [])) assert.ok(d.date >= payload.dateFrom && d.date <= payload.dateTo);
+});

@@ -338,3 +338,11 @@ test('Ics.checkin: online check-in Ryanair / Wizz Air 24 h před odletem (i pře
   assert.equal(prop(ics, 'DTSTART'), '20261031T051500Z', '6:15 v Brně (CET) den předem');
   assert.match(unfold(ics), /zavírá 2 h před odletem/);
 });
+
+test('PlanShare: město cesty (place) projde odkazem jen s platným kódem letiště/metropole', () => {
+  const base = { name: 'Lisabon', dest: 'Lisabon', iso: 'PT', start: '2026-07-01', end: '2026-07-05', pax: '2', days: {}, checklist: [] };
+  const ok = PlanShare.sanitize({ ...base, place: { id: 'ap:LIS', label: 'Lisabon', flag: '<img>' } });
+  assert.deepEqual(JSON.parse(JSON.stringify(ok.place)), { id: 'ap:LIS', label: 'Lisabon' });
+  assert.equal(PlanShare.sanitize({ ...base, place: { id: 'javascript:x', label: 'x' } }).place, undefined);
+  assert.equal(PlanShare.sanitize(base).place, undefined);
+});

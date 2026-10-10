@@ -887,20 +887,73 @@
     return null;
   }
   /**
+   * Karty radaru ze skupin výsledku: nejlevnější nabídka cíle; u prodlouženého víkendu (lw) jen s odletem první volný
+   * den, nebo večer předem (od 16:00; let bez známého času se bere) – jinak by karta potřebovala další den volna.
+   * → [{ g, t }] (u svátků po ceně), nejvýš n.
+   */
+  function radarPick(groups, lw = null, n = 12) {
+    if (!lw) return (groups || []).filter(g => g && g.best).slice(0, n).map(g => ({ g, t: g.best }));
+    // server už ranní odlety v předvečer vyřadil (depAfter) – tady jen pojistka
+    const ok = t => t && t.out && (t.out.date >= lw.start || !t.out.hasTime || String(t.out.dep || '').slice(11, 16) >= LW_DEP);
+    const out = [];
+    for (const g of groups || []) {
+      const t = [g && g.best, ...((g && g.options) || [])].filter(ok).sort((a, b) => a.perPersonCzk - b.perPersonCzk)[0];
+      if (t) out.push({ g, t });
+    }
+    return out.sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk).slice(0, n);
+  }
+  // odlet v předvečer prodlouženého víkendu nejdřív v (po práci)
+  const LW_DEP = '16:00';
+  /**
+   * Plánovač: místo k názvu cíle („Lisabon“) z našeptávače (items z /api/places) – jen přesná shoda názvu. Metropole
+   * (Londýn, Barcelona) vyhrává nad stejnojmennými letišti jinde; jinak velká letiště (big), a jen když všechna leží
+   * v jedné zemi (Birmingham je v Anglii i v USA → nic). Víc zemí: rozhodne letiště aspoň 4× větší (size) než každé
+   * stejnojmenné jinde (Petrohrad LED × St. Petersburg na Floridě) – jen proti letištím, ne proti městům z geokódování.
+   * → položka našeptávače ({ id, cc, label, flag }) nebo null.
+   */
+  function placeGuess(items, name) {
+    const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const n = norm(name);
+    if (!n) return null;
+    const hits = (items || []).filter(s => s && s.cc && /^(ap|metro|geo):/.test(s.id || '') && norm(s.label) === n);
+    const metro = hits.find(s => /^metro:/.test(s.id)), big = hits.filter(s => s.big);
+    let pool = metro ? [metro] : big.length ? big : hits;
+    const top = hits.filter(s => /^ap:/.test(s.id)).sort((a, b) => (b.size || 0) - (a.size || 0))[0];
+    if (!metro && new Set(pool.map(s => s.cc)).size > 1 && top && hits.every(s => s.cc === top.cc || (/^ap:/.test(s.id) && (s.size || 0) * 4 <= top.size))) pool = [top];
+    if (!pool.length || new Set(pool.map(s => s.cc)).size !== 1) return null;
+    return metro || pool.find(s => /^ap:/.test(s.id)) || pool[0];
+  }
+  /** Nejbližších n prodloužených víkendů od data from (do horizon dní) – na výběr v radaru. */
+  function longWeekends(from, n = 3, horizon = 200) {
+    const out = [], last = addDays(from, horizon);
+    for (let d = from; out.length < n && d <= last;) {
+      const lw = longWeekend(d, diffDays(d, last));
+      if (!lw) break;
+      out.push(lw);
+      d = addDays(lw.end, 1);
+    }
+    return out;
+  }
+  /**
    * Radar v režimu mode ('all' | 'weekend', jiný → 'all') z domova home ({ from: [{ id, label }], radius }) ke dni today:
    * { mode, payload (hledání), form (formulář po kliknutí na kartu – stejné podmínky, ukáže všechny termíny), sub, empty }.
    */
-  function radarQuery(mode, home, today) {
+  function radarQuery(mode, home, today, pick = null) {
     const m = RADAR[mode] ? mode : 'all', radiusKm = home.radius ?? 200;
     let r = RADAR[m], dateFrom = addDays(today, 3), dateTo = addDays(today, 45), when = 'příštích 6 týdnů', lw = null;
     if (m === 'holiday') {
       // odlet večer před prvním volným dnem nebo ráno, návrat poslední volný den
-      lw = longWeekend(addDays(today, 2));
+      // vybraný víkend (pick = jeho začátek), jinak nejbližší
+      const lws = longWeekends(addDays(today, 2));
+      lw = lws.find(x => x.start === pick) || lws[0] || null;
+      if (lw) lw = { ...lw, all: lws };
       if (!lw) return { mode: m, none: true, sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · prodloužené víkendy`, empty: 'V příštích 5 měsících není prodloužený víkend kolem svátku – zkus Kdykoliv nebo Víkendy.' };
       dateFrom = [addDays(today, 1), addDays(lw.start, -1)].sort()[1]; dateTo = lw.start;
       // návrat jen poslední volný den (jinak by odlet ráno s nejvíc nocemi vracel až v pracovní den)
       const dow = d => new Date(d + 'T12:00:00Z').getUTCDay();
       r = { ...r, nMin: Math.max(1, lw.nights), nMax: diffDays(dateFrom, lw.end), out: [...new Set([dow(dateFrom), dow(dateTo)])], back: [dow(lw.end)] };
+      // v předvečer jen odlety po práci – server je vyřadí hned, i po kliknutí na kartu (stejné výsledky jako karta)
+      if (dateFrom < lw.start) r.depAfter = { date: dateFrom, time: LW_DEP };
       when = `prodloužený víkend ${dm(lw.start)}–${dm(lw.end)} (${lw.name}${lw.bridge ? `, s volnem ${dm(lw.bridge)}` : ''})`;
     }
     return {
@@ -908,10 +961,10 @@
       ...(lw ? { lw } : {}),
       payload: {
         from: home.from.map(x => x.id), radiusKm, to: [], dateFrom, dateTo, trip: 'return', nightsMin: r.nMin, nightsMax: r.nMax,
-        ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), adults: 1, kmRate: 1, groundMode: 'transit', arrival: true,
+        ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), ...(r.depAfter ? { depAfter: r.depAfter } : {}), adults: 1, kmRate: 1, groundMode: 'transit', arrival: true,
       },
       // formulář po kliknutí na kartu: tvar cesty z radaru, počet lidí a ostatní nastavení zůstanou uživatele
-      form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, len: 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
+      form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, ...(r.depAfter ? { depAfter: r.depAfter } : {}), len: 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
       sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · ${m === 'holiday' ? when : `${r.what} · ${when}`}`,
       empty: r.empty,
     };
@@ -973,8 +1026,11 @@
     if (m) return m;
     return Math.round((Number(km) || 1000) / 750 * 60 + 30 + (l && l.stops ? l.stops * 240 : 0));
   }
-  /** Klíč řazení: cena na osobu + 250 Kč za každou hodinu cesty tam i zpět (čas v letadle a na přestupech). */
-  const fastKey = (t, perHour = 250) => t.perPersonCzk + ((tripMinutes(t.out, t.distanceKm) + (t.back ? tripMinutes(t.back, t.distanceKm) : 0)) / 60) * perHour;
+  /**
+   * Klíč řazení: cena na osobu + 250 Kč za každou hodinu cesty tam i zpět (čas v letadle a na přestupech) i cesty
+   * na letiště a z něj domů (accessMin – cena té cesty už v ceně na osobu je, čas ne).
+   */
+  const fastKey = (t, perHour = 250, accessMin = 0) => t.perPersonCzk + ((tripMinutes(t.out, t.distanceKm) + (t.back ? tripMinutes(t.back, t.distanceKm) : 0) + (Number(accessMin) || 0)) / 60) * perHour;
 
   /* ---------- stáří ověřených údajů ---------- */
   const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
@@ -1040,7 +1096,7 @@
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    easter, czHolidays, longWeekend,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
   };
 })();

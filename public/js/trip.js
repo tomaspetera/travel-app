@@ -144,8 +144,9 @@
   /** Přechod hranice na přejezdu: s čím počítat (vstupní podmínky další země, jsou-li načtené) a odkaz na ně. */
   function borderNote(bd) {
     if (!bd || !/^[A-Z]{2}$/.test(bd.from || '') || !/^[A-Z]{2}$/.test(bd.to || '')) return '';
-    const k = window.Entry && Entry.ready() ? Entry.kind(Entry.get(bd.to)) : null, to = ccName(bd.to);
-    const need = !k ? 'kontrolou a vízem – ověř podmínky vstupu' : k.key === 'op' ? `kontrolou dokladů (${to}: ${k.label})` : k.need ? `kontrolou a vízem (${to}: ${k.label})` : `kontrolou pasu (${to}: ${k.label})`;
+    const r = window.Entry && Entry.ready() ? Entry.get(bd.to) : null, k = r ? Entry.kind(r) : null, to = ccName(bd.to);
+    // bezvízový režim s prošlým datem konce → jako neznámé podmínky
+    const need = !k || (!k.need && Entry.over && Entry.over(r)) ? 'kontrolou a vízem – ověř podmínky vstupu' : k.key === 'op' ? `kontrolou dokladů (${to}: ${k.label})` : k.need ? `kontrolou a vízem (${to}: ${k.label})` : `kontrolou pasu (${to}: ${k.label})`;
     return `<div class="rt-border">🛂 přechod hranice ${esc(ccName(bd.from))} → ${esc(to)} – počítej s ${esc(need)}${typeof openCountry === 'function' ? ` · <button type="button" class="linkbtn" data-entry="${esc(bd.to)}">podmínky vstupu ›</button>` : ''}</div>`;
   }
   const legUrl = (x, tr) => x && (tr === 'transit' ? x.transitUrl : x.carUrl);

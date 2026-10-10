@@ -105,7 +105,9 @@
       if (b > month + '-31') b = month + '-31';
     }
     const to = (q.to || []).slice().sort();
-    return hash(JSON.stringify([to, x ? [x.out, x.back, x.flex] : [a, b, q.nightsMin, q.nightsMax, q.outDays, q.backDays], q.trip, Boolean(q.directOnly), q.minTemp || 0]));
+    // prodloužený víkend „v předvečer jen od 16:00“ mění výsledky – jen když den padne do měsíce (jinak starý otisk)
+    const da = !x && q.depAfter && q.depAfter.date >= a && q.depAfter.date <= b ? [[q.depAfter.date, q.depAfter.time]] : [];
+    return hash(JSON.stringify([to, x ? [x.out, x.back, x.flex] : [a, b, q.nightsMin, q.nightsMax, q.outDays, q.backDays], q.trip, Boolean(q.directOnly), q.minTemp || 0, ...da]));
   }
   /**
    * Nejlevnější letenky výsledku podle trasy a měsíce (z priceStats.mins skupin, tj. ze všech nabídek hledání)
@@ -166,7 +168,8 @@
       // poslední pozorování téhož hledání (mezitím mohlo proběhnout jiné hledání téže trasy, třeba radar)
       const same = r.obs.filter(o => o[2] === scope);
       const prev = same[same.length - 1];
-      if (prev && now - prev[0] < CFG.mergeMs) prev[1] = czk;
+      // opakované hledání do 6 h přepíše cenu, ale nejnižší z nich si pozorování nechá (o[3])
+      if (prev && now - prev[0] < CFG.mergeMs) { prev[3] = Math.min(prev[3] ?? prev[1], czk); prev[1] = czk; }
       else r.obs.push([now, czk, scope]);
       r.obs = r.obs.slice(-CFG.maxObs);
       r.u = now;
@@ -183,7 +186,8 @@
     if (!r) return null;
     const obs = r.obs || [];
     const last = obs[obs.length - 1];
-    const sc = scope != null && obs.some(o => o[2] === scope) ? scope : last && last[2];
+    // zadané hledání, které paměť nemá (vypadlo, nebo se neuložilo) → žádný „trend stejného hledání“ z jiného
+    const sc = scope != null ? (obs.some(o => o[2] === scope) ? scope : null) : last && last[2];
     const same = obs.filter(o => o[2] === sc);
     const cur = same[same.length - 1];
     let trend = null;
@@ -193,10 +197,18 @@
       trend = { dir: pct <= -CFG.trendPct ? 'down' : pct >= CFG.trendPct ? 'up' : 'flat', pct, prev: prev[1], cur: cur[1], days: Math.max(0, Math.round((cur[0] - prev[0]) / DAY)) };
     }
     const days = x => Math.max(0, Math.floor((now - x) / DAY));
-    // nejlevnější z téhož hledání (stejné noci, dny v týdnu, termín) – s ním se dá letenka srovnat napřímo
-    const low = same.length ? same.reduce((m, o) => (o[1] < m[1] ? o : m)) : null;
+    // nejlevnější z téhož hledání (stejné noci, dny v týdnu, termín) – s ním se dá letenka srovnat napřímo;
+    // i nejnižší cena opakovaného hledání do 6 h (o[3])
+    const lowOf = o => Math.min(o[1], o[3] ?? o[1]);
+    const lowest = xs => (xs.length ? xs.reduce((m, o) => (lowOf(o) < lowOf(m) ? o : m)) : null);
+    const low = scope != null && sc === scope ? lowest(same) : null;
+    // levnější z jiného hledání téže trasy; nejnižší viděná cena, jejíž pozorování už vypadlo, je „dřív“ (hledání neznámé)
+    const oth = low ? lowest(obs.filter(o => o[2] !== sc)) : null;
+    const known = Math.min(low ? lowOf(low) : Infinity, oth ? lowOf(oth) : Infinity);
+    const other = !low ? null : r.min < known && r.min < lowOf(low) ? { czk: r.min, ago: days(r.at), kind: 'earlier' }
+      : oth && lowOf(oth) < lowOf(low) ? { czk: lowOf(oth), ago: days(oth[0]), kind: 'other' } : null;
     return { min: r.min, ago: days(r.at), sinceDays: days(r.since), n: obs.length, trend,
-      ...(low && scope != null && sc === scope ? { scopeMin: low[1], scopeAgo: days(low[0]) } : {}) };
+      ...(low ? { scopeMin: lowOf(low), scopeAgo: days(low[0]), other } : {}) };
   }
   function load(ls) {
     try { return clean(JSON.parse((ls || window.localStorage).getItem(STORE_KEY))); } catch (e) { return clean(null); }
@@ -254,13 +266,18 @@
     // trend hledání, ze kterého cesta je (query), když ho paměť má; jinak naposledy pozorovaného
     const mem = key && store ? memoryOf(store, key, now, query ? scopeOf(query, ym(t.out.date)) : null) : null;
     // S nejnižší cenou téhož hledání; levnější letenka z jiného hledání trasy (třeba na 2 noci místo týdne) jen zvlášť
-    // jako „otherMin“ – jinak by panel tvrdil „Super cena“ a hned pod tím „o 48 % dražší“.
+    // jako „otherMin“ – jinak by panel tvrdil „Super cena“ a hned pod tím „o 48 % dražší“. Z výsledků hledání (query)
+    // bez toho hledání v paměti se nesrovnává vůbec (jen „dřív viděl i…“); bez dotazu jako dřív s nejnižší viděnou.
     const scoped = Boolean(mem && mem.scopeMin);
+    const base = scoped ? mem.scopeMin : mem && !query ? mem.min : null;
     return {
       pl, stats, days, key, mem,
-      vsMem: mem ? Math.round((t.flightCzk / (scoped ? mem.scopeMin : mem.min) - 1) * 100) : null,
+      vsMem: base ? Math.round((t.flightCzk / base - 1) * 100) : null,
       scoped,
-      otherMin: scoped && mem.min < mem.scopeMin ? { czk: mem.min, ago: mem.ago } : null,
+      // „dřív viděl i…“ jen levnější než tahle letenka (jinak by „i“ naznačovalo levnější, i když byla dražší)
+      otherMin: scoped ? mem.other || null : mem && query && mem.min < t.flightCzk ? { czk: mem.min, ago: mem.ago, kind: 'earlier' } : null,
+      // hledání v paměti není, ale levnější letenku na trase ATLAS ještě neviděl
+      cheapestSeen: Boolean(mem && query && !scoped && t.flightCzk <= mem.min),
       advice: advice(pl.level, days),
     };
   }
