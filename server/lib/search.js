@@ -14,7 +14,7 @@ import { validTrip } from './fares.js';
 import { legBagEur } from './baggage.js';
 import { priceLevelOf, priceStats, refOf, referencePrice } from './pricelevel.js';
 import { MULTI, buildCombos, linkMatrix, mergeStatus, pairsPerLeg, pickOptions, runLimited } from './multi.js';
-import { arrivalOn, arrivalsFor, legArrivalCzk } from './arrival.js';
+import { arrivalCzk, arrivalOn, arrivalsFor, legArrivalCzk } from './arrival.js';
 
 export { referencePrice, refOf };
 import { attachGround } from './ground.js';
@@ -256,7 +256,17 @@ export async function search(raw, emit = () => {}, opts = {}) {
   // i nejbližších dnech. Letiště domova (odletová a přestupní, u cesty přes víc měst opts.arrivalHome) se nepočítají;
   // nastaví se, až budou známá přestupní letiště (lety se skládají až potom).
   let arrHome = new Set();
-  const arrOf = q.arrival ? (l) => legArrivalCzk(l, arrHome) : () => 0;
+  // Přestupní letiště v okolí (Berlín, Mnichov – odlety na dálkové lety) jsou „doma“ jen jako místo odletu: let z letiště
+  // v okruhu na ně (Brno → Berlín a zpět) má cíl tam, takže se u nich cesta do města počítá.
+  const arrOf = q.arrival ? (l) => {
+    if (l && !opts.arrivalHome && arrHome.has(l.from) && arrHome.has(l.to)) {
+      // oba konce přestupní letiště (Vídeň → Mnichov, je-li Mnichov i cílem hledání): rozhodne zadaný cíl
+      const dest = originSet.has(l.from) ? l.to : originSet.has(l.to) ? l.from
+        : destAirports.includes(l.to) ? l.to : destAirports.includes(l.from) ? l.from : null;
+      return dest && !originSet.has(dest) ? arrivalCzk(dest) : 0;
+    }
+    return legArrivalCzk(l, arrHome);
+  } : () => 0;
   const bagOf = q.bags !== 'none' ? (l) => legBagCzk(l, q.bags).czk : null;
   const constraints = {
     nightsMin: q.nightsMin, nightsMax: q.nightsMax, outDays: q.outDays, backDays: q.backDays,
@@ -740,7 +750,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
     ground,
     // Cesta z letiště příletu do města (a zpět na letiště) u letišť ve výsledcích – pro štítek u nabídek i bez volby
     // „v ceně“ (query.arrival); trip.arrCzk = kolik z ní je v ceně nabídky.
-    arrivals: arrivalsFor(flat, arrHome),
+    // štítky „z letiště do města“: přestupní letiště v okolí, které je cílem některé nabídky, má štítek taky
+    arrivals: arrivalsFor(flat, opts.arrivalHome ? arrHome : new Set([...arrHome].filter((i) => originSet.has(i) || !flat.some((t) => t.out.to === i || t.back?.from === i)))),
     groups,
     // V režimu konkrétního cíle i plochý žebříček nejlepších kombinací (data × letiště × aerolinky).
     top: routeMode ? topWithDays(flat, { exact: Boolean(q.exact) }) : null,
