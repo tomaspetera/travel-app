@@ -417,12 +417,13 @@
   async function fillWx(host) {
     const W = window.Weather;
     const slots = $$('[data-wx]', host).map(el => { const [lat, lon, date] = el.dataset.wx.split(','); return { el, key: el.dataset.wx, lat: +lat, lon: +lon, date, route: el.classList.contains('wx-day') }; });
-    if (!W || !slots.length) return;
+    if (!W || !slots.length) { fillSun(host); return; }
     // Odpověď patří jen svému místu: po překreslení (jiné místo, režim) už ve stránce není,
     // po změně data čeká na jiný den – starší předpověď se do něj nezapíše. Bez údajů se řádek u trasy schová.
     const put = (s, html) => { if (s.el.isConnected && s.el.dataset.wx === s.key) { s.el.innerHTML = html; s.el.hidden = !html; } };
     try {
       const ws = await W.forecast(slots); // jeden dotaz na všechny dny a místa plánu; null = mimo dosah / chyba
+      fillSun(host); // západ slunce z téže předpovědi (bez dalšího dotazu), dál výpočtem
       await Promise.all(slots.map(async (s, i) => {
         const w = ws[i];
         if (w) {
@@ -440,6 +441,34 @@
         } else put(s, '');
       }));
     } catch { /* bez počasí se plán obejde */ }
+  }
+
+  /* ---------- západ slunce: návrat po setmění (výlety, kolo, pěšky) ---------- */
+  const toMin = hhmm => { const m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || '')); return m ? +m[1] * 60 + +m[2] : null; };
+  const toHm = m => { const x = ((Math.round(m) % 1440) + 1440) % 1440; return `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
+  // Varovat, když je návrat později než 15 min před západem slunce (za šera už se špatně jede i jde).
+  const SUN_MARGIN = 15;
+  const afterDark = (ret, sunset) => { const r = toMin(ret), ss = toMin(sunset); return r != null && ss != null && r > ss - SUN_MARGIN; };
+  // Kolo a pěšky nemají čas startu: počítá se 9:00 (u „vlakem tam“ nejdřív vlak – ~60 km/h po trati, ta je ~1,3× delší
+  // než vzdušná čára, + 15 min na nádraží), pak čas v sedle / chůze a ~15 % na přestávky.
+  const ROUTE_START = 9 * 60;
+  function routeBack(r, center) {
+    const train = r.kind === 'train' && r.station ? 15 + Math.round(kmBetween([center.lon, center.lat], [r.station.lon, r.station.lat]) * 1.3) : 0;
+    const ride = Math.max(0, +r.minutes || 0);
+    return { train, back: ROUTE_START + train + ride + Math.round(ride * 0.15) };
+  }
+  // Místo pro varování (doplní fillSun, až bude znát západ slunce); bod = týž jako u počasí → předpověď z téhož dotazu.
+  const sunSlot = (pt, date, ret, note = '') => (window.Weather && pt && pt.lat != null && pt.lon != null && toMin(ret) != null
+    ? `<div class="sun-slot" data-sun="${esc(`${pt.lat},${pt.lon},${date},${ret}`)}"${note ? ` data-note="${esc(note)}"` : ''}></div>` : '');
+  const sunHtml = (sunset, note) => `<div class="note warn">🌇 <div>Návrat po setmění (západ slunce ${esc(sunset)}) – vyraz dřív nebo zkrať trasu.${note ? ` <span class="faint">${esc(note)}</span>` : ''}</div></div>`;
+  async function fillSun(host) {
+    const W = window.Weather;
+    const slots = $$('[data-sun]', host).map(el => { const [lat, lon, date, ret] = el.dataset.sun.split(','); return { el, key: el.dataset.sun, lat: +lat, lon: +lon, date, ret }; });
+    if (!W?.sunsets || !slots.length) return;
+    try {
+      const ss = await W.sunsets(slots);
+      slots.forEach((s, i) => { if (s.el.isConnected && s.el.dataset.sun === s.key) s.el.innerHTML = afterDark(s.ret, ss[i]) ? sunHtml(ss[i], s.el.dataset.note) : ''; });
+    } catch { /* bez západu slunce se plán obejde */ }
   }
 
   /* ---------- karty ---------- */
@@ -819,6 +848,7 @@
         ${d.stops.map((s, j) => tripStopHtml(s, j, transit, j === 0 ? from : stopQ(d.stops[j - 1], center), d.date, center)).join('')}
         ${d.back ? `<div class="dp-end">🏁 zpět na start (${esc(center.label)})${transit ? ` · odjezd ~${esc(d.back.depart)}` : ''} · příjezd ~${esc(d.back.arrive)} · ${legTxt(transit, d.back.km, d.back.min, lastQ, origin || center.label, `${dayLbl(d.date)} ~${d.back.depart}`)}</div>`
           : `<div class="dp-end">🛏️ přespání: <b>${esc(d.overnight.name)}</b> · <a href="${esc(safeUrl(d.overnight.bookUrl))}" target="_blank" rel="noopener">najít ubytování ↗</a></div>`}
+        ${d.back ? sunSlot(wxAt, d.date, d.back.arrive) : ''}
         <div class="faint" style="font-size:11.5px;margin-top:4px">${transit ? `na cestě ~${minTxt(d.travelMin)}` : `za volantem ~${minTxt(d.travelMin)} (${d.travelKm} km)`} · celkem ~${minTxt(d.minutes)}</div>
       </div>`;
     }).join('');
@@ -917,10 +947,12 @@
     ].join('');
     const title = hike ? `🥾 Pěšky z: ${esc(center.label)}` : train ? `🚆 Vlakem tam, 🚴 na kole zpět · ${esc(BIKE_LBL[r.bike] || '')}` : `🚴 Okruh z: ${esc(center.label)} · ${esc(BIKE_LBL[r.bike] || '')}`;
     const st = r.station;
+    const back = routeBack(r, center);
     const trainHtml = train ? `<div class="ride-train">🚆 Vlakem: <b>${esc(center.label)}</b> → <b>${esc(st.name)}</b> <span class="faint">(${Math.round(kmBetween([center.lon, center.lat], [st.lon, st.lat]))} km vzdušnou čarou)</span>
         <div>${r.train.idosUrl ? `${link(r.train.idosUrl, 'spojení na IDOS ↗')} · ` : ''}${link(r.train.googleUrl, 'spoje v Google Maps ↗')}</div></div>` : '';
     return `${head}<div class="day-plan"><h4><span>${title}</span></h4>
       ${wxSlot(train ? st : center, date, true)}
+      ${sunSlot(train ? st : center, date, toHm(back.back), `Počítám se startem v 9:00${back.train ? ` (vlakem ~${minTxt(back.train)})` : ''} a s přestávkami – zpět kolem ${toHm(back.back)}.`)}
       ${trainHtml}
       <div class="bike-stats">${train ? '<span>🚴 Na kole zpět:</span>' : ''}<b>${r.km} km</b><span>↗ ${r.ascent} m stoupání</span>${train ? `<span>↘ ${r.descent ?? r.ascent} m klesání</span>` : ''}<span>⏱️ ~${minTxt(r.minutes)} ${hike ? 'chůze' : 'v sedle'}</span></div>
       ${surfaceHtml(r)}
@@ -1155,6 +1187,8 @@
       wx.dataset.wx = wxKey({ lat, lon }, ex.start);
       wx.innerHTML = '';
       wx.hidden = false;
+      const sun = $('#exPlanOut [data-sun]', body);
+      if (sun) { const [a, b, , ret] = sun.dataset.sun.split(','); sun.dataset.sun = [a, b, ex.start, ret].join(','); sun.innerHTML = ''; }
       fillWx(wx.parentNode);
     });
     on('#exDays', 'onchange', e => { if (road) ex.tripDays[ex.mode] = +e.target.value; else ex.days = +e.target.value; remember(); });
@@ -1295,6 +1329,7 @@
     // jen pro testy (test/places-ui.test.js)
     _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
-      countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml },
+      countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
+      afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm },
   };
 })();

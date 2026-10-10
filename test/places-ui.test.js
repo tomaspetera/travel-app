@@ -361,3 +361,42 @@ test('povrch trasy: dva pruhy, každý přesně do 100 % (údaje serveru se pře
   assert.match(T.surfaceHtml(ROUTE()), /<span class="surf-bar"><i style="width:65%;background:#94a3b8"><\/i><i style="width:35%;background:#b45309"><\/i><\/span>/);
   assert.match(T.routeHtml(ROUTE(), BCN_C, '2026-10-12'), /class="surf"/);
 });
+
+test('návrat po setmění: výlet s návratem po západu slunce, kolo a pěšky podle délky (start 9:00)', async () => {
+  // 15 min před západem už varuje (za šera); čas bez údaje nic nehlásí
+  assert.deepEqual([['19:25', '19:19'], ['19:05', '19:19'], ['19:04', '19:19'], ['17:00', '19:19'], ['19:25', null], ['', '19:19']].map(([a, b]) => T.afterDark(a, b)),
+    [true, true, false, false, false, false]);
+  const bike = T.routeBack(ROUTE({ minutes: 150 }), BCN_C);
+  assert.deepEqual(plain(bike), { train: 0, back: 9 * 60 + 150 + 23 });
+  assert.equal(T.toHm(bike.back), '11:53');
+  // vlakem tam: Vic je ~60 km vzdušnou čarou → vlakem ~1 h 33 min (60 km/h po trati 1,3× delší, + 15 min)
+  const tr = T.routeBack(ROUTE({ kind: 'train', minutes: 240, station: { name: 'Vic', lat: 41.9301, lon: 2.2549 } }), BCN_C);
+  assert.ok(tr.train >= 85 && tr.train <= 100, String(tr.train));
+  assert.equal(tr.back, 540 + tr.train + 240 + 36);
+  assert.equal(T.sunSlot(BCN_C, '2026-10-12', '19:25'), '', 'bez weather.js nic');
+
+  // s weather.js: místo pro varování u trasy (týž bod jako počasí) a u jednodenního výletu s návratem
+  const sunsets = [];
+  const W = { sunsets: async (pts) => { sunsets.push(pts.map((p) => `${p.lat},${p.lon}@${p.date}`)); return pts.map(() => '19:19'); } };
+  const els = [];
+  const TW = load({ window: { Weather: W }, byIso: { ES: { cs: 'Španělsko' } }, $$: () => els }).window.Places._t;
+  const rh = TW.routeHtml(ROUTE({ minutes: 600 }), BCN_C, '2026-10-12');
+  const slot = rh.match(/<div class="sun-slot" data-sun="([^"]+)" data-note="([^"]+)"><\/div>/);
+  assert.ok(slot, 'trasa má místo pro varování');
+  assert.equal(slot[1], '41.3874,2.1686,2026-10-12,20:30', '10 h v sedle + 1,5 h přestávek');
+  assert.equal(slot[2], 'Počítám se startem v 9:00 a s přestávkami – zpět kolem 20:30.');
+  const trip = tripOf('day', 'car', [DAY('2026-10-12', { name: 'Barcelona', lat: 41.3874, lon: 2.1686 }, [STOP('Q190', 'Montserrat', 41.5933, 1.8375, { score: 70 })])]);
+  assert.match(TW.tripHtml(trip, BCN_C), /data-sun="41\.5933,1\.8375,2026-10-12,19:25"/);
+  const loop = tripOf('loop', 'car', [DAY('2026-10-12', { name: 'Barcelona', lat: 41.3874, lon: 2.1686 }, [STOP('Q13985', 'Vic', 41.9301, 2.2549)], null)]);
+  assert.ok(!TW.tripHtml(loop, BCN_C).includes('data-sun'), 'den s přespáním se nevrací');
+
+  // doplnění: varuje jen pozdní návrat; překreslené (odpojené) místo nechá být
+  const el = (sun, note = '', isConnected = true) => ({ dataset: { sun, note }, isConnected, innerHTML: 'x' });
+  els.push(el('41.39,2.17,2026-10-12,19:25'), el('41.39,2.17,2026-10-12,17:40'), el('41.39,2.17,2026-10-12,20:10', '', false), el('41.39,2.17,2026-10-12,19:30', 'Počítám se startem v 9:00.'));
+  await TW.fillSun({});
+  assert.equal(sunsets.length, 1, 'jeden dotaz na všechna místa');
+  assert.equal(els[0].innerHTML, '<div class="note warn">🌇 <div>Návrat po setmění (západ slunce 19:19) – vyraz dřív nebo zkrať trasu.</div></div>');
+  assert.equal(els[1].innerHTML, '');
+  assert.equal(els[2].innerHTML, 'x');
+  assert.match(els[3].innerHTML, /zkrať trasu\. <span class="faint">Počítám se startem v 9:00\.<\/span>/);
+});

@@ -9,9 +9,13 @@
   const daysAhead = (ymd, now = new Date()) => Math.round((Date.parse(`${ymd}T12:00:00Z`) - Date.parse(`${ymdOf(now)}T12:00:00Z`)) / 864e5);
   const inForecast = (ymd, now) => { const d = daysAhead(ymd, now); return d >= 0 && d <= AHEAD; };
   const key = (lat, lon) => `${(+lat).toFixed(2)},${(+lon).toFixed(2)}`;
+  // Západ slunce 'HH:MM' (místní čas) z odpovědí předpovědi: místo@den → čas; IANA zóna místa (Promise).
+  const suns = new Map();
+  const zones = new Map();
+  const sunKey = p => `${key(p.lat, p.lon)}@${p.date}`;
 
   /**
-   * points: [{ lat, lon, date }] → stejně dlouhé pole { date, code, hi, lo, pop, rain } nebo null
+   * points: [{ lat, lon, date }] → stejně dlouhé pole { date, code, hi, lo, pop, rain, sunset } nebo null
    * (mimo dosah předpovědi / chyba). Jeden dotaz na všechna místa najednou, výsledky v paměti 1 h.
    */
   async function forecast(points, { now = new Date(), fetchFn = root.fetch?.bind(root) } = {}) {
@@ -24,14 +28,20 @@
     if (!hit || hit.at < Date.now() - 36e5) {
       const qs = new URLSearchParams({
         latitude: locs.map(l => l.split(',')[0]).join(','), longitude: locs.map(l => l.split(',')[1]).join(','),
-        daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum',
+        daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunset',
         timezone: 'auto', start_date: dates[0], end_date: dates.at(-1),
       });
       const data = (async () => {
         const r = await fetchFn(`${API}?${qs}`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const j = await r.json();
-        return new Map((Array.isArray(j) ? j : [j]).map((x, i) => [locs[i], x.daily]));
+        const list = Array.isArray(j) ? j : [j];
+        // západ slunce (timezone=auto → místní čas „2026-10-10T19:19“) a zóna místa pro pozdější dny
+        list.forEach((x, i) => {
+          if (typeof x?.timezone === 'string' && !zones.has(locs[i])) zones.set(locs[i], Promise.resolve(x.timezone));
+          (x?.daily?.time || []).forEach((t, k) => { const ss = x.daily.sunset?.[k]; if (/T\d\d:\d\d/.test(ss)) suns.set(`${locs[i]}@${t}`, ss.slice(11, 16)); });
+        });
+        return new Map(list.map((x, i) => [locs[i], x?.daily]));
       })();
       hit = { at: Date.now(), data };
       cache.set(ck, hit);
@@ -45,8 +55,71 @@
       const i = d?.time?.indexOf(p.date) ?? -1;
       if (i < 0) return null;
       const n = (a) => (a && a[i] != null ? Math.round(a[i]) : null);
-      return { date: p.date, code: d.weather_code?.[i] ?? null, hi: n(d.temperature_2m_max), lo: n(d.temperature_2m_min), pop: n(d.precipitation_probability_max), rain: d.precipitation_sum?.[i] ?? null };
+      return { date: p.date, code: d.weather_code?.[i] ?? null, hi: n(d.temperature_2m_max), lo: n(d.temperature_2m_min), pop: n(d.precipitation_probability_max), rain: d.precipitation_sum?.[i] ?? null,
+        sunset: suns.get(sunKey(p)) || null };
     });
+  }
+
+  /**
+   * Západ slunce podle zjednodušených vzorců NOAA (GML, „General Solar Position Calculations“; přesnost ~1–2 min):
+   * minuty od půlnoci UTC daného dne, null = polární den / noc. Pro dny za hranou předpovědi.
+   */
+  function sunsetUtc(lat, lon, ymd) {
+    const [y, m, d] = String(ymd).split('-').map(Number);
+    if (!y || !m || !d || !Number.isFinite(+lat) || !Number.isFinite(+lon)) return null;
+    const doy = (Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 1)) / 864e5 + 1;
+    const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+    const g = ((2 * Math.PI) / (leap ? 366 : 365)) * (doy - 1 + 0.25); // zlomek roku kolem 18 h UTC
+    const eqTime = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+    const decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+    const r = Math.PI / 180;
+    const cosH = Math.cos(90.833 * r) / (Math.cos(lat * r) * Math.cos(decl)) - Math.tan(lat * r) * Math.tan(decl);
+    if (!(cosH >= -1 && cosH <= 1)) return null;
+    return 720 - 4 * (lon - Math.acos(cosH) / r) - eqTime;
+  }
+  // Posun zóny proti UTC v minutách v daném okamžiku (letní čas podle data); neznámá zóna → null.
+  const tzFmts = new Map();
+  function tzOffset(tz, ms) {
+    try {
+      if (!tzFmts.has(tz)) tzFmts.set(tz, new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }));
+      const p = Object.fromEntries(tzFmts.get(tz).formatToParts(new Date(ms)).map(x => [x.type, +x.value]));
+      const off = (Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute) - Math.floor(ms / 6e4) * 6e4) / 6e4;
+      return Number.isFinite(off) ? Math.round(off) : null;
+    } catch { return null; }
+  }
+  // Zóna místa: z odpovědi předpovědi, jinak jeden malý dotaz Open-Meteo (timezone=auto); chyba → příště znovu.
+  function zoneOf(lat, lon, fetchFn) {
+    const k = key(lat, lon);
+    if (!zones.has(k)) {
+      const [la, lo] = k.split(',');
+      const z = (async () => {
+        const r = await fetchFn(`${API}?${new URLSearchParams({ latitude: la, longitude: lo, daily: 'sunset', timezone: 'auto', forecast_days: '1' })}`);
+        if (!r.ok) return null;
+        const j = await r.json();
+        return typeof j?.timezone === 'string' ? j.timezone : null;
+      })().catch(() => null);
+      zones.set(k, z);
+      z.then(v => { if (!v) zones.delete(k); });
+    }
+    return zones.get(k);
+  }
+  const hm = m => { const x = ((Math.round(m) % 1440) + 1440) % 1440; return `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
+  /**
+   * Západ slunce (místní čas 'HH:MM') pro [{ lat, lon, date }]: v dosahu předpovědi z Open-Meteo (z téhož dotazu
+   * jako počasí, ten už bývá v paměti), dál výpočtem NOAA v zóně místa. null = nevím (polární den / noc, bez sítě).
+   */
+  async function sunsets(points, { now = new Date(), fetchFn = root.fetch?.bind(root) } = {}) {
+    const need = points.filter(p => p && !suns.has(sunKey(p)) && inForecast(p.date, now));
+    if (need.length && fetchFn) await forecast(need, { now, fetchFn });
+    return Promise.all(points.map(async p => {
+      if (!p) return null;
+      if (suns.has(sunKey(p))) return suns.get(sunKey(p));
+      const utc = sunsetUtc(p.lat, p.lon, p.date);
+      if (utc == null || !fetchFn) return null;
+      const tz = await zoneOf(p.lat, p.lon, fetchFn);
+      const off = tz ? tzOffset(tz, Date.parse(`${p.date}T00:00:00Z`) + utc * 6e4) : null;
+      return off == null ? null : hm(utc + off);
+    }));
   }
 
   /** Předpověď na víc dní pro jedno místo (výběr lepšího dne pro kolo / pěší trasu). */
@@ -85,5 +158,5 @@
     return { month: m, hi: c.hi[m], lo: c.lo?.[m], p: c.p?.[m], text: `Obvykle ${MNS_LOC[m]}: ${c.hi[m]}° / ${c.lo?.[m]}°, srážky ~${c.p?.[m]} mm za měsíc` };
   }
 
-  root.Weather = { forecast, days, rainy, bestDay, badge, normal, daysAhead, inForecast, dayName, AHEAD };
+  root.Weather = { forecast, days, rainy, bestDay, badge, normal, daysAhead, inForecast, dayName, AHEAD, sunsets, sunsetUtc, tzOffset };
 })(typeof window !== 'undefined' ? window : globalThis);
