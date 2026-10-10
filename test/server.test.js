@@ -645,7 +645,7 @@ test('Objevuj má vlastní limit: vyčerpaný → 429, hledání letů dál fung
         const q = decodeURIComponent(new URL(url).searchParams.get('query'));
         // okruh 20 km: navíc klášter za městem
         const more = q.includes('"20"') ? [wrow('Q5', 'Klášter', 41.52, 2.05, 70, 'Q44613')] : [];
-        return { body: { results: { bindings: q.includes('P757') || q.includes('VALUES ?t') ? [] : [...rows, ...more] } } };
+        return { body: { results: { bindings: q.includes('wikibase:around') ? [...rows, ...more] : [] } } };
       }
       if (url.includes('brouter')) return { body: geo };
       return { body: { query: { pages: [] } } };

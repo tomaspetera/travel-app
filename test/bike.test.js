@@ -372,6 +372,38 @@ test('vlakem tam: když délku nesplní žádné nádraží, „Jiné nádraží
   }
 });
 
+test('vlakem tam (Barcelona): nádraží pod místním názvem z jízdního řádu, jedno na město', async () => {
+  const { townOf } = await import('../server/lib/bike.js');
+  assert.equal(townOf('Estació de Granollers-Centre'), 'granollers');
+  assert.equal(townOf("Estació de Sant Sadurní d'Anoia"), 'sant sadurni d anoia');
+  assert.equal(townOf('Gare de Lyon-Perrache'), 'lyon');
+  assert.equal(townOf('Kutná Hora hlavní nádraží'), 'kutna hora');
+  const home = { lat: 41.3874, lon: 2.1686 };
+  const st = (id, en, ca, km, deg, sl) => {
+    const a = (deg * Math.PI) / 180;
+    return { s: { value: `http://www.wikidata.org/entity/${id}` }, sLabel: { value: en }, ...(ca ? { loc: { value: ca } } : {}),
+      coord: { value: `Point(${home.lon + (km * Math.sin(a)) / (111.2 * Math.cos((home.lat * Math.PI) / 180))} ${home.lat + (km * Math.cos(a)) / 111.2})` },
+      sl: { value: String(sl) }, cc: { value: 'ES' } };
+  };
+  const rows = [
+    st('Q1', 'Granollers Centre railway station', 'Estació de Granollers-Centre', 27, 30, 9),
+    st('Q2', 'Granollers-Canovelles station', 'Estació de Granollers-Canovelles', 28, 35, 6),
+    st('Q3', "Sant Sadurní d'Anoia station", "Estació de Sant Sadurní d'Anoia", 31, 280, 5),
+  ];
+  const stub = stubFetch((url) => (url.startsWith('https://query.wikidata.org/')
+    ? { body: { results: { bindings: rows } } }
+    : { body: brouter({ km: 41, coords: ring(home.lon, home.lat, 40) }) }));
+  try {
+    const r = await bikeFromStation({ ...home, km: 40, bike: 'trekking', label: 'Barcelona', cc: 'ES' });
+    assert.match(decodeURIComponent(stub.calls[0].url), /lang\(\?loc\) = "ca"/, 'katalánské názvy');
+    assert.equal(r.station.name, 'Estació de Granollers-Centre');
+    const r2 = await bikeFromStation({ ...home, km: 40, bike: 'trekking', variant: 1 });
+    assert.equal(r2.station.name, "Estació de Sant Sadurní d'Anoia", 'Granollers-Canovelles je stejné město');
+  } finally {
+    stub.restore();
+  }
+});
+
 test('DEMO: pěšky a vlakem tam bez sítě', () => {
   const h = mockHikeLoop({ lat: 50, lon: 14, km: 12, scenery: 'nature' });
   assert.equal(h.activity, 'hike');

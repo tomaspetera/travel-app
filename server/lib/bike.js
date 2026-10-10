@@ -5,7 +5,7 @@
 // Výsledek: délka, stoupání, odhad času, povrch, trasa (pro mapu a GPX) a odkazy do Mapy.com a Google Map.
 import { cache } from './cache.js';
 import { haversineKm, normalize } from './geo.js';
-import { wdqs } from './poi.js';
+import { wdqs, localLang } from './poi.js';
 import { BROUTER, brouterGet } from './brouter.js';
 
 // mapy = routeType v Mapy.com (silniční / horské kolo), pace = násobek času BRouteru (počítá ~100 W).
@@ -242,16 +242,19 @@ export async function hikeLoop(q) {
 
 // Nádraží v provozu – bez stavu užívání vyřazen z provozu, mimo provoz, zavřeno pro veřejnost, opuštěno, dočasně uzavřeno.
 const CLOSED = ['Q11639308', 'Q56651571', 'Q55570340', 'Q63065035', 'Q55653430'];
-function sparqlStations(lat, lon, km) {
+// Název nádraží: český, jinak místní (jak ho píše jízdní řád: „Estació de Granollers-Centre“), teprve pak anglický.
+function sparqlStations(lat, lon, km, lang = '') {
   const dLat = km / 111;
   const dLon = km / (111 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)));
   const f = (x) => x.toFixed(3);
-  return `SELECT ?s ?sLabel ?coord ?sl ?cc WHERE {
+  return `SELECT ?s ?sLabel ?coord ?sl ?cc ?csl${lang ? ' ?loc' : ''} WHERE {
   VALUES ?t { wd:Q55488 }
   ?s wdt:P31 ?t ; wdt:P625 ?coord ; wikibase:sitelinks ?sl .
   OPTIONAL { ?s wdt:P17 ?c . ?c wdt:P297 ?cc }
   FILTER(geof:latitude(?coord) > ${f(lat - dLat)} && geof:latitude(?coord) < ${f(lat + dLat)} && geof:longitude(?coord) > ${f(lon - dLon)} && geof:longitude(?coord) < ${f(lon + dLon)})
   FILTER NOT EXISTS { ?s wdt:P5817 ?closed . VALUES ?closed { ${CLOSED.map((x) => `wd:${x}`).join(' ')} } }
+  OPTIONAL { ?s rdfs:label ?csl FILTER(lang(?csl) = "cs") }${lang ? `
+  OPTIONAL { ?s rdfs:label ?loc FILTER(lang(?loc) = "${lang}") }` : ''}
   SERVICE wikibase:label { bd:serviceParam wikibase:language "cs,en". }
 } LIMIT 5000`;
 }
@@ -263,11 +266,11 @@ export async function stationsNear(lat, lon, km, onMiss) {
   const lo = Math.round(lon * 10) / 10;
   missing(`wdqs-stations:${la}:${lo}:${R}`, onMiss);
   return cache.wrap(`wdqs-stations:${la}:${lo}:${R}`,(v) => (v.length ? 30 * 864e5 : 3600e3), async () => {
-    const rows = await wdqs(sparqlStations(la, lo, R + 10), 45000);
+    const rows = await wdqs(sparqlStations(la, lo, R + 10, localLang(la, lo)), 45000);
     const by = new Map();
     for (const b of rows) {
       const id = String(b.s?.value || '').split('/').pop();
-      const name = b.sLabel?.value;
+      const name = b.csl?.value || b.loc?.value || b.sLabel?.value;
       const m = /Point\(([-\d.]+) ([-\d.]+)\)/.exec(b.coord?.value || '');
       if (!id || !name || /^Q\d+$/.test(name) || !m || by.has(id)) continue;
       by.set(id, { id, name, lat: Number(m[2]), lon: Number(m[1]), sitelinks: Number(b.sl?.value) || 0, cc: b.cc?.value || '' });
@@ -290,8 +293,10 @@ export function stationNearCached(lat, lon, km = 10) {
   return null;
 }
 
-// Město z názvu nádraží („Beroun-Závodí“, „Kutná Hora hlavní nádraží“ → beroun, kutna hora).
-const townOf = (name) => normalize(String(name).split(/\s*[-–(,]\s*/)[0])
+// Město z názvu nádraží („Beroun-Závodí“, „Kutná Hora hlavní nádraží“ → beroun, kutna hora; místní názvy
+// „Estació de Granollers-Centre“, „Gare de Lyon-Perrache“ → granollers, lyon).
+export const townOf = (name) => normalize(String(name).split(/\s*[-–(,]\s*/)[0])
+  .replace(/^(estacio|estacion|estacao|gare|stazione|stacja|station|bahnhof)( (de|del|d|di|do|da|of))? /, '')
   .replace(/\b(hlavni|horni|dolni|nadrazi|mesto|zastavka|predmesti|hbf|bahnhof|station|gare|stazione)\b/g, ' ').replace(/\s+/g, ' ').trim();
 
 /**

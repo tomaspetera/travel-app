@@ -494,7 +494,8 @@ async function route(req, res) {
     if (candidates.natureLoading && plan.note !== undefined && Array.isArray(b.interests) && b.interests.includes('nature')) {
       plan.note = ['Přírodní cíle se pro toto místo ještě načítají – za minutu naplánuj znovu, bude jich víc.', plan.note].filter(Boolean).join(' ');
     }
-    return sendJson(req, res, 200, { demo: config.mock, degraded: Boolean(candidates.degraded), candidates: candidates.length, ...plan });
+    // degraded = nenačetly se popisy z Wikipedie (aplikace to hlásí); neúplné cíle (příroda se ještě načítá) ne
+    return sendJson(req, res, 200, { demo: config.mock, degraded: Boolean(candidates.descFailed), candidates: candidates.length, ...plan });
   }
   if (p === '/api/stayplan' && req.method === 'POST') {
     // Pobyt na víc místech: návrh trasy (města z Wikidat), nebo jen přepočet přejezdů upravené trasy.
