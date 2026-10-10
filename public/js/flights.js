@@ -693,7 +693,7 @@
       if (f.trip === 'return' && (!f.xBack || f.xBack < f.xOut)) { toast('Návrat musí být stejný den nebo po odletu', 'err'); $('#xBack').focus(); return; }
     }
     // domov radaru („Odkud obvykle létáš“) jen poprvé – zkušební hledání z Mnichova ho nepřepíše (mění se v radaru)
-    S.form = f; if (!S.home || !S.home.from?.length) S.home = { from: f.from, radius: f.radius, adults: f.trip === 'multi' ? 2 : f.adults }; save(); updateHomeChip();
+    S.form = f; if (!S.home || !S.home.from?.length) S.home = { from: f.from, radius: f.radius, adults: Math.min(6, Math.max(1, +f.adults || 2)) }; save(); updateHomeChip();
     collapseForm(f);
     const payload = payloadOf(f);
     // Kalendář cen zůstane jen u hledání do stejného cíle (nebo na vyžádání) – jiný cíl začne seznamem.
@@ -2682,6 +2682,8 @@
   let healthReq = null;
   const warm = () => { if (!healthReq) { healthReq = api('api/health'); healthReq.catch(() => { }); } return healthReq; };
   async function init() {
+    // domov radaru z dřívější verze (bez počtu cestujících): jednou podle formuláře – sólo cestovatel zůstane u 1 os.
+    if (S.home?.from?.length && S.home.adults == null) { S.home.adults = Math.min(6, Math.max(1, Math.round(+S.form?.adults) || 2)); save(); }
     const useHealth = h => {
       health = h;
       for (const p of h.providers) PROV[p.id] = p;

@@ -22,11 +22,11 @@ function fakeKiwi(pairs) {
   };
 }
 
-test('cíl = přestupní letiště v okolí (Mnichov): cesta do města tam i zpět u všech letů, i z/do jiného přestupního letiště', async () => {
-  const pairs = [['PRG', 'MUC', 'PRG'], ['VIE', 'MUC', 'VIE'], ['BER', 'MUC', 'PRG'], ['PRG', 'BKK', 'PRG'], ['MUC', 'BKK', 'MUC']];
-  const r = await search({ from: ['ap:PRG'], radiusKm: 100, to: ['ap:MUC', 'ap:BKK'], dateFrom: ymdPlus(15), dateTo: ymdPlus(30), trip: 'return', nightsMin: 5, nightsMax: 9, arrival: true, kmRate: 1, groundMode: 'transit' },
-    () => {}, { providers: [fakeKiwi(pairs)] });
-  assert.ok(r.hubs.includes('MUC'), 'Mnichov je přestupní letiště v okolí: ' + r.hubs.join(','));
+test('cíl = přestupní letiště v okolí (Mnichov): cesta do města tam i zpět u cíle, z jiného přestupního letiště taky', async () => {
+  const pairs = [['PRG', 'MUC', 'PRG'], ['VIE', 'MUC', 'VIE'], ['BER', 'MUC', 'PRG'], ['PRG', 'BKK', 'PRG'], ['MUC', 'BKK', 'MUC'], ['VIE', 'BKK', 'VIE']];
+  const q = { from: ['ap:PRG'], radiusKm: 100, dateFrom: ymdPlus(15), dateTo: ymdPlus(30), trip: 'return', nightsMin: 5, nightsMax: 9, arrival: true, kmRate: 1, groundMode: 'transit' };
+  const r = await search({ ...q, to: ['ap:MUC', 'ap:BKK'] }, () => {}, { providers: [fakeKiwi(pairs)] });
+  assert.ok(r.hubs.length && !r.hubs.includes('MUC'), 'zadaný cíl není zároveň místem odletu: ' + r.hubs.join(','));
   const all = r.groups.flatMap((g) => [g.best, ...g.options]);
   const muc = arrivalCzk('MUC'), bkk = arrivalCzk('BKK');
   const of = (f, t, b) => all.find((x) => x.out.from === f && x.out.to === t && x.back.to === b);
@@ -35,6 +35,13 @@ test('cíl = přestupní letiště v okolí (Mnichov): cesta do města tam i zp�
     if (!x) continue;
     assert.equal(x.arrCzk, 2 * (t === 'MUC' ? muc : bkk), `${f}→${t}→${b}: cesta do města jen u cíle (tam i zpět)`);
   }
-  assert.ok(of('VIE', 'MUC', 'VIE') && of('MUC', 'BKK', 'MUC'), 'nabídky z přestupních letišť ve výsledku');
+  assert.ok(of('VIE', 'MUC', 'VIE') && of('BER', 'MUC', 'PRG') && of('VIE', 'BKK', 'VIE'), 'nabídky z přestupních letišť ve výsledku');
+  assert.ok(!of('MUC', 'BKK', 'MUC'), 'z Mnichova (cíl hledání) se neodlétá');
   assert.ok(r.arrivals.MUC && r.arrivals.BKK, 'štítky cesty do města');
+  // dva cíle, oba přestupní letiště v okolí: žádné lety mezi nimi s cestou do města na špatném konci
+  const r2 = await search({ ...q, to: ['ap:MUC', 'ap:VIE', 'ap:BKK'] }, () => {}, { providers: [fakeKiwi([...pairs, ['PRG', 'VIE', 'PRG'], ['MUC', 'VIE', 'MUC']])] });
+  assert.ok(!r2.hubs.includes('MUC') && !r2.hubs.includes('VIE'), r2.hubs.join(','));
+  const all2 = r2.groups.flatMap((g) => [g.best, ...g.options]);
+  for (const x of all2) assert.equal(x.arrCzk, 2 * arrivalCzk(x.out.to), `${x.out.from}→${x.out.to}→${x.back.to}`);
+  assert.ok(all2.some((x) => x.out.from === 'PRG' && x.out.to === 'VIE'));
 });

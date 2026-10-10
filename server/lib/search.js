@@ -260,9 +260,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
   // v okruhu na ně (Brno → Berlín a zpět) má cíl tam, takže se u nich cesta do města počítá.
   const arrOf = q.arrival ? (l) => {
     if (l && !opts.arrivalHome && arrHome.has(l.from) && arrHome.has(l.to)) {
-      // oba konce přestupní letiště (Vídeň → Mnichov, je-li Mnichov i cílem hledání): rozhodne zadaný cíl
-      const dest = originSet.has(l.from) ? l.to : originSet.has(l.to) ? l.from
-        : destAirports.includes(l.to) ? l.to : destAirports.includes(l.from) ? l.from : null;
+      const dest = originSet.has(l.from) ? l.to : originSet.has(l.to) ? l.from : null;
       return dest && !originSet.has(dest) ? arrivalCzk(dest) : 0;
     }
     return legArrivalCzk(l, arrHome);
@@ -313,7 +311,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
   // letišť v okolí (Vídeň, Mnichov, Berlín…), odkud bývá let i s cestou na letiště levnější.
   const farDest = routeMode ? destAirports.some((d) => farAirport(home, d))
     : countries ? [...countries].some((cc) => farCountry(home, cc)) : true;
-  const hubs = farDest && opts.hubs !== false ? hubsNear(home, originSet, { access, exclude: q.exclude }) : [];
+  // zadaný cíl hledání (Mnichov) není zároveň místem odletu – cesta do města se u něj pak počítá jednoznačně
+  const hubs = farDest && opts.hubs !== false ? hubsNear(home, new Set([...originSet, ...destAirports]), { access, exclude: q.exclude }) : [];
   const allOrigins = new Set([...originSet, ...hubs.map((h) => h.iata)]);
   arrHome = opts.arrivalHome ? new Set(opts.arrivalHome) : allOrigins;
   hubs.forEach(setGround);
