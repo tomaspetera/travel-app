@@ -16,7 +16,10 @@ const WINDOW_DAYS = 30;
 // Paměť tras: ceny po dnech z dřívějších dotazů. Do FARE_TTL čerstvé (i přesné hledání), do MEMORY_TTL je smí
 // „kamkoliv“ ukázat se stářím – tak se rozpočet dotazů na hledání může posunout na trasy, které ještě nikdo nehledal.
 export const MEMORY_TTL = 6 * 3600e3;
-const MEMORY_ROUTES = 300; // směr trasy × počet cestujících; nejdéle nepoužité pryč (~10–15 MB nejvýš)
+// Směr trasy × počet cestujících; nejdéle nepoužité pryč. Musí se vejít celé „kamkoliv“ z velké základny (BUD, WAW:
+// 150+ tras × 2 směry), jinak si hledání samo vytlačuje paměť a dotazuje se znovu nad rozpočet. Dny se ukládají
+// zhuštěně (jen pole pro parseTimetable), ~150 B na den → 2 000 směrů × 60 dní ≈ 18 MB nejvýš.
+const MEMORY_ROUTES = 2000;
 const memory = new Map(); // `${from}|${to}|${adults}` → { spans: [{ a, b, at }], days: Map<ymd, { at, f }> }
 // Wizz po každé odpovědi mění ověřovací token (cookie RequestVerificationToken) a souběžné dotazy
 // se starým tokenem odmítá (HTTP 400 InvalidProtocol). Proto 3 nezávislé relace, v každé dotazy
@@ -174,16 +177,26 @@ export function missingWindows(spans, a, b, minAt) {
   return out;
 }
 
+/** Den z odpovědi Wizz Air jen s tím, co čte parseTimetable (odpověď má na den desítky polí navíc). */
+const compactDay = (f) => ({
+  departureStation: f.departureStation, arrivalStation: f.arrivalStation, departureDate: f.departureDate, priceType: f.priceType,
+  price: f.price ? { amount: f.price.amount, currencyCode: f.price.currencyCode } : null,
+  departureDates: departureList(f).map((d) => ({ date: d.date, ...(d.isCheapestOfTheDay ? { isCheapestOfTheDay: true } : {}) })),
+});
+
 function remember(m, a, b, list, at) {
   for (let d = a; d <= b; d = addDays(d, 1)) m.days.delete(d); // vyprodané / zrušené dny nesmí zůstat se starou cenou
   for (const f of list || []) {
     const d = String(f.departureDate || '').slice(0, 10);
-    if (d >= a && d <= b) m.days.set(d, { at, f });
+    if (d >= a && d <= b) m.days.set(d, { at, f: compactDay(f) });
   }
   m.spans.push({ a, b, at });
 }
 
-/** Stav trasy v paměti: calls = dotazů k čerstvým cenám, usable = celé období v paměti (≤ 6 h), at = nejstarší použitá data. */
+/**
+ * Stav trasy v paměti: calls = dotazů k čerstvým cenám, usable = celé období v paměti (≤ 6 h), at = nejstarší použitá
+ * data, empty = celé období v paměti a žádný den s cenou (sezónní trasa mimo sezónu) – zpáteční směr pak není potřeba.
+ */
 function routeState({ from, to, dateFrom, dateTo, adults = 1 }, now = Date.now()) {
   const m = memOf(`${from}|${to}|${adults}`, false);
   const spans = m ? m.spans : [];
@@ -196,11 +209,14 @@ function routeState({ from, to, dateFrom, dateTo, adults = 1 }, now = Date.now()
       if (at == null || best < at) at = best;
     }
   }
-  return { calls, usable, at };
+  const empty = usable && ![...m.days].some(([d, x]) => d >= dateFrom && d <= dateTo && parseTimetable([x.f]).length);
+  return { calls, usable, at, empty };
 }
 
 async function timetable(from, to, dateFrom, dateTo, adults, { maxAgeMs = FARE_TTL, memoryOnly = false } = {}) {
-  const m = memOf(`${from}|${to}|${adults}`, true);
+  // jen z paměti: nic nezakládat ani nevytlačovat (hledání by si jinak samo mazalo trasy, které má v plánu)
+  const m = memOf(`${from}|${to}|${adults}`, !memoryOnly);
+  if (!m) return [];
   const now = Date.now();
   prune(m, now);
   if (!memoryOnly) {

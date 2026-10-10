@@ -237,7 +237,8 @@ export function routesNote({ total, live, memory, skipped, oldestMin, blocked = 
 export function planRoutes(p, routes, { q, backFrom, backTo, ret, budget, now = Date.now() }) {
   const rs = routes.map((r, i) => {
     const out = p.routeState({ from: r.o, to: r.d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults }, now);
-    const back = ret ? p.routeState({ from: r.d, to: r.o, dateFrom: backFrom, dateTo: backTo, adults: q.adults }, now) : { calls: 0, usable: true, at: now };
+    // trasa bez jediného letu tam (v paměti) zpáteční směr nepotřebuje – jinak by ho rezervovala navždy a nikdy nevyčerpala
+    const back = ret && !out.empty ? p.routeState({ from: r.d, to: r.o, dateFrom: backFrom, dateTo: backTo, adults: q.adults }, now) : { calls: 0, usable: true, at: out.at ?? now };
     return { ...r, i, calls: out.calls + back.calls, usable: out.usable && back.usable, at: Math.min(out.at ?? now, back.at ?? now) };
   });
   let left = budget;
@@ -611,9 +612,12 @@ export async function search(raw, emit = () => {}, opts = {}) {
 
   // Ceny po dnech pro jednu trasu → nejlepší cesty (bez open-jaw).
   async function routeTrips(p, o, d, { perPair, memoryOnly = false }) {
-    const out = (await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults, directOnly: q.directOnly, memoryOnly })).filter((l) => warmLeg(l) && depOk(l));
+    const all = await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults, directOnly: q.directOnly, memoryOnly });
+    const out = all.filter((l) => warmLeg(l) && depOk(l));
     if (!ret) return bestOneWays(out, groundOf, { ...constraints, perDestLimit: perPair, limit: perPair });
-    if (!out.length) return [];
+    // Lety tam jsou, jen je filtr vyřadil (za teplem, odlet v předvečer od 16:00): zpáteční směr, se kterým plán trasy
+    // počítal, se stejně načte – jinak by trasa zůstala navždy „nehledaná“ a brala rozpočet každému hledání.
+    if (!out.length && !(all.length && p.routeState && !memoryOnly)) return [];
     const back = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, adults: q.adults, directOnly: q.directOnly, memoryOnly });
     return bestRoundTrips(out, back, groundOf, { ...constraints, openJawHome: false, openJawDest: false, perDestLimit: perPair, limit: perPair });
   }

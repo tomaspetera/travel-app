@@ -305,6 +305,10 @@ test('planRoutes: čerstvé trasy zdarma, rozpočet na trasy bez dat a pak nejst
   // rozpočet 0 (blokace): jen čerstvé a z paměti
   p = planRoutes(mk(st), routes, { q, backFrom: '2026-11-04', backTo: '2026-12-05', ret: true, budget: 0, now: NOW });
   assert.deepEqual(p.list.map((r) => r.mode), ['live', 'live', 'memory', 'memory']);
+  // trasa bez letů tam (v paměti, empty): zpáteční směr se nerezervuje – nestojí nic a nepředbíhá nehledané trasy
+  const emptyOut = { 'BTS-D0': { calls: 0, usable: true, at: NOW - 600e3, empty: true } };
+  p = planRoutes(mk(emptyOut), routes.slice(0, 2), { q, backFrom: '2026-11-04', backTo: '2026-12-05', ret: true, budget: 4, now: NOW });
+  assert.deepEqual(p.list.map((r) => [r.d, r.mode, r.calls]), [['D0', 'live', 0], ['D1', 'live', 4]]);
 });
 
 test('outageOf: Wizz Air po 429 (vlastní blokace bez ctx) = blocked s odpočtem, jiná chyba = down', async () => {

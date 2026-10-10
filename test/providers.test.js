@@ -444,6 +444,16 @@ test('Wizz Air: paměť tras – stejné dny bez dotazu, překryv jen chybějíc
     // po 7 h nic z paměti
     Date.now = () => realNow() + 9 * 3600e3;
     assert.deepEqual(wizzair.routeState({ from: 'BTS', to: 'LTN', dateFrom: a, dateTo: b }).usable, false);
+    Date.now = realNow;
+    // jen z paměti: neznámá trasa se nezakládá (hledání si nevytlačí trasy, které má v plánu)
+    assert.deepEqual(await wizzair.daily({ from: 'BTS', to: 'XXX', dateFrom: a, dateTo: b, memoryOnly: true }), []);
+    assert.equal(wizzair.routeState({ from: 'BTS', to: 'XXX', dateFrom: a, dateTo: b }).calls, 2);
+    // trasa bez jediného letu v období (sezónní): empty – zpáteční směr plán nepotřebuje
+    seen.soldOut = new Set(Array.from({ length: 40 }, (_, i) => ymdPlus(100 + i)));
+    await wizzair.daily({ from: 'BTS', to: 'TFS', dateFrom: ymdPlus(105), dateTo: ymdPlus(115) });
+    const emp = wizzair.routeState({ from: 'BTS', to: 'TFS', dateFrom: ymdPlus(105), dateTo: ymdPlus(115) });
+    assert.deepEqual([emp.calls, emp.usable, emp.empty], [0, true, true]);
+    assert.equal(wizzair.routeState({ from: 'BTS', to: 'LTN', dateFrom: ymdPlus(41), dateTo: ymdPlus(76) }).empty, false);
   } finally {
     Date.now = realNow;
     stub.restore();
