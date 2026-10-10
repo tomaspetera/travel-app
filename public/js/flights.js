@@ -494,11 +494,16 @@
   }
   /* Délka pobytu → 🎉 Svátky: termín prodlouženého víkendu jako karta radaru (SearchHelp.holidayDates) */
   let lwPick = null; // začátek víkendu vybraného ve formuláři (výchozí při dalším klepnutí na 🎉 Svátky)
+  let preHoliday = null; // termín před 🎉 Svátky – jiná předvolba délky ho vrátí (Svátky jako jediná mění data)
+  const holidayOn = () => $('#lenPreset .on')?.dataset.v === 'holiday';
+  /** Ruční změna data ve Svátcích: dny odletu a návratu patřily svátku – pryč s nimi. */
+  function leaveHolidayDays() { if (holidayOn()) $$('#outDays button, #backDays button').forEach(x => x.classList.remove('on')); }
   function applyHoliday(start) {
     const list = SearchHelp.holidayList(today());
     const lw = list.find(x => x.start === start) || list.find(x => x.start === lwPick) || list.find(x => x.start === S.radarHoliday) || list[0];
     if (!lw) { toast('V příštích 5 měsících není prodloužený víkend kolem svátku'); return applyPreset('custom'); }
     const h = SearchHelp.holidayDates(lw, today());
+    if (!holidayOn()) preHoliday = { dFrom: $('#dFrom').value, dTo: $('#dTo').value };
     lwPick = lw.start;
     $$('#lenPreset button').forEach(b => b.classList.toggle('on', b.dataset.v === 'holiday'));
     $('#nMin').value = h.nMin; $('#nMax').value = h.nMax; $('#dFrom').value = h.dFrom; $('#dTo').value = h.dTo;
@@ -515,10 +520,10 @@
     const vis = on && $('#lenField').style.display !== 'none';
     const cur = vis ? SearchHelp.holidayOf({ dFrom: $('#dFrom').value, dTo: $('#dTo').value }, today()) : null;
     if (vis && !cur) {
-      // termín už není víkend se svátkem (jiné datum, „2 týdny“, víkend minul): Vlastní, bez dnů odletu a návratu svátku
+      // termín už není víkend se svátkem (jiné datum, víkend minul): Vlastní. Dny odletu a návratu zůstanou – uložené
+      // hledání (Nedávno, start aplikace) se tak zopakuje přesně; při ruční změně data je smaže leaveHolidayDays.
       on = false;
       $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom'));
-      $$('#outDays button, #backDays button').forEach(x => x.classList.remove('on'));
     }
     box.hidden = hint.hidden = !(vis && cur);
     if (box.hidden) return;
@@ -529,6 +534,12 @@
   }
   function applyPreset(k) {
     if (k === 'holiday') return applyHoliday();
+    if (holidayOn()) {
+      // ze Svátků jinam: zpět původní termín (nebo výchozí), bez dvoudenního okna a pravidla „odlet od 16:00“
+      const r = preHoliday && preHoliday.dTo >= today() ? preHoliday : { dFrom: addDays(today(), 7), dTo: addDays(today(), 60) };
+      $('#dFrom').value = [today(), r.dFrom].sort()[1]; $('#dTo').value = r.dTo;
+      depAfterVal = null; preHoliday = null;
+    }
     const p = PRESETS[k];
     $$('#lenPreset button').forEach(b => b.classList.toggle('on', b.dataset.v === k));
     if (p) {
@@ -746,13 +757,15 @@
       $(s).oninput = carInfo;
       $(s).onchange = () => { const c = readCar(); $('#gmCons').value = c.carCons; $('#gmPrice').value = c.carPrice ?? ''; carInfo(); refreshOrigins(); syncFormUI(); };
     });
-    ['#maxPrice', '#directOnly', '#arrivalOn', '#depAfterOn', '#dFrom', '#dTo'].forEach(s => $(s).onchange = syncFormUI);
+    ['#maxPrice', '#directOnly', '#arrivalOn', '#depAfterOn'].forEach(s => $(s).onchange = syncFormUI);
+    ['#dFrom', '#dTo'].forEach(s => $(s).onchange = () => { leaveHolidayDays(); syncFormUI(); });
     $('#openJaw').onchange = () => { if (!carMode()) ojPref = $('#openJaw').checked; syncFormUI(); };
     // autem: cena na osobu a parkování závisí na počtu cestujících a délce cesty
     $('#adults').onchange = () => { syncFormUI(); if (carMode()) refreshOrigins(); };
     ['#nMin', '#nMax', '#xOut', '#xBack'].forEach(s => $(s).addEventListener('change', () => { if (carMode()) refreshOrigins(); }));
     $$('#tripType button, #dateMode button, #lenPreset button').forEach(b => b.addEventListener('click', () => { if (carMode()) refreshOrigins(); }));
     $$('#quickRange button').forEach(b => b.onclick = () => {
+      leaveHolidayDays();
       if (b.dataset.m) {
         const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + 1);
         const e = new Date(d.getFullYear(), d.getMonth() + 1, 0);
@@ -2700,10 +2713,13 @@
       // co se od minulého výsledku změnilo (↓ cena, nový cíl); s výpadkem zdroje bez značek
       const r = SearchHelp.radarEntry(radarCached(q), items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers) });
       // domov se mezitím změnil: starý dotaz už nic nepřepíše
-      if (!S.home?.from?.length || radarKey(SearchHelp.radarQuery(q.mode, radarHome(), today(), S.radarHoliday)) !== key) return r;
+      // (u svátků se porovná víkend tohoto hledání – výsledek víkendu, od kterého uživatel mezitím překlikl, se uloží)
+      if (!S.home?.from?.length || radarKey(SearchHelp.radarQuery(q.mode, radarHome(), today(), q.lw ? q.lw.start : S.radarHoliday)) !== key) return r;
       // každý režim zvlášť, svátky po víkendech (minulé víkendy a dřívější tvar se zahodí)
       S.radar = { all: S.radar?.all, weekend: S.radar?.weekend, lw: S.radar?.lw, ...(q.mode === 'holiday' ? { lw: SearchHelp.lwKeep(S.radar?.lw, q.lw.all, q.lw.start, r) } : { [q.mode]: r }) };
       save();
+      // pozdě doběhlý jiný víkend: jeho cena hned na čip
+      if (q.mode === 'holiday' && radarWant !== key && S.radarMode === 'holiday') paintLw(SearchHelp.radarQuery('holiday', radarHome(), today(), S.radarHoliday));
       return r;
     } finally { busySearches--; }
   }
