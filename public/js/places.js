@@ -24,7 +24,7 @@
     hike: { km: 10, scenery: 'mixed', hills: 'normal', variant: 0 }, hikeRoute: null };
   const TRIP_INTERESTS = [['towns', '🏘️ Města'], ['sights', '🏰 Památky'], ['culture', '🏛️ Poznávací'], ['nature', '🌲 Příroda'], ['spa', '♨️ Lázně'], ['kids', '🧒 S dětmi']];
   const MODES = [['city', '🏙️ Program ve městě'], ['day', '🎒 Jednodenní výlety'], ['loop', '🧭 Vícedenní okruh'], ['bike', '🚴 Na kole'], ['hike', '🥾 Pěšky']];
-  // Na telefonu přepínač režimů v jednom řádku: ikona nad krátkým názvem (celý název čte čtečka i nápověda).
+  // Na telefonu přepínač režimů v jednom řádku: ikona nad krátkým názvem (celý název přečte čtečka).
   const MODE_SHORT = { city: 'Město', day: 'Výlety', loop: 'Okruh', bike: 'Kolo', hike: 'Pěšky' };
   const modeBtns = cur => MODES.map(([id, l]) => {
     const [ico, ...rest] = l.split(' ');
