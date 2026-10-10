@@ -8,6 +8,8 @@ import { AIRPORT_CITY_CS, CITY_CS, METROS } from './names.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const RAW = JSON.parse(readFileSync(path.join(root, 'data', 'airports.json'), 'utf8'));
 export const COUNTRIES = JSON.parse(readFileSync(path.join(root, 'data', 'countries.json'), 'utf8'));
+// cestující za rok v tisících (Wikidata, scripts/build-airport-pax.mjs): { IATA: [tisíce, rok] }
+const PAX = JSON.parse(readFileSync(path.join(root, 'data', 'airport-pax.json'), 'utf8'));
 export const COUNTRY_BY_ISO = new Map(COUNTRIES.map((c) => [c.iso2, c]));
 
 const METRO_BY_AIRPORT = new Map();
@@ -17,7 +19,7 @@ export const AIRPORTS = new Map();
 for (const [iata, name, city, cc, lat, lon, type, tz] of RAW) {
   const cityCs = AIRPORT_CITY_CS[iata] || CITY_CS[city] || city;
   AIRPORTS.set(iata, {
-    iata, name, city, cityCs, cc, lat, lon, type, tz,
+    iata, name, city, cityCs, cc, lat, lon, type, tz, pax: PAX[iata] ? PAX[iata][0] : null,
     country: COUNTRY_BY_ISO.get(cc)?.cs || cc,
     metro: METRO_BY_AIRPORT.get(iata)?.code || null,
     _n: normalize(`${cityCs} ${city} ${name}`),
@@ -26,6 +28,18 @@ for (const [iata, name, city, cc, lat, lon, type, tz] of RAW) {
 export const METRO_BY_CODE = new Map(METROS.map((m) => [m.code, { ...m, airports: m.airports.filter((a) => AIRPORTS.has(a)) }]));
 
 const TYPE_RANK = { L: 0, M: 1, S: 2 };
+
+/**
+ * Velikost letiště jako „km navíc“ při výběru letišť z okolí: podle cestujících za rok (tisíce), bez údaje podle
+ * typu z OurAirports (ten má za velká i Pardubice nebo Karlovy Vary). Základna s pěti miliony cestujících 0 km,
+ * letiště s pár linkami 150–200 km – z Brna pak Krakov (260 km) vyhraje nad Pardubicemi (120 km).
+ */
+export function sizePenaltyKm(a) {
+  if (!a) return 130;
+  const k = a.pax;
+  if (k == null) return a.type === 'L' ? 110 : a.type === 'M' ? 140 : 200;
+  return k >= 5000 ? 0 : k >= 2000 ? 20 : k >= 800 ? 45 : k >= 300 ? 80 : k >= 100 ? 150 : 200;
+}
 
 export function getAirport(iata) {
   return AIRPORTS.get(String(iata || '').toUpperCase()) || null;

@@ -2,7 +2,7 @@
 import { config } from '../config.js';
 import { activeProviders } from '../providers/index.js';
 import { resolveDestinations, resolveOrigins, describe } from './places.js';
-import { airportsInCountry, destInfo, destKey, getAirport } from './airports.js';
+import { airportsInCountry, destInfo, destKey, getAirport, sizePenaltyKm } from './airports.js';
 import { addDays, chunkRange, clampRange, daysBetween, isYmd, monthsInRange, todayYmd } from './dates.js';
 import { CONTINENT_BY_KEY, FAR_KM, LONG_HAUL_SWEEP, WARM_SWEEP, farAirport, farCountry, hubsNear, hubsOf } from './longhaul.js';
 import { mainAirport, monthClimate, warmAirports, warmShare, warmestHi } from './climate.js';
@@ -305,15 +305,14 @@ export async function search(raw, emit = () => {}, opts = {}) {
   hubs.forEach(setGround);
   // Hlavní odletová letiště pro dotazy z víc letišť najednou: zadaná / nejbližší, pak velká.
   const chosen = new Set(q.from.filter((x) => x.startsWith('ap:')).map((x) => x.slice(3).toUpperCase()));
-  const mainOrigins = (n) => {
-    const rank = { L: 0, M: 1, S: 2 };
-    return [...origins.airports]
-      .sort((x, y) => Number(chosen.has(y.iata)) - Number(chosen.has(x.iata)) || rank[getAirport(x.iata).type] - rank[getAirport(y.iata).type] || x.distKm - y.distKm)
-      .slice(0, n).map((a) => a.iata);
-  };
   // Domovské letiště (0): zadané, nebo do 25 km od výchozího místa; ostatní v okruhu (1).
   const distOf = new Map(origins.airports.map((a) => [a.iata, a.distKm]));
   const homeRank = (iata) => (chosen.has(iata) || (distOf.get(iata) ?? 99) < 25 ? 0 : 1);
+  // Významnost letiště v okolí: vzdálenost napůl, velikost (cestující) dvojnásob – Kiwi se ptá jen ze tří.
+  const weight = (iata) => (distOf.get(iata) ?? 0) / 2 + sizePenaltyKm(getAirport(iata)) * 2;
+  const mainOrigins = (n) => [...origins.airports]
+    .sort((x, y) => homeRank(x.iata) - homeRank(y.iata) || weight(x.iata) - weight(y.iata))
+    .slice(0, n).map((a) => a.iata);
   // „Za teplem“: měsíce odletu (1–12) a teplé země – aspoň jedno velké letiště tam má v některém z měsíců
   // průměrné maximum ≥ minTemp; je-li teplá jen menší část země, Kiwi se ptá rovnou na teplá letiště.
   const monthsOf = (a, b) => [...new Set(monthsInRange(a, b).map((d) => Number(d.slice(5, 7))))];
@@ -569,9 +568,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     // Pomalejší zdroje (Kiwi) a úseky cesty přes víc měst (rozpočet dvojic) jen pro pár nejvýznamnějších
     // letišť: domovské (zadané / nejbližší) vždy, pak velká a blízká.
     if (p.maxPairs || limits.maxPairs) {
-      const rank = { L: 0, M: 1, S: 2 };
-      const dist = new Map(origins.airports.map((a) => [a.iata, a.distKm]));
-      pairs.sort((x, y) => homeRank(x.o) - homeRank(y.o) || rank[getAirport(x.o).type] - rank[getAirport(y.o).type] || dist.get(x.o) - dist.get(y.o));
+      pairs.sort((x, y) => homeRank(x.o) - homeRank(y.o) || weight(x.o) - weight(y.o));
     }
     // Dálková trasa (Kiwi): celé období zpátečními letenkami – jeden dotaz na měsíc ze všech letišť
     // (i přestupních v okolí) na všechna cílová; jednotlivé lety po dnech jen pro první 3 týdny.

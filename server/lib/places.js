@@ -8,7 +8,7 @@
 //   ct:asia           světadíl / oblast (Asie, Afrika, Blízký východ…) – cíl jako seznam zemí
 //   geo:LAT,LON|Název libovolné místo (geokódováno přes Open-Meteo)
 import {
-  AIRPORTS, COUNTRIES, COUNTRY_BY_ISO, METRO_BY_CODE, airportsInCountry, airportsNear, getAirport,
+  AIRPORTS, COUNTRIES, COUNTRY_BY_ISO, METRO_BY_CODE, airportsInCountry, airportsNear, getAirport, sizePenaltyKm,
 } from './airports.js';
 import { COUNTRY_ALIASES, REGIONS } from './names.js';
 import { CONTINENTS, CONTINENT_BY_KEY, continentCountries } from './longhaul.js';
@@ -278,9 +278,8 @@ export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOr
       x.distKm = haversineKm(home.lat, home.lon, a.lat, a.lon);
     }
   }
-  // Při omezení počtu letišť preferuj velká: menší letiště „penalizuj“ fiktivními km.
-  const penalty = { L: 0, M: 35, S: 90 };
-  const eff = (x) => x.distKm + penalty[getAirport(x.iata).type];
+  // Při omezení počtu letišť preferuj ta, odkud se opravdu létá: menší letiště „penalizuj“ fiktivními km.
+  const eff = (x) => x.distKm + sizePenaltyKm(getAirport(x.iata));
   list.sort((x, y) => Number(y.explicit) - Number(x.explicit) || eff(x) - eff(y));
   list = list.slice(0, maxAirports).sort((x, y) => x.distKm - y.distKm);
   return {

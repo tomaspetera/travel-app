@@ -1131,6 +1131,9 @@ cesta z města příjezdu (ne z letiště):
 
 - Letiště: [OurAirports](https://ourairports.com/data/) (public domain) + názvy měst a časová pásma z
   [OpenFlights](https://openflights.org/data) (ODbL). Aktualizace: `npm run build:airports`.
+- Počty cestujících na letištích (výběr letišť z okolí – odkud se opravdu létá, ne podle typu z OurAirports):
+  [Wikidata](https://www.wikidata.org/) vlastnost P3872 (CC0), `data/airport-pax.json`. Aktualizace:
+  `node scripts/build-airport-pax.mjs`.
 - Geokódování a počasí: [Open-Meteo](https://open-meteo.com/) (předpověď CC BY 4.0). Kurzy: open.er-api.com, ECB.
 - Ceny paliva: ČSÚ (DataStat, sada CENPHMT, CC0) a Evropská komise – Weekly Oil Bulletin; ceny nabíjení elektroaut:
   ceníky provozovatelů (ČEZ, PRE, E.ON, IONITY; Shell, MOL a Tesla ze sekundárních zdrojů) k 6. 10. 2026.
