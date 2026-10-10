@@ -577,3 +577,55 @@ test('radarEntry: výsledek s výpadkem zdroje bez značek a příští porovná
   const other = JSON.stringify({ from: ['ap:PRG'], radiusKm: 200, dateFrom: '2026-10-12', dateTo: '2026-11-21' });
   assert.equal(H.radarEntry(full, [it('a', 1)], other, 5, { partial: true }).base, null);
 });
+
+test('dataAge: stáří ověřeného údaje – čerstvé nic, od 3 měsíců „před N měsíci“, od půl roku „mohlo se změnit“', () => {
+  assert.equal(H.dataAge('2026-10', '2026-12-20').txt, '');
+  assert.equal(H.dataAge('2026-10-07', '2027-02-01').txt, ' · před 4 měsíci');
+  const old = H.dataAge('2026-10', '2027-06-15');
+  assert.deepEqual([old.months, old.old, old.txt], [8, true, ' · před 8 měsíci – mohlo se změnit']);
+  assert.equal(H.dataAge('2026-10', '2027-11-01').txt, ' · před rokem – mohlo se změnit');
+  assert.equal(H.dataAge('2026-10', '2029-01-01').txt, ' · před 2 lety – mohlo se změnit');
+  assert.equal(H.dataAge('', '2027-01-01').txt, '');
+  assert.equal(H.dataAge('2027-01', '2026-10-10').months, 0, 'budoucí datum = čerstvé');
+  // jízdné z letiště: zdroj i se stářím
+  const a = { basis: 'table', src: 'https://www.example.com/x', date: '2026-10-07' };
+  assert.match(H.arrivalSource(a, '2026-10-10'), /, ověřeno 7\. 10\. 2026\.$/);
+  assert.match(H.arrivalSource(a, '2027-05-10'), /, ověřeno 7\. 10\. 2026 · před 7 měsíci – mohlo se změnit\.$/);
+});
+
+test('fastKey: cena + délka cesty – neznámá délka s přestupem se odhadne opatrně (4 h na přestup)', () => {
+  const l = (durationMin, stops = 0) => ({ durationMin, stops });
+  assert.equal(H.tripMinutes(l(600, 1), 9000), 600);
+  assert.equal(H.tripMinutes({ stops: 1 }, 9000), Math.round(9000 / 750 * 60 + 30 + 240));
+  assert.equal(H.tripMinutes({ stops: 0 }, 750), 90);
+  // dálkový let: levnější o 450 Kč, ale bez známé délky a s přestupem → za dražším se známými 14 h 40 min
+  const known = { perPersonCzk: 11871, distanceKm: 8500, out: l(880, 1), back: l(900, 1) };
+  const unknown = { perPersonCzk: 11419, distanceKm: 8500, out: { stops: 1 }, back: { stops: 1 } };
+  assert.ok(H.fastKey(known) < H.fastKey(unknown));
+  // jen tam
+  assert.equal(H.fastKey({ perPersonCzk: 1000, distanceKm: 500, out: l(120) }), 1000 + 2 * 250);
+});
+
+test('prodloužené víkendy: Velikonoce, české svátky, most přes út/čt, středa se přeskočí', () => {
+  assert.deepEqual(['2026', '2027', '2028', '2029'].map((y) => H.easter(+y)), ['2026-04-05', '2027-03-28', '2028-04-16', '2029-04-01']);
+  const h = H.czHolidays(2027);
+  assert.equal(h.size, 13);
+  assert.deepEqual([h.get('2027-03-26'), h.get('2027-03-29'), h.get('2027-11-17')], ['Velký pátek', 'Velikonoční pondělí', 'Den boje za svobodu']);
+  // 28. 10. 2026 je středa (přeskočí se), 17. 11. 2026 úterý → So–Út s volnem v pondělí
+  assert.deepEqual(plain(H.longWeekend('2026-10-12')), { start: '2026-11-14', end: '2026-11-17', nights: 3, name: 'Den boje za svobodu', bridge: '2026-11-16' });
+  assert.deepEqual(plain(H.longWeekend('2026-11-18')), { start: '2026-12-24', end: '2026-12-27', nights: 3, name: 'Vánoce', bridge: null });
+  assert.equal(H.longWeekend('2026-12-28').start, '2027-01-01', 'Nový rok v pátek');
+  assert.equal(H.longWeekend('2027-01-05').name, 'Velký pátek');
+  assert.equal(H.longWeekend('2027-04-20').start, '2027-07-03', '1. a 8. 5. 2027 jsou v sobotu');
+  assert.equal(H.longWeekend('2026-11-15').start, '2026-12-24', 'už začatý víkend se nenabídne');
+  assert.equal(H.longWeekend('2026-11-18', 10), null, 'nic v horizontu');
+  // radar: odlet večer předem nebo ráno, návrat poslední volný den
+  const home = { from: [{ id: 'ap:BRQ', label: 'Brno' }], radius: 200 };
+  const q = H.radarQuery('holiday', home, '2026-10-10');
+  assert.deepEqual(plain([q.mode, q.payload.dateFrom, q.payload.dateTo, q.payload.nightsMin, q.payload.nightsMax, q.payload.outDays, q.payload.backDays]), ['holiday', '2026-11-13', '2026-11-14', 3, 4, [5, 6], [2]], 'odlet pá/so, návrat jen út');
+  assert.match(q.sub, /prodloužený víkend 14\. 11\.–17\. 11\. \(Den boje za svobodu, s volnem 16\. 11\.\)/);
+  assert.deepEqual(plain([q.form.dFrom, q.form.dTo, q.form.nMin, q.form.nMax]), ['2026-11-13', '2026-11-14', 3, 4]);
+  // těsně před víkendem: odlet nejdřív zítra
+  assert.equal(H.radarQuery('holiday', home, '2026-11-12').payload.dateFrom, '2026-11-13');
+  assert.equal(H.radarQuery('holiday', home, '2026-11-13').lw.start, '2026-12-24', 'méně než 2 dny předem → další');
+});

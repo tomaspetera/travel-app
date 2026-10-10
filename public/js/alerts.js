@@ -165,6 +165,20 @@
   function droppedCount(list) { return (list || []).filter(w => isDropped(w)).length; }
 
   /**
+   * Řádek „Od minula“ nahoře na Přehledu: hlídání pod cílovou cenou (hits), zlevněná od posledního pohledu na seznam
+   * (watch, o kolik, nejvíc první; bez těch pod cílem) a změny radaru (down = levněji než minule, fresh = nové cíle).
+   */
+  function news(list, radar, today = null) {
+    // hledání s proběhlým termínem se už nehlídá – ani do „Od minula“
+    const ws = (list || []).filter(w => w && w.best && num(w.best.czk) && !(today && isPast(w.form, today)));
+    const hits = ws.filter(w => num(w.target) && w.best.czk <= w.target).map(w => ({ id: w.id, label: w.label, czk: w.best.czk }));
+    const hit = new Set(hits.map(x => x.id));
+    const watch = ws.filter(w => !hit.has(w.id) && isDropped(w)).map(w => ({ id: w.id, label: w.label, d: num(w.seen) - w.best.czk })).sort((a, b) => b.d - a.d);
+    const items = radar && Array.isArray(radar.items) ? radar.items.filter(Boolean) : [];
+    return { hits, watch, down: items.filter(x => x.was && x.czk < x.was.czk).length, fresh: items.filter(x => x.newAt).length };
+  }
+
+  /**
    * Seznam uložený jiným panelem (localStorage) → jeho složení a úpravy platí (přidané, smazané, cíl…),
    * jen vlastní novější výsledek kontroly zůstane. Beze změny vrací stejné objekty.
    */
@@ -205,10 +219,11 @@
   /**
    * Fronta kontrol: v jednu chvíli běží nejvýš jedna kontrola (ruční i automatická),
    * cyklus nikdy dvakrát najednou. check(id) běží uvnitř zámku a smí vyhodit chybu (zkusí se příští cyklus).
-   * sync() před kontrolou převezme výsledky z jiného panelu.
+   * sync() před kontrolou převezme výsledky z jiného panelu. firstMax = kolik hledání smí zkontrolovat první cyklus po
+   * otevření (aplikace bývá otevřená jen chvíli – s limitem 4 by se 12 hlídaných dostalo na řadu až za pár návštěv).
    */
-  function scheduler({ list, check, today, now = () => Date.now(), sleep, canRun = () => true, sync = () => { }, cfg = CFG }) {
-    let lock = Promise.resolve(), cycling = false, lastCycle = 0;
+  function scheduler({ list, check, today, now = () => Date.now(), sleep, canRun = () => true, sync = () => { }, cfg = CFG, firstMax = 0 }) {
+    let lock = Promise.resolve(), cycling = false, lastCycle = 0, cycles = 0;
     const exclusive = fn => { const p = lock.then(() => fn()); lock = p.catch(() => { }); return p; };
     async function ready() {
       for (let t = 0; !canRun(); t += cfg.waitMs) {
@@ -225,7 +240,8 @@
       try {
         if (!await ready()) return 0;
         lastCycle = now();
-        while (n < cfg.maxPerCycle) {
+        const max = cycles++ === 0 && firstMax > cfg.maxPerCycle ? firstMax : cfg.maxPerCycle;
+        while (n < max) {
           const w = dueWatches(list(), { now: now(), today: today(), max: 1, skip: tried, staleMs: cfg.staleMs })[0];
           if (!w) break;
           if (n && (await sleep(cfg.gapMs), !await ready())) break;
@@ -246,5 +262,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, incomplete, searchKey, upsertWatch, isDropped, droppedCount, mergeWatches, sparkPath, notifState, scheduler };
+  window.Alerts = { CFG, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
 })();

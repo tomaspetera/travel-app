@@ -678,7 +678,7 @@
           <div class="pt-acts" role="group" aria-label="Co budeš na cestě dělat"><span class="faint">Co budeš dělat:</span> ${chips}</div>
           ${climateHtml(ctx)}${tips.length ? `<ul class="pt-tips">${tips.map(x => `<li>🧳 ${esc(x)}</li>`).join('')}</ul>` : ''}<div class="pt-groups">${packHtml}</div>${addHtml}</section>
       </div>
-      <div class="faint pt-src">Informativní přehled (stav ${esc(checkedTxt())}): ${link(S.desatero, 'MZV ČR')}, ${link(S.kzpTourist, 'Kancelář zdravotního pojištění')}, ${link(S.vzpEhic, 'VZP')}, ${link(S.idp, 'Portál veřejné správy')}, ${link(S.untc1949, 'OSN – úmluvy o silničním provozu')}, ${link(S.plugs, 'přehled zásuvek')}. Pravidla se mění – před cestou je vždy ověř. Odškrtnutí se ukládá v tomto prohlížeči a odkaz na cestu ho přenese i s vlastními položkami.</div>
+      <div class="faint pt-src">Informativní přehled (stav ${esc(checkedTxt() + (window.SearchHelp && DATA ? SearchHelp.dataAge(DATA.checked).txt : ''))}): ${link(S.desatero, 'MZV ČR')}, ${link(S.kzpTourist, 'Kancelář zdravotního pojištění')}, ${link(S.vzpEhic, 'VZP')}, ${link(S.idp, 'Portál veřejné správy')}, ${link(S.untc1949, 'OSN – úmluvy o silničním provozu')}, ${link(S.plugs, 'přehled zásuvek')}. Pravidla se mění – před cestou je vždy ověř. Odškrtnutí se ukládá v tomto prohlížeči a odkaz na cestu ho přenese i s vlastními položkami.</div>
     </div>`;
   }
 

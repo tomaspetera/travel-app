@@ -297,7 +297,8 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   assert.equal(bva.text, '🚌 z letiště BVA do Paříže 17,90 € (~440 Kč) · 1 h 15');
   assert.equal(bva.warn, true);
   assert.match(bva.title, /^Z letiště BVA do Paříže: autobus Aérobus do Paris Porte Maillot – 17,90 € \(~440 Kč\) na osobu, ~1 h 15\. Online; na místě 18 €\. Zpět na letiště totéž\./);
-  assert.match(bva.title, /V ceně nabídky tam i zpět ~880 Kč\/os\. Zdroj: aeroportparisbeauvais\.com, ověřeno 7\. 10\. 2026\.$/);
+  // za čas se k datu ověření přidá stáří („· před 4 měsíci“) – test nesmí záviset na dnešku
+  assert.match(bva.title, /V ceně nabídky tam i zpět ~880 Kč\/os\. Zdroj: aeroportparisbeauvais\.com, ověřeno 7\. 10\. 2026(?: · [^.]+)?\.$/);
   // open-jaw v cíli: přílet BGY (od 5 € online), odlet MXP (vlak 15 € → varovně, přes 350 Kč)
   const jaw = H.arrivalChips({ out: { to: 'BGY' }, back: { from: 'MXP' }, arrCzk: 490 }, ARR, { on: true });
   assert.deepEqual(plain(jaw.map((c) => [c.text, c.warn])), [['🚌 z letiště BGY do Milána od 5 € (~120 Kč) · 50 min', false], ['🚆 zpět na letiště MXP 15 € (~370 Kč) · 37 min', true]]);
@@ -362,6 +363,20 @@ test('průvodce cestou: cesta z letiště do města v ceně (bez úseku, který 
   // hledání bez volby (arrCzk 0): nic, i když je cesta do města známá; starší cesta bez rozpisu po směrech: celá
   assert.equal(Trip.costs(trip({ flight: { ...trip().flight, arrCzk: 0 } })).arrival, 0);
   assert.equal(Trip.costs(trip({ arrival: null, car: car('BVA', 'BVA') })).arrival, 1760);
+  // trasa přes víc míst: přejezdy v ceně – autem palivo (i z letiště a na letiště), vlakem jízdenky mezi místy na osobu
+  const x = (km, fuelCzk, fareCzk) => ({ km, carMin: 60, transitMin: 90, transitKind: 'rail', basis: 'estimate', fuelCzk, fareCzk });
+  const route = (transport) => ({ mode: 'multi', transport, bases: [{ name: 'Paříž', nights: 2, lat: 48.86, lon: 2.35 }, { name: 'Remeš', nights: 2, lat: 49.26, lon: 4.03 }], transfers: [x(140, 420, 210)], legs: { arrival: x(80, 240, 150), departure: x(90, 270, 160) } });
+  const base = Trip.costs(trip()).total;
+  // autem: konce (letiště ↔ 1./poslední místo) jen s autem z/na letiště – jinak je kryje doprava z letiště
+  const carRoute = Trip.costs(trip({ route: route('car') }));
+  assert.equal(carRoute.transfers, 420);
+  assert.equal(carRoute.total, base + 420);
+  assert.equal(Trip.costs(trip({ route: route('car'), car: car('BVA', 'BVA') })).transfers, 420 + 240 + 270);
+  // vlakem: mezi místy a z posledního místa (Remeš, 130 km od Paříže) na letiště; z letiště do Paříže pokrývá doprava z letiště
+  assert.equal(Trip.costs(trip({ route: route('transit') })).transfers, (210 + 160) * 2);
+  assert.equal(Trip.costs(trip({ route: route('transit'), flight: { ...trip().flight, arrCzk: 0 } })).transfers, (150 + 210 + 160) * 2, 'bez dopravy z letiště v ceně i první úsek');
+  assert.equal(Trip.costs(trip({ route: { ...route('car'), transfers: [x(140)], legs: {} } })).transfers, 0, 'starší trasa bez odhadu');
+  assert.equal(Trip.sanitizeTrip(JSON.parse(JSON.stringify(trip({ route: route('car') })))).route.transfers[0].fuelCzk, 420);
   // sdílený odkaz: jen známá pole, čísla v mezích, zdroj jen https
   const san = Trip.sanitizeTrip(JSON.parse(JSON.stringify(trip({ arrival: { out: { ...ARR.BVA, src: 'javascript:alert(1)', evil: '<b>x</b>', czk: 440 }, back: { iata: 'bad!', czk: 1, min: 5 } } }))));
   assert.equal(san.arrival.out.iata, 'BVA');

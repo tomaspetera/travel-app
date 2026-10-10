@@ -802,8 +802,8 @@
     if (a.basis === 'access') return `${where}: ${how} ~${kc(a.czk)} na osobu, ~${hhmmTxt(a.min)} (odhad podle tabulky dopravy na letiště).`;
     return `${where}: ${how} – ${arrivalFare(a)} na osobu, ~${hhmmTxt(a.min)}.${a.note ? ` ${a.note[0].toUpperCase()}${a.note.slice(1)}.` : ''}`;
   }
-  /** Odkud je jízdné: „Zdroj: aeroportparisbeauvais.com, ověřeno 7. 10. 2026.“ (odhad bez zdroje → ''). */
-  const arrivalSource = a => (a && a.basis === 'table' && a.src ? `Zdroj${a.sec ? ' (sekundární, oficiální neuvádí)' : ''}: ${srcHost(a.src)}, ověřeno ${dm(a.date)} ${String(a.date).slice(0, 4)}.` : '');
+  /** Odkud je jízdné: „Zdroj: aeroportparisbeauvais.com, ověřeno 7. 10. 2026.“ (odhad bez zdroje → ''), u staršího i stáří. */
+  const arrivalSource = (a, today = localToday()) => (a && a.basis === 'table' && a.src ? `Zdroj${a.sec ? ' (sekundární, oficiální neuvádí)' : ''}: ${srcHost(a.src)}, ověřeno ${dm(a.date)} ${String(a.date).slice(0, 4)}${dataAge(a.date, today).txt}.` : '');
   const inPrice = (on, czk, both) => (on ? ` V ceně nabídky ${both ? 'tam i zpět ' : ''}~${kc(czk)}/os.` : ' Do ceny nabídky se nepočítá (vypnuto v Další možnosti).');
   const arrChip = (x, text, title) => ({
     text: `${ARR_ICON[x.mode] || '🚌'} ${text} ${arrivalFare(x)} · ${hhmmTxt(x.min)}${x.basis !== 'table' ? ' (odhad)' : ''}`,
@@ -841,23 +841,78 @@
   const RADAR = {
     all: { nMin: 2, nMax: 7, out: [], back: [], what: 'zpáteční 2–7 nocí', empty: 'Na příštích 6 týdnů jsem z okolí nic nenašel. Zkus větší okruh.' },
     weekend: { nMin: 1, nMax: 3, out: [5, 6], back: [0, 1], what: 'víkendy: odlet Pá/So, návrat Ne/Po', empty: 'Na víkendy v příštích 6 týdnech jsem z okolí nic nenašel. Zkus větší okruh nebo Kdykoliv.' },
+    holiday: { out: [], back: [], empty: 'Na nejbližší prodloužený víkend jsem z okolí nic nenašel. Zkus větší okruh nebo Kdykoliv.' },
   };
+
+  /* ---------- prodloužené víkendy kolem českých svátků ---------- */
+  /** Velikonoční neděle (gregoriánský kalendář, anonymní algoritmus) → 'YYYY-MM-DD'. */
+  function easter(y) {
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+    return `${y}-${pad(month)}-${pad(day)}`;
+  }
+  /** Státní svátky a ostatní svátky v Česku (zákon č. 245/2000 Sb.) v roce y → Map datum → název. */
+  function czHolidays(y) {
+    const e = easter(y);
+    return new Map([
+      [`${y}-01-01`, 'Nový rok'], [addDays(e, -2), 'Velký pátek'], [addDays(e, 1), 'Velikonoční pondělí'], [`${y}-05-01`, 'Svátek práce'],
+      [`${y}-05-08`, 'Den vítězství'], [`${y}-07-05`, 'Cyril a Metoděj'], [`${y}-07-06`, 'Mistr Jan Hus'], [`${y}-09-28`, 'Den české státnosti'],
+      [`${y}-10-28`, 'Vznik Československa'], [`${y}-11-17`, 'Den boje za svobodu'], [`${y}-12-24`, 'Vánoce'], [`${y}-12-25`, 'Vánoce'], [`${y}-12-26`, 'Vánoce'],
+    ]);
+  }
+  /**
+   * Nejbližší prodloužený víkend od data from (do horizon dní): aspoň 3 volné dny v řadě se svátkem, svátek v úterý
+   * nebo ve čtvrtek přemostí jeden den volna (bridge) → { start, end, nights, name, bridge } nebo null.
+   * Svátek ve středu (bez dvou dnů dovolené žádný dlouhý víkend) se přeskočí.
+   */
+  function longWeekend(from, horizon = 150) {
+    const y = +from.slice(0, 4), hol = new Map([...czHolidays(y), ...czHolidays(y + 1)]);
+    const free = d => { const w = new Date(d + 'T12:00:00Z').getUTCDay(); return w === 0 || w === 6 || hol.has(d); };
+    const last = addDays(from, horizon);
+    for (let d = from; d <= last; d = addDays(d, 1)) {
+      if (!hol.has(d)) continue;
+      let a = d, b = d, bridge = null;
+      while (free(addDays(a, -1))) a = addDays(a, -1);
+      while (free(addDays(b, 1))) b = addDays(b, 1);
+      if (diffDays(a, b) + 1 < 3) {
+        // jeden pracovní den mezi svátkem a víkendem (út → po, čt → pá)
+        if (free(addDays(a, -2))) { bridge = addDays(a, -1); a = addDays(a, -2); while (free(addDays(a, -1))) a = addDays(a, -1); }
+        else if (free(addDays(b, 2))) { bridge = addDays(b, 1); b = addDays(b, 2); while (free(addDays(b, 1))) b = addDays(b, 1); }
+      }
+      if (diffDays(a, b) + 1 < 3 || a < from) { d = b; continue; }
+      return { start: a, end: b, nights: diffDays(a, b), name: hol.get(d), bridge };
+    }
+    return null;
+  }
   /**
    * Radar v režimu mode ('all' | 'weekend', jiný → 'all') z domova home ({ from: [{ id, label }], radius }) ke dni today:
    * { mode, payload (hledání), form (formulář po kliknutí na kartu – stejné podmínky, ukáže všechny termíny), sub, empty }.
    */
   function radarQuery(mode, home, today) {
-    const m = RADAR[mode] ? mode : 'all', r = RADAR[m], radiusKm = home.radius ?? 200;
-    const dateFrom = addDays(today, 3), dateTo = addDays(today, 45);
+    const m = RADAR[mode] ? mode : 'all', radiusKm = home.radius ?? 200;
+    let r = RADAR[m], dateFrom = addDays(today, 3), dateTo = addDays(today, 45), when = 'příštích 6 týdnů', lw = null;
+    if (m === 'holiday') {
+      // odlet večer před prvním volným dnem nebo ráno, návrat poslední volný den
+      lw = longWeekend(addDays(today, 2));
+      if (!lw) return { mode: m, none: true, sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · prodloužené víkendy`, empty: 'V příštích 5 měsících není prodloužený víkend kolem svátku – zkus Kdykoliv nebo Víkendy.' };
+      dateFrom = [addDays(today, 1), addDays(lw.start, -1)].sort()[1]; dateTo = lw.start;
+      // návrat jen poslední volný den (jinak by odlet ráno s nejvíc nocemi vracel až v pracovní den)
+      const dow = d => new Date(d + 'T12:00:00Z').getUTCDay();
+      r = { ...r, nMin: Math.max(1, lw.nights), nMax: diffDays(dateFrom, lw.end), out: [...new Set([dow(dateFrom), dow(dateTo)])], back: [dow(lw.end)] };
+      when = `prodloužený víkend ${dm(lw.start)}–${dm(lw.end)} (${lw.name}${lw.bridge ? `, s volnem ${dm(lw.bridge)}` : ''})`;
+    }
     return {
       mode: m,
+      ...(lw ? { lw } : {}),
       payload: {
         from: home.from.map(x => x.id), radiusKm, to: [], dateFrom, dateTo, trip: 'return', nightsMin: r.nMin, nightsMax: r.nMax,
         ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), adults: 1, kmRate: 1, groundMode: 'transit', arrival: true,
       },
       // formulář po kliknutí na kartu: tvar cesty z radaru, počet lidí a ostatní nastavení zůstanou uživatele
       form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, len: 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
-      sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · ${r.what} · příštích 6 týdnů`,
+      sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · ${m === 'holiday' ? when : `${r.what} · ${when}`}`,
       empty: r.empty,
     };
   }
@@ -908,6 +963,35 @@
     return { key, at, demo, items: radarDiff(base, items, key, at) };
   }
 
+  /* ---------- řazení „cena + délka cesty“ ---------- */
+  /**
+   * Délka letu v minutách pro řazení: známá (durationMin / odhad estMin), jinak opatrný odhad ze vzdálenosti – 750 km/h,
+   * půl hodiny navíc a u přestupu 4 h na každý (dálkové lety z cache bez délky tak nepředběhnou ty se známým přestupem).
+   */
+  function tripMinutes(l, km) {
+    const m = legMinutes(l);
+    if (m) return m;
+    return Math.round((Number(km) || 1000) / 750 * 60 + 30 + (l && l.stops ? l.stops * 240 : 0));
+  }
+  /** Klíč řazení: cena na osobu + 250 Kč za každou hodinu cesty tam i zpět (čas v letadle a na přestupech). */
+  const fastKey = (t, perHour = 250) => t.perPersonCzk + ((tripMinutes(t.out, t.distanceKm) + (t.back ? tripMinutes(t.back, t.distanceKm) : 0)) / 60) * perHour;
+
+  /* ---------- stáří ověřených údajů ---------- */
+  const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  /**
+   * Jak starý je ověřený údaj (vstupní podmínky, jízdné z letiště, příprava na cestu): checked „2026-10“ nebo
+   * „2026-10-07“, today „YYYY-MM-DD“ → { months, txt, old }. txt se připojí za datum ověření: do 3 měsíců nic,
+   * pak „ · před 4 měsíci“, od půl roku „ · před 8 měsíci – mohlo se změnit“ (old). Nikdo to nemusí přepisovat.
+   */
+  function dataAge(checked, today = localToday()) {
+    const m = /^(\d{4})-(\d{2})/.exec(String(checked || '')), t = /^(\d{4})-(\d{2})/.exec(String(today || ''));
+    if (!m || !t) return { months: null, txt: '', old: false };
+    const months = Math.max(0, (+t[1] - +m[1]) * 12 + (+t[2] - +m[2]));
+    const ago = months < 12 ? `před ${months} měsíci` : months < 24 ? 'před rokem' : `před ${Math.floor(months / 12)} lety`;
+    const old = months >= 6;
+    return { months, old, txt: months < 3 ? '' : ` · ${ago}${old ? ' – mohlo se změnit' : ''}` };
+  }
+
   /* ---------- poslední výsledky a nedávná hledání (uložené v tomto prohlížeči) ---------- */
   /**
    * Poslední hledání k uložení ({ at, form, payload, res }) jako text: celé, nebo s nejvýš `keep` nabídkami na cíl, aby
@@ -956,6 +1040,7 @@
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    lastPack, lastLoad, savedWhen, recentAdd, recentForm,
+    easter, czHolidays, longWeekend,
+    lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
   };
 })();

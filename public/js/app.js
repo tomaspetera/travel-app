@@ -261,6 +261,12 @@ function openCountry(iso) {
    </div>
    <div class="modal-body">
      ${geoNote}
+     <div class="row wrap cm-acts">
+       <button class="btn primary" onclick="modalClose();fromCountrySearch('${iso}')">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Najít lety sem</button>
+       <button class="btn" onclick="stayLinks(${esc(JSON.stringify(c.cap || c.cs))})">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>
+       <button class="btn" onclick="addToPlan('${iso}')">${ico('M12 5v14M5 12h14')} Do plánu</button>
+       <button class="btn ${isV ? 'warm' : 'ghost'}" id="visBtn" onclick="toggleVis('${iso}')">${isV ? '✓ Navštíveno' : 'Označit jako navštívené'}</button>
+     </div>
      <div id="wxBox" class="weather-now"><div class="wico">⏳</div><div><div class="muted" style="font-size:12px">Načítám počasí…</div><div class="temp">--°</div></div></div>
      <div id="fcBox" class="forecast"></div>
      <div class="divider"></div>
@@ -275,13 +281,6 @@ function openCountry(iso) {
      ${c.tags ? `<div class="tags" style="margin-top:16px">${c.tags.map(t => `<span class="chip accent">${t}</span>`).join('')}</div>` : ''}
      ${c.blurb ? `<p class="muted" style="margin-top:14px;font-size:14px">${c.blurb}</p>` : ''}
      <div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Bezpečnostní a geopolitická situace se mění. Před cestou si vždy ověř aktuální doporučení na <a href="${mzv}" target="_blank" rel="noopener" style="color:var(--info);text-decoration:underline">MZV ČR</a>.</div></div>
-     <div class="divider"></div>
-     <div class="row wrap">
-       <button class="btn primary" onclick="modalClose();fromCountrySearch('${iso}')">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Najít lety sem</button>
-       <button class="btn" onclick="stayLinks('${esc(c.cap || c.cs)}')">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>
-       <button class="btn" onclick="addToPlan('${iso}')">${ico('M12 5v14M5 12h14')} Do plánu</button>
-       <button class="btn ${isV ? 'warm' : 'ghost'}" id="visBtn" onclick="toggleVis('${iso}')">${isV ? '✓ Navštíveno' : 'Označit jako navštívené'}</button>
-     </div>
    </div>`);
   loadWeather(c);
   loadFx(c);
@@ -410,12 +409,30 @@ function newTrip(c, pre = {}) {
   </div>`);
   $('#ntSave').onclick = () => saveTrip(c ? c.iso2 : (pre.iso || null), pre.flight || null);
 }
-function saveTrip(iso, flightTxt) {
+async function saveTrip(iso, flightTxt) {
   const name = $('#ntName').value.trim() || 'Moje cesta'; const dest = $('#ntDest').value.trim();
-  let fiso = iso; if (!fiso && dest) { const c = resolveCountry(dest); if (c) fiso = c.iso2; }
-  S.trips.push({ name, dest: dest || '—', iso: fiso || null, start: $('#ntStart').value, end: $('#ntEnd').value, pax: $('#ntPax').value, budget: $('#ntBudget').value, flight: flightTxt, days: {}, checklist: PACK.map(t => ({ t, done: false })), notes: '' });
+  let fiso = iso, place = null; if (!fiso && dest) { const c = resolveCountry(dest); if (c) fiso = c.iso2; }
+  // město („Lisabon“): země a cíl pro „Hledat lety“ z našeptávače míst – jen přesná shoda názvu (jinak nic nehádat)
+  if (!fiso && dest) {
+    const b = $('#ntSave'); if (b) b.disabled = true;
+    try {
+      const j = await (await fetch(`api/places?q=${enc(dest)}`)).json();
+      const x = (j.items || []).find(s => s.cc && /^(ap|metro|geo):/.test(s.id || '') && norm(s.label) === norm(dest));
+      if (x) { fiso = byIso[x.cc] ? x.cc : null; if (/^(ap|metro):/.test(x.id)) place = { id: x.id, label: x.label, flag: x.flag || '' }; }
+    } catch (e) { /* bez sítě: cesta bez země */ }
+  }
+  S.trips.push({ name, dest: dest || '—', iso: fiso || null, ...(place ? { place } : {}), start: $('#ntStart').value, end: $('#ntEnd').value, pax: $('#ntPax').value, budget: $('#ntBudget').value, flight: flightTxt, days: {}, checklist: PACK.map(t => ({ t, done: false })), notes: '' });
   save(); modalClose(); go('planner'); toast('Cesta vytvořena'); setTimeout(() => openTrip(S.trips.length - 1), 250);
 }
+/** „Hledat lety“ u cesty v plánovači: do jejího města (nebo země) v termínu cesty, je-li ještě před ní. */
+window.planSearch = i => {
+  const t = S.trips[i]; if (!t || !window.Flights) return go('flights');
+  const wd = t.wizard && t.wizard.dest, p = t.place || (wd && { id: wd.id, label: wd.label, flag: wd.cc ? flag(wd.cc) : '' });
+  const to = p && /^(ap|metro):[A-Z]{3}$/.test(p.id || '') ? [{ id: p.id, label: String(p.label || ''), flag: p.flag || '' }]
+    : t.iso && byIso[t.iso] ? [{ id: 'cc:' + t.iso, label: byIso[t.iso].cs, flag: flag(t.iso) }] : null;
+  if (!to) return go('flights');
+  Flights.searchTo(to, { xOut: t.start, xBack: t.end });
+};
 /** Po cestě: země, které ještě nejsou na mapě navštívených – jedním klikem je přidat. */
 function tripNotVisited(t) {
   const end = t.end || t.start;
@@ -432,7 +449,7 @@ function openTrip(i) {
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? ' – ' + fmtDate(t.end) : '') : ''} · ${t.pax} os.</div></div></div>
   <div class="modal-body">
     ${t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${esc(t.flight.replace(/^🚆\s*/u, ''))}</div></div>` : ''}
-    <div class="row wrap"><button class="btn primary" onclick="modalClose();${c ? `fromCountrySearch('${t.iso}')` : `go('flights')`}">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
+    <div class="row wrap"><button class="btn primary" onclick="modalClose();planSearch(${i})">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${t.wizard && window.Trip ? '<button class="btn" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
     ${tripEntryHtml(t)}${visitedPrompt(t)}
     <div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>
     <div class="divider"></div>
@@ -450,6 +467,7 @@ function openTrip(i) {
   // ubytování v zadaném městě; země („Itálie“) nebo víc míst („Lisabon, Porto“) → hlavní město
   const oneCity = t.dest && t.dest !== '—' && !/[,;+&/]|\s(a|–|-)\s/.test(t.dest) && !resolveCountry(t.dest);
   $('#tripStay').onclick = () => openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2);
+  const tw = $('#tripWizard'); if (tw) tw.onclick = () => { modalClose(); Trip.openSaved(t.wizard, t.tripId); };
   const tv = $('#tripVisited');
   if (tv) tv.onclick = () => { const ccs = tripNotVisited(t); ccs.forEach(cc => setVisited(cc, true)); toast(`Na mapě navštívených: ${ccs.map(cc => byIso[cc].cs).join(', ')}`); openTrip(i); };
   const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
