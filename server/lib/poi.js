@@ -596,15 +596,25 @@ function natureTrips(rows, center, minKm, existing) {
   return out;
 }
 
+/** Výsledek p, nebo undefined, když nedoběhne do ms (časovač se pak zruší – nedrží proces naživu). */
+function within(p, ms) {
+  let t;
+  return Promise.race([p, new Promise((res) => { t = setTimeout(res, ms, undefined); })]).finally(() => clearTimeout(t));
+}
+
 const tripsQuery = (lat, lon) => cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.toFixed(2)}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, 120, 45, 300), 58000));
 
 /**
  * Cíle výletů do ~120 km (pro plánovač jednodenních a okružních výletů) – víc než 8 ve findPlaces,
  * s popisem a fotkou. Čeká na pomalý dotaz celý (max. ~1 min, pak je v mezipaměti týden).
  */
+const tripsKey = ({ lat, lon, limit = 30 }) => `trips:${lat.toFixed(2)}:${lon.toFixed(2)}:${limit}`;
+/** Jsou cíle výletů (findTrips se stejnými volbami) celé v mezipaměti – odpověď bez dotazu na Wikidata? */
+export const tripsCached = (opts) => cache.get(tripsKey(opts)) !== undefined;
+
 export async function findTrips({ lat, lon, limit = 30 }) {
-  const key = `trips:${lat.toFixed(2)}:${lon.toFixed(2)}:${limit}`;
-  return cache.wrap(key, (v) => (v.natureLoading ? 60e3 : v.degraded ? 15 * 60e3 : 7 * 864e5), async () => {
+  const key = tripsKey({ lat, lon, limit });
+  return cache.wrap(key,(v) => (v.natureLoading ? 60e3 : v.degraded ? 15 * 60e3 : 7 * 864e5), async () => {
     // Hlavní seznam a UNESCO mají přednost (fronta dotazů); hrady/zámky a příroda běží souběžně –
     // co nestihne zbytek (o 10 s), doběhne na pozadí a příští plán to už má (výsledek se drží jen minutu).
     const tripsP = tripsQuery(lat, lon);
@@ -612,8 +622,7 @@ export async function findTrips({ lat, lon, limit = 30 }) {
     const heritageP = heritageQuery(lat, lon).catch(() => null);
     const natureP = natureQuery(lat, lon).catch(() => null);
     const [rows, unesco] = await Promise.all([tripsP, unescoP]);
-    const wait = (p) => Promise.race([p, new Promise((res) => setTimeout(() => res(undefined), 10000))]);
-    const [heritage, nature] = await Promise.all([wait(heritageP), wait(natureP)]);
+    const [heritage, nature] = await Promise.all([within(heritageP, 10000), within(natureP, 10000)]);
     const main = tripsFromRows(rows, { lat, lon }, 15, { road: true, unesco: unesco || [] }).sort((a, b) => b.score - a.score).slice(0, limit);
     // doplňkových cílů víc než hlavních by bylo moc – nejvýš 15 hradů/zámků a 15 přírodních
     const her = heritageTrips(heritage || [], { lat, lon }, 15, main).sort((a, b) => b.score - a.score).slice(0, 15);
@@ -690,9 +699,13 @@ export function mockTowns({ lat, lon }) {
  * Místa k návštěvě kolem bodu.
  * opts: { lat, lon, radiusKm (město, max 25), dayTrips (true = i výlety do 120 km), limit }
  */
+const placesKey = ({ lat, lon, radiusKm = 10, dayTrips = true, limit = 60 }) => `poi:${lat.toFixed(3)}:${lon.toFixed(3)}:${Math.min(25, Math.max(1, radiusKm))}:${dayTrips}:${limit}`;
+/** Je výsledek findPlaces se stejnými volbami celý v mezipaměti – odpověď bez dotazu na Wikidata a Wikipedii? */
+export const placesCached = (opts) => cache.get(placesKey(opts)) !== undefined;
+
 export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, limit = 60 }) {
   const r = Math.min(25, Math.max(1, radiusKm));
-  const key = `poi:${lat.toFixed(3)}:${lon.toFixed(3)}:${r}:${dayTrips}:${limit}`;
+  const key = placesKey({ lat, lon, radiusKm: r, dayTrips, limit });
   // Úplný výsledek platí týden; neúplný (záloha přes Wikipedii, bez výletů, bez popisů) jen 15 min.
   return cache.wrap(key, (v) => (v.degraded ? 15 * 60e3 : 7 * 864e5), async () => {
     const center = { lat, lon };
@@ -716,7 +729,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
       return out;
     }
     const waitTrips = Math.max(2000, 20000 - (Date.now() - t0));
-    let tripRows = await Promise.race([tripsP, new Promise((res) => setTimeout(() => res(undefined), waitTrips))]);
+    let tripRows = await within(tripsP, waitTrips);
     const tripsMissing = tripRows == null; // nestihlo se nebo selhalo
     if (tripsMissing) tripRows = [];
     // Obce a předměstí (italské comuni, francouzské communes…) nejsou „místa k vidění“ – ve městě

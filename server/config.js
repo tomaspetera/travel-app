@@ -46,4 +46,7 @@ export const config = {
   rechecksPer10Min: 3 * num(env.SEARCH_RATE_LIMIT, 40),
   // živé ověření ceny (/api/verify – průvodce cestou, ceny z mezipaměti ve výpisu): vlastní limit, ne z hledání
   verifiesPer10Min: num(env.VERIFY_RATE_LIMIT, num(env.SEARCH_RATE_LIMIT, 40)),
+  // Objevuj (místa, program, výlety, kolo, pěšky): vlastní limit, do hledání se nepočítá; odpověď celá z mezipaměti
+  // serveru (stejné místo podruhé, návrat do Objevuj) se nepočítá vůbec
+  explorePer10Min: num(env.EXPLORE_RATE_LIMIT, 3 * num(env.SEARCH_RATE_LIMIT, 40)),
 };

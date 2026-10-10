@@ -142,8 +142,14 @@ export function googleUrl(start, geometry, travelmode = 'bicycling', end = start
   return `https://www.google.com/maps/dir/?${qs}`;
 }
 
-async function route(args, pace) {
+// onMiss (q.onMiss): zavolá se před dotazem mimo mezipaměť (nová trasa z BRouteru, nádraží z Wikidat) a může ho
+// odmítnout výjimkou s code 'LIMIT' (limit požadavků na IP); trasa z mezipaměti ho nevolá.
+const missing = (key, onMiss) => { if (onMiss && cache.get(key) === undefined) onMiss(); };
+const isLimit = (e) => e?.code === 'LIMIT';
+
+async function route(args, pace, onMiss) {
   const url = brouterUrl(args);
+  missing(`brouter:${url}`, onMiss);
   return cache.wrap(`brouter:${url}`, 7 * 864e5, async () => parseRoute(await brouterGet(url), { pace }));
 }
 
@@ -177,7 +183,7 @@ async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights }) {
     via = pickSights(q, km, variant, sights);
     if (via.length >= 2) {
       const lonlats = [start, ...via.map((s) => [s.lon, s.lat]), start].map((p) => `${p[0]},${p[1]}`).join('|');
-      r = await route({ profile, vars, lonlats }, pace);
+      r = await route({ profile, vars, lonlats }, pace, q.onMiss);
       // Památky jsou často namačkané v centru – vyjde-li okruh přes ně o hodně kratší / delší, bere se okruh dané délky.
       if (r.km < km * 0.65 || r.km > km * 1.5) r = null;
     }
@@ -186,12 +192,12 @@ async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights }) {
     const direction = (variant * 72 + 30) % 360;
     let radiusM = (km * 1000) / factor;
     const lonlats = `${start[0]},${start[1]}`;
-    r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace);
+    r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace, q.onMiss);
     if (Math.abs(r.km - km) / km > 0.12) {
       radiusM *= km / Math.max(1, r.km);
       // korekce může skončit na odříznuté cestě („target island“) – pak platí první trasa
       const first = r;
-      r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace).catch(() => first);
+      r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace, q.onMiss).catch((e) => (isLimit(e) ? Promise.reject(e) : first));
     }
     via = [];
   }
@@ -251,11 +257,12 @@ function sparqlStations(lat, lon, km) {
 }
 
 /** Železniční stanice do km od bodu (Wikidata; v mezipaměti 30 dní po oblastech 0,1° a pásmech po 40 km). */
-export async function stationsNear(lat, lon, km) {
+export async function stationsNear(lat, lon, km, onMiss) {
   const R = Math.ceil(km / 40) * 40;
   const la = Math.round(lat * 10) / 10;
   const lo = Math.round(lon * 10) / 10;
-  return cache.wrap(`wdqs-stations:${la}:${lo}:${R}`, (v) => (v.length ? 30 * 864e5 : 3600e3), async () => {
+  missing(`wdqs-stations:${la}:${lo}:${R}`, onMiss);
+  return cache.wrap(`wdqs-stations:${la}:${lo}:${R}`,(v) => (v.length ? 30 * 864e5 : 3600e3), async () => {
     const rows = await wdqs(sparqlStations(la, lo, R + 10), 45000);
     const by = new Map();
     for (const b of rows) {
@@ -344,8 +351,8 @@ export async function bikeFromStation(q) {
   const km = Math.min(150, Math.max(5, Number(q.km) || 30));
   const home = [Math.round(q.lon * 1e4) / 1e4, Math.round(q.lat * 1e4) / 1e4];
   const variant = Math.max(0, Math.round(Number(q.variant) || 0)) % 1000 || 0;
-  const stations = await stationsNear(q.lat, q.lon, (1.15 * km) / 1.3).catch((e) => {
-    throw Object.assign(new Error(`Nádraží: ${e.message}`), { code: 'WDQS' });
+  const stations = await stationsNear(q.lat, q.lon, (1.15 * km) / 1.3, q.onMiss).catch((e) => {
+    throw isLimit(e) ? e : Object.assign(new Error(`Nádraží: ${e.message}`), { code: 'WDQS' });
   });
   const cands = pickStations(stations, q, km);
   if (!cands.length) {
@@ -356,7 +363,7 @@ export async function bikeFromStation(q) {
   for (let i = 0; i < Math.min(3, cands.length); i++) {
     const idx = (variant + i) % cands.length;
     const st = cands[idx];
-    const r = await route({ profile, vars, lonlats: `${st.lon},${st.lat}|${home[0]},${home[1]}` }, pace);
+    const r = await route({ profile, vars, lonlats: `${st.lon},${st.lat}|${home[0]},${home[1]}` }, pace, q.onMiss);
     const ok = r.km >= km * 0.75 && r.km <= km * 1.35;
     if (ok || !best) best = { r, st, idx };
     if (ok) break;

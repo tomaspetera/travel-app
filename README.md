@@ -692,6 +692,7 @@ Zkopíruj `.env.example` na `.env`:
 | `RYANAIR_ENABLED` / `WIZZ_ENABLED` | `1` | `0` = zdroj vypnout |
 | `SEARCH_RATE_LIMIT` | `40` | max. hledání z jedné IP za 10 minut (ochrana při veřejném nasazení, `0` = bez limitu); počítají se do něj i dotazy na živé spoje RegioJetu (jen ty, které opravdu jdou na RegioJet – odpověď z mezipaměti ne). Stejné hledání z téže adresy, které ještě běží (obnovená stránka, dvojklik), se podruhé nepočítá; aplikace totéž běžící hledání nespouští znovu, jen na něj počká |
 | `VERIFY_RATE_LIMIT` | jako `SEARCH_RATE_LIMIT` | max. živých ověření ceny (`/api/verify` – Kiwi.com) z jedné IP za 10 minut, zvlášť od hledání; po hledání „kamkoliv“ aplikace sama ověří nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli, další jen na tlačítko „⚡ Ověřit cenu živě“ |
+| `EXPLORE_RATE_LIMIT` | 3× `SEARCH_RATE_LIMIT` | max. požadavků Objevuj (`/api/poi`, `/api/itinerary`, `/api/roadtrip`, `/api/bike`, `/api/hike`) z jedné IP za 10 minut, zvlášť od hledání (`0` = bez limitu). Počítá se jen požadavek, který opravdu jde na Wikidata, Wikipedii nebo BRouter – odpověď celá z mezipaměti serveru (stejné místo podruhé, návrat do Objevuj, už jednou spočítaná trasa) ne; v DEMO se počítá každý |
 | `REGIOJET_LIVE` | `1` | `0` = vypnout živé spoje RegioJetu (vlak/bus místo letadla zůstane jako odhad a odkazy) |
 | `REGIOJET_MAX_PER_HOUR` | `60` | nejvýš tolik dotazů na RegioJet za hodinu (pak jen odhad) |
 | `REGIOJET_GAP_MS` | `1000` | nejmenší odstup dotazů na RegioJet (ms) |
