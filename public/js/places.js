@@ -865,6 +865,62 @@
         : 'Časy jízdy jsou orientační odhad autem; přesnou trasu ukáže Google Maps.'} Cíle do ~120 km od místa.</div>`;
   }
 
+  /* ---------- uložení do plánovače ---------- */
+  /** Výsledek Objevuj (trasa / výlety / program) → cesta pro plánovač { name, dest, iso, start, end, days, notes }. */
+  function plannerEntry({ rr, trip, plan, place: p, start }) {
+    const days = {};
+    let name, dates, notes = '';
+    if (rr) {
+      const day = start || fmtYMD(new Date());
+      days[day] = routeLines(rr, p);
+      notes = `${rr.train ? `Spojení vlakem: ${rr.train.idosUrl || rr.train.googleUrl}\n` : ''}Trasa v Mapy.com: ${rr.mapyUrl}\nGoogle Maps: ${rr.googleUrl}`;
+      name = routeName(rr, p);
+      dates = [day, day];
+    } else if (trip) {
+      trip.days.forEach(d => {
+        days[d.date] = [...d.stops.map(x => `${tripIcon(x)} ${x.name} (příjezd ~${x.arrive})`), d.overnight ? `🛏️ Přespání: ${d.overnight.name}` : `🏁 Zpět na start (${p.label}) ~${d.back.arrive}`];
+      });
+      name = `${trip.mode === 'day' ? 'Výlety z' : 'Okruh z'}: ${p.label}${trip.transport === 'transit' ? ' (vlakem a busem)' : ''}`;
+      dates = [trip.days[0].date, trip.days.at(-1).date];
+    } else {
+      plan.days.forEach(d => { if (d.items.length) days[d.date] = d.items.map(x => x.name); });
+      name = `Výlet: ${p.label}`;
+      dates = [plan.days[0].date, plan.days.at(-1).date];
+    }
+    return { name, dest: p.label, iso: typeof byIso !== 'undefined' && byIso[p.cc] ? p.cc : null, start: dates[0], end: dates[1], days, notes };
+  }
+  const normDest = s => String(s || '').trim().toLowerCase();
+  // Cesta do stejného místa se stejným začátkem (program, výlety i kolo z jedné Barcelony = jedna cesta); jinak −1.
+  const findTripFor = (trips, e) => (trips || []).findIndex(t => t && t.start && t.start === e.start && normDest(t.dest) === normDest(e.dest));
+  /** Přidá řádky dnů (bez opakování), prodlouží konec a připíše poznámky; vrátí počet nových řádků. */
+  function mergeInto(t, e) {
+    let added = 0;
+    t.days = t.days && typeof t.days === 'object' ? t.days : {};
+    for (const [d, lines] of Object.entries(e.days)) {
+      const have = t.days[d] || [];
+      const add = lines.filter(x => !have.includes(x));
+      if (add.length) { t.days[d] = [...have, ...add]; added += add.length; }
+    }
+    if (e.end && (!t.end || e.end > t.end)) t.end = e.end;
+    if (e.notes && !String(t.notes || '').includes(e.notes)) t.notes = [t.notes, e.notes].filter(Boolean).join('\n\n');
+    if (!t.iso && e.iso) t.iso = e.iso;
+    return added;
+  }
+  const shortName = s => (s.length > 32 ? `${s.slice(0, 30).trim()}…` : s);
+  const saveHtml = (i, trips) => (i >= 0
+    ? `<button class="btn" id="exSave" title="${esc(`Přidat k cestě ${trips[i].name} (stejné místo a začátek)`)}">💾 Přidat k cestě ${esc(shortName(trips[i].name))}</button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</button>`
+    : '<button class="btn" id="exSave">💾 Uložit do plánovače</button>');
+  // Hláška s tlačítkem (toast z app.js tlačítko neumí); delší, ať se na tlačítko stihne kliknout.
+  function actToast(msg, label, fn) {
+    const t = $('#toast');
+    if (!t) return;
+    t.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span>${esc(msg)}</span><button type="button" class="toast-act">${esc(label)}</button>`;
+    $('.toast-act', t).onclick = () => { t.classList.remove('show'); fn(); };
+    t.classList.add('show');
+    clearTimeout(t._t);
+    t._t = setTimeout(() => t.classList.remove('show'), 6000);
+  }
+
   /* ---------- na kole a pěšky ---------- */
   const BIKE_LBL = Object.fromEntries(BIKE_TYPES);
   // „Jiná trasa“ u okruhu: server má 10 různých směrů (varianty 0–9), pak se kolečko opakuje.
@@ -1063,7 +1119,7 @@
       ? poiCard(x, x.category === 'daytrip' ? { tripToggle: true, center: p } : { center: p })
       : routeMode ? poiCard(x, { center: p }) : poiCard(x, { toggle: true, must: st.must, inPlan, center: p }));
     const segBtns = (list, attr, cur) => list.map(([id, l]) => `<button type="button" ${attr}="${id}" class="${cur === id ? 'on' : ''}">${l}</button>`).join('');
-    const saveBtn = hasPlan ? '<button class="btn" id="exSave">💾 Uložit do plánovače</button>' : '';
+    const saveBtn = hasPlan ? saveHtml(findTripFor(S.trips, plannerEntry({ rr, trip, plan: ex.plan, place: p, start: ex.start })), S.trips) : '';
     const planLbl = routeMode ? 'Naplánovat trasu' : road ? 'Naplánovat výlet' : 'Sestavit program';
     const planBtn = `<button class="btn primary" id="exPlan"${bz ? ' disabled' : ''}>${bz && !bz.other ? `<span class="spin"></span> ${BTN_BUSY[kind]}` : planLbl}</button>`;
     // Vlakem tam: jízda nevede přes památky, „městem“ = smíšeně.
@@ -1290,30 +1346,26 @@
     $$('[data-drop]', body).forEach(b => b.onclick = () => { st.exclude.add(b.dataset.drop); st.must.delete(b.dataset.drop); replan(); });
     $$('[data-tdrop]', body).forEach(b => b.onclick = () => { ex.tripEx.add(b.dataset.tdrop); ex.tripMust.delete(b.dataset.tdrop); onlyThisTrip(); replan(); });
     $$('[data-tmust]', body).forEach(b => b.onclick = e => { e.stopPropagation(); ex.tripMust.add(b.dataset.tmust); ex.tripEx.delete(b.dataset.tmust); onlyThisTrip(); replan(); });
-    const sv = $('#exSave', body);
-    if (sv) sv.onclick = () => {
-      const days = {};
-      let name, dates, notes = '';
-      if (rr) {
-        const day = ex.start || fmtYMD(new Date());
-        days[day] = routeLines(rr, p);
-        notes = `${rr.train ? `Spojení vlakem: ${rr.train.idosUrl || rr.train.googleUrl}\n` : ''}Trasa v Mapy.com: ${rr.mapyUrl}\nGoogle Maps: ${rr.googleUrl}`;
-        name = routeName(rr, p);
-        dates = [day, day];
-      } else if (trip) {
-        trip.days.forEach(d => {
-          days[d.date] = [...d.stops.map(x => `${tripIcon(x)} ${x.name} (příjezd ~${x.arrive})`), d.overnight ? `🛏️ Přespání: ${d.overnight.name}` : `🏁 Zpět na start (${p.label}) ~${d.back.arrive}`];
-        });
-        name = `${trip.mode === 'day' ? 'Výlety z' : 'Okruh z'}: ${p.label}${trip.transport === 'transit' ? ' (vlakem a busem)' : ''}`;
-        dates = [trip.days[0].date, trip.days.at(-1).date];
-      } else {
-        ex.plan.days.forEach(d => { days[d.date] = d.items.map(x => x.name); });
-        name = `Výlet: ${p.label}`;
-        dates = [ex.plan.days[0].date, ex.plan.days.at(-1).date];
-      }
-      S.trips.push({ name, dest: p.label, iso: byIso[p.cc] ? p.cc : null, start: dates[0], end: dates[1], pax: '2', budget: '', days, checklist: PACK.map(t => ({ t, done: false })), notes });
-      save(); toast('Uloženo do plánovače'); go('planner');
+    // Uložení: zůstává se v Objevuj (toast s „Otevřít v plánovači“); cesta do stejného místa se stejným začátkem
+    // v plánovači už je → přidá se k ní (bez opakování řádků), „jako novou“ založí další.
+    const store = asNew => {
+      const entry = plannerEntry({ rr, trip, plan: ex.plan, place: p, start: ex.start });
+      const i = asNew ? -1 : findTripFor(S.trips, entry);
+      let t = S.trips[i];
+      if (t) mergeInto(t, entry);
+      else S.trips.push(t = { ...entry, pax: '2', budget: '', checklist: PACK.map(x => ({ t: x, done: false })) });
+      save();
+      $$('#exSave, #exSaveNew', body).forEach(b => { b.disabled = true; });
+      const sv = $('#exSave', body);
+      if (sv) sv.textContent = '✓ Uloženo';
+      $('#exSaveNew', body)?.remove();
+      actToast(i >= 0 ? `Přidáno k cestě ${t.name}` : 'Uloženo do plánovače', 'Otevřít v plánovači', () => {
+        go('planner');
+        setTimeout(() => { const j = S.trips.indexOf(t); if (j >= 0 && typeof openTrip === 'function') openTrip(j); }, 250);
+      });
     };
+    on('#exSave', 'onclick', () => store(false));
+    on('#exSaveNew', 'onclick', () => store(true));
     remember();
     // Program pro jiný okruh (okruh se mezitím změnil) se přeplánuje sám – jen když zrovna neběží a neselhal.
     if (ex.mode === 'city' && ex.plan && ex.plan.radius != null && ex.plan.radius !== ex.radius && !bz && !er) replanSoon('city');
@@ -1336,6 +1388,7 @@
     _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
-      afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns },
+      afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns,
+      plannerEntry, findTripFor, mergeInto, saveHtml },
   };
 })();

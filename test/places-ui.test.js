@@ -400,3 +400,51 @@ test('návrat po setmění: výlet s návratem po západu slunce, kolo a pěšky
   assert.equal(els[2].innerHTML, 'x');
   assert.match(els[3].innerHTML, /zkrať trasu\. <span class="faint">Počítám se startem v 9:00\.<\/span>/);
 });
+
+test('uložení do plánovače: stejné místo a začátek → přidat k cestě (bez opakování), jinak nová', () => {
+  const TB = load({ byIso: { ES: { cs: 'Španělsko' } } }).window.Places._t;
+  const place = { ...BCN_C };
+  const items = BCN.items.filter((x) => x.category !== 'daytrip').slice(0, 2);
+  const plan = { days: [{ date: '2026-10-12', items }, { date: '2026-10-13', items: [] }, { date: '2026-10-14', items: [items[0]] }] };
+  const city = TB.plannerEntry({ plan, place, start: '2026-10-12' });
+  assert.deepEqual(plain(city), {
+    name: 'Výlet: Barcelona', dest: 'Barcelona', iso: 'ES', start: '2026-10-12', end: '2026-10-14',
+    days: { '2026-10-12': items.map((x) => x.name), '2026-10-14': [items[0].name] }, notes: '',
+  });
+  const trip = tripOf('day', 'car', [DAY('2026-10-12', { name: 'Barcelona', lat: 41.3874, lon: 2.1686 }, [STOP('Q190', 'Montserrat', 41.5933, 1.8375, { tripKind: 'monastery' })])]);
+  const day = TB.plannerEntry({ trip, place, start: '2026-10-12' });
+  assert.equal(day.name, 'Výlety z: Barcelona');
+  assert.deepEqual(plain(day.days['2026-10-12']), ['⛪ Montserrat (příjezd ~10:00)', '🏁 Zpět na start (Barcelona) ~19:25']);
+  const bike = TB.plannerEntry({ rr: ROUTE({ km: 30.7 }), place, start: '2026-10-12' });
+  assert.equal(bike.name, 'Na kole z: Barcelona – 30.7 km');
+  assert.match(bike.notes, /^Trasa v Mapy\.com: https:\/\/mapy\.com\/.*\nGoogle Maps: https:\/\/www\.google\.com\/maps\/dir\//);
+
+  // v plánovači už je program z Barcelony od 12. 10. → výlety, kolo i druhé uložení jdou k němu
+  const trips = [{ name: 'Léto', dest: 'Lisabon', start: '2026-10-12', end: '2026-10-14', days: {} }, { ...plain(city), pax: '2' }];
+  assert.equal(TB.findTripFor(trips, day), 1);
+  assert.equal(TB.findTripFor(trips, { ...day, dest: ' barcelona ' }), 1, 'velikost písmen a mezery nevadí');
+  assert.equal(TB.findTripFor(trips, { ...day, start: '2026-10-13' }), -1, 'jiný začátek = jiná cesta');
+  assert.equal(TB.findTripFor([{ dest: 'Barcelona' }, null], day), -1, 'cesta bez data nic');
+  const t = trips[1];
+  assert.equal(TB.mergeInto(t, day), 2);
+  assert.equal(TB.mergeInto(t, bike), 1);
+  assert.equal(TB.mergeInto(t, day), 0, 'podruhé totéž nic nepřidá');
+  assert.deepEqual(plain(t.days['2026-10-12']), [...items.map((x) => x.name), '⛪ Montserrat (příjezd ~10:00)', '🏁 Zpět na start (Barcelona) ~19:25', bike.days['2026-10-12'][0]]);
+  assert.equal(t.notes, bike.notes);
+  TB.mergeInto(t, bike);
+  assert.equal(t.notes, bike.notes, 'poznámky se neopakují');
+  // okruh na víc dní prodlouží konec cesty
+  TB.mergeInto(t, { days: { '2026-10-16': ['🛏️ Přespání: Girona'] }, end: '2026-10-16', notes: '' });
+  assert.equal(t.end, '2026-10-16');
+  const x = { name: 'X', start: '2026-10-12', end: '2026-10-20', days: null };
+  TB.mergeInto(x, city);
+  assert.equal(x.end, '2026-10-20', 'kratší výsledek konec nezkrátí');
+  assert.deepEqual(Object.keys(x.days), ['2026-10-12', '2026-10-14']);
+
+  // tlačítko: „Přidat k cestě …“ + „uložit jako novou“, jinak „Uložit do plánovače“
+  assert.match(TB.saveHtml(1, trips), /💾 Přidat k cestě Výlet: Barcelona<\/button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</);
+  assert.equal(TB.saveHtml(-1, trips), '<button class="btn" id="exSave">💾 Uložit do plánovače</button>');
+  const long = TB.saveHtml(0, [{ name: `Dlouhá cesta ${XSS} po celém Španělsku a Portugalsku` }]);
+  assert.ok(!long.includes('<img src=x'));
+  assert.match(long, /…<\/button>/);
+});
