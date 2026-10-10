@@ -601,3 +601,95 @@ test('GET /api/verify – živé ověření ceny má vlastní limit, hledání z
     config.verifiesPer10Min = prev;
   }
 });
+
+test('Objevuj má vlastní limit: vyčerpaný → 429, hledání letů dál funguje; odpověď z mezipaměti se nepočítá', async () => {
+  const { config } = await import('../server/config.js');
+  const { findPlaces, findTrips } = await import('../server/lib/poi.js');
+  const { bikeLoop } = await import('../server/lib/bike.js');
+  const prev = { limit: config.explorePer10Min, mock: config.mock, gap: process.env.BROUTER_GAP_MS };
+  config.explorePer10Min = 2;
+  const headers = { 'x-forwarded-for': '10.20.30.42' };
+  const json = { ...headers, 'content-type': 'application/json' };
+  const start = ymdPlus(10);
+  // server běží ve stejném procesu – dotazy na něj jdou přes původní fetch, náhrada fetch platí jen pro dotazy serveru ven
+  const f = globalThis.fetch;
+  const poi = (lat, lon) => f(`${base}/api/poi?lat=${lat}&lon=${lon}&radius=10`, { headers });
+  const post = (path, body) => f(`${base}${path}`, { method: 'POST', headers: json, body: JSON.stringify(body) });
+  try {
+    // DEMO: počítá se každý požadavek
+    for (let i = 0; i < 2; i++) assert.equal((await poi(41.3874, 2.1686)).status, 200);
+    const r3 = await poi(41.3874, 2.1686);
+    assert.equal(r3.status, 429);
+    assert.match((await r3.json()).error, /Příliš mnoho požadavků/);
+    assert.equal((await post('/api/roadtrip', { lat: 41.3874, lon: 2.1686, start, mode: 'day' })).status, 429);
+    assert.equal((await post('/api/itinerary', { lat: 41.3874, lon: 2.1686, start, end: start })).status, 429);
+    assert.equal((await post('/api/bike', { lat: 41.3874, lon: 2.1686, km: 30 })).status, 429);
+    assert.equal((await post('/api/hike', { lat: 41.3874, lon: 2.1686, km: 10 })).status, 429);
+    // hledání letů má svůj limit – Objevuj ho nevyčerpá
+    const s = await post('/api/search', { from: ['ap:VIE'], to: ['ap:BCN'], radiusKm: 0, dateFrom: ymdPlus(20), dateTo: ymdPlus(30), trip: 'return', nightsMin: 3, nightsMax: 5 });
+    assert.equal(s.status, 200);
+    await s.text();
+
+    // Mimo DEMO: místa, výlety a trasa už v mezipaměti serveru → odpověď zdarma i po vyčerpání limitu
+    const lit = (v) => ({ type: 'literal', value: String(v) });
+    const ent = (q) => ({ type: 'uri', value: `http://www.wikidata.org/entity/${q}` });
+    const wrow = (q, label, lat, lon, sl, type) => ({ item: ent(q), itemLabel: lit(label), lat: lit(lat), lon: lit(lon), sl: lit(sl), type: ent(type) });
+    const rows = [wrow('Q1', 'Katedrála', 41.3839, 2.1763, 80, 'Q2977'), wrow('Q2', 'Hrad', 41.3633, 2.1658, 60, 'Q23413'),
+      wrow('Q3', 'Girona', 41.9831, 2.8249, 150, 'Q515'), wrow('Q4', 'Katedrála v Gironě', 41.9875, 2.8262, 60, 'Q2977')];
+    const n = 30;
+    const coords = Array.from({ length: n + 1 }, (_, i) => [2.1686 + 0.04 * Math.sin((i / n) * 2 * Math.PI), 41.3874 + 0.03 * (1 - Math.cos((i / n) * 2 * Math.PI)), 20]);
+    const geo = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { 'track-length': '30000', 'filtered ascend': '200', 'total-time': '6000', messages: [] }, geometry: { type: 'LineString', coordinates: coords } }] };
+    process.env.BROUTER_GAP_MS = '0';
+    const stub = stubFetch((url) => {
+      if (url.startsWith('https://query.wikidata.org/sparql')) {
+        const q = decodeURIComponent(new URL(url).searchParams.get('query'));
+        // okruh 20 km: navíc klášter za městem
+        const more = q.includes('"20"') ? [wrow('Q5', 'Klášter', 41.52, 2.05, 70, 'Q44613')] : [];
+        return { body: { results: { bindings: q.includes('wikibase:around') ? [...rows, ...more] : [] } } };
+      }
+      if (url.includes('brouter')) return { body: geo };
+      return { body: { query: { pages: [] } } };
+    });
+    try {
+      await findPlaces({ lat: 41.39, lon: 2.17, radiusKm: 10, dayTrips: true });
+      await findPlaces({ lat: 41.39, lon: 2.17, radiusKm: 20, dayTrips: true });
+      await findTrips({ lat: 41.39, lon: 2.17 });
+      await bikeLoop({ lat: 41.39, lon: 2.17, km: 30, bike: 'trekking', scenery: 'mixed', hills: 'normal', variant: 0 });
+    } finally {
+      stub.restore();
+    }
+    config.mock = false;
+    for (let i = 0; i < 5; i++) {
+      const r = await poi(41.39, 2.17);
+      assert.equal(r.status, 200);
+      assert.ok((await r.json()).items.some((x) => x.id === 'Q1'));
+    }
+    // program bere místa ze stejného okruhu jako seznam (stejná položka mezipaměti), bez okruhu 10 km
+    const it10 = await post('/api/itinerary', { lat: 41.39, lon: 2.17, start, end: start });
+    assert.equal(it10.status, 200);
+    assert.ok(!(await it10.json()).places.some((x) => x.id === 'Q5'));
+    const it20 = await post('/api/itinerary', { lat: 41.39, lon: 2.17, start, end: start, radius: 20 });
+    assert.equal(it20.status, 200);
+    assert.ok((await it20.json()).places.some((x) => x.id === 'Q5'), 'okruh 20 km');
+    const trip = await post('/api/roadtrip', { lat: 41.39, lon: 2.17, start, mode: 'day' });
+    assert.equal(trip.status, 200);
+    assert.equal((await trip.json()).days[0].stops[0].id, 'Q3');
+    const bike = await post('/api/bike', { lat: 41.39, lon: 2.17, km: 30 });
+    assert.equal(bike.status, 200);
+    assert.equal((await bike.json()).km, 30);
+    // co v mezipaměti není (jiné místo, jiná trasa), by šlo na Wikidata / BRouter → nad limitem 429, bez dotazu ven
+    const out = stubFetch(() => { throw new Error('bez sítě'); });
+    try {
+      assert.equal((await poi(48.2082, 16.3738)).status, 429);
+      assert.equal((await post('/api/bike', { lat: 41.39, lon: 2.17, km: 30, variant: 1 })).status, 429);
+      assert.equal(out.calls.length, 0);
+    } finally {
+      out.restore();
+    }
+  } finally {
+    config.explorePer10Min = prev.limit;
+    config.mock = prev.mock;
+    if (prev.gap === undefined) delete process.env.BROUTER_GAP_MS;
+    else process.env.BROUTER_GAP_MS = prev.gap;
+  }
+});

@@ -18,7 +18,7 @@ import { addDays, todayYmd } from './lib/dates.js';
 import { searchStays } from './lib/stays.js';
 import { partnerLookups } from './lib/partnerids.js';
 import { searchCars } from './lib/cars.js';
-import { findPlaces, findTrips, mockPlaces, mockTrips } from './lib/poi.js';
+import { findPlaces, findTrips, mockPlaces, mockTrips, placesCached, tripsCached } from './lib/poi.js';
 import { planTrips } from './lib/roadtrip.js';
 import { bikeLoop, mockBikeLoop, hikeLoop, mockHikeLoop, bikeFromStation, mockBikeFromStation } from './lib/bike.js';
 import { planItinerary } from './lib/itinerary.js';
@@ -106,6 +106,7 @@ function readBody(req, limit = 64 * 1024) {
 const hits = new Map();
 const rechecks = new Map(); // přepočty trasy přes víc míst (stayplan s bases): vlastní limit, do hledání se nepočítají
 const verifies = new Map(); // živé ověření ceny (/api/verify): vlastní limit, do hledání se nepočítá
+const explores = new Map(); // Objevuj (místa, program, výlety, kolo, pěšky): vlastní limit, do hledání se nepočítá
 const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
   if (!max) return false;
@@ -117,6 +118,20 @@ function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
   bucket.set(ip, list);
   if (bucket.size > 5000) bucket.clear();
   return false;
+}
+
+// Objevuj: do limitu se počítá jen požadavek, který opravdu půjde na Wikidata, Wikipedii nebo BRouter – odpověď celá
+// z mezipaměti serveru (stejné místo podruhé, návrat do Objevuj, už jednou spočítaná trasa) je zdarma. V DEMO se počítá vše.
+const TOO_MANY_EXPLORE = { error: 'Příliš mnoho požadavků – zkus to za pár minut.' };
+const exploreLimited = (req, cached = false) => !(cached && !config.mock) && rateLimited(req, config.explorePer10Min, explores);
+/** Kolo a pěšky: mezipaměť se pozná až během plánování (trasy z BRouteru) – započte nejvýš jednou, nad limitem výjimka code 'LIMIT'. */
+function exploreCharge(req) {
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    if (rateLimited(req, config.explorePer10Min, explores)) throw Object.assign(new Error(TOO_MANY_EXPLORE.error), { code: 'LIMIT' });
+  };
 }
 
 // Stejné hledání z téže adresy, které ještě běží: `${ip}|${tělo}` → počet běžících kopií
@@ -405,12 +420,12 @@ async function route(req, res) {
     return sendJson(req, res, 200, await fuelInfo(), { 'Cache-Control': 'public, max-age=3600' });
   }
   if (p === '/api/poi') {
-    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
     const lat = Number(url.searchParams.get('lat'));
     const lon = Number(url.searchParams.get('lon'));
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     const radiusKm = Math.min(25, Math.max(1, Number(url.searchParams.get('radius')) || 10));
     const dayTrips = url.searchParams.get('dayTrips') !== '0';
+    if (exploreLimited(req, placesCached({ lat, lon, radiusKm, dayTrips }))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
     const items = config.mock ? mockPlaces({ lat, lon }) : await findPlaces({ lat, lon, radiusKm, dayTrips });
     return sendJson(req, res, 200, { demo: config.mock, items });
   }
@@ -426,8 +441,10 @@ async function route(req, res) {
     const lon = Number(b.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     if (!isYmd(b.start) || !isYmd(b.end) || daysBetween(b.start, b.end) < 0 || daysBetween(b.start, b.end) > 30) return sendJson(req, res, 400, { error: 'Neplatné datum (max. 31 dní).' });
-    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
-    const places = config.mock ? mockPlaces({ lat, lon }) : await findPlaces({ lat, lon, radiusKm: 10, dayTrips: true });
+    // Okruh jako u seznamu míst (/api/poi) – program pak použije už načtená místa z mezipaměti; starší klient bez něj 10 km.
+    const near = { lat, lon, radiusKm: Math.min(25, Math.max(1, Number(b.radius) || 10)), dayTrips: true };
+    if (exploreLimited(req, placesCached(near))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
+    const places = config.mock ? mockPlaces({ lat, lon }) : await findPlaces(near);
     const exclude = new Set(Array.isArray(b.exclude) ? b.exclude.map(String) : []);
     const must = new Set(Array.isArray(b.include) ? b.include.map(String) : []);
     const pool = places.filter((x) => !exclude.has(x.id)).map((x) => (must.has(x.id) ? { ...x, score: x.score + 1000, pinned: true } : x));
@@ -451,7 +468,7 @@ async function route(req, res) {
     const lon = Number(b.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
     if (!isYmd(b.start)) return sendJson(req, res, 400, { error: 'Neplatné datum.' });
-    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    if (exploreLimited(req, tripsCached({ lat, lon }))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
     let candidates;
     try {
       candidates = config.mock ? mockTrips({ lat, lon }) : await findTrips({ lat, lon });
@@ -480,7 +497,8 @@ async function route(req, res) {
     if (candidates.natureLoading && plan.note !== undefined && Array.isArray(b.interests) && b.interests.includes('nature')) {
       plan.note = ['Přírodní cíle se pro toto místo ještě načítají – za minutu naplánuj znovu, bude jich víc.', plan.note].filter(Boolean).join(' ');
     }
-    return sendJson(req, res, 200, { demo: config.mock, degraded: Boolean(candidates.degraded), candidates: candidates.length, ...plan });
+    // degraded = nenačetly se popisy z Wikipedie (aplikace to hlásí); neúplné cíle (příroda se ještě načítá) ne
+    return sendJson(req, res, 200, { demo: config.mock, degraded: Boolean(candidates.descFailed), candidates: candidates.length, ...plan });
   }
   if (p === '/api/stayplan' && req.method === 'POST') {
     // Pobyt na víc místech: návrh trasy (města z Wikidat), nebo jen přepočet přejezdů upravené trasy.
@@ -513,7 +531,6 @@ async function route(req, res) {
     const lat = Number(b.lat);
     const lon = Number(b.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
-    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
     const q = {
       lat, lon, km: Number(b.km) || (hike ? 10 : 30), variant: Number(b.variant) || 0,
       scenery: ['city', 'mixed', 'nature'].includes(b.scenery) ? b.scenery : 'mixed',
@@ -525,19 +542,26 @@ async function route(req, res) {
       if (q.kind === 'train') Object.assign(q, { label: String(b.label || '').slice(0, 120), cc: /^[A-Z]{2}$/.test(b.cc) ? b.cc : '' });
     }
     const plan = hike ? hikeLoop : q.kind === 'train' ? bikeFromStation : bikeLoop;
-    if (config.mock) return sendJson(req, res, 200, { demo: true, ...(hike ? mockHikeLoop : q.kind === 'train' ? mockBikeFromStation : mockBikeLoop)(q) });
+    if (config.mock) {
+      if (exploreLimited(req)) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
+      return sendJson(req, res, 200, { demo: true, ...(hike ? mockHikeLoop : q.kind === 'train' ? mockBikeFromStation : mockBikeLoop)(q) });
+    }
+    // Do limitu Objevuj až první dotaz mimo mezipaměť (nová trasa, nádraží); už spočítaná trasa („Jiná trasa“ znovu) je zdarma.
+    q.onMiss = exploreCharge(req);
     try {
       if (q.scenery === 'city' && q.kind !== 'train') {
         // Památky po cestě: ty, které už má načtené stránka Objevuj (nejlepší první), jinak stejná data ze serveru.
         const sent = Array.isArray(b.sights) ? b.sights.slice(0, 40)
           .map((x) => ({ name: String(x?.name || '').slice(0, 120), lat: Number(x?.lat), lon: Number(x?.lon), score: Number(x?.score) || 0 }))
           .filter((x) => x.name && Number.isFinite(x.lat) && Number.isFinite(x.lon)) : [];
-        const places = sent.length >= 3 ? sent
-          : await findPlaces({ lat, lon, radiusKm: Math.min(25, Math.max(3, q.km / 5)), dayTrips: false }).catch(() => []);
+        const near = { lat, lon, radiusKm: Math.min(25, Math.max(3, q.km / 5)), dayTrips: false };
+        if (sent.length < 3 && !placesCached(near)) q.onMiss();
+        const places = sent.length >= 3 ? sent : await findPlaces(near).catch(() => []);
         q.sights = places.filter((x) => x.category !== 'daytrip').sort((x, y) => (y.score || 0) - (x.score || 0)).map((x) => ({ name: x.name, lat: x.lat, lon: x.lon }));
       }
       return sendJson(req, res, 200, { demo: false, ...(await plan(q)) });
     } catch (e) {
+      if (e.code === 'LIMIT') return sendJson(req, res, 429, TOO_MANY_EXPLORE);
       console.warn(`${hike ? 'hike' : 'bike'}: ${e.message}`);
       if (e.code === 'NO_STATION') return sendJson(req, res, 404, { error: e.message });
       const error = e.code === 'WDQS' ? 'Nádraží v okolí se teď nepodařilo načíst (Wikidata neodpovídá) – zkus to prosím za chvíli.'
