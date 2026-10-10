@@ -1977,9 +1977,11 @@
       const arrow = tr ? { down: '↓ zlevňuje', flat: '→ beze změny', up: '↑ zdražuje' }[tr.dir] : '';
       const when = tr ? (tr.days ? `o ${plural(tr.days, 'den', 'dny', 'dní')} dřív` : 'dřív téhož dne') : '';
       // trasu zná jen z posledních ~24 h (často jen z tohoto hledání) – nepředstírat dlouhou historii
-      memo = `<p>${mem.sinceDays > 0 ? `Nejlevnější letenka, co ATLAS na trase <b>${esc(route)}</b> viděl: <b>${czk(mem.min)}</b>/os. (${PriceCheck.agoTxt(mem.ago)}, trasu sleduje ${plural(mem.sinceDays, 'den', 'dny', 'dní')}).`
-          : `Trasu <b>${esc(route)}</b> ATLAS sleduje teprve od dneška – nejlevnější letenka, co na ní zatím viděl: <b>${czk(mem.min)}</b>/os.`}
-        ${x.vsMem <= 0 ? 'Tahle je zatím nejlevnější.' : `Tahle je o ${x.vsMem} % dražší.`}</p>
+      const low = x.scoped ? mem.scopeMin : mem.min, lowAgo = x.scoped ? mem.scopeAgo : mem.ago, inSearch = x.scoped ? ' v tomhle hledání' : '';
+      memo = `<p>${mem.sinceDays > 0 ? `Nejlevnější letenka${inSearch}, co ATLAS na trase <b>${esc(route)}</b> viděl: <b>${czk(low)}</b>/os. (${PriceCheck.agoTxt(lowAgo)}, trasu sleduje ${plural(mem.sinceDays, 'den', 'dny', 'dní')}).`
+          : `Trasu <b>${esc(route)}</b> ATLAS sleduje teprve od dneška – nejlevnější letenka${inSearch}, co na ní zatím viděl: <b>${czk(low)}</b>/os.`}
+        ${x.vsMem <= 0 ? 'Tahle je zatím nejlevnější.' : `Tahle je o ${x.vsMem} % dražší.`}
+        ${x.otherMin ? `<span class="faint">V jiném hledání téže trasy (jiná délka pobytu, dny v týdnu nebo termín) viděl i ${czk(x.otherMin.czk)}/os. (${PriceCheck.agoTxt(x.otherMin.ago)}) – napřímo se s tím srovnat nedá.</span>` : ''}</p>
         ${tr ? `<p class="pc-trend ${tr.dir}"><b>${arrow}</b> – nejlevnější letenka stejného hledání ${when}: ${czk(tr.prev)} → teď ${czk(tr.cur)} (${tr.pct > 0 ? '+' : tr.pct < 0 ? '−' : ''}${Math.abs(tr.pct)} %)</p>`
         : '<p class="faint">Trend (↓ / → / ↑) se ukáže, až stejné hledání zopakuješ později (za 6 h a víc) – třeba když ho uložíš ♡ a ATLAS ho bude kontrolovat.</p>'}`;
     }

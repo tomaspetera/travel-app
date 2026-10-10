@@ -260,6 +260,13 @@ test('explain: podklady panelu – úroveň, dny do odletu, paměť a rozdíl pr
   assert.equal(P.explain(t, { stats: ST, store: s2, now: NOW, today: '2026-10-05' }).mem.trend, null, 'poslední je hledání kamkoliv – samo bez trendu');
   assert.deepEqual(plain(P.explain(t, { stats: ST, store: s2, now: NOW, today: '2026-10-05', query: q1 }).mem.trend), { dir: 'down', pct: -8, prev: 2400, cur: 2200, days: 3 });
   assert.equal(P.explain({ out: { date: '2026-11-01' } }, {}), null, 'bez ceny nic');
+  // levnější letenka z jiného hledání (jiná délka pobytu) se nesrovnává napřímo – jen zvlášť jako otherMin
+  let s3 = P.record(null, [{ key: k, czk: 1023, scope: P.scopeOf({ ...q1, nightsMin: 1, nightsMax: 2 }, '2026-11') }], { now: NOW - 2 * H });
+  s3 = P.record(s3, [{ key: k, czk: 1500, scope: P.scopeOf(q1, '2026-11') }], { now: NOW });
+  const z = P.explain(trip(1515), { stats: ST, store: s3, now: NOW, today: '2026-10-05', query: q1 });
+  assert.deepEqual([z.scoped, z.vsMem, z.mem.scopeMin, z.otherMin.czk], [true, 1, 1500, 1023]);
+  const w = P.explain(trip(1515), { stats: ST, store: s3, now: NOW, today: '2026-10-05' });
+  assert.deepEqual([w.scoped, w.vsMem, w.otherMin], [false, 48, null], 'bez dotazu jako dřív');
 });
 
 test('hledání: statistika ze všech nabídek i nad limitem ceny, 🔥/👍 nikdy u běžné nebo vyšší ceny', async () => {
