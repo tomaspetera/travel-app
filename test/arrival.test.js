@@ -367,9 +367,11 @@ test('průvodce cestou: cesta z letiště do města v ceně (bez úseku, který 
   const x = (km, fuelCzk, fareCzk) => ({ km, carMin: 60, transitMin: 90, transitKind: 'rail', basis: 'estimate', fuelCzk, fareCzk });
   const route = (transport) => ({ mode: 'multi', transport, bases: [{ name: 'Paříž', nights: 2, lat: 48.86, lon: 2.35 }, { name: 'Remeš', nights: 2, lat: 49.26, lon: 4.03 }], transfers: [x(140, 420, 210)], legs: { arrival: x(80, 240, 150), departure: x(90, 270, 160) } });
   const base = Trip.costs(trip()).total;
+  // autem: konce (letiště ↔ 1./poslední místo) jen s autem z/na letiště – jinak je kryje doprava z letiště
   const carRoute = Trip.costs(trip({ route: route('car') }));
-  assert.equal(carRoute.transfers, 420 + 240 + 270);
-  assert.equal(carRoute.total, base + 930);
+  assert.equal(carRoute.transfers, 420);
+  assert.equal(carRoute.total, base + 420);
+  assert.equal(Trip.costs(trip({ route: route('car'), car: car('BVA', 'BVA') })).transfers, 420 + 240 + 270);
   // vlakem: mezi místy a z posledního místa (Remeš, 130 km od Paříže) na letiště; z letiště do Paříže pokrývá doprava z letiště
   assert.equal(Trip.costs(trip({ route: route('transit') })).transfers, (210 + 160) * 2);
   assert.equal(Trip.costs(trip({ route: route('transit'), flight: { ...trip().flight, arrCzk: 0 } })).transfers, (150 + 210 + 160) * 2, 'bez dopravy z letiště v ceně i první úsek');

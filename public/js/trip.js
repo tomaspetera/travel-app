@@ -232,7 +232,10 @@
       const sum = xs.reduce((s, x) => s + fare(x), 0) + (covered('out', r.bases[0]) ? 0 : fare(ends.arrival)) + (covered('back', r.bases.at(-1)) ? 0 : fare(ends.departure));
       return Math.round(sum * pax);
     }
-    return Math.round([ends.arrival, ...xs, ends.departure].reduce((s, x) => s + ((x && x.fuelCzk) || 0), 0));
+    // autem z letiště a na letiště jen s autem vyzvednutým / vráceným na letišti (jinak ten úsek kryje doprava z letiště);
+    // po příjezdu vlakem/busem se doprava z letiště nepočítá – oba konce palivem
+    const endFuel = (x, side) => (x && x.fuelCzk && (ov || carCovers(t, side)) ? x.fuelCzk : 0);
+    return Math.round(xs.reduce((s, x) => s + ((x && x.fuelCzk) || 0), 0) + endFuel(ends.arrival, 'out') + endFuel(ends.departure, 'back'));
   }
 
   /* ---------- cesta z letiště do města (z hledání: res.arrivals, v ceně letu flight.arrCzk) ---------- */
