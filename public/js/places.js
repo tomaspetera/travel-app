@@ -877,6 +877,31 @@
     : r.kind === 'train' ? [`🚆 Vlakem: ${center.label} → ${r.station.name}`, `🚴 Na kole zpět: ${r.km} km, ↗ ${r.ascent} m, ~${minTxt(r.minutes)} (${BIKE_LBL[r.bike] || ''})`]
     : [`🚴 Okruh na kole: ${r.km} km, ↗ ${r.ascent} m, ~${minTxt(r.minutes)} (${BIKE_LBL[r.bike] || ''})`]);
 
+  // Povrch a druh cesty jsou dvě různá měřítka (nezpevněná cyklotrasa patří do obou, cyklopruh vede i po rušné
+  // silnici) – vedle sebe se nesčítají. Každé zvlášť jako pruh do 100 %; při překryvu má přednost varování
+  // (rušnější silnice, silnice bez chodníku), zbytek je „ostatní“.
+  const SURF_TIP = 'Silnice s provozem aut, u kterých mapa OpenStreetMap neuvádí chodník (nemusí ho mít zakreslený).';
+  function surfaceRows(r) {
+    const pc = v => Math.max(0, Math.min(100, Math.round(+v || 0)));
+    const un = pc(r.unpavedPct);
+    const warn = pc(r.activity === 'hike' ? r.roadPct : r.busyPct);
+    const good = Math.min(pc(r.activity === 'hike' ? r.trailPct : r.cyclePct), 100 - warn);
+    const way = r.activity === 'hike'
+      ? [['trail', 'značené turistické trasy', good], ['other', 'ostatní cesty a ulice', 100 - warn - good], ['road', 'silnice bez chodníku', warn, SURF_TIP]]
+      : [['cycle', 'cyklostezky a cyklotrasy', good], ['other', 'ostatní silnice a cesty', 100 - warn - good], ['busy', 'rušnější silnice', warn]];
+    const row = (label, parts) => ({ label, parts: parts.filter(x => x[2] > 0).map(([k, name, pct, tip]) => ({ k, name, pct, tip })) });
+    return [row('Povrch', [['paved', 'zpevněný', 100 - un], ['unpaved', 'nezpevněný', un]]), row('Cesta', way)];
+  }
+  const SURF_COL = { paved: '#94a3b8', unpaved: '#b45309', cycle: '#22c55e', trail: '#f97316', other: '#64748b', busy: '#ef4444', road: '#ef4444' };
+  function surfaceHtml(r) {
+    const rows = surfaceRows(r).map(({ label, parts }) => `<div class="surf-row"><span class="surf-l">${label}</span><span class="surf-bar">${
+      parts.map(x => `<i style="width:${x.pct}%;background:${SURF_COL[x.k]}"></i>`).join('')}</span><span class="surf-k">${
+      parts.map(x => `<span${x.tip ? ` title="${esc(x.tip)}"` : ''}><i style="background:${SURF_COL[x.k]}"></i>${x.name} ${x.pct} %</span>`).join(' · ')}</span></div>`).join('');
+    // pěšky: rušnější silnice i s chodníkem (ve městě běžné) – samostatný údaj, do pruhu nepatří
+    const busy = r.activity === 'hike' && r.busyPct >= 5 ? `<div class="surf-note">Podél rušnější silnice (i s chodníkem) vede ${Math.round(r.busyPct)} % trasy.</div>` : '';
+    return `<div class="surf">${rows}${busy}</div>`;
+  }
+
   // Výsledek trasy na kole (okruh / vlakem tam, na kole zpět) i pěšky; date = zvolený den (počasí na startu).
   function routeHtml(r, center, date) {
     if (!r) return '';
@@ -890,11 +915,6 @@
       off ? `<div class="note info" style="margin-bottom:10px">ℹ️ <div>${train ? `Jízda z nádraží vyšla na ${r.km} km místo ${r.target} km – z okolních nádraží se zvolené délce přiblížit nepodařilo. Zkus „Jiné nádraží“ nebo jinou délku.`
         : `Trasa vyšla na ${r.km} km místo ${r.target} km${r.via.length ? ' – vede přes památky po cestě' : ' – v okolí se přesněji naplánovat nedala'}. Zkus „Jiná trasa“.`}</div></div>` : '',
     ].join('');
-    const surface = (hike
-      ? [`${r.trailPct} % po značených turistických trasách`, `${r.unpavedPct} % nezpevněné cesty`,
-        r.roadPct ? `<span title="Silnice s provozem aut, u kterých mapa OpenStreetMap neuvádí chodník (nemusí ho mít zakreslený).">${r.roadPct} % po silnici bez chodníku</span>` : '',
-        r.busyPct ? `${r.busyPct} % podél rušnější silnice` : '']
-      : [`${r.unpavedPct} % nezpevněné cesty`, `${r.cyclePct} % cyklostezky a cyklotrasy`, r.busyPct ? `${r.busyPct} % rušnější silnice` : '']).filter(Boolean).join(' · ');
     const title = hike ? `🥾 Pěšky z: ${esc(center.label)}` : train ? `🚆 Vlakem tam, 🚴 na kole zpět · ${esc(BIKE_LBL[r.bike] || '')}` : `🚴 Okruh z: ${esc(center.label)} · ${esc(BIKE_LBL[r.bike] || '')}`;
     const st = r.station;
     const trainHtml = train ? `<div class="ride-train">🚆 Vlakem: <b>${esc(center.label)}</b> → <b>${esc(st.name)}</b> <span class="faint">(${Math.round(kmBetween([center.lon, center.lat], [st.lon, st.lat]))} km vzdušnou čarou)</span>
@@ -903,7 +923,7 @@
       ${wxSlot(train ? st : center, date, true)}
       ${trainHtml}
       <div class="bike-stats">${train ? '<span>🚴 Na kole zpět:</span>' : ''}<b>${r.km} km</b><span>↗ ${r.ascent} m stoupání</span>${train ? `<span>↘ ${r.descent ?? r.ascent} m klesání</span>` : ''}<span>⏱️ ~${minTxt(r.minutes)} ${hike ? 'chůze' : 'v sedle'}</span></div>
-      <div class="dp-walk">${surface}</div>
+      ${surfaceHtml(r)}
       ${r.via.length ? `<div class="dp-walk">👀 Po cestě: ${r.via.map((v, i) => `${i + 1}. ${esc(v.name)}`).join(' · ')}</div>` : ''}
       ${elevSvg(r.geometry, routeColor(r))}
       ${train ? `<div class="note info" style="margin-top:10px">🚲 <div>Kolo ve vlaku obvykle potřebuje vlastní jízdenku${st.cc === 'CZ' ? ' (v Česku „jízdní kolo“ jako spoluzavazadlo)' : ''} a některé vlaky vyžadují rezervaci místa pro kolo – ověř to u konkrétního spoje.</div></div>` : ''}
@@ -1275,6 +1295,6 @@
     // jen pro testy (test/places-ui.test.js)
     _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
-      countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish },
+      countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml },
   };
 })();

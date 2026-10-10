@@ -334,3 +334,30 @@ test('drobnosti: „varianta n/10“ u Jiné trasy, prázdný okruh, mapa bez po
   assert.match(T.descHtml(en, undefined), /^<span class="poi-lang"[^>]*>anglicky<\/span> La Boqueria is a large public market in the Ciutat Vella district of Barcelona, Catalonia, Spain\.$/);
   assert.ok(!T.descHtml(en, 'cs').includes('poi-lang'), 'server řekl česky – věříme mu');
 });
+
+test('povrch trasy: dva pruhy, každý přesně do 100 % (údaje serveru se překrývají)', () => {
+  const sum = (row) => row.parts.reduce((a, x) => a + x.pct, 0);
+  const view = (r) => plain(T.surfaceRows(r)).map((row) => [row.label, row.parts.map((x) => `${x.name} ${x.pct}`)]);
+  // Barcelona (živě 10. 10.): „35 % nezpevněné · 81 % cyklostezky“ – dohromady 116 %
+  assert.deepEqual(view(ROUTE({ unpavedPct: 35, cyclePct: 81, busyPct: 0 })), [
+    ['Povrch', ['zpevněný 65', 'nezpevněný 35']],
+    ['Cesta', ['cyklostezky a cyklotrasy 81', 'ostatní silnice a cesty 19']],
+  ]);
+  for (const row of T.surfaceRows(ROUTE({ unpavedPct: 35, cyclePct: 81, busyPct: 0 }))) assert.equal(sum(row), 100);
+  // Praha: „4 % nezpevněné · 68 % cyklostezky · 24 % rušnější silnice“
+  assert.deepEqual(view(ROUTE({ unpavedPct: 4, cyclePct: 68, busyPct: 24 }))[1][1], ['cyklostezky a cyklotrasy 68', 'ostatní silnice a cesty 8', 'rušnější silnice 24']);
+  // cyklopruh po rušné silnici: přednost má varování, součet zůstane 100
+  assert.deepEqual(plain(T.surfaceRows(ROUTE({ cyclePct: 81, busyPct: 30 }))[1].parts.map((x) => [x.k, x.pct])), [['cycle', 70], ['busy', 30]]);
+  // pěšky: značené trasy / ostatní / silnice bez chodníku (s vysvětlivkou); rušnější silnice zvlášť větou
+  const hike = ROUTE({ activity: 'hike', trailPct: 60, unpavedPct: 45, roadPct: 10, busyPct: 12 });
+  assert.deepEqual(view(hike)[1][1], ['značené turistické trasy 60', 'ostatní cesty a ulice 30', 'silnice bez chodníku 10']);
+  const h = T.surfaceHtml(hike);
+  assert.match(h, /<span title="Silnice s provozem aut[^"]*"><i[^>]*><\/i>silnice bez chodníku 10 %<\/span>/);
+  assert.match(h, /Podél rušnější silnice \(i s chodníkem\) vede 12 % trasy\./);
+  assert.ok(!T.surfaceHtml(ROUTE({ busyPct: 12 })).includes('surf-note'), 'na kole je rušnější silnice v pruhu');
+  // nesmysly a chybějící údaje nic nerozbijí
+  for (const row of T.surfaceRows({ activity: 'bike', unpavedPct: 140, cyclePct: -5, busyPct: 'x' })) assert.equal(sum(row), 100);
+  assert.deepEqual(view({})[0][1], ['zpevněný 100']);
+  assert.match(T.surfaceHtml(ROUTE()), /<span class="surf-bar"><i style="width:65%;background:#94a3b8"><\/i><i style="width:35%;background:#b45309"><\/i><\/span>/);
+  assert.match(T.routeHtml(ROUTE(), BCN_C, '2026-10-12'), /class="surf"/);
+});
