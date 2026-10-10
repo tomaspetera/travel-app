@@ -468,3 +468,16 @@ test('režim s datem konce: po validUntil čip „ověř vstup“ místo „bez 
   assert.equal(Entry.over(r, '2027-01-01'), true);
   assert.equal(Entry.over({}, '2030-01-01'), false);
 });
+
+test('po konci bezvízového režimu: Před cestou bez „bez víza“, filtr Bez víza ho nevypíše', () => {
+  Entry.setToday(() => '2027-01-05');
+  try {
+    const h = Entry.checklistHtml(['KR']);
+    assert.match(h, /⏳ ověř vstup/);
+    assert.doesNotMatch(h, /ec-free/);
+    assert.match(h, /platil podle MZV do 31\. 12\. 2026/);
+    assert.equal(Entry.matches('KR', 'free'), false);
+  } finally { Entry.setToday(() => '2026-10-10'); }
+  assert.equal(Entry.matches('KR', 'free'), true);
+  assert.doesNotMatch(Entry.checklistHtml(['KR']), /ověř vstup/);
+});

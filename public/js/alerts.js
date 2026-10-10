@@ -220,9 +220,11 @@
    * Fronta kontrol: v jednu chvíli běží nejvýš jedna kontrola (ruční i automatická),
    * cyklus nikdy dvakrát najednou. check(id) běží uvnitř zámku a smí vyhodit chybu (zkusí se příští cyklus).
    * sync() před kontrolou převezme výsledky z jiného panelu. firstMax = kolik hledání smí zkontrolovat první cyklus po
-   * otevření (aplikace bývá otevřená jen chvíli – s limitem 4 by se 12 hlídaných dostalo na řadu až za pár návštěv).
+   * otevření nebo po dlouhé pauze (staleMs – aplikace z pozadí na telefonu) – aplikace bývá otevřená jen chvíli a
+   * s limitem 4 by se 12 hlídaných dostalo na řadu až za pár návštěv. costOf(w) = kolik hledání kontrola stojí na
+   * serveru (cesta přes víc měst 2) – limit cyklu se počítá v nich, ať kontroly nevyčerpají limit hledání uživatele.
    */
-  function scheduler({ list, check, today, now = () => Date.now(), sleep, canRun = () => true, sync = () => { }, cfg = CFG, firstMax = 0 }) {
+  function scheduler({ list, check, today, now = () => Date.now(), sleep, canRun = () => true, sync = () => { }, cfg = CFG, firstMax = 0, costOf = () => 1 }) {
     let lock = Promise.resolve(), cycling = false, lastCycle = 0, cycles = 0;
     const exclusive = fn => { const p = lock.then(() => fn()); lock = p.catch(() => { }); return p; };
     async function ready() {
@@ -239,9 +241,12 @@
       let n = 0;
       try {
         if (!await ready()) return 0;
+        const prev = lastCycle;
         lastCycle = now();
-        const max = cycles++ === 0 && firstMax > cfg.maxPerCycle ? firstMax : cfg.maxPerCycle;
-        while (n < max) {
+        const big = (cycles++ === 0 || now() - prev >= cfg.staleMs) && firstMax > cfg.maxPerCycle;
+        const max = big ? firstMax : cfg.maxPerCycle;
+        let spent = 0;
+        while (spent < max) {
           const w = dueWatches(list(), { now: now(), today: today(), max: 1, skip: tried, staleMs: cfg.staleMs })[0];
           if (!w) break;
           if (n && (await sleep(cfg.gapMs), !await ready())) break;
@@ -254,7 +259,7 @@
             try { await check(w.id); } catch (e) { }
             return true;
           });
-          if (ran) n++;
+          if (ran) { n++; spent += Math.max(1, Number(costOf(w)) || 1); }
         }
       } finally { cycling = false; }
       return n;

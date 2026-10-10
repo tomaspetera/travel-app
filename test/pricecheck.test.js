@@ -267,6 +267,15 @@ test('explain: podklady panelu – úroveň, dny do odletu, paměť a rozdíl pr
   assert.deepEqual([z.scoped, z.vsMem, z.mem.scopeMin, z.otherMin.czk], [true, 1, 1500, 1023]);
   const w = P.explain(trip(1515), { stats: ST, store: s3, now: NOW, today: '2026-10-05' });
   assert.deepEqual([w.scoped, w.vsMem, w.otherMin], [false, 48, null], 'bez dotazu jako dřív');
+  // opakované hledání do 6 h: nejnižší cena téhož hledání zůstane (o[3]), nevydává se za „jiné hledání“
+  let s4 = P.record(null, [{ key: k, czk: 1023, scope: P.scopeOf(q1, '2026-11') }], { now: NOW - 2 * H });
+  s4 = P.record(s4, [{ key: k, czk: 1100, scope: P.scopeOf(q1, '2026-11') }], { now: NOW });
+  const r4 = P.explain(trip(1100), { stats: ST, store: s4, now: NOW, today: '2026-10-05', query: q1 });
+  assert.deepEqual([r4.scoped, r4.mem.scopeMin, r4.vsMem, r4.otherMin], [true, 1023, 8, null]);
+  // hledání, které paměť nemá: nesrovnává se, nejnižší viděná jen jako „dřív“, žádný cizí trend
+  const q3 = { ...q1, nightsMin: 7, nightsMax: 9 };
+  const r5 = P.explain(trip(1100), { stats: ST, store: s2, now: NOW, today: '2026-10-05', query: q3 });
+  assert.deepEqual(plain([r5.scoped, r5.vsMem, r5.otherMin.kind, r5.mem.trend]), [false, null, 'earlier', null]);
 });
 
 test('hledání: statistika ze všech nabídek i nad limitem ceny, 🔥/👍 nikdy u běžné nebo vyšší ceny', async () => {

@@ -272,7 +272,7 @@ test('texty: procenta, „před 2 h“, stav upozornění', () => {
 });
 
 /* fronta kontrol s falešným časem */
-function harness(list, { failIds = [], visible = () => true, sync, firstMax = 0 } = {}) {
+function harness(list, { failIds = [], visible = () => true, sync, firstMax = 0, costOf } = {}) {
   let now = NOW;
   const log = [];
   let running = 0, maxRunning = 0;
@@ -285,6 +285,7 @@ function harness(list, { failIds = [], visible = () => true, sync, firstMax = 0 
     canRun: visible,
     sync,
     firstMax,
+    ...(costOf ? { costOf } : {}),
     check: async (id) => {
       running++; maxRunning = Math.max(maxRunning, running);
       log.push(id);
@@ -381,4 +382,17 @@ test('scheduler: první cyklus po otevření zkontroluje všechna zastaralá (fi
   assert.equal(await h.sched.cycle(), 10);
   list.forEach((w) => { w.checked = 0; });
   assert.equal(await h.sched.cycle(), 4, 'další cyklus zase s limitem');
+});
+
+test('scheduler: velký cyklus i po dlouhé pauze (aplikace z pozadí); cesta přes víc měst stojí 2 hledání', async () => {
+  const f = flex('2026-10-10', '2026-12-01');
+  const list = Array.from({ length: 10 }, (_, i) => ({ id: 'w' + i, form: i < 4 ? { ...f, trip: 'multi' } : f, checked: NOW - (20 + i) * H }));
+  const h = harness(list, { firstMax: 12, costOf: (w) => (w.form.trip === 'multi' ? 2 : 1) });
+  const n1 = await h.sched.cycle();
+  assert.ok(n1 < 10 && n1 >= 8, 'rozpočet 12 hledání: ' + n1);
+  list.forEach((w) => { w.checked = 0; });
+  assert.ok(await h.sched.cycle() <= 4, 'hned další cyklus malý');
+  list.forEach((w) => { w.checked = 0; });
+  h.advance(7 * H); // aplikace byla v pozadí přes 6 h
+  assert.ok(await h.sched.cycle() >= 8, 'po pauze zase velký');
 });

@@ -410,25 +410,36 @@ function newTrip(c, pre = {}) {
   $('#ntSave').onclick = () => saveTrip(c ? c.iso2 : (pre.iso || null), pre.flight || null);
 }
 async function saveTrip(iso, flightTxt) {
-  const name = $('#ntName').value.trim() || 'Moje cesta'; const dest = $('#ntDest').value.trim();
-  let fiso = iso, place = null; if (!fiso && dest) { const c = resolveCountry(dest); if (c) fiso = c.iso2; }
-  // město („Lisabon“): země a cíl pro „Hledat lety“ z našeptávače míst – jen přesná shoda názvu (jinak nic nehádat)
-  if (!fiso && dest) {
-    const b = $('#ntSave'); if (b) b.disabled = true;
+  // vše z formuláře hned – během dohledávání místa může uživatel okno zavřít nebo otevřít jiné
+  const b = $('#ntSave');
+  const f = { name: $('#ntName').value.trim() || 'Moje cesta', dest: $('#ntDest').value.trim(), start: $('#ntStart').value, end: $('#ntEnd').value, pax: $('#ntPax').value, budget: $('#ntBudget').value };
+  let fiso = iso, place = null; if (!fiso && f.dest) { const c = resolveCountry(f.dest); if (c) fiso = c.iso2; }
+  // město („Lisabon“): země a cíl pro „Hledat lety“ z našeptávače míst – jen přesná shoda názvu a jen když všechny
+  // takové shody leží v jedné zemi (Birmingham je v Anglii i v USA → nic nehádat); nejvýš 4 s čekání
+  if (!fiso && f.dest) {
+    if (b) { b.disabled = true; b.textContent = 'Hledám místo…'; }
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 4000);
     try {
-      const j = await (await fetch(`api/places?q=${enc(dest)}`)).json();
-      const x = (j.items || []).find(s => s.cc && /^(ap|metro|geo):/.test(s.id || '') && norm(s.label) === norm(dest));
-      if (x) { fiso = byIso[x.cc] ? x.cc : null; if (/^(ap|metro):/.test(x.id)) place = { id: x.id, label: x.label, flag: x.flag || '' }; }
-    } catch (e) { /* bez sítě: cesta bez země */ }
+      const j = await (await fetch(`api/places?q=${enc(f.dest)}`, { signal: ctl.signal })).json();
+      const hits = (j.items || []).filter(s => s.cc && /^(ap|metro|geo):/.test(s.id || '') && norm(s.label) === norm(f.dest));
+      if (hits.length && new Set(hits.map(s => s.cc)).size === 1) {
+        const x = hits.find(s => /^metro:/.test(s.id)) || hits.find(s => /^ap:/.test(s.id)) || hits[0];
+        fiso = byIso[x.cc] ? x.cc : null;
+        if (/^(ap|metro):/.test(x.id)) place = { id: x.id, label: x.label, flag: x.flag || '' };
+      }
+    } catch (e) { /* bez sítě nebo pomalý server: cesta bez země */ } finally { clearTimeout(tm); }
   }
-  S.trips.push({ name, dest: dest || '—', iso: fiso || null, ...(place ? { place } : {}), start: $('#ntStart').value, end: $('#ntEnd').value, pax: $('#ntPax').value, budget: $('#ntBudget').value, flight: flightTxt, days: {}, checklist: PACK.map(t => ({ t, done: false })), notes: '' });
-  save(); modalClose(); go('planner'); toast('Cesta vytvořena'); setTimeout(() => openTrip(S.trips.length - 1), 250);
+  S.trips.push({ name: f.name, dest: f.dest || '—', iso: fiso || null, ...(place ? { place } : {}), start: f.start, end: f.end, pax: f.pax, budget: f.budget, flight: flightTxt, days: {}, checklist: PACK.map(t => ({ t, done: false })), notes: '' });
+  save();
+  // okno mezitím zavřené nebo nahrazené jiným: uložit potichu, nic nezavírat ani neotevírat
+  if (b && !(b.isConnected && $('#modalBg').classList.contains('show'))) { toast('Cesta vytvořena'); renderPlanner(); return; }
+  modalClose(); go('planner'); toast('Cesta vytvořena'); setTimeout(() => openTrip(S.trips.length - 1), 250);
 }
 /** „Hledat lety“ u cesty v plánovači: do jejího města (nebo země) v termínu cesty, je-li ještě před ní. */
 window.planSearch = i => {
   const t = S.trips[i]; if (!t || !window.Flights) return go('flights');
   const wd = t.wizard && t.wizard.dest, p = t.place || (wd && { id: wd.id, label: wd.label, flag: wd.cc ? flag(wd.cc) : '' });
-  const to = p && /^(ap|metro):[A-Z]{3}$/.test(p.id || '') ? [{ id: p.id, label: String(p.label || ''), flag: p.flag || '' }]
+  const to = p && /^(ap|metro):[A-Z]{3}$/.test(p.id || '') ? [{ id: p.id, label: String(p.label || ''), flag: p.flag || (t.iso ? flag(t.iso) : '') }]
     : t.iso && byIso[t.iso] ? [{ id: 'cc:' + t.iso, label: byIso[t.iso].cs, flag: flag(t.iso) }] : null;
   if (!to) return go('flights');
   Flights.searchTo(to, { xOut: t.start, xBack: t.end });

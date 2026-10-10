@@ -318,7 +318,9 @@
     const fee = r => (r.etaCostEur > 0 ? `${priceTxt(r.etaCostEur)} na osobu${pax > 1 ? ` (${pax} os. ≈ ${kc(r.etaCostEur * pax * eurCzk())})` : ''}` : r.etaCostEur === 0 ? 'zdarma' : '');
     const rows = items.map(({ iso, rec: r, kind: k, transit: tr, docs, rule, lead, expired: old }) => {
       const li = [];
-      if (old) li.push(`<li class="ed-unv">⏳ ${esc(untilTxt(r))}</li>`);
+      // režim s datem konce: cesta po něm, nebo už teď po něm (i u cesty bez dat)
+      const ended = !k.need && over(r);
+      if (old || ended) li.push(`<li class="ed-unv">⏳ ${esc(untilTxt(r))}</li>`);
       // platnost s popiskem („platnost pasu: po celou dobu pobytu“), ne holá závorka za „OP nestačí“
       li.push(`<li>${esc(docs)}${rule ? ` <span class="faint">· ${r.idCard ? 'platnost dokladu' : 'platnost pasu'}: ${esc(ruleTxt(rule))}</span>` : ''}</li>`);
       if (k.need) {
@@ -331,7 +333,7 @@
       if (!tr && r.vaccinesRecommended) li.push(`<li>💉 Doporučené očkování: ${esc(r.vaccinesRecommended)}</li>`);
       if (r.notes) li.push(`<li class="faint">${esc(r.notes)}</li>`);
       if (!r.verified) li.push(`<li class="ed-unv">⚠️ ${esc(UNVERIFIED)}</li>`);
-      return `<div class="pc-country"><div class="pc-h">${typeof flag === 'function' ? flag(iso) + ' ' : ''}<b>${esc(name(iso))}</b>${tr ? ' <span class="faint">– jen přestup</span>' : ''} <span class="ec ec-${k.cls}">${k.icon ? k.icon + ' ' : ''}${esc(k.label + q(r))}</span></div>
+      return `<div class="pc-country"><div class="pc-h">${typeof flag === 'function' ? flag(iso) + ' ' : ''}<b>${esc(name(iso))}</b>${tr ? ' <span class="faint">– jen přestup</span>' : ''} ${ended ? '<span class="ec ec-visa">⏳ ověř vstup</span>' : `<span class="ec ec-${k.cls}">${k.icon ? k.icon + ' ' : ''}${esc(k.label + q(r))}</span>`}</div>
         <ul class="pc-list">${li.join('')}</ul><div class="faint pc-src">${link(r.source, srcTxt(r))}</div></div>`;
     }).join('');
     return `<div class="card step-card entry-card"><h3>🛂 Před cestou</h3>${rows}<div class="note warn" style="margin-top:10px">⚠️ <div>${disclaimer()}</div></div></div>`;
@@ -368,7 +370,8 @@
     const r = get(iso);
     if (!f || !DATA) return true;
     if (!r) return false;
-    return f === 'op' ? r.idCard : f === 'free' ? r.visa === 'eu' || r.visa === 'none' : true;
+    // „bez víza“ neplatí pro režim, jehož datum konce už prošlo
+    return f === 'op' ? r.idCard : f === 'free' ? (r.visa === 'eu' || r.visa === 'none') && !over(r) : true;
   }
 
   window.Entry = {

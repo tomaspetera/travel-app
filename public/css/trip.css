@@ -219,16 +219,21 @@ table.cost tr.entry-fee td:last-child{color:var(--text)}
 table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 /* telefon: všech 6 kroků na šířku – u ostatních jen ikona, název u aktuálního */
 @media(max-width:560px){
-  .stepbar{gap:4px;overflow:visible}
+  .stepbar{gap:4px;overflow-x:auto;scrollbar-width:none} /* záloha: dlouhý název kroku se posune, stránka nepřeteče */
   .stepbar i{min-width:4px}
   .stepbar .st:not(.on){font-size:0;gap:0;padding:6px}
   .stepbar .st:not(.on) span{font-size:12px}
   .stepbar .st.on{padding:6px 10px 6px 6px}
 }
-@media(max-width:360px){
+@media(max-width:400px){
   .stepbar{gap:2px}
   .stepbar i{min-width:2px}
   .stepbar .st:not(.on){padding:4px}
   .stepbar .st span{width:22px;height:22px}
   .stepbar .st.on{padding:4px 8px 4px 4px;gap:6px}
+}
+@media(max-width:340px){
+  .stepbar .st span{width:20px;height:20px;font-size:11px}
+  .stepbar .st:not(.on){padding:3px}
+  .stepbar .st.on{font-size:12px;gap:4px;padding:3px 6px 3px 3px}
 }

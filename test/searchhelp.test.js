@@ -604,6 +604,7 @@ test('fastKey: cena + délka cesty – neznámá délka s přestupem se odhadne 
   assert.ok(H.fastKey(known) < H.fastKey(unknown));
   // jen tam
   assert.equal(H.fastKey({ perPersonCzk: 1000, distanceKm: 500, out: l(120) }), 1000 + 2 * 250);
+  assert.equal(H.fastKey({ perPersonCzk: 1000, distanceKm: 500, out: l(120) }, 250, 180), 1000 + 5 * 250, 'i 3 h cesty na letiště');
 });
 
 test('prodloužené víkendy: Velikonoce, české svátky, most přes út/čt, středa se přeskočí', () => {
@@ -638,4 +639,15 @@ test('longWeekends: nejbližší tři prodloužené víkendy na výběr; radar p
   assert.deepEqual(plain([q.lw.start, q.payload.dateFrom, q.payload.dateTo, q.lw.all.length]), ['2026-12-24', '2026-12-23', '2026-12-24', 3]);
   assert.equal(H.radarQuery('holiday', home, '2026-10-10', '2020-01-01').lw.start, '2026-11-14');
   assert.equal(H.radarQuery('holiday', home, '2026-10-10', null).lw.start, '2026-11-14');
+});
+
+test('radarPick: u svátků jen odlet první volný den nebo večer předem (od 16:00), po ceně; jinak nejlepší nabídka skupiny', () => {
+  const t = (date, dep, czk, hasTime = true) => ({ out: { date, dep: `${date}T${dep}:00`, hasTime }, perPersonCzk: czk });
+  const lw = { start: '2026-11-14', end: '2026-11-17' };
+  const g1 = { dest: { key: 'a' }, best: t('2026-11-13', '08:25', 900), options: [t('2026-11-13', '08:25', 900), t('2026-11-13', '18:10', 1200), t('2026-11-14', '07:00', 1100)] };
+  const g2 = { dest: { key: 'b' }, best: t('2026-11-13', '11:50', 500), options: [t('2026-11-13', '11:50', 500)] };
+  const g3 = { dest: { key: 'c' }, best: t('2026-11-13', '00:00', 700, false), options: [t('2026-11-13', '00:00', 700, false)] };
+  const p = H.radarPick([g1, g2, g3], lw);
+  assert.deepEqual(plain(p.map((x) => [x.g.dest.key, x.t.perPersonCzk])), [['c', 700], ['a', 1100]], 'b jen dopoledne v pátek → pryč');
+  assert.deepEqual(plain(H.radarPick([g1, g2], null).map((x) => x.t.perPersonCzk)), [900, 500], 'bez svátků beze změny');
 });

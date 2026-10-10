@@ -886,6 +886,21 @@
     }
     return null;
   }
+  /**
+   * Karty radaru ze skupin výsledku: nejlevnější nabídka cíle; u prodlouženého víkendu (lw) jen s odletem první volný
+   * den, nebo večer předem (od 16:00; let bez známého času se bere) – jinak by karta potřebovala další den volna.
+   * → [{ g, t }] (u svátků po ceně), nejvýš n.
+   */
+  function radarPick(groups, lw = null, n = 12) {
+    if (!lw) return (groups || []).filter(g => g && g.best).slice(0, n).map(g => ({ g, t: g.best }));
+    const ok = t => t.out.date >= lw.start || !t.out.hasTime || String(t.out.dep || '').slice(11, 16) >= '16:00';
+    const out = [];
+    for (const g of groups || []) {
+      const t = (g.options || []).filter(ok).sort((a, b) => a.perPersonCzk - b.perPersonCzk)[0];
+      if (t) out.push({ g, t });
+    }
+    return out.sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk).slice(0, n);
+  }
   /** Nejbližších n prodloužených víkendů od data from (do horizon dní) – na výběr v radaru. */
   function longWeekends(from, n = 3, horizon = 200) {
     const out = [], last = addDays(from, horizon);
@@ -987,8 +1002,11 @@
     if (m) return m;
     return Math.round((Number(km) || 1000) / 750 * 60 + 30 + (l && l.stops ? l.stops * 240 : 0));
   }
-  /** Klíč řazení: cena na osobu + 250 Kč za každou hodinu cesty tam i zpět (čas v letadle a na přestupech). */
-  const fastKey = (t, perHour = 250) => t.perPersonCzk + ((tripMinutes(t.out, t.distanceKm) + (t.back ? tripMinutes(t.back, t.distanceKm) : 0)) / 60) * perHour;
+  /**
+   * Klíč řazení: cena na osobu + 250 Kč za každou hodinu cesty tam i zpět (čas v letadle a na přestupech) i cesty
+   * na letiště a z něj domů (accessMin – cena té cesty už v ceně na osobu je, čas ne).
+   */
+  const fastKey = (t, perHour = 250, accessMin = 0) => t.perPersonCzk + ((tripMinutes(t.out, t.distanceKm) + (t.back ? tripMinutes(t.back, t.distanceKm) : 0) + (Number(accessMin) || 0)) / 60) * perHour;
 
   /* ---------- stáří ověřených údajů ---------- */
   const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
@@ -1054,7 +1072,7 @@
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    easter, czHolidays, longWeekend, longWeekends,
+    easter, czHolidays, longWeekend, longWeekends, radarPick,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
   };
 })();
