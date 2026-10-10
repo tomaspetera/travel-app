@@ -908,7 +908,7 @@
     // Málo výsledků: ze serveru (thin), nebo je skryly filtry času a přestupů – pak nabídnout hlavně jejich zrušení.
     const thinVis = th.any > 0 && (isRoute ? flat.length : groups.length) < 3;
     if (thin || thinVis) body += smartHelp(res, false, { chips: chips.filter(c => c.time), any: th.any, onlyClear: !thin });
-    host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za osobu ${bagFoot(res.query.bags)}, ${esc(groundFoot(res))}, ${esc(arrivalFoot(res))}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2)} Kč (${esc(res.fx.source)})` : '—'}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (NASA POWER, 2001–2020, okolí letiště) – ne předpověď počasí.</div>`;
+    host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za osobu ${bagFoot(res.query.bags)}, ${esc(groundFoot(res))}, ${esc(arrivalFoot(res))}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2)} Kč (${esc(res.fx.source)})` : '—'}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020) – ne předpověď počasí.</div>`;
     wireResults();
     wireHelp(host);
     if (view.gndOpen) showGround(true, false);
@@ -1049,6 +1049,7 @@
       ${tripRow(t, g, reg(t, g))}
       ${others.length ? `<button type="button" class="more-btn" data-exp="${esc(g.dest.key)}">${exp ? '▲ Skrýt' : `▼ Další termíny a letiště (${others.length})`}</button>
         ${exp ? `<div class="alt-list">${others.map(o => tripRow(o, g, reg(o, g))).join('')}</div>` : ''}` : ''}
+      ${lastResult && lastResult.mode !== 'route' && g.dest.id ? `<button type="button" class="more-btn" data-alldates="${esc(g.dest.key)}">📅 Kalendář cen sem – všechny termíny</button>` : ''}
     </div>`;
   }
 
@@ -1524,6 +1525,21 @@
 
   /* ---------- výpadek Kiwi.com, aktivní filtry, chytrá nápověda ---------- */
   function kiwiBanner(res) {
+    return lowcostBanner(res) + kiwiOnly(res);
+  }
+  /** Ryanair nebo Wizz Air neodpověděl: nejlevnější lety chybí a „nejlevněji“ může klamat – nahlas a se Zkusit znovu. */
+  function lowcostBanner(res) {
+    const out = SearchHelp.lowcostOutage(res.providers);
+    if (!out.length) return '';
+    const down = out.filter(x => x.level !== 'partial'), part = out.filter(x => x.level === 'partial');
+    const names = xs => xs.map(x => x.name).join(' a ');
+    const txt = [
+      down.length ? `<b>${names(down)} teď ${down.length > 1 ? 'neodpověděly' : 'neodpověděl'}</b> – ${down.length > 1 ? 'jejich' : 'jeho'} lety (často ty nejlevnější) ve výsledcích chybí, takže skutečná nejnižší cena může být nižší.${down.some(x => x.level === 'blocked') ? ' Po výpadku je ATLAS na pár minut vynechává.' : ''}` : '',
+      part.length ? `<b>${names(part)} ${part.length > 1 ? 'odpověděly' : 'odpověděl'} jen zčásti</b> – některé ${part.length > 1 ? 'jejich' : 'jeho'} lety můžou chybět.` : '',
+    ].filter(Boolean).join(' ');
+    return `<div class="note ${down.length ? 'bad' : 'warn'} kiwi-note"><span>📡</span><div>${txt}</div><button type="button" class="btn sm" id="lcRetry">↻ Zkusit znovu</button></div>`;
+  }
+  function kiwiOnly(res) {
     const k = SearchHelp.kiwiOutage(res.providers);
     if (!k) return '';
     const who = k.others.map(id => ({ ryanair: 'Ryanairu', wizzair: 'Wizz Air' }[id])).join(' a ');
@@ -1613,6 +1629,7 @@
     $$('[data-guide]', host).forEach(b => b.onclick = openGuide);
     $$('[data-nb]', host).forEach(b => b.onclick = () => { const [w, d] = b.dataset.nb.split(':'); pickNearDay(w, d); });
     $$('[data-af]', host).forEach(b => b.onclick = () => clearFilter(b.dataset.af));
+    const lr = $('#lcRetry', host); if (lr) lr.onclick = () => rerun();
     const kr = $('#kiwiRetry', host);
     if (kr) {
       kr.onclick = () => rerun();
@@ -1732,6 +1749,12 @@
     }
     $$('[data-fmore]', host).forEach(b => b.onclick = () => { view.flatN += 40; rerender(true); });
     $$('[data-exp]', host).forEach(b => b.onclick = () => { const k = b.dataset.exp; view.expanded.has(k) ? view.expanded.delete(k) : view.expanded.add(k); rerender(true); });
+    // z „kamkoliv“ do jednoho cíle: stejné hledání jen do tohoto města a rovnou kalendář cen
+    $$('[data-alldates]', host).forEach(b => b.onclick = () => {
+      const g = lastResult.groups.find(x => x.dest.key === b.dataset.alldates); if (!g) return;
+      view.mode = 'cal';
+      rerun({ to: [{ id: g.dest.id, label: g.dest.label, flag: flag(g.dest.cc) }] });
+    });
     $$('[data-day]', host).forEach(c => c.onclick = () => { view.outDate = view.outDate === c.dataset.day ? null : c.dataset.day; rerender(true); });
     $$('[data-pick]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pick]; Trip.start({ t: r.t, g: r.g, result: lastResult }); });
     $$('[data-pc]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pc]; if (r) openPriceCheck(r.t, { g: r.g }); });

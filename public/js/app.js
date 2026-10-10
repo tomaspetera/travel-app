@@ -411,7 +411,8 @@ function openTrip(i) {
     <div class="divider"></div>
     <button class="btn ghost block" style="color:var(--bad);border-color:rgba(251,113,133,.3)" onclick="delTrip(${i})">Smazat cestu</button>
   </div>`);
-  $('#tripStay').onclick = () => openStay(city, t.start || '', t.end || '');
+  // ubytování v cíli cesty (Barcelona, ne hlavní město země) pro počet cestujících z cesty
+  $('#tripStay').onclick = () => openStay(t.dest && t.dest !== '—' ? t.dest : city, t.start || '', t.end || '', +t.pax || 2);
   const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
   // Poznámky se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
   const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(S.trips[i])[0])); });
@@ -489,9 +490,10 @@ window.addCheck = i => { const inp = $('#newCheck-' + i); const v = inp.value.tr
 window.setBudget = (i, v) => { S.trips[i].budget = v; save(); openTrip(i); };
 window.setNotes = (i, v) => { S.trips[i].notes = v; save(); };
 window.delTrip = i => { if (confirm('Opravdu smazat tuto cestu?')) { S.trips.splice(i, 1); save(); modalClose(); renderPlanner(); toast('Cesta smazána'); } };
-window.openStay = (city, start, end) => {
-  const b = `https://www.booking.com/searchresults.cs.html?ss=${enc(city)}${start ? `&checkin=${start}&checkout=${end || ''}` : ''}&group_adults=2`;
-  const a = `https://www.airbnb.cz/s/${enc(city)}/homes${start ? `?checkin=${start}&checkout=${end || ''}` : ''}`;
+window.openStay = (city, start, end, adults = 2) => {
+  const n = Math.min(9, Math.max(1, Math.round(+adults) || 2));
+  const b = `https://www.booking.com/searchresults.cs.html?ss=${enc(city)}${start ? `&checkin=${start}&checkout=${end || ''}` : ''}&group_adults=${n}&no_rooms=1&selected_currency=CZK`;
+  const a = `https://www.airbnb.cz/s/${enc(city)}/homes?${start ? `checkin=${start}&checkout=${end || ''}&` : ''}adults=${n}`;
   const h = `https://www.hostelworld.com/s?q=${enc(city)}${start ? `&from=${start}&to=${end || ''}` : ''}`;
   modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování · ${esc(city)}</h2><div style="opacity:.85;font-size:13px">${start ? fmtDate(start) + (end ? ' – ' + fmtDate(end) : '') : 'vyber si termín na webu'}</div></div></div><div class="modal-body"><div class="grid" style="gap:12px">${provLink('Booking.com', 'Hotely, apartmány, penziony', b, '#003580', 'B.')}${provLink('Airbnb', 'Bydlení u místních', a, '#ff385c', 'A')}${provLink('Hostelworld', 'Hostely a levné lůžka', h, '#ff5a00', 'H')}</div><div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Odkazy otevřou hledání s předvyplněnou destinací (a termínem, pokud je v cestě zadaný).</div></div></div>`);
 };

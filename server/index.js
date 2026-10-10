@@ -7,7 +7,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { config } from './config.js';
 import { suggest, describe, resolveOrigins, geocode } from './lib/places.js';
-import { search, UserError } from './lib/search.js';
+import { search, UserError, legBagCzk } from './lib/search.js';
 import { activeProviders, providerStatus } from './providers/index.js';
 import { fxInfo, loadRates } from './lib/fx.js';
 import { cache } from './lib/cache.js';
@@ -301,6 +301,8 @@ async function route(req, res) {
     const out = url.searchParams.get('out') || '';
     const back = url.searchParams.get('back') || '';
     const adults = Math.min(9, Math.max(1, Number(url.searchParams.get('adults')) || 1));
+    // Zavazadla z hledání (kabinový kufr / kufr k odbavení): odhad příplatku u každé nabídky jako ve výsledcích hledání.
+    const bags = ['cabin', 'checked'].includes(url.searchParams.get('bags')) ? url.searchParams.get('bags') : 'none';
     // Návrat z/do jiného letiště (open-jaw): backFrom/backTo, výchozí = obráceně než tam.
     const backFrom = (url.searchParams.get('backFrom') || to).toUpperCase();
     const backTo = (url.searchParams.get('backTo') || from).toUpperCase();
@@ -322,7 +324,13 @@ async function route(req, res) {
       } else {
         trips = await kiwi.exact({ from, to, dateOut: out, dateBack: back || null, adults });
       }
-      return sendJson(req, res, 200, { available: true, items: trips.filter((t) => t.flightCzk > 0).sort((a, b) => a.flightCzk - b.flightCzk).slice(0, 12) });
+      const items = trips.filter((t) => t.flightCzk > 0).sort((a, b) => a.flightCzk - b.flightCzk).slice(0, 12);
+      for (const t of items) {
+        const parts = [t.out, t.back].filter(Boolean).map((l) => legBagCzk(l, bags));
+        t.bagCzk = parts.reduce((s, x) => s + x.czk, 0);
+        if (parts.some((x) => x.estimated)) t.bagEst = true;
+      }
+      return sendJson(req, res, 200, { available: true, items });
     } catch (e) {
       return sendJson(req, res, 200, { available: true, items: [], error: e.message });
     }

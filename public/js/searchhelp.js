@@ -175,6 +175,15 @@
     return { level: k.outage, retryAfter: Math.max(0, Math.round(+k.retryAfter || 0)), failed: +k.failed || 0, others };
   }
 
+  /**
+   * Výpadek Ryanairu nebo Wizz Air v tomto hledání (hlavní zdroje nejlevnějších letů) → [{ id, name, level }]
+   * (level 'down' | 'blocked' | 'partial'); bez výpadku []. Výsledky pak vypadají úplně, ale nejlevnější lety chybí.
+   */
+  function lowcostOutage(providers) {
+    const NAME = { ryanair: 'Ryanair', wizzair: 'Wizz Air' };
+    return (providers || []).filter(p => p && NAME[p.id] && ['down', 'blocked', 'partial'].includes(p.outage)).map(p => ({ id: p.id, name: NAME[p.id], level: p.outage }));
+  }
+
   /* ---------- filtry času a přestupů (ve výpisu, bez nového hledání) ---------- */
   // Části dne podle hodiny odletu (místní čas): [klíč, popisek, od, do).
   const DAYPARTS = [['morning', 'Ráno', 5, 12], ['afternoon', 'Odpoledne', 12, 18], ['evening', 'Večer', 18, 24], ['night', 'Noc', 0, 5]];
@@ -886,7 +895,7 @@
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
-    legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
+    legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff,
   };
