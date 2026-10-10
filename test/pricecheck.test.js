@@ -267,6 +267,17 @@ test('explain: podklady panelu – úroveň, dny do odletu, paměť a rozdíl pr
   assert.deepEqual([z.scoped, z.vsMem, z.mem.scopeMin, z.otherMin.czk], [true, 1, 1500, 1023]);
   const w = P.explain(trip(1515), { stats: ST, store: s3, now: NOW, today: '2026-10-05' });
   assert.deepEqual([w.scoped, w.vsMem, w.otherMin], [false, 48, null], 'bez dotazu jako dřív');
+  // opakované hledání do 6 h: nejnižší cena téhož hledání zůstane (o[3]), nevydává se za „jiné hledání“
+  let s4 = P.record(null, [{ key: k, czk: 1023, scope: P.scopeOf(q1, '2026-11') }], { now: NOW - 2 * H });
+  s4 = P.record(s4, [{ key: k, czk: 1100, scope: P.scopeOf(q1, '2026-11') }], { now: NOW });
+  const r4 = P.explain(trip(1100), { stats: ST, store: s4, now: NOW, today: '2026-10-05', query: q1 });
+  assert.deepEqual([r4.scoped, r4.mem.scopeMin, r4.vsMem, r4.otherMin], [true, 1023, 8, null]);
+  // hledání, které paměť nemá: nesrovnává se, nejnižší viděná jen jako „dřív“, žádný cizí trend
+  const q3 = { ...q1, nightsMin: 7, nightsMax: 9 };
+  const r5 = P.explain(trip(1100), { stats: ST, store: s2, now: NOW, today: '2026-10-05', query: q3 });
+  assert.deepEqual(plain([r5.scoped, r5.vsMem, r5.otherMin, r5.mem.trend, r5.cheapestSeen]), [false, null, null, null, true], 'levnější než vše viděné – žádné „dřív viděl i“ dražší');
+  const r6 = P.explain(trip(r5.mem.min + 500), { stats: ST, store: s2, now: NOW, today: '2026-10-05', query: q3 });
+  assert.deepEqual(plain([r6.vsMem, r6.otherMin.kind, r6.otherMin.czk, r6.cheapestSeen]), [null, 'earlier', r5.mem.min, false]);
 });
 
 test('hledání: statistika ze všech nabídek i nad limitem ceny, 🔥/👍 nikdy u běžné nebo vyšší ceny', async () => {
@@ -288,4 +299,13 @@ test('hledání: statistika ze všech nabídek i nad limitem ceny, 🔥/👍 nik
   // paměť z reálného výsledku: klíče tras odpovídají cestám ve výsledku
   const keys = new Set(P.entriesOf(all).map((e) => e.key));
   assert.ok(all.top.every((t) => keys.has(P.tripKey(t))));
+});
+
+test('scopeOf: pravidlo „v předvečer jen od 16:00“ je jiné hledání; bez něj nebo mimo měsíc otisk beze změny', () => {
+  const q = { from: ['ap:BRQ'], to: [], dateFrom: '2026-11-13', dateTo: '2026-11-14', trip: 'return', nightsMin: 3, nightsMax: 4, outDays: [5, 6], backDays: [2] };
+  const da = { ...q, depAfter: { date: '2026-11-13', time: '16:00' } };
+  assert.notEqual(P.scopeOf(da, '2026-11'), P.scopeOf(q, '2026-11'));
+  assert.equal(P.scopeOf({ ...q, depAfter: null }, '2026-11'), P.scopeOf(q, '2026-11'));
+  const dec = { ...q, dateFrom: '2026-11-30', dateTo: '2026-12-01', depAfter: { date: '2026-11-30', time: '16:00' } };
+  assert.equal(P.scopeOf(dec, '2026-12'), P.scopeOf({ ...dec, depAfter: null }, '2026-12'), 'předvečer v jiném měsíci');
 });

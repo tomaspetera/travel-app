@@ -97,6 +97,7 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .check-inline input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent)}
 /* zaškrtávátko v poli formuláře: ne velkými písmeny jako popisek pole */
 .field label.check-inline{display:flex;font-size:13.5px;font-weight:500;color:var(--text);text-transform:none;letter-spacing:0;margin:6px 0}
+.field label.check-inline[hidden]{display:none}
 .gm-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
 .field .gm-row label.check-inline{margin:0}
 @media(max-width:380px){.warm-row .seg button{padding:6px 6px;font-size:12px}}
@@ -710,3 +711,6 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .news-line .linkbtn{font-size:13.5px;text-align:left}
 .radar-what{font-size:12px;margin:-4px 2px 8px}
 @media(max-width:360px){.radar-modes button{white-space:nowrap;padding-left:6px;padding-right:6px;font-size:12.5px}}
+.radar-lw{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 2px 10px}
+.radar-lw[hidden]{display:none}
+.radar-lw small{color:var(--muted);font-weight:500}

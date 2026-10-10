@@ -107,6 +107,8 @@
     if (isos.length) plan.isos = isos;
     // přestupy v zemích, kde registrace platí i pro tranzit (ESTA v USA…)
     if (via.length) plan.via = via;
+    // město cesty (letiště / metropole) pro „Hledat lety“ – jen platný kód, vlajka se dopočítá ze země
+    if (obj(raw.place) && typeof raw.place.id === 'string' && /^(ap|metro):[A-Z]{3}$/.test(raw.place.id)) plan.place = { id: raw.place.id, label: txt(raw.place.label, 80) || plan.dest };
     return plan;
   }
 

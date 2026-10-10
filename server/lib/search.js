@@ -30,6 +30,9 @@ const int = (v, d, min, max) => {
   const n = Math.round(Number(v));
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d;
 };
+// { date: 'YYYY-MM-DD' v rozsahu odletu, time: 'HH:MM' } nebo null
+const depAfterOf = (x, a, b) => (x && isYmd(x.date) && x.date >= a && x.date <= b && /^([01]\d|2[0-3]):[0-5]\d$/.test(String(x.time))
+  ? { date: x.date, time: String(x.time) } : null);
 const days = (arr) => (Array.isArray(arr) ? [...new Set(arr.map(Number).filter((n) => n >= 0 && n <= 6))] : []);
 const ids = (v) => (Array.isArray(v) ? v : v ? [v] : []).map(String).filter(Boolean).slice(0, 8);
 
@@ -77,6 +80,8 @@ export function normalizeQuery(raw = {}) {
     nightsMax,
     outDays: exact ? [] : days(raw.outDays),
     backDays: trip === 'return' && !exact ? days(raw.backDays) : [],
+    // Prodloužený víkend (radar „Svátky“): v předvečer volna jen odlety od daného času (16:00) – ráno je ještě práce.
+    depAfter: exact ? null : depAfterOf(raw.depAfter, dateFrom, dateTo),
     ...sharedQuery(raw),
     // „Za teplem“: jen cíle, kde je v měsíci odletu průměrné denní maximum aspoň tolik °C.
     minTemp: Number(raw.minTemp) > 0 ? int(raw.minTemp, null, 15, 35) : null,
@@ -320,6 +325,9 @@ export async function search(raw, emit = () => {}, opts = {}) {
   // Let v měsíci, kdy je v cíli dost teplo (stejné pravidlo jako filtr ve výsledcích) – chladné termíny
   // se vyřadí hned, jinak by jako levnější zabraly místa (2 na trasu, limit kalendáře) teplým.
   const warmLeg = (l) => !q.minTemp || (monthClimate(l.to, l.date)?.hi ?? -99) >= q.minTemp;
+  // Prodloužený víkend: odlet v předvečer až od q.depAfter.time (let bez známého času projde). Vyřadit hned při sběru –
+  // jinak by levnější ranní lety zabraly místa (nejlevnější let trasy za den, varianty skupiny) platným večerním.
+  const depOk = (l) => !q.depAfter || !l || l.date !== q.depAfter.date || !l.hasTime || String(l.dep).slice(11, 16) >= q.depAfter.time;
   const warmTargets = (order, months, max) => {
     const out = [];
     for (const cc of order) {
@@ -432,7 +440,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
             if (!allOrigins.has(x.out.from) || (x.back && !allOrigins.has(x.back.to))) continue;
             // cíl, který neznáme (chybí v databázi letišť), by se ukázal jen jako kód
             if (allOrigins.has(x.out.to) || !getAirport(x.out.to) || !destOk(x.out.to)) continue;
-            if (!dateOk(x.out.date, x.back?.date, constraints)) continue;
+            if (!dateOk(x.out.date, x.back?.date, constraints) || !depOk(x.out)) continue;
             trips.push(x);
             st.found++;
           }
@@ -473,7 +481,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
         });
         for (const t of res) {
           if (!destOk(t.out.to)) continue;
-          if (dateOk(t.out.date, t.back?.date, constraints)) {
+          if (dateOk(t.out.date, t.back?.date, constraints) && depOk(t.out)) {
             trips.push(t);
             st.found++;
             // za teplem: jediný (nejlevnější) termín vyšel na chladný měsíc → teplejší dohledat po dnech
@@ -524,7 +532,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
 
   // Ceny po dnech pro jednu trasu → nejlepší cesty (bez open-jaw).
   async function routeTrips(p, o, d, { perPair }) {
-    const out = (await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults, directOnly: q.directOnly })).filter(warmLeg);
+    const out = (await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults, directOnly: q.directOnly })).filter((l) => warmLeg(l) && depOk(l));
     if (!ret) return bestOneWays(out, groundOf, { ...constraints, perDestLimit: perPair, limit: perPair });
     if (!out.length) return [];
     const back = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, adults: q.adults, directOnly: q.directOnly });
@@ -556,7 +564,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       await runTasks(st, capped.map(({ o, d }) => async () => {
         const res = await p.explore({ origin: o, destination: d, dateFrom: q.dateFrom, dateTo: q.dateTo, ret, adults: q.adults, directOnly: q.directOnly });
         for (const t of res) {
-          if (dateOk(t.out.date, t.back?.date, constraints)) {
+          if (dateOk(t.out.date, t.back?.date, constraints) && depOk(t.out)) {
             trips.push(t);
             st.found++;
           }
@@ -595,7 +603,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
           }
           for (const x of res) {
             if (!allOrigins.has(x.out.from) || (x.back && !allOrigins.has(x.back.to)) || !destAirports.includes(x.out.to)) continue;
-            if (!dateOk(x.out.date, x.back?.date, constraints)) continue;
+            if (!dateOk(x.out.date, x.back?.date, constraints) || !depOk(x.out)) continue;
             trips.push(x);
             st.found++;
           }
@@ -677,7 +685,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
   const dayOpts = q.exact ? { legsPerDay: EXACT_LEGS_PER_DAY, variety: true } : { legsPerDay: 2 };
   if (routeMode) {
     // Za teplem jen odlety v dost teplých měsících – i v kalendáři (jinak by nabízel dny, které seznam vyřadí).
-    const warmOut = outLegs.filter(warmLeg);
+    const warmOut = outLegs.filter((l) => warmLeg(l) && depOk(l));
     if (ret) {
       const maps = { out: new Map(), back: new Map() };
       // Konkrétní cíl: na každý den víc variant (nejlevnější, přímý, jiné aerolinky); přesná data: všechny
@@ -685,7 +693,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       trips.push(...bestRoundTrips(warmOut, backLegs, groundOf, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, calendar: maps, ...dayOpts }));
       // Celé zpáteční letenky (Travelpayouts, dálkové hledání Kiwi) patří do kalendáře taky.
       for (const t of trips) {
-        if (!t.back || !t.combined || !warmLeg(t.out) || (car && t.back.to !== t.out.from)) continue;
+        if (!t.back || !t.combined || !warmLeg(t.out) || !depOk(t.out) || (car && t.back.to !== t.out.from)) continue;
         const cost = t.flightCzk + groundOf(t.out.from) + groundOf(t.back.to) + legBagCzk(t.out, q.bags).czk + legBagCzk(t.back, q.bags).czk
           + arrOf(t.out) + arrOf(t.back) + (park ? park(t.out.from, daysBetween(t.out.date, t.back.date)) : 0);
         const entry = { cost, from: t.out.from, to: t.out.to, backTo: t.back.to, outDate: t.out.date, backDate: t.back.date, provider: t.provider };
@@ -701,6 +709,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
     }
   }
 
+  // pojistka pro zdroje, které lety skládají samy (celé zpáteční letenky)
+  if (q.depAfter) { const ok = trips.filter((t) => depOk(t.out)); trips.length = 0; trips.push(...ok); }
   const { groups, flat, warm, hidden, priceStats: routeStats } = buildGroups(trips, { q, originSet: allOrigins, groundOf, park, arrOf, legCosts: routeMode && Boolean(q.exact) });
   // Další odlety Ryanairu téhož dne z letového řádu (bez cen) – jen u zobrazených tras, pár dotazů.
   const fr = providers.find((p) => p.departures);
