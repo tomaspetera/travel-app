@@ -88,14 +88,22 @@ export function localSuggestions(query, limit = 10) {
     const sc = Math.max(matchScore(q, r.cs), ...r.aliases.map((al) => matchScore(q, al)));
     if (sc >= 60) push(regionSuggestion(r), sc + 12);
   }
+  // Nalezené metropole: jmenovec jinde (London v Kanadě u „Londýn“) až za letišti metropole.
+  const metroNames = new Set();
+  const metroAirports = new Set();
   for (const m of METRO_BY_CODE.values()) {
     const sc = Math.max(matchScore(q, m.cs), matchScore(q, m.en));
-    if (sc >= 60) push(metroSuggestion(m), sc + 10);
+    if (sc >= 60) {
+      push(metroSuggestion(m), sc + 10);
+      metroNames.add(normalize(m.cs)).add(normalize(m.en));
+      m.airports.forEach((x) => metroAirports.add(x));
+    }
   }
   for (const a of AIRPORTS.values()) {
     if (a.type === 'S' && q.length < 4) continue;
     const sc = Math.max(matchScore(q, a.cityCs), matchScore(q, a.city), matchScore(q, a.name) - 20);
-    if (sc > 0) push(airportSuggestion(a), sc + (a.type === 'L' ? 8 : a.type === 'M' ? 4 : 0));
+    const homonym = !metroAirports.has(a.iata) && (metroNames.has(normalize(a.cityCs)) || metroNames.has(normalize(a.city)));
+    if (sc > 0) push(airportSuggestion(a), sc + (a.type === 'L' ? 8 : a.type === 'M' ? 4 : 0) - (homonym ? 30 : 0));
   }
   scored.sort((x, y) => y.score - x.score);
   // Když existuje dobrá shoda, zahoď šum z „obsahuje“ (např. viden → provIDENciales).
@@ -162,7 +170,10 @@ export function localCityCenters(query) {
 export async function suggest(query, { limit = 10, remote = true } = {}) {
   const local = localSuggestions(query, limit);
   const strong = local.filter((s) => s.type !== 'airport' || normalize(s.label).startsWith(normalize(query)));
-  if (!remote || normalize(query).length < 3 || strong.length >= 5) return local;
+  // Přesná shoda s místem z databáze (Brno, Bangkok, Itálie): bez geokódování – jinak by za ním byly jmenovci
+  // a vesnice z celého světa (Bruno v Nebrasce, Brno v Plzeňském kraji).
+  const exact = local.some((s) => normalize(s.label) === normalize(query));
+  if (!remote || normalize(query).length < 3 || strong.length >= 5 || exact) return local;
   let geo = [];
   try {
     geo = await geocode(query);

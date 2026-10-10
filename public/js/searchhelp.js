@@ -849,7 +849,8 @@
         from: home.from.map(x => x.id), radiusKm, to: [], dateFrom, dateTo, trip: 'return', nightsMin: r.nMin, nightsMax: r.nMax,
         ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), adults: 1, kmRate: 1, groundMode: 'transit', arrival: true,
       },
-      form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, len: 'custom', adults: 1 },
+      // formulář po kliknutí na kartu: tvar cesty z radaru, počet lidí a ostatní nastavení zůstanou uživatele
+      form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, len: 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
       sub: `· ${home.from.map(x => x.label).join(', ')} +${radiusKm} km · ${r.what} · příštích 6 týdnů`,
       empty: r.empty,
     };

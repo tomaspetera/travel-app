@@ -131,6 +131,13 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .progress-card{padding:16px 18px;margin-bottom:18px}
 .progress-card.done{padding:12px 18px}
 .ph{font-weight:800;font-size:14px;margin-bottom:10px}
+details.progress-card>summary.ph{list-style:none;cursor:pointer;margin-bottom:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:0 4px}
+details.progress-card>summary.ph::-webkit-details-marker{display:none}
+details.progress-card[open]>summary.ph{margin-bottom:10px}
+.ps-found{font-weight:600;font-size:12.5px}
+.ps-more{margin-left:auto;font-size:12px;font-weight:700}
+.ps-more::after{content:" ▾"}
+details[open] .ps-more::after{content:" ▴"}
 .prow{display:grid;grid-template-columns:12px 150px 1fr 60px minmax(140px,auto);align-items:center;gap:10px;padding:6px 0;font-size:13px}
 .pdot{width:10px;height:10px;border-radius:50%}
 .pbar{height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden}

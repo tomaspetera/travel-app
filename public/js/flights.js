@@ -653,6 +653,8 @@
     }
     S.form = f; S.home = { from: f.from, radius: f.radius }; save(); updateHomeChip();
     const payload = payloadOf(f);
+    // Kalendář cen zůstane jen u hledání do stejného cíle (nebo na vyžádání) – jiný cíl začne seznamem.
+    if (view.mode === 'cal' && !opts.cal && JSON.stringify((lastPayload || {}).to || null) !== JSON.stringify(payload.to || null)) view.mode = 'list';
     lastPayload = payload; lastForm = f;
     if (searchCtl) searchCtl.abort();
     searchCtl = new AbortController();
@@ -683,9 +685,9 @@
   }
 
   /** Upravené hledání jedním kliknutím (jiný den, ± dny, zrušený filtr, širší cíl…): formulář + nové hledání. */
-  function rerun(patch = {}) {
+  function rerun(patch = {}, opts = {}) {
     setForm({ ...(lastForm || getForm()), ...patch });
-    return startSearch();
+    return startSearch(opts);
   }
 
   function renderProgress(ev, starting, res) {
@@ -707,7 +709,15 @@
     // cesta přes víc měst: stav hledání každého letu
     const ST = { pending: '⏳', running: '<span class="spin"></span>', done: '✓', error: '⚠️' };
     const legs = !res && ev.legs ? `<div class="ml-prog">${ev.legs.map((l, i) => `<span class="${esc(l.state)}">${ST[l.state] || ''} ${i + 1}. ${esc(l.label)}</span>`).join('')}</div>` : '';
-    host.innerHTML = `<div class="card progress-card ${res ? 'done' : ''}"><div class="ph">${head}</div>${legs}${rows}${res ? disabled : ''}</div>`;
+    if (res) {
+      // Po dohledání jen jeden řádek (na mobilu by jinak průběh odsunul první nabídku pod okraj), podrobnosti po rozkliknutí;
+      // s chybou zdroje rozbalené.
+      const found = (ev.providers || []).filter(p => p.found).map(p => `${esc(shopName(p.id))} ${p.found}`).join(' · ');
+      const bad = (ev.providers || []).some(p => p.state === 'error');
+      host.innerHTML = `<details class="card progress-card done"${bad ? ' open' : ''}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">podrobnosti</span></summary>${rows}${disabled}</details>`;
+      return;
+    }
+    host.innerHTML = `<div class="card progress-card"><div class="ph">${head}</div>${legs}${rows}</div>`;
   }
 
   /* ---------- výsledky ---------- */
@@ -1753,7 +1763,7 @@
     $$('[data-alldates]', host).forEach(b => b.onclick = () => {
       const g = lastResult.groups.find(x => x.dest.key === b.dataset.alldates); if (!g) return;
       view.mode = 'cal';
-      rerun({ to: [{ id: g.dest.id, label: g.dest.label, flag: flag(g.dest.cc) }] });
+      rerun({ to: [{ id: g.dest.id, label: g.dest.label, flag: flag(g.dest.cc) }] }, { cal: true });
     });
     $$('[data-day]', host).forEach(c => c.onclick = () => { view.outDate = view.outDate === c.dataset.day ? null : c.dataset.day; rerender(true); });
     $$('[data-pick]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pick]; Trip.start({ t: r.t, g: r.g, result: lastResult }); });
@@ -2269,7 +2279,7 @@
     // Starší výsledek stejného dotazu se ukáže hned a nový se hledá na pozadí – po uspání serveru to trvá i přes minutu.
     const old = SearchHelp.radarStale(c, key, today());
     if (old) paintRadar(old, q, { busy: true });
-    else host.innerHTML = `<div class="radar-grid">${Array.from({ length: 8 }, () => '<div class="card radar-card skel"></div>').join('')}</div>`;
+    else host.innerHTML = `<div class="faint radar-stale"><span class="spin"></span> Hledám nejlevnější lety z okolí – obvykle do půl minuty<span class="rp"></span></div><div class="radar-grid">${Array.from({ length: 8 }, () => '<div class="card radar-card skel"></div>').join('')}</div>`;
     const job = radarJobs[key] || (radarJobs[key] = radarSearch(q, key).finally(() => { delete radarJobs[key]; }));
     try {
       const r = await job;
@@ -2283,7 +2293,7 @@
   async function radarSearch(q, key) {
     busySearches++;
     try {
-      const res = await runSearch(q.payload);
+      const res = await runSearch(q.payload, { onProgress: ev => radarProgress(ev, key) });
       PriceCheck.remember(res);
       const at = Date.now(), items = res.groups.slice(0, 12).map(g => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: g.best.perPersonCzk, from: g.best.out.from, to: g.best.out.to, d1: g.best.out.date, d2: g.best.back?.date, deal: g.best.deal.level, prov: g.best.out.provider }));
       // co se od minulého výsledku změnilo (↓ cena, nový cíl)
@@ -2292,6 +2302,12 @@
       save();
       return r;
     } finally { busySearches--; }
+  }
+  /** Průběh hledání radaru po zdrojích (Ryanair ✓ · Wizz Air 6/10 · Kiwi.com…) – jen když radar ukazuje právě tenhle dotaz. */
+  function radarProgress(ev, key) {
+    const el = radarWant === key && $('#radar .rp');
+    if (!el || !ev || !Array.isArray(ev.providers) || !ev.providers.length) return;
+    el.textContent = ' · ' + ev.providers.map(p => `${shopName(p.id)} ${p.state === 'done' || p.state === 'partial' ? '✓' : p.state === 'error' ? '✕' : p.calls ? `${p.done}/${p.calls}` : '…'}`).join(' · ');
   }
   /** Značka změny od minula: „↓ 420 Kč“ (zlevnilo), „↑ 300 Kč“ (zdražilo), „nové“ (cíl tu minule nebyl). */
   function radarChange(x) {
@@ -2310,7 +2326,7 @@
     const day = d => (q.mode === 'weekend' ? DOW[new Date(d + 'T12:00:00Z').getUTCDay()] + '\u00a0' : '') + fmtDate(d);
     // čas výsledku, u staršího než dnešního i den (8.10. 9:12)
     const at = new Date(r.at), when = (at.toDateString() === new Date().toDateString() ? '' : `${at.getDate()}.${at.getMonth() + 1}. `) + at.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
-    const stale = !st ? '' : `<div class="faint radar-stale">${st.error ? `⚠️ Aktuální ceny se nepodařilo načíst (${esc(st.error)}) – ukazuji ceny z ${when}.` : `<span class="spin"></span> Ukazuji ceny z ${when}, hledám aktuální…`}</div>`;
+    const stale = !st ? '' : `<div class="faint radar-stale">${st.error ? `⚠️ Aktuální ceny se nepodařilo načíst (${esc(st.error)}) – ukazuji ceny z ${when}.` : `<span class="spin"></span> Ukazuji ceny z ${when}, hledám aktuální…<span class="rp"></span>`}</div>`;
     host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}${stale}<div class="radar-grid${st ? ' stale' : ''}">${r.items.map((x, i) => `<div class="card radar-card ${x.deal === 'super' ? 'hot' : ''}" data-ri="${i}">
       <div class="rc-top"><span class="rcf">${flag(x.cc)}</span><span class="rc-badges">${radarChange(x)}${x.deal === 'super' ? '<span class="b hot">🔥</span>' : ''}</span></div>
       <div class="rc-city">${esc(x.label)}</div>
@@ -2320,7 +2336,7 @@
     $$('[data-ri]', host).forEach(c => c.onclick = () => {
       const x = r.items[+c.dataset.ri];
       go('flights');
-      setForm({ ...defaultForm(), from: S.home.from, to: [{ id: x.id, label: x.label, flag: flag(x.cc) }], ...q.form });
+      setForm({ ...defaultForm(), ...prefsOf(S.form), from: S.home.from, to: [{ id: x.id, label: x.label, flag: flag(x.cc) }], ...q.form });
       startSearch();
     });
   }
@@ -2340,7 +2356,7 @@
     $$('[data-qf]').forEach(el => el.onclick = () => {
       const q = QF[+el.dataset.qf][3];
       go('flights');
-      const base = { ...defaultForm(), ...singleTrip(S.form), from: (S.home?.from || fromInput.items), to: [], dFrom: addDays(today(), 3), dTo: addDays(today(), 60), dateMode: 'flex', minTemp: 0 };
+      const base = { ...defaultForm(), ...prefsOf(S.form), from: (S.home?.from || fromInput.items), to: [], dFrom: addDays(today(), 3), dTo: addDays(today(), 60), dateMode: 'flex', minTemp: 0 };
       const f = { ...base, ...q };
       if (q.len && PRESETS[q.len]) Object.assign(f, { nMin: PRESETS[q.len].nMin, nMax: PRESETS[q.len].nMax, outDays: PRESETS[q.len].out, backDays: PRESETS[q.len].back });
       else if (q.nMin != null) Object.assign(f, { outDays: [], backDays: [] }); // vlastní počet nocí (dálkové lety)
@@ -2354,9 +2370,18 @@
   /* ---------- veřejné API pro app.js ---------- */
   // Hledání do jednoho cíle (rychlé volby, hledání ze země, hlavní stránka): z cesty přes víc měst tam i zpět.
   function singleTrip(f) { f = SearchHelp.groundForm(f); return f && f.trip === 'multi' ? { ...f, trip: 'return' } : (f || {}); }
+  /**
+   * Osobní nastavení z minulého hledání pro nové hledání odjinud (Přehled, rychlé hledání, karta radaru, stránka země):
+   * počet lidí, okruh, doprava na letiště, zavazadla… – ne tvar cesty (noci, dny v týdnu, termín, typ cesty, cenový
+   * limit). Jinak by třeba hledání z Přehledu po kliknutí na kartu radaru potichu hledalo jen víkendy na 1–3 noci.
+   */
+  function prefsOf(f) {
+    const { to, trip, len, nMin, nMax, dFrom, dTo, outDays, backDays, dateMode, xOut, xBack, xFlex, legs, minTemp, maxPrice, ...rest } = singleTrip(f);
+    return rest;
+  }
   function searchTo(items) {
     go('flights');
-    const f = { ...defaultForm(), ...singleTrip(S.form), to: items };
+    const f = { ...defaultForm(), ...prefsOf(S.form), to: items };
     setForm(f);
     if (!f.from.length) { toast('Zadej, odkud letíš'); setTimeout(() => fromInput.input.focus(), 300); return; }
     startSearch();
@@ -2472,7 +2497,7 @@
       e.preventDefault();
       if (!heroFrom.items.length) { toast('Zadej, odkud letíš', 'err'); heroFrom.input.focus(); return; }
       go('flights');
-      setForm({ ...defaultForm(), ...singleTrip(S.form), from: heroFrom.items, to: heroTo.items });
+      setForm({ ...defaultForm(), ...prefsOf(S.form), from: heroFrom.items, to: heroTo.items });
       startSearch();
     };
     updateWatchBadges();

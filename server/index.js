@@ -8,6 +8,7 @@ import zlib from 'node:zlib';
 import { config } from './config.js';
 import { suggest, describe, resolveOrigins, geocode } from './lib/places.js';
 import { search, UserError, legBagCzk } from './lib/search.js';
+import { liteapiTestKey } from './providers/stays/index.js';
 import { activeProviders, providerStatus } from './providers/index.js';
 import { fxInfo, loadRates } from './lib/fx.js';
 import { cache } from './lib/cache.js';
@@ -205,7 +206,7 @@ async function diagnose() {
       }
     };
     const extra = [];
-    if (!config.mock && config.liteapiKey) {
+    if (!config.mock && config.liteapiKey && !liteapiTestKey()) {
       extra.push(probe('liteapi', async () => {
         const r = await searchStays({ city: 'Vídeň', iata: 'VIE', checkin: from, checkout: addDays(from, 2), adults: 2 });
         const st = r.providers.find((x) => x.id === 'liteapi');

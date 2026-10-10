@@ -151,7 +151,7 @@ test('PRG→BCN přesně: Kiwi zvlášť i jen přímé lety, všechny přímé 
     assert.ok(r.top.some((t) => !t.out.stops && !t.back.stops), 'přímo tam i zpět');
     // doprava a zavazadla po letech → UI spočítá i dvojici letů, která mezi kombinacemi není
     assert.ok(r.top.every((t) => [t.out, t.back].every((l) => l.groundCzk === 0 && l.bagCzk === 0)));
-    // nejbližší dny: z měsíčních dat Ryanairu (žádný dotaz navíc) + Kiwi v zadaný den
+    // nejbližší dny: z měsíčních dat Ryanairu (u data na konci měsíce i ze sousedního) + Kiwi v zadaný den
     assert.equal(r.nearby.out.around, OUT);
     assert.deepEqual(r.nearby.out.days.map((d) => d.date), [plus(OUT, -2), OUT, plus(OUT, 1)]);
     assert.equal(r.nearby.out.days[0].czk, 500);
@@ -161,7 +161,11 @@ test('PRG→BCN přesně: Kiwi zvlášť i jen přímé lety, všechny přímé 
     assert.deepEqual(r.filters, { maxPrice: null, directOnly: false, active: false, hidden: { maxPrice: 0, directOnly: 0 } });
     const kiwi = r.providers.find((p) => p.id === 'kiwi');
     assert.deepEqual([kiwi.state, kiwi.outage, kiwi.retryable, kiwi.failed], ['done', null, false, 0]);
-    assert.ok(stub.calls.filter((c) => c.url.includes('cheapestPerDay')).length <= 2, 'Ryanair: 1 dotaz na trasu a měsíc');
+    // Ryanair: nejvýš 1 dotaz na trasu a měsíc (sousední měsíc jen u nejbližších dnů přes přelom měsíce)
+    const cpd = stub.calls.filter((c) => c.url.includes('cheapestPerDay')).map((c) => { const u = new URL(c.url); return `${u.pathname}|${u.searchParams.get('outboundMonthOfDate')}`; });
+    assert.equal(new Set(cpd).size, cpd.length, 'Ryanair: 1 dotaz na trasu a měsíc');
+    const months = (d) => new Set([plus(d, -3), d, plus(d, 3)].map((x) => x.slice(0, 7))).size;
+    assert.ok(cpd.length <= months(OUT) + months(BACK), `Ryanair: jen měsíce kolem dat (${cpd.join(', ')})`);
   } finally {
     stub.restore();
   }
