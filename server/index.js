@@ -262,7 +262,10 @@ async function route(req, res) {
   if (p === '/api/places') {
     const q = (url.searchParams.get('q') || '').slice(0, 80);
     const remote = url.searchParams.get('remote') !== '0';
-    return sendJson(req, res, 200, { items: await suggest(q, { remote }) });
+    // near = ID domova (pořadí podle vzdálenosti), role=from = pole Odkud (město před svým letištěm)
+    const near = (url.searchParams.get('near') || '').slice(0, 120);
+    const role = url.searchParams.get('role') === 'from' ? 'from' : 'to';
+    return sendJson(req, res, 200, { items: await suggest(q, { remote, near, role }) });
   }
   if (p === '/api/geocode') {
     // Města a místa (střed města, ne letiště) – pro objevování a program.

@@ -176,10 +176,18 @@
   }
 
   /* ---------- PlaceInput: čipy + našeptávač ---------- */
+  // Kontext našeptávače: role pole a domov (pořadí podle vzdálenosti). Poloha „Moje poloha“ jen na desetiny stupně.
+  function placeCtx(origin, nearId) {
+    let n = String(nearId || '');
+    const g = /^geo:(-?[\d.]+),(-?[\d.]+)/.exec(n);
+    if (g) n = `geo:${(+g[1]).toFixed(1)},${(+g[2]).toFixed(1)}`;
+    return (origin ? '&role=from' : '') + (/^(ap|metro|geo|cc):/.test(n) ? '&near=' + enc(n) : '');
+  }
   class PlaceInput {
-    constructor(el, { placeholder, max = 5, onChange, dark = false, allowAnywhere = false, origin = false }) {
+    constructor(el, { placeholder, max = 5, onChange, dark = false, allowAnywhere = false, origin = false, near = null }) {
       this.el = el; this.items = []; this.max = max; this.onChange = onChange || (() => { }); this.allowAnywhere = allowAnywhere;
       this.origin = origin; // odkud: světadíl nedává smysl
+      this.near = near || (() => (S.home && S.home.from && S.home.from[0] && S.home.from[0].id) || ''); // domov pro pořadí návrhů
       el.classList.add('pi'); if (dark) el.classList.add('pi-dark');
       el.innerHTML = `<div class="pi-chips"></div><input class="pi-input" placeholder="${esc(placeholder || '')}" autocomplete="off" spellcheck="false"><div class="pi-dd" hidden></div>`;
       this.chipsEl = $('.pi-chips', el); this.input = $('.pi-input', el); this.dd = $('.pi-dd', el);
@@ -197,14 +205,14 @@
       if (this.ctl) this.ctl.abort();
       this.ctl = new AbortController();
       try {
-        const r = await fetch('api/places?q=' + enc(q), { signal: this.ctl.signal });
+        const r = await fetch('api/places?q=' + enc(q) + placeCtx(this.origin, this.near()), { signal: this.ctl.signal });
         const j = await r.json();
         if (q !== this.input.value.trim()) return;
         this.sugs = (j.items || []).filter(s => !this.origin || s.type !== 'continent'); this.active = this.sugs.length ? 0 : -1; this.open();
       } catch (e) { if (e.name !== 'AbortError') { this.sugs = []; this.open(true); } }
     }
     open(err) {
-      const typeLbl = { airport: 'letiště', metro: 'město', country: 'země', region: 'oblast', place: 'místo', continent: 'světadíl' };
+      const typeLbl = { airport: 'letiště', metro: 'město', city: 'město', country: 'země', region: 'oblast', place: 'místo', continent: 'světadíl' };
       this.dd.innerHTML = this.sugs.length ? this.sugs.map((s, i) => `<div class="pi-opt ${i === this.active ? 'on' : ''}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span><span class="pi-type">${typeLbl[s.type] || ''}</span></div>`).join('')
         : `<div class="pi-empty">${err ? 'Našeptávač je nedostupný' : 'Nic nenalezeno – zkus jiný název nebo kód letiště'}</div>`;
       this.dd.hidden = false;
@@ -722,7 +730,7 @@
 
   function buildForm() {
     fromInput = new PlaceInput($('#fromInput'), { origin: true, placeholder: 'Např. Brno, Vídeň, Česko, Jihlava…', onChange: () => { refreshOrigins(); updateHomeChip(); mlHomeChanged(); } });
-    toInput = new PlaceInput($('#toInput'), { placeholder: 'Kamkoliv 🌍 – nebo napiš zemi, město, ostrov, světadíl…', onChange: syncFormUI });
+    toInput = new PlaceInput($('#toInput'), { placeholder: 'Kamkoliv 🌍 – nebo napiš zemi, město, ostrov, světadíl…', onChange: syncFormUI, near: () => (fromInput.items[0] && fromInput.items[0].id) || (S.home && S.home.from && S.home.from[0] && S.home.from[0].id) || '' });
     $('#outDays').innerHTML = DOW_ORDER.map(d => `<button type="button" data-d="${d}">${DOW[d]}</button>`).join('');
     $('#backDays').innerHTML = DOW_ORDER.map(d => `<button type="button" data-d="${d}">${DOW[d]}</button>`).join('');
     $$('#outDays button, #backDays button').forEach(b => b.onclick = () => { b.classList.toggle('on'); $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); syncFormUI(); });
