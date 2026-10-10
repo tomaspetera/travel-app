@@ -577,3 +577,27 @@ test('POST /api/search – totéž hledání z téže adresy, které ještě bě
     mockProviders.forEach((p, i) => { p.daily = orig[i]; });
   }
 });
+
+test('GET /api/verify – živé ověření ceny má vlastní limit, hledání z téže adresy neubírá', async () => {
+  const { config } = await import('../server/config.js');
+  const prev = config.verifiesPer10Min;
+  config.verifiesPer10Min = 2;
+  const headers = { 'x-forwarded-for': '10.20.30.41' };
+  const verify = () => fetch(`${base}/api/verify?from=VIE&to=BCN&out=${ymdPlus(20)}&back=${ymdPlus(24)}&adults=2`, { headers });
+  try {
+    for (let i = 0; i < 2; i++) {
+      const r = await verify();
+      assert.equal(r.status, 200);
+      assert.deepEqual(await r.json(), { available: false, items: [] }); // DEMO: Kiwi není
+    }
+    const r3 = await verify();
+    assert.equal(r3.status, 429);
+    assert.match((await r3.json()).error, /ověření ceny/);
+    // hledání má svůj limit – ověřování ho nevyčerpá
+    const s = await fetch(`${base}/api/search`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ from: ['ap:VIE'], to: ['ap:BCN'], radiusKm: 0, dateFrom: ymdPlus(20), dateTo: ymdPlus(30), trip: 'return', nightsMin: 3, nightsMax: 5 }) });
+    assert.equal(s.status, 200);
+    await s.text();
+  } finally {
+    config.verifiesPer10Min = prev;
+  }
+});

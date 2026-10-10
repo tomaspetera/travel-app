@@ -926,6 +926,33 @@
     if (!pool.length || new Set(pool.map(s => s.cc)).size !== 1) return null;
     return metro || pool.find(s => /^ap:/.test(s.id)) || pool[0];
   }
+  /* ---------- živé ověření cen z mezipaměti (Aviasales) ---------- */
+  /** Cesta s cenou z mezipaměti (tam nebo zpět – Travelpayouts, až 48 h stará)? */
+  const isCached = t => Boolean(t && t.out && (t.out.live === false || (t.back && t.back.live === false)));
+  /** Klíč živého ověření: letiště, dny a počet cestujících (jako dotaz /api/verify). */
+  const liveKey = (t, adults) => [t.out.from, t.out.to, t.out.date, t.back ? `${t.back.from}>${t.back.to}@${t.back.date}` : '', adults].join('|');
+  /**
+   * Verdikt živého ověření ceny letenky cachedCzk (na osobu) z nabídek /api/verify (items[].flightCzk): o víc než 10 %
+   * dráž → dearer, o víc než 10 % levněji → cheaper, jinak ok (stejné pravidlo jako průvodce cestou); bez nabídek none,
+   * s chybou err. → { st, min }
+   */
+  function liveVerdict(cachedCzk, items, error = null) {
+    const prices = (Array.isArray(items) ? items : []).map(x => +(x && x.flightCzk)).filter(x => x > 0);
+    if (!prices.length) return { st: error ? 'err' : 'none', min: null };
+    const min = Math.min(...prices);
+    return { st: min > cachedCzk * 1.1 ? 'dearer' : min < cachedCzk * 0.9 ? 'cheaper' : 'ok', min };
+  }
+  /** Které nabídky ověřit automaticky: první nabídka (vis[0]) z prvních rows skupin s cenou z mezipaměti, nejvýš max. */
+  function livePick(groups, { rows = 10, max = 3, adults = 1, done = () => false } = {}) {
+    const out = [];
+    for (const g of (groups || []).slice(0, rows)) {
+      const t = g && g.vis && g.vis[0];
+      if (!t || !isCached(t) || done(liveKey(t, adults))) continue;
+      out.push(t);
+      if (out.length >= max) break;
+    }
+    return out;
+  }
   /** Nejbližších n prodloužených víkendů od data from (do horizon dní) – na výběr v radaru. */
   function longWeekends(from, n = 3, horizon = 200) {
     const out = [], last = addDays(from, horizon);
@@ -1104,7 +1131,7 @@
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
   };
 })();

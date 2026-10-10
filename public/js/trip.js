@@ -436,8 +436,9 @@
       const openJaw = f.back && (f.back.from !== f.out.to || f.back.to !== f.out.from);
       // Cena z mezipaměti (Aviasales, až 48 h stará), kterou živě nikdo nenabízí: upozornit nahoře i ve Shrnutí
       const cached = f.provider === 'travelpayouts' || f.out.provider === 'travelpayouts';
-      const liveMin = Math.min(...j.items.map(x => x.flightCzk));
-      if (cached && (liveMin > cur * 1.1 || f.liveMin)) { f.liveMin = liveMin > cur * 1.1 ? liveMin : null; f.liveAt = Date.now(); persist(); }
+      // stejné pravidlo jako ve výpisu (SearchHelp.liveVerdict): o víc než 10 % dráž = cena z mezipaměti neplatí
+      const v = SearchHelp.liveVerdict(cur, j.items);
+      if (cached && (v.st === 'dearer' || f.liveMin)) { f.liveMin = v.st === 'dearer' ? v.min : null; f.liveAt = Date.now(); persist(); }
       const stale = cached && f.liveMin ? `<div class="note warn" style="margin-top:12px">⚠️ <div><b>Cena ${czk(cur)} je z mezipaměti</b> (Aviasales, může být až 2 dny stará) a živě ji teď nikdo nenabízí – nejlevnější živá nabídka na stejné dny je <b>${czk(f.liveMin)}</b>. Ověř ji před nákupem, nebo použij živou nabídku níž.</div></div>` : '';
       host.innerHTML = `${stale}<div class="divider"></div><div class="muted" style="font-size:13px;margin-bottom:8px">Živé nabídky pro ${dayLbl(f.out.date)}${f.back ? ` – ${dayLbl(f.back.date)}` : ''} (${esc(f.out.from)} → ${esc(f.out.to)}${openJaw ? `, zpět ${esc(f.back.from)} → ${esc(f.back.to)} – dvě samostatné letenky` : ''}), cena na osobu:</div>
         <div class="alt-flights">${j.items.map((x, i) => `<div class="alt-f">

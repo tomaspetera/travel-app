@@ -44,4 +44,6 @@ export const config = {
   // Přepočty trasy přes víc míst (každý až 8 nových tras z veřejného BRouteru): z jedné IP za 10 minut 3× tolik
   // co hledání, zvlášť; nad limitem přepočet odpoví bez nových tras (z mezipaměti, jinak odhad), ne chybou.
   rechecksPer10Min: 3 * num(env.SEARCH_RATE_LIMIT, 40),
+  // živé ověření ceny (/api/verify – průvodce cestou, ceny z mezipaměti ve výpisu): vlastní limit, ne z hledání
+  verifiesPer10Min: num(env.VERIFY_RATE_LIMIT, num(env.SEARCH_RATE_LIMIT, 40)),
 };

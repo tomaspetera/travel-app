@@ -443,6 +443,13 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cmp-price{text-align:right;white-space:nowrap}
 .cmp-price b{font:800 15.5px Sora,sans-serif;color:var(--good)}
 .cmp-price small{font-size:11px;color:var(--muted)}
+/* živé ověření ceny z mezipaměti pod cenou řádku */
+.cmp-live{display:block;font-size:11px;font-weight:700;margin-top:1px}
+.cmp-live.warn{color:var(--warn)}
+.cmp-live.good{color:var(--good)}
+.cmp-live.faint{color:var(--faint);font-weight:600}
+.cmp-live .spin{width:9px;height:9px;border-width:2px;vertical-align:-1px}
+.cmp-price b.stale{color:var(--muted)}
 .cmp-chev{color:var(--faint);font-size:12px}
 .cmp-card{padding:0 10px 10px;background:var(--surface-2)}
 .cmp-card .res-card{margin:0}

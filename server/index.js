@@ -105,6 +105,7 @@ function readBody(req, limit = 64 * 1024) {
 
 const hits = new Map();
 const rechecks = new Map(); // přepočty trasy přes víc míst (stayplan s bases): vlastní limit, do hledání se nepočítají
+const verifies = new Map(); // živé ověření ceny (/api/verify): vlastní limit, do hledání se nepočítá
 const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
   if (!max) return false;
@@ -317,8 +318,8 @@ async function route(req, res) {
     return sendJson(req, res, 200, await searchStays(Object.fromEntries(url.searchParams), { partners: partnerLookups() }));
   }
   if (p === '/api/verify') {
-    // Živé ověření konkrétních dat napříč aerolinkami (Kiwi.com) pro průvodce cestou.
-    if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
+    // Živé ověření konkrétních dat napříč aerolinkami (Kiwi.com) – průvodce cestou a ceny z mezipaměti ve výpisu.
+    if (rateLimited(req, config.verifiesPer10Min, verifies)) return sendJson(req, res, 429, { error: 'Příliš mnoho ověření ceny – zkus to za pár minut.' });
     const from = (url.searchParams.get('from') || '').toUpperCase();
     const to = (url.searchParams.get('to') || '').toUpperCase();
     const out = url.searchParams.get('out') || '';
