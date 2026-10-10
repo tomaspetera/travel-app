@@ -362,6 +362,16 @@ test('průvodce cestou: cesta z letiště do města v ceně (bez úseku, který 
   // hledání bez volby (arrCzk 0): nic, i když je cesta do města známá; starší cesta bez rozpisu po směrech: celá
   assert.equal(Trip.costs(trip({ flight: { ...trip().flight, arrCzk: 0 } })).arrival, 0);
   assert.equal(Trip.costs(trip({ arrival: null, car: car('BVA', 'BVA') })).arrival, 1760);
+  // trasa přes víc míst: přejezdy v ceně – autem palivo (i z letiště a na letiště), vlakem jízdenky mezi místy na osobu
+  const x = (km, fuelCzk, fareCzk) => ({ km, carMin: 60, transitMin: 90, transitKind: 'rail', basis: 'estimate', fuelCzk, fareCzk });
+  const route = (transport) => ({ mode: 'multi', transport, bases: [{ name: 'Paříž', nights: 2, lat: 48.86, lon: 2.35 }, { name: 'Remeš', nights: 2, lat: 49.26, lon: 4.03 }], transfers: [x(140, 420, 210)], legs: { arrival: x(80, 240, 150), departure: x(90, 270, 160) } });
+  const base = Trip.costs(trip()).total;
+  const carRoute = Trip.costs(trip({ route: route('car') }));
+  assert.equal(carRoute.transfers, 420 + 240 + 270);
+  assert.equal(carRoute.total, base + 930);
+  assert.equal(Trip.costs(trip({ route: route('transit') })).transfers, 210 * 2);
+  assert.equal(Trip.costs(trip({ route: { ...route('car'), transfers: [x(140)], legs: {} } })).transfers, 0, 'starší trasa bez odhadu');
+  assert.equal(Trip.sanitizeTrip(JSON.parse(JSON.stringify(trip({ route: route('car') })))).route.transfers[0].fuelCzk, 420);
   // sdílený odkaz: jen známá pole, čísla v mezích, zdroj jen https
   const san = Trip.sanitizeTrip(JSON.parse(JSON.stringify(trip({ arrival: { out: { ...ARR.BVA, src: 'javascript:alert(1)', evil: '<b>x</b>', czk: 440 }, back: { iata: 'bad!', czk: 1, min: 5 } } }))));
   assert.equal(san.arrival.out.iata, 'BVA');

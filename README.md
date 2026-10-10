@@ -964,6 +964,11 @@ příjezdu v Programu; cesta z letiště na první místo a z posledního na let
 a posledního dne (hodinu kryje rezerva 1,5 h po příletu a 3 h před odletem). S vlakem/busem místo letu se počítá
 cesta z města příjezdu (ne z letiště):
 
+Cena přejezdů je ve Shrnutí a v „Celkem“ jako odhad: **autem palivo** za auto (nafta 6 l/100 km za cenu v zemi startu,
+`server/lib/fuel.js`; i z letiště na první místo a z posledního zpět), **vlakem / autobusem jízdenky** na osobu mezi
+místy podle vzdálenosti (stejný model jako cesta vlakem místo letu, `distanceModel` v `server/lib/ground.js`; z letiště
+a na letiště je v dopravě z letiště do města).
+
 - **Autem:** silniční vzdálenost a čas bez kolon z plánovače tras [BRouter](https://brouter.de/) (profil `car-fast`,
   nad OpenStreetMap) × **provoz podle regionu** + 5 min na start a cíl ve městě + **zácpy**, začíná-li nebo končí-li
   přejezd v jedné z ~30 velkých metropolí (Lagos, Káhira, Nairobi, Dháka, Jakarta, Manila, Bangkok, Bombaj, Dillí,

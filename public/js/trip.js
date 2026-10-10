@@ -213,8 +213,20 @@
       : t.stay && t.stay.mode !== 'skip' ? Math.round(t.stay.totalCzk || 0) : 0;
     const car = t.car && t.car.mode !== 'skip' ? Math.round(t.car.totalCzk || 0) : 0;
     const arrival = ov ? 0 : Math.round(arrivalCzk(t) * pax);
-    const total = flights + bags + ground + arrival + overland + stay + car;
-    return { flights, bags, ground, arrival, overland, stay, car, total, perPerson: Math.round(total / pax) };
+    const transfers = transferCzk(t, pax);
+    const total = flights + bags + ground + arrival + overland + stay + car + transfers;
+    return { flights, bags, ground, arrival, overland, stay, car, transfers, total, perPerson: Math.round(total / pax) };
+  }
+  /**
+   * Přejezdy na trase přes víc míst (odhad ze serveru u každého přejezdu): autem palivo za auto i z letiště na 1. místo
+   * a z posledního zpět, vlakem / busem jízdenky mezi místy na osobu (z a na letiště je v dopravě z letiště).
+   */
+  function transferCzk(t, pax = t.adults) {
+    if (!isMulti(t)) return 0;
+    const r = t.route, xs = r.transfers || [];
+    if (r.transport === 'transit') return Math.round(xs.reduce((s, x) => s + ((x && x.fareCzk) || 0), 0) * pax);
+    const ends = ovOn(t) ? overlandLegs(t) : r.legs || {};
+    return Math.round([ends.arrival, ...xs, ends.departure].reduce((s, x) => s + ((x && x.fuelCzk) || 0), 0));
   }
 
   /* ---------- cesta z letiště do města (z hledání: res.arrivals, v ceně letu flight.arrCzk) ---------- */
@@ -1355,6 +1367,7 @@
         unpriced.length ? ['🏨', `Ubytování zatím bez ceny · ${unpriced.join(', ')}`, null] : null,
       ] : [t.stay && t.stay.mode !== 'skip' ? ['🏨', `Ubytování · ${nightsTxt(nights)}${t.stay.name ? ' · ' + t.stay.name : ''}`, c.stay] : null]),
       t.car && t.car.mode !== 'skip' ? ['🚗', 'Auto', c.car] : null,
+      c.transfers ? (r.transport === 'transit' ? ['🚆', `Přejezdy mezi místy – jízdenky (${t.adults} os., odhad)`, c.transfers] : ['⛽', 'Přejezdy autem – palivo (odhad, nafta 6 l/100 km)', c.transfers]) : null,
     ].filter(Boolean);
     // vstupní poplatky (ESTA, e-vízum…): zvlášť pod součtem, do „Celkem“ se nezapočítávají – platí se mimo cestu
     const isos = tripCountries(t), via = tripVia(t);
@@ -1737,6 +1750,8 @@
       // bez druhu dopravy = přejezd ze starší verze → v kroku Trasa se přepočítá
       ...(x.transitKind === 'bus' || x.transitKind === 'rail' ? { transitKind: x.transitKind } : {}), basis: x.basis === 'route' ? 'route' : 'estimate',
       border: obj(x.border) && cc2(x.border.from) && cc2(x.border.to) ? { from: x.border.from, to: x.border.to } : null, ...(x.hsr === true ? { hsr: true } : {}), ...(x.fast === true ? { fast: true } : {}),
+      // odhad ceny přejezdu (palivo za auto, jízdenka na osobu)
+      ...(fin(x.fuelCzk, 0, 100000) ? { fuelCzk: Math.round(x.fuelCzk) } : {}), ...(fin(x.fareCzk, 0, 100000) ? { fareCzk: Math.round(x.fareCzk) } : {}),
     } : null);
     // přejezdy z města příjezdu vlakem/busem: klíč = poloha města a prvního/posledního místa
     const gl = r.groundLegs;
