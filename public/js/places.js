@@ -272,8 +272,9 @@
     // 15 s od načtení stylu dorazila nejvýš jedna, přepni také na OpenStreetMap.
     let tiles = 0;
     let watchdog = null;
-    // dorazí-li dlaždice záložní mapy přece jen později, poznámka „Mapa se nenačetla“ zmizí
-    map.on('data', e => { if (e.dataType === 'source' && e.tile && ++tiles >= 2 && ms.raster) el.querySelector('.map-blank')?.remove(); });
+    // Počítají se jen dlaždice podkladu – vlastní čáry tras (GeoJSON, atlas-lines) se načtou vždy, i bez sítě.
+    // Dorazí-li dlaždice záložní mapy přece jen později, poznámka „Mapa se nenačetla“ zmizí.
+    map.on('data', e => { if (e.dataType === 'source' && e.tile && e.sourceId !== 'atlas-lines' && ++tiles >= 2 && ms.raster) el.querySelector('.map-blank')?.remove(); });
     map.once('remove', () => clearTimeout(watchdog));
     map.on('style.load', () => {
       ms.styleReady = true;
@@ -1148,7 +1149,7 @@
     const errNote = er ? errHtml(errLead(kind, er.other), er.msg, 'exRetry', out ? KEPT[kind] : '') : '';
     const wait = bz ? waitHtml(bz.kind, Date.now() - bz.t0 >= SLOW_MS, '', bz.note) : '';
     const empty = cityN ? '<div class="empty">Nic v této kategorii.</div>' : emptyHtml(ex.radius, ex.mode);
-    const placesIn = `<div class="ex-cats"><button type="button" data-cat="" class="${!ex.cat ? 'on' : ''}">Vše</button>${cats.map(c => `<button type="button" data-cat="${c}" class="${ex.cat === c ? 'on' : ''}">${icon(c)} ${(CAT[c] || CAT.sight)[1]}</button>`).join('')}</div>
+    const placesIn = `${cats.length ? `<div class="ex-cats"><button type="button" data-cat="" class="${!ex.cat ? 'on' : ''}">Vše</button>${cats.map(c => `<button type="button" data-cat="${c}" class="${ex.cat === c ? 'on' : ''}">${icon(c)} ${(CAT[c] || CAT.sight)[1]}</button>`).join('')}</div>` : ''}
         <div class="poi-list" id="exList">${list.map(card).join('') || empty}</div>`;
     // Na kole, pěšky a u výletů je hlavní výsledek trasa na mapě – seznam míst ve městě je sbalený.
     const places = ex.mode === 'city' ? `<div class="ex-places">${placesIn}</div>`
