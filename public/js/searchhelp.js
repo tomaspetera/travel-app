@@ -898,6 +898,47 @@
     });
   }
 
+  /* ---------- poslední výsledky a nedávná hledání (uložené v tomto prohlížeči) ---------- */
+  /**
+   * Poslední hledání k uložení ({ at, form, payload, res }) jako text: celé, nebo s nejvýš `keep` nabídkami na cíl, aby
+   * nezabralo místo stavu aplikace (localStorage má kolem 5 MB); null = nevejde se ani tak.
+   */
+  function lastPack(c, cap = 1.2e6, keep = 3) {
+    let s = JSON.stringify(c);
+    if (s.length <= cap) return s;
+    const r = c.res || {};
+    s = JSON.stringify({ ...c, res: { ...r, groups: (r.groups || []).map(g => ({ ...g, options: (g.options || []).slice(0, keep) })), top: (r.top || []).slice(0, 40) } });
+    return s.length <= cap ? s : null;
+  }
+  /** Uložené poslední hledání zpět – jen mladší než maxAge (ceny stárnou), jinak null. */
+  function lastLoad(s, now, maxAge = 12 * 36e5) {
+    try {
+      const c = JSON.parse(s);
+      return c && c.res && Array.isArray(c.res.groups) && c.form && c.at > now - maxAge && c.at <= now + 6e4 ? c : null;
+    } catch (e) { return null; }
+  }
+  /** „9:12 (před 3 h)“, „včera 21:40 (před 11 h)“ – kdy se hledalo. */
+  function savedWhen(at, now) {
+    const d = new Date(at), n = new Date(now);
+    const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const dd = Math.round((day(n) - day(d)) / 864e5), m = Math.round((now - at) / 6e4);
+    const ago = m < 2 ? 'před chvílí' : m < 60 ? `před ${m} min` : `před ${Math.floor(m / 60)} h`;
+    return `${dd === 0 ? '' : dd === 1 ? 'včera ' : `${d.getDate()}. ${d.getMonth() + 1}. `}${d.getHours()}:${pad(d.getMinutes())} (${ago})`;
+  }
+  /** Nedávná hledání: nejnovější první, stejné hledání (podle klíče) jen jednou, nejvýš cap. */
+  function recentAdd(list, e, key, cap = 5) {
+    const k = key(e);
+    return [e, ...(Array.isArray(list) ? list : []).filter(x => x && x.form && key(x) !== k)].slice(0, cap);
+  }
+  /** Formulář nedávného hledání pro dnešek: termín celý v minulosti → null, rozsah, který už začal, od dneška. */
+  function recentForm(f, today) {
+    if (!f || !Array.isArray(f.from) || !f.from.length) return null;
+    if (f.trip === 'multi') return Array.isArray(f.legs) && f.legs.length && f.legs[0].date >= today ? f : null;
+    if (f.dateMode === 'exact') return f.xOut && f.xOut >= today ? f : null;
+    if (!f.dTo || f.dTo < today) return null;
+    return f.dFrom && f.dFrom >= today ? f : { ...f, dFrom: today };
+  }
+
   window.SearchHelp = {
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel,
@@ -905,5 +946,6 @@
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff,
+    lastPack, lastLoad, savedWhen, recentAdd, recentForm,
   };
 })();

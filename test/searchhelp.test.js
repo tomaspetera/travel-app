@@ -505,3 +505,52 @@ test('nightsRange: české tvary podle horní meze', () => {
   assert.equal(H.nightsRange(4, 4), '4 noci');
   assert.equal(H.nightsRange(7, 7), '7 nocí');
 });
+
+test('lastPack/lastLoad: poslední výsledky – celé, zkrácené na 3 nabídky na cíl, nebo nic; staré se neobnoví', () => {
+  const opt = (i) => ({ id: 't' + i, perPersonCzk: 1000 + i, pad: 'x'.repeat(200) });
+  const res = { mode: 'explore', groups: Array.from({ length: 20 }, (_, g) => ({ dest: { key: 'd' + g }, best: opt(0), options: Array.from({ length: 8 }, (_, i) => opt(i)) })), top: [] };
+  const c = { at: 1000, form: { from: [{ id: 'ap:BRQ' }] }, payload: {}, res };
+  const full = H.lastPack(c, 1e7);
+  assert.equal(JSON.parse(full).res.groups[0].options.length, 8);
+  const slim = H.lastPack(c, JSON.stringify(c).length - 1);
+  assert.ok(slim);
+  assert.equal(JSON.parse(slim).res.groups[0].options.length, 3);
+  assert.equal(JSON.parse(slim).res.groups.length, 20);
+  assert.equal(H.lastPack(c, 100), null);
+  const now = 1000 + 3 * 36e5;
+  assert.equal(H.lastLoad(full, now).res.groups.length, 20);
+  assert.equal(H.lastLoad(full, 1000 + 13 * 36e5), null, 'starší než 12 h');
+  assert.equal(H.lastLoad('{', now), null);
+  assert.equal(H.lastLoad(null, now), null);
+  assert.equal(H.lastLoad(JSON.stringify({ at: 1000, res }), now), null, 'bez formuláře');
+});
+
+test('savedWhen: čas hledání a jak dávno', () => {
+  const at = new Date(2026, 9, 10, 9, 5).getTime();
+  assert.equal(H.savedWhen(at, at + 6e4), '9:05 (před chvílí)');
+  assert.equal(H.savedWhen(at, at + 25 * 6e4), '9:05 (před 25 min)');
+  assert.equal(H.savedWhen(at, at + 3.5 * 36e5), '9:05 (před 3 h)');
+  assert.equal(H.savedWhen(new Date(2026, 9, 9, 21, 40).getTime(), at), 'včera 21:40 (před 11 h)');
+});
+
+test('recentAdd/recentForm: nedávná hledání bez opakování, termíny v minulosti pryč, začatý rozsah od dneška', () => {
+  const key = (e) => e.form.k;
+  let l = H.recentAdd(null, { form: { k: 'a' } }, key);
+  l = H.recentAdd(l, { form: { k: 'b' } }, key);
+  l = H.recentAdd(l, { form: { k: 'a' } }, key);
+  assert.deepEqual(plain(l.map(key)), ['a', 'b']);
+  for (const k of 'cdefg') l = H.recentAdd(l, { form: { k } }, key);
+  assert.deepEqual(plain(l.map(key)), ['g', 'f', 'e', 'd', 'c']);
+  assert.deepEqual(plain(H.recentAdd([null, { x: 1 }], { form: { k: 'a' } }, key).map(key)), ['a'], 'poškozené položky pryč');
+
+  const T = '2026-10-10', from = [{ id: 'ap:BRQ' }];
+  assert.equal(H.recentForm({ from: [], dateMode: 'flex', dFrom: T, dTo: '2026-11-01' }, T), null);
+  assert.equal(H.recentForm({ from, dateMode: 'flex', dFrom: '2026-09-01', dTo: '2026-10-09' }, T), null);
+  assert.equal(H.recentForm({ from, dateMode: 'flex', dFrom: '2026-09-20', dTo: '2026-11-01' }, T).dFrom, T);
+  const f = { from, dateMode: 'flex', dFrom: '2026-10-20', dTo: '2026-11-01' };
+  assert.equal(H.recentForm(f, T), f);
+  assert.equal(H.recentForm({ from, dateMode: 'exact', xOut: '2026-10-09' }, T), null);
+  assert.ok(H.recentForm({ from, dateMode: 'exact', xOut: T }, T));
+  assert.equal(H.recentForm({ from, trip: 'multi', legs: [{ date: '2026-10-01' }] }, T), null);
+  assert.ok(H.recentForm({ from, trip: 'multi', legs: [{ date: '2026-10-12' }] }, T));
+});

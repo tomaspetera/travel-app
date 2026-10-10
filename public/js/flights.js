@@ -21,6 +21,9 @@
   let legsPref = true; // přesná data: začínat pohledem „✈︎ Lety“ (dokud si uživatel nevybere kombinace)
   let lastForm = null; // formulář posledního hledání – z něj vycházejí úpravy jedním kliknutím
   let lastResultAt = 0;
+  // Poslední výsledky přežijí zavření aplikace (vlastní klíč – stav aplikace má přednost, viz save() v app.js).
+  const LAST_LS = 'atlas_last';
+  let restored = false; // výsledky na obrazovce jsou uložené z minula, ne z hledání teď
   let searchCtl = null;
   let fromInput, toInput, heroFrom, heroTo;
   let originPreview = [];
@@ -620,7 +623,7 @@
     $('#geoBtn').onclick = () => useMyLocation(fromInput);
     $('#searchForm').onsubmit = e => { e.preventDefault(); startSearch(); };
     $('#watchBtn').onclick = () => addWatch();
-    $('#searchForm').addEventListener('change', () => updateWatchBtn()); // jiné hledání → zase „♡ Hlídat cenu“
+    $('#searchForm').addEventListener('change', () => { updateWatchBtn(); renderRecent(); }); // jiné hledání → zase „♡ Hlídat cenu“
     $('#guideLink').onclick = openGuide;
   }
 
@@ -672,13 +675,14 @@
     busySearches++;
     try {
       const res = await runSearch(payload, { onProgress: ev => renderProgress(ev), signal: searchCtl.signal });
-      lastResult = res; lastResultAt = Date.now();
+      lastResult = res; lastResultAt = Date.now(); restored = false;
       PriceCheck.remember(res); // paměť cen v tomto prohlížeči („Je to dobrá cena?“)
-      if (legsOk(res) && view.mode === 'list' && legsPref) view.mode = 'legs';
-      else if (!legsOk(res) && view.mode === 'legs') view.mode = 'list';
-      if (view.mode === 'cal' && res.mode !== 'route') view.mode = 'list'; // kalendář je jen u konkrétního cíle
+      fitMode(res);
       renderProgress({ providers: res.providers }, false, res);
       renderResults();
+      S.recent = SearchHelp.recentAdd(S.recent, { form: f, at: lastResultAt }, watchKey); save(); renderRecent();
+      const at = lastResultAt;
+      setTimeout(() => saveLast({ at, form: f, payload, res }), 0); // velký zápis až po vykreslení
       return res;
     } catch (e) {
       if (e.name === 'AbortError') return;
@@ -693,6 +697,49 @@
   function rerun(patch = {}, opts = {}) {
     setForm({ ...(lastForm || getForm()), ...patch });
     return startSearch(opts);
+  }
+  // Pohled výpisu k výsledku: přesná data začínají „✈︎ Lety“, kalendář cen je jen u konkrétního cíle.
+  function fitMode(res) {
+    if (legsOk(res) && view.mode === 'list' && legsPref) view.mode = 'legs';
+    else if (!legsOk(res) && view.mode === 'legs') view.mode = 'list';
+    if (view.mode === 'cal' && res.mode !== 'route') view.mode = 'list';
+  }
+
+  /* ---------- poslední výsledky a nedávná hledání ---------- */
+  function saveLast(c) {
+    try {
+      const s = SearchHelp.lastPack(c);
+      if (s) localStorage.setItem(LAST_LS, s); else localStorage.removeItem(LAST_LS);
+    } catch (e) { try { localStorage.removeItem(LAST_LS); } catch (e2) { } } // plné úložiště: raději nic než stav aplikace
+  }
+  // Po otevření aplikace výsledky posledního hledání (do 12 h) – s časem hledání a „↻ Hledat znovu“.
+  function restoreLast() {
+    let c = null;
+    try { c = SearchHelp.lastLoad(localStorage.getItem(LAST_LS), Date.now()); } catch (e) { }
+    if (!c) return;
+    lastResult = c.res; lastResultAt = c.at; lastPayload = c.payload; lastForm = { ...defaultForm(), ...c.form }; restored = true;
+    fitMode(c.res);
+    renderRestored();
+    renderResults();
+  }
+  function renderRestored() {
+    $('#progress').innerHTML = `<div class="note info last-note"><span>🕘</span><div>Výsledky hledání z ${esc(SearchHelp.savedWhen(lastResultAt, Date.now()))} – ceny se mezitím mohly změnit.</div><button type="button" class="btn sm" id="lastRerun">↻ Hledat znovu</button></div>`;
+    $('#lastRerun').onclick = () => rerun();
+  }
+  // Kratší popis hledání na čip: termín nebo počet nocí.
+  function recentSub(f) {
+    if (f.trip === 'multi') return `${plural((f.legs || []).length, 'let', 'lety', 'letů')} od ${fmtDate(f.legs[0].date)}`;
+    if (f.dateMode === 'exact') return `${fmtDate(f.xOut)}${f.trip === 'return' && f.xBack ? `–${fmtDate(f.xBack)}` : ' jen tam'}`;
+    return f.trip === 'return' ? SearchHelp.nightsRange(f.nMin, f.nMax) : 'jen tam';
+  }
+  /** „Nedávno hledané“ pod formulářem (bez toho, co je ve formuláři teď) – jedním klepnutím znovu. */
+  function renderRecent() {
+    const host = $('#recentSearches'); if (!host || !fromInput) return;
+    const now = watchKey({ form: getForm() });
+    const items = (S.recent || []).map(e => ({ e, f: SearchHelp.recentForm(e.form, today()) })).filter(x => x.f && watchKey({ form: x.e.form }) !== now).slice(0, 4);
+    host.hidden = !items.length;
+    host.innerHTML = items.length ? `<span class="faint">Nedávno:</span>${items.map((x, i) => `<button type="button" class="recent-chip" data-recent="${i}" title="Hledat znovu: ${esc(watchLabel(x.f))} · ${esc(recentSub(x.f))}">${esc(watchLabel(x.f))} <small>${esc(recentSub(x.f))}</small></button>`).join('')}` : '';
+    $$('[data-recent]', host).forEach(b => b.onclick = () => { setForm(items[+b.dataset.recent].f); startSearch(); });
   }
 
   function renderProgress(ev, starting, res) {
@@ -2042,7 +2089,8 @@
   async function addWatch() {
     const f = getForm();
     if (!f.from.length) return toast('Nejdřív zadej, odkud letíš', 'err');
-    let res = lastResult && JSON.stringify(lastPayload) === JSON.stringify(payloadOf(f)) ? lastResult : await startSearch({ noScroll: true });
+    // výchozí cena hlídání z čerstvého výsledku – starší (i uložený z minula) se nejdřív dohledá
+    let res = lastResult && Date.now() - lastResultAt < 30 * 6e4 && JSON.stringify(lastPayload) === JSON.stringify(payloadOf(f)) ? lastResult : await startSearch({ noScroll: true });
     if (!res) return;
     const b = bestOf(res);
     const czk0 = b ? b.czk : null;
@@ -2543,6 +2591,8 @@
     buildForm();
     setForm(S.form || defaultForm());
     updateHomeChip();
+    restoreLast();
+    renderRecent();
     heroFrom = new PlaceInput($('#heroFrom'), { origin: true, placeholder: 'Brno, Vídeň, Česko…', dark: true, max: 3 });
     heroTo = new PlaceInput($('#heroTo'), { placeholder: 'kamkoliv 🌍', dark: true, max: 4 });
     heroFrom.set(S.home?.from || [], true);

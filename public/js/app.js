@@ -27,8 +27,14 @@ let TOT = 197; const CONT_TOT = {};
 const LS = 'atlas_v1';
 let S = load();
 function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return Object.assign(defState(), d); } catch (e) { } return defState(); }
-function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, radar: null, radarMode: 'all' }; }
-function save() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { } }
+function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all' }; }
+// Plné úložiště: uvolnit místo po uložených výsledcích posledního hledání (flights.js) – stav aplikace má přednost.
+function save() {
+  try {
+    const s = JSON.stringify(S);
+    try { localStorage.setItem(LS, s); } catch (e) { localStorage.removeItem('atlas_last'); localStorage.setItem(LS, s); }
+  } catch (e) { }
+}
 let curIso = null;
 const visited = new Set(S.visited);
 function setVisited(iso, on) { on ? visited.add(iso) : visited.delete(iso); S.visited = [...visited]; save(); refreshStats(); paintMap(); }
