@@ -448,3 +448,15 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   assert.ok(!long.includes('<img src=x'));
   assert.match(long, /…<\/button>/);
 });
+
+test('„Najít lety sem“: místo jako cíl letů, termín jen vybraný v Objevuj', () => {
+  const TF = T;
+  assert.deepEqual(plain(TF.flyTarget({ ...BCN_C, label: 'Barcelona' })), { id: 'geo:41.3874,2.1686|Barcelona', label: 'Barcelona', flag: '🇪🇸', type: 'place' });
+  assert.equal(TF.flyTarget({ lat: 50, lon: 14, label: 'Moje okolí', geo: true }), null, 'z vlastní polohy se neletí');
+  assert.equal(TF.flyTarget({ lat: 'x', lon: 14, label: 'X' }), null);
+  assert.equal(TF.flyTarget({ lat: 1, lon: 2, label: 'A|B<"x">' }).id, 'geo:1.0000,2.0000|ABx', 'oddělovač a značky z názvu pryč');
+  const s = { mode: 'city', start: '2026-10-20', days: 4, tripDays: { day: 2, loop: 5 } };
+  assert.deepEqual(plain(TF.flyDates(s)), { xOut: '2026-10-20', xBack: '2026-10-23' });
+  assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'loop' })), { xOut: '2026-10-20', xBack: '2026-10-24' });
+  assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'day', tripDays: { day: 1 } })), { xOut: '2026-10-20', xBack: '2026-10-20' });
+});

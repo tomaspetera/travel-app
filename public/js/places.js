@@ -865,6 +865,18 @@
         : 'Časy jízdy jsou orientační odhad autem; přesnou trasu ukáže Google Maps.'} Cíle do ~120 km od místa.</div>`;
   }
 
+  /* ---------- ✈️ Najít lety sem (Lety: cíl = místo, letiště do ~130 km vybere server) ---------- */
+  // „geo:lat,lon|Název“ jako místo z našeptávače; „Moje okolí“ ne (tam se neletí).
+  const flyTarget = p => (!p || p.geo || !Number.isFinite(+p.lat) || !Number.isFinite(+p.lon) ? null : {
+    id: `geo:${(+p.lat).toFixed(4)},${(+p.lon).toFixed(4)}|${String(p.label || '').replace(/[|<>"'`]/g, '').slice(0, 60)}`,
+    label: p.label, flag: p.cc ? flag(p.cc) : '📍', type: 'place',
+  });
+  // Termín jen, když ho uživatel v Objevuj vybral: přílet první den, odlet poslední den pobytu.
+  const flyDates = s => {
+    const n = s.mode === 'loop' ? s.tripDays.loop : s.mode === 'day' ? s.tripDays.day : s.days;
+    return { xOut: s.start, xBack: plusDays(s.start, Math.max(1, n || 1) - 1) };
+  };
+
   /* ---------- uložení do plánovače ---------- */
   /** Výsledek Objevuj (trasa / výlety / program) → cesta pro plánovač { name, dest, iso, start, end, days, notes }. */
   function plannerEntry({ rr, trip, plan, place: p, start }) {
@@ -1142,7 +1154,8 @@
     const places = ex.mode === 'city' ? `<div class="ex-places">${placesIn}</div>`
       : `<details class="more ex-places" id="exPlaces"${ex.listOpen ? ' open' : ''}><summary>📍 Místa v okolí (${ex.items.length})</summary>${placesIn}</details>`;
     body.innerHTML = `${ex.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
-      <div class="section-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) : '📍'} ${esc(p.label)} · ${placesTxt(cityN)} do ${ex.radius} km${tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2></div>
+      <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) : '📍'} ${esc(p.label)} · ${placesTxt(cityN)} do ${ex.radius} km${tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2>${
+        window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">✈️ Najít lety sem</button>' : ''}</div>
       <div class="ex-layout ex-main">
       <div class="card step-card ex-plan"><h3>🗓️ Naplánovat</h3>
         <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${modeBtns(ex.mode)}</div>
@@ -1241,6 +1254,7 @@
     on('[data-pace]', 'onchange', e => { st.pace = e.target.value; ex.pace = e.target.value; remember(); if (road ? trip : ex.plan) replanSoon(seqKey); });
     on('#exStart', 'onchange', e => {
       ex.start = e.target.value;
+      ex.datePicked = true; // „Najít lety sem“ pak hledá přesně v termínu
       remember();
       // Trasa kola / pěšky na datu nezávisí – stačí k ní doplnit počasí nově zvoleného dne.
       const wx = rr && $('#exPlanOut .wx-day', body);
@@ -1365,6 +1379,7 @@
       });
     };
     on('#exSave', 'onclick', () => store(false));
+    on('#exFly', 'onclick', () => window.Flights && Flights.searchTo([flyTarget(p)], ex.datePicked ? flyDates(ex) : {}));
     on('#exSaveNew', 'onclick', () => store(true));
     remember();
     // Program pro jiný okruh (okruh se mezitím změnil) se přeplánuje sám – jen když zrovna neběží a neselhal.
@@ -1389,6 +1404,6 @@
       uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns,
-      plannerEntry, findTripFor, mergeInto, saveHtml },
+      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates },
   };
 })();

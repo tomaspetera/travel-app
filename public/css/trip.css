@@ -107,6 +107,8 @@ details.more.ex-places>summary::before{content:none}
 .ex-places .ex-cats{margin-top:0}
 #exMode .m-short{display:none}
 .ex-savenew{align-self:center;font-size:12px}
+.ex-head{gap:6px 12px;flex-wrap:wrap}
+.ex-head .btn{flex:none}
 /* hláška s tlačítkem („Otevřít v plánovači“): schovaná nepřekáží klikání, na telefonu se vejde */
 .toast:not(.show){pointer-events:none}
 .toast{max-width:calc(100vw - 24px)}
