@@ -907,8 +907,9 @@
   /**
    * Plánovač: místo k názvu cíle („Lisabon“) z našeptávače (items z /api/places) – jen přesná shoda názvu. Metropole
    * (Londýn, Barcelona) vyhrává nad stejnojmennými letišti jinde; jinak velká letiště (big), a jen když všechna leží
-   * v jedné zemi (Birmingham je v Anglii i v USA → nic). Víc zemí: rozhodne letiště aspoň 4× větší (size) než každé
-   * stejnojmenné jinde (Petrohrad LED × St. Petersburg na Floridě) – jen proti letištím, ne proti městům z geokódování.
+   * v jedné zemi (Birmingham je v Anglii i v USA → nic). Víc zemí: rozhodne letiště s aspoň milionem cestujících, aspoň
+   * 4× větší (size) než každé stejnojmenné jinde (Petrohrad LED × St. Petersburg na Floridě) – jen podle skutečných
+   * počtů (bez údaje: velké 2 mil., jinak nic nehádat) a jen proti letištím, ne proti městům z geokódování.
    * → položka našeptávače ({ id, cc, label, flag }) nebo null.
    */
   function placeGuess(items, name) {
@@ -918,8 +919,10 @@
     const hits = (items || []).filter(s => s && s.cc && /^(ap|metro|geo):/.test(s.id || '') && norm(s.label) === n);
     const metro = hits.find(s => /^metro:/.test(s.id)), big = hits.filter(s => s.big);
     let pool = metro ? [metro] : big.length ? big : hits;
-    const top = hits.filter(s => /^ap:/.test(s.id)).sort((a, b) => (b.size || 0) - (a.size || 0))[0];
-    if (!metro && new Set(pool.map(s => s.cc)).size > 1 && top && hits.every(s => s.cc === top.cc || (/^ap:/.test(s.id) && (s.size || 0) * 4 <= top.size))) pool = [top];
+    const sz = s => s.size ?? (s.big ? 2000 : null);
+    const top = hits.filter(s => /^ap:/.test(s.id) && s.size != null).sort((a, b) => b.size - a.size)[0];
+    if (!metro && new Set(pool.map(s => s.cc)).size > 1 && top && top.size >= 1000
+      && hits.every(s => s.cc === top.cc || (/^ap:/.test(s.id) && sz(s) != null && sz(s) * 4 <= top.size))) pool = [top];
     if (!pool.length || new Set(pool.map(s => s.cc)).size !== 1) return null;
     return metro || pool.find(s => /^ap:/.test(s.id)) || pool[0];
   }

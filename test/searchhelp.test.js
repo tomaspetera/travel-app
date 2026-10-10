@@ -660,6 +660,8 @@ test('placeGuess (plánovač): metropole, velká letiště, jedno jasně větš�
     Florencie: 'IT ap:FLR', Sydney: 'AU ap:SYD', Valencie: 'ES ap:VLC', Petrohrad: 'RU ap:LED', Aberdeen: 'GB ap:ABZ', Victoria: 'CA ap:YYJ',
     Lisabon: 'PT ap:LIS', Kos: 'GR ap:KGS', lisabon: 'PT ap:LIS',
     Birmingham: null, // 9,6 × 3 mil. cestujících – nehádat
+    // malé letiště nebo letiště bez údajů o cestujících nerozhoduje (Bagan v Myanmaru ≠ Qinhuangdao v Číně)
+    Bagan: null, Toledo: null, Waterloo: null, Bathurst: null, 'Punta Gorda': null,
   };
   for (const [name, exp] of Object.entries(want)) assert.equal(g(name), exp, name);
   assert.equal(H.placeGuess([], 'Lisabon'), null);
