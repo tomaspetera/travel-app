@@ -272,6 +272,24 @@ test('Ryanair daily: dny kolem přesného data i přes přelom měsíce (sousedn
   }
 });
 
+test('Ryanair daily: chyba sousedního měsíce (jen „Nejbližší dny“) neshodí ceny hledaného dne', async () => {
+  const base = new Date(Date.parse(`${ymdPlus(100)}T12:00:00Z`));
+  const last = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+  const next = new Date(Date.parse(`${last}T12:00:00Z`) + 3 * 864e5).toISOString().slice(0, 10);
+  const stub = stubFetch((url) => {
+    if (!url.includes('cheapestPerDay')) return { body: '<html></html>', headers: { 'content-type': 'text/html' } };
+    const m = new URL(url).searchParams.get('outboundMonthOfDate').slice(0, 7);
+    if (m !== last.slice(0, 7)) return { status: 500, body: { message: 'boom' } };
+    return { body: { outbound: { fares: [{ day: last, departureDate: `${last}T07:00:00`, arrivalDate: `${last}T09:00:00`, price: { value: 25, currencyCode: 'EUR' }, soldOut: false, unavailable: false }] } } };
+  });
+  try {
+    const legs = await ryanair.daily({ from: 'BTS', to: 'BGY', dateFrom: last, dateTo: last, near: { from: last, to: next } });
+    assert.deepEqual(legs.map((l) => l.date), [last]);
+  } finally {
+    stub.restore();
+  }
+});
+
 test('Ryanair: letový řád trasy (timtbl) → další odlety dne, jeden dotaz na trasu a měsíc', async () => {
   assert.deepEqual(parseSchedule({ month: 11, days: [{ day: 3, flights: [{ departureTime: '17:25' }, { departureTime: '06:10' }, { departureTime: '06:10' }] }, { day: 4, flights: [{ departureTime: '09:00' }] }] }, '2026-11', ['2026-11-03']),
     { '2026-11-03': ['06:10', '17:25'] });

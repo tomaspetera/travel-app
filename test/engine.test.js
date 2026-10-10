@@ -276,3 +276,12 @@ test('routesNote: průběh hledání u Wizz Air česky, bez názvu proměnné z 
   assert.equal(routesNote(15, 22), 'prohledáno 15 nejbližších z 22 tras – zbytek kvůli limitu dotazů');
   assert.doesNotMatch(routesNote(1, 2), /WIZZ|MAX_CALLS/);
 });
+
+test('outageOf: Wizz Air po 429 (vlastní blokace bez ctx) = blocked s odpočtem, jiná chyba = down', async () => {
+  const { outageOf } = await import('../server/lib/search.js');
+  const wizz = { isBlocked: () => true, retryAfter: () => 540 };
+  assert.deepEqual([outageOf({ state: 'error' }, wizz).outage, outageOf({ state: 'error' }, wizz).retryAfter], ['blocked', 540]);
+  assert.equal(outageOf({ state: 'error' }, { isBlocked: () => false }).outage, 'down');
+  assert.equal(outageOf({ state: 'done' }, wizz).outage, null, 'prošlo – žádný výpadek');
+  assert.equal(outageOf({ state: 'error' }, {}).outage, 'down');
+});

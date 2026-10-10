@@ -131,6 +131,7 @@ export async function geocode(query) {
       type: 'place', label: r.name, flag: flag(r.country_code),
       sub: [r.admin1, r.country].filter(Boolean).join(', '), cc: r.country_code,
       lat: r.latitude, lon: r.longitude, gid: r.id, // gid = ID GeoNames (anglický název místa pro partnery ubytování)
+      pop: r.population || 0,
     }));
   });
 }
@@ -170,10 +171,8 @@ export function localCityCenters(query) {
 export async function suggest(query, { limit = 10, remote = true } = {}) {
   const local = localSuggestions(query, limit);
   const strong = local.filter((s) => s.type !== 'airport' || normalize(s.label).startsWith(normalize(query)));
-  // Přesná shoda s místem z databáze (Brno, Bangkok, Itálie): bez geokódování – jinak by za ním byly jmenovci
-  // a vesnice z celého světa (Bruno v Nebrasce, Brno v Plzeňském kraji).
   const exact = local.some((s) => normalize(s.label) === normalize(query));
-  if (!remote || normalize(query).length < 3 || strong.length >= 5 || exact) return local;
+  if (!remote || normalize(query).length < 3 || strong.length >= 5) return local;
   let geo = [];
   try {
     geo = await geocode(query);
@@ -181,7 +180,10 @@ export async function suggest(query, { limit = 10, remote = true } = {}) {
     // Geokódování je jen doplněk – při výpadku vrať lokální výsledky.
   }
   // Vynech místa, která jsou jen duplikátem nalezeného letiště/metra (do 25 km).
-  const filtered = geo.filter((g) => !local.some((l) => l.lat != null && haversineKm(l.lat, l.lon, g.lat, g.lon) < 25 && normalize(l.label) === normalize(g.label)));
+  let filtered = geo.filter((g) => !local.some((l) => l.lat != null && haversineKm(l.lat, l.lon, g.lat, g.lon) < 25 && normalize(l.label) === normalize(g.label)));
+  // Přesná shoda s místem z databáze (Brno, Toledo): z geokódování jen stejnojmenná větší města (Toledo ve Španělsku
+  // vedle letišť Toledo v USA a Brazílii) – ne jmenovci a vesnice z celého světa (Bruno v Nebrasce, Brno v Plzeňském kraji).
+  if (exact) filtered = filtered.filter((g) => normalize(g.label) === normalize(query) && g.pop >= 50000);
   return [...local, ...filtered.slice(0, 4)].slice(0, limit + 2);
 }
 

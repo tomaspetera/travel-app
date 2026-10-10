@@ -266,7 +266,9 @@
     // Rozpracovaná cesta (vybraná trasa, ubytování, auto, program nebo odškrtnuté rezervace) se nezahodí bez zeptání –
     // „↩ Vybrat jiný let“ i nový výběr z výsledků by ji jinak potichu přepsaly.
     const mine = S.trip;
-    if (mine && mine.flight && JSON.stringify(mine.flight.out) !== JSON.stringify(t.out)) {
+    // stejný let tam i zpět znovu (z výsledků, z uložených výsledků) → pokračovat v rozpracované cestě
+    if (mine && mine.flight && JSON.stringify([mine.flight.out, mine.flight.back || null]) === JSON.stringify([t.out, t.back || null])) { go('trip'); return; }
+    if (mine && mine.flight) {
       const done = [isMulti(mine) && 'trasu', mine.stay && 'ubytování', mine.car && 'auto', mine.plan && 'program',
         mine.booked && Object.values(mine.booked).some(Boolean) && 'odškrtnuté rezervace'].filter(Boolean);
       if (done.length && !confirm(`Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
@@ -1413,7 +1415,7 @@
     // Stabilní řazení podle data; „~“ za datem = až po ostatních položkách dne.
     // Ryanair / Wizz Air: kdy se otevře online check-in (bez místenky 24 h před odletem) – na letišti se za odbavení platí
     if (!ov) for (const l of [f.out, f.back].filter(Boolean)) {
-      const c = l.hasTime && Ics.checkin({ carrier: l.carrier || l.carrierName, dep: l.dep });
+      const c = l.hasTime && Ics.checkin({ carrier: l.carrier || l.carrierName, dep: l.dep, fromTz: l.fromTz });
       if (c) timeline.push([c.open.slice(0, 10), '📲', `Online check-in ${esc(c.airline)} ${esc(l.from)} → ${esc(l.to)}: otevře se ${fmtDate(c.open.slice(0, 10))} v ${c.open.slice(11, 16)} (24 h před odletem), zavře ${c.closeH} h před odletem · na letišti se platí ~${esc(c.fee)}/os.`]);
     }
     timeline.sort((a, b) => a[0].localeCompare(b[0]));

@@ -187,7 +187,7 @@
    */
   function lowcostOutage(providers) {
     const NAME = { ryanair: 'Ryanair', wizzair: 'Wizz Air' };
-    return (providers || []).filter(p => p && NAME[p.id] && ['down', 'blocked', 'partial'].includes(p.outage)).map(p => ({ id: p.id, name: NAME[p.id], level: p.outage }));
+    return (providers || []).filter(p => p && NAME[p.id] && ['down', 'blocked', 'partial'].includes(p.outage)).map(p => ({ id: p.id, name: NAME[p.id], level: p.outage, retryAfter: p.retryAfter || 0 }));
   }
 
   /* ---------- filtry času a přestupů (ve výpisu, bez nového hledání) ---------- */
@@ -898,6 +898,16 @@
     });
   }
 
+  /**
+   * Nový uložený výsledek radaru. Při výpadku zdroje (partial) bez značek změn a se základem pro příští porovnání
+   * z posledního úplného výsledku – jinak by vyšší ceny z výpadku příště ukázaly falešné „↓“ a vrácené cíle „nové“.
+   */
+  function radarEntry(prev, items, key, at, { demo = false, partial = false } = {}) {
+    const base = prev && prev.partial ? prev.base || null : prev || null;
+    if (partial) return { key, at, demo, items, partial: true, base: base && radarSame(base.key, key) ? { key: base.key, at: base.at, items: base.items } : null };
+    return { key, at, demo, items: radarDiff(base, items, key, at) };
+  }
+
   /* ---------- poslední výsledky a nedávná hledání (uložené v tomto prohlížeči) ---------- */
   /**
    * Poslední hledání k uložení ({ at, form, payload, res }) jako text: celé, nebo s nejvýš `keep` nabídkami na cíl, aby
@@ -945,7 +955,7 @@
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
-    radarQuery, radarStale, radarSame, radarDiff,
+    radarQuery, radarStale, radarSame, radarDiff, radarEntry,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm,
   };
 })();

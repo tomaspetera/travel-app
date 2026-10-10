@@ -458,6 +458,9 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 @keyframes skel{0%{background-position:100% 0}100%{background-position:-100% 0}}
 .radar-setup{padding:16px 18px;display:grid;grid-template-columns:1.2fr 1.4fr auto;gap:14px;align-items:center}
 .radar-modes{margin:-4px 2px 12px}
+.rs-where{display:flex;flex-direction:column;gap:6px;min-width:0}
+.rs-radius{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.rs-radius select{width:auto;padding:6px 32px 6px 10px;font-size:13px}
 .radar-modes[hidden]{display:none}
 .radar-stale{font-size:12px;margin-bottom:8px}
 .radar-stale .spin{width:11px;height:11px;border-width:2px;border-color:var(--border-2);border-top-color:var(--accent);margin-right:4px}

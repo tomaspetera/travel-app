@@ -224,14 +224,15 @@ export const ryanair = {
   async daily({ from, to, dateFrom, dateTo, adults = 1, near = null }) {
     const a = near && near.from < dateFrom ? near.from : dateFrom;
     const b = near && near.to > dateTo ? near.to : dateTo;
-    const months = monthsInRange(a, b);
+    const months = monthsInRange(a, b), core = new Set(monthsInRange(dateFrom, dateTo));
     const parts = await Promise.all(months.map((m) =>
       cache.wrap(`fr:cpd:${from}:${to}:${m}`, FARE_TTL, () =>
         farfnd(`oneWayFares/${from}/${to}/cheapestPerDay`, { outboundMonthOfDate: m, currency: 'EUR' }),
       ).then((json) => parseCheapestPerDay(json, from, to, adults))
         .catch((e) => {
-          // 404 = trasa v daném měsíci neexistuje
-          if (e.status === 404 || e.status === 400) return [];
+          // 404 = trasa v daném měsíci neexistuje; chyba sousedního měsíce (jen pro „Nejbližší dny“) neshodí ceny
+          // hledaných dní
+          if (e.status === 404 || e.status === 400 || !core.has(m)) return [];
           throw e;
         }),
     ));

@@ -193,7 +193,8 @@ async function settle(fn, st, p, ctx) {
 export function outageOf(st, p, ctx) {
   const failed = ctx ? ctx.failed : st.failed || 0;
   let outage = null;
-  if (ctx?.blocked && !ctx.ok) outage = 'blocked';
+  // vynecháno po výpadku: Kiwi podle ctx, ostatní (Wizz Air po 429) podle vlastního stavu
+  if ((ctx?.blocked && !ctx.ok) || (!ctx && st.state === 'error' && p?.isBlocked?.())) outage = 'blocked';
   else if (st.state === 'error' || (ctx && (ctx.failed || ctx.skipped) && !ctx.ok)) outage = 'down';
   else if (st.state === 'partial' || (ctx && (ctx.failed || ctx.skipped))) outage = 'partial';
   return {

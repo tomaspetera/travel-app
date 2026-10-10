@@ -207,9 +207,24 @@
     const who = String((l && l.carrier) || '').trim();
     const c = CHECKIN[who.toUpperCase()] || (/^(ryanair|buzz|malta air|lauda)/i.test(who) ? RY : /^wizz/i.test(who) ? WZ : null);
     if (!c || !isLocal(l.dep)) return null;
-    const d = new Date(l.dep.slice(0, 16) + ':00Z');
-    d.setUTCDate(d.getUTCDate() - 1);
-    return { airline: c[0], closeH: c[1], fee: c[2], open: d.toISOString().slice(0, 16) };
+    // poplatek Ryanairu podle země odletu (podle časového pásma letiště)
+    const cc = String(l.fromCc || '').toUpperCase(), tz = String(l.fromTz || '');
+    const fee = c !== RY ? c[2] : cc === 'AT' || tz === 'Europe/Vienna' ? '40 €' : cc === 'ES' || /^(Europe\/Madrid|Atlantic\/Canary|Africa\/Ceuta)$/.test(tz) ? '30 €' : c[2];
+    return { airline: c[0], closeH: c[1], fee, open: minus24h(l.dep.slice(0, 16), l.fromTz) };
+  }
+  // Místní čas o 24 skutečných hodin dřív – při změně letního času mezi tím o hodinu jinak než „stejný čas den předem“.
+  function minus24h(wall, tz) {
+    const w = Date.parse(wall + ':00Z');
+    const off = ms => { // posun pásma v minutách v okamžiku ms (UTC)
+      const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(ms));
+      const g = t => +p.find(x => x.type === t).value;
+      return (Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute')) - ms) / 6e4;
+    };
+    try {
+      if (!tz) throw 0;
+      const dep = w - off(w - off(w) * 6e4) * 6e4, open = dep - 864e5;
+      return new Date(open + off(open) * 6e4).toISOString().slice(0, 16);
+    } catch (e) { return new Date(w - 864e5).toISOString().slice(0, 16); }
   }
   /** Připomínka online check-inu jako událost (15 min v čase otevření), nebo null. */
   function checkinEvent(l) {

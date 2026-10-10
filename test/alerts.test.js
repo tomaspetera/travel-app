@@ -198,6 +198,17 @@ test('upsertWatch: stejné hledání podruhé (♡ z „Je to dobrá cena?“ a 
   assert.deepEqual([r4.dup, r4.list.length, r4.list[0].id, r4.list.at(-1).id], [false, 12, 'y', 'w10']);
 });
 
+test('upsertWatch: ♡ při výpadku zdroje vyšší cenu do hlídání nezapíše (jako kontrola)', () => {
+  const keyOf = (w) => A.searchKey(payload(w.form));
+  const w0 = { id: 'a', label: 'x', sub: 'y', form: FORM, best: { czk: 5000 }, history: [{ at: NOW - H, czk: 5000 }], checked: NOW - H, base: 5000, low: 5000, seen: 5000, target: null };
+  const hi = { ...w0, id: 'b', best: { czk: 8000 }, history: [{ at: NOW, czk: 8000 }] };
+  const r = A.upsertWatch([w0], hi, keyOf, { now: NOW, partial: true });
+  assert.deepEqual([r.dup, r.w.best.czk, r.w.history.length, r.w.partials], [true, 5000, 1, 1]);
+  const lo = A.upsertWatch([w0], { ...hi, best: { czk: 4000 } }, keyOf, { now: NOW, partial: true });
+  assert.equal(lo.w.best.czk, 4000, 'nižší cena platí i při výpadku');
+  assert.equal(A.upsertWatch([w0], hi, keyOf, { now: NOW }).w.best.czk, 8000);
+});
+
 test('isDropped / droppedCount: zlevnění od poslední návštěvy přehledu', () => {
   const list = [{ best: { czk: 1800 }, seen: 2000 }, { best: { czk: 2000 }, seen: 2000 }, { best: { czk: 2200 }, seen: 2000 }, { best: { czk: 900 } }, {}, { best: { czk: 1990 }, seen: 2000 }];
   assert.equal(A.isDropped(list[0]), true);

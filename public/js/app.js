@@ -447,7 +447,9 @@ function openTrip(i) {
     <button class="btn ghost block" style="color:var(--bad);border-color:rgba(251,113,133,.3)" onclick="delTrip(${i})">Smazat cestu</button>
   </div>`);
   // ubytování v cíli cesty (Barcelona, ne hlavní město země) pro počet cestujících z cesty
-  $('#tripStay').onclick = () => openStay(t.dest && t.dest !== '—' ? t.dest : city, t.start || '', t.end || '', +t.pax || 2);
+  // ubytování v zadaném městě; země („Itálie“) nebo víc míst („Lisabon, Porto“) → hlavní město
+  const oneCity = t.dest && t.dest !== '—' && !/[,;+&/]|\s(a|–|-)\s/.test(t.dest) && !resolveCountry(t.dest);
+  $('#tripStay').onclick = () => openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2);
   const tv = $('#tripVisited');
   if (tv) tv.onclick = () => { const ccs = tripNotVisited(t); ccs.forEach(cc => setVisited(cc, true)); toast(`Na mapě navštívených: ${ccs.map(cc => byIso[cc].cs).join(', ')}`); openTrip(i); };
   const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
