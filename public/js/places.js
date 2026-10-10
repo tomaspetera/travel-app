@@ -416,12 +416,23 @@
   /* ---------- karty ---------- */
   // „+ chci vidět“ / „★ chci vidět“ (vybráno – přidá se při sestavení programu, nebo hned, když už program je)
   const mustBtn = (id, on) => `<button type="button" class="linkbtn${on ? ' on' : ''}" data-must="${esc(id)}" aria-pressed="${on ? 'true' : 'false'}">${on ? '★ chci vidět' : '+ chci vidět'}</button>`;
+  // Popis jen anglicky (server: descLang 'en'): první věta se štítkem „anglicky“ – celý cizí odstavec nic neřekne.
+  const firstSentence = s => {
+    const t = String(s || '').trim();
+    const m = t.match(/^[\s\S]{20,240}?[a-z0-9)\]"'’\u00e0-\u024f]{2}[.!?](?=\s|$)/); // „St. Vitus“, „U.S.“ větu neukončí
+    return m ? m[0] : t.length > 240 ? `${t.slice(0, 220).replace(/\s+\S*$/, '')}…` : t;
+  };
+  const descHtml = (text, lang) => (!text ? '' : lang === 'en'
+    ? `<span class="poi-lang" title="Český popis chybí – úryvek z anglické Wikipedie">anglicky</span> ${esc(firstSentence(text))}` : esc(text));
+  // Části sloučené do celku (katedrála na Hradě, orloj u radnice) – jinak by v aplikaci nebyly vidět vůbec.
+  const inclHtml = (p, cls) => (Array.isArray(p.includes) && p.includes.length
+    ? `<div class="${cls}">Zahrnuje: ${esc(p.includes.slice(0, 5).join(', '))}${p.includes.length > 5 ? ` a ${p.includes.length - 5} další` : ''}</div>` : '');
   function poiCard(p, opts = {}) {
     return `<div class="poi" data-poi="${esc(p.id)}">
       <div class="poi-img" ${p.image ? `style="background-image:url('${esc(cssUrl(p.image))}')"` : ''}>${p.image ? '' : icon(p.category)}</div>
       <div><div class="poi-name">${icon(p.category)} ${esc(p.name)}</div>
         <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${p.distanceKm} km` : ''}${p.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : p.heritage ? ' · památka' : ''}${p.wikivoyage ? ' · <b style="color:var(--good)" title="Místo doporučuje cestovní průvodce Wikivoyage">👍 doporučuje Wikivoyage</b>' : ''}</div>
-        <div class="poi-desc">${esc(p.extract || p.description || '')}</div>
+        ${inclHtml(p, 'poi-inc')}<div class="poi-desc">${descHtml(p.extract || p.description || '', p.descLang)}</div>
         <div class="poi-acts">${p.url ? `<a href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Wikipedie ↗</a>` : ''}
           <a href="${esc(gmSearch(opts.center ? poiQ(p, opts.center) : p.name))}" target="_blank" rel="noopener" data-gm onclick="event.stopPropagation()">Google Maps ↗</a>
           ${opts.toggle ? (opts.inPlan?.has(p.id) ? '<span class="poi-in">✓ v plánu</span>' : mustBtn(p.id, opts.must?.has(p.id))) : ''}
@@ -437,7 +448,7 @@
       return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${d.kind === 'daytrip' ? ' · celodenní výlet' : ''}${wxSlot((d.kind === 'daytrip' && d.items[0]) || center, d.date)}</span>
         ${url ? `<a class="linkbtn" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">trasa v Google Maps ↗</a>` : ''}</h4>
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${minTxt(p.visitMin)}</span>
-          <div class="dp-walk">${j === 0 ? 'od ubytování' : 'dál'} ${p.transit ? `${p.fromPrevKm} km – MHD/taxi` : `${p.fromPrevKm} km pěšky (~${minTxt(p.fromPrevMin)})`}</div></div>
+          ${inclHtml(p, 'dp-walk')}<div class="dp-walk">${j === 0 ? 'od ubytování' : 'dál'} ${p.transit ? `${p.fromPrevKm} km – MHD/taxi` : `${p.fromPrevKm} km pěšky (~${minTxt(p.fromPrevMin)})`}</div></div>
           <button type="button" title="Vyřadit z plánu" data-drop="${esc(p.id)}">✕</button></div>`).join('')
           : `<div class="faint" style="font-size:13px;padding:6px 0">${d.cap ? 'Volno – odpočinek, jídlo, procházka.' : 'Den cesty – bez programu.'}</div>`}
         ${d.items.length && d.kind !== 'daytrip' ? `<div class="faint" style="font-size:11.5px;margin-top:4px">celkem ~${minTxt(d.minutes)} prohlídek · ${d.walkKm} km pěšky</div>` : ''}
@@ -737,7 +748,7 @@
       <b>${tripIcon(s)} ${esc(s.name)}</b> <span class="faint">· ${esc(s.categoryLabel || '')}${s.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : s.unescoPart ? ' · <span style="color:var(--warn)">část památky UNESCO</span>' : ''}</span>
       <div class="dp-walk">${legTxt(transit, s.travelKm, s.travelMin, fromQ, s.name, `${dayLbl(date)} ~${s.depart}`)} · ${transit ? `odjezd ~${esc(s.depart)} · ` : ''}příjezd ~${esc(s.arrive)} · na místě ~${minTxt(s.visitMin)}</div>
       ${s.highlights?.length ? `<div class="dp-walk">👀 Uvidíš: ${esc(s.highlights.join(', '))}</div>` : ''}
-      ${s.extract ? `<div class="poi-desc" style="-webkit-line-clamp:2">${esc(s.extract)}</div>` : ''}
+      ${s.extract ? `<div class="poi-desc" style="-webkit-line-clamp:2">${descHtml(s.extract, s.descLang)}</div>` : ''}
       <div class="poi-acts">${s.url ? `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}<a href="${esc(gmSearch(s.name))}" target="_blank" rel="noopener">Google Maps ↗</a></div></div>
       <button type="button" title="Vyřadit z výletu" data-tdrop="${esc(s.id)}">✕</button></div>`;
   }
@@ -1214,6 +1225,6 @@
     renderExplore, renderPlanner, retheme, routeMap,
     // jen pro testy (test/places-ui.test.js)
     _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
-      uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS },
+      uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS },
   };
 })();

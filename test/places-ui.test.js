@@ -80,6 +80,25 @@ test('karta: „✓ v plánu“, „+ / ★ chci vidět“, odkaz do Google Map 
   assert.ok(!T.poiCard(p, { center }).includes('chci vidět'), 'kolo / pěšky bez přepínače');
 });
 
+test('popis jen anglicky: první věta se štítkem; sloučené části „Zahrnuje“ (když je server pošle)', () => {
+  const picasso = 'The Museu Picasso, located in Barcelona, Catalonia, Spain, houses one of the most extensive collections of artworks by the 20th-century Spanish artist Pablo Picasso. With 4,251 works exhibited by the painter, the museum has the most complete collection.';
+  assert.match(T.firstSentence(picasso), /Pablo Picasso\.$/);
+  assert.equal(T.firstSentence('St. Vitus Cathedral is a Roman Catholic metropolitan cathedral in Prague. It is the seat.'), 'St. Vitus Cathedral is a Roman Catholic metropolitan cathedral in Prague.');
+  assert.equal(T.firstSentence('Krátký popis'), 'Krátký popis');
+  assert.ok(T.firstSentence('x '.repeat(200)).endsWith('…'));
+  assert.match(T.descHtml(picasso, 'en'), /^<span class="poi-lang"[^>]*>anglicky<\/span> The Museu Picasso[\s\S]*Picasso\.$/);
+  assert.equal(T.descHtml('Gotická katedrála na Pražském hradě.', undefined), 'Gotická katedrála na Pražském hradě.');
+  assert.equal(T.descHtml('', 'en'), '');
+  assert.ok(!T.descHtml(XSS, 'en').includes('<img src=x'));
+  const castle = { id: 'Q1', name: 'Pražský hrad', category: 'castle', includes: ['Katedrála sv. Víta', 'Zlatá ulička', 'Starý královský palác', 'Bazilika sv. Jiří', 'Daliborka', 'Prašná věž', XSS] };
+  const inc = T.inclHtml(castle, 'poi-inc');
+  assert.match(inc, /^<div class="poi-inc">Zahrnuje: Katedrála sv\. Víta, Zlatá ulička, Starý královský palác, Bazilika sv\. Jiří, Daliborka a 2 další<\/div>$/);
+  assert.equal(T.inclHtml({ includes: [] }, 'x'), '');
+  assert.equal(T.inclHtml({ includes: 'x' }, 'x'), '', 'neznámý tvar se ignoruje');
+  assert.match(T.poiCard(castle, {}), /Zahrnuje: Katedrála sv\. Víta/);
+  assert.ok(!T.poiCard({ id: 'Q2', name: 'Bez částí', category: 'church' }, {}).includes('Zahrnuje'));
+});
+
 test('Enter v hledání: staré návrhy ani čekání nevyberou cizí místo', () => {
   const a = (o) => T.enterAction({ err: false, count: 0, sugFor: '', ...o });
   assert.equal(a({ text: 'Bari', sugFor: 'Bar', count: 5 }), 'fetch', 'návrhy patří k „Bar“ → hledej „Bari“');
