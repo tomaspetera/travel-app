@@ -337,6 +337,7 @@
     };
   }
   function syncFormUI() {
+    updateWatchBtn();
     const multi = $('#tripType .on').dataset.v === 'multi';
     const ret = $('#tripType .on').dataset.v === 'return';
     const exact = $('#dateMode .on').dataset.v === 'exact' && !multi;
@@ -619,6 +620,7 @@
     $('#geoBtn').onclick = () => useMyLocation(fromInput);
     $('#searchForm').onsubmit = e => { e.preventDefault(); startSearch(); };
     $('#watchBtn').onclick = () => addWatch();
+    $('#searchForm').addEventListener('change', () => updateWatchBtn()); // jiné hledání → zase „♡ Hlídat cenu“
     $('#guideLink').onclick = openGuide;
   }
 
@@ -2049,8 +2051,16 @@
     // stejné hledání podruhé (♡ pod formulářem i v „Je to dobrá cena?“) jen aktualizuje cenu té, co už je
     const r = Alerts.upsertWatch(S.watch || [], w, watchKey, { now: Date.now(), cap: 12 });
     S.watch = r.list; save();
-    updateWatchBadges();
+    updateWatchBadges(); updateWatchBtn();
     toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : 'Hledání uloženo – cenu hlídám na Přehledu, dokud máš ATLAS otevřený');
+  }
+  /** Tlačítko ♡ pod formulářem: hlídané hledání → „♥ Hlídáš“ (klik ukáže hlídané ceny na Přehledu). */
+  function updateWatchBtn() {
+    const b = $('#watchBtn'); if (!b || !fromInput) return;
+    const on = isWatched(getForm());
+    b.textContent = on ? '♥ Hlídáš – na Přehledu' : '♡ Hlídat cenu';
+    b.classList.toggle('on', on);
+    b.onclick = on ? () => { go('dashboard'); setTimeout(() => $('#watchHead')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300); } : () => addWatch();
   }
 
   // Stav karet během kontroly: id → 'wait' (ve frontě) | 'run' (právě se kontroluje).
@@ -2121,6 +2131,7 @@
     if (el && el !== a) { el.focus(); el.value = ''; el.value = k.v; }
   }
   function renderWatch() {
+    updateWatchBtn();
     const list = S.watch || [], host = $('#watchList');
     $('#watchHead').hidden = !list.length;
     const now = Date.now();

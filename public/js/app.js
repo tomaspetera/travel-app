@@ -113,6 +113,20 @@ function refreshStats() {
 }
 
 /* ================= DASHBOARD ================= */
+/** Dnešek (místní) a počet dní mezi dny YYYY-MM-DD. */
+const todayLocal = () => fmtYMD(new Date());
+const daysTo = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5);
+/** Karta „Naplánované cesty“: nejbližší cesta s odpočtem a co ještě zbývá zařídit (bez upozornění – vidět na Přehledu). */
+function nextTripStat() {
+  const now = todayLocal();
+  const next = S.trips.map((t, i) => ({ t, i })).filter(x => x.t.start && (x.t.end || x.t.start) >= now).sort((a, b) => a.t.start.localeCompare(b.t.start))[0];
+  if (!next) return ['Naplánované cesty', `${S.trips.length}`, S.trips.length ? 'Mrkni do plánovače' : 'Začni plánovat', ''];
+  const t = next.t, d = daysTo(now, t.start);
+  const todo = (t.checklist || []).filter(x => !x.done && /^Zařídit/i.test(x.t || '')).length;
+  const when = d <= 0 ? 'právě probíhá' : d === 1 ? 'zítra' : `za ${d} ${d <= 4 ? 'dny' : 'dní'}`;
+  return ['Nejbližší cesta', `<span class="nt-name">${t.iso && byIso[t.iso] ? flag(t.iso) + ' ' : ''}${esc(t.dest && t.dest !== '—' ? t.dest : t.name)}</span>`,
+    `${when}${todo ? ` · zbývá zařídit ${todo}` : ''}`, `<button type="button" class="linkbtn nt-open" data-nt="${next.i}">Otevřít plán →</button>`];
+}
 function renderDash() {
   const st = stats(); const m = new Date().getMonth() + 1;
   const topRec = scoreCountries(m, {}).filter(r => !visited.has(r.c.iso2))[0];
@@ -120,13 +134,14 @@ function renderDash() {
   $('#statGrid').innerHTML = [
     ['Navštívené země', `${st.count}<small> / ${TOT}</small>`, `${st.pct}% světa`, `<div class="progress"><span style="width:${st.pct}%"></span></div>`],
     ['Hlídané ceny', `<span id="watchStatVal">${w}</span>`, `<span id="watchStatSub">${window.Flights ? Flights.watchStatTxt() : ''}</span>`, ''],
-    ['Naplánované cesty', `${S.trips.length}`, S.trips.length ? 'Mrkni do plánovače' : 'Začni plánovat', ''],
+    nextTripStat(),
     ['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs : '', ''],
   ].map(s => `<div class="card stat"><div class="lab">${s[0]}</div><div class="val">${s[1]}</div><div class="sub">${s[2]}</div>${s[3] || ''}</div>`).join('');
   const recs = scoreCountries(m, {}).filter(r => !visited.has(r.c.iso2)).slice(0, 4);
   $('#dashRecs').innerHTML = recs.map(r => destCard(r.c, r.score)).join('');
   bindDest('#dashRecs');
   $$('.link[data-go]').forEach(l => l.onclick = () => go(l.dataset.go));
+  $$('[data-nt]').forEach(b => b.onclick = () => { go('planner'); setTimeout(() => openTrip(+b.dataset.nt), 250); });
   if (window.Flights) { Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); }
 }
 
@@ -365,7 +380,11 @@ const planTransport = f => /^🚆/u.test(String(f || '')) ? String(f) : '✈️ 
 function renderPlanner() {
   const host = $('#plannerList');
   if (!S.trips.length) { host.innerHTML = `<div class="empty"><div class="ei">${ico('M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z')}</div><h2 style="font-size:20px;margin-bottom:6px">Zatím žádná cesta</h2><p style="max-width:420px;margin:0 auto 18px">Naplánuj si itinerář, ubytování i rozpočet na jednom místě. Cestu můžeš vytvořit i přímo z nalezeného letu (tlačítko „Do plánu“).</p><button class="btn primary" id="emptyNew">${ico('M12 5v14M5 12h14')} Nová cesta</button></div>`; $('#emptyNew').onclick = () => newTrip(); return; }
-  host.innerHTML = `<div class="trip-grid">${S.trips.map((t, i) => tripCard(t, i)).join('')}<div class="card new-trip" id="newTripTile"><div class="plus">${ico('M12 5v14M5 12h14')}</div><div style="font-weight:700">Nová cesta</div></div></div>`;
+  // nadcházející podle data odjezdu (bez data na konci), proběhlé zvlášť pod nimi
+  const now = todayLocal(), all = S.trips.map((t, i) => ({ t, i }));
+  const past = all.filter(x => (x.t.end || x.t.start) && (x.t.end || x.t.start) < now).sort((a, b) => (b.t.start || '').localeCompare(a.t.start || ''));
+  const coming = all.filter(x => !past.includes(x)).sort((a, b) => (a.t.start || '9999').localeCompare(b.t.start || '9999'));
+  host.innerHTML = `<div class="trip-grid">${coming.map(x => tripCard(x.t, x.i)).join('')}<div class="card new-trip" id="newTripTile"><div class="plus">${ico('M12 5v14M5 12h14')}</div><div style="font-weight:700">Nová cesta</div></div></div>${past.length ? `<div class="section-head"><h2>Proběhlé cesty</h2></div><div class="trip-grid past">${past.map(x => tripCard(x.t, x.i)).join('')}</div>` : ''}`;
   $$('.trip[data-ti]').forEach(el => el.onclick = () => openTrip(+el.dataset.ti));
   $('#newTripTile').onclick = () => newTrip();
 }
@@ -391,6 +410,16 @@ function saveTrip(iso, flightTxt) {
   S.trips.push({ name, dest: dest || '—', iso: fiso || null, start: $('#ntStart').value, end: $('#ntEnd').value, pax: $('#ntPax').value, budget: $('#ntBudget').value, flight: flightTxt, days: {}, checklist: PACK.map(t => ({ t, done: false })), notes: '' });
   save(); modalClose(); go('planner'); toast('Cesta vytvořena'); setTimeout(() => openTrip(S.trips.length - 1), 250);
 }
+/** Po cestě: země, které ještě nejsou na mapě navštívených – jedním klikem je přidat. */
+function tripNotVisited(t) {
+  const end = t.end || t.start;
+  if (!end || end >= todayLocal()) return [];
+  return [...new Set([...(t.isos || []), t.iso].filter(cc => cc && byIso[cc] && !visited.has(cc)))];
+}
+function visitedPrompt(t) {
+  const ccs = tripNotVisited(t);
+  return ccs.length ? `<div class="note info" style="margin-top:10px">🗺️ <div>Cesta proběhla – <button type="button" class="linkbtn" id="tripVisited">přidat ${ccs.map(cc => esc(byIso[cc].cs)).join(', ')} na mapu navštívených</button></div></div>` : '';
+}
 function openTrip(i) {
   const t = S.trips[i]; if (!t) return; const c = t.iso ? byIso[t.iso] : null; const city = c && c.cap ? c.cap : t.dest;
   const days = dateRange(t.start, t.end);
@@ -398,7 +427,7 @@ function openTrip(i) {
   <div class="modal-body">
     ${t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${esc(t.flight.replace(/^🚆\s*/u, ''))}</div></div>` : ''}
     <div class="row wrap"><button class="btn primary" onclick="modalClose();${c ? `fromCountrySearch('${t.iso}')` : `go('flights')`}">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
-    ${tripEntryHtml(t)}
+    ${tripEntryHtml(t)}${visitedPrompt(t)}
     <div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>
     <div class="divider"></div>
     <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + (days.length === 1 ? ' den' : days.length < 5 ? ' dny' : ' dní') : 'doplň termíny'}</span></div>
@@ -413,6 +442,8 @@ function openTrip(i) {
   </div>`);
   // ubytování v cíli cesty (Barcelona, ne hlavní město země) pro počet cestujících z cesty
   $('#tripStay').onclick = () => openStay(t.dest && t.dest !== '—' ? t.dest : city, t.start || '', t.end || '', +t.pax || 2);
+  const tv = $('#tripVisited');
+  if (tv) tv.onclick = () => { const ccs = tripNotVisited(t); ccs.forEach(cc => setVisited(cc, true)); toast(`Na mapě navštívených: ${ccs.map(cc => byIso[cc].cs).join(', ')}`); openTrip(i); };
   const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
   // Poznámky se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
   const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(S.trips[i])[0])); });

@@ -407,7 +407,12 @@
       if (!j.items.length) { host.innerHTML = `<div class="note warn" style="margin-top:12px">⚠️ <div>Pro tato data jsem živé nabídky nenašel${j.error ? ` (${esc(j.error)})` : ''}. Cenu ověř přímo u aerolinky.</div></div>`; return; }
       const cur = f.flightCzk;
       const openJaw = f.back && (f.back.from !== f.out.to || f.back.to !== f.out.from);
-      host.innerHTML = `<div class="divider"></div><div class="muted" style="font-size:13px;margin-bottom:8px">Živé nabídky pro ${dayLbl(f.out.date)}${f.back ? ` – ${dayLbl(f.back.date)}` : ''} (${esc(f.out.from)} → ${esc(f.out.to)}${openJaw ? `, zpět ${esc(f.back.from)} → ${esc(f.back.to)} – dvě samostatné letenky` : ''}), cena na osobu:</div>
+      // Cena z mezipaměti (Aviasales, až 48 h stará), kterou živě nikdo nenabízí: upozornit nahoře i ve Shrnutí
+      const cached = f.provider === 'travelpayouts' || f.out.provider === 'travelpayouts';
+      const liveMin = Math.min(...j.items.map(x => x.flightCzk));
+      if (cached && (liveMin > cur * 1.1 || f.liveMin)) { f.liveMin = liveMin > cur * 1.1 ? liveMin : null; f.liveAt = Date.now(); persist(); }
+      const stale = cached && f.liveMin ? `<div class="note warn" style="margin-top:12px">⚠️ <div><b>Cena ${czk(cur)} je z mezipaměti</b> (Aviasales, může být až 2 dny stará) a živě ji teď nikdo nenabízí – nejlevnější živá nabídka na stejné dny je <b>${czk(f.liveMin)}</b>. Ověř ji před nákupem, nebo použij živou nabídku níž.</div></div>` : '';
+      host.innerHTML = `${stale}<div class="divider"></div><div class="muted" style="font-size:13px;margin-bottom:8px">Živé nabídky pro ${dayLbl(f.out.date)}${f.back ? ` – ${dayLbl(f.back.date)}` : ''} (${esc(f.out.from)} → ${esc(f.out.to)}${openJaw ? `, zpět ${esc(f.back.from)} → ${esc(f.back.to)} – dvě samostatné letenky` : ''}), cena na osobu:</div>
         <div class="alt-flights">${j.items.map((x, i) => `<div class="alt-f">
           <div><b>${esc(x.out.carrierName || '')}</b> <span class="faint">${x.out.stops ? `${x.out.stops}× přestup` : 'přímý'}${x.back ? ` · zpět ${esc(x.back.carrierName || '')}${x.back.stops ? ` (${x.back.stops}× přestup)` : ''}` : ''}</span>
             <div class="faint" style="font-size:12px">${hhmm(x.out.dep)}–${hhmm(x.out.arr)}${plusDay(x.out.dep, x.out.arr)}${x.back ? ` · zpět ${hhmm(x.back.dep)}–${hhmm(x.back.arr)}${plusDay(x.back.dep, x.back.arr)}` : ''}</div></div>
@@ -1338,7 +1343,8 @@
     const ov = ovOn(t) ? t.overland : null;
     const unpriced = multi ? r.bases.filter(b => !stayCzk(b.stay)).map(b => b.name) : [];
     const rows = [
-      ov ? ['🚆', `Vlak / bus ${ov.back ? 'tam i zpět' : 'tam'} (${t.adults} os.)${[ov.out, ov.back].some(g => g && g.source !== 'regiojet') ? ' – odhad' : [ov.out, ov.back].some(g => g && g.demo) ? ' – DEMO' : ''}`, c.overland] : ['✈️', `Letenky (${t.adults} os.)`, c.flights],
+      ov ? ['🚆', `Vlak / bus ${ov.back ? 'tam i zpět' : 'tam'} (${t.adults} os.)${[ov.out, ov.back].some(g => g && g.source !== 'regiojet') ? ' – odhad' : [ov.out, ov.back].some(g => g && g.demo) ? ' – DEMO' : ''}`, c.overland]
+        : ['✈️', `Letenky (${t.adults} os.)${f.liveMin ? ` – ⚠️ cena z mezipaměti, živě od ${czk(f.liveMin)}/os.` : ''}`, c.flights],
       c.bags ? ['🧳', 'Zavazadla (odhad příplatku)', c.bags] : null,
       c.ground ? [groundLines(t).icon, groundLines(t).row, c.ground] : null,
       c.arrival ? [ARR_ICO[(t.arrival && t.arrival.out && t.arrival.out.mode) || 'bus'] || '🚌', `Doprava z letiště do města${t.flight.back ? ' a zpět' : ''} (odhad)`, c.arrival] : null,
