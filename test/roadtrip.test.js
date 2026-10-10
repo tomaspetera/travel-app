@@ -62,7 +62,11 @@ test('roadtrip: okružní cesta – přespání po cestě, další den začíná
       assert.ok(d.overnight && !d.back);
       assert.equal(d.overnight.name, d.stops.at(-1).name);
       const u = new URL(d.overnight.bookUrl.startsWith('https://tp.media') ? new URL(d.overnight.bookUrl).searchParams.get('u') : d.overnight.bookUrl);
-      assert.equal(u.searchParams.get('ss'), d.overnight.name);
+      // se zemí (anglicky) – ne stejnojmenné místo jinde; země podle polohy, když ji cíl nemá z Wikidat
+      const [cc, en, cs] = d.overnight.name === 'Vídeň' ? ['AT', 'Austria', 'Rakousko'] : ['CZ', 'Czechia', 'Česko'];
+      assert.equal(u.searchParams.get('ss'), `${d.overnight.name}, ${en}`);
+      assert.equal(d.overnight.cc, cc);
+      assert.equal(d.overnight.country, cs);
       assert.equal(u.searchParams.get('checkin'), d.date);
       assert.equal(u.searchParams.get('checkout'), addDays(d.date, 1));
       assert.equal(r.days[i + 1].from.name, d.overnight.name);
@@ -176,6 +180,25 @@ test('roadtrip: zájmy – „Příroda“ plánuje jen přírodu, při nedostat
   // bez zájmů se plánuje ze všeho jako dřív
   const any = planTrips(all, { base: PRAHA, start: START, days: 2, mode: 'day', interests: [] });
   assert.ok(any.days.flatMap((d) => d.stops).some((x) => x.tripKind === 'town'));
+});
+
+test('roadtrip: přespání u památky hledá ubytování v obci pod ní, jinak anglický název a země z Wikidat', () => {
+  const base = { lat: 41.3874, lon: 2.1686, label: 'Barcelona' };
+  const cands = [
+    { id: 'Q732115', name: 'Montserrat', nameEn: 'Montserrat', gateway: 'Monistrol de Montserrat', cc: 'ES', lat: 41.6054, lon: 1.8115, tripKind: 'nature', score: 70 },
+    { id: 'Q7038', name: 'Girona', nameEn: 'Girona', cc: 'ES', lat: 41.9833, lon: 2.8167, tripKind: 'town', score: 75 },
+    { id: 'Q15088', name: 'Tarragona', nameEn: 'Tarragona', cc: 'ES', lat: 41.1175, lon: 1.2528, tripKind: 'town', score: 72 },
+    { id: 'Q1731', name: 'Drážďany', nameEn: 'Dresden', cc: 'DE', lat: 41.9, lon: 2.0, tripKind: 'town', score: 60 },
+  ];
+  const r = planTrips(cands, { base, start: START, days: 3, mode: 'loop', pace: 'relaxed' });
+  const ss = (d) => new URL(d.overnight.bookUrl.startsWith('https://tp.media') ? new URL(d.overnight.bookUrl).searchParams.get('u') : d.overnight.bookUrl).searchParams.get('ss');
+  const nights = r.days.filter((d) => d.overnight);
+  assert.ok(nights.length >= 1);
+  for (const d of nights) {
+    const s = d.stops.at(-1);
+    assert.equal(ss(d), `${s.gateway || s.nameEn}, ${s.cc === 'DE' ? 'Germany' : 'Spain'}`);
+    assert.equal(d.overnight.cc, s.cc);
+  }
 });
 
 const sameKind = (d) => Math.max(...Object.values(d.stops.reduce((n, s) => ({ ...n, [s.spa ? 'spa' : s.tripKind]: (n[s.spa ? 'spa' : s.tripKind] || 0) + 1 }), {})));

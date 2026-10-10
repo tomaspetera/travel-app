@@ -162,7 +162,10 @@ export function pickSights(q, km, variant = 0, { radius = Math.max(1.5, km / 6),
   const dist = (s) => haversineKm(q.lat, q.lon, s.lat, s.lon);
   const near = (q.sights || []).filter((s) => dist(s) <= radius && dist(s) >= 0.2);
   const skip = variant % 3;
-  const outer = near.filter((s) => dist(s) >= radius * 0.45).slice(skip);
+  // od 4. varianty se navíc posune výběr z vnějšího pásu o další tři (varianty 0–2 jako dřív)
+  const shift = 3 * Math.floor(variant / 3);
+  const ring = near.filter((s) => dist(s) >= radius * 0.45).slice(skip);
+  const outer = shift && ring.length ? [...ring.slice(shift % ring.length), ...ring.slice(0, shift % ring.length)] : ring;
   const inner = near.filter((s) => dist(s) < radius * 0.45).slice(skip);
   const pick = [...outer.slice(0, Math.ceil(n / 2)), ...inner].slice(0, n);
   for (const s of [...outer, ...inner]) if (pick.length < n && !pick.includes(s)) pick.push(s);
@@ -189,7 +192,8 @@ async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights }) {
     }
   }
   if (!r) {
-    const direction = (variant * 72 + 30) % 360;
+    // Deset různých směrů: varianty 0–4 po 72° jako dřív (trasy v mezipaměti platí), 5–9 mezi nimi.
+    const direction = (variant < 5 ? variant * 72 + 30 : (variant - 5) * 72 + 66) % 360;
     let radiusM = (km * 1000) / factor;
     const lonlats = `${start[0]},${start[1]}`;
     r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace, q.onMiss);

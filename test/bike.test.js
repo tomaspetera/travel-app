@@ -107,6 +107,28 @@ test('okruh: BRouter round-trip s profilem kola, korekce poloměru na zadanou d�
   }
 });
 
+test('„Jiná trasa“: deset různých směrů okruhu, varianty 0–4 jako dřív', async () => {
+  const stub = stubFetch(() => ({ body: brouter({ km: 30, coords: ring(14.3, 49.3, 30) }) }));
+  try {
+    const dirs = [];
+    for (let variant = 0; variant < 10; variant++) {
+      await bikeLoop({ lat: 49.3, lon: 14.3, km: 30, bike: 'trekking', scenery: 'mixed', variant });
+      dirs.push(Number(new URL(stub.calls.at(-1).url).searchParams.get('direction')));
+    }
+    assert.deepEqual(dirs.slice(0, 5), [30, 102, 174, 246, 318], 'trasy dřívějších variant v mezipaměti platí');
+    assert.equal(new Set(dirs).size, 10, `směry ${dirs.join(', ')}`);
+    // 11. kliknutí je zase varianta 0 (aplikace počítá do 10)
+    const again = await bikeLoop({ lat: 49.3, lon: 14.3, km: 30, bike: 'trekking', scenery: 'mixed', variant: 10 });
+    assert.equal(again.variant, 0);
+  } finally {
+    stub.restore();
+  }
+  // městem: od 4. varianty jiný výběr památek z vnějšího pásu
+  const q = { lat: 50.0875, lon: 14.4213, sights: Array.from({ length: 12 }, (_, i) => ({ name: `P${i}`, lat: 50.0875 + 0.04 * Math.cos(i), lon: 14.4213 + 0.06 * Math.sin(i) })) };
+  const picks = [0, 1, 2, 3, 4, 5].map((v) => pickSights(q, 30, v).map((s) => s.name).sort().join());
+  assert.equal(new Set(picks).size, 6, picks.join(' | '));
+});
+
 test('okruh městem: přes památky; když vyjde moc krátký, okruh dané délky', async () => {
   const sights = [
     { name: 'Hrad', lat: 49.62, lon: 15.0 }, { name: 'Zámek', lat: 49.58, lon: 15.05 }, { name: 'Most', lat: 49.58, lon: 14.95 },

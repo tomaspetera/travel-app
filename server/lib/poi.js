@@ -735,6 +735,12 @@ export async function findTrips({ lat, lon, limit = 30 }) {
     const her = heritageTrips(heritage || [], { lat, lon }, 15, main).sort((a, b) => b.score - a.score).slice(0, 15);
     const nat = natureTrips(nature || [], { lat, lon }, 15, [...main, ...her]).sort((a, b) => b.score - a.score).slice(0, 15);
     const picked = [...main, ...her, ...nat];
+    // Anglický název z článku (bez upřesnění v závorce: „Montserrat (mountain)“) a země – pro odkazy na partnery
+    // a hledání v mapách (stejnojmenná místa jinde: Vic, La Granada); zemi bez P17 podle polohy.
+    for (const p of picked) {
+      p.nameEn = p.wiki?.en ? p.wiki.en.replace(/ \(.+\)$/, '') : null;
+      p.cc = p.cc || countryAt(p.lat, p.lon) || '';
+    }
     const descFailed = await enrich(picked);
     // lázně i podle první věty článku („… jsou krajské, statutární a lázeňské město“)
     for (const p of picked) if (p.tripKind === 'town' && !p.spa && SPA.test(String(p.extract || '').split(/\.\s/)[0])) p.spa = true;
