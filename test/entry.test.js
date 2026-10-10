@@ -460,3 +460,10 @@ test('countries.json: hlavní města i česky (capCs, jen když se liší), angl
   assert.equal(by.SK.capCs, undefined, 'Bratislava je stejně');
   for (const c of COUNTRIES) if ('capCs' in c) assert.ok(typeof c.capCs === 'string' && c.capCs && c.capCs !== c.cap, c.iso2);
 });
+
+test('režim s datem konce: po validUntil čip „ověř vstup“ místo „bez víza“ (over)', () => {
+  const r = { validUntil: '2026-12-31' };
+  assert.equal(Entry.over(r, '2026-12-31'), false);
+  assert.equal(Entry.over(r, '2027-01-01'), true);
+  assert.equal(Entry.over({}, '2030-01-01'), false);
+});

@@ -104,7 +104,11 @@
   const q = r => (r.verified ? '' : '?');
   // časově omezený režim (validUntil, např. výjimka z K-ETA do 31. 12. 2026): cesta po tomto datu → ověřit
   const expired = (r, date) => Boolean(r && r.validUntil && isYmd(date) && date > r.validUntil);
-  const untilTxt = r => `Tento režim platí podle MZV zatím do ${dmy(r.validUntil)} – pro pozdější cestu ověř, co platí potom.`;
+  const untilTxt = r => (over(r) ? `Tento režim platil podle MZV do ${dmy(r.validUntil)} – mohl skončit, ověř, co platí teď.`
+    : `Tento režim platí podle MZV zatím do ${dmy(r.validUntil)} – pro pozdější cestu ověř, co platí potom.`);
+  // režim s datem konce už skončil (dnes po validUntil) – čipy zemí pak neříkají „bez víza“, ale „ověř vstup“
+  const localYmd = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const over = (r, today = localYmd()) => Boolean(r && r.validUntil && today > r.validUntil);
   function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
   /** Bublina u čipu: režim, pobyt, cena, poznámky a zdroj (prostý text – do title přes esc). */
   function tip(iso, r, k) {
@@ -117,6 +121,7 @@
   function cardChip(iso) {
     const r = get(iso), k = kind(r);
     if (!k || r.iso2 === 'CZ') return '';
+    if (!k.need && over(r)) return `<span class="ec ec-visa" title="${esc(`${name(iso)}: ${untilTxt(r)} ${srcTxt(r)}.`)}">⏳ ověř vstup</span>`;
     return `<span class="ec ec-${k.cls}" title="${esc(tip(iso, r, k))}">${k.icon ? k.icon + ' ' : ''}${esc(k.label + q(r))}</span>`;
   }
   /**
@@ -125,7 +130,7 @@
    */
   function flightChip(iso, date) {
     const r = get(iso), k = kind(r);
-    if (k && !k.need && expired(r, date)) return `<span class="b ec-b ec-visa" title="${esc(`${name(iso)}: ${untilTxt(r)} ${r.notes || ''} ${srcTxt(r)}.`)}">⏳ ověř vstup</span>`;
+    if (k && !k.need && (expired(r, date) || over(r))) return `<span class="b ec-b ec-visa" title="${esc(`${name(iso)}: ${untilTxt(r)} ${r.notes || ''} ${srcTxt(r)}.`)}">⏳ ověř vstup</span>`;
     if (!k || !k.need) return '';
     const eur = Number(r.etaCostEur);
     const cost = (r.visa === 'eta' || r.visa === 'evisa') && r.etaCostEur != null && eur >= 0 ? (eur === 0 ? ' zdarma' : ` ${eur} €`) : '';
@@ -366,6 +371,6 @@
 
   window.Entry = {
     set, load, ready, whenReady, get, meta, setRate, eurCzk, kind, regName, cardChip, flightChip, idNote, transit, transitHtml, transitCcs,
-    passportRule, passportDates, passportUntil, addMonths, leadDays, remindDays, reminder, reminders, checklist, costs, checklistHtml, detailHtml, matches, checkedTxt, ageTxt,
+    passportRule, passportDates, passportUntil, addMonths, leadDays, remindDays, reminder, reminders, checklist, costs, checklistHtml, detailHtml, matches, checkedTxt, ageTxt, over,
   };
 })();
