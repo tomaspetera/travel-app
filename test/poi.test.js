@@ -406,6 +406,9 @@ test('groupBindings (živá data): park Güell, Sant Pau, Barri Gòtic, klášte
   assert.equal(cat('Q920703'), undefined);
   assert.equal(cat('Q1353687'), undefined);
   assert.equal(cat('Q48435'), 'church');
+  // zámek (château) je „Palác / zámek“, brána v hradbách s výstavou je věž – ne hrad ani muzeum na dvě hodiny
+  assert.equal(cat('Q80843'), 'palace', 'zámek Troja');
+  assert.equal(cat('Q1488700'), 'tower', 'Prašná brána');
 });
 
 test('findPlaces: kavárna s popiskem „Kavárna / restaurace“, interní příznaky ven nejdou', async () => {

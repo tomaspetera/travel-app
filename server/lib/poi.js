@@ -18,8 +18,8 @@ const TYPES = {
   museum: ['Q33506', 'Q207694', 'Q17431399', 'Q1595639', 'Q588140', 'Q2772772', 'Q856584'],
   gallery: ['Q1007870'],
   church: ['Q16970', 'Q2977', 'Q163687', 'Q1088552', 'Q44613', 'Q32815', 'Q34627', 'Q44539', 'Q842402', 'Q5393308', 'Q160742', 'Q120560', 'Q317557', 'Q56242215', 'Q1129743'],
-  castle: ['Q23413', 'Q751876', 'Q57821', 'Q1785071', 'Q17715832', 'Q81917'],
-  palace: ['Q16560', 'Q53536964', 'Q1802963'],
+  castle: ['Q23413', 'Q57821', 'Q1785071', 'Q17715832', 'Q81917'],
+  palace: ['Q16560', 'Q53536964', 'Q1802963', 'Q751876'], // zámek (château) je „Palác / zámek“, ne hrad (Troja)
   monument: ['Q4989906', 'Q179700', 'Q575759', 'Q5003624', 'Q483453', 'Q1081138'],
   square: ['Q174782', 'Q1062422'],
   oldtown: ['Q676050', 'Q15243209'],
@@ -36,6 +36,8 @@ const TYPES = {
   theatre: ['Q24354', 'Q153562', 'Q1060829'],
   sight: ['Q570116', 'Q2319498', 'Q1497375', 'Q12511'],
 };
+// Skutečný hrad, pevnost nebo zřícenina hradu – samotné „opevnění“ s typem věž (Prašná brána) je věž.
+const CASTLE_PROPER = ['Q23413', 'Q1785071', 'Q17715832'];
 // Když má místo víc typů, rozhoduje tohle pořadí (ne náhodné pořadí řádků SPARQL).
 const CAT_PRIORITY = ['castle', 'palace', 'zoo', 'theme', 'museum', 'gallery', 'church', 'oldtown', 'square', 'bridge', 'tower',
   'viewpoint', 'ruins', 'monument', 'market', 'theatre', 'park', 'garden', 'beach', 'nature', 'sight'];
@@ -189,6 +191,9 @@ export function groupBindings(rows, center) {
     const hard = hardTypes.length > 0;
     const soft = types.filter((t) => SOFT_EXCLUDE.includes(t));
     const cats = new Set(types.map((t) => CAT_OF.get(t)).filter(Boolean));
+    // brána nebo věž v hradbách s výstavou (Prašná brána) je věž, ne hrad ani dvouhodinové muzeum
+    if (cats.has('castle') && cats.has('tower') && !has(CASTLE_PROPER)) cats.delete('castle');
+    if (cats.has('tower') && cats.has('museum')) cats.delete('museum');
     // Konkrétní typ (most, kostel, hrad…) vyhrává nad obecným „silnice/ulice“ (Karlův most je i silnice).
     const specific = CAT_PRIORITY.find((c) => c !== 'sight' && cats.has(c));
     const known = (p.heritage || types.includes(TOURIST_DEST)) && p.sitelinks >= 25;
