@@ -95,7 +95,10 @@ export function bestDayLoop(base, pool, cap, maxStops = 3, tr = CAR) {
       }
       const total = drive + order.reduce((s, p) => s + visitMin(p), 0);
       if (total > cap || drive > tr.maxDay) continue;
-      const v = order.reduce((s, p) => s + value(p), 0) * (1 - drive / tr.penalty);
+      // Připnutý cíl (skóre +1000) se počítá skutečným skóre a pevným bonusem: v plánu je vždy, ale
+      // s exp(~100) by každý další cíl jen přidal jízdu – den s připnutým cílem by měl jen ten jeden.
+      const pins = order.filter((p) => p.pinned).length;
+      const v = order.reduce((s, p) => s + value(p.pinned ? { score: p.baseScore ?? p.score - 1000 } : p), 0) * (1 - drive / tr.penalty) + 1e9 * pins;
       if (!best || v > best.value) best = { stops: order, drive, total, value: v };
     }
   }

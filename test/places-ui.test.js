@@ -186,6 +186,45 @@ test('zapamatovaný stav: tam a zpět, cizí a staré hodnoty se zahodí', () =>
   assert.deepEqual(plain(T.uiRestore(null, '2026-10-10')), { tripDays: {}, bike: {}, hike: {}, recent: [] });
 });
 
+test('zapamatovaný stav: vybraný termín platí i po obnovení, „Moje okolí“ se neobnoví (poloha se mění)', () => {
+  const base = { place: null, radius: 10, mode: 'city', start: '2026-11-10', days: 3, tripDays: { day: 2, loop: 4 }, transport: 'car', interests: new Set(), tripInterests: new Set(), pace: 'normal',
+    bike: { km: 40, bike: 'trekking', scenery: 'mixed', hills: 'normal', kind: 'loop' }, hike: { km: 10, scenery: 'mixed', hills: 'normal' }, recent: [] };
+  // „Najít lety sem“ hledá přesně jen ve vybraném termínu – dřív po obnovení výchozí volné termíny
+  const picked = plain(T.uiRestore(plain(T.uiSnapshot({ ...base, datePicked: true })), '2026-10-10'));
+  assert.equal(picked.start, '2026-11-10');
+  assert.equal(picked.datePicked, true);
+  assert.equal(plain(T.uiRestore(plain(T.uiSnapshot(base)), '2026-10-10')).datePicked, undefined, 'výchozí (zítřek) není vybraný');
+  assert.equal(plain(T.uiRestore(plain(T.uiSnapshot({ ...base, datePicked: true })), '2026-11-11')).datePicked, undefined, 'termín v minulosti se zahodí i s výběrem');
+  assert.equal(T.uiRestore({ datePicked: 'yes', start: '2026-11-10' }, '2026-10-10').datePicked, undefined);
+  // místo z „📍 Tady“: ne staré souřadnice pod názvem „Moje okolí“ – prázdné hledání
+  const geo = { lat: 49.1951, lon: 16.6068, label: 'Moje okolí', cc: '', geo: true, country: '' };
+  const snap = plain(T.uiSnapshot({ ...base, place: geo }));
+  assert.equal(snap.place.geo, true);
+  const r = plain(T.uiRestore(snap, '2026-10-10'));
+  assert.equal(r.place, undefined);
+  assert.equal(r.start, '2026-11-10', 'ostatní volby zůstanou');
+});
+
+test('program v průvodci: zájmy, tempo, vyřazená a vybraná místa jdou s programem (po návratu do kroku platí dál)', async () => {
+  const bodies = [];
+  const fetch = async (url, o) => { bodies.push(JSON.parse(o.body)); return { ok: true, status: 200, json: async () => ({ days: [{ date: '2026-10-12', items: [] }], spare: [], places: [] }) }; };
+  const TP = load({ fetch }).window.Places._t;
+  const st = { ...TP.prefsOf(null, {}), items: [] };
+  assert.deepEqual([[...st.interests], st.pace, st.exclude.size, st.must.size], [[], 'normal', 0, 0]);
+  st.interests.add('art'); st.pace = 'intense'; st.exclude.add('Q1'); st.must.add('Q2');
+  const plan = await TP.makePlan(st, BCN_C, { start: '2026-10-12', end: '2026-10-14', arrivalTime: '10:00' });
+  assert.deepEqual(plain(plan.prefs), { interests: ['art'], pace: 'intense', exclude: ['Q1'], must: ['Q2'] });
+  assert.deepEqual([bodies[0].pace, bodies[0].exclude, bodies[0].include], ['intense', ['Q1'], ['Q2']]);
+  // uložený program (přes JSON, i ze sdíleného odkazu) → stejné volby pro další úpravu; dřív výchozí a vyřazené místo se vrátilo
+  const back = TP.prefsOf(plain(plan).prefs, {});
+  assert.deepEqual([[...back.interests], back.pace, [...back.exclude], [...back.must]], [['art'], 'intense', ['Q1'], ['Q2']]);
+  // cizí hodnoty se zahodí; bez uložených voleb výchozí z průvodce
+  const bad = TP.prefsOf({ interests: ['art', 'hack', 5], pace: 'turbo', exclude: [1, '', 'Q3', {}], must: 'Q4' }, { pace: 'relaxed' });
+  assert.deepEqual([[...bad.interests], bad.pace, [...bad.exclude], [...bad.must]], [['art'], 'relaxed', ['Q3'], []]);
+  const def = TP.prefsOf(undefined, { interests: ['nature'], pace: 'relaxed' });
+  assert.deepEqual([[...def.interests], def.pace], [['nature'], 'relaxed']);
+});
+
 test('„Naposledy“: nejnovější první, bez opakování, nejvýš 5, bez „Moje okolí“', () => {
   const P = (label, lat = 50, lon = 14) => ({ lat, lon, label, cc: 'CZ', geo: false, country: 'Česko' });
   let l = [];
@@ -385,6 +424,11 @@ test('návrat po setmění: výlet s návratem po západu slunce, kolo a pěšky
   assert.ok(slot, 'trasa má místo pro varování');
   assert.equal(slot[1], '41.3874,2.1686,2026-10-12,20:30', '10 h v sedle + 1,5 h přestávek');
   assert.equal(slot[2], 'Počítám se startem v 9:00 a s přestávkami – zpět kolem 20:30.');
+  // návrat po půlnoci (dlouhá jízda na horském kole): dřív „00:20“ → před západem slunce → bez varování
+  const late = TW.routeHtml(ROUTE({ minutes: 800 }), BCN_C, '2026-10-12').match(/data-sun="([^"]+)" data-note="([^"]+)"/);
+  assert.equal(late[1], '41.3874,2.1686,2026-10-12,23:59');
+  assert.equal(late[2], 'Počítám se startem v 9:00 a s přestávkami – zpět kolem 00:20 (po půlnoci).');
+  assert.ok(TW.afterDark('23:59', '19:19'));
   const trip = tripOf('day', 'car', [DAY('2026-10-12', { name: 'Barcelona', lat: 41.3874, lon: 2.1686 }, [STOP('Q190', 'Montserrat', 41.5933, 1.8375, { score: 70 })])]);
   assert.match(TW.tripHtml(trip, BCN_C), /data-sun="41\.5933,1\.8375,2026-10-12,19:25"/);
   const loop = tripOf('loop', 'car', [DAY('2026-10-12', { name: 'Barcelona', lat: 41.3874, lon: 2.1686 }, [STOP('Q13985', 'Vic', 41.9301, 2.2549)], null)]);
@@ -447,6 +491,28 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   TB.mergeInto(x, city);
   assert.equal(x.end, '2026-10-20', 'kratší výsledek konec nezkrátí');
   assert.deepEqual(Object.keys(x.days), ['2026-10-12', '2026-10-14']);
+
+  // „Jiná trasa“ uložená znovu: odkazy na nahrazenou trasu z poznámek pryč (ruční text zůstane), název podle nové délky
+  const r0 = TB.plannerEntry({ rr: ROUTE({ km: 40, mapyUrl: 'https://mapy.com/fnc/v1/route?v=0', googleUrl: 'https://www.google.com/maps/dir/?api=1&v=0' }), place, start: '2026-10-12' });
+  const z = { ...r0, explore: { [r0.src]: r0.days }, exploreNotes: { [r0.src]: r0.notes }, genName: r0.name }; // jako store() u nové cesty
+  z.notes += '\n\nVzít duši navíc';
+  for (const v of [1, 2]) {
+    const rv = TB.plannerEntry({ rr: ROUTE({ km: 40 + 3 * v, mapyUrl: `https://mapy.com/fnc/v1/route?v=${v}`, googleUrl: `https://www.google.com/maps/dir/?api=1&v=${v}` }), place, start: '2026-10-12' });
+    TB.mergeInto(z, rv);
+  }
+  assert.equal((z.notes.match(/Trasa v Mapy\.com/g) || []).length, 1, z.notes);
+  assert.ok(z.notes.includes('route?v=2') && !z.notes.includes('route?v=0') && !z.notes.includes('route?v=1'));
+  assert.ok(z.notes.includes('Vzít duši navíc'));
+  assert.equal(z.name, 'Na kole z: Barcelona – 46 km');
+  assert.deepEqual(plain(Object.values(z.days).flat()), [z.days['2026-10-12'][0]]);
+  assert.match(z.days['2026-10-12'][0], /46 km/);
+  // přejmenovaná cesta zůstane, jiný druh výsledku název nemění
+  z.name = 'Kolo s Petrem';
+  TB.mergeInto(z, TB.plannerEntry({ rr: ROUTE({ km: 30 }), place, start: '2026-10-12' }));
+  assert.equal(z.name, 'Kolo s Petrem');
+  const w = { ...plain(city), genName: city.name };
+  TB.mergeInto(w, bike);
+  assert.equal(w.name, 'Výlet: Barcelona');
 
   // tlačítko: „Přidat k cestě …“ + „uložit jako novou“, jinak „Uložit do plánovače“
   assert.match(TB.saveHtml(1, trips), /💾 Přidat k cestě Výlet: Barcelona<\/button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</);

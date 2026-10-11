@@ -124,7 +124,7 @@
       place: cleanPlace(s.place), radius: s.radius, mode: s.mode, start: s.start, days: s.days, tripDays: { ...s.tripDays }, transport: s.transport,
       interests: [...s.interests], tripInterests: [...s.tripInterests], pace: s.pace,
       bike: { km: s.bike.km, bike: s.bike.bike, scenery: s.bike.scenery, hills: s.bike.hills, kind: s.bike.kind },
-      hike: { km: s.hike.km, scenery: s.hike.scenery, hills: s.hike.hills }, recent: s.recent || [],
+      hike: { km: s.hike.km, scenery: s.hike.scenery, hills: s.hike.hills }, recent: s.recent || [], datePicked: Boolean(s.datePicked),
     };
   }
   /** Uložený stav → jen platné hodnoty (cizí nebo starý záznam nic nerozbije); start v minulosti se zahodí. */
@@ -133,9 +133,12 @@
     const ids = list => list.map(x => x[0]);
     const arr = (v, ok) => (Array.isArray(v) ? [...new Set(v.filter(x => ok.includes(x)))] : undefined);
     const ob = v => (v && typeof v === 'object' ? v : {});
+    const place = cleanPlace(o.place);
+    const start = typeof o.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.start) && o.start >= today ? o.start : undefined;
     const r = {
-      place: cleanPlace(o.place), radius: pick1(o.radius, RADII), mode: pick1(o.mode, ids(MODES)),
-      start: typeof o.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.start) && o.start >= today ? o.start : undefined,
+      // „Moje okolí“ se neobnoví – poloha se mění (jako u „Naposledy“)
+      place: place && !place.geo ? place : null, radius: pick1(o.radius, RADII), mode: pick1(o.mode, ids(MODES)),
+      start, datePicked: start && o.datePicked === true ? true : undefined, // vybraný termín (ne výchozí zítřek) – „Najít lety sem“ přesně
       days: pick1(o.days, [1, 2, 3, 4, 5, 6, 7, 10]), transport: pick1(o.transport, ids(TRANSPORTS)), pace: pick1(o.pace, ['relaxed', 'normal', 'intense']),
       tripDays: { day: pick1(ob(o.tripDays).day, [1, 2, 3, 4, 5, 7]), loop: pick1(ob(o.tripDays).loop, [2, 3, 4, 5, 6, 7, 10]) },
       interests: arr(o.interests, ids(INTERESTS)), tripInterests: arr(o.tripInterests, ids(TRIP_INTERESTS)),
@@ -535,6 +538,17 @@
     </div>`;
   }
 
+  // Volby programu (zájmy, tempo, vyřazená a vybraná místa) se ukládají s programem – po návratu do kroku platí dál.
+  // Uložené (i z cizího odkazu) jen v platném tvaru; bez nich výchozí.
+  function prefsOf(pf, opts = {}) {
+    const o = pf && typeof pf === 'object' ? pf : {};
+    const ids = v => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x && x.length <= 120).slice(0, 300) : []);
+    return {
+      interests: new Set(Array.isArray(o.interests) ? o.interests.filter(x => INTERESTS.some(i => i[0] === x)) : opts.interests || []),
+      pace: ['relaxed', 'normal', 'intense'].includes(o.pace) ? o.pace : opts.pace || 'normal',
+      exclude: new Set(ids(o.exclude)), must: new Set(ids(o.must)),
+    };
+  }
   // extra: Objevuj posílá okruh načteného seznamu (server vezme stejná místa z mezipaměti) a místa za zvoleným okruhem
   // mezi vyřazenými; Cesta nic (okruh 10 km).
   async function makePlan(st, center, dates, extra) {
@@ -547,7 +561,8 @@
     st.demo = j.demo;
     // Termín, pro který program platí – při změně dat se uložený program znovu nepoužije.
     const span = { start: dates.start, end: dates.end, arrivalTime: dates.arrivalTime || null, departureTime: dates.departureTime || null };
-    return { days: j.days, spare: j.spare, warnings: j.warnings || [], center, span, created: Date.now() };
+    const prefs = { interests: [...st.interests], pace: st.pace, exclude: [...st.exclude], must: [...st.must] };
+    return { days: j.days, spare: j.spare, warnings: j.warnings || [], center, span, prefs, created: Date.now() };
   }
   const sameSpan = (plan, o) => plan.span && plan.span.start === o.start && plan.span.end === o.end
     && plan.span.arrivalTime === (o.arrivalTime || null) && plan.span.departureTime === (o.departureTime || null);
@@ -556,7 +571,7 @@
    * Program v rámci cesty: opts { lat, lon, label, cc, start, end, arrivalTime, departureTime, plan, onPlan }
    */
   async function renderPlanner(host, opts) {
-    const st = { interests: new Set(opts.interests || []), pace: opts.pace || 'normal', exclude: new Set(), must: new Set(), items: [], map: null, layers: null };
+    const st = { ...prefsOf(opts.plan?.prefs, opts), items: [], map: null, layers: null };
     const center = { lat: opts.lat, lon: opts.lon, label: opts.label, city: opts.city, country: opts.country };
     host.innerHTML = `${plannerControls(st)}<div class="ex-layout"><div><div id="tpPlan"><div class="loading-row"><span class="spin dark"></span> Hledám, co stojí za vidění, a skládám program…</div></div></div><div class="ex-map" id="tpMap"></div></div>`;
     st.map = makeMap($('#tpMap', host), center);
@@ -605,7 +620,7 @@
     let raw = null;
     try { raw = JSON.parse(localStorage.getItem(UI_LS)); } catch { return; }
     const r = uiRestore(raw, fmtYMD(new Date()));
-    for (const k of ['radius', 'mode', 'start', 'days', 'transport', 'pace', 'recent']) if (r[k] !== undefined) ex[k] = r[k];
+    for (const k of ['radius', 'mode', 'start', 'datePicked', 'days', 'transport', 'pace', 'recent']) if (r[k] !== undefined) ex[k] = r[k];
     if (r.place) ex.place = r.place;
     Object.assign(ex.tripDays, r.tripDays);
     Object.assign(ex.bike, r.bike);
@@ -617,7 +632,7 @@
   function renderExplore(root) {
     if (!root) return;
     if (!ex.restored) { ex.restored = true; if (!ex.place) restoreUi(); }
-    if (!ex.start || ex.start < fmtYMD(new Date())) ex.start = plusDays(fmtYMD(new Date()), 1);
+    if (!ex.start || ex.start < fmtYMD(new Date())) { ex.start = plusDays(fmtYMD(new Date()), 1); ex.datePicked = false; }
     root.innerHTML = `<div class="card search-card">
       <div class="ex-search">
         <div class="field" style="margin:0"><label>Kam se chceš podívat? <span class="lab-hint">město, obec, ostrov, místo…</span></label>
@@ -935,7 +950,14 @@
     }
     if (e.src) t.explore = { ...(t.explore && typeof t.explore === 'object' ? t.explore : {}), [e.src]: e.days };
     if (e.end && (!t.end || e.end > t.end)) t.end = e.end;
+    // Poznámky (odkazy na trasu) stejného druhu výsledku se nahradí jako řádky – po „Jiná trasa“ nezůstanou odkazy na tu starou.
+    const notesBy = t.exploreNotes && typeof t.exploreNotes === 'object' ? t.exploreNotes : {};
+    const oldNotes = e.src && typeof notesBy[e.src] === 'string' ? notesBy[e.src] : '';
+    if (oldNotes && oldNotes !== e.notes) t.notes = String(t.notes || '').replace(oldNotes, '').replace(/\n{3,}/g, '\n\n').trim();
     if (e.notes && !String(t.notes || '').includes(e.notes)) t.notes = [t.notes, e.notes].filter(Boolean).join('\n\n');
+    if (e.src) t.exploreNotes = { ...notesBy, [e.src]: e.notes || '' };
+    // Název z téhož druhu výsledku („Na kole z: Brno – 40 km“) se mění s ním; přejmenovanou cestu nechá být.
+    if (e.src && e.name && t.src === e.src && t.genName === t.name) t.name = t.genName = e.name;
     if (!t.iso && e.iso) t.iso = e.iso;
     return added;
   }
@@ -1043,11 +1065,13 @@
     const title = hike ? `🥾 Pěšky z: ${esc(center.label)}` : train ? `🚆 Vlakem tam, 🚴 na kole zpět · ${esc(BIKE_LBL[r.bike] || '')}` : `🚴 Okruh z: ${esc(center.label)} · ${esc(BIKE_LBL[r.bike] || '')}`;
     const st = r.station;
     const back = routeBack(r, center);
+    // návrat po půlnoci se porovná jako 23:59 (toHm by čas přetočil na „01:59“ a varování by zmizelo)
+    const late = back.back >= 1440;
     const trainHtml = train ? `<div class="ride-train">🚆 Vlakem: <b>${esc(center.label)}</b> → <b>${esc(st.name)}</b> <span class="faint">(${Math.round(kmBetween([center.lon, center.lat], [st.lon, st.lat]))} km vzdušnou čarou)</span>
         <div>${r.train.idosUrl ? `${link(r.train.idosUrl, 'spojení na IDOS ↗')} · ` : ''}${link(r.train.googleUrl, 'spoje v Google Maps ↗')}</div></div>` : '';
     return `${head}<div class="day-plan"><h4><span>${title}</span></h4>
       ${wxSlot(train ? st : center, date, true)}
-      ${sunSlot(train ? st : center, date, toHm(back.back), `Počítám se startem v 9:00${back.train ? ` (vlakem ~${minTxt(back.train)})` : ''} a s přestávkami – zpět kolem ${toHm(back.back)}.`)}
+      ${sunSlot(train ? st : center, date, late ? '23:59' : toHm(back.back), `Počítám se startem v 9:00${back.train ? ` (vlakem ~${minTxt(back.train)})` : ''} a s přestávkami – zpět kolem ${toHm(back.back)}${late ? ' (po půlnoci)' : ''}.`)}
       ${trainHtml}
       <div class="bike-stats">${train ? '<span>🚴 Na kole zpět:</span>' : ''}<b>${r.km} km</b><span>↗ ${r.ascent} m stoupání</span>${train ? `<span>↘ ${r.descent ?? r.ascent} m klesání</span>` : ''}<span>⏱️ ~${minTxt(r.minutes)} ${hike ? 'chůze' : 'v sedle'}</span></div>
       ${surfaceHtml(r)}
@@ -1272,15 +1296,32 @@
       remember();
       if (ex.plan) replanSoon('city');
     });
-    on('[data-pace]', 'onchange', e => { st.pace = e.target.value; ex.pace = e.target.value; remember(); if (road ? trip : ex.plan) replanSoon(seqKey); });
+    // Tempo platí pro všechny plány: zobrazený se přeplánuje, ostatní (jiný režim, doprava) se zahodí jako u zájmů.
+    on('[data-pace]', 'onchange', e => {
+      st.pace = e.target.value; ex.pace = e.target.value; remember();
+      onlyThisTrip();
+      if (road) ex.plan = null;
+      if (road ? trip : ex.plan) replanSoon(seqKey);
+    });
+    // Termín a počet dní: zobrazený program / výlety hned zešednou (uložit nejde – byly by se starými daty) a přeplánují se.
+    const replanDates = () => {
+      if (!(road ? trip : ex.mode === 'city' && ex.plan)) return;
+      $('#exPlanOut', body)?.classList.add('stale');
+      $$('#exSave, #exSaveNew', body).forEach(b => { b.disabled = true; });
+      replanSoon(seqKey);
+    };
     on('#exStart', 'onchange', e => {
       ex.start = e.target.value;
       ex.datePicked = true; // „Najít lety sem“ pak hledá přesně v termínu
       remember();
-      // Uložení k cestě závisí na datu (stejné místo a začátek) – tlačítko podle nového dne
+      // ostatní plány pro starý termín se zahodí (při přepnutí se naplánují znovu)
+      onlyThisTrip();
+      if (ex.mode !== 'city') ex.plan = null;
+      replanDates();
+      // Uložení k cestě závisí na datu (stejné místo a začátek) – tlačítko podle nového dne (i po „✓ Uloženo“)
       if (rr) {
         const old = $$('#exSave, #exSaveNew', body);
-        if (old.length && !old[0].disabled) {
+        if (old.length) {
           old[0].insertAdjacentHTML('beforebegin', saveHtml(findTripFor(S.trips, plannerEntry({ rr, place: p, start: ex.start })), S.trips));
           old.forEach(b => b.remove());
           on('#exSave', 'onclick', () => store(false));
@@ -1298,7 +1339,14 @@
       if (sun) { const [a, b, , ret] = sun.dataset.sun.split(','); sun.dataset.sun = [a, b, ex.start, ret].join(','); sun.innerHTML = ''; }
       fillWx(wx.parentNode);
     });
-    on('#exDays', 'onchange', e => { if (road) ex.tripDays[ex.mode] = +e.target.value; else ex.days = +e.target.value; remember(); });
+    on('#exDays', 'onchange', e => {
+      if (road) {
+        ex.tripDays[ex.mode] = +e.target.value;
+        for (const [id] of TRANSPORTS) if (tripKey(ex.mode, id) !== seqKey) delete ex.trips[tripKey(ex.mode, id)]; // jiná doprava pro starý počet
+      } else ex.days = +e.target.value;
+      remember();
+      replanDates();
+    });
     // Kolo a pěšky: volby platí pro příští „Naplánovat trasu“ (jiná volba = zase první varianta trasy).
     on('#routeKm', 'onchange', e => { ro.km = +e.target.value; ro.variant = 0; remember(); });
     for (const [attr, key] of [['data-bike', 'bike'], ['data-scen', 'scenery'], ['data-hills', 'hills']]) {
@@ -1398,7 +1446,7 @@
       const i = asNew ? -1 : findTripFor(S.trips, entry);
       let t = S.trips[i];
       if (t) mergeInto(t, entry);
-      else S.trips.push(t = { ...entry, explore: { [entry.src]: entry.days }, pax: '2', budget: '', checklist: PACK.map(x => ({ t: x, done: false })) });
+      else S.trips.push(t = { ...entry, explore: { [entry.src]: entry.days }, exploreNotes: { [entry.src]: entry.notes }, genName: entry.name, pax: '2', budget: '', checklist: PACK.map(x => ({ t: x, done: false })) });
       save();
       $$('#exSave, #exSaveNew', body).forEach(b => { b.disabled = true; });
       const sv = $('#exSave', body);
@@ -1435,6 +1483,6 @@
       uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns,
-      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates },
+      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan },
   };
 })();
