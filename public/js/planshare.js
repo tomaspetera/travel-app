@@ -66,8 +66,9 @@
     };
   }
 
-  /** Bezpečná kopie plánu: jen známá pole, ověřená data, omezené délky a počty. */
-  function sanitize(raw) {
+  /** Bezpečná kopie plánu: jen známá pole, ověřená data, omezené délky a počty (lim: delší limity pro vlastní zálohu – backup.js). */
+  function sanitize(raw, lim = {}) {
+    const L = { act: 300, acts: 40, ck: 80, ckLen: 120, notes: 3000, ...lim };
     if (!obj(raw)) throw new Error('neplatný plán');
     const start = isYmd(raw.start) ? raw.start : '';
     let end = start && isYmd(raw.end) && raw.end >= start ? raw.end : '';
@@ -77,7 +78,7 @@
     if (start && obj(raw.days)) {
       for (const [d, items] of Object.entries(raw.days).slice(0, 62)) {
         if (!isYmd(d) || d < start || d > (end || start) || !Array.isArray(items)) continue;
-        const list = items.slice(0, 40).map(x => txt(x, 300)).filter(Boolean);
+        const list = items.slice(0, L.acts).map(x => txt(x, L.act)).filter(Boolean);
         if (list.length) days[d] = list;
       }
     }
@@ -95,9 +96,9 @@
       flight: txt(raw.flight, 500) || null,
       days,
       // položka { t, done } z plánovače, nebo text z odkazu s odškrtnutím v masce done (index = pořadí v odkazu)
-      checklist: (Array.isArray(raw.checklist) ? raw.checklist.slice(0, 80) : [])
-        .map((x, i) => ({ t: txt(obj(x) ? x.t : x, 120), done: obj(x) ? x.done === true : doneAt(raw.done, i) })).filter(x => x.t),
-      notes: txt(raw.notes, 3000, true),
+      checklist: (Array.isArray(raw.checklist) ? raw.checklist.slice(0, L.ck) : [])
+        .map((x, i) => ({ t: txt(obj(x) ? x.t : x, L.ckLen), done: obj(x) ? x.done === true : doneAt(raw.done, i) })).filter(x => x.t),
+      notes: txt(raw.notes, L.notes, true),
     };
     if (legs.length) plan.legs = legs;
     if (grounds.length) plan.ground = grounds;

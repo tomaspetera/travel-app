@@ -807,23 +807,30 @@ test('sdílený odkaz na cestu do jednoho místa: program bez popisů, fotek a �
   assert.ok(!got.route || got.route.mode !== 'multi', 'příjemce má cestu do jednoho místa');
 });
 
-test('💾 záloha: odškrtnutí ze zálohy se sloučí – jen známá id, novější čas, nejvýš 30 cest', () => {
+test('💾 záloha: odškrtnutí ze zálohy se sloučí – jen známá id, novější čas (nejvýš teď), vlastní cesty nikdy nevypadnou', () => {
   const st = memStorage();
   const P2 = load({ storage: st }).window.PreTrip;
   P2.setDone('a', 'pack:doc-pass', true);
   const at0 = JSON.parse(st.mem.get('atlas_pretrip_v1')).a.at;
-  const inc = JSON.parse(`{"__proto__":{"d":{"pack:doc-x":1}},"a":{"d":{"pack:tc-adapter-AB":1,"<b>":1,"pack:my-3":1},"at":${at0 + 5}},"b c":{"d":{"todo:ins":1}},"b":{"d":{"todo:ins":1,"nic":1},"at":3},"prazdne":{"d":{"x":1}}}`);
+  const inc = JSON.parse(`{"__proto__":{"d":{"pack:doc-x":1}},"a":{"d":{"pack:tc-adapter-AB":1,"<b>":1,"pack:my-3":1},"at":${at0 - 1000}},"b c":{"d":{"todo:ins":1}},"b":{"d":{"todo:ins":1,"nic":1},"at":3},"prazdne":{"d":{"x":1}}}`);
   assert.equal(P2.mergeDone(inc), 2);
   assert.deepEqual(plain(P2.doneOf('a')), { 'pack:doc-pass': 1, 'pack:tc-adapter-AB': 1, 'pack:my-3': 1 });
   assert.deepEqual(plain(P2.doneOf('b')), { 'todo:ins': 1 });
   const s = JSON.parse(st.mem.get('atlas_pretrip_v1'));
-  assert.equal(s.a.at, at0 + 5);
+  assert.equal(s.a.at, at0, 'starší čas ze zálohy čas cesty nezmění');
   assert.deepEqual(Object.keys(s).sort(), ['a', 'b']);
   assert.equal({}.d, undefined);
   assert.deepEqual(plain(P2.exportDone()), s);
-  for (let i = 0; i < 40; i++) P2.setDone(`t${i}`, 'pack:x-y', true);
-  P2.mergeDone({ z: { d: { 'pack:x-y': 1 }, at: 1 } });
-  assert.equal(Object.keys(JSON.parse(st.mem.get('atlas_pretrip_v1'))).length, 30);
+  assert.equal(P2.mergeDone(inc), 0, 'podruhé nic nového');
+  // čas z budoucnosti se omezí na teď
+  P2.mergeDone({ c: { d: { 'pack:doc-pass': 1 }, at: 9e15 } }, 1000);
+  assert.equal(JSON.parse(st.mem.get('atlas_pretrip_v1')).c.at, 1000);
+  // 30 cizích cest s časem z budoucnosti nevytlačí vlastní – vejdou se jen do volných míst
+  const many = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`99${i}:2027-01-01:XX`, { d: { 'pack:doc-pass': 1 }, at: 9e15 }]));
+  P2.mergeDone(many);
+  const s2 = JSON.parse(st.mem.get('atlas_pretrip_v1'));
+  assert.equal(Object.keys(s2).length, 30);
+  assert.ok(['a', 'b', 'c'].every((k) => s2[k]), 'vlastní odškrtnutí zůstala');
   assert.equal(P2.mergeDone(null), 0);
   assert.equal(P2.mergeDone([1]), 0);
 });
@@ -841,6 +848,10 @@ test('💾 záloha: cesta z průvodce projde zálohou (pravý Trip.sanitizeTrip)
   assert.equal(w.flight.out.to, 'NRT');
   assert.equal(w.dest.label, 'Tokio');
   assert.deepEqual(plain(w.booked), { flight: true, 'stay:geo:35.68,139.76': true });
+  // záloha stejného zařízení: cesta z průvodce je „už máš“, ne „změněná“ (obě strany po stejném pročištění)
+  const df = B.diff({ trips: [entry] }, inc, { deps });
+  assert.deepEqual(plain(df.trips), { add: 0, same: 1, changed: 0 });
+  assert.deepEqual(plain(B.diff({ trips: [entry] }, B.parse(B.pack({ trips: inc.trips }), deps), { deps }).trips), { add: 0, same: 1, changed: 0 });
   assert.equal(Trip.openSaved(w, inc.trips[0].tripId), true);
   assert.equal(c.S.trip.dest.label, 'Tokio');
   assert.equal(c.S.trip.created, t.created);

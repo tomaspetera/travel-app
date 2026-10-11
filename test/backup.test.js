@@ -153,6 +153,73 @@ test('formulář hlídání: neznámé klíče jen jako jednoduché hodnoty, let
   assert.equal(f.legs.length, 1);
   assert.equal(f.legs[0].flex, 3);
   assert.equal(f.depAfter, null);
-  assert.equal(f.dateMode, 'flexscript');
+  assert.equal(f.dateMode, undefined, 'neznámá volba → výchozí formuláře');
   assert.equal(B.cleanForm({ from: [] }, ctx.PlanShare.txt), null, 'bez odletu nic hlídat nejde');
+});
+
+test('cesta bez tripId: pid ze zálohy – upravená na druhém zařízení je „změněná“, ne nová kopie', () => {
+  const A = state({ trips: [plan('Porto', '2026-12-05')] });
+  assert.equal(B.ensurePids(A.trips, 1e12), 1);
+  const pid = A.trips[0].pid;
+  assert.match(pid, /^[a-z0-9]{6,24}$/);
+  assert.equal(B.ensurePids(A.trips), 0, 'pid se nemění');
+  // B: obnova ze zálohy A, pak úprava poznámek a programu
+  const onB = B.merge(state(), B.parse(B.pack(A), deps), { deps });
+  assert.equal(onB.trips[0].pid, pid);
+  onB.trips[0] = { ...onB.trips[0], notes: 'hotel u řeky', days: { '2026-12-05': ['Alfama', 'Tram 28'] } };
+  const back = B.parse(B.pack(onB), deps);
+  assert.deepEqual(plain(B.diff(A, back, { deps }).trips), { add: 0, same: 0, changed: 1 });
+  assert.equal(B.merge(A, back, { deps }).trips.length, 1);
+  const over = B.merge(A, back, { overwrite: true, deps });
+  assert.equal(over.trips.length, 1);
+  assert.equal(over.trips[0].notes, 'hotel u řeky');
+  assert.equal(over.trips[0].pid, pid);
+  // první přenos: stejný plán v zařízení bez pid se pozná podle obsahu a pid převezme
+  const legacy = state({ trips: [plan('Porto', '2026-12-05')] });
+  const first = B.merge(legacy, B.parse(B.pack(A), deps), { deps });
+  assert.equal(first.trips.length, 1);
+  assert.equal(first.trips[0].pid, pid);
+  assert.equal(legacy.trips[0].pid, undefined, 'vstup se nemění');
+});
+
+test('„Sbaleno“: odškrtnutí jinde = změněná cesta; přepsání odškrtnutí ani vlastní položky nezahodí', () => {
+  const mine = state({ trips: [plan('Lisabon', '2026-11-12', { tripId: 7, checklist: [{ t: 'Pas / OP', done: true }, { t: 'Nabíječka', done: false }, { t: 'Deštník', done: true }] })] });
+  const other = B.parse(B.pack(state({ trips: [plan('Lisabon', '2026-11-12', { tripId: 7, checklist: [{ t: 'Pas / OP', done: false }, { t: 'Nabíječka', done: true }] })] })), deps);
+  assert.deepEqual(plain(B.diff(mine, other, { deps }).trips), { add: 0, same: 0, changed: 1 });
+  const m = B.merge(mine, other, { overwrite: true, deps });
+  assert.deepEqual(plain(m.trips[0].checklist), [{ t: 'Pas / OP', done: true }, { t: 'Nabíječka', done: true }, { t: 'Deštník', done: true }]);
+});
+
+test('stejná cesta v záloze dvakrát: náhled i sloučení se shodnou (žádné „+2“, když přibude jedna)', () => {
+  const inc = B.parse(B.pack(state({ trips: [plan('Řím', '2026-12-01'), plan('Řím', '2026-12-01')] })), deps);
+  const df = B.diff(state(), inc, { deps });
+  assert.deepEqual(plain(df.trips), { add: 1, same: 1, changed: 0 });
+  assert.equal(B.merge(state(), inc, { deps }).trips.length, 1);
+  // dvě cesty se stejným plánem v zařízení i v záloze: každá se spáruje jen jednou
+  const two = state({ trips: [plan('Víkend', '2026-11-14', { checklist: [{ t: 'Pas', done: true }] }), plan('Víkend', '2026-11-14', { checklist: [{ t: 'Pas', done: false }, { t: 'Deštník', done: false }] })] });
+  const d2 = B.diff(two, B.parse(B.pack(two), deps), { deps });
+  assert.deepEqual(plain(d2.trips), { add: 0, same: 2, changed: 0 });
+});
+
+test('hlídání autem: vlastní spotřeba a cena paliva projdou, neznámé volby formuláře ne', () => {
+  const w = watch('car', '2026-11-01', {});
+  w.form = { ...w.form, groundMode: 'car', carFuel: 'petrol', carCons: { diesel: 5.5, petrol: 8.5, ev: 18 }, carPrice: { diesel: null, petrol: 38.9, ev: null }, trip: 'return', dateMode: 'flex', len: 'custom', bags: 'cabin', xFlex: 2, radius: 150 };
+  const f = B.parse(B.pack(state({ watch: [w] })), deps).watch[0].form;
+  assert.deepEqual(plain(f.carCons), { diesel: 5.5, petrol: 8.5, ev: 18 });
+  assert.deepEqual(plain(f.carPrice), { diesel: null, petrol: 38.9, ev: null });
+  for (const k of ['groundMode', 'carFuel', 'trip', 'dateMode', 'len', 'bags', 'xFlex', 'radius']) assert.equal(f[k], w.form[k], k);
+  const bad = B.cleanForm({ from: [BRQ], trip: 'bogus', dateMode: 'x', len: 'nekonečno', groundMode: 'raketa', carFuel: 'uhlí', bags: 'tři', radius: 99999, adults: 0, nMax: 'deset', dFrom: '2026-13-40', xOut: '2026-11-12', carCons: { petrol: -1, diesel: 'x', ev: 18, uhlí: 9 }, carPrice: 'levně' }, ctx.PlanShare.txt);
+  assert.deepEqual(Object.keys(bad).sort(), ['adults', 'carCons', 'from', 'radius', 'xOut']);
+  assert.equal(bad.radius, 500);
+  assert.equal(bad.adults, 1);
+  assert.deepEqual(plain(bad.carCons), { diesel: null, petrol: null, ev: 18 });
+});
+
+test('vlastní záloha nese plán celý – delší poznámky, aktivity a „Sbaleno“ než sdílený odkaz', () => {
+  const long = plan('Dlouhá', '2026-11-12', { notes: 'x'.repeat(3200) + '\nKONEC', days: { '2026-11-12': ['a'.repeat(400)] }, checklist: Array.from({ length: 90 }, (_, i) => ({ t: `věc ${i}`, done: false })) });
+  const t = B.parse(B.pack(state({ trips: [long] })), deps).trips[0];
+  assert.ok(t.notes.endsWith('KONEC'));
+  assert.equal(t.days['2026-11-12'][0].length, 400);
+  assert.equal(t.checklist.length, 90);
+  assert.equal(ctx.PlanShare.sanitize(long).notes.length, 3000, 'sdílený odkaz má limity dál');
 });

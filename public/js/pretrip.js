@@ -111,26 +111,30 @@
   /** Odškrtnutí všech cest (💾 záloha – backup.js). */
   const exportDone = () => store();
   /**
-   * Odškrtnutí ze zálohy (cizí vstup): u každé cesty sjednocení s tím, co tu už je (jen id ve známém tvaru), novější čas;
-   * pak jen posledních KEEP cest. Vrací počet cest, kterých se to týkalo.
+   * Odškrtnutí ze zálohy (cizí vstup): u každé cesty sjednocení s tím, co tu už je (jen id ve známém tvaru), novější čas
+   * (nejvýš teď). Nad KEEP cest se mažou jen ty nově přidané – odškrtnutí tohoto zařízení obnova nesmaže.
+   * Vrací počet cest, kterým něco přibylo.
    */
-  function mergeDone(inc) {
+  function mergeDone(inc, now = Date.now()) {
     if (!inc || typeof inc !== 'object' || Array.isArray(inc)) return 0;
     const s = store();
+    const mine = new Set(Object.keys(s));
     let n = 0;
     for (const [key, v] of Object.entries(inc).slice(0, KEEP)) {
       if (['__proto__', 'constructor', 'prototype'].includes(key) || !/^[\w:.-]{1,80}$/.test(key) || !v || typeof v !== 'object' || !v.d || typeof v.d !== 'object') continue;
       const ids = Object.keys(v.d).filter(id => DONE_ID.test(id)).slice(0, DONE_MAX);
       if (!ids.length) continue;
       const x = own(s, key) && s[key] && s[key].d && typeof s[key].d === 'object' ? s[key] : { d: {}, at: 0 };
-      for (const id of ids) x.d[id] = 1;
-      x.at = Math.max(Number(x.at) || 0, Number.isFinite(v.at) ? v.at : 0);
+      const fresh = ids.filter(id => !x.d[id]);
+      if (!fresh.length) continue;
+      for (const id of fresh) x.d[id] = 1;
+      x.at = Math.min(now, Math.max(Number(x.at) || 0, Number.isFinite(v.at) ? v.at : 0));
       s[key] = x;
       n++;
     }
-    const keys = Object.keys(s).filter(k => s[k] && typeof s[k] === 'object').sort((a, b) => (s[b].at || 0) - (s[a].at || 0));
-    for (const k of keys.slice(KEEP)) delete s[k];
-    try { localStorage.setItem(LS, JSON.stringify(s)); } catch (e) { /* plné nebo zakázané úložiště */ }
+    const extra = Object.keys(s).filter(k => !mine.has(k) && s[k] && typeof s[k] === 'object').sort((a, b) => (s[b].at || 0) - (s[a].at || 0));
+    for (const k of extra.slice(Math.max(0, KEEP - mine.size))) delete s[k];
+    if (n) try { localStorage.setItem(LS, JSON.stringify(s)); } catch (e) { /* plné nebo zakázané úložiště */ }
     return n;
   }
 

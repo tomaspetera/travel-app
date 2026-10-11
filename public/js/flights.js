@@ -1150,6 +1150,7 @@
     // vyhovujícím letem druhým směrem – ve všech pohledech (Lety, Kombinace, Kalendář), ne jen ve sloupcích.
     const fill = () => (exactRoute && res.query.trip === 'return' ? SearchHelp.fillLegs(base.filter(baseOk), visibleTrips(res.top || []), view.time, legOpts(res)) : []);
     filledNow = fill();
+    if (view.newOnly && (S.visited || []).length < SearchHelp.NEW_MIN) view.newOnly = false; // odškrtnuté země pod práh – filtr nic neschová
     const groups = computeGroups();
     const flat = isRoute ? shown.concat(filledNow).sort((a, b) => cmp(sortKey(a), sortKey(b))) : null;
     // filtrům vyhoví jen dvojice samostatných letenek, které ATLAS složil sám – říct to rovnou
@@ -2975,5 +2976,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, renderQuick, renderWatch, renderRadar, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey };
+  window.Flights = { init, warm, busy, renderQuick, renderWatch, renderRadar, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+    // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
+    refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi') rerender(true); } };
 })();

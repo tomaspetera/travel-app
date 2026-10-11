@@ -762,14 +762,19 @@ nic se neukládá na server a nepotřebuje to účet.
   otevře systémové sdílení (e-mail, Disk, Nearby Share…); soubor se posílá jako `.txt`, protože Chrome sdílí jen
   některé typy souborů (JSON ne). Obnova bere `.json` i `.txt`.
 - **📂 Obnovit ze zálohy** nejdřív ukáže, co by přibylo („2 cesty (1 nová, 1 změněná) · 1 hlídaná cena (1 nová) ·
-  4 země (3 nové)…“), a teprve **Sloučit** to přidá. **Nic nesmaže**: cesty, které už v zařízení jsou, zůstanou (stejná
-  cesta = stejné `tripId` z průvodce, jinak stejný plán); změněné přepíše jen zaškrtnuté „Přepsat změněné cesty“, domov
-  radaru jen „Převzít domov“ (když tu žádný není, převezme se sám). Hlídání se nezdvojí a vejde se jich nejvýš 12 jako
-  u ♡ Hlídat; navštívené země se sjednotí, odškrtnutí „Před cestou“ taky. Importovaná hlídání si nesou čas poslední
-  kontroly, takže je kontrolka nehledá víc než ta přidaná ručně.
+  4 země (3 nové)…“), a teprve **Sloučit** to přidá. **Nic nesmaže**: cesty, které už v zařízení jsou, zůstanou. Stejná
+  cesta = stejné `tripId` z průvodce, jinak stejné `pid` (stálé id, které cesta z plánovače dostane při první záloze –
+  upravená cesta se tak pozná jako *změněná*, ne jako nová kopie), jinak stejný plán. Změněné (i jen jinak odškrtnuté
+  „Sbaleno“) přepíše jen zaškrtnuté „Přepsat změněné cesty“ – a i pak zůstanou odškrtnutí a vlastní položky „Sbaleno“
+  z obou zařízení; domov radaru jen „Převzít domov“ (když tu žádný není, převezme se sám). Hlídání se nezdvojí (i s vlastní
+  spotřebou a cenou paliva u cesty autem) a vejde se jich nejvýš 12 jako u ♡ Hlídat; navštívené země se sjednotí,
+  odškrtnutí „Před cestou“ taky (cizí cesty nevytlačí odškrtnutí tohoto zařízení). Importovaná hlídání si nesou čas
+  poslední kontroly, takže je kontrolka nehledá víc než ta přidaná ručně. Když se sloučený stav do úložiště prohlížeče
+  nevejde, nesloučí se nic a ATLAS to řekne.
 - Soubor je **cizí vstup** (mohl ho poslat kdokoli): `public/js/backup.js` z něj postaví nové objekty jen se známými
-  poli – plány přes `PlanShare.sanitize` jako u sdíleného odkazu, cesty z průvodce přes `Trip.sanitizeTrip`, místa,
-  data, časy a čísla podle pevných pravidel; HTML, neznámé klíče a `__proto__` se nedostanou dál. Záloha z novější
+  poli – plány přes `PlanShare.sanitize` jako u sdíleného odkazu (s delšími limity: poznámky 20 000 znaků, aktivita
+  1 000, „Sbaleno“ 300 položek), cesty z průvodce přes `Trip.sanitizeTrip`, místa, data, časy, volby formuláře a čísla
+  podle pevných pravidel; HTML, neznámé klíče a `__proto__` se nedostanou dál. Záloha z novější
   verze ATLAS se odmítne s hláškou „aktualizuj aplikaci“.
 - Nepřenáší se rozpracovaná cesta v průvodci (uložené cesty v plánovači ji mají celou), uložené výsledky hledání
   a radaru, nedávná hledání, paměť cen, Objevuj a motiv.
