@@ -932,3 +932,96 @@ test('karta hotelu jiného zdroje (LiteAPI, DEMO) beze změny: „detail ↗“,
   assert.match(cardOf(html, 'Hotel Lite'), /<span class="st-bk"><a class="linkbtn" href="https:\/\/hotel\.example\/1" target="_blank" rel="noopener">detail ↗<\/a><\/span>/);
   for (const s of ['nic nenabízí', 'Ceny z', 'stayFresh', 'místních poplatků', 'st-otas']) assert.ok(!html.includes(s), s);
 });
+
+test('↻ Aktualizovat ceny: nabídky zůstanou, dokud nepřijdou nové; nepovedená aktualizace (výpadek sítě) je nechá s poznámkou a tlačítkem, příště se fresh=1 neposílá', async () => {
+  const now = Date.now();
+  const TR = [LIST_PRAGUE[2], [{ code: 'CtripTA', name: 'Trip.com', rate: 60 }, { code: 'Agoda', name: 'Agoda.com', rate: 70 }], now - 40 * 60e3];
+  const BK = [LIST_PRAGUE[0], [{ code: 'BookingCom', name: 'Booking.com', rate: 70 }], now - 30 * 60e3];
+  const first = xoteloReply([TR, BK]), fresh = xoteloReply([[BK[0], BK[1], now]]);
+  const NET = 'Server ATLAS je teď nedostupný – zkontroluj připojení k internetu a zkus to znovu.';
+  let reply = () => first;
+  const c = loadTrip((u) => reply(u));
+  const t = pragueTrip();
+  c.S.trip = t;
+  c.window.Trip.render();
+  await tick();
+  const stays = () => c.__urls.filter((u) => u.startsWith('api/stays?'));
+  const body = () => sp(c.__els['#stayBody'].innerHTML);
+  assert.ok(body().includes(`Ceny z ${hmOf(now - 40 * 60e3)}.`));
+  // klepnutí: hotely zůstanou, místo tlačítka „Aktualizuji ceny…“
+  reply = () => { throw new Error(NET); };
+  c.__els['#stayFresh'].onclick();
+  let html = body();
+  assert.ok(html.includes('<span class="st-upd"><span class="spin dark"></span> Aktualizuji ceny…</span>'), html.slice(0, 900));
+  assert.ok(html.includes('The Manes Boutique Hotel Prague') && html.includes('Mosaic House Design Hotel'));
+  assert.ok(!html.includes('id="stayFresh"'));
+  await tick();
+  // výpadek: dřívější nabídky s poznámkou, z kdy ceny jsou, a tlačítkem znovu – žádné „nepodařilo se načíst“ místo seznamu
+  html = body();
+  assert.equal(new URLSearchParams(stays().at(-1).slice(10)).get('fresh'), '1');
+  assert.ok(html.includes('The Manes Boutique Hotel Prague') && html.includes('Mosaic House Design Hotel'), html.slice(0, 900));
+  assert.ok(html.includes(`<b>Aktualizace se nepovedla</b>: ${NET.slice(0, -1)}. Ceny jsou z ${hmOf(now - 40 * 60e3)}.`), html.slice(0, 1200));
+  assert.ok(!html.includes(`Ceny z ${hmOf(now - 40 * 60e3)}.`), 'čas cen jen jednou');
+  assert.ok(!html.includes('Nabídky se nepodařilo načíst') && !html.includes('Aktualizuji'));
+  assert.match(html, /id="stayFresh"/);
+  // řazení překreslí seznam – poznámka zůstane
+  c.__els['#staySort'].onchange({ target: { value: 'price' } });
+  assert.ok(body().includes('Aktualizace se nepovedla'));
+  // návrat do kroku: dřívější nabídky z paměti prohlížeče, žádný další dotaz (natož potichu s fresh=1)
+  const n = stays().length;
+  t.step = 'car'; c.window.Trip.render(); t.step = 'stay'; c.window.Trip.render();
+  await tick();
+  assert.equal(stays().length, n);
+  assert.ok(body().includes('Mosaic House Design Hotel'));
+  // znovu ↻ a tentokrát vyjde: nové ceny, poznámka pryč
+  reply = () => fresh;
+  c.__els['#stayFresh'].onclick();
+  await tick();
+  html = body();
+  assert.equal(new URLSearchParams(stays().at(-1).slice(10)).get('fresh'), '1');
+  assert.ok(!html.includes('The Manes') && html.includes('Mosaic House'));
+  assert.ok(!html.includes('nepovedla') && html.includes(`Ceny z ${hmOf(now)}.`));
+  // mezitím jiný krok: odpověď nic nepřekreslí, po návratu do kroku ale nové ceny (bez dalšího dotazu)
+  let release;
+  reply = () => xoteloReply([[TR[0], TR[1], now], [BK[0], BK[1], now]]);
+  c.fetch = ((f) => async (u) => { await new Promise((r) => { release = r; }); return f(u); })(c.fetch);
+  c.__els['#stayFresh'].onclick();
+  t.step = 'car';
+  c.__els['#stayBody'].innerHTML = 'jiný krok';
+  release();
+  await tick(); await tick();
+  assert.equal(c.__els['#stayBody'].innerHTML, 'jiný krok');
+  const m = stays().length;
+  t.step = 'stay'; c.window.Trip.render();
+  await tick();
+  assert.equal(stays().length, m);
+  assert.ok(body().includes('The Manes Boutique Hotel Prague') && !body().includes('Aktualizuji'));
+});
+
+test('„Ceny z“ a poznámka o poplatcích jen z hotelů, které filtry ukazují (nejstarší z ukázaných)', async () => {
+  const now = Date.now();
+  const BK = [LIST_PRAGUE[0], [{ code: 'BookingCom', name: 'Booking.com', rate: 70 }], now - 26 * 3600e3]; // Mosaic: ceny ze včerejška
+  const TR = [LIST_PRAGUE[2], [{ code: 'CtripTA', name: 'Trip.com', rate: 60 }], now - 5 * 60e3]; // Manes
+  const AG = [LIST_PRAGUE[1], [{ code: 'Agoda', name: 'Agoda.com', rate: 200, tax: 20 }], now - 10 * 60e3]; // Hermitage: s daněmi
+  const reply = xoteloReply([BK, TR, AG]);
+  const c = loadTrip(() => reply);
+  c.S.trip = pragueTrip();
+  c.window.Trip.render();
+  await tick();
+  const body = () => sp(c.__els['#stayBody'].innerHTML);
+  assert.ok(body().includes(`Ceny z ${hmOf(now - 26 * 3600e3)}.`));
+  assert.ok(!body().includes('místních poplatků'), 'Agoda u Hermitage daně uvádí');
+  // max Kč/noc: Mosaic (starší ceny) i Hermitage (s daněmi) schované → čas cen z Manes, poznámka o poplatcích
+  const by = (n) => reply.items.find((h) => h.name === n);
+  const manes = by('The Manes Boutique Hotel Prague'), mosaic = by('Mosaic House Design Hotel'), herm = by('Hermitage Hotel Prague');
+  assert.ok(manes.pricePerNightCzk < mosaic.pricePerNightCzk && mosaic.pricePerNightCzk < herm.pricePerNightCzk);
+  c.__els['#stayMax'].onchange({ target: { value: String(manes.pricePerNightCzk) } });
+  let html = body();
+  assert.ok(html.includes('The Manes Boutique Hotel Prague') && !html.includes('Mosaic House') && !html.includes('Hermitage'), html.slice(0, 600));
+  assert.ok(html.includes(`Ceny z ${hmOf(now - 5 * 60e3)}.`), html.slice(0, 900));
+  assert.ok(html.includes('Cena bez místních poplatků (např. městská taxa), pokud je web neuvádí.'));
+  // filtrům nic neodpovídá → bez času i poznámky
+  c.__els['#stayMax'].onchange({ target: { value: '1' } });
+  html = body();
+  assert.ok(html.includes('Filtrům nic neodpovídá.') && !html.includes('Ceny z') && !html.includes('místních poplatků'));
+});

@@ -25,7 +25,9 @@
   let carsData = null;
   const staysCache = new Map(); // nabídky ubytování podle dotazu (místo|termín|osoby) – přepínání míst trasy
   let staysRetry = null; // klíč dotazu, který se má po „Zkusit znovu“ přepočítat (retry=1 – server přeskočí neúplný výsledek)
-  let staysFresh = null; // klíč dotazu po „Aktualizovat ceny“ (fresh=1 – server zjistí ceny hotelů znovu, ne z mezipaměti)
+  // ↻ Aktualizovat ceny (fresh=1 – server zjistí ceny hotelů znovu): { key, run: true } během dotazu, { key, fail: chyba }
+  // po nepovedeném – nabídky z dřívějška zatím zůstanou na obrazovce (freshStays)
+  let staysUpd = null;
   let staySlot = null; // kam se ukládá vybraný hotel: celý pobyt (t.stay), nebo jedno místo trasy (base.stay)
   let stayIdx = 0; // místo trasy v kroku Ubytování
   let progIdx = 0; // místo trasy v kroku Program
@@ -363,7 +365,8 @@
       if (done.length && !confirm(`Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
     }
     // Let z průběžných výsledků (pomalejší zdroje ještě hledaly): statistika cen i úroveň ceny letu jsou jen z části
-    // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz).
+    // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz). Statistika
+    // z průběžných výsledků (statsPart) zůstane v záloze pro případ, že konečný nepřijde (statsGiveUp).
     const part = Boolean(result.partial);
     S.trip = {
       v: 1,
@@ -373,7 +376,7 @@
       flight: part ? { ...t, priceLevel: undefined } : t,
       // „Je to dobrá cena?“ v kroku Let: ceny letenek z hledání, ze kterého let je (bez paměti tras – ta je v prohlížeči)
       priceStats: part ? null : statsFrom(g, result),
-      ...(part ? { statsWait: JSON.stringify(result.query) } : {}),
+      ...(part ? { statsWait: JSON.stringify(result.query), statsPart: statsFrom(g, result) } : {}),
       dest: { label: dest.label, country: dest.country, cc: dest.cc, lat: dest.lat, lon: dest.lon, id: dest.id },
       home: result.home ? result.home.label : null,
       // Cíl v dosahu vlaku/busu (odhad z hledání) → v kroku Let nabídka „Pojedu vlakem / busem“.
@@ -415,9 +418,24 @@
     t.priceStats = statsFrom(g, res);
     const same = f.id ? [...(res.top || []), ...(res.groups || []).flatMap(x => x.options || [])].find(x => x.id === f.id) : null;
     if (same && same.priceLevel) f.priceLevel = { ...same.priceLevel };
-    delete t.statsWait;
+    delete t.statsWait; delete t.statsPart;
     persist();
     const el = $('#tfPl'); if (el) { el.innerHTML = priceRow(t); wirePrice(t); } // krok Let na obrazovce: štítek hned
+    return true;
+  }
+  /**
+   * Hledání, na jehož konečný výsledek cesta čeká (statsWait), skončilo bez něj – zrušilo ho jiné hledání, selhalo, nebo
+   * se stránka mezitím zavřela: čekat dál nemá na co. Statistika cen z průběžných výsledků (statsPart), úroveň ceny letu
+   * se z ní dopočítá (PriceCheck.assess). query = dotaz skončeného hledání (JSON) – čekání na jiné nevzdá; bez něj
+   * (start aplikace – žádné hledání neběží) vzdá každé. → true = vzdáno.
+   */
+  function statsGiveUp(query = null) {
+    const t = S.trip;
+    if (!t || !t.statsWait || (query != null && query !== t.statsWait)) return false;
+    t.priceStats = t.statsPart || null;
+    delete t.statsWait; delete t.statsPart;
+    persist();
+    const el = $('#tfPl'); if (el) { el.innerHTML = priceRow(t); wirePrice(t); }
     return true;
   }
 
@@ -1078,17 +1096,16 @@
   /**
    * Nabídky ubytování (api/stays) pro místo a termín – v paměti, ať přepínání míst trasy nenačítá znovu (jen úplné
    * odpovědi). Po „Zkusit znovu“ s retry=1: server neúplný výsledek přepočítá hned (doptá se jen na chybějící ceny);
-   * po „Aktualizovat ceny“ s fresh=1 zjistí ceny hotelů znovu. got = kdy odpověď přišla.
+   * po „Aktualizovat ceny“ (fresh) s fresh=1 zjistí ceny hotelů znovu. got = kdy odpověď přišla, params = dotaz (pro fresh).
    */
-  async function loadStays(key, params) {
-    const retry = staysRetry === key, fresh = staysFresh === key;
+  async function loadStays(key, params, { fresh = false } = {}) {
+    const retry = staysRetry === key;
     if (!retry && !fresh && staysCache.has(key)) return staysCache.get(key);
     const r = await fetch('api/stays?' + new URLSearchParams({ ...params, ...(retry ? { retry: 1 } : {}), ...(fresh ? { fresh: 1 } : {}) }));
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
     if (retry) staysRetry = null;
-    if (fresh) staysFresh = null;
-    const d = { key, ...j, got: Date.now() };
+    const d = { key, ...j, got: Date.now(), params: { ...params } };
     if (staysIncomplete(d)) staysCache.delete(key);
     else staysCache.set(key, d);
     return d;
@@ -1296,6 +1313,23 @@
   // čas cen „14:05“ (čas zařízení), z jiného dne „10. 10. 14:05“
   const atTxt = ms => { const x = new Date(ms), hm = `${pad(x.getHours())}:${pad(x.getMinutes())}`; return x.toDateString() === new Date().toDateString() ? hm : `${x.getDate()}. ${x.getMonth() + 1}. ${hm}`; };
 
+  /**
+   * ↻ Aktualizovat ceny: nabídky zůstanou na obrazovce, dokud nepřijdou nové (fresh=1 – server zjistí ceny znovu, hotely,
+   * které se mezitím vyprodaly, zmizí); nepovede-li se to (výpadek sítě na telefonu, 429), zůstanou dřívější s poznámkou
+   * a tlačítkem znovu. Mezitím jiná cesta, krok, místo trasy nebo dotaz (jiné noci) → nic nepřekreslí.
+   */
+  async function freshStays(d) {
+    const t = T(), i = stayIdx;
+    staysUpd = { key: d.key, run: true };
+    renderStays();
+    let nd = null, fail = null;
+    try { nd = await loadStays(d.key, d.params, { fresh: true }); } catch (e) { fail = String((e && e.message) || ''); }
+    if (staysUpd && staysUpd.key === d.key) staysUpd = nd ? null : { key: d.key, fail };
+    if (nd && staysData && staysData.key === d.key) staysData = nd; // i když je uživatel jinde – po návratu nové ceny
+    if (T() !== t || t.step !== 'stay' || stayIdx !== i || !staysData || staysData.key !== d.key) return;
+    renderStays();
+  }
+
   function renderStays() {
     const host = $('#stayBody'); if (!host || !staysData) return;
     const d = staysData;
@@ -1316,7 +1350,7 @@
     const retryBtn = staysIncomplete(d) ? ' <button type="button" class="linkbtn" id="stayRetry">↻ Zkusit znovu</button>' : '';
     const wireRetry = () => {
       const b = $('#stayRetry'); if (b) b.onclick = () => { staysRetry = d.key; staysCache.delete(d.key); staysData = null; stayStep(); };
-      const f = $('#stayFresh'); if (f) f.onclick = () => { staysFresh = d.key; staysCache.delete(d.key); staysData = null; stayStep(); };
+      const f = $('#stayFresh'); if (f) f.onclick = () => freshStays(d);
     };
     if (!d.items.length) {
       // zdroj cen selhal (výpadek, odmítá dotazy…) ≠ místo bez nabídek; nestihly-li ceny přijít, řekni to
@@ -1334,13 +1368,17 @@
     // Xotelo: zdroj poctivě – orientační ceny z TripAdvisoru, rezervuje se u partnera; z kdy jsou (nejstarší z hotelů)
     // a „Aktualizovat ceny“ (server nejvýš jednou za 5 min – jinak refreshIn), bez daní u všech nabídek poznámka o poplatcích
     const xo = d.providers.find(p => p.id === 'xotelo' && p.ok && p.count);
-    const xoItems = d.items.filter(h => h.provider === 'xotelo');
+    // čas cen (nejstarší) a poplatky jen z hotelů, které filtry ukazují – skrytý hotel se staršími cenami nevadí
+    const xoItems = items.filter(h => h.provider === 'xotelo');
     const at = Math.min(...xoItems.map(h => +h.ratesAt || Infinity));
     const noTax = xoItems.length > 0 && xoItems.every(h => (h.rates || []).slice(0, 4).every(r => !r.tax));
     const wait = xo && xo.refreshIn ? Math.ceil((d.got + xo.refreshIn * 1e3 - Date.now()) / 60e3) : 0;
+    const upd = staysUpd && staysUpd.key === d.key ? staysUpd : null, fail = upd && upd.fail != null;
+    const failTxt = fail ? ` <b>Aktualizace se nepovedla</b>${upd.fail ? `: ${esc(upd.fail.replace(/[.!]$/, ''))}` : ''}.${at < Infinity ? ` Ceny jsou z ${atTxt(at)}.` : ' Ceny zůstaly dřívější.'}` : '';
     const again = !xo ? '' : xo.partial ? ` U některých hotelů ceny nestihly přijít – zkus to za chvíli znovu.${retryBtn}`
-      : `${xo.staleAll ? ' Ceny se teď aktualizovat nepodařilo, zůstaly dřívější.' : xo.stale ? ' Část cen se teď aktualizovat nepodařilo, zůstaly dřívější.' : ''}${wait > 0 ? ` Ceny se aktualizovaly před chvílí – znovu to půjde za ${wait} min.` : ' <button type="button" class="linkbtn" id="stayFresh" title="Zjistit ceny znovu – hotely, které se mezitím vyprodaly, zmizí">↻ Aktualizovat ceny</button>'}`;
-    const srcNote = xo ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>Ceny: TripAdvisor</b> (Booking, Agoda, Trip.com…) – orientační, ověř u partnera. Cena je nejlevnější nabídka za celý pobyt${roomsTxt(d)}, hodnocení hostů z TripAdvisoru (0–5).${noTax ? ' Cena bez místních poplatků (např. městská taxa), pokud je web neuvádí.' : ''}${at < Infinity ? ` Ceny z ${atTxt(at)}.` : ''}${again}</div></div>` : '';
+      : upd && upd.run ? ' <span class="st-upd"><span class="spin dark"></span> Aktualizuji ceny…</span>'
+      : `${fail ? failTxt : xo.staleAll ? ' Ceny se teď aktualizovat nepodařilo, zůstaly dřívější.' : xo.stale ? ' Část cen se teď aktualizovat nepodařilo, zůstaly dřívější.' : ''}${wait > 0 && !fail ? ` Ceny se aktualizovaly před chvílí – znovu to půjde za ${wait} min.` : ' <button type="button" class="linkbtn" id="stayFresh" title="Zjistit ceny znovu – hotely, které se mezitím vyprodaly, zmizí">↻ Aktualizovat ceny</button>'}`;
+    const srcNote = xo ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>Ceny: TripAdvisor</b> (Booking, Agoda, Trip.com…) – orientační, ověř u partnera. Cena je nejlevnější nabídka za celý pobyt${roomsTxt(d)}, hodnocení hostů z TripAdvisoru (0–5).${noTax ? ' Cena bez místních poplatků (např. městská taxa), pokud je web neuvádí.' : ''}${at < Infinity && !fail ? ` Ceny z ${atTxt(at)}.` : ''}${again}</div></div>` : '';
     // stupnice filtru podle zdroje: TripAdvisor 0–5 (3,5+ / 4+ / 4,5+ = 7+ / 8+ / 9+ na stupnici 0–10)
     const five = d.items.length > 0 && d.items.every(h => h.rating5 != null);
     host.innerHTML = `${testNote}${srcNote}<div class="stay-tools">
@@ -2004,7 +2042,8 @@
 
   /** JSON cesty do sdíleného odkazu (#trip=…, zkomprimovaný – sharelink.js): bez odškrtnutých rezervací a času založení. */
   function shareJson(t) {
-    const slim = { ...t, booked: {}, created: undefined, statsWait: undefined };
+    // let z průběžných výsledků, který na konečný výsledek ještě čeká: statistika z nich (jako statsGiveUp)
+    const slim = { ...t, booked: {}, created: undefined, ...(t.statsWait ? { priceStats: t.statsPart || null } : {}), statsWait: undefined, statsPart: undefined };
     // „Co zařídit a co sbalit“: aktivity, vlastní položky i odškrtnutí (ta jsou jinak jen v localStorage tohoto prohlížeče)
     if (window.PreTrip) slim.pretrip = PreTrip.shareState(t);
     if (t.route) {
@@ -2099,8 +2138,9 @@
     t.overland = cleanOverland(t.overland);
     t.groundRef = cleanGroundRef(t.groundRef);
     // „Je to dobrá cena?“: statistika jen s čísly a daty; úroveň ceny jen známá (štítek ji hledá v tabulce), jinak se dopočítá
-    t.priceStats = cleanPriceStats(t.priceStats);
-    delete t.statsWait; // cesta z odkazu, zálohy či uložená na konečný výsledek hledání v tomto prohlížeči nečeká
+    // cesta z odkazu, zálohy či uložená na konečný výsledek hledání v tomto prohlížeči nečeká (statistika z průběžných)
+    t.priceStats = cleanPriceStats(t.statsWait ? t.statsPart : t.priceStats);
+    delete t.statsWait; delete t.statsPart;
     const pl = t.flight.priceLevel;
     if (pl != null && !(okObj(pl) && ['low', 'normal', 'high'].includes(pl.level) && typeof pl.reason === 'string' && okFin(pl.ref, 0, 1e7) && okFin(pl.vsRef, -100, 1e5) && (pl.pos == null || okFin(pl.pos, 0, 100)))) delete t.flight.priceLevel;
     t.ccs = Array.isArray(t.ccs) ? [...new Set(t.ccs.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x)))].slice(0, 8) : undefined;
@@ -2301,5 +2341,8 @@
     }
   }
 
-  window.Trip = { start, finalStats, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn, legBack };
+  // Rozpracovaná cesta z minula čekala na konečný výsledek hledání, které už neběží (zavřená stránka) – při startu vzdát.
+  if (typeof S === 'object' && S && S.trip && S.trip.statsWait) statsGiveUp();
+
+  window.Trip = { start, finalStats, statsGiveUp, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn, legBack };
 })();

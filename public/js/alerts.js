@@ -21,7 +21,8 @@
      prodloužený víkend (eve: false = bez pravidla „v předvečer jen odlety od 16:00“) ---------- */
   // rozsah aspoň týden: každý den v týdnu v něm je vždy (kratší by se den ode dne posouval mimo dny odletu – pá–so by ve
   // středu hledal po–út a hlásil „zlevnilo“ proti víkendové ceně)
-  const ROLL = { off: 60, span: 180, min: 7 };
+  // next = nejvýš jaký odstup je na kartě „příštích …“ (radar hledá od dneška + 3)
+  const ROLL = { off: 60, span: 180, min: 7, next: 3 };
   const ymdMs = d => Date.parse(d + 'T12:00:00Z');
   const isYmd = d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(ymdMs(d));
   const plusDays = (d, n) => new Date(ymdMs(d) + n * 864e5).toISOString().slice(0, 10);
@@ -74,6 +75,23 @@
     return rollOk(r) ? r : null;
   }
   /**
+   * Hledání f (formulář s daty) je klouzavé hlídání s termínem roll = { off, span }, i když z jeho dat dnes vyjde jiný
+   * odstup (♥ Hlídáš, ♡ ho nezdvojí) – jen termín, ostatní pole hledání porovná klíč (searchKey). Formulář obnovený
+   * z minula (poslední hledání, Nedávno, uložené výsledky) má data ze dne hledání: z { off: 3 } uloženého včera dnes
+   * vyjde { off: 2 }. Stejný termín = rozsah, jaký hlídání mělo některý den od uložení (saved, 'YYYY-MM-DD') do dneška,
+   * i se začátkem, který už byl, posunutým na dnešek (Nedávno), nebo dnešní rozsah stejné délky se stejným odstupem –
+   * u „příštích …“ (odstup nejvýš 3 dny, karta je nerozliší) s kterýmkoli z nich.
+   */
+  function rollSame(roll, f, today, { saved = null } = {}) {
+    if (!rollOk(roll) || roll.lw || !f || f.trip === 'multi' || f.dateMode === 'exact' || f.depAfter || !isYmd(f.dFrom) || !isYmd(f.dTo) || f.dTo < f.dFrom || !isYmd(today)) return false;
+    const off = daysTo(today, f.dFrom);
+    if (off >= 0 && daysTo(f.dFrom, f.dTo) === roll.span && (off === roll.off || (off <= ROLL.next && roll.off <= ROLL.next))) return true;
+    if (!isYmd(saved)) return false;
+    // den, kdy rozsah hlídání končil f.dTo, a začátek rozsahu toho dne
+    const day = plusDays(f.dTo, -(roll.off + roll.span)), start = plusDays(day, roll.off);
+    return day >= saved && day <= today && (f.dFrom === start || (start < today && f.dFrom === today));
+  }
+  /**
    * Kdy bylo hlídání w uložené (ms, „převést na klouzavé“ – odstup jako v den uložení): id = Date.now().toString(36)
    * (věrohodný čas od roku 2020 do now + den – hodiny jiného zařízení), jinak první bod historie – ta drží jen
    * posledních 60 kontrol, takže u starších hlídání už den uložení není; z obou dřívější. Bez nich null.
@@ -96,7 +114,7 @@
     }
     const n = r.span, w = n % 7 || n === 7 ? 0 : n / 7;
     // „příštích …“ jen se začátkem nejvýš za 3 dny (radar hledá od dneška + 3), jinak rozsah ve dnech od dneška („odlet za 5–61 dní“)
-    return `vždy ${r.off > 3 ? `odlet za ${r.off}–${r.off + n} dní` : w ? (w <= 4 ? `příští ${w} týdny` : `příštích ${w} týdnů`) : `příštích ${n} dní`}${now ? ` (teď ${dm(f.dFrom)}–${dm(f.dTo)})` : ''}`;
+    return `vždy ${r.off > ROLL.next ? `odlet za ${r.off}–${r.off + n} dní` : w ? (w <= 4 ? `příští ${w} týdny` : `příštích ${w} týdnů`) : `příštích ${n} dní`}${now ? ` (teď ${dm(f.dFrom)}–${dm(f.dTo)})` : ''}`;
   }
 
   /** Dlouho nekontrolované hledání (nebo ještě nikdy). */
@@ -358,5 +376,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, rollOk, rolls, rollForm, rollSpec, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
+  window.Alerts = { CFG, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
 })();
