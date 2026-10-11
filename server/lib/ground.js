@@ -167,8 +167,10 @@ const roundCzk = (x) => (x < 1000 ? Math.round(x / 10) * 10 : Math.round(x / 50)
  *    a k tomu až hodina na přestupy a noční spoje (Curych 55, Amsterdam 58, Benátky 45, Paříž 69);
  *  - nejnižší cena: do 450 km ~120 Kč + 0,62 Kč/km (280–400 Kč), dál rychle stoupá (méně dopravců,
  *    noční spoje) až k ~400 Kč + 0,86 Kč/km (Curych 849, Benátky 979, Amsterdam 1 098, Paříž 1 158 Kč);
- *    cheap = cesta jen po Česku, Slovensku, Polsku, Maďarsku a Ukrajině – tam levné vlaky jezdí i dál
- *    (RegioJet 10/2026: Praha–Košice i Praha–Varšava od 499 Kč, Praha–Lvov od 389 Kč), cena roste dál pomalu.
+ *    cheap = cesta jen po Česku, Slovensku, Polsku, Maďarsku a Ukrajině mezi městy RegioJetu – tam levné vlaky
+ *    jezdí i dál (RegioJet 10/2026: Praha–Košice i Praha–Varšava od 499 Kč, Praha–Lvov od 389 Kč), cena roste
+ *    dál pomalu; kam RegioJet nejezdí (Gdaňsk, Poznaň – jen FlixBus), platí dražší model (Praha–Gdaňsk FlixBus
+ *    10/2026 ~900 Kč jedním směrem, levný východ by dal ~460 Kč).
  */
 export function distanceModel(km, slow = 1, cheap = false) {
   const far = Math.max(0, km - 450);
@@ -177,6 +179,8 @@ export function distanceModel(km, slow = 1, cheap = false) {
   return { minutes: round5(Math.max(45, minutes)), czk: roundCzk(Math.max(150, czk)) };
 }
 export const CHEAP_CC = new Set(['CZ', 'SK', 'PL', 'HU', 'UA']);
+/** Levný východ: obě místa v CHEAP_CC a obě ve městech RegioJetu (rj) – jinde (jen FlixBus) dražší model. */
+export const cheapEast = (a, b) => Boolean(a?.rj && b?.rj) && CHEAP_CC.has(String(a.cc || '').toUpperCase()) && CHEAP_CC.has(String(b.cc || '').toUpperCase());
 
 // Do Švédska a Norska se z pevniny jede po souši přes Øresundský most (Kodaň–Malmö), do Norska dál přes
 // Göteborg a Oslo – přímka přes Baltské moře nebo Skagerrak by cestu zkrátila (Praha–Kalmar, Kristiansand).
@@ -241,8 +245,7 @@ export function estimate(a, b) {
   const m = other && MEASURED[other];
   if (m) return { ok: true, km, minutes: m.min, czk: m.czk, basis: 'measured', measuredAt: MEASURED_DATE };
   const hills = mountainsOn(a, b);
-  const cheap = CHEAP_CC.has(String(a.cc || '').toUpperCase()) && CHEAP_CC.has(String(b.cc || '').toUpperCase());
-  return { ok: true, km, ...distanceModel(land, hills ? MOUNTAIN_SLOW : 1, cheap), basis: 'distance', ...(hills ? { hills } : {}) };
+  return { ok: true, km, ...distanceModel(land, hills ? MOUNTAIN_SLOW : 1, cheapEast(a, b)), basis: 'distance', ...(hills ? { hills } : {}) };
 }
 
 /** „4 h 20“, „45 min“ */
