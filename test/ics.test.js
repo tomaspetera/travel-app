@@ -297,11 +297,54 @@ test('Plánovač: dny cesty přes změnu času – žádný den dvakrát ani chy
       for (const [a, b, n] of [['2026-03-27', '2026-03-31', 5], ['2026-03-06', '2026-03-10', 5], ['2026-10-02', '2026-10-06', 5], ['2026-10-23', '2026-10-27', 5], ['2026-07-01', '2026-07-01', 1]]) {
         assert.deepEqual([...dateRange(a, b)], days(a, n), `${tz}: ${a} – ${b}`);
       }
-      assert.equal(dateRange('2026-01-01', '2026-12-31').length, 31, 'nejvýš 31 dní');
+      // celá cesta i přes měsíc (dny 32+ v itineráři i v .ics); strop jako PlanShare.sanitize (366 dní mezi daty)
+      assert.deepEqual([...dateRange('2026-11-10', '2026-12-21')], days('2026-11-10', 42), `${tz}: 42 dní`);
+      assert.equal(dateRange('2026-01-01', '2026-12-31').length, 365, 'celý rok');
+      assert.equal(dateRange('2026-01-01', '2028-12-31').length, 367, 'nejvýš 367 dní');
     }
   } finally {
     if (tz0 === undefined) delete process.env.TZ; else process.env.TZ = tz0;
   }
+});
+
+test('Plánovač: cesty z jiného panelu – nezměněné zůstanou tytéž objekty, upravená na svém místě se přepíše na místě', () => {
+  // adoptTrips z app.js: okno cesty a rozepsaná poznámka drží cestu jako objekt (po smazání dřívější cesty ne jinou)
+  const src = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8').match(/^function adoptTrips\([\s\S]*?^}$/m)[0];
+  const ctx = vm.createContext({ S: {} });
+  const adopt = vm.runInContext(src + '; adoptTrips', ctx);
+  const T = (name, o = {}) => ({ name, days: {}, notes: '', ...o });
+  const copy = (a) => JSON.parse(JSON.stringify(a));
+  const x = T('X'), y = T('Y'), z = T('Z');
+  // jinde smazaná první cesta: Y a Z tytéž objekty na nových místech
+  ctx.S.trips = [x, y, z];
+  let out = adopt(copy([y, z]));
+  assert.equal(out.length, 2);
+  assert.ok(out[0] === y && out[1] === z, 'posunuté cesty zůstanou tytéž objekty');
+  // jinde upravená cesta (stejný počet): přepíše se na místě (i bez smazaných klíčů), ostatní beze změny
+  ctx.S.trips = [x, y, z];
+  y.notes = 'stará';
+  out = adopt([T('X'), T('Y', { budget: '5' }), T('Z')]);
+  assert.ok(out[0] === x && out[1] === y && out[2] === z, 'tytéž objekty');
+  assert.equal(JSON.stringify(y), JSON.stringify(T('Y', { budget: '5' })), 'obsah upravené cesty převzatý');
+  // nová cesta navíc: dosavadní tytéž, nová jako nový objekt
+  ctx.S.trips = [x, y];
+  const w = T('W');
+  out = adopt([copy(x), copy(y), w]);
+  assert.ok(out[0] === x && out[1] === y && out[2] === w);
+  // jiný počet a upravená cesta: bez přepsání na místě (nevíme, která je která)
+  ctx.S.trips = [x, y, z];
+  const y2 = T('Y', { budget: '9' });
+  out = adopt([y2, copy(z)]);
+  assert.ok(out[0] === y2 && out[1] === z && y.budget === '5', 'Y z jiného panelu jako nový objekt, stará Y nezměněná');
+  // dvě stejné cesty: každý starý objekt jen jednou
+  const a1 = T('A'), a2 = T('A');
+  ctx.S.trips = [a1, a2];
+  out = adopt([T('A'), T('A')]);
+  assert.ok(out[0] === a1 && out[1] === a2);
+  // poškozený starý stav (není pole) – převezme se, co přišlo
+  ctx.S.trips = null;
+  out = adopt([T('Q')]);
+  assert.equal(out[0].name, 'Q');
 });
 
 test('index.html: ics.js, sharelink.js a planshare.js se načtou před skripty, které je používají', () => {
