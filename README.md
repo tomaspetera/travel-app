@@ -306,8 +306,15 @@ Krok **Ubytování** ukazuje hotely s cenou na tvoje data a hodnocením hostů z
   hotelu…) za pokoj a noc; ATLAS z nich ukáže nejlevnější cenu za celý pobyt (× pokoje × noci, z EUR na Kč) a pod ní
   ceny u webů („Agoda 9 300 Kč · Booking.com 10 500 Kč…“). Hodnocení je TripAdvisoru 0–5 („4,6/5 (4 045 hodnocení)“,
   odkaz na recenze), filtr se pak přepne na 3,5+ / 4+ / 4,5+. Ceny jsou **orientační** – rezervuje se u partnera
-  (tlačítko vede na hledání hotelu na Booking.com na tvoje data, s partnerským ID, je-li nastavené – pak je u něj
-  štítek „reklama“ jako u ostatních partnerských odkazů, i ve shrnutí cesty) a tam cenu ověř.
+  a tam cenu ověř. Hotel bez jediné nabídky (na tvoje dny vyprodaný) se neukáže.
+  **Odkazy:** tlačítko u hotelu vede na web **nejlevnější nabídky** – Booking.com, Trip.com, Hotels.com nebo Expedia
+  (hledání „hotel, místo“ na tvoje data; Trip.com vyplní formulář, hledání se potvrdí), u webů bez spolehlivého odkazu
+  na konkrétní hotel (Agoda, Vio.com, web hotelu…) **porovnat ceny ↗** = Google Hotels se živými cenami hotelu u všech
+  webů na tvoje data. Stejně vedou ceny u webů pod hotelem. **Booking.com ↗** (s partnerským ID, je-li nastavené – pak
+  se štítkem „reklama“ jako u ostatních partnerských odkazů) je u hotelu, jen když tam na tvoje dny nabídka je; jinak
+  „Booking.com na tvoje dny nic nenabízí“ – Booking by hotel ukázal vyprodaný, i když ho jiný web ještě prodává.
+  Vybraný hotel si pamatuje hlavní odkaz, takže ho „co zarezervovat“ ve shrnutí cesty otevře tam, kde pokoj je
+  (dřív uložené hotely si nechají svůj odkaz).
 - **LiteAPI** (volitelně, s ostrým klíčem `LITEAPI_KEY`) – má přednost před Xotelem. Testovací klíč (`sand_…`) dává
   smyšlené hotely, ATLAS je v ostrém provozu neukazuje a použije Xotelo.
 
@@ -344,9 +351,18 @@ Na Xotelo jde naráz nejvýš 5 dotazů ze všech hledání, z jednoho hledání
 míst trasy, víc lidí) se ve frontě střídají, takže žádné nezůstane bez cen. Co nestihne, chybí: částečný výsledek je
 v mezipaměti jen 5 min a prohlížeč si ho nepamatuje (návrat do kroku se zeptá znovu); **Zkusit znovu** ho přepočítá
 hned a doptá se jen na chybějící ceny. Když na ceny nezbyl čas vůbec, je to „ceny nestihly přijít“, ne chyba zdroje.
-Mezipaměť: ID místa 30 dní (nenalezené 1 den), seznam hotelů 24 h, ceny hotelu 6 h (podle hotelu, termínu, dospělých
+Mezipaměť: ID místa 30 dní (nenalezené 1 den), seznam hotelů 24 h, ceny hotelu 2 h (podle hotelu, termínu, dospělých
 a pokojů), celé hledání 45 min. Druhé hledání téhož místa a termínu tak na Xotelo nejde vůbec (ceny hotelů ani po
-45 min, dokud platí jejich 6 h). Ostrý test (`/api/diag`) pošle jeden malý seznam (Vídeň).
+45 min, dokud platí jejich 2 h). Ostrý test (`/api/diag`) pošle jeden malý seznam (Vídeň).
+
+**Jak čerstvé:** TripAdvisor ceny obnovuje se zpožděním a hotel se mezitím může vyprodat. Poznámka nad hotely proto
+říká, z kdy ceny jsou („Ceny z 14:05“ – nejstarší z hotelů, čas zařízení, z jiného dne i s datem), a **↻ Aktualizovat
+ceny** je zjistí znovu: server pro ten dotaz vynechá mezipaměť cen (místo i seznam hotelů z ní zůstanou, jiné dotazy na
+Xotelo než ceny těch nejvýš 12 hotelů nejdou) a hotely, které teď nemají nabídku, zmizí. Na jedno místo a termín nejvýš
+jednou za 5 min – jinak výsledek z mezipaměti s poznámkou, za kolik to půjde; fronta i pojistka platí jako jindy, a co
+se aktualizovat nepovede, zůstane z dřívějška („Část cen se teď aktualizovat nepodařilo“). Když u žádné ukázané
+nabídky TripAdvisor neuvádí daně a poplatky, poznámka dodá „Cena bez místních poplatků (např. městská taxa), pokud je
+web neuvádí“. LiteAPI ani ukázková data (DEMO) se to netýká.
 
 ## Je to dobrá cena?
 
@@ -1273,8 +1289,9 @@ a na letiště je v dopravě z letiště do města).
   jede, výluky, zpoždění ani změny jízdního řádu po 12. 12. 2026 v ní nejsou; živé jízdní řády ATLAS nenačítá) – konkrétní
   spoj ověř přes odkaz. Země bez kódu z Wikidat se dopočítá podle nejbližšího letiště, takže
   u místa těsně u hranice může vyjít sousední země (Basilej → Francie).
-- Ceny hotelů z Xotela (TripAdvisor) jsou orientační – web je u rezervace může mít jinak (daně, poplatky, jiný pokoj);
-  ATLAS je přepočítá z EUR aktuálním kurzem. Xotelo je neoficiální API: může zpomalit, omezit dotazy nebo skončit
+- Ceny hotelů z Xotela (TripAdvisor) jsou orientační – web je u rezervace může mít jinak (daně, poplatky, jiný pokoj)
+  a hotel se od zjištění ceny (až 2 h, TripAdvisor sám se zpožděním) mohl vyprodat – proto „Ceny z …“ a ↻ Aktualizovat
+  ceny; ATLAS je přepočítá z EUR aktuálním kurzem. Xotelo je neoficiální API: může zpomalit, omezit dotazy nebo skončit
   (pak zůstanou odkazy). Místo na TripAdvisoru se hledá ve Wikidatech, kde ID chybí u řady měst (u velkých měst ho
   doplní tabulka) – takové místo dostane jen odkazy. Ceny se zjišťují jen pro 12 hotelů do 15 km od místa.
 - Odkazy na partnery ubytování: Booking.com, Airbnb, Hotels.com, Kayak a Google Hotels dostanou místo, data i počet hostů
