@@ -447,7 +447,11 @@
       const left = (extra.origins || []).filter(o => !v.excludeOrigins.has(o));
       out.push({ key: 'origins', label: left.length === 1 && extra.origins.length > 2 ? `jen z ${left[0]}` : `bez ${[...v.excludeOrigins].join(', ')}` });
     }
-    if (v.carriers && v.carriers.size) out.push({ key: 'carriers', label: `jen ${[...v.carriers].map(c => names[c] || c).join(', ')}` });
+    if (v.excludeCarriers && v.excludeCarriers.size) {
+      // vypnuté aerolinky; zbyla z aerolinek ve výsledcích jediná → „jen X“ (aerolinka, která přibude později, vidět bude)
+      const used = extra.carriers || [], left = used.filter(c => !v.excludeCarriers.has(c)), nm = c => names[c] || c;
+      out.push({ key: 'carriers', label: left.length === 1 && used.length > 2 ? `jen ${nm(left[0])}` : `bez ${[...v.excludeCarriers].map(nm).join(', ')}` });
+    }
     return out.concat(timeChips(v.time, time));
   }
 
@@ -1546,7 +1550,17 @@
     return f.dFrom && f.dFrom >= today ? f : { ...f, dFrom: today };
   }
 
+  /**
+   * „Jen lety odsud“ (Odkud se vyplatí letět): vyřazená všechna letiště výsledku kromě only – i ta, která přibyla
+   * s dalším výsledkem téhož hledání. Letiště only ve výsledku není → vyřazení beze změny (jinak by schovalo vše).
+   */
+  function onlyOriginSet(only, origins, excluded = new Set()) {
+    if (!origins.includes(only)) return excluded;
+    return new Set([...excluded, ...origins].filter(x => x !== only));
+  }
+
   window.SearchHelp = {
+    onlyOriginSet,
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,

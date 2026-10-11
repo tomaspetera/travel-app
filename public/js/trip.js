@@ -363,7 +363,8 @@
       if (done.length && !confirm(`Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
     }
     // Let z průběžných výsledků (pomalejší zdroje ještě hledaly): statistika cen i úroveň ceny letu jsou jen z části
-    // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz).
+    // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz). Statistika
+    // průběžného výsledku čeká stranou (statsPreview) pro případ, že hledání konečný výsledek nepřinese (statsGiveUp).
     const part = Boolean(result.partial);
     S.trip = {
       v: 1,
@@ -373,7 +374,7 @@
       flight: part ? { ...t, priceLevel: undefined } : t,
       // „Je to dobrá cena?“ v kroku Let: ceny letenek z hledání, ze kterého let je (bez paměti tras – ta je v prohlížeči)
       priceStats: part ? null : statsFrom(g, result),
-      ...(part ? { statsWait: JSON.stringify(result.query) } : {}),
+      ...(part ? { statsWait: JSON.stringify(result.query), statsPreview: statsFrom(g, result) } : {}),
       dest: { label: dest.label, country: dest.country, cc: dest.cc, lat: dest.lat, lon: dest.lon, id: dest.id },
       home: result.home ? result.home.label : null,
       // Cíl v dosahu vlaku/busu (odhad z hledání) → v kroku Let nabídka „Pojedu vlakem / busem“.
@@ -406,20 +407,42 @@
   const statsFrom = (g, res) => { const st = (g && g.priceStats) || res.priceStats; return st ? { ...st, mins: undefined } : null; };
   /**
    * Konečný výsledek hledání (volá flights.js): cesta vybraná z jeho průběžných výsledků (statsWait = dotaz hledání) dostane
-   * statistiku cen cíle a úroveň ceny letu z něj (let v něm není → úroveň se dopočítá ze statistiky). → true = doplněno.
+   * statistiku cen cíle a úroveň ceny letu z něj (let v něm není → úroveň se dopočítá ze statistiky). Totéž, když hledání
+   * dřív skončilo bez něj (statsPart = jeho dotaz) a teď doběhlo znovu. → true = doplněno.
    */
   function finalStats(res) {
-    const t = S.trip;
-    if (!t || !t.statsWait || !res || res.partial || !res.query || JSON.stringify(res.query) !== t.statsWait) return false;
+    const t = S.trip, wait = t && (t.statsWait || t.statsPart);
+    if (typeof wait !== 'string' || !res || res.partial || !res.query || JSON.stringify(res.query) !== wait) return false;
     const f = t.flight, g = f.destKey ? (res.groups || []).find(x => x.dest.key === f.destKey) : null;
     t.priceStats = statsFrom(g, res);
     const same = f.id ? [...(res.top || []), ...(res.groups || []).flatMap(x => x.options || [])].find(x => x.id === f.id) : null;
     if (same && same.priceLevel) f.priceLevel = { ...same.priceLevel };
-    delete t.statsWait;
+    delete t.statsWait; delete t.statsPreview; delete t.statsPart;
     persist();
-    const el = $('#tfPl'); if (el) { el.innerHTML = priceRow(t); wirePrice(t); } // krok Let na obrazovce: štítek hned
+    showPriceRow(t); // krok Let na obrazovce: štítek hned
     return true;
   }
+  // Na konečný výsledek už se nečeká: statistika z průběžného výsledku, ze kterého je let, s poznámkou (statsPart).
+  function giveUpStats(t) {
+    if (t.statsWait) {
+      if (!t.priceStats && t.statsPreview) t.priceStats = t.statsPreview;
+      t.statsPart = t.statsWait;
+    }
+    delete t.statsWait; delete t.statsPreview;
+  }
+  /**
+   * Hledání, ze kterého je let vybraný z průběžných výsledků, skončilo bez konečného výsledku (zrušilo ho jiné hledání,
+   * selhalo – volá flights.js s jeho dotazem): „Je to dobrá cena?“ aspoň z průběžného výsledku, ne nikdy. → true = vzdáno.
+   */
+  function statsGiveUp(query) {
+    const t = S.trip;
+    if (!t || !t.statsWait || query !== t.statsWait) return false;
+    giveUpStats(t);
+    persist();
+    showPriceRow(t);
+    return true;
+  }
+  function showPriceRow(t) { const el = $('#tfPl'); if (el) { el.innerHTML = priceRow(t); wirePrice(t); } }
 
   function setStep(step) {
     if (!T()) return;
@@ -480,10 +503,11 @@
   }
 
   // „Je to dobrá cena?“ u vybraného letu: úroveň ceny ze serveru, u živé nabídky (Ověřit) dopočítaná ze statistiky hledání;
-  // let z průběžných výsledků až s konečným výsledkem hledání (statsWait, finalStats)
+  // let z průběžných výsledků až s konečným výsledkem hledání (statsWait, finalStats); hledání bez něj skončilo
+  // (statsPart) → z průběžného výsledku a s poznámkou
   function priceRow(t) {
     const pl = !t.statsWait && window.PriceCheck && window.Flights && Flights.priceTag ? PriceCheck.assess(t.flight, t.priceStats || null) : null;
-    return pl ? `<div class="tf-price">${Flights.priceTag(t.flight, null, pl)}<span class="faint">${esc(pl.reason)}</span><button type="button" class="linkbtn" id="tfPrice">Je to dobrá cena?</button></div>` : '';
+    return pl ? `<div class="tf-price">${Flights.priceTag(t.flight, null, pl)}<span class="faint">${esc(pl.reason)}${t.statsPart ? ' · podle průběžných výsledků, hledání nedoběhlo' : ''}</span><button type="button" class="linkbtn" id="tfPrice">Je to dobrá cena?</button></div>` : '';
   }
   function wirePrice(t) {
     const pb = $('#tfPrice'); if (pb) pb.onclick = () => Flights.priceCheck(t.flight, { stats: t.priceStats || null, label: t.dest.label, inResults: false });
@@ -2004,7 +2028,7 @@
 
   /** JSON cesty do sdíleného odkazu (#trip=…, zkomprimovaný – sharelink.js): bez odškrtnutých rezervací a času založení. */
   function shareJson(t) {
-    const slim = { ...t, booked: {}, created: undefined, statsWait: undefined };
+    const slim = { ...t, booked: {}, created: undefined, statsWait: undefined, statsPreview: undefined, statsPart: t.statsPart ? true : undefined };
     // „Co zařídit a co sbalit“: aktivity, vlastní položky i odškrtnutí (ta jsou jinak jen v localStorage tohoto prohlížeče)
     if (window.PreTrip) slim.pretrip = PreTrip.shareState(t);
     if (t.route) {
@@ -2100,7 +2124,11 @@
     t.groundRef = cleanGroundRef(t.groundRef);
     // „Je to dobrá cena?“: statistika jen s čísly a daty; úroveň ceny jen známá (štítek ji hledá v tabulce), jinak se dopočítá
     t.priceStats = cleanPriceStats(t.priceStats);
-    delete t.statsWait; // cesta z odkazu, zálohy či uložená na konečný výsledek hledání v tomto prohlížeči nečeká
+    // Cesta z odkazu, zálohy či uložená na konečný výsledek hledání v tomto prohlížeči nečeká: let z průběžných výsledků
+    // má statistiku z nich a poznámku (statsPart – jen příznak, dotaz hledání se dál nepáruje).
+    t.statsPreview = cleanPriceStats(t.statsPreview);
+    giveUpStats(t);
+    if (t.statsPart) t.statsPart = true; else delete t.statsPart;
     const pl = t.flight.priceLevel;
     if (pl != null && !(okObj(pl) && ['low', 'normal', 'high'].includes(pl.level) && typeof pl.reason === 'string' && okFin(pl.ref, 0, 1e7) && okFin(pl.vsRef, -100, 1e5) && (pl.pos == null || okFin(pl.pos, 0, 100)))) delete t.flight.priceLevel;
     t.ccs = Array.isArray(t.ccs) ? [...new Set(t.ccs.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x)))].slice(0, 8) : undefined;
@@ -2301,5 +2329,8 @@
     }
   }
 
-  window.Trip = { start, finalStats, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn, legBack };
+  // Aplikace zavřená nebo znovu načtená dřív, než hledání doběhlo: na jeho konečný výsledek už cesta nepočká.
+  if (typeof S !== 'undefined' && S && S.trip && S.trip.statsWait) { giveUpStats(S.trip); persist(); }
+
+  window.Trip = { start, finalStats, statsGiveUp, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn, legBack };
 })();

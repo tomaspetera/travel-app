@@ -1036,20 +1036,26 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 
 - **Kamkoliv**: Ryanair a Travelpayouts vrátí nejlevnější lety do všech destinací jedním dotazem na letiště.
   Wizz Air se prochází trasu po trase v rámci rozpočtu dotazů. Když Ryanair vrátí termín, který nesedí na zadaný
-  počet nocí nebo dny v týdnu, ATLAS dohledá ceny po dnech a termín složí přesně. Až doběhnou všechny zdroje, složí
-  z živých letů tam a zpět, které už má (Ryanair, Wizz Air – ne ceny z mezipaměti Travelpayouts, ani dohledané po dnech,
-  ani celé zpáteční letenky), i kombinace dvou aerolinek a letišť: pro každý cíl 3 nejlevnější a z nich do výpisu ty,
-  které zdroje samy nenabídly (jen v konečném výsledku, ne v průběžném). Stáří ceny z paměti tras Wizz Air (*⏱ cena
-  před 2 h*) zůstane u kombinace podle staršího letu; „Je to dobrá cena?“ počítá dál jen z nabídek zdrojů.
+  počet nocí nebo dny v týdnu, ATLAS dohledá ceny po dnech a termín složí přesně. Z živých letů tam a zpět, které už
+  má (Ryanair, Wizz Air – ne ceny z mezipaměti Travelpayouts, ani dohledané po dnech, ani celé zpáteční letenky), složí
+  i kombinace dvou aerolinek a letišť: pro každý cíl 3 nejlevnější a z nich do výpisu ty, které zdroje samy nenabídly
+  (jen v konečném výsledku, ne v průběžném). Lety k tomu drží po cílech jen nejlevnější let trasy a dne, průběžně zahodí
+  ty, které mezi 3 nejlevnější kombinace cíle už patřit nemůžou, a cíl složí, jakmile do něj žádný zdroj nic nepřinese –
+  široké hledání tak nedrží v paměti všechny stažené lety do konce (výsledek je stejný jako ze všech najednou). Stáří ceny
+  z paměti tras Wizz Air (*⏱ cena před 2 h*) zůstane u kombinace podle staršího letu; „Je to dobrá cena?“ počítá dál jen
+  z nabídek zdrojů.
 - **Konkrétní cíl**: Ryanair a Wizz Air stáhnou ceny po dnech oběma směry pro každou dvojici letišť (domov × cíl), Kiwi
   jedním dotazem na týden ze všech letišť v okolí na všechna cílová (bez Ryanairu a Wizz Air, ty jsou z vlastních zdrojů –
   ve výsledcích Kiwi tak zbude místo pro easyJet, Vueling, Smartwings a další) a optimalizátor najde nejlevnější
   kombinace v rámci počtu nocí – včetně návratu na jiné letiště v okolí.
 - **Průběžné výsledky**: když rychlejší zdroj doběhne a pomalejší (hlavně Kiwi.com) ještě hledá, ukáže se výpis už po
   pár sekundách pod pruhem *Průběžné výsledky – Kiwi.com ještě hledá (12/30)…* a průběžně se doplňuje (filtry, pohled,
-  rozbalené nabídky, přiblížená mapa s otevřeným cílem, fokus klávesnice i místo na stránce zůstanou; pod prstem ani pod
-  otevřeným oknem se nepřekreslí), přičemž ♡ hlídání, paměť cen, nedávná a uložená hledání, ověřování živě i „Je to dobrá
-  cena?“ u letu vybraného z náhledu berou až konečný výsledek – stejný, jako kdyby náhledy nebyly.
+  rozbalené nabídky, přiblížená mapa s otevřeným cílem, fokus klávesnice i místo na stránce zůstanou – ve sloupcích
+  *✈︎ Lety* let, na který se díváš; pod prstem ani pod otevřeným oknem se nepřekreslí). Filtr letišť a aerolinek vyřazuje:
+  aerolinka nebo letiště, které přibude až s dalším výsledkem, je vidět (jen *jen lety odsud* platí i pro nová letiště).
+  ♡ hlídání, paměť cen, nedávná a uložená hledání, ověřování živě i „Je to dobrá cena?“ u letu vybraného z náhledu berou
+  až konečný výsledek – stejný, jako kdyby náhledy nebyly; když hledání skončí bez něj (zrušené jiným hledáním, chyba,
+  zavřená aplikace), má let „Je to dobrá cena?“ aspoň ze statistiky náhledu s poznámkou *podle průběžných výsledků*.
 - **Doprava na letiště** je odhad (`server/lib/access.js`): veřejnou dopravou vlak/bus do města letiště + cesta na letiště
   + příplatek přes hranici, autem palivo nebo nabíjení (spotřeba × aktuální cena z `server/lib/fuel.js`) + parkování podle
   počtu nocí (přičítá optimalizátor k celé cestě) + známky – viz [Doprava na letiště](#doprava-na-letiště).
