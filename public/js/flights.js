@@ -910,6 +910,7 @@
       fitMode(res);
       renderProgress({ providers: res.providers }, false, res);
       renderResults();
+      if (!health && healthNow) healthNow(); // stav serveru při startu nedorazil – hledání prošlo, server žije: načíst hned
       autoVerify(res); // ceny z mezipaměti mezi prvními cíli živě v pozadí
       S.recent = SearchHelp.recentAdd(S.recent, { form: f, at: lastResultAt }, watchKey); save(); renderRecent();
       const at = lastResultAt;
@@ -3137,7 +3138,8 @@
 
   // Stav serveru (aerolinky, DEMO, kurz) se začne stahovat hned při startu aplikace (app.js) souběžně s daty zemí.
   let healthReq = null;
-  // nepovedený dotaz se nepamatuje – další warm() (po návratu online) se serveru zeptá znovu
+  let healthNow = null; // čekající nový pokus o stav serveru – zavolat hned (úspěšné hledání = server žije)
+  // nepovedený dotaz se nepamatuje – další warm() (nový pokus v init) se serveru zeptá znovu
   const warm = () => { if (!healthReq) { const p = healthReq = api('api/health'); p.catch(() => { if (healthReq === p) healthReq = null; }); } return healthReq; };
   async function init() {
     // domov radaru z dřívější verze (bez počtu cestujících): jednou podle formuláře – sólo cestovatel zůstane u 1 os.
@@ -3148,9 +3150,29 @@
       if (h.demo) $('#demoBanner').hidden = false;
       if (window.Entry && h.fx) Entry.setRate(h.fx.eurCzk); // vstupní poplatky v € → Kč
     };
-    const down = e => { if (!e.offline) toast('Server ATLAS neodpovídá – vyhledávání letů nepůjde', 'err'); }; // offline: pruh „Jsi offline“ (pwa.js)
-    // stav serveru nedorazil (start bez spojení): po návratu online znovu – zdroje cen, DEMO, jména aerolinek ve výsledcích
-    const retry = () => window.addEventListener('online', () => warm().then(x => { useHealth(x); renderSources(); if (lastResult && $('#results').children.length) rerender(true); }, retry), { once: true });
+    let wasDown = false;
+    const down = e => { if (!e.offline) { wasDown = true; toast('Server ATLAS neodpovídá – vyhledávání letů nepůjde', 'err'); } }; // offline: pruh „Jsi offline“ (pwa.js)
+    // Stav serveru nedorazil (start bez spojení, server se probouzí / nasazuje, 5xx): znovu po návratu online, po úspěšném
+    // hledání, jinak za 15 s, 30 s … nejdéle 5 min – zdroje cen, DEMO, jména aerolinek ve výsledcích. Čeká vždy jen jeden pokus.
+    let wait = 15000;
+    const retry = () => {
+      if (healthNow) return;
+      const go = () => {
+        clearTimeout(t); window.removeEventListener('online', go); healthNow = null;
+        warm().then(x => {
+          useHealth(x); renderSources();
+          if (wasDown) { wasDown = false; toast('Server ATLAS zase odpovídá'); }
+          if (!lastResult || !$('#results').children.length) return;
+          rerender(true);
+          // řádek „✓ Prohledáno … · Demo Air 132“ po hledání: jména obchodů místo id (rozbalení zůstane)
+          const pc = $('#progress details.progress-card');
+          if (pc && !restored && !running) { const open = pc.open; renderProgress({ providers: lastResult.providers }, false, lastResult); $('#progress details').open = open; }
+        }, retry);
+      };
+      const t = setTimeout(go, wait); wait = Math.min(wait * 2, 300000);
+      window.addEventListener('online', go);
+      healthNow = go;
+    };
     try {
       // Na stav serveru se při startu čeká nejvýš 1 s: uspaný server (Render zdarma) se probouzí až půl minuty –
       // aplikace se zatím vykreslí bez něj a zdroje cen se doplní, až odpoví. Trvá-li to přes 2,5 s, nahoře je pruh
