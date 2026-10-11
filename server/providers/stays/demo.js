@@ -1,7 +1,7 @@
 // Ukázková nabídka ubytování pro demo režim (--demo / ATLAS_MOCK=1) – aby šel projít celý
 // průvodce cestou i bez klíčů. Data jsou vymyšlená, deterministická podle města a termínu.
 import { haversineKm } from '../../lib/geo.js';
-import { bookingSearchUrl } from './liteapi.js';
+import { bookingSearchUrl } from '../../lib/links.js';
 
 const NAMES = [
   ['Grand Hotel {c}', 'hotel', 5], ['Hotel Centrale', 'hotel', 4], ['{c} Old Town Apartments', 'apartment', 0], ['Boutique Hotel Aurora', 'hotel', 4],

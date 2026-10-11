@@ -8,7 +8,7 @@ import { cache } from './cache.js';
 import { haversineKm, normalize } from './geo.js';
 import { countryAt, COUNTRY_BY_ISO } from './airports.js';
 
-const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; hobby travel planner)';
+export const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; hobby travel planner)';
 const WDQS = 'https://query.wikidata.org/sparql';
 const limitWdqs = limiter(2);
 const limitWiki = limiter(4);

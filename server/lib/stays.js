@@ -48,6 +48,8 @@ export function normalizeStayQuery(raw = {}) {
     country: String(raw.country || COUNTRY_BY_ISO.get(cc)?.cs || '').slice(0, 60),
     cc,
     iata: ap?.iata || null,
+    // ID GeoNames místa vybraného v hledání (anglický název, místo na TripAdvisoru)
+    gid: /^\d{1,10}$/.test(String(raw.gid ?? '')) ? String(raw.gid) : null,
     lat: hasPos ? lat : metro?.lat ?? null,
     lon: hasPos ? lon : metro?.lon ?? null,
     checkin,
@@ -104,8 +106,7 @@ export async function searchStays(raw, { english = englishName, partners = null 
   // Místo bez anglického názvu (přidané ručně, z Wikidat bez článku): partneři i LiteAPI hledají anglicky
   // („Boloňa“ → „Bologna“) – název z geokódování v okolí místa (v mezipaměti).
   if (!raw.cityEn && !q.iata && q.city && q.lat != null && !config.mock) {
-    const gid = /^\d{1,10}$/.test(String(raw.gid ?? '')) ? String(raw.gid) : null;
-    q.cityEn = (await english(q.city, q.lat, q.lon, q.cc, gid).catch(() => null)) || q.cityEn;
+    q.cityEn = (await english(q.city, q.lat, q.lon, q.cc, q.gid).catch(() => null)) || q.cityEn;
   }
   // ID místa u partnerů (Trip.com, Agoda, Hostelworld) se dohledá souběžně s hledáním hotelů – každý dotaz nejvýš
   // 4 s, chyba nic neshodí (odkaz pak zůstane bez ID).
@@ -129,9 +130,10 @@ export async function searchStays(raw, { english = englishName, partners = null 
     const t0 = Date.now();
     try {
       const key = `stay:${p.id}:${q.city}:${q.lat?.toFixed(3)}:${q.lon?.toFixed(3)}:${q.checkin}:${q.checkout}:${q.adults}:${q.rooms}`;
-      const res = await cache.wrap(key, 45 * 60e3, () => p.search(q));
+      // neúplný výsledek (část cen nestihla přijít) jen na 5 min – další hledání doplní ceny z mezipaměti poskytovatele
+      const res = await cache.wrap(key, (v) => (v?.partial ? 5 * 60e3 : 45 * 60e3), () => p.search(q));
       items.push(...res);
-      status.push({ id: p.id, name: p.name, ok: true, count: res.length, ms: Date.now() - t0, test: Boolean(p.testData?.()) });
+      status.push({ id: p.id, name: p.name, ok: true, count: res.length, ms: Date.now() - t0, test: Boolean(p.testData?.()), ...(res.partial ? { partial: true } : {}) });
     } catch (e) {
       status.push({ id: p.id, name: p.name, ok: false, error: e.message || String(e), ms: Date.now() - t0 });
     }

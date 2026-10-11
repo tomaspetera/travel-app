@@ -47,7 +47,9 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
    Hledat“), Agoda otevře úvodní stránku, Hostelworld stránku města (data zadáš na webu – označeno „zadej data“); místo,
    kde Hostelworld hostely nemá (stránka města chybí nebo hlásí „0 Hostels“ – Lagos, Porto-Novo, Mikulov), dostane
    stránku země s poznámkou „v místě hostely nemá – zkus jinde v zemi“ a až na konci seznamu. Kayak se otevře česky
-   a v Kč (cz.kayak.com). Bez klíče LiteAPI zůstanou jen odkazy a cenu zapíšeš ručně.
+   a v Kč (cz.kayak.com). Ceny a hodnocení hotelů dává bez klíče **TripAdvisor přes Xotelo** (orientační ceny
+   u Booking.com, Agody, Trip.com… – viz [Ceny hotelů](#ceny-hotelů)), s ostrým klíčem **LiteAPI** to LiteAPI; bez obou
+   (`XOTELO=off`) zůstanou jen odkazy a cenu zapíšeš ručně.
 4. **Auto** (nepovinné) – vyzvednutí na letišti 45 min po příletu, vrácení 2 h před odletem, předvyplněné srovnávače.
 5. **Program** – místa k vidění kolem ubytování rozdělená do dnů podle polohy (den příletu a odletu je kratší),
    každý den jako pěší trasa s odkazem do Google Map; volíš zájmy a tempo, místa můžeš vyřadit nebo přidat.
@@ -242,7 +244,8 @@ krém…).
 | **Wizz Air** (API webu wizzair.com – mapa tras + `timetableV2`) | živé ceny po dnech na trasách | není potřeba |
 | **Kiwi.com** (veřejný MCP server `mcp.kiwi.com`) | živé ceny všech aerolinek (low-cost i klasické, přestupy, kombinace různých aerolinek) – do konkrétního cíle, do zemí a světadílů (dotaz na každou oblíbenou zemi), „kamkoliv“ (Evropa + dálkové země) a při ověření vybraného letu | není potřeba |
 | **Travelpayouts / Aviasales Data API** | všechny ostatní aerolinky (i s přestupy, dálkové lety), ceny z vyhledávání uživatelů za posledních ~48 h | **zdarma** token z [travelpayouts.com](https://www.travelpayouts.com/) |
-| **LiteAPI** (ubytování) | hotely s cenou na zadané dny, hodnocením hostů a fotkou | **zdarma** klíč z [liteapi.travel](https://www.liteapi.travel/) |
+| **Xotelo** (ubytování, výchozí) | hotely z TripAdvisoru s hodnocením (0–5) a orientačními cenami na zadané dny u Booking.com, Agody, Trip.com… – neoficiální API, viz [Ceny hotelů](#ceny-hotelů) | není potřeba |
+| **LiteAPI** (ubytování, volitelně – má přednost) | hotely s cenou na zadané dny, hodnocením hostů a fotkou | **zdarma** klíč z [liteapi.travel](https://www.liteapi.travel/) (skutečné ceny jen s ostrým klíčem) |
 | **Wikidata + Wikipedie** (program) | místa k vidění, typ, význam, fotky, české popisy | není potřeba |
 | **ČSÚ + Weekly Oil Bulletin EU** (cesta autem na letiště) | týdenní ceny nafty a Natural 95 v Česku a sousedních zemích; elektroauto podle ceníků nabíjení – viz [Aktuální ceny paliva a nabíjení](#aktuální-ceny-paliva-a-nabíjení) | není potřeba |
 
@@ -256,6 +259,41 @@ Ceny Ryanair a Wizz Air jsou živé, ale do rezervace se mohou změnit; ceny z T
 a na ověření v Google Flights / Skyscanneru). U letů s přestupem z cache bývá uvedená délka kratší, než je možné
 (nejspíš jen čas ve vzduchu bez přestupu) – když nestačí na přímý let (+10 %) a 80 min na každý přestup, ATLAS délku ani
 přílet nedopočítává: ukáže „přílet ?“, filtry času je neskrývají a „Víc měst“ na takový let naváže další nejdřív 24 h po jeho odletu.
+
+## Ceny hotelů
+
+Krok **Ubytování** ukazuje hotely s cenou na tvoje data a hodnocením hostů z jednoho ze dvou zdrojů:
+
+- **TripAdvisor přes Xotelo** (výchozí, zdarma, bez klíče) – [Xotelo](https://xotelo.com/) je **neoficiální** bezplatné
+  API nad daty TripAdvisoru. Ke každému hotelu dá ceny jednotlivých webů (Booking.com, Agoda, Trip.com, Vio.com, web
+  hotelu…) za pokoj a noc; ATLAS z nich ukáže nejlevnější cenu za celý pobyt (× pokoje × noci, z EUR na Kč) a pod ní
+  ceny u webů („Agoda 9 300 Kč · Booking.com 10 500 Kč…“). Hodnocení je TripAdvisoru 0–5 („4,6/5 (4 045 hodnocení)“,
+  odkaz na recenze), filtr se pak přepne na 3,5+ / 4+ / 4,5+. Ceny jsou **orientační** – rezervuje se u partnera
+  (tlačítko vede na hledání hotelu na Booking.com na tvoje data, s partnerským ID, je-li nastavené) a tam cenu ověř.
+- **LiteAPI** (volitelně, s ostrým klíčem `LITEAPI_KEY`) – má přednost před Xotelem. Testovací klíč (`sand_…`) dává
+  smyšlené hotely, ATLAS je v ostrém provozu neukazuje a použije Xotelo.
+
+**Provize:** z Xotela žádné nebudou (jen data, rezervace u partnerů). LiteAPI provize umožňuje (vlastní marže na cenách,
+white-label rezervace) – pro případnou placenou verzi stačí doplnit ostrý klíč, Xotelo se pak přestane používat.
+
+**Kdyby Xotelo přestalo fungovat** (neoficiální API může kdykoli skončit nebo se změnit), hledání ubytování nespadne:
+ATLAS ukáže jen odkazy na partnery s předvyplněným termínem jako dosud a chybu zdroje drobně pod nimi; `XOTELO=off` ho
+vypne úplně.
+
+**Kde ho najde:** Xotelo potřebuje ID místa na TripAdvisoru (`g189158` = Lisabon). ATLAS ho bere z Wikidat
+(vlastnost P3134 *TripAdvisor ID*): u místa vybraného v hledání podle jeho ID GeoNames, jinak podle polohy – obec,
+ve které místo leží (nebo aspoň třetinová část; čtvrť má v P3134 často ID atrakce), dál od místa jen větší město (vesnice
+→ město v okolí, ne předměstí velkoměsta). Velká města, která ve Wikidatech ID nemají (Praha, Madrid, Barcelona,
+Amsterdam, Varšava, Kodaň, Stockholm, Milán… – 26 měst, `TA_CITIES` v `server/providers/stays/xotelo.js`), zná ATLAS
+z tabulky. Místo bez ID (třeba Český Krumlov) dostane jen odkazy. Hotely dál než 15 km od místa pobytu a bez recenzí
+se zahodí – špatné ID se tak projeví jen tím, že ceny chybí.
+
+**Kolik dotazů:** na místo a termín 1 seznam hotelů (TripAdvisor „nejlepší poměr“, 40 hotelů) + nejvýš **12 dotazů na
+ceny** (8 nejlépe hodnocených podle poměru a 4 nejlevnější podle ceníku TripAdvisoru), nejvýš 3 naráz, každý s timeoutem
+10 s a dohromady nejvýš 20 s – co nestihne, chybí (částečný výsledek jen 5 min v mezipaměti, pak se doplní). Mezipaměť:
+ID místa 30 dní (nenalezené 1 den), seznam hotelů 24 h, ceny hotelu 6 h (podle hotelu, termínu, dospělých a pokojů),
+celé hledání 45 min. Druhé hledání téhož místa a termínu tak na Xotelo nejde vůbec (ceny hotelů ani po 45 min, dokud platí jejich 6 h). Ostrý test (`/api/diag`) pošle jeden
+malý seznam (Vídeň).
 
 ## Je to dobrá cena?
 
@@ -729,7 +767,8 @@ Zkopíruj `.env.example` na `.env`:
 | `TRAVELPAYOUTS_TRS` | – | číslo projektu Travelpayouts; s markerem převede odkazy na Aviasales, Booking.com a DiscoverCars na partnerské (`tp.media`) a viditelně je označí jako reklamu |
 | `TRAVELPAYOUTS_MARKET` | `cz` | trh Aviasales, z jehož vyhledávání se berou ceny (bez něj API čte ruský trh) |
 | `KIWI_ENABLED` | `1` | Kiwi.com: živá cena a porovnání aerolinek k vybranému letu (zdarma, bez klíče); `0` = vypnout |
-| `LITEAPI_KEY` | – | hotely s cenou na tvoje data a hodnocením hostů (zdarma klíč na dashboard.liteapi.travel; `sand_…` = testovací data) |
+| `XOTELO` | zapnuto | ceny hotelů z TripAdvisoru přes neoficiální bezplatné API Xotelo (bez klíče, bez provizí), když není ostrý klíč LiteAPI – viz [Ceny hotelů](#ceny-hotelů); `off` = vypnout (zůstanou odkazy na partnery). Na místo a termín 1 + nejvýš 12 dotazů, v mezipaměti |
+| `LITEAPI_KEY` | – | hotely s cenou na tvoje data a hodnocením hostů (zdarma klíč na dashboard.liteapi.travel; `sand_…` = testovací data, pak se použije Xotelo). Ostrý klíč má přednost před Xotelem a umožňuje provize |
 | `LITEAPI_WHITELABEL` | – | doména white-label rezervační stránky LiteAPI – tlačítko „detail“ pak vede tam místo na Booking.com |
 | `PARTNER_LOOKUP` | `1` | odkazy na Trip.com, Agodu a Hostelworld s termínem a hosty: server u nich jednou dohledá ID místa (jeden dotaz na místo a partnera, timeout 4 s, mezipaměť 30 dní); `0` = bez dotazů, odkazy jen s názvem místa (Trip.com hledání potvrdíš, Agoda úvodní stránka, Hostelworld stránka města bez dat). V DEMO se neptá nikdy |
 | `PORT` | `8080` | port serveru |
@@ -944,7 +983,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `GET /api/fuel` | aktuální ceny paliva v Kč/l po zemích `CZ`, `DE`, `AT`, `SK`, `PL`, `HU` – `{ diesel, petrol, date, source, label }` (`source` `czso` / `wob` / `builtin` / `demo`) – a `updated`, `sources`, `defaultFuel`, `lPer100`; `ev` = nabíjení elektroauta `{ default: 16, range: [13, 22], date: "2026-10-06", label, kwhPer100: 19, operators: [{ name, ac?, dc?, price?, note?, secondary?, text }] }`. Cache 1 h |
 | `POST /api/search` | hledání, viz `normalizeQuery` v `server/lib/search.js`; odpověď je NDJSON (průběh, pak výsledek) |
 | `GET /api/verify?from=BGY&to=BCN&out=2026-11-10&back=2026-11-14&adults=2` | živá cena a alternativy z Kiwi.com |
-| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery (`links[]` s `prefill`: `full` / `city` / `none`; Trip.com, Agoda a Hostelworld s ID místa dohledaným u partnera, viz `PARTNER_LOOKUP`); bez `cc` se země dopočte z `lat`/`lon`, bez `cityEn` anglický název z geokódování (podle `gid` – ID GeoNames místa vybraného v hledání, jinak podle názvu v okolí) |
+| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery (`links[]` s `prefill`: `full` / `city` / `none`; Trip.com, Agoda a Hostelworld s ID místa dohledaným u partnera, viz `PARTNER_LOOKUP`); bez `cc` se země dopočte z `lat`/`lon`, bez `cityEn` anglický název z geokódování (podle `gid` – ID GeoNames místa vybraného v hledání, jinak podle názvu v okolí); `gid` zároveň najde místo na TripAdvisoru. Nabídky z Xotela mají navíc `rating5` (TripAdvisor 0–5), `reviewsUrl` a `rates: [{ name, totalCzk, perNightCzk }]` (ceny u webů, nejlevnější první); `providers[]` má u neúplného výsledku `partial: true` |
 | `POST /api/stayplan` | trasa přes víc míst: návrh `{ arrival, departure, nights, transport, count?, exclude? }`, nebo přepočet `{ arrival, departure, transport, bases: [{ name, lat, lon, cc }], ground? }`. Přejezdy `{ km, carMin, transitMin, transitKind: 'rail'\|'bus', border: { from, to }\|null, basis: 'route'\|'estimate', hsr?: true, fast?: true, long, carUrl, transitUrl }` (`hsr` = odhad tempa rychlovlaku, `fast` = přímý vlak z tabulky jízdních řádů), `pending` = kolik tras autem se ještě počítá; u přepočtu i `bases[{ cc, country }]` a s `ground` (město, kam se jede vlakem/busem) `groundLegs`. Přepočet nad limitem přepočtů na IP odpoví bez nových tras z BRouteru |
 | `GET /api/cars?pickup=BGY&dropoff=MXP&from=2026-11-10T09:00&to=2026-11-14T18:00` | předvyplněné odkazy na půjčovny |
 | `GET /api/ground?from=ap:PRG&to=ap:VIE&date=2026-11-10&adults=2` | vlak nebo bus místo letadla: `from`/`to` jako v hledání (`ap:`, `metro:`, `geo:`, kód letiště) nebo `fromLat`/`fromLon`/`fromName`/`fromCc`; volitelně `flightCzk`, `trips` (2 = cena letu tam i zpět), `flightMin`, `live=0`. Odpověď `{ from, to, km, est: { minutes, czk, basis }, worth: { worth, rule, reason, doorMin }, why, links, live? }` – `live` (spoje RegioJetu) jen s datem; `why` = proč se po zemi nedá (ostrov, moře, daleko) |
@@ -1172,6 +1211,10 @@ a na letiště je v dopravě z letiště do města).
   jede, výluky, zpoždění ani změny jízdního řádu po 12. 12. 2026 v ní nejsou; živé jízdní řády ATLAS nenačítá) – konkrétní
   spoj ověř přes odkaz. Země bez kódu z Wikidat se dopočítá podle nejbližšího letiště, takže
   u místa těsně u hranice může vyjít sousední země (Basilej → Francie).
+- Ceny hotelů z Xotela (TripAdvisor) jsou orientační – web je u rezervace může mít jinak (daně, poplatky, jiný pokoj);
+  ATLAS je přepočítá z EUR aktuálním kurzem. Xotelo je neoficiální API: může zpomalit, omezit dotazy nebo skončit
+  (pak zůstanou odkazy). Místo na TripAdvisoru se hledá ve Wikidatech, kde ID chybí u řady měst (u velkých měst ho
+  doplní tabulka) – takové místo dostane jen odkazy. Ceny se zjišťují jen pro 12 hotelů do 15 km od místa.
 - Odkazy na partnery ubytování: Booking.com, Airbnb, Hotels.com, Kayak a Google Hotels dostanou místo, data i počet hostů
   (Kayak „Město-Země“ anglicky, protože samotné jméno víceznačné místo pošle jinam – Lagos do Portugalska, a na české
   verzi cz.kayak.com, která se otevře česky s cenami v Kč – stejně odkaz na půjčení auta; Google Hotels

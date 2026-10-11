@@ -23,6 +23,12 @@ export function affiliate(url, brand) {
   return `https://tp.media/r?${qs}`;
 }
 
+/** Hledání konkrétního hotelu na Booking.com („název, místo“ + termín, hosté, pokoje) – tlačítko „detail“ u nabídky. */
+export function bookingSearchUrl(name, city, q) {
+  const p = new URLSearchParams({ ss: `${name}, ${city}`, checkin: q.checkin, checkout: q.checkout, group_adults: String(q.adults), no_rooms: String(q.rooms), lang: 'cs', selected_currency: 'CZK' });
+  return `https://www.booking.com/searchresults.cs.html?${p}`;
+}
+
 // Hostelworld: stránka města /hostels/<kontinent>/<země>/<město>/ (jiný kontinent nebo název země sám přesměruje,
 // „united-kingdom“ → „england“); data hledání z adresy nebere. Města s hostely na ní mají odkaz na hledání webu s ID
 // města – searchStays ho dohledá (partnerids.js): s ID vede odkaz na hledání /pwa/s s termínem a hosty; místo bez

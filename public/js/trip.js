@@ -48,6 +48,10 @@
   const minutesToHm = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
   const stars = n => n ? '★'.repeat(Math.round(n)) : '';
   const ratingWord = r => r >= 9 ? 'Výjimečné' : r >= 8.5 ? 'Vynikající' : r >= 8 ? 'Velmi dobré' : r >= 7 ? 'Dobré' : r >= 6 ? 'Ucházející' : 'Slabé';
+  // hodnocení TripAdvisoru 0–5 (Xotelo) – slova jako na TripAdvisoru, ne podle stupnice 0–10
+  const ratingWord5 = r => r >= 4.5 ? 'Výborné' : r >= 4 ? 'Velmi dobré' : r >= 3.5 ? 'Dobré' : r >= 3 ? 'Průměrné' : 'Slabé';
+  const dec1 = x => Number(x).toFixed(1).replace('.', ','); // 8,9 – desetinná čárka
+  const reviewsTxt = n => `${n.toLocaleString('cs')} ${n >= 1 && n <= 4 ? 'recenze' : 'recenzí'}`;
 
   /** Přílet tam: čas příletu, nebo odlet + délka letu, nebo poledne (neznámý přílet – let s přestupem z cache – nejdřív v čas odletu). */
   function arrivalAt(leg) {
@@ -1080,7 +1084,8 @@
     $('#stayNext').onclick = () => (i < n - 1 ? goStayBase(i + 1) : setStep('car'));
     const params = { city: b.name, country: b.country || '', cc: b.cc || '', checkin: d.checkin, checkout: d.checkout, adults: t.adults, lat: b.lat, lon: b.lon };
     if (b.nameEn) params.cityEn = b.nameEn; // odkazy na Booking, Airbnb… (český název „Boloňa“ by nenašly)
-    else if (b.gid) params.gid = b.gid; // místo z hledání: anglický název dohledá server
+    // místo z hledání (ID GeoNames): bez anglického názvu ho server dohledá; podle ID najde i místo na TripAdvisoru
+    if (b.gid) params.gid = b.gid;
     // Město příletu/odletu: letiště pomůže najít střed metropole a zemi.
     if (b.anchor === 'arrival') Object.assign(params, { iata: t.flight.out.to, country: b.country || t.dest.country || '', cc: b.cc || t.dest.cc || '' });
     else if (b.anchor === 'departure' && backLeg(t)) params.iata = tripAirports(t).departure;
@@ -1115,24 +1120,51 @@
     return `<div class="link-grid${compact ? ' compact' : ''}">${html}</div>${links.some(l => l.sponsored) ? SPONSOR_NOTE : ''}`;
   }
 
+  /** Hodnocení na kartě: TripAdvisor (Xotelo) „4,5/5 (2 163 hodnocení)“, ostatní 0–10 „8,9 Vynikající · 2 100 recenzí“. */
+  function stayRating(h) {
+    if (h.rating == null) return { inline: '', col: '<div class="faint">bez hodnocení</div>' };
+    if (h.rating5 != null) {
+      const n = h.reviews ? `${h.reviews.toLocaleString('cs')} hodnocení` : '';
+      const cnt = n && h.reviewsUrl ? `<a href="${esc(safeUrl(h.reviewsUrl))}" target="_blank" rel="noopener" title="Hodnocení hostů na TripAdvisoru">${n}</a>` : n;
+      return {
+        inline: `<div class="st-rate-inline"><b class="ta">${dec1(h.rating5)}/5</b> ${ratingWord5(h.rating5)}${cnt ? ` (${cnt})` : ''}</div>`,
+        col: `<div class="rt ta">${dec1(h.rating5)}<small>/5</small></div><div class="faint">${ratingWord5(h.rating5)}${cnt ? `<br>${cnt}` : ''}<br>TripAdvisor</div>`,
+      };
+    }
+    return {
+      inline: `<div class="st-rate-inline"><b>${dec1(h.rating)}</b> ${ratingWord(h.rating)}${h.reviews ? ` · ${reviewsTxt(h.reviews)}` : ''}</div>`,
+      col: `<div class="rt">${dec1(h.rating)}</div><div class="faint">${ratingWord(h.rating)}${h.reviews ? `<br>${reviewsTxt(h.reviews)}` : ''}</div>`,
+    };
+  }
+
+  // Ceny u jednotlivých webů (Xotelo): „Agoda 3 240 Kč · Booking.com 3 560 Kč…“ – celkem za pobyt, nejlevnější první.
+  const otaChips = h => Array.isArray(h.rates) && h.rates.length
+    ? `<div class="st-otas">${h.rates.slice(0, 4).map((r, k) => `<span class="ota${k === 0 ? ' best' : ''}" title="${esc(r.name)}: ${esc(czk(r.totalCzk))} celkem, ${esc(czk(r.perNightCzk))}/noc">${esc(r.name)} <b>${czk(r.totalCzk)}</b></span>`).join('')}</div>` : '';
+
   function stayCard(h, i) {
     const cur = staySlot && staySlot.get();
     const chosen = cur && cur.mode === 'pick' && cur.id === h.id;
-    const badges = (h.badges || []).map(b => STAY_BADGES[b] ? `<span class="b ${STAY_BADGES[b][1]}">${STAY_BADGES[b][0]}</span>` : '').join('');
+    const badges = (h.badges || []).map(b => STAY_BADGES[b] ? `<span class="b ${STAY_BADGES[b][1]}">${b === 'cheapest-good' && h.rating5 != null ? '💚 Nejlevnější s hodnocením 4+/5' : STAY_BADGES[b][0]}</span>` : '').join('');
+    const rt = stayRating(h);
+    const xo = h.provider === 'xotelo';
     return `<div class="stay ${chosen ? 'chosen' : ''}">
       <div class="st-img" ${h.photo ? `style="background-image:url('${esc(cssUrl(h.photo))}')"` : ''}>${h.photo ? '' : '🏨'}</div>
       <div class="st-main">
         <div class="st-name">${esc(h.name)} <span class="st-stars">${stars(h.stars)}</span></div>
-        <div class="faint" style="font-size:12.5px">${esc([h.typeLabel, h.address, h.distanceKm != null ? `${h.distanceKm.toFixed(1)} km od centra` : ''].filter(Boolean).join(' · '))}</div>
-        ${h.rating != null ? `<div class="st-rate-inline"><b>${h.rating.toFixed(1)}</b> ${ratingWord(h.rating)}${h.reviews ? ` · ${h.reviews.toLocaleString('cs')} recenzí` : ''}</div>` : ''}
+        <div class="faint" style="font-size:12.5px">${esc([h.typeLabel, h.address, h.distanceKm != null ? `${dec1(h.distanceKm)} km od centra` : ''].filter(Boolean).join(' · '))}</div>
+        ${rt.inline}
         <div class="st-badges">${badges}${h.freeCancellation ? '<span class="b good">zdarma storno</span>' : ''}${h.breakfast ? '<span class="b">snídaně</span>' : ''}</div>
+        ${otaChips(h)}
       </div>
-      <div class="st-rating">${h.rating != null ? `<div class="rt">${h.rating.toFixed(1)}</div><div class="faint">${ratingWord(h.rating)}${h.reviews ? `<br>${h.reviews.toLocaleString('cs')} recenzí` : ''}</div>` : '<div class="faint">bez hodnocení</div>'}</div>
-      <div class="st-price">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">celkem · ${czk(h.pricePerNightCzk)}/noc</div>` : '<div class="faint">cena na webu</div>'}
+      <div class="st-rating">${rt.col}</div>
+      <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">celkem · ${czk(h.pricePerNightCzk)}/noc</div>` : '<div class="faint">cena na webu</div>'}</div>
         <button class="btn sm primary" data-pick="${i}">${chosen ? '✓ Vybráno' : 'Vybrat'}</button>
-        ${h.bookUrl ? `<a class="linkbtn" href="${esc(safeUrl(h.bookUrl))}" target="_blank" rel="noopener">detail ↗</a>` : ''}</div>
+        ${h.bookUrl ? `<a class="linkbtn" href="${esc(safeUrl(h.bookUrl))}" target="_blank" rel="noopener"${xo ? ' title="Hledání hotelu na Booking.com na tvoje data"' : ''}>${xo ? 'Booking.com' : 'detail'} ↗</a>` : ''}</div>
     </div>`;
   }
+
+  // „ (2 pokoje)“ – cena platí pro všechny pokoje
+  const roomsTxt = d => { const r = d.query && d.query.rooms; return r > 1 ? ` (${r} ${r <= 4 ? 'pokoje' : 'pokojů'})` : ''; };
 
   function renderStays() {
     const host = $('#stayBody'); if (!host || !staysData) return;
@@ -1151,14 +1183,19 @@
     const links = linkGrid(d.links, '#003580', true);
     const errs = d.providers.filter(p => !p.ok).map(p => `${esc(p.name)}: ${esc(p.error)}`).join(' · ');
     if (!d.items.length) {
-      host.innerHTML = `<div class="note info">ℹ️ <div>${d.providers.length ? 'Pro tento termín nemám přímé nabídky – otevři si hledání u partnerů,' : 'Vyber si ubytování u partnerů –'} většina hledání je už <b>předvyplněná na tvoje data</b> (u označených „zadej data“ zadáš termín na webu). Až si vybereš, zadej cenu níže.${errs ? `<br><span class="faint">${errs}</span>` : ''}${!d.providers.length && window.showSetupGuide ? ` <a href="#" id="stayGuide" class="faint">Hotely s cenou přímo tady (volitelné) →</a>` : ''}</div></div>${links}`;
+      host.innerHTML = `<div class="note info">ℹ️ <div>${d.providers.length ? 'Pro toto místo a termín nemám přímé nabídky – otevři si hledání u partnerů,' : 'Vyber si ubytování u partnerů –'} většina hledání je už <b>předvyplněná na tvoje data</b> (u označených „zadej data“ zadáš termín na webu). Až si vybereš, zadej cenu níže.${errs ? `<br><span class="faint">${errs}</span>` : ''}${!d.providers.length && window.showSetupGuide ? ` <a href="#" id="stayGuide" class="faint">Hotely s cenou přímo tady (volitelné) →</a>` : ''}</div></div>${links}`;
       const g = $('#stayGuide'); if (g) g.onclick = e => { e.preventDefault(); window.showSetupGuide('guideStays'); };
       return;
     }
     const testNote = d.providers.some(p => p.ok && p.test && p.count) ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>Ukázková / testovací nabídka</b> – hotely a ceny nejsou skutečné (demo režim nebo testovací klíč LiteAPI). Skutečné ceny ověř přes odkazy na partnery dole.</div></div>` : '';
-    host.innerHTML = `${testNote}<div class="stay-tools">
+    // Xotelo: zdroj poctivě – orientační ceny z TripAdvisoru, rezervuje se u partnera
+    const xo = d.providers.find(p => p.id === 'xotelo' && p.ok && p.count);
+    const srcNote = xo ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>Ceny: TripAdvisor</b> (Booking, Agoda, Trip.com…) – orientační, ověř u partnera. Cena je nejlevnější nabídka za celý pobyt${roomsTxt(d)}, hodnocení hostů z TripAdvisoru (0–5).${xo.partial ? ' U některých hotelů ceny nestihly přijít – zkus to za chvíli znovu.' : ''}</div></div>` : '';
+    // stupnice filtru podle zdroje: TripAdvisor 0–5 (3,5+ / 4+ / 4,5+ = 7+ / 8+ / 9+ na stupnici 0–10)
+    const five = d.items.length > 0 && d.items.every(h => h.rating5 != null);
+    host.innerHTML = `${testNote}${srcNote}<div class="stay-tools">
         <select id="staySort">${[['value', '🏆 Nejlepší poměr cena/hodnocení'], ['price', '💰 Nejlevnější'], ['rating', '⭐ Nejlépe hodnocené'], ['dist', '📍 Nejblíž centru']].map(o => `<option value="${o[0]}" ${stayView.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
-        <div class="seg" id="stayMin">${[[0, 'vše'], [7, '7+'], [8, '8+'], [9, '9+']].map(o => `<button type="button" data-v="${o[0]}" class="${stayView.minRating === o[0] ? 'on' : ''}">${o[1]}</button>`).join('')}</div>
+        <div class="seg" id="stayMin">${[[0, 'vše'], [7, five ? '3,5+' : '7+'], [8, five ? '4+' : '8+'], [9, five ? '4,5+' : '9+']].map(o => `<button type="button" data-v="${o[0]}" class="${stayView.minRating === o[0] ? 'on' : ''}">${o[1]}</button>`).join('')}</div>
         ${types.length > 1 ? `<select id="stayType"><option value="">všechny typy</option>${types.map(x => `<option ${stayView.type === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}
         <input class="input" id="stayMax" type="number" min="0" step="100" placeholder="max Kč/noc" value="${stayView.maxNight || ''}" style="max-width:130px">
         <span class="faint" style="font-size:12px">${items.length} z ${d.items.length} nabídek</span>

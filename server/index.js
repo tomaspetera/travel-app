@@ -8,7 +8,7 @@ import zlib from 'node:zlib';
 import { config } from './config.js';
 import { suggest, describe, resolveOrigins, geocode } from './lib/places.js';
 import { search, UserError, legBagCzk } from './lib/search.js';
-import { liteapiTestKey } from './providers/stays/index.js';
+import { stayProviders } from './providers/stays/index.js';
 import { activeProviders, providerStatus } from './providers/index.js';
 import { fxInfo, loadRates } from './lib/fx.js';
 import { cache } from './lib/cache.js';
@@ -249,10 +249,13 @@ async function diagnose() {
       }
     };
     const extra = [];
-    if (!config.mock && config.liteapiKey && !liteapiTestKey()) {
-      extra.push(probe('liteapi', async () => {
+    // Zdroj cen hotelů, který se právě používá (LiteAPI s ostrým klíčem, jinak Xotelo): vlastní malý test (probe),
+    // jinak hledání ve Vídni.
+    const sp = config.mock ? null : stayProviders()[0];
+    if (sp) {
+      extra.push(probe(sp.id, sp.probe ? () => sp.probe() : async () => {
         const r = await searchStays({ city: 'Vídeň', iata: 'VIE', checkin: from, checkout: addDays(from, 2), adults: 2 });
-        const st = r.providers.find((x) => x.id === 'liteapi');
+        const st = r.providers.find((x) => x.id === sp.id);
         if (st && !st.ok) throw new Error(st.error);
         return `${r.items.length} hotelů ve Vídni${st?.test ? ' (testovací klíč)' : ''}`;
       }));
