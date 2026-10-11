@@ -103,6 +103,17 @@
   // raw: texty beze změn (uvozovky, < >) – plánovač vše vypisuje přes esc()
   const LIM = { act: 1000, acts: 100, ck: 300, ckLen: 300, notes: 20000, raw: true };
   const PID = /^[a-z0-9]{6,24}$/;
+  // 🔖 Rezervace u cesty (okno cesty v app.js): kódy letenek, potvrzení hotelu… – jen v zařízení a v záloze, do odkazů
+  // nikdy (PlanShare.json zná jen pole plánu). Nejvýš REFS_MAX řádků { co, kod, pozn }, texty jednořádkové a zkrácené.
+  const REFS_MAX = 6, REF_LEN = { co: 40, kod: 40, pozn: 120 };
+  function cleanRefs(v, txt = defTxt) {
+    return (Array.isArray(v) ? v.slice(0, 30) : []).filter(obj)
+      .map(r => ({ co: txt(r.co, REF_LEN.co, false, true), kod: txt(r.kod, REF_LEN.kod, false, true), pozn: txt(r.pozn, REF_LEN.pozn, false, true) }))
+      .filter(r => r.co || r.kod).slice(0, REFS_MAX);
+  }
+  // Sloučení rezervací: k těm v zařízení přibudou chybějící ze zálohy (stejné co + kód = tatáž), nic se nesmaže.
+  const refKey = r => `${r.co}\n${r.kod}`.toLowerCase();
+  const addRefs = (mine, inc) => { const a = mine || [], have = new Set(a.map(refKey)); return [...a, ...(inc || []).filter(r => !have.has(refKey(r)))].slice(0, REFS_MAX); };
   /** Cesta z průvodce: pročištěná Trip.sanitizeTrip + odškrtnuté rezervace (jen klíče ve známém tvaru, hodnota true). */
   function cleanWiz(w, d) {
     if (!obj(w) || !obj(w.flight) || !obj(w.flight.out) || !d.sanitizeWizard) return null;
@@ -130,6 +141,8 @@
     if (Array.isArray(raw.genChecklist)) t.genChecklist = raw.genChecklist.slice(0, LIM.ck).map(x => d.txt(x, LIM.ckLen, false, true)).filter(Boolean);
     const ex = cleanExplore(raw.explore, plan, d);
     if (ex) t.explore = ex;
+    const refs = cleanRefs(raw.refs, d.txt);
+    if (refs.length) t.refs = refs;
     return t;
   }
   function cleanHome(h, txt) {
@@ -206,7 +219,11 @@
   function diff(cur, inc, { watchKey = w => w.id, deps = DEPS() } = {}) {
     const d = { txt: defTxt, ...deps };
     const trips = { add: 0, same: 0, changed: 0 };
-    for (const m of match(cur, inc, d)) trips[m.st === 'dup' ? 'same' : m.st]++;
+    let refs = 0; // cesty, kterým přibudou 🔖 kódy rezervací
+    for (const m of match(cur, inc, d)) {
+      trips[m.st === 'dup' ? 'same' : m.st]++;
+      if (m.i != null && addRefs(cur.trips[m.i].refs, m.t.refs).length > (cur.trips[m.i].refs || []).length) refs++;
+    }
     const wk = new Set((cur.watch || []).map(watchKey)), wid = new Set((cur.watch || []).map(w => w.id));
     const fresh = [];
     for (const w of inc.watch) { const k = watchKey(w); if (wk.has(k) || wid.has(w.id)) continue; wk.add(k); wid.add(w.id); fresh.push(w); }
@@ -221,7 +238,7 @@
       watch: { add: Math.min(fresh.length, room), same: inc.watch.length - fresh.length, over: Math.max(0, fresh.length - room) },
       visited: { add: inc.visited.filter(c => !vis.has(c)).length },
       home: { take: Boolean(inc.home) && !cur.home, differs: Boolean(inc.home && cur.home) && !homeSame },
-      pretrip,
+      pretrip, refs,
     };
   }
 
@@ -241,9 +258,14 @@
       else if (m.st === 'dup') continue;
       else {
         const old = trips[m.i];
-        if (m.st === 'changed' && overwrite) trips[m.i] = { ...m.t, ...(old.tripId ? { tripId: old.tripId } : {}), ...(old.pid ? { pid: old.pid } : {}), checklist: keepChecks(m.t, old) };
-        // stejná cesta poznaná podle plánu: převzít pid ze zálohy, ať se příště pozná i po úpravě
-        else if (!old.pid && !old.tripId && m.t.pid) trips[m.i] = { ...old, pid: m.t.pid };
+        // 🔖 kódy rezervací z obou stran (i u stejné cesty – na rezervacích plán nezávisí)
+        const refs = m.st === 'changed' && overwrite ? addRefs(m.t.refs, old.refs) : addRefs(old.refs, m.t.refs);
+        if (m.st === 'changed' && overwrite) trips[m.i] = { ...m.t, ...(old.tripId ? { tripId: old.tripId } : {}), ...(old.pid ? { pid: old.pid } : {}), checklist: keepChecks(m.t, old), ...(refs.length ? { refs } : {}) };
+        else {
+          // stejná cesta poznaná podle plánu: převzít pid ze zálohy, ať se příště pozná i po úpravě
+          if (!old.pid && !old.tripId && m.t.pid) trips[m.i] = { ...old, pid: m.t.pid };
+          if (refs.length > (old.refs || []).length) trips[m.i] = { ...trips[m.i], refs };
+        }
       }
     }
     const watch = (cur.watch || []).slice();
@@ -317,6 +339,7 @@
     if (inc.visited.length) parts.push(`${pl(inc.visited.length, 'země', 'země', 'zemí')} na mapě${df.visited.add ? ` (${df.visited.add} ${df.visited.add === 1 ? 'nová' : df.visited.add <= 4 ? 'nové' : 'nových'})` : ''}`);
     if (inc.home) parts.push(`domov radaru ${homeTxt(inc.home)}`);
     if (df.pretrip) parts.push(`odškrtnutí „Před cestou“ u ${pl(df.pretrip, 'cesty', 'cest', 'cest')}`);
+    if (df.refs) parts.push(`🔖 kódy rezervací u ${pl(df.refs, 'cesty', 'cest', 'cest')}`);
     return parts.length ? esc(parts.join(' · ')) : 'Záloha je prázdná.';
   }
 
@@ -324,7 +347,7 @@
     const df = diff(current(), inc, { watchKey });
     const body = $('#bkBody');
     if (!body) return;
-    const nothing = !df.trips.add && !df.trips.changed && !df.watch.add && !df.visited.add && !df.home.take && !df.home.differs && !df.pretrip;
+    const nothing = !df.trips.add && !df.trips.changed && !df.watch.add && !df.visited.add && !df.home.take && !df.home.differs && !df.pretrip && !df.refs;
     const empty = !inc.trips.length && !inc.watch.length && !inc.visited.length && !inc.home && !Object.keys(inc.pretrip).length;
     body.innerHTML = `<p style="font-size:14px;margin-bottom:10px"><b>Záloha${inc.at ? ' z ' + esc(new Date(inc.at).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : ''}:</b> ${summaryHtml(inc, df)}</p>
       ${df.trips.changed ? `<label class="bk-opt"><input type="checkbox" id="bkOver"> Přepsat změněné cesty verzí ze zálohy (${df.trips.changed})</label>` : ''}
@@ -371,7 +394,7 @@
       if (Flights.refreshVisited) Flights.refreshVisited();
     }
     const over = opts.overwrite ? df.trips.changed : 0;
-    const bits = [df.trips.add ? `+${pl(df.trips.add, 'cesta', 'cesty', 'cest')}` : '', over ? pl(over, 'cesta přepsána', 'cesty přepsány', 'cest přepsáno') : '', df.watch.add ? `+${pl(df.watch.add, 'hlídaná cena', 'hlídané ceny', 'hlídaných cen')}` : '', df.visited.add ? `+${pl(df.visited.add, 'země', 'země', 'zemí')}` : '', homeChanged ? 'domov radaru převzat' : '', df.pretrip ? `odškrtnutí „Před cestou“ u ${pl(df.pretrip, 'cesty', 'cest', 'cest')}` : ''].filter(Boolean);
+    const bits = [df.trips.add ? `+${pl(df.trips.add, 'cesta', 'cesty', 'cest')}` : '', over ? pl(over, 'cesta přepsána', 'cesty přepsány', 'cest přepsáno') : '', df.watch.add ? `+${pl(df.watch.add, 'hlídaná cena', 'hlídané ceny', 'hlídaných cen')}` : '', df.visited.add ? `+${pl(df.visited.add, 'země', 'země', 'zemí')}` : '', homeChanged ? 'domov radaru převzat' : '', df.pretrip ? `odškrtnutí „Před cestou“ u ${pl(df.pretrip, 'cesty', 'cest', 'cest')}` : '', df.refs ? `🔖 kódy rezervací u ${pl(df.refs, 'cesty', 'cest', 'cest')}` : ''].filter(Boolean);
     toast(bits.length ? 'Sloučeno: ' + bits.join(', ') : 'Nic nového se nesloučilo');
   }
 
@@ -424,5 +447,5 @@
     return `<div class="row wrap plan-tools"><button type="button" class="btn sm ghost" id="bkOpen">💾 Přenos a záloha</button>${nudge}</div>`;
   }
 
-  window.Backup = { V, pack, parse, diff, merge, match, ensurePids, cleanForm, open, plannerTools, WATCH_CAP };
+  window.Backup = { V, pack, parse, diff, merge, match, ensurePids, cleanForm, cleanRefs, open, plannerTools, WATCH_CAP, REFS_MAX, REF_LEN };
 })();

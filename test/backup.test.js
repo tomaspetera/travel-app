@@ -50,7 +50,7 @@ test('záloha → obnova do prázdného zařízení vrátí cesty, hlídání, d
   assert.deepEqual(plain(inc.home), { from: [BRQ], radius: 200, adults: 2 });
   assert.deepEqual(plain(inc.pretrip), { '1760000000000:2026-11-12:PT': { d: { 'pack:doc-pass': 1 }, at: 5 } });
   const df = B.diff(state(), inc, { watchKey: wk, deps });
-  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, pretrip: 1 });
+  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, pretrip: 1, refs: 0 });
   const m = B.merge(state(), inc, { watchKey: wk, deps });
   assert.equal(m.trips.length, 1);
   assert.equal(m.watch.length, 1);

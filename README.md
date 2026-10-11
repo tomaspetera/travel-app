@@ -63,6 +63,42 @@ Nejlevnější kombinace, pořadí hotelů i program dnů počítají **determin
 bayesovské hodnocení, shlukování míst k-means + trasa nejbližší soused / 2-opt). Místa k vidění a jejich popisy jsou
 z Wikidat a Wikipedie. Stejný dotaz tedy dá stejný výsledek a nic si nevymýšlí.
 
+## 📍 Dnes na cestě
+
+Od 2 dnů před odjezdem do konce uložené cesty začíná **Přehled** kartou s tím, co tě dnes čeká – bez listování celým
+plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dotaz na server ani partnery):
+
+- **Před odjezdem** „🧳 Za 2 dny odlet · Lisabon“ a řádky po dnech až do dne odjezdu (online check-in, kdy nejpozději
+  vyrazit z domu, cesta na letiště, let s časem, dopravcem a číslem, z letiště do města, ubytování) a kolik položek
+  „Sbaleno“ zbývá zařídit a sbalit (odkaz do plánu). „Odlet“ jen u cesty s letem, jinak (autem, vlakem, z Objevuj)
+  „odjezd“.
+- **Na cestě** „📍 Dnes na cestě · den 3 z 6 · Lisabon“: dnešní řádky (program s trasou pěšky do Google Map a Mapy.com,
+  přejezd, kdy vyrazit z ubytování na letiště, let zpět) a první řádek zítřka; ubytování toho dne s odkazem
+  **navigovat** (Google Maps odtud, kde právě jsi – až po příletu a jen do odletu zpět), místní čas a posun proti Praze, odpočet do odletu či odjezdu
+  (posledních 24 h, jen u spoje s časem – u „čas ověř“ si karta čas nevymýšlí). U trasy přes víc míst je to místo, kde
+  ten den spíš. **📋 Celý plán →** otevře okno cesty.
+- Řádky jsou tytéž jako v časové ose shrnutí průvodce (`Trip.timeline` – karta a shrnutí se nerozejdou); u cesty jen
+  z plánovače z jejích letů či vlaku a aktivit dnů, u cesty z průvodce i s aktivitami přidanými v plánovači – a bez
+  těch, které jsi v Itineráři smazal nebo přejmenoval (karta ukáže totéž co plán, trasa pěšky jen k tomu, co zbylo).
+- „Dnes“ je den v místě, kde cesta právě je – před odletem doma (i v letadle), po přistání v cíli, po návratu zase
+  doma (zóny letišť a měst ze spojů, i přes změnu času); spoj bez času přepne až o půlnoci po dni odjezdu. Let zpět
+  s přistáním po půlnoci drží kartu do konce dne příletu. Cesta bez časů spojů bere den v telefonu.
+- **Víc cest najednou**: přednost má cesta, jejíž spoj právě letí či jede nebo odjíždí do 24 h (ráno odletu i večer
+  před dalším odletem); jinak probíhající – cesta se spoji nebo z průvodce před výletem z plánovače či z Objevuj, pak
+  naposledy začatá; pak nejbližší odjezd. Cesta, ze které ses už vrátil (let zpět přistál), drží kartu do půlnoci, jen
+  když není nic jiného. Ostatní probíhající cesty karta ukáže řádkem **📌 Také dnes** (program dne a odkaz na plán)
+  a jejich 🔖 rezervace pod rezervacemi cesty. Poslední let cesty přes víc měst je „zpět“ (🛬, po programu dne), jen
+  když končí tam, kde cesta začala (nebo aspoň ve stejné časové zóně) – PRG → FCO → BCN je ✈️ před programem.
+
+**🔖 Rezervace**: v okně cesty v plánovači si k cestě zapíšeš až 6 kódů – co (let tam, hotel…), kód (PNR, číslo
+potvrzení) a poznámku; Enter v poli „Co“ (a v prázdném kódu) jen přejde na další pole, uloží až s kódem nebo
+z poznámky. Karta je ukáže s tlačítkem **Kopírovat**. Kódy zůstanou **jen v tomto zařízení** a v **💾 záloze**
+(obnova je k cestě doplní, nic nesmaže) – do odkazů na cestu a plán (`#trip=`, `#plan=`) ani do kalendáře (.ics) nejdou.
+
+**Zkratka „Na cestě“**: nainstalovaná aplikace má v nabídce ikony (dlouhý stisk na Androidu, pravé tlačítko na počítači)
+vedle *Lety* a *Plánovač* i **Na cestě** (`/#now`) – otevře Přehled rovnou s kartou; když žádná cesta neprobíhá, řekne
+to a ukáže nejbližší naplánovanou.
+
 ## Vstupní podmínky pro občany ČR
 
 U všech 197 zemí ATLAS ukazuje, co je potřeba k cestě s českým pasem nebo občankou (turistická cesta):
@@ -222,7 +258,7 @@ krém…).
 | **Dálkové lety** | Cílem může být i světadíl (Asie, Afrika, Blízký východ, Amerika, Oceánie). Do vzdálených zemí se hledá i z velkých přestupních letišť v okolí (Vídeň, Mnichov, Berlín…) – cena cesty na ně je započtená. |
 | **Kombinace, které jinde nenajdeš** | Tam s Ryanairem, zpět s Wizz Air. Odlet z Vídně, návrat do Bratislavy. Přílet do Bergama, odlet z Malpensy. Optimalizátor skládá i takové cesty. |
 | **Víc měst v jedné cestě** | *🗺️ Víc měst*: 2–4 lety jedním směrem (třeba Praha → Řím, Neapol → Praha), každý na přesné datum ± 0–3 dny; rychlá volba *↩ Návrat z jiného města*. Každý let se hledá zvlášť a ATLAS skládá jen lety, které na sebe navazují: na stejném letišti aspoň 3 h, z jiného letiště téhož města 5 h, z jiného města nejdřív další den a aspoň 8 h po příletu. Ve výsledku vybíráš let po krocích (nenavazující lety zešednou s důvodem), vidíš nejlevnější kombinace a ke každému letu tlačítko Koupit – jsou to samostatné letenky. Dva lety tam a zpět domů pokračují do průvodce cestou, delší cesta se uloží do plánovače i s lety v kalendáři (.ics). |
-| **Kalendář celých cest** | V režimu konkrétního cíle ukáže pro každý den nejlevnější *celou cestu tam a zpět* (se zadaným počtem nocí), ne jen jednosměrný let. |
+| **Kalendář celých cest** | V režimu konkrétního cíle ukáže pro každý den nejlevnější *celou cestu tam a zpět* (se zadaným počtem nocí), ne jen jednosměrný let. U flexibilního termínu s rozsahem nocí je pod ním *🗓️ Mřížka termínů* – dny odletu × počet nocí s nejlevnější celou cestou v každé buňce (tučně nejlevnější v řádku, orámovaná nejlevnější celkem, souhrn „Nejlevněji: odlet st 18. 11., 4 noci“), klepnutí na buňku nechá ve výpisu jen kombinace s tímto odletem a počtem nocí (server ji posílá v `calendar.grid` jako `[den, noci, Kč/os.]`, nejvýš 60 dnů × 10 nocí; nejlevnější kombinaci buňky, kterou `top` nemá, přidá kompaktně do `grid.trips` – řádek hodnot v pořadí `grid.keys`, každý let jednou v `grid.legs`, id, noci, cenu celkem a „Je to dobrá cena?“ dopočítá prohlížeč – a prohlížeč ji doplní do výpisu, takže nabídky, `top` ani „Je to dobrá cena?“ se mřížkou nemění; „Odkud se vyplatí letět“ s ní počítá). S max. cenou hledání kalendář ani mřížka dražší dny a buňky neukazují; s filtry výpisu (letiště, aerolinky, posuvník ceny, 🔥 jen výhodné) i času a přestupů jsou z načtených kombinací, které jimi projdou (✕ = žádná). Uložené poslední hledání se při zkrácení vejde s nejlevnější cestou každého dne i buňky (jinak bez mřížky). |
 | **Přesná data i flexibilně** | *📅 Přesná data*: zadáš den odletu a návratu a hledá se jen v tyto dny (volitelně ±1–3 dny). Pohled *✈︎ Lety* ukáže jako Google Flights všechny nalezené lety tam a zpět zvlášť (čas, aerolinka, přímý / s přestupem, cena celé cesty, další odlety dne bez ceny), pruh *📅 Nejbližší dny* ceny ±3 dny kolem data a jedním kliknutím hledá jiný den. *🔀 Flexibilně*: rozsah dat odletu + počet nocí, víkendy (čt/pá/so → ne/po), prodloužené víkendy, vlastní dny v týdnu. |
 | **Čas a přestupy** | Filtr *🕐 Čas a přestupy* ve výsledcích filtruje hned, bez nového hledání: čas odletu tam i zpět (ráno 5–12, odpoledne 12–18, večer 18–24, v noci 0–5 h, víc najednou), přílet nejpozději do 18 / 20 / 22 h nebo před půlnocí (přílet v noci 0–5 h se počítá jako pozdní, ráno dalšího dne ne), jen přímé lety nebo max. 1 přestup, max. délka cesty jedním směrem a nejdelší přestup (posuvníky podle nalezených letů), s veřejnou dopravou na letiště i *🏠 Jen dostupné z domova* (viz [Kdy vyrazit](#-kdy-vyrazit)). Časy jsou místní časy letišť. Platí v seznamu, na mapě, v kombinacích, v kalendáři i ve sloupcích ✈︎ Lety – tam jen pro svůj směr (když chceš návrat ráno, zůstanou všechny lety tam a každý se spáruje s nejlevnějším ranním návratem jako dvě samostatné letenky). U přesných dat se takhle skládají i filtry pro oba směry (*Jen přímé*, přílet, délka, přestup): když server poslal jen nejlevnější dvojice s přestupem jedním směrem, ATLAS spáruje přímé lety tam a zpět sám – ve sloupcích, v kombinacích i v kalendáři, s poznámkou, že jde o dvě samostatné letenky. Aktivní filtry jsou čipy s počtem skrytých nabídek a ✕, chytrá nápověda je nabídne zrušit. Lety bez známého času, délky nebo časů přestupů se neskrývají. U letů s přestupem je vidět, kde a jak dlouho se čeká („1× přestup (MUC 1 h 35 min)“). |
 | **Chytrá nápověda** | Když je výsledků málo nebo žádné, nabídne konkrétní úpravy jedním kliknutím (± dny, přestupní letiště – ne v zemi cíle ani hned vedle něj, celá země / světadíl, jen tam, celý měsíc, zrušit filtr) a průvodce *💡 Jak hledat chytře* pro dálkové lety. Aktivní filtry jsou vidět jako čipy s ✕, výpadek Kiwi.com hlásí s tlačítkem *Zkusit znovu*. |
@@ -846,7 +882,8 @@ a s vlastní ikonou a **uložené cesty a plány uvidíš i bez internetu**.
 - **iPhone a iPad**: Safari instalaci nabídnout neumí, ATLAS proto ukáže návod **Sdílet → Přidat na plochu → Přidat**.
 - Spuštěnému z plochy se položka už nenabízí. Instalace a offline režim fungují jen přes https (Render) a na `localhost`.
 
-**Offline funguje**: aplikace se otevře z uložené kopie (nahoře pruh „📴 Jsi offline“), plánovač s uloženými cestami,
+**Offline funguje**: aplikace se otevře z uložené kopie (nahoře pruh „📴 Jsi offline“), plánovač s uloženými cestami
+a kartou [📍 Dnes na cestě](#-dnes-na-cestě),
 rozpracovaná cesta z průvodce, hlídané ceny a navštívené země (vše je v localStorage prohlížeče), přehled zemí
 s doporučeními, vstupní podmínky a mapa navštívených zemí. **Nefunguje** nic, co potřebuje server nebo cizí web – hledání
 letů, ceny, ubytování, počasí, dlaždice map. Místo „Failed to fetch“ pak ATLAS napíše „Jsi offline – připoj se
@@ -868,7 +905,8 @@ nic se neukládá na server a nepotřebuje to účet.
   „Sbaleno“) přepíše jen zaškrtnuté „Přepsat změněné cesty“ – a i pak zůstanou odškrtnutí a vlastní položky „Sbaleno“
   z obou zařízení; domov radaru jen „Převzít domov“ (když tu žádný není, převezme se sám). Hlídání se nezdvojí (i s vlastní
   spotřebou a cenou paliva u cesty autem) a vejde se jich nejvýš 12 jako u ♡ Hlídat; navštívené země se sjednotí,
-  odškrtnutí „Před cestou“ taky (cizí cesty nevytlačí odškrtnutí tohoto zařízení). Importovaná hlídání si nesou čas
+  odškrtnutí „Před cestou“ taky (cizí cesty nevytlačí odškrtnutí tohoto zařízení). **🔖 Kódy rezervací** (jinak jen
+  v zařízení) záloha nese a obnova k cestě doplní ty, které chybějí (stejné „co“ a kód = tatáž, nejvýš 6). Importovaná hlídání si nesou čas
   poslední kontroly, takže je kontrolka nehledá víc než ta přidaná ručně. Když se sloučený stav do úložiště prohlížeče
   nevejde, nesloučí se nic a ATLAS to řekne.
 - Soubor je **cizí vstup** (mohl ho poslat kdokoli): `public/js/backup.js` z něj postaví nové objekty jen se známými
@@ -959,6 +997,7 @@ a teď má 4 945, plán z plánovače (Lisabon, 5 dní s lety a programem) má 1
 - Dřívější odkazy (`#trip=` / `#plan=` + base64url JSON, začínají vždy `ey`) fungují dál. Prohlížeč bez
   komprese deflate-raw (Safari do 16.3, Chrome do 102, Firefox do 112) vytvoří odkaz postaru a zkomprimovaný rozbalí
   vlastním inflate podle RFC 1951 (test ho porovnává se zlib na stovkách vstupů).
+- **🔖 Kódy rezervací** v odkazu nikdy nejsou – plán do odkazu bere jen známá pole a cesta z průvodce je nemá.
 - Odkaz je cizí vstup: rozbalí se nejvýš 1 MB (ochrana proti „kompresní bombě“), poškozený odkaz ukáže hlášku
   „Odkaz na cestu je poškozený“ a data projdou stejným pročištěním jako dřív (`Trip.sanitizeTrip`, `PlanShare.sanitize`).
 - Krátký odkaz typu `…/s/abc123` by potřeboval úložiště na serveru. Bezplatný Render ale při každém nasazení disk
