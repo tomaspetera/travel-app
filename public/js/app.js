@@ -484,8 +484,11 @@ function visitedPrompt(t) {
   const ccs = tripNotVisited(t);
   return ccs.length ? `<div class="note info" style="margin-top:10px">🗺️ <div>Cesta proběhla – <button type="button" class="linkbtn" id="tripVisited">přidat ${ccs.map(cc => esc(byIso[cc].cs)).join(', ')} na mapu navštívených</button></div></div>` : '';
 }
+// Cesta v okně (objekt): jiný panel může cesty mezitím posunout nebo smazat – index z vykreslení pak neplatí.
+let tripShown = null;
+const tripIdx = i => (tripShown && S.trips[i] !== tripShown ? S.trips.indexOf(tripShown) : i);
 function openTrip(i) {
-  const t = S.trips[i]; if (!t) return; const c = t.iso ? byIso[t.iso] : null; const city = c && c.cap ? c.cap : t.dest;
+  const t = S.trips[i]; if (!t) return; tripShown = t; const c = t.iso ? byIso[t.iso] : null; const city = c && c.cap ? c.cap : t.dest;
   const days = dateRange(t.start, t.end);
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? ' – ' + fmtDate(t.end) : '') : ''} · ${t.pax} os.</div></div></div>
   <div class="modal-body">
@@ -513,7 +516,7 @@ function openTrip(i) {
   if (tv) tv.onclick = () => { const ccs = tripNotVisited(t); ccs.forEach(cc => setVisited(cc, true)); toast(`Na mapě navštívených: ${ccs.map(cc => byIso[cc].cs).join(', ')}`); openTrip(i); };
   const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
   // Poznámky se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
-  const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(S.trips[i])[0])); });
+  const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(t)[0])); });
   $('#tripShare').onclick = () => sharePlan(i);
   ShareLink.prepare('plan', PlanShare.json(t)); // kliknutí pak jen zkopíruje hotový odkaz (Safari)
 }
@@ -587,8 +590,9 @@ window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.
 window.delAct = (i, d, ai) => { S.trips[i].days[d].splice(ai, 1); reTrip(i); };
 window.toggleCheck = (i, xi) => { S.trips[i].checklist[xi].done = !S.trips[i].checklist[xi].done; reTrip(i); };
 window.addCheck = i => { const inp = $('#newCheck-' + i); const v = inp.value.trim(); if (!v) return; S.trips[i].checklist.push({ t: v, done: false }); reTrip(i); };
-window.setBudget = (i, v) => { S.trips[i].budget = v; reTrip(i); };
-window.setNotes = (i, v) => { S.trips[i].notes = v; save(); };
+// „change“ přijde i při překreslení okna po změně z jiného panelu – patří k cestě v okně (smazaná: nic)
+window.setBudget = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].budget = v; reTrip(i); };
+window.setNotes = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].notes = v; save(); };
 // Poznámky už při psaní („change“ přijde až po opuštění pole – obnovení stránky nebo zavřená aplikace by text ztratily).
 // Čekající text patří k cestě (ne k pořadí – mezitím smazaná cesta nic nepřepíše).
 let notesP = null;
@@ -597,6 +601,31 @@ window.setNotesSoon = (i, v) => { clearTimeout(notesP && notesP.tm); notesP = { 
 window.addEventListener('pagehide', flushNotes);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushNotes(); });
 window.delTrip = i => { if (confirm('Opravdu smazat tuto cestu?')) { S.trips.splice(i, 1); save(); modalClose(); renderPlanner(); toast('Cesta smazána'); } };
+/** Cesty z jiného panelu: nezměněné zůstanou tytéž objekty (okno cesty, rozepsaná poznámka), cesta upravená na svém
+ *  místě (stejný počet cest) se přepíše na místě; ostatní se převezmou. */
+function adoptTrips(nw) {
+  const old = Array.isArray(S.trips) ? S.trips : [], js = old.map(t => JSON.stringify(t));
+  const out = nw.map(t => { const k = js.indexOf(JSON.stringify(t)); if (k < 0) return null; js[k] = null; return old[k]; });
+  return out.map((o, n) => {
+    const t = nw[n], p = old[n];
+    if (o || old.length !== nw.length || js[n] === null || !p || typeof p !== 'object' || !t || typeof t !== 'object') return o || t;
+    js[n] = null; Object.keys(p).forEach(k => delete p[k]); return Object.assign(p, t);
+  });
+}
+/** Okno cesty po převzetí cest z jiného panelu: cesta smazaná → zavřít; posunutá nebo upravená → překreslit (handlery
+ *  okna mají pořadí z vykreslení), rozepsané pole zůstane i s textem. */
+function tripModalSync(mi, mt, mj) {
+  const ni = S.trips.indexOf(mt);
+  if (ni === mi && JSON.stringify(mt) === mj) return;
+  const a = document.activeElement, inM = a && $('#modal').contains(a);
+  const f = inM && a.id ? { id: a.id.replace(/^(\w+)-\d+/, `$1-${ni}`), v: a.value, s: a.selectionStart, e: a.selectionEnd } : null;
+  if (inM) a.blur(); // „change“ rozpočtu nebo poznámky ještě k cestě v okně (tripIdx)
+  if (ni < 0) { modalClose(); return toast('Cesta byla smazána v jiném okně'); }
+  flushNotes(); openTrip(ni);
+  const el = f && document.getElementById(f.id); if (!el) return;
+  if (/^(act|newCheck)-/.test(f.id)) el.value = f.v; // rozepsaná aktivita nebo položka
+  el.focus(); if (f.s != null) try { el.setSelectionRange(f.s, f.e); } catch (x) { }
+}
 window.openStay = (city, start, end, adults = 2) => {
   const n = Math.min(9, Math.max(1, Math.round(+adults) || 2));
   const b = `https://www.booking.com/searchresults.cs.html?ss=${enc(city)}${start ? `&checkin=${start}&checkout=${end || ''}` : ''}&group_adults=${n}&no_rooms=1&selected_currency=CZK`;
@@ -629,16 +658,20 @@ function wireEvents() {
     if (v !== activeView && NAV.some(n => n[0] === v)) go(v, { noHash: true });
   });
   // Jiný panel s ATLAS (karta, aplikace na ploše) uložil stav: převzít ho, jinak by další uložení tady smazalo, co tam přibylo.
-  // Jen změněné klíče (průvodce poznává svoji cestu podle S.trip === t); hlídané ceny slučuje flights.js.
+  // Jen změněné klíče (průvodce poznává svoji cestu podle S.trip === t, okno cesty a poznámka svoji cestu podle objektu
+  // – adoptTrips); hlídané ceny slučuje flights.js.
   window.addEventListener('storage', e => {
     if (e.key !== LS || !e.newValue) return;
     let d; try { d = JSON.parse(e.newValue); } catch (x) { return; }
     if (!d || typeof d !== 'object') return;
+    // otevřené okno cesty: jeho cesta, pořadí z vykreslení (v handlerech okna) a obsah
+    const mEl = $('#modalBg').classList.contains('show') && $('#modal [id^="notes-"]');
+    const mt = mEl ? tripShown : null, mi = mt ? +mEl.id.slice(6) : -1, mj = mt && JSON.stringify(mt);
     const ch = new Set(), def = defState();
     for (const k of new Set([...Object.keys(S), ...Object.keys(d)])) {
       const v = k in d ? d[k] : def[k]; // chybějící klíč jako při načtení (load)
       if (k === 'watch' || JSON.stringify(S[k]) === JSON.stringify(v)) continue;
-      if (v === undefined) delete S[k]; else S[k] = v;
+      if (v === undefined) delete S[k]; else S[k] = k === 'trips' && Array.isArray(v) ? adoptTrips(v) : v;
       ch.add(k);
     }
     if (ch.has('theme') || ch.has('mapStyle')) { applyTheme(); applyMapStyle(); if (window.Flights) Flights.repaintMap(); if (window.Places) Places.retheme(); }
@@ -649,6 +682,8 @@ function wireEvents() {
     }
     if (activeView === 'planner' && ch.has('trips')) renderPlanner();
     if (activeView === 'dashboard' && (ch.has('trips') || ch.has('visited'))) renderDashStats();
+    if (mt && ch.has('trips')) tripModalSync(mi, mt, mj);
+    if (ch.has('trip') && activeView === 'trip' && window.Trip) Trip.render(); // handlery průvodce na převzatou S.trip
   });
 }
 function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
