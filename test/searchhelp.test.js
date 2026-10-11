@@ -293,6 +293,65 @@ test('smartActions: filtry času a přestupů, které skryly nabídky, napřed �
   assert.deepEqual(plain(keys(single).slice(0, 2)), ['clear:maxLay', 'flex1'], 'filtr, který nic neskryl, se nenabízí');
 });
 
+test('reach: kdy vyrazit z domu a kdy budeš doma (odhad) – noc veřejnou dopravou, letiště ve městě, auto, předchozí večer', () => {
+  const VIE = { mode: 'transit', minutes: 175 };
+  const at = (from, dep, extra) => ({ out: TL(from, 'BCN', dep, null, extra), back: null });
+  const r = H.reach(at('VIE', '2026-11-12T06:30:00'), VIE, null);
+  assert.deepEqual(plain([r.out.clock, r.out.min, r.out.early, r.out.warn, r.out.prevDay, r.out.text, r.back]), ['1:35', 95, true, true, false, '⏰ z domu už v 1:35', null]);
+  assert.equal(r.out.title, 'Odlet 06:30 − 2 h na letišti − ~2 h 55 min cesta na letiště VIE (vlak / bus a MHD, odhad) = vyrazit z domu ~1:35. Veřejná doprava v noci většinou nejede – ověř první spoj (IDOS), jinak taxi nebo noc u letiště.');
+  // letiště ve tvém městě: v noci taxi, ne varování
+  const prg = H.reach(at('PRG', '2026-11-12T06:00:00'), { mode: 'transit', local: true, minutes: 40 }, null).out;
+  assert.deepEqual(plain([prg.clock, prg.early, prg.warn, prg.local]), ['3:20', true, false, true]);
+  assert.match(prg.title, /taxi/);
+  const car = H.reach(at('BRQ', '2026-11-12T06:00:00'), { mode: 'car', minutes: 130 }, null).out;
+  assert.deepEqual(plain([car.clock, car.early, car.warn]), ['1:50', true, false]);
+  assert.ok(car.text.startsWith('🚗'), car.text);
+  assert.match(car.title, /autem, odhad/);
+  // odlet v noci → z domu předchozí večer (to brzy není)
+  const eve = H.reach(at('VIE', '2026-11-12T01:30:00'), VIE, null).out;
+  assert.deepEqual(plain([eve.clock, eve.min, eve.prevDay, eve.early, eve.warn]), ['20:35', -205, true, false, false]);
+  assert.match(eve.title, /~20:35 předchozího dne\.$/);
+  // návrat: přílet + 45 min + cesta domů
+  const back = H.reach({ out: TL('PRG', 'BCN', '2026-11-12T10:00:00', null), back: TL('BCN', 'VIE', '2026-11-15T20:40:00', '2026-11-15T23:30:00') }, null, VIE).back;
+  assert.deepEqual(plain([back.clock, back.late, back.warn, back.text]), ['3:10', true, true, '🏠 domů až ~3:10']);
+  assert.match(back.title, /^Přílet 23:30 \+ 45 min na letišti \+ ~2 h 55 min cesta z letiště VIE domů \(vlak \/ bus a MHD, odhad\) = doma ~3:10\. Veřejná doprava v noci/);
+  const home = (arr) => H.reach({ out: TL('PRG', 'BCN', '2026-11-12T10:00:00', null), back: TL('BCN', 'VIE', '2026-11-15T18:00:00', arr) }, null, VIE).back;
+  assert.deepEqual(plain(['2026-11-15T20:40:00', '2026-11-15T20:50:00', '2026-11-16T01:19:00', '2026-11-16T01:20:00'].map((a) => [home(a).clock, home(a).late])),
+    [['0:20', false], ['0:30', true], ['4:59', true], ['5:00', false]], 'doma 0:30–5:00 = pozdě');
+  assert.equal(H.reach({ out: TL('PRG', 'BCN', '2026-11-12T10:00:00', null), back: TL('BCN', 'VIE', '2026-11-15T21:00:00', '2026-11-15T23:30:00') }, null, { mode: 'car', minutes: 175 }).back.text, '🚗 domů ~3:10');
+  // neznámý čas, přílet nebo doprava → nic
+  assert.equal(H.reach(at('VIE', '2026-11-12T06:30:00', { hasTime: false }), VIE, null).out, null);
+  assert.equal(H.reach({ out: TL('PRG', 'BCN', '2026-11-12T10:00:00', null), back: TL('BCN', 'VIE', '2026-11-15T21:00:00', null) }, null, VIE).back, null);
+  assert.equal(H.reach(at('VIE', '2026-11-12T06:30:00'), { ...VIE, off: true }, null).out, null, 'doprava na letiště vypnutá');
+  assert.equal(H.reach(at('VIE', '2026-11-12T06:30:00'), null, null).out, null);
+  assert.equal(H.reach(at('VIE', '2026-11-12T06:30:00'), VIE, null, { before: 150 }).out.clock, '1:05', 'mimo Schengen 2,5 h');
+  // předložka a čas
+  assert.deepEqual([H.ve(160), H.ve(95), H.ve(13 * 60 + 40), H.ve(-205), H.ve(1440 + 300)], ['ve', 'v', 've', 've', 'v']);
+  assert.deepEqual([H.clockTxt(95), H.clockTxt(-205), H.clockTxt(1630), H.clockTxt(0)], ['1:35', '20:35', '3:10', '0:00']);
+});
+
+test('reach jako filtr „Jen dostupné z domova“: skryje jen noc veřejnou dopravou mimo tvé město; co nevíme, neskrývá', () => {
+  const ctx = H.reachCtx([{ iata: 'VIE', ground: { mode: 'transit', minutes: 175 } }, { iata: 'PRG', ground: { mode: 'transit', minutes: 40, local: true } }, { iata: 'BRQ', ground: { mode: 'transit', minutes: 30, off: true } }]);
+  assert.deepEqual(plain(ctx), { min: { VIE: 175, PRG: 40 }, local: ['PRG'] });
+  assert.equal(H.reachCtx([{ iata: 'VIE', ground: { mode: 'car', minutes: 160 } }, { iata: 'PRG', ground: null }]), null, 'autem se dá jet kdykoliv');
+  assert.equal(H.reachCtx(null), null);
+  const f = tf({ reach: ctx });
+  assert.equal(H.freshTime().reach, null);
+  assert.equal(H.timeActive(f), true);
+  const trip = (from, dep, extra) => ({ out: TL(from, 'BCN', dep, null, extra), back: null });
+  assert.deepEqual(plain(H.timeFails(trip('VIE', '2026-11-12T06:30:00'), f)), ['reach']);
+  assert.deepEqual(plain(H.timeFails(trip('VIE', '2026-11-12T09:30:00'), f)), []);
+  assert.deepEqual(plain(H.timeFails(trip('PRG', '2026-11-12T06:00:00'), f)), [], 'z letiště ve tvém městě taxi');
+  assert.deepEqual(plain(H.timeFails(trip('VIE', '2026-11-12T06:30:00', { hasTime: false }), f)), [], 'neznámý čas');
+  assert.deepEqual(plain(H.timeFails(trip('BRQ', '2026-11-12T06:00:00'), f)), [], 'neznámá doprava');
+  // návrat domů v noci; jednotlivý let (fillLegs) jen svým směrem
+  const late = TL('BCN', 'VIE', '2026-11-15T20:40:00', '2026-11-15T23:30:00');
+  assert.deepEqual(plain(H.timeFails({ out: TL('PRG', 'BCN', '2026-11-12T10:00:00', null), back: late }, f)), ['reach']);
+  assert.deepEqual(plain(H.timeFails({ back: late }, f)), ['reach']);
+  assert.deepEqual(plain(H.timeFails({ back: { ...late, to: 'PRG' } }, f)), []);
+  assert.deepEqual(plain(H.timeChips(f).map((c) => [c.key, c.label])), [['reach', '🏠 jen dostupné z domova']]);
+});
+
 test('fillLegs: filtr návratu neschová lety tam, které mu nevadí – složí se s návratem, který filtry prošel', () => {
   const c = { groundCzk: 0, bagCzk: 0 };
   const o1 = TL('PRG', 'BCN', '2026-11-12T07:00:00', '2026-11-12T09:15:00', { ...c, czk: 1000, carrier: 'FR' });

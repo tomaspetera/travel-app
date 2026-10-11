@@ -194,7 +194,7 @@
   // Části dne podle hodiny odletu (místní čas): [klíč, popisek, od, do).
   const DAYPARTS = [['morning', 'Ráno', 5, 12], ['afternoon', 'Odpoledne', 12, 18], ['evening', 'Večer', 18, 24], ['night', 'Noc', 0, 5]];
   const PART_TXT = { morning: 'ráno', afternoon: 'odpoledne', evening: 'večer', night: 'v noci' };
-  const freshTime = () => ({ out: [], back: [], arrBy: null, stops: null, maxDur: null, maxLay: null });
+  const freshTime = () => ({ out: [], back: [], arrBy: null, stops: null, maxDur: null, maxLay: null, reach: null });
   const hm = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
   // „4 h 20“ (jako u odhadu cesty vlakem/busem)
   const hhmmTxt = m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + pad(m % 60) : ''}` : `${m} min`; };
@@ -217,12 +217,67 @@
     const m = l && l.hasTime && l.arr ? clock(l.arr) : null;
     return m != null && (m > by * 60 || m < 5 * 60);
   }
-  const timeActive = tf => Boolean(tf && ((tf.out || []).length || (tf.back || []).length || tf.arrBy != null || tf.stops != null || tf.maxDur || tf.maxLay));
+  const timeActive = tf => Boolean(tf && ((tf.out || []).length || (tf.back || []).length || tf.arrBy != null || tf.stops != null || tf.maxDur || tf.maxLay || tf.reach));
+
+  /* ---------- kdy vyrazit z domu a kdy budeš doma (odhad: čas letu ± letiště ± cesta na letiště, bez jízdních řádů) ---------- */
+  // before / after = Ground.AIRPORT_BEFORE / AIRPORT_AFTER (test hlídá shodu); early = z domu před 4:30, late = doma
+  // mezi 0:30 a 5:00. Domov a letiště odletu jsou ve stejném časovém pásmu (letiště v okruhu hledání).
+  const REACH = { before: 120, after: 45, early: 270, lateFrom: 30, lateTo: 300 };
+  const dayMin = m => ((Math.round(m) % 1440) + 1440) % 1440;
+  /** „1:35“ z minut od půlnoci (i záporných a přes půlnoc). */
+  const clockTxt = m => { m = dayMin(m); return `${Math.floor(m / 60)}:${pad(m % 60)}`; };
+  /** Předložka před časem: „ve 2:40“, „ve 13:40“, „v 1:35“. */
+  const ve = m => ([2, 3, 4, 12, 13, 14, 20, 21, 22, 23].includes(Math.floor(dayMin(m) / 60)) ? 've' : 'v');
+  const NIGHT = ' Veřejná doprava v noci většinou nejede – ověř první spoj (IDOS), jinak taxi nebo noc u letiště.';
+  /**
+   * Kdy vyrazit z domu na let tam a kdy budeš doma po letu zpět; gOut / gBack = doprava na letiště ze serveru
+   * (origins[].ground). → { out, back }, každé null (neznámý čas nebo doprava) nebo { min (od půlnoci dne letu, záporné =
+   * předchozí den), clock, prevDay, early | late, mode, local, warn (veřejnou dopravou v noci, ne z letiště ve tvém městě),
+   * text, title }. Texty jsou čisté – do HTML jen přes esc().
+   */
+  function reach(t, gOut, gBack, { before = REACH.before } = {}) {
+    const ok = g => Boolean(g && !g.off && g.minutes > 0);
+    const how = g => (g.mode === 'car' ? 'autem' : 'vlak / bus a MHD');
+    const note = (g, night, warn) => (warn ? NIGHT : night && g.local ? ' Letiště je ve tvém městě – v noci taxi nebo noční linka.' : g.mode === 'car' ? ' Autem – jen pro informaci.' : '');
+    let out = null, back = null;
+    const o = t && t.out, dep = o && o.hasTime ? clock(o.dep) : null;
+    if (dep != null && ok(gOut)) {
+      const min = dep - before - gOut.minutes, c = clockTxt(min), car = gOut.mode === 'car', early = dayMin(min) < REACH.early;
+      const warn = early && !car && !gOut.local;
+      out = {
+        min, clock: c, prevDay: min < 0, early, mode: gOut.mode, local: Boolean(gOut.local), warn,
+        text: car ? `🚗 z domu ${ve(min)} ${c}` : `⏰ z domu už ${ve(min)} ${c}`,
+        title: `Odlet ${hhmm(o)} − ${hm(before)} na letišti − ~${hm(gOut.minutes)} cesta na letiště ${o.from} (${how(gOut)}, odhad) = vyrazit z domu ~${c}${min < 0 ? ' předchozího dne' : ''}.${note(gOut, early, warn)}`,
+      };
+    }
+    const b = t && t.back, arr = b && b.hasTime && b.arr ? clock(b.arr) : null;
+    if (arr != null && ok(gBack)) {
+      const min = arr + REACH.after + gBack.minutes, c = clockTxt(min), car = gBack.mode === 'car';
+      const late = dayMin(min) >= REACH.lateFrom && dayMin(min) < REACH.lateTo, warn = late && !car && !gBack.local;
+      back = {
+        min, clock: c, prevDay: min < 0, late, mode: gBack.mode, local: Boolean(gBack.local), warn,
+        text: car ? `🚗 domů ~${c}` : `🏠 domů až ~${c}`,
+        title: `Přílet ${String(b.arr).slice(11, 16)} + ${hm(REACH.after)} na letišti + ~${hm(gBack.minutes)} cesta z letiště ${b.to} domů (${how(gBack)}, odhad) = doma ~${c}.${note(gBack, late, warn).replace('první spoj', 'spoj')}`,
+      };
+    }
+    return { out, back };
+  }
+  /** Pro filtr „Jen dostupné z domova“: veřejnou dopravou na letiště → { min: { IATA: minuty }, local: [IATA] } | null. */
+  function reachCtx(origins) {
+    const ors = (origins || []).filter(o => o && o.ground && o.ground.mode === 'transit' && !o.ground.off && o.ground.minutes > 0);
+    return ors.length ? { min: Object.fromEntries(ors.map(o => [o.iata, o.ground.minutes])), local: ors.filter(o => o.ground.local).map(o => o.iata) } : null;
+  }
+  // Z domova se nejspíš nedostaneš (veřejnou dopravou v noci, ne z letiště ve tvém městě); neznámý čas nebo doprava neskrývá.
+  function reachBad(t, ctx) {
+    const g = iata => (ctx && ctx.min && Object.hasOwn(ctx.min, iata) ? { mode: 'transit', minutes: ctx.min[iata], local: (ctx.local || []).includes(iata) } : null);
+    const r = reach(t, t.out && g(t.out.from), t.back && g(t.back.to));
+    return Boolean((r.out && r.out.warn) || (r.back && r.back.warn));
+  }
 
   /**
-   * Které filtry času a přestupů cesta porušuje: ['tOut', 'tBack', 'arrBy', 'stops', 'maxDur', 'maxLay'] (prázdné = projde).
-   * tf = { out: [části dne odletu tam], back: [… zpět], arrBy: hodina (přílet nejpozději, tam i zpět), stops: max. přestupů,
-   * maxDur: max. délka cesty jedním směrem (min), maxLay: max. délka jednoho přestupu (min) }.
+   * Které filtry času a přestupů cesta porušuje: ['tOut', 'tBack', 'arrBy', 'stops', 'maxDur', 'maxLay', 'reach'] (prázdné =
+   * projde). tf = { out: [části dne odletu tam], back: [… zpět], arrBy: hodina (přílet nejpozději, tam i zpět), stops: max.
+   * přestupů, maxDur: max. délka cesty jedním směrem (min), maxLay: max. délka jednoho přestupu (min), reach: reachCtx }.
    * Co o letu nevíme (čas, délku, časy úseků), filtr neskrývá.
    */
   function timeFails(t, tf) {
@@ -236,6 +291,7 @@
     if (tf.stops != null && legs.some(l => (l.stops || 0) > tf.stops)) out.push('stops');
     if (tf.maxDur && legs.some(l => (legMinutes(l) || 0) > tf.maxDur)) out.push('maxDur');
     if (tf.maxLay && legs.some(l => (maxLayover(l) || 0) > tf.maxLay)) out.push('maxLay');
+    if (tf.reach && reachBad(t, tf.reach)) out.push('reach');
     return out;
   }
   const timeOk = (t, tf) => timeFails(t, tf).length === 0;
@@ -361,6 +417,7 @@
     if (tf.stops != null) add('stops', tf.stops === 0 ? 'bez přestupu' : `max. ${tf.stops} přestup`);
     if (tf.maxDur) add('maxDur', `⏱ cesta max. ${hm(tf.maxDur)}`);
     if (tf.maxLay) add('maxLay', `⌛ přestup max. ${hm(tf.maxLay)}`);
+    if (tf.reach) add('reach', '🏠 jen dostupné z domova');
     return out;
   }
 
@@ -1178,6 +1235,7 @@
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
+    REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
     easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,

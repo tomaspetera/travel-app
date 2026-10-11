@@ -279,6 +279,8 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .tf-parts button.on{border-color:var(--accent);background:rgba(91,140,255,.18);color:var(--text)}
 .tf-arr{grid-template-columns:repeat(5,minmax(0,1fr))}
 .tf-arr button{padding:8px 2px}
+.tf-one{grid-template-columns:minmax(0,1fr)}
+.tf-one button{padding:8px 10px}
 .tf-seg{display:flex;flex-wrap:wrap;width:fit-content;max-width:100%}
 .tf-seg button{padding:6px 10px;font-size:12.5px}
 .tf-range{display:flex;align-items:center;gap:10px;min-height:34px}

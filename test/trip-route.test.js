@@ -91,9 +91,11 @@ test('trip: kalendář – pobyt na každém místě (celodenní), přejezdy s �
   assert.match(moves[0].url, /travelmode=driving/);
   const prog = ev.filter((e) => e.title.startsWith('Den '));
   assert.deepEqual(prog.map((e) => [e.title, e.start]), [['Den 1 – Milán', '2026-11-10'], ['Den 2 – Milán', '2026-11-11'], ['Den 1 – Řím', '2026-11-17']]);
-  // Celý soubor .ics: 2 lety + 3 pobyty + 2 přejezdy + 3 dny programu; přejezd v UTC (11:00 v Římě = 10:00Z).
+  // z posledního místa na letiště: odlet 19:00 − 2 h − 37 min autem
+  assert.deepEqual(ev.filter((e) => e.title.startsWith('🚪')).map((e) => [e.title, e.start, e.tz, e.durationMin]), [['🚪 Vyraž na letiště FCO', '2026-11-18T16:23', 'Europe/Rome', 37]]);
+  // Celý soubor .ics: 2 lety + 3 pobyty + 2 přejezdy + 3 dny programu + kdy vyrazit na letiště; přejezd v UTC (11:00 v Římě = 10:00Z).
   const ics = Ics.build(Trip.calendarEvents(t), { now: Date.UTC(2026, 9, 5) });
-  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 10);
+  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 11);
   assert.ok(ics.includes('DTSTART:20261113T100000Z\r\nDTEND:20261113T130900Z'), 'přejezd 3 h 9 min');
   assert.ok(ics.includes('DTSTART;VALUE=DATE:20261113\r\nDTEND;VALUE=DATE:20261117'));
   // Vlakem: časy a odkazy na spoje.

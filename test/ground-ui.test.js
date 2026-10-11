@@ -65,6 +65,13 @@ test('Ground.worth / planeOptions v prohlížeči = server (stejné pravidlo i t
   assert.equal(c.fast.t.perPersonCzk, 11994, 'ne přímý let tam s návratem s přestupem (10 282 Kč)');
 });
 
+test('„Kdy vyrazit z domu“ (SearchHelp.REACH) počítá se stejným časem na letišti jako srovnání s vlakem/busem i server', async () => {
+  const S = await import('../server/lib/ground.js');
+  assert.equal(Ground.AIRPORT_BEFORE, SearchHelp.REACH.before);
+  assert.equal(Ground.AIRPORT_AFTER, SearchHelp.REACH.after);
+  assert.deepEqual([Ground.AIRPORT_BEFORE, Ground.AIRPORT_AFTER], [S.AIRPORT_BEFORE, S.AIRPORT_AFTER]);
+});
+
 test('Ground: text čipu, délka cesty, převod spoje a odhadu na úsek cesty, cena za všechny', () => {
   assert.equal(Ground.chipText({ min: 260, czk: 299 }), '🚆 i vlakem/busem ~4 h 20 · od ~299 Kč');
   // zpáteční hledání: cena tam i zpět jako u letenek vedle čipu
