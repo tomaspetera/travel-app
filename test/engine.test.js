@@ -461,6 +461,9 @@ test('průběžné výsledky: náhled, dokud pomalejší zdroj hledá; konečný
       assert.ok(found(a.partials[0]) < found(a.res), name);
       assert.deepEqual([...new Set(a.partials[0].groups.flatMap((g) => g.options.map((t) => t.provider)))], ['demo-air'], name);
       if (q.exactOut) assert.ok(a.res.nearby && a.res.nearby.out, `${name}: konečný výsledek má nejbližší dny`);
+      // Kamkoliv: kombinace aerolinek a letišť z už stažených letů jen v konečném výsledku (v náhledech ne)
+      const mixed = (r) => r.groups.some((g) => g.options.some((t) => t.back && (t.provider === 'mix' || t.back.to !== t.out.from || t.back.from !== t.out.to)));
+      if (!q.to && q.trip === 'return') assert.ok(mixed(a.res) && !a.partials.some(mixed), `${name}: kombinace jen v konečném`);
       if (q.nightsMax > q.nightsMin && q.to) assert.ok(a.res.calendar.grid.cells.length, `${name}: konečný výsledek má mřížku`);
     }
   } finally {

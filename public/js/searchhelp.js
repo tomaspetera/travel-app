@@ -851,7 +851,7 @@
    * „Odkud se vyplatí letět“: nejlevnější celá cesta z každého letiště odletu (o.best ze serveru, vč. dopravy na letiště)
    * proti nejbližšímu letišti (ref – ne přestupní) – o kolik levněji a o kolik déle cesta na letiště (zpáteční tam i zpět).
    * Zpáteční s návratem na jiné letiště (open-jaw) server k žádnému letišti nepočítá (filtr letišť ve výpisu ji u obou
-   * schová) – jaw = nejlevnější taková ve výpisu (res.top), r.jaw = kolik jich letiště řádku má.
+   * schová) – jaw = nejlevnější taková ve výpisu (res.top, v Kamkoliv nabídky cílů), r.jaw = kolik jich letiště řádku má.
    * → { rows (od nejlevnějšího, bez nabídky na konci), ref, win, jaw }; prázdné u cesty přes víc měst, u starších
    * výsledků bez best a když se něco našlo jen z jednoho letiště.
    */
@@ -868,7 +868,7 @@
     const bestOf = o => (own ? own[o.iata] || null : o.best);
     const os = (res.origins || []).filter(o => o && o.iata), priced = os.filter(o => bestOf(o) && bestOf(o).czk > 0);
     if (priced.length < 2) return none;
-    const jaws = (trips || res.top || []).filter(t => t && t.out && t.back && t.back.to !== t.out.from && Number.isFinite(t.perPersonCzk));
+    const jaws = (trips || res.top || (res.groups || []).flatMap(g => g.options || [])).filter(t => t && t.out && t.back && t.back.to !== t.out.from && Number.isFinite(t.perPersonCzk));
     const dist = o => (Number.isFinite(o.distKm) ? o.distKm : 1e9);
     const near = list => list.reduce((m, o) => (!m || dist(o) < dist(m) ? o : m), null);
     const ref = near(priced.filter(o => !o.hub)) || near(priced);
@@ -1056,6 +1056,12 @@
   }
   // odlet v předvečer prodlouženého víkendu nejdřív v (po práci)
   const LW_DEP = '16:00';
+  /**
+   * Letiště na kartě radaru: „BRQ → WAW“; nejlevnější cesta z Kamkoliv se může vracet jinam (bf/bt = let zpět, jen když
+   * nejde z cíle do místa odletu) – „JCL → POZ ↩ PED“, zpět z jiného letiště v cíli „BRQ → WAW ↩ WMI → BRQ“ (návrat
+   * nerozdělitelně – na úzké kartě se zalomí před ↩).
+   */
+  const radarRoute = x => `${x.from} → ${x.to}${x.bt ? ` ↩\u00a0${x.bf && x.bf !== x.to ? `${x.bf}\u00a0→\u00a0` : ''}${x.bt}` : ''}`;
   /**
    * Plánovač: místo k názvu cíle („Lisabon“) z našeptávače (items z /api/places) – jen přesná shoda názvu. Metropole
    * (Londýn, Barcelona) vyhrává nad stejnojmennými letišti jinde; jinak velká letiště (big), a jen když všechna leží
@@ -1548,7 +1554,7 @@
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
     partialHead, reusable, partialFail,

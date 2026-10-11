@@ -735,6 +735,15 @@ test('radarPick: u svátků jen odlet první volný den nebo večer předem (od 
   assert.deepEqual(plain(H.radarPick([g1, g2], null).map((x) => x.t.perPersonCzk)), [900, 500], 'bez svátků beze změny');
 });
 
+test('radarRoute: karta radaru ukáže i návrat na jiné letiště a zpět z jiného letiště v cíli (kombinace z Kamkoliv)', () => {
+  // návrat nerozdělitelně (pevné mezery) – na úzké kartě se zalomí před ↩
+  const sp = (s) => s.replace(/\u00a0/g, ' ');
+  assert.equal(H.radarRoute({ from: 'BRQ', to: 'WAW' }), 'BRQ → WAW');
+  assert.equal(sp(H.radarRoute({ from: 'JCL', to: 'POZ', bf: 'POZ', bt: 'PED' })), 'JCL → POZ ↩ PED');
+  assert.equal(H.radarRoute({ from: 'BRQ', to: 'WAW', bf: 'WMI', bt: 'BRQ' }), 'BRQ → WAW ↩\u00a0WMI\u00a0→\u00a0BRQ');
+  assert.equal(sp(H.radarRoute({ from: 'VIE', to: 'STN', bf: 'LTN', bt: 'BTS' })), 'VIE → STN ↩ LTN → BTS');
+});
+
 test('placeGuess (plánovač): metropole, velká letiště, jedno jasně větší; jinak nic nehádat', async () => {
   const { localSuggestions } = await import('../server/lib/places.js');
   const g = (name) => { const x = H.placeGuess(localSuggestions(name), name); return x ? `${x.cc} ${x.id}` : null; };
@@ -865,6 +874,23 @@ test('originCompare/originFoot: návrat na jiné letiště se k letištím nepo�
   const noArr = H.originFoot({ ...res, query: { ...res.query, arrival: false, trip: 'oneway' }, top: [] });
   assert.match(noArr, /^Celá cesta na osobu vč\. dopravy na letiště, bez cesty do města \(vypnuto v Další možnosti\) – /);
   assert.match(noArr, /Čas = odhad cesty na letiště\. /);
+});
+
+test('originCompare v Kamkoliv (bez top): návraty jinam z nabídek cílů – kombinace z už stažených letů', () => {
+  const o = (iata, distKm, best) => ({ iata, city: iata, distKm, ground: { mode: 'transit', minutes: distKm }, best });
+  const rt = (from, to, perPersonCzk) => ({ out: { from }, back: { to }, perPersonCzk });
+  // VIE jen s návratem do BTS (Ryanair tam, Wizz Air zpět) – server ho k žádnému letišti nepočítá
+  const res = {
+    mode: 'explore', query: { trip: 'return', kmRate: 1, arrival: false },
+    origins: [o('BRQ', 5, { czk: 1500, n: 2 }), o('BTS', 120, { czk: 1700, n: 1 }), o('VIE', 125, null)],
+    top: null,
+    groups: [{ options: [rt('VIE', 'BTS', 1200.4), rt('BRQ', 'BRQ', 1500)] }, { options: [rt('BTS', 'BTS', 1700), rt('BRQ', 'BRQ', 1900)] }],
+  };
+  const oc = plain(H.originCompare(res));
+  assert.equal(oc.jaw, 1200);
+  assert.deepEqual(oc.rows.map((r) => [r.iata, r.czk, r.jaw]), [['BRQ', 1500, 0], ['BTS', 1700, 1], ['VIE', null, 1]]);
+  assert.match(H.originFoot(res, oc), /jen s odletem i návratem na totéž letiště/);
+  assert.equal(H.originCompare({ ...res, groups: [{ options: [rt('BRQ', 'BRQ', 1500)] }] }).jaw, null);
 });
 
 test('originCompare s filtry výpisu: ceny z nabídek, které výpis ukazuje; „nejbližší s nabídkou“; čip „jen z X“', () => {
