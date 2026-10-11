@@ -205,7 +205,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .nw-copy{font:700 12px Inter,sans-serif;padding:4px 10px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);cursor:pointer}
 .nw-copy:hover{border-color:var(--accent)}
 .nw-todo{margin-top:9px;font-size:13px}
-.nw-todo .linkbtn{font-size:13px}
+.nw-todo .linkbtn,.nw-also .linkbtn{font-size:13px}
 .ref-add{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) auto;gap:8px;margin-top:4px}
 .ref-kod-in{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.04em}
 @media(max-width:620px){.ref-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.ref-add>:nth-child(n+3){grid-column:1/-1}}
