@@ -1,7 +1,8 @@
 // Průvodce cestou po změnách: vlak/bus místo letu ve stejné dny (program a auto podle starých časů), vlak jen tam,
-// trasa zapnutá po změně termínu, nové hledání pro jiný počet lidí, auto (délka pronájmu, úpravy bez „Uložit“, noci
-// cesty jen tam), dny cesty bez programu a cesta z letiště u trasy vlakem. Kroky se vykreslí do zástupného DOM
-// ($ vrací stálé objekty podle selektoru, $$ seznam z __all, kliknutí = zavolání onclick); public/js/trip.js přes node:vm.
+// trasa zapnutá po změně termínu (i hotel jednoho místa při zapnuté trase), nové hledání pro jiný počet lidí, auto (délka
+// pronájmu, úpravy bez „Uložit“ i s odkazem na srovnávač, noci cesty jen tam), dny cesty bez programu a cesta z letiště
+// u trasy vlakem. Kroky se vykreslí do zástupného DOM ($ vrací stálé objekty podle selektoru, $$ seznam z __all, kliknutí
+// = zavolání onclick); public/js/trip.js přes node:vm.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -217,6 +218,81 @@ test('auto: délka pronájmu a příplatek za vrácení jinde podle upravených 
   set({ '#carTo': '2026-11-11T08:10' });
   c.__els['#carNext'].onclick();
   assert.deepEqual([u.car.to, c.__toasts.length], ['2026-11-11T08:10', 0]);
+});
+
+test('auto s upravenými časy („Pokračovat“ i „Uložit“): odkaz ve shrnutí vede na srovnávač s novými časy, i když se nabídky načtou až potom', async () => {
+  const c = load();
+  const kayak = (q) => `https://www.cz.kayak.com/cars/${q.get('pickup')}/${q.get('from')}/${q.get('to')}`;
+  c.fetch = async (u) => {
+    const q = new URLSearchParams(u.split('?')[1]);
+    return { ok: true, json: async () => ({ query: { pickup: q.get('pickup'), dropoff: q.get('dropoff'), from: q.get('from'), to: q.get('to'), age: +q.get('age') }, items: [], links: [{ id: 'kayak', name: 'Kayak', note: '', url: kayak(q) }] }) };
+  };
+  const set = (v) => { for (const [k, x] of Object.entries(v)) c.$(k).value = x; };
+  const OLD = 'https://www.cz.kayak.com/cars/VIE/2026-11-04T21:41/2026-11-11T08:10', NEW = 'https://www.cz.kayak.com/cars/VIE/2026-11-04T21:41/2026-11-10T18:00';
+  // odkaz z uložené trasy: shrnutí v novém načtení aplikace (bez načtených nabídek)
+  const link = (t) => { const h = render(load(), { ...plain(t), step: 'summary' }); return (h.match(/\d\. Auto<\/span><a class="btn sm" href="([^"]*)"/) || [])[1]; };
+  // krok Auto s uloženými časy (zástupné prvky si hodnoty pamatují – nastaví se jako po vykreslení)
+  const open = async (x) => { set({ '#carPu': 'VIE', '#carDo': 'VIE', '#carFrom': '2026-11-04T21:41', '#carTo': '2026-11-11T08:10', '#carAge': '30' }); render(c, x); await tick(); };
+  const t = vie({ step: 'car', car: { ...vie().car, url: OLD } });
+  await open(t);
+  set({ '#carTo': '2026-11-10T18:00' });
+  c.__els['#carTo'].onchange();
+  await tick();
+  c.__els['#carNext'].onclick();
+  assert.deepEqual([t.car.to, t.car.url, link(t)], ['2026-11-10T18:00', NEW, NEW]);
+  // „Pokračovat“ dřív, než se nabídky k novým časům načtou: starý odkaz pryč, nový po načtení
+  const u = vie({ step: 'car', car: { ...vie().car, url: OLD } });
+  await open(u);
+  set({ '#carTo': '2026-11-10T18:00' });
+  c.__els['#carTo'].onchange();
+  c.__els['#carNext'].onclick();
+  assert.deepEqual([u.car.to, u.car.url], ['2026-11-10T18:00', null]);
+  await tick();
+  assert.deepEqual([u.car.url, link(u)], [NEW, NEW]);
+  // „Uložit“ s cenou hned po změně času: totéž
+  const w = vie({ step: 'car', car: null });
+  await open(w);
+  set({ '#carTo': '2026-11-10T18:00', '#carPrice': '3000' });
+  c.__els['#carTo'].onchange();
+  c.__els['#carSave'].onclick();
+  assert.deepEqual([w.car.totalCzk, w.car.url], [3000, null]);
+  await tick();
+  assert.equal(w.car.url, NEW);
+});
+
+test('hotel jednoho místa při zapnuté trase: vlak jindy nebo jiný počet nocí ho zahodí – po přepnutí na Jedno místo neplatí se starým termínem', async () => {
+  const c = load();
+  const base = (id, name, lat, lon, nights) => ({ id, name, lat, lon, nights, cc: 'AT', country: 'Rakousko', anchor: null, stay: null, plan: null });
+  const route = () => ({ mode: 'multi', transport: 'transit', want: 2, exclude: [], candidates: [], notes: [], legs: {},
+    bases: [base('city:VIE', 'Vídeň', 48.2082, 16.3738, 3), base('Q34713', 'Salcburk', 47.8, 13.045, 4)],
+    transfers: [{ km: 295, carMin: 190, transitMin: 160, transitKind: 'rail', basis: 'estimate' }] });
+  const single = (t) => { c.__all['[data-rmode]'] = [{ dataset: { rmode: 'single' } }]; render(c, { ...t, step: 'route' }); c.S.trip = t; c.__all['[data-rmode]'][0].onclick(); };
+  // vlak 5.–12. 11. místo letu 4.–11. 11. (trasa zapnutá) → zpět na jedno místo: hotel na 4.–11. 11. pryč
+  const t = vie({ car: null, plan: null, route: route() });
+  await pickTrain(c, t, { '2026-11-05': ['06:01', '09:55'], '2026-11-12': ['06:01', '09:55'] });
+  assert.equal(t.stay, null);
+  assert.deepEqual(plain(c.__toasts), ['Pojedeš vlakem / busem – let se nepočítá', 'Termín pobytu se změnil – vyber ubytování znovu']);
+  single(t);
+  assert.deepEqual([t.route.mode, t.stay, c.window.Trip.costs(t).stay], ['single', null, 0]);
+  assert.ok(!rows(render(c, { ...t, step: 'summary' })).some((x) => x.includes('🏨')));
+  // ruční cena zůstane s upozorněním; hlášení o hotelu místa trasy má přednost
+  const m = vie({ car: null, plan: null, route: route(), stay: { mode: 'manual', name: 'U kamaráda', totalCzk: 3000 } });
+  await pickTrain(c, m, { '2026-11-05': ['06:01', '09:55'], '2026-11-12': ['06:01', '09:55'] });
+  assert.deepEqual([m.stay.name, c.__toasts.at(-1)], ['U kamaráda', 'Termín pobytu se změnil – zkontroluj cenu ubytování']);
+  const h = vie({ car: null, plan: null, route: route() });
+  h.route.bases[0].stay = { mode: 'pick', id: 'h2', name: 'Hotel Sacher', totalCzk: 9000, checkin: '2026-11-04', checkout: '2026-11-07' };
+  await pickTrain(c, h, { '2026-11-05': ['06:01', '09:55'], '2026-11-12': ['06:01', '09:55'] });
+  assert.deepEqual([h.stay, h.route.bases[0].stay, c.__toasts.at(-1)], [null, null, 'Termín jednoho místa se změnil – hotel tam vyber znovu']);
+  // cesta jen tam: jiný počet nocí se zapnutou trasou → hotel jednoho místa pryč (hlášení o trase má přednost)
+  const ow = vie({ step: 'route', car: null, plan: null, route: route() });
+  ow.flight = { ...ow.flight, back: null };
+  ow.nightsOneWay = 7;
+  render(c, ow);
+  c.__els['#owNights'].value = '8';
+  c.__els['#owNights'].onchange();
+  assert.deepEqual([ow.nightsOneWay, ow.stay, plain(c.__toasts)], [8, null, ['Počet nocí se změnil – uprav jejich rozdělení v trase']]);
+  single(ow);
+  assert.equal(c.window.Trip.costs(ow).stay, 0);
 });
 
 test('cesta jen tam: jiný počet nocí zahodí i auto (vrácení podle konce pobytu), hlášení se spojí', () => {

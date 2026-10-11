@@ -336,6 +336,11 @@
     [x.stay, x.car].map(s => (s ? [s.mode, s.id || s.name || '', Math.round(s.totalCzk || 0)] : null)),
     isMulti(x) ? x.route.bases.map(b => [b.id, b.nights, b.stay ? [b.stay.mode, b.stay.id || b.stay.name || ''] : null]) : null,
   ]);
+  /** Obsah sdílené cesty k porovnání: klíče podle abecedy, bez odškrtnutí „Co zařídit a co sbalit“ (ta se jen přidávají – PreTrip.adopt). */
+  const linkSig = x => {
+    const { done, ...p } = x.pretrip || {};
+    return JSON.stringify({ ...x, pretrip: Object.keys(p).length ? p : undefined }, (k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(n => [n, v[n]])) : v));
+  };
 
   /* ---------- start z výsledků hledání ---------- */
   function start({ t, g, result, ccs = null }) {
@@ -568,9 +573,10 @@
     const moved = JSON.stringify(stayDates(t)) !== before;
     if (moved) {
       staysData = null;
-      if (isMulti(t)) reconcileStays(t);
-      else if (t.stay && t.stay.mode === 'pick') { t.stay = null; toast('Termín pobytu se změnil – vyber ubytování znovu'); }
+      // hotel jednoho místa i se zapnutou trasou – po přepnutí na Jedno místo by platil pro staré dny
+      if (t.stay && t.stay.mode === 'pick') { t.stay = null; toast('Termín pobytu se změnil – vyber ubytování znovu'); }
       else if (t.stay && t.stay.mode === 'manual') toast('Termín pobytu se změnil – zkontroluj cenu ubytování');
+      if (isMulti(t)) reconcileStays(t); // hlášení o hotelech míst trasy má přednost
     }
     // program a auto podle starých dní nebo časů příjezdu a odjezdu neplatí
     if (retime(t, times) && !moved) toast(`${msg}. Jiný čas příjezdu nebo odjezdu – zadej znovu auto`);
@@ -676,12 +682,11 @@
       staysData = null;
       t.plan = null; // program pro jiný počet dní neplatí
       let msg = '';
-      if (t.route && t.route.mode === 'multi') {
-        if (t.route.bases.length && nightsLeft(t) !== 0) msg = 'Počet nocí se změnil – uprav jejich rozdělení v trase';
-      } else if (t.stay && t.stay.mode === 'pick') {
-        // Cena vybraného hotelu platila pro původní počet nocí → vyber znovu (ruční cenu nech, ale upozorni).
-        t.stay = null; msg = 'Počet nocí se změnil – vyber ubytování znovu';
-      } else if (t.stay && t.stay.mode === 'manual') msg = 'Zkontroluj cenu ubytování pro nový počet nocí';
+      if (t.route && t.route.mode === 'multi' && t.route.bases.length && nightsLeft(t) !== 0) msg = 'Počet nocí se změnil – uprav jejich rozdělení v trase';
+      // Cena vybraného hotelu platila pro původní počet nocí → vyber znovu (ruční cenu nech, ale upozorni); i se zapnutou
+      // trasou – po přepnutí na Jedno místo by platil se starým termínem (hlášení o trase má přednost).
+      if (t.stay && t.stay.mode === 'pick') { t.stay = null; msg ||= 'Počet nocí se změnil – vyber ubytování znovu'; }
+      else if (t.stay && t.stay.mode === 'manual') msg ||= 'Zkontroluj cenu ubytování pro nový počet nocí';
       // auto se vrací podle konce pobytu (cesta jen tam) → s jiným počtem nocí zadej znovu
       if (t.car && t.car.mode !== 'skip') { t.car = null; msg = msg ? `${msg}. Zadej znovu i auto` : 'Počet nocí se změnil – zadej znovu auto'; }
       if (msg) toast(msg);
@@ -1303,6 +1308,8 @@
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${byTrain && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
     </div>`;
     const read = () => ({ pickup: $('#carPu').value.trim().toUpperCase(), dropoff: $('#carDo').value.trim().toUpperCase(), from: $('#carFrom').value, to: $('#carTo').value, age: +$('#carAge').value || 30 });
+    // odkaz na srovnávač jen z nabídek pro tatáž letiště a časy (nabídky se načítají asynchronně – mohou být ke starým)
+    const linkFor = q => { const j = carsData && carsData.query; return j && j.pickup === q.pickup && j.dropoff === (q.dropoff || q.pickup) && j.from === q.from && j.to === q.to ? carsData.links[0]?.url || null : null; };
     const load = async () => {
       const q = read();
       if (q.from && q.to) $('#carDays').innerHTML = daysLine(q);
@@ -1312,17 +1319,21 @@
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
         carsData = j;
+        // uložené auto bez odkazu („Pokračovat“ dřív, než se nabídky k novým časům načetly) ho dostane teď
+        if (t.car && t.car.mode === 'manual' && !t.car.url && linkFor(t.car)) { t.car.url = linkFor(t.car); persist(); }
+        if (!$('#carBody')) return; // krok Auto už je pryč
         $('#carBody').innerHTML = `<div class="muted" style="font-size:13px;margin-bottom:8px">Srovnávače půjčoven – <b>předvyplněné na letiště ${esc(j.query.pickupName || q.pickup)} a tvoje časy</b>:</div>
           ${linkGrid(j.links, '#ff690f')}`;
       } catch (e) {
-        $('#carBody').innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
+        if ($('#carBody')) $('#carBody').innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
       }
     };
     ['#carPu', '#carDo', '#carFrom', '#carTo', '#carAge'].forEach(s => $(s).onchange = load);
     $('#carSave').onclick = () => {
       const price = +$('#carPrice').value;
       if (!(price > 0)) return toast('Zadej cenu auta', 'err');
-      t.car = { mode: 'manual', totalCzk: price, ...read(), url: (carsData && carsData.links[0]?.url) || null };
+      const q = read();
+      t.car = { mode: 'manual', totalCzk: price, ...q, url: linkFor(q) };
       persist(); setStep('program');
     };
     $('#carSkip').onclick = () => { t.car = { mode: 'skip', totalCzk: 0 }; persist(); setStep('program'); };
@@ -1331,7 +1342,8 @@
       const q = read(), c = t.car;
       if (c && c.mode === 'manual' && /^[A-Z]{3}$/.test(q.pickup) && q.from && q.to
         && (['pickup', 'dropoff', 'from', 'to'].some(k => (c[k] || '') !== q[k]) || (c.age || 30) !== q.age)) {
-        Object.assign(c, q); persist(); toast('Změny auta uloženy – zkontroluj, jestli cena platí');
+        // i odkaz do shrnutí (ten uložený vede na srovnávač se starými časy)
+        Object.assign(c, q, { url: linkFor(q) }); persist(); toast('Změny auta uloženy – zkontroluj, jestli cena platí');
       }
       setStep('program');
     };
@@ -2037,22 +2049,32 @@
       if (!parsed || !parsed.flight || !parsed.flight.out) throw new Error('neplatná data');
       const t = sanitizeTrip(parsed);
       const mine = S.trip;
-      // vlastní odkaz (stejné spoje, lidé, ubytování, auto i trasa): rozpracovaná cesta zůstane – s odškrtnutými
-      // rezervacemi i časem založení (plánovač ji pak aktualizuje, ne zdvojí)
+      // tatáž cesta (stejné spoje, lidé, ubytování, auto i trasa): vlastní odkaz, nebo novější verze od spolucestujícího
       const same = (() => { try { return Boolean(mine && mine.flight) && tripSig(mine) === tripSig(t); } catch (e) { return false; } })(); // poškozená rozpracovaná cesta = jiná
-      if (same) {
+      // … i se stejným programem, dopravou trasy a „Co zařídit a co sbalit“ (odškrtnutí z odkazu už má) → v odkazu nic
+      // nového, rozpracovaná cesta zůstane, jak je (s odškrtnutými rezervacemi i časem založení – plánovač ji pak aktualizuje, ne zdvojí)
+      const known = same && (() => {
+        try {
+          const x = sanitizeTrip(JSON.parse(linkJson(mine))), have = (x.pretrip && x.pretrip.done) || [];
+          return linkSig(x) === linkSig(t) && ((t.pretrip && t.pretrip.done) || []).every(id => have.includes(id));
+        } catch (e) { return false; }
+      })();
+      if (known) {
         mine.step = 'summary'; persist();
         history.replaceState(null, '', '#trip');
         toast('Tuhle cestu už máš rozpracovanou – otevírám ji');
         return true;
       }
-      // jinou cestu nahradí bez ptaní, jen když v ní nic není rozpracované (jako výběr letu z výsledků)
+      // jinou cestu (i tutéž s jiným obsahem) nahradí bez ptaní, jen když v ní nic není rozpracované (jako výběr letu z výsledků)
       if (mine && mine.flight && progressOf(mine).length
-        && !confirm(`Otevíráš sdílenou cestu do ${t.dest.label || t.flight.out.to}. Nahradit jí tvoji rozpracovanou cestu do ${mine.dest?.label || mine.flight.out.to}?`)) {
+        && !confirm(same ? `Odkaz je na tvoji rozpracovanou cestu do ${mine.dest?.label || mine.flight.out.to}, ale v jiné podobě (např. s jiným programem). Nahradit ji verzí z odkazu? Odškrtnuté rezervace zůstanou.`
+          : `Otevíráš sdílenou cestu do ${t.dest.label || t.flight.out.to}. Nahradit jí tvoji rozpracovanou cestu do ${mine.dest?.label || mine.flight.out.to}?`)) {
         history.replaceState(null, '', '#trip');
         return false;
       }
-      S.trip = { ...t, booked: {}, step: 'summary', created: Date.now() };
+      // tatáž cesta: odškrtnuté rezervace i čas založení zůstanou (plánovač ji aktualizuje, odškrtnutí karty se přidají)
+      S.trip = same ? { ...t, booked: mine.booked || {}, step: 'summary', created: Number.isFinite(mine.created) ? mine.created : Date.now() }
+        : { ...t, booked: {}, step: 'summary', created: Date.now() };
       // odškrtnutí z odkazu k nové cestě do localStorage (odškrtnutí ostatních cest zůstanou)
       if (window.PreTrip) PreTrip.adopt(S.trip);
       persist();

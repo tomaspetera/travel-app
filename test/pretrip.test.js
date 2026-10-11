@@ -744,6 +744,57 @@ test('vlastní odkaz na cestu otevřený v tomtéž prohlížeči: bez otázky, 
   assert.notEqual(d.c.S.trip.created, 5);
 });
 
+test('novější odkaz na tutéž cestu (spolucestující poslal program a odškrtnutí): otázka, po souhlasu nová verze se starými rezervacemi i časem založení', async () => {
+  // A: hotel → odkaz v1 (bez programu)
+  const a = wizard(memStorage());
+  const t = { ...tokyo(), stay: { mode: 'pick', id: 'h1', name: 'Hotel Sakura', totalCzk: 20000, url: 'https://hotel.example/s' } };
+  a.c.S.trip = t;
+  const link = async () => { a.c.copied.length = 0; a.Trip.render(); await a.els['#sumShare'].onclick(); return a.c.copied[0].slice(a.c.copied[0].indexOf('#')); };
+  const v1 = await link();
+  // B: každé otevření odkazu = nové načtení stránky se stejným úložištěm a rozpracovanou cestou
+  const st = memStorage();
+  let mine = null;
+  const open = async (hash, ok = false) => {
+    const b = wizard(st, hash);
+    b.c.S.trip = mine && JSON.parse(JSON.stringify(mine));
+    const asked = [];
+    b.c.confirm = (m) => { asked.push(m); return ok; };
+    const r = await b.Trip.importFromHash();
+    mine = plain(b.c.S.trip);
+    return { r, asked, b };
+  };
+  let o = await open(v1);
+  assert.deepEqual([o.r, o.asked.length, mine.stay.name, mine.plan], [true, 0, 'Hotel Sakura', null]);
+  const created = mine.created;
+  mine.booked = { flight0: true };
+  o.b.P.setDone(o.b.P.tripKey(mine), 'pack:doc-pass', true); // B si odškrtne vlastní položku
+  // tentýž odkaz znovu (i s vlastním odškrtnutím navíc): nic nového → bez otázky, beze změny
+  o = await open(v1);
+  assert.deepEqual([o.r, o.asked.length, mine.created, mine.booked], [true, 0, created, { flight0: true }]);
+  // A sestaví program a odškrtne pojištění → odkaz v2 (stejné lety, lidé i hotel)
+  t.plan = { center: { lat: 35.68, lon: 139.76 }, days: [{ date: '2027-03-13', cap: 360, items: [{ id: 'q1', name: 'Sensódži', lat: 35.71, lon: 139.79, category: 'sight', visitMin: 60 }] }] };
+  a.P.setDone(a.P.tripKey(t), 'todo:ins', true);
+  const v2 = await link();
+  // bez souhlasu zůstane rozpracovaná cesta
+  o = await open(v2, false);
+  assert.equal(o.r, false);
+  assert.match(o.asked[0], /^Odkaz je na tvoji rozpracovanou cestu do Tokio, ale v jiné podobě \(např\. s jiným programem\)\. Nahradit ji verzí z odkazu\?/);
+  assert.deepEqual([mine.plan, o.b.c.location.hash], [null, '#trip']);
+  // se souhlasem: program z odkazu; rezervace i čas založení zůstanou (plánovač cestu aktualizuje), odškrtnutí karty se sečtou
+  o = await open(v2, true);
+  assert.deepEqual([o.r, o.asked.length, mine.plan.days[0].items[0].name, mine.created, mine.booked, mine.step], [true, 1, 'Sensódži', created, { flight0: true }, 'summary']);
+  assert.deepEqual(Object.keys(plain(o.b.P.doneOf(o.b.P.tripKey(mine)))).sort(), ['pack:doc-pass', 'todo:ins']);
+  // v2 podruhé → už bez otázky
+  o = await open(v2);
+  assert.deepEqual([o.r, o.asked.length], [true, 0]);
+  // tatáž cesta bez rozpracovaného (jen let) a odkaz s programem: bez otázky, s časem založení
+  a.c.S.trip = { ...tokyo(), plan: t.plan };
+  const v3 = await link();
+  mine = { ...plain(tokyo()), created: 7 };
+  o = await open(v3);
+  assert.deepEqual([o.r, o.asked.length, mine.created, mine.plan.days.length], [true, 0, 7, 1]);
+});
+
 test('vlak/bus místo letu jindy (a zpět k letu): odškrtnutí „Co zařídit a co sbalit“ zůstanou u cesty', () => {
   const w = wizard(memStorage());
   const place = (label, lat, lon) => ({ label, cc: label === 'Praha' ? 'CZ' : 'AT', lat, lon, tz: 'Europe/Prague' });
