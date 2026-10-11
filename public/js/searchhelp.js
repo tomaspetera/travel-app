@@ -369,18 +369,33 @@
    * i z výpisu (🔥 jen výhodné, posuvník ceny, den odletu, vypnutá letiště, aerolinky, čas a přestupy – zruší se hned).
    * time = { hidden, ret } pro čipy času a přestupů (viz timeChips).
    */
-  function activeFilters(filters, v = {}, names = {}, time = {}) {
+  function activeFilters(filters, v = {}, names = {}, time = {}, extra = {}) {
     const f = filters || {};
     const h = f.hidden || {};
     const out = [];
     if (f.maxPrice) out.push({ key: 'maxPrice', label: `do ${kc(f.maxPrice)}`, hidden: h.maxPrice || 0, rerun: true });
     if (f.directOnly) out.push({ key: 'directOnly', label: 'jen přímé lety', hidden: h.directOnly || 0, rerun: true });
     if (v.onlyDeals) out.push({ key: 'onlyDeals', label: '🔥 jen výhodné' });
+    if (v.newOnly) out.push({ key: 'newOnly', label: '🆕 jen nové země', hidden: extra.newHidden || 0 });
     if (v.maxPrice) out.push({ key: 'viewPrice', label: `max. ${kc(v.maxPrice)}` });
     if (v.outDate) out.push({ key: 'outDate', label: `odlet ${dm(v.outDate)}` });
     if (v.excludeOrigins && v.excludeOrigins.size) out.push({ key: 'origins', label: `bez ${[...v.excludeOrigins].join(', ')}` });
     if (v.carriers && v.carriers.size) out.push({ key: 'carriers', label: `jen ${[...v.carriers].map(c => names[c] || c).join(', ')}` });
     return out.concat(timeChips(v.time, time));
+  }
+
+  // 🆕 Nové země = mimo mapu navštívených (S.visited). Až od 3 označených zemí – s prázdnou mapou by „nové“ bylo všechno.
+  const NEW_MIN = 3;
+  const visSet = v => (v instanceof Set ? v : new Set(v || []));
+  /** Země na mapě navštívených, kterou filtr „🆕 jen nové země“ schová (jen když je označeno aspoň NEW_MIN zemí). */
+  function wasThere(cc, visited) { const s = visSet(visited); return s.size >= NEW_MIN && Boolean(cc) && s.has(cc); }
+  function isNewCountry(cc, visited) { const s = visSet(visited); return s.size >= NEW_MIN && /^[A-Z]{2}$/.test(cc || '') && !s.has(cc); }
+  /** Kolik cílů filtr nechá a kolik schová (cíle bez známé země zůstávají). */
+  function newSplit(groups, visited) {
+    const s = visSet(visited);
+    let keep = 0, hidden = 0;
+    for (const g of groups || []) { if (wasThere(g.dest && g.dest.cc, s)) hidden++; else keep++; }
+    return { keep, hidden };
   }
 
   /** Málo výsledků: u konkrétního cíle méně než 3 kombinace, jinak méně než 3 destinace. */
@@ -1181,5 +1196,6 @@
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
     easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
+    NEW_MIN, wasThere, isNewCountry, newSplit,
   };
 })();

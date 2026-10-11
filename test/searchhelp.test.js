@@ -708,3 +708,24 @@ test('živé ověření cen z mezipaměti: isCached, liveKey, liveVerdict, liveP
   assert.equal(H.livePick([...Array(10)].map(() => g(liveT)).concat(groups)).length, 0); // jen prvních 10 cílů
   assert.deepEqual(plain(H.livePick(null)), []);
 });
+
+test('🆕 nové země: až od 3 označených zemí, cíle bez země zůstávají, čip se počtem skrytých', () => {
+  const vis = ['CZ', 'AT', 'DE'];
+  assert.equal(H.isNewCountry('ES', vis), true);
+  assert.equal(H.isNewCountry('AT', vis), false);
+  assert.equal(H.isNewCountry('ES', ['CZ', 'AT']), false); // pod prahem – s prázdnou mapou by „nové“ bylo všechno
+  assert.equal(H.isNewCountry('', vis), false);
+  assert.equal(H.isNewCountry(undefined, vis), false);
+  assert.equal(H.isNewCountry('ES', new Set(vis)), true);
+  assert.equal(H.wasThere('AT', vis), true);
+  assert.equal(H.wasThere('AT', ['AT', 'CZ']), false);
+  assert.equal(H.wasThere('', vis), false);
+  assert.equal(H.wasThere('AT', null), false);
+  const g = (cc) => ({ dest: { cc } });
+  assert.deepEqual(plain(H.newSplit([g('ES'), g('AT'), g(''), g('FR')], vis)), { keep: 3, hidden: 1 });
+  assert.deepEqual(plain(H.newSplit([g('ES'), g('AT'), g(''), g('FR')], ['CZ', 'AT'])), { keep: 4, hidden: 0 });
+  assert.deepEqual(plain(H.newSplit(null, vis)), { keep: 0, hidden: 0 });
+  const chips = H.activeFilters(null, { newOnly: true, excludeOrigins: new Set(), carriers: new Set() }, {}, {}, { newHidden: 4 });
+  assert.deepEqual(plain(chips), [{ key: 'newOnly', label: '🆕 jen nové země', hidden: 4 }]);
+  assert.deepEqual(plain(H.activeFilters(null, { newOnly: false, excludeOrigins: new Set(), carriers: new Set() })), []);
+});
