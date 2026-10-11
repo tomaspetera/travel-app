@@ -144,9 +144,8 @@ export function returnFits(o, b) {
  * filtrovat v kalendáři), pak nejlevnější celkově s limitem perDestLimit na cílové město.
  * perLeg (přesná data): každý nalezený let tam i zpět aspoň v jedné – své nejlevnější – kombinaci,
  * ne jen nejlevnější let tam s desítkou různých návratů.
- * cells (mřížka termínů): navíc nejlevnější výsledek každé buňky „den odletu|noci“ ze sady – výběr se jen rozšíří.
  */
-function pickDiverse(results, { limit, perDestLimit, perDay = 0, perLeg = false, cells = null }) {
+function pickDiverse(results, { limit, perDestLimit, perDay = 0, perLeg = false }) {
   const seen = new Set();
   const picked = [];
   const take = (r) => {
@@ -160,15 +159,6 @@ function pickDiverse(results, { limit, perDestLimit, perDay = 0, perLeg = false,
     for (const r of results) {
       const n = dayCount.get(r.o.date) || 0;
       if (n < perDay && take(r)) dayCount.set(r.o.date, n + 1);
-    }
-  }
-  if (cells) {
-    const done = new Set();
-    for (const r of results) {
-      const key = `${r.o.date}|${r.n}`;
-      if (!cells.has(key) || done.has(key)) continue;
-      done.add(key);
-      take(r);
     }
   }
   if (perLeg) {
@@ -205,15 +195,15 @@ function pickDiverse(results, { limit, perDestLimit, perDay = 0, perLeg = false,
  * opts.variety (přesná data) → víc letů na den (legsPerDay/dayVariety) a každý let aspoň v jedné kombinaci.
  * opts.extra(leg) → příplatek k letu na osobu (zavazadla), započítá se do pořadí i kalendáře.
  * opts.calendar = { out: Map, back: Map, grid?: Map } → doplní nejlevnější celou cestu podle dne odletu/návratu;
- * grid (mřížka termínů) podle dvojice „den odletu|noci“ ze všech zvážených dvojic – i za limitem návratů na let.
- * opts.perCell (s calendar.grid) → ve výsledcích i nejlevnější cesta každé buňky mřížky (gridArray), ať ji klepnutí najde.
+ * grid (mřížka termínů) podle dvojice „den odletu|noci“ i s lety { o, b } – nejlevnější návrat k letu tam a počtu nocí
+ * se vezme vždy (limit návratů na let ho neodřízne), takže buňka = minimum ze všech zvážených dvojic; výběr nemění.
  * opts.park(fromIata, nights) → parkování auta u letiště odletu na celou cestu (na osobu); závisí na počtu nocí,
  * proto se přičítá k cestě, ne k letišti (autem se vracíš na stejné letiště – openJawHome: false).
  */
 export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
   const {
     nightsMin = 1, nightsMax = 30, openJawHome = true, openJawDest = true, limit = 300, perDestLimit = 12, perDay = 0,
-    calendar: cal = null, legsPerDay: k = 1, extra = () => 0, variety = false, park = null, perCell = false,
+    calendar: cal = null, legsPerDay: k = 1, extra = () => 0, variety = false, park = null,
   } = opts;
   const backs = legsPerDay(backLegs, k, extra, { variety });
   // Index: datum → seznam návratů seřazený podle (cena + doprava domů).
@@ -225,10 +215,10 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
   }
   for (const list of byDate.values()) list.sort((x, y) => x.cost - y.cost);
 
-  const note = (map, date, cost, o, b) => {
+  const note = (map, date, cost, o, b, legs = false) => {
     const prev = map.get(date);
     if (!prev || cost < prev.cost) {
-      map.set(date, { date, cost, from: o.from, to: o.to, backTo: b.to, outDate: o.date, backDate: b.date, provider: o.provider === b.provider ? o.provider : 'mix' });
+      map.set(date, { date, cost, from: o.from, to: o.to, backTo: b.to, outDate: o.date, backDate: b.date, provider: o.provider === b.provider ? o.provider : 'mix', ...(legs ? { o, b } : {}) });
     }
   };
 
@@ -250,25 +240,24 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
         if (b.from !== o.to && !(openJawDest && destKey(b.from) === oDest)) continue;
         if (b.to !== o.from && !openJawHome) continue;
         if (!dateOk(o.date, b.date, opts) || !returnFits(o, b)) continue;
-        const total = oCost + cost + pk;
-        if (cal && cal.grid) note(cal.grid, `${o.date}|${n}`, total, o, b);
         if (taken >= cap && !(variety && !b.stops && direct < 3)) {
           if (!variety || direct >= 3) break;
           continue;
         }
         taken++;
         if (!b.stops) direct++;
-        results.push({ o, b, n, cost: total, sig: `${oDest}|${o.from}|${b.to}|${o.date}|${b.date}|${o.carrier}|${o.dep}|${b.carrier}|${b.dep}` });
+        const total = oCost + cost + pk;
+        results.push({ o, b, cost: total, sig: `${oDest}|${o.from}|${b.to}|${o.date}|${b.date}|${o.carrier}|${o.dep}|${b.carrier}|${b.dep}` });
         if (cal) {
           note(cal.out, o.date, total, o, b);
           note(cal.back, b.date, total, o, b);
+          if (cal.grid) note(cal.grid, `${o.date}|${n}`, total, o, b, true);
         }
       }
     }
   }
   results.sort((x, y) => x.cost - y.cost);
-  const cells = perCell && cal && cal.grid ? new Set(gridArray(cal.grid, { nightsMin, nightsMax }).cells.map((c) => `${c[0]}|${c[1]}`)) : null;
-  return pickDiverse(results, { limit, perDestLimit, perDay, perLeg: variety, cells }).map((r) => makeTrip(r.o, r.b));
+  return pickDiverse(results, { limit, perDestLimit, perDay, perLeg: variety }).map((r) => makeTrip(r.o, r.b));
 }
 
 /** Nejlevnější jednosměrné lety (s dopravou na letiště), rozmanité podle cíle. */

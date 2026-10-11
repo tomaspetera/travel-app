@@ -1379,6 +1379,19 @@
     }
     return b && { date: b[0], n: b[1], cost: b[2], text: `Nejlevněji: odlet ${DOW_LC[new Date(b[0] + 'T12:00:00Z').getUTCDay()]} ${dm(b[0])}, ${nightsTxt(b[1])}` };
   }
+  /**
+   * Nejlevnější cesty buněk mřížky, které výpis (res.top) nemá: server je posílá kompaktně (calendar.grid.trips, místo
+   * letů pořadí v grid.legs). Přidá je do res.top (podle ceny) – výpis, kalendář i mřížka s filtry s nimi počítají jako
+   * s ostatními; co už v top je, podruhé nepřidá. Stará odpověď bez nich se nezmění. → res
+   */
+  function gridTrips(res) {
+    const g = res && res.calendar && res.calendar.grid;
+    if (!g || !Array.isArray(g.trips) || !Array.isArray(g.legs) || !Array.isArray(res.top)) return res;
+    const have = new Set(res.top.map(t => t.id));
+    const add = g.trips.filter(t => t && !have.has(t.id) && g.legs[t.out] && g.legs[t.back]).map(t => ({ ...t, out: { ...g.legs[t.out] }, back: { ...g.legs[t.back] } }));
+    if (add.length) res.top = res.top.concat(add).sort((a, b) => a.perPersonCzk - b.perPersonCzk);
+    return res;
+  }
 
   /* ---------- stáří ověřených údajů ---------- */
   const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
@@ -1398,14 +1411,20 @@
 
   /* ---------- poslední výsledky a nedávná hledání (uložené v tomto prohlížeči) ---------- */
   /**
-   * Poslední hledání k uložení ({ at, form, payload, res }) jako text: celé, nebo s nejvýš `keep` nabídkami na cíl, aby
-   * nezabralo místo stavu aplikace (localStorage má kolem 5 MB); null = nevejde se ani tak.
+   * Poslední hledání k uložení ({ at, form, payload, res }) jako text: celé, nebo s nejvýš `keep` nabídkami na cíl a ve
+   * výpisu jen 40 nejlevnějších + nejlevnější z každého dne odletu (kalendář), aby nezabralo místo stavu aplikace
+   * (localStorage má kolem 5 MB); null = nevejde se ani tak. Cesty buněk mřížky termínů, které do top přidal gridTrips,
+   * zůstanou jen kompaktně v calendar.grid (po načtení je gridTrips přidá znovu).
    */
   function lastPack(c, cap = 1.2e6, keep = 3) {
+    let r = c.res || {};
+    const g = r.calendar && r.calendar.grid, cell = new Set(g && Array.isArray(g.trips) ? g.trips.map(t => t && t.id) : []);
+    if (cell.size && Array.isArray(r.top)) c = { ...c, res: r = { ...r, top: r.top.filter(t => !cell.has(t.id)) } };
     let s = JSON.stringify(c);
     if (s.length <= cap) return s;
-    const r = c.res || {};
-    s = JSON.stringify({ ...c, res: { ...r, groups: (r.groups || []).map(g => ({ ...g, options: (g.options || []).slice(0, keep) })), top: (r.top || []).slice(0, 40) } });
+    const days = new Set();
+    const top = (r.top || []).filter((t, i) => { const d = t && t.out && t.out.date, ok = i < 40 || !days.has(d); days.add(d); return ok; });
+    s = JSON.stringify({ ...c, res: { ...r, groups: (r.groups || []).map(g => ({ ...g, options: (g.options || []).slice(0, keep) })), top } });
     return s.length <= cap ? s : null;
   }
   /** Uložené poslední hledání zpět – jen mladší než maxAge (ceny stárnou), jinak null. */
@@ -1447,7 +1466,7 @@
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
     easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
-    lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary,
+    lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
   };
 })();

@@ -904,7 +904,7 @@
     const job = (async () => {
     busySearches++;
     try {
-      const res = await runSearch(payload, { onProgress: ev => renderProgress(ev), signal: ctl.signal });
+      const res = SearchHelp.gridTrips(await runSearch(payload, { onProgress: ev => renderProgress(ev), signal: ctl.signal })); // + cesty buněk mřížky termínů
       lastResult = res; lastResultAt = Date.now(); lastResultPayload = payload; restored = false;
       PriceCheck.remember(res); // paměť cen v tomto prohlížeči („Je to dobrá cena?“)
       fitMode(res);
@@ -954,7 +954,7 @@
     let c = null;
     try { c = SearchHelp.lastLoad(localStorage.getItem(LAST_LS), Date.now()); } catch (e) { }
     if (!c) return;
-    lastResult = c.res; lastResultAt = c.at; lastPayload = c.payload; lastResultPayload = c.payload; lastForm = { ...defaultForm(), ...c.form }; restored = true;
+    lastResult = SearchHelp.gridTrips(c.res); lastResultAt = c.at; lastPayload = c.payload; lastResultPayload = c.payload; lastForm = { ...defaultForm(), ...c.form }; restored = true;
     fromCard = c.card && typeof c.card === 'object' ? { x: c.card, key: JSON.stringify(c.payload) } : null;
     fitMode(c.res);
     // sbalit jen když formulář je to hledání (jinak – rozdělané pozdější hledání – zůstane formulář vidět)
@@ -2250,6 +2250,18 @@
       + `<div class="dg-scroll" id="dgScroll" tabindex="0" role="region" aria-label="Mřížka termínů: den odletu × počet nocí"><table class="dg"><thead><tr><th scope="col">Odlet</th>${m.nights.map(n => `<th scope="col">${nightsTxt(n)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`
       + `<div class="faint dg-foot">${part}Klepni na cenu a uvidíš kombinace s tímto odletem a počtem nocí (znovu = zrušit). <b>Tučně</b> nejlevnější v řádku, orámovaná nejlevnější celkem, – = nic nenalezeno.${ok ? ' <b>🕐 Podle filtrů času a přestupů</b> – orientační, jen z načtených kombinací; ✕ = žádná neprošla.' : ''}</div></div>`;
   }
+  // Buňku mřížky posunout do karty tak, aby ji nezakryl lepivý sloupec s datem ani řádek nocí (scrollIntoView o nich
+  // neví a zarovná ji pod ně) – i s rámečkem výběru, pak podle potřeby i stránku.
+  function dgShow(c) {
+    const sc = c.closest('.dg-scroll'), th = c.closest('tr').querySelector('th'), hd = sc && sc.querySelector('thead th');
+    if (!sc || !th || !hd) return;
+    const s = sc.getBoundingClientRect(), r = c.getBoundingClientRect(), pad = 4;
+    const left = th.getBoundingClientRect().right + pad, top = hd.getBoundingClientRect().bottom + pad;
+    const right = s.left + sc.clientLeft + sc.clientWidth - pad, bottom = s.top + sc.clientTop + sc.clientHeight - pad;
+    if (r.left < left) sc.scrollLeft -= left - r.left; else if (r.right > right) sc.scrollLeft += r.right - right;
+    if (r.top < top) sc.scrollTop -= top - r.top; else if (r.bottom > bottom) sc.scrollTop += r.bottom - bottom;
+    c.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
 
   function wireResults() {
     const host = $('#results');
@@ -2327,7 +2339,7 @@
       const [d, n] = (b.dataset.cell || b.dataset.dgsum).split('|'), same = view.outDate === d && view.nights === +n;
       view.outDate = same ? null : d; view.nights = same ? null : +n;
       rerender(true);
-      const c = b.dataset.dgsum && $('#dgScroll .dg-c.sel'); if (c) c.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const c = b.dataset.dgsum && $('#dgScroll .dg-c.sel'); if (c) dgShow(c);
     });
     $$('[data-pick]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pick]; Trip.start({ t: r.t, g: r.g, result: lastResult }); });
     $$('[data-pc]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pc]; if (r) openPriceCheck(r.t, { g: r.g }); });
