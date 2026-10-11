@@ -767,6 +767,9 @@ export async function search(raw, emit = () => {}, opts = {}) {
   let cal = null;
   let cellTrips = []; // mřížka termínů: nejlevnější cesta každé buňky (ocení se jako ostatní, do statistik cen nepatří)
   const dayOpts = q.exact ? { legsPerDay: EXACT_LEGS_PER_DAY, variety: true } : { legsPerDay: 2 };
+  // Max. cena na osobu: kalendář ani mřížka nenabídnou den či buňku, jejíž nejlevnější cesta je dražší – výpis by po
+  // klepnutí nic neukázal (takové nabídky skryje).
+  const under = (list) => (q.maxPrice ? list.filter((e) => e.cost <= q.maxPrice) : list);
   if (routeMode) {
     // Za teplem jen odlety v dost teplých měsících – i v kalendáři (jinak by nabízel dny, které seznam vyřadí).
     const warmOut = outLegs.filter((l) => warmLeg(l) && depOk(l));
@@ -789,15 +792,17 @@ export async function search(raw, emit = () => {}, opts = {}) {
           if (!prev || cost < prev.cost) map.set(date, { date, ...entry, ...x });
         }
       }
-      cal = { kind: 'trip', out: calendarArray(maps.out), back: calendarArray(maps.back) };
+      cal = { kind: 'trip', out: under(calendarArray(maps.out)), back: under(calendarArray(maps.back)) };
       if (grid) {
         // až po zpátečních letenkách: okno nocí i dny mřížky jsou konečné, k buňce patří její nejlevnější cesta
+        // (okno nocí i dny jen z buněk do max. ceny)
+        if (q.maxPrice) for (const [k, e] of maps.grid) if (e.cost > q.maxPrice) maps.grid.delete(k);
         cal.grid = gridArray(maps.grid, { nightsMin: q.nightsMin, nightsMax: q.nightsMax });
         cellTrips = cal.grid.cells.map(([d, n]) => { const e = maps.grid.get(`${d}|${n}`); return e.trip || makeTrip(e.o, e.b); });
       }
     } else {
       trips.push(...bestOneWays(warmOut, groundOf, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, ...dayOpts }));
-      cal = { kind: 'leg', out: oneWayCalendar(warmOut, groundOf, constraints), back: [] };
+      cal = { kind: 'leg', out: under(oneWayCalendar(warmOut, groundOf, constraints)), back: [] };
     }
   }
 
@@ -820,7 +825,14 @@ export async function search(raw, emit = () => {}, opts = {}) {
   const destinationLabels = q.to.map((id) => describe(id)).filter(Boolean);
   const ground = attachGround({ home: origins.home, origins: [...origins.airports, ...hubs], groups, flat, dests: routeMode ? destinationLabels : [] });
   const top = routeMode ? topWithDays(flat, { exact: Boolean(q.exact) }) : null;
-  if (cal && cal.grid) Object.assign(cal.grid, gridTrips(cal.grid.cells, flat.concat(cells), top));
+  if (cal && cal.grid) {
+    const { grid, sent } = gridTrips(cal.grid.cells, flat.concat(cells), top);
+    Object.assign(cal.grid, grid);
+    // „Odkud se vyplatí letět“ i s cestami buněk, které prohlížeč přidá do výpisu – jinak by karta u letiště ukázala
+    // vyšší cenu (nebo „jen s návratem jinam“), než výpis po klepnutí na to letiště má
+    const kept = new Set(groups.map((g) => g.dest.key));
+    addBests(byOrigin, originBests(sent.filter((t) => kept.has(t.destKey))));
+  }
   return {
     query: q,
     mode: routeMode ? 'route' : 'explore',
@@ -1070,10 +1082,40 @@ function topWithDays(flat, { exact = false } = {}) {
 }
 
 /**
+ * Cesta buňky mřížky v odpovědi: jen hodnoty v pořadí klíčů (calendar.grid.keys), lety jako pořadí v grid.legs.
+ * Prohlížeč (SearchHelp.gridTrips) z nich složí celou cestu – id, noci, dopravce, cenu na osobu i celkem dopočítá
+ * z letů a cen, „Je to dobrá cena?“ ze statistiky hledání (PriceCheck), proto tu nejsou.
+ */
+const CELL_ROW = {
+  out: (t, ref) => ref(t.out),
+  back: (t, ref) => ref(t.back),
+  flightCzk: (t) => t.flightCzk,
+  groundCzk: (t) => t.groundCzk,
+  bagCzk: (t) => t.bagCzk,
+  arrCzk: (t) => t.arrCzk,
+  parkCzk: (t) => t.parkCzk || 0,
+  bagEst: (t) => (t.bagEst ? 1 : 0),
+  combined: (t) => (t.combined ? 1 : 0),
+  bookUrl: (t) => t.bookUrl || null,
+  tempHi: (t) => t.tempHi ?? null,
+  distanceKm: (t) => t.distanceKm,
+  destKey: (t) => t.destKey,
+  deal: (t) => [t.deal.score, t.deal.level, t.deal.drop],
+};
+export const CELL_KEYS = Object.keys(CELL_ROW);
+/** Cesty (ohodnocené v buildGroups) kompaktně → { legs, keys, trips } – každý let jednou, cesta jako řádek hodnot. */
+export function cellRows(list) {
+  const legs = [];
+  const at = new Map();
+  const ref = (l) => { if (!at.has(l)) { at.set(l, legs.length); legs.push(l); } return at.get(l); };
+  return { legs, keys: CELL_KEYS, trips: list.map((t) => CELL_KEYS.map((k) => CELL_ROW[k](t, ref))) };
+}
+
+/**
  * Mřížka termínů: nejlevnější cesta každé buňky (z pool = výpis + ocenění nejlevnějších cest buněk), kterou top
  * nemá aspoň stejně levnou – klepnutí na buňku ji ve výpisu najde. Kompaktně, ať odpověď (a uložené poslední
- * hledání) nenaroste o stovky celých nabídek: každý let jednou v legs, cesta místo letů jejich pořadí v legs.
- * Prohlížeč je přidá do top (SearchHelp.gridTrips). → { legs, trips }
+ * hledání) nenaroste o stovky celých nabídek: každý let jednou v legs, cesta jako řádek hodnot (CELL_ROW).
+ * Prohlížeč je přidá do top (SearchHelp.gridTrips). → { grid: { legs, keys, trips }, sent: poslané cesty celé }
  */
 function gridTrips(cells, pool, top) {
   const key = (t) => `${t.out.date}|${t.nights}`;
@@ -1081,15 +1123,12 @@ function gridTrips(cells, pool, top) {
   for (const t of pool) if (t.back && !(best.get(key(t))?.perPersonCzk <= t.perPersonCzk)) best.set(key(t), t);
   const shown = new Map();
   for (const t of top || []) if (t.back) shown.set(key(t), Math.min(shown.get(key(t)) ?? Infinity, t.perPersonCzk));
-  const legs = [];
-  const at = new Map();
-  const ref = (l) => { if (!at.has(l)) { at.set(l, legs.length); legs.push(l); } return at.get(l); };
-  const trips = [];
+  const sent = [];
   for (const [d, n] of cells) {
     const t = best.get(`${d}|${n}`);
-    if (t && !(shown.get(`${d}|${n}`) <= t.perPersonCzk)) trips.push({ ...t, out: ref(t.out), back: ref(t.back) });
+    if (t && !(shown.get(`${d}|${n}`) <= t.perPersonCzk)) sent.push(t);
   }
-  return { legs, trips };
+  return { grid: cellRows(sent), sent };
 }
 
 // Přesná data: kolik variant letu na den a trasu (všechny přímé + lety s přestupem do tohoto počtu).
@@ -1308,6 +1347,14 @@ export function originBests(trips) {
   }
   return out;
 }
+// Přičíst další originBests do into (nejnižší cena, počty se sečtou) → into
+function addBests(into, add) {
+  for (const [k, v] of Object.entries(add || {})) {
+    const b = into[k];
+    if (!b) into[k] = { ...v }; else { b.n += v.n; if (v.czk < b.czk) b.czk = v.czk; }
+  }
+  return into;
+}
 
 // cells (mřížka termínů) = nejlevnější cesty buněk: ocení se a projdou filtry stejně, ale do skupin, výpisu, počtu
 // skrytých ani statistiky cen („Je to dobrá cena?“, výhodnost) nepatří – vrátí se zvlášť (cells), nabídky se nezmění.
@@ -1435,11 +1482,6 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
   // nejlevnější cesta z letiště jen z cílů, které odpověď nese (prvních 150) – jinak by karta „Odkud se vyplatí letět“
   // ukazovala cenu, kterou výpis po klepnutí na letiště nemá
   const kept = groups.slice(0, 150), byOrigin = {};
-  for (const g of kept) {
-    for (const [k, v] of Object.entries(obOf.get(g) || {})) {
-      const b = byOrigin[k];
-      if (!b) byOrigin[k] = { ...v }; else { b.n += v.n; if (v.czk < b.czk) b.czk = v.czk; }
-    }
-  }
+  for (const g of kept) addBests(byOrigin, obOf.get(g));
   return { groups: kept, flat, warm, hidden, priceStats: priceStats([...pools.values()].flat()), byOrigin, cells: cellFlat };
 }
