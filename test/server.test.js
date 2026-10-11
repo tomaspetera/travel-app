@@ -310,7 +310,13 @@ test('GET /api/climate – letiště, poloha, země; kontrola vstupu a dlouhá c
   assert.equal(cc.city, 'Bangkok');
   const pt = await (await fetch(`${base}/api/climate?lat=50.08&lon=14.42`)).json();
   assert.ok(pt.hi[6] > pt.hi[0]);
-  for (const [q, status] of [['', 400], ['?iata=XXX', 400], ['?iata=12', 400], ['?cc=XYZ', 400], ['?cc=XX', 404], ['?lat=95&lon=0', 400], ['?lat=abc&lon=1', 400], ['?lat=50', 400], ['?lat=0&lon=-30', 404]]) {
+  // země bez údajů (Andorra…): žádná chyba – detail země se ptá u každé a 404 by plnila konzoli prohlížeče
+  for (const q of ['?cc=AD', '?cc=XX']) {
+    const x = await fetch(`${base}/api/climate${q}`);
+    assert.equal(x.status, 200, q);
+    assert.deepEqual(await x.json(), { none: true }, q);
+  }
+  for (const [q, status] of [['', 400], ['?iata=XXX', 400], ['?iata=12', 400], ['?cc=XYZ', 400], ['?lat=95&lon=0', 400], ['?lat=abc&lon=1', 400], ['?lat=50', 400], ['?lat=0&lon=-30', 404]]) {
     const x = await fetch(`${base}/api/climate${q}`);
     assert.equal(x.status, status, q);
     assert.match((await x.json()).error, /\S/);

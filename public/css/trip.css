@@ -54,8 +54,20 @@
 .st-rate-inline b{display:inline-block;padding:1px 6px;border-radius:6px 6px 6px 2px;background:#003580;color:#fff;font:800 12.5px Sora,sans-serif}
 .st-rating{text-align:center;font-size:11.5px}
 .st-rating .rt{display:inline-block;min-width:44px;padding:6px 8px;border-radius:10px 10px 10px 2px;background:#003580;color:#fff;font:800 16px Sora,sans-serif;margin-bottom:3px}
+/* TripAdvisor (Xotelo): hodnocení 0–5 v zelené, ceny u jednotlivých webů */
+.st-rate-inline b.ta,.st-rating .rt.ta{background:#007a55}
+.st-rating .rt small{font-size:11px;font-weight:700;opacity:.85}
+.st-rate-inline a,.st-rating a{color:inherit;text-decoration:underline dotted;text-underline-offset:2px}
+.st-otas{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:6px;font-size:11.5px}
+.st-otas .ota{padding:2px 7px;border-radius:7px;background:var(--surface-2);border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+.st-otas .ota b{color:var(--text);font-weight:700}
+.st-otas .ota.best{border-color:var(--good)}
 .st-price{text-align:right;display:flex;flex-direction:column;gap:5px;align-items:flex-end}
 .st-price .pp{font:800 19px Sora,sans-serif}
+.st-pp{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.st-pp .faint{font-size:12px;white-space:nowrap}
+.st-price .pp,.st-price .linkbtn{white-space:nowrap}
+.st-bk{display:inline-flex;align-items:center;white-space:nowrap} /* odkaz + štítek „reklama“ na jednom řádku */
 
 /* auto */
 .car-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
@@ -134,7 +146,8 @@ details.more.ex-places>summary::before{content:none}
 .ex-busy{align-items:flex-start;padding:10px 4px 14px}
 .ex-busy .spin{flex:none;margin-top:2px}
 .ex-wait{font-size:12.5px;margin-top:3px;color:var(--faint)}
-#exPlanOut.stale>:not(.ex-busy){opacity:.45;pointer-events:none;transition:opacity .2s}
+/* zešedlý výsledek (čeká se, starý termín); chyba se „Zkusit znovu“ zůstane použitelná */
+#exPlanOut.stale>:not(.ex-busy):not(.ex-err){opacity:.45;pointer-events:none;transition:opacity .2s}
 .ex-err{align-items:center;margin-bottom:12px}
 .ex-err>div{flex:1;min-width:0}
 .ex-err .btn{flex:none}
@@ -149,7 +162,7 @@ details.more.ex-places>summary::before{content:none}
   .ex-layout.ex-main{grid-template-columns:minmax(0,1fr);grid-template-areas:"plan" "map" "places";grid-template-rows:auto}
   .ex-main>.ex-map{height:300px}}
 @media(max-width:860px){.sum-grid{grid-template-columns:1fr}.manual-row{grid-template-columns:1fr 1fr}.manual-row>div{grid-column:1/-1}.ex-back{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
-@media(max-width:560px){.stay{grid-template-columns:84px minmax(0,1fr)}.st-img{width:84px;height:70px}.st-price{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between}.ex-search{grid-template-columns:auto minmax(0,1fr)}.ex-search>.field:first-child{grid-column:1/-1}.poi{grid-template-columns:72px 1fr}.poi-img{width:72px;height:64px}.th-total{text-align:left}
+@media(max-width:560px){.stay{grid-template-columns:84px minmax(0,1fr)}.st-img{width:84px;height:70px}.st-price{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 10px}.st-pp{align-items:flex-start;margin-right:auto;text-align:left}.ex-search{grid-template-columns:auto minmax(0,1fr)}.ex-search>.field:first-child{grid-column:1/-1}.poi{grid-template-columns:72px 1fr}.poi-img{width:72px;height:64px}.th-total{text-align:left}
   /* kategorie v jednom posuvném řádku místo pěti; chyba se „Zkusit znovu“ pod textem */
   .ex-cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
   .ex-cats button{flex:none;white-space:nowrap}

@@ -12,7 +12,8 @@ import { wizzair } from './wizzair.js';
 import { travelpayouts } from './travelpayouts.js';
 import { kiwi, kiwiBlocked, kiwiRetryAfter } from './kiwi.js';
 import { mockProviders } from './mock.js';
-import { liteapiTestKey } from './stays/index.js';
+import { liteapiTestKey, liteapiLive } from './stays/index.js';
+import { xoteloBlocked, xoteloRetryAfter, xoteloBlockReason } from './stays/xotelo.js';
 
 export const PROVIDER_INFO = {
   ryanair: { name: 'Ryanair', color: '#073590', kind: 'live', note: 'živé ceny z ryanair.com' },
@@ -42,9 +43,20 @@ export function providerStatus() {
     { id: 'wizzair', ...PROVIDER_INFO.wizzair, enabled: config.wizz, blocked: wizzair.isBlocked() },
     { id: 'kiwi', ...PROVIDER_INFO.kiwi, enabled: config.kiwi, blocked: kiwiBlocked(), retryAfter: kiwiRetryAfter() },
     {
-      id: 'liteapi', name: 'Hotely (LiteAPI)', color: '#7c3aed', kind: 'stays', note: 'hotely s cenou a hodnocením hostů', enabled: Boolean(config.liteapiKey) && !liteapiTestKey(),
-      hint: !config.liteapiKey ? 'Zdarma klíč na liteapi.travel → LITEAPI_KEY zapne nabídky hotelů s hodnocením'
-        : liteapiTestKey() ? 'Testovací klíč LiteAPI (sand_…) vrací smyšlené hotely – ATLAS je neukazuje, jen odkazy na partnery. Ostrý klíč zapne skutečné nabídky.' : null,
+      id: 'liteapi', name: 'Hotely (LiteAPI)', color: '#7c3aed', kind: 'stays', note: 'hotely s cenou a hodnocením hostů', enabled: liteapiLive(),
+      hint: !config.liteapiKey ? `Volitelné: ostrý klíč z liteapi.travel → LITEAPI_KEY${config.xotelo ? ' (má přednost před TripAdvisorem, umožní provize)' : ' zapne nabídky hotelů s hodnocením'}`
+        : liteapiTestKey() ? `Testovací klíč LiteAPI (sand_…) vrací smyšlené hotely – ATLAS je neukazuje${config.xotelo ? ' (ceny hotelů dává TripAdvisor přes Xotelo)' : ', jen odkazy na partnery'}. Ostrý klíč zapne skutečné nabídky.` : null,
+    },
+    {
+      // Xotelo: neoficiální bezplatné API nad TripAdvisorem – když není ostrý klíč LiteAPI (stays/index.js).
+      id: 'xotelo', name: 'Hotely (TripAdvisor)', color: '#00aa6c', kind: 'stays', tag: 'orientačně',
+      note: 'orientační ceny hotelů z TripAdvisoru (Booking.com, Agoda, Trip.com…) a hodnocení – zdarma, bez klíče, přes neoficiální API Xotelo',
+      enabled: config.xotelo && !liteapiLive(),
+      // pojistka po chybách (429, 401/403, výpadek): na chvíli vynecháno, ukazují se jen odkazy
+      blocked: xoteloBlocked(), retryAfter: xoteloRetryAfter(), reason: xoteloBlockReason() || null,
+      hint: !config.xotelo ? 'Vypnuto (XOTELO=off) – bez klíče LiteAPI zůstanou u ubytování jen odkazy na partnery'
+        : liteapiLive() ? 'Nepoužívá se – ceny hotelů dává LiteAPI'
+          : xoteloBlocked() ? `Xotelo ${xoteloBlockReason()} – teď se vynechává (u ubytování jen odkazy na partnery), znovu se zkusí za ${Math.max(1, Math.round(xoteloRetryAfter() / 60))} min` : null,
     },
     {
       id: 'travelpayouts', ...PROVIDER_INFO.travelpayouts, enabled: Boolean(config.travelpayoutsToken),

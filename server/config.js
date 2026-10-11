@@ -35,6 +35,9 @@ export const config = {
   liteapiKey: env.LITEAPI_KEY || '',
   // Volitelná white-label rezervační stránka LiteAPI (např. moje.nuitee.link) – jinak odkaz na Booking.com.
   liteapiWhitelabel: env.LITEAPI_WHITELABEL || '',
+  // Orientační ceny hotelů z TripAdvisoru přes Xotelo (zdarma, bez klíče, bez provizí) – když není ostrý klíč LiteAPI.
+  // XOTELO=off vypne (zůstanou odkazy na partnery).
+  xotelo: !/^(off|0|false|no)$/i.test(String(env.XOTELO ?? '').trim()),
   // Kolik odletových letišť nejvýše prohledat v jednom dotazu.
   maxOrigins: num(env.MAX_ORIGINS, 8),
   // Wizz Air nemá „kamkoliv“ endpoint → 1 dotaz na trasu; strop na jedno hledání.

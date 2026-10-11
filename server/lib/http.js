@@ -60,6 +60,7 @@ export async function request(url, opts = {}) {
         // Slušná API (Wikimedia) při 429 řeknou, za kolik sekund to zkusit (Retry-After): jednou počkej,
         // je-li to do 10 s. U aerolinek se to nepoužívá (429 je tam ochrana proti botům).
         const ra = Number(res.headers.get('retry-after'));
+        if (ra > 0) err.retryAfter = ra; // pro pojistky volajícího (vynechat zdroj na tak dlouho)
         if (res.status === 429 && retry429 && !waited429 && ra > 0 && ra <= 10) {
           waited429 = true;
           await sleep(ra * 1000);

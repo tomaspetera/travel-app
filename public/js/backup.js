@@ -363,6 +363,7 @@
     if (typeof paintMap === 'function') paintMap();
     if (activeView === 'planner') renderPlanner();
     if (activeView === 'dashboard' && typeof renderDash === 'function') renderDash();
+    if (activeView === 'countries' && typeof renderCountries === 'function') renderCountries(); // filtr „Navštívené“
     if (window.Flights) {
       Flights.renderWatch();
       if (Flights.updateHomeChip) Flights.updateHomeChip();

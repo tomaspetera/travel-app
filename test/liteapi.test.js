@@ -147,8 +147,9 @@ test('ubytování na dalších místech trasy: země podle polohy, anglický ná
 
 test('testovací klíč LiteAPI (sand_…): smyšlené hotely se v ostrém provozu neukazují, jen odkazy; zdroj vypnutý s vysvětlením', async () => {
   const { providerStatus } = await import('../server/providers/index.js');
-  const prev = config.liteapiKey;
+  const prev = { key: config.liteapiKey, xotelo: config.xotelo };
   config.liteapiKey = 'sand_test';
+  config.xotelo = false; // se zapnutým Xotelem by ceny dal TripAdvisor (test/xotelo.test.js)
   const stub = stubFetch(() => ({ body: { data: HOTELS } }));
   try {
     const r = await searchStays({ city: 'Milán', iata: 'MXP', checkin: ymdPlus(30), checkout: ymdPlus(32) });
@@ -163,7 +164,8 @@ test('testovací klíč LiteAPI (sand_…): smyšlené hotely se v ostrém provo
     }
   } finally {
     stub.restore();
-    config.liteapiKey = prev;
+    config.liteapiKey = prev.key;
+    config.xotelo = prev.xotelo;
   }
 });
 

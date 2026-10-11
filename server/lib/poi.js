@@ -8,7 +8,7 @@ import { cache } from './cache.js';
 import { haversineKm, normalize } from './geo.js';
 import { countryAt, COUNTRY_BY_ISO } from './airports.js';
 
-const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; hobby travel planner)';
+export const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; hobby travel planner)';
 const WDQS = 'https://query.wikidata.org/sparql';
 const limitWdqs = limiter(2);
 const limitWiki = limiter(4);
@@ -126,9 +126,10 @@ export function sparqlNear(lat, lon, radiusKm, minLinks, items, { wv = false, la
 } LIMIT 30000`;
 }
 
-export async function wdqs(query, timeoutMs = 45000) {
+/** Dotaz SPARQL na Wikidata. queue = vlastní fronta volajícího (krátké dotazy nečekají za dlouhými dotazy Objevuj). */
+export async function wdqs(query, timeoutMs = 45000, { queue = limitWdqs } = {}) {
   const url = `${WDQS}?format=json&query=${encodeURIComponent(query)}`;
-  const j = await limitWdqs(() => request(url, { headers: { 'User-Agent': UA, Accept: 'application/sparql-results+json' }, timeoutMs, retries: 0 }));
+  const j = await queue(() => request(url, { headers: { 'User-Agent': UA, Accept: 'application/sparql-results+json' }, timeoutMs, retries: 0 }));
   return j.results?.bindings || [];
 }
 
