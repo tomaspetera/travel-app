@@ -6,7 +6,7 @@ import { airportsInCountry, destInfo, destKey, getAirport, sizePenaltyKm } from 
 import { addDays, chunkRange, clampRange, daysBetween, isYmd, monthsInRange, todayYmd } from './dates.js';
 import { CONTINENT_BY_KEY, FAR_KM, LONG_HAUL_SWEEP, WARM_SWEEP, farAirport, farCountry, hubsNear, hubsOf } from './longhaul.js';
 import { mainAirport, monthClimate, warmAirports, warmShare, warmestHi } from './climate.js';
-import { bestOneWays, bestRoundTrips, calendarArray, dateOk, oneWayCalendar } from './optimizer.js';
+import { bestOneWays, bestRoundTrips, calendarArray, dateOk, gridArray, oneWayCalendar } from './optimizer.js';
 import { fxInfo, loadRates, toCzk } from './fx.js';
 import { haversineKm } from './geo.js';
 import { accessOpts, carQuery, normalizeAccess, parkCzk, parkDays } from './access.js';
@@ -770,22 +770,27 @@ export async function search(raw, emit = () => {}, opts = {}) {
     // Za teplem jen odlety v dost teplých měsících – i v kalendáři (jinak by nabízel dny, které seznam vyřadí).
     const warmOut = outLegs.filter((l) => warmLeg(l) && depOk(l));
     if (ret) {
-      const maps = { out: new Map(), back: new Map() };
+      // Mřížka termínů (den odletu × počet nocí) jen u flexibilního termínu s rozsahem nocí.
+      const grid = !q.exact && q.nightsMax > q.nightsMin;
+      const maps = { out: new Map(), back: new Map(), ...(grid ? { grid: new Map() } : {}) };
       // Konkrétní cíl: na každý den víc variant (nejlevnější, přímý, jiné aerolinky); přesná data: všechny
       // přímé lety a ~12 variant na den a trasu (viz dayVariety), každý let aspoň v jedné kombinaci.
-      trips.push(...bestRoundTrips(warmOut, backLegs, groundOf, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, calendar: maps, ...dayOpts }));
+      // mřížka: i nejlevnější cesta každé buňky (klepnutí na buňku ji ve výpisu najde)
+      trips.push(...bestRoundTrips(warmOut, backLegs, groundOf, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, calendar: maps, perCell: grid, ...dayOpts }));
       // Celé zpáteční letenky (Travelpayouts, dálkové hledání Kiwi) patří do kalendáře taky.
       for (const t of trips) {
         if (!t.back || !t.combined || !warmLeg(t.out) || !depOk(t.out) || (car && t.back.to !== t.out.from)) continue;
+        const n = daysBetween(t.out.date, t.back.date);
         const cost = t.flightCzk + groundOf(t.out.from) + groundOf(t.back.to) + legBagCzk(t.out, q.bags).czk + legBagCzk(t.back, q.bags).czk
-          + arrOf(t.out) + arrOf(t.back) + (park ? park(t.out.from, daysBetween(t.out.date, t.back.date)) : 0);
+          + arrOf(t.out) + arrOf(t.back) + (park ? park(t.out.from, n) : 0);
         const entry = { cost, from: t.out.from, to: t.out.to, backTo: t.back.to, outDate: t.out.date, backDate: t.back.date, provider: t.provider };
-        for (const [map, date] of [[maps.out, t.out.date], [maps.back, t.back.date]]) {
+        for (const [map, date] of [[maps.out, t.out.date], [maps.back, t.back.date], ...(grid ? [[maps.grid, `${t.out.date}|${n}`]] : [])]) {
           const prev = map.get(date);
           if (!prev || cost < prev.cost) map.set(date, { date, ...entry });
         }
       }
-      cal = { kind: 'trip', out: calendarArray(maps.out), back: calendarArray(maps.back) };
+      cal = { kind: 'trip', out: calendarArray(maps.out), back: calendarArray(maps.back),
+        ...(grid ? { grid: gridArray(maps.grid, { nightsMin: q.nightsMin, nightsMax: q.nightsMax }) } : {}) };
     } else {
       trips.push(...bestOneWays(warmOut, groundOf, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, ...dayOpts }));
       cal = { kind: 'leg', out: oneWayCalendar(warmOut, groundOf, constraints), back: [] };
@@ -828,7 +833,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     arrivals: arrivalsFor(flat, opts.arrivalHome ? arrHome : new Set([...arrHome].filter((i) => originSet.has(i) || !flat.some((t) => t.out.to === i || t.back?.from === i)))),
     groups,
     // V režimu konkrétního cíle i plochý žebříček nejlepších kombinací (data × letiště × aerolinky).
-    top: routeMode ? topWithDays(flat, { exact: Boolean(q.exact) }) : null,
+    top: routeMode ? topWithDays(flat, { exact: Boolean(q.exact), grid: cal && cal.grid }) : null,
     // „Je to dobrá cena?“ u konkrétního cíle: ceny letenek všech nalezených nabídek trasy (skupiny mají svou priceStats).
     priceStats: routeMode ? routeStats : null,
     calendar: cal,
@@ -1024,12 +1029,17 @@ function roundRobin(lists) {
   return out;
 }
 
-// 60 nejlepších kombinací + 3 nejlepší pro každý den odletu (pro filtr v kalendáři); u přesných dat
+// 60 nejlepších kombinací + 3 nejlepší pro každý den odletu (pro filtr v kalendáři) + nejlevnější z každé buňky
+// mřížky termínů (den odletu × noci – klepnutí na buňku ukáže kombinaci s její cenou); u přesných dat
 // navíc nejlevnější kombinace s každým nalezeným letem tam i zpět (jinak by 60 míst zabral nejlevnější
 // let tam s různými návraty a dražší přímé lety by se do výpisu nedostaly). Vždy i nejlevnější nabídka z každého
 // letiště („Odkud se vyplatí letět“ – po klepnutí na letiště ve výpisu je ta cena, kterou karta ukazuje).
-function topWithDays(flat, { exact = false } = {}) {
+function topWithDays(flat, { exact = false, grid = null } = {}) {
   const picked = new Set(flat.slice(0, 60));
+  if (grid) {
+    const cells = new Set(grid.cells.map((c) => `${c[0]}|${c[1]}`));
+    for (const t of flat) { const k = `${t.out.date}|${t.nights}`; if (cells.delete(k)) picked.add(t); }
+  }
   const homes = new Set();
   for (const t of flat) { const k = homeOf(t); if (k && !homes.has(k)) { homes.add(k); picked.add(t); } }
   const perDay = new Map();

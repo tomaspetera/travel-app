@@ -144,8 +144,9 @@ export function returnFits(o, b) {
  * filtrovat v kalendáři), pak nejlevnější celkově s limitem perDestLimit na cílové město.
  * perLeg (přesná data): každý nalezený let tam i zpět aspoň v jedné – své nejlevnější – kombinaci,
  * ne jen nejlevnější let tam s desítkou různých návratů.
+ * cells (mřížka termínů): navíc nejlevnější výsledek každé buňky „den odletu|noci“ ze sady – výběr se jen rozšíří.
  */
-function pickDiverse(results, { limit, perDestLimit, perDay = 0, perLeg = false }) {
+function pickDiverse(results, { limit, perDestLimit, perDay = 0, perLeg = false, cells = null }) {
   const seen = new Set();
   const picked = [];
   const take = (r) => {
@@ -159,6 +160,15 @@ function pickDiverse(results, { limit, perDestLimit, perDay = 0, perLeg = false 
     for (const r of results) {
       const n = dayCount.get(r.o.date) || 0;
       if (n < perDay && take(r)) dayCount.set(r.o.date, n + 1);
+    }
+  }
+  if (cells) {
+    const done = new Set();
+    for (const r of results) {
+      const key = `${r.o.date}|${r.n}`;
+      if (!cells.has(key) || done.has(key)) continue;
+      done.add(key);
+      take(r);
     }
   }
   if (perLeg) {
@@ -194,14 +204,16 @@ function pickDiverse(results, { limit, perDestLimit, perDay = 0, perLeg = false 
  * opts: { nightsMin, nightsMax, outDays, backDays, openJawHome, openJawDest, limit, perDestLimit, perDay, calendar, extra, legsPerDay, variety, park }
  * opts.variety (přesná data) → víc letů na den (legsPerDay/dayVariety) a každý let aspoň v jedné kombinaci.
  * opts.extra(leg) → příplatek k letu na osobu (zavazadla), započítá se do pořadí i kalendáře.
- * opts.calendar = { out: Map, back: Map } → doplní nejlevnější celou cestu podle dne odletu/návratu.
+ * opts.calendar = { out: Map, back: Map, grid?: Map } → doplní nejlevnější celou cestu podle dne odletu/návratu;
+ * grid (mřížka termínů) podle dvojice „den odletu|noci“ ze všech zvážených dvojic – i za limitem návratů na let.
+ * opts.perCell (s calendar.grid) → ve výsledcích i nejlevnější cesta každé buňky mřížky (gridArray), ať ji klepnutí najde.
  * opts.park(fromIata, nights) → parkování auta u letiště odletu na celou cestu (na osobu); závisí na počtu nocí,
  * proto se přičítá k cestě, ne k letišti (autem se vracíš na stejné letiště – openJawHome: false).
  */
 export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
   const {
     nightsMin = 1, nightsMax = 30, openJawHome = true, openJawDest = true, limit = 300, perDestLimit = 12, perDay = 0,
-    calendar: cal = null, legsPerDay: k = 1, extra = () => 0, variety = false, park = null,
+    calendar: cal = null, legsPerDay: k = 1, extra = () => 0, variety = false, park = null, perCell = false,
   } = opts;
   const backs = legsPerDay(backLegs, k, extra, { variety });
   // Index: datum → seznam návratů seřazený podle (cena + doprava domů).
@@ -238,14 +250,15 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
         if (b.from !== o.to && !(openJawDest && destKey(b.from) === oDest)) continue;
         if (b.to !== o.from && !openJawHome) continue;
         if (!dateOk(o.date, b.date, opts) || !returnFits(o, b)) continue;
+        const total = oCost + cost + pk;
+        if (cal && cal.grid) note(cal.grid, `${o.date}|${n}`, total, o, b);
         if (taken >= cap && !(variety && !b.stops && direct < 3)) {
           if (!variety || direct >= 3) break;
           continue;
         }
         taken++;
         if (!b.stops) direct++;
-        const total = oCost + cost + pk;
-        results.push({ o, b, cost: total, sig: `${oDest}|${o.from}|${b.to}|${o.date}|${b.date}|${o.carrier}|${o.dep}|${b.carrier}|${b.dep}` });
+        results.push({ o, b, n, cost: total, sig: `${oDest}|${o.from}|${b.to}|${o.date}|${b.date}|${o.carrier}|${o.dep}|${b.carrier}|${b.dep}` });
         if (cal) {
           note(cal.out, o.date, total, o, b);
           note(cal.back, b.date, total, o, b);
@@ -254,7 +267,8 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
     }
   }
   results.sort((x, y) => x.cost - y.cost);
-  return pickDiverse(results, { limit, perDestLimit, perDay, perLeg: variety }).map((r) => makeTrip(r.o, r.b));
+  const cells = perCell && cal && cal.grid ? new Set(gridArray(cal.grid, { nightsMin, nightsMax }).cells.map((c) => `${c[0]}|${c[1]}`)) : null;
+  return pickDiverse(results, { limit, perDestLimit, perDay, perLeg: variety, cells }).map((r) => makeTrip(r.o, r.b));
 }
 
 /** Nejlevnější jednosměrné lety (s dopravou na letiště), rozmanité podle cíle. */
@@ -280,3 +294,29 @@ export function oneWayCalendar(outLegs, groundOf, { outDays = [], extra = () => 
 }
 
 export const calendarArray = (map) => [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+
+/**
+ * Mřížka termínů do odpovědi (kompaktně): { nights: [od, do], cells: [[den odletu, noci, Kč/os.], …], skipped }.
+ * Nejvýš maxNights délek po sobě (u delšího rozsahu okno kolem nejlevnější buňky) a maxDates dnů odletu
+ * (u víc dnů ty s nejlevnější cestou, skipped = kolik dnů vynecháno); seřazené podle dne a nocí.
+ */
+export function gridArray(map, { nightsMin, nightsMax, maxDates = 60, maxNights = 10 }) {
+  const all = [...map.values()].map((e) => [e.outDate, daysBetween(e.outDate, e.backDate), Math.round(e.cost)])
+    .filter((c) => c[1] >= nightsMin && c[1] <= nightsMax);
+  let a = nightsMin;
+  if (nightsMax - nightsMin + 1 > maxNights && all.length) {
+    const best = all.reduce((m, c) => (c[2] < m[2] ? c : m));
+    a = Math.max(nightsMin, Math.min(best[1] - Math.floor((maxNights - 1) / 2), nightsMax - maxNights + 1));
+  }
+  const b = Math.min(nightsMax, a + maxNights - 1);
+  let cells = all.filter((c) => c[1] >= a && c[1] <= b);
+  const rowMin = new Map();
+  for (const c of cells) rowMin.set(c[0], Math.min(rowMin.get(c[0]) ?? Infinity, c[2]));
+  let skipped = 0;
+  if (rowMin.size > maxDates) {
+    const keep = new Set([...rowMin].sort((x, y) => x[1] - y[1] || x[0].localeCompare(y[0])).slice(0, maxDates).map((x) => x[0]));
+    skipped = rowMin.size - maxDates;
+    cells = cells.filter((c) => keep.has(c[0]));
+  }
+  return { nights: [a, b], cells: cells.sort((x, y) => x[0].localeCompare(y[0]) || x[1] - y[1]), skipped };
+}
