@@ -63,6 +63,12 @@
     const d = new Date(dt.slice(0, 16) + ':00Z'); d.setUTCMinutes(d.getUTCMinutes() + minutes);
     return d.toISOString().slice(0, 16);
   }
+  // Jako shiftDt, ale přes skutečný okamžik v zóně tz – v noci změny času (6:30 v neděli ráno) posun o hodinu nespadne vedle.
+  function shiftTz(dt, minutes, tz) {
+    const u = tz && window.Ics ? Ics.localToUtc(dt.slice(0, 16), tz) : null;
+    const off = u == null ? null : Ics.tzOffset(tz, u + minutes * 60000);
+    return off == null ? shiftDt(dt, minutes) : new Date(u + (minutes + off) * 60000).toISOString().slice(0, 16);
+  }
 
   /* ---------- vlak / bus místo letu ---------- */
   /** Jede se vlakem/busem (t.overland.on) místo vybraného letu? */
@@ -1282,11 +1288,13 @@
     if (!t || !t.flight || !t.flight.out || ovOn(t)) return { home: null, hotel: null };
     const f = t.flight, e = window.Entry && Entry.ready() && t.dest ? Entry.get(t.dest.cc) : null;
     const before = (window.SearchHelp ? SearchHelp.REACH.before : 120) + (e && e.visa !== 'eu' ? 30 : 0);
-    const at = (l, min) => { const dt = shiftDt(l.dep, -(before + min)); return { date: dt.slice(0, 10), hm: dt.slice(11, 16), min, airport: l.from, before, hint: null }; };
-    const gm = t.ground && t.ground.out && t.ground.out.minutes;
+    const at = (l, min) => { const dt = shiftTz(l.dep, -(before + min), l.fromTz); return { date: dt.slice(0, 10), hm: dt.slice(11, 16), min, airport: l.from, before, hint: null }; };
+    // minuty z cizího odkazu (#trip=) jen jako rozumné číslo
+    const okMin = v => { const n = Number(v); return Number.isFinite(n) && n > 0 && n < 1440 ? Math.round(n) : 0; };
+    const gm = okMin(t.ground && t.ground.out && t.ground.out.minutes);
     let hotel = null;
     if (f.back && f.back.hasTime && !carCovers(t, 'back')) {
-      const m = isMulti(t) ? legMin((t.route.legs || {}).departure, t.route.transport) : t.arrival && t.arrival.back && t.arrival.back.min;
+      const m = okMin(isMulti(t) ? legMin((t.route.legs || {}).departure, t.route.transport) : t.arrival && t.arrival.back && t.arrival.back.min);
       if (m > 0) {
         hotel = at(f.back, m);
         // noční let (z ubytování už předchozí večer) bez rady

@@ -567,9 +567,10 @@
     const max = [1, 2, 3, 4, 5].includes(S.leaveMax) ? S.leaveMax : 2, now = today();
     const list = SearchHelp.leaveWindows(now, { maxLeave: max });
     const dny = n => n === 1 ? 'den' : n <= 4 ? 'dny' : 'dní';
-    // ★ okna s nejvíc dny volna na den dovolené (shoda → všechna; mají-li všechna stejně, žádná)
-    const ratio = w => w.days / w.leave.length, paid = list.filter(w => w.leave.length), best = Math.max(...paid.map(ratio));
-    const star = w => w.leave.length && ratio(w) === best && paid.some(x => ratio(x) < best);
+    // ★ u 2 oken s nejvíc dny volna na den dovolené (shoda → víc dní volna, dřív); ze 2 a méně oken nic nevybírá
+    const ratio = w => w.days / w.leave.length, paid = list.filter(w => w.leave.length);
+    const top = new Set(paid.length > 2 ? paid.slice().sort((a, b) => ratio(b) - ratio(a) || b.days - a.days || a.start.localeCompare(b.start)).slice(0, 2) : []);
+    const star = w => top.has(w);
     const yr = w => (w.start.slice(0, 4) !== now.slice(0, 4) ? ` ${w.start.slice(0, 4)}` : '');
     modalOpen(`<div class="modal-body"><div class="row lw-head"><h3>🗓️ Kdy si vzít dovolenou</h3><button type="button" class="icon-btn" onclick="modalClose()" aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button></div>
       <div class="lw-max"><span class="faint">Dovolená nejvýš:</span><div class="seg wrap" id="lwMax">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-lm="${n}" class="${n === max ? 'on' : ''}" aria-pressed="${n === max}">${n} ${dny(n)}</button>`).join('')}</div></div>
@@ -1044,6 +1045,9 @@
   function visibleTrips(trips) {
     return trips.filter(t => baseOk(t) && SearchHelp.timeOk(t, view.time));
   }
+  // dny dovolené nabídky jednou (řazení je volá při každém porovnání a překreslení)
+  const leaveMemo = new WeakMap();
+  const leaveOf = t => { if (!t.back) return null; if (!leaveMemo.has(t)) leaveMemo.set(t, SearchHelp.leaveDays(t.out, t.back)); return leaveMemo.get(t); };
   function sortKey(t, g) {
     switch (view.sort) {
       case 'flight': return t.flightCzk;
@@ -1055,7 +1059,7 @@
       case 'far': return -t.distanceKm;
       case 'date': return t.out.date + (t.out.dep || '');
       // nejméně dní dovolené, při shodě nejlevnější (jen tam → jako cena)
-      case 'leave': { const lv = t.back ? SearchHelp.leaveDays(t.out, t.back) : null; return (lv ? lv.n : 99) * 1e7 + t.perPersonCzk; }
+      case 'leave': { const lv = leaveOf(t); return (lv ? lv.n : 99) * 1e7 + t.perPersonCzk; }
       default: return t.perPersonCzk;
     }
   }
@@ -1372,7 +1376,7 @@
   function badges(t, g, idx) {
     const out = [];
     // dny dovolené ve stejném štítku jako noci (víkendy a svátky volno, odlet od 16:00 po práci)
-    const lv = t.back ? SearchHelp.leaveDays(t.out, t.back) : null, lt = lv && SearchHelp.leaveTxt(lv);
+    const lv = leaveOf(t), lt = lv && SearchHelp.leaveTxt(lv);
     if (t.nights != null) out.push(`<span class="b"${lt ? ` title="${esc(lt.title)}"` : ''}>🌙 ${nightsTxt(t.nights)}${lt ? ` · ${esc(lt.text)}` : ''}</span>`);
     const pb = priceTag(t, idx); if (pb) out.push(pb);
     // cesta z letiště do města (a zpět na letiště): drahá nebo dlouhá = „levná“ letenka, která levná není → varovně
@@ -1460,7 +1464,7 @@
       const who = [t.out.carrierName || provName(t.out.provider), t.out.stops ? `${t.out.stops}× přestup` : ''].filter(Boolean).join(' · ');
       // dny dovolené jen při řazení „Nejméně dovolené“ – na začátku řádku, na telefonu se konec řádku nevejde
       // (jinak je ukáže až rozbalená karta)
-      const lv = view.sort === 'leave' && t.back ? SearchHelp.leaveDays(t.out, t.back) : null, lt = lv && SearchHelp.leaveTxt(lv);
+      const lv = view.sort === 'leave' ? leaveOf(t) : null, lt = lv && SearchHelp.leaveTxt(lv);
       const ws = wxOf(t, g), wait = !ws && wxWait(t, g);
       return `<div class="cmp-row${open ? ' open' : ''}" data-cg="${esc(g.dest.key)}" role="button" tabindex="0" aria-expanded="${open}">
         <span class="cmp-flag">${flag(g.dest.cc)}</span>

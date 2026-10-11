@@ -363,4 +363,11 @@ test('kdy vyrazit: z domu na let tam a z ubytování na let zpět – průběh c
   const uk = plain(g.window.Trip.leaveBy({ ...t, dest: { label: 'Londýn', cc: 'GB' } }));
   assert.deepEqual([uk.home.hm, uk.home.before, uk.hotel.hm, uk.hotel.before], ['02:45', 150, '03:50', 150]);
   assert.equal(g.window.Trip.leaveBy(t).home.hm, '03:15', 'Rakousko = Schengen');
+  // noc změny na letní čas (28. 3. 2027 ve 2:00): odlet 6:30 − 2 h − 2 h 55 min = 0:35 zimního času, ne 1:35
+  const dst = plain(leaveBy({ ...t, ground: { out: { minutes: 175 } }, flight: { ...t.flight, out: { ...t.flight.out, date: '2027-03-28', dep: '2027-03-28T06:30:00', arr: '2027-03-28T08:30:00' } } }).home);
+  assert.deepEqual([dst.date, dst.hm], ['2027-03-28', '00:35']);
+  // minuty z cizího odkazu: text, nesmysl nebo obří číslo → bez řádku, žádný pád
+  for (const minutes of ['45', '0x2D', 1e12, -5, NaN]) assert.doesNotThrow(() => leaveBy({ ...t, ground: { out: { minutes } } }));
+  assert.equal(leaveBy({ ...t, ground: { out: { minutes: 1e12 } } }).home, null);
+  assert.equal(leaveBy({ ...t, ground: { out: { minutes: '45' } } }).home.hm, '03:15', 'číslo jako text se přečte jako číslo');
 });
