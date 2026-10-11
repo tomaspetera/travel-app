@@ -10,14 +10,15 @@ import { routeKey } from '../server/lib/transfers.js';
 process.env.FUEL_LIVE = '0'; // přejezdy počítají palivo – ceny vestavěné, bez sítě (ČSÚ, Evropská komise, ECB)
 
 const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
-function load() {
+// state = uložený stav aplikace (S) už při načtení trip.js – jako při startu aplikace
+function load(state = {}) {
   const ctx = { window: {}, URLSearchParams, TextEncoder, TextDecoder, btoa, atob, console };
   vm.createContext(ctx);
   vm.runInContext(src('ics.js'), ctx, { filename: 'ics.js' });
   const helpers = src('app.js').match(/^const (esc|safeUrl|pad|fmtYMD|fmtDate|czk) = .*$/gm);
   assert.equal(helpers.length, 6);
   vm.runInContext(`const Ics = window.Ics;\n${helpers.join('\n')}
-    var S = {}, __els = {}, __toasts = [];
+    var S = ${JSON.stringify(state)}, __els = {}, __toasts = [];
     var $ = (s) => (__els[s] ||= { innerHTML: '', value: '', remove() {} });
     var $$ = () => [];
     var go = () => {}; var save = () => {}; var flag = (cc) => '[' + cc + ']';
@@ -417,4 +418,53 @@ test('let z průběžných výsledků: „Je to dobrá cena?“ až z konečnéh
   assert.deepEqual([plain(c.S.trip.priceStats), c.S.trip.flight.priceLevel.reason, c.S.trip.statsWait], [noMins(st(8, 873)), 'z náhledu', undefined]);
   // cesta z odkazu, zálohy či uložená na konečný výsledek v tomto prohlížeči nečeká
   assert.equal(Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...trip({ route: null }), statsWait: JSON.stringify(q) }))).statsWait, undefined);
+});
+
+test('let z průběžných výsledků: hledání skončí bez konečného výsledku (zrušené jiným, chyba, zavřená stránka) → cesta nečeká navždy, statistika z průběžných', () => {
+  const q = { from: ['ap:BRQ'], to: [], dateFrom: '2026-11-01', dateTo: '2026-11-30', adults: 2, bags: 'none' };
+  const st = (n, median) => ({ n, min: 800, p25: 850, median, p75: 950, max: 1200, dateFrom: '2026-11-10', dateTo: '2026-11-20', mins: [['BRQ', '2026-11', 800]] });
+  const noMins = (s) => plain({ ...s, mins: undefined });
+  const fl = { ...trip().flight, id: 'demo-air|BRQ|OMR|2026-11-10T07:00:00', destKey: 'OMR', priceLevel: { level: 'low', reason: 'z náhledu', ref: 900, vsRef: -10 } };
+  const grp = (stats, options = []) => ({ dest: { key: 'OMR', label: 'Oradea', cc: 'RO', country: 'Rumunsko', lat: 47.03, lon: 21.9 }, priceStats: stats, options });
+  const preview = { partial: true, query: q, origins: [], groups: [grp(st(6, 886), [fl])] };
+  const tools = (c) => {
+    c.window.PriceCheck = c.PriceCheck = { assess: (f, s) => f.priceLevel || (s ? { level: 'normal', reason: `ze statistiky (${s.n} nabídek)` } : null) };
+    c.window.Flights = c.Flights = { priceTag: (f, i, pl) => `<b class="pl">${pl.level}</b>`, priceCheck: () => {} };
+  };
+  const c = load();
+  tools(c);
+  const { Trip } = c.window;
+  Trip.start({ t: fl, g: preview.groups[0], result: preview });
+  const t = c.S.trip;
+  assert.deepEqual([t.priceStats, t.statsWait, plain(t.statsPart)], [null, JSON.stringify(q), noMins(st(6, 886))], 'statistika z průběžných jen v záloze');
+  t.verifiedAt = 1;
+  assert.doesNotMatch(render(c, t), /Je to dobrá cena\?/);
+  // skončilo jiné hledání → čeká dál
+  assert.equal(Trip.statsGiveUp(JSON.stringify({ ...q, adults: 1 })), false);
+  assert.equal(t.statsWait, JSON.stringify(q));
+  // hledání, ze kterého let je, skončilo bez konečného výsledku → statistika z průběžných, štítek ceny hned (dopočítaný)
+  assert.equal(Trip.statsGiveUp(JSON.stringify(q)), true);
+  assert.deepEqual([plain(t.priceStats), t.statsWait, t.statsPart, t.flight.priceLevel], [noMins(st(6, 886)), undefined, undefined, undefined]);
+  assert.match(sp(c.__els['#tfPl'].innerHTML), /<b class="pl">normal<\/b><span class="faint">ze statistiky \(6 nabídek\)<\/span>.*Je to dobrá cena\?/);
+  assert.match(render(c, t), /Je to dobrá cena\?/);
+  assert.equal(Trip.statsGiveUp(JSON.stringify(q)), false, 'jen jednou');
+  assert.equal(Trip.finalStats({ query: q, origins: [], groups: [grp(st(8, 873))] }), false, 'pozdní konečný výsledek už nic nemění');
+  // průběžný výsledek bez statistiky → bez ní (úroveň ceny ze vzdálenosti), ne pád
+  c.S.trip = null;
+  Trip.start({ t: fl, g: null, result: { ...preview, groups: [] } });
+  assert.equal(Trip.statsGiveUp(), true);
+  assert.deepEqual([c.S.trip.priceStats, c.S.trip.statsWait], [null, undefined]);
+  // start aplikace: uložená cesta čekala na hledání, které už neběží (stránka zavřená) → při načtení vzdá
+  c.S.trip = null;
+  Trip.start({ t: fl, g: preview.groups[0], result: preview });
+  const saved = plain(c.S.trip);
+  assert.ok(saved.statsWait && saved.statsPart);
+  const d = load({ trip: saved });
+  assert.deepEqual([plain(d.S.trip.priceStats), d.S.trip.statsWait, d.S.trip.statsPart], [noMins(st(6, 886)), undefined, undefined]);
+  // na konečný výsledek nečekající cesta při startu beze změny
+  const e = load({ trip: { ...saved, statsWait: undefined, statsPart: undefined, priceStats: st(9, 870) } });
+  assert.deepEqual(plain(e.S.trip.priceStats), st(9, 870));
+  // cesta z odkazu, zálohy či z plánovače: statistika z průběžných místo žádné
+  const x = Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...trip({ route: null }), statsWait: JSON.stringify(q), statsPart: noMins(st(6, 886)), priceStats: null })));
+  assert.deepEqual([x.priceStats && x.priceStats.n, x.statsWait, x.statsPart], [6, undefined, undefined]);
 });

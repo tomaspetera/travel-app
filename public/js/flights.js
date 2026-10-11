@@ -289,7 +289,13 @@
   function setForm(f) {
     f = { ...defaultForm(), ...SearchHelp.groundForm(f) }; // starší uložená hledání: kmRate v Kč/km → násobek
     rollTouched = false; // 📅 Posouvat termín s časem: zase podle začátku rozsahu
-    if (f.dFrom < today()) { const span = Math.max(14, (new Date(f.dTo) - new Date(f.dFrom)) / 864e5 | 0); f.dFrom = addDays(today(), 3); f.dTo = addDays(f.dFrom, span); }
+    if (f.dFrom < today()) {
+      // termín, který už začal: hledání, které se hlídá klouzavě, dostane dnešní rozsah hlídání (od dneška + 3 by u „odlet
+      // za 7–60 dní“ bylo jiné hledání), ostatní stejně dlouhý rozsah od dneška + 3
+      const rf = rolledOf(f), r = rf && Alerts.rollForm(rf.form, today());
+      const span = Math.max(14, (new Date(f.dTo) - new Date(f.dFrom)) / 864e5 | 0);
+      f.dFrom = r ? r.dFrom : addDays(today(), 3); f.dTo = r ? r.dTo : addDays(f.dFrom, span);
+    }
     if (!f.xOut || f.xOut < today()) { const n = f.xOut && f.xBack ? Math.max(0, (new Date(f.xBack) - new Date(f.xOut)) / 864e5 | 0) : 7; f.xOut = addDays(today(), 14); f.xBack = addDays(f.xOut, n); }
     $$('#dateMode button').forEach(b => b.classList.toggle('on', b.dataset.v === f.dateMode));
     $('#xOut').value = f.xOut; $('#xBack').value = f.xBack || addDays(f.xOut, 7);
@@ -912,7 +918,7 @@
     if (!opts.noScroll) $('#progress').scrollIntoView({ behavior: 'smooth', block: 'start' });
     const job = (async () => {
     busySearches++;
-    const s = { ctl, shown: false }; // průběžné výsledky tohoto hledání už na obrazovce
+    const s = { ctl, shown: false, q: null }; // průběžné výsledky tohoto hledání už na obrazovce, q = jejich dotaz (JSON)
     try {
       const res = SearchHelp.gridTrips(await runSearch(payload, {
         onProgress: ev => renderProgress(ev, false, null, s.shown),
@@ -940,6 +946,9 @@
       $('#progress').innerHTML = `<div class="note bad">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(s.shown ? SearchHelp.partialFail(e.message) : e.message)}</div></div>`;
     } finally {
       busySearches--;
+      // let vybraný z průběžných výsledků tohoto hledání: konečný výsledek nepřišel (zrušené jiným hledáním, chyba) →
+      // cesta už na něj nečeká, „Je to dobrá cena?“ ze statistiky průběžných (po úspěchu už doplněno – finalStats)
+      if (s.q && window.Trip && Trip.statsGiveUp) Trip.statsGiveUp(s.q);
       // tlačítko odemkne jen poslední hledání – zrušené předchozí by ho odemklo uprostřed běžícího
       if (running && running.ctl === ctl) { running = null; btn.disabled = false; btn.innerHTML = '🔎 Najít nejlevnější lety'; }
     }
@@ -954,6 +963,7 @@
   function showPartial(r, s) {
     if (!running || running.ctl !== s.ctl || !(r.groups || []).length) return;
     r.partial = true;
+    s.q = JSON.stringify(r.query || null); // let z nich v průvodci čeká na konečný výsledek tohoto dotazu (Trip.statsGiveUp)
     lastResult = SearchHelp.gridTrips(r);
     fitMode(r);
     renderProgress({ providers: r.providers }, false, null, true);
@@ -2711,10 +2721,20 @@
     const roll = Alerts.rollSpec(f, today());
     return roll && (rollTouched ? $('#rollOn').checked : f.dFrom <= addDays(today(), Alerts.CFG.rollNear)) ? roll : null;
   }
+  // Klouzavé hlídání téhož hledání f s daty z jiného dne (Alerts.rollSame): formulář obnovený z minula (poslední hledání,
+  // Nedávno, uložené výsledky) má termín ze dne hledání – z { off: 3 } uloženého včera by dnes vyšlo { off: 2 }, jiný klíč
+  function rolledOf(f) {
+    if (!f || f.trip === 'multi' || f.dateMode === 'exact') return null;
+    const t = today();
+    return (S.watch || []).find(w => {
+      const r = w && Alerts.rolls(w.form) && !w.form.roll.lw ? w.form.roll : null, at = r && Alerts.savedAt(w, Date.now());
+      return r && Alerts.rollSame(r, f, t, { saved: at ? fmtYMD(new Date(at)) : null }) && watchKey({ form: { ...f, roll: r } }) === watchKey(w);
+    }) || null;
+  }
   // hlídané pevně i klouzavě (♥ Hlídáš – stejné hledání se znovu neukládá ani s přepnutým 📅)
   const isWatched = f => {
     const roll = Alerts.rollSpec(f, today()), ks = new Set([watchKey({ form: f }), ...(roll ? [watchKey({ form: { ...f, roll } })] : [])]);
-    return (S.watch || []).some(w => ks.has(watchKey(w)));
+    return (S.watch || []).some(w => ks.has(watchKey(w))) || Boolean(rolledOf(f));
   };
   // Popis hlídání pod názvem: termín (klouzavý „vždy příštích 8 týdnů (teď 14. 10.–9. 12.)“), noci, zavazadla, auto.
   function watchSub(f) {
@@ -2736,14 +2756,15 @@
     if (!res) return;
     const b = bestOf(res);
     const czk0 = b ? b.czk : null;
-    // 📅 klouzavý termín: uloží se odstup a délka rozsahu (nebo „nejbližší prodloužený víkend“), ne data
-    const roll = rollWanted(f), wf = roll ? { ...f, roll } : f;
+    // 📅 klouzavý termín: uloží se odstup a délka rozsahu (nebo „nejbližší prodloužený víkend“), ne data; hledání, které už
+    // se hlídá klouzavě (data z jiného dne – rolledOf), dostane jeho termín, ať ho upsertWatch nezdvojí
+    const same = rolledOf(f), roll = same ? same.form.roll : rollWanted(f), wf = roll ? { ...f, roll } : f;
     const w = { id: Date.now().toString(36), label: watchLabel(f), sub: watchSub(roll ? Alerts.rollForm(wf, today()) : f), form: wf, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null };
     // stejné hledání podruhé (♡ pod formulářem i v „Je to dobrá cena?“) jen aktualizuje cenu té, co už je
     const r = Alerts.upsertWatch(S.watch || [], w, watchKey, { now: Date.now(), cap: 12, partial: Alerts.incomplete(res.providers) });
     S.watch = r.list; save();
     updateWatchBadges(); updateWatchBtn();
-    toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : roll ? `Hledání uloženo – termín se posouvá s časem (${Alerts.rollTxt(wf, today(), { now: false })}), cenu hlídám na Přehledu, dokud máš ATLAS otevřený` : 'Hledání uloženo – cenu hlídám na Přehledu, dokud máš ATLAS otevřený');
+    toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : roll ? `Hlídám na Přehledu, dokud máš ATLAS otevřený – termín se posouvá s časem (${Alerts.rollTxt(wf, today(), { now: false })})` : 'Hledání uloženo – cenu hlídám na Přehledu, dokud máš ATLAS otevřený');
   }
   /** Tlačítko ♡ pod formulářem: hlídané hledání → „♥ Hlídáš“ (klik ukáže hlídané ceny na Přehledu). */
   function updateWatchBtn() {
@@ -2753,7 +2774,7 @@
     const rl = $('#rollLbl'), roll = !on && Alerts.rollSpec(f, today());
     if (rl) {
       rl.hidden = !roll;
-      if (roll) { if (!rollTouched) $('#rollOn').checked = Boolean(rollWanted(f)); rl.title = `♡ uloží hledání jako „${Alerts.rollTxt({ ...f, roll }, today(), { now: false })}“ – termín se každý den posune, hlídání neproběhne`; }
+      if (roll) { if (!rollTouched) $('#rollOn').checked = Boolean(rollWanted(f)); rl.title = `♡ uloží hledání jako „${Alerts.rollTxt({ ...f, roll }, today(), { now: false })}“ – ${roll.lw ? 'po každém prodlouženém víkendu se posune na další' : 'termín se každý den posune'}, hlídání neproběhne`; }
     }
     b.textContent = on ? '♥ Hlídáš – na Přehledu' : '♡ Hlídat cenu';
     b.classList.toggle('on', on);
