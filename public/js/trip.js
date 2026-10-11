@@ -175,12 +175,37 @@
   // spolehlivěji poznají anglický název města („Bologna“) než český („Boloňa“).
   const baseSearchUrl = (t, b, d) => (b.searchUrl && b.searchUrl.includes(d.checkin) && b.searchUrl.includes(d.checkout) ? b.searchUrl
     : bookingSearch([b.nameEn || b.name, b.country].filter(Boolean).join(', '), d.checkin, d.checkout, t.adults));
-  /** Program místa trasy, jen když platí pro jeho současný termín (po změně nocí nebo pořadí ho krok Program sestaví znovu). */
+  // Program platí pro termín i časy příjezdu a odjezdu, pro které ho plánovač sestavil (jako sameSpan v places.js).
+  const spanOk = (s, w) => s.start === w.start && s.end === w.end && s.arrivalTime === (w.arrivalTime || null) && s.departureTime === (w.departureTime || null);
+  /** Program místa trasy, jen když platí pro jeho současný termín (po změně nocí, pořadí nebo spoje ho krok Program sestaví znovu). */
   function basePlan(t, i) {
     const p = t.route.bases[i].plan;
     if (!p || !Array.isArray(p.days)) return null;
     const w = baseProgram(t, i), s = p.span;
-    return (s ? s.start === w.start && s.end === w.end : p.days.every(d => d.date >= w.start && d.date <= w.end)) ? p : null;
+    return (s ? spanOk(s, w) : p.days.every(d => d.date >= w.start && d.date <= w.end)) ? p : null;
+  }
+  /** Termín programu jednoho místa: od dne příjezdu do check-outu, s časem příjezdu a odjezdu. */
+  function progSpan(t) {
+    const arr = arrivalAt(outLeg(t)), b = backLeg(t);
+    return { start: arr.slice(0, 10), end: stayDates(t).checkout, arrivalTime: arr.slice(11, 16), departureTime: b && b.hasTime ? b.dep.slice(11, 16) : null };
+  }
+  /** Program jednoho místa, jen když platí pro současný příjezd a odjezd (jinak ho krok Program sestaví znovu). */
+  function tripPlan(t) {
+    const p = t.plan;
+    if (!p || !Array.isArray(p.days)) return null;
+    const w = progSpan(t), s = p.span;
+    return (s ? spanOk(s, w) : p.days.every(d => d.date >= w.start && d.date <= w.end)) ? p : null;
+  }
+  /** Příjezd a odjezd cesty (den i čas) – po jejich změně neplatí program ani časy auta. */
+  const tripTimes = t => { const b = backLeg(t); return JSON.stringify([stayDates(t), arrivalAt(outLeg(t)), b && b.hasTime ? String(b.dep).slice(0, 16) : null]); };
+  /** Po změně spoje s jiným příjezdem nebo odjezdem: program znovu (místa trasy hlídá basePlan), auto s časy podle
+   *  starého spoje pryč. Vrací true, když se zahodilo auto. */
+  function retime(t, times) {
+    if (tripTimes(t) === times) return false;
+    t.plan = null;
+    if (!t.car || t.car.mode === 'skip') return false;
+    t.car = null;
+    return true;
   }
   /** Ubytování v jednom místě bez vlastního odkazu (zadaná cena): hledání na Bookingu pro cíl a termín cesty – načtené
    *  nabídky kroku Ubytování po znovuotevření aplikace nebo ve sdílené cestě nejsou. */
@@ -239,9 +264,8 @@
     const ends = ov ? overlandLegs(t) : r.legs || {};
     if (r.transport === 'transit') {
       // i cesta z letiště (města příjezdu vlakem) na 1. místo a zpět – pokud ji nepokrývá doprava z letiště do města
-      const covered = (side, base) => { const a = !ov && +t.flight.arrCzk > 0 && t.arrival && t.arrival[side]; return Boolean(a && Number.isFinite(a.lat) && base && distKm(base, a) <= 25); };
       const fare = x => (x && x.fareCzk) || 0;
-      const sum = xs.reduce((s, x) => s + fare(x), 0) + (covered('out', r.bases[0]) ? 0 : fare(ends.arrival)) + (covered('back', r.bases.at(-1)) ? 0 : fare(ends.departure));
+      const sum = xs.reduce((s, x) => s + fare(x), 0) + (arrCovers(t, 'out') ? 0 : fare(ends.arrival)) + (arrCovers(t, 'back') ? 0 : fare(ends.departure));
       return Math.round(sum * pax);
     }
     // autem z letiště a na letiště jen s autem vyzvednutým / vráceným na letišti (jinak ten úsek kryje doprava z letiště);
@@ -255,14 +279,28 @@
   const arrivalOf = (arr, f) => (arr ? { out: arr[f.out.to] || null, back: f.back ? arr[f.back.from] || null : null } : null);
   /** Úsek cesty do města, který nahradí půjčené auto (vyzvednutí na letišti příletu, vrácení na letišti odletu). */
   const carCovers = (t, side) => { const c = t.car && t.car.mode !== 'skip' ? t.car : null, f = t.flight; return Boolean(c) && (side === 'out' ? c.pickup === f.out.to : Boolean(f.back) && c.dropoff === f.back.from); };
+  /** Trasa přes víc míst: 1. (side 'out') / poslední místo je ve městě letiště (do 25 km) – přejezd k letišti kryje doprava z letiště do města. */
+  const arrCovers = (t, side) => {
+    const a = !ovOn(t) && +t.flight.arrCzk > 0 && t.arrival && t.arrival[side], bs = t.route.bases, base = side === 'out' ? bs[0] : bs[bs.length - 1];
+    return Boolean(a && Number.isFinite(a.lat) && base && distKm(base, a) <= 25);
+  };
+  /** Úsek cesty z letiště do města, který odpadá: nahradí ho půjčené auto, nebo (trasa vlakem / busem) jízdenka
+   *  z letiště na 1. / z posledního místa mimo město letiště, která je v přejezdech trasy. */
+  const arrivalDrop = (t, side) => carCovers(t, side) || (isMulti(t) && t.route.transport === 'transit' && !arrCovers(t, side)
+    && ((t.route.legs || {})[side === 'out' ? 'arrival' : 'departure'] || {}).fareCzk > 0);
   /**
    * Cesta z letiště do města a zpět, Kč/os. – jen byla-li v ceně letu (hledání s „vč. cesty z letiště do města“); úsek,
-   * který nahradí půjčené auto, odpadá (starší cesta bez rozpisu po směrech: celá).
+   * který nahradí půjčené auto nebo jízdenka na trase, odpadá (starší cesta bez rozpisu po směrech: celá).
    */
   function arrivalCzk(t) {
     const all = +t.flight.arrCzk || 0, a = t.arrival || {};
     if (!all || (!a.out && !a.back)) return all;
-    return Math.max(0, all - (carCovers(t, 'out') && a.out ? a.out.czk : 0) - (carCovers(t, 'back') && a.back ? a.back.czk : 0));
+    return Math.max(0, all - (arrivalDrop(t, 'out') && a.out ? a.out.czk : 0) - (arrivalDrop(t, 'back') && a.back ? a.back.czk : 0));
+  }
+  /** Popisek ceny cesty z letiště do města podle směrů, které se počítají. */
+  function arrivalWhat(t) {
+    const a = t.arrival || {}, out = !(a.out && arrivalDrop(t, 'out')), back = Boolean(t.flight.back) && !(a.back && arrivalDrop(t, 'back'));
+    return out ? `z letiště do města${back ? ' a zpět' : ''}` : 'z města na letiště';
   }
   /** Čím: z letiště „metro 14 do Châtelet“, na letiště jen „metro 14“ (SearchHelp.arrivalVia). */
   const arrivalHow = (a, back) => (back && window.SearchHelp ? SearchHelp.arrivalVia(a.how) : a.how);
@@ -295,6 +333,19 @@
   /** Co je na cestě v průvodci rozpracované (trasa, ubytování, auto, program, odškrtnuté rezervace) – pro otázku před nahrazením. */
   const progressOf = mine => [isMulti(mine) && 'trasu', mine.stay && 'ubytování', mine.car && 'auto', mine.plan && 'program',
     mine.booked && Object.values(mine.booked).some(Boolean) && 'odškrtnuté rezervace'].filter(Boolean);
+  /** Otisk cesty pro sdílený odkaz: spoje, termín, lidé, ubytování, auto a trasa – stejný = tatáž cesta (vlastní odkaz). */
+  const tripSig = x => JSON.stringify([
+    [x.flight.out, x.flight.back].map(l => (l ? [l.from, l.to, l.date, String(l.dep || '').slice(0, 16)] : null)),
+    ovOn(x) ? [x.overland.out, x.overland.back].map(g => (g ? [g.date, String(g.dep || '').slice(0, 16)] : null)) : null,
+    stayDates(x), +x.adults, x.bags || 'none',
+    [x.stay, x.car].map(s => (s ? [s.mode, s.id || s.name || '', Math.round(s.totalCzk || 0)] : null)),
+    isMulti(x) ? x.route.bases.map(b => [b.id, b.nights, b.stay ? [b.stay.mode, b.stay.id || b.stay.name || ''] : null]) : null,
+  ]);
+  /** Obsah sdílené cesty k porovnání: klíče podle abecedy, bez odškrtnutí „Co zařídit a co sbalit“ (ta se jen přidávají – PreTrip.adopt). */
+  const linkSig = x => {
+    const { done, ...p } = x.pretrip || {};
+    return JSON.stringify({ ...x, pretrip: Object.keys(p).length ? p : undefined }, (k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(n => [n, v[n]])) : v));
+  };
 
   /* ---------- start z výsledků hledání ---------- */
   function start({ t, g, result, ccs = null }) {
@@ -303,8 +354,9 @@
     // Rozpracovaná cesta (vybraná trasa, ubytování, auto, program nebo odškrtnuté rezervace) se nezahodí bez zeptání –
     // „↩ Vybrat jiný let“ i nový výběr z výsledků by ji jinak potichu přepsaly.
     const mine = S.trip;
-    // stejný let tam i zpět znovu (z výsledků, z uložených výsledků) → pokračovat v rozpracované cestě
-    if (mine && mine.flight && JSON.stringify([mine.flight.out, mine.flight.back || null]) === JSON.stringify([t.out, t.back || null])) { go('trip'); return; }
+    // stejný let tam i zpět znovu (z výsledků, z uložených výsledků) pro stejně lidí a zavazadla → pokračovat v rozpracované cestě
+    if (mine && mine.flight && JSON.stringify([mine.flight.out, mine.flight.back || null]) === JSON.stringify([t.out, t.back || null])
+      && +mine.adults === +result.query.adults && (mine.bags || 'none') === (result.query.bags || 'none')) { go('trip'); return; }
     if (mine && mine.flight) {
       const done = progressOf(mine);
       if (done.length && !confirm(`Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
@@ -414,7 +466,7 @@
     const arr = arrivalCzk(t); // úsek, který nahradí auto půjčené na letišti, se nepočítá (jako v souhrnu)
     host.innerHTML = `<div class="card step-card"><h3>✈️ Vybraný let</h3>
       ${legLine(t.flight.out)}${t.flight.back ? legLine(t.flight.back, true) : ''}
-      <div class="muted" style="margin-top:8px;font-size:13px">Letenky ${czk(t.flight.flightCzk)}/os.${t.flight.bagCzk ? ` + zavazadla ~${czk(t.flight.bagCzk)}/os.` : ''}${t.flight.groundCzk ? ` + ${groundWhat(t)}${t.groundMode === 'car' && carFuelOk(t.carFuel) && t.carFuel !== 'ev' ? ` (${carFuelTxt(t)})` : ''} ${czk(t.flight.groundCzk)}/os.` : ''}${arr ? ` + z letiště do města${t.flight.back ? ' a zpět' : ''} ~${czk(arr)}/os.${arr < t.flight.arrCzk ? ' (bez úseku autem)' : ''}` : ''}</div>
+      <div class="muted" style="margin-top:8px;font-size:13px">Letenky ${czk(t.flight.flightCzk)}/os.${t.flight.bagCzk ? ` + zavazadla ~${czk(t.flight.bagCzk)}/os.` : ''}${t.flight.groundCzk ? ` + ${groundWhat(t)}${t.groundMode === 'car' && carFuelOk(t.carFuel) && t.carFuel !== 'ev' ? ` (${carFuelTxt(t)})` : ''} ${czk(t.flight.groundCzk)}/os.` : ''}${arr ? ` + ${arrivalWhat(t)} ~${czk(arr)}/os.${arr < t.flight.arrCzk ? (carCovers(t, 'out') || carCovers(t, 'back') ? ' (bez úseku autem)' : ' (bez úseku v přejezdech trasy)') : ''}` : ''}</div>
       ${t.arrival && t.arrival.out ? `<div class="faint" style="font-size:12.5px;margin-top:4px">${ARR_ICO[t.arrival.out.mode] || '🚌'} ${esc(arrivalRow(t.arrival.out))}${t.arrival.back && t.arrival.back.iata !== t.arrival.out.iata ? `<br>${ARR_ICO[t.arrival.back.mode] || '🚌'} ${esc(arrivalRow(t.arrival.back, true))}` : ''}</div>` : ''}
       ${pl ? `<div class="tf-price">${Flights.priceTag(t.flight, null, pl)}<span class="faint">${esc(pl.reason)}</span><button type="button" class="linkbtn" id="tfPrice">Je to dobrá cena?</button></div>` : ''}
       <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="tfBack">↩ Vybrat jiný let</button><button class="btn" id="tfVerify">🔄 Ověřit živou cenu a porovnat aerolinky</button><button class="btn primary" id="tfNext">Pokračovat →</button></div>
@@ -467,9 +519,11 @@
         const bagOk = !t.bags || t.bags === 'none' || Number.isFinite(x.bagCzk);
         const bag = bagOk && t.bags && t.bags !== 'none' ? x.bagCzk : 0;
         const extra = (t.flight.groundCzk || 0) + (t.flight.arrCzk || 0) + bag;
+        const times = tripTimes(t);
         t.flight = { ...x, bagCzk: bag, distanceKm: t.flight.distanceKm, destKey: t.flight.destKey, groundCzk: t.flight.groundCzk, arrCzk: t.flight.arrCzk || 0, perPersonCzk: x.flightCzk + extra, totalCzk: (x.flightCzk + extra) * t.adults };
         if (!bagOk) t.bags = 'none';
-        toast('Let aktualizován');
+        // jiný čas příletu nebo odletu: program se sestaví znovu, auto s časy podle starého letu zadej znovu
+        toast(retime(t, times) ? 'Let aktualizován – jiný čas příletu nebo odletu, zadej znovu auto' : 'Let aktualizován');
         if (isMulti(t)) reconcileStays(t); // jiný čas příletu může posunout termíny míst trasy (upozorní vlastní zprávou)
         persist(); render();
       });
@@ -512,18 +566,25 @@
 
   /** Zapne/vypne vlak/bus (ov = nový t.overland, null = zpět k letu) a srovná termíny ubytování, programu a auta. */
   function setOverland(t, ov) {
-    const before = JSON.stringify(stayDates(t));
+    const before = JSON.stringify(stayDates(t)), times = tripTimes(t), k0 = window.PreTrip ? PreTrip.tripKey(t) : '';
+    // vlak/bus jen tam místo zpátečního letu: pobyt zůstane stejně dlouhý (ne výchozí noci cesty jen tam)
+    if (ov && !ov.back && backLeg(t)) t.nightsOneWay = Math.min(30, Math.max(1, stayDates(t).nights));
     if (ov) t.overland = ov; else if (t.overland) t.overland.on = false;
+    // odškrtnutí „Co zařídit a co sbalit“ jsou pod klíčem s datem cesty tam – zůstanou u cesty i s jiným dnem
+    if (k0) PreTrip.copyDone(k0, PreTrip.tripKey(t));
     // Hlášení je jen jedno: upozornění na zahozený hotel (níže) ho musí přepsat, ne naopak.
-    toast(ov ? 'Pojedeš vlakem / busem – let se nepočítá' : 'Zpět k letu');
-    if (JSON.stringify(stayDates(t)) !== before) {
+    const msg = ov ? 'Pojedeš vlakem / busem – let se nepočítá' : 'Zpět k letu';
+    toast(msg);
+    const moved = JSON.stringify(stayDates(t)) !== before;
+    if (moved) {
       staysData = null;
-      t.plan = null; // program pro jiné dny neplatí
-      if (isMulti(t)) reconcileStays(t);
-      else if (t.stay && t.stay.mode === 'pick') { t.stay = null; toast('Termín pobytu se změnil – vyber ubytování znovu'); }
+      // hotel jednoho místa i se zapnutou trasou – po přepnutí na Jedno místo by platil pro staré dny
+      if (t.stay && t.stay.mode === 'pick') { t.stay = null; toast('Termín pobytu se změnil – vyber ubytování znovu'); }
       else if (t.stay && t.stay.mode === 'manual') toast('Termín pobytu se změnil – zkontroluj cenu ubytování');
-      if (t.car && t.car.mode !== 'skip') t.car = null;
+      if (isMulti(t)) reconcileStays(t); // hlášení o hotelech míst trasy má přednost
     }
+    // program a auto podle starých dní nebo časů příjezdu a odjezdu neplatí
+    if (retime(t, times) && !moved) toast(`${msg}. Jiný čas příjezdu nebo odjezdu – zadej znovu auto`);
     persist(); render();
   }
 
@@ -620,15 +681,20 @@
     const ow = $('#owNights');
     if (!ow) return;
     ow.onchange = () => {
-      t.nightsOneWay = Math.min(30, Math.max(1, +ow.value || 3));
+      const n = Math.min(30, Math.max(1, +ow.value || 3));
+      if (n === t.nightsOneWay) { ow.value = n; return; } // beze změny (např. 50 → 30) nic nezahazuj
+      t.nightsOneWay = n;
       staysData = null;
       t.plan = null; // program pro jiný počet dní neplatí
-      if (t.route && t.route.mode === 'multi') {
-        if (t.route.bases.length && nightsLeft(t) !== 0) toast('Počet nocí se změnil – uprav jejich rozdělení v trase');
-      } else if (t.stay && t.stay.mode === 'pick') {
-        // Cena vybraného hotelu platila pro původní počet nocí → vyber znovu (ruční cenu nech, ale upozorni).
-        t.stay = null; toast('Počet nocí se změnil – vyber ubytování znovu');
-      } else if (t.stay && t.stay.mode === 'manual') toast('Zkontroluj cenu ubytování pro nový počet nocí');
+      let msg = '';
+      if (t.route && t.route.mode === 'multi' && t.route.bases.length && nightsLeft(t) !== 0) msg = 'Počet nocí se změnil – uprav jejich rozdělení v trase';
+      // Cena vybraného hotelu platila pro původní počet nocí → vyber znovu (ruční cenu nech, ale upozorni); i se zapnutou
+      // trasou – po přepnutí na Jedno místo by platil se starým termínem (hlášení o trase má přednost).
+      if (t.stay && t.stay.mode === 'pick') { t.stay = null; msg ||= 'Počet nocí se změnil – vyber ubytování znovu'; }
+      else if (t.stay && t.stay.mode === 'manual') msg ||= 'Zkontroluj cenu ubytování pro nový počet nocí';
+      // auto se vrací podle konce pobytu (cesta jen tam) → s jiným počtem nocí zadej znovu
+      if (t.car && t.car.mode !== 'skip') { t.car = null; msg = msg ? `${msg}. Zadej znovu i auto` : 'Počet nocí se změnil – zadej znovu auto'; }
+      if (msg) toast(msg);
       persist(); render();
     };
   }
@@ -661,6 +727,8 @@
       if (stayDates(t).nights < 2) return;
       if (!t.route || !Array.isArray(t.route.bases)) t.route = { mode: 'multi', transport: 'car', bases: [], transfers: [], legs: {}, exclude: [], candidates: [], notes: [] };
       t.route.mode = 'multi';
+      // termín cesty se mohl změnit, když byla trasa vypnutá (vlak/bus, jiný let) → hotely míst na staré dny pryč
+      if (t.route.bases.length) reconcileStays(t);
     } else if (t.route) t.route.mode = 'single';
     persist(); render();
   }
@@ -1279,7 +1347,8 @@
     const t = T();
     const host = $('#tripStep');
     const def = t.car && t.car.mode !== 'skip' && t.car.from ? t.car : carDefaults(t);
-    const days = Math.max(1, Math.ceil((new Date(def.to + ':00Z') - new Date(def.from + ':00Z')) / 864e5));
+    // délka pronájmu a příplatek za vrácení jinde – i po úpravě letišť a časů
+    const daysLine = q => `${daysTxt(Math.max(1, Math.ceil((new Date(q.to + ':00Z') - new Date(q.from + ':00Z')) / 864e5) || 1))} pronájmu${q.dropoff && q.dropoff !== q.pickup ? ` · vrácení na jiném letišti (${esc(q.dropoff)}) může stát příplatek` : ''}`;
     const byTrain = isMulti(t) && t.route.transport === 'transit';
     host.innerHTML = `<div class="card step-card">
       <div class="sc-head"><div><h3>🚗 Auto na místě</h3><div class="muted">${ovOn(t) ? `Půjčovny bývají na letišti u cíle (${esc(t.flight.out.to)}) – vyzvednutí po příjezdu, vrácení před cestou zpět.` : 'Vyzvednutí na letišti po příletu, vrácení před odletem.'}</div></div>
@@ -1290,7 +1359,7 @@
         <div class="field"><label>Vrácení</label><div class="row" style="gap:6px"><input class="input" id="carDo" value="${esc(def.dropoff)}" maxlength="3" style="max-width:80px;text-transform:uppercase"><input class="input" type="datetime-local" id="carTo" value="${def.to}"></div></div>
         <div class="field"><label>Věk řidiče</label><input class="input" type="number" id="carAge" min="18" max="99" value="${def.age || 30}" style="max-width:90px"></div>
       </div>
-      <div class="faint" style="font-size:12.5px;margin:6px 0 12px">${daysTxt(days)} pronájmu${def.pickup !== def.dropoff ? ` · vrácení na jiném letišti (${esc(def.dropoff)}) může stát příplatek` : ''}</div>
+      <div class="faint" style="font-size:12.5px;margin:6px 0 12px" id="carDays">${daysLine(def)}</div>
       <div id="carBody"><div class="loading-row"><span class="spin dark"></span> Připravuji nabídky…</div></div>
       <div class="divider"></div>
       <div class="manual-row"><div class="muted" style="font-size:13px">Vybral sis auto? Zadej celkovou cenu:</div>
@@ -1299,29 +1368,45 @@
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${byTrain && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
     </div>`;
     const read = () => ({ pickup: $('#carPu').value.trim().toUpperCase(), dropoff: $('#carDo').value.trim().toUpperCase(), from: $('#carFrom').value, to: $('#carTo').value, age: +$('#carAge').value || 30 });
+    // odkaz na srovnávač jen z nabídek pro tatáž letiště a časy (nabídky se načítají asynchronně – mohou být ke starým)
+    const linkFor = q => { const j = carsData && carsData.query; return j && j.pickup === q.pickup && j.dropoff === (q.dropoff || q.pickup) && j.from === q.from && j.to === q.to ? carsData.links[0]?.url || null : null; };
     const load = async () => {
       const q = read();
+      if (q.from && q.to) $('#carDays').innerHTML = daysLine(q);
       if (!/^[A-Z]{3}$/.test(q.pickup) || !q.from || !q.to) return;
       try {
         const r = await fetch('api/cars?' + new URLSearchParams({ pickup: q.pickup, dropoff: q.dropoff || q.pickup, from: q.from, to: q.to, age: q.age }));
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
         carsData = j;
+        // uložené auto bez odkazu („Pokračovat“ dřív, než se nabídky k novým časům načetly) ho dostane teď
+        if (t.car && t.car.mode === 'manual' && !t.car.url && linkFor(t.car)) { t.car.url = linkFor(t.car); persist(); }
+        if (!$('#carBody')) return; // krok Auto už je pryč
         $('#carBody').innerHTML = `<div class="muted" style="font-size:13px;margin-bottom:8px">Srovnávače půjčoven – <b>předvyplněné na letiště ${esc(j.query.pickupName || q.pickup)} a tvoje časy</b>:</div>
           ${linkGrid(j.links, '#ff690f')}`;
       } catch (e) {
-        $('#carBody').innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
+        if ($('#carBody')) $('#carBody').innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
       }
     };
     ['#carPu', '#carDo', '#carFrom', '#carTo', '#carAge'].forEach(s => $(s).onchange = load);
     $('#carSave').onclick = () => {
       const price = +$('#carPrice').value;
       if (!(price > 0)) return toast('Zadej cenu auta', 'err');
-      t.car = { mode: 'manual', totalCzk: price, ...read(), url: (carsData && carsData.links[0]?.url) || null };
+      const q = read();
+      t.car = { mode: 'manual', totalCzk: price, ...q, url: linkFor(q) };
       persist(); setStep('program');
     };
     $('#carSkip').onclick = () => { t.car = { mode: 'skip', totalCzk: 0 }; persist(); setStep('program'); };
-    const nx = $('#carNext'); if (nx) nx.onclick = () => setStep('program');
+    const nx = $('#carNext'); if (nx) nx.onclick = () => {
+      // upravená letiště a časy u zadané ceny platí i bez „Uložit“ (průběh cesty, kalendář, plánovač)
+      const q = read(), c = t.car;
+      if (c && c.mode === 'manual' && /^[A-Z]{3}$/.test(q.pickup) && q.from && q.to
+        && (['pickup', 'dropoff', 'from', 'to'].some(k => (c[k] || '') !== q[k]) || (c.age || 30) !== q.age)) {
+        // i odkaz do shrnutí (ten uložený vede na srovnávač se starými časy)
+        Object.assign(c, q, { url: linkFor(q) }); persist(); toast('Změny auta uloženy – zkontroluj, jestli cena platí');
+      }
+      setStep('program');
+    };
     load();
   }
 
@@ -1426,7 +1511,7 @@
     const host = $('#tripStep');
     const { checkin, checkout, nights } = stayDates(t);
     // Program začíná dnem příletu (při příletu po půlnoci je check-in o den dřív, program ne).
-    const progStart = arrivalAt(outLeg(t)).slice(0, 10);
+    const span = progSpan(t), progStart = span.start;
     const progDays = Math.max(1, Math.round((new Date(checkout) - new Date(progStart)) / 864e5) + 1);
     let center = t.stay && t.stay.lat != null ? { lat: t.stay.lat, lon: t.stay.lon, label: t.stay.name } : null;
     if (!center) {
@@ -1450,9 +1535,7 @@
     if (window.Places && center.lat != null) {
       Places.renderPlanner($('#tripPlaces'), {
         lat: center.lat, lon: center.lon, label: center.label || t.dest.label, city: t.cityCenter ? t.cityCenter.label : t.dest.label.replace(/ \(.*\)$/, ''), country: t.dest.country || '', cc: t.dest.cc,
-        start: progStart, end: checkout, plan: t.plan,
-        arrivalTime: arrivalAt(outLeg(t)).slice(11, 16),
-        departureTime: backLeg(t) && backLeg(t).hasTime ? backLeg(t).dep.slice(11, 16) : null,
+        ...span, plan: t.plan, // termín a časy jako tripPlan (shrnutí, kalendář, plánovač)
         onPlan: plan => { T().plan = plan; persist(); },
       });
     } else {
@@ -1475,7 +1558,7 @@
         : ['✈️', `Letenky (${t.adults} os.)${f.liveMin ? ` – ⚠️ cena z mezipaměti, živě od ${czk(f.liveMin)}/os.` : ''}`, c.flights],
       c.bags ? ['🧳', 'Zavazadla (odhad příplatku)', c.bags] : null,
       c.ground ? [groundLines(t).icon, groundLines(t).row, c.ground] : null,
-      c.arrival ? [ARR_ICO[(t.arrival && t.arrival.out && t.arrival.out.mode) || 'bus'] || '🚌', `Doprava z letiště do města${t.flight.back ? ' a zpět' : ''} (odhad)`, c.arrival] : null,
+      c.arrival ? [ARR_ICO[(t.arrival && t.arrival.out && t.arrival.out.mode) || 'bus'] || '🚌', `Doprava ${arrivalWhat(t)} (odhad)`, c.arrival] : null,
       ...(multi ? [
         ...r.bases.map(b => stayCzk(b.stay) ? ['🏨', `Ubytování · ${b.name} · ${nightsTxt(b.nights)}${hotelName(b.stay) ? ' · ' + hotelName(b.stay) : ''}`, stayCzk(b.stay)] : null),
         unpriced.length ? ['🏨', `Ubytování zatím bez ceny · ${unpriced.join(', ')}`, null] : null,
@@ -1528,7 +1611,8 @@
       if (ovl && ovl.arrival && ovl.arrival.km >= 1) timeline.push([ov.out.date, trIcon(tr, ovl.arrival), `${esc(ov.to.label)} → ${esc(r.bases[0].name)} · ${legTxt(ovl.arrival, tr)} (${estTxt(ovl.arrival, tr)})${esc(borderTxt(ovl.arrival))}`]);
       r.bases.forEach((b, i) => {
         timeline.push([dates[i].checkin, '🏨', `<b>${esc(b.name)}</b> · ${nightsTxt(b.nights)} · ${esc(hotelName(b.stay) || (b.stay && b.stay.mode === 'skip' ? 'ubytování neřeším' : 'ubytování zatím nevybráno'))}`]);
-        for (const d of (basePlan(t, i)?.days || [])) timeline.push([d.date, '📍', `${esc(b.name)}: ${d.items.map(x => esc(x.name)).join(' · ') || 'volno'}`]);
+        // den cesty bez programu (přílet pozdě večer, odjezd ráno) jako v kroku Program – bez řádku „volno“
+        for (const d of (basePlan(t, i)?.days || [])) if (d.items.length || d.cap) timeline.push([d.date, '📍', `${esc(b.name)}: ${d.items.map(x => esc(x.name)).join(' · ') || 'volno'}`]);
         const x = r.transfers && r.transfers[i];
         if (i < r.bases.length - 1) timeline.push([dates[i].checkout, trIcon(tr, x), `Přejezd ${esc(b.name)} → ${esc(r.bases[i + 1].name)}${x ? ` · ${legTxt(x, tr)} (${estTxt(x, tr)})${esc(borderTxt(x))}${legLink(x, tr) ? ` · ${legLink(x, tr)}` : ''}` : ''}`]);
       });
@@ -1537,7 +1621,7 @@
       if (ovl && ovl.departure && ovl.departure.km >= 1) timeline.push([ov.back.date, trIcon(tr, ovl.departure), `${esc(r.bases.at(-1).name)} → ${esc(ov.to.label)} · ${legTxt(ovl.departure, tr)} (${estTxt(ovl.departure, tr)})${esc(borderTxt(ovl.departure))}`]);
     } else {
       if (t.stay && t.stay.mode !== 'skip') timeline.push([checkin, '🏨', `Ubytování: ${esc(t.stay.name || '')}`]);
-      for (const d of (t.plan?.days || [])) timeline.push([d.date, '📍', d.items.map(x => esc(x.name)).join(' · ') || 'volný den']);
+      for (const d of (tripPlan(t)?.days || [])) if (d.items.length || d.cap) timeline.push([d.date, '📍', d.items.map(x => esc(x.name)).join(' · ') || 'volný den']);
     }
     if (t.car && t.car.mode !== 'skip' && t.car.to) timeline.push([t.car.to.slice(0, 10), '🚗', `Vrácení auta ${esc(t.car.dropoff)} ${t.car.to.slice(11, 16)}`]);
     if (!multi) hotelRow(lb.hotel);
@@ -1661,7 +1745,7 @@
     if (window.Entry) ev.push(...Entry.reminders(tripCountries(t), outLeg(t).date, fmtYMD(new Date()), tripVia(t)));
     // „🛡️ Sjednat cestovní pojištění“, „🚘 Vyřídit MŘP“ (jen když je nutný), „📝 Registrace v DROZD“ (pretrip.js)
     if (window.PreTrip) ev.push(...PreTrip.reminders(t, { isos: tripCountries(t), via: tripVia(t), ret: returnDate(t), today: fmtYMD(new Date()) }));
-    const progDays = multi ? t.route.bases.map((b, i) => [b.name, basePlan(t, i)?.days || []]) : [[dest, t.plan?.days || []]];
+    const progDays = multi ? t.route.bases.map((b, i) => [b.name, basePlan(t, i)?.days || []]) : [[dest, tripPlan(t)?.days || []]];
     for (const [place, days] of progDays) {
       days.forEach((d, i) => {
         if (d.items && d.items.length) ev.push({ title: `Den ${i + 1} – ${place}`, start: d.date, location: place, description: d.items.map(x => `• ${x.name}${x.note ? ` – ${x.note}` : ''}`).join('\n') });
@@ -1693,7 +1777,7 @@
     const days = {};
     const multi = isMulti(t);
     // Den přejezdu patří dvěma místům – aktivity se spojí.
-    for (const [place, plan] of multi ? t.route.bases.map((b, i) => [b.name, basePlan(t, i)]) : [[null, t.plan]]) {
+    for (const [place, plan] of multi ? t.route.bases.map((b, i) => [b.name, basePlan(t, i)]) : [[null, tripPlan(t)]]) {
       for (const d of (plan?.days || [])) days[d.date] = [...(days[d.date] || []), ...d.items.map(x => (place ? `${place}: ` : '') + x.name + (x.note ? ` – ${x.note}` : ''))];
     }
     const dates = multi ? baseDates(t) : [];
@@ -2026,12 +2110,32 @@
       if (!parsed || !parsed.flight || !parsed.flight.out) throw new Error('neplatná data');
       const t = sanitizeTrip(parsed);
       const mine = S.trip;
-      if (mine && mine.flight && JSON.stringify(mine.flight.out) !== JSON.stringify(t.flight.out)
-        && !confirm(`Otevíráš sdílenou cestu do ${t.dest.label || t.flight.out.to}. Nahradit jí tvoji rozpracovanou cestu do ${mine.dest?.label || mine.flight.out.to}?`)) {
+      // tatáž cesta (stejné spoje, lidé, ubytování, auto i trasa): vlastní odkaz, nebo novější verze od spolucestujícího
+      const same = (() => { try { return Boolean(mine && mine.flight) && tripSig(mine) === tripSig(t); } catch (e) { return false; } })(); // poškozená rozpracovaná cesta = jiná
+      // … i se stejným programem, dopravou trasy a „Co zařídit a co sbalit“ (odškrtnutí z odkazu už má) → v odkazu nic
+      // nového, rozpracovaná cesta zůstane, jak je (s odškrtnutými rezervacemi i časem založení – plánovač ji pak aktualizuje, ne zdvojí)
+      const known = same && (() => {
+        try {
+          const x = sanitizeTrip(JSON.parse(linkJson(mine))), have = (x.pretrip && x.pretrip.done) || [];
+          return linkSig(x) === linkSig(t) && ((t.pretrip && t.pretrip.done) || []).every(id => have.includes(id));
+        } catch (e) { return false; }
+      })();
+      if (known) {
+        mine.step = 'summary'; persist();
+        history.replaceState(null, '', '#trip');
+        toast('Tuhle cestu už máš rozpracovanou – otevírám ji');
+        return true;
+      }
+      // jinou cestu (i tutéž s jiným obsahem) nahradí bez ptaní, jen když v ní nic není rozpracované (jako výběr letu z výsledků)
+      if (mine && mine.flight && progressOf(mine).length
+        && !confirm(same ? `Odkaz je na tvoji rozpracovanou cestu do ${mine.dest?.label || mine.flight.out.to}, ale v jiné podobě (např. s jiným programem). Nahradit ji verzí z odkazu? Odškrtnuté rezervace zůstanou.`
+          : `Otevíráš sdílenou cestu do ${t.dest.label || t.flight.out.to}. Nahradit jí tvoji rozpracovanou cestu do ${mine.dest?.label || mine.flight.out.to}?`)) {
         history.replaceState(null, '', '#trip');
         return false;
       }
-      S.trip = { ...t, booked: {}, step: 'summary', created: Date.now() };
+      // tatáž cesta: odškrtnuté rezervace i čas založení zůstanou (plánovač ji aktualizuje, odškrtnutí karty se přidají)
+      S.trip = same ? { ...t, booked: mine.booked || {}, step: 'summary', created: Number.isFinite(mine.created) ? mine.created : Date.now() }
+        : { ...t, booked: {}, step: 'summary', created: Date.now() };
       // odškrtnutí z odkazu k nové cestě do localStorage (odškrtnutí ostatních cest zůstanou)
       if (window.PreTrip) PreTrip.adopt(S.trip);
       persist();
