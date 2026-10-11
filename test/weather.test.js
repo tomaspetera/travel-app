@@ -121,3 +121,69 @@ test('západ slunce: v dosahu předpovědi z téhož dotazu jako počasí, dál 
   const [none] = await W.sunsets([{ lat: 35, lon: 139, date: '2026-12-01' }], { now: NOW, fetchFn: async () => { throw new Error('offline'); } });
   assert.equal(none, null);
 });
+
+test('předpověď pro výsledky hledání: jeden dotaz na celý dosah, místa v libovolném pořadí z paměti', async () => {
+  const W = load();
+  const calls = [];
+  const dates = Array.from({ length: 16 }, (_, k) => `2026-10-${String(5 + k).padStart(2, '0')}`);
+  const fetchFn = async (url) => {
+    const u = new URL(url);
+    calls.push(u);
+    // každé místo vlastní teplotu (podle zeměpisné šířky) – ověří, že se odpovědi přiřadí ke správným místům
+    return okJson(u.searchParams.get('latitude').split(',').map(la => ({ daily: daily(dates, { temperature_2m_max: dates.map(() => +la) }) })));
+  };
+  const pts = [{ lat: 41.3874, lon: 2.1686 }, { lat: 38.7223, lon: -9.1393 }, { lat: 45.4408, lon: 12.3155 }];
+  const m = await W.span([...pts, { lat: null, lon: 14 }, { lat: 'x', lon: 14 }, { lat: 120, lon: 14 }, null], { now: NOW, fetchFn });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].searchParams.get('start_date'), '2026-10-05');
+  assert.equal(calls[0].searchParams.get('end_date'), '2026-10-20', 'dnes + 15 dní');
+  assert.equal(calls[0].searchParams.get('latitude').split(',').length, 3, 'neplatné souřadnice vynechané');
+  assert.equal(m.size, 3);
+  const bcn = m.get(W.key(41.3874, 2.1686));
+  assert.equal(bcn.length, 16);
+  assert.deepEqual({ ...bcn[0] }, { date: '2026-10-05', code: 0, hi: 41, lo: 9, pop: 10, rain: 0 });
+  assert.equal(m.get(W.key(38.7223, -9.1393))[3].hi, 39);
+  // jiné řazení výpisu = stejná místa v jiném pořadí → z paměti, žádný další dotaz
+  const m2 = await W.span([pts[2], pts[0], pts[1], pts[0]], { now: NOW, fetchFn });
+  assert.equal(calls.length, 1);
+  assert.equal(m2.get(W.key(45.4408, 12.3155))[0].hi, 45);
+  // nejvýš 40 míst v jednom dotazu
+  await W.span(Array.from({ length: 45 }, (_, k) => ({ lat: 40 + k / 10, lon: 10 })), { now: NOW, fetchFn });
+  assert.equal(calls[1].searchParams.get('latitude').split(',').length, 40);
+  // chyba služby nebo sítě: prázdná Map, žádná výjimka
+  assert.equal((await W.span([{ lat: 50, lon: 14 }], { now: NOW, fetchFn: async () => ({ ok: false, status: 400 }) })).size, 0);
+  assert.equal((await W.span([{ lat: 50, lon: 15 }], { now: NOW, fetchFn: async () => { throw new Error('offline'); } })).size, 0);
+  assert.equal((await W.span([], { now: NOW, fetchFn })).size, 0);
+  assert.equal(calls.length, 2);
+});
+
+test('předpověď na dny cesty jedním štítkem', () => {
+  const W = load();
+  const day = (date, over = {}) => ({ date, code: 0, hi: 21.6, lo: 9, pop: 10, rain: 0, ...over });
+  const wet = { code: 61, pop: 80, rain: 6 };
+  const dry = W.summary([day('2026-10-17'), day('2026-10-18'), day('2026-10-19')], 3);
+  assert.equal(dry.text, '☀️ 22° · 💧 10 %');
+  assert.equal(dry.short, '☀️ 22°');
+  assert.equal(dry.wet, 0);
+  assert.equal(dry.title, 'so 17. 10.: ☀️ 22° / 9°, 💧 10 %\nne 18. 10.: ☀️ 22° / 9°, 💧 10 %\npo 19. 10.: ☀️ 22° / 9°, 💧 10 %\nPředpověď Open-Meteo – před odletem ji ověř.');
+  const two = W.summary([day('2026-10-17', wet), day('2026-10-18'), day('2026-10-19', wet)], 3);
+  assert.equal(two.text, '🌧️ prší 2 dny ze 3');
+  assert.equal(two.short, '🌧️ 22°');
+  assert.equal(two.wet, 2);
+  const five = W.summary(['17', '18', '19', '20', '21'].map((d, i) => day(`2026-10-${d}`, i % 2 ? wet : {})), 5);
+  assert.equal(five.text, '🌧️ prší 2 dny z 5');
+  // jeden deštivý den ze čtyř: ikona deště, ale ne „prší“
+  const one = W.summary([day('2026-10-17'), day('2026-10-18', { pop: 30 }), day('2026-10-19', wet), day('2026-10-20')], 4);
+  assert.equal(one.text, '🌧️ 22° · 💧 80 %');
+  assert.equal(one.wet, 1);
+  // cesta dál, než sahá předpověď
+  const part = W.summary([day('2026-10-19'), day('2026-10-20')], 5);
+  assert.match(part.title, /Předpověď jen na první 2 z 5 dnů cesty\. Předpověď Open-Meteo/);
+  assert.match(W.summary([day('2026-10-20')], 3).title, /jen na první den ze 3 dnů/);
+  assert.equal(W.summary([], 3), null);
+  assert.equal(W.summary(null, 3), null);
+  // dlouhá cesta: v title nejvýš 7 dní
+  const long = W.summary(Array.from({ length: 10 }, (_, k) => day(`2026-10-${10 + k}`)), 12);
+  assert.equal(long.title.split('\n').length, 9);
+  assert.match(long.title, /… \(\+3 dny\)\nPředpověď jen na první 10 ze 12 dnů/);
+});
