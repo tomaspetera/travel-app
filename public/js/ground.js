@@ -218,5 +218,5 @@
     fill('out', opts.date);
   }
 
-  window.Ground = { hm, round5, flightDoor, tripDoor, planeOptions, worth, kindsTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, debounce, panel };
+  window.Ground = { AIRPORT_BEFORE, AIRPORT_AFTER, hm, round5, flightDoor, tripDoor, planeOptions, worth, kindsTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, debounce, panel };
 })();

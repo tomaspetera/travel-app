@@ -15,8 +15,9 @@
 
   // Text bez znaků pro vložení HTML/JS (<>"'`), řídicích znaků a obracení směru textu; zkrácený na max.
   // Apostrof se nahradí typografickým (Côte d’Azur), ostatní znaky se vypustí.
-  const txt = (v, max, multiline = false) => typeof v === 'string' || typeof v === 'number'
-    ? String(v).replace(/'/g, '’').replace(/[<>"`\u202a-\u202e\u2066-\u2069]/g, '').replace(/\r\n?/g, '\n')
+  // raw: vlastní záloha (backup.js) – plánovač vše vypisuje přes esc(), takže uvozovky a < > zůstanou; jen řídicí znaky ne.
+  const txt = (v, max, multiline = false, raw = false) => typeof v === 'string' || typeof v === 'number'
+    ? (raw ? String(v).replace(/[\u202a-\u202e\u2066-\u2069]/g, '') : String(v).replace(/'/g, '’').replace(/[<>"`\u202a-\u202e\u2066-\u2069]/g, '')).replace(/\r\n?/g, '\n')
       .replace(multiline ? /[\x00-\x09\x0b-\x1f\x7f]/g : /[\x00-\x1f\x7f]/g, ' ').trim().slice(0, max)
       .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDFFF]/g, m => m.length === 2 ? m : '') // i rozpůlený emoji
     : '';
@@ -66,8 +67,10 @@
     };
   }
 
-  /** Bezpečná kopie plánu: jen známá pole, ověřená data, omezené délky a počty. */
-  function sanitize(raw) {
+  /** Bezpečná kopie plánu: jen známá pole, ověřená data, omezené délky a počty (lim: delší limity pro vlastní zálohu – backup.js). */
+  function sanitize(raw, lim = {}) {
+    const L = { act: 300, acts: 40, ck: 80, ckLen: 120, notes: 3000, raw: false, ...lim };
+    const T = (v, max, multiline = false) => txt(v, max, multiline, L.raw);
     if (!obj(raw)) throw new Error('neplatný plán');
     const start = isYmd(raw.start) ? raw.start : '';
     let end = start && isYmd(raw.end) && raw.end >= start ? raw.end : '';
@@ -77,7 +80,7 @@
     if (start && obj(raw.days)) {
       for (const [d, items] of Object.entries(raw.days).slice(0, 62)) {
         if (!isYmd(d) || d < start || d > (end || start) || !Array.isArray(items)) continue;
-        const list = items.slice(0, 40).map(x => txt(x, 300)).filter(Boolean);
+        const list = items.slice(0, L.acts).map(x => T(x, L.act)).filter(Boolean);
         if (list.length) days[d] = list;
       }
     }
@@ -86,18 +89,18 @@
     const legs = Array.isArray(raw.legs) ? raw.legs.slice(0, 4).map(leg).filter(Boolean) : [];
     const grounds = Array.isArray(raw.ground) ? raw.ground.slice(0, 4).map(ground).filter(Boolean) : [];
     const plan = {
-      name: txt(raw.name, 120) || 'Sdílená cesta',
-      dest: txt(raw.dest, 120) || '—',
+      name: T(raw.name, 120) || 'Sdílená cesta',
+      dest: T(raw.dest, 120) || '—',
       iso: typeof raw.iso === 'string' && /^[A-Z]{2}$/.test(raw.iso) ? raw.iso : null,
       start, end,
       pax: String(Number.isFinite(pax) ? Math.min(9, Math.max(1, pax)) : 2),
       budget: raw.budget !== '' && Number.isFinite(budget) && budget > 0 ? String(Math.round(Math.min(budget, 1e8))) : '',
-      flight: txt(raw.flight, 500) || null,
+      flight: T(raw.flight, 500) || null,
       days,
       // položka { t, done } z plánovače, nebo text z odkazu s odškrtnutím v masce done (index = pořadí v odkazu)
-      checklist: (Array.isArray(raw.checklist) ? raw.checklist.slice(0, 80) : [])
-        .map((x, i) => ({ t: txt(obj(x) ? x.t : x, 120), done: obj(x) ? x.done === true : doneAt(raw.done, i) })).filter(x => x.t),
-      notes: txt(raw.notes, 3000, true),
+      checklist: (Array.isArray(raw.checklist) ? raw.checklist.slice(0, L.ck) : [])
+        .map((x, i) => ({ t: T(obj(x) ? x.t : x, L.ckLen), done: obj(x) ? x.done === true : doneAt(raw.done, i) })).filter(x => x.t),
+      notes: T(raw.notes, L.notes, true),
     };
     if (legs.length) plan.legs = legs;
     if (grounds.length) plan.ground = grounds;
@@ -141,5 +144,5 @@
     return m ? unpack(m[1]) : null;
   }
 
-  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash };
+  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash, txt };
 })();

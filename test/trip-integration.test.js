@@ -308,3 +308,69 @@ test('průvodce: západní Afrika – čas podle trasy, autobusem / minibusem (n
   raw.route.groundLegs.key = '<script>';
   assert.equal(c.window.Trip.sanitizeTrip(raw).route.groundLegs, null);
 });
+
+test('kdy vyrazit: z domu na let tam a z ubytování na let zpět – průběh cesty i kalendář (odhad, 2 h před odletem)', () => {
+  const c = load();
+  vm.runInContext(`${src('searchhelp.js')}\nvar SearchHelp = window.SearchHelp;`, c, { filename: 'searchhelp.js' }); // předložky „ve 3:15“ / „v 1:35“
+  const AB = { out: null, back: { iata: 'VIE', city: 'Vídeň', how: 'vlak S7', min: 40, czk: 120, mode: 'train', basis: 'table', lat: 48.2, lon: 16.37 } };
+  const t = trip({ route: null, overland: null, ground: { out: { minutes: 45 }, back: { minutes: 45 } }, arrival: AB });
+  t.flight.out = { ...t.flight.out, dep: '2026-11-10T06:00:00', arr: '2026-11-10T07:00:00' };
+  t.flight.back = { ...t.flight.back, dep: '2026-11-14T07:00:00', arr: '2026-11-14T08:00:00' };
+  const { leaveBy } = c.window.Trip;
+  const lb = plain(leaveBy(t));
+  assert.deepEqual(lb.home, { date: '2026-11-10', hm: '03:15', min: 45, airport: 'PRG', before: 120, hint: null }, 'odlet 6:00 − 2 h − 45 min');
+  assert.deepEqual([lb.hotel.date, lb.hotel.hm, lb.hotel.min, lb.hotel.airport, lb.hotel.before], ['2026-11-14', '04:20', 40, 'VIE', 120]);
+  assert.match(lb.hotel.hint, /^brzy ráno – taxi objednej předem/);
+  // odlet krátce po půlnoci → z domu předchozí večer; odlet zpět večer → po check-outu
+  const late = { ...t, flight: { ...t.flight, out: { ...t.flight.out, dep: '2026-11-10T00:40:00', arr: '2026-11-10T01:40:00' }, back: { ...t.flight.back, dep: '2026-11-14T18:00:00', arr: '2026-11-14T19:00:00' } } };
+  const lb2 = plain(leaveBy(late));
+  assert.deepEqual([lb2.home.date, lb2.home.hm], ['2026-11-09', '21:55']);
+  assert.deepEqual([lb2.hotel.date, lb2.hotel.hm], ['2026-11-14', '15:20']);
+  assert.match(lb2.hotel.hint, /^check-out bývá do 11:00 – zavazadla nech na recepci/);
+  const night = plain(leaveBy({ ...t, flight: { ...t.flight, back: { ...t.flight.back, date: '2026-11-15', dep: '2026-11-15T00:30:00', arr: '2026-11-15T01:30:00' } } }).hotel);
+  assert.deepEqual([night.date, night.hm, night.hint], ['2026-11-14', '21:50', null], 'noční let: z ubytování předchozí večer, bez rady o check-outu');
+  // průběh cesty: z domu před cestou na letiště, z ubytování před cestou z města na letiště
+  const rows = (h) => [...h.matchAll(/<div class="tl-row"><span class="tl-d">([^<]*)<\/span><span class="tl-i">([^<]*)<\/span><span>(.*?)<\/span><\/div>/g)].map((m) => `${m[1]} ${m[2]} ${m[3]}`);
+  const r1 = rows(render(c, t));
+  const at = (re) => r1.findIndex((r) => re.test(r));
+  assert.equal(r1[0], 'út 10. 11. 🚪 Vyraž z domu nejpozději ve 3:15 <span class="faint">(~45 min na letiště PRG + 2 h před odletem, odhad)</span>', r1.join('\n'));
+  assert.ok(at(/^út 10\. 11\. 🚌 Cesta na letiště PRG/) === 1 && at(/🛫 PRG 06:00/) === 2, r1.join('\n'));
+  const h = at(/🚪 Z ubytování/);
+  assert.equal(r1[h], 'so 14. 11. 🚪 Z ubytování na letiště VIE vyraž nejpozději ve 4:20 <span class="faint">(~40 min cesta + 2 h před odletem, odhad)</span> · brzy ráno – taxi objednej předem, nebo přespi u letiště');
+  assert.match(r1[h + 1], /^so 14\. 11\. 🚆 Vídeň → letiště VIE/);
+  assert.match(r1[h + 2], /^so 14\. 11\. 🛬 VIE 07:00/);
+  const r2 = rows(render(c, late));
+  assert.ok(r2.includes('po 9. 11. 🚪 Vyraž z domu nejpozději ve 21:55 <span class="faint">(~45 min na letiště PRG + 2 h před odletem, odhad)</span>'), r2.join('\n'));
+  assert.ok(r2.some((r) => r.startsWith('so 14. 11. 🚪 Z ubytování na letiště VIE vyraž nejpozději v 15:20') && r.endsWith(' · check-out bývá do 11:00 – zavazadla nech na recepci')));
+  // kalendář: začátek v pásmu letiště, trvá cestu na letiště
+  const cal = plain(c.window.Trip.calendarEvents(t)).filter((e) => e.title.startsWith('🚪'));
+  assert.deepEqual(cal.map((e) => [e.title, e.start, e.tz, e.durationMin, e.location]), [
+    ['🚪 Vyraž z domu na letiště PRG', '2026-11-10T03:15', 'Europe/Prague', 45, 'Letiště PRG'],
+    ['🚪 Vyraž na letiště VIE', '2026-11-14T04:20', 'Europe/Vienna', 40, 'Letiště VIE']]);
+  assert.equal(cal[0].description, 'Odhad: ~45 min cesta na letiště + 2 h před odletem. Spoj ověř (IDOS).');
+  assert.equal(cal[1].description, 'Odhad: ~40 min cesta z ubytování na letiště + 2 h před odletem.\nBrzy ráno – taxi objednej předem, nebo přespi u letiště.');
+  const ics = c.window.Ics.build(c.window.Trip.calendarEvents(t), { now: Date.UTC(2026, 9, 5) });
+  assert.ok(ics.includes('DTSTART:20261110T021500Z\r\nDTEND:20261110T030000Z'), '3:15 v Praze = 2:15Z, 45 min');
+  // bez času z domu (neznámá cesta na letiště, neznámý čas odletu); auto vrácené na letišti; vlak/bus místo letu
+  assert.equal(leaveBy({ ...t, ground: {} }).home, null);
+  assert.equal(leaveBy({ ...t, flight: { ...t.flight, out: { ...t.flight.out, hasTime: false } } }).home, null);
+  assert.equal(leaveBy({ ...t, arrival: null }).hotel, null);
+  assert.equal(leaveBy({ ...t, car: { mode: 'pick', pickup: 'VIE', dropoff: 'VIE', from: '2026-11-10T09:00', to: '2026-11-14T05:00' } }).hotel, null, 'čas dává vrácení auta');
+  assert.deepEqual(plain(leaveBy({ ...t, overland: OV() })), { home: null, hotel: null });
+  // mimo Schengen o půl hodiny dřív – podle země (Irsko a Kypr jsou v EU, ale mimo Schengen)
+  const uk = plain(leaveBy({ ...t, dest: { label: 'Londýn', cc: 'GB' } }));
+  assert.deepEqual([uk.home.hm, uk.home.before, uk.hotel.hm, uk.hotel.before], ['02:45', 150, '03:50', 150]);
+  assert.equal(leaveBy({ ...t, dest: { label: 'Dublin', cc: 'IE' } }).home.before, 150, 'Irsko: mimo Schengen');
+  assert.equal(leaveBy({ ...t, dest: { label: 'Larnaka', cc: 'CY' } }).home.before, 150, 'Kypr: mimo Schengen');
+  assert.equal(leaveBy(t).home.hm, '03:15', 'Rakousko = Schengen');
+  // jedno místo, zpět z letiště jiného města (Paříž → … Londýn): cesta z ubytování se z tabulky letiště spočítat nedá
+  const twoCities = { ...t, arrival: { out: { iata: 'XXX', city: 'Paříž', min: 35 }, back: { iata: 'STN', city: 'Londýn', min: 48 } }, flight: { ...t.flight, back: { ...t.flight.back, from: 'STN' } } };
+  assert.equal(leaveBy(twoCities).hotel, null);
+  // noc změny na letní čas (28. 3. 2027 ve 2:00): odlet 6:30 − 2 h − 2 h 55 min = 0:35 zimního času, ne 1:35
+  const dst = plain(leaveBy({ ...t, ground: { out: { minutes: 175 } }, flight: { ...t.flight, out: { ...t.flight.out, date: '2027-03-28', dep: '2027-03-28T06:30:00', arr: '2027-03-28T08:30:00' } } }).home);
+  assert.deepEqual([dst.date, dst.hm], ['2027-03-28', '00:35']);
+  // minuty z cizího odkazu: text, nesmysl nebo obří číslo → bez řádku, žádný pád
+  for (const minutes of ['45', '0x2D', 1e12, -5, NaN]) assert.doesNotThrow(() => leaveBy({ ...t, ground: { out: { minutes } } }));
+  assert.equal(leaveBy({ ...t, ground: { out: { minutes: 1e12 } } }).home, null);
+  assert.equal(leaveBy({ ...t, ground: { out: { minutes: '45' } } }).home.hm, '03:15', 'číslo jako text se přečte jako číslo');
+});

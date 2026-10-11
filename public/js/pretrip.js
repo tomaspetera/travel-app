@@ -108,6 +108,35 @@
     try { localStorage.setItem(LS, JSON.stringify(s)); } catch (e) { /* plné nebo zakázané úložiště – odškrtnutí jen do obnovení stránky */ }
   }
   const setDone = (key, id, on) => writeDone(key, { [id]: on });
+  /** Odškrtnutí všech cest (💾 záloha – backup.js). */
+  const exportDone = () => store();
+  /**
+   * Odškrtnutí ze zálohy (cizí vstup): u každé cesty sjednocení s tím, co tu už je (jen id ve známém tvaru), novější čas
+   * (nejvýš teď). Nad KEEP cest se mažou jen ty nově přidané – odškrtnutí tohoto zařízení obnova nesmaže.
+   * Vrací počet cest, kterým něco přibylo.
+   */
+  function mergeDone(inc, now = Date.now()) {
+    if (!inc || typeof inc !== 'object' || Array.isArray(inc)) return 0;
+    const s = store();
+    const mine = new Set(Object.keys(s));
+    let n = 0;
+    for (const [key, v] of Object.entries(inc).slice(0, KEEP)) {
+      if (['__proto__', 'constructor', 'prototype'].includes(key) || !/^[\w:.-]{1,80}$/.test(key) || !v || typeof v !== 'object' || !v.d || typeof v.d !== 'object') continue;
+      const ids = Object.keys(v.d).filter(id => DONE_ID.test(id)).slice(0, DONE_MAX);
+      if (!ids.length) continue;
+      const x = own(s, key) && s[key] && s[key].d && typeof s[key].d === 'object' ? s[key] : { d: {}, at: 0 };
+      const fresh = ids.filter(id => !x.d[id]);
+      if (!fresh.length) continue;
+      for (const id of fresh) x.d[id] = 1;
+      x.at = Math.min(now, Math.max(Number(x.at) || 0, Number.isFinite(v.at) ? v.at : 0));
+      s[key] = x;
+      n++;
+    }
+    const extra = Object.keys(s).filter(k => !mine.has(k) && s[k] && typeof s[k] === 'object').sort((a, b) => (s[b].at || 0) - (s[a].at || 0));
+    for (const k of extra.slice(Math.max(0, KEEP - mine.size))) delete s[k];
+    if (n) try { localStorage.setItem(LS, JSON.stringify(s)); } catch (e) { /* plné nebo zakázané úložiště */ }
+    return n;
+  }
 
   /* ---------- sdílený odkaz (#trip=) ---------- */
   /** Id odškrtnutí ve známém tvaru, bez duplicit, nejvýš DONE_MAX (vlastní položky jen ty, které cesta má). */
@@ -795,5 +824,6 @@
   window.PreTrip = {
     set, load, ready, contextOf, defaultActs, summarize, monthsOf, insuranceNote, drivingOf, plugOf, idpPlan, todos, pack, bagTips, layers, reminders,
     plannerChecklist, html, tripKey, doneOf, setDone, customOf, addCustom, delCustom, shareState, sanitize, adopt, ACTS,
+    exportDone, mergeDone,
   };
 })();

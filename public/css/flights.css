@@ -169,6 +169,20 @@ details[open] .ps-more::after{content:" ▴"}
 .rf-price input{width:130px;accent-color:var(--accent)}
 .rf-price b{min-width:76px}
 .dest-mini{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+/* „🛫 Odkud se vyplatí letět“: souhrn ve sbalené kartě, řádek na letiště (klepnutí = jen lety odsud) */
+.oc-card{padding:12px 18px;margin-bottom:14px}
+.oc-card summary{cursor:pointer;font-size:14px;line-height:1.45}
+.oc-rows{display:grid;gap:4px;margin-top:8px}
+/* sloupce pod sebou: letiště · cesta na letiště · cena · rozdíl (na telefonu dva řádky po dvou) */
+.oc-row{display:grid;grid-template-columns:minmax(9em,15em) minmax(6.5em,8.5em) minmax(8em,10em) minmax(10em,1fr);align-items:baseline;gap:2px 8px;width:100%;text-align:left;padding:6px 9px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--text);font:500 13px Inter,sans-serif;cursor:pointer}
+.oc-row:hover,.oc-row[aria-pressed="true"]{border-color:var(--border-2);background:var(--surface-2)}
+.oc-row.off{opacity:.5}
+.oc-row.ref b{color:var(--accent)}
+.oc-row[disabled]{opacity:.55;cursor:default;border-color:transparent;background:transparent}
+.oc-gnd,.oc-diff{color:var(--muted)}
+@media(max-width:560px){.oc-card{padding:12px 14px}.oc-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:6px 7px}}
+.oc-foot{font-size:12px;line-height:1.45;margin-top:8px}
+.rc-from{font-size:12px;margin:-4px 0 8px}
 
 .res-card{padding:16px 18px;margin-bottom:14px;transition:.15s}
 .res-card.flat{padding:4px 18px}
@@ -198,6 +212,10 @@ details[open] .ps-more::after{content:" ▴"}
 .b.info{background:rgba(56,189,248,.12);color:var(--info)}
 .b.sun{background:rgba(251,146,60,.15);color:#fb923c}
 .b.dear{background:rgba(248,113,113,.13);color:#f87171}
+/* předpověď v cíli (cesty do 15 dní): neutrální, déšť modře; místo pro štítek, než předpověď dorazí, nezabírá mezeru */
+.b.wxb{cursor:help}
+.b.wxb.wet{background:rgba(56,189,248,.14);color:var(--info)}
+.wx-slot{display:none}
 /* cesta z letiště do města: delší štítek se smí zalomit (mobil), drahá nebo dlouhá cesta varovně i s rámečkem */
 .b.arrv{white-space:normal;line-height:1.35}
 .b.arrv.warn{box-shadow:inset 0 0 0 1px rgba(251,191,36,.5)}
@@ -279,6 +297,8 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .tf-parts button.on{border-color:var(--accent);background:rgba(91,140,255,.18);color:var(--text)}
 .tf-arr{grid-template-columns:repeat(5,minmax(0,1fr))}
 .tf-arr button{padding:8px 2px}
+.tf-one{grid-template-columns:minmax(0,1fr)}
+.tf-one button{padding:8px 10px}
 .tf-seg{display:flex;flex-wrap:wrap;width:fit-content;max-width:100%}
 .tf-seg button{padding:6px 10px;font-size:12.5px}
 .tf-range{display:flex;align-items:center;gap:10px;min-height:34px}
@@ -437,7 +457,10 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cmp-row:first-child{border-top:0}
 .cmp-row:hover,.cmp-row.open{background:var(--surface-2)}
 .cmp-flag{font-size:22px;line-height:1}
-.cmp-name{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp-name{font-size:14.5px;white-space:nowrap;display:flex;align-items:center;min-width:0}
+.cmp-city{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.cmp-bdg{flex:none;white-space:nowrap;margin-left:4px}
+.cmp-bdg:empty{display:none}
 .cmp-name .b{font-size:11px;padding:1px 6px;vertical-align:1px}
 .cmp-sub{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .cmp-price{text-align:right;white-space:nowrap}
@@ -549,6 +572,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 [data-theme=light] .b.warn{color:#8a5a00}
 [data-theme=light] .b.sun{color:#c2410c}
 [data-theme=light] .b.dear{color:#b91c1c}
+[data-theme=light] .b.wxb.wet{color:#075985}
 [data-theme=light] .pc-trend.up b{color:#b91c1c}
 [data-theme=light] .nav-badge.drop{color:#047857}
 [data-theme=light] .nb-hint{color:#8a5a00}
@@ -734,3 +758,16 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .len-lw-hint{font-size:12px;margin-top:6px}
 .lw-p{font-weight:800;color:var(--text)}
 .lw-p.best{color:var(--good)}
+/* Délka pobytu → 🗓️ Kdy si vzít dovolenou: okno se seznamem volna kolem svátků */
+.len-leave{display:block;margin-top:6px;font-size:12.5px;text-align:left}
+.lw-head{justify-content:space-between;margin-bottom:10px}
+.lw-head h3{font-size:18px}
+.lw-max{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:6px;font-size:13px}
+.lw-max .seg button{padding:7px 9px;font-size:12.5px;white-space:nowrap} /* pět voleb v jednom řádku i na telefonu */
+.lw-row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.lw-row>div{flex:1 1 240px;min-width:0}
+.lw-row .faint{font-size:12px;margin-top:2px}
+.lw-row .btn{flex:none;margin-left:auto}
+.lw-foot{font-size:12px;margin-top:12px}
+.cmp-lv{color:var(--muted);font-weight:600}
+.rc-lv{display:block}

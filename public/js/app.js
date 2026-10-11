@@ -27,17 +27,19 @@ let TOT = 197; const CONT_TOT = {};
 const LS = 'atlas_v1';
 let S = load();
 function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return Object.assign(defState(), d); } catch (e) { } return defState(); }
-function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null }; }
+function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null }; }
 // Plné úložiště: uvolnit místo po uložených výsledcích posledního hledání (flights.js) – stav aplikace má přednost.
+// Vrací, jestli se stav uložil (💾 obnova ze zálohy při plném úložišti nic nesloučí).
 function save() {
   try {
     const s = JSON.stringify(S);
     try { localStorage.setItem(LS, s); } catch (e) { localStorage.removeItem('atlas_last'); localStorage.setItem(LS, s); }
-  } catch (e) { }
+    return true;
+  } catch (e) { return false; }
 }
 let curIso = null;
 const visited = new Set(S.visited);
-function setVisited(iso, on) { on ? visited.add(iso) : visited.delete(iso); S.visited = [...visited]; save(); refreshStats(); paintMap(); }
+function setVisited(iso, on) { on ? visited.add(iso) : visited.delete(iso); S.visited = [...visited]; save(); refreshStats(); paintMap(); if (window.Flights && Flights.refreshVisited) Flights.refreshVisited(); }
 
 function initCountries(list) {
   COUNTRIES = list;
@@ -70,6 +72,10 @@ function buildNav() {
   $('#moreNav').onclick = () => {
     modalOpen(`<div class="modal-body"><h3 style="margin-bottom:12px">Další sekce</h3><div class="more-nav">${NAV.filter(n => !MOBILE.includes(n[0])).map(n => `<button type="button" class="btn ghost" data-mv="${n[0]}" style="justify-content:flex-start;width:100%;margin-bottom:8px">${ico(n[3])} ${n[1]} <span class="faint" style="font-weight:400;margin-left:6px">${n[2]}</span></button>`).join('')}</div></div>`);
     $$('[data-mv]').forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
+    if (window.Backup) {
+      $('.more-nav', $('#modal')).insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk" style="justify-content:flex-start;width:100%;margin-bottom:8px">💾 Přenos a záloha <span class="faint" style="font-weight:400;margin-left:6px">PC ↔ telefon, záloha do souboru</span></button>`);
+      $('#moreBk').onclick = () => { modalClose(); Backup.open(); };
+    }
     if (window.Pwa) Pwa.addToMenu($('.more-nav', $('#modal'))); // 📲 Přidat ATLAS na plochu (pwa.js)
   };
 }
@@ -382,16 +388,20 @@ function resolveCountry(text) { const t = norm(text); if (!t) return null; let c
 // Doprava uložená z průvodce cestou: let (✈️), nebo vlak/bus (text začíná 🚆).
 const planIco = f => /^🚆/u.test(String(f || '')) ? '🚆' : '✈️';
 const planTransport = f => /^🚆/u.test(String(f || '')) ? String(f) : '✈️ ' + f;
+// 💾 Přenos a záloha (backup.js) nad plánovačem
+const bkTools = () => (window.Backup ? Backup.plannerTools() : '');
+const bkWire = () => { const b = $('#bkOpen'); if (b) b.onclick = () => Backup.open(); };
 function renderPlanner() {
   const host = $('#plannerList');
-  if (!S.trips.length) { host.innerHTML = `<div class="empty"><div class="ei">${ico('M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z')}</div><h2 style="font-size:20px;margin-bottom:6px">Zatím žádná cesta</h2><p style="max-width:420px;margin:0 auto 18px">Naplánuj si itinerář, ubytování i rozpočet na jednom místě. Cestu můžeš vytvořit i přímo z nalezeného letu (tlačítko „Do plánu“).</p><button class="btn primary" id="emptyNew">${ico('M12 5v14M5 12h14')} Nová cesta</button></div>`; $('#emptyNew').onclick = () => newTrip(); return; }
+  if (!S.trips.length) { host.innerHTML = `${bkTools()}<div class="empty"><div class="ei">${ico('M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z')}</div><h2 style="font-size:20px;margin-bottom:6px">Zatím žádná cesta</h2><p style="max-width:420px;margin:0 auto 18px">Naplánuj si itinerář, ubytování i rozpočet na jednom místě. Cestu můžeš vytvořit i přímo z nalezeného letu (tlačítko „Do plánu“).</p><button class="btn primary" id="emptyNew">${ico('M12 5v14M5 12h14')} Nová cesta</button></div>`; $('#emptyNew').onclick = () => newTrip(); bkWire(); return; }
   // nadcházející podle data odjezdu (bez data na konci), proběhlé zvlášť pod nimi
   const now = todayLocal(), all = S.trips.map((t, i) => ({ t, i }));
   const past = all.filter(x => (x.t.end || x.t.start) && (x.t.end || x.t.start) < now).sort((a, b) => (b.t.start || '').localeCompare(a.t.start || ''));
   const coming = all.filter(x => !past.includes(x)).sort((a, b) => (a.t.start || '9999').localeCompare(b.t.start || '9999'));
-  host.innerHTML = `<div class="trip-grid">${coming.map(x => tripCard(x.t, x.i)).join('')}<div class="card new-trip" id="newTripTile"><div class="plus">${ico('M12 5v14M5 12h14')}</div><div style="font-weight:700">Nová cesta</div></div></div>${past.length ? `<div class="section-head"><h2>Proběhlé cesty</h2></div><div class="trip-grid past">${past.map(x => tripCard(x.t, x.i)).join('')}</div>` : ''}`;
+  host.innerHTML = `${bkTools()}<div class="trip-grid">${coming.map(x => tripCard(x.t, x.i)).join('')}<div class="card new-trip" id="newTripTile"><div class="plus">${ico('M12 5v14M5 12h14')}</div><div style="font-weight:700">Nová cesta</div></div></div>${past.length ? `<div class="section-head"><h2>Proběhlé cesty</h2></div><div class="trip-grid past">${past.map(x => tripCard(x.t, x.i)).join('')}</div>` : ''}`;
   $$('.trip[data-ti]').forEach(el => el.onclick = () => openTrip(+el.dataset.ti));
   $('#newTripTile').onclick = () => newTrip();
+  bkWire();
 }
 function tripCard(t, i) {
   const c = t.iso ? byIso[t.iso] : null, warm = c && c.cost >= 4;

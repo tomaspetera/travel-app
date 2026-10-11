@@ -194,7 +194,7 @@
   // Části dne podle hodiny odletu (místní čas): [klíč, popisek, od, do).
   const DAYPARTS = [['morning', 'Ráno', 5, 12], ['afternoon', 'Odpoledne', 12, 18], ['evening', 'Večer', 18, 24], ['night', 'Noc', 0, 5]];
   const PART_TXT = { morning: 'ráno', afternoon: 'odpoledne', evening: 'večer', night: 'v noci' };
-  const freshTime = () => ({ out: [], back: [], arrBy: null, stops: null, maxDur: null, maxLay: null });
+  const freshTime = () => ({ out: [], back: [], arrBy: null, stops: null, maxDur: null, maxLay: null, reach: null });
   const hm = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
   // „4 h 20“ (jako u odhadu cesty vlakem/busem)
   const hhmmTxt = m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + pad(m % 60) : ''}` : `${m} min`; };
@@ -217,12 +217,73 @@
     const m = l && l.hasTime && l.arr ? clock(l.arr) : null;
     return m != null && (m > by * 60 || m < 5 * 60);
   }
-  const timeActive = tf => Boolean(tf && ((tf.out || []).length || (tf.back || []).length || tf.arrBy != null || tf.stops != null || tf.maxDur || tf.maxLay));
+  const timeActive = tf => Boolean(tf && ((tf.out || []).length || (tf.back || []).length || tf.arrBy != null || tf.stops != null || tf.maxDur || tf.maxLay || tf.reach));
+
+  /* ---------- kdy vyrazit z domu a kdy budeš doma (odhad: čas letu ± letiště ± cesta na letiště, bez jízdních řádů) ---------- */
+  // before / after = Ground.AIRPORT_BEFORE / AIRPORT_AFTER (test hlídá shodu); early = z domu před 4:30, late = doma
+  // mezi 0:30 a 5:00. Domov a letiště odletu jsou ve stejném časovém pásmu (letiště v okruhu hledání).
+  const REACH = { before: 120, after: 45, early: 270, lateFrom: 30, lateTo: 300 };
+  const dayMin = m => ((Math.round(m) % 1440) + 1440) % 1440;
+  /** „1:35“ z minut od půlnoci (i záporných a přes půlnoc). */
+  const clockTxt = m => { m = dayMin(m); return `${Math.floor(m / 60)}:${pad(m % 60)}`; };
+  /** Předložka před časem: „ve 2:40“, „ve 13:40“, „v 1:35“. */
+  const ve = m => ([2, 3, 4, 12, 13, 14, 20, 21, 22, 23].includes(Math.floor(dayMin(m) / 60)) ? 've' : 'v');
+  const NIGHT = ' Veřejná doprava v noci většinou nejede – ověř první spoj (IDOS), jinak taxi nebo noc u letiště.';
+  /**
+   * Kdy vyrazit z domu na let tam a kdy budeš doma po letu zpět; gOut / gBack = doprava na letiště ze serveru
+   * (origins[].ground). → { out, back }, každé null (neznámý čas nebo doprava) nebo { min (od půlnoci dne letu, záporné =
+   * předchozí den), clock, prevDay, early | late, mode, local, warn (veřejnou dopravou v noci, ne z letiště ve tvém městě),
+   * text, title }. Texty jsou čisté – do HTML jen přes esc().
+   */
+  function reach(t, gOut, gBack, { before = REACH.before } = {}) {
+    const ok = g => Boolean(g && !g.off && g.minutes > 0);
+    const how = g => (g.mode === 'car' ? 'autem' : 'vlak / bus a MHD');
+    const note = (g, night, warn) => (warn ? NIGHT : night && g.local ? ' Letiště je ve tvém městě – v noci taxi nebo noční linka.' : g.mode === 'car' ? ' Autem – jen pro informaci.' : '');
+    let out = null, back = null;
+    const o = t && t.out, dep = o && o.hasTime ? clock(o.dep) : null;
+    if (dep != null && ok(gOut)) {
+      const min = dep - before - gOut.minutes, c = clockTxt(min), car = gOut.mode === 'car', early = dayMin(min) < REACH.early;
+      const warn = early && !car && !gOut.local;
+      out = {
+        min, clock: c, prevDay: min < 0, early, mode: gOut.mode, local: Boolean(gOut.local), warn,
+        text: car ? `🚗 z domu ${ve(min)} ${c}` : `⏰ z domu už ${ve(min)} ${c}`,
+        title: `Odlet ${hhmm(o)} − ${hm(before)} na letišti − ~${hm(gOut.minutes)} cesta na letiště ${o.from} (${how(gOut)}, odhad) = vyrazit z domu ~${c}${min < 0 ? ' předchozího dne' : ''}.${note(gOut, early, warn)}`,
+      };
+    }
+    const b = t && t.back, arr = b && b.hasTime && b.arr ? clock(b.arr) : null;
+    if (arr != null && ok(gBack)) {
+      const min = arr + REACH.after + gBack.minutes, c = clockTxt(min), car = gBack.mode === 'car';
+      const late = dayMin(min) >= REACH.lateFrom && dayMin(min) < REACH.lateTo, warn = late && !car && !gBack.local;
+      back = {
+        min, clock: c, prevDay: min < 0, late, mode: gBack.mode, local: Boolean(gBack.local), warn,
+        text: car ? `🚗 domů ~${c}` : `🏠 domů až ~${c}`,
+        title: `Přílet ${String(b.arr).slice(11, 16)} + ${hm(REACH.after)} na letišti + ~${hm(gBack.minutes)} cesta z letiště ${b.to} domů (${how(gBack)}, odhad) = doma ~${c}.${note(gBack, late, warn).replace('první spoj', 'spoj')}`,
+      };
+    }
+    return { out, back };
+  }
+  /** Pro filtr „Jen dostupné z domova“: veřejnou dopravou na letiště → { min: { IATA: minuty }, local: [IATA] } | null. */
+  // Schengen (stav 2026, i mikrostáty uvnitř): let ven z něj = pasová kontrola → na letišti o půl hodiny dřív
+  const SCHENGEN = ['AT', 'BE', 'BG', 'HR', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IS', 'IT', 'LV', 'LI', 'LT', 'LU', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'CH', 'MC', 'SM', 'VA'];
+  /** Kolik minut před odletem být na letišti: 2 h, let mimo Schengen (známá země) 2,5 h – stejně u výsledků i v průvodci. */
+  const beforeFor = cc => (typeof cc === 'string' && /^[A-Z]{2}$/.test(cc) && !SCHENGEN.includes(cc) ? REACH.before + 30 : REACH.before);
+  /** Kontext filtru „Jen dostupné z domova“: minuty na letiště odletu (veřejnou dopravou) a země cílů (kvůli Schengenu). */
+  function reachCtx(origins, groups = []) {
+    const ors = (origins || []).filter(o => o && o.ground && o.ground.mode === 'transit' && !o.ground.off && o.ground.minutes > 0);
+    const cc = Object.fromEntries((groups || []).filter(g => g && g.dest && g.dest.key && g.dest.cc).map(g => [g.dest.key, g.dest.cc]));
+    return ors.length ? { min: Object.fromEntries(ors.map(o => [o.iata, o.ground.minutes])), local: ors.filter(o => o.ground.local).map(o => o.iata), cc } : null;
+  }
+  // Z domova se nejspíš nedostaneš (veřejnou dopravou v noci, ne z letiště ve tvém městě); neznámý čas nebo doprava neskrývá.
+  function reachBad(t, ctx) {
+    const g = iata => (ctx && ctx.min && Object.hasOwn(ctx.min, iata) ? { mode: 'transit', minutes: ctx.min[iata], local: (ctx.local || []).includes(iata) } : null);
+    const r = reach(t, t.out && g(t.out.from), t.back && g(t.back.to), { before: beforeFor(ctx && ctx.cc && t.destKey ? ctx.cc[t.destKey] : null) });
+    return Boolean((r.out && r.out.warn) || (r.back && r.back.warn));
+  }
 
   /**
-   * Které filtry času a přestupů cesta porušuje: ['tOut', 'tBack', 'arrBy', 'stops', 'maxDur', 'maxLay'] (prázdné = projde).
-   * tf = { out: [části dne odletu tam], back: [… zpět], arrBy: hodina (přílet nejpozději, tam i zpět), stops: max. přestupů,
-   * maxDur: max. délka cesty jedním směrem (min), maxLay: max. délka jednoho přestupu (min) }.
+   * Které filtry času a přestupů cesta porušuje: ['tOut', 'tBack', 'arrBy', 'stops', 'maxDur', 'maxLay', 'reach'] (prázdné =
+   * projde). tf = { out: [části dne odletu tam], back: [… zpět], arrBy: hodina (přílet nejpozději, tam i zpět), stops: max.
+   * přestupů, maxDur: max. délka cesty jedním směrem (min), maxLay: max. délka jednoho přestupu (min), reach: reachCtx }.
    * Co o letu nevíme (čas, délku, časy úseků), filtr neskrývá.
    */
   function timeFails(t, tf) {
@@ -236,6 +297,7 @@
     if (tf.stops != null && legs.some(l => (l.stops || 0) > tf.stops)) out.push('stops');
     if (tf.maxDur && legs.some(l => (legMinutes(l) || 0) > tf.maxDur)) out.push('maxDur');
     if (tf.maxLay && legs.some(l => (maxLayover(l) || 0) > tf.maxLay)) out.push('maxLay');
+    if (tf.reach && reachBad(t, tf.reach)) out.push('reach');
     return out;
   }
   const timeOk = (t, tf) => timeFails(t, tf).length === 0;
@@ -361,6 +423,7 @@
     if (tf.stops != null) add('stops', tf.stops === 0 ? 'bez přestupu' : `max. ${tf.stops} přestup`);
     if (tf.maxDur) add('maxDur', `⏱ cesta max. ${hm(tf.maxDur)}`);
     if (tf.maxLay) add('maxLay', `⌛ přestup max. ${hm(tf.maxLay)}`);
+    if (tf.reach) add('reach', '🏠 jen dostupné z domova');
     return out;
   }
 
@@ -369,18 +432,37 @@
    * i z výpisu (🔥 jen výhodné, posuvník ceny, den odletu, vypnutá letiště, aerolinky, čas a přestupy – zruší se hned).
    * time = { hidden, ret } pro čipy času a přestupů (viz timeChips).
    */
-  function activeFilters(filters, v = {}, names = {}, time = {}) {
+  function activeFilters(filters, v = {}, names = {}, time = {}, extra = {}) {
     const f = filters || {};
     const h = f.hidden || {};
     const out = [];
     if (f.maxPrice) out.push({ key: 'maxPrice', label: `do ${kc(f.maxPrice)}`, hidden: h.maxPrice || 0, rerun: true });
     if (f.directOnly) out.push({ key: 'directOnly', label: 'jen přímé lety', hidden: h.directOnly || 0, rerun: true });
     if (v.onlyDeals) out.push({ key: 'onlyDeals', label: '🔥 jen výhodné' });
+    if (v.newOnly) out.push({ key: 'newOnly', label: '🆕 jen nové země', hidden: extra.newHidden || 0 });
     if (v.maxPrice) out.push({ key: 'viewPrice', label: `max. ${kc(v.maxPrice)}` });
     if (v.outDate) out.push({ key: 'outDate', label: `odlet ${dm(v.outDate)}` });
-    if (v.excludeOrigins && v.excludeOrigins.size) out.push({ key: 'origins', label: `bez ${[...v.excludeOrigins].join(', ')}` });
+    if (v.excludeOrigins && v.excludeOrigins.size) {
+      // zbylo jediné letiště (klepnutí v „Odkud se vyplatí letět“) → „jen z X“, ne výčet všech ostatních
+      const left = (extra.origins || []).filter(o => !v.excludeOrigins.has(o));
+      out.push({ key: 'origins', label: left.length === 1 && extra.origins.length > 2 ? `jen z ${left[0]}` : `bez ${[...v.excludeOrigins].join(', ')}` });
+    }
     if (v.carriers && v.carriers.size) out.push({ key: 'carriers', label: `jen ${[...v.carriers].map(c => names[c] || c).join(', ')}` });
     return out.concat(timeChips(v.time, time));
+  }
+
+  // 🆕 Nové země = mimo mapu navštívených (S.visited). Až od 3 označených zemí – s prázdnou mapou by „nové“ bylo všechno.
+  const NEW_MIN = 3;
+  const visSet = v => (v instanceof Set ? v : new Set(v || []));
+  /** Země na mapě navštívených, kterou filtr „🆕 jen nové země“ schová (jen když je označeno aspoň NEW_MIN zemí). */
+  function wasThere(cc, visited) { const s = visSet(visited); return s.size >= NEW_MIN && Boolean(cc) && s.has(cc); }
+  function isNewCountry(cc, visited) { const s = visSet(visited); return s.size >= NEW_MIN && /^[A-Z]{2}$/.test(cc || '') && !s.has(cc); }
+  /** Kolik cílů filtr nechá a kolik schová (cíle bez známé země zůstávají). */
+  function newSplit(groups, visited) {
+    const s = visSet(visited);
+    let keep = 0, hidden = 0;
+    for (const g of groups || []) { if (wasThere(g.dest && g.dest.cc, s)) hidden++; else keep++; }
+    return { keep, hidden };
   }
 
   /** Málo výsledků: u konkrétního cíle méně než 3 kombinace, jinak méně než 3 destinace. */
@@ -761,6 +843,72 @@
     const sum = items.length > 1 ? `${items.join(' + ')} = ~${kc(g.czk)}` : items.length ? items[0] : `~${kc(g.czk)}`;
     return { text: `~${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: ${sum} na osobu jedním směrem (zpět totéž), ~${hm(g.minutes)}. Odhad podle vzdálenosti a ceníků dopravců, ne jízdní řád.` };
   }
+  /**
+   * „Odkud se vyplatí letět“: nejlevnější celá cesta z každého letiště odletu (o.best ze serveru, vč. dopravy na letiště)
+   * proti nejbližšímu letišti (ref – ne přestupní) – o kolik levněji a o kolik déle cesta na letiště (zpáteční tam i zpět).
+   * Zpáteční s návratem na jiné letiště (open-jaw) server k žádnému letišti nepočítá (filtr letišť ve výpisu ji u obou
+   * schová) – jaw = nejlevnější taková ve výpisu (res.top), r.jaw = kolik jich letiště řádku má.
+   * → { rows (od nejlevnějšího, bez nabídky na konci), ref, win, jaw }; prázdné u cesty přes víc měst, u starších
+   * výsledků bez best a když se něco našlo jen z jednoho letiště.
+   */
+  function originCompare(res, { trips = null } = {}) {
+    const none = { rows: [], ref: null, win: null, jaw: null, filtered: false };
+    if (!res || res.mode === 'multi') return none;
+    // trips = nabídky, které výpis po filtrech ukazuje (bez filtru letišť) – pak ceny podle nich, ne ze serveru
+    const own = trips ? {} : null;
+    if (trips) for (const t of trips) {
+      if (!t || !t.out || !Number.isFinite(t.perPersonCzk) || (t.back && t.back.to !== t.out.from)) continue;
+      const k = t.out.from, c = Math.round(t.perPersonCzk), b = own[k];
+      if (!b) own[k] = { czk: c, n: 1 }; else { b.n++; if (c < b.czk) b.czk = c; }
+    }
+    const bestOf = o => (own ? own[o.iata] || null : o.best);
+    const os = (res.origins || []).filter(o => o && o.iata), priced = os.filter(o => bestOf(o) && bestOf(o).czk > 0);
+    if (priced.length < 2) return none;
+    const jaws = (trips || res.top || []).filter(t => t && t.out && t.back && t.back.to !== t.out.from && Number.isFinite(t.perPersonCzk));
+    const dist = o => (Number.isFinite(o.distKm) ? o.distKm : 1e9);
+    const near = list => list.reduce((m, o) => (!m || dist(o) < dist(m) ? o : m), null);
+    const ref = near(priced.filter(o => !o.hub)) || near(priced);
+    // základ není nejbližší letiště vůbec (to nemá nabídku odsud a zpět) → „nejbližší s nabídkou“
+    const nearest = ref === (near(os.filter(o => !o.hub)) || near(os));
+    const mult = res.query && res.query.trip === 'return' ? 2 : 1; // cesta na letiště tam i zpět
+    const mins = o => (o.ground && o.ground.minutes > 0 ? o.ground.minutes : null);
+    const czkOf = o => (bestOf(o) && bestOf(o).czk > 0 ? bestOf(o).czk : null);
+    // od nejlevnějšího; stejná cena → nejbližší letiště napřed, pak podle vzdálenosti; bez nabídky na konci
+    const order = [...os].sort((a, b) => (czkOf(a) == null) - (czkOf(b) == null) || (czkOf(a) || 0) - (czkOf(b) || 0) || (b === ref) - (a === ref) || dist(a) - dist(b));
+    const rows = order.map(o => {
+      const isRef = o === ref, czk = czkOf(o), minutes = mins(o), g = o.ground || {};
+      return {
+        iata: o.iata, city: o.city || o.name || o.iata, hub: !!o.hub, czk, n: (bestOf(o) && bestOf(o).n) || 0,
+        mode: g.mode || null, minutes, local: !!g.local, ref: isRef, nearest: isRef && nearest,
+        diff: czk != null && !isRef ? czk - czkOf(ref) : null,
+        extraMin: minutes != null && mins(ref) != null && !isRef ? (minutes - mins(ref)) * mult : null,
+        jaw: jaws.filter(t => t.out.from === o.iata || t.back.to === o.iata).length,
+      };
+    });
+    return { rows, ref: rows.find(r => r.ref), win: rows[0], jaw: jaws.length ? Math.round(Math.min(...jaws.map(t => t.perPersonCzk))) : null, filtered: Boolean(trips) };
+  }
+  /**
+   * Patička karty „Odkud se vyplatí letět“ podle dotazu: co v ceně je (doprava na letiště – autem i parkování, zavazadla,
+   * cesta do města) a co vypnuté ne; s nabídkami s návratem jinam, že se nepočítají.
+   */
+  function originFoot(res, oc = originCompare(res)) {
+    const q = (res && res.query) || {}, ret = q.trip === 'return', car = q.groundMode === 'car';
+    const and = l => (l.length > 1 ? `${l.slice(0, -1).join(', ')} a ${l[l.length - 1]}` : l[0] || '');
+    const inc = [q.kmRate && `dopravy na letiště${ret ? ' a zpět' : ''}${car ? ` (autem${ret ? ' i parkování' : ''})` : ''}`,
+      (q.bags === 'cabin' || q.bags === 'checked') && 'zavazadel', q.arrival && 'cesty do města'].filter(Boolean);
+    const exc = [!q.kmRate && 'dopravy na letiště', !q.arrival && 'cesty do města'].filter(Boolean);
+    return `${q.kmRate ? 'Celá cesta' : 'Cena'} na osobu${inc.length ? ` vč. ${and(inc)}` : ''}${exc.length ? `${inc.length ? ',' : ''} bez ${and(exc)} (vypnuto v Další možnosti)` : ''}`
+      + ` – ${oc && oc.filtered ? 'nejlevnější z nabídek, které ukazují filtry výpisu' : 'nejlevnější ze všech nalezených nabídek, nejen z těch ve výpisu'}${oc && oc.jaw != null ? ', jen s odletem i návratem na totéž letiště (cesty s návratem jinam jsou jen ve výpisu)' : ''}.`
+      + ` Čas = odhad cesty na letiště${ret ? ' tam i zpět' : ''}. Klepnutím ukážeš jen lety z daného letiště, dalším klepnutím zase všechna.`;
+  }
+  /** Rozdíl řádku srovnání proti nejbližšímu letišti: „−450 Kč · +2 h 40 min cesty“, „stejně“, „nejbližší letiště“. */
+  function originDiffTxt(r) {
+    if (!r) return '';
+    if (r.ref) return r.nearest === false ? 'nejbližší s nabídkou' : 'nejbližší letiště';
+    if (r.diff == null) return '';
+    const p = r.diff === 0 ? 'stejně' : `${r.diff < 0 ? '−' : '+'}${kc(Math.abs(r.diff))}`;
+    return p + (r.extraMin ? ` · ${r.extraMin > 0 ? '+' : '−'}${hm(Math.abs(r.extraMin))} cesty` : '');
+  }
 
   /* ---------- cesta z letiště do města (stejně jako server/lib/arrival.js, data/arrival.json) ---------- */
   // Zvýraznit drahou nebo dlouhou cestu do města („levná“ letenka na vzdálené letiště) – stejné meze jako server
@@ -993,6 +1141,76 @@
     const out = h.depAfter ? `${d(h.dFrom)} od ${h.depAfter.time} nebo ${d(h.dTo)}` : d(h.dTo);
     return `Odlet ${out} · návrat ${d(lw.end)}${lw.bridge ? ` · s volnem ${d(lw.bridge)}` : ''}`;
   }
+  /* ---------- dny dovolené: volno = víkendy a svátky ČR (státní i ostatní) ---------- */
+  const holCache = new Map();
+  const holOf = y => holCache.get(y) || holCache.set(y, czHolidays(y)).get(y);
+  const dowOf = d => new Date(d + 'T12:00:00Z').getUTCDay();
+  const isFree = d => { const w = dowOf(d); return w === 0 || w === 6 || holOf(+d.slice(0, 4)).has(d); };
+  const isYmd = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+  /**
+   * Dny dovolené na cestu out → back (lety { date, hasTime, dep, arr }): pracovní dny (po–pá mimo svátky) od dne
+   * odletu do dne návratu včetně. Odlet v pracovní den od after (16:00) je po práci, bez času odletu se den počítá celý.
+   * Přílet zpět až další den: od 5:00 je posledním dnem den příletu (dálkový let), noční přílet do 4:59 ne (ráno do práce).
+   * → { n, days, holidays: [{ date, name }] (svátky v pracovní dny cesty), freeOut, outUnknown }; jen tam, nesmysl
+   * nebo přes 60 dní → null.
+   */
+  function leaveDays(out, back, { after = LW_DEP } = {}) {
+    if (!out || !back || !isYmd(out.date) || !isYmd(back.date) || back.date < out.date) return null;
+    const arr = String(back.arr || ''), ad = arr.slice(0, 10);
+    let last = back.date;
+    if (arr.length >= 16 && isYmd(ad) && ad > back.date) last = arr.slice(11, 16) >= '05:00' ? ad : [back.date, addDays(ad, -1)].sort()[1];
+    if (diffDays(out.date, last) > 60) return null;
+    const r = { n: 0, days: [], holidays: [], freeOut: false, outUnknown: false };
+    for (let d = out.date; d <= last; d = addDays(d, 1)) {
+      const w = dowOf(d), h = holOf(+d.slice(0, 4)).get(d);
+      if (w === 0 || w === 6) continue;
+      if (h) { r.holidays.push({ date: d, name: h }); continue; }
+      if (d === out.date) {
+        if (out.hasTime && hhmm(out) >= after) { r.freeOut = true; continue; }
+        if (!out.hasTime) r.outUnknown = true;
+      }
+      r.days.push(d);
+    }
+    r.n = r.days.length;
+    return r;
+  }
+  /** Dny dovolené na štítek: „🏖️ 2 dny dovolené“ / „🎉 bez dovolené“ a do title které dny, který svátek pomáhá a proč. */
+  function leaveTxt(x) {
+    const n = x.n, d = s => `${DOW_LC[dowOf(s)]} ${dm(s)}`, hs = x.holidays || [];
+    return {
+      text: n === 0 ? '🎉 bez dovolené' : `🏖️ ${n} ${n === 1 ? 'den' : n <= 4 ? 'dny' : 'dní'} dovolené`,
+      title: (n ? `Dny dovolené: ${x.days.map(d).join(', ')}` : 'Bez dovolené: celá cesta vychází na volné dny')
+        + (hs.length ? ` · ${hs.length === 1 ? 'pomáhá svátek' : 'pomáhají svátky'} ${hs.map(h => `${d(h.date)} (${h.name})`).join(', ')}` : '')
+        + (x.freeOut ? ` · odlet v pracovní den od ${LW_DEP} počítám jako po práci` : '')
+        + (x.outUnknown ? ' · čas odletu neznám – počítám celý den' : '')
+        + ' · volno = víkendy a svátky ČR',
+    };
+  }
+  /**
+   * Kdy si vzít dovolenou: nejdelší volna kolem státních svátků v příštích horizon dnech (začátek aspoň za 2 dny) za nejvýš
+   * maxLeave dní dovolené – i se svátkem ve středu, který longWeekend přeskakuje. Okno = minLen–maxLen dní v řadě
+   * s aspoň jedním svátkem v pracovní den, před ním i za ním pracovní den (víc volna připojit nejde). Výběr: víc dní,
+   * méně dovolené, návrat v sobotu nebo v neděli, dřívější začátek; okna, která se překrývají s už vybraným, vypadnou.
+   * → [{ start, end, nights, days, leave, holidays, name, bridge: null }] podle začátku (jako lw – holidayDates z něj udělá termín).
+   */
+  function leaveWindows(today, { maxLeave = 2, horizon = 365, maxLen = 16, minLen = 3 } = {}) {
+    const first = addDays(today, 2), last = addDays(today, horizon), all = [];
+    for (let a = first; a <= last; a = addDays(a, 1)) {
+      if (a > first && isFree(addDays(a, -1))) continue; // začátek uprostřed volna – delší okno začíná dřív
+      const leave = [], hol = [];
+      for (let b = a, len = 1; len <= maxLen && b <= last; b = addDays(b, 1), len++) {
+        const w = dowOf(b), h = w > 0 && w < 6 ? holOf(+b.slice(0, 4)).get(b) : null;
+        if (h) hol.push({ date: b, name: h });
+        else if (w > 0 && w < 6) { leave.push(b); if (leave.length > maxLeave) break; }
+        if (len >= minLen && hol.length && !isFree(addDays(b, 1))) all.push({ start: a, end: b, nights: len - 1, days: len, leave: leave.slice(), holidays: hol.slice() });
+      }
+    }
+    const wkEnd = w => (dowOf(w.end) % 6 === 0 ? 1 : 0);
+    all.sort((x, y) => y.days - x.days || x.leave.length - y.leave.length || wkEnd(y) - wkEnd(x) || (x.start < y.start ? -1 : 1));
+    const pick = [];
+    for (const w of all) if (!pick.some(p => w.start <= p.end && p.start <= w.end)) pick.push(w);
+    return pick.sort((x, y) => (x.start < y.start ? -1 : 1)).map(w => ({ ...w, name: [...new Set(w.holidays.map(h => h.name))].join(', '), bridge: null }));
+  }
   /**
    * Ceny prodloužených víkendů z uložených výsledků radaru – bez nového hledání. map = { [začátek víkendu]: záznam radaru
    * ({ key, at, items }) }, keyOf(lw) = klíč dotazu radaru pro ten víkend teď (jiný domov, okruh nebo počet lidí → nic).
@@ -1174,12 +1392,15 @@
 
   window.SearchHelp = {
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
-    groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel,
+    groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
+    REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
     easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
+    leaveDays, leaveTxt, leaveWindows,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
+    NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
   };
 })();
