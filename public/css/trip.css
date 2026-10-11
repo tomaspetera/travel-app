@@ -250,6 +250,8 @@ details.more.ex-places>summary::before{content:none}
 .route-sum.warn{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.28);color:#f5d488}
 [data-theme="light"] .route-sum.ok{color:#047857}
 [data-theme="light"] .route-sum.warn{color:#8a5a00}
+[data-theme="light"] .ex-mustn,[data-theme="light"] .poi-acts .linkbtn.on{color:#8a5a00}
+[data-theme="light"] .poi-in{color:#047857}
 .route-add{margin-top:14px}
 .route-add label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
 .rt-cands{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;font-size:12.5px}

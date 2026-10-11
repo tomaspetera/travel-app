@@ -409,7 +409,7 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   const city = TB.plannerEntry({ plan, place, start: '2026-10-12' });
   assert.deepEqual(plain(city), {
     name: 'Výlet: Barcelona', dest: 'Barcelona', iso: 'ES', start: '2026-10-12', end: '2026-10-14',
-    days: { '2026-10-12': items.map((x) => x.name), '2026-10-14': [items[0].name] }, notes: '',
+    days: { '2026-10-12': items.map((x) => x.name), '2026-10-14': [items[0].name] }, notes: '', src: 'city',
   });
   const trip = tripOf('day', 'car', [DAY('2026-10-12', { name: 'Barcelona', lat: 41.3874, lon: 2.1686 }, [STOP('Q190', 'Montserrat', 41.5933, 1.8375, { tripKind: 'monastery' })])]);
   const day = TB.plannerEntry({ trip, place, start: '2026-10-12' });
@@ -436,6 +436,13 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   // okruh na víc dní prodlouží konec cesty
   TB.mergeInto(t, { days: { '2026-10-16': ['🛏️ Přespání: Girona'] }, end: '2026-10-16', notes: '' });
   assert.equal(t.end, '2026-10-16');
+  // přeplánovaný program uložený znovu nahradí ten starý: vyřazené místo zmizí, nic není dvakrát; ruční řádek zůstane
+  const y = { name: 'Y', dest: 'Barcelona', start: '2026-10-12', end: '2026-10-14', days: {} };
+  TB.mergeInto(y, city);
+  y.days['2026-10-12'].push('Večeře u Pepy');
+  const city2 = { ...city, days: { '2026-10-12': [items[1].name], '2026-10-13': [items[0].name] } };
+  assert.equal(TB.mergeInto(y, city2), 1, 'nové jen místo na nový den');
+  assert.deepEqual(plain(y.days), { '2026-10-12': [items[1].name, 'Večeře u Pepy'], '2026-10-13': [items[0].name] }, 'zůstávající místo na svém místě');
   const x = { name: 'X', start: '2026-10-12', end: '2026-10-20', days: null };
   TB.mergeInto(x, city);
   assert.equal(x.end, '2026-10-20', 'kratší výsledek konec nezkrátí');
@@ -459,4 +466,6 @@ test('„Najít lety sem“: místo jako cíl letů, termín jen vybraný v Obje
   assert.deepEqual(plain(TF.flyDates(s)), { xOut: '2026-10-20', xBack: '2026-10-23' });
   assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'loop' })), { xOut: '2026-10-20', xBack: '2026-10-24' });
   assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'day', tripDays: { day: 1 } })), { xOut: '2026-10-20', xBack: '2026-10-20' });
+  assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'bike' })), { xOut: '2026-10-20' }, 'kolo: jen let tam');
+  assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'hike' })), { xOut: '2026-10-20' });
 });

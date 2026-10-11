@@ -643,6 +643,7 @@
     ex.plan = null; ex.trips = {}; ex.bikeRoute = null; ex.trainRoute = null; ex.hikeRoute = null; ex.tripEx.clear(); ex.tripMust.clear();
     ex.cat = ''; ex.planState = null; ex.errs = {}; ex.loaded = null; ex.all = []; ex.items = [];
     for (const k of Object.keys(busy)) delete busy[k];
+    clearTimeout(soonT); ex.replanNow = null; // odložené přeplánování patřilo předchozímu místu
     ex.recent = pushRecent(ex.recent, ex.place);
     remember();
     const q = $('#exQ');
@@ -873,14 +874,19 @@
     label: p.label, flag: p.cc ? flag(p.cc) : '📍', type: 'place',
   });
   // Termín jen, když ho uživatel v Objevuj vybral: přílet první den, odlet poslední den pobytu.
+  // Kolo a pěšky mají jen jeden den („Kdy“) – let tam, zpáteční termín nechat na uživateli.
   const flyDates = s => {
-    const n = s.mode === 'loop' ? s.tripDays.loop : s.mode === 'day' ? s.tripDays.day : s.days;
-    return { xOut: s.start, xBack: plusDays(s.start, Math.max(1, n || 1) - 1) };
+    const n = s.mode === 'loop' ? s.tripDays.loop : s.mode === 'day' ? s.tripDays.day : s.mode === 'city' ? s.days : 0;
+    return n ? { xOut: s.start, xBack: plusDays(s.start, Math.max(1, n) - 1) } : { xOut: s.start };
   };
 
   /* ---------- uložení do plánovače ---------- */
-  /** Výsledek Objevuj (trasa / výlety / program) → cesta pro plánovač { name, dest, iso, start, end, days, notes }. */
+  /**
+   * Výsledek Objevuj (trasa / výlety / program) → cesta pro plánovač { name, dest, iso, start, end, days, notes, src }.
+   * src = druh výsledku (city, day-car, bike…): jeho řádky se při dalším uložení k téže cestě nahradí, ne přidají.
+   */
   function plannerEntry({ rr, trip, plan, place: p, start }) {
+    const src = rr ? (rr.activity === 'hike' ? 'hike' : rr.kind === 'train' ? 'train' : 'bike') : trip ? `${trip.mode}-${trip.transport}` : 'city';
     const days = {};
     let name, dates, notes = '';
     if (rr) {
@@ -900,20 +906,34 @@
       name = `Výlet: ${p.label}`;
       dates = [plan.days[0].date, plan.days.at(-1).date];
     }
-    return { name, dest: p.label, iso: typeof byIso !== 'undefined' && byIso[p.cc] ? p.cc : null, start: dates[0], end: dates[1], days, notes };
+    return { name, dest: p.label, iso: typeof byIso !== 'undefined' && byIso[p.cc] ? p.cc : null, start: dates[0], end: dates[1], days, notes, src };
   }
   const normDest = s => String(s || '').trim().toLowerCase();
   // Cesta do stejného místa se stejným začátkem (program, výlety i kolo z jedné Barcelony = jedna cesta); jinak −1.
   const findTripFor = (trips, e) => (trips || []).findIndex(t => t && t.start && t.start === e.start && normDest(t.dest) === normDest(e.dest));
-  /** Přidá řádky dnů (bez opakování), prodlouží konec a připíše poznámky; vrátí počet nových řádků. */
+  /**
+   * Přidá řádky dnů (bez opakování), prodlouží konec a připíše poznámky; vrátí počet nových řádků. Řádky, které do cesty
+   * dřív uložil stejný druh výsledku (t.explore[src]), nejdřív odebere – přeplánovaný program nahradí ten starý, místo
+   * aby se oba sčítaly (vyřazené místo zmizí, nic není dvakrát). Řádky napsané v plánovači ručně zůstanou.
+   */
   function mergeInto(t, e) {
     let added = 0;
     t.days = t.days && typeof t.days === 'object' ? t.days : {};
+    const prev = e.src && t.explore && t.explore[e.src];
+    const had = new Set();
+    if (prev) for (const [d, lines] of Object.entries(prev)) {
+      if (!Array.isArray(t.days[d]) || !Array.isArray(lines)) continue;
+      lines.forEach(x => had.add(`${d}\n${x}`));
+      const keep = new Set(e.days[d] || []); // co v novém výsledku zůstává, zůstane i na svém místě
+      t.days[d] = t.days[d].filter(x => keep.has(x) || !lines.includes(x));
+      if (!t.days[d].length) delete t.days[d];
+    }
     for (const [d, lines] of Object.entries(e.days)) {
       const have = t.days[d] || [];
       const add = lines.filter(x => !have.includes(x));
-      if (add.length) { t.days[d] = [...have, ...add]; added += add.length; }
+      if (add.length) { t.days[d] = [...have, ...add]; added += add.filter(x => !had.has(`${d}\n${x}`)).length; }
     }
+    if (e.src) t.explore = { ...(t.explore && typeof t.explore === 'object' ? t.explore : {}), [e.src]: e.days };
     if (e.end && (!t.end || e.end > t.end)) t.end = e.end;
     if (e.notes && !String(t.notes || '').includes(e.notes)) t.notes = [t.notes, e.notes].filter(Boolean).join('\n\n');
     if (!t.iso && e.iso) t.iso = e.iso;
@@ -1257,6 +1277,16 @@
       ex.start = e.target.value;
       ex.datePicked = true; // „Najít lety sem“ pak hledá přesně v termínu
       remember();
+      // Uložení k cestě závisí na datu (stejné místo a začátek) – tlačítko podle nového dne
+      if (rr) {
+        const old = $$('#exSave, #exSaveNew', body);
+        if (old.length && !old[0].disabled) {
+          old[0].insertAdjacentHTML('beforebegin', saveHtml(findTripFor(S.trips, plannerEntry({ rr, place: p, start: ex.start })), S.trips));
+          old.forEach(b => b.remove());
+          on('#exSave', 'onclick', () => store(false));
+          on('#exSaveNew', 'onclick', () => store(true));
+        }
+      }
       // Trasa kola / pěšky na datu nezávisí – stačí k ní doplnit počasí nově zvoleného dne.
       const wx = rr && $('#exPlanOut .wx-day', body);
       if (!wx) return;
@@ -1368,7 +1398,7 @@
       const i = asNew ? -1 : findTripFor(S.trips, entry);
       let t = S.trips[i];
       if (t) mergeInto(t, entry);
-      else S.trips.push(t = { ...entry, pax: '2', budget: '', checklist: PACK.map(x => ({ t: x, done: false })) });
+      else S.trips.push(t = { ...entry, explore: { [entry.src]: entry.days }, pax: '2', budget: '', checklist: PACK.map(x => ({ t: x, done: false })) });
       save();
       $$('#exSave, #exSaveNew', body).forEach(b => { b.disabled = true; });
       const sv = $('#exSave', body);

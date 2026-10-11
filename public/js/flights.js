@@ -46,8 +46,11 @@
   // Po hledání „kamkoliv“ se v pozadí ověří nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli – po jedné (Kiwi má
   // pojistku proti výpadkům pro všechny: 3 chyby za sebou ho na minutu vypnou), při chybě nebo limitu stop;
   // ostatní tlačítkem „⚡ Ověřit cenu živě“. Rozběhnuté ověření nové hledání neruší (výsledek platí pro tutéž cestu).
-  const liveChk = new Map(); // klíč (SearchHelp.liveKey) → { st: 'run' | 'ok' | 'dearer' | 'none', min, at }
-  const liveTrips = new Map(); // klíč → nabídka naposledy vykreslená (pro přepsání štítku na místě)
+  // Ukládá se jen živá cena (stejná pro všechny nabídky téže trasy a dnů); verdikt (platí / dráž) se počítá pro každou
+  // nabídku zvlášť z její vlastní ceny – dvě nabídky na stejné dny (různé aerolinky) mají každá svůj.
+  const liveChk = new Map(); // klíč (SearchHelp.liveKey) → { st: 'run' | 'done' | 'none', min, at }
+  const liveTrips = new Map(); // id nabídky → nabídka naposledy vykreslená (pro přepsání štítku na místě)
+  const liveSt = (t, x) => (!x ? null : x.st === 'run' || x.st === 'none' ? x.st : SearchHelp.liveVerdict(t.flightCzk, [{ flightCzk: x.min }]).st);
   const LIVE_TTL = 30 * 60e3; // jako mezipaměť Kiwi na serveru
   let liveGen = 0; // nové hledání → fronta automatického ověřování předchozího skončí
   const liveAdults = () => (lastResult && lastResult.query && lastResult.query.adults) || 1;
@@ -58,41 +61,41 @@
   /** Stav ověření pod cenou v Přehledu: „⏱ z cache“, „ověřuji živě…“, „✓ cena platí“, „⚠ živě 2 488 Kč“… */
   function liveHtml(t) {
     if (!SearchHelp.isCached(t)) return '';
-    const k = SearchHelp.liveKey(t, liveAdults()), x = liveGet(k);
-    liveTrips.set(k, t);
+    const k = SearchHelp.liveKey(t, liveAdults()), x = liveGet(k), st = liveSt(t, x);
+    liveTrips.set(t.id, t);
     let cls = 'faint', txt = '⏱ z cache', title = CACHE_TIP;
-    if (x && x.st === 'run') { txt = '<span class="spin dark"></span> ověřuji živě…'; title = ''; }
-    else if (x && x.st === 'ok') { cls = 'good'; txt = `✓ živě od ${czk(liveTotal(t, x))}`; title = `Nejlevnější živá nabídka na stejné dny: ${czk(liveTotal(t, x))}/os. (Kiwi.com, ověřeno ${liveWhen(x)})`; }
-    else if (x && x.st === 'dearer') { cls = 'warn'; txt = `⚠ živě ${czk(liveTotal(t, x))}`; title = `Cena ${czk(t.perPersonCzk)} je z mezipaměti Aviasales (až 2 dny stará) a živě ji teď nikdo nenabízí – nejlevnější živá nabídka na stejné dny je ${czk(liveTotal(t, x))}/os. (Kiwi.com, ověřeno ${liveWhen(x)})`; }
-    else if (x && x.st === 'none') { txt = 'živě nenalezeno'; title = 'Kiwi.com na tyhle dny živou nabídku nenašlo – cenu ověř u aerolinky nebo na Aviasales.'; }
-    return `<span class="cmp-live ${cls}" data-lk="${esc(k)}"${title ? ` title="${esc(title)}"` : ''}>${txt}</span>`;
+    if (st === 'run') { txt = '<span class="spin dark"></span> ověřuji živě…'; title = ''; }
+    else if (st === 'ok') { cls = 'good'; txt = `✓ živě od ${czk(liveTotal(t, x))}`; title = `Nejlevnější živá nabídka na stejné dny: ${czk(liveTotal(t, x))}/os. (Kiwi.com, ověřeno ${liveWhen(x)})`; }
+    else if (st === 'dearer') { cls = 'warn'; txt = `⚠ živě ${czk(liveTotal(t, x))}`; title = `Cena ${czk(t.perPersonCzk)} je z mezipaměti Aviasales (až 2 dny stará) a živě ji teď nikdo nenabízí – nejlevnější živá nabídka na stejné dny je ${czk(liveTotal(t, x))}/os. (Kiwi.com, ověřeno ${liveWhen(x)})`; }
+    else if (st === 'none') { txt = 'živě nenalezeno'; title = 'Kiwi.com na tyhle dny živou nabídku nenašlo – cenu ověř u aerolinky nebo na Aviasales.'; }
+    return `<span class="cmp-live ${cls}" data-lk="${esc(k)}" data-ltid="${esc(t.id)}"${title ? ` title="${esc(title)}"` : ''}>${txt}</span>`;
   }
   /** Štítek v kartě nabídky: bez ověření „⏱ z cache – ověř“, po ověření výsledek. */
   function liveBadge(t) {
-    const k = SearchHelp.liveKey(t, liveAdults()), x = liveGet(k);
-    liveTrips.set(k, t);
-    const lk = `data-lk="${esc(k)}"`;
+    const k = SearchHelp.liveKey(t, liveAdults()), x = liveGet(k), st = liveSt(t, x);
+    liveTrips.set(t.id, t);
+    const lk = `data-lk="${esc(k)}" data-ltid="${esc(t.id)}"`;
     if (!x) return cacheTag([t.out, t.back].find(l => l && l.arrUnknown) || (t.out.live === false ? t.out : t.back)).replace('class="b warn cache-tag"', `class="b warn cache-tag live-b" ${lk}`);
-    if (x.st === 'run') return `<span class="b live-b" ${lk}><span class="spin dark"></span> ověřuji živě…</span>`;
-    if (x.st === 'dearer') return `<span class="b warn live-b" ${lk} title="${esc(`Nejlevnější živá nabídka na stejné dny (Kiwi.com, ověřeno ${liveWhen(x)})`)}">⚠ z cache – živě od ${czk(liveTotal(t, x))}/os.</span>`;
-    if (x.st === 'none') return `<span class="b warn live-b" ${lk}>⏱ z cache – živě nenalezeno</span>`;
+    if (st === 'run') return `<span class="b live-b" ${lk}><span class="spin dark"></span> ověřuji živě…</span>`;
+    if (st === 'dearer') return `<span class="b warn live-b" ${lk} title="${esc(`Nejlevnější živá nabídka na stejné dny (Kiwi.com, ověřeno ${liveWhen(x)})`)}">⚠ z cache – živě od ${czk(liveTotal(t, x))}/os.</span>`;
+    if (st === 'none') return `<span class="b warn live-b" ${lk}>⏱ z cache – živě nenalezeno</span>`;
     return `<span class="b good live-b" ${lk} title="${esc(`Nejlevnější živá nabídka na stejné dny (Kiwi.com, ověřeno ${liveWhen(x)})`)}">✓ ověřeno živě: od ${czk(liveTotal(t, x))}/os.</span>`;
   }
   /** Přepsat stav ověření u nabídky klíče k na místě (bez nového vykreslení – posun stránky ani otevřená karta se nemění). */
   function patchLive(k) {
-    const t = liveTrips.get(k);
-    if (!t) return;
     $$('[data-lk]').filter(el => el.dataset.lk === k).forEach(el => {
+      const t = liveTrips.get(el.dataset.ltid); // každý štítek se svou nabídkou (verdikt podle její ceny)
+      if (!t) return;
       const price = el.classList.contains('cmp-live') ? el.closest('.cmp-price') : null;
       el.outerHTML = el.classList.contains('cmp-live') ? liveHtml(t) : liveBadge(t);
       const b = price && price.querySelector('b');
-      if (b) b.classList.toggle('stale', (liveGet(k) || {}).st === 'dearer');
+      if (b) b.classList.toggle('stale', liveSt(t, liveGet(k)) === 'dearer');
     });
   }
   /** Živé ověření jedné nabídky → 'ok' | 'dearer' | 'none' | 'run' (už se ověřuje) | 'limit' (429) | 'off' (nedostupné) | 'err'. */
   async function verifyOne(t) {
     const adults = liveAdults(), k = SearchHelp.liveKey(t, adults);
-    liveTrips.set(k, t);
+    liveTrips.set(t.id, t);
     const prev = liveGet(k); // při chybě nechat dřívější výsledek ověření
     if (prev && prev.st === 'run') return 'run';
     liveChk.set(k, { st: 'run', at: Date.now() }); patchLive(k);
@@ -108,7 +111,7 @@
       if (!r.ok || !j.available) return fail('off');
       const v = SearchHelp.liveVerdict(t.flightCzk, j.items, j.error);
       if (v.st === 'err') return fail('err');
-      liveChk.set(k, { ...v, at: Date.now() }); patchLive(k);
+      liveChk.set(k, { st: v.st === 'none' ? 'none' : 'done', min: v.min, at: Date.now() }); patchLive(k);
       return v.st;
     } catch (e) {
       return fail('err');
@@ -504,6 +507,8 @@
   let lwPick = null; // začátek víkendu vybraného ve formuláři (výchozí při dalším klepnutí na 🎉 Svátky)
   let preHoliday = null; // termín před 🎉 Svátky – jiná předvolba délky ho vrátí (Svátky jako jediná mění data)
   const holidayOn = () => $('#lenPreset .on')?.dataset.v === 'holiday';
+  // formulář pořád drží termín svátku (i po přepnutí na Vlastní úpravou nocí nebo dnů) – jiná předvolba ho má vrátit
+  const inHoliday = () => holidayOn() || Boolean(preHoliday && SearchHelp.holidayOf({ dFrom: $('#dFrom').value, dTo: $('#dTo').value }, today()));
   /** Ruční změna data ve Svátcích: dny odletu a návratu patřily svátku – pryč s nimi. */
   function leaveHolidayDays() { if (holidayOn()) $$('#outDays button, #backDays button').forEach(x => x.classList.remove('on')); }
   function applyHoliday(start) {
@@ -511,7 +516,7 @@
     const lw = list.find(x => x.start === start) || list.find(x => x.start === lwPick) || list.find(x => x.start === S.radarHoliday) || list[0];
     if (!lw) { toast('V příštích 5 měsících není prodloužený víkend kolem svátku'); return applyPreset('custom'); }
     const h = SearchHelp.holidayDates(lw, today());
-    if (!holidayOn()) preHoliday = { dFrom: $('#dFrom').value, dTo: $('#dTo').value };
+    if (!inHoliday()) preHoliday = { dFrom: $('#dFrom').value, dTo: $('#dTo').value };
     lwPick = lw.start;
     $$('#lenPreset button').forEach(b => b.classList.toggle('on', b.dataset.v === 'holiday'));
     $('#nMin').value = h.nMin; $('#nMax').value = h.nMax; $('#dFrom').value = h.dFrom; $('#dTo').value = h.dTo;
@@ -542,7 +547,7 @@
   }
   function applyPreset(k) {
     if (k === 'holiday') return applyHoliday();
-    if (holidayOn()) {
+    if (inHoliday()) {
       // ze Svátků jinam: zpět původní termín (nebo výchozí), bez dvoudenního okna a pravidla „odlet od 16:00“
       const r = preHoliday && preHoliday.dTo >= today() ? preHoliday : { dFrom: addDays(today(), 7), dTo: addDays(today(), 60) };
       $('#dFrom').value = [today(), r.dFrom].sort()[1]; $('#dTo').value = r.dTo;
@@ -755,7 +760,7 @@
     $('#xOut').onfocus = () => { $('#xOut').dataset.prev = $('#xOut').value; };
     $('#xBack').onchange = syncFormUI;
     $$('#lenPreset button').forEach(b => b.onclick = () => applyPreset(b.dataset.v));
-    ['#nMin', '#nMax'].forEach(s => $(s).oninput = () => { $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); });
+    ['#nMin', '#nMax'].forEach(s => $(s).oninput = () => { $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); syncHoliday(); });
     $('#radius').oninput = () => { $('#radiusVal').textContent = $('#radius').value + ' km'; refreshOrigins(); updateHomeChip(); mlHomeChanged(); };
     ['#groundOn', '#kmRate'].forEach(s => $(s).onchange = () => { refreshOrigins(); syncFormUI(); });
     $$('#groundMode button').forEach(b => b.onclick = () => { setGroundMode(b.dataset.g); refreshOrigins(); syncFormUI(); });
@@ -1348,7 +1353,7 @@
         <span class="cmp-flag">${flag(g.dest.cc)}</span>
         <div class="cmp-main"><div class="cmp-name"><b>${esc(g.dest.label)}</b>${hot.has(t.id) ? ' <span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>' : ''}${t.tempHi != null && lastResult?.query?.minTemp ? ` <span class="b sun">🌡️ ${Math.round(t.tempHi)} °C</span>` : ''}</div>
           <div class="faint cmp-sub">${esc(t.out.from)} → ${esc(t.out.to)} · ${when}${who ? ' · ' + esc(who) : ''}${memAge(t) ? ` · ⏱ ${Alerts.agoTxt(memAge(t) * 60e3)}` : ''}</div></div>
-        <div class="cmp-price"><b${(liveGet(SearchHelp.liveKey(t, liveAdults())) || {}).st === 'dearer' && SearchHelp.isCached(t) ? ' class="stale"' : ''}>${czk(t.perPersonCzk)}</b><small>/os.</small>${liveHtml(t)}</div><span class="cmp-chev" aria-hidden="true">${open ? '▴' : '▾'}</span>
+        <div class="cmp-price"><b${SearchHelp.isCached(t) && liveSt(t, liveGet(SearchHelp.liveKey(t, liveAdults()))) === 'dearer' ? ' class="stale"' : ''}>${czk(t.perPersonCzk)}</b><small>/os.</small>${liveHtml(t)}</div><span class="cmp-chev" aria-hidden="true">${open ? '▴' : '▾'}</span>
       </div>${open ? `<div class="cmp-card">${groupCard(g)}</div>` : ''}`;
     };
     return `<div class="card cmp-list">${groups.slice(0, n).map(row).join('')}</div>${groups.length > n ? `<button type="button" class="more-btn" data-cmore>Zobrazit další cíle (${groups.length - n})</button>` : ''}`;
@@ -2655,8 +2660,9 @@
     if (all.length < 2) { lwBox.innerHTML = ''; return; }
     const pr = SearchHelp.lwPrices(S.radar?.lw, all, x => radarKey(SearchHelp.radarQuery('holiday', radarHome(), today(), x.start)), Date.now(), today());
     const known = Object.values(pr), best = known.length > 1 ? Math.min(...known.map(p => p.czk)) : null;
+    const bestTxt = known.length < all.length ? ' – nejlevnější z víkendů s cenou' : all.length === 2 ? ' – nejlevnější z obou' : ' – nejlevnější ze všech';
     const at = t => { const d = new Date(t); return `${d.toDateString() === new Date().toDateString() ? '' : `${d.getDate()}. ${d.getMonth() + 1}. `}${d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`; };
-    lwBox.innerHTML = all.map(x => { const p = pr[x.start]; return `<button type="button" class="fchip ${x.start === q.lw.start ? 'on' : ''}" data-lw="${x.start}" title="${esc(x.name)}${x.bridge ? ' – s jedním dnem volna' : ''}${p ? ` · nejlevnější v radaru ${czk(p.czk)}/os. (${at(p.at)})${p.czk === best ? ' – nejlevnější ze tří' : ''}` : ' · cenu ukáže radar po klepnutí'}">🎉 ${SearchHelp.dmRange(x.start, x.end)} <small>${esc(x.name)}</small>${p ? ` <span class="lw-p${p.czk === best ? ' best' : ''}">od ${czk(p.czk)}</span>` : ''}</button>`; }).join('');
+    lwBox.innerHTML = all.map(x => { const p = pr[x.start]; return `<button type="button" class="fchip ${x.start === q.lw.start ? 'on' : ''}" data-lw="${x.start}" title="${esc(x.name)}${x.bridge ? ' – s jedním dnem volna' : ''}${p ? ` · nejlevnější v radaru ${czk(p.czk)}/os. (${at(p.at)})${p.czk === best ? bestTxt : ''}` : ' · cenu ukáže radar po klepnutí'}">🎉 ${SearchHelp.dmRange(x.start, x.end)} <small>${esc(x.name)}</small>${p ? ` <span class="lw-p${p.czk === best ? ' best' : ''}">od ${czk(p.czk)}</span>` : ''}</button>`; }).join('');
     $$('[data-lw]', lwBox).forEach(b => b.onclick = () => { if (b.dataset.lw !== q.lw.start) { S.radarHoliday = b.dataset.lw; save(); renderRadar(); } });
   }
   async function renderRadar(force) {
@@ -2727,7 +2733,8 @@
       S.radar = { all: S.radar?.all, weekend: S.radar?.weekend, lw: S.radar?.lw, ...(q.mode === 'holiday' ? { lw: SearchHelp.lwKeep(S.radar?.lw, q.lw.all, q.lw.start, r) } : { [q.mode]: r }) };
       save();
       // pozdě doběhlý jiný víkend: jeho cena hned na čip
-      if (q.mode === 'holiday' && radarWant !== key && S.radarMode === 'holiday') paintLw(SearchHelp.radarQuery('holiday', radarHome(), today(), S.radarHoliday));
+      // (radarWant = null: otevřené „Odkud obvykle létáš?“ – čipy tam nepatří)
+      if (q.mode === 'holiday' && radarWant && radarWant !== key && S.radarMode === 'holiday') paintLw(SearchHelp.radarQuery('holiday', radarHome(), today(), S.radarHoliday));
       return r;
     } finally { busySearches--; }
   }

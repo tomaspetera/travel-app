@@ -123,7 +123,12 @@ function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
 // Objevuj: do limitu se počítá jen požadavek, který opravdu půjde na Wikidata, Wikipedii nebo BRouter – odpověď celá
 // z mezipaměti serveru (stejné místo podruhé, návrat do Objevuj, už jednou spočítaná trasa) je zdarma. V DEMO se počítá vše.
 const TOO_MANY_EXPLORE = { error: 'Příliš mnoho požadavků – zkus to za pár minut.' };
-const exploreLimited = (req, cached = false) => !(cached && !config.mock) && rateLimited(req, config.explorePer10Min, explores);
+// Odpovědi z mezipaměti mají vlastní, štědrý limit (5× víc) – výpočet okruhů výletů zabere CPU i z mezipaměti a nesmí
+// jít opakovat donekonečna; běžný uživatel se k němu nepřiblíží.
+const exploresCached = new Map();
+const exploreLimited = (req, cached = false) => (cached && !config.mock
+  ? rateLimited(req, 5 * config.explorePer10Min, exploresCached)
+  : rateLimited(req, config.explorePer10Min, explores));
 /** Kolo a pěšky: mezipaměť se pozná až během plánování (trasy z BRouteru) – započte nejvýš jednou, nad limitem výjimka code 'LIMIT'. */
 function exploreCharge(req) {
   let done = false;
