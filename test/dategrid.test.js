@@ -464,7 +464,7 @@ test('gridModel: řádky podle dne, sloupce noci, minimum řádku; s filtry z na
 });
 
 test('activeFilters: buňka mřížky = čip „odlet 18. 11., 4 noci“ (jeden čip, zruší den i noci)', () => {
-  const v = { outDate: '2026-11-18', nights: 4, excludeOrigins: new Set(), carriers: new Set() };
+  const v = { outDate: '2026-11-18', nights: 4, excludeOrigins: new Set(), excludeCarriers: new Set() };
   assert.deepEqual(plain(H.activeFilters(null, v).map((c) => [c.key, c.label])), [['outDate', 'odlet 18. 11., 4 noci']]);
   assert.deepEqual(plain(H.activeFilters(null, { ...v, nights: 1 }).map((c) => c.label)), ['odlet 18. 11., 1 noc']);
   assert.deepEqual(plain(H.activeFilters(null, { ...v, nights: 7 }).map((c) => c.label)), ['odlet 18. 11., 7 nocí']);

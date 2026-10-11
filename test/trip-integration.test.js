@@ -10,9 +10,8 @@ import { routeKey } from '../server/lib/transfers.js';
 process.env.FUEL_LIVE = '0'; // přejezdy počítají palivo – ceny vestavěné, bez sítě (ČSÚ, Evropská komise, ECB)
 
 const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
-// state = uložený stav aplikace (S) už při načtení trip.js – jako při startu aplikace
 function load(state = {}) {
-  const ctx = { window: {}, URLSearchParams, TextEncoder, TextDecoder, btoa, atob, console };
+  const ctx = { window: {}, URLSearchParams, TextEncoder, TextDecoder, btoa, atob, console, __saves: 0 };
   vm.createContext(ctx);
   vm.runInContext(src('ics.js'), ctx, { filename: 'ics.js' });
   const helpers = src('app.js').match(/^const (esc|safeUrl|pad|fmtYMD|fmtDate|czk) = .*$/gm);
@@ -21,7 +20,7 @@ function load(state = {}) {
     var S = ${JSON.stringify(state)}, __els = {}, __toasts = [];
     var $ = (s) => (__els[s] ||= { innerHTML: '', value: '', remove() {} });
     var $$ = () => [];
-    var go = () => {}; var save = () => {}; var flag = (cc) => '[' + cc + ']';
+    var go = () => {}; var save = () => { __saves++; }; var flag = (cc) => '[' + cc + ']';
     var toast = (msg) => { __toasts.push(msg); };`, ctx, { filename: 'app-helpers.js' });
   vm.runInContext(src('trip.js'), ctx, { filename: 'trip.js' });
   return ctx;
@@ -420,51 +419,48 @@ test('let z průběžných výsledků: „Je to dobrá cena?“ až z konečnéh
   assert.equal(Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...trip({ route: null }), statsWait: JSON.stringify(q) }))).statsWait, undefined);
 });
 
-test('let z průběžných výsledků: hledání skončí bez konečného výsledku (zrušené jiným, chyba, zavřená stránka) → cesta nečeká navždy, statistika z průběžných', () => {
+test('let z průběžných výsledků, jejichž hledání konečný výsledek nepřineslo (zrušené jiným hledáním, chyba, znovu otevřená aplikace): „Je to dobrá cena?“ z průběžného výsledku s poznámkou', () => {
+  const setup = (c) => {
+    c.window.PriceCheck = c.PriceCheck = { assess: (f, st) => f.priceLevel || (st ? { level: 'normal', reason: `ze statistiky (${st.n} nabídek)` } : null) };
+    c.window.Flights = c.Flights = { priceTag: (f, i, pl) => `<b class="pl">${pl.level}</b>`, priceCheck: () => {} };
+  };
+  const c = load();
+  setup(c);
+  const { Trip } = c.window;
   const q = { from: ['ap:BRQ'], to: [], dateFrom: '2026-11-01', dateTo: '2026-11-30', adults: 2, bags: 'none' };
   const st = (n, median) => ({ n, min: 800, p25: 850, median, p75: 950, max: 1200, dateFrom: '2026-11-10', dateTo: '2026-11-20', mins: [['BRQ', '2026-11', 800]] });
   const noMins = (s) => plain({ ...s, mins: undefined });
   const fl = { ...trip().flight, id: 'demo-air|BRQ|OMR|2026-11-10T07:00:00', destKey: 'OMR', priceLevel: { level: 'low', reason: 'z náhledu', ref: 900, vsRef: -10 } };
   const grp = (stats, options = []) => ({ dest: { key: 'OMR', label: 'Oradea', cc: 'RO', country: 'Rumunsko', lat: 47.03, lon: 21.9 }, priceStats: stats, options });
   const preview = { partial: true, query: q, origins: [], groups: [grp(st(6, 886), [fl])] };
-  const tools = (c) => {
-    c.window.PriceCheck = c.PriceCheck = { assess: (f, s) => f.priceLevel || (s ? { level: 'normal', reason: `ze statistiky (${s.n} nabídek)` } : null) };
-    c.window.Flights = c.Flights = { priceTag: (f, i, pl) => `<b class="pl">${pl.level}</b>`, priceCheck: () => {} };
-  };
-  const c = load();
-  tools(c);
-  const { Trip } = c.window;
   Trip.start({ t: fl, g: preview.groups[0], result: preview });
   const t = c.S.trip;
-  assert.deepEqual([t.priceStats, t.statsWait, plain(t.statsPart)], [null, JSON.stringify(q), noMins(st(6, 886))], 'statistika z průběžných jen v záloze');
-  t.verifiedAt = 1;
-  assert.doesNotMatch(render(c, t), /Je to dobrá cena\?/);
-  // skončilo jiné hledání → čeká dál
+  assert.deepEqual([t.priceStats, t.statsWait], [null, JSON.stringify(q)], 'dokud hledání běží, čeká se na konečný výsledek');
+  // skončilo jiné hledání → cesty se netýká
   assert.equal(Trip.statsGiveUp(JSON.stringify({ ...q, adults: 1 })), false);
   assert.equal(t.statsWait, JSON.stringify(q));
-  // hledání, ze kterého let je, skončilo bez konečného výsledku → statistika z průběžných, štítek ceny hned (dopočítaný)
+  // hledání, ze kterého let je, skončilo bez konečného výsledku → statistika průběžného výsledku, s poznámkou
   assert.equal(Trip.statsGiveUp(JSON.stringify(q)), true);
-  assert.deepEqual([plain(t.priceStats), t.statsWait, t.statsPart, t.flight.priceLevel], [noMins(st(6, 886)), undefined, undefined, undefined]);
-  assert.match(sp(c.__els['#tfPl'].innerHTML), /<b class="pl">normal<\/b><span class="faint">ze statistiky \(6 nabídek\)<\/span>.*Je to dobrá cena\?/);
-  assert.match(render(c, t), /Je to dobrá cena\?/);
+  assert.deepEqual([plain(t.priceStats), t.statsWait, t.statsPreview, t.statsPart, t.flight.priceLevel], [noMins(st(6, 886)), undefined, undefined, JSON.stringify(q), undefined]);
+  assert.match(sp(c.__els['#tfPl'].innerHTML), /<b class="pl">normal<\/b><span class="faint">ze statistiky \(6 nabídek\) · podle průběžných výsledků, hledání nedoběhlo<\/span>.*Je to dobrá cena\?/);
+  t.verifiedAt = 1;
+  assert.match(render(c, t), /podle průběžných výsledků, hledání nedoběhlo/);
   assert.equal(Trip.statsGiveUp(JSON.stringify(q)), false, 'jen jednou');
-  assert.equal(Trip.finalStats({ query: q, origins: [], groups: [grp(st(8, 873))] }), false, 'pozdní konečný výsledek už nic nemění');
-  // průběžný výsledek bez statistiky → bez ní (úroveň ceny ze vzdálenosti), ne pád
-  c.S.trip = null;
-  Trip.start({ t: fl, g: null, result: { ...preview, groups: [] } });
-  assert.equal(Trip.statsGiveUp(), true);
-  assert.deepEqual([c.S.trip.priceStats, c.S.trip.statsWait], [null, undefined]);
-  // start aplikace: uložená cesta čekala na hledání, které už neběží (stránka zavřená) → při načtení vzdá
-  c.S.trip = null;
-  Trip.start({ t: fl, g: preview.groups[0], result: preview });
-  const saved = plain(c.S.trip);
-  assert.ok(saved.statsWait && saved.statsPart);
-  const d = load({ trip: saved });
-  assert.deepEqual([plain(d.S.trip.priceStats), d.S.trip.statsWait, d.S.trip.statsPart], [noMins(st(6, 886)), undefined, undefined]);
-  // na konečný výsledek nečekající cesta při startu beze změny
-  const e = load({ trip: { ...saved, statsWait: undefined, statsPart: undefined, priceStats: st(9, 870) } });
-  assert.deepEqual(plain(e.S.trip.priceStats), st(9, 870));
-  // cesta z odkazu, zálohy či z plánovače: statistika z průběžných místo žádné
-  const x = Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...trip({ route: null }), statsWait: JSON.stringify(q), statsPart: noMins(st(6, 886)), priceStats: null })));
-  assert.deepEqual([x.priceStats && x.priceStats.n, x.statsWait, x.statsPart], [6, undefined, undefined]);
+  // totéž hledání později doběhne: statistika a úroveň ceny z konečného výsledku, poznámka zmizí
+  const lvl = { level: 'normal', reason: 'kolem obvyklé ceny', ref: 900, vsRef: -2 };
+  assert.equal(Trip.finalStats({ query: q, origins: [], groups: [grp(st(8, 873), [{ ...fl, priceLevel: lvl }])] }), true);
+  assert.deepEqual([plain(t.priceStats), plain(t.flight.priceLevel), t.statsPart], [noMins(st(8, 873)), lvl, undefined]);
+  assert.doesNotMatch(sp(c.__els['#tfPl'].innerHTML), /průběžných/);
+  // aplikace znovu otevřená s cestou, která na konečný výsledek čekala: hned statistika průběžného výsledku (a uložit)
+  const waiting = { ...plain(trip({ route: null })), flight: { ...fl, priceLevel: undefined }, priceStats: null, statsWait: JSON.stringify(q), statsPreview: noMins(st(5, 900)) };
+  const c2 = load({ trip: waiting });
+  setup(c2);
+  assert.deepEqual([plain(c2.S.trip.priceStats), c2.S.trip.statsWait, c2.S.trip.statsPreview, c2.S.trip.statsPart], [noMins(st(5, 900)), undefined, undefined, JSON.stringify(q)]);
+  assert.equal(c2.__saves, 1);
+  assert.equal(load({ trip: plain(trip({ route: null })) }).__saves, 0, 'cesta, která na nic nečeká, se při otevření neukládá');
+  // odkaz, záloha či uložená cesta: totéž (příznak bez dotazu hledání), cizí hodnoty pryč
+  const s = Trip.sanitizeTrip(JSON.parse(JSON.stringify(waiting)));
+  assert.deepEqual([plain(s.priceStats), s.statsWait, s.statsPreview, s.statsPart], [noMins(st(5, 900)), undefined, undefined, true]);
+  const bad = Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...waiting, statsWait: undefined, statsPreview: { n: 'x' }, statsPart: 0 })));
+  assert.deepEqual([bad.priceStats, bad.statsPreview, bad.statsPart], [null, undefined, undefined]);
 });

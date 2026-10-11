@@ -3,10 +3,10 @@ import { config } from '../config.js';
 import { activeProviders } from '../providers/index.js';
 import { resolveDestinations, resolveOrigins, describe } from './places.js';
 import { airportsInCountry, destInfo, destKey, getAirport, sizePenaltyKm } from './airports.js';
-import { addDays, chunkRange, clampRange, daysBetween, isYmd, monthsInRange, todayYmd } from './dates.js';
+import { addDays, chunkRange, clampRange, daysBetween, isYmd, monthsInRange, todayYmd, weekday } from './dates.js';
 import { CONTINENT_BY_KEY, FAR_KM, LONG_HAUL_SWEEP, WARM_SWEEP, farAirport, farCountry, hubsNear, hubsOf } from './longhaul.js';
 import { mainAirport, monthClimate, warmAirports, warmShare, warmestHi } from './climate.js';
-import { bestOneWays, bestRoundTrips, calendarArray, cheapestPerDay, dateOk, gridArray, oneWayCalendar } from './optimizer.js';
+import { bestOneWays, bestRoundTrips, calendarArray, dateOk, gridArray, oneWayCalendar } from './optimizer.js';
 import { fxInfo, loadRates, toCzk } from './fx.js';
 import { haversineKm } from './geo.js';
 import { accessOpts, carQuery, normalizeAccess, parkCzk, parkDays } from './access.js';
@@ -356,9 +356,6 @@ export async function search(raw, emit = () => {}, opts = {}) {
   const trips = [];
   const outLegs = [];
   const backLegs = [];
-  // Kamkoliv: živé lety tam a zpět, které zdroje už stáhly – po doběhnutí všech z nich mixTrips složí i kombinace
-  // aerolinek a letišť (bez dotazů navíc).
-  const pool = { out: [], back: [] };
   const routeMode = dest.kind === 'airports';
   const destAirports = routeMode ? dest.airports.filter((a) => !originSet.has(a)) : [];
   const countries = dest.kind === 'countries' ? new Set(dest.countries) : null;
@@ -395,6 +392,277 @@ export async function search(raw, emit = () => {}, opts = {}) {
   // Prodloužený víkend: odlet v předvečer až od q.depAfter.time (let bez známého času projde). Vyřadit hned při sběru –
   // jinak by levnější ranní lety zabraly místa (nejlevnější let trasy za den, varianty skupiny) platným večerním.
   const depOk = (l) => !q.depAfter || !l || l.date !== q.depAfter.date || !l.hasTime || String(l.dep).slice(11, 16) >= q.depAfter.time;
+
+  /*
+   * Kamkoliv: kombinace aerolinek a letišť z živých letů tam a zpět, které zdroje už stáhly – tam s Ryanairem a zpět
+   * s Wizz Air, odlet z Vídně a návrat do Bratislavy, přílet na STN a odlet z LTN – bez dotazů navíc (mixTrips, nejvýš
+   * 3 nejlevnější na cíl). Aby lety všech tras, dnů a zdrojů nedržely paměť do konce hledání (široké hledání stovky MB):
+   *  • lety se třídí po cílech (destKey) a z každé trasy a dne se drží jen nejlevnější (jako cheapestPerDay; let tam jen
+   *    v povolený den a okno odletu, zpět jen v okně návratu – jiné by optimalizátor stejně přeskočil),
+   *  • let, který mezi 3 nejlevnější kombinace cíle už nemůže patřit, se průběžně zahodí (mixPrune),
+   *  • cíl se složí, jakmile do něj už žádný zdroj nic nepřinese (všechny zdroje ví, kam se budou ptát, a jejich dotazy
+   *    na trasy do cíle doběhly), a jeho lety se zahodí.
+   * Výsledek je stejný jako ze všech letů najednou (limits.mixWhole: tak – všechny lety až do konce, pro testy);
+   * v náhledech kombinace nejsou. res.stats.mix = { legs: lety nabídnuté do kombinací, peak: nejvíc držených najednou,
+   * dropped: zahozených prořezáním }.
+   */
+  const mixOn = !routeMode && Boolean(ret);
+  const mix = {
+    // destKey → { seq, legs: [tam, zpět], n, pruned }; legs[i]: Map „odkud|kam|den“ → { l, cost, seq, d } (seq = pořadí
+    // nalezení jako v jednom seznamu letů, d = den jako číslo), nebo jen seq – zahozený let trasy, na kterou se ještě
+    // čeká (let, který přijde na jeho místo, dostane jeho pořadí); n = počet letů, pruned = n po minulém prořezání
+    buckets: new Map(),
+    wait: new Map(), // destKey → kolik dotazů na trasy do cíle ještě běží
+    pairWait: new Map(), // „domov|cíl“ → kolik dotazů na tu trasu ještě běží (lety ostatních tras už jsou konečné)
+    unplanned: new Set(mixOn ? providers.filter((p) => p.live).map((p) => p.id) : []), // zdroje, které ještě neví, kam se ptát
+    done: [], // [pořadí cíle, kombinace]
+    closed: new Set(),
+    seq: 0,
+    legSeq: 0,
+    live: 0, // držených letů ve všech cílech
+    seen: 0,
+    peak: 0,
+    dropped: 0,
+  };
+  const mixWhole = limits.mixWhole === true;
+  const mixExtra = constraints.extra || (() => 0);
+  const mixDirect = (l) => !q.directOnly || !l.stops;
+  // Návrat stihne let tam, odlétá-li aspoň 2 h po příletu (returnFits; oba časy místní v cíli): late = nejdřívější
+  // odlet návratu, který let tam stihne; early = odlet návratu (bez času stihne cokoli).
+  const HOUR = 3600e3;
+  const localMs = (s) => Date.parse(`${String(s).slice(0, 16)}:00Z`);
+  const midMs = (ymd) => Date.parse(`${ymd}T00:00:00Z`);
+  const lateOf = (l) => { const t = l.arr ? localMs(l.arr) + 2 * HOUR : -Infinity; return Number.isNaN(t) ? -Infinity : t; };
+  const earlyOf = (l) => { const t = l.hasTime ? localMs(l.dep) : Infinity; return Number.isNaN(t) ? Infinity : t; };
+  // Let tam, který přiletí (+2 h) později než MIX_LAG po půlnoci dne odletu (po 22:00 druhého dne), se do kombinací
+  // nebere – Ryanair, Wizz Air ani demo takové nemají. Díky téhle mezi stihne při FIT_NIGHTS a víc nocích každý let tam
+  // každý návrat a při méně nocích jde poznat let tam, který stihne každý návrat dne (a návrat, který stihne každý let tam).
+  const MIX_LAG = 48 * HOUR;
+  const FIT_NIGHTS = 2;
+  const mixOutOk = (l) => mixDirect(l) && l.date >= q.dateFrom && l.date <= q.dateTo && warmLeg(l) && depOk(l)
+    && dateOk(l.date, null, constraints) && lateOf(l) <= midMs(l.date) + MIX_LAG;
+  const mixBackOk = (l) => mixDirect(l) && l.date >= backFrom && l.date <= backTo && !(q.backDays?.length && !q.backDays.includes(weekday(l.date)));
+  // Které lety spolu jdou spárovat (třída): bez návratu jinam (autem, bez open-jaw) jen týmž letištěm domova, bez open-jaw
+  // i týmž letištěm v cíli. i = 0 let tam, 1 návrat; home = letiště domova, away = letiště v cíli.
+  const mixPair = (home, away) => `${constraints.openJawHome ? '' : home}|${constraints.openJawDest ? '' : away}`;
+  const homeOf = (l, i) => (i === 0 ? l.from : l.to);
+  const awayOf = (l, i) => (i === 0 ? l.to : l.from);
+  const pairFinal = (l, i) => !mix.unplanned.size && !mix.pairWait.get(`${homeOf(l, i)}|${awayOf(l, i)}`);
+  const MIX_PRUNE_MIN = 48;
+  function mixKeep(l, i, k) {
+    // nemůže nastat: lety do cíle přinesou jen dotazy, na které cíl čekal (do uzavřeného by kombinace nesložil celé)
+    if (mix.closed.has(k)) return null;
+    let b = mix.buckets.get(k);
+    if (!b) mix.buckets.set(k, (b = { seq: Infinity, legs: [new Map(), new Map()], n: 0, pruned: 0 }));
+    if (i === 0 && b.seq === Infinity) b.seq = mix.seq++; // pořadí cílů jako dřív z jednoho seznamu letů tam
+    if (!(l.czk > 0)) return b;
+    // týž let z víc zdrojů a dotazů (Ryanair kamkoliv i po dnech) jednou – optimalizátor páruje jen nejlevnější let dne
+    const key = `${l.from}|${l.to}|${l.date}`;
+    const cost = l.czk + mixExtra(l);
+    const prev = b.legs[i].get(key);
+    mix.seen++;
+    if (prev === undefined || typeof prev === 'number') {
+      b.legs[i].set(key, { l, cost, seq: prev ?? mix.legSeq++, d: dayOf(l.date) });
+      b.n++;
+      mix.live++;
+    } else if (cost < prev.cost || (cost === prev.cost && l.live && !prev.l.live)) Object.assign(prev, { l, cost });
+    return b;
+  }
+  /** Lety živého zdroje do kombinací (outs: domov → cíl, backs: cíl → domov). */
+  function mixAdd(p, outs, backs) {
+    if (!mixOn || !p.live) return;
+    const touched = new Set();
+    for (const l of outs) if (mixOutOk(l)) touched.add(mixKeep(l, 0, destKey(l.to)));
+    for (const l of backs) if (mixBackOk(l)) touched.add(mixKeep(l, 1, destKey(l.from)));
+    mix.peak = Math.max(mix.peak, mix.live);
+    // prořezat, když cíl od minula aspoň zdvojnásobil počet letů (celkem lineární práce)
+    if (!mixWhole) for (const b of touched) if (b && b.n >= Math.max(MIX_PRUNE_MIN, 2 * b.pruned)) mixPrune(b);
+  }
+
+  /*
+   * Prořezání cíle (přesné – výsledek mixTrips se nezmění, ani pořadí při shodě ceny): let tam X se zahodí, když pro
+   * KAŽDÝ den návratu, se kterým jde spárovat, existují 3 jiné lety tam téže třídy (s různým podpisem kombinace), které
+   * stihnou každý návrat toho dne a i s parkováním vyjdou levněji (při shodě dřív nalezené – jako stabilní řazení
+   * optimalizátoru): s jakýmkoli návratem pak dají 3 levnější kombinace než X. Návraty obdobně (pro každý den odletu).
+   * Při FIT_NIGHTS a víc nocích stihne každý let každý protějšek, takže se počítá kterýkoli let (levnější let téhož dne,
+   * který ho může nahradit, taky). Při méně nocích jen let, který stihne každý protějšek dne (let tam přiletí aspoň 2 h
+   * před půlnocí dne návratu, návrat odlétá aspoň MIX_LAG po půlnoci dne odletu) a jehož trasa už je konečná – jinak by
+   * ho mohl nahradit levnější let téhož dne, který protějšek nestihne. Zahozený let překonaly jen levnější, takže
+   * prořezávání po částech je stejně přesné jako najednou. Na místo zahozeného letu trasy, na kterou se ještě čeká,
+   * přijde i dražší let téhož dne (překonají ho tytéž lety, jako by tam byl zahozený, a při dalším prořezání zmizí) –
+   * levnější tak dostane pořadí jako v jednom seznamu letů.
+   */
+  // Dny jako čísla od q.dateFrom; okTable[d * NN + n - nightsMin] = 1: odlet v den d (okno odletu) a návrat o n nocí
+  // později (okno návratu, dny v týdnu, přesná data) jdou spárovat.
+  const DAY_MS = 864e5;
+  const day0 = midMs(q.dateFrom);
+  const dayIdx = new Map();
+  const dayOf = (ymd) => {
+    let v = dayIdx.get(ymd);
+    if (v === undefined) dayIdx.set(ymd, (v = Math.round((midMs(ymd) - day0) / DAY_MS)));
+    return v;
+  };
+  const NN = q.nightsMax - q.nightsMin + 1;
+  const outSpan = daysBetween(q.dateFrom, q.dateTo) + 1;
+  let okTable = null;
+  const okAt = (d, n) => {
+    if (d < 0 || d >= outSpan) return false;
+    if (!okTable) {
+      okTable = new Uint8Array(outSpan * NN);
+      for (let a = 0; a < outSpan; a++) {
+        const out = addDays(q.dateFrom, a);
+        for (let k = 0; k < NN; k++) {
+          const back = addDays(out, q.nightsMin + k);
+          okTable[a * NN + k] = back >= backFrom && back <= backTo && dateOk(out, back, constraints) ? 1 : 0;
+        }
+      }
+    }
+    return okTable[d * NN + n - q.nightsMin] === 1;
+  };
+  const parkOf = (home, n) => (park ? park(home, n) : 0);
+  function mixPrune(b) {
+    for (const i of [0, 1]) {
+      // i = 0: lety tam, den protějšku (návratu) o n nocí později; i = 1: návraty, den protějšku (odletu) o n dřív
+      const sign = i === 0 ? 1 : -1;
+      // při shodě ceny pořadí jako v optimalizátoru: lety tam podle nalezení, návraty podle dne a pak nalezení
+      const before = i === 0 ? (x, y) => x.seq < y.seq : (x, y) => (x.d !== y.d ? x.d < y.d : x.seq < y.seq);
+      const classes = new Map();
+      for (const [key, x] of b.legs[i]) {
+        if (typeof x === 'number') {
+          // zahozený let trasy, která už doběhla – na jeho místo nic nepřijde
+          const [from, to] = key.split('|');
+          if (pairFinal({ from, to }, i)) b.legs[i].delete(key);
+          continue;
+        }
+        const l = x.l;
+        const c = mixPair(homeOf(l, i), awayOf(l, i));
+        let g = classes.get(c);
+        if (!g) classes.set(c, (g = { all: [], byDay: new Map() }));
+        x.r = x.cost + groundOf(homeOf(l, i));
+        x.sig = `${homeOf(l, i)}|${l.date}|${l.carrier}|${l.dep}`;
+        g.all.push(key, x);
+        if (q.nightsMin < FIT_NIGHTS) {
+          x.fin = pairFinal(l, i);
+          x.fit = i === 0 ? lateOf(l) : earlyOf(l);
+        }
+        let list = g.byDay.get(x.d);
+        if (!list) g.byDay.set(x.d, (list = []));
+        list.push(x);
+      }
+      for (const g of classes.values()) {
+        for (const list of g.byDay.values()) list.sort((x, y) => x.r - y.r || (before(x, y) ? -1 : 1));
+        // 3 nejlevnější (různé podpisy kombinace) pro den protějšku o: [[cena i s parkováním, x], …]
+        const tops = new Map();
+        const top3 = (o) => {
+          let best = tops.get(o);
+          if (best) return best;
+          best = [];
+          const oMs = day0 + o * DAY_MS;
+          for (let n = q.nightsMin; n <= q.nightsMax; n++) {
+            const day = o - sign * n;
+            if (!okAt(i === 0 ? day : o, n)) continue;
+            const list = g.byDay.get(day);
+            if (!list) continue;
+            let taken = 0;
+            for (const x of list) {
+              if (taken >= 3) break;
+              if (n < FIT_NIGHTS && !(x.fin && (i === 0 ? x.fit <= oMs : x.fit >= oMs + MIX_LAG))) continue;
+              taken++;
+              const c = x.r + parkOf(homeOf(x.l, i), n);
+              const at = best.findIndex((y) => y[1].sig === x.sig);
+              if (at >= 0) {
+                if (!(c < best[at][0] || (c === best[at][0] && before(x, best[at][1])))) continue;
+                best.splice(at, 1);
+              }
+              let j = best.length;
+              while (j > 0 && (c < best[j - 1][0] || (c === best[j - 1][0] && before(x, best[j - 1][1])))) j--;
+              if (j < 3) best.splice(j, 0, [c, x]);
+              if (best.length > 3) best.length = 3;
+            }
+          }
+          tops.set(o, best);
+          return best;
+        };
+        const drop = [];
+        for (let a = 0; a < g.all.length; a += 2) {
+          const x = g.all[a + 1];
+          let beaten = true; // i bez jediného spárovatelného dne – takový let se nespáruje vůbec
+          for (let n = q.nightsMin; n <= q.nightsMax; n++) {
+            const o = x.d + sign * n;
+            if (!okAt(i === 0 ? x.d : o, n)) continue;
+            const t = top3(o);
+            const c = x.r + parkOf(homeOf(x.l, i), n);
+            if (t.length < 3 || t[0][1] === x || t[1][1] === x || t[2][1] === x
+              || !(t[2][0] < c || (t[2][0] === c && before(t[2][1], x)))) {
+              beaten = false;
+              break;
+            }
+          }
+          if (beaten) drop.push(g.all[a], x);
+        }
+        // až po vyhodnocení celé třídy (top3 se počítá i ze zahazovaných – každého překonaly jiné, levnější)
+        for (let a = 0; a < drop.length; a += 2) {
+          const x = drop[a + 1];
+          if (pairFinal(x.l, i)) b.legs[i].delete(drop[a]);
+          else b.legs[i].set(drop[a], x.seq);
+          b.n--;
+          mix.live--;
+          mix.dropped++;
+        }
+      }
+    }
+    b.pruned = b.n;
+  }
+
+  const mixReady = (k) => !mixWhole && !mix.unplanned.size && !mix.wait.get(k);
+  function mixFlush(k) {
+    const b = mix.buckets.get(k);
+    mix.buckets.delete(k);
+    mix.closed.add(k);
+    mix.live -= b.n;
+    const legs = (i) => [...b.legs[i].values()].filter((x) => typeof x !== 'number').map((x) => x.l);
+    if (b.seq !== Infinity) mix.done.push([b.seq, mixTrips(legs(0), legs(1))]);
+  }
+  /** Zdroj ví, kam se bude ptát: routes = [[domov, cíl], …] jeho dotazů po dnech (každý pak mixRouteDone). */
+  function mixPlan(p, routes = []) {
+    if (!mix.unplanned.has(p.id)) return;
+    for (const [o, d] of routes) {
+      mix.wait.set(destKey(d), (mix.wait.get(destKey(d)) || 0) + 1);
+      mix.pairWait.set(`${o}|${d}`, (mix.pairWait.get(`${o}|${d}`) || 0) + 1);
+    }
+    mix.unplanned.delete(p.id);
+    if (mix.unplanned.size) return;
+    for (const [k, b] of [...mix.buckets]) {
+      if (mixReady(k)) mixFlush(k);
+      else if (!mixWhole && q.nightsMin < FIT_NIGHTS && b.n >= MIX_PRUNE_MIN) mixPrune(b); // trasy bez čekajících dotazů jsou teď konečné
+    }
+  }
+  const dec = (m, k) => {
+    const n = (m.get(k) || 1) - 1;
+    if (n > 0) m.set(k, n);
+    else m.delete(k);
+  };
+  /** Dotaz po dnech na trasu o → d doběhl (i chybou) – tento zdroj už na ní nic nepřinese. */
+  function mixRouteDone(p, o, d) {
+    if (!mixOn || !p.live) return;
+    const k = destKey(d);
+    dec(mix.wait, k);
+    dec(mix.pairWait, `${o}|${d}`);
+    if (mix.buckets.has(k) && mixReady(k)) mixFlush(k);
+  }
+  /** Úloha dotazu na trasu o → d: po doběhnutí (i chybou) mixRouteDone. */
+  const routeTask = (p, o, d, fn) => async () => {
+    try {
+      await fn();
+    } finally {
+      mixRouteDone(p, o, d);
+    }
+  };
+  /** Konečný výsledek: složí i cíle, na které se ještě čekalo, a vrátí kombinace všech cílů. */
+  function mixAll() {
+    for (const k of [...mix.buckets.keys()]) mixFlush(k);
+    return mix.done.sort((a, b) => a[0] - b[0]).flatMap((x) => x[1]);
+  }
   const warmTargets = (order, months, max) => {
     const out = [];
     for (const cc of order) {
@@ -523,9 +791,21 @@ export async function search(raw, emit = () => {}, opts = {}) {
     st.note = parts.join(' · ');
   }
 
+  // Zdroj „kamkoliv“; ať skončí jakkoli, do kombinací už nic nepřinese (mixPlan bez cílů – ostatní cíle se můžou složit).
   async function exploreProvider(p) {
+    try {
+      await exploreFrom(p);
+    } finally {
+      mixPlan(p);
+    }
+  }
+
+  async function exploreFrom(p) {
     const st = stOf(p);
-    if (p.search && !p.explore) return kiwiExplore(p, st);
+    if (p.search && !p.explore) {
+      mixPlan(p); // Kiwi: celé zpáteční letenky, do kombinací nic – na pomalé Kiwi se nečeká
+      return kiwiExplore(p, st);
+    }
     if (!p.explore && !p.destinations) {
       st.note = 'hledá jen ke konkrétnímu cíli – zadej, kam letíš';
       return;
@@ -553,7 +833,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
             trips.push(t);
             st.found++;
             // celé zpáteční letenky a ceny z mezipaměti (Travelpayouts) se na lety nerozkládají
-            if (p.live && t.back && !t.combined) { pool.out.push(t.out); pool.back.push(t.back); }
+            if (t.back && !t.combined) mixAdd(p, [t.out], [t.back]);
             // za teplem: jediný (nejlevnější) termín vyšel na chladný měsíc → teplejší dohledat po dnech
             if (p.daily && !warmLeg(t.out) && warmOk(t.out.to)) refine.push(t);
           } else if (p.daily && warmOk(t.out.to)) {
@@ -574,12 +854,13 @@ export async function search(raw, emit = () => {}, opts = {}) {
         todo.push(t);
         if (todo.length >= 10) break;
       }
+      mixPlan(p, todo.map((t) => [t.out.from, t.out.to]));
       if (todo.length) {
-        await runTasks(st, todo.map((t) => async () => {
+        await runTasks(st, todo.map((t) => routeTask(p, t.out.from, t.out.to, async () => {
           const found = await routeTrips(p, t.out.from, t.out.to, { perPair: 2 });
           trips.push(...found);
           st.found += found.length;
-        }));
+        })));
       }
       return;
     }
@@ -598,7 +879,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
       st.coverage = plan.summary; // UI: tlačítko „Prohledat zbylé trasy“
       st.note = routesNote({ ...plan.summary, blocked });
       if (blocked) st.error = 'Wizz Air dočasně blokuje dotazy (429) – ceny jen z paměti';
-      await runTasks(st, plan.list.map((r) => async () => {
+      mixPlan(p, plan.list.map((r) => [r.o, r.d]));
+      await runTasks(st, plan.list.map((r) => routeTask(p, r.o, r.d, async () => {
         let found;
         try {
           found = await routeTrips(p, r.o, r.d, { perPair: 2, memoryOnly: r.mode === 'memory' });
@@ -609,18 +891,19 @@ export async function search(raw, emit = () => {}, opts = {}) {
         }
         trips.push(...found);
         st.found += found.length;
-      }));
+      })));
       return;
     }
     // dotazů na trasu: okna cesty tam + (delší) cesty zpět – jako u hledání ke konkrétnímu cíli
     const perRoute = p.callsPerRoute ? p.callsPerRoute(q.dateFrom, q.dateTo) + (ret ? p.callsPerRoute(backFrom, backTo) : 0) : (ret ? 2 : 1);
     const take = Math.max(1, Math.min(routes.length, Math.floor(budget / perRoute)));
     if (take < routes.length) st.note = routesNoteNearest(take, routes.length);
-    await runTasks(st, routes.slice(0, take).map((r) => async () => {
+    mixPlan(p, routes.slice(0, take).map((r) => [r.o, r.d]));
+    await runTasks(st, routes.slice(0, take).map((r) => routeTask(p, r.o, r.d, async () => {
       const found = await routeTrips(p, r.o, r.d, { perPair: 2 });
       trips.push(...found);
       st.found += found.length;
-    }));
+    })));
   }
 
   // Ceny po dnech pro jednu trasu → nejlepší cesty (bez open-jaw; kombinace s lety jiných tras a zdrojů skládá mixTrips).
@@ -632,8 +915,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
     // počítal, se stejně načte – jinak by trasa zůstala navždy „nehledaná“ a brala rozpočet každému hledání.
     if (!out.length && !(all.length && p.routeState && !memoryOnly)) return [];
     const back = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, adults: q.adults, directOnly: q.directOnly, memoryOnly });
-    // ceny z mezipaměti (Travelpayouts dohledává po dnech taky) se nekombinují
-    if (!routeMode && p.live) { pool.out.push(...out); pool.back.push(...back); }
+    // ceny z mezipaměti (Travelpayouts dohledává po dnech taky) se nekombinují (mixAdd jen živé zdroje)
+    mixAdd(p, out, back);
     return bestRoundTrips(out, back, groundOf, { ...constraints, openJawHome: false, openJawDest: false, perDestLimit: perPair, limit: perPair });
   }
 
@@ -777,20 +1060,14 @@ export async function search(raw, emit = () => {}, opts = {}) {
   }
 
   /**
-   * Kamkoliv: kombinace z letů, které zdroje už stáhly (pool) – tam s Ryanairem a zpět s Wizz Air, odlet z Vídně
-   * a návrat do Bratislavy, přílet na STN a odlet z LTN – bez dotazů navíc. Po cílech (destKey): optimalizátor indexuje
-   * návraty jen podle data, přes celý pool by u každého letu tam procházel stovky návratů jinam. Nejvýš 3 nejlevnější
+   * Kombinace jednoho cíle (destKey) z jeho letů (mix, nejlevnější let trasy a dne): optimalizátor indexuje návraty
+   * jen podle data, přes všechny cíle najednou by u každého letu tam procházel stovky návratů jinam. Nejvýš 3 nejlevnější
    * na cíl a z nich jen ty, které zdroje samy nenabídly (2 aerolinky nebo jiné letiště); open-jaw podle constraints
    * (autem návrat k autu, bez „návrat i na jiné letiště“ jen stejná letiště).
    */
-  function mixTrips() {
-    const extra = constraints.extra || (() => 0);
-    const by = new Map();
-    const add = (l, i, k) => { if (!by.has(k)) by.set(k, [[], []]); by.get(k)[i].push(l); };
-    const direct = (l) => !q.directOnly || !l.stops;
-    // let tam jen v povolený den (dny v týdnu, přesná data) – optimalizátor by jiné stejně přeskočil
-    for (const l of pool.out) if (direct(l) && warmLeg(l) && depOk(l) && dateOk(l.date, null, constraints)) add(l, 0, destKey(l.to));
-    for (const l of pool.back) if (direct(l)) add(l, 1, destKey(l.from));
+  function mixTrips(o, b) {
+    if (!o.length || !b.length) return [];
+    const extra = mixExtra;
     // cena letu jako v optimalizátoru: tam s dopravou z domova, zpět s dopravou domů (+ zavazadla, cesta do města);
     // autem k letu tam i parkování na nejkratší cestu (dolní mez – jinak by prořezávání v autě skoro nic nevyřadilo)
     const pk = (l) => (park ? park(l.from, q.nightsMin) : 0);
@@ -804,32 +1081,24 @@ export async function search(raw, emit = () => {}, opts = {}) {
     const kb = (l) => pair(l.to, l.from);
     const lows = (r, k) => { const m = new Map(); for (const [l, c] of r) if (!(m.get(k(l)) <= c)) m.set(k(l), c); return m; };
     const opts = { ...constraints, limit: 3, perDestLimit: 3, legsPerDay: 1 };
-    const out = [];
-    for (const lists of by.values()) {
-      // týž let z víc zdrojů a dotazů (Ryanair kamkoliv i po dnech) jednou – optimalizátor páruje jen nejlevnější let dne
-      const [o, b] = lists.map((x) => cheapestPerDay(x, extra));
-      if (!o.length || !b.length) continue;
-      const ro = o.map((l) => [l, oc(l)]);
-      const rb = b.map((l) => [l, bc(l)]);
-      // Horní mez: 3. nejlevnější kombinace z 8 nejlevnějších letů tam a 40 (málo kombinací: všech) zpět. Let, který
-      // i s nejlevnějším letem druhým směrem vyjde dráž, mezi 3 nejlevnější nepatří – páruje se jen zbytek (stejný
-      // výsledek, zlomek práce: v demu z 8 letišť ~9 % letů tam).
-      let seed = bestRoundTrips(top(ro, 8), top(rb, 40), groundOf, opts);
-      if (seed.length < 3 && b.length > 40) seed = bestRoundTrips(top(ro, 8), b, groundOf, opts);
-      const max = seed.length < 3 ? Infinity : Math.max(...seed.map((t) => oc(t.out) - pk(t.out) + bc(t.back) + (park ? park(t.out.from, t.nights) : 0)));
-      const keep = (r, k, lo) => r.filter(([l, c]) => c + (lo.get(k(l)) ?? Infinity) <= max).map((x) => x[0]);
-      for (const t of bestRoundTrips(keep(ro, ko, lows(rb, kb)), keep(rb, kb, lows(ro, ko)), groundOf, opts)) {
-        if (t.provider === 'mix' || t.back.from !== t.out.to || t.back.to !== t.out.from) out.push(t);
-      }
-    }
-    return out;
+    const ro = o.map((l) => [l, oc(l)]);
+    const rb = b.map((l) => [l, bc(l)]);
+    // Horní mez: 3. nejlevnější kombinace z 8 nejlevnějších letů tam a 40 (málo kombinací: všech) zpět. Let, který
+    // i s nejlevnějším letem druhým směrem vyjde dráž, mezi 3 nejlevnější nepatří – páruje se jen zbytek (stejný
+    // výsledek, zlomek práce: v demu z 8 letišť ~9 % letů tam).
+    let seed = bestRoundTrips(top(ro, 8), top(rb, 40), groundOf, opts);
+    if (seed.length < 3 && b.length > 40) seed = bestRoundTrips(top(ro, 8), b, groundOf, opts);
+    const max = seed.length < 3 ? Infinity : Math.max(...seed.map((t) => oc(t.out) - pk(t.out) + bc(t.back) + (park ? park(t.out.from, t.nights) : 0)));
+    const keep = (r, k, lo) => r.filter(([l, c]) => c + (lo.get(k(l)) ?? Infinity) <= max).map((x) => x[0]);
+    return bestRoundTrips(keep(ro, ko, lows(rb, kb)), keep(rb, kb, lows(ro, ko)), groundOf, opts)
+      .filter((t) => t.provider === 'mix' || t.back.from !== t.out.to || t.back.to !== t.out.from);
   }
 
   /**
    * Výsledek z cest a letů nalezených do teď (bez sítě) → { res, flat }. final = false: průběžný náhled – z kopií cest
    * a letů (buildGroups do nich píše ceny a štítky), bez mřížky termínů a nejbližších dnů, nejvýš PARTIAL.groups cílů
    * a ve výpisu PARTIAL.top nejlevnějších nabídek (+ nejlevnější z každého letiště a dne), res.partial = true.
-   * Kombinace aerolinek a letišť v Kamkoliv (mixTrips) jen v konečném.
+   * Kombinace aerolinek a letišť v Kamkoliv (mixAll) jen v konečném.
    */
   function compose(final) {
     const cp = new Map();
@@ -883,7 +1152,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     if (q.depAfter) { const ok = tr.filter((t) => depOk(t.out)); tr.length = 0; tr.push(...ok); }
     const { groups, flat, warm, hidden, priceStats: routeStats, byOrigin, cells } = buildGroups(tr, {
       q, originSet: allOrigins, groundOf, park, arrOf, legCosts: routeMode && Boolean(q.exact), cells: cellTrips, ...(final ? {} : { maxGroups: PARTIAL.groups }),
-      mixed: final && !routeMode && ret ? mixTrips() : [],
+      mixed: final && mixOn ? mixAll() : [],
     });
     // Wizz Air: odlety dne už jsou v jeho datech – přenést i na tytéž přímé lety W6 nalezené přes Kiwi.
     if (routeMode) shareDepartures([...nearLegs.out, ...nearLegs.back], flat.concat(cells), 'wizzair', 'W6');
@@ -941,7 +1210,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       providers: final ? status : status.map((s) => ({ ...s })),
       fx: fxInfo(),
       demo: config.mock,
-      stats: { trips: tr.length, groups: groups.length, ms: Date.now() - t0 },
+      stats: { trips: tr.length, groups: groups.length, ms: Date.now() - t0, ...(final && mixOn ? { mix: { legs: mix.seen, peak: mix.peak, dropped: mix.dropped } } : {}) },
     };
     return { res, flat };
   }
