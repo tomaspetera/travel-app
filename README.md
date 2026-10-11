@@ -70,16 +70,20 @@ plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dota
 
 - **Před odjezdem** „🧳 Za 2 dny odlet · Lisabon“ a řádky po dnech až do dne odjezdu (online check-in, kdy nejpozději
   vyrazit z domu, cesta na letiště, let s časem, dopravcem a číslem, z letiště do města, ubytování) a kolik položek
-  „Sbaleno“ zbývá zařídit a sbalit (odkaz do plánu).
+  „Sbaleno“ zbývá zařídit a sbalit (odkaz do plánu). „Odlet“ jen u cesty s letem, jinak (autem, vlakem, z Objevuj)
+  „odjezd“.
 - **Na cestě** „📍 Dnes na cestě · den 3 z 6 · Lisabon“: dnešní řádky (program s trasou pěšky do Google Map a Mapy.com,
   přejezd, kdy vyrazit z ubytování na letiště, let zpět) a první řádek zítřka; ubytování toho dne s odkazem
   **navigovat** (Google Maps odtud, kde právě jsi), místní čas a posun proti Praze, odpočet do odletu či odjezdu
-  (posledních 24 h). U trasy přes víc míst je to místo, kde ten den spíš. **📋 Celý plán →** otevře okno cesty.
+  (posledních 24 h, jen u spoje s časem – u „čas ověř“ si karta čas nevymýšlí). U trasy přes víc míst je to místo, kde
+  ten den spíš. **📋 Celý plán →** otevře okno cesty.
 - Řádky jsou tytéž jako v časové ose shrnutí průvodce (`Trip.timeline` – karta a shrnutí se nerozejdou); u cesty jen
-  z plánovače z jejích letů či vlaku a aktivit dnů, u cesty z průvodce i s aktivitami přidanými v plánovači.
-- „Dnes“ je den v místě, kde cesta právě je – před odletem doma, po něm v cíli, po návratu zase doma (zóny letišť
-  a měst ze spojů, i přes změnu času); cesta bez časů spojů bere den v telefonu. Běží-li víc cest najednou, má přednost
-  probíhající (z nich naposledy začatá), jinak nejbližší odjezd.
+  z plánovače z jejích letů či vlaku a aktivit dnů, u cesty z průvodce i s aktivitami přidanými v plánovači – a bez
+  těch, které jsi v Itineráři smazal nebo přejmenoval (karta ukáže totéž co plán, trasa pěšky jen k tomu, co zbylo).
+- „Dnes“ je den v místě, kde cesta právě je – před odletem doma (i v letadle), po přistání v cíli, po návratu zase
+  doma (zóny letišť a měst ze spojů, i přes změnu času); spoj bez času přepne až o půlnoci po dni odjezdu. Let zpět
+  s přistáním po půlnoci drží kartu do konce dne příletu. Cesta bez časů spojů bere den v telefonu. Běží-li víc cest
+  najednou, má přednost probíhající (z nich naposledy začatá), jinak nejbližší odjezd.
 
 **🔖 Rezervace**: v okně cesty v plánovači si k cestě zapíšeš až 6 kódů – co (let tam, hotel…), kód (PNR, číslo
 potvrzení) a poznámku. Karta je ukáže s tlačítkem **Kopírovat**. Kódy zůstanou **jen v tomto zařízení** a v **💾 záloze**

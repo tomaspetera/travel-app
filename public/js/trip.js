@@ -1550,11 +1550,18 @@
   const checkinRow = (l, c) => [c.open.slice(0, 10), '📲', `Online check-in ${esc(c.airline)} ${esc(l.from)} → ${esc(l.to)}: otevře se ${fmtDate(c.open.slice(0, 10))} v ${c.open.slice(11, 16)} (24 h před odletem), zavře ${c.closeH} h před odletem · na letišti se platí ~${esc(c.fee)}/os.`];
   // aktivity dnů z plánovače ({ den: [text] }; u cesty z průvodce jen ty přidané v plánovači – 📝)
   const ownRows = (rows, own, ico = '📝') => Object.keys(own || {}).sort().forEach(d => { const a = (Array.isArray(own[d]) ? own[d] : []).filter(x => typeof x === 'string' && x); if (/^\d{4}-\d{2}-\d{2}$/.test(d) && a.length) rows.push([d, ico, a.map(esc).join(' · ')]); });
+  /** Aktivita programu, jak ji průvodce uloží do plánovače („Místo: název – poznámka“, u jednoho místa bez místa). */
+  const actTxt = (place, x) => (place ? `${place}: ` : '') + x.name + (x.note ? ` – ${x.note}` : '');
+  // den programu bez aktivit smazaných či přejmenovaných v plánovači (drop: { den: [text z plánovače] }); cesta
+  // z průvodce prošla sanitizeTrip, který z textů vyhodí <>"'` – porovnává se bez nich
+  const cutQ = s => String(s).replace(/[<>"'`]/g, '');
+  const progDay = (d, place, drop) => { const g = drop && Array.isArray(drop[d.date]) ? drop[d.date].map(cutQ) : null; return g ? { ...d, items: d.items.filter(x => !g.includes(cutQ(actTxt(place, x)))) } : d; };
   /**
    * Průběh cesty po dnech [[den YYYY-MM-DD, ikona, html, { plan, day }?]] seřazený podle dne – shrnutí průvodce i karta
    * „📍 Dnes na cestě“ (app.js) z jednoho místa, ať se nerozejdou. Řádek programu nese i den a program (trasa pěšky).
    * Cesta z průvodce (t.flight.out), nebo jen z plánovače: lety t.legs / vlak t.ground (tvar legBrief / groundBrief) a
-   * aktivity t.days. o.own = aktivity přidané v plánovači k cestě z průvodce.
+   * aktivity t.days. o.own = aktivity přidané v plánovači k cestě z průvodce, o.drop = aktivity průvodce v plánovači
+   * smazané nebo přejmenované (z programu dne pryč, i z trasy pěšky).
    */
   function timeline(t, o = {}) {
     if (!(t.flight && t.flight.out)) return planTimeline(t);
@@ -1565,6 +1572,8 @@
     // z ubytování na letiště: před cestou na letiště (večer předchozího dne až po programu)
     const hotelRow = x => x && rows.push([x.date + (x.date < f.back.date ? '~' : ''), '🚪', `Z ubytování na letiště ${esc(x.airport)} vyraž nejpozději ${lbTime(x)} <span class="faint">(~${minutesToHm(x.min)} cesta + ${lbBefore(x)} před odletem, odhad)</span>${x.hint ? ' · ' + esc(x.hint) : ''}`]);
     const gRow = (g, a, b) => `${esc(a)} → ${esc(b)} · ${esc(gTime(g))} · ${esc(gKind(g))}${g.fromStation ? ` · ${esc(g.fromStation)} → ${esc(g.toStation)}` : ''} (${esc(gWho(g))})`;
+    // let bez času (cena z mezipaměti): ne vymyšlená půlnoc, ale „čas ověř“ jako u cesty z plánovače
+    const fRow = l => (l.hasTime ? `${esc(l.from)} ${hhmm(l.dep)} → ${esc(l.to)} ${arrHm(l)} · ${legWho(l)}` : `${esc(l.from)} → ${esc(l.to)} · ${[legWho(l), 'čas ověř'].filter(Boolean).join(' · ')}`);
     if (ov) rows.push([ov.out.date, gIco(ov.out), gRow(ov.out, ov.from.label, ov.to.label)]);
     else {
       // autem i čím jede: „Autem na letiště PRG (nafta, ~45 min, odhad)“, „Elektroautem na letiště …“
@@ -1574,7 +1583,7 @@
       if (gl.out) rows.push([f.out.date, gl.icon, esc(gl.out)]);
       // z letiště domů až po přistání (dálkový let zpět přistane i další den)
       if (gl.back) rows.push([arrivalAt(f.back).slice(0, 10) + '~', gl.icon, esc(gl.back)]);
-      rows.push([f.out.date, '🛫', `${esc(f.out.from)} ${hhmm(f.out.dep)} → ${esc(f.out.to)} ${arrHm(f.out)} · ${legWho(f.out)}`]);
+      rows.push([f.out.date, '🛫', fRow(f.out)]);
       // z letiště do města (jedno místo pobytu; u trasy přes víc míst je to přejezd na 1. místo) – ne s autem z letiště
       const ao = !multi && t.arrival && t.arrival.out;
       if (ao && !carCovers(t, 'out')) rows.push([arrivalAt(f.out).slice(0, 10), ARR_ICO[ao.mode] || '🚌', esc(arrivalRow(ao))]);
@@ -1589,7 +1598,7 @@
         rows.push([dates[i].checkin, '🏨', `<b>${esc(b.name)}</b> · ${nightsTxt(b.nights)} · ${esc(hotelName(b.stay) || (b.stay && b.stay.mode === 'skip' ? 'ubytování neřeším' : 'ubytování zatím nevybráno'))}`]);
         // den cesty bez programu (přílet pozdě večer, odjezd ráno) jako v kroku Program – bez řádku „volno“
         const bp = basePlan(t, i);
-        for (const d of (bp?.days || [])) if (d.items.length || d.cap) rows.push([d.date, '📍', `${esc(b.name)}: ${d.items.map(x => esc(x.name)).join(' · ') || 'volno'}`, { plan: bp, day: d }]);
+        for (const d of (bp?.days || []).map(y => progDay(y, b.name, o.drop))) if (d.items.length || d.cap) rows.push([d.date, '📍', `${esc(b.name)}: ${d.items.map(x => esc(x.name)).join(' · ') || 'volno'}`, { plan: bp, day: d }]);
         const x = r.transfers && r.transfers[i];
         if (i < r.bases.length - 1) rows.push([dates[i].checkout, trIcon(tr, x), `Přejezd ${esc(b.name)} → ${esc(r.bases[i + 1].name)}${x ? ` · ${legTxt(x, tr)} (${estTxt(x, tr)})${esc(borderTxt(x))}${legLink(x, tr) ? ` · ${legLink(x, tr)}` : ''}` : ''}`]);
       });
@@ -1600,7 +1609,7 @@
     } else {
       if (t.stay && t.stay.mode !== 'skip') rows.push([checkin, '🏨', `Ubytování: ${esc(t.stay.name || '')}`]);
       const tp = tripPlan(t);
-      for (const d of (tp?.days || [])) if (d.items.length || d.cap) rows.push([d.date, '📍', d.items.map(x => esc(x.name)).join(' · ') || 'volný den', { plan: tp, day: d }]);
+      for (const d of (tp?.days || []).map(y => progDay(y, null, o.drop))) if (d.items.length || d.cap) rows.push([d.date, '📍', d.items.map(x => esc(x.name)).join(' · ') || 'volný den', { plan: tp, day: d }]);
       ownRows(rows, o.own);
     }
     if (t.car && t.car.mode !== 'skip' && t.car.to) rows.push([t.car.to.slice(0, 10), '🚗', `Vrácení auta ${esc(t.car.dropoff)} ${t.car.to.slice(11, 16)}`]);
@@ -1608,7 +1617,7 @@
     const ab = !ov && !multi && f.back && t.arrival && t.arrival.back;
     if (ab && !carCovers(t, 'back')) rows.push([f.back.date, ARR_ICO[ab.mode] || '🚌', esc(arrivalRow(ab, true))]);
     if (ov) { if (ov.back) rows.push([ov.back.date, gIco(ov.back), gRow(ov.back, ov.to.label, ov.from.label)]); }
-    else if (f.back) rows.push([f.back.date, '🛬', `${esc(f.back.from)} ${hhmm(f.back.dep)} → ${esc(f.back.to)} ${arrHm(f.back)} · ${legWho(f.back)}`]);
+    else if (f.back) rows.push([f.back.date, '🛬', fRow(f.back)]);
     // Stabilní řazení podle data; „~“ za datem = až po ostatních položkách dne.
     if (!ov) for (const l of [f.out, f.back].filter(Boolean)) {
       const c = l.hasTime && Ics.checkin({ carrier: l.carrier || l.carrierName, dep: l.dep, fromTz: l.fromTz });
@@ -1834,7 +1843,7 @@
     const multi = isMulti(t);
     // Den přejezdu patří dvěma místům – aktivity se spojí.
     for (const [place, plan] of multi ? t.route.bases.map((b, i) => [b.name, basePlan(t, i)]) : [[null, tripPlan(t)]]) {
-      for (const d of (plan?.days || [])) days[d.date] = [...(days[d.date] || []), ...d.items.map(x => (place ? `${place}: ` : '') + x.name + (x.note ? ` – ${x.note}` : ''))];
+      for (const d of (plan?.days || [])) days[d.date] = [...(days[d.date] || []), ...d.items.map(x => actTxt(place, x))];
     }
     const dates = multi ? baseDates(t) : [];
     const ov = ovOn(t) ? t.overland : null;
