@@ -764,14 +764,17 @@
   /**
    * „Odkud se vyplatí letět“: nejlevnější celá cesta z každého letiště odletu (o.best ze serveru, vč. dopravy na letiště)
    * proti nejbližšímu letišti (ref – ne přestupní) – o kolik levněji a o kolik déle cesta na letiště (zpáteční tam i zpět).
-   * → { rows (od nejlevnějšího, bez nabídky na konci), ref, win }; prázdné u cesty přes víc měst, u starších výsledků
-   * bez best a když se něco našlo jen z jednoho letiště.
+   * Zpáteční s návratem na jiné letiště (open-jaw) server k žádnému letišti nepočítá (filtr letišť ve výpisu ji u obou
+   * schová) – jaw = nejlevnější taková ve výpisu (res.top), r.jaw = kolik jich letiště řádku má.
+   * → { rows (od nejlevnějšího, bez nabídky na konci), ref, win, jaw }; prázdné u cesty přes víc měst, u starších
+   * výsledků bez best a když se něco našlo jen z jednoho letiště.
    */
   function originCompare(res) {
-    const none = { rows: [], ref: null, win: null };
+    const none = { rows: [], ref: null, win: null, jaw: null };
     if (!res || res.mode === 'multi') return none;
     const os = (res.origins || []).filter(o => o && o.iata), priced = os.filter(o => o.best && o.best.czk > 0);
     if (priced.length < 2) return none;
+    const jaws = (res.top || []).filter(t => t && t.out && t.back && t.back.to !== t.out.from && Number.isFinite(t.perPersonCzk));
     const dist = o => (Number.isFinite(o.distKm) ? o.distKm : 1e9);
     const near = list => list.reduce((m, o) => (!m || dist(o) < dist(m) ? o : m), null);
     const ref = near(priced.filter(o => !o.hub)) || near(priced);
@@ -787,9 +790,24 @@
         mode: g.mode || null, minutes, local: !!g.local, ref: isRef,
         diff: czk != null && !isRef ? czk - ref.best.czk : null,
         extraMin: minutes != null && mins(ref) != null && !isRef ? (minutes - mins(ref)) * mult : null,
+        jaw: jaws.filter(t => t.out.from === o.iata || t.back.to === o.iata).length,
       };
     });
-    return { rows, ref: rows.find(r => r.ref), win: rows[0] };
+    return { rows, ref: rows.find(r => r.ref), win: rows[0], jaw: jaws.length ? Math.round(Math.min(...jaws.map(t => t.perPersonCzk))) : null };
+  }
+  /**
+   * Patička karty „Odkud se vyplatí letět“ podle dotazu: co v ceně je (doprava na letiště – autem i parkování, zavazadla,
+   * cesta do města) a co vypnuté ne; s nabídkami s návratem jinam, že se nepočítají.
+   */
+  function originFoot(res, oc = originCompare(res)) {
+    const q = (res && res.query) || {}, ret = q.trip === 'return', car = q.groundMode === 'car';
+    const and = l => (l.length > 1 ? `${l.slice(0, -1).join(', ')} a ${l[l.length - 1]}` : l[0] || '');
+    const inc = [q.kmRate && `dopravy na letiště${ret ? ' a zpět' : ''}${car ? ` (autem${ret ? ' i parkování' : ''})` : ''}`,
+      (q.bags === 'cabin' || q.bags === 'checked') && 'zavazadel', q.arrival && 'cesty do města'].filter(Boolean);
+    const exc = [!q.kmRate && 'dopravy na letiště', !q.arrival && 'cesty do města'].filter(Boolean);
+    return `${q.kmRate ? 'Celá cesta' : 'Cena'} na osobu${inc.length ? ` vč. ${and(inc)}` : ''}${exc.length ? `${inc.length ? ',' : ''} bez ${and(exc)} (vypnuto v Další možnosti)` : ''}`
+      + ` – nejlevnější ze všech nalezených nabídek, nejen z těch ve výpisu${oc && oc.jaw != null ? ', jen s odletem i návratem na totéž letiště (cesty s návratem jinam jsou jen ve výpisu)' : ''}.`
+      + ` Čas = odhad cesty na letiště${ret ? ' tam i zpět' : ''}. Klepnutím ukážeš jen lety z daného letiště, dalším klepnutím zase všechna.`;
   }
   /** Rozdíl řádku srovnání proti nejbližšímu letišti: „−450 Kč · +2 h 40 cesty“, „stejně“, „nejbližší letiště“. */
   function originDiffTxt(r) {
@@ -1212,7 +1230,7 @@
 
   window.SearchHelp = {
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
-    groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt,
+    groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,

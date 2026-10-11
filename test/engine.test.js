@@ -380,4 +380,8 @@ test('originBests: nejlevnější celá cesta a počet nabídek podle letiště 
   assert.deepEqual(originBests([t('PRG', 3000), t('PRG', 2500), t('VIE', 2000)]), { PRG: { czk: 2500, n: 2 }, VIE: { czk: 2000, n: 1 } });
   assert.deepEqual(originBests([]), {});
   assert.deepEqual(originBests([t('PRG', NaN), t('PRG', 2499.6), t('BRQ', undefined), null]), { PRG: { czk: 2500, n: 1 } });
+  // zpáteční jen s návratem na totéž letiště: s návratem jinam (open-jaw) k žádnému – filtr letišť ji u obou schová
+  const rt = (from, to, perPersonCzk) => ({ out: { from }, back: { to }, perPersonCzk });
+  assert.deepEqual(originBests([rt('PED', 'BRQ', 1617), rt('PED', 'PED', 1807), rt('BRQ', 'BRQ', 1845), rt('BTS', 'VIE', 1500)]),
+    { PED: { czk: 1807, n: 1 }, BRQ: { czk: 1845, n: 1 } });
 });
