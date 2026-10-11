@@ -194,7 +194,9 @@ function pickDiverse(results, { limit, perDestLimit, perDay = 0, perLeg = false 
  * opts: { nightsMin, nightsMax, outDays, backDays, openJawHome, openJawDest, limit, perDestLimit, perDay, calendar, extra, legsPerDay, variety, park }
  * opts.variety (přesná data) → víc letů na den (legsPerDay/dayVariety) a každý let aspoň v jedné kombinaci.
  * opts.extra(leg) → příplatek k letu na osobu (zavazadla), započítá se do pořadí i kalendáře.
- * opts.calendar = { out: Map, back: Map } → doplní nejlevnější celou cestu podle dne odletu/návratu.
+ * opts.calendar = { out: Map, back: Map, grid?: Map } → doplní nejlevnější celou cestu podle dne odletu/návratu;
+ * grid (mřížka termínů) podle dvojice „den odletu|noci“ i s lety { o, b } – nejlevnější návrat k letu tam a počtu nocí
+ * se vezme vždy (limit návratů na let ho neodřízne), takže buňka = minimum ze všech zvážených dvojic; výběr nemění.
  * opts.park(fromIata, nights) → parkování auta u letiště odletu na celou cestu (na osobu); závisí na počtu nocí,
  * proto se přičítá k cestě, ne k letišti (autem se vracíš na stejné letiště – openJawHome: false).
  */
@@ -213,10 +215,10 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
   }
   for (const list of byDate.values()) list.sort((x, y) => x.cost - y.cost);
 
-  const note = (map, date, cost, o, b) => {
+  const note = (map, date, cost, o, b, legs = false) => {
     const prev = map.get(date);
     if (!prev || cost < prev.cost) {
-      map.set(date, { date, cost, from: o.from, to: o.to, backTo: b.to, outDate: o.date, backDate: b.date, provider: o.provider === b.provider ? o.provider : 'mix' });
+      map.set(date, { date, cost, from: o.from, to: o.to, backTo: b.to, outDate: o.date, backDate: b.date, provider: o.provider === b.provider ? o.provider : 'mix', ...(legs ? { o, b } : {}) });
     }
   };
 
@@ -249,6 +251,7 @@ export function bestRoundTrips(outLegs, backLegs, groundOf, opts) {
         if (cal) {
           note(cal.out, o.date, total, o, b);
           note(cal.back, b.date, total, o, b);
+          if (cal.grid) note(cal.grid, `${o.date}|${n}`, total, o, b, true);
         }
       }
     }
@@ -280,3 +283,29 @@ export function oneWayCalendar(outLegs, groundOf, { outDays = [], extra = () => 
 }
 
 export const calendarArray = (map) => [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+
+/**
+ * Mřížka termínů do odpovědi (kompaktně): { nights: [od, do], cells: [[den odletu, noci, Kč/os.], …], skipped }.
+ * Nejvýš maxNights délek po sobě (u delšího rozsahu okno kolem nejlevnější buňky) a maxDates dnů odletu
+ * (u víc dnů ty s nejlevnější cestou, skipped = kolik dnů vynecháno); seřazené podle dne a nocí.
+ */
+export function gridArray(map, { nightsMin, nightsMax, maxDates = 60, maxNights = 10 }) {
+  const all = [...map.values()].map((e) => [e.outDate, daysBetween(e.outDate, e.backDate), Math.round(e.cost)])
+    .filter((c) => c[1] >= nightsMin && c[1] <= nightsMax);
+  let a = nightsMin;
+  if (nightsMax - nightsMin + 1 > maxNights && all.length) {
+    const best = all.reduce((m, c) => (c[2] < m[2] ? c : m));
+    a = Math.max(nightsMin, Math.min(best[1] - Math.floor((maxNights - 1) / 2), nightsMax - maxNights + 1));
+  }
+  const b = Math.min(nightsMax, a + maxNights - 1);
+  let cells = all.filter((c) => c[1] >= a && c[1] <= b);
+  const rowMin = new Map();
+  for (const c of cells) rowMin.set(c[0], Math.min(rowMin.get(c[0]) ?? Infinity, c[2]));
+  let skipped = 0;
+  if (rowMin.size > maxDates) {
+    const keep = new Set([...rowMin].sort((x, y) => x[1] - y[1] || x[0].localeCompare(y[0])).slice(0, maxDates).map((x) => x[0]));
+    skipped = rowMin.size - maxDates;
+    cells = cells.filter((c) => keep.has(c[0]));
+  }
+  return { nights: [a, b], cells: cells.sort((x, y) => x[0].localeCompare(y[0]) || x[1] - y[1]), skipped };
+}

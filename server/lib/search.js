@@ -6,11 +6,11 @@ import { airportsInCountry, destInfo, destKey, getAirport, sizePenaltyKm } from 
 import { addDays, chunkRange, clampRange, daysBetween, isYmd, monthsInRange, todayYmd } from './dates.js';
 import { CONTINENT_BY_KEY, FAR_KM, LONG_HAUL_SWEEP, WARM_SWEEP, farAirport, farCountry, hubsNear, hubsOf } from './longhaul.js';
 import { mainAirport, monthClimate, warmAirports, warmShare, warmestHi } from './climate.js';
-import { bestOneWays, bestRoundTrips, calendarArray, dateOk, oneWayCalendar } from './optimizer.js';
+import { bestOneWays, bestRoundTrips, calendarArray, dateOk, gridArray, oneWayCalendar } from './optimizer.js';
 import { fxInfo, loadRates, toCzk } from './fx.js';
 import { haversineKm } from './geo.js';
 import { accessOpts, carQuery, normalizeAccess, parkCzk, parkDays } from './access.js';
-import { validTrip } from './fares.js';
+import { makeTrip, validTrip } from './fares.js';
 import { legBagEur } from './baggage.js';
 import { priceLevelOf, priceStats, refOf, referencePrice } from './pricelevel.js';
 import { MULTI, buildCombos, linkMatrix, mergeStatus, pairsPerLeg, pickOptions, runLimited } from './multi.js';
@@ -765,27 +765,36 @@ export async function search(raw, emit = () => {}, opts = {}) {
   progress(true);
 
   let cal = null;
+  let cellTrips = []; // mřížka termínů: nejlevnější cesta každé buňky (ocení se jako ostatní, do statistik cen nepatří)
   const dayOpts = q.exact ? { legsPerDay: EXACT_LEGS_PER_DAY, variety: true } : { legsPerDay: 2 };
   if (routeMode) {
     // Za teplem jen odlety v dost teplých měsících – i v kalendáři (jinak by nabízel dny, které seznam vyřadí).
     const warmOut = outLegs.filter((l) => warmLeg(l) && depOk(l));
     if (ret) {
-      const maps = { out: new Map(), back: new Map() };
+      // Mřížka termínů (den odletu × počet nocí) jen u flexibilního termínu s rozsahem nocí (limits.grid: false = bez ní).
+      const grid = !q.exact && q.nightsMax > q.nightsMin && limits.grid !== false;
+      const maps = { out: new Map(), back: new Map(), ...(grid ? { grid: new Map() } : {}) };
       // Konkrétní cíl: na každý den víc variant (nejlevnější, přímý, jiné aerolinky); přesná data: všechny
       // přímé lety a ~12 variant na den a trasu (viz dayVariety), každý let aspoň v jedné kombinaci.
       trips.push(...bestRoundTrips(warmOut, backLegs, groundOf, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, calendar: maps, ...dayOpts }));
       // Celé zpáteční letenky (Travelpayouts, dálkové hledání Kiwi) patří do kalendáře taky.
       for (const t of trips) {
         if (!t.back || !t.combined || !warmLeg(t.out) || !depOk(t.out) || (car && t.back.to !== t.out.from)) continue;
+        const n = daysBetween(t.out.date, t.back.date);
         const cost = t.flightCzk + groundOf(t.out.from) + groundOf(t.back.to) + legBagCzk(t.out, q.bags).czk + legBagCzk(t.back, q.bags).czk
-          + arrOf(t.out) + arrOf(t.back) + (park ? park(t.out.from, daysBetween(t.out.date, t.back.date)) : 0);
+          + arrOf(t.out) + arrOf(t.back) + (park ? park(t.out.from, n) : 0);
         const entry = { cost, from: t.out.from, to: t.out.to, backTo: t.back.to, outDate: t.out.date, backDate: t.back.date, provider: t.provider };
-        for (const [map, date] of [[maps.out, t.out.date], [maps.back, t.back.date]]) {
+        for (const [map, date, x] of [[maps.out, t.out.date], [maps.back, t.back.date], ...(grid ? [[maps.grid, `${t.out.date}|${n}`, { trip: t }]] : [])]) {
           const prev = map.get(date);
-          if (!prev || cost < prev.cost) map.set(date, { date, ...entry });
+          if (!prev || cost < prev.cost) map.set(date, { date, ...entry, ...x });
         }
       }
       cal = { kind: 'trip', out: calendarArray(maps.out), back: calendarArray(maps.back) };
+      if (grid) {
+        // až po zpátečních letenkách: okno nocí i dny mřížky jsou konečné, k buňce patří její nejlevnější cesta
+        cal.grid = gridArray(maps.grid, { nightsMin: q.nightsMin, nightsMax: q.nightsMax });
+        cellTrips = cal.grid.cells.map(([d, n]) => { const e = maps.grid.get(`${d}|${n}`); return e.trip || makeTrip(e.o, e.b); });
+      }
     } else {
       trips.push(...bestOneWays(warmOut, groundOf, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, ...dayOpts }));
       cal = { kind: 'leg', out: oneWayCalendar(warmOut, groundOf, constraints), back: [] };
@@ -794,12 +803,12 @@ export async function search(raw, emit = () => {}, opts = {}) {
 
   // pojistka pro zdroje, které lety skládají samy (celé zpáteční letenky)
   if (q.depAfter) { const ok = trips.filter((t) => depOk(t.out)); trips.length = 0; trips.push(...ok); }
-  const { groups, flat, warm, hidden, priceStats: routeStats, byOrigin } = buildGroups(trips, { q, originSet: allOrigins, groundOf, park, arrOf, legCosts: routeMode && Boolean(q.exact) });
+  const { groups, flat, warm, hidden, priceStats: routeStats, byOrigin, cells } = buildGroups(trips, { q, originSet: allOrigins, groundOf, park, arrOf, legCosts: routeMode && Boolean(q.exact), cells: cellTrips });
   // Další odlety Ryanairu téhož dne z letového řádu (bez cen) – jen u zobrazených tras, pár dotazů.
   const fr = providers.find((p) => p.departures);
   if (fr && (routeMode || q.exact)) await attachDepartures(fr, flat, limits.departures);
   // Wizz Air: odlety dne už jsou v jeho datech – přenést i na tytéž přímé lety W6 nalezené přes Kiwi.
-  if (routeMode) shareDepartures([...nearLegs.out, ...nearLegs.back], flat, 'wizzair', 'W6');
+  if (routeMode) shareDepartures([...nearLegs.out, ...nearLegs.back], flat.concat(cells), 'wizzair', 'W6');
   if (warm && !groups.length && dest.kind !== 'anywhere') {
     // Konkrétní cíl, kam se za teplem nic nenašlo: jak teplo tam v těch měsících vůbec bývá (pro vysvětlení).
     const aps = routeMode ? destAirports : [...countries].flatMap((cc) => airportsInCountry(cc).map((a) => a.iata));
@@ -810,6 +819,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
   // Vlak/bus místo letadla: odhad bez sítě ke skupinám v dosahu (Evropa po souši) a u konkrétního cíle i celkově.
   const destinationLabels = q.to.map((id) => describe(id)).filter(Boolean);
   const ground = attachGround({ home: origins.home, origins: [...origins.airports, ...hubs], groups, flat, dests: routeMode ? destinationLabels : [] });
+  const top = routeMode ? topWithDays(flat, { exact: Boolean(q.exact) }) : null;
+  if (cal && cal.grid) Object.assign(cal.grid, gridTrips(cal.grid.cells, flat.concat(cells), top));
   return {
     query: q,
     mode: routeMode ? 'route' : 'explore',
@@ -828,7 +839,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     arrivals: arrivalsFor(flat, opts.arrivalHome ? arrHome : new Set([...arrHome].filter((i) => originSet.has(i) || !flat.some((t) => t.out.to === i || t.back?.from === i)))),
     groups,
     // V režimu konkrétního cíle i plochý žebříček nejlepších kombinací (data × letiště × aerolinky).
-    top: routeMode ? topWithDays(flat, { exact: Boolean(q.exact) }) : null,
+    top,
     // „Je to dobrá cena?“ u konkrétního cíle: ceny letenek všech nalezených nabídek trasy (skupiny mají svou priceStats).
     priceStats: routeMode ? routeStats : null,
     calendar: cal,
@@ -1058,6 +1069,29 @@ function topWithDays(flat, { exact = false } = {}) {
   return flat.filter((t) => picked.has(t));
 }
 
+/**
+ * Mřížka termínů: nejlevnější cesta každé buňky (z pool = výpis + ocenění nejlevnějších cest buněk), kterou top
+ * nemá aspoň stejně levnou – klepnutí na buňku ji ve výpisu najde. Kompaktně, ať odpověď (a uložené poslední
+ * hledání) nenaroste o stovky celých nabídek: každý let jednou v legs, cesta místo letů jejich pořadí v legs.
+ * Prohlížeč je přidá do top (SearchHelp.gridTrips). → { legs, trips }
+ */
+function gridTrips(cells, pool, top) {
+  const key = (t) => `${t.out.date}|${t.nights}`;
+  const best = new Map();
+  for (const t of pool) if (t.back && !(best.get(key(t))?.perPersonCzk <= t.perPersonCzk)) best.set(key(t), t);
+  const shown = new Map();
+  for (const t of top || []) if (t.back) shown.set(key(t), Math.min(shown.get(key(t)) ?? Infinity, t.perPersonCzk));
+  const legs = [];
+  const at = new Map();
+  const ref = (l) => { if (!at.has(l)) { at.set(l, legs.length); legs.push(l); } return at.get(l); };
+  const trips = [];
+  for (const [d, n] of cells) {
+    const t = best.get(`${d}|${n}`);
+    if (t && !(shown.get(`${d}|${n}`) <= t.perPersonCzk)) trips.push({ ...t, out: ref(t.out), back: ref(t.back) });
+  }
+  return { legs, trips };
+}
+
 // Přesná data: kolik variant letu na den a trasu (všechny přímé + lety s přestupem do tohoto počtu).
 export const EXACT_LEGS_PER_DAY = 12;
 // Kolik dní kolem přesného data ukázat v „nejbližších dnech“.
@@ -1275,23 +1309,27 @@ export function originBests(trips) {
   return out;
 }
 
-function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () => 0, legCosts = false }) {
+// cells (mřížka termínů) = nejlevnější cesty buněk: ocení se a projdou filtry stejně, ale do skupin, výpisu, počtu
+// skrytých ani statistiky cen („Je to dobrá cena?“, výhodnost) nepatří – vrátí se zvlášť (cells), nabídky se nezmění.
+function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () => 0, legCosts = false, cells = [] }) {
   const map = new Map();
   const seen = new Set();
   const flat = [];
+  const cellFlat = [];
   const warm = q.minTemp ? { minTemp: q.minTemp, dropped: 0, dests: 0, maxHi: null } : null;
   const coldDests = new Set();
   // Nabídky skryté uživatelskými filtry (jen ty, které došly až sem – Kiwi u „jen přímé“ hledá rovnou přímé).
   const hiddenIds = { maxPrice: new Set(), directOnly: new Set() };
   // „Je to dobrá cena?“: ceny letenek všech nabídek podle cíle (i těch nad limitem ceny, které výpis skryje).
   const pools = new Map();
-  for (const t of trips) {
+  for (const [i, t] of [...trips, ...cells].entries()) {
+    const cell = i >= trips.length;
     if (!validTrip(t) || seen.has(t.id)) continue;
     if (!originSet.has(t.out.from)) continue;
     if (t.back && !originSet.has(t.back.to)) continue;
     if (t.out.date < q.dateFrom || t.out.date > q.dateTo) continue;
     if (q.directOnly && (t.out.stops > 0 || (t.back && t.back.stops > 0))) {
-      hiddenIds.directOnly.add(t.id);
+      if (!cell) hiddenIds.directOnly.add(t.id);
       continue;
     }
     seen.add(t.id);
@@ -1322,7 +1360,7 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
     t.tempHi = monthClimate(t.out.to, t.out.date)?.hi ?? null;
     const cold = warm && (t.tempHi == null || t.tempHi < q.minTemp);
     // do statistiky cen nepatří jen chladné termíny, které hledání za teplem vůbec nechce
-    if (!cold) {
+    if (!cold && !cell) {
       const k = destKey(t.out.to);
       if (!pools.has(k)) pools.set(k, []);
       pools.get(k).push({ czk: t.flightCzk, date: t.out.date, from: t.out.from });
@@ -1330,9 +1368,10 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
     // autem se vracíš tam, kde auto parkuje: zpáteční letenka s návratem na jiné letiště do výpisu nepatří (do statistiky cen ano)
     if (park && t.back && t.back.to !== t.out.from) continue;
     if (q.maxPrice && t.perPersonCzk > q.maxPrice) {
-      hiddenIds.maxPrice.add(t.id);
+      if (!cell) hiddenIds.maxPrice.add(t.id);
       continue;
     }
+    if (cold && cell) continue;
     if (cold) {
       warm.dropped++;
       if (t.tempHi != null) warm.maxHi = Math.max(warm.maxHi ?? -99, t.tempHi);
@@ -1344,6 +1383,10 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
     t.deal = dealOf(t);
     const info = destInfo(t.out.to);
     t.destKey = info.key;
+    if (cell) {
+      cellFlat.push(t);
+      continue;
+    }
     if (!map.has(info.key)) map.set(info.key, { dest: info, trips: [] });
     map.get(info.key).trips.push(t);
     flat.push(t);
@@ -1381,7 +1424,7 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
   // „Super cena“ jen pro to nejlepší z výsledků: absolutní skóre i relativní pořadí (horních 20 %).
   const p20 = groups.length ? groups[Math.floor((groups.length - 1) * 0.2)].best.perPersonCzk : 0;
   const sorted = new Map([...pools].map(([k, list]) => [k, list.map((e) => e.czk).sort((a, b) => a - b)]));
-  for (const t of flat) {
+  for (const t of flat.concat(cellFlat)) {
     if (t.deal.level === 'super' && t.perPersonCzk > p20) t.deal.level = 'good';
     t.priceLevel = priceLevelOf(t, stats.get(t.destKey), sorted.get(t.destKey));
     // 🔥 Super cena / 👍 Výhodné jen u dobré ceny – na jedné nabídce nikdy „výhodné“ a zároveň „běžná / dražší“
@@ -1398,5 +1441,5 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
       if (!b) byOrigin[k] = { ...v }; else { b.n += v.n; if (v.czk < b.czk) b.czk = v.czk; }
     }
   }
-  return { groups: kept, flat, warm, hidden, priceStats: priceStats([...pools.values()].flat()), byOrigin };
+  return { groups: kept, flat, warm, hidden, priceStats: priceStats([...pools.values()].flat()), byOrigin, cells: cellFlat };
 }

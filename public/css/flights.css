@@ -418,6 +418,28 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cd.click{cursor:pointer}
 .cd.click:hover{outline:2px solid var(--accent)}
 .cd.sel{outline:2px solid var(--accent);outline-offset:1px}
+/* mřížka termínů: den odletu × počet nocí (posouvá se uvnitř karty, datum a noci zůstanou vidět) */
+.dg-card{padding:16px 18px;margin-bottom:14px}
+.dg-card h4{font-size:14px;font-weight:800;margin-bottom:6px}
+.dg-sum{display:block;max-width:100%;background:none;border:none;padding:0;margin-bottom:10px;color:var(--text);font:600 13.5px Inter,sans-serif;text-align:left;cursor:pointer}
+.dg-sum:hover{color:var(--accent)}
+.dg-scroll{overflow:auto;max-height:min(60vh,520px);overscroll-behavior-x:contain;border-radius:10px}
+.dg{border-collapse:separate;border-spacing:0;width:100%;max-width:760px}
+.dg th{font-size:11.5px;font-weight:700;color:var(--muted);white-space:nowrap;padding:6px 8px;text-align:center;background:var(--surface-solid)}
+.dg thead th{position:sticky;top:0;z-index:1}
+.dg tbody th{position:sticky;left:0;z-index:1;text-align:left;padding-left:4px}
+.dg thead th:first-child{left:0;z-index:2;text-align:left;padding-left:4px}
+.dg tr.on th{color:var(--accent)}
+.dg td{padding:2px}
+.dg-c{display:block;width:100%;min-width:50px;padding:7px 4px;border-radius:8px;border:1px solid hsla(var(--h),70%,50%,.35);background:hsla(var(--h),70%,50%,.2);color:hsl(var(--h),70%,60%);font:500 12px Inter,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer}
+[data-theme=light] .dg-c{color:hsl(var(--h),70%,35%)}
+.dg-c.rmin{font-weight:800}
+.dg-c.best{box-shadow:inset 0 0 0 2px var(--text)}
+@media(hover:hover){.dg-c:hover{outline:2px solid var(--accent)}}
+.dg-c.sel{outline:2px solid var(--accent);outline-offset:1px}
+.dg-x{min-width:50px;text-align:center;font-size:12px;color:var(--faint)}
+.dg-foot{font-size:12px;margin-top:8px}
+@media(max-width:560px){.dg-card{padding:12px 12px}.dg-c{min-width:46px;padding:7px 2px}}
 
 /* hlídané ceny */
 .watch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
