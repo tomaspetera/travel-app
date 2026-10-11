@@ -468,6 +468,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cmp-price small{font-size:11px;color:var(--muted)}
 /* živé ověření ceny z mezipaměti pod cenou řádku */
 .cmp-live{display:block;font-size:11px;font-weight:700;margin-top:1px}
+.cmp-price .cmp-tkt{display:block;margin-top:1px}
 .cmp-live.warn{color:var(--warn)}
 .cmp-live.good{color:var(--good)}
 .cmp-live.faint{color:var(--faint);font-weight:600}

@@ -216,6 +216,17 @@ test('smartActions: flexibilní hledání do země → dny v týdnu, delší ter
   assert.equal(by.continent.label, 'Celý světadíl: Asie');
 });
 
+test('smartActions: Za teplem do cíle, kde tak teplo nebývá → jen širší cíl nebo delší termín', () => {
+  const f = { ...FORM, dateMode: 'flex', to: [{ id: 'ap:BCN', type: 'airport' }], dFrom: '2026-10-10', dTo: '2026-11-15', outDays: [5], radius: 50, minTemp: 30, maxPrice: '1500', directOnly: true };
+  const r = { ...RES, groups: [], destinationLabels: [{ cc: 'ES' }], warm: { minTemp: 30, destHi: 22 }, filters: { maxPrice: 1500, directOnly: true, hidden: { maxPrice: 0, directOnly: 0 } } };
+  assert.deepEqual(plain(keys(H.smartActions(f, r, { today: '2026-10-05', country, flag }))), ['longer', 'country', 'anywhere'], 'letiště, dny, noci, jen tam ani filtry podnebí cíle nezmění');
+  // cíl teplý bývá (nebo jsou výsledky): všechny úpravy jako dřív
+  const all = ['anyDay', 'longer', 'hubs', 'country', 'oneway', 'noPrice', 'noDirect', 'anywhere'];
+  assert.deepEqual(plain(keys(H.smartActions(f, { ...r, warm: { minTemp: 30, destHi: 31 } }, { today: '2026-10-05', country, flag }))), all);
+  assert.deepEqual(plain(keys(H.smartActions(f, { ...r, warm: { minTemp: 30, destHi: null } }, { today: '2026-10-05', country, flag }))), all);
+  assert.deepEqual(plain(keys(H.smartActions(f, { ...r, groups: [{}] }, { today: '2026-10-05', country, flag }))), all);
+});
+
 /* ---------- filtry času a přestupů ---------- */
 const TL = (from, to, dep, arr, extra = {}) => ({ from, to, dep, arr, date: dep.slice(0, 10), hasTime: true, stops: 0, durationMin: null, ...extra });
 // T1: tam ráno přímý, zpět večer přímý (přílet 21:30)

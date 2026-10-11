@@ -578,10 +578,14 @@
       add('month', `${m === 8 ? 'Celé' : 'Celý'} ${MONTHS[m]} flexibilně${txt}`, patch);
     }
     if (europe) add('anywhere', '🌍 Kamkoliv – kam se dá letět', { to: [] });
+    // Za teplem a cíl v měsících odletu tak teplý nebývá: podnebí cíle nezmění letiště, dny, noci ani „jen tam“ –
+    // pomůže jen širší cíl nebo delší termín (nižší limit teploty nabízí prázdný výsledek sám).
+    const w = r.warm, cold = Boolean(w && !(r.groups || []).length && w.destHi != null && w.destHi < w.minTemp);
     // Každý klíč jen jednou (první výskyt má přednost).
     const seen = new Set();
-    return acts.filter(a => !seen.has(a.key) && seen.add(a.key));
+    return acts.filter(a => !seen.has(a.key) && seen.add(a.key) && (!cold || WARM_ACTS.includes(a.key)));
   }
+  const WARM_ACTS = ['longer', 'country', 'continent', 'anywhere'];
 
   /* ---------- cesta přes víc měst: výběr letu na každý úsek ---------- */
   /**
