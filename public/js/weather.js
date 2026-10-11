@@ -7,7 +7,13 @@
   const cache = new Map();
   const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const daysAhead = (ymd, now = new Date()) => Math.round((Date.parse(`${ymd}T12:00:00Z`) - Date.parse(`${ymdOf(now)}T12:00:00Z`)) / 864e5);
-  const inForecast = (ymd, now) => { const d = daysAhead(ymd, now); return d >= 0 && d <= AHEAD; };
+  // Poslední den předpovědi: Open-Meteo bere end_date nejvýš datum UTC + 15 (u všech míst) – po místní půlnoci, dokud
+  // v UTC ještě trvá včerejšek (v Praze do 1–2 h), by „dnes + 15“ celý dotaz shodilo (HTTP 400).
+  const last = (now = new Date()) => {
+    const l = ymdOf(new Date(now.getFullYear(), now.getMonth(), now.getDate() + AHEAD, 12)), u = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + AHEAD)).toISOString().slice(0, 10);
+    return l < u ? l : u;
+  };
+  const inForecast = (ymd, now = new Date()) => daysAhead(ymd, now) >= 0 && ymd <= last(now);
   const key = (lat, lon) => `${(+lat).toFixed(2)},${(+lon).toFixed(2)}`;
   // Západ slunce 'HH:MM' (místní čas) z odpovědí předpovědi: místo@den → čas; IANA zóna místa (Promise).
   const suns = new Map();
@@ -47,6 +53,8 @@
     const n = (a) => (a && a[i] != null ? Math.round(a[i]) : null);
     return { date: d.time[i], code: d.weather_code?.[i] ?? null, hi: n(d.temperature_2m_max), lo: n(d.temperature_2m_min), pop: n(d.precipitation_probability_max), rain: d.precipitation_sum?.[i] ?? null };
   };
+  // Den bez kódu počasí nebo teploty jako by nebyl – poslední den rozsahu Open-Meteo mívá jen pravděpodobnost srážek.
+  const full = w => w.code != null && w.hi != null;
 
   /**
    * points: [{ lat, lon, date }] → stejně dlouhé pole { date, code, hi, lo, pop, rain, sunset } nebo null
@@ -63,8 +71,8 @@
       if (!ok.includes(p)) return null;
       const d = byLoc.get(key(p.lat, p.lon));
       const i = d?.time?.indexOf(p.date) ?? -1;
-      if (i < 0) return null;
-      return { ...dayAt(d, i), sunset: suns.get(sunKey(p)) || null };
+      const w = i < 0 ? null : dayAt(d, i);
+      return w && full(w) ? { ...w, sunset: suns.get(sunKey(p)) || null } : null;
     });
   }
 
@@ -137,18 +145,18 @@
   }
 
   /**
-   * Předpověď na celý dosah (dnes … dnes + AHEAD) pro víc míst najednou – štítky ve výsledcích hledání a v radaru:
-   * points [{ lat, lon }] → Map(key → [{ date, code, hi, lo, pop, rain }]). Pevný rozsah dní a seřazená místa = stejný
-   * klíč mezipaměti, ať je výpis seřazený jakkoliv; nejvýš 40 míst (další se vynechají), chyba → prázdná Map.
+   * Předpověď na celý dosah (dnes … dnes + AHEAD, viz last) pro víc míst najednou – štítky ve výsledcích hledání a v radaru:
+   * points [{ lat, lon }] → Map(key → [{ date, code, hi, lo, pop, rain }]), jen dny s počasím i teplotou. Pevný rozsah dní
+   * a seřazená místa = stejný klíč mezipaměti, ať je výpis seřazený jakkoliv; nejvýš 40 míst (další se vynechají),
+   * chyba → prázdná Map.
    */
   async function span(points, { now = new Date(), fetchFn = root.fetch?.bind(root) } = {}) {
     const ok = (v, max) => v != null && v !== '' && Math.abs(+v) <= max;
     const locs = [...new Set((points || []).filter(p => p && ok(p.lat, 90) && ok(p.lon, 180)).map(p => key(p.lat, p.lon)))].slice(0, 40).sort();
     if (!locs.length || !fetchFn) return new Map();
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + AHEAD, 12);
     try {
-      const byLoc = await daily(locs, ymdOf(now), ymdOf(end), fetchFn);
-      return new Map(locs.filter(l => Array.isArray(byLoc.get(l)?.time)).map(l => { const d = byLoc.get(l); return [l, d.time.map((_, i) => dayAt(d, i))]; }));
+      const byLoc = await daily(locs, ymdOf(now), last(now), fetchFn);
+      return new Map(locs.filter(l => Array.isArray(byLoc.get(l)?.time)).map(l => { const d = byLoc.get(l); return [l, d.time.map((_, i) => dayAt(d, i)).filter(full)]; }));
     } catch { return new Map(); }
   }
 
@@ -170,7 +178,8 @@
   const dayName = ymd => ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'][new Date(`${ymd}T12:00:00`).getDay()];
 
   const dny = n => (n === 1 ? 'den' : n >= 2 && n <= 4 ? 'dny' : 'dní');
-  const ze = n => ([2, 3, 4, 6, 7, 12, 13, 14, 16, 17].includes(n) ? 'ze' : 'z'); // ze tří, z pěti
+  // ze tří, ze 12, ze 20 (dvaceti), ze 60, ze sta, ze 200; z pěti, z 15, z 50, z 80
+  const ze = n => (/^(?:[23467]|1[23467]|[23467]\d|1\d\d|[23467]\d\d)$/.test(n) ? 'ze' : 'z');
   /**
    * Předpověď na dny cesty jedním štítkem: days = dny cesty, na které předpověď je, total = dní cesty celkem
    * → { text, short, title, wet } nebo null. Aspoň 2 deštivé dny „🌧️ prší 2 dny ze 3“, jinak „☀️ 22° · 💧 10 %“
@@ -196,6 +205,15 @@
       wet,
     };
   }
+  /**
+   * Předpověď na dny cesty d1..d2 (jen tam: tři dny od odletu) ze seznamu dní místa ze span() → summary() nebo null.
+   * Odlet mimo dosah předpovědi – i už proběhlý (výsledky z minula, stránka otevřená přes půlnoc) → null.
+   */
+  function trip(list, d1, d2, { now = new Date() } = {}) {
+    if (!Array.isArray(list) || !inForecast(d1, now)) return null;
+    const from = new Date(`${d1}T12:00:00`), end = d2 || ymdOf(new Date(from.getFullYear(), from.getMonth(), from.getDate() + 2, 12));
+    return summary(list.filter(w => w.date >= d1 && w.date <= end), daysAhead(end, from) + 1);
+  }
 
   /** Dlouhodobý průměr pro měsíc (api/climate) – když je termín mimo dosah předpovědi. */
   async function normal(lat, lon, ymd, { fetchFn = root.fetch?.bind(root) } = {}) {
@@ -210,5 +228,5 @@
     return { month: m, hi: c.hi[m], lo: c.lo?.[m], p: c.p?.[m], text: `Obvykle ${MNS_LOC[m]}: ${c.hi[m]}° / ${c.lo?.[m]}°, srážky ~${c.p?.[m]} mm za měsíc` };
   }
 
-  root.Weather = { forecast, days, span, summary, key, rainy, bestDay, badge, normal, daysAhead, inForecast, dayName, AHEAD, sunsets, sunsetUtc, tzOffset };
+  root.Weather = { forecast, days, span, summary, trip, key, rainy, bestDay, badge, normal, daysAhead, inForecast, dayName, AHEAD, sunsets, sunsetUtc, tzOffset };
 })(typeof window !== 'undefined' ? window : globalThis);

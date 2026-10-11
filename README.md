@@ -1132,7 +1132,9 @@ a na letiště je v dopravě z letiště do města).
 - Štítek předpovědi u nabídek a na kartách radaru je jen u cest s odletem do 15 dní; pozdější cesty mají dál jen
   dlouhodobý průměr 🌡️ (není to předpověď). Cesta, která za dosah předpovědi pokračuje, ji má jen na první dny (napíše
   to po najetí myší), u cesty jen tam se počítají tři dny od odletu. Jeden dotaz na Open-Meteo pokryje nejvýš 40 cílů
-  výsledku – při víc cílech v dosahu předpovědi zbylé ukážou jen průměr 🌡️.
+  výsledku – při víc cílech v dosahu předpovědi zbylé ukážou jen průměr 🌡️. Poslední den dosahu (15. den) Open-Meteo
+  často ještě nemá počasí ani teploty – cesta s odletem ten den pak ukáže průměr 🌡️; dosah se počítá podle data v UTC
+  (krátce po půlnoci je o den kratší).
 - Bezpečnostní hodnocení zemí odpovídá doporučením MZV ČR k 5. 10. 2026 – před cestou si je vždy ověř na webu MZV.
 - Vstupní podmínky jsou stav k 10/2026 pro turistickou cestu s běžným pasem; ceny registrací a víz jsou orientační
   (přepočet z místní měny) a datum platnosti pasu se počítá pro jistotu od návratu.

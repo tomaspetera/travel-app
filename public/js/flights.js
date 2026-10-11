@@ -1275,7 +1275,7 @@
   // Cesty s odletem do 15 dní: jeden dotaz na výsledek hledání (pevná místa i dny – řazení a filtry nic znovu nenačítají),
   // štítek předpovědi nahradí štítek dlouhodobého průměru 🌡️. Než předpověď dorazí, drží jí místo prázdný .wx-slot.
   let wx = { res: null, p: null, map: null };
-  const wxWin = d => d >= today() && d <= addDays(today(), Weather.AHEAD);
+  const wxWin = d => Weather.inForecast(d); // dnes … poslední den, na který Open-Meteo předpověď vydá
   const wxGeo = x => Boolean(x && Number.isFinite(x.lat) && Number.isFinite(x.lon));
   function wxLoad(res) {
     if (wx.res === res) return;
@@ -1287,13 +1287,8 @@
     if (!locs.length) return;
     wx.p = Weather.span(locs.map(g => ({ lat: g.dest.lat, lon: g.dest.lon }))).then(m => { if (wx.res === res) { wx.map = m; wxFill(); } });
   }
-  // předpověď na dny cesty d1..d2 (jen tam: tři dny od odletu) z načtené předpovědi m → Weather.summary nebo null
-  function wxSum(m, x, d1, d2) {
-    const list = m && wxGeo(x) && m.get(Weather.key(x.lat, x.lon));
-    if (!list) return null;
-    const end = d2 || addDays(d1, 2);
-    return Weather.summary(list.filter(w => w.date >= d1 && w.date <= end), SearchHelp.diffDays(d1, end) + 1);
-  }
+  // předpověď na dny cesty d1..d2 z načtené předpovědi m → Weather.summary nebo null (i odlet mimo dosah, viz Weather.trip)
+  const wxSum = (m, x, d1, d2) => (m && wxGeo(x) ? Weather.trip(m.get(Weather.key(x.lat, x.lon)), d1, d2) : null);
   const wxOf = (t, g) => (wx.res === lastResult && wx.map && g ? wxSum(wx.map, g.dest, t.out.date, t.back && t.back.date) : null);
   // předpověď pro tenhle výsledek se ještě načítá a nabídka do ní spadá → místo pro štítek
   const wxWait = (t, g) => Boolean(wx.res === lastResult && wx.p && !wx.map && g && wxGeo(g.dest) && wxWin(t.out.date));

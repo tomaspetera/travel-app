@@ -186,4 +186,61 @@ test('předpověď na dny cesty jedním štítkem', () => {
   const long = W.summary(Array.from({ length: 10 }, (_, k) => day(`2026-10-${10 + k}`)), 12);
   assert.equal(long.title.split('\n').length, 9);
   assert.match(long.title, /… \(\+3 dny\)\nPředpověď jen na první 10 ze 12 dnů/);
+  // ze/z i u dlouhých cest (ze dvaceti, z padesáti, ze sta)
+  const six = Array.from({ length: 6 }, (_, k) => day(`2026-10-${10 + k}`));
+  const of = total => W.summary(six, total).title.match(/první 6 (ze?) \d+ dnů/)[1];
+  assert.deepEqual([7, 8, 15, 16, 19, 20, 21, 29, 30, 45, 50, 66, 80, 100, 200, 500].map(of), ['ze', 'z', 'z', 'ze', 'z', 'ze', 'ze', 'ze', 'ze', 'ze', 'z', 'ze', 'z', 'ze', 'ze', 'z']);
+});
+
+test('předpověď pro výsledky: poslední den bez počasí a teploty se nepočítá, odlet jen v dosahu předpovědi', async () => {
+  const W = load();
+  const dates = Array.from({ length: 16 }, (_, k) => `2026-10-${String(5 + k).padStart(2, '0')}`);
+  // skutečná odpověď Open-Meteo: poslední den rozsahu má jen pravděpodobnost srážek, kód počasí a teploty null
+  const end = (v, last) => dates.map((_, i) => (i === 15 ? last : v));
+  const d = daily(dates, { weather_code: end(0, null), temperature_2m_max: end(21.6, null), temperature_2m_min: end(9.4, null), precipitation_probability_max: end(10, 35), precipitation_sum: end(0, null) });
+  const m = await W.span([{ lat: 41.39, lon: 2.17 }], { now: NOW, fetchFn: async () => okJson({ daily: d }) });
+  const list = m.get(W.key(41.39, 2.17));
+  assert.equal(list.length, 15);
+  assert.equal(list.at(-1).date, '2026-10-19');
+  // odlet poslední den dosahu: bez předpovědi (zůstane průměr 🌡️), ne štítek „🌡️ · 💧 35 %“
+  assert.equal(W.trip(list, '2026-10-20', '2026-10-27', { now: NOW }), null);
+  // cesta přes poslední den: předpověď jen na první dny, nikde 🌡️
+  const s = W.trip(list, '2026-10-18', '2026-10-25', { now: NOW });
+  assert.equal(s.text, '☀️ 22° · 💧 10 %');
+  assert.match(s.title, /\nPředpověď jen na první 2 z 8 dnů cesty/);
+  assert.doesNotMatch(s.title, /🌡️/);
+  // bez návratu tři dny od odletu
+  assert.match(W.trip(list, '2026-10-06', null, { now: NOW }).title, /^út 6\. 10\.: ☀️ 22° \/ 9°, 💧 10 %\nst 7\. 10\.: .*\nčt 8\. 10\.: .*\nPředpověď Open-Meteo/);
+  assert.match(W.trip(list, '2026-10-18', null, { now: NOW }).title, /jen na první 2 ze 3 dnů/);
+  // už proběhlý odlet (výsledky z minula, stránka otevřená přes půlnoc) ani odlet za dosahem předpověď nemá
+  assert.equal(W.trip(list, '2026-10-04', '2026-10-09', { now: NOW }), null);
+  assert.equal(W.trip(list, '2026-10-21', null, { now: NOW }), null);
+  assert.equal(W.trip(undefined, '2026-10-06', null, { now: NOW }), null);
+  // forecast() na jeden den: den bez počasí = bez předpovědi (žádné „null°“)
+  const fc = await W.forecast([{ lat: 41.39, lon: 2.17, date: '2026-10-20' }, { lat: 41.39, lon: 2.17, date: '2026-10-19' }], { now: NOW, fetchFn: async () => okJson({ daily: daily(['2026-10-19', '2026-10-20'], { weather_code: [0, null], temperature_2m_max: [20, null] }) }) });
+  assert.equal(fc[0], null);
+  assert.equal(fc[1].hi, 20);
+});
+
+test('předpověď: konec rozsahu nejvýš datum UTC + 15 (po místní půlnoci by Open-Meteo dotaz odmítl)', async () => {
+  const tz0 = process.env.TZ;
+  try {
+    for (const [tz, now, start, last, over] of [
+      ['Europe/Prague', '2026-10-11T22:30:00Z', '2026-10-12', '2026-10-26', '2026-10-27'], // 0:30 místního času, v UTC ještě 11. 10.
+      ['Europe/Prague', '2026-10-11T20:30:00Z', '2026-10-11', '2026-10-26', '2026-10-27'],
+      ['America/New_York', '2026-10-12T02:30:00Z', '2026-10-11', '2026-10-26', '2026-10-27'], // večer, v UTC už 12. 10.
+      ['UTC', '2026-12-31T23:59:00Z', '2026-12-31', '2027-01-15', '2027-01-16'],
+    ]) {
+      process.env.TZ = tz;
+      const W = load();
+      let u;
+      await W.span([{ lat: 50, lon: 14 }], { now: new Date(now), fetchFn: async (url) => { u = new URL(url); return okJson({ daily: daily([start]) }); } });
+      assert.equal(u.searchParams.get('start_date'), start, `${tz} ${now}`);
+      assert.equal(u.searchParams.get('end_date'), last, `${tz} ${now}`);
+      assert.equal(W.inForecast(last, new Date(now)), true);
+      assert.equal(W.inForecast(over, new Date(now)), false, `${tz} ${now}: den za koncem rozsahu`);
+    }
+  } finally {
+    if (tz0 === undefined) delete process.env.TZ; else process.env.TZ = tz0;
+  }
 });
