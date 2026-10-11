@@ -1520,6 +1520,11 @@
   function reusable(res, { at, key, want, now, maxAge = 30 * 6e4 }) {
     return Boolean(res && !res.partial && now - at < maxAge && key === want);
   }
+  /** Chyba hledání, které už ukázalo průběžné výsledky: hláška jako věta (tečka, chybí-li – „Server neposlal výsledek“, „network error“) + co znamená výpis níž. */
+  function partialFail(msg) {
+    const m = String(msg || '').trim() || 'Hledání selhalo';
+    return `${/[.!?…]$/.test(m) ? m : m + '.'} Výsledky níž jsou jen průběžné – hledání se nedokončilo.`;
+  }
 
   /** Nedávná hledání: nejnovější první, stejné hledání (podle klíče) jen jednou, nejvýš cap. */
   function recentAdd(list, e, key, cap = 5) {
@@ -1546,7 +1551,7 @@
     easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
-    partialHead, reusable,
+    partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
   };
 })();

@@ -375,3 +375,46 @@ test('kdy vyrazit: z domu na let tam a z ubytování na let zpět – průběh c
   assert.equal(leaveBy({ ...t, ground: { out: { minutes: 1e12 } } }).home, null);
   assert.equal(leaveBy({ ...t, ground: { out: { minutes: '45' } } }).home.hm, '03:15', 'číslo jako text se přečte jako číslo');
 });
+
+test('let z průběžných výsledků: „Je to dobrá cena?“ až z konečného výsledku téhož hledání (statistika i úroveň ceny), ne z části zdrojů', () => {
+  const c = load();
+  const { Trip } = c.window;
+  // štítek: úroveň ceny letu, jinak ze statistiky (jako PriceCheck.assess)
+  c.window.PriceCheck = c.PriceCheck = { assess: (f, st) => f.priceLevel || (st ? { level: 'normal', reason: `ze statistiky (${st.n} nabídek)` } : null) };
+  c.window.Flights = c.Flights = { priceTag: (f, i, pl) => `<b class="pl">${pl.level}</b>`, priceCheck: () => {} };
+  const q = { from: ['ap:BRQ'], to: [], dateFrom: '2026-11-01', dateTo: '2026-11-30', adults: 2, bags: 'none' };
+  const st = (n, median) => ({ n, min: 800, p25: 850, median, p75: 950, max: 1200, dateFrom: '2026-11-10', dateTo: '2026-11-20', mins: [['BRQ', '2026-11', 800]] });
+  const noMins = (s) => plain({ ...s, mins: undefined });
+  const fl = { ...trip().flight, id: 'demo-air|BRQ|OMR|2026-11-10T07:00:00', destKey: 'OMR', priceLevel: { level: 'low', reason: 'z náhledu', ref: 900, vsRef: -10 } };
+  const grp = (stats, options = []) => ({ dest: { key: 'OMR', label: 'Oradea', cc: 'RO', country: 'Rumunsko', lat: 47.03, lon: 21.9 }, priceStats: stats, options });
+  const preview = { partial: true, query: q, origins: [], groups: [grp(st(6, 886), [fl])] };
+  Trip.start({ t: fl, g: preview.groups[0], result: preview });
+  const t = c.S.trip;
+  assert.deepEqual([t.priceStats, t.flight.priceLevel, t.statsWait], [null, undefined, JSON.stringify(q)], 'statistika ani úroveň ceny z části zdrojů se neuloží');
+  assert.equal(fl.priceLevel.reason, 'z náhledu', 'nabídka ve výpisu beze změny');
+  t.verifiedAt = 1;
+  assert.doesNotMatch(render(c, t), /Je to dobrá cena\?/, 'krok Let bez štítku, dokud hledání nedoběhne');
+  // jiné hledání ani další průběžný výsledek ho nedoplní
+  assert.equal(Trip.finalStats({ query: { ...q, adults: 1 }, origins: [], groups: [grp(st(9, 870))] }), false);
+  assert.equal(Trip.finalStats(preview), false);
+  assert.equal(t.priceStats, null);
+  // konečný výsledek téhož hledání: statistika cíle (bez mins) a úroveň ceny téhož letu z něj, štítek v kroku Let hned
+  const lvl = { level: 'normal', reason: 'kolem obvyklé ceny', ref: 900, vsRef: -2 };
+  const fin = { query: JSON.parse(JSON.stringify(q)), origins: [], groups: [grp(st(8, 873), [{ ...fl, priceLevel: lvl }])] };
+  assert.equal(Trip.finalStats(fin), true);
+  assert.deepEqual([plain(t.priceStats), plain(t.flight.priceLevel), t.statsWait], [noMins(st(8, 873)), lvl, undefined]);
+  assert.match(sp(c.__els['#tfPl'].innerHTML), /<b class="pl">normal<\/b><span class="faint">kolem obvyklé ceny<\/span>.*Je to dobrá cena\?/);
+  assert.equal(Trip.finalStats(fin), false, 'jen jednou');
+  // let v konečném výsledku chybí (vypadl z nejlepších nabídek) → úroveň se dopočítá ze statistiky; konkrétní cíl: statistika trasy
+  c.S.trip = null;
+  Trip.start({ t: { ...fl, id: 'jiný' }, g: null, result: { partial: true, query: { ...q, to: ['metro:LON'] }, origins: [], priceStats: st(3, 990), groups: [] } });
+  const r = c.S.trip;
+  assert.equal(Trip.finalStats({ query: { ...q, to: ['metro:LON'] }, origins: [], priceStats: st(14, 905), groups: [], top: [{ ...fl, priceLevel: lvl }] }), true);
+  assert.deepEqual([plain(r.priceStats), r.flight.priceLevel], [noMins(st(14, 905)), undefined]);
+  // z konečného výsledku jako dřív (statistika hned, úroveň ceny letu zůstane), na nic nečeká
+  c.S.trip = null;
+  Trip.start({ t: fl, g: fin.groups[0], result: fin });
+  assert.deepEqual([plain(c.S.trip.priceStats), c.S.trip.flight.priceLevel.reason, c.S.trip.statsWait], [noMins(st(8, 873)), 'z náhledu', undefined]);
+  // cesta z odkazu, zálohy či uložená na konečný výsledek v tomto prohlížeči nečeká
+  assert.equal(Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...trip({ route: null }), statsWait: JSON.stringify(q) }))).statsWait, undefined);
+});

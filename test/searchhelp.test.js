@@ -918,3 +918,12 @@ test('průběžné výsledky: výchozí cena ♡ hlídání jen z čerstvého ko
   assert.equal(ok(res, { at: now - 31 * 60e3 }), false, 'starší než 30 min');
   assert.equal(ok(null), false);
 });
+
+test('průběžné výsledky: chyba hledání po náhledu jako věta – tečka za hláškou bez ní, ne „Server neposlal výsledek Výsledky níž…“', () => {
+  const tail = ' Výsledky níž jsou jen průběžné – hledání se nedokončilo.';
+  assert.equal(H.partialFail('Server neposlal výsledek'), 'Server neposlal výsledek.' + tail);
+  assert.equal(H.partialFail('network error'), 'network error.' + tail, 'přerušený stream (Chrome)');
+  assert.equal(H.partialFail('Hledání trvalo moc dlouho.'), 'Hledání trvalo moc dlouho.' + tail, 'tečka jen jednou');
+  assert.equal(H.partialFail('Zkus to za chvíli!  '), 'Zkus to za chvíli!' + tail);
+  assert.equal(H.partialFail(''), 'Hledání selhalo.' + tail);
+});

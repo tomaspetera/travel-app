@@ -1025,8 +1025,9 @@ prohlížeč (public/)                         server (server/, Node bez závisl
   kombinace v rámci počtu nocí – včetně návratu na jiné letiště v okolí.
 - **Průběžné výsledky**: když rychlejší zdroj doběhne a pomalejší (hlavně Kiwi.com) ještě hledá, ukáže se výpis už po
   pár sekundách pod pruhem *Průběžné výsledky – Kiwi.com ještě hledá (12/30)…* a průběžně se doplňuje (filtry, pohled,
-  rozbalené nabídky i místo na stránce zůstanou; pod prstem ani pod otevřeným oknem se nepřekreslí), přičemž ♡ hlídání,
-  paměť cen, nedávná a uložená hledání i ověřování živě berou až konečný výsledek – stejný, jako kdyby náhledy nebyly.
+  rozbalené nabídky, přiblížená mapa s otevřeným cílem, fokus klávesnice i místo na stránce zůstanou; pod prstem ani pod
+  otevřeným oknem se nepřekreslí), přičemž ♡ hlídání, paměť cen, nedávná a uložená hledání, ověřování živě i „Je to dobrá
+  cena?“ u letu vybraného z náhledu berou až konečný výsledek – stejný, jako kdyby náhledy nebyly.
 - **Doprava na letiště** je odhad (`server/lib/access.js`): veřejnou dopravou vlak/bus do města letiště + cesta na letiště
   + příplatek přes hranici, autem palivo nebo nabíjení (spotřeba × aktuální cena z `server/lib/fuel.js`) + parkování podle
   počtu nocí (přičítá optimalizátor k celé cestě) + známky – viz [Doprava na letiště](#doprava-na-letiště).

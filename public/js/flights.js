@@ -917,6 +917,7 @@
       })); // + cesty buněk mřížky termínů
       lastResult = res; lastResultAt = Date.now(); lastResultPayload = payload; restored = false;
       PriceCheck.remember(res); // paměť cen v tomto prohlížeči („Je to dobrá cena?“)
+      if (window.Trip && Trip.finalStats) Trip.finalStats(res); // let vybraný z průběžných výsledků: „Je to dobrá cena?“ až z konečného
       fitMode(res);
       // po průběžných výsledcích jen překreslit (filtry, pohled, rozbalení, posun i fokus zůstanou) – ne pod rukou
       const paint = () => { renderProgress({ providers: res.providers }, false, res); if (s.shown) rerenderKeep(); else renderResults(); };
@@ -932,7 +933,7 @@
       if (e.name === 'AbortError') return;
       expandForm(); // chyba hledání: formulář zase vidět (hláška radí ho upravit)
       clearTimeout(paintT);
-      $('#progress').innerHTML = `<div class="note bad">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(e.message)}${s.shown ? ' Výsledky níž jsou jen průběžné – hledání se nedokončilo.' : ''}</div></div>`;
+      $('#progress').innerHTML = `<div class="note bad">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(s.shown ? SearchHelp.partialFail(e.message) : e.message)}</div></div>`;
     } finally {
       busySearches--;
       // tlačítko odemkne jen poslední hledání – zrušené předchozí by ho odemklo uprostřed běžícího
@@ -957,13 +958,21 @@
   }
   // Nové nabídky výpisem pod rukou nehýbou: řádek, který je teď nahoře na obrazovce (cíl, nabídka), zůstane po překreslení
   // na stejném místě, i když nad ním přibude levnější cíl, pruh nebo filtr; jinak (nahoře na stránce, řádek zmizel)
-  // aspoň stejný posun stránky (rerender).
+  // aspoň stejný posun stránky (rerender). Mapa: přiblížení (i projekce) a detail cíle otevřený klepnutím na bod zůstanou.
   function rerenderKeep() {
     const host = $('#results');
-    const el = scrollY > 0 ? $$('.cmp-row[data-cg], .res-card[id^="g-"], .trip-row[data-tid]', host).find(e => e.getBoundingClientRect().bottom > 80) : null;
+    // (řádek v horní polovině obrazovky – první řádek až dole na telefonu by s mřížkou termínů, která přibude nad výpisem,
+    // odsunul pruh i nadpis, na které se uživatel dívá, o celou obrazovku)
+    const el = scrollY > 0 ? $$('.cmp-row[data-cg], .res-card[id^="g-"], .trip-row[data-tid]', host).find(e => e.getBoundingClientRect().bottom > 80 && e.getBoundingClientRect().top < innerHeight / 2) : null;
     const sel = el && (el.dataset.cg != null ? `.cmp-row[data-cg="${CSS.escape(el.dataset.cg)}"]` : el.id ? '#' + CSS.escape(el.id) : `.trip-row[data-tid="${CSS.escape(el.dataset.tid)}"]`);
     const top = el && el.getBoundingClientRect().top;
+    const sv = view.mode === 'map' && typeof d3 !== 'undefined' ? $('#resMap svg', host) : null, z = sv && sv.__pj ? d3.zoomTransform(sv) : null;
+    mapKeep = z && (z.k !== 1 || z.x || z.y) ? { ...sv.__pj, z: { k: z.k, x: z.x, y: z.y } } : null;
+    const mg = view.mode === 'map' ? $('#mapList', host)?.dataset.g : null;
     rerender(true);
+    mapKeep = null; // mapa se (bez výsledků) nekreslila – příště zase podle výsledků
+    const g = mg && $('#mapList', host) && computeGroups().find(x => x.dest.key === mg);
+    if (g) showMapDetail(g, false);
     const now = sel && $(sel, host);
     if (now) window.scrollBy(0, now.getBoundingClientRect().top - top);
   }
@@ -1080,8 +1089,16 @@
       return;
     }
     if (part && !multi) {
-      const open = Boolean($('details.progress-card', host)?.open); // rozbalení zůstane i s dalším průběhem
-      host.innerHTML = `<details class="card progress-card part"${open ? ' open' : ''}><summary class="ph"><span><span class="spin"></span> ${esc(SearchHelp.partialHead(ev.providers, shopName))}</span><span class="ps-more faint">podrobnosti</span></summary>${rows}${disabled}</details>`;
+      // Další průběh jen přepíše text a řádky zdrojů – pruh i „podrobnosti“ zůstanou (rozbalení, klepnutí rozpracované
+      // pod prstem se neztratí; průběh chodí až 4× za s).
+      const d = $('details.progress-card.part', host), sum = d && $('summary', d);
+      if (sum) {
+        $('.ph-txt', sum).textContent = SearchHelp.partialHead(ev.providers, shopName);
+        while (sum.nextSibling) sum.nextSibling.remove();
+        sum.insertAdjacentHTML('afterend', rows + disabled);
+        return;
+      }
+      host.innerHTML = `<details class="card progress-card part"><summary class="ph"><span><span class="spin"></span> <span class="ph-txt">${esc(SearchHelp.partialHead(ev.providers, shopName))}</span></span><span class="ps-more faint">podrobnosti</span></summary>${rows}${disabled}</details>`;
       return;
     }
     host.innerHTML = `<div class="card progress-card"><div class="ph">${head}</div>${legs}${rows}</div>`;
@@ -1310,7 +1327,7 @@
     if (isRoute && view.mode === 'cards') view.mode = 'list';
     const modes = [...(exactRoute ? [['legs', '✈︎ Lety']] : []), ['list', exactRoute ? '☰ Kombinace' : isRoute ? '☰ Seznam' : '≡ Přehled'], ...(!isRoute ? [['cards', '☰ Karty']] : []), ['map', '🗺️ Mapa'], ...(isRoute ? [['cal', '📅 Kalendář']] : [])];
     const summary = kiwiBanner(res) + `<div class="res-head">
-      <div><h2>${isRoute ? `✈️ ${destTxt}` : `🌍 ${res.partial ? 'Zatím ' : ''}${plural(res.groups.length, 'destinace', 'destinace', 'destinací')} ${res.destination.kind === 'countries' ? '· ' + destTxt : ''}`}</h2>
+      <div><h2>${isRoute ? `✈️ ${destTxt}${res.partial ? ' <span class="part-tag">⏳ zatím část nabídek</span>' : ''}` : `🌍 ${res.partial ? 'Zatím ' : ''}${plural(res.groups.length, 'destinace', 'destinace', 'destinací')} ${res.destination.kind === 'countries' ? '· ' + destTxt : ''}`}</h2>
       <div class="muted" style="font-size:13px">z ${res.origins.map(o => `<b>${o.iata}</b>`).join(', ')} · ${whenTxt(res.query)} · ${res.query.adults} os.${BAG_LBL[res.query.bags] ? ` · 🧳 vč. ${res.query.bags === 'cabin' ? 'kabinového kufru' : 'kufru k odbavení'}` : ''}
       ${best ? ` · nejlevněji <b class="good">${czk(best.perPersonCzk)}</b>/os.` : ''}</div></div>
       <div class="res-tools">
@@ -1655,7 +1672,7 @@
     const meta = [dur(l.durationMin), l.stops ? stopsTxt(l) : 'přímý', l.carrierName || provName(l.provider)].filter(Boolean).map(esc).join(' · ');
     const price = dim ? `<small>jen s jiným letem ${side === 'out' ? 'zpět' : 'tam'}</small>`
       : `<b>${ret && !pair ? 'od ' : ''}${czk(t.perPersonCzk)}</b>${ret ? `<small>${pair ? 'celá cesta' : 'tam i zpět'}</small>` : ''}`;
-    return `<button type="button" class="lrow${sel ? ' sel' : ''}${dim ? ' dim' : ''}" data-leg="${side}:${i}" aria-pressed="${sel}">
+    return `<button type="button" class="lrow${sel ? ' sel' : ''}${dim ? ' dim' : ''}" data-leg="${side}:${i}" data-lsig="${esc(side + ':' + x.sig)}" aria-pressed="${sel}">
       <span class="cbadge" style="background:${provColor(l.provider)}" title="${esc(l.carrierName || provName(l.provider))}">${esc(l.carrier || '?')}</span>
       <span class="lr-main"><span class="lr-t">${showDate ? `<span class="ld">${dayLabel(l.date)}</span>` : ''}<b>${esc(timeOf(l)) || '—'}</b>${arrTime(l) ? ` <span class="arr">→</span> <b>${esc(arrTime(l))}</b>` : arrUnk(l) ? ` <span class="arr">→</span> ${arrUnk(l)}` : ''}<span class="lr-ap">${esc(l.from)} → ${esc(l.to)}</span></span>
         <span class="lr-x">${meta}</span>${cacheTag(l)}${depsHtml(l, 'lr-od')}</span>
@@ -2413,17 +2430,28 @@
     // skupina i s nabídkami po filtrech výpisu (vis) – okno porovná s letem, který karta ukazuje
     $$('[data-gchip]', host).forEach(b => b.onclick = () => { const k = b.dataset.gchip, g = computeGroups().find(x => x.dest.key === k) || lastResult.groups.find(x => x.dest.key === k); if (g) openGroundModal(g); });
   }
+  // Prvek výpisu s fokusem (klávesnice) jako selektor platný i po překreslení: id, stálý klíč (filtr, pohled, cíl, let –
+  // data-lsig, ne pořadí v data-leg), nebo tlačítko v řádku nabídky podle data-tid řádku (data-pick/pc/live jsou pořadí
+  // v rowRegistry – po překreslení, třeba konečnými výsledky po průběžných, jiné).
+  const FOCUS_KEYS = ['tp', 'tarr', 'tst', 'fo', 'ofo', 'fc', 'v', 'mleg', 'ms', 'mcombo', 'cell', 'cg', 'exp', 'alldates', 'gchip', 'cmore', 'lsig'];
+  function focusSel(a) {
+    if (a.id) return '#' + CSS.escape(a.id);
+    const k = FOCUS_KEYS.find(k => a.dataset[k] != null);
+    if (k) return `[data-${k}="${CSS.escape(a.dataset[k])}"]`;
+    const row = a.closest('.trip-row[data-tid]'), rk = row && ['pick', 'pc', 'live', 'country'].find(k => a.dataset[k] != null);
+    return rk ? `.trip-row[data-tid="${CSS.escape(row.dataset.tid)}"] [data-${rk}]` : null;
+  }
   function rerender(keepScroll) {
     const y = window.scrollY;
-    // ovládací prvek filtrů s fokusem (klávesnice) najít i v překresleném výpisu
-    const a = document.activeElement, sel = a && a !== document.body && $('#results').contains(a)
-      ? (a.id ? '#' + CSS.escape(a.id) : ['tp', 'tarr', 'tst', 'fo', 'ofo', 'fc', 'v', 'mleg', 'ms', 'mcombo', 'cell'].filter(k => a.dataset[k] != null).map(k => `[data-${k}="${CSS.escape(a.dataset[k])}"]`)[0]) : null;
+    // ovládací prvek s fokusem najít i v překresleném výpisu (stejný klíč víckrát: stejně kolikátý)
+    const a = document.activeElement, sel = a && a !== document.body && $('#results').contains(a) ? focusSel(a) : null;
+    const nth = sel ? Math.max(0, $$(sel, $('#results')).indexOf(a)) : 0;
     const dg = $('#dgScroll'), dgAt = dg && [dg.scrollLeft, dg.scrollTop]; // mřížka termínů se posouvá uvnitř karty
     rowRegistry = [];
     renderResults();
     if (keepScroll) window.scrollTo(0, y);
     const dg2 = dgAt && $('#dgScroll'); if (dg2) [dg2.scrollLeft, dg2.scrollTop] = dgAt;
-    const el = sel && $(sel, $('#results'));
+    const all = sel ? $$(sel, $('#results')) : [], el = all[nth] || all[0];
     if (el) el.focus({ preventScroll: true });
   }
 
@@ -2542,8 +2570,12 @@
 
 
   /* ---------- mapa výsledků ---------- */
+  // Přiblížená mapa při automatickém překreslení (průběžné → konečné výsledky, rerenderKeep): stejná projekce i přiblížení,
+  // nové cíle přibudou na svém místě – jednorázově { W, scale, translate, z }.
+  let mapKeep = null;
   async function drawResultMap(groups) {
     const el = $('#resMap'); if (!el || typeof d3 === 'undefined') return;
+    const keep = mapKeep; mapKeep = null;
     const world = await loadWorld();
     const feats = topojson.feature(world, world.objects.countries).features;
     const W = el.clientWidth || 900, H = Math.max(380, Math.min(620, W * 0.58));
@@ -2551,11 +2583,13 @@
     const pts = groups.filter(g => g.dest.lat != null).map(g => ({ g, t: g.vis[0], lon: g.dest.lon, lat: g.dest.lat }));
     const orig = res.origins.filter(o => o.lat != null);
     const geo = { type: 'MultiPoint', coordinates: [...pts.map(p => [p.lon, p.lat]), ...orig.map(o => [o.lon, o.lat])] };
-    const proj = d3.geoNaturalEarth1().fitExtent([[30, 30], [W - 30, H - 30]], geo);
+    const kept = keep && keep.W === W;
+    const proj = kept ? d3.geoNaturalEarth1().scale(keep.scale).translate(keep.translate) : d3.geoNaturalEarth1().fitExtent([[30, 30], [W - 30, H - 30]], geo);
     if (proj.scale() > 2600) proj.scale(2600);
     const path = d3.geoPath(proj);
     el.innerHTML = '';
     const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('class', 'rm-svg');
+    svg.node().__pj = { W, scale: proj.scale(), translate: proj.translate() };
     const g0 = svg.append('g');
     g0.append('g').selectAll('path').data(feats).join('path').attr('d', path).attr('class', 'rm-land');
     const prices = pts.map(p => p.t.perPersonCzk).sort((a, b) => a - b);
@@ -2606,15 +2640,20 @@
     const sizeOrigins = k => { const a = 8 / Math.sqrt(k); origins.attr('x', d => proj([d.lon, d.lat])[0] - a / 2).attr('y', d => proj([d.lon, d.lat])[1] - a / 2).attr('width', a).attr('height', a); };
     sizeOrigins(1);
     if (home) svg.append('circle').attr('cx', proj(home)[0]).attr('cy', proj(home)[1]).attr('r', 4).attr('class', 'rm-home');
-    svg.call(d3.zoom().scaleExtent([1, 10])
+    const zoom = d3.zoom().scaleExtent([1, 10])
       .on('zoom', ev => { const k = ev.transform.k; g0.attr('transform', ev.transform); g0.selectAll('circle').attr('r', d => (d.t.deal.level === 'super' ? 7 : 5.5) / Math.sqrt(k)); sizeOrigins(k); g0.selectAll('.rm-lbl').style('font-size', lblSize(k) + 'px'); })
-      .on('end', ev => placeLabels(ev.transform.k)));
+      .on('end', ev => placeLabels(ev.transform.k));
+    svg.call(zoom);
+    if (kept && keep.z) svg.call(zoom.transform, d3.zoomIdentity.translate(keep.z.x, keep.z.y).scale(keep.z.k));
   }
-  function showMapDetail(g) {
+  // Detail cíle pod mapou (klik na bod); scroll = false: obnovený po automatickém překreslení – stránkou nehýbat.
+  function showMapDetail(g, scroll = true) {
     rowRegistry = [];
-    $('#mapList').innerHTML = groupCard(g);
+    const ml = $('#mapList');
+    ml.innerHTML = groupCard(g);
+    ml.dataset.g = g.dest.key;
     wireResults();
-    $('#mapList').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (scroll) ml.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   /* ---------- hlídané ceny ---------- */
