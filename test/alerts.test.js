@@ -437,24 +437,28 @@ test('rollForm: { off, span } se posouvá s dneškem – přes konec měsíce, r
   process.env.TZ = 'Europe/Prague';
   try {
     for (let d = '2026-01-01'; d <= '2028-12-31'; d = plusD(d, 1)) {
-      for (const roll of [{ off: 0, span: 1 }, { off: 7, span: 28 }, { off: 60, span: 180 }]) {
+      for (const roll of [{ off: 0, span: 7 }, { off: 7, span: 28 }, { off: 60, span: 180 }]) {
         const r = R.rollForm({ ...f, roll }, d);
         assert.ok(daysD(d, r.dFrom) === roll.off && daysD(r.dFrom, r.dTo) === roll.span, `${d} ${JSON.stringify(roll)} → ${r.dFrom}–${r.dTo}`);
       }
     }
   } finally { if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz; }
   // bez roll, s neplatným roll, přesná data a víc měst: formulář beze změny (stejný objekt)
-  for (const g of [BASE, { ...BASE, roll: { off: 61, span: 7 } }, { ...BASE, roll: { off: 3, span: 0 } }, { ...BASE, roll: { off: 1.5, span: 7 } }, { ...BASE, roll: { lw: 'prev' } }, { ...BASE, roll: 'next' }, { ...BASE, dateMode: 'exact', roll: { off: 3, span: 7 } }, { ...BASE, trip: 'multi', roll: { off: 3, span: 7 } }]) {
+  for (const g of [BASE, { ...BASE, roll: { off: 61, span: 7 } }, { ...BASE, roll: { off: 3, span: 0 } }, { ...BASE, roll: { off: 5, span: 1 } }, { ...BASE, roll: { off: 3, span: 6 } }, { ...BASE, roll: { off: 1.5, span: 7 } }, { ...BASE, roll: { lw: 'prev' } }, { ...BASE, roll: { lw: 'next', eve: true } }, { ...BASE, roll: 'next' }, { ...BASE, dateMode: 'exact', roll: { off: 3, span: 7 } }, { ...BASE, trip: 'multi', roll: { off: 3, span: 7 } }]) {
     assert.equal(R.rollForm(g, '2026-10-11'), g, JSON.stringify(g.roll));
   }
   assert.equal(R.rollForm(undefined, '2026-10-11'), undefined);
 });
 
-test('rollForm: { lw: "next" } = nejbližší prodloužený víkend jako 🎉 Svátky, po jeho začátku další', () => {
+test('rollForm: { lw: "next" } = nejbližší prodloužený víkend jako 🎉 Svátky, den před jeho začátkem (v den odletu) už další', () => {
   const f = { ...BASE, len: 'holiday', dFrom: '2026-01-01', dTo: '2026-01-02', nMin: 9, nMax: 9, outDays: [1], backDays: [1], roll: { lw: 'next' } };
   const at = (t) => { const r = R.rollForm(f, t); return [r.dFrom, r.dTo, r.nMin, r.nMax, r.outDays, r.backDays, r.depAfter && r.depAfter.date, r.len]; };
   assert.deepEqual(plain(at('2026-11-12')), ['2026-11-13', '2026-11-14', 3, 4, [5, 6], [2], '2026-11-13', 'holiday'], 'Den boje za svobodu: odlet pá od 16:00 nebo so, návrat út');
-  assert.deepEqual(plain(at('2026-11-13')), ['2026-12-23', '2026-12-24', 3, 4, [3, 4], [0], '2026-12-23', 'holiday'], 'o den později už Vánoce');
+  assert.deepEqual(plain(at('2026-11-13')), ['2026-12-23', '2026-12-24', 3, 4, [3, 4], [0], '2026-12-23', 'holiday'], 'o den později (pá 13. 11., v den odletu) už Vánoce');
+  // eve: false = „v předvečer jen odlety od 16:00“ vypnuté – u každého dalšího víkendu bez něj, jinak stejný termín
+  const off = (t) => { const r = R.rollForm({ ...f, roll: { lw: 'next', eve: false } }, t); return [r.dFrom, r.dTo, r.nMin, r.nMax, r.outDays, r.backDays, r.depAfter, r.len]; };
+  assert.deepEqual(plain(off('2026-11-12')), ['2026-11-13', '2026-11-14', 3, 4, [5, 6], [2], null, 'holiday']);
+  assert.deepEqual(plain(off('2026-12-01')), ['2026-12-23', '2026-12-24', 3, 4, [3, 4], [0], null, 'holiday']);
   assert.deepEqual(plain(at('2026-12-23')).slice(0, 2), ['2026-12-31', '2027-01-01'], 'přes konec roku: Nový rok');
   // každý den rok dopředu stejně jako předvolba 🎉 Svátky (holidayDates nejbližšího víkendu) a nikdy neproběhne
   for (let d = '2026-10-01'; d <= '2027-10-01'; d = plusD(d, 1)) {
@@ -491,6 +495,9 @@ test('searchKey s roll: klíč klouzavého hlídání se den ode dne nemění, p
   const hol = { ...BASE, len: 'holiday', roll: { lw: 'next' } };
   assert.equal(wkey(hol, '2026-11-12'), wkey(hol, '2026-11-13'));
   assert.equal(wkey(hol, '2026-11-12'), wkey(hol, '2027-05-01'));
+  const eve = { ...hol, roll: { lw: 'next', eve: false } };
+  assert.equal(wkey(eve, '2026-11-12'), wkey(eve, '2027-05-01'));
+  assert.notEqual(wkey(eve, '2026-11-12'), wkey(hol, '2026-11-12'), 'bez „odlet od 16:00“ je jiné hledání');
   // ♡ téhož klouzavého hledání o týden později se nepřidá podruhé (Alerts.upsertWatch)
   const w1 = { id: 'a', label: 'x', sub: 'y', form: weekly, best: { czk: 1500 }, history: [{ at: NOW, czk: 1500 }], checked: NOW, base: 1500, low: 1500, seen: 1500, target: 1200 };
   const r = R.upsertWatch([w1], { ...w1, id: 'b', form: { ...weekly, dFrom: '2026-10-21', dTo: '2026-12-16' }, best: { czk: 1400 }, target: null }, (w) => wkey(w.form, '2026-10-18'), { now: NOW + 168 * H });
@@ -507,8 +514,13 @@ test('rollSpec: klouzavý termín z formuláře ♡ i pro uložené hlídání (
   const t = '2026-10-11', f = (dFrom, dTo, x = {}) => ({ dateMode: 'flex', trip: 'return', len: 'custom', dFrom, dTo, ...x });
   const spec = (form, opts) => plain(R.rollSpec(form, t, opts));
   assert.deepEqual(spec(f('2026-10-14', '2026-12-09')), { off: 3, span: 56 });
-  assert.deepEqual(spec(f('2026-10-11', '2026-10-12')), { off: 0, span: 1 });
+  assert.deepEqual(spec(f('2026-10-11', '2026-10-18')), { off: 0, span: 7 });
   assert.deepEqual(spec(f('2026-12-10', '2027-01-11')), { off: 60, span: 32 });
+  // rozsah kratší než týden se neposouvá: pá–so by ve středu hledal po–út (s dny odletu pá a so nic, bez nich všední ceny
+  // proti víkendové → falešné „zlevnilo“) – zůstane pevný, přepínač ani „převést na klouzavé“ se neukážou
+  for (let n = 0; n <= 10; n++) assert.deepEqual(spec(f('2026-10-14', plusD('2026-10-14', n))), n < 7 ? null : { off: 3, span: n }, `${n} dní`);
+  assert.equal(spec(f('2026-10-16', '2026-10-17', { outDays: [5, 6], backDays: [0, 1] })), null, 'nejbližší víkend pá–so');
+  assert.equal(spec(f('2026-09-04', '2026-09-05'), { saved: '2026-09-01' }), null, 'proběhlý víkend');
   assert.equal(spec(f('2026-12-11', '2027-01-11')), null, 'začátek za víc než 60 dní');
   assert.equal(spec(f('2026-10-14', '2027-04-13')), null, 'delší než 180 dní');
   assert.equal(spec(f('2026-10-14', '2026-10-14')), null, 'jen jeden den');
@@ -518,14 +530,17 @@ test('rollSpec: klouzavý termín z formuláře ♡ i pro uložené hlídání (
   const [lw1, lw2] = SH.holidayList(t);
   assert.deepEqual(spec({ ...f(), len: 'holiday', ...SH.holidayDates(lw1, t) }), { lw: 'next' });
   assert.equal(spec({ ...f(), len: 'holiday', ...SH.holidayDates(lw2, t) }), null);
-  assert.deepEqual(spec(f('2026-05-07', '2026-05-08', { len: 'holiday' })), { lw: 'next' });
+  // vypnuté „v předvečer jen odlety od 16:00“ (Další možnosti) se uloží – kontroly ho pak nevrátí
+  assert.deepEqual(spec({ ...f(), len: 'holiday', ...SH.holidayDates(lw1, t), depAfter: null }), { lw: 'next', eve: false });
+  assert.deepEqual(spec(f('2026-05-07', '2026-05-08', { len: 'holiday', depAfter: { date: '2026-05-07', time: '16:00' } })), { lw: 'next' });
+  assert.deepEqual(spec(f('2026-05-07', '2026-05-08', { len: 'holiday' })), { lw: 'next', eve: false }, 'proběhlý svátek hledaný bez pravidla');
   // rozsah, který už začal nebo proběhl: odstup od dne uložení, meze oříznuté
   assert.deepEqual(spec(f('2026-09-04', '2026-10-30'), { saved: '2026-09-01' }), { off: 3, span: 56 }, 'začal');
   assert.deepEqual(spec(f('2026-06-04', '2026-07-30'), { saved: '2026-06-01' }), { off: 3, span: 56 }, 'proběhl');
   assert.deepEqual(spec(f('2026-06-04', '2026-07-30')), { off: 0, span: 56 }, 'bez dne uložení od začátku');
   assert.deepEqual(spec(f('2026-06-04', '2026-07-30'), { saved: '2026-06-10' }), { off: 0, span: 56 }, 'uloženo až po začátku');
   assert.deepEqual(spec(f('2026-06-04', '2027-07-30'), { saved: '2026-01-01' }), { off: 60, span: 180 });
-  assert.deepEqual(spec(f('2026-06-04', '2026-06-04')), { off: 0, span: 1 });
+  assert.equal(spec(f('2026-06-04', '2026-06-04')), null);
   // z budoucího rozsahu dnes stejný termín
   const g = f('2026-10-14', '2026-12-09'), rf = R.rollForm({ ...g, roll: R.rollSpec(g, t) }, t);
   assert.deepEqual([rf.dFrom, rf.dTo], [g.dFrom, g.dTo]);
@@ -539,12 +554,34 @@ test('rollTxt: popis klouzavého termínu na kartu', () => {
   assert.equal(R.rollTxt(f({ off: 3, span: 56 }), t, { now: false }), 'vždy příštích 8 týdnů');
   assert.equal(R.rollTxt(f({ off: 0, span: 14 }), t), 'vždy příští 2 týdny (teď 11. 10.–25. 10.)');
   assert.equal(R.rollTxt(f({ off: 0, span: 7 }), t, { now: false }), 'vždy příštích 7 dní');
-  assert.equal(R.rollTxt(f({ off: 1, span: 3 }), t, { now: false }), 'vždy příští 3 dny');
+  assert.equal(R.rollTxt(f({ off: 1, span: 10 }), t, { now: false }), 'vždy příštích 10 dní');
   assert.equal(R.rollTxt(f({ off: 1, span: 60 }), t, { now: false }), 'vždy příštích 60 dní');
+  // „příštích …“ jen se začátkem nejvýš za 3 dny, dál rozsah od dneška (ne „vždy příští týden“, když začíná za 5 dní)
+  assert.equal(R.rollTxt(f({ off: 5, span: 7 }), t), 'vždy odlet za 5–12 dní (teď 16. 10.–23. 10.)');
+  assert.equal(R.rollTxt(f({ off: 4, span: 56 }), t, { now: false }), 'vždy odlet za 4–60 dní');
+  assert.equal(R.rollTxt(f({ off: 5, span: 1 }), t), '', 'kratší než týden = pevný termín');
   assert.equal(R.rollTxt(f({ off: 30, span: 28 }), t), 'vždy odlet za 30–58 dní (teď 10. 11.–8. 12.)');
   assert.equal(R.rollTxt(f({ off: 3, span: 56 }), '2026-12-30'), 'vždy příštích 8 týdnů (teď 2. 1.–27. 2.)');
   assert.equal(R.rollTxt(f({ lw: 'next' }), t), 'vždy nejbližší prodloužený víkend (teď Den boje za svobodu 14.–17. 11.)');
   assert.equal(R.rollTxt(f({ lw: 'next' }), '2026-11-13', { now: false }), 'vždy nejbližší prodloužený víkend');
   assert.equal(R.rollTxt(BASE, t), '', 'pevný termín');
   assert.equal(R.rollTxt({ ...BASE, dateMode: 'exact', roll: { off: 3, span: 7 } }, t), '');
+  assert.equal(R.rollTxt(f({ lw: 'next', eve: false }), t), 'vždy nejbližší prodloužený víkend (teď Den boje za svobodu 14.–17. 11.)');
+});
+
+test('savedAt: den uložení z id (Date.now().toString(36)), i když historie (jen 60 bodů) začíná později', () => {
+  const D = 864e5, id = (ms) => ms.toString(36), hist = (from, n) => Array.from({ length: n }, (_, i) => ({ at: from + i * 6 * H, czk: 1500 }));
+  assert.equal(R.savedAt({ id: id(NOW - 63 * D), history: hist(NOW - 20 * D, 60) }, NOW), NOW - 63 * D, 'historie oříznutá');
+  assert.equal(R.savedAt({ id: id(NOW - 63 * D), history: [] }, NOW), NOW - 63 * D);
+  assert.equal(R.savedAt({ id: 'r1', history: hist(NOW - 5 * D, 3) }, NOW), NOW - 5 * D, 'jiné id (záloha): první bod historie');
+  assert.equal(R.savedAt({ id: id(NOW - 2 * D), history: hist(NOW - 5 * D, 3) }, NOW), NOW - 5 * D, 'dřívější z obou');
+  assert.equal(R.savedAt({ id: id(NOW + 3 * D), history: hist(NOW - 5 * D, 3) }, NOW), NOW - 5 * D, 'id v budoucnu se nepočítá');
+  assert.equal(R.savedAt({ id: id(NOW + H) }, NOW), NOW + H, 'hodiny jiného zařízení o chvíli napřed');
+  assert.equal(R.savedAt({ id: id(Date.UTC(2019, 5, 1)) }, NOW), null);
+  for (const w of [{}, { id: 'abc' }, { id: 7, history: 'x' }, { history: [{ at: 'x' }] }, null]) assert.equal(R.savedAt(w, NOW), null, JSON.stringify(w));
+  // „📅 Převést na klouzavé“ u hlídání uloženého před 63 dny na rozsah za 3–53 dní (po 60 kontrolách): odstup 3 dny, ne 0
+  const today = new Date(NOW).toISOString().slice(0, 10), ymd = (ms) => new Date(ms).toISOString().slice(0, 10);
+  const w = { id: id(NOW - 63 * D), form: { dateMode: 'flex', trip: 'return', len: 'custom', dFrom: plusD(today, -60), dTo: plusD(today, -10) }, history: hist(NOW - 20 * D, 60) };
+  assert.deepEqual(plain(R.rollSpec(w.form, today, { saved: ymd(R.savedAt(w, NOW)) })), { off: 3, span: 50 });
+  assert.deepEqual(plain(R.rollSpec(w.form, today, { saved: ymd(w.history[0].at) })), { off: 0, span: 50 }, 'podle historie by začínal dnes');
 });

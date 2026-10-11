@@ -2784,10 +2784,10 @@
     save(); renderNews(); // „🎯 pod tvou cenou“ v řádku Od minula hned podle nové cílové ceny
     if (done) toast(!w.target ? 'Cílová cena zrušena' : met ? `Už teď stojí ${czk(cur)} – ozvu se, až cena ještě klesne` : `Upozorním, až bude cena ${czk(w.target)} nebo méně`);
   }
-  // Klouzavý termín pro uložené hlídání: rozsah, který už začal, se posune jako v den uložení (první bod historie).
+  // Klouzavý termín pro uložené hlídání: rozsah, který už začal, se posune jako v den uložení (čas v id, jinak první bod historie).
   function rollOf(w) {
-    const at = (w.history || [])[0]?.at;
-    return Alerts.rollSpec({ ...defaultForm(), ...w.form }, today(), { saved: at > 0 ? fmtYMD(new Date(at)) : null });
+    const at = Alerts.savedAt(w, Date.now());
+    return Alerts.rollSpec({ ...defaultForm(), ...w.form }, today(), { saved: at ? fmtYMD(new Date(at)) : null });
   }
   /** 📅 na kartě: zapnout (i „převést na klouzavé“ u proběhlého – hned se zkontroluje), vypnout = zůstane dnešní termín. */
   function setRoll(id, on) {

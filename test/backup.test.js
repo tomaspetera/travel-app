@@ -238,25 +238,27 @@ test('vlastní záloha nemění texty plánu: uvozovky, < >, apostrofy zůstanou
 
 test('📅 klouzavé hlídání: roll projde zálohou beze změny, neplatný se zahodí (pevný termín), sloučení podle klíče bez dat', () => {
   const rolled = (id, dFrom, dTo, roll, extra = {}) => { const w = watch(id, dFrom); return { ...w, form: { ...w.form, dTo, roll, ...extra } }; };
-  const S = state({ watch: [rolled('r1', '2026-10-14', '2026-12-09', { off: 3, span: 56 }), rolled('r2', '2026-11-13', '2026-11-14', { lw: 'next' }, { len: 'holiday' })] });
+  const S = state({ watch: [rolled('r1', '2026-10-14', '2026-12-09', { off: 3, span: 56 }), rolled('r2', '2026-11-13', '2026-11-14', { lw: 'next' }, { len: 'holiday' }), rolled('r3', '2026-11-13', '2026-11-14', { lw: 'next', eve: false }, { len: 'holiday', adults: 1 })] });
   const inc = B.parse(B.pack(S), deps);
-  assert.deepEqual(plain(inc.watch.map((w) => w.form.roll)), [{ off: 3, span: 56 }, { lw: 'next' }]);
+  assert.deepEqual(plain(inc.watch.map((w) => w.form.roll)), [{ off: 3, span: 56 }, { lw: 'next' }, { lw: 'next', eve: false }]);
   assert.deepEqual(plain(B.parse(B.pack(state({ watch: inc.watch })), deps).watch), plain(inc.watch), 'druhé kolo zálohy nic nemění');
   // stará záloha a hlídání bez roll: formulář beze změny
   assert.equal(Object.hasOwn(B.parse(B.pack(state({ watch: [watch('o', '2026-11-01')] })), deps).watch[0].form, 'roll'), false);
-  // přísná pravidla: celá čísla off 0–60, span 1–180, lw jen 'next'
+  // přísná pravidla: celá čísla off 0–60, span 7–180 (aspoň týden), lw jen 'next' s eve nanejvýš false
   const clean = (roll) => B.cleanForm({ from: [BRQ], dFrom: '2026-10-14', roll }, ctx.PlanShare.txt).roll;
-  for (const bad of [{ off: 61, span: 7 }, { off: -1, span: 7 }, { off: 1.5, span: 7 }, { off: 3, span: 0 }, { off: 3, span: 181 }, { off: '3', span: '56' }, { off: 3 }, { lw: 'prev' }, { lw: 'prev', off: 3, span: 7 }, 'next', [3, 56], null, 7]) {
+  for (const bad of [{ off: 61, span: 7 }, { off: -1, span: 7 }, { off: 1.5, span: 7 }, { off: 3, span: 0 }, { off: 5, span: 1 }, { off: 3, span: 6 }, { off: 3, span: 181 }, { off: '3', span: '56' }, { off: 3 }, { lw: 'prev' }, { lw: 'prev', off: 3, span: 7 }, 'next', [3, 56], null, 7]) {
     assert.equal(clean(bad), undefined, JSON.stringify(bad));
   }
-  assert.deepEqual(plain(clean({ off: 0, span: 1, evil: '<b>' })), { off: 0, span: 1 }, 'jen off a span');
+  assert.deepEqual(plain(clean({ off: 0, span: 7, evil: '<b>' })), { off: 0, span: 7 }, 'jen off a span');
   assert.deepEqual(plain(clean({ off: 60, span: 180 })), { off: 60, span: 180 });
   assert.deepEqual(plain(clean({ lw: 'next', off: 3 })), { lw: 'next' });
+  assert.deepEqual(plain(clean({ lw: 'next', eve: false, x: 1 })), { lw: 'next', eve: false });
+  for (const eve of [true, 'false', 0, null]) assert.deepEqual(plain(clean({ lw: 'next', eve })), { lw: 'next' }, JSON.stringify(eve));
   // klíč hlídání jako Flights.watchKey: u klouzavého roll místo dat → stejné hlídání uložené jiný den se nezdvojí
   vm.runInContext(read('public/js/alerts.js'), ctx, { filename: 'alerts.js' });
   const rk = (w) => ctx.Alerts.searchKey({ from: w.form.from.map((p) => p.id), dateFrom: w.form.dFrom, dateTo: w.form.dTo, nightsMin: w.form.nMin, nightsMax: w.form.nMax, roll: w.form.roll });
   const mine = state({ watch: [rolled('m1', '2026-10-21', '2026-12-16', { off: 3, span: 56 })] }); // týž klouzavý termín o týden později
   const df = B.diff(mine, inc, { watchKey: rk, deps });
-  assert.deepEqual(plain(df.watch), { add: 1, same: 1, over: 0 });
-  assert.deepEqual(plain(B.merge(mine, inc, { watchKey: rk, deps }).watch.map((w) => w.id)), ['m1', 'r2']);
+  assert.deepEqual(plain(df.watch), { add: 2, same: 1, over: 0 }, 'svátek bez „odlet od 16:00“ je jiné hlídání');
+  assert.deepEqual(plain(B.merge(mine, inc, { watchKey: rk, deps }).watch.map((w) => w.id)), ['m1', 'r2', 'r3']);
 });

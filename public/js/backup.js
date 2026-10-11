@@ -50,9 +50,10 @@
   const NUM = { radius: [0, 500], nMin: [0, 60], nMax: [0, 60], adults: [1, 9], xFlex: [0, 3], minTemp: [0, 40], kmRate: [0, 5] };
   const DATE = ['dFrom', 'dTo', 'xOut', 'xBack'];
   const FUELS = ['diesel', 'petrol', 'ev'];
-  // 📅 klouzavý termín hlídání (Alerts.rollForm): celá čísla off 0–60 a span 1–180, nebo lw jen 'next' – jinak pryč (pevný termín)
-  const cleanRoll = v => (!obj(v) ? null : v.lw === 'next' ? { lw: 'next' }
-    : v.lw == null && Number.isInteger(v.off) && v.off >= 0 && v.off <= 60 && Number.isInteger(v.span) && v.span >= 1 && v.span <= 180 ? { off: v.off, span: v.span } : null);
+  // 📅 klouzavý termín hlídání (Alerts.rollForm): celá čísla off 0–60 a span 7–180, nebo lw jen 'next' (eve: false = bez
+  // „v předvečer od 16:00“) – jinak pryč (pevný termín)
+  const cleanRoll = v => (!obj(v) ? null : v.lw === 'next' ? { lw: 'next', ...(v.eve === false ? { eve: false } : {}) }
+    : v.lw == null && Number.isInteger(v.off) && v.off >= 0 && v.off <= 60 && Number.isInteger(v.span) && v.span >= 7 && v.span <= 180 ? { off: v.off, span: v.span } : null);
   /** Formulář hledání u hlídané ceny: místa, lety, dny, časy, volby a čísla ověřené, ostatní klíče jen jako jednoduché hodnoty. */
   function cleanForm(f, txt) {
     if (!obj(f)) return null;
