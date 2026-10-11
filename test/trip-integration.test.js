@@ -193,10 +193,11 @@ test('průvodce: let s přestupem – krok Let i průběh cesty ukážou kde (k 
   assert.match(h, /Demo Air · DA 1 · 1× přestup \(JFK 2 h 30 min\)<\/span>/);
   assert.match(h, /Demo Air · DA 1 · 2× přestup \(YYZ 1 h 5 min, FRA&lt;b&gt;\)<\/span>/, 'texty z dat escapované');
   const s = render(c, { ...t, step: 'summary' });
-  assert.match(s, /🛫<\/span><span>PRG 07:00 → CUN 08:00 · Demo Air · 1× přestup \(JFK 2 h 30 min\)<\/span>/);
-  assert.match(s, /🛬<\/span><span>CUN 19:00 → PRG 20:00 · Demo Air · 2× přestup/, 'i přílet zpět');
+  // průběh cesty jako krok Let: dopravce, číslo letu (tabule na letišti) a přestupy
+  assert.match(s, /🛫<\/span><span>PRG 07:00 → CUN 08:00 · Demo Air · DA 1 · 1× přestup \(JFK 2 h 30 min\)<\/span>/);
+  assert.match(s, /🛬<\/span><span>CUN 19:00 → PRG 20:00 · Demo Air · DA 1 · 2× přestup/, 'i přílet zpět');
   // přímý let beze změny
-  assert.match(render(c, trip({ route: null, overland: null })), /🛫<\/span><span>PRG 07:00 → VIE 08:00 · Demo Air<\/span>/);
+  assert.match(render(c, trip({ route: null, overland: null })), /🛫<\/span><span>PRG 07:00 → VIE 08:00 · Demo Air · DA 1<\/span>/);
 });
 
 test('průvodce: přílet / příjezd další den má „+1“ jako ve výsledcích (noční let, noční bus)', () => {

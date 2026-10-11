@@ -79,7 +79,7 @@ test('manifest: česky, standalone, barvy z atlas.css, ikony 192/512 i maskovate
   assert.ok(any.includes('192x192') && any.includes('512x512'), 'instalovatelnost: ikony 192 a 512');
   assert.ok(m.icons.some((i) => i.purpose === 'maskable' && i.sizes === '512x512'), 'Android: maskovatelná ikona');
   const all = [...m.icons, ...(m.shortcuts || []).flatMap((s) => s.icons || [])];
-  for (const s of m.shortcuts || []) assert.match(s.url, /^\/#(flights|trip|planner|explore|dashboard)$/, 'zkratka vede na sekci aplikace');
+  for (const s of m.shortcuts || []) assert.match(s.url, /^\/#(flights|trip|planner|explore|dashboard|now)$/, 'zkratka vede na sekci aplikace (now = karta „Dnes na cestě“ na Přehledu)');
   for (const icon of all) {
     const res = await fetch(new URL(icon.src, `${base}/manifest.webmanifest`));
     assert.equal(res.status, 200, icon.src);
