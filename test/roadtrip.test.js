@@ -215,6 +215,28 @@ test('roadtrip: nejvýš dvě zastávky stejného druhu za den (ne tři města z
   }
 });
 
+test('roadtrip (živá data): „+ přidat do výletu“ – připnutý cíl má i společníka, ostatní výlety zůstanou', async () => {
+  const { tripsFromRows } = await import('../server/lib/poi.js');
+  const { bindings, BCN_TRIPS, PRA_TRIPS } = await import('./fixtures/wikidata.js');
+  // jako /api/roadtrip: připnutý cíl má skóre +1000 a původní v baseScore
+  const pin = (cands, name) => cands.map((x) => (x.name === name ? { ...x, baseScore: x.score, score: x.score + 1000, pinned: true } : x));
+  const show = (r) => r.days.map((d) => d.stops.map((s) => s.name).join(' + ')).join(' | ');
+  const bcn = { lat: 41.3874, lon: 2.1686, label: 'Barcelona' };
+  const bc = tripsFromRows(bindings(BCN_TRIPS), bcn, 15, { road: true });
+  assert.equal(show(planTrips(bc, { base: bcn, start: START, days: 2, mode: 'day' })), 'Klášter Poblet + Tarragona | Girona + Montserrat');
+  // dřív „Sitges | Klášter Poblet + Tarragona“: Sitges sám na celý den, Girona a Montserrat pryč
+  assert.equal(show(planTrips(pin(bc, 'Sitges'), { base: bcn, start: START, days: 2, mode: 'day' })), 'Sitges + Klášter Poblet | Tarragona + Montserrat');
+  // cíl, který už v plánu je, plán nezmění
+  assert.equal(show(planTrips(pin(bc, 'Tarragona'), { base: bcn, start: START, days: 2, mode: 'day' })), 'Tarragona + Klášter Poblet | Girona + Montserrat');
+  const pra = { lat: 50.088, lon: 14.4208, label: 'Praha' };
+  const pc = tripsFromRows(bindings(PRA_TRIPS), pra, 15, { road: true });
+  const kh = planTrips(pin(pc, 'Kutná Hora'), { base: pra, start: START, days: 1, mode: 'day' });
+  assert.equal(show(kh), 'Kutná Hora + Karlštejn', 'dřív Kutná Hora sama (~5 h)');
+  // bez baseScore (starší volání): skutečné skóre = skóre − 1000
+  const old = pc.map((x) => (x.name === 'Kutná Hora' ? { ...x, score: x.score + 1000, pinned: true } : x));
+  assert.equal(show(planTrips(old, { base: pra, start: START, days: 1, mode: 'day' })), 'Kutná Hora + Karlštejn');
+});
+
 test('roadtrip (živá data, Praha): okruh už nejede tři hornická městečka za sebou', async () => {
   const { tripsFromRows, unescoSites } = await import('../server/lib/poi.js');
   const { bindings, unescoBindings, PRA_TRIPS, PRA_UNESCO } = await import('./fixtures/wikidata.js');
