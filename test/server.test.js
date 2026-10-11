@@ -179,6 +179,33 @@ test('POST /api/search – kamkoliv, zpáteční, průběh se streamuje', async 
     assert.equal(t.perPersonCzk, t.flightCzk + t.groundCzk);
     assert.ok(r.origins.some((o) => o.iata === t.out.from));
   }
+  // „Odkud se vyplatí letět“: minimum za letiště ze všech nabídek (server), skupiny s minimem z každého letiště
+  for (const o of r.origins) assert.ok(o.best === null || (o.best.czk > 0 && o.best.n > 0), JSON.stringify(o.best));
+  for (const o of r.origins.filter((x) => x.best)) {
+    const mins = r.groups.map((g) => g.fromBest[o.iata]).filter((x) => x != null);
+    assert.equal(o.best.czk, Math.min(...mins), o.iata);
+  }
+  for (const g of r.groups) {
+    assert.equal(Math.min(...Object.values(g.fromBest)), g.best.perPersonCzk, g.dest.key);
+    assert.ok(Object.keys(g.fromBest).every((k) => r.origins.some((o) => o.iata === k)));
+  }
+  assert.ok(r.origins.filter((o) => o.best).length >= 2);
+});
+
+test('POST /api/search – „Odkud se vyplatí letět“ u konkrétního cíle s návratem na jiné letiště: cena letiště = výpis po klepnutí', async () => {
+  // veřejnou dopravou je open-jaw doma zapnutý – většina nabídek letí z jednoho letiště a vrací se na jiné
+  const { last } = await searchStream({ from: ['ap:BRQ'], to: ['metro:LON'], radiusKm: 200, dateFrom: ymdPlus(7), dateTo: ymdPlus(60), trip: 'return', nightsMin: 5, nightsMax: 9, adults: 2, kmRate: 1, groundMode: 'transit', arrival: true });
+  const r = last.result;
+  assert.equal(r.mode, 'route');
+  assert.ok(r.top.some((t) => t.back.to !== t.out.from), 've výpisu jsou i nabídky s návratem na jiné letiště');
+  assert.ok(r.origins.filter((o) => o.best).length >= 2);
+  for (const o of r.origins) {
+    // klepnutí na letiště = filtr letišť bez všech ostatních (UI baseOk): odlet i návrat na tomto letišti
+    const vis = r.top.filter((t) => t.out.from === o.iata && t.back.to === o.iata);
+    if (!o.best) { assert.equal(vis.length, 0, o.iata); continue; }
+    assert.ok(vis.length > 0 && o.best.n >= vis.length, o.iata);
+    assert.equal(o.best.czk, Math.round(Math.min(...vis.map((t) => t.perPersonCzk))), o.iata);
+  }
 });
 
 test('POST /api/search – konkrétní cíl, víkend, kalendář', async () => {

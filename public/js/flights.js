@@ -14,7 +14,7 @@
   let health = null;
   let lastResult = null;
   let lastPayload = null;
-  let view = { mode: 'list', sort: 'total', legSort: 'price', maxPrice: null, onlyDeals: false, newOnly: false, excludeOrigins: new Set(), carriers: new Set(), outDate: null, expanded: new Set(), timeOpen: false, ...freshView() };
+  let view = { mode: 'list', sort: 'total', legSort: 'price', maxPrice: null, onlyDeals: false, newOnly: false, excludeOrigins: new Set(), carriers: new Set(), outDate: null, expanded: new Set(), timeOpen: false, ocOpen: false, ...freshView() };
   // Výpis per hledání: vybraný let tam/zpět (sig), rozbalené sloupce letů, kolik kombinací ukázat, filtry času a přestupů
   // (jako 🔥 jen výhodné platí do dalšího hledání; otevřený panel filtrů zůstává).
   function freshView() { return { leg: { out: null, back: null }, legAll: {}, legMore: false, flatN: 40, cmpN: 60, cexp: new Set(), time: SearchHelp.freshTime(), mPicks: [], mAll: {}, mCombos: 6, gndOpen: false }; }
@@ -1127,6 +1127,31 @@
   const arrivalFoot = (res, multi = false) => (res.query.arrival
     ? `vč. cesty z letiště ${multi ? 'do měst na cestě a z nich zpět na letiště' : 'do města a zpět na letiště'} (jízdné letištního busu, vlaku nebo metra ${arrivalChecked(res) ? `ověřené${arrivalChecked(res)}` : 'z ověřené tabulky'}, jinde odhad)`
     : 'bez cesty z letiště do města (vypnuto v Další možnosti)');
+  /**
+   * „🛫 Odkud se vyplatí letět“: nejlevnější celá cesta z každého letiště (ze všech nalezených nabídek, server o.best)
+   * proti nejbližšímu – sbalená karta, souhrn odpoví hned. Klepnutí na letiště = jen lety odsud, další klepnutí = všechna.
+   */
+  function originCard(res) {
+    const oc = SearchHelp.originCompare(res);
+    if (!oc.rows.length || view.mode === 'map') return '';
+    const { win, ref } = oc, ret = res.query.trip === 'return', all = res.origins.map(o => o.iata);
+    const head = '🛫 <b>Odkud se vyplatí letět:</b> ', pp = `/os.${res.query.kmRate ? '' : ' bez dopravy na letiště'}`;
+    // zpáteční s návratem na jiné letiště se k letištím nepočítá – když je levnější, souhrn to řekne (ve výpisu je)
+    const jaw = oc.jaw != null && oc.jaw < win.czk ? ` · s návratem na jiné letiště už od <b>${czk(oc.jaw)}</b>` : '';
+    const sum = win.ref ? `${head}nejlevněji z nejbližšího <b>${esc(win.iata)}</b> od <b>${czk(win.czk)}</b>${pp} – jiná letiště nejsou levnější${jaw}`
+      : `${head}nejlevněji z <b>${esc(win.iata)}</b>${win.city !== win.iata ? ` (${esc(win.city)})` : ''} od <b>${czk(win.czk)}</b>${pp} – o ${czk(-win.diff)} méně než z nejbližšího ${esc(ref.iata)}${win.extraMin > 0 ? `, cesta o ~${hm(win.extraMin)} déle${ret ? ' (tam i zpět)' : ''}` : win.extraMin < 0 ? ', a cesta je ještě kratší' : ''}${jaw}`;
+    const row = r => {
+      const only = view.excludeOrigins.size === all.length - 1 && !view.excludeOrigins.has(r.iata);
+      const gnd = !res.query.kmRate ? 'bez dopravy' : r.minutes ? `${r.mode === 'car' ? '🚗' : '🚌'} ~${hm(r.minutes)}` : '';
+      const tip = r.czk == null ? (r.jaw ? 'Jen cesty s návratem na jiné letiště – jsou ve výpisu, k žádnému letišti se nepočítají' : 'Odsud se nic nenašlo')
+        : `Nejlevnější z ${plural(r.n, 'nabídky', 'nabídek', 'nabídek')} ${ret ? 'odsud a zpět sem' : 'odsud'} · ${only ? 'klepnutím zase všechna letiště' : `klepnutím jen lety z ${r.iata}`}`;
+      return `<button type="button" class="oc-row${view.excludeOrigins.has(r.iata) ? ' off' : ''}${r.ref ? ' ref' : ''}" data-ofo="${esc(r.iata)}" aria-pressed="${only}" title="${esc(tip)}"${r.czk == null ? ' disabled' : ''}>`
+        + `<span class="oc-ap">${r.hub ? '✈︎ ' : ''}<b>${esc(r.iata)}</b> ${esc(r.city)}</span><span class="oc-gnd">${gnd}</span>`
+        + `<span class="oc-price">${r.czk == null ? (r.jaw ? 'jen s návratem jinam' : 'nic nenalezeno') : `od <b>${czk(r.czk)}</b>/os.`}</span>${r.czk != null ? `<span class="oc-diff">${esc(SearchHelp.originDiffTxt(r))}</span>` : ''}</button>`;
+    };
+    return `<details class="card oc-card" id="ocCard"${view.ocOpen ? ' open' : ''}><summary>${sum}</summary><div class="oc-rows">${oc.rows.map(row).join('')}</div>`
+      + `<div class="faint oc-foot">${esc(SearchHelp.originFoot(res, oc))}</div></details>`;
+  }
   // filtry výpisu bez dne odletu vybraného v kalendáři
   const anyDay = fn => { const d = view.outDate; view.outDate = null; try { return fn(); } finally { view.outDate = d; } };
 
@@ -1198,6 +1223,7 @@
         <button type="button" class="fchip tf-toggle ${nTime ? 'on' : ''}" id="fTime" aria-expanded="${view.timeOpen}" aria-controls="tfPanel">🕐 Čas a přestupy${nTime ? ` <b class="tf-n">${nTime}</b>` : ''} <span aria-hidden="true">${view.timeOpen ? '▴' : '▾'}</span></button>
       </div>
       ${view.timeOpen ? timePanel(res, SearchHelp.timeStats(base), th) : ''}
+      ${originCard(res)}
       ${onlyFilled ? `<div class="note info tf-filled" style="margin-bottom:14px">🔀 <div><b>Filtrům času a přestupů nevyhoví žádná z nalezených kombinací celá</b> – lety tam a zpět, které jim vyhoví, jsem spároval sám (${plural(filledNow.length, 'dvojice', 'dvojice', 'dvojic')} dvou samostatných letenek, každou kupuješ zvlášť).</div></div>` : ''}
       ${nearbyHtml(res, thin)}
       ${res.warm ? `<div class="note info" style="margin-bottom:14px">🌡️ <div><b>Za teplem ≥ ${res.warm.minTemp} °C:</b> jen cíle, kde je v měsíci odletu dlouhodobý průměr denních maxim aspoň ${res.warm.minTemp} °C${res.warm.dropped ? ` – ${plural(res.warm.dropped, 'nabídka', 'nabídky', 'nabídek')} do chladnějších míst ${res.warm.dropped === 1 ? 'vyřazena' : res.warm.dropped <= 4 ? 'vyřazeny' : 'vyřazeno'}` : ''}.</div></div>` : ''}
@@ -1213,7 +1239,8 @@
     else if (view.mode === 'cal' && isRoute) body = calendarHtml(res, view.outDate ? anyDay(fill) : filledNow) + `<div class="section-head"><h2>Nejlepší kombinace${view.outDate ? ' · odlet ' + fmtDate(view.outDate) : ''}</h2></div>` + flatList(flat);
     else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(g.vis[0].perPersonCzk)}</b></span>`).join('')}</div>` : '') + flatList(flat)
       : view.mode === 'cards' ? groups.map(g => groupCard(g)).join('') : compactList(groups);
-    if (!body.trim() || ((view.mode === 'list' || view.mode === 'cards') && !groups.length)) body += `<div class="empty">Filtrům nic neodpovídá. Uvolni filtr ceny, letišť, aerolinek, nových zemí nebo času a přestupů.</div>`;
+    // konkrétní cíl: výpis je z res.top (flat), ne z 6 nabídek skupiny – podle něj, jinak hláška pod nalezenými lety
+    if (!body.trim() || ((view.mode === 'list' || view.mode === 'cards') && !(isRoute ? flat.length : groups.length))) body += `<div class="empty">Filtrům nic neodpovídá. Uvolni filtr ceny, letišť, aerolinek, nových zemí nebo času a přestupů.</div>`;
     // Málo výsledků: ze serveru (thin), nebo je skryly filtry času a přestupů – pak nabídnout hlavně jejich zrušení.
     const thinVis = th.any > 0 && (isRoute ? flat.length : groups.length) < 3;
     if (thin || thinVis) body += smartHelp(res, false, { chips: chips.filter(c => c.time), any: th.any, onlyClear: !thin });
@@ -1374,11 +1401,14 @@
     const c = byIso[g.dest.cc];
     const exp = view.expanded.has(g.dest.key);
     const others = g.vis.slice(1);
+    // „kamkoliv“: nejlevnější celá cesta sem z každého letiště (ze všech nabídek cíle) – jen u víc letišť po filtru
+    const fb = lastResult && lastResult.mode === 'explore' && g.fromBest ? Object.entries(g.fromBest).filter(([k]) => !view.excludeOrigins.has(k)).sort((a, b) => a[1] - b[1]) : [];
     return `<div class="card res-card" id="g-${esc(g.dest.key)}">
       <div class="rc-head">
         <div class="rc-flag">${flag(g.dest.cc)}</div>
         <div class="rc-name"><h3>${esc(g.dest.label)}${newBadge(g.dest.cc)}</h3><div class="faint">${esc(g.dest.country || '')}${g.dest.airports.length > 1 ? ` · letiště ${g.dest.airports.join(', ')}` : ` · ${g.dest.airports[0]}`}${t.distanceKm ? ` · ${t.distanceKm.toLocaleString('cs')} km` : ''}${c && c.cost ? ` · ceny na místě ${costDots(c.cost)}` : ''}</div></div>
       </div>
+      ${fb.length >= 2 ? `<div class="faint rc-from" title="${lastResult.query.kmRate ? 'Nejlevnější celá cesta sem z každého letiště (vč. dopravy na letiště)' : 'Nejlevnější cena sem z každého letiště (bez dopravy na letiště)'}">${fb.slice(0, 4).map(([k, v]) => `z ${esc(k)} od ${czk(v)}`).join(' · ')}</div>` : ''}
       ${gc && (gc.worth || g.ground.min <= GROUND_CHIP_MAX_MIN) ? groundChip(g, gc) : ''}
       ${tripRow(t, g, reg(t, g))}
       ${others.length ? `<button type="button" class="more-btn" data-exp="${esc(g.dest.key)}">${exp ? '▲ Skrýt' : `▼ Další termíny a letiště (${others.length})`}</button>
@@ -2070,6 +2100,14 @@
       rerender();
     });
     $$('[data-fo]', host).forEach(b => b.onclick = () => { const k = b.dataset.fo; view.excludeOrigins.has(k) ? view.excludeOrigins.delete(k) : view.excludeOrigins.add(k); rerender(); });
+    // „Odkud se vyplatí letět“: rozbalení platí i pro další hledání; letiště = jen lety odsud, znovu = všechna
+    $('#ocCard', host)?.addEventListener('toggle', e => { view.ocOpen = e.target.open; });
+    $$('[data-ofo]', host).forEach(b => b.onclick = () => {
+      const all = lastResult.origins.map(o => o.iata), k = b.dataset.ofo;
+      const only = view.excludeOrigins.size === all.length - 1 && !view.excludeOrigins.has(k);
+      view.excludeOrigins = only ? new Set() : new Set(all.filter(x => x !== k));
+      rerender(true);
+    });
     $$('[data-fc]', host).forEach(b => b.onclick = () => {
       const k = b.dataset.fc; const all = [...new Set($$('[data-fc]', host).map(x => x.dataset.fc))];
       if (!view.carriers.size) view.carriers = new Set(all);
@@ -2138,7 +2176,7 @@
     const y = window.scrollY;
     // ovládací prvek filtrů s fokusem (klávesnice) najít i v překresleném výpisu
     const a = document.activeElement, sel = a && a !== document.body && $('#results').contains(a)
-      ? (a.id ? '#' + CSS.escape(a.id) : ['tp', 'tarr', 'tst', 'fo', 'fc', 'v', 'mleg', 'ms', 'mcombo'].filter(k => a.dataset[k] != null).map(k => `[data-${k}="${CSS.escape(a.dataset[k])}"]`)[0]) : null;
+      ? (a.id ? '#' + CSS.escape(a.id) : ['tp', 'tarr', 'tst', 'fo', 'ofo', 'fc', 'v', 'mleg', 'ms', 'mcombo'].filter(k => a.dataset[k] != null).map(k => `[data-${k}="${CSS.escape(a.dataset[k])}"]`)[0]) : null;
     rowRegistry = [];
     renderResults();
     if (keepScroll) window.scrollTo(0, y);

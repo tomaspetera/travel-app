@@ -794,7 +794,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
 
   // pojistka pro zdroje, které lety skládají samy (celé zpáteční letenky)
   if (q.depAfter) { const ok = trips.filter((t) => depOk(t.out)); trips.length = 0; trips.push(...ok); }
-  const { groups, flat, warm, hidden, priceStats: routeStats } = buildGroups(trips, { q, originSet: allOrigins, groundOf, park, arrOf, legCosts: routeMode && Boolean(q.exact) });
+  const { groups, flat, warm, hidden, priceStats: routeStats, byOrigin } = buildGroups(trips, { q, originSet: allOrigins, groundOf, park, arrOf, legCosts: routeMode && Boolean(q.exact) });
   // Další odlety Ryanairu téhož dne z letového řádu (bez cen) – jen u zobrazených tras, pár dotazů.
   const fr = providers.find((p) => p.departures);
   if (fr && (routeMode || q.exact)) await attachDepartures(fr, flat, limits.departures);
@@ -814,7 +814,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
     query: q,
     mode: routeMode ? 'route' : 'explore',
     home: origins.home,
-    origins: [...origins.airports, ...usedHubs].map((a) => ({ ...airportPublic(a.iata), distKm: a.distKm, ground: a.ground, ...(a.hub ? { hub: true } : {}) })),
+    // best = nejlevnější celá cesta z letiště ze všech nabídek po filtrech { czk, n } (srovnání „Odkud se vyplatí letět“)
+    origins: [...origins.airports, ...usedHubs].map((a) => ({ ...airportPublic(a.iata), distKm: a.distKm, ground: a.ground, ...(a.hub ? { hub: true } : {}), best: byOrigin[a.iata] || null })),
     // Přestupní letiště, ze kterých se (dálkové lety) hledalo navíc – i když z nich nic nevyšlo (UI je pak znovu nenabízí).
     hubs: hubs.map((h) => h.iata),
     destination: { kind: dest.kind, label: dest.label || 'Kamkoliv', airports: routeMode ? destAirports : null, countries: dest.countries || null },
@@ -1025,9 +1026,12 @@ function roundRobin(lists) {
 
 // 60 nejlepších kombinací + 3 nejlepší pro každý den odletu (pro filtr v kalendáři); u přesných dat
 // navíc nejlevnější kombinace s každým nalezeným letem tam i zpět (jinak by 60 míst zabral nejlevnější
-// let tam s různými návraty a dražší přímé lety by se do výpisu nedostaly).
+// let tam s různými návraty a dražší přímé lety by se do výpisu nedostaly). Vždy i nejlevnější nabídka z každého
+// letiště („Odkud se vyplatí letět“ – po klepnutí na letiště ve výpisu je ta cena, kterou karta ukazuje).
 function topWithDays(flat, { exact = false } = {}) {
   const picked = new Set(flat.slice(0, 60));
+  const homes = new Set();
+  for (const t of flat) { const k = homeOf(t); if (k && !homes.has(k)) { homes.add(k); picked.add(t); } }
   const perDay = new Map();
   for (const t of flat) {
     const n = perDay.get(t.out.date) || 0;
@@ -1252,6 +1256,25 @@ function shareDepartures(legs, flat, provider, carrier) {
   }
 }
 
+// Letiště domova, ke kterému nabídka patří: odlet a u zpáteční i návrat na totéž letiště; s návratem jinam (open-jaw)
+// k žádnému – filtr letišť ve výpisu ji schová u obou a čas cesty na letiště by „tam i zpět“ neplatil.
+const homeOf = (t) => (!t.back || t.back.to === t.out.from ? t.out.from : null);
+
+/**
+ * „Odkud se vyplatí letět“: nejlevnější celá cesta na osobu (perPersonCzk) a počet nabídek podle letiště odletu
+ * (zpáteční jen s návratem na totéž letiště) → { [iata]: { czk, n } }. Ze všech nabídek, ne jen z těch ve výpisu.
+ */
+export function originBests(trips) {
+  const out = {};
+  for (const t of trips || []) {
+    if (!t || !t.out || !Number.isFinite(t.perPersonCzk) || !homeOf(t)) continue;
+    const k = t.out.from, czk = Math.round(t.perPersonCzk), b = out[k];
+    if (!b) out[k] = { czk, n: 1 };
+    else { b.n++; if (czk < b.czk) b.czk = czk; }
+  }
+  return out;
+}
+
 function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () => 0, legCosts = false }) {
   const map = new Map();
   const seen = new Set();
@@ -1347,6 +1370,8 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
       count: g.trips.length,
       minFlightCzk: Math.min(...g.trips.map((t) => t.flightCzk)),
       priceStats: stats.get(key),
+      // nejlevnější celá cesta sem z každého letiště odletu (ze všech nabídek cíle, ne jen z vybraných 6)
+      fromBest: Object.fromEntries(Object.entries(originBests(g.trips)).map(([k, v]) => [k, v.czk])),
     });
   }
   groups.sort((a, b) => a.best.perPersonCzk - b.best.perPersonCzk);
@@ -1361,5 +1386,5 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
   }
   if (warm) warm.dests = [...coldDests].filter((k) => !map.has(k)).length;
   const hidden = { maxPrice: hiddenIds.maxPrice.size, directOnly: hiddenIds.directOnly.size };
-  return { groups: groups.slice(0, 150), flat, warm, hidden, priceStats: priceStats([...pools.values()].flat()) };
+  return { groups: groups.slice(0, 150), flat, warm, hidden, priceStats: priceStats([...pools.values()].flat()), byOrigin: originBests(flat) };
 }
