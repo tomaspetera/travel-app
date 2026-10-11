@@ -632,7 +632,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
     // počítal, se stejně načte – jinak by trasa zůstala navždy „nehledaná“ a brala rozpočet každému hledání.
     if (!out.length && !(all.length && p.routeState && !memoryOnly)) return [];
     const back = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, adults: q.adults, directOnly: q.directOnly, memoryOnly });
-    if (!routeMode) { pool.out.push(...out); pool.back.push(...back); }
+    // ceny z mezipaměti (Travelpayouts dohledává po dnech taky) se nekombinují
+    if (!routeMode && p.live) { pool.out.push(...out); pool.back.push(...back); }
     return bestRoundTrips(out, back, groundOf, { ...constraints, openJawHome: false, openJawDest: false, perDestLimit: perPair, limit: perPair });
   }
 
@@ -790,11 +791,18 @@ export async function search(raw, emit = () => {}, opts = {}) {
     // let tam jen v povolený den (dny v týdnu, přesná data) – optimalizátor by jiné stejně přeskočil
     for (const l of pool.out) if (direct(l) && warmLeg(l) && depOk(l) && dateOk(l.date, null, constraints)) add(l, 0, destKey(l.to));
     for (const l of pool.back) if (direct(l)) add(l, 1, destKey(l.from));
-    // cena letu jako v optimalizátoru: tam s dopravou z domova, zpět s dopravou domů (+ zavazadla, cesta do města)
-    const oc = (l) => l.czk + groundOf(l.from) + extra(l);
+    // cena letu jako v optimalizátoru: tam s dopravou z domova, zpět s dopravou domů (+ zavazadla, cesta do města);
+    // autem k letu tam i parkování na nejkratší cestu (dolní mez – jinak by prořezávání v autě skoro nic nevyřadilo)
+    const pk = (l) => (park ? park(l.from, q.nightsMin) : 0);
+    const oc = (l) => l.czk + groundOf(l.from) + extra(l) + pk(l);
     const bc = (l) => l.czk + groundOf(l.to) + extra(l);
     const top = (r, n) => [...r].sort((x, y) => x[1] - y[1]).slice(0, n).map((x) => x[0]);
-    const low = (r) => r.reduce((m, x) => Math.min(m, x[1]), Infinity);
+    // které lety spolu jdou spárovat: bez návratu jinam (autem, bez open-jaw) jen týmž letištěm domova, bez open-jaw
+    // i týmž letištěm v cíli – dolní mez letu je cena nejlevnějšího letu druhým směrem, se kterým se spárovat dá
+    const pair = (home, away) => `${constraints.openJawHome ? '' : home}|${constraints.openJawDest ? '' : away}`;
+    const ko = (l) => pair(l.from, l.to);
+    const kb = (l) => pair(l.to, l.from);
+    const lows = (r, k) => { const m = new Map(); for (const [l, c] of r) if (!(m.get(k(l)) <= c)) m.set(k(l), c); return m; };
     const opts = { ...constraints, limit: 3, perDestLimit: 3, legsPerDay: 1 };
     const out = [];
     for (const lists of by.values()) {
@@ -808,9 +816,9 @@ export async function search(raw, emit = () => {}, opts = {}) {
       // výsledek, zlomek práce: v demu z 8 letišť ~9 % letů tam).
       let seed = bestRoundTrips(top(ro, 8), top(rb, 40), groundOf, opts);
       if (seed.length < 3 && b.length > 40) seed = bestRoundTrips(top(ro, 8), b, groundOf, opts);
-      const max = seed.length < 3 ? Infinity : Math.max(...seed.map((t) => oc(t.out) + bc(t.back) + (park ? park(t.out.from, t.nights) : 0)));
-      const keep = (r, lo) => r.filter((x) => x[1] + lo <= max).map((x) => x[0]);
-      for (const t of bestRoundTrips(keep(ro, low(rb)), keep(rb, low(ro)), groundOf, opts)) {
+      const max = seed.length < 3 ? Infinity : Math.max(...seed.map((t) => oc(t.out) - pk(t.out) + bc(t.back) + (park ? park(t.out.from, t.nights) : 0)));
+      const keep = (r, k, lo) => r.filter(([l, c]) => c + (lo.get(k(l)) ?? Infinity) <= max).map((x) => x[0]);
+      for (const t of bestRoundTrips(keep(ro, ko, lows(rb, kb)), keep(rb, kb, lows(ro, ko)), groundOf, opts)) {
         if (t.provider === 'mix' || t.back.from !== t.out.to || t.back.to !== t.out.from) out.push(t);
       }
     }

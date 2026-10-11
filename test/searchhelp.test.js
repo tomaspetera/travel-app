@@ -735,6 +735,15 @@ test('radarPick: u svátků jen odlet první volný den nebo večer předem (od 
   assert.deepEqual(plain(H.radarPick([g1, g2], null).map((x) => x.t.perPersonCzk)), [900, 500], 'bez svátků beze změny');
 });
 
+test('radarRoute: karta radaru ukáže i návrat na jiné letiště a zpět z jiného letiště v cíli (kombinace z Kamkoliv)', () => {
+  // návrat nerozdělitelně (pevné mezery) – na úzké kartě se zalomí před ↩
+  const sp = (s) => s.replace(/\u00a0/g, ' ');
+  assert.equal(H.radarRoute({ from: 'BRQ', to: 'WAW' }), 'BRQ → WAW');
+  assert.equal(sp(H.radarRoute({ from: 'JCL', to: 'POZ', bf: 'POZ', bt: 'PED' })), 'JCL → POZ ↩ PED');
+  assert.equal(H.radarRoute({ from: 'BRQ', to: 'WAW', bf: 'WMI', bt: 'BRQ' }), 'BRQ → WAW ↩\u00a0WMI\u00a0→\u00a0BRQ');
+  assert.equal(sp(H.radarRoute({ from: 'VIE', to: 'STN', bf: 'LTN', bt: 'BTS' })), 'VIE → STN ↩ LTN → BTS');
+});
+
 test('placeGuess (plánovač): metropole, velká letiště, jedno jasně větší; jinak nic nehádat', async () => {
   const { localSuggestions } = await import('../server/lib/places.js');
   const g = (name) => { const x = H.placeGuess(localSuggestions(name), name); return x ? `${x.cc} ${x.id}` : null; };

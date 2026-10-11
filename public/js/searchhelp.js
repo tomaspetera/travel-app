@@ -1057,6 +1057,12 @@
   // odlet v předvečer prodlouženého víkendu nejdřív v (po práci)
   const LW_DEP = '16:00';
   /**
+   * Letiště na kartě radaru: „BRQ → WAW“; nejlevnější cesta z Kamkoliv se může vracet jinam (bf/bt = let zpět, jen když
+   * nejde z cíle do místa odletu) – „JCL → POZ ↩ PED“, zpět z jiného letiště v cíli „BRQ → WAW ↩ WMI → BRQ“ (návrat
+   * nerozdělitelně – na úzké kartě se zalomí před ↩).
+   */
+  const radarRoute = x => `${x.from} → ${x.to}${x.bt ? ` ↩\u00a0${x.bf && x.bf !== x.to ? `${x.bf}\u00a0→\u00a0` : ''}${x.bt}` : ''}`;
+  /**
    * Plánovač: místo k názvu cíle („Lisabon“) z našeptávače (items z /api/places) – jen přesná shoda názvu. Metropole
    * (Londýn, Barcelona) vyhrává nad stejnojmennými letišti jinde; jinak velká letiště (big), a jen když všechna leží
    * v jedné zemi (Birmingham je v Anglii i v USA → nic). Víc zemí: rozhodne letiště s aspoň milionem cestujících, aspoň
@@ -1548,7 +1554,7 @@
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
     partialHead, reusable, partialFail,

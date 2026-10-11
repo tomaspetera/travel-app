@@ -13,6 +13,7 @@ const { search } = await import('../server/lib/search.js');
 const { ryanair } = await import('../server/providers/ryanair.js');
 const { makeLeg, makeTrip } = await import('../server/lib/fares.js');
 const { priceStats } = await import('../server/lib/pricelevel.js');
+const { weekday } = await import('../server/lib/dates.js');
 
 const plain = (v) => JSON.parse(JSON.stringify(v));
 const ap = (iataCode) => ({ countryName: '', iataCode, name: iataCode, seoName: iataCode, city: { name: iataCode, code: iataCode, countryCode: '' } });
@@ -113,7 +114,7 @@ test('Kamkoliv bez „návrat i na jiné letiště v okolí“: kombinace aeroli
   assert.deepEqual([best.provider, best.out.provider, best.back.provider, best.flightCzk], ['mix', 'ryanair', 'wizzair', 16 * 25]);
 });
 
-test('Kamkoliv: tam s Ryanairem, zpět s Wizz Air (cena z paměti tras zůstane i se svým stářím); mezipaměť Travelpayouts se nekombinuje', async () => {
+test('Kamkoliv: tam s Ryanairem, zpět s Wizz Air (cena z paměti tras zůstane i se svým stářím); nabídky Travelpayouts z mezipaměti („kamkoliv“) se nekombinují', async () => {
   // Travelpayouts (ceny z mezipaměti): levný let tam i celá zpáteční letenka – rozkládat ani kombinovat se nesmí
   const cl = (from, to, date, czk) => makeLeg({ provider: 'travelpayouts', from, to, dep: `${date}T06:00:00`, czk, live: false });
   const tp = {
@@ -138,4 +139,26 @@ test('Kamkoliv: tam s Ryanairem, zpět s Wizz Air (cena z paměti tras zůstane 
   }
   // „Je to dobrá cena?“: 4 zpáteční letenky Ryanairu, 1 Wizz Air, 2 Travelpayouts – kombinace ne
   assert.equal(lon.priceStats.n, 7);
+});
+
+test('Kamkoliv o víkendu: ani ceny Travelpayouts dohledané po dnech (termín mimo dny odletu) se nekombinují', async () => {
+  // Travelpayouts (mezipaměť) umí i ceny po dnech: jeho termín do Lutonu nesedí na den odletu → dohledání po dnech
+  // (routeTrips). Levný let tam z mezipaměti (VIE → LTN 100 Kč) by s Ryanairem LTN → BTS dal nejlevnější Londýn.
+  const cl = (from, to, date, czk) => makeLeg({ provider: 'travelpayouts', from, to, dep: `${date}T06:00:00`, czk, live: false });
+  const days = [];
+  const tp = {
+    id: 'travelpayouts', name: 'Travelpayouts', live: false,
+    stations: async () => null,
+    explore: async ({ origin }) => (origin === 'VIE' ? [makeTrip(cl('VIE', 'LTN', ymdPlus(13), 2000), cl('LTN', 'VIE', d2, 2000))] : []),
+    daily: async ({ from, to }) => { days.push(`${from}>${to}`); return from === 'VIE' ? [cl('VIE', 'LTN', d1, 100)] : [cl('LTN', 'VIE', d2, 3000)]; },
+  };
+  const r = await run({ outDays: [weekday(d1)] }, [ryanair, tp]);
+  assert.deepEqual(days, ['VIE>LTN', 'LTN>VIE'], 'Travelpayouts dohledal trasu po dnech');
+  for (const t of tripsOf(r)) {
+    const provs = new Set([t.out.provider, t.back.provider]);
+    if (provs.has('travelpayouts')) assert.equal(t.provider, 'travelpayouts', `${t.out.provider} ${t.out.from} → ${t.out.to} + ${t.back.provider} ${t.back.from} → ${t.back.to}`);
+  }
+  // nejlepší Londýn zůstane kombinace jen z Ryanairu (VIE → STN + LTN → BTS)
+  const lon = grp(r, 'LON');
+  assert.deepEqual([lon.best.out.provider, lon.best.back.provider, lon.best.out.from, lon.best.back.to, lon.best.flightCzk], ['ryanair', 'ryanair', 'VIE', 'BTS', 20 * 25]);
 });
