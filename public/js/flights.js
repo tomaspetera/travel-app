@@ -2181,12 +2181,15 @@
   function calendarHtml(res, extra = []) {
     const cal = res.calendar; if (!cal) return '';
     const trip = cal.kind === 'trip';
-    // Filtry času a přestupů: kalendář ze serveru je bez nich → nejlevnější z načtených kombinací, které jimi projdou
-    // (dny, kde žádná neprošla, mají ✕).
-    const tOn = SearchHelp.timeActive(view.time);
+    // Filtry času a přestupů i filtry výpisu (letiště, aerolinky, posuvník ceny, 🔥 jen výhodné): kalendář a mřížka ze
+    // serveru jsou bez nich → nejlevnější z načtených kombinací, které jimi projdou (dny a buňky, kde žádná neprošla,
+    // mají ✕) – jinak by ukázaly cenu, kterou výpis po klepnutí nemá. Vybraný den a noci se nepočítají (anyDay).
+    const tOn = SearchHelp.timeActive(view.time), lOn = Boolean(view.excludeOrigins.size || view.carriers.size || view.maxPrice || view.onlyDeals);
+    const fOn = tOn || lOn, by = lOn ? `filtry výpisu${tOn ? ' i času a přestupů' : ''}` : 'filtry času a přestupů';
+    const fLbl = lOn ? `🔎 Podle filtrů výpisu${tOn ? ' i času a přestupů' : ''}` : '🕐 Podle filtrů času a přestupů';
     let outDays = cal.out, backDays = cal.back, ok = null;
-    if (tOn) {
-      ok = (res.top || []).filter(t => SearchHelp.timeOk(t, view.time)).concat(extra);
+    if (fOn) {
+      ok = anyDay(() => (res.top || []).filter(t => baseOk(t) && SearchHelp.timeOk(t, view.time))).concat(extra);
       const byDay = pick => {
         const m = new Map();
         for (const t of ok) {
@@ -2213,7 +2216,7 @@
         for (let i = 0; i < offset; i++) cells += '<div class="cd empty"></div>';
         for (let d = 1; d <= n; d++) {
           const key = `${m}-${pad(d)}`; const x = byDate.get(key);
-          if (!x && tOn && had.has(key)) { cells += `<div class="cd none gone" title="${esc(dayLabel(key))}: žádná z načtených nabídek neprošla filtry času a přestupů"><span>${d}</span><b>✕</b></div>`; continue; }
+          if (!x && fOn && had.has(key)) { cells += `<div class="cd none gone" title="${esc(dayLabel(key))}: žádná z načtených nabídek neprošla ${by}"><span>${d}</span><b>✕</b></div>`; continue; }
           if (!x) { cells += `<div class="cd none"><span>${d}</span></div>`; continue; }
           const h = heat(x.cost);
           const tip = x.outDate ? `${dayLabel(key)}: celá cesta od ${czk(x.cost)}/os. (${x.from}→${x.to} ${fmtDate(x.outDate)}, zpět ${fmtDate(x.backDate)} do ${x.backTo})` : `${dayLabel(key)}: ${czk(x.cost)} (${x.from}→${x.to}, ${provName(x.provider)})`;
@@ -2226,19 +2229,19 @@
     const q = res.query;
     const incl = [trip ? 'letenky tam i zpět' : 'letenka tam', BAG_LBL[q.bags] ? 'zavazadla' : '', q.kmRate ? `${q.groundMode === 'car' ? 'autem' : 'doprava'} na letiště${trip ? ' a zpět' : ''}` : '',
       q.arrival ? `z letiště do města${trip ? ' a zpět' : ''}` : ''].filter(Boolean).join(' + ');
-    return `<div class="card cal-card"><div class="cal-wrap">${render(outDays, trip ? '🛫 Podle dne odletu – nejlevnější celá cesta (Kč/os.)' : '🛫 Nejlevnější odlet podle dne (Kč/os.)', true, cal.out)}${trip ? render(backDays, '🛬 Podle dne návratu – nejlevnější celá cesta', false, cal.back) : ''}</div><div class="faint" style="font-size:12px;margin-top:8px">${trip ? 'Cena celé cesty' : 'Cena'} na osobu: ${incl}${trip && !q.exact ? ', se zadaným počtem nocí' : ''}. Klikni na den odletu a uvidíš kombinace s tímto datem.${tOn ? ' <b>🕐 Podle filtrů času a přestupů</b> – jen z načtených kombinací; ✕ = ten den žádná neprošla.' : ''}</div></div>`
-      + (trip ? gridHtml(res, ok) : '');
+    return `<div class="card cal-card"><div class="cal-wrap">${render(outDays, trip ? '🛫 Podle dne odletu – nejlevnější celá cesta (Kč/os.)' : '🛫 Nejlevnější odlet podle dne (Kč/os.)', true, cal.out)}${trip ? render(backDays, '🛬 Podle dne návratu – nejlevnější celá cesta', false, cal.back) : ''}</div><div class="faint" style="font-size:12px;margin-top:8px">${trip ? 'Cena celé cesty' : 'Cena'} na osobu: ${incl}${trip && !q.exact ? ', se zadaným počtem nocí' : ''}${q.maxPrice ? `, nejvýš ${czk(q.maxPrice)} (max. cena hledání)` : ''}. Klikni na den odletu a uvidíš kombinace s tímto datem.${fOn ? ` <b>${fLbl}</b> – jen z načtených kombinací; ✕ = ten den žádná neprošla.` : ''}</div></div>`
+      + (trip ? gridHtml(res, ok, { by, fLbl }) : '');
   }
   // Mřížka termínů (flexibilní termín s rozsahem nocí): den odletu × počet nocí, v buňce nejlevnější celá cesta jako
-  // v kalendáři; tučně nejlevnější v řádku, orámovaná nejlevnější celkem. S filtry času a přestupů z načtených
-  // kombinací (ok), jako kalendář. Klepnutí = kombinace s tímto odletem a počtem nocí (view.nights), znovu = zrušit.
+  // v kalendáři; tučně nejlevnější v řádku, orámovaná nejlevnější celkem. S filtry výpisu, času a přestupů z načtených
+  // kombinací (ok; by/fLbl = které filtry), jako kalendář. Klepnutí = kombinace s tímto odletem a počtem nocí (view.nights), znovu = zrušit.
   // Na telefonu se tabulka posouvá uvnitř karty (první sloupec s datem i řádek nocí zůstanou) – dnů bývá víc než nocí,
   // takže otočená by byla mnohem širší.
-  function gridHtml(res, ok) {
+  function gridHtml(res, ok, { by = 'filtry času a přestupů', fLbl = '🕐 Podle filtrů času a přestupů' } = {}) {
     const m = SearchHelp.gridModel(res.calendar.grid, ok); if (!m) return '';
     const g = res.calendar.grid, b = m.best, heat = heatOf(m.cells.map(c => c[2])), q = res.query;
     const rows = m.rows.map(r => `<tr${view.outDate === r.date ? ' class="on"' : ''}><th scope="row">${dayLabel(r.date)}</th>${r.cells.map(c => {
-      if (c.cost == null) return c.gone ? `<td class="dg-x" title="${esc(`${dayLabel(r.date)}, ${nightsTxt(c.n)}: žádná z načtených kombinací neprošla filtry času a přestupů`)}">✕</td>` : '<td class="dg-x">–</td>';
+      if (c.cost == null) return c.gone ? `<td class="dg-x" title="${esc(`${dayLabel(r.date)}, ${nightsTxt(c.n)}: žádná z načtených kombinací neprošla ${by}`)}">✕</td>` : '<td class="dg-x">–</td>';
       const sel = view.outDate === r.date && view.nights === c.n;
       const tip = `Odlet ${dayLabel(r.date)}, návrat ${dayLabel(addDays(r.date, c.n))} (${nightsTxt(c.n)}): celá cesta od ${czk(c.cost)}/os. – klepnutím ${sel ? 'zase všechny kombinace' : 'jen kombinace s tímto termínem'}`;
       return `<td><button type="button" class="dg-c${c.cost === r.min ? ' rmin' : ''}${b && c.cost === b.cost ? ' best' : ''}${sel ? ' sel' : ''}" data-cell="${r.date}|${c.n}" aria-pressed="${sel}" style="--h:${heat(c.cost)}" title="${esc(tip)}">${calNum(c.cost)}</button></td>`;
@@ -2248,7 +2251,7 @@
     return `<div class="card dg-card"><h4>🗓️ Mřížka termínů – odlet × počet nocí (Kč/os.)</h4>`
       + (b ? `<button type="button" class="dg-sum" id="dgSum" data-dgsum="${b.date}|${b.n}" title="Ukázat v mřížce a vybrat kombinace s tímto termínem">💡 ${esc(b.text)} – <b class="good">${czk(b.cost)}</b>/os.</button>` : '')
       + `<div class="dg-scroll" id="dgScroll" tabindex="0" role="region" aria-label="Mřížka termínů: den odletu × počet nocí"><table class="dg"><thead><tr><th scope="col">Odlet</th>${m.nights.map(n => `<th scope="col">${nightsTxt(n)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`
-      + `<div class="faint dg-foot">${part}Klepni na cenu a uvidíš kombinace s tímto odletem a počtem nocí (znovu = zrušit). <b>Tučně</b> nejlevnější v řádku, orámovaná nejlevnější celkem, – = nic nenalezeno.${ok ? ' <b>🕐 Podle filtrů času a přestupů</b> – orientační, jen z načtených kombinací; ✕ = žádná neprošla.' : ''}</div></div>`;
+      + `<div class="faint dg-foot">${part}Klepni na cenu a uvidíš kombinace s tímto odletem a počtem nocí (znovu = zrušit). <b>Tučně</b> nejlevnější v řádku, orámovaná nejlevnější celkem, – = nic nenalezeno${q.maxPrice ? ` (nebo dráž než max. cena ${czk(q.maxPrice)})` : ''}.${ok ? ` <b>${fLbl}</b> – orientační, jen z načtených kombinací; ✕ = žádná neprošla.` : ''}</div></div>`;
   }
   // Buňku mřížky posunout do karty tak, aby ji nezakryl lepivý sloupec s datem ani řádek nocí (scrollIntoView o nich
   // neví a zarovná ji pod ně) – i s rámečkem výběru, pak podle potřeby i stránku.
@@ -2377,9 +2380,10 @@
   const groupOf = (t, res = lastResult) => (res && t.destKey ? res.groups.find(g => g.dest.key === t.destKey) : null) || null;
   // Statistika cen pro cestu: skupina jejího cíle, jinak celá trasa (konkrétní cíl).
   const statsFor = (t, res = lastResult) => (groupOf(t, res) || {}).priceStats || (res && res.priceStats) || null;
-  // Úroveň ceny je ze serveru; cestu složenou v prohlížeči ze dvou letenek ohodnotí PriceCheck stejným pravidlem.
+  // Úroveň ceny je ze serveru; cestu složenou v prohlížeči ze dvou letenek a cestu buňky mřížky termínů (server ji
+  // posílá bez úrovně) ohodnotí PriceCheck stejným pravidlem.
   function levelFor(t) {
-    if (t && !t.priceLevel && t.composed) t.priceLevel = PriceCheck.assess(t, statsFor(t));
+    if (t && !t.priceLevel && (t.composed || t.cell)) t.priceLevel = PriceCheck.assess(t, statsFor(t));
     return (t && t.priceLevel) || null;
   }
   const goodPrice = t => ['super', 'good'].includes(t.deal.level) || (levelFor(t) || {}).level === 'low';

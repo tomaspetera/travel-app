@@ -1380,15 +1380,42 @@
     return b && { date: b[0], n: b[1], cost: b[2], text: `Nejlevněji: odlet ${DOW_LC[new Date(b[0] + 'T12:00:00Z').getUTCDay()]} ${dm(b[0])}, ${nightsTxt(b[1])}` };
   }
   /**
-   * Nejlevnější cesty buněk mřížky, které výpis (res.top) nemá: server je posílá kompaktně (calendar.grid.trips, místo
-   * letů pořadí v grid.legs). Přidá je do res.top (podle ceny) – výpis, kalendář i mřížka s filtry s nimi počítají jako
-   * s ostatními; co už v top je, podruhé nepřidá. Stará odpověď bez nich se nezmění. → res
+   * Cesty buněk z calendar.grid jako celé nabídky (cell: true). Server je posílá kompaktně: řádek hodnot v pořadí
+   * grid.keys, lety jako pořadí v grid.legs, bez toho, co jde dopočítat – id (jako fares.makeTrip), noci, dopravce,
+   * cena na osobu (letenky + doprava + zavazadla + cesta do města) a celkem (× počet osob); „Je to dobrá cena?“
+   * dopočítá výpis ze statistiky hledání (PriceCheck). Starší odpověď s celými objekty taky. → [trip]
+   */
+  function cellTrips(g, adults = 1) {
+    if (!g || !Array.isArray(g.trips) || !Array.isArray(g.legs)) return [];
+    const keys = Array.isArray(g.keys) ? g.keys : [], out = [];
+    for (const row of g.trips) {
+      const x = Array.isArray(row) ? Object.fromEntries(keys.map((k, i) => [k, row[i]])) : row;
+      const o = x && g.legs[x.out], b = x && g.legs[x.back];
+      if (!o || !b) continue;
+      if (!Array.isArray(row)) { out.push({ ...x, out: { ...o }, back: { ...b }, cell: true }); continue; }
+      const prov = new Set([o.provider, b.provider].filter(Boolean)), d = Array.isArray(x.deal) ? x.deal : [];
+      const per = x.flightCzk + x.groundCzk + x.bagCzk + x.arrCzk;
+      out.push({
+        id: [o.provider, o.from, o.to, o.dep, b.provider, b.from, b.to, b.dep].filter(Boolean).join('|'),
+        out: { ...o }, back: { ...b }, flightCzk: x.flightCzk, nights: diffDays(o.date, b.date),
+        provider: prov.size === 1 ? [...prov][0] : 'mix', combined: Boolean(x.combined), bookUrl: x.bookUrl || null,
+        groundCzk: x.groundCzk, ...(x.parkCzk ? { parkCzk: x.parkCzk } : {}), bagCzk: x.bagCzk, ...(x.bagEst ? { bagEst: true } : {}),
+        arrCzk: x.arrCzk, perPersonCzk: per, totalCzk: per * adults, tempHi: x.tempHi ?? null, distanceKm: x.distanceKm,
+        deal: { score: d[0] ?? null, level: d[1] || 'normal', drop: d[2] ?? null }, destKey: x.destKey, cell: true,
+      });
+    }
+    return out;
+  }
+  /**
+   * Nejlevnější cesty buněk mřížky, které výpis (res.top) nemá (cellTrips z calendar.grid), přidá do res.top (podle
+   * ceny) – výpis, kalendář i mřížka s filtry s nimi počítají jako s ostatními; co už v top je, podruhé nepřidá.
+   * Stará odpověď bez nich se nezmění. → res
    */
   function gridTrips(res) {
     const g = res && res.calendar && res.calendar.grid;
-    if (!g || !Array.isArray(g.trips) || !Array.isArray(g.legs) || !Array.isArray(res.top)) return res;
+    if (!g || !Array.isArray(res.top)) return res;
     const have = new Set(res.top.map(t => t.id));
-    const add = g.trips.filter(t => t && !have.has(t.id) && g.legs[t.out] && g.legs[t.back]).map(t => ({ ...t, out: { ...g.legs[t.out] }, back: { ...g.legs[t.back] } }));
+    const add = cellTrips(g, Number(res.query && res.query.adults) || 1).filter(t => !have.has(t.id));
     if (add.length) res.top = res.top.concat(add).sort((a, b) => a.perPersonCzk - b.perPersonCzk);
     return res;
   }
@@ -1411,20 +1438,50 @@
 
   /* ---------- poslední výsledky a nedávná hledání (uložené v tomto prohlížeči) ---------- */
   /**
-   * Poslední hledání k uložení ({ at, form, payload, res }) jako text: celé, nebo s nejvýš `keep` nabídkami na cíl a ve
-   * výpisu jen 40 nejlevnějších + nejlevnější z každého dne odletu (kalendář), aby nezabralo místo stavu aplikace
-   * (localStorage má kolem 5 MB); null = nevejde se ani tak. Cesty buněk mřížky termínů, které do top přidal gridTrips,
+   * Poslední hledání k uložení ({ at, form, payload, res }) jako text: celé, nebo – když je delší než cap znaků (místo
+   * v localStorage, kolem 5 MB, musí zbýt pro stav aplikace) – s nejvýš `keep` nabídkami na cíl a ve výpisu (res.top)
+   * s tolika nejlevnějšími kombinacemi, kolik se vejde, vždy ale s nejlevnější z každého dne odletu (kalendář) a z každé
+   * buňky mřížky termínů, která svou cestu v calendar.grid nemá. Když se nevejdou ani ty, bez mřížky (buňka bez cesty
+   * by po klepnutí nic neukázala); null = nevejde se ani tak. Cesty buněk, které do top přidal gridTrips (cell),
    * zůstanou jen kompaktně v calendar.grid (po načtení je gridTrips přidá znovu).
    */
   function lastPack(c, cap = 1.2e6, keep = 3) {
     let r = c.res || {};
-    const g = r.calendar && r.calendar.grid, cell = new Set(g && Array.isArray(g.trips) ? g.trips.map(t => t && t.id) : []);
-    if (cell.size && Array.isArray(r.top)) c = { ...c, res: r = { ...r, top: r.top.filter(t => !cell.has(t.id)) } };
-    let s = JSON.stringify(c);
+    if (Array.isArray(r.top) && r.top.some(t => t && t.cell)) c = { ...c, res: r = { ...r, top: r.top.filter(t => !(t && t.cell)) } };
+    const s = JSON.stringify(c);
     if (s.length <= cap) return s;
-    const days = new Set();
-    const top = (r.top || []).filter((t, i) => { const d = t && t.out && t.out.date, ok = i < 40 || !days.has(d); days.add(d); return ok; });
-    s = JSON.stringify({ ...c, res: { ...r, groups: (r.groups || []).map(g => ({ ...g, options: (g.options || []).slice(0, keep) })), top } });
+    const res = { ...r, groups: (r.groups || []).map(g => ({ ...g, options: (g.options || []).slice(0, keep) })) };
+    if (!Array.isArray(r.top)) { const t = JSON.stringify({ ...c, res }); return t.length <= cap ? t : null; }
+    const cal = r.calendar && r.calendar.grid ? (({ grid, ...rest }) => rest)(r.calendar) : null;
+    return topPack(c, res, cap) || (cal ? topPack(c, { ...res, calendar: cal }, cap) : null);
+  }
+  // lastPack: výpis (res.top) zkrácený tak, aby se celé hledání vešlo do cap znaků – povinné nejlevnější z každého dne
+  // odletu a z každé buňky mřížky bez vlastní cesty, k nim co nejvíc nejlevnějších bez mezer → text, nebo null.
+  function topPack(c, r, cap) {
+    const top = r.top, price = i => (top[i] && Number.isFinite(top[i].perPersonCzk) ? top[i].perPersonCzk : Infinity);
+    const order = top.map((t, i) => i).sort((a, b) => price(a) - price(b));
+    const g = r.calendar && r.calendar.grid;
+    const cells = new Set(g && Array.isArray(g.cells) ? g.cells.map(x => x[0] + '|' + x[1]) : []);
+    for (const t of cellTrips(g)) cells.delete(t.out.date + '|' + diffDays(t.out.date, t.back.date));
+    const must = new Set(), days = new Set();
+    for (const i of order) {
+      const t = top[i], d = t && t.out && t.out.date;
+      if (!d) continue;
+      if (!days.has(d)) { days.add(d); must.add(i); }
+      if (t.back && cells.delete(d + '|' + diffDays(d, t.back.date))) must.add(i);
+    }
+    const len = i => (JSON.stringify(top[i]) || 'null').length + 1; // + čárka
+    let room = cap - JSON.stringify({ ...c, res: { ...r, top: [] } }).length;
+    for (const i of must) room -= len(i);
+    if (room < 0) return null;
+    const kept = new Set(must);
+    for (const i of order) {
+      if (kept.has(i)) continue;
+      const n = len(i);
+      if (n > room) break; // nejlevnější bez mezer: další (dražší) už ne
+      room -= n; kept.add(i);
+    }
+    const s = JSON.stringify({ ...c, res: { ...r, top: top.filter((t, i) => kept.has(i)) } });
     return s.length <= cap ? s : null;
   }
   /** Uložené poslední hledání zpět – jen mladší než maxAge (ceny stárnou), jinak null. */
@@ -1466,7 +1523,7 @@
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
     easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
-    lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips,
+    lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
   };
 })();

@@ -2,6 +2,8 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { stubFetch, ymdPlus } from './helpers.js';
 
 process.env.ATLAS_MOCK = '1';
@@ -209,9 +211,14 @@ test('POST /api/search – „Odkud se vyplatí letět“ u konkrétního cíle 
   assert.equal(r.mode, 'route');
   assert.ok(r.top.some((t) => t.back.to !== t.out.from), 've výpisu jsou i nabídky s návratem na jiné letiště');
   assert.ok(r.origins.filter((o) => o.best).length >= 2);
+  // výpis jako v prohlížeči: top + nejlevnější cesty buněk mřížky termínů (SearchHelp.gridTrips)
+  const ctx = { window: {} };
+  vm.runInNewContext(readFileSync(new URL('../public/js/searchhelp.js', import.meta.url), 'utf8'), ctx);
+  const top = ctx.window.SearchHelp.gridTrips(JSON.parse(JSON.stringify(r))).top;
+  assert.ok(top.length > r.top.length, 's cestami buněk');
   for (const o of r.origins) {
     // klepnutí na letiště = filtr letišť bez všech ostatních (UI baseOk): odlet i návrat na tomto letišti
-    const vis = r.top.filter((t) => t.out.from === o.iata && t.back.to === o.iata);
+    const vis = top.filter((t) => t.out.from === o.iata && t.back.to === o.iata);
     if (!o.best) { assert.equal(vis.length, 0, o.iata); continue; }
     assert.ok(vis.length > 0 && o.best.n >= vis.length, o.iata);
     assert.equal(o.best.czk, Math.round(Math.min(...vis.map((t) => t.perPersonCzk))), o.iata);

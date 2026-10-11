@@ -13,11 +13,14 @@ const { mockProviders } = await import('../server/providers/mock.js');
 const { makeLeg, makeTrip } = await import('../server/lib/fares.js');
 const { destKey } = await import('../server/lib/airports.js');
 const { daysBetween } = await import('../server/lib/dates.js');
-const { search } = await import('../server/lib/search.js');
+const { CELL_KEYS, cellRows, search } = await import('../server/lib/search.js');
 
 const ctx = { window: {} };
 vm.runInNewContext(readFileSync(new URL('../public/js/searchhelp.js', import.meta.url), 'utf8'), ctx);
 const H = ctx.window.SearchHelp;
+const pctx = { window: {} };
+vm.runInNewContext(readFileSync(new URL('../public/js/pricecheck.js', import.meta.url), 'utf8'), pctx);
+const P = pctx.window.PriceCheck;
 const plain = (v) => JSON.parse(JSON.stringify(v)); // objekty z jiného vm kontextu
 
 // DEMO lety Vídeň / Bratislava / Brno ↔ Londýn (všechna letiště) – pevná data, výsledek nezávisí na dnešku
@@ -153,7 +156,7 @@ test('hledání (DEMO): calendar.grid jen u flexibilního termínu s rozsahem no
   }
 });
 
-test('hledání (DEMO): mřížka nezmění nabídky, top ani „Je to dobrá cena?“ – cesty buněk jen kompaktně v calendar.grid, mimo statistiku cen', async () => {
+test('hledání (DEMO): mřížka nezmění nabídky, top ani „Je to dobrá cena?“ – cesty buněk jen kompaktně v calendar.grid (řádek hodnot), mimo statistiku cen', async () => {
   const stub = stubFetch(() => ({ status: 503, body: {} }));
   try {
     const q = Q();
@@ -163,20 +166,116 @@ test('hledání (DEMO): mřížka nezmění nabídky, top ani „Je to dobrá ce
     const g = on.calendar.grid;
     assert.ok(g.trips.length > 20, `cest buněk mimo top: ${g.trips.length}`);
     // nabídky, výpis, skupiny, statistika cen i kalendář tam/zpět beze změny (cesty buněk nejsou v cenových poolech)
-    for (const k of ['top', 'groups', 'priceStats', 'origins', 'filters']) assert.deepEqual(on[k], off[k], k);
+    for (const k of ['top', 'groups', 'priceStats', 'filters']) assert.deepEqual(on[k], off[k], k);
     assert.deepEqual([on.calendar.out, on.calendar.back], [off.calendar.out, off.calendar.back]);
     assert.equal(on.stats.trips, off.stats.trips);
-    // cesty buněk ohodnocené proti stejné statistice: úroveň ceny = jako by byly mezi ostatními, jen se nepočítají
-    assert.ok(g.trips.every((t) => t.priceLevel && t.priceLevel.n === on.priceStats.n && t.deal && t.destKey === 'LON'));
-    const ids = new Set(on.top.map((t) => t.id));
-    assert.ok(g.trips.every((t) => !ids.has(t.id)), 'top je nemá – přidá je až prohlížeč');
-    // kompaktně: každý let jednou, cesta odkazuje na jeho pořadí – menší než celé nabídky
-    assert.ok(g.trips.every((t) => g.legs[t.out] && g.legs[t.back] && g.legs[t.out].date < g.legs[t.back].date));
+    // kompaktně: cesta = řádek hodnot v pořadí keys (bez id, nocí, ceny celkem a úrovně ceny), každý let jednou v legs
+    assert.deepEqual(g.keys, CELL_KEYS);
+    assert.ok(g.trips.every((r) => Array.isArray(r) && r.length === g.keys.length && g.legs[r[0]] && g.legs[r[1]] && g.legs[r[0]].date < g.legs[r[1]].date));
     assert.equal(new Set(g.legs.map((l) => JSON.stringify(l))).size, g.legs.length, 'let jen jednou');
+    const cells = plain(H.cellTrips(g, q.adults));
+    assert.equal(cells.length, g.trips.length);
+    const ids = new Set(on.top.map((t) => t.id));
+    assert.ok(cells.every((t) => t.cell && !ids.has(t.id) && t.destKey === 'LON' && t.deal && !t.priceLevel), 'top je nemá – přidá je až prohlížeč');
+    assert.ok(cells.every((t) => t.perPersonCzk === t.flightCzk + t.groundCzk + t.bagCzk + t.arrCzk && t.totalCzk === t.perPersonCzk * 2 && t.nights === daysBetween(t.out.date, t.back.date)));
     const full = withCells(on).top.filter((t) => !ids.has(t.id));
     assert.equal(full.length, g.trips.length);
-    assert.ok(JSON.stringify({ legs: g.legs, trips: g.trips }).length < 0.75 * JSON.stringify(full).length, 'lety se neopakují');
-    assert.ok(JSON.stringify(on).length < 1.45 * JSON.stringify(off).length, `odpověď ${JSON.stringify(off).length} → ${JSON.stringify(on).length} znaků`);
+    assert.ok(JSON.stringify(g.trips).length < 0.2 * JSON.stringify(full).length, 'řádek hodnot místo celé nabídky');
+    assert.ok(JSON.stringify(on).length < 1.3 * JSON.stringify(off).length, `odpověď ${JSON.stringify(off).length} → ${JSON.stringify(on).length} znaků`);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('cesty buněk: řádek hodnot ze serveru (cellRows) složí prohlížeč (cellTrips) zpět na stejnou nabídku jako v top – id, noci, ceny, parkování; úroveň ceny dopočítá PriceCheck stejně jako server', async () => {
+  const stub = stubFetch(() => ({ status: 503, body: {} }));
+  try {
+    for (const q of [Q(), { ...Q(), groundMode: 'car', bags: 'cabin', adults: 3, radiusKm: 300 }]) {
+      const r = plain(await search(q));
+      const list = r.top.filter((t) => t.back);
+      assert.ok(list.length > 50);
+      const back = plain(H.cellTrips(plain(cellRows(list)), r.query.adults));
+      assert.equal(back.length, list.length);
+      for (const [i, t] of list.entries()) {
+        const { priceLevel, ...rest } = t;
+        assert.deepEqual(back[i], { ...rest, cell: true }, t.id);
+        const st = r.groups.find((x) => x.dest.key === t.destKey).priceStats;
+        assert.deepEqual([P.assess(back[i], st).level, P.assess(back[i], st).basis], [priceLevel.level, priceLevel.basis], `úroveň ceny ${t.id}`);
+      }
+      if (q.groundMode === 'car') assert.ok(back.some((t) => t.parkCzk > 0) && back.some((t) => t.bagCzk > 0), 'parkování i zavazadla');
+    }
+    // starší odpověď (cesty buněk jako celé objekty s pořadím letů) – taky
+    const legs = [{ provider: 'x', from: 'VIE', to: 'STN', dep: '2027-01-02T10:00:00', date: '2027-01-02' }, { provider: 'x', from: 'STN', to: 'VIE', dep: '2027-01-05T10:00:00', date: '2027-01-05' }];
+    assert.deepEqual(plain(H.cellTrips({ legs, trips: [{ id: 'old', out: 0, back: 1, perPersonCzk: 900 }] })), [{ id: 'old', out: legs[0], back: legs[1], perPersonCzk: 900, cell: true }]);
+    assert.deepEqual(plain(H.cellTrips({ legs, keys: CELL_KEYS, trips: [[0, 9]] })), [], 'chybějící let');
+    assert.deepEqual(plain(H.cellTrips(undefined)), []);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('hledání (DEMO): odpověď s mřížkou naroste jen o kompaktní cesty buněk – i u 2 týdnů a širokého rozsahu nocí a dnů', async () => {
+  const stub = stubFetch(() => ({ status: 503, body: {} }));
+  try {
+    const cases = [
+      [{ ...Q(), nightsMin: 11, nightsMax: 16, dateFrom: ymdPlus(7), dateTo: ymdPlus(60) }, 1.33], // „2 týdny“
+      [{ ...Q(), radiusKm: 300, nightsMin: 2, nightsMax: 20, dateFrom: ymdPlus(7), dateTo: ymdPlus(90) }, 1.4], // 600 buněk
+    ];
+    for (const [q, max] of cases) {
+      const on = JSON.stringify(await search(q));
+      const off = JSON.stringify(await search(q, () => {}, { limits: { grid: false } }));
+      assert.ok(on.length < max * off.length, `${q.nightsMin}–${q.nightsMax} nocí: ${off.length} → ${on.length} znaků (×${(on.length / off.length).toFixed(2)})`);
+    }
+  } finally {
+    stub.restore();
+  }
+});
+
+test('hledání (DEMO): „Odkud se vyplatí letět“ i s cestami buněk – cena u letiště = nejlevnější cesta odsud a zpět ve výpisu, jaký prohlížeč ukáže', async () => {
+  const stub = stubFetch(() => ({ status: 503, body: {} }));
+  try {
+    const home = (t) => (!t.back || t.back.to === t.out.from ? t.out.from : null);
+    for (const q of [
+      { ...Q(), radiusKm: 300, nightsMin: 3, nightsMax: 9, dateFrom: ymdPlus(7), dateTo: ymdPlus(60) },
+      { ...Q(), from: ['ap:PRG'], radiusKm: 200, nightsMin: 5, nightsMax: 9, dateFrom: ymdPlus(7), dateTo: ymdPlus(60) },
+    ]) {
+      const r = plain(await search(q));
+      const off = plain(await search(q, () => {}, { limits: { grid: false } }));
+      const all = withCells(r).top;
+      assert.ok(r.origins.filter((o) => o.best).length >= 2);
+      for (const o of r.origins) {
+        const mine = all.filter((t) => home(t) === o.iata).map((t) => Math.round(t.perPersonCzk));
+        assert.equal(o.best ? o.best.czk : null, mine.length ? Math.min(...mine) : null, `${o.iata}: karta = výpis po klepnutí na letiště`);
+        const was = off.origins.find((x) => x.iata === o.iata).best;
+        if (was) assert.ok(o.best.czk <= was.czk && o.best.n >= was.n, o.iata);
+      }
+    }
+  } finally {
+    stub.restore();
+  }
+});
+
+test('hledání (DEMO): max. cena na osobu – kalendář ani mřížka nenabídnou dražší den či buňku; každá buňka i den mají ve výpisu nabídku se svou cenou', async () => {
+  const stub = stubFetch(() => ({ status: 503, body: {} }));
+  try {
+    const q = Q();
+    const free = plain(await search(q));
+    const costs = free.calendar.grid.cells.map((c) => c[2]).sort((a, b) => a - b);
+    const max = costs[Math.floor(costs.length / 2)];
+    assert.ok(free.calendar.out.some((d) => d.cost > max) && costs.some((c) => c > max), 'bez limitu jsou i dražší dny a buňky');
+    const r = plain(await search({ ...q, maxPrice: max }));
+    assert.ok(r.filters.hidden.maxPrice > 0);
+    const g = r.calendar.grid;
+    assert.ok(g.cells.length > 10 && g.cells.every((c) => c[2] <= max), 'buňky do max. ceny');
+    assert.ok(r.calendar.out.length && [...r.calendar.out, ...r.calendar.back].every((d) => d.cost <= max), 'dny kalendáře do max. ceny');
+    const all = cellsCovered(r, 'max. cena: ');
+    for (const d of r.calendar.out) {
+      const day = all.filter((t) => t.out.date === d.date).map((t) => Math.round(t.perPersonCzk));
+      assert.equal(Math.min(...day), Math.round(d.cost), `${d.date}: ve výpisu nabídka s cenou dne`);
+    }
+    // buňky do limitu mají stejnou cenu jako bez něj (dražší jen zmizely)
+    const before = new Map(free.calendar.grid.cells.map((c) => [c[0] + '|' + c[1], c[2]]));
+    assert.ok(g.cells.every((c) => before.get(c[0] + '|' + c[1]) === c[2]));
   } finally {
     stub.restore();
   }
@@ -219,18 +318,25 @@ test('hledání (DEMO): zpáteční letenka (celá cena) posune okno nocí – k
 });
 
 test('gridTrips + lastPack: cesty buněk z calendar.grid do top (podle ceny, jednou); uložené poslední hledání je má jen kompaktně, po načtení zase všechny', () => {
-  const leg = (date, dep = '10:00') => ({ date, from: 'VIE', to: 'STN', dep: `${date}T${dep}:00`, czk: 500, pad: 'x'.repeat(300) });
-  const trip = (id, o, b, czk) => ({ id, out: leg(o), back: leg(b), nights: diff(o, b), perPersonCzk: czk });
+  const leg = (from, to, date, dep = '10:00') => ({ provider: 'demo-air', from, to, date, dep: `${date}T${dep}:00`, czk: 500, pad: 'x'.repeat(300) });
   const diff = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+  const trip = (id, o, b, czk) => ({ id, out: leg('VIE', 'STN', o), back: leg('STN', 'VIE', b), nights: diff(o, b), perPersonCzk: czk });
   const top = [trip('a', '2026-11-18', '2026-11-21', 1500), trip('b', '2026-11-19', '2026-11-22', 2500)];
-  const legs = [leg('2026-11-18'), leg('2026-11-22', '18:00'), leg('2026-11-23', '18:00')];
-  const grid = { nights: [3, 5], cells: [['2026-11-18', 3, 1500], ['2026-11-18', 4, 1800], ['2026-11-18', 5, 3100]], skipped: 0, legs,
-    trips: [{ id: 'c4', out: 0, back: 1, nights: 4, perPersonCzk: 1800 }, { id: 'c5', out: 0, back: 2, nights: 5, perPersonCzk: 3100 }] };
-  const res = { mode: 'route', groups: [], top, calendar: { kind: 'trip', out: [], back: [], grid } };
+  const legs = [leg('VIE', 'STN', '2026-11-18'), leg('STN', 'VIE', '2026-11-22', '18:00'), leg('STN', 'VIE', '2026-11-23', '18:00')];
+  const vals = { groundCzk: 200, bagCzk: 0, arrCzk: 300, parkCzk: 0, bagEst: 0, combined: 0, bookUrl: null, tempHi: 11, distanceKm: 1240, destKey: 'LON', deal: [1.8, 'good', null] };
+  const row = (o, b, flightCzk) => CELL_KEYS.map((k) => ({ ...vals, out: o, back: b, flightCzk })[k]);
+  const grid = { nights: [3, 5], cells: [['2026-11-18', 3, 1500], ['2026-11-18', 4, 1800], ['2026-11-18', 5, 3100]], skipped: 0, legs, keys: CELL_KEYS, trips: [row(0, 1, 1300), row(0, 2, 2600)] };
+  const res = { mode: 'route', query: { adults: 2 }, groups: [], top, calendar: { kind: 'trip', out: [], back: [], grid } };
   const r = H.gridTrips(res);
   assert.equal(r, res);
-  assert.deepEqual(plain(r.top.map((t) => t.id)), ['a', 'c4', 'b', 'c5'], 'podle ceny');
-  assert.deepEqual(plain(r.top[1].back), legs[1]);
+  const id4 = 'demo-air|VIE|STN|2026-11-18T10:00:00|demo-air|STN|VIE|2026-11-22T18:00:00';
+  const id5 = 'demo-air|VIE|STN|2026-11-18T10:00:00|demo-air|STN|VIE|2026-11-23T18:00:00';
+  assert.deepEqual(plain(r.top.map((t) => t.id)), ['a', id4, 'b', id5], 'podle ceny');
+  assert.deepEqual(plain(r.top[1]), {
+    id: id4, out: legs[0], back: legs[1], flightCzk: 1300, nights: 4, provider: 'demo-air', combined: false, bookUrl: null, groundCzk: 200, bagCzk: 0, arrCzk: 300,
+    perPersonCzk: 1800, totalCzk: 3600, tempHi: 11, distanceKm: 1240, deal: { score: 1.8, level: 'good', drop: null }, destKey: 'LON', cell: true,
+  });
+  assert.equal(r.top[3].perPersonCzk, 3100);
   assert.notEqual(r.top[1].out, r.top[3].out, 'každá cesta má své lety');
   assert.equal(H.gridTrips(r).top.length, 4, 'podruhé nic nepřidá');
   assert.equal(H.gridTrips({ mode: 'route', top: [top[0]], calendar: { grid: { nights: [3, 5], cells: [] } } }).top.length, 1, 'stará odpověď bez cest buněk');
@@ -239,21 +345,87 @@ test('gridTrips + lastPack: cesty buněk z calendar.grid do top (podle ceny, jed
   const c = { at: 1000, form: { from: [{ id: 'ap:VIE' }] }, payload: {}, res: r };
   const saved = JSON.parse(H.lastPack(c, 1e7));
   assert.deepEqual(saved.res.top.map((t) => t.id), ['a', 'b']);
-  assert.equal(saved.res.calendar.grid.trips.length, 2);
-  assert.deepEqual(plain(H.gridTrips(H.lastLoad(H.lastPack(c, 1e7), 2000).res).top.map((t) => t.id)), ['a', 'c4', 'b', 'c5']);
+  assert.deepEqual(saved.res.calendar.grid.trips, plain(grid.trips));
+  assert.deepEqual(plain(H.gridTrips(H.lastLoad(H.lastPack(c, 1e7), 2000).res).top.map((t) => t.id)), ['a', id4, 'b', id5]);
   assert.equal(r.top.length, 4, 'výsledek v paměti beze změny');
-  // zkrácené (velké hledání): 40 nejlevnějších + nejlevnější z každého dalšího dne odletu, cesty buněk zůstanou v calendar.grid
-  const day = (i) => `2026-12-${String(i < 60 ? 1 + (i % 2) : 3 + (i % 28)).padStart(2, '0')}`; // 60 nejlevnějších jen 1. a 2. 12.
-  const many = Array.from({ length: 120 }, (_, i) => trip('m' + i, day(i), '2027-01-05', 1000 + i));
-  const big = { ...c, res: { ...r, top: H.gridTrips({ ...r, top: many }).top } };
-  const cap = H.lastPack(big, 1e7).length - 1;
-  const cut = JSON.parse(H.lastPack(big, cap));
-  assert.equal(cut.res.top.length, 40 + 28, '40 nejlevnějších + 28 dalších dnů po jedné');
-  assert.deepEqual(cut.res.top.slice(40).map((t) => t.id), Array.from({ length: 28 }, (_, i) => 'm' + (60 + i)), 'z každého dne ta nejlevnější');
-  assert.equal(new Set(cut.res.top.map((t) => t.out.date)).size, 30, 'každý den odletu má aspoň nejlevnější nabídku');
-  assert.ok(cut.res.top.every((t) => !t.id.startsWith('c')));
-  assert.equal(cut.res.calendar.grid.trips.length, 2);
-  assert.equal(H.gridTrips(H.lastLoad(JSON.stringify(cut), 2000).res).top.filter((t) => t.id.startsWith('c')).length, 2, 'po zkrácení buňky mřížky nepřijdou o své cesty');
+
+  // zkrácené (velké hledání): co nejvíc nejlevnějších bez mezer, vždy ale nejlevnější z každého dne odletu (kalendář) a z
+  // každé buňky mřížky, která cestu v calendar.grid nemá. 40 kombinací 1. 12.: 3–6 nocí po řadě, od m35 jen 7 nocí →
+  // buňka „1. 12. / 7 nocí“ má nejlevnější cestu až m35, daleko za nejlevnějšími.
+  const many = Array.from({ length: 40 }, (_, i) => trip('m' + i, '2026-12-01', `2026-12-0${i < 35 ? 4 + (i % 4) : 8}`, 1000 + i * 10));
+  const cells = [...grid.cells, ...[3, 4, 5, 6].map((n) => ['2026-12-01', n, 1000 + (n - 3) * 10]), ['2026-12-01', 7, 1350]];
+  const big = { ...c, res: H.gridTrips({ ...res, top: [...many, ...top], calendar: { ...res.calendar, grid: { ...grid, nights: [3, 7], cells } } }) };
+  const ids = (s) => JSON.parse(s).res.top.map((t) => t.id);
+  const len = (t) => JSON.stringify(t).length + 1;
+  const empty = JSON.stringify({ ...big, res: { ...big.res, top: [] } }).length;
+  const full = H.lastPack(big, 1e7);
+  assert.equal(ids(full).length, 42);
+  // o znak méně: pryč jen nejdražší kombinace, která není jediná svého dne ani buňky (m39; dražší „b“ je jediná 19. 11.)
+  assert.deepEqual(ids(H.lastPack(big, full.length - 1)), [...many.slice(0, 39).map((t) => t.id), 'a', 'b']);
+  // těsně: povinné (m0–m3 a m35 za buňky 1. 12., „a“ za den i buňku 18. 11., „b“ za den 19. 11.) + 4 nejlevnější další
+  const must = ['m0', 'm1', 'm2', 'm3', 'm35', 'a', 'b'], more = ['m4', 'm5', 'm6', 'm7'];
+  const byId = new Map([...many, ...top].map((t) => [t.id, t]));
+  const cap = empty + [...must, ...more].reduce((s, id) => s + len(byId.get(id)), 0);
+  const cut = H.lastPack(big, cap);
+  assert.ok(cut.length <= cap);
+  assert.deepEqual(ids(cut), ['m0', 'm1', 'm2', 'm3', ...more, 'm35', 'a', 'b']);
+  const back = plain(H.gridTrips(H.lastLoad(cut, 2000).res));
+  for (const [d, n, czk] of cells) {
+    const list = back.top.filter((t) => cellKey(t) === `${d}|${n}`).map((t) => t.perPersonCzk);
+    assert.equal(Math.min(...list), czk, `po obnovení má buňka ${d} ${n} nocí nabídku se svou cenou`);
+  }
+  // na povinné cesty buněk místo není → bez mřížky (buňka bez cesty by nic neukázala), jen nejlevnější dnů + nejlevnější další
+  const noGrid = (({ grid: _, ...cal }) => ({ ...big, res: { ...big.res, calendar: cal, top: [] } }))(big.res.calendar);
+  const cap2 = JSON.stringify(noGrid).length + ['m0', 'a', 'b', 'm1'].reduce((s, id) => s + len(byId.get(id)), 0);
+  assert.ok(cap2 < cap - 2 * len(byId.get('m35')), 'na buňky (m1–m3, m35) místo není');
+  const slim = JSON.parse(H.lastPack(big, cap2));
+  assert.equal(slim.res.calendar.grid, undefined);
+  assert.deepEqual(slim.res.calendar.out, big.res.calendar.out, 'kalendář zůstane');
+  assert.deepEqual(slim.res.top.map((t) => t.id), ['m0', 'm1', 'a', 'b']);
+  assert.equal(H.gridModel(H.gridTrips(H.lastLoad(JSON.stringify(slim), 2000).res).calendar.grid), null, 'po obnovení bez mřížky');
+  assert.equal(H.lastPack(big, JSON.stringify(noGrid).length + 100), null, 'nevejdou se ani nejlevnější dnů');
+  // vysvětlující: dřív (40 nejlevnějších + den) by buňka „1. 12. / 7 nocí“ o svou jedinou cestu přišla
+  assert.ok(!many.slice(0, 35).some((t) => t.nights === 7));
+});
+
+test('hledání (DEMO) + lastPack: i zkrácené uložené hledání má po obnovení u každé buňky mřížky i dne kalendáře nabídku se stejnou cenou jako před uložením a z výpisu co nejvíc nejlevnějších', async () => {
+  const stub = stubFetch(() => ({ status: 503, body: {} }));
+  try {
+    const q = { ...Q(), radiusKm: 300, nightsMin: 2, nightsMax: 12, dateFrom: ymdPlus(7), dateTo: ymdPlus(70) };
+    const r = withCells(await search(q));
+    const c = { at: 1000, form: { from: [{ id: 'ap:VIE' }] }, payload: q, res: r };
+    const full = H.lastPack(c, 1e9);
+    const empty = JSON.stringify({ ...c, res: { ...r, groups: r.groups.map((g) => ({ ...g, options: g.options.slice(0, 3) })), top: [] } }).length;
+    const minBy = (list, key) => { const m = {}; for (const t of list) { const k = key(t), p = Math.round(t.perPersonCzk); if (k && !(m[k] <= p)) m[k] = p; } return m; };
+    const dayOf = (t) => t.out.date;
+    const want = { day: minBy(r.top, dayOf), cell: minBy(r.top, (t) => t.back && cellKey(t)) };
+    const own = r.top.filter((t) => !t.cell);
+    const gridKeys = new Set(r.top.filter((t) => t.cell).map(cellKey)), must = new Set(), seen = new Set();
+    for (const t of own) for (const k of [t.out.date, t.back && !gridKeys.has(cellKey(t)) && cellKey(t)]) if (k && !seen.has(k)) { seen.add(k); must.add(t.id); }
+    assert.ok(own.length > 150 && r.calendar.grid.cells.length > 300, `výpis ${own.length}, buněk ${r.calendar.grid.cells.length}`);
+    // 0,99 a 0,85: s mřížkou (povinné cesty dnů a buněk zaberou ~60–72 % výpisu); 0,45: na ně místo není → bez mřížky,
+    // jen povinné nejlevnější dnů (~30 %) a nejlevnější další
+    for (const share of [0.99, 0.85, 0.45]) {
+      const cap = Math.round(empty + (full.length - empty) * share);
+      const s = H.lastPack(c, cap);
+      assert.ok(s && s.length <= cap, `podíl ${share}: ${s && s.length} ≤ ${cap}`);
+      const back = plain(H.gridTrips(H.lastLoad(s, 2000).res));
+      assert.deepEqual(minBy(back.top, dayOf), want.day, `podíl ${share}: nejlevnější každého dne odletu`);
+      const grid = back.calendar.grid;
+      assert.equal(Boolean(grid), share > 0.5, `podíl ${share}: mřížka ${grid ? 'zůstala' : 'vynechaná'}`);
+      const cell = minBy(back.top, (t) => t.back && cellKey(t));
+      if (grid) for (const [d, n, czk] of grid.cells) assert.equal(cell[`${d}|${n}`], czk, `podíl ${share}: buňka ${d} ${n} nocí`);
+      // z výpisu nejlevnější bez mezer, za nimi jen povinné (nejlevnější svého dne nebo buňky bez cesty v calendar.grid)
+      const kept = new Set(back.top.filter((t) => !t.cell).map((t) => t.id));
+      const gap = own.findIndex((t) => !kept.has(t.id)), prefix = gap < 0 ? own.length : gap;
+      assert.ok(prefix > 0, `podíl ${share}: nejlevnějších ${prefix}`);
+      if (share < 0.9) assert.ok(prefix < own.length && kept.size > prefix, `podíl ${share}: zkrácené (${prefix} nejlevnějších + ${kept.size - prefix} povinných z ${own.length})`);
+      assert.ok(own.slice(prefix).every((t) => !kept.has(t.id) || must.has(t.id)), `podíl ${share}: za nejlevnějšími jen povinné`);
+      if (share === 0.99) assert.ok(kept.size > 0.95 * own.length, `skoro celý výpis: ${kept.size} z ${own.length}`);
+    }
+  } finally {
+    stub.restore();
+  }
 });
 
 test('gridSummary: nejlevnější buňka česky (den v týdnu, datum, 1 noc / 2–4 noci / 5+ nocí), shoda → dřívější odlet a méně nocí', () => {
