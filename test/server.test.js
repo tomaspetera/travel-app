@@ -179,6 +179,17 @@ test('POST /api/search – kamkoliv, zpáteční, průběh se streamuje', async 
     assert.equal(t.perPersonCzk, t.flightCzk + t.groundCzk);
     assert.ok(r.origins.some((o) => o.iata === t.out.from));
   }
+  // „Odkud se vyplatí letět“: minimum za letiště ze všech nabídek (server), skupiny s minimem z každého letiště
+  for (const o of r.origins) assert.ok(o.best === null || (o.best.czk > 0 && o.best.n > 0), JSON.stringify(o.best));
+  for (const o of r.origins.filter((x) => x.best)) {
+    const mins = r.groups.map((g) => g.fromBest[o.iata]).filter((x) => x != null);
+    assert.equal(o.best.czk, Math.min(...mins), o.iata);
+  }
+  for (const g of r.groups) {
+    assert.equal(Math.min(...Object.values(g.fromBest)), g.best.perPersonCzk, g.dest.key);
+    assert.ok(Object.keys(g.fromBest).every((k) => r.origins.some((o) => o.iata === k)));
+  }
+  assert.ok(r.origins.filter((o) => o.best).length >= 2);
 });
 
 test('POST /api/search – konkrétní cíl, víkend, kalendář', async () => {

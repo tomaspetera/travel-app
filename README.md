@@ -379,6 +379,16 @@ a hlídané ceny z doby, kdy se doprava zadávala v Kč/km (1,1 Kč/km), se pře
 dřívější Kč/km za auto: výchozích 2,6 → nafta za aktuální cenu, jiná hodnota → vlastní cena nafty se stejnými Kč/km
 (3,5 Kč/km = 58,33 Kč/l při 6 l/100 km).
 
+**🛫 Odkud se vyplatí letět:** nad výsledky (seznam, karty i kalendář, ne mapa) je sbalená karta, jejíž souhrn odpoví
+hned – *nejlevněji z VIE (Vídeň) od 1 650 Kč/os. – o 450 Kč méně než z nejbližšího BRQ, cesta o ~2 h 40 min déle (tam
+i zpět)*, nebo *nejlevněji z nejbližšího BRQ … – jiná letiště nejsou levnější*. Rozbalená ukáže řádek na každé
+prohledané letiště (i přestupní ✈︎): odhad cesty na letiště, nejlevnější celou cestu na osobu (letenky + doprava na
+letiště a zpět, autem i parkování, zavazadla, cesta do města) a rozdíl proti nejbližšímu letišti v Kč a v čase cesty
+(u zpáteční tam i zpět); klepnutí na letiště ukáže jen lety odtud, další klepnutí zase všechna. Minimum počítá server
+ze **všech** nalezených nabídek po filtrech (i z těch, které se do výpisu nevejdou), jen z cen, které už má – žádné
+hledání navíc. U „kamkoliv“ má plná karta cíle řádek *z VIE od 1 650 Kč · z BRQ od 2 100 Kč* (nejvýš 4 letiště,
+nejlevnější celá cesta sem z každého). Cesta přes víc měst a výsledky uložené před touto změnou kartu nemají.
+
 Jízdné a parkování jsou orientační (ceníky dopravců 2025/26, ~25 Kč/€, ~5,8 Kč/zł, ~0,065 Kč/Ft; parkování na
 18 letištích ověřené 10/2026, jinde odhad) – skutečná cena záleží na spoji, slevách, termínu, sezóně a obsazenosti
 parkoviště.
@@ -934,6 +944,10 @@ nepáruje, když odlétá dřív než 2 h po jeho příletu.
 Čas a přestupy: lety s přestupem z Kiwi.com mají `layovers` – `[{ "at": "MUC", "min": 95 }]`, čekání na každém přestupu v minutách spočítané z místních časů úseků (když čas některého úseku chybí, pole chybí). Let bez známého času příletu (Wizz Air) má vedle `arrEst: true` i `estMin` – odhad délky letu v minutách (vzdálenost / 780 km/h + 35 min), který UI používá jen pro filtr délky cesty; `durationMin` zůstává `null`. Filtry času a přestupů běží v prohlížeči (`public/js/searchhelp.js`), server se kvůli nim znovu neptá.
 
 Je to dobrá cena: každá skupina má `priceStats` (`n`, `min`, `p25`, `median`, `p75`, `max`, `dateFrom`, `dateTo`, `mins`), u konkrétního cíle i `priceStats` celé trasy; každá nabídka má `priceLevel` (`level` `low` / `normal` / `high`, `basis`, `reason`, `ref`, `vsRef`, `pos`, `n`).
+
+Odkud se vyplatí letět: každé letiště v `origins` má `best` – `{ czk, n }` (nejlevnější `perPersonCzk` a počet nabídek
+s odletem odtud ze všech nabídek po filtrech) nebo `null`; každá skupina má `fromBest` – `{ "VIE": 1650, "BRQ": 2100 }`
+(nejlevnější celá cesta do cíle z každého letiště, ze všech nabídek cíle, ne jen z `options`).
 
 Cesta přes víc měst: `"trip": "multi", "legs": [{ "from": ["ap:PRG"], "to": ["metro:ROM"], "date": "2026-11-03" }, { "from": ["ap:NAP"], "to": ["ap:PRG"], "date": "2026-11-08", "flexDays": 1 }]` – 2 až 4 lety jedním směrem, data po sobě (týž den smí), nejvýš 90 dní. Cílem (a místem odletu dalších letů) musí být město nebo letiště, ne země. `radiusKm`, `kmRate`, `groundMode`, `carFuel`, `carCons`, `carPrice` (dřívější `carKmCzk`), `exclude` platí pro odlet 1. letu (autem s návratem domů parkování na celou cestu u 1. letu); když je cíl posledního letu stejný jako odkud 1. letu, letí se na kterékoliv letiště začátku cesty (s `openJaw: false` jen na letiště samotného místa; autem vždy na kterékoliv – nejlevnější kombinace se vrací tam, kde auto parkuje) a doprava z něj domů se přičte. Úseky se hledají nejvýš po dvou najednou s rozpočtem 24 dvojic letišť na zdroj. Průběh má navíc `legs: [{ label, state }]`. Odpověď má `mode: "multi"`, `legs: [{ label, from, to, date, flex, dest, options, count, nearby }]` (options = nejvýš 16 jednosměrných letů s `perPersonCzk` vč. dopravy a zavazadel), `links[i][a][b]` (`null` = let b úseku i+1 se po letu a stihne, jinak `{ why: "early" | "short" | "nextday" | "unknown", gapMin?, needMin?, move? }`; `unknown` = let a s přestupem bez známého příletu, další nejdřív 24 h po jeho odletu), `combos: [{ picks, perPersonCzk, totalCzk, flightCzk, groundCzk, bagCzk, arrCzk }]` (30 nejlevnějších navazujících cest), `returnsHome` a `stats.feasible`. `maxPrice` platí na celou cestu.
 

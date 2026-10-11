@@ -6,7 +6,7 @@ import { localSuggestions, resolveOrigins, resolveDestinations, describe } from 
 import { groundEstimate, haversineKm } from '../server/lib/geo.js';
 import { convert, setRates, FALLBACK_EUR } from '../server/lib/fx.js';
 import { chunkRange, monthsInRange, weekday } from '../server/lib/dates.js';
-import { normalizeQuery, planRoutes, referencePrice, routesNote, routesNoteNearest } from '../server/lib/search.js';
+import { normalizeQuery, originBests, planRoutes, referencePrice, routesNote, routesNoteNearest } from '../server/lib/search.js';
 import { ymdPlus } from './helpers.js';
 
 const leg = (provider, from, to, date, czk) => makeLeg({ provider, from, to, dep: `${date}T10:00:00`, czk, price: czk, currency: 'CZK' });
@@ -373,4 +373,11 @@ test('našeptávač: velká letiště (big) – plánovač podle nich pozná, o 
   assert.deepEqual([big('Florencie').FLR, big('Florencie').FLO], [true, false]);
   assert.deepEqual([big('Sydney').SYD, big('Sydney').YQY], [true, false]);
   assert.deepEqual([big('Birmingham').BHX, big('Birmingham').BHM], [true, true], 'obě velká → plánovač nehádá');
+});
+
+test('originBests: nejlevnější celá cesta a počet nabídek podle letiště odletu, bez ceny se nepočítá', () => {
+  const t = (from, perPersonCzk) => ({ out: { from }, perPersonCzk });
+  assert.deepEqual(originBests([t('PRG', 3000), t('PRG', 2500), t('VIE', 2000)]), { PRG: { czk: 2500, n: 2 }, VIE: { czk: 2000, n: 1 } });
+  assert.deepEqual(originBests([]), {});
+  assert.deepEqual(originBests([t('PRG', NaN), t('PRG', 2499.6), t('BRQ', undefined), null]), { PRG: { czk: 2500, n: 1 } });
 });

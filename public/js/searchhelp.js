@@ -761,6 +761,44 @@
     const sum = items.length > 1 ? `${items.join(' + ')} = ~${kc(g.czk)}` : items.length ? items[0] : `~${kc(g.czk)}`;
     return { text: `~${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: ${sum} na osobu jedním směrem (zpět totéž), ~${hm(g.minutes)}. Odhad podle vzdálenosti a ceníků dopravců, ne jízdní řád.` };
   }
+  /**
+   * „Odkud se vyplatí letět“: nejlevnější celá cesta z každého letiště odletu (o.best ze serveru, vč. dopravy na letiště)
+   * proti nejbližšímu letišti (ref – ne přestupní) – o kolik levněji a o kolik déle cesta na letiště (zpáteční tam i zpět).
+   * → { rows (od nejlevnějšího, bez nabídky na konci), ref, win }; prázdné u cesty přes víc měst, u starších výsledků
+   * bez best a když se něco našlo jen z jednoho letiště.
+   */
+  function originCompare(res) {
+    const none = { rows: [], ref: null, win: null };
+    if (!res || res.mode === 'multi') return none;
+    const os = (res.origins || []).filter(o => o && o.iata), priced = os.filter(o => o.best && o.best.czk > 0);
+    if (priced.length < 2) return none;
+    const dist = o => (Number.isFinite(o.distKm) ? o.distKm : 1e9);
+    const near = list => list.reduce((m, o) => (!m || dist(o) < dist(m) ? o : m), null);
+    const ref = near(priced.filter(o => !o.hub)) || near(priced);
+    const mult = res.query && res.query.trip === 'return' ? 2 : 1; // cesta na letiště tam i zpět
+    const mins = o => (o.ground && o.ground.minutes > 0 ? o.ground.minutes : null);
+    const czkOf = o => (o.best && o.best.czk > 0 ? o.best.czk : null);
+    // od nejlevnějšího; stejná cena → nejbližší letiště napřed, pak podle vzdálenosti; bez nabídky na konci
+    const order = [...os].sort((a, b) => (czkOf(a) == null) - (czkOf(b) == null) || (czkOf(a) || 0) - (czkOf(b) || 0) || (b === ref) - (a === ref) || dist(a) - dist(b));
+    const rows = order.map(o => {
+      const isRef = o === ref, czk = czkOf(o), minutes = mins(o), g = o.ground || {};
+      return {
+        iata: o.iata, city: o.city || o.name || o.iata, hub: !!o.hub, czk, n: (o.best && o.best.n) || 0,
+        mode: g.mode || null, minutes, local: !!g.local, ref: isRef,
+        diff: czk != null && !isRef ? czk - ref.best.czk : null,
+        extraMin: minutes != null && mins(ref) != null && !isRef ? (minutes - mins(ref)) * mult : null,
+      };
+    });
+    return { rows, ref: rows.find(r => r.ref), win: rows[0] };
+  }
+  /** Rozdíl řádku srovnání proti nejbližšímu letišti: „−450 Kč · +2 h 40 cesty“, „stejně“, „nejbližší letiště“. */
+  function originDiffTxt(r) {
+    if (!r) return '';
+    if (r.ref) return 'nejbližší letiště';
+    if (r.diff == null) return '';
+    const p = r.diff === 0 ? 'stejně' : `${r.diff < 0 ? '−' : '+'}${kc(Math.abs(r.diff))}`;
+    return p + (r.extraMin ? ` · ${r.extraMin > 0 ? '+' : '−'}${hhmmTxt(Math.abs(r.extraMin))} cesty` : '');
+  }
 
   /* ---------- cesta z letiště do města (stejně jako server/lib/arrival.js, data/arrival.json) ---------- */
   // Zvýraznit drahou nebo dlouhou cestu do města („levná“ letenka na vzdálené letiště) – stejné meze jako server
@@ -1174,7 +1212,7 @@
 
   window.SearchHelp = {
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
-    groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel,
+    groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
