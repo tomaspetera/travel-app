@@ -734,3 +734,16 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .len-lw-hint{font-size:12px;margin-top:6px}
 .lw-p{font-weight:800;color:var(--text)}
 .lw-p.best{color:var(--good)}
+/* Délka pobytu → 🗓️ Kdy si vzít dovolenou: okno se seznamem volna kolem svátků */
+.len-leave{display:block;margin-top:6px;font-size:12.5px;text-align:left}
+.lw-head{justify-content:space-between;margin-bottom:10px}
+.lw-head h3{font-size:18px}
+.lw-max{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:6px;font-size:13px}
+.lw-max .seg button{padding:7px 9px;font-size:12.5px;white-space:nowrap} /* pět voleb v jednom řádku i na telefonu */
+.lw-row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.lw-row>div{flex:1 1 240px;min-width:0}
+.lw-row .faint{font-size:12px;margin-top:2px}
+.lw-row .btn{flex:none;margin-left:auto}
+.lw-foot{font-size:12px;margin-top:12px}
+.cmp-lv{color:var(--muted);font-weight:600}
+.rc-lv{display:block}

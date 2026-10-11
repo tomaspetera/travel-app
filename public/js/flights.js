@@ -562,6 +562,29 @@
     }
     syncFormUI();
   }
+  /* Délka pobytu → 🗓️ Kdy si vzít dovolenou: nejvíc volna kolem svátků za nejmíň dní dovolené (SearchHelp.leaveWindows) */
+  function openLeavePlan() {
+    const max = [1, 2, 3, 4, 5].includes(S.leaveMax) ? S.leaveMax : 2, now = today();
+    const list = SearchHelp.leaveWindows(now, { maxLeave: max });
+    const dny = n => n === 1 ? 'den' : n <= 4 ? 'dny' : 'dní';
+    // ★ okna s nejvíc dny volna na den dovolené (shoda → všechna; mají-li všechna stejně, žádná)
+    const ratio = w => w.days / w.leave.length, paid = list.filter(w => w.leave.length), best = Math.max(...paid.map(ratio));
+    const star = w => w.leave.length && ratio(w) === best && paid.some(x => ratio(x) < best);
+    const yr = w => (w.start.slice(0, 4) !== now.slice(0, 4) ? ` ${w.start.slice(0, 4)}` : '');
+    modalOpen(`<div class="modal-body"><div class="row lw-head"><h3>🗓️ Kdy si vzít dovolenou</h3><button type="button" class="icon-btn" onclick="modalClose()" aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button></div>
+      <div class="lw-max"><span class="faint">Dovolená nejvýš:</span><div class="seg wrap" id="lwMax">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-lm="${n}" class="${n === max ? 'on' : ''}" aria-pressed="${n === max}">${n} ${dny(n)}</button>`).join('')}</div></div>
+      ${list.length ? list.map((w, i) => `<div class="lw-row"><div><b>${SearchHelp.dmRange(w.start, w.end)}${yr(w)}</b> · ${w.days} ${dny(w.days)} volna ${w.leave.length ? `za ${w.leave.length} ${dny(w.leave.length)} dovolené` : 'bez dovolené'}${star(w) ? ' <span class="b good">★ nejvíc volna za den</span>' : ''}<div class="faint">🎉 ${esc(w.name)}${w.leave.length ? ` · dovolená: ${w.leave.map(d => dayLabel(d).replace(/ /g, '\u00a0')).join(', ')}` : ''}</div></div><button type="button" class="btn sm" data-lwgo="${i}">✈️ Hledat lety</button></div>`).join('')
+        : '<div class="note info">🗓️ <div>V příštích 12 měsících nic – zkus víc dní dovolené.</div></div>'}
+      <div class="faint lw-foot">Volno = víkendy a státní svátky ČR (zákon č. 245/2000 Sb., Velikonoce výpočtem). Odlet můžeš večer před prvním volným dnem od 16:00, návrat poslední volný den.</div></div>`);
+    $$('#lwMax [data-lm]').forEach(b => b.onclick = () => { S.leaveMax = +b.dataset.lm; save(); openLeavePlan(); });
+    // jako čip 🎉 Svátky: termín okna (odlet večer předem od 16:00, návrat poslední volný den) a jedno hledání
+    $$('#modal [data-lwgo]').forEach(b => b.onclick = () => {
+      const w = list[+b.dataset.lwgo];
+      modalClose(); go('flights');
+      setForm({ ...getForm(), dateMode: 'flex', trip: 'return', len: 'custom', ...SearchHelp.holidayDates(w, today()) });
+      startSearch();
+    });
+  }
 
   /* ---------- cesta přes víc měst: seznam letů ve formuláři ---------- */
   const ML_MAX = 4;
@@ -760,6 +783,7 @@
     $('#xOut').onfocus = () => { $('#xOut').dataset.prev = $('#xOut').value; };
     $('#xBack').onchange = syncFormUI;
     $$('#lenPreset button').forEach(b => b.onclick = () => applyPreset(b.dataset.v));
+    $('#leavePlan').onclick = openLeavePlan;
     ['#nMin', '#nMax'].forEach(s => $(s).oninput = () => { $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); syncHoliday(); });
     $('#radius').oninput = () => { $('#radiusVal').textContent = $('#radius').value + ' km'; refreshOrigins(); updateHomeChip(); mlHomeChanged(); };
     ['#groundOn', '#kmRate'].forEach(s => $(s).onchange = () => { refreshOrigins(); syncFormUI(); });
@@ -1030,6 +1054,8 @@
       case 'near': return t.distanceKm;
       case 'far': return -t.distanceKm;
       case 'date': return t.out.date + (t.out.dep || '');
+      // nejméně dní dovolené, při shodě nejlevnější (jen tam → jako cena)
+      case 'leave': { const lv = t.back ? SearchHelp.leaveDays(t.out, t.back) : null; return (lv ? lv.n : 99) * 1e7 + t.perPersonCzk; }
       default: return t.perPersonCzk;
     }
   }
@@ -1177,7 +1203,7 @@
       ${best ? ` · nejlevněji <b class="good">${czk(best.perPersonCzk)}</b>/os.` : ''}</div></div>
       <div class="res-tools">
         <select id="sortSel" title="Řazení">
-          ${[['total', `Nejlevnější celkem (vč. dopravy${BAG_LBL[res.query.bags] ? ' a zavazadel' : ''})`], ['flight', 'Nejlevnější letenka'], ['fast', 'Cena + délka cesty'], ['deal', 'Nejvýhodnější vůči běžné ceně'], ['season', 'Cena + ideální sezóna'], ['warm', 'Nejtepleji'], ['date', 'Nejdřívější odlet'], ['near', 'Nejblíž'], ['far', 'Nejdál']].map(o => `<option value="${o[0]}" ${view.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}
+          ${[['total', `Nejlevnější celkem (vč. dopravy${BAG_LBL[res.query.bags] ? ' a zavazadel' : ''})`], ['flight', 'Nejlevnější letenka'], ['fast', 'Cena + délka cesty'], ['deal', 'Nejvýhodnější vůči běžné ceně'], ['season', 'Cena + ideální sezóna'], ['warm', 'Nejtepleji'], ['date', 'Nejdřívější odlet'], ...(res.query.trip === 'return' ? [['leave', 'Nejméně dovolené']] : []), ['near', 'Nejblíž'], ['far', 'Nejdál']].map(o => `<option value="${o[0]}" ${view.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}
         </select>
         <div class="seg" id="viewSeg">${modes.map(v => `<button type="button" data-v="${v[0]}" class="${view.mode === v[0] ? 'on' : ''}">${v[1]}</button>`).join('')}</div>
       </div></div>
@@ -1273,7 +1299,9 @@
   const memAge = t => Math.max(+(t.out && t.out.memAgeMin) || 0, +(t.back && t.back.memAgeMin) || 0);
   function badges(t, g, idx) {
     const out = [];
-    if (t.nights != null) out.push(`<span class="b">🌙 ${nightsTxt(t.nights)}</span>`);
+    // dny dovolené ve stejném štítku jako noci (víkendy a svátky volno, odlet od 16:00 po práci)
+    const lv = t.back ? SearchHelp.leaveDays(t.out, t.back) : null, lt = lv && SearchHelp.leaveTxt(lv);
+    if (t.nights != null) out.push(`<span class="b"${lt ? ` title="${esc(lt.title)}"` : ''}>🌙 ${nightsTxt(t.nights)}${lt ? ` · ${esc(lt.text)}` : ''}</span>`);
     const pb = priceTag(t, idx); if (pb) out.push(pb);
     // cesta z letiště do města (a zpět na letiště): drahá nebo dlouhá = „levná“ letenka, která levná není → varovně
     const arr = arrivalChips(t);
@@ -1349,10 +1377,13 @@
       const t = g.vis[0], open = view.cexp && view.cexp.has(g.dest.key);
       const when = `${fmtDate(t.out.date)}${t.back ? '–' + fmtDate(t.back.date) : ''}${t.nights != null ? ' · ' + nightsTxt(t.nights) : ''}`;
       const who = [t.out.carrierName || provName(t.out.provider), t.out.stops ? `${t.out.stops}× přestup` : ''].filter(Boolean).join(' · ');
+      // dny dovolené jen při řazení „Nejméně dovolené“ – na začátku řádku, na telefonu se konec řádku nevejde
+      // (jinak je ukáže až rozbalená karta)
+      const lv = view.sort === 'leave' && t.back ? SearchHelp.leaveDays(t.out, t.back) : null, lt = lv && SearchHelp.leaveTxt(lv);
       return `<div class="cmp-row${open ? ' open' : ''}" data-cg="${esc(g.dest.key)}" role="button" tabindex="0" aria-expanded="${open}">
         <span class="cmp-flag">${flag(g.dest.cc)}</span>
         <div class="cmp-main"><div class="cmp-name"><b>${esc(g.dest.label)}</b>${hot.has(t.id) ? ' <span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>' : ''}${t.tempHi != null && lastResult?.query?.minTemp ? ` <span class="b sun">🌡️ ${Math.round(t.tempHi)} °C</span>` : ''}</div>
-          <div class="faint cmp-sub">${esc(t.out.from)} → ${esc(t.out.to)} · ${when}${who ? ' · ' + esc(who) : ''}${memAge(t) ? ` · ⏱ ${Alerts.agoTxt(memAge(t) * 60e3)}` : ''}</div></div>
+          <div class="faint cmp-sub">${lt ? `<span class="cmp-lv" title="${esc(lt.title)}">${esc(lt.text)}</span> · ` : ''}${esc(t.out.from)} → ${esc(t.out.to)} · ${when}${who ? ' · ' + esc(who) : ''}${memAge(t) ? ` · ⏱ ${Alerts.agoTxt(memAge(t) * 60e3)}` : ''}</div></div>
         <div class="cmp-price"><b${SearchHelp.isCached(t) && liveSt(t, liveGet(SearchHelp.liveKey(t, liveAdults()))) === 'dearer' ? ' class="stale"' : ''}>${czk(t.perPersonCzk)}</b><small>/os.</small>${liveHtml(t)}</div><span class="cmp-chev" aria-hidden="true">${open ? '▴' : '▾'}</span>
       </div>${open ? `<div class="cmp-card">${groupCard(g)}</div>` : ''}`;
     };
@@ -2721,7 +2752,9 @@
       const res = await runSearch(q.payload, { onProgress: ev => radarProgress(ev, key) });
       PriceCheck.remember(res);
       // u svátků jen odlet první volný den nebo večer předem (SearchHelp.radarPick)
-      const at = Date.now(), items = SearchHelp.radarPick(res.groups, q.lw).map(({ g, t }) => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: t.perPersonCzk, from: t.out.from, to: t.out.to, d1: t.out.date, d2: t.back?.date, deal: t.deal.level, score: t.deal.score, prov: t.out.provider,
+      const at = Date.now(), items = SearchHelp.radarPick(res.groups, q.lw).map(({ g, t }) => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: t.perPersonCzk, from: t.out.from, to: t.out.to, d1: t.out.date, d2: t.back?.date,
+        // čas odletu a přílet zpět kvůli dnům dovolené na kartě (SearchHelp.leaveDays)
+        t1: t.out.hasTime ? String(t.out.dep).slice(11, 16) : '', a2: t.back && t.back.hasTime && t.back.arr ? String(t.back.arr).slice(0, 16) : '', deal: t.deal.level, score: t.deal.score, prov: t.out.provider,
         // odkaz na nabídku z karty – hledání do jednoho cíle ji nemusí vrátit (Kiwi dává pro „kamkoliv“ jiné nabídky)
         ...(t.bookUrl ? { buy: [[t.bookUrl, t.provider, 'all']] } : t.out.bookUrl || t.back?.bookUrl ? { buy: [...(t.out.bookUrl ? [[t.out.bookUrl, t.out.provider, 'out']] : []), ...(t.back?.bookUrl ? [[t.back.bookUrl, t.back.provider, 'back']] : [])] } : {}) }));
       // co se od minulého výsledku změnilo (↓ cena, nový cíl); s výpadkem zdroje bez značek
@@ -2753,6 +2786,13 @@
     }
     return x.newAt ? `<span class="b info" title="Minule mezi nejlevnějšími nebyl">nové</span>` : '';
   }
+  /** Dny dovolené na kartě radaru (pod termínem „🏖️ 1 den dovolené“); starší uložené karty bez času odletu počítají celý den odletu. */
+  function radarLeave(x) {
+    const lv = x.d2 ? SearchHelp.leaveDays({ date: x.d1, hasTime: !!x.t1, dep: x.t1 ? `${x.d1}T${x.t1}` : '' }, { date: x.d2, hasTime: !!x.a2, arr: x.a2 || '' }) : null;
+    if (!lv) return '';
+    const lt = SearchHelp.leaveTxt(lv);
+    return `<span class="rc-lv" title="${esc(lt.title)}">${esc(lt.text)}</span>`;
+  }
   /** st: { busy } = starší výsledek, nový se hledá · { error } = starší výsledek, nový se nepodařilo načíst. */
   function paintRadar(r, q, st = null) {
     renderNews();
@@ -2770,7 +2810,7 @@
       <div class="rc-top"><span class="rcf">${flag(x.cc)}</span><span class="rc-badges">${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>' : ''}</span></div>
       <div class="rc-city">${esc(x.label)}</div>
       <div class="rc-price">${czk(x.czk)}<small>/os.</small></div>
-      <div class="faint" style="font-size:12px">${x.from} → ${x.to} · ${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}</div>
+      <div class="faint" style="font-size:12px">${x.from} → ${x.to} · ${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}${radarLeave(x)}</div>
     </div>`).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klikni pro všechny termíny</div>`;
     $$('[data-ri]', host).forEach(c => c.onclick = () => {
       const x = r.items[+c.dataset.ri];

@@ -993,6 +993,76 @@
     const out = h.depAfter ? `${d(h.dFrom)} od ${h.depAfter.time} nebo ${d(h.dTo)}` : d(h.dTo);
     return `Odlet ${out} · návrat ${d(lw.end)}${lw.bridge ? ` · s volnem ${d(lw.bridge)}` : ''}`;
   }
+  /* ---------- dny dovolené: volno = víkendy a státní svátky ČR ---------- */
+  const holCache = new Map();
+  const holOf = y => holCache.get(y) || holCache.set(y, czHolidays(y)).get(y);
+  const dowOf = d => new Date(d + 'T12:00:00Z').getUTCDay();
+  const isFree = d => { const w = dowOf(d); return w === 0 || w === 6 || holOf(+d.slice(0, 4)).has(d); };
+  const isYmd = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+  /**
+   * Dny dovolené na cestu out → back (lety { date, hasTime, dep, arr }): pracovní dny (po–pá mimo státní svátky) od dne
+   * odletu do dne návratu včetně. Odlet v pracovní den od after (16:00) je po práci, bez času odletu se den počítá celý.
+   * Přílet zpět až další den: od 5:00 je posledním dnem den příletu (dálkový let), noční přílet do 4:59 ne (ráno do práce).
+   * → { n, days, holidays: [{ date, name }] (svátky v pracovní dny cesty), freeOut, outUnknown }; jen tam, nesmysl
+   * nebo přes 60 dní → null.
+   */
+  function leaveDays(out, back, { after = LW_DEP } = {}) {
+    if (!out || !back || !isYmd(out.date) || !isYmd(back.date) || back.date < out.date) return null;
+    const arr = String(back.arr || ''), ad = arr.slice(0, 10);
+    let last = back.date;
+    if (arr.length >= 16 && isYmd(ad) && ad > back.date) last = arr.slice(11, 16) >= '05:00' ? ad : [back.date, addDays(ad, -1)].sort()[1];
+    if (diffDays(out.date, last) > 60) return null;
+    const r = { n: 0, days: [], holidays: [], freeOut: false, outUnknown: false };
+    for (let d = out.date; d <= last; d = addDays(d, 1)) {
+      const w = dowOf(d), h = holOf(+d.slice(0, 4)).get(d);
+      if (w === 0 || w === 6) continue;
+      if (h) { r.holidays.push({ date: d, name: h }); continue; }
+      if (d === out.date) {
+        if (out.hasTime && hhmm(out) >= after) { r.freeOut = true; continue; }
+        if (!out.hasTime) r.outUnknown = true;
+      }
+      r.days.push(d);
+    }
+    r.n = r.days.length;
+    return r;
+  }
+  /** Dny dovolené na štítek: „🏖️ 2 dny dovolené“ / „🎉 bez dovolené“ a do title které dny, který svátek pomáhá a proč. */
+  function leaveTxt(x) {
+    const n = x.n, d = s => `${DOW_LC[dowOf(s)]} ${dm(s)}`, hs = x.holidays || [];
+    return {
+      text: n === 0 ? '🎉 bez dovolené' : `🏖️ ${n} ${n === 1 ? 'den' : n <= 4 ? 'dny' : 'dní'} dovolené`,
+      title: (n ? `Dny dovolené: ${x.days.map(d).join(', ')}` : 'Bez dovolené: celá cesta vychází na volné dny')
+        + (hs.length ? ` · ${hs.length === 1 ? 'pomáhá svátek' : 'pomáhají svátky'} ${hs.map(h => `${d(h.date)} (${h.name})`).join(', ')}` : '')
+        + (x.freeOut ? ` · odlet v pracovní den od ${LW_DEP} počítám jako po práci` : '')
+        + (x.outUnknown ? ' · čas odletu neznám – počítám celý den' : '')
+        + ' · volno = víkendy a státní svátky ČR',
+    };
+  }
+  /**
+   * Kdy si vzít dovolenou: nejdelší volna kolem státních svátků v příštích horizon dnech (začátek aspoň za 2 dny) za nejvýš
+   * maxLeave dní dovolené – i se svátkem ve středu, který longWeekend přeskakuje. Okno = minLen–maxLen dní v řadě
+   * s aspoň jedním svátkem v pracovní den, před ním i za ním pracovní den (víc volna připojit nejde). Výběr: víc dní,
+   * méně dovolené, návrat v sobotu nebo v neděli, dřívější začátek; okna, která se překrývají s už vybraným, vypadnou.
+   * → [{ start, end, nights, days, leave, holidays, name, bridge: null }] podle začátku (jako lw – holidayDates z něj udělá termín).
+   */
+  function leaveWindows(today, { maxLeave = 2, horizon = 365, maxLen = 16, minLen = 3 } = {}) {
+    const first = addDays(today, 2), last = addDays(today, horizon), all = [];
+    for (let a = first; a <= last; a = addDays(a, 1)) {
+      if (a > first && isFree(addDays(a, -1))) continue; // začátek uprostřed volna – delší okno začíná dřív
+      const leave = [], hol = [];
+      for (let b = a, len = 1; len <= maxLen && b <= last; b = addDays(b, 1), len++) {
+        const w = dowOf(b), h = w > 0 && w < 6 ? holOf(+b.slice(0, 4)).get(b) : null;
+        if (h) hol.push({ date: b, name: h });
+        else if (w > 0 && w < 6) { leave.push(b); if (leave.length > maxLeave) break; }
+        if (len >= minLen && hol.length && !isFree(addDays(b, 1))) all.push({ start: a, end: b, nights: len - 1, days: len, leave: leave.slice(), holidays: hol.slice() });
+      }
+    }
+    const wkEnd = w => (dowOf(w.end) % 6 === 0 ? 1 : 0);
+    all.sort((x, y) => y.days - x.days || x.leave.length - y.leave.length || wkEnd(y) - wkEnd(x) || (x.start < y.start ? -1 : 1));
+    const pick = [];
+    for (const w of all) if (!pick.some(p => w.start <= p.end && p.start <= w.end)) pick.push(w);
+    return pick.sort((x, y) => (x.start < y.start ? -1 : 1)).map(w => ({ ...w, name: [...new Set(w.holidays.map(h => h.name))].join(', '), bridge: null }));
+  }
   /**
    * Ceny prodloužených víkendů z uložených výsledků radaru – bez nového hledání. map = { [začátek víkendu]: záznam radaru
    * ({ key, at, items }) }, keyOf(lw) = klíč dotazu radaru pro ten víkend teď (jiný domov, okruh nebo počet lidí → nic).
@@ -1180,6 +1250,7 @@
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
     easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
+    leaveDays, leaveTxt, leaveWindows,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey,
   };
 })();
