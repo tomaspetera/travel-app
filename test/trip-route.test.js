@@ -211,6 +211,11 @@ test('trip: program místa po změně trasy neplatí – shrnutí, kalendář an
   t.route.bases[2].plan.span = { start: '2026-11-16', end: '2026-11-18', arrivalTime: '14:00', departureTime: '19:00' };
   const days = (tt) => plain(Trip.calendarEvents(tt)).filter((e) => e.title.startsWith('Den ')).map((e) => [e.title, e.start]);
   assert.deepEqual(days(t), [['Den 1 – Milán', '2026-11-10'], ['Den 2 – Milán', '2026-11-11'], ['Den 1 – Řím', '2026-11-17']]);
+  // Jiný čas odletu (ve stejný den): program posledního místa (končí 3 h před odletem) neplatí, ostatní místa ano.
+  const back = t.flight.back;
+  t.flight.back = { ...back, dep: '2026-11-18T12:00:00', arr: '2026-11-18T14:00:00' };
+  assert.deepEqual(days(t), [['Den 1 – Milán', '2026-11-10'], ['Den 2 – Milán', '2026-11-11']]);
+  t.flight.back = back;
   // Milán o noc kratší, Florencie o noc delší: Milán končí 12. 11. → jeho program (do 13. 11.) neplatí; Řím beze změny.
   t.route.bases[0].nights = 2;
   t.route.bases[1].nights = 4;

@@ -108,6 +108,13 @@
     try { localStorage.setItem(LS, JSON.stringify(s)); } catch (e) { /* plné nebo zakázané úložiště – odškrtnutí jen do obnovení stránky */ }
   }
   const setDone = (key, id, on) => writeDone(key, { [id]: on });
+  /** Odškrtnutí cesty pod její nový klíč (jiné datum cesty tam – vlak/bus místo letu a zpět): cíl dostane stejná odškrtnutí. */
+  function copyDone(from, to) {
+    if (!from || !to || from === to) return;
+    const ids = Object.fromEntries(Object.keys(doneOf(to)).map(id => [id, false]));
+    for (const id of Object.keys(doneOf(from))) ids[id] = true;
+    if (Object.keys(ids).length) writeDone(to, ids);
+  }
   /** Odškrtnutí všech cest (💾 záloha – backup.js). */
   const exportDone = () => store();
   /**
@@ -823,7 +830,7 @@
 
   window.PreTrip = {
     set, load, ready, contextOf, defaultActs, summarize, monthsOf, insuranceNote, drivingOf, plugOf, idpPlan, todos, pack, bagTips, layers, reminders,
-    plannerChecklist, html, tripKey, doneOf, setDone, customOf, addCustom, delCustom, shareState, sanitize, adopt, ACTS,
+    plannerChecklist, html, tripKey, doneOf, setDone, copyDone, customOf, addCustom, delCustom, shareState, sanitize, adopt, ACTS,
     exportDone, mergeDone,
   };
 })();

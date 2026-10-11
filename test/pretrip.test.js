@@ -708,6 +708,67 @@ test('sdílený odkaz na cestu: podvržený stav karty – jen známé aktivity,
   for (const bad of ['<b>', 5, ['beach'], null]) assert.equal(b.Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...tokyo(), pretrip: bad }))).pretrip, undefined);
 });
 
+test('vlastní odkaz na cestu otevřený v tomtéž prohlížeči: bez otázky, odškrtnuté rezervace i čas založení zůstanou (plánovač bez kopie)', async () => {
+  const st = memStorage();
+  const a = wizard(st);
+  const t = { ...tokyo(), stay: { mode: 'pick', id: 'h1', name: 'Hotel Sakura', totalCzk: 20000, url: 'https://hotel.example/s' }, booked: { flight0: true } };
+  a.c.S.trip = t;
+  a.Trip.render();
+  a.els['#sumSave'].onclick();
+  await a.els['#sumShare'].onclick();
+  const hash = a.c.copied[0].slice(a.c.copied[0].indexOf('#'));
+  const open = (mine, ok, storage = memStorage()) => {
+    const b = wizard(storage, hash);
+    b.c.S.trip = mine && JSON.parse(JSON.stringify(mine));
+    b.c.S.trips = JSON.parse(JSON.stringify(a.c.S.trips));
+    b.asked = 0;
+    b.c.confirm = () => { b.asked++; return ok; };
+    return b;
+  };
+  // tatáž cesta (lety, lidé, hotel): žádná otázka, rozpracovaná cesta zůstane i s odškrtnutím a časem založení
+  const b = open(t, false, st);
+  assert.equal(await b.Trip.importFromHash(), true);
+  assert.deepEqual([b.asked, b.c.S.trip.created, plain(b.c.S.trip.booked), b.c.S.trip.step, b.c.location.hash], [0, t.created, { flight0: true }, 'summary', '#trip']);
+  b.Trip.render();
+  b.els['#sumSave'].onclick();
+  assert.deepEqual(b.c.S.trips.map((x) => x.tripId), [t.created], 'znovu uložená cesta se aktualizuje, ne zdvojí');
+  // stejné lety, ale jiný hotel: otázka; bez souhlasu zůstane rozpracovaná cesta
+  const other = { ...t, stay: { mode: 'manual', name: 'U kamaráda', totalCzk: 5000 } };
+  const c2 = open(other, false);
+  assert.equal(await c2.Trip.importFromHash(), false);
+  assert.deepEqual([c2.asked, c2.c.S.trip.stay.name], [1, 'U kamaráda']);
+  // bez rozpracovaného (jen vybraný let): sdílená cesta bez otázky, jako výběr letu z výsledků
+  const d = open({ ...tokyo(), created: 5 }, false);
+  assert.equal(await d.Trip.importFromHash(), true);
+  assert.deepEqual([d.asked, d.c.S.trip.stay.name, plain(d.c.S.trip.booked)], [0, 'Hotel Sakura', {}]);
+  assert.notEqual(d.c.S.trip.created, 5);
+});
+
+test('vlak/bus místo letu jindy (a zpět k letu): odškrtnutí „Co zařídit a co sbalit“ zůstanou u cesty', () => {
+  const w = wizard(memStorage());
+  const place = (label, lat, lon) => ({ label, cc: label === 'Praha' ? 'CZ' : 'AT', lat, lon, tz: 'Europe/Prague' });
+  const g = (date) => ({ source: 'regiojet', id: 'rj1', date, dep: `${date}T06:01`, arr: `${date}T09:55`, min: 234, czk: 299, kinds: ['TRAIN'], transfers: 0 });
+  const t = trip({ cc: 'AT', label: 'Vídeň', out: '2027-07-10', back: '2027-07-17', step: 'flight', verifiedAt: 1,
+    overland: { on: true, q: null, km: 254, est: null, from: place('Praha', 50.08, 14.43), to: place('Vídeň', 48.19, 16.38), out: g('2027-07-11'), back: g('2027-07-18'), links: { out: [], back: [] } } });
+  w.c.S.trip = t;
+  const k0 = w.P.tripKey(t);
+  assert.match(k0, /:2027-07-11:AT$/);
+  for (const id of ['todo:ins', 'pack:doc-pass']) w.P.setDone(k0, id, true);
+  w.Trip.render();
+  w.els['#ovFly'].onclick();
+  const k1 = w.P.tripKey(t);
+  assert.match(k1, /:2027-07-10:AT$/);
+  assert.deepEqual(Object.keys(plain(w.P.doneOf(k1))).sort(), ['pack:doc-pass', 'todo:ins']);
+  // zpět pod původní klíč platí stav cesty (odškrtnutí zrušené mezitím se nevrátí)
+  w.P.setDone(k1, 'todo:ins', false);
+  w.P.setDone(k1, 'pack:cl-hat', true);
+  w.P.copyDone(k1, k0);
+  assert.deepEqual(Object.keys(plain(w.P.doneOf(k0))).sort(), ['pack:cl-hat', 'pack:doc-pass']);
+  // bez odškrtnutí nic neukládá
+  w.P.copyDone('nic:1', 'nic:2');
+  assert.equal(JSON.parse(w.c.localStorage.getItem('atlas_pretrip_v1'))['nic:2'], undefined);
+});
+
 test('vlastní položky: přidat, pročistit, nejvýš 30, smazat i s odškrtnutím; uložené s cestou, v kartě escapované, v tisku i v plánovači', () => {
   const c = load({ storage: memStorage() });
   let saves = 0;

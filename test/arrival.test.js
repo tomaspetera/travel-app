@@ -374,6 +374,9 @@ test('průvodce cestou: cesta z letiště do města v ceně (bez úseku, který 
   assert.equal(Trip.costs(trip({ route: route('car'), car: car('BVA', 'BVA') })).transfers, 420 + 240 + 270);
   // vlakem: mezi místy a z posledního místa (Remeš, 130 km od Paříže) na letiště; z letiště do Paříže pokrývá doprava z letiště
   assert.equal(Trip.costs(trip({ route: route('transit') })).transfers, (210 + 160) * 2);
+  // … a autobus z Paříže na letiště BVA se pak nepočítá (z Remeše se jede rovnou), jen z letiště do Paříže
+  assert.equal(Trip.costs(trip({ route: route('transit') })).arrival, ARR.BVA.czk * 2);
+  assert.equal(Trip.costs(trip({ route: route('car') })).arrival, 1760, 'autem beze změny');
   assert.equal(Trip.costs(trip({ route: route('transit'), flight: { ...trip().flight, arrCzk: 0 } })).transfers, (150 + 210 + 160) * 2, 'bez dopravy z letiště v ceně i první úsek');
   assert.equal(Trip.costs(trip({ route: { ...route('car'), transfers: [x(140)], legs: {} } })).transfers, 0, 'starší trasa bez odhadu');
   assert.equal(Trip.sanitizeTrip(JSON.parse(JSON.stringify(trip({ route: route('car') })))).route.transfers[0].fuelCzk, 420);
