@@ -192,6 +192,16 @@ test('POST /api/search – kamkoliv, zpáteční, průběh se streamuje', async 
   assert.ok(r.origins.filter((o) => o.best).length >= 2);
 });
 
+test('POST /api/search – kamkoliv přes 150 cílů: cena letiště jen z cílů, které odpověď nese', async () => {
+  const { last } = await searchStream({ from: ['ap:PRG'], radiusKm: 300, dateFrom: ymdPlus(5), dateTo: ymdPlus(60), trip: 'return', nightsMin: 3, nightsMax: 8, adults: 2, kmRate: 1, groundMode: 'car', carFuel: 'diesel', arrival: true, openJaw: true });
+  const r = last.result;
+  assert.equal(r.groups.length, 150, 'odpověď je oříznutá na 150 cílů');
+  for (const o of r.origins.filter((x) => x.best)) {
+    const mins = r.groups.map((g) => g.fromBest[o.iata]).filter((x) => x != null);
+    assert.equal(o.best.czk, Math.min(...mins), o.iata);
+  }
+});
+
 test('POST /api/search – „Odkud se vyplatí letět“ u konkrétního cíle s návratem na jiné letiště: cena letiště = výpis po klepnutí', async () => {
   // veřejnou dopravou je open-jaw doma zapnutý – většina nabídek letí z jednoho letiště a vrací se na jiné
   const { last } = await searchStream({ from: ['ap:BRQ'], to: ['metro:LON'], radiusKm: 200, dateFrom: ymdPlus(7), dateTo: ymdPlus(60), trip: 'return', nightsMin: 5, nightsMax: 9, adults: 2, kmRate: 1, groundMode: 'transit', arrival: true });

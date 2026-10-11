@@ -457,7 +457,10 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cmp-row:first-child{border-top:0}
 .cmp-row:hover,.cmp-row.open{background:var(--surface-2)}
 .cmp-flag{font-size:22px;line-height:1}
-.cmp-name{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp-name{font-size:14.5px;white-space:nowrap;display:flex;align-items:center;min-width:0}
+.cmp-city{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.cmp-bdg{flex:none;white-space:nowrap;margin-left:4px}
+.cmp-bdg:empty{display:none}
 .cmp-name .b{font-size:11px;padding:1px 6px;vertical-align:1px}
 .cmp-sub{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .cmp-price{text-align:right;white-space:nowrap}

@@ -1351,6 +1351,7 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
   flat.sort((a, b) => a.perPersonCzk - b.perPersonCzk);
   const stats = new Map([...pools].map(([k, list]) => [k, priceStats(list)]));
   const groups = [];
+  const obOf = new Map(); // skupina → nejlevnější cesta z každého letiště { czk, n }
   for (const [key, g] of map) {
     g.trips.sort((a, b) => a.perPersonCzk - b.perPersonCzk);
     // Alternativy: různá letiště/data/aerolinky, ne jen 5× totéž o den vedle.
@@ -1363,6 +1364,7 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
       picked.push(t);
       if (picked.length >= 6) break;
     }
+    const ob = originBests(g.trips);
     groups.push({
       dest: { ...g.dest, airports: [...new Set(g.trips.map((t) => t.out.to))], climate: monthClimate(picked[0].out.to, picked[0].out.date) },
       best: picked[0],
@@ -1371,8 +1373,9 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
       minFlightCzk: Math.min(...g.trips.map((t) => t.flightCzk)),
       priceStats: stats.get(key),
       // nejlevnější celá cesta sem z každého letiště odletu (ze všech nabídek cíle, ne jen z vybraných 6)
-      fromBest: Object.fromEntries(Object.entries(originBests(g.trips)).map(([k, v]) => [k, v.czk])),
+      fromBest: Object.fromEntries(Object.entries(ob).map(([k, v]) => [k, v.czk])),
     });
+    obOf.set(groups[groups.length - 1], ob);
   }
   groups.sort((a, b) => a.best.perPersonCzk - b.best.perPersonCzk);
   // „Super cena“ jen pro to nejlepší z výsledků: absolutní skóre i relativní pořadí (horních 20 %).
@@ -1386,5 +1389,14 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
   }
   if (warm) warm.dests = [...coldDests].filter((k) => !map.has(k)).length;
   const hidden = { maxPrice: hiddenIds.maxPrice.size, directOnly: hiddenIds.directOnly.size };
-  return { groups: groups.slice(0, 150), flat, warm, hidden, priceStats: priceStats([...pools.values()].flat()), byOrigin: originBests(flat) };
+  // nejlevnější cesta z letiště jen z cílů, které odpověď nese (prvních 150) – jinak by karta „Odkud se vyplatí letět“
+  // ukazovala cenu, kterou výpis po klepnutí na letiště nemá
+  const kept = groups.slice(0, 150), byOrigin = {};
+  for (const g of kept) {
+    for (const [k, v] of Object.entries(obOf.get(g) || {})) {
+      const b = byOrigin[k];
+      if (!b) byOrigin[k] = { ...v }; else { b.n += v.n; if (v.czk < b.czk) b.czk = v.czk; }
+    }
+  }
+  return { groups: kept, flat, warm, hidden, priceStats: priceStats([...pools.values()].flat()), byOrigin };
 }

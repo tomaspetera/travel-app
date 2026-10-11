@@ -357,12 +357,15 @@ test('kdy vyrazit: z domu na let tam a z ubytování na let zpět – průběh c
   assert.equal(leaveBy({ ...t, arrival: null }).hotel, null);
   assert.equal(leaveBy({ ...t, car: { mode: 'pick', pickup: 'VIE', dropoff: 'VIE', from: '2026-11-10T09:00', to: '2026-11-14T05:00' } }).hotel, null, 'čas dává vrácení auta');
   assert.deepEqual(plain(leaveBy({ ...t, overland: OV() })), { home: null, hotel: null });
-  // mimo Schengen (vstupní podmínky: ne „eu“) o půl hodiny dřív
-  const g = load();
-  vm.runInContext("var Entry = window.Entry = { ready: () => true, get: (cc) => ({ visa: cc === 'GB' ? 'eta' : 'eu' }) };", g);
-  const uk = plain(g.window.Trip.leaveBy({ ...t, dest: { label: 'Londýn', cc: 'GB' } }));
+  // mimo Schengen o půl hodiny dřív – podle země (Irsko a Kypr jsou v EU, ale mimo Schengen)
+  const uk = plain(leaveBy({ ...t, dest: { label: 'Londýn', cc: 'GB' } }));
   assert.deepEqual([uk.home.hm, uk.home.before, uk.hotel.hm, uk.hotel.before], ['02:45', 150, '03:50', 150]);
-  assert.equal(g.window.Trip.leaveBy(t).home.hm, '03:15', 'Rakousko = Schengen');
+  assert.equal(leaveBy({ ...t, dest: { label: 'Dublin', cc: 'IE' } }).home.before, 150, 'Irsko: mimo Schengen');
+  assert.equal(leaveBy({ ...t, dest: { label: 'Larnaka', cc: 'CY' } }).home.before, 150, 'Kypr: mimo Schengen');
+  assert.equal(leaveBy(t).home.hm, '03:15', 'Rakousko = Schengen');
+  // jedno místo, zpět z letiště jiného města (Paříž → … Londýn): cesta z ubytování se z tabulky letiště spočítat nedá
+  const twoCities = { ...t, arrival: { out: { iata: 'XXX', city: 'Paříž', min: 35 }, back: { iata: 'STN', city: 'Londýn', min: 48 } }, flight: { ...t.flight, back: { ...t.flight.back, from: 'STN' } } };
+  assert.equal(leaveBy(twoCities).hotel, null);
   // noc změny na letní čas (28. 3. 2027 ve 2:00): odlet 6:30 − 2 h − 2 h 55 min = 0:35 zimního času, ne 1:35
   const dst = plain(leaveBy({ ...t, ground: { out: { minutes: 175 } }, flight: { ...t.flight, out: { ...t.flight.out, date: '2027-03-28', dep: '2027-03-28T06:30:00', arr: '2027-03-28T08:30:00' } } }).home);
   assert.deepEqual([dst.date, dst.hm], ['2027-03-28', '00:35']);

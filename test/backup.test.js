@@ -118,7 +118,7 @@ test('podvržený soubor: HTML, cizí klíče, __proto__ a špatné hodnoty se n
   const inc = B.parse(JSON.stringify(evil), deps);
   assert.equal(inc.at, null);
   assert.equal(inc.trips.length, 2);
-  assert.equal(inc.trips[0].name, 'img src=x onerror=alert(1)Lisabon');
+  assert.equal(inc.trips[0].name, '<img src=x onerror=alert(1)>Lisabon', 'vlastní text beze změn – plánovač ho vypisuje přes esc()');
   assert.equal(inc.trips[0].evil, undefined);
   assert.equal(inc.trips[0].wizard, undefined, 'průvodce bez letu tam zahozen');
   assert.deepEqual(plain(inc.trips[1].wizard.booked), {});
@@ -222,4 +222,16 @@ test('vlastní záloha nese plán celý – delší poznámky, aktivity a „Sba
   assert.equal(t.days['2026-11-12'][0].length, 400);
   assert.equal(t.checklist.length, 90);
   assert.equal(ctx.PlanShare.sanitize(long).notes.length, 3000, 'sdílený odkaz má limity dál');
+});
+
+test('vlastní záloha nemění texty plánu: uvozovky, < >, apostrofy zůstanou, řídicí a obracecí znaky ne', () => {
+  const p = plan('Test „uvozovky“ a <b>tag</b>', '2026-11-12', { notes: 'Hotel "Roma" <i>\u202eobráceně', days: { '2026-11-12': ["Fontána di Trevi – hoď minci 'pro štěstí'"] }, genName: 'Řím "A"' });
+  const t = B.parse(B.pack(state({ trips: [p] })), deps).trips[0];
+  assert.equal(t.name, 'Test „uvozovky“ a <b>tag</b>');
+  assert.equal(t.notes, 'Hotel "Roma" <i>obráceně');
+  assert.deepEqual(plain(t.days['2026-11-12']), ["Fontána di Trevi – hoď minci 'pro štěstí'"]);
+  assert.equal(t.genName, 'Řím "A"');
+  assert.deepEqual(plain(B.diff(state({ trips: [p] }), B.parse(B.pack(state({ trips: [p] })), deps), { deps }).trips), { add: 0, same: 1, changed: 0 });
+  // sdílený odkaz čistí dál
+  assert.equal(ctx.PlanShare.sanitize(p).name, 'Test „uvozovky“ a btag/b');
 });

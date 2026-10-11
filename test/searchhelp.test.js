@@ -332,7 +332,11 @@ test('reach: kdy vyrazit z domu a kdy budeš doma (odhad) – noc veřejnou dopr
 
 test('reach jako filtr „Jen dostupné z domova“: skryje jen noc veřejnou dopravou mimo tvé město; co nevíme, neskrývá', () => {
   const ctx = H.reachCtx([{ iata: 'VIE', ground: { mode: 'transit', minutes: 175 } }, { iata: 'PRG', ground: { mode: 'transit', minutes: 40, local: true } }, { iata: 'BRQ', ground: { mode: 'transit', minutes: 30, off: true } }]);
-  assert.deepEqual(plain(ctx), { min: { VIE: 175, PRG: 40 }, local: ['PRG'] });
+  assert.deepEqual(plain(ctx), { min: { VIE: 175, PRG: 40 }, local: ['PRG'], cc: {} });
+  // let mimo Schengen (i Irsko a Kypr): na letišti 2,5 h místo 2 h – země cíle z výsledků
+  const ctx2 = H.reachCtx([{ iata: 'VIE', ground: { mode: 'transit', minutes: 175 } }], [{ dest: { key: 'LON', cc: 'GB' } }, { dest: { key: 'BCN', cc: 'ES' } }]);
+  assert.deepEqual(plain(ctx2.cc), { LON: 'GB', BCN: 'ES' });
+  assert.deepEqual([H.beforeFor('GB'), H.beforeFor('IE'), H.beforeFor('CY'), H.beforeFor('ES'), H.beforeFor('CH'), H.beforeFor(''), H.beforeFor(null)], [150, 150, 150, 120, 120, 120, 120]);
   assert.equal(H.reachCtx([{ iata: 'VIE', ground: { mode: 'car', minutes: 160 } }, { iata: 'PRG', ground: null }]), null, 'autem se dá jet kdykoliv');
   assert.equal(H.reachCtx(null), null);
   const f = tf({ reach: ctx });
@@ -803,7 +807,7 @@ test('originCompare: odkud se vyplatí letět – nejbližší (ne přestupní) 
   assert.equal(oc.win.iata, 'MUC');
   const vie = oc.rows[1];
   assert.deepEqual([vie.diff, vie.extraMin, vie.n, vie.mode, vie.minutes, vie.ref, vie.city], [-450, 160, 3, 'transit', 105, false, 'Vídeň']);
-  assert.equal(H.originDiffTxt(vie), '−450 Kč · +2 h 40 cesty');
+  assert.equal(H.originDiffTxt(vie), '−450 Kč · +2 h 40 min cesty');
   assert.deepEqual([oc.rows[2].ref, oc.rows[2].diff, oc.rows[2].extraMin, H.originDiffTxt(oc.rows[2])], [true, null, null, 'nejbližší letiště']);
   assert.deepEqual([oc.rows[0].hub, oc.rows[0].mode, oc.rows[0].diff, oc.rows[3].czk, oc.rows[3].n], [true, null, -600, null, 0]);
   assert.equal(H.originDiffTxt({ diff: 0, extraMin: -40 }), 'stejně · −40 min cesty');
@@ -814,7 +818,7 @@ test('originCompare: odkud se vyplatí letět – nejbližší (ne přestupní) 
   const one = origins.map((o) => (o.iata === 'BRQ' ? o : { ...o, best: null }));
   const old = origins.map(({ best, ...o }) => o);
   for (const r of [{ ...res, mode: 'multi' }, { ...res, origins: one }, { ...res, origins: old }, null]) {
-    assert.deepEqual(plain(H.originCompare(r)), { rows: [], ref: null, win: null, jaw: null });
+    assert.deepEqual(plain(H.originCompare(r)), { rows: [], ref: null, win: null, jaw: null, filtered: false });
   }
   // nejbližší letiště je zároveň nejlevnější (stejná cena → základ napřed)
   const same = plain(H.originCompare({ ...res, origins: [origins[1], { ...origins[0], best: { czk: 1650, n: 2 } }] }));
@@ -850,4 +854,32 @@ test('originCompare/originFoot: návrat na jiné letiště se k letištím nepo�
   const noArr = H.originFoot({ ...res, query: { ...res.query, arrival: false, trip: 'oneway' }, top: [] });
   assert.match(noArr, /^Celá cesta na osobu vč\. dopravy na letiště, bez cesty do města \(vypnuto v Další možnosti\) – /);
   assert.match(noArr, /Čas = odhad cesty na letiště\. /);
+});
+
+test('originCompare s filtry výpisu: ceny z nabídek, které výpis ukazuje; „nejbližší s nabídkou“; čip „jen z X“', () => {
+  const origins = [
+    { iata: 'BRQ', city: 'Brno', distKm: 5, ground: { mode: 'transit', minutes: 25 }, best: { czk: 2100, n: 5 } },
+    { iata: 'BTS', city: 'Bratislava', distKm: 130, ground: { mode: 'transit', minutes: 160 }, best: { czk: 1800, n: 2 } },
+    { iata: 'VIE', city: 'Vídeň', distKm: 125, ground: { mode: 'transit', minutes: 105 }, best: { czk: 1650, n: 3 } },
+  ];
+  const res = { mode: 'route', query: { trip: 'return' }, origins, top: [] };
+  const t = (from, back, czk) => ({ out: { from }, back: { to: back }, perPersonCzk: czk });
+  // filtry nechaly z VIE jen dražší nabídku, z BRQ jen návrat jinam → BRQ bez ceny, základ = nejbližší s nabídkou (VIE)
+  const oc = plain(H.originCompare(res, { trips: [t('VIE', 'VIE', 1900), t('VIE', 'VIE', 2400), t('BRQ', 'VIE', 1500), t('BTS', 'BTS', 2000)] }));
+  assert.equal(oc.filtered, true);
+  assert.deepEqual(oc.rows.map((r) => [r.iata, r.czk, r.n]), [['VIE', 1900, 2], ['BTS', 2000, 1], ['BRQ', null, 0]]);
+  assert.equal(oc.ref.iata, 'VIE');
+  assert.equal(oc.ref.nearest, false);
+  assert.equal(H.originDiffTxt(oc.ref), 'nejbližší s nabídkou');
+  assert.equal(oc.jaw, 1500);
+  assert.match(H.originFoot(res, oc), /nejlevnější z nabídek, které ukazují filtry výpisu/);
+  // bez filtrů: ze serveru, BRQ je nejbližší
+  const all = plain(H.originCompare(res));
+  assert.equal(all.ref.iata, 'BRQ');
+  assert.equal(all.ref.nearest, true);
+  assert.equal(H.originDiffTxt(all.ref), 'nejbližší letiště');
+  // čip filtru letišť: zbylo jediné → „jen z X“
+  const chip = (ex) => plain(H.activeFilters(null, { excludeOrigins: new Set(ex), carriers: new Set() }, {}, {}, { origins: ['BRQ', 'BTS', 'VIE'] }))[0].label;
+  assert.equal(chip(['BRQ', 'BTS']), 'jen z VIE');
+  assert.equal(chip(['BRQ']), 'bez BRQ');
 });

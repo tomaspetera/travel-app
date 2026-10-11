@@ -1286,23 +1286,27 @@
    */
   function leaveBy(t) {
     if (!t || !t.flight || !t.flight.out || ovOn(t)) return { home: null, hotel: null };
-    const f = t.flight, e = window.Entry && Entry.ready() && t.dest ? Entry.get(t.dest.cc) : null;
-    const before = (window.SearchHelp ? SearchHelp.REACH.before : 120) + (e && e.visa !== 'eu' ? 30 : 0);
-    const at = (l, min) => { const dt = shiftTz(l.dep, -(before + min), l.fromTz); return { date: dt.slice(0, 10), hm: dt.slice(11, 16), min, airport: l.from, before, hint: null }; };
+    const f = t.flight, bases = (isMulti(t) && t.route.bases) || [];
+    // let tam míří do země cíle, zpět odlétá ze země posledního místa trasy – mimo Schengen o půl hodiny dřív
+    const beforeOf = cc => (window.SearchHelp ? SearchHelp.beforeFor(cc) : 120);
+    const at = (l, min, cc) => { const before = beforeOf(cc), dt = shiftTz(l.dep, -(before + min), l.fromTz); return { date: dt.slice(0, 10), hm: dt.slice(11, 16), min, airport: l.from, before, hint: null }; };
+    const destCc = t.dest && t.dest.cc, backCc = (bases.length && bases[bases.length - 1].cc) || destCc;
     // minuty z cizího odkazu (#trip=) jen jako rozumné číslo
     const okMin = v => { const n = Number(v); return Number.isFinite(n) && n > 0 && n < 1440 ? Math.round(n) : 0; };
     const gm = okMin(t.ground && t.ground.out && t.ground.out.minutes);
     let hotel = null;
     if (f.back && f.back.hasTime && !carCovers(t, 'back')) {
       const m = okMin(isMulti(t) ? legMin((t.route.legs || {}).departure, t.route.transport) : t.arrival && t.arrival.back && t.arrival.back.min);
-      if (m > 0) {
-        hotel = at(f.back, m);
+      // jedno místo, ale zpět z letiště jiného města (víc měst v hledání): cesta z města toho letiště se k ubytování nehodí
+      const sameCity = isMulti(t) || f.back.from === f.out.to || !(t.arrival && t.arrival.out && t.arrival.back) || t.arrival.out.city === t.arrival.back.city;
+      if (m > 0 && sameCity) {
+        hotel = at(f.back, m, backCc);
         // noční let (z ubytování už předchozí večer) bez rady
         const day = hotel.date === f.back.date;
         hotel.hint = day && hotel.hm > CHECKOUT_HM ? `check-out bývá do ${CHECKOUT_HM} – zavazadla nech na recepci` : day && hotel.hm < '06:00' ? 'brzy ráno – taxi objednej předem, nebo přespi u letiště' : null;
       }
     }
-    return { home: f.out.hasTime && gm > 0 ? at(f.out, gm) : null, hotel };
+    return { home: f.out.hasTime && gm > 0 ? at(f.out, gm, destCc) : null, hotel };
   }
   // „ve 2:40“ / „v 1:35“ a „2 h“ / „2,5 h“ před odletem k leaveBy
   const lbTime = x => `${window.SearchHelp ? SearchHelp.ve(+x.hm.slice(0, 2) * 60 + +x.hm.slice(3, 5)) : 'v'} ${+x.hm.slice(0, 2)}${x.hm.slice(2)}`;

@@ -13,8 +13,8 @@
   const intIn = (v, lo, hi, def) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; };
   const isYmd = s => typeof s === 'string' && /^(19|20|21)\d\d-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + 'T00:00:00Z'));
   const BAD_KEY = k => k === '__proto__' || k === 'constructor' || k === 'prototype';
-  const defTxt = (v, max, multi = false) => (typeof v === 'string' || typeof v === 'number'
-    ? String(v).replace(/'/g, '’').replace(/[<>"`\u202a-\u202e\u2066-\u2069]/g, '').replace(/\r\n?/g, '\n').replace(multi ? /[\x00-\x09\x0b-\x1f\x7f]/g : /[\x00-\x1f\x7f]/g, ' ').trim().slice(0, max)
+  const defTxt = (v, max, multi = false, raw = false) => (typeof v === 'string' || typeof v === 'number'
+    ? (raw ? String(v).replace(/[\u202a-\u202e\u2066-\u2069]/g, '') : String(v).replace(/'/g, '’').replace(/[<>"`\u202a-\u202e\u2066-\u2069]/g, '')).replace(/\r\n?/g, '\n').replace(multi ? /[\x00-\x09\x0b-\x1f\x7f]/g : /[\x00-\x1f\x7f]/g, ' ').trim().slice(0, max)
     : '');
   const DEPS = () => ({
     sanitizePlan: window.PlanShare && PlanShare.sanitize,
@@ -100,7 +100,8 @@
     return Object.keys(o).length ? o : null;
   }
   // Vlastní záloha nese plán celý – delší limity než sdílený odkaz (poznámky, aktivity, „Sbaleno“).
-  const LIM = { act: 1000, acts: 100, ck: 300, ckLen: 300, notes: 20000 };
+  // raw: texty beze změn (uvozovky, < >) – plánovač vše vypisuje přes esc()
+  const LIM = { act: 1000, acts: 100, ck: 300, ckLen: 300, notes: 20000, raw: true };
   const PID = /^[a-z0-9]{6,24}$/;
   /** Cesta z průvodce: pročištěná Trip.sanitizeTrip + odškrtnuté rezervace (jen klíče ve známém tvaru, hodnota true). */
   function cleanWiz(w, d) {
@@ -121,11 +122,12 @@
     if (typeof raw.pid === 'string' && PID.test(raw.pid)) t.pid = raw.pid;
     const w = cleanWiz(raw.wizard, d);
     if (w) t.wizard = w;
-    if (raw.genName != null) t.genName = d.txt(raw.genName, 120);
+    // co vygeneroval průvodce: stejně jako plán (beze změn textu), ať se pozná, co uživatel v plánovači upravil
+    if (raw.genName != null) t.genName = d.txt(raw.genName, 120, false, true);
     if (raw.genBudget != null) t.genBudget = d.txt(raw.genBudget, 20);
-    if (raw.genNotes != null) t.genNotes = d.txt(raw.genNotes, LIM.notes, true);
+    if (raw.genNotes != null) t.genNotes = d.txt(raw.genNotes, LIM.notes, true, true);
     if (obj(raw.genDays)) t.genDays = d.sanitizePlan({ start: plan.start, end: plan.end, days: raw.genDays }, LIM).days;
-    if (Array.isArray(raw.genChecklist)) t.genChecklist = raw.genChecklist.slice(0, LIM.ck).map(x => d.txt(x, LIM.ckLen)).filter(Boolean);
+    if (Array.isArray(raw.genChecklist)) t.genChecklist = raw.genChecklist.slice(0, LIM.ck).map(x => d.txt(x, LIM.ckLen, false, true)).filter(Boolean);
     const ex = cleanExplore(raw.explore, plan, d);
     if (ex) t.explore = ex;
     return t;
@@ -336,8 +338,10 @@
   }
 
   function apply(inc, opts, df) {
-    const before = { trips: S.trips, watch: S.watch, home: S.home, visited: S.visited };
-    const m = merge(current(), inc, { watchKey, ...opts });
+    const before = { trips: S.trips, watch: S.watch, home: S.home, visited: S.visited, trip: S.trip };
+    // přepsaná cesta, která je zrovna v průvodci: průvodce by ji otevřel v původní verzi (a uložením zálohu přepsal)
+    const cur = current(), overIds = opts.overwrite ? match(cur, inc, { txt: defTxt, ...DEPS() }).filter(x => x.st === 'changed' && cur.trips[x.i].tripId).map(x => cur.trips[x.i].tripId) : [];
+    const m = merge(cur, inc, { watchKey, ...opts });
     // přidaná cesta bez seznamu „Sbaleno“ dostane výchozí (jako import sdíleného plánu)
     const added = new Set(inc.trips);
     for (const t of m.trips) if (added.has(t) && !(t.checklist || []).length && typeof PACK !== 'undefined') t.checklist = PACK.map(x => ({ t: x, done: false }));
@@ -345,6 +349,7 @@
     // jen země, které aplikace zná (jinak by šly z mapy odškrtnout jen těžko a zkreslily počty)
     const known = typeof byIso === 'object' && byIso && Object.keys(byIso).length ? cc => Boolean(byIso[cc]) || (S.visited || []).includes(cc) : () => true;
     Object.assign(S, { trips: m.trips, watch: m.watch, home: m.home, visited: m.visited.filter(known) });
+    if (S.trip && overIds.includes(S.trip.created)) S.trip = null; // „Otevřít v průvodci“ pak vezme verzi ze zálohy
     // plné úložiště: nic nesloučit (jinak by aplikace ukazovala data, která po obnovení stránky zmizí)
     if (save() === false) {
       Object.assign(S, before);
@@ -392,7 +397,7 @@
     const canShare = typeof navigator.share === 'function' && typeof File === 'function';
     modalOpen(`<div class="modal-body bk-modal">
       <h3 style="margin-bottom:8px">💾 Přenos a záloha</h3>
-      <p class="muted" style="font-size:14px;margin-bottom:12px">Cesty z plánovače, hlídané ceny, domov radaru, navštívené země a odškrtnuté „Před cestou“ jsou jen v tomhle prohlížeči. Přenes je do telefonu nebo počítače souborem – nic se neukládá na server.</p>
+      <p class="muted" style="font-size:14px;margin-bottom:12px">Cesty z plánovače, hlídané ceny, domov radaru, navštívené země a odškrtnuté položky „Před cestou“ jsou jen v tomhle prohlížeči. Přenes je do telefonu nebo počítače souborem – nic se neukládá na server.</p>
       <div id="bkBody">
         <div class="bk-actions">
           ${canShare ? '<button type="button" class="btn primary" id="bkShare">📲 Poslat do jiného zařízení</button>' : ''}
