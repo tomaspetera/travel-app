@@ -189,9 +189,14 @@ test('POST /api/search – kamkoliv, zpáteční, průběh se streamuje', async 
     assert.equal(o.best.czk, Math.min(...mins), o.iata);
   }
   for (const g of r.groups) {
-    assert.equal(Math.min(...Object.values(g.fromBest)), g.best.perPersonCzk, g.dest.key);
+    // nejlepší s návratem na jiné letiště (kombinace z už stažených letů) k žádnému letišti nepatří – z letiště je dražší
+    const min = Math.min(...Object.values(g.fromBest));
+    if (g.best.back.to === g.best.out.from) assert.equal(min, g.best.perPersonCzk, g.dest.key);
+    else assert.ok(min >= g.best.perPersonCzk, g.dest.key);
     assert.ok(Object.keys(g.fromBest).every((k) => r.origins.some((o) => o.iata === k)));
   }
+  // Kamkoliv: nejlevnější nabídka některých cílů je kombinace dvou aerolinek nebo s návratem na jiné letiště
+  assert.ok(r.groups.some((g) => g.best.provider === 'mix' || g.best.back.to !== g.best.out.from));
   assert.ok(r.origins.filter((o) => o.best).length >= 2);
 });
 

@@ -867,6 +867,23 @@ test('originCompare/originFoot: návrat na jiné letiště se k letištím nepo�
   assert.match(noArr, /Čas = odhad cesty na letiště\. /);
 });
 
+test('originCompare v Kamkoliv (bez top): návraty jinam z nabídek cílů – kombinace z už stažených letů', () => {
+  const o = (iata, distKm, best) => ({ iata, city: iata, distKm, ground: { mode: 'transit', minutes: distKm }, best });
+  const rt = (from, to, perPersonCzk) => ({ out: { from }, back: { to }, perPersonCzk });
+  // VIE jen s návratem do BTS (Ryanair tam, Wizz Air zpět) – server ho k žádnému letišti nepočítá
+  const res = {
+    mode: 'explore', query: { trip: 'return', kmRate: 1, arrival: false },
+    origins: [o('BRQ', 5, { czk: 1500, n: 2 }), o('BTS', 120, { czk: 1700, n: 1 }), o('VIE', 125, null)],
+    top: null,
+    groups: [{ options: [rt('VIE', 'BTS', 1200.4), rt('BRQ', 'BRQ', 1500)] }, { options: [rt('BTS', 'BTS', 1700), rt('BRQ', 'BRQ', 1900)] }],
+  };
+  const oc = plain(H.originCompare(res));
+  assert.equal(oc.jaw, 1200);
+  assert.deepEqual(oc.rows.map((r) => [r.iata, r.czk, r.jaw]), [['BRQ', 1500, 0], ['BTS', 1700, 1], ['VIE', null, 1]]);
+  assert.match(H.originFoot(res, oc), /jen s odletem i návratem na totéž letiště/);
+  assert.equal(H.originCompare({ ...res, groups: [{ options: [rt('BRQ', 'BRQ', 1500)] }] }).jaw, null);
+});
+
 test('originCompare s filtry výpisu: ceny z nabídek, které výpis ukazuje; „nejbližší s nabídkou“; čip „jen z X“', () => {
   const origins = [
     { iata: 'BRQ', city: 'Brno', distKm: 5, ground: { mode: 'transit', minutes: 25 }, best: { czk: 2100, n: 5 } },
