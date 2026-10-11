@@ -488,7 +488,9 @@ export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh
   const out = pick.map((h) => (got.has(h.key) ? mapHotel(h, got.get(h.key), q, center) : null)).filter(Boolean);
   out.sort((a, b) => a.priceTotalCzk - b.priceTotalCzk);
   if (got.size < pick.length) out.partial = true;
-  if ([...got.values()].some((rr) => rr.stale)) out.stale = true;
+  const st = [...got.values()].filter((rr) => rr.stale).length;
+  if (st) out.stale = true;
+  if (st && st === got.size) out.staleAll = true; // aktualizovat nešlo nic – „Aktualizovat ceny“ jde zkusit hned znovu
   return out;
 }
 

@@ -152,17 +152,19 @@ export async function searchStays(raw, { english = englishName, partners = null 
         try {
           res = await p.search(q, { fresh: true });
           cache.set(key, res, ttl(res));
-          stale = Boolean(res.stale);
+          stale = res.staleAll ? 'all' : Boolean(res.stale);
         } catch (e) {
           if (!old) throw e;
           res = old;
-          stale = true;
+          stale = 'all';
         }
+        // nepovedlo se nic (výpadek, pojistka) – zábrana 5 min neplatí, další pokus zase hlídá pojistka zdroje
+        if (stale === 'all') cache.map.delete(`${key}:fresh`);
       } else res = await cache.wrap(key, ttl, () => p.search(q));
       items.push(...res);
       status.push({
         id: p.id, name: p.name, ok: true, count: res.length, ms: Date.now() - t0, test: Boolean(p.testData?.()), ...(res.partial ? { partial: true } : {}),
-        ...(stale ? { stale: true } : {}), ...(last ? { refreshIn: Math.max(1, Math.ceil((last + FRESH_MS - Date.now()) / 1000)) } : {}),
+        ...(stale ? { stale: true } : {}), ...(stale === 'all' ? { staleAll: true } : {}), ...(last ? { refreshIn: Math.max(1, Math.ceil((last + FRESH_MS - Date.now()) / 1000)) } : {}),
       });
     } catch (e) {
       status.push({ id: p.id, name: p.name, ok: false, error: e.message || String(e), ms: Date.now() - t0 });

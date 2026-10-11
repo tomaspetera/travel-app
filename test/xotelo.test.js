@@ -316,11 +316,12 @@ test('„Aktualizovat ceny“ u hotelu (fresh): dotaz i s cenou v mezipaměti a 
 test('„Aktualizovat ceny“ (fresh=1): ceny všech hotelů znovu (místo i seznam z mezipaměti), vyprodaný zmizí; na dotaz nejvýš jednou za 5 min, jinak z mezipaměti s refreshIn; výpadek → dřívější ceny (stale)', async () => {
   let soldOut = null;
   let down = false;
+  let downKey = null;
   const stub = stubFetch((url) => {
     if (url.includes('/api/list?')) return { body: { result: { list: LIST_PRAGUE } } };
     if (url.includes('/api/rates?')) {
-      if (down) return { status: 503, body: 'x' };
       const k = new URL(url).searchParams.get('hotel_key');
+      if (down || k === downKey) return { status: 503, body: 'x' };
       return { body: k === soldOut ? { error: null, result: { currency: 'EUR', rates: [] } } : ratesFor(k) };
     }
     return { status: 404, body: '{}' };
@@ -356,10 +357,24 @@ test('„Aktualizovat ceny“ (fresh=1): ceny všech hotelů znovu (místo i sez
       const g = [...cache.map.keys()].find((x) => x.startsWith('stay:xotelo:') && x.endsWith(`:${ymdPlus(30)}:${ymdPlus(33)}:2:1:fresh`));
       assert.ok(g, 'pojistka podle klíče dotazu');
       cache.map.get(g).exp = Date.now() - 1;
+      // jeden hotel nejde aktualizovat → jen „část cen“ (stale bez staleAll), zábrana 5 min platí
+      downKey = b.items[0].id.slice(3);
+      const p = await searchStays({ ...raw, fresh: '1' });
+      assert.deepEqual([p.providers[0].count, p.providers[0].stale, p.providers[0].staleAll], [11, true, undefined]);
+      assert.ok(cache.map.has(g) && cache.map.get(g).exp > Date.now(), 'zábrana po částečné aktualizaci zůstává');
+      cache.map.get(g).exp = Date.now() - 1;
+      downKey = null;
       down = true;
+      const n0 = count(/\/api\/rates\?/);
       const f = await searchStays({ ...raw, fresh: '1' });
-      assert.deepEqual([f.providers[0].ok, f.providers[0].count, f.providers[0].stale], [true, 11, true]);
-      assert.ok(count(/\/api\/rates\?/) >= 51 && count(/\/api\/rates\?/) <= 53, `${count(/\/api\/rates\?/) - 48} dotazů`);
+      assert.deepEqual([f.providers[0].ok, f.providers[0].count, f.providers[0].stale, f.providers[0].staleAll], [true, 11, true, true]);
+      assert.ok(count(/\/api\/rates\?/) - n0 >= 2 && count(/\/api\/rates\?/) - n0 <= 5, `${count(/\/api\/rates\?/) - n0} dotazů`);
+      // nic se neaktualizovalo → zábrana 5 min neplatí (žádné „aktualizovaly před chvílí“), další pokus hlídá pojistka
+      assert.ok(!cache.map.has(g) || cache.map.get(g).exp <= Date.now(), 'zábrana po neúspěchu zrušená');
+      const n1 = count(/\/api\/rates\?/);
+      const h = await searchStays({ ...raw, fresh: '1' });
+      assert.deepEqual([h.providers[0].count, h.providers[0].refreshIn, h.providers[0].staleAll], [11, undefined, true]);
+      assert.equal(count(/\/api\/rates\?/), n1, 'pojistka: Xotelo se znovu neptá');
     });
   } finally {
     stub.restore();
@@ -831,6 +846,10 @@ test('karta hotelu z TripAdvisoru: hlavní odkaz na web nejlevnější nabídky,
   const tr = cardOf(html, 'The Manes Boutique Hotel Prague');
   assert.deepEqual([...tr.matchAll(/class="linkbtn"[^>]*>([^<]+)<\/a>/g)].map((m) => m[1]), ['Trip.com ↗', 'Booking.com ↗']);
   assert.ok(!tr.includes('nic nenabízí'));
+  // Trip.com hledá podle názvu – výsledky až po Hledat: viditelná nápověda (na telefonu se title neukáže), když na Trip.com vede
+  // hlavní tlačítko (u chipu cen stačí title – jinak by řádek byl skoro u každého hotelu)
+  const TRIP_HINT = '<div class="faint st-nobk">Trip.com: hledání potvrď tlačítkem Hledat</div>';
+  assert.deepEqual([tr, a, b].map((x) => x.includes(TRIP_HINT)), [true, false, false]);
   // zdroj: z kdy jsou ceny (nejstarší hotel), bez daní u všech nabídek poznámka, tlačítko Aktualizovat; „reklama“ vysvětlená
   assert.ok(html.includes(`Ceny z ${hmOf(now - 20 * 60e3)}.`), html.slice(0, 900));
   assert.ok(html.includes('Cena bez místních poplatků (např. městská taxa), pokud je web neuvádí.'));
@@ -865,6 +884,42 @@ test('karta hotelu z TripAdvisoru: hlavní odkaz na web nejlevnější nabídky,
   await tick();
   assert.equal(stays().length, 3);
   assert.ok(stays().slice(1).every((u) => new URLSearchParams(u.slice(10)).get('fresh') === '1'));
+});
+
+test('karta hotelu z TripAdvisoru: nepovedená aktualizace řekne pravdu (vše / část cen), Shrnutí u Trip.com „potvrď Hledat“', async () => {
+  const now = Date.now();
+  const TR = [LIST_PRAGUE[2], [{ code: 'CtripTA', name: 'Trip.com', rate: 60 }, { code: 'Agoda', name: 'Agoda.com', rate: 70 }], now - 30 * 60e3];
+  const BK = [LIST_PRAGUE[0], [{ code: 'BookingCom', name: 'Booking.com', rate: 70 }], now - 30 * 60e3];
+  for (const [prov, txt] of [[{ stale: true, staleAll: true }, 'Ceny se teď aktualizovat nepodařilo, zůstaly dřívější.'], [{ stale: true }, 'Část cen se teď aktualizovat nepodařilo, zůstaly dřívější.']]) {
+    const c = loadTrip(() => xoteloReply([TR, BK], prov));
+    c.S.trip = pragueTrip();
+    c.window.Trip.render();
+    await tick();
+    const html = sp(c.__els['#stayBody'].innerHTML);
+    assert.ok(html.includes(txt), txt);
+    assert.ok(!html.includes('aktualizovaly před chvílí'));
+    assert.match(html, /id="stayFresh"/, 'zkusit znovu jde hned');
+  }
+  // vybraný hotel s odkazem na Trip.com → v „co zarezervovat“ nápověda; jiný web bez ní
+  const reply = xoteloReply([TR, BK]);
+  const c = loadTrip(() => reply);
+  const t = pragueTrip();
+  c.S.trip = t;
+  c.window.Trip.render();
+  await tick();
+  const i = reply.items.findIndex((h) => h.name === 'The Manes Boutique Hotel Prague');
+  const pick = { dataset: { pick: String(i) } };
+  c.__all['[data-pick]'] = [pick];
+  c.window.Trip.render();
+  await tick();
+  c.__all['[data-pick]'] = [pick];
+  pick.onclick();
+  assert.match(t.stay.url, /^https:\/\/www\.trip\.com\/hotels\/list\?searchWord=/);
+  t.step = 'summary';
+  c.window.Trip.render();
+  await tick();
+  const sum = sp(JSON.stringify(Object.values(c.__els).map((e) => e && e.innerHTML)));
+  assert.ok(sum.includes('Ubytování: The Manes Boutique Hotel Prague – na Trip.com potvrď Hledat'), sum.slice(0, 400));
 });
 
 test('karta hotelu jiného zdroje (LiteAPI, DEMO) beze změny: „detail ↗“, bez poznámek o Booking.com, času cen a aktualizaci', async () => {
