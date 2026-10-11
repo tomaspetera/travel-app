@@ -76,6 +76,9 @@ function buildNav() {
       $('.more-nav', $('#modal')).insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk" style="justify-content:flex-start;width:100%;margin-bottom:8px">💾 Přenos a záloha <span class="faint" style="font-weight:400;margin-left:6px">PC ↔ telefon, záloha do souboru</span></button>`);
       $('#moreBk').onclick = () => { modalClose(); Backup.open(); };
     }
+    // motiv: přepínač v postranním panelu je na telefonu skrytý
+    $('.more-nav', $('#modal')).insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme" style="justify-content:flex-start;width:100%;margin-bottom:8px">🌗 ${S.theme === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint" style="font-weight:400;margin-left:6px">vzhled aplikace</span></button>`);
+    $('#moreTheme').onclick = () => { modalClose(); $('#themeToggle').click(); };
     if (window.Pwa) Pwa.addToMenu($('.more-nav', $('#modal'))); // 📲 Přidat ATLAS na plochu (pwa.js)
   };
 }
@@ -140,6 +143,12 @@ function nextTripStat() {
     `${when}${todo ? ` · zbývá zařídit ${todo}` : ''}`, `<button type="button" class="linkbtn nt-open" data-nt="${next.i}">Otevřít plán →</button>`];
 }
 function renderDash() {
+  renderDashStats();
+  $$('.link[data-go]').forEach(l => l.onclick = () => go(l.dataset.go));
+  if (window.Flights) { Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); }
+}
+/** Dlaždice a „Kam vyrazit“ na přehledu (po změně navštívených zemí nebo cest – bez radaru a hlídaných cen). */
+function renderDashStats() {
   const st = stats(); const m = new Date().getMonth() + 1;
   const topRec = scoreCountries(m, {}).filter(r => !visited.has(r.c.iso2))[0];
   const w = (S.watch || []).length;
@@ -152,9 +161,7 @@ function renderDash() {
   const recs = scoreCountries(m, {}).filter(r => !visited.has(r.c.iso2)).slice(0, 4);
   $('#dashRecs').innerHTML = recs.map(r => destCard(r.c, r.score)).join('');
   bindDest('#dashRecs');
-  $$('.link[data-go]').forEach(l => l.onclick = () => go(l.dataset.go));
   $$('[data-nt]').forEach(b => b.onclick = () => { go('planner'); setTimeout(() => openTrip(+b.dataset.nt), 250); });
-  if (window.Flights) { Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); }
 }
 
 /* ================= DEST CARD ================= */
@@ -208,7 +215,8 @@ function renderCountries() {
   let list = COUNTRIES.slice();
   if (q) list = list.filter(c => norm(c.cs).includes(q) || norm(c.en).includes(q) || (c.tags || []).some(t => norm(t).includes(q)));
   if (cont) list = list.filter(c => c.cont === cont);
-  if (cost) list = list.filter(c => c.cost && (cost === '1' ? c.cost <= 1 : cost === '2' ? c.cost <= 2 : c.cost >= 3));
+  // skupiny jako popisky v detailu: 1–2 levné, 3 střední, 4–5 dražší/drahé
+  if (cost) list = list.filter(c => c.cost && (cost === '1' ? c.cost <= 2 : cost === '2' ? c.cost === 3 : c.cost >= 4));
   if (vis === 'yes') list = list.filter(c => visited.has(c.iso2)); else if (vis === 'no') list = list.filter(c => !visited.has(c.iso2));
   if (ent && window.Entry) list = list.filter(c => c.iso2 !== 'CZ' && Entry.matches(c.iso2, ent));
   if (sort === 'cost') list.sort((a, b) => (a.cost || 9) - (b.cost || 9)); else if (sort === 'safety') list.sort((a, b) => (b.safety || 0) - (a.safety || 0)); else list.sort((a, b) => a.cs.localeCompare(b.cs, 'cs'));
@@ -239,7 +247,8 @@ async function loadClimate(iso) {
       CLIM[iso] = await r.json();
     }
     const c = CLIM[iso], box = $('#climBox');
-    if (curIso !== iso || !box || !Array.isArray(c.hi)) return;
+    if (curIso !== iso || !box) return;
+    if (!Array.isArray(c.hi)) return box.remove(); // země bez údajů ({ none: true }) – zapamatovaná, bez dalšího dotazu
     $('.months', box).outerHTML = climStrip(c);
     $('#climWhere').textContent = c.city ? `· ${c.city} (${c.iata})` : '';
     if (c.source) box.title = `Dlouhodobý průměr: ${c.source}. Není to předpověď.`;
@@ -295,7 +304,7 @@ function openCountry(iso) {
   if (window.Entry && !Entry.ready()) { Entry.whenReady(() => { const b = $('#entryBox'); if (b && curIso === iso) b.innerHTML = Entry.detailHtml(iso); }); Entry.load().catch(() => { }); }
 }
 window.modalClose = modalClose;
-window.toggleVis = iso => { const on = !visited.has(iso); setVisited(iso, on); const b = $('#visBtn'); if (b) { b.textContent = on ? '✓ Navštíveno' : 'Označit jako navštívené'; b.className = 'btn ' + (on ? 'warm' : 'ghost'); } toast(on ? 'Přidáno: ' + byIso[iso].cs : 'Odebráno: ' + byIso[iso].cs); renderCountries(); };
+window.toggleVis = iso => { const on = !visited.has(iso); setVisited(iso, on); const b = $('#visBtn'); if (b) { b.textContent = on ? '✓ Navštíveno' : 'Označit jako navštívené'; b.className = 'btn ' + (on ? 'warm' : 'ghost'); } toast(on ? 'Přidáno: ' + byIso[iso].cs : 'Odebráno: ' + byIso[iso].cs); renderCountries(); if (activeView === 'dashboard') renderDashStats(); };
 window.fromCountrySearch = iso => { if (window.Flights) Flights.searchTo([{ id: 'cc:' + iso, label: byIso[iso].cs, flag: flag(iso) }]); };
 window.stayLinks = city => openStay(city);
 window.addToPlan = iso => { newTrip(byIso[iso]); };
@@ -331,7 +340,7 @@ async function loadFx(c) {
   if (!c.cur || c.cur === 'CZK') { const el = $('#fxLine'); if (el) el.textContent = c.cur === 'CZK' ? 'domácí měna' : ''; return; }
   if (!S.fx || Date.now() - S.fx.ts > 86400000) { try { const r = await fetch('https://open.er-api.com/v6/latest/CZK'); const j = await r.json(); if (j && j.rates) { S.fx = { ts: Date.now(), rates: j.rates }; save(); } } catch (e) { } }
   const el = $('#fxLine'); if (!el || curIso !== c.iso2) return; // mezitím otevřená jiná země
-  if (S.fx && S.fx.rates[c.cur]) { const v = 1 / S.fx.rates[c.cur]; el.textContent = `1 ${c.cur} ≈ ${v.toFixed(v < 1 ? 3 : 2)} Kč`; }
+  if (S.fx && S.fx.rates[c.cur]) { const v = 1 / S.fx.rates[c.cur], dp = v < 1 ? 3 : 2; el.textContent = `1 ${c.cur} ≈ ${v.toLocaleString('cs-CZ', { minimumFractionDigits: dp, maximumFractionDigits: dp })} Kč`; }
 }
 function provLink(name, sub, url, color, lab) { return `<a class="result-link" href="${url}" target="_blank" rel="noopener"><div class="lg" style="background:${color}">${lab}</div><div><div class="rl-t">${name}</div><div class="rl-s">${sub}</div></div><div class="go">${ico('M5 12h14M13 6l6 6-6 6')}</div></a>`; }
 
@@ -370,7 +379,8 @@ async function initMap() {
 function mapPopover(e, iso) {
   const c = byIso[iso], isV = visited.has(iso), p = $('#mapPop');
   p.innerHTML = `<div class="row" style="gap:10px"><div style="font-size:30px">${flag(iso)}</div><div><div style="font-weight:800">${c.cs}</div><div class="faint" style="font-size:12px">${c.cont}</div></div></div><div class="row" style="margin-top:12px;gap:8px"><button class="btn sm ${isV ? 'warm' : 'primary'}" style="flex:1" id="popVis">${isV ? '✓ Byl/a jsem' : 'Byl/a jsem tu'}</button><button class="btn sm ghost" id="popDet">Detail</button></div>`;
-  p.style.left = Math.min(e.clientX, innerWidth - 130) + 'px'; p.style.top = Math.min(e.clientY, innerHeight - 120) + 'px'; p.classList.add('show');
+  // bublina (230 px) na střed kliknutí – nevyjet z obrazovky ani vlevo (USA, Mexiko na telefonu)
+  p.style.left = Math.max(125, Math.min(e.clientX, innerWidth - 130)) + 'px'; p.style.top = Math.min(e.clientY, innerHeight - 120) + 'px'; p.classList.add('show');
   $('#popVis').onclick = () => { setVisited(iso, !visited.has(iso)); p.classList.remove('show'); toast(visited.has(iso) ? 'Přidáno: ' + c.cs : 'Odebráno: ' + c.cs); };
   $('#popDet').onclick = () => { p.classList.remove('show'); openCountry(iso); };
 }
@@ -383,7 +393,7 @@ function mapFallback(msg) {
 }
 
 /* ================= PLANNER ================= */
-function dateRange(a, b) { if (!a) return []; const out = []; let d = new Date(a), end = b ? new Date(b) : new Date(a); let n = 0; while (d <= end && n < 31) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); n++; } return out; }
+function dateRange(a, b) { if (!a) return []; const out = []; let d = new Date(a), end = b ? new Date(b) : new Date(a); let n = 0; while (d <= end && n < 367) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); n++; } return out; }
 function resolveCountry(text) { const t = norm(text); if (!t) return null; let c = COUNTRIES.find(c => norm(c.cs) === t || norm(c.en) === t); if (!c) c = COUNTRIES.find(c => norm(c.cs).startsWith(t) && t.length > 2); return c || null; }
 // Doprava uložená z průvodce cestou: let (✈️), nebo vlak/bus (text začíná 🚆).
 const planIco = f => /^🚆/u.test(String(f || '')) ? '🚆' : '✈️';
@@ -393,7 +403,7 @@ const bkTools = () => (window.Backup ? Backup.plannerTools() : '');
 const bkWire = () => { const b = $('#bkOpen'); if (b) b.onclick = () => Backup.open(); };
 function renderPlanner() {
   const host = $('#plannerList');
-  if (!S.trips.length) { host.innerHTML = `${bkTools()}<div class="empty"><div class="ei">${ico('M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z')}</div><h2 style="font-size:20px;margin-bottom:6px">Zatím žádná cesta</h2><p style="max-width:420px;margin:0 auto 18px">Naplánuj si itinerář, ubytování i rozpočet na jednom místě. Cestu můžeš vytvořit i přímo z nalezeného letu (tlačítko „Do plánu“).</p><button class="btn primary" id="emptyNew">${ico('M12 5v14M5 12h14')} Nová cesta</button></div>`; $('#emptyNew').onclick = () => newTrip(); bkWire(); return; }
+  if (!S.trips.length) { host.innerHTML = `${bkTools()}<div class="empty"><div class="ei">${ico('M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z')}</div><h2 style="font-size:20px;margin-bottom:6px">Zatím žádná cesta</h2><p style="max-width:420px;margin:0 auto 18px">Naplánuj si itinerář, ubytování i rozpočet na jednom místě. Cestu můžeš vytvořit i přímo z nalezeného letu (Vybrat a pokračovat → 💾 Uložit do plánovače).</p><button class="btn primary" id="emptyNew">${ico('M12 5v14M5 12h14')} Nová cesta</button></div>`; $('#emptyNew').onclick = () => newTrip(); bkWire(); return; }
   // nadcházející podle data odjezdu (bez data na konci), proběhlé zvlášť pod nimi
   const now = todayLocal(), all = S.trips.map((t, i) => ({ t, i }));
   const past = all.filter(x => (x.t.end || x.t.start) && (x.t.end || x.t.start) < now).sort((a, b) => (b.t.start || '').localeCompare(a.t.start || ''));
@@ -404,8 +414,8 @@ function renderPlanner() {
   bkWire();
 }
 function tripCard(t, i) {
-  const c = t.iso ? byIso[t.iso] : null, warm = c && c.cost >= 4;
-  return `<div class="card trip" data-ti="${i}"><div class="trip-top ${warm ? 'warm' : ''}"><div class="tt-name">${esc(t.name)}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? '–' + fmtDate(t.end) : '') : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os.</span><span>${t.budget ? (+t.budget).toLocaleString('cs') + ' Kč' : 'rozpočet —'}</span></div>${t.flight ? `<div class="faint" style="font-size:12px;margin-bottom:4px">${esc(planTransport(t.flight))}</div>` : ''}<div class="muted" style="font-size:12.5px">${(t.days ? Object.values(t.days).flat().length : 0)} aktivit · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</div></div></div>`;
+  const c = t.iso ? byIso[t.iso] : null, warm = c && c.cost >= 4, na = t.days ? Object.values(t.days).flat().length : 0;
+  return `<div class="card trip" data-ti="${i}"><div class="trip-top ${warm ? 'warm' : ''}"><div class="tt-name">${esc(t.name)}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? '–' + fmtDate(t.end) : '') : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os.</span><span>${t.budget ? (+t.budget).toLocaleString('cs') + ' Kč' : 'rozpočet —'}</span></div>${t.flight ? `<div class="faint" style="font-size:12px;margin-bottom:4px">${esc(planTransport(t.flight))}</div>` : ''}<div class="muted" style="font-size:12.5px">${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</div></div></div>`;
 }
 function newTrip(c, pre = {}) {
   const dest = pre.dest || (c ? c.cs : '');
@@ -413,16 +423,18 @@ function newTrip(c, pre = {}) {
   <div class="modal-body">
     <div class="field"><label>Název cesty</label><input class="input" id="ntName" placeholder="Např. Léto v Portugalsku" value="${esc(pre.name || (dest ? 'Cesta: ' + dest : ''))}"></div>
     <div class="field" style="margin-top:12px"><label>Destinace</label><input class="input" id="ntDest" placeholder="Země nebo město" value="${esc(dest)}"></div>
-    <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:12px"><div class="field"><label>Odjezd</label><input class="input" type="date" id="ntStart" value="${pre.start || ''}"></div><div class="field"><label>Návrat</label><input class="input" type="date" id="ntEnd" value="${pre.end || ''}"></div></div>
-    <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:12px"><div class="field"><label>Cestující</label><select id="ntPax">${[1, 2, 3, 4, 5, 6].map(n => `<option ${n === (pre.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>Rozpočet (Kč)</label><input class="input" type="number" id="ntBudget" placeholder="nepovinné" value="${pre.budget || ''}"></div></div>
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Odjezd</label><input class="input" type="date" id="ntStart" value="${pre.start || ''}"></div><div class="field"><label>Návrat</label><input class="input" type="date" id="ntEnd" value="${pre.end || ''}" min="${pre.start || ''}"></div></div>
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Cestující</label><select id="ntPax">${[1, 2, 3, 4, 5, 6].map(n => `<option ${n === (pre.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>Rozpočet (Kč)</label><input class="input" type="number" id="ntBudget" placeholder="nepovinné" value="${pre.budget || ''}"></div></div>
     <button class="btn primary block" style="margin-top:18px" id="ntSave">Vytvořit cestu</button>
   </div>`);
+  $('#ntStart').onchange = e => { $('#ntEnd').min = e.target.value; };
   $('#ntSave').onclick = () => saveTrip(c ? c.iso2 : (pre.iso || null), pre.flight || null);
 }
 async function saveTrip(iso, flightTxt) {
   // vše z formuláře hned – během dohledávání místa může uživatel okno zavřít nebo otevřít jiné
   const b = $('#ntSave');
   const f = { name: $('#ntName').value.trim() || 'Moje cesta', dest: $('#ntDest').value.trim(), start: $('#ntStart').value, end: $('#ntEnd').value, pax: $('#ntPax').value, budget: $('#ntBudget').value };
+  if (f.start && f.end && f.end < f.start) { toast('Návrat je před odjezdem', 'err'); return; } // termín pak nejde upravit
   // země jen při přesném názvu („Itálie“); začátek názvu („Kos“ → Kosovo) až když místo toho jména neexistuje
   let fiso = iso, place = null; if (!fiso && f.dest) { const t = norm(f.dest), c = COUNTRIES.find(c => norm(c.cs) === t || norm(c.en) === t); if (c) fiso = c.iso2; }
   // město („Lisabon“): země a cíl pro „Hledat lety“ z našeptávače míst – jen přesná shoda názvu. Metropole (Londýn,
@@ -437,6 +449,10 @@ async function saveTrip(iso, flightTxt) {
       if (x) {
         fiso = byIso[x.cc] ? x.cc : null;
         if (/^(ap|metro):/.test(x.id)) place = { id: x.id, label: x.label, flag: x.flag || '' };
+      } else {
+        // „USA“, „Anglie“, „Holandsko“: našeptávač dá zemi na první místo (u „Kos“ je první ostrov, ne Kosovo)
+        const top = (j.items || [])[0];
+        if (top && /^cc:[A-Z]{2}$/.test(top.id) && byIso[top.cc]) fiso = top.cc;
       }
     } catch (e) { /* bez sítě nebo pomalý server: cesta bez země */ } finally { clearTimeout(tm); }
     if (!fiso && !place) { const c = resolveCountry(f.dest); if (c) fiso = c.iso2; }
@@ -483,7 +499,7 @@ function openTrip(i) {
     <div class="divider"></div>
     <div class="grid" style="grid-template-columns:1fr 1fr;gap:20px">
       <div><h3 style="font-size:16px;margin-bottom:10px">🧾 Sbaleno</h3><div id="checkList">${(t.checklist || []).map((x, xi) => `<label class="check"><input type="checkbox" ${x.done ? 'checked' : ''} onchange="toggleCheck(${i},${xi})"><span style="${x.done ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.t)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" placeholder="Přidej položku…" onkeydown="if(event.key==='Enter')addCheck(${i})"><button class="btn sm" onclick="addCheck(${i})">+</button></div></div>
-      <div><h3 style="font-size:16px;margin-bottom:10px">💰 Rozpočet</h3><div class="field"><label>Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${t.budget || ''}" onchange="setBudget(${i},this.value)"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label>Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…" onchange="setNotes(${i},this.value)">${esc(t.notes || '')}</textarea></div></div>
+      <div><h3 style="font-size:16px;margin-bottom:10px">💰 Rozpočet</h3><div class="field"><label>Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${t.budget || ''}" onchange="setBudget(${i},this.value)"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label>Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…" oninput="setNotesSoon(${i},this.value)" onchange="setNotes(${i},this.value)">${esc(t.notes || '')}</textarea></div></div>
     </div>
     <div class="divider"></div>
     <button class="btn ghost block" style="color:var(--bad);border-color:rgba(251,113,133,.3)" onclick="delTrip(${i})">Smazat cestu</button>
@@ -565,12 +581,21 @@ function previewPlan(p) {
     modalClose(); go('planner'); setTimeout(() => openTrip(i), 250);
   };
 }
-window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.value.trim(); if (!v) return; S.trips[i].days[d] = S.trips[i].days[d] || []; S.trips[i].days[d].push(v); save(); openTrip(i); };
-window.delAct = (i, d, ai) => { S.trips[i].days[d].splice(ai, 1); save(); openTrip(i); };
-window.toggleCheck = (i, xi) => { S.trips[i].checklist[xi].done = !S.trips[i].checklist[xi].done; save(); openTrip(i); };
-window.addCheck = i => { const inp = $('#newCheck-' + i); const v = inp.value.trim(); if (!v) return; S.trips[i].checklist.push({ t: v, done: false }); save(); openTrip(i); };
-window.setBudget = (i, v) => { S.trips[i].budget = v; save(); openTrip(i); };
+// úprava v okně cesty: uložit a překreslit okno i kartu v plánovači pod ním (rozpočet, aktivity, sbaleno)
+const reTrip = i => { save(); openTrip(i); if (activeView === 'planner') renderPlanner(); };
+window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.value.trim(); if (!v) return; S.trips[i].days[d] = S.trips[i].days[d] || []; S.trips[i].days[d].push(v); reTrip(i); };
+window.delAct = (i, d, ai) => { S.trips[i].days[d].splice(ai, 1); reTrip(i); };
+window.toggleCheck = (i, xi) => { S.trips[i].checklist[xi].done = !S.trips[i].checklist[xi].done; reTrip(i); };
+window.addCheck = i => { const inp = $('#newCheck-' + i); const v = inp.value.trim(); if (!v) return; S.trips[i].checklist.push({ t: v, done: false }); reTrip(i); };
+window.setBudget = (i, v) => { S.trips[i].budget = v; reTrip(i); };
 window.setNotes = (i, v) => { S.trips[i].notes = v; save(); };
+// Poznámky už při psaní („change“ přijde až po opuštění pole – obnovení stránky nebo zavřená aplikace by text ztratily).
+// Čekající text patří k cestě (ne k pořadí – mezitím smazaná cesta nic nepřepíše).
+let notesP = null;
+function flushNotes() { if (!notesP) return; const { t, v } = notesP; notesP = null; if (S.trips.includes(t) && t.notes !== v) { t.notes = v; save(); } }
+window.setNotesSoon = (i, v) => { clearTimeout(notesP && notesP.tm); notesP = { t: S.trips[i], v, tm: setTimeout(flushNotes, 300) }; };
+window.addEventListener('pagehide', flushNotes);
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushNotes(); });
 window.delTrip = i => { if (confirm('Opravdu smazat tuto cestu?')) { S.trips.splice(i, 1); save(); modalClose(); renderPlanner(); toast('Cesta smazána'); } };
 window.openStay = (city, start, end, adults = 2) => {
   const n = Math.min(9, Math.max(1, Math.round(+adults) || 2));
@@ -596,8 +621,35 @@ function wireEvents() {
   // ⟳: počasí a kurz znovu; radar se obnoví s dosavadními kartami (ne šedé dlaždice) a se značkami změn od minula
   $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; save(); toast('Aktualizuji…'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') { renderDash(); Flights.renderRadar(true); } };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') modalClose(); });
-  // Odkaz na plán vložený do už otevřené stránky (mění se jen #).
-  window.addEventListener('hashchange', async () => { if (await importPlanFromHash()) go('planner', { noHash: true }); });
+  // Odkaz na cestu, plán nebo sekci vložený do už otevřené stránky (mění se jen #, stránka se nenačte znovu).
+  window.addEventListener('hashchange', async () => {
+    if (window.Trip && await Trip.importFromHash()) return go('trip', { noHash: true });
+    if (await importPlanFromHash()) return go('planner', { noHash: true });
+    const v = location.hash.slice(1);
+    if (v !== activeView && NAV.some(n => n[0] === v)) go(v, { noHash: true });
+  });
+  // Jiný panel s ATLAS (karta, aplikace na ploše) uložil stav: převzít ho, jinak by další uložení tady smazalo, co tam přibylo.
+  // Jen změněné klíče (průvodce poznává svoji cestu podle S.trip === t); hlídané ceny slučuje flights.js.
+  window.addEventListener('storage', e => {
+    if (e.key !== LS || !e.newValue) return;
+    let d; try { d = JSON.parse(e.newValue); } catch (x) { return; }
+    if (!d || typeof d !== 'object') return;
+    const ch = new Set(), def = defState();
+    for (const k of new Set([...Object.keys(S), ...Object.keys(d)])) {
+      const v = k in d ? d[k] : def[k]; // chybějící klíč jako při načtení (load)
+      if (k === 'watch' || JSON.stringify(S[k]) === JSON.stringify(v)) continue;
+      if (v === undefined) delete S[k]; else S[k] = v;
+      ch.add(k);
+    }
+    if (ch.has('theme') || ch.has('mapStyle')) { applyTheme(); applyMapStyle(); if (window.Flights) Flights.repaintMap(); if (window.Places) Places.retheme(); }
+    if (ch.has('visited')) {
+      visited.clear(); (S.visited || []).forEach(c => visited.add(c));
+      refreshStats(); paintMap(); if (window.Flights && Flights.refreshVisited) Flights.refreshVisited();
+      if (activeView === 'countries') renderCountries();
+    }
+    if (activeView === 'planner' && ch.has('trips')) renderPlanner();
+    if (activeView === 'dashboard' && (ch.has('trips') || ch.has('visited'))) renderDashStats();
+  });
 }
 function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
 

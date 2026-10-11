@@ -953,7 +953,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `POST /api/bike` | okruh na kole: `lat`, `lon`, `km` (5–150), `bike` (`road`, `trekking`, `gravel`, `mtb`), `scenery` (`city`, `mixed`, `nature`), `hills` (`flat`, `normal`, `hilly`), `variant` (jiná trasa, 0–9 = deset různých směrů okruhu) → délka, stoupání, čas, povrch, geometrie a odkazy do Mapy.com / Google Map |
 | `POST /api/bike` (`kind: "train"`) | „Vlakem tam, na kole zpět“: navíc `label` a `cc` domova; odpověď má `station { name, lat, lon, cc }` a `train { idosUrl, googleUrl }`, trasa vede z nádraží domů. 404 = v dosahu není vhodné nádraží |
 | `POST /api/hike` | pěší okruh: `lat`, `lon`, `km` (2–40), `scenery`, `hills`, `variant` → jako `/api/bike` + `trailPct` (značené trasy), `roadPct`, `descent`; čas chůze podle DIN 33466 |
-| `GET /api/climate?iata=BKK` / `?lat=&lon=` / `?cc=TH` | dlouhodobé podnebí: `hi[12]`, `lo[12]` (průměrná denní maxima a minima °C), `p[12]` (srážky mm/měsíc), `src` (`wmo` / `ghcn` = meteostanice, `nasa` = model) a `source` (popis zdroje) |
+| `GET /api/climate?iata=BKK` / `?lat=&lon=` / `?cc=TH` | dlouhodobé podnebí: `hi[12]`, `lo[12]` (průměrná denní maxima a minima °C), `p[12]` (srážky mm/měsíc), `src` (`wmo` / `ghcn` = meteostanice, `nasa` = model) a `source` (popis zdroje); země bez údajů (`?cc=AD`) vrací `{ none: true }` |
 | `POST /api/itinerary` | rozplánování míst do dnů (`lat`, `lon`, `start`, `end`, `arrivalTime`, `departureTime`, `pace`, `interests`, `exclude`, `include`, `radius` – okruh míst jako u `/api/poi`, 1–25 km, výchozí 10) |
 | `GET /api/diag` | živý test, jestli server dosáhne na jednotlivé zdroje |
 

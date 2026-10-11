@@ -403,6 +403,8 @@ async function route(req, res) {
     } else {
       return sendJson(req, res, 400, { error: 'Zadej letiště (iata), polohu (lat, lon) nebo zemi (cc).' });
     }
+    // země bez údajů (Andorra, Monako…) není chyba – detail země se ptá u každé a 404 by plnila konzoli
+    if (!c && cc) return sendJson(req, res, 200, { none: true });
     if (!c) return sendJson(req, res, 404, { error: 'Pro toto místo nemám údaje o podnebí.' });
     return sendJson(req, res, 200, { ...c, source: sourceText(c.src) }, { 'Cache-Control': 'public, max-age=604800' });
   }

@@ -297,7 +297,10 @@ test('Plánovač: dny cesty přes změnu času – žádný den dvakrát ani chy
       for (const [a, b, n] of [['2026-03-27', '2026-03-31', 5], ['2026-03-06', '2026-03-10', 5], ['2026-10-02', '2026-10-06', 5], ['2026-10-23', '2026-10-27', 5], ['2026-07-01', '2026-07-01', 1]]) {
         assert.deepEqual([...dateRange(a, b)], days(a, n), `${tz}: ${a} – ${b}`);
       }
-      assert.equal(dateRange('2026-01-01', '2026-12-31').length, 31, 'nejvýš 31 dní');
+      // celá cesta i přes měsíc (dny 32+ v itineráři i v .ics); strop jako PlanShare.sanitize (366 dní mezi daty)
+      assert.deepEqual([...dateRange('2026-11-10', '2026-12-21')], days('2026-11-10', 42), `${tz}: 42 dní`);
+      assert.equal(dateRange('2026-01-01', '2026-12-31').length, 365, 'celý rok');
+      assert.equal(dateRange('2026-01-01', '2028-12-31').length, 367, 'nejvýš 367 dní');
     }
   } finally {
     if (tz0 === undefined) delete process.env.TZ; else process.env.TZ = tz0;
