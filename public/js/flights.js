@@ -1312,6 +1312,9 @@
     // cesta z letiště do města (a zpět na letiště): drahá nebo dlouhá = „levná“ letenka, která levná není → varovně
     const arr = arrivalChips(t);
     out.push(...arr);
+    // kdy z domu / kdy doma (odhad): jen když je to v noci – brzký odjezd z domu, návrat domů po půl jedné
+    const r = SearchHelp.reach(t, originGround(lastResult, t.out.from), t.back ? originGround(lastResult, t.back.to) : null);
+    for (const x of [r.out && r.out.early && r.out, r.back && r.back.late && r.back]) if (x) out.push(`<span class="b${x.warn ? ' warn' : ''}" title="${esc(x.title)}">${esc(x.text)}</span>`);
     // zlevnění u dopravce vedle „🔺 Dráž než obvykle“ bez zelené – jinak by štítky mluvily proti sobě
     const dear = (levelFor(t) || {}).level === 'high';
     if (t.deal.drop) out.push(`<span class="b ${dear ? '' : 'good'}" title="Oproti předchozí ceně u dopravce${dear ? ' – i tak je dráž než obvykle' : ''}">↓ zlevnilo o ${t.deal.drop} %</span>`);
@@ -1935,7 +1938,7 @@
     return `<div class="af-row"><span class="faint">Aktivní filtry:</span>${chips.map(c => `<button type="button" class="fchip on af" data-af="${esc(c.key)}" title="${c.rerun ? 'Zrušit filtr a hledat znovu' : 'Zrušit filtr'}">${esc(c.label)}${c.hidden ? ` <small>skryto ${+c.hidden}</small>` : ''} <span aria-hidden="true">✕</span></button>`).join('')}${chips.length > 1 ? '<button type="button" class="linkbtn" data-af="all">Zrušit všechny</button>' : ''}</div>`;
   }
   // Čip filtru času a přestupů → co v view.time vynulovat.
-  const TIME_KEYS = { tOut: 'out', tBack: 'back', arrBy: 'arrBy', stops: 'stops', maxDur: 'maxDur', maxLay: 'maxLay' };
+  const TIME_KEYS = { tOut: 'out', tBack: 'back', arrBy: 'arrBy', stops: 'stops', maxDur: 'maxDur', maxLay: 'maxLay', reach: 'reach' };
   function clearFilter(k) {
     const all = k === 'all', f = lastResult?.filters || {};
     if (all || k === 'onlyDeals') view.onlyDeals = false;
@@ -1969,6 +1972,8 @@
     };
     const stops = [[null, 'Libovolně'], ...(st.maxStops >= 2 || tf.stops === 1 ? [[1, 'Max. 1 přestup']] : []), [0, 'Jen přímé']];
     const on = SearchHelp.timeActive(tf);
+    // „Jen dostupné z domova“: jen s veřejnou dopravou na letiště (autem se dá jet kdykoliv)
+    const home = res.query.groundMode !== 'car' && (tf.reach || SearchHelp.reachCtx(res.origins));
     return `<div class="card tf-panel" id="tfPanel">
       <div class="tf-head"><b>🕐 Čas a přestupy</b><span class="faint">${on ? (th.any ? `skryto <b>${th.any}</b> z ${plural(th.total, 'nabídky', 'nabídek', 'nabídek')}` : 'filtry teď nic neskrývají') : 'filtruje hned, bez nového hledání'}</span>
         ${on ? '<button type="button" class="linkbtn" data-af="time">Zrušit filtry času</button>' : ''}<button type="button" class="tf-x" data-tfx="1" aria-label="Zavřít panel">✕</button></div>
@@ -1982,8 +1987,9 @@
         ${st.maxStops > 0 || tf.stops != null ? field('🔁 Přestupy', seg('data-tst', stops, tf.stops)) : ''}
         ${st.dur ? field(`⏱ Max. délka cesty <small>${ret ? 'každým směrem' : 'vč. přestupů'}</small>`, slider('tfDur', st.dur, tf.maxDur)) : ''}
         ${st.lay ? field('⌛ Nejdelší přestup', slider('tfLay', st.lay, tf.maxLay)) : ''}
+        ${home ? field('🏠 Z domova', `<div class="tf-parts tf-one" role="group"><button type="button" class="${tf.reach ? 'on' : ''}" data-treach aria-pressed="${Boolean(tf.reach)}" title="Skryje lety, kam se z domova veřejnou dopravou nejspíš nedostaneš: odjezd z domu před 4:30 nebo návrat domů po půl jedné v noci (odhad: cesta na letiště + 2 h před odletem, 45 min po přistání). U letiště ve tvém městě počítá s taxi."><b>Jen dostupné z domova</b></button></div>`) : ''}
       </div>
-      <div class="tf-note faint">Časy jsou místní (odlet na letišti odletu, přílet v cíli). Lety bez známého času, délky nebo časů přestupů filtry neskrývají.</div>
+      <div class="tf-note faint">Časy jsou místní (odlet na letišti odletu, přílet v cíli). Lety bez známého času, délky nebo časů přestupů filtry neskrývají.${home ? ' Čas z domova je odhad.' : ''}</div>
     </div>`;
   }
   let actReg = [];
@@ -2133,6 +2139,7 @@
     });
     $$('[data-tarr]', host).forEach(b => b.onclick = () => { view.time.arrBy = b.dataset.tarr ? +b.dataset.tarr : null; rerender(true); });
     $$('[data-tst]', host).forEach(b => b.onclick = () => { view.time.stops = b.dataset.tst === '' ? null : +b.dataset.tst; rerender(true); });
+    $$('[data-treach]', host).forEach(b => b.onclick = () => { view.time.reach = view.time.reach ? null : SearchHelp.reachCtx(lastResult.origins); rerender(true); });
     for (const [id, key] of [['tfDur', 'maxDur'], ['tfLay', 'maxLay']]) {
       const r = $('#' + id, host); if (!r) continue;
       r.oninput = () => { $('#' + id + 'Val', host).textContent = +r.value >= +r.max ? 'bez limitu' : 'do ' + hm(+r.value); };

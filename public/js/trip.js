@@ -1272,6 +1272,34 @@
   };
   const CHECKOUT_HM = '11:00'; // den přejezdu: dopoledne ještě na místě, odjezd kolem 11:00
 
+  /**
+   * Kdy nejpozději vyrazit na letiště (odhad, ne jízdní řád): z domu na let tam (cesta na letiště z hledání) a z ubytování
+   * na let zpět (cesta z města na letiště, u trasy přes víc míst z posledního místa) – 2 h před odletem, mimo Schengen
+   * 2,5 h. → { home, hotel }, každé null nebo { date, hm, min (cesta na letiště), airport, before, hint }. Domov a letiště
+   * odletu jsou ve stejném časovém pásmu. Vlakem/busem místo letu nic; s autem vráceným na letišti čas dává vrácení auta.
+   */
+  function leaveBy(t) {
+    if (!t || !t.flight || !t.flight.out || ovOn(t)) return { home: null, hotel: null };
+    const f = t.flight, e = window.Entry && Entry.ready() && t.dest ? Entry.get(t.dest.cc) : null;
+    const before = (window.SearchHelp ? SearchHelp.REACH.before : 120) + (e && e.visa !== 'eu' ? 30 : 0);
+    const at = (l, min) => { const dt = shiftDt(l.dep, -(before + min)); return { date: dt.slice(0, 10), hm: dt.slice(11, 16), min, airport: l.from, before, hint: null }; };
+    const gm = t.ground && t.ground.out && t.ground.out.minutes;
+    let hotel = null;
+    if (f.back && f.back.hasTime && !carCovers(t, 'back')) {
+      const m = isMulti(t) ? legMin((t.route.legs || {}).departure, t.route.transport) : t.arrival && t.arrival.back && t.arrival.back.min;
+      if (m > 0) {
+        hotel = at(f.back, m);
+        // noční let (z ubytování už předchozí večer) bez rady
+        const day = hotel.date === f.back.date;
+        hotel.hint = day && hotel.hm > CHECKOUT_HM ? `check-out bývá do ${CHECKOUT_HM} – zavazadla nech na recepci` : day && hotel.hm < '06:00' ? 'brzy ráno – taxi objednej předem, nebo přespi u letiště' : null;
+      }
+    }
+    return { home: f.out.hasTime && gm > 0 ? at(f.out, gm) : null, hotel };
+  }
+  // „ve 2:40“ / „v 1:35“ a „2 h“ / „2,5 h“ před odletem k leaveBy
+  const lbTime = x => `${window.SearchHelp ? SearchHelp.ve(+x.hm.slice(0, 2) * 60 + +x.hm.slice(3, 5)) : 'v'} ${+x.hm.slice(0, 2)}${x.hm.slice(2)}`;
+  const lbBefore = x => (x.before > 120 ? '2,5 h' : '2 h');
+
   /** Termín programu místa trasy: den příletu / přejezdu a čas příjezdu, den odjezdu a odlet. */
   function baseProgram(t, i) {
     const r = t.route, d = baseDates(t)[i], last = i === r.bases.length - 1, b = backLeg(t);
@@ -1402,12 +1430,16 @@
       // odkaz na půjčovnu uložený s cenou auta (po znovuotevření aplikace nebo ve sdílené cestě už načtené nabídky nejsou)
       t.car && t.car.mode !== 'skip' ? { id: 'car', label: 'Auto', url: t.car.url || (carsData && carsData.links[0]?.url) } : null,
     ].filter(Boolean);
-    const timeline = [];
+    const timeline = [], lb = leaveBy(t);
+    // z ubytování na letiště: před cestou na letiště (večer předchozího dne až po programu)
+    const hotelRow = x => x && timeline.push([x.date + (x.date < f.back.date ? '~' : ''), '🚪', `Z ubytování na letiště ${esc(x.airport)} vyraž nejpozději ${lbTime(x)} <span class="faint">(~${minutesToHm(x.min)} cesta + ${lbBefore(x)} před odletem, odhad)</span>${x.hint ? ' · ' + esc(x.hint) : ''}`]);
     const gRow = (g, a, b) => `${esc(a)} → ${esc(b)} · ${esc(gTime(g))} · ${esc(gKind(g))}${g.fromStation ? ` · ${esc(g.fromStation)} → ${esc(g.toStation)}` : ''} (${esc(gWho(g))})`;
     if (ov) timeline.push([ov.out.date, gIco(ov.out), gRow(ov.out, ov.from.label, ov.to.label)]);
     else {
       // autem i čím jede: „Autem na letiště PRG (nafta, ~45 min, odhad)“, „Elektroautem na letiště …“
-      const gl = groundLines(t);
+      const gl = groundLines(t), home = lb.home;
+      // vyrazit z domu: večer předchozího dne až po ostatním (online check-in)
+      if (home) timeline.push([home.date + (home.date < f.out.date ? '~' : ''), '🚪', `Vyraž z domu nejpozději ${lbTime(home)} <span class="faint">(~${minutesToHm(home.min)} na letiště ${esc(home.airport)} + ${lbBefore(home)} před odletem, odhad)</span>`]);
       if (gl.out) timeline.push([f.out.date, gl.icon, esc(gl.out)]);
       // z letiště domů až po přistání (dálkový let zpět přistane i další den)
       if (gl.back) timeline.push([arrivalAt(f.back).slice(0, 10) + '~', gl.icon, esc(gl.back)]);
@@ -1428,6 +1460,7 @@
         const x = r.transfers && r.transfers[i];
         if (i < r.bases.length - 1) timeline.push([dates[i].checkout, trIcon(tr, x), `Přejezd ${esc(b.name)} → ${esc(r.bases[i + 1].name)}${x ? ` · ${legTxt(x, tr)} (${estTxt(x, tr)})${esc(borderTxt(x))}${legLink(x, tr) ? ` · ${legLink(x, tr)}` : ''}` : ''}`]);
       });
+      hotelRow(lb.hotel);
       if (!ov && f.back && legs.departure && legs.departure.km >= 1) timeline.push([f.back.date, trIcon(tr, legs.departure), `${esc(r.bases.at(-1).name)} → letiště ${esc(f.back.from)} · ${legTxt(legs.departure, tr)} (${estTxt(legs.departure, tr)})${esc(borderTxt(legs.departure))}${esc(arrivalFareTxt(t, 'back', r.bases.at(-1), tr))}`]);
       if (ovl && ovl.departure && ovl.departure.km >= 1) timeline.push([ov.back.date, trIcon(tr, ovl.departure), `${esc(r.bases.at(-1).name)} → ${esc(ov.to.label)} · ${legTxt(ovl.departure, tr)} (${estTxt(ovl.departure, tr)})${esc(borderTxt(ovl.departure))}`]);
     } else {
@@ -1435,6 +1468,7 @@
       for (const d of (t.plan?.days || [])) timeline.push([d.date, '📍', d.items.map(x => esc(x.name)).join(' · ') || 'volný den']);
     }
     if (t.car && t.car.mode !== 'skip' && t.car.to) timeline.push([t.car.to.slice(0, 10), '🚗', `Vrácení auta ${esc(t.car.dropoff)} ${t.car.to.slice(11, 16)}`]);
+    if (!multi) hotelRow(lb.hotel);
     const ab = !ov && !multi && f.back && t.arrival && t.arrival.back;
     if (ab && !carCovers(t, 'back')) timeline.push([f.back.date, ARR_ICO[ab.mode] || '🚌', esc(arrivalRow(ab, true))]);
     if (ov) { if (ov.back) timeline.push([ov.back.date, gIco(ov.back), gRow(ov.back, ov.to.label, ov.from.label)]); }
@@ -1506,6 +1540,16 @@
     if (!ov && f.back) ev.push(Ics.flightEvent(legBrief(f.back), { url: f.back.bookUrl || f.bookUrl, note: `Zpáteční let · ${dest}` }));
     // Ryanair / Wizz Air: připomínka online check-inu (24 h před odletem, na letišti se platí)
     if (!ov) for (const l of [f.out, f.back].filter(Boolean)) { const e = Ics.checkinEvent({ ...legBrief(l), carrier: l.carrier || l.carrierName }); if (e) ev.push(e); }
+    // kdy nejpozději vyrazit na letiště (odhad): z domu a z ubytování
+    const { home, hotel } = leaveBy(t);
+    if (home) {
+      ev.push({ title: `🚪 Vyraž z domu na letiště ${home.airport}`, start: `${home.date}T${home.hm}`, tz: f.out.fromTz || null, durationMin: home.min, location: `Letiště ${home.airport}`,
+        description: `Odhad: ~${minutesToHm(home.min)} cesta na letiště + ${lbBefore(home)} před odletem.${t.groundMode === 'car' ? '' : ' Spoj ověř (IDOS).'}` });
+    }
+    if (hotel) {
+      ev.push({ title: `🚪 Vyraž na letiště ${hotel.airport}`, start: `${hotel.date}T${hotel.hm}`, tz: f.back.fromTz || null, durationMin: hotel.min, location: `Letiště ${hotel.airport}`,
+        description: [`Odhad: ~${minutesToHm(hotel.min)} cesta z ubytování na letiště + ${lbBefore(hotel)} před odletem.`, hotel.hint ? `${hotel.hint[0].toUpperCase()}${hotel.hint.slice(1)}.` : ''].filter(Boolean).join('\n') });
+    }
     const multi = isMulti(t);
     if (multi) {
       // Víc míst: celodenní pobyt na každém místě (i bez vybraného hotelu – je to kde budeš) a přejezdy mezi nimi.
@@ -1941,5 +1985,5 @@
     }
   }
 
-  window.Trip = { start, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines };
+  window.Trip = { start, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines };
 })();

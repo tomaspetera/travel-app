@@ -222,7 +222,7 @@ krém…).
 | **Víc měst v jedné cestě** | *🗺️ Víc měst*: 2–4 lety jedním směrem (třeba Praha → Řím, Neapol → Praha), každý na přesné datum ± 0–3 dny; rychlá volba *↩ Návrat z jiného města*. Každý let se hledá zvlášť a ATLAS skládá jen lety, které na sebe navazují: na stejném letišti aspoň 3 h, z jiného letiště téhož města 5 h, z jiného města nejdřív další den a aspoň 8 h po příletu. Ve výsledku vybíráš let po krocích (nenavazující lety zešednou s důvodem), vidíš nejlevnější kombinace a ke každému letu tlačítko Koupit – jsou to samostatné letenky. Dva lety tam a zpět domů pokračují do průvodce cestou, delší cesta se uloží do plánovače i s lety v kalendáři (.ics). |
 | **Kalendář celých cest** | V režimu konkrétního cíle ukáže pro každý den nejlevnější *celou cestu tam a zpět* (se zadaným počtem nocí), ne jen jednosměrný let. |
 | **Přesná data i flexibilně** | *📅 Přesná data*: zadáš den odletu a návratu a hledá se jen v tyto dny (volitelně ±1–3 dny). Pohled *✈︎ Lety* ukáže jako Google Flights všechny nalezené lety tam a zpět zvlášť (čas, aerolinka, přímý / s přestupem, cena celé cesty, další odlety dne bez ceny), pruh *📅 Nejbližší dny* ceny ±3 dny kolem data a jedním kliknutím hledá jiný den. *🔀 Flexibilně*: rozsah dat odletu + počet nocí, víkendy (čt/pá/so → ne/po), prodloužené víkendy, vlastní dny v týdnu. |
-| **Čas a přestupy** | Filtr *🕐 Čas a přestupy* ve výsledcích filtruje hned, bez nového hledání: čas odletu tam i zpět (ráno 5–12, odpoledne 12–18, večer 18–24, v noci 0–5 h, víc najednou), přílet nejpozději do 18 / 20 / 22 h nebo před půlnocí (přílet v noci 0–5 h se počítá jako pozdní, ráno dalšího dne ne), jen přímé lety nebo max. 1 přestup, max. délka cesty jedním směrem a nejdelší přestup (posuvníky podle nalezených letů). Časy jsou místní časy letišť. Platí v seznamu, na mapě, v kombinacích, v kalendáři i ve sloupcích ✈︎ Lety – tam jen pro svůj směr (když chceš návrat ráno, zůstanou všechny lety tam a každý se spáruje s nejlevnějším ranním návratem jako dvě samostatné letenky). U přesných dat se takhle skládají i filtry pro oba směry (*Jen přímé*, přílet, délka, přestup): když server poslal jen nejlevnější dvojice s přestupem jedním směrem, ATLAS spáruje přímé lety tam a zpět sám – ve sloupcích, v kombinacích i v kalendáři, s poznámkou, že jde o dvě samostatné letenky. Aktivní filtry jsou čipy s počtem skrytých nabídek a ✕, chytrá nápověda je nabídne zrušit. Lety bez známého času, délky nebo časů přestupů se neskrývají. U letů s přestupem je vidět, kde a jak dlouho se čeká („1× přestup (MUC 1 h 35 min)“). |
+| **Čas a přestupy** | Filtr *🕐 Čas a přestupy* ve výsledcích filtruje hned, bez nového hledání: čas odletu tam i zpět (ráno 5–12, odpoledne 12–18, večer 18–24, v noci 0–5 h, víc najednou), přílet nejpozději do 18 / 20 / 22 h nebo před půlnocí (přílet v noci 0–5 h se počítá jako pozdní, ráno dalšího dne ne), jen přímé lety nebo max. 1 přestup, max. délka cesty jedním směrem a nejdelší přestup (posuvníky podle nalezených letů), s veřejnou dopravou na letiště i *🏠 Jen dostupné z domova* (viz [Kdy vyrazit](#-kdy-vyrazit)). Časy jsou místní časy letišť. Platí v seznamu, na mapě, v kombinacích, v kalendáři i ve sloupcích ✈︎ Lety – tam jen pro svůj směr (když chceš návrat ráno, zůstanou všechny lety tam a každý se spáruje s nejlevnějším ranním návratem jako dvě samostatné letenky). U přesných dat se takhle skládají i filtry pro oba směry (*Jen přímé*, přílet, délka, přestup): když server poslal jen nejlevnější dvojice s přestupem jedním směrem, ATLAS spáruje přímé lety tam a zpět sám – ve sloupcích, v kombinacích i v kalendáři, s poznámkou, že jde o dvě samostatné letenky. Aktivní filtry jsou čipy s počtem skrytých nabídek a ✕, chytrá nápověda je nabídne zrušit. Lety bez známého času, délky nebo časů přestupů se neskrývají. U letů s přestupem je vidět, kde a jak dlouho se čeká („1× přestup (MUC 1 h 35 min)“). |
 | **Chytrá nápověda** | Když je výsledků málo nebo žádné, nabídne konkrétní úpravy jedním kliknutím (± dny, přestupní letiště – ne v zemi cíle ani hned vedle něj, celá země / světadíl, jen tam, celý měsíc, zrušit filtr) a průvodce *💡 Jak hledat chytře* pro dálkové lety. Aktivní filtry jsou vidět jako čipy s ✕, výpadek Kiwi.com hlásí s tlačítkem *Zkusit znovu*. |
 | **Skóre výhodnosti** | 🔥 Super cena / 👍 Výhodné podle vzdálenosti a ostatních výsledků, ↓ zlevnění (Ryanair posílá předchozí cenu), ☀️ ideální sezóna z dat ATLAS. |
 | **Je to dobrá cena?** | U každé nabídky štítek 💚 Dobrá cena / Běžná cena / 🔺 Dráž než obvykle a panel s vysvětlením: srovnání s ostatními nabídkami do stejného cíle v tomto hledání, s průměrnou cenou na vzdálenost a s tím, co ATLAS na trase viděl dřív (trend ↓ / → / ↑), plus opatrná rada, jestli koupit, nebo cenu hlídat – viz [Je to dobrá cena?](#je-to-dobrá-cena). |
@@ -397,6 +397,32 @@ uložené před touto změnou kartu nemají.
 Jízdné a parkování jsou orientační (ceníky dopravců 2025/26, ~25 Kč/€, ~5,8 Kč/zł, ~0,065 Kč/Ft; parkování na
 18 letištích ověřené 10/2026, jinde odhad) – skutečná cena záleží na spoji, slevách, termínu, sezóně a obsazenosti
 parkoviště.
+
+### 🏠 Kdy vyrazit
+
+Levný let v 6:00 z Vídně, Bratislavy nebo Katovic znamená vyrazit z Brna kolem půl třetí, kdy veřejná doprava nejede,
+a pozdní návrat končí doma po půlnoci. ATLAS proto sečte čas letu s odhadem cesty na letiště (týž odhad jako u ceny,
+`server/lib/access.js`) – jen počítání s hodinami, bez jízdních řádů a bez dotazů na dopravce (`SearchHelp.reach`):
+
+- **Z domu** = odlet − 2 h na letišti − cesta na letiště; **doma** = přílet + 45 min na letišti (vystoupení, zavazadla)
+  + cesta domů – stejné časy jako srovnání s vlakem/busem (`Ground.AIRPORT_BEFORE` / `AIRPORT_AFTER`, test hlídá shodu).
+- **Štítek u nabídky** jen když je to v noci: z domu před 4:30 (*⏰ z domu už ve 2:40*, autem *🚗 z domu v 1:50*) nebo
+  domů mezi 0:30 a 5:00 (*🏠 domů až ~1:20*, autem *🚗 domů ~1:20*). Oranžově, když jedeš veřejnou dopravou na letiště
+  mimo své město; z letiště ve tvém městě počítá s taxi nebo noční linkou, autem je čas jen pro informaci. Odlet v noci,
+  kvůli kterému vyrazíš předchozí večer (třeba ve 20:35), brzký není. Po najetí myší rozpis (*Odlet 06:30 − 2 h na
+  letišti − ~2 h 55 min cesta na letiště VIE (vlak / bus a MHD, odhad) = vyrazit z domu ~1:35.*). Běžné časy štítek nemají.
+- **Filtr 🏠 Jen dostupné z domova** v panelu *🕐 Čas a přestupy* (jen s veřejnou dopravou na letiště): skryje nabídky,
+  kde bys veřejnou dopravou vyrážel z domu před 4:30 nebo se vracel po půl jedné v noci – ne z letiště ve tvém městě
+  (taxi). Let s neznámým časem nebo letiště bez odhadu cesty neskrývá; platí jen pro toto hledání jako ostatní filtry času.
+- **Průvodce cestou**, *🗓️ Průběh cesty*: *🚪 Vyraž z domu nejpozději ve 3:15 (~45 min na letiště PRG + 2 h před
+  odletem, odhad)* a v den letu zpět *🚪 Z ubytování na letiště VIE vyraž nejpozději ve 4:20* (cesta z města na letiště,
+  u trasy přes víc míst z posledního místa) s radou – brzy ráno *taxi objednej předem, nebo přespi u letiště*, po 11:00
+  *check-out bývá do 11:00 – zavazadla nech na recepci*. Obojí i jako události v *📅 Do kalendáře* (.ics) v časovém
+  pásmu letiště. Let mimo Schengen (podle vstupních podmínek cílové země) 2,5 h před odletem. S autem vráceným
+  na letišti dává čas vrácení auta, s vlakem/busem místo letu se nepočítá.
+- Vše je **odhad**: cesta na letiště je model podle vzdálenosti, ne jízdní řád – první a poslední spoj si ověř (IDOS).
+  Počítá se, že domov a letiště odletu jsou ve **stejném časovém pásmu** (platí pro letiště v okruhu hledání v Česku,
+  Rakousku, na Slovensku, v Polsku, Německu a Maďarsku).
 
 ### Aktuální ceny paliva a nabíjení
 
@@ -1127,6 +1153,8 @@ a na letiště je v dopravě z letiště do města).
   elektroauto počítá s rychlonabíjením za odhad 16 Kč/kWh. Autem se nepočítá opotřebení auta ani mýtné za úseky
   v Polsku; u cesty přes víc měst si ručním výběrem letů můžeš složit i návrat na jiné letiště, než kde auto parkuje
   (cena pak počítá, jako by ses vrátil k autu).
+- Časy *🏠 Kdy vyrazit* (z domu, domů, z ubytování na letiště) jsou odhad z modelu cesty na letiště, ne z jízdních
+  řádů – ATLAS neví, kdy jede první vlak nebo poslední bus; 2 h před odletem a 45 min po přistání jsou paušál.
 - Cesta z letiště do města: jízdné z ověřené tabulky (133 letišť, u 13 jen sekundární zdroj; 7. 10. 2026) se mění – dopravci zdražují, „od“ platí
   jen online předem a u řidiče nebo ve špičce bývá dráž; čas je typická jízda bez čekání (po půlnoci letištní bus často
   nejede a zbývá taxi). Počítá se jízdenka pro dospělého na osobu do jednoho místa v centru (nádraží, terminál), ne
