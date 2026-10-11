@@ -104,6 +104,9 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 /* autem: „návrat i na jiné letiště“ vypnuté (vracíš se k autu) */
 .field label.check-inline.dis{opacity:.55;cursor:not-allowed}
 .oj-hint{font-size:12px;line-height:1.4;margin:-2px 0 6px 25px}
+/* ♡ Hlídat: 📅 Posouvat termín s časem (klouzavé hlídání) */
+.roll-opt{margin:0;font-size:13px;color:var(--muted)}
+.roll-opt[hidden]{display:none}
 .gm-lbl{font-size:13px;color:var(--muted)}
 .gm-row .seg button{padding:6px 11px;font-size:12.5px;white-space:nowrap}
 .gm-opt{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:8px;font-size:13px}
@@ -460,6 +463,11 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .w-target{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:12.5px;color:var(--muted);font-weight:600;margin-top:10px}
 .w-target .input{width:96px;padding:6px 9px;border-radius:9px;font-size:13px}
 .w-past{margin-top:10px;padding:9px 11px;font-size:12px}
+.w-past .linkbtn{font-size:12px}
+.w-roll{display:flex;flex-wrap:wrap;align-items:center;gap:0 10px;font-size:12px;margin-top:4px}
+.w-roll .check-inline{font-size:12.5px;margin:0}
+.w-roll .check-inline input[type=checkbox]{width:15px;height:15px}
+.w-roll .linkbtn{font-size:12px}
 .w-st{font-size:11.5px;margin-top:8px;min-height:16px;display:flex;align-items:center;gap:6px}
 .w-st .spin{width:12px;height:12px;border-width:2px}
 .watch.checking .w-st{color:var(--accent);font-weight:700}

@@ -13,8 +13,75 @@
     dropPct: 3,
     seenPct: 1, // „zlevnilo“ na přehledu až od 1 % (drobné výkyvy kurzu nepočítat)
     histCap: 60,
+    rollNear: 7, // 📅 Posouvat termín s časem zapnuté předem, když rozsah začíná nejpozději za 7 dní
   };
   const num = v => (typeof v === 'number' && isFinite(v) && v > 0 ? v : null);
+
+  /* ---------- 📅 klouzavý termín hlídání (form.roll): { off, span } = odlet za off až off + span dní, { lw: 'next' } = nejbližší prodloužený víkend ---------- */
+  const ROLL = { off: 60, span: 180 };
+  const ymdMs = d => Date.parse(d + 'T12:00:00Z');
+  const isYmd = d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(ymdMs(d));
+  const plusDays = (d, n) => new Date(ymdMs(d) + n * 864e5).toISOString().slice(0, 10);
+  const daysTo = (a, b) => Math.round((ymdMs(b) - ymdMs(a)) / 864e5);
+  /** Platný klouzavý termín: celá čísla off 0–60 a span 1–180, nebo lw jen 'next'. */
+  function rollOk(r) {
+    if (!r || typeof r !== 'object') return false;
+    if (r.lw != null) return r.lw === 'next';
+    return Number.isInteger(r.off) && r.off >= 0 && r.off <= ROLL.off && Number.isInteger(r.span) && r.span >= 1 && r.span <= ROLL.span;
+  }
+  // klouzavý termín platí jen pro flexibilní hledání tam a zpět / jen tam – přesná data a víc měst zůstanou pevné
+  const rolls = f => Boolean(f) && f.trip !== 'multi' && f.dateMode !== 'exact' && rollOk(f.roll);
+  /**
+   * Formulář hlídání ke dni today: s klouzavým termínem rozsah odletu od dneška ({ off, span } → today + off až + span,
+   * pravidlo „v předvečer od 16:00“ pryč; { lw: 'next' } → nejbližší prodloužený víkend jako 🎉 Svátky –
+   * SearchHelp.holidayList / holidayDates). Bez roll (i přesná data a víc měst) vrací form beze změny, původní nemění.
+   */
+  function rollForm(form, today, SH = window.SearchHelp) {
+    if (!rolls(form) || !isYmd(today)) return form;
+    const r = form.roll;
+    if (r.lw) {
+      const lw = SH && SH.holidayList(today)[0];
+      if (!lw) return form; // v příštích měsících žádný prodloužený víkend – zůstane poslední termín
+      const h = SH.holidayDates(lw, today);
+      return { ...form, len: 'holiday', trip: 'return', dFrom: h.dFrom, dTo: h.dTo, nMin: h.nMin, nMax: h.nMax, outDays: [...h.outDays], backDays: [...h.backDays], depAfter: h.depAfter ? { ...h.depAfter } : null };
+    }
+    const dFrom = plusDays(today, r.off);
+    return { ...form, dFrom, dTo: plusDays(dFrom, r.span), depAfter: null };
+  }
+  /**
+   * Klouzavý termín z formuláře f ke dni today (♡ Hlídat s 📅 Posouvat termín s časem, „převést na klouzavé“ na kartě):
+   * 🎉 Svátky → { lw: 'next' } (konkrétní pozdější víkend ze seznamu ne – ten zůstane pevný), jinak { off, span } podle
+   * rozsahu odletu. Rozsah, který už začal nebo proběhl, se posune jako v den uložení (saved = 'YYYY-MM-DD', jinak od
+   * začátku) a meze se ořežou; budoucí rozsah mimo meze (začátek za víc než 60 dní, delší než 180 dní) → null, stejně jako
+   * přesná data, víc měst a termín z karty svátku s „odlet od 16:00“.
+   */
+  function rollSpec(f, today, { saved = null, SH = window.SearchHelp } = {}) {
+    if (!f || f.trip === 'multi' || f.dateMode === 'exact' || !isYmd(f.dFrom) || !isYmd(f.dTo) || f.dTo < f.dFrom || !isYmd(today)) return null;
+    if (f.len === 'holiday' && f.trip === 'return') {
+      const lw = SH && SH.holidayOf(f, today), first = SH && SH.holidayList(today)[0];
+      return lw && first && lw.start !== first.start ? null : { lw: 'next' };
+    }
+    if (f.depAfter) return null;
+    if (f.dFrom >= today) { const r = { off: daysTo(today, f.dFrom), span: daysTo(f.dFrom, f.dTo) }; return rollOk(r) ? r : null; }
+    const base = isYmd(saved) && saved <= f.dFrom ? saved : f.dFrom;
+    return { off: Math.min(ROLL.off, daysTo(base, f.dFrom)), span: Math.min(ROLL.span, Math.max(1, daysTo(f.dFrom, f.dTo))) };
+  }
+  /**
+   * Popis klouzavého termínu na kartu: „vždy příštích 8 týdnů (teď 14. 10.–9. 12.)“, „vždy nejbližší prodloužený víkend
+   * (teď Vánoce 24.–27. 12.)“; now = false bez dnešního termínu v závorce.
+   */
+  function rollTxt(form, today, { now = true, SH = window.SearchHelp } = {}) {
+    if (!rolls(form) || !isYmd(today)) return '';
+    const r = form.roll, f = rollForm(form, today, SH), dm = d => `${+d.slice(8, 10)}. ${+d.slice(5, 7)}.`;
+    if (r.lw) {
+      const lw = SH && SH.holidayList(today)[0];
+      return `vždy nejbližší prodloužený víkend${lw && now ? ` (teď ${lw.name} ${SH.dmRange(lw.start, lw.end)})` : ''}`;
+    }
+    const n = r.span, w = n % 7 || n === 7 ? 0 : n / 7;
+    const len = w ? (w <= 4 ? `příští ${w} týdny` : `příštích ${w} týdnů`) : n === 1 ? 'příští den' : n <= 4 ? `příští ${n} dny` : `příštích ${n} dní`;
+    // začátek dál než za týden: rozsah ve dnech od dneška („odlet za 30–58 dní“)
+    return `vždy ${r.off > CFG.rollNear ? `odlet za ${r.off}–${r.off + n} dní` : len}${now ? ` (teď ${dm(f.dFrom)}–${dm(f.dTo)})` : ''}`;
+  }
 
   /** Dlouho nekontrolované hledání (nebo ještě nikdy). */
   function isStale(w, now, maxAge = CFG.staleMs) {
@@ -24,12 +91,13 @@
 
   /**
    * Termín celý v minulosti: přesná data → odlet už byl (server minulý odlet nehledá); flexibilně → konec rozsahu;
-   * cesta přes víc měst → první let už byl.
+   * cesta přes víc měst → první let už byl. Klouzavý termín (form.roll) neproběhne nikdy.
    */
   function isPast(form, today) {
     const f = form || {};
     if (f.trip === 'multi') return (f.legs || []).some(l => l && l.date && l.date < today);
     if (f.dateMode === 'exact') return !!f.xOut && f.xOut < today;
+    if (rolls(f)) return false;
     return !!f.dTo && f.dTo < today;
   }
 
@@ -120,10 +188,14 @@
   /**
    * Klíč hledání pro hlídané ceny: dotaz na server (payload) bez pořadí klíčů a seznamů (Praha + Brno = Brno + Praha,
    * lety cesty přes víc měst ale v pořadí), bez prázdných hodnot a bez polí, která hledání nemění (u přesných dat
-   * rozsah a noci flexibilního termínu, u cesty jen tam noci a návrat). Stejný klíč = stejné hledání.
+   * rozsah a noci flexibilního termínu, u cesty jen tam noci a návrat). Stejný klíč = stejné hledání. payload.roll =
+   * klouzavý termín hlídání (rollForm) – data, která se s ním každý den mění, klíč nemají.
    */
   function searchKey(payload) {
     const p = { ...(payload || {}) };
+    // klouzavý termín (roll): místo dnešních dat jeho popis – klíč se den ode dne nemění (u svátku ani noci a dny)
+    if (rollOk(p.roll)) ['dateFrom', 'dateTo', 'depAfter', ...(p.roll.lw ? ['nightsMin', 'nightsMax', 'outDays', 'backDays'] : [])].forEach(k => delete p[k]);
+    else delete p.roll;
     if (p.exactOut) ['dateFrom', 'dateTo', 'nightsMin', 'nightsMax', 'outDays', 'backDays'].forEach(k => delete p[k]);
     if (p.trip === 'oneway') ['nightsMin', 'nightsMax', 'backDays', 'exactBack'].forEach(k => delete p[k]);
     const str = x => JSON.stringify(x === undefined ? null : x);
@@ -270,5 +342,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
+  window.Alerts = { CFG, rollOk, rolls, rollForm, rollSpec, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
 })();

@@ -284,6 +284,7 @@
   }
   function setForm(f) {
     f = { ...defaultForm(), ...SearchHelp.groundForm(f) }; // starší uložená hledání: kmRate v Kč/km → násobek
+    rollTouched = false; // 📅 Posouvat termín s časem: zase podle začátku rozsahu
     if (f.dFrom < today()) { const span = Math.max(14, (new Date(f.dTo) - new Date(f.dFrom)) / 864e5 | 0); f.dFrom = addDays(today(), 3); f.dTo = addDays(f.dFrom, span); }
     if (!f.xOut || f.xOut < today()) { const n = f.xOut && f.xBack ? Math.max(0, (new Date(f.xBack) - new Date(f.xOut)) / 864e5 | 0) : 7; f.xOut = addDays(today(), 14); f.xBack = addDays(f.xOut, n); }
     $$('#dateMode button').forEach(b => b.classList.toggle('on', b.dataset.v === f.dateMode));
@@ -311,6 +312,7 @@
     syncFormUI(); refreshOrigins();
   }
   let pendingExclude = new Set();
+  let rollTouched = false; // 📅 Posouvat termín s časem přepnuté ručně (jinak podle začátku rozsahu – rollWanted)
   // Prodloužený víkend (karta radaru „Svátky“): v předvečer volna jen odlety od daného času. Platí, dokud je den
   // v rozsahu odletu, hledání není přesná data / víc měst a uživatel ho nevypnul.
   let depAfterVal = null;
@@ -832,6 +834,8 @@
     $('#geoBtn').onclick = () => useMyLocation(fromInput);
     $('#searchForm').onsubmit = e => { e.preventDefault(); startSearch(); };
     $('#watchBtn').onclick = () => addWatch();
+    // 📅 Posouvat termín s časem mění jen způsob uložení ♡, ne hledání (žádné rozbalení formuláře ani Nedávno)
+    $('#rollOn').addEventListener('change', e => { e.stopPropagation(); rollTouched = true; updateWatchBtn(); });
     $('#searchForm').addEventListener('change', formEdited);
     $('#guideLink').onclick = openGuide;
   }
@@ -2594,17 +2598,35 @@
     return { czk: t.perPersonCzk, desc: `${g.dest.label} · ${fmtDate(t.out.date)}${t.back ? '–' + fmtDate(t.back.date) : ''} · z ${t.out.from}` };
   }
   // Formulář hlídaného hledání tak, jak se kontroluje: starší uložené doplněné o výchozí hodnoty (kmRate v Kč/km);
-  // hlídané před cestou z letiště do města bez ní (cena i historie bez ní).
+  // hlídané před cestou z letiště do města bez ní (cena i historie bez ní); klouzavý termín (form.roll) na dnešek.
   function watchForm(w) {
-    const f = { ...defaultForm(), ...SearchHelp.groundForm(w.form) };
+    const f = { ...defaultForm(), ...SearchHelp.groundForm(Alerts.rollForm(w.form, today())) };
     if (w.form && w.form.arrival == null) f.arrival = false;
     return f;
   }
   // Stejné hledání = stejný dotaz na server (jako při kontrole: termín, který už začal, od dneška) – hlídá se jen jednou.
+  // Klouzavý termín: místo dnešních dat jeho popis (klíč se den ode dne nemění – sloučení, záloha, ♥ Hlídáš).
   function watchKey(w) {
-    try { const f = watchForm(w); return Alerts.searchKey(payloadOf(SearchHelp.recentForm(f, today()) || f)); } catch (e) { return `?${w.id}`; }
+    try { const f = watchForm(w); return Alerts.searchKey(Alerts.rolls(f) ? { ...payloadOf(f), roll: f.roll } : payloadOf(SearchHelp.recentForm(f, today()) || f)); } catch (e) { return `?${w.id}`; }
   }
-  const isWatched = f => { const k = watchKey({ form: f }); return (S.watch || []).some(w => watchKey(w) === k); };
+  // 📅 Posouvat termín s časem: klouzavý termín pro ♡ z formuláře f (bez ručního přepnutí zapnutý, když rozsah začíná
+  // nejpozději za 7 dní) → roll nebo null
+  function rollWanted(f) {
+    const roll = Alerts.rollSpec(f, today());
+    return roll && (rollTouched ? $('#rollOn').checked : f.dFrom <= addDays(today(), Alerts.CFG.rollNear)) ? roll : null;
+  }
+  // hlídané pevně i klouzavě (♥ Hlídáš – stejné hledání se znovu neukládá ani s přepnutým 📅)
+  const isWatched = f => {
+    const roll = Alerts.rollSpec(f, today()), ks = new Set([watchKey({ form: f }), ...(roll ? [watchKey({ form: { ...f, roll } })] : [])]);
+    return (S.watch || []).some(w => ks.has(watchKey(w)));
+  };
+  // Popis hlídání pod názvem: termín (klouzavý „vždy příštích 8 týdnů (teď 14. 10.–9. 12.)“), noci, zavazadla, auto.
+  function watchSub(f) {
+    const legs = f.trip === 'multi' ? f.legs : null;
+    return (legs ? `🗺️ ${plural(legs.length, 'let', 'lety', 'letů')} · ${fmtDate(legs[0].date)} → ${fmtDate(legs[legs.length - 1].date)}` : f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${Alerts.rolls(f) ? Alerts.rollTxt(f, today()) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)}`} · ${f.trip === 'return' ? SearchHelp.nightsRange(f.nMin, f.nMax) : 'jen tam'}${f.depAfter ? ` · ${fmtDate(f.depAfter.date)} odlet od ${f.depAfter.time}` : ''}${f.minTemp ? ` · 🌡️ ≥ ${f.minTemp} °C` : ''}`) + (BAG_LBL[f.bags] ? ` · 🧳 ${BAG_LBL[f.bags]}` : '') + (f.ground && f.groundMode === 'car' ? ` · 🚗 na letiště autem (${FUEL_SHORT[f.carFuel] || 'nafta'})` : '');
+  }
+  // klouzavé hlídání ukazuje dnešní termín, pevné popis z uložení
+  const subOf = w => (Alerts.rolls(w.form) ? watchSub(watchForm(w)) : w.sub);
   // form = hledání výsledků („Je to dobrá cena?“), jinak formulář
   async function addWatch(form) {
     const f = form || getForm();
@@ -2618,18 +2640,25 @@
     if (!res) return;
     const b = bestOf(res);
     const czk0 = b ? b.czk : null;
-    const legs = f.trip === 'multi' ? f.legs : null;
-    const w = { id: Date.now().toString(36), label: watchLabel(f), sub: (legs ? `🗺️ ${plural(legs.length, 'let', 'lety', 'letů')} · ${fmtDate(legs[0].date)} → ${fmtDate(legs[legs.length - 1].date)}` : f.dateMode === 'exact' ? whenTxt({ exact: { out: f.xOut, back: f.trip === 'return' ? f.xBack : null, flex: f.xFlex } }) : `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ${f.trip === 'return' ? SearchHelp.nightsRange(f.nMin, f.nMax) : 'jen tam'}${f.depAfter ? ` · ${fmtDate(f.depAfter.date)} odlet od ${f.depAfter.time}` : ''}${f.minTemp ? ` · 🌡️ ≥ ${f.minTemp} °C` : ''}`) + (BAG_LBL[f.bags] ? ` · 🧳 ${BAG_LBL[f.bags]}` : '') + (f.ground && f.groundMode === 'car' ? ` · 🚗 na letiště autem (${FUEL_SHORT[f.carFuel] || 'nafta'})` : ''), form: f, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null };
+    // 📅 klouzavý termín: uloží se odstup a délka rozsahu (nebo „nejbližší prodloužený víkend“), ne data
+    const roll = rollWanted(f), wf = roll ? { ...f, roll } : f;
+    const w = { id: Date.now().toString(36), label: watchLabel(f), sub: watchSub(roll ? Alerts.rollForm(wf, today()) : f), form: wf, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null };
     // stejné hledání podruhé (♡ pod formulářem i v „Je to dobrá cena?“) jen aktualizuje cenu té, co už je
     const r = Alerts.upsertWatch(S.watch || [], w, watchKey, { now: Date.now(), cap: 12, partial: Alerts.incomplete(res.providers) });
     S.watch = r.list; save();
     updateWatchBadges(); updateWatchBtn();
-    toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : 'Hledání uloženo – cenu hlídám na Přehledu, dokud máš ATLAS otevřený');
+    toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : roll ? `Hledání uloženo – termín se posouvá s časem (${Alerts.rollTxt(wf, today(), { now: false })}), cenu hlídám na Přehledu, dokud máš ATLAS otevřený` : 'Hledání uloženo – cenu hlídám na Přehledu, dokud máš ATLAS otevřený');
   }
   /** Tlačítko ♡ pod formulářem: hlídané hledání → „♥ Hlídáš“ (klik ukáže hlídané ceny na Přehledu). */
   function updateWatchBtn() {
     const b = $('#watchBtn'); if (!b || !fromInput) return;
-    const on = isWatched(getForm());
+    const f = getForm(), on = isWatched(f);
+    // 📅 Posouvat termín s časem jen u flexibilního termínu, který jde posouvat (a jen dokud se nehlídá)
+    const rl = $('#rollLbl'), roll = !on && Alerts.rollSpec(f, today());
+    if (rl) {
+      rl.hidden = !roll;
+      if (roll) { if (!rollTouched) $('#rollOn').checked = Boolean(rollWanted(f)); rl.title = `♡ uloží hledání jako „${Alerts.rollTxt({ ...f, roll }, today(), { now: false })}“ – termín se každý den posune, hlídání neproběhne`; }
+    }
     b.textContent = on ? '♥ Hlídáš – na Přehledu' : '♡ Hlídat cenu';
     b.classList.toggle('on', on);
     b.onclick = on ? () => { go('dashboard'); setTimeout(() => $('#watchHead')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300); } : () => addWatch();
@@ -2685,13 +2714,17 @@
     const id = esc(w.id);
     const when = st === 'run' ? '<span class="spin dark"></span> kontroluji…' : st === 'wait' ? '⏳ čeká na kontrolu…'
       : w.checked ? `naposledy zkontrolováno <span data-ago="${+w.checked}" title="${esc(new Date(w.checked).toLocaleString('cs-CZ'))}">${Alerts.agoTxt(now - w.checked)}</span>` : 'zatím nezkontrolováno';
+    // 📅 klouzavý termín: přepínač (zapnutý), u pevného flexibilního „převést na klouzavé“ (u proběhlého v poznámce)
+    const rolled = Alerts.rolls(w.form), canRoll = !rolled && Boolean(rollOf(w));
+    const roll = rolled ? `<div class="w-roll"><label class="check-inline"><input type="checkbox" data-wr="${id}" checked> 📅 Posouvat termín s časem</label><span class="faint">porovnává se vždy aktuální termín</span></div>`
+      : canRoll && !past ? `<div class="w-roll"><button type="button" class="linkbtn" data-wr="${id}" title="Termín se bude každý den posouvat (jako při uložení) – historie, cílová cena i „od uložení“ zůstanou">📅 převést na klouzavé</button></div>` : '';
     return `<div class="card watch${st ? ' checking' : ''}${past ? ' past' : ''}${drop ? ' dropped' : ''}" data-w="${id}">
         <div class="w-head"><div class="w-t">${esc(w.label)}</div>${drop ? '<span class="b good">📉 zlevnilo</span>' : ''}</div>
-        <div class="faint" style="font-size:12px">${esc(w.sub)}</div>
+        <div class="faint" style="font-size:12px">${esc(subOf(w))}</div>${roll}
         <div class="w-main"><div class="w-p">${cur ? czk(cur) : '—'}<small>/os.</small> ${diff ? `<span class="${diff < 0 ? 'good' : 'bad'}" title="Oproti minulé kontrole">${diff < 0 ? '↓' : '↑'} ${czk(Math.abs(diff))}</span>` : ''}</div>${sparkSvg(w)}</div>
         <div class="w-stats">${since != null ? `<span>od uložení <b class="${since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>` : ''}${low ? `<span>nejnižší cena ${czk(low)}</span>` : ''}</div>
         <div class="faint" style="font-size:12px">${esc(w.best?.desc || 'zatím bez výsledku')}</div>
-        ${past ? '<div class="note warn w-past">⌛ <div>Termín proběhl – tohle hledání už hlídat nejde. Smaž ho, nebo ho otevři a vyber nové datum.</div></div>'
+        ${past ? `<div class="note warn w-past">⌛ <div>Termín proběhl – tohle hledání už hlídat nejde. ${canRoll ? `<button type="button" class="linkbtn" data-wr="${id}">📅 Převést na klouzavé</button> – termín se pak bude posouvat s časem a historie i cílová cena zůstanou. Nebo ho smaž.` : 'Smaž ho, nebo ho otevři a vyber nové datum.'}</div></div>`
         : `<label class="w-target">Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target ? '' : 'hidden'}>✓ splněno</span></label>`}
         <div class="w-st faint">${when}</div>
         <div class="row w-act">${past ? `<button class="btn sm" data-wd="${id}">🗑 Smazat</button><button class="btn sm ghost" data-wo="${id}">Otevřít</button>`
@@ -2718,10 +2751,11 @@
       else if (b.dataset.wc) checkWatch(b.dataset.wc);
       else if (b.dataset.wo) openWatch(b.dataset.wo);
       else if (b.dataset.wd) { S.watch = S.watch.filter(x => x.id !== b.dataset.wd); save(); renderWatch(); }
+      else if (b.dataset.wr) setRoll(b.dataset.wr, true);
     };
     // ukládat průběžně (překreslení karty během psaní nic neztratí), potvrdit až po dopsání
     host.oninput = e => { if (e.target.dataset.wt) setTarget(e.target.dataset.wt, e.target.value); };
-    host.onchange = e => { if (e.target.dataset.wt) setTarget(e.target.dataset.wt, e.target.value, true); };
+    host.onchange = e => { if (e.target.dataset.wt) setTarget(e.target.dataset.wt, e.target.value, true); else if (e.target.dataset.wr) setRoll(e.target.dataset.wr, e.target.checked); };
     $('#watchCheckAll').onclick = () => Promise.all((S.watch || []).filter(w => !Alerts.isPast(w.form, today())).map(w => checkWatch(w.id)));
     updateWatchBadges();
     observeSeen();
@@ -2749,6 +2783,25 @@
     else if (done && w.target && +w.notified > 0 && w.notified <= w.target) { delete w.notified; delete w.notifiedAt; }
     save(); renderNews(); // „🎯 pod tvou cenou“ v řádku Od minula hned podle nové cílové ceny
     if (done) toast(!w.target ? 'Cílová cena zrušena' : met ? `Už teď stojí ${czk(cur)} – ozvu se, až cena ještě klesne` : `Upozorním, až bude cena ${czk(w.target)} nebo méně`);
+  }
+  // Klouzavý termín pro uložené hlídání: rozsah, který už začal, se posune jako v den uložení (první bod historie).
+  function rollOf(w) {
+    const at = (w.history || [])[0]?.at;
+    return Alerts.rollSpec({ ...defaultForm(), ...w.form }, today(), { saved: at > 0 ? fmtYMD(new Date(at)) : null });
+  }
+  /** 📅 na kartě: zapnout (i „převést na klouzavé“ u proběhlého – hned se zkontroluje), vypnout = zůstane dnešní termín. */
+  function setRoll(id, on) {
+    const w = (S.watch || []).find(x => x.id === id); if (!w) return;
+    const t = today(), was = Alerts.isPast(w.form, t), spec = on && rollOf(w);
+    if (on && !spec) return renderWatch();
+    const { roll, ...fixed } = Alerts.rollForm(w.form, t); // vypnuto: dnešní termín natrvalo
+    const form = on ? { ...w.form, roll: spec } : fixed;
+    // pevný termín může být stejné hledání jako jiné hlídání (a naopak) – dvakrát totéž ne
+    const k = watchKey({ ...w, form });
+    if ((S.watch || []).some(x => x !== w && watchKey(x) === k)) { toast('Tohle hledání už hlídáš v jiné kartě', 'err'); return renderWatch(); }
+    w.form = form; w.sub = watchSub(watchForm(w)); save(); renderWatch();
+    toast(on ? `📅 Termín se posouvá s časem – ${Alerts.rollTxt(form, t)}` : `Termín zůstane ${fmtDate(fixed.dFrom)}–${fmtDate(fixed.dTo)}`);
+    if (on && was) checkWatch(id);
   }
   /** Ruční kontrola – zařadí se do stejné fronty jako automatická, takže se nikdy nepotkají. */
   function checkWatch(id) {
@@ -2799,7 +2852,7 @@
     toast(`${why === 'target' ? '🎯' : '📉'} ${w.label}: ${czk(cur)}${more ? ' · ' + more : ''}`);
     if (notifOk() !== 'granted') return;
     try {
-      const n = new Notification(why === 'target' ? `ATLAS: ${czk(cur)} – pod tvou cenou` : `ATLAS: cena klesla na ${czk(cur)}`, { body: `${w.label} · ${w.sub || ''}${more ? `\n${more}` : ''}\nKlikni a otevřu hledání.`, tag: 'atlas-watch-' + w.id });
+      const n = new Notification(why === 'target' ? `ATLAS: ${czk(cur)} – pod tvou cenou` : `ATLAS: cena klesla na ${czk(cur)}`, { body: `${w.label} · ${subOf(w) || ''}${more ? `\n${more}` : ''}\nKlikni a otevřu hledání.`, tag: 'atlas-watch-' + w.id });
       n.onclick = () => { window.focus(); n.close(); openWatch(w.id); };
     } catch (e) { } // např. Android Chrome umí upozornění jen přes service worker
   }

@@ -50,6 +50,9 @@
   const NUM = { radius: [0, 500], nMin: [0, 60], nMax: [0, 60], adults: [1, 9], xFlex: [0, 3], minTemp: [0, 40], kmRate: [0, 5] };
   const DATE = ['dFrom', 'dTo', 'xOut', 'xBack'];
   const FUELS = ['diesel', 'petrol', 'ev'];
+  // 📅 klouzavý termín hlídání (Alerts.rollForm): celá čísla off 0–60 a span 1–180, nebo lw jen 'next' – jinak pryč (pevný termín)
+  const cleanRoll = v => (!obj(v) ? null : v.lw === 'next' ? { lw: 'next' }
+    : v.lw == null && Number.isInteger(v.off) && v.off >= 0 && v.off <= 60 && Number.isInteger(v.span) && v.span >= 1 && v.span <= 180 ? { off: v.off, span: v.span } : null);
   /** Formulář hledání u hlídané ceny: místa, lety, dny, časy, volby a čísla ověřené, ostatní klíče jen jako jednoduché hodnoty. */
   function cleanForm(f, txt) {
     if (!obj(f)) return null;
@@ -65,6 +68,7 @@
       else if (k === 'outDays' || k === 'backDays') o[k] = Array.isArray(v) ? [...new Set(v.filter(d => Number.isInteger(d) && d >= 0 && d <= 6))] : [];
       else if (k === 'exclude') o.exclude = Array.isArray(v) ? v.filter(x => typeof x === 'string' && /^[A-Z0-9]{3}$/.test(x)).slice(0, 40) : [];
       else if (k === 'depAfter') o.depAfter = obj(v) && isYmd(v.date) && typeof v.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v.time) ? { date: v.date, time: v.time } : null;
+      else if (k === 'roll') { const r = cleanRoll(v); if (r) o.roll = r; }
       else if (typeof v === 'string') o[k] = txt(v, 40);
       else if (fin(v) || typeof v === 'boolean' || v === null) o[k] = v;
     }
