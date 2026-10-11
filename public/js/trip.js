@@ -1553,8 +1553,9 @@
   /** Aktivita programu, jak ji průvodce uloží do plánovače („Místo: název – poznámka“, u jednoho místa bez místa). */
   const actTxt = (place, x) => (place ? `${place}: ` : '') + x.name + (x.note ? ` – ${x.note}` : '');
   // den programu bez aktivit smazaných či přejmenovaných v plánovači (drop: { den: [text z plánovače] }); cesta
-  // z průvodce prošla sanitizeTrip, který z textů vyhodí <>"'` – porovnává se bez nich
-  const cutQ = s => String(s).replace(/[<>"'`]/g, '');
+  // z průvodce prošla sanitizeTrip, který z textů vyhodí <>"'` (karta apostrofy nechá), a plán ze zálohy má místo ' ’ –
+  // porovnává se bez nich
+  const cutQ = s => String(s).replace(/[<>"'`’]/g, '');
   const progDay = (d, place, drop) => { const g = drop && Array.isArray(drop[d.date]) ? drop[d.date].map(cutQ) : null; return g ? { ...d, items: d.items.filter(x => !g.includes(cutQ(actTxt(place, x)))) } : d; };
   /**
    * Průběh cesty po dnech [[den YYYY-MM-DD, ikona, html, { plan, day }?]] seřazený podle dne – shrnutí průvodce i karta
@@ -1637,6 +1638,13 @@
     const name = ovOn(t) ? t.overland.to.label : t.dest.label;
     return { name, hotel: hotelName(t.stay), city: (t.cityCenter && t.cityCenter.label) || name, country: t.dest.country || '' };
   }
+  /** Spoj last je cesta zpět: končí, kde spoj first začal – stejné letiště / město, nebo aspoň stejná časová zóna (návrat
+   *  na jiné letiště u domova, BRQ místo PRG). Víc měst jen tam (PRG → FCO, FCO → BCN) ne. Spoje ve tvaru legBrief / groundBrief. */
+  function legBack(first, last) {
+    if (!first || !last || first === last) return false;
+    const n = v => String(v || '').trim().toLowerCase();
+    return (n(last.to) !== '' && n(last.to) === n(first.from)) || Boolean(last.toTz && last.toTz === first.fromTz);
+  }
   /** Průběh cesty jen z plánovače: lety (t.legs) a vlak / bus (t.ground) s časy, online check-in a aktivity dnů (t.days). */
   function planTimeline(t) {
     const ok = v => (Array.isArray(v) ? v.filter(x => x && typeof x === 'object' && /^\d{4}-\d{2}-\d{2}$/.test(x.date || '')) : []);
@@ -1649,8 +1657,9 @@
       if (c) rows.push(checkinRow(l, c));
     };
     const gRow = g => rows.push([g.date, g.kind === 'bus' ? '🚌' : '🚆', `${fl(g)} · ${esc(g.kind || 'vlak / bus')}${g.dep ? '' : g.min ? ` · ~${minutesToHm(g.min)}, čas ověř` : ' · čas ověř'}${g.fromStation ? ` · ${esc(g.fromStation)} → ${esc(g.toStation)}` : ''}${g.carrier ? ` (${esc(g.carrier)})` : ''}`]);
-    // tam (a mezi městy) před aktivitami dne, zpět až po nich
-    const back = legs.length > 1 ? legs.at(-1) : null, gBack = gs.length > 1 ? gs.at(-1) : null;
+    // tam (a mezi městy) před aktivitami dne, zpět až po nich – zpět je jen poslední spoj, který končí tam, kde cesta
+    // začala (Víc měst jen tam: PRG → FCO → BCN je i poslední let „✈️“ před programem dne)
+    const back = legs.length > 1 && legBack(legs[0], legs.at(-1)) ? legs.at(-1) : null, gBack = gs.length > 1 && legBack(gs[0], gs.at(-1)) ? gs.at(-1) : null;
     legs.forEach((l, i) => l !== back && legRow(l, i ? '✈️' : '🛫'));
     gs.forEach(g => g !== gBack && gRow(g));
     ownRows(rows, t.days, '📍');
@@ -1993,9 +2002,11 @@
    * Data ze sdíleného odkazu jsou cizí vstup: z textů odstraň znaky, které by šly použít k vložení
    * HTML (<, >, uvozovky, `), čísla převeď na čísla a odkazy pustí dál jen safeUrl při vykreslení.
    */
-  function sanitizeTrip(raw) {
-    // Odkazy (…url/Url) mohou být dlouhé (Ryanair ~400 znaků) – nezkracovat; texty do 300 znaků.
-    const clean = (v, key = '') => typeof v === 'string' ? v.replace(/[<>"'`]/g, '').slice(0, /url$/i.test(key) ? 4000 : 300)
+  function sanitizeTrip(raw, o = {}) {
+    // Odkazy (…url/Url) mohou být dlouhé (Ryanair ~400 znaků) – nezkracovat; texty do 300 znaků. o.quotes: apostrofy
+    // a uvozovky nechat (Castel Sant'Angelo) – jen pro výstup, který všechno escapuje (karta „📍 Dnes na cestě“).
+    const bad = o.quotes ? /[<>`]/g : /[<>"'`]/g;
+    const clean = (v, key = '') => typeof v === 'string' ? v.replace(bad, '').slice(0, /url$/i.test(key) ? 4000 : 300)
       : typeof v === 'number' ? (Number.isFinite(v) ? v : 0)
       : typeof v === 'boolean' || v == null ? v
       : Array.isArray(v) ? v.slice(0, 200).map(x => clean(x, key))
@@ -2227,5 +2238,5 @@
     }
   }
 
-  window.Trip = { start, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn };
+  window.Trip = { start, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn, legBack };
 })();

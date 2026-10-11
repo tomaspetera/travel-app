@@ -74,7 +74,7 @@ plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dota
   „odjezd“.
 - **Na cestě** „📍 Dnes na cestě · den 3 z 6 · Lisabon“: dnešní řádky (program s trasou pěšky do Google Map a Mapy.com,
   přejezd, kdy vyrazit z ubytování na letiště, let zpět) a první řádek zítřka; ubytování toho dne s odkazem
-  **navigovat** (Google Maps odtud, kde právě jsi), místní čas a posun proti Praze, odpočet do odletu či odjezdu
+  **navigovat** (Google Maps odtud, kde právě jsi – až po příletu a jen do odletu zpět), místní čas a posun proti Praze, odpočet do odletu či odjezdu
   (posledních 24 h, jen u spoje s časem – u „čas ověř“ si karta čas nevymýšlí). U trasy přes víc míst je to místo, kde
   ten den spíš. **📋 Celý plán →** otevře okno cesty.
 - Řádky jsou tytéž jako v časové ose shrnutí průvodce (`Trip.timeline` – karta a shrnutí se nerozejdou); u cesty jen
@@ -82,11 +82,17 @@ plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dota
   těch, které jsi v Itineráři smazal nebo přejmenoval (karta ukáže totéž co plán, trasa pěšky jen k tomu, co zbylo).
 - „Dnes“ je den v místě, kde cesta právě je – před odletem doma (i v letadle), po přistání v cíli, po návratu zase
   doma (zóny letišť a měst ze spojů, i přes změnu času); spoj bez času přepne až o půlnoci po dni odjezdu. Let zpět
-  s přistáním po půlnoci drží kartu do konce dne příletu. Cesta bez časů spojů bere den v telefonu. Běží-li víc cest
-  najednou, má přednost probíhající (z nich naposledy začatá), jinak nejbližší odjezd.
+  s přistáním po půlnoci drží kartu do konce dne příletu. Cesta bez časů spojů bere den v telefonu.
+- **Víc cest najednou**: přednost má cesta, jejíž spoj právě letí či jede nebo odjíždí do 24 h (ráno odletu i večer
+  před dalším odletem); jinak probíhající – cesta se spoji nebo z průvodce před výletem z plánovače či z Objevuj, pak
+  naposledy začatá; pak nejbližší odjezd. Cesta, ze které ses už vrátil (let zpět přistál), drží kartu do půlnoci, jen
+  když není nic jiného. Ostatní probíhající cesty karta ukáže řádkem **📌 Také dnes** (program dne a odkaz na plán)
+  a jejich 🔖 rezervace pod rezervacemi cesty. Poslední let cesty přes víc měst je „zpět“ (🛬, po programu dne), jen
+  když končí tam, kde cesta začala (nebo aspoň ve stejné časové zóně) – PRG → FCO → BCN je ✈️ před programem.
 
 **🔖 Rezervace**: v okně cesty v plánovači si k cestě zapíšeš až 6 kódů – co (let tam, hotel…), kód (PNR, číslo
-potvrzení) a poznámku. Karta je ukáže s tlačítkem **Kopírovat**. Kódy zůstanou **jen v tomto zařízení** a v **💾 záloze**
+potvrzení) a poznámku; Enter v poli „Co“ (a v prázdném kódu) jen přejde na další pole, uloží až s kódem nebo
+z poznámky. Karta je ukáže s tlačítkem **Kopírovat**. Kódy zůstanou **jen v tomto zařízení** a v **💾 záloze**
 (obnova je k cestě doplní, nic nesmaže) – do odkazů na cestu a plán (`#trip=`, `#plan=`) ani do kalendáře (.ics) nejdou.
 
 **Zkratka „Na cestě“**: nainstalovaná aplikace má v nabídce ikony (dlouhý stisk na Androidu, pravé tlačítko na počítači)

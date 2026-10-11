@@ -25,7 +25,7 @@ function load({ clipboard = false } = {}) {
     var $$ = () => []; var go = (v) => { __go.push(v); }; var save = () => {}; var toast = (m) => { __toasts.push(m); }; var confirm = () => true;
     var byIso = { PT: { cs: 'Portugalsko' }, IT: { cs: 'Itálie' }, AT: { cs: 'Rakousko' } }; var PACK = ['Pas'];`, ctx, { filename: 'stubs.js' });
   for (const f of ['ics.js', 'planshare.js', 'backup.js', 'trip.js', 'places.js']) vm.runInContext(src(f), ctx, { filename: f });
-  vm.runInContext(pick('todayLocal', 'daysTo', 'inDays', 'okYmd', 'ymdPlus', 'wallAt', 'tripLegs', 'tripZone', 'tripNow', 'nowParts', 'hmTxt', 'dowLbl', 'canCopy', 'nowCard',
+  vm.runInContext(pick('todayLocal', 'daysTo', 'inDays', 'okYmd', 'ymdPlus', 'wallAt', 'tripLegs', 'tripZone', 'tripBack', 'tripNow', 'tripRows', 'nowParts', 'hmTxt', 'dowLbl', 'canCopy', 'nowCard',
     'dateRange', 'planIco', 'planTransport', 'tripIsos', 'tripVia', 'planEvents'), ctx, { filename: 'app-now.js' });
   return ctx;
 }
@@ -164,6 +164,156 @@ test('tripNow: víc cest najednou – probíhající má přednost (naposledy za
   assert.equal(pick([c, d], '2026-11-14'), 'D', 'stejný začátek → dřív končící');
   assert.equal(pick([{ name: 'Skončená', start: '2026-11-01', end: '2026-11-11' }], '2026-11-12'), null);
   assert.equal(C.tripNow([long, lis], noon('2026-11-14')).i, 1, 'index cesty v S.trips');
+});
+
+test('tripNow + nowCard: výlet z plánovače či z Objevuj ve dnech cesty se spoji kartu nepřebije – ukáže se pod ní („také dnes“)', () => {
+  const c = load({ clipboard: true });
+  const lis = saved(lisbon(), { refs: [{ co: 'Let tam i zpět', kod: 'K7QW2P', pozn: 'Ryanair' }] });
+  lis.checklist = [{ t: 'Zařídit: cestovní pojištění', done: false }, ...Array.from({ length: 21 }, (_, k) => ({ t: `Věc ${k}`, done: false }))];
+  // Plánovač → Nová cesta (bez letu) na den příletu a výlet pěšky z Objevuj
+  const alfama = { name: 'Odpoledne v Alfamě', dest: 'Lisabon', iso: null, start: '2026-11-12', end: '2026-11-12', pax: '2', budget: '', flight: null, days: {}, checklist: Array.from({ length: 8 }, (_, k) => ({ t: `x${k}`, done: false })), notes: '' };
+  const hike = { name: 'Pěšky: Lisabon – Alfama 6 km', dest: 'Alfama', iso: 'PT', start: '2026-11-13', end: '2026-11-13', days: { '2026-11-13': ['🥾 Okruh 6 km z Alfama', 'Trasa v Mapy.com'] }, notes: '', src: 'hike', explore: {}, pax: '2', budget: '', checklist: [{ t: 'Pas', done: false }] };
+  const card = (trips, iso) => { const n = Date.parse(iso), x = c.tripNow(trips, n), p = c.nowParts(x, n); return { x, p, h: sp(c.nowCard(x, p)) }; };
+  // ráno odletu (4:00 v Praze): pořád cesta s letem – z domu, let, odpočet, rezervace, „Sbaleno“ z její (22 věcí)
+  for (const trips of [[lis, alfama], [alfama, lis]]) {
+    const m = card(trips, '2026-11-12T03:00:00Z');
+    assert.equal(m.x.t, lis);
+    assert.deepEqual(plain(m.x.also.map((y) => [y.t.name, y.today])), [['Odpoledne v Alfamě', '2026-11-12']]);
+    assert.ok(m.h.includes('📍 Dnes na cestě · den 1 z 6 · <b>Lisabon</b>') && m.h.includes('Vyraž z domu nejpozději v 3:40') && m.h.includes('PRG 06:25 → LIS 09:05 · Ryanair · FR 1234'), m.h);
+    assert.ok(m.h.includes('✈️ Odlet PRG → LIS <b data-nw="cd"></b>') && m.h.includes('<code>K7QW2P</code>'), m.h);
+    assert.ok(m.h.includes('🧾 Před cestou zbývá zařídit 1 a sbalit 21'), m.h);
+    const ai = trips.indexOf(alfama);
+    assert.ok(m.h.includes(`<li class="nw-also"><span class="nw-i">📌</span><span><span class="nw-d">také dnes</span><b>Odpoledne v Alfamě</b> · <button type="button" class="linkbtn" data-nw-plan="${ai}">Otevřít plán →</button></span></li>`), m.h);
+    assert.equal(m.p.hotel, null, 'doma před odletem bez navigace do hotelu v Lisabonu');
+  }
+  // další den výlet pěšky: hotel, místní čas a rezervace cesty, výlet s programem pod dnešními řádky
+  const d = card([hike, lis], '2026-11-13T10:00:00Z');
+  assert.equal(d.x.t, lis);
+  assert.deepEqual([d.p.hotel && d.p.hotel.name, d.p.clock, d.p.refs.length], ['Hotel Lisboa Centro', '10:00', 1]);
+  assert.ok(d.h.includes('<span class="nw-d">také dnes</span><b>Pěšky: Lisabon – Alfama 6 km</b> · 🥾 Okruh 6 km z Alfama · Trasa v Mapy.com · <button type="button" class="linkbtn" data-nw-plan="0">'), d.h);
+  assert.ok(d.h.indexOf('nw-also') > d.h.indexOf('Belém · Jerónimos') && d.h.indexOf('nw-also') < d.h.indexOf('nw-next'), 'po dnešních řádcích, před zítřkem');
+  // bez cesty se spoji výlet sám (jako dřív) a bez „také dnes“
+  const solo = card([hike], '2026-11-13T10:00:00Z');
+  assert.deepEqual([solo.x.t.name, solo.x.also.length, solo.h.includes('nw-also')], [hike.name, 0, false]);
+  // výlet se spoji uprostřed cesty (vlakem do Porta): ten den výlet, rezervace cesty zůstanou na kartě
+  const porto = { name: 'Porto', dest: 'Porto', start: '2026-11-14', end: '2026-11-16', days: {}, checklist: [], refs: [{ co: 'Vlak', kod: 'CP-77' }], ground: [
+    { from: 'Lisabon', to: 'Porto', date: '2026-11-14', dep: '2026-11-14T08:00', arr: '2026-11-14T11:00', fromTz: 'Europe/Lisbon', toTz: 'Europe/Lisbon', kind: 'vlak' },
+    { from: 'Porto', to: 'Lisabon', date: '2026-11-16', dep: '2026-11-16T18:00', arr: '2026-11-16T21:00', fromTz: 'Europe/Lisbon', toTz: 'Europe/Lisbon', kind: 'vlak' }] };
+  const p15 = card([lis, porto], '2026-11-15T12:00:00Z');
+  assert.deepEqual([p15.x.t.name, plain(p15.p.refs.map((r) => r.kod))], ['Porto', ['CP-77', 'K7QW2P']]);
+  // den návratu z Porta: vlak do 24 h – Porto i proti dřív končící cestě
+  assert.equal(card([lis, porto], '2026-11-16T09:00:00Z').x.t.name, 'Porto');
+  assert.equal(card([lis, porto], '2026-11-16T22:00:00Z').x.t.name, lis.name, 'zpět v Lisabonu (Porto doma)');
+  // deštník bez spojů (celý listopad): probíhá, ale den před odletem (do 24 h) má přednost cesta se spoji
+  const long = { name: 'Celý listopad', start: '2026-11-01', end: '2026-11-30', days: { '2026-11-11': ['Večeře'] } };
+  assert.equal(card([long, lis], '2026-11-10T12:00:00Z').x.t.name, 'Celý listopad', 'odlet za víc než 24 h – probíhající');
+  const e = card([long, lis], '2026-11-11T07:00:00Z');
+  assert.deepEqual([e.x.t, e.x.on, e.x.until, e.p.ahead.l.from], [lis, false, 1, 'PRG']);
+  assert.ok(e.h.includes('🧳 Zítra odlet') && e.h.indexOf('nw-also') < e.h.indexOf('nw-day') && e.h.includes('<b>Celý listopad</b> · Večeře'), e.h);
+});
+
+test('tripNow + nowParts: večer po návratu domů má přednost zítřejší odlet; hotel jen v cíli (po příletu, do odletu zpět)', () => {
+  const lis = saved(lisbon());
+  const rim = { name: 'Řím', dest: 'Řím', iso: 'IT', start: '2026-11-18', end: '2026-11-21', pax: '1', budget: '', flight: 'PRG→FCO 18.11. 06:00 (Ryanair)', days: {}, notes: '',
+    checklist: [{ t: 'Zařídit: cestovní pojištění', done: false }, { t: 'Pas', done: false }],
+    legs: [{ from: 'PRG', to: 'FCO', date: '2026-11-18', dep: '2026-11-18T06:00', arr: '2026-11-18T07:45', arrEst: false, fromTz: 'Europe/Prague', toTz: 'Europe/Rome', carrier: 'Ryanair', flightNo: 'FR 1880', durationMin: 105 }],
+    refs: [{ co: 'Let do Říma', kod: 'RM8Q1Z', pozn: '' }] };
+  const at = (trips, iso) => { const n = Date.parse(iso), x = C.tripNow(trips, n), p = C.nowParts(x, n); return { x, p, h: sp(C.nowCard(x, p)) }; };
+  // 20:00 v Praze, doma od 14:35: zítřejší let do Říma (odpočet, „zařídit“, kód), Lisabon už ne
+  const ev = at([lis, rim], '2026-11-17T19:00:00Z');
+  assert.deepEqual([ev.x.t.name, ev.x.on, ev.x.until, ev.x.also.length, ev.p.ahead.l.to, plain(ev.p.todo), plain(ev.p.refs.map((r) => r.kod))], ['Řím', false, 1, 0, 'FCO', { zar: 1, bal: 1 }, ['RM8Q1Z']]);
+  assert.ok(ev.h.includes('🧳 Zítra odlet · <b>Řím</b>') && ev.h.includes('✈️ Odlet PRG → FCO') && ev.h.includes('🧾 Před cestou zbývá zařídit 1 a sbalit 1') && !ev.h.includes('Hotel Lisboa'), ev.h);
+  // ráno 17. 11. (let zpět za 2 h) i v letadle domů ještě Lisabon
+  assert.equal(at([rim, lis], '2026-11-17T08:00:00Z').x.t, lis);
+  assert.equal(at([rim, lis], '2026-11-17T12:00:00Z').x.t, lis, 'v letadle zpět');
+  assert.equal(at([rim, lis], '2026-11-17T13:40:00Z').x.t.name, 'Řím', 'po přistání v Praze');
+  // samotná cesta po návratu: karta do půlnoci (den 6 z 6), ale bez navigace do hotelu v Lisabonu
+  const home = at([lis], '2026-11-17T19:00:00Z');
+  assert.deepEqual([home.x.day, home.x.home, home.p.hotel, home.h.includes('🏨')], [6, true, null, false]);
+  // hotel: ne doma před odletem, ano po přistání, ne po odletu zpět
+  const hotel = (iso) => at([lis], iso).p.hotel && at([lis], iso).p.hotel.name;
+  assert.deepEqual(['2026-11-12T03:00:00Z', '2026-11-12T07:00:00Z', '2026-11-12T09:10:00Z', '2026-11-17T09:30:00Z', '2026-11-17T10:05:00Z'].map(hotel), [null, null, 'Hotel Lisboa Centro', 'Hotel Lisboa Centro', null]);
+  // z průvodce je druhý spoj zpět, i když přistane jinde (Drážďany, jiná zóna): doma, hotel jen do odletu
+  const dd = saved(lisbon());
+  dd.legs[1] = { ...dd.legs[1], to: 'DRS', toTz: 'Europe/Berlin' };
+  assert.deepEqual([at([dd], '2026-11-17T19:00:00Z').x.home, at([dd], '2026-11-17T10:05:00Z').p.hotel], [true, null]);
+  // plánovač bez průvodce návrat jinam nepozná – zítřejší odlet (do 24 h) má přednost i tak
+  const pd = { ...dd, wizard: undefined };
+  assert.deepEqual([at([pd], '2026-11-17T19:00:00Z').x.home, at([pd, rim], '2026-11-17T19:00:00Z').x.t.name], [false, 'Řím']);
+  // let bez času: v den odletu se neví kdy – hotel ukázat (navigace z letiště)
+  const nt = saved(lisbon());
+  nt.legs[0] = { ...nt.legs[0], dep: null, arr: null };
+  assert.equal(at([nt], '2026-11-12T08:00:00Z').p.hotel.name, 'Hotel Lisboa Centro');
+  // cesta jen tam: hotel po příletu do konce
+  assert.equal(at([saved(lisbonOneWay())], '2026-11-16T20:00:00Z').p.hotel.name, 'Hotel Lisboa Centro');
+});
+
+test('Víc měst jen tam (PRG → FCO → BCN): poslední let není návrat – ✈️ před programem dne, cesta po přistání pořád probíhá', () => {
+  const mc = { name: 'Řím a Barcelona', dest: 'Řím, Barcelona', iso: null, start: '2026-11-12', end: '2026-11-15', pax: '1', budget: '', flight: '1. PRG→FCO …', days: { '2026-11-15': ['Snídaně u Pantheonu'] }, checklist: [], notes: '',
+    legs: [{ from: 'PRG', to: 'FCO', date: '2026-11-12', dep: '2026-11-12T07:00', arr: '2026-11-12T09:00', fromTz: 'Europe/Prague', toTz: 'Europe/Rome', carrier: 'Wizz Air', flightNo: 'W6 1' },
+      { from: 'FCO', to: 'BCN', date: '2026-11-15', dep: '2026-11-15T15:00', arr: '2026-11-15T17:00', fromTz: 'Europe/Rome', toTz: 'Europe/Madrid', carrier: 'Vueling', flightNo: 'VY 6107' }] };
+  assert.deepEqual(lines(C.Trip.timeline(mc)).filter((l) => l.startsWith('2026-11-15')), ['2026-11-15 ✈️ FCO 15:00 → BCN 17:00 · Vueling · VY 6107', '2026-11-15 📍 Snídaně u Pantheonu']);
+  const n = Date.parse('2026-11-15T20:00:00Z'), x = C.tripNow([mc], n);
+  assert.deepEqual([x.home, x.tz, x.today], [false, 'Europe/Madrid', '2026-11-15']);
+  // zpět: na první letiště, jiné letiště doma (stejná zóna), vlak zpět do města odjezdu; jen tam ne
+  const L = C.Trip.legBack;
+  assert.deepEqual([
+    L({ from: 'PRG', fromTz: 'Europe/Prague' }, { to: 'PRG', toTz: 'Europe/Prague' }),
+    L({ from: 'PRG', fromTz: 'Europe/Prague' }, { to: 'BRQ', toTz: 'Europe/Prague' }),
+    L({ from: 'Praha', fromTz: null }, { to: ' praha', toTz: null }),
+    L({ from: 'PRG', fromTz: 'Europe/Prague' }, { to: 'BCN', toTz: 'Europe/Madrid' }),
+    L({ from: 'PRG' }, { to: 'FCO' }), L(null, { to: 'PRG' }), L({ from: '' }, { to: '' }),
+  ], [true, true, true, false, false, false, false]);
+  // cesta tam a zpět beze změny: 🛬 po aktivitách dne
+  assert.deepEqual(plain(C.Trip.timeline(plannerOnly({ days: { '2026-11-17': ['Time Out Market'] } })).filter((r) => r[0] === '2026-11-17').map((r) => r[1])), ['📍', '🛬']);
+});
+
+test('nowParts: apostrofy a uvozovky z průvodce na kartě zůstanou (program, hotel, trasa pěšky, navigace) – escapované', () => {
+  const real = (w) => { const c = load(); c.S.trip = w; c.S.trip.step = 'summary'; c.Trip.render(); c.__els['#sumSave'].onclick(); return c.S.trips[0]; };
+  const it = italy();
+  it.route.bases[2].plan.days[0].items[1].name = "Castel Sant'Angelo";
+  const t = real(it);
+  assert.deepEqual(plain(t.days['2026-11-17']), ['Řím: Koloseum', "Řím: Castel Sant'Angelo"]);
+  const n = Date.parse('2026-11-17T09:00:00Z'), x = C.tripNow([t], n), p = C.nowParts(x, n), h = C.nowCard(x, p);
+  assert.deepEqual(plain(p.rows.map((r) => r[2]))[0], 'Řím: Koloseum · Castel Sant&#39;Angelo');
+  assert.ok(/destination=Castel(\+|%20)Sant(%27|&#39;|')Angelo/.test(h) && !/SantAngelo/.test(h), h.match(/destination=[^&"]*/));
+  const w = lisbon();
+  w.stay.name = "Hotel D'Angleterre \"Centro\"";
+  const l = real(w), m = Date.parse('2026-11-13T11:00:00Z'), lx = C.tripNow([l], m), lp = C.nowParts(lx, m);
+  assert.deepEqual(plain(lp.hotel), { name: "Hotel D'Angleterre \"Centro\"", q: "Hotel D'Angleterre \"Centro\", Lisabon, Portugalsko" });
+  const lh = C.nowCard(lx, lp);
+  assert.ok(lh.includes('🏨 Hotel D&#39;Angleterre &quot;Centro&quot; · <a href="https://www.google.com/maps/dir/?api=1&amp;destination=Hotel+D%27Angleterre+%22Centro%22%2C+Lisabon%2C+Portugalsko&amp;travelmode=transit"'), lh);
+  // pořád bez < > ` (karta je jen escapuje, ale ať je cesta pročištěná jako jinde)
+  const bad = lisbon();
+  bad.stay.name = 'Hotel <b>`X`</b>';
+  const b = real(bad), bx = C.tripNow([b], m);
+  assert.equal(C.nowParts(bx, m).hotel.name, 'Hotel bX/b');
+  // Trip.sanitizeTrip bez volby dál apostrofy a uvozovky vyhazuje (odkaz #trip=, záloha, „Otevřít v průvodci“)
+  assert.equal(C.Trip.sanitizeTrip(plain(l.wizard)).stay.name, 'Hotel DAngleterre Centro');
+});
+
+test('🔖 rezervace v okně cesty: Enter v „Co“ (a v prázdném „Kódu“) jen přejde na další pole, uloží kód nebo poznámka', () => {
+  const c = load();
+  vm.runInContext(`var __add = []; var addRef = (i) => { __add.push(i); }; var ico = () => '';`, c);
+  vm.runInContext(pick('refsHtml', 'refKey'), c);
+  const h = c.refsHtml({ refs: [] }, 3);
+  assert.ok(h.includes('id="refCo-3" maxlength="40" placeholder="Co (let tam, hotel…)" aria-label="Co je to za rezervaci" enterkeyhint="next" onkeydown="refKey(event,3,0)"'), h);
+  assert.ok(h.includes('enterkeyhint="done" onkeydown="refKey(event,3,1)"') && h.includes('enterkeyhint="done" onkeydown="refKey(event,3,2)"') && h.includes('onclick="addRef(3)">Přidat'), h);
+  const focus = [];
+  for (const k of ['refCo', 'refKod', 'refNote']) c.__els[`#${k}-3`] = { value: '', focus() { focus.push(k); } };
+  const key = (k, o = {}) => { let prevented = false; c.refKey({ key: 'Enter', preventDefault() { prevented = true; }, ...o }, 3, k); return prevented; };
+  c.__els['#refCo-3'].value = 'Let tam';
+  assert.equal(key(0), true);
+  assert.deepEqual([focus, plain(c.__add)], [['refKod'], []], 'Enter v „Co“ → kód, nic se neuloží');
+  key(1);
+  assert.deepEqual([focus, plain(c.__add)], [['refKod', 'refNote'], []], 'prázdný kód → poznámka');
+  key(2);
+  assert.deepEqual(plain(c.__add), [3], 'v poznámce uložit');
+  c.__els['#refKod-3'].value = 'K7QW2P';
+  key(1); key(0);
+  assert.deepEqual(plain(c.__add), [3, 3, 3], 's kódem Enter uloží z kteréhokoli pole');
+  key(0, { isComposing: true }); key(0, { key: 'a' });
+  assert.equal(c.__add.length, 3, 'psaní přes IME a jiné klávesy nic');
 });
 
 test('nowParts + nowCard: dnešní řádky z průvodce, zítřek, ubytování s navigací, posun času, rezervace a „Sbaleno“ před odjezdem', () => {
@@ -330,15 +480,19 @@ test('nowParts: aktivita od průvodce smazaná či přejmenovaná v plánovači 
   it.days['2026-11-10'] = ['Milán: Galerie'];
   assert.deepEqual(day(it, '2026-11-11'), ['📍 Milán: volno []']);
   assert.deepEqual(day(it, '2026-11-10').at(-1), '📍 Milán: Galerie [Galerie]');
-  // uvozovky a apostrofy: průvodce v plánovači je pročištěný bez nich, Itinerář je má
+  // uvozovky a apostrofy: na kartě jako v Itineráři (escapované), smazání se pozná i tak
   const wq = lisbon();
   wq.plan.days[1].items[0].name = "Belém ('Torre')";
   const q = real(wq);
   assert.deepEqual(plain(q.genDays['2026-11-13']), ["Belém ('Torre')", 'Jerónimos']);
   q.days['2026-11-13'] = ["Belém ('Torre')"];
-  assert.deepEqual(day(q, '2026-11-13'), ['📍 Belém (Torre) [Belém (Torre)]']);
+  assert.deepEqual(day(q, '2026-11-13'), ["📍 Belém (&#39;Torre&#39;) [Belém ('Torre')]"]);
   q.days['2026-11-13'] = ['Jerónimos'];
   assert.deepEqual(day(q, '2026-11-13'), ['📍 Jerónimos [Jerónimos]']);
+  // cesta ze zálohy: průvodce bez apostrofů (sanitizeTrip), Itinerář s typografickým (PlanShare.txt) – smazání se pozná
+  const bk = { ...q, wizard: C.Trip.sanitizeTrip(plain(q.wizard)), genDays: { ...q.genDays, '2026-11-13': ['Belém (’Torre’)', 'Jerónimos'] }, days: { ...q.days, '2026-11-13': ['Jerónimos'] } };
+  assert.equal(bk.wizard.plan.days[1].items[0].name, 'Belém (Torre)');
+  assert.deepEqual(day(bk, '2026-11-13'), ['📍 Jerónimos [Jerónimos]']);
 });
 
 test('nowParts + nowCard: „odlet“ jen u cesty s letem – výlet autem či z Objevuj „odjezd“, bez rady o časech spojů', () => {
