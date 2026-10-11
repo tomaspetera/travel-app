@@ -175,6 +175,42 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .trip-grid.past .trip{opacity:.78}
 .nt-name{font-size:.62em;line-height:1.2;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 .nt-open{font-size:12.5px;margin-top:6px}
+/* 📍 Dnes na cestě – karta nahoře na Přehledu (app.js nowCard); na telefonu kompaktní, dlouhé texty se zalomí */
+.now-trip{margin-bottom:16px}
+.now-trip[hidden]{display:none}
+.now-card{padding:14px 16px;border-color:rgba(91,140,255,.4);background:linear-gradient(135deg,rgba(34,211,238,.09),rgba(168,85,247,.07)),var(--card)}
+.now-card:focus{outline:none}
+.now-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.now-card a{color:var(--accent);font-weight:600;text-decoration:none}
+.now-card a:hover{text-decoration:underline}
+.nw-top{display:flex;align-items:baseline;justify-content:space-between;gap:4px 12px;flex-wrap:wrap}
+.nw-h{font:700 15.5px/1.35 'Sora','Inter',sans-serif;min-width:0;overflow-wrap:anywhere}
+.nw-h .faint{font:600 12.5px Inter,sans-serif}
+.nw-top .nw-open{font-size:13px;white-space:nowrap}
+.nw-meta{display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:5px;font-size:12.5px;color:var(--muted)}
+.nw-meta b{color:var(--text)}
+.nw-meta .linkbtn{font-size:12.5px}
+.nw-rows{list-style:none;display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.nw-rows li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:6px;font-size:13.5px;line-height:1.45}
+.nw-rows li>span:last-child{min-width:0;overflow-wrap:anywhere}
+.nw-rows .nw-next{padding-top:6px;border-top:1px dashed var(--border);color:var(--muted)}
+.nw-rows .nw-day,.nw-d{display:inline-block;margin-right:6px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.nw-rows .nw-day{display:block;margin-top:2px}
+.nw-walk{display:block;font-size:12.5px;color:var(--muted)}
+.nw-walk a{white-space:nowrap}
+.nw-refs{display:flex;flex-direction:column;gap:6px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--border)}
+.nw-ref{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:13px;min-width:0}
+.nw-ref>*{min-width:0;overflow-wrap:anywhere}
+.nw-ref code,.ref-kod{font:700 14px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.06em;padding:2px 7px;border-radius:7px;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text);-webkit-user-select:all;user-select:all;overflow-wrap:anywhere}
+.nw-copy{font:700 12px Inter,sans-serif;padding:4px 10px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);cursor:pointer}
+.nw-copy:hover{border-color:var(--accent)}
+.nw-todo{margin-top:9px;font-size:13px}
+.nw-todo .linkbtn{font-size:13px}
+.ref-add{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) auto;gap:8px;margin-top:4px}
+.ref-kod-in{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.04em}
+@media(max-width:620px){.ref-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.ref-add>:nth-child(n+3){grid-column:1/-1}}
+/* světlý motiv: drobné modré texty karty tmavší – čitelné i venku na slunci */
+[data-theme="light"] .now-card a,[data-theme="light"] .now-card .linkbtn,[data-theme="light"] .nw-d,[data-theme="light"] .nw-rows .nw-day{color:#2f5fd0}
 .section-head h2{font-size:18px;font-weight:800}
 .section-head .link{font-size:13px;color:var(--accent);cursor:pointer;font-weight:700;white-space:nowrap;margin-left:10px}
 

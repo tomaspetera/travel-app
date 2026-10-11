@@ -63,6 +63,32 @@ Nejlevnější kombinace, pořadí hotelů i program dnů počítají **determin
 bayesovské hodnocení, shlukování míst k-means + trasa nejbližší soused / 2-opt). Místa k vidění a jejich popisy jsou
 z Wikidat a Wikipedie. Stejný dotaz tedy dá stejný výsledek a nic si nevymýšlí.
 
+## 📍 Dnes na cestě
+
+Od 2 dnů před odjezdem do konce uložené cesty začíná **Přehled** kartou s tím, co tě dnes čeká – bez listování celým
+plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dotaz na server ani partnery):
+
+- **Před odjezdem** „🧳 Za 2 dny odlet · Lisabon“ a řádky po dnech až do dne odjezdu (online check-in, kdy nejpozději
+  vyrazit z domu, cesta na letiště, let s časem, dopravcem a číslem, z letiště do města, ubytování) a kolik položek
+  „Sbaleno“ zbývá zařídit a sbalit (odkaz do plánu).
+- **Na cestě** „📍 Dnes na cestě · den 3 z 6 · Lisabon“: dnešní řádky (program s trasou pěšky do Google Map a Mapy.com,
+  přejezd, kdy vyrazit z ubytování na letiště, let zpět) a první řádek zítřka; ubytování toho dne s odkazem
+  **navigovat** (Google Maps odtud, kde právě jsi), místní čas a posun proti Praze, odpočet do odletu či odjezdu
+  (posledních 24 h). U trasy přes víc míst je to místo, kde ten den spíš. **📋 Celý plán →** otevře okno cesty.
+- Řádky jsou tytéž jako v časové ose shrnutí průvodce (`Trip.timeline` – karta a shrnutí se nerozejdou); u cesty jen
+  z plánovače z jejích letů či vlaku a aktivit dnů, u cesty z průvodce i s aktivitami přidanými v plánovači.
+- „Dnes“ je den v místě, kde cesta právě je – před odletem doma, po něm v cíli, po návratu zase doma (zóny letišť
+  a měst ze spojů, i přes změnu času); cesta bez časů spojů bere den v telefonu. Běží-li víc cest najednou, má přednost
+  probíhající (z nich naposledy začatá), jinak nejbližší odjezd.
+
+**🔖 Rezervace**: v okně cesty v plánovači si k cestě zapíšeš až 6 kódů – co (let tam, hotel…), kód (PNR, číslo
+potvrzení) a poznámku. Karta je ukáže s tlačítkem **Kopírovat**. Kódy zůstanou **jen v tomto zařízení** a v **💾 záloze**
+(obnova je k cestě doplní, nic nesmaže) – do odkazů na cestu a plán (`#trip=`, `#plan=`) ani do kalendáře (.ics) nejdou.
+
+**Zkratka „Na cestě“**: nainstalovaná aplikace má v nabídce ikony (dlouhý stisk na Androidu, pravé tlačítko na počítači)
+vedle *Lety* a *Plánovač* i **Na cestě** (`/#now`) – otevře Přehled rovnou s kartou; když žádná cesta neprobíhá, řekne
+to a ukáže nejbližší naplánovanou.
+
 ## Vstupní podmínky pro občany ČR
 
 U všech 197 zemí ATLAS ukazuje, co je potřeba k cestě s českým pasem nebo občankou (turistická cesta):
@@ -846,7 +872,8 @@ a s vlastní ikonou a **uložené cesty a plány uvidíš i bez internetu**.
 - **iPhone a iPad**: Safari instalaci nabídnout neumí, ATLAS proto ukáže návod **Sdílet → Přidat na plochu → Přidat**.
 - Spuštěnému z plochy se položka už nenabízí. Instalace a offline režim fungují jen přes https (Render) a na `localhost`.
 
-**Offline funguje**: aplikace se otevře z uložené kopie (nahoře pruh „📴 Jsi offline“), plánovač s uloženými cestami,
+**Offline funguje**: aplikace se otevře z uložené kopie (nahoře pruh „📴 Jsi offline“), plánovač s uloženými cestami
+a kartou [📍 Dnes na cestě](#-dnes-na-cestě),
 rozpracovaná cesta z průvodce, hlídané ceny a navštívené země (vše je v localStorage prohlížeče), přehled zemí
 s doporučeními, vstupní podmínky a mapa navštívených zemí. **Nefunguje** nic, co potřebuje server nebo cizí web – hledání
 letů, ceny, ubytování, počasí, dlaždice map. Místo „Failed to fetch“ pak ATLAS napíše „Jsi offline – připoj se
@@ -868,7 +895,8 @@ nic se neukládá na server a nepotřebuje to účet.
   „Sbaleno“) přepíše jen zaškrtnuté „Přepsat změněné cesty“ – a i pak zůstanou odškrtnutí a vlastní položky „Sbaleno“
   z obou zařízení; domov radaru jen „Převzít domov“ (když tu žádný není, převezme se sám). Hlídání se nezdvojí (i s vlastní
   spotřebou a cenou paliva u cesty autem) a vejde se jich nejvýš 12 jako u ♡ Hlídat; navštívené země se sjednotí,
-  odškrtnutí „Před cestou“ taky (cizí cesty nevytlačí odškrtnutí tohoto zařízení). Importovaná hlídání si nesou čas
+  odškrtnutí „Před cestou“ taky (cizí cesty nevytlačí odškrtnutí tohoto zařízení). **🔖 Kódy rezervací** (jinak jen
+  v zařízení) záloha nese a obnova k cestě doplní ty, které chybějí (stejné „co“ a kód = tatáž, nejvýš 6). Importovaná hlídání si nesou čas
   poslední kontroly, takže je kontrolka nehledá víc než ta přidaná ručně. Když se sloučený stav do úložiště prohlížeče
   nevejde, nesloučí se nic a ATLAS to řekne.
 - Soubor je **cizí vstup** (mohl ho poslat kdokoli): `public/js/backup.js` z něj postaví nové objekty jen se známými
@@ -959,6 +987,7 @@ a teď má 4 945, plán z plánovače (Lisabon, 5 dní s lety a programem) má 1
 - Dřívější odkazy (`#trip=` / `#plan=` + base64url JSON, začínají vždy `ey`) fungují dál. Prohlížeč bez
   komprese deflate-raw (Safari do 16.3, Chrome do 102, Firefox do 112) vytvoří odkaz postaru a zkomprimovaný rozbalí
   vlastním inflate podle RFC 1951 (test ho porovnává se zlib na stovkách vstupů).
+- **🔖 Kódy rezervací** v odkazu nikdy nejsou – plán do odkazu bere jen známá pole a cesta z průvodce je nemá.
 - Odkaz je cizí vstup: rozbalí se nejvýš 1 MB (ochrana proti „kompresní bombě“), poškozený odkaz ukáže hlášku
   „Odkaz na cestu je poškozený“ a data projdou stejným pročištěním jako dřív (`Trip.sanitizeTrip`, `PlanShare.sanitize`).
 - Krátký odkaz typu `…/s/abc123` by potřeboval úložiště na serveru. Bezplatný Render ale při každém nasazení disk

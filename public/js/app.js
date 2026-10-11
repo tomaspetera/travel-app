@@ -84,6 +84,7 @@ function buildNav() {
 }
 function go(v, opts = {}) {
   activeView = v;
+  if (v !== 'dashboard') nowAsk = false;
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
   $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === v));
   $$('.mobile-nav .mi').forEach(el => el.classList.toggle('active', el.dataset.view === v || (el.id === 'moreNav' && ['map', 'countries', 'recommend'].includes(v))));
@@ -131,6 +132,7 @@ function refreshStats() {
 /** Dnešek (místní) a počet dní mezi dny YYYY-MM-DD. */
 const todayLocal = () => fmtYMD(new Date());
 const daysTo = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5);
+const inDays = d => (d === 1 ? 'zítra' : `za ${d} ${d <= 4 ? 'dny' : 'dní'}`);
 /** Karta „Naplánované cesty“: nejbližší cesta s odpočtem a co ještě zbývá zařídit (bez upozornění – vidět na Přehledu). */
 function nextTripStat() {
   const now = todayLocal();
@@ -138,9 +140,145 @@ function nextTripStat() {
   if (!next) return ['Naplánované cesty', `${S.trips.length}`, S.trips.length ? 'Mrkni do plánovače' : 'Začni plánovat', ''];
   const t = next.t, d = daysTo(now, t.start);
   const todo = (t.checklist || []).filter(x => !x.done && /^Zařídit/i.test(x.t || '')).length;
-  const when = d <= 0 ? 'právě probíhá' : d === 1 ? 'zítra' : `za ${d} ${d <= 4 ? 'dny' : 'dní'}`;
+  const when = d <= 0 ? 'právě probíhá' : inDays(d);
   return ['Nejbližší cesta', `<span class="nt-name">${t.iso && byIso[t.iso] ? flag(t.iso) + ' ' : ''}${esc(t.dest && t.dest !== '—' ? t.dest : t.name)}</span>`,
     `${when}${todo ? ` · zbývá zařídit ${todo}` : ''}`, `<button type="button" class="linkbtn nt-open" data-nt="${next.i}">Otevřít plán →</button>`];
+}
+
+/* ---------- 📍 Dnes na cestě ----------
+   Karta nahoře na Přehledu od 2 dnů před odjezdem do konce uložené cesty (i zkratka aplikace „Na cestě“ → #now): řádky
+   průběhu cesty na dnešek (Trip.timeline – stejné jako ve shrnutí průvodce), ubytování, posun času, 🔖 rezervace.
+   Vše z localStorage – funguje i bez signálu, žádné dotazy na server ani partnery. */
+const okYmd = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + 'T00:00:00Z'));
+const ymdPlus = (ymd, n) => new Date(Date.parse(ymd + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+/** Místní čas 'YYYY-MM-DDTHH:MM' v zóně tz v okamžiku now (ms); bez známé zóny čas zařízení. */
+const wallAt = (tz, now) => {
+  const off = tz && window.Ics ? Ics.tzOffset(tz, now) : null, d = new Date(now);
+  return off == null ? `${fmtYMD(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}` : new Date(now + off * 6e4).toISOString().slice(0, 16);
+};
+/** Spoje cesty z plánovače (lety t.legs, vlak / bus t.ground) podle odjezdu; at = okamžik odjezdu (ms), bez zóny null. */
+function tripLegs(t) {
+  const list = [...(Array.isArray(t.legs) ? t.legs : []), ...(Array.isArray(t.ground) ? t.ground.map(g => ({ ...g, ground: true })) : [])].filter(l => l && okYmd(l.date));
+  return list.map(l => ({ l, at: l.fromTz && window.Ics ? Ics.localToUtc(String(l.dep || `${l.date}T12:00`).slice(0, 16), l.fromTz) : null }))
+    .sort((a, b) => String(a.l.dep || a.l.date).localeCompare(String(b.l.dep || b.l.date)));
+}
+/** Zóna místa, kde cesta v okamžiku now je: do prvního odjezdu zóna odjezdu (doma), pak cíl posledního odjetého spoje. */
+function tripZone(t, now) {
+  const ls = tripLegs(t);
+  let tz = ls.length ? ls[0].l.fromTz || null : null;
+  for (const x of ls) if (x.at != null && x.at <= now) tz = x.l.toTz || null;
+  return tz;
+}
+/**
+ * Cesta pro kartu „📍 Dnes na cestě“: od 2 dnů před odjezdem do posledního dne cesty včetně. „Dnes“ = den v místě, kde
+ * cesta právě je (zóna ze spojů – v Lisabonu je po půlnoci pražského času ještě včera), jinak den zařízení. Víc cest
+ * najednou: probíhající má přednost – z nich naposledy začatá (výlet uprostřed delší cesty), pak dřív končící; jinak
+ * nejbližší odjezd. Cesty bez data a skončené se nepočítají. → { t, i, today, tz, on, day, days, until, end } | null
+ */
+function tripNow(trips, now = Date.now()) {
+  let best = null;
+  (Array.isArray(trips) ? trips : []).forEach((t, i) => {
+    if (!t || typeof t !== 'object' || !okYmd(t.start)) return;
+    const end = okYmd(t.end) && t.end >= t.start ? t.end : t.start;
+    const tz = tripZone(t, now), today = wallAt(tz, now).slice(0, 10), until = daysTo(today, t.start);
+    if (today > end || until > 2) return;
+    const x = { t, i, today, tz, on: until <= 0, day: 1 - Math.min(0, until), days: daysTo(t.start, end) + 1, until: Math.max(0, until), end };
+    if (!best || (x.on !== best.on ? x.on : x.on ? (t.start !== best.t.start ? t.start > best.t.start : end < best.end) : t.start < best.t.start)) best = x;
+  });
+  return best;
+}
+/**
+ * Obsah karty pro cestu z tripNow: řádky průběhu cesty na dnešek a první zítřejší (před odjezdem všechny až do dne
+ * odjezdu), místo a ubytování (u trasy přes víc míst to dnešní), posun času proti Praze, nejbližší odjezd (do 24 h)
+ * a co ze „Sbaleno“ ještě zbývá (před odjezdem).
+ */
+function nowParts(x, now = Date.now()) {
+  const t = x.t;
+  let w = null; // cesta z průvodce – pročištěná jako při „Otevřít v průvodci“
+  if (t.wizard && window.Trip) try { w = Trip.sanitizeTrip(JSON.parse(JSON.stringify(t.wizard))); } catch (e) { w = null; }
+  // u cesty z průvodce jen aktivity přidané v plánovači (ty od průvodce jsou v jeho programu; bez genDays nepoznám které)
+  const own = {};
+  if (w && t.genDays && typeof t.genDays === 'object') for (const [d, a] of Object.entries(t.days || {})) { const gen = t.genDays[d] || [], mine = (Array.isArray(a) ? a : []).filter(v => !gen.includes(v)); if (mine.length) own[d] = mine; }
+  let all = [];
+  try { all = window.Trip ? Trip.timeline(w || t, { own }) : []; } catch (e) { all = []; }
+  const tomorrow = ymdPlus(x.today, 1), pl = w && window.Trip ? Trip.placeOn(w, x.today) : null;
+  const ls = tripLegs(t), first = ls[0] || null, ahead = ls.find(l => l.at != null && l.at > now) || null;
+  // posun času proti Praze: tam, kde cesta je (před odjezdem v cíli prvního spoje)
+  const tz = x.on ? x.tz : first && first.l.toTz, off = tz && window.Ics ? Ics.tzOffset(tz, now) : null, cz = window.Ics ? Ics.tzOffset('Europe/Prague', now) : null;
+  const shift = off != null && cz != null ? off - cz : 0;
+  const ground = ls.length ? ls.every(l => l.l.ground) : /^🚆/u.test(String(t.flight || '')) || Boolean(w && w.overland && w.overland.on);
+  const ck = (Array.isArray(t.checklist) ? t.checklist : []).filter(c => c && !c.done), zar = c => /^Zařídit/i.test(c.t || '');
+  return {
+    rows: all.filter(r => (x.on ? r[0] === x.today : r[0] >= x.today && r[0] <= t.start)), next: x.on ? all.find(r => r[0] === tomorrow) || null : null,
+    place: pl ? pl.name : t.dest && t.dest !== '—' ? t.dest : t.name, verb: ground ? 'odjezd' : 'odlet',
+    hotel: x.on && pl && pl.hotel ? { name: pl.hotel, q: [pl.hotel, pl.city, pl.country].filter(Boolean).join(', ') } : null,
+    shift, clock: shift ? wallAt(tz, now).slice(11, 16) : '',
+    ahead: ahead && ahead.at - now <= 864e5 ? { l: ahead.l, min: Math.ceil((ahead.at - now) / 6e4) } : null,
+    // před odjezdem (v den odjezdu do prvního spoje)
+    todo: !x.on || (x.day === 1 && !(first && first.at != null && first.at <= now)) ? { zar: ck.filter(zar).length, bal: ck.filter(c => !zar(c)).length } : null,
+    refs: window.Backup ? Backup.cleanRefs(t.refs) : [],
+  };
+}
+const hmTxt = m => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`);
+const dowLbl = ymd => { const d = new Date(ymd + 'T12:00:00'); return `${['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'][d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`; };
+const canCopy = () => Boolean(navigator.clipboard && navigator.clipboard.writeText);
+/** Karta „📍 Dnes na cestě“ (HTML). Hodiny a odpočet se doplňují každou minutu do [data-nw] (renderNow). */
+function nowCard(x, p) {
+  const t = x.t, tag = d => (d === x.today ? 'dnes' : d === ymdPlus(x.today, 1) ? 'zítra' : dowLbl(d));
+  // den programu: trasa od ubytování pěšky (Google Maps i Mapy.com), celodenní výlet spoji – jako v programu (places.js)
+  const walk = r => {
+    const m = r[3], u = m && m.day.items.length && m.plan.center && window.Places && Places.dayRoute ? Places.dayRoute(m.plan.center, m.day) : null;
+    return u && u.url ? ` <span class="nw-walk">${u.trip ? '🚆 cesta na výlet' : '🗺️ trasa pěšky'}: <a href="${esc(safeUrl(u.url))}" target="_blank" rel="noopener">Google Maps ↗</a>${u.mapy ? ` · <a href="${esc(safeUrl(u.mapy))}" target="_blank" rel="noopener">Mapy.com ↗</a>` : ''}</span>` : '';
+  };
+  const row = (r, d) => `<li><span class="nw-i">${r[1]}</span><span>${d ? `<span class="nw-d">${tag(r[0])}</span>` : ''}${r[2]}${walk(r)}</span></li>`;
+  const head = x.on ? `📍 Dnes na cestě · den ${x.day} z ${x.days} · <b>${esc(p.place)}</b>`
+    : `🧳 ${x.until === 1 ? 'Zítra' : `Za ${x.until} dny`} ${p.verb} · <b>${esc(p.place)}</b> <span class="faint">${dowLbl(t.start)}</span>`;
+  const h = Math.abs(p.shift) / 60, shift = `o ${String(h).replace('.', ',')} h ${p.shift < 0 ? 'méně' : 'víc'} než v Praze`;
+  const meta = [
+    p.ahead ? `<span>${p.ahead.l.ground ? '🚆 Odjezd' : '✈️ Odlet'} ${esc(p.ahead.l.from)} → ${esc(p.ahead.l.to)} <b data-nw="cd"></b></span>` : '',
+    p.shift ? `<span>🕐 ${x.on ? 'Místní čas <b data-nw="clock"></b> – ' : 'V cíli je '}${shift}</span>` : '',
+    p.hotel ? `<span>🏨 ${esc(p.hotel.name)}${window.Places && Places.gmDir ? ` · <a href="${esc(safeUrl(Places.gmDir('', [p.hotel.q], 'transit')))}" target="_blank" rel="noopener">navigovat ↗</a>` : ''}</span>` : '',
+  ].filter(Boolean);
+  // před odjezdem řádky po dnech (dnes, zítra, den odjezdu)
+  const body = p.rows.map((r, k) => `${x.on || (k && p.rows[k - 1][0] === r[0]) ? '' : `<li class="nw-day">${tag(r[0])}</li>`}${row(r)}`).join('') || `<li class="faint"><span class="nw-i">🌤️</span><span>${x.on ? 'Dnes nic naplánovaného' : 'Časy spojů v plánu nemáš – ověř je v rezervaci'}</span></li>`;
+  const refs = p.refs.length ? `<div class="nw-refs">${p.refs.map(r => `<div class="nw-ref"><span>🔖${r.co ? ` ${esc(r.co)}` : ''}</span>${r.kod ? `<code>${esc(r.kod)}</code>${canCopy() ? `<button type="button" class="nw-copy" data-copy="${esc(r.kod)}" aria-label="Zkopírovat kód ${esc(r.kod)}">Kopírovat</button>` : ''}` : ''}${r.pozn ? `<span class="faint">${esc(r.pozn)}</span>` : ''}</div>`).join('')}</div>` : '';
+  const todo = p.todo && (p.todo.zar || p.todo.bal) ? `<div class="nw-todo">🧾 Před cestou zbývá ${[p.todo.zar && `zařídit ${p.todo.zar}`, p.todo.bal && `sbalit ${p.todo.bal}`].filter(Boolean).join(' a ')} · <button type="button" class="linkbtn" data-nw-plan="${x.i}">odškrtat v plánu →</button></div>` : '';
+  return `<div class="card now-card" id="nowCard" tabindex="-1" role="region" aria-label="Dnes na cestě">
+    <div class="nw-top"><div class="nw-h">${head}</div><button type="button" class="linkbtn nw-open" data-nw-plan="${x.i}">📋 Celý plán →</button></div>
+    ${meta.length ? `<div class="nw-meta">${meta.join('')}</div>` : ''}
+    <ul class="nw-rows">${body}${p.next ? row(p.next, true).replace('<li>', '<li class="nw-next">') : ''}</ul>${refs}${todo}</div>`;
+}
+/** #now bez cesty na kartu: krátce, že žádná neprobíhá, a nejbližší naplánovaná. */
+function nowNone() {
+  const today = todayLocal(), n = S.trips.map((t, i) => ({ t, i })).filter(y => y.t && okYmd(y.t.start) && y.t.start > today).sort((a, b) => a.t.start.localeCompare(b.t.start))[0];
+  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">📍 Žádná cesta právě neprobíhá</div><div class="nw-meta"><span>${n
+    ? `Nejbližší: <b>${esc(n.t.dest && n.t.dest !== '—' ? n.t.dest : n.t.name)}</b> ${fmtDate(n.t.start)} (${inDays(daysTo(today, n.t.start))}) · <button type="button" class="linkbtn" data-nw-plan="${n.i}">Otevřít plán →</button>`
+    : 'Naplánovanou cestu zatím nemáš · <button type="button" class="linkbtn" data-nw-go="planner">Plánovač →</button>'}</span></div></div>`;
+}
+let nowAsk = false, nowShown = ''; // nowAsk: otevřeno přes #now – bez cesty aspoň poznámka
+/** Karta nahoře na Přehledu; překreslí se jen při změně, hodiny a odpočet se jen přepíšou (výběr kódu zůstane). */
+function renderNow() {
+  const el = $('#nowTrip'); if (!el) return;
+  const now = Date.now();
+  let x = null, p = null, h = '';
+  // poškozená uložená cesta nesmí rozbít Přehled – karta se pak jen neukáže
+  try { x = tripNow(S.trips, now); p = x && nowParts(x, now); h = p ? nowCard(x, p) : nowAsk ? nowNone() : ''; } catch (e) { p = null; h = ''; }
+  if (h !== nowShown) {
+    nowShown = h; el.innerHTML = h; el.hidden = !h;
+    $$('[data-nw-plan]', el).forEach(b => b.onclick = () => openTrip(+b.dataset.nwPlan));
+    $$('[data-nw-go]', el).forEach(b => b.onclick = () => go(b.dataset.nwGo));
+    $$('[data-copy]', el).forEach(b => b.onclick = () => navigator.clipboard.writeText(b.dataset.copy).then(() => toast('Zkopírováno: ' + b.dataset.copy), () => toast('Kód se nepodařilo zkopírovat – podrž na něm prst', 'err')));
+  }
+  if (!p) return;
+  const cd = $('[data-nw="cd"]', el), clock = $('[data-nw="clock"]', el);
+  if (cd && p.ahead) cd.textContent = 'za ' + hmTxt(p.ahead.min);
+  if (clock) clock.textContent = p.clock.replace(/^0/, '');
+}
+/** Zkratka aplikace „Na cestě“ (#now): Přehled s kartou nahoře (bez probíhající cesty poznámka s nejbližší cestou). */
+function showNow() {
+  nowAsk = true;
+  go('dashboard');
+  const c = $('#nowCard'); if (c) c.focus({ preventScroll: true });
 }
 function renderDash() {
   renderDashStats();
@@ -149,6 +287,7 @@ function renderDash() {
 }
 /** Dlaždice a „Kam vyrazit“ na přehledu (po změně navštívených zemí nebo cest – bez radaru a hlídaných cen). */
 function renderDashStats() {
+  renderNow();
   const st = stats(); const m = new Date().getMonth() + 1;
   const topRec = scoreCountries(m, {}).filter(r => !visited.has(r.c.iso2))[0];
   const w = (S.watch || []).length;
@@ -499,6 +638,7 @@ function openTrip(i) {
     <div class="divider"></div>
     <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + (days.length === 1 ? ' den' : days.length < 5 ? ' dny' : ' dní') : 'doplň termíny'}</span></div>
     <div style="margin-top:10px">${days.length ? days.map((d, di) => { const acts = t.days[d] || []; return `<div class="day-block"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span></h4>${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button onclick="delAct(${i},'${d}',${ai})">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" placeholder="Přidej aktivitu…" onkeydown="if(event.key==='Enter')addAct(${i},'${d}')"><button class="btn sm" onclick="addAct(${i},'${d}')">Přidat</button></div></div>`; }).join('') : `<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Doplň termíny cesty a objeví se itinerář den po dni.</div></div>`}</div>
+    ${refsHtml(t, i)}
     <div class="divider"></div>
     <div class="grid" style="grid-template-columns:1fr 1fr;gap:20px">
       <div><h3 style="font-size:16px;margin-bottom:10px">🧾 Sbaleno</h3><div id="checkList">${(t.checklist || []).map((x, xi) => `<label class="check"><input type="checkbox" ${x.done ? 'checked' : ''} onchange="toggleCheck(${i},${xi})"><span style="${x.done ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.t)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" placeholder="Přidej položku…" onkeydown="if(event.key==='Enter')addCheck(${i})"><button class="btn sm" onclick="addCheck(${i})">+</button></div></div>
@@ -519,6 +659,17 @@ function openTrip(i) {
   const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(t)[0])); });
   $('#tripShare').onclick = () => sharePlan(i);
   ShareLink.prepare('plan', PlanShare.json(t)); // kliknutí pak jen zkopíruje hotový odkaz (Safari)
+}
+
+/** 🔖 Rezervace v okně cesty: kódy letenek, potvrzení ubytování… (nejvýš 6) – jen v tomto zařízení a v záloze (backup.js
+ *  je i čistí), do odkazů ani kalendáře nejdou; na kartě „📍 Dnes na cestě“ s tlačítkem Kopírovat. */
+function refsHtml(t, i) {
+  if (!window.Backup) return '';
+  const refs = Backup.cleanRefs(t.refs), L = Backup.REF_LEN, enter = `onkeydown="if(event.key==='Enter')addRef(${i})"`;
+  return `<div class="divider"></div>
+    <div class="row wrap" style="justify-content:space-between;gap:4px 10px"><h3 style="font-size:16px">🔖 Rezervace</h3><span class="faint" style="font-size:12px">kódy zůstanou jen v tomto zařízení a v záloze, do odkazů nejdou</span></div>
+    <div style="margin-top:10px">${refs.map((r, k) => `<div class="act ref-row"><span>${r.co ? `<b>${esc(r.co)}</b> ` : ''}${r.kod ? `<code class="ref-kod">${esc(r.kod)}</code>` : ''}${r.pozn ? ` <span class="faint">${esc(r.pozn)}</span>` : ''}</span><button type="button" onclick="delRef(${i},${k})" title="Smazat" aria-label="Smazat rezervaci ${esc(r.kod || r.co)}">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}
+    ${refs.length < Backup.REFS_MAX ? `<div class="ref-add"><input class="input" id="refCo-${i}" maxlength="${L.co}" placeholder="Co (let tam, hotel…)" aria-label="Co je to za rezervaci" ${enter}><input class="input ref-kod-in" id="refKod-${i}" maxlength="${L.kod}" placeholder="Kód (PNR)" aria-label="Kód rezervace" autocomplete="off" autocapitalize="characters" spellcheck="false" ${enter}><input class="input" id="refNote-${i}" maxlength="${L.pozn}" placeholder="Poznámka (nepovinná)" aria-label="Poznámka k rezervaci" ${enter}><button type="button" class="btn sm" onclick="addRef(${i})">Přidat</button></div>` : ''}</div>`;
 }
 
 /* vstupní podmínky cesty z plánovače: země z kódu (iso, u cesty přes víc zemí isos; via = přestupy s registrací) – nic dalšího se neukládá */
@@ -585,11 +736,25 @@ function previewPlan(p) {
   };
 }
 // úprava v okně cesty: uložit a překreslit okno i kartu v plánovači pod ním (rozpočet, aktivity, sbaleno)
-const reTrip = i => { save(); openTrip(i); if (activeView === 'planner') renderPlanner(); };
+const reTrip = i => { save(); openTrip(i); if (activeView === 'planner') renderPlanner(); else if (activeView === 'dashboard') renderDashStats(); };
 window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.value.trim(); if (!v) return; S.trips[i].days[d] = S.trips[i].days[d] || []; S.trips[i].days[d].push(v); reTrip(i); };
 window.delAct = (i, d, ai) => { S.trips[i].days[d].splice(ai, 1); reTrip(i); };
 window.toggleCheck = (i, xi) => { S.trips[i].checklist[xi].done = !S.trips[i].checklist[xi].done; reTrip(i); };
 window.addCheck = i => { const inp = $('#newCheck-' + i); const v = inp.value.trim(); if (!v) return; S.trips[i].checklist.push({ t: v, done: false }); reTrip(i); };
+window.addRef = i => {
+  const t = S.trips[i], v = k => ($(`#${k}-${i}`) || { value: '' }).value;
+  if (!t || !window.Backup) return;
+  const r = Backup.cleanRefs([{ co: v('refCo'), kod: v('refKod'), pozn: v('refNote') }])[0];
+  if (!r) return toast('Napiš kód rezervace (nebo aspoň, co to je)', 'err');
+  t.refs = Backup.cleanRefs([...Backup.cleanRefs(t.refs), r]); reTrip(i);
+};
+window.delRef = (i, k) => {
+  const t = S.trips[i], refs = t && window.Backup ? Backup.cleanRefs(t.refs) : [], r = refs[k];
+  if (!r || !confirm(`Smazat rezervaci ${r.kod || r.co}?`)) return;
+  refs.splice(k, 1);
+  if (refs.length) t.refs = refs; else delete t.refs;
+  reTrip(i);
+};
 // „change“ přijde i při překreslení okna po změně z jiného panelu – patří k cestě v okně (smazaná: nic)
 window.setBudget = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].budget = v; reTrip(i); };
 window.setNotes = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].notes = v; save(); };
@@ -600,7 +765,7 @@ function flushNotes() { if (!notesP) return; const { t, v } = notesP; notesP = n
 window.setNotesSoon = (i, v) => { clearTimeout(notesP && notesP.tm); notesP = { t: S.trips[i], v, tm: setTimeout(flushNotes, 300) }; };
 window.addEventListener('pagehide', flushNotes);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushNotes(); });
-window.delTrip = i => { if (confirm('Opravdu smazat tuto cestu?')) { S.trips.splice(i, 1); save(); modalClose(); renderPlanner(); toast('Cesta smazána'); } };
+window.delTrip = i => { if (confirm('Opravdu smazat tuto cestu?')) { S.trips.splice(i, 1); save(); modalClose(); renderPlanner(); if (activeView === 'dashboard') renderDashStats(); toast('Cesta smazána'); } };
 /** Cesty z jiného panelu: nezměněné zůstanou tytéž objekty (okno cesty, rozepsaná poznámka), cesta upravená na svém
  *  místě (stejný počet cest) se přepíše na místě; ostatní se převezmou. */
 function adoptTrips(nw) {
@@ -621,7 +786,9 @@ function tripModalSync(mi, mt, mj) {
   const f = inM && a.id ? { id: a.id.replace(/^(\w+)-\d+/, `$1-${ni}`), v: a.value, s: a.selectionStart, e: a.selectionEnd } : null;
   if (inM) a.blur(); // „change“ rozpočtu nebo poznámky ještě k cestě v okně (tripIdx)
   if (ni < 0) { modalClose(); return toast('Cesta byla smazána v jiném okně'); }
+  const refs = ['refCo', 'refKod', 'refNote'].map(k => { const e = document.getElementById(`${k}-${mi}`); return e ? e.value : ''; }); // rozepsaná 🔖 rezervace
   flushNotes(); openTrip(ni);
+  ['refCo', 'refKod', 'refNote'].forEach((k, n) => { const e = document.getElementById(`${k}-${ni}`); if (e && refs[n]) e.value = refs[n]; });
   const el = f && document.getElementById(f.id); if (!el) return;
   if (/^(act|newCheck)-/.test(f.id)) el.value = f.v; // rozepsaná aktivita nebo položka
   el.focus(); if (f.s != null) try { el.setSelectionRange(f.s, f.e); } catch (x) { }
@@ -650,11 +817,15 @@ function wireEvents() {
   // ⟳: počasí a kurz znovu; radar se obnoví s dosavadními kartami (ne šedé dlaždice) a se značkami změn od minula
   $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; save(); toast('Aktualizuji…'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') { renderDash(); Flights.renderRadar(true); } };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') modalClose(); });
+  // 📍 Dnes na cestě: odpočet, místní čas a půlnoc (nový den) i v otevřené aplikaci a po návratu do ní
+  setInterval(() => { if (activeView === 'dashboard' && !document.hidden) renderNow(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && activeView === 'dashboard') renderNow(); });
   // Odkaz na cestu, plán nebo sekci vložený do už otevřené stránky (mění se jen #, stránka se nenačte znovu).
   window.addEventListener('hashchange', async () => {
     if (window.Trip && await Trip.importFromHash()) return go('trip', { noHash: true });
     if (await importPlanFromHash()) return go('planner', { noHash: true });
     const v = location.hash.slice(1);
+    if (v === 'now') return showNow(); // zkratka „Na cestě“ v už otevřené aplikaci
     if (v !== activeView && NAV.some(n => n[0] === v)) go(v, { noHash: true });
   });
   // Jiný panel s ATLAS (karta, aplikace na ploše) uložil stav: převzít ho, jinak by další uložení tady smazalo, co tam přibylo.
@@ -724,6 +895,7 @@ async function start() {
   const shared = window.Trip && await Trip.importFromHash();
   const plan = !shared && await importPlanFromHash();
   const v = shared ? 'trip' : plan ? 'planner' : location.hash.slice(1);
+  if (v === 'now') return showNow(); // zkratka aplikace „Na cestě“
   go(NAV.some(n => n[0] === v) ? v : 'dashboard', { noHash: true });
 }
 document.addEventListener('DOMContentLoaded', boot);

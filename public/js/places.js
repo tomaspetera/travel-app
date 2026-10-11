@@ -513,14 +513,18 @@
     </div>`;
   }
 
+  /** Trasa dne programu od ubytování: po městě pěšky (Google Maps i Mapy.com), celodenní výlet veřejnou dopravou (jen
+   *  Google – spoje) → { trip, url, mapy }; i pro kartu „📍 Dnes na cestě“ (app.js). */
+  function dayRoute(center, d) {
+    const trip = d.kind === 'daytrip';
+    const url = !trip ? gmDir(centerQ(center), d.items.map(p => poiQ(p, center)), 'walking') : gmDir(centerQ(center), d.items.slice(0, 1).map(p => poiQ(p, center)), 'transit');
+    return { trip, url, mapy: !trip ? mapyDir(center, d.items, 'foot_fast') : null };
+  }
   function planHtml(plan, center) {
     if (!plan) return '';
     const warn = (plan.warnings || []).map(w => `<div class="note warn" style="margin-bottom:10px">⚠️ <div>${esc(w)}</div></div>`).join('');
     return warn + plan.days.map((d, i) => {
-      const trip = d.kind === 'daytrip';
-      const url = !trip ? gmDir(centerQ(center), d.items.map(p => poiQ(p, center)), 'walking') : gmDir(centerQ(center), d.items.slice(0, 1).map(p => poiQ(p, center)), 'transit');
-      // pěší den po městě i v Mapy.com (výlet mimo město veřejnou dopravou jen Google – spoje)
-      const mapy = !trip ? mapyDir(center, d.items, 'foot_fast') : null;
+      const { trip, url, mapy } = dayRoute(center, d);
       return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? ' · celodenní výlet' : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
         ${dayLinks(url, mapy)}</h4>
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${minTxt(p.visitMin)}</span>
@@ -1510,7 +1514,7 @@
   }
 
   window.Places = {
-    renderExplore, renderPlanner, retheme, routeMap,
+    renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir,
     // jen pro testy (test/places-ui.test.js)
     _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
