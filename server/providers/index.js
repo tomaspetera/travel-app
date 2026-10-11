@@ -13,6 +13,7 @@ import { travelpayouts } from './travelpayouts.js';
 import { kiwi, kiwiBlocked, kiwiRetryAfter } from './kiwi.js';
 import { mockProviders } from './mock.js';
 import { liteapiTestKey, liteapiLive } from './stays/index.js';
+import { xoteloBlocked, xoteloRetryAfter, xoteloBlockReason } from './stays/xotelo.js';
 
 export const PROVIDER_INFO = {
   ryanair: { name: 'Ryanair', color: '#073590', kind: 'live', note: 'živé ceny z ryanair.com' },
@@ -51,8 +52,11 @@ export function providerStatus() {
       id: 'xotelo', name: 'Hotely (TripAdvisor)', color: '#00aa6c', kind: 'stays', tag: 'orientačně',
       note: 'orientační ceny hotelů z TripAdvisoru (Booking.com, Agoda, Trip.com…) a hodnocení – zdarma, bez klíče, přes neoficiální API Xotelo',
       enabled: config.xotelo && !liteapiLive(),
+      // pojistka po chybách (429, 401/403, výpadek): na chvíli vynecháno, ukazují se jen odkazy
+      blocked: xoteloBlocked(), retryAfter: xoteloRetryAfter(), reason: xoteloBlockReason() || null,
       hint: !config.xotelo ? 'Vypnuto (XOTELO=off) – bez klíče LiteAPI zůstanou u ubytování jen odkazy na partnery'
-        : liteapiLive() ? 'Nepoužívá se – ceny hotelů dává LiteAPI' : null,
+        : liteapiLive() ? 'Nepoužívá se – ceny hotelů dává LiteAPI'
+          : xoteloBlocked() ? `Xotelo ${xoteloBlockReason()} – teď se vynechává (u ubytování jen odkazy na partnery), znovu se zkusí za ${Math.max(1, Math.round(xoteloRetryAfter() / 60))} min` : null,
     },
     {
       id: 'travelpayouts', ...PROVIDER_INFO.travelpayouts, enabled: Boolean(config.travelpayoutsToken),

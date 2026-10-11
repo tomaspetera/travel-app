@@ -269,7 +269,8 @@ Krok **Ubytování** ukazuje hotely s cenou na tvoje data a hodnocením hostů z
   hotelu…) za pokoj a noc; ATLAS z nich ukáže nejlevnější cenu za celý pobyt (× pokoje × noci, z EUR na Kč) a pod ní
   ceny u webů („Agoda 9 300 Kč · Booking.com 10 500 Kč…“). Hodnocení je TripAdvisoru 0–5 („4,6/5 (4 045 hodnocení)“,
   odkaz na recenze), filtr se pak přepne na 3,5+ / 4+ / 4,5+. Ceny jsou **orientační** – rezervuje se u partnera
-  (tlačítko vede na hledání hotelu na Booking.com na tvoje data, s partnerským ID, je-li nastavené) a tam cenu ověř.
+  (tlačítko vede na hledání hotelu na Booking.com na tvoje data, s partnerským ID, je-li nastavené – pak je u něj
+  štítek „reklama“ jako u ostatních partnerských odkazů, i ve shrnutí cesty) a tam cenu ověř.
 - **LiteAPI** (volitelně, s ostrým klíčem `LITEAPI_KEY`) – má přednost před Xotelem. Testovací klíč (`sand_…`) dává
   smyšlené hotely, ATLAS je v ostrém provozu neukazuje a použije Xotelo.
 
@@ -277,23 +278,38 @@ Krok **Ubytování** ukazuje hotely s cenou na tvoje data a hodnocením hostů z
 white-label rezervace) – pro případnou placenou verzi stačí doplnit ostrý klíč, Xotelo se pak přestane používat.
 
 **Kdyby Xotelo přestalo fungovat** (neoficiální API může kdykoli skončit nebo se změnit), hledání ubytování nespadne:
-ATLAS ukáže jen odkazy na partnery s předvyplněným termínem jako dosud a chybu zdroje drobně pod nimi; `XOTELO=off` ho
-vypne úplně.
+ATLAS ukáže odkazy na partnery s předvyplněným termínem jako dosud, nad nimi „Ceny hotelů z TripAdvisoru teď nejdou
+načíst“ s krátkým důvodem česky (výpadek, omezuje počet dotazů, odmítá dotazy…) a tlačítkem **Zkusit znovu**.
+Pojistka (jako u Kiwi): po chybě seznamu hotelů nebo po 3 chybách cen za sebou (timeout, 5xx) se Xotelo na 2 min
+vynechá (při opakování déle, nejvýš 10 min), po 429 na dobu z `Retry-After` (výchozí 5 min), po 401/403 na 30 min –
+hledání pak hned vrátí odkazy (a co je v mezipaměti) místo čekání na timeouty a dalších dotazů na API, které už omezuje.
+Zdroje cen i průvodce nastavením to ukážou („blokováno“, „Zapnuté, ale teď nefunguje“). Neznámé místo Xotelo vrací
+jako prázdný seznam (200), takže 401/403 nebo odpověď s chybou se nikdy nebere jako „místo bez hotelů“ a neukládá se.
+`XOTELO=off` ho vypne úplně.
 
 **Kde ho najde:** Xotelo potřebuje ID místa na TripAdvisoru (`g189158` = Lisabon). ATLAS ho bere z Wikidat
-(vlastnost P3134 *TripAdvisor ID*): u místa vybraného v hledání podle jeho ID GeoNames, jinak podle polohy – obec,
-ve které místo leží (nebo aspoň třetinová část; čtvrť má v P3134 často ID atrakce), dál od místa jen větší město (vesnice
-→ město v okolí, ne předměstí velkoměsta). Velká města, která ve Wikidatech ID nemají (Praha, Madrid, Barcelona,
-Amsterdam, Varšava, Kodaň, Stockholm, Milán… – 26 měst, `TA_CITIES` v `server/providers/stays/xotelo.js`), zná ATLAS
-z tabulky. Místo bez ID (třeba Český Krumlov) dostane jen odkazy. Hotely dál než 15 km od místa pobytu a bez recenzí
-se zahodí – špatné ID se tak projeví jen tím, že ceny chybí.
+(vlastnost P3134 *TripAdvisor ID*), od nejrychlejšího dotazu: u místa vybraného v hledání podle jeho ID GeoNames;
+velká města, která ve Wikidatech ID nemají (Praha, Madrid, Barcelona, Amsterdam, Varšava, Kodaň, Stockholm, Milán… –
+26 měst, `TA_CITIES` v `server/providers/stays/xotelo.js`), z tabulky; jinak podle názvu místa (anglicky i česky –
+„Lisbon“, „Lisabon“; položka s ID do 25 km od místa, obec před stejnojmenným okresem) – to je případ města příletu,
+které ID GeoNames nemá (Lisabon, Paříž, Řím, Vídeň, Berlín…), živě kolem 1 s. Teprve když nic z toho, pomalý dotaz
+na obce v okolí bodu (živě 3–21 s, timeout 35 s): obec, ve které místo leží (nebo aspoň třetinová část; čtvrť má
+v P3134 často ID atrakce), dál od místa jen větší město (vesnice → město v okolí, ne předměstí velkoměsta). Ten se
+pošle i dodatečně, když nalezené místo nemá v okolí žádné hotely. Dotazy na Wikidata mají vlastní frontu (nečekají za
+dlouhými dotazy Objevuj); výpadek Wikidat se pamatuje 10 min, ať další hledání nečeká na timeout znovu. Místo bez ID
+(třeba Český Krumlov) dostane jen odkazy. Hotely dál než 15 km od místa pobytu a bez recenzí se zahodí – špatné ID se
+tak projeví jen tím, že ceny chybí.
 
-**Kolik dotazů:** na místo a termín 1 seznam hotelů (TripAdvisor „nejlepší poměr“, 40 hotelů) + nejvýš **12 dotazů na
-ceny** (8 nejlépe hodnocených podle poměru a 4 nejlevnější podle ceníku TripAdvisoru), nejvýš 3 naráz, každý s timeoutem
-10 s a dohromady nejvýš 20 s – co nestihne, chybí (částečný výsledek jen 5 min v mezipaměti, pak se doplní). Mezipaměť:
-ID místa 30 dní (nenalezené 1 den), seznam hotelů 24 h, ceny hotelu 6 h (podle hotelu, termínu, dospělých a pokojů),
-celé hledání 45 min. Druhé hledání téhož místa a termínu tak na Xotelo nejde vůbec (ceny hotelů ani po 45 min, dokud platí jejich 6 h). Ostrý test (`/api/diag`) pošle jeden
-malý seznam (Vídeň).
+**Kolik dotazů:** na místo a termín 1 seznam hotelů (TripAdvisor „nejlepší poměr“, 40 hotelů, timeout 10 s bez
+opakování) + nejvýš **12 dotazů na ceny** (8 nejlépe hodnocených podle poměru a 4 nejlevnější podle ceníku
+TripAdvisoru), každý s timeoutem 10 s a dohromady nejvýš 20 s od chvíle, kdy hledání dostane první místo ve frontě.
+Na Xotelo jde naráz nejvýš 5 dotazů ze všech hledání, z jednoho hledání nejvýš 3 – souběžná hledání (noci ±, záložky
+míst trasy, víc lidí) se ve frontě střídají, takže žádné nezůstane bez cen. Co nestihne, chybí: částečný výsledek je
+v mezipaměti jen 5 min a prohlížeč si ho nepamatuje (návrat do kroku se zeptá znovu); **Zkusit znovu** ho přepočítá
+hned a doptá se jen na chybějící ceny. Když na ceny nezbyl čas vůbec, je to „ceny nestihly přijít“, ne chyba zdroje.
+Mezipaměť: ID místa 30 dní (nenalezené 1 den), seznam hotelů 24 h, ceny hotelu 6 h (podle hotelu, termínu, dospělých
+a pokojů), celé hledání 45 min. Druhé hledání téhož místa a termínu tak na Xotelo nejde vůbec (ceny hotelů ani po
+45 min, dokud platí jejich 6 h). Ostrý test (`/api/diag`) pošle jeden malý seznam (Vídeň).
 
 ## Je to dobrá cena?
 

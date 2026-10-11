@@ -7,18 +7,20 @@ import { config } from '../server/config.js';
 import { setRates } from '../server/lib/fx.js';
 import { cache } from '../server/lib/cache.js';
 import {
-  xotelo, locationKeys, pickSettlements, seedCity, sparqlAround, hotelList, hotelRates, ratesKey, offers, mapHotel,
-  candidates, chooseForRates, searchXotelo, locationCacheKey, RADIUS_KM, MAX_RATES,
+  xotelo, locationKeys, nearbyKeys, pickSettlements, pickByName, placeNames, sparqlNames, seedCity, sparqlAround, hotelList,
+  hotelRates, ratesKey, offers, mapHotel, candidates, chooseForRates, searchXotelo, locationCacheKey, RADIUS_KM, MAX_RATES,
+  resetXoteloBreaker, xoteloBlocked, xoteloRetryAfter,
 } from '../server/providers/stays/xotelo.js';
 import { stayProviders } from '../server/providers/stays/index.js';
 import { providerStatus } from '../server/providers/index.js';
 import { normalizeStayQuery, searchStays } from '../server/lib/stays.js';
-import { LIST_PRAGUE, RATES_HERMITAGE, WD_GID_LISBON, WD_AROUND_MADRID, WD_AROUND_KRUMLOV } from './fixtures/xotelo.js';
+import { LIST_PRAGUE, RATES_HERMITAGE, WD_GID_LISBON, WD_AROUND_MADRID, WD_AROUND_KRUMLOV, WD_NAMES } from './fixtures/xotelo.js';
 
 setRates({ base: 'EUR', rates: { EUR: 1, CZK: 25, USD: 1.1 }, source: 'test', date: null });
-beforeEach(() => cache.map.clear());
+beforeEach(() => { cache.map.clear(); resetXoteloBreaker(); });
 
 const PRAGUE = { lat: 50.0875, lon: 14.4214 };
+const PER_SEARCH_MAX = 3; // jedno hledání nejvýš 3 dotazy na Xotelo naráz
 const lit = (v) => ({ type: 'literal', value: String(v) });
 // řádek sparqlAround (ručně – vesnice a město v okolí)
 const row = (id, { ta, pop, dist }) => ({ item: { type: 'uri', value: `http://www.wikidata.org/entity/${id}` }, ...(ta ? { ta: lit(ta) } : {}), ...(pop ? { pop: lit(pop) } : {}), dist: lit(dist) });
@@ -48,11 +50,10 @@ test('místo TripAdvisoru podle ID GeoNames: Wikidata P1566 → P3134 (Lisabon �
   const sparql = async (q) => { calls.push(q); return q.includes('P1566') ? WD_GID_LISBON : []; };
   const q = { gid: '2267057', lat: 38.7223, lon: -9.1393 };
   assert.deepEqual(await locationKeys(q, { sparql }), ['g189158']);
-  assert.match(calls.find((c) => c.includes('P1566')), /wdt:P1566 "2267057" ; wdt:P3134 \?ta/);
-  assert.equal(calls.length, 2, 'souběžně i obce v okolí (záložní kandidát)');
-  assert.match(calls.find((c) => c.includes('wikibase:around')), /Point\(-9\.1393 38\.7223\)/);
+  assert.match(calls[0], /wdt:P1566 "2267057" ; wdt:P3134 \?ta/);
+  assert.equal(calls.length, 1, 'ID GeoNames místo našlo – pomalý dotaz na okolí se neposílá');
   assert.deepEqual(await locationKeys(q, { sparql }), ['g189158']);
-  assert.equal(calls.length, 2, 'podruhé z mezipaměti');
+  assert.equal(calls.length, 1, 'podruhé z mezipaměti');
   const e = cache.map.get(locationCacheKey(q));
   assert.ok(e.exp - Date.now() > 29 * 864e5, 'nalezené místo 30 dní');
   // nesmyslné ID GeoNames se nepoužije – jen poloha
@@ -82,7 +83,7 @@ test('místo podle polohy: Krumlov bez ID nedostane menší Kaplici; vesnice dos
   assert.deepEqual(pickSettlements(two), ['g900006', 'g900007']);
 });
 
-test('místo nenalezeno → [] na 1 den (bez dalších dotazů); výpadek Wikidat se neukládá', async () => {
+test('místo nenalezeno → [] na 1 den (bez dalších dotazů); výpadek Wikidat jen na 10 min, česky', async () => {
   let n = 0;
   const empty = async () => { n++; return []; };
   const q = { lat: 46.5, lon: 13.1 };
@@ -93,10 +94,17 @@ test('místo nenalezeno → [] na 1 den (bez dalších dotazů); výpadek Wikida
   assert.ok(e.exp - Date.now() <= 864e5 && e.exp - Date.now() > 864e5 - 60e3, 'záporný výsledek 1 den');
   const q2 = { lat: 46.7, lon: 13.3 };
   let m = 0;
-  const down = async () => { m++; throw new Error('WDQS 502'); };
-  await assert.rejects(locationKeys(q2, { sparql: down }), /502/);
-  await assert.rejects(locationKeys(q2, { sparql: down }), /502/);
-  assert.equal(m, 2, 'chyba se nepamatuje');
+  const down = async (s, ms) => { m++; throw new Error(`Timeout ${ms} ms: https://query.wikidata.org/sparql`); };
+  await assert.rejects(locationKeys(q2, { sparql: down }), /^Error: místo na TripAdvisoru se nepodařilo dohledat – Wikidata neodpověděla včas$/);
+  assert.equal(m, 1);
+  await assert.rejects(locationKeys(q2, { sparql: down }), /Wikidata neodpověděla včas/);
+  assert.equal(m, 1, 'další hledání 10 min nečeká na timeout znovu');
+  const f = cache.map.get(`${locationCacheKey(q2)}:fail`);
+  assert.ok(f.exp - Date.now() <= 10 * 60e3 && f.exp - Date.now() > 9 * 60e3);
+  assert.equal(cache.get(locationCacheKey(q2)), undefined, 'chyba není „nic“ na den');
+  f.exp = Date.now() - 1; // po 10 min znovu
+  cache.map.delete(`xo:near:${q2.lat.toFixed(2)}:${q2.lon.toFixed(2)}:fail`);
+  assert.deepEqual(await locationKeys(q2, { sparql: async () => [row('Qp', { ta: '900009', pop: 2000, dist: 0.5 })] }), ['g900009']);
   // chyba jen u ID GeoNames, okolí najde → vezme se
   const half = async (s) => { if (s.includes('P1566')) throw new Error('timeout'); return [row('Qp', { ta: '900008', pop: 2000, dist: 0.5 })]; };
   assert.deepEqual(await locationKeys({ gid: '123', lat: 46.9, lon: 13.5 }, { sparql: half }), ['g900008']);
@@ -136,6 +144,17 @@ test('hotel → nabídka: hodnocení 0–5 i 0–10, vzdálenost, ceny u webů, 
   const bb = mapHotel(LIST_PRAGUE[7], RATES_HERMITAGE, q, PRAGUE);
   assert.deepEqual([bb.type, bb.typeLabel, bb.breakfast], ['penzion', 'B&B', true], 'Bed and Breakfast se snídaní');
   assert.equal(mapHotel(LIST_PRAGUE[0], { currency: 'EUR', rates: [] }, q, PRAGUE), null, 'bez nabídky (obsazeno / neznámé) → nic');
+  // partnerský odkaz (Travelpayouts) má příznak – karta ho označí „reklama“
+  assert.equal(h.bookSponsored, false);
+  const prev = { m: config.travelpayoutsMarker, t: config.travelpayoutsTrs };
+  Object.assign(config, { travelpayoutsMarker: '123456', travelpayoutsTrs: '7890' });
+  try {
+    const a = mapHotel(LIST_PRAGUE[1], RATES_HERMITAGE, q, PRAGUE);
+    assert.equal(a.bookSponsored, true);
+    assert.match(a.bookUrl, /^https:\/\/tp\.media\/r\?/);
+  } finally {
+    Object.assign(config, { travelpayoutsMarker: prev.m, travelpayoutsTrs: prev.t });
+  }
   assert.equal(mapHotel({ ...LIST_PRAGUE[0], image: 'javascript:alert(1)', url: 'https://evil.example/x' }, RATES_HERMITAGE, q, PRAGUE).photo, null);
 });
 
@@ -175,7 +194,7 @@ test('ceny v mezipaměti podle hotelu, termínu, dospělých a pokojů; dotaz v 
     await hotelRates('g274707-d1235795', { ...q, checkout: ymdPlus(13) });
     assert.equal(stub.calls.length, 3, 'jiné pokoje / termín = nový dotaz');
     // po rozpočtu se dotaz nepošle a chyba se nepamatuje
-    await assert.rejects(hotelRates('g274707-d9', q, Date.now() - 1), /nestihly/);
+    await assert.rejects(hotelRates('g274707-d9', q, { deadline: Date.now() - 1 }), /nestihly/);
     assert.equal(stub.calls.length, 3);
     assert.equal(cache.get(ratesKey('g274707-d9', q)), undefined);
   } finally {
@@ -266,7 +285,10 @@ test('rozpočet na ceny: pomalý web se nečeká, výsledek je částečný; vš
   cache.map.clear();
   const down = stubFetch((url) => (url.includes('/api/list?') ? { body: { result: { list: LIST_PRAGUE } } } : { status: 503, body: 'x' }));
   try {
-    await assert.rejects(searchXotelo(query(), { sparql: async () => [] }), /HTTP 503/);
+    await assert.rejects(searchXotelo(query(), { sparql: async () => [] }), /^Error: má výpadek \(HTTP 503\)$/);
+    const n = down.calls.filter((c) => c.url.includes('/api/rates?')).length;
+    assert.ok(n >= 3 && n <= 5, `po 3 chybách za sebou se zbytek cen neposílá (${n} dotazů z 12)`);
+    assert.ok(xoteloBlocked());
   } finally {
     down.restore();
   }
@@ -288,6 +310,183 @@ test('první místo bez hotelů v okolí (ID atrakce, ID z tabulky nesedí) → 
     assert.deepEqual(stub.calls.filter((c) => c.url.includes('/api/list?')).map((c) => new URL(c.url).searchParams.get('location_key')), ['g900010', 'g900011']);
     assert.equal(items.length, 3, 'hotely druhého kandidáta do 15 km');
     assert.deepEqual(await searchXotelo(query({ lat: 49.5, lon: 15.5 }), { sparql: async () => [] }), []);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('místo podle názvu (město příletu bez ID GeoNames): rychlý dotaz na popisky – Lisabon město před okresem, Paříž ve Francii; okolí se nehledá', async () => {
+  assert.deepEqual(placeNames({ cityEn: 'Lisbon', city: 'Lisabon' }), [['Lisbon', 'en'], ['Lisabon', 'cs']]);
+  assert.deepEqual(placeNames({ cityEn: 'Foo "x" \\ y, Ontario', city: '' }), [['Foo x y', 'en']], 'bez uvozovek a lomítek, bez upřesnění');
+  assert.match(sparqlNames([['Lisbon', 'en'], ['Lisabon', 'cs']]), /VALUES \?l \{ "Lisbon"@en "Lisabon"@cs \} \?item rdfs:label \?l ; wdt:P3134 \?ta ; wdt:P625 \?c/);
+  assert.deepEqual(pickByName(WD_NAMES, 38.7223, -9.1393), ['g189158', 'g3874225'], 'město (1,6 km) před okresem (4 km)');
+  assert.deepEqual(pickByName(WD_NAMES, 48.8566, 2.3522), ['g187147'], 'Paříže v USA, Kanadě a Itálii daleko');
+  assert.deepEqual(pickByName(WD_NAMES, PRAGUE.lat, PRAGUE.lon), []);
+  // město příletu (krok Ubytování u jednoho místa posílá jen název, letiště a polohu – bez ID GeoNames)
+  const calls = [];
+  const sparql = async (s, ms) => {
+    calls.push([s.includes('wikibase:around') ? 'around' : s.includes('rdfs:label') ? 'name' : 'gid', ms]);
+    if (s.includes('wikibase:around')) throw new Error(`Timeout ${ms} ms: https://query.wikidata.org/sparql`);
+    return s.includes('rdfs:label') ? WD_NAMES : [];
+  };
+  const q = normalizeStayQuery({ city: 'Lisabon', iata: 'LIS', cc: 'PT', lat: 38.7223, lon: -9.1393, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 2 });
+  assert.equal(q.cityEn, 'Lisbon');
+  assert.deepEqual(await locationKeys(q, { sparql }), ['g189158', 'g3874225']);
+  assert.deepEqual(calls, [['name', 10000]], 'jediný krátký dotaz, pomalý dotaz na okolí vůbec ne');
+});
+
+test('pomalý dotaz na okolí jen když rychlé nic nenajdou (timeout 35 s); místo bez hotelů v okolí → okolí až dodatečně', async () => {
+  const kind = (s) => (s.includes('wikibase:around') ? 'around' : s.includes('rdfs:label') ? 'name' : 'gid');
+  const calls = [];
+  const sparql = async (s, ms) => { calls.push([kind(s), ms]); return kind(s) === 'around' ? [row('Qa', { ta: '900020', pop: 9000, dist: 0.5 })] : []; };
+  assert.deepEqual(await locationKeys({ city: 'Kaplice', cityEn: 'Kaplice', gid: '3074199', lat: 48.74, lon: 14.5 }, { sparql }), ['g900020']);
+  assert.deepEqual(calls, [['gid', 10000], ['name', 10000], ['around', 35000]]);
+  // ID GeoNames najde místo, ale jeho seznam hotelů je prázdný (ID atrakce) → obce v okolí až teď
+  const stub = stubFetch((url) => {
+    if (url.includes('location_key=g900030')) return { body: { result: { list: [] } } };
+    if (url.includes('location_key=g900031')) return { body: { result: { list: LIST_PRAGUE.slice(0, 3) } } };
+    if (url.includes('/api/rates?')) return { body: ratesFor(new URL(url).searchParams.get('hotel_key')) };
+    return { status: 404, body: '{}' };
+  });
+  try {
+    const seen = [];
+    const sp = async (s) => {
+      seen.push(kind(s));
+      return kind(s) === 'gid' ? [{ ta: lit('900030') }] : kind(s) === 'around' ? [row('Qb', { ta: '900031', pop: 5000, dist: 1 })] : [];
+    };
+    const items = await searchXotelo(query({ gid: '123', lat: 49.97, lon: 14.4 }), { sparql: sp });
+    assert.deepEqual(seen, ['gid', 'around']);
+    assert.equal(items.length, 3);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('souběžná hledání se ve frontě střídají: každé dostane ceny, nejvýš 5 dotazů naráz; bez času na ceny → částečný prázdný výsledek, ne chyba', async () => {
+  let active = 0;
+  let peak = 0;
+  const stub = stubFetch(async (url) => {
+    if (url.includes('/api/list?')) return { body: { result: { list: LIST_PRAGUE } } };
+    peak = Math.max(peak, ++active);
+    await new Promise((r) => setTimeout(r, 150));
+    active--;
+    return { body: ratesFor(new URL(url).searchParams.get('hotel_key')) };
+  });
+  try {
+    // tři hledání naráz (jiné termíny: noci ±, záložky míst trasy, víc lidí), každý dotaz 150 ms, rozpočet 700 ms
+    const res = await Promise.all([30, 40, 50].map((d) => searchXotelo(query({ checkin: ymdPlus(d), checkout: ymdPlus(d + 3) }), { sparql: async () => [], budgetMs: 700 }).catch((e) => e.message)));
+    assert.ok(res.every((r) => Array.isArray(r) && r.length >= 3), JSON.stringify(res.map((r) => (Array.isArray(r) ? r.length : r))));
+    assert.ok(peak <= 5, `naráz ${peak}`);
+    // na ceny nezbyl čas → [] s příznakem partial (searchStays: ok, „zkusit znovu“), ne chyba zdroje
+    const starved = await searchXotelo(query({ checkin: ymdPlus(60), checkout: ymdPlus(62) }), { sparql: async () => [], budgetMs: 0 });
+    assert.deepEqual([starved.length, starved.partial], [0, true]);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('výpadek Xotela: po chybě seznamu se na 2 min vynechá – další hledání hned a bez dotazu; česká chyba bez adresy; seznam bez opakování', async () => {
+  const stub = stubFetch(() => ({ status: 503, body: 'down' }));
+  try {
+    await assert.rejects(searchXotelo(query(), { sparql: async () => [] }), /^Error: má výpadek \(HTTP 503\)$/);
+    assert.equal(stub.calls.length, 1, 'seznam se neopakuje');
+    assert.ok(xoteloBlocked() && xoteloRetryAfter() > 110 && xoteloRetryAfter() <= 120, `${xoteloRetryAfter()} s`);
+    const t0 = Date.now();
+    await assert.rejects(searchXotelo(query({ checkin: ymdPlus(40), checkout: ymdPlus(42) }), { sparql: async () => [] }), /^Error: má výpadek \(HTTP 503\) – teď se vynechává, další pokus za 2 min$/);
+    assert.ok(Date.now() - t0 < 200);
+    assert.equal(stub.calls.length, 1, 'během pojistky žádný dotaz');
+    await withConfig({ mock: false, liteapiKey: '', xotelo: true }, async () => {
+      const r = await searchStays({ city: 'Praha', cityEn: 'Prague', cc: 'CZ', ...PRAGUE, checkin: ymdPlus(45), checkout: ymdPlus(47), adults: 2 });
+      assert.deepEqual([r.providers[0].ok, r.items.length], [false, 0]);
+      assert.doesNotMatch(r.providers[0].error, /https?:/, 'chyba bez adresy');
+      assert.ok(r.links.length > 0, 'odkazy na partnery hned');
+      const x = providerStatus().find((p) => p.id === 'xotelo');
+      assert.equal(x.blocked, true);
+      assert.match(x.hint, /má výpadek \(HTTP 503\) – teď se vynechává/);
+    });
+  } finally {
+    stub.restore();
+  }
+  // Xotelo visí: timeout seznamu (10 s, bez opakování) → česky „neodpověděl včas“, vynechá se
+  resetXoteloBreaker();
+  const hang = stubFetch(() => Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+  try {
+    await assert.rejects(hotelList('g274707'), /^Error: neodpověděl včas$/);
+    assert.equal(hang.calls.length, 1);
+    assert.ok(xoteloBlocked());
+  } finally {
+    hang.restore();
+  }
+});
+
+test('Xotelo omezuje (429): vynechá se na dobu z Retry-After, další hledání už nepošle 12 dotazů na ceny', async () => {
+  const stub = stubFetch((url) => (url.includes('/api/list?')
+    ? { body: { result: { list: LIST_PRAGUE } } }
+    : { status: 429, body: '{"message":"Too many requests"}', headers: { 'content-type': 'application/json', 'retry-after': '120' } }));
+  try {
+    await assert.rejects(searchXotelo(query(), { sparql: async () => [] }), /^Error: omezuje počet dotazů \(HTTP 429\)$/);
+    const rates = () => stub.calls.filter((c) => c.url.includes('/api/rates?')).length;
+    assert.ok(rates() <= PER_SEARCH_MAX, `${rates()} dotazů na ceny`);
+    assert.ok(xoteloRetryAfter() > 110 && xoteloRetryAfter() <= 120);
+    const n = stub.calls.length;
+    await assert.rejects(searchXotelo(query({ checkin: ymdPlus(41), checkout: ymdPlus(43) }), { sparql: async () => [] }), /teď se vynechává/);
+    assert.equal(stub.calls.length, n, 'seznam z mezipaměti, ceny se neposílají');
+  } finally {
+    stub.restore();
+  }
+});
+
+test('Xotelo odmítá dotazy (401/403) nebo vrátí 200 s chybou → chyba zdroje (neukládá se jako „místo bez hotelů“); 400/404 → prázdný seznam', async () => {
+  let mode = '401';
+  const stub = stubFetch(() => (mode === '401' ? { status: 401, body: '{"message":"You are not subscribed to this API."}' }
+    : mode === 'err' ? { body: { error: { message: 'Invalid location key' }, result: null } }
+      : { status: 404, body: '{}' }));
+  try {
+    await assert.rejects(hotelList('g274707'), /^Error: odmítá dotazy \(HTTP 401\)$/);
+    assert.equal(cache.get('xo:list:g274707'), undefined);
+    assert.ok(xoteloRetryAfter() > 29 * 60, 'odmítnutí: 30 min');
+    resetXoteloBreaker();
+    mode = 'err';
+    await assert.rejects(hotelList('g274707'), /^Error: vrátil chybu: Invalid location key$/);
+    assert.equal(cache.get('xo:list:g274707'), undefined);
+    assert.ok(!xoteloBlocked(), 'chybná odpověď není výpadek');
+    mode = '404';
+    assert.deepEqual(await hotelList('g274707'), []);
+    assert.deepEqual(await hotelRates('g274707-d1', { checkin: ymdPlus(10), checkout: ymdPlus(12), adults: 2, rooms: 1 }), { currency: 'EUR', rates: [] });
+  } finally {
+    stub.restore();
+  }
+});
+
+test('„Zkusit znovu“ (retry=1): neúplný výsledek se přepočítá hned a doptá se jen na chybějící ceny; úplný zůstane z mezipaměti', async () => {
+  const keys = LIST_PRAGUE.map((h) => h.key);
+  let failOnce = true;
+  const stub = stubFetch((url) => {
+    if (url.includes('/api/list?')) return { body: { result: { list: LIST_PRAGUE } } };
+    if (url.includes('/api/rates?')) {
+      const k = new URL(url).searchParams.get('hotel_key');
+      if (k === keys[1] && failOnce) {
+        failOnce = false;
+        return { status: 502, body: 'x' };
+      }
+      return { body: ratesFor(k) };
+    }
+    return { status: 404, body: '{}' };
+  });
+  try {
+    await withConfig({ mock: false, liteapiKey: '', xotelo: true }, async () => {
+      const raw = { city: 'Praha', cityEn: 'Prague', cc: 'CZ', ...PRAGUE, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 2 };
+      const a = await searchStays(raw);
+      assert.deepEqual([a.providers[0].ok, a.providers[0].count, a.providers[0].partial], [true, 11, true]);
+      const n = stub.calls.length;
+      await searchStays(raw);
+      assert.equal(stub.calls.length, n, 'bez retry z mezipaměti (5 min)');
+      const b = await searchStays({ ...raw, retry: '1' });
+      assert.deepEqual([b.providers[0].count, b.providers[0].partial], [12, undefined]);
+      assert.deepEqual(stub.calls.slice(n).map((c) => new URL(c.url).searchParams.get('hotel_key')), [keys[1]], 'jen chybějící cena');
+      await searchStays({ ...raw, retry: '1' });
+      assert.equal(stub.calls.length, n + 1, 'úplný výsledek se znovu nepočítá');
+    });
   } finally {
     stub.restore();
   }

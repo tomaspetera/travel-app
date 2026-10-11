@@ -24,6 +24,7 @@
   let staysData = null;
   let carsData = null;
   const staysCache = new Map(); // nabídky ubytování podle dotazu (místo|termín|osoby) – přepínání míst trasy
+  let staysRetry = null; // klíč dotazu, který se má po „Zkusit znovu“ přepočítat (retry=1 – server přeskočí neúplný výsledek)
   let staySlot = null; // kam se ukládá vybraný hotel: celý pobyt (t.stay), nebo jedno místo trasy (base.stay)
   let stayIdx = 0; // místo trasy v kroku Ubytování
   let progIdx = 0; // místo trasy v kroku Program
@@ -974,14 +975,22 @@
   }
 
   /* ---------- ubytování ---------- */
-  /** Nabídky ubytování (api/stays) pro místo a termín – v paměti, ať přepínání míst trasy nenačítá znovu. */
+  // Neúplná odpověď: část cen nestihla přijít, nebo zdroj cen selhal – návrat do kroku se zeptá znovu.
+  const staysIncomplete = d => Boolean(d && (d.providers || []).some(p => !p.ok || p.partial));
+  /**
+   * Nabídky ubytování (api/stays) pro místo a termín – v paměti, ať přepínání míst trasy nenačítá znovu (jen úplné
+   * odpovědi). Po „Zkusit znovu“ s retry=1: server neúplný výsledek přepočítá hned (doptá se jen na chybějící ceny).
+   */
   async function loadStays(key, params) {
-    if (staysCache.has(key)) return staysCache.get(key);
-    const r = await fetch('api/stays?' + new URLSearchParams(params));
+    const retry = staysRetry === key;
+    if (!retry && staysCache.has(key)) return staysCache.get(key);
+    const r = await fetch('api/stays?' + new URLSearchParams(retry ? { ...params, retry: 1 } : params));
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    if (retry) staysRetry = null;
     const d = { key, ...j };
-    staysCache.set(key, d);
+    if (staysIncomplete(d)) staysCache.delete(key);
+    else staysCache.set(key, d);
     return d;
   }
 
@@ -1018,7 +1027,7 @@
       return;
     }
     const key = `${t.dest.label}|${checkin}|${checkout}|${t.adults}`;
-    if (!staysData || staysData.key !== key) {
+    if (!staysData || staysData.key !== key || staysIncomplete(staysData)) {
       try {
         const qs = { city: t.dest.label.replace(/ \(.*\)$/, ''), country: t.dest.country || '', cc: t.dest.cc || '', iata: t.flight.out.to, checkin, checkout, adults: t.adults };
         if (t.dest.lat != null) Object.assign(qs, { lat: t.dest.lat, lon: t.dest.lon });
@@ -1110,6 +1119,8 @@
     renderStays();
   }
 
+  // Partnerský (affiliate) odkaz přes Travelpayouts – i uložený v cestě (vybraný hotel, odkaz ve shrnutí).
+  const affUrl = u => /^https:\/\/tp\.media\//.test(String(u || ''));
   // Odkazy na partnery; affiliate odkazy viditelně označené (zákon o ochraně spotřebitele, rel=sponsored).
   const SPONSOR_NOTE = '<div class="faint" style="font-size:11.5px;margin-top:6px">Odkazy označené „reklama“ jsou partnerské (affiliate): při rezervaci přes ně může ATLAS dostat provizi. Cenu pro tebe to nezvyšuje a pořadí nabídek to neovlivňuje.</div>';
   // Barvy značek partnerů ubytování (jen podklad zkratky; neznámé id → barva skupiny).
@@ -1159,7 +1170,7 @@
       <div class="st-rating">${rt.col}</div>
       <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">celkem · ${czk(h.pricePerNightCzk)}/noc</div>` : '<div class="faint">cena na webu</div>'}</div>
         <button class="btn sm primary" data-pick="${i}">${chosen ? '✓ Vybráno' : 'Vybrat'}</button>
-        ${h.bookUrl ? `<a class="linkbtn" href="${esc(safeUrl(h.bookUrl))}" target="_blank" rel="noopener"${xo ? ' title="Hledání hotelu na Booking.com na tvoje data"' : ''}>${xo ? 'Booking.com' : 'detail'} ↗</a>` : ''}</div>
+        ${h.bookUrl ? `<span class="st-bk"><a class="linkbtn" href="${esc(safeUrl(h.bookUrl))}" target="_blank" rel="${h.bookSponsored ? 'sponsored nofollow noopener' : 'noopener'}"${xo ? ' title="Hledání hotelu na Booking.com na tvoje data"' : ''}>${xo ? 'Booking.com' : 'detail'} ↗</a>${h.bookSponsored ? '<span class="ad-tag">reklama</span>' : ''}</span>` : ''}</div>
     </div>`;
   }
 
@@ -1182,15 +1193,25 @@
     const types = [...new Set(d.items.map(h => h.type).filter(Boolean))];
     const links = linkGrid(d.links, '#003580', true);
     const errs = d.providers.filter(p => !p.ok).map(p => `${esc(p.name)}: ${esc(p.error)}`).join(' · ');
+    // „Zkusit znovu“: neúplný výsledek (ceny nestihly přijít) nebo chyba zdroje – nový dotaz bez mezipaměti prohlížeče
+    const retryBtn = staysIncomplete(d) ? ' <button type="button" class="linkbtn" id="stayRetry">↻ Zkusit znovu</button>' : '';
+    const wireRetry = () => { const b = $('#stayRetry'); if (b) b.onclick = () => { staysRetry = d.key; staysCache.delete(d.key); staysData = null; stayStep(); }; };
     if (!d.items.length) {
-      host.innerHTML = `<div class="note info">ℹ️ <div>${d.providers.length ? 'Pro toto místo a termín nemám přímé nabídky – otevři si hledání u partnerů,' : 'Vyber si ubytování u partnerů –'} většina hledání je už <b>předvyplněná na tvoje data</b> (u označených „zadej data“ zadáš termín na webu). Až si vybereš, zadej cenu níže.${errs ? `<br><span class="faint">${errs}</span>` : ''}${!d.providers.length && window.showSetupGuide ? ` <a href="#" id="stayGuide" class="faint">Hotely s cenou přímo tady (volitelné) →</a>` : ''}</div></div>${links}`;
+      // zdroj cen selhal (výpadek, odmítá dotazy…) ≠ místo bez nabídek; nestihly-li ceny přijít, řekni to
+      const failed = d.providers.length > 0 && d.providers.every(p => !p.ok);
+      const late = d.providers.some(p => p.ok && p.partial);
+      const head = failed ? `Ceny hotelů ${d.providers.some(p => p.id === 'xotelo') ? 'z TripAdvisoru ' : ''}teď nejdou načíst – vyber si u partnerů,`
+        : late ? 'Ceny hotelů nestihly přijít – zkus to za chvíli znovu, nebo si vyber u partnerů,'
+          : d.providers.length ? 'Pro toto místo a termín nemám přímé nabídky – otevři si hledání u partnerů,' : 'Vyber si ubytování u partnerů –';
+      host.innerHTML = `<div class="note ${failed ? 'warn' : 'info'}">${failed ? '⚠️' : 'ℹ️'} <div>${head} většina hledání je už <b>předvyplněná na tvoje data</b> (u označených „zadej data“ zadáš termín na webu). Až si vybereš, zadej cenu níže.${errs ? `<br><span class="faint">${errs}</span>` : ''}${retryBtn}${!d.providers.length && window.showSetupGuide ? ` <a href="#" id="stayGuide" class="faint">Hotely s cenou přímo tady (volitelné) →</a>` : ''}</div></div>${links}`;
       const g = $('#stayGuide'); if (g) g.onclick = e => { e.preventDefault(); window.showSetupGuide('guideStays'); };
+      wireRetry();
       return;
     }
     const testNote = d.providers.some(p => p.ok && p.test && p.count) ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>Ukázková / testovací nabídka</b> – hotely a ceny nejsou skutečné (demo režim nebo testovací klíč LiteAPI). Skutečné ceny ověř přes odkazy na partnery dole.</div></div>` : '';
     // Xotelo: zdroj poctivě – orientační ceny z TripAdvisoru, rezervuje se u partnera
     const xo = d.providers.find(p => p.id === 'xotelo' && p.ok && p.count);
-    const srcNote = xo ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>Ceny: TripAdvisor</b> (Booking, Agoda, Trip.com…) – orientační, ověř u partnera. Cena je nejlevnější nabídka za celý pobyt${roomsTxt(d)}, hodnocení hostů z TripAdvisoru (0–5).${xo.partial ? ' U některých hotelů ceny nestihly přijít – zkus to za chvíli znovu.' : ''}</div></div>` : '';
+    const srcNote = xo ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>Ceny: TripAdvisor</b> (Booking, Agoda, Trip.com…) – orientační, ověř u partnera. Cena je nejlevnější nabídka za celý pobyt${roomsTxt(d)}, hodnocení hostů z TripAdvisoru (0–5).${xo.partial ? ` U některých hotelů ceny nestihly přijít – zkus to za chvíli znovu.${retryBtn}` : ''}</div></div>` : '';
     // stupnice filtru podle zdroje: TripAdvisor 0–5 (3,5+ / 4+ / 4,5+ = 7+ / 8+ / 9+ na stupnici 0–10)
     const five = d.items.length > 0 && d.items.every(h => h.rating5 != null);
     host.innerHTML = `${testNote}${srcNote}<div class="stay-tools">
@@ -1201,8 +1222,10 @@
         <span class="faint" style="font-size:12px">${items.length} z ${d.items.length} nabídek</span>
       </div>
       <div class="stay-list">${items.map((h) => stayCard(h, d.items.indexOf(h))).join('') || '<div class="empty">Filtrům nic neodpovídá.</div>'}</div>
-      ${errs ? `<div class="faint" style="font-size:12px;margin-top:6px">${errs}</div>` : ''}
+      ${items.some(h => h.bookUrl && h.bookSponsored) ? SPONSOR_NOTE : ''}
+      ${errs ? `<div class="faint" style="font-size:12px;margin-top:6px">${errs}${xo ? '' : retryBtn}</div>` : ''}
       <details class="more" style="margin-top:12px"><summary>Další nabídky u partnerů</summary>${links}</details>`;
+    wireRetry();
     $('#staySort').onchange = e => { stayView.sort = e.target.value; renderStays(); };
     $$('#stayMin button').forEach(b => b.onclick = () => { stayView.minRating = +b.dataset.v; renderStays(); });
     const ty = $('#stayType'); if (ty) ty.onchange = e => { stayView.type = e.target.value; renderStays(); };
@@ -1539,7 +1562,8 @@
         <div class="faint" style="font-size:12px;margin-top:8px">${ov ? 'Vlak / bus: cena vybraného spoje RegioJetu, nebo odhad – jízdenky kup u dopravce.' : c.bags ? 'Zavazadla jsou odhad podle dopravce.' : t.bags && t.bags !== 'none' ? 'Zavazadlo je podle ceníku dopravce v ceně letenky.' : 'Letenky bez zavazadel.'} Ceny u partnerů ověř před zaplacením.</div>
       </div>
       <div class="card step-card"><h3>✅ Co zarezervovat (v tomhle pořadí)</h3>
-        ${steps.map((s, i) => `<label class="check"><input type="checkbox" data-bk="${esc(s.id)}" ${t.booked[s.id] ? 'checked' : ''}><span>${i + 1}. ${esc(s.label)}</span>${s.url ? `<a class="btn sm" href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener" style="margin-left:auto">Otevřít ↗</a>` : ''}</label>`).join('')}
+        ${steps.map((s, i) => `<label class="check"><input type="checkbox" data-bk="${esc(s.id)}" ${t.booked[s.id] ? 'checked' : ''}><span>${i + 1}. ${esc(s.label)}</span>${s.url ? `${affUrl(s.url) ? '<span class="ad-tag" style="margin-left:auto">reklama</span>' : ''}<a class="btn sm" href="${esc(safeUrl(s.url))}" target="_blank" rel="${affUrl(s.url) ? 'sponsored nofollow noopener' : 'noopener'}"${affUrl(s.url) ? '' : ' style="margin-left:auto"'}>Otevřít ↗</a>` : ''}</label>`).join('')}
+        ${steps.some(s => affUrl(s.url)) ? SPONSOR_NOTE : ''}
         ${!ov && f.back && f.back.provider !== f.out.provider ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Lety tam a zpět jsou dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká.</div></div>' : ''}
       </div></div>
       ${multi && nightsLeft(t) !== 0 ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div>Noci v trase nesedí s délkou pobytu – uprav je v kroku <b>Trasa</b>, jinak termíny ubytování nebudou navazovat na lety.</div></div>' : ''}

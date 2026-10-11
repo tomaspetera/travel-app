@@ -103,6 +103,7 @@ export function rankStays(items) {
  */
 export async function searchStays(raw, { english = englishName, partners = null } = {}) {
   const q = normalizeStayQuery(raw);
+  const retry = String(raw.retry ?? '') === '1';
   // Místo bez anglického názvu (přidané ručně, z Wikidat bez článku): partneři i LiteAPI hledají anglicky
   // („Boloňa“ → „Bologna“) – název z geokódování v okolí místa (v mezipaměti).
   if (!raw.cityEn && !q.iata && q.city && q.lat != null && !config.mock) {
@@ -130,7 +131,9 @@ export async function searchStays(raw, { english = englishName, partners = null 
     const t0 = Date.now();
     try {
       const key = `stay:${p.id}:${q.city}:${q.lat?.toFixed(3)}:${q.lon?.toFixed(3)}:${q.checkin}:${q.checkout}:${q.adults}:${q.rooms}`;
-      // neúplný výsledek (část cen nestihla přijít) jen na 5 min – další hledání doplní ceny z mezipaměti poskytovatele
+      // neúplný výsledek (část cen nestihla přijít) jen na 5 min – další hledání doplní ceny z mezipaměti poskytovatele;
+      // „Zkusit znovu“ (retry=1) ho přeskočí hned (doptá se jen na chybějící ceny, ostatní jsou v mezipaměti poskytovatele)
+      if (retry && cache.get(key)?.partial) cache.map.delete(key);
       const res = await cache.wrap(key, (v) => (v?.partial ? 5 * 60e3 : 45 * 60e3), () => p.search(q));
       items.push(...res);
       status.push({ id: p.id, name: p.name, ok: true, count: res.length, ms: Date.now() - t0, test: Boolean(p.testData?.()), ...(res.partial ? { partial: true } : {}) });

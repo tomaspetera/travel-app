@@ -126,9 +126,10 @@ export function sparqlNear(lat, lon, radiusKm, minLinks, items, { wv = false, la
 } LIMIT 30000`;
 }
 
-export async function wdqs(query, timeoutMs = 45000) {
+/** Dotaz SPARQL na Wikidata. queue = vlastní fronta volajícího (krátké dotazy nečekají za dlouhými dotazy Objevuj). */
+export async function wdqs(query, timeoutMs = 45000, { queue = limitWdqs } = {}) {
   const url = `${WDQS}?format=json&query=${encodeURIComponent(query)}`;
-  const j = await limitWdqs(() => request(url, { headers: { 'User-Agent': UA, Accept: 'application/sparql-results+json' }, timeoutMs, retries: 0 }));
+  const j = await queue(() => request(url, { headers: { 'User-Agent': UA, Accept: 'application/sparql-results+json' }, timeoutMs, retries: 0 }));
   return j.results?.bindings || [];
 }
 

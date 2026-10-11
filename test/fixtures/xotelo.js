@@ -103,3 +103,18 @@ export const WD_AROUND_KRUMLOV = [
   {"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q12041295"},"dist":{"type":"literal","value":"1.579"},"pop":{"type":"literal","value":"126"}},
   {"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q12032772"},"dist":{"type":"literal","value":"0.08"},"pop":{"type":"literal","value":"777"}},
 ];
+
+/**
+ * sparqlNames pro „Lisbon“@en, „Lisabon“@cs a „Paris“@en – položky s TripAdvisor ID a polohou podle popisku (živě
+ * 10/2026, 1,3 s). Lisabon: město Q597 (1,6 km od středu) i stejnojmenný okres Q207199 (4 km); Paříže v Arkansasu,
+ * Ontariu a Itálii daleko.
+ */
+export const WD_NAMES = [
+  {"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q90"},"ta":{"type":"literal","value":"187147"},"c":{"type":"literal","value":"Point(2.352222222 48.856666666)"},"pop":{"type":"literal","value":"2103778"}},
+  {"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q79917"},"ta":{"type":"literal","value":"31839"},"c":{"type":"literal","value":"Point(-93.726111111 35.291666666)"},"pop":{"type":"literal","value":"3176"}},
+  {"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q3305306"},"ta":{"type":"literal","value":"155006"},"c":{"type":"literal","value":"Point(-80.3833 43.2)"},"pop":{"type":"literal","value":"13448"}},
+  {"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q111331132"},"ta":{"type":"literal","value":"202990"},"c":{"type":"literal","value":"Point(11.251343786 43.773450915)"}},
+  {"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q597"},"ta":{"type":"literal","value":"189158"},"c":{"type":"literal","value":"Point(-9.139016 38.708042)"},"pop":{"type":"literal","value":"545796"}},
+  {"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q597"},"ta":{"type":"literal","value":"189158"},"c":{"type":"literal","value":"Point(-9.139016 38.708042)"},"pop":{"type":"literal","value":"545796"}},
+  {"item":{"type":"uri","value":"http://www.wikidata.org/entity/Q207199"},"ta":{"type":"literal","value":"3874225"},"c":{"type":"literal","value":"Point(-9.183333333 38.7)"},"pop":{"type":"literal","value":"2135992"}},
+];

@@ -3,7 +3,7 @@
 //
 // Rozhraní poskytovatele: { id, name, search(q) → Promise<Stay[]>, probe?() → Promise<string> (ostrý test /api/diag) }
 // Stay: { id, provider, name, type, stars, rating (0–10), reviews, address, lat, lon, distanceKm,
-//         photo, priceTotalCzk, pricePerNightCzk, bookUrl, freeCancellation, breakfast }
+//         photo, priceTotalCzk, pricePerNightCzk, bookUrl, bookSponsored (partnerský odkaz → „reklama“), freeCancellation, breakfast }
 // Xotelo navíc: rating5 (TripAdvisor 0–5), reviewsUrl (stránka na TripAdvisoru), rates [{ name, totalCzk, perNightCzk }]
 // (ceny u jednotlivých webů, nejlevnější první).
 import { config } from '../../config.js';

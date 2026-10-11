@@ -3044,6 +3044,8 @@
   function showTpGuide() {
     const on = id => Boolean(health && health.providers.some(p => p.id === id && p.enabled));
     const tpOn = on('travelpayouts'), liteOn = on('liteapi'), xoOn = on('xotelo'), staysOn = liteOn || xoOn;
+    // Xotelo po chybách (429, odmítá dotazy, výpadek) na chvíli vynechané – ne „✓ zapnuté“
+    const xoBlocked = health && health.providers.find(p => p.id === 'xotelo' && p.enabled && p.blocked);
     const title = tpOn ? (staysOn ? 'Zdroje cen jsou zapnuté' : 'Hotely s cenou přímo v ATLASu') : `Zapnout všechny aerolinky${staysOn ? '' : ' a hotely'}`;
     const sub = tpOn ? (staysOn ? 'aerolinky i hotely' : 'volitelné – bez toho funguje všechno, hotel jen vybereš u partnerů') : `easyJet, Vueling, Lufthansa, Emirates, Qatar, Turkish…${staysOn ? '' : ' + hotely s hodnocením'} – zdarma, asi 5 minut`;
     // kroky pro ostrý klíč LiteAPI (bez Xotela nutné, s ním volitelné)
@@ -3066,7 +3068,8 @@
         <p class="muted" style="font-size:14px;margin:12px 0 8px"><b>Živé ceny všech aerolinek k vybranému letu</b> (Kiwi.com) jsou zapnuté samy – klíč nepotřebují.</p>`}
         <h3 id="guideStays" style="font-size:16px;margin:18px 0 8px">🏨 Hotely s cenou a hodnocením</h3>
         ${liteOn ? '<div class="note good">✓ <div><b>Zapnuté</b> – u ubytování ATLAS ukazuje hotely s cenou a hodnocením přímo (LiteAPI).</div></div>'
-          : xoOn ? `<div class="note good">✓ <div><b>Zapnuté, bez klíče</b> – u ubytování ATLAS ukazuje hotely s hodnocením a orientačními cenami z TripAdvisoru (Booking, Agoda, Trip.com…) přes bezplatné neoficiální API Xotelo. Tady není co nastavovat.</div></div>
+          : xoOn ? `${xoBlocked ? `<div class="note warn">⚠️ <div><b>Zapnuté, ale teď nefunguje</b> – Xotelo ${esc(xoBlocked.reason || 'hlásí chyby')}. Hledání ubytování zatím nabídne jen odkazy na partnery; ATLAS to zkusí znovu sám${xoBlocked.retryAfter ? ` za ${Math.max(1, Math.round(xoBlocked.retryAfter / 60))} min` : ''}.</div></div>`
+            : '<div class="note good">✓ <div><b>Zapnuté, bez klíče</b> – u ubytování ATLAS ukazuje hotely s hodnocením a orientačními cenami z TripAdvisoru (Booking, Agoda, Trip.com…) přes bezplatné neoficiální API Xotelo. Tady není co nastavovat.</div></div>'}
         <details class="more" style="margin-top:10px"><summary>Volitelně: LiteAPI místo TripAdvisoru</summary>
           <p class="muted" style="font-size:13px;margin:8px 0">Ostrý klíč LiteAPI má přednost: ceny přímo k rezervaci a později i možnost provizí (u Xotela provize nebudou). Kdyby Xotelo přestalo fungovat, zůstanou odkazy na partnery.</p>${liteSteps}</details>`
           : `<p class="muted" style="font-size:13px;margin-bottom:8px"><b>Volitelné.</b> Bez klíče ATLAS u ubytování nabídne předvyplněné hledání na Booking.com (hodnocení 8+, od nejlevnějšího), Airbnb, Google Hotels a dalších – stačí to. Ceny a hodnocení hotelů přímo v průvodci ${health && health.providers.some(p => p.id === 'xotelo') ? 'zapne buď TripAdvisor přes Xotelo (bez klíče – na serveru ho vypnula proměnná <code>XOTELO=off</code>, stačí ji odebrat), nebo ostrý klíč LiteAPI' : 'přidá klíč LiteAPI'}:</p>${liteSteps}`}
