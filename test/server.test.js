@@ -2,6 +2,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import zlib from 'node:zlib';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { stubFetch, ymdPlus } from './helpers.js';
@@ -188,9 +189,14 @@ test('POST /api/search – kamkoliv, zpáteční, průběh se streamuje', async 
     assert.equal(o.best.czk, Math.min(...mins), o.iata);
   }
   for (const g of r.groups) {
-    assert.equal(Math.min(...Object.values(g.fromBest)), g.best.perPersonCzk, g.dest.key);
+    // nejlepší s návratem na jiné letiště (kombinace z už stažených letů) k žádnému letišti nepatří – z letiště je dražší
+    const min = Math.min(...Object.values(g.fromBest));
+    if (g.best.back.to === g.best.out.from) assert.equal(min, g.best.perPersonCzk, g.dest.key);
+    else assert.ok(min >= g.best.perPersonCzk, g.dest.key);
     assert.ok(Object.keys(g.fromBest).every((k) => r.origins.some((o) => o.iata === k)));
   }
+  // Kamkoliv: nejlevnější nabídka některých cílů je kombinace dvou aerolinek nebo s návratem na jiné letiště
+  assert.ok(r.groups.some((g) => g.best.provider === 'mix' || g.best.back.to !== g.best.out.from));
   assert.ok(r.origins.filter((o) => o.best).length >= 2);
 });
 
@@ -625,6 +631,57 @@ test('POST /api/search – totéž hledání z téže adresy, které ještě bě
   } finally {
     config.searchesPer10Min = prevLimit;
     mockProviders.forEach((p, i) => { p.daily = orig[i]; });
+  }
+});
+
+test('POST /api/search – průběžné výsledky přijdou gzip streamem hned, ne až s výsledkem; noPartial je vypne', async () => {
+  const { PARTIAL } = await import('../server/lib/search.js');
+  const { mockProviders } = await import('../server/providers/mock.js');
+  const keep = { ...PARTIAL };
+  const jet = mockProviders[1];
+  const orig = jet.daily;
+  Object.assign(PARTIAL, { firstMs: 50 });
+  // Demo Jet pomalý (jako Kiwi.com): lety až po 900 ms, Demo Air hned
+  jet.daily = async (...a) => { await new Promise((r) => setTimeout(r, 900)); return orig.apply(jet, a); };
+  const q = { from: ['ap:VIE'], radiusKm: 60, to: ['metro:LON'], dateFrom: ymdPlus(20), dateTo: ymdPlus(40), trip: 'return', nightsMin: 2, nightsMax: 5 };
+  const stub = stubFetch(() => ({ status: 404, body: {} })); // kurzy bez sítě
+  // řádky NDJSON s časem, kdy je klient dostal (rozbalené z gzipu po kouscích)
+  const read = (body) => new Promise((resolve, reject) => {
+    const t0 = Date.now();
+    const req = http.request({ host: '127.0.0.1', port: server.address().port, path: '/api/search', method: 'POST',
+      headers: { 'content-type': 'application/json', 'accept-encoding': 'gzip', 'x-forwarded-for': '10.20.30.44' } }, (res) => {
+      if (res.headers['content-encoding'] !== 'gzip') return reject(new Error('bez gzipu'));
+      const gz = res.pipe(zlib.createGunzip());
+      gz.setEncoding('utf8');
+      const lines = [];
+      let buf = '';
+      gz.on('data', (c) => {
+        buf += c;
+        for (let i; (i = buf.indexOf('\n')) >= 0; buf = buf.slice(i + 1)) lines.push({ at: Date.now() - t0, ev: JSON.parse(buf.slice(0, i)) });
+      });
+      gz.on('end', () => resolve(lines));
+      gz.on('error', reject);
+    });
+    req.on('error', reject);
+    req.end(JSON.stringify(body));
+  });
+  try {
+    const lines = await read(q);
+    const part = lines.find((l) => l.ev.type === 'partial');
+    const last = lines.at(-1);
+    assert.equal(last.ev.type, 'result');
+    assert.ok(part, 'průběžný výsledek v proudu');
+    assert.equal(part.ev.result.partial, true);
+    assert.ok(part.ev.result.groups.length > 0);
+    assert.ok(part.at < last.at - 400, `náhled za ${part.at} ms, výsledek za ${last.at} ms`);
+    assert.ok(lines.indexOf(part) < lines.length - 1 && last.ev.result.partial === undefined);
+    const off = await read({ ...q, noPartial: true });
+    assert.equal(off.at(-1).ev.type, 'result');
+    assert.ok(!off.some((l) => l.ev.type === 'partial'), 'noPartial (kontrola hlídaných cen, radar) bez náhledů');
+  } finally {
+    jet.daily = orig;
+    stub.restore();
+    Object.assign(PARTIAL, keep);
   }
 });
 

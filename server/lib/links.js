@@ -29,6 +29,22 @@ export function bookingSearchUrl(name, city, q) {
   return `https://www.booking.com/searchresults.cs.html?${p}`;
 }
 
+/** Trip.com podle názvu (searchWord – místo, nebo „hotel, místo“): vyplní hledání i termín a hosty, potvrdí se Hledat. */
+export function tripSearchUrl(word, q) {
+  return `https://www.trip.com/hotels/list?${new URLSearchParams({ searchWord: word, checkin: q.checkin, checkout: q.checkout, adult: String(q.adults), crn: String(q.rooms), curr: 'CZK', locale: 'cs-CZ' })}`;
+}
+
+/** Hledání Expedia Group (Hotels.com, Expedia): destination = místo, nebo „hotel, místo“, s termínem, hosty a pokoji. */
+export function expediaSearchUrl(host, destination, q) {
+  return `https://${host}/Hotel-Search?${new URLSearchParams({ destination, startDate: q.checkin, endDate: q.checkout, adults: String(q.adults), rooms: String(q.rooms) })}`;
+}
+
+/** Google Hotels: hledání (místo, nebo konkrétní hotel – pak jeho živé ceny u všech webů) na termín a hosty (ts). */
+export function googleHotelsUrl(text, q) {
+  const gts = googleHotelsTs(q.checkin, q.checkout, q.adults);
+  return `https://www.google.com/travel/search?q=${enc(text)}&hl=cs&curr=CZK${gts ? `&ts=${gts}` : ''}`;
+}
+
 // Hostelworld: stránka města /hostels/<kontinent>/<země>/<město>/ (jiný kontinent nebo název země sám přesměruje,
 // „united-kingdom“ → „england“); data hledání z adresy nebere. Města s hostely na ní mají odkaz na hledání webu s ID
 // města – searchStays ho dohledá (partnerids.js): s ID vede odkaz na hledání /pwa/s s termínem a hosty; místo bez
@@ -135,8 +151,7 @@ export function stayLinks(q, ids = {}) {
   const tripId = partnerId(ids.trip);
   const trip = tripId
     ? { note: 'silný v Asii', url: `https://www.trip.com/hotels/list?${new URLSearchParams({ cityId: String(tripId), checkin: q.checkin, checkout: q.checkout, crn: String(q.rooms), adult: String(q.adults), children: '0', curr: 'CZK', locale: 'cs-CZ' })}` }
-    : { note: 'silný v Asii – potvrď Hledat', url: `https://www.trip.com/hotels/list?${new URLSearchParams({ searchWord: place, checkin: q.checkin, checkout: q.checkout, adult: String(q.adults), crn: String(q.rooms), curr: 'CZK', locale: 'cs-CZ' })}` };
-  const hotels = new URLSearchParams({ destination: place, startDate: q.checkin, endDate: q.checkout, adults: String(q.adults), rooms: String(q.rooms) });
+    : { note: 'silný v Asii – potvrď Hledat', url: tripSearchUrl(place, q) };
   // Kayak: „Město-Země“ anglicky s pomlčkami (Porto-Novo-Benin) – samotné jméno pošle Lagos do Portugalska a Porto Novo
   // na Kapverdy, tvar „Město, Země“ s čárkou skončí na úvodní stránce bez místa i dat (ověřeno 10/2026 v Chromu).
   const kayakPlace = [String(cityEn).split(',')[0], KAYAK_COUNTRY[q.cc] || countryEn]
@@ -166,9 +181,9 @@ export function stayLinks(q, ids = {}) {
     { id: 'booking-best', name: 'Booking.com', note: 'nejlepší poměr hodnocení a ceny', prefill: 'full', url: affiliate(`https://www.booking.com/searchresults.cs.html?${booking({ order: 'review_score_and_price' })}`, 'booking'), sponsored: affiliateOn('booking') },
     { id: 'airbnb', name: 'Airbnb', note: 'apartmány a soukromí', prefill: 'full', url: `https://www.airbnb.cz/s/${enc(airbnbSlug)}/homes?${airbnb}` },
     { id: 'trip', name: 'Trip.com', note: trip.note, prefill: 'full', url: trip.url },
-    { id: 'hotelscom', name: 'Hotels.com', note: 'hotely (Expedia)', prefill: 'full', url: `https://www.hotels.com/Hotel-Search?${hotels}` },
+    { id: 'hotelscom', name: 'Hotels.com', note: 'hotely (Expedia)', prefill: 'full', url: expediaSearchUrl('www.hotels.com', place, q) },
     { id: 'kayak', name: 'Kayak', note: 'srovnání cen více webů', prefill: 'full', url: kayak },
-    { id: 'google', name: 'Google Hotels', note: gts ? 'srovnání cen' : 'srovnání cen – zadej data', prefill: gts ? 'full' : 'city', url: `https://www.google.com/travel/search?q=${enc(`hotels ${place}`)}&hl=cs&curr=CZK${gts ? `&ts=${gts}` : ''}` },
+    { id: 'google', name: 'Google Hotels', note: gts ? 'srovnání cen' : 'srovnání cen – zadej data', prefill: gts ? 'full' : 'city', url: googleHotelsUrl(`hotels ${place}`, q) },
     { id: 'hostelworld', name: 'Hostelworld', ...hostelworld },
     { id: 'agoda', name: 'Agoda', ...agoda },
   ];

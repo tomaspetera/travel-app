@@ -1,11 +1,13 @@
 // Registr poskytovatelů ubytování (cena + hodnocení). Bez nich aplikace nabídne jen odkazy s předvyplněným hledáním
 // (server/lib/links.js).
 //
-// Rozhraní poskytovatele: { id, name, search(q) → Promise<Stay[]>, probe?() → Promise<string> (ostrý test /api/diag) }
+// Rozhraní poskytovatele: { id, name, search(q, { fresh }) → Promise<Stay[]>, probe?() → Promise<string> (ostrý test
+// /api/diag), refresh? (umí fresh – ceny znovu, ne z mezipaměti: „Aktualizovat ceny“) }
 // Stay: { id, provider, name, type, stars, rating (0–10), reviews, address, lat, lon, distanceKm,
 //         photo, priceTotalCzk, pricePerNightCzk, bookUrl, bookSponsored (partnerský odkaz → „reklama“), freeCancellation, breakfast }
-// Xotelo navíc: rating5 (TripAdvisor 0–5), reviewsUrl (stránka na TripAdvisoru), rates [{ name, totalCzk, perNightCzk }]
-// (ceny u jednotlivých webů, nejlevnější první).
+// Xotelo navíc: rating5 (TripAdvisor 0–5), reviewsUrl (stránka na TripAdvisoru), rates [{ code, name, totalCzk,
+// perNightCzk, tax, site, url, sponsored }] (ceny u jednotlivých webů s odkazem na hotel, nejlevnější první; Booking.com
+// vždy, má-li nabídku), ratesAt (kdy se ceny zjistily, ms); bookUrl = odkaz nejlevnější nabídky.
 import { config } from '../../config.js';
 import { liteapi } from './liteapi.js';
 import { xotelo } from './xotelo.js';

@@ -104,6 +104,9 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 /* autem: „návrat i na jiné letiště“ vypnuté (vracíš se k autu) */
 .field label.check-inline.dis{opacity:.55;cursor:not-allowed}
 .oj-hint{font-size:12px;line-height:1.4;margin:-2px 0 6px 25px}
+/* ♡ Hlídat: 📅 Posouvat termín s časem (klouzavé hlídání) */
+.roll-opt{margin:0;font-size:13px;color:var(--muted)}
+.roll-opt[hidden]{display:none}
 .gm-lbl{font-size:13px;color:var(--muted)}
 .gm-row .seg button{padding:6px 11px;font-size:12.5px;white-space:nowrap}
 .gm-opt{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:8px;font-size:13px}
@@ -129,8 +132,12 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ---------- průběh ---------- */
+#progress{scroll-margin-top:100px} /* odrolování na začátku hledání: průběh i tenký pruh pod přilepenou horní lištou */
 .progress-card{padding:16px 18px;margin-bottom:18px}
-.progress-card.done{padding:12px 18px}
+.progress-card.done,.progress-card.part{padding:12px 18px}
+/* průběžné výsledky: tenký pruh nad výpisem, dokud pomalejší zdroje hledají; v nadpisu konkrétního cíle „⏳ zatím…“ */
+.progress-card.part .spin{width:12px;height:12px;border-width:2px;margin-right:3px;vertical-align:-1px}
+.part-tag{font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap}
 /* Wizz Air: další hledání vezme trasy, na které nedošlo */
 .more-routes{margin:-8px 0 18px}
 .ph{font-weight:800;font-size:14px;margin-bottom:10px}
@@ -460,6 +467,11 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .w-target{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:12.5px;color:var(--muted);font-weight:600;margin-top:10px}
 .w-target .input{width:96px;padding:6px 9px;border-radius:9px;font-size:13px}
 .w-past{margin-top:10px;padding:9px 11px;font-size:12px}
+.w-past .linkbtn{font-size:12px}
+.w-roll{display:flex;flex-wrap:wrap;align-items:center;gap:0 10px;font-size:12px;margin-top:4px}
+.w-roll .check-inline{font-size:12.5px;margin:0}
+.w-roll .check-inline input[type=checkbox]{width:15px;height:15px}
+.w-roll .linkbtn{font-size:12px}
 .w-st{font-size:11.5px;margin-top:8px;min-height:16px;display:flex;align-items:center;gap:6px}
 .w-st .spin{width:12px;height:12px;border-width:2px}
 .watch.checking .w-st{color:var(--accent);font-weight:700}

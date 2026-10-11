@@ -447,7 +447,11 @@
       const left = (extra.origins || []).filter(o => !v.excludeOrigins.has(o));
       out.push({ key: 'origins', label: left.length === 1 && extra.origins.length > 2 ? `jen z ${left[0]}` : `bez ${[...v.excludeOrigins].join(', ')}` });
     }
-    if (v.carriers && v.carriers.size) out.push({ key: 'carriers', label: `jen ${[...v.carriers].map(c => names[c] || c).join(', ')}` });
+    if (v.excludeCarriers && v.excludeCarriers.size) {
+      // vypnuté aerolinky; zbyla z aerolinek ve výsledcích jediná → „jen X“ (aerolinka, která přibude později, vidět bude)
+      const used = extra.carriers || [], left = used.filter(c => !v.excludeCarriers.has(c)), nm = c => names[c] || c;
+      out.push({ key: 'carriers', label: left.length === 1 && used.length > 2 ? `jen ${nm(left[0])}` : `bez ${[...v.excludeCarriers].map(nm).join(', ')}` });
+    }
     return out.concat(timeChips(v.time, time));
   }
 
@@ -851,7 +855,7 @@
    * „Odkud se vyplatí letět“: nejlevnější celá cesta z každého letiště odletu (o.best ze serveru, vč. dopravy na letiště)
    * proti nejbližšímu letišti (ref – ne přestupní) – o kolik levněji a o kolik déle cesta na letiště (zpáteční tam i zpět).
    * Zpáteční s návratem na jiné letiště (open-jaw) server k žádnému letišti nepočítá (filtr letišť ve výpisu ji u obou
-   * schová) – jaw = nejlevnější taková ve výpisu (res.top), r.jaw = kolik jich letiště řádku má.
+   * schová) – jaw = nejlevnější taková ve výpisu (res.top, v Kamkoliv nabídky cílů), r.jaw = kolik jich letiště řádku má.
    * → { rows (od nejlevnějšího, bez nabídky na konci), ref, win, jaw }; prázdné u cesty přes víc měst, u starších
    * výsledků bez best a když se něco našlo jen z jednoho letiště.
    */
@@ -868,7 +872,7 @@
     const bestOf = o => (own ? own[o.iata] || null : o.best);
     const os = (res.origins || []).filter(o => o && o.iata), priced = os.filter(o => bestOf(o) && bestOf(o).czk > 0);
     if (priced.length < 2) return none;
-    const jaws = (trips || res.top || []).filter(t => t && t.out && t.back && t.back.to !== t.out.from && Number.isFinite(t.perPersonCzk));
+    const jaws = (trips || res.top || (res.groups || []).flatMap(g => g.options || [])).filter(t => t && t.out && t.back && t.back.to !== t.out.from && Number.isFinite(t.perPersonCzk));
     const dist = o => (Number.isFinite(o.distKm) ? o.distKm : 1e9);
     const near = list => list.reduce((m, o) => (!m || dist(o) < dist(m) ? o : m), null);
     const ref = near(priced.filter(o => !o.hub)) || near(priced);
@@ -1056,6 +1060,12 @@
   }
   // odlet v předvečer prodlouženého víkendu nejdřív v (po práci)
   const LW_DEP = '16:00';
+  /**
+   * Letiště na kartě radaru: „BRQ → WAW“; nejlevnější cesta z Kamkoliv se může vracet jinam (bf/bt = let zpět, jen když
+   * nejde z cíle do místa odletu) – „JCL → POZ ↩ PED“, zpět z jiného letiště v cíli „BRQ → WAW ↩ WMI → BRQ“ (návrat
+   * nerozdělitelně – na úzké kartě se zalomí před ↩).
+   */
+  const radarRoute = x => `${x.from} → ${x.to}${x.bt ? ` ↩\u00a0${x.bf && x.bf !== x.to ? `${x.bf}\u00a0→\u00a0` : ''}${x.bt}` : ''}`;
   /**
    * Plánovač: místo k názvu cíle („Lisabon“) z našeptávače (items z /api/places) – jen přesná shoda názvu. Metropole
    * (Londýn, Barcelona) vyhrává nad stejnojmennými letišti jinde; jinak velká letiště (big), a jen když všechna leží
@@ -1499,6 +1509,33 @@
     const ago = m < 2 ? 'před chvílí' : m < 60 ? `před ${m} min` : `před ${Math.floor(m / 60)} h`;
     return `${dd === 0 ? '' : dd === 1 ? 'včera ' : `${d.getDate()}. ${d.getMonth() + 1}. `}${d.getHours()}:${pad(d.getMinutes())} (${ago})`;
   }
+  /* ---------- průběžné výsledky (pomalejší zdroje ještě hledají) ---------- */
+  /**
+   * Pruh nad průběžnými výsledky: „Průběžné výsledky – Kiwi.com ještě hledá (12/30)…“, „… – Wizz Air (5/9) a Kiwi.com
+   * (12/30) ještě hledají…“ (zdroje, které ještě neskončily, s hotovými dotazy, když je hlásí); nic už nehledá →
+   * „… – dokončuji…“ (skládání, letový řád). nameOf(id) = jméno zdroje.
+   */
+  function partialHead(providers, nameOf = id => id) {
+    const busy = (providers || []).filter(p => p && (p.state === 'pending' || p.state === 'running'));
+    const n = p => (p.calls ? ` (${p.done}/${p.calls})` : '');
+    const one = p => nameOf(p.id) + n(p);
+    if (!busy.length) return 'Průběžné výsledky – dokončuji…';
+    if (busy.length === 1) return `Průběžné výsledky – ${nameOf(busy[0].id)} ještě hledá${n(busy[0])}…`;
+    return `Průběžné výsledky – ${busy.slice(0, -1).map(one).join(', ')} a ${one(busy[busy.length - 1])} ještě hledají…`;
+  }
+  /**
+   * Výsledek na obrazovce jako výchozí cena ♡ hlídání: jen konečný (ne průběžný – část zdrojů), k tomuto dotazu (key =
+   * JSON dotazu výsledku, want = JSON hlídaného) a čerstvý (do maxAge od hledání v at). Jinak se hledá znovu.
+   */
+  function reusable(res, { at, key, want, now, maxAge = 30 * 6e4 }) {
+    return Boolean(res && !res.partial && now - at < maxAge && key === want);
+  }
+  /** Chyba hledání, které už ukázalo průběžné výsledky: hláška jako věta (tečka, chybí-li – „Server neposlal výsledek“, „network error“) + co znamená výpis níž. */
+  function partialFail(msg) {
+    const m = String(msg || '').trim() || 'Hledání selhalo';
+    return `${/[.!?…]$/.test(m) ? m : m + '.'} Výsledky níž jsou jen průběžné – hledání se nedokončilo.`;
+  }
+
   /** Nedávná hledání: nejnovější první, stejné hledání (podle klíče) jen jednou, nejvýš cap. */
   function recentAdd(list, e, key, cap = 5) {
     const k = key(e);
@@ -1513,7 +1550,17 @@
     return f.dFrom && f.dFrom >= today ? f : { ...f, dFrom: today };
   }
 
+  /**
+   * „Jen lety odsud“ (Odkud se vyplatí letět): vyřazená všechna letiště výsledku kromě only – i ta, která přibyla
+   * s dalším výsledkem téhož hledání. Letiště only ve výsledku není → vyřazení beze změny (jinak by schovalo vše).
+   */
+  function onlyOriginSet(only, origins, excluded = new Set()) {
+    if (!origins.includes(only)) return excluded;
+    return new Set([...excluded, ...origins].filter(x => x !== only));
+  }
+
   window.SearchHelp = {
+    onlyOriginSet,
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
@@ -1521,9 +1568,10 @@
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
-    easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
+    partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
   };
 })();

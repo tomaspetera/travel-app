@@ -98,10 +98,15 @@ test('estimate: přes Alpy a Dinárské hory o čtvrtinu déle (Klagenfurt není
 
 test('estimate: na východě levné vlaky i dál než 450 km, na západě dražší; do Skandinávie po souši přes Øresund', () => {
   // RegioJet 13. 10. 2026: Praha–Košice 499 Kč, Praha–Varšava 499 Kč, Praha–Lvov 389 Kč, Praha–Düsseldorf 869 Kč
-  for (const [label, cc, lat, lon, real] of [['Košice', 'SK', 48.72, 21.27, 499], ['Varšava', 'PL', 52.23, 21.0, 499], ['Lvov', 'UA', 49.84, 24.03, 389]]) {
-    const e = G.estimate(PRAHA, P(label, cc, lat, lon));
+  for (const [label, cc, lat, lon, real, rj] of [['Košice', 'SK', 48.72, 21.27, 499, 10202033], ['Varšava', 'PL', 52.23, 21.0, 499, 2737640000], ['Lvov', 'UA', 49.84, 24.03, 389, 271526030]]) {
+    const e = G.estimate(PRAHA, P(label, cc, lat, lon, rj));
     assert.ok(e.km > 450 && e.czk <= real * 1.45 && e.czk >= real * 0.8, `${label}: ${e.czk} Kč (RegioJet od ${real})`);
   }
+  // kam RegioJet nejezdí (jen FlixBus), levný východ neplatí: Praha–Gdaňsk FlixBus 10/2026 ~900 Kč jedním směrem
+  const gdn = G.estimate(PRAHA, P('Gdaňsk', 'PL', 54.352, 18.6466));
+  assert.ok(gdn.czk >= 750 && gdn.czk <= 1100, `Gdaňsk ${gdn.czk} Kč`);
+  assert.equal(G.estimate(PRAHA, G.groundPlace({ lat: 54.352, lon: 18.6466, cc: 'PL' })).czk, gdn.czk, 'Gdaňsk z dat: bez RegioJetu');
+  assert.equal(G.estimate(PRAHA, G.groundPlace({ lat: 52.2586, lon: 20.9946, cc: 'PL' })).czk < 600, true, 'Varšava z dat: RegioJet');
   const dus = G.estimate(PRAHA, P('Düsseldorf', 'DE', 51.22, 6.79));
   assert.ok(Math.abs(dus.czk - 869) / 869 < 0.15, `Düsseldorf ${dus.czk} Kč`);
   assert.ok(G.estimate(VIDEN, P('Varšava', 'PL', 52.23, 21.0)).czk > 600, 'z Rakouska už ne levný východ');

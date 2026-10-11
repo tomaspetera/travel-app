@@ -134,12 +134,29 @@ test('kiwiOutage: výpadek Kiwi a které zdroje i tak něco našly', () => {
 
 test('activeFilters: filtry ze serveru (se skrytými nabídkami) i z výpisu', () => {
   const chips = H.activeFilters({ maxPrice: 2000, directOnly: true, hidden: { maxPrice: 12, directOnly: 0 } },
-    { onlyDeals: true, maxPrice: 3000, outDate: '2026-11-12', excludeOrigins: new Set(['VIE']), carriers: new Set(['ryanair']) }, { ryanair: 'Ryanair' });
+    { onlyDeals: true, maxPrice: 3000, outDate: '2026-11-12', excludeOrigins: new Set(['VIE']), excludeCarriers: new Set(['wizzair']) }, { ryanair: 'Ryanair', wizzair: 'Wizz Air' });
   assert.deepEqual(plain(chips.map((c) => [c.key, c.label, c.hidden || 0, Boolean(c.rerun)])), [
     ['maxPrice', `do ${kc(2000)}`, 12, true], ['directOnly', 'jen přímé lety', 0, true], ['onlyDeals', '🔥 jen výhodné', 0, false],
-    ['viewPrice', `max. ${kc(3000)}`, 0, false], ['outDate', 'odlet 12. 11.', 0, false], ['origins', 'bez VIE', 0, false], ['carriers', 'jen Ryanair', 0, false],
+    ['viewPrice', `max. ${kc(3000)}`, 0, false], ['outDate', 'odlet 12. 11.', 0, false], ['origins', 'bez VIE', 0, false], ['carriers', 'bez Wizz Air', 0, false],
   ]);
-  assert.deepEqual(plain(H.activeFilters(null, { excludeOrigins: new Set(), carriers: new Set() })), []);
+  assert.deepEqual(plain(H.activeFilters(null, { excludeOrigins: new Set(), excludeCarriers: new Set() })), []);
+});
+
+test('filtr aerolinek vyřazuje (aerolinka, která přibude s konečným výsledkem, je vidět); „jen lety odsud“ i pro nová letiště', () => {
+  const names = { ryanair: 'Ryanair', wizzair: 'Wizz Air', kiwi: 'Kiwi.com' };
+  const chip = (ex, used) => plain(H.activeFilters(null, { excludeOrigins: new Set(), excludeCarriers: new Set(ex) }, names, {}, { carriers: used }))[0].label;
+  // náhled: Ryanair a Wizz Air, vypnutý Wizz Air → konečný přidá Kiwi.com, které zůstane zapnuté
+  assert.equal(chip(['wizzair'], ['ryanair', 'wizzair']), 'bez Wizz Air');
+  assert.equal(chip(['wizzair'], ['ryanair', 'wizzair', 'kiwi']), 'bez Wizz Air');
+  // zbyla jediná ze tří aerolinek výsledku → „jen X“
+  assert.equal(chip(['wizzair', 'kiwi'], ['ryanair', 'wizzair', 'kiwi']), 'jen Ryanair');
+  assert.equal(chip(['wizzair', 'kiwi'], undefined), 'bez Wizz Air, Kiwi.com');
+  // „jen lety z BRQ“ v náhledu (BRQ, VIE) → konečný výsledek přidá přestupní letiště MUC: vyřadí se taky
+  assert.deepEqual([...H.onlyOriginSet('BRQ', ['BRQ', 'VIE', 'MUC'], new Set(['VIE']))].sort(), ['MUC', 'VIE']);
+  assert.deepEqual([...H.onlyOriginSet('BRQ', ['BRQ'], new Set())], []);
+  // letiště „jen odsud“ ve výsledku není → nic se nemění (jinak by filtr schoval vše)
+  const ex = new Set(['VIE']);
+  assert.equal(H.onlyOriginSet('PRG', ['BRQ', 'VIE'], ex), ex);
 });
 
 test('isThin: méně než 3 kombinace (konkrétní cíl) nebo 3 destinace', () => {
@@ -281,7 +298,7 @@ test('timeHidden + timeStats: kolik nabídek skrývá který filtr, rozsahy posu
 
 test('timeChips + activeFilters: čipy s počtem skrytých nabídek, popisky podle směru', () => {
   const f = tf({ out: ['night', 'morning'], back: ['evening'], arrBy: 22, stops: 0, maxDur: 390, maxLay: 120 });
-  const chips = H.activeFilters(null, { excludeOrigins: new Set(), carriers: new Set(), time: f }, {}, { hidden: { tOut: 3, maxLay: 1 }, ret: true });
+  const chips = H.activeFilters(null, { excludeOrigins: new Set(), excludeCarriers: new Set(), time: f }, {}, { hidden: { tOut: 3, maxLay: 1 }, ret: true });
   assert.deepEqual(plain(chips.map((c) => [c.key, c.label, c.hidden])), [
     ['tOut', '🛫 odlet tam ráno, v noci', 3], ['tBack', '🛬 odlet zpět večer', 0], ['arrBy', 'přílet do 22:00', 0], ['stops', 'bez přestupu', 0],
     ['maxDur', '⏱ cesta max. 6 h 30 min', 0], ['maxLay', '⌛ přestup max. 2 h', 1]]);
@@ -735,6 +752,15 @@ test('radarPick: u svátků jen odlet první volný den nebo večer předem (od 
   assert.deepEqual(plain(H.radarPick([g1, g2], null).map((x) => x.t.perPersonCzk)), [900, 500], 'bez svátků beze změny');
 });
 
+test('radarRoute: karta radaru ukáže i návrat na jiné letiště a zpět z jiného letiště v cíli (kombinace z Kamkoliv)', () => {
+  // návrat nerozdělitelně (pevné mezery) – na úzké kartě se zalomí před ↩
+  const sp = (s) => s.replace(/\u00a0/g, ' ');
+  assert.equal(H.radarRoute({ from: 'BRQ', to: 'WAW' }), 'BRQ → WAW');
+  assert.equal(sp(H.radarRoute({ from: 'JCL', to: 'POZ', bf: 'POZ', bt: 'PED' })), 'JCL → POZ ↩ PED');
+  assert.equal(H.radarRoute({ from: 'BRQ', to: 'WAW', bf: 'WMI', bt: 'BRQ' }), 'BRQ → WAW ↩\u00a0WMI\u00a0→\u00a0BRQ');
+  assert.equal(sp(H.radarRoute({ from: 'VIE', to: 'STN', bf: 'LTN', bt: 'BTS' })), 'VIE → STN ↩ LTN → BTS');
+});
+
 test('placeGuess (plánovač): metropole, velká letiště, jedno jasně větší; jinak nic nehádat', async () => {
   const { localSuggestions } = await import('../server/lib/places.js');
   const g = (name) => { const x = H.placeGuess(localSuggestions(name), name); return x ? `${x.cc} ${x.id}` : null; };
@@ -799,9 +825,9 @@ test('🆕 nové země: až od 3 označených zemí, cíle bez země zůstávaj�
   assert.deepEqual(plain(H.newSplit([g('ES'), g('AT'), g(''), g('FR')], vis)), { keep: 3, hidden: 1 });
   assert.deepEqual(plain(H.newSplit([g('ES'), g('AT'), g(''), g('FR')], ['CZ', 'AT'])), { keep: 4, hidden: 0 });
   assert.deepEqual(plain(H.newSplit(null, vis)), { keep: 0, hidden: 0 });
-  const chips = H.activeFilters(null, { newOnly: true, excludeOrigins: new Set(), carriers: new Set() }, {}, {}, { newHidden: 4 });
+  const chips = H.activeFilters(null, { newOnly: true, excludeOrigins: new Set(), excludeCarriers: new Set() }, {}, {}, { newHidden: 4 });
   assert.deepEqual(plain(chips), [{ key: 'newOnly', label: '🆕 jen nové země', hidden: 4 }]);
-  assert.deepEqual(plain(H.activeFilters(null, { newOnly: false, excludeOrigins: new Set(), carriers: new Set() })), []);
+  assert.deepEqual(plain(H.activeFilters(null, { newOnly: false, excludeOrigins: new Set(), excludeCarriers: new Set() })), []);
 });
 
 test('originCompare: odkud se vyplatí letět – nejbližší (ne přestupní) letiště jako základ, rozdíl ceny a času cesty', () => {
@@ -867,6 +893,23 @@ test('originCompare/originFoot: návrat na jiné letiště se k letištím nepo�
   assert.match(noArr, /Čas = odhad cesty na letiště\. /);
 });
 
+test('originCompare v Kamkoliv (bez top): návraty jinam z nabídek cílů – kombinace z už stažených letů', () => {
+  const o = (iata, distKm, best) => ({ iata, city: iata, distKm, ground: { mode: 'transit', minutes: distKm }, best });
+  const rt = (from, to, perPersonCzk) => ({ out: { from }, back: { to }, perPersonCzk });
+  // VIE jen s návratem do BTS (Ryanair tam, Wizz Air zpět) – server ho k žádnému letišti nepočítá
+  const res = {
+    mode: 'explore', query: { trip: 'return', kmRate: 1, arrival: false },
+    origins: [o('BRQ', 5, { czk: 1500, n: 2 }), o('BTS', 120, { czk: 1700, n: 1 }), o('VIE', 125, null)],
+    top: null,
+    groups: [{ options: [rt('VIE', 'BTS', 1200.4), rt('BRQ', 'BRQ', 1500)] }, { options: [rt('BTS', 'BTS', 1700), rt('BRQ', 'BRQ', 1900)] }],
+  };
+  const oc = plain(H.originCompare(res));
+  assert.equal(oc.jaw, 1200);
+  assert.deepEqual(oc.rows.map((r) => [r.iata, r.czk, r.jaw]), [['BRQ', 1500, 0], ['BTS', 1700, 1], ['VIE', null, 1]]);
+  assert.match(H.originFoot(res, oc), /jen s odletem i návratem na totéž letiště/);
+  assert.equal(H.originCompare({ ...res, groups: [{ options: [rt('BRQ', 'BRQ', 1500)] }] }).jaw, null);
+});
+
 test('originCompare s filtry výpisu: ceny z nabídek, které výpis ukazuje; „nejbližší s nabídkou“; čip „jen z X“', () => {
   const origins = [
     { iata: 'BRQ', city: 'Brno', distKm: 5, ground: { mode: 'transit', minutes: 25 }, best: { czk: 2100, n: 5 } },
@@ -890,7 +933,40 @@ test('originCompare s filtry výpisu: ceny z nabídek, které výpis ukazuje; �
   assert.equal(all.ref.nearest, true);
   assert.equal(H.originDiffTxt(all.ref), 'nejbližší letiště');
   // čip filtru letišť: zbylo jediné → „jen z X“
-  const chip = (ex) => plain(H.activeFilters(null, { excludeOrigins: new Set(ex), carriers: new Set() }, {}, {}, { origins: ['BRQ', 'BTS', 'VIE'] }))[0].label;
+  const chip = (ex) => plain(H.activeFilters(null, { excludeOrigins: new Set(ex), excludeCarriers: new Set() }, {}, {}, { origins: ['BRQ', 'BTS', 'VIE'] }))[0].label;
   assert.equal(chip(['BRQ', 'BTS']), 'jen z VIE');
   assert.equal(chip(['BRQ']), 'bez BRQ');
+});
+
+test('průběžné výsledky: pruh „… ještě hledá (12/30)…“ česky (jeden / víc zdrojů, bez počtu dotazů, dokončuji)', () => {
+  const NAMES = { kiwi: 'Kiwi.com', wizzair: 'Wizz Air', ryanair: 'Ryanair' };
+  const nameOf = (id) => NAMES[id] || id;
+  const p = (id, state, done = 0, calls = 0) => ({ id, state, done, calls });
+  assert.equal(H.partialHead([p('ryanair', 'done', 8, 8), p('kiwi', 'running', 12, 30)], nameOf), 'Průběžné výsledky – Kiwi.com ještě hledá (12/30)…');
+  assert.equal(H.partialHead([p('ryanair', 'done'), p('wizzair', 'running', 5, 9), p('kiwi', 'running', 12, 30)], nameOf),
+    'Průběžné výsledky – Wizz Air (5/9) a Kiwi.com (12/30) ještě hledají…');
+  assert.equal(H.partialHead([p('ryanair', 'pending'), p('wizzair', 'running', 5, 9), p('kiwi', 'running')], nameOf),
+    'Průběžné výsledky – Ryanair, Wizz Air (5/9) a Kiwi.com ještě hledají…', 'zdroj bez dotazů bez počtu');
+  assert.equal(H.partialHead([p('ryanair', 'done'), p('kiwi', 'error')], nameOf), 'Průběžné výsledky – dokončuji…', 'všechno doběhlo, skládá se výsledek');
+  assert.equal(H.partialHead(null), 'Průběžné výsledky – dokončuji…');
+});
+
+test('průběžné výsledky: výchozí cena ♡ hlídání jen z čerstvého konečného výsledku téhož dotazu', () => {
+  const now = 1_800_000_000_000;
+  const res = { groups: [] };
+  const ok = (r, o = {}) => H.reusable(r, { at: now - 60e3, key: '{"a":1}', want: '{"a":1}', now, ...o });
+  assert.equal(ok(res), true);
+  assert.equal(ok({ ...res, partial: true }), false, 'průběžný (část zdrojů) → hledat znovu, ne výchozí cena');
+  assert.equal(ok(res, { want: '{"a":2}' }), false, 'jiný dotaz');
+  assert.equal(ok(res, { at: now - 31 * 60e3 }), false, 'starší než 30 min');
+  assert.equal(ok(null), false);
+});
+
+test('průběžné výsledky: chyba hledání po náhledu jako věta – tečka za hláškou bez ní, ne „Server neposlal výsledek Výsledky níž…“', () => {
+  const tail = ' Výsledky níž jsou jen průběžné – hledání se nedokončilo.';
+  assert.equal(H.partialFail('Server neposlal výsledek'), 'Server neposlal výsledek.' + tail);
+  assert.equal(H.partialFail('network error'), 'network error.' + tail, 'přerušený stream (Chrome)');
+  assert.equal(H.partialFail('Hledání trvalo moc dlouho.'), 'Hledání trvalo moc dlouho.' + tail, 'tečka jen jednou');
+  assert.equal(H.partialFail('Zkus to za chvíli!  '), 'Zkus to za chvíli!' + tail);
+  assert.equal(H.partialFail(''), 'Hledání selhalo.' + tail);
 });

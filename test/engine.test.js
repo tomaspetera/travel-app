@@ -6,8 +6,9 @@ import { localSuggestions, resolveOrigins, resolveDestinations, describe } from 
 import { groundEstimate, haversineKm } from '../server/lib/geo.js';
 import { convert, setRates, FALLBACK_EUR } from '../server/lib/fx.js';
 import { chunkRange, monthsInRange, weekday } from '../server/lib/dates.js';
-import { normalizeQuery, originBests, planRoutes, referencePrice, routesNote, routesNoteNearest } from '../server/lib/search.js';
-import { ymdPlus } from './helpers.js';
+import { PARTIAL, normalizeQuery, originBests, planRoutes, referencePrice, routesNote, routesNoteNearest, search } from '../server/lib/search.js';
+import { makeMock, mockProviders } from '../server/providers/mock.js';
+import { stubFetch, ymdPlus } from './helpers.js';
 
 const leg = (provider, from, to, date, czk) => makeLeg({ provider, from, to, dep: `${date}T10:00:00`, czk, price: czk, currency: 'CZK' });
 
@@ -384,4 +385,89 @@ test('originBests: nejlevnější celá cesta a počet nabídek podle letiště 
   const rt = (from, to, perPersonCzk) => ({ out: { from }, back: { to }, perPersonCzk });
   assert.deepEqual(originBests([rt('PED', 'BRQ', 1617), rt('PED', 'PED', 1807), rt('BRQ', 'BRQ', 1845), rt('BTS', 'VIE', 1500)]),
     { PED: { czk: 1807, n: 1 }, BRQ: { czk: 1845, n: 1 } });
+});
+
+// Průběžné výsledky: tři DEMO zdroje doběhnou postupně – pomalejší čekají (závora), až rychlejší doběhne a (s náhledy)
+// až přijde náhled (nanejvýš 300 ms – zdroj bez tras doběhne hned a další náhled nevyvolá), takže lety přibývají ve
+// stejném pořadí s náhledy i bez nich. Konečný výsledek (bez časů ms) musí být stejný jako s opts.noPartial /
+// raw.noPartial a náhledy se po konečném skládání nesmí změnit (jsou z kopií).
+test('průběžné výsledky: náhled, dokud pomalejší zdroj hledá; konečný výsledek stejný jako bez náhledů', async () => {
+  const stub = stubFetch(() => ({ status: 404, body: {} })); // kurzy: orientační, bez opakování dotazu
+  const keep = { ...PARTIAL };
+  Object.assign(PARTIAL, { firstMs: 20, gapMs: 40 });
+  const plain = (v) => JSON.parse(JSON.stringify(v));
+  const strip = (r) => { const x = plain(r); x.stats.ms = 0; for (const p of x.providers) p.ms = 0; return x; };
+  const third = makeMock({ id: 'demo-three', name: 'Demo Three', code: 'D3', seed: 'c', share: 0.2 });
+  async function run(raw, partials) {
+    const events = [];
+    const seen = [];
+    let status = null;
+    const finished = (id) => Boolean(status && !['pending', 'running'].includes(status.find((s) => s.id === id)?.state));
+    const parts = () => events.filter((e) => e.type === 'partial').length;
+    // závora: zdroj id doběhl a (s náhledy) přišel n. náhled, nejdéle 300 ms po doběhnutí
+    const after = (id, n) => {
+      let p = null;
+      return () => (p = p || new Promise((resolve) => {
+        let at = 0;
+        const iv = setInterval(() => {
+          if (!finished(id)) return;
+          at = at || Date.now();
+          if (!partials || parts() >= n || Date.now() - at > 300) { clearInterval(iv); resolve(); }
+        }, 2);
+      }));
+    };
+    const slow = (p, wait) => ({ ...p, daily: async (x) => { await wait(); return p.daily(x); } });
+    const providers = [mockProviders[0], slow(mockProviders[1], after('demo-air', 1)), slow(third, after('demo-jet', 2))];
+    const res = await search(raw, (ev) => {
+      if (ev.type === 'progress') status = ev.providers;
+      events.push(ev);
+      if (ev.type === 'partial') seen.push(JSON.stringify(ev.result));
+    }, { providers, ...(partials === false ? { noPartial: true } : {}) });
+    return { res, partials: events.filter((e) => e.type === 'partial').map((e) => e.result), seen };
+  }
+  const D = (n) => ymdPlus(n);
+  const cases = [
+    ['kamkoliv z víc letišť', { from: ['ap:VIE'], radiusKm: 60, dateFrom: D(20), dateTo: D(32), trip: 'return', nightsMin: 2, nightsMax: 5, adults: 2 }],
+    ['do země, jen tam', { from: ['ap:PRG'], radiusKm: 0, to: ['cc:ES'], dateFrom: D(25), dateTo: D(40), trip: 'oneway', adults: 1, noPartial: 'raw' }],
+    ['konkrétní cíl, rozsah nocí (mřížka)', { from: ['ap:VIE', 'ap:BTS'], radiusKm: 0, to: ['metro:LON'], dateFrom: D(20), dateTo: D(45), trip: 'return', nightsMin: 2, nightsMax: 6, adults: 1, bags: 'cabin', arrival: true }],
+    ['přesná data ± 1 den', { from: ['ap:VIE'], radiusKm: 60, to: ['metro:LON'], exactOut: D(30), exactBack: D(34), flexDays: 1, adults: 2, noPartial: 'raw' }],
+  ];
+  try {
+    for (const [name, q0] of cases) {
+      const { noPartial, ...q } = q0;
+      const a = await run(q, true);
+      // bez náhledů: raw.noPartial (z prohlížeče – kontrola hlídaných cen, radar), jinak opts.noPartial (úseky cesty přes víc měst)
+      const b = noPartial === 'raw' ? await run({ ...q, noPartial: true }, null) : await run(q, false);
+      assert.equal(b.partials.length, 0, `${name}: bez náhledů`);
+      assert.ok(a.partials.length >= 1 && a.partials.length <= PARTIAL.max, `${name}: ${a.partials.length} náhledů`);
+      assert.equal(a.res.partial, undefined, `${name}: konečný výsledek není náhled`);
+      assert.deepEqual(strip(a.res), strip(b.res), `${name}: konečný výsledek stejný jako bez náhledů`);
+      assert.ok(a.res.groups.length > 0, name);
+      a.partials.forEach((p, i) => {
+        assert.equal(JSON.stringify(p), a.seen[i], `${name}: náhled ${i + 1} se konečným skládáním nezměnil`);
+        assert.equal(p.partial, true);
+        assert.ok(p.groups.length > 0 && p.groups.length <= PARTIAL.groups, `${name}: ${p.groups.length} cílů`);
+        assert.equal(p.providers.find((s) => s.id === 'demo-three').state, 'running', `${name}: náhled, dokud zdroj hledá`);
+        assert.equal(p.nearby, null);
+        assert.ok(!p.calendar || !p.calendar.grid, `${name}: náhled bez mřížky termínů`);
+        if (p.top) {
+          const prices = p.top.map((t) => t.perPersonCzk);
+          assert.deepEqual(prices, [...prices].sort((x, y) => x - y));
+          assert.ok(p.top.length <= PARTIAL.top + p.origins.length + new Set(p.top.map((t) => t.out.date)).size, `${name}: ${p.top.length} nabídek ve výpisu náhledu`);
+        }
+      });
+      // náhled z části zdrojů: méně nabídek než konečný výsledek, první z jediného rychlého zdroje
+      const found = (r) => r.providers.reduce((s, p) => s + p.found, 0);
+      assert.ok(found(a.partials[0]) < found(a.res), name);
+      assert.deepEqual([...new Set(a.partials[0].groups.flatMap((g) => g.options.map((t) => t.provider)))], ['demo-air'], name);
+      if (q.exactOut) assert.ok(a.res.nearby && a.res.nearby.out, `${name}: konečný výsledek má nejbližší dny`);
+      // Kamkoliv: kombinace aerolinek a letišť z už stažených letů jen v konečném výsledku (v náhledech ne)
+      const mixed = (r) => r.groups.some((g) => g.options.some((t) => t.back && (t.provider === 'mix' || t.back.to !== t.out.from || t.back.from !== t.out.to)));
+      if (!q.to && q.trip === 'return') assert.ok(mixed(a.res) && !a.partials.some(mixed), `${name}: kombinace jen v konečném`);
+      if (q.nightsMax > q.nightsMin && q.to) assert.ok(a.res.calendar.grid.cells.length, `${name}: konečný výsledek má mřížku`);
+    }
+  } finally {
+    Object.assign(PARTIAL, keep);
+    stub.restore();
+  }
 });

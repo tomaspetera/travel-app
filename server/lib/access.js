@@ -21,7 +21,7 @@
 import { haversineKm } from './geo.js';
 import { toCzk } from './fx.js';
 import { airportsNear, getAirport } from './airports.js';
-import { CHEAP_CC, CITIES, MEASURED, MOUNTAIN_SLOW, PRAHA_RJ, distanceModel, groundPlace, landKm, mountainsOn } from './ground.js';
+import { CHEAP_CC, CITIES, MEASURED, MOUNTAIN_SLOW, PRAHA_RJ, cheapEast, distanceModel, groundPlace, landKm, mountainsOn } from './ground.js';
 import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV_LABEL, fuelPrice } from './fuel.js';
 
 // Letiště do ~450 km od Česka: [šířka, délka středu města, které obsluhuje, město, jízdné město → letiště (Kč/os.),
@@ -225,7 +225,7 @@ function intercity(a, b) {
   const other = pa?.rj === PRAHA_RJ ? pb?.rj : pb?.rj === PRAHA_RJ ? pa?.rj : null;
   const m = other && MEASURED[other];
   if (m) return { czk: m.czk, min: m.min, measured: true };
-  const dm = distanceModel(km, mountainsOn(a, b) ? MOUNTAIN_SLOW : 1, CHEAP_CC.has(a.cc) && CHEAP_CC.has(b.cc));
+  const dm = distanceModel(km, mountainsOn(a, b) ? MOUNTAIN_SLOW : 1, cheapEast({ ...a, rj: pa?.rj }, { ...b, rj: pb?.rj }));
   return { czk: Math.min(dm.czk, regionalCzk(km)), min: Math.min(dm.minutes, regionalMin(km)) };
 }
 
