@@ -894,3 +894,36 @@ test('originCompare s filtry výpisu: ceny z nabídek, které výpis ukazuje; �
   assert.equal(chip(['BRQ', 'BTS']), 'jen z VIE');
   assert.equal(chip(['BRQ']), 'bez BRQ');
 });
+
+test('průběžné výsledky: pruh „… ještě hledá (12/30)…“ česky (jeden / víc zdrojů, bez počtu dotazů, dokončuji)', () => {
+  const NAMES = { kiwi: 'Kiwi.com', wizzair: 'Wizz Air', ryanair: 'Ryanair' };
+  const nameOf = (id) => NAMES[id] || id;
+  const p = (id, state, done = 0, calls = 0) => ({ id, state, done, calls });
+  assert.equal(H.partialHead([p('ryanair', 'done', 8, 8), p('kiwi', 'running', 12, 30)], nameOf), 'Průběžné výsledky – Kiwi.com ještě hledá (12/30)…');
+  assert.equal(H.partialHead([p('ryanair', 'done'), p('wizzair', 'running', 5, 9), p('kiwi', 'running', 12, 30)], nameOf),
+    'Průběžné výsledky – Wizz Air (5/9) a Kiwi.com (12/30) ještě hledají…');
+  assert.equal(H.partialHead([p('ryanair', 'pending'), p('wizzair', 'running', 5, 9), p('kiwi', 'running')], nameOf),
+    'Průběžné výsledky – Ryanair, Wizz Air (5/9) a Kiwi.com ještě hledají…', 'zdroj bez dotazů bez počtu');
+  assert.equal(H.partialHead([p('ryanair', 'done'), p('kiwi', 'error')], nameOf), 'Průběžné výsledky – dokončuji…', 'všechno doběhlo, skládá se výsledek');
+  assert.equal(H.partialHead(null), 'Průběžné výsledky – dokončuji…');
+});
+
+test('průběžné výsledky: výchozí cena ♡ hlídání jen z čerstvého konečného výsledku téhož dotazu', () => {
+  const now = 1_800_000_000_000;
+  const res = { groups: [] };
+  const ok = (r, o = {}) => H.reusable(r, { at: now - 60e3, key: '{"a":1}', want: '{"a":1}', now, ...o });
+  assert.equal(ok(res), true);
+  assert.equal(ok({ ...res, partial: true }), false, 'průběžný (část zdrojů) → hledat znovu, ne výchozí cena');
+  assert.equal(ok(res, { want: '{"a":2}' }), false, 'jiný dotaz');
+  assert.equal(ok(res, { at: now - 31 * 60e3 }), false, 'starší než 30 min');
+  assert.equal(ok(null), false);
+});
+
+test('průběžné výsledky: chyba hledání po náhledu jako věta – tečka za hláškou bez ní, ne „Server neposlal výsledek Výsledky níž…“', () => {
+  const tail = ' Výsledky níž jsou jen průběžné – hledání se nedokončilo.';
+  assert.equal(H.partialFail('Server neposlal výsledek'), 'Server neposlal výsledek.' + tail);
+  assert.equal(H.partialFail('network error'), 'network error.' + tail, 'přerušený stream (Chrome)');
+  assert.equal(H.partialFail('Hledání trvalo moc dlouho.'), 'Hledání trvalo moc dlouho.' + tail, 'tečka jen jednou');
+  assert.equal(H.partialFail('Zkus to za chvíli!  '), 'Zkus to za chvíli!' + tail);
+  assert.equal(H.partialFail(''), 'Hledání selhalo.' + tail);
+});

@@ -129,8 +129,12 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ---------- průběh ---------- */
+#progress{scroll-margin-top:100px} /* odrolování na začátku hledání: průběh i tenký pruh pod přilepenou horní lištou */
 .progress-card{padding:16px 18px;margin-bottom:18px}
-.progress-card.done{padding:12px 18px}
+.progress-card.done,.progress-card.part{padding:12px 18px}
+/* průběžné výsledky: tenký pruh nad výpisem, dokud pomalejší zdroje hledají; v nadpisu konkrétního cíle „⏳ zatím…“ */
+.progress-card.part .spin{width:12px;height:12px;border-width:2px;margin-right:3px;vertical-align:-1px}
+.part-tag{font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap}
 /* Wizz Air: další hledání vezme trasy, na které nedošlo */
 .more-routes{margin:-8px 0 18px}
 .ph{font-weight:800;font-size:14px;margin-bottom:10px}

@@ -226,6 +226,17 @@ test('paměť cen: localStorage – uložit, načíst, poškozená data, panel d
   assert.deepEqual(plain(P.load()), { v: 1, r: {} });
 });
 
+test('paměť cen: průběžný výsledek hledání (jen část zdrojů) se nezapamatuje, ani pro jednu trasu z panelu', () => {
+  const mem = new Map();
+  const ls = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)) };
+  const res = { partial: true, query: { trip: 'oneway', dateFrom: '2026-11-01', dateTo: '2026-11-30' }, groups: [{ dest: { key: 'BCN' }, priceStats: { mins: [['PRG', '2026-11', 1200]] } }] };
+  assert.equal(P.remember(res, { now: NOW, ls }), null);
+  assert.equal(P.remember(res, { now: NOW, ls, only: 'PRG>BCN|2026-11|ow' }), null);
+  assert.equal(mem.size, 0, 'nic se nezapsalo');
+  P.remember({ ...res, partial: undefined }, { now: NOW, ls });
+  assert.equal(P.load(ls).r['PRG>BCN|2026-11|ow'].min, 1200, 'konečný výsledek ano');
+});
+
 test('rada: koupit / hlídat / zkusit jiné dny podle úrovně a dní do odletu, vždy opatrně', () => {
   assert.equal(P.advice('low', 10).kind, 'buy');
   assert.match(P.advice('low', 10).text, /obvykle zvedají/);

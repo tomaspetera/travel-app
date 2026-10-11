@@ -122,7 +122,7 @@
   /** Po hledání „kamkoliv“ / do zemí: v pozadí ověřit nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli. */
   async function autoVerify(res) {
     const gen = ++liveGen;
-    if (!res || res.mode !== 'explore' || res.demo || document.hidden || SearchHelp.kiwiOutage(res.providers)) return;
+    if (!res || res.partial || res.mode !== 'explore' || res.demo || document.hidden || SearchHelp.kiwiOutage(res.providers)) return;
     const todo = SearchHelp.livePick(computeGroups(), { rows: 10, max: 3, adults: liveAdults(), done: k => Boolean(liveGet(k)) });
     await new Promise(r => setTimeout(r, 1000)); // ať nejde v jedné dávce s posledními dotazy hledání
     while (todo.length && gen === liveGen) {
@@ -153,8 +153,10 @@
   /** POST /api/search se streamem průběhu (NDJSON). */
   // Pozn.: Chrome (DevTools, Playwright) u streamovaného hledání často hlásí net::ERR_ABORTED / (canceled), i když odpověď
   // dorazila celá – jen hlášení prohlížeče. Skutečně se ruší jen přes AbortController (jiné hledání, kontrola hlídání po 3 min).
-  async function runSearch(payload, { onProgress, signal } = {}) {
-    const r = await fetch('api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal });
+  // onPartial(result) = průběžné výsledky, dokud pomalejší zdroje hledají (jen náhled); bez něj je server neposílá
+  // (noPartial – kontrola hlídaných cen, radar). Starší server je nepošle vůbec.
+  async function runSearch(payload, { onProgress, onPartial, signal } = {}) {
+    const r = await fetch('api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(onPartial ? payload : { ...payload, noPartial: true }), signal });
     if (!r.ok || !r.body) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
     const reader = r.body.getReader();
     const dec = new TextDecoder();
@@ -169,6 +171,8 @@
         if (!line) continue;
         const ev = JSON.parse(line);
         if (ev.type === 'progress' && onProgress) onProgress(ev);
+        // náhled je navíc – chyba při jeho vykreslení nesmí shodit hledání
+        else if (ev.type === 'partial' && onPartial && ev.result) { try { onPartial(ev.result); } catch (e) { console.error(e); } }
         else if (ev.type === 'result') result = ev.result;
         else if (ev.type === 'error') error = ev.error;
       }
@@ -892,6 +896,7 @@
     lastPayload = payload; lastForm = f;
     // jiné hledání (uživatel změnil formulář): předchozí zrušit (i živé ověřování jeho cen)
     if (running) running.ctl.abort();
+    clearTimeout(paintT); // odložené překreslení předchozího hledání (průběžné výsledky) už neplatí
     liveGen++;
     const ctl = new AbortController();
     // filtry výpisu (i 🔥 jen výhodné, čas a přestupy) platí jen pro jedno hledání
@@ -903,13 +908,21 @@
     if (!opts.noScroll) $('#progress').scrollIntoView({ behavior: 'smooth', block: 'start' });
     const job = (async () => {
     busySearches++;
+    const s = { ctl, shown: false }; // průběžné výsledky tohoto hledání už na obrazovce
     try {
-      const res = SearchHelp.gridTrips(await runSearch(payload, { onProgress: ev => renderProgress(ev), signal: ctl.signal })); // + cesty buněk mřížky termínů
+      const res = SearchHelp.gridTrips(await runSearch(payload, {
+        onProgress: ev => renderProgress(ev, false, null, s.shown),
+        onPartial: r => paintSoon(() => showPartial(r, s)),
+        signal: ctl.signal,
+      })); // + cesty buněk mřížky termínů
       lastResult = res; lastResultAt = Date.now(); lastResultPayload = payload; restored = false;
       PriceCheck.remember(res); // paměť cen v tomto prohlížeči („Je to dobrá cena?“)
+      if (window.Trip && Trip.finalStats) Trip.finalStats(res); // let vybraný z průběžných výsledků: „Je to dobrá cena?“ až z konečného
       fitMode(res);
-      renderProgress({ providers: res.providers }, false, res);
-      renderResults();
+      // po průběžných výsledcích jen překreslit (filtry, pohled, rozbalení, posun i fokus zůstanou) – ne pod rukou
+      const paint = () => { renderProgress({ providers: res.providers }, false, res); if (s.shown) rerenderKeep(); else renderResults(); };
+      clearTimeout(paintT);
+      if (s.shown) paintSoon(paint); else paint();
       if (!health && healthNow) healthNow(); // stav serveru při startu nedorazil – hledání prošlo, server žije: načíst hned
       autoVerify(res); // ceny z mezipaměti mezi prvními cíli živě v pozadí
       S.recent = SearchHelp.recentAdd(S.recent, { form: f, at: lastResultAt }, watchKey); save(); renderRecent();
@@ -919,7 +932,8 @@
     } catch (e) {
       if (e.name === 'AbortError') return;
       expandForm(); // chyba hledání: formulář zase vidět (hláška radí ho upravit)
-      $('#progress').innerHTML = `<div class="note bad">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(e.message)}</div></div>`;
+      clearTimeout(paintT);
+      $('#progress').innerHTML = `<div class="note bad">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(s.shown ? SearchHelp.partialFail(e.message) : e.message)}</div></div>`;
     } finally {
       busySearches--;
       // tlačítko odemkne jen poslední hledání – zrušené předchozí by ho odemklo uprostřed běžícího
@@ -929,6 +943,45 @@
     running = { key: pkey, ctl, job };
     return job;
   }
+
+  // Průběžný výsledek (pomalejší zdroje ještě hledají) jen na obrazovku: lastResult bez času a dotazu výsledku (♡ Hlídat ho
+  // nevezme), do paměti cen, nedávných ani uloženého hledání, k ověřování živě ani hlídání nejde – to až konečný.
+  // Filtry, pohled, rozbalené nabídky, posun i fokus zůstanou (view se nuluje jen na začátku hledání).
+  function showPartial(r, s) {
+    if (!running || running.ctl !== s.ctl || !(r.groups || []).length) return;
+    r.partial = true;
+    lastResult = SearchHelp.gridTrips(r);
+    fitMode(r);
+    renderProgress({ providers: r.providers }, false, null, true);
+    s.shown = true;
+    rerenderKeep();
+  }
+  // Nové nabídky výpisem pod rukou nehýbou: řádek, který je teď nahoře na obrazovce (cíl, nabídka), zůstane po překreslení
+  // na stejném místě, i když nad ním přibude levnější cíl, pruh nebo filtr; jinak (nahoře na stránce, řádek zmizel)
+  // aspoň stejný posun stránky (rerender). Mapa: přiblížení (i projekce) a detail cíle otevřený klepnutím na bod zůstanou.
+  function rerenderKeep() {
+    const host = $('#results');
+    // (řádek v horní polovině obrazovky – první řádek až dole na telefonu by s mřížkou termínů, která přibude nad výpisem,
+    // odsunul pruh i nadpis, na které se uživatel dívá, o celou obrazovku)
+    const el = scrollY > 0 ? $$('.cmp-row[data-cg], .res-card[id^="g-"], .trip-row[data-tid]', host).find(e => e.getBoundingClientRect().bottom > 80 && e.getBoundingClientRect().top < innerHeight / 2) : null;
+    const sel = el && (el.dataset.cg != null ? `.cmp-row[data-cg="${CSS.escape(el.dataset.cg)}"]` : el.id ? '#' + CSS.escape(el.id) : `.trip-row[data-tid="${CSS.escape(el.dataset.tid)}"]`);
+    const top = el && el.getBoundingClientRect().top;
+    const sv = view.mode === 'map' && typeof d3 !== 'undefined' ? $('#resMap svg', host) : null, z = sv && sv.__pj ? d3.zoomTransform(sv) : null;
+    mapKeep = z && (z.k !== 1 || z.x || z.y) ? { ...sv.__pj, z: { k: z.k, x: z.x, y: z.y } } : null;
+    const mg = view.mode === 'map' ? $('#mapList', host)?.dataset.g : null;
+    rerender(true);
+    mapKeep = null; // mapa se (bez výsledků) nekreslila – příště zase podle výsledků
+    const g = mg && $('#mapList', host) && computeGroups().find(x => x.dest.key === mg);
+    if (g) showMapDetail(g, false);
+    const now = sel && $(sel, host);
+    if (now) window.scrollBy(0, now.getBoundingClientRect().top - top);
+  }
+  // Uživatel právě kliká, táhne, posouvá stránku nebo má otevřené okno → výpis se mu pod rukou nepřekreslí (průběžné
+  // výsledky, konečné po nich): zkusí se znovu za chvíli, novější náhled starší nahradí.
+  const hands = { down: 0, scroll: 0 };
+  const handsOn = () => (hands.down && Date.now() - hands.down < 15000) || Date.now() - hands.scroll < 250 || Boolean($('#modalBg')?.classList.contains('show'));
+  let paintT = 0;
+  function paintSoon(fn) { clearTimeout(paintT); if (handsOn()) paintT = setTimeout(() => paintSoon(fn), 300); else fn(); }
 
   /** Upravené hledání jedním kliknutím (jiný den, ± dny, zrušený filtr, širší cíl…): formulář + nové hledání. */
   function rerun(patch = {}, opts = {}) {
@@ -944,6 +997,7 @@
 
   /* ---------- poslední výsledky a nedávná hledání ---------- */
   function saveLast(c) {
+    if (!c.res || c.res.partial) return; // průběžný výsledek se neukládá (a uložený konečný z minula nesmaže)
     try {
       const s = SearchHelp.lastPack(c);
       if (s) localStorage.setItem(LAST_LS, s); else localStorage.removeItem(LAST_LS);
@@ -1000,7 +1054,8 @@
     $$('[data-recent]', host).forEach(b => b.onclick = () => { setForm(items[+b.dataset.recent].f); startSearch(); });
   }
 
-  function renderProgress(ev, starting, res) {
+  // part = pod průběhem už jsou průběžné výsledky → jen tenký pruh (co ještě hledá), řádky zdrojů po rozkliknutí
+  function renderProgress(ev, starting, res, part = false) {
     const host = $('#progress');
     const rows = (ev.providers || []).map(p => {
       const pct = p.calls ? Math.round(p.done / p.calls * 100) : (p.state === 'done' ? 100 : 0);
@@ -1031,6 +1086,19 @@
       host.innerHTML = `<details class="card progress-card done"${bad ? ' open' : ''}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">podrobnosti</span></summary>${rows}${disabled}</details>`
         + (more ? `<div class="more-routes"><button type="button" class="btn sm" id="moreRoutes" title="Na jedno hledání smí ATLAS na ${esc(shopName(more.id))} jen omezený počet dotazů – další hledání vezme nejdřív trasy, na které nedošlo">Prohledat zbylé trasy ${esc(shopName(more.id))} (${more.coverage.skipped})</button></div>` : '');
       const mr = $('#moreRoutes', host); if (mr) mr.onclick = () => rerun();
+      return;
+    }
+    if (part && !multi) {
+      // Další průběh jen přepíše text a řádky zdrojů – pruh i „podrobnosti“ zůstanou (rozbalení, klepnutí rozpracované
+      // pod prstem se neztratí; průběh chodí až 4× za s).
+      const d = $('details.progress-card.part', host), sum = d && $('summary', d);
+      if (sum) {
+        $('.ph-txt', sum).textContent = SearchHelp.partialHead(ev.providers, shopName);
+        while (sum.nextSibling) sum.nextSibling.remove();
+        sum.insertAdjacentHTML('afterend', rows + disabled);
+        return;
+      }
+      host.innerHTML = `<details class="card progress-card part"><summary class="ph"><span><span class="spin"></span> <span class="ph-txt">${esc(SearchHelp.partialHead(ev.providers, shopName))}</span></span><span class="ps-more faint">podrobnosti</span></summary>${rows}${disabled}</details>`;
       return;
     }
     host.innerHTML = `<div class="card progress-card"><div class="ph">${head}</div>${legs}${rows}</div>`;
@@ -1215,7 +1283,7 @@
     clearInterval(kiwiTimer);
     filledNow = [];
     if (res.mode === 'multi') return renderMulti(res);
-    wxLoad(res); // předpověď v cíli: jednou na výsledek hledání (při překreslení už je načtená nebo se načítá)
+    if (!res.partial) wxLoad(res); // předpověď v cíli: jednou na (konečný) výsledek hledání (při překreslení už je načtená nebo se načítá)
     pricedNow = SearchHelp.pricedTimes([...(res.top || []), ...res.groups.flatMap(g => g.options)]);
     const host = $('#results');
     const isRoute = res.mode === 'route';
@@ -1254,12 +1322,12 @@
       if (view.gndOpen) showGround(true, false);
       return;
     }
-    const thin = SearchHelp.isThin(res);
+    const thin = !res.partial && SearchHelp.isThin(res); // průběžné výsledky: „málo výsledků“ až podle konečných
     // „Kamkoliv“ a země: výchozí Přehled (řádek na město, klepnutím plná karta), Karty = každý cíl celou kartou
     if (isRoute && view.mode === 'cards') view.mode = 'list';
     const modes = [...(exactRoute ? [['legs', '✈︎ Lety']] : []), ['list', exactRoute ? '☰ Kombinace' : isRoute ? '☰ Seznam' : '≡ Přehled'], ...(!isRoute ? [['cards', '☰ Karty']] : []), ['map', '🗺️ Mapa'], ...(isRoute ? [['cal', '📅 Kalendář']] : [])];
     const summary = kiwiBanner(res) + `<div class="res-head">
-      <div><h2>${isRoute ? `✈️ ${destTxt}` : `🌍 ${plural(res.groups.length, 'destinace', 'destinace', 'destinací')} ${res.destination.kind === 'countries' ? '· ' + destTxt : ''}`}</h2>
+      <div><h2>${isRoute ? `✈️ ${destTxt}${res.partial ? ' <span class="part-tag">⏳ zatím část nabídek</span>' : ''}` : `🌍 ${res.partial ? 'Zatím ' : ''}${plural(res.groups.length, 'destinace', 'destinace', 'destinací')} ${res.destination.kind === 'countries' ? '· ' + destTxt : ''}`}</h2>
       <div class="muted" style="font-size:13px">z ${res.origins.map(o => `<b>${o.iata}</b>`).join(', ')} · ${whenTxt(res.query)} · ${res.query.adults} os.${BAG_LBL[res.query.bags] ? ` · 🧳 vč. ${res.query.bags === 'cabin' ? 'kabinového kufru' : 'kufru k odbavení'}` : ''}
       ${best ? ` · nejlevněji <b class="good">${czk(best.perPersonCzk)}</b>/os.` : ''}</div></div>
       <div class="res-tools">
@@ -1298,7 +1366,7 @@
     // konkrétní cíl: výpis je z res.top (flat), ne z 6 nabídek skupiny – podle něj, jinak hláška pod nalezenými lety
     if (!body.trim() || ((view.mode === 'list' || view.mode === 'cards') && !(isRoute ? flat.length : groups.length))) body += `<div class="empty">Filtrům nic neodpovídá. Uvolni filtr ceny, letišť, aerolinek, nových zemí nebo času a přestupů.</div>`;
     // Málo výsledků: ze serveru (thin), nebo je skryly filtry času a přestupů – pak nabídnout hlavně jejich zrušení.
-    const thinVis = th.any > 0 && (isRoute ? flat.length : groups.length) < 3;
+    const thinVis = !res.partial && th.any > 0 && (isRoute ? flat.length : groups.length) < 3;
     if (thin || thinVis) body += smartHelp(res, false, { chips: chips.filter(c => c.time), any: th.any, onlyClear: !thin });
     host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za osobu ${bagFoot(res.query.bags)}, ${esc(groundFoot(res))}, ${esc(arrivalFoot(res))}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2)} Kč (${esc(res.fx.source)})` : '—'}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020) – ne předpověď počasí; u cest do 15 dní je u nabídky předpověď Open-Meteo.</div>`;
     wireResults();
@@ -1604,7 +1672,7 @@
     const meta = [dur(l.durationMin), l.stops ? stopsTxt(l) : 'přímý', l.carrierName || provName(l.provider)].filter(Boolean).map(esc).join(' · ');
     const price = dim ? `<small>jen s jiným letem ${side === 'out' ? 'zpět' : 'tam'}</small>`
       : `<b>${ret && !pair ? 'od ' : ''}${czk(t.perPersonCzk)}</b>${ret ? `<small>${pair ? 'celá cesta' : 'tam i zpět'}</small>` : ''}`;
-    return `<button type="button" class="lrow${sel ? ' sel' : ''}${dim ? ' dim' : ''}" data-leg="${side}:${i}" aria-pressed="${sel}">
+    return `<button type="button" class="lrow${sel ? ' sel' : ''}${dim ? ' dim' : ''}" data-leg="${side}:${i}" data-lsig="${esc(side + ':' + x.sig)}" aria-pressed="${sel}">
       <span class="cbadge" style="background:${provColor(l.provider)}" title="${esc(l.carrierName || provName(l.provider))}">${esc(l.carrier || '?')}</span>
       <span class="lr-main"><span class="lr-t">${showDate ? `<span class="ld">${dayLabel(l.date)}</span>` : ''}<b>${esc(timeOf(l)) || '—'}</b>${arrTime(l) ? ` <span class="arr">→</span> <b>${esc(arrTime(l))}</b>` : arrUnk(l) ? ` <span class="arr">→</span> ${arrUnk(l)}` : ''}<span class="lr-ap">${esc(l.from)} → ${esc(l.to)}</span></span>
         <span class="lr-x">${meta}</span>${cacheTag(l)}${depsHtml(l, 'lr-od')}</span>
@@ -2017,7 +2085,8 @@
 
   /* ---------- výpadek Kiwi.com, aktivní filtry, chytrá nápověda ---------- */
   function kiwiBanner(res) {
-    return lowcostBanner(res) + kiwiOnly(res) + cardNote(res);
+    // průběžné výsledky: výpadky zdrojů a „nabídka z karty chybí“ až u konečných (Zkusit znovu by hledání jen zdvojilo)
+    return res.partial ? '' : lowcostBanner(res) + kiwiOnly(res) + cardNote(res);
   }
   // Hledání z karty radaru: nabídku z karty hledání do jednoho cíle nevrátilo a vše je dražší – proč, a odkaz na ni.
   let fromCard = null;
@@ -2361,17 +2430,28 @@
     // skupina i s nabídkami po filtrech výpisu (vis) – okno porovná s letem, který karta ukazuje
     $$('[data-gchip]', host).forEach(b => b.onclick = () => { const k = b.dataset.gchip, g = computeGroups().find(x => x.dest.key === k) || lastResult.groups.find(x => x.dest.key === k); if (g) openGroundModal(g); });
   }
+  // Prvek výpisu s fokusem (klávesnice) jako selektor platný i po překreslení: id, stálý klíč (filtr, pohled, cíl, let –
+  // data-lsig, ne pořadí v data-leg), nebo tlačítko v řádku nabídky podle data-tid řádku (data-pick/pc/live jsou pořadí
+  // v rowRegistry – po překreslení, třeba konečnými výsledky po průběžných, jiné).
+  const FOCUS_KEYS = ['tp', 'tarr', 'tst', 'fo', 'ofo', 'fc', 'v', 'mleg', 'ms', 'mcombo', 'cell', 'cg', 'exp', 'alldates', 'gchip', 'cmore', 'lsig'];
+  function focusSel(a) {
+    if (a.id) return '#' + CSS.escape(a.id);
+    const k = FOCUS_KEYS.find(k => a.dataset[k] != null);
+    if (k) return `[data-${k}="${CSS.escape(a.dataset[k])}"]`;
+    const row = a.closest('.trip-row[data-tid]'), rk = row && ['pick', 'pc', 'live', 'country'].find(k => a.dataset[k] != null);
+    return rk ? `.trip-row[data-tid="${CSS.escape(row.dataset.tid)}"] [data-${rk}]` : null;
+  }
   function rerender(keepScroll) {
     const y = window.scrollY;
-    // ovládací prvek filtrů s fokusem (klávesnice) najít i v překresleném výpisu
-    const a = document.activeElement, sel = a && a !== document.body && $('#results').contains(a)
-      ? (a.id ? '#' + CSS.escape(a.id) : ['tp', 'tarr', 'tst', 'fo', 'ofo', 'fc', 'v', 'mleg', 'ms', 'mcombo', 'cell'].filter(k => a.dataset[k] != null).map(k => `[data-${k}="${CSS.escape(a.dataset[k])}"]`)[0]) : null;
+    // ovládací prvek s fokusem najít i v překresleném výpisu (stejný klíč víckrát: stejně kolikátý)
+    const a = document.activeElement, sel = a && a !== document.body && $('#results').contains(a) ? focusSel(a) : null;
+    const nth = sel ? Math.max(0, $$(sel, $('#results')).indexOf(a)) : 0;
     const dg = $('#dgScroll'), dgAt = dg && [dg.scrollLeft, dg.scrollTop]; // mřížka termínů se posouvá uvnitř karty
     rowRegistry = [];
     renderResults();
     if (keepScroll) window.scrollTo(0, y);
     const dg2 = dgAt && $('#dgScroll'); if (dg2) [dg2.scrollLeft, dg2.scrollTop] = dgAt;
-    const el = sel && $(sel, $('#results'));
+    const all = sel ? $$(sel, $('#results')) : [], el = all[nth] || all[0];
     if (el) el.focus({ preventScroll: true });
   }
 
@@ -2404,9 +2484,10 @@
   function openPriceCheck(t, { g = null, stats = null, label = null, inResults = true } = {}) {
     if (inResults) g = g || groupOf(t);
     stats = stats || (g && g.priceStats) || (inResults ? statsFor(t) : null);
-    // trasa, která se při hledání do paměti nevešla (limit nových tras z jednoho hledání), se zapíše teď
+    // trasa, která se při hledání do paměti nevešla (limit nových tras z jednoho hledání), se zapíše teď (průběžný
+    // výsledek ne – jen část zdrojů)
     const key = PriceCheck.tripKey(t);
-    if (inResults && lastResult && key) PriceCheck.remember(lastResult, { only: key, now: lastResultAt || Date.now() });
+    if (inResults && lastResult && !lastResult.partial && key) PriceCheck.remember(lastResult, { only: key, now: lastResultAt || Date.now() });
     const x = PriceCheck.explain(t, { stats, store: PriceCheck.load(), now: Date.now(), today: today(), query: inResults && lastResult ? lastResult.query : null });
     if (!x) return;
     modalOpen(priceCheckHtml(t, x, { label: label || (g && g.dest.label) || t.out.to, inResults }));
@@ -2489,8 +2570,12 @@
 
 
   /* ---------- mapa výsledků ---------- */
+  // Přiblížená mapa při automatickém překreslení (průběžné → konečné výsledky, rerenderKeep): stejná projekce i přiblížení,
+  // nové cíle přibudou na svém místě – jednorázově { W, scale, translate, z }.
+  let mapKeep = null;
   async function drawResultMap(groups) {
     const el = $('#resMap'); if (!el || typeof d3 === 'undefined') return;
+    const keep = mapKeep; mapKeep = null;
     const world = await loadWorld();
     const feats = topojson.feature(world, world.objects.countries).features;
     const W = el.clientWidth || 900, H = Math.max(380, Math.min(620, W * 0.58));
@@ -2498,11 +2583,13 @@
     const pts = groups.filter(g => g.dest.lat != null).map(g => ({ g, t: g.vis[0], lon: g.dest.lon, lat: g.dest.lat }));
     const orig = res.origins.filter(o => o.lat != null);
     const geo = { type: 'MultiPoint', coordinates: [...pts.map(p => [p.lon, p.lat]), ...orig.map(o => [o.lon, o.lat])] };
-    const proj = d3.geoNaturalEarth1().fitExtent([[30, 30], [W - 30, H - 30]], geo);
+    const kept = keep && keep.W === W;
+    const proj = kept ? d3.geoNaturalEarth1().scale(keep.scale).translate(keep.translate) : d3.geoNaturalEarth1().fitExtent([[30, 30], [W - 30, H - 30]], geo);
     if (proj.scale() > 2600) proj.scale(2600);
     const path = d3.geoPath(proj);
     el.innerHTML = '';
     const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('class', 'rm-svg');
+    svg.node().__pj = { W, scale: proj.scale(), translate: proj.translate() };
     const g0 = svg.append('g');
     g0.append('g').selectAll('path').data(feats).join('path').attr('d', path).attr('class', 'rm-land');
     const prices = pts.map(p => p.t.perPersonCzk).sort((a, b) => a - b);
@@ -2553,15 +2640,20 @@
     const sizeOrigins = k => { const a = 8 / Math.sqrt(k); origins.attr('x', d => proj([d.lon, d.lat])[0] - a / 2).attr('y', d => proj([d.lon, d.lat])[1] - a / 2).attr('width', a).attr('height', a); };
     sizeOrigins(1);
     if (home) svg.append('circle').attr('cx', proj(home)[0]).attr('cy', proj(home)[1]).attr('r', 4).attr('class', 'rm-home');
-    svg.call(d3.zoom().scaleExtent([1, 10])
+    const zoom = d3.zoom().scaleExtent([1, 10])
       .on('zoom', ev => { const k = ev.transform.k; g0.attr('transform', ev.transform); g0.selectAll('circle').attr('r', d => (d.t.deal.level === 'super' ? 7 : 5.5) / Math.sqrt(k)); sizeOrigins(k); g0.selectAll('.rm-lbl').style('font-size', lblSize(k) + 'px'); })
-      .on('end', ev => placeLabels(ev.transform.k)));
+      .on('end', ev => placeLabels(ev.transform.k));
+    svg.call(zoom);
+    if (kept && keep.z) svg.call(zoom.transform, d3.zoomIdentity.translate(keep.z.x, keep.z.y).scale(keep.z.k));
   }
-  function showMapDetail(g) {
+  // Detail cíle pod mapou (klik na bod); scroll = false: obnovený po automatickém překreslení – stránkou nehýbat.
+  function showMapDetail(g, scroll = true) {
     rowRegistry = [];
-    $('#mapList').innerHTML = groupCard(g);
+    const ml = $('#mapList');
+    ml.innerHTML = groupCard(g);
+    ml.dataset.g = g.dest.key;
     wireResults();
-    $('#mapList').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (scroll) ml.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   /* ---------- hlídané ceny ---------- */
@@ -2611,10 +2703,10 @@
     if (!f.from.length) return toast('Nejdřív zadej, odkud letíš', 'err');
     // nejvýš 12 hlídání (Alerts.upsertWatch) – nové nesmí potichu smazat nejstarší i s cílovou cenou a historií
     if (!isWatched(f) && (S.watch || []).length >= 12) return toast('Hlídáš už 12 hledání – nejdřív některé na Přehledu smaž', 'err');
-    // výchozí cena hlídání z čerstvého výsledku – starší (i uložený z minula) se nejdřív dohledá
+    // výchozí cena hlídání z čerstvého konečného výsledku – starší (i uložený z minula) nebo průběžný se nejdřív dohledá
     const wkey = JSON.stringify(payloadOf(f));
     if (running && running.key === wkey) toast('♡ Uložím, až hledání doběhne…');
-    let res = lastResult && Date.now() - lastResultAt < 30 * 6e4 && JSON.stringify(lastResultPayload) === wkey ? lastResult : form ? await rerun(form, { noScroll: true }) : await startSearch({ noScroll: true });
+    let res = SearchHelp.reusable(lastResult, { at: lastResultAt, key: JSON.stringify(lastResultPayload), want: wkey, now: Date.now() }) ? lastResult : form ? await rerun(form, { noScroll: true }) : await startSearch({ noScroll: true });
     if (!res) return;
     const b = bestOf(res);
     const czk0 = b ? b.czk : null;
@@ -3206,6 +3298,10 @@
   async function init() {
     // domov radaru z dřívější verze (bez počtu cestujících): jednou podle formuláře – sólo cestovatel zůstane u 1 os.
     if (S.home?.from?.length && S.home.adults == null) { S.home.adults = Math.min(6, Math.max(1, Math.round(+S.form?.adults) || 2)); save(); }
+    // prst / myš dole a posouvání: průběžné výsledky počkají (paintSoon)
+    document.addEventListener('pointerdown', () => { hands.down = Date.now(); }, true);
+    ['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, () => { hands.down = 0; }, true));
+    window.addEventListener('scroll', () => { hands.scroll = Date.now(); }, { passive: true });
     const useHealth = h => {
       health = h;
       for (const p of h.providers) PROV[p.id] = p;

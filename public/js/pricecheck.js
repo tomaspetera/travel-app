@@ -219,9 +219,10 @@
   /**
    * Zapamatovat ceny z výsledku hledání (now = kdy hledání proběhlo). only = jen tato trasa a jen když v paměti
    * chybí (panel otevřený u trasy, která se do limitu nových tras nevešla – staré hledání se nesmí započítat jako
-   * nové pozorování).
+   * nové pozorování). Průběžný výsledek hledání (res.partial – jen část zdrojů) se nezapamatuje nikdy.
    */
   function remember(res, { now = Date.now(), ls, only = null } = {}) {
+    if (!res || res.partial) return null;
     const entries = entriesOf(res).filter(e => !only || e.key === only);
     if (!entries.length) return null;
     const cur = load(ls);

@@ -1499,6 +1499,33 @@
     const ago = m < 2 ? 'před chvílí' : m < 60 ? `před ${m} min` : `před ${Math.floor(m / 60)} h`;
     return `${dd === 0 ? '' : dd === 1 ? 'včera ' : `${d.getDate()}. ${d.getMonth() + 1}. `}${d.getHours()}:${pad(d.getMinutes())} (${ago})`;
   }
+  /* ---------- průběžné výsledky (pomalejší zdroje ještě hledají) ---------- */
+  /**
+   * Pruh nad průběžnými výsledky: „Průběžné výsledky – Kiwi.com ještě hledá (12/30)…“, „… – Wizz Air (5/9) a Kiwi.com
+   * (12/30) ještě hledají…“ (zdroje, které ještě neskončily, s hotovými dotazy, když je hlásí); nic už nehledá →
+   * „… – dokončuji…“ (skládání, letový řád). nameOf(id) = jméno zdroje.
+   */
+  function partialHead(providers, nameOf = id => id) {
+    const busy = (providers || []).filter(p => p && (p.state === 'pending' || p.state === 'running'));
+    const n = p => (p.calls ? ` (${p.done}/${p.calls})` : '');
+    const one = p => nameOf(p.id) + n(p);
+    if (!busy.length) return 'Průběžné výsledky – dokončuji…';
+    if (busy.length === 1) return `Průběžné výsledky – ${nameOf(busy[0].id)} ještě hledá${n(busy[0])}…`;
+    return `Průběžné výsledky – ${busy.slice(0, -1).map(one).join(', ')} a ${one(busy[busy.length - 1])} ještě hledají…`;
+  }
+  /**
+   * Výsledek na obrazovce jako výchozí cena ♡ hlídání: jen konečný (ne průběžný – část zdrojů), k tomuto dotazu (key =
+   * JSON dotazu výsledku, want = JSON hlídaného) a čerstvý (do maxAge od hledání v at). Jinak se hledá znovu.
+   */
+  function reusable(res, { at, key, want, now, maxAge = 30 * 6e4 }) {
+    return Boolean(res && !res.partial && now - at < maxAge && key === want);
+  }
+  /** Chyba hledání, které už ukázalo průběžné výsledky: hláška jako věta (tečka, chybí-li – „Server neposlal výsledek“, „network error“) + co znamená výpis níž. */
+  function partialFail(msg) {
+    const m = String(msg || '').trim() || 'Hledání selhalo';
+    return `${/[.!?…]$/.test(m) ? m : m + '.'} Výsledky níž jsou jen průběžné – hledání se nedokončilo.`;
+  }
+
   /** Nedávná hledání: nejnovější první, stejné hledání (podle klíče) jen jednou, nejvýš cap. */
   function recentAdd(list, e, key, cap = 5) {
     const k = key(e);
@@ -1524,6 +1551,7 @@
     easter, czHolidays, longWeekend, longWeekends, radarPick, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
+    partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
   };
 })();

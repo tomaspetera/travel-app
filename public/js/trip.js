@@ -361,14 +361,18 @@
       const done = progressOf(mine);
       if (done.length && !confirm(`Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
     }
+    // Let z průběžných výsledků (pomalejší zdroje ještě hledaly): statistika cen i úroveň ceny letu jsou jen z části
+    // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz).
+    const part = Boolean(result.partial);
     S.trip = {
       v: 1,
       created: Date.now(),
       adults: result.query.adults,
       bags: result.query.bags || 'none',
-      flight: t,
+      flight: part ? { ...t, priceLevel: undefined } : t,
       // „Je to dobrá cena?“ v kroku Let: ceny letenek z hledání, ze kterého let je (bez paměti tras – ta je v prohlížeči)
-      priceStats: (() => { const st = (g && g.priceStats) || result.priceStats; return st ? { ...st, mins: undefined } : null; })(),
+      priceStats: part ? null : statsFrom(g, result),
+      ...(part ? { statsWait: JSON.stringify(result.query) } : {}),
       dest: { label: dest.label, country: dest.country, cc: dest.cc, lat: dest.lat, lon: dest.lon, id: dest.id },
       home: result.home ? result.home.label : null,
       // Cíl v dosahu vlaku/busu (odhad z hledání) → v kroku Let nabídka „Pojedu vlakem / busem“.
@@ -396,6 +400,24 @@
     staysData = null; carsData = null;
     persist();
     go('trip');
+  }
+  // statistika cen cíle (skupiny), u konkrétního cíle celé trasy – bez nejlevnějších po trasách (mins, paměť cen)
+  const statsFrom = (g, res) => { const st = (g && g.priceStats) || res.priceStats; return st ? { ...st, mins: undefined } : null; };
+  /**
+   * Konečný výsledek hledání (volá flights.js): cesta vybraná z jeho průběžných výsledků (statsWait = dotaz hledání) dostane
+   * statistiku cen cíle a úroveň ceny letu z něj (let v něm není → úroveň se dopočítá ze statistiky). → true = doplněno.
+   */
+  function finalStats(res) {
+    const t = S.trip;
+    if (!t || !t.statsWait || !res || res.partial || !res.query || JSON.stringify(res.query) !== t.statsWait) return false;
+    const f = t.flight, g = f.destKey ? (res.groups || []).find(x => x.dest.key === f.destKey) : null;
+    t.priceStats = statsFrom(g, res);
+    const same = f.id ? [...(res.top || []), ...(res.groups || []).flatMap(x => x.options || [])].find(x => x.id === f.id) : null;
+    if (same && same.priceLevel) f.priceLevel = { ...same.priceLevel };
+    delete t.statsWait;
+    persist();
+    const el = $('#tfPl'); if (el) { el.innerHTML = priceRow(t); wirePrice(t); } // krok Let na obrazovce: štítek hned
+    return true;
   }
 
   function setStep(step) {
@@ -456,25 +478,32 @@
       <b>${dayLbl(l.date)}</b> ${l.from} ${hhmm(l.dep)} → ${l.to} ${arrHm(l)} <span class="faint">${esc([l.carrierName, l.flightNo, stopsTxt(l)].filter(Boolean).join(' · '))}</span>${back ? '' : ''}</div>`;
   }
 
+  // „Je to dobrá cena?“ u vybraného letu: úroveň ceny ze serveru, u živé nabídky (Ověřit) dopočítaná ze statistiky hledání;
+  // let z průběžných výsledků až s konečným výsledkem hledání (statsWait, finalStats)
+  function priceRow(t) {
+    const pl = !t.statsWait && window.PriceCheck && window.Flights && Flights.priceTag ? PriceCheck.assess(t.flight, t.priceStats || null) : null;
+    return pl ? `<div class="tf-price">${Flights.priceTag(t.flight, null, pl)}<span class="faint">${esc(pl.reason)}</span><button type="button" class="linkbtn" id="tfPrice">Je to dobrá cena?</button></div>` : '';
+  }
+  function wirePrice(t) {
+    const pb = $('#tfPrice'); if (pb) pb.onclick = () => Flights.priceCheck(t.flight, { stats: t.priceStats || null, label: t.dest.label, inResults: false });
+  }
   function flightStep() {
     const t = T();
     const host = $('#tripStep');
     $$('.stepbar .st').forEach(b => b.classList.toggle('on', b.dataset.step === 'flight'));
     if (ovOn(t)) return overlandStep();
-    // úroveň ceny ze serveru, u živé nabídky (Ověřit) dopočítaná ze statistiky hledání
-    const pl = window.PriceCheck && window.Flights && Flights.priceTag ? PriceCheck.assess(t.flight, t.priceStats || null) : null;
     const arr = arrivalCzk(t); // úsek, který nahradí auto půjčené na letišti, se nepočítá (jako v souhrnu)
     host.innerHTML = `<div class="card step-card"><h3>✈️ Vybraný let</h3>
       ${legLine(t.flight.out)}${t.flight.back ? legLine(t.flight.back, true) : ''}
       <div class="muted" style="margin-top:8px;font-size:13px">Letenky ${czk(t.flight.flightCzk)}/os.${t.flight.bagCzk ? ` + zavazadla ~${czk(t.flight.bagCzk)}/os.` : ''}${t.flight.groundCzk ? ` + ${groundWhat(t)}${t.groundMode === 'car' && carFuelOk(t.carFuel) && t.carFuel !== 'ev' ? ` (${carFuelTxt(t)})` : ''} ${czk(t.flight.groundCzk)}/os.` : ''}${arr ? ` + ${arrivalWhat(t)} ~${czk(arr)}/os.${arr < t.flight.arrCzk ? (carCovers(t, 'out') || carCovers(t, 'back') ? ' (bez úseku autem)' : ' (bez úseku v přejezdech trasy)') : ''}` : ''}</div>
       ${t.arrival && t.arrival.out ? `<div class="faint" style="font-size:12.5px;margin-top:4px">${ARR_ICO[t.arrival.out.mode] || '🚌'} ${esc(arrivalRow(t.arrival.out))}${t.arrival.back && t.arrival.back.iata !== t.arrival.out.iata ? `<br>${ARR_ICO[t.arrival.back.mode] || '🚌'} ${esc(arrivalRow(t.arrival.back, true))}` : ''}</div>` : ''}
-      ${pl ? `<div class="tf-price">${Flights.priceTag(t.flight, null, pl)}<span class="faint">${esc(pl.reason)}</span><button type="button" class="linkbtn" id="tfPrice">Je to dobrá cena?</button></div>` : ''}
+      <div id="tfPl">${priceRow(t)}</div>
       <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="tfBack">↩ Vybrat jiný let</button><button class="btn" id="tfVerify">🔄 Ověřit živou cenu a porovnat aerolinky</button><button class="btn primary" id="tfNext">Pokračovat →</button></div>
       <div id="tfAlt"></div></div>${groundOffer(t)}`;
     $('#tfBack').onclick = () => go('flights');
     $('#tfNext').onclick = () => setStep('route');
     $('#tfVerify').onclick = () => verifyFlight();
-    const pb = $('#tfPrice'); if (pb) pb.onclick = () => Flights.priceCheck(t.flight, { stats: t.priceStats || null, label: t.dest.label, inResults: false });
+    wirePrice(t);
     const os = $('#ovStart'); if (os) os.onclick = () => overlandPicker(t);
     // Při prvním zobrazení vybraného letu ověř cenu automaticky (jednou za cestu).
     if (!t.verifiedAt) { t.verifiedAt = Date.now(); persist(); verifyFlight({ auto: true }); }
@@ -1942,7 +1971,7 @@
 
   /** JSON cesty do sdíleného odkazu (#trip=…, zkomprimovaný – sharelink.js): bez odškrtnutých rezervací a času založení. */
   function shareJson(t) {
-    const slim = { ...t, booked: {}, created: undefined };
+    const slim = { ...t, booked: {}, created: undefined, statsWait: undefined };
     // „Co zařídit a co sbalit“: aktivity, vlastní položky i odškrtnutí (ta jsou jinak jen v localStorage tohoto prohlížeče)
     if (window.PreTrip) slim.pretrip = PreTrip.shareState(t);
     if (t.route) {
@@ -2038,6 +2067,7 @@
     t.groundRef = cleanGroundRef(t.groundRef);
     // „Je to dobrá cena?“: statistika jen s čísly a daty; úroveň ceny jen známá (štítek ji hledá v tabulce), jinak se dopočítá
     t.priceStats = cleanPriceStats(t.priceStats);
+    delete t.statsWait; // cesta z odkazu, zálohy či uložená na konečný výsledek hledání v tomto prohlížeči nečeká
     const pl = t.flight.priceLevel;
     if (pl != null && !(okObj(pl) && ['low', 'normal', 'high'].includes(pl.level) && typeof pl.reason === 'string' && okFin(pl.ref, 0, 1e7) && okFin(pl.vsRef, -100, 1e5) && (pl.pos == null || okFin(pl.pos, 0, 100)))) delete t.flight.priceLevel;
     t.ccs = Array.isArray(t.ccs) ? [...new Set(t.ccs.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x)))].slice(0, 8) : undefined;
@@ -2238,5 +2268,5 @@
     }
   }
 
-  window.Trip = { start, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn, legBack };
+  window.Trip = { start, finalStats, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn, legBack };
 })();
