@@ -397,3 +397,66 @@ test('Travelpayouts: let s přestupem s nemožnou délkou → přílet a délka 
 });
 
 after(() => setRates({ base: 'EUR', rates: FALLBACK_EUR, source: 'approx', date: null }));
+
+// Paměť tras Wizz Air: stejné dny podruhé bez dotazu, jen z paměti se stářím, vyprodaný den nezůstane se starou cenou
+function wizzStub(seen) {
+  return stubFetch((url, init) => {
+    if (url.startsWith('https://www.wizzair.com/')) return { body: '<script>apiUrl:"https://be.wizzair.com/30.1.0/Api"</script>', headers: { 'content-type': 'text/html' } };
+    if (url.endsWith('/userSession/new')) return { body: '{}' };
+    if (url.includes('/search/timetableV2')) {
+      const f = JSON.parse(init.body).flightList[0];
+      const days = [];
+      for (let d = f.from; d <= f.to; d = new Date(Date.parse(`${d}T12:00:00Z`) + 864e5).toISOString().slice(0, 10)) if (!seen.soldOut || !seen.soldOut.has(d)) days.push(d);
+      return { body: { outboundFlights: days.map((d) => ({ departureStation: f.departureStation, arrivalStation: f.arrivalStation, departureDate: `${d}T00:00:00`, price: { amount: seen.price || 19.99, currencyCode: 'EUR' }, priceType: 'price', departureDates: [`${d}T08:00:00`] })) } };
+    }
+    return { status: 404, body: '{}' };
+  });
+}
+
+test('Wizz Air: paměť tras – stejné dny bez dotazu, překryv jen chybějící dny, memoryOnly se stářím, vyprodaný den pryč', async () => {
+  wizzair._resetMemory();
+  const seen = {};
+  const stub = wizzStub(seen);
+  const realNow = Date.now;
+  try {
+    const a = ymdPlus(40), b = ymdPlus(75);
+    const posts = () => stub.calls.filter((c) => c.url.includes('timetableV2'));
+    await wizzair.daily({ from: 'BTS', to: 'LTN', dateFrom: a, dateTo: b });
+    assert.equal(posts().length, 2, '36 dní = 2 okna');
+    await wizzair.daily({ from: 'BTS', to: 'LTN', dateFrom: a, dateTo: b });
+    assert.equal(posts().length, 2, 'podruhé do 30 min bez dotazu');
+    await wizzair.daily({ from: 'BTS', to: 'LTN', dateFrom: ymdPlus(41), dateTo: ymdPlus(76) });
+    assert.equal(posts().length, 3, 'posunuté období: jen chybějící poslední den');
+    assert.equal(JSON.parse(posts()[2].init.body).flightList[0].from, ymdPlus(76));
+    // o 2 h později: jen z paměti, se stářím; stav trasy říká, kolik dotazů by čerstvé ceny stály
+    Date.now = () => realNow() + 2 * 3600e3;
+    const st = wizzair.routeState({ from: 'BTS', to: 'LTN', dateFrom: a, dateTo: b });
+    assert.deepEqual([st.calls, st.usable], [2, true]);
+    const mem = await wizzair.daily({ from: 'BTS', to: 'LTN', dateFrom: a, dateTo: b, memoryOnly: true });
+    assert.equal(posts().length, 3, 'memoryOnly bez dotazu');
+    assert.ok(mem.length > 30 && mem.every((l) => l.memAgeMin >= 119 && l.memAgeMin <= 121), 'stáří ~120 min');
+    // nové ceny: den, který mezitím zmizel (vyprodáno), se nesmí vrátit se starou cenou
+    seen.soldOut = new Set([ymdPlus(50)]);
+    const fresh = await wizzair.daily({ from: 'BTS', to: 'LTN', dateFrom: a, dateTo: b });
+    assert.equal(posts().length, 5);
+    assert.ok(!fresh.some((l) => l.date === ymdPlus(50)), 'vyprodaný den pryč');
+    assert.ok(fresh.every((l) => !l.memAgeMin), 'čerstvé ceny bez stáří');
+    // po 7 h nic z paměti
+    Date.now = () => realNow() + 9 * 3600e3;
+    assert.deepEqual(wizzair.routeState({ from: 'BTS', to: 'LTN', dateFrom: a, dateTo: b }).usable, false);
+    Date.now = realNow;
+    // jen z paměti: neznámá trasa se nezakládá (hledání si nevytlačí trasy, které má v plánu)
+    assert.deepEqual(await wizzair.daily({ from: 'BTS', to: 'XXX', dateFrom: a, dateTo: b, memoryOnly: true }), []);
+    assert.equal(wizzair.routeState({ from: 'BTS', to: 'XXX', dateFrom: a, dateTo: b }).calls, 2);
+    // trasa bez jediného letu v období (sezónní): empty – zpáteční směr plán nepotřebuje
+    seen.soldOut = new Set(Array.from({ length: 40 }, (_, i) => ymdPlus(100 + i)));
+    await wizzair.daily({ from: 'BTS', to: 'TFS', dateFrom: ymdPlus(105), dateTo: ymdPlus(115) });
+    const emp = wizzair.routeState({ from: 'BTS', to: 'TFS', dateFrom: ymdPlus(105), dateTo: ymdPlus(115) });
+    assert.deepEqual([emp.calls, emp.usable, emp.empty], [0, true, true]);
+    assert.equal(wizzair.routeState({ from: 'BTS', to: 'LTN', dateFrom: ymdPlus(41), dateTo: ymdPlus(76) }).empty, false);
+  } finally {
+    Date.now = realNow;
+    stub.restore();
+    wizzair._resetMemory();
+  }
+});

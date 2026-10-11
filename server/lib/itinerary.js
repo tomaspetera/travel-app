@@ -134,16 +134,29 @@ export function planItinerary(pois, opts) {
   const CAP = { church: 3, square: 2, monument: 3 };
   // Limit podle skutečného času (krátký den příletu/odletu se nepočítá jako celý den).
   const catLimit = (cat) => (CAP[cat] ? CAP[cat] * Math.max(1, Math.round(totalCap / full)) : Infinity);
-  const ranked = [...near].sort((a, b) => weight(b) - weight(a)).map((p) => ({ ...p, visitMin: p.visitMin || VISIT_MIN[p.category] || 45 }));
-  const chosen = [];
-  const perCat = {};
-  let used = 0;
-  for (const p of ranked) {
-    if (used + p.visitMin > totalCap * 0.95 || (perCat[p.category] || 0) >= catLimit(p.category)) continue;
-    chosen.push(p);
-    perCat[p.category] = (perCat[p.category] || 0) + 1;
-    used += p.visitMin;
-  }
+  // Celek se sloučenými částmi (Pražský hrad s katedrálou, Zlatou uličkou…) = delší návštěva: +20 min za část, nejvýš +2 h.
+  const ranked = [...near].sort((a, b) => weight(b) - weight(a))
+    .map((p) => ({ ...p, visitMin: (p.visitMin || VISIT_MIN[p.category] || 45) + Math.min(120, 20 * (p.includes?.length || 0)) }));
+  const choose = (skip) => {
+    const out = [];
+    const perCat = {};
+    let used = 0;
+    for (const p of ranked) {
+      if (skip.has(p.id) || used + p.visitMin > totalCap * 0.95 || (perCat[p.category] || 0) >= catLimit(p.category)) continue;
+      out.push(p);
+      perCat[p.category] = (perCat[p.category] || 0) + 1;
+      used += p.visitMin;
+    }
+    return out;
+  };
+  // Odlehlé místo (most Vasca da Gamy 9 km za centrem Lisabonu, přes 2,5 km od všeho ostatního) by den protáhlo
+  // o MHD tam a zpět – do programu po čtvrtích nepatří, kromě připnutých a deseti nejvýznamnějších. Na jeho místo
+  // se vybere další v pořadí.
+  let chosen = choose(new Set());
+  const top = new Set(chosen.slice(0, 10));
+  const outliers = new Set(chosen.filter((p) => !p.pinned && !top.has(p)
+    && !chosen.some((q) => q !== p && haversineKm(p.lat, p.lon, q.lat, q.lon) <= 2.5)).map((p) => p.id));
+  if (outliers.size) chosen = choose(outliers);
 
   const days = caps.map((c) => ({ date: c.date, cap: c.cap, items: [], kind: tripDayDates.has(c.date) ? 'daytrip' : c.cap ? 'city' : 'travel' }));
   if (chosen.length && cityDays.length) {
@@ -210,7 +223,7 @@ export function planItinerary(pois, opts) {
         const mid = d.items.length ? { lat: d.items.reduce((a, q) => a + q.lat, 0) / d.items.length, lon: d.items.reduce((a, q) => a + q.lon, 0) / d.items.length } : center;
         const local = (p) => (d.items.length ? haversineKm(mid.lat, mid.lon, p.lat, p.lon) <= 1.5 || distToItems(d, p) <= 0.8 : haversineKm(center.lat, center.lon, p.lat, p.lon) <= 3)
           && (!short || haversineKm(center.lat, center.lon, p.lat, p.lon) <= 3);
-        const p = ranked.find((x) => !inPlan.has(x.id) && x.visitMin <= free * 1.1 && !(CAP[x.category] && cnt(x.category) >= CAP[x.category]) && local(x));
+        const p = ranked.find((x) => !inPlan.has(x.id) && !outliers.has(x.id) && x.visitMin <= free * 1.1 && !(CAP[x.category] && cnt(x.category) >= CAP[x.category]) && local(x));
         if (!p) break;
         d.items.push(p);
         inPlan.add(p.id);

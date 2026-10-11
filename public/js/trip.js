@@ -435,9 +435,10 @@
       const cur = f.flightCzk;
       const openJaw = f.back && (f.back.from !== f.out.to || f.back.to !== f.out.from);
       // Cena z mezipaměti (Aviasales, až 48 h stará), kterou živě nikdo nenabízí: upozornit nahoře i ve Shrnutí
-      const cached = f.provider === 'travelpayouts' || f.out.provider === 'travelpayouts';
-      const liveMin = Math.min(...j.items.map(x => x.flightCzk));
-      if (cached && (liveMin > cur * 1.1 || f.liveMin)) { f.liveMin = liveMin > cur * 1.1 ? liveMin : null; f.liveAt = Date.now(); persist(); }
+      const cached = SearchHelp.isCached(f) || f.provider === 'travelpayouts' || f.out.provider === 'travelpayouts'; // i starší uložené cesty bez příznaku live
+      // stejné pravidlo jako ve výpisu (SearchHelp.liveVerdict): o víc než 10 % dráž = cena z mezipaměti neplatí
+      const v = SearchHelp.liveVerdict(cur, j.items);
+      if (cached && (v.st === 'dearer' || f.liveMin)) { f.liveMin = v.st === 'dearer' ? v.min : null; f.liveAt = Date.now(); persist(); }
       const stale = cached && f.liveMin ? `<div class="note warn" style="margin-top:12px">⚠️ <div><b>Cena ${czk(cur)} je z mezipaměti</b> (Aviasales, může být až 2 dny stará) a živě ji teď nikdo nenabízí – nejlevnější živá nabídka na stejné dny je <b>${czk(f.liveMin)}</b>. Ověř ji před nákupem, nebo použij živou nabídku níž.</div></div>` : '';
       host.innerHTML = `${stale}<div class="divider"></div><div class="muted" style="font-size:13px;margin-bottom:8px">Živé nabídky pro ${dayLbl(f.out.date)}${f.back ? ` – ${dayLbl(f.back.date)}` : ''} (${esc(f.out.from)} → ${esc(f.out.to)}${openJaw ? `, zpět ${esc(f.back.from)} → ${esc(f.back.to)} – dvě samostatné letenky` : ''}), cena na osobu:</div>
         <div class="alt-flights">${j.items.map((x, i) => `<div class="alt-f">
@@ -1144,7 +1145,7 @@
     const links = linkGrid(d.links, '#003580', true);
     const errs = d.providers.filter(p => !p.ok).map(p => `${esc(p.name)}: ${esc(p.error)}`).join(' · ');
     if (!d.items.length) {
-      host.innerHTML = `<div class="note info">ℹ️ <div>${d.providers.length ? 'Pro tento termín nemám přímé nabídky' : 'Přímé nabídky ubytování zatím nejsou zapnuté'} – otevři si hledání u partnerů, většina je už <b>předvyplněná na tvoje data</b> (u označených „zadej data“ zadáš termín na webu). Až si vybereš, zadej cenu níže.${errs ? `<br><span class="faint">${errs}</span>` : ''}${!d.providers.length && window.showSetupGuide ? ` <a href="#" id="stayGuide">Jak zapnout hotely s cenou a hodnocením přímo tady →</a>` : ''}</div></div>${links}`;
+      host.innerHTML = `<div class="note info">ℹ️ <div>${d.providers.length ? 'Pro tento termín nemám přímé nabídky – otevři si hledání u partnerů,' : 'Vyber si ubytování u partnerů –'} většina hledání je už <b>předvyplněná na tvoje data</b> (u označených „zadej data“ zadáš termín na webu). Až si vybereš, zadej cenu níže.${errs ? `<br><span class="faint">${errs}</span>` : ''}${!d.providers.length && window.showSetupGuide ? ` <a href="#" id="stayGuide" class="faint">Hotely s cenou přímo tady (volitelné) →</a>` : ''}</div></div>${links}`;
       const g = $('#stayGuide'); if (g) g.onclick = e => { e.preventDefault(); window.showSetupGuide('guideStays'); };
       return;
     }
@@ -1473,7 +1474,7 @@
     $('#sumSave').onclick = () => saveToPlanner();
     $('#sumShare').onclick = () => share();
     // odkaz se zkomprimuje hned, aby ho kliknutí jen zkopírovalo (Safari dovolí zápis do schránky jen v obsluze kliknutí)
-    if (window.ShareLink) ShareLink.prepare('trip', shareJson(t));
+    if (window.ShareLink) ShareLink.prepare('trip', linkJson(t));
     $('#sumIcs').onclick = () => icsDownload(`atlas-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` });
     $('#sumNew').onclick = () => { if (confirm('Zahodit rozpracovanou cestu?')) { S.trip = null; persist(); go('flights'); } };
     // vstupní podmínky dorazily až po vykreslení → shrnutí znovu (jen když je pořád otevřené)
@@ -1671,16 +1672,55 @@
     if (window.PreTrip) slim.pretrip = PreTrip.shareState(t);
     if (t.route) {
       // Program míst jen s tím, co vykreslí plánovač a shrnutí (bez popisů, fotek a „dalších míst“) – kratší odkaz.
-      const item = x => ({ id: x.id, name: x.name, lat: x.lat, lon: x.lon, category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, transit: x.transit, note: x.note });
+      const item = x => ({ id: x.id, name: x.name, lat: x.lat, lon: x.lon, category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, transit: x.transit, note: x.note, cc: x.cc, includes: x.includes });
       const plan = p => (p ? { ...p, spare: undefined, days: (p.days || []).map(d => ({ ...d, items: (d.items || []).map(item) })) } : null);
       slim.route = { ...t.route, candidates: undefined, bases: (t.route.bases || []).map((b, i) => ({ ...b, plan: plan(isMulti(t) ? basePlan(t, i) : b.plan) })) };
     }
     return JSON.stringify(slim);
   }
+  /**
+   * Odkaz na cestu (#trip=): shareJson bez toho, co příjemce nevykreslí – program bez popisů, fotek a „dalších míst“
+   * (i u cesty do jednoho místa), souřadnice na 5 desetinných míst (~1 m; program se znovu použije do 1e-4°), u letu
+   * jen to, co čte průvodce. Seznam vynechaných polí (ne povolených), ať pole nových funkcí cestují dál. Formát stejný
+   * – odkaz otevře i starší verze aplikace. Kopie v plánovači (wizardJson) zůstávají celé.
+   */
+  function linkJson(t) {
+    const o = JSON.parse(shareJson(t));
+    const r5 = v => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 1e5) / 1e5 : v);
+    const geo = x => (x && x.lat != null ? { ...x, lat: r5(x.lat), lon: r5(x.lon) } : x);
+    // cc = země zastávky výletu (odkazy na mapy), includes = „Zahrnuje: …“ u celku s částmi
+    const item = x => ({ id: x.id, name: x.name, lat: r5(x.lat), lon: r5(x.lon), category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, ...(x.transit ? { transit: true } : {}), note: x.note,
+      ...(x.cc ? { cc: x.cc } : {}), ...(Array.isArray(x.includes) && x.includes.length ? { includes: x.includes } : {}) });
+    const plan = p => (p && Array.isArray(p.days) ? { ...p, spare: undefined, created: undefined, center: geo(p.center), days: p.days.map(d => ({ ...d, items: (d.items || []).map(item) })) } : p);
+    delete o.step; delete o.booked; delete o.created; // příjemce je nastaví sám (importFromHash)
+    if (o.flight) {
+      const f = { ...o.flight };
+      for (const k of ['id', 'perPersonCzk', 'totalCzk', 'tempHi', 'nights']) delete f[k];
+      if (f.deal) f.deal = { level: f.deal.level }; // „🔥 Super cena“ v kroku letu
+      const leg = l => { if (!l) return l; const x = { ...l }; for (const k of ['foundAt', 'prevCzk', 'otherDeps', 'price', 'currency', 'czk']) delete x[k]; if (x.arrEst === false) delete x.arrEst; return x; }; // live zůstane – „Je to dobrá cena?“ podle něj pozná živou cenu
+      o.flight = { ...f, out: leg(f.out), back: leg(f.back) };
+    }
+    if (o.ground) o.ground = Object.fromEntries(['out', 'back'].filter(k => o.ground[k]).map(k => [k, { minutes: o.ground[k].minutes }])); // jen groundLines
+    const arr = a => { if (!a) return a; const x = { ...a }; for (const k of ['note', 'src', 'date', 'sec', 'gen', 'km']) delete x[k]; return x; };
+    if (o.arrival) o.arrival = { out: arr(o.arrival.out), back: arr(o.arrival.back) };
+    o.stay = geo(o.stay); o.cityCenter = geo(o.cityCenter);
+    o.plan = plan(o.plan);
+    // trasa po přepnutí zpět na jedno místo (Víc míst → Jedno místo): příjemce ji neukáže
+    if (o.route && o.route.mode !== 'multi') delete o.route;
+    // souřadnice míst trasy a cesty po zemi se nezaokrouhlují – groundKey je porovnává přes toFixed(3)
+    if (o.route && Array.isArray(o.route.bases)) {
+      o.route = { ...o.route, bases: o.route.bases.map(b => {
+        const nb = { ...b, stay: geo(b.stay), plan: plan(b.plan) };
+        if (b.stay && b.stay.mode === 'pick' && b.stay.url) delete nb.searchUrl; // hledání ubytování jen bez vybraného hotelu
+        return nb;
+      }) };
+    }
+    return JSON.stringify(o);
+  }
 
   /** Zkopíruje odkaz na cestu (připravený už při vykreslení shrnutí); vrací Promise kvůli testům. */
   function share() {
-    return ShareLink.copy('trip', shareJson(T())).then(r => (r.copied ? toast('Odkaz zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz:', r.url)));
+    return ShareLink.copy('trip', linkJson(T())).then(r => (r.copied ? toast('Odkaz zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz:', r.url)));
   }
 
   /**

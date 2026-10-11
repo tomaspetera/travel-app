@@ -260,6 +260,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .note.warn{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.28);color:#f5d488}
 .note.bad{background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.3);color:#f7a6b3}
 .note.info{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.26);color:#a5dbf5}
+.note.good{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.28);color:#9ee8c6}
 .note svg{width:18px;height:18px;flex:none;margin-top:1px}
 
 /* ============ FLIGHTS ============ */

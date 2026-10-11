@@ -228,7 +228,7 @@ test('findTrips: města podle památek a UNESCO v okolí, bez krajů a okresů, 
   const stub = stubFetch((url) => {
     if (url.startsWith('https://query.wikidata.org/sparql')) {
       const q = decodeURIComponent(new URL(url).searchParams.get('query'));
-      return { body: { results: { bindings: q.includes('P757') ? LIS_UNESCO : q.includes('"120"') ? LIS_TRIPS : q.includes('VALUES ?t') && q.includes('Q46169') ? LIS_NATURE : [] } } };
+      return { body: { results: { bindings: q.includes('"120"') ? LIS_TRIPS : q.includes('P757') ? LIS_UNESCO : q.includes('VALUES ?t') && q.includes('Q46169') ? LIS_NATURE : [] } } };
     }
     if (url.includes('wikipedia.org/w/api.php')) return { body: { query: { pages: [] } } };
     return { status: 404, body: '{}' };
@@ -262,6 +262,34 @@ test('findTrips: města podle památek a UNESCO v okolí, bez krajů a okresů, 
   }
 });
 
+test('findTrips: „Část popisů se nenačetla“ jen když opravdu selžou popisy, ne když chybí příroda nebo hrady', async () => {
+  const rows = [
+    row('Q501', 'Karlovy Vary', 45.6, 7.9, 100, 'Q515', { en: uri('https://en.wikipedia.org/wiki/Karlovy_Vary') }),
+    row('Q502', 'Bezčlánkov', 45.5, 7.4, 60, 'Q515'), // bez článku na Wikipedii – to chyba není
+  ];
+  const run = (lat, lon, wikiStatus) => {
+    const stub = stubFetch((url) => {
+      if (url.startsWith('https://query.wikidata.org/sparql')) {
+        const q = decodeURIComponent(new URL(url).searchParams.get('query'));
+        if (q.includes('VALUES ?t')) return { status: 500, body: 'timeout' }; // hrady a příroda nestihly
+        return { body: { results: { bindings: q.includes('"120"') ? rows : [] } } };
+      }
+      if (url.includes('wikipedia.org/w/api.php')) return wikiStatus === 200 ? { body: { query: { pages: [{ title: 'Karlovy Vary', extract: 'Karlovy Vary is a spa town.' }] } } } : { status: wikiStatus, body: 'x' };
+      return { body: {} };
+    });
+    return findTrips({ lat, lon }).finally(() => stub.restore());
+  };
+  // příroda a hrady chybí → kratší mezipaměť (degraded), ale popisy jsou v pořádku
+  const a = await run(45.07, 7.68, 200);
+  assert.equal(a.degraded, true);
+  assert.ok(!a.descFailed);
+  assert.equal(a.find((t) => t.id === 'Q501').extract, 'Karlovy Vary is a spa town.');
+  assert.equal(a.find((t) => t.id === 'Q501').descLang, 'en', 'anglický úvod se značkou jazyka');
+  // Wikipedie neodpovídá → teprve teď hláška
+  const b = await run(45.17, 7.78, 503);
+  assert.equal(b.descFailed, true);
+});
+
 test('findTrips: výpadek Wikidata → chyba (endpoint ji převede na 503)', async () => {
   const stub = stubFetch(() => ({ status: 500, body: 'error' }));
   try {
@@ -293,4 +321,202 @@ test('groupBindings/findTrips: lázně poznané podle popisu', async () => {
   } finally {
     stub.restore();
   }
+});
+
+// ---------- živá data (říjen 2026): cíle výletů z Barcelony a Prahy ----------
+const { bindings, unescoBindings, BCN_TRIPS, PRA_TRIPS, PRA_UNESCO } = await import('./fixtures/wikidata.js');
+
+test('tripsFromRows (živá data, Barcelona): památková ochrana obce nerozhoduje, Montserrat místo obce pod ním', async () => {
+  const { tripsFromRows } = await import('../server/lib/poi.js');
+  const trips = tripsFromRows(bindings(BCN_TRIPS), { lat: 41.3874, lon: 2.1686 }, 15, { road: true });
+  const score = Object.fromEntries(trips.map((t) => [t.name, t.score]));
+  // La Granada a Avinyonet mají ochranu „kulturní statek Katalánska“ na celé obci – dřív to stačilo na víc bodů než Girona
+  for (const top of ['Girona', 'Sitges']) {
+    for (const village of ['La Granada', 'Avinyonet de Puigventós']) assert.ok(score[top] > score[village] + 5, `${top} ${score[top]} > ${village} ${score[village]}`);
+  }
+  assert.ok(score.Girona > score['Lloret de Mar'], 'Lloret de Mar bez bodů za ochranu obce');
+  // obec pojmenovaná po hoře hned vedle → cílem je hora, obec v „uvidíš“
+  const mont = trips.find((t) => t.id === 'Q732115');
+  assert.equal(mont?.name, 'Montserrat');
+  assert.equal(mont.tripKind, 'nature');
+  assert.equal(mont.gateway, 'Monistrol de Montserrat');
+  assert.deepEqual(mont.highlights, ['Monistrol de Montserrat']);
+  assert.ok(!trips.some((t) => t.id === 'Q16704'), 'obec Monistrol zvlášť ne');
+  assert.equal(trips.find((t) => t.name === 'Girona').wv, true, 'článek na Wikivoyage');
+  assert.ok(!trips.find((t) => t.name === 'La Granada').wv);
+});
+
+test('tripsFromRows (živá data, Praha): část sériové památky UNESCO je jen malé plus, celá památka hodně', async () => {
+  const { tripsFromRows, unescoSites } = await import('../server/lib/poi.js');
+  const unesco = unescoSites(unescoBindings(PRA_UNESCO));
+  const trips = tripsFromRows(bindings(PRA_TRIPS), { lat: 50.08804, lon: 14.42076 }, 15, { road: true, unesco });
+  const by = Object.fromEntries(trips.map((t) => [t.name, t]));
+  const mining = ['Annaberg-Buchholz', 'Olbernhau', 'Freiberg', 'Altenberg', 'Dippoldiswalde'].map((n) => by[n]).filter(Boolean);
+  assert.ok(mining.length >= 4);
+  assert.ok(mining.every((t) => t.unescoPart && !t.unesco), 'hornická městečka = část Hornického regionu Krušnohoří');
+  assert.equal(by['Kutná Hora'].unesco, true);
+  for (const t of mining) assert.ok(by['Kutná Hora'].score > t.score + 15, `Kutná Hora ${by['Kutná Hora'].score} ≫ ${t.name} ${t.score}`);
+  for (const t of mining) assert.ok(by['Drážďany'].score > t.score, `Drážďany před ${t.name}`);
+  // jedna položka s víc body (Žatec a krajina žateckého chmele) není sériová památka – Žatec je celé UNESCO
+  assert.equal(by['Žatec'].unesco, true);
+});
+
+test('groupBindings (živá data): park Güell, Sant Pau, Barri Gòtic, kláštery; stadion a hotel níž, kavárna na půl hodiny', async () => {
+  const { BCN_CITY, LIS_CITY, PRA_CITY } = await import('./fixtures/wikidata.js');
+  const places = [
+    ...groupBindings(bindings(BCN_CITY), { lat: 41.3874, lon: 2.1686 }),
+    ...groupBindings(bindings(LIS_CITY), { lat: 38.7223, lon: -9.1393 }),
+    ...groupBindings(bindings(PRA_CITY), { lat: 50.0875, lon: 14.4214 }),
+  ];
+  const by = Object.fromEntries(places.map((p) => [p.id, p]));
+  const cat = (id) => by[id]?.category;
+  // památka s typem „zařízení“ (park Güell) – konkrétní typ vyhrává nad vyloučením
+  assert.equal(cat('Q212867'), 'park');
+  // nemocnice Sant Pau: známá památka, kterou vyřazovala jen „nemocnice“
+  assert.equal(cat('Q507282'), 'sight');
+  // klášter s typem „sídlo“ je klášter (Strahov, Jerónimos), ne obec ani historické centrum
+  assert.equal(cat('Q969482'), 'church');
+  assert.equal(cat('Q272781'), 'church');
+  // historická čtvrť, která je i „sídlo“ a turistický cíl
+  assert.equal(cat('Q17154'), 'oldtown');
+  // skutečná města zůstanou městy (Praha, Staré Město s typem čtvrť bez „turistického cíle“, čtvrť Sagrada Família)
+  for (const id of ['Q1085', 'Q748211', 'Q2470217']) assert.equal(cat(id), 'town', by[id]?.name);
+  // stadion, hotel, univerzita: v seznamu zůstanou, ale o 15 bodů níž
+  for (const id of ['Q275715', 'Q1425790', 'Q1636837']) {
+    assert.ok(by[id], id);
+    assert.equal(by[id].minor, true, by[id].name);
+    assert.equal(scorePlace(by[id]), Math.round((scorePlace({ ...by[id], minor: false }) - 15) * 10) / 10);
+  }
+  // stadion nebo býčí aréna jako památka s konkrétním typem (náměstí) ne – vyloučení platí
+  assert.equal(cat('Q7875112'), undefined);
+  assert.equal(cat('Q337522'), undefined);
+  // kavárna / restaurace: krátká zastávka, ne vyřazení
+  for (const id of ['Q1333395', 'Q2547006']) {
+    assert.equal(by[id].eatery, true, by[id].name);
+    assert.equal(by[id].visitMin, 30);
+    assert.ok(!by[id].minor);
+  }
+  assert.ok(!by.Q2334312.eatery && by.Q2334312.category === 'theatre', 'Obecní dům s kavárnou je pořád koncertní sál');
+  // obecná zajímavost podle začátku popisu: „muzeum“, „Gardens in Lisbon“; vlastní jména a poloha ne
+  assert.equal(cat('Q1286354'), 'museum');
+  assert.equal(cat('Q8843624'), 'park');
+  assert.equal(cat('Q724388'), 'sight', 'někdejší radnice Hradčan není hrad');
+  assert.equal(cat('Q244816'), 'sight', 'Tančící dům „na nároží Jiráskova náměstí“ není náměstí');
+  // co dřív vypadlo, zůstane venku (Karolinum: „zařízení“ s 12 jazykovými verzemi, Strahovský stadion)
+  assert.equal(cat('Q920703'), undefined);
+  assert.equal(cat('Q1353687'), undefined);
+  assert.equal(cat('Q48435'), 'church');
+  // zámek (château) je „Palác / zámek“, brána v hradbách s výstavou je věž – ne hrad ani muzeum na dvě hodiny
+  assert.equal(cat('Q80843'), 'palace', 'zámek Troja');
+  assert.equal(cat('Q1488700'), 'tower', 'Prašná brána');
+});
+
+test('findPlaces: kavárna s popiskem „Kavárna / restaurace“, interní příznaky ven nejdou', async () => {
+  const { BCN_CITY } = await import('./fixtures/wikidata.js');
+  const stub = stubFetch((url) => {
+    if (url.startsWith('https://query.wikidata.org/sparql')) {
+      const q = decodeURIComponent(new URL(url).searchParams.get('query'));
+      return { body: { results: { bindings: q.includes('"120"') ? [] : bindings(BCN_CITY) } } };
+    }
+    return { body: { query: { pages: [] } } };
+  });
+  try {
+    const items = await findPlaces({ lat: 41.3874 + 2e-4, lon: 2.1686, radiusKm: 10, dayTrips: false });
+    const gats = items.find((p) => p.id === 'Q1333395');
+    assert.equal(gats.categoryLabel, 'Kavárna / restaurace');
+    assert.equal(gats.visitMin, 30);
+    assert.ok(items.every((p) => p.minor === undefined && p.wv === undefined));
+    const ids = items.map((p) => p.id);
+    assert.ok(ids.indexOf('Q275715') > ids.indexOf('Q212867'), 'stadion až za parkem Güell');
+  } finally {
+    stub.restore();
+  }
+});
+
+test('findPlaces: anglický úvod z Wikipedie ustoupí českému popisu z Wikidat, jinak je označený jako anglický', async () => {
+  const rows = [
+    // jen anglický článek, ale český popis na Wikidatech
+    row('Q658271', 'Tibidabo', 41.4225, 2.1186, 31, 'Q8502', { en: uri('https://en.wikipedia.org/wiki/Tibidabo'), itemDescription: lit('hora ve Španělsku'), csd: lit('hora ve Španělsku') }),
+    // jen anglický článek i popis
+    row('Q1050032', 'Museu Picasso', 41.3852, 2.1809, 30, 'Q33506', { en: uri('https://en.wikipedia.org/wiki/Museu_Picasso'), itemDescription: lit('art museum in Barcelona, Spain') }),
+    // český popis jedním slovem nic neřekne – zůstane anglický úvod
+    row('Q1286354', 'Námořní muzeum', 41.375, 2.1764, 16, 'Q33506', { en: uri('https://en.wikipedia.org/wiki/Maritime_Museum_of_Barcelona'), itemDescription: lit('muzeum'), csd: lit('muzeum') }),
+  ];
+  const stub = stubFetch((url) => {
+    if (url.startsWith('https://query.wikidata.org/sparql')) return { body: { results: { bindings: decodeURIComponent(url).includes('"120"') ? [] : rows } } };
+    if (url.startsWith('https://en.wikipedia.org/w/api.php')) {
+      return { body: { query: { pages: [
+        { title: 'Tibidabo', extract: 'Tibidabo is a mountain overlooking Barcelona.' },
+        { title: 'Museu Picasso', extract: 'The Museu Picasso houses works by Pablo Picasso.' },
+        { title: 'Maritime Museum of Barcelona', extract: 'The Maritime Museum of Barcelona is in the Drassanes.' },
+      ] } } };
+    }
+    return { body: { query: { pages: [] } } };
+  });
+  try {
+    const items = await findPlaces({ lat: 41.3874 + 3e-3, lon: 2.1686, radiusKm: 10, dayTrips: false });
+    const by = Object.fromEntries(items.map((p) => [p.id, p]));
+    assert.equal(by.Q658271.extract, undefined);
+    assert.equal(by.Q658271.extractEn, 'Tibidabo is a mountain overlooking Barcelona.');
+    assert.equal(by.Q658271.description, 'hora ve Španělsku');
+    assert.equal(by.Q658271.descLang, 'cs');
+    assert.equal(by.Q1050032.extract, 'The Museu Picasso houses works by Pablo Picasso.');
+    assert.equal(by.Q1050032.descLang, 'en', 'aplikace ho zkrátí a označí „anglicky“');
+    assert.equal(by.Q1286354.extract, 'The Maritime Museum of Barcelona is in the Drassanes.');
+    assert.equal(by.Q1286354.descLang, 'en');
+  } finally {
+    stub.restore();
+  }
+});
+
+test('místní názvy: jazyk podle země (Katalánsko katalánsky, jen latinkou), dotaz je hledá jen když je potřeba', async () => {
+  const { localLang, sparqlNear } = await import('../server/lib/poi.js');
+  assert.equal(localLang(41.3874, 2.1686), 'ca', 'Barcelona');
+  assert.equal(localLang(39.5696, 2.6502), 'ca', 'Palma');
+  assert.equal(localLang(40.4168, -3.7038), 'es', 'Madrid');
+  assert.equal(localLang(38.7223, -9.1393), 'pt', 'Lisabon');
+  assert.equal(localLang(48.8566, 2.3522), 'fr', 'Paříž');
+  assert.equal(localLang(50.0875, 14.4213), '', 'Praha – stačí česky');
+  assert.equal(localLang(37.9838, 23.7275), '', 'Atény – řecké písmo ne, zůstane anglický název');
+  const q = sparqlNear(41.3874, 2.1686, 10, 4, 500, { lang: 'ca' });
+  assert.match(q, /\?item rdfs:label \?loc FILTER\(lang\(\?loc\) = "ca"\)/);
+  assert.match(q, /\?item schema:description \?csd FILTER\(lang\(\?csd\) = "cs"\)/);
+  assert.match(q, /\?item wdt:P757 \?whs/);
+  assert.ok(!sparqlNear(50.0875, 14.4213, 10, 4, 500).includes('?loc'), 'bez místního jazyka bez ?loc');
+});
+
+test('groupBindings (živá data): bez českého názvu místní (Font Màgica, Paço da Ribeira), popis s jazykem, UNESCO z čísla památky', async () => {
+  const { BCN_LOC, LIS_LOC } = await import('./fixtures/wikidata.js');
+  const by = Object.fromEntries([
+    ...groupBindings(bindings(BCN_LOC), { lat: 41.3874, lon: 2.1686 }),
+    ...groupBindings(bindings(LIS_LOC), { lat: 38.7223, lon: -9.1393 }),
+  ].map((p) => [p.id, p]));
+  // dřív anglicky: Magic Fountain of Montjuïc, Columbus Monument, Montjuïc Castle, Royal Square, Ribeira Palace…
+  assert.equal(by.Q1414600.name, 'Font Màgica de Montjuïc');
+  assert.equal(by.Q2288815.name, 'Monument a Colom');
+  assert.equal(by.Q2500125.name, 'Castell de Montjuïc', 'velké písmeno i u „castell de Montjuïc“');
+  assert.equal(by.Q1519964.name, 'Plaça Reial');
+  assert.equal(by.Q2293331.name, 'Basílica de Santa Maria del Pi');
+  assert.equal(by.Q1334899.name, 'Mercat de la Boqueria');
+  assert.equal(by.Q1939953.name, 'Paço da Ribeira');
+  assert.equal(by.Q1549270.name, 'Praça de D. Pedro IV', 'Rossio – úřední název z cedulí');
+  // český název má přednost před místním
+  assert.equal(by.Q48435.name, 'Sagrada Família');
+  assert.equal(by.Q215003.name, 'Belémská věž');
+  assert.equal(by.Q272781.name, 'Klášter svatého Jeronýma');
+  assert.equal(by.Q301135.name, 'Parc de la Ciutadella');
+  // popis česky, jinak anglicky se značkou jazyka (aplikace ho zkrátí a označí „anglicky“)
+  assert.equal(by.Q215003.description, 'opevněná věž v Lisabonu');
+  assert.equal(by.Q215003.descLang, 'cs');
+  assert.equal(by.Q212867.descLang, 'cs');
+  assert.equal(by.Q1050032.description, 'art museum in Barcelona, Spain');
+  assert.equal(by.Q1050032.descLang, 'en');
+  assert.equal(by.Q432290.descLang, 'en');
+  // UNESCO z čísla památky (P757): Sant Pau a Belémská věž ho mají bez P1435 = UNESCO
+  assert.equal(by.Q507282.unesco, true);
+  assert.equal(by.Q507282.category, 'sight');
+  assert.ok(!by.Q507282.minor, 'nemocnice Sant Pau není „jen nemocnice“');
+  assert.equal(by.Q215003.unesco, true);
+  // pomocná pole ven nejdou
+  for (const p of Object.values(by)) assert.ok(p.csName === undefined && p.locName === undefined && p.csDesc === undefined);
 });

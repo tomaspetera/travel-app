@@ -131,6 +131,8 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 /* ---------- průběh ---------- */
 .progress-card{padding:16px 18px;margin-bottom:18px}
 .progress-card.done{padding:12px 18px}
+/* Wizz Air: další hledání vezme trasy, na které nedošlo */
+.more-routes{margin:-8px 0 18px}
 .ph{font-weight:800;font-size:14px;margin-bottom:10px}
 details.progress-card>summary.ph{list-style:none;cursor:pointer;margin-bottom:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:0 4px}
 details.progress-card>summary.ph::-webkit-details-marker{display:none}
@@ -441,6 +443,13 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cmp-price{text-align:right;white-space:nowrap}
 .cmp-price b{font:800 15.5px Sora,sans-serif;color:var(--good)}
 .cmp-price small{font-size:11px;color:var(--muted)}
+/* živé ověření ceny z mezipaměti pod cenou řádku */
+.cmp-live{display:block;font-size:11px;font-weight:700;margin-top:1px}
+.cmp-live.warn{color:var(--warn)}
+.cmp-live.good{color:var(--good)}
+.cmp-live.faint{color:var(--faint);font-weight:600}
+.cmp-live .spin{width:9px;height:9px;border-width:2px;vertical-align:-1px}
+.cmp-price b.stale{color:var(--muted)}
 .cmp-chev{color:var(--faint);font-size:12px}
 .cmp-card{padding:0 10px 10px;background:var(--surface-2)}
 .cmp-card .res-card{margin:0}
@@ -533,6 +542,9 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 [data-theme=light] .note.warn{color:#7a4f00}
 [data-theme=light] .note.bad{color:#9f1239}
 [data-theme=light] .note.info{color:#075985}
+[data-theme=light] .note.good{color:#065f46}
+[data-theme=light] .cmp-live.warn{color:#8a5a00}
+[data-theme=light] .cmp-live.good,[data-theme=light] .lw-p.best{color:#047857}
 [data-theme=light] .b.hot{color:#be123c}
 [data-theme=light] .b.warn{color:#8a5a00}
 [data-theme=light] .b.sun{color:#c2410c}
@@ -714,3 +726,11 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .radar-lw{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 2px 10px}
 .radar-lw[hidden]{display:none}
 .radar-lw small{color:var(--muted);font-weight:500}
+
+/* Délka pobytu → 🎉 Svátky: výběr prodlouženého víkendu (jako v radaru) */
+.len-lw{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.len-lw[hidden],.len-lw-hint[hidden]{display:none}
+.len-lw small,.radar-lw small{color:var(--muted);font-weight:500}
+.len-lw-hint{font-size:12px;margin-top:6px}
+.lw-p{font-weight:800;color:var(--text)}
+.lw-p.best{color:var(--good)}

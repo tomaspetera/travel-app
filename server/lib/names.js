@@ -126,6 +126,22 @@ export const METROS = [
   { code: 'TLV', cs: 'Tel Aviv', en: 'Tel Aviv', cc: 'IL', lat: 32.0853, lon: 34.7818, airports: ['TLV'] },
 ];
 
+// Velká města domova a okolí (pro „Brno – město a letiště v okolí“ i bez geokódování). Poloha = centrum města,
+// pop = obyvatel v tisících (jen pro pořadí v našeptávači). Statický seznam – údržba není potřeba.
+export const CITIES = [
+  ['Praha', 'Prague', 'CZ', 50.0880, 14.4208, 1357], ['Brno', 'Brno', 'CZ', 49.1952, 16.6080, 400], ['Ostrava', 'Ostrava', 'CZ', 49.8347, 18.2820, 280],
+  ['Plzeň', 'Pilsen', 'CZ', 49.7475, 13.3776, 185], ['Liberec', 'Liberec', 'CZ', 50.7671, 15.0562, 108], ['Olomouc', 'Olomouc', 'CZ', 49.5955, 17.2518, 102],
+  ['České Budějovice', 'Ceske Budejovice', 'CZ', 48.9745, 14.4743, 97], ['Hradec Králové', 'Hradec Kralove', 'CZ', 50.2092, 15.8328, 93],
+  ['Ústí nad Labem', 'Usti nad Labem', 'CZ', 50.6607, 14.0323, 92], ['Pardubice', 'Pardubice', 'CZ', 50.0408, 15.7766, 92], ['Zlín', 'Zlin', 'CZ', 49.2265, 17.6707, 74],
+  ['Jihlava', 'Jihlava', 'CZ', 49.3961, 15.5912, 54], ['Karlovy Vary', 'Karlovy Vary', 'CZ', 50.2310, 12.8712, 48], ['Opava', 'Opava', 'CZ', 49.9387, 17.9026, 55],
+  ['Bratislava', 'Bratislava', 'SK', 48.1482, 17.1067, 475], ['Košice', 'Kosice', 'SK', 48.7144, 21.2580, 230], ['Žilina', 'Zilina', 'SK', 49.2232, 18.7394, 80],
+  ['Banská Bystrica', 'Banska Bystrica', 'SK', 48.7358, 19.1462, 76], ['Nitra', 'Nitra', 'SK', 48.3076, 18.0845, 77], ['Poprad', 'Poprad', 'SK', 49.0614, 20.2980, 50],
+  ['Vídeň', 'Vienna', 'AT', 48.2085, 16.3721, 2000], ['Linec', 'Linz', 'AT', 48.3069, 14.2858, 210], ['Salcburk', 'Salzburg', 'AT', 47.8095, 13.0550, 155],
+  ['Štýrský Hradec', 'Graz', 'AT', 47.0707, 15.4395, 300], ['Katovice', 'Katowice', 'PL', 50.2649, 19.0238, 290], ['Krakov', 'Krakow', 'PL', 50.0614, 19.9366, 800],
+  ['Vratislav', 'Wroclaw', 'PL', 51.1079, 17.0385, 670], ['Drážďany', 'Dresden', 'DE', 51.0504, 13.7373, 560], ['Mnichov', 'Munich', 'DE', 48.1374, 11.5755, 1500],
+  ['Norimberk', 'Nuremberg', 'DE', 49.4521, 11.0767, 520], ['Budapešť', 'Budapest', 'HU', 47.4979, 19.0402, 1700],
+].map(([cs, en, cc, lat, lon, popK]) => ({ cs, en, cc, lat, lon, pop: popK * 1000 }));
+
 // Turistické regiony a ostrovy jako cíl („Kanáry“, „Kréta“ …).
 export const REGIONS = [
   { key: 'kanary', cs: 'Kanárské ostrovy', aliases: ['kanary', 'kanarske ostrovy', 'canary islands', 'canaries'], airports: ['TFS', 'TFN', 'LPA', 'ACE', 'FUE', 'SPC'] },

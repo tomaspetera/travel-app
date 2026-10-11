@@ -180,6 +180,8 @@
     if (document.querySelector('.modal-bg.show, .map-pop.show')) return false;
     const results = document.getElementById('results'), progress = document.getElementById('progress');
     if ((results && results.children.length) || (progress && progress.children.length)) return false;
+    // radar nebo kontrola hlídané ceny právě hledá – obnovení by hledání zrušilo a spustilo znovu (další z limitu)
+    if (window.Flights && typeof window.Flights.busy === 'function' && window.Flights.busy()) return false;
     const view = document.querySelector('.view.active');
     return Boolean(view && QUIET_VIEWS.includes(view.id));
   }

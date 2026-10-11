@@ -107,6 +107,58 @@ test('okruh: BRouter round-trip s profilem kola, korekce poloměru na zadanou d�
   }
 });
 
+test('okruh (Barcelona, změřeno živě): korekce přestřelí o víc než 20 % → ještě jednou poloměr mezi oběma', async () => {
+  // BRouter 10/2026, trekking, 40 km, směr 30°: poloměr 7692 m → 62,0 km; korekce ~4960 m → 23,0 km; 6151 m → 45,8 km
+  const stub = stubFetch((url) => {
+    const R = Number(new URL(url).searchParams.get('roundTripDistance'));
+    const km = R > 7000 ? 62 : R < 5500 ? 23 : 45.8;
+    return { body: brouter({ km, coords: ring(2.1686, 41.3874, km) }) };
+  });
+  try {
+    const r = await bikeLoop({ lat: 41.3874, lon: 2.1686, km: 40, bike: 'trekking', scenery: 'mixed', variant: 0 });
+    const radii = stub.calls.map((c) => Number(new URL(c.url).searchParams.get('roundTripDistance')));
+    assert.equal(radii.length, 3, 'první trasa, korekce, sečna');
+    assert.deepEqual(radii.slice(0, 2), [7692, 4963]);
+    assert.ok(radii[2] > 6000 && radii[2] < 6300, `sečna ${radii[2]} m`);
+    assert.equal(r.km, 45.8, 'nejblíž zadaným 40 km (dřív 23 km)');
+  } finally {
+    stub.restore();
+  }
+  // korekce, která cíl jen nedotáhne (obě kratší), další dotaz nespouští
+  const stub2 = stubFetch((url) => {
+    const R = Number(new URL(url).searchParams.get('roundTripDistance'));
+    return { body: brouter({ km: R > 7000 ? 30 : 31, coords: ring(2.1686, 41.39, 30) }) };
+  });
+  try {
+    await bikeLoop({ lat: 41.39, lon: 2.1686, km: 40, bike: 'trekking', scenery: 'mixed', variant: 0 });
+    assert.equal(stub2.calls.length, 2);
+  } finally {
+    stub2.restore();
+  }
+});
+
+test('„Jiná trasa“: deset různých směrů okruhu, varianty 0–4 jako dřív', async () => {
+  const stub = stubFetch(() => ({ body: brouter({ km: 30, coords: ring(14.3, 49.3, 30) }) }));
+  try {
+    const dirs = [];
+    for (let variant = 0; variant < 10; variant++) {
+      await bikeLoop({ lat: 49.3, lon: 14.3, km: 30, bike: 'trekking', scenery: 'mixed', variant });
+      dirs.push(Number(new URL(stub.calls.at(-1).url).searchParams.get('direction')));
+    }
+    assert.deepEqual(dirs.slice(0, 5), [30, 102, 174, 246, 318], 'trasy dřívějších variant v mezipaměti platí');
+    assert.equal(new Set(dirs).size, 10, `směry ${dirs.join(', ')}`);
+    // 11. kliknutí je zase varianta 0 (aplikace počítá do 10)
+    const again = await bikeLoop({ lat: 49.3, lon: 14.3, km: 30, bike: 'trekking', scenery: 'mixed', variant: 10 });
+    assert.equal(again.variant, 0);
+  } finally {
+    stub.restore();
+  }
+  // městem: od 4. varianty jiný výběr památek z vnějšího pásu
+  const q = { lat: 50.0875, lon: 14.4213, sights: Array.from({ length: 12 }, (_, i) => ({ name: `P${i}`, lat: 50.0875 + 0.04 * Math.cos(i), lon: 14.4213 + 0.06 * Math.sin(i) })) };
+  const picks = [0, 1, 2, 3, 4, 5].map((v) => pickSights(q, 30, v).map((s) => s.name).sort().join());
+  assert.equal(new Set(picks).size, 6, picks.join(' | '));
+});
+
 test('okruh městem: přes památky; když vyjde moc krátký, okruh dané délky', async () => {
   const sights = [
     { name: 'Hrad', lat: 49.62, lon: 15.0 }, { name: 'Zámek', lat: 49.58, lon: 15.05 }, { name: 'Most', lat: 49.58, lon: 14.95 },
@@ -367,6 +419,38 @@ test('vlakem tam: když délku nesplní žádné nádraží, „Jiné nádraží
     assert.equal(c.station.name, a.station.name, 'pak zase od začátku');
     // nesmyslná varianta (1e400 v JSON = Infinity) nespadne
     assert.ok((await bikeFromStation({ ...q, variant: Infinity })).station.name);
+  } finally {
+    stub.restore();
+  }
+});
+
+test('vlakem tam (Barcelona): nádraží pod místním názvem z jízdního řádu, jedno na město', async () => {
+  const { townOf } = await import('../server/lib/bike.js');
+  assert.equal(townOf('Estació de Granollers-Centre'), 'granollers');
+  assert.equal(townOf("Estació de Sant Sadurní d'Anoia"), 'sant sadurni d anoia');
+  assert.equal(townOf('Gare de Lyon-Perrache'), 'lyon');
+  assert.equal(townOf('Kutná Hora hlavní nádraží'), 'kutna hora');
+  const home = { lat: 41.3874, lon: 2.1686 };
+  const st = (id, en, ca, km, deg, sl) => {
+    const a = (deg * Math.PI) / 180;
+    return { s: { value: `http://www.wikidata.org/entity/${id}` }, sLabel: { value: en }, ...(ca ? { loc: { value: ca } } : {}),
+      coord: { value: `Point(${home.lon + (km * Math.sin(a)) / (111.2 * Math.cos((home.lat * Math.PI) / 180))} ${home.lat + (km * Math.cos(a)) / 111.2})` },
+      sl: { value: String(sl) }, cc: { value: 'ES' } };
+  };
+  const rows = [
+    st('Q1', 'Granollers Centre railway station', 'Estació de Granollers-Centre', 27, 30, 9),
+    st('Q2', 'Granollers-Canovelles station', 'Estació de Granollers-Canovelles', 28, 35, 6),
+    st('Q3', "Sant Sadurní d'Anoia station", "Estació de Sant Sadurní d'Anoia", 31, 280, 5),
+  ];
+  const stub = stubFetch((url) => (url.startsWith('https://query.wikidata.org/')
+    ? { body: { results: { bindings: rows } } }
+    : { body: brouter({ km: 41, coords: ring(home.lon, home.lat, 40) }) }));
+  try {
+    const r = await bikeFromStation({ ...home, km: 40, bike: 'trekking', label: 'Barcelona', cc: 'ES' });
+    assert.match(decodeURIComponent(stub.calls[0].url), /lang\(\?loc\) = "ca"/, 'katalánské názvy');
+    assert.equal(r.station.name, 'Estació de Granollers-Centre');
+    const r2 = await bikeFromStation({ ...home, km: 40, bike: 'trekking', variant: 1 });
+    assert.equal(r2.station.name, "Estació de Sant Sadurní d'Anoia", 'Granollers-Canovelles je stejné město');
   } finally {
     stub.restore();
   }

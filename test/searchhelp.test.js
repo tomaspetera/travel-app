@@ -679,3 +679,32 @@ test('placeGuess (plánovač): metropole, velká letiště, jedno jasně větš�
   const tol = [...localSuggestions('Toledo'), { id: 'geo:1', type: 'city', label: 'Toledo', cc: 'ES' }];
   assert.equal(H.placeGuess(tol, 'Toledo'), null);
 });
+
+test('živé ověření cen z mezipaměti: isCached, liveKey, liveVerdict, livePick', () => {
+  const leg = (from, to, date, live) => ({ from, to, date, live });
+  const cached = { out: leg('PRG', 'BCN', '2026-11-06', false), back: leg('BCN', 'PRG', '2026-11-09', true), flightCzk: 2000 };
+  const liveT = { out: leg('VIE', 'BCN', '2026-11-06', true), back: leg('BCN', 'VIE', '2026-11-09', true), flightCzk: 1800 };
+  const oneWay = { out: leg('BRQ', 'STN', '2026-11-06', false), back: null, flightCzk: 900 };
+  assert.equal(H.isCached(cached), true);
+  assert.equal(H.isCached({ ...liveT, back: leg('BCN', 'VIE', '2026-11-09', false) }), true); // jen zpáteční let z cache
+  assert.equal(H.isCached(liveT), false);
+  assert.equal(H.isCached(oneWay), true);
+  assert.equal(H.isCached(null), false);
+  assert.equal(H.liveKey(cached, 2), 'PRG|BCN|2026-11-06|BCN>PRG@2026-11-09|2');
+  assert.equal(H.liveKey(oneWay, 1), 'BRQ|STN|2026-11-06||1');
+  // ±10 % jako průvodce cestou
+  assert.deepEqual(plain(H.liveVerdict(2000, [{ flightCzk: 2150 }, { flightCzk: 2600 }])), { st: 'ok', min: 2150 });
+  assert.deepEqual(plain(H.liveVerdict(2000, [{ flightCzk: 2300 }])), { st: 'dearer', min: 2300 });
+  assert.deepEqual(plain(H.liveVerdict(2000, [{ flightCzk: 1700 }])), { st: 'ok', min: 1700 });
+  assert.deepEqual(plain(H.liveVerdict(2000, [{ flightCzk: 0 }, {}])), { st: 'none', min: null });
+  assert.deepEqual(plain(H.liveVerdict(2000, [], 'Kiwi: HTTP 500')), { st: 'err', min: null });
+  assert.deepEqual(plain(H.liveVerdict(2000, undefined)), { st: 'none', min: null });
+  // výběr: první nabídka z prvních 10 cílů, jen z cache, nejvýš 3, už ověřené vynechat
+  const g = (t) => ({ vis: [t] });
+  const groups = [g(liveT), g(cached), g(oneWay), g({ ...cached, out: leg('PRG', 'LIS', '2026-11-06', false) }), g({ ...cached, out: leg('PRG', 'OPO', '2026-11-06', false) })];
+  assert.deepEqual(plain(H.livePick(groups, { adults: 2 }).map((t) => t.out.to)), ['BCN', 'STN', 'LIS']);
+  assert.deepEqual(plain(H.livePick(groups, { adults: 2, done: (k) => k.startsWith('PRG|BCN') }).map((t) => t.out.to)), ['STN', 'LIS', 'OPO']);
+  assert.deepEqual(plain(H.livePick(groups, { rows: 2 }).map((t) => t.out.to)), ['BCN']);
+  assert.equal(H.livePick([...Array(10)].map(() => g(liveT)).concat(groups)).length, 0); // jen prvních 10 cílů
+  assert.deepEqual(plain(H.livePick(null)), []);
+});
