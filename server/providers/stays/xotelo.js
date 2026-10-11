@@ -6,11 +6,13 @@
 // Místo TripAdvisoru (g…) z Wikidat (P3134 TripAdvisor ID): podle ID GeoNames místa, velká města z tabulky, podle názvu
 // místa v okolí bodu (rychlé), teprve pak obce v okolí bodu (pomalý dotaz). Na místo a termín 1 seznam + nejvýš 12 dotazů
 // na ceny, vše v mezipaměti; při výpadku Xotela se na chvíli vynechá (pojistka), ať hledání nečeká na timeouty.
+// Odkaz hotelu vede na web nejlevnější nabídky (Booking.com, Trip.com, Hotels.com, Expedia); u webů bez spolehlivého
+// odkazu na hotel (Agoda, Vio, web hotelu…) na Google Hotels s živými cenami hotelu u všech webů.
 import { request, limiter } from '../../lib/http.js';
 import { cache } from '../../lib/cache.js';
 import { toCzk } from '../../lib/fx.js';
 import { haversineKm } from '../../lib/geo.js';
-import { affiliate, affiliateOn, bookingSearchUrl } from '../../lib/links.js';
+import { affiliate, affiliateOn, bookingSearchUrl, tripSearchUrl, expediaSearchUrl, googleHotelsUrl } from '../../lib/links.js';
 import { wdqs, UA } from '../../lib/poi.js';
 
 const API = 'https://data.xotelo.com/api';
@@ -26,6 +28,7 @@ const LIST_LIMIT = 40;
 const LIST_TIMEOUT = 10000;
 const RATE_TIMEOUT = 10000;
 const BUDGET_MS = 20000; // na ceny celkem (od prvního volného místa ve frontě) – co nestihne, chybí (částečný výsledek)
+export const RATES_TTL = 2 * 3600e3; // ceny hotelu 2 h – TripAdvisor sám zaostává a hotel se mezitím může vyprodat
 const AROUND_TIMEOUT = 35000; // obce v okolí bodu: těžký dotaz (živě 3–21 s)
 const FAIL_TTL = 10 * 60e3; // výpadek Wikidat: místo se 10 min znovu nedohledává
 
@@ -276,13 +279,15 @@ export async function hotelList(key) {
 export const ratesKey = (hotelKey, q) => `xo:rates:${hotelKey}:${q.checkin}:${q.checkout}:${q.adults}:${q.rooms}`;
 
 /**
- * Ceny hotelu u webů: { currency, rates: [{ code, name, rate, tax }] } – rate (+ tax) za pokoj a noc. Mezipaměť 6 h
- * podle hotelu, termínu, dospělých a pokojů. opts.queue = fronta hledání (PER_SEARCH); opts.deadline = konec rozpočtu
- * (číslo, nebo funkce volaná až po získání místa ve frontě) – dotaz, který by začal po něm, se nepošle (chyba late,
- * neukládá se).
+ * Ceny hotelu u webů: { currency, rates: [{ code, name, rate, tax }], at } – rate (+ tax) za pokoj a noc, at = kdy se
+ * zjistily (ms). Mezipaměť RATES_TTL podle hotelu, termínu, dospělých a pokojů. opts.queue = fronta hledání (PER_SEARCH);
+ * opts.deadline = konec rozpočtu (číslo, nebo funkce volaná až po získání místa ve frontě) – dotaz, který by začal po
+ * něm, se nepošle (chyba late, neukládá se). opts.fresh („Aktualizovat ceny“) = dotaz i s cenou v mezipaměti (fronta
+ * i pojistka platí); nepovede-li se, zůstane cena z mezipaměti s příznakem stale, bez ní chyba.
  */
-export async function hotelRates(hotelKey, q, { deadline = Infinity, queue = (fn) => fn() } = {}) {
-  return cache.wrap(ratesKey(hotelKey, q), 6 * 3600e3, () => queue(() => limit(async () => {
+export async function hotelRates(hotelKey, q, { deadline = Infinity, queue = (fn) => fn(), fresh = false } = {}) {
+  const key = ratesKey(hotelKey, q);
+  const get = () => queue(() => limit(async () => {
     const left = (typeof deadline === 'function' ? deadline() : deadline) - Date.now();
     if (left < 500) throw late();
     const qs = new URLSearchParams({ hotel_key: hotelKey, chk_in: q.checkin, chk_out: q.checkout, currency: 'EUR', adults: String(q.adults), rooms: String(q.rooms) });
@@ -291,23 +296,56 @@ export async function hotelRates(hotelKey, q, { deadline = Infinity, queue = (fn
     const rates = (Array.isArray(r.rates) ? r.rates : [])
       .filter((x) => Number(x?.rate) > 0)
       .map((x) => ({ code: String(x.code || ''), name: String(x.name || x.code || ''), rate: Number(x.rate), tax: Number(x.tax) > 0 ? Number(x.tax) : 0 }));
-    return { currency: String(r.currency || 'EUR').toUpperCase(), rates };
-  })));
+    return { currency: String(r.currency || 'EUR').toUpperCase(), rates, at: Date.now() };
+  }));
+  if (!fresh) return cache.wrap(key, RATES_TTL, get);
+  const old = cache.get(key);
+  try {
+    const v = await get();
+    cache.set(key, v, RATES_TTL);
+    return v;
+  } catch (e) {
+    if (old) return { ...old, stale: true };
+    throw e;
+  }
 }
 
 // Názvy webů pro chipy s cenou (ostatní jak je posílá TripAdvisor): web hotelu česky, „Agoda.com“ → „Agoda“.
 const otaName = (n) => (/^(official (hotel|site|website)|hotel website)$/i.test(n.trim()) ? 'web hotelu' : n === 'Agoda.com' ? 'Agoda' : n);
 
-/** Nabídky webů v Kč za celý pobyt (sazba za pokoj a noc × pokoje × noci), nejlevnější první; web dvakrát → levnější. */
+/**
+ * Nabídky webů v Kč za celý pobyt (sazba za pokoj a noc × pokoje × noci), nejlevnější první; web dvakrát → levnější.
+ * tax = TripAdvisor uvedl daně a poplatky (jsou v ceně); bez nich je web má v sazbě, nebo je neuvádí.
+ */
 export function offers(rr, q) {
   const best = new Map();
   for (const r of rr?.rates || []) {
     const total = toCzk((r.rate + (r.tax || 0)) * q.rooms * q.nights, rr.currency || 'EUR');
     if (!(total > 0)) continue;
     const name = otaName(r.name);
-    if (!best.has(name) || total < best.get(name).totalCzk) best.set(name, { code: r.code, name, totalCzk: total, perNightCzk: Math.round(total / q.nights) });
+    if (!best.has(name) || total < best.get(name).totalCzk) best.set(name, { code: r.code, name, totalCzk: total, perNightCzk: Math.round(total / q.nights), tax: r.tax > 0 });
   }
   return [...best.values()].sort((a, b) => a.totalCzk - b.totalCzk);
+}
+
+// Weby se spolehlivým odkazem na konkrétní hotel (název nebo kód u TripAdvisoru → hledání „hotel, místo“ na termín):
+// Booking.com (partnerský – „reklama“), Trip.com (searchWord vyplní formulář, potvrdí se Hledat), Hotels.com a Expedia
+// (Hotel-Search Expedia Group). Ostatní (Agoda bez ID hotelu, Vio, web hotelu…) → Google Hotels s živými cenami hotelu.
+const SITES = [
+  ['booking', /^booking/i, (w, q) => affiliate(bookingSearchUrl(w[0], w[1], q), 'booking')],
+  ['trip', /^(trip\.com|ctrip)/i, (w, q) => tripSearchUrl(w.join(', '), q)],
+  ['hotelscom', /^hotels\.?com/i, (w, q) => expediaSearchUrl('www.hotels.com', w.join(', '), q)],
+  ['expedia', /^expedia/i, (w, q) => expediaSearchUrl('www.expedia.com', w.join(', '), q)],
+];
+const siteOf = (o) => SITES.find(([, re]) => re.test(o.name) || re.test(o.code || ''));
+/** Web nabídky se spolehlivým odkazem na hotel ('booking', 'trip', 'hotelscom', 'expedia'), jinak null. */
+export const offerSite = (o) => siteOf(o)?.[0] || null;
+
+/** Nabídka + odkaz na hotel u jejího webu: site (offerSite), url (bez spolehlivého odkazu Google Hotels), sponsored. */
+export function offerLink(o, hotel, q) {
+  const s = siteOf(o);
+  const w = [hotel, q.cityEn || q.city];
+  return { ...o, site: s ? s[0] : null, url: s ? s[2](w, q) : googleHotelsUrl(w.join(' '), q), sponsored: s?.[0] === 'booking' && affiliateOn('booking') };
 }
 
 // Typ ubytování z TripAdvisoru → [skupina pro filtr, štítek] (skupiny jako u ostatních zdrojů).
@@ -332,10 +370,18 @@ function photoUrl(u) {
 }
 const taUrl = (u) => (/^https:\/\/www\.tripadvisor\.[a-z.]+\//.test(String(u || '')) ? String(u) : null);
 
-/** Hotel ze seznamu → Stay (viz stays/index.js); bez ceny null. */
+/**
+ * Hotel ze seznamu → Stay (viz stays/index.js); bez nabídky (vyprodáno) null. Ceny u 6 nejlevnějších webů s odkazy
+ * (offerLink) a Booking.com vždy, má-li nabídku (karta jinak napíše, že na tvoje dny nic nenabízí); hlavní odkaz
+ * (bookUrl) vede na web nejlevnější nabídky; ratesAt = kdy se ceny zjistily.
+ */
 export function mapHotel(h, rr, q, center) {
   const of = offers(rr, q);
   if (!of.length) return null;
+  const shown = of.slice(0, 6);
+  const bk = of.find((o) => offerSite(o) === 'booking');
+  if (bk && !shown.includes(bk)) shown.push(bk);
+  const rates = shown.map((o) => offerLink(o, String(h.name), q));
   const lat = Number(h.geo?.latitude);
   const lon = Number(h.geo?.longitude);
   const pos = Number.isFinite(lat) && Number.isFinite(lon);
@@ -360,11 +406,12 @@ export function mapHotel(h, rr, q, center) {
     photo: h.image ? photoUrl(h.image) : null,
     priceTotalCzk: of[0].totalCzk,
     pricePerNightCzk: of[0].perNightCzk,
-    rates: of.slice(0, 6).map(({ name, totalCzk, perNightCzk }) => ({ name, totalCzk, perNightCzk })),
+    rates,
+    ratesAt: Number(rr.at) || null,
     freeCancellation: null,
     breakfast: labels.some((x) => /breakfast included/i.test(x)) ? true : null,
-    bookUrl: affiliate(bookingSearchUrl(String(h.name), q.cityEn || q.city, q), 'booking'),
-    bookSponsored: affiliateOn('booking'), // partnerský odkaz – karta ho označí „reklama“
+    bookUrl: rates[0].url,
+    bookSponsored: rates[0].sponsored, // partnerský odkaz – karta ho označí „reklama“
   };
 }
 
@@ -395,11 +442,12 @@ export function chooseForRates(pool, n = MAX_RATES) {
 }
 
 /**
- * Hotely s cenou pro dotaz q (normalizeStayQuery). deps: sparql (Wikidata), budgetMs (rozpočet na ceny). Výsledek
- * seřazený od nejlevnějšího; nestihly-li všechny ceny, má příznak partial (kratší mezipaměť v searchStays) – i prázdný,
- * když na ceny nezbyl čas (souběžná hledání), ne chyba zdroje.
+ * Hotely s cenou pro dotaz q (normalizeStayQuery). deps: sparql (Wikidata), budgetMs (rozpočet na ceny), fresh (ceny
+ * znovu, ne z mezipaměti – místo a seznam hotelů z ní). Výsledek seřazený od nejlevnějšího; nestihly-li všechny ceny,
+ * má příznak partial (kratší mezipaměť v searchStays) – i prázdný, když na ceny nezbyl čas (souběžná hledání), ne chyba
+ * zdroje; stale = u fresh část cen aktualizovat nešlo (zůstaly dřívější).
  */
-export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS } = {}) {
+export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh = false } = {}) {
   const center = q.lat != null && q.lon != null ? { lat: q.lat, lon: q.lon } : null;
   let pool = [];
   const tried = new Set();
@@ -423,7 +471,7 @@ export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS } = {}
   const queue = limiter(PER_SEARCH);
   const got = new Map();
   const errors = [];
-  const jobs = pick.map((h) => hotelRates(h.key, q, { deadline, queue }).then((rr) => { got.set(h.key, rr); }, (e) => { errors.push(e); }));
+  const jobs = pick.map((h) => hotelRates(h.key, q, { deadline, queue, fresh }).then((rr) => { got.set(h.key, rr); }, (e) => { errors.push(e); }));
   let timer;
   const stop = new Promise((r) => {
     const tick = () => {
@@ -440,13 +488,15 @@ export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS } = {}
   const out = pick.map((h) => (got.has(h.key) ? mapHotel(h, got.get(h.key), q, center) : null)).filter(Boolean);
   out.sort((a, b) => a.priceTotalCzk - b.priceTotalCzk);
   if (got.size < pick.length) out.partial = true;
+  if ([...got.values()].some((rr) => rr.stale)) out.stale = true;
   return out;
 }
 
 export const xotelo = {
   id: 'xotelo',
   name: 'TripAdvisor (Xotelo)',
-  search: (q) => searchXotelo(q),
+  refresh: true, // umí „Aktualizovat ceny“ (search s fresh)
+  search: (q, { fresh = false } = {}) => searchXotelo(q, { fresh }),
   // ostrý test (/api/diag): jeden malý seznam hotelů ve Vídni, bez mezipaměti
   async probe() {
     const j = await limit(() => request(`${API}/list?location_key=g190454&limit=3&sort=popularity`, { headers: HEADERS, timeoutMs: 12000, retries: 0 }));

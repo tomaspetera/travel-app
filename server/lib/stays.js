@@ -97,13 +97,17 @@ export function rankStays(items) {
   return items.sort((a, b) => (b.value ?? -1) - (a.value ?? -1) || (a.pricePerNightCzk ?? Infinity) - (b.pricePerNightCzk ?? Infinity));
 }
 
+export const FRESH_MS = 5 * 60e3; // „Aktualizovat ceny“ (fresh=1) na dotaz nejvýš jednou za 5 min
+
 /**
+ * raw: dotaz (normalizeStayQuery) + retry=1 („Zkusit znovu“), fresh=1 („Aktualizovat ceny“).
  * deps: english (anglický název místa), partners (dohledání ID místa u partnerů ubytování – partnerLookups()
  * z partnerids.js; null = odkazy bez ID, bez sítě: DEMO, testy, PARTNER_LOOKUP=0)
  */
 export async function searchStays(raw, { english = englishName, partners = null } = {}) {
   const q = normalizeStayQuery(raw);
   const retry = String(raw.retry ?? '') === '1';
+  const fresh = String(raw.fresh ?? '') === '1';
   // Místo bez anglického názvu (přidané ručně, z Wikidat bez článku): partneři i LiteAPI hledají anglicky
   // („Boloňa“ → „Bologna“) – název z geokódování v okolí místa (v mezipaměti).
   if (!raw.cityEn && !q.iata && q.city && q.lat != null && !config.mock) {
@@ -134,9 +138,32 @@ export async function searchStays(raw, { english = englishName, partners = null 
       // neúplný výsledek (část cen nestihla přijít) jen na 5 min – další hledání doplní ceny z mezipaměti poskytovatele;
       // „Zkusit znovu“ (retry=1) ho přeskočí hned (doptá se jen na chybějící ceny, ostatní jsou v mezipaměti poskytovatele)
       if (retry && cache.get(key)?.partial) cache.map.delete(key);
-      const res = await cache.wrap(key, (v) => (v?.partial ? 5 * 60e3 : 45 * 60e3), () => p.search(q));
+      const ttl = (v) => (v?.partial ? 5 * 60e3 : 45 * 60e3);
+      // „Aktualizovat ceny“ (fresh=1, jen zdroj, který to umí – Xotelo): ceny hotelů znovu, ne z mezipaměti (místo
+      // a seznam hotelů z ní). Na dotaz nejvýš jednou za 5 min, jinak z mezipaměti s refreshIn (za kolik s to půjde);
+      // nepovede-li se, zůstane dřívější výsledek – stale (stejně jako ceny, které aktualizovat nešlo).
+      const last = fresh && p.refresh ? cache.get(`${key}:fresh`) : undefined;
+      const again = fresh && Boolean(p.refresh) && !last;
+      let res;
+      let stale = false;
+      if (again) {
+        cache.set(`${key}:fresh`, Date.now(), FRESH_MS);
+        const old = cache.get(key);
+        try {
+          res = await p.search(q, { fresh: true });
+          cache.set(key, res, ttl(res));
+          stale = Boolean(res.stale);
+        } catch (e) {
+          if (!old) throw e;
+          res = old;
+          stale = true;
+        }
+      } else res = await cache.wrap(key, ttl, () => p.search(q));
       items.push(...res);
-      status.push({ id: p.id, name: p.name, ok: true, count: res.length, ms: Date.now() - t0, test: Boolean(p.testData?.()), ...(res.partial ? { partial: true } : {}) });
+      status.push({
+        id: p.id, name: p.name, ok: true, count: res.length, ms: Date.now() - t0, test: Boolean(p.testData?.()), ...(res.partial ? { partial: true } : {}),
+        ...(stale ? { stale: true } : {}), ...(last ? { refreshIn: Math.max(1, Math.ceil((last + FRESH_MS - Date.now()) / 1000)) } : {}),
+      });
     } catch (e) {
       status.push({ id: p.id, name: p.name, ok: false, error: e.message || String(e), ms: Date.now() - t0 });
     }
