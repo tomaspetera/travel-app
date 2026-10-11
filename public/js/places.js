@@ -127,6 +127,8 @@
       hike: { km: s.hike.km, scenery: s.hike.scenery, hills: s.hike.hills }, recent: s.recent || [], datePicked: Boolean(s.datePicked),
     };
   }
+  // Platný termín: celé datum od dneška (rozepsané pole hlásí i '' nebo rok 0002).
+  const okStart = (v, today) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && v >= today;
   /** Uložený stav → jen platné hodnoty (cizí nebo starý záznam nic nerozbije); start v minulosti se zahodí. */
   function uiRestore(raw, today) {
     const o = raw && typeof raw === 'object' ? raw : {};
@@ -134,7 +136,7 @@
     const arr = (v, ok) => (Array.isArray(v) ? [...new Set(v.filter(x => ok.includes(x)))] : undefined);
     const ob = v => (v && typeof v === 'object' ? v : {});
     const place = cleanPlace(o.place);
-    const start = typeof o.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.start) && o.start >= today ? o.start : undefined;
+    const start = okStart(o.start, today) ? o.start : undefined;
     const r = {
       // „Moje okolí“ se neobnoví – poloha se mění (jako u „Naposledy“)
       place: place && !place.geo ? place : null, radius: pick1(o.radius, RADII), mode: pick1(o.mode, ids(MODES)),
@@ -658,6 +660,7 @@
     ex.plan = null; ex.trips = {}; ex.bikeRoute = null; ex.trainRoute = null; ex.hikeRoute = null; ex.tripEx.clear(); ex.tripMust.clear();
     ex.cat = ''; ex.planState = null; ex.errs = {}; ex.loaded = null; ex.all = []; ex.items = [];
     for (const k of Object.keys(busy)) delete busy[k];
+    redo.clear();
     clearTimeout(soonT); ex.replanNow = null; // odložené přeplánování patřilo předchozímu místu
     ex.recent = pushRecent(ex.recent, ex.place);
     remember();
@@ -1109,6 +1112,15 @@
   const replanSeq = {};
   // Právě plánované (klíč jako replanSeq): { my, kind, t0, other, note } – čekání ve výsledku vydrží i překreslení.
   const busy = {};
+  // Plány se starým termínem, počtem dní nebo tempem: do úspěšného přeplánování zešedlé a bez uložení,
+  // přeplánují se i po přepnutí režimu a zpět.
+  const redo = new Set();
+  // Zahozený plán (jiný režim, doprava): i dotaz, který pro něj ještě běží – jeho odpověď se už neuloží.
+  const dropPlan = k => {
+    if (k === 'city') ex.plan = null; else delete ex.trips[k];
+    if (busy[k]) { replanSeq[k] = (replanSeq[k] || 0) + 1; delete busy[k]; }
+    redo.delete(k);
+  };
   const curKey = () => (ex.mode === 'bike' ? (ex.bike.kind === 'train' ? 'train' : 'bike') : ex.mode === 'hike' ? 'hike'
     : ex.mode === 'day' || ex.mode === 'loop' ? tripKey(ex.mode, ex.transport) : 'city');
   const keyKind = key => (key === 'city' ? 'city' : key === 'train' ? 'train' : key === 'bike' || key === 'hike' ? 'route' : 'trips');
@@ -1120,7 +1132,7 @@
     if (!out) return;
     const b = busy[curKey()];
     const row = $(':scope > .ex-busy', out);
-    out.classList.toggle('stale', Boolean(b));
+    out.classList.toggle('stale', Boolean(b) || redo.has(curKey()));
     if (!b) { row?.remove(); return; }
     const html = waitHtml(b.kind, Date.now() - b.t0 >= SLOW_MS, '', b.note);
     if (row) row.outerHTML = html; else out.insertAdjacentHTML('afterbegin', html);
@@ -1260,7 +1272,7 @@
     $$('[data-transport]', body).forEach(b => b.onclick = () => { if (ex.transport !== b.dataset.transport) { ex.transport = b.dataset.transport; paintExplore(); } });
     // Vyřazení / přidání cíle nebo jiné zájmy platí pro všechny výlety – ostatní uložené plány (jiný režim, doprava)
     // by je ještě neměly, proto se zahodí a při přepnutí se naplánují znovu.
-    const onlyThisTrip = () => { for (const k of Object.keys(ex.trips)) if (k !== seqKey) delete ex.trips[k]; };
+    const onlyThisTrip = () => { for (const k of new Set([...Object.keys(ex.trips), ...Object.keys(busy)])) if (k !== seqKey && keyKind(k) === 'trips') dropPlan(k); };
     $$('[data-tint]', body).forEach(b => b.onclick = () => {
       const id = b.dataset.tint;
       ex.tripInterests.has(id) ? ex.tripInterests.delete(id) : ex.tripInterests.add(id);
@@ -1300,24 +1312,38 @@
     on('[data-pace]', 'onchange', e => {
       st.pace = e.target.value; ex.pace = e.target.value; remember();
       onlyThisTrip();
-      if (road) ex.plan = null;
-      if (road ? trip : ex.plan) replanSoon(seqKey);
+      if (road) dropPlan('city');
+      replanShown();
     });
-    // Termín a počet dní: zobrazený program / výlety hned zešednou (uložit nejde – byly by se starými daty) a přeplánují se.
-    const replanDates = () => {
-      if (!(road ? trip : ex.mode === 'city' && ex.plan)) return;
+    // Termín, počet dní a tempo: zobrazený i právě plánovaný program / výlety hned zešednou (uložit nejde – byly by
+    // se starými volbami), běžící dotaz se zahodí a přeplánuje se. onBlur = datum psané klávesnicí: až po opuštění pole.
+    const replanShown = onBlur => {
+      if (routeMode || !(road ? trip : ex.plan) && !busy[seqKey]) return;
+      redo.add(seqKey);
+      if (busy[seqKey]) { replanSeq[seqKey]++; delete busy[seqKey]; }
       $('#exPlanOut', body)?.classList.add('stale');
       $$('#exSave, #exSaveNew', body).forEach(b => { b.disabled = true; });
-      replanSoon(seqKey);
+      if (!onBlur) replanSoon(seqKey);
     };
+    // Klávesnicí Chrome hlásí změnu po každé části data (i neúplné, rok 0002) – překreslení by psaní přerušilo.
+    let typed = false, later = false;
+    on('#exStart', 'onkeydown', e => { typed = true; if (e.key === 'Enter') e.target.blur(); });
+    on('#exStart', 'onblur', e => {
+      typed = false;
+      if (!okStart(e.target.value, fmtYMD(new Date()))) e.target.value = ex.start; // rozepsané / smazané → platný termín
+      // napsaný termín se přeplánuje teď; ne když pole zmizelo překreslením (to přeplánuje samo)
+      if (later) { later = false; setTimeout(() => { if (e.target.isConnected && redo.has(seqKey) && !busy[seqKey]) replanSoon(seqKey); }); }
+    });
     on('#exStart', 'onchange', e => {
+      if (!okStart(e.target.value, fmtYMD(new Date()))) return;
+      later = typed;
       ex.start = e.target.value;
       ex.datePicked = true; // „Najít lety sem“ pak hledá přesně v termínu
       remember();
       // ostatní plány pro starý termín se zahodí (při přepnutí se naplánují znovu)
       onlyThisTrip();
-      if (ex.mode !== 'city') ex.plan = null;
-      replanDates();
+      if (ex.mode !== 'city') dropPlan('city');
+      replanShown(typed);
       // Uložení k cestě závisí na datu (stejné místo a začátek) – tlačítko podle nového dne (i po „✓ Uloženo“)
       if (rr) {
         const old = $$('#exSave, #exSaveNew', body);
@@ -1342,10 +1368,10 @@
     on('#exDays', 'onchange', e => {
       if (road) {
         ex.tripDays[ex.mode] = +e.target.value;
-        for (const [id] of TRANSPORTS) if (tripKey(ex.mode, id) !== seqKey) delete ex.trips[tripKey(ex.mode, id)]; // jiná doprava pro starý počet
+        for (const [id] of TRANSPORTS) if (tripKey(ex.mode, id) !== seqKey) dropPlan(tripKey(ex.mode, id)); // jiná doprava pro starý počet
       } else ex.days = +e.target.value;
       remember();
-      replanDates();
+      replanShown();
     });
     // Kolo a pěšky: volby platí pro příští „Naplánovat trasu“ (jiná volba = zase první varianta trasy).
     on('#routeKm', 'onchange', e => { ro.km = +e.target.value; ro.variant = 0; remember(); });
@@ -1419,6 +1445,7 @@
           ex.plan = plan;
         }
         ok = true;
+        redo.delete(key);
       } catch (e) {
         if (my !== replanSeq[key] || ex.place !== p) return;
         ex.errs[key] = { msg: e.message, other: Boolean(o.other) };
@@ -1463,6 +1490,12 @@
     remember();
     // Program pro jiný okruh (okruh se mezitím změnil) se přeplánuje sám – jen když zrovna neběží a neselhal.
     if (ex.mode === 'city' && ex.plan && ex.plan.radius != null && ex.plan.radius !== ex.radius && !bz && !er) replanSoon('city');
+    // Plán se starým termínem / tempem (režim se přepnul dřív, než se přeplánoval, nebo přeplánování selhalo): zešedlý, bez uložení.
+    if (redo.has(seqKey)) {
+      $('#exPlanOut', body).classList.add('stale');
+      $$('#exSave, #exSaveNew', body).forEach(b => { b.disabled = true; });
+      if (!bz && !er) replanSoon(seqKey);
+    }
   }
 
   // Přepnutí světlý/tmavý režim: otevřené mapy dostanou odpovídající styl (rastrová záloha zůstane).
@@ -1480,7 +1513,7 @@
     renderExplore, renderPlanner, retheme, routeMap,
     // jen pro testy (test/places-ui.test.js)
     _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
-      uiSnapshot, uiRestore, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
+      uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns,
       plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan },

@@ -205,6 +205,17 @@ test('zapamatovaný stav: vybraný termín platí i po obnovení, „Moje okolí
   assert.equal(r.start, '2026-11-10', 'ostatní volby zůstanou');
 });
 
+test('termín „Od“: platí jen celé datum od dneška (Chrome při psaní hlásí i prázdné pole a rok 0002)', () => {
+  // mm/dd/rrrr: „11“ do měsíce, pak den a rok po číslicích – každá změna je hodnota pole
+  const typed = ['2026-01-12', '2026-11-12', '2026-11-02', '2026-11-20', '0002-11-20', '0020-11-20', '0202-11-20', '2027-11-20', ''];
+  assert.deepEqual(typed.filter((v) => T.okStart(v, '2026-10-11')), ['2026-11-12', '2026-11-02', '2026-11-20', '2027-11-20']);
+  assert.equal(T.okStart('2026-10-11', '2026-10-11'), true, 'dnešek ano');
+  assert.equal(T.okStart('2026-10-10', '2026-10-11'), false, 'včerejšek ne');
+  for (const junk of [undefined, null, 20261112, '2026-1-12', '275760-01-01', '2026-11-12T00:00']) assert.equal(T.okStart(junk, '2026-10-11'), false, String(junk));
+  // obnovený stav používá stejné pravidlo
+  assert.equal(T.uiRestore({ start: '0002-11-20' }, '2026-10-11').start, undefined);
+});
+
 test('program v průvodci: zájmy, tempo, vyřazená a vybraná místa jdou s programem (po návratu do kroku platí dál)', async () => {
   const bodies = [];
   const fetch = async (url, o) => { bodies.push(JSON.parse(o.body)); return { ok: true, status: 200, json: async () => ({ days: [{ date: '2026-10-12', items: [] }], spare: [], places: [] }) }; };

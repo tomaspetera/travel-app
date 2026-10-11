@@ -134,7 +134,8 @@ details.more.ex-places>summary::before{content:none}
 .ex-busy{align-items:flex-start;padding:10px 4px 14px}
 .ex-busy .spin{flex:none;margin-top:2px}
 .ex-wait{font-size:12.5px;margin-top:3px;color:var(--faint)}
-#exPlanOut.stale>:not(.ex-busy){opacity:.45;pointer-events:none;transition:opacity .2s}
+/* zešedlý výsledek (čeká se, starý termín); chyba se „Zkusit znovu“ zůstane použitelná */
+#exPlanOut.stale>:not(.ex-busy):not(.ex-err){opacity:.45;pointer-events:none;transition:opacity .2s}
 .ex-err{align-items:center;margin-bottom:12px}
 .ex-err>div{flex:1;min-width:0}
 .ex-err .btn{flex:none}
