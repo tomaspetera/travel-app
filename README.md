@@ -752,6 +752,30 @@ s doporučeními, vstupní podmínky a mapa navštívených zemí. **Nefunguje**
 letů, ceny, ubytování, počasí, dlaždice map. Místo „Failed to fetch“ pak ATLAS napíše „Jsi offline – připoj se
 k internetu a zkus to znovu.“ (při připojení, ale nedostupném serveru „Server ATLAS je teď nedostupný…“).
 
+### 💾 Přenos a záloha (PC ↔ telefon)
+
+Cesty z plánovače, hlídané ceny, domov radaru, navštívené země a odškrtnuté „Před cestou“ jsou jen v localStorage
+jednoho prohlížeče. **💾 Přenos a záloha** (nad plánovačem, na mobilu i v nabídce **Více**) je přenese souborem –
+nic se neukládá na server a nepotřebuje to účet.
+
+- **⬇️ Stáhnout zálohu** uloží `atlas-zaloha-RRRR-MM-DD.json`. **📲 Poslat do jiného zařízení** (telefon s Chromem)
+  otevře systémové sdílení (e-mail, Disk, Nearby Share…); soubor se posílá jako `.txt`, protože Chrome sdílí jen
+  některé typy souborů (JSON ne). Obnova bere `.json` i `.txt`.
+- **📂 Obnovit ze zálohy** nejdřív ukáže, co by přibylo („2 cesty (1 nová, 1 změněná) · 1 hlídaná cena (1 nová) ·
+  4 země (3 nové)…“), a teprve **Sloučit** to přidá. **Nic nesmaže**: cesty, které už v zařízení jsou, zůstanou (stejná
+  cesta = stejné `tripId` z průvodce, jinak stejný plán); změněné přepíše jen zaškrtnuté „Přepsat změněné cesty“, domov
+  radaru jen „Převzít domov“ (když tu žádný není, převezme se sám). Hlídání se nezdvojí a vejde se jich nejvýš 12 jako
+  u ♡ Hlídat; navštívené země se sjednotí, odškrtnutí „Před cestou“ taky. Importovaná hlídání si nesou čas poslední
+  kontroly, takže je kontrolka nehledá víc než ta přidaná ručně.
+- Soubor je **cizí vstup** (mohl ho poslat kdokoli): `public/js/backup.js` z něj postaví nové objekty jen se známými
+  poli – plány přes `PlanShare.sanitize` jako u sdíleného odkazu, cesty z průvodce přes `Trip.sanitizeTrip`, místa,
+  data, časy a čísla podle pevných pravidel; HTML, neznámé klíče a `__proto__` se nedostanou dál. Záloha z novější
+  verze ATLAS se odmítne s hláškou „aktualizuj aplikaci“.
+- Nepřenáší se rozpracovaná cesta v průvodci (uložené cesty v plánovači ji mají celou), uložené výsledky hledání
+  a radaru, nedávná hledání, paměť cen, Objevuj a motiv.
+- Otevření okna požádá prohlížeč o **trvalé úložiště** (`navigator.storage.persist()`), aby data sám nesmazal; okno
+  ukáže, jestli ho prohlížeč dal. Nad plánovačem je připomínka, když záloha ještě nebyla nebo je starší než 30 dní.
+
 **Proč nikdy neukáže starý kód** (`public/sw.js`, `server/lib/pwa.js`, `public/js/pwa.js`):
 
 - Service worker bere stránku i soubory aplikace (HTML, JS, CSS, `vendor/`, `data/*.json`) **vždy nejdřív ze sítě**

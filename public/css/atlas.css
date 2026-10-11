@@ -365,3 +365,8 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .ed-regime.ec-free{background:var(--surface-2)}
 [data-theme="light"] .entry-detail a,[data-theme="light"] .entry-card a{color:#0369a1}
 .cm-acts{margin-bottom:16px;gap:8px}
+/* 💾 Přenos a záloha (backup.js) */
+.plan-tools{gap:10px;align-items:center;margin-bottom:14px;font-size:12.5px}
+.bk-actions{display:flex;flex-wrap:wrap;gap:8px}
+.bk-opt{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;margin:6px 0;cursor:pointer}
+.bk-opt input{margin-top:3px;flex:none}

@@ -806,3 +806,43 @@ test('sdílený odkaz na cestu do jednoho místa: program bez popisů, fotek a �
   assert.equal(got.flight.deal.level, 'super');
   assert.ok(!got.route || got.route.mode !== 'multi', 'příjemce má cestu do jednoho místa');
 });
+
+test('💾 záloha: odškrtnutí ze zálohy se sloučí – jen známá id, novější čas, nejvýš 30 cest', () => {
+  const st = memStorage();
+  const P2 = load({ storage: st }).window.PreTrip;
+  P2.setDone('a', 'pack:doc-pass', true);
+  const at0 = JSON.parse(st.mem.get('atlas_pretrip_v1')).a.at;
+  const inc = JSON.parse(`{"__proto__":{"d":{"pack:doc-x":1}},"a":{"d":{"pack:tc-adapter-AB":1,"<b>":1,"pack:my-3":1},"at":${at0 + 5}},"b c":{"d":{"todo:ins":1}},"b":{"d":{"todo:ins":1,"nic":1},"at":3},"prazdne":{"d":{"x":1}}}`);
+  assert.equal(P2.mergeDone(inc), 2);
+  assert.deepEqual(plain(P2.doneOf('a')), { 'pack:doc-pass': 1, 'pack:tc-adapter-AB': 1, 'pack:my-3': 1 });
+  assert.deepEqual(plain(P2.doneOf('b')), { 'todo:ins': 1 });
+  const s = JSON.parse(st.mem.get('atlas_pretrip_v1'));
+  assert.equal(s.a.at, at0 + 5);
+  assert.deepEqual(Object.keys(s).sort(), ['a', 'b']);
+  assert.equal({}.d, undefined);
+  assert.deepEqual(plain(P2.exportDone()), s);
+  for (let i = 0; i < 40; i++) P2.setDone(`t${i}`, 'pack:x-y', true);
+  P2.mergeDone({ z: { d: { 'pack:x-y': 1 }, at: 1 } });
+  assert.equal(Object.keys(JSON.parse(st.mem.get('atlas_pretrip_v1'))).length, 30);
+  assert.equal(P2.mergeDone(null), 0);
+  assert.equal(P2.mergeDone([1]), 0);
+});
+
+test('💾 záloha: cesta z průvodce projde zálohou (pravý Trip.sanitizeTrip) a jde znovu otevřít v průvodci', () => {
+  const { c, Trip } = wizard(memStorage());
+  vm.runInContext(read('public/js/planshare.js'), c, { filename: 'planshare.js' });
+  vm.runInContext(read('public/js/backup.js'), c, { filename: 'backup.js' });
+  const B = c.window.Backup;
+  const deps = { sanitizePlan: c.window.PlanShare.sanitize, sanitizeWizard: Trip.sanitizeTrip, txt: c.window.PlanShare.txt };
+  const t = tokyo();
+  const entry = { name: 'Tokio 12. 3.', dest: 'Tokio', iso: 'JP', start: '2027-03-12', end: '2027-03-21', pax: '2', budget: '40000', flight: 'PRG→NRT', days: {}, checklist: [], notes: '', tripId: t.created, wizard: { ...JSON.parse(JSON.stringify(t)), booked: { 'flight': true, 'stay:geo:35.68,139.76': true } } };
+  const inc = B.parse(B.pack({ trips: [entry] }), deps);
+  const w = inc.trips[0].wizard;
+  assert.equal(w.flight.out.to, 'NRT');
+  assert.equal(w.dest.label, 'Tokio');
+  assert.deepEqual(plain(w.booked), { flight: true, 'stay:geo:35.68,139.76': true });
+  assert.equal(Trip.openSaved(w, inc.trips[0].tripId), true);
+  assert.equal(c.S.trip.dest.label, 'Tokio');
+  assert.equal(c.S.trip.created, t.created);
+  assert.equal(c.S.trip.booked.flight, true);
+});

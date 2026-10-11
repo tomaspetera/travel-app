@@ -141,5 +141,5 @@
     return m ? unpack(m[1]) : null;
   }
 
-  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash };
+  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash, txt };
 })();
