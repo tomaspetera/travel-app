@@ -3194,9 +3194,11 @@
       const res = await runSearch(q.payload, { onProgress: ev => radarProgress(ev, key) });
       PriceCheck.remember(res);
       renderFav(); // ⭐ Moje cíle: ceny, které radar právě viděl
-      // u svátků jen odlet první volný den nebo večer předem (SearchHelp.radarPick); bez 🙈 cílů a s rezervou (RADAR_KEEP),
-      // aby 🙈 později jen schovalo kartu a posunula se další – bez nového hledání
-      const at = Date.now(), items = SearchHelp.radarPick(res.groups, q.lw, SearchHelp.RADAR_KEEP, SearchHelp.destKeys(prefLists().mute)).map(({ g, t }) => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: t.perPersonCzk, from: t.out.from, to: t.out.to, d1: t.out.date, d2: t.back?.date,
+      // u svátků jen odlet první volný den nebo večer předem (SearchHelp.radarPick); s rezervou (RADAR_KEEP cílů mimo 🙈),
+      // aby 🙈 později jen schovalo kartu a posunula se další – bez nového hledání; 🙈 cíle zůstanou uložené na svém
+      // místě (do rezervy se nepočítají, schová je až paintRadar), takže cíl vrácený z 🙈 se hned zase ukáže
+      const mute = prefLists().mute;
+      const at = Date.now(), items = SearchHelp.radarPick(res.groups, q.lw, SearchHelp.RADAR_KEEP, SearchHelp.destKeys(mute)).map(({ g, t }) => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: t.perPersonCzk, from: t.out.from, to: t.out.to, d1: t.out.date, d2: t.back?.date,
         // zpět z jiného letiště / na jiné letiště (kombinace z Kamkoliv) – na kartě „JCL → POZ ↩ PED“ (SearchHelp.radarRoute)
         ...(t.back && (t.back.from !== t.out.to || t.back.to !== t.out.from) ? { bf: t.back.from, bt: t.back.to } : {}),
         // čas odletu a přílet zpět kvůli dnům dovolené na kartě (SearchHelp.leaveDays)
@@ -3204,8 +3206,8 @@
         ...(wxGeo(g.dest) ? { lat: +g.dest.lat.toFixed(3), lon: +g.dest.lon.toFixed(3) } : {}), // předpověď na kartě
         // odkaz na nabídku z karty – hledání do jednoho cíle ji nemusí vrátit (Kiwi dává pro „kamkoliv“ jiné nabídky)
         ...(t.bookUrl ? { buy: [[t.bookUrl, t.provider, 'all']] } : t.out.bookUrl || t.back?.bookUrl ? { buy: [...(t.out.bookUrl ? [[t.out.bookUrl, t.out.provider, 'out']] : []), ...(t.back?.bookUrl ? [[t.back.bookUrl, t.back.provider, 'back']] : [])] } : {}) }));
-      // co se od minulého výsledku změnilo (↓ cena, nový cíl); s výpadkem zdroje bez značek
-      const r = SearchHelp.radarEntry(radarCached(q), items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers) });
+      // co se od minulého výsledku změnilo (↓ cena, nový cíl – proti kartám, které radar ukazoval); s výpadkem zdroje bez značek
+      const r = SearchHelp.radarEntry(radarCached(q), items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers), mute });
       // domov se mezitím změnil: starý dotaz už nic nepřepíše
       // (u svátků se porovná víkend tohoto hledání – výsledek víkendu, od kterého uživatel mezitím překlikl, se uloží)
       if (!S.home?.from?.length || radarKey(SearchHelp.radarQuery(q.mode, radarHome(), today(), q.lw ? q.lw.start : S.radarHoliday)) !== key) return r;
@@ -3335,8 +3337,9 @@
     startSearch();
   }
   /** Po změně seznamů: radar (jen překreslit – žádné hledání), pruh na Přehledu, rychlé hledání a výpis hned podle nich. */
-  function prefsChanged() {
-    save();
+  function prefsChanged() { save(); prefsPaint(); }
+  // jen překreslit – seznamy už uložené (💾 obnova, změna v jiném okně ATLAS)
+  function prefsPaint() {
     if (radarLast) paintRadar(radarLast.r, radarLast.q, radarLast.st);
     renderFav(); renderQuick();
     if (lastResult && lastResult.mode !== 'multi' && $('#results') && $('#results').children.length) rerender(true);
@@ -3361,15 +3364,18 @@
     $('#dmClose').onclick = () => modalClose();
     $('[data-dmp]', $('#modal')).focus();
   }
-  /** Úprava seznamů: odebrat, přesunout do druhého seznamu, ⭐ nahoru (Hledat moje cíle bere prvních 5). */
-  function prefsEdit(focus = null) {
+  /**
+   * Úprava seznamů: odebrat, přesunout do druhého seznamu, ⭐ nahoru (Hledat moje cíle bere prvních 5).
+   * Po úpravě se okno překreslí: focus = selektor tlačítka, které dostane fokus, y = kam bylo okno posunuté.
+   */
+  function prefsEdit(focus = null, y = 0) {
     const pl = prefLists();
     const row = (x, which, i) => `<li class="pe-row"><span class="pe-n">${flag(x.cc)} ${esc(x.label)}</span><span class="pe-acts">`
       + (which === 'fav' && i ? `<button type="button" class="btn ghost sm" data-pe="top:${esc(x.key)}" title="Nahoru – Hledat moje cíle hledá prvních 5" aria-label="${esc(x.label)} nahoru">⬆</button>` : '')
       + `<button type="button" class="btn ghost sm" data-pe="${which === 'fav' ? 'mute' : 'fav'}:${esc(x.key)}" title="${which === 'fav' ? 'Přesunout do 🙈 Nezajímá mě' : 'Přesunout do ⭐ Moje cíle'}" aria-label="${esc(x.label)}: ${which === 'fav' ? 'nezajímá mě' : 'chci tam'}">${which === 'fav' ? '🙈' : '⭐'}</button>`
       + `<button type="button" class="btn ghost sm" data-pe="del:${esc(x.key)}" title="Odebrat" aria-label="Odebrat ${esc(x.label)}">✕</button></span></li>`;
     const list = (which, title, empty) => `<h4 class="pe-h">${title} <span class="faint">${pl[which].length}/${SearchHelp.DEST_MAX}</span></h4>`
-      + (pl[which].length ? `<ol class="pe-list">${pl[which].map((x, i) => row(x, which, i)).join('')}</ol>` : `<p class="faint pe-empty">${empty}</p>`);
+      + (pl[which].length ? `<ol class="pe-list">${pl[which].map((x, i) => row(x, which, i)).join('')}</ol>` : `<p class="faint pe-empty" id="peEmpty-${which}" tabindex="-1">${empty}</p>`);
     modalOpen(`<div class="modal-body pe-modal"><h3>⭐ Moje cíle a 🙈 Nezajímá mě</h3>
       ${list('fav', '⭐ Moje cíle', 'Zatím žádné – přidáš je přes ⋯ u karty radaru nebo u cíle v Kamkoliv.')}
       ${list('mute', '🙈 Nezajímá mě', 'Nic skrytého – v radaru i v Kamkoliv se ukazuje všechno.')}
@@ -3380,12 +3386,17 @@
       if (!x) return;
       const nx = op === 'top' ? { fav: SearchHelp.destTop(cur.fav, key), mute: cur.mute } : SearchHelp.destPrefSet(cur, x, op === 'del' ? null : op);
       if (!nx) { toast(fullTxt(op), 'err'); return; }
+      // u smazaného ✕ města, které se posunulo na jeho místo (u posledního předchozího, v prázdném seznamu poznámka)
+      const wl = cur.fav.includes(x) ? 'fav' : 'mute', nb = nx[wl][Math.min(cur[wl].indexOf(x), nx[wl].length - 1)];
       S.fav = nx.fav; S.mute = nx.mute;
-      prefsChanged(); prefsEdit(op === 'del' ? null : `${op === 'mute' ? 'fav' : 'mute'}:${key}`);
+      prefsChanged();
+      prefsEdit(op !== 'del' ? `[data-pe="${op === 'mute' ? 'fav' : 'mute'}:${key}"]` : nb ? `[data-pe="del:${nb.key}"]` : `#peEmpty-${wl}`, $('#modal').scrollTop);
     });
     $('#peDone').onclick = () => modalClose();
-    // klávesnice: fokus zůstane u přesunutého města (u smazaného na Hotovo)
-    const f = (focus && $(`[data-pe="${focus}"]`, $('#modal'))) || $('#peDone'); if (f) f.focus();
+    // klávesnice: fokus zůstane u přesunutého města, u smazaného na sousedním – okno zůstane, kde bylo (fokus na Hotovo
+    // dole by ho po každém ✕ posunul na konec); při otevření na Hotovo bez posunu, dlouhý seznam začne nahoře
+    const m = $('#modal'); m.scrollTop = y;
+    const f = (focus && $(focus, m)) || $('#peDone'); if (f) f.focus({ preventScroll: f.id === 'peDone' });
   }
   /**
    * ⭐ Moje cíle na Přehledu (pod radarem): u každého města nejlevnější zpáteční letenka, kterou ATLAS v tomhle zařízení
@@ -3398,8 +3409,8 @@
     if (host.hidden) { host.innerHTML = ''; return; }
     const store = PriceCheck.load(), now = Date.now(), q = favQuery();
     const tile = (x, i) => {
-      const s = PriceCheck.seenMin(store, x.key, now), mon = s && MNS_FULL[+s.month.slice(5, 7) - 1];
-      const tip = s ? `Nejlevnější zpáteční letenka na osobu, kterou ATLAS v tomhle zařízení viděl: ${czk(s.czk)} z ${s.from}, odlet ${mon}, ${PriceCheck.agoTxt(s.ago)}.` : 'ATLAS sem v tomhle zařízení zatím žádnou cenu neviděl.';
+      const s = PriceCheck.seenMin(store, x.key, now), mi = s && +s.month.slice(5, 7) - 1, mon = s && MNS_FULL[mi];
+      const tip = s ? `Nejlevnější zpáteční letenka na osobu, kterou ATLAS v tomhle zařízení viděl: ${czk(s.czk)} z ${s.from}, odlet ${MNS_LOC[mi]}, ${PriceCheck.agoTxt(s.ago)}.` : 'ATLAS sem v tomhle zařízení zatím žádnou cenu neviděl.';
       return `<button type="button" class="fav-i" data-fs="${i}" title="${esc(tip)} Klepnutím hledáš sem – termíny jako radar."><span class="fav-n">${flag(x.cc)} <b>${esc(x.label)}</b></span>`
         + (s ? `<span class="fav-p">letenka od <b>${czk(s.czk)}</b></span><span class="fav-w">z ${esc(s.from)} · ${mon} · ${PriceCheck.agoTxt(s.ago)}</span>` : '<span class="fav-w">zatím neviděno</span>') + '</button>';
     };
@@ -3611,7 +3622,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, renderQuick, renderWatch, renderRadar, renderFav, refreshPrefs: prefsChanged, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, renderQuick, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); } };
 })();

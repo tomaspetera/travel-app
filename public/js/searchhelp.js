@@ -1105,12 +1105,14 @@
   /**
    * Karty radaru ze skupin výsledku: nejlevnější nabídka cíle; u prodlouženého víkendu (lw) jen s odletem první volný
    * den, nebo večer předem (od 16:00; let bez známého času se bere) – jinak by karta potřebovala další den volna.
-   * → [{ g, t }] (u svátků po ceně), nejvýš n; cíle s klíčem ve skip (🙈 Nezajímá mě) se přeskočí.
+   * → [{ g, t }] (u svátků po ceně), n cílů; cíle s klíčem ve skip (🙈 Nezajímá mě) se do n nepočítají.
    */
   function radarPick(groups, lw = null, n = 12, skip = null) {
-    // 🙈 cíle (skip = klíče cílů) pryč ještě před oříznutím – místo nich další nejlevnější
-    const gs = (groups || []).filter(g => g && !(skip && g.dest && skip.has(g.dest.key)));
-    if (!lw) return gs.filter(g => g.best).slice(0, n).map(g => ({ g, t: g.best }));
+    // 🙈 cíle (skip = klíče cílů) zůstanou na svém místě, místo nich se vezme další nejlevnější – radar je schová až při
+    // vykreslení (radarShown), takže cíl vrácený z 🙈 se ukáže hned, bez nového hledání
+    const take = ps => { const out = []; let k = 0; for (const p of ps) { if (k >= n) break; out.push(p); if (!(skip && p.g.dest && skip.has(p.g.dest.key))) k++; } return out; };
+    const gs = (groups || []).filter(Boolean);
+    if (!lw) return take(gs.filter(g => g.best).map(g => ({ g, t: g.best })));
     // server už ranní odlety v předvečer vyřadil (depAfter) – tady jen pojistka
     const ok = t => t && t.out && (t.out.date >= lw.start || !t.out.hasTime || String(t.out.dep || '').slice(11, 16) >= LW_DEP);
     const out = [];
@@ -1118,7 +1120,7 @@
       const t = [g.best, ...(g.options || [])].filter(ok).sort((a, b) => a.perPersonCzk - b.perPersonCzk)[0];
       if (t) out.push({ g, t });
     }
-    return out.sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk).slice(0, n);
+    return take(out.sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk));
   }
   // odlet v předvečer prodlouženého víkendu nejdřív v (po práci)
   const LW_DEP = '16:00';
@@ -1366,13 +1368,16 @@
    * (was = { czk, at }, jen při změně aspoň o 3 % a 30 Kč) a „nové“ (newAt) u cíle, který v minulém výsledku stejného
    * dotazu nebyl. Nezměněná cena si značku z minula nechá (was 3 dny, nové 1 den) – nezmizí při obnovení za půl hodiny.
    * prev = minulý uložený výsledek ({ key, at, items }) nebo null, key = dotaz teď → nové pole karet.
+   * Minule = jen karty, které radar ukazoval (radarShown: bez 🙈 – mute = seznam, prvních 12 z uložené rezervy):
+   * cíl, který byl minule uložený, ale neukázaný (13.–20.), je „nové“, ne „↓“ od ceny, kterou uživatel neviděl.
    */
-  function radarDiff(prev, items, key, now) {
+  function radarDiff(prev, items, key, now, mute = null) {
     if (!prev || !Array.isArray(prev.items) || typeof prev.key !== 'string' || !radarSame(prev.key, key)) return items;
-    const old = new Map(prev.items.filter(x => x && x.id).map(x => [x.id, x]));
+    const old = new Map(radarShown(prev.items, mute).map(s => s.x).filter(x => x.id).map(x => [x.id, x])), skip = destKeys(mute);
     return items.map(x => {
       const o = old.get(x.id), y = { ...x };
-      if (!o) return { ...y, newAt: now };
+      // 🙈 cíl bez „nové“ – neukazuje se a po vrácení z 🙈 se vrátí známé město, ne nové
+      if (!o) return skip.has(destKeyOf(x.id)) ? y : { ...y, newAt: now };
       const moved = Math.abs(x.czk - o.czk) >= Math.max(30, o.czk * 0.03);
       if (moved) y.was = { czk: o.czk, at: prev.at };
       else if (o.was && now - o.was.at < 3 * 864e5) y.was = o.was;
@@ -1384,11 +1389,12 @@
   /**
    * Nový uložený výsledek radaru. Při výpadku zdroje (partial) bez značek změn a se základem pro příští porovnání
    * z posledního úplného výsledku – jinak by vyšší ceny z výpadku příště ukázaly falešné „↓“ a vrácené cíle „nové“.
+   * mute = 🙈 seznam (radarDiff porovnává jen s kartami, které radar ukazoval).
    */
-  function radarEntry(prev, items, key, at, { demo = false, partial = false } = {}) {
+  function radarEntry(prev, items, key, at, { demo = false, partial = false, mute = null } = {}) {
     const base = prev && prev.partial ? prev.base || null : prev || null;
     if (partial) return { key, at, demo, items, partial: true, base: base && radarSame(base.key, key) ? { key: base.key, at: base.at, items: base.items } : null };
-    return { key, at, demo, items: radarDiff(base, items, key, at) };
+    return { key, at, demo, items: radarDiff(base, items, key, at, mute) };
   }
 
   /* ---------- řazení „cena + délka cesty“ ---------- */

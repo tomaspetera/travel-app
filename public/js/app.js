@@ -13,6 +13,7 @@ const safeUrl = u => /^https?:\/\//i.test(String(u ?? '').trim()) ? String(u).tr
 const cssUrl = u => safeUrl(u).replace(/['"()\\\s]/g, c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'));
 const MNS = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'];
 const MNS_FULL = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
+const MNS_LOC = ['v lednu', 'v únoru', 'v březnu', 'v dubnu', 'v květnu', 'v červnu', 'v červenci', 'v srpnu', 'v září', 'v říjnu', 'v listopadu', 'v prosinci']; // „odlet v listopadu“
 const CONTS = ['Evropa', 'Asie', 'Afrika', 'Severní Amerika', 'Jižní Amerika', 'Oceánie'];
 const pad = n => String(n).padStart(2, '0');
 const fmtYMD = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
@@ -927,6 +928,8 @@ function wireEvents() {
     if (activeView === 'dashboard' && (ch.has('trips') || ch.has('visited'))) renderDashStats();
     if (mt && ch.has('trips')) tripModalSync(mi, mt, mj);
     if (ch.has('trip') && activeView === 'trip' && window.Trip) Trip.render(); // handlery průvodce na převzatou S.trip
+    // ⭐ / 🙈 z jiného okna: radar, pruh ⭐ Moje cíle, rychlé hledání a výpis hned podle nich (jen překreslit, bez ukládání)
+    if ((ch.has('fav') || ch.has('mute')) && window.Flights && Flights.refreshPrefs) Flights.refreshPrefs();
   });
 }
 function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }
