@@ -29,6 +29,9 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
 1. **Let** – v hledání klikneš u letu na *Vybrat a pokračovat*. Let ukáže i přestupy a štítek ceny s odkazem
    *Je to dobrá cena?*. Tlačítkem *Ověřit živou cenu* se dotáže Kiwi.com
    na přesnou cenu a nabídne i jiné aerolinky na stejný termín (low-cost i klasické, přestupy, kombinace).
+   Pod cenou letenek (i v řádku *Letenky* ve Shrnutí) je i její stáří – *cena z 3. 10. 14:12 (před 8 dny)* podle času
+   výsledků hledání, po *Použít* u živé nabídky od té chvíle; u nezakoupeného letu, který ještě neodletěl, s cenou starší
+   než den přibude *↻ Ověř cenu* (totéž ruční ověření – samo se nic neověřuje a cena letu se nepřepíše).
    U blízkého cíle můžeš místo letu zvolit *🚆 Pojedu vlakem / busem* (viz [Vlak nebo bus místo letadla](#vlak-nebo-bus-místo-letadla)).
 2. **Trasa** – celý pobyt na jednom místě, nebo trasa přes 2–4 zajímavá města: ATLAS je navrhne v okolí (autem nebo
    veřejnou dopravou) a rozdělí noci; místa přidáš, odebereš nebo přesuneš a noci upravíš. U každého přejezdu je
@@ -290,6 +293,11 @@ krém…).
 > (Kiwi.com je proto napojené přes svůj veřejný MCP server; jeho podmínky pro neagentní použití nejsou zveřejněné –
 > kdyby ho Kiwi omezilo, vypne se `KIWI_ENABLED=0` a zbytek běží dál),
 > proto ATLAS staví na zdrojích výše. Adaptéry jsou oddělené (`server/providers/`), další zdroj se přidá jedním souborem.
+
+Řádek po hledání ukáže i čas cen (*✓ Prohledáno 8 letišť za 12,3 s · ceny z 14:32*). Když se k výsledkům vrátíš
+po hodině a déle (Android drží aplikaci otevřenou), nahradí ho poznámka *🕘 Výsledky hledání z 9:12 (před 3 h) – ceny se
+mezitím mohly změnit* s *↻ Hledat znovu* a výpis se trochu ztlumí (kontrola při návratu do aplikace, přepnutí na Lety
+a každých 5 min); u výsledků starších 3 h první klepnutí na *Koupit* jen připomene čas cen, koupí až to další.
 
 Ceny Ryanair a Wizz Air jsou živé, ale do rezervace se mohou změnit; ceny z Travelpayouts jsou označené „⏱ z cache – ověř“
 (ve výpisu, ve sloupcích ✈︎ Lety i v krocích „Víc měst“) a je dobré je ověřit (u každého výsledku je odkaz na rezervaci
