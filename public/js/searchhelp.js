@@ -527,8 +527,9 @@
     if (f.directOnly && hidden.directOnly) add('noDirect', `I lety s přestupem (skryto ${hidden.directOnly})`, { directOnly: false });
     // Blízký cíl: vlak nebo bus (když se to vyplatí, nebo když letadlem nic není).
     const g = r.ground;
-    // cena jako ve srovnání nad nápovědou: u zpáteční cesty tam i zpět (jinak by vedle „od ~598 Kč tam i zpět“ stálo „od ~299 Kč“)
-    if (g && g.min > 0 && (g.worth || !(r.groups || []).length)) acts.push({ key: 'ground', label: `🚆 Vlakem/busem ~${hhmmTxt(g.min)} · ${ret ? `tam i zpět od ~${kc(g.czk * 2)}` : `od ~${kc(g.czk)}`} (odhad)`, ground: true });
+    // cena jako ve srovnání nad nápovědou: u zpáteční cesty tam i zpět (jinak by vedle „běžně ~598 Kč tam i zpět“ stálo
+    // „běžně ~299 Kč“); běžná cena, starší výsledek bez ní „od“
+    if (g && g.min > 0 && (g.worth || !(r.groups || []).length)) acts.push({ key: 'ground', label: `🚆 Vlakem/busem ~${hhmmTxt(g.min)} · ${ret ? 'tam i zpět ' : ''}${g.typ > 0 ? 'běžně' : 'od'} ~${kc((g.typ > 0 ? g.typ : g.czk) * (ret ? 2 : 1))} (odhad)`, ground: true });
     if (exact) {
       const fl = +f.xFlex || 0;
       if (fl < 1) add('flex1', '± 1 den', { xFlex: 1 });
@@ -794,6 +795,17 @@
     const c = carOpts({ carFuel: fuel, carCons: f && f.carCons && f.carCons[fuel], carPrice: f && f.carPrice && f.carPrice[fuel] });
     return { carFuel: c.carFuel, carCons: c.carCons, ...(c.carPrice ? { carPrice: c.carPrice } : {}) };
   }
+  // 🏠 Moje cena na letiště: nejvýš 12 letišť, celé Kč 0–5 000 na osobu jedním směrem (stejně server – access.js
+  // normalizeOwn – i záloha)
+  const OWN_MAX = 12, OWN_MAX_CZK = 5000;
+  /** Vlastní ceny na letiště (S.accessOwn) → { IATA: Kč } jen platné, klíče podle abecedy, nebo null (nic). */
+  function ownClean(o) {
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+    const ok = Object.keys(o).filter(k => /^[A-Z]{3}$/.test(k) && Number.isInteger(o[k]) && o[k] >= 0 && o[k] <= OWN_MAX_CZK).slice(0, OWN_MAX).sort();
+    return ok.length ? Object.fromEntries(ok.map(k => [k, o[k]])) : null;
+  }
+  /** Vlastní ceny do adresy /api/origins: „VIE:350,BTS:270“ ('' = žádné). */
+  const ownQs = o => Object.entries(ownClean(o) || {}).map(([k, v]) => `${k}:${v}`).join(',');
   const tollSum = (g, pick) => (g.tolls || []).filter(pick).reduce((s, t) => s + t.czk, 0);
   /** Dní parkování pro cestu s N nocemi (odlet ráno, návrat večer = N + 1 započatých dní). */
   const parkDays = n => Math.max(1, Math.round(Number(n) || 0) + 1);
@@ -847,9 +859,11 @@
         title: `Autem ${g.roadKm} km (~${hm(g.minutes)}): ${fuel} + parkování ${base ? `online předem ~${kc(base)} + ` : '~'}${kc(g.parkDayCzk)}/den × ${t.days} ${dnu(t.days)} = ~${kc(t.park)}${tolls} = ${per}.${src} Parkování ve výsledcích podle skutečné délky cesty. Odhad.`,
       };
     }
+    // 🏠 vlastní cena uživatele místo odhadu (čas zůstává odhad)
+    if (g.own) return { text: `🏠 ${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: vlastní cena ${kc(g.czk)} na osobu jedním směrem (zpět totéž)${g.estCzk >= 0 ? ` místo odhadu ~${kc(g.estCzk)}` : ''}, cesta ~${hm(g.minutes)} (odhad). Změníš ji v Další možnosti → Doprava na letiště.` };
     const items = (g.breakdown || []).map(x => `${x.label} ~${kc(x.czk)}`);
     const sum = items.length > 1 ? `${items.join(' + ')} = ~${kc(g.czk)}` : items.length ? items[0] : `~${kc(g.czk)}`;
-    return { text: `~${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: ${sum} na osobu jedním směrem (zpět totéž), ~${hm(g.minutes)}. Odhad podle vzdálenosti a ceníků dopravců, ne jízdní řád.` };
+    return { text: `~${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: ${sum} na osobu jedním směrem (zpět totéž), ~${hm(g.minutes)}. Odhad podle vzdálenosti a ceníků dopravců (vlak / bus za běžnou cenu), ne jízdní řád.` };
   }
   /**
    * „Odkud se vyplatí letět“: nejlevnější celá cesta z každého letiště odletu (o.best ze serveru, vč. dopravy na letiště)
@@ -1249,7 +1263,7 @@
   }
   /**
    * Radar v režimu mode ('all' | 'weekend' | 'holiday', jiný → 'all') z domova home ({ from: [{ id, label }], radius,
-   * adults – počet cestujících, výchozí 1 }) ke dni today:
+   * adults – počet cestujících, výchozí 1, own – 🏠 vlastní ceny na letiště { IATA: Kč } → accessOverride) ke dni today:
    * { mode, payload (hledání), form (formulář po kliknutí na kartu – stejné podmínky, ukáže všechny termíny), sub, empty }.
    */
   function radarQuery(mode, home, today, pick = null) {
@@ -1275,6 +1289,7 @@
       payload: {
         from: home.from.map(x => x.id), radiusKm, to: [], dateFrom, dateTo, trip: 'return', nightsMin: r.nMin, nightsMax: r.nMax,
         ...(r.out.length ? { outDays: r.out, backDays: r.back } : {}), ...(r.depAfter ? { depAfter: r.depAfter } : {}), adults, kmRate: 1, groundMode: 'transit', arrival: true,
+        ...(ownClean(home.own) ? { accessOverride: ownClean(home.own) } : {}),
       },
       // formulář po kliknutí na kartu: tvar cesty z radaru, počet lidí a ostatní nastavení zůstanou uživatele
       form: { radius: radiusKm, dFrom: dateFrom, dTo: dateTo, nMin: r.nMin, nMax: r.nMax, outDays: r.out, backDays: r.back, ...(r.depAfter ? { depAfter: r.depAfter } : {}), len: m === 'holiday' ? 'holiday' : 'custom', dateMode: 'flex', trip: 'return', maxPrice: '' },
@@ -1563,7 +1578,7 @@
     onlyOriginSet,
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
-    CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt,
+    CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,

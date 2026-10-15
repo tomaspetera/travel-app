@@ -10,7 +10,7 @@ import { findTowns, mockTowns } from './poi.js';
 import { geocode } from './places.js';
 import { transferTimes, routeTransfers, driveRoute, routeKey, cachedRoute } from './transfers.js';
 import { carFuelCzk } from './fuel.js';
-import { distanceModel, CHEAP_CC } from './ground.js';
+import { distanceModel, priceBand } from './ground.js';
 
 export const MAX_BASES = 6; // ručně sestavená trasa; návrh dává nejvýš 4 místa
 // nejdelší běžný přejezd (min) – časy už počítají s provozem, hranicí i čekáním na spoj
@@ -39,13 +39,14 @@ const minOf = (e, tr) => (tr === 'transit' ? e.transitMin : e.carMin);
  * Přejezd a → b: { km, carMin, transitMin, transitKind 'rail'|'bus', border {from, to}|null, basis 'route'|'estimate',
  * long (delší než běžný přejezd zvolenou dopravou), fuelCzk, fareCzk, carUrl, transitUrl }; route = trasa autem
  * z BRouteru, nebo null. fuelCzk = palivo za auto (nafta 6 l/100 km, cena v zemi startu, jinde v ČR), fareCzk =
- * jízdenka vlakem / busem na osobu (model podle vzdálenosti jako u cesty vlakem místo letu) – obojí odhad do celkové ceny.
+ * jízdenka vlakem / busem na osobu za běžnou cenu (model podle vzdálenosti jako u cesty vlakem místo letu; po Polsku
+ * a Maďarsku levný východ i mimo města RegioJetu – vnitrostátní vlaky tam jsou levné) – obojí odhad do celkové ceny.
  */
 export function transfer(a, b, transport = 'car', route = null) {
   const e = transferTimes(a, b, route);
   const air = haversineKm(a.lat, a.lon, b.lat, b.lon);
   const cost = e.km >= 1
-    ? { fuelCzk: carFuelCzk({ roadKm: e.km, country: a.cc || 'CZ' }), fareCzk: distanceModel(air, 1, CHEAP_CC.has(a.cc) && CHEAP_CC.has(b.cc)).czk }
+    ? { fuelCzk: carFuelCzk({ roadKm: e.km, country: a.cc || 'CZ' }), fareCzk: distanceModel(air, 1, priceBand({ cc: a.cc, rj: 1 }, { cc: b.cc, rj: 1 })).typ }
     : { fuelCzk: 0, fareCzk: 0 };
   return { ...e, ...cost, long: minOf(e, transport) > TRANSFER_MAX[transport], carUrl: gmDir(a, b, 'driving'), transitUrl: gmDir(a, b, 'transit') };
 }

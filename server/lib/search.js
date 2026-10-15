@@ -96,7 +96,8 @@ const sharedQuery = (raw) => ({
   directOnly: Boolean(raw.directOnly),
   // Doprava na letiště: groundMode 'transit' (veřejnou dopravou) | 'car' (autem), kmRate = násobek odhadu jízdného
   // (0 = nepočítat; bez groundMode dřívější Kč/km, 1,1 → 1), auto: carFuel (nafta / benzín / elektro), carCons
-  // (spotřeba na 100 km), carPrice (vlastní cena), dřívější carKmCzk (Kč/km bez carFuel). Viz access.js.
+  // (spotřeba na 100 km), carPrice (vlastní cena), dřívější carKmCzk (Kč/km bez carFuel), accessOverride = 🏠 vlastní
+  // ceny veřejnou dopravou na letiště ({ VIE: 350 }, jen platné; starší dotaz bez pole = odhad). Viz access.js.
   ...normalizeAccess(raw),
   openJaw: raw.openJaw !== false,
   // Letiště, která uživatel z okruhu ručně vyřadil.
@@ -1314,7 +1315,7 @@ async function searchMulti(q, emit, opts = {}) {
         to: places[i].to.map((x) => `ap:${x}`),
         trip: 'oneway', exactOut: l.date, flexDays: l.flex,
         radiusKm: i === 0 ? q.radiusKm : 0, kmRate: i === 0 ? q.kmRate : 0, exclude: i === 0 ? q.exclude : [],
-        groundMode: q.groundMode, ...carQuery(q),
+        groundMode: q.groundMode, ...carQuery(q), ...(i === 0 && q.accessOverride ? { accessOverride: q.accessOverride } : {}),
         adults: q.adults, directOnly: q.directOnly, bags: q.bags, arrival: q.arrival,
       }, (ev) => {
         if (ev.type !== 'progress') return;
@@ -1855,7 +1856,9 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
     });
     obOf.set(groups[groups.length - 1], ob);
   }
-  groups.sort((a, b) => a.best.perPersonCzk - b.best.perPersonCzk);
+  // při stejné ceně podle klíče cíle – pořadí (i to, který cíl se ještě vejde mezi prvních 150) nezávisí na tom, v jakém
+  // pořadí lety dorazily
+  groups.sort((a, b) => a.best.perPersonCzk - b.best.perPersonCzk || (a.dest.key < b.dest.key ? -1 : a.dest.key > b.dest.key ? 1 : 0));
   // „Super cena“ jen pro to nejlepší z výsledků: absolutní skóre i relativní pořadí (horních 20 %).
   const p20 = groups.length ? groups[Math.floor((groups.length - 1) * 0.2)].best.perPersonCzk : 0;
   const sorted = new Map([...pools].map(([k, list]) => [k, list.map((e) => e.czk).sort((a, b) => a - b)]));

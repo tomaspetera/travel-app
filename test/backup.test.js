@@ -50,7 +50,7 @@ test('záloha → obnova do prázdného zařízení vrátí cesty, hlídání, d
   assert.deepEqual(plain(inc.home), { from: [BRQ], radius: 200, adults: 2 });
   assert.deepEqual(plain(inc.pretrip), { '1760000000000:2026-11-12:PT': { d: { 'pack:doc-pass': 1 }, at: 5 } });
   const df = B.diff(state(), inc, { watchKey: wk, deps });
-  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, pretrip: 1, refs: 0 });
+  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, pretrip: 1, refs: 0, own: { add: 0, differs: 0 } });
   const m = B.merge(state(), inc, { watchKey: wk, deps });
   assert.equal(m.trips.length, 1);
   assert.equal(m.watch.length, 1);
@@ -142,7 +142,7 @@ test('cizí soubory a novější verze: srozumitelná chyba', () => {
   assert.throws(() => B.parse(JSON.stringify({ app: 'atlas', v: 2, data: {} }), deps), /novější verze ATLAS/);
   assert.throws(() => B.parse(JSON.stringify({ app: 'atlas', v: 0, data: {} }), deps), /není záloha ATLAS/);
   const empty = B.parse(JSON.stringify({ app: 'atlas', v: 1, data: {} }), deps);
-  assert.deepEqual(plain(empty), { at: null, trips: [], watch: [], home: null, visited: [], pretrip: {} });
+  assert.deepEqual(plain(empty), { at: null, trips: [], watch: [], home: null, visited: [], pretrip: {}, own: {} });
 });
 
 test('formulář hlídání: neznámé klíče jen jako jednoduché hodnoty, lety přes víc měst ověřené', () => {
@@ -261,4 +261,31 @@ test('📅 klouzavé hlídání: roll projde zálohou beze změny, neplatný se 
   const df = B.diff(mine, inc, { watchKey: rk, deps });
   assert.deepEqual(plain(df.watch), { add: 2, same: 1, over: 0 }, 'svátek bez „odlet od 16:00“ je jiné hlídání');
   assert.deepEqual(plain(B.merge(mine, inc, { watchKey: rk, deps }).watch.map((w) => w.id)), ['m1', 'r2', 'r3']);
+});
+
+test('🏠 vlastní ceny na letiště: v záloze tam i zpět, pročištěné (kód → celé Kč 0–5 000, nejvýš 12), obnova nepřepíše cenu v zařízení', () => {
+  // záloha → obnova: { IATA: Kč } beze změny
+  const S = { ...state({ home: { from: [BRQ], radius: 200, adults: 2 } }), accessOwn: { VIE: 350, BTS: 270, PRG: 0 } };
+  const inc = B.parse(B.pack(S), deps);
+  assert.deepEqual(plain(inc.own), { VIE: 350, BTS: 270, PRG: 0 });
+  assert.deepEqual(plain(B.diff(state(), inc, { watchKey: wk, deps }).own), { add: 3, differs: 0 });
+  assert.deepEqual(plain(B.merge(state(), inc, { watchKey: wk, deps }).own), { VIE: 350, BTS: 270, PRG: 0 });
+  // starší záloha bez pole, poškozená data: nic (a nic se nepokazí)
+  const raw = (own) => B.parse(JSON.stringify({ app: 'atlas', v: 1, data: { own } }), deps).own;
+  assert.deepEqual(plain(raw(undefined)), {});
+  for (const bad of [5, 'VIE:350', [['VIE', 350]], null]) assert.deepEqual(plain(raw(bad)), {}, JSON.stringify(bad));
+  // jen kód letiště (velkými) a celé Kč 0–5 000; __proto__ ani constructor neprojdou
+  const dirty = JSON.parse('{"VIE":350,"vie":1,"BTS":270.5,"KTW":-1,"WRO":5001,"BRQ":"300","XXXX":10,"__proto__":{"x":1},"constructor":5,"LEJ":5000,"PED":0}');
+  assert.deepEqual(plain(raw(dirty)), { VIE: 350, LEJ: 5000, PED: 0 });
+  // nejvýš 12 letišť
+  const many = Object.fromEntries(['AAA', 'BBB', 'CCC', 'DDD', 'EEE', 'FFF', 'GGG', 'HHH', 'III', 'JJJ', 'KKK', 'LLL', 'MMM', 'NNN'].map((k, i) => [k, 100 + i]));
+  assert.equal(Object.keys(raw(many)).length, 12);
+  // obnova jen přidá chybějící letiště (do 12), cenu v zařízení nepřepíše – jiná se jen spočítá
+  const mine = { ...state(), own: { VIE: 300, KTW: 200 } };
+  const df = B.diff(mine, inc, { watchKey: wk, deps });
+  assert.deepEqual(plain(df.own), { add: 2, differs: 1 });
+  assert.deepEqual(plain(B.merge(mine, inc, { watchKey: wk, deps }).own), { VIE: 300, KTW: 200, BTS: 270, PRG: 0 });
+  const full = { ...state(), own: Object.fromEntries(Object.entries(many).slice(0, 12)) };
+  assert.deepEqual(plain(B.diff(full, inc, { watchKey: wk, deps }).own), { add: 0, differs: 0 }, 'plno – nic nového se nevejde');
+  assert.equal(Object.keys(B.merge(full, inc, { watchKey: wk, deps }).own).length, 12);
 });

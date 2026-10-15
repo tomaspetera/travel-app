@@ -142,45 +142,84 @@ export function groundPlace(p) {
 
 /* ---------- odhad času a ceny ---------- */
 
-// Změřeno 13. 10. 2026 (research/ground.md, skutečné odpovědi RegioJetu a FlixBusu): Praha ↔ město –
-// nejrychlejší spoj (min) a nejnižší cena (Kč) z obou dopravců, klíčem je ID města RegioJetu.
+// Praha ↔ město, klíčem je ID města RegioJetu: min = nejrychlejší spoj, czk = nejnižší cena („od“), typ = běžná cena
+// („běžně“ – medián nejlevnějšího spoje, který jde ten den koupit = co typicky zaplatíš, když musíš jet určitý den).
+// Změřeno 13. 10. 2026 (RegioJet + FlixBus, research/ground.md: nejrychlejší spoj a nejnižší cena) a 15. 10. 2026
+// (veřejné API webu RegioJetu, 3 termíny za ~12, 33 a 61 dní po ~3 dnech); čas a „od“ = lepší z obou měření, „běžně“
+// z 15. 10. Linec a Salcburk tu nejsou: RegioJet tam prodává jen drahé partnerské vlaky (1 340 a 2 010 Kč, FlixBus
+// a ÖBB ~300–600 Kč) – platí model.
 export const PRAHA_RJ = 10202003;
 export const MEASURED = {
-  10202052: { name: 'Vídeň', min: 234, czk: 299 },
-  10202072: { name: 'Berlín', min: 250, czk: 329 },
-  10202006: { name: 'Mnichov', min: 270, czk: 299 },
-  10202091: { name: 'Budapešť', min: 371, czk: 399 },
-  1225791000: { name: 'Krakov', min: 350, czk: 279 },
-  10202080: { name: 'Benátky', min: 710, czk: 979 },
-  10202096: { name: 'Paříž', min: 765, czk: 1158 },
-  10202030: { name: 'Amsterdam', min: 740, czk: 1098 },
-  10202067: { name: 'Curych', min: 575, czk: 849 },
+  10202002: { name: 'Brno', min: 145, czk: 199, typ: 199 },
+  10202000: { name: 'Ostrava', min: 196, czk: 219, typ: 219 },
+  10202031: { name: 'Olomouc', min: 138, czk: 149, typ: 149 },
+  17904003: { name: 'Liberec', min: 65, czk: 99, typ: 109 },
+  17904008: { name: 'České Budějovice', min: 115, czk: 189, typ: 189 },
+  17653000: { name: 'Zlín', min: 229, czk: 268, typ: 268 },
+  17904010: { name: 'Karlovy Vary', min: 125, czk: 159, typ: 179 },
+  372842000: { name: 'Pardubice', min: 53, czk: 119, typ: 119 },
+  10202001: { name: 'Bratislava', min: 255, czk: 279, typ: 339 },
+  10202033: { name: 'Košice', min: 512, czk: 499, typ: 549 },
+  10202038: { name: 'Žilina', min: 296, czk: 199, typ: 274 },
+  10202035: { name: 'Poprad', min: 407, czk: 299, typ: 399 },
+  10202052: { name: 'Vídeň', min: 234, czk: 249, typ: 249 },
+  10202072: { name: 'Berlín', min: 250, czk: 329, typ: 379 },
+  10202071: { name: 'Drážďany', min: 115, czk: 299, typ: 299 },
+  10202006: { name: 'Mnichov', min: 270, czk: 299, typ: 299 },
+  10202021: { name: 'Norimberk', min: 225, czk: 419, typ: 419 },
+  10202023: { name: 'Frankfurt nad Mohanem', min: 385, czk: 639, typ: 639 },
+  2737640000: { name: 'Varšava', min: 503, czk: 399, typ: 399 },
+  1225791000: { name: 'Krakov', min: 348, czk: 279, typ: 418 },
+  1225791001: { name: 'Katovice', min: 315, czk: 399, typ: 399 },
+  10202091: { name: 'Budapešť', min: 371, czk: 399, typ: 569 },
+  271526030: { name: 'Lvov', min: 687, czk: 389, typ: 449 },
+  10202080: { name: 'Benátky', min: 710, czk: 899, typ: 1249 },
+  10202096: { name: 'Paříž', min: 765, czk: 1158, typ: 1739 },
+  10202030: { name: 'Amsterdam', min: 740, czk: 949, typ: 949 },
+  10202067: { name: 'Curych', min: 575, czk: 699, typ: 774 },
+  10202044: { name: 'Brusel', min: 720, czk: 899, typ: 949 },
 };
-export const MEASURED_DATE = '2026-10-13';
+export const MEASURED_DATE = '2026-10-15';
 
 const round5 = (m) => Math.max(5, Math.round(m / 5) * 5);
 const roundCzk = (x) => (x < 1000 ? Math.round(x / 10) * 10 : Math.round(x / 50) * 50);
 
+// Cena podle pásma (Kč na osobu, jedním směrem): [základ, Kč/km do 450 km, Kč/km dál] pro „od“ a „běžně“.
+export const PRICE = {
+  domestic: { od: [30, 0.85, 0.85], typ: [30, 0.95, 0.95] },
+  east: { od: [140, 0.5, 0.1], typ: [100, 0.85, 0.1] },
+  west: { od: [30, 1.3, 1.3], typ: [20, 1.5, 1.5] },
+};
+const bandCzk = ([a, b, c], km) => a + b * Math.min(km, 450) + c * Math.max(0, km - 450);
+
 /**
- * Model podle vzdálenosti vzdušnou čarou, kalibrovaný na tabulce z Prahy:
- *  - čas: do 450 km ~66 km/h (Vídeň 64, Berlín 67, Mnichov 67, Krakov 68, Budapešť 72), dál ~55 km/h
- *    a k tomu až hodina na přestupy a noční spoje (Curych 55, Amsterdam 58, Benátky 45, Paříž 69);
- *  - nejnižší cena: do 450 km ~120 Kč + 0,62 Kč/km (280–400 Kč), dál rychle stoupá (méně dopravců,
- *    noční spoje) až k ~400 Kč + 0,86 Kč/km (Curych 849, Benátky 979, Amsterdam 1 098, Paříž 1 158 Kč);
- *    cheap = cesta jen po Česku, Slovensku, Polsku, Maďarsku a Ukrajině mezi městy RegioJetu – tam levné vlaky
- *    jezdí i dál (RegioJet 10/2026: Praha–Košice i Praha–Varšava od 499 Kč, Praha–Lvov od 389 Kč), cena roste
- *    dál pomalu; kam RegioJet nejezdí (Gdaňsk, Poznaň – jen FlixBus), platí dražší model (Praha–Gdaňsk FlixBus
- *    10/2026 ~900 Kč jedním směrem, levný východ by dal ~460 Kč).
+ * Model podle vzdálenosti vzdušnou čarou:
+ *  - čas (kalibrace 13. 10. z Prahy): do 450 km ~66 km/h (Vídeň 64, Berlín 67, Mnichov 67, Krakov 68, Budapešť 72),
+ *    dál ~55 km/h a k tomu až hodina na přestupy a noční spoje (Curych 55, Amsterdam 58, Benátky 45, Paříž 69);
+ *  - cena „od“ (nejnižší) a „běžně“ (typ) podle pásma (band, priceBand): domestic = Česko a Slovensko, east = levný
+ *    východ mezi městy RegioJetu (Česko, Slovensko, Polsko, Maďarsko, Ukrajina – dál než 450 km cena skoro neroste:
+ *    Praha–Lvov běžně 449 Kč), west = ostatní (Německo, Rakousko, Švýcarsko, Francie, Benelux, Itálie, a kam RegioJet
+ *    nejezdí – Praha–Gdaňsk jen FlixBus ~900 Kč jedním směrem, model běžně ~850 Kč) – i dál než 450 km stejně.
+ *    Kalibrace 15. 10. 2026 na živých cenách RegioJetu, 41 tras z Prahy, Brna a Ostravy (bez Lince a Salcburku):
+ *    medián chyby „od“ 19,5 % → 10,8 % (do ±25 % 24 → 30 tras), „běžně“ 19,9 % → 13,3 % (do ±25 % 25 → 32 tras,
+ *    nejvýš +61 % Praha–Vídeň – levná díky konkurenci; mimo ±25 % ještě Mnichov, Olomouc, Ostrava, Drážďany, Benátky,
+ *    Karlovy Vary – trasy z Prahy jsou v MEASURED –, Brno–Košice a Ostrava–Varšava). Dřív jeden model jen pro „od“:
+ *    domácí trasy moc draho (Praha–Olomouc 250 Kč, běžně 149), do Německa moc levně (Frankfurt 380, běžně 639).
+ * → { minutes, czk (od), typ (běžně, aspoň od) }
  */
-export function distanceModel(km, slow = 1, cheap = false) {
+export function distanceModel(km, slow = 1, band = 'west') {
   const far = Math.max(0, km - 450);
   const minutes = ((Math.min(km, 450) / 66) * 60 + (far / 55) * 60 + 60 * Math.min(1, far / 150)) * slow;
-  const czk = km <= 450 || cheap ? 120 + 0.62 * km : Math.min(399 + 5 * far, 398 + 0.86 * km);
-  return { minutes: round5(Math.max(45, minutes)), czk: roundCzk(Math.max(150, czk)) };
+  const p = PRICE[band] || PRICE.west;
+  const czk = roundCzk(Math.max(50, bandCzk(p.od, km)));
+  return { minutes: round5(Math.max(45, minutes)), czk, typ: Math.max(czk, roundCzk(Math.max(50, bandCzk(p.typ, km)))) };
 }
 export const CHEAP_CC = new Set(['CZ', 'SK', 'PL', 'HU', 'UA']);
+const DOMESTIC_CC = new Set(['CZ', 'SK']);
 /** Levný východ: obě místa v CHEAP_CC a obě ve městech RegioJetu (rj) – jinde (jen FlixBus) dražší model. */
 export const cheapEast = (a, b) => Boolean(a?.rj && b?.rj) && CHEAP_CC.has(String(a.cc || '').toUpperCase()) && CHEAP_CC.has(String(b.cc || '').toUpperCase());
+/** Cenové pásmo cesty: 'domestic' (Česko a Slovensko), 'east' (levný východ, cheapEast), jinak 'west'. */
+export const priceBand = (a, b) => (DOMESTIC_CC.has(String(a?.cc || '').toUpperCase()) && DOMESTIC_CC.has(String(b?.cc || '').toUpperCase()) ? 'domestic' : cheapEast(a, b) ? 'east' : 'west');
 
 // Do Švédska a Norska se z pevniny jede po souši přes Øresundský most (Kodaň–Malmö), do Norska dál přes
 // Göteborg a Oslo – přímka přes Baltské moře nebo Skagerrak by cestu zkrátila (Praha–Kalmar, Kristiansand).
@@ -224,7 +263,8 @@ export function mountainsOn(a, b) {
 }
 
 /**
- * Odhad cesty po zemi mezi dvěma místy ({ lat, lon, cc, rj? }): { ok, km, minutes, czk, basis, why, hills? }.
+ * Odhad cesty po zemi mezi dvěma místy ({ lat, lon, cc, rj? }): { ok, km, minutes, czk, typ, basis, why, hills? }.
+ * czk = cena „od“ (nejnižší, jako dřív), typ = „běžně“ (podle ní se rozhoduje a srovnává s letadlem).
  * basis 'measured' = změřená cesta z/do Prahy, 'distance' = model podle vzdálenosti (přes hory – hills –
  * o čtvrtinu déle, do Skandinávie přes Øresund). km je vždy vzdušnou čarou. Vždy jen odhad.
  */
@@ -243,9 +283,9 @@ export function estimate(a, b) {
   if (km < 20) return { ok: false, km, why: 'Stejné místo – letadlo ani dálkový spoj tu nedává smysl' };
   const other = a.rj === PRAHA_RJ ? b.rj : b.rj === PRAHA_RJ ? a.rj : null;
   const m = other && MEASURED[other];
-  if (m) return { ok: true, km, minutes: m.min, czk: m.czk, basis: 'measured', measuredAt: MEASURED_DATE };
+  if (m) return { ok: true, km, minutes: m.min, czk: m.czk, typ: m.typ, basis: 'measured', measuredAt: MEASURED_DATE };
   const hills = mountainsOn(a, b);
-  return { ok: true, km, ...distanceModel(land, hills ? MOUNTAIN_SLOW : 1, cheapEast(a, b)), basis: 'distance', ...(hills ? { hills } : {}) };
+  return { ok: true, km, ...distanceModel(land, hills ? MOUNTAIN_SLOW : 1, priceBand(a, b)), basis: 'distance', ...(hills ? { hills } : {}) };
 }
 
 /** „4 h 20“, „45 min“ */
@@ -309,11 +349,15 @@ export function planeOptions(trips, doorOf, slowOf = doorOf) {
   return { cheap, fast: much ? fast : null };
 }
 
+/** Běžná cena odhadu (rozhoduje a srovnává); starší odhad bez ní = „od“. */
+export const typOf = (est) => (est && est.typ > 0 ? est.typ : est ? est.czk : 0);
+
 /**
  * Stojí za to ukázat vlak/bus vedle letadla? Jednoduché pravidlo (po zemi = jízda + 30 min na nádraží):
  *  1. po zemi nejvýš o 1,5 h déle než letadlem od dveří ke dveřím (nejrychlejší nalezený let),
  *  2. nebo po zemi do 6,5 h,
- *  3. nebo aspoň o polovinu levněji než nejlevnější let a do 10 h.
+ *  3. nebo aspoň o polovinu levněji než nejlevnější let a do 10 h – po zemi za běžnou cenu (est.typ; starší odhad bez ní
+ *     za „od“ est.czk), ne za nejnižší.
  * flight = { doorMin – nejlevnější let od dveří ke dveřím, czk – jeho cena na osobu (může být za cestu tam i zpět),
  * trips – kolik cest po zemi ta cena pokrývá (2 = tam i zpět), fast – { doorMin, czk } jiný, rychlejší let }.
  * Důvod jmenuje let, se kterým srovnává (čas nejrychlejšího s jeho cenou, cenu nejlevnějšího s jeho časem).
@@ -337,7 +381,7 @@ export function worth(est, flight = {}) {
   }
   if (groundMin <= 390) return out('short', `${ground} – cesta do 6,5 h${vs}.`);
   const trips = flight.trips === 2 ? 2 : 1;
-  const groundCzk = est.czk * trips;
+  const groundCzk = typOf(est) * trips;
   if (flight.czk > 0 && groundCzk <= flight.czk * 0.5 && groundMin <= 600) {
     const less = `o ~${(Math.round((flight.czk - groundCzk) / 100) * 100).toLocaleString('cs-CZ')} Kč levněji na osobu`;
     return out('cheap', fast ? `${ground} a ${less} než nejlevnější let${doorMin ? ` (~${hm(round5(doorMin))} od dveří ke dveřím)` : ''}.` : `${ground} a ${less}${vs}.`);
@@ -613,7 +657,7 @@ export async function groundInfo(q, { allowLive = () => true } = {}) {
   const ok = Boolean(est && est.ok);
   const res = {
     from: pub(a), to: pub(b), km: est ? est.km : Math.round(haversineKm(a.lat, a.lon, b.lat, b.lon)),
-    est: ok ? { minutes: est.minutes, czk: est.czk, basis: est.basis, ...(est.measuredAt ? { measuredAt: est.measuredAt } : {}), ...(est.hills ? { hills: est.hills } : {}) } : null,
+    est: ok ? { minutes: est.minutes, czk: est.czk, typ: est.typ, basis: est.basis, ...(est.measuredAt ? { measuredAt: est.measuredAt } : {}), ...(est.hills ? { hills: est.hills } : {}) } : null,
     why: est && !est.ok ? est.why : null,
     worth: w, date: q.date, adults: q.adults,
     links: ok ? links(a, b, q.date, q.adults) : [],
@@ -665,7 +709,7 @@ export function groundForDest({ home = null, from = null, dest, trip = null, tri
     w = worth(est, { doorMin: doorByAir(from || a, dest), czk: 0, trips: 1 });
   }
   return {
-    km: est.km, min: est.minutes, czk: est.czk, basis: est.basis, ...(est.hills ? { hills: est.hills } : {}),
+    km: est.km, min: est.minutes, czk: est.czk, typ: est.typ, basis: est.basis, ...(est.hills ? { hills: est.hills } : {}),
     worth: w.worth, rule: w.rule, reason: w.reason, doorMin: w.doorMin, ...(w.fast ? { fast: w.fast } : {}), ...(egressMin != null ? { egressMin } : {}),
     from: a.label, to: b.label, regiojet: Boolean(a.rj && b.rj), flixbus: Boolean(a.fb && b.fb),
     q: { from: from?.id || (from && Number.isFinite(from.lat) ? geoId(from) : `ap:${trip.out.from}`), to: dest.id && /^(ap|metro|geo):/.test(dest.id) ? dest.id : geoId(dest) },

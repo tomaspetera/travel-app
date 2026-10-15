@@ -1,12 +1,15 @@
 // Cesta z domova na letiště odletu (a zpět): odhad ceny na osobu a času veřejnou dopravou, nebo autem.
 //
 // 🚌 Veřejnou dopravou (výchozí), na osobu a jeden směr:
-//   jízdenka vlak/bus z domova do města letiště (model podle vzdálenosti z ground.js – kalibrovaný na nejnižších
-//   cenách RegioJetu a FlixBusu, Praha ↔ Vídeň, Berlín, Mnichov… změřené; na kratší vzdálenost regionální jízdné)
-//   + cesta z města na letiště (MHD, S-Bahn, letištní bus – tabulka ACCESS) + příplatek za mezinárodní spoj
-//   (vázaný spoj v daný čas, méně levných jízdenek přes hranici). Letiště ve městě domova = jen jízdenka MHD,
-//   letiště do 50 km za humny (blíž než jeho město) = regionální bus/vlak rovnou na letiště; jede-li z města domova
-//   přímý bus až na letiště (Praha → Mnichov, Vídeň, Berlín; Brno → Vídeň – tabulka DIRECT), počítá se levnější.
+//   jízdenka vlak/bus z domova do města letiště za běžnou cenu („běžně“ z ground.js – model podle vzdálenosti
+//   kalibrovaný na živých cenách RegioJetu 15. 10. 2026, Praha ↔ Brno, Vídeň, Berlín, Krakov… změřené; na kratší
+//   vzdálenost regionální jízdné) + cesta z města na letiště (MHD, S-Bahn, letištní bus – tabulka ACCESS). Běžná cena
+//   spojů přes hranici už je cena mezinárodního spoje – příplatek za mezinárodní spoj (vázaný spoj v daný čas, méně
+//   levných jízdenek přes hranici) se přičítá jen k nejnižší ceně přímého busu (DIRECT) a k regionálnímu spoji.
+//   Letiště ve městě domova = jen jízdenka MHD, letiště do 50 km za humny (blíž než jeho město) = regionální bus/vlak
+//   rovnou na letiště; jede-li z města domova přímý bus až na letiště (Praha → Mnichov, Vídeň, Berlín; Brno → Vídeň –
+//   tabulka DIRECT), počítá se levnější. Vlastní cena na letiště (accessOverride, 🏠 Moje cena na letiště ve formuláři)
+//   nahradí odhad u daného letiště: na osobu a jeden směr, bez násobku jízdného, čas zůstává odhad.
 // 🚗 Autem: palivo tam i zpět (silniční km × spotřeba / 100 × cena – nafta 6 l/100 km nebo benzín 7 l/100 km za
 //   aktuální cenu v zemi domova z fuel.js, elektroauto 19 kWh/100 km za nabíjení DC ~16 Kč/kWh, nebo vlastní cena)
 //   + parkování u letiště podle délky cesty + dálniční známka / mýtné v cizině, vše děleno počtem cestujících. Jen tam
@@ -21,7 +24,7 @@
 import { haversineKm } from './geo.js';
 import { toCzk } from './fx.js';
 import { airportsNear, getAirport } from './airports.js';
-import { CHEAP_CC, CITIES, MEASURED, MOUNTAIN_SLOW, PRAHA_RJ, cheapEast, distanceModel, groundPlace, landKm, mountainsOn } from './ground.js';
+import { CHEAP_CC, CITIES, MEASURED, MOUNTAIN_SLOW, PRAHA_RJ, distanceModel, groundPlace, landKm, mountainsOn, priceBand } from './ground.js';
 import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV_LABEL, fuelPrice } from './fuel.js';
 
 // Letiště do ~450 km od Česka: [šířka, délka středu města, které obsluhuje, město, jízdné město → letiště (Kč/os.),
@@ -217,16 +220,19 @@ export function fuelCountry(home) {
   return FUEL_CC.includes(cc) ? cc : 'CZ';
 }
 
-/** Vlak / bus mezi městy (Kč/os., min): změřená cesta z/do Prahy, jinak model podle vzdálenosti, na kratší regionální jízdné. */
+/**
+ * Vlak / bus mezi městy (Kč/os. běžně, min): změřená cesta z/do Prahy, jinak model podle vzdálenosti, na kratší
+ * regionální jízdné. Běžná cena (ne „od“) – na letiště se jede určitý den, ne kdykoli za nejlevnější jízdenku.
+ */
 function intercity(a, b) {
   const km = landKm(a, b);
   const pa = groundPlace(a);
   const pb = groundPlace(b);
   const other = pa?.rj === PRAHA_RJ ? pb?.rj : pb?.rj === PRAHA_RJ ? pa?.rj : null;
   const m = other && MEASURED[other];
-  if (m) return { czk: m.czk, min: m.min, measured: true };
-  const dm = distanceModel(km, mountainsOn(a, b) ? MOUNTAIN_SLOW : 1, cheapEast({ ...a, rj: pa?.rj }, { ...b, rj: pb?.rj }));
-  return { czk: Math.min(dm.czk, regionalCzk(km)), min: Math.min(dm.minutes, regionalMin(km)) };
+  if (m) return { czk: m.typ, min: m.min, measured: true };
+  const dm = distanceModel(km, mountainsOn(a, b) ? MOUNTAIN_SLOW : 1, priceBand({ ...a, rj: pa?.rj }, { ...b, rj: pb?.rj }));
+  return { czk: Math.min(dm.typ, regionalCzk(km)), min: Math.min(dm.minutes, regionalMin(km)) };
 }
 
 /** Příplatek za mezinárodní spoj (Kč/os.): mezi Českem, Slovenskem, Polskem a Maďarskem 30 Kč, jinak 20 % (aspoň 50 Kč). */
@@ -239,16 +245,18 @@ export function borderCzk(fromCc, toCc, base) {
 /**
  * Veřejnou dopravou z domova na letiště, na osobu a jeden směr: { mode: 'transit', km, minutes, czk, local, breakdown }.
  * breakdown = rozpis [{ k: 'intercity' | 'regional' | 'access' | 'border', label, czk, min? }], ceny zaokrouhlené na 10 Kč
- * a vynásobené `scale` (kmRate: 0,5 = sleva 50 %); czk = jejich součet.
+ * a vynásobené `scale` (kmRate: 0,5 = sleva 50 %); czk = jejich součet. own = vlastní cena uživatele (Kč/os. jedním
+ * směrem) → czk = own, own: true, estCzk = odhad, který nahradila, breakdown [{ k: 'own', label: 'vlastní cena' }];
+ * násobek jízdného se na ni nevztahuje, čas zůstává z odhadu.
  */
-export function transitAccess(home, a, { scale = 1 } = {}) {
+export function transitAccess(home, a, { scale = 1, own = null } = {}) {
   const o = origin(home);
   const c = airportCity(a);
   const km = haversineKm(o.lat, o.lon, a.lat, a.lon);
   const toCity = haversineKm(o.lat, o.lon, c.lat, c.lon);
   const items = []; // rozpis (breakdown)
   let minutes;
-  let measured = false; // jízdné změřené na konkrétních spojích (FARE)
+  let typical = false; // běžná cena spoje do města letiště (FARE, MEASURED, model) – mezinárodní spoj už v ní je
   if (toCity <= CITY_KM) {
     items.push({ k: 'access', label: c.how, czk: c.czk, min: c.min });
     minutes = c.min + 10; // na zastávku
@@ -261,7 +269,7 @@ export function transitAccess(home, a, { scale = 1 } = {}) {
     const f = FARE[key];
     const ic = f ? { czk: f[0], min: f[1] } : intercity(o, { lat: c.lat, lon: c.lon, label: c.label, cc: a.cc });
     const d = DIRECT[key];
-    const via = ic.czk + c.czk + (f ? 0 : borderCzk(o.cc, a.cc, ic.czk));
+    const via = ic.czk + c.czk;
     if (d && d[0] + borderCzk(o.cc, a.cc, d[0]) < via) {
       items.push({ k: 'intercity', label: `${o.label ? `${o.label} → ` : ''}letiště ${c.label} ${d[2]}`, czk: d[0], min: d[1] });
       minutes = d[1] + 20; // na nádraží
@@ -269,14 +277,15 @@ export function transitAccess(home, a, { scale = 1 } = {}) {
       items.push({ k: 'intercity', label: `${o.label ? `${o.label} → ` : ''}${c.label} ${f ? f[2] : 'vlakem / busem'}`, czk: ic.czk, min: ic.min });
       items.push({ k: 'access', label: c.how, czk: c.czk, min: c.min });
       minutes = ic.min + c.min + 20; // na nádraží a přestup
-      measured = Boolean(f);
+      typical = true;
     }
   }
-  // změřená cena konkrétních spojů už příplatek za mezinárodní spoj obsahuje
-  const b = measured ? 0 : borderCzk(o.cc, a.cc, items[0].czk);
+  // běžná cena spojů přes hranici už je cena mezinárodního spoje; příplatek jen k „od“ přímého busu a k regionálnímu spoji
+  const b = typical ? 0 : borderCzk(o.cc, a.cc, items[0].czk);
   if (b) items.push({ k: 'border', label: 'příplatek za mezinárodní spoj', czk: b });
   for (const x of items) x.czk = Math.max(scale > 0 ? 10 : 0, r10(x.czk * scale));
-  return { mode: 'transit', km: Math.round(km), minutes: r5(minutes), czk: items.reduce((s, x) => s + x.czk, 0), local: items[0].k === 'access', breakdown: items };
+  const est = { mode: 'transit', km: Math.round(km), minutes: r5(minutes), czk: items.reduce((s, x) => s + x.czk, 0), local: items[0].k === 'access', breakdown: items };
+  return own == null ? est : { ...est, czk: own, own: true, estCzk: est.czk, breakdown: [{ k: 'own', label: 'vlastní cena', czk: own }] };
 }
 
 /** Dálniční známky / mýtné na cestě autem z domova (země fromCc) do země letiště – domácí se nepočítá (máš ji). */
@@ -422,30 +431,56 @@ export function carTrip(g, nights) {
 
 /**
  * Cesta z domova na letiště podle voleb hledání: opts = { mode: 'transit' | 'car', scale (kmRate, 0 = nepočítat),
- * carFuel, carCons, carPrice (nebo dřívější carKmCzk), adults, oneWay }. Vypnutá doprava (scale 0) → czk 0 a off
- * (čas zůstává pro srovnání od dveří ke dveřím).
+ * carFuel, carCons, carPrice (nebo dřívější carKmCzk), adults, oneWay, own ({ IATA: Kč } – vlastní cena veřejnou
+ * dopravou, normalizeOwn) }. Vypnutá doprava (scale 0) → czk 0 a off (čas zůstává pro srovnání od dveří ke dveřím).
  */
 export function airportAccess(home, iata, opts = {}) {
   const a = typeof iata === 'string' ? getAirport(iata) : iata;
   if (!home || !a || !Number.isFinite(home.lat) || !Number.isFinite(home.lon)) return null;
   const scale = opts.scale ?? 1;
-  const g = opts.mode === 'car' ? carAccess(home, a, opts) : transitAccess(home, a, { scale: scale > 0 ? scale : 1 });
+  const own = scale > 0 && opts.own && Object.hasOwn(opts.own, a.iata) ? opts.own[a.iata] : null;
+  const g = opts.mode === 'car' ? carAccess(home, a, opts) : transitAccess(home, a, { scale: scale > 0 ? scale : 1, own });
   return scale > 0 ? g : { ...g, czk: 0, off: true, breakdown: [] };
 }
 
+// 🏠 Moje cena na letiště: nejvýš 12 letišť, cena v celých Kč 0–5 000 na osobu a jeden směr (stejně kontroluje
+// prohlížeč – SearchHelp.ownClean – i záloha).
+export const OWN_MAX = 12;
+export const OWN_MAX_CZK = 5000;
 /**
- * Volby dopravy na letiště z dotazu: { groundMode: 'transit' | 'car', kmRate, carFuel, carCons, carPrice, carKmCzk }.
- * kmRate = násobek odhadu jízdného (0 = nepočítat, 1 = výchozí). Bez groundMode jde o dřívější Kč/km (výchozí 1,1 → 1).
- * Auto viz normalizeCar (carKmCzk jen u dřívějších dotazů bez carFuel, jinak null).
+ * Vlastní ceny na letiště z dotazu ({ VIE: 350 } z hledání, z /api/origins i „350“) → { IATA: Kč } s klíči podle abecedy,
+ * nebo null (nic platného). Neplatné položky (kód, necelé číslo, mimo 0–5 000) se vynechají, víc než 12 ne.
+ */
+export function normalizeOwn(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const iata = String(k).toUpperCase();
+    const n = typeof v === 'number' || (typeof v === 'string' && /^\d{1,4}$/.test(v)) ? Number(v) : NaN;
+    if (!/^[A-Z]{3}$/.test(iata) || !Number.isInteger(n) || n < 0 || n > OWN_MAX_CZK || Object.hasOwn(out, iata)) continue;
+    out[iata] = n;
+    if (Object.keys(out).length >= OWN_MAX) break;
+  }
+  const keys = Object.keys(out).sort();
+  return keys.length ? Object.fromEntries(keys.map((k) => [k, out[k]])) : null;
+}
+
+/**
+ * Volby dopravy na letiště z dotazu: { groundMode: 'transit' | 'car', kmRate, carFuel, carCons, carPrice, carKmCzk,
+ * accessOverride }. kmRate = násobek odhadu jízdného (0 = nepočítat, 1 = výchozí). Bez groundMode jde o dřívější Kč/km
+ * (výchozí 1,1 → 1). Auto viz normalizeCar (carKmCzk jen u dřívějších dotazů bez carFuel, jinak null). accessOverride =
+ * vlastní ceny veřejnou dopravou (normalizeOwn; autem se nepoužijí), starší dotaz bez pole = null.
  */
 export function normalizeAccess(raw = {}) {
   let rate = given(raw.kmRate) ? Number(raw.kmRate) : 1;
   if (!Number.isFinite(rate)) rate = 1;
   else if (given(raw.kmRate) && !given(raw.groundMode)) rate /= LEGACY_KM_RATE;
+  const groundMode = raw.groundMode === 'car' ? 'car' : 'transit';
   return {
-    groundMode: raw.groundMode === 'car' ? 'car' : 'transit',
+    groundMode,
     kmRate: Math.round(Math.min(5, Math.max(0, rate)) * 100) / 100,
     ...normalizeCar(raw),
+    accessOverride: groundMode === 'transit' ? normalizeOwn(raw.accessOverride) : null,
   };
 }
 
@@ -453,4 +488,4 @@ export function normalizeAccess(raw = {}) {
 export const carQuery = (q) => (q.carFuel ? { carFuel: q.carFuel, carCons: q.carCons, ...(q.carPrice ? { carPrice: q.carPrice } : {}) } : { carKmCzk: q.carKmCzk });
 
 /** Volby pro airportAccess z normalizovaného dotazu (normalizeQuery). */
-export const accessOpts = (q, oneWay = false) => ({ mode: q.groundMode, scale: q.kmRate, ...carQuery(q), adults: q.adults, oneWay });
+export const accessOpts = (q, oneWay = false) => ({ mode: q.groundMode, scale: q.kmRate, ...carQuery(q), adults: q.adults, oneWay, ...(q.accessOverride ? { own: q.accessOverride } : {}) });

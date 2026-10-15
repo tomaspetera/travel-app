@@ -203,11 +203,13 @@ async function streamSearch(req, res, body) {
 
 /**
  * Volby cesty na letiště z parametrů adresy (/api/origins, /api/nearby) – stejná kontrola jako u hledání (normalizeAccess):
- * groundMode, kmRate, carFuel, carCons, carPrice (dřívější carKmCzk), adults, trip (oneway = odvoz), nights (výchozí 7).
+ * groundMode, kmRate, carFuel, carCons, carPrice (dřívější carKmCzk), adults, trip (oneway = odvoz), nights (výchozí 7),
+ * own = vlastní ceny na letiště „VIE:350,BTS:270“ (accessOverride, normalizeOwn).
  * → { opts (pro airportAccess), nights, echo (použité volby do odpovědi) }
  */
 function accessParams(sp) {
-  const acc = normalizeAccess(Object.fromEntries(['kmRate', 'groundMode', 'carFuel', 'carCons', 'carPrice', 'carKmCzk'].map((k) => [k, sp.get(k)])));
+  const own = Object.fromEntries(String(sp.get('own') || '').split(',').slice(0, 24).map((x) => x.split(':')).filter((x) => x.length === 2));
+  const acc = normalizeAccess({ ...Object.fromEntries(['kmRate', 'groundMode', 'carFuel', 'carCons', 'carPrice', 'carKmCzk'].map((k) => [k, sp.get(k)])), accessOverride: own });
   const adults = Math.min(9, Math.max(1, Math.round(Number(sp.get('adults'))) || 1));
   const nights = Math.min(90, Math.max(0, Math.round(Number(sp.get('nights') ?? 7)) || 0));
   const oneWay = sp.get('trip') === 'oneway';
