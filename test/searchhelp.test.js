@@ -970,3 +970,131 @@ test('průběžné výsledky: chyba hledání po náhledu jako věta – tečka 
   assert.equal(H.partialFail('Zkus to za chvíli!  '), 'Zkus to za chvíli!' + tail);
   assert.equal(H.partialFail(''), 'Hledání selhalo.' + tail);
 });
+
+/* ---------- ⭐ Moje cíle a 🙈 Nezajímá mě ---------- */
+const dst = (key, label, cc = 'XX', metro = false) => ({ id: `${metro ? 'metro' : 'ap'}:${key}`, key, label, cc });
+const OPO = dst('OPO', 'Porto', 'PT'), EIN = dst('EIN', 'Eindhoven', 'NL'), LON = dst('LON', 'Londýn', 'GB', true), CRL = dst('CRL', 'Charleroi', 'BE');
+
+test('destKeyOf + destPref: klíč města z id skupiny (metro i letiště), ⭐ / 🙈 / nic', () => {
+  assert.equal(H.destKeyOf('metro:LON'), 'LON');
+  assert.equal(H.destKeyOf('ap:OPO'), 'OPO');
+  for (const bad of ['cc:PT', 'ct:asia', 'geo:41.1,-8.6|Porto', 'ap:opo', 'ap:OPOX', '', null, undefined]) assert.equal(H.destKeyOf(bad), null, String(bad));
+  const lists = { fav: [OPO], mute: [EIN, LON] };
+  assert.equal(H.destPref('OPO', lists), 'fav');
+  assert.equal(H.destPref('LON', lists), 'mute');
+  assert.equal(H.destPref('BCN', lists), null);
+  assert.equal(H.destPref('OPO', null), null);
+  assert.equal(H.destPref('OPO', { fav: null, mute: undefined }), null, 'poškozený stav nic nerozbije');
+  assert.deepEqual([...H.destKeys([OPO, null, { label: 'bez klíče' }, LON])], ['OPO', 'LON']);
+});
+
+test('destPrefSet: město jen v jednom seznamu, zpět = z obou pryč, plný seznam (30) nic nezmění, vstup se nemění', () => {
+  const l0 = { fav: [OPO], mute: [EIN] };
+  const a = H.destPrefSet(l0, { id: 'ap:EIN', label: 'Eindhoven', cc: 'NL' }, 'fav');
+  assert.deepEqual(plain(a), { fav: [OPO, EIN], mute: [] }, '🙈 → ⭐ přesune');
+  assert.deepEqual(plain(l0), { fav: [OPO], mute: [EIN] }, 'vstup beze změny');
+  assert.deepEqual(plain(H.destPrefSet(l0, OPO, 'fav')), plain(l0), 'už tam je – pořadí zůstane');
+  assert.deepEqual(plain(H.destPrefSet(l0, OPO, null)), { fav: [], mute: [EIN] });
+  assert.deepEqual(plain(H.destPrefSet(l0, { id: 'metro:LON', label: 'Londýn', cc: 'GB', extra: 1 }, 'mute')), { fav: [OPO], mute: [EIN, LON] }, 'jen známá pole');
+  assert.deepEqual(plain(H.destPrefSet(null, { id: 'ap:CRL', label: '', cc: 'be' }, 'mute')), { fav: [], mute: [{ id: 'ap:CRL', key: 'CRL', label: 'CRL', cc: '' }] });
+  assert.deepEqual(plain(H.destPrefSet(l0, { id: 'cc:PT', label: 'Portugalsko' }, 'fav')), plain(l0), 'země není město');
+  const full = { fav: Array.from({ length: 30 }, (_, i) => dst('A' + String(i).padStart(2, '0'), 'X' + i)), mute: [EIN] };
+  assert.equal(H.destPrefSet(full, CRL, 'fav'), null, 'plný seznam');
+  assert.equal(H.destPrefSet(full, EIN, 'fav'), null, 'ani přesunem – 🙈 zůstane');
+  assert.equal(H.destPrefSet(full, OPO, 'mute').mute.length, 2, 'druhý seznam má místo');
+  assert.deepEqual(plain(H.destTop([OPO, EIN, LON], 'LON').map((x) => x.key)), ['LON', 'OPO', 'EIN']);
+  assert.deepEqual(plain(H.destTop([OPO, EIN], 'BCN').map((x) => x.key)), ['OPO', 'EIN']);
+});
+
+test('radarPick: 🙈 cíle (skip) se do n nepočítají – místo nich další nejlevnější, samy zůstanou na svém místě, i u svátků', () => {
+  const g = (key, czk) => ({ dest: { key }, best: { out: { date: '2026-11-14', hasTime: false }, perPersonCzk: czk }, options: [] });
+  const gs = [g('EIN', 500), g('OPO', 900), g('CRL', 600), g('LON', 1200)];
+  const keys = (r) => plain(r.map((x) => x.g.dest.key));
+  assert.deepEqual(keys(H.radarPick(gs, null, 2)), ['EIN', 'OPO']);
+  assert.deepEqual(keys(H.radarPick(gs, null, 2, new Set(['EIN']))), ['EIN', 'OPO', 'CRL'], '2 mimo 🙈 + 🙈 před nimi');
+  assert.deepEqual(keys(H.radarPick(gs, null, 12, new Set(['EIN', 'CRL']))), ['EIN', 'OPO', 'CRL', 'LON']);
+  assert.deepEqual(keys(H.radarPick(gs, null, 1, new Set(['CRL']))), ['EIN'], '🙈 za n-tým cílem už ne');
+  const lw = { start: '2026-11-14', end: '2026-11-17' };
+  assert.deepEqual(keys(H.radarPick(gs, lw, 2, new Set(['EIN']))), ['EIN', 'CRL', 'OPO'], 'u svátků po ceně');
+  assert.deepEqual(keys(H.radarPick([null, ...gs], null, 1, null)), ['EIN']);
+  assert.equal(H.RADAR_N, 12);
+  assert.ok(H.RADAR_KEEP > H.RADAR_N, 'radar si drží rezervu karet');
+});
+
+test('radar a 🙈: cíl skrytý už při hledání se po vrácení z 🙈 ukáže na svém místě z uložených karet (bez nového hledání)', () => {
+  const g = (key, czk) => ({ dest: { key, id: 'ap:' + key }, best: { out: { date: '2026-11-14', hasTime: false }, perPersonCzk: czk }, options: [] });
+  const gs = Array.from({ length: 30 }, (_, i) => g('C' + String(i).padStart(2, '0'), 500 + i * 10));
+  const OMR = dst('C01', 'Oradea');
+  // uložení jako radarSearch: RADAR_KEEP cílů mimo 🙈 + 🙈 cíl na svém místě
+  const items = H.radarPick(gs, null, H.RADAR_KEEP, H.destKeys([OMR])).map(({ g: x }) => ({ id: x.dest.id, czk: x.best.perPersonCzk }));
+  assert.equal(items.length, H.RADAR_KEEP + 1);
+  const ids = (s) => plain(s.map(({ x }) => x.id));
+  assert.ok(!ids(H.radarShown(items, [OMR])).includes('ap:C01'), 'skrytý');
+  assert.equal(H.radarShown(items, [OMR]).length, H.RADAR_N);
+  const back = H.radarShown(items, []);
+  assert.deepEqual(ids(back).slice(0, 3), ['ap:C00', 'ap:C01', 'ap:C02'], 'po vrácení z 🙈 zase druhý');
+  assert.equal(back.length, H.RADAR_N);
+});
+
+test('radarDiff / radarEntry: „nové“ a „↓“ proti kartám, které radar minule ukazoval (bez 🙈, prvních 12 z uložené rezervy)', () => {
+  const key = JSON.stringify({ from: ['ap:BRQ'], radiusKm: 200, dateFrom: '2026-10-18', dateTo: '2026-11-29' });
+  const it = (code, czk) => ({ id: 'ap:' + code, label: code, czk, d1: '2026-11-10' });
+  const codes = Array.from({ length: 20 }, (_, i) => 'C' + String(i).padStart(2, '0'));
+  const T0 = Date.parse('2026-10-15T08:00:00Z'), T1 = T0 + 3600e3;
+  // minule: C14 patnáctý (uložený v rezervě, neukázaný), teď třetí za 530 Kč
+  const prev = { key, at: T0, items: codes.map((c, i) => it(c, 500 + i * 20)) };
+  const now = [it('C00', 500), it('C01', 520), it('C14', 530), ...codes.filter((c) => !['C00', 'C01', 'C14'].includes(c)).map((c, i) => it(c, 560 + i * 20))];
+  const by = (r) => Object.fromEntries(plain(r).map((x) => [x.label, x]));
+  const a = by(H.radarEntry(prev, now, key, T1).items);
+  assert.equal(a.C14.newAt, T1, 'minule ho radar neukázal → nové');
+  assert.equal(a.C14.was, undefined, 'žádné „↓“ od ceny, kterou uživatel neviděl');
+  assert.equal(a.C01.newAt, undefined);
+  assert.equal(a.C12.newAt, T1, 'třináctý minule taky neukázaný');
+  // 🙈: C02 minule skrytý (místo něj se ukázal C12) – C12 už známý; C02 bez značky (po vrácení z 🙈 není „nové“)
+  const mute = [dst('C02', 'C02')];
+  const b = by(H.radarDiff(prev, now, key, T1, mute));
+  assert.equal(b.C12.newAt, undefined, 'C12 minule vidět byl');
+  assert.equal(b.C02.newAt, undefined);
+  assert.equal(b.C02.was, undefined);
+  assert.equal(b.C14.newAt, T1);
+  assert.equal(b.C13.newAt, T1);
+  // starší uložený radar s 12 kartami a bez seznamů: jako dřív
+  const old = by(H.radarDiff({ ...prev, items: prev.items.slice(0, 12) }, now, key, T1));
+  assert.equal(old.C14.newAt, T1);
+  assert.equal(old.C00.newAt, undefined);
+});
+
+test('radarShown: karty bez 🙈 (i těch, které přibyly do seznamu až po hledání), nejvýš 12, s pořadím v uloženém výsledku', () => {
+  const items = Array.from({ length: 20 }, (_, i) => ({ id: i === 3 ? 'metro:LON' : `ap:A${String(i).padStart(2, '0')}`, czk: 500 + i }));
+  const all = H.radarShown(items, []);
+  assert.equal(all.length, 12);
+  assert.deepEqual(plain(all.map((s) => s.i)), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  const muted = H.radarShown(items, [LON, dst('A00', 'x')]);
+  assert.equal(muted.length, 12, 'další uložené karty se posunou');
+  assert.deepEqual(plain(muted.map((s) => s.i)), [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+  assert.equal(muted[2].x, items[4]);
+  assert.equal(H.radarShown(items.slice(0, 12), [LON]).length, 11, 'starší uložený radar (12 karet) do obnovení o kartu méně');
+  assert.deepEqual(plain(H.radarShown([{ id: 'ap:EIN' }], [EIN])), []);
+  assert.deepEqual(plain(H.radarShown(null, null)), []);
+});
+
+test('prefGroups (computeGroups v Kamkoliv): 🙈 schované s počítadlem, ukázat je jde, „⭐ jen moje cíle“ počítá schované', () => {
+  const g = (d) => ({ dest: { key: d.key, id: d.id } });
+  const gs = [g(EIN), g(OPO), g(LON), g(CRL), g(dst('BCN', 'Barcelona', 'ES', true))];
+  const lists = { fav: [OPO], mute: [EIN, CRL, dst('TBS', 'Tbilisi')] };
+  const keys = (r) => plain(r.groups.map((x) => x.dest.key));
+  const base = H.prefGroups(gs, lists);
+  assert.deepEqual(keys(base), ['OPO', 'LON', 'BCN'], 'pořadí beze změny');
+  assert.deepEqual(plain({ ...base, groups: undefined }), { muted: 2, mutedIn: 2, favIn: 1, notFav: 0 }, 'TBS ve výsledku není');
+  const shown = H.prefGroups(gs, lists, { showMuted: true });
+  assert.deepEqual(keys(shown), ['EIN', 'OPO', 'LON', 'CRL', 'BCN']);
+  assert.deepEqual([shown.muted, shown.mutedIn], [0, 2], 'ukázané: čip ví, kolik jich je');
+  const fav = H.prefGroups(gs, lists, { favOnly: true });
+  assert.deepEqual(keys(fav), ['OPO']);
+  assert.deepEqual([fav.muted, fav.notFav], [2, 2], '🙈 počítá 🙈, ostatní ⭐ filtr');
+  assert.deepEqual(keys(H.prefGroups(gs, { fav: [], mute: [] })), ['EIN', 'OPO', 'LON', 'CRL', 'BCN']);
+  assert.deepEqual(keys(H.prefGroups(gs, null)), ['EIN', 'OPO', 'LON', 'CRL', 'BCN'], 'bez seznamů nic neschová');
+  // čip aktivního filtru „⭐ jen moje cíle“ se schovanými cíli
+  const chip = plain(H.activeFilters(null, { favOnly: true, excludeOrigins: new Set(), excludeCarriers: new Set() }, {}, {}, { favHidden: fav.notFav }));
+  assert.deepEqual(chip, [{ key: 'favOnly', label: '⭐ jen moje cíle', hidden: 2 }]);
+});

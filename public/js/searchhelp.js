@@ -429,7 +429,7 @@
 
   /**
    * Aktivní filtry jako čipy: ze serveru (max. cena, jen přímé – zrušení = nové hledání, hidden = kolik nabídek skryly)
-   * i z výpisu (🔥 jen výhodné, posuvník ceny, den odletu – z mřížky termínů i s počtem nocí, vypnutá letiště, aerolinky, čas a přestupy – zruší se hned).
+   * i z výpisu (🔥 jen výhodné, 🆕 a ⭐ – extra.newHidden / favHidden = kolik cílů schovaly, posuvník ceny, den odletu – z mřížky termínů i s počtem nocí, vypnutá letiště, aerolinky, čas a přestupy – zruší se hned).
    * time = { hidden, ret } pro čipy času a přestupů (viz timeChips).
    */
   function activeFilters(filters, v = {}, names = {}, time = {}, extra = {}) {
@@ -440,6 +440,7 @@
     if (f.directOnly) out.push({ key: 'directOnly', label: 'jen přímé lety', hidden: h.directOnly || 0, rerun: true });
     if (v.onlyDeals) out.push({ key: 'onlyDeals', label: '🔥 jen výhodné' });
     if (v.newOnly) out.push({ key: 'newOnly', label: '🆕 jen nové země', hidden: extra.newHidden || 0 });
+    if (v.favOnly) out.push({ key: 'favOnly', label: '⭐ jen moje cíle', hidden: extra.favHidden || 0 });
     if (v.maxPrice) out.push({ key: 'viewPrice', label: `max. ${kc(v.maxPrice)}` });
     if (v.outDate) out.push({ key: 'outDate', label: `odlet ${dm(v.outDate)}${v.nights != null ? `, ${nightsTxt(v.nights)}` : ''}` });
     if (v.excludeOrigins && v.excludeOrigins.size) {
@@ -467,6 +468,65 @@
     let keep = 0, hidden = 0;
     for (const g of groups || []) { if (wasThere(g.dest && g.dest.cc, s)) hidden++; else keep++; }
     return { keep, hidden };
+  }
+
+  /* ---------- ⭐ Moje cíle a 🙈 Nezajímá mě (S.fav, S.mute) ----------
+     Po městech jako skupiny výsledků: { id: 'metro:LON' | 'ap:OPO', key: 'LON' | 'OPO' (klíč skupiny a karty radaru), label, cc }. */
+  const DEST_MAX = 30; // v každém seznamu
+  const RADAR_N = 12, RADAR_KEEP = 20; // karet radaru na obrazovce / uložených (🙈 později jednu schová a posune se další)
+  /** Klíč cíle z id místa skupiny výsledků: metro:LON → LON, ap:OPO → OPO; jiné id (země, region, poloha) → null. */
+  const destKeyOf = id => { const m = /^(?:metro|ap):([A-Z0-9]{3})$/.exec(String(id || '')); return m ? m[1] : null; };
+  const inList = (l, key) => Array.isArray(l) && l.some(x => x && x.key === key);
+  /** Klíče cílů seznamu → Set. */
+  const destKeys = l => new Set((Array.isArray(l) ? l : []).filter(x => x && x.key).map(x => x.key));
+  /** ⭐ / 🙈 u cíle s klíčem key (lists = { fav, mute }) → 'fav' | 'mute' | null. */
+  function destPref(key, lists) {
+    if (!key || !lists) return null;
+    return inList(lists.fav, key) ? 'fav' : inList(lists.mute, key) ? 'mute' : null;
+  }
+  /**
+   * Cíl d ({ id, label, cc } skupiny výsledků nebo karty radaru) do seznamu which ('fav' | 'mute') a z druhého pryč
+   * (v obou být nemůže); which = null → z obou pryč. Už v seznamu → beze změny (pořadí zůstane). Plný seznam
+   * (max) → null a nic se nemění. → nové { fav, mute } (vstup se nemění).
+   */
+  function destPrefSet(lists, d, which, max = DEST_MAX) {
+    const key = d && destKeyOf(d.id), arr = l => (lists && Array.isArray(lists[l]) ? lists[l].filter(Boolean) : []);
+    const fav = arr('fav'), mute = arr('mute');
+    if (!key || ((which === 'fav' || which === 'mute') && inList(which === 'fav' ? fav : mute, key))) return { fav, mute };
+    const out = { fav: fav.filter(x => x.key !== key), mute: mute.filter(x => x.key !== key) };
+    if (which !== 'fav' && which !== 'mute') return out;
+    if (out[which].length >= max) return null;
+    out[which].push({ id: d.id, key, label: String(d.label || key), cc: /^[A-Z]{2}$/.test(d.cc || '') ? d.cc : '' });
+    return out;
+  }
+  /** Cíl s klíčem key na začátek seznamu (⭐ Hledat moje cíle hledá prvních 5). */
+  const destTop = (l, key) => { const a = Array.isArray(l) ? l.filter(Boolean) : [], x = a.find(y => y.key === key); return x ? [x, ...a.filter(y => y !== x)] : a; };
+  /**
+   * Karty radaru na obrazovku: uložené karty (items, po ceně) bez 🙈 cílů (mute = seznam), nejvýš n
+   * → [{ x, i }] (i = pořadí v uloženém výsledku – proklik a předpověď na kartě podle něj).
+   */
+  function radarShown(items, mute, n = RADAR_N) {
+    const skip = destKeys(mute), out = [];
+    (items || []).forEach((x, i) => { if (x && out.length < n && !skip.has(destKeyOf(x.id))) out.push({ x, i }); });
+    return out;
+  }
+  /**
+   * Kamkoliv: skupiny výsledků (už po ostatních filtrech výpisu) podle seznamů – 🙈 cíle schované (showMuted je ukáže),
+   * favOnly = jen ⭐ cíle. → { groups (zbylé v původním pořadí), muted (schováno 🙈), mutedIn (🙈 cílů ve výsledku),
+   * favIn (⭐ cílů ve výsledku), notFav (schováno „⭐ jen moje cíle“) }.
+   */
+  function prefGroups(groups, lists, { showMuted = false, favOnly = false } = {}) {
+    const fav = destKeys(lists && lists.fav), mute = destKeys(lists && lists.mute), out = [];
+    let muted = 0, mutedIn = 0, favIn = 0, notFav = 0;
+    for (const g of groups || []) {
+      const k = g && g.dest && g.dest.key;
+      if (!k) { out.push(g); continue; }
+      if (fav.has(k)) favIn++;
+      if (mute.has(k)) { mutedIn++; if (!showMuted) { muted++; continue; } }
+      if (favOnly && !fav.has(k)) { notFav++; continue; }
+      out.push(g);
+    }
+    return { groups: out, muted, mutedIn, favIn, notFav };
   }
 
   /** Málo výsledků: u konkrétního cíle méně než 3 kombinace, jinak méně než 3 destinace. */
@@ -1059,18 +1119,22 @@
   /**
    * Karty radaru ze skupin výsledku: nejlevnější nabídka cíle; u prodlouženého víkendu (lw) jen s odletem první volný
    * den, nebo večer předem (od 16:00; let bez známého času se bere) – jinak by karta potřebovala další den volna.
-   * → [{ g, t }] (u svátků po ceně), nejvýš n.
+   * → [{ g, t }] (u svátků po ceně), n cílů; cíle s klíčem ve skip (🙈 Nezajímá mě) se do n nepočítají.
    */
-  function radarPick(groups, lw = null, n = 12) {
-    if (!lw) return (groups || []).filter(g => g && g.best).slice(0, n).map(g => ({ g, t: g.best }));
+  function radarPick(groups, lw = null, n = 12, skip = null) {
+    // 🙈 cíle (skip = klíče cílů) zůstanou na svém místě, místo nich se vezme další nejlevnější – radar je schová až při
+    // vykreslení (radarShown), takže cíl vrácený z 🙈 se ukáže hned, bez nového hledání
+    const take = ps => { const out = []; let k = 0; for (const p of ps) { if (k >= n) break; out.push(p); if (!(skip && p.g.dest && skip.has(p.g.dest.key))) k++; } return out; };
+    const gs = (groups || []).filter(Boolean);
+    if (!lw) return take(gs.filter(g => g.best).map(g => ({ g, t: g.best })));
     // server už ranní odlety v předvečer vyřadil (depAfter) – tady jen pojistka
     const ok = t => t && t.out && (t.out.date >= lw.start || !t.out.hasTime || String(t.out.dep || '').slice(11, 16) >= LW_DEP);
     const out = [];
-    for (const g of groups || []) {
-      const t = [g && g.best, ...((g && g.options) || [])].filter(ok).sort((a, b) => a.perPersonCzk - b.perPersonCzk)[0];
+    for (const g of gs) {
+      const t = [g.best, ...(g.options || [])].filter(ok).sort((a, b) => a.perPersonCzk - b.perPersonCzk)[0];
       if (t) out.push({ g, t });
     }
-    return out.sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk).slice(0, n);
+    return take(out.sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk));
   }
   // odlet v předvečer prodlouženého víkendu nejdřív v (po práci)
   const LW_DEP = '16:00';
@@ -1319,13 +1383,16 @@
    * (was = { czk, at }, jen při změně aspoň o 3 % a 30 Kč) a „nové“ (newAt) u cíle, který v minulém výsledku stejného
    * dotazu nebyl. Nezměněná cena si značku z minula nechá (was 3 dny, nové 1 den) – nezmizí při obnovení za půl hodiny.
    * prev = minulý uložený výsledek ({ key, at, items }) nebo null, key = dotaz teď → nové pole karet.
+   * Minule = jen karty, které radar ukazoval (radarShown: bez 🙈 – mute = seznam, prvních 12 z uložené rezervy):
+   * cíl, který byl minule uložený, ale neukázaný (13.–20.), je „nové“, ne „↓“ od ceny, kterou uživatel neviděl.
    */
-  function radarDiff(prev, items, key, now) {
+  function radarDiff(prev, items, key, now, mute = null) {
     if (!prev || !Array.isArray(prev.items) || typeof prev.key !== 'string' || !radarSame(prev.key, key)) return items;
-    const old = new Map(prev.items.filter(x => x && x.id).map(x => [x.id, x]));
+    const old = new Map(radarShown(prev.items, mute).map(s => s.x).filter(x => x.id).map(x => [x.id, x])), skip = destKeys(mute);
     return items.map(x => {
       const o = old.get(x.id), y = { ...x };
-      if (!o) return { ...y, newAt: now };
+      // 🙈 cíl bez „nové“ – neukazuje se a po vrácení z 🙈 se vrátí známé město, ne nové
+      if (!o) return skip.has(destKeyOf(x.id)) ? y : { ...y, newAt: now };
       const moved = Math.abs(x.czk - o.czk) >= Math.max(30, o.czk * 0.03);
       if (moved) y.was = { czk: o.czk, at: prev.at };
       else if (o.was && now - o.was.at < 3 * 864e5) y.was = o.was;
@@ -1337,11 +1404,12 @@
   /**
    * Nový uložený výsledek radaru. Při výpadku zdroje (partial) bez značek změn a se základem pro příští porovnání
    * z posledního úplného výsledku – jinak by vyšší ceny z výpadku příště ukázaly falešné „↓“ a vrácené cíle „nové“.
+   * mute = 🙈 seznam (radarDiff porovnává jen s kartami, které radar ukazoval).
    */
-  function radarEntry(prev, items, key, at, { demo = false, partial = false } = {}) {
+  function radarEntry(prev, items, key, at, { demo = false, partial = false, mute = null } = {}) {
     const base = prev && prev.partial ? prev.base || null : prev || null;
     if (partial) return { key, at, demo, items, partial: true, base: base && radarSame(base.key, key) ? { key: base.key, at: base.at, items: base.items } : null };
-    return { key, at, demo, items: radarDiff(base, items, key, at) };
+    return { key, at, demo, items: radarDiff(base, items, key, at, mute) };
   }
 
   /* ---------- řazení „cena + délka cesty“ ---------- */
@@ -1588,5 +1656,6 @@
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
+    DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
   };
 })();

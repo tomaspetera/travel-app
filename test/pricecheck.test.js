@@ -320,3 +320,27 @@ test('scopeOf: pravidlo „v předvečer jen od 16:00“ je jiné hledání; bez
   const dec = { ...q, dateFrom: '2026-11-30', dateTo: '2026-12-01', depAfter: { date: '2026-11-30', time: '16:00' } };
   assert.equal(P.scopeOf(dec, '2026-12'), P.scopeOf({ ...dec, depAfter: null }, '2026-12'), 'předvečer v jiném měsíci');
 });
+
+test('seenMin (⭐ Moje cíle na Přehledu): nejlevnější zpáteční letenka do města ze všech letišť, jen měsíce odletu od teď', () => {
+  const r = (min, at) => ({ min, at, since: at, u: at, obs: [[at, min, 's']] });
+  const store = { v: 1, r: {
+    'VIE>OPO|2026-11|rt': r(2100, NOW - 5 * DAY),
+    'BRQ>OPO|2026-12|rt': r(1890, NOW - 3 * DAY),
+    'PRG>OPO|2026-12|rt': r(1890, NOW - 8 * DAY), // stejná cena, viděná dřív → bere se novější
+    'VIE>OPO|2026-09|rt': r(900, NOW - 40 * DAY), // odlet minulý měsíc – už neplatí
+    'VIE>OPO|2026-11|ow': r(700, NOW - DAY), // jen tam – jiná cena
+    'VIE>LIS|2026-11|rt': r(500, NOW - DAY), // jiné město
+    'VIE>XOPO|2026-11|rt': r(400, NOW - DAY),
+    'VIE>OPO|2026-11|rt|x': r(300, NOW - DAY),
+  } };
+  assert.deepEqual(plain(P.seenMin(store, 'OPO', NOW)), { czk: 1890, from: 'BRQ', month: '2026-12', at: NOW - 3 * DAY, ago: 3 });
+  assert.equal(P.seenMin(store, 'TBS', NOW), null, 'zatím neviděno');
+  assert.equal(P.seenMin(store, '', NOW), null);
+  assert.equal(P.seenMin(null, 'OPO', NOW), null);
+  // měsíc odletu od tohoto: v prosinci už listopad neplatí
+  assert.equal(P.seenMin(store, 'LIS', Date.parse('2026-12-02T12:00:00Z')), null);
+  assert.equal(P.seenMin(store, 'OPO', Date.parse('2026-12-02T12:00:00Z')).czk, 1890);
+  // paměť zapsaná z hledání: klíč skupiny (metro LON jako ve výsledcích)
+  const lon = P.record(null, [{ key: P.routeKey('VIE', 'LON', '2026-11', 'rt'), czk: 1500 }], { now: NOW - DAY });
+  assert.deepEqual(plain(P.seenMin(lon, 'LON', NOW)), { czk: 1500, from: 'VIE', month: '2026-11', at: NOW - DAY, ago: 1 });
+});

@@ -210,6 +210,23 @@
     return { min: r.min, ago: days(r.at), sinceDays: days(r.since), n: obs.length, trend,
       ...(low ? { scopeMin: lowOf(low), scopeAgo: days(low[0]), other } : {}) };
   }
+  /**
+   * ⭐ Moje cíle na Přehledu: nejlevnější zpáteční letenka do cíle dest (klíč skupiny – město), kterou paměť zná – ze
+   * všech letišť odletu a z měsíců odletu od tohoto (místního) dál; stejná cena → později viděná.
+   * → { czk, from, month: 'YYYY-MM', at, ago (dny) } nebo null (sem žádné hledání v tomto prohlížeči nic neukázalo).
+   */
+  function seenMin(store, dest, now = Date.now()) {
+    const r = store && store.r;
+    if (!r || !dest) return null;
+    const d = new Date(now), month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    let best = null;
+    for (const [k, x] of Object.entries(r)) {
+      const m = /^([^>|]+)>([^>|]+)\|(\d{4}-\d{2})\|rt$/.exec(k);
+      if (!m || m[2] !== dest || m[3] < month || !x || !(x.min > 0)) continue;
+      if (!best || x.min < best.czk || (x.min === best.czk && x.at > best.at)) best = { czk: x.min, from: m[1], month: m[3], at: +x.at || 0 };
+    }
+    return best && { ...best, ago: Math.max(0, Math.floor((now - best.at) / DAY)) };
+  }
   function load(ls) {
     try { return clean(JSON.parse((ls || window.localStorage).getItem(STORE_KEY))); } catch (e) { return clean(null); }
   }
@@ -285,6 +302,6 @@
 
   window.PriceCheck = {
     CFG, STORE_KEY, refOf, distanceLevel, searchLevel, levelOf, estPos, assess,
-    routeKey, tripKey, scopeOf, entriesOf, record, prune, memoryOf, load, save, remember, agoTxt, advice, explain,
+    routeKey, tripKey, scopeOf, entriesOf, record, prune, memoryOf, seenMin, load, save, remember, agoTxt, advice, explain,
   };
 })();
