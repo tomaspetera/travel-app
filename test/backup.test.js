@@ -50,7 +50,7 @@ test('záloha → obnova do prázdného zařízení vrátí cesty, hlídání, d
   assert.deepEqual(plain(inc.home), { from: [BRQ], radius: 200, adults: 2 });
   assert.deepEqual(plain(inc.pretrip), { '1760000000000:2026-11-12:PT': { d: { 'pack:doc-pass': 1 }, at: 5 } });
   const df = B.diff(state(), inc, { watchKey: wk, deps });
-  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, pretrip: 1, refs: 0 });
+  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, dests: { fav: 0, mute: 0, over: 0 }, pretrip: 1, refs: 0 });
   const m = B.merge(state(), inc, { watchKey: wk, deps });
   assert.equal(m.trips.length, 1);
   assert.equal(m.watch.length, 1);
@@ -142,7 +142,7 @@ test('cizí soubory a novější verze: srozumitelná chyba', () => {
   assert.throws(() => B.parse(JSON.stringify({ app: 'atlas', v: 2, data: {} }), deps), /novější verze ATLAS/);
   assert.throws(() => B.parse(JSON.stringify({ app: 'atlas', v: 0, data: {} }), deps), /není záloha ATLAS/);
   const empty = B.parse(JSON.stringify({ app: 'atlas', v: 1, data: {} }), deps);
-  assert.deepEqual(plain(empty), { at: null, trips: [], watch: [], home: null, visited: [], pretrip: {} });
+  assert.deepEqual(plain(empty), { at: null, trips: [], watch: [], home: null, visited: [], fav: [], mute: [], pretrip: {} });
 });
 
 test('formulář hlídání: neznámé klíče jen jako jednoduché hodnoty, lety přes víc měst ověřené', () => {
@@ -261,4 +261,48 @@ test('📅 klouzavé hlídání: roll projde zálohou beze změny, neplatný se 
   const df = B.diff(mine, inc, { watchKey: rk, deps });
   assert.deepEqual(plain(df.watch), { add: 2, same: 1, over: 0 }, 'svátek bez „odlet od 16:00“ je jiné hlídání');
   assert.deepEqual(plain(B.merge(mine, inc, { watchKey: rk, deps }).watch.map((w) => w.id)), ['m1', 'r2', 'r3']);
+});
+
+test('⭐ Moje cíle a 🙈 Nezajímá mě: záloha → obnova, pročištění jako místa, sloučení bez přepsání volby zařízení, nejvýš 30', () => {
+  const OPO = { id: 'ap:OPO', key: 'OPO', label: 'Porto', cc: 'PT' }, TBS = { id: 'ap:TBS', key: 'TBS', label: 'Tbilisi', cc: 'GE' };
+  const EIN = { id: 'ap:EIN', key: 'EIN', label: 'Eindhoven', cc: 'NL' }, LON = { id: 'metro:LON', key: 'LON', label: 'Londýn', cc: 'GB' };
+  const A = state({ fav: [OPO, TBS], mute: [EIN, LON] });
+  const j = JSON.parse(B.pack(A));
+  assert.deepEqual(j.data.fav, [OPO, TBS]);
+  const inc = B.parse(B.pack(A), deps);
+  assert.deepEqual(plain(inc.fav), [OPO, TBS]);
+  assert.deepEqual(plain(inc.mute), [EIN, LON]);
+  // do prázdného zařízení
+  const df = B.diff(state(), inc, { deps });
+  assert.deepEqual(plain(df.dests), { fav: 2, mute: 2, over: 0 });
+  const m = B.merge(state(), inc, { deps });
+  assert.deepEqual(plain([m.fav, m.mute]), [[OPO, TBS], [EIN, LON]]);
+  // podruhé nic nového; zařízení, kde je Porto 🙈, ho tak nechá (volba zařízení má přednost)
+  assert.deepEqual(plain(B.diff(A, inc, { deps }).dests), { fav: 0, mute: 0, over: 0 });
+  const mine = state({ fav: [], mute: [OPO] });
+  const m2 = B.merge(mine, inc, { deps });
+  assert.deepEqual(plain(m2.fav.map((x) => x.key)), ['TBS']);
+  assert.deepEqual(plain(m2.mute.map((x) => x.key)), ['OPO', 'EIN', 'LON']);
+  assert.deepEqual(plain(mine.mute), [OPO], 'vstup se nemění');
+  // stará záloha bez seznamů
+  const old = B.parse(JSON.stringify({ app: 'atlas', v: 1, data: { trips: [] } }), deps);
+  assert.deepEqual(plain([old.fav, old.mute]), [[], []]);
+  assert.deepEqual(plain(B.merge(A, old, { deps }).fav), [OPO, TBS]);
+  // podvržené položky: jen metro:/ap: s kódem, klíč z id (ne z pole key), text bez HTML, bez duplicit, město v obou → ⭐
+  const evil = B.parse(JSON.stringify({ app: 'atlas', v: 1, data: {
+    fav: [{ id: 'ap:OPO', key: 'XXX', label: '<img src=x onerror=alert(1)>Porto', cc: 'pt', evil: 1 }, { id: 'ap:OPO', label: 'znovu' }, { id: 'cc:PT', label: 'Portugalsko' }, { id: 'geo:1,2|X', label: 'X' }, { id: 'ap:opo' }, { id: 'metro:LON"><b>' }, 'ap:BCN', null, { id: 'metro:ROM', label: 42, cc: 'IT' }],
+    mute: [{ id: 'ap:OPO', label: 'Porto' }, { id: 'ap:EIN' }, { id: 'ap:EIN', label: 'Eindhoven' }, { __proto__: { id: 'ap:CRL' } }],
+  } }), deps);
+  assert.deepEqual(plain(evil.fav), [{ id: 'ap:OPO', key: 'OPO', label: 'img src=x onerror=alert(1)Porto', cc: '' }, { id: 'metro:ROM', key: 'ROM', label: '42', cc: 'IT' }]);
+  assert.deepEqual(plain(evil.mute), [{ id: 'ap:EIN', key: 'EIN', label: 'EIN', cc: '' }]);
+  // nejvýš 30 v každém seznamu (v souboru i po sloučení)
+  const many = (n, p) => Array.from({ length: n }, (_, i) => ({ id: `ap:${p}${String(i).padStart(2, '0')}`, label: `${p}${i}` }));
+  const big = B.parse(JSON.stringify({ app: 'atlas', v: 1, data: { fav: many(40, 'F'), mute: many(5, 'M') } }), deps);
+  assert.equal(big.fav.length, 30);
+  const near = state({ fav: many(28, 'G').map((x) => ({ ...x, key: x.id.slice(3) })), mute: [] });
+  const d3 = B.diff(near, big, { deps });
+  assert.deepEqual(plain(d3.dests), { fav: 2, mute: 5, over: 28 });
+  const m3 = B.merge(near, big, { deps });
+  assert.equal(m3.fav.length, 30);
+  assert.equal(m3.mute.length, 5);
 });

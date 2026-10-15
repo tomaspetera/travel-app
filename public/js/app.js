@@ -27,7 +27,7 @@ let TOT = 197; const CONT_TOT = {};
 const LS = 'atlas_v1';
 let S = load();
 function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return Object.assign(defState(), d); } catch (e) { } return defState(); }
-function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null }; }
+function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null, fav: [], mute: [] }; }
 // Plné úložiště: uvolnit místo po uložených výsledcích posledního hledání (flights.js) – stav aplikace má přednost.
 // Vrací, jestli se stav uložil (💾 obnova ze zálohy při plném úložišti nic nesloučí).
 function save() {
@@ -346,7 +346,7 @@ function showNow() {
 function renderDash() {
   renderDashStats();
   $$('.link[data-go]').forEach(l => l.onclick = () => go(l.dataset.go));
-  if (window.Flights) { Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); }
+  if (window.Flights) { Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); Flights.renderFav(); }
 }
 /** Dlaždice a „Kam vyrazit“ na přehledu (po změně navštívených zemí nebo cest – bez radaru a hlídaných cen). */
 function renderDashStats() {
