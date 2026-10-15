@@ -1855,7 +1855,9 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
     });
     obOf.set(groups[groups.length - 1], ob);
   }
-  groups.sort((a, b) => a.best.perPersonCzk - b.best.perPersonCzk);
+  // při shodě ceny podle cíle, ne podle pořadí, v jakém zdroje odpověděly – jinak by týž výsledek měl na hranici
+  // maxGroups jednou jeden cíl, podruhé jiný (a cíle za stejnou cenu pokaždé v jiném pořadí)
+  groups.sort((a, b) => a.best.perPersonCzk - b.best.perPersonCzk || (a.dest.key < b.dest.key ? -1 : a.dest.key > b.dest.key ? 1 : 0));
   // „Super cena“ jen pro to nejlepší z výsledků: absolutní skóre i relativní pořadí (horních 20 %).
   const p20 = groups.length ? groups[Math.floor((groups.length - 1) * 0.2)].best.perPersonCzk : 0;
   const sorted = new Map([...pools].map(([k, list]) => [k, list.map((e) => e.czk).sort((a, b) => a - b)]));

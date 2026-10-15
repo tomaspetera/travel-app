@@ -94,3 +94,28 @@ test('Kamkoliv se zpožděnými zdroji (jako v provozu): kombinací drží jen z
   assert.deepEqual(best(a), best(b));
   assert.ok(a.groups.some((g) => g.options.some(isMix)));
 });
+
+test('Kamkoliv: cíle za stejnou cenu v pořadí podle cíle, ne podle toho, čí odpověď přišla dřív', async () => {
+  // z tohoto pořadí se bere i prvních 150 cílů odpovědi – při shodě ceny na hranici dřív podle časování zdrojů
+  const d0 = D(30);
+  const d1 = D(33);
+  const AWAY = ['OPO', 'BCN', 'MAD'];
+  // všechny cíle za stejnou cenu, trasy doběhnou v pořadí podle ms (každé hledání jinak)
+  const tieAir = (ms) => ({
+    id: 'tst', name: 'Test Air', live: true, callsPerRoute: () => 1,
+    stations: async () => null,
+    destinations: async (o) => (o === 'VIE' ? AWAY : []),
+    daily: async ({ from, to }) => {
+      const away = from === 'VIE' ? to : from;
+      await new Promise((r) => setTimeout(r, ms[away]));
+      const date = from === 'VIE' ? d0 : d1;
+      return [makeLeg({ provider: 'tst', carrier: 'TS', carrierName: 'Test Air', from, to, dep: `${date}T10:00:00`, arr: `${date}T12:00:00`, czk: 1000 })];
+    },
+  });
+  const q = { from: ['ap:VIE'], radiusKm: 0, dateFrom: D(20), dateTo: D(40), trip: 'return', nightsMin: 2, nightsMax: 5, adults: 1, noPartial: true };
+  for (const ms of [{ OPO: 0, BCN: 20, MAD: 40 }, { MAD: 0, OPO: 20, BCN: 40 }, { BCN: 0, MAD: 20, OPO: 40 }]) {
+    const r = await search(q, () => {}, { providers: [tieAir(ms)] });
+    assert.equal(new Set(r.groups.map((g) => g.best.perPersonCzk)).size, 1);
+    assert.deepEqual(r.groups.map((g) => g.dest.key), ['BCN', 'MAD', 'OPO'], JSON.stringify(ms));
+  }
+});
