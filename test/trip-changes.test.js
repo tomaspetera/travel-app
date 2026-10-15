@@ -64,7 +64,7 @@ function vie(over = {}) {
 /** „🚆 Pojedu vlakem / busem“ → výběr spojů (Ground bez sítě: spoj z odhadu se zadanými časy) → „✓ Pojedu tímhle“. */
 async function pickTrain(c, t, times) {
   c.Ground = c.window.Ground = {
-    debounce: (f) => f, liveHtml: () => '', linksHtml: () => '', hm: (m) => `${m} min`,
+    debounce: (f) => f, liveHtml: () => '', linksHtml: () => '', hm: (m) => `${m} min`, priceTxt: (g) => `od ~${g.czk} Kč`,
     load: async ({ from }) => ({ est: { minutes: 234, czk: 299, basis: 'measured' }, km: 254, from: from === Q.from ? PRAHA : VIDEN, to: from === Q.from ? VIDEN : PRAHA, links: [] }),
     legFromEst: (date) => train(date, ...times[date]),
   };

@@ -12,40 +12,94 @@ const VIDEN = P('Vídeň', 'AT', 48.1855, 16.3768, 10202052, { loc: 'Wien', fb: 
 const BRNO = P('Brno', 'CZ', 49.1903, 16.6128, 10202002);
 const BUDAPEST = P('Budapešť', 'HU', 47.5003, 19.0839, 10202091, { loc: 'Budapest' });
 
-test('estimate: Praha ↔ změřené město = změřeno 13. 10. (oběma směry), jinak model podle vzdálenosti', () => {
+test('estimate: Praha ↔ změřené město = změřeno 15. 10. – od i běžně (oběma směry), jinak model podle vzdálenosti', () => {
   const e = G.estimate(PRAHA, VIDEN);
   assert.equal(e.ok, true);
   assert.equal(e.basis, 'measured');
   assert.equal(e.minutes, 234);
-  assert.equal(e.czk, 299);
-  assert.equal(e.measuredAt, '2026-10-13');
+  assert.deepEqual([e.czk, e.typ], [249, 249]);
+  assert.equal(e.measuredAt, '2026-10-15');
   assert.ok(e.km > 240 && e.km < 260, `Praha–Vídeň ${e.km} km`);
   assert.deepEqual(G.estimate(VIDEN, PRAHA), e, 'zpět stejně');
+  // běžně nad „od“: Praha–Budapešť od 399, běžně 569 Kč; Praha–Krakov od 279 (13. 10.), běžně 418 Kč
+  assert.deepEqual([G.estimate(PRAHA, BUDAPEST).czk, G.estimate(PRAHA, BUDAPEST).typ], [399, 569]);
   const d = G.estimate(BRNO, BUDAPEST);
   assert.equal(d.basis, 'distance');
   assert.ok(d.minutes >= 200 && d.minutes <= 320, `Brno–Budapešť ${d.minutes} min`);
-  assert.ok(d.czk >= 200 && d.czk <= 400, `Brno–Budapešť ${d.czk} Kč`);
+  assert.ok(d.czk >= 200 && d.czk <= 400, `Brno–Budapešť od ${d.czk} Kč`);
+  assert.ok(d.typ >= d.czk && Math.abs(d.typ - 369) / 369 <= 0.25, `Brno–Budapešť běžně ${d.typ} Kč (RegioJet běžně 369)`);
   assert.equal(d.minutes % 5, 0, 'čas zaokrouhlený na 5 min');
-  assert.equal(d.czk % 10, 0, 'cena zaokrouhlená');
+  assert.deepEqual([d.czk % 10, d.typ % 10], [0, 0], 'ceny zaokrouhlené');
+  for (const [id, m] of Object.entries(G.MEASURED)) assert.ok(m.typ >= m.czk && m.min > 0, `${m.name} (${id}): běžně aspoň od`);
 });
 
-test('distanceModel: kalibrace na tabulce z Prahy (rychlost a cena v rozumných mezích, roste se vzdáleností)', () => {
-  // [km, změřeno min, změřeno Kč] – model se smí lišit, ale ne o víc než ~30 % (Benátky přes Alpy víc)
-  const rows = [[251, 234, 299], [280, 250, 329], [300, 270, 299], [445, 371, 399], [395, 350, 279], [525, 575, 849], [710, 740, 1098], [885, 765, 1158]];
-  for (const [km, min, czk] of rows) {
+// Kalibrace 15. 10. 2026: živé ceny RegioJetu (veřejné API webu), 3 termíny za ~12, 33 a 61 dní po ~3 dnech –
+// [odkud, kam, od = nejlevnější ze všech dní, běžně = medián nejlevnějšího spoje dne, který jde koupit]. Vynechané:
+// Praha–Linec 1 340 a Praha–Salcburk 2 010 Kč (RegioJet tam prodává jen drahé partnerské vlaky, FlixBus a ÖBB ~300–600 Kč),
+// Praha–Plzeň a Praha–Rijeka (bez odpovědi).
+const CALIB = [
+  ['Praha', 'Brno', 199, 199], ['Praha', 'Ostrava', 219, 219], ['Praha', 'Olomouc', 149, 149], ['Praha', 'Liberec', 99, 109],
+  ['Praha', 'České Budějovice', 189, 189], ['Praha', 'Zlín', 268, 268], ['Praha', 'Karlovy Vary', 159, 179], ['Praha', 'Pardubice', 119, 119],
+  ['Praha', 'Bratislava', 279, 339], ['Praha', 'Košice', 499, 549], ['Praha', 'Žilina', 199, 274], ['Praha', 'Poprad', 299, 399],
+  ['Praha', 'Vídeň', 249, 249], ['Praha', 'Berlín', 379, 379], ['Praha', 'Drážďany', 299, 299], ['Praha', 'Mnichov', 299, 299],
+  ['Praha', 'Norimberk', 419, 419], ['Praha', 'Frankfurt nad Mohanem', 639, 639], ['Praha', 'Varšava', 399, 399], ['Praha', 'Krakov', 319, 418],
+  ['Praha', 'Katovice', 399, 399], ['Praha', 'Budapešť', 399, 569], ['Praha', 'Benátky', 899, 1249], ['Praha', 'Lvov', 389, 449],
+  ['Praha', 'Amsterdam', 949, 949], ['Praha', 'Paříž', 1199, 1739], ['Praha', 'Curych', 699, 774], ['Praha', 'Brusel', 899, 949],
+  ['Brno', 'Bratislava', 129, 139], ['Brno', 'Vídeň', 149, 179], ['Brno', 'Budapešť', 249, 369], ['Brno', 'Košice', 448, 503],
+  ['Brno', 'Krakov', 339, 369], ['Brno', 'Varšava', 508, 508], ['Brno', 'Ostrava', 178, 188], ['Brno', 'Berlín', 578, 648],
+  ['Ostrava', 'Krakov', 139, 199], ['Ostrava', 'Katovice', 189, 189], ['Ostrava', 'Žilina', 69, 94], ['Ostrava', 'Varšava', 249, 249],
+  ['Ostrava', 'Košice', 249, 299],
+];
+const median = (v) => { const x = [...v].sort((a, b) => a - b); return x.length % 2 ? x[(x.length - 1) / 2] : (x[x.length / 2 - 1] + x[x.length / 2]) / 2; };
+
+test('distanceModel: kalibrace 15. 10. na 41 trasách RegioJetu – běžně do ±25 % u většiny, u všech v uvedené toleranci', () => {
+  if (!G.CITIES.length) return; // data/ground.json ještě nesestavené
+  const city = (n) => { const c = G.CITIES.find((x) => x.name === n); assert.ok(c, n); return { ...c, label: c.name }; };
+  const err = { od: [], typ: [] };
+  for (const [from, to, od, typ] of CALIB) {
+    const a = city(from), b = city(to);
+    const m = G.distanceModel(G.landKm(a, b), 1, G.priceBand(a, b));
+    err.od.push(Math.abs(m.czk - od) / od);
+    err.typ.push(Math.abs(m.typ - typ) / typ);
+    // tolerance v komentáři modelu: nejvýš +61 % (Praha–Vídeň, levná díky konkurenci – proto v MEASURED)
+    assert.ok(Math.abs(m.typ - typ) / typ <= 0.65, `${from}–${to}: model běžně ${m.typ} Kč, RegioJet ${typ} Kč`);
+    assert.ok(m.typ >= m.czk, `${from}–${to}: běžně aspoň od`);
+    // trasy z Prahy platí přesně změřené (běžně z 15. 10.)
+    if (from === 'Praha') assert.deepEqual([G.estimate(a, b).basis, G.estimate(a, b).typ], ['measured', typ], `${from}–${to} změřeno`);
+  }
+  const within = err.typ.filter((x) => x <= 0.25).length;
+  // před kalibrací (jeden model jen pro „od“): medián chyby od 19,5 %, běžně 19,9 % (do ±25 % 25 tras z 41)
+  assert.ok(within >= 32, `běžně do ±25 % jen ${within} z ${CALIB.length} tras`);
+  assert.ok(median(err.typ) <= 0.14, `medián chyby běžně ${(100 * median(err.typ)).toFixed(1)} %`);
+  assert.ok(median(err.od) <= 0.12, `medián chyby od ${(100 * median(err.od)).toFixed(1)} %`);
+  // pásma: Česko a Slovensko, levný východ mezi městy RegioJetu, jinak západ (i kam RegioJet nejezdí)
+  assert.deepEqual(['Bratislava', 'Krakov', 'Vídeň', 'Lvov'].map((n) => G.priceBand(city('Praha'), city(n))), ['domestic', 'east', 'west', 'east']);
+  assert.equal(G.priceBand(city('Praha'), { label: 'Gdaňsk', cc: 'PL', rj: null }), 'west');
+  assert.equal(G.priceBand({ cc: 'CZ' }, { cc: 'sk' }), 'domestic', 'doma i bez měst RegioJetu');
+});
+
+test('distanceModel: čas podle tabulky z Prahy 13. 10., ceny v každém pásmu rostou se vzdáleností a běžně ≥ od', () => {
+  // [km, změřeno min] – model se smí lišit, ale ne o víc než ~30 % (Benátky přes Alpy víc)
+  const rows = [[251, 234], [280, 250], [300, 270], [445, 371], [395, 350], [525, 575], [710, 740], [885, 765]];
+  for (const [km, min] of rows) {
     const m = G.distanceModel(km);
     assert.ok(Math.abs(m.minutes - min) / min < 0.3, `${km} km: ${m.minutes} min (změřeno ${min})`);
-    assert.ok(Math.abs(m.czk - czk) / czk < 0.3, `${km} km: ${m.czk} Kč (změřeno ${czk})`);
     const speed = km / (m.minutes / 60);
     assert.ok(km <= 450 ? speed >= 58 && speed <= 72 : speed >= 45 && speed <= 70, `${km} km: ${speed.toFixed(0)} km/h`);
   }
-  let prev = { minutes: 0, czk: 0 };
-  for (let km = 50; km <= 1100; km += 25) {
-    const m = G.distanceModel(km);
-    assert.ok(m.minutes >= prev.minutes && m.czk >= prev.czk, `${km} km neklesá`);
-    prev = m;
+  for (const band of ['domestic', 'east', 'west']) {
+    let prev = { minutes: 0, czk: 0, typ: 0 };
+    for (let km = 20; km <= 1100; km += 20) {
+      const m = G.distanceModel(km, 1, band);
+      assert.ok(m.minutes >= prev.minutes && m.czk >= prev.czk && m.typ >= prev.typ, `${band} ${km} km neklesá`);
+      assert.ok(m.typ >= m.czk && m.czk >= 50, `${band} ${km} km: od ${m.czk}, běžně ${m.typ}`);
+      prev = m;
+    }
   }
-  assert.equal(G.distanceModel(1080).czk % 50, 0, 'nad 1000 Kč po padesátikorunách');
+  assert.deepEqual(G.distanceModel(300), G.distanceModel(300, 1, 'west'), 'výchozí pásmo = západ');
+  assert.equal(G.distanceModel(1080).typ % 50, 0, 'nad 1000 Kč po padesátikorunách');
+  // domácí trasy levněji než dřív (Praha–Olomouc model 250 Kč, běžně 149), do Německa dráž (Frankfurt 380, běžně 639)
+  assert.ok(G.distanceModel(211, 1, 'domestic').typ <= 250 && G.distanceModel(416, 1, 'west').typ >= 600);
 });
 
 test('estimate: jen pevninská Evropa do ~1100 km – ostrovy, moře a daleké cíle ne', () => {
@@ -97,16 +151,21 @@ test('estimate: přes Alpy a Dinárské hory o čtvrtinu déle (Klagenfurt není
 });
 
 test('estimate: na východě levné vlaky i dál než 450 km, na západě dražší; do Skandinávie po souši přes Øresund', () => {
-  // RegioJet 13. 10. 2026: Praha–Košice 499 Kč, Praha–Varšava 499 Kč, Praha–Lvov 389 Kč, Praha–Düsseldorf 869 Kč
-  for (const [label, cc, lat, lon, real, rj] of [['Košice', 'SK', 48.72, 21.27, 499, 10202033], ['Varšava', 'PL', 52.23, 21.0, 499, 2737640000], ['Lvov', 'UA', 49.84, 24.03, 389, 271526030]]) {
+  // RegioJet 15. 10. 2026 běžně: Praha–Košice 549 Kč, Praha–Varšava 399 Kč, Praha–Lvov 449 Kč (změřené), model levného
+  // východu dál než 450 km roste jen pomalu (Lvov ~510 Kč, Brno–Varšava běžně 508 Kč)
+  for (const [label, cc, lat, lon, real, rj] of [['Košice', 'SK', 48.72, 21.27, 549, 10202033], ['Varšava', 'PL', 52.23, 21.0, 399, 2737640000], ['Lvov', 'UA', 49.84, 24.03, 449, 271526030]]) {
     const e = G.estimate(PRAHA, P(label, cc, lat, lon, rj));
-    assert.ok(e.km > 450 && e.czk <= real * 1.45 && e.czk >= real * 0.8, `${label}: ${e.czk} Kč (RegioJet od ${real})`);
+    assert.ok(e.km > 450 && e.typ === real, `${label}: běžně ${e.typ} Kč (RegioJet ${real})`);
+    const m = G.distanceModel(G.landKm(PRAHA, P(label, cc, lat, lon)), 1, G.priceBand(PRAHA, P(label, cc, lat, lon, rj)));
+    assert.ok(m.typ <= real * 1.3 && m.typ >= real * 0.8, `${label}: model běžně ${m.typ} Kč (RegioJet ${real})`);
   }
   // kam RegioJet nejezdí (jen FlixBus), levný východ neplatí: Praha–Gdaňsk FlixBus 10/2026 ~900 Kč jedním směrem
   const gdn = G.estimate(PRAHA, P('Gdaňsk', 'PL', 54.352, 18.6466));
-  assert.ok(gdn.czk >= 750 && gdn.czk <= 1100, `Gdaňsk ${gdn.czk} Kč`);
-  assert.equal(G.estimate(PRAHA, G.groundPlace({ lat: 54.352, lon: 18.6466, cc: 'PL' })).czk, gdn.czk, 'Gdaňsk z dat: bez RegioJetu');
-  assert.equal(G.estimate(PRAHA, G.groundPlace({ lat: 52.2586, lon: 20.9946, cc: 'PL' })).czk < 600, true, 'Varšava z dat: RegioJet');
+  assert.ok(gdn.czk >= 750 && gdn.czk <= 1100, `Gdaňsk od ${gdn.czk} Kč`);
+  assert.ok(gdn.typ >= 850 && gdn.typ <= 1000, `Gdaňsk běžně ${gdn.typ} Kč`);
+  assert.equal(G.estimate(PRAHA, G.groundPlace({ lat: 54.352, lon: 18.6466, cc: 'PL' })).typ, gdn.typ, 'Gdaňsk z dat: bez RegioJetu');
+  assert.equal(G.estimate(PRAHA, G.groundPlace({ lat: 52.2586, lon: 20.9946, cc: 'PL' })).typ < 600, true, 'Varšava z dat: RegioJet');
+  // RegioJet 13. 10. 2026: Praha–Düsseldorf od 869 Kč
   const dus = G.estimate(PRAHA, P('Düsseldorf', 'DE', 51.22, 6.79));
   assert.ok(Math.abs(dus.czk - 869) / 869 < 0.15, `Düsseldorf ${dus.czk} Kč`);
   assert.ok(G.estimate(VIDEN, P('Varšava', 'PL', 52.23, 21.0)).czk > 600, 'z Rakouska už ne levný východ');
@@ -145,6 +204,13 @@ test('worth: srovnání s letadlem od dveří ke dveřím – čas, krátká ces
   assert.equal(c.rule, 'cheap');
   assert.match(c.reason, /2[\s ]200 Kč levněji/);
   assert.equal(G.worth(e(540, 900), { doorMin: 300, czk: 3000, trips: 2 }).worth, false, '1 800 Kč není polovina z 3 000');
+  // srovnává se běžná cena (typ), ne „od“: od 600 by vyšlo o polovinu levněji než let za 2 400 Kč, běžně 1 300 ne
+  const typ = { ...e(540, 600), typ: 1300 };
+  assert.equal(G.typOf(typ), 1300);
+  assert.equal(G.typOf(e(540, 600)), 600, 'starší odhad bez běžné ceny = od');
+  assert.equal(G.worth(typ, { doorMin: 300, czk: 2400 }).worth, false);
+  assert.equal(G.worth(e(540, 600), { doorMin: 300, czk: 2400 }).rule, 'cheap');
+  assert.match(G.worth({ ...e(540, 600), typ: 900 }, { doorMin: 300, czk: 2400 }).reason, /o ~1[\s ]500 Kč levněji na osobu/, 'rozdíl z běžné ceny');
   assert.equal(G.worth(e(700, 300), { doorMin: 300, czk: 9000 }).worth, false, 'přes 10 h ani levně ne');
   const n = G.worth(e(700), { doorMin: 300 });
   assert.equal(n.worth, false);
@@ -418,6 +484,7 @@ test('attachGround: odhad ke skupinám v dosahu, od dveří ke dveřím s nejkra
   assert.equal(vie.ground.q.to, 'ap:VIE');
   assert.match(vie.ground.q.from, /^geo:50\.0755,14\.4378\|Praha$/);
   assert.deepEqual([r.to, r.flightCzk, r.trips], ['Vídeň', 5843, 2]);
+  assert.ok(vie.ground.typ >= vie.ground.czk && r.typ === vie.ground.typ, 'čip i srovnání s běžnou cenou');
   assert.equal(r.destKey, 'VIE', 'skupina letů do cíle srovnání (víc cílů v hledání)');
   // bez letů: srovnání pro cíl i tak (chytrá nápověda pak nabídne vlak/bus)
   const none = G.attachGround({ home, origins, groups: [], dests: point });
@@ -490,6 +557,7 @@ test('groundInfo: Praha → Vídeň s datem = odhad, srovnání, odkazy a živé
   const r = await G.groundInfo(G.groundQuery(new URLSearchParams('from=geo:50.0755,14.4378|Praha&to=ap:VIE&date=' + ymdPlus(7))));
   assert.ok(r.km > 200 && r.km < 300);
   assert.ok(r.est && r.est.minutes > 0 && r.est.czk > 0);
+  assert.ok(r.est.typ >= r.est.czk, 'běžně i od');
   assert.equal(r.worth.worth, true);
   assert.ok(r.links.some((x) => x.id === 'idos') && r.links.some((x) => x.id === 'google'));
   if (G.CITIES.length) {
