@@ -96,7 +96,8 @@ const sharedQuery = (raw) => ({
   directOnly: Boolean(raw.directOnly),
   // Doprava na letiště: groundMode 'transit' (veřejnou dopravou) | 'car' (autem), kmRate = násobek odhadu jízdného
   // (0 = nepočítat; bez groundMode dřívější Kč/km, 1,1 → 1), auto: carFuel (nafta / benzín / elektro), carCons
-  // (spotřeba na 100 km), carPrice (vlastní cena), dřívější carKmCzk (Kč/km bez carFuel). Viz access.js.
+  // (spotřeba na 100 km), carPrice (vlastní cena), dřívější carKmCzk (Kč/km bez carFuel), accessOverride = 🏠 vlastní
+  // ceny veřejnou dopravou na letiště ({ VIE: 350 }, jen platné; starší dotaz bez pole = odhad). Viz access.js.
   ...normalizeAccess(raw),
   openJaw: raw.openJaw !== false,
   // Letiště, která uživatel z okruhu ručně vyřadil.
@@ -360,6 +361,9 @@ export async function search(raw, emit = () => {}, opts = {}) {
   const destAirports = routeMode ? dest.airports.filter((a) => !originSet.has(a)) : [];
   const countries = dest.kind === 'countries' ? new Set(dest.countries) : null;
   const singleCountry = countries && countries.size === 1 ? [...countries][0] : null;
+  // Hledaná země s jediným cílovým městem (Malta, Lucembursko, Lotyšsko): to město je hledaný cíl – 🙈 Nezajímá mě ho
+  // v prohlížeči neschová (destination.sole = klíče skupin; světadíl se nepočítá, ten není hledání sem)
+  const sole = countries ? [...new Set(q.to.filter((id) => id.startsWith('cc:')).map((id) => [...new Set(airportsInCountry(id.slice(3)).map((a) => destKey(a.iata)))]).filter((k) => k.length === 1).map((k) => k[0]))] : [];
   const destOk = (iata) => !countries || countries.has(getAirport(iata)?.cc);
 
   // Dálkové lety (Asie, Afrika, Amerika…): Kiwi se ptá jedním dotazem i z velkých přestupních
@@ -1184,7 +1188,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       origins: [...origins.airports, ...usedHubs].map((a) => ({ ...airportPublic(a.iata), distKm: a.distKm, ground: a.ground, ...(a.hub ? { hub: true } : {}), best: byOrigin[a.iata] || null })),
       // Přestupní letiště, ze kterých se (dálkové lety) hledalo navíc – i když z nich nic nevyšlo (UI je pak znovu nenabízí).
       hubs: hubs.map((h) => h.iata),
-      destination: { kind: dest.kind, label: dest.label || 'Kamkoliv', airports: routeMode ? destAirports : null, countries: dest.countries || null },
+      destination: { kind: dest.kind, label: dest.label || 'Kamkoliv', airports: routeMode ? destAirports : null, countries: dest.countries || null, ...(sole.length ? { sole } : {}) },
       destinationLabels,
       // Konkrétní cíl v dosahu: srovnání letadla s vlakem/busem (odhad) – i když se žádný let nenašel.
       ground,
@@ -1314,7 +1318,7 @@ async function searchMulti(q, emit, opts = {}) {
         to: places[i].to.map((x) => `ap:${x}`),
         trip: 'oneway', exactOut: l.date, flexDays: l.flex,
         radiusKm: i === 0 ? q.radiusKm : 0, kmRate: i === 0 ? q.kmRate : 0, exclude: i === 0 ? q.exclude : [],
-        groundMode: q.groundMode, ...carQuery(q),
+        groundMode: q.groundMode, ...carQuery(q), ...(i === 0 && q.accessOverride ? { accessOverride: q.accessOverride } : {}),
         adults: q.adults, directOnly: q.directOnly, bags: q.bags, arrival: q.arrival,
       }, (ev) => {
         if (ev.type !== 'progress') return;
@@ -1855,7 +1859,9 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
     });
     obOf.set(groups[groups.length - 1], ob);
   }
-  groups.sort((a, b) => a.best.perPersonCzk - b.best.perPersonCzk);
+  // při stejné ceně podle klíče cíle – pořadí (i to, který cíl se ještě vejde mezi prvních 150) nezávisí na tom, v jakém
+  // pořadí lety dorazily
+  groups.sort((a, b) => a.best.perPersonCzk - b.best.perPersonCzk || (a.dest.key < b.dest.key ? -1 : a.dest.key > b.dest.key ? 1 : 0));
   // „Super cena“ jen pro to nejlepší z výsledků: absolutní skóre i relativní pořadí (horních 20 %).
   const p20 = groups.length ? groups[Math.floor((groups.length - 1) * 0.2)].best.perPersonCzk : 0;
   const sorted = new Map([...pools].map(([k, list]) => [k, list.map((e) => e.czk).sort((a, b) => a - b)]));

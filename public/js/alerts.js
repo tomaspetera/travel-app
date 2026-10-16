@@ -192,31 +192,71 @@
   const incomplete = providers => (providers || []).some(p => p && p.outage);
 
   /**
+   * Body historie od posledního nového základu (bod s own: 1 – změna 🏠 vlastní ceny na letiště nebo 🙈 u nejlevnějšího
+   * města) – starší body jsou cena spočítaná jinak a s novými se nesrovnávají (nejnižší cena, rozdíl proti minulé
+   * kontrole, graf).
+   */
+  function epoch(history) {
+    const h = Array.isArray(history) ? history : [];
+    for (let i = h.length - 1; i > 0; i--) if (h[i] && h[i].own) return h.slice(i);
+    return h;
+  }
+
+  /**
+   * Posunula cenu změna nastavení, ne letenky? own = otisk 🏠 vlastních cen, které hledání použilo (SearchHelp.ownPrint;
+   * undefined = nehlídá se), uložený w.own (dřívější hlídání bez něj = žádné). best.key = město nejlevnější nabídky,
+   * best.hid = 🙈 města levnější než ona, která kontrola vynechala („OMR,BUH“): nejlevnější je teď město, které minulá
+   * kontrola vynechala (vrácené z 🙈 – 'unmute'), nebo minule nejlevnější město je teď v 🙈 ('mute').
+   * → 'own' | 'unmute' | 'mute' | null.
+   */
+  function rebaseWhy(w, best, own) {
+    if (own != null && String(w.own || '') !== String(own)) return 'own';
+    const hid = b => (b && typeof b.hid === 'string' ? b.hid.split(',') : []), was = w.best && w.best.key;
+    if (best && best.key && hid(w.best).includes(best.key)) return 'unmute';
+    return was && best && best.key !== was && hid(best).includes(was) ? 'mute' : null;
+  }
+
+  /**
    * Výsledek kontroly → nový stav hledání + důvod upozornění. Původní objekt nemění.
    * partial = některý zdroj neodpověděl: vyšší nebo žádná cena může být jen výpadkem – nezapíše se (skipped, hledání
    * zůstane k nové kontrole), nejvýš 2× po sobě, pak se vezme i neúplná. Nižší cena platí i při výpadku.
+   * own = otisk 🏠 vlastních cen na letiště, které hledání použilo (SearchHelp.ownPrint). Cena posunutá změnou nastavení
+   * (rebaseWhy: jiné vlastní ceny, 🙈 u nejlevnějšího města) se nehlásí jako zlevnění, zdražení ani cíl – je to nový
+   * základ: výchozí, nejnižší i „viděná“ cena začnou od ní (rebased = 'own' | 'unmute' | 'mute', bod historie s own: 1,
+   * w.rebAt = kdy). Bez own (undefined) se otisk nehlídá.
    */
-  function applyCheck(w, best, now, cfg = CFG, { partial = false } = {}) {
+  function applyCheck(w, best, now, cfg = CFG, { partial = false, own } = {}) {
     const h = Array.isArray(w.history) ? w.history : [];
     // minulá cena; když minulá kontrola nic nenašla, poslední známá z historie
     const prev = num(w.best && w.best.czk) || num(h.length && h[h.length - 1].czk);
     const cur = num(best && best.czk);
-    if (partial && prev && !(cur && cur < prev) && (num(w.partials) || 0) < 2) {
+    const reb = prev && cur ? rebaseWhy(w, best, own) : null;
+    // výpadek zdroje: s novým základem i nižší cenu raději ještě nebrat (příští úplná by z ní hlásila zdražení)
+    if (partial && prev && (reb || !(cur && cur < prev)) && (num(w.partials) || 0) < 2) {
       return { w: { ...w, tried: now, partials: (num(w.partials) || 0) + 1 }, why: null, prev, skipped: true };
     }
     const { partials, ...rest } = w;
     const out = { ...rest, best: best || null, checked: now, tried: now };
-    if (out.base == null && h.length) out.base = h[0].czk; // starší uložená data bez výchozí ceny
+    // otisk se zapíše jen s cenou (nebo bez minulé) – kontrola bez výsledku by jinak příští cenu srovnala se starou
+    if (own != null && (cur || !prev)) out.own = String(own);
+    const he = epoch(h);
+    if (out.base == null && he.length) out.base = he[0].czk; // starší uložená data bez výchozí ceny
     if (out.seen == null && prev) out.seen = prev;
     let why = null;
-    if (cur) {
+    if (reb) {
+      out.history = pushHistory(h, { at: now, czk: cur, own: 1 }, cfg.histCap);
+      out.base = out.low = out.seen = cur;
+      out.rebAt = now;
+      // pod cílovou cenou už teď → tuhle cenu nehlásit (jako nastavení cíle), jinak dřív ohlášená cena neplatí
+      if (num(w.target) && cur <= w.target) { out.notified = cur; out.notifiedAt = now; } else { delete out.notified; delete out.notifiedAt; }
+    } else if (cur) {
       out.history = pushHistory(h, { at: now, czk: cur }, cfg.histCap);
-      out.low = lowest([w.low, ...h.map(x => x.czk), cur]);
+      out.low = lowest([w.low, ...he.map(x => x.czk), cur]);
       if (out.base == null) out.base = cur;
       why = shouldNotify({ prev, cur, target: w.target, notified: w.notified }, cfg.dropPct);
       if (why) { out.notified = cur; out.notifiedAt = now; }
     }
-    return { w: out, why, prev };
+    return { w: out, why, prev, ...(reb ? { rebased: reb } : {}) };
   }
 
   /**
@@ -259,7 +299,7 @@
     const key = keyOf(w);
     const old = (list || []).find(x => x && keyOf(x) === key);
     if (!old) return { list: [w, ...(list || [])].slice(0, cap), w, dup: false };
-    const upd = { ...applyCheck(old, w.best, now, CFG, { partial }).w, label: w.label, sub: w.sub, form: w.form };
+    const upd = { ...applyCheck(old, w.best, now, CFG, { partial, own: w.own }).w, label: w.label, sub: w.sub, form: w.form };
     return { list: [upd, ...list.filter(x => x !== old)].slice(0, cap), w: upd, dup: true };
   }
 
@@ -376,5 +416,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
+  window.Alerts = { CFG, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
 })();

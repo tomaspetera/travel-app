@@ -145,6 +145,74 @@ test('applyCheck při výpadku zdroje: dražší ani žádná cena se nezapíše
   assert.equal(A.applyCheck({ id: 'n' }, { czk: 4000 }, NOW, undefined, { partial: true }).w.best.czk, 4000);
 });
 
+test('applyCheck: změna 🏠 vlastní ceny na letiště (otisk own) není „zlevnilo“ – bez upozornění, ceny od nové', () => {
+  // uloženo 956 Kč (BRQ odhad), pak BRQ vlastní cena 0 Kč → stejný let za 696 Kč
+  const w0 = { id: 'w', best: { czk: 956 }, history: [{ at: NOW - 7 * H, czk: 956 }], checked: NOW - 7 * H, base: 956, low: 956, seen: 956, own: '' };
+  const r = A.applyCheck(w0, { czk: 696 }, NOW, undefined, { own: 'BRQ:0' });
+  assert.equal(r.why, null, 'žádné 📉');
+  assert.equal(r.rebased, 'own');
+  assert.equal(r.w.rebAt, NOW);
+  assert.deepEqual([r.w.base, r.w.low, r.w.seen, r.w.own, r.w.notified], [696, 696, 696, 'BRQ:0', undefined]);
+  assert.equal(A.isDropped(r.w), false, 'žádné „📉 zlevnilo“ na kartě');
+  assert.deepEqual(plain(r.w.history.map((x) => [x.czk, x.own || 0])), [[956, 0], [696, 1]]);
+  assert.deepEqual(plain(A.epoch(r.w.history)), [{ at: NOW, czk: 696, own: 1 }], 'rozdíl, nejnižší cena a graf od změny');
+  // zdražení vlastní ceny taky ne „↑“ a nejnižší cena se nedrží staré (s jinou cestou na letiště)
+  const up = A.applyCheck(w0, { czk: 1216 }, NOW, undefined, { own: 'BRQ:130' });
+  assert.deepEqual([up.why, up.rebased, up.w.low, up.w.base], [null, 'own', 1216, 1216]);
+  // další kontrola se stejným otiskem: skutečné zlevnění se hlásí proti nové ceně, nejnižší cena jen z nové části
+  const next = A.applyCheck(r.w, { czk: 500 }, NOW + H, undefined, { own: 'BRQ:0' });
+  assert.deepEqual([next.why, next.prev, next.rebased, next.w.low], ['drop', 696, undefined, 500]);
+  const flat = A.applyCheck(up.w, { czk: 1300 }, NOW + H, undefined, { own: 'BRQ:130' });
+  assert.equal(flat.w.low, 1216, 'starší 956 Kč (jiná cesta na letiště) se do nejnižší nepočítá');
+  // stejný otisk = obvyklá kontrola; bez own (starší volání) se otisk nehlídá
+  assert.equal(A.applyCheck(w0, { czk: 696 }, NOW, undefined, { own: '' }).why, 'drop');
+  assert.equal(A.applyCheck(w0, { czk: 696 }, NOW).why, 'drop');
+  // starší hlídání bez otisku = bez vlastních cen
+  const { own, ...legacy } = w0;
+  assert.equal(A.applyCheck(legacy, { czk: 696 }, NOW, undefined, { own: '' }).why, 'drop');
+  assert.equal(A.applyCheck(legacy, { czk: 696 }, NOW, undefined, { own: 'BRQ:0' }).why, null);
+  // pod cílovou cenou už teď → tuhle cenu nehlásit ani příště; nad cílem dřív ohlášená cena neplatí
+  const tg = A.applyCheck({ ...w0, target: 800, notified: 900 }, { czk: 696 }, NOW, undefined, { own: 'BRQ:0' });
+  assert.deepEqual([tg.why, tg.w.notified], [null, 696]);
+  assert.equal(A.applyCheck(tg.w, { czk: 696 }, NOW + H, undefined, { own: 'BRQ:0' }).why, null);
+  assert.equal(A.applyCheck({ ...w0, target: 500, notified: 900 }, { czk: 696 }, NOW, undefined, { own: 'BRQ:0' }).w.notified, undefined);
+  // kontrola bez výsledku otisk nepřepíše – příští cena se pak srovná s novou, ne se starou
+  const none = A.applyCheck(w0, null, NOW, undefined, { own: 'BRQ:0' });
+  assert.deepEqual([none.rebased, none.w.own], [undefined, '']);
+  assert.equal(A.applyCheck(none.w, { czk: 696 }, NOW + H, undefined, { own: 'BRQ:0' }).why, null);
+  // výpadek zdroje s novým základem: raději počkat na úplnou kontrolu (nejvýš 2×)
+  const part = A.applyCheck(w0, { czk: 696 }, NOW, undefined, { own: 'BRQ:0', partial: true });
+  assert.deepEqual([part.skipped, part.w.own, part.w.best.czk], [true, '', 956]);
+  // první kontrola (bez minulé ceny) jen uloží otisk
+  const first = A.applyCheck({ id: 'n' }, { czk: 900 }, NOW, undefined, { own: 'BRQ:0' });
+  assert.deepEqual([first.rebased, first.w.own, first.w.base], [undefined, 'BRQ:0', 900]);
+  // ♡ téhož hledání po změně vlastní ceny (upsertWatch) – taky nová výchozí cena
+  const keyOf = (w) => w.id.slice(0, 1);
+  const ins = A.upsertWatch([w0], { ...w0, id: 'w2', best: { czk: 696 }, own: 'BRQ:0' }, keyOf, { now: NOW });
+  assert.deepEqual([ins.dup, ins.w.base, ins.w.low, ins.w.own], [true, 696, 696, 'BRQ:0']);
+});
+
+test('applyCheck: 🙈 změnilo nejlevnější město (vrácené z 🙈 / minule nejlevnější teď v 🙈) = nový základ, ne zlevnění ani zdražení', () => {
+  const w0 = { id: 'w', own: '', best: { czk: 795, desc: 'Brașov', key: 'BRV', hid: 'OMR,CLJ' }, history: [{ at: NOW - 7 * H, czk: 795 }], base: 795, low: 795, seen: 795 };
+  const back = A.applyCheck(w0, { czk: 770, key: 'OMR' }, NOW, undefined, { own: '' });
+  assert.deepEqual([back.rebased, back.why, back.w.base, back.w.history.length], ['unmute', null, 770, 2]);
+  assert.deepEqual(plain(A.epoch(back.w.history)), [{ at: NOW, czk: 770, own: 1 }], 'rozdíl, nejnižší cena a graf od nového základu');
+  // jiné, opravdu zlevněné město = zlevnění
+  assert.deepEqual([A.applyCheck(w0, { czk: 700, key: 'BRV' }, NOW, undefined, { own: '' }).why, A.rebaseWhy(w0, { czk: 700, key: 'WAW' }, '')], ['drop', null]);
+  assert.equal(A.rebaseWhy({ best: { czk: 1 } }, { czk: 1, key: 'OMR' }), null, 'bez seznamu skrytých nic');
+  // Oradea (770) → 🙈: nejlevnější Brașov 795 a Oradea mezi vynechanými levnějšími – žádné „↑ 25 Kč“ v historii
+  const ora = { id: 'w', own: '', best: { czk: 770, key: 'OMR' }, history: [{ at: NOW - 7 * H, czk: 770 }], base: 770, low: 770, seen: 770 };
+  const muted = A.applyCheck(ora, { czk: 795, key: 'BRV', hid: 'OMR' }, NOW, undefined, { own: '' });
+  assert.deepEqual([muted.rebased, muted.why, muted.w.base, plain(A.epoch(muted.w.history))], ['mute', null, 795, [{ at: NOW, czk: 795, own: 1 }]]);
+  // Oradea zdražila nad Brașov (ve vynechaných není) = opravdové zdražení, historie pokračuje
+  assert.equal(A.rebaseWhy(ora, { czk: 795, key: 'BRV' }, ''), null);
+  assert.equal(A.rebaseWhy(ora, { czk: 700, key: 'OMR', hid: 'XXX' }, ''), null, 'stejné město');
+  // upsertWatch (♡ znovu): podpis z nového uložení
+  const keyOf = () => 'k';
+  const r = A.upsertWatch([{ ...w0, own: '' }], { id: 'x', best: { czk: 600, key: 'BRV' }, own: 'BRQ:0', history: [] }, keyOf, { now: NOW });
+  assert.deepEqual([r.dup, r.w.own, r.w.base, r.w.history.length, r.w.id], [true, 'BRQ:0', 600, 2, 'w']);
+});
+
 // Dotaz na server tak, jak ho ze formuláře skládá flights.js (payloadOf) – zkrácený tvar pro testy klíče.
 const payload = (f) => ({
   from: f.from, to: f.to, radiusKm: f.radius ?? 200, dateFrom: f.dFrom, dateTo: f.dTo, trip: f.trip, nightsMin: f.nMin, nightsMax: f.nMax,

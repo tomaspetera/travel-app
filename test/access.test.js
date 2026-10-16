@@ -18,6 +18,8 @@ const { hubsNear } = await import('../server/lib/longhaul.js');
 const { bestRoundTrips } = await import('../server/lib/optimizer.js');
 const { search, normalizeQuery } = await import('../server/lib/search.js');
 const { makeLeg } = await import('../server/lib/fares.js');
+const { getAirport } = await import('../server/lib/airports.js');
+const { haversineKm } = await import('../server/lib/geo.js');
 
 const ctx = { window: {} };
 vm.runInNewContext(readFileSync(new URL('../public/js/searchhelp.js', import.meta.url), 'utf8'), ctx);
@@ -33,10 +35,12 @@ const transit = (home, iata, opts) => A.airportAccess(home, iata, opts);
 const car = (home, iata, opts = {}) => A.airportAccess(home, iata, { mode: 'car', ...opts });
 
 test('veřejnou dopravou: cílové rozsahy na osobu jedním směrem z Prahy a z Brna', () => {
+  // vlak / bus do města letiště za běžnou cenu RegioJetu 15. 10. 2026 (Praha–Pardubice 119 Kč, Karlovy Vary 179 Kč,
+  // Vídeň 249 Kč, Brno–Bratislava 139 Kč) + MHD / S-Bahn na letiště
   const targets = [
-    [PRAHA, 'PRG', 46, 100], [PRAHA, 'KLV', 180, 300], [PRAHA, 'PED', 170, 280], [PRAHA, 'DRS', 280, 450], [PRAHA, 'JCL', 200, 320],
-    [PRAHA, 'MUC', 450, 800], [PRAHA, 'BER', 450, 800], [PRAHA, 'VIE', 350, 600],
-    [BRNO, 'BRQ', 30, 60], [BRNO, 'VIE', 250, 450], [BRNO, 'BTS', 200, 400],
+    [PRAHA, 'PRG', 46, 100], [PRAHA, 'KLV', 180, 300], [PRAHA, 'PED', 120, 220], [PRAHA, 'DRS', 280, 450], [PRAHA, 'JCL', 200, 320],
+    [PRAHA, 'MUC', 450, 800], [PRAHA, 'BER', 450, 800], [PRAHA, 'VIE', 330, 600],
+    [BRNO, 'BRQ', 30, 60], [BRNO, 'VIE', 250, 450], [BRNO, 'BTS', 150, 300],
   ];
   for (const [home, iata, lo, hi] of targets) {
     for (const h of home === PRAHA ? [PRAHA, PRAHA_GEO] : [home]) {
@@ -59,16 +63,19 @@ test('veřejnou dopravou: cílové rozsahy na osobu jedním směrem z Prahy a z 
   const muc = transit(PRAHA, 'MUC');
   assert.deepEqual(muc.breakdown.map((x) => [x.k, x.czk]), [['intercity', 400], ['border', 80]]);
   assert.match(muc.breakdown[0].label, /^Praha → letiště Mnichov přímým busem/);
-  // bez přímého busu (Plzeň) přes město a S-Bahn; Memmingen přes Mnichov a letištní bus
+  // bez přímého busu (Plzeň) přes město a S-Bahn (běžná cena spoje přes hranici – bez příplatku); Memmingen přes Mnichov
+  // a letištní bus
   const plzen = { lat: 49.7384, lon: 13.3736, label: 'Plzeň' };
-  assert.deepEqual(transit(plzen, 'MUC').breakdown.map((x) => x.k), ['intercity', 'access', 'border']);
+  assert.deepEqual(transit(plzen, 'MUC').breakdown.map((x) => x.k), ['intercity', 'access']);
   // Allgäu Airport Express z Mnichova online od 15 € (ověřeno 10/2026, stejně jako v data/arrival.json)
-  assert.deepEqual(transit(PRAHA, 'FMM').breakdown.map((x) => [x.k, x.czk]), [['intercity', 300], ['access', 370], ['border', 60]]);
-  // přímý bus jen když vyjde levněji: Praha → Vídeň a Berlín, Brno → Vídeň
-  for (const [h, iata, czk] of [[PRAHA, 'VIE', 440], [PRAHA, 'BER', 500], [BRNO, 'VIE', 300]]) {
+  assert.deepEqual(transit(PRAHA, 'FMM').breakdown.map((x) => [x.k, x.czk]), [['intercity', 300], ['access', 370]]);
+  // přímý bus jen když vyjde levněji (jeho „od“ + příplatek proti běžné ceně přes město): Brno → Vídeň přímým busem
+  // 249 + 50 Kč; Praha → Vídeň vlakem do Vídně běžně 249 Kč + S7 ~110 Kč (přímý bus 369 + 74 Kč), Berlín 379 + 120 Kč
+  for (const [h, iata, czk, how] of [[PRAHA, 'VIE', 360, ['intercity', 'access']], [PRAHA, 'BER', 500, ['intercity', 'access']], [BRNO, 'VIE', 300, ['intercity', 'border']]]) {
     const g = transit(h, iata);
-    assert.deepEqual([g.czk, g.breakdown.map((x) => x.k)], [czk, ['intercity', 'border']], `${h.label} → ${iata}`);
+    assert.deepEqual([g.czk, g.breakdown.map((x) => x.k)], [czk, how], `${h.label} → ${iata}`);
   }
+  assert.match(transit(BRNO, 'VIE').breakdown[0].label, /přímým busem/);
   // letiště za humny (blíž než jeho město): regionální spoj rovnou na letiště (Kladno → Ruzyně, Bratislava → Schwechat)
   assert.deepEqual(transit({ lat: 50.1473, lon: 14.1029, label: 'Kladno' }, 'PRG').breakdown.map((x) => x.k), ['regional']);
   const bv = transit(BRATISLAVA, 'VIE');
@@ -76,26 +83,104 @@ test('veřejnou dopravou: cílové rozsahy na osobu jedním směrem z Prahy a z 
   assert.ok(bv.czk >= 100 && bv.czk <= 250, `Bratislava → VIE ${bv.czk}`);
 });
 
-test('příplatek za mezinárodní spoj: jen přes hranici, mezi Českem, Slovenskem, Polskem a Maďarskem menší', () => {
+test('příplatek za mezinárodní spoj: jen k „od“ přímého busu a k regionálnímu spoji přes hranici, CZ/SK/PL/HU menší', () => {
   const border = (h, iata) => transit(h, iata).breakdown.find((x) => x.k === 'border')?.czk || 0;
   for (const iata of ['PRG', 'KLV', 'PED', 'JCL', 'BRQ', 'OSR']) assert.equal(border(PRAHA, iata), 0, iata);
-  assert.ok(border(PRAHA, 'LEJ') >= 50 && border(PRAHA, 'VIE') >= 50 && border(PRAHA, 'BER') >= 50);
-  // Praha → Drážďany: změřená cena konkrétních spojů (FlixBus 319–339 Kč) – příplatek už v ní je
-  assert.equal(border(PRAHA, 'DRS'), 0);
-  assert.equal(border(BRNO, 'BTS'), 30);
-  assert.equal(border(PRAHA, 'KTW'), 30);
+  // vlak / bus do města letiště za běžnou cenu – změřená (Praha ↔ Vídeň, Berlín, Katovice) i z modelu kalibrovaného na
+  // spojích přes hranici (Lipsko, Brno → Bratislava) už je cena mezinárodního spoje
+  for (const [h, iata] of [[PRAHA, 'LEJ'], [PRAHA, 'VIE'], [PRAHA, 'BER'], [PRAHA, 'KTW'], [BRNO, 'BTS'], [PRAHA, 'DRS']]) assert.equal(border(h, iata), 0, `${h.label} → ${iata}`);
+  // přímý bus až na letiště (nejnižší cena, změřená 6. 10.) a regionální spoj přes hranici příplatek mají
+  assert.equal(border(PRAHA, 'MUC'), 80);
+  assert.equal(border(BRNO, 'VIE'), 50);
+  assert.equal(border(BRATISLAVA, 'VIE'), 50);
   assert.equal(A.borderCzk('CZ', 'AT', 500), 100);
   assert.equal(A.borderCzk('CZ', 'DE', 100), 50);
+  assert.equal(A.borderCzk('CZ', 'PL', 300), 30);
   assert.equal(A.borderCzk('CZ', 'CZ', 500), 0);
-  // poloha bez země u hranice: sever Čech má nejblíž letiště Drážďany, pořád je to ale Česko (do Prahy bez příplatku
-  // a bez české známky, do Drážďan s příplatkem)
+  // poloha bez země u hranice: sever Čech má nejblíž letiště Drážďany, pořád je to ale Česko (do Prahy bez příplatku,
+  // bez české známky a s cenou paliva v Česku)
   for (const [label, lat, lon] of [['Ústí nad Labem', 50.6607, 14.0323], ['Děčín', 50.7736, 14.1964], ['Varnsdorf', 50.9116, 14.6183]]) {
     const h = { lat, lon, label };
     assert.equal(border(h, 'PRG'), 0, label);
-    assert.ok(border(h, 'DRS') >= 50, label);
+    assert.equal(A.fuelCountry(h), 'CZ', label);
     assert.deepEqual(plain(car(h, 'PRG').tolls), [], label);
   }
   assert.equal(border(BRATISLAVA, 'BTS'), 0, 'Bratislava = Slovensko');
+});
+
+test('krátký spoj přes hranici: regionální jízdné s příplatkem, mezinárodní spoj ne levněji než na 115 km', () => {
+  const ks = (h, iata) => transit(h, iata).breakdown.map((x) => [x.k, x.czk]);
+  const OSTRAVA = { lat: 49.8346, lon: 18.282, label: 'Ostrava', cc: 'CZ' };
+  const DECIN = { lat: 50.7736, lon: 14.1964, label: 'Děčín', cc: 'CZ' };
+  const BRECLAV = { lat: 48.759, lon: 16.882, label: 'Břeclav', cc: 'CZ' };
+  const ZNOJMO = { lat: 48.8555, lon: 16.0488, label: 'Znojmo', cc: 'CZ' };
+  const CB = { lat: 48.9745, lon: 14.4743, label: 'České Budějovice', cc: 'CZ' };
+  // Ostrava → Katovice ~71 km: regionální jízdné vyhrálo nad pásmem východ – příplatek 30 Kč (RegioJet běžně 189 Kč)
+  assert.deepEqual(ks(OSTRAVA, 'KTW'), [['intercity', 140], ['access', 150], ['border', 30]]);
+  // Děčín → Drážďany 45 km, Břeclav → Vídeň 72 km: regionální jízdné + příplatek 50 Kč (dřív 90 / 130 Kč bez příplatku)
+  assert.deepEqual(ks(DECIN, 'DRS'), [['intercity', 100], ['access', 90], ['border', 50]]);
+  assert.deepEqual(ks(BRECLAV, 'VIE'), [['intercity', 140], ['access', 110], ['border', 50]]);
+  // Znojmo → Vídeň, České Budějovice → Linec ~76 km: běžná cena mezinárodního spoje jako na 115 km (190 Kč), ne model
+  // protažený pod kalibraci (130 Kč) – pořád levnější než regionální jízdné + příplatek (~194 Kč)
+  assert.deepEqual(ks(ZNOJMO, 'VIE'), [['intercity', 190], ['access', 110]]);
+  assert.deepEqual(ks(CB, 'LNZ'), [['intercity', 190], ['access', 90]]);
+  // spoj přes hranici nikdy levněji než domácí regionální jízdenka na stejnou vzdálenost; delší trasy beze změny
+  for (const [h, iata] of [[DECIN, 'DRS'], [BRECLAV, 'VIE'], [ZNOJMO, 'VIE'], [CB, 'LNZ'], [OSTRAVA, 'KTW']]) {
+    const g = transit(h, iata);
+    const ic = g.breakdown.filter((x) => x.k === 'intercity' || x.k === 'border').reduce((s, x) => s + x.czk, 0);
+    const c = A.airportCity(getAirport(iata));
+    const km = Math.round(haversineKm(h.lat, h.lon, c.lat, c.lon));
+    assert.ok(ic >= Math.round(A.regionalCzk(km) / 10) * 10, `${h.label} → ${iata}: ${ic} Kč za ${km} km`);
+  }
+  assert.deepEqual(ks(OSTRAVA, 'KRK'), [['intercity', 200], ['access', 110]]);
+  assert.equal(transit(BRNO, 'VIE').czk, 300, 'Brno → Vídeň přímým busem');
+  assert.equal(transit(PRAHA, 'DRS').czk, 430, 'Praha → Drážďany změřeno (FARE)');
+  // Česko ↔ Slovensko: pásmo domácí, bez příplatku (Břeclav → Bratislava)
+  assert.deepEqual(ks(BRECLAV, 'BTS'), [['intercity', 100], ['access', 40]]);
+});
+
+test('🏠 vlastní cena na letiště (accessOverride): kontrola, místo odhadu bez násobku, autem a vypnuto ne, prohlížeč stejně', () => {
+  const own = A.normalizeOwn;
+  // kód letiště (i malými) → celé Kč 0–5 000, nejvýš 12 letišť, klíče podle abecedy; jinak null
+  assert.deepEqual(plain(own({ vie: 350, BTS: '270', PRG: 0 })), { BTS: 270, PRG: 0, VIE: 350 });
+  for (const bad of [null, 5, 'VIE:350', [['VIE', 350]], {}, { VIE: 350.5 }, { VIE: -1 }, { VIE: 5001 }, { VIE: '1e3' }, { VIENNA: 300 }, { VIE: true }, { VIE: null }]) {
+    assert.equal(own(bad), null, JSON.stringify(bad));
+  }
+  assert.deepEqual(plain(own(JSON.parse('{"__proto__":{"x":1},"constructor":5,"LEJ":5000}'))), { LEJ: 5000 });
+  const many = Object.fromEntries(Array.from({ length: 15 }, (_, i) => [`A${String.fromCharCode(65 + i)}A`, 100 + i]));
+  assert.equal(Object.keys(own(many)).length, A.OWN_MAX);
+  // normalizeAccess / normalizeQuery: jen veřejnou dopravou, starší dotaz bez pole = null
+  assert.deepEqual(plain(A.normalizeAccess({ accessOverride: { VIE: 350 } }).accessOverride), { VIE: 350 });
+  assert.equal(A.normalizeAccess({ groundMode: 'car', accessOverride: { VIE: 350 } }).accessOverride, null);
+  assert.equal(normalizeQuery({ from: ['ap:PRG'] }).accessOverride, null);
+  assert.deepEqual(plain(normalizeQuery({ from: ['ap:PRG'], accessOverride: { VIE: 350, x: 1 } }).accessOverride), { VIE: 350 });
+  const q = normalizeQuery({ from: ['ap:PRG'], groundMode: 'transit', kmRate: 0.5, accessOverride: { VIE: 350 } });
+  assert.deepEqual(plain(A.accessOpts(q).own), { VIE: 350 });
+  // místo odhadu (jen u daného letiště), na osobu a jeden směr, násobek jízdného se nepoužije, čas zůstává z odhadu
+  const est = A.airportAccess(PRAHA, 'VIE', A.accessOpts(q));
+  const plainEst = A.airportAccess(PRAHA, 'VIE', { scale: 0.5 });
+  assert.deepEqual([est.czk, est.own, est.estCzk, est.minutes, est.mode], [350, true, plainEst.czk, plainEst.minutes, 'transit']);
+  assert.deepEqual(est.breakdown, [{ k: 'own', label: 'vlastní cena', czk: 350 }]);
+  assert.deepEqual(A.airportAccess(PRAHA, 'BTS', A.accessOpts(q)), A.airportAccess(PRAHA, 'BTS', { scale: 0.5 }), 'jiné letiště odhadem');
+  // autem beze změny, vypnutá doprava = 0 (vlastní cena se nepočítá)
+  assert.equal(A.airportAccess(PRAHA, 'VIE', { mode: 'car', own: { VIE: 350 } }).own, undefined);
+  const off = A.airportAccess(PRAHA, 'VIE', { scale: 0, own: { VIE: 350 } });
+  assert.deepEqual([off.czk, off.off, off.own], [0, true, undefined]);
+  // prohlížeč: stejná kontrola (SearchHelp.ownClean), do /api/origins „VIE:350,…“, štítek „vlastní“ místo odhadu
+  for (const x of [{ VIE: 350, BTS: 270, PRG: 0 }, { VIE: 350.5, BTS: 6000 }, many, null, { vie: 1 }]) {
+    assert.deepEqual(plain(H.ownClean(x)), plain(own(x && Object.fromEntries(Object.entries(x).filter(([k]) => /^[A-Z]{3}$/.test(k))))), JSON.stringify(x));
+  }
+  assert.equal(H.ownQs({ VIE: 350, BTS: 270 }), 'BTS:270,VIE:350');
+  assert.equal(H.ownQs(null), '');
+  assert.deepEqual([H.OWN_MAX, H.OWN_MAX_CZK], [A.OWN_MAX, A.OWN_MAX_CZK]);
+  const l = H.accessLabel(plain(est));
+  assert.equal(l.text, '🏠 350 Kč/os. tam');
+  assert.match(l.title, /^Veřejnou dopravou: vlastní cena 350 Kč na osobu jedním směrem \(zpět totéž\) místo odhadu ~180 Kč, cesta ~4 h 55 min \(odhad\)\./, 'odhad s násobkem 0,5');
+  assert.doesNotMatch(l.title, /Odhad podle vzdálenosti/);
+  // radar hledá s vlastními cenami stejně jako formulář (jiný klíč uloženého radaru)
+  const home = { from: [{ id: 'ap:PRG', label: 'Praha' }], radius: 200, adults: 2 };
+  assert.equal(H.radarQuery('all', home, '2026-10-15').payload.accessOverride, undefined);
+  assert.deepEqual(plain(H.radarQuery('all', { ...home, own: { VIE: 350, bad: 1 } }, '2026-10-15').payload.accessOverride), { VIE: 350 });
 });
 
 test('násobek jízdného (kmRate) a vypnutá doprava', () => {
@@ -228,8 +313,8 @@ test('veřejnou dopravou: Praha → Drážďany změřeně (bus ~340 Kč + S-Bah
   assert.equal(drs.czk, 430);
   assert.match(drs.breakdown[0].label, /^Praha → Drážďany busem \(FlixBus, RegioJet\)$/);
   assert.equal(transit(PRAHA_GEO, 'DRS').czk, 430, 'i z polohy v Praze');
-  // jinde do Drážďan dál model (z Plzně s příplatkem za mezinárodní spoj)
-  assert.deepEqual(transit({ lat: 49.7384, lon: 13.3736, label: 'Plzeň' }, 'DRS').breakdown.map((x) => x.k), ['intercity', 'access', 'border']);
+  // jinde do Drážďan dál model (z Plzně za běžnou cenu spoje přes hranici)
+  assert.deepEqual(transit({ lat: 49.7384, lon: 13.3736, label: 'Plzeň' }, 'DRS').breakdown.map((x) => x.k), ['intercity', 'access']);
   // PID: linka 59 + metro A, Airport Express 200 Kč (pid.cz, 6. 10. 2026)
   assert.match(transit(PRAHA, 'PRG').breakdown[0].label, /bus 59 \+ metro A.*Airport Express 200 Kč/);
 });
@@ -267,7 +352,7 @@ test('autem jen tam: odvoz – palivo tam i zpět, celá známka, bez parkován�
 
 test('dotaz: groundMode, kmRate jako násobek, pohon auta; dřívější kmRate a carKmCzk v Kč/km (uložená hledání, odkazy)', () => {
   const n = (raw) => plain(A.normalizeAccess(raw));
-  assert.deepEqual(n({}), { groundMode: 'transit', kmRate: 1, carFuel: 'diesel', carCons: 6, carPrice: null, carKmCzk: null });
+  assert.deepEqual(n({}), { groundMode: 'transit', kmRate: 1, carFuel: 'diesel', carCons: 6, carPrice: null, carKmCzk: null, accessOverride: null });
   // bez groundMode = dřívější Kč/km s výchozími 1,1 → násobek 1
   assert.equal(n({ kmRate: 1.1 }).kmRate, 1);
   assert.equal(n({ kmRate: '1.1' }).kmRate, 1);
@@ -282,9 +367,9 @@ test('dotaz: groundMode, kmRate jako násobek, pohon auta; dřívější kmRate 
   assert.equal(n({ groundMode: 'car' }).groundMode, 'car');
   // dřívější klient: jen carKmCzk (bez carFuel) zůstává v Kč/km, meze 0,5–10
   assert.deepEqual([n({ carKmCzk: 3.14 }).carKmCzk, n({ carKmCzk: 50 }).carKmCzk, n({ carKmCzk: 0.1 }).carKmCzk, n({ carKmCzk: 'x' }).carKmCzk, n({ carKmCzk: -1 }).carKmCzk], [3.1, 10, 0.5, 2.6, 2.6]);
-  assert.deepEqual(n({ groundMode: 'car', carKmCzk: 2.6 }), { groundMode: 'car', kmRate: 1, carFuel: null, carCons: null, carPrice: null, carKmCzk: 2.6 });
+  assert.deepEqual(n({ groundMode: 'car', carKmCzk: 2.6 }), { groundMode: 'car', kmRate: 1, carFuel: null, carCons: null, carPrice: null, carKmCzk: 2.6, accessOverride: null });
   // s carFuel se carKmCzk nepoužije
-  assert.deepEqual(n({ carFuel: 'ev', carKmCzk: 3 }), { groundMode: 'transit', kmRate: 1, carFuel: 'ev', carCons: 19, carPrice: null, carKmCzk: null });
+  assert.deepEqual(n({ carFuel: 'ev', carKmCzk: 3 }), { groundMode: 'transit', kmRate: 1, carFuel: 'ev', carCons: 19, carPrice: null, carKmCzk: null, accessOverride: null });
   // normalizeQuery: totéž u hledání i u cesty přes víc měst
   const q = normalizeQuery({ from: ['ap:PRG'], kmRate: 1.1 });
   assert.deepEqual([q.groundMode, q.kmRate, q.carFuel, q.carCons, q.carPrice, q.carKmCzk], ['transit', 1, 'diesel', 6, null, null]);
@@ -390,8 +475,9 @@ test('prohlížeč: stejné parkování a cesta autem jako server, štítky leti
   assert.equal(H.parkDays(3), A.parkDays(3));
   // štítky: veřejnou dopravou tam, autem i s parkováním na N dní, odvoz
   const t = H.accessLabel(plain(transit(PRAHA, 'KLV')));
-  assert.equal(t.text, '~220 Kč/os. tam');
-  assert.match(t.title, /^Veřejnou dopravou: Praha → Karlovy Vary vlakem \/ busem ~190 Kč \+ MHD Karlovy Vary ~30 Kč = ~220 Kč na osobu jedním směrem \(zpět totéž\)/);
+  assert.equal(t.text, '~210 Kč/os. tam');
+  assert.match(t.title, /^Veřejnou dopravou: Praha → Karlovy Vary vlakem \/ busem ~180 Kč \+ MHD Karlovy Vary ~30 Kč = ~210 Kč na osobu jedním směrem \(zpět totéž\)/);
+  assert.match(t.title, /vlak \/ bus za běžnou cenu/);
   const vie = car(PRAHA_GEO, 'VIE', { adults: 2 });
   const c = H.accessLabel(plain(vie), { nights: 7 });
   assert.match(c.text, /^~[\d\s ]+ Kč\/os\. vč\. parkování na 8 dní$/);

@@ -69,7 +69,7 @@ test('GET /api/places a /api/origins', async () => {
 test('GET /api/origins – doprava na letiště: veřejnou dopravou, autem s parkováním, dřívější kmRate, vypnuto', async () => {
   const get = async (qs) => (await fetch(`${base}/api/origins?from=ap:PRG&radius=200&${qs}`)).json();
   const t = await get('groundMode=transit&kmRate=1');
-  assert.deepEqual(t.access, { groundMode: 'transit', kmRate: 1, carFuel: 'diesel', carCons: 6, carPrice: null, carKmCzk: null, adults: 1, nights: 7, trip: 'return', fuelCc: 'CZ' });
+  assert.deepEqual(t.access, { groundMode: 'transit', kmRate: 1, carFuel: 'diesel', carCons: 6, carPrice: null, carKmCzk: null, accessOverride: null, adults: 1, nights: 7, trip: 'return', fuelCc: 'CZ' });
   const prg = t.airports.find((a) => a.iata === 'PRG');
   assert.deepEqual([prg.ground.mode, prg.ground.czk, prg.ground.local], ['transit', 50, true]);
   for (const a of t.airports) {
@@ -102,6 +102,39 @@ test('GET /api/origins – doprava na letiště: veřejnou dopravou, autem s par
   // vypnuto
   const off = await get('groundMode=transit&kmRate=0');
   assert.ok(off.airports.every((a) => a.ground.czk === 0 && a.ground.off));
+});
+
+test('🏠 vlastní cena na letiště: /api/origins (own=VIE:350) i hledání (accessOverride) – místo odhadu, oba směry, bez násobku', async () => {
+  const get = async (qs) => (await fetch(`${base}/api/origins?from=ap:PRG&radius=300&${qs}`)).json();
+  const est = await get('groundMode=transit&kmRate=0.5');
+  // kontrola jako u hledání: kód letiště (i malými), celé Kč 0–5 000; neplatné položky pryč
+  const own = await get('groundMode=transit&kmRate=0.5&own=VIE:350,prg:0,BRQ:5001,XX:1,DRS:12.5,KTW:-5');
+  assert.deepEqual(own.access.accessOverride, { PRG: 0, VIE: 350 });
+  const g = (r, iata) => r.airports.find((a) => a.iata === iata).ground;
+  // vlastní cena bez násobku jízdného (0,5), čas zůstává z odhadu, rozpis „vlastní cena“, odhad pro srovnání
+  assert.deepEqual([g(own, 'VIE').czk, g(own, 'VIE').own, g(own, 'VIE').estCzk, g(own, 'VIE').minutes], [350, true, g(est, 'VIE').czk, g(est, 'VIE').minutes]);
+  assert.deepEqual(g(own, 'VIE').breakdown, [{ k: 'own', label: 'vlastní cena', czk: 350 }]);
+  assert.deepEqual([g(own, 'PRG').czk, g(own, 'PRG').own], [0, true], '0 Kč = někdo tě odveze');
+  assert.deepEqual(g(own, 'BRQ'), g(est, 'BRQ'), 'neplatná cena → odhad');
+  // autem a s vypnutou dopravou se vlastní cena nepoužije
+  const car = await get('groundMode=car&own=VIE:350');
+  assert.equal(car.access.accessOverride, null);
+  assert.ok(!g(car, 'VIE').own && g(car, 'VIE').mode === 'car');
+  assert.ok(!g(await get('groundMode=transit&kmRate=0&own=VIE:350'), 'VIE').own);
+  // hledání: cena cesty s vlastní cenou tam i zpět (na osobu), letiště v náhledu s ní; starší dotaz bez pole = odhad
+  const body = { from: ['ap:PRG', 'ap:VIE'], to: [], radiusKm: 0, dateFrom: ymdPlus(10), dateTo: ymdPlus(40), trip: 'return', nightsMin: 2, nightsMax: 5, adults: 1, groundMode: 'transit', kmRate: 1 };
+  const r = (await searchStream({ ...body, accessOverride: { VIE: 350, PRG: 0 } })).last.result;
+  assert.deepEqual(r.query.accessOverride, { PRG: 0, VIE: 350 });
+  assert.equal(r.origins.find((o) => o.iata === 'VIE').ground.czk, 350);
+  const trips = [...(r.top || []), ...r.groups.flatMap((x) => [x.best, ...(x.options || [])])].filter(Boolean);
+  const viaVie = trips.filter((t) => t.out.from === 'VIE' && t.back && t.back.to === 'VIE');
+  const viaPrg = trips.filter((t) => t.out.from === 'PRG' && t.back && t.back.to === 'PRG');
+  assert.ok(viaVie.length && viaPrg.length, 'DEMO má lety z Vídně i z Prahy');
+  assert.ok(viaVie.every((t) => t.groundCzk === 700), 'VIE tam i zpět 2 × 350 Kč');
+  assert.ok(viaPrg.every((t) => t.groundCzk === 0), 'PRG 0 Kč');
+  const plainR = (await searchStream(body)).last.result;
+  assert.equal(plainR.query.accessOverride, null);
+  assert.ok(!plainR.origins.some((o) => o.ground.own));
 });
 
 test('GET /api/origins a /api/nearby – autem podle pohonu: nafta, benzín, elektro, vlastní cena a spotřeba, meze (DEMO ceny)', async () => {

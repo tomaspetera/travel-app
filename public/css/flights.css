@@ -122,6 +122,16 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .gm-km{font-weight:700;color:var(--muted);white-space:nowrap}
 .gm-price{font-size:12.5px;color:var(--muted)}
 .gm-price.own{opacity:.6}
+/* 🏠 Moje cena na letiště: vlastní cena tam na osobu u letišť z náhledu (prázdné = odhad) */
+.gm-own{flex-basis:100%;margin-top:6px;padding:8px 10px;border:1px dashed var(--border);border-radius:10px}
+.gm-own[hidden]{display:none}
+.gm-own-h{font-size:13px;font-weight:600;margin-bottom:6px}
+.gm-own-h .faint{font-weight:400}
+.gm-own-list{display:flex;flex-wrap:wrap;gap:6px 14px}
+.field label.gm-own-it{gap:5px}
+.gm-own-it b{min-width:30px}
+.gm-own-it .input.xs{width:76px}
+.gm-own-it.on b{color:var(--accent)}
 .dow{display:flex;gap:5px;flex-wrap:wrap}
 .dow button{width:42px;padding:8px 0;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font:700 12.5px Inter,sans-serif;cursor:pointer}
 .dow button.on{background:var(--grad);color:#fff;border-color:transparent}
@@ -487,7 +497,10 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 
 /* Přehled cílů („kamkoliv“): řádek na město, klepnutím plná karta */
 .cmp-list{padding:4px 0;margin-bottom:14px;overflow:hidden}
-.cmp-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto 14px;gap:10px;align-items:center;padding:10px 14px;cursor:pointer;border-top:1px solid var(--border);transition:background .15s}
+.cmp-row{display:grid;grid-template-columns:minmax(0,1fr) 30px 12px;gap:10px;align-items:center;padding:10px 14px;cursor:pointer;border-top:1px solid var(--border);transition:background .15s}
+/* tlačítko řádku (vlajka, název, cena) – ⋯ je vedle něj, ne uvnitř */
+.cmp-hit{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;min-width:0;border-radius:8px}
+.cmp-hit:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
 .cmp-row:first-child{border-top:0}
 .cmp-row:hover,.cmp-row.open{background:var(--surface-2)}
 .cmp-flag{font-size:22px;line-height:1}
@@ -806,3 +819,55 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .lw-foot{font-size:12px;margin-top:12px}
 .cmp-lv{color:var(--muted);font-weight:600}
 .rc-lv{display:block}
+
+/* ⭐ Moje cíle a 🙈 Nezajímá mě: ⋯ u cíle (radar, Kamkoliv), štítky, pruh na Přehledu, okna s volbou a úpravou */
+.dm-btn{flex:none;width:30px;height:30px;display:grid;place-items:center;padding:0;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);font:800 15px/1 Inter,sans-serif;cursor:pointer}
+.dm-btn:hover,.dm-btn:focus-visible{color:var(--text);border-color:var(--accent)}
+.rc-top{gap:4px}
+.rc-top .rc-badges{flex:1;min-width:0}
+.rc-top .dm-btn{width:26px;height:26px;font-size:14px}
+.rc-head .dm-btn{margin-left:auto;align-self:flex-start}
+.cmp-card .rc-head .dm-btn{display:none} /* rozbalená karta v Přehledu cílů: ⋯ už je v řádku nad ní */
+.b.fav-b{background:rgba(251,191,36,.16);color:var(--warn)}
+.b.mute-b{color:var(--faint)}
+[data-theme=light] .b.fav-b{color:#8a5a00}
+.modal:has(.dm-modal){width:min(440px,100%)}
+.modal:has(.pe-modal){width:min(520px,100%)}
+.dm-modal h3,.pe-modal h3{font-size:19px;margin-bottom:12px}
+.dm-acts{display:flex;flex-wrap:wrap;gap:8px}
+.dm-acts .btn{flex:1 1 150px;justify-content:center}
+.dm-note{font-size:12.5px;margin-top:12px}
+.dm-foot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-top:14px}
+.dm-foot .linkbtn{font-size:13px;text-align:left}
+.pe-h{font-size:14.5px;margin:14px 0 4px}
+.pe-h .faint{font-weight:600;font-size:12.5px}
+.pe-list{list-style:none;margin:0;padding:0}
+.pe-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
+.pe-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.pe-acts{display:flex;gap:4px;flex:none}
+.pe-acts .btn{min-width:36px;justify-content:center;padding:6px 8px}
+.pe-empty,.pe-note{font-size:12.5px}
+.pe-note{margin-top:12px}
+.pe-foot{display:flex;justify-content:flex-end;margin-top:14px}
+.fav-sec[hidden]{display:none}
+.section-head button.link{background:none;border:0;padding:0;font-family:inherit}
+.fav-card{padding:14px}
+.fav-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.fav-i{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s}
+.fav-i:hover,.fav-i:focus-visible{border-color:var(--accent)}
+.fav-n{max-width:100%;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fav-p{font-size:12.5px;color:var(--muted)}
+.fav-p b{font:800 15px Sora,sans-serif;color:var(--good)}
+.fav-w{font-size:11.5px;color:var(--faint)}
+.fav-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:12px;font-size:12.5px}
+.fav-note,.fav-mute{font-size:11.5px;margin-top:8px}
+[data-theme=light] .fav-p b{color:#047857}
+@media(max-width:560px){
+  .cmp-row{grid-template-columns:minmax(0,1fr) 28px 10px;gap:8px;padding:10px 12px}
+  .cmp-hit{grid-template-columns:26px minmax(0,1fr) auto;gap:8px}
+  .cmp-row .dm-btn{width:28px;height:28px}
+  /* na telefonu pruh, který se posouvá do strany (stránka zůstane na šířku displeje); dlaždice 58 % šířky, ať další
+     vždy vykoukne – minmax(160px,58%) zůstane v přetékající mřížce na 160 px a dvě dlaždice na 390 px končí přesně u okraje */
+  .fav-strip{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:max(150px,58%);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}
+  .fav-i{scroll-snap-align:start}
+}
