@@ -74,7 +74,7 @@
   }
 
   // Volby formuláře jen ze známých hodnot – neznámá by formulář rozbila (žádné tlačítko .on), nechá se výchozí.
-  const ENUM = { trip: ['return', 'oneway', 'multi'], dateMode: ['flex', 'exact'], len: ['weekend', 'long', 'week', 'custom', 'holiday'], groundMode: ['transit', 'car'], carFuel: ['diesel', 'petrol', 'ev'], bags: ['none', 'cabin', 'checked'] };
+  const ENUM = { trip: ['return', 'oneway', 'multi'], dateMode: ['flex', 'exact'], len: ['weekend', 'long', 'week', '2weeks', 'custom', 'holiday'], groundMode: ['transit', 'car'], carFuel: ['diesel', 'petrol', 'ev'], bags: ['none', 'cabin', 'checked'] };
   const NUM = { radius: [0, 500], nMin: [0, 60], nMax: [0, 60], adults: [1, 9], xFlex: [0, 3], minTemp: [0, 40], kmRate: [0, 5] };
   const DATE = ['dFrom', 'dTo', 'xOut', 'xBack'];
   const FUELS = ['diesel', 'petrol', 'ev'];
@@ -483,7 +483,8 @@
     if (window.Flights) {
       Flights.renderWatch();
       if (Flights.updateHomeChip) Flights.updateHomeChip();
-      if ((homeChanged || df.own.add) && activeView === 'dashboard') Flights.renderRadar();
+      if (homeChanged && Flights.homeChanged) Flights.homeChanged(); // i Odkud v hledání na Přehledu
+      else if (df.own.add && activeView === 'dashboard') Flights.renderRadar();
       if (df.own.add && Flights.refreshOrigins) Flights.refreshOrigins(); // 🏠 vlastní ceny ve formuláři
       if (Flights.refreshVisited) Flights.refreshVisited();
       if ((df.dests.fav || df.dests.mute) && Flights.refreshPrefs) Flights.refreshPrefs(); // radar, pruh ⭐ Moje cíle, Kamkoliv

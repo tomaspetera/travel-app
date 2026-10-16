@@ -1235,3 +1235,25 @@ test('🔎 Co tam je: pobyt pro Objevuj – dní od příletu do návratu, víke
   // noční let: přílet až po dni návratu by dal 0 dní – aspoň den
   assert.equal(H.stayPlan('2026-10-26', '2026-10-25').days, 1);
 });
+
+test('odkud = celá země (bez domova): srovnání letišť proti nejlevnějšímu, patička bez „vč. dopravy na letiště“', () => {
+  const o = (iata, czk) => ({ iata, city: iata, distKm: 0, best: { czk, n: 3 } });
+  const res = { mode: 'explore', query: { trip: 'return', kmRate: 1, arrival: true }, origins: [o('PRG', 765), o('BRQ', 710), o('OSR', 900)] };
+  const oc = H.originCompare(res);
+  assert.equal(oc.ref.iata, 'BRQ', 'základ = nejlevnější, ne první v seznamu');
+  assert.equal(oc.ref.nearest, false, 'žádné „nejbližší“');
+  const foot = H.originFoot(res, oc);
+  assert.match(foot, /bez dopravy na letiště \(odkud je celá země\)/);
+  assert.doesNotMatch(foot, /vč\. dopravy na letiště|Čas = odhad/);
+  // s domovem beze změny
+  const home = { ...res, origins: res.origins.map((x, i) => ({ ...x, distKm: 20 + i * 100, ground: { czk: 100, minutes: 30 } })) };
+  assert.match(H.originFoot(home), /vč\. dopravy na letiště a zpět/);
+});
+
+test('lastPack: zkrácené nabídky cíle si nechají nejlevnější z každého letiště odletu (filtr „jen lety z X“ po obnovení)', () => {
+  const t = (from, czk, i) => ({ id: `${from}${i}`, out: { from, to: 'BCN', date: '2026-11-12' }, back: { from: 'BCN', to: from, date: '2026-11-15' }, perPersonCzk: czk, pad: 'x'.repeat(4000) });
+  const options = [t('PRG', 900, 1), t('PRG', 950, 2), t('PRG', 990, 3), t('PRG', 999, 4), t('VIE', 1200, 5), t('BTS', 1300, 6)];
+  const c = { at: 1, res: { mode: 'explore', groups: Array.from({ length: 80 }, (_, i) => ({ dest: { key: `D${i}` }, options })) } };
+  const packed = JSON.parse(H.lastPack(c, 1.8e6, 3)); // celé (~2 MB) se nevejde
+  assert.deepEqual(packed.res.groups[0].options.map(x => x.out.from), ['PRG', 'PRG', 'PRG', 'VIE', 'BTS']);
+});

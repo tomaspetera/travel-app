@@ -1846,6 +1846,10 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
       picked.push(t);
       if (picked.length >= 6) break;
     }
+    // + nejlevnější cesta z každého dalšího letiště odletu (s návratem tam) – filtr „jen lety z X“ (Odkud se vyplatí
+    // letět, čip letiště) by jinak cíl schoval, i když odsud let je (fromBest ho ukazuje)
+    const have = new Set(picked.map((t) => t.out.from));
+    for (const t of g.trips) if (homeOf(t) && !have.has(t.out.from)) { have.add(t.out.from); picked.push(t); }
     const ob = originBests(g.trips);
     groups.push({
       dest: { ...g.dest, airports: [...new Set(g.trips.map((t) => t.out.to))], climate: monthClimate(picked[0].out.to, picked[0].out.date) },

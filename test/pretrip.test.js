@@ -778,7 +778,7 @@ test('novější odkaz na tutéž cestu (spolucestující poslal program a odšk
   // bez souhlasu zůstane rozpracovaná cesta
   o = await open(v2, false);
   assert.equal(o.r, false);
-  assert.match(o.asked[0], /^Odkaz je na tvoji rozpracovanou cestu do Tokio, ale v jiné podobě \(např\. s jiným programem\)\. Nahradit ji verzí z odkazu\?/);
+  assert.match(o.asked[0], /^Odkaz je na tvoji rozpracovanou cestu \(Tokio\), ale v jiné podobě \(např\. s jiným programem\)\. Nahradit ji verzí z odkazu\?/);
   assert.deepEqual([mine.plan, o.b.c.location.hash], [null, '#trip']);
   // se souhlasem: program z odkazu; rezervace i čas založení zůstanou (plánovač cestu aktualizuje), odškrtnutí karty se sečtou
   o = await open(v2, true);
