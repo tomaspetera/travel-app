@@ -176,6 +176,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
         <div id="radar"></div>
         <!-- ⭐ Moje cíle: nejnižší viděná cena z paměti cen, Hledat moje cíle (flights.js renderFav) -->
         <div class="fav-sec" id="favSec" hidden></div>
+        <!-- 📌 Odložené nabídky: dlaždice a Porovnat (flights.js renderPins) -->
+        <div class="pin-sec" id="pinSec" hidden></div>
 
         <div class="section-head" id="watchHead" hidden><h2>🔔 Hlídané ceny</h2><span class="link" id="watchCheckAll">Zkontrolovat vše →</span></div>
         <div id="watchList"></div>
@@ -468,6 +470,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <script src="js/trip.js"></script>
 <script src="js/alerts.js"></script>
 <script src="js/searchhelp.js"></script>
+<script src="js/pins.js"></script>
 <script src="js/pricecheck.js"></script>
 <script src="js/flights.js"></script>
 <script src="js/backup.js"></script>

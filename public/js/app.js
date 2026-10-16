@@ -28,7 +28,7 @@ let TOT = 197; const CONT_TOT = {};
 const LS = 'atlas_v1';
 let S = load();
 function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return Object.assign(defState(), d); } catch (e) { } return defState(); }
-function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null, accessOwn: {}, fav: [], mute: [] }; }
+function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null, accessOwn: {}, fav: [], mute: [], pins: [] }; }
 // Plné úložiště: uvolnit místo po uložených výsledcích posledního hledání (flights.js) – stav aplikace má přednost.
 // Vrací, jestli se stav uložil (💾 obnova ze zálohy při plném úložišti nic nesloučí).
 function save() {
@@ -348,7 +348,7 @@ function showNow() {
 function renderDash() {
   renderDashStats();
   $$('.link[data-go]').forEach(l => l.onclick = () => go(l.dataset.go));
-  if (window.Flights) { Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); Flights.renderFav(); }
+  if (window.Flights) { Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); Flights.renderFav(); Flights.renderPins(); }
 }
 /** Dlaždice a „Kam vyrazit“ na přehledu (po změně navštívených zemí nebo cest – bez radaru a hlídaných cen). */
 function renderDashStats() {
@@ -931,6 +931,8 @@ function wireEvents() {
     if (ch.has('trip') && activeView === 'trip' && window.Trip) Trip.render(); // handlery průvodce na převzatou S.trip
     // ⭐ / 🙈 z jiného okna: radar, pruh ⭐ Moje cíle, rychlé hledání a výpis hned podle nich (jen překreslit, bez ukládání)
     if ((ch.has('fav') || ch.has('mute')) && window.Flights && Flights.refreshPrefs) Flights.refreshPrefs();
+    // 📌 odložené nabídky z jiného okna: radar, Přehled, výpis i otevřené Porovnat
+    if (ch.has('pins') && window.Flights && Flights.refreshPins) Flights.refreshPins();
   });
 }
 function renderTips() { $('#flightTips').innerHTML = TIPS.map(t => `<div class="tip"><div class="tn"><span>${t[0]}</span>${t[1]}</div><p>${t[2]}</p></div>`).join(''); }

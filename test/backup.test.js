@@ -10,12 +10,15 @@ const ctx = { console };
 ctx.window = ctx;
 vm.createContext(ctx);
 vm.runInContext(read('public/js/planshare.js'), ctx, { filename: 'planshare.js' });
+vm.runInContext(read('public/js/searchhelp.js'), ctx, { filename: 'searchhelp.js' });
+vm.runInContext(read('public/js/pins.js'), ctx, { filename: 'pins.js' });
 vm.runInContext(read('public/js/backup.js'), ctx, { filename: 'backup.js' });
 const B = ctx.Backup;
 const plain = (v) => JSON.parse(JSON.stringify(v));
 // průvodce: jen kontrola tvaru (pravý Trip.sanitizeTrip v testu níž)
 const sanitizeWizard = (w) => { if (!w || !w.flight || !w.flight.out || typeof w.flight.out.from !== 'string') throw new Error('neplatný let'); return { flight: w.flight, dest: w.dest || null }; };
-const deps = { sanitizePlan: ctx.PlanShare.sanitize, sanitizeWizard, txt: ctx.PlanShare.txt };
+// 📌 odložené nabídky: dnešek pevně (odlety v testu jsou v listopadu 2026)
+const deps = { sanitizePlan: ctx.PlanShare.sanitize, sanitizeWizard, txt: ctx.PlanShare.txt, pins: ctx.Pins, today: '2026-11-01' };
 const wk = (w) => JSON.stringify(w.form.from.map((p) => p.id)) + (w.form.dFrom || '');
 
 const BRQ = { id: 'ap:BRQ', label: 'Brno', flag: '🇨🇿', type: 'airport', iata: 'BRQ' };
@@ -50,7 +53,7 @@ test('záloha → obnova do prázdného zařízení vrátí cesty, hlídání, d
   assert.deepEqual(plain(inc.home), { from: [BRQ], radius: 200, adults: 2 });
   assert.deepEqual(plain(inc.pretrip), { '1760000000000:2026-11-12:PT': { d: { 'pack:doc-pass': 1 }, at: 5 } });
   const df = B.diff(state(), inc, { watchKey: wk, deps });
-  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, dests: { fav: 0, mute: 0, over: 0 }, pretrip: 1, refs: 0, own: { add: 0, differs: 0, same: 0, over: 0 } });
+  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, dests: { fav: 0, mute: 0, over: 0 }, pins: { add: 0, newer: 0, same: 0, over: 0 }, pretrip: 1, refs: 0, own: { add: 0, differs: 0, same: 0, over: 0 } });
   const m = B.merge(state(), inc, { watchKey: wk, deps });
   assert.equal(m.trips.length, 1);
   assert.equal(m.watch.length, 1);
@@ -131,8 +134,8 @@ test('podvržený soubor: HTML, cizí klíče, __proto__ a špatné hodnoty se n
   assert.deepEqual(plain(inc.home), { from: [{ id: 'ap:BRQ', label: 'Brnob', flag: '🇨🇿' }], radius: 500, adults: 2 });
   assert.deepEqual(plain(inc.visited), ['CZ', 'AT']);
   assert.deepEqual(plain(inc.pretrip), { k1: { d: { 'pack:doc-pass': 1 }, at: 0 } });
-  assert.equal({}.polluted, undefined);
-  assert.equal(Object.prototype.polluted, undefined);
+  // Object.prototype z vm, ve kterém backup.js běží (test má svůj, na tom by se nic neukázalo)
+  assert.equal(vm.runInContext('({}).polluted', ctx), undefined);
 });
 
 test('cizí soubory a novější verze: srozumitelná chyba', () => {
@@ -142,7 +145,7 @@ test('cizí soubory a novější verze: srozumitelná chyba', () => {
   assert.throws(() => B.parse(JSON.stringify({ app: 'atlas', v: 2, data: {} }), deps), /novější verze ATLAS/);
   assert.throws(() => B.parse(JSON.stringify({ app: 'atlas', v: 0, data: {} }), deps), /není záloha ATLAS/);
   const empty = B.parse(JSON.stringify({ app: 'atlas', v: 1, data: {} }), deps);
-  assert.deepEqual(plain(empty), { at: null, trips: [], watch: [], home: null, visited: [], fav: [], mute: [], pretrip: {}, own: {} });
+  assert.deepEqual(plain(empty), { at: null, trips: [], watch: [], home: null, visited: [], fav: [], mute: [], pretrip: {}, own: {}, pins: [] });
 });
 
 test('formulář hlídání: neznámé klíče jen jako jednoduché hodnoty, lety přes víc měst ověřené', () => {
@@ -378,4 +381,52 @@ test('⭐ Moje cíle a 🙈 Nezajímá mě: záloha → obnova, pročištění j
   const m3 = B.merge(near, big, { deps });
   assert.equal(m3.fav.length, 30);
   assert.equal(m3.mute.length, 5);
+});
+
+test('📌 odložené nabídky: v záloze tam i zpět, pročištěné, sloučení nové / novější cena / už máš / nevešla se, starší záloha bez nich', () => {
+  const P = ctx.Pins, now = Date.now(), H = 36e5;
+  const leg = (from, to, date) => ({ provider: 'ryanair', carrier: 'FR', carrierName: 'Ryanair', from, to, date, dep: `${date}T06:10:00`, arr: `${date}T08:05:00`, hasTime: true, stops: 0, live: true, bookUrl: null });
+  const offer = (id, perPersonCzk = 1890, d1 = '2026-11-13') => ({ id, out: leg('BRQ', 'NAP', d1), back: leg('NAP', 'BRQ', '2026-11-20'), flightCzk: 1800, perPersonCzk, totalCzk: perPersonCzk * 2, groundCzk: 60, arrCzk: 30, nights: 2, provider: 'ryanair', bookUrl: null, deal: { score: 2, level: 'good' }, destKey: 'NAP' });
+  const res = { mode: 'explore', query: { adults: 2, bags: 'none', groundMode: 'transit', kmRate: 1, arrival: true, trip: 'return' }, origins: [{ iata: 'BRQ', ground: { mode: 'transit', czk: 30 } }], arrivals: {}, groups: [{ dest: { key: 'NAP', id: 'metro:NAP', label: 'Neapol', cc: 'IT' } }] };
+  const pin = (id, czk, at = now - 3 * H, d1) => P.fromRow(offer(id, czk, d1), res.groups[0], res, at, now);
+  const A = state({ pins: [pin('a'), pin('b')] });
+  assert.equal(JSON.parse(B.pack(A)).data.pins.length, 2);
+  const inc = B.parse(B.pack(A), deps);
+  assert.deepEqual(plain(inc.pins), plain(A.pins), 'vlastní nabídky projdou beze změny');
+  // do prázdného zařízení; podruhé už máš
+  assert.deepEqual(plain(B.diff(state(), inc, { deps }).pins), { add: 2, newer: 0, same: 0, over: 0 });
+  assert.deepEqual(plain(B.merge(state(), inc, { deps }).pins.map((p) => p.k)), plain(A.pins.map((p) => p.k)));
+  assert.deepEqual(plain(B.diff(A, inc, { deps }).pins), { add: 0, newer: 0, same: 2, over: 0 });
+  // zařízení má „a“ se starší cenou a „c“: novější cena ze zálohy nahradí, čas odložení zůstane
+  const mine = state({ pins: [{ ...pin('a', 2100, now - 9 * H), pinnedAt: 5 }, pin('c')] });
+  const df = B.diff(mine, inc, { deps });
+  assert.deepEqual(plain(df.pins), { add: 1, newer: 1, same: 0, over: 0 });
+  const m = B.merge(mine, inc, { deps });
+  assert.deepEqual(plain(m.pins.map((p) => [p.t.id, p.t.perPersonCzk, p.pinnedAt])), [['a', 1890, 5], ['c', 1890, mine.pins[1].pinnedAt], ['b', 1890, A.pins[1].pinnedAt]]);
+  assert.equal(mine.pins[0].t.perPersonCzk, 2100, 'vstup se nemění');
+  // náhled: počty a tvary
+  ctx.esc = (x) => String(x); // app.js
+  assert.match(B.summaryHtml(inc, df), /📌 2 odložené nabídky \(1 nová, 1 s novější cenou\)/);
+  assert.match(B.summaryHtml(inc, B.diff(A, inc, { deps })), /📌 2 odložené nabídky \(2 už máš\)/);
+  // plno (12): nevešly se
+  const full = state({ pins: Array.from({ length: 12 }, (_, i) => pin(`x${i}`)) });
+  const d3 = B.diff(full, inc, { deps });
+  assert.deepEqual(plain(d3.pins), { add: 0, newer: 0, same: 0, over: 2 });
+  assert.match(B.summaryHtml(inc, d3), /📌 2 odložené nabídky \(2 se nevešly\)/);
+  assert.equal(B.merge(full, inc, { deps }).pins.length, 12);
+  // pročištění: odkaz javascript:, odlet v minulosti, podvržený klíč, HTML v názvu
+  const evil = JSON.parse(B.pack(A));
+  Object.assign(evil.data.pins[0], { k: 'f|evil' });
+  evil.data.pins[0].t.bookUrl = 'javascript:alert(1)';
+  evil.data.pins[0].dest.label = '<img src=x onerror=alert(1)>Neapol';
+  evil.data.pins.push(pin('old', 1890, now - H, '2026-10-01'), { kind: 'f' }, 'x');
+  const ce = B.parse(JSON.stringify(evil), deps).pins;
+  assert.equal(ce.length, 2);
+  assert.deepEqual([ce[0].k, ce[0].t.bookUrl, ce[0].dest.label], [A.pins[0].k, null, 'img src=x onerror=alert(1)Neapol']);
+  // starší záloha bez pole; bez pins.js zůstanou ty v zařízení
+  const old = B.parse(JSON.stringify({ app: 'atlas', v: 1, data: { trips: [] } }), deps);
+  assert.deepEqual(plain(old.pins), []);
+  assert.deepEqual(plain(B.diff(A, old, { deps }).pins), { add: 0, newer: 0, same: 0, over: 0 });
+  assert.deepEqual(plain(B.merge(A, old, { deps }).pins.map((p) => p.k)), plain(A.pins.map((p) => p.k)));
+  assert.deepEqual(plain(B.merge(state(), inc, { deps: { ...deps, pins: null } }).pins), []);
 });
