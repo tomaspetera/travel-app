@@ -118,6 +118,9 @@
       history: Array.isArray(w.history) ? w.history.slice(-60).filter(h => obj(h) && fin(h.at) && fin(h.czk) && h.czk > 0).map(h => ({ at: h.at, czk: h.czk })) : [],
     };
     for (const k of ['checked', 'tried', 'base', 'low', 'seen', 'target', 'notified']) o[k] = fin(w[k]) ? w[k] : null;
+    // 🏠 vlastní ceny, se kterými se cena počítala (Alerts.rebaseWhy – jiné v tomhle zařízení = nový základ, ne zlevnění)
+    if (typeof w.own === 'string' && /^(?:[A-Z]{3}:\d{1,4}(?:,[A-Z]{3}:\d{1,4}){0,11})?$/.test(w.own)) o.own = w.own;
+    if (fin(w.rebAt)) o.rebAt = w.rebAt;
     return o;
   }
   // druh výsledku z Objevuj (city, bike, hike, train, day-car, loop-transit…) → řádky dnů, které tam uložil
@@ -296,8 +299,12 @@
       home: { take: Boolean(inc.home) && !cur.home, differs: Boolean(inc.home && cur.home) && !homeSame },
       dests: { ...ds.add, over: ds.over },
       pretrip, refs,
-      // 🏠 vlastní ceny: nová letiště a ta, kde má zařízení jinou cenu (zůstane ta ze zařízení)
-      own: { add: Object.keys(withOwn).length - Object.keys(mineOwn).length, differs: Object.keys(inc.own || {}).filter(k => Object.hasOwn(mineOwn, k) && mineOwn[k] !== inc.own[k]).length },
+      // 🏠 vlastní ceny: nová letiště, ta, kde má zařízení jinou cenu (zůstane ta ze zařízení), stejná a nová, která se
+      // nevešla (nejvýš 12 letišť)
+      own: (() => {
+        const ks = Object.keys(inc.own || {}), add = Object.keys(withOwn).length - Object.keys(mineOwn).length, have = ks.filter(k => Object.hasOwn(mineOwn, k));
+        return { add, differs: have.filter(k => mineOwn[k] !== inc.own[k]).length, same: have.filter(k => mineOwn[k] === inc.own[k]).length, over: ks.length - have.length - add };
+      })(),
     };
   }
 
@@ -403,8 +410,12 @@
     if (inc.mute.length) parts.push(`🙈 ${pl(inc.mute.length, 'skryté město', 'skrytá města', 'skrytých měst')}${nov(df.dests.mute, 'nové', 'nová', 'nových')}`);
     if (df.pretrip) parts.push(`odškrtnutí „Před cestou“ u ${pl(df.pretrip, 'cesty', 'cest', 'cest')}`);
     if (df.refs) parts.push(`🔖 kódy rezervací u ${pl(df.refs, 'cesty', 'cest', 'cest')}`);
-    const no = Object.keys(inc.own || {}).length;
-    if (no) parts.push(`🏠 vlastní cena na ${pl(no, 'letiště', 'letiště', 'letišť')}${df.own.add ? ` (${df.own.add} ${df.own.add === 1 ? 'nové' : df.own.add <= 4 ? 'nová' : 'nových'})` : df.own.differs ? '' : ' (už máš)'}${df.own.differs ? ` – u ${pl(df.own.differs, 'letiště', 'letišť', 'letišť')} máš jinou cenu, ta zůstane` : ''}`);
+    const no = Object.keys(inc.own || {}).length, o = df.own;
+    if (no) {
+      // „(už máš)“ jen když jsou v zařízení všechna se stejnou cenou
+      const bits = [o.add ? `${o.add} ${o.add === 1 ? 'nové' : o.add <= 4 ? 'nová' : 'nových'}` : '', o.same ? (o.same === no ? 'už máš' : `${o.same} už máš`) : '', o.over ? `${o.over} se nevešl${o.over === 1 ? 'o' : o.over <= 4 ? 'a' : 'o'}` : ''].filter(Boolean);
+      parts.push(`🏠 vlastní cena na ${pl(no, 'letiště', 'letiště', 'letišť')}${bits.length ? ` (${bits.join(', ')})` : ''}${o.differs ? ` – u ${pl(o.differs, 'letiště', 'letišť', 'letišť')} máš jinou cenu, ta zůstane` : ''}`);
+    }
     return parts.length ? esc(parts.join(' · ')) : 'Záloha je prázdná.';
   }
 
@@ -419,7 +430,8 @@
       ${df.home.differs ? `<label class="bk-opt"><input type="checkbox" id="bkHome"> Převzít domov radaru ze zálohy (${esc(homeTxt(inc.home))})</label>` : ''}
       ${df.watch.over ? `<div class="note warn" style="margin:8px 0">⚠️ <div>Hlídat jde nejvýš ${WATCH_CAP} hledání – ${pl(df.watch.over, 'se nevešlo', 'se nevešla', 'se nevešlo')}.</div></div>` : ''}
       ${df.dests.over ? `<div class="note warn" style="margin:8px 0">⚠️ <div>⭐ Moje cíle i 🙈 Nezajímá mě pojmou nejvýš ${DEST_MAX} měst – ${pl(df.dests.over, 'město se nevešlo', 'města se nevešla', 'měst se nevešlo')}.</div></div>` : ''}
-      ${nothing && !empty && !df.watch.over && !df.dests.over ? '<div class="note info" style="margin:8px 0">ℹ️ <div>Všechno ze zálohy už v tomhle zařízení je.</div></div>' : ''}
+      ${df.own.over ? `<div class="note warn" style="margin:8px 0">⚠️ <div>🏠 Vlastní cenu jde mít nejvýš u ${OWN_MAX} letišť – ${pl(df.own.over, 'letiště se nevešlo', 'letiště se nevešla', 'letišť se nevešlo')}.</div></div>` : ''}
+      ${nothing && !empty && !df.watch.over && !df.dests.over && !df.own.over ? '<div class="note info" style="margin:8px 0">ℹ️ <div>Všechno ze zálohy už v tomhle zařízení je.</div></div>' : ''}
       <div class="bk-actions" style="margin-top:14px">${nothing ? '' : '<button type="button" class="btn primary" id="bkApply">Sloučit do tohoto zařízení</button>'}<button type="button" class="btn ghost" id="bkCancel">${nothing ? 'Zavřít' : 'Zrušit'}</button></div>`;
     $('#bkCancel').onclick = () => modalClose();
     const ap = $('#bkApply');
@@ -515,5 +527,5 @@
     return `<div class="row wrap plan-tools"><button type="button" class="btn sm ghost" id="bkOpen">💾 Přenos a záloha</button>${nudge}</div>`;
   }
 
-  window.Backup = { V, pack, parse, diff, merge, mergeDests, match, ensurePids, cleanForm, cleanRefs, open, plannerTools, WATCH_CAP, REFS_MAX, REF_LEN };
+  window.Backup = { V, pack, parse, diff, merge, mergeDests, match, ensurePids, cleanForm, cleanRefs, summaryHtml, open, plannerTools, WATCH_CAP, REFS_MAX, REF_LEN };
 })();

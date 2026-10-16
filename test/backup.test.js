@@ -50,7 +50,7 @@ test('záloha → obnova do prázdného zařízení vrátí cesty, hlídání, d
   assert.deepEqual(plain(inc.home), { from: [BRQ], radius: 200, adults: 2 });
   assert.deepEqual(plain(inc.pretrip), { '1760000000000:2026-11-12:PT': { d: { 'pack:doc-pass': 1 }, at: 5 } });
   const df = B.diff(state(), inc, { watchKey: wk, deps });
-  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, dests: { fav: 0, mute: 0, over: 0 }, pretrip: 1, refs: 0, own: { add: 0, differs: 0 } });
+  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, dests: { fav: 0, mute: 0, over: 0 }, pretrip: 1, refs: 0, own: { add: 0, differs: 0, same: 0, over: 0 } });
   const m = B.merge(state(), inc, { watchKey: wk, deps });
   assert.equal(m.trips.length, 1);
   assert.equal(m.watch.length, 1);
@@ -268,7 +268,7 @@ test('🏠 vlastní ceny na letiště: v záloze tam i zpět, pročištěné (k�
   const S = { ...state({ home: { from: [BRQ], radius: 200, adults: 2 } }), accessOwn: { VIE: 350, BTS: 270, PRG: 0 } };
   const inc = B.parse(B.pack(S), deps);
   assert.deepEqual(plain(inc.own), { VIE: 350, BTS: 270, PRG: 0 });
-  assert.deepEqual(plain(B.diff(state(), inc, { watchKey: wk, deps }).own), { add: 3, differs: 0 });
+  assert.deepEqual(plain(B.diff(state(), inc, { watchKey: wk, deps }).own), { add: 3, differs: 0, same: 0, over: 0 });
   assert.deepEqual(plain(B.merge(state(), inc, { watchKey: wk, deps }).own), { VIE: 350, BTS: 270, PRG: 0 });
   // starší záloha bez pole, poškozená data: nic (a nic se nepokazí)
   const raw = (own) => B.parse(JSON.stringify({ app: 'atlas', v: 1, data: { own } }), deps).own;
@@ -283,11 +283,42 @@ test('🏠 vlastní ceny na letiště: v záloze tam i zpět, pročištěné (k�
   // obnova jen přidá chybějící letiště (do 12), cenu v zařízení nepřepíše – jiná se jen spočítá
   const mine = { ...state(), own: { VIE: 300, KTW: 200 } };
   const df = B.diff(mine, inc, { watchKey: wk, deps });
-  assert.deepEqual(plain(df.own), { add: 2, differs: 1 });
+  assert.deepEqual(plain(df.own), { add: 2, differs: 1, same: 0, over: 0 });
   assert.deepEqual(plain(B.merge(mine, inc, { watchKey: wk, deps }).own), { VIE: 300, KTW: 200, BTS: 270, PRG: 0 });
   const full = { ...state(), own: Object.fromEntries(Object.entries(many).slice(0, 12)) };
-  assert.deepEqual(plain(B.diff(full, inc, { watchKey: wk, deps }).own), { add: 0, differs: 0 }, 'plno – nic nového se nevejde');
+  assert.deepEqual(plain(B.diff(full, inc, { watchKey: wk, deps }).own), { add: 0, differs: 0, same: 0, over: 3 }, 'plno – nic nového se nevejde');
   assert.equal(Object.keys(B.merge(full, inc, { watchKey: wk, deps }).own).length, 12);
+});
+
+test('🏠 vlastní ceny v náhledu obnovy: „(už máš)“ jen když jsou všechna se stejnou cenou, plné zařízení = „se nevešlo“ + varování', () => {
+  ctx.esc = (x) => String(x); // app.js
+  const sum = (mine, own) => {
+    const inc = B.parse(B.pack({ ...state(), accessOwn: own }), deps);
+    const df = B.diff({ ...state(), own: mine }, inc, { watchKey: wk, deps });
+    return { own: plain(df.own), txt: B.summaryHtml(inc, df) };
+  };
+  // zařízení s 12 vlastními cenami, záloha přinese Vídeň: nevejde se (dřív „(už máš)“ a cena potichu zmizela)
+  const twelve = Object.fromEntries(['PRG', 'BRQ', 'OSR', 'PED', 'BTS', 'KTW', 'KRK', 'LNZ', 'SZG', 'GRZ', 'DRS', 'NUE'].map((k, i) => [k, 100 + i]));
+  const full = sum(twelve, { VIE: 350 });
+  assert.deepEqual(full.own, { add: 0, differs: 0, same: 0, over: 1 });
+  assert.equal(full.txt, '🏠 vlastní cena na 1 letiště (1 se nevešlo)');
+  assert.deepEqual(sum(twelve, { VIE: 350, MUC: 400, PRG: 100 }).txt, '🏠 vlastní cena na 3 letiště (1 už máš, 2 se nevešla)');
+  // všechna stejná = už máš; jiná cena se jen řekne
+  assert.equal(sum({ VIE: 350, BTS: 270 }, { VIE: 350, BTS: 270 }).txt, '🏠 vlastní cena na 2 letiště (už máš)');
+  assert.equal(sum({ VIE: 300 }, { VIE: 350 }).txt, '🏠 vlastní cena na 1 letiště – u 1 letiště máš jinou cenu, ta zůstane');
+  assert.equal(sum({ VIE: 300, BTS: 270 }, { VIE: 350, BTS: 270, KTW: 200 }).txt, '🏠 vlastní cena na 3 letiště (1 nové, 1 už máš) – u 1 letiště máš jinou cenu, ta zůstane');
+  assert.equal(sum({}, Object.fromEntries(['AAA', 'BBB', 'CCC', 'DDD', 'EEE'].map((k) => [k, 1]))).txt, '🏠 vlastní cena na 5 letišť (5 nových)');
+});
+
+test('hlídání v záloze: podpis 🏠 vlastních cen (own), přepočet (rebAt) a město nejlevnější ceny i skrytá 🙈 (best.key, best.hid) zůstanou', () => {
+  const w = watch('w1', '2026-11-01', { own: 'BRQ:0,VIE:350', rebAt: 5, best: { czk: 1890, desc: 'Lisabon 12.11.', key: 'LIS', hid: 'OMR,BUH' } });
+  const inc = B.parse(B.pack(state({ watch: [w] })), deps);
+  assert.deepEqual([inc.watch[0].own, inc.watch[0].rebAt, inc.watch[0].best.key, inc.watch[0].best.hid], ['BRQ:0,VIE:350', 5, 'LIS', 'OMR,BUH']);
+  // podpis jen ve tvaru „IATA:Kč,…“ (nejvýš 12), jinak pryč; prázdný = bez vlastních cen
+  for (const bad of ['brq:0', 'BRQ:0;VIE:1', 'BRQ:12345', 5, { BRQ: 0 }, 'A'.repeat(400)]) {
+    assert.equal(B.parse(B.pack(state({ watch: [watch('w1', '2026-11-01', { own: bad })] })), deps).watch[0].own, undefined, JSON.stringify(bad));
+  }
+  assert.equal(B.parse(B.pack(state({ watch: [watch('w1', '2026-11-01', { own: '' })] })), deps).watch[0].own, '');
 });
 
 test('⭐ Moje cíle a 🙈 Nezajímá mě: záloha → obnova, pročištění jako místa, sloučení bez přepsání volby zařízení, nejvýš 30', () => {

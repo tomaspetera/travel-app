@@ -361,6 +361,9 @@ export async function search(raw, emit = () => {}, opts = {}) {
   const destAirports = routeMode ? dest.airports.filter((a) => !originSet.has(a)) : [];
   const countries = dest.kind === 'countries' ? new Set(dest.countries) : null;
   const singleCountry = countries && countries.size === 1 ? [...countries][0] : null;
+  // Hledaná země s jediným cílovým městem (Malta, Lucembursko, Lotyšsko): to město je hledaný cíl – 🙈 Nezajímá mě ho
+  // v prohlížeči neschová (destination.sole = klíče skupin; světadíl se nepočítá, ten není hledání sem)
+  const sole = countries ? [...new Set(q.to.filter((id) => id.startsWith('cc:')).map((id) => [...new Set(airportsInCountry(id.slice(3)).map((a) => destKey(a.iata)))]).filter((k) => k.length === 1).map((k) => k[0]))] : [];
   const destOk = (iata) => !countries || countries.has(getAirport(iata)?.cc);
 
   // Dálkové lety (Asie, Afrika, Amerika…): Kiwi se ptá jedním dotazem i z velkých přestupních
@@ -1185,7 +1188,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       origins: [...origins.airports, ...usedHubs].map((a) => ({ ...airportPublic(a.iata), distKm: a.distKm, ground: a.ground, ...(a.hub ? { hub: true } : {}), best: byOrigin[a.iata] || null })),
       // Přestupní letiště, ze kterých se (dálkové lety) hledalo navíc – i když z nich nic nevyšlo (UI je pak znovu nenabízí).
       hubs: hubs.map((h) => h.iata),
-      destination: { kind: dest.kind, label: dest.label || 'Kamkoliv', airports: routeMode ? destAirports : null, countries: dest.countries || null },
+      destination: { kind: dest.kind, label: dest.label || 'Kamkoliv', airports: routeMode ? destAirports : null, countries: dest.countries || null, ...(sole.length ? { sole } : {}) },
       destinationLabels,
       // Konkrétní cíl v dosahu: srovnání letadla s vlakem/busem (odhad) – i když se žádný let nenašel.
       ground,

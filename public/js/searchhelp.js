@@ -512,17 +512,18 @@
   }
   /**
    * Kamkoliv: skupiny výsledků (už po ostatních filtrech výpisu) podle seznamů – 🙈 cíle schované (showMuted je ukáže),
-   * favOnly = jen ⭐ cíle. → { groups (zbylé v původním pořadí), muted (schováno 🙈), mutedIn (🙈 cílů ve výsledku),
-   * favIn (⭐ cílů ve výsledku), notFav (schováno „⭐ jen moje cíle“) }.
+   * favOnly = jen ⭐ cíle, keep = klíče hledaných cílů, které 🙈 neschová nikdy (jediné město hledané země – Malta,
+   * Lucembursko; server res.destination.sole). → { groups (zbylé v původním pořadí), muted (schováno 🙈), mutedIn (🙈
+   * cílů ve výsledku, které jde schovat), favIn (⭐ cílů ve výsledku), notFav (schováno „⭐ jen moje cíle“) }.
    */
-  function prefGroups(groups, lists, { showMuted = false, favOnly = false } = {}) {
-    const fav = destKeys(lists && lists.fav), mute = destKeys(lists && lists.mute), out = [];
+  function prefGroups(groups, lists, { showMuted = false, favOnly = false, keep = null } = {}) {
+    const fav = destKeys(lists && lists.fav), mute = destKeys(lists && lists.mute), out = [], kept = new Set(Array.isArray(keep) ? keep : []);
     let muted = 0, mutedIn = 0, favIn = 0, notFav = 0;
     for (const g of groups || []) {
       const k = g && g.dest && g.dest.key;
       if (!k) { out.push(g); continue; }
       if (fav.has(k)) favIn++;
-      if (mute.has(k)) { mutedIn++; if (!showMuted) { muted++; continue; } }
+      if (mute.has(k) && !kept.has(k)) { mutedIn++; if (!showMuted) { muted++; continue; } }
       if (favOnly && !fav.has(k)) { notFav++; continue; }
       out.push(g);
     }
@@ -866,6 +867,15 @@
   }
   /** Vlastní ceny do adresy /api/origins: „VIE:350,BTS:270“ ('' = žádné). */
   const ownQs = o => Object.entries(ownClean(o) || {}).map(([k, v]) => `${k}:${v}`).join(',');
+  /**
+   * Podpis vlastních cen, se kterými hledání počítalo: jen letiště aps, odkud se hledalo (res.origins – vlastní cena
+   * jinde výsledek nemění); aps není pole → všechny. „BRQ:0,VIE:350“, '' = žádné. Jiný podpis = jiný výpočet ceny
+   * (hlídání se přepočítá bez „zlevnilo“, uložený radar se hledá znovu).
+   */
+  function ownSig(own, aps) {
+    const o = ownClean(own) || {}, keep = Array.isArray(aps) ? new Set(aps) : null;
+    return ownQs(Object.fromEntries(Object.entries(o).filter(([k]) => !keep || keep.has(k))));
+  }
   const tollSum = (g, pick) => (g.tolls || []).filter(pick).reduce((s, t) => s + t.czk, 0);
   /** Dní parkování pro cestu s N nocemi (odlet ráno, návrat večer = N + 1 započatých dní). */
   const parkDays = n => Math.max(1, Math.round(Number(n) || 0) + 1);
@@ -1372,9 +1382,12 @@
     const items = entry.items.filter(x => x && typeof x.d1 === 'string' && x.d1 >= today);
     return items.length ? { ...entry, items } : null;
   }
-  /** Stejný dotaz radaru (JSON) až na rozsah dat, který se den ode dne posouvá. */
+  /**
+   * Stejný dotaz radaru (JSON) až na rozsah dat, který se den ode dne posouvá, a 🏠 vlastní ceny na letiště (klíč je
+   * už nemá – dřívější uložené ano; jestli platí, hlídá podpis entryOwn).
+   */
   function radarSame(a, b) {
-    const strip = k => { try { const { dateFrom, dateTo, ...rest } = JSON.parse(k); return JSON.stringify(rest); } catch (e) { return null; } };
+    const strip = k => { try { const { dateFrom, dateTo, accessOverride, ...rest } = JSON.parse(k); return JSON.stringify(rest); } catch (e) { return null; } };
     const x = strip(a);
     return Boolean(x) && x === strip(b);
   }
@@ -1402,14 +1415,25 @@
   }
 
   /**
+   * 🏠 Podpis vlastních cen uloženého výsledku radaru (ownSig – jen letiště, odkud hledal); dřívější uložený bez
+   * podpisu měl vlastní ceny v klíči.
+   */
+  function entryOwn(e) {
+    if (!e || typeof e !== 'object') return '';
+    if (typeof e.own === 'string') return e.own;
+    try { return ownQs(JSON.parse(e.key).accessOverride); } catch (x) { return ''; }
+  }
+  /**
    * Nový uložený výsledek radaru. Při výpadku zdroje (partial) bez značek změn a se základem pro příští porovnání
    * z posledního úplného výsledku – jinak by vyšší ceny z výpadku příště ukázaly falešné „↓“ a vrácené cíle „nové“.
-   * mute = 🙈 seznam (radarDiff porovnává jen s kartami, které radar ukazoval).
+   * mute = 🙈 seznam (radarDiff porovnává jen s kartami, které radar ukazoval). own = podpis 🏠 vlastních cen hledání
+   * (ownSig), aps = letiště, odkud hledalo: s jinými vlastními cenami se ceny neporovnávají (jiný výpočet, ne jiné letenky).
    */
-  function radarEntry(prev, items, key, at, { demo = false, partial = false, mute = null } = {}) {
-    const base = prev && prev.partial ? prev.base || null : prev || null;
-    if (partial) return { key, at, demo, items, partial: true, base: base && radarSame(base.key, key) ? { key: base.key, at: base.at, items: base.items } : null };
-    return { key, at, demo, items: radarDiff(base, items, key, at, mute) };
+  function radarEntry(prev, items, key, at, { demo = false, partial = false, mute = null, own = '', aps = null } = {}) {
+    const b0 = prev && prev.partial ? prev.base || null : prev || null, base = b0 && entryOwn(b0) === own ? b0 : null;
+    const sig = { own, ...(Array.isArray(aps) ? { aps } : {}) };
+    if (partial) return { key, at, demo, items, partial: true, ...sig, base: base && radarSame(base.key, key) ? { key: base.key, at: base.at, items: base.items, own } : null };
+    return { key, at, demo, items: radarDiff(base, items, key, at, mute), ...sig };
   }
 
   /* ---------- řazení „cena + délka cesty“ ---------- */
@@ -1646,11 +1670,11 @@
     onlyOriginSet,
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
-    CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs,
+    CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs, ownSig,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
-    radarQuery, radarStale, radarSame, radarDiff, radarEntry,
+    radarQuery, radarStale, radarSame, radarDiff, radarEntry, entryOwn,
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,

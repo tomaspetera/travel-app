@@ -674,6 +674,52 @@ test('radarEntry: výsledek s výpadkem zdroje bez značek a příští porovná
   assert.equal(H.radarEntry(full, [it('a', 1)], other, 5, { partial: true }).base, null);
 });
 
+test('🏠 vlastní ceny a radar: podpis jen letišť hledání (ownSig), uložený výsledek ho nese, jiný = bez „↓“, starší karty dál vidět', () => {
+  // podpis: jen letiště, odkud se hledalo (Frankfurt mimo okolí Brna výsledek nemění), bez seznamu letišť všechna
+  const own = { FRA: 500, BRQ: 0, VIE: 350, bad: 1 };
+  assert.equal(H.ownSig(own, ['BRQ', 'BTS', 'VIE']), 'BRQ:0,VIE:350');
+  assert.equal(H.ownSig(own, ['BTS']), '');
+  assert.equal(H.ownSig(own), 'BRQ:0,FRA:500,VIE:350');
+  assert.equal(H.ownSig(null, ['BRQ']), '');
+  // klíč radaru (flights.js radarKey) vlastní ceny nemá – dřívější uložený s nimi v klíči je pořád „stejný dotaz“
+  const home = { from: [{ id: 'ap:BRQ', label: 'Brno' }], radius: 200, adults: 2 };
+  const q0 = H.radarQuery('all', home, '2026-10-15'), q1 = H.radarQuery('all', { ...home, own: { FRA: 500 } }, '2026-10-15');
+  assert.ok(H.radarSame(JSON.stringify(q0.payload), JSON.stringify(q1.payload)), 'vlastní cena jinde – stejný dotaz');
+  const it = (id, czk) => ({ id, label: id, czk, d1: '2026-10-20' });
+  const old = { key: JSON.stringify(q1.payload), at: 1, items: [it('ap:OMR', 770)] };
+  assert.equal(H.entryOwn(old), 'FRA:500', 'dřívější uložený: podpis z klíče');
+  assert.equal(H.entryOwn({ key: JSON.stringify(q0.payload), items: [] }), '');
+  assert.equal(H.entryOwn({ own: 'BRQ:0', key: '{nejson' }), 'BRQ:0');
+  assert.equal(H.entryOwn(null), '');
+  const key = JSON.stringify(q0.payload);
+  assert.ok(H.radarStale(old, key, '2026-10-15'), 'starší karty se ukážou, než doběhne nové hledání');
+  // nový uložený nese podpis a letiště; jiné vlastní ceny u letiště hledání = ceny se nesrovnávají (žádné falešné „↓“)
+  const a = H.radarEntry(null, [it('ap:OMR', 770)], key, 1, { own: '', aps: ['BRQ', 'VIE'] });
+  assert.deepEqual([a.own, plain(a.aps)], ['', ['BRQ', 'VIE']]);
+  const b = H.radarEntry(a, [it('ap:OMR', 601), it('ap:BCN', 900)], key, 2, { own: 'BRQ:0', aps: ['BRQ', 'VIE'] });
+  assert.deepEqual(plain(b.items.map((x) => [x.was || null, x.newAt || null])), [[null, null], [null, null]], 'bez ↓ a „nové“');
+  const c = H.radarEntry(b, [it('ap:OMR', 500)], key, 3, { own: 'BRQ:0', aps: ['BRQ', 'VIE'] });
+  assert.deepEqual(plain(c.items[0].was), { czk: 601, at: 2 }, 'se stejnými vlastními cenami zase srovnává');
+  // výpadek: základ jen se stejnými vlastními cenami, nese jejich podpis
+  const p = H.radarEntry(c, [it('ap:OMR', 900)], key, 4, { own: 'BRQ:0', partial: true });
+  assert.deepEqual([p.base.at, p.base.own, p.own], [3, 'BRQ:0', 'BRQ:0']);
+  assert.equal(H.radarEntry(c, [it('ap:OMR', 900)], key, 4, { own: '', partial: true }).base, null);
+  assert.equal(H.radarEntry(p, [it('ap:OMR', 450)], key, 5, { own: 'BRQ:0' }).items[0].was.at, 3, 'po výpadku proti úplnému se stejnými cenami');
+});
+
+test('prefGroups keep: jediné město hledané země (Malta – server destination.sole) 🙈 neschová, ostatní ano', () => {
+  const g = (key) => ({ dest: { key, id: `ap:${key}` } });
+  const lists = { fav: [], mute: [{ id: 'ap:MLA', key: 'MLA', label: 'Malta', cc: 'MT' }, { id: 'ap:TIA', key: 'TIA', label: 'Tirana', cc: 'AL' }] };
+  const keys = (r) => plain(r.groups.map((x) => x.dest.key));
+  const r = H.prefGroups([g('MLA')], lists, { keep: ['MLA'] });
+  assert.deepEqual([keys(r), r.muted, r.mutedIn], [['MLA'], 0, 0], 'bez čipu „🙈 skryto“');
+  assert.deepEqual(keys(H.prefGroups([g('MLA')], lists)), [], 'bez keep (Kamkoliv) schované');
+  const two = H.prefGroups([g('MLA'), g('TIA'), g('LUX')], lists, { keep: ['MLA', 'LUX'] });
+  assert.deepEqual([keys(two), two.muted], [['MLA', 'LUX'], 1]);
+  assert.deepEqual(keys(H.prefGroups([g('MLA'), g('LUX')], { fav: [], mute: lists.mute }, { keep: ['MLA'], favOnly: true })), [], '⭐ jen moje cíle platí dál');
+  assert.deepEqual(keys(H.prefGroups([g('MLA')], lists, { keep: 'MLA' })), [], 'keep jen pole');
+});
+
 test('dataAge: stáří ověřeného údaje – čerstvé nic, od 3 měsíců „před N měsíci“, od půl roku „mohlo se změnit“', () => {
   assert.equal(H.dataAge('2026-10', '2026-12-20').txt, '');
   assert.equal(H.dataAge('2026-10-07', '2027-02-01').txt, ' · před 4 měsíci');

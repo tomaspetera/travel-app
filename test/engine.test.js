@@ -471,3 +471,21 @@ test('průběžné výsledky: náhled, dokud pomalejší zdroj hledá; konečný
     stub.restore();
   }
 });
+
+// 🙈 Nezajímá mě v prohlížeči neschová hledaný cíl: hledaná země s jediným cílovým městem (Malta, Lucembursko) = to město.
+test('hledání do země s jediným cílovým městem: destination.sole = jeho klíč (světadíl, víc měst ani konkrétní cíl ne)', async () => {
+  const stub = stubFetch(() => ({ status: 404, body: {} })); // kurzy: orientační
+  try {
+    const q = { from: ['ap:BRQ'], radiusKm: 200, dateFrom: ymdPlus(20), dateTo: ymdPlus(40), trip: 'return', nightsMin: 3, nightsMax: 7, adults: 1, noPartial: true };
+    const run = (to) => search({ ...q, to }, () => {}, { providers: mockProviders });
+    const mt = await run(['cc:MT']);
+    assert.equal(mt.mode, 'explore');
+    assert.deepEqual(mt.destination.sole, ['MLA']);
+    assert.deepEqual(mt.groups.map((g) => g.dest.key), ['MLA'], 'demo: jediné město Malty');
+    assert.deepEqual((await run(['cc:LU', 'cc:ES', 'cc:LV'])).destination.sole, ['LUX', 'RIX'], 'Španělsko má měst víc');
+    assert.equal((await run(['cc:ES'])).destination.sole, undefined);
+    assert.equal((await run(['ct:europe'])).destination.sole, undefined, 'světadíl není hledání do Malty');
+    const ap = await run(['ap:MLA']);
+    assert.deepEqual([ap.mode, ap.destination.sole], ['route', undefined], 'konkrétní cíl se neschovává nikdy (route)');
+  } finally { stub.restore(); }
+});
