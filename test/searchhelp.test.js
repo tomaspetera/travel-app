@@ -674,6 +674,43 @@ test('radarEntry: výsledek s výpadkem zdroje bez značek a příští porovná
   assert.equal(H.radarEntry(full, [it('a', 1)], other, 5, { partial: true }).base, null);
 });
 
+test('🏠 vlastní ceny a radar: klíč bez nich, otisk letišť radaru – cena mimo okruh radar nezahodí, změna u jeho letiště bez falešného „↓“', () => {
+  // otisk z výsledku: jen letiště s použitou vlastní cenou, podle abecedy; z nastavení jen pro letiště výsledku
+  const res = { origins: [{ iata: 'VIE', ground: { own: true, czk: 350 } }, { iata: 'BRQ', ground: { czk: 30 } }, { iata: 'BTS', ground: { own: true, czk: 0 } }] };
+  assert.equal(H.ownPrint(res), 'BTS:0,VIE:350');
+  assert.equal(H.ownPrint({ origins: [] }), '');
+  assert.equal(H.ownPrint(null), '');
+  assert.equal(H.ownPrintFor({ VIE: 350, BTS: 0, MUC: 500 }, ['BRQ', 'VIE', 'BTS']), 'BTS:0,VIE:350');
+  assert.equal(H.ownPrintFor(null, ['BRQ']), '');
+  const home = { from: [{ id: 'ap:BRQ', label: 'Brno' }], radius: 150 };
+  const q = (own) => H.radarQuery('all', { ...home, own }, '2026-10-16').payload;
+  assert.deepEqual(plain(q({ MUC: 400 }).accessOverride), { MUC: 400 }, 'do hledání pořád jdou');
+  assert.ok(H.radarSame(JSON.stringify(q({ MUC: 400 })), JSON.stringify(q({ MUC: 999 }))), 'radarSame vlastní ceny nerozlišuje');
+  assert.ok(!H.radarSame(JSON.stringify(q({})), JSON.stringify(H.radarQuery('all', { ...home, radius: 200 }, '2026-10-16').payload)));
+  // uložený výsledek s otiskem a letišti: MUC (mimo okruh) radar nezahodí, BRQ ano; bez ap jen když vlastní ceny nejsou
+  const key = JSON.stringify(q({}));
+  const it = (id, czk) => ({ id, label: id, czk, d1: '2026-11-01' });
+  const e1 = H.radarEntry(null, [it('ROM', 2000), it('LON', 1500)], key, 1, { own: 'BRQ:100', ap: ['BRQ', 'VIE'] });
+  assert.deepEqual([e1.own, plain(e1.ap)], ['BRQ:100', ['BRQ', 'VIE']]);
+  assert.equal(H.radarOwnOk(e1, { BRQ: 100, MUC: 999 }), true);
+  assert.equal(H.radarOwnOk(e1, { BRQ: 0, MUC: 999 }), false);
+  assert.equal(H.radarOwnOk(e1, { MUC: 999 }), false, 'smazaná vlastní cena BRQ');
+  assert.equal(H.radarOwnOk({ key, items: [] }, null), true, 'starší výsledek bez vlastních cen platí');
+  assert.equal(H.radarOwnOk({ key, items: [] }, { BRQ: 0 }), false);
+  assert.equal(H.radarOwnOk(null, null), false);
+  // nový výsledek s jiným otiskem: ceny se posunuly vlastní cenou na letiště → bez „↓“ i „nové“; se stejným otiskem značky
+  const e2 = H.radarEntry(e1, [it('ROM', 1740), it('LON', 1240), it('OSL', 900)], key, 2, { own: 'BRQ:0', ap: ['BRQ', 'VIE'] });
+  assert.ok(e2.items.every((x) => !x.was && !x.newAt), 'žádné falešné „↓“');
+  const e3 = H.radarEntry(e2, [it('ROM', 1500), it('LON', 1240), it('OSL', 900)], key, 3, { own: 'BRQ:0', ap: ['BRQ', 'VIE'] });
+  assert.deepEqual(plain(e3.items[0].was), { czk: 1740, at: 2 });
+  // výpadek zdroje: základ si otisk nese dál
+  const p = H.radarEntry(e3, [it('ROM', 1900)], key, 4, { partial: true, own: 'BRQ:0', ap: ['BRQ'] });
+  assert.equal(p.base.own, 'BRQ:0');
+  assert.equal(H.radarEntry(p, [it('ROM', 1200)], key, 5, { own: 'BRQ:0', ap: ['BRQ'] }).items[0].was.czk, 1500);
+  // starší volání bez own: porovnání jako dřív
+  assert.deepEqual(plain(H.radarDiff(e1, [it('ROM', 1500)], key, 9).map((x) => x.was)), [{ czk: 2000, at: 1 }]);
+});
+
 test('dataAge: stáří ověřeného údaje – čerstvé nic, od 3 měsíců „před N měsíci“, od půl roku „mohlo se změnit“', () => {
   assert.equal(H.dataAge('2026-10', '2026-12-20').txt, '');
   assert.equal(H.dataAge('2026-10-07', '2027-02-01').txt, ' · před 4 měsíci');

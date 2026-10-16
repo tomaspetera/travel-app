@@ -192,11 +192,24 @@
   const incomplete = providers => (providers || []).some(p => p && p.outage);
 
   /**
+   * Body historie od poslední změny 🏠 vlastní ceny na letiště (bod s own: 1) – starší body jsou cena s jinou cestou
+   * na letiště a s novými se nesrovnávají (nejnižší cena, rozdíl proti minulé kontrole, graf).
+   */
+  function epoch(history) {
+    const h = Array.isArray(history) ? history : [];
+    for (let i = h.length - 1; i > 0; i--) if (h[i] && h[i].own) return h.slice(i);
+    return h;
+  }
+
+  /**
    * Výsledek kontroly → nový stav hledání + důvod upozornění. Původní objekt nemění.
    * partial = některý zdroj neodpověděl: vyšší nebo žádná cena může být jen výpadkem – nezapíše se (skipped, hledání
    * zůstane k nové kontrole), nejvýš 2× po sobě, pak se vezme i neúplná. Nižší cena platí i při výpadku.
+   * own = otisk 🏠 vlastních cen na letiště, které hledání použilo (SearchHelp.ownPrint): jiný než u minulé kontroly →
+   * cena se posunula změnou vlastní ceny, ne letenky – bez upozornění, výchozí, nejnižší i „viděná“ cena začnou od
+   * nové (rebased, bod historie s own: 1). Bez own (undefined) se otisk nehlídá.
    */
-  function applyCheck(w, best, now, cfg = CFG, { partial = false } = {}) {
+  function applyCheck(w, best, now, cfg = CFG, { partial = false, own } = {}) {
     const h = Array.isArray(w.history) ? w.history : [];
     // minulá cena; když minulá kontrola nic nenašla, poslední známá z historie
     const prev = num(w.best && w.best.czk) || num(h.length && h[h.length - 1].czk);
@@ -204,19 +217,28 @@
     if (partial && prev && !(cur && cur < prev) && (num(w.partials) || 0) < 2) {
       return { w: { ...w, tried: now, partials: (num(w.partials) || 0) + 1 }, why: null, prev, skipped: true };
     }
+    const rebased = own != null && String(w.own || '') !== String(own) && Boolean(cur || prev);
     const { partials, ...rest } = w;
     const out = { ...rest, best: best || null, checked: now, tried: now };
-    if (out.base == null && h.length) out.base = h[0].czk; // starší uložená data bez výchozí ceny
+    // otisk se zapíše jen s cenou – kontrola bez výsledku by jinak příští cenu srovnala se starou
+    if (own != null && (cur || !rebased)) out.own = String(own);
+    const he = epoch(h);
+    if (out.base == null && he.length) out.base = he[0].czk; // starší uložená data bez výchozí ceny
     if (out.seen == null && prev) out.seen = prev;
     let why = null;
-    if (cur) {
+    if (cur && rebased) {
+      out.history = pushHistory(h, { at: now, czk: cur, own: 1 }, cfg.histCap);
+      out.base = out.low = out.seen = cur;
+      // pod cílovou cenou už teď → tuhle cenu nehlásit (jako nastavení cíle), jinak dřív ohlášená cena neplatí
+      if (num(w.target) && cur <= w.target) { out.notified = cur; out.notifiedAt = now; } else { delete out.notified; delete out.notifiedAt; }
+    } else if (cur) {
       out.history = pushHistory(h, { at: now, czk: cur }, cfg.histCap);
-      out.low = lowest([w.low, ...h.map(x => x.czk), cur]);
+      out.low = lowest([w.low, ...he.map(x => x.czk), cur]);
       if (out.base == null) out.base = cur;
       why = shouldNotify({ prev, cur, target: w.target, notified: w.notified }, cfg.dropPct);
       if (why) { out.notified = cur; out.notifiedAt = now; }
     }
-    return { w: out, why, prev };
+    return { w: out, why, prev, rebased: Boolean(cur && rebased) };
   }
 
   /**
@@ -259,7 +281,7 @@
     const key = keyOf(w);
     const old = (list || []).find(x => x && keyOf(x) === key);
     if (!old) return { list: [w, ...(list || [])].slice(0, cap), w, dup: false };
-    const upd = { ...applyCheck(old, w.best, now, CFG, { partial }).w, label: w.label, sub: w.sub, form: w.form };
+    const upd = { ...applyCheck(old, w.best, now, CFG, { partial, own: w.own }).w, label: w.label, sub: w.sub, form: w.form };
     return { list: [upd, ...list.filter(x => x !== old)].slice(0, cap), w: upd, dup: true };
   }
 
@@ -376,5 +398,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, applyCheck, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
+  window.Alerts = { CFG, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
 })();

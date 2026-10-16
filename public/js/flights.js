@@ -447,9 +447,10 @@
   // Doprava na letiště do dotazu: kmRate 0 = nepočítat; groundMode vždy (bez něj by server bral kmRate jako dřívější Kč/km).
   // Autem platí jen „započítat“ – skrytý násobek jízdného (třeba 0) cenu auta nevypne; pohon, spotřeba a vlastní cena
   // zvoleného pohonu (carFuel vždy – bez něj by server počítal dřívější Kč/km). Veřejnou dopravou 🏠 vlastní ceny na
-  // letiště (S.accessOwn – nastavení zařízení, ne formuláře) jako accessOverride – starší server pole ignoruje.
+  // letiště (S.accessOwn – nastavení zařízení, ne formuláře) jako accessOverride – starší server pole ignoruje; s jízdným
+  // × 0 ne (doprava se nepočítá, server by je stejně nepoužil).
   const groundPayload = f => {
-    const car = f.groundMode === 'car', own = !car && f.ground ? SearchHelp.ownClean(S.accessOwn) : null;
+    const car = f.groundMode === 'car', own = !car && f.ground && +f.kmRate > 0 ? SearchHelp.ownClean(S.accessOwn) : null;
     return { kmRate: f.ground ? (car ? 1 : f.kmRate) : 0, groundMode: car ? 'car' : 'transit', ...(car ? SearchHelp.carPayload(f) : {}), ...(own ? { accessOverride: own } : {}) };
   };
   function payloadOf(f) {
@@ -509,7 +510,7 @@
     $('.gm-field').classList.toggle('gm-off', !f.ground);
     if (!f.ground) bits.push('bez dopravy na letiště');
     else if (f.groundMode === 'car') bits.push(`🚗 na letiště autem (${FUEL_SHORT[f.carFuel] || 'nafta'})`);
-    else {
+    else if (+f.kmRate > 0) { // s jízdným × 0 se doprava nepočítá – ani vlastní ceny (seznam 🏠 je schovaný)
       const own = SearchHelp.ownClean(S.accessOwn) || {}, ks = originPreview.filter(a => !a.off && Object.hasOwn(own, a.iata)).map(a => a.iata);
       if (ks.length) bits.push(`🏠 vlastní cena na letiště ${ks.join(', ')}`);
     }
@@ -820,8 +821,10 @@
       return;
     } else {
       if (!Object.hasOwn(own, iata) && Object.keys(own).length >= SearchHelp.OWN_MAX) {
+        // nejstarší mimo náhled (jinak by ji šlo smazat jen s jiným Odkud) ustoupí – a řekne se která
         const shown = new Set(originPreview.map(a => a.iata)), old = Object.keys(own).find(k => !shown.has(k));
-        if (!old) { toast(`Vlastní cenu jde zadat nejvýš u ${SearchHelp.OWN_MAX} letišť`, 'err'); inp.value = ''; return; }
+        if (!old) { toast(`Vlastní cenu jde zadat nejvýš u ${SearchHelp.OWN_MAX} letišť – smaž některou jinou`, 'err'); inp.value = ''; return; }
+        toast(`Vlastní cenu jde mít nejvýš u ${SearchHelp.OWN_MAX} letišť – nejstarší (${old} ${czk(own[old])}) jsem smazal`);
         delete own[old];
       }
       delete own[iata]; own[iata] = n; // naposledy zadané na konci (nejstarší ustoupí první)
@@ -2870,7 +2873,8 @@
     // 📅 klouzavý termín: uloží se odstup a délka rozsahu (nebo „nejbližší prodloužený víkend“), ne data; hledání, které už
     // se hlídá klouzavě (data z jiného dne – rolledOf), dostane jeho termín, ať ho upsertWatch nezdvojí
     const same = rolledOf(f), roll = same ? same.form.roll : rollWanted(f), wf = roll ? { ...f, roll } : f;
-    const w = { id: Date.now().toString(36), label: watchLabel(f), sub: watchSub(roll ? Alerts.rollForm(wf, today()) : f), form: wf, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null };
+    // own = otisk 🏠 vlastních cen na letiště v ceně – jejich změna pak při kontrole není „zlevnilo“ (Alerts.applyCheck)
+    const w = { id: Date.now().toString(36), label: watchLabel(f), sub: watchSub(roll ? Alerts.rollForm(wf, today()) : f), form: wf, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null, own: SearchHelp.ownPrint(res) };
     // stejné hledání podruhé (♡ pod formulářem i v „Je to dobrá cena?“) jen aktualizuje cenu té, co už je
     const r = Alerts.upsertWatch(S.watch || [], w, watchKey, { now: Date.now(), cap: 12, partial: Alerts.incomplete(res.providers) });
     S.watch = r.list; save();
@@ -2912,10 +2916,11 @@
   const notifCtor = !(navigator.userAgentData && /Android/i.test(navigator.userAgent));
   const notifOk = () => notifCtor ? Alerts.notifState(window.Notification, window.isSecureContext !== false) : 'unsupported';
 
+  // graf jen od poslední změny 🏠 vlastní ceny na letiště (Alerts.epoch) – starší ceny jsou s jinou cestou na letiště
   function sparkSvg(w) {
-    const W = 120, H = 34, sp = Alerts.sparkPath(w.history, W, H, 4);
+    const hs = Alerts.epoch(w.history), W = 120, H = 34, sp = Alerts.sparkPath(hs, W, H, 4);
     if (!sp) return '';
-    const n = (w.history || []).length;
+    const n = hs.length;
     const lab = `Vývoj ceny za ${n} ${n < 5 ? 'kontroly' : 'kontrol'}: ${czk(sp.min)} až ${czk(sp.max)}`;
     const tgt = w.target >= sp.min && w.target <= sp.max ? `<path class="ws-tgt" d="M0 ${sp.y(w.target)}H${W}"/>` : '';
     return `<svg class="w-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(lab)}"><title>${esc(lab)}</title>${tgt}<path class="ws-line" d="${sp.d}"/><path class="ws-dot" d="M${sp.last[0]} ${sp.last[1]}h0"/></svg>`;
@@ -2930,7 +2935,7 @@
     return `<div class="watch-bar"><span>🔄 Každé hledání kontroluji automaticky zhruba jednou za 6 h – ale jen dokud máš ATLAS otevřený v prohlížeči a panel není schovaný na pozadí. Zavřená stránka nehlídá nic.</span>${n}</div>`;
   }
   function watchCard(w, now = Date.now()) {
-    const h = w.history || [];
+    const h = Alerts.epoch(w.history), own = h.length && h[0].own; // od změny 🏠 vlastní ceny na letiště
     const cur = w.best?.czk;
     const prev = h.length > 1 ? h[h.length - 2].czk : null;
     const diff = prev && cur ? cur - prev : 0;
@@ -2950,7 +2955,7 @@
         <div class="w-head"><div class="w-t">${esc(w.label)}</div>${drop ? '<span class="b good">📉 zlevnilo</span>' : ''}</div>
         <div class="faint" style="font-size:12px">${esc(subOf(w))}</div>${roll}
         <div class="w-main"><div class="w-p">${cur ? czk(cur) : '—'}<small>/os.</small> ${diff ? `<span class="${diff < 0 ? 'good' : 'bad'}" title="Oproti minulé kontrole">${diff < 0 ? '↓' : '↑'} ${czk(Math.abs(diff))}</span>` : ''}</div>${sparkSvg(w)}</div>
-        <div class="w-stats">${since != null ? `<span>od uložení <b class="${since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>` : ''}${low ? `<span>nejnižší cena ${czk(low)}</span>` : ''}</div>
+        <div class="w-stats">${since != null ? `<span${own ? ' title="Vlastní cena na letiště se změnila – ceny před tím se s novými nesrovnávají"' : ''}>${own ? 'od změny 🏠 ceny' : 'od uložení'} <b class="${since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>` : ''}${low ? `<span>nejnižší cena ${czk(low)}</span>` : ''}</div>
         <div class="faint" style="font-size:12px">${esc(w.best?.desc || 'zatím bez výsledku')}</div>
         ${past ? `<div class="note warn w-past">⌛ <div>Termín proběhl – tohle hledání už hlídat nejde. ${canRoll ? `<button type="button" class="linkbtn" data-wr="${id}">📅 Převést na klouzavé</button> – termín se pak bude posouvat s časem a historie i cílová cena zůstanou. Nebo ho smaž.` : 'Smaž ho, nebo ho otevři a vyber nové datum.'}</div></div>`
         : `<label class="w-target">Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target ? '' : 'hidden'}>✓ splněno</span></label>`}
@@ -3055,7 +3060,8 @@
       const res = await runSearch(payloadOf(f), { signal: ctl.signal });
       PriceCheck.remember(res); // každá kontrola hlídaného hledání = další bod trendu ceny
       const cur = (S.watch || []).find(x => x.id === id); if (!cur) return; // mezitím smazané
-      const r = Alerts.applyCheck(cur, bestOf(res), Date.now(), undefined, { partial: Alerts.incomplete(res.providers) });
+      // jiná 🏠 vlastní cena na letiště než minule (S.accessOwn jde do hledání, klíč hlídání ji nemá) → bez upozornění, nová výchozí cena
+      const r = Alerts.applyCheck(cur, bestOf(res), Date.now(), undefined, { partial: Alerts.incomplete(res.providers), own: SearchHelp.ownPrint(res) });
       if (r.skipped) {
         // výpadek zdroje: cenu nepřepisovat (falešné „zlevnilo“ při další kontrole), za chvíli to zkusí znovu
         Object.assign(cur, r.w); save();
@@ -3065,6 +3071,7 @@
       Object.assign(cur, r.w); delete cur.partials; save();
       const b = cur.best;
       if (r.why) alertDrop(cur, r.why, r.prev);
+      else if (r.rebased) { if (!auto) toast(`${cur.label}: ${czk(b.czk)} – s tvou novou 🏠 cenou na letiště, porovnávám od teď`); }
       else if (!auto) toast(b && r.prev && b.czk < r.prev ? `📉 ${cur.label}: cena klesla na ${czk(b.czk)}!` : `${cur.label}: ${b ? czk(b.czk) : 'nic nenalezeno'}`);
     } catch (e) {
       // automatická kontrola chybu jen zapíše a zkusí to příští cyklus
@@ -3173,10 +3180,12 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden || !document.querySelector('#view-dashboard.active') || !(S.home && S.home.from?.length) || $('#radarGo')) return; // rozdělané „Odkud obvykle létáš?“ nechat
     const c = radarCached(SearchHelp.radarQuery(S.radarMode, radarHome(), today(), S.radarHoliday));
-    if (!c || Date.now() - c.at >= 30 * 60e3) renderRadar();
+    if (!c || Date.now() - c.at >= 30 * 60e3 || !SearchHelp.radarOwnOk(c, S.accessOwn)) renderRadar();
   });
-  // Klíč výsledku radaru: dotaz, u svátků i který prodloužený víkend (jiný svátek = jiné hledání, žádné „↓ od minula“)
-  const radarKey = q => JSON.stringify(q.lw ? { ...q.payload, lw: q.lw.start } : q.payload || null);
+  // Klíč výsledku radaru: dotaz, u svátků i který prodloužený víkend (jiný svátek = jiné hledání, žádné „↓ od minula“).
+  // Bez 🏠 vlastních cen na letiště (nastavení zařízení, i letišť mimo okruh) – platnost uložených cen s nimi hlídá
+  // otisk own výsledku (SearchHelp.radarOwnOk): změna ceny u MUC radar z Brna nezahodí, u BRQ hledá znovu se starými kartami.
+  const radarKey = q => { const { accessOverride, ...p } = q.payload || {}; return JSON.stringify(q.payload ? (q.lw ? { ...p, lw: q.lw.start } : p) : null); };
   // domov radaru + počet cestujících radaru (nastavení domova, výchozí 2 jako ve formuláři) – ne z posledního hledání,
   // jinak by střídání 1 a 2 lidí pokaždé zahodilo uložený radar; proklik z karty hledá pro stejný počet (stejná cena)
   const radarAdults = () => Math.min(9, Math.max(1, Math.round(+S.home?.adults) || 2));
@@ -3193,7 +3202,8 @@
     const lwBox = $('#radarLw'), all = (q.lw && q.lw.all) || [];
     lwBox.hidden = all.length < 2;
     if (all.length < 2) { lwBox.innerHTML = ''; return; }
-    const lwMap = Object.fromEntries(Object.entries(S.radar?.lw || {}).map(([k, e]) => [k, radarVisible(e)]));
+    // jen ceny spočtené s dnešními 🏠 vlastními cenami letišť radaru (radarOwnOk)
+    const lwMap = Object.fromEntries(Object.entries(S.radar?.lw || {}).filter(([, e]) => SearchHelp.radarOwnOk(e, S.accessOwn)).map(([k, e]) => [k, radarVisible(e)]));
     const pr = SearchHelp.lwPrices(lwMap, all, x => radarKey(SearchHelp.radarQuery('holiday', radarHome(), today(), x.start)), Date.now(), today());
     const known = Object.values(pr), best = known.length > 1 ? Math.min(...known.map(p => p.czk)) : null;
     const bestTxt = known.length < all.length ? ' – nejlevnější z víkendů s cenou' : all.length === 2 ? ' – nejlevnější z obou' : ' – nejlevnější ze všech';
@@ -3219,7 +3229,7 @@
     $('#radarReload').style.visibility = ''; $('#radarReload').onclick = () => renderRadar(true);
     if (q.none) { renderNews(); host.innerHTML = `<div class="note info">🗓️ <div>${esc(q.empty)}</div></div>`; return; }
     const c = radarCached(q);
-    if (!force && c && c.key === key && Date.now() - c.at < 30 * 60e3) return paintRadar(c, q);
+    if (!force && c && c.key === key && Date.now() - c.at < 30 * 60e3 && SearchHelp.radarOwnOk(c, S.accessOwn)) return paintRadar(c, q);
     // Starší výsledek stejného dotazu se ukáže hned a nový se hledá na pozadí – po uspání serveru to trvá i přes minutu.
     const old = SearchHelp.radarStale(c, key, today());
     if (old) paintRadar(old, q, { busy: true });
@@ -3273,7 +3283,7 @@
         // odkaz na nabídku z karty – hledání do jednoho cíle ji nemusí vrátit (Kiwi dává pro „kamkoliv“ jiné nabídky)
         ...(t.bookUrl ? { buy: [[t.bookUrl, t.provider, 'all']] } : t.out.bookUrl || t.back?.bookUrl ? { buy: [...(t.out.bookUrl ? [[t.out.bookUrl, t.out.provider, 'out']] : []), ...(t.back?.bookUrl ? [[t.back.bookUrl, t.back.provider, 'back']] : [])] } : {}) }));
       // co se od minulého výsledku změnilo (↓ cena, nový cíl – proti kartám, které radar ukazoval); s výpadkem zdroje bez značek
-      const r = SearchHelp.radarEntry(radarCached(q), items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers), mute });
+      const r = SearchHelp.radarEntry(radarCached(q), items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers), mute, own: SearchHelp.ownPrint(res), ap: (res.origins || []).map(o => o.iata) });
       // domov se mezitím změnil: starý dotaz už nic nepřepíše
       // (u svátků se porovná víkend tohoto hledání – výsledek víkendu, od kterého uživatel mezitím překlikl, se uloží)
       if (!S.home?.from?.length || radarKey(SearchHelp.radarQuery(q.mode, radarHome(), today(), q.lw ? q.lw.start : S.radarHoliday)) !== key) return r;

@@ -396,10 +396,14 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
   letiště: tabulka ~35 letišť do ~450 km od Česka (MHD, S-Bahn, letištní bus – např. Vídeň vlak S7 ~110 Kč, Mnichov
   S-Bahn ~350 Kč, Berlín ~120 Kč, Drážďany ~85 Kč, Budapešť bus 100E ~170 Kč; Memmingen = letištní bus z Mnichova),
   jinde jízdenka MHD země + 20–40 Kč podle velikosti letiště. Běžná cena spoje přes hranici už je cena mezinárodního
-  spoje (měřilo se na nich), takže se k ní nic nepřičítá.
+  spoje (měřilo se na nich), takže se k ní nic nepřičítá. Model je na spojích přes hranici kalibrovaný od ~115 km
+  (Praha–Drážďany, Brno–Vídeň); na kratší vzdálenost (Děčín → Drážďany, Znojmo → Vídeň, Ostrava → Katovice) se
+  počítá levnější z běžné ceny jako na 115 km (~190–200 Kč) a regionálního jízdného s příplatkem za mezinárodní spoj
+  – nikdy ne levněji než domácí regionální jízdenka na stejnou vzdálenost.
 - **Příplatek za mezinárodní spoj** (mezi Českem, Slovenskem, Polskem a Maďarskem 30 Kč, jinak 20 % jízdného, aspoň
   50 Kč) jen tam, kde je základem nejnižší cena nebo domácí tarif: k přímému busu až na letiště a k regionálnímu spoji
-  přes hranici (Bratislava → Vídeň-Schwechat) – na letiště jedeš konkrétním spojem v danou hodinu, ne akční jízdenkou.
+  přes hranici (Bratislava → Vídeň-Schwechat, Děčín → Drážďany, Ostrava → Katovice) – na letiště jedeš konkrétním
+  spojem v danou hodinu, ne akční jízdenkou.
 - **Přímý bus až na letiště** z Prahy do Mnichova, Vídně a Berlína a z Brna do Vídně se počítá místo cesty přes město,
   když vyjde levněji (ceny změřené 6. 10. 2026: Praha → letiště Mnichov RegioJet 1× denně 299–499 Kč, FlixBus
   449–479 Kč; Vídeň od 369 Kč, Berlín BER od 419 Kč, Brno → Vídeň od 249 Kč; Mnichov přes město a S-Bahn ~650 Kč).
@@ -419,7 +423,12 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
   pro to letiště tam i zpět (na osobu, zpět totéž), *jízdné ×* se na ni nevztahuje, čas cesty zůstává odhad. Nejvýš
   12 letišť, celé Kč 0–5 000 (0 = někdo tě odveze); pamatuje si je prohlížeč (a 💾 záloha), do hledání jdou jako
   `accessOverride` – i u ♡ hlídaných cen a radaru. Ve výsledcích a rozpisu se u nich píše *vlastní cena* místo *odhad*
-  (štítek letiště *🏠 350 Kč/os. tam*). Autem se nepoužijí. Starší server pole ignoruje a počítá odhad.
+  (štítek letiště *🏠 350 Kč/os. tam*). Autem ani s *jízdné × 0* se nepoužijí. Starší server pole ignoruje a počítá odhad.
+  Změna vlastní ceny není zlevnění: ♡ hlídaná cena si pamatuje, s jakými vlastními cenami letišť se počítala (otisk
+  `own`), a když se při kontrole liší, neohlásí 📉 ani ↑ – cena „od změny 🏠 ceny“, nejnižší cena i graf začnou od nové.
+  Radar podle svých letišť pozná, jestli se ho změna týká: cena u letiště mimo jeho okruh (MUC z Brna) uložený radar
+  nezahodí, u jeho letiště hledá znovu (staré karty zůstanou vidět) a nové ceny neoznačí jako „↓“. Když je 12 cen
+  plných, nová ustoupí nejstarší mimo náhled letišť a toast řekne kterou; obnova ze zálohy ukáže, kolik se nevešlo.
 
 Z Prahy na osobu tam: PRG ~50 Kč, PED ~150 Kč, KLV ~210 Kč, JCL ~220 Kč, VIE ~360 Kč, DRS ~430 Kč, MUC ~480 Kč,
 BER ~500 Kč, KRK ~530 Kč, KTW ~550 Kč; z Brna: BRQ ~30 Kč, BTS ~190 Kč, VIE ~300 Kč. Čas = jízda podle téhož modelu +

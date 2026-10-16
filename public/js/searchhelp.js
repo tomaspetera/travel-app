@@ -866,6 +866,17 @@
   }
   /** Vlastní ceny do adresy /api/origins: „VIE:350,BTS:270“ ('' = žádné). */
   const ownQs = o => Object.entries(ownClean(o) || {}).map(([k, v]) => `${k}:${v}`).join(',');
+  /**
+   * Otisk 🏠 vlastních cen, které hledání opravdu použilo (letiště výsledku s ground.own): „BRQ:0,VIE:350“, '' = žádná.
+   * Hlídaná cena podle něj pozná, že se posunula změnou vlastní ceny na letiště, ne letenky (Alerts.applyCheck own).
+   */
+  const ownPrint = res => ((res && res.origins) || []).filter(o => o && o.ground && o.ground.own && /^[A-Z]{3}$/.test(o.iata))
+    .map(o => `${o.iata}:${Math.round(+o.ground.czk) || 0}`).sort().join(',');
+  /** Týž otisk z vlastních cen own jen pro letiště aps (veřejnou dopravou se vlastní cena použije u každého z nich). */
+  function ownPrintFor(own, aps) {
+    const o = ownClean(own) || {}, set = new Set(Array.isArray(aps) ? aps : []);
+    return Object.keys(o).filter(k => set.has(k)).map(k => `${k}:${o[k]}`).sort().join(',');
+  }
   const tollSum = (g, pick) => (g.tolls || []).filter(pick).reduce((s, t) => s + t.czk, 0);
   /** Dní parkování pro cestu s N nocemi (odlet ráno, návrat večer = N + 1 započatých dní). */
   const parkDays = n => Math.max(1, Math.round(Number(n) || 0) + 1);
@@ -1372,9 +1383,13 @@
     const items = entry.items.filter(x => x && typeof x.d1 === 'string' && x.d1 >= today);
     return items.length ? { ...entry, items } : null;
   }
-  /** Stejný dotaz radaru (JSON) až na rozsah dat, který se den ode dne posouvá. */
+  /**
+   * Stejný dotaz radaru (JSON) až na rozsah dat, který se den ode dne posouvá, a 🏠 vlastní ceny na letiště
+   * (accessOverride – nastavení celého zařízení, i letišť daleko mimo okruh radaru; změnu cen letišť radaru hlídá
+   * otisk own v uloženém výsledku, radarOwnOk).
+   */
   function radarSame(a, b) {
-    const strip = k => { try { const { dateFrom, dateTo, ...rest } = JSON.parse(k); return JSON.stringify(rest); } catch (e) { return null; } };
+    const strip = k => { try { const { dateFrom, dateTo, accessOverride, ...rest } = JSON.parse(k); return JSON.stringify(rest); } catch (e) { return null; } };
     const x = strip(a);
     return Boolean(x) && x === strip(b);
   }
@@ -1386,8 +1401,11 @@
    * Minule = jen karty, které radar ukazoval (radarShown: bez 🙈 – mute = seznam, prvních 12 z uložené rezervy):
    * cíl, který byl minule uložený, ale neukázaný (13.–20.), je „nové“, ne „↓“ od ceny, kterou uživatel neviděl.
    */
-  function radarDiff(prev, items, key, now, mute = null) {
+  // own = otisk 🏠 vlastních cen nového výsledku (ownPrint): jiný než minule → ceny se posunuly změnou vlastní ceny na
+  // letiště, ne letenek – bez značek (žádné falešné „↓“)
+  function radarDiff(prev, items, key, now, mute = null, own) {
     if (!prev || !Array.isArray(prev.items) || typeof prev.key !== 'string' || !radarSame(prev.key, key)) return items;
+    if (own != null && String(prev.own || '') !== String(own)) return items;
     const old = new Map(radarShown(prev.items, mute).map(s => s.x).filter(x => x.id).map(x => [x.id, x])), skip = destKeys(mute);
     return items.map(x => {
       const o = old.get(x.id), y = { ...x };
@@ -1406,10 +1424,23 @@
    * z posledního úplného výsledku – jinak by vyšší ceny z výpadku příště ukázaly falešné „↓“ a vrácené cíle „nové“.
    * mute = 🙈 seznam (radarDiff porovnává jen s kartami, které radar ukazoval).
    */
-  function radarEntry(prev, items, key, at, { demo = false, partial = false, mute = null } = {}) {
+  // own = otisk 🏠 vlastních cen výsledku (ownPrint), ap = jeho letiště (res.origins) – radarOwnOk podle nich pozná,
+  // jestli uložené ceny platí i s dnešními vlastními cenami
+  function radarEntry(prev, items, key, at, { demo = false, partial = false, mute = null, own, ap } = {}) {
     const base = prev && prev.partial ? prev.base || null : prev || null;
-    if (partial) return { key, at, demo, items, partial: true, base: base && radarSame(base.key, key) ? { key: base.key, at: base.at, items: base.items } : null };
-    return { key, at, demo, items: radarDiff(base, items, key, at, mute) };
+    const extra = { ...(own != null ? { own: String(own) } : {}), ...(Array.isArray(ap) ? { ap: ap.slice(0, 40) } : {}) };
+    if (partial) return { key, at, demo, items, partial: true, ...extra, base: base && radarSame(base.key, key) ? { key: base.key, at: base.at, items: base.items, ...(base.own != null ? { own: base.own } : {}) } : null };
+    return { key, at, demo, items: radarDiff(base, items, key, at, mute, own), ...extra };
+  }
+  /**
+   * Platí uložený výsledek radaru i s dnešními 🏠 vlastními cenami na letiště? Jen podle letišť toho výsledku (ap) –
+   * cena zadaná u letiště mimo okruh radaru (MUC z Brna) radar nezahodí. Starší výsledek bez ap: ano, když vlastní
+   * ceny nemá ani teď (jinak se hledá znovu, staré karty zůstanou vidět).
+   */
+  function radarOwnOk(entry, own) {
+    if (!entry) return false;
+    if (!Array.isArray(entry.ap)) return !ownClean(own) && !entry.own;
+    return String(entry.own || '') === ownPrintFor(own, entry.ap);
   }
 
   /* ---------- řazení „cena + délka cesty“ ---------- */
@@ -1646,11 +1677,11 @@
     onlyOriginSet,
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
-    CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs,
+    CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs, ownPrint, ownPrintFor,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
-    radarQuery, radarStale, radarSame, radarDiff, radarEntry,
+    radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
     lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,

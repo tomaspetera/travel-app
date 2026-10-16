@@ -220,9 +220,17 @@ export function fuelCountry(home) {
   return FUEL_CC.includes(cc) ? cc : 'CZ';
 }
 
+// Nejkratší trasy přes hranici, na kterých je model „běžně“ pásma západ kalibrovaný: Praha–Drážďany 115 km, Brno–Vídeň
+// 117 km. Kratší spoj do Německa nebo Rakouska by model protáhl pod tuhle cenu (Děčín–Drážďany 45 km ~90 Kč, levněji
+// než domácí regionální jízdenka na stejnou vzdálenost) – cena mezinárodního spoje pod ní neklesne. Totéž v pásmu východ
+// (Polsko, Maďarsko): ~200 Kč jako na 115 km sedí i na Ostrava–Katovice, ~70–90 km, běžně 189 Kč.
+const CROSS_MIN_KM = 115;
+
 /**
  * Vlak / bus mezi městy (Kč/os. běžně, min): změřená cesta z/do Prahy, jinak model podle vzdálenosti, na kratší
  * regionální jízdné. Běžná cena (ne „od“) – na letiště se jede určitý den, ne kdykoli za nejlevnější jízdenku.
+ * Přes hranici (pásmo východ / západ) levnější z: běžná cena mezinárodního spoje (aspoň jako na 115 km), nebo
+ * regionální jízdné + příplatek za mezinárodní spoj → regional: true (příplatek přičte transitAccess).
  */
 function intercity(a, b) {
   const km = landKm(a, b);
@@ -230,9 +238,16 @@ function intercity(a, b) {
   const pb = groundPlace(b);
   const other = pa?.rj === PRAHA_RJ ? pb?.rj : pb?.rj === PRAHA_RJ ? pa?.rj : null;
   const m = other && MEASURED[other];
-  if (m) return { czk: m.typ, min: m.min, measured: true };
-  const dm = distanceModel(km, mountainsOn(a, b) ? MOUNTAIN_SLOW : 1, priceBand({ ...a, rj: pa?.rj }, { ...b, rj: pb?.rj }));
-  return { czk: Math.min(dm.typ, regionalCzk(km)), min: Math.min(dm.minutes, regionalMin(km)) };
+  if (m) return { czk: m.typ, min: m.min, measured: true, regional: false };
+  const slow = mountainsOn(a, b) ? MOUNTAIN_SLOW : 1;
+  const band = priceBand({ ...a, rj: pa?.rj }, { ...b, rj: pb?.rj });
+  const dm = distanceModel(km, slow, band);
+  const reg = regionalCzk(km);
+  const min = Math.min(dm.minutes, regionalMin(km));
+  const b0 = band === 'domestic' ? 0 : borderCzk(a.cc, b.cc, reg);
+  if (!b0) return { czk: Math.min(dm.typ, reg), min, regional: false }; // stejná země, Česko ↔ Slovensko (pásmo domácí)
+  const typ = km < CROSS_MIN_KM ? Math.max(dm.typ, distanceModel(CROSS_MIN_KM, slow, band).typ) : dm.typ;
+  return reg + b0 < typ ? { czk: reg, min, regional: true } : { czk: typ, min, regional: false };
 }
 
 /** Příplatek za mezinárodní spoj (Kč/os.): mezi Českem, Slovenskem, Polskem a Maďarskem 30 Kč, jinak 20 % (aspoň 50 Kč). */
@@ -256,7 +271,7 @@ export function transitAccess(home, a, { scale = 1, own = null } = {}) {
   const toCity = haversineKm(o.lat, o.lon, c.lat, c.lon);
   const items = []; // rozpis (breakdown)
   let minutes;
-  let typical = false; // běžná cena spoje do města letiště (FARE, MEASURED, model) – mezinárodní spoj už v ní je
+  let typical = false; // běžná cena spoje do města letiště (FARE, MEASURED, model) – mezinárodní spoj už v ní je; ne regionální jízdné
   if (toCity <= CITY_KM) {
     items.push({ k: 'access', label: c.how, czk: c.czk, min: c.min });
     minutes = c.min + 10; // na zastávku
@@ -269,7 +284,7 @@ export function transitAccess(home, a, { scale = 1, own = null } = {}) {
     const f = FARE[key];
     const ic = f ? { czk: f[0], min: f[1] } : intercity(o, { lat: c.lat, lon: c.lon, label: c.label, cc: a.cc });
     const d = DIRECT[key];
-    const via = ic.czk + c.czk;
+    const via = ic.czk + c.czk + (ic.regional ? borderCzk(o.cc, a.cc, ic.czk) : 0);
     if (d && d[0] + borderCzk(o.cc, a.cc, d[0]) < via) {
       items.push({ k: 'intercity', label: `${o.label ? `${o.label} → ` : ''}letiště ${c.label} ${d[2]}`, czk: d[0], min: d[1] });
       minutes = d[1] + 20; // na nádraží
@@ -277,7 +292,7 @@ export function transitAccess(home, a, { scale = 1, own = null } = {}) {
       items.push({ k: 'intercity', label: `${o.label ? `${o.label} → ` : ''}${c.label} ${f ? f[2] : 'vlakem / busem'}`, czk: ic.czk, min: ic.min });
       items.push({ k: 'access', label: c.how, czk: c.czk, min: c.min });
       minutes = ic.min + c.min + 20; // na nádraží a přestup
-      typical = true;
+      typical = !ic.regional;
     }
   }
   // běžná cena spojů přes hranici už je cena mezinárodního spoje; příplatek jen k „od“ přímého busu a k regionálnímu spoji

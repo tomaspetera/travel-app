@@ -18,6 +18,8 @@ const { hubsNear } = await import('../server/lib/longhaul.js');
 const { bestRoundTrips } = await import('../server/lib/optimizer.js');
 const { search, normalizeQuery } = await import('../server/lib/search.js');
 const { makeLeg } = await import('../server/lib/fares.js');
+const { getAirport } = await import('../server/lib/airports.js');
+const { haversineKm } = await import('../server/lib/geo.js');
 
 const ctx = { window: {} };
 vm.runInNewContext(readFileSync(new URL('../public/js/searchhelp.js', import.meta.url), 'utf8'), ctx);
@@ -104,6 +106,37 @@ test('příplatek za mezinárodní spoj: jen k „od“ přímého busu a k regi
     assert.deepEqual(plain(car(h, 'PRG').tolls), [], label);
   }
   assert.equal(border(BRATISLAVA, 'BTS'), 0, 'Bratislava = Slovensko');
+});
+
+test('krátký spoj přes hranici: regionální jízdné s příplatkem, mezinárodní spoj ne levněji než na 115 km', () => {
+  const ks = (h, iata) => transit(h, iata).breakdown.map((x) => [x.k, x.czk]);
+  const OSTRAVA = { lat: 49.8346, lon: 18.282, label: 'Ostrava', cc: 'CZ' };
+  const DECIN = { lat: 50.7736, lon: 14.1964, label: 'Děčín', cc: 'CZ' };
+  const BRECLAV = { lat: 48.759, lon: 16.882, label: 'Břeclav', cc: 'CZ' };
+  const ZNOJMO = { lat: 48.8555, lon: 16.0488, label: 'Znojmo', cc: 'CZ' };
+  const CB = { lat: 48.9745, lon: 14.4743, label: 'České Budějovice', cc: 'CZ' };
+  // Ostrava → Katovice ~71 km: regionální jízdné vyhrálo nad pásmem východ – příplatek 30 Kč (RegioJet běžně 189 Kč)
+  assert.deepEqual(ks(OSTRAVA, 'KTW'), [['intercity', 140], ['access', 150], ['border', 30]]);
+  // Děčín → Drážďany 45 km, Břeclav → Vídeň 72 km: regionální jízdné + příplatek 50 Kč (dřív 90 / 130 Kč bez příplatku)
+  assert.deepEqual(ks(DECIN, 'DRS'), [['intercity', 100], ['access', 90], ['border', 50]]);
+  assert.deepEqual(ks(BRECLAV, 'VIE'), [['intercity', 140], ['access', 110], ['border', 50]]);
+  // Znojmo → Vídeň, České Budějovice → Linec ~76 km: běžná cena mezinárodního spoje jako na 115 km (190 Kč), ne model
+  // protažený pod kalibraci (130 Kč) – pořád levnější než regionální jízdné + příplatek (~194 Kč)
+  assert.deepEqual(ks(ZNOJMO, 'VIE'), [['intercity', 190], ['access', 110]]);
+  assert.deepEqual(ks(CB, 'LNZ'), [['intercity', 190], ['access', 90]]);
+  // spoj přes hranici nikdy levněji než domácí regionální jízdenka na stejnou vzdálenost; delší trasy beze změny
+  for (const [h, iata] of [[DECIN, 'DRS'], [BRECLAV, 'VIE'], [ZNOJMO, 'VIE'], [CB, 'LNZ'], [OSTRAVA, 'KTW']]) {
+    const g = transit(h, iata);
+    const ic = g.breakdown.filter((x) => x.k === 'intercity' || x.k === 'border').reduce((s, x) => s + x.czk, 0);
+    const c = A.airportCity(getAirport(iata));
+    const km = Math.round(haversineKm(h.lat, h.lon, c.lat, c.lon));
+    assert.ok(ic >= Math.round(A.regionalCzk(km) / 10) * 10, `${h.label} → ${iata}: ${ic} Kč za ${km} km`);
+  }
+  assert.deepEqual(ks(OSTRAVA, 'KRK'), [['intercity', 200], ['access', 110]]);
+  assert.equal(transit(BRNO, 'VIE').czk, 300, 'Brno → Vídeň přímým busem');
+  assert.equal(transit(PRAHA, 'DRS').czk, 430, 'Praha → Drážďany změřeno (FARE)');
+  // Česko ↔ Slovensko: pásmo domácí, bez příplatku (Břeclav → Bratislava)
+  assert.deepEqual(ks(BRECLAV, 'BTS'), [['intercity', 100], ['access', 40]]);
 });
 
 test('🏠 vlastní cena na letiště (accessOverride): kontrola, místo odhadu bez násobku, autem a vypnuto ne, prohlížeč stejně', () => {

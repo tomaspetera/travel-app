@@ -50,7 +50,7 @@ test('záloha → obnova do prázdného zařízení vrátí cesty, hlídání, d
   assert.deepEqual(plain(inc.home), { from: [BRQ], radius: 200, adults: 2 });
   assert.deepEqual(plain(inc.pretrip), { '1760000000000:2026-11-12:PT': { d: { 'pack:doc-pass': 1 }, at: 5 } });
   const df = B.diff(state(), inc, { watchKey: wk, deps });
-  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, dests: { fav: 0, mute: 0, over: 0 }, pretrip: 1, refs: 0, own: { add: 0, differs: 0 } });
+  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, dests: { fav: 0, mute: 0, over: 0 }, pretrip: 1, refs: 0, own: { add: 0, differs: 0, over: 0 } });
   const m = B.merge(state(), inc, { watchKey: wk, deps });
   assert.equal(m.trips.length, 1);
   assert.equal(m.watch.length, 1);
@@ -268,7 +268,7 @@ test('🏠 vlastní ceny na letiště: v záloze tam i zpět, pročištěné (k�
   const S = { ...state({ home: { from: [BRQ], radius: 200, adults: 2 } }), accessOwn: { VIE: 350, BTS: 270, PRG: 0 } };
   const inc = B.parse(B.pack(S), deps);
   assert.deepEqual(plain(inc.own), { VIE: 350, BTS: 270, PRG: 0 });
-  assert.deepEqual(plain(B.diff(state(), inc, { watchKey: wk, deps }).own), { add: 3, differs: 0 });
+  assert.deepEqual(plain(B.diff(state(), inc, { watchKey: wk, deps }).own), { add: 3, differs: 0, over: 0 });
   assert.deepEqual(plain(B.merge(state(), inc, { watchKey: wk, deps }).own), { VIE: 350, BTS: 270, PRG: 0 });
   // starší záloha bez pole, poškozená data: nic (a nic se nepokazí)
   const raw = (own) => B.parse(JSON.stringify({ app: 'atlas', v: 1, data: { own } }), deps).own;
@@ -283,11 +283,26 @@ test('🏠 vlastní ceny na letiště: v záloze tam i zpět, pročištěné (k�
   // obnova jen přidá chybějící letiště (do 12), cenu v zařízení nepřepíše – jiná se jen spočítá
   const mine = { ...state(), own: { VIE: 300, KTW: 200 } };
   const df = B.diff(mine, inc, { watchKey: wk, deps });
-  assert.deepEqual(plain(df.own), { add: 2, differs: 1 });
+  assert.deepEqual(plain(df.own), { add: 2, differs: 1, over: 0 });
   assert.deepEqual(plain(B.merge(mine, inc, { watchKey: wk, deps }).own), { VIE: 300, KTW: 200, BTS: 270, PRG: 0 });
   const full = { ...state(), own: Object.fromEntries(Object.entries(many).slice(0, 12)) };
-  assert.deepEqual(plain(B.diff(full, inc, { watchKey: wk, deps }).own), { add: 0, differs: 0 }, 'plno – nic nového se nevejde');
+  assert.deepEqual(plain(B.diff(full, inc, { watchKey: wk, deps }).own), { add: 0, differs: 0, over: 3 }, 'plno – nic nového se nevejde');
   assert.equal(Object.keys(B.merge(full, inc, { watchKey: wk, deps }).own).length, 12);
+  // náhled: „nevešla se“, ne „(už máš)“ u letišť, která zařízení nemá; 11 + 3 nová → 1 nové, 2 se nevešla
+  ctx.esc = (x) => String(x);
+  const sum = (cur) => B.summaryHtml(inc, B.diff(cur, inc, { watchKey: wk, deps }));
+  assert.match(sum(full), /🏠 vlastní cena na 3 letiště \(3 se nevešla\)/);
+  assert.doesNotMatch(sum(full), /už máš/);
+  const eleven = { ...state(), own: Object.fromEntries(Object.entries(many).slice(0, 11)) };
+  assert.deepEqual(plain(B.diff(eleven, inc, { watchKey: wk, deps }).own), { add: 1, differs: 0, over: 2 });
+  assert.match(sum(eleven), /🏠 vlastní cena na 3 letiště \(1 nové, 2 se nevešla\)/);
+  assert.match(sum({ ...state(), own: { VIE: 350, BTS: 270, PRG: 0 } }), /🏠 vlastní cena na 3 letiště \(už máš\)/);
+  assert.match(sum({ ...state(), own: { VIE: 300, BTS: 270, PRG: 0 } }), /🏠 vlastní cena na 3 letiště – u 1 letiště máš jinou cenu, ta zůstane/);
+  // hlídaná cena si nese otisk vlastních cen (own) a značku změny v historii – po obnově se změna nehlásí jako zlevnění
+  const ws = { ...state(), watch: [watch('w1', '2026-11-01', { own: 'BRQ:0', history: [{ at: 1, czk: 956 }, { at: 2, czk: 696, own: 1 }] }), watch('w2', '2026-11-02', { own: 'BRQ:0,"x"', history: [{ at: 1, czk: 9, own: 'ano' }] })] };
+  const back = B.parse(B.pack(ws), deps).watch;
+  assert.deepEqual([back[0].own, plain(back[0].history)], ['BRQ:0', [{ at: 1, czk: 956 }, { at: 2, czk: 696, own: 1 }]]);
+  assert.deepEqual([back[1].own, plain(back[1].history)], [undefined, [{ at: 1, czk: 9 }]], 'poškozený otisk ani značka neprojdou');
 });
 
 test('⭐ Moje cíle a 🙈 Nezajímá mě: záloha → obnova, pročištění jako místa, sloučení bez přepsání volby zařízení, nejvýš 30', () => {
