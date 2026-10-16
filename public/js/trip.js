@@ -348,22 +348,35 @@
     [x.stay, x.car].map(s => (s ? [s.mode, s.id || s.name || '', Math.round(s.totalCzk || 0)] : null)),
     isMulti(x) ? x.route.bases.map(b => [b.id, b.nights, b.stay ? [b.stay.mode, b.stay.id || b.stay.name || ''] : null]) : null,
   ]);
-  /** Obsah sdílené cesty k porovnání: klíče podle abecedy, bez odškrtnutí „Co zařídit a co sbalit“ (ta se jen přidávají – PreTrip.adopt). */
+  /**
+   * Obsah sdílené cesty k porovnání: klíče podle abecedy, bez odškrtnutí „Co zařídit a co sbalit“ (ta se jen přidávají –
+   * PreTrip.adopt) a bez času ceny letu (tentýž let vybraný znovu z novějšího hledání je pořád tatáž cesta).
+   */
   const linkSig = x => {
     const { done, ...p } = x.pretrip || {};
-    return JSON.stringify({ ...x, pretrip: Object.keys(p).length ? p : undefined }, (k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(n => [n, v[n]])) : v));
+    return JSON.stringify({ ...x, flight: x.flight && { ...x.flight, pricedAt: undefined }, pretrip: Object.keys(p).length ? p : undefined }, (k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(n => [n, v[n]])) : v));
   };
 
   /* ---------- start z výsledků hledání ---------- */
-  function start({ t, g, result, ccs = null }) {
+  // Cena z paměti tras (Wizz Air: leg.memAgeMin, u výsledku štítek „⏱ cena před 5 h“) je o tolik starší než výsledek
+  // hledání – v ms, nejstarší z letu tam a zpět (jako memAge ve flights.js); čerstvá cena 0.
+  const memAgeMs = t => Math.max(0, ...[t.out, t.back].map(l => +(l && l.memAgeMin)).filter(Number.isFinite)) * 6e4;
+  // at = čas cen výsledku, ze kterého let je (flight.pricedAt – „cena z 3. 10. 14:12“ v kroku Let a ve Shrnutí);
+  // cena z paměti tras o její stáří dřív
+  function start({ t, g, result, ccs = null, at = 0 }) {
     const originsBy = Object.fromEntries((result.origins || []).map(o => [o.iata, o]));
     const dest = g ? g.dest : { label: t.out.to, cc: '', country: '', lat: null, lon: null };
+    const mem = memAgeMs(t);
     // Rozpracovaná cesta (vybraná trasa, ubytování, auto, program nebo odškrtnuté rezervace) se nezahodí bez zeptání –
     // „↩ Vybrat jiný let“ i nový výběr z výsledků by ji jinak potichu přepsaly.
     const mine = S.trip;
-    // stejný let tam i zpět znovu (z výsledků, z uložených výsledků) pro stejně lidí a zavazadla → pokračovat v rozpracované cestě
+    // stejný let tam i zpět znovu (z výsledků, z uložených výsledků) pro stejně lidí a zavazadla → pokračovat v rozpracované
+    // cestě; za stejnou cenu z novějšího hledání platí cena k jeho času
     if (mine && mine.flight && JSON.stringify([mine.flight.out, mine.flight.back || null]) === JSON.stringify([t.out, t.back || null])
-      && +mine.adults === +result.query.adults && (mine.bags || 'none') === (result.query.bags || 'none')) { go('trip'); return; }
+      && +mine.adults === +result.query.adults && (mine.bags || 'none') === (result.query.bags || 'none')) {
+      if (at > 0 && at - mem > (mine.flight.pricedAt || 0) && at <= Date.now() && mine.flight.flightCzk === t.flightCzk) { mine.flight.pricedAt = at - mem; persist(); }
+      go('trip'); return;
+    }
     if (mine && mine.flight) {
       const done = progressOf(mine);
       if (done.length && !confirm(`Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
@@ -371,13 +384,14 @@
     // Let z průběžných výsledků (pomalejší zdroje ještě hledaly): statistika cen i úroveň ceny letu jsou jen z části
     // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz). Statistika
     // průběžného výsledku čeká stranou (statsPreview) pro případ, že hledání konečný výsledek nepřinese (statsGiveUp).
-    const part = Boolean(result.partial);
+    const part = Boolean(result.partial), created = Date.now();
     S.trip = {
       v: 1,
-      created: Date.now(),
+      created,
       adults: result.query.adults,
       bags: result.query.bags || 'none',
-      flight: part ? { ...t, priceLevel: undefined } : t,
+      // kopie nabídky z výpisu (pricedAt nepatří do výsledků hledání); bez času výsledku od teď
+      flight: { ...t, ...(part ? { priceLevel: undefined } : {}), pricedAt: (at > 0 && at <= created ? at : created) - mem },
       // „Je to dobrá cena?“ v kroku Let: ceny letenek z hledání, ze kterého let je (bez paměti tras – ta je v prohlížeči)
       priceStats: part ? null : statsFrom(g, result),
       ...(part ? { statsWait: JSON.stringify(result.query), statsPreview: statsFrom(g, result) } : {}),
@@ -518,6 +532,53 @@
   function wirePrice(t) {
     const pb = $('#tfPrice'); if (pb) pb.onclick = () => Flights.priceCheck(t.flight, { stats: t.priceStats || null, label: t.dest.label, inResults: false });
   }
+  // Kdy byla cena letu (pricedAt: výsledek hledání, „Použít“ u živé nabídky): „cena z 3. 10. 14:12 (před 8 dny)“ pod cenou
+  // letenek v kroku Let a ve Shrnutí; starší cesty čas nemají → nic. Starší než den u nezakoupeného letu, který ještě
+  // neodletěl, + „↻ Ověř cenu“ = ruční ověření (Kiwi.com), samo se nic neověřuje a cena letu se nepřepíše.
+  const flightBooked = t => Object.keys(t.booked || {}).some(k => /^flight\d+$/.test(k) && t.booked[k] === true);
+  function priceAgeHtml(t, id) {
+    const a = !ovOn(t) && t.flight.pricedAt && window.SearchHelp && SearchHelp.resultAge ? SearchHelp.resultAge(t.flight.pricedAt, Date.now()) : null;
+    if (!a) return '';
+    const re = a.min >= 1440 && !flightBooked(t) && t.flight.out.date >= fmtYMD(new Date());
+    // „(před 8 dny)“ se nerozdělí (úzký sloupec Shrnutí na telefonu)
+    return `<div class="faint tf-age">cena ${a.z} ${esc(a.txt.replace(/\([^)]*\)$/, x => x.replace(/ /g, '\u00a0')))}${re ? ` · <button type="button" class="linkbtn" id="${id}">↻ Ověř cenu</button>` : ''}</div>`;
+  }
+  // „↻ Ověř cenu“ v kroku Let (ověří hned) a ve Shrnutí (krok Let a ověřit tam – jednou, i u cesty, která se ještě
+  // neověřovala); výsledek ověření pak do obrazovky
+  function wireAge() {
+    const a = $('#tfAge'); if (a) a.onclick = () => verifyFlight({ show: true });
+    const s = $('#sumAge'); if (s) s.onclick = () => { const t = T(); if (!t.verifiedAt) t.verifiedAt = Date.now(); t.step = 'flight'; persist(); render(); verifyFlight({ show: 'top' }); };
+  }
+  /**
+   * Výsledek ověření (#tfAlt) je pod letem, tlačítky a cenou – na telefonu často pod spodní lištou, klepnutí by vypadalo,
+   * že nic neudělalo: posunout ho do obrazovky (doprostřed, nabídky přibudou pod ním), když jeho začátek (řádek
+   * „Ověřuji…“, nadpis a první nabídka) není vidět mezi lepivou hlavičkou a spodní lištou. top = krok Let právě otevřený
+   * ze Shrnutí: je-li výsledek vidět od začátku kroku, jen nahoru jako při přepnutí kroku.
+   */
+  function altIntoView(top = false) {
+    const el = $('#tfAlt');
+    if (!el || !el.getBoundingClientRect) return;
+    const nav = $('.mobile-nav'), head = $('.topbar');
+    const end = nav && getComputedStyle(nav).display !== 'none' ? nav.getBoundingClientRect().top : innerHeight;
+    const y = el.getBoundingClientRect().top + (top ? scrollY : 0);
+    if (top && y + 200 <= end) window.scrollTo({ top: 0, behavior: 'smooth' });
+    else if (y < (head ? head.getBoundingClientRect().bottom : 0) || y + 200 > end) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  /**
+   * Průvodce zůstává otevřený (Android drží aplikaci, nákup za pár dní): „cena z …“ v kroku Let a ve Shrnutí znovu
+   * s aktuálním „před …“ (a „ze včera“), po dni i s „↻ Ověř cenu“, u zakoupené letenky bez něj. Jen ten řádek – výsledek
+   * ověření, rozepsané a posun stránky zůstanou. Volá flights.js při návratu do aplikace a každých 5 min, Shrnutí po
+   * odškrtnutí letenky. → true = přepsáno.
+   */
+  function ageRefresh() {
+    const t = T();
+    if (!t || !t.flight || (t.step !== 'flight' && t.step !== 'summary') || !$('#view-trip.active')) return false;
+    const el = $('#tripStep .tf-age');
+    if (!el) return false;
+    el.outerHTML = priceAgeHtml(t, t.step === 'flight' ? 'tfAge' : 'sumAge');
+    wireAge();
+    return true;
+  }
   function flightStep() {
     const t = T();
     const host = $('#tripStep');
@@ -527,25 +588,31 @@
     host.innerHTML = `<div class="card step-card"><h3>✈️ Vybraný let</h3>
       ${legLine(t.flight.out)}${t.flight.back ? legLine(t.flight.back, true) : ''}
       <div class="muted" style="margin-top:8px;font-size:13px">Letenky ${czk(t.flight.flightCzk)}/os.${t.flight.bagCzk ? ` + zavazadla ~${czk(t.flight.bagCzk)}/os.` : ''}${t.flight.groundCzk ? ` + ${groundWhat(t)}${t.groundMode === 'car' && carFuelOk(t.carFuel) && t.carFuel !== 'ev' ? ` (${carFuelTxt(t)})` : ''} ${czk(t.flight.groundCzk)}/os.` : ''}${arr ? ` + ${arrivalWhat(t)} ~${czk(arr)}/os.${arr < t.flight.arrCzk ? (carCovers(t, 'out') || carCovers(t, 'back') ? ' (bez úseku autem)' : ' (bez úseku v přejezdech trasy)') : ''}` : ''}</div>
+      ${priceAgeHtml(t, 'tfAge')}
       ${t.arrival && t.arrival.out ? `<div class="faint" style="font-size:12.5px;margin-top:4px">${ARR_ICO[t.arrival.out.mode] || '🚌'} ${esc(arrivalRow(t.arrival.out))}${t.arrival.back && t.arrival.back.iata !== t.arrival.out.iata ? `<br>${ARR_ICO[t.arrival.back.mode] || '🚌'} ${esc(arrivalRow(t.arrival.back, true))}` : ''}</div>` : ''}
       <div id="tfPl">${priceRow(t)}</div>
       <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="tfBack">↩ Vybrat jiný let</button><button class="btn" id="tfVerify">🔄 Ověřit živou cenu a porovnat aerolinky</button><button class="btn primary" id="tfNext">Pokračovat →</button></div>
       <div id="tfAlt"></div></div>${groundOffer(t)}`;
     $('#tfBack').onclick = () => go('flights');
     $('#tfNext').onclick = () => setStep('route');
-    $('#tfVerify').onclick = () => verifyFlight();
+    $('#tfVerify').onclick = () => verifyFlight({ show: true });
+    wireAge();
     wirePrice(t);
     const os = $('#ovStart'); if (os) os.onclick = () => overlandPicker(t);
     // Při prvním zobrazení vybraného letu ověř cenu automaticky (jednou za cestu).
     if (!t.verifiedAt) { t.verifiedAt = Date.now(); persist(); verifyFlight({ auto: true }); }
   }
 
-  /** Živé ceny všech aerolinek pro zvolená data a letiště (Kiwi.com). */
-  async function verifyFlight({ auto = false } = {}) {
+  /**
+   * Živé ceny všech aerolinek pro zvolená data a letiště (Kiwi.com). show = na klepnutí (ne samo při prvním otevření):
+   * řádek „Ověřuji…“ a pak výsledek do obrazovky (altIntoView; 'top' = krok Let právě otevřený ze Shrnutí).
+   */
+  async function verifyFlight({ auto = false, show = false } = {}) {
     const t = T();
     const f = t.flight;
     const host = $('#tfAlt');
     host.innerHTML = '<div class="loading-row"><span class="spin dark"></span> Ověřuji aktuální ceny u všech aerolinek…</div>';
+    if (show) altIntoView(show === 'top');
     try {
       const qs = new URLSearchParams({ from: f.out.from, to: f.out.to, out: f.out.date, adults: t.adults });
       if (t.bags && t.bags !== 'none') qs.set('bags', t.bags); // příplatek za zavazadla i u jiné nabídky
@@ -580,7 +647,7 @@
         const bag = bagOk && t.bags && t.bags !== 'none' ? x.bagCzk : 0;
         const extra = (t.flight.groundCzk || 0) + (t.flight.arrCzk || 0) + bag;
         const times = tripTimes(t);
-        t.flight = { ...x, bagCzk: bag, distanceKm: t.flight.distanceKm, destKey: t.flight.destKey, groundCzk: t.flight.groundCzk, arrCzk: t.flight.arrCzk || 0, perPersonCzk: x.flightCzk + extra, totalCzk: (x.flightCzk + extra) * t.adults };
+        t.flight = { ...x, bagCzk: bag, distanceKm: t.flight.distanceKm, destKey: t.flight.destKey, groundCzk: t.flight.groundCzk, arrCzk: t.flight.arrCzk || 0, perPersonCzk: x.flightCzk + extra, totalCzk: (x.flightCzk + extra) * t.adults, pricedAt: Date.now() };
         if (!bagOk) t.bags = 'none';
         // jiný čas příletu nebo odletu: program se sestaví znovu, auto s časy podle starého letu zadej znovu
         toast(retime(t, times) ? 'Let aktualizován – jiný čas příletu nebo odletu, zadej znovu auto' : 'Let aktualizován');
@@ -589,6 +656,9 @@
       });
     } catch (e) {
       host.innerHTML = `<div class="note warn" style="margin-top:12px">⚠️ <div>${esc(e.message)}</div></div>`;
+    } finally {
+      // nabídky jsou vyšší než řádek „Ověřuji…“ (na telefonu dole mohly zůstat pod lištou); jen když je krok pořád na obrazovce
+      if (show && host.isConnected && $('#view-trip.active')) altIntoView();
     }
   }
 
@@ -1792,7 +1862,7 @@
     const unpriced = multi ? r.bases.filter(b => !stayCzk(b.stay)).map(b => b.name) : [];
     const rows = [
       ov ? ['🚆', `Vlak / bus ${ov.back ? 'tam i zpět' : 'tam'} (${t.adults} os.)${[ov.out, ov.back].some(g => g && g.source !== 'regiojet') ? ' – odhad' : [ov.out, ov.back].some(g => g && g.demo) ? ' – DEMO' : ''}`, c.overland]
-        : ['✈️', `Letenky (${t.adults} os.)${f.liveMin ? ` – ⚠️ cena z mezipaměti, živě od ${czk(f.liveMin)}/os.` : ''}`, c.flights],
+        : ['✈️', `Letenky (${t.adults} os.)${f.liveMin ? ` – ⚠️ cena z mezipaměti, živě od ${czk(f.liveMin)}/os.` : ''}`, c.flights, priceAgeHtml(t, 'sumAge')],
       c.bags ? ['🧳', 'Zavazadla (odhad příplatku)', c.bags] : null,
       c.ground ? [groundLines(t).icon, groundLines(t).row, c.ground] : null,
       c.arrival ? [ARR_ICO[(t.arrival && t.arrival.out && t.arrival.out.mode) || 'bus'] || '🚌', `Doprava ${arrivalWhat(t)} (odhad)`, c.arrival] : null,
@@ -1825,7 +1895,7 @@
     const tl = timeline(t);
     host.innerHTML = `<div class="sum-grid">
       <div class="card step-card"><h3>🧾 Cena cesty</h3>
-        <table class="cost">${rows.map(r => `<tr><td>${r[0]}</td><td>${esc(r[1])}</td><td>${czk(r[2])}</td></tr>`).join('')}
+        <table class="cost">${rows.map(r => `<tr><td>${r[0]}</td><td>${esc(r[1])}${r[3] || ''}</td><td>${czk(r[2])}</td></tr>`).join('')}
         <tr class="tot"><td></td><td>Celkem</td><td>${czk(c.total)}</td></tr><tr><td></td><td class="faint">na osobu</td><td class="faint">${czk(c.perPerson)}</td></tr>
         ${fees.map(x => `<tr class="entry-fee"><td>🛂</td><td>${esc(x.label)} <span class="faint">– vstupní poplatek, orientačně</span></td><td>+ ${czk(x.czk)}</td></tr>`).join('')}
         ${fees.length ? `<tr class="entry-tot"><td></td><td>Celkem i se vstupními poplatky</td><td>${czk(c.total + feeCzk)}</td></tr>` : ''}</table>
@@ -1847,7 +1917,9 @@
         <a class="btn ghost" href="${esc(safeUrl(Ics.gcalUrl(tripEvent(t))))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>
         <button class="btn ghost" id="sumNew">Začít novou cestu</button>
       </div>`;
-    $$('[data-bk]', host).forEach(cb => cb.onchange = () => { t.booked[cb.dataset.bk] = cb.checked; persist(); });
+    // odškrtnutá (i zase zrušená) letenka: „↻ Ověř cenu“ u ceny letenek zmizí (vrátí se) hned
+    $$('[data-bk]', host).forEach(cb => cb.onchange = () => { t.booked[cb.dataset.bk] = cb.checked; persist(); if (/^flight\d+$/.test(cb.dataset.bk)) ageRefresh(); });
+    wireAge();
     $('#sumSave').onclick = () => saveToPlanner();
     $('#sumShare').onclick = () => share();
     // odkaz se zkomprimuje hned, aby ho kliknutí jen zkopírovalo (Safari dovolí zápis do schránky jen v obsluze kliknutí)
@@ -2138,6 +2210,8 @@
     t.flight.groundCzk = num(t.flight.groundCzk, 0, 1e6, 0);
     t.flight.bagCzk = num(t.flight.bagCzk, 0, 1e6, 0);
     t.flight.arrCzk = num(t.flight.arrCzk, 0, 1e6, 0);
+    // čas ceny letu („cena z …“): jen rozumný a ne z budoucnosti (hodiny jiného zařízení), jinak pryč jako u starších cest
+    if (!okFin(t.flight.pricedAt, 1.5e12, Date.now() + 864e5)) delete t.flight.pricedAt;
     t.arrival = cleanArrival(t.arrival);
     for (const k of ['stay', 'car']) if (t[k] && typeof t[k] === 'object') t[k].totalCzk = num(t[k].totalCzk, 0, 1e7, 0);
     if (!t.dest || typeof t.dest !== 'object') t.dest = { label: t.flight.out.to };
@@ -2360,5 +2434,5 @@
   // Aplikace zavřená nebo znovu načtená dřív, než hledání doběhlo: na jeho konečný výsledek už cesta nepočká.
   if (typeof S !== 'undefined' && S && S.trip && S.trip.statsWait) { giveUpStats(S.trip); persist(); }
 
-  window.Trip = { start, finalStats, statsGiveUp, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn, legBack };
+  window.Trip = { start, finalStats, statsGiveUp, openSaved, render: safeRender, ageRefresh, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn, legBack };
 })();

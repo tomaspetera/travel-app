@@ -629,6 +629,47 @@ test('savedWhen: čas hledání a jak dávno', () => {
   assert.equal(H.savedWhen(new Date(2026, 9, 9, 21, 40).getTime(), at), 'včera 21:40 (před 11 h)');
 });
 
+test('resultAge: stáří cen – po hodině staré, po 3 h hodně, čas a „před …“ (dny od předvčerejška), „ze včera“', () => {
+  const at = new Date(2026, 9, 10, 9, 12).getTime(), m = (n) => at + n * 6e4;
+  const pick = (a) => a && [a.min, a.stale, a.old, a.z, a.when, a.txt];
+  assert.deepEqual(pick(H.resultAge(at, m(1))), [1, false, false, 'z', '9:12', '9:12 (před chvílí)']);
+  assert.deepEqual(pick(H.resultAge(at, m(59))), [59, false, false, 'z', '9:12', '9:12 (před 59 min)']);
+  assert.deepEqual(pick(H.resultAge(at, m(60))), [60, true, false, 'z', '9:12', '9:12 (před 1 h)'], 'hodina = staré (poznámka 🕘)');
+  assert.deepEqual(pick(H.resultAge(at, m(179))), [179, true, false, 'z', '9:12', '9:12 (před 2 h)']);
+  assert.deepEqual(pick(H.resultAge(at, m(180))), [180, true, true, 'z', '9:12', '9:12 (před 3 h)'], '3 h = hláška u Koupit');
+  // přes půlnoc: „ze včera“ s hodinami (i přes den), od předvčerejška datum a dny
+  assert.deepEqual(pick(H.resultAge(at, new Date(2026, 9, 11, 0, 20).getTime())), [908, true, true, 'ze', 'včera 9:12', 'včera 9:12 (před 15 h)']);
+  assert.equal(H.resultAge(at, new Date(2026, 9, 11, 22, 0).getTime()).txt, 'včera 9:12 (před 36 h)');
+  assert.deepEqual(pick(H.resultAge(new Date(2026, 9, 3, 14, 12).getTime(), new Date(2026, 9, 11, 10, 0).getTime())).slice(3), ['z', '3. 10. 14:12', '3. 10. 14:12 (před 8 dny)']);
+  assert.equal(H.resultAge(new Date(2026, 9, 9, 23, 50).getTime(), new Date(2026, 9, 11, 0, 10).getTime()).txt, '9. 10. 23:50 (před 2 dny)');
+  assert.equal(H.resultAge(new Date(2025, 11, 30, 8, 5).getTime(), new Date(2026, 0, 4, 8, 0).getTime()).txt, '30. 12. 2025 8:05 (před 5 dny)', 'jiný rok s rokem');
+  // hodiny jiného zařízení napřed: nic záporného; bez času (starší cesta, poškozená data) → null
+  assert.deepEqual(pick(H.resultAge(m(5), at)), [0, false, false, 'z', '9:17', '9:17 (před chvílí)']);
+  for (const x of [0, -5, null, undefined, NaN, Infinity, '1760000000000']) assert.equal(H.resultAge(x, at), null, String(x));
+  assert.equal(H.savedWhen(at, m(200)), H.resultAge(at, m(200)).txt, 'obnovené výsledky říkají totéž');
+  // dny podle kalendáře i přes změnu času (v Praze 28. 3. 2027 – 240 h zpět by krátce po půlnoci bylo o den dřív)
+  assert.equal(H.resultAge(new Date(2027, 2, 23, 23, 30).getTime(), new Date(2027, 3, 3, 0, 30).getTime()).txt, '23. 3. 23:30 (před 11 dny)');
+  assert.equal(H.resultAge(new Date(2027, 2, 24, 0, 30).getTime(), new Date(2027, 3, 3, 0, 30).getTime()).txt, '24. 3. 0:30 (před 10 dny)');
+  // s dneškem posunutým o dny (testy s SHIFT_DAYS) jen podle rozdílu – o 10 dní v kalendáři (ne 240 h: změna času)
+  const now = Date.now(), d10 = new Date(now); d10.setDate(d10.getDate() - 10);
+  assert.deepEqual(pick(H.resultAge(now - 61 * 6e4, now)).slice(0, 3), [61, true, false]);
+  assert.equal(H.resultAge(d10.getTime(), now).txt.endsWith('(před 10 dny)'), true);
+});
+
+test('shownAt/ageNote: čas cen na obrazovce – náhled nedokončeného hledání ze svého času, ne z klepnutí; poznámka 🕘', () => {
+  const at = new Date(2026, 9, 10, 5, 39).getTime(), pv = new Date(2026, 9, 10, 5, 49).getTime(), now = new Date(2026, 9, 10, 10, 49).getTime();
+  assert.equal(H.shownAt({ groups: [] }, at, now), at, 'konečný výsledek: čas hledání (i obnovený)');
+  assert.equal(H.shownAt({ groups: [], partial: true, at: pv }, at, now), pv, 'náhled po chybě hledání: jeho čas, ne „teď“');
+  assert.equal(H.shownAt({ groups: [], partial: true }, at, now), now, 'náhled bez času (běžící hledání): teď');
+  assert.equal(H.shownAt(null, at, now), 0);
+  // let vybraný z náhledu po 5 h: „cena z 5:49 (před 5 h)“, ne „(před chvílí)“; Koupit (3 h) i poznámka (1 h) platí
+  const a = H.resultAge(H.shownAt({ partial: true, at: pv }, at, now), now);
+  assert.deepEqual([a.txt, a.stale, a.old], ['5:49 (před 5 h)', true, true]);
+  assert.equal(H.ageNote(a, true), 'Průběžné výsledky z 5:49 (před 5 h) – hledání se nedokončilo a ceny se mezitím mohly změnit.');
+  assert.equal(H.ageNote(H.resultAge(at, now), false), 'Výsledky hledání z 5:39 (před 5 h) – ceny se mezitím mohly změnit.');
+  assert.equal(H.ageNote(H.resultAge(at, new Date(2026, 9, 11, 9, 0).getTime()), false), 'Výsledky hledání ze včera 5:39 (před 27 h) – ceny se mezitím mohly změnit.');
+});
+
 test('recentAdd/recentForm: nedávná hledání bez opakování, termíny v minulosti pryč, začatý rozsah od dneška', () => {
   const key = (e) => e.form.k;
   let l = H.recentAdd(null, { form: { k: 'a' } }, key);
@@ -1147,4 +1188,50 @@ test('prefGroups (computeGroups v Kamkoliv): 🙈 schované s počítadlem, uká
   // čip aktivního filtru „⭐ jen moje cíle“ se schovanými cíli
   const chip = plain(H.activeFilters(null, { favOnly: true, excludeOrigins: new Set(), excludeCarriers: new Set() }, {}, {}, { favHidden: fav.notFav }));
   assert.deepEqual(chip, [{ key: 'favOnly', label: '⭐ jen moje cíle', hidden: 2 }]);
+});
+
+test('🔎 Co tam je: střed města pro místa k vidění – metropole, město z cesty z letiště, jinak dohledat', () => {
+  const ar = (city, lat, lon, basis = 'table') => ({ iata: 'X', city, lat, lon, basis });
+  assert.deepEqual(plain(H.destCenter({ id: 'metro:PAR', label: 'Paříž', lat: 48.8566, lon: 2.3522 }, ar('Paříž', 48.8566, 2.3522))), { lat: 48.8566, lon: 2.3522, label: 'Paříž' });
+  // cena nabídky počítá cestu do Mnichova (FMM) / do Palmy (PMI) – místa tam, ne kolem letiště
+  assert.deepEqual(plain(H.destCenter({ id: 'ap:FMM', label: 'Memmingen (Mnichov)', lat: 47.9881, lon: 10.2382 }, ar('Mnichov', 48.1374, 11.5755))), { lat: 48.1374, lon: 11.5755, label: 'Mnichov' });
+  assert.deepEqual(plain(H.destCenter({ id: 'ap:PMI', label: 'Mallorca', lat: 39.55, lon: 2.73 }, ar('Palma', 39.5696, 2.6502, 'access'))), { lat: 39.5696, lon: 2.6502, label: 'Palma' });
+  // odhad cesty zná jen polohu letiště; bez cesty, bez polohy
+  assert.equal(H.destCenter({ id: 'ap:TPS', label: 'Trapani', lat: 37.9114, lon: 12.488 }, { ...ar('Trapani', 37.9114, 12.488), basis: 'estimate' }), null);
+  assert.equal(H.destCenter({ id: 'ap:TPS', label: 'Trapani', lat: 37.9114, lon: 12.488 }, null), null);
+  assert.equal(H.destCenter({ id: 'metro:XXX', label: 'X', lat: null, lon: null }, null), null);
+  assert.equal(H.destCenter({ id: 'ap:KUT', lat: 42.17, lon: 42.48 }, ar('', 42.27, 42.7)), null, 'bez názvu města ne');
+  // názvy k dohledání: napřed hlavní, pak část před pomlčkou / lomítkem, pak závorka
+  assert.deepEqual(plain(['Trapani', 'Kréta (Heraklion)', 'Pécs-Pogány', 'Karlsruhe/Baden-Baden', 'Clermont-Ferrand', 'Tenerife (jih)', '', null].map((x) => H.geoNames(x))), [
+    ['Trapani'], ['Kréta', 'Heraklion'], ['Pécs-Pogány', 'Pécs'], ['Karlsruhe/Baden-Baden', 'Karlsruhe'], ['Clermont-Ferrand', 'Clermont'], ['Tenerife', 'jih'], [], []]);
+  // geokódování: obydlené místo ve stejné zemi do 60 km od letiště (ostrov, kraj ani stejnojmenné město jinde ne)
+  const TPS = { lat: 37.9114, lon: 12.488 };
+  const items = [{ label: 'Trapani', cc: 'US', lat: 37.9, lon: -90, fc: 'PPL' }, { label: 'Sicílie', cc: 'IT', lat: 37.6, lon: 14.0, fc: 'ADM1' },
+    { label: 'Trapani', cc: 'IT', lat: 38.0176, lon: 12.5365, fc: 'PPLA2' }];
+  assert.deepEqual(plain(H.geoCenter(items, 'IT', TPS)), { lat: 38.0176, lon: 12.5365, label: 'Trapani' });
+  assert.equal(H.geoCenter([{ label: 'Kréta', cc: 'GR', lat: 35.2, lon: 24.9, fc: 'ISL' }], 'GR', { lat: 35.34, lon: 25.18 }), null);
+  assert.equal(H.geoCenter([{ label: 'Trapani', cc: 'IT', lat: 38.6, lon: 12.5 }], 'IT', TPS), null, '77 km – jiné místo');
+  assert.deepEqual(plain(H.geoCenter([{ label: 'Řešov', cc: 'PL', lat: 50.04, lon: 22.0 }], 'PL', { lat: 50.11, lon: 22.02 })), { lat: 50.04, lon: 22.0, label: 'Řešov' }, 'místní data bez druhu místa');
+  assert.equal(H.geoCenter(items, 'IT', null), null);
+  assert.equal(H.geoCenter(undefined, 'IT', TPS), null);
+});
+
+test('🔎 Co tam je: pobyt pro Objevuj – dní od příletu do návratu, víkend jen přes sobotu s nedělí nebo od pátku / soboty', () => {
+  // 23. 10. 2026 je pátek
+  assert.deepEqual(plain(H.stayPlan('2026-10-23', '2026-10-25')), { days: 3, weekend: true });
+  assert.deepEqual(plain(H.stayPlan('2026-10-24', '2026-10-24')), { days: 1, weekend: true });
+  assert.deepEqual(plain(H.stayPlan('2026-10-22', '2026-10-26')), { days: 5, weekend: false }, 'čt–po: delší pobyt');
+  assert.deepEqual(plain(H.stayPlan('2026-10-20', '2026-10-22')), { days: 3, weekend: false }, 'út–čt není víkend');
+  assert.deepEqual(plain(H.stayPlan('2026-10-25', '2026-10-27')), { days: 3, weekend: false }, 'ne–út není víkend');
+  assert.deepEqual(plain(H.stayPlan('2026-10-24', '2026-10-26')), { days: 3, weekend: true }, 'so–po');
+  // přes sobotu nestačí: s nedělí nebo od pátku / soboty
+  assert.deepEqual(plain(H.stayPlan('2026-10-21', '2026-10-24')), { days: 4, weekend: false }, 'st–so není víkend');
+  assert.deepEqual(plain(H.stayPlan('2026-10-22', '2026-10-24')), { days: 3, weekend: false }, 'čt–so není víkend');
+  assert.deepEqual(plain(H.stayPlan('2026-10-23', '2026-10-24')), { days: 2, weekend: true }, 'pá–so');
+  assert.deepEqual(plain(H.stayPlan('2026-10-22', '2026-10-25')), { days: 4, weekend: true }, 'čt–ne');
+  assert.deepEqual(plain(H.stayPlan('2026-10-23', '2026-10-26')), { days: 4, weekend: true }, 'pá–po');
+  assert.deepEqual(plain(H.stayPlan('2026-10-23', null)), { days: 0, weekend: false }, 'jen tam');
+  assert.deepEqual(plain(H.stayPlan('', '2026-10-25')), { days: 0, weekend: false });
+  // noční let: přílet až po dni návratu by dal 0 dní – aspoň den
+  assert.equal(H.stayPlan('2026-10-26', '2026-10-25').days, 1);
 });

@@ -3,7 +3,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import zlib from 'node:zlib';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
 import { stubFetch, ymdPlus } from './helpers.js';
 
@@ -489,6 +489,55 @@ test('statické soubory, data a ochrana proti path traversal', async () => {
   }
   const js = await fetch(`${base}/js/flights.js`, { headers: { 'accept-encoding': 'gzip' } });
   assert.equal(js.status, 200);
+});
+
+// Klíče objektu „window.X = { … }“ v nejvyšší úrovni (zkratky i „klíč: …“), bez obsahu funkcí v něm.
+function exportKeys(src, name) {
+  const i = src.indexOf(`window.${name} = {`);
+  assert.ok(i >= 0, `window.${name} = {`);
+  const keys = [];
+  let depth = 0, expect = false;
+  for (let j = src.indexOf('{', i); j < src.length; j++) {
+    const ch = src[j];
+    if (ch === '/' && src[j + 1] === '/') { j = src.indexOf('\n', j); continue; }
+    if (ch === "'" || ch === '"' || ch === '`') { j = src.indexOf(ch, j + 1); continue; } // řetězce v exportu jsou jednoduché
+    if ('{(['.includes(ch)) { depth++; if (depth === 1) expect = true; continue; }
+    if ('})]'.includes(ch)) { if (--depth === 0) break; continue; }
+    if (depth === 1 && ch === ',') { expect = true; continue; }
+    if (depth === 1 && expect && /[A-Za-z_$]/.test(ch)) { const m = /^[A-Za-z_$][\w$]*/.exec(src.slice(j)); keys.push(m[0]); j += m[0].length - 1; expect = false; }
+  }
+  return keys;
+}
+
+test('moduly volají jen to, co window.Flights vystavuje (spojení větví: chybějící Flights.ageCheck by shodilo go(\'flights\'))', () => {
+  const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
+  const keys = exportKeys(src('flights.js'), 'Flights');
+  for (const k of ['init', 'ageCheck', 'renderFav', 'refreshPrefs', 'refreshOrigins', 'refreshVisited', 'repaintMap']) assert.ok(keys.includes(k), k);
+  const files = readdirSync(new URL('../public/js/', import.meta.url)).filter((f) => f.endsWith('.js') && f !== 'flights.js');
+  assert.ok(files.includes('app.js') && files.includes('backup.js'));
+  for (const f of files) {
+    const used = [...new Set([...src(f).matchAll(/\bFlights\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1]))];
+    assert.deepEqual(used.filter((k) => !keys.includes(k)), [], `${f}: Flights.… bez exportu`);
+  }
+});
+
+test('moduly volají jen to, co window.Trip vystavuje; „cena z …“ v otevřeném průvodci se obnoví při návratu do aplikace i 5min tikem; hláška bez tlačítka klepnutí propustí', () => {
+  const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
+  const keys = exportKeys(src('trip.js'), 'Trip');
+  for (const k of ['start', 'render', 'ageRefresh', 'finalStats', 'statsGiveUp']) assert.ok(keys.includes(k), k);
+  const files = readdirSync(new URL('../public/js/', import.meta.url)).filter((f) => f.endsWith('.js') && f !== 'trip.js');
+  for (const f of files) {
+    const used = [...new Set([...src(f).matchAll(/\bTrip\.(?!com\b)([A-Za-z_$][\w$]*)/g)].map((m) => m[1]))]; // Trip.com = web, ne modul
+    assert.deepEqual(used.filter((k) => !keys.includes(k)), [], `${f}: Trip.… bez exportu`);
+  }
+  // stáří cen na obrazovce (flights.js): výsledky na Letech i cena letu v průvodci, při návratu do aplikace a každých 5 min
+  const fl = src('flights.js'), i = fl.indexOf('function ageTick() {'), tick = fl.slice(i, fl.indexOf('\n  }\n', i));
+  assert.ok(i > 0 && tick.includes('ageCheck();') && tick.includes('window.Trip.ageRefresh()'), tick);
+  assert.match(fl, /document\.addEventListener\('visibilitychange', \(\) => \{\n\s+ageTick\(\);/);
+  assert.match(fl, /setInterval\(ageTick, 5 \* 60e3\)/);
+  // „Pro nákup klepni znovu“ (Koupit u starých cen): hláška přes tlačítko nad spodní lištou druhé klepnutí nechytí
+  const css = readFileSync(new URL('../public/css/trip.css', import.meta.url), 'utf8');
+  assert.ok(css.includes('.toast:not(:has(.toast-act)){pointer-events:none}'));
 });
 
 test('POST /api/roadtrip – jednodenní výlety i okruh s přespáním (DEMO)', async () => {

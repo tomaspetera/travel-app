@@ -29,6 +29,10 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
 1. **Let** – v hledání klikneš u letu na *Vybrat a pokračovat*. Let ukáže i přestupy a štítek ceny s odkazem
    *Je to dobrá cena?*. Tlačítkem *Ověřit živou cenu* se dotáže Kiwi.com
    na přesnou cenu a nabídne i jiné aerolinky na stejný termín (low-cost i klasické, přestupy, kombinace).
+   Pod cenou letenek (i v řádku *Letenky* ve Shrnutí) je i její stáří – *cena z 3. 10. 14:12 (před 8 dny)* podle času
+   výsledků hledání (u letu z průběžných výsledků podle toho, kdy přišly), po *Použít* u živé nabídky od té chvíle;
+   u nezakoupeného letu, který ještě neodletěl, s cenou starší než den přibude *↻ Ověř cenu* (totéž ruční ověření – samo
+   se nic neověřuje a cena letu se nepřepíše).
    U blízkého cíle můžeš místo letu zvolit *🚆 Pojedu vlakem / busem* (viz [Vlak nebo bus místo letadla](#vlak-nebo-bus-místo-letadla)).
 2. **Trasa** – celý pobyt na jednom místě, nebo trasa přes 2–4 zajímavá města: ATLAS je navrhne v okolí (autem nebo
    veřejnou dopravou) a rozdělí noci; místa přidáš, odebereš nebo přesuneš a noci upravíš. U každého přejezdu je
@@ -62,6 +66,25 @@ Ne. Ceny letenek jsou **skutečné odpovědi API aerolinek a vyhledávačů** (R
 Nejlevnější kombinace, pořadí hotelů i program dnů počítají **deterministické algoritmy** (optimalizátor kombinací,
 bayesovské hodnocení, shlukování míst k-means + trasa nejbližší soused / 2-opt). Místa k vidění a jejich popisy jsou
 z Wikidat a Wikipedie. Stejný dotaz tedy dá stejný výsledek a nic si nevymýšlí.
+
+## 🔎 Co tam je – náhled cíle
+
+Nejlevnější lety často vedou do měst, která neznáš (Trapani, Kutaisi, Řešov, Tirana, Memmingen). **🔎 Co tam je**
+v hlavičce každé karty cíle (i v rozbaleném řádku *Kamkoliv*) a malé **ⓘ** u názvu na kartě radaru otevře náhled – na
+telefonu list zespodu, na počítači okno. Hned ukáže zemi s vlajkou, vstupní podmínky, cenovou hladinu, cestu z letiště
+do města z výsledku (*Z letiště WAW do Varšavy 4,40 zł (~20 Kč) · 30 min*; při návratu z jiného letiště i cestu z města
+na něj – *Zpět na letiště WMI*, pod tím *vlak KM + autobus KM*), počasí (do 15 dní předpověď na dny cesty,
+jinak dlouhodobý průměr měsíce) a u blízkých cílů vlak/bus. Pak dočte **Co vidět**: 6 nejvýznamnějších míst ve městě
+s fotkou, druhem a jednou větou z Wikipedie (napřed místa s fotkou) a kolik dalších míst a výletů najdeš v Objevuj.
+Místa hledá kolem města, kam vede cesta z letiště započtená v ceně (*Memmingen (Mnichov)* → Mnichov, *Mallorca* →
+Palma; u odhadu cesty dohledá střed města jako průvodce cestou), a to stejným dotazem jako Objevuj (`/api/poi`, okruh
+10 km i s výlety) – **🗺️ Naplánovat víkend v Objevuj** (víkend = nejvýš 4 dny přes sobotu s nedělí nebo od pátku,
+jinak *pobyt*, takže st–so ani čt–so víkend nejsou) tak otevře Objevuj na tom městě
+s programem od dne příletu na dny cesty a s už načtenými místy, bez druhého pomalého dotazu na Wikidata. Místa se
+načítají až po otevření náhledu; když nedorazí do 12 s nebo dotaz selže, náhled napíše *Místa se nepodařilo načíst –
+zkus Objevuj* (pozdě doběhlá místa ještě doplní). **Vybrat let a pokračovat** spustí průvodce s nejlepší nabídkou
+karty, v radaru **Hledat lety sem** hledá do cíle jako klepnutí na kartu. Náhled zavře ✕, Escape, klepnutí vedle
+i Zpět (tlačítko nebo gesto) a nové výsledky hledání, které mezitím dorazí, ho nezavřou.
 
 ## 📍 Dnes na cestě
 
@@ -291,6 +314,14 @@ krém…).
 > (Kiwi.com je proto napojené přes svůj veřejný MCP server; jeho podmínky pro neagentní použití nejsou zveřejněné –
 > kdyby ho Kiwi omezilo, vypne se `KIWI_ENABLED=0` a zbytek běží dál),
 > proto ATLAS staví na zdrojích výše. Adaptéry jsou oddělené (`server/providers/`), další zdroj se přidá jedním souborem.
+
+Řádek po hledání ukáže vpravo i čas cen (*✓ Prohledáno 8 letišť za 12,3 s · … ceny z 14:32 · podrobnosti ▾* – i na
+telefonu se tam vejde, řádek se nezvýší). Když se k výsledkům vrátíš po hodině a déle (Android drží aplikaci otevřenou),
+nahradí ho poznámka *🕘 Výsledky hledání z 9:12 (před 3 h) – ceny se mezitím mohly změnit* s *↻ Hledat znovu* a výpis
+se trochu ztlumí (kontrola při návratu do aplikace, přepnutí na Lety a každých 5 min); stejně stárnou i průběžné
+výsledky hledání, které se nedokončilo – od chvíle, kdy přišly (*🕘 Průběžné výsledky z 9:12 (před 3 h) – hledání se
+nedokončilo a ceny se mezitím mohly změnit*). U výsledků starších 3 h první klepnutí na *Koupit* jen připomene čas cen,
+koupí až to další.
 
 Ceny Ryanair a Wizz Air jsou živé, ale do rezervace se mohou změnit; ceny z Travelpayouts jsou označené „⏱ z cache – ověř“
 (ve výpisu, ve sloupcích ✈︎ Lety i v krocích „Víc měst“) a je dobré je ověřit (u každého výsledku je odkaz na rezervaci

@@ -17,9 +17,9 @@ function load(state = {}) {
   const helpers = src('app.js').match(/^const (esc|safeUrl|pad|fmtYMD|fmtDate|czk) = .*$/gm);
   assert.equal(helpers.length, 6);
   vm.runInContext(`const Ics = window.Ics;\n${helpers.join('\n')}
-    var S = ${JSON.stringify(state)}, __els = {}, __toasts = [];
+    var S = ${JSON.stringify(state)}, __els = {}, __all = {}, __toasts = [];
     var $ = (s) => (__els[s] ||= { innerHTML: '', value: '', remove() {} });
-    var $$ = () => [];
+    var $$ = (s) => __all[s] || [];
     var go = () => {}; var save = () => { __saves++; }; var flag = (cc) => '[' + cc + ']';
     var toast = (msg) => { __toasts.push(msg); };`, ctx, { filename: 'app-helpers.js' });
   vm.runInContext(src('trip.js'), ctx, { filename: 'trip.js' });
@@ -182,6 +182,197 @@ test('sanitizeTrip: „Je to dobrá cena?“ ze sdíleného odkazu – statistik
   for (const bad of [{ ...stats, dateFrom: 5 }, { ...stats, median: 'x' }, { ...stats, n: -1 }, [1, 2], 'x']) {
     assert.equal(Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...base(), priceStats: bad }))).priceStats, null, JSON.stringify(bad));
   }
+});
+
+test('cena letu v průvodci: „cena z …“ z času výsledku v kroku Let i ve Shrnutí, po dni u nezakoupeného letu „↻ Ověř cenu“ jen na klepnutí; odkaz čas nese, nesmysl zahodí', async () => {
+  const c = load();
+  vm.runInContext(src('searchhelp.js'), c, { filename: 'searchhelp.js' });
+  c.SearchHelp = c.window.SearchHelp;
+  c.window.scrollTo = () => {};
+  const { Trip, SearchHelp: H } = c.window;
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); }; // dnešek i s posunutým datem (SHIFT_DAYS)
+  const fl = { id: 'x1', out: leg('PRG', 'VIE', day(30), '07:00', '08:00', 'Europe/Prague', 'Europe/Vienna'), back: leg('VIE', 'PRG', day(34), '19:00', '20:00', 'Europe/Vienna', 'Europe/Prague'), flightCzk: 1170, groundCzk: 0, bagCzk: 0 };
+  const res = { query: { adults: 2, bags: 'none' }, origins: [], groups: [] };
+  const ageTxt = (t) => { const a = H.resultAge(t.flight.pricedAt, Date.now()); return `cena ${a.z} ${a.txt}`; };
+  // čas výsledku hledání (i obnoveného před 2 h) → cena z něj; nabídka ve výpisu se nemění
+  const at = Date.now() - 2 * 36e5;
+  Trip.start({ t: fl, g: null, result: res, at });
+  const t = c.S.trip;
+  assert.equal(t.flight.pricedAt, at);
+  assert.equal(fl.pricedAt, undefined, 'nabídka ve výpisu (a uložené výsledky) bez času');
+  t.verifiedAt = 1; // automatické ověření proběhlo při prvním otevření (jednou za cestu, beze změny)
+  const calls = [];
+  const alt = { out: fl.out, back: fl.back, flightCzk: 1350, bookUrl: 'https://kiwi.example/b' };
+  c.fetch = async (u) => { calls.push(String(u)); return { ok: true, json: async () => ({ available: true, items: [alt] }) }; };
+  let h = render(c, t);
+  assert.ok(h.includes(`<div class="faint tf-age">${ageTxt(t)}</div>`), h.slice(h.indexOf('Letenky'), h.indexOf('Letenky') + 400));
+  assert.match(ageTxt(t), /^cena ze? (včera )?\d{1,2}:\d\d \(před 2 h\)$/);
+  assert.ok(!h.includes('Ověř cenu'), 'mladší než den: jen čas');
+  // bez času z výsledku od teď; čas z budoucnosti se nebere
+  for (const x of [undefined, 0, Date.now() + 864e5]) {
+    c.S.trip = null;
+    const t0 = Date.now();
+    Trip.start({ t: fl, g: null, result: res, at: x });
+    assert.ok(c.S.trip.flight.pricedAt >= t0 && c.S.trip.flight.pricedAt <= Date.now(), String(x));
+    assert.equal(c.S.trip.flight.pricedAt, c.S.trip.created);
+  }
+  c.S.trip = t;
+  // starší než den: „(před 8 dny)“ + „↻ Ověř cenu“, ale samo se nic neověřuje (otevření cesty, další kroky)
+  const d8 = new Date(); d8.setDate(d8.getDate() - 8); d8.setHours(14, 12, 0, 0);
+  t.flight.pricedAt = d8.getTime();
+  h = render(c, t);
+  assert.ok(ageTxt(t).endsWith(' 14:12 (před 8 dny)'), ageTxt(t));
+  assert.ok(h.includes(`<div class="faint tf-age">${ageTxt(t)} · <button type="button" class="linkbtn" id="tfAge">↻ Ověř cenu</button></div>`));
+  const s0 = render(c, { ...t, step: 'summary' });
+  assert.ok(s0.includes(`Letenky (2 os.)<div class="faint tf-age">${ageTxt(t)} · <button type="button" class="linkbtn" id="sumAge">↻ Ověř cenu</button></div></td>`), s0.slice(s0.indexOf('Letenky'), s0.indexOf('Letenky') + 300));
+  assert.equal(calls.length, 0, 'žádné ověření bez klepnutí');
+  // klepnutí = dosavadní ruční ověření (Kiwi.com): nabídky pod letem, cena letu se sama nepřepíše
+  c.S.trip = t; t.step = 'flight'; render(c, t);
+  c.__els['#tfAge'].onclick();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(calls.length, 1);
+  assert.match(calls[0], /^api\/verify\?from=PRG&to=VIE&out=/);
+  assert.equal(t.flight.flightCzk, 1170);
+  assert.equal(t.flight.pricedAt, d8.getTime(), 'ověření bez „Použít“ čas ceny nemění');
+  // ve Shrnutí: na krok Let a ověřit (jednou)
+  t.step = 'summary'; render(c, t);
+  c.__els['#sumAge'].onclick();
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual([t.step, calls.length], ['flight', 2]);
+  // zakoupený let (odškrtnutý v „Co zarezervovat“), odlet v minulosti, vlak/bus místo letu: bez „↻ Ověř cenu“
+  assert.ok(!render(c, { ...t, booked: { flight0: true } }).includes('Ověř cenu'));
+  assert.ok(render(c, { ...t, booked: { flight0: true } }).includes(ageTxt(t)), 'čas ceny zůstane');
+  assert.ok(!render(c, { ...t, flight: { ...t.flight, out: { ...t.flight.out, date: day(-1) } } }).includes('Ověř cenu'));
+  assert.ok(!render(c, { ...t, overland: OV(), step: 'summary' }).includes('tf-age'));
+  // starší cesta bez času: nic
+  const old = { ...t, flight: { ...t.flight, pricedAt: undefined } };
+  assert.ok(!render(c, old).includes('tf-age') && !render(c, { ...old, step: 'summary' }).includes('tf-age'));
+  // tentýž let za stejnou cenu z novějšího hledání: cena k jeho času; za jinou cenu (nebo ze staršího) beze změny
+  c.S.trip = t;
+  Trip.start({ t: { ...fl, flightCzk: 1300 }, g: null, result: res, at: Date.now() - 6e4 });
+  assert.equal(t.flight.pricedAt, d8.getTime());
+  Trip.start({ t: fl, g: null, result: res, at: d8.getTime() - 864e5 });
+  assert.equal(t.flight.pricedAt, d8.getTime());
+  Trip.start({ t: fl, g: null, result: res, at: Date.now() - 6e4 });
+  assert.equal(c.S.trip, t, 'pořád tatáž cesta');
+  assert.ok(Date.now() - t.flight.pricedAt < 7e4 && !render(c, t).includes('Ověř cenu'));
+  // sdílený odkaz čas ceny nese (příjemce ví, jak stará cena je); sanitizeTrip pustí jen rozumný čas
+  let link = null;
+  c.ShareLink = c.window.ShareLink = { prepare: (k, json) => { link = json; } };
+  t.flight.pricedAt = d8.getTime();
+  render(c, { ...t, step: 'summary' });
+  assert.equal(JSON.parse(link).flight.pricedAt, d8.getTime());
+  assert.equal(Trip.sanitizeTrip(JSON.parse(link)).flight.pricedAt, d8.getTime());
+  for (const bad of ['1760000000000', 0, -5, 12345, Date.now() + 3 * 864e5, { x: 1 }, null]) {
+    assert.equal(Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...JSON.parse(link), flight: { ...JSON.parse(link).flight, pricedAt: bad } }))).flight.pricedAt, undefined, JSON.stringify(bad));
+  }
+  // odkaz na tutéž cestu jen s jiným časem ceny (tentýž let vybraný znovu) je pořád tatáž cesta – otevře se ta rozpracovaná
+  c.S.trip = t; c.__toasts.length = 0;
+  c.location = { hash: '#trip=abc' }; c.history = { replaceState() {} };
+  c.ShareLink.unpack = async () => JSON.stringify({ ...JSON.parse(link), flight: { ...JSON.parse(link).flight, pricedAt: d8.getTime() - 5 * 864e5 } });
+  assert.equal(await Trip.importFromHash(), true);
+  assert.deepEqual([c.S.trip === t, t.flight.pricedAt, plain(c.__toasts)], [true, d8.getTime(), ['Tuhle cestu už máš rozpracovanou – otevírám ji']]);
+  // „Použít“ u živé nabídky: nová cena platí od teď
+  t.step = 'flight'; render(c, t);
+  c.__els['#tfVerify'].onclick();
+  await new Promise((r) => setImmediate(r));
+  c.__all['[data-alt]'] = [{ dataset: { alt: '0' } }];
+  c.__els['#tfVerify'].onclick();
+  await new Promise((r) => setImmediate(r));
+  const t1 = Date.now();
+  c.__all['[data-alt]'][0].onclick();
+  assert.equal(c.S.trip.flight.flightCzk, 1350);
+  assert.ok(c.S.trip.flight.pricedAt >= t1 && c.S.trip.flight.pricedAt <= Date.now());
+});
+
+test('cena letu v průvodci: cena z paměti tras (memAgeMin, „⏱ cena před 5 h“) je o své stáří starší; otevřený průvodce „cena z …“ obnoví (Trip.ageRefresh), odškrtnutá letenka hned bez „↻ Ověř cenu“', async () => {
+  const c = load();
+  vm.runInContext(src('searchhelp.js'), c, { filename: 'searchhelp.js' });
+  c.SearchHelp = c.window.SearchHelp;
+  c.window.scrollTo = () => {};
+  const { Trip, SearchHelp: H } = c.window;
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); };
+  const wz = (o, b) => ({ id: 'w1', out: { ...leg('BUD', 'LTN', day(30), '07:00', '08:40', 'Europe/Budapest', 'Europe/London'), provider: 'wizzair', ...(o !== undefined ? { memAgeMin: o } : {}) },
+    back: { ...leg('LTN', 'BUD', day(34), '19:00', '22:30', 'Europe/London', 'Europe/Budapest'), provider: 'wizzair', ...(b !== undefined ? { memAgeMin: b } : {}) }, flightCzk: 990, groundCzk: 0, bagCzk: 0 });
+  const res = { query: { adults: 1, bags: 'none' }, origins: [], groups: [] };
+  const ageTxt = (t) => { const a = H.resultAge(t.flight.pricedAt, Date.now()); return `cena ${a.z} ${a.txt}`; };
+  // výsledek hledání před 10 min, cena letu tam z paměti tras 5 h stará (zpět 2 h): cena je stará 5 h 10 min
+  const at = Date.now() - 10 * 6e4;
+  Trip.start({ t: wz(300, 120), g: null, result: res, at });
+  const t = c.S.trip;
+  assert.equal(t.flight.pricedAt, at - 300 * 6e4, 'nejstarší z letu tam a zpět');
+  assert.match(ageTxt(t), /^cena ze? (včera )?\d{1,2}:\d\d \(před 5 h\)$/);
+  // jen let zpět z paměti; bez času výsledku od teď minus stáří; nesmysl jako čerstvá cena
+  for (const [o, b, min, x] of [[undefined, 90, 90, at], ['45', undefined, 45, at], ['abc', -5, 0, at], [Infinity, null, 0, at], [300, 120, 300, 0], [300, 120, 300, Date.now() + 864e5]]) {
+    c.S.trip = null;
+    const t0 = Date.now();
+    Trip.start({ t: wz(o, b), g: null, result: res, at: x });
+    const p = c.S.trip.flight.pricedAt;
+    if (x === at) assert.equal(p, at - min * 6e4, JSON.stringify([o, b]));
+    else assert.ok(p >= t0 - min * 6e4 && p === c.S.trip.created - min * 6e4, String(x));
+  }
+  // tentýž let z novějšího hledání (paměť pořád 5 h): čas z něj minus stáří; bez času výsledku beze změny
+  c.S.trip = t;
+  const at2 = Date.now() - 6e4;
+  Trip.start({ t: wz(300, 120), g: null, result: res, at: at2 });
+  assert.deepEqual([c.S.trip === t, t.flight.pricedAt], [true, at2 - 300 * 6e4]);
+  Trip.start({ t: wz(300, 120), g: null, result: res, at: 0 });
+  assert.equal(t.flight.pricedAt, at2 - 300 * 6e4);
+
+  // Průvodce zůstal otevřený na kroku Let (Android drží aplikaci): návrat do aplikace / 5min tik přepíše jen řádek s časem
+  t.verifiedAt = 1;
+  const calls = [];
+  c.fetch = async (u) => { calls.push(String(u)); return { ok: true, json: async () => ({ available: true, items: [] }) }; };
+  render(c, t);
+  const el = c.$('#tripStep .tf-age'), alt = c.$('#tfAlt');
+  alt.innerHTML = 'nabídky z ověření';
+  assert.equal(Trip.ageRefresh(), true);
+  assert.equal(sp(el.outerHTML), `<div class="faint tf-age">${ageTxt(t)}</div>`, 'mladší než den: jen čas');
+  // o den a půl později (čas ceny o 36 h dřív): „před …“ znovu a „↻ Ověř cenu“, klepnutí ověří; výsledek ověření zůstal
+  t.flight.pricedAt -= 36 * 36e5;
+  assert.equal(Trip.ageRefresh(), true);
+  assert.equal(sp(el.outerHTML), `<div class="faint tf-age">${ageTxt(t)} · <button type="button" class="linkbtn" id="tfAge">↻ Ověř cenu</button></div>`);
+  assert.match(ageTxt(t), /\(před (4\d h|2 dny)\)$/);
+  assert.equal(alt.innerHTML, 'nabídky z ověření');
+  assert.equal(calls.length, 0, 'samo se nic neověřuje');
+  c.__els['#tfAge'].onclick();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(calls.length, 1);
+  // Shrnutí: totéž s id sumAge; odškrtnutá letenka → hned bez „↻ Ověř cenu“ (čas zůstane), zrušené odškrtnutí → zpět
+  const fb = { dataset: { bk: 'flight0' }, checked: true }, sb = { dataset: { bk: 'stay' }, checked: true };
+  c.__all['[data-bk]'] = [fb, sb];
+  t.step = 'summary'; render(c, t);
+  assert.equal(Trip.ageRefresh(), true);
+  assert.ok(el.outerHTML.includes('id="sumAge">↻ Ověř cenu</button>'), el.outerHTML);
+  fb.onchange();
+  assert.equal(t.booked.flight0, true);
+  assert.equal(sp(el.outerHTML), `<div class="faint tf-age">${ageTxt(t)}</div>`);
+  fb.checked = false; fb.onchange();
+  assert.ok(el.outerHTML.includes('id="sumAge">↻ Ověř cenu</button>'));
+  el.outerHTML = 'beze změny';
+  sb.onchange();
+  assert.deepEqual([t.booked.stay, el.outerHTML], [true, 'beze změny'], 'jiné odškrtnutí řádek s cenou letu nepřepisuje');
+  // ↻ ve Shrnutí → krok Let a ověření (jednou, i u cesty, která se ještě neověřovala – třeba ze sdíleného odkazu)
+  render(c, t);
+  c.__els['#sumAge'].onclick();
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual([t.step, calls.length], ['flight', 2]);
+  delete t.verifiedAt; t.step = 'summary'; render(c, t);
+  c.__els['#sumAge'].onclick();
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual([t.step, calls.length, t.verifiedAt > 0], ['flight', 3, true]);
+  // jiný krok, průvodce není na obrazovce, bez cesty: nic
+  t.step = 'stay';
+  assert.equal(Trip.ageRefresh(), false);
+  t.step = 'flight';
+  const $0 = c.$;
+  c.$ = (s) => (s === '#view-trip.active' ? null : $0(s));
+  assert.equal(Trip.ageRefresh(), false);
+  c.$ = $0;
+  c.S.trip = null;
+  assert.equal(Trip.ageRefresh(), false);
 });
 
 test('průvodce: let s přestupem – krok Let i průběh cesty ukážou kde (k zemi „jen přestup“ v 🛂 Před cestou)', () => {

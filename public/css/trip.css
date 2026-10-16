@@ -31,6 +31,11 @@
 .rt-border{font-size:12px;margin-top:3px;color:var(--text)}
 .rt-border .linkbtn{font-size:12px}
 .tf-price{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:13px}
+/* kdy byla cena letu („cena z 3. 10. 14:12 (před 8 dny) · ↻ Ověř cenu“) – krok Let a řádek Letenky ve Shrnutí */
+.tf-age{font-size:12.5px;margin-top:4px}
+.tf-age .linkbtn{font-size:12.5px}
+.cost .tf-age{font-size:12px;margin-top:2px}
+.cost .tf-age .linkbtn{font-size:12px}
 /* dlouhé tlačítko („Ověřit živou cenu a porovnat aerolinky“) na úzkém displeji zalomit, ne vytlačit z karty */
 .step-card .row .btn{max-width:100%;white-space:normal;text-align:center}
 .tl-leg{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;font-size:14px}
@@ -131,6 +136,8 @@ details.more.ex-places>summary::before{content:none}
 .ex-head .btn{flex:none}
 /* hláška s tlačítkem („Otevřít v plánovači“): schovaná nepřekáží klikání, na telefonu se vejde */
 .toast:not(.show){pointer-events:none}
+/* hláška bez tlačítka klepnutí propustí: na telefonu leží přes spodní lištu a tlačítka nad ní („Pro nákup klepni znovu“ u Koupit) */
+.toast:not(:has(.toast-act)){pointer-events:none}
 /* šířka podle textu až po okraje obrazovky – bez ní ji left:50% omezí na půl obrazovky (dlouhá hláška na telefonu 9 řádků) */
 .toast{width:max-content;max-width:calc(100vw - 24px)}
 .toast svg{flex:none} /* fajfka se vedle dlouhého textu nesmrskne */

@@ -486,17 +486,27 @@
   /* ---------- karty ---------- */
   // „+ chci vidět“ / „★ chci vidět“ (vybráno – přidá se při sestavení programu, nebo hned, když už program je)
   const mustBtn = (id, on) => `<button type="button" class="linkbtn${on ? ' on' : ''}" data-must="${esc(id)}" aria-pressed="${on ? 'true' : 'false'}">${on ? '★ chci vidět' : '+ chci vidět'}</button>`;
-  // Popis jen anglicky (server: descLang 'en'): první věta se štítkem „anglicky“ – celý cizí odstavec nic neřekne.
-  const firstSentence = s => {
+  // První věta popisu: anglický úryvek (server: descLang 'en') se štítkem „anglicky“ – celý cizí odstavec nic neřekne;
+  // v 🔎 Co tam je jedna věta i z českého popisu.
+  // „St. Vitus“, „U.S.“ ani české „ze 14. století“ větu neukončí (za tečkou malé písmeno). V češtině ani zkratka před
+  // velkým písmenem („kostel sv. Mikuláše“, „tzv. Rynek“, „např. Picassa“, „(něm. Dom)“, „arch. Gočár“); „atd.“ a „apod.“
+  // větu obvykle končí. V angličtině se zkratky nehlídají („a triumphal arch. It…“).
+  // zkratky, za kterými obvykle následuje jméno: osoba, ulice, cizí název („(kat. Basílica…)“)
+  const CS_ABBR = ('sv tzv tzn např popř resp tj mj zv nám náb nábř ul tř čp hl př arch prof doc kpt gen plk mjr kr kn ev nar zal '
+    + 'angl něm fr it šp špan port kat pol maď chorv srb slov slovin rum bulh řec tur niz dán šv švéd nor fin est lot lit rus ukr lat hebr ar arab ir bask gal').split(' ').join('|');
+  const SENT_EN = /^[\s\S]{20,240}?[a-z0-9)\]"'’\u00e0-\u024f]{2}[.!?](?=\s+[^\s\p{Ll}]|\s*$)/u;
+  const SENT_CS = new RegExp(SENT_EN.source.replace('[.!?]', `[.!?](?<!(?<!\\p{L})(?:${CS_ABBR})\\.)`), 'u'); // tečka ne hned za zkratkou
+  const firstSentence = (s, lang) => {
     const t = String(s || '').trim();
-    const m = t.match(/^[\s\S]{20,240}?[a-z0-9)\]"'’\u00e0-\u024f]{2}[.!?](?=\s|$)/); // „St. Vitus“, „U.S.“ větu neukončí
+    const m = t.match(lang === 'en' ? SENT_EN : SENT_CS);
     return m ? m[0] : t.length > 240 ? `${t.slice(0, 220).replace(/\s+\S*$/, '')}…` : t;
   };
   // Bez údaje o jazyku (starší server): text bez české diakritiky s několika běžnými anglickými slovy je anglický.
   const EN_WORDS = /\b(the|of|and|is|was|were|located|built|which|its|with|from|by|known|has)\b/gi;
   const looksEnglish = s => !/[ěščřžůťďň]/i.test(s) && (String(s).match(EN_WORDS) || []).length >= 3;
-  const descHtml = (text, lang) => (!text ? '' : lang === 'en' || (!lang && looksEnglish(text))
-    ? `<span class="poi-lang" title="Český popis chybí – úryvek z anglické Wikipedie">anglicky</span> ${esc(firstSentence(text))}` : esc(text));
+  const isEnglish = (text, lang) => lang === 'en' || (!lang && looksEnglish(text));
+  const descHtml = (text, lang) => (!text ? '' : isEnglish(text, lang)
+    ? `<span class="poi-lang" title="Český popis chybí – úryvek z anglické Wikipedie">anglicky</span> ${esc(firstSentence(text, 'en'))}` : esc(text));
   // Části sloučené do celku (katedrála na Hradě, orloj u radnice) – jinak by v aplikaci nebyly vidět vůbec.
   const inclHtml = (p, cls) => (Array.isArray(p.includes) && p.includes.length
     ? `<div class="${cls}">Zahrnuje: ${esc(p.includes.slice(0, 5).join(', '))}${p.includes.length > 5 ? ` a ${p.includes.length - 5} další` : ''}</div>` : '');
@@ -634,10 +644,12 @@
     if (r.interests) ex.interests = new Set(r.interests);
     if (r.tripInterests) ex.tripInterests = new Set(r.tripInterests);
   }
+  // Zapamatovaný stav jednou – i před prvním otevřením Objevuj (náhled cíle z letů potřebuje zvolený okruh).
+  function ensureUi() { if (!ex.restored) { ex.restored = true; if (!ex.place) restoreUi(); } }
 
   function renderExplore(root) {
     if (!root) return;
-    if (!ex.restored) { ex.restored = true; if (!ex.place) restoreUi(); }
+    ensureUi();
     if (!ex.start || ex.start < fmtYMD(new Date())) { ex.start = plusDays(fmtYMD(new Date()), 1); ex.datePicked = false; }
     root.innerHTML = `<div class="card search-card">
       <div class="ex-search">
@@ -657,7 +669,7 @@
   }
 
   // Nové místo: všechno, co patřilo k předchozímu (plány, vyřazená a vybraná místa, filtr, chyby), se zahodí.
-  function openPlace(s) {
+  function setPlace(s) {
     // země podle kódu (česky, „Španělsko“) – kontext pro odkazy do Google Map
     const country = s.geo ? '' : s.country || (typeof byIso !== 'undefined' && byIso[s.cc]?.cs) || '';
     ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc || '', geo: Boolean(s.geo), country };
@@ -668,10 +680,86 @@
     clearTimeout(soonT); ex.replanNow = null; // odložené přeplánování patřilo předchozímu místu
     ex.recent = pushRecent(ex.recent, ex.place);
     remember();
+  }
+  function openPlace(s) {
+    setPlace(s);
     const q = $('#exQ');
     if (q) q.value = s.label;
     paintRecent();
     loadExplore();
+  }
+  /**
+   * Objevuj na místě odjinud (🔎 Co tam je ve výsledcích letů a v radaru) – jako místo vybrané v hledání: program ve městě
+   * od dne příletu (start) na dny ve městě (days → nejbližší nabízený nižší počet; 0 = jen tam, zvolený počet zůstane).
+   * Místa převezme z náhledu (preview, i ještě běžícího), zapamatované volby (okruh, zájmy, tempo) platí dál.
+   * Neplatné místo → false a Objevuj se neotevře.
+   */
+  function openAt(s, { start = '', days = 0 } = {}) {
+    const p = cleanPlace({ ...s, geo: false });
+    if (!p) return false;
+    ensureUi();
+    if (okStart(start, fmtYMD(new Date()))) { ex.start = start; ex.datePicked = true; }
+    const d = [1, 2, 3, 4, 5, 6, 7, 10].filter(x => x <= days).pop();
+    if (d) ex.days = d;
+    ex.mode = 'city';
+    setPlace(p);
+    go('explore'); // renderExplore: místa z náhledu hned, jinak dotaz
+    return true;
+  }
+
+  /* ---------- 🔎 Co tam je: náhled cíle z výsledků letů a radaru (flights.js) ---------- */
+  // Místa stejným dotazem jako výchozí seznam Objevuj (okruh 10 km i s výlety; větší zvolený okruh Objevuj má přednost),
+  // takže „🗺️ Naplánovat v Objevuj“ nečeká na druhý pomalý dotaz na Wikidata: loadExplore převezme hotový i ještě běžící
+  // dotaz náhledu (pvFor). Menší zvolený okruh náhled z načtených míst jen vyfiltruje (previewHtml).
+  // Výsledek drží 30 min, chyba se nepamatuje (další otevření se zeptá znovu).
+  const PREVIEW_KM = 10;
+  const PV_TTL = 30 * 60e3;
+  const pv = new Map(); // místo (lat,lon na 3 desetinná místa jako mezipaměť serveru) → { km, at, p }
+  const pvKey = p => `${(+p.lat).toFixed(3)},${(+p.lon).toFixed(3)}`;
+  const poiUrl = (p, km) => `api/poi?lat=${p.lat}&lon=${p.lon}&radius=${km}`;
+  // dotaz náhledu na místo p, který pokryje okruh km, nebo null
+  const pvFor = (p, km, now = Date.now()) => { const x = pv.get(pvKey(p)); return x && x.km >= km && now - x.at < PV_TTL ? x : null; };
+  /** Místa pro náhled cíle p ({ lat, lon }) → Promise({ items, demo, km }); znovu otevřený cíl bez nového dotazu. */
+  function preview(p) {
+    ensureUi();
+    const km = Math.max(PREVIEW_KM, ex.radius), k = pvKey(p), hit = pvFor(p, km);
+    if (hit) return hit.p;
+    const x = { km, at: Date.now() };
+    x.p = getJson(poiUrl(p, km)).then(j => ({ items: j.items || [], demo: Boolean(j.demo), km }), e => { if (pv.get(k) === x) pv.delete(k); throw e; });
+    pv.delete(k); pv.set(k, x);
+    if (pv.size > 12) pv.delete(pv.keys().next().value);
+    return x.p;
+  }
+  /** Co vidět: nejvýš n míst ve městě (ne výlety do okolí) podle skóre – napřed s fotkou, bez fotky jen doplní. */
+  function previewPick(items, n = 6) {
+    const city = (items || []).filter(x => x && x.name && x.category !== 'daytrip').sort((a, b) => (b.score || 0) - (a.score || 0));
+    return [...city.filter(x => x.image), ...city.filter(x => !x.image)].slice(0, n);
+  }
+  // „Další 3 místa a 8 výletů do okolí najdeš v Objevuj.“
+  const moreTxt = (city, trips) => {
+    const c = city > 0 ? (city === 1 ? 'Ještě jedno místo' : city <= 4 ? `Další ${city} místa` : `Dalších ${city} míst`) : '';
+    const t = trips > 0 ? `${plural(trips, 'výlet', 'výlety', 'výletů')} do okolí` : '';
+    return c || t ? `${[c, t].filter(Boolean).join(' a ')} najdeš v Objevuj.` : '';
+  };
+  /** Karta místa v náhledu: fotka (jinak ikona druhu), název, druh, vzdálenost a jedna věta popisu. */
+  const previewCard = p => {
+    const d = p.extract || p.description || '';
+    return `<div class="dp-poi"><div class="dp-img"${p.image ? ` style="background-image:url('${esc(cssUrl(p.image))}')"` : ''} aria-hidden="true">${p.image ? '' : icon(p.category)}</div>
+      <div class="dp-pt"><b>${esc(p.name)}</b><span class="dp-pm">${icon(p.category)} ${esc(p.categoryLabel || (CAT[p.category] || CAT.sight)[1])}${p.unesco ? ' · UNESCO' : ''}${p.distanceKm != null ? ` · ${String(p.distanceKm).replace('.', ',')}\u00a0km` : ''}</span>${
+        d ? `<span class="dp-pd">${descHtml(isEnglish(d, p.descLang) ? d : firstSentence(d), p.descLang)}</span>` : ''}</div></div>`;
+  };
+  /**
+   * „Co vidět“ v náhledu: 6 míst a kolik dalších (i výletů) ukáže Objevuj; km = okruh dotazu. Jen v okruhu, který pak
+   * ukáže Objevuj („🗺️ Naplánovat“ zvolený okruh nemění): se zapamatovanými 3 km z načtených 10 km jen místa do 3 km.
+   */
+  function previewHtml(items, km = PREVIEW_KM) {
+    ensureUi();
+    const r = Math.min(km, ex.radius);
+    const all = inRadius((items || []).filter(x => x && x.name), r), list = previewPick(all);
+    if (!list.length) return `<div class="faint dp-none">Do ${r} km od centra jsem nenašel nic, co by stálo za zmínku – zkus v Objevuj větší okruh nebo výlety do okolí.</div>`;
+    const trips = all.filter(x => x.category === 'daytrip').length;
+    const more = moreTxt(all.length - trips - list.length, trips);
+    return `<div class="dp-sl">${list.map(previewCard).join('')}</div>${more ? `<div class="faint dp-more">${esc(more)}</div>` : ''}`;
   }
 
   // „Naposledy:“ – štítky s posledními otevřenými místy (druhé otevření je ze serverové mezipaměti hned).
@@ -767,9 +855,11 @@
     wait(false);
     const slowT = setTimeout(() => wait(true), SLOW_MS);
     try {
-      const j = await getJson(`api/poi?lat=${p.lat}&lon=${p.lon}&radius=${km}`);
+      // 🔎 Co tam je u letů už místa načetl nebo načítá stejným dotazem – žádný druhý
+      const pre = pvFor(p, km);
+      const j = await (pre ? pre.p : getJson(poiUrl(p, km)));
       if (my !== exSeq) return;
-      ex.all = j.items || []; ex.demo = j.demo; ex.loaded = { place: p, radius: km };
+      ex.all = j.items || []; ex.demo = j.demo; ex.loaded = { place: p, radius: pre ? pre.km : km };
     } catch (e) {
       if (my !== exSeq) return;
       if (body.isConnected) {
@@ -1514,12 +1604,12 @@
   }
 
   window.Places = {
-    renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir,
+    renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir, openAt, preview, previewHtml,
     // jen pro testy (test/places-ui.test.js)
     _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
-      afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns,
+      afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
       plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan },
   };
 })();
