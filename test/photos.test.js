@@ -67,7 +67,7 @@ test('pickPhotos: z článku vybere oceněnou fotku města, cíl po letišti dos
     }
     if (host === 'en.wikipedia.org') {
       return { query: { pages: [
-        { title: 'Rome', images: [{ title: 'File:Rome Montage 2017.jpg' }, { title: 'File:Map of Rome.svg' }, { title: 'File:Pincio panorama.jpg' }, { title: 'File:Colosseum at night.jpg' }, { title: 'File:Statue.jpg' }] },
+        { title: 'Rome', pageimage: 'Rome_Montage_2017.jpg', images: [{ title: 'File:Rome Montage 2017.jpg' }, { title: 'File:Map of Rome.svg' }, { title: 'File:Pincio panorama.jpg' }, { title: 'File:Colosseum at night.jpg' }, { title: 'File:Statue.jpg' }] },
         { title: 'Pécs', images: [{ title: 'File:Pecs cathedral view.jpg' }] },
         { title: 'Oradea', images: [{ title: 'File:Oradea street.jpg' }] },
       ] } };
@@ -108,4 +108,23 @@ test('cityPhotos: z paměti bez dotazu, „fotka není“ jako prázdná adresa,
   assert.deepEqual(await cityPhotos(['Testov C'], { pick: async () => { throw new Error('429'); } }), { photos: {}, partial: false });
   assert.deepEqual(await cityPhotos(['Testov C'], { pick: async () => ({ photos: { 'Testov C': 'https://x/c.jpg' }, partial: true }) }),
     { photos: { 'Testov C': 'https://x/c.jpg' }, partial: true });
+});
+
+test('pickPhotos: hlavní fotka anglického článku (Eiffelovka) před oceněnou fotkou se jménem města z okolí (HEC Paris)', async () => {
+  const api = async (host, p) => {
+    if (host === 'cs.wikipedia.org') return { query: { pages: [{ title: 'Paříž', thumbnail: { source: 'https://u/thumb/500px-Paris_montage.jpg' }, langlinks: [{ lang: 'en', title: 'Paris' }] }] } };
+    if (host === 'en.wikipedia.org') {
+      return { query: { pages: [{ title: 'Paris', pageimage: 'La_Tour_Eiffel_vue_de_la_Tour_Saint-Jacques.jpg', images: [
+        { title: 'File:Chateau, HEC Paris, Jouy-en-Josas, Southwest view.jpg' }, { title: 'File:Paris Seine at dusk.jpg' }, { title: 'File:La Tour Eiffel vue de la Tour Saint-Jacques.jpg' },
+      ] }] } };
+    }
+    const info = { 'File:La Tour Eiffel vue de la Tour Saint-Jacques.jpg': [], 'File:Paris Seine at dusk.jpg': [QI] };
+    return { query: { pages: p.titles.split('|').map((t) => (info[t]
+      ? { title: t, categories: info[t].map((c) => ({ title: c })), imageinfo: [{ width: 4000, height: 2600, thumburl: `https://u/${t.slice(5)}` }] }
+      : { title: t, missing: true })) } };
+  };
+  const calls = [];
+  const out = await pickPhotos(['Paříž'], async (h, p) => { calls.push(p.titles); return api(h, p); });
+  assert.equal(out.photos['Paříž'], 'https://u/La Tour Eiffel vue de la Tour Saint-Jacques.jpg');
+  assert.ok(!calls[2].includes('HEC')); // škola za městem se ani neptá
 });
