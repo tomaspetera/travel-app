@@ -26,6 +26,6 @@
 .pwa-x:hover{color:var(--text);background:var(--surface-2)}
 @media(max-width:860px){
   .pwa-bar{padding:8px 16px}
-  .pwa-update{left:12px;right:12px;bottom:calc(80px + env(safe-area-inset-bottom))}
+  .pwa-update{left:12px;right:12px;bottom:calc(88px + env(safe-area-inset-bottom))}
   .pwa-update span{flex:1;min-width:0}
 }

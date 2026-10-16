@@ -178,7 +178,7 @@ details.more.ex-places>summary::before{content:none}
   /* telefon a úzké okno: plán → mapa (menší) → místa; mapa tak není až pod celým seznamem */
   .ex-layout.ex-main{grid-template-columns:minmax(0,1fr);grid-template-areas:"plan" "map" "places";grid-template-rows:auto}
   .ex-main>.ex-map{height:300px}}
-@media(max-width:860px){.sum-grid{grid-template-columns:1fr}.manual-row{grid-template-columns:1fr 1fr}.manual-row>div{grid-column:1/-1}.ex-back{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
+@media(max-width:860px){.sum-grid{grid-template-columns:1fr}.manual-row{grid-template-columns:1fr 1fr}.manual-row>div{grid-column:1/-1}.ex-back{bottom:calc(90px + env(safe-area-inset-bottom,0px))}}
 @media(max-width:560px){.stay{grid-template-columns:84px minmax(0,1fr)}.st-img{width:84px;height:70px}.st-price{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 10px}.st-pp{align-items:flex-start;margin-right:auto;text-align:left}.ex-search{grid-template-columns:auto minmax(0,1fr)}.ex-search>.field:first-child{grid-column:1/-1}.poi{grid-template-columns:72px 1fr}.poi-img{width:72px;height:64px}.th-total{text-align:left}
   /* kategorie v jednom posuvném řádku místo pěti; chyba se „Zkusit znovu“ pod textem */
   .ex-cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
