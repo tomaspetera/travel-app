@@ -13,14 +13,26 @@
   const days = (a, b) => Math.round((Date.parse(b.slice(0, 10) + 'T12:00:00Z') - Date.parse(a.slice(0, 10) + 'T12:00:00Z')) / 864e5);
   const dm = d => `${+d.slice(8, 10)}. ${+d.slice(5, 7)}.`;
 
+  /** Běžná cena odhadu (podle ní se rozhoduje a srovnává); starší odhad bez ní = „od“. */
+  const typOf = g => (g && g.typ > 0 ? g.typ : g ? g.czk : 0);
   /**
-   * Text čipu u výsledku letu (odhad): „🚆 i vlakem/busem ~4 h 20 · od ~299 Kč“; ret = zpáteční hledání → cena tam
-   * i zpět („· tam i zpět od ~598 Kč“), ať jde porovnat s cenou letenek vedle (ta je za celou cestu). Ta je
-   * s pevnými mezerami – na mobilu se zalomí celá, ne „od“ / „~598 Kč“.
+   * Cena odhadu: „běžně ~450 Kč (od ~299 Kč)“, stejné ceny jen „běžně ~299 Kč“, starší odhad bez běžné ceny „od ~299 Kč“.
+   * n = kolik cest (2 = tam i zpět). běžně = co typicky zaplatíš, když musíš jet určitý den; od = nejnižší nalezená cena.
    */
-  const chipText = (g, ret = false) => `🚆 i vlakem/busem ~${hm(g.min)} · ${ret ? `tam i zpět od ~${kc(g.czk * 2)}`.replace(/ /g, '\u00a0') : `od ~${kc(g.czk)}`}`;
-  /** Původ odhadu: změřené spoje z Prahy, nebo model podle vzdálenosti (přes hory delší). */
-  const basisTxt = (b, hills) => b === 'measured' ? 'odhad podle skutečných spojů z 13. 10.' : `odhad podle vzdálenosti${hills ? ` (přes ${hills === 'Alpy' ? 'Alpy' : 'hory'} déle)` : ''}`;
+  // „~320 Kč“ s pevnou mezerou – na mobilu se „Kč“ neodtrhne na další řádek
+  const kn = n => kc(n).replace(/ Kč$/, '\u00a0Kč');
+  const priceTxt = (g, n = 1) => (!(g.typ > 0) ? `od ~${kn(g.czk * n)}` : `běžně ~${kn(g.typ * n)}${g.czk > 0 && g.czk < g.typ ? ` (od ~${kn(g.czk * n)})` : ''}`);
+  /**
+   * Text čipu u výsledku letu (odhad): „🚆 ~4 h 20 · běžně ~450 Kč“ (starší odhad „od ~299 Kč“); ret = zpáteční hledání →
+   * cena tam i zpět („· tam i zpět běžně ~900 Kč“), ať jde porovnat s cenou letenek vedle (ta je za celou cestu). Ta je
+   * s pevnými mezerami – na mobilu se zalomí celá, ne „běžně“ / „~900 Kč“. „od“ je v popisku čipu a ve srovnání.
+   */
+  const chipText = (g, ret = false) => {
+    const p = `${g.typ > 0 ? 'běžně' : 'od'} ~${kc(typOf(g) * (ret ? 2 : 1))}`;
+    return `🚆 ~${hm(g.min)} · ${ret ? `tam i zpět ${p}`.replace(/ /g, '\u00a0') : p}`;
+  };
+  /** Původ odhadu: změřené spoje a ceny z Prahy, nebo model podle vzdálenosti (přes hory delší). */
+  const basisTxt = (b, hills) => b === 'measured' ? 'odhad podle skutečných spojů a cen z 15. 10.' : `odhad podle vzdálenosti${hills ? ` (přes ${hills === 'Alpy' ? 'Alpy' : 'hory'} déle)` : ''}`;
 
   /* ---------- letadlo × vlak/bus: stejné pravidlo jako server (server/lib/ground.js), jen nad nabídkami po filtrech výpisu ---------- */
   const AIRPORT_BEFORE = 120, AIRPORT_AFTER = 45, STATION_MIN = 30, FAST_GAP = 60;
@@ -61,8 +73,8 @@
   }
   /**
    * Vyplatí se vlak/bus? (po zemi = jízda + 30 min na nádraží) 1. nejvýš o 1,5 h déle než nejrychlejší let od dveří
-   * ke dveřím, 2. do 6,5 h, 3. aspoň o polovinu levněji než nejlevnější let a do 10 h. Důvod jmenuje let, se kterým srovnává.
-   * est = { ok, minutes, czk }, flight = { doorMin, czk, trips, fast: { doorMin, czk } }.
+   * ke dveřím, 2. do 6,5 h, 3. aspoň o polovinu levněji (za běžnou cenu) než nejlevnější let a do 10 h. Důvod jmenuje
+   * let, se kterým srovnává. est = { ok, minutes, czk, typ }, flight = { doorMin, czk, trips, fast: { doorMin, czk } }.
    */
   function worth(est, flight = {}) {
     if (!est || !est.ok) return { worth: false, rule: null, reason: (est && est.why) || null, doorMin: null, groundMin: null };
@@ -81,7 +93,7 @@
     }
     if (groundMin <= 390) return out('short', `${ground} – cesta do 6,5 h${vs}.`);
     const trips = flight.trips === 2 ? 2 : 1;
-    const groundCzk = est.czk * trips;
+    const groundCzk = typOf(est) * trips;
     if (flight.czk > 0 && groundCzk <= flight.czk * 0.5 && groundMin <= 600) {
       const less = `o ~${(Math.round((flight.czk - groundCzk) / 100) * 100).toLocaleString('cs-CZ')} Kč levněji na osobu`;
       return out('cheap', fast ? `${ground} a ${less} než nejlevnější let${doorMin ? ` (~${hm(round5(doorMin))} od dveří ke dveřím)` : ''}.` : `${ground} a ${less}${vs}.`);
@@ -97,9 +109,12 @@
       fromStation: x.fromStation || '', toStation: x.toStation || '',
     };
   }
-  /** Odhad (bez konkrétního spoje) → úsek cesty: jen den, čas ověří uživatel přes odkaz. */
+  /**
+   * Odhad (bez konkrétního spoje) → úsek cesty: jen den, čas ověří uživatel přes odkaz. Cena běžná (do ceny cesty),
+   * fromCzk = „od“ (jen pro popisek; starší odhad bez běžné ceny ji nemá a czk je „od“).
+   */
   function legFromEst(date, est) {
-    return { source: 'estimate', id: '', date, dep: null, arr: null, min: est ? est.minutes : null, czk: est ? est.czk : 0, kinds: [], transfers: null, fromStation: '', toStation: '' };
+    return { source: 'estimate', id: '', date, dep: null, arr: null, min: est ? est.minutes : null, czk: typOf(est), ...(est && est.typ > 0 ? { fromCzk: est.czk } : {}), kinds: [], transfers: null, fromStation: '', toStation: '' };
   }
   /** Cena cesty po zemi za všechny cestující (tam + zpět). */
   const tripCzk = (ov, adults) => Math.round(((ov.out ? ov.out.czk || 0 : 0) + (ov.back ? ov.back.czk || 0 : 0)) * (adults || 1));
@@ -133,7 +148,8 @@
   /** Odhad jako řádek (i k výběru: „ponechat odhad“). */
   function estRow(est, sel) {
     if (!est) return '';
-    const inner = `<span class="gc-t">🚆 <b>~${esc(hm(est.minutes))}</b></span><span class="gc-x">${esc(basisTxt(est.basis, est.hills))} · konkrétní spoj vyber přes odkaz</span><span class="gc-p"><b>od ~${czk(est.czk)}</b><small>odhad</small></span>`;
+    const from = est.typ > 0 && est.czk > 0 && est.czk < est.typ ? `od ~${czk(est.czk)} · ` : '';
+    const inner = `<span class="gc-t">🚆 <b>~${esc(hm(est.minutes))}</b></span><span class="gc-x">${esc(basisTxt(est.basis, est.hills))} · konkrétní spoj vyber přes odkaz</span><span class="gc-p"><b>${est.typ > 0 ? 'běžně' : 'od'} ~${czk(typOf(est))}</b><small>${from}odhad</small></span>`;
     if (!sel) return `<div class="gc-row est">${inner}</div>`;
     return `<label class="gc-row sel est"><input type="radio" name="${esc(sel.name)}" value="" ${sel.checked ? 'checked' : ''}>${inner}</label>`;
   }
@@ -189,7 +205,7 @@
     const dirHtml = (which, date) => `<div class="gp-dir" data-gdir="${which}"><div class="gp-dh"><b>${which === 'out' ? 'Tam' : 'Zpět'}</b>
       <input type="date" class="input gp-date" value="${esc(date || '')}" min="${today}" aria-label="Datum ${which === 'out' ? 'tam' : 'zpět'}"></div><div class="gp-body"><div class="loading-row"><span class="spin dark"></span> Hledám spoje…</div></div></div>`;
     host.innerHTML = `<div class="gnd-panel">${dirHtml('out', opts.date)}${opts.back ? `<div class="gp-backbtn"><button type="button" class="btn sm" data-gback>↩ Ukázat i spoje zpět (${esc(dm(opts.back))})</button></div>` : ''}<div class="gp-links"></div>
-      <div class="faint gp-note">Odhad = přibližná doba a nejnižší cena; RegioJet ukazuje skutečné spoje a ceny (načtené na tvůj pokyn), FlixBus, IDOS a Google Mapy jsou jen odkazy – ceny tam ověř.</div></div>`;
+      <div class="faint gp-note">Odhad = přibližná doba a cena: běžně = co typicky zaplatíš, když musíš jet určitý den, od = nejnižší nalezená cena. RegioJet ukazuje skutečné spoje a ceny (načtené na tvůj pokyn), FlixBus, IDOS a Google Mapy jsou jen odkazy – ceny tam ověř.</div></div>`;
     const fill = async (which, date) => {
       const box = host.querySelector(`[data-gdir="${which}"] .gp-body`);
       if (!box) return;
@@ -218,5 +234,5 @@
     fill('out', opts.date);
   }
 
-  window.Ground = { AIRPORT_BEFORE, AIRPORT_AFTER, hm, round5, flightDoor, tripDoor, planeOptions, worth, kindsTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, debounce, panel };
+  window.Ground = { AIRPORT_BEFORE, AIRPORT_AFTER, hm, round5, flightDoor, tripDoor, planeOptions, worth, kindsTxt, typOf, priceTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, debounce, panel };
 })();

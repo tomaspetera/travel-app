@@ -97,6 +97,8 @@
   // Odkaz na jízdenku: RegioJet u vybraného spoje, jinak první odkaz (RegioJet, FlixBus, IDOS).
   const gUrl = (g, links) => ((links || []).find(l => l.id === (g.source === 'regiojet' ? 'regiojet' : l.id)) || {}).url || null;
   const gWho = g => (g.source === 'regiojet' ? (g.demo ? 'RegioJet DEMO' : 'RegioJet') : 'odhad');
+  // Cena úseku: spoj RegioJetu přesně, odhad „běžně ~450 Kč (od ~299 Kč)“ (do ceny cesty jde běžná), starší odhad „od ~299 Kč“.
+  const gPrice = g => (g.source === 'regiojet' ? czk(g.czk) : g.fromCzk > 0 ? `běžně ~${czk(g.czk)}${g.fromCzk < g.czk ? ` (od ~${czk(g.fromCzk)})` : ''}` : `od ~${czk(g.czk)}`);
   /**
    * Trasa přes víc míst s vlakem/busem: přejezd z města příjezdu na 1. místo a z posledního místa zpět k vlaku/busu
    * (přejezdy k letišti letu tu neplatí). Spočítá je server stejně jako ostatní přejezdy (api/stayplan s ground →
@@ -233,9 +235,11 @@
   function groundLines(t) {
     const car = t.groundMode === 'car', ev = car && t.carFuel === 'ev', f = t.flight, g = t.ground || {};
     const gw = !car ? 'Cesta' : ev ? 'Elektroautem' : 'Autem', gf = car && !ev ? `${carFuelTxt(t)}, ` : '';
+    // 🏠 vlastní cena na letiště (veřejnou dopravou) místo odhadu – u jednoho směru „vlastní cena a odhad“
+    const legs = car ? [] : [g.out, f.back ? g.back : null].filter(Boolean), own = legs.filter(x => x.own === true).length;
     return {
       icon: car ? '🚗' : '🚌',
-      row: `${groundWhat(t, true)} (${car ? `${carFuelTxt(t)}, parkování, ` : ''}odhad)`,
+      row: `${groundWhat(t, true)} (${car ? `${carFuelTxt(t)}, parkování, ` : ''}${own ? (own === legs.length ? 'vlastní cena' : 'vlastní cena a odhad') : 'odhad'})`,
       out: g.out ? `${gw} na letiště ${f.out.from} (${gf}~${minutesToHm(g.out.minutes)}, odhad)` : null,
       back: f.back && g.back ? `${gw} z letiště ${f.back.to} domů (${gf}~${minutesToHm(g.back.minutes)})` : null,
     };
@@ -616,7 +620,7 @@
     const g = t.groundRef;
     if (!g || !g.q || !window.Ground) return '';
     return `<div class="card step-card gnd-offer${g.worth ? ' hot' : ''}"><div class="sc-head"><div><h3>🚆 Nebo vlakem / busem</h3>
-      <div class="muted">${esc(g.from)} → ${esc(g.to)} · ~${esc(Ground.hm(g.min))} · od ~${czk(g.czk)}/os. jedním směrem <span class="b">odhad</span></div>
+      <div class="muted">${esc(g.from)} → ${esc(g.to)} · ~${esc(Ground.hm(g.min))} · ${esc(Ground.priceTxt(g))} na osobu jedním směrem <span class="b">odhad</span></div>
       ${g.reason ? `<div class="faint" style="font-size:12.5px;margin-top:4px">${esc(g.reason)}</div>` : ''}</div></div>
       <div class="row wrap" style="gap:8px"><button class="btn${g.worth ? ' primary' : ''}" id="ovStart">🚆 Pojedu vlakem / busem</button></div>
       <div id="ovPick"></div></div>`;
@@ -627,7 +631,7 @@
     const t = T(), ov = t.overland, host = $('#tripStep'), f = t.flight;
     const leg = (g, what, a, b) => g ? `<div class="ov-leg"><span class="ov-ic">${gIco(g)}</span><div><b>${what}: ${esc(a)} → ${esc(b)}</b> · ${dayLbl(g.date)} ${esc(gTime(g))}
       <small>${esc([g.dep ? `${minutesToHm(g.min || 0)} · ${gKind(g)}, ${g.transfers ? `${g.transfers}× přestup` : 'přímý'}` : 'odhad – konkrétní spoj vyber v odkazu',
-    g.fromStation ? `${g.fromStation} → ${g.toStation}` : '', `${g.source === 'regiojet' ? '' : 'od ~'}${czk(g.czk)}/os. (${gWho(g)})`].filter(Boolean).join(' · '))}</small></div></div>` : '';
+    g.fromStation ? `${g.fromStation} → ${g.toStation}` : '', `${gPrice(g)}/os. (${gWho(g)})`].filter(Boolean).join(' · '))}</small></div></div>` : '';
     host.innerHTML = `<div class="card step-card"><h3>🚆 Cesta vlakem / busem</h3>
       <div class="muted" style="font-size:13px;margin-bottom:6px">~${+ov.km || 0} km vzdušnou čarou · místo letu ${esc(f.out.from)} → ${esc(f.out.to)}</div>
       ${leg(ov.out, 'Tam', ov.from.label, ov.to.label)}${leg(ov.back, 'Zpět', ov.to.label, ov.from.label)}
@@ -2107,7 +2111,7 @@
       const leg = l => { if (!l) return l; const x = { ...l }; for (const k of ['foundAt', 'prevCzk', 'otherDeps', 'price', 'currency', 'czk']) delete x[k]; if (x.arrEst === false) delete x.arrEst; return x; }; // live zůstane – „Je to dobrá cena?“ podle něj pozná živou cenu
       o.flight = { ...f, out: leg(f.out), back: leg(f.back) };
     }
-    if (o.ground) o.ground = Object.fromEntries(['out', 'back'].filter(k => o.ground[k]).map(k => [k, { minutes: o.ground[k].minutes }])); // jen groundLines
+    if (o.ground) o.ground = Object.fromEntries(['out', 'back'].filter(k => o.ground[k]).map(k => [k, { minutes: o.ground[k].minutes, ...(o.ground[k].own === true ? { own: true } : {}) }])); // jen groundLines
     const arr = a => { if (!a) return a; const x = { ...a }; for (const k of ['note', 'src', 'date', 'sec', 'gen', 'km']) delete x[k]; return x; };
     if (o.arrival) o.arrival = { out: arr(o.arrival.out), back: arr(o.arrival.back) };
     o.stay = geo(o.stay); o.cityCenter = geo(o.cityCenter);
@@ -2219,6 +2223,8 @@
       kinds: Array.isArray(g.kinds) ? [...new Set(g.kinds.filter(k => k === 'TRAIN' || k === 'BUS'))] : [], transfers: okFin(g.transfers, 0, 9) ? Math.round(g.transfers) : null,
       fromStation: okStr(g.fromStation, 60), toStation: okStr(g.toStation, 60),
       ...(g.demo === true && g.source === 'regiojet' && dep && arr ? { demo: true } : {}),
+      // odhad: „od“ k běžné ceně (jen popisek)
+      ...(!(g.source === 'regiojet' && dep && arr) && okFin(g.fromCzk, 1, 1e5) ? { fromCzk: Math.round(g.fromCzk) } : {}),
     };
   }
   function cleanGroundPlace(p) {
@@ -2235,7 +2241,7 @@
     const back = cleanGroundLeg(o.back);
     return {
       on: o.on === true, q: okQ(o.q), km: okFin(o.km, 0, 5000) ? Math.round(o.km) : 0, from, to, out, back: back && back.date >= out.date ? back : null,
-      est: okObj(o.est) && okFin(o.est.minutes, 1, 3000) && okFin(o.est.czk, 0, 1e5) ? { minutes: Math.round(o.est.minutes), czk: Math.round(o.est.czk), basis: o.est.basis === 'measured' ? 'measured' : 'distance' } : null,
+      est: okObj(o.est) && okFin(o.est.minutes, 1, 3000) && okFin(o.est.czk, 0, 1e5) ? { minutes: Math.round(o.est.minutes), czk: Math.round(o.est.czk), ...(okFin(o.est.typ, 1, 1e5) ? { typ: Math.round(o.est.typ) } : {}), basis: o.est.basis === 'measured' ? 'measured' : 'distance' } : null,
       links: { out: cleanLinks(okObj(o.links) ? o.links.out : null), back: cleanLinks(okObj(o.links) ? o.links.back : null) },
     };
   }
@@ -2247,7 +2253,7 @@
   function cleanGroundRef(g) {
     if (!okObj(g) || !okQ(g.q) || !okFin(g.min, 1, 3000) || !okFin(g.czk, 0, 1e5)) return null;
     return {
-      q: okQ(g.q), km: okFin(g.km, 0, 5000) ? Math.round(g.km) : 0, min: Math.round(g.min), czk: Math.round(g.czk), basis: g.basis === 'measured' ? 'measured' : 'distance',
+      q: okQ(g.q), km: okFin(g.km, 0, 5000) ? Math.round(g.km) : 0, min: Math.round(g.min), czk: Math.round(g.czk), ...(okFin(g.typ, 1, 1e5) ? { typ: Math.round(g.typ) } : {}), basis: g.basis === 'measured' ? 'measured' : 'distance',
       worth: g.worth === true, rule: ['time', 'short', 'cheap'].includes(g.rule) ? g.rule : null, reason: okStr(g.reason, 300), doorMin: okFin(g.doorMin, 0, 5000) ? Math.round(g.doorMin) : null,
       from: okStr(g.from, 80), to: okStr(g.to, 80), regiojet: g.regiojet === true, flixbus: g.flixbus === true,
     };
