@@ -1310,7 +1310,7 @@
       <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) : '📍'} ${esc(p.label)} · ${placesTxt(cityN)} do ${ex.radius} km${tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2>${
         window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">✈️ Najít lety sem</button>' : ''}</div>
       <div class="ex-layout ex-main">
-      <div class="card step-card ex-plan"><h3>🗓️ Naplánovat</h3>
+      <div class="card step-card ex-plan${ex.planOpen || out || bz || wait ? '' : ' shut'}" id="exPlanCard"><h3 class="ex-plan-h"><button type="button" class="ex-plan-tg" id="exPlanTg">🗓️ Naplánovat <span class="faint ex-plan-hint">– program, výlety, kolo, pěšky</span><span class="ex-plan-chev" aria-hidden="true">▾</span></button></h3>
         <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${modeBtns(ex.mode)}</div>
         <div class="muted" style="font-size:13px;margin:-4px 0 10px">${ex.mode === 'city' ? 'Pěší program po památkách – každý den jiná část města.'
           : train ? `Vlakem z místa (${esc(p.label)}) na nádraží v dosahu zvolené délky jízdy a na kole zpátky: zvol délku, kolo a krajinu. Najdu nádraží, trasu domů a odkaz na spojení vlakem.`
@@ -1556,6 +1556,8 @@
     };
     ex.replanNow = () => replan();
     $('#exPlan', body).onclick = () => replan($('#exPlan'));
+    // telefon: karta Naplánovat sbalená do nadpisu, dokud není program (místa jsou hned pod hledáním)
+    $('#exPlanTg', body).onclick = () => { const c = $('#exPlanCard', body), open = c.classList.contains('shut'); c.classList.toggle('shut', !open); ex.planOpen = open; };
     on('#routeOther', 'onclick', () => replan($('#routeOther'), { other: true }));
     on('#exRetry', 'onclick', () => replan(null, { other: er?.other }));
     on('#routeGpx', 'onclick', () => downloadText(`atlas-${hikeMode ? 'pesky' : rr.kind === 'train' ? 'vlak-kolo' : 'kolo'}-${slug(p.label)}-${rr.km}km.gpx`, gpxOf(rr, routeName(rr, p)), 'application/gpx+xml'));

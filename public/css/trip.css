@@ -341,3 +341,27 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
   .stepbar .st:not(.on){padding:3px}
   .stepbar .st.on{font-size:12px;gap:4px;padding:3px 6px 3px 3px}
 }
+/* Objevuj: nadpis karty Naplánovat je na telefonu tlačítko – sbalená karta (jen nadpis), dokud není program */
+.ex-plan-tg{all:unset;font:inherit;color:inherit}
+.ex-plan-tg:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.ex-plan-hint,.ex-plan-chev{display:none}
+@media(max-width:560px){
+  .ex-plan-tg{cursor:pointer;display:flex;align-items:baseline;gap:6px;width:100%;flex-wrap:wrap}
+  .ex-plan-hint{display:inline;font-size:12.5px;font-weight:500}
+  .ex-plan-chev{display:inline;margin-left:auto;font-size:13px}
+  .ex-plan.shut>:not(.ex-plan-h),.ex-plan.shut #exMode{display:none}
+  .ex-plan.shut .ex-plan-h{margin:0}
+  .ex-plan:not(.shut) .ex-plan-hint{display:none}
+  .ex-plan:not(.shut) .ex-plan-chev{transform:rotate(180deg)}
+  /* průvodce Cesta: hlavička cesty v jednom řádku (vlajka, cíl, celkem vpravo) – víc místa pro krok */
+  .trip-head{padding:12px 14px;gap:10px;flex-wrap:nowrap}
+  .th-dest{gap:10px;min-width:0}
+  .th-dest>div{min-width:0}
+  .th-flag{font-size:28px}
+  .th-dest h2{font-size:18px}
+  .th-dest .muted{font-size:12px}
+  .th-total{flex:none}
+  .th-total .tt{font-size:20px}
+  .th-total .faint{font-size:11.5px}
+  .th-total>.faint:first-child{display:none}
+}
