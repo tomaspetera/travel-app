@@ -347,9 +347,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-16d';
+const WN_ID = '2026-10-16e';
 const WHATS_NEW = [
-  ['📱', 'Nový vzhled na telefonu', 'plovoucí spodní lišta, fotky cílů v radaru, okna vyjíždějí zespodu a zavřeš je stažením dolů; na iPhonu bez přiblížení při psaní.'],
+  ['📱', 'Nový vzhled', 'radar jako velké karty s fotkou města (na telefonu posun prstem do strany), plovoucí spodní lišta, okna zespodu – zavřeš je stažením dolů.'],
   ['⚙️', 'Výsledky hned nahoře', 'na mobilu jsou filtry, řazení a „Odkud se vyplatí letět“ pod tlačítkem ⚙️ Filtry; formulář se po hledání sbalí (✎ Upravit).'],
   ['📌', 'Odložené nabídky', '„📌 Odložit“ u nabídky nebo v ⋯ na kartě – pak <b>Porovnat</b> vedle sebe a 📤 poslat k výběru.'],
   ['🔎', 'Co tam je', 'na kartě výsledku a pod ⓘ v radaru: místa s fotkou, cesta z letiště do města, počasí, vstup.'],

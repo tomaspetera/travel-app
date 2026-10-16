@@ -3539,7 +3539,7 @@
       b.classList.toggle('on', b.dataset.m === q.mode);
       b.onclick = () => { if (b.dataset.m !== q.mode) { S.radarMode = b.dataset.m; save(); renderRadar(); } };
     });
-    $('#radarSub').innerHTML = `${esc(q.sub)} <button type="button" class="linkbtn" id="radarHome">změnit</button>`;
+    $('#radarSub').innerHTML = `${esc(q.sub.replace(/^\s*·\s*/, ''))} <button type="button" class="linkbtn" id="radarHome">změnit</button>`;
     // Svátky: výběr z nejbližších prodloužených víkendů (s cenou, kterou radar už zná)
     paintLw(q);
     $('#radarHome').onclick = () => radarSetup(true);
@@ -3631,6 +3631,8 @@
     return x.newAt ? `<span class="b info" title="Minule mezi nejlevnějšími nebyl">nové</span>` : '';
   }
   /** Dny dovolené na kartě radaru (pod termínem „🏖️ 1 den dovolené“); starší uložené karty bez času odletu počítají celý den odletu. */
+  // barva karty bez fotky: tlumený přechod podle země (stejná země = stejná barva), jen chladné tóny – tyrkysová až fialová
+  const ccHue = cc => 175 + [...String(cc || '')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 110, 7);
   function radarLeave(x) {
     const lv = x.d2 ? SearchHelp.leaveDays({ date: x.d1, hasTime: !!x.t1, dep: x.t1 ? `${x.d1}T${x.t1}` : '' }, { date: x.d2, hasTime: !!x.a2, arr: x.a2 || '' }) : null;
     if (!lv) return '';
@@ -3656,13 +3658,20 @@
     const hot = new Set(shown.filter(({ x }) => x.deal === 'super').sort((a, b) => (b.x.score || 0) - (a.x.score || 0)).slice(0, 3).map(({ i }) => i));
     // 📌 karta, jejíž nabídku má uživatel odloženou (z radaru, nebo celou z hledání se stejným nastavením)
     const pins = pinList(), pinned = x => Pins.has(pins, Pins.fromRadar(x, { at: r.at, adults: q.payload?.adults }));
-    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: zpáteční letenka + cesta na letiště a z letiště do města</div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${shown.map(({ x, i }) => `<div class="card radar-card ${hot.has(i) ? 'hot' : ''}" data-ri="${i}">
+    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: zpáteční letenka + cesta na letiště a z letiště do města</div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${shown.map(({ x, i }) => {
+      const cn = (byIso[x.cc] && byIso[x.cc].cs) || '';
+      const bd = `${prefBadge(SearchHelp.destKeyOf(x.id), pl)}${newBadge(x.cc)}${pinned(x) ? ' <span class="b pin-b" title="Odložená nabídka – 📌 Porovnat">📌</span>' : ''}${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥 super cena</span>' : ''}`.trim();
+      return `<div class="card radar-card${hot.has(i) ? ' hot' : ''}" data-ri="${i}" style="--h:${ccHue(x.cc)}">
+      <div class="rc-badges">${bd}</div>
       ${dmBtn({ ...x, key: SearchHelp.destKeyOf(x.id) }, `data-rdm="${i}"`)}
-      <div class="rc-city"><span class="rcf">${flag(x.cc)}</span><span class="rc-lbl">${esc(x.label)}</span>&#8288;<button type="button" class="rc-info" data-rinfo="${i}" aria-label="Co tam je – ${esc(x.label)}" title="🔎 Co tam je: místa k vidění, z letiště do města, počasí, vstup">ⓘ</button></div>
-      <div class="rc-body"><div class="rc-price">${czk(x.czk)}<small>/os.</small></div>
-      ${(b => b ? `<div class="rc-badges">${b}</div>` : '')((`${prefBadge(SearchHelp.destKeyOf(x.id), pl)}${newBadge(x.cc)}${pinned(x) ? ' <span class="b pin-b" title="Odložená nabídka – 📌 Porovnat">📌</span>' : ''}${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>' : ''}`).trim())}
-      <div class="faint rc-route"${x.bt ? ' title="Zpět z jiného letiště nebo na jiné letiště než odlet"' : ''}>${esc(SearchHelp.radarRoute(x))} · ${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}${radarLeave(x)}</div></div>
-    </div>`).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klikni pro všechny termíny, ⓘ = co tam je</div>`;
+      <div class="rc-panel">
+        <div class="rc-city"><span class="rc-lbl">${esc(x.label)}</span>&#8288;<button type="button" class="rc-info" data-rinfo="${i}" aria-label="Co tam je – ${esc(x.label)}" title="🔎 Co tam je: místa k vidění, z letiště do města, počasí, vstup">i</button></div>
+        <div class="rc-meta"><span class="rcf">${flag(x.cc)}</span>${esc(cn)}${cn ? ' · ' : ''}${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}</div>
+        <div class="rc-sub"${x.bt ? ' title="Zpět z jiného letiště nebo na jiné letiště než odlet"' : ''}>${esc(SearchHelp.radarRoute(x))}${radarLeave(x)}</div>
+        <div class="rc-foot"><div class="rc-price">${czk(x.czk)}<small>/os.</small></div><span class="rc-go" aria-hidden="true">›</span></div>
+      </div>
+    </div>`;
+    }).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klikni pro všechny termíny, ⓘ = co tam je</div>`;
     // telefon: nejdřív 6 karet, zbytek tlačítkem (CSS skryje 7.+ jen na úzké obrazovce; rozbalené zůstane do zavření aplikace)
     const rg = $('.radar-grid', host), rcN = rg ? rg.children.length : 0;
     if (rg && rcN > 6) {
@@ -3697,17 +3706,16 @@
     radarWxP.p.then(m => its.forEach(([x, c]) => {
       const s = c.isConnected && wxSum(m, x, x.d1, x.d2);
       if (!s) return;
-      // štítky pod cenou – karta bez štítků řádek nemá, počasí si ho založí
-      if (!$('.rc-badges', c)) $('.rc-price', c).insertAdjacentHTML('afterend', '<div class="rc-badges"></div>');
-      $('.rc-badges', c).insertAdjacentHTML('beforeend', wxChip(s, s.short));
+      const box = $('.rc-badges', c); // štítky nahoře na kartě
+      if (box) box.insertAdjacentHTML('beforeend', wxChip(s, s.short));
     }));
   }
 
   // 📷 Fotka cíle na kartě radaru: úvodní obrázek článku o městě na Wikipedii (server, api/photos – jeden dotaz na
   // všechny karty); adresa uložená v prohlížeči na 30 dní (i „fotka není“). Bez fotky zůstane karta jako dřív.
   // Fotka se na kartu dá až načtená – bílý text nikdy na prázdné kartě.
-  const PH_KEY = 'atlas_ph4', PH_TTL = 30 * 864e5; // ph4: hezčí výběr (oceněné fotky města z Commons) – staré adresy pryč
-  try { ['atlas_ph', 'atlas_ph2', 'atlas_ph3'].forEach(k => localStorage.removeItem(k)); } catch (e) { /* nevadí */ }
+  const PH_KEY = 'atlas_ph5', PH_TTL = 30 * 864e5; // ph5: hezčí výběr (oceněné fotky města z Commons) – staré adresy pryč
+  try { ['atlas_ph', 'atlas_ph2', 'atlas_ph3', 'atlas_ph4'].forEach(k => localStorage.removeItem(k)); } catch (e) { /* nevadí */ }
   let phMem = null;
   function phStore() {
     if (!phMem) { try { phMem = JSON.parse(localStorage.getItem(PH_KEY)) || {}; } catch (e) { phMem = {}; } }
@@ -3729,12 +3737,13 @@
         phSave();
       } catch (e) { /* bez sítě: karty bez fotek, příště znovu */ }
     }
-    // až když je karta (skoro) vidět – skryté karty na telefonu (7.+) a radar pod okrajem nic nestahují; fotka jen tak
-    // velká, jak ji displej potřebuje (330 nebo 500 px, ~30–60 kB, prohlížeč ji pak drží v mezipaměti)
+    // až když je karta (skoro) vidět – karty dál v pruhu a radar pod okrajem nic nestahují; fotka jen tak velká, jak ji
+    // karta na displeji potřebuje (fotka na šířku vyplní kartu na výšku): 330, 500 nebo 960 px (~30–150 kB, pak v mezipaměti)
     const show = (c, x) => {
       const u = st[x.label] && st[x.label].u;
       if (!u || !/^https:\/\//.test(u) || !c.isConnected) return;
-      const src = c.clientWidth * (window.devicePixelRatio || 1) <= 330 ? u.replace('/500px-', '/330px-') : u;
+      const need = c.clientHeight * (window.devicePixelRatio || 1) * 1.5;
+      const src = need <= 330 ? u.replace('/960px-', '/330px-') : need <= 560 ? u.replace('/960px-', '/500px-') : u;
       const img = new Image();
       img.onload = () => { if (!c.isConnected) return; c.style.setProperty('--ph', `url("${src.replace(/["\\]/g, encodeURIComponent)}")`); c.classList.add('ph'); };
       img.src = src;
