@@ -392,7 +392,8 @@ async function route(req, res) {
     // fotky měst na karty radaru (Wikipedia) – ?t=Řím|Tirana|…
     const t = (url.searchParams.get('t') || '').split('|').filter(Boolean);
     if (!t.length) return sendJson(req, res, 400, { error: 'Zadej názvy měst (t=Řím|Tirana).' });
-    return sendJson(req, res, 200, { photos: await cityPhotos(t) }, { 'Cache-Control': 'public, max-age=86400' });
+    const r = await cityPhotos(t);
+    return sendJson(req, res, 200, r, { 'Cache-Control': `public, max-age=${r.partial ? 3600 : 86400}` });
   }
   if (p === '/api/climate') {
     // Dlouhodobé podnebí (meteostanice u letiště, jinak NASA POWER) u letiště, místa nebo hlavního letiště země – data se nemění.
