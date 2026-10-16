@@ -2,7 +2,7 @@
 // odpovědi API jsou vzorky ve tvaru formatversion=2.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePageImages, photoScore, pickPhotos, cityPhotos } from '../server/lib/photos.js';
+import { parsePageImages, photoScore, namesCity, pickPhotos, cityPhotos } from '../server/lib/photos.js';
 
 const FP = 'Category:Featured pictures on Wikimedia Commons';
 const QI = 'Category:Quality images';
@@ -39,6 +39,16 @@ test('photoScore: oceněný celkový pohled na šířku vede, mapy/koláže/soch
   }
   // „photograph“ ani „Columbus“ nejsou graf a autobus
   assert.ok(s('File:Aerial photograph of Columbus.jpg', [QI]) > 0);
+});
+
+test('namesCity a photoScore: fotka města (jméno v názvu, i bez diakritiky) před oceněnou fotkou z okolí', () => {
+  assert.ok(namesCity('File:Rynek Glowny Krakow at night.jpg', ['Kraków', 'Krakov']));
+  assert.ok(namesCity('File:Łódź Piotrkowska.jpg', ['Łódź', 'Lodž']));
+  assert.ok(!namesCity('File:Castillo de Petrela, Albania.jpg', ['Tirana']));
+  assert.ok(!namesCity('File:Rome.jpg', ['Ro'])); // krátké jméno se nepočítá
+  const near = photoScore({ title: 'File:Castillo de Petrela, Albania.jpg', cats: [FP], width: 4000, height: 2600 }, ['Tirana']);
+  const city = photoScore({ title: 'File:Tirana Skanderbeg Square.jpg', cats: [QI], width: 4000, height: 2600 }, ['Tirana']);
+  assert.ok(city > near);
 });
 
 test('pickPhotos: z článku vybere oceněnou fotku města, cíl po letišti dostane město, bez ocenění úvodní obrázek', async () => {

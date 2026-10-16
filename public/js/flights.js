@@ -3706,8 +3706,8 @@
   // 📷 Fotka cíle na kartě radaru: úvodní obrázek článku o městě na Wikipedii (server, api/photos – jeden dotaz na
   // všechny karty); adresa uložená v prohlížeči na 30 dní (i „fotka není“). Bez fotky zůstane karta jako dřív.
   // Fotka se na kartu dá až načtená – bílý text nikdy na prázdné kartě.
-  const PH_KEY = 'atlas_ph2', PH_TTL = 30 * 864e5; // ph2: hezčí výběr (oceněné fotky z Commons) – staré adresy pryč
-  try { localStorage.removeItem('atlas_ph'); } catch (e) { /* nevadí */ }
+  const PH_KEY = 'atlas_ph3', PH_TTL = 30 * 864e5; // ph3: hezčí výběr (oceněné fotky města z Commons) – staré adresy pryč
+  try { localStorage.removeItem('atlas_ph'); localStorage.removeItem('atlas_ph2'); } catch (e) { /* nevadí */ }
   let phMem = null;
   function phStore() {
     if (!phMem) { try { phMem = JSON.parse(localStorage.getItem(PH_KEY)) || {}; } catch (e) { phMem = {}; } }

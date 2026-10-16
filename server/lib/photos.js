@@ -48,11 +48,23 @@ export function parsePageImages(j, titles) {
   return out;
 }
 
-/** Body fotky pro kartu: ocenění, celkový pohled, poměr stran (karta je skoro čtverec), rozlišení. */
-export function photoScore({ title, cats = [], width = 0, height = 0 }) {
+// bez diakritiky a malými písmeny – „Kraków“ i „Krakow“ v názvu souboru
+const fold = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l').replace(/Ł/g, 'L').replace(/ø/g, 'o').replace(/ß/g, 'ss').toLowerCase();
+/** Je v názvu souboru jméno města (anglické nebo české, aspoň 3 znaky)? Fotka z okolí (hrad u Tirany) ho nemívá. */
+export function namesCity(file, names) {
+  const f = fold(file);
+  return names.some((n) => { const k = fold(n).split(/[\s,(]/)[0]; return k.length >= 3 && f.includes(k); });
+}
+
+/**
+ * Body fotky pro kartu: jméno města v názvu (fotka města, ne okolí), ocenění, celkový pohled, poměr stran (karta
+ * je skoro čtverec), rozlišení.
+ */
+export function photoScore({ title, cats = [], width = 0, height = 0 }, names = []) {
   if (!width || !height || BAD.test(title)) return -Infinity;
   const r = width / height;
   let s = cats.includes(FP) ? 30 : cats.includes(QI) ? 20 : 0;
+  if (names.length && namesCity(title, names)) s += 12;
   if (NICE.test(title)) s += 8;
   if (r >= 1.2 && r <= 2.1) s += 6; // na šířku – oříznutí do karty nevadí
   else if (r > 2.8) s -= 12; // dlouhé panorama by z karty zbyl úzký proužek
@@ -108,11 +120,12 @@ async function bestPhotos(titles, api, lead, enOf) {
     }
     for (const t of titles) if (enOf[t]) enOf[t] = enFin.get(enOf[t]) || enOf[t];
   }
-  // kandidáti: bez map, znaků…, celkové pohledy napřed; nejvýš 16 na město
-  const cand = {};
+  // kandidáti: bez map, znaků…; napřed se jménem města a celkovým pohledem; nejvýš 20 na město
+  const cand = {}, names = {};
   for (const t of titles) {
-    const list = (imgs.get(enOf[t]) || []).filter((f) => !BAD.test(f));
-    cand[t] = [...list.filter((f) => NICE.test(f)), ...list.filter((f) => !NICE.test(f))].slice(0, 16);
+    names[t] = [enOf[t], t, t.split(/\s*[-–]\s*/)[0]].filter(Boolean);
+    const rank = (f) => (namesCity(f, names[t]) ? 2 : 0) + (NICE.test(f) ? 1 : 0);
+    cand[t] = (imgs.get(enOf[t]) || []).filter((f) => !BAD.test(f)).map((f, i) => [f, rank(f), i]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).map((x) => x[0]).slice(0, 20);
   }
   // 3) Commons: ocenění a rozměry (po 50 souborech)
   const files = [...new Set(Object.values(cand).flat())], info = new Map();
@@ -131,9 +144,10 @@ async function bestPhotos(titles, api, lead, enOf) {
   }
   const out = {};
   for (const t of titles) {
-    const best = cand[t].map((f) => info.get(f)).filter(Boolean).map((x) => ({ ...x, s: photoScore(x) })).sort((a, b) => b.s - a.s)[0];
-    // oceněná fotka (≥ 20) vede; jinak úvodní obrázek článku, není-li koláž; jinak aspoň slušná fotka na šířku
-    out[t] = best && best.s >= 20 ? best.url : leadOk(lead[t]) ? lead[t] : best && best.s >= 6 ? best.url : lead[t] || '';
+    const ranked = cand[t].map((f) => info.get(f)).filter(Boolean).map((x) => ({ ...x, s: photoScore(x, names[t]) })).filter((x) => x.s > -Infinity).sort((a, b) => b.s - a.s);
+    const awarded = ranked.find((x) => x.cats.includes(FP) || x.cats.includes(QI)), best = ranked[0];
+    // oceněná fotka vede; jinak úvodní obrázek článku, není-li koláž; jinak aspoň slušná fotka na šířku
+    out[t] = awarded ? awarded.url : leadOk(lead[t]) ? lead[t] : best && best.s >= 6 ? best.url : lead[t] || '';
   }
   return out;
 }
@@ -147,7 +161,7 @@ export async function cityPhotos(titles, { pick = pickPhotos } = {}) {
   const photos = {}, miss = [];
   let partial = false;
   for (const t of want) {
-    const c = cache.get('ph2:' + t);
+    const c = cache.get('ph3:' + t);
     if (c !== undefined) photos[t] = c;
     else miss.push(t);
   }
@@ -155,7 +169,7 @@ export async function cityPhotos(titles, { pick = pickPhotos } = {}) {
   try {
     const got = await pick(miss);
     partial = got.partial;
-    for (const t of miss) { photos[t] = got.photos[t] || ''; cache.set('ph2:' + t, photos[t], partial ? 36e5 : TTL); }
+    for (const t of miss) { photos[t] = got.photos[t] || ''; cache.set('ph3:' + t, photos[t], partial ? 36e5 : TTL); }
   } catch { /* výpadek – příště znovu */ }
   return { photos, partial };
 }
