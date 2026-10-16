@@ -2230,15 +2230,12 @@
     }
     return dpGeo.get(k);
   }
-  // Cesta z letiště do města jako u nabídky (SearchHelp.arrivalChips) – řádek okna: ikona, text, čím jet a poznámka.
-  function dpArr(t, A, on) {
-    const a = A && A[t.out.to], b = t.back && A && A[t.back.from];
-    const objs = [a, b && !(a && a.iata === b.iata) ? b : null].filter(Boolean);
-    return SearchHelp.arrivalChips(t, A, { on }).map((c, i) => {
-      const [ic, ...w] = c.text.split(' '), o = objs[i] || {};
-      return { ic, b: nbsp(cap(w.join(' '))), s: [o.how, o.note].filter(Boolean).join(' · '), title: c.title, warn: c.warn };
-    });
-  }
+  // Cesta z letiště do města jako u nabídky (SearchHelp.arrivalChips) – řádek okna: ikona, text, čím jet a poznámka
+  // (zpět na jiné letiště spoj z města na letiště – sub štítku).
+  const dpArr = (t, A, on) => SearchHelp.arrivalChips(t, A, { on }).map(c => {
+    const [ic, ...w] = c.text.split(' ');
+    return { ic, b: nbsp(cap(w.join(' '))), s: c.sub, title: c.title, warn: c.warn };
+  });
   // „Vybrat a pokračovat“: průvodce s nabídkou; res = výsledek, ze kterého nabídka je (i průběžný, když konečný čeká na
   // překreslení) – jinak by cesta vzala statistiku cen průběžné skupiny jako konečnou; konečný už dorazil → statistika
   // z něj hned (finalStats na něj už nepočká)
@@ -2356,7 +2353,7 @@
   // Okno náhledu má krok v historii: Zpět (gesto, tlačítko) ho zavře a z aplikace neodejde. Zavřené jinak (✕, Escape,
   // klepnutí vedle, okno otevřené z náhledu) krok vrátí. Akce, která přepíná pohled, počká, až se historie vrátí (go()
   // přepisuje adresu aktuálního kroku – návrat by pak skončil na staré adrese a hashchange přepnul pohled zpátky).
-  const dpH = { on: false, hash: '', from: null, pend: null, t: 0, sr: null, wired: false };
+  const dpH = { on: false, hash: '', from: null, pend: null, t: 0, wired: false };
   function dpFinish({ then = null, from = null }) {
     if (then) return then();
     // fokus zpět na 🔎 / ⓘ, i když se výpis nebo radar mezitím překreslil
@@ -2364,10 +2361,18 @@
       : from.dataset.rinfo != null ? $(`#radar [data-rinfo="${CSS.escape(from.dataset.rinfo)}"]`) : null);
     if (el && !$('#modalBg').classList.contains('show')) el.focus({ preventScroll: true });
   }
-  // zpátky na kroku, ze kterého se okno otevřelo: jeho obnova posunu jako dřív (dpOpen)
-  const dpSr = () => { if (dpH.sr) { history.scrollRestoration = dpH.sr; dpH.sr = null; } };
+  // Krok, ze kterého se okno otevřelo, má ruční obnovu posunu a původní zapsanou v history.state (atlasSr, dpOpen). Jakmile
+  // je zase aktuální (návrat po zavření, Zpět po přepnutí pohledu z okna přes Info o zemi → Najít lety sem, i po obnovení
+  // stránky), dostane ji zpět – jinak by prohlížeč na tom kroku posun už nikdy neobnovil.
+  const dpSr = () => {
+    const s = history.state;
+    if (!s || !s.atlasSr) return;
+    const { atlasSr, ...o } = s;
+    history.scrollRestoration = atlasSr; history.replaceState(Object.keys(o).length ? o : null, '');
+  };
+  window.addEventListener('popstate', dpSr); dpSr();
   // akce až po popstate (go → nahoru, hledání → průběh) – nic ji pak nepřebije
-  const dpDone = () => { clearTimeout(dpH.t); dpSr(); const p = dpH.pend; dpH.pend = null; if (p) setTimeout(() => dpFinish(p), 0); };
+  const dpDone = () => { clearTimeout(dpH.t); const p = dpH.pend; dpH.pend = null; if (p) setTimeout(() => dpFinish(p), 0); };
   function dpBack(then = null) {
     const p = { then, from: dpH.from };
     dpH.from = null;
@@ -2391,7 +2396,7 @@
         // Zpět při otevřeném náhledu (nebo okně otevřeném z něj)
         const p = { from: dpH.from };
         dpH.on = false; dpH.from = null;
-        dpSr(); modalClose(); dpFinish(p);
+        modalClose(); dpFinish(p);
       });
       // okno zavřené jinak než přes náhled (Escape, klepnutí vedle, ✕ okna otevřeného z náhledu) → krok historie zpět
       new MutationObserver(() => { if (dpH.on && !$('#modalBg').classList.contains('show')) dpBack(); }).observe($('#modalBg'), { attributes: true, attributeFilter: ['class'] });
@@ -2399,8 +2404,10 @@
     if (!dpH.on) {
       // návrat z kroku náhledu stránkou nehýbe (okno ji neposunulo; akce z okna – hledání do země, Objevuj, průvodce – si
       // posun nastaví sama a obnova posunu by ji přebila): krok, ze kterého se okno otevírá, dostane ruční obnovu posunu
-      dpH.sr = dpH.sr || history.scrollRestoration; history.scrollRestoration = 'manual';
-      history.pushState({ atlasDp: 1 }, ''); history.scrollRestoration = dpH.sr;
+      // (původní si pamatuje sám – dpSr)
+      const sr = history.scrollRestoration;
+      history.replaceState({ ...history.state, atlasSr: sr }, ''); history.scrollRestoration = 'manual';
+      history.pushState({ atlasDp: 1 }, ''); history.scrollRestoration = sr;
       dpH.on = true; dpH.hash = location.hash;
     }
   }

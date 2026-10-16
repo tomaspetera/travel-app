@@ -304,11 +304,19 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   assert.deepEqual(plain(jaw.map((c) => [c.text, c.warn])), [['🚌 z letiště BGY do Milána od 5 € (~120 Kč) · 50 min', false], ['🚆 zpět na letiště MXP 15 € (~370 Kč) · 37 min', true]]);
   // opačným směrem bez cíle cesty do města („do Milano Cadorna“), přestupy v opačném pořadí
   assert.match(jaw[1].title, /^Z Milána na letiště MXP: vlak Malpensa Express – 15 € \(~370 Kč\) na osobu, ~37 min/);
+  // čím jet a poznámka ve směru štítku (řádek 🔎 Co tam je): zpět na letiště spoj z města, ne „do centra“
+  assert.deepEqual(plain(jaw.map((c) => c.sub)), ['autobus Terravision do Milano Centrale · online předem; Orio Shuttle 10–12 €', 'vlak Malpensa Express · do Milano Centrale ~51 min']);
+  assert.equal(bva.sub, 'autobus Aérobus do Paris Porte Maillot · online; na místě 18 €');
+  const PL = Object.fromEntries(['WAW', 'WMI'].map((x) => [x, plain(A.arrivalTransfer(x))]));
+  assert.deepEqual(plain(H.arrivalChips({ out: { to: 'WAW' }, back: { from: 'WMI' } }, PL).map((c) => [c.text.replace(/ \d.*$/, ''), c.sub])), [
+    ['🚆 z letiště WAW do Varšavy', 'vlak SKM / KM nebo autobus 175 do centra · 75minutová jízdenka ZTM'],
+    ['🚆 zpět na letiště WMI', 'vlak KM + autobus KM · Airport Ticket (vlak i autobus)']]);
   // cesta přes víc měst: z města na letiště odletu i z letiště příletu do města, letiště domova bez štítku
   const ML = Object.fromEntries(['REU', 'BCN', 'ARN'].map((x) => [x, plain(A.arrivalTransfer(x))]));
   const last = H.arrivalLegChips({ from: 'REU', to: 'PRG' }, ML, new Set(['PRG']), { on: true });
   assert.deepEqual(plain(last.map((c) => [c.text, c.warn])), [['🚌 z Barcelony na letiště REU 18,50 € (~450 Kč) · 1 h 40', true]]);
   assert.match(last[0].title, /^Z Barcelony na letiště REU: autobus Monbus – 18,50 € \(~450 Kč\) na osobu, ~1 h 40\. .* V ceně nabídky ~450 Kč\/os\./);
+  assert.equal(last[0].sub, 'autobus Monbus · jen několik spojů denně');
   const mid = H.arrivalLegChips({ from: 'ARN', to: 'BCN' }, ML, new Set(['PRG']));
   assert.deepEqual(plain(mid.map((c) => c.text)), ['🚌 ze Stockholmu na letiště ARN od 129 SEK (~280 Kč) · 40 min', '🚌 z letiště BCN do Barcelony 7,45 € (~180 Kč) · 35 min']);
   assert.match(mid[0].title, /^Ze Stockholmu na letiště ARN: autobus Flygbussarna – od 129 SEK/);

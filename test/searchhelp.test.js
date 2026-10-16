@@ -1125,7 +1125,7 @@ test('🔎 Co tam je: střed města pro místa k vidění – metropole, město 
   assert.equal(H.geoCenter(undefined, 'IT', TPS), null);
 });
 
-test('🔎 Co tam je: pobyt pro Objevuj – dní od příletu do návratu, víkend jen přes sobotu', () => {
+test('🔎 Co tam je: pobyt pro Objevuj – dní od příletu do návratu, víkend jen přes sobotu s nedělí nebo od pátku / soboty', () => {
   // 23. 10. 2026 je pátek
   assert.deepEqual(plain(H.stayPlan('2026-10-23', '2026-10-25')), { days: 3, weekend: true });
   assert.deepEqual(plain(H.stayPlan('2026-10-24', '2026-10-24')), { days: 1, weekend: true });
@@ -1133,6 +1133,12 @@ test('🔎 Co tam je: pobyt pro Objevuj – dní od příletu do návratu, víke
   assert.deepEqual(plain(H.stayPlan('2026-10-20', '2026-10-22')), { days: 3, weekend: false }, 'út–čt není víkend');
   assert.deepEqual(plain(H.stayPlan('2026-10-25', '2026-10-27')), { days: 3, weekend: false }, 'ne–út není víkend');
   assert.deepEqual(plain(H.stayPlan('2026-10-24', '2026-10-26')), { days: 3, weekend: true }, 'so–po');
+  // přes sobotu nestačí: s nedělí nebo od pátku / soboty
+  assert.deepEqual(plain(H.stayPlan('2026-10-21', '2026-10-24')), { days: 4, weekend: false }, 'st–so není víkend');
+  assert.deepEqual(plain(H.stayPlan('2026-10-22', '2026-10-24')), { days: 3, weekend: false }, 'čt–so není víkend');
+  assert.deepEqual(plain(H.stayPlan('2026-10-23', '2026-10-24')), { days: 2, weekend: true }, 'pá–so');
+  assert.deepEqual(plain(H.stayPlan('2026-10-22', '2026-10-25')), { days: 4, weekend: true }, 'čt–ne');
+  assert.deepEqual(plain(H.stayPlan('2026-10-23', '2026-10-26')), { days: 4, weekend: true }, 'pá–po');
   assert.deepEqual(plain(H.stayPlan('2026-10-23', null)), { days: 0, weekend: false }, 'jen tam');
   assert.deepEqual(plain(H.stayPlan('', '2026-10-25')), { days: 0, weekend: false });
   // noční let: přílet až po dni návratu by dal 0 dní – aspoň den

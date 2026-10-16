@@ -630,11 +630,17 @@ test('náhled cíle: stejný dotaz na místa jako výchozí seznam Objevuj (sdí
 });
 
 test('Places.openAt: Objevuj na městě z náhledu – program ve městě na dny cesty, volby zůstanou, místa z náhledu', async () => {
-  const make = (saved) => {
-    const views = [], urls = [], store = saved ? { [T.UI_LS]: JSON.stringify(saved) } : {};
-    const ctx = load({ go: (v) => views.push(v), setTimeout, clearTimeout, fetch: async (u) => { urls.push(u); return { ok: true, status: 200, json: async () => ({ items: [PV('A', 3)] }) }; },
+  const make = (saved, { hold = false } = {}) => {
+    const views = [], urls = [], store = saved ? { [T.UI_LS]: JSON.stringify(saved) } : {}, wait = [];
+    const res = { ok: true, status: 200, json: async () => ({ items: [PV('A', 3)] }) };
+    // Objevuj bez DOM: loadExplore čeká v #exBody, načtený seznam (paintExplore) už #exBody nenajde a nevykresluje se
+    const body = { isConnected: true, innerHTML: '' };
+    let P = null;
+    const ctx = load({ go: (v) => views.push(v), setTimeout, clearTimeout, $: (s) => (s === '#exBody' && !P._t.ex.loaded ? body : null),
+      fetch: async (u) => { urls.push(u); if (hold) await new Promise((r) => wait.push(r)); return res; },
       localStorage: { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = v; } } });
-    return { P: ctx.window.Places, views, urls, store };
+    P = ctx.window.Places;
+    return { P, views, urls, store, body, go: () => wait.splice(0).forEach((r) => r()) };
   };
   const TPS = { label: 'Trapani', lat: 38.0176, lon: 12.5365, cc: 'IT', country: 'Itálie' };
   const a = make({ mode: 'bike', radius: 5, pace: 'relaxed', interests: ['art'], place: { label: 'Lisabon', lat: 38.72, lon: -9.14, cc: 'PT' } });
@@ -646,7 +652,10 @@ test('Places.openAt: Objevuj na městě z náhledu – program ve městě na dny
   assert.deepEqual(a.views, ['explore']);
   assert.equal(X.loaded, null, 'místa načte Objevuj při vykreslení…');
   assert.ok(a.P._t.pvFor(X.place, X.radius), '…z dotazu náhledu (okruh 10 km pokryje zvolených 5 km)');
+  await a.P._t.loadExplore(); // renderExplore po go('explore')
   assert.equal(a.urls.length, 1, 'žádný další dotaz');
+  assert.deepEqual(plain([X.loaded.radius, X.radius, X.all.map((x) => x.name)]), [10, 5, ['A']], 'načteno 10 km – zvolených 5 km jen vyfiltruje, zvětšení na 10 km se neptá');
+  assert.equal(X.loaded.place, X.place);
   const saved = JSON.parse(a.store[T.UI_LS]);
   assert.equal(saved.place.label, 'Trapani');
   assert.equal(saved.mode, 'city');
@@ -662,4 +671,21 @@ test('Places.openAt: Objevuj na městě z náhledu – program ve městě na dny
   assert.equal(c.P.openAt({ label: '', lat: 1, lon: 2 }), false);
   assert.equal(c.P.openAt({ label: 'X', lat: 'a', lon: 2 }), false);
   assert.deepEqual(c.views, ['explore'], 'neplatné místo Objevuj neotevře');
+  // náhled se ještě načítá: Objevuj počká na jeho dotaz, druhý nepošle
+  const d = make({ radius: 10 }, { hold: true });
+  const pre = d.P.preview(TPS);
+  d.P.openAt(TPS, { start: ymdIn(3), days: 2 });
+  const ld = d.P._t.loadExplore();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(d.urls.length, 1);
+  assert.ok(d.body.innerHTML.includes('Trapani'), 'mezitím čekání na místa');
+  d.go(); await Promise.all([pre, ld]);
+  assert.deepEqual(plain([d.urls.length, d.P._t.ex.loaded.radius, d.P._t.ex.all.map((x) => x.name)]), [1, 10, ['A']]);
+  // bez náhledu (nebo jiné místo) se Objevuj ptá samo, na zvolený okruh
+  const e = make({ radius: 5 });
+  await e.P.preview({ ...TPS, lat: 38.2 });
+  e.P.openAt(TPS, { start: ymdIn(3), days: 2 });
+  await e.P._t.loadExplore();
+  assert.deepEqual(e.urls, ['api/poi?lat=38.2&lon=12.5365&radius=10', 'api/poi?lat=38.0176&lon=12.5365&radius=5']);
+  assert.equal(e.P._t.ex.loaded.radius, 5);
 });
