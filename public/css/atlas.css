@@ -124,6 +124,7 @@ a{color:inherit}
 .btn.block{width:100%}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;background:var(--surface-2);border:1px solid var(--border);color:var(--muted)}
 .chip.accent{background:rgba(91,140,255,.14);color:#9db8ff;border-color:rgba(91,140,255,.3)}
+[data-theme="light"] .chip.accent{color:#2f5fd0;background:rgba(91,140,255,.12)}
 .input,select,textarea{
   width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);
   font-family:inherit;font-size:14px;outline:none;transition:.15s

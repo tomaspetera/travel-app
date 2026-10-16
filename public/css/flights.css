@@ -542,15 +542,26 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .radar-card{padding:14px;cursor:pointer;transition:.18s var(--ease);min-height:118px}
 .radar-card:hover{transform:translateY(-3px);border-color:var(--border-2)}
 .radar-card.hot{border-color:rgba(251,113,133,.45)}
-.rc-top{display:flex;justify-content:space-between;align-items:center}
-.rcf{font-size:24px}
+/* karta: vlajka + město (⋯ v rohu), velká cena, štítky, trasa s termínem */
+.radar-card{position:relative;display:flex;flex-direction:column;gap:4px}
+.radar-card>span:empty{display:none}
+.radar-card>.dm-btn{position:absolute;top:10px;right:10px;width:26px;height:26px;font-size:14px}
+.radar-card .rc-price small{margin-left:2px;font-weight:600}
+/* vlajka, název a ⓘ v jednom textu: delší název (Karlovy Vary, Pécs-Pogány) na dva řádky místo „Karlov…“, slovo se nedělí */
+.radar-card .rc-city{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;white-space:normal;overflow-wrap:break-word;padding-right:30px;margin-top:0;font-size:15px;line-height:1.35}
+.radar-card .rc-city .rcf{font-size:18px;line-height:1;margin-right:5px;vertical-align:-2px}
+.radar-card .rc-info{display:inline-grid;vertical-align:-3px;width:20px;height:20px;margin:0 0 0 2px;font-size:15px}
+.radar-card .rc-price{font-size:22px;line-height:1.15;margin-top:2px}
+.radar-card .rc-badges{justify-content:flex-start}
+.rc-route{font-size:12px;line-height:1.45;margin-top:auto}
 .radar-more{display:none}
 /* telefon: hustší karty radaru, nejdřív 6 (zbytek tlačítkem „Ukázat další“) */
 @media(max-width:560px){
   .radar-card{padding:11px 12px;min-height:0}
-  .radar-card .rcf{font-size:20px}
-  .radar-card .rc-city{margin-top:2px}
-  .radar-card .rc-price{font-size:17px}
+  .radar-card .rc-city .rcf{font-size:16px;margin-right:4px}
+  .radar-card .rc-city{font-size:14px}
+  .radar-card .rc-price{font-size:19px}
+  .radar-card>.dm-btn{top:8px;right:8px}
   .radar-grid:not(.all)>.radar-card:nth-child(n+7){display:none}
   .radar-more{display:block;width:100%;margin-top:10px}
 }
@@ -574,6 +585,9 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
   .trip-row{grid-template-columns:1fr 150px;}
   .tr-act{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center}
   .tr-act .btn{flex:1}
+  /* Tam / Zpět vedle sebe přes celou šířku (ne dvě malá tlačítka pod sebou) */
+  .tr-act .tr-buy{flex:1 1 100%;flex-direction:row}
+  .tr-act .tr-buy .btn{flex:1 1 0;width:auto;min-width:0}
   .tr-more{text-align:left}
   .sf-when{grid-template-columns:1fr 1fr}
 }
@@ -799,6 +813,11 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 /* stáří výsledků: „ceny z 14:32 · podrobnosti ▾“ vpravo v řádku po hledání (jeden kus – řádek nezvýší), po hodině ztlumený výpis (ageCheck) */
 .ps-more{white-space:nowrap}
 .ps-at{font-weight:600}
+/* telefon: „✓ Prohledáno 5 letišť za 5,7 s · ceny z 13:39 ▾“ v jednom řádku – počty u obchodů jsou v podrobnostech */
+@media(max-width:560px){
+  .progress-card.done{padding:10px 14px}
+  .progress-card.done .ps-found,.progress-card.done .ps-pd{display:none}
+}
 #results.aged{opacity:.78;transition:opacity .3s}
 .recent-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:12px;font-size:12.5px}
 .recent-row[hidden]{display:none}
@@ -849,9 +868,6 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 /* ⭐ Moje cíle a 🙈 Nezajímá mě: ⋯ u cíle (radar, Kamkoliv), štítky, pruh na Přehledu, okna s volbou a úpravou */
 .dm-btn{flex:none;width:30px;height:30px;display:grid;place-items:center;padding:0;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);font:800 15px/1 Inter,sans-serif;cursor:pointer}
 .dm-btn:hover,.dm-btn:focus-visible{color:var(--text);border-color:var(--accent)}
-.rc-top{gap:4px}
-.rc-top .rc-badges{flex:1;min-width:0}
-.rc-top .dm-btn{width:26px;height:26px;font-size:14px}
 .rc-head .dm-btn{margin-left:auto;align-self:flex-start}
 .cmp-card .rc-head .dm-btn{display:none} /* rozbalená karta v Přehledu cílů: ⋯ už je v řádku nad ní */
 .b.fav-b{background:rgba(251,191,36,.16);color:var(--warn)}
