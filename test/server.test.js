@@ -521,6 +521,25 @@ test('moduly volají jen to, co window.Flights vystavuje (spojení větví: chyb
   }
 });
 
+test('moduly volají jen to, co window.Trip vystavuje; „cena z …“ v otevřeném průvodci se obnoví při návratu do aplikace i 5min tikem; hláška bez tlačítka klepnutí propustí', () => {
+  const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
+  const keys = exportKeys(src('trip.js'), 'Trip');
+  for (const k of ['start', 'render', 'ageRefresh', 'finalStats', 'statsGiveUp']) assert.ok(keys.includes(k), k);
+  const files = readdirSync(new URL('../public/js/', import.meta.url)).filter((f) => f.endsWith('.js') && f !== 'trip.js');
+  for (const f of files) {
+    const used = [...new Set([...src(f).matchAll(/\bTrip\.(?!com\b)([A-Za-z_$][\w$]*)/g)].map((m) => m[1]))]; // Trip.com = web, ne modul
+    assert.deepEqual(used.filter((k) => !keys.includes(k)), [], `${f}: Trip.… bez exportu`);
+  }
+  // stáří cen na obrazovce (flights.js): výsledky na Letech i cena letu v průvodci, při návratu do aplikace a každých 5 min
+  const fl = src('flights.js'), i = fl.indexOf('function ageTick() {'), tick = fl.slice(i, fl.indexOf('\n  }\n', i));
+  assert.ok(i > 0 && tick.includes('ageCheck();') && tick.includes('window.Trip.ageRefresh()'), tick);
+  assert.match(fl, /document\.addEventListener\('visibilitychange', \(\) => \{\n\s+ageTick\(\);/);
+  assert.match(fl, /setInterval\(ageTick, 5 \* 60e3\)/);
+  // „Pro nákup klepni znovu“ (Koupit u starých cen): hláška přes tlačítko nad spodní lištou druhé klepnutí nechytí
+  const css = readFileSync(new URL('../public/css/trip.css', import.meta.url), 'utf8');
+  assert.ok(css.includes('.toast:not(:has(.toast-act)){pointer-events:none}'));
+});
+
 test('POST /api/roadtrip – jednodenní výlety i okruh s přespáním (DEMO)', async () => {
   const post = (body) => fetch(`${base}/api/roadtrip`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const start = new Date(Date.now() + 10 * 864e5).toISOString().slice(0, 10);

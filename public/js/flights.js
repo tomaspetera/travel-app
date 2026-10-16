@@ -1135,6 +1135,12 @@
     const d = host.getBoundingClientRect().top - y;
     if (keep && d && y < 0) window.scrollBy(0, d);
   }
+  // Stáří cen na obrazovce: výsledky na Letech (ageCheck) a „cena z …“ v průvodci (krok Let, Shrnutí – Trip.ageRefresh,
+  // sám pozná, jestli je průvodce otevřený).
+  function ageTick() {
+    ageCheck();
+    if (!document.hidden && window.Trip && window.Trip.ageRefresh) window.Trip.ageRefresh();
+  }
   // Koupit u výsledků starších 3 h (i náhledu nedokončeného hledání): poprvé jen hláška s časem cen (odkaz by ji schoval
   // pod web prodejce), další klepnutí koupí.
   let ageWarned = 0;
@@ -3444,7 +3450,7 @@
   // Návrat do aplikace (z plochy, z jiné karty) na otevřený přehled: zastaralý radar se sám obnoví (starší ceny zůstanou
   // vidět, dokud nedorazí nové).
   document.addEventListener('visibilitychange', () => {
-    ageCheck(); // výsledky hledání na Letech: jak jsou staré
+    ageTick(); // výsledky hledání na Letech a cena letu v průvodci: jak jsou staré
     if (document.hidden || !document.querySelector('#view-dashboard.active') || !(S.home && S.home.from?.length) || $('#radarGo')) return; // rozdělané „Odkud obvykle létáš?“ nechat
     const c = radarCached(SearchHelp.radarQuery(S.radarMode, radarHome(), today(), S.radarHoliday));
     if (!c || Date.now() - c.at >= 30 * 60e3 || !SearchHelp.radarOwnOk(c, S.accessOwn)) renderRadar();
@@ -3971,7 +3977,7 @@
     updateWatchBadges();
     startAutoCheck();
     $('#results').addEventListener('click', ageBuy);
-    setInterval(() => ageCheck(), 5 * 60e3); // stáří výsledků – mimo Lety nebo se schovanou aplikací nic nedělá
+    setInterval(ageTick, 5 * 60e3); // stáří výsledků a ceny letu v průvodci – jinde nebo se schovanou aplikací nic nedělá
   }
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
