@@ -468,6 +468,9 @@ test('statické soubory, data a ochrana proti path traversal', async () => {
   assert.equal((await fetch(`${base}/js/searchhelp.js`)).status, 200);
   assert.ok(page.indexOf('js/pricecheck.js') > 0 && page.indexOf('js/pricecheck.js') < page.indexOf('js/flights.js'), '„Je to dobrá cena?“ se načte před flights.js');
   assert.equal((await fetch(`${base}/js/pricecheck.js`)).status, 200);
+  // 📌 odložené nabídky: po pomoci s výsledky (stáří cen), před flights.js i zálohou
+  assert.ok(page.indexOf('js/pins.js') > page.indexOf('js/searchhelp.js') && page.indexOf('js/pins.js') < page.indexOf('js/flights.js') && page.indexOf('js/pins.js') < page.indexOf('js/backup.js'), 'pins.js po searchhelp.js, před flights.js a backup.js');
+  assert.equal((await fetch(`${base}/js/pins.js`)).status, 200);
   assert.match(page, /id="smartGuide"/, 'průvodce „Jak hledat chytře“ na stránce letů');
   const c =await (await fetch(`${base}/data/countries.json`)).json();
   assert.ok(c.length > 150);
@@ -512,7 +515,7 @@ function exportKeys(src, name) {
 test('moduly volají jen to, co window.Flights vystavuje (spojení větví: chybějící Flights.ageCheck by shodilo go(\'flights\'))', () => {
   const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
   const keys = exportKeys(src('flights.js'), 'Flights');
-  for (const k of ['init', 'ageCheck', 'renderFav', 'refreshPrefs', 'refreshOrigins', 'refreshVisited', 'repaintMap']) assert.ok(keys.includes(k), k);
+  for (const k of ['init', 'ageCheck', 'renderFav', 'refreshPrefs', 'renderPins', 'refreshPins', 'refreshOrigins', 'refreshVisited', 'repaintMap']) assert.ok(keys.includes(k), k);
   const files = readdirSync(new URL('../public/js/', import.meta.url)).filter((f) => f.endsWith('.js') && f !== 'flights.js');
   assert.ok(files.includes('app.js') && files.includes('backup.js'));
   for (const f of files) {
