@@ -1600,6 +1600,10 @@
     const when = `${dd === 0 ? '' : dd === 1 ? 'včera ' : `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear() !== n.getFullYear() ? d.getFullYear() + ' ' : ''}`}${d.getHours()}:${pad(d.getMinutes())}`;
     return { min: m, stale: m >= 60, old: m >= 180, when, txt: `${when} (${ago})`, z: dd === 1 ? 'ze' : 'z' };
   }
+  /** Odkdy jsou ceny výsledku na obrazovce: konečný z času hledání (at), náhled (i po nedokončeném hledání) ze svého času. */
+  function shownAt(res, at, now) { return !res ? 0 : res.partial ? (res.at > 0 ? res.at : now) : at; }
+  /** Poznámka 🕘 nad starými výsledky (a = resultAge) – u náhledu nedokončeného hledání i to, že je jen průběžný. */
+  function ageNote(a, partial) { return `${partial ? 'Průběžné výsledky' : 'Výsledky hledání'} ${a.z} ${a.txt} – ${partial ? 'hledání se nedokončilo a ' : ''}ceny se mezitím mohly změnit.`; }
   /* ---------- průběžné výsledky (pomalejší zdroje ještě hledají) ---------- */
   /**
    * Pruh nad průběžnými výsledky: „Průběžné výsledky – Kiwi.com ještě hledá (12/30)…“, „… – Wizz Air (5/9) a Kiwi.com
@@ -1661,7 +1665,7 @@
     radarQuery, radarStale, radarSame, radarDiff, radarEntry,
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
-    lastPack, lastLoad, savedWhen, resultAge, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
+    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
