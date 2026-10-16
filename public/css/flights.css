@@ -538,62 +538,60 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cmp-chev{color:var(--faint);font-size:12px}
 .cmp-card{padding:0 10px 10px;background:var(--surface-2)}
 .cmp-card .res-card{margin:0}
-/* radar */
-.radar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
-.radar-card{padding:14px;cursor:pointer;transition:.18s var(--ease);min-height:118px}
-.radar-card:hover{transform:translateY(-3px);border-color:var(--border-2)}
-.radar-card.hot{border-color:rgba(251,113,133,.45)}
-@media(hover:none){.radar-card:hover{transform:none}.radar-card:active{transform:scale(.985)}}
-/* karta s fotkou cíle (Wikipedia, radarPhotos): fotka přes celou kartu, název nahoře na ztmavení, cena a trasa dole na
-   skleněném panelu (rozmazaná fotka pod textem – čitelné na světlé i tmavé fotce). Bez fotky je .rc-body neviditelný obal. */
-.radar-card .rc-body{display:contents}
-.radar-card.ph{isolation:isolate;min-height:200px;background:#0b1226 var(--ph) center/cover no-repeat;border-color:transparent;color:#fff}
-.radar-card.ph::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:linear-gradient(180deg,rgba(4,8,22,.62) 0%,rgba(4,8,22,.18) 30%,rgba(4,8,22,0) 48%,rgba(4,8,22,.28) 100%)}
-.radar-card.ph .rc-city{text-shadow:0 1px 4px rgba(0,0,0,.55)}
-.radar-card.ph .rc-city .rc-info{color:rgba(255,255,255,.9)}
-.radar-card.ph .rc-body{display:flex;flex-direction:column;gap:3px;margin:auto -6px -6px;padding:8px 10px 9px;border-radius:14px;
-  background:rgba(10,15,34,.45);border:1px solid rgba(255,255,255,.18);box-shadow:0 8px 24px -12px rgba(0,0,0,.6);
-  -webkit-backdrop-filter:blur(14px) saturate(150%);backdrop-filter:blur(14px) saturate(150%)}
-.radar-card.ph .rc-price{margin-top:0;color:#6ee7b7}
-.radar-card.ph .rc-price small,.radar-card.ph .rc-route{color:rgba(255,255,255,.88)}
-.radar-card.ph .rc-route{margin-top:0}
-.radar-card.ph .rc-route *{color:inherit}
-.radar-card.ph>.dm-btn{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);color:#fff;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
-.radar-card.ph .b{background:rgba(255,255,255,.16);color:#fff}
-.radar-card.ph .b.hot{background:rgba(251,113,133,.32);color:#fff}
-.radar-card.ph.hot{box-shadow:0 0 0 2px rgba(251,113,133,.75)}
-@media(max-width:560px){.radar-card.ph{min-height:188px}.radar-card.ph .rc-body{margin:auto -6px -5px;padding:7px 9px 8px}}
-/* karta: vlajka + město (⋯ v rohu), velká cena, štítky, trasa s termínem */
-.radar-card{position:relative;display:flex;flex-direction:column;gap:4px}
+/* radar: velké karty s fotkou města (jako cestovní aplikace) – fotka přes celou kartu, štítky a ⋯ nahoře na
+   matném skle, název, místo, termín a cena dole na skleněném panelu. Bez fotky barevný přechod podle země (--h). */
+.radar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:16px}
+.radar-card{position:relative;isolation:isolate;display:flex;flex-direction:column;justify-content:flex-end;aspect-ratio:4/5;min-height:0;padding:10px;
+  border:none;border-radius:24px;overflow:hidden;cursor:pointer;color:#fff;
+  background:radial-gradient(120% 90% at 20% 10%,hsl(var(--h,215) 42% 46%),transparent 60%),linear-gradient(160deg,hsl(var(--h,215) 38% 34%),hsl(calc(var(--h,215) + 25) 45% 14%));
+  box-shadow:0 16px 34px -18px rgba(0,0,0,.6);transition:transform .2s var(--ease),box-shadow .2s var(--ease)}
+.radar-card.ph{background:#0b1226 var(--ph) center/cover no-repeat}
+.radar-card::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,.28) 0%,rgba(0,0,0,0) 28%,rgba(0,0,0,0) 52%,rgba(0,0,0,.35) 100%)}
+.radar-card:hover{transform:translateY(-3px);box-shadow:0 22px 40px -18px rgba(0,0,0,.7)}
+@media(hover:none){.radar-card:hover{transform:none}.radar-card:active{transform:scale(.98)}}
+.radar-card.hot{box-shadow:0 0 0 2px rgba(251,113,133,.8),0 16px 34px -18px rgba(0,0,0,.6)}
+.radar-card.skel{aspect-ratio:4/5;box-shadow:none}
+.radar-card .rc-badges{position:absolute;top:10px;left:10px;right:52px;display:flex;flex-wrap:wrap;gap:5px}
+.radar-card .rc-badges:empty{display:none}
+.radar-card .b{padding:4px 9px;border-radius:999px;font-size:11.5px;background:rgba(255,255,255,.22);color:#fff;border:1px solid rgba(255,255,255,.22);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.radar-card .b.hot{background:rgba(251,113,133,.42)}
+[data-theme] .radar-card .rc-badges .b{color:#fff} /* i ve světlém režimu bílé na fotce (jinak barevné štítky) */
+.radar-card>.dm-btn{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;font-size:15px;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.3);color:#fff;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .radar-card>span:empty{display:none}
-.radar-card>.dm-btn{position:absolute;top:10px;right:10px;width:26px;height:26px;font-size:14px}
-.radar-card .rc-price small{margin-left:2px;font-weight:600}
-/* vlajka, název a ⓘ v jednom textu: delší název (Karlovy Vary, Pécs-Pogány) na dva řádky místo „Karlov…“, slovo se nedělí */
-.radar-card .rc-city{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;white-space:normal;overflow-wrap:break-word;padding-right:30px;margin-top:0;font-size:15px;line-height:1.35}
-.radar-card .rc-city .rcf{font-size:18px;line-height:1;margin-right:5px;vertical-align:-2px}
-.radar-card .rc-info{display:inline-grid;vertical-align:-3px;width:20px;height:20px;margin:0 0 0 2px;font-size:15px}
-.radar-card .rc-price{font-size:22px;line-height:1.15;margin-top:2px}
-.radar-card .rc-badges{justify-content:flex-start}
-.rc-route{font-size:12px;line-height:1.45;margin-top:auto}
+.rc-panel{display:flex;flex-direction:column;gap:2px;padding:11px 12px 11px;border-radius:18px;background:rgba(10,14,30,.4);border:1px solid rgba(255,255,255,.2);
+  box-shadow:0 10px 26px -14px rgba(0,0,0,.6);-webkit-backdrop-filter:blur(16px) saturate(160%);backdrop-filter:blur(16px) saturate(160%)}
+.radar-card .rc-city{font:700 17px/1.2 Sora,Inter,sans-serif;letter-spacing:-.01em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:break-word}
+.radar-card .rc-info{display:inline-grid;place-items:center;vertical-align:-2px;width:20px;height:20px;margin-left:3px;padding:0;border:none;border-radius:50%;background:rgba(255,255,255,.18);
+  color:#fff;font:600 12px/1 Inter,sans-serif;cursor:pointer}
+.rc-meta{font-size:12.5px;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-meta .rcf{margin-right:3px}
+.rc-sub{font-size:11.5px;color:rgba(255,255,255,.66);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc-sub .rc-lv::before{content:" · "}
+.rc-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.radar-card .rc-price{font:800 18px/1.1 Sora,Inter,sans-serif;color:#fff;white-space:nowrap}
+.radar-card .rc-price small{margin-left:2px;font-size:11px;font-weight:600;color:rgba(255,255,255,.75)}
+.rc-go{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#0b1226;font:800 17px/1 Inter,sans-serif;padding-bottom:2px}
 .radar-more{display:none}
-/* telefon: hustší karty radaru, nejdřív 6 (zbytek tlačítkem „Ukázat další“) */
+/* telefon: karty v pruhu do strany (posun prstem), další karta vykukuje */
 @media(max-width:560px){
-  .radar-card{padding:11px 12px;min-height:0}
-  .radar-card .rc-city .rcf{font-size:16px;margin-right:4px}
-  .radar-card .rc-city{font-size:14px}
+  .radar-grid{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:72%;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;
+    margin:0 -16px;padding:2px 16px 14px;scroll-padding:0 16px;scrollbar-width:none}
+  .radar-grid::-webkit-scrollbar{display:none}
+  .radar-card{scroll-snap-align:start;border-radius:26px}
+  .radar-card .rc-city{font-size:19px}
   .radar-card .rc-price{font-size:19px}
-  .radar-card>.dm-btn{top:8px;right:8px}
-  .radar-grid:not(.all)>.radar-card:nth-child(n+7){display:none}
-  .radar-more{display:block;width:100%;margin-top:10px}
 }
-.rc-badges{display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
-.rc-city{font-weight:800;font-size:14.5px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rc-price{font:800 19px Sora,sans-serif;color:var(--good)}
-.rc-price small{font-size:11px;color:var(--muted)}
 .skel{background:linear-gradient(90deg,var(--surface) 0%,var(--surface-2) 50%,var(--surface) 100%);background-size:200% 100%;animation:skel 1.2s ease-in-out infinite}
 @keyframes skel{0%{background-position:100% 0}100%{background-position:-100% 0}}
 .radar-setup{padding:16px 18px;display:grid;grid-template-columns:1.2fr 1.4fr auto;gap:14px;align-items:center}
-.radar-modes{margin:-4px 2px 12px}
+.radar-modes{margin:-2px 0 14px}
+/* termíny radaru jako kapsle: vybraná plná (jako cestovní aplikace), ostatní obrys */
+.seg.radar-modes{display:flex;gap:8px;padding:0;background:none;border:none;border-radius:0}
+.seg.radar-modes button{padding:9px 18px;border-radius:999px;border:1px solid var(--border-2);font-size:13.5px}
+.seg.radar-modes button.on{background:var(--text);color:var(--bg);border-color:transparent}
+#radarSub{display:block;margin-top:3px;font-size:12.5px;font-weight:600;letter-spacing:0;font-family:Inter,sans-serif}
 .rs-where{display:flex;flex-direction:column;gap:6px;min-width:0}
 .rs-radius{display:flex;align-items:center;gap:8px;font-size:12.5px}
 .rs-radius select{width:auto;padding:6px 32px 6px 10px;font-size:13px}
@@ -637,7 +635,6 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
   .search-card{padding:16px}
   .res-tools{width:100%}
   .res-tools select{flex:1 1 100%}
-  .radar-grid{grid-template-columns:repeat(2,minmax(0,1fr))} /* dlouhý název města se zkrátí (…), sloupce zůstanou stejně široké */
   .home-chip span{display:none} /* na telefonu jen „📍 Brno“ – okruh by se stejně uřízl */
   .home-chip{flex:none;padding:9px 11px} /* „📍 Brno“ celé – zalomí se raději podtitulek vlevo */
   .topbar>div:first-child{min-width:0}
@@ -884,7 +881,6 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .lw-row .btn{flex:none;margin-left:auto}
 .lw-foot{font-size:12px;margin-top:12px}
 .cmp-lv{color:var(--muted);font-weight:600}
-.rc-lv{display:block}
 
 /* ⭐ Moje cíle a 🙈 Nezajímá mě: ⋯ u cíle (radar, Kamkoliv), štítky, pruh na Přehledu, okna s volbou a úpravou */
 .dm-btn{flex:none;width:30px;height:30px;display:grid;place-items:center;padding:0;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);font:800 15px/1 Inter,sans-serif;cursor:pointer}
@@ -979,10 +975,6 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 /* 🔎 Co tam je – náhled cíle z výsledků a radaru (flights.js dpShow): okno, na telefonu list zespodu */
 .rc-dp{flex:none;margin-left:auto;align-self:flex-start;padding:6px 10px;font-size:12.5px}
 .rc-head .rc-dp+.dm-btn{margin-left:0}
-.rc-city{display:flex;align-items:center;gap:2px;overflow:visible} /* zkracuje se název (span), ⓘ zůstane celé */
-.rc-city span{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.rc-info{flex:none;width:26px;height:26px;margin:-4px 0;padding:0;border:none;border-radius:50%;background:none;color:var(--muted);font:600 16px/1 Inter,sans-serif;cursor:pointer;display:grid;place-items:center}
-.rc-info:hover,.rc-info:focus-visible{color:var(--accent);background:var(--surface-2)}
 .modal:has(.dp){width:min(640px,100%)}
 .dp{padding:20px 22px 0}
 .dp-head{display:flex;align-items:flex-start;gap:12px}

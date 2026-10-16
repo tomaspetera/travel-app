@@ -4,6 +4,7 @@
 //      jeho úvodní obrázek (záloha) a název anglického článku,
 //   2) anglická Wikipedie: obrázky v článku (vybrali je redaktoři – patří k městu),
 //   3) Wikimedia Commons: které z nich komunita ocenila (Featured pictures, Quality images) a jejich rozměry;
+//   náhled 960 px (velká karta na telefonu) – prohlížeč si podle velikosti karty vezme menší 500 nebo 330 px;
 //   vítězí oceněná fotka na šířku s celkovým pohledem (panorama, staré město, výhled), bez map, znaků a koláží.
 // Bez oceněné fotky zůstane úvodní obrázek článku (není-li to koláž nebo SVG), jinak karta bez fotky.
 import { request } from './http.js';
@@ -82,7 +83,7 @@ export async function pickPhotos(titles, api = wikiApi) {
   // 1) česká Wikipedie: článek, úvodní obrázek, anglický název; cíl po letišti → město před pomlčkou
   const alt = new Map(titles.map((t) => [t, t.split(/\s*[-–]\s*/)[0]]).filter(([t, a]) => a && a !== t));
   const ask = [...new Set([...titles, ...alt.values()])];
-  const cs = (await api('cs.wikipedia.org', { titles: ask.join('|'), redirects: '1', prop: 'pageimages|langlinks', piprop: 'thumbnail', pithumbsize: '500', lllang: 'en', lllimit: 'max' })).query || {};
+  const cs = (await api('cs.wikipedia.org', { titles: ask.join('|'), redirects: '1', prop: 'pageimages|langlinks', piprop: 'thumbnail', pithumbsize: '960', lllang: 'en', lllimit: 'max' })).query || {};
   const csFin = finalTitles(cs, ask);
   const csPage = new Map((cs.pages || []).filter((p) => !p.missing).map((p) => [p.title, p]));
   const page = (t) => csPage.get(csFin.get(t)) || (alt.has(t) ? csPage.get(csFin.get(alt.get(t))) : null);
@@ -136,7 +137,7 @@ async function bestPhotos(titles, api, lead, enOf) {
   const files = [...new Set(Object.values(cand).flat())], info = new Map();
   for (let i = 0; i < files.length; i += 50) {
     const q = (await api('commons.wikimedia.org', {
-      titles: files.slice(i, i + 50).join('|'), prop: 'categories|imageinfo', clcategories: `${FP}|${QI}`, cllimit: 'max', iiprop: 'url|size', iiurlwidth: '500',
+      titles: files.slice(i, i + 50).join('|'), prop: 'categories|imageinfo', clcategories: `${FP}|${QI}`, cllimit: 'max', iiprop: 'url|size', iiurlwidth: '960',
     })).query || {};
     const fin = finalTitles(q, files.slice(i, i + 50));
     const byTitle = new Map((q.pages || []).filter((p) => !p.missing && p.imageinfo).map((p) => [p.title, p]));
@@ -169,7 +170,7 @@ export async function cityPhotos(titles, { pick = pickPhotos } = {}) {
   const photos = {}, miss = [];
   let partial = false;
   for (const t of want) {
-    const c = cache.get('ph4:' + t);
+    const c = cache.get('ph5:' + t);
     if (c !== undefined) photos[t] = c;
     else miss.push(t);
   }
@@ -177,7 +178,7 @@ export async function cityPhotos(titles, { pick = pickPhotos } = {}) {
   try {
     const got = await pick(miss);
     partial = got.partial;
-    for (const t of miss) { photos[t] = got.photos[t] || ''; cache.set('ph4:' + t, photos[t], partial ? 36e5 : TTL); }
+    for (const t of miss) { photos[t] = got.photos[t] || ''; cache.set('ph5:' + t, photos[t], partial ? 36e5 : TTL); }
   } catch { /* výpadek – příště znovu */ }
   return { photos, partial };
 }
