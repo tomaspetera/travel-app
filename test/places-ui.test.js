@@ -88,6 +88,18 @@ test('popis jen anglicky: první věta se štítkem; sloučené části „Zahrn
   assert.equal(T.firstSentence('Gotická katedrála ze 14. století s věží. Čtyři kaple.'), 'Gotická katedrála ze 14. století s věží.', 'české řadové číslovky větu neukončí');
   assert.equal(T.firstSentence('Kostel byl vysvěcen roku 1348. Později přestavěn.'), 'Kostel byl vysvěcen roku 1348.');
   assert.ok(T.firstSentence('x '.repeat(200)).endsWith('…'));
+  // česká zkratka před jménem větu neukončí (🔎 Co tam je krátí i český popis), slovo končící jako zkratka ano
+  const cz = (s) => T.firstSentence(s);
+  assert.equal(cz('Barokní římskokatolický kostel sv. Mikuláše stojí na hlavním náměstí. Postaven v 18. století.'), 'Barokní římskokatolický kostel sv. Mikuláše stojí na hlavním náměstí.');
+  assert.equal(cz('Rozlehlé náměstí v historickém centru, tzv. Rynek, je obklopeno domy. Konají se zde trhy.'), 'Rozlehlé náměstí v historickém centru, tzv. Rynek, je obklopeno domy.');
+  assert.equal(cz('Muzeum moderního umění, které vystavuje např. Picassa a Miróa, sídlí v klášteře. Otevřeno denně.'), 'Muzeum moderního umění, které vystavuje např. Picassa a Miróa, sídlí v klášteře.');
+  assert.equal(cz('Katedrála svatého Petra (něm. Dom St. Peter) je chrám v Řezně. Stavba začala roku 1275.'), 'Katedrála svatého Petra (něm. Dom St. Peter) je chrám v Řezně.');
+  assert.equal(cz('Vilu, kterou navrhl arch. Ludwig Mies van der Rohe, najdeš v Brně. Je v UNESCO.'), 'Vilu, kterou navrhl arch. Ludwig Mies van der Rohe, najdeš v Brně.');
+  assert.equal(cz('Hlavní třída vede přes nám. Svobody až k nádraží. Je pěší zónou.'), 'Hlavní třída vede přes nám. Svobody až k nádraží.');
+  assert.equal(cz('Diokleciánův palác stojí v centru města Split. Patří do UNESCO.'), 'Diokleciánův palác stojí v centru města Split.', '„it.“ jen jako celé slovo');
+  assert.equal(cz('Hlavní chrám pravoslavné církve, Kyjev. Postaven roku 1037.'), 'Hlavní chrám pravoslavné církve, Kyjev.');
+  assert.equal(cz('Galerie vystavuje obrazy, sochy, grafiku atd. Vstup je zdarma.'), 'Galerie vystavuje obrazy, sochy, grafiku atd.', '„atd.“ větu končí');
+  assert.equal(T.firstSentence('The gate is a triumphal arch. It was built in 1800.', 'en'), 'The gate is a triumphal arch.', 'anglicky se zkratky nehlídají');
   assert.match(T.descHtml(picasso, 'en'), /^<span class="poi-lang"[^>]*>anglicky<\/span> The Museu Picasso[\s\S]*Picasso\.$/);
   assert.equal(T.descHtml('Gotická katedrála na Pražském hradě.', undefined), 'Gotická katedrála na Pražském hradě.');
   assert.equal(T.descHtml('', 'en'), '');
@@ -578,6 +590,10 @@ test('náhled cíle: karta (fotka, druh, jedna věta, anglicky se štítkem), po
   assert.ok(card.includes("background-image:url('https://upload.wikimedia.org/a%20b%27%28c%29.jpg')"));
   assert.ok(card.includes('🏛️ Muzeum · UNESCO · 0,8\u00a0km'));
   assert.ok(card.includes('Gotická katedrála ze 14. století s věží.') && !card.includes('Druhá věta'));
+  const sv = T.previewCard(PV('Kostel sv. Mikuláše', 5, IMG, { extract: 'Barokní římskokatolický kostel sv. Mikuláše stojí na hlavním náměstí a patří k nejcennějším stavbám města. Postaven v 18. století.', descLang: 'cs' }));
+  assert.ok(sv.includes('<span class="dp-pd">Barokní římskokatolický kostel sv. Mikuláše stojí na hlavním náměstí a patří k nejcennějším stavbám města.</span>'), 'česká věta celá, ne „kostel sv.“');
+  const arch = T.previewCard(PV('Arc', 5, null, { extract: 'The Arc de Triomphe is a triumphal arch. It was built by the order of Napoleon and is known from its sculptures.' }));
+  assert.ok(arch.includes('anglicky</span> The Arc de Triomphe is a triumphal arch.</span>'), 'bez údaje o jazyku: anglický text podle celého úryvku, krácený anglicky');
   const en = T.previewCard(PV('Old Bridge', 5, null, { category: 'bridge', categoryLabel: 'Most', extract: 'The bridge was built in 1566 and is one of the best known sights of the city. It was destroyed in 1993.', descLang: 'en' }));
   assert.ok(en.includes('poi-lang') && en.includes('anglicky') && !en.includes('destroyed'));
   assert.ok(en.includes('<div class="dp-img" aria-hidden="true">🌉</div>'), 'bez fotky ikona druhu');
@@ -593,7 +609,9 @@ test('náhled cíle: karta (fotka, druh, jedna věta, anglicky se štítkem), po
   assert.ok(html.includes('Další 3 místa a 1 výlet do okolí najdeš v Objevuj.'));
   assert.ok(!P.previewHtml(items.slice(0, 6)).includes('dp-more'), 'všechno vidět – žádné „další“');
   assert.ok(P.previewHtml([]).includes('Do 10 km od centra jsem nenašel nic'));
-  assert.ok(P.previewHtml([], 20).includes('Do 20 km od centra'), 'okruh dotazu');
+  P._t.ex.radius = 20;
+  assert.ok(P.previewHtml([], 20).includes('Do 20 km od centra'), 'okruh dotazu = zvolený okruh Objevuj');
+  P._t.ex.radius = 10;
   assert.ok(P.previewHtml([PV('Výlet', 1, null, { category: 'daytrip' })]).includes('nenašel nic'));
 });
 
@@ -688,4 +706,36 @@ test('Places.openAt: Objevuj na městě z náhledu – program ve městě na dny
   await e.P._t.loadExplore();
   assert.deepEqual(e.urls, ['api/poi?lat=38.2&lon=12.5365&radius=10', 'api/poi?lat=38.0176&lon=12.5365&radius=5']);
   assert.equal(e.P._t.ex.loaded.radius, 5);
+});
+
+test('náhled cíle se zapamatovaným okruhem 3 km: ukáže a spočítá jen místa, která pak ukáže Objevuj (načte 10 km, jeden dotaz)', async () => {
+  // dál od středu vyšší skóre: bez okruhu by náhled vybral jen místa za 3 km
+  const items = Array.from({ length: 14 }, (_, i) => PV(`Místo ${i + 1}`, i, IMG, { distanceKm: Math.round((0.3 + i * 0.4) * 10) / 10 }))
+    .concat([PV('Výlet do okolí', 99, IMG, { category: 'daytrip', distanceKm: 40 })]);
+  const urls = [], store = { [T.UI_LS]: JSON.stringify({ radius: 3, mode: 'city' }) };
+  const body = { isConnected: true, innerHTML: '' };
+  let P = null;
+  P = load({ go: () => {}, setTimeout, clearTimeout, $: (s) => (s === '#exBody' && !P._t.ex.loaded ? body : null),
+    fetch: async (u) => { urls.push(u); return { ok: true, status: 200, json: async () => ({ items }) }; },
+    localStorage: { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = v; } } }).window.Places;
+  const WAW = { label: 'Varšava', lat: 52.2297, lon: 21.0122, cc: 'PL', country: 'Polsko' };
+  const j = await P.preview(WAW);
+  assert.equal(j.km, 10, 'dotaz jako výchozí Objevuj (sdílená mezipaměť)');
+  const html = P.previewHtml(j.items, j.km);
+  const names = [...html.matchAll(/<b>([^<]+)<\/b>/g)].map((m) => m[1]);
+  assert.deepEqual(names, ['Místo 7', 'Místo 6', 'Místo 5', 'Místo 4', 'Místo 3', 'Místo 2'], 'jen do 3 km');
+  assert.ok(html.includes('Ještě jedno místo a 1 výlet do okolí najdeš v Objevuj.'));
+  // 🗺️ Naplánovat: Objevuj nechá zvolené 3 km a ukáže přesně to, co náhled slíbil
+  P.openAt(WAW, { start: ymdIn(4), days: 3 });
+  await P._t.loadExplore();
+  const X = P._t.ex, shown = T.inRadius(X.all, X.radius), city = shown.filter((x) => x.category !== 'daytrip');
+  assert.deepEqual([urls.length, X.radius, X.loaded.radius], [1, 3, 10]);
+  assert.equal(city.length, names.length + 1, 'v Objevuj 6 míst z náhledu + „ještě jedno“');
+  assert.ok(names.every((n) => city.some((x) => x.name === n)), 'každé místo z náhledu je v Objevuj');
+  assert.equal(shown.length - city.length, 1);
+  // nic do 3 km: hláška řekne zvolený okruh, ne načtených 10 km
+  assert.ok(P.previewHtml(items.slice(8), 10).includes('Do 3 km od centra jsem nenašel nic'));
+  // zvolený okruh nad načteným (zvětšený mezitím v Objevuj): náhled slíbí jen to, co načetl
+  X.radius = 20;
+  assert.ok(P.previewHtml([], 10).includes('Do 10 km od centra'));
 });
