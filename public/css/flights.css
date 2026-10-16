@@ -179,6 +179,19 @@ details[open] .ps-more::after{content:" ▴"}
 .res-tools select{width:auto;min-width:230px;padding:9px 34px 9px 12px;font-size:13px}
 .res-filters{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:0 2px 16px;font-size:12.5px}
 .rf-group{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+/* řazení mezi filtry; na telefonu filtry, řazení a „Odkud se vyplatí letět“ za tlačítkem ⚙️ (výsledky hned pod hlavičkou) */
+.rf-sort select{width:auto;min-width:220px;padding:7px 30px 7px 10px;font-size:12.5px}
+.res-more-btn{display:none}
+@media(max-width:760px){
+  .res-more-btn{display:inline-flex;align-items:center;gap:6px;flex:none}
+  .res-more:not(.open){display:none}
+  .res-more.open{padding-top:2px}
+  .res-tools{display:grid;grid-template-columns:auto minmax(0,1fr);width:100%}
+  .res-tools .seg{width:auto;min-width:0}
+  .res-tools .seg button{flex:1 1 0;min-width:0;padding:8px 4px;font-size:12.5px;white-space:nowrap}
+  .rf-sort{width:100%}
+  .rf-sort select{flex:1;min-width:0}
+}
 .fchip{border:1px solid var(--border);background:var(--surface);color:var(--faint);border-radius:9px;padding:5px 9px;font:700 12px Inter,sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
 .fchip small{font-weight:600;color:var(--faint)}
 .fchip i{width:8px;height:8px;border-radius:50%}
@@ -531,6 +544,16 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .radar-card.hot{border-color:rgba(251,113,133,.45)}
 .rc-top{display:flex;justify-content:space-between;align-items:center}
 .rcf{font-size:24px}
+.radar-more{display:none}
+/* telefon: hustší karty radaru, nejdřív 6 (zbytek tlačítkem „Ukázat další“) */
+@media(max-width:560px){
+  .radar-card{padding:11px 12px;min-height:0}
+  .radar-card .rcf{font-size:20px}
+  .radar-card .rc-city{margin-top:2px}
+  .radar-card .rc-price{font-size:17px}
+  .radar-grid:not(.all)>.radar-card:nth-child(n+7){display:none}
+  .radar-more{display:block;width:100%;margin-top:10px}
+}
 .rc-badges{display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .rc-city{font-weight:800;font-size:14.5px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rc-price{font:800 19px Sora,sans-serif;color:var(--good)}
@@ -782,17 +805,16 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .recent-chip{display:inline-block;max-width:100%;padding:5px 11px;border-radius:20px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .recent-chip small{color:var(--muted);font-weight:500;font-size:11.5px}
 .recent-chip:hover{border-color:var(--accent)}
-/* sbalený formulář po hledání (jen telefon) */
+/* sbalený formulář po hledání (telefon i počítač): výsledky začínají nahoře, ✎ Upravit formulář zase rozbalí */
 .search-sum{display:none}
-@media(max-width:700px){
-  .search-sum:not([hidden]){display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:14px}
-  .search-sum .ss-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:13.5px}
-  .search-sum .ss-txt b,.search-sum .ss-txt span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .search-sum .ss-txt span{font-size:12px}
-  .search-sum .btn{flex:none}
-  .search-sum #ssWatch.on{color:#fb7185;border-color:rgba(251,113,133,.4)}
-  #searchForm.collapsed{display:none}
-}
+.search-sum:not([hidden]){display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:14px}
+.search-sum .ss-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:13.5px}
+.search-sum .ss-txt b,.search-sum .ss-txt span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.search-sum .ss-txt span{font-size:12px}
+.search-sum .btn{flex:none}
+.search-sum #ssWatch.on{color:#fb7185;border-color:rgba(251,113,133,.4)}
+#searchForm.collapsed{display:none}
+@media(min-width:701px){.search-sum:not([hidden]){padding:14px 18px}.search-sum .ss-txt{font-size:15px}.search-sum .ss-txt span{font-size:13px}}
 /* „Od minula“ pod hledáním na Přehledu */
 .news-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 6px;margin:-6px 2px 16px;font-size:13.5px}
 .news-line[hidden]{display:none}
@@ -907,6 +929,9 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 @media(max-width:560px){
   .cmp-row{grid-template-columns:minmax(0,1fr) 28px 10px;gap:8px;padding:10px 12px}
   .cmp-hit{grid-template-columns:26px minmax(0,1fr) auto;gap:8px}
+  /* termín na vlastním řádku – na telefonu se jinak uřízne hned za letišti */
+  .cmp-when{display:block;overflow:hidden;text-overflow:ellipsis}
+  .cmp-dot{display:none}
   .cmp-row .dm-btn{width:28px;height:28px}
   /* na telefonu pruh, který se posouvá do strany (stránka zůstane na šířku displeje); dlaždice 58 % šířky, ať další
      vždy vykoukne – minmax(160px,58%) zůstane v přetékající mřížce na 160 px a dvě dlaždice na 390 px končí přesně u okraje */
