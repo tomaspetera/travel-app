@@ -1066,6 +1066,43 @@
     return out;
   }
 
+  /* ---------- 🔎 Co tam je: náhled cíle z výsledků a radaru (flights.js) ---------- */
+  /**
+   * Střed města, kolem kterého náhled hledá místa k vidění: metropole ho má v datech; jinak město, kam vede cesta
+   * z letiště započtená v ceně nabídky (ověřená tabulka – „Memmingen (Mnichov)“ → Mnichov, Mallorca → Palma). Odhad
+   * cesty zná jen polohu letiště → null (střed dohledá api/geocode, viz geoNames a geoCenter).
+   * dest = { id, label, lat, lon }, a = res.arrivals[letiště příletu] → { lat, lon, label } nebo null.
+   */
+  function destCenter(dest, a) {
+    const ok = x => Boolean(x) && Number.isFinite(x.lat) && Number.isFinite(x.lon);
+    if (ok(dest) && /^metro:/.test(dest.id || '')) return { lat: dest.lat, lon: dest.lon, label: dest.label };
+    return ok(a) && a.city && a.basis !== 'estimate' ? { lat: a.lat, lon: a.lon, label: a.city } : null;
+  }
+  /** Názvy k dohledání středu: „Kréta (Heraklion)“ → Kréta, Heraklion; „Pécs-Pogány“ → celý, Pécs; „Karlsruhe/Baden-Baden“ → celý, Karlsruhe. */
+  function geoNames(label) {
+    const s = String(label || ''), out = s.replace(/\s*\(.*\)\s*$/, '').trim(), inner = (/\(([^)]*)\)/.exec(s) || [])[1];
+    return [...new Set([out, out.split(/[-/]/)[0], inner].map(x => String(x || '').trim()).filter(x => x.length >= 2))];
+  }
+  /**
+   * Výsledek api/geocode jako střed města: první obydlené místo (druh GeoNames PPL…, místní data druh nemají) v zemi cc
+   * do maxKm od letiště near – ostrov, kraj ani stejnojmenné město jinde ne. → { lat, lon, label } nebo null.
+   */
+  function geoCenter(items, cc, near, maxKm = 60) {
+    if (!near || !Number.isFinite(near.lat) || !Number.isFinite(near.lon)) return null;
+    const h = (items || []).find(x => x && (!cc || x.cc === cc) && Number.isFinite(x.lat) && Number.isFinite(x.lon) && (!x.fc || /^PPL/.test(x.fc))
+      && km(near.lat, near.lon, x.lat, x.lon) <= maxKm);
+    return h ? { lat: h.lat, lon: h.lon, label: h.label } : null;
+  }
+  /**
+   * Pobyt pro „🗺️ Naplánovat … v Objevuj“: dní od from do dne návratu včetně (od dne příletu = dny programu) a jestli je
+   * to víkend (nejvýš 4 dny přes sobotu – pá–ne, so–po, čt–ne; ne–út ne). Jen tam → { days: 0, weekend: false }.
+   */
+  function stayPlan(from, back) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(back || '')) return { days: 0, weekend: false };
+    const days = Math.max(1, diffDays(from, back) + 1);
+    return { days, weekend: days <= 4 && Array.from({ length: days }, (_, i) => new Date(ms(addDays(from, i))).getUTCDay()).includes(6) };
+  }
+
   /* Živý radar na přehledu: nejlevnější zpáteční lety z okolí domova na příštích 6 týdnů – kdykoliv (2–7 nocí),
      nebo jen víkendy (odlet v pátek nebo sobotu, návrat v neděli nebo pondělí, 1–3 noci). */
   const RADAR = {
@@ -1657,5 +1694,6 @@
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
+    destCenter, geoNames, geoCenter, stayPlan,
   };
 })();

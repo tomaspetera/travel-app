@@ -1714,6 +1714,7 @@
       <div class="rc-head">
         <div class="rc-flag">${flag(g.dest.cc)}</div>
         <div class="rc-name"><h3>${esc(g.dest.label)}${prefBadge(g.dest.key)}${newBadge(g.dest.cc)}</h3><div class="faint">${esc(g.dest.country || '')}${g.dest.airports.length > 1 ? ` · letiště ${g.dest.airports.join(', ')}` : ` · ${g.dest.airports[0]}`}${t.distanceKm ? ` · ${t.distanceKm.toLocaleString('cs')} km` : ''}${c && c.cost ? ` · ceny na místě ${costDots(c.cost)}` : ''}</div></div>
+        <button type="button" class="btn sm ghost rc-dp" data-dp="${esc(g.dest.key)}" title="Místa k vidění, cesta z letiště do města, počasí a vstup">🔎 Co tam je</button>
         ${dmBtn(g.dest)}
       </div>
       ${fb.length >= 2 ? `<div class="faint rc-from" title="${lastResult.query.kmRate ? 'Nejlevnější celá cesta sem z každého letiště (vč. dopravy na letiště)' : 'Nejlevnější cena sem z každého letiště (bez dopravy na letiště)'}">${fb.slice(0, 4).map(([k, v]) => `z ${esc(k)} od ${czk(v)}`).join(' · ')}</div>` : ''}
@@ -2197,6 +2198,213 @@
     Ground.panel($('#gndModalPanel'), { q: x.q, date: d.out, back: d.back, adults: res.query.adults, flight: { czk: t.perPersonCzk, trips: t.back ? 2 : 1, min: t.out.durationMin } });
   }
 
+  /* ---------- 🔎 Co tam je: náhled cíle z výsledků a radaru ---------- */
+  // Nejlevnější týden často vede do neznámého města (Trapani, Kutaisi, Řešov): okno hned ukáže, co výsledek ví (vstup,
+  // ceny na místě, z letiště do města, počasí, vlak/bus), „Co vidět“ dočte až po otevření (Places.preview – stejný dotaz
+  // jako Objevuj, „🗺️ Naplánovat v Objevuj“ ho převezme). Na telefonu list zespodu, jinak okno uprostřed.
+  const COST_TXT = ['', 'velmi levné', 'levné', 'střední', 'dražší', 'drahé'];
+  const DP_WAIT = 12000; // déle „Co vidět“ nečeká – pak „zkus Objevuj“ (dotaz běží dál a doplní se, když dorazí)
+  const cap = x => (x ? x[0].toUpperCase() + x.slice(1) : '');
+  // „~20 Kč“, „1 h 15“, „30 min“ se na telefonu nerozdělí na dva řádky
+  const nbsp = x => String(x).replace(/(\d) (?=Kč|zł|€|£|Ft|lei|h\b|min\b)/g, '$1\u00a0').replace(/\bh (?=\d)/g, 'h\u00a0');
+  let dpSeq = 0;
+  const dpGeo = new Map(); // název|země → střed města z api/geocode
+  // Střed města (SearchHelp.destCenter); u odhadu cesty z letiště ho dohledá api/geocode (jako průvodce cestou), nejvýš
+  // 6 s – jinak poloha cíle (letiště).
+  async function dpCenter(d) {
+    const c = SearchHelp.destCenter(d, d.ar), own = { lat: d.lat, lon: d.lon, label: d.label };
+    if (c) return c;
+    const k = `${d.label}|${d.cc}`;
+    if (!dpGeo.has(k)) {
+      const find = async () => {
+        for (const q of SearchHelp.geoNames(d.label)) {
+          const j = await fetch(`api/geocode?q=${enc(q)}&cc=${enc(d.cc || '')}`).then(r => (r.ok ? r.json() : {})).catch(() => ({}));
+          const h = SearchHelp.geoCenter(j.items, d.cc, d);
+          if (h) return h;
+        }
+        return null;
+      };
+      const h = await Promise.race([find(), new Promise(r => setTimeout(r, 6000, null))]);
+      if (!h) return own;
+      dpGeo.set(k, h);
+    }
+    return dpGeo.get(k);
+  }
+  // Cesta z letiště do města jako u nabídky (SearchHelp.arrivalChips) – řádek okna: ikona, text, čím jet a poznámka.
+  function dpArr(t, A, on) {
+    const a = A && A[t.out.to], b = t.back && A && A[t.back.from];
+    const objs = [a, b && !(a && a.iata === b.iata) ? b : null].filter(Boolean);
+    return SearchHelp.arrivalChips(t, A, { on }).map((c, i) => {
+      const [ic, ...w] = c.text.split(' '), o = objs[i] || {};
+      return { ic, b: nbsp(cap(w.join(' '))), s: [o.how, o.note].filter(Boolean).join(' · '), title: c.title, warn: c.warn };
+    });
+  }
+  // „Vybrat a pokračovat“: průvodce s nabídkou; res = výsledek, ze kterého nabídka je (i průběžný, když konečný čeká na
+  // překreslení) – jinak by cesta vzala statistiku cen průběžné skupiny jako konečnou; konečný už dorazil → statistika
+  // z něj hned (finalStats na něj už nepočká)
+  function pickTrip(t, g, res) {
+    Trip.start({ t, g, result: res });
+    if (lastResult && !lastResult.partial && Trip.finalStats) Trip.finalStats(lastResult);
+  }
+  /** Náhled cíle z karty výsledků: g = cíl, t = nejlepší nabídka karty, res = výsledek, ze kterého karta je. */
+  function openDestPreview(g, t, { res = shownRes || lastResult, from = null } = {}) {
+    const x = g.dest, back = t.back || null, w = wx;
+    const gc = g.ground ? groundCmp(res, g.ground, g.vis || [g.best]) : null;
+    dpShow({
+      id: x.id, label: x.label, cc: x.cc, country: x.country || '', lat: x.lat, lon: x.lon, aps: x.airports && x.airports.length ? x.airports : [t.out.to],
+      ar: res.arrivals && res.arrivals[t.out.to], d1: t.out.date, d2: back ? back.date : null, nights: back ? t.nights : null, czk: t.perPersonCzk,
+      arrDay: t.out.hasTime && t.out.arr ? String(t.out.arr).slice(0, 10) : t.out.date, // program od dne příletu (noční let)
+      // zpět z jiného letiště / na jiné letiště jako na kartě radaru: „BRQ → WAW ↩ WMI → BRQ“, „BRQ → ERF ↩ BTS“
+      route: `${t.out.from} → ${t.out.to}${back && (back.from !== t.out.to || back.to !== t.out.from) ? ` ↩ ${back.from !== t.out.to ? `${back.from} → ` : ''}${back.to}` : ''}`,
+      arr: dpArr(t, res.arrivals, Boolean(res.query.arrival)), tempHi: t.tempHi,
+      // předpověď výsledku (štítky výpisu) – žádný dotaz navíc
+      wxP: w.res === res && (w.map || w.p) ? (w.map ? Promise.resolve(w.map) : w.p.then(() => w.map)) : null,
+      ground: gc && (gc.worth || g.ground.min <= GROUND_CHIP_MAX_MIN) ? { x: g.ground, ret: Boolean(back), c: gc, open: () => openGroundModal(g) } : null,
+      go: () => pickTrip(t, g, res), goLbl: 'Vybrat let a pokračovat →',
+    }, from);
+  }
+  /** Náhled z karty radaru (ⓘ): r = výsledek radaru, x = karta, q = dotaz radaru. */
+  function openRadarPreview(r, x, q, from) {
+    const c = byIso[x.cc], back = x.d2 && (!x.bf || x.bf === x.to) ? { from: x.to } : null; // zpět z jiného letiště: cestu z něj karta nezná
+    dpShow({
+      id: x.id, label: x.label, cc: x.cc, country: c ? c.cs : '', lat: x.lat, lon: x.lon, aps: [x.to], ar: x.ar,
+      d1: x.d1, d2: x.d2 || null, nights: x.d2 ? SearchHelp.diffDays(x.d1, x.d2) : null, arrDay: x.d1, czk: x.czk, route: SearchHelp.radarRoute(x),
+      arr: x.ar ? dpArr({ out: { to: x.to }, back }, { [x.to]: x.ar }, true) : [], tempHi: null,
+      wxP: radarWxP && radarWxP.r === r ? radarWxP.p : null, ground: null,
+      go: () => radarGo(x, q), goLbl: 'Hledat lety sem →',
+    }, from);
+  }
+  const dpFact = (ic, b, s, { cls = '', title = '' } = {}) => `<div class="dp-f${cls}"${title ? ` title="${esc(title)}"` : ''}><span class="dp-fi" aria-hidden="true">${ic}</span><div><b>${b}</b>${s ? `<small>${s}</small>` : ''}</div></div>`;
+  // Počasí: do 15 dní předpověď na dny cesty, jinak dlouhodobý průměr měsíce (u nabídky ze serveru hned, u karty radaru
+  // z api/climate). Řádek { ic, b (HTML), s, title }.
+  const dpWxRow = w => `<div class="dp-f" id="dpWx"${w.title ? ` title="${esc(w.title)}"` : ''}><span class="dp-fi" aria-hidden="true">${w.ic}</span><div><b>${w.b}</b><small>${esc(w.s)}</small></div></div>`;
+  // Weather.summary („☀️ 22° · 💧 10 %“, „🌧️ prší 2 dny ze 3“) → ikona zvlášť, „Přes den ~22 °C · 💧 10 %“ jako průměr
+  const dpFc = (d, s) => { const [ic, ...w] = s.text.split(' '); return { ic, b: esc(cap(w.join(' ').replace(/^(-?\d+)°/, 'přes den ~$1 °C'))), s: `předpověď na ${d.d2 ? 'dny cesty' : 'první 3 dny'} (Open-Meteo)`, title: s.title }; };
+  const dpClim = (d, wait) => (d.tempHi != null ? { ic: '🌡️', b: `Přes den ~${Math.round(d.tempHi)} °C`, s: `dlouhodobý průměr v ${MNS_IN[+String(d.d1).slice(5, 7) - 1]} – ${wait ? 'předpověď se načítá' : 'není to předpověď'}` } : null);
+  async function dpWx(d) {
+    if (!window.Weather || !wxGeo(d)) return null;
+    if (wxWin(d.d1)) {
+      const m = d.wxP ? await d.wxP.catch(() => null) : null;
+      const s = (m && wxSum(m, d, d.d1, d.d2)) || wxSum(await Weather.span([{ lat: d.lat, lon: d.lon }]), d, d.d1, d.d2);
+      if (s) return dpFc(d, s);
+    }
+    if (d.tempHi != null) return dpClim(d, false);
+    const n = await Weather.normal(d.lat, d.lon, d.d1).catch(() => null);
+    if (!n || !Number.isFinite(+n.hi)) return null;
+    return { ic: '🌡️', b: `Přes den ~${Math.round(n.hi)} °C${Number.isFinite(+n.lo) ? `, v noci ~${Math.round(n.lo)} °C` : ''}`, s: `dlouhodobý průměr v ${MNS_IN[n.month]}${Number.isFinite(+n.p) ? `, srážky ~${Math.round(n.p)} mm za měsíc` : ''} – není to předpověď` };
+  }
+  // Vlak/bus místo letadla (jako čip u cíle): „Vlakem/busem ~4 h 20 · tam i zpět běžně ~900 Kč“, pod tím proč (bez opakování)
+  function dpGround({ x, ret, c }) {
+    const lead = `Vlakem/busem ~${Ground.hm(x.min)}`, why = String(c.reason || '');
+    const rest = cap((why.startsWith(lead) ? why.slice(lead.length) : why).replace(/^\s*(?:–|a)\s+/, ''));
+    return dpFact('🚆', `${esc(lead)} · ${ret ? 'tam i zpět ' : ''}${esc(Ground.priceTxt(x, ret ? 2 : 1))} <span class="dp-est">odhad</span>`,
+      `${rest ? `${esc(rest)} ` : ''}<button type="button" class="linkbtn" id="dpGnd">Spoje a odkazy</button>`, { cls: c.worth ? ' hot' : '' });
+  }
+  const dpSkel = () => `<div class="dp-sl">${'<div class="dp-poi"><div class="dp-img skel"></div><div class="dp-pt"><span class="skel dp-sk"></span><span class="skel dp-sk s"></span></div></div>'.repeat(4)}</div><div class="faint dp-more"><span class="spin dark"></span> Hledám, co tam stojí za vidění…</div>`;
+  const dpFail = why => `<div class="note warn dp-fail" role="status">⚠️ <div><b>Místa se nepodařilo načíst – zkus Objevuj.</b>${why ? ` ${esc(why)}` : ''}</div></div>`;
+  function dpHtml(d) {
+    // „víkend“ podle termínu cesty, jak ho okno ukazuje (ne podle dne příletu – noční let pá → so by z pá–út udělal víkend)
+    const c = byIso[d.cc], geo = Boolean(window.Places && wxGeo(d)), w = dpClim(d, Boolean(window.Weather) && wxGeo(d) && wxWin(d.d1)), st = SearchHelp.stayPlan(d.d1, d.d2);
+    const ent = window.Entry && d.cc && d.cc !== 'CZ' ? Entry.flightChip(d.cc, d.d2 || d.d1) || Entry.cardChip(d.cc) : '';
+    const day = x => `<span class="dp-nw">${dayLabel(x)}</span>`;
+    return `<div class="dp" role="dialog" aria-modal="true" aria-labelledby="dpTitle">
+      <div class="dp-head"><span class="dp-flag" aria-hidden="true">${flag(d.cc)}</span><div class="dp-ttl"><h2 id="dpTitle">${esc(d.label)}</h2><div class="muted">${[esc(d.country), `letiště ${d.aps.map(esc).join(', ')}`].filter(Boolean).join(' · ')}</div></div>
+        <button type="button" class="icon-btn dp-x" id="dpX" aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button></div>
+      <div class="dp-trip">✈︎ <span class="dp-nw">${esc(d.route)}</span> · ${day(d.d1)}${d.d2 ? ` – ${day(d.d2)}` : ''} · <span class="dp-nw">${d.d2 ? (d.nights != null ? nightsTxt(d.nights) : 'zpáteční') : 'jen tam'}</span> · <span class="dp-nw"><b>${czk(d.czk)}</b>/os.</span></div>
+      <div class="dp-chips">${ent}${c && c.cost ? `<span class="b dp-cost" title="Cenová hladina země – jídlo, doprava a ubytování na místě">ceny na místě ${costDots(c.cost)} ${COST_TXT[c.cost]}</span>` : ''}${c ? '<button type="button" class="linkbtn" id="dpCountry">Info o zemi</button>' : ''}</div>
+      <div class="dp-facts">
+        ${d.arr.map(a => dpFact(a.ic, esc(a.b), esc(a.s), { cls: a.warn ? ' warn' : '', title: a.title })).join('')}
+        ${w ? dpWxRow(w) : '<div class="dp-f" id="dpWx" hidden></div>'}
+        ${d.ground ? dpGround(d.ground) : ''}
+      </div>
+      ${geo ? `<h3 class="dp-h" id="dpSightsH">Co vidět</h3><div id="dpSights" aria-live="polite" aria-busy="true">${dpSkel()}</div>` : ''}
+      <div class="dp-act">${geo ? `<button type="button" class="btn" id="dpPlan">🗺️ Naplánovat ${st.weekend ? 'víkend' : 'pobyt'} v Objevuj</button>` : ''}<button type="button" class="btn primary" id="dpGo">${esc(d.goLbl)}</button></div>
+    </div>`;
+  }
+  function dpShow(d, from) {
+    const my = ++dpSeq;
+    modalOpen(dpHtml(d));
+    $('#modal').scrollTop = 0; // okno si jinak drží posun z minulého otevření
+    dpOpen(from);
+    $('#dpX').onclick = () => dpClose();
+    $('#dpGo').onclick = () => dpClose(d.go);
+    const cb = $('#dpCountry'); if (cb) cb.onclick = () => openCountry(d.cc); // přes náhled – Zpět zavře i to
+    const gb = $('#dpGnd'); if (gb) gb.onclick = () => d.ground.open();
+    // okno je pořád tohle (mezitím nezavřené, nepřepsané jiným oknem) → prvek, jinak null
+    const mine = sel => (my === dpSeq && $('#modalBg').classList.contains('show') ? $(sel) : null);
+    dpWx(d).then(w => { const el = mine('#dpWx'); if (el && w) el.outerHTML = dpWxRow(w); }).catch(() => { });
+    if (!$('#dpSights')) return;
+    const center = dpCenter(d);
+    let got = null;
+    const fill = html => { const b = mine('#dpSights'); if (b) { b.innerHTML = html; b.removeAttribute('aria-busy'); } };
+    const slow = setTimeout(() => { if (!got) fill(dpFail('Nové místo se poprvé načítá i půl minuty – v Objevuj na něj počkáš.')); }, DP_WAIT);
+    center.then(c => {
+      // místa jiného města než v názvu cíle (Memmingen → Mnichov, Mallorca → Palma): řekne, kterého
+      const h = mine('#dpSightsH'); if (h && norm(c.label) !== norm(SearchHelp.geoNames(d.label)[0] || '')) h.textContent = `Co vidět · ${c.label}`;
+      return Places.preview(c);
+    }).then(j => { got = j; fill(Places.previewHtml(j.items, j.km) + (j.demo ? '<div class="faint dp-more">⚠️ demo data – místa jsou vymyšlená</div>' : '')); })
+      .catch(e => { if (!got) fill(dpFail(e && e.message)); })
+      .finally(() => clearTimeout(slow));
+    const pb = $('#dpPlan');
+    pb.onclick = async () => {
+      pb.disabled = true; // střed města se ještě dohledává (nejvýš 6 s)
+      const c = await center, st = SearchHelp.stayPlan(d.arrDay, d.d2);
+      if (!mine('#dpPlan')) return; // mezitím zavřené – Objevuj neotevírat
+      dpClose(() => Places.openAt({ label: c.label, lat: c.lat, lon: c.lon, cc: d.cc, country: d.country }, { start: d.arrDay, days: st.days }));
+    };
+  }
+  // Okno náhledu má krok v historii: Zpět (gesto, tlačítko) ho zavře a z aplikace neodejde. Zavřené jinak (✕, Escape,
+  // klepnutí vedle, okno otevřené z náhledu) krok vrátí. Akce, která přepíná pohled, počká, až se historie vrátí (go()
+  // přepisuje adresu aktuálního kroku – návrat by pak skončil na staré adrese a hashchange přepnul pohled zpátky).
+  const dpH = { on: false, hash: '', from: null, pend: null, t: 0, sr: null, wired: false };
+  function dpFinish({ then = null, from = null }) {
+    if (then) return then();
+    // fokus zpět na 🔎 / ⓘ, i když se výpis nebo radar mezitím překreslil
+    const el = from && (from.isConnected ? from : from.dataset.dp != null ? $(`#results [data-dp="${CSS.escape(from.dataset.dp)}"]`)
+      : from.dataset.rinfo != null ? $(`#radar [data-rinfo="${CSS.escape(from.dataset.rinfo)}"]`) : null);
+    if (el && !$('#modalBg').classList.contains('show')) el.focus({ preventScroll: true });
+  }
+  // zpátky na kroku, ze kterého se okno otevřelo: jeho obnova posunu jako dřív (dpOpen)
+  const dpSr = () => { if (dpH.sr) { history.scrollRestoration = dpH.sr; dpH.sr = null; } };
+  // akce až po popstate (go → nahoru, hledání → průběh) – nic ji pak nepřebije
+  const dpDone = () => { clearTimeout(dpH.t); dpSr(); const p = dpH.pend; dpH.pend = null; if (p) setTimeout(() => dpFinish(p), 0); };
+  function dpBack(then = null) {
+    const p = { then, from: dpH.from };
+    dpH.from = null;
+    if (!dpH.on) return dpFinish(p);
+    dpH.on = false;
+    // pohled se mezitím přepnul (Info o zemi → Najít lety sem): krok zůstane, Zpět pak vrátí na původní pohled
+    if (location.hash !== dpH.hash) return dpFinish({ then });
+    dpH.pend = p;
+    history.back();
+    dpH.t = setTimeout(dpDone, 700); // pojistka, kdyby popstate nepřišel
+  }
+  function dpClose(then = null) { modalClose(); dpBack(then); }
+  function dpOpen(from) {
+    dpH.from = from || null;
+    $('#dpX').focus({ preventScroll: true });
+    if (!dpH.wired) {
+      dpH.wired = true;
+      window.addEventListener('popstate', () => {
+        if (dpH.pend) return dpDone(); // návrat po zavření okna
+        if (!dpH.on) return;
+        // Zpět při otevřeném náhledu (nebo okně otevřeném z něj)
+        const p = { from: dpH.from };
+        dpH.on = false; dpH.from = null;
+        dpSr(); modalClose(); dpFinish(p);
+      });
+      // okno zavřené jinak než přes náhled (Escape, klepnutí vedle, ✕ okna otevřeného z náhledu) → krok historie zpět
+      new MutationObserver(() => { if (dpH.on && !$('#modalBg').classList.contains('show')) dpBack(); }).observe($('#modalBg'), { attributes: true, attributeFilter: ['class'] });
+    }
+    if (!dpH.on) {
+      // návrat z kroku náhledu stránkou nehýbe (okno ji neposunulo; akce z okna – hledání do země, Objevuj, průvodce – si
+      // posun nastaví sama a obnova posunu by ji přebila): krok, ze kterého se okno otevírá, dostane ruční obnovu posunu
+      dpH.sr = dpH.sr || history.scrollRestoration; history.scrollRestoration = 'manual';
+      history.pushState({ atlasDp: 1 }, ''); history.scrollRestoration = dpH.sr;
+      dpH.on = true; dpH.hash = location.hash;
+    }
+  }
+
   /* ---------- výpadek Kiwi.com, aktivní filtry, chytrá nápověda ---------- */
   function kiwiBanner(res) {
     // průběžné výsledky: výpadky zdrojů a „nabídka z karty chybí“ až u konečných (Zkusit znovu by hledání jen zdvojilo)
@@ -2534,10 +2742,11 @@
     });
     // výsledek, ze kterého řádek je (průběžný i tehdy, když konečný čeká na překreslení) – jinak by cesta vzala statistiku
     // cen průběžné skupiny jako konečnou; konečný už dorazil → statistika z něj hned (finalStats na něj už nepočká)
-    $$('[data-pick]', host).forEach(b => b.onclick = () => {
-      const r = rowRegistry[+b.dataset.pick];
-      Trip.start({ t: r.t, g: r.g, result: shownRes || lastResult });
-      if (lastResult && !lastResult.partial && Trip.finalStats) Trip.finalStats(lastResult);
+    $$('[data-pick]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pick]; pickTrip(r.t, r.g, shownRes || lastResult); });
+    // 🔎 Co tam je: náhled cíle s nejlepší nabídkou karty (první řádek karty – jeho Vybrat a pokračovat)
+    $$('[data-dp]', host).forEach(b => b.onclick = () => {
+      const p = $('.trip-row [data-pick]', b.closest('.res-card')), r = p && rowRegistry[+p.dataset.pick];
+      if (r) openDestPreview(r.g, r.t, { res: shownRes || lastResult, from: b });
     });
     $$('[data-pc]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pc]; if (r) openPriceCheck(r.t, { g: r.g }); });
     $$('[data-live]', host).forEach(b => b.onclick = async () => {
@@ -2558,7 +2767,7 @@
   // Prvek výpisu s fokusem (klávesnice) jako selektor platný i po překreslení: id, stálý klíč (filtr, pohled, cíl, let –
   // data-lsig, ne pořadí v data-leg), nebo tlačítko v řádku nabídky podle data-tid řádku (data-pick/pc/live jsou pořadí
   // v rowRegistry – po překreslení, třeba konečnými výsledky po průběžných, jiné).
-  const FOCUS_KEYS = ['tp', 'tarr', 'tst', 'fo', 'ofo', 'fc', 'v', 'mleg', 'ms', 'mcombo', 'cell', 'cg', 'exp', 'alldates', 'gchip', 'cmore', 'lsig'];
+  const FOCUS_KEYS = ['tp', 'tarr', 'tst', 'fo', 'ofo', 'fc', 'v', 'mleg', 'ms', 'mcombo', 'cell', 'cg', 'exp', 'alldates', 'gchip', 'dp', 'cmore', 'lsig'];
   function focusSel(a) {
     if (a.id) return '#' + CSS.escape(a.id);
     const k = FOCUS_KEYS.find(k => a.dataset[k] != null);
@@ -3270,6 +3479,8 @@
         // čas odletu a přílet zpět kvůli dnům dovolené na kartě (SearchHelp.leaveDays)
         t1: t.out.hasTime ? String(t.out.dep).slice(11, 16) : '', a2: t.back && t.back.hasTime && t.back.arr ? String(t.back.arr).slice(0, 16) : '', deal: t.deal.level, score: t.deal.score, prov: t.out.provider,
         ...(wxGeo(g.dest) ? { lat: +g.dest.lat.toFixed(3), lon: +g.dest.lon.toFixed(3) } : {}), // předpověď na kartě
+        // z letiště do města (s polohou města – střed pro „Co vidět“) pro 🔎 Co tam je
+        ...(res.arrivals && res.arrivals[t.out.to] ? { ar: res.arrivals[t.out.to] } : {}),
         // odkaz na nabídku z karty – hledání do jednoho cíle ji nemusí vrátit (Kiwi dává pro „kamkoliv“ jiné nabídky)
         ...(t.bookUrl ? { buy: [[t.bookUrl, t.provider, 'all']] } : t.out.bookUrl || t.back?.bookUrl ? { buy: [...(t.out.bookUrl ? [[t.out.bookUrl, t.out.provider, 'out']] : []), ...(t.back?.bookUrl ? [[t.back.bookUrl, t.back.provider, 'back']] : [])] } : {}) }));
       // co se od minulého výsledku změnilo (↓ cena, nový cíl – proti kartám, které radar ukazoval); s výpadkem zdroje bez značek
@@ -3327,27 +3538,31 @@
     const hot = new Set(shown.filter(({ x }) => x.deal === 'super').sort((a, b) => (b.x.score || 0) - (a.x.score || 0)).slice(0, 3).map(({ i }) => i));
     host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: zpáteční letenka + cesta na letiště a z letiště do města</div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${shown.map(({ x, i }) => `<div class="card radar-card ${hot.has(i) ? 'hot' : ''}" data-ri="${i}">
       <div class="rc-top"><span class="rcf">${flag(x.cc)}</span><span class="rc-badges">${prefBadge(SearchHelp.destKeyOf(x.id), pl)}${newBadge(x.cc)}${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>' : ''}</span>${dmBtn({ ...x, key: SearchHelp.destKeyOf(x.id) }, `data-rdm="${i}"`)}</div>
-      <div class="rc-city">${esc(x.label)}</div>
+      <div class="rc-city"><span>${esc(x.label)}</span><button type="button" class="rc-info" data-rinfo="${i}" aria-label="Co tam je – ${esc(x.label)}" title="🔎 Co tam je: místa k vidění, z letiště do města, počasí, vstup">ⓘ</button></div>
       <div class="rc-price">${czk(x.czk)}<small>/os.</small></div>
       <div class="faint" style="font-size:12px"${x.bt ? ' title="Zpět z jiného letiště nebo na jiné letiště než odlet"' : ''}>${esc(SearchHelp.radarRoute(x))} · ${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}${radarLeave(x)}</div>
-    </div>`).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klikni pro všechny termíny</div>`;
+    </div>`).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klikni pro všechny termíny, ⓘ = co tam je</div>`;
     $$('[data-rdm]', host).forEach(b => b.onclick = e => { e.stopPropagation(); const x = r.items[+b.dataset.rdm]; destMenu({ id: x.id, label: x.label, cc: x.cc }); });
-    $$('[data-ri]', host).forEach(c => c.onclick = () => {
-      const x = r.items[+c.dataset.ri];
-      go('flights');
-      // jako radar – i lety s přestupem a pro stejný počet lidí (stejná cena za osobu jako na kartě)
-      setForm({ ...defaultForm(), ...prefsOf(S.form), from: S.home.from, to: [{ id: x.id, label: x.label, flag: flag(x.cc) }], ...q.form, adults: q.payload.adults, directOnly: false });
-      startSearch({ card: x });
-    });
+    $$('[data-rinfo]', host).forEach(b => b.onclick = e => { e.stopPropagation(); openRadarPreview(r, r.items[+b.dataset.rinfo], q, b); });
+    $$('[data-ri]', host).forEach(c => c.onclick = () => radarGo(r.items[+c.dataset.ri], q));
     radarWx(r);
+  }
+  /** Karta radaru → hledání do jejího cíle, všechny termíny. */
+  function radarGo(x, q) {
+    go('flights');
+    // jako radar – i lety s přestupem a pro stejný počet lidí (stejná cena za osobu jako na kartě)
+    setForm({ ...defaultForm(), ...prefsOf(S.form), from: S.home.from, to: [{ id: x.id, label: x.label, flag: flag(x.cc) }], ...q.form, adults: q.payload.adults, directOnly: false });
+    startSearch({ card: x });
   }
   // Předpověď na kartách radaru (odlet do 15 dní): jeden dotaz na všechny karty, weather.js ho hodinu drží v paměti.
   // Karty uložené dřív bez souřadnic štítek nedostanou; mezitím překreslený radar (jiné karty) se nepřepisuje.
+  let radarWxP = null; // { r, p } – předpověď karet radaru i pro jejich 🔎 Co tam je (žádný dotaz navíc)
   function radarWx(r) {
     const cards = $$('#radar [data-ri]');
     const its = window.Weather ? r.items.map((x, i) => [x, cards.find(c => +c.dataset.ri === i)]).filter(([x, c]) => c && wxGeo(x) && wxWin(x.d1)) : [];
     if (!its.length) return;
-    Weather.span(its.map(([x]) => x)).then(m => its.forEach(([x, c]) => {
+    radarWxP = { r, p: Weather.span(its.map(([x]) => x)) };
+    radarWxP.p.then(m => its.forEach(([x, c]) => {
       const s = c.isConnected && wxSum(m, x, x.d1, x.d2), box = s && $('.rc-badges', c);
       if (box) box.insertAdjacentHTML('beforeend', wxChip(s, s.short));
     }));

@@ -85,6 +85,8 @@ test('popis jen anglicky: první věta se štítkem; sloučené části „Zahrn
   assert.match(T.firstSentence(picasso), /Pablo Picasso\.$/);
   assert.equal(T.firstSentence('St. Vitus Cathedral is a Roman Catholic metropolitan cathedral in Prague. It is the seat.'), 'St. Vitus Cathedral is a Roman Catholic metropolitan cathedral in Prague.');
   assert.equal(T.firstSentence('Krátký popis'), 'Krátký popis');
+  assert.equal(T.firstSentence('Gotická katedrála ze 14. století s věží. Čtyři kaple.'), 'Gotická katedrála ze 14. století s věží.', 'české řadové číslovky větu neukončí');
+  assert.equal(T.firstSentence('Kostel byl vysvěcen roku 1348. Později přestavěn.'), 'Kostel byl vysvěcen roku 1348.');
   assert.ok(T.firstSentence('x '.repeat(200)).endsWith('…'));
   assert.match(T.descHtml(picasso, 'en'), /^<span class="poi-lang"[^>]*>anglicky<\/span> The Museu Picasso[\s\S]*Picasso\.$/);
   assert.equal(T.descHtml('Gotická katedrála na Pražském hradě.', undefined), 'Gotická katedrála na Pražském hradě.');
@@ -545,4 +547,119 @@ test('„Najít lety sem“: místo jako cíl letů, termín jen vybraný v Obje
   assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'day', tripDays: { day: 1 } })), { xOut: '2026-10-20', xBack: '2026-10-20' });
   assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'bike' })), { xOut: '2026-10-20' }, 'kolo: jen let tam');
   assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'hike' })), { xOut: '2026-10-20' });
+});
+
+// 🔎 Co tam je (flights.js): „Co vidět“ z míst Objevuj, stejný dotaz jako Objevuj, předání do Objevuj (Places.openAt).
+const PV = (name, score, image = null, extra = {}) => ({ id: name, name, score, image, category: 'museum', categoryLabel: 'Muzeum', distanceKm: 1.2, ...extra });
+const IMG = 'https://commons.wikimedia.org/wiki/Special:FilePath/X.jpg?width=500';
+const ymdIn = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+test('náhled cíle: 6 nejlepších míst ve městě, napřed s fotkou, bez fotky jen doplní, výlety ne', () => {
+  const items = [PV('A', 50), PV('B', 40, IMG), PV('Výlet', 99, IMG, { category: 'daytrip' }), PV('C', 30, IMG), PV('D', 20, IMG), PV('F', 45),
+    PV('E', 10, IMG), PV('G', 5), PV('H', 1), null, { id: 'bez jména', score: 70, image: IMG }];
+  assert.deepEqual(plain(T.previewPick(items).map((x) => x.name)), ['B', 'C', 'D', 'E', 'A', 'F']);
+  // s fotkou aspoň 6 → jen ta, podle skóre (i když server pošle jiné pořadí)
+  const many = [PV('bez fotky', 100), ...Array.from({ length: 8 }, (_, i) => PV(`P${i}`, i, IMG))];
+  assert.deepEqual(plain(T.previewPick(many).map((x) => x.name)), ['P7', 'P6', 'P5', 'P4', 'P3', 'P2']);
+  assert.deepEqual(plain(T.previewPick(items, 2).map((x) => x.name)), ['B', 'C']);
+  assert.deepEqual(plain(T.previewPick(undefined)), []);
+  assert.deepEqual(plain(T.previewPick([PV('Výlet', 9, IMG, { category: 'daytrip' })])), []);
+  // skutečná místa Barcelony (bez fotek a skóre v uloženém vzorku): ve městě, v pořadí ze serveru
+  const bcn = T.previewPick(BCN.items);
+  assert.deepEqual(plain(bcn.map((x) => x.name)), BCN.items.filter((x) => x.category !== 'daytrip').slice(0, 6).map((x) => x.name));
+  assert.equal(bcn[0].name, 'Sagrada Família');
+});
+
+test('náhled cíle: karta (fotka, druh, jedna věta, anglicky se štítkem), počty česky, nic k vidění', () => {
+  const P = load().window.Places;
+  const img = "https://upload.wikimedia.org/a b'(c).jpg";
+  const card = T.previewCard(PV(XSS, 5, img, { extract: 'Gotická katedrála ze 14. století s věží. Druhá věta už se nevypíše.', unesco: true, distanceKm: 0.8 }));
+  assert.ok(!card.includes('<img src=x'), 'název escapovaný');
+  assert.ok(card.includes("background-image:url('https://upload.wikimedia.org/a%20b%27%28c%29.jpg')"));
+  assert.ok(card.includes('🏛️ Muzeum · UNESCO · 0,8\u00a0km'));
+  assert.ok(card.includes('Gotická katedrála ze 14. století s věží.') && !card.includes('Druhá věta'));
+  const en = T.previewCard(PV('Old Bridge', 5, null, { category: 'bridge', categoryLabel: 'Most', extract: 'The bridge was built in 1566 and is one of the best known sights of the city. It was destroyed in 1993.', descLang: 'en' }));
+  assert.ok(en.includes('poi-lang') && en.includes('anglicky') && !en.includes('destroyed'));
+  assert.ok(en.includes('<div class="dp-img" aria-hidden="true">🌉</div>'), 'bez fotky ikona druhu');
+  assert.ok(!T.previewCard(PV('Bez popisu', 1)).includes('dp-pd'));
+  assert.ok(T.previewCard(PV('Bez druhu', 1, null, { category: 'xyz', categoryLabel: '' })).includes('📍 Zajímavosti'));
+  assert.deepEqual([[1, 0], [3, 0], [4, 0], [5, 0], [0, 1], [0, 8], [2, 3], [1, 1], [0, 0]].map(([c, t]) => T.moreTxt(c, t)), [
+    'Ještě jedno místo najdeš v Objevuj.', 'Další 3 místa najdeš v Objevuj.', 'Další 4 místa najdeš v Objevuj.', 'Dalších 5 míst najdeš v Objevuj.',
+    '1 výlet do okolí najdeš v Objevuj.', '8 výletů do okolí najdeš v Objevuj.', 'Další 2 místa a 3 výlety do okolí najdeš v Objevuj.',
+    'Ještě jedno místo a 1 výlet do okolí najdeš v Objevuj.', '']);
+  const items = Array.from({ length: 9 }, (_, i) => PV(`M${i}`, 9 - i)).concat([PV('Výlet', 1, null, { category: 'daytrip' })]);
+  const html = P.previewHtml(items);
+  assert.equal((html.match(/class="dp-poi"/g) || []).length, 6);
+  assert.ok(html.includes('Další 3 místa a 1 výlet do okolí najdeš v Objevuj.'));
+  assert.ok(!P.previewHtml(items.slice(0, 6)).includes('dp-more'), 'všechno vidět – žádné „další“');
+  assert.ok(P.previewHtml([]).includes('Do 10 km od centra jsem nenašel nic'));
+  assert.ok(P.previewHtml([], 20).includes('Do 20 km od centra'), 'okruh dotazu');
+  assert.ok(P.previewHtml([PV('Výlet', 1, null, { category: 'daytrip' })]).includes('nenašel nic'));
+});
+
+test('náhled cíle: stejný dotaz na místa jako výchozí seznam Objevuj (sdílená mezipaměť serveru), znovu bez dotazu, bez sítě v testu', async () => {
+  const urls = [];
+  const ok = (items) => async (url) => { urls.push(String(url)); return { ok: true, status: 200, json: async () => ({ demo: false, items }) }; };
+  const P = load({ fetch: ok([PV('A', 1)]) }).window.Places;
+  const BC = { lat: 41.3874, lon: 2.1686 };
+  const j = await P.preview(BC);
+  assert.deepEqual(plain(j), { items: [PV('A', 1)], demo: false, km: 10 });
+  assert.deepEqual(urls, ['api/poi?lat=41.3874&lon=2.1686&radius=10']);
+  assert.equal(P._t.ex.radius, P._t.PREVIEW_KM, 'výchozí okruh Objevuj = okruh náhledu');
+  assert.equal(P._t.poiUrl(BC, P._t.ex.radius), urls[0], 'Objevuj by se ptalo stejně');
+  // znovu otevřený cíl (i s polohou zaokrouhlenou jako na serveru): bez dotazu
+  await P.preview({ lat: 41.38741, lon: 2.16862 });
+  assert.equal(urls.length, 1);
+  // Objevuj (loadExplore) převezme dotaz náhledu pro okruh do 10 km, větší okruh se ptá samo
+  assert.ok(P._t.pvFor(BC, 10) && P._t.pvFor(BC, 5) && P._t.pvFor(BC, 3));
+  assert.equal(P._t.pvFor(BC, 20), null);
+  assert.equal(P._t.pvFor({ lat: 41.4, lon: 2.1686 }, 10), null, 'jiné místo');
+  assert.equal(P._t.pvFor(BC, 10, Date.now() + 31 * 60e3), null, 'po 30 min znovu');
+  // zvolený větší okruh Objevuj: náhled se ptá stejně jako Objevuj
+  const store = { [T.UI_LS]: JSON.stringify({ radius: 20 }) }, u2 = [];
+  const P2 = load({ fetch: async (u) => { u2.push(u); return { ok: true, status: 200, json: async () => ({ items: [] }) }; }, localStorage: { getItem: (k) => store[k] ?? null, setItem: () => {} } }).window.Places;
+  assert.equal((await P2.preview(BC)).km, 20);
+  assert.deepEqual(u2, ['api/poi?lat=41.3874&lon=2.1686&radius=20']);
+  // chyba se nepamatuje: další otevření se zeptá znovu
+  let n = 0;
+  const P3 = load({ fetch: async () => { n++; return n === 1 ? { ok: false, status: 429, json: async () => ({ error: 'Moc dotazů' }) } : { ok: true, status: 200, json: async () => ({ items: [PV('B', 1)] }) }; } }).window.Places;
+  await assert.rejects(P3.preview(BC), /Moc dotazů/);
+  assert.equal(P3._t.pvFor(BC, 10), null);
+  assert.deepEqual(plain((await P3.preview(BC)).items.map((x) => x.name)), ['B']);
+  assert.equal(n, 2);
+});
+
+test('Places.openAt: Objevuj na městě z náhledu – program ve městě na dny cesty, volby zůstanou, místa z náhledu', async () => {
+  const make = (saved) => {
+    const views = [], urls = [], store = saved ? { [T.UI_LS]: JSON.stringify(saved) } : {};
+    const ctx = load({ go: (v) => views.push(v), setTimeout, clearTimeout, fetch: async (u) => { urls.push(u); return { ok: true, status: 200, json: async () => ({ items: [PV('A', 3)] }) }; },
+      localStorage: { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = v; } } });
+    return { P: ctx.window.Places, views, urls, store };
+  };
+  const TPS = { label: 'Trapani', lat: 38.0176, lon: 12.5365, cc: 'IT', country: 'Itálie' };
+  const a = make({ mode: 'bike', radius: 5, pace: 'relaxed', interests: ['art'], place: { label: 'Lisabon', lat: 38.72, lon: -9.14, cc: 'PT' } });
+  await a.P.preview(TPS); // náhled místa načetl
+  assert.equal(a.P.openAt(TPS, { start: ymdIn(10), days: 3 }), true);
+  const X = a.P._t.ex;
+  assert.deepEqual(plain(X.place), { lat: 38.0176, lon: 12.5365, label: 'Trapani', cc: 'IT', geo: false, country: 'Itálie' });
+  assert.deepEqual(plain([X.mode, X.start, X.datePicked, X.days, X.radius, X.pace, [...X.interests]]), ['city', ymdIn(10), true, 3, 5, 'relaxed', ['art']], 'program ve městě na termín cesty, ostatní volby zapamatované');
+  assert.deepEqual(a.views, ['explore']);
+  assert.equal(X.loaded, null, 'místa načte Objevuj při vykreslení…');
+  assert.ok(a.P._t.pvFor(X.place, X.radius), '…z dotazu náhledu (okruh 10 km pokryje zvolených 5 km)');
+  assert.equal(a.urls.length, 1, 'žádný další dotaz');
+  const saved = JSON.parse(a.store[T.UI_LS]);
+  assert.equal(saved.place.label, 'Trapani');
+  assert.equal(saved.mode, 'city');
+  assert.deepEqual(saved.recent.map((r) => r.label), ['Trapani'], 'v „Naposledy“');
+  // dní pobytu → nejbližší nižší nabízený počet; jen tam = zvolený počet; termín v minulosti se nepřevezme
+  const b = make({ days: 2 });
+  b.P.openAt(TPS, { start: ymdIn(5), days: 9 });
+  assert.deepEqual([b.P._t.ex.days, b.P._t.ex.start], [7, ymdIn(5)]);
+  const c = make({ days: 2 });
+  c.P.openAt({ ...TPS, country: '' }, { start: ymdIn(-1), days: 0 });
+  assert.deepEqual([c.P._t.ex.days, c.P._t.ex.datePicked], [2, undefined]);
+  assert.notEqual(c.P._t.ex.start, ymdIn(-1));
+  assert.equal(c.P.openAt({ label: '', lat: 1, lon: 2 }), false);
+  assert.equal(c.P.openAt({ label: 'X', lat: 'a', lon: 2 }), false);
+  assert.deepEqual(c.views, ['explore'], 'neplatné místo Objevuj neotevře');
 });
