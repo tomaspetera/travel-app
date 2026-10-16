@@ -505,7 +505,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 #watchStatSub.jump{cursor:pointer}
 .nav-badge.drop{background:rgba(52,211,153,.16);color:var(--good)}
 .mobile-nav .mi{position:relative}
-.mi-dot{position:absolute;top:2px;left:calc(50% + 7px);width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 2px var(--surface-solid)}
+.mi-dot{position:absolute;top:1px;left:calc(50% + 8px);width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 2px var(--surface-solid)}
 .mi-dot[hidden]{display:none}
 
 /* Přehled cílů („kamkoliv“): řádek na město, klepnutím plná karta */
@@ -542,6 +542,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .radar-card{padding:14px;cursor:pointer;transition:.18s var(--ease);min-height:118px}
 .radar-card:hover{transform:translateY(-3px);border-color:var(--border-2)}
 .radar-card.hot{border-color:rgba(251,113,133,.45)}
+@media(hover:none){.radar-card:hover{transform:none}.radar-card:active{transform:scale(.985)}}
 /* karta: vlajka + město (⋯ v rohu), velká cena, štítky, trasa s termínem */
 .radar-card{position:relative;display:flex;flex-direction:column;gap:4px}
 .radar-card>span:empty{display:none}

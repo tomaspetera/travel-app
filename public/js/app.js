@@ -347,8 +347,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-16b';
+const WN_ID = '2026-10-16c';
 const WHATS_NEW = [
+  ['📱', 'Nový vzhled na telefonu', 'spodní lišta s aktivní sekcí v kapsli, okna vyjíždějí zespodu a zavřeš je stažením dolů; na iPhonu bez přiblížení při psaní.'],
   ['⚙️', 'Výsledky hned nahoře', 'na mobilu jsou filtry, řazení a „Odkud se vyplatí letět“ pod tlačítkem ⚙️ Filtry; formulář se po hledání sbalí (✎ Upravit).'],
   ['📌', 'Odložené nabídky', '„📌 Odložit“ u nabídky nebo v ⋯ na kartě – pak <b>Porovnat</b> vedle sebe a 📤 poslat k výběru.'],
   ['🔎', 'Co tam je', 'na kartě výsledku a pod ⓘ v radaru: místa s fotkou, cesta z letiště do města, počasí, vstup.'],
@@ -456,6 +457,32 @@ function renderCountries() {
 function modalOpen(html) { $('#modal').innerHTML = html; $('#modalBg').classList.add('show'); }
 function modalClose() { $('#modalBg').classList.remove('show'); }
 $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) modalClose(); };
+// telefon: panel zespodu jde zavřít stažením za horní okraj (úchyt) dolů – jen když je obsah odscrollovaný nahoru
+(() => {
+  const m = $('#modal');
+  let y0 = null, dy = 0;
+  const reset = () => { m.style.transform = ''; m.style.transition = ''; };
+  m.addEventListener('touchstart', e => {
+    y0 = null;
+    if (innerWidth > 560 || m.scrollTop > 0 || e.touches.length > 1) return;
+    if (e.touches[0].clientY - m.getBoundingClientRect().top > 64 || e.target.closest('input,textarea,select,.maplibregl-map')) return;
+    y0 = e.touches[0].clientY; dy = 0; m.style.transition = 'none';
+  }, { passive: true });
+  m.addEventListener('touchmove', e => {
+    if (y0 == null) return;
+    dy = Math.max(0, e.touches[0].clientY - y0);
+    m.style.transform = dy ? `translateY(${dy}px)` : '';
+  }, { passive: true });
+  const end = () => {
+    if (y0 == null) return;
+    y0 = null;
+    m.style.transition = 'transform .2s ease';
+    if (dy > 90) { m.style.transform = 'translateY(100%)'; setTimeout(() => { modalClose(); reset(); }, 190); }
+    else { m.style.transform = ''; setTimeout(reset, 210); }
+  };
+  m.addEventListener('touchend', end);
+  m.addEventListener('touchcancel', end);
+})();
 function monthsStrip(best) { const now = new Date().getMonth() + 1; return `<div class="months">${MNS.map((m, i) => `<div class="m ${best && best.includes(i + 1) ? 'best' : ''} ${i + 1 === now ? 'now' : ''}">${m}</div>`).join('')}</div>`; }
 // Průměrná denní maxima po měsících (/api/climate: meteostanice u hlavního letiště, jinak NASA POWER); bez dat jen zástupné buňky stejné výšky.
 const tempBg = t => `hsl(${Math.max(0, Math.min(220, 220 - (t + 5) * 6.3))} 85% 55% / .28)`;
