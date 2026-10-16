@@ -489,3 +489,11 @@ test('hledání do země s jediným cílovým městem: destination.sole = jeho k
     assert.deepEqual([ap.mode, ap.destination.sole], ['route', undefined], 'konkrétní cíl se neschovává nikdy (route)');
   } finally { stub.restore(); }
 });
+
+test('místa: mešita a synagoga nejsou „Kostel / chrám“', async () => {
+  const { catLabel } = await import('../server/lib/poi.js');
+  assert.equal(catLabel({ category: 'church', name: 'Atik Behram-begova (Šarena) džamija' }), 'Mešita');
+  assert.equal(catLabel({ category: 'church', name: 'Staronová synagoga' }), 'Synagoga');
+  assert.equal(catLabel({ category: 'church', name: 'Katedrála sv. Víta' }), 'Kostel / chrám');
+  assert.equal(catLabel({ category: 'museum', name: 'Mešita (muzeum)' }), 'Muzeum');
+});

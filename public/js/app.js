@@ -345,8 +345,31 @@ function showNow() {
   go('dashboard');
   const c = $('#nowCard'); if (c) c.focus({ preventScroll: true });
 }
+/* ---------- ✨ Co je nového ----------
+   Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
+const WN_ID = '2026-10-16';
+const WHATS_NEW = [
+  ['📌', 'Odložené nabídky', '„📌 Odložit“ u nabídky nebo v ⋯ na kartě – pak <b>Porovnat</b> vedle sebe a 📤 poslat k výběru.'],
+  ['🔎', 'Co tam je', 'na kartě výsledku a pod ⓘ v radaru: místa s fotkou, cesta z letiště do města, počasí, vstup.'],
+  ['⭐', 'Moje cíle / 🙈 Nezajímá mě', 'v ⋯ na kartě; oblíbené s cenami v pruhu níž na Přehledu.'],
+  ['🚆', 'Vlak a bus podle skutečných jízdenek', '„běžně ~X Kč (od ~Y)“; vlastní cenu cesty na letiště zadáš v Lety → Další možnosti → 🏠.'],
+  ['🕘', 'Stáří cen', '„ceny z 14:32“ nad výsledky, po hodině upozornění a ↻ Hledat znovu; v průvodci „cena z …“.'],
+  ['🏨', 'Hotely s cenami', 'v průvodci Cesta → Ubytování: odkaz na web, kde je pokoj na tvoje dny volný, a ↻ Aktualizovat ceny.'],
+  ['⚡', 'Výsledky během hledání', 'nejlevnější nabídky naskakují hned, v Kalendáři mřížka termín × počet nocí.'],
+];
+function renderWhatsNew() {
+  const el = $('#whatsNew'); if (!el) return;
+  let seen = null; try { seen = localStorage.getItem('atlas_wn'); } catch (e) { /* soukromé okno */ }
+  el.hidden = seen === WN_ID;
+  if (el.hidden) return;
+  el.innerHTML = `<details open><summary><b>✨ Co je nového</b> <span class="faint">– kde novinky najdeš</span></summary>
+    <ul class="wn-list">${WHATS_NEW.map(x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${x[2]}</div></li>`).join('')}</ul>
+    <button type="button" class="btn sm ghost" id="wnHide">Rozumím, skrýt</button></details>`;
+  $('#wnHide').onclick = () => { try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* nevadí */ } el.hidden = true; };
+}
 function renderDash() {
   renderDashStats();
+  renderWhatsNew();
   $$('.link[data-go]').forEach(l => l.onclick = () => go(l.dataset.go));
   if (window.Flights) { Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); Flights.renderFav(); Flights.renderPins(); }
 }
@@ -931,6 +954,8 @@ function wireEvents() {
     if (ch.has('trip') && activeView === 'trip' && window.Trip) Trip.render(); // handlery průvodce na převzatou S.trip
     // ⭐ / 🙈 z jiného okna: radar, pruh ⭐ Moje cíle, rychlé hledání a výpis hned podle nich (jen překreslit, bez ukládání)
     if ((ch.has('fav') || ch.has('mute')) && window.Flights && Flights.refreshPrefs) Flights.refreshPrefs();
+    // domov radaru, Kdykoliv / Víkendy / Svátky nebo vybraný svátek z jiného okna: čip, Odkud na Přehledu i radar
+    if ((ch.has('home') || ch.has('radarMode') || ch.has('radarHoliday')) && window.Flights && Flights.homeChanged) Flights.homeChanged();
     // 📌 odložené nabídky z jiného okna: radar, Přehled, výpis i otevřené Porovnat
     if (ch.has('pins') && window.Flights && Flights.refreshPins) Flights.refreshPins();
   });

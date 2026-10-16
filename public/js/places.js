@@ -37,6 +37,8 @@
   const TRANSPORTS = [['car', '🚗 Autem'], ['transit', '🚆 Vlakem a busem']];
 
   const icon = c => (CAT[c] || CAT.sight)[0];
+  // ikona místa: mešita a synagoga (serverový popis kategorie church) ne ⛪
+  const picon = p => (p.categoryLabel === 'Mešita' ? '🕌' : p.categoryLabel === 'Synagoga' ? '🕍' : icon(p.category));
   const color = c => (CAT[c] || CAT.sight)[2];
   const plusDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00'); d.setDate(d.getDate() + n); return fmtYMD(d); };
   // nezlomitelné mezery: „ne 11. 10.“ se na telefonu nerozdělí na dva řádky
@@ -512,8 +514,8 @@
     ? `<div class="${cls}">Zahrnuje: ${esc(p.includes.slice(0, 5).join(', '))}${p.includes.length > 5 ? ` a ${p.includes.length - 5} další` : ''}</div>` : '');
   function poiCard(p, opts = {}) {
     return `<div class="poi" data-poi="${esc(p.id)}">
-      <div class="poi-img" ${p.image ? `style="background-image:url('${esc(cssUrl(p.image))}')"` : ''}>${p.image ? '' : icon(p.category)}</div>
-      <div><div class="poi-name">${icon(p.category)} ${esc(p.name)}</div>
+      <div class="poi-img" ${p.image ? `style="background-image:url('${esc(cssUrl(p.image))}')"` : ''}>${p.image ? '' : picon(p)}</div>
+      <div><div class="poi-name">${picon(p)} ${esc(p.name)}</div>
         <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${p.distanceKm} km` : ''}${p.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : p.heritage ? ' · památka' : ''}${p.wikivoyage ? ' · <b style="color:var(--good)" title="Místo doporučuje cestovní průvodce Wikivoyage">👍 doporučuje Wikivoyage</b>' : ''}</div>
         ${inclHtml(p, 'poi-inc')}<div class="poi-desc">${descHtml(p.extract || p.description || '', p.descLang)}</div>
         <div class="poi-acts">${p.url ? `<a href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Wikipedie ↗</a>` : ''}
@@ -745,7 +747,7 @@
   const previewCard = p => {
     const d = p.extract || p.description || '';
     return `<div class="dp-poi"><div class="dp-img"${p.image ? ` style="background-image:url('${esc(cssUrl(p.image))}')"` : ''} aria-hidden="true">${p.image ? '' : icon(p.category)}</div>
-      <div class="dp-pt"><b>${esc(p.name)}</b><span class="dp-pm">${icon(p.category)} ${esc(p.categoryLabel || (CAT[p.category] || CAT.sight)[1])}${p.unesco ? ' · UNESCO' : ''}${p.distanceKm != null ? ` · ${String(p.distanceKm).replace('.', ',')}\u00a0km` : ''}</span>${
+      <div class="dp-pt"><b>${esc(p.name)}</b><span class="dp-pm">${picon(p)} ${esc(p.categoryLabel || (CAT[p.category] || CAT.sight)[1])}${p.unesco ? ' · UNESCO' : ''}${p.distanceKm != null ? ` · ${String(p.distanceKm).replace('.', ',')}\u00a0km` : ''}</span>${
         d ? `<span class="dp-pd">${descHtml(isEnglish(d, p.descLang) ? d : firstSentence(d), p.descLang)}</span>` : ''}</div></div>`;
   };
   /**

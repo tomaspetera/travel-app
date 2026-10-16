@@ -66,6 +66,9 @@ const MINOR_TEXT = /stadion|stadium|univerzit|university|\bhotel\b/i;
 const CAT_OF = new Map(Object.entries(TYPES).flatMap(([cat, ids]) => ids.map((id) => [id, cat])));
 const UNESCO = 'Q9259';
 
+// Mešita a synagoga nejsou „kostel“: přesnější popis kategorie church podle názvu místa
+const RELIG = [[/mešit|džamij|dzamij|mosque|moschee|mosquée|camii|\bcami\b|mezquita|meczet|masjid|dzsámi/i, 'Mešita'], [/synagog|zsinagóga|sinagoga/i, 'Synagoga']];
+export const catLabel = (p) => (p.category === 'church' && (RELIG.find(([re]) => re.test(p.name || '')) || [])[1]) || CATEGORY_CS[p.category];
 export const CATEGORY_CS = {
   museum: 'Muzeum', gallery: 'Galerie', church: 'Kostel / chrám', castle: 'Hrad / pevnost', palace: 'Palác / zámek',
   monument: 'Památník', square: 'Náměstí', oldtown: 'Historické centrum', viewpoint: 'Vyhlídka', park: 'Park / zahrada',
@@ -455,7 +458,7 @@ export function mockPlaces({ lat, lon }) {
     out.push(p);
   }
   out.push({ id: 'demoTrip', name: 'Ukázkový výlet', description: 'demo data', lat: lat + 0.35, lon: lon + 0.2, sitelinks: 80, category: 'daytrip', tripKind: 'town', extract: 'Vymyšlený celodenní výlet (DEMO).', distanceKm: Math.round(haversineKm(lat, lon, lat + 0.35, lon + 0.2)) });
-  for (const p of out) { p.score = scorePlace(p); p.categoryLabel = CATEGORY_CS[p.category]; }
+  for (const p of out) { p.score = scorePlace(p); p.categoryLabel = catLabel(p); }
   return out.sort((a, b) => b.score - a.score);
 }
 
@@ -842,7 +845,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
       const fb = applyWikivoyage(await findPlacesViaWikipedia({ lat, lon }), await wvP).sort((a, b) => b.score - a.score);
       const picked = fb.slice(0, limit);
       await enrich(picked, { preferCs: true });
-      const out = picked.map((p) => ({ ...p, categoryLabel: CATEGORY_CS[p.category] || p.category }));
+      const out = picked.map((p) => ({ ...p, categoryLabel: catLabel(p) || p.category }));
       out.degraded = true;
       return out;
     }
@@ -869,7 +872,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     });
     const picked = [...merged, ...trips.sort((a, b) => b.score - a.score).slice(0, 8)];
     const enrichFailed = await enrich(picked, { preferCs: true });
-    const out = picked.map(({ partOf, island, serial, wv, minor, ...p }) => ({ ...p, categoryLabel: p.eatery ? 'Kavárna / restaurace' : CATEGORY_CS[p.category] || p.category }));
+    const out = picked.map(({ partOf, island, serial, wv, minor, ...p }) => ({ ...p, categoryLabel: p.eatery ? 'Kavárna / restaurace' : catLabel(p) || p.category }));
     if (tripsMissing || enrichFailed || wvFailed) out.degraded = true;
     return out;
   });

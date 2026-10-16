@@ -961,9 +961,11 @@
     const jaws = (trips || res.top || (res.groups || []).flatMap(g => g.options || [])).filter(t => t && t.out && t.back && t.back.to !== t.out.from && Number.isFinite(t.perPersonCzk));
     const dist = o => (Number.isFinite(o.distKm) ? o.distKm : 1e9);
     const near = list => list.reduce((m, o) => (!m || dist(o) < dist(m) ? o : m), null);
-    const ref = near(priced.filter(o => !o.hub)) || near(priced);
+    // odkud = celá země (Česko): letiště bez vzdálenosti od domova – základ je nejlevnější, žádné „nejbližší“
+    const flat = new Set(priced.map(dist)).size === 1 && !priced.some(o => o.ground);
+    const ref = flat ? priced.reduce((m, o) => (!m || bestOf(o).czk < bestOf(m).czk ? o : m), null) : near(priced.filter(o => !o.hub)) || near(priced);
     // základ není nejbližší letiště vůbec (to nemá nabídku odsud a zpět) → „nejbližší s nabídkou“
-    const nearest = ref === (near(os.filter(o => !o.hub)) || near(os));
+    const nearest = !flat && ref === (near(os.filter(o => !o.hub)) || near(os));
     const mult = res.query && res.query.trip === 'return' ? 2 : 1; // cesta na letiště tam i zpět
     const mins = o => (o.ground && o.ground.minutes > 0 ? o.ground.minutes : null);
     const czkOf = o => (bestOf(o) && bestOf(o).czk > 0 ? bestOf(o).czk : null);
@@ -987,13 +989,16 @@
    */
   function originFoot(res, oc = originCompare(res)) {
     const q = (res && res.query) || {}, ret = q.trip === 'return', car = q.groundMode === 'car';
+    // odkud = celá země: bez domova se cesta na letiště nepočítá, i když je zapnutá
+    const km = q.kmRate && ((res && res.origins) || []).some(o => o && o.ground);
     const and = l => (l.length > 1 ? `${l.slice(0, -1).join(', ')} a ${l[l.length - 1]}` : l[0] || '');
-    const inc = [q.kmRate && `dopravy na letiště${ret ? ' a zpět' : ''}${car ? ` (autem${ret ? ' i parkování' : ''})` : ''}`,
+    const inc = [km && `dopravy na letiště${ret ? ' a zpět' : ''}${car ? ` (autem${ret ? ' i parkování' : ''})` : ''}`,
       (q.bags === 'cabin' || q.bags === 'checked') && 'zavazadel', q.arrival && 'cesty do města'].filter(Boolean);
-    const exc = [!q.kmRate && 'dopravy na letiště', !q.arrival && 'cesty do města'].filter(Boolean);
-    return `${q.kmRate ? 'Celá cesta' : 'Cena'} na osobu${inc.length ? ` vč. ${and(inc)}` : ''}${exc.length ? `${inc.length ? ',' : ''} bez ${and(exc)} (vypnuto v Další možnosti)` : ''}`
+    const exc = [!km && `dopravy na letiště${q.kmRate ? ' (odkud je celá země)' : ''}`, !q.arrival && 'cesty do města'].filter(Boolean);
+    const off = !q.kmRate || !q.arrival ? ' (vypnuto v Další možnosti)' : '';
+    return `${km ? 'Celá cesta' : 'Cena'} na osobu${inc.length ? ` vč. ${and(inc)}` : ''}${exc.length ? `${inc.length ? ',' : ''} bez ${and(exc)}${off}` : ''}`
       + ` – ${oc && oc.filtered ? 'nejlevnější z nabídek, které ukazují filtry výpisu' : 'nejlevnější ze všech nalezených nabídek, nejen z těch ve výpisu'}${oc && oc.jaw != null ? ', jen s odletem i návratem na totéž letiště (cesty s návratem jinam jsou jen ve výpisu)' : ''}.`
-      + ` Čas = odhad cesty na letiště${ret ? ' tam i zpět' : ''}. Klepnutím ukážeš jen lety z daného letiště, dalším klepnutím zase všechna.`;
+      + `${km ? ` Čas = odhad cesty na letiště${ret ? ' tam i zpět' : ''}.` : ''} Klepnutím ukážeš jen lety z daného letiště, dalším klepnutím zase všechna.`;
   }
   /** Rozdíl řádku srovnání proti nejbližšímu letišti: „−450 Kč · +2 h 40 min cesty“, „stejně“, „nejbližší letiště“. */
   function originDiffTxt(r) {
@@ -1615,7 +1620,9 @@
     if (Array.isArray(r.top) && r.top.some(t => t && t.cell)) c = { ...c, res: r = { ...r, top: r.top.filter(t => !(t && t.cell)) } };
     const s = JSON.stringify(c);
     if (s.length <= cap) return s;
-    const res = { ...r, groups: (r.groups || []).map(g => ({ ...g, options: (g.options || []).slice(0, keep) })) };
+    // prvních keep nabídek cíle + nejlevnější z každého dalšího letiště odletu (filtr „jen lety z X“ i po obnovení)
+    const opts = o => { const out = o.slice(0, keep), have = new Set(out.map(t => t && t.out && t.out.from)); for (const t of o.slice(keep)) if (t && t.out && !have.has(t.out.from)) { have.add(t.out.from); out.push(t); } return out; };
+    const res = { ...r, groups: (r.groups || []).map(g => ({ ...g, options: opts(g.options || []) })) };
     if (!Array.isArray(r.top)) { const t = JSON.stringify({ ...c, res }); return t.length <= cap ? t : null; }
     const cal = r.calendar && r.calendar.grid ? (({ grid, ...rest }) => rest)(r.calendar) : null;
     return topPack(c, res, cap) || (cal ? topPack(c, { ...res, calendar: cal }, cap) : null);

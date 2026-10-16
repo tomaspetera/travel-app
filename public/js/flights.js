@@ -250,7 +250,10 @@
     pick(s) {
       if (!s) return;
       const item = { id: s.id, label: s.label, flag: s.flag || '📍', type: s.type };
-      if (!this.items.some(x => x.id === item.id)) { if (this.items.length >= this.max) this.items.shift(); this.items.push(item); }
+      if (!this.items.some(x => x.id === item.id)) {
+        if (this.items.length >= this.max) { toast(`Nejvýš ${this.max} ${this.max <= 4 ? 'místa' : 'míst'} – nejdřív některé odeber`, 'err'); return; }
+        this.items.push(item);
+      }
       this.input.value = ''; this.close(); this.render(); this.onChange(this.items);
     }
     set(items, silent) { this.items = (items || []).slice(0, this.max); this.render(); if (!silent) this.onChange(this.items); }
@@ -937,6 +940,14 @@
   }
 
   /* ---------- domov (odkud obvykle létáš) ---------- */
+  // Domov radaru, režim nebo svátek změněný jinde (jiné okno, obnova zálohy): čip domova, Odkud v hledání na Přehledu,
+  // radar a pruh ⭐ podle nich – ne podle stavu před změnou (nastavení radaru otevřené právě teď nechá být)
+  function homeChanged() {
+    updateHomeChip();
+    if (heroFrom) heroFrom.set(S.home?.from || [], true);
+    if (document.querySelector('#radarGo')) return;
+    if (!$('#view-dashboard') || $('#view-dashboard').classList.contains('active')) { renderRadar(); renderFav(); }
+  }
   function updateHomeChip() {
     const h = S.home && S.home.from?.length ? S.home : null;
     const f = h ? h.from : fromInput ? fromInput.items : [];
@@ -1207,7 +1218,7 @@
       return `<div class="prow ${p.state}"><span class="pdot" style="background:${provColor(p.id)}"></span><b>${esc(provName(p.id))}</b>
         <div class="pbar"><span style="width:${pct}%"></span></div>
         <span class="pnum">${p.calls ? `${p.done}/${p.calls}` : ''}</span>
-        <span class="pst">${st}${p.found ? ` · ${p.found} nálezů` : ''}${p.ms && !starting && p.state !== 'running' ? ` · ${(p.ms / 1000).toFixed(1)} s` : ''}</span>
+        <span class="pst">${st}${p.found ? ` · ${plural(p.found, 'nález', 'nálezy', 'nálezů')}` : ''}${p.ms && !starting && p.state !== 'running' ? ` · ${(p.ms / 1000).toFixed(1).replace('.', ',')} s` : ''}</span>
         ${p.note ? `<div class="pnote">${esc(p.note)}</div>` : ''}${p.error ? `<div class="pnote err">${esc(p.error)}</div>` : ''}</div>`;
     }).join('');
     const disabled = (health?.providers || []).filter(p => !p.enabled && p.hint && p.kind !== 'stays').map(p => `<div class="prow off"><span class="pdot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="pst">vypnuto</span><div class="pnote">${esc(p.hint)}</div></div>`).join('');
@@ -1359,6 +1370,7 @@
   function groundFoot(res, multi = false) {
     const q = res.query;
     if (!q.kmRate) return 'bez dopravy na letiště (vypnuto v Další možnosti)';
+    if (res.origins && res.origins.length && !res.origins.some(o => o && o.ground)) return 'bez dopravy na letiště (odkud je celá země – není odkud ji počítat)';
     const where = multi ? 'na letiště na začátku cesty a z letiště domů' : 'na letiště a zpět';
     if (q.groundMode === 'car') {
       const e = resFuel(res), fuel = e && e.fuel === 'ev' ? 'nabíjení' : 'palivo';
@@ -1458,7 +1470,9 @@
     filledNow = fill();
     if (view.newOnly && (S.visited || []).length < SearchHelp.NEW_MIN) view.newOnly = false; // odškrtnuté země pod práh – filtr nic neschová
     const groups = computeGroups();
-    const flat = isRoute ? shown.concat(filledNow).sort((a, b) => cmp(sortKey(a), sortKey(b))) : null;
+    // skupina cíle k řazení (Cena + ideální sezóna potřebuje zemi cíle)
+    const gOf = new Map((res.groups || []).map(g => [g.dest.key, g])), gk = t => gOf.get(t.destKey);
+    const flat = isRoute ? shown.concat(filledNow).sort((a, b) => cmp(sortKey(a, gk(a)), sortKey(b, gk(b)))) : null;
     // filtrům vyhoví jen dvojice samostatných letenek, které ATLAS složil sám – říct to rovnou
     const onlyFilled = filledNow.length > 0 && !shown.length;
     const usedProviders = [...new Set(res.groups.flatMap(g => g.options.flatMap(t => [t.out.provider, t.back?.provider].filter(Boolean))))];
@@ -4200,7 +4214,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, renderQuick, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, renderPins, refreshPins: pinsPaint, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, renderQuick, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, renderPins, refreshPins: pinsPaint, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

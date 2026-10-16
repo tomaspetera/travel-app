@@ -255,7 +255,9 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .legend .land-dot{background:var(--map-land);box-shadow:inset 0 0 0 1px var(--map-line)}
 .map-tooltip{position:fixed;pointer-events:none;z-index:200;background:var(--surface-solid);border:1px solid var(--border-2);padding:8px 12px;border-radius:10px;font-size:13px;font-weight:700;box-shadow:var(--shadow);opacity:0;transition:opacity .12s;transform:translate(-50%,-130%)}
 .map-pop{position:fixed;z-index:210;width:230px;transform:translate(-50%,calc(-100% - 14px));padding:14px;display:none}
-.map-pop.show{display:block;animation:fade .2s}
+.map-pop.show{display:block;animation:popIn .2s}
+/* jen průhlednost – posun z animace fade by na 0,2 s přebil umístění bubliny nad zemí */
+@keyframes popIn{from{opacity:0}to{opacity:1}}
 .cont-bars{display:flex;flex-direction:column;gap:13px;margin-top:6px}
 .cont-row .ct{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px}
 .cont-row .ct b{font-weight:700}
@@ -409,3 +411,9 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .bk-actions{display:flex;flex-wrap:wrap;gap:8px}
 .bk-opt{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;margin:6px 0;cursor:pointer}
 .bk-opt input{margin-top:3px;flex:none}
+/* ✨ Co je nového (Přehled) */
+.whats-new{margin:14px 0;padding:14px 16px}
+.whats-new summary{cursor:pointer;font-size:15px}
+.wn-list{list-style:none;margin:10px 0 12px;padding:0;display:grid;gap:8px;font-size:13.5px;line-height:1.45}
+.wn-list li{display:flex;gap:10px;align-items:flex-start}
+.wn-ic{flex:none;width:22px;text-align:center}
