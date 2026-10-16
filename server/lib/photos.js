@@ -15,7 +15,7 @@ const MAX = 30;
 const FP = 'Category:Featured pictures on Wikimedia Commons';
 const QI = 'Category:Quality images';
 // co na kartu nepatří: mapy, znaky, vlajky, koláže, schémata, portréty, detaily a interiéry
-const BAD = /\.(svg|png|gif|tiff?|webm|ogv|ogg|pdf|djvu)$|map|karte|mapa|flag|vlajka|coat[ _]of[ _]arms|herb|znak|wappen|blason|logo|seal|emblem|locator|location|\bplan\b|diagram|chart|\bgraph\b|montage|collage|kol[aá]ž|mosaic|composite|\bicon|signature|portrait|stamp|\bcoin|banknote|\bbust\b|statue|\bgrave|tomb|plaque|interior|inside|altar|fresco|painting|sculpture|museum|stadium|airport|\bstation|\bmetro\b|\btram|\bbus\b|\btrain/i;
+const BAD = /\.(svg|png|gif|tiff?|webm|ogv|ogg|pdf|djvu)$|map|karte|mapa|flag|vlajka|coat[ _]of[ _]arms|herb|znak|wappen|blason|logo|seal|emblem|locator|location|\bplan\b|diagram|chart|\bgraph\b|montage|collage|kol[aá]ž|mosaic|composite|\bicon|signature|portrait|stamp|\bcoin|banknote|\bbust\b|statue|\bgrave|tomb|plaque|interior|inside|altar|fresco|painting|sculpture|museum|stadium|airport|\bstation|\bmetro\b|\btram|\bbus\b|\btrain|school|universit|campus|college|institut|\bhec\b|hospital|headquarters|\boffice|factory|company|hotel|church interior/i;
 // celkový pohled na město
 const NICE = /panoram|skyline|cityscape|aerial|overview|view|vista|old[ _]town|altstadt|stare[ _]miasto|staré[ _]město|centro[ _]storico|from[ _]|sunset|dusk|night|harbou?r|bay|riverside|waterfront/i;
 const noSvg = (s) => (s && !/\.svg/i.test(s) ? s : '');
@@ -57,14 +57,15 @@ export function namesCity(file, names) {
 }
 
 /**
- * Body fotky pro kartu: jméno města v názvu (fotka města, ne okolí), ocenění, celkový pohled, poměr stran (karta
- * je skoro čtverec), rozlišení.
+ * Body fotky pro kartu: hlavní fotka anglického článku, jinak jméno města v názvu (fotka města, ne okolí), ocenění,
+ * celkový pohled, poměr stran (karta je skoro čtverec), rozlišení.
  */
-export function photoScore({ title, cats = [], width = 0, height = 0 }, names = []) {
+export function photoScore({ title, cats = [], width = 0, height = 0, lead = false }, names = []) {
   if (!width || !height || BAD.test(title)) return -Infinity;
   const r = width / height;
   let s = cats.includes(FP) ? 30 : cats.includes(QI) ? 20 : 0;
-  if (names.length && namesCity(title, names)) s += 12;
+  if (lead) s += 15; // hlavní fotka anglického článku – vybrali ji redaktoři jako tvář města
+  else if (names.length && namesCity(title, names)) s += 12;
   if (NICE.test(title)) s += 8;
   if (r >= 1.2 && r <= 2.1) s += 6; // na šířku – oříznutí do karty nevadí
   else if (r > 2.8) s -= 12; // dlouhé panorama by z karty zbyl úzký proužek
@@ -107,14 +108,17 @@ const leadOk = (u) => Boolean(u) && !BAD.test(safeDecode(u.split('?')[0].split('
 async function bestPhotos(titles, api, lead, enOf) {
   // 2) anglická Wikipedie: obrázky v článku (až 3 stránky odpovědi)
   const enTitles = [...new Set(Object.values(enOf).filter(Boolean))];
-  const imgs = new Map();
+  const imgs = new Map(), enLead = new Map();
   if (enTitles.length) {
     let cont = {}, enFin = null;
     for (let i = 0; i < 3; i++) {
-      const j = await api('en.wikipedia.org', { titles: enTitles.join('|'), redirects: '1', prop: 'images', imlimit: 'max', ...cont });
+      const j = await api('en.wikipedia.org', { titles: enTitles.join('|'), redirects: '1', prop: 'images|pageimages', piprop: 'name', imlimit: 'max', ...cont });
       const q = j.query || {};
       if (!enFin) enFin = finalTitles(q, enTitles);
-      for (const p of q.pages || []) if (p.images) imgs.set(p.title, [...(imgs.get(p.title) || []), ...p.images.map((x) => x.title)]);
+      for (const p of q.pages || []) {
+        if (p.pageimage) enLead.set(p.title, 'File:' + p.pageimage.replace(/_/g, ' '));
+        if (p.images) imgs.set(p.title, [...(imgs.get(p.title) || []), ...p.images.map((x) => x.title)]);
+      }
       if (!j.continue || !j.continue.imcontinue) break;
       cont = { imcontinue: j.continue.imcontinue };
     }
@@ -125,7 +129,8 @@ async function bestPhotos(titles, api, lead, enOf) {
   for (const t of titles) {
     names[t] = [enOf[t], t, t.split(/\s*[-–]\s*/)[0]].filter(Boolean);
     const rank = (f) => (namesCity(f, names[t]) ? 2 : 0) + (NICE.test(f) ? 1 : 0);
-    cand[t] = (imgs.get(enOf[t]) || []).filter((f) => !BAD.test(f)).map((f, i) => [f, rank(f), i]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).map((x) => x[0]).slice(0, 20);
+    const ld = enLead.get(enOf[t]);
+    cand[t] = [...new Set([...(ld && !BAD.test(ld) ? [ld] : []), ...(imgs.get(enOf[t]) || []).filter((f) => !BAD.test(f)).map((f, i) => [f, rank(f), i]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).map((x) => x[0])])].slice(0, 20);
   }
   // 3) Commons: ocenění a rozměry (po 50 souborech)
   const files = [...new Set(Object.values(cand).flat())], info = new Map();
@@ -144,10 +149,13 @@ async function bestPhotos(titles, api, lead, enOf) {
   }
   const out = {};
   for (const t of titles) {
-    const ranked = cand[t].map((f) => info.get(f)).filter(Boolean).map((x) => ({ ...x, s: photoScore(x, names[t]) })).filter((x) => x.s > -Infinity).sort((a, b) => b.s - a.s);
-    const awarded = ranked.find((x) => x.cats.includes(FP) || x.cats.includes(QI)), best = ranked[0];
-    // oceněná fotka vede; jinak úvodní obrázek článku, není-li koláž; jinak aspoň slušná fotka na šířku
-    out[t] = awarded ? awarded.url : leadOk(lead[t]) ? lead[t] : best && best.s >= 6 ? best.url : lead[t] || '';
+    const ld = enLead.get(enOf[t]);
+    const ranked = cand[t].map((f) => info.get(f)).filter(Boolean).map((x) => ({ ...x, s: photoScore({ ...x, lead: x.title === ld }, names[t]) })).filter((x) => x.s > -Infinity).sort((a, b) => b.s - a.s);
+    // hlavní fotka anglického článku (tvář města, kterou vybrali redaktoři), není-li koláž, mapa nebo úzký proužek;
+    // jinak nejlepší oceněná; jinak úvodní obrázek českého článku, není-li koláž; jinak aspoň slušná fotka na šířku
+    const li = ld && ranked.find((x) => x.title === ld), lr = li && li.width / li.height;
+    const top = li && lr >= 0.9 && lr <= 2.8 ? li : ranked.find((x) => x.cats.includes(FP) || x.cats.includes(QI)), best = ranked[0];
+    out[t] = top ? top.url : leadOk(lead[t]) ? lead[t] : best && best.s >= 6 ? best.url : lead[t] || '';
   }
   return out;
 }
@@ -161,7 +169,7 @@ export async function cityPhotos(titles, { pick = pickPhotos } = {}) {
   const photos = {}, miss = [];
   let partial = false;
   for (const t of want) {
-    const c = cache.get('ph3:' + t);
+    const c = cache.get('ph4:' + t);
     if (c !== undefined) photos[t] = c;
     else miss.push(t);
   }
@@ -169,7 +177,7 @@ export async function cityPhotos(titles, { pick = pickPhotos } = {}) {
   try {
     const got = await pick(miss);
     partial = got.partial;
-    for (const t of miss) { photos[t] = got.photos[t] || ''; cache.set('ph3:' + t, photos[t], partial ? 36e5 : TTL); }
+    for (const t of miss) { photos[t] = got.photos[t] || ''; cache.set('ph4:' + t, photos[t], partial ? 36e5 : TTL); }
   } catch { /* výpadek – příště znovu */ }
   return { photos, partial };
 }
