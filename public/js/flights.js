@@ -1241,8 +1241,8 @@
       const more = (ev.providers || []).find(p => p.coverage && p.coverage.skipped > 0);
       // kdy jsou ceny konečného výsledku („ceny z 14:32 · podrobnosti ▾“ vpravo – na telefonu i se širokým řádkem obchodů
       // se tam vejde a řádek nezvýší); po hodině ho nahradí poznámka 🕘 (ageCheck)
-      const age = SearchHelp.resultAge(lastResultAt, Date.now()), at = age ? `<span class="ps-at">ceny ${age.z} ${esc(age.when)} · </span>` : '';
-      host.innerHTML = `<details class="card progress-card done"${bad ? ' open' : ''}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">${at}podrobnosti</span></summary>${rows}${disabled}</details>`
+      const age = SearchHelp.resultAge(lastResultAt, Date.now()), at = age ? `<span class="ps-at">ceny ${age.z} ${esc(age.when)}</span>` : '';
+      host.innerHTML = `<details class="card progress-card done"${bad ? ' open' : ''}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">${at}<span class="ps-pd">${at ? ' · ' : ''}podrobnosti</span></span></summary>${rows}${disabled}</details>`
         + (more ? `<div class="more-routes"><button type="button" class="btn sm" id="moreRoutes" title="Na jedno hledání smí ATLAS na ${esc(shopName(more.id))} jen omezený počet dotazů – další hledání vezme nejdřív trasy, na které nedošlo">Prohledat zbylé trasy ${esc(shopName(more.id))} (${more.coverage.skipped})</button></div>` : '');
       const mr = $('#moreRoutes', host); if (mr) mr.onclick = () => rerun();
       return;
@@ -3657,10 +3657,11 @@
     // 📌 karta, jejíž nabídku má uživatel odloženou (z radaru, nebo celou z hledání se stejným nastavením)
     const pins = pinList(), pinned = x => Pins.has(pins, Pins.fromRadar(x, { at: r.at, adults: q.payload?.adults }));
     host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: zpáteční letenka + cesta na letiště a z letiště do města</div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${shown.map(({ x, i }) => `<div class="card radar-card ${hot.has(i) ? 'hot' : ''}" data-ri="${i}">
-      <div class="rc-top"><span class="rcf">${flag(x.cc)}</span><span class="rc-badges">${prefBadge(SearchHelp.destKeyOf(x.id), pl)}${newBadge(x.cc)}${pinned(x) ? ' <span class="b pin-b" title="Odložená nabídka – 📌 Porovnat">📌</span>' : ''}${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>' : ''}</span>${dmBtn({ ...x, key: SearchHelp.destKeyOf(x.id) }, `data-rdm="${i}"`)}</div>
-      <div class="rc-city"><span>${esc(x.label)}</span><button type="button" class="rc-info" data-rinfo="${i}" aria-label="Co tam je – ${esc(x.label)}" title="🔎 Co tam je: místa k vidění, z letiště do města, počasí, vstup">ⓘ</button></div>
+      ${dmBtn({ ...x, key: SearchHelp.destKeyOf(x.id) }, `data-rdm="${i}"`)}
+      <div class="rc-city"><span class="rcf">${flag(x.cc)}</span><span class="rc-lbl">${esc(x.label)}</span>&#8288;<button type="button" class="rc-info" data-rinfo="${i}" aria-label="Co tam je – ${esc(x.label)}" title="🔎 Co tam je: místa k vidění, z letiště do města, počasí, vstup">ⓘ</button></div>
       <div class="rc-price">${czk(x.czk)}<small>/os.</small></div>
-      <div class="faint" style="font-size:12px"${x.bt ? ' title="Zpět z jiného letiště nebo na jiné letiště než odlet"' : ''}>${esc(SearchHelp.radarRoute(x))} · ${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}${radarLeave(x)}</div>
+      ${(b => b ? `<div class="rc-badges">${b}</div>` : '')((`${prefBadge(SearchHelp.destKeyOf(x.id), pl)}${newBadge(x.cc)}${pinned(x) ? ' <span class="b pin-b" title="Odložená nabídka – 📌 Porovnat">📌</span>' : ''}${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>' : ''}`).trim())}
+      <div class="faint rc-route"${x.bt ? ' title="Zpět z jiného letiště nebo na jiné letiště než odlet"' : ''}>${esc(SearchHelp.radarRoute(x))} · ${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}${radarLeave(x)}</div>
     </div>`).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klikni pro všechny termíny, ⓘ = co tam je</div>`;
     // telefon: nejdřív 6 karet, zbytek tlačítkem (CSS skryje 7.+ jen na úzké obrazovce; rozbalené zůstane do zavření aplikace)
     const rg = $('.radar-grid', host), rcN = rg ? rg.children.length : 0;
@@ -3693,8 +3694,11 @@
     if (!its.length) return;
     radarWxP = { r, p: Weather.span(its.map(([x]) => x)) };
     radarWxP.p.then(m => its.forEach(([x, c]) => {
-      const s = c.isConnected && wxSum(m, x, x.d1, x.d2), box = s && $('.rc-badges', c);
-      if (box) box.insertAdjacentHTML('beforeend', wxChip(s, s.short));
+      const s = c.isConnected && wxSum(m, x, x.d1, x.d2);
+      if (!s) return;
+      // štítky pod cenou – karta bez štítků řádek nemá, počasí si ho založí
+      if (!$('.rc-badges', c)) $('.rc-price', c).insertAdjacentHTML('afterend', '<div class="rc-badges"></div>');
+      $('.rc-badges', c).insertAdjacentHTML('beforeend', wxChip(s, s.short));
     }));
   }
 
