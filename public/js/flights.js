@@ -973,7 +973,7 @@
     // filtry výpisu (i 🔥 jen výhodné, čas a přestupy) platí jen pro jedno hledání
     view = { ...view, excludeOrigins: new Set(), onlyOrigin: null, excludeCarriers: new Set(), outDate: null, nights: null, expanded: new Set(), maxPrice: null, onlyDeals: false, newOnly: false, favOnly: false, showMuted: false, ...freshView() };
     if (opts.keepView) Object.assign(view, opts.keepView); // ✕ u filtru hledání: ostatní filtry výpisu zůstanou
-    $('#results').innerHTML = '';
+    $('#results').innerHTML = ''; $('#results').classList.remove('aged');
     const btn = $('#doSearch'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Hledám…';
     renderProgress({ providers: [], ...(f.trip === 'multi' ? { legs: f.legs.map((l, i) => ({ label: `${(i ? l.from : f.from).map(x => x.label).join(', ')} → ${l.to.map(x => x.label).join(', ')}`, state: 'pending' })) } : {}) }, true);
     if (!opts.noScroll) $('#progress').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -983,7 +983,8 @@
     try {
       const res = SearchHelp.gridTrips(await runSearch(payload, {
         onProgress: ev => renderProgress(ev, false, null, s.shown),
-        onPartial: r => paintSoon(() => showPartial(r, s)),
+        // čas cen náhledu, jak přišel (překreslení se může odložit) – stáří, průvodce; po nedokončeném hledání zůstane vidět
+        onPartial: r => { r.at = Date.now(); paintSoon(() => showPartial(r, s)); },
         signal: ctl.signal,
       })); // + cesty buněk mřížky termínů
       lastResult = res; lastResultAt = Date.now(); lastResultPayload = payload; restored = false;
@@ -1108,9 +1109,43 @@
     renderRestored();
     renderResults();
   }
-  function renderRestored() {
-    $('#progress').innerHTML = `<div class="note info last-note"><span>🕘</span><div>Výsledky hledání z ${esc(SearchHelp.savedWhen(lastResultAt, Date.now()))} – ceny se mezitím mohly změnit.</div><button type="button" class="btn sm" id="lastRerun">↻ Hledat znovu</button></div>`;
+  function renderRestored(a = SearchHelp.resultAge(lastResultAt, Date.now()), part = false) {
+    $('#progress').innerHTML = `<div class="note info last-note"><span>🕘</span><div>${esc(SearchHelp.ageNote(a, part))}</div><button type="button" class="btn sm" id="lastRerun">↻ Hledat znovu</button></div>`;
     $('#lastRerun').onclick = () => rerun();
+  }
+  /**
+   * Výsledky na obrazovce stárnou (Android drží aplikaci otevřenou, vrátíš se za pár hodin): po hodině místo řádku
+   * „✓ Prohledáno … ceny z 9:12“ poznámka 🕘 jako u obnovených výsledků (u nich jen aktuální „před …“) a výpis trochu
+   * ztlumený. Náhled nedokončeného hledání (chyba po průběžných výsledcích) stárne od svého času a poznámka nahradí
+   * chybu. Při návratu do aplikace, přepnutí na Lety a každých 5 min – jen na viditelných Letech, když nic nehledá.
+   * keep = výpis nechat na místě (ne po přepnutí na Lety – stránka tam jede nahoru).
+   */
+  function ageCheck(keep = true) {
+    const host = $('#results'), pr = $('#progress');
+    if (document.hidden || !host || !pr || !$('#view-flights.active') || !lastResult || running || !host.children.length) return;
+    const part = Boolean(lastResult.partial), a = SearchHelp.resultAge(SearchHelp.shownAt(lastResult, lastResultAt, Date.now()), Date.now());
+    if (!a) return;
+    host.classList.toggle('aged', a.stale);
+    // poznámka (i u obnovených) jen s novým „před …“; řádek po hledání (u náhledu jeho chyba) až po hodině
+    const note = $('.last-note', pr);
+    if (note ? note.textContent.includes(a.txt) : !(a.stale && $(part ? '.note.bad' : 'details.progress-card.done', pr))) return;
+    // poznámka je vyšší než řádek – výpis, ve kterém se čte, zůstane na místě
+    const y = host.getBoundingClientRect().top;
+    renderRestored(a, part);
+    const d = host.getBoundingClientRect().top - y;
+    if (keep && d && y < 0) window.scrollBy(0, d);
+  }
+  // Koupit u výsledků starších 3 h (i náhledu nedokončeného hledání): poprvé jen hláška s časem cen (odkaz by ji schoval
+  // pod web prodejce), další klepnutí koupí.
+  let ageWarned = 0;
+  function ageBuy(e) {
+    const a = e.target.closest && e.target.closest('a.book');
+    if (!a || running || !lastResult) return;
+    const at = SearchHelp.shownAt(lastResult, lastResultAt, Date.now()), x = SearchHelp.resultAge(at, Date.now());
+    if (!x || !x.old || ageWarned === at) return;
+    e.preventDefault();
+    ageWarned = at;
+    toast(`Ceny jsou ${x.z} ${x.txt} – mohly se změnit. Pro nákup klepni znovu.`, 'err', 6000);
   }
   /**
    * Na telefonu se po hledání formulář sbalí do řádku „Brno → kamkoliv · 17.10.–9.12. · 5–9 nocí · 2 os. [✎ Upravit] [♡]“,
@@ -1175,7 +1210,10 @@
       const found = (ev.providers || []).filter(p => p.found).map(p => `${esc(shopName(p.id))} ${p.found}${cov(p)}`).join(' · ');
       const bad = (ev.providers || []).some(p => p.state === 'error');
       const more = (ev.providers || []).find(p => p.coverage && p.coverage.skipped > 0);
-      host.innerHTML = `<details class="card progress-card done"${bad ? ' open' : ''}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">podrobnosti</span></summary>${rows}${disabled}</details>`
+      // kdy jsou ceny konečného výsledku („ceny z 14:32 · podrobnosti ▾“ vpravo – na telefonu i se širokým řádkem obchodů
+      // se tam vejde a řádek nezvýší); po hodině ho nahradí poznámka 🕘 (ageCheck)
+      const age = SearchHelp.resultAge(lastResultAt, Date.now()), at = age ? `<span class="ps-at">ceny ${age.z} ${esc(age.when)} · </span>` : '';
+      host.innerHTML = `<details class="card progress-card done"${bad ? ' open' : ''}><summary class="ph">✓ ${head}${found ? `<span class="faint ps-found"> · ${found}</span>` : ''}<span class="ps-more faint">${at}podrobnosti</span></summary>${rows}${disabled}</details>`
         + (more ? `<div class="more-routes"><button type="button" class="btn sm" id="moreRoutes" title="Na jedno hledání smí ATLAS na ${esc(shopName(more.id))} jen omezený počet dotazů – další hledání vezme nejdřív trasy, na které nedošlo">Prohledat zbylé trasy ${esc(shopName(more.id))} (${more.coverage.skipped})</button></div>` : '');
       const mr = $('#moreRoutes', host); if (mr) mr.onclick = () => rerun();
       return;
@@ -2012,7 +2050,7 @@
       distanceKm: a.distanceKm, destKey: a.destKey, tempHi: a.tempHi, deal: { level: 'normal', score: null, drop: null },
     };
     const dest = res.legs[0].dest || { label: res.legs[0].to, cc: '', country: '', lat: null, lon: null };
-    Trip.start({ t, g: { dest }, result: { origins: res.origins, query: res.query, home: res.home, priceStats: null, arrivals: res.arrivals }, ccs: mCountries(res) });
+    Trip.start({ t, g: { dest }, result: { origins: res.origins, query: res.query, home: res.home, priceStats: null, arrivals: res.arrivals }, ccs: mCountries(res), at: SearchHelp.shownAt(res, lastResultAt, Date.now()) });
   }
   /** Cesta do plánovače: všechny lety (časy a zóny pro kalendář), odkazy na koupi v poznámkách. */
   function multiSave(res, picks) {
@@ -2546,9 +2584,11 @@
     });
     // výsledek, ze kterého řádek je (průběžný i tehdy, když konečný čeká na překreslení) – jinak by cesta vzala statistiku
     // cen průběžné skupiny jako konečnou; konečný už dorazil → statistika z něj hned (finalStats na něj už nepočká)
+    // čas cen do průvodce („cena z 3. 10. 14:12“): konečný výsledek z lastResultAt (i obnovený), náhled ze svého času
+    // (i ten, který po nedokončeném hledání zůstal na obrazovce)
     $$('[data-pick]', host).forEach(b => b.onclick = () => {
-      const r = rowRegistry[+b.dataset.pick];
-      Trip.start({ t: r.t, g: r.g, result: shownRes || lastResult });
+      const r = rowRegistry[+b.dataset.pick], res = shownRes || lastResult;
+      Trip.start({ t: r.t, g: r.g, result: res, at: SearchHelp.shownAt(res, lastResultAt, Date.now()) });
       if (lastResult && !lastResult.partial && Trip.finalStats) Trip.finalStats(lastResult);
     });
     $$('[data-pc]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.pc]; if (r) openPriceCheck(r.t, { g: r.g }); });
@@ -3189,6 +3229,7 @@
   // Návrat do aplikace (z plochy, z jiné karty) na otevřený přehled: zastaralý radar se sám obnoví (starší ceny zůstanou
   // vidět, dokud nedorazí nové).
   document.addEventListener('visibilitychange', () => {
+    ageCheck(); // výsledky hledání na Letech: jak jsou staré
     if (document.hidden || !document.querySelector('#view-dashboard.active') || !(S.home && S.home.from?.length) || $('#radarGo')) return; // rozdělané „Odkud obvykle létáš?“ nechat
     const c = radarCached(SearchHelp.radarQuery(S.radarMode, radarHome(), today(), S.radarHoliday));
     if (!c || Date.now() - c.at >= 30 * 60e3 || !SearchHelp.radarOwnOk(c, S.accessOwn)) renderRadar();
@@ -3708,11 +3749,13 @@
     };
     updateWatchBadges();
     startAutoCheck();
+    $('#results').addEventListener('click', ageBuy);
+    setInterval(() => ageCheck(), 5 * 60e3); // stáří výsledků – mimo Lety nebo se schovanou aplikací nic nedělá
   }
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, renderQuick, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, renderQuick, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

@@ -98,9 +98,10 @@ function go(v, opts = {}) {
   if (v === 'planner') renderPlanner();
   if (v === 'dashboard') renderDash();
   if (v === 'trip' && window.Trip) Trip.render();
+  if (v === 'flights' && window.Flights && Flights.ageCheck) Flights.ageCheck(Boolean(opts.keepScroll)); // výsledky hledání z dřívějška: 🕘 kdy byly
   if (v === 'explore' && window.Places) Places.renderExplore($('#exploreRoot'));
 }
-function toast(msg, kind) { const t = $('#toast'); t.innerHTML = (kind === 'err' ? '⚠️ ' : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`) + esc(msg); t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2600); }
+function toast(msg, kind, ms = 2600) { const t = $('#toast'); t.innerHTML = (kind === 'err' ? '⚠️ ' : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`) + esc(msg); t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), ms); }
 
 /* theme */
 function applyTheme() { document.documentElement.dataset.theme = S.theme; $('#themeLabel').textContent = S.theme === 'dark' ? 'Tmavý režim' : 'Světlý režim'; }

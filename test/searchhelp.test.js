@@ -629,6 +629,47 @@ test('savedWhen: čas hledání a jak dávno', () => {
   assert.equal(H.savedWhen(new Date(2026, 9, 9, 21, 40).getTime(), at), 'včera 21:40 (před 11 h)');
 });
 
+test('resultAge: stáří cen – po hodině staré, po 3 h hodně, čas a „před …“ (dny od předvčerejška), „ze včera“', () => {
+  const at = new Date(2026, 9, 10, 9, 12).getTime(), m = (n) => at + n * 6e4;
+  const pick = (a) => a && [a.min, a.stale, a.old, a.z, a.when, a.txt];
+  assert.deepEqual(pick(H.resultAge(at, m(1))), [1, false, false, 'z', '9:12', '9:12 (před chvílí)']);
+  assert.deepEqual(pick(H.resultAge(at, m(59))), [59, false, false, 'z', '9:12', '9:12 (před 59 min)']);
+  assert.deepEqual(pick(H.resultAge(at, m(60))), [60, true, false, 'z', '9:12', '9:12 (před 1 h)'], 'hodina = staré (poznámka 🕘)');
+  assert.deepEqual(pick(H.resultAge(at, m(179))), [179, true, false, 'z', '9:12', '9:12 (před 2 h)']);
+  assert.deepEqual(pick(H.resultAge(at, m(180))), [180, true, true, 'z', '9:12', '9:12 (před 3 h)'], '3 h = hláška u Koupit');
+  // přes půlnoc: „ze včera“ s hodinami (i přes den), od předvčerejška datum a dny
+  assert.deepEqual(pick(H.resultAge(at, new Date(2026, 9, 11, 0, 20).getTime())), [908, true, true, 'ze', 'včera 9:12', 'včera 9:12 (před 15 h)']);
+  assert.equal(H.resultAge(at, new Date(2026, 9, 11, 22, 0).getTime()).txt, 'včera 9:12 (před 36 h)');
+  assert.deepEqual(pick(H.resultAge(new Date(2026, 9, 3, 14, 12).getTime(), new Date(2026, 9, 11, 10, 0).getTime())).slice(3), ['z', '3. 10. 14:12', '3. 10. 14:12 (před 8 dny)']);
+  assert.equal(H.resultAge(new Date(2026, 9, 9, 23, 50).getTime(), new Date(2026, 9, 11, 0, 10).getTime()).txt, '9. 10. 23:50 (před 2 dny)');
+  assert.equal(H.resultAge(new Date(2025, 11, 30, 8, 5).getTime(), new Date(2026, 0, 4, 8, 0).getTime()).txt, '30. 12. 2025 8:05 (před 5 dny)', 'jiný rok s rokem');
+  // hodiny jiného zařízení napřed: nic záporného; bez času (starší cesta, poškozená data) → null
+  assert.deepEqual(pick(H.resultAge(m(5), at)), [0, false, false, 'z', '9:17', '9:17 (před chvílí)']);
+  for (const x of [0, -5, null, undefined, NaN, Infinity, '1760000000000']) assert.equal(H.resultAge(x, at), null, String(x));
+  assert.equal(H.savedWhen(at, m(200)), H.resultAge(at, m(200)).txt, 'obnovené výsledky říkají totéž');
+  // dny podle kalendáře i přes změnu času (v Praze 28. 3. 2027 – 240 h zpět by krátce po půlnoci bylo o den dřív)
+  assert.equal(H.resultAge(new Date(2027, 2, 23, 23, 30).getTime(), new Date(2027, 3, 3, 0, 30).getTime()).txt, '23. 3. 23:30 (před 11 dny)');
+  assert.equal(H.resultAge(new Date(2027, 2, 24, 0, 30).getTime(), new Date(2027, 3, 3, 0, 30).getTime()).txt, '24. 3. 0:30 (před 10 dny)');
+  // s dneškem posunutým o dny (testy s SHIFT_DAYS) jen podle rozdílu – o 10 dní v kalendáři (ne 240 h: změna času)
+  const now = Date.now(), d10 = new Date(now); d10.setDate(d10.getDate() - 10);
+  assert.deepEqual(pick(H.resultAge(now - 61 * 6e4, now)).slice(0, 3), [61, true, false]);
+  assert.equal(H.resultAge(d10.getTime(), now).txt.endsWith('(před 10 dny)'), true);
+});
+
+test('shownAt/ageNote: čas cen na obrazovce – náhled nedokončeného hledání ze svého času, ne z klepnutí; poznámka 🕘', () => {
+  const at = new Date(2026, 9, 10, 5, 39).getTime(), pv = new Date(2026, 9, 10, 5, 49).getTime(), now = new Date(2026, 9, 10, 10, 49).getTime();
+  assert.equal(H.shownAt({ groups: [] }, at, now), at, 'konečný výsledek: čas hledání (i obnovený)');
+  assert.equal(H.shownAt({ groups: [], partial: true, at: pv }, at, now), pv, 'náhled po chybě hledání: jeho čas, ne „teď“');
+  assert.equal(H.shownAt({ groups: [], partial: true }, at, now), now, 'náhled bez času (běžící hledání): teď');
+  assert.equal(H.shownAt(null, at, now), 0);
+  // let vybraný z náhledu po 5 h: „cena z 5:49 (před 5 h)“, ne „(před chvílí)“; Koupit (3 h) i poznámka (1 h) platí
+  const a = H.resultAge(H.shownAt({ partial: true, at: pv }, at, now), now);
+  assert.deepEqual([a.txt, a.stale, a.old], ['5:49 (před 5 h)', true, true]);
+  assert.equal(H.ageNote(a, true), 'Průběžné výsledky z 5:49 (před 5 h) – hledání se nedokončilo a ceny se mezitím mohly změnit.');
+  assert.equal(H.ageNote(H.resultAge(at, now), false), 'Výsledky hledání z 5:39 (před 5 h) – ceny se mezitím mohly změnit.');
+  assert.equal(H.ageNote(H.resultAge(at, new Date(2026, 9, 11, 9, 0).getTime()), false), 'Výsledky hledání ze včera 5:39 (před 27 h) – ceny se mezitím mohly změnit.');
+});
+
 test('recentAdd/recentForm: nedávná hledání bez opakování, termíny v minulosti pryč, začatý rozsah od dneška', () => {
   const key = (e) => e.form.k;
   let l = H.recentAdd(null, { form: { k: 'a' } }, key);

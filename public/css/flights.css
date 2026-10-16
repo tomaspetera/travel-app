@@ -773,6 +773,10 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .last-note{align-items:center;margin-bottom:14px}
 .last-note>div{flex:1;min-width:0}
 .last-note .btn{flex:none}
+/* stáří výsledků: „ceny z 14:32 · podrobnosti ▾“ vpravo v řádku po hledání (jeden kus – řádek nezvýší), po hodině ztlumený výpis (ageCheck) */
+.ps-more{white-space:nowrap}
+.ps-at{font-weight:600}
+#results.aged{opacity:.78;transition:opacity .3s}
 .recent-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:12px;font-size:12.5px}
 .recent-row[hidden]{display:none}
 .recent-chip{display:inline-block;max-width:100%;padding:5px 11px;border-radius:20px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

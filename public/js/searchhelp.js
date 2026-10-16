@@ -1617,13 +1617,25 @@
     } catch (e) { return null; }
   }
   /** „9:12 (před 3 h)“, „včera 21:40 (před 11 h)“ – kdy se hledalo. */
-  function savedWhen(at, now) {
+  function savedWhen(at, now) { const a = resultAge(at, now); return a ? a.txt : ''; }
+  /**
+   * Stáří cen (výsledků hledání, ceny letu v průvodci) z času at: min = minut, stale = aspoň hodina, old = aspoň 3 h,
+   * when = „9:12“ / „včera 21:40“ / „3. 10. 14:12“, txt = when + „(před 3 h)“ (od předvčerejška „(před 8 dny)“),
+   * z = předložka před when („ze včera“). Bez času (starší cesta) → null.
+   */
+  function resultAge(at, now) {
+    if (!(at > 0) || !Number.isFinite(at)) return null;
     const d = new Date(at), n = new Date(now);
     const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-    const dd = Math.round((day(n) - day(d)) / 864e5), m = Math.round((now - at) / 6e4);
-    const ago = m < 2 ? 'před chvílí' : m < 60 ? `před ${m} min` : `před ${Math.floor(m / 60)} h`;
-    return `${dd === 0 ? '' : dd === 1 ? 'včera ' : `${d.getDate()}. ${d.getMonth() + 1}. `}${d.getHours()}:${pad(d.getMinutes())} (${ago})`;
+    const dd = Math.max(0, Math.round((day(n) - day(d)) / 864e5)), m = Math.max(0, Math.round((now - at) / 6e4));
+    const ago = m < 2 ? 'před chvílí' : m < 60 ? `před ${m} min` : dd < 2 ? `před ${Math.floor(m / 60)} h` : `před ${dd} dny`;
+    const when = `${dd === 0 ? '' : dd === 1 ? 'včera ' : `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear() !== n.getFullYear() ? d.getFullYear() + ' ' : ''}`}${d.getHours()}:${pad(d.getMinutes())}`;
+    return { min: m, stale: m >= 60, old: m >= 180, when, txt: `${when} (${ago})`, z: dd === 1 ? 'ze' : 'z' };
   }
+  /** Odkdy jsou ceny výsledku na obrazovce: konečný z času hledání (at), náhled (i po nedokončeném hledání) ze svého času. */
+  function shownAt(res, at, now) { return !res ? 0 : res.partial ? (res.at > 0 ? res.at : now) : at; }
+  /** Poznámka 🕘 nad starými výsledky (a = resultAge) – u náhledu nedokončeného hledání i to, že je jen průběžný. */
+  function ageNote(a, partial) { return `${partial ? 'Průběžné výsledky' : 'Výsledky hledání'} ${a.z} ${a.txt} – ${partial ? 'hledání se nedokončilo a ' : ''}ceny se mezitím mohly změnit.`; }
   /* ---------- průběžné výsledky (pomalejší zdroje ještě hledají) ---------- */
   /**
    * Pruh nad průběžnými výsledky: „Průběžné výsledky – Kiwi.com ještě hledá (12/30)…“, „… – Wizz Air (5/9) a Kiwi.com
@@ -1685,7 +1697,7 @@
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
-    lastPack, lastLoad, savedWhen, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
+    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
