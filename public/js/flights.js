@@ -3844,7 +3844,11 @@
     if (!res || res.mode === 'multi') return;
     levelFor(t); // složená cesta a buňka mřížky: úroveň ceny teď (server ji neposílá)
     const now = Date.now();
-    pinToggle(Pins.fromRow(t, g, res, SearchHelp.shownAt(res, lastResultAt, now), now));
+    let rec = Pins.fromRow(t, g, res, SearchHelp.shownAt(res, lastResultAt, now), now);
+    // řádek průběžných výsledků, konečný už dorazil a čeká na překreslení (otevřené ⋯, prst na obrazovce) – pinsFinal
+    // proběhl před odložením: nabídka rovnou z konečného (cena, úroveň, statistika), je-li v něm
+    if (rec && res.partial && lastResult && lastResult !== res && !lastResult.partial) rec = Pins.refresh([rec], lastResult, lastResultAt, now, levelFor).list[0];
+    pinToggle(rec);
   }
   const pinToggleRadar = (x, r, q) => pinToggle(Pins.fromRadar(x, { at: r.at, adults: q.payload?.adults, demo: r.demo }, Date.now()));
   // Odložená nabídka jako výsledek hledání a skupina cíle: priceBox, průvodce (Trip.start) – nic nečte lastResult
@@ -3982,9 +3986,12 @@
     if (!getForm().from.length) { toast('Zadej, odkud letíš'); setTimeout(() => fromInput.input.focus(), 300); return; }
     startSearch({ card: r });
   }
-  /** Konečný výsledek hledání: odložené nabídky, které našel znovu se stejným nastavením, převezmou novou cenu a čas. */
+  /**
+   * Konečný výsledek hledání: odložené nabídky, které našel znovu se stejným nastavením, převezmou novou cenu a čas.
+   * Složená cesta a buňka mřížky dostanou úroveň ceny hned (levelFor, lastResult = res) – výpis ji doplní až při kreslení.
+   */
   function pinsFinal(res) {
-    const x = Pins.refresh(pinList(), res, lastResultAt, Date.now());
+    const x = Pins.refresh(pinList(), res, lastResultAt, Date.now(), levelFor);
     if (x.n) { S.pins = x.list; save(); renderPins(); }
   }
 

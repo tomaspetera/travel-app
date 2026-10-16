@@ -163,13 +163,14 @@ test('clean: cizí vstup – tvary, odkazy jen http(s), čas ne z budoucnosti, b
   assert.equal(c.stats, null);
   assert.deepEqual(c.origins.map((o) => o.iata), ['BRQ', 'VIE']);
   assert.deepEqual(Object.keys(c.arrivals), ['NAP', 'BCN']);
-  // __proto__ a constructor v datech neprojdou ani nezmění Object.prototype
+  // __proto__ a constructor v datech neprojdou, nezmění prototyp nabídky ani Object.prototype – ten z vm, ve kterém
+  // pins.js běží (test má svůj, na tom by se nic neukázalo)
   const proto = JSON.parse(JSON.stringify(ok).replace('"t":{', '"t":{"__proto__":{"polluted":1},"constructor":{"x":1},'));
   const cp = P.clean([proto], opts)[0];
   assert.equal(Object.hasOwn(cp.t, '__proto__'), false);
   assert.equal(Object.hasOwn(cp.t, 'constructor'), false);
-  assert.equal({}.polluted, undefined);
-  assert.equal(Object.prototype.polluted, undefined);
+  assert.equal(cp.t.polluted, undefined);
+  assert.equal(vm.runInContext('({}).polluted', ctx), undefined);
   // radar: kódy, dny, čas, cena, prodejce a odkazy
   const rad = plain(P.fromRadar(radarX(), { at: NOW - H, adults: 2 }, NOW));
   assert.deepEqual(plain(P.clean([rad], opts)), [rad]);
@@ -242,6 +243,31 @@ test('refresh: stejné id a nastavení → nová cena, čas a úroveň, bez „p
   // karta radaru se neobnovuje
   const rad = P.fromRadar(radarX(), { adults: 2 }, NOW);
   assert.equal(P.refresh([rad], res(fresh), NOW, NOW).n, 0);
+});
+
+test('refresh: buňka mřížky bez úrovně ze serveru dostane úroveň z level(t); z průběžných rovnou z konečného, který už dorazil', () => {
+  const PL = { level: 'low', basis: 'search', reason: 'pod obvyklou cenou', ref: 2300, vsRef: -18, pos: 10, n: 5 };
+  // buňka mřížky termínů: server ji posílá bez úrovně (flights.js levelFor ji doplní až výpisu nebo při odložení)
+  const cell = (extra = {}) => trip({ id: 'cell|BRQ|NAP|2026-11-13', cell: true, priceLevel: undefined, ...extra });
+  const pin = row(cell({ priceLevel: PL }));
+  const seen = [];
+  const level = (t) => { seen.push(t.id); if (t.cell || t.composed) t.priceLevel = { ...PL, vsRef: -10 }; return t.priceLevel || null; };
+  assert.equal(P.refresh([pin], res(cell()), NOW - H, NOW).list[0].t.priceLevel, undefined, 'bez level by štítek ceny zmizel');
+  const r = res(cell({ perPersonCzk: 1950 }));
+  r.groups[0].options.push(trip({ id: 'jiná', priceLevel: undefined }));
+  const x = P.refresh([pin], r, NOW - H, NOW, level);
+  assert.equal(x.n, 1);
+  assert.deepEqual(plain(x.list[0].t.priceLevel), { ...PL, vsRef: -10 });
+  assert.deepEqual(seen, [cell().id], 'jen odložená nabídka z výsledku');
+  P.refresh([pin], res(cell({ priceLevel: PL })), NOW - H, NOW, level);
+  assert.equal(seen.length, 1, 'úroveň ze serveru: level se nevolá');
+  // ⋯ otevřené v průběžných výsledcích, konečný dorazil a čeká na překreslení → 📌 (flights.js pinToggleRow)
+  const part = res(cell(), { partial: true, at: NOW - 2 * H });
+  const rec = P.fromRow(part.groups[0].options[0], part.groups[0], part, part.at, NOW);
+  assert.deepEqual([rec.part, rec.t.priceLevel, rec.stats], [1, undefined, null]);
+  const up = P.refresh([rec], res(cell()), NOW - H, NOW, level).list[0];
+  assert.deepEqual([up.k, up.part, up.at, up.pinnedAt, up.t.priceLevel.level, Boolean(up.stats)], [rec.k, undefined, NOW - H, NOW, 'low', true]);
+  assert.equal(P.toggle([up], rec).list.length, 0, 'tentýž klíč – další klepnutí odebere');
 });
 
 test('age: do 24 h bez varování, od 24 h „day“', () => {

@@ -175,8 +175,9 @@
    * Konečný výsledek hledání res (at = čas jeho cen) obnoví odložené nabídky, které v něm jsou (stejné id), se stejným
    * nastavením (basis) – jinak by cenu spočítanou jinak přepsal. Novější cenu (jiné okno) nepřepíše. Čas odložení zůstane,
    * změněná cena si drží tu z odložení (was – „↑ o 210 Kč od odložení“) → { list, n (kolik obnoveno) }.
+   * level(t) doplní úroveň ceny nabídce, která ji ze serveru nemá (flights.js levelFor: složená cesta, buňka mřížky).
    */
-  function refresh(list, res, at, now = Date.now()) {
+  function refresh(list, res, at, now = Date.now(), level = null) {
     const cur = Array.isArray(list) ? list : [];
     if (!res || res.partial || res.mode === 'multi' || !obj(res.query)) return { list: cur, n: 0 };
     const b = basis(res.query), by = new Map(), gs = res.groups || [];
@@ -184,7 +185,9 @@
     for (const t of res.top || []) if (t && t.id && !by.has(t.id)) by.set(t.id, { t, g: gs.find(g => g.dest && g.dest.key === t.destKey) || null });
     let n = 0;
     const out = cur.map(p => {
-      const x = obj(p) && p.kind === 'f' && obj(p.t) && !(p.at > at) && basis(p.q) === b && by.get(p.t.id), rec = x && fromRow(x.t, x.g, res, at, now);
+      const x = obj(p) && p.kind === 'f' && obj(p.t) && !(p.at > at) && basis(p.q) === b && by.get(p.t.id);
+      if (x && level && !x.t.priceLevel) level(x.t);
+      const rec = x && fromRow(x.t, x.g, res, at, now);
       if (!rec) return p;
       n++;
       const was = p.was || (rec.t.perPersonCzk !== p.t.perPersonCzk ? { czk: p.t.perPersonCzk, at: p.at } : null);

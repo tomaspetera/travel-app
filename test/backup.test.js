@@ -134,8 +134,8 @@ test('podvržený soubor: HTML, cizí klíče, __proto__ a špatné hodnoty se n
   assert.deepEqual(plain(inc.home), { from: [{ id: 'ap:BRQ', label: 'Brnob', flag: '🇨🇿' }], radius: 500, adults: 2 });
   assert.deepEqual(plain(inc.visited), ['CZ', 'AT']);
   assert.deepEqual(plain(inc.pretrip), { k1: { d: { 'pack:doc-pass': 1 }, at: 0 } });
-  assert.equal({}.polluted, undefined);
-  assert.equal(Object.prototype.polluted, undefined);
+  // Object.prototype z vm, ve kterém backup.js běží (test má svůj, na tom by se nic neukázalo)
+  assert.equal(vm.runInContext('({}).polluted', ctx), undefined);
 });
 
 test('cizí soubory a novější verze: srozumitelná chyba', () => {
