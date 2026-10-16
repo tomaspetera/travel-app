@@ -1047,14 +1047,16 @@
   /** Odkud je jízdné: „Zdroj: aeroportparisbeauvais.com, ověřeno 7. 10. 2026.“ (odhad bez zdroje → ''), u staršího i stáří. */
   const arrivalSource = (a, today = localToday()) => (a && a.basis === 'table' && a.src ? `Zdroj${a.sec ? ' (sekundární, oficiální neuvádí)' : ''}: ${srcHost(a.src)}, ověřeno ${dm(a.date)} ${String(a.date).slice(0, 4)}${dataAge(a.date, today).txt}.` : '');
   const inPrice = (on, czk, both) => (on ? ` V ceně nabídky ${both ? 'tam i zpět ' : ''}~${kc(czk)}/os.` : ' Do ceny nabídky se nepočítá (vypnuto v Další možnosti).');
-  const arrChip = (x, text, title) => ({
+  // sub = čím jet a poznámka ve směru štítku (na letiště spoj bez cíle cesty do města – arrivalVia)
+  const arrChip = (x, text, title, dir = 'from') => ({
     text: `${ARR_ICON[x.mode] || '🚌'} ${text} ${arrivalFare(x)} · ${hhmmTxt(x.min)}${x.basis !== 'table' ? ' (odhad)' : ''}`,
     title: [title, arrivalSource(x)].filter(Boolean).join(' '), warn: arrivalWarn(x),
+    sub: [dir === 'to' ? arrivalVia(x.how) : x.how, x.note].filter(Boolean).join(' · '),
   });
   /**
    * Štítky u nabídky t („🚌 z letiště BVA do Paříže 17,90 € (~440 Kč) · 1 h 15“): k letišti příletu a u návratu z jiného
    * letiště (open-jaw v cíli) i k němu. arrivals = výsledek hledání (res.arrivals), on = cesta je v ceně (query.arrival;
-   * kolik přesně, říká t.arrCzk). → [{ text, title, warn }] – čisté texty, do HTML jen přes esc().
+   * kolik přesně, říká t.arrCzk). → [{ text, title, warn, sub }] – čisté texty, do HTML jen přes esc().
    */
   function arrivalChips(t, arrivals, { on = false } = {}) {
     if (!t || !t.out || !arrivals) return [];
@@ -1062,7 +1064,7 @@
     const same = Boolean(a && b && a.iata === b.iata);
     const out = [];
     if (a) out.push(arrChip(a, `z letiště ${a.iata} do ${a.gen || 'centra'}`, arrivalLine(a) + (same ? ' Zpět na letiště totéž.' : '') + inPrice(on, same ? t.arrCzk || 2 * a.czk : a.czk, same)));
-    if (b && !same) out.push(arrChip(b, `zpět na letiště ${b.iata}`, arrivalLine(b, 'to') + inPrice(on, b.czk, false)));
+    if (b && !same) out.push(arrChip(b, `zpět na letiště ${b.iata}`, arrivalLine(b, 'to') + inPrice(on, b.czk, false), 'to'));
     return out;
   }
   /**
@@ -1073,9 +1075,47 @@
     if (!l || !arrivals) return [];
     const pick = x => (x && !(home && home.has(x)) && arrivals[x]) || null;
     const d = pick(l.from), a = pick(l.to), out = [];
-    if (d) out.push(arrChip(d, `${zeOf(d.gen || 'centra')} ${d.gen || 'centra'} na letiště ${d.iata}`, arrivalLine(d, 'to') + inPrice(on, d.czk, false)));
+    if (d) out.push(arrChip(d, `${zeOf(d.gen || 'centra')} ${d.gen || 'centra'} na letiště ${d.iata}`, arrivalLine(d, 'to') + inPrice(on, d.czk, false), 'to'));
     if (a) out.push(arrChip(a, `z letiště ${a.iata} do ${a.gen || 'centra'}`, arrivalLine(a) + inPrice(on, a.czk, false)));
     return out;
+  }
+
+  /* ---------- 🔎 Co tam je: náhled cíle z výsledků a radaru (flights.js) ---------- */
+  /**
+   * Střed města, kolem kterého náhled hledá místa k vidění: metropole ho má v datech; jinak město, kam vede cesta
+   * z letiště započtená v ceně nabídky (ověřená tabulka – „Memmingen (Mnichov)“ → Mnichov, Mallorca → Palma). Odhad
+   * cesty zná jen polohu letiště → null (střed dohledá api/geocode, viz geoNames a geoCenter).
+   * dest = { id, label, lat, lon }, a = res.arrivals[letiště příletu] → { lat, lon, label } nebo null.
+   */
+  function destCenter(dest, a) {
+    const ok = x => Boolean(x) && Number.isFinite(x.lat) && Number.isFinite(x.lon);
+    if (ok(dest) && /^metro:/.test(dest.id || '')) return { lat: dest.lat, lon: dest.lon, label: dest.label };
+    return ok(a) && a.city && a.basis !== 'estimate' ? { lat: a.lat, lon: a.lon, label: a.city } : null;
+  }
+  /** Názvy k dohledání středu: „Kréta (Heraklion)“ → Kréta, Heraklion; „Pécs-Pogány“ → celý, Pécs; „Karlsruhe/Baden-Baden“ → celý, Karlsruhe. */
+  function geoNames(label) {
+    const s = String(label || ''), out = s.replace(/\s*\(.*\)\s*$/, '').trim(), inner = (/\(([^)]*)\)/.exec(s) || [])[1];
+    return [...new Set([out, out.split(/[-/]/)[0], inner].map(x => String(x || '').trim()).filter(x => x.length >= 2))];
+  }
+  /**
+   * Výsledek api/geocode jako střed města: první obydlené místo (druh GeoNames PPL…, místní data druh nemají) v zemi cc
+   * do maxKm od letiště near – ostrov, kraj ani stejnojmenné město jinde ne. → { lat, lon, label } nebo null.
+   */
+  function geoCenter(items, cc, near, maxKm = 60) {
+    if (!near || !Number.isFinite(near.lat) || !Number.isFinite(near.lon)) return null;
+    const h = (items || []).find(x => x && (!cc || x.cc === cc) && Number.isFinite(x.lat) && Number.isFinite(x.lon) && (!x.fc || /^PPL/.test(x.fc))
+      && km(near.lat, near.lon, x.lat, x.lon) <= maxKm);
+    return h ? { lat: h.lat, lon: h.lon, label: h.label } : null;
+  }
+  /**
+   * Pobyt pro „🗺️ Naplánovat … v Objevuj“: dní od from do dne návratu včetně (od dne příletu = dny programu) a jestli je
+   * to víkend (nejvýš 4 dny přes sobotu, s nedělí nebo od pátku či soboty – pá–ne, so–po, čt–ne, pá–so; st–so, čt–so ani
+   * ne–út ne). Jen tam → { days: 0, weekend: false }.
+   */
+  function stayPlan(from, back) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(back || '')) return { days: 0, weekend: false };
+    const days = Math.max(1, diffDays(from, back) + 1), dow = Array.from({ length: days }, (_, i) => new Date(ms(addDays(from, i))).getUTCDay());
+    return { days, weekend: days <= 4 && dow.includes(6) && (dow.includes(0) || dow[0] >= 5) };
   }
 
   /* Živý radar na přehledu: nejlevnější zpáteční lety z okolí domova na příštích 6 týdnů – kdykoliv (2–7 nocí),
@@ -1701,5 +1741,6 @@
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
+    destCenter, geoNames, geoCenter, stayPlan,
   };
 })();

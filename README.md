@@ -67,6 +67,25 @@ Nejlevnější kombinace, pořadí hotelů i program dnů počítají **determin
 bayesovské hodnocení, shlukování míst k-means + trasa nejbližší soused / 2-opt). Místa k vidění a jejich popisy jsou
 z Wikidat a Wikipedie. Stejný dotaz tedy dá stejný výsledek a nic si nevymýšlí.
 
+## 🔎 Co tam je – náhled cíle
+
+Nejlevnější lety často vedou do měst, která neznáš (Trapani, Kutaisi, Řešov, Tirana, Memmingen). **🔎 Co tam je**
+v hlavičce každé karty cíle (i v rozbaleném řádku *Kamkoliv*) a malé **ⓘ** u názvu na kartě radaru otevře náhled – na
+telefonu list zespodu, na počítači okno. Hned ukáže zemi s vlajkou, vstupní podmínky, cenovou hladinu, cestu z letiště
+do města z výsledku (*Z letiště WAW do Varšavy 4,40 zł (~20 Kč) · 30 min*; při návratu z jiného letiště i cestu z města
+na něj – *Zpět na letiště WMI*, pod tím *vlak KM + autobus KM*), počasí (do 15 dní předpověď na dny cesty,
+jinak dlouhodobý průměr měsíce) a u blízkých cílů vlak/bus. Pak dočte **Co vidět**: 6 nejvýznamnějších míst ve městě
+s fotkou, druhem a jednou větou z Wikipedie (napřed místa s fotkou) a kolik dalších míst a výletů najdeš v Objevuj.
+Místa hledá kolem města, kam vede cesta z letiště započtená v ceně (*Memmingen (Mnichov)* → Mnichov, *Mallorca* →
+Palma; u odhadu cesty dohledá střed města jako průvodce cestou), a to stejným dotazem jako Objevuj (`/api/poi`, okruh
+10 km i s výlety) – **🗺️ Naplánovat víkend v Objevuj** (víkend = nejvýš 4 dny přes sobotu s nedělí nebo od pátku,
+jinak *pobyt*, takže st–so ani čt–so víkend nejsou) tak otevře Objevuj na tom městě
+s programem od dne příletu na dny cesty a s už načtenými místy, bez druhého pomalého dotazu na Wikidata. Místa se
+načítají až po otevření náhledu; když nedorazí do 12 s nebo dotaz selže, náhled napíše *Místa se nepodařilo načíst –
+zkus Objevuj* (pozdě doběhlá místa ještě doplní). **Vybrat let a pokračovat** spustí průvodce s nejlepší nabídkou
+karty, v radaru **Hledat lety sem** hledá do cíle jako klepnutí na kartu. Náhled zavře ✕, Escape, klepnutí vedle
+i Zpět (tlačítko nebo gesto) a nové výsledky hledání, které mezitím dorazí, ho nezavřou.
+
 ## 📍 Dnes na cestě
 
 Od 2 dnů před odjezdem do konce uložené cesty začíná **Přehled** kartou s tím, co tě dnes čeká – bez listování celým

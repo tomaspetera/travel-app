@@ -1189,3 +1189,49 @@ test('prefGroups (computeGroups v Kamkoliv): 🙈 schované s počítadlem, uká
   const chip = plain(H.activeFilters(null, { favOnly: true, excludeOrigins: new Set(), excludeCarriers: new Set() }, {}, {}, { favHidden: fav.notFav }));
   assert.deepEqual(chip, [{ key: 'favOnly', label: '⭐ jen moje cíle', hidden: 2 }]);
 });
+
+test('🔎 Co tam je: střed města pro místa k vidění – metropole, město z cesty z letiště, jinak dohledat', () => {
+  const ar = (city, lat, lon, basis = 'table') => ({ iata: 'X', city, lat, lon, basis });
+  assert.deepEqual(plain(H.destCenter({ id: 'metro:PAR', label: 'Paříž', lat: 48.8566, lon: 2.3522 }, ar('Paříž', 48.8566, 2.3522))), { lat: 48.8566, lon: 2.3522, label: 'Paříž' });
+  // cena nabídky počítá cestu do Mnichova (FMM) / do Palmy (PMI) – místa tam, ne kolem letiště
+  assert.deepEqual(plain(H.destCenter({ id: 'ap:FMM', label: 'Memmingen (Mnichov)', lat: 47.9881, lon: 10.2382 }, ar('Mnichov', 48.1374, 11.5755))), { lat: 48.1374, lon: 11.5755, label: 'Mnichov' });
+  assert.deepEqual(plain(H.destCenter({ id: 'ap:PMI', label: 'Mallorca', lat: 39.55, lon: 2.73 }, ar('Palma', 39.5696, 2.6502, 'access'))), { lat: 39.5696, lon: 2.6502, label: 'Palma' });
+  // odhad cesty zná jen polohu letiště; bez cesty, bez polohy
+  assert.equal(H.destCenter({ id: 'ap:TPS', label: 'Trapani', lat: 37.9114, lon: 12.488 }, { ...ar('Trapani', 37.9114, 12.488), basis: 'estimate' }), null);
+  assert.equal(H.destCenter({ id: 'ap:TPS', label: 'Trapani', lat: 37.9114, lon: 12.488 }, null), null);
+  assert.equal(H.destCenter({ id: 'metro:XXX', label: 'X', lat: null, lon: null }, null), null);
+  assert.equal(H.destCenter({ id: 'ap:KUT', lat: 42.17, lon: 42.48 }, ar('', 42.27, 42.7)), null, 'bez názvu města ne');
+  // názvy k dohledání: napřed hlavní, pak část před pomlčkou / lomítkem, pak závorka
+  assert.deepEqual(plain(['Trapani', 'Kréta (Heraklion)', 'Pécs-Pogány', 'Karlsruhe/Baden-Baden', 'Clermont-Ferrand', 'Tenerife (jih)', '', null].map((x) => H.geoNames(x))), [
+    ['Trapani'], ['Kréta', 'Heraklion'], ['Pécs-Pogány', 'Pécs'], ['Karlsruhe/Baden-Baden', 'Karlsruhe'], ['Clermont-Ferrand', 'Clermont'], ['Tenerife', 'jih'], [], []]);
+  // geokódování: obydlené místo ve stejné zemi do 60 km od letiště (ostrov, kraj ani stejnojmenné město jinde ne)
+  const TPS = { lat: 37.9114, lon: 12.488 };
+  const items = [{ label: 'Trapani', cc: 'US', lat: 37.9, lon: -90, fc: 'PPL' }, { label: 'Sicílie', cc: 'IT', lat: 37.6, lon: 14.0, fc: 'ADM1' },
+    { label: 'Trapani', cc: 'IT', lat: 38.0176, lon: 12.5365, fc: 'PPLA2' }];
+  assert.deepEqual(plain(H.geoCenter(items, 'IT', TPS)), { lat: 38.0176, lon: 12.5365, label: 'Trapani' });
+  assert.equal(H.geoCenter([{ label: 'Kréta', cc: 'GR', lat: 35.2, lon: 24.9, fc: 'ISL' }], 'GR', { lat: 35.34, lon: 25.18 }), null);
+  assert.equal(H.geoCenter([{ label: 'Trapani', cc: 'IT', lat: 38.6, lon: 12.5 }], 'IT', TPS), null, '77 km – jiné místo');
+  assert.deepEqual(plain(H.geoCenter([{ label: 'Řešov', cc: 'PL', lat: 50.04, lon: 22.0 }], 'PL', { lat: 50.11, lon: 22.02 })), { lat: 50.04, lon: 22.0, label: 'Řešov' }, 'místní data bez druhu místa');
+  assert.equal(H.geoCenter(items, 'IT', null), null);
+  assert.equal(H.geoCenter(undefined, 'IT', TPS), null);
+});
+
+test('🔎 Co tam je: pobyt pro Objevuj – dní od příletu do návratu, víkend jen přes sobotu s nedělí nebo od pátku / soboty', () => {
+  // 23. 10. 2026 je pátek
+  assert.deepEqual(plain(H.stayPlan('2026-10-23', '2026-10-25')), { days: 3, weekend: true });
+  assert.deepEqual(plain(H.stayPlan('2026-10-24', '2026-10-24')), { days: 1, weekend: true });
+  assert.deepEqual(plain(H.stayPlan('2026-10-22', '2026-10-26')), { days: 5, weekend: false }, 'čt–po: delší pobyt');
+  assert.deepEqual(plain(H.stayPlan('2026-10-20', '2026-10-22')), { days: 3, weekend: false }, 'út–čt není víkend');
+  assert.deepEqual(plain(H.stayPlan('2026-10-25', '2026-10-27')), { days: 3, weekend: false }, 'ne–út není víkend');
+  assert.deepEqual(plain(H.stayPlan('2026-10-24', '2026-10-26')), { days: 3, weekend: true }, 'so–po');
+  // přes sobotu nestačí: s nedělí nebo od pátku / soboty
+  assert.deepEqual(plain(H.stayPlan('2026-10-21', '2026-10-24')), { days: 4, weekend: false }, 'st–so není víkend');
+  assert.deepEqual(plain(H.stayPlan('2026-10-22', '2026-10-24')), { days: 3, weekend: false }, 'čt–so není víkend');
+  assert.deepEqual(plain(H.stayPlan('2026-10-23', '2026-10-24')), { days: 2, weekend: true }, 'pá–so');
+  assert.deepEqual(plain(H.stayPlan('2026-10-22', '2026-10-25')), { days: 4, weekend: true }, 'čt–ne');
+  assert.deepEqual(plain(H.stayPlan('2026-10-23', '2026-10-26')), { days: 4, weekend: true }, 'pá–po');
+  assert.deepEqual(plain(H.stayPlan('2026-10-23', null)), { days: 0, weekend: false }, 'jen tam');
+  assert.deepEqual(plain(H.stayPlan('', '2026-10-25')), { days: 0, weekend: false });
+  // noční let: přílet až po dni návratu by dal 0 dní – aspoň den
+  assert.equal(H.stayPlan('2026-10-26', '2026-10-25').days, 1);
+});
