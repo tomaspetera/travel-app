@@ -3659,9 +3659,9 @@
     host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: zpáteční letenka + cesta na letiště a z letiště do města</div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${shown.map(({ x, i }) => `<div class="card radar-card ${hot.has(i) ? 'hot' : ''}" data-ri="${i}">
       ${dmBtn({ ...x, key: SearchHelp.destKeyOf(x.id) }, `data-rdm="${i}"`)}
       <div class="rc-city"><span class="rcf">${flag(x.cc)}</span><span class="rc-lbl">${esc(x.label)}</span>&#8288;<button type="button" class="rc-info" data-rinfo="${i}" aria-label="Co tam je – ${esc(x.label)}" title="🔎 Co tam je: místa k vidění, z letiště do města, počasí, vstup">ⓘ</button></div>
-      <div class="rc-price">${czk(x.czk)}<small>/os.</small></div>
+      <div class="rc-body"><div class="rc-price">${czk(x.czk)}<small>/os.</small></div>
       ${(b => b ? `<div class="rc-badges">${b}</div>` : '')((`${prefBadge(SearchHelp.destKeyOf(x.id), pl)}${newBadge(x.cc)}${pinned(x) ? ' <span class="b pin-b" title="Odložená nabídka – 📌 Porovnat">📌</span>' : ''}${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥</span>' : ''}`).trim())}
-      <div class="faint rc-route"${x.bt ? ' title="Zpět z jiného letiště nebo na jiné letiště než odlet"' : ''}>${esc(SearchHelp.radarRoute(x))} · ${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}${radarLeave(x)}</div>
+      <div class="faint rc-route"${x.bt ? ' title="Zpět z jiného letiště nebo na jiné letiště než odlet"' : ''}>${esc(SearchHelp.radarRoute(x))} · ${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}${radarLeave(x)}</div></div>
     </div>`).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klikni pro všechny termíny, ⓘ = co tam je</div>`;
     // telefon: nejdřív 6 karet, zbytek tlačítkem (CSS skryje 7.+ jen na úzké obrazovce; rozbalené zůstane do zavření aplikace)
     const rg = $('.radar-grid', host), rcN = rg ? rg.children.length : 0;
@@ -3677,6 +3677,7 @@
     $$('[data-rinfo]', host).forEach(b => b.onclick = e => { e.stopPropagation(); openRadarPreview(r, r.items[+b.dataset.rinfo], q, b); });
     $$('[data-ri]', host).forEach(c => c.onclick = () => radarGo(r.items[+c.dataset.ri], q));
     radarWx(r);
+    radarPhotos(r);
   }
   /** Karta radaru → hledání do jejího cíle, všechny termíny. */
   function radarGo(x, q) {
@@ -3700,6 +3701,50 @@
       if (!$('.rc-badges', c)) $('.rc-price', c).insertAdjacentHTML('afterend', '<div class="rc-badges"></div>');
       $('.rc-badges', c).insertAdjacentHTML('beforeend', wxChip(s, s.short));
     }));
+  }
+
+  // 📷 Fotka cíle na kartě radaru: úvodní obrázek článku o městě na Wikipedii (server, api/photos – jeden dotaz na
+  // všechny karty); adresa uložená v prohlížeči na 30 dní (i „fotka není“). Bez fotky zůstane karta jako dřív.
+  // Fotka se na kartu dá až načtená – bílý text nikdy na prázdné kartě.
+  const PH_KEY = 'atlas_ph', PH_TTL = 30 * 864e5;
+  let phMem = null;
+  function phStore() {
+    if (!phMem) { try { phMem = JSON.parse(localStorage.getItem(PH_KEY)) || {}; } catch (e) { phMem = {}; } }
+    return phMem;
+  }
+  function phSave() {
+    try { localStorage.setItem(PH_KEY, JSON.stringify(Object.fromEntries(Object.entries(phStore()).sort((a, b) => b[1].t - a[1].t).slice(0, 300)))); } catch (e) { /* plné úložiště – nevadí */ }
+  }
+  async function radarPhotos(r) {
+    const cards = $$('#radar [data-ri]').map(c => [c, r.items[+c.dataset.ri]]).filter(([, x]) => x && x.label);
+    if (!cards.length) return;
+    const st = phStore(), now = Date.now(), fresh = t => st[t] && now - st[t].t < PH_TTL;
+    const ask = [...new Set(cards.map(([, x]) => x.label).filter(t => !fresh(t)))];
+    if (ask.length) {
+      try {
+        const j = await (await fetch('api/photos?t=' + enc(ask.join('|')))).json();
+        for (const [t, u] of Object.entries((j && j.photos) || {})) st[t] = { u: String(u || ''), t: now };
+        phSave();
+      } catch (e) { /* bez sítě: karty bez fotek, příště znovu */ }
+    }
+    // až když je karta (skoro) vidět – skryté karty na telefonu (7.+) a radar pod okrajem nic nestahují; fotka jen tak
+    // velká, jak ji displej potřebuje (330 nebo 500 px, ~30–60 kB, prohlížeč ji pak drží v mezipaměti)
+    const show = (c, x) => {
+      const u = st[x.label] && st[x.label].u;
+      if (!u || !/^https:\/\//.test(u) || !c.isConnected) return;
+      const src = c.clientWidth * (window.devicePixelRatio || 1) <= 330 ? u.replace('/500px-', '/330px-') : u;
+      const img = new Image();
+      img.onload = () => { if (!c.isConnected) return; c.style.setProperty('--ph', `url("${src.replace(/["\\]/g, encodeURIComponent)}")`); c.classList.add('ph'); };
+      img.src = src;
+    };
+    if (!('IntersectionObserver' in window)) { cards.forEach(([c, x]) => show(c, x)); return; }
+    const io = new IntersectionObserver(es => es.forEach(e => {
+      if (!e.isIntersecting) return;
+      io.unobserve(e.target);
+      const k = cards.find(([c]) => c === e.target);
+      if (k) show(k[0], k[1]);
+    }), { rootMargin: '300px 0px' });
+    cards.forEach(([c]) => io.observe(c));
   }
 
   /* ---------- rychlé hledání (přehled) ---------- */

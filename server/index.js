@@ -29,6 +29,7 @@ import { affiliateOn } from './lib/links.js';
 import { HttpError } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
 import { airportClimate, climateAt, countryClimate, sourceText } from './lib/climate.js';
+import { cityPhotos } from './lib/photos.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 import { serveIndex, serveServiceWorker } from './lib/pwa.js';
@@ -386,6 +387,12 @@ async function route(req, res) {
     } catch (e) {
       return sendJson(req, res, 200, { available: true, items: [], error: e.message });
     }
+  }
+  if (p === '/api/photos') {
+    // fotky měst na karty radaru (Wikipedia) – ?t=Řím|Tirana|…
+    const t = (url.searchParams.get('t') || '').split('|').filter(Boolean);
+    if (!t.length) return sendJson(req, res, 400, { error: 'Zadej názvy měst (t=Řím|Tirana).' });
+    return sendJson(req, res, 200, { photos: await cityPhotos(t) }, { 'Cache-Control': 'public, max-age=86400' });
   }
   if (p === '/api/climate') {
     // Dlouhodobé podnebí (meteostanice u letiště, jinak NASA POWER) u letiště, místa nebo hlavního letiště země – data se nemění.

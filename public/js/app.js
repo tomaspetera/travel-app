@@ -67,8 +67,8 @@ function buildNav() {
   $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
   // Na mobilu hlavní sekce + „Více“ (mapa, země, doporučení).
   const MOBILE = ['dashboard', 'flights', 'trip', 'explore', 'planner'];
-  $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden></i>' : ''}</div>`).join('')
-    + `<div class="mi" id="moreNav">${ico('M5 12h.01M12 12h.01M19 12h.01')}<span>Více</span></div>`;
+  $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}" title="${n[1]}" aria-label="${n[1]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden></i>' : ''}</div>`).join('')
+    + `<div class="mi" id="moreNav" title="Více" aria-label="Více">${ico('M5 12h.01M12 12h.01M19 12h.01')}<span>Více</span></div>`;
   $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
   $('#moreNav').onclick = () => {
     modalOpen(`<div class="modal-body"><h3 style="margin-bottom:12px">Další sekce</h3><div class="more-nav">${NAV.filter(n => !MOBILE.includes(n[0])).map(n => `<button type="button" class="btn ghost" data-mv="${n[0]}" style="justify-content:flex-start;width:100%;margin-bottom:8px">${ico(n[3])} ${n[1]} <span class="faint" style="font-weight:400;margin-left:6px">${n[2]}</span></button>`).join('')}</div></div>`);
@@ -347,9 +347,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-16c';
+const WN_ID = '2026-10-16d';
 const WHATS_NEW = [
-  ['📱', 'Nový vzhled na telefonu', 'spodní lišta s aktivní sekcí v kapsli, okna vyjíždějí zespodu a zavřeš je stažením dolů; na iPhonu bez přiblížení při psaní.'],
+  ['📱', 'Nový vzhled na telefonu', 'plovoucí spodní lišta, fotky cílů v radaru, okna vyjíždějí zespodu a zavřeš je stažením dolů; na iPhonu bez přiblížení při psaní.'],
   ['⚙️', 'Výsledky hned nahoře', 'na mobilu jsou filtry, řazení a „Odkud se vyplatí letět“ pod tlačítkem ⚙️ Filtry; formulář se po hledání sbalí (✎ Upravit).'],
   ['📌', 'Odložené nabídky', '„📌 Odložit“ u nabídky nebo v ⋯ na kartě – pak <b>Porovnat</b> vedle sebe a 📤 poslat k výběru.'],
   ['🔎', 'Co tam je', 'na kartě výsledku a pod ⓘ v radaru: místa s fotkou, cesta z letiště do města, počasí, vstup.'],
