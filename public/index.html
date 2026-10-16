@@ -2,7 +2,7 @@
 <html lang="cs" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>ATLAS · nejlevnější letenky odkudkoliv kamkoliv</title>
 <meta name="description" content="Najdi nejlevnější lety ze všech letišť ve svém okolí – Ryanair, Wizz Air a další aerolinky najednou, včetně ceny dopravy na letiště.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2322d3ee'/%3E%3Cstop offset='1' stop-color='%23a855f7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='24' height='24' rx='6' fill='url(%23g)'/%3E%3Cpath d='M20 6l-7 13-3-6-6-3z' fill='white'/%3E%3C/svg%3E">
@@ -64,6 +64,12 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
   root.setAttribute('data-map', s && s.mapStyle === 'dark' ? 'dark' : 'light');
   var m = document.querySelectorAll('meta[name="theme-color"]');
   for (var i = 0; i < m.length; i++) m[i].setAttribute('content', light ? '#eef2fb' : '#080c1a');
+  // iPhone/iPad: bez přiblížení stránky při klepnutí do pole (písmo polí 14 px) – prsty přibližovat jde dál (iOS
+  // maximum-scale u gesta ignoruje); na Androidu by to přiblížení zakázalo, proto jen iOS
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)) {
+    var vp = document.querySelector('meta[name="viewport"]');
+    if (vp) vp.setAttribute('content', vp.getAttribute('content') + ', maximum-scale=1');
+  }
   window.atlasLaunchAt = performance.now(); // úvodní obrazovka se začne kreslit teď (vzlet vlaštovky – app.js launchDone)
 })();
 </script>

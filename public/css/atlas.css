@@ -15,6 +15,7 @@
   --surface-solid:#111a32; --card:rgba(20,28,52,.66);
   --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.16);
   --text:#eaf0ff; --muted:#94a3c8; --faint:#6b779c;
+  --nav-bg:rgba(12,18,38,.86); --nav-on:rgba(91,140,255,.2);
 }
 [data-theme="light"]{
   --bg:#eef2fb; --bg2:#ffffff; --bg-grad:radial-gradient(1200px 700px at 85% -10%,rgba(168,85,247,.12),transparent 60%),radial-gradient(1000px 600px at -10% 5%,rgba(34,211,238,.12),transparent 55%),#eef2fb;
@@ -22,6 +23,7 @@
   --surface-solid:#ffffff; --card:rgba(255,255,255,.8);
   --border:rgba(13,22,48,.1); --border-2:rgba(13,22,48,.18);
   --text:#0f1830; --muted:#56638a; --faint:#8a96b8;
+  --nav-bg:rgba(255,255,255,.9); --nav-on:rgba(91,140,255,.16);
 }
 /* Mapy (svět, výsledky letů, výlety): světlé jako atlas – čitelné i na slunci, v tmavém i světlém režimu.
    Tmavé jen na přání (přepínač u mapy světa → <html data-map="dark">). */
@@ -275,6 +277,17 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .modal-hero-inner{position:relative;z-index:1}
 .modal-close{position:absolute;top:16px;right:16px;z-index:3;width:38px;height:38px;border-radius:11px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.2);color:#fff;cursor:pointer;display:grid;place-items:center}
 .modal-body{padding:24px}
+/* telefon: okna jako panel zespodu (jako v iOS/Androidu) – palcem dosažitelné, nad proužkem iPhonu */
+@keyframes sheetUp{from{transform:translateY(56px);opacity:.4}to{transform:none;opacity:1}}
+@media(max-width:560px){
+  .modal-bg{align-items:flex-end;padding:0}
+  .modal{width:100%;max-height:90vh;max-height:90dvh;border-radius:22px 22px 0 0;border-bottom:none;animation:sheetUp .26s var(--ease)}
+  .modal:not(:has(.dp)){padding-bottom:env(safe-area-inset-bottom)}
+  .modal-hero{border-radius:22px 22px 0 0}
+  .modal::before{content:"";position:absolute;top:7px;left:50%;z-index:5;width:38px;height:5px;margin-left:-19px;border-radius:3px;background:var(--border-2);pointer-events:none}
+  .modal:has(.modal-hero)::before{background:rgba(255,255,255,.55)}
+}
+@media(prefers-reduced-motion:reduce){.modal{animation:none}}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:6px 0 4px}
 .kv .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
 .kv .v{font-size:16px;font-weight:800;margin-top:3px}
@@ -357,20 +370,37 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .toast svg{width:18px;height:18px;color:var(--good)}
 
 .mobile-nav{display:none}
+/* dotykové displeje: „najetí myší“ po klepnutí nezůstane viset (posunutá tlačítka a karty), místo něj krátké stisknutí */
+@media(hover:none){
+  .btn,.card,.chip,.pill,.icon-btn,.home-chip{-webkit-tap-highlight-color:transparent}
+  .btn:hover,.dest:hover{transform:none}
+  .btn:active{transform:scale(.97)}
+  .dest:active{transform:scale(.985)}
+}
 
 /* ============ RESPONSIVE ============ */
 @media(max-width:1080px){.stat-grid{grid-template-columns:repeat(2,1fr)}.map-layout{grid-template-columns:1fr}}
 @media(max-width:860px){
   .app{grid-template-columns:1fr}
   .sidebar{display:none}
-  .content{padding:6px 16px 90px}
-  .topbar{padding:14px 16px}
+  /* okraje iPhonu (viewport-fit=cover): výřez na šířku, proužek dole */
+  .content{padding:6px max(16px,env(safe-area-inset-right)) calc(90px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  .topbar{padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 14px max(16px,env(safe-area-inset-left))}
   .hero{padding:28px 22px}.hero h1{font-size:26px}
-  .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:50;justify-content:space-around;
-    background:var(--surface-solid);border-top:1px solid var(--border);padding:8px 4px 10px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
-  .mobile-nav .mi{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--muted);font-weight:700;padding:4px 8px;cursor:pointer;border-radius:10px}
-  .mobile-nav .mi svg{width:21px;height:21px}
-  .mobile-nav .mi.active{color:var(--accent)}
+  /* spodní lišta jako v iOS/Androidu: matné sklo, aktivní sekce v barevné kapsli, odezva na klepnutí */
+  .mobile-nav{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));position:fixed;bottom:0;left:0;right:0;z-index:50;
+    padding:7px max(4px,env(safe-area-inset-right)) max(9px,env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left));
+    background:var(--nav-bg);border-top:1px solid var(--border);box-shadow:0 -10px 30px -18px rgba(0,0,0,.45);
+    -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+  .mobile-nav .mi{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;font-size:10.5px;line-height:1.2;font-weight:600;color:var(--muted);
+    cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+  .mobile-nav .mi span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mobile-nav .mi svg{box-sizing:content-box;width:22px;height:22px;padding:4px 14px;border-radius:999px;
+    transition:background-color .22s var(--ease),color .22s var(--ease),transform .14s var(--ease)}
+  .mobile-nav .mi.active{color:var(--text);font-weight:800}
+  .mobile-nav .mi.active svg{color:var(--accent);background:var(--nav-on);stroke-width:2.3}
+  .mobile-nav .mi:active svg{transform:scale(.86)}
+  .toast{bottom:calc(84px + env(safe-area-inset-bottom));max-width:calc(100% - 32px)}
   .airport-pills{display:none}
   .modal-hero{padding:20px}.modal-body{padding:18px}
   .forecast{grid-template-columns:repeat(4,1fr)}
