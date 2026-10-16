@@ -136,6 +136,8 @@ details.more.ex-places>summary::before{content:none}
 .ex-head .btn{flex:none}
 /* hláška s tlačítkem („Otevřít v plánovači“): schovaná nepřekáží klikání, na telefonu se vejde */
 .toast:not(.show){pointer-events:none}
+/* hláška bez tlačítka klepnutí propustí: na telefonu leží přes spodní lištu a tlačítka nad ní („Pro nákup klepni znovu“ u Koupit) */
+.toast:not(:has(.toast-act)){pointer-events:none}
 /* šířka podle textu až po okraje obrazovky – bez ní ji left:50% omezí na půl obrazovky (dlouhá hláška na telefonu 9 řádků) */
 .toast{width:max-content;max-width:calc(100vw - 24px)}
 .toast svg{flex:none} /* fajfka se vedle dlouhého textu nesmrskne */

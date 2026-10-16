@@ -358,10 +358,15 @@
   };
 
   /* ---------- start z výsledků hledání ---------- */
-  // at = čas cen výsledku, ze kterého let je (flight.pricedAt – „cena z 3. 10. 14:12“ v kroku Let a ve Shrnutí)
+  // Cena z paměti tras (Wizz Air: leg.memAgeMin, u výsledku štítek „⏱ cena před 5 h“) je o tolik starší než výsledek
+  // hledání – v ms, nejstarší z letu tam a zpět (jako memAge ve flights.js); čerstvá cena 0.
+  const memAgeMs = t => Math.max(0, ...[t.out, t.back].map(l => +(l && l.memAgeMin)).filter(Number.isFinite)) * 6e4;
+  // at = čas cen výsledku, ze kterého let je (flight.pricedAt – „cena z 3. 10. 14:12“ v kroku Let a ve Shrnutí);
+  // cena z paměti tras o její stáří dřív
   function start({ t, g, result, ccs = null, at = 0 }) {
     const originsBy = Object.fromEntries((result.origins || []).map(o => [o.iata, o]));
     const dest = g ? g.dest : { label: t.out.to, cc: '', country: '', lat: null, lon: null };
+    const mem = memAgeMs(t);
     // Rozpracovaná cesta (vybraná trasa, ubytování, auto, program nebo odškrtnuté rezervace) se nezahodí bez zeptání –
     // „↩ Vybrat jiný let“ i nový výběr z výsledků by ji jinak potichu přepsaly.
     const mine = S.trip;
@@ -369,7 +374,7 @@
     // cestě; za stejnou cenu z novějšího hledání platí cena k jeho času
     if (mine && mine.flight && JSON.stringify([mine.flight.out, mine.flight.back || null]) === JSON.stringify([t.out, t.back || null])
       && +mine.adults === +result.query.adults && (mine.bags || 'none') === (result.query.bags || 'none')) {
-      if (at > (mine.flight.pricedAt || 0) && at <= Date.now() && mine.flight.flightCzk === t.flightCzk) { mine.flight.pricedAt = at; persist(); }
+      if (at > 0 && at - mem > (mine.flight.pricedAt || 0) && at <= Date.now() && mine.flight.flightCzk === t.flightCzk) { mine.flight.pricedAt = at - mem; persist(); }
       go('trip'); return;
     }
     if (mine && mine.flight) {
@@ -386,7 +391,7 @@
       adults: result.query.adults,
       bags: result.query.bags || 'none',
       // kopie nabídky z výpisu (pricedAt nepatří do výsledků hledání); bez času výsledku od teď
-      flight: { ...t, ...(part ? { priceLevel: undefined } : {}), pricedAt: at > 0 && at <= created ? at : created },
+      flight: { ...t, ...(part ? { priceLevel: undefined } : {}), pricedAt: (at > 0 && at <= created ? at : created) - mem },
       // „Je to dobrá cena?“ v kroku Let: ceny letenek z hledání, ze kterého let je (bez paměti tras – ta je v prohlížeči)
       priceStats: part ? null : statsFrom(g, result),
       ...(part ? { statsWait: JSON.stringify(result.query), statsPreview: statsFrom(g, result) } : {}),
@@ -538,6 +543,42 @@
     // „(před 8 dny)“ se nerozdělí (úzký sloupec Shrnutí na telefonu)
     return `<div class="faint tf-age">cena ${a.z} ${esc(a.txt.replace(/\([^)]*\)$/, x => x.replace(/ /g, '\u00a0')))}${re ? ` · <button type="button" class="linkbtn" id="${id}">↻ Ověř cenu</button>` : ''}</div>`;
   }
+  // „↻ Ověř cenu“ v kroku Let (ověří hned) a ve Shrnutí (krok Let a ověřit tam – jednou, i u cesty, která se ještě
+  // neověřovala); výsledek ověření pak do obrazovky
+  function wireAge() {
+    const a = $('#tfAge'); if (a) a.onclick = () => verifyFlight({ show: true });
+    const s = $('#sumAge'); if (s) s.onclick = () => { const t = T(); if (!t.verifiedAt) t.verifiedAt = Date.now(); t.step = 'flight'; persist(); render(); verifyFlight({ show: 'top' }); };
+  }
+  /**
+   * Výsledek ověření (#tfAlt) je pod letem, tlačítky a cenou – na telefonu často pod spodní lištou, klepnutí by vypadalo,
+   * že nic neudělalo: posunout ho do obrazovky (doprostřed, nabídky přibudou pod ním), když jeho začátek (řádek
+   * „Ověřuji…“, nadpis a první nabídka) není vidět mezi lepivou hlavičkou a spodní lištou. top = krok Let právě otevřený
+   * ze Shrnutí: je-li výsledek vidět od začátku kroku, jen nahoru jako při přepnutí kroku.
+   */
+  function altIntoView(top = false) {
+    const el = $('#tfAlt');
+    if (!el || !el.getBoundingClientRect) return;
+    const nav = $('.mobile-nav'), head = $('.topbar');
+    const end = nav && getComputedStyle(nav).display !== 'none' ? nav.getBoundingClientRect().top : innerHeight;
+    const y = el.getBoundingClientRect().top + (top ? scrollY : 0);
+    if (top && y + 200 <= end) window.scrollTo({ top: 0, behavior: 'smooth' });
+    else if (y < (head ? head.getBoundingClientRect().bottom : 0) || y + 200 > end) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  /**
+   * Průvodce zůstává otevřený (Android drží aplikaci, nákup za pár dní): „cena z …“ v kroku Let a ve Shrnutí znovu
+   * s aktuálním „před …“ (a „ze včera“), po dni i s „↻ Ověř cenu“, u zakoupené letenky bez něj. Jen ten řádek – výsledek
+   * ověření, rozepsané a posun stránky zůstanou. Volá flights.js při návratu do aplikace a každých 5 min, Shrnutí po
+   * odškrtnutí letenky. → true = přepsáno.
+   */
+  function ageRefresh() {
+    const t = T();
+    if (!t || !t.flight || (t.step !== 'flight' && t.step !== 'summary') || !$('#view-trip.active')) return false;
+    const el = $('#tripStep .tf-age');
+    if (!el) return false;
+    el.outerHTML = priceAgeHtml(t, t.step === 'flight' ? 'tfAge' : 'sumAge');
+    wireAge();
+    return true;
+  }
   function flightStep() {
     const t = T();
     const host = $('#tripStep');
@@ -554,20 +595,24 @@
       <div id="tfAlt"></div></div>${groundOffer(t)}`;
     $('#tfBack').onclick = () => go('flights');
     $('#tfNext').onclick = () => setStep('route');
-    $('#tfVerify').onclick = () => verifyFlight();
-    const ag = $('#tfAge'); if (ag) ag.onclick = () => verifyFlight();
+    $('#tfVerify').onclick = () => verifyFlight({ show: true });
+    wireAge();
     wirePrice(t);
     const os = $('#ovStart'); if (os) os.onclick = () => overlandPicker(t);
     // Při prvním zobrazení vybraného letu ověř cenu automaticky (jednou za cestu).
     if (!t.verifiedAt) { t.verifiedAt = Date.now(); persist(); verifyFlight({ auto: true }); }
   }
 
-  /** Živé ceny všech aerolinek pro zvolená data a letiště (Kiwi.com). */
-  async function verifyFlight({ auto = false } = {}) {
+  /**
+   * Živé ceny všech aerolinek pro zvolená data a letiště (Kiwi.com). show = na klepnutí (ne samo při prvním otevření):
+   * řádek „Ověřuji…“ a pak výsledek do obrazovky (altIntoView; 'top' = krok Let právě otevřený ze Shrnutí).
+   */
+  async function verifyFlight({ auto = false, show = false } = {}) {
     const t = T();
     const f = t.flight;
     const host = $('#tfAlt');
     host.innerHTML = '<div class="loading-row"><span class="spin dark"></span> Ověřuji aktuální ceny u všech aerolinek…</div>';
+    if (show) altIntoView(show === 'top');
     try {
       const qs = new URLSearchParams({ from: f.out.from, to: f.out.to, out: f.out.date, adults: t.adults });
       if (t.bags && t.bags !== 'none') qs.set('bags', t.bags); // příplatek za zavazadla i u jiné nabídky
@@ -611,6 +656,9 @@
       });
     } catch (e) {
       host.innerHTML = `<div class="note warn" style="margin-top:12px">⚠️ <div>${esc(e.message)}</div></div>`;
+    } finally {
+      // nabídky jsou vyšší než řádek „Ověřuji…“ (na telefonu dole mohly zůstat pod lištou); jen když je krok pořád na obrazovce
+      if (show && host.isConnected && $('#view-trip.active')) altIntoView();
     }
   }
 
@@ -1869,9 +1917,9 @@
         <a class="btn ghost" href="${esc(safeUrl(Ics.gcalUrl(tripEvent(t))))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>
         <button class="btn ghost" id="sumNew">Začít novou cestu</button>
       </div>`;
-    $$('[data-bk]', host).forEach(cb => cb.onchange = () => { t.booked[cb.dataset.bk] = cb.checked; persist(); });
-    // ↻ Ověř cenu: v kroku Let (bez ověření cesty se tam ověří samo jako dřív)
-    const ag = $('#sumAge'); if (ag) ag.onclick = () => { const was = t.verifiedAt; setStep('flight'); if (was) verifyFlight(); };
+    // odškrtnutá (i zase zrušená) letenka: „↻ Ověř cenu“ u ceny letenek zmizí (vrátí se) hned
+    $$('[data-bk]', host).forEach(cb => cb.onchange = () => { t.booked[cb.dataset.bk] = cb.checked; persist(); if (/^flight\d+$/.test(cb.dataset.bk)) ageRefresh(); });
+    wireAge();
     $('#sumSave').onclick = () => saveToPlanner();
     $('#sumShare').onclick = () => share();
     // odkaz se zkomprimuje hned, aby ho kliknutí jen zkopírovalo (Safari dovolí zápis do schránky jen v obsluze kliknutí)
@@ -2386,5 +2434,5 @@
   // Aplikace zavřená nebo znovu načtená dřív, než hledání doběhlo: na jeho konečný výsledek už cesta nepočká.
   if (typeof S !== 'undefined' && S && S.trip && S.trip.statsWait) { giveUpStats(S.trip); persist(); }
 
-  window.Trip = { start, finalStats, statsGiveUp, openSaved, render: safeRender, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn, legBack };
+  window.Trip = { start, finalStats, statsGiveUp, openSaved, render: safeRender, ageRefresh, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, timeline, placeOn, legBack };
 })();
