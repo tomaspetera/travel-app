@@ -512,17 +512,18 @@
   }
   /**
    * Kamkoliv: skupiny výsledků (už po ostatních filtrech výpisu) podle seznamů – 🙈 cíle schované (showMuted je ukáže),
-   * favOnly = jen ⭐ cíle. → { groups (zbylé v původním pořadí), muted (schováno 🙈), mutedIn (🙈 cílů ve výsledku),
-   * favIn (⭐ cílů ve výsledku), notFav (schováno „⭐ jen moje cíle“) }.
+   * favOnly = jen ⭐ cíle, keep = klíče hledaných cílů, které 🙈 neschová nikdy (jediné město hledané země – Malta,
+   * Lucembursko; server res.destination.sole). → { groups (zbylé v původním pořadí), muted (schováno 🙈), mutedIn (🙈
+   * cílů ve výsledku, které jde schovat), favIn (⭐ cílů ve výsledku), notFav (schováno „⭐ jen moje cíle“) }.
    */
-  function prefGroups(groups, lists, { showMuted = false, favOnly = false } = {}) {
-    const fav = destKeys(lists && lists.fav), mute = destKeys(lists && lists.mute), out = [];
+  function prefGroups(groups, lists, { showMuted = false, favOnly = false, keep = null } = {}) {
+    const fav = destKeys(lists && lists.fav), mute = destKeys(lists && lists.mute), out = [], kept = new Set(Array.isArray(keep) ? keep : []);
     let muted = 0, mutedIn = 0, favIn = 0, notFav = 0;
     for (const g of groups || []) {
       const k = g && g.dest && g.dest.key;
       if (!k) { out.push(g); continue; }
       if (fav.has(k)) favIn++;
-      if (mute.has(k)) { mutedIn++; if (!showMuted) { muted++; continue; } }
+      if (mute.has(k) && !kept.has(k)) { mutedIn++; if (!showMuted) { muted++; continue; } }
       if (favOnly && !fav.has(k)) { notFav++; continue; }
       out.push(g);
     }

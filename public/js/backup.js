@@ -119,8 +119,9 @@
       history: Array.isArray(w.history) ? w.history.slice(-60).filter(h => obj(h) && fin(h.at) && fin(h.czk) && h.czk > 0).map(h => ({ at: h.at, czk: h.czk, ...(h.own === 1 ? { own: 1 } : {}) })) : [],
     };
     for (const k of ['checked', 'tried', 'base', 'low', 'seen', 'target', 'notified']) o[k] = fin(w[k]) ? w[k] : null;
-    // otisk 🏠 vlastních cen v ceně hlídání („BRQ:0,VIE:350“, SearchHelp.ownPrint)
+    // otisk 🏠 vlastních cen v ceně hlídání („BRQ:0,VIE:350“, SearchHelp.ownPrint; Alerts.rebaseWhy)
     if (typeof w.own === 'string' && /^([A-Z]{3}:\d{1,4}(,[A-Z]{3}:\d{1,4}){0,39})?$/.test(w.own)) o.own = w.own;
+    if (fin(w.rebAt)) o.rebAt = w.rebAt;
     return o;
   }
   // druh výsledku z Objevuj (city, bike, hike, train, day-car, loop-transit…) → řádky dnů, které tam uložil
@@ -299,13 +300,12 @@
       home: { take: Boolean(inc.home) && !cur.home, differs: Boolean(inc.home && cur.home) && !homeSame },
       dests: { ...ds.add, over: ds.over },
       pretrip, refs,
-      // 🏠 vlastní ceny: nová letiště, ta, kde má zařízení jinou cenu (zůstane ta ze zařízení), a nová, která se už
+      // 🏠 vlastní ceny: nová letiště, ta, kde má zařízení jinou cenu (zůstane ta ze zařízení), stejná a nová, která se
       // nevešla (nejvýš 12 letišť)
-      own: {
-        add: Object.keys(withOwn).length - Object.keys(mineOwn).length,
-        differs: Object.keys(inc.own || {}).filter(k => Object.hasOwn(mineOwn, k) && mineOwn[k] !== inc.own[k]).length,
-        over: Object.keys(inc.own || {}).filter(k => !Object.hasOwn(withOwn, k)).length,
-      },
+      own: (() => {
+        const ks = Object.keys(inc.own || {}), add = Object.keys(withOwn).length - Object.keys(mineOwn).length, have = ks.filter(k => Object.hasOwn(mineOwn, k));
+        return { add, differs: have.filter(k => mineOwn[k] !== inc.own[k]).length, same: have.filter(k => mineOwn[k] === inc.own[k]).length, over: ks.length - have.length - add };
+      })(),
     };
   }
 
@@ -411,11 +411,11 @@
     if (inc.mute.length) parts.push(`🙈 ${pl(inc.mute.length, 'skryté město', 'skrytá města', 'skrytých měst')}${nov(df.dests.mute, 'nové', 'nová', 'nových')}`);
     if (df.pretrip) parts.push(`odškrtnutí „Před cestou“ u ${pl(df.pretrip, 'cesty', 'cest', 'cest')}`);
     if (df.refs) parts.push(`🔖 kódy rezervací u ${pl(df.refs, 'cesty', 'cest', 'cest')}`);
-    const no = Object.keys(inc.own || {}).length;
+    const no = Object.keys(inc.own || {}).length, o = df.own;
     if (no) {
-      const o = df.own, bits = [o.add ? `${o.add} ${o.add === 1 ? 'nové' : o.add <= 4 ? 'nová' : 'nových'}` : '', o.over ? `${o.over} se ${o.over >= 2 && o.over <= 4 ? 'nevešla' : 'nevešlo'}` : ''].filter(Boolean);
-      // „už máš“ jen když všechna letiště ze zálohy v zařízení cenu mají (a stejnou)
-      parts.push(`🏠 vlastní cena na ${pl(no, 'letiště', 'letiště', 'letišť')}${bits.length ? ` (${bits.join(', ')})` : o.differs ? '' : ' (už máš)'}${o.differs ? ` – u ${pl(o.differs, 'letiště', 'letišť', 'letišť')} máš jinou cenu, ta zůstane` : ''}`);
+      // „(už máš)“ jen když jsou v zařízení všechna se stejnou cenou
+      const bits = [o.add ? `${o.add} ${o.add === 1 ? 'nové' : o.add <= 4 ? 'nová' : 'nových'}` : '', o.same ? (o.same === no ? 'už máš' : `${o.same} už máš`) : '', o.over ? `${o.over} se nevešl${o.over === 1 ? 'o' : o.over <= 4 ? 'a' : 'o'}` : ''].filter(Boolean);
+      parts.push(`🏠 vlastní cena na ${pl(no, 'letiště', 'letiště', 'letišť')}${bits.length ? ` (${bits.join(', ')})` : ''}${o.differs ? ` – u ${pl(o.differs, 'letiště', 'letišť', 'letišť')} máš jinou cenu, ta zůstane` : ''}`);
     }
     return parts.length ? esc(parts.join(' · ')) : 'Záloha je prázdná.';
   }

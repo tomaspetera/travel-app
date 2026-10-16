@@ -711,6 +711,19 @@ test('🏠 vlastní ceny a radar: klíč bez nich, otisk letišť radaru – cen
   assert.deepEqual(plain(H.radarDiff(e1, [it('ROM', 1500)], key, 9).map((x) => x.was)), [{ czk: 2000, at: 1 }]);
 });
 
+test('prefGroups keep: jediné město hledané země (Malta – server destination.sole) 🙈 neschová, ostatní ano', () => {
+  const g = (key) => ({ dest: { key, id: `ap:${key}` } });
+  const lists = { fav: [], mute: [{ id: 'ap:MLA', key: 'MLA', label: 'Malta', cc: 'MT' }, { id: 'ap:TIA', key: 'TIA', label: 'Tirana', cc: 'AL' }] };
+  const keys = (r) => plain(r.groups.map((x) => x.dest.key));
+  const r = H.prefGroups([g('MLA')], lists, { keep: ['MLA'] });
+  assert.deepEqual([keys(r), r.muted, r.mutedIn], [['MLA'], 0, 0], 'bez čipu „🙈 skryto“');
+  assert.deepEqual(keys(H.prefGroups([g('MLA')], lists)), [], 'bez keep (Kamkoliv) schované');
+  const two = H.prefGroups([g('MLA'), g('TIA'), g('LUX')], lists, { keep: ['MLA', 'LUX'] });
+  assert.deepEqual([keys(two), two.muted], [['MLA', 'LUX'], 1]);
+  assert.deepEqual(keys(H.prefGroups([g('MLA'), g('LUX')], { fav: [], mute: lists.mute }, { keep: ['MLA'], favOnly: true })), [], '⭐ jen moje cíle platí dál');
+  assert.deepEqual(keys(H.prefGroups([g('MLA')], lists, { keep: 'MLA' })), [], 'keep jen pole');
+});
+
 test('dataAge: stáří ověřeného údaje – čerstvé nic, od 3 měsíců „před N měsíci“, od půl roku „mohlo se změnit“', () => {
   assert.equal(H.dataAge('2026-10', '2026-12-20').txt, '');
   assert.equal(H.dataAge('2026-10-07', '2027-02-01').txt, ' · před 4 měsíci');
