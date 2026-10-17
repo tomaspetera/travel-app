@@ -1088,7 +1088,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .fl-hero h1{font:800 30px/1.12 Sora,Inter,sans-serif;letter-spacing:-.02em;text-shadow:0 2px 16px rgba(0,0,0,.35)}
 .fl-hero p{margin-top:6px;font-size:14px;font-weight:600;opacity:.95;text-shadow:0 1px 10px rgba(0,0,0,.45)}
 #view-flights:has(#searchForm.collapsed) .fl-hero{display:none}
-#view-flights .search-card{margin-left:14px;margin-right:14px;border-radius:26px;background:var(--surface-solid);box-shadow:0 26px 50px -28px rgba(0,0,0,.6)}
+#view-flights .search-card,.search-card.on-hero{position:relative;z-index:5;margin-left:14px;margin-right:14px;border-radius:26px;background:var(--surface-solid);box-shadow:0 26px 50px -28px rgba(0,0,0,.6)}
 .sf-ico,.sf-swap,.ap-sum{display:none}
 .qd,.quick-range button{border-radius:999px}
 .tip{border-radius:20px}
@@ -1098,7 +1098,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   .fl-hero-in{padding:18px 18px 0}
   .fl-hero h1{font-size:24px}
   .fl-hero p{font-size:13px}
-  #view-flights .search-card{margin-left:6px;margin-right:6px;padding:12px;border-radius:26px}
+  #view-flights .search-card,.search-card.on-hero{margin-left:6px;margin-right:6px;padding:12px;border-radius:26px}
   /* Odkud a Kam: dvě dlaždice pod sebou s ikonou, ⇅ na rozhraní */
   .sf-route{gap:0 !important;border:1px solid var(--border);border-radius:20px;background:var(--surface)}
   .sf-route>.field{position:relative;padding:12px 12px 12px 56px;margin:0;min-width:0}

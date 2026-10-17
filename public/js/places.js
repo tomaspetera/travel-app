@@ -662,14 +662,15 @@
     if (!root) return;
     ensureUi();
     if (!ex.start || ex.start < fmtYMD(new Date())) { ex.start = plusDays(fmtYMD(new Date()), 1); ex.datePicked = false; }
-    root.innerHTML = `<div class="card search-card">
+    // bez místa: fotka krásného místa s nadpisem nahoře, hledání na ní (jako Lety)
+    root.innerHTML = `${ex.place ? '' : `<div class="fl-hero ex-hero" data-photo="${esc(window.heroPlace ? heroPlace(9) : 'Porto')}"><div class="fl-hero-in"><h1>Objev, co stojí za vidění</h1><p>Památky, muzea, vyhlídky a výlety kdekoliv na světě – a z nich program na pár dní</p></div></div>`}<div class="card search-card${ex.place ? '' : ' on-hero'}">
       <div class="ex-search">
         <div class="field" style="margin:0"><label>Kam se chceš podívat? <span class="lab-hint">město, obec, ostrov, místo…</span></label>
           <div style="position:relative"><input class="input" id="exQ" placeholder="Např. Lisabon, Český Krumlov, Kréta…" autocomplete="off" value="${esc(ex.place?.label || '')}"><div class="pi-dd" id="exDd" hidden></div></div></div>
         <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">📍 Tady</button>
         <div class="field" style="margin:0"><label>Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}</select></div>
       </div><div class="ex-recent" id="exRecent" hidden></div></div>
-      <div id="exBody">${ex.place ? '' : `<div class="empty"><div class="ei">🗺️</div><h2 style="font-size:20px;margin-bottom:6px">Objev, co stojí za vidění</h2><p style="max-width:460px;margin:0 auto">Zadej libovolné místo na světě. Ukážu nejzajímavější památky, muzea, vyhlídky a výlety v okolí – s popisem, fotkou a mapou – a na přání z nich složím program na pár dní.</p></div>${inspHtml()}`}</div>
+      <div id="exBody">${ex.place ? '' : inspHtml()}</div>
       <button type="button" class="ex-back" id="exBack" hidden></button>`;
     wireExploreSearch(root);
     paintRecent();
