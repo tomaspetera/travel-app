@@ -161,9 +161,9 @@ export async function searchStays(raw, { english = englishName, partners = null 
         // nepovedlo se nic (výpadek, pojistka) – zábrana 5 min neplatí, další pokus zase hlídá pojistka zdroje
         if (stale === 'all') cache.map.delete(`${key}:fresh`);
       } else res = await cache.wrap(key, ttl, () => p.search(q));
-      items.push(...res);
+      items.push(...res, ...(res.guesses || [])); // hotely bez ceny na tvoje dny (Xotelo) za nabídkami s cenou
       status.push({
-        id: p.id, name: p.name, ok: true, count: res.length, ms: Date.now() - t0, test: Boolean(p.testData?.()), ...(res.partial ? { partial: true } : {}),
+        id: p.id, name: p.name, ok: true, count: res.length, ...(res.guesses?.length ? { guesses: res.guesses.length } : {}), ms: Date.now() - t0, test: Boolean(p.testData?.()), ...(res.partial ? { partial: true } : {}),
         ...(stale ? { stale: true } : {}), ...(stale === 'all' ? { staleAll: true } : {}), ...(last ? { refreshIn: Math.max(1, Math.ceil((last + FRESH_MS - Date.now()) / 1000)) } : {}),
       });
     } catch (e) {

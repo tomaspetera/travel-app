@@ -363,8 +363,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-17f';
+const WN_ID = '2026-10-17g';
 const WHATS_NEW = [
+  ['🏨', 'Ubytování najde víc', 'v Cestě se ceny hotelů samy doplňují (TripAdvisor je u nového termínu zjišťuje pomalu) a hotely, ke kterým cena ještě nepřišla, uvidíš s běžnou cenou <b>od ~… Kč/noc</b> a odkazem na ceny na tvoje dny.'],
   ['💸', 'Nejlevnější nahoře', 'po hledání Kamkoliv jsou první 3 cíle velké karty s fotkou; detail země má nahoře fotku hlavního města.'],
   ['📅', 'Plánovač a Objevuj', 'cesty jako karty s fotkou cíle a štítkem „za 12 dní“; Objevuj s fotkou nahoře a hledáním na ní.'],
   ['🗺️', 'Mapa a Cesta v novém', 'mapa přes celý rámeček se štítkem „procestováno“ a seznamem navštívených zemí; v Cestě fotka cíle nahoře, kroky s popisky a let jako jízdenka.'],
@@ -379,7 +380,6 @@ const WHATS_NEW = [
   ['🚆', 'Vlak a bus podle skutečných jízdenek', '„běžně ~X Kč (od ~Y)“; vlastní cenu cesty na letiště zadáš v Lety → Další možnosti → 🏠.'],
   ['🕘', 'Stáří cen', '„ceny z 14:32“ nad výsledky, po hodině upozornění a ↻ Hledat znovu; v průvodci „cena z …“.'],
   ['🏨', 'Hotely s cenami', 'v průvodci Cesta → Ubytování: odkaz na web, kde je pokoj na tvoje dny volný, a ↻ Aktualizovat ceny.'],
-  ['⚡', 'Výsledky během hledání', 'nejlevnější nabídky naskakují hned, v Kalendáři mřížka termín × počet nocí.'],
 ];
 function renderWhatsNew() {
   const el = $('#whatsNew'); if (!el) return;
