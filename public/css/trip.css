@@ -430,3 +430,4 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .st-more summary::-webkit-details-marker{display:none}
 .st-more summary::after{content:' ▾'}
 .st-more[open] summary::after{content:' ▴'}
+.rt-gap{margin-top:6px;font-size:13px;padding:7px 10px;border-radius:10px;background:var(--surface-2)}

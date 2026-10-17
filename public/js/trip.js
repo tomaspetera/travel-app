@@ -134,7 +134,9 @@
   function stayDates(t) {
     const o = outLeg(t), b = backLeg(t);
     const checkin = checkinOf(o);
-    const checkout = b ? b.date : addDaysYmd(checkin, t.nightsOneWay || 3);
+    // cesta přes víc měst jen tam: pobyt končí nocemi v posledním městě (od příletu posledního letu)
+    const last = !b && isFly(t) ? midLegs(t).at(-1) : null;
+    const checkout = b ? b.date : addDaysYmd(last ? checkinOf(last) : checkin, t.nightsOneWay || 3);
     return { checkin, checkout, nights: Math.max(0, daysBetween(checkin, checkout)) };
   }
 
@@ -144,17 +146,18 @@
   /** Všechny lety cesty v pořadí: tam, mezi místy, zpět. */
   const allLegs = t => [t.flight.out, ...midLegs(t), t.flight.back].filter(Boolean);
   /** Trasu dávají lety: místa jsou cíle letů, mezi místy se letí, noci jsou dané daty letů (bez vlaku/busu místo letu). */
-  const isFly = t => Boolean(t && t.route && t.route.fixed === 'flights' && midLegs(t).length && t.flight.back && !ovOn(t)
+  const isFly = t => Boolean(t && t.route && t.route.fixed === 'flights' && midLegs(t).length && !ovOn(t)
     && Array.isArray(t.route.bases) && t.route.bases.length === midLegs(t).length + 1);
   /**
    * Místa trasy podle letů (f = { out, mid, back }, stops = cíle letů { label, lat, lon, cc, country, id }): i-té místo
-   * od příletu i-tého letu do odletu dalšího → pole míst, nebo null (místo bez noci či bez polohy – pak jen do plánovače).
+   * od příletu i-tého letu do odletu dalšího (bez letu zpět poslední město last nocí) → pole míst, nebo null (místo
+   * bez noci či bez polohy – pak jen do plánovače).
    */
-  function flyBases(f, stops) {
-    const arr = [f.out, ...(f.mid || [])], dep = [...(f.mid || []), f.back];
-    if (!f.back || !Array.isArray(stops) || stops.length !== arr.length) return null;
+  function flyBases(f, stops, last = 3) {
+    const arr = [f.out, ...(f.mid || [])], dep = [...(f.mid || []), f.back || null];
+    if (!Array.isArray(stops) || stops.length !== arr.length) return null;
     const bases = arr.map((l, i) => {
-      const s = stops[i], nights = daysBetween(checkinOf(l), dep[i].date);
+      const s = stops[i], nights = dep[i] ? daysBetween(checkinOf(l), dep[i].date) : last;
       if (!s || !Number.isFinite(s.lat) || !Number.isFinite(s.lon) || !(nights >= 1 && nights <= 30)) return null;
       return {
         id: /^[\w:.,-]{1,100}$/.test(s.id || '') ? s.id : `fly${i}`, name: String(s.label || l.to).replace(/ \(.*\)$/, '').slice(0, 80), nameEn: '',
@@ -165,6 +168,20 @@
   }
   /** Jdou vybrané lety do průvodce? (každé místo aspoň 1 noc, nejvýš MAX_BASES míst) */
   const flyOk = (f, stops) => (f.mid || []).length + 1 <= MAX_BASES && Boolean(flyBases(f, stops));
+  /**
+   * Trasa podle letů: další let odlétá z letiště, ke kterému z místa i nevede cesta z letiště do města (přiletíš do Říma,
+   * letíš z Neapole) → { i, b, a, d, key } – přejezd z místa na to letiště spočítá server (loadGaps, api/stayplan);
+   * druhé letiště téhož města (CIA → FCO) s cestou z města na letiště z hledání null.
+   */
+  function gapAt(t, i) {
+    const r = t.route, mid = midLegs(t), b = r.bases[i], a = i ? mid[i - 1] : t.flight.out, d = mid[i] || t.flight.back;
+    if (!b || !a || !d || a.to === d.from) return null;
+    const c = mid[i] ? ((t.arrival && Array.isArray(t.arrival.mid) && t.arrival.mid[i]) || {}).from : t.arrival && t.arrival.back;
+    if (c && Number.isFinite(c.lat) && distKm(b, c) <= 40) return null;
+    return { i, b, a, d, key: `g${i}${d.from}` };
+  }
+  /** Spočítaný přejezd k mezeře (null = zatím nespočítaný, false = nepovedl se). */
+  const gapLeg = (t, g) => (g && t.route.gaps && Object.hasOwn(t.route.gaps, g.key) ? t.route.gaps[g.key] : null);
 
   /** Víc míst (aspoň 2) a pobyt aspoň 2 noci; jinak jedno místo celý pobyt jako dřív. */
   const isMulti = t => Boolean(t && t.route && t.route.mode === 'multi' && Array.isArray(t.route.bases) && t.route.bases.length >= 2 && stayDates(t).nights >= 2);
@@ -172,8 +189,11 @@
    *  do odletu dalšího letu (noc v letadle mezi nimi do žádného místa nepatří). */
   function baseDates(t) {
     if (isFly(t)) {
-      const arr = [t.flight.out, ...midLegs(t)], dep = [...midLegs(t), t.flight.back];
-      return t.route.bases.map((b, i) => { const checkin = checkinOf(arr[i]), checkout = dep[i].date; return { checkin, checkout, nights: daysBetween(checkin, checkout) }; });
+      const arr = [t.flight.out, ...midLegs(t)], dep = [...midLegs(t), t.flight.back || null];
+      return t.route.bases.map((b, i) => {
+        const checkin = checkinOf(arr[i]), checkout = dep[i] ? dep[i].date : addDaysYmd(checkin, t.nightsOneWay || 3);
+        return { checkin, checkout, nights: daysBetween(checkin, checkout) };
+      });
     }
     let d = stayDates(t).checkin;
     return t.route.bases.map(b => { const checkin = d; d = addDaysYmd(d, b.nights); return { checkin, checkout: d, nights: b.nights }; });
@@ -303,6 +323,8 @@
    */
   function transferCzk(t, pax = t.adults) {
     if (!isMulti(t)) return 0;
+    // trasa podle letů: jen jízdenky z místa na letiště jiného města (Řím → letiště Neapol)
+    if (isFly(t)) return Math.round(t.route.bases.reduce((s, b, i) => { const x = gapLeg(t, gapAt(t, i)); return s + ((x && x.fareCzk) || 0); }, 0) * pax);
     const r = t.route, xs = r.transfers || [], ov = ovOn(t);
     const ends = ov ? overlandLegs(t) : r.legs || {};
     if (r.transport === 'transit') {
@@ -427,7 +449,7 @@
     // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz). Statistika
     // průběžného výsledku čeká stranou (statsPreview) pro případ, že hledání konečný výsledek nepřinese (statsGiveUp).
     const part = Boolean(result.partial), created = Date.now();
-    const fly = Array.isArray(t.mid) && t.mid.length ? flyBases(t, stops) : null;
+    const fly = Array.isArray(t.mid) && t.mid.length ? flyBases(t, stops, 3) : null;
     S.trip = {
       v: 1,
       created,
@@ -916,6 +938,8 @@
       staysData = null;
       t.plan = null; // program pro jiný počet dní neplatí
       let msg = '';
+      // cesta přes víc měst jen tam: noci posledního města (hotel tam na jiné dny pryč – hlásí reconcileStays)
+      if (isFly(t)) { t.route.bases.at(-1).nights = n; reconcileStays(t); }
       if (t.route && t.route.mode === 'multi' && t.route.bases.length && nightsLeft(t) !== 0) msg = 'Počet nocí se změnil – uprav jejich rozdělení v trase';
       // Cena vybraného hotelu platila pro původní počet nocí → vyber znovu (ruční cenu nech, ale upozorni); i se zapnutou
       // trasou – po přepnutí na Jedno místo by platil se starým termínem (hlášení o trase má přednost).
@@ -959,22 +983,46 @@
     // jiné město (Řím → let z Neapole) – cestu tam si zařídí sám
     const gap = i => {
       const a = i ? mid[i - 1] : f.out, d = mid[i] || f.back;
-      if (a.to === d.from) return '';
-      const c = mid[i] ? ((t.arrival && Array.isArray(t.arrival.mid) && t.arrival.mid[i]) || {}).from : t.arrival && t.arrival.back;
-      return c && Number.isFinite(c.lat) && distKm(r.bases[i], c) <= 40 ? `<div class="faint" style="font-size:12.5px">odlétáš z jiného letiště (${esc(d.from)}) – cesta na něj je v průběhu cesty</div>`
-        : `<div class="rt-warn">⚠️ Další let odlétá z ${esc(d.from)}, přiletíš na ${esc(a.to)} – cestu mezi letišti si naplánuj</div>`;
+      if (!d || a.to === d.from) return '';
+      const g = gapAt(t, i), x = gapLeg(t, g);
+      if (!g) return `<div class="faint" style="font-size:12.5px">odlétáš z jiného letiště (${esc(d.from)}) – cesta na něj je v průběhu cesty</div>`;
+      if (x) return `<div class="rt-gap">${trIcon('transit', x)} Na letiště ${esc(d.from)}: <b>${legTxt(x, 'transit')}</b> <span class="faint">(${estTxt(x, 'transit')}${x.fareCzk ? `, ~${czk(x.fareCzk)}/os.` : ''})</span>${legLink(x, 'transit') ? ` · ${legLink(x, 'transit')}` : ''}</div>`;
+      if (x === false) return `<div class="rt-warn">⚠️ Další let odlétá z ${esc(d.from)}, přiletíš na ${esc(a.to)} – cestu mezi letišti si naplánuj</div>`;
+      return `<div class="faint" style="font-size:12.5px"><span class="spin dark"></span> počítám cestu na letiště ${esc(d.from)}…</div>`;
     };
     host.innerHTML = `<div class="card step-card">
-      <div class="sc-head"><div><h3>🗺️ Trasa podle letů</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(stayDates(t).nights)} · noci dávají data letů – ke každému místu pak vybereš ubytování a program.</div></div></div>
+      <div class="sc-head"><div><h3>🗺️ Trasa podle letů</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(stayDates(t).nights)} · noci dávají data letů${f.back ? '' : ', v posledním místě zvolíš sám'} – ke každému místu pak vybereš ubytování a program.</div></div></div>
       <div class="ex-layout route-layout"><div><div class="route-list">
         ${legRow(f.out, '🛫', 'Let tam')}
         ${r.bases.map((b, i) => `<div class="rb"><span class="rb-n" style="background:${BASE_COLORS[i % BASE_COLORS.length]}">${i + 1}</span><div class="rb-main"><div class="rb-name">${esc(b.name)}</div><div class="rb-dates">${dayLbl(dates[i].checkin)} – ${dayLbl(dates[i].checkout)}${hotelName(b.stay) ? ` · 🏨 ${esc(hotelName(b.stay))}` : ''}</div>${gap(i)}</div><div class="rb-nights"><span><b>${dates[i].nights}</b> ${nightWord(dates[i].nights)}</span></div></div>${i < n - 1 ? legRow(mid[i], '✈️', `${i + 2}. let`) : ''}`).join('')}
-        ${legRow(f.back, '🛬', 'Let zpět')}
-      </div></div><div class="ex-map route-map" id="rtMap"></div></div>
+        ${f.back ? legRow(f.back, '🛬', 'Let zpět') : ''}
+      </div>${f.back ? '' : oneWayField(t).replace('Kolik nocí zůstaneš?', `Kolik nocí zůstaneš v posledním místě (${esc(r.bases.at(-1).name)})?`).replace('margin-bottom:12px', 'margin:12px 0')}</div><div class="ex-map route-map" id="rtMap"></div></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn primary" id="rtNext">Pokračovat k ubytování →</button></div></div>`;
     routeMapPaint = null;
     if (window.Places && Places.routeMap) paintRouteMap(t); else $('#rtMap').remove();
+    wireOneWay(t);
     $('#rtNext').onclick = () => { stayIdx = Math.max(0, r.bases.findIndex(b => !b.stay)); progIdx = 0; setStep('stay'); };
+    loadGaps(t);
+  }
+  /** Přejezdy z místa na letiště jiného města (gapAt), které ještě nejsou spočítané – po spočítání krok Trasa znovu. */
+  let gapsBusy = false;
+  async function loadGaps(t) {
+    const r = t.route, todo = r.bases.map((b, i) => gapAt(t, i)).filter(g => g && gapLeg(t, g) === null);
+    if (!todo.length || gapsBusy) return;
+    gapsBusy = true;
+    try {
+      for (const g of todo) {
+        let x = false;
+        try {
+          const j = await postJson('api/stayplan', { arrival: g.a.to, departure: g.d.from, transport: 'transit', bases: [{ name: g.b.name, lat: g.b.lat, lon: g.b.lon, cc: g.b.cc || '' }] });
+          x = j.legs && j.legs.departure && Number.isFinite(j.legs.departure.transitMin) ? j.legs.departure : false;
+        } catch (e) { x = false; }
+        if (T() !== t) return;
+        r.gaps = { ...(r.gaps || {}), [g.key]: x };
+      }
+      persist();
+      if (t.step === 'route' && $('#view-trip.active')) render(); else refreshHead();
+    } finally { gapsBusy = false; }
   }
 
   function setRouteMode(mode) {
@@ -1819,7 +1867,8 @@
     let hotel = null;
     if (f.back && f.back.hasTime && !carCovers(t, 'back')) {
       // trasa podle letů: poslední místo je ve městě letiště odletu → cesta z města na letiště jako u jednoho místa
-      const m = okMin(isMulti(t) && !isFly(t) ? legMin((t.route.legs || {}).departure, t.route.transport) : t.arrival && t.arrival.back && t.arrival.back.min);
+      const lg = isFly(t) ? gapLeg(t, gapAt(t, t.route.bases.length - 1)) : null;
+      const m = okMin(isMulti(t) && !isFly(t) ? legMin((t.route.legs || {}).departure, t.route.transport) : lg ? lg.transitMin : t.arrival && t.arrival.back && t.arrival.back.min);
       // jedno místo, ale zpět z letiště jiného města (víc měst v hledání): cesta z města toho letiště se k ubytování nehodí
       const sameCity = isMulti(t) || f.back.from === f.out.to || !(t.arrival && t.arrival.out && t.arrival.back) || t.arrival.out.city === t.arrival.back.city;
       if (m > 0 && sameCity) {
@@ -1833,7 +1882,8 @@
     }
     // cesta přes víc měst: z ubytování na let do dalšího místa (cesta z města na letiště z hledání)
     const mids = isFly(t) ? midLegs(t).map((l, i) => {
-      const a = t.arrival && Array.isArray(t.arrival.mid) && t.arrival.mid[i] && t.arrival.mid[i].from, m = okMin(a && a.min);
+      const a = t.arrival && Array.isArray(t.arrival.mid) && t.arrival.mid[i] && t.arrival.mid[i].from, gx = gapLeg(t, gapAt(t, i));
+      const m = okMin(gx ? gx.transitMin : a && a.min);
       if (!l.hasTime || !(m > 0)) return null;
       const x = at(l, m, bases[i] && bases[i].cc), day = x.date === l.date;
       x.hint = day && x.hm > CHECKOUT_HM ? `check-out bývá do ${CHECKOUT_HM} – zavazadla nech na recepci` : day && x.hm < '06:00' ? 'brzy ráno – taxi objednej předem, nebo přespi u letiště' : null;
@@ -1851,7 +1901,7 @@
     if (isFly(t)) {
       // trasa podle letů: od příletu do místa (rezervu na cestu z letiště má program sám) do odletu dalšího letu
       const a = arrivalAt(i ? midLegs(t)[i - 1] : t.flight.out), n = last ? b : midLegs(t)[i];
-      return { start: a.slice(0, 10), end: d.checkout, arrivalTime: a.slice(11, 16), departureTime: n.hasTime ? n.dep.slice(11, 16) : null };
+      return { start: a.slice(0, 10), end: d.checkout, arrivalTime: a.slice(11, 16), departureTime: n && n.hasTime ? n.dep.slice(11, 16) : null };
     }
     const arr = arrivalAt(outLeg(t)), a0 = arr.slice(11, 16);
     // Cesta z letiště (města příjezdu) na 1. místo a z posledního zpět: hodinu kryje rezerva programu
@@ -2004,7 +2054,9 @@
         if (fly && mid[i]) {
           const am = (t.arrival && Array.isArray(t.arrival.mid) && t.arrival.mid[i]) || {}, lx = lb.mids && lb.mids[i];
           if (lx) rows.push([lx.date + (lx.date < mid[i].date ? '~' : ''), '🚪', `Z ubytování na letiště ${esc(lx.airport)} vyraž nejpozději ${lbTime(lx)} <span class="faint">(~${minutesToHm(lx.min)} cesta + ${lbBefore(lx)} před odletem, odhad)</span>${lx.hint ? ' · ' + esc(lx.hint) : ''}`]);
-          if (am.from) rows.push([mid[i].date, ARR_ICO[am.from.mode] || '🚌', esc(arrivalRow(am.from, true))]);
+          const gx = gapLeg(t, gapAt(t, i));
+          if (gx) rows.push([mid[i].date, trIcon('transit', gx), `${esc(b.name)} → letiště ${esc(mid[i].from)} · ${legTxt(gx, 'transit')} (${estTxt(gx, 'transit')})${legLink(gx, 'transit') ? ` · ${legLink(gx, 'transit')}` : ''}`]);
+          else if (am.from) rows.push([mid[i].date, ARR_ICO[am.from.mode] || '🚌', esc(arrivalRow(am.from, true))]);
           rows.push([mid[i].date, '✈️', `${fRow(mid[i])} · ${esc(b.name)} → ${esc(r.bases[i + 1].name)}`]);
           if (am.to) rows.push([arrivalAt(mid[i]).slice(0, 10), ARR_ICO[am.to.mode] || '🚌', esc(arrivalRow(am.to))]);
         } else if (i < r.bases.length - 1) rows.push([dates[i].checkout, trIcon(tr, x), `Přejezd ${esc(b.name)} → ${esc(r.bases[i + 1].name)}${x ? ` · ${legTxt(x, tr)} (${estTxt(x, tr)})${esc(borderTxt(x))}${legLink(x, tr) ? ` · ${legLink(x, tr)}` : ''}` : ''}`]);
@@ -2022,7 +2074,9 @@
     if (t.car && t.car.mode !== 'skip' && t.car.to) rows.push([t.car.to.slice(0, 10), '🚗', `Vrácení auta ${esc(t.car.dropoff)} ${t.car.to.slice(11, 16)}`]);
     if (!multi) hotelRow(lb.hotel);
     const ab = !ov && (!multi || fly) && f.back && t.arrival && t.arrival.back;
-    if (ab && !carCovers(t, 'back')) rows.push([f.back.date, ARR_ICO[ab.mode] || '🚌', esc(arrivalRow(ab, true))]);
+    const lg = fly ? gapLeg(t, gapAt(t, r.bases.length - 1)) : null;
+    if (lg) rows.push([f.back.date, trIcon('transit', lg), `${esc(r.bases.at(-1).name)} → letiště ${esc(f.back.from)} · ${legTxt(lg, 'transit')} (${estTxt(lg, 'transit')})${legLink(lg, 'transit') ? ` · ${legLink(lg, 'transit')}` : ''}`]);
+    else if (ab && !carCovers(t, 'back')) rows.push([f.back.date, ARR_ICO[ab.mode] || '🚌', esc(arrivalRow(ab, true))]);
     if (ov) { if (ov.back) rows.push([ov.back.date, gIco(ov.back), gRow(ov.back, ov.to.label, ov.from.label)]); }
     else if (f.back) rows.push([f.back.date, '🛬', fRow(f.back)]);
     // Stabilní řazení podle data; „~“ za datem = až po ostatních položkách dne.
@@ -2443,7 +2497,7 @@
     t.flight.out = leg(t.flight.out);
     t.flight.back = leg(t.flight.back);
     // cesta přes víc měst: lety mezi místy (jen s letem zpět; bez nich trasa podle letů neplatí – viz isFly)
-    const mid = t.flight.back && Array.isArray(t.flight.mid) ? t.flight.mid.filter(isLeg).slice(0, MAX_BASES - 1).map(leg) : [];
+    const mid = Array.isArray(t.flight.mid) ? t.flight.mid.filter(isLeg).slice(0, MAX_BASES - 1).map(leg) : [];
     if (mid.length) t.flight.mid = mid; else delete t.flight.mid;
     t.flight.flightCzk = num(t.flight.flightCzk, 0, 1e7, 0);
     t.flight.groundCzk = num(t.flight.groundCzk, 0, 1e6, 0);
@@ -2600,8 +2654,11 @@
     const transport = r.transport === 'transit' ? 'transit' : 'car';
     if (bases.length < 2) return { mode: 'single', transport, bases: [], transfers: [], legs: {}, exclude: [], candidates: [], notes: [] };
     const transfers = Array.isArray(r.transfers) ? r.transfers.slice(0, bases.length - 1).map(leg) : [];
+    // trasa podle letů: přejezdy z místa na letiště jiného města (klíč g<místo><letiště>, false = nepovedl se)
+    const gaps = obj(r.gaps) ? Object.fromEntries(Object.entries(r.gaps).filter(([k]) => /^g\d[A-Z0-9]{3}$/.test(k)).slice(0, MAX_BASES)
+      .map(([k, v]) => [k, v === false ? false : leg(v)]).filter(([, v]) => v !== null)) : {};
     return {
-      mode: r.mode === 'multi' ? 'multi' : 'single', transport, bases, ...(r.fixed === 'flights' ? { fixed: 'flights' } : {}),
+      mode: r.mode === 'multi' ? 'multi' : 'single', transport, bases, ...(r.fixed === 'flights' ? { fixed: 'flights', ...(Object.keys(gaps).length ? { gaps } : {}) } : {}),
       // chybějící nebo poškozené přejezdy se v kroku Trasa dopočítají
       transfers: transfers.length === bases.length - 1 && transfers.every(Boolean) ? transfers : [],
       legs: { arrival: leg(obj(r.legs) ? r.legs.arrival : null), departure: leg(obj(r.legs) ? r.legs.departure : null) }, groundLegs,
