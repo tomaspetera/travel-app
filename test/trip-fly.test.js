@@ -117,6 +117,8 @@ test('cesta přes víc měst: průběh cesty, kalendář, shrnutí a plánovač 
   assert.deepEqual(plain(p.legs.map((l) => `${l.from}-${l.to} ${l.dep}`)), ['PRG-FCO 2026-11-10T10:00', 'FCO-BCN 2026-11-13T07:35', 'BCN-PRG 2026-11-16T18:10']);
   assert.match(p.flight, /^1\. PRG→FCO .*, 2\. FCO→BCN .*, 3\. BCN→PRG .* · samostatné letenky$/);
   assert.match(p.notes, /Trasa: Řím \(3 noci\) → Barcelona \(3 noci\)/);
+  assert.equal(p.dest, 'Řím → Barcelona');
+  assert.match(p.name, /^Řím → Barcelona 10\.\s?11\./);
   assert.doesNotMatch(p.notes, /Přejezd/);
   assert.equal(p.wizard.flight.mid.length, 1);
 });
