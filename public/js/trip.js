@@ -955,8 +955,15 @@
   function flyRouteStep(t, host) {
     const r = t.route, dates = baseDates(t), mid = midLegs(t), f = t.flight, n = r.bases.length;
     const legRow = (l, ico, what) => `<div class="rt-tr"><span class="rt-ic">${ico}</span><div><b>${what} ${esc(l.from)} → ${esc(l.to)}</b> <span class="faint">${depHm(l) ? `${depHm(l)} → ${arrHm(l) || '?'}` : 'čas ověř'}${l.carrierName ? ' · ' + esc(l.carrierName) : ''}</span><div class="faint">${dayLbl(l.date)}</div></div></div>`;
-    // další let odlétá z jiného letiště, než kam se přiletělo (Řím → let z Neapole): cestu mezi nimi si zařídí sám
-    const gap = i => { const a = i ? mid[i - 1] : f.out, d = mid[i] || f.back; return a.to !== d.from ? `<div class="rt-warn">⚠️ Další let odlétá z ${esc(d.from)}, přiletíš na ${esc(a.to)} – cestu mezi letišti si naplánuj</div>` : ''; };
+    // další let odlétá z jiného letiště, než kam se přiletělo: druhé letiště téhož města (CIA → FCO) jen poznámka,
+    // jiné město (Řím → let z Neapole) – cestu tam si zařídí sám
+    const gap = i => {
+      const a = i ? mid[i - 1] : f.out, d = mid[i] || f.back;
+      if (a.to === d.from) return '';
+      const c = mid[i] ? ((t.arrival && Array.isArray(t.arrival.mid) && t.arrival.mid[i]) || {}).from : t.arrival && t.arrival.back;
+      return c && Number.isFinite(c.lat) && distKm(r.bases[i], c) <= 40 ? `<div class="faint" style="font-size:12.5px">odlétáš z jiného letiště (${esc(d.from)}) – cesta na něj je v průběhu cesty</div>`
+        : `<div class="rt-warn">⚠️ Další let odlétá z ${esc(d.from)}, přiletíš na ${esc(a.to)} – cestu mezi letišti si naplánuj</div>`;
+    };
     host.innerHTML = `<div class="card step-card">
       <div class="sc-head"><div><h3>🗺️ Trasa podle letů</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(stayDates(t).nights)} · noci dávají data letů – ke každému místu pak vybereš ubytování a program.</div></div></div>
       <div class="ex-layout route-layout"><div><div class="route-list">

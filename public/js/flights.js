@@ -203,48 +203,108 @@
     if (g) n = `geo:${(+g[1]).toFixed(1)},${(+g[2]).toFixed(1)}`;
     return (origin ? '&role=from' : '') + (/^(ap|metro|geo|cc):/.test(n) ? '&near=' + enc(n) : '');
   }
+  // návrhy míst našeptávače (api/places)
+  async function placesFor(q, origin, near, signal) {
+    const r = await fetch('api/places?q=' + enc(q) + placeCtx(origin, near), { signal });
+    return (await r.json()).items || [];
+  }
+  // chytré hledání: termíny podle svátků a délky pobytu jako ve formuláři
+  const smartOpts = () => ({ today: today(), presets: PRESETS, holidays: SearchHelp.holidayList(today()), holidayDates: SearchHelp.holidayDates });
+  /** Místa z věty („do Říma“, „z Vídně“): tvar slova i se zkrácenou koncovkou → nejlepší návrh (Smart.bestPlace). */
+  async function smartResolve(hit, near, signal) {
+    const one = async (phrase, origin) => Smart.bestPlace(await Promise.all(Smart.stems(phrase).map(q => placesFor(q, origin, near, signal)
+      .then(items => ({ q, items }), e => { if (e.name === 'AbortError') throw e; return { q, items: [] }; }))));
+    const [to, from] = await Promise.all([Promise.all(hit.sm.to.map(x => one(x, false))), Promise.all(hit.sm.from.map(x => one(x, true)))]);
+    const item = x => ({ id: x.id, label: x.label, flag: x.flag || '📍', type: x.type });
+    hit.to = to.filter(Boolean).map(item).slice(0, 5);
+    hit.from = from.filter(x => x && x.type !== 'continent').map(item).slice(0, 3);
+    hit.miss = [...hit.sm.to.filter((x, i) => !to[i]), ...hit.sm.from.filter((x, i) => !from[i] || from[i].type === 'continent')];
+  }
   class PlaceInput {
-    constructor(el, { placeholder, max = 5, onChange, dark = false, allowAnywhere = false, origin = false, near = null }) {
+    // smart = { run(hit), tips() } – chytré hledání (pole Kam): věta „k moři v květnu do 5000“ → ✨ řádek nahoře
+    // s tím, jak jí rozumím, a prázdné pole po klepnutí → tipy podle toho, co uživatel hledá (Smart, smartTips)
+    constructor(el, { placeholder, max = 5, onChange, dark = false, allowAnywhere = false, origin = false, near = null, smart = null }) {
       this.el = el; this.items = []; this.max = max; this.onChange = onChange || (() => { }); this.allowAnywhere = allowAnywhere;
       this.origin = origin; // odkud: světadíl nedává smysl
       this.near = near || (() => (S.home && S.home.from && S.home.from[0] && S.home.from[0].id) || ''); // domov pro pořadí návrhů
+      this.smart = smart && window.Smart ? smart : null; this.hit = null; this.tips = [];
       el.classList.add('pi'); if (dark) el.classList.add('pi-dark');
       el.innerHTML = `<div class="pi-chips"></div><input class="pi-input" placeholder="${esc(placeholder || '')}" autocomplete="off" spellcheck="false"><div class="pi-dd" hidden></div>`;
       this.chipsEl = $('.pi-chips', el); this.input = $('.pi-input', el); this.dd = $('.pi-dd', el);
       this.active = -1; this.sugs = []; this.ctl = null; this.ph = placeholder;
       const load = debounce(() => this.fetch(), 160);
-      this.input.addEventListener('input', () => { if (this.input.value.trim().length >= 2) load(); else this.close(); });
-      this.input.addEventListener('focus', () => { if (this.input.value.trim().length >= 2) load(); });
+      this.input.addEventListener('input', () => { if (this.input.value.trim().length >= 2) load(); else if (!this.input.value.trim()) this.showTips(); else this.close(); });
+      this.input.addEventListener('focus', () => { if (this.input.value.trim().length >= 2) load(); else if (!this.input.value.trim()) this.showTips(); });
       this.input.addEventListener('keydown', e => this.key(e));
       this.input.addEventListener('blur', () => setTimeout(() => this.close(), 150));
       el.addEventListener('click', e => { if (e.target === el || e.target === this.chipsEl) this.input.focus(); });
       this.render();
     }
+    // řádky nabídky: ✨ chytré hledání, tipy (prázdné pole), návrhy míst
+    rows() { return [...(this.hit ? [{ hit: this.hit }] : []), ...this.tips.map(t => ({ tip: t })), ...this.sugs.map(s => ({ sug: s }))]; }
+    showTips() {
+      if (!this.smart) return;
+      this.hit = null; this.sugs = [];
+      try { this.tips = this.smart.tips() || []; } catch (e) { this.tips = []; }
+      this.active = -1; // Enter v prázdném poli dál odešle formulář
+      if (this.tips.length) this.open(); else this.close();
+    }
     async fetch() {
       const q = this.input.value.trim();
       if (this.ctl) this.ctl.abort();
       this.ctl = new AbortController();
+      const signal = this.ctl.signal;
+      this.tips = [];
+      // věta s termínem, cenou, „k moři“…: ✨ řádek a návrhy jen pro místo ve větě (Řím z „Řím na víkend“)
+      const sm = this.smart ? Smart.parse(q, smartOpts()) : null;
+      // věta (termín, cena, „k moři“…, odkud, víc míst): jen ✨ řádek – návrhy pro kus věty („Říma“) by mátly
+      const hit = sm && (sm.chips.length || sm.from.length || sm.to.length >= 2) ? { sm, to: [], from: [], miss: [] } : null;
+      const qq = hit ? '' : q;
       try {
-        const r = await fetch('api/places?q=' + enc(q) + placeCtx(this.origin, this.near()), { signal: this.ctl.signal });
-        const j = await r.json();
+        const [items] = await Promise.all([
+          qq.length >= 2 ? placesFor(qq, this.origin, this.near(), signal) : [],
+          hit ? smartResolve(hit, this.near(), signal) : null,
+        ]);
         if (q !== this.input.value.trim()) return;
-        this.sugs = (j.items || []).filter(s => !this.origin || s.type !== 'continent'); this.active = this.sugs.length ? 0 : -1; this.open();
-      } catch (e) { if (e.name !== 'AbortError') { this.sugs = []; this.open(true); } }
+        this.hit = hit;
+        this.sugs = items.filter(s => !this.origin || s.type !== 'continent'); this.active = this.hit || this.sugs.length ? 0 : -1; this.open();
+      } catch (e) { if (e.name !== 'AbortError') { this.hit = null; this.sugs = []; this.open(true); } }
     }
     open(err) {
       const typeLbl = { airport: 'letiště', metro: 'město', city: 'město', country: 'země', region: 'oblast', place: 'místo', continent: 'světadíl' };
-      this.dd.innerHTML = this.sugs.length ? this.sugs.map((s, i) => `<div class="pi-opt ${i === this.active ? 'on' : ''}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span><span class="pi-type">${typeLbl[s.type] || ''}</span></div>`).join('')
-        : `<div class="pi-empty">${err ? 'Našeptávač je nedostupný' : 'Nic nenalezeno – zkus jiný název nebo kód letiště'}</div>`;
+      const rows = this.rows();
+      const row = (r, i) => {
+        const on = i === this.active ? ' on' : '';
+        if (r.hit) {
+          const h = r.hit, places = [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`)];
+          const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}`)].join(' · ');
+          const sub = h.miss.length ? `„${h.miss.join('“, „')}“ neznám – hledám bez toho` : (h.sm.items && !h.to.length ? h.sm.items.map(x => x.label).join(', ') : 'klepni nebo Enter – nastavím a hledám');
+          return `<div class="pi-opt pi-smart${on}" data-i="${i}"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc(what)}</b><small>${esc(sub)}</small></span><span class="pi-type">hledat</span></div>`;
+        }
+        if (r.tip) return `<div class="pi-opt pi-tip${on}" data-i="${i}"><span class="pi-flag">${r.tip.icon}</span><span class="pi-t"><b>${esc(r.tip.text)}</b>${r.tip.sub ? `<small>${esc(r.tip.sub)}</small>` : ''}</span></div>`;
+        const s = r.sug;
+        return `<div class="pi-opt${on}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span><span class="pi-type">${typeLbl[s.type] || ''}</span></div>`;
+      };
+      this.dd.innerHTML = (this.tips.length ? '<div class="pi-head">✨ Pro tebe – nebo napiš celou větu, třeba „k moři v květnu do 5000“</div>' : '')
+        + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err ? 'Našeptávač je nedostupný' : 'Nic nenalezeno – zkus jiný název nebo kód letiště'}</div>`);
       this.dd.hidden = false;
-      $$('.pi-opt', this.dd).forEach(o => o.onmousedown = e => { e.preventDefault(); this.pick(this.sugs[+o.dataset.i]); });
+      $$('.pi-opt', this.dd).forEach(o => o.onmousedown = e => { e.preventDefault(); this.choose(rows[+o.dataset.i]); });
     }
     close() { this.dd.hidden = true; }
+    choose(r) {
+      if (!r) return;
+      if (r.sug) return this.pick(r.sug);
+      this.input.value = ''; this.close(); this.input.blur();
+      if (r.hit) this.smart.run(r.hit);
+      else if (r.tip) r.tip.run();
+    }
     key(e) {
+      const n = this.rows().length;
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        if (this.dd.hidden || !this.sugs.length) return;
-        e.preventDefault(); this.active = (this.active + (e.key === 'ArrowDown' ? 1 : -1) + this.sugs.length) % this.sugs.length; this.open();
+        if (this.dd.hidden || !n) return;
+        e.preventDefault(); this.active = (this.active + (e.key === 'ArrowDown' ? 1 : -1) + n) % n; this.open();
       } else if (e.key === 'Enter') {
-        if (!this.dd.hidden && this.sugs[this.active]) { e.preventDefault(); this.pick(this.sugs[this.active]); }
+        if (!this.dd.hidden && this.active >= 0 && this.active < n) { e.preventDefault(); this.choose(this.rows()[this.active]); }
       } else if (e.key === 'Escape') this.close();
       else if (e.key === 'Backspace' && !this.input.value && this.items.length) { this.items.pop(); this.render(); this.onChange(this.items); }
     }
@@ -909,7 +969,8 @@
 
   function buildForm() {
     fromInput = new PlaceInput($('#fromInput'), { origin: true, placeholder: 'Např. Brno, Vídeň, Česko, Jihlava…', onChange: () => { refreshOrigins(); updateHomeChip(); mlHomeChanged(); formEdited(); } });
-    toInput = new PlaceInput($('#toInput'), { placeholder: 'Kamkoliv 🌍 – město, země, ostrov…', onChange: () => { syncFormUI(); formEdited(); }, near: () => (fromInput.items[0] && fromInput.items[0].id) || (S.home && S.home.from && S.home.from[0] && S.home.from[0].id) || '' });
+    toInput = new PlaceInput($('#toInput'), { placeholder: 'Kamkoliv 🌍 – město, země, nebo „k moři v květnu“', onChange: () => { syncFormUI(); formEdited(); }, near: () => (fromInput.items[0] && fromInput.items[0].id) || (S.home && S.home.from && S.home.from[0] && S.home.from[0].id) || '',
+      smart: { run: hit => smartRun(hit, fromInput.items), tips: () => smartTips(() => fromInput.items) } });
     // ⇅ prohodit Odkud a Kam (světadíl do Odkud nejde)
     $('#swapBtn').onclick = () => {
       const a = fromInput.items.slice(), b = toInput.items.slice();
@@ -3919,6 +3980,63 @@
     });
   }
 
+  /* ---------- ✨ chytré hledání (smart.js): věta → formulář → hledání ---------- */
+  /** Věta rozebraná (Smart.parse) a místa dohledaná (smartResolve) → formulář Letů a hledání. from = odkud z pole, kde se psalo. */
+  function smartRun(hit, from) {
+    const p = hit.sm.patch, to = (hit.to.length ? hit.to : hit.sm.items || []).slice(0, 5);
+    const f = { ...defaultForm(), ...prefsOf(S.form), from: hit.from.length ? hit.from : (from && from.length ? from : S.home?.from || []), to, ...p };
+    if (f.dateMode === 'exact' && !f.xBack) f.trip = 'oneway';
+    go('flights');
+    setForm(f);
+    if (!fromInput.items.length) { toast('Zadej, odkud letíš'); fromInput.input.focus(); return; }
+    startSearch();
+  }
+  // tip s větou: rozebrat a hledat (bez míst – „k moři“, termín, délka)
+  const phraseTip = (icon, text, sub, from) => ({ icon, text, sub, run: () => smartRun({ sm: Smart.parse(text, smartOpts()), to: [], from: [], miss: [] }, from()) });
+  /**
+   * Tipy v prázdném poli Kam podle toho, co uživatel dělá: nedávná hledání, ⭐ moje cíle, k moři / za teplem v příštím
+   * měsíci v délce, jakou nejčastěji hledá (víkendy, týden…), nejbližší prodloužený víkend a kamkoliv co nejdřív.
+   */
+  function smartTips(from) {
+    const t = today(), nm = (+t.slice(5, 7)) % 12, tips = [];
+    const recent = (S.recent || []).map(e => SearchHelp.recentForm(e.form, t)).filter(f => f && f.trip !== 'multi');
+    const seen = new Set();
+    for (const f of recent) {
+      const k = watchKey({ form: f });
+      if (!k || seen.has(k) || seen.size >= 2) continue;
+      seen.add(k);
+      tips.push({ icon: '🔁', text: watchLabel(f), sub: `znovu · ${recentSub(f)}`, run: () => { go('flights'); setForm(f); startSearch(); } });
+    }
+    const fav = prefLists().fav;
+    if (fav.length) tips.push({ icon: '⭐', text: `Moje cíle: ${favNames(fav)}`, sub: 'nejlevnější lety do všech najednou', run: () => searchFavs(fav) });
+    const lens = recent.map(f => f.len).filter(l => Object.hasOwn(PRESETS, l));
+    const habit = lens.slice().sort((a, b) => lens.filter(x => x === b).length - lens.filter(x => x === a).length)[0];
+    const suf = { weekend: ' na víkend', long: ' na prodloužený víkend', week: ' na týden', '2weeks': ' na 2 týdny' }[habit] || '';
+    const sea = nm >= 4 && nm <= 8; // květen–září k moři v Evropě, jinak za teplem
+    tips.push(phraseTip(sea ? '🏖️' : '☀️', `${sea ? 'k moři' : 'za teplem'} v ${MNS_IN[nm]}${suf}`, habit ? 'v délce, jakou obvykle hledáš' : 'nejlevnější cíle, kde je příští měsíc teplo', from));
+    const lw = SearchHelp.holidayList(t)[0];
+    if (lw) {
+      tips.push({ icon: '🎉', text: `Kamkoliv · ${lw.name}`, sub: `prodloužený víkend ${SearchHelp.dmRange(lw.start, lw.end)}`, run: () => {
+        go('flights'); setForm({ ...defaultForm(), ...prefsOf(S.form), from: from().length ? from() : S.home?.from || [], to: [], dateMode: 'flex', trip: 'return', len: 'holiday', ...SearchHelp.holidayDates(lw, t) });
+        if (fromInput.items.length) startSearch(); else { toast('Zadej, odkud letíš'); fromInput.input.focus(); }
+      } });
+    }
+    tips.push(phraseTip('🌍', `kamkoliv${suf || ' na víkend'} co nejdřív`, 'nejlevnější lety v příštích 2 týdnech', from));
+    return tips.slice(0, 6);
+  }
+  // ✨ Zkus napsat: příklady vět pod hledáním na Přehledu (klepnutí = hledat)
+  const TRY = ['k moři v květnu do 5000', 'Řím na víkend ve dvou', 'za teplem v prosinci na týden', 'Londýn příští měsíc jen přímé'];
+  function paintSmartTry() {
+    const host = $('#smartTry'); if (!host || !window.Smart) return;
+    host.innerHTML = `<span class="st-lab">✨ Zkus napsat:</span>${TRY.map((x, i) => `<button type="button" class="st-chip" data-try="${i}">${esc(x)}</button>`).join('')}`;
+    $$('[data-try]', host).forEach(b => b.onclick = async () => {
+      const sm = Smart.parse(TRY[+b.dataset.try], smartOpts()), hit = { sm, to: [], from: [], miss: [] };
+      b.disabled = true;
+      try { await smartResolve(hit, heroFrom.items[0]?.id || '', undefined); } catch (e) { /* bez míst */ } finally { b.disabled = false; }
+      smartRun(hit, heroFrom.items);
+    });
+  }
+
   /* ---------- ⭐ Moje cíle a 🙈 Nezajímá mě (S.fav, S.mute; SearchHelp.destPref…) ---------- */
   // „Porto, Tbilisi, Palermo“ – prvních 5 (víc pole Kam nepojme)
   const favNames = fav => fav.slice(0, 5).map(x => x.label).join(', ') + (fav.length > 5 ? ` (prvních 5 z ${fav.length})` : '');
@@ -4406,7 +4524,9 @@
     renderRecent();
     renderQuick(); // Nápady, kam letět – i na Letech
     heroFrom = new PlaceInput($('#heroFrom'), { origin: true, placeholder: 'Brno, Vídeň, Česko…', dark: true, max: 3 });
-    heroTo = new PlaceInput($('#heroTo'), { placeholder: 'kamkoliv 🌍', dark: true, max: 4 });
+    heroTo = new PlaceInput($('#heroTo'), { placeholder: 'kamkoliv 🌍, nebo „k moři v květnu“', dark: true, max: 4,
+      smart: { run: hit => smartRun(hit, heroFrom.items), tips: () => smartTips(() => heroFrom.items) } });
+    paintSmartTry();
     heroFrom.set(S.home?.from || [], true);
     $('#heroSearch').onsubmit = e => {
       e.preventDefault();

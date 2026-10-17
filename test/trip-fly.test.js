@@ -139,3 +139,16 @@ test('cesta přes víc měst: odkaz a uložená cesta vrátí lety mezi místy i
   c.S.trip = bad; bad.step = 'route'; c.window.Trip.render();
   assert.doesNotMatch(sp(c.__els['#tripStep'].innerHTML), /Trasa podle letů/);
 });
+
+test('cesta přes víc měst: odlet z druhého letiště téhož města (CIA → FCO) je jen poznámka, z jiného města varování', () => {
+  const c = load();
+  const t = begin(c);
+  t.flight.out = { ...t.flight.out, to: 'CIA' };
+  const r = render(c, 'route');
+  assert.match(r, /odlétáš z jiného letiště \(FCO\)/);
+  assert.doesNotMatch(r, /cestu mezi letišti si naplánuj/);
+  // let z Neapole (bez cesty z města na letiště – město neznám)
+  t.flight.mid = [{ ...MID, from: 'NAP' }];
+  t.arrival.mid = [{ from: null, to: t.arrival.mid[0].to }];
+  assert.match(render(c, 'route'), /Další let odlétá z NAP, přiletíš na CIA – cestu mezi letišti si naplánuj/);
+});
