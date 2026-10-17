@@ -1071,7 +1071,10 @@ function wireEvents() {
   // Hledání země jen při psaní: „change“ po opuštění pole by mřížku překreslil uprostřed kliknutí na kartu (karta pod
   // myší zmizí a první klik by detail neotevřel).
   $('#cSearch').oninput = renderCountries;
-  ['#cCont', '#cCost', '#cSort', '#cEntry'].forEach(s => { const el = $(s); el.oninput = renderCountries; el.onchange = renderCountries; });
+  // telefon: kontinent, cena, vstup a řazení pod tlačítkem Filtry (s počtem zapnutých)
+  const cFilt = () => { const n = ['#cCont', '#cCost', '#cEntry'].filter(s => $(s).value).length + ($('#cSort').value !== 'cs' ? 1 : 0); $('#cFiltN').textContent = n ? ` · ${n}` : ''; };
+  ['#cCont', '#cCost', '#cSort', '#cEntry'].forEach(s => { const el = $(s); el.oninput = () => { cFilt(); renderCountries(); }; el.onchange = el.oninput; });
+  $('#cFiltBtn').onclick = () => { const tb = $('#cFiltBtn').closest('.toolbar'), on = !tb.classList.contains('f-open'); tb.classList.toggle('f-open', on); $('#cFiltBtn').setAttribute('aria-expanded', String(on)); };
   ['#rMonth', '#rVibe', '#rBudget', '#rSafe'].forEach(s => $(s).onchange = renderRecs);
   // ⟳: počasí a kurz znovu; radar se obnoví s dosavadními kartami (ne šedé dlaždice) a se značkami změn od minula
   $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; save(); toast('Aktualizuji…'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') { renderDash(); Flights.renderRadar(true); } };
