@@ -101,3 +101,23 @@ test('místa s koncovkami: tvary slova a nejlepší návrh (země a oblasti pře
   assert.equal(best([{ q: 'Rudé moře', items: [{ id: 'rg:egypt-more', label: 'Rudé moře (Egypt)', type: 'region' }] }]), 'rg:egypt-more');
   assert.equal(best([{ q: 'xyz', items: [{ id: 'ap:AAA', label: 'Abc', type: 'airport' }] }]), undefined);
 });
+
+test('Objevuj: věta → místo, druh plánu, dny, km, od kdy, zájmy; základní tvar jména místa', () => {
+  const X = (q) => JSON.parse(JSON.stringify(Smart.parseExplore(q, { today })));
+  assert.deepEqual(X('Lisabon na 3 dny'), { place: 'Lisabon', mode: null, days: 3, km: null, start: null, interests: [], chips: ['📅 3 dny'] });
+  assert.deepEqual([X('výlety z Brna').place, X('výlety z Brna').mode], ['Brna', 'day']);
+  assert.deepEqual([X('Krakov pěšky 10 km').mode, X('Krakov pěšky 10 km').km], ['hike', 10]);
+  assert.deepEqual([X('na kole kolem Vídně 40 km').mode, X('na kole kolem Vídně 40 km').place], ['bike', 'Vídně'], '„kolem“ = okolo, ne na kole');
+  assert.deepEqual([X('okruh po Toskánsku na týden').mode, X('okruh po Toskánsku na týden').days, X('okruh po Toskánsku na týden').place], ['loop', 7, 'Toskánsku']);
+  assert.deepEqual([X('Řím s dětmi od 15. 5.').start, X('Řím s dětmi od 15. 5.').interests], ['2027-05-15', ['kids']]);
+  assert.deepEqual(X('Praha').chips, []);
+  const N = (p) => [...Smart.nominatives(p)];
+  assert.ok(N('Brna').includes('Brno'));
+  assert.ok(N('Prahy').includes('Praha'));
+  assert.ok(N('Vídně').includes('Vídeň'));
+  assert.ok(N('Lisabonu').includes('Lisabon'));
+  assert.ok(N('Krétu').includes('Kréta'));
+  assert.ok(N('Toskánsku').includes('Toskánsko'));
+  assert.ok(N('Brně').includes('Brno'));
+  assert.equal(N('Lisabon')[0], 'Lisabon', 'původní tvar první');
+});

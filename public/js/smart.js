@@ -44,7 +44,7 @@
     + 'vylet vyletu i pro nas me mi my ja jsem nejak nejaky nejakou nejake termin terminu okolo kolem cca asi prosim potrebuji potrebujem idealne klidne treba zase ten ta '
     + 'to tento tenhle ktery nebo ale jen jenom jeste uz nejlepe mozna nam vam si se nejlevnejsi nejlepsi super hezky hezkou nekde nekam kam odkud kdy kdyz tak taky take '
     + 'tam zpet zpatky domu letadlo letadla mesto mesta kde').split(' '));
-  const TO_WORDS = new Set(['do', 'na', 'k', 'ke', 'kam', 'v', 've', 'za', 'u', 'pres']);
+  const TO_WORDS = new Set(['do', 'na', 'k', 'ke', 'kam', 'v', 've', 'za', 'u', 'pres', 'po']);
   const FROM_WORDS = new Set(['z', 'ze', 'odkud', 'od']);
   // před „moře“ jméno moře → je to místo (Rudé moře), ne „k moři“
   const SEA_NAMES = /(rude|cerne|baltske|severni|stredozemni|jadranske|egejske|kaspicke|mrtve)\s+$/;
@@ -310,5 +310,70 @@
     return best ? best.it : null;
   }
 
-  window.Smart = { parse, stems, bestPlace, fold };
+  /**
+   * Základní tvar jména místa z pádu (poslední slovo): „Brna“ → Brno, „Prahy“ → Praha, „Vídně“ → Vídeň, „Lisabonu“ →
+   * Lisabon, „Krétu“ → Kréta, „Paříže“ → Paříž. Vrací kandidáty včetně původního tvaru (nejpravděpodobnější první).
+   */
+  function nominatives(phrase) {
+    const p = String(phrase || '').trim(), i = p.lastIndexOf(' '), head = p.slice(0, i + 1), w = p.slice(i + 1);
+    if (w.length < 3) return p ? [p] : [];
+    const out = [w], f = fold(w), cut = n => w.slice(0, -n);
+    if (/ne$/.test(f) && /ě$/.test(w)) out.push(cut(2) + 'eň'); // Vídně → Vídeň, Plzně → Plzeň
+    if (/ě$/.test(w)) out.push(cut(1) + 'o'); // v Brně → Brno, v Mnichově → Mnichovo? (i Mnichov níž)
+    if (/[aeiyu]$/.test(f)) out.push(cut(1)); // Lisabonu → Lisabon, Paříže → Paříž, Krakova → Krakov
+    if (/a$/.test(f)) out.push(cut(1) + 'o'); // Brna → Brno, Ostravy? ne – Kolína nad Rýnem…
+    if (/y$/.test(f)) out.push(cut(1) + 'a'); // Prahy → Praha, Barcelony → Barcelona
+    if (/u$/.test(f)) out.push(cut(1) + 'a', cut(1) + 'o'); // Krétu → Kréta, po Toskánsku → Toskánsko
+    if (/e$/.test(f) && !/ne$/.test(f)) out.push(cut(1) + 'a'); // Kréte? Olomouci ne – Bratislave → Bratislava
+    if (/em$|ou$/.test(f)) out.push(cut(2), cut(2) + 'a'); // Brnem → Brno? (Brn) – Prahou → Praha
+    if (/ich$|ech$/.test(f)) out.push(cut(3) + 'y'); // Benátkách? – Athénách → Athény (bez záruky)
+    return [...new Set(out.filter(x => x.length >= 3).map(x => head + x))];
+  }
+
+  // Objevuj: druh plánu podle slov ve větě
+  const EX_MODE = { city: '🏙️ program ve městě', day: '🎒 výlety do okolí', loop: '🧭 okruh s přespáním', bike: '🚴 na kole', hike: '🥾 pěšky' };
+  const EX_INT = { kids: '🧒 s dětmi', art: '🖼️ muzea a umění', history: '🏰 památky', nature: '🌳 příroda' };
+  /**
+   * Objevuj: „Lisabon na 3 dny“, „Krakov pěšky 10 km“, „výlety z Brna“, „Řím s dětmi od 15. 5.“ → { place (fráze místa),
+   * mode, days, km, start, interests, chips }. Místo dohledá Objevuj (nominatives + api/geocode).
+   */
+  function parseExplore(text, o = {}) {
+    const raw = String(text || '').normalize('NFC').slice(0, 200), s = fold(raw), blank = raw.split('');
+    let mode = null, km = null, days = null;
+    const interests = [];
+    const W = '(?=$|[^a-z0-9])';
+    const take = (re, fn) => {
+      const g = new RegExp(re.source, 'g');
+      let m;
+      while ((m = g.exec(s))) {
+        const at = m.index;
+        if ((at > 0 && /[a-z0-9]/.test(s[at - 1])) || fn(m) === false) { g.lastIndex = at + 1; continue; }
+        for (let i = at; i < at + m[0].length; i++) blank[i] = ' ';
+      }
+    };
+    take(new RegExp(`(?:na\\s+)?(?:kole|kolo|cyklo\\w*|bike)${W}`), () => { mode = 'bike'; });
+    take(new RegExp(`(?:pesky|pesi\\s+(?:vylet\\w*|okruh\\w*|tur\\w*)|tur[auy]|turistik\\w*|vyslap\\w*|hike|hiking)${W}`), () => { mode = mode || 'hike'; });
+    take(new RegExp(`(?:na\\s+)?(?:okruh\\w*|road\\s*trip\\w*|autem\\s+po\\s+okoli)${W}`), () => { mode = mode || 'loop'; });
+    take(new RegExp(`(?:jednodenni\\s+)?(?:vylet\\w*|do\\s+okoli)${W}`), () => { mode = mode || 'day'; });
+    take(new RegExp(`(\\d{1,3})\\s*km${W}`), m => { km = +m[1]; });
+    take(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:den|dny|dni|dnu)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 14)) return false; days = n; });
+    take(new RegExp(`(?:na\\s+)?(?:prodlouzen\\w+\\s+)?vikend\\w*${W}`), m => { days = days || (/prodlouz/.test(m[0]) ? 3 : 2); });
+    take(new RegExp(`(?:na\\s+)?(?:cely\\s+)?tyden${W}`), () => { days = days || 7; });
+    take(new RegExp(`(?:s|se)\\s+(?:detmi|ditetem|ditkem|deckama)${W}|pro\\s+deti${W}`), () => { interests.push('kids'); });
+    take(new RegExp(`(?:muze\\w*|galeri\\w*|umeni)${W}`), () => { interests.push('art'); });
+    take(new RegExp(`(?:pamatk\\w*|histori\\w*|hrad\\w*|zamk\\w*|zamek)${W}`), () => { interests.push('history'); });
+    take(new RegExp(`(?:prirod\\w*|vyhled\\w*)${W}`), () => { interests.push('nature'); });
+    const p = parse(blank.join(''), o), pt = p.patch;
+    const start = pt.xOut || pt.dFrom || null;
+    const place = p.to[0] || p.from[0] || '';
+    const chips = [];
+    if (mode) chips.push(EX_MODE[mode]);
+    if (days) chips.push(`📅 ${days} ${days === 1 ? 'den' : days < 5 ? 'dny' : 'dní'}`);
+    if (start) chips.push(`🗓️ od ${dm(start)}`);
+    if (km) chips.push(`📏 ${km} km`);
+    for (const k of [...new Set(interests)]) chips.push(EX_INT[k]);
+    return { place, mode, days, km, start, interests: [...new Set(interests)], chips };
+  }
+
+  window.Smart = { parse, stems, bestPlace, fold, nominatives, parseExplore };
 })();

@@ -666,7 +666,7 @@
     root.innerHTML = `${ex.place ? '' : `<div class="fl-hero ex-hero" data-photo="${esc(window.heroPlace ? heroPlace(9) : 'Porto')}"><div class="fl-hero-in"><h1>Objev, co stojí za vidění</h1><p>Památky, muzea, vyhlídky a výlety kdekoliv na světě – a z nich program na pár dní</p></div></div>`}<div class="card search-card${ex.place ? '' : ' on-hero'}">
       <div class="ex-search">
         <div class="field" style="margin:0"><label>Kam se chceš podívat? <span class="lab-hint">město, obec, ostrov, místo…</span></label>
-          <div style="position:relative"><input class="input${ex.place ? ' has-clear' : ''}" id="exQ" placeholder="Např. Lisabon, Český Krumlov, Kréta…" autocomplete="off" value="${esc(ex.place?.label || '')}">${ex.place ? '<button type="button" class="in-clear" id="exClear" title="Začít znovu – zrušit místo i plány" aria-label="Začít znovu">✕</button>' : ''}<div class="pi-dd" id="exDd" hidden></div></div></div>
+          <div style="position:relative"><input class="input${ex.place ? ' has-clear' : ''}" id="exQ" placeholder="Např. Lisabon, nebo „Lisabon na 3 dny“" autocomplete="off" value="${esc(ex.place?.label || '')}">${ex.place ? '<button type="button" class="in-clear" id="exClear" title="Začít znovu – zrušit místo i plány" aria-label="Začít znovu">✕</button>' : ''}<div class="pi-dd" id="exDd" hidden></div></div></div>
         <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">📍 Tady</button>
         <div class="field" style="margin:0"><label>Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}</select></div>
       </div><div class="ex-recent" id="exRecent" hidden></div></div>
@@ -681,6 +681,42 @@
     // Návrat do Objevuj: už načtený seznam se jen překreslí (žádný nový dotaz na server).
     if (ex.place && ex.loaded?.place === ex.place && !needsFetch(ex.loaded.radius, ex.radius)) paintExplore();
     else if (ex.place) loadExplore();
+  }
+
+  /**
+   * ✨ Místo z věty: základní tvar (Smart.nominatives – „Brna“ → Brno). Napřed tvar, který zná našeptávač letů (známá
+   * města, letiště, země) – ten se geokóduje; jinak geokódování s přesným názvem (upravené tvary před původním), nakonec
+   * první výsledek původního tvaru.
+   */
+  async function smartPlace(phrase) {
+    const cands = Smart.nominatives(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
+    const fl = await Promise.all(cands.map(c => getJson('api/places?q=' + enc(c)).then(j => j.items || [], () => [])));
+    // jen místa z databáze letů (letiště, města, země, oblasti) – geokódované vesnice (geo:…, „Brná“ pro „Brna“) ne
+    const known = cands.find((c, i) => fl[i].some(it => !/^geo:/.test(it.id || '') && same(it.label, c)));
+    const geo = async c => (await getJson('api/geocode?q=' + enc(c)).catch(() => ({ items: [] }))).items || [];
+    for (const c of known ? [known] : [...cands.slice(1), cands[0]]) {
+      const items = await geo(c), hit = items.find(it => same(it.label, c)) || (known ? items[0] : null);
+      if (hit) return hit;
+    }
+    return (await geo(cands[0]))[0] || null;
+  }
+  /** ✨ Volby z věty do Objevuj: druh plánu, dny, délka trasy, od kdy, zájmy; plán se po načtení míst sestaví sám. */
+  function exploreApply(px) {
+    if (px.mode) ex.mode = px.mode;
+    const road = ex.mode === 'day' || ex.mode === 'loop';
+    if (px.days) {
+      const opts = ex.mode === 'loop' ? [2, 3, 4, 5, 6, 7, 10] : ex.mode === 'day' ? [1, 2, 3, 4, 5, 7] : [1, 2, 3, 4, 5, 6, 7, 10];
+      const d = opts.filter(x => x <= px.days).pop() || opts[0];
+      if (road) ex.tripDays[ex.mode] = d; else ex.days = d;
+    }
+    const near = (list, v) => list.reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
+    if (px.km && ex.mode === 'bike') ex.bike.km = near([15, 25, 40, 60, 80, 100, 130], px.km);
+    if (px.km && ex.mode === 'hike') ex.hike.km = near([5, 8, 10, 12, 15, 20, 25, 30], px.km);
+    if (px.start) { ex.start = px.start; ex.datePicked = true; }
+    // zájmy programu ve městě (history, art, nature, kids) a výletů (sights, culture, nature, kids)
+    for (const k of px.interests) { if (road) ex.tripInterests.add({ history: 'sights', art: 'culture' }[k] || k); else ex.interests.add(k); }
+    ex.planOpen = true; ex.autoPlan = true;
+    remember();
   }
 
   // Nové místo: všechno, co patřilo k předchozímu (plány, vyřazená a vybraná místa, filtr, chyby), se zahodí.
@@ -817,10 +853,26 @@
     const q = $('#exQ', root), dd = $('#exDd', root);
     // sugFor = text, ke kterému návrhy patří (starý seznam se po dalším písmenu nesmí vybrat)
     let ctl = null, sugs = [], act = 0, sugFor = '', err = false, t = null;
+    // ✨ věta („Lisabon na 3 dny“, „výlety z Brna“): jen řádek s tím, jak jí rozumím – návrhy pro celou větu by mátly
+    const smartOf = text => { const px = window.Smart && Smart.parseExplore(text, { today: fmtYMD(new Date()) }); return px && px.chips.length && (px.place || ex.place) ? px : null; };
     const show = () => {
-      dd.innerHTML = sugHtml(sugs, act, err);
+      const px = smartOf(q.value.trim());
+      dd.innerHTML = px ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc([px.place ? `📍 ${px.place}` : `📍 ${ex.place.label}`, ...px.chips].join(' · '))}</b><small>klepni nebo Enter – najdu místo a naplánuju</small></span><span class="pi-type">plánovat</span></div>`
+        : sugHtml(sugs, act, err);
       dd.hidden = false;
-      $$('.pi-opt', dd).forEach(o => o.onmousedown = e => { e.preventDefault(); pick(sugs[+o.dataset.i]); });
+      const sm = $('[data-smart]', dd); if (sm) sm.onmousedown = e => { e.preventDefault(); runSmart(px); };
+      $$('.pi-opt:not([data-smart])', dd).forEach(o => o.onmousedown = e => { e.preventDefault(); pick(sugs[+o.dataset.i]); });
+    };
+    let smartSeq = 0;
+    const runSmart = async px => {
+      const my = ++smartSeq; // novější věta předbíhá starší (pomalé hledání místa)
+      dd.innerHTML = '<div class="pi-empty"><span class="spin dark"></span> Hledám místo…</div>'; dd.hidden = false;
+      const s = px.place ? await smartPlace(px.place).catch(() => null) : ex.place;
+      if (my !== smartSeq) return;
+      if (!s) { dd.innerHTML = `<div class="pi-empty">Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název</div>`; return; }
+      dd.hidden = true; q.blur();
+      exploreApply(px);
+      if (px.place) openPlace(s); else paintExplore();
     };
     const pick = s => { if (!s) return; dd.hidden = true; openPlace(s); };
     // Návrhy k textu; null = předběhl je novější dotaz (nebo psaní).
@@ -845,14 +897,16 @@
       dd.hidden = true;
       const text = q.value.trim();
       if (text.length < 2) return;
-      // pozdní odpověď po odchodu z pole (klik jinam) už nabídku znovu neotevře
-      t = setTimeout(async () => { t = null; if (await fetchSugs(text) && q.value.trim() === text && document.activeElement === q) show(); }, 220);
+      // pozdní odpověď po odchodu z pole (klik jinam) už nabídku znovu neotevře; věta (✨) bez dotazu na server
+      t = setTimeout(async () => { t = null; if ((smartOf(text) || await fetchSugs(text)) && q.value.trim() === text && document.activeElement === q) show(); }, 220);
     };
     q.onkeydown = async e => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { if (!sugs.length) return; e.preventDefault(); act = (act + (e.key === 'ArrowDown' ? 1 : -1) + sugs.length) % sugs.length; show(); }
       else if (e.key === 'Enter') {
         e.preventDefault();
         const text = q.value.trim();
+        const px = smartOf(text);
+        if (px) { clearTimeout(t); t = null; runSmart(px); return; }
         const a = enterAction({ text, sugFor, count: sugs.length, err });
         if (a === 'pick') pick(sugs[act]);
         else if (a === 'none') { if (text.length >= 2) show(); }
@@ -1584,6 +1638,8 @@
     };
     ex.replanNow = () => replan();
     $('#exPlan', body).onclick = () => replan($('#exPlan'));
+    // ✨ věta v hledání („Lisabon na 3 dny“): plán se sestaví sám, jakmile jsou místa načtená
+    if (ex.autoPlan && !bz) { ex.autoPlan = false; setTimeout(() => { const b = $('#exPlan'); if (b && !b.disabled && ex.place === p) replan(b); }, 0); }
     // telefon: karta Naplánovat sbalená do nadpisu, dokud není program (místa jsou hned pod hledáním)
     $('#exPlanTg', body).onclick = () => { const c = $('#exPlanCard', body), open = c.classList.contains('shut'); c.classList.toggle('shut', !open); ex.planOpen = open; };
     on('#routeOther', 'onclick', () => replan($('#routeOther'), { other: true }));
