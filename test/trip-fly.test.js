@@ -54,8 +54,6 @@ test('cesta přes víc měst: jde do průvodce, jen když má každé město asp
   assert.equal(Trip.flyOk({ out: OUT, mid: [leg('FCO', 'BCN', '2026-11-10', '18:00', '20:00')], back: BACK }, [ROM, BCN]), false);
   // let neznámo kam (úsek „do Itálie“ s letem jinam) – bez polohy místa
   assert.equal(Trip.flyOk({ out: OUT, mid: [MID], back: BACK }, [null, BCN]), false);
-  // bez letu domů není kdy skončit
-  assert.equal(Trip.flyOk({ out: OUT, mid: [MID], back: null }, [ROM, BCN]), false);
 });
 
 test('cesta přes víc měst: trasa podle letů – místa, noci a termíny z letů, noc v letadle do žádného místa nepatří', () => {
@@ -147,8 +145,64 @@ test('cesta přes víc měst: odlet z druhého letiště téhož města (CIA →
   const r = render(c, 'route');
   assert.match(r, /odlétáš z jiného letiště \(FCO\)/);
   assert.doesNotMatch(r, /cestu mezi letišti si naplánuj/);
-  // let z Neapole (bez cesty z města na letiště – město neznám)
-  t.flight.mid = [{ ...MID, from: 'NAP' }];
+});
+
+test('cesta přes víc měst: let z jiného města (Řím → let z Neapole) – přejezd na letiště spočítá server, je v průběhu cesty, ceně i „kdy vyrazit“', async () => {
+  const c = load();
+  const t = begin(c, { mid: [{ ...MID, from: 'NAP' }] });
   t.arrival.mid = [{ from: null, to: t.arrival.mid[0].to }];
-  assert.match(render(c, 'route'), /Další let odlétá z NAP, přiletíš na CIA – cestu mezi letišti si naplánuj/);
+  const asked = [];
+  c.fetch = async (url, o) => { asked.push([url, JSON.parse(o.body)]); return { ok: true, json: async () => ({ legs: { departure: { km: 225, carMin: 150, transitMin: 75, transitKind: 'rail', fast: true, fareCzk: 620, transitUrl: 'https://maps.example/rom-nap', carUrl: 'https://maps.example/c' } } }) }; };
+  assert.match(render(c, 'route'), /počítám cestu na letiště NAP/);
+  await new Promise((r) => setImmediate(r));
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(asked.map(([u, b]) => [u, b.departure, b.bases[0].name, b.transport]), [['api/stayplan', 'NAP', 'Řím', 'transit']]);
+  const r = render(c, 'route');
+  assert.match(r, /Na letiště NAP: <b>~1 h 15 min vlakem<\/b>/);
+  assert.match(r, /~620 Kč\/os\./);
+  assert.doesNotMatch(r, /naplánuj/);
+  const rows = c.window.Trip.timeline(t).map((x) => `${x[0]} ${x[1]} ${sp(x[2]).replace(/<[^>]+>/g, '')}`);
+  assert.ok(rows.some((x) => /^2026-11-13 🚆 Řím → letiště NAP · ~1 h 15 min vlakem \(jízdní řád\)/.test(x)), rows.join('\n'));
+  assert.ok(rows.some((x) => /Z ubytování na letiště NAP vyraž nejpozději v 4:20/.test(x)), 'přejezd 75 min + 2 h před odletem 7:35');
+  assert.equal(c.window.Trip.costs(t).transfers, 620 * 2);
+  // odkaz a uložená cesta přejezd nesou
+  assert.equal(c.window.Trip.sanitizeTrip(plain(t)).route.gaps.g0NAP.transitMin, 75);
+  // server přejezd nespočítal → varování jako dřív, bez dalších dotazů
+  const c2 = load();
+  const t2 = begin(c2, { mid: [{ ...MID, from: 'NAP' }] });
+  t2.arrival.mid = [{ from: null, to: null }];
+  let n = 0;
+  c2.fetch = async () => { n++; return { ok: false, status: 503, json: async () => ({ error: 'x' }) }; };
+  render(c2, 'route');
+  await new Promise((r) => setImmediate(r));
+  await new Promise((r) => setImmediate(r));
+  assert.match(render(c2, 'route'), /Další let odlétá z NAP, přiletíš na FCO – cestu mezi letišti si naplánuj/);
+  assert.equal(n, 1);
+});
+
+test('cesta přes víc měst jen tam (Praha → Řím → Barcelona): poslední město na zvolený počet nocí, bez letu zpět', () => {
+  const c = load();
+  const { Trip } = c.window;
+  assert.equal(Trip.flyOk({ out: OUT, mid: [MID], back: null }, [ROM, BCN]), true);
+  const t = begin(c, { mid: [MID], back: null });
+  assert.equal(t.flight.back, null);
+  assert.deepEqual(plain(t.route.bases.map((b) => [b.name, b.nights])), [['Řím', 3], ['Barcelona', 3]]);
+  assert.deepEqual(plain(Trip.baseDates(t)), [{ checkin: '2026-11-10', checkout: '2026-11-13', nights: 3 }, { checkin: '2026-11-13', checkout: '2026-11-16', nights: 3 }]);
+  assert.deepEqual(plain(Trip.stayDates(t)), { checkin: '2026-11-10', checkout: '2026-11-16', nights: 6 });
+  assert.equal(Trip.baseProgram(t, 1).departureTime, null);
+  const r = render(c, 'route');
+  assert.match(r, /Kolik nocí zůstaneš v posledním místě \(Barcelona\)\?/);
+  assert.doesNotMatch(r, /Let zpět/);
+  // 5 nocí v Barceloně: termín posledního místa, konec pobytu i hotel tam
+  t.route.bases[1].stay = { mode: 'pick', name: 'Hotel', totalCzk: 3000, checkin: '2026-11-13', checkout: '2026-11-16' };
+  c.__els['#owNights'].value = '5';
+  c.__els['#owNights'].onchange();
+  assert.deepEqual([t.route.bases[1].nights, Trip.baseDates(t)[1].checkout, Trip.stayDates(t).checkout], [5, '2026-11-18', '2026-11-18']);
+  assert.equal(t.route.bases[1].stay, null, 'hotel na staré dny pryč');
+  const s = render(c, 'summary');
+  assert.match(s, /1\. letenka: PRG → FCO/); assert.match(s, /2\. letenka: FCO → BCN/);
+  assert.doesNotMatch(s, /3\. letenka/);
+  const back = Trip.sanitizeTrip(plain(t));
+  assert.equal(back.flight.mid.length, 1);
+  assert.equal(back.route.fixed, 'flights');
 });

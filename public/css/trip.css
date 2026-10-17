@@ -423,3 +423,11 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
   .stay-tools>.faint{flex:1 1 100%}
 }
 .pp-guess{font:700 14px Sora,Inter,sans-serif;color:var(--muted)}
+
+/* Ubytování: podrobnosti o cenách po rozkliknutí */
+.st-more{margin-top:4px;font-size:12.5px}
+.st-more summary{cursor:pointer;color:var(--accent);font-weight:600;list-style:none}
+.st-more summary::-webkit-details-marker{display:none}
+.st-more summary::after{content:' ▾'}
+.st-more[open] summary::after{content:' ▴'}
+.rt-gap{margin-top:6px;font-size:13px;padding:7px 10px;border-radius:10px;background:var(--surface-2)}
