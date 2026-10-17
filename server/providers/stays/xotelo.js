@@ -271,9 +271,16 @@ async function xoGet(url, timeoutMs, { list = false, short = false } = {}) {
     }
     throw Object.assign(new Error(xoMessage(e)), { status: s });
   }
+  // 200 s chybou serveru v těle ({ error: { status_code: 500 } } – živě 10/2026 při výpadku Xotela, po ~11 s) = výpadek
+  // jako HTTP 5xx: pojistka, ať další hledání hned nabídne partnery místo čekání na další timeouty
+  const bad = Number(j?.error?.status_code);
+  if (bad >= 500) {
+    if (list || ++breaker.fails >= 3) trip(Math.min(10, 2 * 2 ** breaker.trips++) * 60e3, xoMessage({ status: bad }));
+    throw Object.assign(new Error(xoMessage({ status: bad })), { status: bad });
+  }
   breaker.fails = 0;
   breaker.trips = 0;
-  // 200 s chybou (změněné nebo omezené API) – chyba se neukládá, na pojistku nemá vliv
+  // 200 s jinou chybou (změněné nebo omezené API) – chyba se neukládá, na pojistku nemá vliv
   if (j?.error) throw new Error(`vrátil chybu: ${String(j.error.message || JSON.stringify(j.error)).slice(0, 80)}`);
   return j;
 }
