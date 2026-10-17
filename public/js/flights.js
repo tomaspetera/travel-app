@@ -492,6 +492,26 @@
   // Telefon: cesta, délka pobytu a teplota pod „Upřesnit“ – v tlačítku souhrn, co je nastavené; Víc měst ho otevře
   // (seznam letů se jinak nedá přepnout zpátky)
   let refineOpen = false;
+  // fotka nahoře na Letech: jeden zadaný cíl (město, ostrov, země) – jinak krásné místo dne
+  function paintFlHero() {
+    const h = $('#flHero');
+    if (!h || !window.Photos || !toInput) return;
+    const one = toInput.items.length === 1 && !/^ct:/.test(toInput.items[0].id) ? toInput.items[0].label : '';
+    const want = one || (window.heroPlace ? heroPlace(5) : 'Lisabon');
+    if (h.dataset.photo === want) return;
+    h.dataset.photo = want; h.classList.remove('ph'); h.style.removeProperty('--ph'); delete h.dataset.phw;
+    Photos.paint(h.parentNode);
+  }
+  // telefon: letiště v okolí jen jako jeden řádek „6 letišť do 200 km · PRG, PED…“, posuvník a seznam po klepnutí
+  function apSumPaint() {
+    const b = $('#apSum'); if (!b) return;
+    const on = originPreview.filter(a => !a.off);
+    b.hidden = !on.length;
+    if (!on.length) return;
+    const n = on.length, codes = on.slice(0, 3).map(a => a.iata).join(', ') + (n > 3 ? '…' : '');
+    b.innerHTML = `<span class="ap-n">${n} ${n === 1 ? 'letiště' : n <= 4 ? 'letiště' : 'letišť'} do ${+$('#radius').value} km</span><span class="ap-c">${esc(codes)}</span><span class="ap-chev" aria-hidden="true">▾</span>`;
+    b.setAttribute('aria-expanded', String(apOpen));
+  }
   // na telefonu se Cesta, Délka pobytu a Za teplem přesunou pod tlačítko (rozbalí se pod ním, ne nad ním); na širší obrazovce zpět
   const refineMq = matchMedia('(max-width:560px)');
   let refineMoved = null;
@@ -548,6 +568,7 @@
         : `odlet ${fmtDate(out)}${fl ? ` ± ${fl} ${fl === 1 ? 'den' : 'dny'}` : ' · jen tento den'}`;
     }
     refineUi(multi);
+    paintFlHero();
     const f = getForm();
     const bits = [];
     if (f.adults !== 1) bits.push(`${f.adults} os.`);
@@ -795,7 +816,7 @@
   const refreshOrigins = debounce(async () => {
     const f = getForm();
     const host = $('#originPills');
-    if (!f.from.length) { originPreview = []; host.innerHTML = '<span class="faint">Zadej, odkud letíš – třeba „Brno“, „Vídeň“, „Česko“ nebo použij 📍 polohu.</span>'; return; }
+    if (!f.from.length) { originPreview = []; apSumPaint(); host.innerHTML = '<span class="faint">Zadej, odkud letíš – třeba „Brno“, „Vídeň“, „Česko“ nebo použij 📍 polohu.</span>'; return; }
     try {
       // cesta na letiště jako v hledání: veřejnou dopravou na osobu tam, autem tam i zpět s parkováním na typickou délku cesty
       const nights = previewNights(f), g = groundPayload(f);
@@ -830,8 +851,9 @@
       }
       markOver();
       renderOwn();
+      apSumPaint();
       syncFormUI();
-      $$('[data-op]', host).forEach(b => b.onclick = () => { const a = originPreview.find(x => x.iata === b.dataset.op); a.off = !a.off; b.classList.toggle('off', a.off); markOver(); renderOwn(); formEdited(); });
+      $$('[data-op]', host).forEach(b => b.onclick = () => { const a = originPreview.find(x => x.iata === b.dataset.op); a.off = !a.off; b.classList.toggle('off', a.off); markOver(); renderOwn(); apSumPaint(); formEdited(); });
     } catch (e) { host.innerHTML = `<span class="faint">Náhled letišť nedostupný (${esc(e.message)})</span>`; renderOwn(); }
   }, 200);
 
@@ -887,7 +909,19 @@
 
   function buildForm() {
     fromInput = new PlaceInput($('#fromInput'), { origin: true, placeholder: 'Např. Brno, Vídeň, Česko, Jihlava…', onChange: () => { refreshOrigins(); updateHomeChip(); mlHomeChanged(); formEdited(); } });
-    toInput = new PlaceInput($('#toInput'), { placeholder: 'Kamkoliv 🌍 – nebo napiš zemi, město, ostrov, světadíl…', onChange: () => { syncFormUI(); formEdited(); }, near: () => (fromInput.items[0] && fromInput.items[0].id) || (S.home && S.home.from && S.home.from[0] && S.home.from[0].id) || '' });
+    toInput = new PlaceInput($('#toInput'), { placeholder: 'Kamkoliv 🌍 – město, země, ostrov…', onChange: () => { syncFormUI(); formEdited(); }, near: () => (fromInput.items[0] && fromInput.items[0].id) || (S.home && S.home.from && S.home.from[0] && S.home.from[0].id) || '' });
+    // ⇅ prohodit Odkud a Kam (světadíl do Odkud nejde)
+    $('#swapBtn').onclick = () => {
+      const a = fromInput.items.slice(), b = toInput.items.slice();
+      if (!b.length) return toast('Nejdřív vyplň Kam – pak Odkud a Kam prohodím');
+      if (b.some(x => /^ct:/.test(x.id))) return toast('Světadíl nejde dát do Odkud – vyber zemi nebo město', 'err');
+      fromInput.set(b); toInput.set(a);
+    };
+    $('#apSum').onclick = () => {
+      apOpen = !apOpen;
+      $('.sf-from').classList.toggle('ap-open', apOpen); $('#originPills').classList.toggle('open', apOpen);
+      apSumPaint();
+    };
     $('#outDays').innerHTML = DOW_ORDER.map(d => `<button type="button" data-d="${d}">${DOW[d]}</button>`).join('');
     $('#backDays').innerHTML = DOW_ORDER.map(d => `<button type="button" data-d="${d}">${DOW[d]}</button>`).join('');
     $$('#outDays button, #backDays button').forEach(b => b.onclick = () => { b.classList.toggle('on'); $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); syncFormUI(); });
@@ -3810,10 +3844,11 @@
     ];
     // ⭐ Moje cíle: prvních 5 (pole Kam jich víc nepojme) v termínech radaru
     const fav = prefLists().fav;
-    $('#quickFlights').innerHTML = (fav.length ? `<div class="card dest" data-qfav="1" data-photo="${esc(String(favNames(fav)).split(', ')[0])}" style="--h:200"><div class="flag">⭐</div><div class="dest-panel"><div class="cname">Moje cíle</div><div class="cblurb">${esc(favNames(fav))} · termíny jako radar</div><div class="meta"><span class="chip accent">Hledat lety</span><span>→</span></div></div></div>` : '')
+    const qfHtml = (fav.length ? `<div class="card dest" data-qfav="1" data-photo="${esc(String(favNames(fav)).split(', ')[0])}" style="--h:200"><div class="flag">⭐</div><div class="dest-panel"><div class="cname">Moje cíle</div><div class="cblurb">${esc(favNames(fav))} · termíny jako radar</div><div class="meta"><span class="chip accent">Hledat lety</span><span>→</span></div></div></div>` : '')
       + QF.map((q, i) => `<div class="card dest" data-qf="${i}" data-photo="${esc(q[4])}" style="--h:${ccHue(q[1])}"><div class="flag">${q[0]}</div><div class="dest-panel"><div class="cname">${q[1]}</div><div class="cblurb">${q[2]}</div><div class="meta"><span class="chip accent">Hledat lety</span><span>→</span></div></div></div>`).join('');
-    if (window.Photos) Photos.paint($('#quickFlights'));
-    const qv = $('[data-qfav]'); if (qv) qv.onclick = () => searchFavs(prefLists().fav);
+    // Přehled (Rychlé hledání) i Lety (Nápady, kam letět)
+    ['#quickFlights', '#flIdeas'].forEach(sel => { const el = $(sel); if (el) { el.innerHTML = qfHtml; if (window.Photos) Photos.paint(el); } });
+    $$('[data-qfav]').forEach(qv => { qv.onclick = () => searchFavs(prefLists().fav); });
     $$('[data-qf]').forEach(el => el.onclick = () => {
       const q = QF[+el.dataset.qf][3];
       go('flights');
@@ -4313,6 +4348,7 @@
     updateHomeChip();
     restoreLast();
     renderRecent();
+    renderQuick(); // Nápady, kam letět – i na Letech
     heroFrom = new PlaceInput($('#heroFrom'), { origin: true, placeholder: 'Brno, Vídeň, Česko…', dark: true, max: 3 });
     heroTo = new PlaceInput($('#heroTo'), { placeholder: 'kamkoliv 🌍', dark: true, max: 4 });
     heroFrom.set(S.home?.from || [], true);

@@ -354,8 +354,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-17b';
+const WN_ID = '2026-10-17c';
 const WHATS_NEW = [
+  ['✈️', 'Nové Lety', 'fotka cíle nahoře, Odkud a Kam s tlačítkem ⇅ (prohodí je), letiště v okolí v jednom řádku, velké tlačítko hledání a <b>Nápady, kam letět</b> s fotkami.'],
   ['📉', 'Zlevnilo – hned nahoře', 'když hlídaná cena klesne nebo je pod tvou cílovou cenou, uvidíš ji na Přehledu jako velkou kartu s fotkou a tlačítkem <b>Zobrazit lety</b>.'],
   ['🧭', 'Přehlednější telefon', 'dole jen 5 sekcí – Mapa a Země jsou spolu ve <b>Světě</b>; Plánovač, Doporučení, záloha a vzhled v menu ☰ nahoře. V Letech je délka pobytu a teplota pod <b>Upřesnit</b>.'],
   ['📱', 'Nový vzhled', 'radar jako velké karty s fotkou města (na telefonu posun prstem do strany), plovoucí spodní lišta, okna zespodu – zavřeš je stažením dolů.'],
@@ -477,6 +478,8 @@ function paintHero() {
 // barva karty bez fotky: tlumený přechod podle země (stejná země = stejná barva), jen chladné tóny
 const ccHue = cc => 175 + [...String(cc || '')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 110, 7);
 window.ccHue = ccHue;
+// místo dne s posunem (Lety mají jiné než Přehled)
+window.heroPlace = (off = 0) => HERO_PLACES[(Math.floor(Date.now() / 864e5) + off) % HERO_PLACES.length];
 
 function destCard(c, score) {
   const months = c.months ? c.months.slice(0, 3).map(m => MNS[m - 1]).join(' · ') : '';

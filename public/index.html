@@ -204,15 +204,19 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 
       <!-- FLIGHTS -->
       <section class="view" id="view-flights">
+        <!-- fotka cíle (bez cíle krásné místo dne) s nadpisem, formulář částečně na ní; po hledání (sbalený formulář) zmizí -->
+        <div class="fl-hero" id="flHero"><div class="fl-hero-in"><h1>Najdi nejlevnější letenky</h1><p>Ze všech letišť v okolí najednou – i s cestou na letiště</p></div></div>
         <div class="card search-sum" id="searchSum" hidden></div>
         <form class="card search-card" id="searchForm" autocomplete="off">
-          <div class="sf-grid">
+          <div class="sf-grid sf-route">
             <div class="field sf-from">
+              <span class="sf-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20M6.36 17.4 4 17l-2-4 1.1-.55a2 2 0 0 1 1.8 0l.17.1a2 2 0 0 0 1.8 0L8 12 5 6l.9-.45a2 2 0 0 1 2.09.2l4.02 3a2 2 0 0 0 2.1.2l4.19-2.06a2.41 2.41 0 0 1 1.73-.17L21 7a1.4 1.4 0 0 1 .87 1.99l-.38.76c-.23.46-.6.84-1.07 1.08L7.58 17.2a2 2 0 0 1-1.22.18Z"/></svg></span>
               <label>Odkud <span class="lab-hint" id="fromHint">město, letiště, země nebo tvoje poloha</span></label>
               <div class="row" style="gap:8px;align-items:stretch">
                 <div class="place-input" id="fromInput" style="flex:1"></div>
                 <button class="btn ghost sm" type="button" id="geoBtn" title="Použít moji polohu">📍</button>
               </div>
+              <button type="button" class="ap-sum" id="apSum" aria-expanded="false" hidden></button>
               <div class="radius-row">
                 <span class="muted">+ letiště do</span>
                 <input type="range" id="radius" min="0" max="500" step="25" value="200">
@@ -221,6 +225,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
               <div class="origin-pills" id="originPills"></div>
             </div>
             <div class="field sf-to">
+              <button type="button" class="sf-swap" id="swapBtn" title="Prohodit Odkud a Kam" aria-label="Prohodit Odkud a Kam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v18M3 7l4-4 4 4M17 21V3M21 17l-4 4-4-4"/></svg></button>
+              <span class="sf-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20M3.77 10.77 2 9l2-4.5 1.1.55c.55.28.9.84.9 1.45s.35 1.17.9 1.45L8 8.5l3-6 1.05.53a2 2 0 0 1 1.09 1.52l.72 5.4a2 2 0 0 0 1.09 1.52l4.4 2.2c.42.22.78.55 1.01.96l.6 1.03c.49.88-.06 1.98-1.06 2.1l-1.18.15c-.47.06-.95-.02-1.37-.24L4.29 11.15a2 2 0 0 1-.52-.38Z"/></svg></span>
               <label>Kam <span class="lab-hint">nech prázdné = kamkoliv</span></label>
               <div class="place-input" id="toInput"></div>
               <div class="quick-dest" id="quickDest"></div>
@@ -346,7 +352,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
             </div>
           </details>
 
-          <div class="row wrap" style="margin-top:16px">
+          <div class="row wrap sf-actions" style="margin-top:16px">
             <button class="btn primary big" id="doSearch" type="submit">🔎 Najít nejlevnější lety</button>
             <button class="btn ghost" id="watchBtn" type="button" title="Uložit hledání – cenu pak kontroluji sám, dokud máš ATLAS otevřený v prohlížeči">♡ Hlídat cenu</button>
             <label class="check-inline roll-opt" id="rollLbl" hidden><input type="checkbox" id="rollOn"> 📅 Posouvat termín s časem</label>
@@ -358,6 +364,10 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 
         <div id="progress"></div>
         <div id="results"></div>
+
+        <!-- nápady s fotkami (stejné jako Rychlé hledání na Přehledu) – klepnutím hned hledá -->
+        <div class="section-head fl-ideas-h"><h2>Nápady, kam letět</h2></div>
+        <div class="dest-grid" id="flIdeas"></div>
 
         <details class="card smart-guide" id="smartGuide">
           <summary><span>💡 Jak hledat chytře</span><span class="faint">hlavně dálkové lety – Amerika, Asie</span></summary>

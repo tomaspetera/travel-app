@@ -454,7 +454,7 @@ button.dest{font:inherit;text-align:left;width:100%}
   .hero{padding:20px 16px;margin-bottom:16px;border-radius:22px}.hero h1{font-size:23px}.hero p{display:none}
   .hero-search2{margin-top:14px}
   .stat-grid,#quickFlights,#dashRecs{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:43%;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding-bottom:6px;scrollbar-width:none}
-  #quickFlights,#dashRecs,.ex-insp{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:66%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:12px;margin:0 -16px;padding:2px 16px 12px;scroll-padding:0 16px}
+  #quickFlights,#flIdeas,#dashRecs,.ex-insp{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:66%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:12px;margin:0 -16px;padding:2px 16px 12px;scroll-padding:0 16px}
   .ex-insp>*{scroll-snap-align:start}
   .ex-insp::-webkit-scrollbar{display:none}
   .dest[data-photo]{min-height:300px}
@@ -463,8 +463,8 @@ button.dest{font:inherit;text-align:left;width:100%}
   #countryGrid .dest[data-photo] .cblurb,#recGrid .dest[data-photo] .cblurb,#recGrid .dest[data-photo] .tags{display:none}
   #countryGrid .dest-panel,#recGrid .dest-panel{padding:10px 10px}
   #countryGrid .dest[data-photo] .cname,#recGrid .dest[data-photo] .cname{font-size:15px}
-  .stat-grid>*,#quickFlights>*,#dashRecs>*{scroll-snap-align:start}
-  .stat-grid::-webkit-scrollbar,#quickFlights::-webkit-scrollbar,#dashRecs::-webkit-scrollbar{display:none}
+  .stat-grid>*,#quickFlights>*,#flIdeas>*,#dashRecs>*{scroll-snap-align:start}
+  .stat-grid::-webkit-scrollbar,#quickFlights::-webkit-scrollbar,#flIdeas::-webkit-scrollbar,#dashRecs::-webkit-scrollbar{display:none}
   .stat{padding:14px}.stat .val{font-size:26px}
   .dest{padding:14px}.months{grid-template-columns:repeat(6,minmax(0,1fr))}}
 /* ============ VSTUPNÍ PODMÍNKY (entry.js) ============ */
