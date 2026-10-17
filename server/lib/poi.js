@@ -132,9 +132,22 @@ export function sparqlNear(lat, lon, radiusKm, minLinks, items, { wv = false, la
 /** Dotaz SPARQL na Wikidata. queue = vlastní fronta volajícího (krátké dotazy nečekají za dlouhými dotazy Objevuj). */
 export async function wdqs(query, timeoutMs = 45000, { queue = limitWdqs } = {}) {
   const url = `${WDQS}?format=json&query=${encodeURIComponent(query)}`;
-  const j = await queue(() => request(url, { headers: { 'User-Agent': UA, Accept: 'application/sparql-results+json' }, timeoutMs, retries: 0 }));
+  const get = (ms) => queue(() => request(url, { headers: { 'User-Agent': UA, Accept: 'application/sparql-results+json' }, timeoutMs: ms, retries: 0 }));
+  const t0 = Date.now();
+  let j;
+  try {
+    j = await get(timeoutMs);
+  } catch (e) {
+    // Brána Wikidat občas vrátí 502/503/504 (živě 10/2026 návrh trasy: 502, o chvíli později v pořádku) – přišla-li
+    // chyba rychle, jednou znovu po krátké pauze; pomalá chyba nebo časový limit ne (dotaz by trval dvakrát tak dlouho).
+    const left = timeoutMs - (Date.now() - t0);
+    if (!(e.status >= 502 && e.status <= 504) || left < timeoutMs / 2) throw e;
+    await new Promise((r) => setTimeout(r, WDQS_RETRY_MS));
+    j = await get(left);
+  }
   return j.results?.bindings || [];
 }
+const WDQS_RETRY_MS = 1500;
 
 const qid = (uri) => String(uri || '').split('/').pop();
 const val = (b, k) => b[k]?.value;

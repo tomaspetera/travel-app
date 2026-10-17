@@ -46,3 +46,22 @@ test('program (živá data, Praha): celek se sloučenými částmi má delší n
   if (most) assert.equal(most.visitMin, 15, 'bez částí beze změny');
   for (const d of r.days) assert.ok(d.minutes <= d.cap * 1.1, `den ${d.date}: ${d.minutes} / ${d.cap} min`);
 });
+
+test('malé místo bez ničeho v dosahu pěšky (živě Nizza Monferrato): den příjezdu s časem = výlet do okolí do 30 km, ne „volno“', () => {
+  const NIZZA = { lat: 44.7747, lon: 8.3553 };
+  const pool = [
+    { id: 'Q1', name: 'Canelli', lat: 44.7213, lon: 8.2932, category: 'oldtown', score: 69.6 },
+    { id: 'Q2', name: 'Borgo Impero', lat: 44.8150, lon: 8.3700, category: 'sight', score: 18.3 },
+    { id: 'Q3', name: 'Asti', lat: 44.9003, lon: 8.2064, category: 'daytrip', score: 61.6 },
+    { id: 'Q4', name: 'Janov', lat: 44.4072, lon: 8.9339, category: 'daytrip', score: 63.7 },
+  ];
+  const r = planItinerary(pool, { center: NIZZA, start: '2026-11-19', end: '2026-11-20', arrivalTime: '12:45', departureTime: '11:00', pace: 'normal', interests: {} });
+  const [d1, d2] = r.days;
+  assert.deepEqual([d1.kind, d1.half, d1.items.map((p) => p.name)], ['daytrip', true, ['Canelli']], 'nejzajímavější místo do 30 km (Janov 61 km ne)');
+  assert.ok(d1.items[0].visitMin <= d1.cap);
+  assert.deepEqual([d2.kind, d2.items.length], ['travel', 0], 'den odjezdu bez času zůstane bez programu');
+  assert.ok(r.spare.some((p) => p.id === 'Q3'), 'Asti zůstane mezi dalšími místy');
+  // místo s programem ve městě se nemění
+  const city = planItinerary([...pool, { id: 'Q9', name: 'Piazza Garibaldi', lat: 44.7750, lon: 8.3560, category: 'square', score: 30 }], { center: NIZZA, start: '2026-11-19', end: '2026-11-20', arrivalTime: '12:45', departureTime: '11:00', pace: 'normal', interests: {} });
+  assert.deepEqual([city.days[0].kind, city.days[0].items.map((p) => p.name)], ['city', ['Piazza Garibaldi']]);
+});
