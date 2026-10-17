@@ -537,7 +537,7 @@
     const warn = (plan.warnings || []).map(w => `<div class="note warn" style="margin-bottom:10px">⚠️ <div>${esc(w)}</div></div>`).join('');
     return warn + plan.days.map((d, i) => {
       const { trip, url, mapy } = dayRoute(center, d);
-      return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? ' · celodenní výlet' : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
+      return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? (d.half ? ' · výlet do okolí' : ' · celodenní výlet') : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
         ${dayLinks(url, mapy)}</h4>
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${minTxt(p.visitMin)}</span>
           ${inclHtml(p, 'dp-walk')}<div class="dp-walk">${j === 0 ? 'od ubytování' : 'dál'} ${p.transit ? `${p.fromPrevKm} km – MHD/taxi` : `${p.fromPrevKm} km pěšky (~${minTxt(p.fromPrevMin)})`}</div></div>

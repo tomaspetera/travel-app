@@ -235,6 +235,18 @@ export function planItinerary(pois, opts) {
     const d = days.find((x) => x.date === [...tripDayDates][i]);
     if (d) d.items = [{ ...p, visitMin: VISIT_MIN.daytrip }];
   });
+  // Den bez programu (malé místo: v dosahu pěšky nic, krátký den příjezdu bere jen místa do 4 km) a s aspoň 2,5 h času:
+  // výlet do okolí do 30 km (Nizza Monferrato → Asti 18 km), ať den není jen „volno“, když kousek je co vidět.
+  const taken = new Set(days.flatMap((d) => d.items.map((p) => p.id)));
+  for (const d of days.filter((x) => !x.items.length && x.cap >= 150)) {
+    const p = pois.filter((x) => !taken.has(x.id))
+      .map((x) => ({ x, km: haversineKm(center.lat, center.lon, x.lat, x.lon) }))
+      .filter((c) => c.km > 4 && c.km <= 30)
+      .sort((a, b) => weight(b.x) - weight(a.x))[0]?.x;
+    if (!p) continue;
+    taken.add(p.id);
+    Object.assign(d, { kind: 'daytrip', half: d.cap < full * 0.9, items: [{ ...p, visitMin: Math.min(d.cap, VISIT_MIN.daytrip) }] });
+  }
 
   for (const d of days) {
     d.items = orderRoute(center, d.items).map((p, i, arr) => {

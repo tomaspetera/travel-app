@@ -655,3 +655,24 @@ test('let z průběžných výsledků, jejichž hledání konečný výsledek ne
   const bad = Trip.sanitizeTrip(JSON.parse(JSON.stringify({ ...waiting, statsWait: undefined, statsPreview: { n: 'x' }, statsPart: 0 })));
   assert.deepEqual([bad.priceStats, bad.statsPreview, bad.statsPart], [null, undefined, undefined]);
 });
+
+test('průvodce: trasa autem bez auta – v kroku Auto „Bez auta – mezi místy vlakem a busem“, ve Shrnutí upozornění', () => {
+  const c = load();
+  c.fetch = () => new Promise(() => {}); // přepočet přejezdů ze serveru tu nedoběhne – stačí, že se spustí
+  c.window.scrollTo = () => {};
+  const t = trip({ overland: OV({ on: false }), step: 'car' });
+  // shrnutí: přejezdy autem, auto nevybrané → upozornění; s autem ani vlakem ne
+  const warn = 'Přejezdy mezi místy trasy počítám <b>autem</b>, ale auto nemáš vybrané';
+  assert.ok(render(c, { ...t, step: 'summary' }).includes(warn));
+  assert.ok(render(c, { ...t, step: 'summary', car: { mode: 'skip', totalCzk: 0 } }).includes(warn), 'Auto nepotřebuji');
+  assert.ok(!render(c, { ...t, step: 'summary', car: { mode: 'manual', totalCzk: 5000, pickup: 'VIE', dropoff: 'VIE', from: '2026-11-10T09:00', to: '2026-11-14T16:00' } }).includes(warn));
+  assert.ok(!render(c, { ...t, step: 'summary', route: { ...t.route, transport: 'transit' } }).includes(warn));
+  // krok Auto: volba bez auta přepne přejezdy na vlak a bus a pokračuje k programu
+  const h = render(c, t);
+  assert.match(h, /<button class="btn ghost" id="carTransit" title="[^"]+">Bez auta – mezi místy vlakem a busem →<\/button>/);
+  c.__els['#carTransit'].onclick();
+  assert.deepEqual([t.route.transport, t.car.mode, t.step], ['transit', 'skip', 'program']);
+  // trasa vlakem, nebo jedno místo: volba se nenabízí
+  assert.ok(!render(c, { ...t, step: 'car' }).includes('id="carTransit"'));
+  assert.ok(!render(c, { ...trip({ overland: OV({ on: false }), step: 'car' }), route: { ...t.route, mode: 'single' } }).includes('id="carTransit"'));
+});

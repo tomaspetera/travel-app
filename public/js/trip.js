@@ -1609,6 +1609,9 @@
     // délka pronájmu a příplatek za vrácení jinde – i po úpravě letišť a časů
     const daysLine = q => `${daysTxt(Math.max(1, Math.ceil((new Date(q.to + ':00Z') - new Date(q.from + ':00Z')) / 864e5) || 1))} pronájmu${q.dropoff && q.dropoff !== q.pickup ? ` · vrácení na jiném letišti (${esc(q.dropoff)}) může stát příplatek` : ''}`;
     const byTrain = isMulti(t) && t.route.transport === 'transit';
+    // trasa přes víc míst autem a auto zatím nevybrané: bez auta jde přejet vlakem a busem (Auto nepotřebuji by nechalo
+    // přejezdy autem – palivo i časy za auto, které nebude)
+    const byCar = isMulti(t) && !byTrain && (!t.car || t.car.mode === 'skip');
     host.innerHTML = `<div class="card step-card">
       <div class="sc-head"><div><h3>🚗 Auto na místě</h3><div class="muted">${ovOn(t) ? `Půjčovny bývají na letišti u cíle (${esc(t.flight.out.to)}) – vyzvednutí po příjezdu, vrácení před cestou zpět.` : 'Vyzvednutí na letišti po příletu, vrácení před odletem.'}</div></div>
       ${t.car ? `<div class="chosen">${t.car.mode === 'skip' ? 'Bez auta' : `Auto: <b>${czk(t.car.totalCzk)}</b>`}</div>` : ''}</div>
@@ -1624,7 +1627,7 @@
       <div class="manual-row"><div class="muted" style="font-size:13px">Vybral sis auto? Zadej celkovou cenu:</div>
         <input class="input" id="carPrice" type="number" min="0" step="100" placeholder="Cena celkem v Kč" value="${t.car && t.car.mode === 'manual' ? t.car.totalCzk : ''}">
         <button class="btn" id="carSave">Uložit</button></div>
-      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${byTrain && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
+      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${byTrain && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${byCar ? '<button class="btn ghost" id="carTransit" title="Přejezdy mezi místy trasy se přepočítají na vlak a autobus (jízdenky místo paliva)">Bez auta – mezi místy vlakem a busem →</button>' : ''}${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
     </div>`;
     const read = () => ({ pickup: $('#carPu').value.trim().toUpperCase(), dropoff: $('#carDo').value.trim().toUpperCase(), from: $('#carFrom').value, to: $('#carTo').value, age: +$('#carAge').value || 30 });
     // odkaz na srovnávač jen z nabídek pro tatáž letiště a časy (nabídky se načítají asynchronně – mohou být ke starým)
@@ -1656,6 +1659,11 @@
       persist(); setStep('program');
     };
     $('#carSkip').onclick = () => { t.car = { mode: 'skip', totalCzk: 0 }; persist(); setStep('program'); };
+    const ct = $('#carTransit'); if (ct) ct.onclick = () => {
+      // přejezdy mají časy i jízdné pro obojí – přepočet ze serveru (dlouhé přejezdy, cesta z letiště) doběhne na pozadí
+      t.route.transport = 'transit'; t.car = { mode: 'skip', totalCzk: 0 };
+      persist(); refreshTransfers({ keep: true }); setStep('program');
+    };
     const nx = $('#carNext'); if (nx) nx.onclick = () => {
       // upravená letiště a časy u zadané ceny platí i bez „Uložit“ (průběh cesty, kalendář, plánovač)
       const q = read(), c = t.car;
@@ -1985,6 +1993,7 @@
         ${steps.some(s => affUrl(s.url)) ? SPONSOR_NOTE : ''}
         ${!ov && f.back && f.back.provider !== f.out.provider ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Lety tam a zpět jsou dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká.</div></div>' : ''}
       </div></div>
+      ${multi && r.transport !== 'transit' && !ov && (!t.car || t.car.mode === 'skip') ? '<div class="note warn" style="margin-bottom:14px">🚗 <div>Přejezdy mezi místy trasy počítám <b>autem</b>, ale auto nemáš vybrané – vyber ho v kroku <b>Auto</b>, nebo tam zvol <b>Bez auta – mezi místy vlakem a busem</b>.</div></div>' : ''}
       ${multi && nightsLeft(t) !== 0 ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div>Noci v trase nesedí s délkou pobytu – uprav je v kroku <b>Trasa</b>, jinak termíny ubytování nebudou navazovat na lety.</div></div>' : ''}
       ${window.Entry && Entry.ready() ? Entry.checklistHtml(isos, { ret: returnDate(t), pax: t.adults, via }) : '<div id="tripEntry"></div>'}
       ${window.PreTrip ? PreTrip.html(t, { isos, via, ret: returnDate(t) }) : ''}
