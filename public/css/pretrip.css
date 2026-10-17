@@ -81,3 +81,10 @@
   .pt-grp{break-inside:avoid}
   .pt-pack li{padding:3px 0}
 }
+
+/* seznam věcí sbalený do jednoho řádku (Shrnutí cesty je jinak dlouhé) */
+.pt-packd>summary{cursor:pointer;list-style:none;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);font-weight:700;font-size:13.5px}
+.pt-packd>summary::-webkit-details-marker{display:none}
+.pt-packd>summary::after{content:' ▾';color:var(--muted)}
+.pt-packd[open]>summary{margin-bottom:10px}
+.pt-packd[open]>summary::after{content:' ▴'}
