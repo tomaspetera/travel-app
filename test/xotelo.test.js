@@ -11,8 +11,8 @@ import { setRates } from '../server/lib/fx.js';
 import { cache } from '../server/lib/cache.js';
 import {
   xotelo, locationKeys, nearbyKeys, pickSettlements, pickByName, placeNames, sparqlNames, seedCity, sparqlAround, hotelList,
-  hotelRates, ratesKey, offers, mapHotel, candidates, chooseForRates, searchXotelo, locationCacheKey, RADIUS_KM, MAX_RATES,
-  resetXoteloBreaker, xoteloBlocked, xoteloRetryAfter, offerLink, offerSite, RATES_TTL,
+  hotelRates, ratesKey, offers, mapHotel, mapHotelGuess, candidates, chooseForRates, searchXotelo, locationCacheKey, RADIUS_KM, MAX_RATES,
+  resetXoteloBreaker, xoteloBlocked, xoteloRetryAfter, offerLink, offerSite, RATES_TTL, EMPTY_SLOW_MS, EMPTY_TTL,
 } from '../server/providers/stays/xotelo.js';
 import { stayProviders } from '../server/providers/stays/index.js';
 import { providerStatus } from '../server/providers/index.js';
@@ -24,7 +24,8 @@ setRates({ base: 'EUR', rates: { EUR: 1, CZK: 25, USD: 1.1 }, source: 'test', da
 beforeEach(() => { cache.map.clear(); resetXoteloBreaker(); });
 
 const PRAGUE = { lat: 50.0875, lon: 14.4214 };
-const PER_SEARCH_MAX = 3; // jedno hledání nejvýš 3 dotazy na Xotelo naráz
+const priced = (r) => r.items.filter((h) => !h.guess); // nabídky s cenou (bez orientačních hotelů)
+const PER_SEARCH_MAX = 12; // jedno hledání nejvýš 12 dotazů na Xotelo naráz
 const lit = (v) => ({ type: 'literal', value: String(v) });
 // řádek sparqlAround (ručně – vesnice a město v okolí)
 const row = (id, { ta, pop, dist }) => ({ item: { type: 'uri', value: `http://www.wikidata.org/entity/${id}` }, ...(ta ? { ta: lit(ta) } : {}), ...(pop ? { pop: lit(pop) } : {}), dist: lit(dist) });
@@ -127,6 +128,7 @@ test('cena: sazba za pokoj a noc × pokoje × noci, daň se přičte, EUR → K�
   assert.deepEqual(of.map((o) => [o.name, o.totalCzk, o.perNightCzk]), [['Agoda', 19500, 6500], ['web hotelu', 20400, 6800], ['Booking.com', 21000, 7000]]);
   assert.deepEqual(of.map((o) => [o.code, o.tax]), [['Agoda', true], ['TravelClickCPA', false], ['BookingCom', false]], 'kód webu zůstává; daně uvedené jen u Agody');
   assert.deepEqual(offers({ currency: 'XYZ', rates: [{ name: 'A', rate: 10 }] }, q), [], 'neznámá měna → bez ceny');
+  assert.deepEqual(['Official Hotel Site', 'Official Site', 'Hotel Website'].map((name) => offers({ currency: 'EUR', rates: [{ name, rate: 10 }] }, q)[0].name), ['web hotelu', 'web hotelu', 'web hotelu']);
 });
 
 test('hotel → nabídka: hodnocení 0–5 i 0–10, vzdálenost, ceny u webů s odkazy, snídaně, hlavní odkaz na web nejlevnější nabídky, zmenšená fotka', () => {
@@ -313,6 +315,46 @@ test('„Aktualizovat ceny“ u hotelu (fresh): dotaz i s cenou v mezipaměti a 
   }
 });
 
+test('prázdné ceny až po dlouhém čekání (Xotelo nestihl TripAdvisor) = zkusit znovu: skoro se nepamatují, hledání je neúplné; rychlé [] = bez nabídky na 2 h', async () => {
+  assert.deepEqual([EMPTY_SLOW_MS, EMPTY_TTL], [8000, 1000]);
+  let empty = true;
+  const stub = stubFetch((url) => {
+    if (url.includes('/api/list?')) return { body: { result: { list: LIST_PRAGUE } } };
+    if (url.includes('/api/rates?')) return { body: empty ? { error: null, result: { currency: 'EUR', rates: [] } } : ratesFor(new URL(url).searchParams.get('hotel_key')) };
+    return { status: 404, body: '{}' };
+  });
+  try {
+    const q = { checkin: ymdPlus(10), checkout: ymdPlus(12), adults: 2, rooms: 1 };
+    const k = 'g274707-d1235795';
+    // rychlé [] (stub odpoví hned) = opravdu bez nabídky
+    const a = await hotelRates(k, q);
+    assert.deepEqual([a.rates, a.slow], [[], undefined]);
+    assert.ok(cache.map.get(ratesKey(k, q)).exp - Date.now() > RATES_TTL - 60e3);
+    // [] po slowMs = nestihlo se: v mezipaměti jen EMPTY_TTL
+    const k2 = 'g274707-d2';
+    const b = await hotelRates(k2, q, { slowMs: 0 });
+    assert.deepEqual([b.rates, b.slow], [[], true]);
+    assert.ok(cache.map.get(ratesKey(k2, q)).exp - Date.now() <= EMPTY_TTL);
+    // „Aktualizovat ceny“: nestihlo se → dřívější ceny zůstanou (hotel se nevyprodal)
+    empty = false;
+    const k3 = LIST_PRAGUE[0].key;
+    const c = await hotelRates(k3, q);
+    empty = true;
+    const d = await hotelRates(k3, q, { fresh: true, slowMs: 0 });
+    assert.deepEqual([d.rates.length > 0, d.stale, d.at], [true, true, c.at]);
+    assert.ok(cache.get(ratesKey(k3, q)).rates.length > 0, 'v mezipaměti zůstanou ceny');
+    // celé hledání: [] po slowMs → partial (průvodce se doptá), hotely orientačně
+    const qs = normalizeStayQuery({ city: 'Praha', cityEn: 'Prague', cc: 'CZ', gid: '3067696', ...PRAGUE, checkin: ymdPlus(40), checkout: ymdPlus(42), adults: 2 });
+    const sparql = async () => [];
+    const r = await searchXotelo(qs, { sparql, slowMs: 0 });
+    assert.deepEqual([r.length, r.partial, r.guesses.length > 0], [0, true, true]);
+    const r2 = await searchXotelo({ ...qs, checkout: ymdPlus(43), nights: 3 }, { sparql });
+    assert.deepEqual([r2.length, r2.partial], [0, undefined], 'rychlé [] = bez nabídky, ne neúplné');
+  } finally {
+    stub.restore();
+  }
+});
+
 test('„Aktualizovat ceny“ (fresh=1): ceny všech hotelů znovu (místo i seznam z mezipaměti), vyprodaný zmizí; na dotaz nejvýš jednou za 5 min, jinak z mezipaměti s refreshIn; výpadek → dřívější ceny (stale)', async () => {
   let soldOut = null;
   let down = false;
@@ -332,22 +374,24 @@ test('„Aktualizovat ceny“ (fresh=1): ceny všech hotelů znovu (místo i sez
       const raw = { city: 'Praha', cityEn: 'Prague', cc: 'CZ', ...PRAGUE, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 2 };
       const a = await searchStays(raw);
       assert.deepEqual([a.providers[0].count, a.providers[0].partial, count(/\/api\/rates\?/), count(/\/api\/list\?/)], [12, undefined, 12, 1]);
-      const t0 = Math.min(...a.items.map((h) => h.ratesAt));
+      const t0 = Math.min(...priced(a).map((h) => h.ratesAt));
       assert.ok(t0 > Date.now() - 60e3, 'u hotelu čas zjištění cen');
       soldOut = a.items[0].id.slice(3); // hotel se mezitím vyprodal
-      assert.equal((await searchStays(raw)).items.length, 12, 'bez fresh z mezipaměti (i vyprodaný)');
+      assert.equal(priced(await searchStays(raw)).length, 12, 'bez fresh z mezipaměti (i vyprodaný)');
       assert.equal(count(/\/api\/rates\?/), 12);
       const b = await searchStays({ ...raw, fresh: '1' });
       assert.deepEqual([count(/\/api\/rates\?/), count(/\/api\/list\?/)], [24, 1], 'ceny všech 12 hotelů znovu, nic dalšího');
       assert.deepEqual([b.providers[0].count, b.providers[0].stale, b.providers[0].refreshIn], [11, undefined, undefined]);
-      assert.ok(!b.items.some((h) => h.id === `xo:${soldOut}`), 'vyprodaný hotel zmizel');
-      assert.ok(b.items.every((h) => h.ratesAt >= t0));
+      // vyprodaný hotel už nemá cenu – zůstane jen orientačně (bez ceny na tvoje dny, odkaz na Google Hotels)
+      assert.ok(!priced(b).some((h) => h.id === `xo:${soldOut}`), 'vyprodaný hotel zmizel z nabídek s cenou');
+      assert.ok(b.items.some((h) => h.id === `xo:${soldOut}` && h.guess));
+      assert.ok(priced(b).every((h) => h.ratesAt >= t0));
       // hned znovu: z mezipaměti, s poznámkou, za kolik to půjde
       const c = await searchStays({ ...raw, fresh: '1' });
-      assert.deepEqual([count(/\/api\/rates\?/), c.items.length], [24, 11]);
+      assert.deepEqual([count(/\/api\/rates\?/), priced(c).length], [24, 11]);
       assert.ok(c.providers[0].refreshIn > 290 && c.providers[0].refreshIn <= 300, `${c.providers[0].refreshIn} s`);
       const d = await searchStays(raw);
-      assert.deepEqual([d.items.length, d.providers[0].refreshIn], [11, undefined], 'aktualizovaný výsledek v mezipaměti, bez poznámky');
+      assert.deepEqual([priced(d).length, d.providers[0].refreshIn], [11, undefined], 'aktualizovaný výsledek v mezipaměti, bez poznámky');
       // jiný termín = jiný dotaz – aktualizovat jde hned
       await searchStays({ ...raw, checkout: ymdPlus(34) });
       const e = await searchStays({ ...raw, checkout: ymdPlus(34), fresh: '1' });
@@ -368,7 +412,7 @@ test('„Aktualizovat ceny“ (fresh=1): ceny všech hotelů znovu (místo i sez
       const n0 = count(/\/api\/rates\?/);
       const f = await searchStays({ ...raw, fresh: '1' });
       assert.deepEqual([f.providers[0].ok, f.providers[0].count, f.providers[0].stale, f.providers[0].staleAll], [true, 11, true, true]);
-      assert.ok(count(/\/api\/rates\?/) - n0 >= 2 && count(/\/api\/rates\?/) - n0 <= 5, `${count(/\/api\/rates\?/) - n0} dotazů`);
+      assert.ok(count(/\/api\/rates\?/) - n0 >= 2 && count(/\/api\/rates\?/) - n0 <= PER_SEARCH_MAX, `${count(/\/api\/rates\?/) - n0} dotazů`);
       // nic se neaktualizovalo → zábrana 5 min neplatí (žádné „aktualizovaly před chvílí“), další pokus hlídá pojistka
       assert.ok(!cache.map.has(g) || cache.map.get(g).exp <= Date.now(), 'zábrana po neúspěchu zrušená');
       const n1 = count(/\/api\/rates\?/);
@@ -434,9 +478,15 @@ test('celé hledání bez sítě: Wikidata (Praha bez P3134) → tabulka → sez
       const rates = stub.calls.filter((c) => c.url.includes('/api/rates?'));
       assert.equal(rates.length, 12);
       assert.ok(rates.every((c) => /adults=2&rooms=1/.test(c.url)));
-      assert.equal(r.items.length, 10);
-      assert.ok(r.items.every((h) => h.provider === 'xotelo' && h.rates.length === 3 && h.rates[0].name === 'Agoda'));
-      assert.ok(!r.items.some((h) => h.id === `xo:${keys[2]}` || h.id === `xo:${keys[3]}`));
+      assert.equal(priced(r).length, 10);
+      assert.ok(priced(r).every((h) => h.provider === 'xotelo' && h.rates.length === 3 && h.rates[0].name === 'Agoda'));
+      assert.ok(!priced(r).some((h) => h.id === `xo:${keys[2]}` || h.id === `xo:${keys[3]}`));
+      // hotely bez ceny na tvoje dny zůstanou orientačně (běžné rozpětí za noc, Google Hotels s daty) za nabídkami s cenou
+      const g = r.items.filter((h) => h.guess);
+      assert.ok(g.some((h) => h.id === `xo:${keys[2]}`) && g.some((h) => h.id === `xo:${keys[3]}`));
+      assert.ok(r.items.findIndex((h) => h.guess) >= priced(r).length, 'za nabídkami s cenou');
+      assert.ok(g.every((h) => h.priceTotalCzk == null && h.rates.length === 0 && /^https:\/\/www\.google\.com\/travel\/search\?/.test(h.bookUrl)));
+      assert.ok(g.some((h) => h.nightFromCzk > 0), 'běžná cena za noc ze seznamu');
       const mosaic = r.items.find((h) => h.id === `xo:${keys[0]}`);
       // Agoda (100 + 1656616 % 97) € × 3 noci × 25 Kč/€
       assert.equal(mosaic.priceTotalCzk, (100 + (1656616 % 97)) * 3 * 25);
@@ -479,7 +529,7 @@ test('rozpočet na ceny: pomalý web se nečeká, výsledek je částečný; vš
   try {
     await assert.rejects(searchXotelo(query(), { sparql: async () => [] }), /^Error: má výpadek \(HTTP 503\)$/);
     const n = down.calls.filter((c) => c.url.includes('/api/rates?')).length;
-    assert.ok(n >= 3 && n <= 5, `po 3 chybách za sebou se zbytek cen neposílá (${n} dotazů z 12)`);
+    assert.ok(n >= 3 && n <= PER_SEARCH_MAX, `po 3 chybách za sebou se zbytek cen neposílá (${n} dotazů z 12)`);
     assert.ok(xoteloBlocked());
   } finally {
     down.restore();
@@ -554,7 +604,7 @@ test('pomalý dotaz na okolí jen když rychlé nic nenajdou (timeout 35 s); mí
   }
 });
 
-test('souběžná hledání se ve frontě střídají: každé dostane ceny, nejvýš 5 dotazů naráz; bez času na ceny → částečný prázdný výsledek, ne chyba', async () => {
+test('souběžná hledání se ve frontě střídají: každé dostane ceny, nejvýš 16 dotazů naráz; bez času na ceny → částečný prázdný výsledek, ne chyba', async () => {
   let active = 0;
   let peak = 0;
   const stub = stubFetch(async (url) => {
@@ -568,7 +618,7 @@ test('souběžná hledání se ve frontě střídají: každé dostane ceny, nej
     // tři hledání naráz (jiné termíny: noci ±, záložky míst trasy, víc lidí), každý dotaz 150 ms, rozpočet 700 ms
     const res = await Promise.all([30, 40, 50].map((d) => searchXotelo(query({ checkin: ymdPlus(d), checkout: ymdPlus(d + 3) }), { sparql: async () => [], budgetMs: 700 }).catch((e) => e.message)));
     assert.ok(res.every((r) => Array.isArray(r) && r.length >= 3), JSON.stringify(res.map((r) => (Array.isArray(r) ? r.length : r))));
-    assert.ok(peak <= 5, `naráz ${peak}`);
+    assert.ok(peak <= 16, `naráz ${peak}`);
     // na ceny nezbyl čas → [] s příznakem partial (searchStays: ok, „zkusit znovu“), ne chyba zdroje
     const starved = await searchXotelo(query({ checkin: ymdPlus(60), checkout: ymdPlus(62) }), { sparql: async () => [], budgetMs: 0 });
     assert.deepEqual([starved.length, starved.partial], [0, true]);
@@ -884,6 +934,56 @@ test('karta hotelu z TripAdvisoru: hlavní odkaz na web nejlevnější nabídky,
   await tick();
   assert.equal(stays().length, 3);
   assert.ok(stays().slice(1).every((u) => new URLSearchParams(u.slice(10)).get('fresh') === '1'));
+});
+
+test('hotel bez ceny na tvoje dny: „od ~X/noc“ s odkazem na ceny, výběr = odhad (ve Vybráno a Shrnutí); neúplné ceny → průvodce se sám doptá a s cenou odhad zmizí', async () => {
+  const now = Date.now();
+  const BK = [LIST_PRAGUE[0], [{ code: 'BookingCom', name: 'Booking.com', rate: 70 }], now];
+  const first = xoteloReply([BK], { partial: true, guesses: 1 });
+  const gh = mapHotelGuess(LIST_PRAGUE[1], STAY_Q, PRAGUE);
+  first.items = rankStays([...first.items, gh]);
+  const second = xoteloReply([BK, [LIST_PRAGUE[1], [{ code: 'Agoda', name: 'Agoda.com', rate: 90 }], now]]);
+  let reply = first;
+  const c = loadTrip(() => reply);
+  const timers = [];
+  c.setTimeout = (fn) => { timers.push(fn); return timers.length; };
+  const t = pragueTrip();
+  const gi = first.items.findIndex((h) => h.guess);
+  const pick = { dataset: { pick: String(gi) } };
+  c.__all['[data-pick]'] = [pick];
+  c.S.trip = t;
+  c.window.Trip.render();
+  await tick();
+  let html = sp(c.__els['#stayBody'].innerHTML);
+  const card = cardOf(html, 'Hermitage Hotel Prague');
+  assert.ok(gh.nightFromCzk > 0 && gh.nightToCzk > gh.nightFromCzk);
+  const kc = (n) => sp(`${Math.round(n).toLocaleString('cs-CZ')} Kč`);
+  assert.ok(card.includes(`<div class="pp-guess" title="běžně ${kc(gh.nightFromCzk)}–${kc(gh.nightToCzk)} za noc">od ~${kc(gh.nightFromCzk)}/noc</div>`), card);
+  assert.match(card, /<a class="linkbtn" href="https:\/\/www\.google\.com\/travel\/search\?[^"]+"[^>]*>ceny na tvoje dny ↗<\/a>/);
+  assert.ok(html.includes('U hotelů s „od ~…/noc“ TripAdvisor cenu na tvoje dny zatím nemá'));
+  assert.ok(html.includes('Doplňuji ceny dalších hotelů'), 'neúplné ceny → doplňuje se');
+  assert.equal(timers.length, 1);
+  // výběr hotelu bez ceny: odhad = běžná cena za noc × noci, označený
+  pick.onclick();
+  assert.deepEqual([t.stay.mode, t.stay.totalCzk, t.stay.est], ['pick', gh.nightFromCzk * 2, true]);
+  t.step = 'stay';
+  c.window.Trip.render();
+  await tick();
+  assert.match(sp(c.__els['#tripStep'].innerHTML), /Vybráno: <b>Hermitage Hotel Prague<\/b> · [^<]+ <span class="faint">\(odhad\)<\/span>/);
+  // návrat do kroku: neúplná odpověď se z paměti nebere – nový dotaz, doplňování pokračuje (dřívější načasování nic neudělá)
+  assert.equal(timers.length, 2);
+  // doplnění: dotaz retry=1, cena přišla → vybraný hotel má skutečnou cenu, odhad končí
+  reply = second;
+  await timers.pop()();
+  timers.length = 0;
+  await tick();
+  const urls = c.__urls.filter((u) => u.startsWith('api/stays?'));
+  assert.equal(new URLSearchParams(urls.at(-1).slice(10)).get('retry'), '1');
+  const real = second.items.find((h) => h.name === 'Hermitage Hotel Prague').priceTotalCzk;
+  assert.deepEqual([t.stay.totalCzk, t.stay.est], [real, undefined]);
+  html = sp(c.__els['#stayBody'].innerHTML);
+  assert.ok(!html.includes('pp-guess') && !html.includes('Doplňuji'), 'úplné ceny – už se nedoplňuje');
+  assert.equal(timers.length, 0);
 });
 
 test('karta hotelu z TripAdvisoru: nepovedená aktualizace řekne pravdu (vše / část cen), Shrnutí u Trip.com „potvrď Hledat“', async () => {

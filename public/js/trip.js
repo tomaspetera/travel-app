@@ -1232,7 +1232,7 @@
     const { checkin, checkout, nights } = stayDates(t);
     host.innerHTML = `<div class="card step-card">
       <div class="sc-head"><div><h3>🏨 Ubytování · ${esc(t.dest.label)}</h3><div class="muted">${dayLbl(checkin)} – ${dayLbl(checkout)} · ${nightsTxt(nights)} · ${t.adults} ${t.adults === 1 ? 'host' : t.adults <= 4 ? 'hosté' : 'hostů'}</div></div>
-      ${t.stay ? `<div class="chosen">Vybráno: <b>${esc(t.stay.name || (t.stay.mode === 'skip' ? 'bez ubytování' : ''))}</b>${t.stay.totalCzk ? ` · ${czk(t.stay.totalCzk)}` : ''}</div>` : ''}</div>
+      ${t.stay ? `<div class="chosen">Vybráno: <b>${esc(t.stay.name || (t.stay.mode === 'skip' ? 'bez ubytování' : ''))}</b>${t.stay.totalCzk ? ` · ${czk(t.stay.totalCzk)}${t.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : ''}</div>` : ''}</div>
       ${oneWayField(t)}
       <div id="stayBody"><div class="loading-row"><span class="spin dark"></span> Hledám ubytování s nejlepším poměrem ceny a hodnocení…</div></div>
       <div class="divider"></div>
@@ -1303,7 +1303,7 @@
       <div class="sc-head"><div><h3>🏨 Ubytování na trase</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(total)} · ${t.adults} ${t.adults === 1 ? 'host' : t.adults <= 4 ? 'hosté' : 'hostů'} · vybráno ${r.bases.filter(x => x.stay).length} z ${n}</div></div></div>
       ${baseTabs(r, i, x => Boolean(x.stay), 'data-bt')}
       <div class="sc-head" style="margin-top:14px"><div><h3 style="font-size:15.5px">${i + 1}. ${esc(b.name)}</h3><div class="muted">${dayLbl(d.checkin)} – ${dayLbl(d.checkout)} · ${nightsTxt(d.nights)}</div></div>
-        ${b.stay ? `<div class="chosen">Vybráno: <b>${esc(stayState(b.stay))}</b>${stayCzk(b.stay) ? ` · ${czk(stayCzk(b.stay))}` : ''}</div>` : ''}</div>
+        ${b.stay ? `<div class="chosen">Vybráno: <b>${esc(stayState(b.stay))}</b>${stayCzk(b.stay) ? ` · ${czk(stayCzk(b.stay))}${b.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : ''}</div>` : ''}</div>
       <div id="stayBody"><div class="loading-row"><span class="spin dark"></span> Hledám ubytování s nejlepším poměrem ceny a hodnocení…</div></div>
       <div class="divider"></div>
       <div class="manual-row"><div class="muted" style="font-size:13px">Vybral sis jinde? Zadej celkovou cenu za ${nightsTxt(d.nights)}:</div>
@@ -1404,7 +1404,10 @@
     const bkLink = (url, label, title, sp) => `<span class="st-bk">${outLink(url, `${label} ↗`, { title, sponsored: sp })}${sp ? '<span class="ad-tag">reklama</span>' : ''}</span>`;
     const links = !h.bookUrl ? '' : top
       ? bkLink(h.bookUrl, top.site ? esc(top.name) : 'porovnat ceny', otaTitle(top), h.bookSponsored) + (bk && bk !== top ? bkLink(bk.url, 'Booking.com', otaTitle(bk), bk.sponsored) : '')
-      : bkLink(h.bookUrl, 'detail', '', h.bookSponsored);
+      : h.guess ? bkLink(h.bookUrl, 'ceny na tvoje dny', 'Google Hotels – ceny hotelu na tvoje dny u všech webů', false)
+        : bkLink(h.bookUrl, 'detail', '', h.bookSponsored);
+    // hotel bez ceny na tvoje dny (TripAdvisor ji zatím nemá): běžné rozpětí za noc
+    const guess = h.guess ? `<div class="pp-guess" title="${h.nightToCzk > h.nightFromCzk ? `běžně ${czk(h.nightFromCzk)}–${czk(h.nightToCzk)} za noc` : ''}">${h.nightFromCzk ? `od ~${czk(h.nightFromCzk)}/noc` : 'cena na webu'}</div><div class="faint">běžná cena · na tvoje dny ověř</div>` : '';
     return `<div class="stay ${chosen ? 'chosen' : ''}">
       <div class="st-img" ${h.photo ? `style="background-image:url('${esc(cssUrl(h.photo))}')"` : ''}>${h.photo ? '' : '🏨'}</div>
       <div class="st-main">
@@ -1415,7 +1418,7 @@
         ${otaChips(h)}${top && !bk ? '<div class="faint st-nobk">Booking.com na tvoje dny nic nenabízí</div>' : ''}${top && top.site === 'trip' ? '<div class="faint st-nobk">Trip.com: hledání potvrď tlačítkem Hledat</div>' : ''}
       </div>
       <div class="st-rating">${rt.col}</div>
-      <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">celkem · ${czk(h.pricePerNightCzk)}/noc</div>` : '<div class="faint">cena na webu</div>'}</div>
+      <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">celkem · ${czk(h.pricePerNightCzk)}/noc</div>` : guess || '<div class="faint">cena na webu</div>'}</div>
         <button class="btn sm primary" data-pick="${i}">${chosen ? '✓ Vybráno' : 'Vybrat'}</button>
         ${links}</div>
     </div>`;
@@ -1441,23 +1444,54 @@
     if (nd && staysData && staysData.key === d.key) staysData = nd; // i když je uživatel jinde – po návratu nové ceny
     if (T() !== t || t.step !== 'stay' || stayIdx !== i || !staysData || staysData.key !== d.key) return;
     // vybraný hotel: cena v cestě (Vybráno, hlavička, Shrnutí) podle aktualizované nabídky, ne ta z výběru
-    const cur = staySlot && staySlot.get(), h = nd && cur && cur.mode === 'pick' && nd.items.find(x => x.id === cur.id);
-    if (h && h.priceTotalCzk && h.priceTotalCzk !== cur.totalCzk) {
-      staySlot.set({ ...cur, totalCzk: h.priceTotalCzk, url: h.bookUrl || cur.url });
-      persist(); refreshHead();
-      const c = $('#tripStep .chosen'); if (c) c.innerHTML = `Vybráno: <b>${esc(cur.name || '')}</b> · ${czk(h.priceTotalCzk)} <span class="faint">(aktualizováno)</span>`;
-    }
+    syncPicked(nd);
     renderStays();
   }
+  // vybraný hotel: cena v cestě (Vybráno, hlavička, Shrnutí) podle nové nabídky, ne ta z výběru – i hotel vybraný
+  // s odhadem, ke kterému cena na tvoje dny mezitím přišla (odhad tím končí)
+  function syncPicked(nd) {
+    const cur = staySlot && staySlot.get(), h = nd && cur && cur.mode === 'pick' && nd.items.find(x => x.id === cur.id);
+    if (!h || !h.priceTotalCzk || (h.priceTotalCzk === cur.totalCzk && !cur.est)) return;
+    const { est, ...rest } = cur;
+    staySlot.set({ ...rest, totalCzk: h.priceTotalCzk, url: h.bookUrl || cur.url });
+    persist(); refreshHead();
+    const c = $('#tripStep .chosen'); if (c) c.innerHTML = `Vybráno: <b>${esc(cur.name || '')}</b> · ${czk(h.priceTotalCzk)} <span class="faint">(aktualizováno)</span>`;
+  }
 
+  // Neúplné ceny (Xotelo nestihl všechny hotely do rozpočtu, nebo sám nestihl TripAdvisor – u termínu, na který se zatím
+  // nikdo neptal, běžné; co se jednou podaří, má uložené): průvodce se sám doptá na zbytek – hotové ceny má server
+  // v mezipaměti, takže další dotaz jen dotáhne chybějící (živě 10/2026 Krakov: 0 → 0 → 1 → 3 hotely). Nejvýš 5× za sebou
+  // na místo a termín, seznam se doplní na místě (filtry a řazení zůstanou); pak zůstane „↻ Zkusit znovu“.
+  const STAY_FILL = 5;
+  let stayFill = { key: '', n: 0 };
+  function stayAutoFill(d) {
+    if (d.filling) return true;
+    if (!(d.providers || []).some(p => p.ok && p.partial)) return false;
+    if (stayFill.key !== d.key) stayFill = { key: d.key, n: 0 };
+    if (stayFill.n >= STAY_FILL) return false;
+    stayFill.n++;
+    d.filling = true;
+    setTimeout(async () => {
+      let nd = null;
+      try { staysRetry = d.key; nd = await loadStays(d.key, d.params); } catch (e) { staysRetry = null; }
+      d.filling = false;
+      const t = T();
+      if (!t || t.step !== 'stay' || staysData !== d) return; // mezitím jiné místo, termín nebo krok
+      if (nd) { staysData = nd; syncPicked(nd); } else stayFill.n = STAY_FILL; // chyba: už nezkoušet, nabídnout Zkusit znovu
+      renderStays();
+    }, 2000);
+    return true;
+  }
   function renderStays() {
     const host = $('#stayBody'); if (!host || !staysData) return;
     const d = staysData;
+    const filling = stayAutoFill(d);
+    const fillTxt = ' <span class="st-upd"><span class="spin dark"></span> Doplňuji ceny dalších hotelů…</span>';
     const types = [...new Set(d.items.map(h => h.type).filter(Boolean))];
     // typ zapamatovaný z jiného místa nebo cesty, který tu není (výběr by ho ani neukázal) – bez filtru
     if (stayView.type && !types.includes(stayView.type)) stayView.type = '';
     let items = d.items.filter(h => (h.rating ?? 0) >= stayView.minRating || stayView.minRating === 0)
-      .filter(h => !stayView.maxNight || (h.pricePerNightCzk && h.pricePerNightCzk <= stayView.maxNight))
+      .filter(h => !stayView.maxNight || ((h.pricePerNightCzk || h.nightFromCzk) && (h.pricePerNightCzk || h.nightFromCzk) <= stayView.maxNight))
       .filter(h => !stayView.type || h.type === stayView.type);
     const sorters = {
       value: (a, b) => (b.value ?? -1) - (a.value ?? -1),
@@ -1479,9 +1513,10 @@
       const failed = d.providers.length > 0 && d.providers.every(p => !p.ok);
       const late = d.providers.some(p => p.ok && p.partial);
       const head = failed ? `Ceny hotelů ${d.providers.some(p => p.id === 'xotelo') ? 'z TripAdvisoru ' : ''}teď nejdou načíst – vyber si u partnerů,`
+        : late && filling ? 'Ceny hotelů ještě přicházejí – chvilku vydrž, nebo si vyber u partnerů,'
         : late ? 'Ceny hotelů nestihly přijít – zkus to za chvíli znovu, nebo si vyber u partnerů,'
           : d.providers.length ? 'Pro toto místo a termín nemám přímé nabídky – otevři si hledání u partnerů,' : 'Vyber si ubytování u partnerů –';
-      host.innerHTML = `<div class="note ${failed ? 'warn' : 'info'}">${failed ? '⚠️' : 'ℹ️'} <div>${head} většina hledání je už <b>předvyplněná na tvoje data</b> (u označených „zadej data“ zadáš termín na webu). Až si vybereš, zadej cenu níže.${errs ? `<br><span class="faint">${errs}</span>` : ''}${retryBtn}${!d.providers.length && window.showSetupGuide ? ` <a href="#" id="stayGuide" class="faint">Hotely s cenou přímo tady (volitelné) →</a>` : ''}</div></div>${links}`;
+      host.innerHTML = `<div class="note ${failed ? 'warn' : 'info'}">${failed ? '⚠️' : 'ℹ️'} <div>${head} většina hledání je už <b>předvyplněná na tvoje data</b> (u označených „zadej data“ zadáš termín na webu). Až si vybereš, zadej cenu níže.${errs ? `<br><span class="faint">${errs}</span>` : ''}${filling ? fillTxt : retryBtn}${!d.providers.length && window.showSetupGuide ? ` <a href="#" id="stayGuide" class="faint">Hotely s cenou přímo tady (volitelné) →</a>` : ''}</div></div>${links}`;
       const g = $('#stayGuide'); if (g) g.onclick = e => { e.preventDefault(); window.showSetupGuide('guideStays'); };
       wireRetry();
       return;
@@ -1489,18 +1524,18 @@
     const testNote = d.providers.some(p => p.ok && p.test && p.count) ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>Ukázková / testovací nabídka</b> – hotely a ceny nejsou skutečné (demo režim nebo testovací klíč LiteAPI). Skutečné ceny ověř přes odkazy na partnery dole.</div></div>` : '';
     // Xotelo: zdroj poctivě – orientační ceny z TripAdvisoru, rezervuje se u partnera; z kdy jsou (nejstarší z hotelů)
     // a „Aktualizovat ceny“ (server nejvýš jednou za 5 min – jinak refreshIn), bez daní u všech nabídek poznámka o poplatcích
-    const xo = d.providers.find(p => p.id === 'xotelo' && p.ok && p.count);
+    const xo = d.providers.find(p => p.id === 'xotelo' && p.ok && (p.count || p.guesses));
     // čas cen (nejstarší) a poplatky jen z hotelů, které filtry ukazují – skrytý hotel se staršími cenami nevadí
-    const xoItems = items.filter(h => h.provider === 'xotelo');
+    const xoItems = items.filter(h => h.provider === 'xotelo' && !h.guess);
     const at = Math.min(...xoItems.map(h => +h.ratesAt || Infinity));
     const noTax = xoItems.length > 0 && xoItems.every(h => (h.rates || []).slice(0, 4).every(r => !r.tax));
     const wait = xo && xo.refreshIn ? Math.ceil((d.got + xo.refreshIn * 1e3 - Date.now()) / 60e3) : 0;
     const upd = staysUpd && staysUpd.key === d.key ? staysUpd : null, fail = upd && upd.fail != null;
     const failTxt = fail ? ` <b>Aktualizace se nepovedla</b>${upd.fail ? `: ${esc(upd.fail.replace(/[.!]$/, ''))}` : ''}.${at < Infinity ? ` Ceny jsou z ${atTxt(at)}.` : ' Ceny zůstaly dřívější.'}` : '';
-    const again = !xo ? '' : xo.partial ? ` U některých hotelů ceny nestihly přijít – zkus to za chvíli znovu.${retryBtn}`
+    const again = !xo ? '' : xo.partial ? (filling ? fillTxt : ` U některých hotelů ceny nestihly přijít – zkus to za chvíli znovu.${retryBtn}`)
       : upd && upd.run ? ' <span class="st-upd"><span class="spin dark"></span> Aktualizuji ceny…</span>'
       : `${fail ? failTxt : xo.staleAll ? ' Ceny se teď aktualizovat nepodařilo, zůstaly dřívější.' : xo.stale ? ' Část cen se teď aktualizovat nepodařilo, zůstaly dřívější.' : ''}${wait > 0 && !fail ? ` Ceny se aktualizovaly před chvílí – znovu to půjde za ${wait} min.` : ' <button type="button" class="linkbtn" id="stayFresh" title="Zjistit ceny znovu – hotely, které se mezitím vyprodaly, zmizí">↻ Aktualizovat ceny</button>'}`;
-    const srcNote = xo ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>Ceny: TripAdvisor</b> (Booking, Agoda, Trip.com…) – orientační, ověř u partnera. Cena je nejlevnější nabídka za celý pobyt${roomsTxt(d)}, hodnocení hostů z TripAdvisoru (0–5).${noTax ? ' Cena bez místních poplatků (např. městská taxa), pokud je web neuvádí.' : ''}${at < Infinity && !fail ? ` Ceny z ${atTxt(at)}.` : ''}${again}</div></div>` : '';
+    const srcNote = xo ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>Ceny: TripAdvisor</b> (Booking, Agoda, Trip.com…) – orientační, ověř u partnera. Cena je nejlevnější nabídka za celý pobyt${roomsTxt(d)}, hodnocení hostů z TripAdvisoru (0–5).${items.some(h => h.guess) ? ' U hotelů s „od ~…/noc“ TripAdvisor cenu na tvoje dny zatím nemá – je to běžná cena, ověř ji odkazem.' : ''}${noTax ? ' Cena bez místních poplatků (např. městská taxa), pokud je web neuvádí.' : ''}${at < Infinity && !fail ? ` Ceny z ${atTxt(at)}.` : ''}${again}</div></div>` : '';
     // stupnice filtru podle zdroje: TripAdvisor 0–5 (3,5+ / 4+ / 4,5+ = 7+ / 8+ / 9+ na stupnici 0–10)
     const five = d.items.length > 0 && d.items.every(h => h.rating5 != null);
     host.innerHTML = `${testNote}${srcNote}<div class="stay-tools">
@@ -1522,7 +1557,9 @@
     $$('[data-pick]', host).forEach(b => b.onclick = () => {
       const h = d.items[+b.dataset.pick];
       // url = hlavní odkaz karty (Xotelo: web nejlevnější nabídky) – „co zarezervovat“ ve shrnutí vede tam, kde pokoj je
-      staySlot.set({ mode: 'pick', id: h.id, name: h.name, totalCzk: h.priceTotalCzk || 0, url: h.bookUrl, lat: h.lat, lon: h.lon, rating: h.rating, provider: h.provider });
+      // hotel bez ceny na tvoje dny: odhad z běžné ceny za noc (ve shrnutí označený), ať celková cena cesty nechybí
+      const est = !h.priceTotalCzk && h.guess && h.nightFromCzk > 0 ? Math.round(h.nightFromCzk * ((d.query && d.query.nights) || 1)) : 0;
+      staySlot.set({ mode: 'pick', id: h.id, name: h.name, totalCzk: h.priceTotalCzk || est, ...(est ? { est: true } : {}), url: h.bookUrl, lat: h.lat, lon: h.lon, rating: h.rating, provider: h.provider });
       persist(); staySlot.next();
     });
   }
@@ -1909,9 +1946,9 @@
       c.ground ? [groundLines(t).icon, groundLines(t).row, c.ground] : null,
       c.arrival ? [ARR_ICO[(t.arrival && t.arrival.out && t.arrival.out.mode) || 'bus'] || '🚌', `Doprava ${arrivalWhat(t)} (odhad)`, c.arrival] : null,
       ...(multi ? [
-        ...r.bases.map(b => stayCzk(b.stay) ? ['🏨', `Ubytování · ${b.name} · ${nightsTxt(b.nights)}${hotelName(b.stay) ? ' · ' + hotelName(b.stay) : ''}`, stayCzk(b.stay)] : null),
+        ...r.bases.map(b => stayCzk(b.stay) ? ['🏨', `Ubytování · ${b.name} · ${nightsTxt(b.nights)}${hotelName(b.stay) ? ' · ' + hotelName(b.stay) : ''}${b.stay.est ? ' (odhad – ověř cenu)' : ''}`, stayCzk(b.stay)] : null),
         unpriced.length ? ['🏨', `Ubytování zatím bez ceny · ${unpriced.join(', ')}`, null] : null,
-      ] : [t.stay && t.stay.mode !== 'skip' ? ['🏨', `Ubytování · ${nightsTxt(nights)}${t.stay.name ? ' · ' + t.stay.name : ''}`, c.stay] : null]),
+      ] : [t.stay && t.stay.mode !== 'skip' ? ['🏨', `Ubytování · ${nightsTxt(nights)}${t.stay.name ? ' · ' + t.stay.name : ''}${t.stay.est ? ' (odhad – ověř cenu)' : ''}`, c.stay] : null]),
       t.car && t.car.mode !== 'skip' ? ['🚗', 'Auto', c.car] : null,
       c.transfers ? (r.transport === 'transit' ? ['🚆', `Přejezdy na trase – jízdenky (${t.adults} os., odhad)`, c.transfers] : ['⛽', 'Přejezdy autem – palivo (odhad, nafta 6 l/100 km)', c.transfers]) : null,
     ].filter(Boolean);
@@ -2256,6 +2293,7 @@
     if (!okFin(t.flight.pricedAt, 1.5e12, Date.now() + 864e5)) delete t.flight.pricedAt;
     t.arrival = cleanArrival(t.arrival);
     for (const k of ['stay', 'car']) if (t[k] && typeof t[k] === 'object') t[k].totalCzk = num(t[k].totalCzk, 0, 1e7, 0);
+    if (t.stay && typeof t.stay === 'object' && 'est' in t.stay) { if (t.stay.est === true) t.stay.est = true; else delete t.stay.est; }
     if (!t.dest || typeof t.dest !== 'object') t.dest = { label: t.flight.out.to };
     if (!t.ground || typeof t.ground !== 'object') t.ground = {};
     t.groundMode = t.groundMode === 'car' ? 'car' : 'transit'; // starší odkazy pole nemají = veřejnou dopravou
@@ -2377,7 +2415,7 @@
     const stay = x => (obj(x) && ['pick', 'manual', 'skip', 'links'].includes(x.mode) ? {
       mode: x.mode, id: str(x.id, 120), name: str(x.name, 120), totalCzk: fin(x.totalCzk, 0, 1e7) ? x.totalCzk : 0, url: url(x.url),
       lat: fin(x.lat, -90, 90) ? x.lat : null, lon: fin(x.lon, -180, 180) ? x.lon : null, rating: fin(x.rating, 0, 10) ? x.rating : null,
-      provider: str(x.provider, 40), checkin: ymd(x.checkin), checkout: ymd(x.checkout),
+      provider: str(x.provider, 40), checkin: ymd(x.checkin), checkout: ymd(x.checkout), ...(x.est === true ? { est: true } : {}),
     } : null);
     // Program místa: dny s platným datem a místy s názvem a polohou (vykreslí ho plánovač programu).
     const plan = p => (obj(p) && Array.isArray(p.days) && pos(p.center) ? {

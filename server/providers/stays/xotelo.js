@@ -17,18 +17,29 @@ import { wdqs, UA } from '../../lib/poi.js';
 
 const API = 'https://data.xotelo.com/api';
 const HEADERS = { 'User-Agent': UA, Accept: 'application/json' };
-const limit = limiter(5); // všechna hledání dohromady nejvýš 5 dotazů na Xotelo naráz
-const PER_SEARCH = 3; // jedno hledání nejvýš 3 – souběžná hledání se ve frontě střídají, žádné nezůstane bez cen
+const limit = limiter(16); // všechna hledání dohromady nejvýš 16 dotazů na Xotelo naráz
+// jedno hledání všech 12 hotelů naráz – ceny hotelu trvají 3,5–13 s (živě 10/2026: 12 naráz za 13 s, stejně rychle jako
+// jeden), se 3 naráz stihlo hledání do rozpočtu jen pár hotelů; souběžná hledání se ve frontě střídají
+const PER_SEARCH = 12;
 const limitWd = limiter(2); // vlastní fronta na Wikidata: krátké dotazy nečekají za dlouhými dotazy Objevuj (poi.js)
 const wd = (query, ms) => wdqs(query, ms, { queue: limitWd });
 const DAY = 864e5;
 export const RADIUS_KM = 15; // hotely dál od místa pobytu se zahodí
 export const MAX_RATES = 12; // ceny jen pro tolik hotelů
+export const GUESS_MAX = 12; // hotelů bez ceny na tvoje dny (orientačně, za hotely s cenou) nejvýš tolik
 const LIST_LIMIT = 40;
 const LIST_TIMEOUT = 10000;
-const RATE_TIMEOUT = 10000;
-const BUDGET_MS = 20000; // na ceny celkem (od prvního volného místa ve frontě) – co nestihne, chybí (částečný výsledek)
+const RATE_TIMEOUT = 15000; // časté odpovědi za 11,5 a 13 s – s 10 s by se ztratily
+// na ceny celkem (od prvního volného místa ve frontě) – co nestihne, chybí (částečný výsledek); průvodce si zbytek
+// dotáhne sám dalším dotazem (hotové ceny jsou v mezipaměti), první hotely tak uvidí dřív
+const BUDGET_MS = 15000;
 export const RATES_TTL = 2 * 3600e3; // ceny hotelu 2 h – TripAdvisor sám zaostává a hotel se mezitím může vyprodat
+// Prázdné ceny po dlouhém čekání = Xotelo nestihl TripAdvisor, ne vyprodáno: u hotelu a termínu, na který se zatím nikdo
+// neptal, běžné (živě 10/2026: po 9–13 s [], úspěšný první dotaz 3–5 s, uložený do 1 s) – co se jednou podaří, má Xotelo
+// uložené. Takové [] (slow) se skoro nepamatuje a hledání je neúplné (partial), další dotaz to zkusí znovu; rychlé [] =
+// opravdu bez nabídky (RATES_TTL).
+export const EMPTY_SLOW_MS = 8000;
+export const EMPTY_TTL = 1000;
 const AROUND_TIMEOUT = 35000; // obce v okolí bodu: těžký dotaz (živě 3–21 s)
 const FAIL_TTL = 10 * 60e3; // výpadek Wikidat: místo se 10 min znovu nedohledává
 
@@ -283,12 +294,15 @@ export const ratesKey = (hotelKey, q) => `xo:rates:${hotelKey}:${q.checkin}:${q.
  * zjistily (ms). Mezipaměť RATES_TTL podle hotelu, termínu, dospělých a pokojů. opts.queue = fronta hledání (PER_SEARCH);
  * opts.deadline = konec rozpočtu (číslo, nebo funkce volaná až po získání místa ve frontě) – dotaz, který by začal po
  * něm, se nepošle (chyba late, neukládá se). opts.fresh („Aktualizovat ceny“) = dotaz i s cenou v mezipaměti (fronta
- * i pojistka platí); nepovede-li se, zůstane cena z mezipaměti s příznakem stale, bez ní chyba.
+ * i pojistka platí); nepovede-li se, zůstane cena z mezipaměti s příznakem stale, bez ní chyba. slow = prázdné ceny
+ * až po opts.slowMs (Xotelo nestihl TripAdvisor) – v mezipaměti jen EMPTY_TTL, u fresh zůstane dřívější cena (stale).
  */
-export async function hotelRates(hotelKey, q, { deadline = Infinity, queue = (fn) => fn(), fresh = false } = {}) {
+export async function hotelRates(hotelKey, q, { deadline = Infinity, queue = (fn) => fn(), fresh = false, slowMs = EMPTY_SLOW_MS } = {}) {
   const key = ratesKey(hotelKey, q);
+  const ttl = (v) => (v.slow ? EMPTY_TTL : RATES_TTL);
   const get = () => queue(() => limit(async () => {
-    const left = (typeof deadline === 'function' ? deadline() : deadline) - Date.now();
+    const t0 = Date.now();
+    const left = (typeof deadline === 'function' ? deadline() : deadline) - t0;
     if (left < 500) throw late();
     const qs = new URLSearchParams({ hotel_key: hotelKey, chk_in: q.checkin, chk_out: q.checkout, currency: 'EUR', adults: String(q.adults), rooms: String(q.rooms) });
     const j = await xoGet(`${API}/rates?${qs}`, Math.min(RATE_TIMEOUT, left), { short: left < RATE_TIMEOUT });
@@ -296,13 +310,15 @@ export async function hotelRates(hotelKey, q, { deadline = Infinity, queue = (fn
     const rates = (Array.isArray(r.rates) ? r.rates : [])
       .filter((x) => Number(x?.rate) > 0)
       .map((x) => ({ code: String(x.code || ''), name: String(x.name || x.code || ''), rate: Number(x.rate), tax: Number(x.tax) > 0 ? Number(x.tax) : 0 }));
-    return { currency: String(r.currency || 'EUR').toUpperCase(), rates, at: Date.now() };
+    return { currency: String(r.currency || 'EUR').toUpperCase(), rates, at: Date.now(), ...(!rates.length && Date.now() - t0 >= slowMs ? { slow: true } : {}) };
   }));
-  if (!fresh) return cache.wrap(key, RATES_TTL, get);
+  if (!fresh) return cache.wrap(key, ttl, get);
   const old = cache.get(key);
   try {
     const v = await get();
-    cache.set(key, v, RATES_TTL);
+    // Xotelo nestihl TripAdvisor: dřívější ceny zůstanou (stale), hotel se nevyprodal
+    if (v.slow && old?.rates?.length) return { ...old, stale: true };
+    cache.set(key, v, ttl(v));
     return v;
   } catch (e) {
     if (old) return { ...old, stale: true };
@@ -311,7 +327,7 @@ export async function hotelRates(hotelKey, q, { deadline = Infinity, queue = (fn
 }
 
 // Názvy webů pro chipy s cenou (ostatní jak je posílá TripAdvisor): web hotelu česky, „Agoda.com“ → „Agoda“.
-const otaName = (n) => (/^(official (hotel|site|website)|hotel website)$/i.test(n.trim()) ? 'web hotelu' : n === 'Agoda.com' ? 'Agoda' : n);
+const otaName = (n) => (/^(official (hotel )?(hotel|site|website)|hotel website)$/i.test(n.trim()) ? 'web hotelu' : n === 'Agoda.com' ? 'Agoda' : n);
 
 /**
  * Nabídky webů v Kč za celý pobyt (sazba za pokoj a noc × pokoje × noci), nejlevnější první; web dvakrát → levnější.
@@ -382,6 +398,40 @@ export function mapHotel(h, rr, q, center) {
   const bk = of.find((o) => offerSite(o) === 'booking');
   if (bk && !shown.includes(bk)) shown.push(bk);
   const rates = shown.map((o) => offerLink(o, String(h.name), q));
+  return {
+    ...hotelBase(h, center),
+    priceTotalCzk: of[0].totalCzk,
+    pricePerNightCzk: of[0].perNightCzk,
+    rates,
+    ratesAt: Number(rr.at) || null,
+    bookUrl: rates[0].url,
+    bookSponsored: rates[0].sponsored, // partnerský odkaz – karta ho označí „reklama“
+  };
+}
+
+/**
+ * Hotel bez ceny na zadané dny (TripAdvisor ji pro řadu hotelů zjišťuje až při dalších dotazech, nebo je vyprodaný):
+ * guess = orientačně běžné rozpětí za noc ze seznamu (price_ranges v USD), odkaz na Google Hotels s tvými daty.
+ */
+export function mapHotelGuess(h, q, center) {
+  const lo = Number(h.price_ranges?.minimum);
+  const hi = Number(h.price_ranges?.maximum);
+  const city = q.cityEn || q.city || '';
+  return {
+    ...hotelBase(h, center),
+    guess: true,
+    priceTotalCzk: null,
+    pricePerNightCzk: null,
+    nightFromCzk: lo > 0 ? toCzk(lo * q.rooms, 'USD') : null,
+    nightToCzk: hi >= lo && hi > 0 ? toCzk(hi * q.rooms, 'USD') : null,
+    rates: [],
+    ratesAt: null,
+    bookUrl: googleHotelsUrl(`${h.name}${city ? ' ' + city : ''}`, q),
+    bookSponsored: false,
+  };
+}
+
+function hotelBase(h, center) {
   const lat = Number(h.geo?.latitude);
   const lon = Number(h.geo?.longitude);
   const pos = Number.isFinite(lat) && Number.isFinite(lon);
@@ -404,14 +454,8 @@ export function mapHotel(h, rr, q, center) {
     lon: pos ? lon : null,
     distanceKm: center && pos ? Math.round(haversineKm(center.lat, center.lon, lat, lon) * 10) / 10 : null,
     photo: h.image ? photoUrl(h.image) : null,
-    priceTotalCzk: of[0].totalCzk,
-    pricePerNightCzk: of[0].perNightCzk,
-    rates,
-    ratesAt: Number(rr.at) || null,
     freeCancellation: null,
     breakfast: labels.some((x) => /breakfast included/i.test(x)) ? true : null,
-    bookUrl: rates[0].url,
-    bookSponsored: rates[0].sponsored, // partnerský odkaz – karta ho označí „reklama“
   };
 }
 
@@ -447,7 +491,7 @@ export function chooseForRates(pool, n = MAX_RATES) {
  * má příznak partial (kratší mezipaměť v searchStays) – i prázdný, když na ceny nezbyl čas (souběžná hledání), ne chyba
  * zdroje; stale = u fresh část cen aktualizovat nešlo (zůstaly dřívější).
  */
-export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh = false } = {}) {
+export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh = false, slowMs = EMPTY_SLOW_MS } = {}) {
   const center = q.lat != null && q.lon != null ? { lat: q.lat, lon: q.lon } : null;
   let pool = [];
   const tried = new Set();
@@ -471,7 +515,7 @@ export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh
   const queue = limiter(PER_SEARCH);
   const got = new Map();
   const errors = [];
-  const jobs = pick.map((h) => hotelRates(h.key, q, { deadline, queue, fresh }).then((rr) => { got.set(h.key, rr); }, (e) => { errors.push(e); }));
+  const jobs = pick.map((h) => hotelRates(h.key, q, { deadline, queue, fresh, slowMs }).then((rr) => { got.set(h.key, rr); }, (e) => { errors.push(e); }));
   let timer;
   const stop = new Promise((r) => {
     const tick = () => {
@@ -487,7 +531,13 @@ export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh
   if (!got.size && hard) throw hard;
   const out = pick.map((h) => (got.has(h.key) ? mapHotel(h, got.get(h.key), q, center) : null)).filter(Boolean);
   out.sort((a, b) => a.priceTotalCzk - b.priceTotalCzk);
-  if (got.size < pick.length) out.partial = true;
+  // Hotely bez ceny na tvoje dny (prázdné nabídky, nestihly přijít) a další z místa – orientačně, ať seznam není prázdný
+  // jen proto, že TripAdvisor ceny teprve zjišťuje (pořadí TripAdvisoru = nejlepší poměr); zvlášť v guesses,
+  // searchStays je přidá za nabídky s cenou.
+  const priced = new Set(out.map((h) => h.id));
+  out.guesses = [...pick, ...pool.filter((h) => !pick.includes(h))].filter((h) => !priced.has(`xo:${h.key}`)).slice(0, GUESS_MAX).map((h) => mapHotelGuess(h, q, center));
+  // nestihly přijít, nebo Xotelo nestihl TripAdvisor (slow) – průvodce se doptá znovu
+  if (got.size < pick.length || [...got.values()].some((rr) => rr.slow)) out.partial = true;
   const st = [...got.values()].filter((rr) => rr.stale).length;
   if (st) out.stale = true;
   if (st && st === got.size) out.staleAll = true; // aktualizovat nešlo nic – „Aktualizovat ceny“ jde zkusit hned znovu

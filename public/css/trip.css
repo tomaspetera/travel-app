@@ -412,3 +412,4 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
   .stay-tools #stayMax{flex:1 1 30%;max-width:none !important}
   .stay-tools>.faint{flex:1 1 100%}
 }
+.pp-guess{font:700 14px Sora,Inter,sans-serif;color:var(--muted)}
