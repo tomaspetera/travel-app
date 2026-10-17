@@ -1159,11 +1159,11 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   details.more #moreSummary{font-size:12.5px;font-weight:600;color:var(--muted)}
   details.more .more-grid{padding:4px 14px 14px}
   /* tlačítka: velké hledání přes celou šířku, hlídání pod ním */
-  .sf-actions{display:grid !important;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:16px !important}
-  .sf-actions #doSearch{width:100%;min-height:54px;border-radius:18px;font-size:16px;justify-content:center}
-  .sf-actions #watchBtn{width:100%;min-height:46px;border-radius:16px;justify-content:center;border:1px solid var(--border)}
+  .sf-actions{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:16px !important}
+  .sf-actions #doSearch{width:100%;min-height:54px;border-radius:18px;font-size:16px;justify-content:center;grid-column:1/-1}
+  .sf-actions #watchBtn,.sf-actions #formReset{width:100%;min-height:46px;border-radius:16px;justify-content:center;border:1px solid var(--border)}
   .sf-actions .guide-link{display:none}
-  .sf-actions .roll-opt,.sf-actions #searchHint{justify-self:center;text-align:center}
+  .sf-actions .roll-opt,.sf-actions #searchHint{justify-self:center;text-align:center;grid-column:1/-1}
   .sf-actions #searchHint:empty{display:none}
   /* tipy v pruhu do strany */
   #flightTips{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:80%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;
