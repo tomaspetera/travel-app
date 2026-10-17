@@ -1078,3 +1078,91 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .drop-act .btn{flex:1 1 auto}
 .drop-card .drop-all{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.28);color:#fff}
 @media(min-width:861px){.drop-card{min-height:200px}.drop-card .dest-panel{max-width:520px}}
+
+/* ============ Lety: nový vzhled – fotka nahoře, Odkud a Kam jako dlaždice s ⇅, velké tlačítko, nápady s fotkami ============ */
+.fl-hero{position:relative;height:210px;margin:0 0 -74px;border-radius:26px;overflow:hidden;color:#fff;
+  background:radial-gradient(120% 90% at 20% 10%,hsl(200 45% 46%),transparent 60%),linear-gradient(160deg,hsl(205 40% 34%),hsl(230 45% 14%))}
+.fl-hero.ph{background:#0b1226 var(--ph) center/cover no-repeat}
+.fl-hero::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.12) 45%,rgba(5,9,22,.5) 100%)}
+.fl-hero-in{position:relative;padding:24px 26px 0}
+.fl-hero h1{font:800 30px/1.12 Sora,Inter,sans-serif;letter-spacing:-.02em;text-shadow:0 2px 16px rgba(0,0,0,.35)}
+.fl-hero p{margin-top:6px;font-size:14px;font-weight:600;opacity:.95;text-shadow:0 1px 10px rgba(0,0,0,.45)}
+#view-flights:has(#searchForm.collapsed) .fl-hero{display:none}
+#view-flights .search-card{margin-left:14px;margin-right:14px;border-radius:26px;background:var(--surface-solid);box-shadow:0 26px 50px -28px rgba(0,0,0,.6)}
+.sf-ico,.sf-swap,.ap-sum{display:none}
+.qd,.quick-range button{border-radius:999px}
+.tip{border-radius:20px}
+.fl-ideas-h{margin-top:22px}
+@media(max-width:560px){
+  .fl-hero{height:178px;margin-bottom:-58px;border-radius:24px}
+  .fl-hero-in{padding:18px 18px 0}
+  .fl-hero h1{font-size:24px}
+  .fl-hero p{font-size:13px}
+  #view-flights .search-card{margin-left:6px;margin-right:6px;padding:12px;border-radius:26px}
+  /* Odkud a Kam: dvě dlaždice pod sebou s ikonou, ⇅ na rozhraní */
+  .sf-route{gap:0 !important;border:1px solid var(--border);border-radius:20px;background:var(--surface)}
+  .sf-route>.field{position:relative;padding:12px 12px 12px 56px;margin:0;min-width:0}
+  .sf-route>.sf-to{border-top:1px solid var(--border)}
+  .sf-route>.ml-hint{padding:12px}
+  .sf-ico{display:grid;place-items:center;position:absolute;left:12px;top:12px;width:34px;height:34px;border-radius:50%;
+    background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+  .sf-ico svg{width:18px;height:18px}
+  .sf-route .lab-hint{display:none}
+  .sf-route>.field>label{margin-bottom:2px}
+  .sf-route .pi{border:none;background:transparent;padding:0;min-height:36px}
+  .sf-route .pi:focus-within{background:transparent}
+  .sf-route .pi-input{min-width:80px;font-size:15.5px;padding:6px 2px}
+  .sf-route .pi-chip{font-size:14px;padding:6px 6px 6px 10px;border-radius:999px}
+  .sf-route #geoBtn{width:36px;height:36px;padding:0;border-radius:50%;align-self:center}
+  .sf-swap{display:grid;place-items:center;position:absolute;right:14px;top:-19px;z-index:3;width:38px;height:38px;padding:0;border-radius:50%;
+    border:1px solid var(--border-2);background:var(--surface-solid);color:var(--text);box-shadow:0 6px 16px -8px rgba(0,0,0,.5);cursor:pointer}
+  .sf-swap svg{width:18px;height:18px}
+  .sf-swap:active{transform:scale(.92)}
+  /* letiště v okolí: jeden řádek, posuvník a seznam po klepnutí */
+  .ap-sum{display:flex;align-items:center;gap:8px;width:100%;margin-top:6px;padding:8px 12px;border-radius:999px;border:1px solid var(--border);
+    background:transparent;color:var(--text);font:600 13px Inter,sans-serif;text-align:left;cursor:pointer}
+  .ap-sum[hidden]{display:none}
+  .ap-sum .ap-n{flex:none;font-weight:800}
+  .ap-sum .ap-c{flex:1;min-width:0;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ap-sum .ap-chev{flex:none;color:var(--muted);transition:transform .2s}
+  .sf-from.ap-open .ap-chev{transform:rotate(180deg)}
+  .sf-from:not(.ap-open) .radius-row,.sf-from:not(.ap-open) .origin-pills{display:none}
+  .sf-from.ap-open .origin-pills .opill.extra{display:inline-flex}
+  .sf-from .op-more{display:none !important}
+  .sf-route .radius-row .muted{white-space:nowrap}
+  .opill{border-radius:999px;padding:6px 11px}
+  .quick-dest{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-12px;padding-right:12px}
+  .quick-dest::-webkit-scrollbar,.quick-range::-webkit-scrollbar{display:none}
+  .qd{flex:none;padding:7px 13px;font-size:13px}
+  .search-card>.divider{display:none}
+  /* Kdy */
+  .sf-when{margin-top:16px;gap:14px !important}
+  #dateMode{display:flex;width:100%}
+  #dateMode button{flex:1 1 0;justify-content:center}
+  .quick-range{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-12px;padding-right:12px}
+  .quick-range button{flex:none;padding:7px 13px;font-size:12.5px}
+  #flexField .row .input,#exactField .input{border-radius:14px}
+  /* Upřesnit a Další možnosti jako dva řádky seznamu */
+  .refine-btn{margin:16px 0 0;border-radius:16px}
+  details.more{margin-top:8px;border:1px solid var(--border);border-radius:16px;padding:0;background:var(--surface)}
+  details.more summary{display:flex;align-items:center;gap:8px;padding:12px 14px;color:var(--text);font-size:14px;font-weight:800}
+  details.more summary::before{content:'🧳'}
+  details.more summary::after{content:'▾';margin-left:auto;color:var(--muted);transition:transform .2s}
+  details.more[open] summary{margin-bottom:0}
+  details.more[open] summary::after{transform:rotate(180deg)}
+  details.more #moreSummary{font-size:12.5px;font-weight:600;color:var(--muted)}
+  details.more .more-grid{padding:4px 14px 14px}
+  /* tlačítka: velké hledání přes celou šířku, hlídání pod ním */
+  .sf-actions{display:grid !important;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:16px !important}
+  .sf-actions #doSearch{width:100%;min-height:54px;border-radius:18px;font-size:16px;justify-content:center}
+  .sf-actions #watchBtn{width:100%;min-height:46px;border-radius:16px;justify-content:center;border:1px solid var(--border)}
+  .sf-actions .guide-link{display:none}
+  .sf-actions .roll-opt,.sf-actions #searchHint{justify-self:center;text-align:center}
+  .sf-actions #searchHint:empty{display:none}
+  /* tipy v pruhu do strany */
+  #flightTips{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:80%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;
+    margin:0 -16px;padding:2px 16px 12px;scroll-padding:0 16px}
+  #flightTips::-webkit-scrollbar{display:none}
+  #flightTips>*{scroll-snap-align:start}
+  #flightTips .tip p{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+}
