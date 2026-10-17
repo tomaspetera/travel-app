@@ -14,6 +14,7 @@ import { toCzk } from '../../lib/fx.js';
 import { haversineKm } from '../../lib/geo.js';
 import { affiliate, affiliateOn, bookingSearchUrl, tripSearchUrl, expediaSearchUrl, googleHotelsUrl } from '../../lib/links.js';
 import { wdqs, UA } from '../../lib/poi.js';
+import { TA_PLACES } from './ta-places.js';
 
 const API = 'https://data.xotelo.com/api';
 const HEADERS = { 'User-Agent': UA, Accept: 'application/json' };
@@ -61,13 +62,19 @@ export const TA_CITIES = [
 const val = (b, k) => b?.[k]?.value;
 const isTa = (v) => /^\d{2,12}$/.test(String(v ?? ''));
 
-/** Místo TripAdvisoru velkého města z tabulky (do 12 km od středu), jinak null. */
+export const PLACE_KM = 8; // místo z TA_PLACES platí do 8 km od středu jeho hotelů (malá města blízko u sebe)
+/**
+ * Místo TripAdvisoru z tabulek – velké město (TA_CITIES, do 12 km od středu), nebo místo s oblíbenými hotely (TA_PLACES,
+ * do PLACE_KM); nejbližší vyhrává, jinak null. Bez dotazu na Wikidata (ty místa měst často nemají – Janov, Verona).
+ */
 export function seedCity(lat, lon) {
   let best = null;
-  for (const [, clat, clon, id] of TA_CITIES) {
+  const near = (clat, clon, id, max) => {
     const d = haversineKm(lat, lon, clat, clon);
-    if (d <= 12 && (!best || d < best.d)) best = { d, key: `g${id}` };
-  }
+    if (d <= max && (!best || d < best.d)) best = { d, key: `g${id}` };
+  };
+  for (const [, clat, clon, id] of TA_CITIES) near(clat, clon, id, 12);
+  for (const [id, clat, clon] of TA_PLACES) near(clat, clon, id, PLACE_KM);
   return best ? best.key : null;
 }
 

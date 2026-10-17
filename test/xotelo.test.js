@@ -11,7 +11,7 @@ import { setRates } from '../server/lib/fx.js';
 import { cache } from '../server/lib/cache.js';
 import {
   xotelo, locationKeys, nearbyKeys, pickSettlements, pickByName, placeNames, sparqlNames, seedCity, sparqlAround, hotelList,
-  hotelRates, ratesKey, offers, mapHotel, mapHotelGuess, candidates, chooseForRates, searchXotelo, locationCacheKey, RADIUS_KM, MAX_RATES,
+  hotelRates, ratesKey, offers, mapHotel, mapHotelGuess, candidates, PLACE_KM, chooseForRates, searchXotelo, locationCacheKey, RADIUS_KM, MAX_RATES,
   resetXoteloBreaker, xoteloBlocked, xoteloRetryAfter, offerLink, offerSite, RATES_TTL, EMPTY_SLOW_MS, EMPTY_TTL,
 } from '../server/providers/stays/xotelo.js';
 import { stayProviders } from '../server/providers/stays/index.js';
@@ -74,7 +74,13 @@ test('místo podle polohy: Madrid bez ID – čtvrť s ID atrakce ani menší p�
   assert.deepEqual(await locationKeys({ lat: 40.4168, lon: -3.7038 }, { sparql }), ['g187514'], 'Madrid z tabulky');
   assert.equal(seedCity(PRAGUE.lat, PRAGUE.lon), 'g274707');
   assert.equal(seedCity(50.03, 14.5), 'g274707', 'Praha-Záběhlice (6 km od středu)');
-  assert.equal(seedCity(48.2082, 16.3738), null, 'Vídeň má ID ve Wikidatech');
+  assert.equal(seedCity(48.2082, 16.3738), 'g190454', 'Vídeň z tabulky míst s oblíbenými hotely (TA_PLACES)');
+  // místa, jejichž položka ve Wikidatech ID TripAdvisoru nemá (živě 10/2026) – z tabulky do 8 km od středu hotelů
+  assert.equal(PLACE_KM, 8);
+  assert.equal(seedCity(44.4072, 8.9339), 'g187823', 'Janov');
+  assert.equal(seedCity(45.0703, 7.6869), 'g187855', 'Turín');
+  assert.equal(seedCity(53.5511, 9.9937), 'g187331', 'Hamburk (velké město z TA_CITIES)');
+  assert.equal(seedCity(61.5, 25.1), null, 'Finsko v tabulkách není');
   assert.match(sparqlAround(50.1, 14.4), /wikibase:radius "20"[\s\S]*wdt:P3134[\s\S]*UNION[\s\S]*wikibase:radius "3"[\s\S]*wdt:P1082/);
 });
 
@@ -97,7 +103,7 @@ test('místo nenalezeno → [] na 1 den (bez dalších dotazů); výpadek Wikida
   assert.equal(n, 1);
   const e = cache.map.get(locationCacheKey(q));
   assert.ok(e.exp - Date.now() <= 864e5 && e.exp - Date.now() > 864e5 - 60e3, 'záporný výsledek 1 den');
-  const q2 = { lat: 46.7, lon: 13.3 };
+  const q2 = { lat: 46.9, lon: 13.6 };
   let m = 0;
   const down = async (s, ms) => { m++; throw new Error(`Timeout ${ms} ms: https://query.wikidata.org/sparql`); };
   await assert.rejects(locationKeys(q2, { sparql: down }), /^Error: místo na TripAdvisoru se nepodařilo dohledat – Wikidata neodpověděla včas$/);
@@ -573,7 +579,12 @@ test('místo podle názvu (město příletu bez ID GeoNames): rychlý dotaz na p
   };
   const q = normalizeStayQuery({ city: 'Lisabon', iata: 'LIS', cc: 'PT', lat: 38.7223, lon: -9.1393, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 2 });
   assert.equal(q.cityEn, 'Lisbon');
-  assert.deepEqual(await locationKeys(q, { sparql }), ['g189158', 'g3874225']);
+  // Lisabon zná tabulka míst – bez dotazu na Wikidata; podle názvu jen mimo tabulky (bod 17 km od středu Lisabonu)
+  assert.deepEqual(await locationKeys(q, { sparql }), ['g189158']);
+  assert.deepEqual(calls, []);
+  const q3 = { ...q, lat: 38.58, lon: -9.02 };
+  assert.equal(seedCity(q3.lat, q3.lon), null);
+  assert.deepEqual(await locationKeys(q3, { sparql }), ['g189158', 'g3874225']);
   assert.deepEqual(calls, [['name', 10000]], 'jediný krátký dotaz, pomalý dotaz na okolí vůbec ne');
 });
 
