@@ -38,6 +38,7 @@ const TYPES = {
 };
 // Skutečný hrad, pevnost nebo zřícenina hradu – samotné „opevnění“ s typem věž (Prašná brána) je věž.
 const CASTLE_PROPER = ['Q23413', 'Q1785071', 'Q17715832'];
+const MUSEUM_NAME = /^(museo|museum|musée|muzeum|múzeum|museu|muzej|pinacoteca|galleria|gallery|galerie|galería)\b/i;
 // Když má místo víc typů, rozhoduje tohle pořadí (ne náhodné pořadí řádků SPARQL).
 const CAT_PRIORITY = ['castle', 'palace', 'zoo', 'theme', 'museum', 'gallery', 'church', 'oldtown', 'square', 'bridge', 'tower',
   'viewpoint', 'ruins', 'monument', 'market', 'theatre', 'park', 'garden', 'beach', 'nature', 'sight'];
@@ -211,6 +212,9 @@ export function groupBindings(rows, center) {
     // brána nebo věž v hradbách s výstavou (Prašná brána) je věž, ne hrad ani dvouhodinové muzeum
     if (cats.has('castle') && cats.has('tower') && !has(CASTLE_PROPER)) cats.delete('castle');
     if (cats.has('tower') && cats.has('museum')) cats.delete('museum');
+    // muzeum nebo galerie v paláci, které nese jejich jméno (Museo Poldi Pezzoli, Pinacoteca di Brera) – jde se do
+    // sbírek, ne na prohlídku paláce (ikona 🏛️ a čas na muzeum, ne 👑)
+    if (cats.has('palace') && (cats.has('museum') || cats.has('gallery')) && MUSEUM_NAME.test(p.name)) cats.delete('palace');
     // Konkrétní typ (most, kostel, hrad…) vyhrává nad obecným „silnice/ulice“ (Karlův most je i silnice).
     const specific = CAT_PRIORITY.find((c) => c !== 'sight' && cats.has(c));
     const known = (p.heritage || types.includes(TOURIST_DEST)) && p.sitelinks >= 25;

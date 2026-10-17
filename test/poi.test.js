@@ -361,6 +361,16 @@ test('tripsFromRows (živá data, Praha): část sériové památky UNESCO je je
   assert.equal(by['Žatec'].unesco, true);
 });
 
+test('groupBindings: muzeum v paláci se jménem muzea je muzeum (Museo Poldi Pezzoli), palác se sbírkou bez něj zůstane palácem', async () => {
+  const { bindings } = await import('./fixtures/wikidata.js');
+  const rows = bindings([
+    ['Q1', 'Museo Poldi Pezzoli', 'muzeum v Miláně', 45.4686, 9.1932, 40, ['Q33506', 'Q16560'], [], []],
+    ['Q2', 'Palazzo Rosso', 'palác v Janově', 44.4105, 8.9338, 40, ['Q16560', 'Q33506'], [], []],
+  ]);
+  const by = Object.fromEntries(groupBindings(rows, { lat: 45.46, lon: 9.19 }).map((p) => [p.name, p.category]));
+  assert.deepEqual(by, { 'Museo Poldi Pezzoli': 'museum', 'Palazzo Rosso': 'palace' });
+});
+
 test('unescoSites: část sériové památky se pozná i podle čísla části, když v okruhu leží jen jedna (živě: Nizza Monferrato = 1390rev-004)', async () => {
   const { unescoSites } = await import('../server/lib/poi.js');
   const row = (id, name, whs) => ({ item: { value: `http://www.wikidata.org/entity/${id}` }, itemLabel: { value: name }, lat: { value: '44.77' }, lon: { value: '8.35' }, whs: { value: whs } });
