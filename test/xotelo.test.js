@@ -682,6 +682,7 @@ test('Xotelo odmítá dotazy (401/403) nebo vrátí 200 s chybou → chyba zdroj
   let mode = '401';
   const stub = stubFetch(() => (mode === '401' ? { status: 401, body: '{"message":"You are not subscribed to this API."}' }
     : mode === 'err' ? { body: { error: { message: 'Invalid location key' }, result: null } }
+      : mode === 'down' ? { body: { error: { status_code: 500, message: 'Internal Server Error' }, result: null } }
       : { status: 404, body: '{}' }));
   try {
     await assert.rejects(hotelList('g274707'), /^Error: odmítá dotazy \(HTTP 401\)$/);
@@ -692,6 +693,12 @@ test('Xotelo odmítá dotazy (401/403) nebo vrátí 200 s chybou → chyba zdroj
     await assert.rejects(hotelList('g274707'), /^Error: vrátil chybu: Invalid location key$/);
     assert.equal(cache.get('xo:list:g274707'), undefined);
     assert.ok(!xoteloBlocked(), 'chybná odpověď není výpadek');
+    // 200 s chybou serveru v těle (živě při výpadku Xotela) = výpadek: pojistka jako u HTTP 5xx
+    mode = 'down';
+    await assert.rejects(hotelList('g274707'), /^Error: má výpadek \(HTTP 500\)$/);
+    assert.ok(xoteloBlocked() && xoteloRetryAfter() > 60, 'chyba seznamu hotelů → pojistka');
+    assert.equal(cache.get('xo:list:g274707'), undefined);
+    resetXoteloBreaker();
     mode = '404';
     assert.deepEqual(await hotelList('g274707'), []);
     const none = await hotelRates('g274707-d1', { checkin: ymdPlus(10), checkout: ymdPlus(12), adults: 2, rooms: 1 });
