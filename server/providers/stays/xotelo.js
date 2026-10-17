@@ -65,7 +65,7 @@ const isTa = (v) => /^\d{2,12}$/.test(String(v ?? ''));
 export const PLACE_KM = 8; // místo z TA_PLACES platí do 8 km od středu jeho hotelů (malá města blízko u sebe)
 /**
  * Místo TripAdvisoru z tabulek – velké město (TA_CITIES, do 12 km od středu), nebo místo s oblíbenými hotely (TA_PLACES,
- * do PLACE_KM); nejbližší vyhrává, jinak null. Bez dotazu na Wikidata (ty místa měst často nemají – Janov, Brescia).
+ * do PLACE_KM); nejbližší vyhrává, jinak null. Bez dotazu na Wikidata (ty místa měst často nemají – Janov, Verona).
  */
 export function seedCity(lat, lon) {
   let best = null;

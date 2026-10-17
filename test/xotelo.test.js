@@ -579,10 +579,10 @@ test('místo podle názvu (město příletu bez ID GeoNames): rychlý dotaz na p
   };
   const q = normalizeStayQuery({ city: 'Lisabon', iata: 'LIS', cc: 'PT', lat: 38.7223, lon: -9.1393, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 2 });
   assert.equal(q.cityEn, 'Lisbon');
-  // Lisabon zná tabulka míst – bez dotazu na Wikidata; podle názvu jen mimo tabulky (bod 11 km od středu Lisabonu)
+  // Lisabon zná tabulka míst – bez dotazu na Wikidata; podle názvu jen mimo tabulky (bod 17 km od středu Lisabonu)
   assert.deepEqual(await locationKeys(q, { sparql }), ['g189158']);
   assert.deepEqual(calls, []);
-  const q3 = { ...q, lat: 38.62, lon: -9.0 };
+  const q3 = { ...q, lat: 38.58, lon: -9.02 };
   assert.equal(seedCity(q3.lat, q3.lon), null);
   assert.deepEqual(await locationKeys(q3, { sparql }), ['g189158', 'g3874225']);
   assert.deepEqual(calls, [['name', 10000]], 'jediný krátký dotaz, pomalý dotaz na okolí vůbec ne');
