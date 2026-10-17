@@ -2370,7 +2370,7 @@
       d1: x.d1, d2: x.d2 || null, nights: x.d2 ? SearchHelp.diffDays(x.d1, x.d2) : null, arrDay: x.d1, czk: x.czk, route: SearchHelp.radarRoute(x),
       arr: x.ar ? dpArr({ out: { to: x.to }, back }, { [x.to]: x.ar }, true) : [], tempHi: null,
       wxP: radarWxP && radarWxP.r === r ? radarWxP.p : null, ground: null,
-      go: () => radarGo(x, q), goLbl: 'Hledat lety sem →',
+      go: () => radarGo(x, q), goLbl: x.buy && x.buy.length ? 'Všechny termíny →' : 'Hledat lety sem →', buy: x.buy,
     }, from);
   }
   const dpFact = (ic, b, s, { cls = '', title = '' } = {}) => `<div class="dp-f${cls}"${title ? ` title="${esc(title)}"` : ''}><span class="dp-fi" aria-hidden="true">${ic}</span><div><b>${b}</b>${s ? `<small>${s}</small>` : ''}</div></div>`;
@@ -2401,6 +2401,12 @@
   }
   const dpSkel = () => `<div class="dp-sl">${'<div class="dp-poi"><div class="dp-img skel"></div><div class="dp-pt"><span class="skel dp-sk"></span><span class="skel dp-sk s"></span></div></div>'.repeat(4)}</div><div class="faint dp-more"><span class="spin dark"></span> Hledám, co tam stojí za vidění…</div>`;
   const dpFail = why => `<div class="note warn dp-fail" role="status">⚠️ <div><b>Místa se nepodařilo načíst – zkus Objevuj.</b>${why ? ` ${esc(why)}` : ''}</div></div>`;
+  // Koupit let z karty radaru přímo z detailu (odkaz obchodu z hledání radaru – cena se u prodejce může mezitím změnit)
+  function dpBuy(d) {
+    const buy = (Array.isArray(d.buy) ? d.buy : []).filter(b => Array.isArray(b) && /^https?:\/\//i.test(String(b[0] || '')));
+    const shop = p => (p === 'travelpayouts' ? 'na Aviasales' : 'u ' + shopName(p));
+    return buy.map(([u, p, leg]) => `<a class="btn primary" href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${leg === 'out' ? 'Let tam' : leg === 'back' ? 'Let zpět' : 'Koupit let'} ${esc(shop(p))} ↗</a>`).join('');
+  }
   function dpHtml(d) {
     // „víkend“ podle termínu cesty, jak ho okno ukazuje (ne podle dne příletu – noční let pá → so by z pá–út udělal víkend)
     const c = byIso[d.cc], geo = Boolean(window.Places && wxGeo(d)), w = dpClim(d, Boolean(window.Weather) && wxGeo(d) && wxWin(d.d1)), st = SearchHelp.stayPlan(d.d1, d.d2);
@@ -2418,7 +2424,7 @@
         ${d.ground ? dpGround(d.ground) : ''}
       </div>
       ${geo ? `<h3 class="dp-h" id="dpSightsH">Co vidět</h3><div id="dpSights" aria-live="polite" aria-busy="true">${dpSkel()}</div>` : ''}
-      <div class="dp-act">${geo ? `<button type="button" class="btn" id="dpPlan">🗺️ Naplánovat ${st.weekend ? 'víkend' : 'pobyt'} v Objevuj</button>` : ''}<button type="button" class="btn primary" id="dpGo">${esc(d.goLbl)}</button></div>
+      <div class="dp-act">${dpBuy(d)}${geo ? `<button type="button" class="btn" id="dpPlan">🗺️ Naplánovat ${st.weekend ? 'víkend' : 'pobyt'} v Objevuj</button>` : ''}<button type="button" class="btn${dpBuy(d) ? '' : ' primary'}" id="dpGo">${esc(d.goLbl)}</button></div>
     </div>`;
   }
   function dpShow(d, from) {
@@ -3679,7 +3685,7 @@
         <div class="rc-foot"><div class="rc-price">${czk(x.czk)}<small>/os.</small></div><span class="rc-go" aria-hidden="true">›</span></div>
       </div>
     </div>`;
-    }).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klikni pro všechny termíny, ⓘ = co tam je · fotky <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> a Wikimedia Commons</div>`;
+    }).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klepni na kartu: detail, koupit let nebo všechny termíny · fotky <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> a Wikimedia Commons</div>`;
     // telefon: nejdřív 6 karet, zbytek tlačítkem (CSS skryje 7.+ jen na úzké obrazovce; rozbalené zůstane do zavření aplikace)
     const rg = $('.radar-grid', host), rcN = rg ? rg.children.length : 0;
     if (rg && rcN > 6) {
@@ -3692,7 +3698,8 @@
     }
     $$('[data-rdm]', host).forEach(b => b.onclick = e => { e.stopPropagation(); const x = r.items[+b.dataset.rdm]; destMenu({ id: x.id, label: x.label, cc: x.cc }, { radar: x, r, q }); });
     $$('[data-rinfo]', host).forEach(b => b.onclick = e => { e.stopPropagation(); openRadarPreview(r, r.items[+b.dataset.rinfo], q, b); });
-    $$('[data-ri]', host).forEach(c => c.onclick = () => radarGo(r.items[+c.dataset.ri], q));
+    // klepnutí na kartu: detail cíle (fotka, termín, cesta z letiště, Koupit let, Všechny termíny) – k nákupu o krok blíž
+    $$('[data-ri]', host).forEach(c => c.onclick = () => openRadarPreview(r, r.items[+c.dataset.ri], q, c));
     radarWx(r);
     radarPhotos(r);
   }
