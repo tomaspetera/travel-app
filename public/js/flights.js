@@ -489,6 +489,36 @@
       ...(exact ? { exactOut: f.xOut, exactBack: f.trip === 'return' ? f.xBack : null, flexDays: f.xFlex || 0 } : {}),
     };
   }
+  // Telefon: cesta, délka pobytu a teplota pod „Upřesnit“ – v tlačítku souhrn, co je nastavené; Víc měst ho otevře
+  // (seznam letů se jinak nedá přepnout zpátky)
+  let refineOpen = false;
+  // na telefonu se Cesta, Délka pobytu a Za teplem přesunou pod tlačítko (rozbalí se pod ním, ne nad ním); na širší obrazovce zpět
+  const refineMq = matchMedia('(max-width:560px)');
+  let refineMoved = null;
+  function refinePlace() {
+    const panel = $('#refinePanel');
+    if (!panel) return;
+    if (refineMq.matches && !refineMoved) {
+      refineMoved = $$('#searchForm .sf-ref').map((el) => { const mark = document.createComment('sf-ref'); el.before(mark); panel.append(el); return [el, mark]; });
+    } else if (!refineMq.matches && refineMoved) {
+      refineMoved.forEach(([el, mark]) => mark.replaceWith(el));
+      refineMoved = null;
+    }
+  }
+  refineMq.addEventListener?.('change', refinePlace);
+  function refineUi(multi) {
+    refinePlace();
+    const form = $('#searchForm'), btn = $('#refineBtn');
+    if (!form || !btn) return;
+    if (multi) refineOpen = true;
+    form.classList.toggle('refine', refineOpen);
+    btn.setAttribute('aria-expanded', String(refineOpen));
+    if (!btn.onclick) btn.onclick = () => { refineOpen = !refineOpen; refineUi(false); };
+    const word = el => (el ? el.textContent.replace(/^[^\p{L}≥]+/u, '').trim().toLowerCase() : '');
+    const len = $('#lenField').style.display === 'none' ? '' : `${word($('#lenPreset .on'))} ${$('#nMin').value}–${$('#nMax').value} nocí`;
+    const t = +($('#minTemp .on')?.dataset.t || 0);
+    $('#refineSum').textContent = [word($('#tripType .on')), len, t ? `≥ ${t} °C` : ''].filter(Boolean).join(' · ');
+  }
   function syncFormUI() {
     updateWatchBtn();
     const multi = $('#tripType .on').dataset.v === 'multi';
@@ -517,6 +547,7 @@
         : ret ? `${fmtDate(out)} → ${fmtDate(back)} · ${n === 0 ? 'týž den' : n === 1 ? '1 noc' : n <= 4 ? n + ' noci' : n + ' nocí'}${fl ? ` · každé datum ± ${fl} ${fl === 1 ? 'den' : 'dny'}` : ' · jen tyto dva dny'}`
         : `odlet ${fmtDate(out)}${fl ? ` ± ${fl} ${fl === 1 ? 'den' : 'dny'}` : ' · jen tento den'}`;
     }
+    refineUi(multi);
     const f = getForm();
     const bits = [];
     if (f.adults !== 1) bits.push(`${f.adults} os.`);

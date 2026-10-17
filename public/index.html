@@ -219,7 +219,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
               <label>Kam <span class="lab-hint">nech prázdné = kamkoliv</span></label>
               <div class="place-input" id="toInput"></div>
               <div class="quick-dest" id="quickDest"></div>
-              <div class="warm-row" title="Jen cíle, kde je v měsíci odletu dlouhodobý průměr denních maxim aspoň tolik (meteostanice u letiště, jinak NASA POWER) – není to předpověď počasí.">
+              <div class="warm-row sf-ref" title="Jen cíle, kde je v měsíci odletu dlouhodobý průměr denních maxim aspoň tolik (meteostanice u letiště, jinak NASA POWER) – není to předpověď počasí.">
                 <span class="muted">🌡️ Za teplem</span>
                 <div class="seg" id="minTemp"><button type="button" data-t="0" class="on">Kdekoliv</button><button type="button" data-t="20">≥ 20 °C</button><button type="button" data-t="25">≥ 25 °C</button><button type="button" data-t="30">≥ 30 °C</button></div>
               </div>
@@ -235,8 +235,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 
           <div class="sf-grid sf-when">
             <div class="field">
-              <label>Cesta</label>
-              <div class="seg wrap" id="tripType"><button type="button" class="on" data-v="return">Tam i zpět</button><button type="button" data-v="oneway">Jen tam</button><button type="button" data-v="multi" title="Víc měst v jedné cestě, návrat z jiného místa">🗺️ Víc měst</button></div>
+              <label class="sf-ref">Cesta</label>
+              <div class="seg wrap sf-ref" id="tripType"><button type="button" class="on" data-v="return">Tam i zpět</button><button type="button" data-v="oneway">Jen tam</button><button type="button" data-v="multi" title="Víc měst v jedné cestě, návrat z jiného místa">🗺️ Víc měst</button></div>
               <label style="margin-top:12px" id="dateModeLbl">Termín</label>
               <div class="seg" id="dateMode"><button type="button" data-v="exact">📅 Přesná data</button><button type="button" class="on" data-v="flex">🔀 Flexibilně</button></div>
             </div>
@@ -260,7 +260,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
               </div>
               <div class="faint" id="xInfo" style="font-size:12px;margin-top:6px"></div>
             </div>
-            <div class="field" id="lenField">
+            <div class="field sf-ref" id="lenField">
               <label>Délka pobytu</label>
               <div class="seg wrap" id="lenPreset">
                 <button type="button" data-v="weekend">Víkend</button>
@@ -289,6 +289,9 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
             </div>
           </div>
 
+          <!-- telefon: cesta, délka pobytu a teplota až pod Upřesnit (souhrn v tlačítku) – nahoře zůstane Odkud, Kam, Kdy -->
+          <button type="button" class="refine-btn" id="refineBtn" aria-expanded="false"><span class="refine-l">⚙️ Upřesnit</span><span class="refine-sum" id="refineSum"></span><span class="refine-chev" aria-hidden="true">▾</span></button>
+          <div class="refine-panel field" id="refinePanel"></div>
           <details class="more" id="moreOpts">
             <summary>Další možnosti <span class="faint" id="moreSummary"></span></summary>
             <div class="sf-grid more-grid">
