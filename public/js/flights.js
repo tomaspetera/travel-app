@@ -991,6 +991,7 @@
     $('#geoBtn').onclick = () => useMyLocation(fromInput);
     $('#searchForm').onsubmit = e => { e.preventDefault(); startSearch(); };
     $('#watchBtn').onclick = () => addWatch();
+    $('#formReset').onclick = () => resetSearch();
     // 📅 Posouvat termín s časem mění jen způsob uložení ♡, ne hledání (žádné rozbalení formuláře ani Nedávno)
     $('#rollOn').addEventListener('change', e => { e.stopPropagation(); rollTouched = true; updateWatchBtn(); });
     $('#searchForm').addEventListener('change', formEdited);
@@ -1274,6 +1275,24 @@
     updateWatchBtn();
   }
   function expandForm() { const sum = $('#searchSum'); if (sum) sum.hidden = true; $('#searchForm').classList.remove('collapsed'); }
+  /**
+   * ↺ Začít znovu: formulář na výchozí hodnoty (odkud a okruh z domova, doprava na letiště a pohon auta jako minule),
+   * běžící hledání zrušit a uložené výsledky schovat i smazat. Nedávná hledání a hlídání zůstanou.
+   */
+  function resetSearch() {
+    if (running) running.ctl.abort();
+    paintDrop();
+    const keep = Object.fromEntries(['ground', 'groundMode', 'kmRate', 'carFuel', 'carCons', 'carPrice', 'arrival'].filter(k => S.form && S.form[k] !== undefined).map(k => [k, S.form[k]]));
+    mlTouched = false;
+    setForm({ ...defaultForm(), ...keep, adults: S.home?.adults || 2 });
+    lastResult = null; lastResultAt = 0; lastPayload = null; lastResultPayload = null; restored = false; fromCard = null;
+    try { localStorage.removeItem(LAST_LS); } catch (e) { /* zakázané úložiště */ }
+    $('#results').innerHTML = ''; $('#results').classList.remove('aged'); $('#progress').innerHTML = '';
+    expandForm();
+    S.form = getForm(); save();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast('Hledání je zase prázdné – zadej, kam chceš letět');
+  }
   // Kratší popis hledání na čip: termín nebo počet nocí.
   function recentSub(f) {
     const lw = f.len === 'holiday' && f.trip === 'return' && f.dateMode !== 'exact' ? SearchHelp.holidayOf(f, today()) : null;
@@ -2090,7 +2109,7 @@
     const opts = picks.map((a, i) => mOpt(res, i, a));
     const sum = k => opts.reduce((s, o) => s + (o[k] || 0), 0);
     const total = sum('perPersonCzk');
-    const wiz = n === 2 && res.returnsHome;
+    const wiz = mWizOk(res, picks);
     // vstupní podmínky v zemích na cestě (bez návratu domů) – čip u letu do země, kde je co vyřizovat;
     // odlet z jiné země, než kam vedl předchozí let (přejezd: tam do Turecka, zpět z Egypta), má čip té země u svého letu
     const visit = mVisit(res), chipped = new Set(visit.map(l => l.dest && l.dest.cc));
@@ -2113,9 +2132,11 @@
       // autem: ručně vybraný návrat na jiné letiště, než kde auto parkuje – cena přejezd k autu nepočítá
       res.query.groundMode === 'car' && res.returnsHome && opts[n - 1].out.to !== opts[0].out.from && !originGround(res, opts[0].out.from)?.dropOff
         ? `<span class="b warn" title="Cena počítá s návratem k autu – cesta mezi letišti v ní není">🚗 auto stojí u ${esc(opts[0].out.from)}, návrat na ${esc(opts[n - 1].out.to)}</span>` : ''].join('');
-    const why = wiz ? `Průvodce cestou: ubytování (i ve víc městech), auto a program – přílet ${esc(opts[0].out.to)}, odlet ${esc(opts[1].out.from)}.`
-      : n === 2 ? 'Návrat nevede na začátek cesty – průvodce cestou ho neumí, cestu uložím do plánovače (lety i do kalendáře).'
-        : 'Průvodce cestou umí cestu tam a zpět – cestu přes víc měst uložím do plánovače (lety i do kalendáře).';
+    const why = wiz ? (n === 2 ? `Průvodce cestou: ubytování (i ve víc městech), auto a program – přílet ${esc(opts[0].out.to)}, odlet ${esc(opts[1].out.from)}.`
+      : `Průvodce cestou: ubytování a program v každém městě (${esc(mVisit(res).map(l => (l.dest ? l.dest.label : l.to).replace(/ \(.*\)$/, '')).join(', '))}) – noci podle letů.`)
+      : !res.returnsHome ? 'Cesta nekončí doma – průvodce cestou ji neumí, uložím ji do plánovače (lety i do kalendáře).'
+        : n === 2 ? 'Návrat nevede na začátek cesty – průvodce cestou ho neumí, cestu uložím do plánovače (lety i do kalendáře).'
+          : 'Mezi lety není v některém městě ani jedna noc (nebo ho neznám) – cestu uložím do plánovače (lety i do kalendáře).';
     return `<div class="card res-card flat"><div class="trip-row mc-row" id="mcSel">
       <div class="tr-legs">${legs}<div class="tr-badges">${badges}</div></div>
       <div class="pbox"><div class="pp">${czk(total)}</div><div class="pl">celá cesta na osobu</div>
@@ -2162,7 +2183,7 @@
       $('#mcPick').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     $$('[data-mcmore]', host).forEach(b => b.onclick = () => { view.mCombos += 10; rerender(true); });
-    $$('[data-mgo]', host).forEach(b => b.onclick = () => { const p = best(); if (p) (res.legs.length === 2 && res.returnsHome ? multiWizard : multiSave)(res, p); });
+    $$('[data-mgo]', host).forEach(b => b.onclick = () => { const p = best(); if (p) (mWizOk(res, p) ? multiWizard : multiSave)(res, p); });
     $$('[data-msave]', host).forEach(b => b.onclick = () => { const p = best(); if (p) multiSave(res, p); });
     $$('[data-mics]', host).forEach(b => b.onclick = () => { const p = best(); if (p) multiIcs(res, p); });
     $$('[data-mday]', host).forEach(b => b.onclick = () => { const [i, d] = b.dataset.mday.split(':'); mRerunLeg(+i, { date: d }); });
@@ -2176,20 +2197,34 @@
     for (let j = i + 1; j < legs.length; j++) if (legs[j].date < legs[j - 1].date) legs[j].date = legs[j - 1].date;
     rerun({ trip: 'multi', legs });
   }
-  /** 2 lety tam a zpět domů → průvodce cestou jako open-jaw (přílet do 1. cíle, odlet z místa 2. letu). */
+  /**
+   * Cíle letů cesty přes víc měst (bez letu domů) jako místa trasy: cíl úseku, jen když do něj vybraný let opravdu
+   * vede (úsek „do Itálie“ může mít let jinam) – jinak null.
+   */
+  const mStops = (res, opts) => mVisit(res).map((l, i) => (l.dest && opts[i] && opts[i].destKey === l.dest.key ? l.dest : null));
+  /** Jde cesta do průvodce? 2 lety tam a zpět domů (open-jaw), nebo víc letů s aspoň 1 nocí v každém městě. */
+  function mWizOk(res, picks) {
+    const n = res.legs.length;
+    if (!res.returnsHome || n < 2) return false;
+    if (n === 2) return true;
+    const opts = picks.map((p, i) => mOpt(res, i, p));
+    return Boolean(window.Trip && Trip.flyOk) && opts.every(Boolean) && Trip.flyOk({ out: opts[0].out, mid: opts.slice(1, -1).map(o => o.out), back: opts[n - 1].out }, mStops(res, opts));
+  }
+  /** Lety tam a zpět domů → průvodce cestou: 2 lety jako open-jaw (přílet do 1. cíle, odlet z místa 2. letu), víc letů
+   *  jako trasa podle letů (místa = cíle letů, mezi nimi lety t.mid). */
   function multiWizard(res, picks) {
-    const [a, b] = picks.map((p, i) => mOpt(res, i, p));
-    const per = a.perPersonCzk + b.perPersonCzk;
+    const opts = picks.map((p, i) => mOpt(res, i, p)), n = opts.length, a = opts[0], b = opts[n - 1];
+    const sum = k => opts.reduce((s, o) => s + (o[k] || 0), 0), per = sum('perPersonCzk');
     const t = {
-      id: `${a.id}#${b.id}`, out: a.out, back: b.out, flightCzk: a.flightCzk + b.flightCzk,
-      groundCzk: (a.groundCzk || 0) + (b.groundCzk || 0), bagCzk: (a.bagCzk || 0) + (b.bagCzk || 0), bagEst: a.bagEst || b.bagEst || undefined,
-      arrCzk: (a.arrCzk || 0) + (b.arrCzk || 0),
+      id: opts.map(o => o.id).join('#'), out: a.out, back: b.out, ...(n > 2 ? { mid: opts.slice(1, -1).map(o => o.out) } : {}), flightCzk: sum('flightCzk'),
+      groundCzk: sum('groundCzk'), bagCzk: sum('bagCzk'), bagEst: opts.some(o => o.bagEst) || undefined,
+      arrCzk: sum('arrCzk'),
       perPersonCzk: per, totalCzk: per * res.query.adults, nights: SearchHelp.diffDays(a.out.date, b.out.date),
-      provider: a.out.provider === b.out.provider ? a.out.provider : 'mix', combined: false, bookUrl: null,
+      provider: opts.every(o => o.out.provider === a.out.provider) ? a.out.provider : 'mix', combined: false, bookUrl: null,
       distanceKm: a.distanceKm, destKey: a.destKey, tempHi: a.tempHi, deal: { level: 'normal', score: null, drop: null },
     };
     const dest = res.legs[0].dest || { label: res.legs[0].to, cc: '', country: '', lat: null, lon: null };
-    Trip.start({ t, g: { dest }, result: { origins: res.origins, query: res.query, home: res.home, priceStats: null, arrivals: res.arrivals }, ccs: mCountries(res), at: SearchHelp.shownAt(res, lastResultAt, Date.now()) });
+    Trip.start({ t, g: { dest }, result: { origins: res.origins, query: res.query, home: res.home, priceStats: null, arrivals: res.arrivals }, ccs: mCountries(res), at: SearchHelp.shownAt(res, lastResultAt, Date.now()), ...(n > 2 ? { stops: mStops(res, opts) } : {}) });
   }
   /** Cesta do plánovače: všechny lety (časy a zóny pro kalendář), odkazy na koupi v poznámkách. */
   function multiSave(res, picks) {

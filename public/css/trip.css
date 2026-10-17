@@ -120,6 +120,11 @@ details.more.ex-places>summary::before{content:none}
 .ex-savenew{align-self:center;font-size:12px}
 .ex-head{gap:6px 12px;flex-wrap:wrap}
 .ex-head .btn{flex:none}
+.ex-head-act{display:flex;gap:6px;flex-wrap:wrap}
+/* ✕ v poli hledání: začít znovu (Objevuj) */
+.input.has-clear{padding-right:44px}
+.in-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;border:0;background:var(--surface-2,rgba(127,127,127,.16));color:var(--muted);font:600 14px/1 inherit;cursor:pointer;display:grid;place-items:center}
+.in-clear:hover{color:var(--text)}
 /* hláška s tlačítkem („Otevřít v plánovači“): schovaná nepřekáží klikání, na telefonu se vejde */
 .toast:not(.show){pointer-events:none}
 /* hláška bez tlačítka klepnutí propustí: na telefonu leží přes spodní lištu a tlačítka nad ní („Pro nákup klepni znovu“ u Koupit) */
@@ -342,6 +347,11 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .trip-head::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,.18) 0%,rgba(0,0,0,0) 35%,rgba(4,8,20,.72) 100%)}
 .th-flag{position:absolute;top:14px;left:14px;width:44px;height:44px;display:grid;place-items:center;font-size:24px;line-height:1;border-radius:50%;
   background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+/* ↺ Začít znovu v hlavičce cesty (vedle vlajky) */
+.th-reset{position:absolute;top:18px;left:66px;height:36px;padding:0 13px;border-radius:999px;font:700 12.5px/1 inherit;color:#fff;cursor:pointer;
+  background:rgba(10,14,30,.42);border:1px solid rgba(255,255,255,.26);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.th-reset:hover{background:rgba(10,14,30,.6)}
+@media(max-width:379px){.th-reset .th-rl{display:none}.th-reset{width:36px;padding:0}}
 .th-total{position:absolute;top:14px;right:14px;text-align:right;padding:8px 14px;border-radius:18px;
   background:rgba(10,14,30,.45);border:1px solid rgba(255,255,255,.22);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .th-total .tt{font:800 22px/1.1 Sora,sans-serif;color:#7ff0c0}

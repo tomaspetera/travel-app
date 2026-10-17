@@ -666,7 +666,7 @@
     root.innerHTML = `${ex.place ? '' : `<div class="fl-hero ex-hero" data-photo="${esc(window.heroPlace ? heroPlace(9) : 'Porto')}"><div class="fl-hero-in"><h1>Objev, co stojí za vidění</h1><p>Památky, muzea, vyhlídky a výlety kdekoliv na světě – a z nich program na pár dní</p></div></div>`}<div class="card search-card${ex.place ? '' : ' on-hero'}">
       <div class="ex-search">
         <div class="field" style="margin:0"><label>Kam se chceš podívat? <span class="lab-hint">město, obec, ostrov, místo…</span></label>
-          <div style="position:relative"><input class="input" id="exQ" placeholder="Např. Lisabon, Český Krumlov, Kréta…" autocomplete="off" value="${esc(ex.place?.label || '')}"><div class="pi-dd" id="exDd" hidden></div></div></div>
+          <div style="position:relative"><input class="input${ex.place ? ' has-clear' : ''}" id="exQ" placeholder="Např. Lisabon, Český Krumlov, Kréta…" autocomplete="off" value="${esc(ex.place?.label || '')}">${ex.place ? '<button type="button" class="in-clear" id="exClear" title="Začít znovu – zrušit místo i plány" aria-label="Začít znovu">✕</button>' : ''}<div class="pi-dd" id="exDd" hidden></div></div></div>
         <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">📍 Tady</button>
         <div class="field" style="margin:0"><label>Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}</select></div>
       </div><div class="ex-recent" id="exRecent" hidden></div></div>
@@ -675,6 +675,7 @@
     wireExploreSearch(root);
     paintRecent();
     wireBack();
+    const cl = $('#exClear', root); if (cl) cl.onclick = () => resetExplore();
     $$('[data-insp]', root).forEach(b => b.onclick = () => { const p = cleanPlace(INSP[+b.dataset.insp]); if (p) openPlace(p); });
     if (window.Photos) Photos.paint(root);
     // Návrat do Objevuj: už načtený seznam se jen překreslí (žádný nový dotaz na server).
@@ -687,16 +688,31 @@
     // země podle kódu (česky, „Španělsko“) – kontext pro odkazy do Google Map
     const country = s.geo ? '' : s.country || (typeof byIso !== 'undefined' && byIso[s.cc]?.cs) || '';
     ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc || '', geo: Boolean(s.geo), country };
+    forget();
+    ex.recent = pushRecent(ex.recent, ex.place);
+    remember();
+  }
+  // plány, vyřazená a vybraná místa, filtr a chyby místa
+  function forget() {
     ex.plan = null; ex.trips = {}; ex.bikeRoute = null; ex.trainRoute = null; ex.hikeRoute = null; ex.tripEx.clear(); ex.tripMust.clear();
     ex.cat = ''; ex.planState = null; ex.errs = {}; ex.loaded = null; ex.all = []; ex.items = [];
     for (const k of Object.keys(busy)) delete busy[k];
     redo.clear();
     clearTimeout(soonT); ex.replanNow = null; // odložené přeplánování patřilo předchozímu místu
-    ex.recent = pushRecent(ex.recent, ex.place);
+  }
+  /** ↺ Začít znovu: bez místa a plánů zpět na inspiraci (okruh, zájmy a „Naposledy“ zůstanou). */
+  function resetExplore() {
+    exSeq++; // načítání míst zrušeného místa už nic nepřepíše
+    ex.place = null; forget();
     remember();
+    const root = $('#exploreRoot');
+    if (root) { renderExplore(root); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   }
   function openPlace(s) {
     setPlace(s);
+    // první místo: úvodní fotka nahoře už není potřeba – Objevuj znovu (s ✕ a místy rovnou pod hledáním)
+    const root = $('#exploreRoot');
+    if (root && $('.ex-hero', root)) return renderExplore(root);
     const q = $('#exQ');
     if (q) q.value = s.label;
     paintRecent();
@@ -1320,7 +1336,7 @@
       : `<details class="more ex-places" id="exPlaces"${ex.listOpen ? ' open' : ''}><summary>📍 Místa v okolí (${ex.items.length})</summary>${placesIn}</details>`;
     body.innerHTML = `${ex.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
       <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) : '📍'} ${esc(p.label)} · ${placesTxt(cityN)} do ${ex.radius} km${tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2>${
-        window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">✈️ Najít lety sem</button>' : ''}</div>
+        `<span class="ex-head-act">${window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">✈️ Najít lety sem</button>' : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span>`}</div>
       <div class="ex-layout ex-main">
       <div class="card step-card ex-plan${ex.planOpen || out || bz || wait ? '' : ' shut'}" id="exPlanCard"><h3 class="ex-plan-h"><button type="button" class="ex-plan-tg" id="exPlanTg">🗓️ Naplánovat <span class="faint ex-plan-hint">– program, výlety, kolo, pěšky</span><span class="ex-plan-chev" aria-hidden="true">▾</span></button></h3>
         <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${modeBtns(ex.mode)}</div>
@@ -1596,6 +1612,7 @@
     };
     on('#exSave', 'onclick', () => store(false));
     on('#exFly', 'onclick', () => window.Flights && Flights.searchTo([flyTarget(p)], ex.datePicked ? flyDates(ex) : {}));
+    on('#exReset', 'onclick', () => resetExplore());
     on('#exSaveNew', 'onclick', () => store(true));
     remember();
     // Program pro jiný okruh (okruh se mezitím změnil) se přeplánuje sám – jen když zrovna neběží a neselhal.
