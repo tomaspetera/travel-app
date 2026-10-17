@@ -702,6 +702,14 @@ function provLink(name, sub, url, color, lab) { return `<a class="result-link" h
 
 /* ================= MAP (D3) ================= */
 let mapInited = false, mapSel = null, mapZoom = null, WORLD = null;
+// d3 + topojson (~100 kB) až pro mapu světa a mapu výsledků – ne při každém otevření aplikace
+let d3Load = null;
+function loadD3() {
+  if (typeof d3 !== 'undefined' && typeof topojson !== 'undefined') return Promise.resolve();
+  const add = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => bad(new Error('nenačteno: ' + src)); document.head.append(s); });
+  return d3Load || (d3Load = add('vendor/d3.min.js').then(() => add('vendor/topojson-client.min.js')).catch(e => { d3Load = null; throw e; }));
+}
+window.loadD3 = loadD3;
 async function loadWorld() {
   if (WORLD) return WORLD;
   WORLD = await (await fetch('vendor/countries-110m.json')).json();
@@ -712,7 +720,7 @@ function paintMap() { if (mapSel) mapSel.classed('visited', function () { return
 async function initMap() {
   refreshStats();
   if (mapInited) return; mapInited = true;
-  if (typeof d3 === 'undefined' || typeof topojson === 'undefined') return mapFallback('Mapové knihovny se nenačetly.');
+  try { await loadD3(); } catch (e) { return mapFallback('Mapové knihovny se nenačetly.'); }
   try {
     const world = await loadWorld();
     const feats = topojson.feature(world, world.objects.countries).features;

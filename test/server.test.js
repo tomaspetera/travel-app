@@ -492,6 +492,13 @@ test('statické soubory, data a ochrana proti path traversal', async () => {
   }
   const js = await fetch(`${base}/js/flights.js`, { headers: { 'accept-encoding': 'gzip' } });
   assert.equal(js.status, 200);
+  assert.equal(js.headers.get('content-encoding'), 'gzip');
+  // prohlížeč s brotli dostane menší soubor (zkomprimovaný jednou, z paměti), Vary pro mezipaměti
+  const br = await fetch(`${base}/js/flights.js`, { headers: { 'accept-encoding': 'br, gzip' } });
+  assert.equal(br.headers.get('content-encoding'), 'br');
+  assert.equal(br.headers.get('vary'), 'Accept-Encoding');
+  assert.ok(+br.headers.get('content-length') < +js.headers.get('content-length'), 'brotli menší než gzip');
+  assert.match(await br.text(), /window\.Flights = \{/);
 });
 
 // Klíče objektu „window.X = { … }“ v nejvyšší úrovni (zkratky i „klíč: …“), bez obsahu funkcí v něm.
