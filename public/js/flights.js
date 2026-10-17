@@ -1872,7 +1872,18 @@
         <div class="cmp-price"><b${SearchHelp.isCached(t) && liveSt(t, liveGet(SearchHelp.liveKey(t, liveAdults()))) === 'dearer' ? ' class="stale"' : ''}>${czk(t.perPersonCzk)}</b><small>/os.</small>${tkt}${liveHtml(t)}</div></div>${dmBtn(g.dest, `data-dm="${esc(g.dest.key)}" data-dmr="${ri}"`)}<span class="cmp-chev" aria-hidden="true">${open ? '▴' : '▾'}</span>
       </div>${open ? `<div class="cmp-card">${groupCard(g)}</div>` : ''}`;
     };
-    return `<div class="card cmp-list">${groups.slice(0, n).map(row).join('')}</div>${groups.length > n ? `<button type="button" class="more-btn" data-cmore>Zobrazit další cíle (${groups.length - n})</button>` : ''}`;
+    return `${topStrip(groups)}<div class="card cmp-list">${groups.slice(0, n).map(row).join('')}</div>${groups.length > n ? `<button type="button" class="more-btn" data-cmore>Zobrazit další cíle (${groups.length - n})</button>` : ''}`;
+  }
+  // nahoře nad přehledem cílů: první 3 podle řazení jako velké karty s fotkou (klepnutí rozbalí cíl v seznamu)
+  function topStrip(groups) {
+    if (groups.length < 3) return '';
+    const lbl = { warm: '☀️ Nejtepleji', leave: '🏖️ Nejméně dovolené', fast: '⚡ Nejrychleji', flight: '💸 Nejlevnější letenky' }[view.sort] || '💸 Nejlevnější teď';
+    return `<div class="section-head res-top-h"><h2>${lbl}</h2></div><div class="dest-grid res-top">${groups.slice(0, 3).map(g => {
+      const t = g.vis[0];
+      return `<button type="button" class="card dest res-top-c" data-rtop="${esc(g.dest.key)}" data-photo="${esc(g.dest.label)}" style="--h:${ccHue(g.dest.cc)}"><div class="flag">${flag(g.dest.cc)}</div>
+        <div class="dest-panel"><div class="cname">${esc(g.dest.label)}</div><div class="cblurb">${fmtDate(t.out.date)}${t.back ? '–' + fmtDate(t.back.date) : ''} · z ${esc(t.out.from)}</div>
+        <div class="rt-price">${czk(t.perPersonCzk)}<small>/os.</small></div></div></button>`;
+    }).join('')}</div><div class="section-head res-top-h"><h2>Všechny cíle</h2></div>`;
   }
   function groupCard(g) {
     const t = g.vis[0], i0 = reg(t, g); // první řádek karty – i jeho 📌 v ⋯
@@ -2922,6 +2933,10 @@
     // Přehled cílů: klepnutí na řádek rozbalí / sbalí plnou kartu (odkazy a tlačítka v kartě fungují normálně)
     const cmpToggle = r => { const k = r.dataset.cg; view.cexp = view.cexp || new Set(); view.cexp.has(k) ? view.cexp.delete(k) : view.cexp.add(k); rerender(true); };
     $$('.cmp-row[data-cg]', host).forEach(r => { r.onclick = () => cmpToggle(r); });
+    $$('[data-rtop]', host).forEach(b => { b.onclick = () => {
+      const k = b.dataset.rtop; view.cexp = view.cexp || new Set(); view.cexp.add(k); rerender(true);
+      requestAnimationFrame(() => { const r = $(`.cmp-row[data-cg="${CSS.escape(k)}"]`); if (r) r.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    }; });
     $$('[data-cgh]', host).forEach(b => { b.onkeydown = e => { if (e.target === b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); cmpToggle(b.closest('[data-cg]')); } }; });
     const cm = $('[data-cmore]', host); if (cm) cm.onclick = () => { view.cmpN = (view.cmpN || 60) + 60; rerender(true); };
     // z „kamkoliv“ do jednoho cíle: stejné hledání jen do tohoto města a rovnou kalendář cen
