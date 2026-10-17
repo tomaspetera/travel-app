@@ -381,8 +381,8 @@ test('průvodce: let s přestupem – krok Let i průběh cesty ukážou kde (k 
   t.flight.out = { ...t.flight.out, to: 'CUN', stops: 1, layovers: [{ at: 'JFK', min: 150, cc: 'US' }] };
   t.flight.back = { ...t.flight.back, from: 'CUN', stops: 2, layovers: [{ at: 'YYZ', min: 65, cc: 'CA' }, { at: 'FRA<b>', min: 'x' }] };
   const h = render(c, t);
-  assert.match(h, /Demo Air · DA 1 · 1× přestup \(JFK 2 h 30 min\)<\/span>/);
-  assert.match(h, /Demo Air · DA 1 · 2× přestup \(YYZ 1 h 5 min, FRA&lt;b&gt;\)<\/span>/, 'texty z dat escapované');
+  assert.match(h, /<div class="tl-meta">Demo Air · DA 1 · 1× přestup \(JFK 2 h 30 min\)<\/div>/);
+  assert.match(h, /<div class="tl-meta">Demo Air · DA 1 · 2× přestup \(YYZ 1 h 5 min, FRA&lt;b&gt;\)<\/div>/, 'texty z dat escapované');
   const s = render(c, { ...t, step: 'summary' });
   // průběh cesty jako krok Let: dopravce, číslo letu (tabule na letišti) a přestupy
   assert.match(s, /🛫<\/span><span>PRG 07:00 → CUN 08:00 · Demo Air · DA 1 · 1× přestup \(JFK 2 h 30 min\)<\/span>/);
@@ -395,7 +395,7 @@ test('průvodce: přílet / příjezd další den má „+1“ jako ve výsledc�
   const c = load();
   const t = trip({ route: null, overland: null, step: 'flight' });
   t.flight.out = { ...t.flight.out, dep: '2026-11-10T21:25:00', arr: '2026-11-11T00:51:00' };
-  assert.match(render(c, t), /PRG 21:25 → VIE 00:51 \+1 <span class="faint">/);
+  assert.match(render(c, t), /<b>21:25<\/b><small>PRG<\/small><\/span><i class="tl-line" aria-hidden="true"><\/i><span><b>00:51 \+1<\/b><small>VIE<\/small>/);
   assert.match(render(c, { ...t, step: 'summary' }), /PRG 21:25 → VIE 00:51 \+1 · Demo Air/);
   // noční bus zpět: krok Let, shrnutí i odkaz do Google Kalendáře
   const ov = OV({ back: { ...OV().back, dep: '2026-11-15T22:40', arr: '2026-11-16T06:28', kinds: ['BUS'] } });

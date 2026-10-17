@@ -1,18 +1,4 @@
 /* ============ ATLAS – průvodce cestou a objevování ============ */
-.trip-head{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 20px;margin-bottom:14px;flex-wrap:wrap}
-.th-dest{display:flex;align-items:center;gap:14px}
-.th-flag{font-size:40px;line-height:1}
-.th-dest h2{font-size:22px;font-weight:800}
-.th-total{text-align:right}
-.th-total .tt{font:800 26px Sora,sans-serif;color:var(--good);line-height:1.1}
-.stepbar{display:flex;align-items:center;gap:6px;margin-bottom:16px;overflow-x:auto;padding:2px}
-.stepbar i{flex:1;min-width:10px;height:2px;background:var(--border-2);border-radius:2px}
-.stepbar .st{display:flex;align-items:center;gap:8px;padding:8px 13px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font:700 13px Inter,sans-serif;cursor:pointer;white-space:nowrap}
-.stepbar .st span{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);font-size:12px}
-.stepbar .st.done{color:var(--text)}
-.stepbar .st.done span{background:var(--good);color:#04231a}
-.stepbar .st.on{color:#fff;background:var(--grad);border-color:transparent}
-.stepbar .st.on span{background:rgba(255,255,255,.25)}
 .step-card{padding:20px;margin-bottom:14px}
 .step-card h3{font-size:17px;font-weight:800;margin-bottom:4px}
 .sc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
@@ -179,7 +165,7 @@ details.more.ex-places>summary::before{content:none}
   .ex-layout.ex-main{grid-template-columns:minmax(0,1fr);grid-template-areas:"plan" "map" "places";grid-template-rows:auto}
   .ex-main>.ex-map{height:300px}}
 @media(max-width:860px){.sum-grid{grid-template-columns:1fr}.manual-row{grid-template-columns:1fr 1fr}.manual-row>div{grid-column:1/-1}.ex-back{bottom:calc(90px + env(safe-area-inset-bottom,0px))}}
-@media(max-width:560px){.stay{grid-template-columns:84px minmax(0,1fr)}.st-img{width:84px;height:70px}.st-price{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 10px}.st-pp{align-items:flex-start;margin-right:auto;text-align:left}.ex-search{grid-template-columns:auto minmax(0,1fr)}.ex-search>.field:first-child{grid-column:1/-1}.poi{grid-template-columns:72px 1fr}.poi-img{width:72px;height:64px}.th-total{text-align:left}
+@media(max-width:560px){.stay{grid-template-columns:84px minmax(0,1fr)}.st-img{width:84px;height:70px}.st-price{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 10px}.st-pp{align-items:flex-start;margin-right:auto;text-align:left}.ex-search{grid-template-columns:auto minmax(0,1fr)}.ex-search>.field:first-child{grid-column:1/-1}.poi{grid-template-columns:72px 1fr}.poi-img{width:72px;height:64px}
   /* kategorie v jednom posuvném řádku místo pěti; chyba se „Zkusit znovu“ pod textem */
   .ex-cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
   .ex-cats button{flex:none;white-space:nowrap}
@@ -321,26 +307,6 @@ details.more.ex-places>summary::before{content:none}
 table.cost tr.entry-fee td{font-size:13px;color:var(--muted)}
 table.cost tr.entry-fee td:last-child{color:var(--text)}
 table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
-/* telefon: všech 6 kroků na šířku – u ostatních jen ikona, název u aktuálního */
-@media(max-width:560px){
-  .stepbar{gap:4px;overflow-x:auto;scrollbar-width:none} /* záloha: dlouhý název kroku se posune, stránka nepřeteče */
-  .stepbar i{min-width:4px}
-  .stepbar .st:not(.on){font-size:0;gap:0;padding:6px}
-  .stepbar .st:not(.on) span{font-size:12px}
-  .stepbar .st.on{padding:6px 10px 6px 6px}
-}
-@media(max-width:400px){
-  .stepbar{gap:2px}
-  .stepbar i{min-width:2px}
-  .stepbar .st:not(.on){padding:4px}
-  .stepbar .st span{width:22px;height:22px}
-  .stepbar .st.on{padding:4px 8px 4px 4px;gap:6px}
-}
-@media(max-width:340px){
-  .stepbar .st span{width:20px;height:20px;font-size:11px}
-  .stepbar .st:not(.on){padding:3px}
-  .stepbar .st.on{font-size:12px;gap:4px;padding:3px 6px 3px 3px}
-}
 /* Objevuj: nadpis karty Naplánovat je na telefonu tlačítko – sbalená karta (jen nadpis), dokud není program */
 .ex-plan-tg{all:unset;font:inherit;color:inherit}
 .ex-plan-tg:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
@@ -353,17 +319,6 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
   .ex-plan.shut .ex-plan-h{margin:0}
   .ex-plan:not(.shut) .ex-plan-hint{display:none}
   .ex-plan:not(.shut) .ex-plan-chev{transform:rotate(180deg)}
-  /* průvodce Cesta: hlavička cesty v jednom řádku (vlajka, cíl, celkem vpravo) – víc místa pro krok */
-  .trip-head{padding:12px 14px;gap:10px;flex-wrap:nowrap}
-  .th-dest{gap:10px;min-width:0}
-  .th-dest>div{min-width:0}
-  .th-flag{font-size:28px}
-  .th-dest h2{font-size:18px}
-  .th-dest .muted{font-size:12px}
-  .th-total{flex:none}
-  .th-total .tt{font-size:20px}
-  .th-total .faint{font-size:11.5px}
-  .th-total>.faint:first-child{display:none}
 }
 /* úvod průvodce bez rozpracované cesty: fotka, kroky, tlačítka */
 .trip-intro{max-width:640px;margin:0 auto}
@@ -378,3 +333,73 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .trip-intro-act{display:flex;gap:10px;flex-wrap:wrap}
 .trip-intro-act .btn{flex:1 1 200px;padding:13px 16px}
 .trip-steps small b{display:inline;font-size:inherit}
+/* ============ průvodce Cesta: fotka cíle v hlavičce, kroky s popisky, let jako jízdenka ============ */
+.trip-head{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:0;min-height:190px;padding:16px 18px;margin-bottom:14px;
+  border:none;border-radius:26px;overflow:hidden;color:#fff;isolation:isolate;
+  background:radial-gradient(120% 90% at 20% 10%,hsl(var(--h,210) 42% 46%),transparent 60%),linear-gradient(160deg,hsl(var(--h,210) 38% 34%),hsl(calc(var(--h,210) + 25) 45% 14%));
+  box-shadow:0 18px 38px -22px rgba(0,0,0,.65)}
+.trip-head.ph{background:#0b1226 var(--ph) center/cover no-repeat}
+.trip-head::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,.18) 0%,rgba(0,0,0,0) 35%,rgba(4,8,20,.72) 100%)}
+.th-flag{position:absolute;top:14px;left:14px;width:44px;height:44px;display:grid;place-items:center;font-size:24px;line-height:1;border-radius:50%;
+  background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.th-total{position:absolute;top:14px;right:14px;text-align:right;padding:8px 14px;border-radius:18px;
+  background:rgba(10,14,30,.45);border:1px solid rgba(255,255,255,.22);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.th-total .tt{font:800 22px/1.1 Sora,sans-serif;color:#7ff0c0}
+.th-total .faint{color:rgba(255,255,255,.75);font-size:11.5px}
+.th-total>.faint:first-child{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.th-dest h2{font:800 28px/1.15 Sora,Inter,sans-serif;letter-spacing:-.02em;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.35)}
+.th-sub{margin-top:4px;font-size:13.5px;font-weight:600;color:rgba(255,255,255,.88);text-shadow:0 1px 8px rgba(0,0,0,.45)}
+.th-route{margin-top:4px;color:#fff}
+/* kroky: ikona v kruhu, pod ní název, čára mezi kroky (hotové zeleně) */
+.stepbar{display:flex;align-items:flex-start;gap:0;margin:0 0 16px;padding:12px 10px 10px;border-radius:22px;background:var(--surface);border:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.stepbar::-webkit-scrollbar{display:none}
+.stepbar i{flex:1 1 0;min-width:6px;height:2px;margin-top:18px;background:var(--border-2);border-radius:2px}
+.stepbar i.done{background:var(--good)}
+.stepbar .st{flex:none;display:flex;flex-direction:column;align-items:center;gap:5px;padding:0 2px;border:none;background:none;color:var(--muted);font:700 11.5px Inter,sans-serif;cursor:pointer;white-space:nowrap}
+.stepbar .st span{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--border);font-size:17px;transition:transform .15s}
+.stepbar .st:active span{transform:scale(.92)}
+.stepbar .st.done{color:var(--text)}
+.stepbar .st.done span{background:var(--good);border-color:transparent;color:#04231a;font-weight:800;font-size:15px}
+.stepbar .st.on{color:var(--text);font-weight:800}
+.stepbar .st.on span{background:var(--grad);border-color:transparent;box-shadow:0 8px 18px -8px rgba(91,140,255,.8)}
+/* karta kroku */
+.step-card{border-radius:24px}
+.step-card h3{font-size:18px;margin-bottom:10px}
+/* let jako jízdenka */
+.tl-legs{display:flex;flex-direction:column;gap:8px}
+.tl-leg{display:flex;align-items:flex-start;gap:12px;flex-wrap:nowrap;padding:12px 14px;border-radius:18px;background:var(--surface-2);border:1px solid var(--border);font-size:14px}
+.tl-leg .cbadge{flex:none;margin-top:2px}
+.tl-main{flex:1;min-width:0}
+.tl-day{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.tl-route{display:flex;align-items:center;gap:10px;margin:4px 0 2px}
+.tl-route span{display:flex;flex-direction:column;line-height:1.1}
+.tl-route span:last-child{text-align:right}
+.tl-route b{font:800 20px Sora,Inter,sans-serif}
+.tl-route small{font-size:12px;font-weight:700;color:var(--muted);margin-top:2px}
+.tl-line{flex:1;min-width:20px;height:2px;position:relative;background:repeating-linear-gradient(90deg,var(--border-2) 0 6px,transparent 6px 10px)}
+.tl-line::after{content:"✈";position:absolute;left:50%;top:50%;transform:translate(-50%,-55%);font-size:13px;color:var(--accent);background:var(--surface-2);padding:0 4px;font-style:normal}
+.tl-meta{font-size:12.5px;color:var(--muted)}
+.tf-costs{margin-top:12px;padding:10px 14px;border-radius:16px;border:1px solid var(--border)}
+.tf-costs>div:not(.tf-pp){display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:5px 0;font-size:13.5px}
+.tf-costs>div:not(.tf-pp)+div:not(.tf-pp){border-top:1px solid var(--border)}
+.tf-costs span{color:var(--muted)}
+.tf-costs small{display:block;font-size:11.5px;color:var(--faint)}
+.tf-costs b{white-space:nowrap}
+.tf-pp{font-size:11px;color:var(--faint);text-align:right;margin-top:2px}
+.step-act{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.step-act>.btn.primary{min-height:52px;border-radius:18px;font-size:15.5px;justify-content:center}
+.step-act2{display:flex;gap:8px}
+.step-act2 .btn{flex:1 1 0;justify-content:center;min-height:44px;border-radius:14px}
+@media(min-width:861px){.trip-head{min-height:220px;padding:22px 24px}.th-dest h2{font-size:32px}.step-act{flex-direction:row-reverse;align-items:center}.step-act>.btn.primary{flex:none;padding:0 26px}.step-act2{flex:1}.step-act2 .btn{flex:none}}
+@media(max-width:560px){
+  .trip-head{min-height:180px;padding:14px 16px;border-radius:24px}
+  .th-dest h2{font-size:24px}
+  .th-sub{font-size:12.5px}
+  .th-total{padding:7px 12px}
+  .th-total .tt{font-size:19px}
+  .stepbar{padding:10px 6px 8px;margin-left:-4px;margin-right:-4px}
+  .stepbar .st{font-size:10.5px}
+  .stepbar .st span{width:34px;height:34px;font-size:15px}
+  .stepbar i{margin-top:16px;min-width:3px}
+  .tl-route b{font-size:18px}
+}
