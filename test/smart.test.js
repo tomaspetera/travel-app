@@ -74,6 +74,17 @@ test('délka, lidé, cena, zavazadla, přímé lety, druh cíle', () => {
   assert.deepEqual(P('exotika').items.map((x) => x.id), ['cc:TH', 'cc:ID', 'cc:VN', 'cc:AE', 'cc:LK']);
   assert.deepEqual(P('na hory').items.map((x) => x.id), ['ap:INN', 'ap:SZG', 'ap:GVA', 'ap:TRN']);
   assert.equal(P('kamkoliv').kind, 'any');
+  // děti platí letenku: dospělí + děti; bez počtu dospělých dva
+  assert.equal(P('2 dospělí a 2 děti k moři').patch.adults, 4);
+  assert.equal(P('s dítětem do Říma').patch.adults, 3);
+  assert.equal(P('na jih').patch.minTemp, 20);
+});
+
+test('za týden / za 14 dní = kdy odletět (ne délka pobytu)', () => {
+  const w = P('za týden někam');
+  assert.deepEqual([w.patch.dFrom, w.patch.dTo, w.patch.len], ['2026-10-22', '2026-10-29', undefined]);
+  const d = P('za 14 dní do Londýna na 3 noci');
+  assert.deepEqual([d.patch.dFrom, d.patch.dTo, d.patch.nMin, d.to], ['2026-10-29', '2026-11-05', 3, ['Londýna']]);
 });
 
 test('místa s koncovkami: tvary slova a nejlepší návrh (země a oblasti před náhodnými místy)', () => {
