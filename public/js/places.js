@@ -649,6 +649,8 @@
   // Zapamatovaný stav jednou – i před prvním otevřením Objevuj (náhled cíle z letů potřebuje zvolený okruh).
   function ensureUi() { if (!ex.restored) { ex.restored = true; if (!ex.place) restoreUi(); } }
 
+  // ✨ příklady vět pod hledáním (Smart.parseExplore)
+  const EX_TRY = ['Lisabon na 3 dny', 'výlety z Brna', 'Krakov pěšky 10 km', 'Vídeň na kole'];
   // Inspirace na prázdném Objevuj: karty s fotkou oblíbených měst – klepnutí = místa k vidění v okolí
   const INSP = [
     { label: 'Lisabon', lat: 38.7223, lon: -9.1393, cc: 'PT', country: 'Portugalsko' }, { label: 'Řím', lat: 41.9028, lon: 12.4964, cc: 'IT', country: 'Itálie' },
@@ -669,7 +671,7 @@
           <div style="position:relative"><input class="input${ex.place ? ' has-clear' : ''}" id="exQ" placeholder="Např. Lisabon, nebo „Lisabon na 3 dny“" autocomplete="off" value="${esc(ex.place?.label || '')}">${ex.place ? '<button type="button" class="in-clear" id="exClear" title="Začít znovu – zrušit místo i plány" aria-label="Začít znovu">✕</button>' : ''}<div class="pi-dd" id="exDd" hidden></div></div></div>
         <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">📍 Tady</button>
         <div class="field" style="margin:0"><label>Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}</select></div>
-      </div><div class="ex-recent" id="exRecent" hidden></div></div>
+      </div><div class="ex-recent" id="exRecent" hidden></div>${ex.place || !window.Smart ? '' : `<div class="ex-try"><span class="faint">✨ Zkus:</span>${EX_TRY.map((x, i) => `<button type="button" class="fchip" data-extry="${i}">${esc(x)}</button>`).join('')}</div>`}</div>
       <div id="exBody">${ex.place ? '' : inspHtml()}</div>
       <button type="button" class="ex-back" id="exBack" hidden></button>`;
     wireExploreSearch(root);
@@ -677,6 +679,8 @@
     wireBack();
     const cl = $('#exClear', root); if (cl) cl.onclick = () => resetExplore();
     $$('[data-insp]', root).forEach(b => b.onclick = () => { const p = cleanPlace(INSP[+b.dataset.insp]); if (p) openPlace(p); });
+    // ✨ příklady vět: vepsat do hledání a spustit jako Enter (místo, druh plánu, dny)
+    $$('[data-extry]', root).forEach(b => b.onclick = () => { const q = $('#exQ', root); q.value = EX_TRY[+b.dataset.extry]; q.focus(); q.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
     if (window.Photos) Photos.paint(root);
     // Návrat do Objevuj: už načtený seznam se jen překreslí (žádný nový dotaz na server).
     if (ex.place && ex.loaded?.place === ex.place && !needsFetch(ex.loaded.radius, ex.radius)) paintExplore();

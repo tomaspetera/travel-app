@@ -431,3 +431,7 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .st-more summary::after{content:' ▾'}
 .st-more[open] summary::after{content:' ▴'}
 .rt-gap{margin-top:6px;font-size:13px;padding:7px 10px;border-radius:10px;background:var(--surface-2)}
+.ex-try{display:flex;gap:6px;overflow-x:auto;margin-top:10px;align-items:center;scrollbar-width:none}
+.ex-try::-webkit-scrollbar{display:none}
+.ex-try .faint{flex:none;font-size:12px;font-weight:700}
+.ex-try .fchip{flex:none;white-space:nowrap}
