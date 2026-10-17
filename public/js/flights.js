@@ -3350,12 +3350,12 @@
   }
   function watchBar() {
     const n = {
-      default: '<button type="button" class="btn sm ghost" id="notifBtn">🔔 Upozorňovat i v prohlížeči</button>',
+      default: '<button type="button" class="btn sm ghost" id="notifBtn" title="Upozornit i oznámením v prohlížeči">🔔 Upozorňovat</button>',
       granted: '<span class="w-ntf">🔔 Upozornění v prohlížeči jsou zapnutá.</span>',
       denied: '<span class="w-ntf">🔕 Upozornění má prohlížeč pro ATLAS zablokovaná – povolíš je v nastavení webu (ikona vedle adresy).</span>',
       unsupported: '<span class="w-ntf">Tento prohlížeč upozornění neumí – zlevnění uvidíš tady a u položky Přehled.</span>',
     }[notifOk()];
-    return `<div class="watch-bar"><span>🔄 Každé hledání kontroluji automaticky zhruba jednou za 6 h – ale jen dokud máš ATLAS otevřený v prohlížeči a panel není schovaný na pozadí. Zavřená stránka nehlídá nic.</span>${n}</div>`;
+    return `<div class="watch-bar"><span title="Každé hledání kontroluji automaticky zhruba jednou za 6 h – ale jen dokud máš ATLAS otevřený v prohlížeči a panel není schovaný na pozadí. Zavřená stránka nehlídá nic.">🔄 Kontroluji samo zhruba každých 6 h, dokud máš ATLAS otevřený.</span>${n}</div>`;
   }
   function watchCard(w, now = Date.now()) {
     const h = Alerts.epoch(w.history), own = h.length && h[0].own; // od nového základu (změna 🏠 vlastní ceny na letiště, 🙈)
@@ -3369,22 +3369,25 @@
     const drop = Alerts.isDropped(w);
     const id = esc(w.id);
     const when = st === 'run' ? '<span class="spin dark"></span> kontroluji…' : st === 'wait' ? '⏳ čeká na kontrolu…'
-      : w.checked ? `naposledy zkontrolováno <span data-ago="${+w.checked}" title="${esc(new Date(w.checked).toLocaleString('cs-CZ'))}">${Alerts.agoTxt(now - w.checked)}</span>` : 'zatím nezkontrolováno';
+      : w.checked ? `zkontrolováno <span data-ago="${+w.checked}" title="${esc(new Date(w.checked).toLocaleString('cs-CZ'))}">${Alerts.agoTxt(now - w.checked)}</span>` : 'zatím nezkontrolováno';
     // 📅 klouzavý termín: přepínač (zapnutý), u pevného flexibilního „převést na klouzavé“ (u proběhlého v poznámce)
     const rolled = Alerts.rolls(w.form), canRoll = !rolled && Boolean(rollOf(w));
     const roll = rolled ? `<div class="w-roll"><label class="check-inline"><input type="checkbox" data-wr="${id}" checked> 📅 Posouvat termín s časem</label><span class="faint">porovnává se vždy aktuální termín</span></div>`
       : canRoll && !past ? `<div class="w-roll"><button type="button" class="linkbtn" data-wr="${id}" title="Termín se bude každý den posouvat (jako při uložení) – historie, cílová cena i „od uložení“ zůstanou">📅 převést na klouzavé</button></div>` : '';
+    // karta: fotka cíle, hledání a cena nahoře, pod tím vývoj ceny, cílová cena a tlačítka
+    const city = w.best && w.best.key ? String(w.best.desc || '').split(' · ')[0] : (w.form && w.form.to && w.form.to.length === 1 && !/^ct:/.test(w.form.to[0].id) ? w.form.to[0].label : '');
     return `<div class="card watch${st ? ' checking' : ''}${past ? ' past' : ''}${drop ? ' dropped' : ''}" data-w="${id}">
-        <div class="w-head"><div class="w-t">${esc(w.label)}</div>${drop ? '<span class="b good">📉 zlevnilo</span>' : ''}</div>
-        <div class="faint" style="font-size:12px">${esc(subOf(w))}</div>${roll}
-        <div class="w-main"><div class="w-p">${cur ? czk(cur) : '—'}<small>/os.</small> ${diff ? `<span class="${diff < 0 ? 'good' : 'bad'}" title="Oproti minulé kontrole">${diff < 0 ? '↓' : '↑'} ${czk(Math.abs(diff))}</span>` : ''}</div>${sparkSvg(w)}</div>
-        <div class="w-stats">${since != null ? `<span${own ? ' title="Cena se přepočítala po změně 🏠 vlastní ceny na letiště nebo seznamu 🙈 – ceny před tím se s novými nesrovnávají"' : ''}>${own ? 'od změny nastavení' : 'od uložení'} <b class="${since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>` : ''}${low ? `<span>nejnižší cena ${czk(low)}</span>` : ''}</div>
-        <div class="faint" style="font-size:12px">${esc(w.best?.desc || 'zatím bez výsledku')}</div>
+        <div class="w-top">${city ? `<span class="w-ph" data-photo="${esc(city)}" style="--h:${ccHue(city)}"></span>` : '<span class="w-ph">🔔</span>'}
+          <div class="w-tt"><div class="w-t">${esc(w.label)}</div><div class="w-sub">${esc(subOf(w))}</div></div>
+          <div class="w-p">${cur ? czk(cur) : '—'}<small>/os.</small>${diff ? `<span class="${diff < 0 ? 'good' : 'bad'}" title="Oproti minulé kontrole">${diff < 0 ? '↓' : '↑'} ${czk(Math.abs(diff))}</span>` : ''}</div></div>
+        ${drop ? '<span class="b good w-drop">📉 zlevnilo</span>' : ''}${roll}
+        <div class="w-main">${sparkSvg(w)}<div class="w-stats">${since != null ? `<span${own ? ' title="Cena se přepočítala po změně 🏠 vlastní ceny na letiště nebo seznamu 🙈 – ceny před tím se s novými nesrovnávají"' : ''}>${own ? 'od změny nastavení' : 'od uložení'} <b class="${since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>` : ''}${low ? `<span>nejnižší ${czk(low)}</span>` : ''}</div></div>
+        <div class="w-desc">${esc(w.best?.desc || 'zatím bez výsledku')}</div>
         ${past ? `<div class="note warn w-past">⌛ <div>Termín proběhl – tohle hledání už hlídat nejde. ${canRoll ? `<button type="button" class="linkbtn" data-wr="${id}">📅 Převést na klouzavé</button> – termín se pak bude posouvat s časem a historie i cílová cena zůstanou. Nebo ho smaž.` : 'Smaž ho, nebo ho otevři a vyber nové datum.'}</div></div>`
-        : `<label class="w-target">Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target ? '' : 'hidden'}>✓ splněno</span></label>`}
-        <div class="w-st faint">${when}</div>
+        : `<label class="w-target">🎯 Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target ? '' : 'hidden'}>✓ splněno</span></label>`}
+        <div class="w-foot"><div class="w-st faint">${when}</div>
         <div class="row w-act">${past ? `<button class="btn sm" data-wd="${id}">🗑 Smazat</button><button class="btn sm ghost" data-wo="${id}">Otevřít</button>`
-        : `<button class="btn sm" data-wc="${id}" ${st ? 'disabled' : ''}>↻ Zkontrolovat</button><button class="btn sm ghost" data-wo="${id}">Otevřít</button><button class="btn sm ghost" data-wd="${id}" title="Smazat">✕</button>`}</div>
+        : `<button class="btn sm primary" data-wo="${id}">Otevřít</button><button class="btn sm ghost w-ic" data-wc="${id}" ${st ? 'disabled' : ''} title="Zkontrolovat cenu teď" aria-label="Zkontrolovat cenu teď">↻</button><button class="btn sm ghost w-ic" data-wd="${id}" title="Smazat" aria-label="Smazat">✕</button>`}</div></div>
       </div>`;
   }
   // Rozepsanou cílovou cenu při překreslení nezahodit.
@@ -3401,6 +3404,7 @@
     $('#watchHead').hidden = !list.length;
     const now = Date.now();
     keepTyping(() => { host.innerHTML = list.length ? `${watchBar()}<div class="watch-grid">${list.map(w => watchCard(w, now)).join('')}</div>` : ''; });
+    if (window.Photos) Photos.paint(host);
     host.onclick = e => {
       const b = e.target.closest('button'); if (!b) return;
       if (b.id === 'notifBtn') askNotif();
@@ -3418,7 +3422,7 @@
   }
   function paintCard(id) {
     const el = $(cardSel(id)), w = (S.watch || []).find(x => x.id === id);
-    if (el && w) keepTyping(() => { el.outerHTML = watchCard(w); });
+    if (el && w) { keepTyping(() => { el.outerHTML = watchCard(w); }); if (window.Photos) Photos.paint($('#watchList')); }
   }
   function setState(id, st) { st ? wState.set(id, st) : wState.delete(id); paintCard(id); }
   function openWatch(id) {
