@@ -649,6 +649,15 @@
   // Zapamatovaný stav jednou – i před prvním otevřením Objevuj (náhled cíle z letů potřebuje zvolený okruh).
   function ensureUi() { if (!ex.restored) { ex.restored = true; if (!ex.place) restoreUi(); } }
 
+  // Inspirace na prázdném Objevuj: karty s fotkou oblíbených měst – klepnutí = místa k vidění v okolí
+  const INSP = [
+    { label: 'Lisabon', lat: 38.7223, lon: -9.1393, cc: 'PT', country: 'Portugalsko' }, { label: 'Řím', lat: 41.9028, lon: 12.4964, cc: 'IT', country: 'Itálie' },
+    { label: 'Barcelona', lat: 41.3874, lon: 2.1686, cc: 'ES', country: 'Španělsko' }, { label: 'Paříž', lat: 48.8566, lon: 2.3522, cc: 'FR', country: 'Francie' },
+    { label: 'Dubrovník', lat: 42.6507, lon: 18.0944, cc: 'HR', country: 'Chorvatsko' }, { label: 'Amsterdam', lat: 52.3676, lon: 4.9041, cc: 'NL', country: 'Nizozemsko' },
+    { label: 'Istanbul', lat: 41.0082, lon: 28.9784, cc: 'TR', country: 'Turecko' }, { label: 'Kodaň', lat: 55.6761, lon: 12.5683, cc: 'DK', country: 'Dánsko' },
+    { label: 'Český Krumlov', lat: 48.8127, lon: 14.3175, cc: 'CZ', country: 'Česko' }, { label: 'Kjóto', lat: 35.0116, lon: 135.7681, cc: 'JP', country: 'Japonsko' },
+  ];
+  const inspHtml = () => `<div class="section-head ex-insp-h"><h2>Inspirace</h2></div><div class="dest-grid ex-insp">${INSP.map((p, i) => `<button type="button" class="card dest" data-insp="${i}" data-photo="${esc(p.label)}" style="--h:${window.ccHue ? ccHue(p.cc) : 215}"><div class="flag">${flag(p.cc)}</div><div class="dest-panel"><div class="cname">${esc(p.label)}</div><div class="ccont">${esc(p.country)}</div><div class="meta"><span class="chip accent">Co tam vidět</span><span>→</span></div></div></button>`).join('')}</div>`;
   function renderExplore(root) {
     if (!root) return;
     ensureUi();
@@ -660,11 +669,13 @@
         <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">📍 Tady</button>
         <div class="field" style="margin:0"><label>Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}</select></div>
       </div><div class="ex-recent" id="exRecent" hidden></div></div>
-      <div id="exBody">${ex.place ? '' : `<div class="empty"><div class="ei">🗺️</div><h2 style="font-size:20px;margin-bottom:6px">Objev, co stojí za vidění</h2><p style="max-width:460px;margin:0 auto">Zadej libovolné místo na světě. Ukážu nejzajímavější památky, muzea, vyhlídky a výlety v okolí – s popisem, fotkou a mapou – a na přání z nich složím program na pár dní.</p></div>`}</div>
+      <div id="exBody">${ex.place ? '' : `<div class="empty"><div class="ei">🗺️</div><h2 style="font-size:20px;margin-bottom:6px">Objev, co stojí za vidění</h2><p style="max-width:460px;margin:0 auto">Zadej libovolné místo na světě. Ukážu nejzajímavější památky, muzea, vyhlídky a výlety v okolí – s popisem, fotkou a mapou – a na přání z nich složím program na pár dní.</p></div>${inspHtml()}`}</div>
       <button type="button" class="ex-back" id="exBack" hidden></button>`;
     wireExploreSearch(root);
     paintRecent();
     wireBack();
+    $$('[data-insp]', root).forEach(b => b.onclick = () => { const p = cleanPlace(INSP[+b.dataset.insp]); if (p) openPlace(p); });
+    if (window.Photos) Photos.paint(root);
     // Návrat do Objevuj: už načtený seznam se jen překreslí (žádný nový dotaz na server).
     if (ex.place && ex.loaded?.place === ex.place && !needsFetch(ex.loaded.radius, ex.radius)) paintExplore();
     else if (ex.place) loadExplore();

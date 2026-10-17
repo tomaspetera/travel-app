@@ -247,6 +247,8 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .dest[data-photo].ph{background:#0b1226 var(--ph) center/cover no-repeat}
 .dest[data-photo]::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,.28) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 50%,rgba(0,0,0,.3) 100%)}
 .dest[data-photo]:hover{border-color:transparent}
+button.dest{font:inherit;text-align:left;width:100%}
+.ex-insp-h{margin-top:8px}
 .dest[data-photo] .flag{position:absolute;top:12px;left:12px;width:42px;height:42px;display:grid;place-items:center;font-size:22px;border-radius:50%;
   background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.28);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .dest-panel{padding:12px 13px;border-radius:18px;background:rgba(10,14,30,.42);border:1px solid rgba(255,255,255,.2);box-shadow:0 10px 26px -14px rgba(0,0,0,.6);
@@ -268,9 +270,10 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .search-wide{flex:1;min-width:220px;position:relative}
 .search-wide svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted)}
 .search-wide input{padding-left:40px}
-.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;gap:3px}
-.seg button{border:none;background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:8px 13px;border-radius:9px;cursor:pointer;font-family:inherit;transition:.15s}
-.seg button.on{background:var(--surface-2);color:var(--text)}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px;gap:3px}
+.seg button{border:none;background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit;transition:.15s}
+/* vybraná volba plná jako v cestovních aplikacích (bílá v tmavém, tmavá ve světlém režimu) */
+.seg button.on{background:var(--text);color:var(--bg);box-shadow:0 4px 12px -6px rgba(0,0,0,.5)}
 
 /* ============ MAP ============ */
 .map-layout{display:grid;grid-template-columns:1fr 300px;gap:18px}
@@ -442,8 +445,15 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
   .hero{padding:20px 16px;margin-bottom:16px;border-radius:22px}.hero h1{font-size:23px}.hero p{display:none}
   .hero-search2{margin-top:14px}
   .stat-grid,#quickFlights,#dashRecs{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:43%;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding-bottom:6px;scrollbar-width:none}
-  #quickFlights,#dashRecs{grid-auto-columns:66%;gap:12px;margin:0 -16px;padding:2px 16px 12px;scroll-padding:0 16px}
+  #quickFlights,#dashRecs,.ex-insp{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:66%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:12px;margin:0 -16px;padding:2px 16px 12px;scroll-padding:0 16px}
+  .ex-insp>*{scroll-snap-align:start}
+  .ex-insp::-webkit-scrollbar{display:none}
   .dest[data-photo]{min-height:300px}
+  /* Země a Doporučení na telefonu ve dvou sloupcích: jen název, hlavní město, vstup a sezóna – popis až v detailu */
+  #countryGrid .dest[data-photo],#recGrid .dest[data-photo]{min-height:250px;padding:8px}
+  #countryGrid .dest[data-photo] .cblurb,#recGrid .dest[data-photo] .cblurb,#recGrid .dest[data-photo] .tags{display:none}
+  #countryGrid .dest-panel,#recGrid .dest-panel{padding:10px 10px}
+  #countryGrid .dest[data-photo] .cname,#recGrid .dest[data-photo] .cname{font-size:15px}
   .stat-grid>*,#quickFlights>*,#dashRecs>*{scroll-snap-align:start}
   .stat-grid::-webkit-scrollbar,#quickFlights::-webkit-scrollbar,#dashRecs::-webkit-scrollbar{display:none}
   .stat{padding:14px}.stat .val{font-size:26px}

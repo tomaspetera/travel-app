@@ -476,11 +476,21 @@
     const root = $('#tripRoot'); if (!root) return;
     const t = T();
     if (!t) {
-      root.innerHTML = `<div class="empty"><div class="ei">🧳</div><h2 style="font-size:20px;margin-bottom:6px">Zatím nesestavuješ žádnou cestu</h2>
-        <p style="max-width:460px;margin:0 auto 18px">Najdi let a u výsledku klikni na <b>Vybrat a pokračovat</b>. Pak ti nabídnu ubytování, auto, program na místě a spočítám celkovou cenu.</p>
-        <div class="row" style="justify-content:center;gap:10px;flex-wrap:wrap"><button class="btn primary" id="tripGoSearch">✈️ Hledat lety</button><button class="btn" id="tripGoExplore">🗺️ Jen objevovat místa</button></div></div>`;
+      // úvod jako cestovní aplikace: fotka, co průvodce umí po krocích, dvě tlačítka
+      root.innerHTML = `<div class="trip-intro">
+        <div class="card dest trip-hero" data-photo="Amalfi" style="--h:200"><div class="flag">🧳</div><div class="dest-panel"><div class="cname">Sestav si celou cestu</div>
+          <div class="cblurb">Let, ubytování, auto i program na místě – a celková cena na jednom místě.</div></div></div>
+        <ol class="trip-steps">
+          <li><span>✈️</span><div><b>Let</b><small>V Letech nebo radaru vyber nabídku a klikni na <b>Vybrat a pokračovat</b>.</small></div></li>
+          <li><span>🏨</span><div><b>Ubytování</b><small>Hotely s cenou na tvoje dny a odkazy na Booking, Airbnb a další.</small></div></li>
+          <li><span>🚗</span><div><b>Auto</b><small>Půjčení auta na místě – nebo jen veřejná doprava.</small></div></li>
+          <li><span>🗺️</span><div><b>Program</b><small>Co vidět den po dni, výlety, kolo i pěšky.</small></div></li>
+          <li><span>✅</span><div><b>Shrnutí</b><small>Celková cena, uložení do Plánovače a kalendáře.</small></div></li>
+        </ol>
+        <div class="trip-intro-act"><button class="btn primary" id="tripGoSearch">✈️ Hledat lety</button><button class="btn" id="tripGoExplore">🗺️ Jen objevovat místa</button></div></div>`;
       $('#tripGoSearch').onclick = () => go('flights');
       $('#tripGoExplore').onclick = () => go('explore');
+      if (window.Photos) Photos.paint(root);
       return;
     }
     const idx = STEPS.findIndex(s => s[0] === t.step);
