@@ -332,7 +332,8 @@ test('trasa vlakem / busem: cesta z letiště do města se nepočítá ve směru
   assert.deepEqual([k.arrival, k.transfers], [110 * 2, (700 + 900) * 2]);
   const h = render(c, t);
   assert.ok(h.includes('<td>Doprava z letiště do města (odhad)</td><td>220 Kč</td>'), h.slice(h.indexOf('Doprava'), h.indexOf('Doprava') + 80));
-  assert.ok(sp(render(c, { ...t, step: 'flight' })).includes(' + z letiště do města ~110 Kč/os. (bez úseku v přejezdech trasy)'));
+  // krok Let: řádek ceny na osobu s poznámkou, proč je nižší
+  assert.ok(sp(render(c, { ...t, step: 'flight' })).includes('<span>Z letiště do města<small>bez úseku v přejezdech trasy</small></span><b>~110 Kč</b>'));
   // první místo daleko od letiště: počítá se jen cesta z města na letiště
   const far = { ...t, route: { ...t.route, bases: [...t.route.bases].reverse(), legs: { arrival: t.route.legs.departure, departure: t.route.legs.arrival } } };
   assert.equal(c.window.Trip.costs(far).arrival, 110 * 2);

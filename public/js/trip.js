@@ -495,13 +495,14 @@
     }
     const idx = STEPS.findIndex(s => s[0] === t.step);
     root.innerHTML = `
-      <div class="trip-head card">
-        <div class="th-dest"><span class="th-flag">${flag(t.dest.cc)}</span><div><h2>${esc(t.dest.label)}</h2>
-          <div class="muted" id="thSub">${headSub(t)}</div></div></div>
+      <div class="trip-head card" data-photo="${esc(t.dest.label)}" style="--h:${window.ccHue ? ccHue(t.dest.cc) : 210}">
+        <span class="th-flag">${flag(t.dest.cc)}</span>
         <div class="th-total" id="thTotal">${headTotal(t)}</div>
+        <div class="th-dest"><h2>${esc(t.dest.label)}</h2><div class="th-sub" id="thSub">${headSub(t)}</div></div>
       </div>
-      <div class="stepbar">${STEPS.map((s, i) => `<button type="button" class="st ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${i < idx ? '✓' : s[1]}</span>${s[2]}</button>`).join('<i></i>')}</div>
+      <div class="stepbar">${STEPS.map((s, i) => `${i ? `<i${i <= idx ? ' class="done"' : ''}></i>` : ''}<button type="button" class="st ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${i < idx ? '✓' : s[1]}</span>${s[2]}</button>`).join('')}</div>
       <div id="tripStep"></div>`;
+    if (window.Photos) Photos.paint(root); // fotka cíle v hlavičce
     $$('.stepbar [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step));
     if (t.step === 'flight') flightStep();
     else if (t.step === 'route') routeStep();
@@ -529,9 +530,13 @@
 
   // Přestupy letu jako ve výsledcích („1× přestup (FRA 1 h 35 min)“) – ať je vidět i země „jen přestup“ z 🛂 Před cestou.
   const stopsTxt = l => (l.stops > 0 ? `${l.stops}× přestup${(l.layovers || []).length ? ` (${l.layovers.map(x => `${x.at || ''} ${x.min > 0 ? minutesToHm(x.min) : ''}`.trim()).join(', ')})` : ''}` : '');
+  // let jako v jízdence: den, velké časy s letišti a čára mezi nimi, pod tím aerolinka a přestupy
   function legLine(l, back) {
+    const meta = [l.carrierName, l.flightNo, l.stops > 0 ? stopsTxt(l) : l.stops === 0 ? 'přímý' : ''].filter(Boolean).join(' · ');
     return `<div class="tl-leg"><span class="cbadge" style="background:#5b8cff">${esc(l.carrier || '✈')}</span>
-      <b>${dayLbl(l.date)}</b> ${l.from} ${depHm(l) || '<span class="faint">čas ověř</span>'} → ${l.to} ${arrHm(l)} <span class="faint">${esc([l.carrierName, l.flightNo, stopsTxt(l)].filter(Boolean).join(' · '))}</span>${back ? '' : ''}</div>`;
+      <div class="tl-main"><div class="tl-day">${back ? '↩ Zpět' : 'Tam'} · ${dayLbl(l.date)}</div>
+        <div class="tl-route"><span><b>${depHm(l) || '–'}</b><small>${esc(l.from)}</small></span><i class="tl-line" aria-hidden="true"></i><span><b>${arrHm(l) || '–'}</b><small>${esc(l.to)}</small></span></div>
+        ${meta ? `<div class="tl-meta">${esc(meta)}</div>` : ''}${depHm(l) ? '' : '<div class="tl-meta">čas odletu ověř u aerolinky</div>'}</div></div>`;
   }
 
   // „Je to dobrá cena?“ u vybraného letu: úroveň ceny ze serveru, u živé nabídky (Ověřit) dopočítaná ze statistiky hledání;
@@ -597,13 +602,19 @@
     $$('.stepbar .st').forEach(b => b.classList.toggle('on', b.dataset.step === 'flight'));
     if (ovOn(t)) return overlandStep();
     const arr = arrivalCzk(t); // úsek, který nahradí auto půjčené na letišti, se nepočítá (jako v souhrnu)
-    host.innerHTML = `<div class="card step-card"><h3>✈️ Vybraný let</h3>
-      ${legLine(t.flight.out)}${t.flight.back ? legLine(t.flight.back, true) : ''}
-      <div class="muted" style="margin-top:8px;font-size:13px">Letenky ${czk(t.flight.flightCzk)}/os.${t.flight.bagCzk ? ` + zavazadla ~${czk(t.flight.bagCzk)}/os.` : ''}${t.flight.groundCzk ? ` + ${groundWhat(t)}${t.groundMode === 'car' && carFuelOk(t.carFuel) && t.carFuel !== 'ev' ? ` (${carFuelTxt(t)})` : ''} ${czk(t.flight.groundCzk)}/os.` : ''}${arr ? ` + ${arrivalWhat(t)} ~${czk(arr)}/os.${arr < t.flight.arrCzk ? (carCovers(t, 'out') || carCovers(t, 'back') ? ' (bez úseku autem)' : ' (bez úseku v přejezdech trasy)') : ''}` : ''}</div>
+    // ceny na osobu po řádcích (letenky, zavazadla, cesta na letiště, z letiště do města)
+    const cap = w => w[0].toUpperCase() + w.slice(1);
+    const costRows = [['Letenky', czk(t.flight.flightCzk)],
+      t.flight.bagCzk ? ['Zavazadla', `~${czk(t.flight.bagCzk)}`] : null,
+      t.flight.groundCzk ? [groundWhat(t, true), czk(t.flight.groundCzk), t.groundMode === 'car' && carFuelOk(t.carFuel) && t.carFuel !== 'ev' ? carFuelTxt(t) : ''] : null,
+      arr ? [cap(arrivalWhat(t)), `~${czk(arr)}`, arr < t.flight.arrCzk ? (carCovers(t, 'out') || carCovers(t, 'back') ? 'bez úseku autem' : 'bez úseku v přejezdech trasy') : ''] : null].filter(Boolean);
+    host.innerHTML = `<div class="card step-card tf-card"><h3>✈️ Vybraný let</h3>
+      <div class="tl-legs">${legLine(t.flight.out)}${t.flight.back ? legLine(t.flight.back, true) : ''}</div>
+      <div class="tf-costs">${costRows.map(r => `<div><span>${r[0]}${r[2] ? `<small>${r[2]}</small>` : ''}</span><b>${r[1]}</b></div>`).join('')}<div class="tf-pp">ceny na osobu</div></div>
       ${priceAgeHtml(t, 'tfAge')}
       ${t.arrival && t.arrival.out ? `<div class="faint" style="font-size:12.5px;margin-top:4px">${ARR_ICO[t.arrival.out.mode] || '🚌'} ${esc(arrivalRow(t.arrival.out))}${t.arrival.back && t.arrival.back.iata !== t.arrival.out.iata ? `<br>${ARR_ICO[t.arrival.back.mode] || '🚌'} ${esc(arrivalRow(t.arrival.back, true))}` : ''}</div>` : ''}
       <div id="tfPl">${priceRow(t)}</div>
-      <div class="row wrap" style="margin-top:14px;gap:8px"><button class="btn" id="tfBack">↩ Vybrat jiný let</button><button class="btn" id="tfVerify">🔄 Ověřit živou cenu a porovnat aerolinky</button><button class="btn primary" id="tfNext">Pokračovat →</button></div>
+      <div class="step-act"><button class="btn primary" id="tfNext">Pokračovat: Trasa →</button><div class="step-act2"><button class="btn" id="tfBack">↩ Jiný let</button><button class="btn" id="tfVerify" title="Ověřit živou cenu a porovnat aerolinky">🔄 Ověřit živou cenu</button></div></div>
       <div id="tfAlt"></div></div>${groundOffer(t)}`;
     $('#tfBack').onclick = () => go('flights');
     $('#tfNext').onclick = () => setStep('route');

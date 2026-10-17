@@ -133,6 +133,15 @@ function refreshStats() {
   const badge = $('#navBadge'); if (badge) badge.textContent = st.count;
   if ($('#mapPct')) {
     $('#mapPct').textContent = st.pct + ' %'; $('#mapBar').style.width = st.pct + '%'; $('#mapCount').textContent = st.count; $('#mapCont').textContent = st.conts;
+    const chip = $('#mapChip'), zemi = n => n >= 1 && n <= 4 ? 'země' : 'zemí';
+    if (chip) chip.innerHTML = `<span><b>${st.pct} %</b> světa · ${st.count} ${zemi(st.count)}</span><small>${st.count ? 'klepni na zemi pro detail' : 'klepni na zemi, kde jsi byl/a'}</small>`;
+    const vl = $('#visitedList');
+    if (vl) {
+      const v = [...visited].filter(i => byIso[i]).sort((a, b) => byIso[a].cs.localeCompare(byIso[b].cs, 'cs'));
+      vl.innerHTML = v.length ? v.map(i => `<button type="button" class="pill" data-vi="${i}">${flag(i)} ${esc(byIso[i].cs)}</button>`).join('')
+        : '<span class="faint">Zatím žádná – klepni na zemi v mapě a dej „Byl/a jsem tu“.</span>';
+      $$('[data-vi]', vl).forEach(b => b.onclick = () => openCountry(b.dataset.vi));
+    }
     $('#contBars').innerHTML = CONTS.map(c => { const tot = CONT_TOT[c] || 1; const n = [...visited].filter(i => byIso[i]?.cont === c).length; const p = Math.round(n / tot * 100); return `<div class="cont-row"><div class="ct"><span>${c}</span><b>${n}/${tot}</b></div><div class="progress"><span style="width:${p}%"></span></div></div>`; }).join('');
   }
 }
@@ -354,8 +363,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-17c';
+const WN_ID = '2026-10-17d';
 const WHATS_NEW = [
+  ['🗺️', 'Mapa a Cesta v novém', 'mapa přes celý rámeček se štítkem „procestováno“ a seznamem navštívených zemí; v Cestě fotka cíle nahoře, kroky s popisky a let jako jízdenka.'],
   ['✈️', 'Nové Lety', 'fotka cíle nahoře, Odkud a Kam s tlačítkem ⇅ (prohodí je), letiště v okolí v jednom řádku, velké tlačítko hledání a <b>Nápady, kam letět</b> s fotkami.'],
   ['📉', 'Zlevnilo – hned nahoře', 'když hlídaná cena klesne nebo je pod tvou cílovou cenou, uvidíš ji na Přehledu jako velkou kartu s fotkou a tlačítkem <b>Zobrazit lety</b>.'],
   ['🧭', 'Přehlednější telefon', 'dole jen 5 sekcí – Mapa a Země jsou spolu ve <b>Světě</b>; Plánovač, Doporučení, záloha a vzhled v menu ☰ nahoře. V Letech je délka pobytu a teplota pod <b>Upřesnit</b>.'],
