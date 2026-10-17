@@ -38,6 +38,7 @@ const TYPES = {
 };
 // Skutečný hrad, pevnost nebo zřícenina hradu – samotné „opevnění“ s typem věž (Prašná brána) je věž.
 const CASTLE_PROPER = ['Q23413', 'Q1785071', 'Q17715832'];
+const GATE = /\b(brána|gate|tor|porta|puerta|porte|barbakan|barbican|bastion|bašta|hradby|city walls?|stadtmauer)\b/i;
 const MUSEUM_NAME = /^(museo|museum|musée|muzeum|múzeum|museu|muzej|pinacoteca|galleria|gallery|galerie|galería)\b/i;
 // Když má místo víc typů, rozhoduje tohle pořadí (ne náhodné pořadí řádků SPARQL).
 const CAT_PRIORITY = ['castle', 'palace', 'zoo', 'theme', 'museum', 'gallery', 'church', 'oldtown', 'square', 'bridge', 'tower',
@@ -212,6 +213,9 @@ export function groupBindings(rows, center) {
     // brána nebo věž v hradbách s výstavou (Prašná brána) je věž, ne hrad ani dvouhodinové muzeum
     if (cats.has('castle') && cats.has('tower') && !has(CASTLE_PROPER)) cats.delete('castle');
     if (cats.has('tower') && cats.has('museum')) cats.delete('museum');
+    // městská brána, barbakan, bašta nebo hradby (jen „opevnění“, ne hrad ani pevnost) – krátká zastávka, ne prohlídka
+    // hradu na 1 h 40 min (živě: Floriánská brána a Barbakan v Krakově)
+    if (cats.has('castle') && !has(CASTLE_PROPER) && GATE.test(`${p.name} ${p.description}`)) { cats.delete('castle'); cats.add('monument'); }
     // muzeum nebo galerie v paláci, které nese jejich jméno (Museo Poldi Pezzoli, Pinacoteca di Brera) – jde se do
     // sbírek, ne na prohlídku paláce (ikona 🏛️ a čas na muzeum, ne 👑)
     if (cats.has('palace') && (cats.has('museum') || cats.has('gallery')) && MUSEUM_NAME.test(p.name)) cats.delete('palace');

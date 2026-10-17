@@ -361,14 +361,18 @@ test('tripsFromRows (živá data, Praha): část sériové památky UNESCO je je
   assert.equal(by['Žatec'].unesco, true);
 });
 
-test('groupBindings: muzeum v paláci se jménem muzea je muzeum (Museo Poldi Pezzoli), palác se sbírkou bez něj zůstane palácem', async () => {
+test('groupBindings: muzeum v paláci se jménem muzea je muzeum (Museo Poldi Pezzoli), palác se sbírkou bez něj palácem; městská brána památník, ne hrad', async () => {
   const { bindings } = await import('./fixtures/wikidata.js');
   const rows = bindings([
     ['Q1', 'Museo Poldi Pezzoli', 'muzeum v Miláně', 45.4686, 9.1932, 40, ['Q33506', 'Q16560'], [], []],
     ['Q2', 'Palazzo Rosso', 'palác v Janově', 44.4105, 8.9338, 40, ['Q16560', 'Q33506'], [], []],
+    // jen „opevnění“ (Q57821): městská brána je krátká zastávka, pevnost (Q1785071) zůstane hradem
+    ['Q3', 'Floriánská brána', 'brána v Krakově', 45.465, 9.19, 40, ['Q57821'], [], []],
+    ['Q4', 'Barbakan', 'hradební brána v Krakově', 45.466, 9.19, 40, ['Q57821'], [], []],
+    ['Q5', 'Pevnost Špilberk', 'pevnost v Brně', 45.467, 9.19, 40, ['Q1785071', 'Q57821'], [], []],
   ]);
   const by = Object.fromEntries(groupBindings(rows, { lat: 45.46, lon: 9.19 }).map((p) => [p.name, p.category]));
-  assert.deepEqual(by, { 'Museo Poldi Pezzoli': 'museum', 'Palazzo Rosso': 'palace' });
+  assert.deepEqual(by, { 'Museo Poldi Pezzoli': 'museum', 'Palazzo Rosso': 'palace', 'Floriánská brána': 'monument', Barbakan: 'monument', 'Pevnost Špilberk': 'castle' });
 });
 
 test('unescoSites: část sériové památky se pozná i podle čísla části, když v okruhu leží jen jedna (živě: Nizza Monferrato = 1390rev-004)', async () => {
