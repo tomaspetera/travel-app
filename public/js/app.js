@@ -65,13 +65,17 @@ function ico(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
 function buildNav() {
   // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js).
   $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
-  // Na mobilu hlavní sekce + „Více“ (mapa, země, doporučení).
-  const MOBILE = ['dashboard', 'flights', 'trip', 'explore', 'planner'];
+  // Na mobilu pět sekcí: Přehled, Lety, Cesta, Objevuj a Svět (mapa a země s přepínačem nahoře).
+  // Plánovač, Doporučení, záloha, motiv a instalace jsou v menu ☰ v horní liště.
+  const MOBILE = ['dashboard', 'flights', 'trip', 'explore'];
   $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}" title="${n[1]}" aria-label="${n[1]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden></i>' : ''}</div>`).join('')
-    + `<div class="mi" id="moreNav" title="Více" aria-label="Více">${ico('M5 12h.01M12 12h.01M19 12h.01')}<span>Více</span></div>`;
+    + `<div class="mi" id="worldNav" title="Svět" aria-label="Svět – mapa a země">${ico(NAV.find(n => n[0] === 'countries')[3])}<span>Svět</span></div>`;
   $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
-  $('#moreNav').onclick = () => {
-    modalOpen(`<div class="modal-body"><h3 style="margin-bottom:12px">Další sekce</h3><div class="more-nav">${NAV.filter(n => !MOBILE.includes(n[0])).map(n => `<button type="button" class="btn ghost" data-mv="${n[0]}" style="justify-content:flex-start;width:100%;margin-bottom:8px">${ico(n[3])} ${n[1]} <span class="faint" style="font-weight:400;margin-left:6px">${n[2]}</span></button>`).join('')}</div></div>`);
+  $('#worldNav').onclick = () => go(WORLD_VIEWS.includes(activeView) ? activeView : lastWorld);
+  $$('.world-tabs [data-w]').forEach(b => b.onclick = () => go(b.dataset.w, { keepScroll: true }));
+  $('#menuBtn').onclick = () => {
+    const MENU = ['planner', 'recommend'];
+    modalOpen(`<div class="modal-body"><h3 style="margin-bottom:12px">Menu</h3><div class="more-nav">${NAV.filter(n => MENU.includes(n[0])).map(n => `<button type="button" class="btn ghost" data-mv="${n[0]}" style="justify-content:flex-start;width:100%;margin-bottom:8px">${ico(n[3])} ${n[1]} <span class="faint" style="font-weight:400;margin-left:6px">${n[2]}</span></button>`).join('')}</div></div>`);
     $$('[data-mv]').forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
     if (window.Backup) {
       $('.more-nav', $('#modal')).insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk" style="justify-content:flex-start;width:100%;margin-bottom:8px">💾 Přenos a záloha <span class="faint" style="font-weight:400;margin-left:6px">PC ↔ telefon, záloha do souboru</span></button>`);
@@ -83,12 +87,15 @@ function buildNav() {
     if (window.Pwa) Pwa.addToMenu($('.more-nav', $('#modal'))); // 📲 Přidat ATLAS na plochu (pwa.js)
   };
 }
+const WORLD_VIEWS = ['map', 'countries'];
+let lastWorld = 'map';
 function go(v, opts = {}) {
   activeView = v;
   if (v !== 'dashboard') nowAsk = false;
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
   $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === v));
-  $$('.mobile-nav .mi').forEach(el => el.classList.toggle('active', el.dataset.view === v || (el.id === 'moreNav' && ['map', 'countries', 'recommend'].includes(v))));
+  $$('.mobile-nav .mi').forEach(el => el.classList.toggle('active', el.dataset.view === v || (el.id === 'worldNav' && WORLD_VIEWS.includes(v))));
+  if (WORLD_VIEWS.includes(v)) { lastWorld = v; $$('.world-tabs [data-w]').forEach(b => { b.classList.toggle('on', b.dataset.w === v); b.setAttribute('aria-pressed', String(b.dataset.w === v)); }); }
   const n = NAV.find(x => x[0] === v); $('#pageTitle').textContent = n[1]; $('#pageSub').textContent = n[2];
   if (!opts.keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
   if (location.hash.slice(1) !== v && !opts.noHash) history.replaceState(null, '', '#' + v);
@@ -139,7 +146,7 @@ const inDays = d => (d === 1 ? 'zítra' : `za ${d} ${d <= 4 ? 'dny' : 'dní'}`);
 function nextTripStat() {
   const now = todayLocal();
   const next = S.trips.map((t, i) => ({ t, i })).filter(x => x.t.start && (x.t.end || x.t.start) >= now).sort((a, b) => a.t.start.localeCompare(b.t.start))[0];
-  if (!next) return ['Naplánované cesty', `${S.trips.length}`, S.trips.length ? 'Mrkni do plánovače' : 'Začni plánovat', ''];
+  if (!next) return ['Naplánované cesty', `${S.trips.length}`, S.trips.length ? 'Mrkni do plánovače' : 'Začni plánovat', '<button type="button" class="linkbtn nt-open" data-gop>Otevřít plánovač →</button>'];
   const t = next.t, d = daysTo(now, t.start);
   const todo = (t.checklist || []).filter(x => !x.done && /^Zařídit/i.test(x.t || '')).length;
   const when = d <= 0 ? 'právě probíhá' : inDays(d);
@@ -347,8 +354,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-16e';
+const WN_ID = '2026-10-17a';
 const WHATS_NEW = [
+  ['🧭', 'Přehlednější telefon', 'dole jen 5 sekcí – Mapa a Země jsou spolu ve <b>Světě</b>; Plánovač, Doporučení, záloha a vzhled v menu ☰ nahoře. V Letech je délka pobytu a teplota pod <b>Upřesnit</b>.'],
   ['📱', 'Nový vzhled', 'radar jako velké karty s fotkou města (na telefonu posun prstem do strany), plovoucí spodní lišta, okna zespodu – zavřeš je stažením dolů.'],
   ['⚙️', 'Výsledky hned nahoře', 'na mobilu jsou filtry, řazení a „Odkud se vyplatí letět“ pod tlačítkem ⚙️ Filtry; formulář se po hledání sbalí (✎ Upravit).'],
   ['📌', 'Odložené nabídky', '„📌 Odložit“ u nabídky nebo v ⋯ na kartě – pak <b>Porovnat</b> vedle sebe a 📤 poslat k výběru.'],
@@ -393,6 +401,7 @@ function renderDashStats() {
   bindDest('#dashRecs');
   Photos.paint($('#dashRecs'));
   $$('[data-nt]').forEach(b => b.onclick = () => { go('planner'); setTimeout(() => openTrip(+b.dataset.nt), 250); });
+  $$('[data-gop]').forEach(b => b.onclick = () => go('planner'));
 }
 
 /* ================= DEST CARD ================= */
