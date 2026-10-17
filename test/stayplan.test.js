@@ -325,3 +325,13 @@ test('POST /api/stayplan: přepočty mají vlastní limit na IP – nad ním 200
     await new Promise((r) => server.close(r));
   }
 });
+
+test('suggestRoute (živá data, okolí Vídně, 9 nocí): bez kličkování – Brno, Bratislava a Rust do okruhu, ne Semmering na jih a pak 200 km na sever', () => {
+  const VIE_TOWNS = [['Q14960', 'Brno', 49.1953, 16.6083, 99.1, 'CZ'], ['Q1780', 'Bratislava', 48.1517, 17.1093, 90.3, 'SK'], ['Q659891', 'Semmering', 47.6469, 15.83, 82.2, 'AT'],
+    ['Q259214', 'Rust', 47.8008, 16.6758, 76.8, 'AT'], ['Q134494', 'Győr', 47.6842, 17.6344, 65.3, 'HU'], ['Q82500', 'St. Pölten', 48.2, 15.6167, 64.7, 'AT'],
+    ['Q126321', 'Eisenstadt', 47.8456, 16.5232, 64.7, 'AT'], ['Q270704', 'Třebíč', 49.215, 15.8817, 64.5, 'CZ'], ['Q26175', 'Trnava', 48.3778, 17.5862, 62.8, 'SK']]
+    .map(([id, name, lat, lon, score, cc]) => T(id, name, lat, lon, score, { cc }));
+  const VIE = { id: 'city:VIE', name: 'Vídeň', lat: 48.2082, lon: 16.3738, cc: 'AT', country: 'Rakousko' };
+  const r = suggestRoute(VIE_TOWNS, { arrival: VIE, departureCity: null, depAirport: { iata: 'VIE', lat: 48.1103, lon: 16.5697 }, nights: 9, transport: 'car', times: transferEstimate });
+  assert.deepEqual(r.bases.map((b) => b.name), ['Vídeň', 'Brno', 'Bratislava', 'Rust']);
+});

@@ -215,7 +215,10 @@ export async function geocode(query) {
   if (config.mock) return localCityCenters(q);
   return cache.wrap(`geo:${normalize(q)}`, 7 * 864e5, async () => {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=cs&format=json`;
-    const j = await request(url, { timeoutMs: 6000, retries: 0 });
+    // občasná 502 Open-Meteo (živě 10/2026: Objevuj „Krakov“ nic nenašel, o chvíli později v pořádku) – jednou znovu;
+    // timeout ne (hledání by trvalo dvakrát tak dlouho)
+    const get = () => request(url, { timeoutMs: 6000, retries: 0 });
+    const j = await get().catch((e) => (e.status >= 500 ? new Promise((r) => setTimeout(r, 400)).then(get) : Promise.reject(e)));
     return (j.results || []).map((r) => ({
       id: `geo:${r.latitude.toFixed(4)},${r.longitude.toFixed(4)}|${r.name}`,
       type: 'place', label: r.name, flag: flag(r.country_code),

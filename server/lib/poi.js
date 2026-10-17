@@ -38,6 +38,8 @@ const TYPES = {
 };
 // Skutečný hrad, pevnost nebo zřícenina hradu – samotné „opevnění“ s typem věž (Prašná brána) je věž.
 const CASTLE_PROPER = ['Q23413', 'Q1785071', 'Q17715832'];
+const GATE = /\b(brána|gate|tor|porta|puerta|porte|barbakan|barbican|bastion|bašta|hradby|city walls?|stadtmauer)\b/i;
+const MUSEUM_NAME = /^(museo|museum|musée|muzeum|múzeum|museu|muzej|pinacoteca|galleria|gallery|galerie|galería)\b/i;
 // Když má místo víc typů, rozhoduje tohle pořadí (ne náhodné pořadí řádků SPARQL).
 const CAT_PRIORITY = ['castle', 'palace', 'zoo', 'theme', 'museum', 'gallery', 'church', 'oldtown', 'square', 'bridge', 'tower',
   'viewpoint', 'ruins', 'monument', 'market', 'theatre', 'park', 'garden', 'beach', 'nature', 'sight'];
@@ -211,6 +213,12 @@ export function groupBindings(rows, center) {
     // brána nebo věž v hradbách s výstavou (Prašná brána) je věž, ne hrad ani dvouhodinové muzeum
     if (cats.has('castle') && cats.has('tower') && !has(CASTLE_PROPER)) cats.delete('castle');
     if (cats.has('tower') && cats.has('museum')) cats.delete('museum');
+    // městská brána, barbakan, bašta nebo hradby (jen „opevnění“, ne hrad ani pevnost) – krátká zastávka, ne prohlídka
+    // hradu na 1 h 40 min (živě: Floriánská brána a Barbakan v Krakově)
+    if (cats.has('castle') && !has(CASTLE_PROPER) && GATE.test(`${p.name} ${p.description}`)) { cats.delete('castle'); cats.add('monument'); }
+    // muzeum nebo galerie v paláci, které nese jejich jméno (Museo Poldi Pezzoli, Pinacoteca di Brera) – jde se do
+    // sbírek, ne na prohlídku paláce (ikona 🏛️ a čas na muzeum, ne 👑)
+    if (cats.has('palace') && (cats.has('museum') || cats.has('gallery')) && MUSEUM_NAME.test(p.name)) cats.delete('palace');
     // Konkrétní typ (most, kostel, hrad…) vyhrává nad obecným „silnice/ulice“ (Karlův most je i silnice).
     const specific = CAT_PRIORITY.find((c) => c !== 'sight' && cats.has(c));
     const known = (p.heritage || types.includes(TOURIST_DEST)) && p.sitelinks >= 25;
@@ -599,7 +607,16 @@ export function unescoSites(rows) {
     .filter((u) => u.name && !/^Q\d+$/.test(u.name) && Number.isFinite(u.lat) && Number.isFinite(u.lon));
   const parts = new Map();
   for (const u of list) parts.set(u.site, (parts.get(u.site) || new Set()).add(u.id));
-  return list.map((u) => ({ ...u, serial: u.site !== '' && parts.get(u.site).size > 3 }));
+  // Číslo části („1390rev-004“ = 4. část) prozradí sériovou památku, i když v okruhu dotazu leží jen pár jejích částí:
+  // vinařská krajina Piemontu, kůlová obydlí v Alpách (111 částí) – jinak by malá obec dostala bonus celé památky
+  // (Nizza Monferrato před Parmou v návrhu trasy, živě 10/2026).
+  const maxPart = new Map();
+  for (const r of rows) {
+    const [site, part] = String(val(r, 'whs') || '').split('-');
+    const n = /^\d{1,3}$/.test(part || '') ? Number(part) : 0; // „1558-2023“ = rok rozšíření, ne část
+    if (site && n > (maxPart.get(site) || 0)) maxPart.set(site, n);
+  }
+  return list.map((u) => ({ ...u, serial: u.site !== '' && (parts.get(u.site).size > 3 || (maxPart.get(u.site) || 0) >= 4) }));
 }
 const unescoQuery = (lat, lon) => cache.wrap(`wdqs-unesco:${lat.toFixed(1)}:${lon.toFixed(1)}`, 30 * 864e5, async () => {
   const q = sparqlUnesco(lat, lon, 125, localLang(lat, lon));

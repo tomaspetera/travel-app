@@ -130,10 +130,11 @@ export function suggestRoute(candidates, opts) {
   }
   if (D) pool.push(D);
   const dep = opts.depAirport || null;
-  // Hodnota trasy: součet skóre míst minus čas přejezdů (12 min ≈ 1 bod); v den odletu je
-  // cesta na letiště nad hodinu na úkor času před odletem, proto se počítá víc.
+  // Hodnota trasy: součet skóre míst minus čas přejezdů (~8 min ≈ 1 bod – s 12 min trasa kličkovala: Vídeň →
+  // Semmering → Brno → Bratislava, Milán → Brescia → Janov); v den odletu je cesta na letiště nad hodinu na úkor
+  // času před odletem, proto se počítá víc.
   const value = (seq) => seq.reduce((s, b) => s + b.score, 0)
-    - 0.08 * seq.slice(1).reduce((s, b, i) => s + mins(seq[i], b), 0)
+    - 0.12 * seq.slice(1).reduce((s, b, i) => s + mins(seq[i], b), 0)
     - (dep ? 0.12 * Math.max(0, mins(seq.at(-1), dep) - 60) : 0);
   // Všechna pořadí k míst (A první, každý přejezd do limitu, poslední v dosahu letiště odletu).
   const search = (k, limit) => {

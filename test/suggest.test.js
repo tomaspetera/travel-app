@@ -115,3 +115,20 @@ test('suggest: kódy letišť malými, cizí názvy měst, malá turistická mí
     config.mock = mock;
   }
 });
+
+test('geocode: občasná chyba 5xx Open-Meteo → jednou znovu; 4xx ne', async () => {
+  const { geocode } = await import('../server/lib/places.js');
+  let n = 0;
+  let status = 502;
+  const stub = stubFetch(() => (++n === 1 ? { status, body: 'x' } : { body: { results: [{ name: 'Krakov', latitude: 50.06, longitude: 19.94, country_code: 'PL', id: 3094802 }] } }));
+  try {
+    assert.equal((await geocode('Krakov-test-5xx'))[0].label, 'Krakov');
+    assert.equal(n, 2);
+    n = 0;
+    status = 400;
+    await assert.rejects(geocode('Krakov-test-4xx'));
+    assert.equal(n, 1);
+  } finally {
+    stub.restore();
+  }
+});
