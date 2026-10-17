@@ -2159,7 +2159,7 @@
     const fly = isFly(t);
     const flightLinks = f.bookUrl ? [[f.combined ? `Koupit letenky (${provLabel(f.provider)})` : 'Koupit letenky', f.bookUrl]]
       // cesta přes víc měst: každý let je samostatná letenka
-      : fly ? allLegs(t).map((l, i) => [`${i + 1}. letenka: ${l.from} → ${l.to} ${fmtDate(l.date)} (${l.carrierName || l.provider})`, l.bookUrl])
+      : fly ? allLegs(t).map(l => [`Letenka ${l.from} → ${l.to} ${fmtDate(l.date)} (${l.carrierName || l.provider})`, l.bookUrl])
       : [[`Letenka tam (${f.out.carrierName || f.out.provider})`, f.out.bookUrl], ...(f.back ? [[`Letenka zpět (${f.back.carrierName || f.back.provider})`, f.back.bookUrl]] : [])];
     // Vlak/bus: jízdenka tam a zpět (RegioJet u vybraného spoje, jinak první odkaz – RegioJet, FlixBus, IDOS).
     const groundSteps = ov ? [[ov.out, 'tam', ov.from.label, ov.to.label, ov.links && ov.links.out], [ov.back, 'zpět', ov.to.label, ov.from.label, ov.links && ov.links.back]]
