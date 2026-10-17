@@ -403,3 +403,12 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
   .stepbar i{margin-top:16px;min-width:3px}
   .tl-route b{font-size:18px}
 }
+/* kroky průvodce na telefonu: hlavní „Pokračovat“ přes celou šířku, filtry ubytování v méně řádcích */
+@media(max-width:560px){
+  #rtNext,#stayNext,#carNext,#progNext{width:100%;min-height:52px;border-radius:18px;font-size:15.5px;justify-content:center}
+  .stay-tools select{min-width:0}
+  .stay-tools #staySort{flex:1 1 100%}
+  .stay-tools #stayType{flex:1 1 40%}
+  .stay-tools #stayMax{flex:1 1 30%;max-width:none !important}
+  .stay-tools>.faint{flex:1 1 100%}
+}

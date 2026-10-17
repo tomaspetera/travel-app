@@ -363,8 +363,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-17d';
+const WN_ID = '2026-10-17e';
 const WHATS_NEW = [
+  ['📅', 'Plánovač a Objevuj', 'cesty jako karty s fotkou cíle a štítkem „za 12 dní“; Objevuj s fotkou nahoře a hledáním na ní.'],
   ['🗺️', 'Mapa a Cesta v novém', 'mapa přes celý rámeček se štítkem „procestováno“ a seznamem navštívených zemí; v Cestě fotka cíle nahoře, kroky s popisky a let jako jízdenka.'],
   ['✈️', 'Nové Lety', 'fotka cíle nahoře, Odkud a Kam s tlačítkem ⇅ (prohodí je), letiště v okolí v jednom řádku, velké tlačítko hledání a <b>Nápady, kam letět</b> s fotkami.'],
   ['📉', 'Zlevnilo – hned nahoře', 'když hlídaná cena klesne nebo je pod tvou cílovou cenou, uvidíš ji na Přehledu jako velkou kartu s fotkou a tlačítkem <b>Zobrazit lety</b>.'],
@@ -762,10 +763,12 @@ function renderPlanner() {
   const fromPick = () => newTrip(null, { dest: pick.dest, iso: pick.iso, start: pick.start, end: pick.end, pax: pick.pax, budget: pick.budget, flight: pick.flight });
   const pickTxt = pick ? `${esc(pick.dest)} · ${fmtDate(pick.start)}${pick.end ? '–' + fmtDate(pick.end) : ''} · ${pick.czk.toLocaleString('cs')} Kč/os.` : '';
   if (!S.trips.length) {
-    host.innerHTML = `${bkTools()}<div class="empty"><div class="ei">${ico('M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z')}</div><h2 style="font-size:20px;margin-bottom:6px">Zatím žádná cesta</h2><p style="max-width:420px;margin:0 auto 18px">Naplánuj si itinerář, ubytování i rozpočet na jednom místě. Cestu můžeš vytvořit i přímo z nalezeného letu (Vybrat a pokračovat → 💾 Uložit do plánovače).</p>
+    host.innerHTML = `${bkTools()}<div class="plan-empty"><div class="card dest plan-hero" data-photo="${esc(window.heroPlace ? heroPlace(3) : 'Santorini')}" style="--h:200"><div class="flag">📅</div><div class="dest-panel"><div class="cname">Zatím žádná cesta</div>
+      <div class="cblurb">Program, ubytování, rozpočet i balení na jednom místě – nebo ji ulož z nalezeného letu.</div></div></div>
       ${pick ? `<div class="plan-last"><span class="faint">✈️ Poslední hledání</span><b>${pickTxt}</b></div>` : ''}
       <div class="plan-empty-act">${pick ? `<button class="btn primary" id="emptyLast">✈️ Vytvořit cestu z posledního hledání</button><button class="btn" id="emptyNew">${ico('M12 5v14M5 12h14')} Prázdná cesta</button>`
         : `<button class="btn primary" id="emptyNew">${ico('M12 5v14M5 12h14')} Nová cesta</button><button class="btn" id="emptyFind">✈️ Nejdřív najít let</button>`}</div></div>`;
+    Photos.paint(host);
     $('#emptyNew').onclick = () => newTrip();
     if (pick) $('#emptyLast').onclick = fromPick; else $('#emptyFind').onclick = () => go('flights');
     bkWire(); return;
@@ -777,12 +780,21 @@ function renderPlanner() {
   host.innerHTML = `${bkTools()}<div class="trip-grid">${coming.map(x => tripCard(x.t, x.i)).join('')}<div class="card new-trip" id="newTripTile"><div class="plus">${ico('M12 5v14M5 12h14')}</div><div style="font-weight:700">Nová cesta</div></div>${pick ? `<div class="card new-trip" id="lastTripTile"><div class="plus">✈️</div><div style="font-weight:700">Z posledního hledání</div><div class="faint" style="font-size:12.5px;margin-top:2px">${pickTxt}</div></div>` : ''}</div>${past.length ? `<div class="section-head"><h2>Proběhlé cesty</h2></div><div class="trip-grid past">${past.map(x => tripCard(x.t, x.i)).join('')}</div>` : ''}`;
   $$('.trip[data-ti]').forEach(el => el.onclick = () => openTrip(+el.dataset.ti));
   $('#newTripTile').onclick = () => newTrip();
+  Photos.paint(host);
   if (pick) $('#lastTripTile').onclick = fromPick;
   bkWire();
 }
+// kdy cesta je: „za 12 dní“, „právě probíhá“, „proběhla“ (bez data nic)
+function tripWhen(t) {
+  if (!t.start) return '';
+  const now = todayLocal(), d = daysTo(now, t.start);
+  if ((t.end || t.start) < now) return 'proběhla';
+  return d <= 0 ? 'právě probíhá' : inDays(d);
+}
 function tripCard(t, i) {
   const c = t.iso ? byIso[t.iso] : null, warm = c && c.cost >= 4, na = t.days ? Object.values(t.days).flat().length : 0;
-  return `<div class="card trip" data-ti="${i}"><div class="trip-top ${warm ? 'warm' : ''}"><div class="tt-name">${esc(t.name)}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? '–' + fmtDate(t.end) : '') : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os.</span><span>${t.budget ? (+t.budget).toLocaleString('cs') + ' Kč' : 'rozpočet —'}</span></div>${t.flight ? `<div class="faint" style="font-size:12px;margin-bottom:4px">${esc(planTransport(t.flight))}</div>` : ''}<div class="muted" style="font-size:12.5px">${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</div></div></div>`;
+  const photo = t.place?.label || (t.dest && t.dest !== '—' ? String(t.dest).split(',')[0] : '') || c?.cs || '', when = tripWhen(t);
+  return `<div class="card trip" data-ti="${i}"><div class="trip-top ${warm ? 'warm' : ''}"${photo ? ` data-photo="${esc(photo)}" style="--h:${ccHue(t.iso || photo)}"` : ''}>${when ? `<span class="tt-when">${when}</span>` : ''}<div class="tt-name">${esc(t.name)}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? '–' + fmtDate(t.end) : '') : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os.</span><span>${t.budget ? (+t.budget).toLocaleString('cs') + ' Kč' : 'rozpočet —'}</span></div>${t.flight ? `<div class="faint" style="font-size:12px;margin-bottom:4px">${esc(planTransport(t.flight))}</div>` : ''}<div class="muted" style="font-size:12.5px">${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</div></div></div>`;
 }
 function newTrip(c, pre = {}) {
   const dest = pre.dest || (c ? c.cs : '');
