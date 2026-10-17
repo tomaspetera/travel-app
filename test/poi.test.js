@@ -361,6 +361,14 @@ test('tripsFromRows (živá data, Praha): část sériové památky UNESCO je je
   assert.equal(by['Žatec'].unesco, true);
 });
 
+test('unescoSites: část sériové památky se pozná i podle čísla části, když v okruhu leží jen jedna (živě: Nizza Monferrato = 1390rev-004)', async () => {
+  const { unescoSites } = await import('../server/lib/poi.js');
+  const row = (id, name, whs) => ({ item: { value: `http://www.wikidata.org/entity/${id}` }, itemLabel: { value: name }, lat: { value: '44.77' }, lon: { value: '8.35' }, whs: { value: whs } });
+  const s = (rows) => Object.fromEntries(unescoSites(rows).map((u) => [u.name, u.serial]));
+  assert.deepEqual(s([row('Q1', 'Nizza Monferrato', '1390rev-004'), row('Q2', 'Castelseprio', '1318-003'), row('Q3', 'Žatec a krajina', '1558-2023'), row('Q4', 'Ivrea', '1538')]),
+    { 'Nizza Monferrato': true, Castelseprio: false, 'Žatec a krajina': false, Ivrea: false }, '4. část = aspoň 4 části; rok za pomlčkou není část');
+});
+
 test('groupBindings (živá data): park Güell, Sant Pau, Barri Gòtic, kláštery; stadion a hotel níž, kavárna na půl hodiny', async () => {
   const { BCN_CITY, LIS_CITY, PRA_CITY } = await import('./fixtures/wikidata.js');
   const places = [

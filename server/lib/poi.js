@@ -599,7 +599,16 @@ export function unescoSites(rows) {
     .filter((u) => u.name && !/^Q\d+$/.test(u.name) && Number.isFinite(u.lat) && Number.isFinite(u.lon));
   const parts = new Map();
   for (const u of list) parts.set(u.site, (parts.get(u.site) || new Set()).add(u.id));
-  return list.map((u) => ({ ...u, serial: u.site !== '' && parts.get(u.site).size > 3 }));
+  // Číslo části („1390rev-004“ = 4. část) prozradí sériovou památku, i když v okruhu dotazu leží jen pár jejích částí:
+  // vinařská krajina Piemontu, kůlová obydlí v Alpách (111 částí) – jinak by malá obec dostala bonus celé památky
+  // (Nizza Monferrato před Parmou v návrhu trasy, živě 10/2026).
+  const maxPart = new Map();
+  for (const r of rows) {
+    const [site, part] = String(val(r, 'whs') || '').split('-');
+    const n = /^\d{1,3}$/.test(part || '') ? Number(part) : 0; // „1558-2023“ = rok rozšíření, ne část
+    if (site && n > (maxPart.get(site) || 0)) maxPart.set(site, n);
+  }
+  return list.map((u) => ({ ...u, serial: u.site !== '' && (parts.get(u.site).size > 3 || (maxPart.get(u.site) || 0) >= 4) }));
 }
 const unescoQuery = (lat, lon) => cache.wrap(`wdqs-unesco:${lat.toFixed(1)}:${lon.toFixed(1)}`, 30 * 864e5, async () => {
   const q = sparqlUnesco(lat, lon, 125, localLang(lat, lon));
