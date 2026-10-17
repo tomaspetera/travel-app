@@ -969,7 +969,7 @@
 
   function buildForm() {
     fromInput = new PlaceInput($('#fromInput'), { origin: true, placeholder: 'Např. Brno, Vídeň, Česko, Jihlava…', onChange: () => { refreshOrigins(); updateHomeChip(); mlHomeChanged(); formEdited(); } });
-    toInput = new PlaceInput($('#toInput'), { placeholder: 'Kamkoliv 🌍 – město, země, nebo „k moři v květnu“', onChange: () => { syncFormUI(); formEdited(); }, near: () => (fromInput.items[0] && fromInput.items[0].id) || (S.home && S.home.from && S.home.from[0] && S.home.from[0].id) || '',
+    toInput = new PlaceInput($('#toInput'), { placeholder: 'Kamkoliv 🌍, nebo „k moři v květnu“', onChange: () => { syncFormUI(); formEdited(); }, near: () => (fromInput.items[0] && fromInput.items[0].id) || (S.home && S.home.from && S.home.from[0] && S.home.from[0].id) || '',
       smart: { run: hit => smartRun(hit, fromInput.items), tips: () => smartTips(() => fromInput.items) } });
     // ⇅ prohodit Odkud a Kam (světadíl do Odkud nejde)
     $('#swapBtn').onclick = () => {

@@ -406,12 +406,15 @@ function renderDashStats() {
   const st = stats(); const m = new Date().getMonth() + 1;
   const topRec = scoreCountries(m, {}).filter(r => !visited.has(r.c.iso2))[0];
   const w = (S.watch || []).length;
-  $('#statGrid').innerHTML = [
-    ['Navštívené země', `${st.count}<small> / ${TOT}</small>`, `${st.pct}% světa`, `<div class="progress"><span style="width:${st.pct}%"></span></div>`],
-    ['Hlídané ceny', `<span id="watchStatVal">${w}</span>`, `<span id="watchStatSub">${window.Flights ? Flights.watchStatTxt() : ''}</span>`, ''],
-    nextTripStat(),
-    ['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs : '', ''],
-  ].map(s => `<div class="card stat"><div class="lab">${s[0]}</div><div class="val">${s[1]}</div><div class="sub">${s[2]}</div>${s[3] || ''}</div>`).join('');
+  // jen dlaždice, ve kterých něco je (nový uživatel neuvidí řadu nul); bez nich ani tip měsíce – ten je níž v Tipech
+  const tiles = [
+    st.count ? ['Navštívené země', `${st.count}<small> / ${TOT}</small>`, `${st.pct}% světa`, `<div class="progress"><span style="width:${st.pct}%"></span></div>`] : null,
+    w ? ['Hlídané ceny', `<span id="watchStatVal">${w}</span>`, `<span id="watchStatSub">${window.Flights ? Flights.watchStatTxt() : ''}</span>`, ''] : null,
+    S.trips.length ? nextTripStat() : null,
+  ].filter(Boolean);
+  if (tiles.length) tiles.push(['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs : '', '']);
+  $('#statGrid').hidden = !tiles.length;
+  $('#statGrid').innerHTML = tiles.map(s => `<div class="card stat"><div class="lab">${s[0]}</div><div class="val">${s[1]}</div><div class="sub">${s[2]}</div>${s[3] || ''}</div>`).join('');
   const recs = scoreCountries(m, {}).filter(r => !visited.has(r.c.iso2)).slice(0, 4);
   paintHero();
   $('#dashRecs').innerHTML = recs.map(r => destCard(r.c, r.score)).join('');
