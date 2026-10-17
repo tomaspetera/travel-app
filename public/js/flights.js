@@ -3123,7 +3123,9 @@
   // nové cíle přibudou na svém místě – jednorázově { W, scale, translate, z }.
   let mapKeep = null;
   async function drawResultMap(groups) {
-    const el = $('#resMap'); if (!el || typeof d3 === 'undefined') return;
+    if (!$('#resMap')) return;
+    if (typeof d3 === 'undefined' || typeof topojson === 'undefined') { try { await window.loadD3(); } catch (e) { return; } } // mapové knihovny až teď
+    const el = $('#resMap'); if (!el) return;
     const keep = mapKeep; mapKeep = null;
     const world = await loadWorld();
     const feats = topojson.feature(world, world.objects.countries).features;

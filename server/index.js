@@ -2,7 +2,7 @@
 // ATLAS server – API pro vyhledávání letenek + statický frontend z public/.
 // Spuštění: node server/index.js   (Node 20+, žádné závislosti)
 import http from 'node:http';
-import { createReadStream, statSync } from 'node:fs';
+import { createReadStream, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { config } from './config.js';
@@ -45,6 +45,18 @@ const MIME = {
 function wantsGzip(req) {
   return /\bgzip\b/.test(req.headers['accept-encoding'] || '');
 }
+function wantsBr(req) {
+  return /\bbr\b/.test(req.headers['accept-encoding'] || '');
+}
+// Zkomprimované soubory aplikace v paměti (brotli / gzip jednou na verzi souboru): menší přenos na mobilu a rychlejší
+// odpověď – soubor se nekomprimuje znovu při každém otevření.
+const packed = new Map();
+function packedBody(file, st, enc) {
+  let p = packed.get(file);
+  if (!p || p.mtime !== st.mtimeMs || p.size !== st.size) { p = { mtime: st.mtimeMs, size: st.size, raw: readFileSync(file) }; packed.set(file, p); }
+  if (enc === 'br') return p.br || (p.br = zlib.brotliCompressSync(p.raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: p.raw.length } }));
+  return p.gz || (p.gz = zlib.gzipSync(p.raw, { level: 9 }));
+}
 
 function sendJson(req, res, status, obj, extra = {}) {
   const body = Buffer.from(JSON.stringify(obj));
@@ -76,7 +88,15 @@ function serveFile(req, res, file, { maxAge = 300 } = {}) {
     return true;
   }
   const compressible = /text|json|javascript|svg/.test(type) && st.size > 1024;
-  if (compressible && wantsGzip(req)) {
+  if (compressible) headers.Vary = 'Accept-Encoding';
+  const enc = compressible ? (wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '') : '';
+  if (enc && st.size < 3e6) {
+    const body = packedBody(file, st, enc);
+    headers['Content-Encoding'] = enc;
+    headers['Content-Length'] = body.length;
+    res.writeHead(200, headers);
+    res.end(body);
+  } else if (enc === 'gzip') {
     headers['Content-Encoding'] = 'gzip';
     res.writeHead(200, headers);
     createReadStream(file).pipe(zlib.createGzip()).pipe(res);
