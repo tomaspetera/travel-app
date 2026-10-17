@@ -354,8 +354,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-17a';
+const WN_ID = '2026-10-17b';
 const WHATS_NEW = [
+  ['📉', 'Zlevnilo – hned nahoře', 'když hlídaná cena klesne nebo je pod tvou cílovou cenou, uvidíš ji na Přehledu jako velkou kartu s fotkou a tlačítkem <b>Zobrazit lety</b>.'],
   ['🧭', 'Přehlednější telefon', 'dole jen 5 sekcí – Mapa a Země jsou spolu ve <b>Světě</b>; Plánovač, Doporučení, záloha a vzhled v menu ☰ nahoře. V Letech je délka pobytu a teplota pod <b>Upřesnit</b>.'],
   ['📱', 'Nový vzhled', 'radar jako velké karty s fotkou města (na telefonu posun prstem do strany), plovoucí spodní lišta, okna zespodu – zavřeš je stažením dolů.'],
   ['⚙️', 'Výsledky hned nahoře', 'na mobilu jsou filtry, řazení a „Odkud se vyplatí letět“ pod tlačítkem ⚙️ Filtry; formulář se po hledání sbalí (✎ Upravit).'],
