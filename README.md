@@ -901,6 +901,7 @@ Zkopíruj `.env.example` na `.env`:
 | `TRAVELPAYOUTS_MARKET` | `cz` | trh Aviasales, z jehož vyhledávání se berou ceny (bez něj API čte ruský trh) |
 | `KIWI_ENABLED` | `1` | Kiwi.com: živá cena a porovnání aerolinek k vybranému letu (zdarma, bez klíče); `0` = vypnout |
 | `XOTELO` | zapnuto | ceny hotelů z TripAdvisoru přes neoficiální bezplatné API Xotelo (bez klíče, bez provizí), když není ostrý klíč LiteAPI – viz [Ceny hotelů](#ceny-hotelů); `off` = vypnout (zůstanou odkazy na partnery). Na místo a termín 1 + nejvýš 12 dotazů, v mezipaměti |
+| `PEXELS_API_KEY` | – | krásné fotky měst na kartách (radar, tipy, detail cíle) z Pexels – zdarma klíč na pexels.com/api (200 dotazů/h, fotky se drží 7 dní na serveru a 30 dní v prohlížeči). Bez klíče fotky z Wikimedia Commons (oceněné fotky z článku o městě) |
 | `LITEAPI_KEY` | – | hotely s cenou na tvoje data a hodnocením hostů (zdarma klíč na dashboard.liteapi.travel; `sand_…` = testovací data, pak se použije Xotelo). Ostrý klíč má přednost před Xotelem a umožňuje provize |
 | `LITEAPI_WHITELABEL` | – | doména white-label rezervační stránky LiteAPI – tlačítko „detail“ pak vede tam místo na Booking.com |
 | `PARTNER_LOOKUP` | `1` | odkazy na Trip.com, Agodu a Hostelworld s termínem a hosty: server u nich jednou dohledá ID místa (jeden dotaz na místo a partnera, timeout 4 s, mezipaměť 30 dní); `0` = bez dotazů, odkazy jen s názvem místa (Trip.com hledání potvrdíš, Agoda úvodní stránka, Hostelworld stránka města bez dat). V DEMO se neptá nikdy |

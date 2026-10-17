@@ -31,6 +31,8 @@ export const config = {
   travelpayoutsTrs: env.TRAVELPAYOUTS_TRS || '',
   // Trh Aviasales, z jehož hledání se berou ceny (cz, de, gb, …); prázdné = výchozí trh API.
   travelpayoutsMarket: (env.TRAVELPAYOUTS_MARKET ?? 'cz').toLowerCase(),
+  // Fotky měst na kartách (pexels.com/api – zdarma, 200 dotazů/h): profesionální snímky na výšku. Bez klíče Wikimedia.
+  pexelsKey: env.PEXELS_API_KEY || '',
   // Hotely s cenou a hodnocením (liteapi.travel). Bez klíče jen odkazy na Booking/Airbnb/Google.
   liteapiKey: env.LITEAPI_KEY || '',
   // Volitelná white-label rezervační stránka LiteAPI (např. moje.nuitee.link) – jinak odkaz na Booking.com.

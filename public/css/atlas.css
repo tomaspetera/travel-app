@@ -4,7 +4,7 @@
   --grad:linear-gradient(135deg,#22d3ee 0%,#5b8cff 45%,#a855f7 100%);
   --grad-warm:linear-gradient(135deg,#fb7185 0%,#f59e0b 100%);
   --good:#34d399; --warn:#fbbf24; --bad:#fb7185; --info:#38bdf8;
-  --radius:18px; --radius-sm:12px;
+  --radius:22px; --radius-sm:14px;
   --shadow:0 10px 40px -12px rgba(0,0,0,.55);
   --shadow-lg:0 24px 70px -20px rgba(0,0,0,.65);
   --ease:cubic-bezier(.22,.61,.36,1);
@@ -118,8 +118,9 @@ a{color:inherit}
 .btn:hover{transform:translateY(-1px);border-color:var(--accent)}
 .btn svg{width:17px;height:17px;flex-shrink:0}
 .more-nav .btn .faint{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.btn.primary{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 10px 26px -10px rgba(91,140,255,.75)}
-.btn.primary:hover{box-shadow:0 14px 32px -10px rgba(168,85,247,.8)}
+.btn.primary{background:#fff;border-color:transparent;color:#0b1226;box-shadow:0 10px 26px -12px rgba(0,0,0,.6)}
+.btn.primary:hover{box-shadow:0 14px 30px -12px rgba(0,0,0,.7)}
+[data-theme="light"] .btn.primary{background:#0f1830;color:#fff}
 .btn.warm{background:var(--grad-warm);border-color:transparent;color:#fff}
 .btn.ghost{background:transparent}
 .btn.sm{padding:8px 12px;font-size:13px;border-radius:10px}
@@ -157,6 +158,13 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 @keyframes aurora{0%{transform:translate(-4%,-2%) rotate(0deg) scale(1.05)}100%{transform:translate(4%,3%) rotate(8deg) scale(1.15)}}
 .hero-grain{position:absolute;inset:0;z-index:1;opacity:.5;background:radial-gradient(circle at 1px 1px,rgba(255,255,255,.06) 1px,transparent 0);background-size:22px 22px}
 .hero-inner{position:relative;z-index:2;color:#fff}
+/* fotka místa pod úvodem (paintHero): přes celé pole, dole i nahoře ztmavená kvůli textu a hledání na skle */
+.hero[data-photo]{border:none;min-height:300px;display:flex;flex-direction:column;justify-content:flex-end}
+.hero.ph .hero-bg{background:#0b1226 var(--ph) center 40%/cover no-repeat;opacity:1}
+.hero.ph .hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,10,24,.55) 0%,rgba(6,10,24,.12) 40%,rgba(6,10,24,.55) 100%)}
+.hero.ph .hero-aurora,.hero.ph .hero-grain{display:none}
+.hero.ph h1,.hero.ph p{text-shadow:0 2px 14px rgba(0,0,0,.5)}
+.hero.ph .hero-search2{background:rgba(10,14,30,.4);border-color:rgba(255,255,255,.22)}
 .hero h1{font-size:34px;font-weight:800;line-height:1.1;max-width:620px}
 .hero p{color:rgba(255,255,255,.78);margin-top:10px;max-width:560px;font-size:15px}
 .hero-search{margin-top:22px;display:flex;gap:10px;max-width:600px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:8px;border-radius:16px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
@@ -231,6 +239,28 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .dest.visited .vmark{display:grid}
 .dest .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
 .score-pill{position:absolute;top:14px;right:14px;font-size:12px;font-weight:800;padding:4px 9px;border-radius:10px;background:var(--grad);color:#fff}
+/* karty s fotkou (data-photo – Photos v app.js): fotka města přes celou kartu, vlajka v kolečku na skle, text dole na
+   skleněném panelu; bez fotky tlumený přechod podle země (--h) */
+.dest[data-photo]{display:flex;flex-direction:column;justify-content:flex-end;min-height:270px;padding:10px;border:none;border-radius:24px;color:#fff;isolation:isolate;
+  background:radial-gradient(120% 90% at 20% 10%,hsl(var(--h,215) 42% 46%),transparent 60%),linear-gradient(160deg,hsl(var(--h,215) 38% 34%),hsl(calc(var(--h,215) + 25) 45% 14%));
+  box-shadow:0 16px 34px -18px rgba(0,0,0,.6)}
+.dest[data-photo].ph{background:#0b1226 var(--ph) center/cover no-repeat}
+.dest[data-photo]::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,.28) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 50%,rgba(0,0,0,.3) 100%)}
+.dest[data-photo]:hover{border-color:transparent}
+.dest[data-photo] .flag{position:absolute;top:12px;left:12px;width:42px;height:42px;display:grid;place-items:center;font-size:22px;border-radius:50%;
+  background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.28);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.dest-panel{padding:12px 13px;border-radius:18px;background:rgba(10,14,30,.42);border:1px solid rgba(255,255,255,.2);box-shadow:0 10px 26px -14px rgba(0,0,0,.6);
+  -webkit-backdrop-filter:blur(16px) saturate(160%);backdrop-filter:blur(16px) saturate(160%)}
+.dest[data-photo] .cname{margin-top:0;font:700 17px/1.25 Sora,Inter,sans-serif;color:#fff}
+.dest[data-photo] .ccont,.dest[data-photo] .cblurb,.dest[data-photo] .meta,.dest[data-photo] .tag{color:rgba(255,255,255,.84)}
+.dest[data-photo] .cblurb{min-height:0;margin-top:4px}
+.dest[data-photo] .meta{margin-top:8px}
+.dest[data-photo] .tags{margin-top:6px}
+.dest[data-photo] .tag{background:rgba(255,255,255,.16);border-color:transparent}
+[data-theme] .dest[data-photo] .chip.accent{background:#fff;color:#0b1226;border-color:transparent}
+[data-theme] .dest[data-photo] .ec{background:rgba(255,255,255,.18);color:#fff}
+.dest[data-photo] .score-pill,.dest[data-photo] .vmark{top:12px;right:12px}
+.dest[data-photo] .score-pill{background:rgba(255,255,255,.92);color:#0b1226;border-radius:999px;padding:5px 10px}
 
 /* ============ FILTER BAR ============ */
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
@@ -412,6 +442,8 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
   .hero{padding:20px 16px;margin-bottom:16px;border-radius:22px}.hero h1{font-size:23px}.hero p{display:none}
   .hero-search2{margin-top:14px}
   .stat-grid,#quickFlights,#dashRecs{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:43%;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding-bottom:6px;scrollbar-width:none}
+  #quickFlights,#dashRecs{grid-auto-columns:66%;gap:12px;margin:0 -16px;padding:2px 16px 12px;scroll-padding:0 16px}
+  .dest[data-photo]{min-height:300px}
   .stat-grid>*,#quickFlights>*,#dashRecs>*{scroll-snap-align:start}
   .stat-grid::-webkit-scrollbar,#quickFlights::-webkit-scrollbar,#dashRecs::-webkit-scrollbar{display:none}
   .stat{padding:14px}.stat .val{font-size:26px}

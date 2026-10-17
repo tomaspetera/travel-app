@@ -2,7 +2,7 @@
 // odpovědi API jsou vzorky ve tvaru formatversion=2.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePageImages, photoScore, namesCity, pickPhotos, cityPhotos } from '../server/lib/photos.js';
+import { parsePageImages, photoScore, namesCity, pexelsPick, pickPhotos, cityPhotos } from '../server/lib/photos.js';
 
 const FP = 'Category:Featured pictures on Wikimedia Commons';
 const QI = 'Category:Quality images';
@@ -96,18 +96,23 @@ test('pickPhotos: z článku vybere oceněnou fotku města, cíl po letišti dos
   assert.ok(!calls[2][1].includes('Map of Rome') && !calls[2][1].includes('Statue') && !calls[2][1].includes('Montage'));
   // Commons neodpovídá (429): zatím úvodní obrázky bez koláže, partial
   const down = await pickPhotos(['Řím', 'Oradea'], async (host, p) => { if (host === 'commons.wikimedia.org') throw new Error('429'); return api(host, p); });
-  assert.deepEqual(down, { photos: { 'Řím': '', Oradea: 'https://u/thumb/500px-Oradea_lead.jpg' }, partial: true });
+  assert.deepEqual(down, { photos: { 'Řím': '', Oradea: 'https://u/thumb/500px-Oradea_lead.jpg' }, by: {}, partial: true });
 });
 
 test('cityPhotos: z paměti bez dotazu, „fotka není“ jako prázdná adresa, výpadek se neuloží', async () => {
-  const ok = (photos) => async () => ({ photos, partial: false });
-  assert.deepEqual(await cityPhotos(['Testov A', 'Testov B', 'Testov A', 'X|Y', ''], { pick: ok({ 'Testov A': 'https://x/a.jpg' }) }),
-    { photos: { 'Testov A': 'https://x/a.jpg', 'Testov B': '' }, partial: false });
-  assert.deepEqual(await cityPhotos(['Testov A', 'Testov B'], { pick: async () => { throw new Error('nemá se ptát'); } }),
-    { photos: { 'Testov A': 'https://x/a.jpg', 'Testov B': '' }, partial: false });
-  assert.deepEqual(await cityPhotos(['Testov C'], { pick: async () => { throw new Error('429'); } }), { photos: {}, partial: false });
-  assert.deepEqual(await cityPhotos(['Testov C'], { pick: async () => ({ photos: { 'Testov C': 'https://x/c.jpg' }, partial: true }) }),
-    { photos: { 'Testov C': 'https://x/c.jpg' }, partial: true });
+  const ok = (photos, by = {}) => async () => ({ photos, by, partial: false });
+  const opt = (pick) => ({ pick, prov: 'wiki' });
+  assert.deepEqual(await cityPhotos(['Testov A', 'Testov B', 'Testov A', 'X|Y', ''], opt(ok({ 'Testov A': 'https://x/a.jpg' }))),
+    { photos: { 'Testov A': 'https://x/a.jpg', 'Testov B': '' }, by: {}, partial: false, prov: 'wiki' });
+  assert.deepEqual((await cityPhotos(['Testov A', 'Testov B'], opt(async () => { throw new Error('nemá se ptát'); }))).photos, { 'Testov A': 'https://x/a.jpg', 'Testov B': '' });
+  assert.deepEqual((await cityPhotos(['Testov C'], opt(async () => { throw new Error('429'); }))).photos, {});
+  const half = await cityPhotos(['Testov C'], opt(async () => ({ photos: { 'Testov C': 'https://x/c.jpg' }, partial: true })));
+  assert.deepEqual([half.photos, half.partial], [{ 'Testov C': 'https://x/c.jpg' }, true]);
+  // s Pexels: autor fotky jde s ní (i z paměti); paměť je zvlášť pro Pexels a Wikimedii
+  const px = { pick: ok({ 'Testov D': 'https://images.pexels.com/d.jpeg' }, { 'Testov D': 'Jana Nováková' }), prov: 'pexels' };
+  assert.deepEqual(await cityPhotos(['Testov D'], px), { photos: { 'Testov D': 'https://images.pexels.com/d.jpeg' }, by: { 'Testov D': 'Jana Nováková' }, partial: false, prov: 'pexels' });
+  assert.deepEqual((await cityPhotos(['Testov D'], { pick: async () => { throw new Error('z paměti'); }, prov: 'pexels' })).by, { 'Testov D': 'Jana Nováková' });
+  assert.deepEqual((await cityPhotos(['Testov D'], opt(ok({ 'Testov D': 'https://x/wiki-d.jpg' })))).photos, { 'Testov D': 'https://x/wiki-d.jpg' });
 });
 
 test('pickPhotos: hlavní fotka anglického článku (Eiffelovka) před oceněnou fotkou se jménem města z okolí (HEC Paris)', async () => {
@@ -127,4 +132,30 @@ test('pickPhotos: hlavní fotka anglického článku (Eiffelovka) před oceněno
   const out = await pickPhotos(['Paříž'], async (h, p) => { calls.push(p.titles); return api(h, p); });
   assert.equal(out.photos['Paříž'], 'https://u/La Tour Eiffel vue de la Tour Saint-Jacques.jpg');
   assert.ok(!calls[2].includes('HEC')); // škola za městem se ani neptá
+});
+
+test('pexelsPick: jen fotka, v jejímž popisu nebo adrese je jméno města; náhled na výšku 960 × 1200', () => {
+  const ph = (alt, url, o = 'https://images.pexels.com/photos/1/x.jpeg') => ({ alt, url, photographer: 'Autor', src: { original: o } });
+  assert.deepEqual(pexelsPick([ph('Aerial view of a city', 'https://www.pexels.com/photo/city-1/'), ph('Colosseum in Rome at sunset', 'https://www.pexels.com/photo/2/', 'https://images.pexels.com/photos/2/r.jpeg')], ['Rome', 'Řím']),
+    { u: 'https://images.pexels.com/photos/2/r.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=960&h=1200', by: 'Autor' });
+  assert.equal(pexelsPick([ph('', 'https://www.pexels.com/photo/old-town-of-krakow-poland-3/')], ['Kraków'])?.by, 'Autor'); // jméno jen v adrese
+  assert.equal(pexelsPick([ph('Beautiful landscape of Romania', 'https://www.pexels.com/photo/4/')], ['Oradea']), null);
+  assert.equal(pexelsPick(null, ['Rome']), null);
+});
+
+test('pickPhotos s Pexels: fotka města z Pexels, co Pexels nemá, dohledá Wikimedia', async () => {
+  const api = async (host, p) => {
+    if (host === 'cs.wikipedia.org') return { query: { pages: [
+      { title: 'Řím', thumbnail: { source: 'https://u/thumb/960px-Rome_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Rome' }] },
+      { title: 'Oradea', thumbnail: { source: 'https://u/thumb/960px-Oradea_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Oradea' }] },
+    ] } };
+    if (host === 'en.wikipedia.org') return { query: { pages: [{ title: 'Oradea', images: [] }, { title: 'Rome', images: [] }] } };
+    return { query: { pages: [] } };
+  };
+  const asked = [];
+  const pexels = async (q) => { asked.push(q); return q.startsWith('Rome') ? [{ alt: 'Trevi Fountain, Rome', url: 'https://www.pexels.com/photo/9/', photographer: 'Luca', src: { original: 'https://images.pexels.com/photos/9/t.jpeg' } }] : [{ alt: 'Romania mountains', url: 'https://www.pexels.com/photo/8/', photographer: 'X', src: { original: 'https://images.pexels.com/photos/8/m.jpeg' } }]; };
+  const out = await pickPhotos(['Řím', 'Oradea'], api, pexels);
+  assert.deepEqual(asked.sort(), ['Oradea city', 'Rome city']);
+  assert.deepEqual(out.photos, { 'Řím': 'https://images.pexels.com/photos/9/t.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=960&h=1200', Oradea: 'https://u/thumb/960px-Oradea_lead.jpg' });
+  assert.deepEqual(out.by, { 'Řím': 'Luca' });
 });

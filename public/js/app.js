@@ -388,21 +388,93 @@ function renderDashStats() {
     ['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs : '', ''],
   ].map(s => `<div class="card stat"><div class="lab">${s[0]}</div><div class="val">${s[1]}</div><div class="sub">${s[2]}</div>${s[3] || ''}</div>`).join('');
   const recs = scoreCountries(m, {}).filter(r => !visited.has(r.c.iso2)).slice(0, 4);
+  paintHero();
   $('#dashRecs').innerHTML = recs.map(r => destCard(r.c, r.score)).join('');
   bindDest('#dashRecs');
+  Photos.paint($('#dashRecs'));
   $$('[data-nt]').forEach(b => b.onclick = () => { go('planner'); setTimeout(() => openTrip(+b.dataset.nt), 250); });
 }
 
 /* ================= DEST CARD ================= */
 function costDots(n) { return `<span class="dots warm">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? 'f' : ''}"></i>`).join('')}</span>`; }
+/* ================= 📷 FOTKY NA KARTÁCH =================
+   Prvek s data-photo="Řím" dostane fotku města jako pozadí (--ph, třída ph), až je skoro vidět. Adresy z api/photos
+   (Pexels s klíčem, jinak Wikimedia; jeden dotaz na viditelné karty), v prohlížeči 30 dní – fotky z Wikimedie 3 dny,
+   ať se po přidání klíče Pexels brzy vymění. Fotka se na kartu dá až načtená a jen tak velká, jak ji karta na displeji
+   potřebuje (~40–150 kB, pak v mezipaměti prohlížeče). */
+const Photos = (() => {
+  const KEY = 'atlas_ph6', TTL = { pexels: 30 * 864e5, wiki: 3 * 864e5 };
+  try { ['atlas_ph', 'atlas_ph2', 'atlas_ph3', 'atlas_ph4', 'atlas_ph5'].forEach(k => localStorage.removeItem(k)); } catch (e) { /* nevadí */ }
+  let mem = null, timer = null, io = null;
+  const queue = new Set();
+  const store = () => { if (!mem) { try { mem = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { mem = {}; } } return mem; };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(Object.fromEntries(Object.entries(store()).sort((a, b) => b[1].t - a[1].t).slice(0, 400)))); } catch (e) { /* plné úložiště */ } };
+  const fresh = (e, now) => e && now - e.t < (TTL[e.p] || TTL.wiki);
+  // Pexels: výřez na výšku podle výšky karty; Wikimedia: fotka na šířku vyplní kartu na výšku → šířka 330/500/960
+  function sized(u, el) {
+    const need = el.clientHeight * (window.devicePixelRatio || 1);
+    if (/images\.pexels\.com/.test(u)) { const h = need <= 620 ? 600 : need <= 920 ? 900 : 1200; return u.replace(/w=960&h=1200/, `w=${h * 0.8}&h=${h}`); }
+    return need * 1.5 <= 330 ? u.replace('/960px-', '/330px-') : need * 1.5 <= 560 ? u.replace('/960px-', '/500px-') : u;
+  }
+  function show(el) {
+    const e = store()[el.dataset.photo];
+    if (!e || !/^https:\/\//.test(e.u) || !el.isConnected) return;
+    const src = sized(e.u, el), img = new Image();
+    img.onload = () => {
+      if (!el.isConnected) return;
+      el.style.setProperty('--ph', `url("${src.replace(/["\\]/g, encodeURIComponent)}")`);
+      el.classList.add('ph');
+      if (e.by) el.title = `Foto: ${e.by} / Pexels`;
+    };
+    img.src = src;
+  }
+  async function flush() {
+    const els = [...queue].filter(el => el.isConnected);
+    queue.clear();
+    const st = store(), now = Date.now();
+    const ask = [...new Set(els.map(el => el.dataset.photo).filter(t => t && !fresh(st[t], now)))].slice(0, 30);
+    if (ask.length) {
+      try {
+        const j = await (await fetch('api/photos?t=' + enc(ask.join('|')))).json(), p = j.prov === 'pexels' ? 'pexels' : 'wiki';
+        // náhradní výběr (zdroj neodpověděl) jen na den – pak hezčí fotka
+        for (const [t, u] of Object.entries(j.photos || {})) st[t] = { u: String(u || ''), t: j.partial ? now - TTL[p] + 864e5 : now, p, by: (j.by || {})[t] || '' };
+        save();
+      } catch (e) { /* bez sítě: karty bez fotek, příště znovu */ }
+    }
+    els.forEach(show);
+  }
+  function want(el) { queue.add(el); clearTimeout(timer); timer = setTimeout(flush, 60); }
+  /** Fotky pro karty s data-photo v root – až jsou karty skoro vidět (i v pruhu do strany). */
+  function paint(root = document) {
+    const els = $$('[data-photo]', root).filter(el => !el.classList.contains('ph') && !el.dataset.phw);
+    if (!els.length) return;
+    els.forEach(el => { el.dataset.phw = '1'; });
+    if (!('IntersectionObserver' in window)) { els.forEach(want); return; }
+    io = io || new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { io.unobserve(e.target); want(e.target); } }), { rootMargin: '300px 300px' });
+    els.forEach(el => io.observe(el));
+  }
+  return { paint };
+})();
+window.Photos = Photos;
+// úvod Přehledu: velká fotka krásného místa (každý den jiná) pod „Kam poletíme?“ a hledáním na skle
+const HERO_PLACES = ['Santorini', 'Benátky', 'Dubrovník', 'Lisabon', 'Amalfi', 'Kjóto', 'Bali', 'Paříž', 'Barcelona', 'Porto', 'Hallstatt', 'Kapské Město', 'Rio de Janeiro', 'Madeira'];
+function paintHero() {
+  const h = $('#heroBox');
+  if (!h || h.dataset.photo) return;
+  h.dataset.photo = HERO_PLACES[Math.floor(Date.now() / 864e5) % HERO_PLACES.length];
+  Photos.paint(h.parentNode);
+}
+// barva karty bez fotky: tlumený přechod podle země (stejná země = stejná barva), jen chladné tóny
+const ccHue = cc => 175 + [...String(cc || '')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 110, 7);
+
 function destCard(c, score) {
   const months = c.months ? c.months.slice(0, 3).map(m => MNS[m - 1]).join(' · ') : '';
-  return `<div class="card dest ${visited.has(c.iso2) ? 'visited' : ''}" data-iso="${c.iso2}">
+  return `<div class="card dest ${visited.has(c.iso2) ? 'visited' : ''}" data-iso="${c.iso2}" data-photo="${esc(c.capCs || c.cap || c.cs)}" style="--h:${ccHue(c.iso2)}">
     ${score ? `<div class="score-pill">${score}</div>` : `<div class="vmark"><svg viewBox="0 0 24 24" width="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>`}
     <div class="flag">${flag(c.iso2)}</div>
-    <div class="cname">${c.cs}</div><div class="ccont">${c.cont}${c.cap ? ' · ' + (c.capCs || c.cap) : ''}</div>
+    <div class="dest-panel"><div class="cname">${c.cs}</div><div class="ccont">${c.cont}${c.cap ? ' · ' + (c.capCs || c.cap) : ''}</div>
     <div class="cblurb">${c.blurb || 'Objev tuto zemi – počasí, ceny i odkazy najdeš uvnitř.'}</div>
-    ${entryChip(c.iso2)}<div class="meta">${c.cost ? costDots(c.cost) : '<span></span>'}${months ? `<span>${months}</span>` : ''}</div>
+    ${entryChip(c.iso2)}<div class="meta">${c.cost ? costDots(c.cost) : '<span></span>'}${months ? `<span>${months}</span>` : ''}</div></div>
   </div>`;
 }
 // Vstupní podmínky (entry.js): čip na kartě; data se načítají po startu, pak se čipy doplní (paintEntryChips).
@@ -429,13 +501,14 @@ function renderRecs() {
   $('#recGrid').innerHTML = list.map(r => {
     const reasons = []; if (r.season === 1) reasons.push('ideální počasí'); if (r.c.cost <= 2) reasons.push('levné'); if (r.c.safety >= 5) reasons.push('velmi bezpečné'); else if (r.c.safety >= 4) reasons.push('bezpečné');
     const c = r.c;
-    return `<div class="card dest" data-iso="${c.iso2}"><div class="score-pill">${r.score}</div>
-      <div class="flag">${flag(c.iso2)}</div><div class="cname">${c.cs}</div><div class="ccont">${c.cont}</div>
+    return `<div class="card dest" data-iso="${c.iso2}" data-photo="${esc(c.capCs || c.cap || c.cs)}" style="--h:${ccHue(c.iso2)}"><div class="score-pill">${r.score}</div>
+      <div class="flag">${flag(c.iso2)}</div><div class="dest-panel"><div class="cname">${c.cs}</div><div class="ccont">${c.cont}</div>
       <div class="cblurb">${c.blurb}</div>
-      <div class="tags">${reasons.map(x => `<span class="tag" style="color:var(--good)">✓ ${x}</span>`).join('')}</div>
-      ${entryChip(c.iso2)}<div class="meta">${costDots(c.cost)}<span>${c.months.slice(0, 3).map(x => MNS[x - 1]).join(' · ')}</span></div></div>`;
+      <div class="tags">${reasons.map(x => `<span class="tag">✓ ${x}</span>`).join('')}</div>
+      ${entryChip(c.iso2)}<div class="meta">${costDots(c.cost)}<span>${c.months.slice(0, 3).map(x => MNS[x - 1]).join(' · ')}</span></div></div></div>`;
   }).join('');
   bindDest('#recGrid');
+  Photos.paint($('#recGrid'));
 }
 
 /* ================= COUNTRIES GRID ================= */
@@ -451,6 +524,7 @@ function renderCountries() {
   if (sort === 'cost') list.sort((a, b) => (a.cost || 9) - (b.cost || 9)); else if (sort === 'safety') list.sort((a, b) => (b.safety || 0) - (a.safety || 0)); else list.sort((a, b) => a.cs.localeCompare(b.cs, 'cs'));
   $('#countryGrid').innerHTML = list.length ? list.map(c => destCard(c)).join('') : `<div class="empty" style="grid-column:1/-1"><div class="ei">${ico('M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20')}</div><div>Nic nenalezeno. Zkus jiný filtr.</div></div>`;
   bindDest('#countryGrid');
+  Photos.paint($('#countryGrid'));
 }
 
 /* ================= COUNTRY MODAL ================= */
