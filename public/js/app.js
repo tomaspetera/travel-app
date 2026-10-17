@@ -466,6 +466,7 @@ function paintHero() {
 }
 // barva karty bez fotky: tlumený přechod podle země (stejná země = stejná barva), jen chladné tóny
 const ccHue = cc => 175 + [...String(cc || '')].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 110, 7);
+window.ccHue = ccHue;
 
 function destCard(c, score) {
   const months = c.months ? c.months.slice(0, 3).map(m => MNS[m - 1]).join(' · ') : '';

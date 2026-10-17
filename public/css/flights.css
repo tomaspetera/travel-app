@@ -518,6 +518,12 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cmp-row:first-child{border-top:0}
 .cmp-row:hover,.cmp-row.open{background:var(--surface-2)}
 .cmp-flag{font-size:22px;line-height:1}
+.cmp-hit:has(.cmp-ph){grid-template-columns:54px minmax(0,1fr) auto}
+.cmp-ph{position:relative;width:54px;height:54px;border-radius:16px;overflow:hidden;display:grid;place-items:center;
+  background:radial-gradient(120% 90% at 20% 10%,hsl(var(--h,215) 42% 46%),transparent 60%),linear-gradient(160deg,hsl(var(--h,215) 38% 34%),hsl(calc(var(--h,215) + 25) 45% 14%))}
+.cmp-ph i{font-style:normal;font-size:22px}
+.cmp-ph.ph{background:#0b1226 var(--ph) center/cover no-repeat}
+.cmp-ph.ph i{position:absolute;right:3px;bottom:3px;font-size:13px;line-height:1;padding:2px 3px;border-radius:6px;background:rgba(10,14,30,.45)}
 .cmp-name{font-size:14.5px;white-space:nowrap;display:flex;align-items:center;min-width:0}
 .cmp-city{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .cmp-bdg{flex:none;white-space:nowrap;margin-left:4px}
@@ -1036,3 +1042,9 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 }
 @media(prefers-reduced-motion:reduce){.modal:has(.dp){animation:none}}
 [data-theme=light] .dp-f.warn{border-color:rgba(180,120,0,.45)}
+/* Lety na telefonu: z letišť v okolí jen první 2, zbytek tlačítkem */
+.op-more{display:none}
+@media(max-width:560px){
+  .origin-pills:not(.open) .opill.extra{display:none}
+  .op-more{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;border:1px dashed var(--border-2);background:none;color:var(--accent);font:700 12.5px Inter,sans-serif;cursor:pointer}
+}
