@@ -403,6 +403,8 @@ button.dest{font:inherit;text-align:left;width:100%}
 .toast svg{width:18px;height:18px;color:var(--good)}
 
 .mobile-nav{display:none}
+/* telefon: Mapa a Země jako jedna sekce Svět s přepínačem nahoře, zbytek sekcí v menu ☰ */
+.world-tabs,.menu-btn{display:none}
 /* dotykové displeje: „najetí myší“ po klepnutí nezůstane viset (posunutá tlačítka a karty), místo něj krátké stisknutí */
 @media(hover:none){
   .btn,.card,.chip,.pill,.icon-btn,.home-chip{-webkit-tap-highlight-color:transparent}
@@ -436,6 +438,9 @@ button.dest{font:inherit;text-align:left;width:100%}
   .mobile-nav .mi:active svg{transform:scale(.84)}
   .toast{bottom:calc(90px + env(safe-area-inset-bottom));max-width:calc(100% - 32px)}
   .airport-pills{display:none}
+  .menu-btn{display:grid}
+  .world-tabs{display:flex;width:100%;margin:0 0 14px}
+  .world-tabs button{flex:1 1 0}
   .modal-hero{padding:20px}.modal-body{padding:18px}
   .forecast{grid-template-columns:repeat(4,1fr)}
 }

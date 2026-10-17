@@ -154,6 +154,9 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
       <button class="icon-btn" id="refreshBtn" title="Aktualizovat data">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>
       </button>
+      <button class="icon-btn menu-btn" id="menuBtn" title="Menu" aria-label="Menu – plánovač, doporučení, záloha, vzhled">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
     </header>
 
     <div class="content">
@@ -384,6 +387,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 
       <!-- MAP -->
       <section class="view" id="view-map">
+        <div class="seg world-tabs" role="group" aria-label="Svět"><button type="button" data-w="map">🗺️ Mapa</button><button type="button" data-w="countries">🌍 Země</button></div>
         <div class="map-layout">
           <div class="map-wrap" id="mapWrap">
             <svg id="worldmap" viewBox="0 0 960 500" preserveAspectRatio="xMidYMid meet"></svg>
@@ -411,6 +415,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 
       <!-- COUNTRIES -->
       <section class="view" id="view-countries">
+        <div class="seg world-tabs" role="group" aria-label="Svět"><button type="button" data-w="map">🗺️ Mapa</button><button type="button" data-w="countries">🌍 Země</button></div>
         <div class="toolbar">
           <div class="search-wide">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
