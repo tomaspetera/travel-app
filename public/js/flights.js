@@ -1149,6 +1149,17 @@
     if (view.mode === 'cal' && res.mode !== 'route') view.mode = 'list';
   }
 
+  /** Plánovač: nejlevnější nabídka posledního dokončeného hledání (bez 🙈 měst) – cíl, dny, cestující, cena a let. */
+  function lastPick() {
+    const res = lastResult;
+    if (!res || !lastResultAt || res.mode === 'multi' || !(res.groups || []).length) return null;
+    const shown = prefOn(res) ? prefFor(res, res.groups).groups : res.groups, gs = shown.length ? shown : res.groups;
+    const g = gs.reduce((m, x) => x.best.perPersonCzk < m.best.perPersonCzk ? x : m), t = g.best, pax = +(res.query && res.query.adults) || 1;
+    const leg = l => `${l.from}→${l.to} ${fmtDate(l.date)}${timeOf(l) ? ' ' + timeOf(l) : ''} (${l.carrierName || provName(l.provider)})`;
+    return { dest: g.dest.label, iso: g.dest.cc && byIso[g.dest.cc] ? g.dest.cc : null, start: t.out.date, end: t.back ? t.back.date : '', pax, czk: t.perPersonCzk,
+      budget: Math.round(t.perPersonCzk * pax), flight: `${leg(t.out)}${t.back ? `, zpět ${leg(t.back)}` : ''}` };
+  }
+
   /* ---------- poslední výsledky a nedávná hledání ---------- */
   function saveLast(c) {
     if (!c.res || c.res.partial) return; // průběžný výsledek se neukládá (a uložený konečný z minula nesmaže)
@@ -4320,7 +4331,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, renderQuick, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, renderPins, refreshPins: pinsPaint, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, renderPins, refreshPins: pinsPaint, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

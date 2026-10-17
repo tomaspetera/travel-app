@@ -743,14 +743,28 @@ const bkTools = () => (window.Backup ? Backup.plannerTools() : '');
 const bkWire = () => { const b = $('#bkOpen'); if (b) b.onclick = () => Backup.open(); };
 function renderPlanner() {
   const host = $('#plannerList');
-  if (!S.trips.length) { host.innerHTML = `${bkTools()}<div class="empty"><div class="ei">${ico('M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z')}</div><h2 style="font-size:20px;margin-bottom:6px">Zatím žádná cesta</h2><p style="max-width:420px;margin:0 auto 18px">Naplánuj si itinerář, ubytování i rozpočet na jednom místě. Cestu můžeš vytvořit i přímo z nalezeného letu (Vybrat a pokračovat → 💾 Uložit do plánovače).</p><button class="btn primary" id="emptyNew">${ico('M12 5v14M5 12h14')} Nová cesta</button></div>`; $('#emptyNew').onclick = () => newTrip(); bkWire(); return; }
+  // ✈️ z posledního hledání: nejlevnější nabídka (cíl, dny, cestující, rozpočet a let) rovnou do formuláře nové cesty
+  let pick = window.Flights && Flights.lastPick ? Flights.lastPick() : null;
+  if (pick && S.trips.some(t => t.dest === pick.dest && t.start === pick.start)) pick = null; // z téhle nabídky už cesta je
+  const fromPick = () => newTrip(null, { dest: pick.dest, iso: pick.iso, start: pick.start, end: pick.end, pax: pick.pax, budget: pick.budget, flight: pick.flight });
+  const pickTxt = pick ? `${esc(pick.dest)} · ${fmtDate(pick.start)}${pick.end ? '–' + fmtDate(pick.end) : ''} · ${pick.czk.toLocaleString('cs')} Kč/os.` : '';
+  if (!S.trips.length) {
+    host.innerHTML = `${bkTools()}<div class="empty"><div class="ei">${ico('M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z')}</div><h2 style="font-size:20px;margin-bottom:6px">Zatím žádná cesta</h2><p style="max-width:420px;margin:0 auto 18px">Naplánuj si itinerář, ubytování i rozpočet na jednom místě. Cestu můžeš vytvořit i přímo z nalezeného letu (Vybrat a pokračovat → 💾 Uložit do plánovače).</p>
+      ${pick ? `<div class="plan-last"><span class="faint">✈️ Poslední hledání</span><b>${pickTxt}</b></div>` : ''}
+      <div class="plan-empty-act">${pick ? `<button class="btn primary" id="emptyLast">✈️ Vytvořit cestu z posledního hledání</button><button class="btn" id="emptyNew">${ico('M12 5v14M5 12h14')} Prázdná cesta</button>`
+        : `<button class="btn primary" id="emptyNew">${ico('M12 5v14M5 12h14')} Nová cesta</button><button class="btn" id="emptyFind">✈️ Nejdřív najít let</button>`}</div></div>`;
+    $('#emptyNew').onclick = () => newTrip();
+    if (pick) $('#emptyLast').onclick = fromPick; else $('#emptyFind').onclick = () => go('flights');
+    bkWire(); return;
+  }
   // nadcházející podle data odjezdu (bez data na konci), proběhlé zvlášť pod nimi
   const now = todayLocal(), all = S.trips.map((t, i) => ({ t, i }));
   const past = all.filter(x => (x.t.end || x.t.start) && (x.t.end || x.t.start) < now).sort((a, b) => (b.t.start || '').localeCompare(a.t.start || ''));
   const coming = all.filter(x => !past.includes(x)).sort((a, b) => (a.t.start || '9999').localeCompare(b.t.start || '9999'));
-  host.innerHTML = `${bkTools()}<div class="trip-grid">${coming.map(x => tripCard(x.t, x.i)).join('')}<div class="card new-trip" id="newTripTile"><div class="plus">${ico('M12 5v14M5 12h14')}</div><div style="font-weight:700">Nová cesta</div></div></div>${past.length ? `<div class="section-head"><h2>Proběhlé cesty</h2></div><div class="trip-grid past">${past.map(x => tripCard(x.t, x.i)).join('')}</div>` : ''}`;
+  host.innerHTML = `${bkTools()}<div class="trip-grid">${coming.map(x => tripCard(x.t, x.i)).join('')}<div class="card new-trip" id="newTripTile"><div class="plus">${ico('M12 5v14M5 12h14')}</div><div style="font-weight:700">Nová cesta</div></div>${pick ? `<div class="card new-trip" id="lastTripTile"><div class="plus">✈️</div><div style="font-weight:700">Z posledního hledání</div><div class="faint" style="font-size:12.5px;margin-top:2px">${pickTxt}</div></div>` : ''}</div>${past.length ? `<div class="section-head"><h2>Proběhlé cesty</h2></div><div class="trip-grid past">${past.map(x => tripCard(x.t, x.i)).join('')}</div>` : ''}`;
   $$('.trip[data-ti]').forEach(el => el.onclick = () => openTrip(+el.dataset.ti));
   $('#newTripTile').onclick = () => newTrip();
+  if (pick) $('#lastTripTile').onclick = fromPick;
   bkWire();
 }
 function tripCard(t, i) {

@@ -385,6 +385,10 @@ button.dest{font:inherit;text-align:left;width:100%}
 .empty{text-align:center;padding:54px 20px;color:var(--muted)}
 .empty .ei{width:64px;height:64px;border-radius:18px;background:var(--surface);display:grid;place-items:center;margin:0 auto 16px}
 .empty .ei svg{width:30px;height:30px;color:var(--accent)}
+.plan-last{display:flex;flex-direction:column;gap:3px;max-width:420px;margin:0 auto 14px;padding:12px 16px;border-radius:16px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:14px}
+.plan-last .faint{font-size:12px}
+.plan-empty-act{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+#lastTripTile{align-content:center;text-align:center;padding:16px}
 
 .day-block{border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;background:var(--surface)}
 .day-block h4{font-size:14px;font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:8px}
