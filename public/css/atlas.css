@@ -270,6 +270,17 @@ button.dest{font:inherit;text-align:left;width:100%}
 .search-wide{flex:1;min-width:220px;position:relative}
 .search-wide svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted)}
 .search-wide input{padding-left:40px}
+.c-filt-btn{display:none}
+@media(max-width:560px){
+  #view-countries .toolbar{gap:8px}
+  #view-countries .search-wide{flex:1 1 calc(100% - 130px);min-width:0}
+  #view-countries .toolbar .search-wide .input{min-width:0;width:100%}
+  .c-filt-btn{display:inline-flex;flex:none;border-radius:14px;white-space:nowrap}
+  #view-countries .toolbar:not(.f-open) select{display:none}
+  #view-countries .toolbar select{flex:1 1 calc(50% - 4px);min-width:0}
+  #view-countries .toolbar #cVisited{display:flex;width:100%}
+  #view-countries .toolbar #cVisited button{flex:1 1 0;white-space:nowrap;padding:9px 6px;font-size:13px}
+}
 .seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:4px;gap:3px}
 .seg button{border:none;background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:8px 14px;border-radius:999px;cursor:pointer;font-family:inherit;transition:.15s}
 /* vybraná volba plná jako v cestovních aplikacích (bílá v tmavém, tmavá ve světlém režimu) */
