@@ -1166,3 +1166,16 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   #flightTips>*{scroll-snap-align:start}
   #flightTips .tip p{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
 }
+/* výsledky Kamkoliv: první 3 cíle jako velké karty s fotkou */
+.res-top{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:6px}
+.res-top-c{min-height:240px;cursor:pointer}
+.res-top-c .rt-price{margin-top:6px;font:800 21px/1.1 Sora,Inter,sans-serif;color:#fff}
+.res-top-c .rt-price small{font-size:12px;font-weight:600;opacity:.8}
+.res-top-h{margin-top:4px}
+.cmp-row{scroll-margin-top:90px}
+@media(max-width:560px){
+  .res-top{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:66%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:12px;
+    margin:0 -16px 6px;padding:2px 16px 12px;scroll-padding:0 16px}
+  .res-top::-webkit-scrollbar{display:none}
+  .res-top>*{scroll-snap-align:start}
+}

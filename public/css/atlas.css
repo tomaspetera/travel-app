@@ -532,6 +532,21 @@ button.dest{font:inherit;text-align:left;width:100%}
 .ed-regime.ec-free{background:var(--surface-2)}
 [data-theme="light"] .entry-detail a,[data-theme="light"] .entry-card a{color:#0369a1}
 .cm-acts{margin-bottom:16px;gap:8px}
+/* detail země: fotka hlavního města v hlavičce, název a krátký popis na ní */
+.modal-hero.mh-photo{min-height:230px;display:flex;flex-direction:column;justify-content:flex-end}
+.modal-hero.mh-photo.ph{background:#0b1226 var(--ph) center/cover no-repeat}
+.modal-hero.mh-photo.ph .mh-bg{opacity:1;background:linear-gradient(180deg,rgba(0,0,0,.18) 0%,rgba(0,0,0,0) 35%,rgba(4,8,20,.78) 100%)}
+.mh-flag{width:52px;height:52px;display:grid;place-items:center;font-size:30px;line-height:1;border-radius:50%;margin-bottom:10px;
+  background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.mh-name{font:800 30px/1.1 Sora,Inter,sans-serif;letter-spacing:-.02em;text-shadow:0 2px 14px rgba(0,0,0,.35)}
+.mh-sub{margin-top:4px;font-size:13.5px;font-weight:600;opacity:.9;text-shadow:0 1px 8px rgba(0,0,0,.45)}
+.mh-blurb{margin-top:8px;font-size:14px;line-height:1.45;max-width:520px;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+@media(max-width:560px){
+  .cm-acts{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cm-acts .btn{justify-content:center;padding:10px 8px;font-size:13px;min-width:0}
+  .cm-acts .btn.primary{grid-column:1/-1;min-height:50px;border-radius:16px;font-size:15px}
+  .cm-acts .btn svg{flex:none}
+}
 /* 💾 Přenos a záloha (backup.js) */
 .plan-tools{gap:10px;align-items:center;margin-bottom:14px;font-size:12.5px}
 .bk-actions{display:flex;flex-wrap:wrap;gap:8px}

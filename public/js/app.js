@@ -363,8 +363,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-17e';
+const WN_ID = '2026-10-17f';
 const WHATS_NEW = [
+  ['💸', 'Nejlevnější nahoře', 'po hledání Kamkoliv jsou první 3 cíle velké karty s fotkou; detail země má nahoře fotku hlavního města.'],
   ['📅', 'Plánovač a Objevuj', 'cesty jako karty s fotkou cíle a štítkem „za 12 dní“; Objevuj s fotkou nahoře a hledáním na ní.'],
   ['🗺️', 'Mapa a Cesta v novém', 'mapa přes celý rámeček se štítkem „procestováno“ a seznamem navštívených zemí; v Cestě fotka cíle nahoře, kroky s popisky a let jako jízdenka.'],
   ['✈️', 'Nové Lety', 'fotka cíle nahoře, Odkud a Kam s tlačítkem ⇅ (prohodí je), letiště v okolí v jednom řádku, velké tlačítko hledání a <b>Nápady, kam letět</b> s fotkami.'],
@@ -620,12 +621,13 @@ function openCountry(iso) {
   const safeTxt = c.safety ? ['', 'velmi rizikové', 'zvýšená opatrnost', 'střední', 'bezpečné', 'velmi bezpečné'][c.safety] : '—';
   const costTxt = c.cost ? ['', 'velmi levné', 'levné', 'střední', 'dražší', 'drahé'][c.cost] : '—';
   modalOpen(`
-   <div class="modal-hero"><div class="mh-bg ${c.cost >= 4 ? 'warm' : ''}"></div>
+   <div class="modal-hero mh-photo" data-photo="${esc(c.capCs || c.cap || c.cs)}"><div class="mh-bg ${c.cost >= 4 ? 'warm' : ''}"></div>
      <button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button>
      <div class="modal-hero-inner">
-       <div style="font-size:54px;line-height:1">${flag(iso)}</div>
-       <h2 style="font-size:28px;margin-top:6px">${c.cs}</h2>
-       <div style="opacity:.85;font-size:13.5px">${c.en} · ${c.cont}${c.cap ? ' · ' + (c.capCs || c.cap) : ''}</div>
+       <div class="mh-flag">${flag(iso)}</div>
+       <h2 class="mh-name">${c.cs}</h2>
+       <div class="mh-sub">${c.cont}${c.cap ? ' · ' + (c.capCs || c.cap) : ''} · ${c.en}</div>
+       ${c.blurb ? `<div class="mh-blurb">${c.blurb}</div>` : ''}
      </div>
    </div>
    <div class="modal-body">
@@ -634,7 +636,7 @@ function openCountry(iso) {
        <button class="btn primary" onclick="modalClose();fromCountrySearch('${iso}')">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Najít lety sem</button>
        <button class="btn" onclick="stayLinks(${esc(JSON.stringify(c.cap || c.cs))})">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>
        <button class="btn" onclick="addToPlan('${iso}')">${ico('M12 5v14M5 12h14')} Do plánu</button>
-       <button class="btn ${isV ? 'warm' : 'ghost'}" id="visBtn" onclick="toggleVis('${iso}')">${isV ? '✓ Navštíveno' : 'Označit jako navštívené'}</button>
+       <button class="btn ${isV ? 'warm' : 'ghost'}" id="visBtn" onclick="toggleVis('${iso}')">${isV ? '✓ Navštíveno' : 'Byl/a jsem tu'}</button>
      </div>
      <div id="wxBox" class="weather-now"><div class="wico">⏳</div><div><div class="muted" style="font-size:12px">Načítám počasí…</div><div class="temp">--°</div></div></div>
      <div id="fcBox" class="forecast"></div>
@@ -648,9 +650,9 @@ function openCountry(iso) {
      <div style="margin-top:14px"><div class="k" style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em">Nejlepší období${c.months ? '' : ' — orientačně'}</div>${monthsStrip(c.months)}</div>
      <div id="climBox" style="margin-top:12px" title="Dlouhodobý průměr – není to předpověď"><div class="k clim-k">Průměrná denní maxima <span id="climWhere" class="faint"></span></div>${climStrip(null)}</div>
      ${c.tags ? `<div class="tags" style="margin-top:16px">${c.tags.map(t => `<span class="chip accent">${t}</span>`).join('')}</div>` : ''}
-     ${c.blurb ? `<p class="muted" style="margin-top:14px;font-size:14px">${c.blurb}</p>` : ''}
      <div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Bezpečnostní a geopolitická situace se mění. Před cestou si vždy ověř aktuální doporučení na <a href="${mzv}" target="_blank" rel="noopener" style="color:var(--info);text-decoration:underline">MZV ČR</a>.</div></div>
    </div>`);
+  Photos.paint($('#modal')); // fotka hlavního města v hlavičce
   loadWeather(c);
   loadFx(c);
   loadClimate(iso);
@@ -658,7 +660,7 @@ function openCountry(iso) {
   if (window.Entry && !Entry.ready()) { Entry.whenReady(() => { const b = $('#entryBox'); if (b && curIso === iso) b.innerHTML = Entry.detailHtml(iso); }); Entry.load().catch(() => { }); }
 }
 window.modalClose = modalClose;
-window.toggleVis = iso => { const on = !visited.has(iso); setVisited(iso, on); const b = $('#visBtn'); if (b) { b.textContent = on ? '✓ Navštíveno' : 'Označit jako navštívené'; b.className = 'btn ' + (on ? 'warm' : 'ghost'); } toast(on ? 'Přidáno: ' + byIso[iso].cs : 'Odebráno: ' + byIso[iso].cs); renderCountries(); if (activeView === 'dashboard') renderDashStats(); };
+window.toggleVis = iso => { const on = !visited.has(iso); setVisited(iso, on); const b = $('#visBtn'); if (b) { b.textContent = on ? '✓ Navštíveno' : 'Byl/a jsem tu'; b.className = 'btn ' + (on ? 'warm' : 'ghost'); } toast(on ? 'Přidáno: ' + byIso[iso].cs : 'Odebráno: ' + byIso[iso].cs); renderCountries(); if (activeView === 'dashboard') renderDashStats(); };
 window.fromCountrySearch = iso => { if (window.Flights) Flights.searchTo([{ id: 'cc:' + iso, label: byIso[iso].cs, flag: flag(iso) }]); };
 window.stayLinks = city => openStay(city);
 window.addToPlan = iso => { newTrip(byIso[iso]); };
