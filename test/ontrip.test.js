@@ -594,5 +594,5 @@ test('zkratka aplikace „Na cestě“ (/#now) vedle Letů a Plánovače', () =>
   assert.deepEqual(plain(s.icons), plain(m.shortcuts[0].icons));
   // #now otevře Přehled s kartou (start i změna adresy v otevřené aplikaci)
   assert.equal((APP.match(/if \(v === 'now'\) return showNow\(\);/g) || []).length, 2);
-  assert.match(src('../index.html'), /<div class="now-trip" id="nowTrip" hidden><\/div>\s*<div class="hero">/);
+  assert.match(src('../index.html'), /<div class="now-trip" id="nowTrip" hidden><\/div>\s*<div class="hero"[^>]*>/);
 });

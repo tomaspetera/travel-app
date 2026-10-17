@@ -7,7 +7,10 @@
 //   náhled 960 px (velká karta na telefonu) – prohlížeč si podle velikosti karty vezme menší 500 nebo 330 px;
 //   vítězí oceněná fotka na šířku s celkovým pohledem (panorama, staré město, výhled), bez map, znaků a koláží.
 // Bez oceněné fotky zůstane úvodní obrázek článku (není-li to koláž nebo SVG), jinak karta bez fotky.
-import { request } from './http.js';
+// S klíčem PEXELS_API_KEY (zdarma) mají přednost profesionální fotky z Pexels na výšku – jen ty, v jejichž popisu
+// nebo adrese je jméno města (náhodná fotka „Rumunska“ místo Oradey ne); jinak Wikimedia jako dřív.
+import { request, limiter } from './http.js';
+import { config } from '../config.js';
 import { cache } from './cache.js';
 import { UA } from './poi.js';
 
@@ -75,11 +78,24 @@ export function photoScore({ title, cats = [], width = 0, height = 0, lead = fal
   return s;
 }
 
+const limitPexels = limiter(4);
+async function pexelsApi(key, query) {
+  const qs = new URLSearchParams({ query, orientation: 'portrait', per_page: '15' });
+  const j = await limitPexels(() => request(`https://api.pexels.com/v1/search?${qs}`, { headers: { Authorization: key }, timeoutMs: 10000, retries: 1 }));
+  return (j && j.photos) || [];
+}
+
+/** První fotka z Pexels, v jejímž popisu (alt) nebo adrese je jméno města; adresa náhledu 960 × 1200 (karta na výšku). */
+export function pexelsPick(photos, names) {
+  const p = (photos || []).find((x) => x && x.src && x.src.original && (namesCity(x.alt || '', names) || namesCity(String(x.url || '').replace(/-/g, ' '), names)));
+  return p ? { u: `${p.src.original}?auto=compress&cs=tinysrgb&fit=crop&w=960&h=1200`, by: p.photographer || '' } : null;
+}
+
 /**
  * Fotky pro názvy měst (bez mezipaměti) – { photos: { název: adresa | '' }, partial }. Výpadek české Wikipedie vyhodí
  * chybu; výpadek anglické nebo Commons vrátí úvodní obrázky s partial: true.
  */
-export async function pickPhotos(titles, api = wikiApi) {
+export async function pickPhotos(titles, api = wikiApi, pexels = config.pexelsKey ? (q) => pexelsApi(config.pexelsKey, q) : null) {
   // 1) česká Wikipedie: článek, úvodní obrázek, anglický název; cíl po letišti → město před pomlčkou
   const alt = new Map(titles.map((t) => [t, t.split(/\s*[-–]\s*/)[0]]).filter(([t, a]) => a && a !== t));
   const ask = [...new Set([...titles, ...alt.values()])];
@@ -94,13 +110,25 @@ export async function pickPhotos(titles, api = wikiApi) {
     const ll = p && (p.langlinks || []).find((l) => l.lang === 'en');
     enOf[t] = ll ? ll.title : p ? '' : t; // bez českého článku zkus anglický pod stejným názvem
   }
+  // Pexels (s klíčem): profesionální fotka města; co nenajde, dohledá Wikimedia
+  const photos = {}, by = {};
+  if (pexels) {
+    await Promise.all(titles.map(async (t) => {
+      const en = enOf[t] || t, names = [en, t, t.split(/\s*[-–]\s*/)[0]];
+      try {
+        const hit = pexelsPick(await pexels(`${en.split(/[,(]/)[0].trim()} city`), names);
+        if (hit) { photos[t] = hit.u; by[t] = hit.by; }
+      } catch { /* výpadek Pexels – Wikimedia */ }
+    }));
+  }
+  const rest = titles.filter((t) => !photos[t]);
+  if (!rest.length) return { photos, by, partial: false };
   // 2–3) výpadek anglické Wikipedie nebo Commons: zatím úvodní obrázky (bez koláží), jen na krátko (partial)
   try {
-    return { photos: await bestPhotos(titles, api, lead, enOf), partial: false };
+    return { photos: { ...photos, ...(await bestPhotos(rest, api, lead, enOf)) }, by, partial: false };
   } catch {
-    const photos = {};
-    for (const t of titles) photos[t] = leadOk(lead[t]) ? lead[t] : '';
-    return { photos, partial: true };
+    for (const t of rest) photos[t] = leadOk(lead[t]) ? lead[t] : '';
+    return { photos, by, partial: true };
   }
 }
 
@@ -162,23 +190,29 @@ async function bestPhotos(titles, api, lead, enOf) {
 }
 
 /**
- * { photos: { název: adresa fotky | '' (fotka není) }, partial }. Výpadek Wikimedie (chyba, 429): nic se neuloží
- * a nenalezené názvy v odpovědi chybí – příště znovu. Náhradní výběr (partial) se uloží jen na hodinu.
+ * { photos: { název: adresa fotky | '' (fotka není) }, by: { název: autor fotky z Pexels }, partial, prov }.
+ * Výpadek Wikimedie (chyba, 429): nic se neuloží a nenalezené názvy v odpovědi chybí – příště znovu. Náhradní výběr
+ * (partial) se uloží jen na hodinu. prov: 'pexels' s klíčem, jinak 'wiki' (prohlížeč wiki fotky drží kratší dobu,
+ * aby po přidání klíče brzy přešel na Pexels).
  */
-export async function cityPhotos(titles, { pick = pickPhotos } = {}) {
+export async function cityPhotos(titles, { pick = pickPhotos, prov = config.pexelsKey ? 'pexels' : 'wiki' } = {}) {
   const want = [...new Set(titles.map((t) => String(t || '').trim()).filter((t) => t && t.length <= 80 && !t.includes('|')))].slice(0, MAX);
-  const photos = {}, miss = [];
+  const photos = {}, by = {}, miss = [];
   let partial = false;
   for (const t of want) {
-    const c = cache.get('ph5:' + t);
-    if (c !== undefined) photos[t] = c;
-    else miss.push(t);
+    const c = cache.get(`ph6:${prov}:${t}`);
+    if (c !== undefined) { photos[t] = c.u; if (c.by) by[t] = c.by; } else miss.push(t);
   }
-  if (!miss.length) return { photos, partial };
-  try {
-    const got = await pick(miss);
-    partial = got.partial;
-    for (const t of miss) { photos[t] = got.photos[t] || ''; cache.set('ph5:' + t, photos[t], partial ? 36e5 : TTL); }
-  } catch { /* výpadek – příště znovu */ }
-  return { photos, partial };
+  if (miss.length) {
+    try {
+      const got = await pick(miss);
+      partial = got.partial;
+      for (const t of miss) {
+        photos[t] = got.photos[t] || '';
+        if (got.by && got.by[t]) by[t] = got.by[t];
+        cache.set(`ph6:${prov}:${t}`, { u: photos[t], by: by[t] || '' }, partial ? 36e5 : TTL);
+      }
+    } catch { /* výpadek – příště znovu */ }
+  }
+  return { photos, by, partial, prov };
 }
