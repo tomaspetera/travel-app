@@ -1064,3 +1064,17 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   .refine-chev{flex:none;color:var(--muted);transition:transform .2s}
   #searchForm.refine .refine-chev{transform:rotate(180deg)}
 }
+/* 📉 Zlevnilo – velká karta s fotkou cíle nahoře na Přehledu */
+.drop-wrap{margin-bottom:16px}
+.drop-wrap[hidden]{display:none}
+.drop-card{min-height:230px;cursor:default}
+.drop-card:hover{transform:none}
+.drop-chip{position:absolute;top:12px;left:12px;padding:7px 13px;border-radius:999px;background:var(--good);color:#04210f;font:800 14px/1 Inter,sans-serif;box-shadow:0 8px 20px -8px rgba(0,0,0,.55)}
+.drop-price{margin-top:4px;font:800 22px/1.2 Sora,Inter,sans-serif;color:#fff}
+.drop-price small{font-size:12px;font-weight:600;opacity:.8}
+.drop-price s{font:600 14px Inter,sans-serif;color:rgba(255,255,255,.7);margin-left:4px}
+.drop-tg{font:700 12px Inter,sans-serif;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.18);vertical-align:middle}
+.drop-act{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.drop-act .btn{flex:1 1 auto}
+.drop-card .drop-all{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.28);color:#fff}
+@media(min-width:861px){.drop-card{min-height:200px}.drop-card .dest-panel{max-width:520px}}

@@ -3487,15 +3487,40 @@
     const r = radarCached(q);
     // jen karty, které radar ukazuje (bez 🙈, prvních 12 z uložených)
     const n = Alerts.news(S.watch, r && SearchHelp.radarSame(r.key, radarKey(q)) ? radarVisible(r) : null, today());
+    // nejdůležitější (pod cílovou cenou, jinak největší zlevnění) jako velká karta úplně nahoře, zbytek v řádku
+    const top = n.hits[0] || n.watch[0];
+    renderDropCard(top && (S.watch || []).find(w => w.id === top.id), n.hits.length + n.watch.length);
+    const hits = n.hits.filter(x => x !== top), drops = n.watch.filter(x => x !== top);
     const parts = [
-      ...n.hits.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">🎯 ${esc(x.label)} pod tvou cenou (${czk(x.czk)})</button>`),
-      ...n.watch.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">📉 ${esc(x.label)} −${czk(x.d)}</button>`),
-      n.hits.length + n.watch.length > Math.min(2, n.hits.length) + Math.min(2, n.watch.length) ? `<span class="faint">+${n.hits.length + n.watch.length - Math.min(2, n.hits.length) - Math.min(2, n.watch.length)} další</span>` : '',
+      ...hits.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">🎯 ${esc(x.label)} pod tvou cenou (${czk(x.czk)})</button>`),
+      ...drops.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">📉 ${esc(x.label)} −${czk(x.d)}</button>`),
+      hits.length + drops.length > Math.min(2, hits.length) + Math.min(2, drops.length) ? `<span class="faint">+${hits.length + drops.length - Math.min(2, hits.length) - Math.min(2, drops.length)} další</span>` : '',
       n.down || n.fresh ? `<button type="button" class="linkbtn" data-nl="radar">📡 radar: ${[n.down ? `${n.down} ${n.down === 1 ? 'cíl' : n.down <= 4 ? 'cíle' : 'cílů'} levněji` : '', n.fresh ? `${n.fresh} ${n.fresh === 1 ? 'nový' : n.fresh <= 4 ? 'nové' : 'nových'}` : ''].filter(Boolean).join(' · ')}</button>` : '',
     ].filter(Boolean);
     el.hidden = !parts.length;
     el.innerHTML = parts.length ? `<b>Od minula:</b> ${parts.join('<span class="faint"> · </span>')}` : '';
     $$('[data-nl]', el).forEach(b => b.onclick = () => $(b.dataset.nl === 'radar' ? '#radar' : '#watchHead')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+  /** 📉 Zlevnilo o 12 % – velká karta s fotkou cíle nahoře na Přehledu; zmizí po prohlédnutí seznamu nebo po otevření. */
+  function renderDropCard(w, total) {
+    const el = $('#dropCard'); if (!el) return;
+    el.hidden = !w;
+    if (!w) { el.innerHTML = ''; return; }
+    const cur = w.best.czk, hit = +w.target > 0 && cur <= w.target, drop = Alerts.isDropped(w);
+    const pct = drop ? Alerts.pctChange(w.seen, cur) : null;
+    const city = w.best.key ? String(w.best.desc || '').split(' · ')[0] : '';
+    const head = drop && pct ? `📉 Zlevnilo o ${Alerts.fmtPct(pct).replace(/^−/, '')}` : '🎯 Pod tvou cenou';
+    el.innerHTML = `<div class="card dest drop-card"${city ? ` data-photo="${esc(city)}"` : ''} style="--h:155">
+      <span class="drop-chip">${head}</span>
+      <div class="dest-panel"><div class="cname">${esc(w.label)}</div>
+        <div class="drop-price"><b>${czk(cur)}</b><small>/os.</small>${drop ? ` <s>${czk(w.seen)}</s>` : ''}${hit ? ` <span class="drop-tg">pod ${czk(w.target)}</span>` : ''}</div>
+        <div class="cblurb">${esc(w.best.desc || subOf(w) || '')}</div>
+        <div class="drop-act"><button type="button" class="btn primary sm" data-dco>Zobrazit lety</button><button type="button" class="btn sm drop-all" data-dca>${total > 1 ? `Všechna zlevnění (${total})` : 'Hlídané ceny'}</button></div>
+      </div></div>`;
+    // otevřením je zlevnění „viděné“ (jako po prohlédnutí seznamu)
+    $('[data-dco]', el).onclick = () => { w.seen = cur; save(); updateWatchBadges(); openWatch(w.id); };
+    $('[data-dca]', el).onclick = () => $('#watchHead')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (window.Photos) Photos.paint(el);
   }
   function updateWatchBadges() {
     renderNews();

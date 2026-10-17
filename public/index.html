@@ -164,6 +164,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
       <section class="view active" id="view-dashboard">
         <!-- 📍 Dnes na cestě: od 2 dnů před odjezdem do konce uložené cesty (app.js renderNow) -->
         <div class="now-trip" id="nowTrip" hidden></div>
+        <!-- 📉 hlídaná cena zlevnila / je pod cílovou cenou: velká karta nahoře (flights.js renderDropCard) -->
+        <div class="drop-wrap" id="dropCard" hidden></div>
         <div class="hero" id="heroBox">
           <div class="hero-bg"></div><div class="hero-aurora"></div><div class="hero-grain"></div>
           <div class="hero-inner">
