@@ -39,6 +39,19 @@
 .pi-t small{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pi-type{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
 .pi-empty{padding:12px;color:var(--muted);font-size:13px}
+/* ✨ chytré hledání: řádek „jak větě rozumím“, tipy podle chování, příklady vět */
+.pi-head{padding:8px 10px 6px;font-size:12px;font-weight:700;color:var(--muted)}
+.pi-smart{background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 16%,transparent),color-mix(in srgb,var(--accent-2,#a855f7) 10%,transparent));border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);margin-bottom:4px}
+.pi-smart.on,.pi-smart:hover{background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 26%,transparent),color-mix(in srgb,var(--accent-2,#a855f7) 16%,transparent))}
+.pi-smart .pi-t b{white-space:normal;line-height:1.35}
+.pi-smart .pi-type{color:var(--accent)}
+.pi-tip .pi-t b{font-weight:650}
+.smart-try{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:2px;scrollbar-width:none;align-items:center}
+.smart-try::-webkit-scrollbar{display:none}
+.smart-try .st-lab{flex:none;font-size:12px;font-weight:700;color:rgba(255,255,255,.85)}
+.st-chip{flex:none;font:600 12.5px/1 inherit;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:8px 12px;cursor:pointer;white-space:nowrap}
+.st-chip:hover{background:rgba(255,255,255,.24)}
+.st-chip:disabled{opacity:.6}
 .pi-dark{background:transparent;border:none;min-height:38px;padding:2px 0}
 .pi-dark:focus-within{background:transparent}
 .pi-dark .pi-input{color:#fff;font-size:15.5px}
