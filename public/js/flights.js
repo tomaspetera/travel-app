@@ -4130,11 +4130,13 @@
    * ✨ Zkus napsat: příklady vět pod hledáním na Přehledu (klepnutí = hledat) – podle ročního období (příští měsíc):
    * v létě k moři a na hory, v zimě za teplem a na lyže, jinak za teplem a k moři na jaře.
    */
-  function tryList(t = today()) {
+  function tryList(t = today(), home = String((S.home && S.home.from && S.home.from[0] && S.home.from[0].label) || '').replace(/\s*\(.*\)$/, '')) {
     const nm = (+t.slice(5, 7)) % 12, mn = MNS_IN[nm], summer = nm >= 4 && nm <= 8, hike = nm >= 5 && nm <= 8, snow = nm === 11 || nm <= 2;
     return [summer ? `k moři v ${mn} do 5000` : 'k moři v květnu do 5000', 'Řím na víkend ve dvou',
       ...(hike ? [`na hory v ${mn} na týden`] : [`za teplem v ${mn} na týden`, ...(snow ? [`na hory v ${mn} na lyže`] : [])]),
-      'Londýn příští měsíc jen přímé'];
+      'Londýn příští měsíc jen přímé',
+      // víc měst jednou větou – z domova (bez něj by věta neměla odkud)
+      ...(home ? [`${home} → Řím → Barcelona → ${home}`] : [])];
   }
   function paintSmartTry() {
     const host = $('#smartTry'); if (!host || !window.Smart) return;
