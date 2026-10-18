@@ -675,6 +675,13 @@
    * Karta „🧭 Co zařídit a co sbalit“ do shrnutí průvodce (pod „🛂 Před cestou“). o = { isos, via, ret } (jako u contextOf).
    * Když data ještě nejsou, vrátí zástupnou kartu a po načtení (dat i podnebí) se překreslí sama.
    */
+  // Seznam věcí sbalený do řádku „🎒 Seznam věcí: 24 položek · sbaleno 3“ (Shrnutí je jinak dlouhé); rozbalený zůstane
+  // rozbalený i po překreslení karty (podnebí, aktivity)
+  let packOpen = false;
+  const packSum = (groups, done) => {
+    const n = groups.reduce((s, g) => s + g.items.length, 0), k = groups.reduce((s, g) => s + g.items.filter(x => done[`pack:${x.id}`]).length, 0);
+    return `🎒 Seznam věcí na míru: ${n} ${n === 1 ? 'položka' : n < 5 ? 'položky' : 'položek'}${k ? ` · sbaleno ${k}` : ''}`;
+  };
   function html(t, o = {}) {
     if (!t) return '';
     last = { t, o };
@@ -712,7 +719,7 @@
         <section class="pt-sec"><h4>📋 Co zařídit</h4><ul class="pt-todo">${todoHtml}</ul></section>
         <section class="pt-sec"><h4>🎒 Co sbalit</h4>
           <div class="pt-acts" role="group" aria-label="Co budeš na cestě dělat"><span class="faint">Co budeš dělat:</span> ${chips}</div>
-          ${climateHtml(ctx)}${tips.length ? `<ul class="pt-tips">${tips.map(x => `<li>🧳 ${esc(x)}</li>`).join('')}</ul>` : ''}<div class="pt-groups">${packHtml}</div>${addHtml}</section>
+          ${climateHtml(ctx)}${tips.length ? `<ul class="pt-tips">${tips.map(x => `<li>🧳 ${esc(x)}</li>`).join('')}</ul>` : ''}<div class="pt-groups"><details class="pt-packd" data-pt-packd${packOpen ? ' open' : ''}><summary>${packSum(groups, done)}</summary>${packHtml}</details></div>${addHtml}</section>
       </div>
       <div class="faint pt-src">Informativní přehled (stav ${esc(checkedTxt() + (window.SearchHelp && DATA ? SearchHelp.dataAge(DATA.checked).txt : ''))}): ${link(S.desatero, 'MZV ČR')}, ${link(S.kzpTourist, 'Kancelář zdravotního pojištění')}, ${link(S.vzpEhic, 'VZP')}, ${link(S.idp, 'Portál veřejné správy')}, ${link(S.untc1949, 'OSN – úmluvy o silničním provozu')}, ${link(S.plugs, 'přehled zásuvek')}. Pravidla se mění – před cestou je vždy ověř. Odškrtnutí se ukládá v tomto prohlížeči a odkaz na cestu ho přenese i s vlastními položkami.</div>
     </div>`;
@@ -796,7 +803,10 @@
   /** Tisk jen karty „Před cestou“ (tisková CSS skryje zbytek stránky podle třídy na body). */
   function printList() {
     document.body.classList.add('pt-print');
-    const off = () => { document.body.classList.remove('pt-print'); window.removeEventListener('afterprint', off); };
+    // seznam věcí se tiskne celý, i když je na obrazovce sbalený
+    const shut = [...document.querySelectorAll('#preTrip details.pt-packd:not([open])')];
+    shut.forEach(d => { d.open = true; });
+    const off = () => { document.body.classList.remove('pt-print'); shut.forEach(d => { d.open = false; }); window.removeEventListener('afterprint', off); };
     window.addEventListener('afterprint', off);
     window.print();
   }
@@ -820,6 +830,9 @@
       if (del) { delFromCard(del.dataset.ptDel, e.detail === 0); return; }
       if (t.closest('#preTrip [data-pt-print]')) printList();
     });
+    document.addEventListener('toggle', e => {
+      if (e.target && e.target.matches && e.target.matches('#preTrip details.pt-packd')) packOpen = e.target.open;
+    }, true);
     document.addEventListener('submit', e => {
       const f = e.target && e.target.closest ? e.target.closest('#preTrip [data-pt-add]') : null;
       if (!f) return;

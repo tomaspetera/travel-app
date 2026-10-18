@@ -4029,6 +4029,34 @@
     tips.push(phraseTip('🌍', `kamkoliv${suf || ' na víkend'} co nejdřív`, 'nejlevnější lety v příštích 2 týdnech', from));
     return tips.slice(0, 6);
   }
+  /**
+   * ↩ Pokračuj na Přehledu: rozpracovaná cesta v průvodci (kam, kdy, u kterého kroku) a poslední 2 hledání – ať se
+   * uživatel po návratu neztratí. Nic rozpracovaného → schované.
+   */
+  const STEP_LBL = { flight: 'let', route: 'trasa', stay: 'ubytování', car: 'auto', program: 'program', summary: 'shrnutí' };
+  function renderResume() {
+    const host = $('#resumeRow'); if (!host) return;
+    const t = S.trip, d = t && t.flight && t.flight.out && window.Trip ? (() => { try { return Trip.stayDates(t); } catch (e) { return null; } })() : null;
+    // cesta, která ještě nezačala (průvodce pro uplynulý let už nepomůže)
+    const trip = d && t.flight.out.date >= today() ? t : null;
+    const bases = trip && trip.route && trip.route.mode === 'multi' && Array.isArray(trip.route.bases) && trip.route.bases.length >= 2 ? trip.route.bases : null;
+    const name = trip ? (bases ? bases.map(b => b.name).join(' → ') : trip.dest && trip.dest.label) || trip.flight.out.to : '';
+    const picked = bases ? bases.filter(b => b.stay).length : 0;
+    const recent = [], seen = new Set();
+    for (const e of S.recent || []) {
+      const f = SearchHelp.recentForm(e.form, today()), k = f && f.trip !== 'multi' && watchKey({ form: f });
+      if (!k || seen.has(k)) continue;
+      seen.add(k); recent.push(f);
+      if (recent.length >= 2) break;
+    }
+    host.hidden = !trip && !recent.length;
+    host.innerHTML = `${trip ? `<div class="card resume-trip"><span class="rs-ico">🧳</span><div class="rs-t"><b>Rozpracovaná cesta: ${esc(name)}</b>
+        <small>${fmtDate(d.checkin)}–${fmtDate(d.checkout)} · krok ${esc(STEP_LBL[trip.step] || 'let')}${bases && trip.step === 'stay' ? ` (vybráno ${picked} z ${bases.length})` : ''}</small></div>
+        <button type="button" class="btn sm primary" id="rsTrip">Pokračovat →</button></div>` : ''}
+      ${recent.length ? `<div class="resume-recent"><span class="faint">🔁 Naposledy:</span>${recent.map((f, i) => `<button type="button" class="recent-chip" data-rsr="${i}" title="Hledat znovu">${esc(watchLabel(f))} <small>${esc(recentSub(f))}</small></button>`).join('')}</div>` : ''}`;
+    const b = $('#rsTrip', host); if (b) b.onclick = () => go('trip');
+    $$('[data-rsr]', host).forEach(x => x.onclick = () => { go('flights'); setForm(recent[+x.dataset.rsr]); startSearch(); });
+  }
   // ✨ Zkus napsat: příklady vět pod hledáním na Přehledu (klepnutí = hledat)
   const TRY = ['k moři v květnu do 5000', 'Řím na víkend ve dvou', 'za teplem v prosinci na týden', 'Londýn příští měsíc jen přímé'];
   function paintSmartTry() {
@@ -4548,7 +4576,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, renderPins, refreshPins: pinsPaint, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, renderPins, refreshPins: pinsPaint, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

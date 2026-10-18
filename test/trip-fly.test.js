@@ -108,7 +108,7 @@ test('cesta přes víc měst: průběh cesty, kalendář, shrnutí a plánovač 
   assert.ok(ev.includes('🚪 Vyraž na letiště FCO'));
   assert.ok(!ev.some((x) => /Přejezd/.test(x)));
   const s = render(c, 'summary');
-  assert.match(s, /1\. letenka: PRG → FCO/); assert.match(s, /2\. letenka: FCO → BCN/); assert.match(s, /3\. letenka: BCN → PRG/);
+  assert.match(s, /1\. Letenka PRG → FCO/); assert.match(s, /2\. Letenka FCO → BCN/); assert.match(s, /3\. Letenka BCN → PRG/);
   assert.match(s, /https:\/\/air\.example\/FCO-BCN/);
   // plánovač: všechny lety s časy, bez přejezdů mezi místy
   c.S.trips = [];
@@ -117,6 +117,8 @@ test('cesta přes víc měst: průběh cesty, kalendář, shrnutí a plánovač 
   assert.deepEqual(plain(p.legs.map((l) => `${l.from}-${l.to} ${l.dep}`)), ['PRG-FCO 2026-11-10T10:00', 'FCO-BCN 2026-11-13T07:35', 'BCN-PRG 2026-11-16T18:10']);
   assert.match(p.flight, /^1\. PRG→FCO .*, 2\. FCO→BCN .*, 3\. BCN→PRG .* · samostatné letenky$/);
   assert.match(p.notes, /Trasa: Řím \(3 noci\) → Barcelona \(3 noci\)/);
+  assert.equal(p.dest, 'Řím → Barcelona');
+  assert.match(p.name, /^Řím → Barcelona 10\.\s?11\./);
   assert.doesNotMatch(p.notes, /Přejezd/);
   assert.equal(p.wizard.flight.mid.length, 1);
 });
@@ -200,8 +202,8 @@ test('cesta přes víc měst jen tam (Praha → Řím → Barcelona): poslední 
   assert.deepEqual([t.route.bases[1].nights, Trip.baseDates(t)[1].checkout, Trip.stayDates(t).checkout], [5, '2026-11-18', '2026-11-18']);
   assert.equal(t.route.bases[1].stay, null, 'hotel na staré dny pryč');
   const s = render(c, 'summary');
-  assert.match(s, /1\. letenka: PRG → FCO/); assert.match(s, /2\. letenka: FCO → BCN/);
-  assert.doesNotMatch(s, /3\. letenka/);
+  assert.match(s, /1\. Letenka PRG → FCO/); assert.match(s, /2\. Letenka FCO → BCN/);
+  assert.doesNotMatch(s, /3\. Letenka/);
   const back = Trip.sanitizeTrip(plain(t));
   assert.equal(back.flight.mid.length, 1);
   assert.equal(back.route.fixed, 'flights');

@@ -2159,7 +2159,7 @@
     const fly = isFly(t);
     const flightLinks = f.bookUrl ? [[f.combined ? `Koupit letenky (${provLabel(f.provider)})` : 'Koupit letenky', f.bookUrl]]
       // cesta přes víc měst: každý let je samostatná letenka
-      : fly ? allLegs(t).map((l, i) => [`${i + 1}. letenka: ${l.from} → ${l.to} ${fmtDate(l.date)} (${l.carrierName || l.provider})`, l.bookUrl])
+      : fly ? allLegs(t).map(l => [`Letenka ${l.from} → ${l.to} ${fmtDate(l.date)} (${l.carrierName || l.provider})`, l.bookUrl])
       : [[`Letenka tam (${f.out.carrierName || f.out.provider})`, f.out.bookUrl], ...(f.back ? [[`Letenka zpět (${f.back.carrierName || f.back.provider})`, f.back.bookUrl]] : [])];
     // Vlak/bus: jízdenka tam a zpět (RegioJet u vybraného spoje, jinak první odkaz – RegioJet, FlixBus, IDOS).
     const groundSteps = ov ? [[ov.out, 'tam', ov.from.label, ov.to.label, ov.links && ov.links.out], [ov.back, 'zpět', ov.to.label, ov.from.label, ov.links && ov.links.back]]
@@ -2300,6 +2300,8 @@
     return ev;
   }
 
+  /** Název cesty: cíl, u cesty přes víc měst letadlem všechna města („Řím → Barcelona“). */
+  const tripName = t => (isFly(t) ? t.route.bases.map(b => b.name).join(' → ') : t.dest.label);
   /** Celá cesta jako jedna celodenní událost (odkaz do Google Kalendáře). */
   function tripEvent(t) {
     const f = t.flight, { checkout } = stayDates(t), ov = ovOn(t) ? t.overland : null;
@@ -2307,7 +2309,7 @@
     const gl = (g, a, b) => `${gIco(g)} ${a} → ${b} ${gTime(g)} (${fmtDate(g.date)}, ${gWho(g)})`;
     const b = backLeg(t);
     return {
-      title: `🧳 Cesta: ${t.dest.label}`, start: outLeg(t).date, end: b ? b.date : checkout, location: t.dest.label,
+      title: `🧳 Cesta: ${tripName(t)}`, start: outLeg(t).date, end: b ? b.date : checkout, location: t.dest.label,
       description: [ov ? gl(ov.out, ov.from.label, ov.to.label) : fl(f.out), ...(ov ? [] : midLegs(t).map(fl)), ov ? (ov.back ? gl(ov.back, ov.to.label, ov.from.label) : '') : f.back ? fl(f.back) : '',
         isMulti(t) ? `🧭 ${t.route.bases.map(b => `${b.name} (${nightsTxt(b.nights)}${hotelName(b.stay) ? ', ' + hotelName(b.stay) : ''})`).join(' → ')}`
           : t.stay && t.stay.mode !== 'skip' ? `🏨 ${t.stay.name || 'Ubytování'}` : '',
@@ -2348,7 +2350,7 @@
       t.car && t.car.mode !== 'skip' ? `Auto: ${t.car.pickup || ''} ${t.car.from || ''} → ${t.car.dropoff || ''} ${t.car.to || ''} – ${czk(t.car.totalCzk)}` : '',
     ].filter(Boolean).join('\n');
     const entry = {
-      name: `${t.dest.label} ${fmtDate(checkin)}`, dest: t.dest.label, iso: byIso[t.dest.cc] ? t.dest.cc : null,
+      name: `${tripName(t)} ${fmtDate(checkin)}`, dest: tripName(t), iso: byIso[t.dest.cc] ? t.dest.cc : null,
       // víc zemí, nebo území mimo seznam zemí (Portoriko → pravidla USA): kódy zemí pro vstupní podmínky
       ...(tripCountries(t).length > 1 || (tripCountries(t).length && !byIso[t.dest.cc]) ? { isos: tripCountries(t) } : {}),
       ...(tripVia(t).length ? { via: tripVia(t) } : {}),
