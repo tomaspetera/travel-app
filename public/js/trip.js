@@ -1385,6 +1385,9 @@
     return d;
   }
 
+  // Ceny hotelů se zjišťují jedna po druhé (živě bývá 5–15 s): když se po 4 s pořád hledá, poznámka proč a co mezitím
+  // (objeví se sama přes CSS animaci se zpožděním – s výsledky zmizí s celým obsahem #stayBody)
+  const STAY_LOADING = '<div class="loading-row"><span class="spin dark"></span> Hledám ubytování s nejlepším poměrem ceny a hodnocení…</div><div class="slow faint">Ceny se zjišťují u jednotlivých hotelů – obvykle do 15&nbsp;s. Mezitím můžeš níž zadat vlastní cenu.</div>';
   // klíč nabídek ubytování jednoho místa (místo, dny, počet hostů) – i ke kontrole, že staysData patří této cestě
   const stayKeyOf = t => { const { checkin, checkout } = stayDates(t); return `${t.dest.label}|${checkin}|${checkout}|${t.adults}`; };
   async function stayStep() {
@@ -1397,7 +1400,7 @@
       <div class="sc-head"><div><h3>🏨 Ubytování · ${esc(t.dest.label)}</h3><div class="muted">${dayLbl(checkin)} – ${dayLbl(checkout)} · ${nightsTxt(nights)} · ${t.adults} ${t.adults === 1 ? 'host' : t.adults <= 4 ? 'hosté' : 'hostů'}</div></div>
       ${t.stay ? `<div class="chosen">Vybráno: <b>${esc(t.stay.name || (t.stay.mode === 'skip' ? 'bez ubytování' : ''))}</b>${t.stay.totalCzk ? ` · ${czk(t.stay.totalCzk)}${t.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : ''}</div>` : ''}</div>
       ${oneWayField(t)}
-      <div id="stayBody"><div class="loading-row"><span class="spin dark"></span> Hledám ubytování s nejlepším poměrem ceny a hodnocení…</div></div>
+      <div id="stayBody">${STAY_LOADING}</div>
       <div class="divider"></div>
       <div class="manual-row"><div class="muted" style="font-size:13px">Vybral sis jinde? Zadej celkovou cenu a pokračuj:</div>
         <input class="input" id="manName" placeholder="Název (nepovinné)" value="${t.stay && t.stay.mode === 'manual' ? esc(t.stay.name) : ''}">
@@ -1470,7 +1473,7 @@
       ${baseTabs(r, i, x => Boolean(x.stay), 'data-bt')}
       <div class="sc-head" style="margin-top:14px"><div><h3 style="font-size:15.5px">${i + 1}. ${esc(b.name)}</h3><div class="muted">${dayLbl(d.checkin)} – ${dayLbl(d.checkout)} · ${nightsTxt(d.nights)}</div></div>
         ${b.stay ? `<div class="chosen">Vybráno: <b>${esc(stayState(b.stay))}</b>${stayCzk(b.stay) ? ` · ${czk(stayCzk(b.stay))}${b.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : ''}</div>` : ''}</div>
-      <div id="stayBody"><div class="loading-row"><span class="spin dark"></span> Hledám ubytování s nejlepším poměrem ceny a hodnocení…</div></div>
+      <div id="stayBody">${STAY_LOADING}</div>
       <div class="divider"></div>
       <div class="manual-row"><div class="muted" style="font-size:13px">Vybral sis jinde? Zadej celkovou cenu za ${nightsTxt(d.nights)}:</div>
         <input class="input" id="manName" placeholder="Název (nepovinné)" value="${b.stay && b.stay.mode === 'manual' ? esc(b.stay.name) : ''}">

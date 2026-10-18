@@ -96,6 +96,20 @@
       : (pair ? Number(!a.paired) - Number(!b.paired) : 0) || price(a) - price(b) || dep(a).localeCompare(dep(b)));
   }
 
+  /**
+   * Sloupec letů seřazený podle ceny: nejlevnější let je s přestupem, ale přímý let stojí jen o málo víc (nejvýš
+   * o 300 Kč nebo 15 %) – ten nabídnout hned nahoře. list = sortLegs(…, 'price', pair) → { i (index v list), more } | null
+   */
+  function directNear(list, pair = null) {
+    const price = x => (pair ? x.paired : x.best)?.perPersonCzk;
+    const x0 = (list || []).find(x => price(x) != null);
+    if (!x0 || !(x0.leg.stops > 0)) return null;
+    const i = list.findIndex(x => !(x.leg.stops > 0) && price(x) != null);
+    if (i < 0) return null;
+    const more = price(list[i]) - price(x0);
+    return more <= Math.max(300, price(x0) * 0.15) ? { i, more: Math.max(0, more) } : null;
+  }
+
   /** Přímé lety, které už ve výsledcích jsou s cenou (trasa|den|dopravce|čas) – v „dalších letech“ je neopakovat. */
   function pricedTimes(trips) {
     const s = new Set();
@@ -1781,7 +1795,7 @@
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs, ownPrint, ownPrintFor,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
-    DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
+    DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, directNear, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
