@@ -642,7 +642,8 @@ test('prohlížeč: dvojice samostatných letenek autem – parkování na celou
   const bt = { back: leg('BCN', 'PRG', B, 1100, 40), destKey: 'BCN' };
   const park = (iata, n) => (iata === 'PRG' ? 100 * (n + 1) : 0);
   const c = H.composeTrip(ot, bt, { adults: 2, openJaw: true, park });
-  assert.deepEqual([c.groundCzk, c.parkCzk, c.perPersonCzk], [40 + 40 + 500, 500, 2100 + 580]);
+  // cena nabídky = letenky; s dopravou a parkováním tripCzk
+  assert.deepEqual([c.groundCzk, c.parkCzk, c.perPersonCzk, c.tripCzk, c.totalCzk], [40 + 40 + 500, 500, 2100, 2100 + 580, 4200]);
   // jiné letiště návratu: veřejnou dopravou (open-jaw) ano, autem ne
   const other = { back: leg('BCN', 'PED', B, 900, 60), destKey: 'BCN' };
   assert.ok(H.composeTrip(ot, other, { openJaw: true }));
@@ -723,7 +724,8 @@ test('hledání tam i zpět autem: palivo + parkování podle nocí v ceně, ná
       const pk = A.parkCzk(g(t.out.from), 4);
       assert.equal(t.parkCzk ?? 0, pk, t.out.from); // Pardubice parkování zdarma → parkCzk chybí
       assert.equal(t.groundCzk, 2 * g(t.out.from).czk + pk);
-      assert.equal(t.perPersonCzk, t.flightCzk + t.groundCzk);
+      assert.equal(t.perPersonCzk, t.flightCzk, 'cena nabídky = letenka');
+      assert.equal(t.tripCzk, t.flightCzk + t.groundCzk, 's dopravou a parkováním zvlášť');
     }
     // veřejnou dopravou: open-jaw návrat do KLV je ve hře, bez parkování
     const rt = await search({ ...base, groundMode: 'transit', kmRate: 1 }, () => {}, { providers: [p], hubs: false });
@@ -770,10 +772,10 @@ test('přesná data autem: nejbližší dny – parkování na celou cestu jen u
     assert.equal(t.parkCzk, pk);
     const out = r.nearby.out.days.find((d) => d.date === D);
     const back = r.nearby.back.days.find((d) => d.date === B);
-    // den tam: let + palivo jedním směrem + parkování na celou cestu (4 noci = 5 dní)
-    assert.deepEqual([out.cost, out.parkCzk, out.parkDays], [t.out.czk + g.czk + pk, pk, 5]);
-    // den zpět: let + palivo, parkování už je u Tam – součet je cena cesty ve výpisu (dřív parkování dvakrát)
-    assert.deepEqual([back.to, back.cost, back.parkCzk], ['PRG', t.back.czk + g.czk, undefined]);
+    // pruh nejbližších dnů jen s cenou letenky (doprava a parkování se ukazují u nabídky zvlášť); zpět autem jen tam,
+    // kde auto stojí – součet je cena cesty ve výpisu
+    assert.equal(out.cost, t.out.czk);
+    assert.deepEqual([back.to, back.cost], ['PRG', t.back.czk]);
     assert.equal(out.cost + back.cost, t.perPersonCzk);
     // levný návrat do Karlových Varů autem nejde (auto stojí v Praze) – do řádku Zpět se nepočítá
     assert.ok(!r.nearby.back.days.some((d) => d.to === 'KLV'));
@@ -824,10 +826,10 @@ test('přesná data autem: Tam + Zpět v „Nejbližších dnech“ = cena nejle
       } else {
         // den po odletu je nejlevnější přes Pardubice: auto stojí tam (zdarma) a vrací se tam – v ceně dne je i rozdíl
         // návratu do Pardubic proti návratu do Prahy v řádku Zpět
-        const gc = (iata) => r.origins.find((o) => o.iata === iata).ground.czk;
+        // (ceny jen letenek – doprava autem a parkování se ukazují u nabídky zvlášť)
         const x = r.nearby.out.days.find((d) => d.date === day(D, 1));
-        assert.deepEqual([x.from, x.parkCzk, x.tripAdj], ['PED', undefined, 1000 + gc('PED') - (1400 + gc('PRG'))]);
-        assert.equal(x.cost, 600 + gc('PED') + x.tripAdj);
+        assert.deepEqual([x.from, x.tripAdj], ['PED', 1000 - 1400]);
+        assert.equal(x.cost, 600 + x.tripAdj);
       }
     }
   } finally {

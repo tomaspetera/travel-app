@@ -7,6 +7,9 @@ import vm from 'node:vm';
 const ctx = { window: {} };
 vm.runInNewContext(readFileSync(new URL('../public/js/alerts.js', import.meta.url), 'utf8'), ctx);
 const A = ctx.window.Alerts;
+// hlídání v testech je v aktuální verzi ceny (pv) – starší verzi (bez pv) hlídá vlastní test níž
+const applyCheckRaw = A.applyCheck;
+A.applyCheck = (w, ...rest) => applyCheckRaw(w && !('pv' in w) ? { ...w, pv: A.PV } : w, ...rest);
 const H = 3600e3;
 const NOW = Date.parse('2026-10-05T12:00:00Z');
 const TODAY = '2026-10-05';
@@ -246,7 +249,7 @@ test('searchKey: stejné hledání = stejný klíč (pořadí míst a klíčů, 
 
 test('upsertWatch: stejné hledání podruhé (♡ z „Je to dobrá cena?“ a pak pod formulářem) se nepřidá, jen se aktualizuje', () => {
   const keyOf = (w) => A.searchKey(payload(w.form));
-  const watch = (id, form, czk, at) => ({ id, label: 'Praha → Lagos', sub: 'tam 28.10. · zpět 11.11.', form, best: { czk }, history: [{ at, czk }], checked: at, base: czk, low: czk, seen: czk, target: null });
+  const watch = (id, form, czk, at) => ({ id, label: 'Praha → Lagos', sub: 'tam 28.10. · zpět 11.11.', form, best: { czk }, history: [{ at, czk }], checked: at, base: czk, low: czk, seen: czk, target: null, pv: A.PV });
   const other = watch('o', { ...FORM, to: ['city:ACC'] }, 9000, NOW - 9 * H);
   const r1 = A.upsertWatch([other], watch('a', FORM, 12556, NOW - 2 * H), keyOf, { now: NOW - 2 * H });
   assert.equal(r1.dup, false);
@@ -268,7 +271,7 @@ test('upsertWatch: stejné hledání podruhé (♡ z „Je to dobrá cena?“ a 
 
 test('upsertWatch: ♡ při výpadku zdroje vyšší cenu do hlídání nezapíše (jako kontrola)', () => {
   const keyOf = (w) => A.searchKey(payload(w.form));
-  const w0 = { id: 'a', label: 'x', sub: 'y', form: FORM, best: { czk: 5000 }, history: [{ at: NOW - H, czk: 5000 }], checked: NOW - H, base: 5000, low: 5000, seen: 5000, target: null };
+  const w0 = { id: 'a', label: 'x', sub: 'y', form: FORM, best: { czk: 5000 }, history: [{ at: NOW - H, czk: 5000 }], checked: NOW - H, base: 5000, low: 5000, seen: 5000, target: null, pv: A.PV };
   const hi = { ...w0, id: 'b', best: { czk: 8000 }, history: [{ at: NOW, czk: 8000 }] };
   const r = A.upsertWatch([w0], hi, keyOf, { now: NOW, partial: true });
   assert.deepEqual([r.dup, r.w.best.czk, r.w.history.length, r.w.partials], [true, 5000, 1, 1]);
@@ -567,7 +570,7 @@ test('searchKey s roll: klíč klouzavého hlídání se den ode dne nemění, p
   assert.equal(wkey(eve, '2026-11-12'), wkey(eve, '2027-05-01'));
   assert.notEqual(wkey(eve, '2026-11-12'), wkey(hol, '2026-11-12'), 'bez „odlet od 16:00“ je jiné hledání');
   // ♡ téhož klouzavého hledání o týden později se nepřidá podruhé (Alerts.upsertWatch)
-  const w1 = { id: 'a', label: 'x', sub: 'y', form: weekly, best: { czk: 1500 }, history: [{ at: NOW, czk: 1500 }], checked: NOW, base: 1500, low: 1500, seen: 1500, target: 1200 };
+  const w1 = { id: 'a', label: 'x', sub: 'y', form: weekly, best: { czk: 1500 }, history: [{ at: NOW, czk: 1500 }], checked: NOW, base: 1500, low: 1500, seen: 1500, target: 1200, pv: R.PV };
   const r = R.upsertWatch([w1], { ...w1, id: 'b', form: { ...weekly, dFrom: '2026-10-21', dTo: '2026-12-16' }, best: { czk: 1400 }, target: null }, (w) => wkey(w.form, '2026-10-18'), { now: NOW + 168 * H });
   assert.deepEqual([r.dup, r.list.length, r.w.id, r.w.target, r.w.base, r.w.history.length], [true, 1, 'a', 1200, 1500, 2]);
   // pevné hledání (stará hlídání, Nedávno, záloha): klíč přesně jako před klouzavým hlídáním
@@ -693,4 +696,12 @@ test('rollSame: hledání z minula (data ze dne hledání) je pořád totéž kl
   for (const x of [{ depAfter: { date: '2026-10-14', time: '16:00' } }, { dateMode: 'exact' }, { trip: 'multi' }, { dFrom: 'zítra' }, { dTo: '2026-10-13' }]) assert.equal(same(roll, { ...form, ...x }, '2026-10-12'), false, JSON.stringify(x));
   for (const r of [{ off: 3, span: 6 }, { off: 61, span: 56 }, null, 'next']) assert.equal(same(r, form, '2026-10-12'), false, JSON.stringify(r));
   assert.equal(same(roll, null, saved), false);
+});
+
+test('applyCheck: hlídání ze starší verze (cena i s dopravou na letiště) – nový základ bez „zlevnilo“, pak normálně', () => {
+  const old = { id: 'w', history: [{ at: NOW - 7 * H, czk: 3400 }], best: { czk: 3400 }, base: 3400, low: 3400, seen: 3400, checked: NOW - 7 * H };
+  const r = applyCheckRaw(old, { czk: 3100 }, NOW);
+  assert.deepEqual([r.why, r.rebased, r.w.pv, r.w.base, r.w.low, r.w.seen], [null, 'price', A.PV, 3100, 3100, 3100]);
+  const r2 = applyCheckRaw(r.w, { czk: 2900 }, NOW + H);
+  assert.deepEqual([r2.why, r2.rebased], ['drop', undefined], 'další kontrola už porovnává ceny letenek');
 });

@@ -238,13 +238,14 @@ test('search multi: úseky se zdroji, rozpočet dotazů, nejvýš 2 úseky najed
     assert.equal(res.destination.label, 'Praha → Řím → Neapol → Barcelona → Praha');
     assert.equal(res.returnsHome, true);
     assert.deepEqual(res.legs.map((l) => l.options.length), [3, 4, 1, 2]);
-    // 1. let: doprava na letiště odletu je v ceně (Vratislav ~216 km od Prahy), 4. let: doprava z letiště příletu domů
+    // 1. let: doprava na letiště odletu (Vratislav ~216 km od Prahy), 4. let: doprava z letiště příletu domů – zvlášť
+    // v tripCzk, cena letu je letenka
     const wro = res.legs[0].options.find((o) => o.out.from === 'WRO');
-    assert.ok(wro.groundCzk > 60 && wro.perPersonCzk === 900 + wro.groundCzk);
+    assert.ok(wro.groundCzk > 60 && wro.perPersonCzk === 900 && wro.tripCzk === 900 + wro.groundCzk);
     const lej = res.legs[3].options.find((o) => o.out.to === 'LEJ');
     const prg = res.legs[3].options.find((o) => o.out.to === 'PRG');
     assert.equal(prg.groundCzk, 50, 'Praha: MHD (jízdenka PID ~46 Kč)');
-    assert.ok(lej.groundCzk > 200 && lej.arrGroundCzk === lej.groundCzk && lej.perPersonCzk === 800 + lej.groundCzk);
+    assert.ok(lej.groundCzk > 200 && lej.arrGroundCzk === lej.groundCzk && lej.perPersonCzk === 800 && lej.tripCzk === 800 + lej.groundCzk);
     // mezi městy cesty se doprava nepočítá
     assert.ok(res.legs[1].options.every((o) => o.groundCzk === 0));
     // návaznosti: FCO 10:00 se po příletu do FCO v 9:00 nestihne, CIA 13:00 po příletu do FCO 8:00 nemá 5 h

@@ -27,8 +27,15 @@ let TOT = 197; const CONT_TOT = {};
 /* ================= STATE ================= */
 const LS = 'atlas_v1';
 let S = load();
-function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return Object.assign(defState(), d); } catch (e) { } return defState(); }
-function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null, accessOwn: {}, fav: [], mute: [], pins: [], viewed: [] }; }
+function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return migratePrices(Object.assign(defState(), d)); } catch (e) { } return defState(); }
+// Ceny letů jsou od pv 2 jen za letenku (+ zavazadla), dřív i s dopravou na letiště a do města: uložené karty radaru
+// se načtou znovu a „naposledy prohlížené“ ceny zapomenou – jinak by vedle nových cen vypadaly dráž („zlevnilo“).
+// Hlídané ceny si nový základ vezmou při příští kontrole (Alerts, w.pv), odložené nabídky se přepočítají (Pins).
+function migratePrices(s) {
+  if (s.pv === 2) return s;
+  return { ...s, pv: 2, radar: null, viewed: (s.viewed || []).map(x => (x && typeof x === 'object' ? { ...x, czk: null } : x)) };
+}
+function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null, accessOwn: {}, fav: [], mute: [], pins: [], viewed: [], pv: 2 }; }
 // Plné úložiště: uvolnit místo po uložených výsledcích posledního hledání (flights.js) – stav aplikace má přednost.
 // Vrací, jestli se stav uložil (💾 obnova ze zálohy při plném úložišti nic nesloučí).
 function save() {
@@ -402,8 +409,10 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-18g';
+const WN_ID = '2026-10-18h';
 const WHATS_NEW = [
+  ['💰', 'Cena = letenka', 'u nabídek, v radaru i v kalendáři je teď jen cena letenky (se zavazadly, když je vybereš). Doprava na letiště a z letiště do města je pod cenou zvlášť – jen pro představu, kolik zhruba stojí. Řazení „i s cestou na letiště“ je ve Filtrech.'],
+  ['💱', 'Odkazy v korunách', 'Kiwi.com se otevře česky v Kč; u Ryanairu a Wizz Air uvidíš předem, v jaké měně web ukáže let zpět (účtují v měně země odletu).'],
   ['👀', 'Zaujalo tě', 'cíle, které sis po hledání Kamkoliv rozbalil, nabídne prázdné pole <b>Kam</b> – jedním klepnutím lety jen tam ve stejném termínu.'],
   ['🧭', 'Lišta podle tebe', 'dole jsou Přehled a 3 sekce, které otevíráš nejčastěji; zbytek, záloha a vzhled jsou pod <b>Další</b>. Karty radaru mají štítek počasí vždy – do 15 dní předpověď, dál dlouhodobý průměr 🌡️.'],
   ['🗣️', 'Hledání rozumí ještě víc', '„příští pátek“, „pozítří“, „mám 5000“, „do 80 €“, „z Kutné Hory“, „do Nového Zélandu“, „Slunečné pobřeží“ – a kdo hledá hlavně víkendy, tomu radar na Přehledu nabídne <b>Víkendy</b>.'],

@@ -1591,6 +1591,8 @@
   function sortKey(t, g) {
     switch (view.sort) {
       case 'flight': return t.flightCzk;
+      // i s odhadem dopravy na letiště a z letiště do města (cena nabídky je jen letenka)
+      case 'trip': return t.tripCzk ?? t.perPersonCzk;
       case 'fast': return SearchHelp.fastKey(t, 250, (originGround(lastResult, t.out.from)?.minutes || 0) + (t.back ? originGround(lastResult, t.back.to)?.minutes || 0 : 0));
       case 'deal': return -t.deal.score;
       case 'season': { const s = seasonOk(g?.dest.cc || '', t.out.date); const c = countryInfo(g?.dest.cc); return t.perPersonCzk * (s === true ? 0.65 : s === false ? 1.2 : 1) * (c && c.safety ? (1.25 - c.safety * 0.05) : 1); }
@@ -1666,26 +1668,26 @@
       const p = x => (x.own ? `${czk(x.czk)} (vlastní cena)` : `~${czk(x.czk)}`), est = [a, b].some(x => x && x.czk && !x.own);
       tip = `Veřejnou dopravou${a && a.czk ? ` na letiště ${t.out.from} ${p(a)}` : ''}${b && b.czk ? ` + z letiště ${t.back.to} domů ${p(b)}` : ''} na osobu${est ? ` – vlak/bus do města letiště za běžnou cenu a MHD nebo vlak na letiště (z Prahy a Brna do Vídně, Mnichova a Berlína i přímý bus až na letiště)${[a, b].some(x => x && (x.breakdown || []).some(i => i.k === 'border')) ? ', příplatek za mezinárodní spoj' : ''}. Odhad, ne jízdní řád.` : '.'}`;
     }
-    return ` + <span title="${esc(tip)}">${what} ${czk(t.groundCzk)}/os.</span>`;
+    return `<span title="${esc(tip)}">${car ? '🚗' : '🚆'} ${what} ~${czk(t.groundCzk)}/os.</span>`;
   }
   /** Pohon a cena u cesty autem ve výsledku (položka paliva u letišť odletu), jinak null (dřívější Kč/km). */
   const resFuel = res => (res && res.origins || []).map(o => SearchHelp.fuelItem(o.ground)).find(Boolean) || null;
   /** Patička výsledků: jak se počítá doprava na letiště. */
   function groundFoot(res, multi = false) {
     const q = res.query;
-    if (!q.kmRate) return 'bez dopravy na letiště (vypnuto v Další možnosti)';
-    if (res.origins && res.origins.length && !res.origins.some(o => o && o.ground)) return 'bez dopravy na letiště (odkud je celá země – není odkud ji počítat)';
+    if (!q.kmRate) return 'doprava na letiště se neukazuje (vypnuto v Další možnosti)';
+    if (res.origins && res.origins.length && !res.origins.some(o => o && o.ground)) return 'doprava na letiště se neukazuje (odkud je celá země – není odkud ji počítat)';
     const where = multi ? 'na letiště na začátku cesty a z letiště domů' : 'na letiště a zpět';
     if (q.groundMode === 'car') {
       const e = resFuel(res), fuel = e && e.fuel === 'ev' ? 'nabíjení' : 'palivo';
       const how = e ? `${SearchHelp.energyTxt(e)} tam i zpět – ${e.priceLabel}`
         : q.carKmCzk ? `palivo ${String(q.carKmCzk).replace('.', ',')} Kč/km tam i zpět` : 'palivo tam i zpět';
-      return `vč. odhadu cesty autem ${where} (${how}; parkování u letiště podle délky cesty a dálniční známky v cizině, vše děleno počtem cestujících; ${multi
+      return `cesta autem ${where} je odhad (${how}; parkování u letiště podle délky cesty a dálniční známky v cizině, vše děleno počtem cestujících; ${multi
         ? `nejlevnější kombinace se vrací na letiště, kde auto parkuje; bez návratu domů = odvoz – ${fuel} tam i zpět, bez parkování`
         : `zpět jen na letiště, kde auto stojí; autem jen tam = odvoz – ${fuel} tam i zpět, bez parkování`})`;
     }
     const own = (res.origins || []).filter(o => o.ground && o.ground.own).map(o => o.iata);
-    return `vč. odhadu dopravy ${where} veřejnou dopravou (jízdenka vlak/bus do města letiště za běžnou cenu podle vzdálenosti a živých cen RegioJetu + MHD nebo vlak na letiště, případně přímý bus až na letiště s příplatkem za mezinárodní spoj${q.kmRate !== 1 ? `; odhad jízdného × ${String(q.kmRate).replace('.', ',')}` : ''}${own.length ? `; ${own.join(', ')} – vlastní cena z 🏠 Moje cena na letiště${q.kmRate !== 1 ? ', bez násobku' : ''}` : ''})`;
+    return `doprava ${where} veřejnou dopravou je odhad (jízdenka vlak/bus do města letiště za běžnou cenu podle vzdálenosti a živých cen RegioJetu + MHD nebo vlak na letiště, případně přímý bus až na letiště s příplatkem za mezinárodní spoj${q.kmRate !== 1 ? `; odhad jízdného × ${String(q.kmRate).replace('.', ',')}` : ''}${own.length ? `; ${own.join(', ')} – vlastní cena z 🏠 Moje cena na letiště${q.kmRate !== 1 ? ', bez násobku' : ''}` : ''})`;
   }
   /* ---------- cesta z letiště do města (server/lib/arrival.js; tabulka ověřená 10/2026, jinde odhad) ---------- */
   /** Štítky u nabídky – „🚌 z letiště BVA do Paříže 17,90 € (~440 Kč) · 1 h 15“, drahé nebo dlouhé varovně. */
@@ -1695,7 +1697,15 @@
   function arrivalPart(t, res = lastResult) {
     if (!t.arrCzk || !res) return '';
     const tip = SearchHelp.arrivalChips(t, res.arrivals, { on: true }).map(c => c.title).join(' ');
-    return ` + <span title="${esc(tip)}">z letiště do města${t.back ? ' a zpět' : ''} ~${czk(t.arrCzk)}/os.</span>`;
+    return `<span title="${esc(tip)}">🚌 z letiště do města${t.back ? ' a zpět' : ''} ~${czk(t.arrCzk)}/os.</span>`;
+  }
+  /**
+   * Doprava na letiště a z letiště do města pod cenou nabídky: jen pro představu (průměrná cena, odhad) – do ceny
+   * letenky ani pořadí se nepočítá (Peter: odhady bývají nepřesné). Bez obou nic.
+   */
+  function extrasHtml(t, res = lastResult) {
+    const parts = [groundPart(t, res), arrivalPart(t, res)].filter(Boolean);
+    return parts.length ? `<div class="pd px">${parts.join(' · ')}<span class="px-n">průměrná cena, odhad – v ceně letenky není</span></div>` : '';
   }
   /** Patička výsledků: je cesta z letiště do města v ceně? */
   // nejstarší datum ověření jízdného mezi letišti výsledku („10/2026 · před 8 měsíci – mohlo se změnit“)
@@ -1704,10 +1714,10 @@
     return d ? ` ${+d.slice(5, 7)}/${d.slice(0, 4)}${SearchHelp.dataAge(d).txt}` : '';
   };
   const arrivalFoot = (res, multi = false) => (res.query.arrival
-    ? `vč. cesty z letiště ${multi ? 'do měst na cestě a z nich zpět na letiště' : 'do města a zpět na letiště'} (jízdné letištního busu, vlaku nebo metra ${arrivalChecked(res) ? `ověřené${arrivalChecked(res)}` : 'z ověřené tabulky'}, jinde odhad)`
-    : 'bez cesty z letiště do města (vypnuto v Další možnosti)');
+    ? `cesta z letiště ${multi ? 'do měst na cestě a z nich zpět na letiště' : 'do města a zpět na letiště'}: jízdné letištního busu, vlaku nebo metra ${arrivalChecked(res) ? `ověřené${arrivalChecked(res)}` : 'z ověřené tabulky'}, jinde odhad`
+    : 'cesta z letiště do města se neukazuje (vypnuto v Další možnosti)');
   /**
-   * „🛫 Odkud se vyplatí letět“: nejlevnější celá cesta z každého letiště (ze všech nalezených nabídek, server o.best)
+   * „🛫 Odkud se vyplatí letět“: nejlevnější letenky z každého letiště (ze všech nalezených nabídek, server o.best)
    * proti nejbližšímu – sbalená karta, souhrn odpoví hned. Klepnutí na letiště = jen lety odsud, další klepnutí = všechna.
    */
   // Filtry výpisu kromě letišť (🆕, čas a přestupy, cena, aerolinky, 🔥, den odletu) – karta pak počítá z toho, co výpis ukazuje.
@@ -1727,7 +1737,7 @@
     const oc = SearchHelp.originCompare(res, listFiltered() ? { trips: ocTrips(res) } : {});
     if (!oc.rows.length || view.mode === 'map') return '';
     const { win, ref } = oc, ret = res.query.trip === 'return', all = res.origins.map(o => o.iata);
-    const head = `🛫 <b>Odkud se vyplatí letět${oc.filtered ? ' (podle filtrů výpisu)' : ''}:</b> `, pp = `/os.${res.query.kmRate ? '' : ' bez dopravy na letiště'}`;
+    const head = `🛫 <b>Odkud se vyplatí letět${oc.filtered ? ' (podle filtrů výpisu)' : ''}:</b> `, pp = '/os.';
     // zpáteční s návratem na jiné letiště se k letištím nepočítá – když je levnější, souhrn to řekne (ve výpisu je)
     const jaw = oc.jaw != null && oc.jaw < win.czk ? ` · s návratem na jiné letiště už od <b>${czk(oc.jaw)}</b>` : '';
     // základ = nejbližší letiště s nabídkou odsud a zpět; nejbližší vůbec být nemusí (to má třeba jen návraty jinam)
@@ -1818,8 +1828,8 @@
       <div class="res-more${moreOpen ? ' open' : ''}" id="resMore">
       <div class="res-filters">
         <div class="rf-group rf-sort"><span class="faint">Řazení:</span><select id="sortSel" title="Řazení">
-          ${[['total', `Nejlevnější celkem (vč. dopravy${BAG_LBL[res.query.bags] ? ' a zavazadel' : ''})`], ['flight', 'Nejlevnější letenka'], ['fast', 'Cena + délka cesty'], ['deal', 'Nejvýhodnější vůči běžné ceně'], ['season', 'Cena + ideální sezóna'], ['warm', 'Nejtepleji'], ['date', 'Nejdřívější odlet'], ...(res.query.trip === 'return' ? [['leave', 'Nejméně dovolené']] : []), ['near', 'Nejblíž'], ['far', 'Nejdál']].map(o => `<option value="${o[0]}" ${view.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
-        <div class="rf-group"><span class="faint">Letiště:</span>${res.origins.map(o => { const l = SearchHelp.accessLabel(o.ground, { nights: resNights(res) }); return `<button type="button" class="fchip ${view.excludeOrigins.has(o.iata) ? '' : 'on'}" data-fo="${o.iata}" title="${esc((o.name || '') + (o.hub ? ` – velké přestupní letiště pro dálkové lety (${o.distKm} km, cesta na letiště započtena)` : '') + (l ? ` · ${l.title}` : ''))}">${o.hub ? '✈︎ ' : ''}${o.iata}${o.ground && o.ground.czk ? ` <small>${o.ground.mode === 'car' ? `🚗+${Math.round(SearchHelp.carTrip(o.ground, resNights(res)).perPerson / 10) * 10}` : `${o.ground.own ? '🏠' : ''}+${o.ground.czk}`}</small>` : ''}</button>`; }).join('')}</div>
+          ${[['total', `Nejlevnější letenka${BAG_LBL[res.query.bags] ? ' (vč. zavazadel)' : ''}`], ['trip', 'Nejlevnější i s cestou na letiště (odhad)'], ['fast', 'Cena + délka cesty'], ['deal', 'Nejvýhodnější vůči běžné ceně'], ['season', 'Cena + ideální sezóna'], ['warm', 'Nejtepleji'], ['date', 'Nejdřívější odlet'], ...(res.query.trip === 'return' ? [['leave', 'Nejméně dovolené']] : []), ['near', 'Nejblíž'], ['far', 'Nejdál']].map(o => `<option value="${o[0]}" ${view.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+        <div class="rf-group"><span class="faint">Letiště:</span>${res.origins.map(o => { const l = SearchHelp.accessLabel(o.ground, { nights: resNights(res) }); return `<button type="button" class="fchip ${view.excludeOrigins.has(o.iata) ? '' : 'on'}" data-fo="${o.iata}" title="${esc((o.name || '') + (o.hub ? ` – velké přestupní letiště pro dálkové lety (${o.distKm} km – cesta na letiště je u nabídek zvlášť)` : '') + (l ? ` · ${l.title}` : ''))}">${o.hub ? '✈︎ ' : ''}${o.iata}${o.ground && o.ground.czk ? ` <small>${o.ground.mode === 'car' ? `🚗+${Math.round(SearchHelp.carTrip(o.ground, resNights(res)).perPerson / 10) * 10}` : `${o.ground.own ? '🏠' : ''}+${o.ground.czk}`}</small>` : ''}</button>`; }).join('')}</div>
         ${usedProviders.length > 1 ? `<div class="rf-group"><span class="faint">Aerolinky:</span>${usedProviders.map(p => `<button type="button" class="fchip ${view.excludeCarriers.has(p) ? '' : 'on'}" data-fc="${p}"><i style="background:${provColor(p)}"></i>${esc(provName(p))}</button>`).join('')}</div>` : ''}
         <div class="rf-group rf-price"><span class="faint">Max.</span><input type="range" id="fPrice" min="0" max="${Math.ceil(maxP / 100) * 100}" step="100" value="${view.maxPrice || Math.ceil(maxP / 100) * 100}"><b id="fPriceVal">${view.maxPrice ? czk(view.maxPrice) : 'bez limitu'}</b></div>
         <button type="button" class="fchip ${view.onlyDeals ? 'on' : ''}" id="fDeals" title="Jen nabídky s 🔥 Super cenou nebo 💚 Dobrou cenou">🔥 jen výhodné</button>
@@ -1851,7 +1861,7 @@
     // Málo výsledků: ze serveru (thin), nebo je skryly filtry času a přestupů – pak nabídnout hlavně jejich zrušení.
     const thinVis = !res.partial && th.any > 0 && (isRoute ? flat.length : groups.length) < 3;
     if (thin || thinVis) body += smartHelp(res, false, { chips: chips.filter(c => c.time), any: th.any, onlyClear: !thin });
-    host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za osobu ${bagFoot(res.query.bags)}, ${esc(groundFoot(res))}, ${esc(arrivalFoot(res))}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2)} Kč (${esc(res.fx.source)})` : '—'}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020) – ne předpověď počasí; u cest do 15 dní je u nabídky předpověď Open-Meteo.</div>`;
+    host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letiště do města je u nabídek zvlášť, jen pro představu (průměrná cena) – do ceny ani pořadí se nepočítá: ${esc(groundFoot(res))}; ${esc(arrivalFoot(res))}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2)} Kč (${esc(res.fx.source)})` : '—'}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020) – ne předpověď počasí; u cest do 15 dní je u nabídky předpověď Open-Meteo.</div>`;
     wireResults();
     if (window.Photos) Photos.paint(host); // fotky měst v řádcích výsledků (jen viditelné)
     wxFill();
@@ -2046,9 +2056,10 @@
   // res = výsledek, ze kterého nabídka je (📌 Porovnat: složený z odložené nabídky – pinRes); idx = řádek výpisu, jinak null
   function priceBox(t, idx, res = lastResult) {
     const pax = res.query.adults;
-    return `<div class="pbox"><div class="pp">${czk(t.perPersonCzk)}</div><div class="pl">na osobu</div>
-      <div class="pd">letenky ${czk(t.flightCzk)}${t.bagCzk ? ` + <span title="Odhad příplatku za ${BAG_LBL[res.query.bags] || 'zavazadlo'}${t.bagEst ? ' – hrubý, dopravce se nepodařilo ověřit' : ' – typická cena u dopravce'}">zavazadla ~${czk(t.bagCzk)}</span>` : ''}${groundPart(t, res)}${arrivalPart(t, res)}</div>
+    return `<div class="pbox"><div class="pp">${czk(t.perPersonCzk)}</div><div class="pl">${t.back ? 'letenky tam i zpět' : 'letenka'} na osobu</div>
+      ${t.bagCzk ? `<div class="pd">letenky ${czk(t.flightCzk)} + <span title="Odhad příplatku za ${BAG_LBL[res.query.bags] || 'zavazadlo'}${t.bagEst ? ' – hrubý, dopravce se nepodařilo ověřit' : ' – typická cena u dopravce'}">zavazadla ~${czk(t.bagCzk)}</span></div>` : ''}
       ${pax > 1 ? `<div class="pd">celkem ${pax} os.: <b>${czk(t.totalCzk)}</b></div>` : ''}
+      ${extrasHtml(t, res)}
       ${idx != null && levelFor(t) ? `<button type="button" class="linkbtn pc-ask" data-pc="${idx}">Je to dobrá cena?</button>` : ''}</div>`;
   }
 
@@ -2156,7 +2167,7 @@
         <button type="button" class="btn sm ghost rc-dp" data-dp="${esc(g.dest.key)}" title="Místa k vidění, cesta z letiště do města, počasí a vstup">🔎 Co tam je</button>
         ${dmBtn(g.dest, `data-dm="${esc(g.dest.key)}" data-dmr="${i0}"`)}
       </div>
-      ${fb.length >= 2 ? `<div class="faint rc-from" title="${lastResult.query.kmRate ? 'Nejlevnější celá cesta sem z každého letiště (vč. dopravy na letiště)' : 'Nejlevnější cena sem z každého letiště (bez dopravy na letiště)'}">${fb.slice(0, 4).map(([k, v]) => `z ${esc(k)} od ${czk(v)}`).join(' · ')}</div>` : ''}
+      ${fb.length >= 2 ? `<div class="faint rc-from" title="Nejlevnější letenka sem z každého letiště (doprava na letiště je u nabídky zvlášť)">${fb.slice(0, 4).map(([k, v]) => `z ${esc(k)} od ${czk(v)}`).join(' · ')}</div>` : ''}
       ${gc && (gc.worth || g.ground.min <= GROUND_CHIP_MAX_MIN) ? groundChip(g, gc) : ''}
       ${tripRow(t, g, i0)}
       ${others.length ? `<button type="button" class="more-btn" data-exp="${esc(g.dest.key)}">${exp ? '▲ Skrýt' : `▼ Další termíny a letiště (${others.length})`}</button>
@@ -2213,7 +2224,7 @@
     const byKey = new Map(res.groups.map(g => [g.dest.key, g]));
     const rows = picked.slice(0, n).map(t => { const g = byKey.get(t.destKey); return tripRow(t, g, reg(t, g)); }).join('');
     const title = sel ? (view.leg.out && view.leg.back ? 'Vybraná cesta' : `Kombinace s vybraným letem ${view.leg.out ? 'tam' : 'zpět'}`) : ret ? 'Nejlevnější celá cesta' : 'Nejlevnější let';
-    return `<div class="legs-bar"><span class="faint">${ret ? 'Vyber let tam a zpět – cena je za celou cestu na osobu vč. dopravy na letiště.' : 'Cena na osobu vč. dopravy na letiště.'}</span>
+    return `<div class="legs-bar"><span class="faint">${ret ? 'Vyber let tam a zpět – cena letenek tam i zpět na osobu.' : 'Cena letenky na osobu.'}</span>
         <div class="seg" id="legSort">${[['price', 'Nejlevnější'], ['time', 'Podle času']].map(o => `<button type="button" data-ls="${o[0]}" class="${view.legSort === o[0] ? 'on' : ''}">${o[1]}</button>`).join('')}</div></div>
       <div class="legs-cols${ret ? '' : ' one'}">${cols}</div>
       <div class="section-head legs-pick" id="legPick"><h2>${title}</h2>${sel ? '<button type="button" class="linkbtn" data-lclear="1">Zrušit výběr</button>' : ''}</div>
@@ -2288,7 +2299,7 @@
     const title = full ? 'Vybraná cesta' : any ? 'Nejlevnější cesta s vybranými lety' : 'Nejlevnější celá cesta';
     const body = `<div class="section-head legs-pick" id="mcPick"><h2>${title}</h2></div>`
       + (plan.best ? mCard(res, plan.best.picks) : `<div class="empty">${any ? 'Vybrané lety spolu nejdou spojit – vyber jiný let nebo zruš výběr.' : esc(mEmptyTxt(res))}</div>`);
-    const foot = `<div class="res-foot faint">Ceny jsou za osobu ${bagFoot(res.query.bags)}, ${esc(groundFoot(res, true))}, ${esc(arrivalFoot(res, true))}; přejezdy mezi městy na cestě se nepočítají. Živé ceny se mohou do rezervace změnit. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2)} Kč (${esc(res.fx.source)})` : '—'}.</div>`;
+    const foot = `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letišť do měst je u cesty zvlášť, jen pro představu (průměrná cena): ${esc(groundFoot(res, true))}; ${esc(arrivalFoot(res, true))}; přejezdy mezi městy na cestě se nepočítají. Živé ceny se mohou do rezervace změnit. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2)} Kč (${esc(res.fx.source)})` : '—'}.</div>`;
     host.innerHTML = head + steps + body + (res.combos.length > 1 ? mCombos(res, picks) : '') + foot;
     wireMulti(host, res);
     wireHelp(host);
@@ -2390,9 +2401,10 @@
           : 'Mezi lety není v některém městě ani jedna noc (nebo ho neznám) – cestu uložím do plánovače (lety i do kalendáře).';
     return `<div class="card res-card flat"><div class="trip-row mc-row" id="mcSel">
       <div class="tr-legs">${legs}<div class="tr-badges">${badges}</div></div>
-      <div class="pbox"><div class="pp">${czk(total)}</div><div class="pl">celá cesta na osobu</div>
-        <div class="pd">letenky ${czk(sum('flightCzk'))}${sum('bagCzk') ? ` + zavazadla ~${czk(sum('bagCzk'))}` : ''}${sum('groundCzk') ? ` + <span title="${esc(groundFoot(res, true))}">${res.query.groundMode === 'car' ? 'autem' : 'doprava'} na letiště${res.returnsHome ? ' a zpět' : ''} ${czk(sum('groundCzk'))}/os.</span>` : ''}${sum('arrCzk') ? ` + <span title="${esc(arrivalFoot(res, true))}">z letišť do měst a zpět ~${czk(sum('arrCzk'))}/os.</span>` : ''}</div>
-        ${pax > 1 ? `<div class="pd">celkem ${pax} os.: <b>${czk(total * pax)}</b></div>` : ''}</div>
+      <div class="pbox"><div class="pp">${czk(total)}</div><div class="pl">letenky celé cesty na osobu</div>
+        ${sum('bagCzk') ? `<div class="pd">letenky ${czk(sum('flightCzk'))} + zavazadla ~${czk(sum('bagCzk'))}</div>` : ''}
+        ${pax > 1 ? `<div class="pd">celkem ${pax} os.: <b>${czk(total * pax)}</b></div>` : ''}
+        ${sum('groundCzk') || sum('arrCzk') ? `<div class="pd px">${[sum('groundCzk') ? `<span title="${esc(groundFoot(res, true))}">${res.query.groundMode === 'car' ? '🚗 autem' : '🚆 doprava'} na letiště${res.returnsHome ? ' a zpět' : ''} ~${czk(sum('groundCzk'))}/os.</span>` : '', sum('arrCzk') ? `<span title="${esc(arrivalFoot(res, true))}">🚌 z letišť do měst a zpět ~${czk(sum('arrCzk'))}/os.</span>` : ''].filter(Boolean).join(' · ')}<span class="px-n">průměrná cena, odhad – v ceně letenek není</span></div>` : ''}</div>
       <div class="tr-act"><button type="button" class="btn sm primary" data-mgo="1">${wiz ? 'Vybrat a pokračovat →' : 'Vybrat a uložit do plánovače →'}</button>
         ${wiz ? '<button type="button" class="btn sm" data-msave="1">💾 Do plánovače</button>' : ''}
         <button type="button" class="btn sm" data-mics="1">📅 Do kalendáře (.ics)</button>
@@ -2476,7 +2488,7 @@
       id: opts.map(o => o.id).join('#'), out: a.out, back: home ? b.out : null, ...(mid.length ? { mid } : {}), flightCzk: sum('flightCzk'),
       groundCzk: sum('groundCzk'), bagCzk: sum('bagCzk'), bagEst: opts.some(o => o.bagEst) || undefined,
       arrCzk: sum('arrCzk'),
-      perPersonCzk: per, totalCzk: per * res.query.adults, nights: home ? SearchHelp.diffDays(a.out.date, b.out.date) : null,
+      perPersonCzk: per, tripCzk: opts.reduce((x, o) => x + (o.tripCzk ?? o.perPersonCzk), 0), totalCzk: per * res.query.adults, nights: home ? SearchHelp.diffDays(a.out.date, b.out.date) : null,
       provider: opts.every(o => o.out.provider === a.out.provider) ? a.out.provider : 'mix', combined: false, bookUrl: null,
       distanceKm: a.distanceKm, destKey: a.destKey, tempHi: a.tempHi, deal: { level: 'normal', score: null, drop: null },
     };
@@ -2526,22 +2538,13 @@
     // bez cen v okolních dnech má pruh smysl jen jako rychlý výběr jiného dne, když je výsledků málo
     const other = [nb.out, nb.back].some(x => x && x.days.some(d => d.date !== x.around));
     if (!hot && !other) return '';
-    // autem tam i zpět: řádky se sčítají na cenu celé cesty (server, carNear) – parkování na celou cestu je u Tam,
-    // u Zpět jen jeho změna proti zadanému návratu (a rozdíl, kdyby auto stálo u jiného letiště)
+    // autem tam i zpět: návrat jen na letiště, kde auto stojí (server, carNear) – řádky se sčítají na cenu letenek cesty;
+    // kdyby auto stálo jinde, je u dne rozdíl letu na to letiště (ceny jen letenek, doprava a parkování jsou u nabídek)
     const carRet = res.query.groundMode === 'car' && res.query.trip === 'return' && Boolean(nb.back);
     const sgn = v => `${v > 0 ? '+' : '−'}${czk(Math.abs(v))}`;
-    const days0 = carRet ? SearchHelp.parkDays(SearchHelp.diffDays(res.query.exact.out, res.query.exact.back)) : 0;
-    const carTip = (c, which) => {
-      if (which === 'out') {
-        return ` – let tam + cesta autem na letiště${c.parkCzk ? ` + parkování na ${plural(c.parkDays, 'den', 'dny', 'dní')} ~${czk(c.parkCzk)}/os.` : ''}`
-          + `${c.tripAdj ? ` + návrat k autu do ${c.from} ${sgn(c.tripAdj)} proti řádku Zpět` : ''}`;
-      }
-      if (c.tripAdj) return ` – let zpět + cesta autem domů; auto by stálo u ${c.to}: let tam odtud ${sgn(c.tripAdj)}${c.parkCzk ? `, parkování ${sgn(c.parkCzk)}` : ''} proti řádku Tam`;
-      const k = c.parkDays ? Math.abs(c.parkDays - days0) : 0;
-      const pk = !c.parkCzk ? '' : k ? ` ${c.parkCzk > 0 ? '+' : '−'} o ${plural(k, 'den', 'dny', 'dní')} ${c.parkCzk > 0 ? 'delší' : 'kratší'} parkování ~${czk(Math.abs(c.parkCzk))}/os.`
-        : ` ${c.parkCzk > 0 ? '+' : '−'} rozdíl parkování ~${czk(Math.abs(c.parkCzk))}/os.`;
-      return ` – let zpět + cesta autem domů${pk} (parkování na celou cestu je v řádku Tam)`;
-    };
+    const carTip = (c, which) => (!c.tripAdj ? ''
+      : which === 'out' ? ` – s návratem k autu do ${c.from} ${sgn(c.tripAdj)} proti řádku Zpět`
+        : ` – auto by stálo u ${c.to}: let tam odtud ${sgn(c.tripAdj)} proti řádku Tam`);
     const row = (side, which) => {
       const cells = SearchHelp.nearStrip(side, { minDate: which === 'back' ? res.query.exact.out : null });
       return `<div class="nb-row"><span class="nb-lab">${which === 'out' ? '🛫 Tam' : '🛬 Zpět'}</span><div class="nb-days">${cells.map(c => {
@@ -2553,8 +2556,7 @@
     };
     const head = hot ? SearchHelp.nearHeadline(nb) : null;
     const priced = [nb.out, nb.back].some(x => x && x.days.length);
-    const what = carRet ? `cena dne v Kč/os. (let + cesta autem${res.query.arrival ? ' + z letiště do města' : ''}) – parkování na celou cestu je u Tam, u Zpět jen o kolik se změní, takže Tam + Zpět = cena celé cesty`
-      : `nejlevnější let daného dne v Kč/os. vč. dopravy na letiště${res.query.arrival ? ' i z letiště do města' : ''}`;
+    const what = `nejlevnější letenka daného dne v Kč/os.${carRet ? ' – autem zpět na letiště, kde auto stojí' : ''}`;
     return `<div class="card nb-card${hot ? ' hot' : ''}"><div class="nb-h"><b>📅 Nejbližší dny</b><span class="faint">${priced ? what : 'ceny okolních dnů zatím neznám'} · klikni na den a hledám znovu</span></div>
       ${head ? `<div class="nb-hint">💡 ${esc(head)}</div>` : ''}${row(nb.out, 'out')}${nb.back ? row(nb.back, 'back') : ''}</div>`;
   }
@@ -2611,7 +2613,8 @@
     const t = p.cheap && p.cheap.t;
     const est = { ok: true, minutes: x.min, czk: x.czk, typ: x.typ };
     if (t) {
-      const w = Ground.worth(est, { doorMin: p.cheap.doorMin, czk: t.perPersonCzk, trips: t.back ? 2 : 1, fast: p.fast && { doorMin: p.fast.doorMin, czk: p.fast.t.perPersonCzk } });
+      // vlak/bus × letadlo od dveří ke dveřím: letenka i s odhadem cesty na letiště a do města
+      const w = Ground.worth(est, { doorMin: p.cheap.doorMin, czk: Ground.doorCzk(t), trips: t.back ? 2 : 1, fast: p.fast && { doorMin: p.fast.doorMin, czk: Ground.doorCzk(p.fast.t) } });
       return { t, door: p.cheap.doorMin, fast: p.fast, worth: w.worth, reason: w.reason };
     }
     // lety jsou, ale filtry je skryly: důvod ze serveru by jmenoval skrytý let
@@ -2633,9 +2636,9 @@
     const time = t ? (c.door ? `~${Ground.hm(Ground.round5(c.door))} od dveří ke dveřím · ${t.out.stops ? `${t.out.stops}× přestup` : 'přímý let'}${ret ? ' (tam)' : ''}`
       : t.out.stops ? 'délku cesty s přestupem neznám – ověř' : '')
       : !hidden && x.doorMin ? `~${Ground.hm(x.doorMin)} od dveří ke dveřím` : '';
-    const fast = t && c.fast ? `<span class="gb-fast">⚡ nejrychlejší ~${Ground.hm(Ground.round5(c.fast.doorMin))} od ${czk(c.fast.t.perPersonCzk)}${ret ? ' tam i zpět' : ''}</span>` : '';
+    const fast = t && c.fast ? `<span class="gb-fast">⚡ nejrychlejší ~${Ground.hm(Ground.round5(c.fast.doorMin))} od ${czk(Ground.doorCzk(c.fast.t))}${ret ? ' tam i zpět' : ''}</span>` : '';
     return `<div class="gb-cmp">
-      <div class="gb-col"><span class="gb-l">✈️ Letadlo</span>${t ? `<b>od ${czk(t.perPersonCzk)}</b><small>na osobu${ret ? ', tam i zpět' : ''}</small>` : hidden ? '<b>skryto filtry</b><small>lety jsou, ale žádný neprošel filtry</small>' : '<b>nic nenalezeno</b><small>pro zadané termíny</small>'}${time ? `<span>${esc(time)}</span>` : ''}${fast}</div>
+      <div class="gb-col"><span class="gb-l">✈️ Letadlo</span>${t ? `<b>od ${czk(Ground.doorCzk(t))}</b><small>na osobu${ret ? ', tam i zpět' : ''}, i s cestou na letiště</small>` : hidden ? '<b>skryto filtry</b><small>lety jsou, ale žádný neprošel filtry</small>' : '<b>nic nenalezeno</b><small>pro zadané termíny</small>'}${time ? `<span>${esc(time)}</span>` : ''}${fast}</div>
       <div class="gb-col win"><span class="gb-l">🚆 Vlak / bus <em>odhad</em></span><b>${x.typ > 0 ? 'běžně' : 'od'} ~${czk(Ground.typOf(x) * n)}</b><small>${x.typ > 0 && x.czk > 0 && x.czk < x.typ ? `od ~${czk(x.czk * n)} · ` : ''}na osobu${ret ? ', tam i zpět' : ''}</small><span>~${Ground.hm(x.min + 30)} od dveří ke dveřím</span></div>
     </div>`;
   }
@@ -2665,7 +2668,7 @@
     if (!host) return;
     if (!view.gndOpen) { host.innerHTML = ''; return; }
     const t = bannerCmp(res).t, d = groundDates(res, t);
-    Ground.panel(host, { q: x.q, date: d.out, back: d.back, adults: res.query.adults, flight: { czk: t ? t.perPersonCzk : null, trips: t && t.back ? 2 : 1, min: t ? t.out.durationMin : null } });
+    Ground.panel(host, { q: x.q, date: d.out, back: d.back, adults: res.query.adults, flight: { czk: t ? Ground.doorCzk(t) : null, trips: t && t.back ? 2 : 1, min: t ? t.out.durationMin : null } });
     if (scroll) host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   /** Spoje k jedné destinaci z „kamkoliv“ (čip u výsledku) v okně. */
@@ -2674,7 +2677,7 @@
     modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()" aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>
       <div class="modal-hero-inner"><h2 style="font-size:22px">🚆 ${esc(x.from)} → ${esc(x.to)}</h2><div style="opacity:.88;font-size:13px">vlakem nebo busem · ~${x.km.toLocaleString('cs')} km vzdušnou čarou · ${esc(Ground.basisTxt(x.basis, x.hills))}</div></div></div>
       <div class="modal-body"><div class="muted gm-why">${esc(c.reason || '')}</div>${groundCompare(x, c, Boolean(t && t.back))}<div id="gndModalPanel"></div></div>`);
-    Ground.panel($('#gndModalPanel'), { q: x.q, date: d.out, back: d.back, adults: res.query.adults, flight: { czk: t.perPersonCzk, trips: t.back ? 2 : 1, min: t.out.durationMin } });
+    Ground.panel($('#gndModalPanel'), { q: x.q, date: d.out, back: d.back, adults: res.query.adults, flight: { czk: Ground.doorCzk(t), trips: t.back ? 2 : 1, min: t.out.durationMin } });
   }
 
   /* ---------- 🔎 Co tam je: náhled cíle z výsledků a radaru ---------- */
@@ -3124,11 +3127,10 @@
         return `<div class="cal-month"><div class="cm-t">${MNS_FULL[mo - 1]} ${y}</div><div class="cal-grid">${['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'].map(x => `<div class="cdw">${x}</div>`).join('')}${cells}</div></div>`;
       }).join('')}</div>`;
     };
-    // co je v ceně (jako kalendář ze serveru): letenky, zavazadla, doprava na letiště, cesta z letiště do města
+    // co je v ceně (jako kalendář ze serveru): letenky a zavazadla – doprava na letiště a do města je u nabídek zvlášť
     const q = res.query;
-    const incl = [trip ? 'letenky tam i zpět' : 'letenka tam', BAG_LBL[q.bags] ? 'zavazadla' : '', q.kmRate ? `${q.groundMode === 'car' ? 'autem' : 'doprava'} na letiště${trip ? ' a zpět' : ''}` : '',
-      q.arrival ? `z letiště do města${trip ? ' a zpět' : ''}` : ''].filter(Boolean).join(' + ');
-    return `<div class="card cal-card"><div class="cal-wrap">${render(outDays, trip ? '🛫 Podle dne odletu – nejlevnější celá cesta (Kč/os.)' : '🛫 Nejlevnější odlet podle dne (Kč/os.)', true, cal.out)}${trip ? render(backDays, '🛬 Podle dne návratu – nejlevnější celá cesta', false, cal.back) : ''}</div><div class="faint" style="font-size:12px;margin-top:8px">${trip ? 'Cena celé cesty' : 'Cena'} na osobu: ${incl}${trip && !q.exact ? ', se zadaným počtem nocí' : ''}${q.maxPrice ? `, nejvýš ${czk(q.maxPrice)} (max. cena hledání)` : ''}. Klikni na den odletu a uvidíš kombinace s tímto datem.${fOn ? ` <b>${fLbl}</b> – jen z načtených kombinací; ✕ = ten den žádná neprošla.` : ''}</div></div>`
+    const incl = [trip ? 'letenky tam i zpět' : 'letenka tam', BAG_LBL[q.bags] ? 'zavazadla' : ''].filter(Boolean).join(' + ');
+    return `<div class="card cal-card"><div class="cal-wrap">${render(outDays, trip ? '🛫 Podle dne odletu – nejlevnější letenky tam i zpět (Kč/os.)' : '🛫 Nejlevnější odlet podle dne (Kč/os.)', true, cal.out)}${trip ? render(backDays, '🛬 Podle dne návratu – nejlevnější letenky tam i zpět', false, cal.back) : ''}</div><div class="faint" style="font-size:12px;margin-top:8px">Cena na osobu: ${incl}${trip && !q.exact ? ', se zadaným počtem nocí' : ''}${q.maxPrice ? `, nejvýš ${czk(q.maxPrice)} (max. cena hledání)` : ''}. Klikni na den odletu a uvidíš kombinace s tímto datem.${fOn ? ` <b>${fLbl}</b> – jen z načtených kombinací; ✕ = ten den žádná neprošla.` : ''}</div></div>`
       + (trip ? gridHtml(res, ok, { by, fLbl }) : '');
   }
   // Mřížka termínů (flexibilní termín s rozsahem nocí): den odletu × počet nocí, v buňce nejlevnější celá cesta jako
@@ -3618,7 +3620,7 @@
     // se hlídá klouzavě (data z jiného dne – rolledOf), dostane jeho termín, ať ho upsertWatch nezdvojí
     const same = rolledOf(f), roll = same ? same.form.roll : rollWanted(f), wf = roll ? { ...f, roll } : f;
     // own = otisk 🏠 vlastních cen na letiště v ceně – jejich změna pak při kontrole není „zlevnilo“ (Alerts.applyCheck)
-    const w = { id: Date.now().toString(36), label: watchLabel(f), sub: watchSub(roll ? Alerts.rollForm(wf, today()) : f), form: wf, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null, own: SearchHelp.ownPrint(res) };
+    const w = { id: Date.now().toString(36), label: watchLabel(f), sub: watchSub(roll ? Alerts.rollForm(wf, today()) : f), form: wf, best: b, history: b ? [{ at: Date.now(), czk: b.czk }] : [], checked: Date.now(), base: czk0, low: czk0, seen: czk0, target: null, own: SearchHelp.ownPrint(res), pv: Alerts.PV };
     // stejné hledání podruhé (♡ pod formulářem i v „Je to dobrá cena?“) jen aktualizuje cenu té, co už je
     const r = Alerts.upsertWatch(S.watch || [], w, watchKey, { now: Date.now(), cap: 12, partial: Alerts.incomplete(res.providers) });
     S.watch = r.list; save();
@@ -3818,7 +3820,7 @@
       }
       Object.assign(cur, r.w); delete cur.partials; save();
       const b = cur.best;
-      if (r.rebased) { if (!auto) toast(`${cur.label}: ${czk(b.czk)} – ${{ own: 'změnila se tvoje 🏠 vlastní cena na letiště', unmute: 'nejlevnější je město vrácené z 🙈 Nezajímá mě', mute: 'minule nejlevnější město máš teď v 🙈 Nezajímá mě' }[r.rebased]}, dál porovnávám od této ceny`); }
+      if (r.rebased) { if (!auto) toast(`${cur.label}: ${czk(b.czk)} – ${{ own: 'změnila se tvoje 🏠 vlastní cena na letiště', unmute: 'nejlevnější je město vrácené z 🙈 Nezajímá mě', mute: 'minule nejlevnější město máš teď v 🙈 Nezajímá mě', price: 'ceny jsou teď jen za letenku, bez dopravy na letiště' }[r.rebased]}, dál porovnávám od této ceny`); }
       else if (r.why) alertDrop(cur, r.why, r.prev);
       else if (!auto) toast(b && r.prev && b.czk < r.prev ? `📉 ${cur.label}: cena klesla na ${czk(b.czk)}!` : `${cur.label}: ${b ? czk(b.czk) : 'nic nenalezeno'}`);
     } catch (e) {
@@ -4119,7 +4121,7 @@
     const hot = new Set(shown.filter(({ x }) => x.deal === 'super').sort((a, b) => (b.x.score || 0) - (a.x.score || 0)).slice(0, 3).map(({ i }) => i));
     // 📌 karta, jejíž nabídku má uživatel odloženou (z radaru, nebo celou z hledání se stejným nastavením)
     const pins = pinList(), pinned = x => Pins.has(pins, Pins.fromRadar(x, { at: r.at, adults: q.payload?.adults }));
-    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: zpáteční letenka + cesta na letiště a z letiště do města</div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${shown.map(({ x, i }) => {
+    host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: cena zpáteční letenky (doprava na letiště je u nabídky zvlášť)</div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${shown.map(({ x, i }) => {
       const cn = (byIso[x.cc] && byIso[x.cc].cs) || '';
       // počasí: do ~15 dní předpověď (radarWx doplní), dál dlouhodobý průměr „🌡️ ~8°“ – ať má štítek každá karta
       const clim = x.th != null && !wxWin(x.d1) ? `<span class="b wxb clim" title="Dlouhodobý průměr denních maxim v ${MNS_IN[+x.d1.slice(5, 7) - 1]} – předpověď počasí bude asi 15 dní před odletem">🌡️ ~${x.th}°</span>` : '';

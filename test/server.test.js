@@ -212,7 +212,8 @@ test('POST /api/search – kamkoliv, zpáteční, průběh se streamuje', async 
     const t = g.best;
     assert.ok(t.nights >= 2 && t.nights <= 6);
     assert.equal(t.totalCzk, t.perPersonCzk * 2);
-    assert.equal(t.perPersonCzk, t.flightCzk + t.groundCzk);
+    assert.equal(t.perPersonCzk, t.flightCzk, 'cena nabídky = letenka');
+    assert.equal(t.tripCzk, t.flightCzk + t.groundCzk + (t.arrCzk || 0), 's dopravou na letiště zvlášť');
     assert.ok(r.origins.some((o) => o.iata === t.out.from));
   }
   // „Odkud se vyplatí letět“: minimum za letiště ze všech nabídek (server), skupiny s minimem z každého letiště

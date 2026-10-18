@@ -16,6 +16,8 @@
     rollNear: 7, // 📅 Posouvat termín s časem zapnuté předem, když rozsah začíná nejpozději za 7 dní
   };
   const num = v => (typeof v === 'number' && isFinite(v) && v > 0 ? v : null);
+  // verze ceny hlídání: 2 = cena letenky (+ zavazadla) bez dopravy na letiště – dřív i s ní (jiný základ, neporovnávat)
+  const PV = 2;
 
   /* ---------- 📅 klouzavý termín hlídání (form.roll): { off, span } = odlet za off až off + span dní, { lw: 'next' } = nejbližší
      prodloužený víkend (eve: false = bez pravidla „v předvečer jen odlety od 16:00“) ---------- */
@@ -230,13 +232,15 @@
     // minulá cena; když minulá kontrola nic nenašla, poslední známá z historie
     const prev = num(w.best && w.best.czk) || num(h.length && h[h.length - 1].czk);
     const cur = num(best && best.czk);
-    const reb = prev && cur ? rebaseWhy(w, best, own) : null;
+    // hlídání ze starší verze: cena byla i s dopravou na letiště, teď je to jen letenka – nový základ, ne „zlevnilo“
+    const reb = prev && cur ? (w.pv !== PV ? 'price' : rebaseWhy(w, best, own)) : null;
     // výpadek zdroje: s novým základem i nižší cenu raději ještě nebrat (příští úplná by z ní hlásila zdražení)
     if (partial && prev && (reb || !(cur && cur < prev)) && (num(w.partials) || 0) < 2) {
       return { w: { ...w, tried: now, partials: (num(w.partials) || 0) + 1 }, why: null, prev, skipped: true };
     }
     const { partials, ...rest } = w;
     const out = { ...rest, best: best || null, checked: now, tried: now };
+    if (cur || !prev) out.pv = PV;
     // otisk se zapíše jen s cenou (nebo bez minulé) – kontrola bez výsledku by jinak příští cenu srovnala se starou
     if (own != null && (cur || !prev)) out.own = String(own);
     const he = epoch(h);
@@ -416,5 +420,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
+  window.Alerts = { CFG, PV, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
 })();

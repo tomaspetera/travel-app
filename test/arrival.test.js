@@ -179,7 +179,7 @@ test('normalizeQuery: cesta do města v ceně jen se zapnutou volbou (dřívěj�
   assert.equal(normalizeQuery({ trip: 'multi', legs: [{ from: ['ap:PRG'], to: ['ap:BCN'], date: D }, { from: ['ap:BCN'], to: ['ap:PRG'], date: plus(D, 3) }], arrival: true }).arrival, true);
 });
 
-test('search: cesta z letiště do města tam i zpět v ceně a v pořadí – „levné“ Beauvais je ve skutečnosti dražší než Orly', async () => {
+test('search: cesta z letiště do města tam i zpět zvlášť (tripCzk) – cena a pořadí podle letenky, s cestou je „levné“ Beauvais dražší než Orly', async () => {
   const stub = fx();
   try {
     const p = stubProvider('stub', PARIS);
@@ -193,21 +193,23 @@ test('search: cesta z letiště do města tam i zpět v ceně a v pořadí – �
 
     const on = await search(parisQuery({ arrival: true }), () => {}, { providers: [p] });
     assert.equal(on.query.arrival, true);
-    // Orly 2 300 + 2 × 340 = 2 980 Kč, Beauvais 2 000 + 2 × 440 = 2 880 Kč … a dražší termín Beauvais 2 800 + 880
-    assert.deepEqual(on.top.map((t) => [t.out.to, t.perPersonCzk, t.arrCzk]), [['BVA', 2880, 880], ['ORY', 2980, 680], ['BVA', 3680, 880]]);
+    // cena nabídky a pořadí = letenka; s cestou do města (tripCzk): Orly 2 300 + 2 × 340 = 2 980 Kč, Beauvais
+    // 2 000 + 2 × 440 = 2 880 Kč … a dražší termín Beauvais 2 800 + 880 (řazení „vč. cesty“ v prohlížeči)
+    assert.deepEqual(on.top.map((t) => [t.out.to, t.perPersonCzk, t.arrCzk, t.tripCzk]), [['BVA', 2000, 880, 2880], ['ORY', 2300, 680, 2980], ['BVA', 2800, 880, 3680]]);
     for (const t of on.top) {
-      assert.equal(t.perPersonCzk, t.flightCzk + t.groundCzk + t.bagCzk + t.arrCzk);
+      assert.equal(t.perPersonCzk, t.flightCzk + t.bagCzk);
+      assert.equal(t.tripCzk, t.perPersonCzk + t.groundCzk + t.arrCzk);
       assert.equal(t.totalCzk, t.perPersonCzk * 2);
     }
-    // kalendář (nejlevnější cesta podle dne odletu) i se cestou do města
-    assert.deepEqual(on.calendar.out.map((c) => [c.date, c.cost]), [[D, 2880], [plus(D, 1), 3680]]);
-    // filtr nejvyšší ceny počítá i s ní
-    const capped = await search(parisQuery({ arrival: true, maxPrice: 2900 }), () => {}, { providers: [p] });
+    // kalendář (nejlevnější cesta podle dne odletu) s cenou letenky
+    assert.deepEqual(on.calendar.out.map((c) => [c.date, c.cost]), [[D, 2000], [plus(D, 1), 2800]]);
+    // filtr nejvyšší ceny podle letenky
+    const capped = await search(parisQuery({ arrival: true, maxPrice: 2100 }), () => {}, { providers: [p] });
     assert.deepEqual(capped.top.map((t) => t.out.to), ['BVA']);
     assert.equal(capped.filters.hidden.maxPrice, 2);
     // jen tam: jeden směr
     const one = await search(parisQuery({ arrival: true, trip: 'oneway', dateTo: D }), () => {}, { providers: [p] });
-    assert.deepEqual(one.top.map((t) => [t.out.to, t.perPersonCzk, t.arrCzk]), [['BVA', 1440, 440], ['ORY', 1490, 340]]);
+    assert.deepEqual(one.top.map((t) => [t.out.to, t.perPersonCzk, t.arrCzk, t.tripCzk]), [['BVA', 1000, 440, 1440], ['ORY', 1150, 340, 1490]]);
   } finally {
     stub.restore();
   }
@@ -223,14 +225,14 @@ test('search: open-jaw v cíli (přílet BGY, odlet MXP) a přesná data – let
     const res = await search({ from: ['ap:PRG'], to: ['metro:MIL'], trip: 'return', exactOut: D, exactBack: plus(D, 3), radiusKm: 0, kmRate: 0, arrival: true }, () => {}, { providers: [p] });
     const jaw = res.top.find((t) => t.back.from === 'MXP');
     // BGY → Milán 5 € (120 Kč), Milán → MXP 15 € (370 Kč)
-    assert.deepEqual([jaw.arrCzk, jaw.perPersonCzk], [120 + 370, 1800 + 490]);
+    assert.deepEqual([jaw.arrCzk, jaw.perPersonCzk, jaw.tripCzk], [120 + 370, 1800, 1800 + 490]);
     assert.deepEqual([jaw.out.arrCzk, jaw.back.arrCzk], [120, 370], 'přesná data: po letech');
     const same = res.top.find((t) => t.back.from === 'BGY');
     assert.equal(same.arrCzk, 240);
-    assert.ok(res.top[0] === jaw, 'pořadí i s cestou do města');
-    // nejbližší dny: den vedle s levnější letenkou i s cestou do města
+    assert.ok(res.top[0] === jaw, 'pořadí podle letenky');
+    // nejbližší dny: den vedle s levnější letenkou (cesta do města je u nabídky zvlášť)
     const next = res.nearby.out.days.find((d) => d.date === plus(D, 1));
-    assert.equal(next.cost, 700 + 120);
+    assert.equal(next.cost, 700);
     assert.deepEqual(Object.keys(res.arrivals).sort(), ['BGY', 'MXP']);
   } finally {
     stub.restore();
@@ -252,9 +254,10 @@ test('search multi: lety mezi městy mají cestu do města na obou koncích, ná
     }, () => {}, { providers: [p] });
     const [a, b, c] = res.legs.map((l) => l.options[0]);
     assert.deepEqual([a.arrCzk, b.arrCzk, c.arrCzk], [440, 340 + 180, 180]);
-    assert.deepEqual([a.perPersonCzk, b.perPersonCzk, c.perPersonCzk], [1440, 2020, 1380]);
+    assert.deepEqual([a.perPersonCzk, b.perPersonCzk, c.perPersonCzk], [1000, 1500, 1200]);
+    assert.deepEqual([a.tripCzk, b.tripCzk, c.tripCzk], [1440, 2020, 1380]);
     assert.equal(res.combos.length, 1);
-    assert.deepEqual([res.combos[0].perPersonCzk, res.combos[0].arrCzk, res.combos[0].flightCzk], [4840, 1140, 3700]);
+    assert.deepEqual([res.combos[0].perPersonCzk, res.combos[0].tripCzk, res.combos[0].arrCzk, res.combos[0].flightCzk], [3700, 4840, 1140, 3700]);
     assert.deepEqual(Object.keys(res.arrivals).sort(), ['BCN', 'BVA', 'CDG']);
     // bez volby se nic nepřičte, štítky zůstanou
     const off = await search({
@@ -347,9 +350,9 @@ test('složená cesta ze dvou letenek (přesná data) počítá cestu do města 
   const ot = { out: leg('PRG', 'BGY', D, 900, 120), destKey: 'MIL' };
   const bt = { back: leg('MXP', 'PRG', plus(D, 3), 900, 370), destKey: 'MIL' };
   const t = H.composeTrip(ot, bt, { adults: 2 });
-  assert.deepEqual([t.arrCzk, t.perPersonCzk, t.totalCzk], [490, 1800 + 100 + 490, (1800 + 100 + 490) * 2]);
+  assert.deepEqual([t.arrCzk, t.perPersonCzk, t.tripCzk, t.totalCzk], [490, 1800, 1800 + 100 + 490, 1800 * 2]);
   const old = H.composeTrip({ out: leg('PRG', 'BGY', D, 900), destKey: 'MIL' }, { back: leg('MXP', 'PRG', plus(D, 3), 900), destKey: 'MIL' });
-  assert.deepEqual([old.arrCzk, old.perPersonCzk], [0, 1900]);
+  assert.deepEqual([old.arrCzk, old.perPersonCzk, old.tripCzk], [0, 1800, 1900]);
 });
 
 test('průvodce cestou: cesta z letiště do města v ceně (bez úseku, který nahradí půjčené auto), sdílený odkaz ji vyčistí', () => {

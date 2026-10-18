@@ -27,7 +27,7 @@
   // jako porovnání: podle ceny na osobu, při shodě dřív odložená
   const sorted = list => (Array.isArray(list) ? list.filter(obj) : []).sort((a, b) => price(a) - price(b) || a.pinnedAt - b.pinnedAt);
 
-  const T_KEYS = ['id', 'out', 'back', 'flightCzk', 'perPersonCzk', 'totalCzk', 'bagCzk', 'bagEst', 'groundCzk', 'parkCzk', 'arrCzk', 'nights', 'provider', 'combined', 'composed', 'cell', 'bookUrl', 'deal', 'priceLevel', 'tempHi', 'distanceKm', 'destKey'];
+  const T_KEYS = ['id', 'out', 'back', 'flightCzk', 'perPersonCzk', 'tripCzk', 'totalCzk', 'bagCzk', 'bagEst', 'groundCzk', 'parkCzk', 'arrCzk', 'nights', 'provider', 'combined', 'composed', 'cell', 'bookUrl', 'deal', 'priceLevel', 'tempHi', 'distanceKm', 'destKey'];
   const qOf = (q, trip) => ({ adults: +q.adults || 1, bags: ENUM.bags.includes(q.bags) ? q.bags : 'none', groundMode: q.groundMode === 'car' ? 'car' : 'transit', carFuel: q.groundMode === 'car' && ENUM.carFuel.includes(q.carFuel) ? q.carFuel : null, kmRate: fin(q.kmRate, 0, 5) ? q.kmRate : 1, arrival: Boolean(q.arrival), trip });
   const geo = d => (fin(d.lat, -90, 90) && fin(d.lon, -180, 180) ? { lat: d.lat, lon: d.lon } : {});
   /**
@@ -41,7 +41,7 @@
     const tt = {}, aps = [t.out.from, t.back && t.back.to], st = !part && ((g && g.priceStats) || res.priceStats);
     for (const k of T_KEYS) if (t[k] !== undefined && !(part && k === 'priceLevel')) tt[k] = t[k];
     return copy({
-      k: rowKey(t, basis(q)), kind: 'f', at: at > 0 ? at : now, pinnedAt: now, q,
+      k: rowKey(t, basis(q)), kind: 'f', at: at > 0 ? at : now, pinnedAt: now, q, pv: 2,
       dest: { id: d.id || null, key: d.key || t.destKey || t.out.to, label: d.label || t.out.to, cc: d.cc || '', ...(d.country ? { country: d.country } : {}), ...geo(d) },
       t: tt,
       origins: (res.origins || []).filter(o => o && aps.includes(o.iata)).slice(0, 2).map(o => ({ iata: o.iata, name: o.name, cc: o.cc, distKm: o.distKm, ground: o.ground || null })),
@@ -104,14 +104,19 @@
     const t = gen(x.t), q = obj(t) && legOk(t.out) && (t.back == null || legOk(t.back)) && cleanQ(x.q, t.back ? 'return' : 'oneway');
     if (!q || !fin(t.flightCzk, 1, 1e7) || !fin(t.perPersonCzk, 0, 1e7) || !fin(t.totalCzk, 0, 1e7)) return null;
     for (const k of ['bagCzk', 'groundCzk', 'parkCzk', 'arrCzk']) if (k in t && !fin(t[k], 0, 1e6)) delete t[k];
+    // odloženo ve starší verzi (cena i s dopravou na letiště a do města): cena = letenky + zavazadla, s dopravou
+    // tripCzk; dřívější cena „od odložení“ byla s dopravou – neporovnávat
+    const per = t.flightCzk + (t.bagCzk || 0), oldPrice = x.pv !== 2 && Math.abs(t.perPersonCzk - per) > 0.5;
+    if (oldPrice) Object.assign(t, { perPersonCzk: per, tripCzk: per + (t.groundCzk || 0) + (t.arrCzk || 0), totalCzk: per * q.adults });
+    else if ('tripCzk' in t && !fin(t.tripCzk, 0, 1e7)) delete t.tripCzk;
     t.bookUrl = http(t.bookUrl); t.out.bookUrl = http(t.out.bookUrl);
     if (t.back) t.back.bookUrl = http(t.back.bookUrl);
     if (t.priceLevel != null && !plOk(t.priceLevel)) delete t.priceLevel;
     if (t.deal != null) t.deal = obj(t.deal) ? { level: ENUM.deal.includes(t.deal.level) ? t.deal.level : 'normal', score: fin(t.deal.score, -1e3, 1e3) ? t.deal.score : 0, ...(fin(t.deal.drop, 0, 100) ? { drop: t.deal.drop } : {}) } : { level: 'normal', score: 0 };
     const A = obj(x.arrivals) ? Object.entries(x.arrivals).filter(([k, v]) => isIata(k) && obj(v)).slice(0, 2) : [];
-    const was = obj(x.was) && fin(x.was.czk, 0, 1e7) && fin(x.was.at, 1.5e12, now + 864e5) ? { was: { czk: x.was.czk, at: x.was.at } } : {};
+    const was = !oldPrice && obj(x.was) && fin(x.was.czk, 0, 1e7) && fin(x.was.at, 1.5e12, now + 864e5) ? { was: { czk: x.was.czk, at: x.was.at } } : {};
     return {
-      k: rowKey(t, basis(q)), ...base, q, dest: cleanDest(x.dest, t.out.to), t,
+      k: rowKey(t, basis(q)), ...base, q, pv: 2, dest: cleanDest(x.dest, t.out.to), t,
       origins: (Array.isArray(x.origins) ? x.origins.slice(0, 2) : []).map(o => gen(o)).filter(o => obj(o) && isIata(o.iata)),
       arrivals: Object.fromEntries(A.map(([k, v]) => [k, gen(v)])),
       stats: cleanStats(x.stats), ground: obj(x.ground) ? gen(x.ground) : null, home: txt(x.home, 80) || null,

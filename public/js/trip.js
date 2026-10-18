@@ -776,9 +776,10 @@
         // zavazadla z hledání zůstávají: příplatek u nové nabídky odhadne server (bagCzk); bez něj je neznáme
         const bagOk = !t.bags || t.bags === 'none' || Number.isFinite(x.bagCzk);
         const bag = bagOk && t.bags && t.bags !== 'none' ? x.bagCzk : 0;
-        const extra = (t.flight.groundCzk || 0) + (t.flight.arrCzk || 0) + bag;
+        const ways = (t.flight.groundCzk || 0) + (t.flight.arrCzk || 0);
         const times = tripTimes(t), before = JSON.stringify(stayDates(t));
-        t.flight = { ...x, bagCzk: bag, distanceKm: t.flight.distanceKm, destKey: t.flight.destKey, groundCzk: t.flight.groundCzk, arrCzk: t.flight.arrCzk || 0, perPersonCzk: x.flightCzk + extra, totalCzk: (x.flightCzk + extra) * t.adults, pricedAt: Date.now() };
+        // cena nabídky = letenky + zavazadla, s dopravou na letiště a do města tripCzk (jako server)
+        t.flight = { ...x, bagCzk: bag, distanceKm: t.flight.distanceKm, destKey: t.flight.destKey, groundCzk: t.flight.groundCzk, arrCzk: t.flight.arrCzk || 0, perPersonCzk: x.flightCzk + bag, tripCzk: x.flightCzk + bag + ways, totalCzk: (x.flightCzk + bag) * t.adults, pricedAt: Date.now() };
         if (!bagOk) t.bags = 'none';
         // jiný čas příletu nebo odletu: program se sestaví znovu, auto s časy podle starého letu zadej znovu
         toast(retime(t, times) ? 'Let aktualizován – jiný čas příletu nebo odletu, zadej znovu auto' : 'Let aktualizován');
@@ -2554,7 +2555,7 @@
     delete o.step; delete o.booked; delete o.created; // příjemce je nastaví sám (importFromHash)
     if (o.flight) {
       const f = { ...o.flight };
-      for (const k of ['id', 'perPersonCzk', 'totalCzk', 'tempHi', 'nights']) delete f[k];
+      for (const k of ['id', 'perPersonCzk', 'tripCzk', 'totalCzk', 'tempHi', 'nights']) delete f[k];
       if (f.deal) f.deal = { level: f.deal.level }; // „🔥 Super cena“ v kroku letu
       const leg = l => { if (!l) return l; const x = { ...l }; for (const k of ['foundAt', 'prevCzk', 'otherDeps', 'price', 'currency', 'czk']) delete x[k]; if (x.arrEst === false) delete x.arrEst; return x; }; // live zůstane – „Je to dobrá cena?“ podle něj pozná živou cenu
       o.flight = { ...f, out: leg(f.out), back: leg(f.back), ...(Array.isArray(f.mid) ? { mid: f.mid.map(leg) } : {}) };
