@@ -44,6 +44,8 @@
   // hory: letiště u Alp (lyže v zimě, turistika v létě)
   const MOUNTAINS = [['INN', 'Innsbruck', '🇦🇹'], ['SZG', 'Salcburk', '🇦🇹'], ['GVA', 'Ženeva', '🇨🇭'], ['TRN', 'Turín', '🇮🇹']];
   // daleko za teplem (jako 🌏 Exotika v Letech)
+  // polární záře: letiště za polárním kruhem a Island (září–březen)
+  const AURORA = [['TOS', 'Tromsø', '🇳🇴'], ['RVN', 'Rovaniemi', '🇫🇮'], ['KTT', 'Kittilä', '🇫🇮'], ['KEF', 'Reykjavík', '🇮🇸']];
   const EXOTIC = [['TH', 'Thajsko', '🇹🇭'], ['ID', 'Indonésie', '🇮🇩'], ['VN', 'Vietnam', '🇻🇳'], ['AE', 'Spojené arabské emiráty', '🇦🇪'], ['LK', 'Srí Lanka', '🇱🇰']];
 
   // slova, která místo neurčují (zbytek věty po vyřazení rozpoznaných obratů)
@@ -54,7 +56,10 @@
     + 'tam zpet zpatky domu letadlo letadla mesto mesta kde neco nejakeho nejakem nejakou je jsou bude budou nez all inclusive allinclusive '
     // proč a jak levně („na svatbu do Milána“, „na trhy“, „za babku“) – místo to není
     + 'svatbu svatba svatbe koncert koncertu festival festivalu zapas zapasu konferenci konference oslavu oslavy narozeniny navstevu trhy trh '
-    + 'nakupy nakupum vylety s batohem batoh rande sluzebne sluzebni pracovne pracovni co par korun babku hubicku bez').split(' '));
+    + 'nakupy nakupum vylety s batohem batoh rande sluzebne sluzebni pracovne pracovni co par korun babku hubicku bez '
+    // za čím a jak („kam za kulturou“, „na safari do Keni“, „sever Španělska“, „Portugalsko autem“)
+    + 'safari kultura kulturu kulturou kulturni pamatky pamatkami zabava zabavu zabavou party jidlem jidlo gastro vinem vino '
+    + 'sever severu zapad zapadu vychod vychodu autem vlakem autobusem busem').split(' '));
   const TO_WORDS = new Set(['do', 'na', 'k', 'ke', 'kam', 'v', 've', 'za', 'u', 'pres', 'po']);
   const FROM_WORDS = new Set(['z', 'ze', 'odkud', 'od']);
   // před „moře“ jméno moře → je to místo (Rudé moře), ne „k moři“
@@ -85,6 +90,8 @@
     const W = '(?=$|[^a-z0-9])'; // konec slova (bez \b – u čísel s tečkou)
     const AMT = '(\\d{1,3}(?:[ .]\\d{3})+|\\d+)'; // částka i s mezerami po tisících („5 000“), ne „5000 2 lidi“
 
+    // polární záře (před měsíci – „za polární září“ není září)
+    rule(new RegExp(`(?:na\\s+|za\\s+)?(?:polarn\\w+\\s+zar\\w*|aurora\\w*|aurory|polarni\\s+kruh\\w*)${W}`), () => { kind = 'aurora'; });
     // --- termín: konkrétní dny „15. 5.“, „od 3. 6. do 10. 6.“, „3.–10. 6.“ ---
     const mkDate = (d, m, y) => {
       d = +d; m = +m;
@@ -357,7 +364,8 @@
     if (kind === 'sea') items = seaFor(mon).map(k => ({ id: `rg:${k}`, label: SEA[k][0], flag: SEA[k][1], type: 'region' }));
     else if (kind === 'exotic') items = EXOTIC.map(([cc, label, flag]) => ({ id: `cc:${cc}`, label, flag, type: 'country' }));
     else if (kind === 'mountains') items = MOUNTAINS.map(([iata, label, flag]) => ({ id: `ap:${iata}`, label, flag, type: 'airport' }));
-    if (kind) chips.unshift([{ sea: '🏖️', warm: '☀️', exotic: '🌴', any: '🌍', mountains: '🏔️' }[kind], { sea: 'k moři', warm: patch.minTemp >= 25 ? 'do horka' : 'za teplem', exotic: 'exotika', any: 'kamkoliv', mountains: 'na hory' }[kind]]);
+    else if (kind === 'aurora') items = AURORA.map(([iata, label, flag]) => ({ id: `ap:${iata}`, label, flag, type: 'airport' }));
+    if (kind) chips.unshift([{ sea: '🏖️', warm: '☀️', exotic: '🌴', any: '🌍', mountains: '🏔️', aurora: '🌌' }[kind], { sea: 'k moři', warm: patch.minTemp >= 25 ? 'do horka' : 'za teplem', exotic: 'exotika', any: 'kamkoliv', mountains: 'na hory', aurora: 'polární záře' }[kind]]);
     if (patch.maxPrice) chips.push(['💰', `do ${czk(+patch.maxPrice)}`]);
     if (patch.adults) chips.push(['👥', `${patch.adults} ${patch.adults === 1 ? 'osoba' : patch.adults < 5 ? 'osoby' : 'osob'}${kids ? ' vč. dětí' : ''}`]);
     if (withKids && !kids && !patch.adults) chips.push(['🧒', 's dětmi – počet osob uprav']);

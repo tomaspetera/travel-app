@@ -237,3 +237,13 @@ test('účel cesty a „levně“ nejsou místa; vánoční trhy = advent', () =
   const t = P('na vánoční trhy do Vídně');
   assert.deepEqual([t.to, t.patch.dFrom, t.patch.dTo, chips(t)], [['Vídně'], '2026-11-27', '2026-12-21', ['vánoční trhy']]);
 });
+
+test('polární záře = letiště za polárním kruhem a Island (i „za polární září“ – to není září); safari, kultura, sever, autem nejsou místa', () => {
+  const r = P('za polární září v lednu na 4 noci');
+  assert.deepEqual([r.kind, r.items.map((x) => x.id), chips(r)], ['aurora', ['ap:TOS', 'ap:RVN', 'ap:KTT', 'ap:KEF'], ['polární záře', 'leden', '4 noci']]);
+  assert.deepEqual(P('safari v Keni').to, ['Keni']);
+  assert.deepEqual(P('kam za kulturou').to, []);
+  assert.deepEqual(P('sever Španělska').to, ['Španělska']);
+  assert.deepEqual(P('Portugalsko autem').to, ['Portugalsko']);
+  assert.deepEqual(P('Severní Irsko').to, ['Severní Irsko']);
+});
