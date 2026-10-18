@@ -428,9 +428,16 @@ kalendář, mřížka termínů, pruh *📅 Nejbližší dny*, radar i hlídané
 (na osobu) je u každé nabídky **zvlášť pod cenou** – *🚆 doprava na letiště a zpět ~100 Kč/os. · 🚌 z letiště do města
 a zpět ~180 Kč/os. – průměrná cena, odhad, v ceně letenky není* – aby bylo vidět, kolik zhruba stojí, ale cenu letenky
 nezkresloval (odhady bývají nepřesné). Kdo chce porovnat i s cestou, zvolí ve *Filtrech → Řazení* **Nejlevnější
-i s cestou na letiště (odhad)** (`tripCzk`). Srovnání letadla s vlakem / busem (*🚆 Vlakem/busem*) počítá letadlo od dveří
-ke dveřím, tedy i s cestou na letiště. Dřív se odhad do ceny přičítal; uložené hlídání si při první kontrole vezme
-novou cenu jako nový základ (bez falešného „zlevnilo“), radar se načte znovu a odložené nabídky se přepočítají.
+i s cestou na letiště (odhad)** (`tripCzk`) – řádky pak pod cenou letenky ukážou *i s cestou ~1 290 Kč* (podle toho
+se řadí), stejně řádky na telefonu i velké karty nahoře (*🚆 Nejlevnější i s cestou*); i řazení *Cena + délka cesty*
+počítá cenu s cestou. Srovnání letadla s vlakem / busem (*🚆 Vlakem/busem*) počítá letadlo od dveří ke dveřím, tedy
+i s cestou na letiště; rozpočet nové cesty v Plánovači z posledního hledání taky. Dřív se odhad do ceny přičítal
+(uložený stav má verzi cen `pv`, rozhoduje verze uložená, ne výchozí): uložené hlídání si při první kontrole vezme
+novou cenu jako nový základ (bez falešného „zlevnilo“, karta pak píše *od přepočtu cen*) a **cílovou cenu přepočítá ve
+stejném poměru** (cíl 2 100 Kč při ceně 3 400 Kč s dopravou → při 3 100 Kč za letenku 1 910 Kč), radar se načte
+znovu, „naposledy prohlížené“ ceny se zapomenou, odložené nabídky se jednou přepočítají na letenku (bez „od
+odložení“; odložené karty radaru, které rozpis ceny nemají, zmizí) a poslední výsledky ani cesta přes víc měst
+z doby před změnou se neobnoví. Záloha si verzi ceny hlídání (`pv`) nese – obnovené hlídání se znovu nepřepočítá.
 V *Další možnosti → Doprava na letiště* zvolíš **Na letiště: 🚌 veřejnou dopravou** (výchozí)
 nebo **🚗 autem**, případně odhad neukazuješ vůbec. Vždy je to odhad (`server/lib/access.js`), ne jízdní řád ani
 ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva se stahují jednou denně na pozadí – viz
@@ -567,10 +574,12 @@ dřívější Kč/km za auto: výchozích 2,6 → nafta za aktuální cenu, jin�
 
 **🛫 Odkud se vyplatí letět:** nad výsledky (seznam, karty i kalendář, ne mapa) je sbalená karta, jejíž souhrn odpoví
 hned – *nejlevněji z VIE (Vídeň) od 1 650 Kč/os. – o 450 Kč méně než z nejbližšího BRQ, cesta o ~2 h 40 min déle (tam
-i zpět)*, nebo *nejlevněji z nejbližšího BRQ … – jiná letiště nejsou levnější*. Rozbalená ukáže řádek na každé
-prohledané letiště (i přestupní ✈︎): odhad cesty na letiště, nejlevnější celou cestu na osobu (letenky + doprava na
-letiště a zpět, autem i parkování, zavazadla, cesta do města – co je vypnuté v Další možnosti, v ceně není a patička
-karty to řekne) a rozdíl proti nejbližšímu letišti v Kč a v čase cesty (u zpáteční tam i zpět); klepnutí na letiště
+i zpět)*, nebo *nejlevněji z nejbližšího BRQ … – jiná letiště nejsou levnější*. Když je doprava na vzdálenější
+letiště dražší, souhrn to řekne – *…, doprava o ~320 Kč dráž – s ní se to nevyplatí* (na osobu za celou cestu:
+veřejnou dopravou tam i zpět, autem palivo, parkování na typickou délku cesty hledání a známky). Rozbalená ukáže řádek
+na každé prohledané letiště (i přestupní ✈︎): odhad cesty na letiště, nejlevnější letenky na osobu (se zavazadly, když
+je vybereš) a rozdíl proti nejbližšímu letišti v Kč – s jinou cenou dopravy i *(s dopravou +210 Kč)* – a v čase cesty
+(u zpáteční tam i zpět); klepnutí na letiště
 ukáže jen lety odtud, další klepnutí zase všechna. Minimum počítá server ze **všech** nalezených nabídek po filtrech
 (i z těch, které se do výpisu nevejdou), jen z cen, které už má – žádné hledání navíc; u konkrétního cíle je nejlevnější
 nabídka z každého letiště vždy i ve výpisu. Zpáteční s návratem na jiné letiště (u veřejné dopravy výchozí) se

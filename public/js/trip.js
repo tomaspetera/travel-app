@@ -358,7 +358,7 @@
   const arrivalDrop = (t, side) => carCovers(t, side) || (isMulti(t) && t.route.transport === 'transit' && !arrCovers(t, side)
     && ((t.route.legs || {})[side === 'out' ? 'arrival' : 'departure'] || {}).fareCzk > 0);
   /**
-   * Cesta z letiště do města a zpět, Kč/os. – jen byla-li v ceně letu (hledání s „vč. cesty z letiště do města“); úsek,
+   * Cesta z letiště do města a zpět, Kč/os. – jen byla-li v hledání (odhad „z letiště do města“, v ceně letenky není); úsek,
    * který nahradí půjčené auto nebo jízdenka na trase, odpadá (starší cesta bez rozpisu po směrech: celá).
    */
   function arrivalCzk(t) {

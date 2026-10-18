@@ -1723,7 +1723,7 @@ function shareDepartures(legs, flat, provider, carrier) {
 const homeOf = (t) => (!t.back || t.back.to === t.out.from ? t.out.from : null);
 
 /**
- * „Odkud se vyplatí letět“: nejlevnější celá cesta na osobu (perPersonCzk) a počet nabídek podle letiště odletu
+ * „Odkud se vyplatí letět“: nejlevnější letenky na osobu (perPersonCzk) a počet nabídek podle letiště odletu
  * (zpáteční jen s návratem na totéž letiště) → { [iata]: { czk, n } }. Ze všech nabídek, ne jen z těch ve výpisu.
  */
 export function originBests(trips) {

@@ -72,7 +72,7 @@ const partOf = (l) => {
 };
 
 /**
- * Rozmanité lety jednoho úseku z jednosměrných cest (trip.out, perPersonCzk vč. dopravy a zavazadel):
+ * Rozmanité lety jednoho úseku z jednosměrných cest (trip.out, perPersonCzk = letenka + zavazadla):
  * každý let jednou, nejlevnější, nejlevnější přímý, nejlevnější v každý den okna, pak ráno / odpoledne /
  * večer každého dne (ať se dá navázat i na pozdní přílet), zbytek podle ceny. Seřazené od nejlevnějšího.
  */

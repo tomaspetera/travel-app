@@ -329,9 +329,13 @@ test('🏠 vlastní ceny v náhledu obnovy: „(už máš)“ jen když jsou vš
 });
 
 test('hlídání v záloze: podpis 🏠 vlastních cen (own), přepočet (rebAt) a město nejlevnější ceny i skrytá 🙈 (best.key, best.hid) zůstanou', () => {
-  const w = watch('w1', '2026-11-01', { own: 'BRQ:0,VIE:350', rebAt: 5, best: { czk: 1890, desc: 'Lisabon 12.11.', key: 'LIS', hid: 'OMR,BUH' } });
+  const w = watch('w1', '2026-11-01', { own: 'BRQ:0,VIE:350', rebAt: 5, rebWhy: 'price', pv: 2, best: { czk: 1890, desc: 'Lisabon 12.11.', key: 'LIS', hid: 'OMR,BUH' } });
   const inc = B.parse(B.pack(state({ watch: [w] })), deps);
   assert.deepEqual([inc.watch[0].own, inc.watch[0].rebAt, inc.watch[0].best.key, inc.watch[0].best.hid], ['BRQ:0,VIE:350', 5, 'LIS', 'OMR,BUH']);
+  // cena jen za letenku (pv 2) a důvod přepočtu zůstanou – jinak by příští kontrola přepočítala znovu a spolkla zlevnění
+  assert.deepEqual([inc.watch[0].pv, inc.watch[0].rebWhy], [2, 'price']);
+  const odd = B.parse(B.pack(state({ watch: [watch('w1', '2026-11-01', { pv: 3, rebWhy: '<b>' })] })), deps).watch[0];
+  assert.deepEqual([odd.pv, odd.rebWhy], [undefined, undefined]);
   // podpis jen ve tvaru „IATA:Kč,…“ (nejvýš 12), jinak pryč; prázdný = bez vlastních cen
   for (const bad of ['brq:0', 'BRQ:0;VIE:1', 'BRQ:12345', 5, { BRQ: 0 }, 'A'.repeat(400)]) {
     assert.equal(B.parse(B.pack(state({ watch: [watch('w1', '2026-11-01', { own: bad })] })), deps).watch[0].own, undefined, JSON.stringify(bad));

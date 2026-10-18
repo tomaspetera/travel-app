@@ -124,6 +124,9 @@
     // otisk 🏠 vlastních cen v ceně hlídání („BRQ:0,VIE:350“, SearchHelp.ownPrint; Alerts.rebaseWhy)
     if (typeof w.own === 'string' && /^([A-Z]{3}:\d{1,4}(,[A-Z]{3}:\d{1,4}){0,39})?$/.test(w.own)) o.own = w.own;
     if (fin(w.rebAt)) o.rebAt = w.rebAt;
+    if (['own', 'unmute', 'mute', 'price'].includes(w.rebWhy)) o.rebWhy = w.rebWhy;
+    // pv 2 = cena jen za letenku (Alerts.PV); bez něj se hlídání při příští kontrole přepočítá jako ze starší verze
+    if (w.pv === 2) o.pv = 2;
     return o;
   }
   // druh výsledku z Objevuj (city, bike, hike, train, day-car, loop-transit…) → řádky dnů, které tam uložil
