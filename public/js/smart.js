@@ -59,7 +59,7 @@
     + 'nakupy nakupum vylety s batohem batoh rande sluzebne sluzebni pracovne pracovni co par korun babku hubicku bez '
     // za čím a jak („kam za kulturou“, „na safari do Keni“, „sever Španělska“, „Portugalsko autem“)
     + 'safari kultura kulturu kulturou kulturni pamatky pamatkami zabava zabavu zabavou party jidlem jidlo gastro vinem vino '
-    + 'sever severu zapad zapadu vychod vychodu autem vlakem autobusem busem').split(' '));
+    + 'sever severu zapad zapadu vychod vychodu autem vlakem autobusem busem zajezd zajezdy zajezdu pobyt pobytu pobyty').split(' '));
   const TO_WORDS = new Set(['do', 'na', 'k', 'ke', 'kam', 'v', 've', 'za', 'u', 'pres', 'po']);
   const FROM_WORDS = new Set(['z', 'ze', 'odkud', 'od']);
   // před „moře“ jméno moře → je to místo (Rudé moře), ne „k moři“
@@ -179,7 +179,7 @@
     rule(new RegExp(`(?:na\\s+|o\\s+)?(?:podzimni|podzimnich)\\s+prazdnin\\w*${W}`), () => { if (dates) return false; dates = nextSpan('10-24', '11-01', 'podzimní prázdniny'); len = len || 'long'; });
     // Valentýn: prodloužený víkend kolem 14. 2.
     rule(new RegExp(`(?:na\\s+|o\\s+)?valentyn\\w*${W}`), () => { if (dates) return false; dates = nextSpan('02-12', '02-14', 'Valentýn'); len = len || 'weekend'; });
-    const seasons = [['(?:v\\s+)?lete|leto|o\\s+prazdninach|prazdniny|na\\s+leto', 5, 7, 'léto'], ['(?:na\\s+)?jare|jaro', 2, 4, 'jaro'], ['(?:na\\s+)?podzim\\w*', 8, 10, 'podzim'], ['(?:v\\s+)?zime|zima|na\\s+zimu', 11, 13, 'zima']];
+    const seasons = [['(?:v\\s+)?lete|leto|letni|o\\s+prazdninach|prazdniny|na\\s+leto', 5, 7, 'léto'], ['(?:na\\s+)?jare|jaro', 2, 4, 'jaro'], ['(?:na\\s+)?podzim\\w*', 8, 10, 'podzim'], ['(?:v\\s+)?zime|zima|na\\s+zimu|zimni', 11, 13, 'zima']];
     for (const [re, a, b, label] of seasons) {
       rule(new RegExp(`(?:${re})${W}`), m => {
         if (dates) return false;
@@ -200,6 +200,13 @@
       const r = fallback();
       if (!r) return false;
       dates = r;
+    });
+    // „mezi svátky“ = mezi Vánoci a Silvestrem (ne nejbližší státní svátek)
+    rule(new RegExp(`mezi\\s+svatk\\w*${W}|mezi\\s+vanoc\\w+\\s+a\\s+(?:silvestr\\w*|novym\\s+rokem)${W}`), () => {
+      if (dates) return false;
+      const y = today.slice(5) > '12-30' ? +today.slice(0, 4) + 1 : +today.slice(0, 4);
+      dates = { from: [today, `${y}-12-26`].sort()[1], to: `${y}-12-30`, label: 'mezi svátky' };
+      month = 11;
     });
     // vánoční / adventní trhy: advent do 21. 12. (ne svátky – to už trhy končí), délku dá zbytek věty
     rule(new RegExp(`(?:na\\s+)?(?:vanocni|adventni)\\s+trh\\w*${W}|(?:na\\s+)?advent\\w*${W}`), () => {
@@ -278,7 +285,7 @@
     rule(new RegExp(`(${NUM_RE})\\s*(?:lidi|lide|osoby|osob|dospeli|dospelych|pasazeri|pasazery|cestujici)${W}`), m => (people(num(m[1])) ? undefined : false));
     rule(new RegExp(`(?:sam|sama|samotn[yaá]|solo|jen\\s+ja)${W}`), () => { people(1); });
     // děti platí letenku jako dospělí: „2 dospělí a 2 děti“ = 4 cestující (bez počtu dospělých dva)
-    rule(new RegExp(`(?:a\\s+|s\\s+)?(${NUM_RE})\\s*(?:deti|ditka|detmi|ditetem|dite)${W}|(?:s|se)\\s+(?:ditetem|ditkem|miminkem)${W}`), m => {
+    rule(new RegExp(`(?:a\\s+|s\\s+)?(${NUM_RE})\\s*(?:deti|ditka|detmi|ditetem|dite)${W}|(?:s|se|a)\\s+(?:ditetem|ditkem|miminkem|dite|ditko|miminko)${W}`), m => {
       const k = m[1] ? num(m[1]) : 1;
       if (!(k >= 1 && k <= 6)) return false;
       kids = k;
@@ -303,7 +310,7 @@
     rule(new RegExp(`(?:do\\s+)?(?:horka|horko|vedra|vedro)${W}`), () => { kind = kind || 'warm'; patch.minTemp = 25; });
     rule(new RegExp(`(?:do\\s+|na\\s+)?(?:exotik\\w*|exoticky\\w*|tropu|tropy|do\\s+dalky|daleko)${W}`), () => { kind = 'exotic'; });
     rule(new RegExp(`(?:kamkoliv|kamkoli|kdekoliv|kdekoli|nekam|cokoliv|kamkolvek)${W}`), () => { kind = kind || 'any'; });
-    rule(new RegExp(`(?:na\\s+|do\\s+)?(?:hory|horach|hor|alpy|alp|alpach|alpami|lyze|lyzovat|lyzovani|na\\s+snih)${W}`), () => { kind = kind || 'mountains'; });
+    rule(new RegExp(`(?:na\\s+|do\\s+)?(?:hory|horach|hor|alpy|alp|alpach|alpami|lyze|lyzovat|lyzovani|lyzovack\\w*|lyzak\\w*|na\\s+snih)${W}`), () => { kind = kind || 'mountains'; });
 
     // --- zbytek věty: místa (z X = odkud, jinak kam) ---
     const to = [], from = [];
@@ -350,7 +357,8 @@
       Object.assign(patch, { dateMode: 'exact', xOut: dates.out, xFlex: 0, ...(back ? { xBack: back } : {}) });
       if (!dates.back && !back) patch.trip = 'oneway';
       delete patch.outDays; delete patch.backDays;
-      chips.push(['📅', dates.label || (dates.back ? `${dm(dates.out)} – ${dm(dates.back)}` : dm(dates.out))]);
+      // návrat dopočtený z délky (bez délky týden) – v čipu vidět („Řím 3 noci od 5.12.“ = 5. 12. – 8. 12.)
+      chips.push(['📅', dates.label || (back ? `${dm(dates.out)} – ${dm(back)}` : dm(dates.out))]);
     } else if (dates) {
       Object.assign(patch, { dateMode: 'flex', dFrom: dates.from, dTo: dates.to < dates.from ? dates.from : dates.to });
       chips.push(['📅', dates.label]);

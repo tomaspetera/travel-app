@@ -246,7 +246,18 @@
       if (sm.from.length !== 1 || sm.to.length !== 1) continue;
       const hit = { sm, to: [], from: [], miss: [] };
       await smartResolve(hit, near, signal, false);
-      if (!hit.miss.length && hit.from.length && hit.to.length && hit.from[0].type !== 'region') return hit;
+      // odkud jen město nebo letiště („Egypt Hurghada“ není z Egypta do Hurghady)
+      if (!hit.miss.length && hit.from.length && hit.to.length && ['airport', 'metro', 'city'].includes(hit.from[0].type)) return hit;
+    }
+    return null;
+  }
+  /** „Egypt Hurghada“, „Řecko Kréta“: země a místo v ní → to místo (jen vlastní data). */
+  async function countryPlace(q, origin, near, signal) {
+    const w = q.trim().split(/\s+/);
+    if (w.length < 2 || w.length > 5) return null;
+    for (let i = 1; i < w.length; i++) {
+      const [a, b] = await Promise.all([w.slice(0, i), w.slice(i)].map(x => resolvePlace(x.join(' '), origin, near, signal, false)));
+      if (a && b && a.type === 'country' && b.type !== 'country' && (b.cc === a.cc || b.type === 'region')) return b;
     }
     return null;
   }
@@ -304,6 +315,7 @@
       if (!items.length && one && !/\s/.test(one)) { const g = await resolvePlace(one, this.origin, this.near(), signal); if (g) items = [g]; }
       items = items.filter(s => !this.origin || s.type !== 'continent');
       const split = !items.length && this.smart && !this.origin && /\s/.test(q) ? await smartSplit(q, this.near(), signal) : null;
+      if (!items.length && !split && /\s/.test(q)) { const p = await countryPlace(q, this.origin, this.near(), signal); if (p) items = [p]; }
       return { hit: split, items };
     }
     async fetch() {
