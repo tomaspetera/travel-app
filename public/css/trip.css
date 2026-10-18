@@ -4,6 +4,8 @@
 .sc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .chosen{font-size:13px;padding:7px 12px;border-radius:10px;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3)}
 .loading-row{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13.5px;padding:18px 4px}
+.loading-row+.slow{margin:-10px 0 12px 32px;font-size:12px;overflow:hidden;animation:stay-slow .3s ease 4s both}
+@keyframes stay-slow{from{opacity:0;max-height:0}to{opacity:1;max-height:80px}}
 .spin.dark{border-color:var(--border-2);border-top-color:var(--accent)}
 .manual-row{display:grid;grid-template-columns:auto 1fr 170px auto;gap:8px;align-items:center}
 .car-quick{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;margin:0 0 14px;padding:10px 12px;border-radius:14px;background:var(--surface-2);font-size:13.5px}
