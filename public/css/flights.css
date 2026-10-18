@@ -1242,3 +1242,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 /* telefon: štítky nabídky nad 5 sbalené pod „+N další“ */
 .tr-badges .b-x{display:none}
 .b-more{cursor:pointer;border:1px dashed var(--border-2);background:transparent;color:var(--accent);font-family:inherit;font-weight:700}
+/* úzký telefon (320 px): pole Odkud se smí zúžit, ať 📍 nepřeteče */
+.sf-route .place-input{min-width:0}
+.sf-route .pi-input{min-width:0}
+@media (max-width:340px){.seg.radar-modes button{padding:8px 13px;font-size:13px}}
