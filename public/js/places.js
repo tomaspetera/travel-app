@@ -711,6 +711,21 @@
    * města, letiště, země) – ten se geokóduje; jinak geokódování s přesným názvem (upravené tvary před původním), nakonec
    * první výsledek původního tvaru.
    */
+  // ✨ řádek: základní tvar místa z věty („Římě“ → Řím) jen z vlastních dat (rychle, bez geokódování); null = nevím
+  const smartNames = new Map();
+  async function smartName(phrase) {
+    const cands = Smart.nominatives(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
+    const fl = await Promise.all(cands.map(c => getJson('api/places?remote=0&q=' + enc(c)).then(j => j.items || [], () => [])));
+    let name = null;
+    for (const [i, c] of cands.entries()) {
+      // remote=0: jen vlastní data (i města bez letiště – Olomouc), geokódované vesnice tu nejsou
+      const it = fl[i].find(x => [x.label, x.en, ...(x.aliases || [])].some(n => n && same(n, c)));
+      if (it) { name = String(it.label).replace(/\s*\(.*\)$/, ''); break; }
+    }
+    if (smartNames.size > 50) smartNames.clear();
+    smartNames.set(phrase, name);
+    return name;
+  }
   async function smartPlace(phrase) {
     const cands = Smart.nominatives(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
     const fl = await Promise.all(cands.map(c => getJson('api/places?q=' + enc(c)).then(j => j.items || [], () => [])));
@@ -900,7 +915,7 @@
     const smartOf = text => { const px = window.Smart && Smart.parseExplore(text, { today: fmtYMD(new Date()) }); return px && (px.chips.length || (px.place && Smart.fold(px.place) !== Smart.fold(text))) && (px.place || ex.place) ? px : null; };
     const show = () => {
       const px = smartOf(q.value.trim());
-      dd.innerHTML = px ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc([px.place ? `📍 ${px.place}` : `📍 ${ex.place.label}`, ...px.chips].join(' · '))}</b><small>klepni nebo Enter – najdu místo a naplánuju</small></span><span class="pi-type">plánovat</span></div>`
+      dd.innerHTML = px ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc([px.place ? `📍 ${smartNames.get(px.place) || px.place}` : `📍 ${ex.place.label}`, ...px.chips].join(' · '))}</b><small>klepni nebo Enter – najdu místo a naplánuju</small></span><span class="pi-type">plánovat</span></div>`
         : sugHtml(sugs, act, err);
       dd.hidden = false;
       const sm = $('[data-smart]', dd); if (sm) sm.onmousedown = e => { e.preventDefault(); runSmart(px); };
@@ -941,7 +956,13 @@
       const text = q.value.trim();
       if (text.length < 2) return;
       // pozdní odpověď po odchodu z pole (klik jinam) už nabídku znovu neotevře; věta (✨) bez dotazu na server
-      t = setTimeout(async () => { t = null; if ((smartOf(text) || await fetchSugs(text)) && q.value.trim() === text && document.activeElement === q) show(); }, 220);
+      t = setTimeout(async () => {
+        t = null;
+        const px = smartOf(text);
+        if ((px || await fetchSugs(text)) && q.value.trim() === text && document.activeElement === q) show();
+        // „co vidět v Římě“: v řádku základní tvar (Řím), jakmile ho vlastní data najdou
+        if (px && px.place && !smartNames.has(px.place)) smartName(px.place).then(n => { if (n && q.value.trim() === text && !dd.hidden) show(); });
+      }, 220);
     };
     q.onkeydown = async e => {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { if (!sugs.length) return; e.preventDefault(); act = (act + (e.key === 'ArrowDown' ? 1 : -1) + sugs.length) % sugs.length; show(); }
