@@ -1724,6 +1724,14 @@
     return f.dFrom && f.dFrom >= today ? f : { ...f, dFrom: today };
   }
 
+  /** Termín nedávného hledání na čip, když ho uživatel zúžil: celý měsíc („prosinec“), krátký rozsah („1.–14. 12.“); výchozí okno na týdny dopředu → ''. */
+  function recentWhen(f) {
+    if (!f || f.dateMode === 'exact' || !f.dFrom || !f.dTo) return '';
+    const span = diffDays(f.dFrom, f.dTo);
+    if (f.dFrom.slice(0, 7) === f.dTo.slice(0, 7) && span >= 20) return MONTHS[+f.dFrom.slice(5, 7) - 1];
+    return span <= 16 ? dmRange(f.dFrom, f.dTo) : '';
+  }
+
   /**
    * „Jen lety odsud“ (Odkud se vyplatí letět): vyřazená všechna letiště výsledku kromě only – i ta, která přibyla
    * s dalším výsledkem téhož hledání. Letiště only ve výsledku není → vyřazení beze změny (jinak by schovalo vše).
@@ -1734,7 +1742,7 @@
   }
 
   window.SearchHelp = {
-    onlyOriginSet,
+    onlyOriginSet, recentWhen,
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs, ownPrint, ownPrintFor,

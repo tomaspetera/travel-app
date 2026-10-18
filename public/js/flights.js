@@ -1436,7 +1436,10 @@
     if (lw) return `🎉 ${lw.name} ${SearchHelp.dmRange(lw.start, lw.end)}`;
     if (f.trip === 'multi') return `${plural((f.legs || []).length, 'let', 'lety', 'letů')} od ${fmtDate(f.legs[0].date)}`;
     if (f.dateMode === 'exact') return `${fmtDate(f.xOut)}${f.trip === 'return' && f.xBack ? `–${fmtDate(f.xBack)}` : ' jen tam'}`;
-    return f.trip === 'return' ? SearchHelp.nightsRange(f.nMin, f.nMax) : 'jen tam';
+    // „prosinec · 5–9 nocí“: termín, jen když ho hledání zúžilo (výchozí týdny dopředu by čip jen prodloužily)
+    const w = SearchHelp.recentWhen(f);
+    const len = { weekend: 'víkend', long: 'prodl. víkend', week: 'týden', '2weeks': '2 týdny' }[f.len];
+    return (w ? w + ' · ' : '') + (f.trip === 'return' ? len || SearchHelp.nightsRange(f.nMin, f.nMax) : 'jen tam');
   }
   /** „Nedávno hledané“ pod formulářem (bez toho, co je ve formuláři teď) – jedním klepnutím znovu. */
   function renderRecent() {
