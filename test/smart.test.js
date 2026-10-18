@@ -291,3 +291,13 @@ test('Objevuj: „o víkendu“, „příští týden“ (začátek, ne délka),
   assert.equal(X('Krakov v sobotu').start, '2026-10-24');
   assert.equal(X('Lisabon na týden').days, 7);
 });
+
+test('„a zpět z Neapole“ / „návrat z Porta“ = místo návratu (Víc měst se 2 lety); „tam a zpět“, „a zpět“ ne', () => {
+  const r = P('do Říma a zpět z Neapole');
+  assert.deepEqual([r.from, r.to, r.back], [[], ['Říma'], 'Neapole']);
+  const b = P('z Brna do Lisabonu, návrat z Porta 5.–12. 11.');
+  assert.deepEqual([b.from, b.to, b.back, b.patch.xOut, b.patch.xBack], [['Brna'], ['Lisabonu'], 'Porta', '2026-11-05', '2026-11-12']);
+  assert.deepEqual([P('Praha → Neapol, zpět z Říma').from, P('Praha → Neapol, zpět z Říma').back], [['Praha'], 'Říma']);
+  assert.equal(P('do Londýna tam a zpět').back, undefined);
+  assert.equal(P('z Prahy do Paříže a zpět').back, undefined);
+});
