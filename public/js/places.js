@@ -649,6 +649,8 @@
   // Zapamatovaný stav jednou – i před prvním otevřením Objevuj (náhled cíle z letů potřebuje zvolený okruh).
   function ensureUi() { if (!ex.restored) { ex.restored = true; if (!ex.place) restoreUi(); } }
 
+  // seznam míst na telefonu: prvních LIST_TOP karet, ostatní po „Zobrazit další místa“ (24 karet = 3 400 px)
+  const LIST_TOP = 8;
   // ✨ příklady vět pod hledáním (Smart.parseExplore)
   const EX_TRY = ['Lisabon na 3 dny', 'výlety z Brna', 'Krakov pěšky 10 km', 'Vídeň na kole'];
   // Inspirace na prázdném Objevuj: karty s fotkou oblíbených měst – klepnutí = místa k vidění v okolí
@@ -766,6 +768,7 @@
   }
   // plány, vyřazená a vybraná místa, filtr a chyby místa
   function forget() {
+    ex.listAll = false;
     ex.plan = null; ex.trips = {}; ex.bikeRoute = null; ex.trainRoute = null; ex.hikeRoute = null; ex.tripEx.clear(); ex.tripMust.clear();
     ex.cat = ''; ex.planState = null; ex.errs = {}; ex.loaded = null; ex.all = []; ex.items = [];
     for (const k of Object.keys(busy)) delete busy[k];
@@ -1420,7 +1423,8 @@
     const wait = bz ? waitHtml(bz.kind, Date.now() - bz.t0 >= SLOW_MS, '', bz.note) : '';
     const empty = cityN ? '<div class="empty">Nic v této kategorii.</div>' : emptyHtml(ex.radius, ex.mode);
     const placesIn = `${cats.length ? `<div class="ex-cats"><button type="button" data-cat="" class="${!ex.cat ? 'on' : ''}">Vše</button>${cats.map(c => `<button type="button" data-cat="${c}" class="${ex.cat === c ? 'on' : ''}">${icon(c)} ${(CAT[c] || CAT.sight)[1]}</button>`).join('')}</div>` : ''}
-        <div class="poi-list" id="exList">${list.map(card).join('') || empty}</div>`;
+        <div class="poi-list${ex.listAll ? ' all' : ''}" id="exList">${list.map((x, i) => (i < LIST_TOP ? card(x) : card(x).replace('class="', 'class="poi-x '))).join('') || empty}</div>
+        ${list.length > LIST_TOP && !ex.listAll ? `<button type="button" class="btn ghost poi-morebtn" id="exListMore">Zobrazit další místa (${list.length - LIST_TOP})</button>` : ''}`;
     // Na kole, pěšky a u výletů je hlavní výsledek trasa na mapě – seznam míst ve městě je sbalený.
     const places = ex.mode === 'city' ? `<div class="ex-places">${placesIn}</div>`
       : `<details class="more ex-places" id="exPlaces"${ex.listOpen ? ' open' : ''}><summary>📍 Místa v okolí (${ex.items.length})</summary>${placesIn}</details>`;
@@ -1457,6 +1461,7 @@
     const hl = x => {
       const el = $(`#exPlanOut [data-poi="${CSS.escape(x.id)}"]`) || $(`#exList [data-poi="${CSS.escape(x.id)}"]`);
       if (!el) return;
+      if (el.classList.contains('poi-x')) { ex.listAll = true; el.closest('.poi-list').classList.add('all'); const lb = $('#exListMore'); if (lb) lb.remove(); } // skrytá karta ze značky na mapě
       if (!stacked()) {
         const det = el.closest('details');
         if (det) det.open = true;
@@ -1496,6 +1501,7 @@
       if (trip) replanSoon(seqKey); // zobrazený plán se přeplánuje (i po víc kliknutích jen jednou)
     });
     $$('#exList [data-poi]', body).forEach(c => c.onclick = () => focus(ex.items.find(i => i.id === c.dataset.poi), c, 'seznam'));
+    const lm = $('#exListMore', body); if (lm) lm.onclick = () => { ex.listAll = true; $('#exList', body).classList.add('all'); lm.remove(); };
     $$('#exPlanOut [data-poi]', body).forEach(c => c.onclick = e => {
       if (e.target.closest('a,button')) return;
       const pool = trip ? [...trip.days.flatMap(d => d.stops), ...trip.spare] : [...(ex.plan?.days || []).flatMap(d => d.items), ...st.items, ...ex.items];

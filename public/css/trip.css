@@ -455,3 +455,9 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
   .sum-acts>#sumSave{grid-column:1/-1}
   .sum-acts>.btn{justify-content:center;text-align:center;font-size:13px;padding-left:8px;padding-right:8px}
 }
+/* Objevuj: na telefonu jen prvních 8 míst, další po „Zobrazit další místa“ */
+.poi-morebtn{display:none}
+@media (max-width:1080px){
+  .poi-list:not(.all)>.poi-x{display:none}
+  .poi-morebtn{display:block;width:100%;margin-top:8px}
+}
