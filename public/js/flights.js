@@ -216,11 +216,15 @@
   // chytré hledání: termíny podle svátků a délky pobytu jako ve formuláři
   const smartOpts = () => ({ today: today(), presets: PRESETS, holidays: SearchHelp.holidayList(today()), holidayDates: SearchHelp.holidayDates });
   /** Místa z věty („do Říma“, „z Vídně“): tvar slova i se zkrácenou koncovkou → nejlepší návrh (Smart.bestPlace). */
-  async function smartResolve(hit, near, signal, geo = true) {
-    // napřed vlastní data (rychle); geokódování (pomalejší, vesnice a místa mimo databázi) jen když nic nenajdou
-    const look = (phrase, origin, remote) => Promise.all(Smart.stems(phrase).map(q => placesFor(q, origin, near, signal, remote)
+  // Místo z tvaru ve větě („Říma“ → Řím): napřed vlastní data (rychle); geokódování (pomalejší, vesnice a místa mimo
+  // databázi) jen když nic nenajdou
+  async function resolvePlace(phrase, origin, near, signal, geo = true) {
+    const look = remote => Promise.all(Smart.stems(phrase).map(q => placesFor(q, origin, near, signal, remote)
       .then(items => ({ q, items }), e => { if (e.name === 'AbortError') throw e; return { q, items: [] }; })));
-    const one = async (phrase, origin) => Smart.bestPlace(await look(phrase, origin, false)) || (geo ? Smart.bestPlace(await look(phrase, origin, true)) : null);
+    return Smart.bestPlace(await look(false)) || (geo ? Smart.bestPlace(await look(true)) : null);
+  }
+  async function smartResolve(hit, near, signal, geo = true) {
+    const one = (phrase, origin) => resolvePlace(phrase, origin, near, signal, geo);
     const [to, from] = await Promise.all([Promise.all(hit.sm.to.map(x => one(x, false))), Promise.all(hit.sm.from.map(x => one(x, true)))]);
     const item = x => ({ id: x.id, label: x.label, flag: x.flag || '📍', type: x.type });
     // cesta přes víc měst („Praha → Řím → Barcelona → Praha“): všechna místa v pořadí, jen města a letiště
@@ -275,27 +279,44 @@
       this.active = -1; // Enter v prázdném poli dál odešle formulář
       if (this.tips.length) this.open(); else this.close();
     }
+    /**
+     * Co k textu nabídnout: ✨ věta (hit – termín, cena, „k moři“…, odkud, víc míst; návrhy pro kus věty by mátly),
+     * jinak místa – i z tvaru ve větě („do Barcelony“, „levně do Paříže“ → Barcelona, Paříž; „z Brna“ v Odkud → Brno)
+     * a „Praha Londýn“ jako odkud → kam, když to jako jedno místo neexistuje.
+     */
+    async lookup(q, signal) {
+      const sm = window.Smart ? Smart.parse(q, smartOpts()) : null;
+      const hit = this.smart && sm && (sm.chips.length || sm.from.length || sm.to.length >= 2) ? { sm, to: [], from: [], miss: [] } : null;
+      if (hit) { await smartResolve(hit, this.near(), signal); return { hit, items: [] }; }
+      const one = sm && !sm.kind && !sm.chips.length && sm.to.length + sm.from.length === 1 ? sm.to[0] || sm.from[0] : null;
+      const qq = one && Smart.fold(one) !== Smart.fold(q) ? one : q;
+      const [list, known] = await Promise.all([
+        qq.length >= 2 ? placesFor(qq, this.origin, this.near(), signal) : [],
+        one ? resolvePlace(one, this.origin, this.near(), signal, false) : null,
+      ]);
+      // tvar slova („do Paříže“, „Vídně“, „z Brna“): známé místo ze zkrácené koncovky (Paříž) před podobně znějícími
+      // místy z geokódování (Pariževići, Vidne, Brná); bez předložky ne, když místo přesně tak jmenované už v návrzích
+      // je („Brná“ napsané celé) – po předložce je to vždy tvar slova
+      const low = x => String(x || '').normalize('NFC').toLocaleLowerCase('cs');
+      let items = list;
+      if (known && !items.some(x => x.id === known.id) && (qq !== q || !items.some(x => low(x.label) === low(qq)))) items = [known, ...items];
+      // vesnice ve tvaru věty („do Hronova“): i geokódováním; víceslovné ne („Brno Londýn“ by našlo ulici)
+      if (!items.length && one && !/\s/.test(one)) { const g = await resolvePlace(one, this.origin, this.near(), signal); if (g) items = [g]; }
+      items = items.filter(s => !this.origin || s.type !== 'continent');
+      const split = !items.length && this.smart && !this.origin && /\s/.test(q) ? await smartSplit(q, this.near(), signal) : null;
+      return { hit: split, items };
+    }
     async fetch() {
       const q = this.input.value.trim();
       if (this.ctl) this.ctl.abort();
       this.ctl = new AbortController();
       const signal = this.ctl.signal;
       this.tips = [];
-      // věta s termínem, cenou, „k moři“…: ✨ řádek a návrhy jen pro místo ve větě (Řím z „Řím na víkend“)
-      const sm = this.smart ? Smart.parse(q, smartOpts()) : null;
-      // věta (termín, cena, „k moři“…, odkud, víc míst): jen ✨ řádek – návrhy pro kus věty („Říma“) by mátly
-      const hit = sm && (sm.chips.length || sm.from.length || sm.to.length >= 2) ? { sm, to: [], from: [], miss: [] } : null;
-      const qq = hit ? '' : q;
       try {
-        const [items] = await Promise.all([
-          qq.length >= 2 ? placesFor(qq, this.origin, this.near(), signal) : [],
-          hit ? smartResolve(hit, this.near(), signal) : null,
-        ]);
-        // nic jako jedno místo → „Praha Londýn“ jako odkud → kam
-        const split = !hit && this.smart && !this.origin && !items.length && /\s/.test(q) ? await smartSplit(q, this.near(), signal) : null;
+        const { hit, items } = await this.lookup(q, signal);
         if (q !== this.input.value.trim()) return;
-        this.hit = hit || split;
-        this.sugs = items.filter(s => !this.origin || s.type !== 'continent'); this.active = this.hit || this.sugs.length ? 0 : -1; this.open();
+        this.hit = hit;
+        this.sugs = items; this.active = this.hit || this.sugs.length ? 0 : -1; this.open();
       } catch (e) { if (e.name !== 'AbortError') { this.hit = null; this.sugs = []; this.open(true); } }
     }
     open(err) {
@@ -330,12 +351,8 @@
       if (this.ctl) this.ctl.abort();
       this.close();
       try {
-        const sm = this.smart ? Smart.parse(q, smartOpts()) : null;
-        const hit = sm && (sm.chips.length || sm.from.length || sm.to.length >= 2) ? { sm, to: [], from: [], miss: [] } : null;
-        if (hit) await smartResolve(hit, this.near());
-        const items = hit || q.length < 2 ? [] : (await placesFor(q, this.origin, this.near())).filter(s => !this.origin || s.type !== 'continent');
-        const run = hit || (!items.length && this.smart ? await smartSplit(q, this.near()) : null);
-        if (run) { this.input.value = ''; this.smart.run(run); return 'run'; }
+        const { hit, items } = await this.lookup(q);
+        if (hit) { this.input.value = ''; this.smart.run(hit); return 'run'; }
         if (items[0]) { this.pick(items[0]); return 'pick'; }
       } catch (e) { /* našeptávač nedostupný */ }
       toast(`„${q}“ neznám – vyber místo z nabídky`, 'err');
