@@ -368,7 +368,8 @@
       backNext = false;
       if (FROM_WORDS.has(w)) { flush(); mode = 'from'; continue; }
       if (TO_WORDS.has(w)) { flush(); mode = 'to'; continue; }
-      if (FILL.has(w) || /^\d+$/.test(w)) { flush(); continue; }
+      // „město“ hned za slovem názvu patří k němu („Nové Město“, „do Nového Města“) – samotné („do města“) ne
+      if ((FILL.has(w) && !(cur.length && /^mest[aeou]?$|^mestem$/.test(w))) || /^\d+$/.test(w)) { flush(); continue; }
       cur.push(orig);
     }
     flush();

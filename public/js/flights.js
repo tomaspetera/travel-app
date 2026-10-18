@@ -326,8 +326,9 @@
       items = items.filter(s => !this.origin || s.type !== 'continent');
       // („letenky Praha Barcelona“: bez výplňových slov)
       const sq = one && /\s/.test(one) ? one : q;
-      const split = !items.length && this.smart && !this.origin && /\s/.test(sq) ? await smartSplit(sq, this.near(), signal) : null;
-      if (!items.length && !split && /\s/.test(q)) { const p = await countryPlace(q, this.origin, this.near(), signal); if (p) items = [p]; }
+      // (jen v plné nabídce – víceslovné místo jen z geokódování, „Nové Město“, by rychlý náhled rozdělil)
+      const split = remote && !items.length && this.smart && !this.origin && /\s/.test(sq) ? await smartSplit(sq, this.near(), signal) : null;
+      if (remote && !items.length && !split && /\s/.test(q)) { const p = await countryPlace(q, this.origin, this.near(), signal); if (p) items = [p]; }
       return { hit: split, items };
     }
     async fetch() {

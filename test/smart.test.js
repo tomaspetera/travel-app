@@ -347,3 +347,10 @@ test('rozpočet: „mám 5000“, „za 2 litry“ (= 2 000 Kč), eura kurzem ze
   assert.deepEqual([r.to, r.patch.maxPrice], [['Řím'], '1900']);
   assert.deepEqual(P('mám rád moře').to, []);
 });
+
+test('„Nové Město“: „město“ za slovem názvu patří k místu; samotné („do města“, „nějaké město u moře“) místo neurčuje', () => {
+  assert.deepEqual(P('Nové Město').to, ['Nové Město']);
+  assert.deepEqual(P('do Nového Města v květnu').to, ['Nového Města']);
+  assert.deepEqual(P('výlet do města').to, []);
+  assert.deepEqual(P('nějaké město u moře').to, []);
+});
