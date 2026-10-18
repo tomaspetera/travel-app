@@ -1234,3 +1234,8 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .resume-recent::-webkit-scrollbar{display:none}
 .resume-recent .faint{flex:none;font-size:12.5px;font-weight:700}
 .resume-recent .recent-chip{flex:none;white-space:nowrap}
+.mc-why{margin-top:4px;font-size:12.5px}
+.mc-why>summary{cursor:pointer;color:var(--accent);font-weight:600;list-style:none;display:inline}
+.mc-why>summary::-webkit-details-marker{display:none}
+.mc-why>summary::after{content:' ▾'}
+.mc-why[open]>summary::after{content:' ▴'}
