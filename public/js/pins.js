@@ -1,7 +1,8 @@
 /* ATLAS – 📌 Odložené nabídky (S.pins): čistá logika bez DOM, aby šla testovat v node (test/pins.test.js). Záznam
    z řádku výsledků nese vše, co porovnání potřebuje bez nového hledání (rozpis ceny, lety, letiště, statistika cen),
    z karty radaru jen to, co karta zná. Přepnutí, úklid nabídek s odletem v minulosti, pročištění cizího vstupu
-   (💾 záloha), sloučení, tichá obnova ceny z pozdějšího hledání se stejným nastavením a text pro sdílení.
+   (💾 záloha, jednorázový přepočet nabídek ze starší verze – pv), sloučení, tichá obnova ceny z pozdějšího hledání se
+   stejným nastavením a text pro sdílení.
    UI je ve flights.js (priceBox, bookButtons, pickTrip…), záloha v backup.js. */
 (function () {
   const MAX = 12, OLD_MIN = 1440; // nejvýš nabídek; cena starší než 24 h varovně
@@ -58,7 +59,7 @@
     // základ ceny radaru: bez zavazadel, veřejnou dopravou na letiště, s cestou do města (SearchHelp.radarQuery)
     const q = { adults: Math.min(9, Math.max(1, Math.round(+adults) || 1)), bags: 'none', groundMode: 'transit', carFuel: null, kmRate: 1, arrival: true, trip: x.d2 ? 'return' : 'oneway' }, r = {};
     for (const k of ['from', 'to', 'd1', 'd2', 'bf', 'bt', 't1', 'a2', 'czk', 'prov', 'deal', 'buy']) if (x[k] !== undefined) r[k] = x[k];
-    return copy({ k: radarKey(x, basis(q)), kind: 'r', at: at > 0 ? at : now, pinnedAt: now, q, dest: { id: x.id || null, key: keyOf(x.id) || x.to, label: x.label || x.to, cc: x.cc || '', ...geo(x) }, r, ...(demo ? { demo: 1 } : {}) });
+    return copy({ k: radarKey(x, basis(q)), kind: 'r', at: at > 0 ? at : now, pinnedAt: now, q, pv: 2, dest: { id: x.id || null, key: keyOf(x.id) || x.to, label: x.label || x.to, cc: x.cc || '', ...geo(x) }, r, ...(demo ? { demo: 1 } : {}) });
   }
 
   // tatáž nabídka: stejný klíč; karta radaru i jako plná nabídka se stejnou trasou, dny a nastavením
@@ -147,9 +148,9 @@
       const base = { kind: x.kind, at: x.at, pinnedAt: okAt(x.pinnedAt) ? x.pinnedAt : x.at };
       let rec = null;
       if (x.kind === 'f') rec = cleanFull(x, base, now);
-      else {
+      else if (x.pv === 2) { // karta radaru ze starší verze (cena i s dopravou, bez rozpisu) – přepočítat nejde, zahodit
         const r = cleanRadar(x.r), q = r && cleanQ(x.q, r.d2 ? 'return' : 'oneway');
-        if (q) rec = { k: radarKey(r, basis(q)), ...base, q, dest: cleanDest(x.dest, r.to), r, ...(x.demo ? { demo: 1 } : {}) };
+        if (q) rec = { k: radarKey(r, basis(q)), ...base, q, pv: 2, dest: cleanDest(x.dest, r.to), r, ...(x.demo ? { demo: 1 } : {}) };
       }
       if (rec) out.push(rec);
     }
@@ -195,7 +196,8 @@
       const rec = x && fromRow(x.t, x.g, res, at, now);
       if (!rec) return p;
       n++;
-      const was = p.was || (rec.t.perPersonCzk !== p.t.perPersonCzk ? { czk: p.t.perPersonCzk, at: p.at } : null);
+      // cena ze starší verze (i s dopravou) se s novou neporovnává
+      const was = p.pv !== 2 ? null : p.was || (rec.t.perPersonCzk !== p.t.perPersonCzk ? { czk: p.t.perPersonCzk, at: p.at } : null);
       return { ...rec, pinnedAt: p.pinnedAt, ...(was && was.czk !== rec.t.perPersonCzk ? { was } : {}) };
     });
     return { list: n ? out : cur, n };
@@ -233,7 +235,7 @@
       const n = d2 ? (!r && t.nights != null ? t.nights : nightsOf(d1, d2)) : null, pax = p.q.adults, a = age(p.at, now), fl = flagOf(p.dest.cc);
       out.push(`${i + 1}) ${p.dest.label}${fl ? ' ' + fl : ''} · ${d2 ? `${day(d1)} – ${day(d2)} · ${nightsTxt(n)}` : `${day(d1)} · jen tam`}`,
         `   ${kc(price(p))}/os.${pax > 1 ? ` (celkem ${kc(r ? r.czk * pax : t.totalCzk)} za ${pax} os.)` : ''}${p.demo ? ' (DEMO – vymyšlená cena)' : ''}`,
-        `   ${r ? `${r.from} → ${r.to}${d2 ? ` ↩ ${r.bf && r.bf !== r.to ? r.bf + ' → ' : ''}${r.bt || r.from}` : ''} · letenka + cesta na letiště a do města` : [`tam ${legTxt(t.out)}`, t.back ? `zpět ${legTxt(t.back)}` : '', who(t)].filter(Boolean).join(' · ')}`,
+        `   ${r ? `${r.from} → ${r.to}${d2 ? ` ↩ ${r.bf && r.bf !== r.to ? r.bf + ' → ' : ''}${r.bt || r.from}` : ''} · ${d2 ? 'zpáteční letenka' : 'letenka'}` : [`tam ${legTxt(t.out)}`, t.back ? `zpět ${legTxt(t.back)}` : '', who(t)].filter(Boolean).join(' · ')}`,
         ...(a ? [`   ${a.day ? `⚠ cena ${a.z} ${a.txt} – může být jiná` : `cena ${a.z} ${a.txt}`}`] : []),
         `   ${shareLink(p)}`, '');
     });

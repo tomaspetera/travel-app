@@ -27,12 +27,13 @@ let TOT = 197; const CONT_TOT = {};
 /* ================= STATE ================= */
 const LS = 'atlas_v1';
 let S = load();
-function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return migratePrices(Object.assign(defState(), d)); } catch (e) { } return defState(); }
+function load() { try { const d = JSON.parse(localStorage.getItem(LS)); if (d) return migratePrices(Object.assign(defState(), d), d.pv); } catch (e) { } return defState(); }
 // Ceny letů jsou od pv 2 jen za letenku (+ zavazadla), dřív i s dopravou na letiště a do města: uložené karty radaru
 // se načtou znovu a „naposledy prohlížené“ ceny zapomenou – jinak by vedle nových cen vypadaly dráž („zlevnilo“).
 // Hlídané ceny si nový základ vezmou při příští kontrole (Alerts, w.pv), odložené nabídky se přepočítají (Pins).
-function migratePrices(s) {
-  if (s.pv === 2) return s;
+// pv = verze uloženého stavu (před doplněním výchozích hodnot – defState už pv 2 má).
+function migratePrices(s, pv) {
+  if (pv === 2) return s;
   return { ...s, pv: 2, radar: null, viewed: (s.viewed || []).map(x => (x && typeof x === 'object' ? { ...x, czk: null } : x)) };
 }
 function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null, accessOwn: {}, fav: [], mute: [], pins: [], viewed: [], pv: 2 }; }
@@ -460,7 +461,7 @@ function renderWhatsNew() {
     el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
       <ol class="wc-steps">
         <li><span class="wc-n">1</span><div><b>Napiš, kam chceš</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
-        <li><span class="wc-n">2</span><div><b>Vyber let</b><small>nejlevnější jsou nahoře, cena i s cestou na letiště</small></div></li>
+        <li><span class="wc-n">2</span><div><b>Vyber let</b><small>nejlevnější letenky nahoře, doprava na letiště zvlášť pod cenou</small></div></li>
         <li><span class="wc-n">3</span><div><b>Poskládej cestu</b><small>ubytování, auto, program a shrnutí s odkazy k rezervaci</small></div></li>
       </ol>
       <div class="row wrap" style="gap:8px"><button type="button" class="btn primary" id="wcGo">Začít hledat</button><button type="button" class="btn ghost" id="wnHide">Rozumím</button></div>`;
