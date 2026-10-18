@@ -692,6 +692,14 @@ test('recentAdd/recentForm: nedávná hledání bez opakování, termíny v minu
   assert.ok(H.recentForm({ from, trip: 'multi', legs: [{ date: '2026-10-12' }] }, T));
 });
 
+test('recentWhen: zúžený termín na čip Nedávno – celý měsíc, krátký rozsah; výchozí okno a přesná data ne', () => {
+  assert.equal(H.recentWhen({ dateMode: 'flex', dFrom: '2026-12-01', dTo: '2026-12-31' }), 'prosinec');
+  assert.equal(H.recentWhen({ dateMode: 'flex', dFrom: '2026-10-18', dTo: '2026-10-31' }), '18.–31. 10.');
+  assert.equal(H.recentWhen({ dateMode: 'flex', dFrom: '2026-10-25', dTo: '2026-12-17' }), '');
+  assert.equal(H.recentWhen({ dateMode: 'exact', xOut: '2026-11-03', dFrom: '2026-11-01', dTo: '2026-11-05' }), '');
+  assert.equal(H.recentWhen(null), '');
+});
+
 test('radarEntry: výsledek s výpadkem zdroje bez značek a příští porovnání proti poslednímu úplnému', () => {
   const key = JSON.stringify({ from: ['ap:BRQ'], radiusKm: 200, dateFrom: '2026-10-12', dateTo: '2026-11-21' });
   const it = (id, czk) => ({ id, label: id, czk });
