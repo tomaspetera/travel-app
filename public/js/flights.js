@@ -1526,8 +1526,9 @@
     }).join('');
     const disabled = (health?.providers || []).filter(p => !p.enabled && p.hint && p.kind !== 'stays').map(p => `<div class="prow off"><span class="pdot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="pst">vypnuto</span><div class="pnote">${esc(p.hint)}</div></div>`).join('');
     const multi = res ? res.mode === 'multi' : Boolean(ev.legs);
-    const sec = ms => (ms / 1000).toFixed(1).replace('.', ',');
-    const head = res ? (multi ? `Prohledáno ${plural(res.legs.length, 'let', 'lety', 'letů')} za ${sec(res.stats.ms)} s` : `Prohledáno ${plural(res.origins.length, 'letiště', 'letiště', 'letišť')} za ${sec(res.stats.ms)} s`)
+    // „za 0,0 s“ = stejné hledání nedávno (výsledek z mezipaměti serveru) – to se neříká v sekundách
+    const sec = ms => (ms >= 50 ? ` za ${(ms / 1000).toFixed(1).replace('.', ',')} s` : ' – hned, z nedávného hledání');
+    const head = res ? (multi ? `Prohledáno ${plural(res.legs.length, 'let', 'lety', 'letů')}${sec(res.stats.ms)}` : `Prohledáno ${plural(res.origins.length, 'letiště', 'letiště', 'letišť')}${sec(res.stats.ms)}`)
       : multi ? '<span class="spin"></span> Hledám lety pro celou cestu (nejvýš dva lety najednou)…'
       : `<span class="spin"></span> Prohledávám letiště${originPreview.length ? ` (${originPreview.filter(a => !a.off).sort((x, y) => (x.rank ?? 99) - (y.rank ?? 99)).slice(0, health?.maxOrigins || 8).sort((x, y) => x.distKm - y.distKm).map(a => a.iata).join(', ')})` : ''}…`;
     // cesta přes víc měst: stav hledání každého letu
@@ -1843,7 +1844,7 @@
     else if (view.mode === 'map') body = !groups.length ? '' : `<div class="card res-map-card"><div id="resMap" class="res-map"></div><div class="map-legend"><span><i class="lg-dot t0"></i>nejlevnější</span><span><i class="lg-dot t1"></i>střední</span><span><i class="lg-dot t2"></i>dražší</span><span class="faint">klikni na bod → detail</span></div></div><div id="mapList"></div>`;
     // kalendář ukazuje všechny dny i s vybraným dnem odletu → složené dvojice i pro ostatní dny (jinak by měly ✕)
     else if (view.mode === 'cal' && isRoute) body = calendarHtml(res, view.outDate ? anyDay(fill) : filledNow) + `<div class="section-head"><h2>Nejlepší kombinace${view.outDate ? ' · odlet ' + fmtDate(view.outDate) + (view.nights != null ? ', ' + nightsTxt(view.nights) : '') : ''}</h2></div>` + flatList(flat);
-    else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(g.vis[0].perPersonCzk)}</b></span>`).join('')}</div>` : '') + flatList(flat)
+    else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(g.vis[0].perPersonCzk)}</b></span>`).join('')}</div>` : '') + directHintHtml(flat, pre) + flatList(flat)
       : view.mode === 'cards' ? groups.map(g => groupCard(g)).join('') : compactList(groups);
     // konkrétní cíl: výpis je z res.top (flat), ne z 6 nabídek skupiny – podle něj, jinak hláška pod nalezenými lety
     if (!body.trim() || ((view.mode === 'list' || view.mode === 'cards') && !(isRoute ? flat.length : groups.length))) body += `<div class="empty">Filtrům nic neodpovídá. Uvolni filtr ceny, letišť, aerolinek, nových zemí${view.favOnly ? ', mých cílů' : ''} nebo času a přestupů${prefNow.muted ? ' – nebo ukaž 🙈 skryté cíle' : ''}.</div>`;
@@ -1857,6 +1858,13 @@
     wireHelp(host);
     if (view.gndOpen) showGround(true, false);
     if (view.mode === 'map') drawResultMap(groups);
+  }
+
+  // ✈️ Nejlevnější nabídky jsou s přestupem, ale přímý let tam i zpět mezi nalezenými je – za kolik (jedním klepnutím „Jen přímé“).
+  function directHintHtml(flat, pre) {
+    const d = !lastResult?.partial && SearchHelp.directHint(flat, pre, view.time);
+    if (!d) return '';
+    return `<div class="direct-hint"><span>✈️ Bez přestupu od <b>${czk(d.czk)}</b>/os.${d.more ? ` <small>(o ${czk(d.more)} víc · z ${esc(d.from)})</small>` : ` <small>(z ${esc(d.from)})</small>`}</span><button type="button" class="btn sm" data-tst="0">Jen přímé</button></div>`;
   }
 
   // Co je v ceně za zavazadla (patička výsledků); příplatky jsou jen odhad podle dopravce.

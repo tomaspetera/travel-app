@@ -375,6 +375,22 @@
     return best ? best.c : null;
   }
 
+  /**
+   * ✈️ „Bez přestupu od …“ nad výpisem: nejlevnější nabídka má přestup, ale mezi nalezenými (pre = po ostatních
+   * filtrech) je i let přímo tam i zpět, který projde ostatními filtry času – kolik stojí a o kolik víc. Filtr přestupů
+   * už nastavený, nebo nejlevnější je přímý → null.
+   */
+  function directHint(vis, pre, tf) {
+    if (!vis || !vis.length || (tf && tf.stops != null)) return null;
+    const direct = t => [t.out, t.back].filter(Boolean).every(l => !(l.stops > 0));
+    const low = vis.reduce((m, t) => (t.perPersonCzk < m.perPersonCzk ? t : m));
+    if (direct(low)) return null;
+    const tf0 = { ...(tf || freshTime()), stops: 0 };
+    let best = null;
+    for (const t of pre || []) if (direct(t) && timeOk(t, tf0) && (!best || t.perPersonCzk < best.perPersonCzk)) best = t;
+    return best ? { czk: best.perPersonCzk, more: Math.max(0, best.perPersonCzk - low.perPersonCzk), from: best.out.from } : null;
+  }
+
   /** Kolik nabídek skrývá každý filtr sám (by), všechny dohromady (any) a z kolika (total). */
   function timeHidden(trips, tf) {
     const by = {};
@@ -1765,7 +1781,7 @@
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
     CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs, ownPrint, ownPrintFor,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
-    DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
+    DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
