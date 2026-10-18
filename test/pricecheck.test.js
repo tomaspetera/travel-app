@@ -134,6 +134,23 @@ test('paměť cen: klíč trasy, záznam z výsledku, nejnižší cena a kdy', (
   assert.deepEqual([P.agoTxt(0), P.agoTxt(1)], ['dnes', 'včera']);
 });
 
+test('paměť cen: i cesty skupiny (best / options) – kombinace mimo statistiku nesmí být v ⭐ Moje cíle dražší než na radaru', () => {
+  const combo = { flightCzk: 486.4, back: { date: '2026-11-15' }, out: { from: 'VIE', date: '2026-11-12' } };
+  const own = { flightCzk: 583, back: { date: '2026-11-15' }, out: { from: 'VIE', date: '2026-11-12' } };
+  const ow = { flightCzk: 100, back: null, out: { from: 'VIE', date: '2026-11-12' } };
+  const q = { trip: 'return', dateFrom: '2026-11-01', dateTo: '2026-11-30', nightsMin: 3, nightsMax: 5 };
+  const res = { query: q, groups: [
+    { dest: { key: 'TRS' }, best: combo, options: [combo, own, ow], priceStats: { n: 1, mins: [['VIE', '2026-11', 583], ['BTS', '2026-12', 700]] } },
+    { dest: { key: 'LON' }, best: own, options: [own], priceStats: null },
+  ] };
+  assert.deepEqual(plain(P.entriesOf(res)).map((e) => [e.key, e.czk]), [['VIE>TRS|2026-11|rt', 486], ['BTS>TRS|2026-12|rt', 700], ['VIE>LON|2026-11|rt', 583]]);
+  const s = P.record(null, P.entriesOf(res), { now: NOW });
+  assert.deepEqual(plain(P.seenMin(s, 'TRS', NOW)), { czk: 486, from: 'VIE', month: '2026-11', at: NOW, ago: 0 });
+  assert.equal(P.seenMin(s, 'LON', NOW).czk, 583, 'skupina bez statistiky (jen kombinace) se zapamatuje taky');
+  // hledání jen tam: zpáteční cesty skupiny se do jednosměrných tras nemíchají (a naopak let jen tam výše chybí)
+  assert.deepEqual(plain(P.entriesOf({ ...res, query: { ...q, trip: 'oneway' } })).map((e) => [e.key, e.czk]), [['VIE>TRS|2026-11|ow', 100], ['BTS>TRS|2026-12|ow', 700]]);
+});
+
 test('paměť cen: trend jen mezi stejnými hledáními, opakované hledání do 6 h je jedno pozorování', () => {
   const k = 'PRG>BCN|2026-11|rt';
   let s = P.record(null, [{ key: k, czk: 2000 }], { now: NOW, scope: 'a' });
