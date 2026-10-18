@@ -92,7 +92,7 @@
   // Enter v hledání: návrhy k právě napsanému textu → vyber; jinak (čeká se, stará odpověď, chyba) hledej hned.
   const enterAction = ({ text, sugFor, count, err }) => (text.length < 2 ? 'none' : sugFor === text && !err ? (count ? 'pick' : 'none') : 'fetch');
   const sugHtml = (sugs, act, err) => (err ? '<div class="pi-empty">Hledání míst teď nefunguje – zkus to za chvíli</div>'
-    : sugs.length ? sugs.map((s, i) => `<div class="pi-opt ${i === act ? 'on' : ''}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span></div>`).join('')
+    : sugs.length ? (sugs[0].fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '') + sugs.map((s, i) => `<div class="pi-opt ${i === act ? 'on' : ''}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span></div>`).join('')
       : '<div class="pi-empty">Nic nenalezeno</div>');
 
   // Čekání: rovnou poctivý odhad, po SLOW_MS výslovnější vysvětlení (spinner zůstává).

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { stubFetch } from './helpers.js';
 import { config } from '../server/config.js';
 
-const { suggest, localSuggestions, resolveOrigins, resolveDestinations, homePoint } = await import('../server/lib/places.js');
+const { suggest, localSuggestions, resolveOrigins, resolveDestinations, homePoint, geocodePlaces } = await import('../server/lib/places.js');
 const place = (name, latitude, longitude, country_code, population, admin1 = '', feature_code = 'PPL') => ({ id: Math.round(latitude * 1000), name, latitude, longitude, country_code, country: country_code, admin1, population, feature_code });
 const ids = (list) => list.map((s) => s.id.split('|')[0]);
 const BRNO = 'geo:49.1952,16.6080';
@@ -184,5 +184,28 @@ test('suggest: skutečné místo z geokódování (vesnice Lodnyn) před opravou
     const list = await suggest('Lodnyn', { near: 'ap:PRG' });
     assert.equal(list[0].id.split('|')[1], 'Lodnyn');
     assert.ok(list.some((s) => s.id === 'metro:LON' && s.fuzzy));
+  } finally { stub.restore(); config.mock = mock; }
+});
+
+test('geocodePlaces (Objevuj): překlep „Krakv“ = Krakov nahoře (geokodér by našel Krokvåg); výpadek = města z vlastních dat', async () => {
+  const mock = config.mock;
+  config.mock = false;
+  let down = false;
+  const stub = stubFetch((url) => {
+    if (down) return { status: 500, body: {} };
+    const q = new URL(url).searchParams.get('name');
+    if (q === 'Krakv') return { body: { results: [place('Krokvåg', 58.62, 9.03, 'NO', 0)] } };
+    if (q === 'Lisabon') return { body: { results: [place('Lisabon', 38.72, -9.14, 'PT', 500000, '', 'PPLC')] } };
+    return { body: {} };
+  });
+  try {
+    const k = await geocodePlaces('Krakv');
+    assert.deepEqual([k[0].label, k[0].fuzzy, k[0].type, k[1].label], ['Krakov', true, 'place', 'Krokvåg']);
+    // správně napsané: bez opravy
+    assert.ok(!(await geocodePlaces('Lisabon')).some((x) => x.fuzzy));
+    down = true;
+    const l = await geocodePlaces('Porto');
+    assert.equal(l[0].label, 'Porto');
+    assert.match(l[0].id, /^geo:/);
   } finally { stub.restore(); config.mock = mock; }
 });

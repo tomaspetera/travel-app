@@ -303,14 +303,15 @@
      * jinak místa – i z tvaru ve větě („do Barcelony“, „levně do Paříže“ → Barcelona, Paříž; „z Brna“ v Odkud → Brno)
      * a „Praha Londýn“ jako odkud → kam, když to jako jedno místo neexistuje.
      */
-    async lookup(q, signal) {
+    // remote = false: jen vlastní data, bez geokódování (rychlý první náhled nabídky)
+    async lookup(q, signal, remote = true) {
       const sm = window.Smart ? Smart.parse(q, smartOpts()) : null;
       const hit = this.smart && sm && (sm.chips.length || sm.from.length || sm.to.length >= 2 || sm.back) ? { sm, to: [], from: [], miss: [] } : null;
-      if (hit) { await smartResolve(hit, this.near(), signal); return { hit, items: [] }; }
+      if (hit) { await smartResolve(hit, this.near(), signal, remote); return { hit, items: [] }; }
       const one = sm && !sm.kind && !sm.chips.length && sm.to.length + sm.from.length === 1 ? sm.to[0] || sm.from[0] : null;
       const qq = one && Smart.fold(one) !== Smart.fold(q) ? one : q;
       const [list, known] = await Promise.all([
-        qq.length >= 2 ? placesFor(qq, this.origin, this.near(), signal) : [],
+        qq.length >= 2 ? placesFor(qq, this.origin, this.near(), signal, remote) : [],
         one ? resolvePlace(one, this.origin, this.near(), signal, false) : null,
       ]);
       // tvar slova („do Paříže“, „Vídně“, „z Brna“): známé místo ze zkrácené koncovky (Paříž) před podobně znějícími
@@ -321,9 +322,11 @@
       // (návrh jako oprava překlepu – „Paříže“ = Paříž? – se nepočítá: známé místo ho nahradí)
       if (known && !known.fuzzy && !items.some(x => x.id === known.id && !x.fuzzy) && (qq !== q || !items.some(x => low(x.label) === low(qq)))) items = [known, ...items.filter(x => x.id !== known.id)];
       // vesnice ve tvaru věty („do Hronova“): i geokódováním; víceslovné ne („Brno Londýn“ by našlo ulici)
-      if (!items.length && one && !/\s/.test(one)) { const g = await resolvePlace(one, this.origin, this.near(), signal); if (g) items = [g]; }
+      if (remote && !items.length && one && !/\s/.test(one)) { const g = await resolvePlace(one, this.origin, this.near(), signal); if (g) items = [g]; }
       items = items.filter(s => !this.origin || s.type !== 'continent');
-      const split = !items.length && this.smart && !this.origin && /\s/.test(q) ? await smartSplit(q, this.near(), signal) : null;
+      // („letenky Praha Barcelona“: bez výplňových slov)
+      const sq = one && /\s/.test(one) ? one : q;
+      const split = !items.length && this.smart && !this.origin && /\s/.test(sq) ? await smartSplit(sq, this.near(), signal) : null;
       if (!items.length && !split && /\s/.test(q)) { const p = await countryPlace(q, this.origin, this.near(), signal); if (p) items = [p]; }
       return { hit: split, items };
     }
@@ -333,11 +336,20 @@
       this.ctl = new AbortController();
       const signal = this.ctl.signal;
       this.tips = [];
-      try {
-        const { hit, items } = await this.lookup(q, signal);
+      const show = ({ hit, items }) => {
         if (q !== this.input.value.trim()) return;
         this.hit = hit;
         this.sugs = items; this.active = this.hit || this.sugs.length ? 0 : -1; this.open();
+      };
+      // hned nabídka z vlastních dat; geokódování (Open-Meteo – občas i několik sekund) ji pak doplní. Náhled jen bez
+      // míst „neznám“ a bez opravy překlepu na prvním místě (to může geokódování najít skutečné místo)
+      let done = false;
+      this.lookup(q, signal, false).then(r => {
+        if (!done && (r.hit ? !r.hit.miss.length : r.items.length && !r.items[0].fuzzy)) show(r);
+      }, () => { });
+      try {
+        const r = await this.lookup(q, signal);
+        done = true; show(r);
       } catch (e) { if (e.name !== 'AbortError') { this.hit = null; this.sugs = []; this.open(true); } }
     }
     open(err) {
