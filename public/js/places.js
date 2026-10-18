@@ -716,16 +716,18 @@
     const fl = await Promise.all(cands.map(c => getJson('api/places?q=' + enc(c)).then(j => j.items || [], () => [])));
     // jen místa z databáze letů (letiště, města, země, oblasti) – geokódované vesnice (geo:…, „Brná“ pro „Brna“) ne;
     // shoda i podle jiného názvu (en „Rome“, místní „Roma“, „Toscana“) → hledá se český název („Řím“, „Toskánsko“)
-    let known = null;
+    let known = null, region = null;
     for (const [i, c] of cands.entries()) {
       const it = fl[i].find(x => !/^geo:/.test(x.id || '') && [x.label, x.en, ...(x.aliases || [])].some(n => n && same(n, c)));
-      if (it) { known = String(it.label).replace(/\s*\(.*\)$/, ''); if (it.type === 'region') known = await regionCity(it) || known; break; }
+      if (it) { known = String(it.label).replace(/\s*\(.*\)$/, ''); if (it.type === 'region') { region = await regionCity(it); if (region) known = region.name; } break; }
     }
     const geo = async c => (await getJson('api/geocode?q=' + enc(c)).catch(() => ({ items: [] }))).items || [];
     for (const c of known ? [known] : [...cands.slice(1), cands[0]]) {
-      const items = await geo(c), hit = items.find(it => same(it.label, c)) || (known ? items[0] : null);
+      const items = await geo(c), hit = items.find(it => same(it.label, c)) || (known && !region ? items[0] : null);
       if (hit) return hit;
     }
+    // město oblasti, které geokódování česky nezná (Heraklion → jen „Heraklion Airport Terminal“): poloha letiště
+    if (region) return { label: region.name, lat: region.ap.lat, lon: region.ap.lon, cc: region.ap.cc || '' };
     return (await geo(cands[0]))[0] || null;
   }
   // oblast (Toskánsko, Kréta…) nemá v geokódování střed – místo ní město jejího prvního letiště (Florencie, Heraklion)
@@ -733,7 +735,8 @@
     const iata = (String(it.sub || '').match(/\b[A-Z]{3}\b/) || [])[0];
     if (!iata) return null;
     const ap = ((await getJson('api/places?q=' + enc(iata)).catch(() => ({ items: [] }))).items || []).find(x => x.id === 'ap:' + iata);
-    return ap ? String(ap.label).replace(/\s*\(.*\)$/, '') : null;
+    // „Kréta (Heraklion)“ → město letiště (anglicky Heraklion), „Florencie“ → Florencie; ap = poloha pro zálohu
+    return ap && Number.isFinite(+ap.lat) ? { name: /\(.*\)$/.test(ap.label) && ap.en ? ap.en : String(ap.label).replace(/\s*\(.*\)$/, ''), ap } : null;
   }
   /** ✨ Volby z věty do Objevuj: druh plánu, dny, délka trasy, od kdy, zájmy; plán se po načtení míst sestaví sám. */
   function exploreApply(px) {

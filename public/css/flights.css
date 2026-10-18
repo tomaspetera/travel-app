@@ -1239,3 +1239,6 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .mc-why>summary::-webkit-details-marker{display:none}
 .mc-why>summary::after{content:' ▾'}
 .mc-why[open]>summary::after{content:' ▴'}
+/* telefon: štítky nabídky nad 5 sbalené pod „+N další“ */
+.tr-badges .b-x{display:none}
+.b-more{cursor:pointer;border:1px dashed var(--border-2);background:transparent;color:var(--accent);font-family:inherit;font-weight:700}
