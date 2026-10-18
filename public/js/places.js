@@ -497,7 +497,8 @@
   const CS_ABBR = ('sv tzv tzn např popř resp tj mj zv nám náb nábř ul tř čp hl př arch prof doc kpt gen plk mjr kr kn ev nar zal '
     + 'angl něm fr it šp špan port kat pol maď chorv srb slov slovin rum bulh řec tur niz dán šv švéd nor fin est lot lit rus ukr lat hebr ar arab ir bask gal').split(' ').join('|');
   const SENT_EN = /^[\s\S]{20,240}?[a-z0-9)\]"'’\u00e0-\u024f]{2}[.!?](?=\s+[^\s\p{Ll}]|\s*$)/u;
-  const SENT_CS = new RegExp(SENT_EN.source.replace('[.!?]', `[.!?](?<!(?<!\\p{L})(?:${CS_ABBR})\\.)`), 'u'); // tečka ne hned za zkratkou
+  // tečka ne hned za zkratkou; starší Safari (iOS < 16.4) lookbehind nezná – tam česky jako anglicky (Objevuj dál funguje)
+  const SENT_CS = (() => { try { return new RegExp(SENT_EN.source.replace('[.!?]', `[.!?](?<!(?<!\\p{L})(?:${CS_ABBR})\\.)`), 'u'); } catch (e) { return SENT_EN; } })();
   const firstSentence = (s, lang) => {
     const t = String(s || '').trim();
     const m = t.match(lang === 'en' ? SENT_EN : SENT_CS);
