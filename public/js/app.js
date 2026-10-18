@@ -416,8 +416,11 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-18h';
+const WN_ID = '2026-10-18i';
 const WHATS_NEW = [
+  ['🚆', 'Reálnější časy cest', 'vlak mezi městy jede rychlotratí jen tam, kde opravdu vede (Barcelona → Valencie ~3 h 25, ne 2 h 10), jízdenky po Itálii, Španělsku a Francii za běžné ceny, autem na letiště podle skutečné rychlosti a „Vyraž z ubytování“ i s cestou na zastávku. Z letiště ve tvém městě brzy ráno počítám s taxi 🚕.'],
+  ['📝', 'Formulář před příletem', 'Thajsko (TDAC), Filipíny, Malajsie, Singapur, Korea, Indonésie a další chtějí online formulář – uvidíš to u letu, v Před cestou i v Co zařídit s odkazem na oficiální web.'],
+  ['↻', 'Když hledání selže', 'uvidíš hned proč a tlačítko <b>Zkusit znovu</b>; 🙈 Nezajímá mě v radaru jde vrátit.'],
   ['💰', 'Cena = letenka', 'u nabídek, v radaru i v kalendáři je teď jen cena letenky (se zavazadly, když je vybereš). Doprava na letiště a z letiště do města je pod cenou zvlášť – jen pro představu, kolik zhruba stojí. Řazení „i s cestou na letiště“ je ve Filtrech.'],
   ['💱', 'Odkazy v korunách', 'Kiwi.com se otevře česky v Kč; u Ryanairu a Wizz Air uvidíš předem, v jaké měně web ukáže let zpět (účtují v měně země odletu).'],
   ['👀', 'Zaujalo tě', 'cíle, které sis po hledání Kamkoliv rozbalil, nabídne prázdné pole <b>Kam</b> – jedním klepnutím lety jen tam ve stejném termínu.'],
