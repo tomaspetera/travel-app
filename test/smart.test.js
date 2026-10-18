@@ -326,3 +326,15 @@ test('„pozítří“, „příští pátek“, „tuto sobotu“ = konkrétní
   // „romantický víkend v Paříži“: přívlastek není místo
   assert.deepEqual(P('romantický víkend v Paříži').to, ['Paříži']);
 });
+
+test('„5-9.12.“ bez tečky za prvním dnem; svátek s delším pobytem („na Silvestra na týden“) = odlet kolem svátku s tou délkou', () => {
+  const v = P('Vídeň 5-9.12.');
+  assert.deepEqual([v.to, v.patch.xOut, v.patch.xBack], [['Vídeň'], '2026-12-05', '2026-12-09']);
+  // cena s pomlčkou není začátek rozsahu dnů
+  const c = P('do 3000 – 9.12.');
+  assert.deepEqual([c.patch.xOut, +c.patch.maxPrice], ['2026-12-09', 3000]);
+  const s = P('Tenerife na Silvestra na týden');
+  assert.deepEqual([s.patch.len, s.patch.dateMode, s.patch.dFrom, s.patch.dTo], ['week', 'flex', '2026-12-29', '2027-01-01']);
+  // bez délky dál prodloužený víkend
+  assert.equal(P('Tenerife na Silvestra').patch.len, 'holiday');
+});

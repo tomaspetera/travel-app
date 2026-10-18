@@ -106,13 +106,14 @@
     rule(new RegExp(`(?:od\\s*)?(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?(?:\\s*(?:-|–|az|do)\\s*(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?)?${W}`), (m, at) => {
       const a = mkDate(m[1], m[2], m[3]);
       // „3.–10. 6.“: konec rozsahu dnů ve stejném měsíci – patří pravidlu níž
-      if (!a || (!m[4] && /\d{1,2}\.\s*(?:-|–|az)\s*$/.test(s.slice(0, at)))) return false;
+      if (!a || (!m[4] && /\b\d{1,2}\.?\s*(?:-|–|az)\s*$/.test(s.slice(0, at)))) return false;
       const b = m[4] ? mkDate(m[4], m[5], m[6] || (+m[5] < +m[2] ? +a.slice(0, 4) + 1 : a.slice(0, 4))) : null;
       if (m[4] && (!b || b < a)) return false;
       dates = { exact: true, out: a, back: b };
     });
 
-    rule(new RegExp(`(?:od\\s*)?(\\d{1,2})\\.\\s*(?:-|–|az|do)\\s*(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?${W}`), m => {
+    // (i „5-9.12.“ bez tečky za prvním dnem)
+    rule(new RegExp(`(?:od\\s*)?\\b(\\d{1,2})\\.?\\s*(?:-|–|az|do)\\s*(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?${W}`), m => {
       const b = mkDate(m[2], m[3], m[4]), a = b && mkDate(m[1], m[3], m[4] || b.slice(0, 4));
       if (!a || !b || b < a) return false;
       if (dates && dates.exact) return false;
@@ -377,6 +378,10 @@
     } else if (len && len.n) Object.assign(patch, { len: 'custom', nMin: len.n, nMax: len.n, outDays: len.out || patch.outDays || [], backDays: len.back || [] });
 
     // --- termín → pole formuláře ---
+    // svátek a k němu delší pobyt („na Silvestra na týden“): odlet v okolí svátku s tou délkou, ne prodloužený víkend
+    if (dates && dates.holiday && (len === 'week' || len === '2weeks' || (len && len.n >= 4))) {
+      dates = { from: [addDays(today, 1), addDays(dates.holiday.start, -3)].sort()[1], to: dates.holiday.start, label: dates.label };
+    }
     if (dates && dates.holiday) {
       Object.assign(patch, { dateMode: 'flex', trip: patch.trip || 'return', len: 'holiday', ...o.holidayDates(dates.holiday, today) });
       chips.push(['📅', dates.label]);
