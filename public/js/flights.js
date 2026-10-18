@@ -2218,8 +2218,11 @@
     const days = [...new Set(list.map(x => x.leg.date))].sort();
     const when = days.length === 1 ? dayLabel(days[0]) : `${fmtDate(days[0])}–${fmtDate(days[days.length - 1])}`;
     const hidden = Math.max(0, before - list.length);
+    // nejlevnější s přestupem, přímý jen o málo dráž → nahoře jedním klepnutím (vybere ho jako klepnutí na řádek)
+    const dn = view.legSort === 'price' && !view.leg[side] ? SearchHelp.directNear(list, pair) : null, xd = dn && list[dn.i];
+    const dnHtml = xd ? `<button type="button" class="lr-direct" data-leg="${side}:${dn.i}">✈️ Přímý let ${dn.more ? `jen o <b>${czk(dn.more)}</b> dráž` : 'za stejnou cenu'} · ${esc(timeOf(xd.leg) || '')} ${esc(xd.leg.from)} → ${esc(xd.leg.to)}${xd.leg.durationMin && list[0].leg.durationMin ? ` · ${esc(dur(xd.leg.durationMin))} místo ${esc(dur(list[0].leg.durationMin))}` : ''}</button>` : '';
     return `<div class="lcol" id="lcol-${side}"><div class="lcol-h"><b>${side === 'out' ? '🛫 Tam' : '🛬 Zpět'}</b><span>${when}</span><span class="faint">${plural(list.length, 'let', 'lety', 'letů')}${hidden ? ` · <span title="Skryto filtry času a přestupů">${hidden} skryto</span>` : ''}</span></div>
-      <div class="lcol-list">${shown.map((x, i) => legRow(x, side, i, pair, ret, days.length > 1)).join('')}</div>
+      ${dnHtml}<div class="lcol-list">${shown.map((x, i) => legRow(x, side, i, pair, ret, days.length > 1)).join('')}</div>
       ${shown.length < list.length ? `<button type="button" class="more-btn" data-lall="${side}">▼ Všech ${list.length} letů</button>` : ''}</div>`;
   }
   function legRow(x, side, i, pair, ret, showDate) {
