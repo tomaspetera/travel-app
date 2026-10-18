@@ -311,7 +311,10 @@ async function route(req, res) {
     // near = ID domova (pořadí podle vzdálenosti), role=from = pole Odkud (město před svým letištěm)
     const near = (url.searchParams.get('near') || '').slice(0, 120);
     const role = url.searchParams.get('role') === 'from' ? 'from' : 'to';
-    return sendJson(req, res, 200, { items: await suggest(q, { remote, near, role }) });
+    // partial: geokódování teď nejde (návrhy jen z vlastních dat) – našeptávač to zkusí znovu
+    const meta = {};
+    const items = await suggest(q, { remote, near, role, meta });
+    return sendJson(req, res, 200, { items, ...(meta.geoErr ? { partial: true } : {}) });
   }
   if (p === '/api/geocode') {
     // Města a místa (střed města, ne letiště) – pro objevování a program.

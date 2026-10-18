@@ -193,7 +193,8 @@ export const REGIONS = [
   { key: 'dolomity', cs: 'Dolomity', flag: '🇮🇹', aliases: ['dolomity', 'dolomites', 'dolomiti'], airports: ['VRN', 'BZO', 'INN', 'TSF'] },
   { key: 'dalmacie', cs: 'Dalmácie', flag: '🇭🇷', aliases: ['dalmacie', 'dalmatia', 'dalmacija'], airports: ['SPU', 'ZAD', 'DBV'] },
   { key: 'istrie', cs: 'Istrie', flag: '🇭🇷', aliases: ['istrie', 'istria', 'istra'], airports: ['PUY', 'TRS'] },
-  { key: 'azurove-pobrezi', cs: 'Azurové pobřeží', flag: '🇫🇷', aliases: ['azurove pobrezi', 'cote d azur', 'francouzska riviera', 'french riviera'], airports: ['NCE'] },
+  { key: 'azurove-pobrezi', cs: 'Azurové pobřeží', flag: '🇫🇷', aliases: ['azurove pobrezi', 'lazurove pobrezi', 'cote d azur', 'francouzska riviera', 'french riviera'], airports: ['NCE'] },
+  { key: 'bulharske-pobrezi', cs: 'Bulharské pobřeží', flag: '🇧🇬', aliases: ['bulharske pobrezi', 'slunecne pobrezi', 'sunny beach', 'zlate pisky', 'golden sands', 'cerne more bulharsko'], airports: ['BOJ', 'VAR'] },
   { key: 'skotsko', cs: 'Skotsko', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', aliases: ['skotsko', 'scotland'], airports: ['EDI', 'GLA', 'ABZ', 'INV'] },
   { key: 'laponsko', cs: 'Laponsko', flag: '🇫🇮', aliases: ['laponsko', 'lapland', 'lappi'], airports: ['RVN', 'KTT'] },
 ];

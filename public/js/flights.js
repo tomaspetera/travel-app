@@ -211,7 +211,9 @@
   // návrhy míst našeptávače (api/places)
   async function placesFor(q, origin, near, signal, remote = true) {
     const r = await fetch('api/places?q=' + enc(q) + placeCtx(origin, near) + (remote ? '' : '&remote=0'), { signal });
-    return (await r.json()).items || [];
+    const j = await r.json(), items = j.items || [];
+    if (j.partial) items.partial = true; // geokódování na serveru teď nešlo – jen vlastní data
+    return items;
   }
   // chytré hledání: termíny podle svátků a délky pobytu jako ve formuláři
   const smartOpts = () => ({ today: today(), presets: PRESETS, holidays: SearchHelp.holidayList(today()), holidayDates: SearchHelp.holidayDates, eurCzk: health && health.fx ? health.fx.eurCzk : null });
@@ -329,9 +331,9 @@
       // (jen v plné nabídce – víceslovné místo jen z geokódování, „Nové Město“, by rychlý náhled rozdělil)
       const split = remote && !items.length && this.smart && !this.origin && /\s/.test(sq) ? await smartSplit(sq, this.near(), signal) : null;
       if (remote && !items.length && !split && /\s/.test(q)) { const p = await countryPlace(q, this.origin, this.near(), signal); if (p) items = [p]; }
-      return { hit: split, items };
+      return { hit: split, items, partial: Boolean(list.partial) };
     }
-    async fetch() {
+    async fetch(retry = false) {
       const q = this.input.value.trim();
       if (this.ctl) this.ctl.abort();
       this.ctl = new AbortController();
@@ -350,7 +352,14 @@
       }, () => { });
       try {
         const r = await this.lookup(q, signal);
-        done = true; show(r);
+        done = true;
+        // nic a geokódování na serveru teď nešlo (pomalé Open-Meteo): ne „Nic nenalezeno“ – za chvíli jednou znovu
+        if (r.partial && !r.hit && !r.items.length && !retry) {
+          if (q === this.input.value.trim()) { this.hit = null; this.sugs = []; this.open('slow'); }
+          setTimeout(() => { if (q === this.input.value.trim() && document.activeElement === this.input) this.fetch(true); }, 1500);
+          return;
+        }
+        show(r);
       } catch (e) { if (e.name !== 'AbortError') { this.hit = null; this.sugs = []; this.open(true); } }
     }
     open(err) {
@@ -372,7 +381,7 @@
       };
       this.dd.innerHTML = (this.tips.length ? '<div class="pi-head">✨ Pro tebe – nebo napiš celou větu, třeba „k moři v květnu do 5000“</div>' : '')
         + (rows[0] && rows[0].sug && rows[0].sug.fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '')
-        + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err ? 'Našeptávač je nedostupný' : `Nic nenalezeno – zkus jiný název nebo kód letiště${this.smart ? ', nebo napiš větu, třeba „k moři v květnu“' : ''}`}</div>`);
+        + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err === 'slow' ? '<span class="spin dark"></span> Hledání míst je teď pomalé – zkouším znovu…' : err ? 'Našeptávač je nedostupný' : `Nic nenalezeno – zkus jiný název nebo kód letiště${this.smart ? ', nebo napiš větu, třeba „k moři v květnu“' : ''}`}</div>`);
       this.dd.hidden = false;
       $$('.pi-opt', this.dd).forEach(o => o.onmousedown = e => { e.preventDefault(); this.choose(rows[+o.dataset.i]); });
     }
@@ -388,13 +397,14 @@
       if (!q) return 'none';
       if (this.ctl) this.ctl.abort();
       this.close();
-      let down = false;
+      let down = false, slow = false;
       try {
-        const { hit, items } = await this.lookup(q);
+        const { hit, items, partial } = await this.lookup(q);
         if (hit) { this.input.value = ''; this.smart.run(hit); return 'run'; }
         if (items[0]) { this.pick(items[0]); return 'pick'; }
+        slow = partial; // geokódování na serveru teď nešlo – místo možná existuje
       } catch (e) { down = true; } // našeptávač nedostupný (výpadek sítě / serveru) – nejde o neznámé místo
-      toast(down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `„${q}“ neznám – vyber místo z nabídky`, 'err');
+      toast(down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : slow ? 'Hledání míst je teď pomalé – zkus to za chvilku znovu' : `„${q}“ neznám – vyber místo z nabídky`, 'err');
       this.input.focus();
       return false;
     }
