@@ -545,7 +545,10 @@
       root.innerHTML = `<div class="trip-intro">
         <div class="card dest trip-hero" data-photo="Amalfi" style="--h:200"><div class="flag">🧳</div><div class="dest-panel"><div class="cname">Sestav si celou cestu</div>
           <div class="cblurb">Let, ubytování, auto i program na místě – a celková cena na jednom místě.</div></div></div>
-        <div class="trip-intro-act"><button class="btn primary" id="tripGoSearch">✈️ Začít výběrem letu</button><button class="btn" id="tripGoExplore">🗺️ Jen objevovat místa</button></div>
+        <form class="card trip-ask" id="tripAsk"><label class="trip-ask-l">Kam chceš jet?</label>
+          <div class="trip-ask-row"><div class="place-input" id="tripAskTo"></div><button class="btn primary" type="submit">Najít lety</button></div>
+          <small class="faint">Město, „kamkoliv“, nebo celá věta – „Řím na víkend ve dvou“. Z nabídek pak vybereš let a průvodce pokračuje.</small></form>
+        <div class="trip-intro-act"><button type="button" class="btn ghost" id="tripGoExplore">🗺️ Jen objevovat místa</button></div>
         <div class="trip-steps-h">Jak to funguje</div>
         <ol class="trip-steps">
           <li><span>✈️</span><div><b>Let</b><small>V Letech nebo radaru vyber nabídku a klikni na <b>Vybrat a pokračovat</b>.</small></div></li>
@@ -554,8 +557,20 @@
           <li><span>🗺️</span><div><b>Program</b><small>Co vidět den po dni, výlety, kolo i pěšky.</small></div></li>
           <li><span>✅</span><div><b>Shrnutí</b><small>Celková cena, uložení do Plánovače a kalendáře.</small></div></li>
         </ol></div>`;
-      $('#tripGoSearch').onclick = () => go('flights');
       $('#tripGoExplore').onclick = () => go('explore');
+      // Kam chceš jet? – rovnou hledání letů (věta jako ✨ v Letech, odkud domov / minulé hledání)
+      const F = window.Flights;
+      if (F && F.PlaceInput) {
+        const home = () => (S.home && S.home.from) || [];
+        const pi = new F.PlaceInput($('#tripAskTo'), { placeholder: 'např. Lisabon, kamkoliv 🌍…', max: 4,
+          smart: F.smartRun ? { run: hit => F.smartRun(hit, home()), tips: () => (F.smartTips ? F.smartTips(home) : []) } : null });
+        $('#tripAsk').onsubmit = async e => {
+          e.preventDefault();
+          const r = await pi.settle();
+          if (r === 'run' || r === false) return;
+          F.searchTo(pi.items);
+        };
+      } else $('#tripAsk').hidden = true;
       if (window.Photos) Photos.paint(root);
       return;
     }
