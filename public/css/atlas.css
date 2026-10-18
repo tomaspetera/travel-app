@@ -573,3 +573,13 @@ button.dest{font:inherit;text-align:left;width:100%}
 .wn-list{list-style:none;margin:10px 0 12px;padding:0;display:grid;gap:8px;font-size:13.5px;line-height:1.45}
 .wn-list li{display:flex;gap:10px;align-items:flex-start}
 .wn-ic{flex:none;width:22px;text-align:center}
+.wn-more{margin:-4px 0 12px}
+.wn-more>summary{font-size:13px;color:var(--muted)}
+/* Vítej – první návštěva: 3 kroky místo seznamu novinek */
+.whats-new.welcome{padding:16px 16px 14px;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(52,211,153,.08))}
+.wc-h{font-size:16px;line-height:1.35;margin:0 0 12px}
+.wc-steps{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:10px}
+.wc-steps li{display:flex;gap:12px;align-items:flex-start}
+.wc-steps .wc-n{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;background:var(--accent);color:#fff}
+.wc-steps div{display:flex;flex-direction:column;gap:2px;font-size:14px}
+.wc-steps small{color:var(--muted);font-size:12.5px;line-height:1.4}
