@@ -1249,3 +1249,19 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .sf-route .place-input{min-width:0}
 .sf-route .pi-input{min-width:0}
 @media (max-width:340px){.seg.radar-modes button{padding:8px 13px;font-size:13px}}
+
+/* chybí Odkud: zvýrazněné pole a nápověda pod ním (askFrom) */
+.field.need .place-input{box-shadow:0 0 0 2px var(--accent);border-radius:14px}
+.need-hint{margin-top:8px;padding:8px 12px;border-radius:12px;font-size:13px;font-weight:600;line-height:1.35;
+  background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text)}
+
+/* telefon: kombinace k jednomu cíli jako krátké řádky, klepnutí rozbalí celou kartu (flatList) */
+.res-card.flat.compact .trip-mini{display:flex;align-items:center;gap:10px;width:100%;padding:13px 4px;border:0;border-top:1px solid var(--border);
+  background:none;color:var(--text);font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.trip-mini .tm-when{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.trip-mini .tm-when b{font-size:15px;font-weight:700}
+.trip-mini .tm-when small{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trip-mini .tm-price{font-size:17px;font-weight:800;white-space:nowrap}
+.trip-mini .tm-price small{font-size:12px;font-weight:600;color:var(--muted);margin-left:2px}
+.trip-mini .tm-chev{color:var(--muted);font-size:14px}
+.trip-mini:active{background:var(--surface-2)}

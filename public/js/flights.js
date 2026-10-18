@@ -1096,7 +1096,7 @@
   }
 
   function buildForm() {
-    fromInput = new PlaceInput($('#fromInput'), { origin: true, placeholder: 'Např. Brno, Vídeň, Česko, Jihlava…', onChange: () => { refreshOrigins(); updateHomeChip(); mlHomeChanged(); formEdited(); } });
+    fromInput = new PlaceInput($('#fromInput'), { origin: true, placeholder: 'Např. Brno, Vídeň, Česko, Jihlava…', onChange: () => { refreshOrigins(); updateHomeChip(); mlHomeChanged(); formEdited(); if (fromInput.items.length) fromAnswered(); } });
     toInput = new PlaceInput($('#toInput'), { placeholder: 'Kamkoliv 🌍, nebo „k moři v květnu“', onChange: () => { syncFormUI(); formEdited(); }, near: () => (fromInput.items[0] && fromInput.items[0].id) || (S.home && S.home.from && S.home.from[0] && S.home.from[0].id) || '',
       smart: { run: hit => smartRun(hit, fromInput.items), tips: () => smartTips(() => fromInput.items) } });
     // ⇅ prohodit Odkud a Kam (světadíl do Odkud nejde)
@@ -2147,11 +2147,26 @@
     </div>`;
   }
 
+  // Telefon: kombinace jako krátké řádky (termín, noci, letiště, cena) – první celá, ostatní se rozbalí klepnutím;
+  // celé karty pod sebou (~500 px každá) se na telefonu nedaly porovnat
+  const flatCompact = () => Boolean(window.matchMedia && matchMedia('(max-width: 700px)').matches);
+  function tripMini(t) {
+    const r = `${t.out.from} → ${t.out.to}${t.back ? ` ↩ ${t.back.from !== t.out.to ? `${t.back.from} → ` : ''}${t.back.to}` : ''}`;
+    const pl = levelFor(t), tag = t.deal && t.deal.level === 'super' && (!pl || pl.level === 'low') ? '🔥 ' : pl && pl.level === 'low' ? '💚 ' : '';
+    const stops = [t.out, t.back].some(l => l && l.stops) ? ' · s přestupem' : '';
+    return `<button type="button" class="trip-mini" data-tmini="${esc(t.id)}" aria-expanded="false">
+      <span class="tm-when"><b>${dayLabel(t.out.date)}${t.back ? ` – ${dayLabel(t.back.date)}` : ''}</b><small>${t.back ? nightsTxt(t.nights) : 'jen tam'} · ${esc(r)}${stops}</small></span>
+      <span class="tm-price">${tag}${czk(t.perPersonCzk)}<small>/os.</small></span><span class="tm-chev" aria-hidden="true">▾</span></button>`;
+  }
   function flatList(list) {
     if (!list || !list.length) return `<div class="empty">${view.nights != null ? 'Pro tento odlet a počet nocí nic neodpovídá filtrům – vyber jiný termín v kalendáři nebo mřížce.' : view.outDate ? 'Pro tento den odletu nic neodpovídá filtrům – vyber jiný den v kalendáři.' : 'Filtrům nic neodpovídá.'}</div>`;
     const byKey = new Map(lastResult.groups.map(g => [g.dest.key, g]));
-    const n = view.flatN, rest = list.length - n;
-    return `<div class="card res-card flat">${list.slice(0, n).map(t => { const g = byKey.get(t.destKey); return tripRow(t, g, reg(t, g)); }).join('')}</div>
+    const n = view.flatN, rest = list.length - n, mini = flatCompact();
+    view.fopen = view.fopen || new Set();
+    return `<div class="card res-card flat${mini ? ' compact' : ''}">${list.slice(0, n).map((t, i) => {
+      if (mini && i > 0 && !view.fopen.has(t.id)) return tripMini(t);
+      const g = byKey.get(t.destKey); return tripRow(t, g, reg(t, g));
+    }).join('')}</div>
       ${rest > 0 ? `<button type="button" class="more-btn" data-fmore="1">▼ ${Math.min(flatPage(), rest) <= 4 ? 'Další' : 'Dalších'} ${plural(Math.min(flatPage(), rest), 'kombinace', 'kombinace', 'kombinací')} (${rest >= 2 && rest <= 4 ? 'zbývají' : 'zbývá'} ${rest})</button>` : ''}`;
   }
 
@@ -3192,6 +3207,7 @@
       r.onchange = () => { view.time[key] = +r.value >= +r.max ? null : +r.value; rerender(true); };
     }
     $$('[data-fmore]', host).forEach(b => b.onclick = () => { view.flatN += flatPage(); rerender(true); });
+    $$('[data-tmini]', host).forEach(b => b.onclick = () => { (view.fopen = view.fopen || new Set()).add(b.dataset.tmini); rerender(true); });
     $$('[data-exp]', host).forEach(b => b.onclick = () => {
       const k = b.dataset.exp; view.expanded.has(k) ? view.expanded.delete(k) : (view.expanded.add(k), noteViewed(k));
       // karta pod mapou: překreslit jen ji (celý výpis by mapu nakreslil znovu a kartu zavřel)
@@ -4169,9 +4185,29 @@
       else if (q.nMin != null) Object.assign(f, { outDays: [], backDays: [] }); // vlastní počet nocí (dálkové lety)
       else Object.assign(f, { len: 'week', nMin: 3, nMax: 9, outDays: [], backDays: [] });
       setForm(f);
-      if (!f.from.length) { toast('Zadej, odkud letíš'); fromInput.input.focus(); return; }
+      if (!f.from.length) { askFrom(); return; }
       startSearch();
     });
+  }
+
+  /**
+   * Chybí Odkud (nový uživatel): pole v Letech zvýraznit, pod ním nápověda a po výběru místa hledání spustit samo –
+   * uživatel hledat chtěl (dřív jen krátká hláška a hledat znovu ručně). then = co spustit, výchozí hledání formuláře.
+   */
+  let fromWait = null;
+  function askFrom(then = () => startSearch()) {
+    fromWait = { then, until: Date.now() + 5 * 60e3 };
+    const field = fromInput.el.closest('.field') || fromInput.el;
+    field.classList.add('need');
+    if (!$('#fromNeed')) fromInput.el.parentElement.insertAdjacentHTML('afterend', '<div class="need-hint" id="fromNeed">👆 Odkud letíš? Napiš město nebo zemi, nebo klepni na 📍 – hledání pak spustím sám.</div>');
+    toast('Odkud letíš? Vyplň pole Odkud', 'info');
+    setTimeout(() => { field.scrollIntoView({ block: 'center', behavior: 'smooth' }); fromInput.input.focus(); }, 250);
+  }
+  function fromAnswered() {
+    const field = fromInput.el.closest('.field'); if (field) field.classList.remove('need');
+    const h = $('#fromNeed'); if (h) h.remove();
+    const w = fromWait; fromWait = null;
+    if (w && Date.now() < w.until) w.then();
   }
 
   /* ---------- ✨ chytré hledání (smart.js): věta → formulář → hledání ---------- */
@@ -4204,7 +4240,7 @@
   function smartBackRun(hit, from) {
     const p = hit.sm.patch, home = (hit.from.length ? hit.from : from && from.length ? from : S.home?.from || []).slice(0, 1);
     go('flights');
-    if (!home.length) { toast('Zadej, odkud letíš'); fromInput.input.focus(); return; }
+    if (!home.length) { askFrom(() => smartBackRun(hit, fromInput.items)); return; }
     const ds = chainDates(p, 2);
     const legs = [{ from: home, to: [hit.to[0]], date: ds[0], flex: 0 }, { from: [hit.back], to: home, date: ds[1], flex: 0 }];
     const keep = Object.fromEntries(['adults', 'bags', 'directOnly', 'maxPrice'].filter(k => p[k] != null).map(k => [k, p[k]]));
@@ -4219,7 +4255,7 @@
     if (f.dateMode === 'exact' && !f.xBack) f.trip = 'oneway';
     go('flights');
     setForm(f);
-    if (!fromInput.items.length) { toast('Zadej, odkud letíš'); fromInput.input.focus(); return; }
+    if (!fromInput.items.length) { askFrom(); return; }
     startSearch();
   }
   // tip s větou: rozebrat a hledat (bez míst – „k moři“, termín, délka)
@@ -4258,7 +4294,7 @@
     if (lw) {
       tips.push({ icon: '🎉', text: `Kamkoliv · ${lw.name}`, sub: `prodloužený víkend ${SearchHelp.dmRange(lw.start, lw.end)}`, run: () => {
         go('flights'); setForm({ ...defaultForm(), ...prefsOf(S.form), from: from().length ? from() : S.home?.from || [], to: [], dateMode: 'flex', trip: 'return', len: 'holiday', ...SearchHelp.holidayDates(lw, t) });
-        if (fromInput.items.length) startSearch(); else { toast('Zadej, odkud letíš'); fromInput.input.focus(); }
+        if (fromInput.items.length) startSearch(); else askFrom();
       } });
     }
     tips.push(phraseTip('🌍', `kamkoliv${suf || ' na víkend'} co nejdřív`, 'nejlevnější lety v příštích 2 týdnech', from));
@@ -4333,7 +4369,7 @@
     const q = favQuery(), from = S.home?.from?.length ? S.home.from : fromInput.items;
     go('flights');
     setForm({ ...defaultForm(), ...prefsOf(S.form), from, to: list.slice(0, 5).map(x => ({ id: x.id, label: x.label, flag: flag(x.cc) })), ...q.form, adults: q.payload.adults, directOnly: false });
-    if (!from.length) { toast('Zadej, odkud letíš'); fromInput.input.focus(); return; }
+    if (!from.length) { askFrom(); return; }
     startSearch();
   }
   /** Po změně seznamů: radar (jen překreslit – žádné hledání), pruh na Přehledu, rychlé hledání a výpis hned podle nich. */
@@ -4610,7 +4646,7 @@
     modalClose();
     go('flights');
     setForm({ ...defaultForm(), ...prefsOf(S.form), from: S.home?.from?.length ? S.home.from : fromInput.items, to: [{ id: p.dest.id || `ap:${r.to}`, label: p.dest.label, flag: flag(p.dest.cc) }], dateMode: 'exact', xOut: r.d1, xFlex: 0, ...(ret ? { trip: 'return', xBack: r.d2 } : { trip: 'oneway' }), adults: p.q.adults, directOnly: false });
-    if (!getForm().from.length) { toast('Zadej, odkud letíš'); setTimeout(() => fromInput.input.focus(), 300); return; }
+    if (!getForm().from.length) { askFrom(() => startSearch({ card: r })); return; }
     startSearch({ card: r });
   }
   /**
@@ -4648,7 +4684,7 @@
       ? { dateMode: 'exact', xOut, xFlex: 0, ...(ymd(xBack) && xBack >= xOut && SearchHelp.diffDays(xOut, xBack) <= 45 ? { trip: 'return', xBack } : { trip: 'oneway' }) } : {};
     const f = { ...defaultForm(), ...prefsOf(S.form), ...o, ...ex, to: items }; // odkud jako minulé hledání
     setForm(f);
-    if (!f.from.length) { toast('Zadej, odkud letíš'); setTimeout(() => fromInput.input.focus(), 300); return; }
+    if (!f.from.length) { askFrom(); return; }
     startSearch();
   }
 
