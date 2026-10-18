@@ -443,3 +443,5 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .auto-pick .btn .spin{width:14px;height:14px;vertical-align:-2px}
 @media (max-width:560px){.auto-pick{flex-direction:column;align-items:stretch}.auto-pick .btn{width:100%}}
 .auto-pick.ok{background:rgba(52,211,153,.10);border-color:rgba(52,211,153,.32)}
+/* Objevuj – Inspirace: místa tvé rozpracované cesty první */
+.ex-insp .dest.ex-mine{outline:2px solid var(--accent);outline-offset:-2px}

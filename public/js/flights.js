@@ -4057,10 +4057,19 @@
     const b = $('#rsTrip', host); if (b) b.onclick = () => go('trip');
     $$('[data-rsr]', host).forEach(x => x.onclick = () => { go('flights'); setForm(recent[+x.dataset.rsr]); startSearch(); });
   }
-  // ✨ Zkus napsat: příklady vět pod hledáním na Přehledu (klepnutí = hledat)
-  const TRY = ['k moři v květnu do 5000', 'Řím na víkend ve dvou', 'za teplem v prosinci na týden', 'Londýn příští měsíc jen přímé'];
+  /**
+   * ✨ Zkus napsat: příklady vět pod hledáním na Přehledu (klepnutí = hledat) – podle ročního období (příští měsíc):
+   * v létě k moři a na hory, v zimě za teplem a na lyže, jinak za teplem a k moři na jaře.
+   */
+  function tryList(t = today()) {
+    const nm = (+t.slice(5, 7)) % 12, mn = MNS_IN[nm], summer = nm >= 4 && nm <= 8, hike = nm >= 5 && nm <= 8, snow = nm === 11 || nm <= 2;
+    return [summer ? `k moři v ${mn} do 5000` : 'k moři v květnu do 5000', 'Řím na víkend ve dvou',
+      ...(hike ? [`na hory v ${mn} na týden`] : [`za teplem v ${mn} na týden`, ...(snow ? [`na hory v ${mn} na lyže`] : [])]),
+      'Londýn příští měsíc jen přímé'];
+  }
   function paintSmartTry() {
     const host = $('#smartTry'); if (!host || !window.Smart) return;
+    const TRY = tryList();
     host.innerHTML = `<span class="st-lab">✨ Zkus napsat:</span>${TRY.map((x, i) => `<button type="button" class="st-chip" data-try="${i}">${esc(x)}</button>`).join('')}`;
     $$('[data-try]', host).forEach(b => b.onclick = async () => {
       const sm = Smart.parse(TRY[+b.dataset.try], smartOpts()), hit = { sm, to: [], from: [], miss: [] };

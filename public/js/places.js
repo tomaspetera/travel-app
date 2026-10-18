@@ -659,11 +659,28 @@
     { label: 'Istanbul', lat: 41.0082, lon: 28.9784, cc: 'TR', country: 'Turecko' }, { label: 'Kodaň', lat: 55.6761, lon: 12.5683, cc: 'DK', country: 'Dánsko' },
     { label: 'Český Krumlov', lat: 48.8127, lon: 14.3175, cc: 'CZ', country: 'Česko' }, { label: 'Kjóto', lat: 35.0116, lon: 135.7681, cc: 'JP', country: 'Japonsko' },
   ];
-  const inspHtml = () => `<div class="section-head ex-insp-h"><h2>Inspirace</h2></div><div class="dest-grid ex-insp">${INSP.map((p, i) => `<button type="button" class="card dest" data-insp="${i}" data-photo="${esc(p.label)}" style="--h:${window.ccHue ? ccHue(p.cc) : 215}"><div class="flag">${flag(p.cc)}</div><div class="dest-panel"><div class="cname">${esc(p.label)}</div><div class="ccont">${esc(p.country)}</div><div class="meta"><span class="chip accent">Co tam vidět</span><span>→</span></div></div></button>`).join('')}</div>`;
+  /**
+   * Místa rozpracované cesty z průvodce Cesta (let ještě neproběhl) – v Inspiraci první se štítkem „🧳 Tvoje cesta“:
+   * cíl, nebo všechna místa trasy (od kdy tam jsi).
+   */
+  function tripPlaces(t = typeof S !== 'undefined' && S.trip) {
+    const out = t && t.flight && t.flight.out;
+    if (!out || !(out.date >= fmtYMD(new Date()))) return [];
+    let dates = [];
+    try { dates = window.Trip && Trip.baseDates ? Trip.baseDates(t) : []; } catch (e) { dates = []; }
+    const bases = t.route && t.route.mode === 'multi' && Array.isArray(t.route.bases) && t.route.bases.length ? t.route.bases : null;
+    const list = bases ? bases.map((b, i) => ({ label: b.name, lat: b.lat, lon: b.lon, cc: b.cc, country: b.country, from: dates[i] && dates[i].checkin }))
+      : t.dest ? [{ label: String(t.dest.label || '').replace(/ \(.*\)$/, ''), lat: t.dest.lat, lon: t.dest.lon, cc: t.dest.cc, country: t.dest.country, from: out.date }] : [];
+    const seen = new Set();
+    return list.filter(p => p.label && p.lat != null && p.lon != null && cleanPlace(p) && !seen.has(p.label) && seen.add(p.label)).slice(0, 4).map(p => ({ ...p, trip: true }));
+  }
+  const inspList = () => { const tp = tripPlaces(), own = new Set(tp.map(p => p.label)); return [...tp, ...INSP.filter(p => !own.has(p.label))]; };
+  const inspHtml = (list = inspList()) => `<div class="section-head ex-insp-h"><h2>Inspirace</h2></div><div class="dest-grid ex-insp">${list.map((p, i) => `<button type="button" class="card dest${p.trip ? ' ex-mine' : ''}" data-insp="${i}" data-photo="${esc(p.label)}" style="--h:${window.ccHue ? ccHue(p.cc) : 215}"><div class="flag">${flag(p.cc)}</div><div class="dest-panel"><div class="cname">${esc(p.label)}</div><div class="ccont">${p.trip ? `🧳 Tvoje cesta${p.from ? ` · od ${fmtDate(p.from)}` : ''}` : esc(p.country || '')}</div><div class="meta"><span class="chip accent">Co tam vidět</span><span>→</span></div></div></button>`).join('')}</div>`;
   function renderExplore(root) {
     if (!root) return;
     ensureUi();
     if (!ex.start || ex.start < fmtYMD(new Date())) { ex.start = plusDays(fmtYMD(new Date()), 1); ex.datePicked = false; }
+    const insp = inspList();
     // bez místa: fotka krásného místa s nadpisem nahoře, hledání na ní (jako Lety)
     root.innerHTML = `${ex.place ? '' : `<div class="fl-hero ex-hero" data-photo="${esc(window.heroPlace ? heroPlace(9) : 'Porto')}"><div class="fl-hero-in"><h1>Objev, co stojí za vidění</h1><p>Památky, muzea, vyhlídky a výlety kdekoliv na světě – a z nich program na pár dní</p></div></div>`}<div class="card search-card${ex.place ? '' : ' on-hero'}">
       <div class="ex-search">
@@ -672,13 +689,13 @@
         <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">📍 Tady</button>
         <div class="field" style="margin:0"><label>Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}</select></div>
       </div><div class="ex-recent" id="exRecent" hidden></div>${ex.place || !window.Smart ? '' : `<div class="ex-try"><span class="faint">✨ Zkus:</span>${EX_TRY.map((x, i) => `<button type="button" class="fchip" data-extry="${i}">${esc(x)}</button>`).join('')}</div>`}</div>
-      <div id="exBody">${ex.place ? '' : inspHtml()}</div>
+      <div id="exBody">${ex.place ? '' : inspHtml(insp)}</div>
       <button type="button" class="ex-back" id="exBack" hidden></button>`;
     wireExploreSearch(root);
     paintRecent();
     wireBack();
     const cl = $('#exClear', root); if (cl) cl.onclick = () => resetExplore();
-    $$('[data-insp]', root).forEach(b => b.onclick = () => { const p = cleanPlace(INSP[+b.dataset.insp]); if (p) openPlace(p); });
+    $$('[data-insp]', root).forEach(b => b.onclick = () => { const p = cleanPlace(insp[+b.dataset.insp]); if (p) openPlace(p); });
     // ✨ příklady vět: vepsat do hledání a spustit jako Enter (místo, druh plánu, dny)
     $$('[data-extry]', root).forEach(b => b.onclick = () => { const q = $('#exQ', root); q.value = EX_TRY[+b.dataset.extry]; q.focus(); q.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
     if (window.Photos) Photos.paint(root);
@@ -1699,7 +1716,7 @@
   window.Places = {
     renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir, openAt, preview, previewHtml,
     // jen pro testy (test/places-ui.test.js)
-    _t: { plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
+    _t: { tripPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,

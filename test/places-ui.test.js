@@ -739,3 +739,16 @@ test('náhled cíle se zapamatovaným okruhem 3 km: ukáže a spočítá jen mí
   X.radius = 20;
   assert.ok(P.previewHtml([], 10).includes('Do 10 km od centra'));
 });
+
+test('Inspirace: místa rozpracované cesty první („Tvoje cesta“) – jen budoucí let, místa se známou polohou', () => {
+  const future = '2099-05-10';
+  const trip = (o) => ({ flight: { out: { date: future } }, dest: { label: 'Řím (Itálie)', lat: 41.9, lon: 12.5, cc: 'IT', country: 'Itálie' }, ...o });
+  assert.deepEqual(plain(T.tripPlaces(trip())), [{ label: 'Řím', lat: 41.9, lon: 12.5, cc: 'IT', country: 'Itálie', from: future, trip: true }]);
+  // let už proběhl / žádná cesta / cíl bez polohy
+  assert.deepEqual(plain(T.tripPlaces(trip({ flight: { out: { date: '2001-01-01' } } }))), []);
+  assert.deepEqual(plain(T.tripPlaces(null)), []);
+  assert.deepEqual(plain(T.tripPlaces(trip({ dest: { label: 'Někde', cc: 'IT' } }))), []);
+  // trasa přes víc míst: všechna místa (bez opakování, nejvýš 4)
+  const bases = ['Řím', 'Florencie', 'Řím', 'Pisa', 'Lucca', 'Siena'].map((name, i) => ({ name, lat: 43 + i / 10, lon: 11, cc: 'IT', country: 'Itálie' }));
+  assert.deepEqual(T.tripPlaces(trip({ route: { mode: 'multi', bases } })).map((p) => p.label), ['Řím', 'Florencie', 'Pisa', 'Lucca']);
+});
