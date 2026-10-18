@@ -617,7 +617,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .seg.radar-modes button{padding:9px 18px;border-radius:999px;border:1px solid var(--border-2);font-size:13.5px}
 .seg.radar-modes button.on{background:var(--text);color:var(--bg);border-color:transparent}
 #radarSub{display:block;margin-top:3px;font-size:12.5px;font-weight:600;letter-spacing:0;font-family:Inter,sans-serif}
-.radar-nudge{display:inline-flex;margin:6px 0 0;padding:5px 10px;text-align:left;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;border-radius:999px;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.radar-nudge{display:flex;width:fit-content;margin:6px 0 0;padding:5px 10px;text-align:left;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;border-radius:999px;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--text);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
 .rs-where{display:flex;flex-direction:column;gap:6px;min-width:0}
 .rs-radius{display:flex;align-items:center;gap:8px;font-size:12.5px}
 .rs-radius select{width:auto;padding:6px 32px 6px 10px;font-size:13px}
