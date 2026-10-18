@@ -1649,7 +1649,7 @@
       : h.guess ? bkLink(h.bookUrl, 'ceny na tvoje dny', 'Google Hotels – ceny hotelu na tvoje dny u všech webů', false)
         : bkLink(h.bookUrl, 'detail', '', h.bookSponsored);
     // hotel bez ceny na tvoje dny (TripAdvisor ji zatím nemá): běžné rozpětí za noc
-    const guess = h.guess ? `<div class="pp-guess" title="${h.nightToCzk > h.nightFromCzk ? `běžně ${czk(h.nightFromCzk)}–${czk(h.nightToCzk)} za noc` : ''}">${h.nightFromCzk ? `od ~${czk(h.nightFromCzk)}/noc` : 'cena na webu'}</div><div class="faint">běžná cena · na tvoje dny ověř</div>` : '';
+    const guess = h.guess ? `<div class="pp-guess" title="${h.nightToCzk > h.nightFromCzk ? `běžně ${czk(h.nightFromCzk)}–${czk(h.nightToCzk)} za noc` : ''}">${h.nightFromCzk ? `od ~${czk(h.nightFromCzk)}/noc` : 'cena na webu'}</div><div class="faint">běžná cena · volno na tvoje dny neověřené</div>` : '';
     return `<div class="stay ${chosen ? 'chosen' : ''}">
       <div class="st-img" ${h.photo ? `style="background-image:url('${esc(cssUrl(h.photo))}')"` : ''}>${h.photo ? '' : '🏨'}</div>
       <div class="st-main">
@@ -1661,7 +1661,8 @@
       </div>
       <div class="st-rating">${rt.col}</div>
       <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">celkem · ${czk(h.pricePerNightCzk)}/noc</div>` : guess || '<div class="faint">cena na webu</div>'}</div>
-        <button class="btn sm primary" data-pick="${i}">${chosen ? '✓ Vybráno' : 'Vybrat'}</button>
+        ${h.soldOut && !chosen ? '<div class="st-sold">❌ na tvoje dny vyprodáno</div>' : ''}
+        <button class="btn sm ${h.soldOut && !chosen ? 'ghost' : 'primary'}" data-pick="${i}"${h.soldOut && !chosen ? ' data-anyway="1" title="Volno jsem ověřil teď – TripAdvisor na tvoje dny nic nenabízí"' : ''}>${chosen ? '✓ Vybráno' : h.soldOut ? 'Vybrat i tak' : 'Vybrat'}</button>
         ${links}</div>
     </div>`;
   }
@@ -1742,6 +1743,10 @@
       dist: (a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity),
     };
     items = [...items].sort(sorters[stayView.sort]);
+    // hotely bez ceny na tvoje dny (často vyprodané) až na požádání, když je s cenou aspoň pár jiných; vyprodané dozadu
+    const nGuess = items.filter(h => h.guess).length, hideGuess = !stayView.guess && nGuess > 0 && items.length - nGuess >= 3;
+    if (hideGuess) items = items.filter(h => !h.guess);
+    items = [...items.filter(h => !h.soldOut), ...items.filter(h => h.soldOut)];
     const links = linkGrid(d.links, '#003580', true);
     const errs = d.providers.filter(p => !p.ok).map(p => `${esc(p.name)}: ${esc(p.error)}`).join(' · ');
     // „Zkusit znovu“: neúplný výsledek (ceny nestihly přijít) nebo chyba zdroje – nový dotaz bez mezipaměti prohlížeče
@@ -1779,7 +1784,7 @@
       : `${fail ? failTxt : xo.staleAll ? ' Ceny se teď aktualizovat nepodařilo, zůstaly dřívější.' : xo.stale ? ' Část cen se teď aktualizovat nepodařilo, zůstaly dřívější.' : ''}${wait > 0 && !fail ? ` Ceny se aktualizovaly před chvílí – znovu to půjde za ${wait} min.` : ' <button type="button" class="linkbtn" id="stayFresh" title="Zjistit ceny znovu – hotely, které se mezitím vyprodaly, zmizí">↻ Aktualizovat ceny</button>'}`;
     // krátce nahoře (zdroj, čas, aktualizace), podrobnosti o cenách po rozkliknutí – ať hotely začínají hned pod tím
     const srcNote = xo ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>Ceny: TripAdvisor</b> za celý pobyt${roomsTxt(d)} – orientační, ověř u partnera.${at < Infinity && !fail ? ` Ceny z ${atTxt(at)}.` : ''}${again}
-      <details class="st-more"><summary>Odkud ceny jsou</summary>Cena je nejlevnější nabídka z Booking, Agoda, Trip.com…, hodnocení hostů z TripAdvisoru (0–5).${items.some(h => h.guess) ? ' U hotelů s „od ~…/noc“ TripAdvisor cenu na tvoje dny zatím nemá – je to běžná cena, ověř ji odkazem.' : ''}${noTax ? ' Cena bez místních poplatků (např. městská taxa), pokud je web neuvádí.' : ''}</details></div></div>` : '';
+      <details class="st-more"><summary>Odkud ceny jsou</summary>Cena je nejlevnější nabídka z Booking, Agoda, Trip.com…, hodnocení hostů z TripAdvisoru (0–5).${items.some(h => h.guess) ? ' U hotelů s „od ~…/noc“ TripAdvisor cenu na tvoje dny nemá – bývají obsazené, je to jen běžná cena.' : ''}${noTax ? ' Cena bez místních poplatků (např. městská taxa), pokud je web neuvádí.' : ''}</details></div></div>` : '';
     // stupnice filtru podle zdroje: TripAdvisor 0–5 (3,5+ / 4+ / 4,5+ = 7+ / 8+ / 9+ na stupnici 0–10)
     const five = d.items.length > 0 && d.items.every(h => h.rating5 != null);
     // nejdřív 6 hotelů (na telefonu je každý ~200 px) – „Ubytování neřeším“ a vlastní cena jsou pak blízko
@@ -1793,6 +1798,7 @@
       </div>
       <div class="stay-list">${items.slice(0, lim).map((h) => stayCard(h, d.items.indexOf(h))).join('') || '<div class="empty">Filtrům nic neodpovídá.</div>'}</div>
       ${items.length > lim ? `<button type="button" class="more-btn" id="stayMoreN">▼ Další hotely (${items.length - lim})</button>` : ''}
+      ${hideGuess && items.length <= lim ? `<button type="button" class="linkbtn st-guess-btn" id="stayGuess">Ukázat i ${nGuess} ${nGuess === 1 ? 'hotel' : nGuess <= 4 ? 'hotely' : 'hotelů'} bez ceny na tvoje dny (často obsazené)</button>` : ''}
       ${items.some(staySponsored) ? SPONSOR_NOTE : ''}
       ${errs ? `<div class="faint" style="font-size:12px;margin-top:6px">${errs}${xo ? '' : retryBtn}</div>` : ''}
       <details class="more" style="margin-top:12px"><summary>Další nabídky u partnerů</summary>${links}</details>`;
@@ -1803,10 +1809,44 @@
     const ty = $('#stayType'); if (ty) ty.onchange = e => { stayView.type = e.target.value; stayView.n = 0; renderStays(); };
     $('#stayMax').onchange = e => { stayView.maxNight = +e.target.value || null; stayView.n = 0; renderStays(); };
     const mn = $('#stayMoreN'); if (mn) mn.onclick = () => { stayView.n = lim + 10; renderStays(); };
-    $$('[data-pick]', host).forEach(b => b.onclick = () => {
-      staySlot.set(pickOf(d.items[+b.dataset.pick], d.query && d.query.nights));
-      persist(); staySlot.next();
+    const sg = $('#stayGuess'); if (sg) sg.onclick = () => { stayView.guess = true; renderStays(); };
+    const doPick = h => { staySlot.set(pickOf(h, d.query && d.query.nights)); persist(); staySlot.next(); };
+    $$('[data-pick]', host).forEach(b => b.onclick = async () => {
+      const h = d.items[+b.dataset.pick], cur = staySlot && staySlot.get();
+      if (b.dataset.anyway || (cur && cur.mode === 'pick' && cur.id === h.id)) return doPick(h);
+      const r = await checkStay(d, h, b);
+      if (staysData !== d) return; // mezitím jiné místo, krok nebo dotaz
+      if (r && r.available === false) {
+        h.soldOut = true; renderStays();
+        toast(`${h.name}: na tvoje dny už nic nenabízí – nejspíš vyprodáno. Vyber jiný.`, 'err', 7000);
+        return;
+      }
+      if (r && r.available) {
+        const was = h.priceTotalCzk;
+        Object.assign(h, { priceTotalCzk: r.priceTotalCzk, pricePerNightCzk: r.pricePerNightCzk, rates: r.rates, ratesAt: r.ratesAt, bookUrl: r.bookUrl, bookSponsored: r.bookSponsored, guess: false, checkedAt: r.at || Date.now() });
+        const top = (r.rates || [])[0];
+        toast(`✓ Volno ověřeno teď${top ? ` – ${top.name} ${czk(r.priceTotalCzk)}` : ''}${was && was !== r.priceTotalCzk ? ` (dřív ${czk(was)})` : ''}`, '', 4000);
+      } else if (r) toast('Volno se teď ověřit nepovedlo – před rezervací ho zkontroluj na webu.', 'info', 5000);
+      doPick(h);
     });
+  }
+
+  /**
+   * Volno hotelu z TripAdvisoru (Xotelo) teď, než se vybere: ceny v nabídce můžou být až hodinu staré a hotel se mezitím
+   * vyprodá (na Bookingu pak „není k dispozici“). → { available: true (+ nové ceny) | false | null } nebo null (jiný zdroj,
+   * chyba sítě, limit – vybere se bez ověření). Tlačítko mezitím „Ověřuji volno…“.
+   */
+  async function checkStay(d, h, btn) {
+    const m = /^xo:(g\d+-d\d+)$/.exec(h.id || '');
+    if (!m || h.provider !== 'xotelo' || !d.params) return null;
+    const txt = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Ověřuji volno…';
+    try {
+      const r = await fetch('api/stays/check?' + new URLSearchParams({ ...d.params, hotel: m[1], name: h.name }));
+      return r.ok ? await r.json() : { available: null };
+    } catch (e) {
+      return { available: null };
+    } finally { btn.disabled = false; btn.innerHTML = txt; }
   }
 
   /* ---------- auto ---------- */

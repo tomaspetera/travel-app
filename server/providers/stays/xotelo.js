@@ -34,7 +34,8 @@ const RATE_TIMEOUT = 15000; // časté odpovědi za 11,5 a 13 s – s 10 s by se
 // na ceny celkem (od prvního volného místa ve frontě) – co nestihne, chybí (částečný výsledek); průvodce si zbytek
 // dotáhne sám dalším dotazem (hotové ceny jsou v mezipaměti), první hotely tak uvidí dřív
 const BUDGET_MS = 15000;
-export const RATES_TTL = 2 * 3600e3; // ceny hotelu 2 h – TripAdvisor sám zaostává a hotel se mezitím může vyprodat
+// ceny hotelu 1 h – TripAdvisor sám zaostává a hotel se mezitím může vyprodat; při výběru se volno ověří znovu (checkHotel)
+export const RATES_TTL = 3600e3;
 // Prázdné ceny po dlouhém čekání = Xotelo nestihl TripAdvisor, ne vyprodáno: u hotelu a termínu, na který se zatím nikdo
 // neptal, běžné (živě 10/2026: po 9–13 s [], úspěšný první dotaz 3–5 s, uložený do 1 s) – co se jednou podaří, má Xotelo
 // uložené. Takové [] (slow) se skoro nepamatuje a hledání je neúplné (partial), další dotaz to zkusí znovu; rychlé [] =
@@ -340,8 +341,9 @@ export async function hotelRates(hotelKey, q, { deadline = Infinity, queue = (fn
   }
 }
 
-// Názvy webů pro chipy s cenou (ostatní jak je posílá TripAdvisor): web hotelu česky, „Agoda.com“ → „Agoda“.
-const otaName = (n) => (/^(official (hotel )?(hotel|site|website)|hotel website)$/i.test(n.trim()) ? 'web hotelu' : n === 'Agoda.com' ? 'Agoda' : n);
+// Názvy webů pro chipy s cenou (ostatní jak je posílá TripAdvisor): web hotelu česky, „Agoda.com“ → „Agoda“. Rezervační
+// systém hotelu (kód SSC_…) posílá TripAdvisor někdy v jiném jazyce („ไซต์ที่เป็นทางการ“ = oficiální web) – taky web hotelu.
+export const otaName = (n, code = '') => (/^(official (hotel )?(hotel|site|website)|hotel website)$/i.test(n.trim()) || /^SSC_/.test(code) || /[^\u0000-\u024F\u2000-\u206F]/.test(n) ? 'web hotelu' : n === 'Agoda.com' ? 'Agoda' : n);
 
 /**
  * Nabídky webů v Kč za celý pobyt (sazba za pokoj a noc × pokoje × noci), nejlevnější první; web dvakrát → levnější.
@@ -352,7 +354,7 @@ export function offers(rr, q) {
   for (const r of rr?.rates || []) {
     const total = toCzk((r.rate + (r.tax || 0)) * q.rooms * q.nights, rr.currency || 'EUR');
     if (!(total > 0)) continue;
-    const name = otaName(r.name);
+    const name = otaName(r.name, r.code);
     if (!best.has(name) || total < best.get(name).totalCzk) best.set(name, { code: r.code, name, totalCzk: total, perNightCzk: Math.round(total / q.nights), tax: r.tax > 0 });
   }
   return [...best.values()].sort((a, b) => a.totalCzk - b.totalCzk);
@@ -406,14 +408,19 @@ const taUrl = (u) => (/^https:\/\/www\.tripadvisor\.[a-z.]+\//.test(String(u || 
  * (bookUrl) vede na web nejlevnější nabídky; ratesAt = kdy se ceny zjistily.
  */
 export function mapHotel(h, rr, q, center) {
+  const p = priceOf(rr, q, String(h.name));
+  return p && { ...hotelBase(h, center), ...p };
+}
+
+/** Ceny hotelu (název name) z hotelRates → { priceTotalCzk, pricePerNightCzk, rates, ratesAt, bookUrl, bookSponsored }, bez nabídky null. */
+export function priceOf(rr, q, name) {
   const of = offers(rr, q);
   if (!of.length) return null;
   const shown = of.slice(0, 6);
   const bk = of.find((o) => offerSite(o) === 'booking');
   if (bk && !shown.includes(bk)) shown.push(bk);
-  const rates = shown.map((o) => offerLink(o, String(h.name), q));
+  const rates = shown.map((o) => offerLink(o, name, q));
   return {
-    ...hotelBase(h, center),
     priceTotalCzk: of[0].totalCzk,
     pricePerNightCzk: of[0].perNightCzk,
     rates,
@@ -421,6 +428,24 @@ export function mapHotel(h, rr, q, center) {
     bookUrl: rates[0].url,
     bookSponsored: rates[0].sponsored, // partnerský odkaz – karta ho označí „reklama“
   };
+}
+
+export const CHECK_MS = 14000;
+/**
+ * Volno jednoho hotelu teď (výběr v průvodci): ceny znovu, ne z mezipaměti – za hodinu se hotel mohl vyprodat.
+ * → { available: true, ...priceOf } | { available: false } (TripAdvisor na tvoje dny nic nenabízí) | { available: null }
+ * (nepovedlo se zjistit: Xotelo nestihl TripAdvisor, výpadek – dřívější cena zůstane, ověř na webu).
+ */
+export async function checkHotel(hotelKey, name, q, { timeoutMs = CHECK_MS, slowMs = EMPTY_SLOW_MS } = {}) {
+  let rr;
+  try {
+    rr = await hotelRates(hotelKey, q, { fresh: true, deadline: Date.now() + timeoutMs, slowMs });
+  } catch {
+    return { available: null };
+  }
+  if (rr.stale || rr.slow) return { available: null };
+  const p = priceOf(rr, q, name);
+  return p ? { available: true, ...p } : { available: false };
 }
 
 /**

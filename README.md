@@ -415,9 +415,9 @@ Na Xotelo jde naráz nejvýš 5 dotazů ze všech hledání, z jednoho hledání
 míst trasy, víc lidí) se ve frontě střídají, takže žádné nezůstane bez cen. Co nestihne, chybí: částečný výsledek je
 v mezipaměti jen 5 min a prohlížeč si ho nepamatuje (návrat do kroku se zeptá znovu); **Zkusit znovu** ho přepočítá
 hned a doptá se jen na chybějící ceny. Když na ceny nezbyl čas vůbec, je to „ceny nestihly přijít“, ne chyba zdroje.
-Mezipaměť: ID místa 30 dní (nenalezené 1 den), seznam hotelů 24 h, ceny hotelu 2 h (podle hotelu, termínu, dospělých
+Mezipaměť: ID místa 30 dní (nenalezené 1 den), seznam hotelů 24 h, ceny hotelu 1 h (podle hotelu, termínu, dospělých
 a pokojů), celé hledání 45 min. Druhé hledání téhož místa a termínu tak na Xotelo nejde vůbec (ceny hotelů ani po
-45 min, dokud platí jejich 2 h). Ostrý test (`/api/diag`) pošle jeden malý seznam (Vídeň).
+45 min, dokud platí jejich hodina). Ostrý test (`/api/diag`) pošle jeden malý seznam (Vídeň).
 
 **Jak čerstvé:** TripAdvisor ceny obnovuje se zpožděním a hotel se mezitím může vyprodat. Poznámka nad hotely proto
 říká, z kdy ceny jsou („Ceny z 14:05“ – nejstarší z hotelů, čas zařízení, z jiného dne i s datem), a **↻ Aktualizovat
@@ -427,6 +427,17 @@ jednou za 5 min – jinak výsledek z mezipaměti s poznámkou, za kolik to půj
 se aktualizovat nepovede, zůstane z dřívějška („Část cen se teď aktualizovat nepodařilo“). Když u žádné ukázané
 nabídky TripAdvisor neuvádí daně a poplatky, poznámka dodá „Cena bez místních poplatků (např. městská taxa), pokud je
 web neuvádí“. LiteAPI ani ukázková data (DEMO) se to netýká.
+
+**Ověření volna při výběru:** **Vybrat** u hotelu z TripAdvisoru se nejdřív zeptá na jeho ceny znovu (`GET
+/api/stays/check?hotel=g…-d…&name=…` + stejný dotaz jako nabídky; ne z mezipaměti, timeout 14 s, vlastní limit jako
+ověření ceny letu). Tlačítko mezitím ukazuje *Ověřuji volno…*. Když TripAdvisor na tvoje dny už nic nenabízí (rychlá
+prázdná odpověď), hotel se **nevybere** – karta dostane *❌ na tvoje dny vyprodáno* a tlačítko *Vybrat i tak*, jde na konec
+seznamu. S volnem se vybere s novou cenou a odkazem (toast *✓ Volno ověřeno teď – Booking.com 4 321 Kč (dřív …)*).
+Když se ověřit nepovede (Xotelo nestihl TripAdvisor, výpadek, limit), vybere se s dřívější cenou a radou ověřit volno
+na webu. Na Bookingu se tak méně často stane, že hotel z ATLASu „není k dispozici“.
+**Hotely bez ceny na tvoje dny** (*od ~…/noc* – běžná cena, TripAdvisor nabídku na tvoje dny nemá, často bývají
+obsazené) jsou označené *volno na tvoje dny neověřené* a když je s cenou aspoň 3 jiných, ukážou se až tlačítkem
+*Ukázat i N hotelů bez ceny na tvoje dny (často obsazené)*.
 
 ## Je to dobrá cena?
 

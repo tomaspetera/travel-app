@@ -5,6 +5,7 @@ import { daysBetween, isYmd, todayYmd, addDays } from './dates.js';
 import { stayLinks } from './links.js';
 import { partnerIds } from './partnerids.js';
 import { stayProviders } from '../providers/stays/index.js';
+import { checkHotel } from '../providers/stays/xotelo.js';
 import { getAirport, METRO_BY_CODE, COUNTRY_BY_ISO, countryAt } from './airports.js';
 import { geocode, englishName } from './places.js';
 import { haversineKm } from './geo.js';
@@ -95,6 +96,20 @@ export function rankStays(items) {
   const top = [...items].filter((h) => h.adjRating != null && (h.reviews || 0) >= 20).sort((a, b) => b.adjRating - a.adjRating)[0];
   if (top) top.badges.push('top-rated');
   return items.sort((a, b) => (b.value ?? -1) - (a.value ?? -1) || (a.pricePerNightCzk ?? Infinity) - (b.pricePerNightCzk ?? Infinity));
+}
+
+/**
+ * Ověření volna vybraného hotelu (Xotelo, při „Vybrat“): raw = stejný dotaz jako na nabídky + hotel (klíč TripAdvisoru
+ * g…-d…) a name. → { available: true | false | null, … } (viz checkHotel); jiný zdroj nebo DEMO → { available: null }.
+ */
+export async function checkStay(raw, { check = checkHotel } = {}) {
+  const q = normalizeStayQuery(raw);
+  const hotel = String(raw.hotel || '');
+  if (!/^g\d{1,12}-d\d{1,12}$/.test(hotel)) throw new StayQueryError('Neplatný hotel.');
+  const name = String(raw.name || '').slice(0, 120).trim();
+  if (!name) throw new StayQueryError('Chybí název hotelu.');
+  if (!stayProviders().some((p) => p.id === 'xotelo')) return { available: null };
+  return { hotel, ...(await check(hotel, name, q)), at: Date.now() };
 }
 
 export const FRESH_MS = 5 * 60e3; // „Aktualizovat ceny“ (fresh=1) na dotaz nejvýš jednou za 5 min

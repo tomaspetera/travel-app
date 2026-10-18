@@ -15,7 +15,7 @@ import { cache } from './lib/cache.js';
 import { airportsNear, getAirport } from './lib/airports.js';
 import { accessOpts, airportAccess, carTrip, fuelCountry, normalizeAccess } from './lib/access.js';
 import { addDays, todayYmd } from './lib/dates.js';
-import { searchStays } from './lib/stays.js';
+import { searchStays, checkStay } from './lib/stays.js';
 import { partnerLookups } from './lib/partnerids.js';
 import { searchCars } from './lib/cars.js';
 import { findPlaces, findTrips, mockPlaces, mockTrips, placesCached, tripsCached } from './lib/poi.js';
@@ -127,6 +127,7 @@ function readBody(req, limit = 64 * 1024) {
 const hits = new Map();
 const rechecks = new Map(); // přepočty trasy přes víc míst (stayplan s bases): vlastní limit, do hledání se nepočítají
 const verifies = new Map(); // živé ověření ceny (/api/verify): vlastní limit, do hledání se nepočítá
+const stayChecks = new Map(); // ověření volna hotelu při výběru (/api/stays/check)
 const explores = new Map(); // Objevuj (místa, program, výlety, kolo, pěšky): vlastní limit, do hledání se nepočítá
 const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
@@ -363,6 +364,11 @@ async function route(req, res) {
         return { ...a, ground: withTrip(a.ground, ap.nights), name: x.name, city: x.cityCs, cc: x.cc, type: x.type, lat: x.lat, lon: x.lon };
       }),
     });
+  }
+  if (p === '/api/stays/check') {
+    // Volno vybraného hotelu teď (ceny znovu, ne z mezipaměti) – vlastní limit jako ověření ceny letu
+    if (rateLimited(req, config.verifiesPer10Min, stayChecks)) return sendJson(req, res, 429, { error: 'Příliš mnoho ověření – zkus to za pár minut.' });
+    return sendJson(req, res, 200, await checkStay(Object.fromEntries(url.searchParams)));
   }
   if (p === '/api/stays') {
     if (rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
