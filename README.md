@@ -415,9 +415,9 @@ Na Xotelo jde naráz nejvýš 5 dotazů ze všech hledání, z jednoho hledání
 míst trasy, víc lidí) se ve frontě střídají, takže žádné nezůstane bez cen. Co nestihne, chybí: částečný výsledek je
 v mezipaměti jen 5 min a prohlížeč si ho nepamatuje (návrat do kroku se zeptá znovu); **Zkusit znovu** ho přepočítá
 hned a doptá se jen na chybějící ceny. Když na ceny nezbyl čas vůbec, je to „ceny nestihly přijít“, ne chyba zdroje.
-Mezipaměť: ID místa 30 dní (nenalezené 1 den), seznam hotelů 24 h, ceny hotelu 2 h (podle hotelu, termínu, dospělých
+Mezipaměť: ID místa 30 dní (nenalezené 1 den), seznam hotelů 24 h, ceny hotelu 1 h (podle hotelu, termínu, dospělých
 a pokojů), celé hledání 45 min. Druhé hledání téhož místa a termínu tak na Xotelo nejde vůbec (ceny hotelů ani po
-45 min, dokud platí jejich 2 h). Ostrý test (`/api/diag`) pošle jeden malý seznam (Vídeň).
+45 min, dokud platí jejich hodina). Ostrý test (`/api/diag`) pošle jeden malý seznam (Vídeň).
 
 **Jak čerstvé:** TripAdvisor ceny obnovuje se zpožděním a hotel se mezitím může vyprodat. Poznámka nad hotely proto
 říká, z kdy ceny jsou („Ceny z 14:05“ – nejstarší z hotelů, čas zařízení, z jiného dne i s datem), a **↻ Aktualizovat
@@ -427,6 +427,17 @@ jednou za 5 min – jinak výsledek z mezipaměti s poznámkou, za kolik to půj
 se aktualizovat nepovede, zůstane z dřívějška („Část cen se teď aktualizovat nepodařilo“). Když u žádné ukázané
 nabídky TripAdvisor neuvádí daně a poplatky, poznámka dodá „Cena bez místních poplatků (např. městská taxa), pokud je
 web neuvádí“. LiteAPI ani ukázková data (DEMO) se to netýká.
+
+**Ověření volna při výběru:** **Vybrat** u hotelu z TripAdvisoru se nejdřív zeptá na jeho ceny znovu (`GET
+/api/stays/check?hotel=g…-d…&name=…` + stejný dotaz jako nabídky; ne z mezipaměti, timeout 14 s, vlastní limit jako
+ověření ceny letu). Tlačítko mezitím ukazuje *Ověřuji volno…*. Když TripAdvisor na tvoje dny už nic nenabízí (rychlá
+prázdná odpověď), hotel se **nevybere** – karta dostane *❌ na tvoje dny vyprodáno* a tlačítko *Vybrat i tak*, jde na konec
+seznamu. S volnem se vybere s novou cenou a odkazem (toast *✓ Volno ověřeno teď – Booking.com 4 321 Kč (dřív …)*).
+Když se ověřit nepovede (Xotelo nestihl TripAdvisor, výpadek, limit), vybere se s dřívější cenou a radou ověřit volno
+na webu. Na Bookingu se tak méně často stane, že hotel z ATLASu „není k dispozici“.
+**Hotely bez ceny na tvoje dny** (*od ~…/noc* – běžná cena, TripAdvisor nabídku na tvoje dny nemá, často bývají
+obsazené) jsou označené *volno na tvoje dny neověřené* a když je s cenou aspoň 3 jiných, ukážou se až tlačítkem
+*Ukázat i N hotelů bez ceny na tvoje dny (často obsazené)*.
 
 ## Je to dobrá cena?
 
@@ -465,8 +476,9 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
 
 - **Letiště ve tvém městě** → jízdenka MHD (Praha: bus 59 nebo 100 + metro, PID na 90 min 50 Kč, v aplikaci 46 Kč
   → ~50 Kč; Airport Express za 200 Kč se nepočítá – pid.cz 6. 10. 2026; Brno: IDS JMK ~30 Kč).
-- **Letiště jinde** → vlak / bus do města letiště **za běžnou cenu** (*běžně* = co typicky zaplatíš, když musíš jet
-  určitý den – ne nejlevnější akční jízdenka) **+** cesta z města na letiště. Vlak / bus: Praha ↔ 28 měst změřeno
+- **Letiště jinde** → MHD z domova na nádraží **+** vlak / bus do města letiště **za běžnou cenu konkrétního spoje**
+  (*běžně* = co typicky zaplatíš, když musíš jet určitý den – ne nejlevnější akční jízdenka; na letiště navíc v danou
+  hodinu, proto × 1,4, viz níže) **+** cesta z města na letiště. Vlak / bus: Praha ↔ 28 měst změřeno
   (Brno 199 Kč, Pardubice 119 Kč, Vídeň 249 Kč, Berlín 379 Kč, Krakov 418 Kč, Budapešť 569 Kč…), jinde model podle
   vzdálenosti po pásmech – obojí z živých cen RegioJetu 15. 10. 2026, viz [Vlak nebo bus místo
   letadla](#vlak-nebo-bus-místo-letadla); na kratší vzdálenost regionální jízdné ~30 Kč + 1,5 Kč/km. Z města na
@@ -498,7 +510,8 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
   nejbližšího letiště – z Ústí nad Labem nebo Děčína (nejblíž Drážďany) se do Prahy nepočítá příplatek přes hranici
   ani česká dálniční známka.
 - **Jízdné ×** násobí celý odhad (0,5 = sleva 50 % pro žáky, studenty a seniory, 0 = nepočítat).
-- **🏠 Moje cena na letiště**: když cestu na některé letiště znáš líp (jezdíš tam s In Kartou, se slevou, někdo tě
+- **🏠 Kolik tě stojí cesta na letiště** (dřív *Moje cena na letiště*): u každého letiště z náhledu odhad jedním směrem
+  na osobu a pod ním, z čeho je (*Praha → Pardubice vlakem / busem ~120 + MHD Pardubice ~30 · ~1 h 45 min*). Když cestu na některé letiště znáš líp (jezdíš tam s In Kartou, se slevou, někdo tě
   vozí), zadej v *Další možnosti → Doprava na letiště* (veřejnou dopravou) u letišť z náhledu **cenu tam na osobu** –
   třeba VIE 350 Kč, BTS 270 Kč; prázdné pole = odhad (ukáže se jako nápověda v poli). Vlastní cena platí místo odhadu
   pro to letiště tam i zpět (na osobu, zpět totéž), *jízdné ×* se na ni nevztahuje, čas cesty zůstává odhad. Nejvýš
@@ -511,13 +524,18 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
   nezahodí, u jeho letiště hledá znovu (staré karty zůstanou vidět) a nové ceny neoznačí jako „↓“. Když je 12 cen
   plných, nová ustoupí nejstarší mimo náhled letišť a toast řekne kterou; obnova ze zálohy ukáže, kolik se nevešlo.
 
-Z Prahy na osobu tam: PRG ~50 Kč, PED ~150 Kč, KLV ~210 Kč, JCL ~220 Kč, VIE ~360 Kč, DRS ~430 Kč, MUC ~480 Kč,
-BER ~500 Kč, KRK ~530 Kč, KTW ~550 Kč; z Brna: BRQ ~30 Kč, BTS ~190 Kč, VIE ~300 Kč. Čas = jízda podle téhož modelu +
-cesta na letiště + ~30 min na nádraží, přestup a čekání na navazující spoj. Ověřeno proti živým cenám RegioJetu a FlixBusu (6. 10. 2026, odjezdy
-20. 10. a 12. 11.): Praha → Karlovy Vary 139–259 Kč, Pardubice 119–169 Kč, České Budějovice 179–279 Kč, Drážďany busem
-319–369 Kč (+ S-Bahn ~85 Kč; počítá se změřená cena, viz výše), Brno → Bratislava 129–279 Kč; běžné ceny 15. 10. 2026
-viz [Vlak nebo bus místo letadla](#vlak-nebo-bus-místo-letadla). Dřív (nejnižší ceny + příplatek) vycházelo PED ~200 Kč,
-VIE ~440 Kč, KRK ~420 Kč, BTS z Brna ~270 Kč.
+Z Prahy na osobu tam: PRG ~50 Kč, PED ~240 Kč, KLV ~320 Kč, JCL ~330 Kč, BRQ ~350 Kč, VIE ~480 Kč, MUC ~520 Kč,
+DRS ~530 Kč, BER ~540 Kč, KRK ~740 Kč, KTW ~750 Kč; z Brna: BRQ ~30 Kč, BTS ~280 Kč, VIE ~330 Kč. Skládá se z **MHD
+z domova na nádraží** (ve městě s nádražím RegioJetu: Praha PID 30 min ~40 Kč, jinde jízdenka MHD země), **vlaku / busu
+do města letiště** a cesty z města na letiště. Na letiště se jede **konkrétním spojem v danou hodinu**, ne nejlevnějším
+spojem dne, ze kterého je změřená běžná cena a model: cena × 1,4, čas × 1,1 (nejrychlejší spoj dne → běžný). Ověřeno
+10/2026: Praha → Brno RegioJet 229 Kč (út) až 399 Kč (pá), ČD railjet 269–435 Kč; Praha → Pardubice ČD ~190 Kč, RegioJet
+a Leo Express 150–280 Kč, vlak 58–70 min; Praha → Karlovy Vary bus 180–270 Kč; Praha → Drážďany RegioJet od 299 Kč,
+plný bus 500–750 Kč (počítá se 400 Kč). Změřené spoje (Drážďany) a jízdní řád (Linec, Salcburk) se nenásobí. Čas = jízda
++ cesta z města na letiště + ~30 min z domova na nádraží, přestup a čekání na navazující spoj. Pardubice: bus 90
+z hlavního nádraží jede 150 a 120 min před odletem; České Budějovice (bus 40 jen ve dny letů) a Karlovy Vary mají lety
+hlavně v létě (charter červen–září) – náhled letišť to u nich řekne (*☀️ jen letní charter*). Dřív (nejlevnější spoj dne,
+bez MHD z domova) vycházelo PED ~150 Kč, KLV ~210 Kč, BRQ ~230 Kč, DRS ~430 Kč.
 
 **🚗 Autem** (za auto, pak děleno počtem cestujících):
 

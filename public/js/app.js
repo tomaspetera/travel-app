@@ -416,8 +416,10 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-18i';
+const WN_ID = '2026-10-18j';
 const WHATS_NEW = [
+  ['🏨', 'Ubytování s ověřeným volnem', 'když v Cestě klepneš na <b>Vybrat</b>, ATLAS hned zjistí, jestli má hotel na tvoje dny pořád volno a za kolik – vyprodaný se nevybere. Hotely bez ceny na tvoje dny (často obsazené) jsou schované pod tlačítkem.'],
+  ['🎫', 'Cesta na letiště za skutečné ceny', 'odhad teď počítá jízdenku na konkrétní spoj v danou hodinu (ne nejlevnější spoj dne), MHD z domova na nádraží a běžný čas jízdy – z Prahy do Pardubic ~240 Kč, do Brna ~350 Kč. V <b>Další možnosti</b> uvidíš u každého letiště, z čeho odhad je.'],
   ['🚆', 'Reálnější časy cest', 'vlak mezi městy jede rychlotratí jen tam, kde opravdu vede (Barcelona → Valencie ~3 h 25, ne 2 h 10), jízdenky po Itálii, Španělsku a Francii za běžné ceny, autem na letiště podle skutečné rychlosti a „Vyraž z ubytování“ i s cestou na zastávku. Z letiště ve tvém městě brzy ráno počítám s taxi 🚕.'],
   ['📝', 'Formulář před příletem', 'Thajsko (TDAC), Filipíny, Malajsie, Singapur, Korea, Indonésie a další chtějí online formulář – uvidíš to u letu, v Před cestou i v Co zařídit s odkazem na oficiální web.'],
   ['↻', 'Když hledání selže', 'uvidíš hned proč a tlačítko <b>Zkusit znovu</b>; 🙈 Nezajímá mě v radaru jde vrátit.'],

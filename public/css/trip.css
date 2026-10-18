@@ -471,3 +471,6 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
   .poi-list:not(.all)>.poi-x{display:none}
   .poi-morebtn{display:block;width:100%;margin-top:8px}
 }
+/* ubytování: hotel, který při výběru už nic nenabízel (ověřeno teď), a hotely bez ceny na tvoje dny na požádání */
+.st-sold{font-size:12px;font-weight:700;color:var(--bad,#c0392b);margin:0 0 4px;white-space:nowrap}
+.st-guess-btn{display:block;margin:10px auto 0;font-size:13px}

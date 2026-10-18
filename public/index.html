@@ -318,8 +318,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
                   <div class="seg" id="groundMode" role="group" aria-label="Na letiště"><button type="button" data-g="transit" class="on" aria-pressed="true">🚌 veřejnou dopravou</button><button type="button" data-g="car" aria-pressed="false">🚗 autem</button></div>
                 </div>
                 <div class="gm-opt" id="gmTransit"><span title="Násobek odhadu jízdného: 1 = plné jízdné, 0,5 = sleva 50 % (žák, student, senior), 0 = nepočítat">jízdné × <input class="input xs" type="number" id="kmRate" value="1" step="0.1" min="0" max="5" aria-label="Násobek odhadu jízdného"></span>
-                  <span class="faint">vlak / bus do města letiště za běžnou cenu + MHD nebo vlak na letiště, tam i zpět</span>
-                  <div class="gm-own" id="gmOwn" hidden><div class="gm-own-h">🏠 Moje cena na letiště <span class="faint">cena tam na osobu (zpět totéž) místo odhadu, bez násobku jízdného – prázdné = odhad</span></div>
+                  <span class="faint">1 = plné jízdné, 0,5 = sleva (žák, student, senior), 0 = nepočítat</span>
+                  <div class="gm-own" id="gmOwn" hidden><div class="gm-own-h">🏠 Kolik tě stojí cesta na letiště <span class="faint">odhad na osobu jedním směrem (zpět totéž) – vlak / bus za běžnou cenu + MHD. Jezdíš levněji nebo jinak? Přepiš ho.</span></div>
                     <div class="gm-own-list" id="gmOwnList"></div></div></div>
                 <div class="gm-opt gm-car" id="gmCar" hidden>
                   <div class="gm-line">
