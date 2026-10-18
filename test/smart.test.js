@@ -247,3 +247,17 @@ test('polární záře = letiště za polárním kruhem a Island (i „za polár
   assert.deepEqual(P('Portugalsko autem').to, ['Portugalsko']);
   assert.deepEqual(P('Severní Irsko').to, ['Severní Irsko']);
 });
+
+test('přesné datum s délkou: návrat dopočtený a vidět v čipu; mezi svátky, „a dítě“, lyžovačka, letní/zimní, zájezd a pobyt nejsou místa', () => {
+  const r = P('Řím 3 noci od 5.12.');
+  assert.deepEqual([r.patch.xOut, r.patch.xBack, chips(r)], ['2026-12-05', '2026-12-08', ['5. 12. – 8. 12.']]);
+  assert.deepEqual(chips(P('na prodloužený víkend 28. října')), ['28. 10. – 1. 11.']);
+  assert.deepEqual(chips(P('Paříž 5.12. jen tam')), ['5. 12.', 'jen tam']);
+  const m = P('mezi svátky na hory');
+  assert.deepEqual([m.kind, m.patch.dFrom, m.patch.dTo, chips(m)], ['mountains', '2026-12-26', '2026-12-30', ['na hory', 'mezi svátky']]);
+  assert.deepEqual([P('dva dospělí a dítě do Barcelony').patch.adults, P('dva dospělí a dítě do Barcelony').to], [3, ['Barcelony']]);
+  assert.deepEqual([P('lyžovačka v Rakousku').kind, P('lyžovačka v Rakousku').to], ['mountains', ['Rakousku']]);
+  assert.deepEqual([chips(P('letní dovolená Řecko')), P('letní dovolená Řecko').to], [['léto'], ['Řecko']]);
+  assert.deepEqual(P('zájezd Chorvatsko').to, ['Chorvatsko']);
+  assert.deepEqual(P('pobyt u moře září').to, []);
+});
