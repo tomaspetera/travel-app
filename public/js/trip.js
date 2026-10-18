@@ -1446,8 +1446,11 @@
     if (!(stayIdx >= 0 && stayIdx < r.bases.length)) stayIdx = 0;
     const i = stayIdx, b = r.bases[i], d = dates[i], n = r.bases.length;
     staySlot = { get: () => b.stay, set: v => { b.stay = { ...v, checkin: d.checkin, checkout: d.checkout }; }, next: () => nextStayBase(i) };
+    const left = r.bases.filter(x => !x.stay).length, allDone = !left, sumStay = r.bases.reduce((a, x) => a + (stayCzk(x.stay) || 0), 0);
     host.innerHTML = `<div class="card step-card">
       <div class="sc-head"><div><h3>🏨 Ubytování na trase</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(total)} · ${t.adults} ${t.adults === 1 ? 'host' : t.adults <= 4 ? 'hosté' : 'hostů'} · vybráno ${r.bases.filter(x => x.stay).length} z ${n}</div></div></div>
+      ${allDone ? `<div class="auto-pick ok"><div class="ap-t"><b>✓ Ubytování máš ve všech místech</b><small>${sumStay ? `Celkem ${czk(sumStay)} · ` : ''}změnit ho můžeš v záložkách níž.</small></div><button type="button" class="btn primary" id="stayDone">Pokračovat k autu →</button></div>` : ''}
+      ${left ? `<div class="auto-pick"><div class="ap-t"><b>✨ Nechceš vybírat?</b><small>V ${left === n ? `každém místě` : `${left} ${left === 1 ? 'zbývajícím místě' : 'zbývajících místech'}`} vyberu hotel s nejlepším poměrem ceny a hodnocení. Změnit ho můžeš kdykoliv v záložkách.</small></div><button type="button" class="btn primary" id="stayAuto">Vyber za mě</button></div>` : ''}
       ${baseTabs(r, i, x => Boolean(x.stay), 'data-bt')}
       <div class="sc-head" style="margin-top:14px"><div><h3 style="font-size:15.5px">${i + 1}. ${esc(b.name)}</h3><div class="muted">${dayLbl(d.checkin)} – ${dayLbl(d.checkout)} · ${nightsTxt(d.nights)}</div></div>
         ${b.stay ? `<div class="chosen">Vybráno: <b>${esc(stayState(b.stay))}</b>${stayCzk(b.stay) ? ` · ${czk(stayCzk(b.stay))}${b.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : ''}</div>` : ''}</div>
@@ -1457,9 +1460,21 @@
         <input class="input" id="manName" placeholder="Název (nepovinné)" value="${b.stay && b.stay.mode === 'manual' ? esc(b.stay.name) : ''}">
         <input class="input" id="manPrice" type="number" min="0" step="100" placeholder="Cena celkem v Kč" value="${b.stay && b.stay.mode === 'manual' ? b.stay.totalCzk : ''}">
         <button class="btn" id="manSave">Uložit</button></div>
-      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ghost" id="stayLinks">Vyberu později – jen odkazy →</button><button class="btn primary" id="stayNext">${i < n - 1 ? `Další místo: ${esc(r.bases[i + 1].name)} →` : 'Pokračovat k autu →'}</button></div>
+      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ghost" id="stayLinks">Vyberu později – jen odkazy →</button><button class="btn primary" id="stayNext">${i < n - 1 && !allDone ? `Další místo: ${esc(r.bases[i + 1].name)} →` : 'Pokračovat k autu →'}</button></div>
     </div>`;
     $$('[data-bt]', host).forEach(x => x.onclick = () => goStayBase(+x.dataset.bt));
+    const sd = $('#stayDone'); if (sd) sd.onclick = () => setStep('car');
+    const ab = $('#stayAuto');
+    if (ab) ab.onclick = async () => {
+      ab.disabled = true;
+      const res = await autoPickStays(t, (k, of, name) => { ab.innerHTML = `<span class="spin"></span> ${esc(name)} ${k}/${of}`; });
+      if (T() !== t) return;
+      if (res.ok.length) toast(`Vybráno: ${res.ok.join(', ')}${res.miss.length ? ` · bez cen zatím: ${res.miss.join(', ')}` : ''}`, '', 4200);
+      else toast('Ceny hotelů zatím nepřišly – vyber prosím ručně, nebo to zkus za chvíli', 'err', 4200);
+      // zůstaň v Ubytování: záložky s ✓ ukážou výběr; první místo bez ubytování, jinak to aktuální
+      const miss = r.bases.findIndex(x => !x.stay);
+      if (t.step === 'stay') goStayBase(miss >= 0 ? miss : i);
+    };
     $('#manSave').onclick = () => {
       const price = +$('#manPrice').value;
       if (!(price > 0)) return toast('Zadej cenu ubytování', 'err');
@@ -1467,15 +1482,8 @@
       persist(); staySlot.next();
     };
     $('#stayLinks').onclick = () => { staySlot.set({ mode: 'links', name: '', totalCzk: 0 }); persist(); staySlot.next(); };
-    $('#stayNext').onclick = () => (i < n - 1 ? goStayBase(i + 1) : setStep('car'));
-    const params = { city: b.name, country: b.country || '', cc: b.cc || '', checkin: d.checkin, checkout: d.checkout, adults: t.adults, lat: b.lat, lon: b.lon };
-    if (b.nameEn) params.cityEn = b.nameEn; // odkazy na Booking, Airbnb… (český název „Boloňa“ by nenašly)
-    // místo z hledání (ID GeoNames): bez anglického názvu ho server dohledá; podle ID najde i místo na TripAdvisoru
-    if (b.gid) params.gid = b.gid;
-    // Město příletu/odletu: letiště pomůže najít střed metropole a zemi.
-    if (b.anchor === 'arrival') Object.assign(params, { iata: t.flight.out.to, country: b.country || t.dest.country || '', cc: b.cc || t.dest.cc || '' });
-    else if (b.anchor === 'departure' && backLeg(t)) params.iata = tripAirports(t).departure;
-    const key = `${b.name}|${(+b.lat).toFixed(3)},${(+b.lon).toFixed(3)}|${d.checkin}|${d.checkout}|${t.adults}`;
+    $('#stayNext').onclick = () => (i < n - 1 && !allDone ? goStayBase(i + 1) : setStep('car'));
+    const { params, key } = baseStayQuery(t, b, d);
     let data;
     try {
       data = await loadStays(key, params);
@@ -1485,15 +1493,75 @@
     }
     if (T() !== t || t.step !== 'stay' || stayIdx !== i) return;
     staysData = data;
-    // Země a anglický název, které server dopočetl (místo přidané ručně) – pro odkazy ve shrnutí a vstupní podmínky.
+    if (absorbStayQuery(b, data)) persist();
+    renderStays();
+  }
+
+  /** Dotaz na nabídky ubytování jednoho místa trasy: parametry pro api/stays a klíč mezipaměti. */
+  function baseStayQuery(t, b, d) {
+    const params = { city: b.name, country: b.country || '', cc: b.cc || '', checkin: d.checkin, checkout: d.checkout, adults: t.adults, lat: b.lat, lon: b.lon };
+    if (b.nameEn) params.cityEn = b.nameEn; // odkazy na Booking, Airbnb… (český název „Boloňa“ by nenašly)
+    // místo z hledání (ID GeoNames): bez anglického názvu ho server dohledá; podle ID najde i místo na TripAdvisoru
+    if (b.gid) params.gid = b.gid;
+    // Město příletu/odletu: letiště pomůže najít střed metropole a zemi.
+    if (b.anchor === 'arrival') Object.assign(params, { iata: t.flight.out.to, country: b.country || t.dest.country || '', cc: b.cc || t.dest.cc || '' });
+    else if (b.anchor === 'departure' && backLeg(t)) params.iata = tripAirports(t).departure;
+    return { params, key: `${b.name}|${(+b.lat).toFixed(3)},${(+b.lon).toFixed(3)}|${d.checkin}|${d.checkout}|${t.adults}` };
+  }
+
+  /** Země a anglický název, které server dopočetl (místo přidané ručně) – pro odkazy ve shrnutí a vstupní podmínky. */
+  function absorbStayQuery(b, data) {
     const dq = data.query || {};
     let changed = false;
     if (!b.cc && /^[A-Z]{2}$/.test(dq.cc || '')) { Object.assign(b, { cc: dq.cc, country: b.country || String(dq.country || '').slice(0, 60) }); changed = true; }
     if (!b.nameEn && typeof dq.cityEn === 'string' && dq.cityEn && dq.cityEn !== b.name) { b.nameEn = dq.cityEn.slice(0, 80); changed = true; }
     // Odkaz na hledání pro shrnutí (místo bez vybraného hotelu = „vyber přes odkaz“).
     if (data.links && data.links[0] && b.searchUrl !== data.links[0].url) { b.searchUrl = data.links[0].url; changed = true; }
-    if (changed) persist();
-    renderStays();
+    return changed;
+  }
+
+  /**
+   * Vybraný hotel (karta h) → ubytování v cestě. url = hlavní odkaz karty (Xotelo: web nejlevnější nabídky) – „co
+   * zarezervovat“ ve shrnutí vede tam, kde pokoj je; hotel bez ceny na tvoje dny: odhad z běžné ceny za noc (ve shrnutí
+   * označený), ať celková cena cesty nechybí.
+   */
+  function pickOf(h, nights) {
+    const est = !h.priceTotalCzk && h.guess && h.nightFromCzk > 0 ? Math.round(h.nightFromCzk * (nights || 1)) : 0;
+    return { mode: 'pick', id: h.id, name: h.name, totalCzk: h.priceTotalCzk || est, ...(est ? { est: true } : {}), url: h.bookUrl, lat: h.lat, lon: h.lon, rating: h.rating, provider: h.provider };
+  }
+
+  /** Nejlepší poměr ceny a hodnocení (value ze serveru) s cenou na tvoje dny – jako první karta při řazení „Nejlepší poměr“. */
+  const bestStay = items => (items || []).filter(h => h.value != null && h.priceTotalCzk > 0).sort((a, b) => b.value - a.value)[0] || null;
+
+  /**
+   * „✨ Vyber za mě“: v každém místě trasy bez ubytování vybere hotel s nejlepším poměrem (postupně, ať se
+   * nepřekročí limit dotazů). Místo, kde ceny nepřišly, zůstane nevybrané. Vrátí { ok, miss } (názvy míst).
+   */
+  async function autoPickStays(t, onProgress = () => {}) {
+    const bs = t.route.bases, dates = baseDates(t), ok = [], miss = [];
+    const todo = bs.map((b, i) => i).filter(i => !bs[i].stay);
+    for (const [k, i] of todo.entries()) {
+      if (T() !== t) break; // mezitím jiná cesta nebo Začít znovu
+      onProgress(k + 1, todo.length, bs[i].name);
+      const b = bs[i], d = dates[i];
+      if (!(d && d.nights >= 1)) { miss.push(b.name); continue; }
+      const { params, key } = baseStayQuery(t, b, d);
+      let h = null;
+      try {
+        let data = await loadStays(key, params);
+        // ceny hotelů se teprve doplňují (Xotelo) → jednou znovu, server dopočítá jen chybějící
+        if (!bestStay(data.items) && staysIncomplete(data)) {
+          await new Promise(res => setTimeout(res, 2000));
+          staysRetry = key; data = await loadStays(key, params);
+        }
+        absorbStayQuery(b, data);
+        h = bestStay(data.items);
+      } catch (e) { staysRetry = null; }
+      if (T() !== t) break;
+      if (h && !b.stay) { b.stay = { ...pickOf(h, d.nights), checkin: d.checkin, checkout: d.checkout }; ok.push(b.name); } else if (!b.stay) miss.push(b.name);
+      persist();
+    }
+    return { ok, miss };
   }
 
   // Partnerský (affiliate) odkaz přes Travelpayouts – i uložený v cestě (vybraný hotel, odkaz ve shrnutí).
@@ -1704,11 +1772,7 @@
     const ty = $('#stayType'); if (ty) ty.onchange = e => { stayView.type = e.target.value; renderStays(); };
     $('#stayMax').onchange = e => { stayView.maxNight = +e.target.value || null; renderStays(); };
     $$('[data-pick]', host).forEach(b => b.onclick = () => {
-      const h = d.items[+b.dataset.pick];
-      // url = hlavní odkaz karty (Xotelo: web nejlevnější nabídky) – „co zarezervovat“ ve shrnutí vede tam, kde pokoj je
-      // hotel bez ceny na tvoje dny: odhad z běžné ceny za noc (ve shrnutí označený), ať celková cena cesty nechybí
-      const est = !h.priceTotalCzk && h.guess && h.nightFromCzk > 0 ? Math.round(h.nightFromCzk * ((d.query && d.query.nights) || 1)) : 0;
-      staySlot.set({ mode: 'pick', id: h.id, name: h.name, totalCzk: h.priceTotalCzk || est, ...(est ? { est: true } : {}), url: h.bookUrl, lat: h.lat, lon: h.lon, rating: h.rating, provider: h.provider });
+      staySlot.set(pickOf(d.items[+b.dataset.pick], d.query && d.query.nights));
       persist(); staySlot.next();
     });
   }

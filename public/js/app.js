@@ -363,8 +363,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-18b';
+const WN_ID = '2026-10-18c';
 const WHATS_NEW = [
+  ['✨', 'Vyber za mě', 'v Cestě přes víc míst vybere v kroku Ubytování jedním klepnutím hotel s nejlepším poměrem ceny a hodnocení v každém místě – změnit ho můžeš kdykoliv.'],
   ['↩', 'Pokračuj, kde jsi skončil', 'na Přehledu je rozpracovaná cesta (u kterého kroku jsi) a poslední hledání – jedním klepnutím zpátky. Cesta přes víc měst letadlem jde do průvodce i bez návratu domů.'],
   ['✨', 'Chytré hledání', 'do pole <b>Kam</b> napiš celou větu – „k moři v květnu do 5000“, „Řím na víkend ve dvou“, „z Vídně do Barcelony 12. 11. – 16. 11.“ – a nahoře uvidíš, jak jí rozumím. Prázdné pole nabídne tipy podle toho, co hledáš. V Objevuj třeba „Lisabon na 3 dny“ nebo „výlety z Brna“.'],
   ['🧳', 'Cesta přes víc měst letadlem', 'vyber v Letech <b>Víc měst</b> (třeba Praha → Řím → Barcelona → Praha) a <b>Vybrat a pokračovat</b>: v Cestě je trasa podle letů, ke každému městu ubytování a program, ve shrnutí všechny letenky.'],
@@ -385,15 +386,38 @@ const WHATS_NEW = [
   ['🕘', 'Stáří cen', '„ceny z 14:32“ nad výsledky, po hodině upozornění a ↻ Hledat znovu; v průvodci „cena z …“.'],
   ['🏨', 'Hotely s cenami', 'v průvodci Cesta → Ubytování: odkaz na web, kde je pokoj na tvoje dny volný, a ↻ Aktualizovat ceny.'],
 ];
+// Úplně nový uživatel (nic uloženého): místo seznamu novinek krátké „Vítej“ ve 3 krocích – novinky by ho jen zahltily.
+const firstVisit = seen => seen == null && !S.home && !S.trip && !S.trips.length && !S.recent.length && !S.watch.length;
+const WN_TOP = 4; // nejnovější novinky hned, starší pod „Starší novinky“
 function renderWhatsNew() {
   const el = $('#whatsNew'); if (!el) return;
   let seen = null; try { seen = localStorage.getItem('atlas_wn'); } catch (e) { /* soukromé okno */ }
   el.hidden = seen === WN_ID;
   if (el.hidden) return;
-  el.innerHTML = `<details open><summary><b>✨ Co je nového</b> <span class="faint">– kde novinky najdeš</span></summary>
-    <ul class="wn-list">${WHATS_NEW.map(x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${x[2]}</div></li>`).join('')}</ul>
-    <button type="button" class="btn sm ghost" id="wnHide">Rozumím, skrýt</button></details>`;
-  $('#wnHide').onclick = () => { try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* nevadí */ } el.hidden = true; };
+  const hide = () => { try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* nevadí */ } el.hidden = true; };
+  const li = x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${x[2]}</div></li>`;
+  if (firstVisit(seen)) {
+    el.classList.add('welcome');
+    el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
+      <ol class="wc-steps">
+        <li><span class="wc-n">1</span><div><b>Napiš, kam chceš</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
+        <li><span class="wc-n">2</span><div><b>Vyber let</b><small>nejlevnější jsou nahoře, cena i s cestou na letiště</small></div></li>
+        <li><span class="wc-n">3</span><div><b>Poskládej cestu</b><small>ubytování, auto, program a shrnutí s odkazy k rezervaci</small></div></li>
+      </ol>
+      <div class="row wrap" style="gap:8px"><button type="button" class="btn primary" id="wcGo">Začít hledat</button><button type="button" class="btn ghost" id="wnHide">Rozumím</button></div>`;
+    $('#wcGo').onclick = () => {
+      hide();
+      const inp = $('#heroTo input'); if (inp) { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus({ preventScroll: true }); }
+    };
+  } else {
+    el.classList.remove('welcome');
+    const more = WHATS_NEW.slice(WN_TOP);
+    el.innerHTML = `<details open><summary><b>✨ Co je nového</b> <span class="faint">– kde novinky najdeš</span></summary>
+      <ul class="wn-list">${WHATS_NEW.slice(0, WN_TOP).map(li).join('')}</ul>
+      ${more.length ? `<details class="wn-more"><summary>Starší novinky (${more.length})</summary><ul class="wn-list">${more.map(li).join('')}</ul></details>` : ''}
+      <button type="button" class="btn sm ghost" id="wnHide">Rozumím, skrýt</button></details>`;
+  }
+  $('#wnHide').onclick = hide;
 }
 function renderDash() {
   renderDashStats();

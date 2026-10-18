@@ -435,3 +435,11 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .ex-try::-webkit-scrollbar{display:none}
 .ex-try .faint{flex:none;font-size:12px;font-weight:700}
 .ex-try .fchip{flex:none;white-space:nowrap}
+/* „✨ Vyber za mě“ – hotely ve všech místech trasy jedním klepnutím */
+.auto-pick{display:flex;align-items:center;gap:12px;margin:12px 0 4px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,rgba(99,102,241,.10),rgba(52,211,153,.10));border:1px solid rgba(99,102,241,.22)}
+.auto-pick .ap-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.auto-pick .ap-t small{color:var(--muted);font-size:12.5px;line-height:1.35}
+.auto-pick .btn{flex:none;white-space:nowrap}
+.auto-pick .btn .spin{width:14px;height:14px;vertical-align:-2px}
+@media (max-width:560px){.auto-pick{flex-direction:column;align-items:stretch}.auto-pick .btn{width:100%}}
+.auto-pick.ok{background:rgba(52,211,153,.10);border-color:rgba(52,211,153,.32)}

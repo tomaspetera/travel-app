@@ -40,7 +40,7 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
    i **veřejnou dopravou** – vlakem jen tam, kde se mezi městy vlakem jezdí, jinde *autobusem / minibusem* – a přechod
    hranice s odkazem na vstupní podmínky (viz [Přejezdy mezi místy](#přejezdy-mezi-místy)). Trasa začíná u letiště
    příletu (u vlaku/busu ve městě příjezdu) a končí u letiště odletu, i jiného (open-jaw); cesta z posledního místa
-   na letiště nebo zpět k vlaku/busu je v časové ose. Ubytování a program pak vybíráš pro každé místo zvlášť.
+   na letiště nebo zpět k vlaku/busu je v časové ose. Ubytování a program pak vybíráš pro každé místo zvlášť – nebo jedním klepnutím **✨ Vyber za mě** (hotel s nejlepším poměrem ceny a hodnocení v každém místě).
 3. **Ubytování** – nabídky na tvoje data seřazené podle **nejlepšího poměru cena / hodnocení** (hodnocení je očištěné
    o malý počet recenzí, takže 10/10 ze 2 recenzí nepřebije 8,9 z 2 000). Přepneš na nejlevnější, nejlépe hodnocené
    nebo nejblíž centru, filtruješ 7+/8+/9+, typ a max. cenu za noc. U každého místa trasy (i přidaného ručně) jsou
