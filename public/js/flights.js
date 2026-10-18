@@ -2722,7 +2722,7 @@
     dpShow({
       id: x.id, label: x.label, cc: x.cc, country: c ? c.cs : '', lat: x.lat, lon: x.lon, aps: [x.to], ar: x.ar,
       d1: x.d1, d2: x.d2 || null, nights: x.d2 ? SearchHelp.diffDays(x.d1, x.d2) : null, arrDay: x.d1, czk: x.czk, route: SearchHelp.radarRoute(x),
-      arr: x.ar ? dpArr({ out: { to: x.to }, back }, { [x.to]: x.ar }, true) : [], tempHi: null,
+      arr: x.ar ? dpArr({ out: { to: x.to }, back }, { [x.to]: x.ar }, true) : [], tempHi: x.th ?? null,
       wxP: radarWxP && radarWxP.r === r ? radarWxP.p : null, ground: null,
       go: () => radarGo(x, q), goLbl: x.buy && x.buy.length ? 'Všechny termíny →' : 'Hledat lety sem →', buy: x.buy,
     }, from);
@@ -4021,6 +4021,8 @@
         // čas odletu a přílet zpět kvůli dnům dovolené na kartě (SearchHelp.leaveDays)
         t1: t.out.hasTime ? String(t.out.dep).slice(11, 16) : '', a2: t.back && t.back.hasTime && t.back.arr ? String(t.back.arr).slice(0, 16) : '', deal: t.deal.level, score: t.deal.score, prov: t.out.provider,
         ...(wxGeo(g.dest) ? { lat: +g.dest.lat.toFixed(3), lon: +g.dest.lon.toFixed(3) } : {}), // předpověď na kartě
+        // dlouhodobý průměr teplot v měsíci odletu – štítek karet mimo dosah předpovědi (dál než ~15 dní)
+        ...(t.tempHi != null ? { th: Math.round(t.tempHi) } : {}),
         // z letiště do města (s polohou města – střed pro „Co vidět“) pro 🔎 Co tam je
         ...(res.arrivals && res.arrivals[t.out.to] ? { ar: res.arrivals[t.out.to] } : {}),
         // odkaz na nabídku z karty – hledání do jednoho cíle ji nemusí vrátit (Kiwi dává pro „kamkoliv“ jiné nabídky)
@@ -4082,7 +4084,9 @@
     const pins = pinList(), pinned = x => Pins.has(pins, Pins.fromRadar(x, { at: r.at, adults: q.payload?.adults }));
     host.innerHTML = `${r.demo ? '<div class="faint" style="font-size:12px;margin-bottom:8px">⚠️ demo data</div>' : ''}<div class="faint radar-what">Za osobu${q.payload?.adults > 1 ? ` (cestujete ${q.payload.adults})` : ''}: zpáteční letenka + cesta na letiště a z letiště do města</div>${stale}<div class="radar-grid${st ? ' stale' : ''}">${shown.map(({ x, i }) => {
       const cn = (byIso[x.cc] && byIso[x.cc].cs) || '';
-      const bd = `${prefBadge(SearchHelp.destKeyOf(x.id), pl)}${newBadge(x.cc)}${pinned(x) ? ' <span class="b pin-b" title="Odložená nabídka – 📌 Porovnat">📌</span>' : ''}${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥 super cena</span>' : ''}`.trim();
+      // počasí: do ~15 dní předpověď (radarWx doplní), dál dlouhodobý průměr „🌡️ ~8°“ – ať má štítek každá karta
+      const clim = x.th != null && !wxWin(x.d1) ? `<span class="b wxb clim" title="Dlouhodobý průměr denních maxim v ${MNS_IN[+x.d1.slice(5, 7) - 1]} – předpověď počasí bude asi 15 dní před odletem">🌡️ ~${x.th}°</span>` : '';
+      const bd = `${prefBadge(SearchHelp.destKeyOf(x.id), pl)}${newBadge(x.cc)}${pinned(x) ? ' <span class="b pin-b" title="Odložená nabídka – 📌 Porovnat">📌</span>' : ''}${radarChange(x)}${hot.has(i) ? '<span class="b hot" title="Jedna z nejvýhodnějších cen vůči běžné ceně na tu vzdálenost">🔥 super cena</span>' : ''}${clim}`.trim();
       return `<div class="card radar-card${hot.has(i) ? ' hot' : ''}" data-ri="${i}" data-photo="${esc(x.label)}" style="--h:${ccHue(x.cc)}">
       <div class="rc-badges">${bd}</div>
       ${dmBtn({ ...x, key: SearchHelp.destKeyOf(x.id) }, `data-rdm="${i}"`)}
