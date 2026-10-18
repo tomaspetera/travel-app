@@ -121,3 +121,12 @@ test('Objevuj: věta → místo, druh plánu, dny, km, od kdy, zájmy; základn�
   assert.ok(N('Brně').includes('Brno'));
   assert.equal(N('Lisabon')[0], 'Lisabon', 'původní tvar první');
 });
+
+test('ukázkové věty na Přehledu (podle ročního období) se rozumí celé – nic nezbyde jako cíl', () => {
+  for (const [q, kind] of [['na hory v lednu na lyže', 'mountains'], ['na hory v červenci na týden', 'mountains'], ['za teplem v prosinci na týden', 'warm'], ['k moři v srpnu do 5000', 'sea']]) {
+    const r = P(q);
+    assert.equal(r.kind, kind, q);
+    assert.deepEqual(r.to || [], [], q);
+    assert.ok(r.patch.dFrom, q);
+  }
+});
