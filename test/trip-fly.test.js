@@ -208,3 +208,52 @@ test('cesta přes víc měst jen tam (Praha → Řím → Barcelona): poslední 
   assert.equal(back.flight.mid.length, 1);
   assert.equal(back.route.fixed, 'flights');
 });
+
+test('cesta přes víc měst: „✨ Vyber za mě“ vybere v každém místě bez ubytování hotel s nejlepším poměrem', async () => {
+  const c = load();
+  const t = begin(c);
+  const asked = [];
+  const hotel = (id, value, total, extra = {}) => ({ id, name: `Hotel ${id}`, value, priceTotalCzk: total, pricePerNightCzk: total / 3, rating: 8.6, provider: 'xotelo', bookUrl: `https://hotel.example/${id}`, lat: 41.9, lon: 12.5, ...extra });
+  c.fetch = async (url) => {
+    const q = new URLSearchParams(url.split('?')[1]);
+    asked.push(q.get('city'));
+    const items = q.get('city') === 'Řím'
+      // nejvyšší value bez ceny na tvoje dny se nevybere
+      ? [hotel('r1', 70, 6000), hotel('r2', 100, 0, { guess: true, nightFromCzk: 1500 }), hotel('r3', 90, 7200)]
+      : [hotel('b1', 40, 5000), hotel('b2', 95, 8100)];
+    return { ok: true, json: async () => ({ items, providers: [{ name: 'Xotelo', ok: true }], links: [{ id: 'booking', name: 'Booking.com', note: '', url: `https://booking.example/${q.get('city')}` }], query: { nights: 3 } }) };
+  };
+  const tick = () => new Promise((r) => setImmediate(r));
+  const s = render(c, 'stay');
+  assert.match(s, /✨ Nechceš vybírat\?/);
+  assert.match(s, /V každém místě vyberu hotel s nejlepším poměrem/);
+  await tick();
+  await c.__els['#stayAuto'].onclick();
+  await tick();
+  assert.deepEqual(plain(t.route.bases.map((b) => [b.stay.name, b.stay.totalCzk, b.stay.checkin, b.stay.checkout, b.stay.url])), [
+    ['Hotel r3', 7200, '2026-11-10', '2026-11-13', 'https://hotel.example/r3'],
+    ['Hotel b2', 8100, '2026-11-13', '2026-11-16', 'https://hotel.example/b2'],
+  ]);
+  // Řím už byl v mezipaměti z kroku – jen jeden dotaz na každé místo
+  assert.deepEqual(asked.filter((x) => x === 'Řím').length, 1);
+  assert.equal(t.route.bases[1].searchUrl, 'https://booking.example/Barcelona');
+  assert.match(c.__toasts.at(-1), /Vybráno: Řím, Barcelona/);
+  // vše vybráno: bez nabídky, rovnou dál k autu
+  const s2 = render(c, 'stay');
+  assert.doesNotMatch(s2, /Nechceš vybírat/);
+  assert.match(s2, /✓ Ubytování máš ve všech místech<\/b><small>Celkem 15\s300\sKč/);
+  assert.match(s2, /Pokračovat k autu →/);
+  assert.equal(c.window.Trip.costs(t).stay, 7200 + 8100);
+
+  // vlastní výběr zůstane, nabídka jen pro zbývající místo; místo bez cen zůstane nevybrané
+  const c2 = load();
+  const t2 = begin(c2);
+  t2.route.bases[1].stay = { mode: 'manual', name: 'U babičky', totalCzk: 3000 };
+  c2.fetch = async () => ({ ok: true, json: async () => ({ items: [hotel('x', null, 0)], providers: [{ name: 'Xotelo', ok: true }], links: [], query: { nights: 3 } }) });
+  assert.match(render(c2, 'stay'), /V 1 zbývajícím místě vyberu/);
+  await tick();
+  await c2.__els['#stayAuto'].onclick();
+  assert.equal(t2.route.bases[0].stay, null);
+  assert.equal(t2.route.bases[1].stay.name, 'U babičky');
+  assert.match(c2.__toasts.at(-1), /Ceny hotelů zatím nepřišly/);
+});
