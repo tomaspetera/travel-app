@@ -1265,3 +1265,18 @@ test('lastPack: zkrácené nabídky cíle si nechají nejlevnější z každého
   const packed = JSON.parse(H.lastPack(c, 1.8e6, 3)); // celé (~2 MB) se nevejde
   assert.deepEqual(packed.res.groups[0].options.map(x => x.out.from), ['PRG', 'PRG', 'PRG', 'VIE', 'BTS']);
 });
+
+test('👀 prohlížené cíle: nejnovější první, každý jednou, bez ⭐/🙈 a starších 21 dní', () => {
+  const d = 864e5, now = 100 * d, J = x => JSON.parse(JSON.stringify(x));
+  let l = H.viewedAdd([], { id: 'metro:LIS', label: 'Lisabon', at: now - 30 * d });
+  l = H.viewedAdd(l, { id: 'ap:OPO', label: 'Porto', czk: 1890, at: now - 2 * d });
+  l = H.viewedAdd(l, { id: 'ap:KLU', label: 'Klagenfurt', at: now - d });
+  l = H.viewedAdd(l, { id: 'ap:OPO', label: 'Porto', czk: 1700, at: now });
+  l = H.viewedAdd(l, { id: 'geo:1,2|Vesnice', label: 'Vesnice', at: now }); // bez klíče letiště se nepamatuje
+  assert.deepEqual(J(l.map(x => x.label)), ['Porto', 'Klagenfurt', 'Lisabon']);
+  assert.equal(l[0].czk, 1700);
+  assert.deepEqual(J(H.viewedPick(l, now).map(x => x.label)), ['Porto', 'Klagenfurt']);
+  assert.deepEqual(J(H.viewedPick(l, now, new Set(['KLU'])).map(x => x.label)), ['Porto']);
+  assert.equal(H.viewedAdd(Array.from({ length: 9 }, (_, i) => ({ id: `ap:A${String(i).padStart(2, '0')}` })), { id: 'ap:ZZZ' }).length, 6);
+  assert.equal(H.viewedPick(null, now).length, 0);
+});
