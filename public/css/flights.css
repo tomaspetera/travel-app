@@ -221,6 +221,7 @@ details[open] .ps-more::after{content:" ▴"}
 .direct-hint{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;padding:9px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface);font-size:13.5px}
 .direct-hint small{color:var(--muted);font-size:12px}
 .direct-hint .btn{flex:none}
+.buy-cur{font-size:12px;margin-top:6px}
 .lr-direct{display:block;width:100%;text-align:left;margin:0 0 8px;padding:8px 11px;border-radius:12px;border:1px dashed var(--accent);background:transparent;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
 /* „🛫 Odkud se vyplatí letět“: souhrn ve sbalené kartě, řádek na letiště (klepnutí = jen lety odsud) */
 .oc-card{padding:12px 18px;margin-bottom:14px}

@@ -384,7 +384,7 @@ export const kiwi = {
         // Okno [a..b] jedním dotazem (departureDate + departureDateTo); ceny za všechny cestující.
         const json = await searchFlight({
           flyFrom: froms.join(','), flyTo: tos.join(','), departureDate: dmy(a), ...(b > a ? { departureDateTo: dmy(b) } : {}),
-          adults, sort: 'price', currency: 'EUR', locale: 'en', cabinClass: 'M',
+          adults, sort: 'price', currency: 'CZK', locale: 'cz', cabinClass: 'M',
           ...(directOnly ? { max_sector_stopovers: 0 } : {}),
           // aerolinky, které ATLAS hledá vlastním zdrojem (Ryanair, Wizz Air) – ať 15 výsledků zaberou jiné
           ...(exclude.length ? { exclude_airlines: exclude.join(',') } : {}),
@@ -418,7 +418,7 @@ export const kiwi = {
       ...(ret && backDays.length ? { ret_fly_days: backDays.join(',') } : {}),
       ...(oneForCity ? { one_for_city: true } : {}),
       ...(directOnly ? { max_sector_stopovers: 0 } : {}),
-      adults, sort: 'price', currency: 'EUR', locale: 'en', cabinClass: 'M',
+      adults, sort: 'price', currency: 'CZK', locale: 'cz', cabinClass: 'M',
     };
     const json = await searchFlight(args, { deadline, ctx });
     return parseKiwiSearch(json, { adults }).filter((t) => (!ret || t.back) && (!directOnly || (!t.out.stops && !t.back?.stops)));
@@ -428,7 +428,7 @@ export const kiwi = {
   async exact({ from, to, dateOut, dateBack = null, adults = 1 }) {
     const json = await searchFlight({
       flyFrom: from, flyTo: to, departureDate: dmy(dateOut), ...(dateBack ? { returnDate: dmy(dateBack) } : {}),
-      adults, sort: 'price', currency: 'EUR', locale: 'en', cabinClass: 'M',
+      adults, sort: 'price', currency: 'CZK', locale: 'cz', cabinClass: 'M',
     });
     return parseKiwiSearch(json, { adults });
   },

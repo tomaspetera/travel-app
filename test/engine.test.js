@@ -509,3 +509,15 @@ test('místa: mešita a synagoga nejsou „Kostel / chrám“', async () => {
   assert.equal(catLabel({ category: 'church', name: 'Katedrála sv. Víta' }), 'Kostel / chrám');
   assert.equal(catLabel({ category: 'museum', name: 'Mešita (muzeum)' }), 'Muzeum');
 });
+
+test('makeLeg: Ryanair a Wizz Air účtují v měně země odletu (siteCur, sitePrice), Kiwi ne', () => {
+  const L = (provider, from, to, price, currency) => makeLeg({ provider, carrier: 'FR', from, to, dep: '2026-11-15T06:25:00', price, currency });
+  const back = L('ryanair', 'CIA', 'PRG', 45.99, 'EUR');
+  assert.deepEqual([back.siteCur, back.sitePrice], ['EUR', 45.99], 'zpět z Říma v eurech, cena jak ji API poslalo');
+  assert.equal(L('ryanair', 'PRG', 'CIA', 56.3, 'EUR').siteCur, 'CZK', 'z Prahy v Kč (API vrací eura)');
+  const uk = L('ryanair', 'STN', 'PRG', 30, 'EUR');
+  assert.equal(uk.siteCur, 'GBP');
+  assert.ok(uk.sitePrice > 15 && uk.sitePrice < 30, `přepočet na libry: ${uk.sitePrice}`);
+  assert.equal(L('wizzair', 'FCO', 'PRG', 45.99, 'EUR').siteCur, 'EUR');
+  assert.equal(L('kiwi', 'FCO', 'PRG', 2267, 'CZK').siteCur, undefined);
+});

@@ -2252,11 +2252,18 @@
     const fees = window.Entry && Entry.ready() ? Entry.costs(isos, t.adults, via) : [];
     const feeCzk = fees.reduce((s, x) => s + x.czk, 0);
     const provLabel = p => ({ kiwi: 'Kiwi.com', travelpayouts: 'Aviasales', ryanair: 'Ryanair', wizzair: 'Wizz Air' })[p] || p;
+    // Ryanair a Wizz Air účtují v měně země odletu (let zpět z Itálie v eurech) – předem říct v čem a kolik
+    const curTxt = l => {
+      if (!l || !/^[A-Z]{3}$/.test(l.siteCur || '') || l.siteCur === 'CZK') return '';
+      if (!(l.sitePrice > 0)) return ` – web ukáže cenu v ${l.siteCur}`;
+      let p; try { p = new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: l.siteCur, maximumFractionDigits: l.sitePrice >= 100 ? 0 : 2 }).format(l.sitePrice); } catch (e) { p = `${Math.round(l.sitePrice)} ${l.siteCur}`; }
+      return ` – web ukáže cenu v ${l.siteCur}, ~${p}/os.`;
+    };
     const fly = isFly(t);
     const flightLinks = f.bookUrl ? [[f.combined ? `Koupit letenky (${provLabel(f.provider)})` : 'Koupit letenky', f.bookUrl]]
       // cesta přes víc měst: každý let je samostatná letenka
-      : fly ? allLegs(t).map(l => [`Letenka ${l.from} → ${l.to} ${fmtDate(l.date)} (${l.carrierName || l.provider})`, l.bookUrl])
-      : [[`Letenka tam (${f.out.carrierName || f.out.provider})`, f.out.bookUrl], ...(f.back ? [[`Letenka zpět (${f.back.carrierName || f.back.provider})`, f.back.bookUrl]] : [])];
+      : fly ? allLegs(t).map(l => [`Letenka ${l.from} → ${l.to} ${fmtDate(l.date)} (${l.carrierName || l.provider})${curTxt(l)}`, l.bookUrl])
+      : [[`Letenka tam (${f.out.carrierName || f.out.provider})${curTxt(f.out)}`, f.out.bookUrl], ...(f.back ? [[`Letenka zpět (${f.back.carrierName || f.back.provider})${curTxt(f.back)}`, f.back.bookUrl]] : [])];
     // Vlak/bus: jízdenka tam a zpět (RegioJet u vybraného spoje, jinak první odkaz – RegioJet, FlixBus, IDOS).
     const groundSteps = ov ? [[ov.out, 'tam', ov.from.label, ov.to.label, ov.links && ov.links.out], [ov.back, 'zpět', ov.to.label, ov.from.label, ov.links && ov.links.back]]
       .filter(x => x[0]).map(([g, what, a, b, links], i) => ({ id: `ground${i}:${g.date}`, label: `Jízdenka ${what}: ${a} → ${b} (${fmtDate(g.date)}${g.dep ? ' ' + hhmm(g.dep) : ''}${g.source === 'regiojet' ? ', ' + gWho(g) : ''})`, url: gUrl(g, links) })) : null;

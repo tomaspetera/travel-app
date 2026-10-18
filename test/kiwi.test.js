@@ -80,7 +80,9 @@ test('kiwi.daily: initialize + tools/call search-flight, okno od–do, počet ce
     assert.match(a.departureDate, /^\d{2}\/\d{2}\/\d{4}$/);
     assert.match(a.departureDateTo, /^\d{2}\/\d{2}\/\d{4}$/);
     assert.equal(a.adults, 1);
-    assert.equal(a.currency, 'EUR');
+    // ceny i odkaz na rezervaci v Kč na české verzi Kiwi (kiwi.com/cz/booking/…&currency=czk) – jako u letu tam
+    assert.equal(a.currency, 'CZK');
+    assert.equal(a.locale, 'cz');
     assert.equal(a.passengers, undefined);
     assert.equal(a.departureDateFlexRange, undefined);
     const [dd, mm, yyyy] = a.departureDate.split('/');

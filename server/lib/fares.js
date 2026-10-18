@@ -1,6 +1,6 @@
 // Jednotný tvar letu (leg) a cesty (trip) napříč poskytovateli.
-import { toCzk } from './fx.js';
-import { getAirport } from './airports.js';
+import { convert, toCzk } from './fx.js';
+import { COUNTRY_BY_ISO, getAirport } from './airports.js';
 import { daysBetween, flightMinutes, localToUtcMs, utcToLocalIso } from './dates.js';
 import { haversineKm } from './geo.js';
 
@@ -61,8 +61,19 @@ export function makeLeg(o) {
     ...(Array.isArray(o.layovers) && o.layovers.length ? { layovers: o.layovers.map((x) => ({ ...x, cc: getAirport(x.at)?.cc || null })) } : {}),
     live: o.live !== false,
     bookUrl: o.bookUrl || null,
+    ...siteCurrency(o, fa, czk),
     foundAt: o.foundAt || null,
   };
+}
+
+// Ryanair a Wizz Air účtují v měně země odletu (let z Prahy v Kč, zpět z Říma v eurech) – i když jsou ceny z API
+// v jiné měně. Na webu aerolinky pak uživatel uvidí siteCur; sitePrice = cena na osobu v ní (přibližně).
+const SITE_CUR_PROVIDERS = new Set(['ryanair', 'wizzair']);
+function siteCurrency(o, fa, czk) {
+  const cur = SITE_CUR_PROVIDERS.has(o.provider) ? COUNTRY_BY_ISO.get(fa?.cc)?.cur : null;
+  if (!cur || !/^[A-Z]{3}$/.test(cur)) return {};
+  const p = String(o.currency || '').toUpperCase() === cur ? Number(o.price) : convert(czk, 'CZK', cur);
+  return Number.isFinite(p) && p > 0 ? { siteCur: cur, sitePrice: Math.round(p * 100) / 100 } : { siteCur: cur };
 }
 
 /**
