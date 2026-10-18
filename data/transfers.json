@@ -81,7 +81,13 @@
       ["KR", "Kwangdžu", 35.1595, 126.8526], ["KR", "Kjongdžu", 35.8562, 129.2247],
       ["TW", "Tchaj-pej", 25.033, 121.5654], ["TW", "Tchaj-čung", 24.1477, 120.6736], ["TW", "Tchaj-nan", 22.9999, 120.227], ["TW", "Kao-siung", 22.6273, 120.3014],
       ["AT", "Vídeň", 48.2082, 16.3738], ["AT", "Sankt Pölten", 48.2047, 15.6256], ["AT", "Linec", 48.3069, 14.2858], ["AT", "Salcburk", 47.8095, 13.055]
-    ]
+    ],
+    "lines": {
+      "note": "V Itálii, Francii a Španělsku vedou rychlotratě paprskovitě, ne sítí: tempo rychlovlaku platí jen mezi městy na téže trati (seznam měst podle trati). Barcelona–Valencie, Bordeaux–Marseille, Nantes–Bordeaux nebo Benátky–Řím jezdí z velké části po běžné trati – tam odhad z času autem, případně spoj z railLinks. Země bez seznamu tratí: tempo mezi kterýmikoli dvěma městy v zemi.",
+      "IT": [["Turín", "Milán", "Reggio Emilia", "Boloňa", "Florencie", "Řím", "Neapol", "Salerno"], ["Milán", "Brescia", "Verona", "Padova", "Benátky"], ["Boloňa", "Padova", "Benátky"]],
+      "FR": [["Lille", "Paříž", "Lyon", "Avignon", "Aix-en-Provence", "Marseille"], ["Paříž", "Lyon", "Nîmes", "Montpellier"], ["Paříž", "Tours", "Bordeaux"], ["Paříž", "Rennes"], ["Paříž", "Nantes"], ["Paříž", "Remeš", "Štrasburk"]],
+      "ES": [["Madrid", "Zaragoza", "Tarragona", "Barcelona", "Girona"], ["Madrid", "Córdoba", "Sevilla"], ["Madrid", "Córdoba", "Málaga"], ["Madrid", "Valencie"], ["Madrid", "Alicante"], ["Madrid", "Valladolid"]]
+    }
   },
   "railLinks": {
     "note": "Přímé rychlé vlaky mezi hlavními nádražími (server/lib/transfers.js → railLink). Minuty = typická nejrychlejší pravidelná přímá jízda podle jízdního řádu 2026 (14. 12. 2025 – 12. 12. 2026): v každém směru 3. nejkratší jízda dne (ne jediný výjimečný spoj), průměr obou směrů; bez dočasných výluk. K nim se přičte overheadMin (cesta na nádraží a z něj, čekání). Místo do hubKm od nádraží je u nádraží, do viaKm se k uzlu dojede místním spojem (odhad jako u ostatních přejezdů) a přestoupí (changeMin) – jen když je to rychlejší než odhad. Letiště nikdy není u nádraží. Eurostar z/do Londýna: v minutách je i odbavení s kontrolou pasů (5. položka spoje, Eurostar doporučuje příchod 75 min před odjezdem v Londýně, 45–90 min jinde), hranice se pak nepřičítá; jinde mimo Schengen se přičítá hranice jako u ostatních vlaků. Města: [id, země, název, šířka, délka hlavního nádraží (Paříž a Budapešť střed města), minuty navíc z centra k nádraží za městem]; spoje: [id, id, minuty, zdroj, odbavení]. Ověřeno 6. 10. 2026 – zdroje v sources a v README (Přejezdy mezi místy).",
@@ -91,7 +97,10 @@
       "amtrak": "Amtrak GTFS (feed z 6. 10. 2026), čt 8. 10. 2026 – Acela",
       "seat61": "seat61.com – stránky Maroka (8. 7. 2026), Turecka (10. 6. 2026), Uzbekistánu (5. 6. 2026), Indie (2. 7. 2026) a Indonésie (17. 7. 2026)",
       "wego": "blog.wego.com (Haramain, upraveno 16. 9. 2026) a Saudipedia (2026): Mekka–Medína 2 h – 2 h 45 min podle zastávek",
-      "aladdin": "ask-aladdin.com, Train Timetables in Egypt 2026: Káhira–Alexandrie Talgo/VIP ~2 h 30 min"
+      "aladdin": "ask-aladdin.com, Train Timetables in Egypt 2026: Káhira–Alexandrie Talgo/VIP ~2 h 30 min",
+      "it": "souhrny jízdních řádů 2026 z vyhledávání 18. 10. 2026 (e656.net – orari Trenitalia a Italo, trenitalia.com Frecciarossa Milán–Řím, omio): rychlé přímé vlaky Frecciarossa a Italo, 3. nejkratší přímá jízda odhadem z uvedených nejrychlejších a běžných jízd (Florencie–Benátky 2 h 13–2 h 16, ne dřívějších 2 h 05)",
+      "es": "souhrny jízdních řádů 2026 z vyhledávání 18. 10. 2026 (blablacar.es, kombo.co, omio – Renfe AVE, Iryo, Ouigo; Euromed treneamos.com): Madrid–Sevilla 2 h 36–2 h 39 a Madrid–Málaga 2 h 44–2 h 55 se zpomalením tratí po nehodě u Adamuzu, Barcelona–Valencie Euromed 2 h 47–3 h 45 (dolní polovina rozpětí); Madrid–Barcelona do 13. 12. 2026 o ~25 min pomalejší – v tabulce není, platí tempo rychlotratě",
+      "fr": "souhrny jízdních řádů 2026 z vyhledávání 18. 10. 2026 (kelbillet.com, l-itineraire.com – TGV inOui a Ouigo): Paříž-Montparnasse–Bordeaux 2 h 02–2 h 14, Paříž-Lyon–Marseille 3 h 02–3 h 19"
     },
     "cities": [
       ["praha", "CZ", "Praha", 50.0831, 14.436], ["brno", "CZ", "Brno", 49.1905, 16.6128], ["olomouc", "CZ", "Olomouc", 49.5931, 17.2779],
@@ -120,7 +129,10 @@
       ["buchara", "UZ", "Buchara", 39.7724, 64.4208, 15], ["jakarta", "ID", "Jakarta", -6.1767, 106.8306, 25], ["bandung", "ID", "Bandung", -6.9143, 107.6021, 42],
       ["kahira", "EG", "Káhira", 30.063, 31.2461], ["alexandrie", "EG", "Alexandrie", 31.1934, 29.9068], ["dilli", "IN", "Dillí", 28.6403, 77.2204],
       ["agra", "IN", "Ágra", 27.159, 77.99], ["newyork", "US", "New York", 40.7503, -73.9945], ["washington", "US", "Washington", 38.897, -77.0064],
-      ["philadelphia", "US", "Filadelfie", 39.9556, -75.181], ["boston", "US", "Boston", 42.3523, -71.0553]
+      ["philadelphia", "US", "Filadelfie", 39.9556, -75.181], ["boston", "US", "Boston", 42.3523, -71.0553],
+      ["roma", "IT", "Řím", 41.901, 12.5016], ["napoli", "IT", "Neapol", 40.853, 14.2725], ["firenze", "IT", "Florencie", 43.7764, 11.248],
+      ["madrid", "ES", "Madrid", 40.407, -3.689], ["sevilla", "ES", "Sevilla", 37.392, -5.975], ["malaga", "ES", "Málaga", 36.712, -4.432],
+      ["valencia", "ES", "Valencie", 39.46, -0.382], ["bordeaux", "FR", "Bordeaux", 44.826, -0.556], ["marseille", "FR", "Marseille", 43.303, 5.381]
     ],
     "links": [
       ["praha", "brno", 157, "oebb"], ["praha", "olomouc", 134, "oebb"], ["praha", "ostrava", 198, "oebb"], ["praha", "pardubice", 57, "oebb"],
@@ -149,7 +161,11 @@
       ["lisboa", "porto", 169, "oebb"], ["tanger", "casablanca", 130, "seat61"], ["casablanca", "rabat", 50, "seat61"], ["istanbul", "ankara", 256, "seat61"],
       ["ankara", "konya", 99, "seat61"], ["mekka", "medina", 150, "wego"], ["taskent", "samarkand", 137, "seat61"], ["samarkand", "buchara", 107, "seat61"],
       ["jakarta", "bandung", 46, "seat61"], ["kahira", "alexandrie", 150, "aladdin"], ["dilli", "agra", 110, "seat61"], ["newyork", "washington", 178, "amtrak"],
-      ["newyork", "philadelphia", 71, "amtrak"], ["newyork", "boston", 232, "amtrak"]
+      ["newyork", "philadelphia", 71, "amtrak"], ["newyork", "boston", 232, "amtrak"],
+      ["roma", "napoli", 69, "it"], ["roma", "firenze", 94, "it"], ["firenze", "venezia", 133, "it"], ["roma", "venezia", 238, "it"],
+      ["milano", "roma", 179, "it"], ["milano", "firenze", 115, "it"],
+      ["madrid", "sevilla", 160, "es"], ["madrid", "malaga", 170, "es"], ["barcelona", "valencia", 185, "es"],
+      ["paris", "bordeaux", 126, "fr"], ["paris", "marseille", 187, "fr"]
     ]
   }
 }

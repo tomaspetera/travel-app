@@ -99,7 +99,7 @@ test('cesta přes víc měst: průběh cesty, kalendář, shrnutí a plánovač 
   const i = rows.findIndex((x) => /✈️ FCO 07:35 → BCN 09:20 .*Řím → Barcelona/.test(x));
   assert.ok(i > 0, rows.join('\n'));
   assert.match(rows[i - 1], /^2026-11-13 🚆 Řím → letiště FCO · vlak Leonardo Express/);
-  assert.match(rows[i - 2], /^2026-11-13 🚪 Z ubytování na letiště FCO vyraž nejpozději v 5:03.*brzy ráno/);
+  assert.match(rows[i - 2], /^2026-11-13 🚪 Z ubytování na letiště FCO vyraž nejpozději v 4:43.*brzy ráno/);
   assert.match(rows[i + 1], /^2026-11-13 🚌 Z letiště BCN → Barcelona/);
   assert.match(rows[i + 2], /^2026-11-13 🏨 Barcelona · 3 noci/);
   assert.ok(!rows.some((x) => /Přejezd/.test(x)));

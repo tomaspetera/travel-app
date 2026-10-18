@@ -484,7 +484,7 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
 
 Z Prahy na osobu tam: PRG ~50 Kč, PED ~150 Kč, KLV ~210 Kč, JCL ~220 Kč, VIE ~360 Kč, DRS ~430 Kč, MUC ~480 Kč,
 BER ~500 Kč, KRK ~530 Kč, KTW ~550 Kč; z Brna: BRQ ~30 Kč, BTS ~190 Kč, VIE ~300 Kč. Čas = jízda podle téhož modelu +
-cesta na letiště + ~20 min na nádraží a přestup. Ověřeno proti živým cenám RegioJetu a FlixBusu (6. 10. 2026, odjezdy
+cesta na letiště + ~30 min na nádraží, přestup a čekání na navazující spoj. Ověřeno proti živým cenám RegioJetu a FlixBusu (6. 10. 2026, odjezdy
 20. 10. a 12. 11.): Praha → Karlovy Vary 139–259 Kč, Pardubice 119–169 Kč, České Budějovice 179–279 Kč, Drážďany busem
 319–369 Kč (+ S-Bahn ~85 Kč; počítá se změřená cena, viz výše), Brno → Bratislava 129–279 Kč; běžné ceny 15. 10. 2026
 viz [Vlak nebo bus místo letadla](#vlak-nebo-bus-místo-letadla). Dřív (nejnižší ceny + příplatek) vycházelo PED ~200 Kč,
@@ -601,8 +601,9 @@ a pozdní návrat končí doma po půlnoci. ATLAS proto sečte čas letu s odhad
   kde bys veřejnou dopravou vyrážel z domu před 4:30 nebo se vracel po půl jedné v noci – ne z letiště ve tvém městě
   (taxi). Let s neznámým časem nebo letiště bez odhadu cesty neskrývá; platí jen pro toto hledání jako ostatní filtry času.
 - **Průvodce cestou**, *🗓️ Průběh cesty*: *🚪 Vyraž z domu nejpozději ve 3:15 (~45 min na letiště PRG + 2 h před
-  odletem, odhad)* a v den letu zpět *🚪 Z ubytování na letiště VIE vyraž nejpozději ve 4:20* (cesta z města na letiště,
-  u trasy přes víc míst z posledního místa) s radou – brzy ráno *taxi objednej předem, nebo přespi u letiště*, po 11:00
+  odletem, odhad)* a v den letu zpět *🚪 Z ubytování na letiště VIE vyraž nejpozději ve 4:00* (cesta z města na letiště
+  – k jízdě z tabulky letiště ~20 min z ubytování na zastávku a čekání na spoj; u trasy přes víc míst přejezd
+  z posledního místa) s radou – brzy ráno *taxi objednej předem, nebo přespi u letiště*, po 11:00
   *check-out bývá do 11:00 – zavazadla nech na recepci*. Obojí i jako události v *📅 Do kalendáře* (.ics) v časovém
   pásmu letiště, i v noci změny času. Let mimo Schengen (podle země cíle, u letu zpět podle země, odkud letíš – i Irsko
   a Kypr, které jsou v EU, ale mimo Schengen) 2,5 h před odletem – stejně u štítku nabídky i ve filtru. Jedno místo
@@ -1271,7 +1272,11 @@ cesta z města příjezdu (ne z letiště):
 Cena přejezdů je ve Shrnutí a v „Celkem“ jako odhad: **autem palivo** za auto (nafta 6 l/100 km za cenu v zemi startu,
 `server/lib/fuel.js`; i z letiště na první místo a z posledního zpět), **vlakem / autobusem jízdenky** na osobu mezi
 místy podle vzdálenosti (stejný model jako cesta vlakem místo letu, `distanceModel` v `server/lib/ground.js`; z letiště
-a na letiště je v dopravě z letiště do města).
+a na letiště je v dopravě z letiště do města). Vlak v západní, severní a jižní Evropě je dražší než mezinárodní bus,
+na kterém je model kalibrovaný: rychlovlak (vysokorychlostní trať nebo přímý spoj z tabulky níže) ~60 Kč + 2,8 Kč/km
+vzdušnou čarou (Řím → Neapol ~590 Kč, Lisabon → Porto ~830 Kč, Barcelona → Valencie ~910 Kč), jiný vlak ~30 Kč +
+2 Kč/km (Florencie → Pisa ~170 Kč) – podle přehledů cen 2026 (Frecciarossa / Italo Economy 18–28 €, Alfa Pendular
+~30–35 €, Euromed od ~25 €).
 
 - **Autem:** silniční vzdálenost a čas bez kolon z plánovače tras [BRouter](https://brouter.de/) (profil `car-fast`,
   nad OpenStreetMap) × **provoz podle regionu** + 5 min na start a cíl ve městě + **zácpy**, začíná-li nebo končí-li
@@ -1288,16 +1293,18 @@ a na letiště je v dopravě z letiště do města).
 - **Veřejnou dopravou:** *🚆 vlakem / busem* jen v zemích, kde se mezi městy běžně jezdí vlakem (většina EU,
   Švýcarsko, Británie, Japonsko, Korea, Čína, Tchaj-wan, Indie…; a ne u místa, o kterém mezipaměť nádraží z výletů
   na kole ví, že u něj žádné není) – čas autem + 10–30 min na nádraží; mezi dvěma městy na vysokorychlostní trati
-  v téže zemi (Itálie, Francie, Španělsko, Německo, Rakousko, Británie, Japonsko, Čína, Korea, Tchaj-wan) nejvýš
-  40 min + 0,25–0,5 min/km vzdušnou čarou podle země (Čína 0,25; Francie, Španělsko, Japonsko, Tchaj-wan 0,3;
+  v téže zemi (Itálie, Francie, Španělsko, Německo, Rakousko, Británie, Japonsko, Čína, Korea, Tchaj-wan; v Itálii,
+  Francii a Španělsku jen na téže trati – rychlotratě tam vedou paprskovitě, Barcelona–Valencie, Bordeaux–Marseille
+  ani Turín–Benátky po nich nejedou, `hsr.lines`) nejvýš 40 min + 0,25–0,5 min/km vzdušnou čarou podle země (Čína 0,25; Francie, Španělsko, Japonsko, Tchaj-wan 0,3;
   Itálie 0,35; Británie a Korea 0,4; Německo 0,45; Rakousko 0,5 – Westbahn jezdí ~200 km/h se zastávkami). Jinde
   *🚌 autobusem / minibusem* – čas autem × 1,2 (Evropa) až 1,3 + 15–45 min čekání + hranice. Vždy „odhad“ (mimo
   tabulku přímých vlaků níže); odkaz do Google Map je „ověř spoje“.
 - **Přímé rychlé vlaky podle jízdního řádu:** tabulka ~100 ověřených spojů mezi hlavními nádražími ~80 měst
   (`railLinks` v `data/transfers.json`) – Česko a sousedé (Praha–Brno/Olomouc/Ostrava/Pardubice/Plzeň/Drážďany/Berlín/
   Vídeň/Bratislava, Vídeň–Brno/Bratislava/Budapešť, Žilina–Košice, Koralmbahn Štýrský Hradec–Klagenfurt 42 min…),
-  Německo, Polsko, Švýcarsko, Benelux, Paříž (Eurostar, TGV Lyria, ICE), Skandinávie, Finsko, Portugalsko, sever Itálie
-  a pár rychlých tratí jinde: Al Boraq Tanger–Casablanca–Rabat, Acela New York–Washington/Filadelfie/Boston, YHT
+  Německo, Polsko, Švýcarsko, Benelux, Paříž (Eurostar, TGV Lyria, ICE, TGV do Bordeaux a Marseille), Skandinávie,
+  Finsko, Portugalsko, Itálie (Milán–Florencie–Řím–Neapol, Benátky–Florencie/Řím), Španělsko (Madrid–Sevilla/Málaga,
+  Euromed Barcelona–Valencie) a pár rychlých tratí jinde: Al Boraq Tanger–Casablanca–Rabat, Acela New York–Washington/Filadelfie/Boston, YHT
   Istanbul–Ankara–Konya, Haramain Mekka–Medína, Afrosiyob Taškent–Samarkand–Buchara, Whoosh Jakarta–Bandung,
   Káhira–Alexandrie, Dillí–Ágra. Minuty = typický nejrychlejší **pravidelný** přímý vlak jízdního řádu 2026 (v každém
   směru 3. nejkratší jízda dne – ne jediný výjimečný spoj; průměr obou směrů; bez dočasných výluk) + **20 min** na cestu
@@ -1316,7 +1323,10 @@ a na letiště je v dopravě z letiště do města).
   HAFAS): všechny přímé vlaky dne v út 27. 10. a čt 12. 11. 2026 (při výluce – méně vlaků, objížďka – hodnota ze dne bez
   ní, kontrolně út 13. 10.); Amtrak GTFS (feed z 6. 10. 2026); seat61.com (Maroko, Turecko, Uzbekistán, Indie, Indonésie –
   stránky z června až září 2026); blog.wego.com a Saudipedia (Haramain, 2026); ask-aladdin.com (Egypt 2026); eurostar.com
-  (odbavení). Vynechané: Casablanca–Marrákeš (od 9/2025 výluky kvůli stavbě rychlotrati Kenitra–Marrákeš, jízdní
+  (odbavení). Itálie, Španělsko a Francie (doplněno 18. 10. 2026): souhrny jízdních řádů z vyhledávání (e656.net,
+  trenitalia.com, blablacar.es, kombo.co, kelbillet.com, omio) – 3. nejkratší přímá jízda odhadem z uvedených
+  nejrychlejších a běžných jízd; Madrid–Sevilla a Madrid–Málaga se zpomalením tratí v roce 2026, Madrid–Barcelona
+  (do 13. 12. 2026 o ~25 min pomalejší) v tabulce není. Vynechané: Casablanca–Marrákeš (od 9/2025 výluky kvůli stavbě rychlotrati Kenitra–Marrákeš, jízdní
   řád se mění), Madrid–Lisabon (přímý vlak v roce 2026 nejezdí), Budapešť–Bělehrad (v jízdním řádu 2026 žádný spoj,
   provoz po nové trati odložený), Lublaň–Záhřeb (5 vlaků denně, pomalejší než autobus), Bangkok–Ajutthaja (vlak není
   jasně rychlejší); Barcelona–Paříž jezdí přímo jen 2× denně, proto typický dobrý spoj i s přestupem (~6 h 55 min).

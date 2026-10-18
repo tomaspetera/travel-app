@@ -291,7 +291,7 @@ export function transitAccess(home, a, { scale = 1, own = null } = {}) {
     } else {
       items.push({ k: 'intercity', label: `${o.label ? `${o.label} → ` : ''}${c.label} ${f ? f[2] : 'vlakem / busem'}`, czk: ic.czk, min: ic.min });
       items.push({ k: 'access', label: c.how, czk: c.czk, min: c.min });
-      minutes = ic.min + c.min + 20; // na nádraží a přestup
+      minutes = ic.min + c.min + 30; // na nádraží, přestup a čekání na navazující spoj
       typical = !ic.regional;
     }
   }
@@ -388,7 +388,9 @@ export function carAccess(home, a, opts = {}) {
   const e = carEnergy(opts, o.cc || 'CZ');
   const kmCzk = e ? e.kmCzk : normalizeCar(opts).carKmCzk;
   const fuelCzk = Math.round(roadKm * kmCzk);
-  const drive = (Math.min(roadKm, 30) / 40) * 60 + (Math.max(0, roadKm - 30) / 90) * 60;
+  // prvních ~15 km městem a k dálnici (~35 km/h), dál dálnicí a silnicí 1. třídy (~105 km/h) – v toleranci ±10 %
+  // s plánovačem tras OSRM (+15 min parkování): Praha → Pardubice ~1 h 40 min, → Vídeň-Schwechat ~3 h 45 min (10/2026)
+  const drive = (Math.min(roadKm, 15) / 35) * 60 + (Math.max(0, roadKm - 15) / 105) * 60;
   const tolls = tollsOn(o.cc, a.cc);
   const once = tolls.filter((t) => t.days).reduce((s, t) => s + t.czk, 0);
   const each = tolls.filter((t) => !t.days).reduce((s, t) => s + t.czk, 0);

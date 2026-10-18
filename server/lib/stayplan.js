@@ -46,9 +46,25 @@ export function transfer(a, b, transport = 'car', route = null) {
   const e = transferTimes(a, b, route);
   const air = haversineKm(a.lat, a.lon, b.lat, b.lon);
   const cost = e.km >= 1
-    ? { fuelCzk: carFuelCzk({ roadKm: e.km, country: a.cc || 'CZ' }), fareCzk: distanceModel(air, 1, priceBand({ cc: a.cc, rj: 1 }, { cc: b.cc, rj: 1 })).typ }
+    ? { fuelCzk: carFuelCzk({ roadKm: e.km, country: a.cc || 'CZ' }), fareCzk: railFare(e, a, b, air) ?? distanceModel(air, 1, priceBand({ cc: a.cc, rj: 1 }, { cc: b.cc, rj: 1 })).typ }
     : { fuelCzk: 0, fareCzk: 0 };
   return { ...e, ...cost, long: minOf(e, transport) > TRANSFER_MAX[transport], carUrl: gmDir(a, b, 'driving'), transitUrl: gmDir(a, b, 'transit') };
+}
+
+// Vlak v západní, severní a jižní Evropě je dražší než mezinárodní bus, na kterém je kalibrovaný model podle vzdálenosti
+// (Řím → Neapol vycházel 300 Kč, Lisabon → Porto 430 Kč): běžná cena (ne akční) rychlovlaku – Frecciarossa, Italo, AVE,
+// TGV, Alfa Pendular, Euromed – ~60 Kč + 2,8 Kč/km vzdušnou čarou (Řím → Neapol ~590 Kč, Lisabon → Porto ~830 Kč,
+// Barcelona → Valencie ~910 Kč), jiného vlaku ~30 Kč + 2 Kč/km (Florencie → Pisa ~170 Kč). Podle přehledů cen 2026:
+// Frecciarossa / Italo Economy 18–28 €, Alfa Pendular Lisabon–Porto ~30–35 €, Euromed od ~25 €, regionální vlak
+// Florencie–Pisa ~9 € (10/2026).
+const DEAR_RAIL = new Set(['AT', 'BE', 'CH', 'DE', 'DK', 'ES', 'FI', 'FR', 'GB', 'IE', 'IT', 'LI', 'LU', 'MC', 'NL', 'NO', 'PT', 'SE']);
+const r10 = (x) => Math.round(x / 10) * 10;
+function railFare(e, a, b, air) {
+  if (e.transitKind !== 'rail') return null;
+  const ca = a.cc || countryAt(a.lat, a.lon);
+  const cb = b.cc || countryAt(b.lat, b.lon);
+  if (!DEAR_RAIL.has(ca) || !DEAR_RAIL.has(cb)) return null;
+  return r10(e.hsr || e.fast ? 60 + 2.8 * air : 30 + 2 * air);
 }
 
 /** Kolik míst navrhnout podle délky pobytu (každé místo aspoň 1 noc, delší pobyt víc míst). */

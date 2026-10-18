@@ -92,6 +92,19 @@ test('pravidla: hranice (Schengen, Británie a Irsko), zácpy v metropoli, vlak 
   assert.ok(hsrMin(P.milano, P.bologna) > 0);
   assert.equal(hsrMin(P.praha, P.brno), null);
   assert.equal(hsrMin(P.milano, { lat: 48.8566, lon: 2.3522 }), null, 'Milán – Paříž: jiná země');
+  // v Itálii, Francii a Španělsku jen na téže trati (rychlotratě vedou paprskovitě, ne sítí)
+  const city = (name) => { const [cc, , lat, lon] = RULES.hsr.cities.find((c) => c[1] === name); return { lat, lon, cc }; };
+  assert.ok(hsrMin(city('Madrid'), city('Sevilla')) > 0, 'Madrid–Sevilla: AVE');
+  assert.ok(hsrMin(city('Paříž'), city('Marseille')) > 0, 'Paříž–Marseille: TGV');
+  assert.equal(hsrMin(city('Barcelona'), city('Valencie')), null, 'Barcelona–Valencie: Euromed po běžné trati');
+  assert.equal(hsrMin(city('Bordeaux'), city('Marseille')), null, 'Bordeaux–Marseille: přes Toulouse');
+  assert.equal(hsrMin(city('Málaga'), city('Granada')), null, 'Málaga–Granada: bez přímé rychlotratě');
+  assert.equal(hsrMin(city('Turín'), city('Benátky')), null, 'Turín–Benátky: dvě tratě');
+  assert.ok(hsrMin(city('Hamburk'), city('Mnichov')) > 0, 'Německo bez seznamu tratí: kterákoli dvě města');
+  for (const [cc, lines] of Object.entries(RULES.hsr.lines)) {
+    if (cc === 'note') continue;
+    for (const l of lines) for (const n of l) assert.ok(RULES.hsr.cities.some((c) => c[0] === cc && c[1] === n), `${cc} ${n}`);
+  }
   // krátký přejezd v témže místě
   assert.deepEqual({ ...transferTimes(P.praha, { ...P.praha }) }, { km: 0, carMin: 0, transitMin: 0, transitKind: 'rail', border: null, basis: 'estimate' });
 });

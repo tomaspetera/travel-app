@@ -1951,6 +1951,7 @@
    * 2,5 h. → { home, hotel }, každé null nebo { date, hm, min (cesta na letiště), airport, before, hint }. Domov a letiště
    * odletu jsou ve stejném časovém pásmu. Vlakem/busem místo letu nic; s autem vráceným na letišti čas dává vrácení auta.
    */
+  const CITY_STOP_MIN = 20; // z ubytování na zastávku letištního busu / vlaku a čekání na spoj
   function leaveBy(t) {
     if (!t || !t.flight || !t.flight.out || ovOn(t)) return { home: null, hotel: null };
     const f = t.flight, bases = (isMulti(t) && t.route.bases) || [];
@@ -1961,11 +1962,14 @@
     // minuty z cizího odkazu (#trip=) jen jako rozumné číslo
     const okMin = v => { const n = Number(v); return Number.isFinite(n) && n > 0 && n < 1440 ? Math.round(n) : 0; };
     const gm = okMin(t.ground && t.ground.out && t.ground.out.minutes);
+    // tabulka cesty z letiště do města (arrival) má jen jízdu: k ní cesta z ubytování na zastávku a čekání na spoj
+    // (přejezdy trasy z transfers.js je už v sobě mají)
+    const tab = v => { const n = okMin(v); return n > 0 ? n + CITY_STOP_MIN : 0; };
     let hotel = null;
     if (f.back && f.back.hasTime && !carCovers(t, 'back')) {
       // trasa podle letů: poslední místo je ve městě letiště odletu → cesta z města na letiště jako u jednoho místa
       const lg = isFly(t) ? gapLeg(t, gapAt(t, t.route.bases.length - 1)) : null;
-      const m = okMin(isMulti(t) && !isFly(t) ? legMin((t.route.legs || {}).departure, t.route.transport) : lg ? lg.transitMin : t.arrival && t.arrival.back && t.arrival.back.min);
+      const m = isMulti(t) && !isFly(t) ? okMin(legMin((t.route.legs || {}).departure, t.route.transport)) : lg ? okMin(lg.transitMin) : tab(t.arrival && t.arrival.back && t.arrival.back.min);
       // jedno místo, ale zpět z letiště jiného města (víc měst v hledání): cesta z města toho letiště se k ubytování nehodí
       const sameCity = isMulti(t) || f.back.from === f.out.to || !(t.arrival && t.arrival.out && t.arrival.back) || t.arrival.out.city === t.arrival.back.city;
       if (m > 0 && sameCity) {
@@ -1980,7 +1984,7 @@
     // cesta přes víc měst: z ubytování na let do dalšího místa (cesta z města na letiště z hledání)
     const mids = isFly(t) ? midLegs(t).map((l, i) => {
       const a = t.arrival && Array.isArray(t.arrival.mid) && t.arrival.mid[i] && t.arrival.mid[i].from, gx = gapLeg(t, gapAt(t, i));
-      const m = okMin(gx ? gx.transitMin : a && a.min);
+      const m = gx ? okMin(gx.transitMin) : tab(a && a.min);
       if (!l.hasTime || !(m > 0)) return null;
       const x = at(l, m, bases[i] && bases[i].cc), day = x.date === l.date;
       x.hint = day && x.hm > CHECKOUT_HM ? `check-out bývá do ${CHECKOUT_HM} – zavazadla nech na recepci` : day && x.hm < '06:00' ? 'brzy ráno – taxi objednej předem, nebo přespi u letiště' : null;
