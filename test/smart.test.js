@@ -310,3 +310,19 @@ test('„a zpět z Neapole“ / „návrat z Porta“ = místo návratu (Víc m�
   assert.equal(P('do Londýna tam a zpět').back, undefined);
   assert.equal(P('z Prahy do Paříže a zpět').back, undefined);
 });
+
+test('„pozítří“, „příští pátek“, „tuto sobotu“ = konkrétní den odletu; čip ukáže i dopočtený návrat', () => {
+  // dnes ne 18. 10. 2026
+  const r = P('příští pátek do Milána na víkend');
+  assert.deepEqual([r.to, r.patch.dateMode, r.patch.xOut, r.patch.xBack], [['Milána'], 'exact', '2026-10-23', '2026-10-25']);
+  assert.equal(chips(r)[0], 'pátek 23. 10. – 25. 10.');
+  assert.equal(P('příští pátek do Milána', '2026-10-20').patch.xOut, '2026-10-30'); // z úterý: pátek příštího týdne
+  assert.equal(P('tento pátek do Milána', '2026-10-20').patch.xOut, '2026-10-23');
+  assert.equal(P('tuto sobotu do Vídně').patch.xOut, '2026-10-24');
+  assert.equal(P('v příští pondělí do Londýna').patch.xOut, '2026-10-19');
+  const z = P('pozítří do Vídně jen tam');
+  assert.deepEqual([z.to, z.patch.xOut, z.patch.trip], [['Vídně'], '2026-10-20', 'oneway']);
+  assert.equal(chips(P('zítra do Londýna'))[0], 'zítra – 26. 10.');
+  // „romantický víkend v Paříži“: přívlastek není místo
+  assert.deepEqual(P('romantický víkend v Paříži').to, ['Paříži']);
+});

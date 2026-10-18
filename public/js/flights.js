@@ -323,7 +323,9 @@
       // vesnice ve tvaru věty („do Hronova“): i geokódováním; víceslovné ne („Brno Londýn“ by našlo ulici)
       if (!items.length && one && !/\s/.test(one)) { const g = await resolvePlace(one, this.origin, this.near(), signal); if (g) items = [g]; }
       items = items.filter(s => !this.origin || s.type !== 'continent');
-      const split = !items.length && this.smart && !this.origin && /\s/.test(q) ? await smartSplit(q, this.near(), signal) : null;
+      // („letenky Praha Barcelona“: bez výplňových slov)
+      const sq = one && /\s/.test(one) ? one : q;
+      const split = !items.length && this.smart && !this.origin && /\s/.test(sq) ? await smartSplit(sq, this.near(), signal) : null;
       if (!items.length && !split && /\s/.test(q)) { const p = await countryPlace(q, this.origin, this.near(), signal); if (p) items = [p]; }
       return { hit: split, items };
     }
