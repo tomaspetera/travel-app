@@ -1107,6 +1107,7 @@
   /* ---------- hledání ---------- */
   async function startSearch(opts = {}) {
     const f = getForm();
+    nudge = null;
     if (!f.from.length) { toast('Zadej, odkud chceš letět', 'err'); fromInput.input.focus(); return; }
     if (f.trip === 'multi') {
       const bad = mlProblem(f.legs);
@@ -1160,6 +1161,7 @@
       pinsFinal(res); // 📌 odložené nabídky, které hledání se stejným nastavením našlo znovu: nová cena a čas (výpis hned po tom)
       fitMode(res);
       fitOrigins(res);
+      nudge = seenBump(f); // stejné hledání po několikáté → nabídka ♡ Hlídat cenu nad výsledky
       // po průběžných výsledcích jen překreslit (filtry, pohled, rozbalení, posun i fokus zůstanou) – ne pod rukou
       const paint = () => { renderProgress({ providers: res.providers }, false, res); if (s.shown) rerenderKeep(); else renderResults(); };
       paintDrop();
@@ -1684,7 +1686,7 @@
         <button type="button" class="btn sm ghost res-more-btn" id="resMoreBtn" aria-expanded="${moreOpen}" aria-controls="resMore" title="Filtry, řazení a srovnání letišť">⚙️ Filtry${nMore ? ` <b class="tf-n">${nMore}</b>` : ''} <span aria-hidden="true">${moreOpen ? '▴' : '▾'}</span></button>
         <div class="seg" id="viewSeg">${modes.map(v => { const [ic, ...w] = v[1].split(' '); return `<button type="button" data-v="${v[0]}" class="${view.mode === v[0] ? 'on' : ''}"><span class="vs-ic">${ic} </span>${w.join(' ')}</button>`; }).join('')}</div>
       </div></div>
-      ${groundBanner(res)}
+      ${nudgeHtml()}${groundBanner(res)}
       ${filterChips(chips)}
       <div class="res-more${moreOpen ? ' open' : ''}" id="resMore">
       <div class="res-filters">
@@ -2102,7 +2104,8 @@
       ${filterChips(SearchHelp.activeFilters(res.filters))}
       ${res.demo ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div><b>DEMO data</b> – ceny i lety jsou vymyšlené, slouží jen k vyzkoušení aplikace.</div></div>' : ''}
       ${res.fx && res.fx.source === 'approx' && !res.demo ? '<div class="note warn" style="margin-bottom:14px">💱 <div>Kurzy měn se nepodařilo načíst – přepočet do Kč je orientační.</div></div>' : ''}
-      <div class="note info mc-note">🎫 <div><b>Každý let je samostatná letenka</b> – kupuješ je zvlášť, tlačítkem u každého letu. Když se jeden let zpozdí nebo ho zruší, další aerolinka na tebe nečeká a peníze nevrací. ATLAS proto páruje lety s rezervou: na stejném letišti aspoň 3 h (jiné letiště téhož města 5 h), z jiného města nejdřív další den a aspoň 8 h po příletu.</div></div>`;
+      <div class="note info mc-note">🎫 <div><b>Každý let je samostatná letenka</b> – kupuješ je zvlášť, tlačítkem u každého letu.
+        <details class="mc-why"><summary>Co to znamená?</summary>Když se jeden let zpozdí nebo ho zruší, další aerolinka na tebe nečeká a peníze nevrací. ATLAS proto páruje lety s rezervou: na stejném letišti aspoň 3 h (jiné letiště téhož města 5 h), z jiného města nejdřív další den a aspoň 8 h po příletu.</details></div></div>`;
     const steps = `<div class="legs-bar"><span class="faint">Vyber let v každém kroku – cena celé cesty se přepočítá a lety, které na výběr nenavazují, zešednou s důvodem.</span>${any ? '<button type="button" class="linkbtn" data-mclear="1">Zrušit výběr</button>' : ''}</div>
       <div class="mc-cols">${legs.map((l, i) => mCol(res, i, picks, plan)).join('')}</div>`;
     const title = full ? 'Vybraná cesta' : any ? 'Nejlevnější cesta s vybranými lety' : 'Nejlevnější celá cesta';
@@ -2976,6 +2979,7 @@
 
   function wireResults() {
     const host = $('#results');
+    const nw = $('#nudgeWatch', host); if (nw) nw.onclick = async () => { const f = nudge && nudge.form; nudge = null; await addWatch(f || undefined); rerender(true); };
     $('#sortSel', host).onchange = e => { view.sort = e.target.value; rerender(); };
     const mb = $('#resMoreBtn', host);
     if (mb) mb.onclick = () => { const open = !$('#resMore', host).classList.contains('open'); view.moreOpen = open; if (!open) view.timeOpen = false; rerender(true); };
@@ -3383,6 +3387,19 @@
     }) || null;
   }
   // hlídané pevně i klouzavě (♥ Hlídáš – stejné hledání se znovu neukládá ani s přepnutým 📅)
+  /**
+   * Chování: kolikrát uživatel spustil totéž hledání (podle watchKey, posledních 20 různých). Po druhém a dalším
+   * (a když ho ještě nehlídá) nabídne výsledek ♡ Hlídat cenu – na Přehledu pak uvidí, když zlevní.
+   */
+  let nudge = null;
+  function seenBump(f) {
+    const k = watchKey({ form: f }); if (!k) return null;
+    const m = { ...(S.seen && typeof S.seen === 'object' ? S.seen : {}) }, n = ((m[k] && +m[k][0]) || 0) + 1;
+    m[k] = [n, Date.now()];
+    S.seen = Object.fromEntries(Object.entries(m).sort((a, b) => b[1][1] - a[1][1]).slice(0, 20));
+    return n >= 2 && !isWatched(f) && (S.watch || []).length < 12 ? { n, form: f } : null;
+  }
+  const nudgeHtml = () => (nudge ? `<div class="note info watch-nudge">🔁 <div>Tohle hledáš už po ${nudge.n}. – <button type="button" class="linkbtn" id="nudgeWatch"><b>♡ Hlídat cenu</b></button> a na Přehledu uvidíš, kdy zlevní.</div></div>` : '');
   const isWatched = f => {
     const roll = Alerts.rollSpec(f, today()), ks = new Set([watchKey({ form: f }), ...(roll ? [watchKey({ form: { ...f, roll } })] : [])]);
     return (S.watch || []).some(w => ks.has(watchKey(w))) || Boolean(rolledOf(f));
