@@ -483,14 +483,18 @@
     take(new RegExp(`(?:co|kam|jak)\\s+(?:videt|navstivit|delat|zazit|podniknout|stoji\\s+za\\s+to|jit|zajit)${W}|(?:zajimav\\w*|tipy|tip|doporuceni)${W}`), () => {});
     take(new RegExp(`(\\d{1,3})\\s*km${W}`), m => { km = +m[1]; });
     take(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:den|dny|dni|dnu)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 14)) return false; days = n; });
-    take(new RegExp(`(?:na\\s+)?(?:prodlouzen\\w+\\s+)?vikend\\w*${W}`), m => { days = days || (/prodlouz/.test(m[0]) ? 3 : 2); });
-    take(new RegExp(`(?:na\\s+)?(?:cely\\s+)?tyden${W}`), () => { days = days || 7; });
+    take(new RegExp(`(?:(?:na|o|pres)\\s+)?(?:prodlouzen\\w+\\s+)?vikend\\w*${W}`), m => { days = days || (/prodlouz/.test(m[0]) ? 3 : 2); });
+    // „příští týden“ je kdy (začátek), ne délka – nechat pro parse()
+    take(new RegExp(`(?:na\\s+)?(?:cely\\s+)?tyden${W}`), m => { if (/(?:pristi|dalsi|tento|tenhle)\s+$/.test(s.slice(0, m.index))) return false; days = days || 7; });
     take(new RegExp(`(?:s|se)\\s+(?:detmi|ditetem|ditkem|deckama)${W}|pro\\s+deti${W}`), () => { interests.push('kids'); });
     take(new RegExp(`(?:muze\\w*|galeri\\w*|umeni)${W}`), () => { interests.push('art'); });
     take(new RegExp(`(?:pamatk\\w*|histori\\w*|hrad\\w*|zamk\\w*|zamek)${W}`), () => { interests.push('history'); });
     take(new RegExp(`(?:prirod\\w*|vyhled\\w*)${W}`), () => { interests.push('nature'); });
     const p = parse(blank.join(''), o), pt = p.patch;
-    const start = pt.xOut || pt.dFrom || null;
+    let start = pt.xOut || pt.dFrom || null;
+    // „od pátku do neděle“: dny = noci + 1, začátek nejbližší ten den v týdnu (dnes, je-li to on)
+    if (!days && pt.len === 'custom' && pt.nMin) days = Math.min(14, pt.nMin + 1);
+    if (!start && pt.outDays && pt.outDays.length === 1) { const t = o.today || ymd(new Date()); start = addDays(t, (pt.outDays[0] - dow(t) + 7) % 7); }
     const place = p.to[0] || p.from[0] || '';
     const chips = [];
     if (mode) chips.push(EX_MODE[mode]);

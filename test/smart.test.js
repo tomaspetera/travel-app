@@ -282,3 +282,12 @@ test('„příští týden“ / „tento týden“ = kdy (po–ne), ne délka; �
   assert.equal(P('na týden do Říma').patch.len, 'week');
   assert.deepEqual([P('tento týden kamkoliv', '2026-10-15').patch.dFrom, P('tento týden kamkoliv', '2026-10-15').patch.dTo], ['2026-10-15', '2026-10-18']);
 });
+
+test('Objevuj: „o víkendu“, „příští týden“ (začátek, ne délka), „od pátku do neděle“ (dny + začátek), „v sobotu“', () => {
+  const X = (q) => JSON.parse(JSON.stringify(Smart.parseExplore(q, { today })));
+  assert.deepEqual([X('co dělat v Barceloně o víkendu').place, X('co dělat v Barceloně o víkendu').days], ['Barceloně', 2]);
+  assert.deepEqual([X('Paříž příští týden').place, X('Paříž příští týden').days, X('Paříž příští týden').start], ['Paříž', null, '2026-10-19']);
+  assert.deepEqual([X('Budapešť od pátku do neděle').days, X('Budapešť od pátku do neděle').start], [3, '2026-10-23']);
+  assert.equal(X('Krakov v sobotu').start, '2026-10-24');
+  assert.equal(X('Lisabon na týden').days, 7);
+});
