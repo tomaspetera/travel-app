@@ -150,6 +150,17 @@ U všech 197 zemí ATLAS ukazuje, co je potřeba k cestě s českým pasem nebo 
   („Celkem i se vstupními poplatky“). Export do kalendáře (.ics) přidá připomínku „🛂 Vyřídit ESTA (USA)“ 14 dní
   před odletem (u víza 30 dní, déle, když data uvádějí delší vyřízení). Sdílené odkazy nesou jen kódy zemí
   (a zemí přestupu), podmínky se dopočítají z dat.
+- **📝 Povinné online formuláře k příletu** (i bez víza): příletové karty, celní a podobné formuláře, které je
+  potřeba vyplnit online předem (a zdarma) – Thajsko TDAC, Filipíny eTravel, Malajsie MDAC,
+  Singapur SG Arrival Card, Jižní Korea e-Arrival Card, Tchaj-wan TWAC, Indonésie All Indonesia, Kambodža e-Arrival,
+  Maledivy IMUGA, Indie e-Arrival Card, Brunej E-Arrival Card, Nový Zéland NZTD, Papua Nová Guinea PNGDAC, Nigérie
+  Landing Card, Mauricius All in One Travel Form, Jihoafrická republika SARS Traveller Declaration, Barbados,
+  Dominika, Trinidad a Tobago a v Kosovu registrace cizinců do 3 dnů po příjezdu. U letu bez víza štítek
+  „📝 TDAC předem“ (u země s vízem jen v bublině – druhý štítek by se na telefon nevešel), v detailu země a v Před
+  cestou zvýrazněný řádek s odkazem jen na oficiální web a kdy formulář vyplnit (*nejdříve 72 h před příletem*),
+  v *Co zařídit* důležitý úkol, v seznamu věcí „Potvrzení: TDAC (QR kód v mobilu)“ a v kalendáři připomínka 2 dny
+  před odletem (u 24h okna v den odletu). Ověřeno 10/2026 na oficiálních webech a v oznámeních úřadů; vynechané, kde
+  povinnost nebo oficiální web nešlo ověřit (Antigua, Belize, Jamajka, Grenada, Svatá Lucie, Guatemala, Honduras…).
 - **Neověřené záznamy** (3 země) mají u štítku „?“ a v detailu i seznamu upozornění, ať je bereš jen orientačně.
 - **Dočasné režimy** (Jižní Korea bez K-ETA, Bělorusko a Mongolsko bez víza – zatím do 31. 12. 2026; Vietnam bez víza
   do 14. 8. 2028): když cesta
@@ -164,7 +175,9 @@ cílové země.
 **Aktualizace dat:** nahraď `data/entry.json` (stejná pole: `iso2`, `visa` = `none | eu | eta | evisa | voa | visa`,
 `idCard`, `maxStayDays`, `etaName`, `etaCostEur`, `etaUrl`, volitelně `transitEta` (`true` = registrace i pro
 letištní tranzit, `"landside"` = jen při přestupu s pasovou kontrolou), `passportValidity`,
-`vaccinesRequired`, `vaccinesRecommended`, `notes`, volitelně `validUntil` (do kdy dočasný režim platí, YYYY-MM-DD),
+`vaccinesRequired`, `vaccinesRecommended`, `notes`, volitelně `validUntil` (do kdy dočasný režim platí, YYYY-MM-DD)
+a `arrivalForm` (povinný online formulář: `name`, volitelně `full`, `url` jen oficiální https web, `hours` = nejdříve
+kolik hodin před příletem, `fromDeparture: true` = před odletem, `afterDays` = do kolika dnů po příjezdu, `free`),
 `source`, `verified`; nahoře `checked` = měsíc ověření) a spusť
 `npm test`. Test `test/entry.test.js` zkontroluje, že jsou všechny země z `data/countries.json`, hodnoty, https odkazy,
 délku poznámek, žádné HTML a že odkazy na registrace nevedou na zprostředkovatele (nový nevládní web je potřeba
@@ -187,6 +200,9 @@ a seznam věcí na míru cestě (země, termín, doprava, zavazadla z hledání,
   Smluvní státy jen nutná a neodkladná péče: Srbsko a Černá Hora (s EHIC na pobočku místního fondu, formulář INO-1),
   Severní Makedonie (EHIC přímo u lékaře), Turecko, Albánie a Tunisko (formulář CZ/TR 111, CZ/AL 111, CZ/TN 111 od
   pojišťovny), Bosna a Hercegovina (doklad ověř u pojišťovny).
+- **📝 Povinný online formulář k příletu** (TDAC, eTravel, MDAC…; viz Vstupní podmínky) – důležitý úkol hned za
+  pojištěním: co vyplnit, kdy (*nejdříve 72 h před příletem*), že je zdarma a jen na oficiálním webu (placené weby jsou
+  zprostředkovatelé); u víc zemí jeden úkol se všemi formuláři. Země jen přestupu ne.
 - **📝 DROZD** – dobrovolná registrace u MZV pro cesty mimo EU/Schengen a do zemí s bezpečností ≤ 3 (hodnota
   `safety` z `data/countries.json`); u bezpečnosti 1–2 jako důležité s odkazem na upozornění MZV. Text uvádí, k čemu
   registrace je (varování e-mailem/SMS, pomoc při mimořádné události, výmaz 30 dní po návratu, i v aplikaci Portál

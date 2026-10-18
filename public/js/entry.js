@@ -112,10 +112,29 @@
   const over = (r, today = todayFn()) => Boolean(r && r.validUntil && today > r.validUntil);
   const setToday = fn => { todayFn = typeof fn === 'function' ? fn : localYmd; };
   function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
+  /* ---------- povinný online formulář k příletu (arrivalForm: TDAC, eTravel, MDAC…) ---------- */
+  /** Formulář země { name, full?, url, hours?, fromDeparture?, afterDays?, free? }, jen s oficiálním https odkazem; jinak null. */
+  function form(iso) {
+    const f = get(iso) && get(iso).arrivalForm;
+    return f && typeof f.name === 'string' && /^https:\/\//.test(f.url || '') ? f : null;
+  }
+  const formName = f => (f.full ? `${f.name} (${f.full})` : f.name);
+  // „nejdříve 72 h před příletem“, „nejdříve 7 dní před příletem“, „nejdříve 24 h před odletem“, „do 3 dnů po příjezdu“
+  const formWhen = f => (f.afterDays > 0 ? `do ${f.afterDays} ${f.afterDays < 5 ? 'dnů' : 'dní'} po příjezdu`
+    : f.hours > 0 ? `nejdříve ${f.hours > 96 && f.hours % 24 === 0 ? daysTxt(f.hours / 24) : `${f.hours} h`} před ${f.fromDeparture ? 'odletem' : 'příletem'}` : 'před příletem');
+  /** „povinný online formulář TDAC (Thailand Digital Arrival Card) – zdarma, nejdříve 72 h před příletem, jen na oficiálním webu tdac.immigration.go.th“ */
+  const mzvUrl = u => /(^|\.)mzv\.gov\.cz$/.test(hostOf(u));
+  const formTxt = f => `povinný online formulář ${formName(f)} – ${f.free ? 'zdarma, ' : ''}${formWhen(f)}, ${mzvUrl(f.url) ? 'podrobnosti na webu MZV ČR' : `jen na oficiálním webu ${hostOf(f.url)}`}`;
+  // do čipu krátce: „TDAC předem“, dlouhý název → „formulář předem“; registrace po příjezdu „registrace do 3 dnů“
+  const formChipTxt = f => (f.afterDays > 0 ? `registrace do ${f.afterDays} ${f.afterDays < 5 ? 'dnů' : 'dní'}` : `${f.name.length <= 15 ? f.name : 'formulář'} předem`);
+  /** Zvýrazněný řádek do „Před cestou“ a detailu země (HTML): název tučně, kdy, odkaz na oficiální web (u Kosova info MZV). */
+  const formHtml = f => `📝 <b>Povinný online formulář: ${esc(formName(f))}</b> – ${esc(`${f.free ? 'zdarma, ' : ''}${formWhen(f)}`)} · ${link(f.url, mzvUrl(f.url) ? 'informace MZV ↗' : 'oficiální web ↗')}`;
+
   /** Bublina u čipu: režim, pobyt, cena, poznámky a zdroj (prostý text – do title přes esc). */
   function tip(iso, r, k) {
     const cost = NEED.includes(r.visa) && r.etaCostEur != null ? ` – ${priceTxt(r.etaCostEur)}` : '';
-    return `${name(iso)}: ${k.text}${cost}. Pobyt: ${stayTxt(r)}. ${r.notes || ''} ${srcTxt(r)}, před cestou ověř.`.replace(/\s+/g, ' ').trim();
+    const f = form(iso);
+    return `${name(iso)}: ${k.text}${cost}.${f ? ` Navíc ${formTxt(f)}.` : ''} Pobyt: ${stayTxt(r)}. ${r.notes || ''} ${srcTxt(r)}, před cestou ověř.`.replace(/\s+/g, ' ').trim();
   }
 
   /* ---------- čipy ---------- */
@@ -127,12 +146,14 @@
     return `<span class="ec ec-${k.cls}" title="${esc(tip(iso, r, k))}">${k.icon ? k.icon + ' ' : ''}${esc(k.label + q(r))}</span>`;
   }
   /**
-   * Čip k letu – jen když je co vyřizovat (registrace, e-vízum, vízum na hranici, vízum), nebo když cesta (date)
-   * vychází po konci časově omezeného bezvízového režimu („⏳ ověř vstup“).
+   * Čip k letu – jen když je co vyřizovat (registrace, e-vízum, vízum na hranici, vízum, povinný online formulář
+   * k příletu – „📝 TDAC předem“), nebo když cesta (date) vychází po konci časově omezeného bezvízového režimu
+   * („⏳ ověř vstup“). Formulář u země s vízem nebo „ověř vstup“ jen v bublině – druhý čip by se na mobil nevešel.
    */
   function flightChip(iso, date) {
-    const r = get(iso), k = kind(r);
-    if (k && !k.need && (expired(r, date) || over(r))) return `<span class="b ec-b ec-visa" title="${esc(`${name(iso)}: ${untilTxt(r)} ${r.notes || ''} ${srcTxt(r)}.`)}">⏳ ověř vstup</span>`;
+    const r = get(iso), k = kind(r), f = form(iso);
+    if (k && !k.need && (expired(r, date) || over(r))) return `<span class="b ec-b ec-visa" title="${esc(`${name(iso)}: ${untilTxt(r)}${f ? ` Navíc ${formTxt(f)}.` : ''} ${r.notes || ''} ${srcTxt(r)}.`)}">⏳ ověř vstup</span>`;
+    if (k && !k.need && f) return `<span class="b ec-b ec-form" title="${esc(`${name(iso)}: bez víza, ale ${formTxt(f)}. ${srcTxt(r)}, před cestou ověř.`)}">📝 ${esc(formChipTxt(f))}</span>`;
     if (!k || !k.need) return '';
     const eur = Number(r.etaCostEur);
     const cost = (r.visa === 'eta' || r.visa === 'evisa') && r.etaCostEur != null && eur >= 0 ? (eur === 0 ? ' zdarma' : ` ${eur} €`) : '';
@@ -327,6 +348,9 @@
         const f = fee(r);
         li.push(`<li><b>${esc(k.icon)} ${esc(k.text)}</b>${f ? ` · ${esc(f)}` : ''}${lead ? ` · <span class="faint">žádej aspoň ${daysTxt(lead)} předem</span>` : ''}${r.etaUrl ? ` · ${link(r.etaUrl, 'oficiální web ↗')}` : ''}${r.transitEta ? ` <span class="faint">· ${esc(transitTxt(r))}</span>` : ''}</li>`);
       } else if (r.etaName) li.push(`<li>${esc(r.etaName)}${r.etaUrl ? ` · ${link(r.etaUrl, 'web ↗')}` : ''}</li>`);
+      // příletová karta a podobné formuláře – jen u cílové země (přestup bez vstupu do země je nepotřebuje)
+      const f = !tr && form(iso);
+      if (f) li.push(`<li class="ed-form">${formHtml(f)}</li>`);
       // jen přestup: pobyt a očkování země se netýkají
       if (!tr && r.maxStayDays && r.visa !== 'eu') li.push(`<li>Pobyt nejvýš ${esc(stayTxt(r))}</li>`);
       if (!tr && r.vaccinesRequired) li.push(`<li>💉 Povinné očkování: ${esc(r.vaccinesRequired)}</li>`);
@@ -346,10 +370,12 @@
     if (r.iso2 === 'CZ') return '';
     const tr = r.transitEta === 'landside' ? '✈︎ Nutná i při přestupu, pokud procházíš pasovou kontrolou (samostatné letenky, vyzvedávání zavazadel).' : '✈︎ Nutná i při přestupu (leteckém tranzitu) v této zemi.';
     const reg = r.etaName ? `<div class="ed-reg">${esc(r.etaName)}${r.etaCostEur != null ? ` · <b>${esc(priceTxt(r.etaCostEur))}</b>${k.need ? ' na osobu' : ''}` : ''}${r.etaUrl ? ` · ${link(r.etaUrl, 'oficiální web ↗')}` : ''}${r.transitEta ? `<div class="ed-transit">${esc(tr)}</div>` : ''}</div>` : '';
+    const f = form(iso);
     return `<div class="entry-detail">
       <h3>🛂 Vstup pro občany ČR</h3>
       <div class="ed-regime ec-${k.cls}">${k.icon ? k.icon + ' ' : ''}${esc(k.text)}</div>
       ${reg}
+      ${f ? `<div class="ed-form">${formHtml(f)}</div>` : ''}
       ${r.verified ? '' : `<div class="ed-unv">⚠️ ${esc(UNVERIFIED)}</div>`}
       ${r.validUntil ? `<div class="ed-unv">⏳ ${esc(untilTxt(r))}</div>` : ''}
       <div class="kv ed-kv">
@@ -375,7 +401,7 @@
   }
 
   window.Entry = {
-    set, load, ready, whenReady, get, meta, setRate, eurCzk, kind, regName, cardChip, flightChip, idNote, transit, transitHtml, transitCcs,
+    set, load, ready, whenReady, get, meta, setRate, eurCzk, kind, regName, form, formName, formWhen, cardChip, flightChip, idNote, transit, transitHtml, transitCcs,
     passportRule, passportDates, passportUntil, addMonths, leadDays, remindDays, reminder, reminders, checklist, costs, checklistHtml, detailHtml, matches, checkedTxt, ageTxt, over, setToday,
   };
 })();

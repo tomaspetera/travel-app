@@ -359,7 +359,7 @@
 
   /**
    * Položky „Co zařídit“: [{ id, icon, level: must|rec|info, title, short, lines: [html], links: [[url, text]] }].
-   * Pořadí: pojištění, EHIC, DROZD, řidičský průkaz, očkování, zásuvky, měna.
+   * Pořadí: pojištění, povinný online formulář k příletu (TDAC…), EHIC, DROZD, řidičský průkaz, očkování, zásuvky, měna.
    */
   function todos(ctx) {
     if (!DATA) return [];
@@ -377,6 +377,23 @@
     const risky = ['hike', 'snow'].filter(a => ctx.acts.has(a));
     if (risky.length) ins.push(`Ověř, že pojistka kryje i ${risky.length === 2 ? 'horskou turistiku a zimní sporty' : risky[0] === 'hike' ? 'turistiku na horách' : 'zimní sporty'} – úrazy při sportu běžná pojistka krýt nemusí.`);
     out.push({ id: 'ins', icon: '🛡️', level: 'must', title: 'Sjednej cestovní pojištění léčebných výloh', short: 'cestovní pojištění', lines: ins, links: [[S.desatero, 'MZV: Desatero na cesty'], [S.kzpInsurance, 'KZP: cestovní pojištění vs. EHIC']] });
+
+    // 1b) povinný online formulář k příletu (TDAC, eTravel, MDAC…) – jen cílové země, přestup bez vstupu ho nepotřebuje
+    const forms = window.Entry && Entry.form ? dest.map(i => ({ i, f: Entry.form(i) })).filter(x => x.f) : [];
+    if (forms.length) {
+      const when = f => `${f.free ? 'zdarma, ' : ''}${Entry.formWhen(f)}`;
+      const one = forms.length === 1 && forms[0].f;
+      out.push({
+        id: 'form', icon: '📝', level: 'must',
+        title: one ? `Vyplň ${Entry.formName(one)} – ${when(one)}` : `Vyplň povinné online formuláře: ${forms.map(x => x.f.name).join(', ')}`,
+        short: one ? `online formulář ${one.name}` : 'online formuláře k příletu',
+        lines: [
+          ...forms.map(({ i, f }) => `${flagOf(i)}<b>${esc(name(i))}:</b> ${esc(Entry.formName(f))} – ${esc(when(f))}.${f.afterDays ? '' : ' Potvrzení (QR kód) měj v mobilu.'}`),
+          'Vyplň jen na oficiálním webu – stránky, které za formulář chtějí poplatek, jsou zprostředkovatelé.',
+        ],
+        links: forms.map(({ i, f }) => [f.url, `${f.name}${forms.length > 1 ? ` (${name(i)})` : ''} – ${/^https:\/\/(www\.)?mzv\.gov\.cz\//.test(f.url) ? 'informace MZV' : 'oficiální web'}`]),
+      });
+    }
 
     // 2) EHIC a smluvní státy
     if (ehic.length || ctr.length) {
@@ -483,6 +500,8 @@
         if (r.visa === 'voa') add(docs, `doc-voa-${i}`, `Na vízum při příletu (${name(i)}): poplatek a doklady podle podmínek vstupu`);
         else add(docs, `doc-reg-${i}`, `Potvrzení: ${Entry.regName(r)} (${name(i)})`, 'vytištěné i v mobilu');
       }
+      // povinný online formulář k příletu (TDAC…) – potvrzení s QR kódem; jen cílové země
+      for (const i of dest) { const f = Entry.form && Entry.form(i); if (f && !f.afterDays) add(docs, `doc-arr-${i}`, `Potvrzení: ${f.name} (${name(i)})`, 'QR kód v mobilu'); }
     } else add(docs, 'doc-id', 'Cestovní pas nebo občanský průkaz', 'co platí, ukáže blok 🛂 Před cestou');
     add(docs, 'doc-copy', 'Kopie dokladů', 'papírově i v mobilu, odděleně od originálů');
     add(docs, 'doc-ins', 'Doklad o cestovním pojištění', 'a telefon na asistenční službu');
@@ -617,6 +636,7 @@
   /* ---------- připomínky do kalendáře ---------- */
   /**
    * Celodenní připomínky před odjezdem (formát Ics): pojištění (14 dní předem), MŘP (21 dní, jen když je nutný),
+   * povinný online formulář k příletu (TDAC: 2 dny – vyplňuje se nejdříve 72 h před příletem),
    * DROZD (3 dny, jen když se doporučuje). Připomínka v minulosti → dnes; v den odjezdu a později žádná.
    * o = { isos, via, ret, today, climate } jako u contextOf.
    */
@@ -635,6 +655,16 @@
     push('ins', 14, `🛡️ Sjednat cestovní pojištění (${where})`, src().desatero, ['Pojištění léčebných výloh včetně převozu domů a asistenční služby – MZV bez něj nedoporučuje vycestovat.', byId('ehic') ? 'Vezmi i Evropský průkaz zdravotního pojištění (EHIC), případně formulář od zdravotní pojišťovny.' : '']);
     const drive = byId('drive');
     if (drive && drive.need) push('idp', 21, `🚘 Vyřídit mezinárodní řidičský průkaz${formsTxt(drive.forms)}`, src().idp, ['Obecní úřad obce s rozšířenou působností, na počkání, 200 Kč; s sebou řidičák, doklad totožnosti a fotku 3,5 × 4,5 cm.']);
+    // povinný online formulář k příletu: až když je okno otevřené („nejdříve 72 h“ → 2 dny před odletem, i u letu s příletem
+    // druhý den), registrace po příjezdu v den odjezdu
+    if (byId('form')) {
+      for (const i of ctx.isos) {
+        const f = Entry.form(i);
+        if (!f) continue;
+        push(`form-${i}`, f.afterDays ? 0 : f.hours ? Math.max(0, Math.floor(f.hours / 24) - 1) : 2, `📝 Vyplnit ${f.name} (${name(i)})`, f.url,
+          [`${name(i)}: povinný online formulář ${Entry.formName(f)} – ${f.free ? 'zdarma, ' : ''}${Entry.formWhen(f)}.`, `${/^https:\/\/(www\.)?mzv\.gov\.cz\//.test(f.url) ? 'Podrobnosti (MZV ČR)' : 'Jen na oficiálním webu'}: ${f.url}`]);
+      }
+    }
     if (byId('drozd')) push('drozd', 3, `📝 Registrace v systému DROZD (${where})`, src().drozd, ['Dobrovolná registrace cesty u MZV – varování e-mailem či SMS a snazší pomoc při mimořádné události.', `Nouzová linka MZV: ${(DATA.phones && DATA.phones.emergency) || ''}`]);
     return ev.map(e => ({ ...e, description: e.description.split('\n').filter(Boolean).join('\n') }));
   }
