@@ -261,3 +261,14 @@ test('přesné datum s délkou: návrat dopočtený a vidět v čipu; mezi svát
   assert.deepEqual(P('zájezd Chorvatsko').to, ['Chorvatsko']);
   assert.deepEqual(P('pobyt u moře září').to, []);
 });
+
+test('„od pátku“ = den odletu (ne místo odletu), den z věty přednost před dny délky; „ne“ není místo', () => {
+  const r = P('od pátku do Říma');
+  assert.deepEqual([r.from, r.to, r.patch.outDays, chips(r)], [[], ['Říma'], [5], ['odlet v pátek']]);
+  const w = P('od soboty na týden do Paříže');
+  assert.deepEqual([w.patch.outDays, w.patch.len, w.patch.nMin, w.patch.nMax], [[6], 'week', 5, 9]);
+  assert.deepEqual([P('v sobotu na víkend').patch.outDays, P('v sobotu na víkend').patch.backDays], [[6], [0, 1]]);
+  assert.deepEqual(P('Řím na víkend').patch.outDays, [4, 5, 6]);
+  assert.deepEqual(P('v pátek na 3 noci').patch.outDays, [5]);
+  assert.deepEqual(P('ne do Říma').to, ['Říma']);
+});
