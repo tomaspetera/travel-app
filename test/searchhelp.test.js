@@ -1280,3 +1280,12 @@ test('👀 prohlížené cíle: nejnovější první, každý jednou, bez ⭐/�
   assert.equal(H.viewedAdd(Array.from({ length: 9 }, (_, i) => ({ id: `ap:A${String(i).padStart(2, '0')}` })), { id: 'ap:ZZZ' }).length, 6);
   assert.equal(H.viewedPick(null, now).length, 0);
 });
+
+test('weekendHabit: aspoň 3 z posledních 5 hledání na víkend / prodloužený víkend / svátek', () => {
+  const r = (...lens) => lens.map(len => ({ form: { trip: 'return', len } }));
+  assert.equal(H.weekendHabit(r('weekend', 'long', 'week', 'holiday')), true);
+  assert.equal(H.weekendHabit(r('weekend', 'week', 'week', 'long')), false);
+  // starší než 5 posledních se nepočítají, víc měst taky ne
+  assert.equal(H.weekendHabit([...r('week', 'week', 'week'), { form: { trip: 'multi', len: 'weekend' } }, ...r('weekend', 'weekend', 'weekend')]), false);
+  assert.equal(H.weekendHabit(null), false);
+});

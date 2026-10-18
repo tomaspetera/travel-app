@@ -3935,9 +3935,13 @@
     modes.hidden = false;
     $$('button', modes).forEach(b => {
       b.classList.toggle('on', b.dataset.m === q.mode);
-      b.onclick = () => { if (b.dataset.m !== q.mode) { S.radarMode = b.dataset.m; save(); renderRadar(); } };
+      b.onclick = () => { S.radarNudged = true; if (b.dataset.m !== q.mode) { S.radarMode = b.dataset.m; save(); renderRadar(); } else save(); };
     });
-    $('#radarSub').innerHTML = `${esc(q.sub.replace(/^\s*·\s*/, ''))} <button type="button" class="linkbtn" id="radarHome">změnit</button>`;
+    // podle chování: kdo hledá hlavně víkendy, tomu radar jednou nabídne Víkendy (vlastní volba režimu nabídku ukončí)
+    const wk = q.mode === 'all' && !S.radarNudged && SearchHelp.weekendHabit(S.recent);
+    $('#radarSub').innerHTML = `${esc(q.sub.replace(/^\s*·\s*/, ''))} <button type="button" class="linkbtn" id="radarHome">změnit</button>`
+      + (wk ? `<button type="button" class="radar-nudge" id="radarWk">💡 Hledáš hlavně víkendy → ukázat Víkendy</button>` : '');
+    const wb = $('#radarWk'); if (wb) wb.onclick = () => { S.radarNudged = true; S.radarMode = 'weekend'; save(); renderRadar(); };
     // Svátky: výběr z nejbližších prodloužených víkendů (s cenou, kterou radar už zná)
     paintLw(q);
     $('#radarHome').onclick = () => radarSetup(true);
