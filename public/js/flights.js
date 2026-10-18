@@ -204,16 +204,18 @@
     return (origin ? '&role=from' : '') + (/^(ap|metro|geo|cc):/.test(n) ? '&near=' + enc(n) : '');
   }
   // návrhy míst našeptávače (api/places)
-  async function placesFor(q, origin, near, signal) {
-    const r = await fetch('api/places?q=' + enc(q) + placeCtx(origin, near), { signal });
+  async function placesFor(q, origin, near, signal, remote = true) {
+    const r = await fetch('api/places?q=' + enc(q) + placeCtx(origin, near) + (remote ? '' : '&remote=0'), { signal });
     return (await r.json()).items || [];
   }
   // chytré hledání: termíny podle svátků a délky pobytu jako ve formuláři
   const smartOpts = () => ({ today: today(), presets: PRESETS, holidays: SearchHelp.holidayList(today()), holidayDates: SearchHelp.holidayDates });
   /** Místa z věty („do Říma“, „z Vídně“): tvar slova i se zkrácenou koncovkou → nejlepší návrh (Smart.bestPlace). */
   async function smartResolve(hit, near, signal) {
-    const one = async (phrase, origin) => Smart.bestPlace(await Promise.all(Smart.stems(phrase).map(q => placesFor(q, origin, near, signal)
-      .then(items => ({ q, items }), e => { if (e.name === 'AbortError') throw e; return { q, items: [] }; }))));
+    // napřed vlastní data (rychle); geokódování (pomalejší, vesnice a místa mimo databázi) jen když nic nenajdou
+    const look = (phrase, origin, remote) => Promise.all(Smart.stems(phrase).map(q => placesFor(q, origin, near, signal, remote)
+      .then(items => ({ q, items }), e => { if (e.name === 'AbortError') throw e; return { q, items: [] }; })));
+    const one = async (phrase, origin) => Smart.bestPlace(await look(phrase, origin, false)) || Smart.bestPlace(await look(phrase, origin, true));
     const [to, from] = await Promise.all([Promise.all(hit.sm.to.map(x => one(x, false))), Promise.all(hit.sm.from.map(x => one(x, true)))]);
     const item = x => ({ id: x.id, label: x.label, flag: x.flag || '📍', type: x.type });
     hit.to = to.filter(Boolean).map(item).slice(0, 5);
