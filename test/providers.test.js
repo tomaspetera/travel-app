@@ -367,6 +367,10 @@ test('Travelpayouts: jednosměrné i zpáteční letenky (zpáteční = jedna sp
   assert.equal(stn.flightCzk, 899);
   assert.equal(stn.out.durationMin, 115);
   assert.equal(tpUrl(null, { from: 'VIE', to: 'BCN', dateOut: '2026-11-03', dateIn: '2026-11-10', adults: 2 }), 'https://www.aviasales.com/search/VIE0311BCN10112');
+  // odkaz z API má vždy 1 cestujícího – počet z hledání
+  assert.equal(tpUrl('/search/PRG0511LON1?t=W6', { adults: 3 }), 'https://www.aviasales.com/search/PRG0511LON3?t=W6');
+  assert.equal(tpUrl('search/PRG0311BKK17111?t=QR', { adults: 2 }), 'https://www.aviasales.com/search/PRG0311BKK17112?t=QR');
+  assert.equal(tpUrl('/search/PRG0311BKK17111?t=QR'), 'https://www.aviasales.com/search/PRG0311BKK17111?t=QR');
 });
 
 test('Travelpayouts: let s přestupem s nemožnou délkou → přílet a délka neznámé (ne vymyšlené), přímý let beze změny', () => {

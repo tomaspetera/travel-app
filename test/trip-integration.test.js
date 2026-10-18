@@ -555,6 +555,12 @@ test('kdy vyrazit: z domu na let tam a z ubytování na let zpět – průběh c
   assert.equal(leaveBy({ ...t, dest: { label: 'Dublin', cc: 'IE' } }).home.before, 150, 'Irsko: mimo Schengen');
   assert.equal(leaveBy({ ...t, dest: { label: 'Larnaka', cc: 'CY' } }).home.before, 150, 'Kypr: mimo Schengen');
   assert.equal(leaveBy(t).home.hm, '03:15', 'Rakousko = Schengen');
+  // letiště ve tvém městě před 4:30: taxi (čas autem ze serveru) místo denní MHD; ve dne MHD
+  const taxi = { ...t, ground: { out: { minutes: 55, local: true, mode: 'transit', nightMin: 25 } } };
+  assert.deepEqual(plain([leaveBy(taxi).home.hm, leaveBy(taxi).home.min, leaveBy(taxi).home.taxi]), ['03:35', 25, true]);
+  assert.ok(rows(render(c, taxi)).some((r) => r.includes('Vyraž z domu nejpozději ve 3:35 <span class="faint">(~25 min taxi na letiště PRG')));
+  const dayT = { ...taxi, flight: { ...t.flight, out: { ...t.flight.out, dep: '2026-11-10T10:00:00', arr: '2026-11-10T11:00:00' } } };
+  assert.deepEqual([leaveBy(dayT).home.hm, leaveBy(dayT).home.taxi], ['07:05', undefined]);
   // jedno místo, zpět z letiště jiného města (Paříž → … Londýn): cesta z ubytování se z tabulky letiště spočítat nedá
   const twoCities = { ...t, arrival: { out: { iata: 'XXX', city: 'Paříž', min: 35 }, back: { iata: 'STN', city: 'Londýn', min: 48 } }, flight: { ...t.flight, back: { ...t.flight.back, from: 'STN' } } };
   assert.equal(leaveBy(twoCities).hotel, null);

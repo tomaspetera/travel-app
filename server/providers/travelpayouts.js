@@ -18,9 +18,12 @@ const limit = limiter(4);
 const ddmm = (s) => `${s.slice(8, 10)}${s.slice(5, 7)}`;
 
 export function bookingUrl(link, { from, to, dateOut, dateIn = null, adults = 1 } = {}) {
-  const base = link
-    ? `https://www.aviasales.com${link.startsWith('/') ? '' : '/'}${link}`
-    : `https://www.aviasales.com/search/${from}${ddmm(dateOut)}${to}${dateIn ? ddmm(dateIn) : ''}${adults}`;
+  // odkaz z API (/search/PRG0511LON1?t=…) má na konci kódu trasy vždy 1 cestujícího – nahradit skutečným počtem
+  const pax = Math.min(9, Math.max(1, Math.round(Number(adults)) || 1));
+  const path = link ? `${link.startsWith('/') ? '' : '/'}${link}`.replace(/^(\/search\/[A-Z]{3}\d{4}[A-Z]{3}(?:\d{4})?)\d/, `$1${pax}`) : null;
+  const base = path
+    ? `https://www.aviasales.com${path}`
+    : `https://www.aviasales.com/search/${from}${ddmm(dateOut)}${to}${dateIn ? ddmm(dateIn) : ''}${pax}`;
   if (affiliateOn('aviasales')) return affiliate(base, 'aviasales');
   if (!config.travelpayoutsMarker) return base;
   // Bez čísla projektu (trs) aspoň přímý odkaz s markerem – Aviasales ho při otevření přečte.

@@ -365,6 +365,12 @@ test('reach: kdy vyrazit z domu a kdy budeš doma (odhad) – noc veřejnou dopr
   const prg = H.reach(at('PRG', '2026-11-12T06:00:00'), { mode: 'transit', local: true, minutes: 40 }, null).out;
   assert.deepEqual(plain([prg.clock, prg.early, prg.warn, prg.local]), ['3:20', true, false, true]);
   assert.match(prg.title, /taxi/);
+  // se serverovým nightMin (čas autem): taxi ~25 min místo denní MHD 55 min
+  const night = H.reach(at('PRG', '2026-11-12T06:00:00'), { mode: 'transit', local: true, minutes: 55, nightMin: 25 }, null).out;
+  assert.deepEqual(plain([night.clock, night.taxi, night.warn, night.text]), ['3:35', true, false, '🚕 z domu ve 3:35']);
+  assert.match(night.title, /~25 min cesta na letiště PRG \(v noci taxi, odhad\).*Denní MHD by trvala ~55 min\./);
+  const day = H.reach(at('PRG', '2026-11-12T10:00:00'), { mode: 'transit', local: true, minutes: 55, nightMin: 25 }, null).out;
+  assert.deepEqual([day.clock, day.taxi], ['7:05', undefined], 've dne MHD');
   const car = H.reach(at('BRQ', '2026-11-12T06:00:00'), { mode: 'car', minutes: 130 }, null).out;
   assert.deepEqual(plain([car.clock, car.early, car.warn]), ['1:50', true, false]);
   assert.ok(car.text.startsWith('🚗'), car.text);

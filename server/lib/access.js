@@ -113,8 +113,13 @@ const DIRECT = {
 // Změřená cena spoje z města domova do města letiště (dál MHD / S-Bahn z tabulky ACCESS): [Kč/os., minuty jízdy, čím].
 // Je to běžná cena konkrétních spojů, ne „od“ – příplatek za mezinárodní spoj se k ní nepřičítá. Změřeno 6. 10. 2026:
 // Praha → Drážďany FlixBus 319–339 Kč, RegioJet 369 Kč, vlak ČD / DB 623–647 Kč (model podle vzdálenosti dával ~240 Kč).
+// Cena null = model podle vzdálenosti, jen čas z jízdního řádu 2026 (cd.cz, seat61.com, 10/2026): Praha → Linec přímý EC
+// ČD / ÖBB 3 h 45 min, Praha → Salcburk vlakem s přestupem v Linci ~5 h 25 min – model dával 3 h a 4 h 05 min; ceny
+// FlixBusu a ÖBB ~300–600 Kč model drží.
 const FARE = {
   'Praha>DRS': [340, 115, 'busem (FlixBus, RegioJet)'],
+  'Praha>LNZ': [null, 225, 'vlakem (EC ČD / ÖBB) / busem'],
+  'Praha>SZG': [null, 325, 'vlakem přes Linec / busem'],
 };
 // Jízdenka MHD na ~60–90 min podle země (Kč) – pro letiště mimo tabulku.
 export const LOCAL_TICKET = { CZ: 30, SK: 35, PL: 25, HU: 30, AT: 80, DE: 85, SI: 40, HR: 40, IT: 50, CH: 100, _: 60 };
@@ -164,6 +169,10 @@ const ROAD = 1.25; // silnice ≈ 1,25 × vzdušná čára
 
 const r10 = (x) => Math.round(x / 10) * 10;
 const r5 = (m) => Math.max(5, Math.round(m / 5) * 5);
+// Autem (bez parkování): prvních ~15 km městem a k dálnici (~35 km/h), dál dálnicí a silnicí 1. třídy (~105 km/h) –
+// v toleranci ±10 % s plánovačem tras OSRM (+15 min parkování): Praha → Pardubice ~1 h 40 min, → Vídeň-Schwechat
+// ~3 h 45 min (10/2026).
+const driveMin = (roadKm) => (Math.min(roadKm, 15) / 35) * 60 + (Math.max(0, roadKm - 15) / 105) * 60;
 // regionální bus / vlak (~10 km 45 Kč, ~50 km 105 Kč) – i odhad cesty z letiště příletu do města (arrival.js)
 export const regionalCzk = (km) => 30 + 1.5 * km;
 export const regionalMin = (km) => 15 + 1.1 * km;
@@ -282,7 +291,8 @@ export function transitAccess(home, a, { scale = 1, own = null } = {}) {
     const key = `${groundPlace(o)?.label}>${a.iata}`;
     // změřená cena spoje do města letiště (Praha → Drážďany), jinak model podle vzdálenosti
     const f = FARE[key];
-    const ic = f ? { czk: f[0], min: f[1] } : intercity(o, { lat: c.lat, lon: c.lon, label: c.label, cc: a.cc });
+    const model = !f || f[0] == null ? intercity(o, { lat: c.lat, lon: c.lon, label: c.label, cc: a.cc }) : null;
+    const ic = f ? { ...model, czk: f[0] ?? model.czk, min: f[1] } : model;
     const d = DIRECT[key];
     const via = ic.czk + c.czk + (ic.regional ? borderCzk(o.cc, a.cc, ic.czk) : 0);
     if (d && d[0] + borderCzk(o.cc, a.cc, d[0]) < via) {
@@ -299,7 +309,10 @@ export function transitAccess(home, a, { scale = 1, own = null } = {}) {
   const b = typical ? 0 : borderCzk(o.cc, a.cc, items[0].czk);
   if (b) items.push({ k: 'border', label: 'příplatek za mezinárodní spoj', czk: b });
   for (const x of items) x.czk = Math.max(scale > 0 ? 10 : 0, r10(x.czk * scale));
-  const est = { mode: 'transit', km: Math.round(km), minutes: r5(minutes), czk: items.reduce((s, x) => s + x.czk, 0), local: items[0].k === 'access', breakdown: items };
+  const local = items[0].k === 'access';
+  // letiště ve tvém městě: v noci (MHD nejede) taxi – čas autem bez parkování (Praha → Ruzyně ~25 min, ne 55 min MHD)
+  const night = local ? { nightMin: r5(driveMin(Math.max(3, km * ROAD))) } : {};
+  const est = { mode: 'transit', km: Math.round(km), minutes: r5(minutes), czk: items.reduce((s, x) => s + x.czk, 0), local, ...night, breakdown: items };
   return own == null ? est : { ...est, czk: own, own: true, estCzk: est.czk, breakdown: [{ k: 'own', label: 'vlastní cena', czk: own }] };
 }
 
@@ -388,9 +401,7 @@ export function carAccess(home, a, opts = {}) {
   const e = carEnergy(opts, o.cc || 'CZ');
   const kmCzk = e ? e.kmCzk : normalizeCar(opts).carKmCzk;
   const fuelCzk = Math.round(roadKm * kmCzk);
-  // prvních ~15 km městem a k dálnici (~35 km/h), dál dálnicí a silnicí 1. třídy (~105 km/h) – v toleranci ±10 %
-  // s plánovačem tras OSRM (+15 min parkování): Praha → Pardubice ~1 h 40 min, → Vídeň-Schwechat ~3 h 45 min (10/2026)
-  const drive = (Math.min(roadKm, 15) / 35) * 60 + (Math.max(0, roadKm - 15) / 105) * 60;
+  const drive = driveMin(roadKm);
   const tolls = tollsOn(o.cc, a.cc);
   const once = tolls.filter((t) => t.days).reduce((s, t) => s + t.czk, 0);
   const each = tolls.filter((t) => !t.days).reduce((s, t) => s + t.czk, 0);

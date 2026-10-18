@@ -259,12 +259,16 @@
     let out = null, back = null;
     const o = t && t.out, dep = o && o.hasTime ? clock(o.dep) : null;
     if (dep != null && ok(gOut)) {
-      const min = dep - before - gOut.minutes, c = clockTxt(min), car = gOut.mode === 'car', early = dayMin(min) < REACH.early;
-      const warn = early && !car && !gOut.local;
+      let gm = gOut.minutes, min = dep - before - gm;
+      const car = gOut.mode === 'car', early = dayMin(min) < REACH.early;
+      // letiště ve tvém městě v noci: taxi (čas autem, server nightMin) místo denní MHD
+      const taxi = early && !car && gOut.local && gOut.nightMin > 0 && gOut.nightMin < gm;
+      if (taxi) { gm = gOut.nightMin; min = dep - before - gm; }
+      const c = clockTxt(min), warn = early && !car && !gOut.local;
       out = {
-        min, clock: c, prevDay: min < 0, early, mode: gOut.mode, local: Boolean(gOut.local), warn,
-        text: car ? `🚗 z domu ${ve(min)} ${c}` : `⏰ z domu už ${ve(min)} ${c}`,
-        title: `Odlet ${hhmm(o)} − ${hm(before)} na letišti − ~${hm(gOut.minutes)} cesta na letiště ${o.from} (${how(gOut)}, odhad) = vyrazit z domu ~${c}${min < 0 ? ' předchozího dne' : ''}.${note(gOut, early, warn)}`,
+        min, clock: c, prevDay: min < 0, early, mode: gOut.mode, local: Boolean(gOut.local), warn, ...(taxi ? { taxi: true } : {}),
+        text: car ? `🚗 z domu ${ve(min)} ${c}` : taxi ? `🚕 z domu ${ve(min)} ${c}` : `⏰ z domu už ${ve(min)} ${c}`,
+        title: `Odlet ${hhmm(o)} − ${hm(before)} na letišti − ~${hm(gm)} cesta na letiště ${o.from} (${taxi ? 'v noci taxi' : how(gOut)}, odhad) = vyrazit z domu ~${c}${min < 0 ? ' předchozího dne' : ''}.${taxi ? ` Denní MHD by trvala ~${hm(gOut.minutes)}.` : note(gOut, early, warn)}`,
       };
     }
     const b = t && t.back, arr = b && b.hasTime && b.arr ? clock(b.arr) : null;

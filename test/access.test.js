@@ -54,6 +54,7 @@ test('veřejnou dopravou: cílové rozsahy na osobu jedním směrem z Prahy a z 
   const prg = transit(PRAHA, 'PRG');
   assert.deepEqual(prg.breakdown.map((x) => x.k), ['access']);
   assert.ok(prg.local && prg.minutes >= 40 && prg.minutes <= 70, `PRG ${prg.minutes} min`);
+  assert.ok(prg.nightMin >= 15 && prg.nightMin <= 35 && prg.nightMin < prg.minutes, `PRG v noci taxi ${prg.nightMin} min`);
   assert.match(prg.breakdown[0].label, /PID/);
   const klv = transit(PRAHA, 'KLV');
   assert.deepEqual(klv.breakdown.map((x) => x.k), ['intercity', 'access']);

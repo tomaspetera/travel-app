@@ -470,6 +470,10 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
 - **Změřená cesta do města letiště**: Praha → Drážďany busem FlixBus 319–339 Kč, RegioJet 369 Kč (vlak ČD / DB
   623–647 Kč; 6. 10. 2026) → počítá se 340 Kč + S-Bahn ~90 Kč, bez příplatku za mezinárodní spoj (je to cena
   konkrétních spojů, ne „od“); model podle vzdálenosti tu dával jen ~240 Kč.
+- **Linec a Salcburk z Prahy**: čas podle jízdního řádu 2026 (přímý EC do Lince 3 h 45 min, do Salcburku s přestupem
+  v Linci ~5 h 25 min; model dával 3 h a 4 h 05 min), cena dál z modelu (FlixBus a ÖBB ~300–600 Kč).
+- **Letiště ve tvém městě v noci**: před 4:30 MHD nejede – čip *🚕 z domu ve 3:35* a *Vyraž z domu* v průběhu cesty
+  počítají s taxi (čas autem bez parkování, Praha → Ruzyně ~25 min) místo denní MHD (~55 min).
 - **Letiště za humny** (do 50 km a blíž než jeho město) → regionální bus / vlak rovnou na letiště (Kladno → Ruzyně,
   Bratislava → Vídeň-Schwechat).
 - Země výchozího místa bez kódu země (📍 poloha, město z vyhledávání) podle nejbližšího města v datech, ne podle
@@ -793,7 +797,7 @@ online předem:
 | OVD Oviedo | autobus ALSA na autobusové nádraží | 9 € | 220 | 45 min | [ctaconecta.com](https://www.ctaconecta.com/es/preguntas-frecuentes-2/) |
 | FNC Funchal | autobus 702 (dříve 113) do centra Funchalu | od 2 € | 50 | 50 min | [siga.madeira.gov.pt](https://siga.madeira.gov.pt/public/index.php/tiim) |
 | CFU Kerkyra | městský autobus 15 na náměstí San Rocco | od 1,30 € | 30 | 15 min | [astikoktelkerkyras.gr](https://astikoktelkerkyras.gr/en/tickets/) |
-| CHQ Chania | autobus KTEL na autobusové nádraží | 2,20 € | 50 | 25 min | [e-ktel.com](https://www.e-ktel.com/images/AIRPORT_FROM_01-10-2026_TO_24-10-2026.pdf) |
+| CHQ Chania | autobus KTEL na autobusové nádraží | 2,20 € | 50 | 25 min | [e-ktel.com](https://www.e-ktel.com/) |
 | JSI Skiathos | autobus do města ke konečné u přístavu (zastávka 0) | 3 € | 70 | 10 min | [skiathostransports.gr](https://skiathostransports.gr/en/tickets/) |
 | TIA Tirana | letištní autobus k Opeře na Skanderbegově náměstí | 400 ALL | 110 | 35 min | [tirana-airport.com](https://www.tirana-airport.com/en/transport-and-directions/15/By-Bus) |
 | BEG Bělehrad | minibus A1 na náměstí Slavija | 400 RSD | 80 | 30 min | [bgprevoz.rs](https://bgprevoz.rs/vesti/nove-cene-prevoza-na-minibus-ekspres-linijama) |
@@ -829,7 +833,7 @@ online předem:
 | BDS Brindisi | autobus STP AP na nádraží a do centra k přístavu (Via del Mare) | od 1,20 € | 30 | 12 min | [stpbrindisi.it](https://www.stpbrindisi.it/images/pdf/tariffe/2015-09/Tariffario_Urbano_Brindisi_ultimate_stampa.pdf) |
 | RMI Rimini | autobus Start Romagna 9 do centra (Arco d'Augusto) a na nádraží Rimini | 2 € | 50 | 25 min | [startromagna.it](https://www.startromagna.it/biglietti/startap-sistema-emv/) |
 | MRS Marseille | autobus A1 (navette) na nádraží Marseille Saint-Charles | 15 € | 370 ⚠ | 40 min | [store.marseille.aeroport.fr](https://store.marseille.aeroport.fr/fr_FR/reservation/navettes-bus/) |
-| NCE Nice | tramvaj 2 do centra (Jean Médecin) a k přístavu (Port Lympia) | od 1,70 € | 40 | 30 min | [lignesdazur.com](https://www.lignesdazur.com/uploads/Guide_des_tarifs_Septembre_2026_compressed_1_4e2d1aa321.pdf) |
+| NCE Nice | tramvaj 2 do centra (Jean Médecin) a k přístavu (Port Lympia) | od 1,70 € | 40 | 30 min | [lignesdazur.com](https://www.lignesdazur.com/) |
 | TLS Toulouse | autobus 31 na Guyenne-Berry + tramvaj T1 do centra (Palais de Justice) | od 1,90 € | 50 | 45 min | [toulouse.aeroport.fr](https://www.toulouse.aeroport.fr/transports-et-acces/transports-en-commun) |
 | LYS Lyon | autobus TCL C200 do Vaulx-en-Velin La Soie + metro A do centra | od 2,10 € | 50 | 1 h | [lyonaeroports.com](https://www.lyonaeroports.com/en/access-transports/bus-lines-tcl) |
 | BRS Bristol | autobus Airport Flyer A1 přes Temple Meads na autobusové nádraží | 9,50 £ | 270 | 40 min | [firstbus.co.uk](https://www.firstbus.co.uk/bristol-bath-and-west/your-services/airport-flyer-services) |

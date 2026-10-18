@@ -1990,7 +1990,11 @@
       x.hint = day && x.hm > CHECKOUT_HM ? `check-out bývá do ${CHECKOUT_HM} – zavazadla nech na recepci` : day && x.hm < '06:00' ? 'brzy ráno – taxi objednej předem, nebo přespi u letiště' : null;
       return x;
     }) : [];
-    return { home: f.out.hasTime && gm > 0 ? at(f.out, gm, destCc) : null, hotel, mids };
+    // z domu na letiště ve tvém městě před 4:30 (MHD ještě nejede): taxi – čas autem ze serveru (nightMin)
+    let home = f.out.hasTime && gm > 0 ? at(f.out, gm, destCc) : null;
+    const g0 = t.ground && t.ground.out, nm = okMin(g0 && g0.local && g0.mode !== 'car' && g0.nightMin);
+    if (home && nm && nm < gm && home.hm < '04:30') home = { ...at(f.out, nm, destCc), taxi: true };
+    return { home, hotel, mids };
   }
   // „ve 2:40“ / „v 1:35“ a „2 h“ / „2,5 h“ před odletem k leaveBy
   const lbTime = x => `${window.SearchHelp ? SearchHelp.ve(+x.hm.slice(0, 2) * 60 + +x.hm.slice(3, 5)) : 'v'} ${+x.hm.slice(0, 2)}${x.hm.slice(2)}`;
@@ -2130,7 +2134,7 @@
       // autem i čím jede: „Autem na letiště PRG (nafta, ~45 min, odhad)“, „Elektroautem na letiště …“
       const gl = groundLines(t), home = lb.home;
       // vyrazit z domu: večer předchozího dne až po ostatním (online check-in)
-      if (home) rows.push([home.date + (home.date < f.out.date ? '~' : ''), '🚪', `Vyraž z domu nejpozději ${lbTime(home)} <span class="faint">(~${minutesToHm(home.min)} na letiště ${esc(home.airport)} + ${lbBefore(home)} před odletem, odhad)</span>`]);
+      if (home) rows.push([home.date + (home.date < f.out.date ? '~' : ''), '🚪', `Vyraž z domu nejpozději ${lbTime(home)} <span class="faint">(~${minutesToHm(home.min)} ${home.taxi ? 'taxi ' : ''}na letiště ${esc(home.airport)} + ${lbBefore(home)} před odletem, odhad)</span>`]);
       if (gl.out) rows.push([f.out.date, gl.icon, esc(gl.out)]);
       // z letiště domů až po přistání (dálkový let zpět přistane i další den)
       if (gl.back) rows.push([arrivalAt(f.back).slice(0, 10) + '~', gl.icon, esc(gl.back)]);
@@ -2358,7 +2362,7 @@
     const { home, hotel, mids } = leaveBy(t);
     if (home) {
       ev.push({ title: `🚪 Vyraž z domu na letiště ${home.airport}`, start: `${home.date}T${home.hm}`, tz: f.out.fromTz || null, durationMin: home.min, location: `Letiště ${home.airport}`,
-        description: `Odhad: ~${minutesToHm(home.min)} cesta na letiště + ${lbBefore(home)} před odletem.${t.groundMode === 'car' ? '' : ' Spoj ověř (IDOS).'}` });
+        description: `Odhad: ~${minutesToHm(home.min)} cesta na letiště${home.taxi ? ' taxi (v noci MHD nejede – objednej předem)' : ''} + ${lbBefore(home)} před odletem.${t.groundMode === 'car' || home.taxi ? '' : ' Spoj ověř (IDOS).'}` });
     }
     if (hotel) {
       ev.push({ title: `🚪 Vyraž na letiště ${hotel.airport}`, start: `${hotel.date}T${hotel.hm}`, tz: f.back.fromTz || null, durationMin: hotel.min, location: `Letiště ${hotel.airport}`,
