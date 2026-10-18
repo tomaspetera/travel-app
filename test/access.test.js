@@ -231,18 +231,26 @@ test('autem: palivo tam i zpět, parkování podle nocí, známka – na osobu p
   assert.equal(car(PRAHA_GEO, 'VIE', { carKmCzk: 4 }).fuelCzk, g.roadKm * 4);
   // Praha → Ruzyně autem: palivo zanedbatelné, parkování ne
   const prg = A.carTrip(car(PRAHA, 'PRG', { adults: 1 }), 7);
-  assert.ok(prg.park === 590 + 120 * 8 && prg.fuel < 100 && prg.perPerson > 1550);
+  assert.ok(prg.park === 580 + 80 * 8 && prg.fuel < 100 && prg.perPerson > 1250, JSON.stringify(prg));
+  // Karlovy Vary: 500 Kč za každých započatých 8 dní (3 noci = 4 dny → 500, 7 nocí = 8 dní → 500, 8 nocí = 9 dní → 1 000)
+  const klv = car(PRAHA, 'KLV', { adults: 1 });
+  assert.deepEqual([klv.parkBaseCzk, klv.parkDayCzk, klv.parkBlockDays], [500, 0, 8]);
+  assert.deepEqual([A.carTrip(klv, 3).park, A.carTrip(klv, 7).park, A.carTrip(klv, 8).park], [500, 500, 1000]);
+  assert.match(klv.breakdown.find((x) => x.k === 'park').label, /500 Kč za každých započatých 8 dní/);
+  assert.deepEqual([H.parkStay(plain(klv), 4), H.parkStay(plain(klv), 9)], [500, 1000], 'prohlížeč stejně');
+  assert.match(H.accessLabel(plain(klv), { nights: 3 }).title, /parkování 500 Kč za každých započatých 8 dní × 1 = ~500 Kč/);
 });
 
 test('parkování u letiště online předem: základ + za den, proložené ceníky ověřenými 10/2026', () => {
   // Ceny online předem na 1, 3, 7 a 14 dní v Kč (24,4 Kč/€, 5,8 Kč/zł, 0,064 Kč/Ft) zjištěné 6. 10. 2026 pro auto
-  // přijíždějící 27. 10. (Praha, Vídeň) a 28. 10. 2026; zdroje u tabulky ACCESS v access.js a v README: Praha
-  // booking.prg.aero / aeroparking.cz, Vídeň Mazur, Brno ceník letiště 300 / 650 / 1 300 / 2 350 Kč, Ostrava P3–P6
+  // přijíždějící 27. 10. (Vídeň) a 28. 10. 2026; zdroje u tabulky ACCESS v access.js a v README: Praha
+  // booking.prg.aero PD Holiday mimo prázdniny (příjezd 12. 11., zjištěno 18. 10.: 2 / 4 / 8 / 15 dní 790 / 890 / 1 090 /
+  // 1 790 Kč → 1 / 3 / 7 / 14 dní proložené), Vídeň Mazur, Brno ceník letiště 300 / 650 / 1 300 / 2 350 Kč, Ostrava P3–P6
   // 130 Kč/den, Bratislava parkingairport.sk 35 / 41 / 50 / 90 €, Mnichov Economy 33,99 / 45,99 / 63,99 / 87,99 €,
   // Drážďany P2 Flex Plus 27 / 37 / 57 / 92 €, Lipsko 30 / 50 / 90 / 115 €, Katovice P4 / P5 37 / 66 / 132 / 189 zł,
   // Krakov KRK Parking 80 / 120 / 200 / 280 zł, Budapešť Relax Parking 5 831 / 9 150 / 13 200 / 16 725 Ft
   const measured = {
-    PRG: [780, 850, 1450, 2280], VIE: [791, 1420, 2096, 2828], BRQ: [300, 650, 1300, 2350], OSR: [130, 390, 910, 1820],
+    PRG: [740, 840, 1065, 1690], VIE: [791, 1420, 2096, 2828], BRQ: [300, 650, 1300, 2350], OSR: [130, 390, 910, 1820],
     BTS: [854, 1000, 1220, 2196], MUC: [829, 1122, 1561, 2147], DRS: [659, 903, 1391, 2245], LEJ: [732, 1220, 2196, 2806],
     KTW: [215, 383, 766, 1096], KRK: [464, 696, 1160, 1624], BUD: [373, 586, 845, 1070],
   };
@@ -280,10 +288,9 @@ test('parkování u letiště online předem: základ + za den, proložené cen�
   }
   assert.deepEqual([A.parkStay(wro, 1), A.parkStay(wro, 2), A.parkStay(wro, 8)], [700, 770, 1190]);
   assert.equal(wro.breakdown.find((x) => x.k === 'park').label, 'parkování u letiště online předem (630 Kč + 70 Kč za den)');
-  // Karlovy Vary: P4 / P5 online 500 Kč za každý započatý týden (8 dní, airport-k-vary.cz) → přímka 280 + 50 Kč/den
-  // přes 3–14 dní: týden 680 Kč (skutečně 500), 9 dní 730 Kč (skutečně 1 000), 14 dní 980 Kč
+  // Karlovy Vary: P4 / P5 online 500 Kč za každý započatý týden (8 dní, airport-k-vary.cz) – po blocích, ne přímka
   const klv = car(PRAHA, 'KLV');
-  assert.deepEqual([A.parkStay(klv, 8), A.parkStay(klv, 9), A.parkStay(klv, 14)], [680, 730, 980]);
+  assert.deepEqual([A.parkStay(klv, 8), A.parkStay(klv, 9), A.parkStay(klv, 14)], [500, 1000, 1000]);
   // Pardubice: P1 + P2 zdarma bez rezervace (airport-pardubice.cz) – parkování 0 a popis „zdarma“
   const ped = car(PRAHA, 'PED', { adults: 2 });
   assert.deepEqual([ped.parkBaseCzk, ped.parkDayCzk, A.parkCzk(ped, 7), A.carTrip(ped, 7).park], [0, 0, 0, 0]);
@@ -293,7 +300,7 @@ test('parkování u letiště online předem: základ + za den, proložené cen�
   // proložení základ + Kč/den u ověřených letišť (ceníky výše a u tabulky ACCESS)
   const verified = ['PRG', 'VIE', 'BRQ', 'OSR', 'PED', 'KLV', 'BTS', 'LNZ', 'SZG', 'MUC', 'NUE', 'BER', 'DRS', 'LEJ', 'KTW', 'KRK', 'WRO', 'BUD'];
   assert.deepEqual(Object.fromEntries(verified.map((x) => { const g = car(PRAHA, x); return [x, [g.parkBaseCzk, g.parkDayCzk]]; })), {
-    PRG: [590, 120], VIE: [850, 150], BRQ: [170, 160], OSR: [0, 130], PED: [0, 0], KLV: [280, 50], BTS: [670, 100],
+    PRG: [580, 80], VIE: [850, 150], BRQ: [170, 160], OSR: [0, 130], PED: [0, 0], KLV: [500, 0], BTS: [670, 100],
     LNZ: [740, 100], SZG: [1170, 70], MUC: [790, 100], NUE: [1580, 220], BER: [1260, 100], DRS: [540, 120],
     LEJ: [750, 160], KTW: [190, 70], KRK: [430, 90], WRO: [630, 70], BUD: [400, 50],
   });
@@ -307,7 +314,7 @@ test('parkování u letiště online předem: základ + za den, proložené cen�
   assert.ok(far.parkBaseCzk > 0 && far.parkDayCzk > 0);
   // rozpis: položka parkování za den se základem a popisem „online předem“
   const pk = car(PRAHA, 'PRG').breakdown.find((x) => x.k === 'park');
-  assert.deepEqual([pk.czk, pk.base], [120, 590]);
+  assert.deepEqual([pk.czk, pk.base], [80, 580]);
   assert.match(pk.label, /online předem/);
   // autem jen tam (odvoz) se neparkuje
   assert.equal(A.parkCzk(car(PRAHA, 'PRG', { oneWay: true }), 7), 0);
@@ -668,7 +675,7 @@ test('resolveOrigins a přestupní letiště: doprava podle zvoleného způsobu'
   assert.equal(prg.seasonal, undefined);
   const rc = resolveOrigins(['ap:PRG'], { radiusKm: 200, access: { mode: 'car', adults: 2, carKmCzk: 3 } });
   // parkování za den všude kromě Pardubic (P1 + P2 zdarma bez rezervace – airport-pardubice.cz, ověřeno 10/2026)
-  assert.ok(rc.airports.every((a) => a.ground.mode === 'car' && a.ground.adults === 2 && a.ground.carKmCzk === 3 && (a.iata === 'PED' || a.ground.parkDayCzk > 0)));
+  assert.ok(rc.airports.every((a) => a.ground.mode === 'car' && a.ground.adults === 2 && a.ground.carKmCzk === 3 && (a.iata === 'PED' || a.ground.parkDayCzk > 0 || a.ground.parkBlockDays > 0)));
   const off = resolveOrigins(['ap:PRG'], { radiusKm: 200, access: { scale: 0 } });
   assert.ok(off.airports.every((a) => a.ground.czk === 0 && a.ground.off));
   // země bez výchozího místa: bez dopravy

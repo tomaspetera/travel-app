@@ -89,7 +89,8 @@ test('GET /api/origins – doprava na letiště: veřejnou dopravou, autem s par
     // Pardubice: parkování zdarma (P1 + P2 bez rezervace, airport-pardubice.cz, ověřeno 10/2026), jinde základ + za den
     const freePark = a.iata === 'PED';
     assert.ok(g.roadKm > 0 && g.fuelCzk === Math.round(g.roadKm * 3) && Array.isArray(g.tolls) && g.adults === 2);
-    assert.ok(freePark ? g.parkBaseCzk === 0 && g.parkDayCzk === 0 : g.parkBaseCzk > 0 && g.parkDayCzk > 0, a.iata);
+    // Karlovy Vary: 500 Kč za každých započatých 8 dní (parkBlockDays), ne za den
+    assert.ok(freePark ? g.parkBaseCzk === 0 && g.parkDayCzk === 0 : g.parkBaseCzk > 0 && (g.parkDayCzk > 0 || g.parkBlockDays === 8), a.iata);
     assert.deepEqual(g.breakdown.map((x) => x.k), ['fuel', 'park', ...g.tolls.map(() => 'toll')]);
     assert.equal(g.trip.days, 6);
     assert.equal(g.trip.park, g.parkBaseCzk + g.parkDayCzk * 6);
@@ -164,7 +165,7 @@ test('GET /api/origins a /api/nearby – autem podle pohonu: nafta, benzín, ele
     assert.equal(f.priceLabel, 'nabíjení DC ~16 Kč/kWh (ceníky ČEZ, PRE, E.ON, IONITY, Tesla – stav 6. 10. 2026)');
     assert.equal(a.ground.fuelCzk, Math.round(a.ground.roadKm * 2.72));
     // parkování platí i elektroauto (Pardubice zdarma pro všechny – airport-pardubice.cz, ověřeno 10/2026)
-    assert.ok(a.iata === 'PED' ? a.ground.parkDayCzk === 0 : a.ground.parkDayCzk > 0, a.iata);
+    assert.ok(a.iata === 'PED' ? a.ground.parkDayCzk === 0 : a.ground.parkDayCzk > 0 || a.ground.parkBlockDays > 0, a.iata);
   }
   // vlastní cena a meze (spotřeba 0 = výchozí, cena 999 → 40 Kč/kWh)
   const own = await get('carFuel=ev&carCons=0&carPrice=999');

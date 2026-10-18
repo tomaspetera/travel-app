@@ -35,11 +35,12 @@ import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV
 // 1 / 3 / 7 / 14 dní proložené nejmenšími čtverci; * = ceník po týdnech (nebo silně degresivní – Vratislav), jedna přímka
 // přes 1–14 dní sedí špatně → proloženo jen 3–14 dní (typická cesta), jeden den pak vyjde dráž. V závorce pro srovnání
 // většinou cena na místě bez rezervace (bývá dráž):
-//   PRG booking.prg.aero, aeroparking.cz 780 / 850 / 1 450 / 2 280 Kč → 590 + 120 (před T3 1 000 / 1 700 / 2 500 / 3 900)
+//   PRG booking.prg.aero PD Holiday mimo prázdniny (příjezd 12. 11., zjištěno 18. 10. 2026) 2 / 4 / 8 / 15 dní 790 / 890 /
+//       1 090 / 1 790 Kč → 580 + 80 (o podzimních prázdninách 27. 10. dráž: 8 dní 1 730 Kč; před T3 1 000 / 1 700 / 2 500 / 3 900)
 //   VIE Mazur s kyvadlovou dopravou 791 / 1 420 / 2 096 / 2 828 Kč → 850 + 150 (Parkplatz C online 827 / … / 4 071)
 //   BRQ ceník letiště od 1. 1. 2025 (online voucher stejně) 300 / 650 / 1 300 / 2 350 Kč → 170 + 160
 //   OSR P3–P6 130 Kč/den, rezervace online (parkum.app) za stejnou cenu → 0 + 130; PED P1 + P2 zdarma bez rezervace
-//   KLV P4 / P5 online 500 Kč za započatý týden (8 dní): 500 / 500 / 500 / 1 000 Kč → 280 + 50* (P4 200 / 400 / 700 /
+//   KLV P4 / P5 online 500 Kč za započatý týden (8 dní): 500 / 500 / 500 / 1 000 Kč → [500, 0, 8] po blocích (P4 200 / 400 / 700 /
 //       1 300 Kč; P7 zdarma, ale bez záruky volného místa)
 //   BTS Parking Airport Bratislava (parkingairport.sk, kyvadlová doprava zdarma) 35 / 41 / 50 / 90 € → 670 + 100;
 //       letiště P2 online 36 / 55 / 95 / 170 €
@@ -64,11 +65,11 @@ import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV
 // Jízdné a čas u letišť, která jsou i v tabulce cesty z letiště do města (data/arrival.json – FMM, FRA, KRK, BUD, ZAG,
 // WAW, WMI), odpovídají ověřeným cenám dopravců ze 7. 10. 2026 (test hlídá shodu).
 export const ACCESS = {
-  PRG: [50.0755, 14.4378, 'Praha', 46, 45, 'MHD – bus 59 + metro A (PID 90 min; Airport Express 200 Kč)', [590, 120]], // ověřeno 10/2026
+  PRG: [50.0755, 14.4378, 'Praha', 46, 45, 'MHD – bus 59 + metro A (PID 90 min; Airport Express 200 Kč)', [580, 80]], // ověřeno 10/2026 (parkování mimo prázdniny)
   BRQ: [49.1951, 16.6068, 'Brno', 30, 30, 'bus E76 z hlavního nádraží (IDS JMK)', [170, 160]], // ověřeno 10/2026
   OSR: [49.8346, 18.2820, 'Ostrava', 50, 45, 'vlak do Mošnova (ODIS)', [0, 130]], // ověřeno 10/2026
   PED: [50.0343, 15.7812, 'Pardubice', 25, 20, 'bus 90 z hlavního nádraží (jede 150 a 120 min před odletem)', [0, 0]], // ověřeno 10/2026: parkování zdarma
-  KLV: [50.2310, 12.8714, 'Karlovy Vary', 30, 25, 'MHD bus 8 z Tržnice', [280, 50]], // ověřeno 10/2026
+  KLV: [50.2310, 12.8714, 'Karlovy Vary', 30, 25, 'MHD bus 8 z Tržnice', [500, 0, 8]], // ověřeno 10/2026: 500 Kč za každých započatých 8 dní
   JCL: [48.9745, 14.4743, 'České Budějovice', 30, 25, 'bus 40 z nádraží (jen ve dny letů)', [120, 60]],
   VIE: [48.2082, 16.3738, 'Vídeň', 110, 40, 'vlak S7 / Railjet z centra (~4,40 €; CAT 14,90 €)', [850, 150]], // ověřeno 10/2026
   BTS: [48.1486, 17.1077, 'Bratislava', 35, 30, 'MHD bus 61 (60 min)', [670, 100]], // ověřeno 10/2026
@@ -183,7 +184,8 @@ const driveMin = (roadKm) => (Math.min(roadKm, 15) / 35) * 60 + (Math.max(0, roa
 export const regionalCzk = (km) => 30 + 1.5 * km;
 export const regionalMin = (km) => 15 + 1.1 * km;
 // Parkování v rozpisu: „online předem (590 Kč + 120 Kč za den)“, bez základu jen sazba za den (Ostrava), [0, 0] zdarma.
-const parkLabel = (base, day) => (!base && !day ? 'parkování u letiště zdarma'
+const parkLabel = (base, day, block) => (block ? `parkování u letiště ${base} Kč za každých započatých ${block} dní`
+  : !base && !day ? 'parkování u letiště zdarma'
   : `parkování u letiště online předem (${base ? `${base} Kč + ` : ''}${day} Kč za den)`);
 
 /**
@@ -192,7 +194,7 @@ const parkLabel = (base, day) => (!base && !day ? 'parkování u letiště zdarm
  */
 export function airportCity(a) {
   const x = ACCESS[a.iata];
-  if (x) return { lat: x[0], lon: x[1], label: x[2], czk: x[3], min: x[4], how: x[5], parkBase: x[6][0], parkDay: x[6][1], known: true };
+  if (x) return { lat: x[0], lon: x[1], label: x[2], czk: x[3], min: x[4], how: x[5], parkBase: x[6][0], parkDay: x[6][1], ...(x[6][2] ? { parkBlock: x[6][2] } : {}), known: true };
   const big = a.type === 'L';
   const [parkBase, parkDay] = PARK_DEFAULT[a.type] || PARK_DEFAULT.M;
   return {
@@ -425,12 +427,12 @@ export function carAccess(home, a, opts = {}) {
     : { k: 'fuel', label: `palivo jedním směrem (${roadKm} km × ${comma(kmCzk)} Kč)`, czk: fuelCzk, kmCzk, fuelCzk };
   const breakdown = [
     fuel,
-    ...(oneWay ? [] : [{ k: 'park', label: parkLabel(c.parkBase, c.parkDay), czk: c.parkDay, base: c.parkBase }]),
+    ...(oneWay ? [] : [{ k: 'park', label: parkLabel(c.parkBase, c.parkDay, c.parkBlock), czk: c.parkDay, base: c.parkBase, ...(c.parkBlock ? { block: c.parkBlock } : {}) }]),
     ...tolls.map((t) => ({ k: 'toll', label: t.label, czk: t.czk })),
   ];
   return {
     mode: 'car', km: Math.round(km), roadKm, minutes: r5(drive + 15), czk: Math.round(czk), local: false,
-    fuelCzk, carKmCzk: kmCzk, carFuel: e ? e.fuel : null, parkBaseCzk: c.parkBase, parkDayCzk: c.parkDay, tolls, adults: n, dropOff: Boolean(oneWay), breakdown,
+    fuelCzk, carKmCzk: kmCzk, carFuel: e ? e.fuel : null, parkBaseCzk: c.parkBase, parkDayCzk: c.parkDay, ...(c.parkBlock ? { parkBlockDays: c.parkBlock } : {}), tolls, adults: n, dropOff: Boolean(oneWay), breakdown,
   };
 }
 
@@ -438,9 +440,11 @@ export function carAccess(home, a, opts = {}) {
 export const parkDays = (nights) => Math.max(1, Math.round(Number(nights) || 0) + 1);
 /**
  * Parkování u letiště za auto na `days` dní: základ + sazba za den (online předem, krátké stání je na den dražší).
- * Starší odpověď bez základu (parkBaseCzk) = jen sazba za den. Stejně v prohlížeči (SearchHelp.parkStay).
+ * Starší odpověď bez základu (parkBaseCzk) = jen sazba za den; parkBlockDays = cena parkBaseCzk za každých započatých
+ * N dní (Karlovy Vary 500 Kč za 8 dní). Stejně v prohlížeči (SearchHelp.parkStay).
  */
-export const parkStay = (g, days) => (Number(g.parkBaseCzk) || 0) + g.parkDayCzk * days;
+export const parkStay = (g, days) => (g.parkBlockDays > 0 ? Math.ceil(days / g.parkBlockDays) * (Number(g.parkBaseCzk) || 0)
+  : (Number(g.parkBaseCzk) || 0) + g.parkDayCzk * days);
 
 /**
  * Autem tam i zpět s N nocemi: parkování u letiště (+ druhá známka, když první na celou cestu nevystačí), Kč/os.

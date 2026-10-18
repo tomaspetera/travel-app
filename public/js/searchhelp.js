@@ -919,7 +919,8 @@
   /** Dní parkování pro cestu s N nocemi (odlet ráno, návrat večer = N + 1 započatých dní). */
   const parkDays = n => Math.max(1, Math.round(Number(n) || 0) + 1);
   /** Parkování za auto na `days` dní: základ + sazba za den (online předem) – jako server (access.js parkStay). */
-  const parkStay = (g, days) => (Number(g.parkBaseCzk) || 0) + g.parkDayCzk * days;
+  const parkStay = (g, days) => (g.parkBlockDays > 0 ? Math.ceil(days / g.parkBlockDays) * (Number(g.parkBaseCzk) || 0)
+    : (Number(g.parkBaseCzk) || 0) + g.parkDayCzk * days);
   /** Autem tam i zpět s N nocemi: parkování (+ druhá známka, když první nevystačí), Kč/os. – jako server (access.js parkCzk). */
   function parkCzk(g, nights) {
     if (!g || g.mode !== 'car' || g.off || g.dropOff) return 0;
@@ -957,6 +958,12 @@
       }
       // parkování online předem: základ + sazba za den (starší odpověď bez základu jen za den); základ i sazba 0 = zdarma
       const base = Number(g.parkBaseCzk) || 0;
+      if (g.parkBlockDays > 0) {
+        return {
+          text: `~${kc(r10(t.perPerson))}/os. vč. parkování na ${t.days} ${dnu(t.days)}`,
+          title: `Autem ${g.roadKm} km (~${hm(g.minutes)}): ${fuel} + parkování ${kc(base)} za každých započatých ${g.parkBlockDays} dní × ${Math.ceil(t.days / g.parkBlockDays)} = ~${kc(t.park)}${tolls} = ${per}.${src} Parkování ve výsledcích podle skutečné délky cesty. Odhad.`,
+        };
+      }
       if (!base && !g.parkDayCzk) {
         return {
           text: `~${kc(r10(t.perPerson))}/os. tam i zpět, parkování zdarma`,

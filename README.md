@@ -570,12 +570,12 @@ bez MHD z domova) vycházelo PED ~150 Kč, KLV ~210 Kč, BRQ ~230 Kč, DRS ~430 
 
 | Letiště | Parkoviště, zdroj | Online 1 / 3 / 7 / 14 dní | Pro srovnání | Model (Kč) |
 |---|---|---|---|---|
-| Praha | booking.prg.aero, aeroparking.cz | 780 / 850 / 1 450 / 2 280 Kč | před T3 bez rezervace 1 000 / 1 700 / 2 500 / 3 900 Kč | 590 + 120 |
+| Praha | booking.prg.aero PD Holiday mimo prázdniny (příjezd 12. 11., zjištěno 18. 10. 2026; 2 / 4 / 8 / 15 dní 790 / 890 / 1 090 / 1 790 Kč) | ~740 / 840 / 1 065 / 1 690 Kč | o podzimních prázdninách 27. 10. dráž (8 dní 1 730 Kč); před T3 bez rezervace 1 000 / 1 700 / 2 500 / 3 900 Kč | 580 + 80 |
 | Vídeň | Mazur s kyvadlovou dopravou | 791 / 1 420 / 2 096 / 2 828 Kč | Parkplatz C online 827 / 2 196 / 3 057 / 4 071 Kč | 850 + 150 |
 | Brno | ceník brno-airport.cz od 1. 1. 2025 (online voucher stejně) | 300 / 650 / 1 300 / 2 350 Kč | – | 170 + 160 |
 | Ostrava | P3–P6, airport-ostrava.cz (rezervace parkum.app stejně) | 130 Kč za každý den | P1 před terminálem 360 Kč/den | 0 + 130 |
 | Pardubice | P1 + P2, airport-pardubice.cz | zdarma, bez rezervace | – | zdarma |
-| Karlovy Vary | P4 / P5 online, airport-k-vary.cz | 500 Kč za započatý týden (8 dní) | P4 na místě 200 / 400 / 700 / 1 300 Kč; P7 zdarma, místo nezaručené | 280 + 50 \* |
+| Karlovy Vary | P4 / P5 online, airport-k-vary.cz | 500 Kč za započatý týden (8 dní) | P4 na místě 200 / 400 / 700 / 1 300 Kč; P7 zdarma, místo nezaručené | 500 Kč za každých započatých 8 dní |
 | Bratislava | Parking Airport Bratislava, parkingairport.sk (kyvadlová doprava zdarma, ceník od 1. 10. 2026) | 35 / 41 / 50 / 90 € | letiště P2 online 36 / 55 / 95 / 170 € | 670 + 100 |
 | Linec | C1 Charter, linz-airport.com (ceník od 1. 1. 2026, rezervace nejde) | 16,70 / 40 / 63 / 86 € | – | 740 + 100 \* |
 | Salcburk | P3 / P7, salzburg-airport.com (sezóna 24. 10.–1. 11.; online obchod nedostupný) | 27 / 59 / 65 / 90 € | mimo sezónu 25 / 57 / 61 / 82 € | 1 170 + 70 \* |
