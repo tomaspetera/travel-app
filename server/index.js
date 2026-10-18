@@ -6,7 +6,7 @@ import { createReadStream, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { config } from './config.js';
-import { suggest, describe, resolveOrigins, geocode } from './lib/places.js';
+import { suggest, describe, resolveOrigins, geocodePlaces } from './lib/places.js';
 import { search, UserError, legBagCzk } from './lib/search.js';
 import { stayProviders } from './providers/stays/index.js';
 import { activeProviders, providerStatus } from './providers/index.js';
@@ -318,7 +318,7 @@ async function route(req, res) {
     const q = (url.searchParams.get('q') || '').slice(0, 80);
     let items = [];
     try {
-      items = await geocode(q);
+      items = await geocodePlaces(q);
     } catch (e) {
       return sendJson(req, res, 502, { error: `Geokódování nedostupné: ${e.message}` });
     }

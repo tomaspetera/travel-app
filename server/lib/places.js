@@ -316,6 +316,31 @@ export async function englishName(name, lat, lon, cc = '', gid = null) {
   });
 }
 
+/**
+ * Města a místa pro Objevuj a program (/api/geocode): geokódování; při jeho výpadku aspoň města z vlastních dat.
+ * Překlep („Krakv“ → geokodér najde Krokvåg v Norsku): když žádný název nezačíná napsaným textem, nahoře oprava
+ * z vlastních dat (fuzzy: true – nabídka ukáže „Překlep? Asi myslíš:“).
+ */
+export async function geocodePlaces(query) {
+  let items;
+  try {
+    items = await geocode(query);
+  } catch (e) {
+    items = localCityCenters(query);
+    if (!items.length) throw e;
+  }
+  // (vesnice začínající stejně – Krakvitz u „Krakv“ – opravě nebrání)
+  const q = normalize(query);
+  if (q.length >= 5 && !items.some((x) => normalize(x.label).startsWith(q) && x.pop >= 1000)) {
+    const fz = localSuggestions(query, 3).find((s) => s.fuzzy && ['city', 'metro', 'airport'].includes(s.type));
+    const name = fz && fz.label.replace(/\s*\(.*\)$/, '');
+    // střed města z geokódování (letiště bývá za městem), jinak z vlastních dat
+    const fix = name && ((await geocode(name).catch(() => [])).find((x) => normalize(x.label) === normalize(name)) || localCityCenters(name)[0]);
+    if (fix) items = [{ ...fix, fuzzy: true }, ...items.filter((x) => x.id !== fix.id)];
+  }
+  return items;
+}
+
 /** Střed města z vlastních dat (města domova, metropole; jinak poloha letiště) – záloha bez sítě. */
 export function localCityCenters(query) {
   const list = localSuggestions(query, 6, { role: 'from' }); // město před svým letištěm
