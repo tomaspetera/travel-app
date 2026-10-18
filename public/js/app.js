@@ -366,6 +366,7 @@ function showNow() {
 const WN_ID = '2026-10-18g';
 const WHATS_NEW = [
   ['👀', 'Zaujalo tě', 'cíle, které sis po hledání Kamkoliv rozbalil, nabídne prázdné pole <b>Kam</b> – jedním klepnutím lety jen tam ve stejném termínu.'],
+  ['🗣️', 'Hledání rozumí ještě víc', '„příští pátek“, „pozítří“, „mám 5000“, „do 80 €“, „z Kutné Hory“, „do Nového Zélandu“, „Slunečné pobřeží“ – a kdo hledá hlavně víkendy, tomu radar na Přehledu nabídne <b>Víkendy</b>.'],
   ['🔤', 'Překlep nevadí', '„Barcleona“, „Lodnýn“ nebo „Krakv na 2 dny“ – našeptávač nabídne „Překlep? Asi myslíš:“ se správným místem, v Letech i v Objevuj.'],
   ['🔎', 'Stačí napsat a klepnout na Najít lety', 'našeptávač rozumí i „do Barcelony“, „levně do Paříže“, „z Brna“ nebo „Praha Londýn“; napsaný text tlačítko <b>Najít lety</b> použije, i když nic nevybereš z nabídky.'],
   ['🔁', 'Objevuj podle toho, co hledáš', 'v Inspiraci jsou nahoře města, kam jsi nedávno hledal letenky – jedním klepnutím, co tam vidět.'],
