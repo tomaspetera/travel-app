@@ -190,6 +190,21 @@ function localScored(query, home) {
     if (homonym && d >= 4) continue; // jmenovec daleko od domova (London v Kanadě, Bruno v USA)
     push(airportSuggestion(a), sc, sc + apBonus(a) - d - (homonym ? 30 : 0));
   }
+  // Tvar víceslovného názvu („Velké Británie“, „Nového Zélandu“, „Spojených států“): slova podle kmene (společný
+  // začátek délky kratšího slova bez 2 písmen, aspoň 3) – země, oblasti, metropole, města; napsaný tvar jde do aliases
+  // (chytré hledání podle něj pozná shodu). Není to překlep – před opravou překlepů.
+  const qw = q.split(' ');
+  if (qw.length >= 2 && !out.some((c) => c.m >= 60)) {
+    const wm = (a, b) => { const k = Math.max(3, Math.min(a.length, b.length) - 2); return a.length >= 3 && b.length >= 3 && a.slice(0, k) === b.slice(0, k); };
+    const decl = (...names) => names.some((n) => { const tw = normalize(n).split(' '); return tw.length >= qw.length && tw.length <= qw.length + 1 && qw.every((w, i) => wm(w, tw[i])); });
+    const add = (s, bonus, lat, lon) => push({ ...s, aliases: [...(s.aliases || []), q] }, 70, 70 + bonus - (lat != null ? distPenalty(home, lat, lon) : 0));
+    for (const c of COUNTRIES) if (decl(c.cs, c.en)) add(countrySuggestion(c), 10);
+    for (const [alias, iso] of Object.entries(COUNTRY_ALIASES)) if (COUNTRY_BY_ISO.has(iso) && decl(alias)) add(countrySuggestion(COUNTRY_BY_ISO.get(iso)), 10);
+    for (const r of REGIONS) if (decl(r.cs, ...r.aliases)) add(regionSuggestion(r), 8);
+    for (const c of CONTINENTS) if (decl(c.cs, ...c.aliases)) add(continentSuggestion(c), 6);
+    for (const m of METRO_BY_CODE.values()) if (decl(m.cs, m.en)) add(metroSuggestion(m), Math.min(10, metroBonus(m)), m.lat, m.lon);
+    for (const c of CITIES) if (decl(c.cs, c.en)) add(citySuggestion(c), Math.min(10, popBonus(c.pop) + 3), c.lat, c.lon);
+  }
   // Překlep („Barcleona“, „Lodnýn“, „Amstrdam“): bez jiné shody slovo od 5 znaků podobné názvu země, oblasti, velkého
   // města nebo letiště (1 překlep, od 9 znaků 2; od 6 znaků i rozepsaný začátek názvu). První písmeno musí sedět a skóre je nízké –
   // skutečné místo z geokódování (vesnice přesně toho jména) má přednost.

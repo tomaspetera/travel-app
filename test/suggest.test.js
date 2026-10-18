@@ -209,3 +209,14 @@ test('geocodePlaces (Objevuj): překlep „Krakv“ = Krakov nahoře (geokodér 
     assert.match(l[0].id, /^geo:/);
   } finally { stub.restore(); config.mock = mock; }
 });
+
+test('suggest: víceslovný název ve 2. pádě („Velké Británie“, „Nového Zélandu“, „Spojených států“) – shoda podle kmenů, ne překlep', () => {
+  const first = (q) => localSuggestions(q, 3)[0];
+  for (const [q, id] of [['Velké Británie', 'cc:GB'], ['Nového Zélandu', 'cc:NZ'], ['Spojených států', 'cc:US'], ['Jižní Afriky', 'cc:ZA'], ['Kanárských ostrovů', 'rg:kanary'], ['Spojených arabských emirátů', 'cc:AE']]) {
+    assert.equal(first(q)?.id, id, q);
+    assert.ok(!first(q).fuzzy, q);
+    assert.ok(first(q).aliases.includes(q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')), q); // chytré hledání pozná shodu
+  }
+  // jiný kmen = jiné místo (Jižní Afriky ≠ Jižní Amerika)
+  assert.ok(!localSuggestions('Jižní Afriky', 5).some((s) => /Amerika/.test(s.label)));
+});

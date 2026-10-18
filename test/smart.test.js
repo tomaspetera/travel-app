@@ -338,3 +338,19 @@ test('„5-9.12.“ bez tečky za prvním dnem; svátek s delším pobytem („n
   // bez délky dál prodloužený víkend
   assert.equal(P('Tenerife na Silvestra').patch.len, 'holiday');
 });
+
+test('rozpočet: „mám 5000“, „za 2 litry“ (= 2 000 Kč), eura kurzem ze serveru (bez něj ~25 Kč)', () => {
+  assert.deepEqual([P('mám 5000 na víkend').patch.maxPrice, P('mám 5000 na víkend').to], ['5000', []]);
+  assert.equal(P('za 2 litry na víkend').patch.maxPrice, '2000');
+  assert.equal(P('do 100 eur').patch.maxPrice, '2500');
+  const r = JSON.parse(JSON.stringify(Smart.parse('Řím do 80 €', { today, presets, eurCzk: 24.3 })));
+  assert.deepEqual([r.to, r.patch.maxPrice], [['Řím'], '1900']);
+  assert.deepEqual(P('mám rád moře').to, []);
+});
+
+test('„Nové Město“: „město“ za slovem názvu patří k místu; samotné („do města“, „nějaké město u moře“) místo neurčuje', () => {
+  assert.deepEqual(P('Nové Město').to, ['Nové Město']);
+  assert.deepEqual(P('do Nového Města v květnu').to, ['Nového Města']);
+  assert.deepEqual(P('výlet do města').to, []);
+  assert.deepEqual(P('nějaké město u moře').to, []);
+});
