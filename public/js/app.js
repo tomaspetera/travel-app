@@ -363,8 +363,11 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-18c';
+const WN_ID = '2026-10-18d';
 const WHATS_NEW = [
+  ['🗣️', 'Hledání rozumí víc', 'dny slovy („20. listopadu“, „koncem listopadu“), den odletu („v pátek“), šipku („Vídeň → Nice“), místní názvy („Roma“, „Wien“, „Lisboa“) a oblasti jako Toskánsko, Apulie, Dalmácie nebo Laponsko – v Letech i v Objevuj.'],
+  ['📏', 'Kratší obrazovky', 'shrnutí cesty má <b>Uložit</b> a <b>Sdílet</b> hned pod „Co zarezervovat“, celý průběh a podrobnosti se rozbalí na klepnutí; Objevuj ukáže nejdřív 8 míst.'],
+  ['📅', 'Plánovač a cesty přes víc měst', 'lety po řádcích, <b>Hledat lety</b> znovu najde stejnou trasu a <b>Ubytování</b> nabídne každé místo s jeho termínem.'],
   ['✨', 'Vyber za mě', 'v Cestě přes víc míst vybere v kroku Ubytování jedním klepnutím hotel s nejlepším poměrem ceny a hodnocení v každém místě – změnit ho můžeš kdykoliv.'],
   ['↩', 'Pokračuj, kde jsi skončil', 'na Přehledu je rozpracovaná cesta (u kterého kroku jsi) a poslední hledání – jedním klepnutím zpátky. Cesta přes víc měst letadlem jde do průvodce i bez návratu domů.'],
   ['✨', 'Chytré hledání', 'do pole <b>Kam</b> napiš celou větu – „k moři v květnu do 5000“, „Řím na víkend ve dvou“, „z Vídně do Barcelony 12. 11. – 16. 11.“ – a nahoře uvidíš, jak jí rozumím. Prázdné pole nabídne tipy podle toho, co hledáš. V Objevuj třeba „Lisabon na 3 dny“ nebo „výlety z Brna“.'],

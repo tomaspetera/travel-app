@@ -701,8 +701,10 @@
       const [lbl, cls] = LEVEL[x.level] || LEVEL.info;
       const box = x.level === 'info' ? '<span class="pt-dot" aria-hidden="true">ℹ️</span>' : chk('todo', x.id, done);
       const links = x.links.filter(l => l && safeUrl(l[0]) !== '#').map(l => link(l[0], `${l[1]} ↗`)).join(' · ');
+      // důležité celé; doporučení a informace jen s nadpisem – popis pod „Podrobnosti“ (shrnutí by bylo na 7 obrazovek)
+      const body = `${x.lines.filter(Boolean).map(l => `<p>${l}</p>`).join('')}${links ? `<p class="pt-links">${links}</p>` : ''}`;
       return `<li class="pt-item lv-${cls}${done[`todo:${x.id}`] ? ' done' : ''}"><label class="pt-row">${box}<span class="pt-t">${esc(x.icon)} <b>${esc(x.title)}</b>${lbl ? ` <span class="pt-lv">${lbl}</span>` : ''}</span></label>
-        <div class="pt-body">${x.lines.filter(Boolean).map(l => `<p>${l}</p>`).join('')}${links ? `<p class="pt-links">${links}</p>` : ''}</div></li>`;
+        ${x.level === 'must' ? `<div class="pt-body">${body}</div>` : `<details class="pt-bd"><summary>Podrobnosti</summary><div class="pt-body">${body}</div></details>`}</li>`;
     }).join('');
     const chips = ACTS.map(([id, label]) => `<button type="button" class="fchip${ctx.acts.has(id) ? ' on' : ''}" data-pt-act="${id}" aria-pressed="${ctx.acts.has(id)}">${esc(label)}</button>`).join('');
     const tips = bagTips(ctx);
@@ -803,8 +805,8 @@
   /** Tisk jen karty „Před cestou“ (tisková CSS skryje zbytek stránky podle třídy na body). */
   function printList() {
     document.body.classList.add('pt-print');
-    // seznam věcí se tiskne celý, i když je na obrazovce sbalený
-    const shut = [...document.querySelectorAll('#preTrip details.pt-packd:not([open])')];
+    // seznam věcí i podrobnosti se tisknou celé, i když jsou na obrazovce sbalené
+    const shut = [...document.querySelectorAll('#preTrip details:not([open])')];
     shut.forEach(d => { d.open = true; });
     const off = () => { document.body.classList.remove('pt-print'); shut.forEach(d => { d.open = false; }); window.removeEventListener('afterprint', off); };
     window.addEventListener('afterprint', off);
