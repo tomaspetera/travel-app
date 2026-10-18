@@ -1823,6 +1823,21 @@
     }
   }
 
+  /**
+   * Telefon: u nabídky nejvýš BADGE_TOP štítků (noci, cena, cesta z letiště, brzký odjezd / pozdní návrat – pořadí
+   * podle důležitosti), další pod „+N“ – karta má jinak 8 štítků a je na půl obrazovky.
+   */
+  const BADGE_TOP = 5;
+  function foldBadges(host) {
+    if (!onPhone()) return;
+    $$('.tr-badges', host).forEach(b => {
+      const kids = [...b.children].filter(c => !c.classList.contains('wx-slot') && !c.classList.contains('b-more'));
+      if (kids.length <= BADGE_TOP + 1 || b.querySelector('.b-more')) return; // „+1“ by nic neušetřilo
+      kids.slice(BADGE_TOP).forEach(c => c.classList.add('b-x'));
+      b.insertAdjacentHTML('beforeend', `<button type="button" class="b b-more" title="Další údaje o nabídce">+${kids.length - BADGE_TOP} další</button>`);
+      b.querySelector('.b-more').onclick = e => { e.stopPropagation(); b.querySelectorAll('.b-x').forEach(x => x.classList.remove('b-x')); e.currentTarget.remove(); };
+    });
+  }
   // stáří ceny z paměti tras (Wizz Air, ≤ 6 h) v minutách; 0 = čerstvá
   const memAge = t => Math.max(+(t.out && t.out.memAgeMin) || 0, +(t.back && t.back.memAgeMin) || 0);
   function badges(t, g, idx) {
@@ -3092,6 +3107,7 @@
       liveToast(st);
     });
     $$('[data-country]', host).forEach(b => b.onclick = () => openCountry(b.dataset.country));
+    foldBadges(host);
     // skupina i s nabídkami po filtrech výpisu (vis) – okno porovná s letem, který karta ukazuje
     $$('[data-gchip]', host).forEach(b => b.onclick = () => { const k = b.dataset.gchip, g = computeGroups().find(x => x.dest.key === k) || lastResult.groups.find(x => x.dest.key === k); if (g) openGroundModal(g); });
   }
