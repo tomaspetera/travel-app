@@ -712,8 +712,13 @@
   async function smartPlace(phrase) {
     const cands = Smart.nominatives(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
     const fl = await Promise.all(cands.map(c => getJson('api/places?q=' + enc(c)).then(j => j.items || [], () => [])));
-    // jen místa z databáze letů (letiště, města, země, oblasti) – geokódované vesnice (geo:…, „Brná“ pro „Brna“) ne
-    const known = cands.find((c, i) => fl[i].some(it => !/^geo:/.test(it.id || '') && same(it.label, c)));
+    // jen místa z databáze letů (letiště, města, země, oblasti) – geokódované vesnice (geo:…, „Brná“ pro „Brna“) ne;
+    // shoda i podle jiného názvu (en „Rome“, místní „Roma“, „Toscana“) → hledá se český název („Řím“, „Toskánsko“)
+    let known = null;
+    for (const [i, c] of cands.entries()) {
+      const it = fl[i].find(x => !/^geo:/.test(x.id || '') && [x.label, x.en, ...(x.aliases || [])].some(n => n && same(n, c)));
+      if (it) { known = String(it.label).replace(/\s*\(.*\)$/, ''); if (it.type === 'region') known = await regionCity(it) || known; break; }
+    }
     const geo = async c => (await getJson('api/geocode?q=' + enc(c)).catch(() => ({ items: [] }))).items || [];
     for (const c of known ? [known] : [...cands.slice(1), cands[0]]) {
       const items = await geo(c), hit = items.find(it => same(it.label, c)) || (known ? items[0] : null);
@@ -721,9 +726,19 @@
     }
     return (await geo(cands[0]))[0] || null;
   }
+  // oblast (Toskánsko, Kréta…) nemá v geokódování střed – místo ní město jejího prvního letiště (Florencie, Heraklion)
+  async function regionCity(it) {
+    const iata = (String(it.sub || '').match(/\b[A-Z]{3}\b/) || [])[0];
+    if (!iata) return null;
+    const ap = ((await getJson('api/places?q=' + enc(iata)).catch(() => ({ items: [] }))).items || []).find(x => x.id === 'ap:' + iata);
+    return ap ? String(ap.label).replace(/\s*\(.*\)$/, '') : null;
+  }
   /** ✨ Volby z věty do Objevuj: druh plánu, dny, délka trasy, od kdy, zájmy; plán se po načtení míst sestaví sám. */
   function exploreApply(px) {
+    // věta bez druhu plánu, ale s dny nebo zájmy („Toscana na týden“, „Řím s dětmi“) = program ve městě – ne kolo
+    // z minulé věty
     if (px.mode) ex.mode = px.mode;
+    else if (px.days || px.interests.length) ex.mode = 'city';
     const road = ex.mode === 'day' || ex.mode === 'loop';
     if (px.days) {
       const opts = ex.mode === 'loop' ? [2, 3, 4, 5, 6, 7, 10] : ex.mode === 'day' ? [1, 2, 3, 4, 5, 7] : [1, 2, 3, 4, 5, 6, 7, 10];
