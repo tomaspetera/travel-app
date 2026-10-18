@@ -214,7 +214,7 @@
     return (await r.json()).items || [];
   }
   // chytré hledání: termíny podle svátků a délky pobytu jako ve formuláři
-  const smartOpts = () => ({ today: today(), presets: PRESETS, holidays: SearchHelp.holidayList(today()), holidayDates: SearchHelp.holidayDates });
+  const smartOpts = () => ({ today: today(), presets: PRESETS, holidays: SearchHelp.holidayList(today()), holidayDates: SearchHelp.holidayDates, eurCzk: health && health.fx ? health.fx.eurCzk : null });
   /** Místa z věty („do Říma“, „z Vídně“): tvar slova i se zkrácenou koncovkou → nejlepší návrh (Smart.bestPlace). */
   // Místo z tvaru ve větě („Říma“ → Řím): napřed vlastní data (rychle); geokódování (pomalejší, vesnice a místa mimo
   // databázi) jen když nic nenajdou
@@ -371,7 +371,7 @@
       };
       this.dd.innerHTML = (this.tips.length ? '<div class="pi-head">✨ Pro tebe – nebo napiš celou větu, třeba „k moři v květnu do 5000“</div>' : '')
         + (rows[0] && rows[0].sug && rows[0].sug.fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '')
-        + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err ? 'Našeptávač je nedostupný' : 'Nic nenalezeno – zkus jiný název nebo kód letiště'}</div>`);
+        + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err ? 'Našeptávač je nedostupný' : `Nic nenalezeno – zkus jiný název nebo kód letiště${this.smart ? ', nebo napiš větu, třeba „k moři v květnu“' : ''}`}</div>`);
       this.dd.hidden = false;
       $$('.pi-opt', this.dd).forEach(o => o.onmousedown = e => { e.preventDefault(); this.choose(rows[+o.dataset.i]); });
     }

@@ -60,7 +60,7 @@
     // za čím a jak („kam za kulturou“, „na safari do Keni“, „sever Španělska“, „Portugalsko autem“)
     + 'safari kultura kulturu kulturou kulturni pamatky pamatkami zabava zabavu zabavou party jidlem jidlo gastro vinem vino '
     + 'sever severu zapad zapadu vychod vychodu autem vlakem autobusem busem zajezd zajezdy zajezdu pobyt pobytu pobyty ne '
-    + 'romanticky romanticka romanticke romantickou romantiku relax relaxacni odpocinek odpocinkovy').split(' '));
+    + 'romanticky romanticka romanticke romantickou romantiku relax relaxacni odpocinek odpocinkovy mam mame').split(' '));
   const TO_WORDS = new Set(['do', 'na', 'k', 'ke', 'kam', 'v', 've', 'za', 'u', 'pres', 'po']);
   const FROM_WORDS = new Set(['z', 'ze', 'odkud', 'od']);
   // před „moře“ jméno moře → je to místo (Rudé moře), ne „k moři“
@@ -296,7 +296,14 @@
       if (unit) n *= 1000;
       return n >= 300 && n <= 500000 ? n : 0;
     };
-    rule(new RegExp(`(?:do|za|max(?:imalne)?|maximum|pod|nejvys(?:e)?|levneji\\s+nez|budget|rozpocet)\\s*${AMT}\\s*(tisic\\w*|tis\\.?|k)?\\s*(?:kc|korun\\w*|czk|,-)?${W}`), m => {
+    // € → Kč kurzem ze serveru (o.eurCzk), bez něj ~25 Kč; zaokrouhleno na stovky
+    rule(new RegExp(`(?:(?:do|za|max(?:imalne)?|maximum|pod|nejvys(?:e)?|mam|mame|budget|rozpocet|rozpoctem)\\s*)?${AMT}\\s*(?:eur\\w*|€)${W}`), m => {
+      const n = Math.round(+String(m[1]).replace(/[^\d]/g, '') * (o.eurCzk || 25) / 100) * 100;
+      if (!(n >= 300 && n <= 500000) || patch.maxPrice) return false;
+      patch.maxPrice = String(n);
+    });
+    // („mám 5000 na víkend“, „za 2 litry“ = 2 000 Kč)
+    rule(new RegExp(`(?:do|za|max(?:imalne)?|maximum|pod|nejvys(?:e)?|levneji\\s+nez|budget|rozpocet|rozpoctem|mam|mame)\\s*${AMT}\\s*(tisic\\w*|tis\\.?|k|litr\\w*|liter)?\\s*(?:kc|korun\\w*|czk|,-)?${W}`), m => {
       const n = price(m[1], m[2]);
       if (!n) return false;
       patch.maxPrice = String(n);
