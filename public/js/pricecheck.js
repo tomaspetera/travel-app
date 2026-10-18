@@ -110,15 +110,17 @@
     return hash(JSON.stringify([to, x ? [x.out, x.back, x.flex] : [a, b, q.nightsMin, q.nightsMax, q.outDays, q.backDays], q.trip, Boolean(q.directOnly), q.minTemp || 0, ...da]));
   }
   /**
-   * Nejlevnější letenky výsledku podle trasy a měsíce (z priceStats.mins skupin, tj. ze všech nabídek hledání)
-   * → [{ key, czk, scope }].
+   * Nejlevnější letenky výsledku podle trasy a měsíce (z priceStats.mins skupin, tj. ze všech nabídek zdrojů, a z cest
+   * skupiny best / options – i kombinací dvou aerolinek z Kamkoliv, které do statistiky ceny nepatří; jinak by ⭐ Moje
+   * cíle ukázaly dražší letenku, než jakou ukázal radar) → [{ key, czk, scope }].
    */
   function entriesOf(res) {
     if (!res || !res.query) return [];
     const type = res.query.trip === 'return' ? 'rt' : 'ow';
     const best = new Map();
     for (const g of res.groups || []) {
-      const mins = ((g.priceStats && g.priceStats.mins) || []).slice().sort((a, b) => a[2] - b[2]);
+      const shown = [g.best, ...(g.options || [])].filter(t => t && t.out && t.out.from && t.out.date && (t.back ? 'rt' : 'ow') === type);
+      const mins = ((g.priceStats && g.priceStats.mins) || []).concat(shown.map(t => [t.out.from, ym(t.out.date), Math.round(t.flightCzk)])).sort((a, b) => a[2] - b[2]);
       for (const [from, month, czk] of mins) {
         const k = routeKey(from, g.dest && g.dest.key, month, type);
         if (czk > 0 && !(best.has(k) && best.get(k).czk <= czk)) best.set(k, { czk, month });

@@ -2,6 +2,8 @@
 // nahrazen tvarem reálných odpovědí) a zkušební zdroje bez „kamkoliv“ / z mezipaměti.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { stubFetch, ymdPlus } from './helpers.js';
 
 process.env.ATLAS_MOCK = '0';
@@ -93,6 +95,21 @@ test('Kamkoliv: „Je to dobrá cena?“ jen z nabídek zdrojů – kombinace ve
   assert.equal(lon.best.priceLevel.n, 4);
   assert.equal(lon.best.priceLevel.pos, 0, 'nejlevnější z nabídek do Londýna');
   assert.ok(lon.best.deal && lon.best.deal.score > 0);
+});
+
+test('Kamkoliv: paměť cen (⭐ Moje cíle) zná i kombinaci – stejná letenka jako na kartě radaru, ne dražší nabídka zdroje', async () => {
+  const r = await run({});
+  const lon = grp(r, 'LON');
+  assert.ok(lon.best.flightCzk < lon.priceStats.min, `kombinace ${lon.best.flightCzk} < ${lon.priceStats.min}`);
+  const ctx = { window: {} };
+  vm.runInNewContext(readFileSync(new URL('../public/js/pricecheck.js', import.meta.url), 'utf8'), ctx);
+  const P = ctx.window.PriceCheck;
+  const now = Date.now();
+  const store = P.record(null, P.entriesOf(r), { now });
+  const seen = P.seenMin(store, 'LON', now);
+  assert.deepEqual([seen.czk, seen.from, seen.month], [lon.best.flightCzk, lon.best.out.from, lon.best.out.date.slice(0, 7)]);
+  // každá cesta, kterou skupina ukazuje (radar bere best / options), má v paměti cenu nejvýš svou
+  for (const t of tripsOf(r)) assert.ok(store.r[P.tripKey(t)].min <= t.flightCzk, P.tripKey(t));
 });
 
 test('Kamkoliv autem: návrat vždy na letiště, kde parkuje auto (v cíli i z jiného letiště téhož města)', async () => {
