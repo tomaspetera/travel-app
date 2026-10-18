@@ -275,7 +275,7 @@
 
     // --- zbytek věty: místa (z X = odkud, jinak kam) ---
     const to = [], from = [];
-    let mode = 'to', cur = [];
+    let mode = 'to', cur = [], arrows = 0;
     const flush = () => { if (cur.length) (mode === 'from' ? from : to).push(cur.join(' ')); cur = []; };
     const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+>]/gu;
     let m;
@@ -284,7 +284,7 @@
       if (used.slice(at, at + w.length).some(Boolean)) { flush(); continue; }
       // šipka: co bylo před ní (místo právě psané, jinak poslední „kam“), je odkud; za ní kam
       // (další šipka: „Praha → Řím → Barcelona“ – další místa jsou cíle, odkud je jen první)
-      if (w === '>') { if (cur.length) { (from.length ? to : from).push(cur.join(' ')); cur = []; } else if (to.length && !from.length) from.push(to.pop()); mode = 'to'; continue; }
+      if (w === '>') { arrows++; if (cur.length) { (from.length ? to : from).push(cur.join(' ')); cur = []; } else if (to.length && !from.length) from.push(to.pop()); mode = 'to'; continue; }
       if (/^[,/;&+]$/.test(w) || w === 'a' || w === 'nebo' || w === 'ci') { flush(); continue; }
       if (FROM_WORDS.has(w)) { flush(); mode = 'from'; continue; }
       if (TO_WORDS.has(w)) { flush(); mode = 'to'; continue; }
@@ -332,7 +332,9 @@
     if (patch.directOnly) chips.push(['✈️', 'jen přímé']);
     if (patch.bags) chips.push(['🧳', { none: 'bez kufru', cabin: 'kabinový kufr', checked: 'kufr k odbavení' }[patch.bags]]);
     if (patch.trip === 'oneway') chips.push(['➡️', 'jen tam']);
-    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items };
+    // „Praha → Řím → Barcelona → Praha“: dvě a víc šipek = cesta přes víc měst (odkud, pak místa v pořadí)
+    const chain = arrows >= 2 && from.length === 1 && to.length >= 2 && !kind;
+    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(chain ? { chain: true } : {}) };
   }
 
   /** Zkracování koncovek pro našeptávač („do Říma“ → Řím, „z Vídně“ → Víd): celé slovo, bez 1 a bez 2 znaků. */

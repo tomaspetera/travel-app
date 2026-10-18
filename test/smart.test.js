@@ -189,3 +189,10 @@ test('svátky slovy: Velikonoce (i bez seznamu svátků), státní svátek, jarn
   // letní prázdniny dál jako léto
   assert.equal(P('o prázdninách k moři').chips.find((c) => c.icon === '📅').text, 'prázdniny');
 });
+
+test('víc šipek = cesta přes víc měst (chain): odkud a místa v pořadí; jedna šipka nebo „k moři“ ne', () => {
+  const r = P('Praha → Řím → Barcelona → Praha 10. 11. – 17. 11.');
+  assert.deepEqual([r.chain, r.from, r.to, r.patch.xOut, r.patch.xBack], [true, ['Praha'], ['Řím', 'Barcelona', 'Praha'], '2026-11-10', '2026-11-17']);
+  assert.equal(P('Vídeň → Nice').chain, undefined);
+  assert.equal(P('Praha -> Lisabon -> Porto ve dvou').chain, true);
+});
