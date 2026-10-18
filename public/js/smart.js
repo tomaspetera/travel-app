@@ -70,7 +70,7 @@
     // „Vídeň → Nice“: šipka odděluje odkud a kam (ve zbytku věty jako „>“)
     // „Praha - Londýn“, „Praha–Londýn“: pomlčka mezi slovy (ne mezi daty „3.–7. 6.“, ne „Baden-Baden“) jako ~ (měkká šipka)
     const raw = String(text || '').normalize('NFC').slice(0, 200).replace(/\s*(?:→|->|⇒|=>)\s*/gu, ' > ')
-      .replace(/(?<=\p{L})(?:\s*[–—]\s*|\s+-\s+)(?=\p{L})/gu, ' ~ ');
+      .replace(/(\p{L})(?:\s*[–—]\s*|\s+-\s+)(?=\p{L})/gu, '$1 ~ '); // bez lookbehind (starší Safari ho nezná)
     const s = fold(raw);
     const used = new Array(s.length).fill(false);
     const chips = [], patch = {};
