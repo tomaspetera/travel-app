@@ -100,6 +100,12 @@ test('místa s koncovkami: tvary slova a nejlepší návrh (země a oblasti pře
   assert.equal(best([{ q: 'Říma', items: [{ id: 'ap:RMT', label: 'Rimatara', type: 'airport' }] }, { q: 'Řím', items: [{ id: 'metro:ROM', label: 'Řím', type: 'metro' }] }]), 'metro:ROM');
   assert.equal(best([{ q: 'Rudé moře', items: [{ id: 'rg:egypt-more', label: 'Rudé moře (Egypt)', type: 'region' }] }]), 'rg:egypt-more');
   assert.equal(best([{ q: 'xyz', items: [{ id: 'ap:AAA', label: 'Abc', type: 'airport' }] }]), undefined);
+  // celé slovo přesně (bez diakritiky) před zkráceným tvarem: „Malaga“ je Málaga, ne Malajsie z „Mala“
+  assert.equal(best([
+    { q: 'Malaga', items: [{ id: 'ap:AGP', label: 'Málaga', type: 'airport' }] },
+    { q: 'Malag', items: [{ id: 'ap:AGP', label: 'Málaga', type: 'airport' }] },
+    { q: 'Mala', items: [{ id: 'cc:MY', label: 'Malajsie', type: 'country' }, { id: 'ap:AGP', label: 'Málaga', type: 'airport' }] },
+  ]), 'ap:AGP');
 });
 
 test('Objevuj: věta → místo, druh plánu, dny, km, od kdy, zájmy; základní tvar jména místa', () => {
@@ -147,4 +153,25 @@ test('přirozené věty: „s dětmi“, „něco teplého“, „v Alpách“, 
   assert.deepEqual([P('lyže v Alpách v lednu').kind, P('lyže v Alpách v lednu').to], ['mountains', []]);
   assert.deepEqual([P('Vídeň → Nice v listopadu').from, P('Vídeň → Nice v listopadu').to], [['Vídeň'], ['Nice']]);
   assert.deepEqual([P('Praha -> Řím -> Barcelona').from, P('Praha -> Řím -> Barcelona').to], [['Praha'], ['Řím', 'Barcelona']]);
+});
+
+test('termín slovy: „20. listopadu“, „od 3. do 7. prosince“, začátek/polovina/konec měsíce, „v pátek“', () => {
+  const a = P('do Neapole 20. listopadu');
+  assert.deepEqual([a.to, a.patch.dateMode, a.patch.xOut], [['Neapole'], 'exact', '2026-11-20']);
+  const b = P('Milán od 3. do 7. prosince');
+  assert.deepEqual([b.patch.xOut, b.patch.xBack], ['2026-12-03', '2026-12-07']);
+  assert.deepEqual([P('3.–7. prosince Vídeň').patch.xOut, P('3.–7. prosince Vídeň').to], ['2026-12-03', ['Vídeň']]);
+  const c = P('Malaga konec listopadu');
+  assert.deepEqual([c.to, c.patch.dFrom, c.patch.dTo], [['Malaga'], '2026-11-20', '2026-11-30']);
+  assert.deepEqual([P('Kodaň začátkem prosince').patch.dFrom, P('Kodaň začátkem prosince').patch.dTo], ['2026-12-01', '2026-12-10']);
+  assert.deepEqual([P('Itálie v polovině listopadu').patch.dFrom, P('Itálie v polovině listopadu').patch.dTo], ['2026-11-10', '2026-11-20']);
+  const d = P('Madrid v pátek');
+  assert.deepEqual([d.to, d.patch.outDays], [['Madrid'], [5]]);
+  assert.deepEqual(P('Turecko all inclusive').to, ['Turecko']);
+});
+
+test('nejlepší návrh i podle jiného názvu ze serveru: en („Rome“) a aliases („Toscana“)', () => {
+  const best = (list) => Smart.bestPlace(list)?.id;
+  assert.equal(best([{ q: 'Rome', items: [{ id: 'metro:ROM', label: 'Řím', en: 'Rome', type: 'metro' }] }]), 'metro:ROM');
+  assert.equal(best([{ q: 'Toscana', items: [{ id: 'geo:43.4,11.1|Toskánské ostrovy', label: 'Toskánské ostrovy', type: 'place' }, { id: 'rg:toskansko', label: 'Toskánsko', aliases: ['toskansko', 'toscana'], type: 'region' }] }]), 'rg:toskansko');
 });

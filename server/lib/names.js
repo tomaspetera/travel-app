@@ -101,6 +101,20 @@ export const AIRPORT_CITY_CS = {
 };
 
 // Metropolitní oblasti s více letišti. lat/lon = centrum města (pro výpočet vzdálenosti).
+/**
+ * Místní a jiné běžné názvy velkých cílů (italsky, německy, portugalsky… i české varianty „Amsterodam“, „Athény“)
+ * → metropole (kód METROS) nebo letiště. Bez nich je geokodér najde jinde (Wien v USA, Lisboa v Mosambiku, Roma
+ * v Austrálii). Klíče bez diakritiky, malými písmeny.
+ */
+export const EXONYMS = {
+  roma: 'metro:ROM', wien: 'ap:VIE', lisboa: 'ap:LIS', lissabon: 'ap:LIS', napoli: 'ap:NAP',
+  firenze: 'ap:FLR', venezia: 'metro:VCE', venedig: 'metro:VCE', milano: 'metro:MIL', mailand: 'metro:MIL',
+  torino: 'ap:TRN', genova: 'ap:GOA', amsterodam: 'ap:AMS', atheny: 'ap:ATH', athina: 'ap:ATH', athen: 'ap:ATH',
+  munchen: 'ap:MUC', muenchen: 'ap:MUC', koln: 'ap:CGN', koeln: 'ap:CGN', cologne: 'ap:CGN', warszawa: 'metro:WAW',
+  krakow: 'ap:KRK', bruxelles: 'metro:BRU', brussel: 'metro:BRU', kobenhavn: 'ap:CPH', nizza: 'ap:NCE', geneve: 'ap:GVA', genf: 'ap:GVA',
+  zeneva: 'ap:GVA', beograd: 'ap:BEG', bucuresti: 'metro:BUH',
+};
+
 export const METROS = [
   { code: 'LON', cs: 'Londýn', en: 'London', cc: 'GB', lat: 51.5074, lon: -0.1278, airports: ['LHR', 'LGW', 'STN', 'LTN', 'LCY', 'SEN'] },
   { code: 'PAR', cs: 'Paříž', en: 'Paris', cc: 'FR', lat: 48.8566, lon: 2.3522, airports: ['CDG', 'ORY', 'BVA'] },
@@ -170,6 +184,18 @@ export const REGIONS = [
   { key: 'egypt-more', cs: 'Rudé moře (Egypt)', aliases: ['rude more', 'hurghada', 'sharm', 'egypt more'], airports: ['HRG', 'SSH', 'RMF'] },
   { key: 'turecka-riviera', cs: 'Turecká riviéra', aliases: ['turecka riviera', 'turecko more'], airports: ['AYT', 'DLM', 'BJV', 'GZP'] },
   { key: 'island', cs: 'Island', aliases: ['island', 'iceland'], airports: ['KEF'] },
+  // pevninské oblasti (vlajka země místo ostrova)
+  { key: 'toskansko', cs: 'Toskánsko', flag: '🇮🇹', aliases: ['toskansko', 'toscana', 'tuscany'], airports: ['FLR', 'PSA'] },
+  { key: 'apulie', cs: 'Apulie', flag: '🇮🇹', aliases: ['apulie', 'puglia', 'apulia'], airports: ['BRI', 'BDS'] },
+  { key: 'kalabrie', cs: 'Kalábrie', flag: '🇮🇹', aliases: ['kalabrie', 'calabria'], airports: ['SUF', 'REG'] },
+  { key: 'amalfi', cs: 'Amalfinské pobřeží', flag: '🇮🇹', aliases: ['amalfi', 'amalfinske pobrezi', 'pobrezi amalfi', 'amalfi coast'], airports: ['NAP'] },
+  { key: 'garda', cs: 'Lago di Garda', flag: '🇮🇹', aliases: ['garda', 'lago di garda', 'gardske jezero'], airports: ['VRN', 'BGY'] },
+  { key: 'dolomity', cs: 'Dolomity', flag: '🇮🇹', aliases: ['dolomity', 'dolomites', 'dolomiti'], airports: ['VRN', 'BZO', 'INN', 'TSF'] },
+  { key: 'dalmacie', cs: 'Dalmácie', flag: '🇭🇷', aliases: ['dalmacie', 'dalmatia', 'dalmacija'], airports: ['SPU', 'ZAD', 'DBV'] },
+  { key: 'istrie', cs: 'Istrie', flag: '🇭🇷', aliases: ['istrie', 'istria', 'istra'], airports: ['PUY', 'TRS'] },
+  { key: 'azurove-pobrezi', cs: 'Azurové pobřeží', flag: '🇫🇷', aliases: ['azurove pobrezi', 'cote d azur', 'francouzska riviera', 'french riviera'], airports: ['NCE'] },
+  { key: 'skotsko', cs: 'Skotsko', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', aliases: ['skotsko', 'scotland'], airports: ['EDI', 'GLA', 'ABZ', 'INV'] },
+  { key: 'laponsko', cs: 'Laponsko', flag: '🇫🇮', aliases: ['laponsko', 'lapland', 'lappi'], airports: ['RVN', 'KTT'] },
 ];
 
 // Další aliasy zemí (doplňují české názvy z data/countries.json).

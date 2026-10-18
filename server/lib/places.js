@@ -10,7 +10,7 @@
 import {
   AIRPORTS, COUNTRIES, COUNTRY_BY_ISO, METRO_BY_CODE, airportsInCountry, airportsNear, getAirport, sizePenaltyKm,
 } from './airports.js';
-import { CITIES, COUNTRY_ALIASES, REGIONS } from './names.js';
+import { CITIES, COUNTRY_ALIASES, EXONYMS, REGIONS } from './names.js';
 import { CONTINENTS, CONTINENT_BY_KEY, continentCountries } from './longhaul.js';
 import { haversineKm, normalize } from './geo.js';
 import { airportAccess } from './access.js';
@@ -69,14 +69,14 @@ export function cityAirports(lat, lon, km = 130, n = 4) {
 function countrySuggestion(c) {
   const n = airportsInCountry(c.iso2).length;
   return {
-    id: `cc:${c.iso2}`, type: 'country', label: c.cs, flag: flag(c.iso2),
+    id: `cc:${c.iso2}`, type: 'country', label: c.cs, ...(c.en && c.en !== c.cs ? { en: c.en } : {}), flag: flag(c.iso2),
     sub: `celá země · ${n} ${n === 1 ? 'letiště' : n < 5 ? 'letiště' : 'letišť'}`, cc: c.iso2,
   };
 }
 
 function airportSuggestion(a) {
   return {
-    id: `ap:${a.iata}`, type: 'airport', label: a.cityCs, flag: flag(a.cc), iata: a.iata,
+    id: `ap:${a.iata}`, type: 'airport', label: a.cityCs, ...(a.city && a.city !== a.cityCs ? { en: a.city } : {}), flag: flag(a.cc), iata: a.iata,
     sub: `${a.name} · ${a.iata} · ${a.country}`, cc: a.cc, lat: a.lat, lon: a.lon,
     // velké letiště (≥ 2 mil. cestujících za rok, bez údaje podle typu) – plánovač podle něj pozná hlavní město jména
     big: a.pax != null ? a.pax >= 2000 : a.type === 'L',
@@ -87,7 +87,7 @@ function airportSuggestion(a) {
 
 function metroSuggestion(m) {
   return {
-    id: `metro:${m.code}`, type: 'metro', label: m.cs, flag: flag(m.cc),
+    id: `metro:${m.code}`, type: 'metro', label: m.cs, ...(m.en && m.en !== m.cs ? { en: m.en } : {}), flag: flag(m.cc),
     sub: `všechna letiště: ${m.airports.join(', ')}`, cc: m.cc, lat: m.lat, lon: m.lon,
   };
 }
@@ -107,7 +107,7 @@ function continentSuggestion(c) {
 }
 
 function regionSuggestion(r) {
-  return { id: `rg:${r.key}`, type: 'region', label: r.cs, flag: '🏝️', sub: `region · ${r.airports.join(', ')}` };
+  return { id: `rg:${r.key}`, type: 'region', label: r.cs, flag: r.flag || '🏝️', sub: `region · ${r.airports.join(', ')}`, aliases: r.aliases };
 }
 
 /** Kandidáti z vlastních dat: { s: návrh, m: shoda názvu (100/80/60/30), score: m + velikost − vzdálenost }. */
@@ -144,6 +144,16 @@ function localScored(query, home) {
     push(metroSuggestion(m), sc, sc + metroBonus(m) - distPenalty(home, m.lat, m.lon));
     bigNames.add(normalize(m.cs)).add(normalize(m.en));
     m.airports.forEach((x) => metroAirports.add(x));
+  }
+  // místní názvy (Roma, Wien, Lisboa…): metropole nebo letiště jako by se hledal český název; aliases = který název
+  // to byl (chytré hledání pozná shodu)
+  for (const [alias, id] of Object.entries(EXONYMS)) {
+    const sc = matchScore(q, alias);
+    if (sc < 80 || (sc < 100 && q.length < 4)) continue; // „Br“ je spíš Brno než Brussel
+    const [kind, code] = id.split(':');
+    const m = kind === 'metro' ? METRO_BY_CODE.get(code) : null, a = kind === 'ap' ? AIRPORTS.get(code) : null;
+    if (m) { push({ ...metroSuggestion(m), aliases: [alias] }, sc, sc + 15 + metroBonus(m) - distPenalty(home, m.lat, m.lon)); bigNames.add(alias); m.airports.forEach((x) => metroAirports.add(x)); }
+    if (a) { push({ ...airportSuggestion(a), aliases: [alias] }, sc, sc + 15 + apBonus(a) - distPenalty(home, a.lat, a.lon)); bigNames.add(alias); }
   }
   for (const c of CITIES) {
     const sc = Math.max(matchScore(q, c.cs), matchScore(q, c.en));

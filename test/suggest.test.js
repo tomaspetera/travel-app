@@ -132,3 +132,28 @@ test('geocode: občasná chyba 5xx Open-Meteo → jednou znovu; 4xx ne', async (
     stub.restore();
   }
 });
+
+test('suggest: místní názvy velkých cílů (Roma, Wien, Lisboa…) vedou na metropoli nebo letiště, ne na jmenovce jinde', () => {
+  const first = (q) => localSuggestions(q, 3)[0]?.id;
+  assert.equal(first('Roma'), 'metro:ROM');
+  assert.equal(first('Wien'), 'ap:VIE');
+  assert.equal(first('Lisboa'), 'ap:LIS');
+  assert.equal(first('Napoli'), 'ap:NAP');
+  assert.equal(first('Firenze'), 'ap:FLR');
+  assert.equal(first('Amsterodam'), 'ap:AMS');
+  assert.equal(first('Athény'), 'ap:ATH');
+  assert.equal(first('München'), 'ap:MUC');
+  // Roma v Austrálii (letiště RMA) mezi návrhy není
+  assert.ok(!localSuggestions('Roma', 8).some((s) => s.id === 'ap:RMA'));
+});
+
+test('suggest: pevninské oblasti (Toskánsko, Apulie, Istrie…) s vlajkou země; návrhy nesou anglický/místní název', () => {
+  const first = (q) => localSuggestions(q, 3)[0];
+  assert.deepEqual([first('Toskánsko').id, first('Toskánsko').flag], ['rg:toskansko', '🇮🇹']);
+  assert.equal(first('Toscana').id, 'rg:toskansko');
+  assert.equal(first('Puglia').id, 'rg:apulie');
+  assert.equal(first('Istrie').id, 'rg:istrie');
+  assert.ok(first('Toscana').aliases.includes('toscana'));
+  // en: chytré hledání pozná „Rome“ u Říma
+  assert.equal(localSuggestions('Rome', 3).find((s) => s.id === 'metro:ROM').en, 'Rome');
+});
