@@ -417,8 +417,9 @@
   /**
    * Nejlepší návrh pro frázi ze všech dotazů (list = [{ q, items }] pro tvary ze stems): jen návrhy, jejichž název začíná
    * hledaným tvarem (bez diakritiky), lepší druh a delší tvar dřív; geokódovaná místa (geo:) jen bez jiné shody.
+   * typos = true: i opravy překlepů ze serveru (fuzzy) – volající je zkouší až po všem ostatním.
    */
-  function bestPlace(list) {
+  function bestPlace(list, typos = false) {
     let best = null;
     // přesná shoda celého slova („Malaga“ = Málaga) má přednost před zkráceným tvarem („Mala…“ → Malajsie)
     const full = list[0] ? fold(list[0].q).replace(/\s+/g, ' ') : '';
@@ -429,10 +430,11 @@
         // i jiný název místa ze serveru: anglický (en – „Rome“, „Tuscany“) nebo místní (aliases – „Roma“, „Toscana“)
         const alt = [...(it.aliases || []), ...(it.en ? [it.en] : [])].map(a => fold(a));
         const ok = lab.startsWith(fq) || lab.split(/[\s-]+/).some(p => p.startsWith(fq)) || alt.some(a => a.startsWith(fq));
-        if (!ok) continue;
+        // typos: i místo, které server našel jako opravu překlepu (fuzzy)
+        if (!ok && !(typos && it.fuzzy)) continue;
         const geo = /^geo:/.test(it.id || '');
         const exact = lab === full || alt.includes(full);
-        const score = (geo ? 100 : 0) + (exact ? -50 : 0) + (TYPE_RANK[it.type] ?? 7) * 10 - fq.length / 100;
+        const score = (ok ? 0 : 500) + (geo ? 100 : 0) + (exact ? -50 : 0) + (TYPE_RANK[it.type] ?? 7) * 10 - fq.length / 100;
         if (!best || score < best.score) best = { score, it };
       }
     }

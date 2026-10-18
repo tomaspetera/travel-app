@@ -757,6 +757,9 @@
       const it = fl[i].find(x => [x.label, x.en, ...(x.aliases || [])].some(n => n && same(n, c)));
       if (it) { name = String(it.label).replace(/\s*\(.*\)$/, ''); break; }
     }
+    // překlep („Krakv“): oprava z našeptávače – ✨ řádek ukáže, co se bude hledat
+    const fz = name ? null : fl.flat().find(x => x.fuzzy);
+    if (fz) name = String(fz.label).replace(/\s*\(.*\)$/, '');
     if (smartNames.size > 50) smartNames.clear();
     smartNames.set(phrase, name);
     return name;
@@ -781,6 +784,14 @@
     }
     // město oblasti, které geokódování česky nezná (Heraklion → jen „Heraklion Airport Terminal“): poloha letiště
     if (region) return { label: region.name, lat: region.ap.lat, lon: region.ap.lon, cc: region.ap.cc || '' };
+    // překlep („Krakv“, „Lisabn“): oprava z našeptávače míst letů (fuzzy) – geokódování by našlo Krokvåg v Norsku
+    const fz = known ? null : fl.flat().find(x => x.fuzzy && !/^geo:/.test(x.id || ''));
+    if (fz) {
+      const rc = fz.type === 'region' ? await regionCity(fz) : null, nm = rc ? rc.name : String(fz.label).replace(/\s*\(.*\)$/, '');
+      const hit = (await geo(nm)).find(it => same(it.label, nm));
+      if (hit) return hit;
+      if (rc) return { label: rc.name, lat: rc.ap.lat, lon: rc.ap.lon, cc: rc.ap.cc || '' };
+    }
     return (await geo(cands[0]))[0] || null;
   }
   // oblast (Toskánsko, Kréta…) nemá v geokódování střed – místo ní město jejího prvního letiště (Florencie, Heraklion)

@@ -221,7 +221,11 @@
   async function resolvePlace(phrase, origin, near, signal, geo = true) {
     const look = remote => Promise.all(Smart.stems(phrase).map(q => placesFor(q, origin, near, signal, remote)
       .then(items => ({ q, items }), e => { if (e.name === 'AbortError') throw e; return { q, items: [] }; })));
-    return Smart.bestPlace(await look(false)) || (geo ? Smart.bestPlace(await look(true)) : null);
+    // opravený překlep („do Barcleony“) až nakonec – skutečné místo z geokódování (vesnice toho jména) má přednost
+    const loc = await look(false), found = Smart.bestPlace(loc);
+    if (found) return found;
+    const rem = geo ? await look(true) : null;
+    return (rem && Smart.bestPlace(rem)) || Smart.bestPlace(rem || loc, true);
   }
   async function smartResolve(hit, near, signal, geo = true) {
     const one = (phrase, origin) => resolvePlace(phrase, origin, near, signal, geo);
@@ -314,7 +318,8 @@
       // je („Brná“ napsané celé) – po předložce je to vždy tvar slova
       const low = x => String(x || '').normalize('NFC').toLocaleLowerCase('cs');
       let items = list;
-      if (known && !items.some(x => x.id === known.id) && (qq !== q || !items.some(x => low(x.label) === low(qq)))) items = [known, ...items];
+      // (návrh jako oprava překlepu – „Paříže“ = Paříž? – se nepočítá: známé místo ho nahradí)
+      if (known && !known.fuzzy && !items.some(x => x.id === known.id && !x.fuzzy) && (qq !== q || !items.some(x => low(x.label) === low(qq)))) items = [known, ...items.filter(x => x.id !== known.id)];
       // vesnice ve tvaru věty („do Hronova“): i geokódováním; víceslovné ne („Brno Londýn“ by našlo ulici)
       if (!items.length && one && !/\s/.test(one)) { const g = await resolvePlace(one, this.origin, this.near(), signal); if (g) items = [g]; }
       items = items.filter(s => !this.origin || s.type !== 'continent');
@@ -353,6 +358,7 @@
         return `<div class="pi-opt${on}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span><span class="pi-type">${typeLbl[s.type] || ''}</span></div>`;
       };
       this.dd.innerHTML = (this.tips.length ? '<div class="pi-head">✨ Pro tebe – nebo napiš celou větu, třeba „k moři v květnu do 5000“</div>' : '')
+        + (rows[0] && rows[0].sug && rows[0].sug.fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '')
         + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err ? 'Našeptávač je nedostupný' : 'Nic nenalezeno – zkus jiný název nebo kód letiště'}</div>`);
       this.dd.hidden = false;
       $$('.pi-opt', this.dd).forEach(o => o.onmousedown = e => { e.preventDefault(); this.choose(rows[+o.dataset.i]); });

@@ -157,3 +157,32 @@ test('suggest: pevninské oblasti (Toskánsko, Apulie, Istrie…) s vlajkou zem�
   // en: chytré hledání pozná „Rome“ u Říma
   assert.equal(localSuggestions('Rome', 3).find((s) => s.id === 'metro:ROM').en, 'Rome');
 });
+
+test('suggest: překlepy („Barcleona“, „Lodnýn“, „Egpyt“, „Mallroca“) najdou místo s příznakem fuzzy; skutečné názvy ne', () => {
+  const first = (q) => localSuggestions(q, 3)[0];
+  for (const [q, id] of [['Barcleona', 'metro:BCN'], ['Lodnýn', 'metro:LON'], ['Egpyt', 'cc:EG'], ['Bankok', 'metro:BKK'], ['Chorvatkso', 'cc:HR'], ['Barcleo', 'metro:BCN']]) {
+    assert.equal(first(q)?.id, id, q);
+    assert.equal(first(q).fuzzy, true, q);
+  }
+  // přesná nebo začínající shoda bez fuzzy; krátké slovo (Brna) ani jiné první písmeno opravu nedostanou
+  assert.ok(!localSuggestions('Barcelona', 5).some((s) => s.fuzzy));
+  assert.equal(localSuggestions('Krta', 5).length, 0);
+  assert.ok(!localSuggestions('Arcelona', 5).some((s) => s.fuzzy));
+  // dva překlepy až od 9 znaků (Makarska ≠ Maďarsko)
+  assert.ok(!localSuggestions('Makarska', 5).some((s) => s.id === 'cc:HU'));
+});
+
+test('suggest: skutečné místo z geokódování (vesnice Lodnyn) před opravou překlepu', async () => {
+  const mock = config.mock;
+  config.mock = false;
+  const stub = stubFetch((url) => {
+    const q = new URL(url).searchParams.get('name');
+    if (q === 'Lodnyn') return { body: { results: [place('Lodnyn', 50.1, 14.2, 'CZ', 300)] } };
+    return { body: {} };
+  });
+  try {
+    const list = await suggest('Lodnyn', { near: 'ap:PRG' });
+    assert.equal(list[0].id.split('|')[1], 'Lodnyn');
+    assert.ok(list.some((s) => s.id === 'metro:LON' && s.fuzzy));
+  } finally { stub.restore(); config.mock = mock; }
+});

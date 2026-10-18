@@ -32,6 +32,25 @@ function matchScore(q, text) {
   return 0;
 }
 
+/** Počet překlepů mezi řetězci (záměna, vložení, vynechání, přehozená sousední písmena); nad max vrací max + 1. */
+function editDist(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let pp = null, p = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const c = [i];
+    let low = i;
+    for (let j = 1; j <= b.length; j++) {
+      let v = Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (pp && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, pp[j - 2] + 1);
+      c[j] = v;
+      if (v < low) low = v;
+    }
+    if (low > max) return max + 1;
+    pp = p; p = c;
+  }
+  return p[b.length];
+}
+
 /** Liší se řetězce nejvýš jedním písmenem (záměna, vložení, vynechání)? */
 function lev1(a, b) {
   if (Math.abs(a.length - b.length) > 1) return false;
@@ -171,6 +190,37 @@ function localScored(query, home) {
     if (homonym && d >= 4) continue; // jmenovec daleko od domova (London v Kanadě, Bruno v USA)
     push(airportSuggestion(a), sc, sc + apBonus(a) - d - (homonym ? 30 : 0));
   }
+  // Překlep („Barcleona“, „Lodnýn“, „Amstrdam“): bez jiné shody slovo od 5 znaků podobné názvu země, oblasti, velkého
+  // města nebo letiště (1 překlep, od 9 znaků 2; od 6 znaků i rozepsaný začátek názvu). První písmeno musí sedět a skóre je nízké –
+  // skutečné místo z geokódování (vesnice přesně toho jména) má přednost.
+  if (q.length >= 5 && !out.some((c) => c.m >= 60)) {
+    const k = q.length >= 9 ? 2 : 1;
+    const typo = (...names) => names.some((n) => {
+      const t = normalize(n);
+      if (!t || t[0] !== q[0]) return false;
+      return editDist(q, t, k) <= k || (q.length >= 6 && [q.length - 1, q.length, q.length + 1].some((l) => l < t.length && editDist(q, t.slice(0, l), k) <= k));
+    });
+    const fz = (s, bonus, lat, lon) => push({ ...s, fuzzy: true }, 62, 62 + Math.min(10, bonus) - (lat != null ? distPenalty(home, lat, lon) : 0));
+    // země před svými oblastmi („Egpyt“ = Egypt, ne Rudé moře (Egypt))
+    for (const c of COUNTRIES) if (typo(c.cs, c.en)) fz(countrySuggestion(c), 10);
+    for (const [alias, iso] of Object.entries(COUNTRY_ALIASES)) if (COUNTRY_BY_ISO.has(iso) && typo(alias)) fz(countrySuggestion(COUNTRY_BY_ISO.get(iso)), 10);
+    for (const c of CONTINENTS) if (typo(c.cs, ...c.aliases)) fz(continentSuggestion(c), 6);
+    for (const r of REGIONS) if (typo(r.cs, ...r.aliases)) fz(regionSuggestion(r), 6);
+    const fm = new Set();
+    for (const m of METRO_BY_CODE.values()) if (typo(m.cs, m.en)) { fz(metroSuggestion(m), metroBonus(m), m.lat, m.lon); m.airports.forEach((x) => fm.add(x)); }
+    for (const [alias, id] of Object.entries(EXONYMS)) {
+      if (!typo(alias)) continue;
+      const [kind, code] = id.split(':');
+      const m = kind === 'metro' ? METRO_BY_CODE.get(code) : null, a = kind === 'ap' ? AIRPORTS.get(code) : null;
+      if (m) { fz(metroSuggestion(m), metroBonus(m), m.lat, m.lon); m.airports.forEach((x) => fm.add(x)); }
+      if (a) fz(airportSuggestion(a), apBonus(a), a.lat, a.lon);
+    }
+    for (const c of CITIES) if (typo(c.cs, c.en)) fz(citySuggestion(c), popBonus(c.pop) + 3, c.lat, c.lon);
+    for (const a of AIRPORTS.values()) {
+      if (fm.has(a.iata) || !(a.pax != null ? a.pax >= 300 : a.type !== 'S') || !typo(a.cityCs, a.city)) continue;
+      fz(airportSuggestion(a), apBonus(a), a.lat, a.lon);
+    }
+  }
   if (q.length === 3) {
     // Kód letiště: „STN“ (velkými) první, pokud to není i přesný název (USA = země, ne letiště Concord);
     // „Pra“, „Bra“, „Ost“ psané normálně je spíš začátek názvu města než kód (PRA = Paraná, OST = Ostende).
@@ -195,8 +245,9 @@ function rank(cands, { role = 'to', limit = 10 } = {}) {
   const best = Math.max(0, ...cands.map((c) => c.m));
   let list = best >= 60 ? cands.filter((c) => c.m >= 60) : cands; // „obsahuje“ jen když nic lepšího
   // Slovo uvnitř názvu (Kisangani – BANGoka, Long Banga) jen u velkých nebo blízkých míst, když je i lepší shoda.
-  // Kód letiště psaný malými („boj“ = Burgas), země a velká letiště zůstanou vždy (Srí Lanka u „Lanka“, Punta Cana).
-  if (best >= 80) list = list.filter((c) => c.m >= 80 || c.code || c.s.type === 'country' || c.s.big || c.score - c.m >= 4);
+  // Kód letiště psaný malými („boj“ = Burgas), země a velká letiště zůstanou vždy (Srí Lanka u „Lanka“, Punta Cana),
+  // stejně jako opravy překlepu (vesnice „Lodnyn“ z geokódování a za ní Londýn).
+  if (best >= 80) list = list.filter((c) => c.m >= 80 || c.code || c.s.type === 'country' || c.s.big || c.s.fuzzy || c.score - c.m >= 4);
   list.sort((x, y) => y.score - x.score);
   const seen = new Set();
   const res = [];
