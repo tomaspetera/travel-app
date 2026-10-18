@@ -914,14 +914,16 @@ i s cestou na letiště a odbavením – a mnohem levnější. ATLAS to ukáže 
   sdíleném odkazu i v kalendáři (.ics) – a jedním kliknutím jde vrátit zpět k letu.
 
 **Od a běžně:** *od* = nejnižší cena, kterou jde najít (s rezervou, ve vhodný den); *běžně* = co typicky zaplatíš,
-když musíš jet určitý den (medián nejlevnějšího spoje dne, který jde koupit). Rozhoduje a srovnává se vždy *běžně*:
+když musíš jet určitý den konkrétním spojem – medián nejlevnějšího spoje dne, který jde koupit, × 1,4 (v danou hodinu
+nejede ten nejlevnější: ověřeno 10/2026 Praha–Brno RegioJet 229–399 Kč, ČD 269–435 Kč místo 199; Praha–Vídeň 450–600 Kč
+místo 249; Praha–Budapešť 700–850 Kč místo 569), a čas nejrychlejšího spoje × 1,1 (nejvýš +30 min). Rozhoduje a srovnává se vždy *běžně*:
 pravidlo „aspoň o polovinu levněji“, srovnání letadlo × vlak/bus, cena 🚆 v průvodci cestou, vlak/bus do města letiště
 v [dopravě na letiště](#doprava-na-letiště) i přejezdy mezi místy trasy. Když si v *Ukázat spoje* nebo v průvodci
 vybereš konkrétní spoj RegioJetu, platí jeho skutečná cena.
 
 **Kde to dává smysl:** obě místa na pevnině Evropy (ne Velká Británie, Irsko, Island, Malta, Kypr ani ostrovy jako
 Mallorca, Kanáry, Korsika, Sardinie, Sicílie, Kréta) a nejvýš ~1 100 km vzdušnou čarou (do Švédska a Norska po souši přes Øresundský most – Stockholm ani Oslo už ne). **Zvýrazní se**, když platí
-jednoduché pravidlo: cesta po zemi (+30 min na nádraží) je nejvýš o 1,5 h delší než letadlo od dveří ke dveřím
+jednoduché pravidlo: cesta po zemi (+45 min na nádraží a z něj) je nejvýš o 1,5 h delší než letadlo od dveří ke dveřím
 (cesta na letiště + 2 h před odletem + nejrychlejší nalezený let – u zpáteční cesty pomalejší z obou směrů – + 45 min po přistání + cesta do města), **nebo** trvá do 6,5 h, **nebo** je
 za běžnou cenu aspoň o polovinu levnější než nejlevnější let a do 10 h. Důvod se u srovnání vždy napíše česky a jmenuje let, se kterým
 srovnává („rychleji než letadlem (nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11 994 Kč)“). Ve výsledcích se

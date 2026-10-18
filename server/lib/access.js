@@ -24,7 +24,7 @@
 import { haversineKm } from './geo.js';
 import { toCzk } from './fx.js';
 import { airportsNear, getAirport } from './airports.js';
-import { CHEAP_CC, CITIES, MEASURED, MOUNTAIN_SLOW, PRAHA_RJ, distanceModel, groundPlace, landKm, mountainsOn, priceBand } from './ground.js';
+import { CHEAP_CC, CITIES, MEASURED, MOUNTAIN_SLOW, PRAHA_RJ, SPECIFIC, SPECIFIC_MIN, distanceModel, groundPlace, landKm, mountainsOn, priceBand } from './ground.js';
 import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV_LABEL, fuelPrice } from './fuel.js';
 
 // Letiště do ~450 km od Česka: [šířka, délka středu města, které obsluhuje, město, jízdné město → letiště (Kč/os.),
@@ -169,8 +169,7 @@ const CITY_KM = 15; // domov do 15 km od středu města letiště = cesta MHD
 // Na letiště se jede konkrétním spojem v danou hodinu, ne nejlevnějším spojem dne (z toho jsou MEASURED a model):
 // cena ~1,4× (RegioJet Praha–Brno 229–399 Kč podle dne, ČD railjet 269–435 Kč, ne 199; Praha–Pardubice ČD ~190,
 // RegioJet / Leo 150–280 Kč, ne 119 – ověřeno 10/2026), čas ~1,1× (nejrychlejší spoj dne → běžný: Pardubice 58–70 min, ne 53)
-const SPECIFIC = 1.4;
-const SPECIFIC_MIN = 1.1;
+// (konstanty SPECIFIC a SPECIFIC_MIN jsou v ground.js – stejné pro vlak místo letadla)
 const NEAR_KM = 50; // letiště za humny: regionální spoj rovnou na letiště
 const ROAD = 1.25; // silnice ≈ 1,25 × vzdušná čára
 
