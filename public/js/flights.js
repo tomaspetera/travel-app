@@ -2655,7 +2655,18 @@
     if (lastResult && !lastResult.partial && Trip.finalStats) Trip.finalStats(lastResult);
   }
   /** Náhled cíle z karty výsledků: g = cíl, t = nejlepší nabídka karty, res = výsledek, ze kterého karta je. */
+  /**
+   * 👀 Cíl, který uživatele ve výsledcích zaujal (rozbalil ho, otevřel náhled) – jen z hledání aspoň 3 cílů (kamkoliv,
+   * země, oblast); tip v prázdném poli Kam pak nabídne hledat jen tam (smartTips).
+   */
+  function noteViewed(key) {
+    const res = shownRes || lastResult, g = res && res.groups && res.groups.length >= 3 && res.groups.find(x => x.dest.key === key);
+    if (!g || !g.dest.id) return;
+    S.viewed = SearchHelp.viewedAdd(S.viewed, { id: g.dest.id, label: g.dest.label, cc: g.dest.cc || '', czk: g.best ? Math.round(g.best.perPersonCzk) : null, at: Date.now() });
+    save();
+  }
   function openDestPreview(g, t, { res = shownRes || lastResult, from = null } = {}) {
+    noteViewed(g.dest.key);
     const x = g.dest, back = t.back || null, w = wx;
     const gc = g.ground ? groundCmp(res, g.ground, g.vis || [g.best]) : null;
     dpShow({
@@ -3148,13 +3159,13 @@
     }
     $$('[data-fmore]', host).forEach(b => b.onclick = () => { view.flatN += flatPage(); rerender(true); });
     $$('[data-exp]', host).forEach(b => b.onclick = () => {
-      const k = b.dataset.exp; view.expanded.has(k) ? view.expanded.delete(k) : view.expanded.add(k);
+      const k = b.dataset.exp; view.expanded.has(k) ? view.expanded.delete(k) : (view.expanded.add(k), noteViewed(k));
       // karta pod mapou: překreslit jen ji (celý výpis by mapu nakreslil znovu a kartu zavřel)
       const g = b.closest('#mapList') && computeGroups().find(x => x.dest.key === k);
       if (g) showMapDetail(g); else rerender(true);
     });
     // Přehled cílů: klepnutí na řádek rozbalí / sbalí plnou kartu (odkazy a tlačítka v kartě fungují normálně)
-    const cmpToggle = r => { const k = r.dataset.cg; view.cexp = view.cexp || new Set(); view.cexp.has(k) ? view.cexp.delete(k) : view.cexp.add(k); rerender(true); };
+    const cmpToggle = r => { const k = r.dataset.cg; view.cexp = view.cexp || new Set(); view.cexp.has(k) ? view.cexp.delete(k) : (view.cexp.add(k), noteViewed(k)); rerender(true); };
     $$('.cmp-row[data-cg]', host).forEach(r => { r.onclick = () => cmpToggle(r); });
     $$('[data-rtop]', host).forEach(b => { b.onclick = () => {
       const k = b.dataset.rtop; view.cexp = view.cexp || new Set(); view.cexp.add(k); rerender(true);
@@ -4186,6 +4197,15 @@
       tips.push({ icon: '🔁', text: watchLabel(f), sub: `znovu · ${recentSub(f)}`, run: () => { go('flights'); setForm(f); startSearch(); } });
     }
     const fav = prefLists().fav;
+    // 👀 cíle, které sis nedávno rozbalil ve výsledcích „kamkoliv“ (bez ⭐ a 🙈 – ty mají vlastní řádek / nechceš je)
+    const pl = prefLists(), seenD = SearchHelp.viewedPick(S.viewed, Date.now(), new Set([...pl.fav, ...pl.mute].map(x => x.key)));
+    if (seenD.length) {
+      const min = Math.min(...seenD.map(x => x.czk).filter(Number.isFinite));
+      // termín a délka z posledního hledání (tam sis je prohlížel), jinak jako ⭐ moje cíle
+      const lf = recent[0], to = seenD.map(x => ({ id: x.id, label: x.label, flag: flag(x.cc) }));
+      tips.push({ icon: '👀', text: `Zaujalo tě: ${seenD.map(x => x.label).join(', ')}`, sub: `jen sem${lf ? ` · ${recentSub({ ...lf, to })}` : ''}${Number.isFinite(min) ? ` · od ${czk(min)}` : ''}`,
+        run: () => { if (!lf) return searchFavs(seenD); go('flights'); setForm({ ...lf, to }); startSearch(); } });
+    }
     if (fav.length) tips.push({ icon: '⭐', text: `Moje cíle: ${favNames(fav)}`, sub: 'nejlevnější lety do všech najednou', run: () => searchFavs(fav) });
     const lens = recent.map(f => f.len).filter(l => Object.hasOwn(PRESETS, l));
     const habit = lens.slice().sort((a, b) => lens.filter(x => x === b).length - lens.filter(x => x === a).length)[0];

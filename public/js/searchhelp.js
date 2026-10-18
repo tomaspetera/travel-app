@@ -1715,6 +1715,19 @@
     const k = key(e);
     return [e, ...(Array.isArray(list) ? list : []).filter(x => x && x.form && key(x) !== k)].slice(0, cap);
   }
+  /**
+   * 👀 Cíle, které uživatele ve výsledcích hledání víc cílů zaujaly (rozbalil je, otevřel náhled): nejnovější první,
+   * každý jednou (podle klíče destKeyOf – letiště / metropole), nejvýš cap. e = { id, label, cc, czk, at }.
+   */
+  function viewedAdd(list, e, cap = 6) {
+    const k = destKeyOf(e && e.id);
+    if (!k) return Array.isArray(list) ? list : [];
+    return [e, ...(Array.isArray(list) ? list : []).filter(x => x && destKeyOf(x.id) !== k)].slice(0, cap);
+  }
+  /** Tip z prohlížených cílů: posledních 21 dní, bez ⭐ a 🙈 (skip = množina klíčů), nejvýš n. */
+  function viewedPick(list, now, skip = new Set(), n = 3) {
+    return (Array.isArray(list) ? list : []).filter(x => x && destKeyOf(x.id) && !skip.has(destKeyOf(x.id)) && now - (x.at || 0) <= 21 * 864e5).slice(0, n);
+  }
   /** Formulář nedávného hledání pro dnešek: termín celý v minulosti → null, rozsah, který už začal, od dneška. */
   function recentForm(f, today) {
     if (!f || !Array.isArray(f.from) || !f.from.length) return null;
@@ -1752,7 +1765,7 @@
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
-    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
+    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
