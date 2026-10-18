@@ -4165,9 +4165,11 @@
       if (recent.length >= 2) break;
     }
     host.hidden = !trip && !recent.length;
-    host.innerHTML = `${trip ? `<div class="card resume-trip"><span class="rs-ico">🧳</span><div class="rs-t"><b>Rozpracovaná cesta: ${esc(name)}</b>
-        <small>${fmtDate(d.checkin)}–${fmtDate(d.checkout)} · krok ${esc(STEP_LBL[trip.step] || 'let')}${bases && trip.step === 'stay' ? ` (vybráno ${picked} z ${bases.length})` : ''}</small></div>
-        <button type="button" class="btn sm primary" id="rsTrip">Pokračovat →</button></div>` : ''}
+    // u shrnutí je cesta sestavená – „Tvoje cesta“ a Otevřít (ne „rozpracovaná“ a Pokračovat)
+    const done = trip && trip.step === 'summary';
+    host.innerHTML = `${trip ? `<div class="card resume-trip"><span class="rs-ico">🧳</span><div class="rs-t"><b>${done ? 'Tvoje cesta' : 'Rozpracovaná cesta'}: ${esc(name)}</b>
+        <small>${fmtDate(d.checkin)}–${fmtDate(d.checkout)} · ${done ? 'sestavená – shrnutí a co zarezervovat' : `krok ${esc(STEP_LBL[trip.step] || 'let')}`}${bases && trip.step === 'stay' ? ` (vybráno ${picked} z ${bases.length})` : ''}</small></div>
+        <button type="button" class="btn sm primary" id="rsTrip">${done ? 'Otevřít' : 'Pokračovat'} →</button></div>` : ''}
       ${recent.length ? `<div class="resume-recent"><span class="faint">🔁 Naposledy:</span>${recent.map((f, i) => `<button type="button" class="recent-chip" data-rsr="${i}" title="Hledat znovu">${esc(watchLabel(f))} <small>${esc(recentSub(f))}</small></button>`).join('')}</div>` : ''}`;
     const b = $('#rsTrip', host); if (b) b.onclick = () => go('trip');
     $$('[data-rsr]', host).forEach(x => x.onclick = () => { go('flights'); setForm(recent[+x.dataset.rsr]); startSearch(); });
