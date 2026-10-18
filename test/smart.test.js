@@ -272,3 +272,13 @@ test('„od pátku“ = den odletu (ne místo odletu), den z věty přednost př
   assert.deepEqual(P('v pátek na 3 noci').patch.outDays, [5]);
   assert.deepEqual(P('ne do Říma').to, ['Říma']);
 });
+
+test('„příští týden“ / „tento týden“ = kdy (po–ne), ne délka; „na týden“ dál délka', () => {
+  const r = P('příští týden do Vídně');
+  assert.deepEqual([r.to, r.patch.dFrom, r.patch.dTo, chips(r)], [['Vídně'], '2026-10-19', '2026-10-25', ['příští týden']]);
+  assert.deepEqual([P('příští týden do Vídně', '2026-10-19').patch.dFrom, P('příští týden do Vídně', '2026-10-19').patch.dTo], ['2026-10-26', '2026-11-01']);
+  const n = P('do Londýna na 2 noci příští týden');
+  assert.deepEqual([n.to, n.patch.nMin, n.patch.dFrom], [['Londýna'], 2, '2026-10-19']);
+  assert.equal(P('na týden do Říma').patch.len, 'week');
+  assert.deepEqual([P('tento týden kamkoliv', '2026-10-15').patch.dFrom, P('tento týden kamkoliv', '2026-10-15').patch.dTo], ['2026-10-15', '2026-10-18']);
+});

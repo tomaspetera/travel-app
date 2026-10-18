@@ -139,6 +139,12 @@
       const sat = addDays(today, (6 - dow(today) + 7) % 7);
       dates = dates || { from: today, to: sat, label: 'tento víkend' };
     });
+    // „příští týden“ / „tento týden“ = kdy (odlet v tom týdnu, po–ne), ne délka pobytu „týden“
+    rule(new RegExp(`(?:(pristi|dalsi)|tento|tenhle)\\s+tyden${W}`), m => {
+      if (dates) return false;
+      const mon = addDays(today, (8 - dow(today)) % 7 || 7); // nejbližší příští pondělí
+      dates = m[1] ? { from: mon, to: addDays(mon, 6), label: 'příští týden' } : { from: today, to: addDays(today, (7 - dow(today)) % 7), label: 'tento týden' };
+    });
     rule(new RegExp(`(?:na\\s+)?(?:pristi|dalsi)\\s+vikend${W}`), () => {
       len = 'weekend';
       const sat = addDays(today, ((6 - dow(today) + 7) % 7) + 7);
