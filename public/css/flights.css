@@ -451,11 +451,11 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 
 /* kalendář */
 .cal-card{padding:18px;margin-bottom:14px}
-.cal-wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.cal-wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:22px}
 .cal-box h4{font-size:14px;font-weight:800;margin-bottom:8px}
 .cal-month{margin-bottom:14px}
 .cm-t{font-weight:700;font-size:13px;color:var(--muted);margin-bottom:6px;text-transform:capitalize}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .cdw{font-size:10.5px;color:var(--faint);text-align:center;font-weight:700}
 .cd{border-radius:8px;padding:4px 2px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10.5px;background:hsla(var(--h),70%,50%,.2);border:1px solid hsla(var(--h),70%,50%,.35)}
 .cd span{color:var(--muted);font-weight:600}
