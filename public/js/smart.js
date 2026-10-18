@@ -43,7 +43,7 @@
     + 'levne levny levnou levna levnej nejlevneji nejlevnejsi hledam hledame najdi najit ukaz jet jedu jedeme pojedu pojedeme cesta cestu cesty dovolena dovolenou dovolene '
     + 'vylet vyletu i pro nas me mi my ja jsem nejak nejaky nejakou nejake termin terminu okolo kolem cca asi prosim potrebuji potrebujem idealne klidne treba zase ten ta '
     + 'to tento tenhle ktery nebo ale jen jenom jeste uz nejlepe mozna nam vam si se nejlevnejsi nejlepsi super hezky hezkou nekde nekam kam odkud kdy kdyz tak taky take '
-    + 'tam zpet zpatky domu letadlo letadla mesto mesta kde').split(' '));
+    + 'tam zpet zpatky domu letadlo letadla mesto mesta kde neco nejakeho nejakem nejakou je jsou bude budou nez').split(' '));
   const TO_WORDS = new Set(['do', 'na', 'k', 'ke', 'kam', 'v', 've', 'za', 'u', 'pres', 'po']);
   const FROM_WORDS = new Set(['z', 'ze', 'odkud', 'od']);
   // před „moře“ jméno moře → je to místo (Rudé moře), ne „k moři“
@@ -51,11 +51,12 @@
 
   function parse(text, o = {}) {
     const today = o.today || ymd(new Date());
-    const raw = String(text || '').normalize('NFC').slice(0, 200);
+    // „Vídeň → Nice“: šipka odděluje odkud a kam (ve zbytku věty jako „>“)
+    const raw = String(text || '').normalize('NFC').slice(0, 200).replace(/\s*(?:→|->|⇒|=>)\s*/gu, ' > ');
     const s = fold(raw);
     const used = new Array(s.length).fill(false);
     const chips = [], patch = {};
-    let kind = null, month = null, dates = null, len = null, kids = 0;
+    let kind = null, month = null, dates = null, len = null, kids = 0, withKids = false;
     // obrat najdi, označ jako použitý; fn vrátí false = nepoužít (shoda zůstane ve zbytku věty)
     const rule = (re, fn) => {
       const g = new RegExp(re.source, 'g' + (re.flags.includes('i') ? 'i' : ''));
@@ -203,6 +204,8 @@
       if (!(k >= 1 && k <= 6)) return false;
       kids = k;
     });
+    // „s dětmi“ bez počtu: kolik jich je, nevím – jen se nebere jako místo a připomene upravit počet osob
+    rule(new RegExp(`(?:s|se)\\s+(?:detmi|detma|deckama|ditkama)${W}|pro\\s+deti${W}`), () => { withKids = true; });
     rule(new RegExp(`s\\s+(?:pritelkyni|pritelem|partnerem|partnerkou|manzelkou|manzelem|holkou|klukem|zenou|muzem)${W}`), () => { people(2); });
     rule(new RegExp(`(?:primy|prime|primo|primym|primou|bez\\s+prestupu|bez\\s+prestupovani)${W}`), () => { patch.directOnly = true; });
     rule(new RegExp(`(?:s\\s+)?(?:kabinov\\w*|prirucn\\w*)(?:\\s+(?:kufr\\w*|zavazad\\w*))?${W}|(?:s\\s+)?kufrik\\w*${W}`), () => { patch.bags = 'cabin'; });
@@ -216,21 +219,24 @@
       if (/mor/.test(m[0]) && SEA_NAMES.test(s.slice(0, at))) return false; // Rudé moře = místo
       kind = kind || 'sea';
     });
-    rule(new RegExp(`(?:za|do|na)?\\s*(?:teplem|tepla|teplo|slunce|sluncem|slunicko|slunicka|slunickem|jih|jihu)${W}`), () => { kind = kind || 'warm'; patch.minTemp = Math.max(patch.minTemp || 0, 20); });
+    rule(new RegExp(`(?:za|do|na)?\\s*(?:tepl(?:o|a|em|e|eho|emu|ou|y|ych|ym|ymi|ejsi[a-z]*|eji|ot[a-z]*)|slunce|sluncem|slunicko|slunicka|slunickem|jih|jihu)${W}`), () => { kind = kind || 'warm'; patch.minTemp = Math.max(patch.minTemp || 0, 20); });
     rule(new RegExp(`(?:do\\s+)?(?:horka|horko|vedra|vedro)${W}`), () => { kind = kind || 'warm'; patch.minTemp = 25; });
     rule(new RegExp(`(?:do\\s+|na\\s+)?(?:exotik\\w*|exoticky\\w*|tropu|tropy|do\\s+dalky|daleko)${W}`), () => { kind = 'exotic'; });
     rule(new RegExp(`(?:kamkoliv|kamkoli|kdekoliv|kdekoli|nekam|cokoliv|kamkolvek)${W}`), () => { kind = kind || 'any'; });
-    rule(new RegExp(`(?:na\\s+|do\\s+)?(?:hory|horach|hor|alpy|alp|lyze|lyzovat|lyzovani|na\\s+snih)${W}`), () => { kind = kind || 'mountains'; });
+    rule(new RegExp(`(?:na\\s+|do\\s+)?(?:hory|horach|hor|alpy|alp|alpach|alpami|lyze|lyzovat|lyzovani|na\\s+snih)${W}`), () => { kind = kind || 'mountains'; });
 
     // --- zbytek věty: místa (z X = odkud, jinak kam) ---
     const to = [], from = [];
     let mode = 'to', cur = [];
     const flush = () => { if (cur.length) (mode === 'from' ? from : to).push(cur.join(' ')); cur = []; };
-    const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+]/gu;
+    const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+>]/gu;
     let m;
     while ((m = re.exec(s))) {
       const at = m.index, w = m[0], orig = raw.slice(at, at + w.length);
       if (used.slice(at, at + w.length).some(Boolean)) { flush(); continue; }
+      // šipka: co bylo před ní (místo právě psané, jinak poslední „kam“), je odkud; za ní kam
+      // (další šipka: „Praha → Řím → Barcelona“ – další místa jsou cíle, odkud je jen první)
+      if (w === '>') { if (cur.length) { (from.length ? to : from).push(cur.join(' ')); cur = []; } else if (to.length && !from.length) from.push(to.pop()); mode = 'to'; continue; }
       if (/^[,/;&+]$/.test(w) || w === 'a' || w === 'nebo' || w === 'ci') { flush(); continue; }
       if (FROM_WORDS.has(w)) { flush(); mode = 'from'; continue; }
       if (TO_WORDS.has(w)) { flush(); mode = 'to'; continue; }
@@ -274,6 +280,7 @@
     if (kind) chips.unshift([{ sea: '🏖️', warm: '☀️', exotic: '🌴', any: '🌍', mountains: '🏔️' }[kind], { sea: 'k moři', warm: patch.minTemp >= 25 ? 'do horka' : 'za teplem', exotic: 'exotika', any: 'kamkoliv', mountains: 'na hory' }[kind]]);
     if (patch.maxPrice) chips.push(['💰', `do ${czk(+patch.maxPrice)}`]);
     if (patch.adults) chips.push(['👥', `${patch.adults} ${patch.adults === 1 ? 'osoba' : patch.adults < 5 ? 'osoby' : 'osob'}${kids ? ' vč. dětí' : ''}`]);
+    if (withKids && !kids && !patch.adults) chips.push(['🧒', 's dětmi – počet osob uprav']);
     if (patch.directOnly) chips.push(['✈️', 'jen přímé']);
     if (patch.bags) chips.push(['🧳', { none: 'bez kufru', cabin: 'kabinový kufr', checked: 'kufr k odbavení' }[patch.bags]]);
     if (patch.trip === 'oneway') chips.push(['➡️', 'jen tam']);

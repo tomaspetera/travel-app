@@ -130,3 +130,21 @@ test('ukázkové věty na Přehledu (podle ročního období) se rozumí celé �
     assert.ok(r.patch.dFrom, q);
   }
 });
+
+test('přirozené věty: „s dětmi“, „něco teplého“, „v Alpách“, šipka odkud → kam – nic z toho není cíl', () => {
+  const t1 = P('Tenerife s dětmi v únoru');
+  assert.deepEqual(t1.to, ['Tenerife']);
+  assert.ok(t1.chips.some((c) => /s dětmi/.test(c.text)));
+  assert.deepEqual(P('k moři s dětmi v červenci').to, []);
+  // s počtem osob bez připomínky
+  assert.ok(!P('Split pro 4 s dětmi').chips.some((c) => /s dětmi/.test(c.text)));
+  const w = P('něco teplého na Vánoce');
+  assert.equal(w.kind, 'warm');
+  assert.deepEqual(w.to, []);
+  assert.deepEqual(P('kde je teplo v lednu').to, []);
+  // Teplice nejsou „teplo“
+  assert.deepEqual([P('z Teplic do Londýna').kind, P('z Teplic do Londýna').from], [null, ['Teplic']]);
+  assert.deepEqual([P('lyže v Alpách v lednu').kind, P('lyže v Alpách v lednu').to], ['mountains', []]);
+  assert.deepEqual([P('Vídeň → Nice v listopadu').from, P('Vídeň → Nice v listopadu').to], [['Vídeň'], ['Nice']]);
+  assert.deepEqual([P('Praha -> Řím -> Barcelona').from, P('Praha -> Řím -> Barcelona').to], [['Praha'], ['Řím', 'Barcelona']]);
+});
