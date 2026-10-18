@@ -327,8 +327,9 @@
 
     // --- zbytek věty: místa (z X = odkud, jinak kam) ---
     const to = [], from = [];
-    let mode = 'to', cur = [], arrows = 0, soft = null;
-    const flush = () => { if (cur.length) (mode === 'from' ? from : to).push(cur.join(' ')); cur = []; };
+    let mode = 'to', cur = [], arrows = 0, soft = null, backNext = false;
+    const back = []; // „a zpět z Neapole“: návrat z jiného místa
+    const flush = () => { if (cur.length) (mode === 'from' ? from : mode === 'back' ? back : to).push(cur.join(' ')); cur = []; };
     const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+>~]/gu;
     let m;
     while ((m = re.exec(s))) {
@@ -342,7 +343,11 @@
         if (w === '~' && from.length > n) soft = from[from.length - 1];
         continue;
       }
-      if (/^[,/;&+]$/.test(w) || w === 'a' || w === 'nebo' || w === 'ci') { flush(); continue; }
+      if (/^[,/;&+]$/.test(w) || w === 'a' || w === 'nebo' || w === 'ci') { flush(); backNext = false; continue; }
+      // „zpět z X“ / „návrat z X“ (ne „tam a zpět“): X je místo návratu
+      if (/^(?:zpet|zpatky|navrat\w*)$/.test(w)) { flush(); backNext = true; continue; }
+      if (backNext && (w === 'z' || w === 'ze' || w === 'od')) { backNext = false; mode = 'back'; continue; }
+      backNext = false;
       if (FROM_WORDS.has(w)) { flush(); mode = 'from'; continue; }
       if (TO_WORDS.has(w)) { flush(); mode = 'to'; continue; }
       if (FILL.has(w) || /^\d+$/.test(w)) { flush(); continue; }
@@ -396,7 +401,7 @@
     if (patch.trip === 'oneway') chips.push(['➡️', 'jen tam']);
     // „Praha → Řím → Barcelona → Praha“: dvě a víc šipek = cesta přes víc měst (odkud, pak místa v pořadí)
     const chain = arrows >= 2 && from.length === 1 && to.length >= 2 && !kind;
-    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(chain ? { chain: true } : {}) };
+    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(chain ? { chain: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
   }
 
   /** Zkracování koncovek pro našeptávač („do Říma“ → Řím, „z Vídně“ → Víd): celé slovo, bez 1 a bez 2 znaků. */

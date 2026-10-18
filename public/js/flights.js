@@ -233,6 +233,10 @@
     hit.to = to.filter(Boolean).map(item).slice(0, 5);
     hit.from = from.filter(x => x && x.type !== 'continent').map(item).slice(0, 3);
     hit.miss = [...hit.sm.to.filter((x, i) => !to[i]), ...hit.sm.from.filter((x, i) => !from[i] || from[i].type === 'continent')];
+    // „a zpět z Neapole“: návrat z jiného místa (město nebo letiště)
+    const bk = hit.sm.back ? await one(hit.sm.back, true) : null;
+    hit.back = stop(bk) ? item(bk) : null;
+    if (hit.sm.back && !hit.back) hit.miss.push(hit.sm.back);
   }
   /**
    * „Praha Londýn“ (bez z/do a pomlčky), které jako jedno místo neexistuje: zkusit rozdělit na odkud → kam
@@ -297,7 +301,7 @@
      */
     async lookup(q, signal) {
       const sm = window.Smart ? Smart.parse(q, smartOpts()) : null;
-      const hit = this.smart && sm && (sm.chips.length || sm.from.length || sm.to.length >= 2) ? { sm, to: [], from: [], miss: [] } : null;
+      const hit = this.smart && sm && (sm.chips.length || sm.from.length || sm.to.length >= 2 || sm.back) ? { sm, to: [], from: [], miss: [] } : null;
       if (hit) { await smartResolve(hit, this.near(), signal); return { hit, items: [] }; }
       const one = sm && !sm.kind && !sm.chips.length && sm.to.length + sm.from.length === 1 ? sm.to[0] || sm.from[0] : null;
       const qq = one && Smart.fold(one) !== Smart.fold(q) ? one : q;
@@ -337,9 +341,10 @@
       const row = (r, i) => {
         const on = i === this.active ? ' on' : '';
         if (r.hit) {
-          const h = r.hit, places = h.chain ? [`🧳 ${h.chain.map(x => x.label).join(' → ')}`] : [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`)];
+          const h = r.hit, places = h.chain ? [`🧳 ${h.chain.map(x => x.label).join(' → ')}`] : [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`), ...(h.back ? [`↩ návrat: ${h.back.label}`] : [])];
           const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}`)].join(' · ');
           const sub = h.chain ? 'víc měst – nastavím lety mezi nimi (termíny rozdělím) a hledám'
+            : h.back && !h.miss.length ? 'tam a zpět z jiného města – nastavím 2 lety (přejezd mezi městy je na tobě) a hledám'
             : h.miss.length ? `„${h.miss.join('“, „')}“ neznám – hledám bez toho` : (h.sm.items && !h.to.length ? h.sm.items.map(x => x.label).join(', ') : 'klepni nebo Enter – nastavím a hledám');
           return `<div class="pi-opt pi-smart${on}" data-i="${i}"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc(what)}</b><small>${esc(sub)}</small></span><span class="pi-type">hledat</span></div>`;
         }
@@ -4136,8 +4141,20 @@
     setForm({ ...defaultForm(), ...prefsOf(S.form), ...keep, from: [c[0]], to: [], trip: 'multi', legs });
     startSearch();
   }
+  // „do Říma a zpět z Neapole“ → Víc měst: tam do cíle, zpět z místa návratu domů (mezi nimi po zemi)
+  function smartBackRun(hit, from) {
+    const p = hit.sm.patch, home = (hit.from.length ? hit.from : from && from.length ? from : S.home?.from || []).slice(0, 1);
+    go('flights');
+    if (!home.length) { toast('Zadej, odkud letíš'); fromInput.input.focus(); return; }
+    const ds = chainDates(p, 2);
+    const legs = [{ from: home, to: [hit.to[0]], date: ds[0], flex: 0 }, { from: [hit.back], to: home, date: ds[1], flex: 0 }];
+    const keep = Object.fromEntries(['adults', 'bags', 'directOnly', 'maxPrice'].filter(k => p[k] != null).map(k => [k, p[k]]));
+    setForm({ ...defaultForm(), ...prefsOf(S.form), ...keep, from: home, to: [], trip: 'multi', legs });
+    startSearch();
+  }
   function smartRun(hit, from) {
     if (hit.chain && hit.chain.length >= 3) return smartChainRun(hit);
+    if (hit.back && hit.to.length === 1) return smartBackRun(hit, from);
     const p = hit.sm.patch, to = (hit.to.length ? hit.to : hit.sm.items || []).slice(0, 5);
     const f = { ...defaultForm(), ...prefsOf(S.form), from: hit.from.length ? hit.from : (from && from.length ? from : S.home?.from || []), to, ...p };
     if (f.dateMode === 'exact' && !f.xBack) f.trip = 'oneway';
