@@ -576,8 +576,14 @@ function renderRecs() {
 }
 
 /* ================= COUNTRIES GRID ================= */
+// Země po stránkách (telefon 24, jinak 60) – 197 karet by byla obrazovka přes 26 000 px; jiný filtr = zase od začátku,
+// překreslení se stejnými filtry (✓ Navštíveno v detailu) nechá, kolik už bylo vidět
+let cLimit = 0, cKey = '';
+const cPage = () => (typeof matchMedia === 'function' && matchMedia('(max-width:760px)').matches ? 24 : 60);
 function renderCountries() {
   const q = norm($('#cSearch').value), cont = $('#cCont').value, cost = $('#cCost').value, sort = $('#cSort').value, vis = $('#cVisited .on').dataset.v, ent = $('#cEntry').value;
+  const key = [q, cont, cost, sort, vis, ent].join('|');
+  if (key !== cKey || !cLimit) { cKey = key; cLimit = cPage(); }
   let list = COUNTRIES.slice();
   if (q) list = list.filter(c => norm(c.cs).includes(q) || norm(c.en).includes(q) || (c.tags || []).some(t => norm(t).includes(q)));
   if (cont) list = list.filter(c => c.cont === cont);
@@ -586,7 +592,11 @@ function renderCountries() {
   if (vis === 'yes') list = list.filter(c => visited.has(c.iso2)); else if (vis === 'no') list = list.filter(c => !visited.has(c.iso2));
   if (ent && window.Entry) list = list.filter(c => c.iso2 !== 'CZ' && Entry.matches(c.iso2, ent));
   if (sort === 'cost') list.sort((a, b) => (a.cost || 9) - (b.cost || 9)); else if (sort === 'safety') list.sort((a, b) => (b.safety || 0) - (a.safety || 0)); else list.sort((a, b) => a.cs.localeCompare(b.cs, 'cs'));
-  $('#countryGrid').innerHTML = list.length ? list.map(c => destCard(c)).join('') : `<div class="empty" style="grid-column:1/-1"><div class="ei">${ico('M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20')}</div><div>Nic nenalezeno. Zkus jiný filtr.</div></div>`;
+  const rest = list.length - cLimit;
+  $('#countryGrid').innerHTML = list.length ? list.slice(0, cLimit).map(c => destCard(c)).join('')
+    + (rest > 0 ? `<button type="button" class="btn c-more" id="cMore">Zobrazit další země (${rest})</button>` : '')
+    : `<div class="empty" style="grid-column:1/-1"><div class="ei">${ico('M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20')}</div><div>Nic nenalezeno. Zkus jiný filtr.</div></div>`;
+  const more = $('#cMore'); if (more) more.onclick = () => { cLimit += cPage() * 2; renderCountries(); };
   bindDest('#countryGrid');
   Photos.paint($('#countryGrid'));
 }
