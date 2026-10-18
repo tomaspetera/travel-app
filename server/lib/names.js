@@ -204,7 +204,8 @@ export const COUNTRY_ALIASES = {
   slovensko: 'SK', rakousko: 'AT', nemecko: 'DE', polsko: 'PL', madarsko: 'HU',
   anglie: 'GB', britanie: 'GB', 'velka britanie': 'GB', uk: 'GB', skotsko: 'GB',
   usa: 'US', amerika: 'US', 'spojene staty': 'US', holandsko: 'NL', nizozemsko: 'NL',
-  'emiraty': 'AE', 'spojene arabske emiraty': 'AE', 'jizni korea': 'KR', korea: 'KR',
+  'emiraty': 'AE', 'spojene arabske emiraty': 'AE', sae: 'AE', 'jizni korea': 'KR', korea: 'KR',
+  'jizni afrika': 'ZA', jar: 'ZA', dominikana: 'DO',
 };
 
 export function cityCs(enCity) {
