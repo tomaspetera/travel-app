@@ -18,7 +18,8 @@ const { makeLeg } = await import('../server/lib/fares.js');
 const RAW = JSON.parse(readFileSync(new URL('../data/arrival.json', import.meta.url), 'utf8'));
 const plus = (ymd, n) => new Date(Date.parse(`${ymd}T12:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 
-// Letiště ze zadání (vzdálená „levná“ i hlavní letiště oblíbených cílů); HRG a SSH veřejnou dopravu z letiště nemají → odhad.
+// Letiště ze zadání (vzdálená „levná“ i hlavní letiště oblíbených cílů); HRG a SSH veřejnou dopravu z letiště nemají → taxi
+// (mode taxi, cena za auto děleno dvěma).
 const WANTED = ['BVA', 'CDG', 'ORY', 'CRL', 'BRU', 'STN', 'LTN', 'LGW', 'LHR', 'SEN', 'BGY', 'MXP', 'LIN', 'TSF', 'VCE', 'CIA', 'FCO', 'NAP',
   'BLQ', 'PSA', 'FLR', 'NYO', 'ARN', 'TRF', 'OSL', 'GOT', 'HHN', 'FRA', 'NRN', 'DUS', 'CGN', 'GRO', 'REU', 'BCN', 'MAD', 'AGP', 'ALC', 'PMI',
   'VLC', 'SVQ', 'OPO', 'LIS', 'FAO', 'ATH', 'SKG', 'LCA', 'PFO', 'MLA', 'DBV', 'SPU', 'ZAG', 'BUD', 'OTP', 'SOF', 'KRK', 'WAW', 'WMI', 'GDN',
@@ -27,8 +28,11 @@ const WANTED = ['BVA', 'CDG', 'ORY', 'CRL', 'BRU', 'STN', 'LTN', 'LGW', 'LHR', '
   'TFS', 'LPA', 'FUE', 'OVD', 'FNC', 'CFU', 'CHQ', 'JSI', 'TIA', 'BEG', 'RMO', 'CTA', 'BRI', 'PMO', 'CAG', 'GOA', 'BDS', 'RMI', 'MRS',
   'NCE', 'TLS', 'LYS', 'BJV', 'KUT', 'TBS', 'BUS', 'EVN', 'AGA', 'RBA', 'FEZ', 'TNG', 'AUH', 'SHJ', 'DOH', 'CAI', 'HKT', 'KBV', 'CNX',
   'MLE', 'CUN', 'JFK', 'EWR', 'NRT', 'HND', 'BRS', 'LPL', 'EMA', 'LBA', 'GLA', 'CPH', 'VNO', 'HEL', 'HAM', 'GVA', 'TOS', 'RVN',
-  'SBZ', 'VAR'];
-const ESTIMATED = ['HRG', 'SSH'];
+  'SBZ', 'VAR',
+  // 3. kolo (18. 10. 2026): řecké a španělské ostrovy, Chorvatsko, Turecko, Pobaltí, Jordánsko; taxi tam, kde nic nejezdí
+  'HER', 'RHO', 'KGS', 'JTR', 'ACE', 'IBZ', 'MAH', 'OLB', 'PUY', 'ZAD', 'BOJ', 'DLM', 'GZP', 'VRN', 'BIO', 'BGO', 'TLL', 'RIX', 'AMM',
+  'RMF', 'AQJ', 'DJE'];
+const TAXI = ['HRG', 'SSH', 'RMF', 'AQJ', 'DJE'];
 
 test('tabulka: každé letiště má zdroj, datum ověření, město ve 2. pádě, rozumné jízdné a čas', () => {
   const rows = Object.entries(A.ARRIVAL);
@@ -39,7 +43,7 @@ test('tabulka: každé letiště má zdroj, datum ověření, město ve 2. pád�
     const a = getAirport(iata);
     assert.ok(a, `${iata} je v databázi letišť`);
     assert.match(x.src, /^https:\/\/[^\s<>"']+$/, `${iata} zdroj`);
-    assert.equal(x.date, A.ARRIVAL_CHECKED, `${iata} datum ověření`);
+    assert.ok(/^2026-10-\d\d$/.test(x.date) && x.date <= A.ARRIVAL_CHECKED, `${iata} datum ověření ${x.date}`);
     assert.ok(typeof x.city === 'string' && x.city.length >= 3 && typeof x.gen === 'string' && x.gen.length >= 3, `${iata} město`);
     assert.ok(A.ARRIVAL_MODES.includes(x.mode), `${iata} druh dopravy ${x.mode}`);
     assert.ok(typeof x.how === 'string' && x.how.length >= 8 && x.how.length <= 90, `${iata} čím: ${x.how}`);
@@ -58,12 +62,17 @@ test('tabulka: každé letiště má zdroj, datum ověření, město ve 2. pád�
   assert.ok(Object.values(A.ARRIVAL_FX.czk).every((v) => v > 0));
 });
 
-test('tabulka pokrývá letiště ze zadání; bez veřejné dopravy z letiště (Hurghada, Šarm aš-Šajch) odhad', () => {
+test('tabulka pokrývá letiště ze zadání; bez veřejné dopravy z letiště (Hurghada, Šarm aš-Šajch…) taxi', () => {
   for (const iata of WANTED) {
     const x = A.arrivalTransfer(iata);
     assert.ok(x, iata);
-    assert.equal(x.basis, ESTIMATED.includes(iata) ? 'estimate' : 'table', iata);
+    assert.equal(x.basis, 'table', iata);
+    assert.equal(x.mode === 'taxi', TAXI.includes(iata), `${iata}: ${x.mode}`);
   }
+  // taxi: cena za auto děleno dvěma – Hurghada ~350 EGP za auto → ~70 Kč na osobu; Marsa Alam drahý transfer zvýrazněný
+  assert.equal(A.arrivalTransfer('HRG').czk, 70);
+  assert.match(A.arrivalTransfer('HRG').note, /veřejná doprava z letiště nejezdí/);
+  assert.ok(A.arrivalTransfer('RMF').czk > A.ARRIVAL_WARN.czk);
   // vzdálená letiště „levných“ aerolinek: drahá nebo dlouhá cesta do města (štítek je zvýrazní)
   const warn = (iata) => { const x = A.arrivalTransfer(iata); return x.czk > A.ARRIVAL_WARN.czk || x.min > A.ARRIVAL_WARN.min; };
   for (const iata of ['BVA', 'CRL', 'HHN', 'NRN', 'GRO', 'REU', 'NYO', 'TRF', 'SEN', 'FMM']) assert.ok(warn(iata), `${iata} je drahé nebo dlouhé`);
@@ -102,8 +111,8 @@ test('arrivalTransfer: ověřená tabulka, tabulka cesty na letiště, odhad pod
   assert.equal(bod.km, A.TYPE_KM[getAirport('BOD').type]);
   // Francie (cenová hladina 4): (30 + 1,5 × 15) × 2,8 = 147 → 150 Kč; 15 + 1,1 × 15 + 10 = 41,5 → 40 min
   assert.deepEqual([bod.czk, bod.min], [150, 40]);
-  const hrg = A.arrivalTransfer('HRG'); // Egypt (hladina 1): aspoň jízdenka MHD
-  assert.equal(hrg.czk, 60);
+  const lxr = A.estimateArrival(getAirport('LXR')); // Egypt (hladina 1): aspoň jízdenka MHD
+  assert.equal(lxr.czk, 60);
   assert.equal(A.arrivalTransfer('XYZ'), null);
   assert.equal(A.arrivalCzk('XYZ'), 0);
   // let tam / zpět: počítá se jen konec mimo domov; let mezi dvěma městy oba konce

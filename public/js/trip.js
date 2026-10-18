@@ -380,7 +380,7 @@
     const fare = window.SearchHelp ? SearchHelp.arrivalFare(a) : `~${czk(a.czk)}`;
     return `${back ? `${a.city} → letiště ${a.iata}` : `Z letiště ${a.iata} → ${a.city}`} · ${arrivalHow(a, back)} · ~${minutesToHm(a.min)} · ${fare}/os.${a.basis !== 'table' ? ' (odhad)' : ''}`;
   }
-  const ARR_ICO = { bus: '🚌', train: '🚆', metro: '🚇', tram: '🚊' };
+  const ARR_ICO = { bus: '🚌', train: '🚆', metro: '🚇', tram: '🚊', taxi: '🚕' };
   /**
    * Jízdné k přejezdu letiště ↔ 1. / poslední místo trasy: jen veřejnou dopravou a když je to místo ve městě letiště
    * (do 25 km od jeho středu) – „ · letištní bus 17,90 € (~440 Kč)/os.“; jinak '' (jízdné do jiného místa neznám).
@@ -2700,7 +2700,7 @@
   function cleanArrivalLeg(a) {
     if (!okObj(a) || !/^[A-Z0-9]{3}$/.test(a.iata || '') || !okFin(a.czk, 0, 1e5) || !okFin(a.min, 1, 600)) return null;
     return {
-      iata: a.iata, city: okStr(a.city, 60) || a.iata, gen: okStr(a.gen, 60) || null, mode: ['bus', 'train', 'metro', 'tram'].includes(a.mode) ? a.mode : 'bus',
+      iata: a.iata, city: okStr(a.city, 60) || a.iata, gen: okStr(a.gen, 60) || null, mode: ['bus', 'train', 'metro', 'tram', 'taxi'].includes(a.mode) ? a.mode : 'bus',
       how: okStr(a.how, 160), czk: Math.round(a.czk), min: Math.round(a.min), basis: ['table', 'access', 'estimate'].includes(a.basis) ? a.basis : 'estimate',
       ...(okFin(a.lat, -90, 90) && okFin(a.lon, -180, 180) ? { lat: a.lat, lon: a.lon } : {}),
       ...(okFin(a.fare, 0, 1e6) && /^[A-Z]{3}$/.test(a.cur || '') ? { fare: a.fare, cur: a.cur } : {}),

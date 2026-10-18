@@ -1063,7 +1063,7 @@
   // Zvýraznit drahou nebo dlouhou cestu do města („levná“ letenka na vzdálené letiště) – stejné meze jako server
   // (ARRIVAL_WARN, test hlídá shodu): přes 350 Kč/os. jedním směrem nebo přes hodinu.
   const ARRIVAL_WARN = { czk: 350, min: 60 };
-  const ARR_ICON = { bus: '🚌', train: '🚆', metro: '🚇', tram: '🚊' };
+  const ARR_ICON = { bus: '🚌', train: '🚆', metro: '🚇', tram: '🚊', taxi: '🚕' };
   const CUR_SIGN = { EUR: '€', GBP: '£', USD: '$', CZK: 'Kč', PLN: 'zł', HUF: 'Ft', RON: 'lei' };
   const fareNum = x => (Number.isInteger(x) ? x.toLocaleString('cs-CZ') : x.toFixed(2).replace('.', ','));
   /** Jízdné „17,90 € (~440 Kč)“, „od 9,90 £ (~280 Kč)“ (cena online předem), bez ověřeného jízdného „~150 Kč“. */

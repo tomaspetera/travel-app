@@ -726,17 +726,18 @@ na osobu – do ceny letenky se nepřičítá.
   dotaz na API bez pole `arrival` taky (viz [API](#api)).
 
 **Odkud jsou čísla** (`data/arrival.json`, `server/lib/arrival.js`) – na osobu a jeden směr, jízdenka pro dospělého,
-nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra (taxi ani soukromé transfery ne); „od“ = cena
-online předem:
+nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; kde z letiště veřejná doprava nejezdí (Hurghada,
+Šarm aš-Šajch, Marsa Alam, Akaba, Djerba), 🚕 taxi – cena za auto děleno dvěma; „od“ = cena online předem:
 
-1. **Ověřená tabulka 133 letišť** z oficiálních stránek letiště, dopravce nebo dopravního svazu, **ověřeno 7. 10. 2026**:
-   74 z prvního kola a 59 nejčastějších dalších cílů z Prahy a okolí (živé hledání „kamkoli“ ve třech obdobích –
+1. **Ověřená tabulka 157 letišť** z oficiálních stránek letiště, dopravce nebo dopravního svazu, **ověřeno 7. a 18. 10.
+   2026**: 74 z prvního kola, 59 nejčastějších dalších cílů z Prahy a okolí (živé hledání „kamkoli“ ve třech obdobích –
    britská regionální letiště, Itálie, Francie, Kanáry, Madeira, Řecko, Balkán, Kavkaz, Maroko, Perský záliv, Thajsko,
-   Male, Cancún, New York, Tokio); stránky, které se z cloudu nenačtou, ověřené ve skutečném Chromu (PC, `research/
-   arrival-check-2.md` na větvi `pc-research`). U 13 letišť (²) jen sekundární zdroj – oficiální stránka cenu neuvádí,
+   Male, Cancún, New York, Tokio) a 24 dalších (18. 10.: řecké a španělské ostrovy, Chorvatsko, turecká letoviska,
+   Pobaltí, Jordánsko, taxi v Egyptě, Akabě a na Djerbě); stránky, které se z cloudu nenačtou, ověřené ve skutečném Chromu (PC, `research/
+   arrival-check-2.md` na větvi `pc-research`). U 24 letišť (²) jen sekundární zdroj – oficiální stránka cenu neuvádí,
    ukazuje ji až po vyplnění formuláře nebo se nedala načíst; u 19 dalších je jízdné oficiální a jen čas jízdy ze
-   sekundárních zdrojů nebo odhadem (uvedeno v poznámce). Přepočet na Kč kurzem ČNB k 6. 10. 2026 (MAD, EGP, AED, ALL, RSD, MDL, GEL, AMD, QAR, MVR
-   kurzy ostatních měn k 30. 9. 2026), zaokrouhleno na 10 Kč a aspoň 10 Kč (městský autobus v Tbilisi, Batumi nebo
+   sekundárních zdrojů nebo odhadem (uvedeno v poznámce). Přepočet na Kč kurzem ČNB k 6. 10. 2026 (MAD, EGP, AED, ALL, RSD, MDL, GEL, AMD, QAR, MVR,
+   JOD, TND kurzy ostatních měn k 30. 9. 2026), zaokrouhleno na 10 Kč a aspoň 10 Kč (městský autobus v Tbilisi, Batumi nebo
    Kišiněvě stojí méně).
 2. **Letiště z tabulky [cesty na letiště](#doprava-na-letiště)** (~35 letišť do ~450 km od Česka, `access.js`) – stejný
    spoj obráceně (Vídeň, Mnichov, Berlín, Drážďany…), s popiskem odhad. Letiště v obou tabulkách mají stejné jízdné
@@ -747,8 +748,7 @@ online předem:
    15 min + 1,1 min/km + 10 min čekání) × cenová hladina země 1–5 z přehledu zemí (×0,5 / ×1 / ×2 / ×2,8 / ×4), aspoň
    jízdenka MHD země. Na ověřené tabulce dává odhad v geometrickém průměru ~1,2× skutečné ceny, u ~60 % letišť do
    dvojnásobku (test) – městský autobus za pár korun (Tbilisi, Dauhá, Bari) i expres za 10–15 € (Řím, Milán, Marseille)
-   jeden vzorec netrefí, proto se nejčastější cíle ověřují. Odhadem zůstávají mimo jiné **Hurghada, Šarm aš-Šajch
-   a Marsa Alam** – z letiště tam veřejná doprava nejezdí (jen taxi a hotelové transfery) – a Bournemouth (jediná linka
+   jeden vzorec netrefí, proto se nejčastější cíle ověřují. Odhadem zůstává mimo jiné Bournemouth (jediná linka
    z letiště do města, 737, měla licenci jen do 11. 9. 2026).
 
 | Letiště | Čím do centra | Jízdné | Kč | Čas | Zdroj |
@@ -886,6 +886,30 @@ online předem:
 | RVN Rovaniemi | autobus Airport Express do centra a na nádraží | 8 € | 200 | 15 min | [airportbus.fi](https://www.airportbus.fi/pages/timetables-summer) |
 | SBZ Sibiu | městský autobus Tursib 11 do centra | 3,50 lei | 20 | 20 min | [sibiuairport.ro](https://www.sibiuairport.ro/en/info/transport-public) |
 | VAR Varna | městský autobus 409 do centra | 1 € | 20 | 20 min | [visit.varna.bg](https://visit.varna.bg/en/public-transport-in-varna.html) |
+| HER Heraklion | městský autobus 1 do centra (náměstí Eleftherias) | od 1,30 € | 30 | 20 min | [astiko-irakleiou.gr](https://astiko-irakleiou.gr/en/tickets/) |
+| RHO Rhodos | městský autobus RODA do centra Rhodu | 2,50 € | 60 | 30 min | [rho-airport.gr](https://www.rho-airport.gr/en/category-detailed/ctg_id-265/nd_id-973) ² |
+| KGS Kos | autobus KTEL do města Kos | 4 € | 100 | 40 min | [ktel-kos.gr](https://ktel-kos.gr/wp-content/uploads/dromologia/%CE%91%CE%95%CE%A1%CE%9F%CE%94%CE%A1%CE%9F%CE%9C%CE%99%CE%9F.pdf) |
+| JTR Fira | autobus KTEL na autobusové nádraží ve Fiře | 2,20 € | 50 | 20 min | [ktel-santorini.gr](https://ktel-santorini.gr/pricetable/) |
+| ACE Arrecife | autobus 22 (o víkendu 23) do Arrecife | 1,40 € | 30 | 15 min | [spain.info](https://www.spain.info/en/aeroplane/lanzarote-cesar-manrique-airport/) ² |
+| IBZ Ibiza | autobus AERO 3 do města Ibiza (Eivissa) | 3,50 € | 90 | 20 min | [alsaibiza.es](https://www.alsaibiza.es/en/fares) |
+| MAH Mahón | autobus 10 na autobusové nádraží v Mahónu | 2,80 € | 70 | 15 min | [aena.es](https://www.aena.es/en/menorca/getting-there/bus.html) |
+| OLB Olbia | městský autobus ASPO 2 / 10 do centra Olbie | od 1 € | 20 | 15 min | [aspo.it](https://www.aspo.it/biglietti-e-abbonamenti/) |
+| PUY Pula | letištní shuttle bus na autobusové nádraží v Pule | 6 € | 150 | 20 min | [airport-pula.hr](https://airport-pula.hr/en/passenger-info/shuttle-bus/) |
+| ZAD Zadar | autobus Liburnija přes autobusové nádraží do starého města | 5 € | 120 | 20 min | [zadar-airport.hr](https://zadar-airport.hr/en/how-to-get-here/) |
+| BOJ Burgas | městský autobus 15 na autobusové nádraží Jug (centrum) | 0,80 € | 20 | 30 min | [aifly.one](https://aifly.one/2026/06/boj-airport-guide/) ² |
+| DLM Fethiye | autobus Havaş na autobusové nádraží Fethiye | 300 TRY | 130 | 1 h | [e-yasamrehberi.com](https://www.e-yasamrehberi.com/havas/dalaman-havalimani-fethiye-havas-saatleri.html) ² |
+| GZP Alanya | autobus Havaş do Alanye (autobusové nádraží) | 330 TRY | 150 | 1 h | [e-yasamrehberi.com](https://www.e-yasamrehberi.com/havas/gazipasa-havalimani-alanya-merkez-havas-saatleri.html) ² |
+| VRN Verona | autobus ATV Aerobus na nádraží Verona Porta Nuova | 7 € | 170 | 20 min | [trenitalia.com](https://www.trenitalia.com/it/regionale/collegamenti-regionale/verona-airlink.html) |
+| BIO Bilbao | autobus Bizkaibus A3247 do centra (Plaza Moyúa) a na Termibus | 5 € | 120 | 25 min | [bizkaia.eus](https://www.bizkaia.eus/documents/d/bizkaibus/tarifen-mapa-tarifas-2025-03-18) |
+| BGO Bergen | tramvaj Bybanen 1 do centra (Byparken) | 51 NOK | 120 | 45 min | [en.visitbergen.com](https://en.visitbergen.com/visitor-information/travel-information/getting-here/to-bergen-by-plane/bergen-airport-flesland-to-bergen-city-center) |
+| TLL Tallinn | tramvaj 2 / 4 do centra | 2 € | 50 | 20 min | [airport.ee](https://airport.ee/en/public-transport/) |
+| RIX Riga | městský autobus 22 do centra (Staré Město, autobusové nádraží) | od 1,50 € | 40 | 40 min | [liveriga.com](https://www.liveriga.com/en/13353-how-to-get-from-riga-airport-to-the-city-center) |
+| AMM Ammán | autobus Sariyah Airport Express na 7. okruh a severní autobusové nádraží | 3,50 JOD | 110 | 1 h | [qaiairport.com](https://www.qaiairport.com/en/facilities-services?facility=fa4be5ac-5615-4c16-96cb-584f721ba909) ² |
+| HRG Hurghada | taxi do centra (Dahar, Sakkala) | 175 EGP | 70 | 20 min | [airconnect.live](https://airconnect.live/en/airports/hurghada-airport-transport-guide) ² |
+| SSH Šarm aš-Šajch | taxi do Naama Bay | 150 EGP | 60 | 20 min | [airconnect.live](https://airconnect.live/en/airports/sharm-el-sheikh-airport-transport-guide) ² |
+| RMF Marsa Alam | taxi / předem objednaný transfer do Marsa Alamu | 17,50 € | 430 ⚠ | 55 min | [airportstaxitransfers.com](https://airportstaxitransfers.com/transportation/taxibookings/Transfer-from-Marsa-Alam-Airport-to-El-Quseir) ² |
+| AQJ Akaba | taxi do centra Akaby | 6 JOD | 180 | 15 min | [airconnect.live](https://airconnect.live/en/airports/aqaba-airport-transport-guide) ² |
+| DJE Houmt Souk | taxi do Houmt Souku | 12,50 TND | 90 | 15 min | [airmundo.com](https://airmundo.com/en/djerba-airport/taxi/) ² |
 
 ⚠ = zvýrazněno (přes 350 Kč nebo přes 60 min). ² = sekundární zdroj. Čas je typická jízda bez čekání na spoj (u vlaku
 a metra podle jízdního řádu, u autobusu podle dopravce).
@@ -1443,7 +1467,7 @@ vzdušnou čarou (Řím → Neapol ~590 Kč, Lisabon → Porto ~830 Kč, Barcelo
   (cena pak počítá, jako by ses vrátil k autu).
 - Časy *🏠 Kdy vyrazit* (z domu, domů, z ubytování na letiště) jsou odhad z modelu cesty na letiště, ne z jízdních
   řádů – ATLAS neví, kdy jede první vlak nebo poslední bus; 2 h před odletem a 45 min po přistání jsou paušál.
-- Cesta z letiště do města: jízdné z ověřené tabulky (133 letišť, u 13 jen sekundární zdroj; 7. 10. 2026) se mění – dopravci zdražují, „od“ platí
+- Cesta z letiště do města: jízdné z ověřené tabulky (157 letišť, u 24 jen sekundární zdroj; 7. a 18. 10. 2026) se mění – dopravci zdražují, „od“ platí
   jen online předem a u řidiče nebo ve špičce bývá dráž; čas je typická jízda bez čekání (po půlnoci letištní bus často
   nejede a zbývá taxi). Počítá se jízdenka pro dospělého na osobu do jednoho místa v centru (nádraží, terminál), ne
   k ubytování – rodinné, skupinové a časové jízdenky, slevy pro děti ani taxi pro víc lidí se nepočítají. Ostatní
