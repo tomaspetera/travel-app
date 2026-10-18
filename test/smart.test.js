@@ -368,3 +368,14 @@ test('„Slunečné / Lazurové pobřeží“ je místo, „na pobřeží“ a �
   assert.deepEqual(P('na Lazurové pobřeží v červenci').to, ['Lazurové pobřeží']);
   assert.equal(P('na pobřeží v létě').kind, 'sea');
 });
+
+test('placeForms: „Kutné Hory“ → Kutná Hora, „Mariánských Lázní“ → Mariánské Lázně, „Karlových Varů“ → Karlovy Vary', () => {
+  const F = (p) => JSON.parse(JSON.stringify(Smart.placeForms(p)));
+  assert.equal(F('Kutné Hory')[0], 'Kutná Hora');
+  assert.equal(F('Mariánských Lázní')[0], 'Mariánské Lázně');
+  assert.equal(F('Karlových Varů')[0], 'Karlovy Vary');
+  assert.ok(F('Českého Krumlova').includes('Český Krumlov'));
+  assert.ok(F('Mladé Boleslavi').includes('Mladá Boleslav'));
+  // jednoslovné a bez přídavného jména nic (žádné dotazy navíc)
+  assert.deepEqual([F('Řím'), F('Hradce Králové'), F('Brno Londýn')], [[], [], []]);
+});

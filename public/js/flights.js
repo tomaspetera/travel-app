@@ -227,7 +227,17 @@
     const loc = await look(false), found = Smart.bestPlace(loc);
     if (found) return found;
     const rem = geo ? await look(true) : null;
-    return (rem && Smart.bestPlace(rem)) || Smart.bestPlace(rem || loc, true);
+    const fromRem = rem && Smart.bestPlace(rem);
+    if (fromRem) return fromRem;
+    const f = geo ? await formPlace(phrase, origin, near, signal) : null;
+    return f || Smart.bestPlace(rem || loc, true);
+  }
+  /** „z Kutné Hory“, „do Českého Krumlova“: geokódování tvar s přídavným jménem nezná → zkusit 1. pád (Smart.placeForms). */
+  async function formPlace(phrase, origin, near, signal) {
+    const forms = Smart.placeForms ? Smart.placeForms(phrase) : [];
+    if (!forms.length) return null;
+    return Smart.bestPlace(await Promise.all(forms.map(q => placesFor(q, origin, near, signal)
+      .then(items => ({ q, items }), e => { if (e.name === 'AbortError') throw e; return { q, items: [] }; }))));
   }
   async function smartResolve(hit, near, signal, geo = true) {
     const one = (phrase, origin) => resolvePlace(phrase, origin, near, signal, geo);
@@ -325,6 +335,7 @@
       if (known && !known.fuzzy && !items.some(x => x.id === known.id && !x.fuzzy) && (qq !== q || !items.some(x => low(x.label) === low(qq)))) items = [known, ...items.filter(x => x.id !== known.id)];
       // vesnice ve tvaru věty („do Hronova“): i geokódováním; víceslovné ne („Brno Londýn“ by našlo ulici)
       if (remote && !items.length && one && !/\s/.test(one)) { const g = await resolvePlace(one, this.origin, this.near(), signal); if (g) items = [g]; }
+      if (remote && !items.length && one && /\s/.test(one)) { const g = await formPlace(one, this.origin, this.near(), signal); if (g) items = [g]; }
       items = items.filter(s => !this.origin || s.type !== 'continent');
       // („letenky Praha Barcelona“: bez výplňových slov)
       const sq = one && /\s/.test(one) ? one : q;
