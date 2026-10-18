@@ -162,9 +162,19 @@
   const shopName = id => provName(id).replace(/\s*\(.*\)\s*$/, '');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
+  // Chyba bez hlášky serveru (výpadek, 502 z proxy, HTML místo JSON) česky, ne „HTTP 502“; hlášky serveru (limit hledání,
+  // špatný dotaz) zůstanou.
+  async function httpErr(r) {
+    const j = await r.json().catch(() => ({}));
+    return new Error(j.error || (r.status >= 500 ? 'Server teď neodpovídá – zkus to za chvíli znovu.' : `Server odpověděl chybou (HTTP ${r.status}) – zkus to znovu.`));
+  }
+  // Výpadek spojení (fetch selže) a nečitelná odpověď (useknutý stream) taky česky.
+  const failMsg = e => (e instanceof TypeError && /fetch|network|load failed/i.test(e.message) ? 'Spojení se serverem se nepovedlo – zkontroluj připojení a zkus to znovu.'
+    : e instanceof SyntaxError ? 'Server poslal neúplnou odpověď – zkus to znovu.' : e.message);
+
   async function api(path) {
     const r = await fetch(path);
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    if (!r.ok) throw await httpErr(r);
     return r.json();
   }
 
@@ -175,7 +185,7 @@
   // (noPartial – kontrola hlídaných cen, radar). Starší server je nepošle vůbec.
   async function runSearch(payload, { onProgress, onPartial, signal } = {}) {
     const r = await fetch('api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(onPartial ? payload : { ...payload, noPartial: true }), signal });
-    if (!r.ok || !r.body) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    if (!r.ok || !r.body) throw await httpErr(r);
     const reader = r.body.getReader();
     const dec = new TextDecoder();
     let buf = '', result = null, error = null;
@@ -381,7 +391,7 @@
         if (r.hit) {
           const h = r.hit, places = h.chain ? [`🧳 ${h.chain.map(x => x.label).join(' → ')}`] : [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`), ...(h.back ? [`↩ návrat: ${h.back.label}`] : [])];
           const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}`)].join(' · ');
-          const sub = h.chain ? 'víc měst – nastavím lety mezi nimi (termíny rozdělím) a hledám'
+          const sub = h.chain ? 'víc měst – nastavím lety, rozdělím termíny a hledám'
             : h.back && !h.miss.length ? 'tam a zpět z jiného města – nastavím 2 lety (přejezd mezi městy je na tobě) a hledám'
             : h.miss.length ? `„${h.miss.join('“, „')}“ neznám – hledám bez toho` : (h.sm.items && !h.to.length ? h.sm.items.map(x => x.label).join(', ') : 'klepni nebo Enter – nastavím a hledám');
           return `<div class="pi-opt pi-smart${on}" data-i="${i}"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc(what)}</b><small>${esc(sub)}</small></span><span class="pi-type">hledat</span></div>`;
@@ -1231,6 +1241,7 @@
   async function startSearch(opts = {}) {
     const f = getForm();
     nudge = null;
+    kidsAsk = Boolean(opts.kids);
     if (!f.from.length) { toast('Zadej, odkud chceš letět', 'err'); fromInput.input.focus(); return; }
     if (f.trip === 'multi') {
       const bad = mlProblem(f.legs);
@@ -1302,7 +1313,11 @@
       if (e.name === 'AbortError') return;
       expandForm(); // chyba hledání: formulář zase vidět (hláška radí ho upravit)
       paintDrop();
-      $('#progress').innerHTML = `<div class="note bad">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(s.shown ? SearchHelp.partialFail(e.message) : e.message)}</div></div>`;
+      const msg = failMsg(e);
+      $('#progress').innerHTML = `<div class="note bad kiwi-note">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(s.shown ? SearchHelp.partialFail(msg) : msg)}</div><button type="button" class="btn sm" id="searchRetry">↻ Zkusit znovu</button></div>`;
+      $('#searchRetry').onclick = () => startSearch();
+      // na telefonu je hláška pod rozbaleným formulářem – posunout k ní, ať chyba není vidět jen jako „nic se nestalo“
+      $('#progress').scrollIntoView({ block: 'center' });
     } finally {
       busySearches--;
       // tlačítko odemkne jen poslední hledání – zrušené předchozí by ho odemklo uprostřed běžícího
@@ -1526,8 +1541,9 @@
     }).join('');
     const disabled = (health?.providers || []).filter(p => !p.enabled && p.hint && p.kind !== 'stays').map(p => `<div class="prow off"><span class="pdot" style="background:${p.color}"></span><b>${esc(p.name)}</b><span class="pst">vypnuto</span><div class="pnote">${esc(p.hint)}</div></div>`).join('');
     const multi = res ? res.mode === 'multi' : Boolean(ev.legs);
-    // „za 0,0 s“ = stejné hledání nedávno (výsledek z mezipaměti serveru) – to se neříká v sekundách
-    const sec = ms => (ms >= 50 ? ` za ${(ms / 1000).toFixed(1).replace('.', ',')} s` : ' – hned, z nedávného hledání');
+    // „za 0,0 s“ = totéž hledání nedávno na serveru (i cizí – výsledek z mezipaměti serveru) – to se neříká v sekundách;
+    // „z nedávného hledání“ by v novém prohlížeči mátlo (stáří cen ukazuje „ceny z 14:32“)
+    const sec = ms => (ms >= 50 ? ` za ${(ms / 1000).toFixed(1).replace('.', ',')} s` : ' – hned');
     const head = res ? (multi ? `Prohledáno ${plural(res.legs.length, 'let', 'lety', 'letů')}${sec(res.stats.ms)}` : `Prohledáno ${plural(res.origins.length, 'letiště', 'letiště', 'letišť')}${sec(res.stats.ms)}`)
       : multi ? '<span class="spin"></span> Hledám lety pro celou cestu (nejvýš dva lety najednou)…'
       : `<span class="spin"></span> Prohledávám letiště${originPreview.length ? ` (${originPreview.filter(a => !a.off).sort((x, y) => (x.rank ?? 99) - (y.rank ?? 99)).slice(0, health?.maxOrigins || 8).sort((x, y) => x.distKm - y.distKm).map(a => a.iata).join(', ')})` : ''}…`;
@@ -1823,7 +1839,7 @@
         <button type="button" class="btn sm ghost res-more-btn" id="resMoreBtn" aria-expanded="${moreOpen}" aria-controls="resMore" title="Filtry, řazení a srovnání letišť">⚙️ Filtry${nMore ? ` <b class="tf-n">${nMore}</b>` : ''} <span aria-hidden="true">${moreOpen ? '▴' : '▾'}</span></button>
         <div class="seg" id="viewSeg">${modes.map(v => { const [ic, ...w] = v[1].split(' '); return `<button type="button" data-v="${v[0]}" class="${view.mode === v[0] ? 'on' : ''}"><span class="vs-ic">${ic} </span>${w.join(' ')}</button>`; }).join('')}</div>
       </div></div>
-      ${nudgeHtml()}${groundBanner(res)}
+      ${kidsHtml()}${nudgeHtml()}${groundBanner(res)}
       ${filterChips(chips)}
       <div class="res-more${moreOpen ? ' open' : ''}" id="resMore">
       <div class="res-filters">
@@ -2044,7 +2060,7 @@
   // pax = počet lidí nabídky (📌 Porovnat jde otevřít i bez výsledků na obrazovce)
   function verifyLinks(t, pax = lastResult.query.adults) {
     const sameAp = t.back && t.back.from === t.out.to && t.back.to === t.out.from;
-    const gq = (a, b, d1, d2) => `https://www.google.com/travel/flights?hl=cs&curr=CZK&q=${enc(`Flights from ${a} to ${b} on ${d1}${d2 ? ' returning ' + d2 : ' one way'}`)}`;
+    const gq = (a, b, d1, d2) => `https://www.google.com/travel/flights?hl=cs&curr=CZK&q=${enc(d2 ? `Flights to ${b} from ${a} on ${d1} through ${d2}` : `Flights from ${a} to ${b} on ${d1} one way`)}`;
     const sk = (a, b, d1, d2) => `https://www.skyscanner.cz/transport/flights/${a.toLowerCase()}/${b.toLowerCase()}/${yymmdd(d1)}/${d2 ? yymmdd(d2) + '/' : ''}?adults=${pax}&rtn=${d2 ? 1 : 0}`;
     if (!t.back || sameAp) {
       const d2 = t.back ? t.back.date : null;
@@ -3170,6 +3186,7 @@
   function wireResults() {
     const host = $('#results');
     const nw = $('#nudgeWatch', host); if (nw) nw.onclick = async () => { const f = nudge && nudge.form; nudge = null; await addWatch(f || undefined); rerender(true); };
+    const kp = $('#kidsPax', host); if (kp) kp.onclick = () => { expandForm(); const a = $('#adults'); a.scrollIntoView({ behavior: 'smooth', block: 'center' }); a.focus(); };
     $('#sortSel', host).onchange = e => { view.sort = e.target.value; rerender(); };
     const mb = $('#resMoreBtn', host);
     if (mb) mb.onclick = () => { const open = !$('#resMore', host).classList.contains('open'); view.moreOpen = open; if (!open) view.timeOpen = false; rerender(true); };
@@ -3584,6 +3601,9 @@
    * (a když ho ještě nehlídá) nabídne výsledek ♡ Hlídat cenu – na Přehledu pak uvidí, když zlevní.
    */
   let nudge = null;
+  // věta „s dětmi“ bez počtu: hledá se s počtem osob z formuláře – nad výsledky připomenout, ať ho upraví
+  let kidsAsk = false;
+  const kidsHtml = () => (kidsAsk && lastForm ? `<div class="note info watch-nudge">🧒 <div>Hledám pro ${lastForm.adults} ${lastForm.adults === 1 ? 'osobu' : lastForm.adults < 5 ? 'osoby' : 'osob'} – děti se počítají jako cestující, <button type="button" class="linkbtn" id="kidsPax"><b>uprav počet osob</b></button> a hledej znovu.</div></div>` : '');
   function seenBump(f) {
     const k = watchKey({ form: f }); if (!k) return null;
     const m = { ...(S.seen && typeof S.seen === 'object' ? S.seen : {}) }, n = ((m[k] && +m[k][0]) || 0) + 1;
@@ -4103,6 +4123,11 @@
     return `<span class="rc-lv" title="${esc(lt.title)}">${esc(lt.text)}</span>`;
   }
   /** st: { busy } = starší výsledek, nový se hledá · { error } = starší výsledek, nový se nepodařilo načíst. */
+  // název na kartě radaru s „i“: poslední slovo a „i“ nezalomitelné – „i“ nezůstane samo na dalším řádku (Memmingen (Mnichov))
+  const rcName = (label, btn) => {
+    const k = label.lastIndexOf(' ');
+    return `<span class="rc-lbl">${esc(label.slice(0, k + 1))}<span class="rc-nw">${esc(label.slice(k + 1))}&nbsp;${btn}</span></span>`;
+  };
   function paintRadar(r, q, st = null) {
     radarLast = { r, q, st };
     renderNews();
@@ -4130,7 +4155,7 @@
       <div class="rc-badges">${bd}</div>
       ${dmBtn({ ...x, key: SearchHelp.destKeyOf(x.id) }, `data-rdm="${i}"`)}
       <div class="rc-panel">
-        <div class="rc-city"><span class="rc-lbl">${esc(x.label)}</span>&#8288;<button type="button" class="rc-info" data-rinfo="${i}" aria-label="Co tam je – ${esc(x.label)}" title="🔎 Co tam je: místa k vidění, z letiště do města, počasí, vstup">i</button></div>
+        <div class="rc-city">${rcName(x.label, `<button type="button" class="rc-info" data-rinfo="${i}" aria-label="Co tam je – ${esc(x.label)}" title="🔎 Co tam je: místa k vidění, z letiště do města, počasí, vstup">i</button>`)}</div>
         <div class="rc-meta"><span class="rcf">${flag(x.cc)}</span>${esc(cn)}${cn ? ' · ' : ''}${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}</div>
         <div class="rc-sub"${x.bt ? ' title="Zpět z jiného letiště nebo na jiné letiště než odlet"' : ''}>${esc(SearchHelp.radarRoute(x))}${radarLeave(x)}</div>
         <div class="rc-foot"><div class="rc-price">${czk(x.czk)}<small>/os.</small></div><span class="rc-go" aria-hidden="true">›</span></div>
@@ -4279,7 +4304,7 @@
     go('flights');
     setForm(f);
     if (!fromInput.items.length) { askFrom(); return; }
-    startSearch();
+    startSearch({ kids: hit.sm.askPax });
   }
   // tip s větou: rozebrat a hledat (bez míst – „k moři“, termín, délka)
   const phraseTip = (icon, text, sub, from) => ({ icon, text, sub, run: () => smartRun({ sm: Smart.parse(text, smartOpts()), to: [], from: [], miss: [] }, from()) });
@@ -4427,7 +4452,9 @@
       if (!nx) { toast(fullTxt(which), 'err'); return; }
       S.fav = nx.fav; S.mute = nx.mute;
       modalClose(); prefsChanged();
-      toast(which === 'fav' ? `Přidáno do mých cílů: ${d.label}` : which === 'mute' ? `${d.label} se v radaru ani v Kamkoliv už neukáže` : p === 'fav' ? `Odebráno z mých cílů: ${d.label}` : `${d.label} se zase bude ukazovat`);
+      // 🙈 jedním klepnutím schová město z radaru i Kamkoliv – hned jde vrátit (jinak až přes ⋯ → Upravit seznamy)
+      const undo = which === 'mute' ? { label: '↩ Vrátit', run: () => { S.fav = pl.fav; S.mute = pl.mute; prefsChanged(); toast(`${d.label} se zase bude ukazovat`); } } : null;
+      toast(which === 'fav' ? `Přidáno do mých cílů: ${d.label}` : which === 'mute' ? `${d.label} se v radaru ani v Kamkoliv už neukáže` : p === 'fav' ? `Odebráno z mých cílů: ${d.label}` : `${d.label} se zase bude ukazovat`, null, 2600, undo);
     });
     const dp = $('#dmPin'); if (dp) dp.onclick = () => { modalClose(); if (offer.row) pinToggleRow(offer.row.t, offer.row.g, offer.res); else pinToggleRadar(offer.radar, offer.r, offer.q); };
     $('#dmEdit').onclick = () => prefsEdit();

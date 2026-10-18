@@ -527,7 +527,7 @@
           <input type="file" id="bkFile" accept=".json,.txt,application/json,text/plain" hidden>
         </div>
         <div class="faint" style="font-size:12.5px;margin-top:12px"><span id="bkStatus">${statusTxt()}</span><span id="bkStore"></span></div>
-        <div class="faint" style="font-size:12px;margin-top:8px">Na druhém zařízení otevři ATLAS → ${canShare ? 'Plánovač' : 'Plánovač nebo menu Více'} → 💾 Přenos a záloha → 📂 Obnovit ze zálohy. Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (uložené cesty v plánovači ji mají), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
+        <div class="faint" style="font-size:12px;margin-top:8px">Na druhém zařízení otevři ATLAS → ${canShare ? 'Plánovač' : 'Plánovač nebo ⋯ Další'} → 💾 Přenos a záloha → 📂 Obnovit ze zálohy. Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (uložené cesty v plánovači ji mají), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
       </div></div>`);
     if (canShare) $('#bkShare').onclick = () => share();
     $('#bkDown').onclick = () => { download(); toast('Záloha stažena'); };

@@ -461,7 +461,7 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .tl-more>summary::after{content:' ▾'}
 .tl-more[open]>summary{display:none}
 @media (max-width:560px){
-  .sum-acts{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .sum-acts{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch} /* tlačítka v řádku stejně vysoká (.row centruje) */
   .sum-acts>#sumSave{grid-column:1/-1}
   .sum-acts>.btn{justify-content:center;text-align:center;font-size:13px;padding-left:8px;padding-right:8px;min-width:0;white-space:normal}
 }

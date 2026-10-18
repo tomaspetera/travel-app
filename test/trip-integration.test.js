@@ -529,8 +529,14 @@ test('kdy vyrazit: z domu na let tam a z ubytování na let zpět – průběh c
   assert.ok(at(/^út 10\. 11\. 🚌 Cesta na letiště PRG/) === 1 && at(/🛫 PRG 06:00/) === 2, r1.join('\n'));
   const h = at(/🚪 Z ubytování/);
   assert.equal(r1[h], 'so 14. 11. 🚪 Z ubytování na letiště VIE vyraž nejpozději ve 4:20 <span class="faint">(~40 min cesta + 2 h před odletem, odhad)</span> · brzy ráno – taxi objednej předem, nebo přespi u letiště');
-  assert.match(r1[h + 1], /^so 14\. 11\. 🚆 Vídeň → letiště VIE/);
+  assert.match(r1[h + 1], /^so 14\. 11\. 🚆 Vídeň → letiště VIE.* · v noci spíš taxi$/, 'vyráží se před 5:00 – MHD ještě nejede');
   assert.match(r1[h + 2], /^so 14\. 11\. 🛬 VIE 07:00/);
+  // let zpět po půlnoci: cesta na letiště už předchozí večer, hned po řádku 🚪 (ne v den odletu)
+  const nt = { ...t, flight: { ...t.flight, back: { ...t.flight.back, date: '2026-11-15', dep: '2026-11-15T00:30:00', arr: '2026-11-15T01:30:00' } } };
+  const r3 = rows(render(c, nt));
+  const h3 = r3.findIndex((r) => /🚪 Z ubytování/.test(r));
+  assert.ok(h3 >= 0 && /^so 14\. 11\. 🚪/.test(r3[h3]) && /^so 14\. 11\. 🚆 Vídeň → letiště VIE/.test(r3[h3 + 1]), r3.join('\n'));
+  assert.doesNotMatch(r3[h3 + 1], /v noci spíš taxi/, 've 21:50 ještě jezdí');
   const r2 = rows(render(c, late));
   assert.ok(r2.includes('po 9. 11. 🚪 Vyraž z domu nejpozději ve 21:55 <span class="faint">(~45 min na letiště PRG + 2 h před odletem, odhad)</span>'), r2.join('\n'));
   assert.ok(r2.some((r) => r.startsWith('so 14. 11. 🚪 Z ubytování na letiště VIE vyraž nejpozději v 15:20') && r.endsWith(' · check-out bývá do 11:00 – zavazadla nech na recepci')));
