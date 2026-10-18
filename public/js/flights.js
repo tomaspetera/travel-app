@@ -357,7 +357,9 @@
      * Text napsaný v poli, ale nevybraný z nabídky, a formulář odeslaný tlačítkem: věta → ✨ jako Enter ('run'),
      * název → první návrh ('pick'); nic → false (a hláška). Prázdné pole → 'none'.
      */
-    async settle() {
+    // dvojklik na Najít lety: druhé odeslání čeká na totéž (jinak by po vyprázdnění pole hledalo „kamkoliv“)
+    settle() { return this.settling || (this.settling = this.settleNow().finally(() => { this.settling = null; })); }
+    async settleNow() {
       const q = this.input.value.trim();
       if (!q) return 'none';
       if (this.ctl) this.ctl.abort();
