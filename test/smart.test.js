@@ -196,3 +196,12 @@ test('víc šipek = cesta přes víc měst (chain): odkud a místa v pořadí; j
   assert.equal(P('Vídeň → Nice').chain, undefined);
   assert.equal(P('Praha -> Lisabon -> Porto ve dvou').chain, true);
 });
+
+test('Objevuj: otázky kolem místa („co vidět v Římě“, „okolí Olomouce“) – místo bez slov otázky', () => {
+  const X = (q) => JSON.parse(JSON.stringify(Smart.parseExplore(q, { today })));
+  assert.equal(X('co vidět v Římě').place, 'Římě');
+  assert.equal(X('Řím co navštívit').place, 'Řím');
+  assert.deepEqual([X('co dělat v Londýně s dětmi').place, X('co dělat v Londýně s dětmi').interests], ['Londýně', ['kids']]);
+  assert.deepEqual([X('okolí Olomouce').place, X('okolí Olomouce').mode], ['Olomouce', 'day']);
+  assert.equal(X('zajímavosti Krakova').place, 'Krakova');
+});

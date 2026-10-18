@@ -416,7 +416,9 @@
     take(new RegExp(`(?:na\\s+)?(?:kole|kolo|cyklo\\w*|bike)${W}`), () => { mode = 'bike'; });
     take(new RegExp(`(?:pesky|pesi\\s+(?:vylet\\w*|okruh\\w*|tur\\w*)|tur[auy]|turistik\\w*|vyslap\\w*|hike|hiking)${W}`), () => { mode = mode || 'hike'; });
     take(new RegExp(`(?:na\\s+)?(?:okruh\\w*|road\\s*trip\\w*|autem\\s+po\\s+okoli)${W}`), () => { mode = mode || 'loop'; });
-    take(new RegExp(`(?:jednodenni\\s+)?(?:vylet\\w*|do\\s+okoli)${W}`), () => { mode = mode || 'day'; });
+    take(new RegExp(`(?:jednodenni\\s+)?(?:vylet\\w*|do\\s+okoli)${W}|(?:v\\s+)?okoli${W}`), () => { mode = mode || 'day'; });
+    // „co vidět v Římě“, „Řím co navštívit“, „co dělat v Londýně“: slova otázky nejsou místo
+    take(new RegExp(`(?:co|kam|jak)\\s+(?:videt|navstivit|delat|zazit|podniknout|stoji\\s+za\\s+to|jit|zajit)${W}|(?:zajimav\\w*|tipy|tip|doporuceni)${W}`), () => {});
     take(new RegExp(`(\\d{1,3})\\s*km${W}`), m => { km = +m[1]; });
     take(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:den|dny|dni|dnu)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 14)) return false; days = n; });
     take(new RegExp(`(?:na\\s+)?(?:prodlouzen\\w+\\s+)?vikend\\w*${W}`), m => { days = days || (/prodlouz/.test(m[0]) ? 3 : 2); });
