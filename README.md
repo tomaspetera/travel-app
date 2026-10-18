@@ -331,6 +331,12 @@ výsledky hledání, které se nedokončilo – od chvíle, kdy přišly (*🕘 
 nedokončilo a ceny se mezitím mohly změnit*). U výsledků starších 3 h první klepnutí na *Koupit* jen připomene čas cen,
 koupí až to další.
 
+**Měna na webu prodejce:** Kiwi.com se ptá v Kč s českou verzí webu – odkaz vede na `kiwi.com/cz/booking/…&currency=czk`
+a cena ve výsledcích je ta z české Kiwi. Ryanair a Wizz Air účtují vždy v měně země odletu (let z Prahy v Kč, zpět
+z Říma v eurech, z Londýna v librách) a odkaz to změnit nemůže – proto u nabídky pod tlačítky koupě (i u odložených
+a ve Shrnutí „Co zarezervovat“) je *💱 Let zpět: Wizz Air ukáže cenu v EUR – ~45,99 €/os.* (`leg.siteCur` /
+`sitePrice` ze země letiště odletu).
+
 Ceny Ryanair a Wizz Air jsou živé, ale do rezervace se mohou změnit; ceny z Travelpayouts jsou označené „⏱ z cache – ověř“
 (ve výpisu, ve sloupcích ✈︎ Lety i v krocích „Víc měst“) a je dobré je ověřit (u každého výsledku je odkaz na rezervaci
 a na ověření v Google Flights / Skyscanneru). U letů s přestupem z cache bývá uvedená délka kratší, než je možné
@@ -417,9 +423,16 @@ Je to odhad, ne předpověď: porovnává se cena letenek na osobu bez dopravy n
 
 ## Doprava na letiště
 
-K ceně letenek ATLAS přičítá odhad cesty z domova na letiště odletu a zpět, na osobu – letiště 300 km daleko tak férově
-porovná s tím za humny. V *Další možnosti → Doprava na letiště* zvolíš **Na letiště: 🚌 veřejnou dopravou** (výchozí)
-nebo **🚗 autem**, případně dopravu nezapočítáš vůbec. Vždy je to odhad (`server/lib/access.js`), ne jízdní řád ani
+**Cena nabídky je jen letenka** (+ zavazadla, když je vybereš) – podle ní se řadí, filtruje *Max. cena*, počítá
+kalendář, mřížka termínů, pruh *📅 Nejbližší dny*, radar i hlídané ceny. Odhad cesty z domova na letiště odletu a zpět
+(na osobu) je u každé nabídky **zvlášť pod cenou** – *🚆 doprava na letiště a zpět ~100 Kč/os. · 🚌 z letiště do města
+a zpět ~180 Kč/os. – průměrná cena, odhad, v ceně letenky není* – aby bylo vidět, kolik zhruba stojí, ale cenu letenky
+nezkresloval (odhady bývají nepřesné). Kdo chce porovnat i s cestou, zvolí ve *Filtrech → Řazení* **Nejlevnější
+i s cestou na letiště (odhad)** (`tripCzk`). Srovnání letadla s vlakem / busem (*🚆 Vlakem/busem*) počítá letadlo od dveří
+ke dveřím, tedy i s cestou na letiště. Dřív se odhad do ceny přičítal; uložené hlídání si při první kontrole vezme
+novou cenu jako nový základ (bez falešného „zlevnilo“), radar se načte znovu a odložené nabídky se přepočítají.
+V *Další možnosti → Doprava na letiště* zvolíš **Na letiště: 🚌 veřejnou dopravou** (výchozí)
+nebo **🚗 autem**, případně odhad neukazuješ vůbec. Vždy je to odhad (`server/lib/access.js`), ne jízdní řád ani
 ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva se stahují jednou denně na pozadí – viz
 [Aktuální ceny paliva a nabíjení](#aktuální-ceny-paliva-a-nabíjení)).
 
@@ -638,8 +651,8 @@ Ceny nafty a benzínu bere ATLAS z otevřených dat (`server/lib/fuel.js`, `GET 
 „Levná“ letenka na vzdálené letiště levná být nemusí: z Paříže-Beauvais jede do Paříže autobus za 17,90 € a 1 h 15,
 z Girony do Barcelony za 22 €, z Torpu do Osla za 279 NOK a přes hodinu a půl – a to každým směrem. ATLAS proto
 u každé nabídky ukáže, kolik stojí a jak dlouho trvá cesta z letiště příletu do města (a z města na letiště odletu),
-a v *Další možnosti → Z letiště do města* ji se zaškrtnutým **vč. cesty z letiště do města** (výchozí) přičte k ceně –
-tam i zpět, na osobu.
+a v *Další možnosti → Z letiště do města* (**ukázat cestu z letiště do města**, výchozí) ji pod cenou ukáže tam i zpět,
+na osobu – do ceny letenky se nepřičítá.
 
 - **Štítek u nabídky:** *🚌 z letiště BVA do Paříže 17,90 € (~440 Kč) · 1 h 15*; návrat z jiného letiště v cíli
   (open-jaw) má vlastní štítek *🚆 zpět na letiště CDG 14 € (~340 Kč) · 35 min* (nahrazuje dřívější *✈ zpět z CDG*).
@@ -651,10 +664,9 @@ tam i zpět, na osobu.
   čím a kam, jízdné v místní měně, čas, poznámka (online předem / na místě dráž, rychlejší dražší spoj), zdroj
   a datum ověření; u odhadu z čeho vychází. U cesty přes víc měst má štítky každý let (z města na letiště odletu
   a z letiště příletu do města, doma ne). Štítek nahrazuje dřívější *📏 X km od centra*.
-- **V ceně:** u ceny nabídky *+ z letiště do města a zpět ~780 Kč/os.*; podle ceny i s cestou do města se řadí,
-  filtruje (*Max. cena*), počítá kalendář cen, pruh *📅 Nejbližší dny*, složení dvou samostatných letenek u přesných
-  dat i nejlevnější celá cesta přes víc měst (cesta mezi letištěm a městem u každého místa na cestě). Patička výsledků
-  řekne, jestli je cesta do města v ceně. Vypnutá volba cestu do města jen nepřičítá – štítky zůstanou.
+- **Pod cenou:** *🚌 z letiště do města a zpět ~780 Kč/os.* v šedém řádku s dopravou na letiště (průměrná cena, odhad –
+  v ceně letenky není). Řazení *Nejlevnější i s cestou na letiště (odhad)* ji počítá (`tripCzk`), cena, kalendář
+  a filtry ne. Vypnutá volba řádek neukazuje – štítky zůstanou.
 - **Průvodce cestou:** v kroku ✈️ Let a v časové ose řádky *Z letiště BVA → Paříž · autobus Aérobus do Paris Porte
   Maillot · ~1 h 15 min · 17,90 € (~440 Kč)/os.* a *Paříž → letiště ORY · metro 14 · ~25 min · 14 € (~340 Kč)/os.*,
   ve Shrnutí položka **Doprava z letiště do města a zpět (odhad)** – jen když byla v ceně hledání. Úsek, který nahradí
@@ -1164,6 +1176,8 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 
 Další pole hledání: `minTemp` (15–35 °C, jen teplé cíle; každá nabídka má `tempHi`, skupina `dest.climate`) a `bags`
 (`none` / `cabin` / `checked`; poplatek `bagCzk` je započtený v `perPersonCzk`, `flightCzk` zůstává čistá letenka).
+`perPersonCzk` = `flightCzk` + `bagCzk` (cena nabídky, řazení, kalendář, max. cena); `tripCzk` = navíc `groundCzk`
+(doprava na domácí letiště, autem i parkování) a `arrCzk` (z letiště do města) – odhad od dveří ke dveřím.
 `openJaw` (výchozí `true`) = návrat i na jiné letiště v okolí domova a přílet / odlet z různých letišť cílového města;
 autem (`groundMode: "car"`) se návrat vždy vrací na letiště odletu, kde auto stojí – `openJaw` pak platí jen pro cíl.
 
@@ -1206,9 +1220,9 @@ všechny přímé lety (+ lety s přestupem, nejvýš ~12 variant), Kiwi se ptá
 Odpověď navíc má `nearby` (konkrétní cíl: nejlevnější známá cena po dnech ±3 kolem odletu/návratu z už stažených dat,
 `lowcostOnDay` / `lowcostNear` a česká nápověda `hint`, když v zadaný den Ryanair/Wizz nemá volný let – nelétá, nebo je
 vyprodáno), lety Ryanairu a Wizz Air mají `otherDeps` (další odlety téhož dne bez ceny, Ryanair z letového řádu `timtbl`).
-Ceny v `nearby` jsou vč. dopravy na domácí letiště (u návratu na letiště příletu), autem tam i zpět i s parkováním na
-celou cestu, kdyby se změnil jen ten den (`parkCzk` Kč/os. na `parkDays` dní; den tam s návratem v zadaný den, den zpět
-s odletem v zadaný den – stejně jako po kliknutí na den v pruhu). `hubs` = přestupní letiště, ze kterých
+Ceny v `nearby` jsou ceny letenek (+ zavazadla); autem tam i zpět jen s návratem na letiště, kde auto stojí (`tripAdj` =
+rozdíl letu, kdyby auto stálo jinde; den tam s návratem v zadaný den, den zpět s odletem v zadaný den – stejně jako po
+kliknutí na den v pruhu). `hubs` = přestupní letiště, ze kterých
 se u dálkových cílů hledalo navíc (i když z nich nic nevyšlo – UI je pak v nápovědě znovu nenabízí). Lety v `top`/`groups`
 mají u přesných dat ke konkrétnímu cíli `groundCzk` a `bagCzk` (doprava na domácí letiště a zavazadla k tomu letu, Kč/os.)
 – pohled ✈︎ Lety z nich spočítá i dvojici samostatných letenek, která mezi kombinacemi není. Návrat se s letem tam

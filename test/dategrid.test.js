@@ -177,7 +177,7 @@ test('hledání (DEMO): mřížka nezmění nabídky, top ani „Je to dobrá ce
     assert.equal(cells.length, g.trips.length);
     const ids = new Set(on.top.map((t) => t.id));
     assert.ok(cells.every((t) => t.cell && !ids.has(t.id) && t.destKey === 'LON' && t.deal && !t.priceLevel), 'top je nemá – přidá je až prohlížeč');
-    assert.ok(cells.every((t) => t.perPersonCzk === t.flightCzk + t.groundCzk + t.bagCzk + t.arrCzk && t.totalCzk === t.perPersonCzk * 2 && t.nights === daysBetween(t.out.date, t.back.date)));
+    assert.ok(cells.every((t) => t.perPersonCzk === t.flightCzk + t.bagCzk && t.tripCzk === t.perPersonCzk + t.groundCzk + t.arrCzk && t.totalCzk === t.perPersonCzk * 2 && t.nights === daysBetween(t.out.date, t.back.date)));
     const full = withCells(on).top.filter((t) => !ids.has(t.id));
     assert.equal(full.length, g.trips.length);
     assert.ok(JSON.stringify(g.trips).length < 0.2 * JSON.stringify(full).length, 'řádek hodnot místo celé nabídky');
@@ -325,7 +325,7 @@ test('gridTrips + lastPack: cesty buněk z calendar.grid do top (podle ceny, jed
   const legs = [leg('VIE', 'STN', '2026-11-18'), leg('STN', 'VIE', '2026-11-22', '18:00'), leg('STN', 'VIE', '2026-11-23', '18:00')];
   const vals = { groundCzk: 200, bagCzk: 0, arrCzk: 300, parkCzk: 0, bagEst: 0, combined: 0, bookUrl: null, tempHi: 11, distanceKm: 1240, destKey: 'LON', deal: [1.8, 'good', null] };
   const row = (o, b, flightCzk) => CELL_KEYS.map((k) => ({ ...vals, out: o, back: b, flightCzk })[k]);
-  const grid = { nights: [3, 5], cells: [['2026-11-18', 3, 1500], ['2026-11-18', 4, 1800], ['2026-11-18', 5, 3100]], skipped: 0, legs, keys: CELL_KEYS, trips: [row(0, 1, 1300), row(0, 2, 2600)] };
+  const grid = { nights: [3, 5], cells: [['2026-11-18', 3, 1500], ['2026-11-18', 4, 1800], ['2026-11-18', 5, 3100]], skipped: 0, legs, keys: CELL_KEYS, trips: [row(0, 1, 1800), row(0, 2, 3100)] };
   const res = { mode: 'route', query: { adults: 2 }, groups: [], top, calendar: { kind: 'trip', out: [], back: [], grid } };
   const r = H.gridTrips(res);
   assert.equal(r, res);
@@ -333,8 +333,8 @@ test('gridTrips + lastPack: cesty buněk z calendar.grid do top (podle ceny, jed
   const id5 = 'demo-air|VIE|STN|2026-11-18T10:00:00|demo-air|STN|VIE|2026-11-23T18:00:00';
   assert.deepEqual(plain(r.top.map((t) => t.id)), ['a', id4, 'b', id5], 'podle ceny');
   assert.deepEqual(plain(r.top[1]), {
-    id: id4, out: legs[0], back: legs[1], flightCzk: 1300, nights: 4, provider: 'demo-air', combined: false, bookUrl: null, groundCzk: 200, bagCzk: 0, arrCzk: 300,
-    perPersonCzk: 1800, totalCzk: 3600, tempHi: 11, distanceKm: 1240, deal: { score: 1.8, level: 'good', drop: null }, destKey: 'LON', cell: true,
+    id: id4, out: legs[0], back: legs[1], flightCzk: 1800, nights: 4, provider: 'demo-air', combined: false, bookUrl: null, groundCzk: 200, bagCzk: 0, arrCzk: 300,
+    perPersonCzk: 1800, tripCzk: 2300, totalCzk: 3600, tempHi: 11, distanceKm: 1240, deal: { score: 1.8, level: 'good', drop: null }, destKey: 'LON', cell: true,
   });
   assert.equal(r.top[3].perPersonCzk, 3100);
   assert.notEqual(r.top[1].out, r.top[3].out, 'každá cesta má své lety');

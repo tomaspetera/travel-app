@@ -35,22 +35,23 @@ test('distinctLegs: každý let tam/zpět jednou, s nejlevnější kombinací a 
   assert.deepEqual(plain(backs.map((x) => [x.leg.dep.slice(11, 16), x.best.perPersonCzk, x.paired?.perPersonCzk ?? null])), [['07:50', 3000, 3200], ['21:50', 2900, null]]);
 });
 
-test('distinctLegs + composeTrip: dvojice samostatných letenek mimo výsledky se dopočítá (vč. dopravy a zavazadel), společná letenka ne', () => {
+test('distinctLegs + composeTrip: dvojice samostatných letenek mimo výsledky se dopočítá (letenky + zavazadla, s dopravou tripCzk), společná letenka ne', () => {
   const c = { groundCzk: 0, bagCzk: 0 };
   const o1 = leg('PRG', 'BCN', '2026-11-12T06:00:00', 'FR', { ...c, czk: 1000, arr: '2026-11-12T08:30:00' });
   const o2 = leg('VIE', 'BCN', '2026-11-12T14:50:00', 'W6', { groundCzk: 400, bagCzk: 0, czk: 900, arr: '2026-11-12T17:20:00' });
   const b1 = leg('BCN', 'PRG', '2026-11-16T07:50:00', 'VY', { ...c, czk: 1200 });
   const b2 = leg('GRO', 'PRG', '2026-11-16T21:50:00', 'FR', { groundCzk: 0, bagCzk: 300, czk: 800 });
   const T = (o, b, extra = {}) => ({ id: `${o.dep}|${b.dep}`, out: o, back: b, destKey: 'BCN', combined: false, distanceKm: 1100, tempHi: 17,
-    perPersonCzk: o.czk + o.groundCzk + o.bagCzk + b.czk + b.groundCzk + b.bagCzk, ...extra });
+    perPersonCzk: o.czk + o.bagCzk + b.czk + b.bagCzk, ...extra });
   const trips = [T(o1, b1), T(o2, b2)]; // o1+b2 a o2+b1 mezi výsledky nejsou
   const backs = H.distinctLegs(trips, 'back', H.legSig(o1), { adults: 2, openJaw: true });
   const x = backs.find((y) => y.leg === b2);
-  assert.equal(x.paired.perPersonCzk, 1000 + 800 + 300, 'cena složené cesty = letenky + zavazadla + doprava');
-  assert.deepEqual(plain([x.paired.composed, x.paired.totalCzk, x.paired.nights, x.paired.provider, x.paired.groundCzk, x.paired.bagCzk]), [true, 4200, 4, 'kiwi', 0, 300]);
+  assert.equal(x.paired.perPersonCzk, 1000 + 800 + 300, 'cena složené cesty = letenky + zavazadla');
+  assert.deepEqual(plain([x.paired.composed, x.paired.totalCzk, x.paired.nights, x.paired.provider, x.paired.groundCzk, x.paired.bagCzk, x.paired.tripCzk]), [true, 4200, 4, 'kiwi', 0, 300, 2100]);
   assert.equal(x.paired.back.from, 'GRO', 'open-jaw v cíli (stejné město podle destKey)');
   const outs = H.distinctLegs(trips, 'out', H.legSig(b1), { openJaw: true });
-  assert.equal(outs.find((y) => y.leg === o2).paired.perPersonCzk, 900 + 400 + 1200, 'odlet z jiného domácího letiště + doprava na něj');
+  const vie = outs.find((y) => y.leg === o2).paired;
+  assert.deepEqual([vie.perPersonCzk, vie.tripCzk], [900 + 1200, 900 + 1200 + 400], 'odlet z jiného domácího letiště, doprava na něj v tripCzk');
   // bez open-jaw: návrat jinam / z jiného letiště → nejde
   assert.equal(H.distinctLegs(trips, 'back', H.legSig(o1), { openJaw: false }).find((y) => y.leg === b2).paired, null);
   // filtry výpisu (keep) i společná zpáteční letenka → nedopočítá se
@@ -481,7 +482,7 @@ test('fastPair: nejrychlejší dvojice samostatných letenek tam i zpět – př
   const trips = [T(frOut, frBack), ...osOut.map((o) => T(o, frBack)), ...osBack.map((b) => T(frOut, b))];
   const door = (l) => (l.durationMin ? 30 + 120 + l.durationMin + 45 + 30 : null);
   const f = H.fastPair(trips, door, { adults: 2 });
-  assert.deepEqual(plain([f.out.dep.slice(11, 16), f.back.dep.slice(11, 16), f.perPersonCzk, f.composed]), ['11:15', '09:45', 7545 + 4329 + 120, true]);
+  assert.deepEqual(plain([f.out.dep.slice(11, 16), f.back.dep.slice(11, 16), f.perPersonCzk, f.tripCzk, f.composed]), ['11:15', '09:45', 7545 + 4329, 7545 + 4329 + 120, true]);
   // filtry výpisu (keep): návrat ráno ne → nejlevnější přímý návrat odpoledne
   const g = H.fastPair(trips, door, { adults: 2, keep: (t) => t.back.dep.slice(11, 13) >= '12' });
   assert.deepEqual(plain([g.out.dep.slice(11, 16), g.back.dep.slice(11, 16)]), ['11:15', '15:20']);
@@ -636,7 +637,7 @@ test('nightsRange: české tvary podle horní meze', () => {
 });
 
 test('lastPack/lastLoad: poslední výsledky – celé, zkrácené na 3 nabídky na cíl, nebo nic; staré se neobnoví', () => {
-  const opt = (i) => ({ id: 't' + i, perPersonCzk: 1000 + i, pad: 'x'.repeat(200) });
+  const opt = (i) => ({ id: 't' + i, perPersonCzk: 1000 + i, tripCzk: 1100 + i, pad: 'x'.repeat(200) });
   const res = { mode: 'explore', groups: Array.from({ length: 20 }, (_, g) => ({ dest: { key: 'd' + g }, best: opt(0), options: Array.from({ length: 8 }, (_, i) => opt(i)) })), top: [] };
   const c = { at: 1000, form: { from: [{ id: 'ap:BRQ' }] }, payload: {}, res };
   const full = H.lastPack(c, 1e7);
@@ -652,6 +653,9 @@ test('lastPack/lastLoad: poslední výsledky – celé, zkrácené na 3 nabídky
   assert.equal(H.lastLoad('{', now), null);
   assert.equal(H.lastLoad(null, now), null);
   assert.equal(H.lastLoad(JSON.stringify({ at: 1000, res }), now), null, 'bez formuláře');
+  // ze starší verze (cena i s dopravou na letiště, nabídky bez tripCzk) se neobnoví
+  const old = { ...c, res: { ...res, groups: res.groups.map((g) => ({ ...g, options: g.options.map(({ tripCzk, ...o }) => o) })) } };
+  assert.equal(H.lastLoad(JSON.stringify(old), now), null);
 });
 
 test('savedWhen: čas hledání a jak dávno', () => {
@@ -994,7 +998,7 @@ test('originCompare: odkud se vyplatí letět – nejbližší (ne přestupní) 
   assert.deepEqual([same.win.iata, same.win.ref, same.rows[1].diff, same.rows[1].extraMin], ['BRQ', true, 0, 160]);
 });
 
-test('originCompare/originFoot: návrat na jiné letiště se k letištím nepočítá, patička podle toho, co je v ceně', () => {
+test('originCompare/originFoot: návrat na jiné letiště se k letištím nepočítá, patička: cena letenek, doprava zvlášť', () => {
   const o = (iata, distKm, minutes, best) => ({ iata, city: iata, distKm, ground: { mode: 'transit', minutes }, best });
   const rt = (from, to, perPersonCzk) => ({ out: { from }, back: { to }, perPersonCzk });
   // server: PED 1807 a BRQ 1845 jen tam i zpět přes totéž letiště, BTS jen s návratem jinam (best null)
@@ -1007,21 +1011,18 @@ test('originCompare/originFoot: návrat na jiné letiště se k letištím nepo�
   assert.equal(oc.jaw, 1617, 'nejlevnější s návratem jinam (ve výpisu)');
   assert.deepEqual(oc.rows.map((r) => [r.iata, r.czk, r.jaw, r.extraMin]), [['PED', 1807, 1, 200], ['BRQ', 1845, 2, null], ['BTS', null, 1, 240]]);
   const foot = H.originFoot(res, oc);
-  assert.match(foot, /^Celá cesta na osobu vč\. dopravy na letiště a zpět a cesty do města – nejlevnější/);
+  assert.match(foot, /^Cena letenek na osobu \(doprava na letiště a do města je u nabídek zvlášť\) – nejlevnější/);
   assert.match(foot, /jen s odletem i návratem na totéž letiště/);
   assert.doesNotMatch(foot, /parkování|zavazadel/);
   assert.match(foot, /Čas = odhad cesty na letiště tam i zpět\./);
   // autem: parkování, kufr; bez nabídek s návratem jinam bez poznámky
   const car = { ...res, query: { ...res.query, groundMode: 'car', bags: 'cabin' }, top: [] };
   assert.equal(H.originCompare(car).jaw, null);
-  assert.match(H.originFoot(car), /^Celá cesta na osobu vč\. dopravy na letiště a zpět \(autem i parkování\), zavazadel a cesty do města – nejlevnější ze všech nalezených nabídek, nejen z těch ve výpisu\. /);
-  // doprava na letiště vypnutá (kmRate 0), cesta do města vypnutá, jedním směrem
+  assert.match(H.originFoot(car), /^Cena letenek na osobu vč\. zavazadel \(doprava na letiště a do města je u nabídek zvlášť\) – nejlevnější ze všech nalezených nabídek, nejen z těch ve výpisu\. /);
+  // doprava na letiště vypnutá (kmRate 0): bez času cesty na letiště; jedním směrem bez „tam i zpět“
   const off = { ...res, query: { ...res.query, kmRate: 0 }, top: [] };
-  assert.match(H.originFoot(off), /^Cena na osobu vč\. cesty do města, bez dopravy na letiště \(vypnuto v Další možnosti\) – /);
-  assert.doesNotMatch(H.originFoot(off), /dopravy na letiště a zpět|parkování/);
-  assert.match(H.originFoot({ ...off, query: { ...off.query, arrival: false } }), /^Cena na osobu bez dopravy na letiště a cesty do města \(vypnuto v Další možnosti\) – /);
+  assert.doesNotMatch(H.originFoot(off), /Čas = odhad/);
   const noArr = H.originFoot({ ...res, query: { ...res.query, arrival: false, trip: 'oneway' }, top: [] });
-  assert.match(noArr, /^Celá cesta na osobu vč\. dopravy na letiště, bez cesty do města \(vypnuto v Další možnosti\) – /);
   assert.match(noArr, /Čas = odhad cesty na letiště\. /);
 });
 
@@ -1277,18 +1278,17 @@ test('🔎 Co tam je: pobyt pro Objevuj – dní od příletu do návratu, víke
   assert.equal(H.stayPlan('2026-10-26', '2026-10-25').days, 1);
 });
 
-test('odkud = celá země (bez domova): srovnání letišť proti nejlevnějšímu, patička bez „vč. dopravy na letiště“', () => {
+test('odkud = celá země (bez domova): srovnání letišť proti nejlevnějšímu, patička bez odhadu cesty na letiště', () => {
   const o = (iata, czk) => ({ iata, city: iata, distKm: 0, best: { czk, n: 3 } });
   const res = { mode: 'explore', query: { trip: 'return', kmRate: 1, arrival: true }, origins: [o('PRG', 765), o('BRQ', 710), o('OSR', 900)] };
   const oc = H.originCompare(res);
   assert.equal(oc.ref.iata, 'BRQ', 'základ = nejlevnější, ne první v seznamu');
   assert.equal(oc.ref.nearest, false, 'žádné „nejbližší“');
   const foot = H.originFoot(res, oc);
-  assert.match(foot, /bez dopravy na letiště \(odkud je celá země\)/);
   assert.doesNotMatch(foot, /vč\. dopravy na letiště|Čas = odhad/);
-  // s domovem beze změny
+  // s domovem i čas cesty na letiště (odhad)
   const home = { ...res, origins: res.origins.map((x, i) => ({ ...x, distKm: 20 + i * 100, ground: { czk: 100, minutes: 30 } })) };
-  assert.match(H.originFoot(home), /vč\. dopravy na letiště a zpět/);
+  assert.match(H.originFoot(home), /Čas = odhad cesty na letiště tam i zpět/);
 });
 
 test('lastPack: zkrácené nabídky cíle si nechají nejlevnější z každého letiště odletu (filtr „jen lety z X“ po obnovení)', () => {

@@ -310,10 +310,10 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
             <summary>Další možnosti <span class="faint" id="moreSummary"></span></summary>
             <div class="sf-grid more-grid">
               <div class="field"><label>Cestující</label><select id="adults"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
-              <div class="field"><label>Max. cena na osobu</label><input class="input" type="number" id="maxPrice" placeholder="bez limitu" min="0" step="100"></div>
-              <div class="field gm-field" style="grid-column:1/-1"><label>Doprava na letiště <span class="lab-hint">odhad na osobu, přičte se k ceně letenek</span></label>
+              <div class="field"><label>Max. cena letenky na osobu</label><input class="input" type="number" id="maxPrice" placeholder="bez limitu" min="0" step="100"></div>
+              <div class="field gm-field" style="grid-column:1/-1"><label>Doprava na letiště <span class="lab-hint">odhad na osobu – u nabídky zvlášť, do ceny letenky se nepočítá</span></label>
                 <div class="gm-row">
-                  <label class="check-inline"><input type="checkbox" id="groundOn" checked> započítat</label>
+                  <label class="check-inline"><input type="checkbox" id="groundOn" checked> ukázat</label>
                   <span class="gm-lbl">Na letiště:</span>
                   <div class="seg" id="groundMode" role="group" aria-label="Na letiště"><button type="button" data-g="transit" class="on" aria-pressed="true">🚌 veřejnou dopravou</button><button type="button" data-g="car" aria-pressed="false">🚗 autem</button></div>
                 </div>
@@ -339,10 +339,10 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
                 <label class="check-inline"><input type="checkbox" id="directOnly"> jen přímé lety</label>
               </div>
               <div class="field"><label>Z letiště do města <span class="lab-hint">jízdné na osobu</span></label>
-                <label class="check-inline"><input type="checkbox" id="arrivalOn" checked> vč. cesty z letiště do města</label>
+                <label class="check-inline"><input type="checkbox" id="arrivalOn" checked> ukázat cestu z letiště do města</label>
                 <div class="faint arr-hint">letištní bus, vlak nebo metro do centra a zpět – vzdálená letiště (Beauvais, Girona, Torp…) bývají dražší i delší</div>
               </div>
-              <div class="field" style="grid-column:1/-1"><label>🧳 Zavazadla <span class="lab-hint">odhad příplatku aerolinky se přičte k ceně</span></label>
+              <div class="field" style="grid-column:1/-1"><label>🧳 Zavazadla <span class="lab-hint">odhad příplatku aerolinky se přičte k ceně letenky</span></label>
                 <div class="seg wrap" id="bags"><button type="button" data-b="none" class="on">Jen malé pod sedadlo (v ceně)</button><button type="button" data-b="cabin">+ kabinový kufr do 10 kg</button><button type="button" data-b="checked">+ kufr k odbavení 20 kg</button></div>
               </div>
               <div class="field" style="grid-column:1/-1"><label>Dny odletu <span class="lab-hint">nic = libovolný den</span></label>
@@ -378,7 +378,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
           <ol class="sg-list">
             <li><b>Buď flexibilní ± 3 dny.</b> U přesných dat zvol „± 3 dny“, nebo hledej „Flexibilně“ a otevři pohled 📅 Kalendář. Posun o den dva může ušetřit stovky, u dálkových letů i tisíce korun. U přesných dat ukáže pruh 📅 Nejbližší dny ceny okolních dnů, pokud je zná (hlavně Ryanair a Wizz Air) – jinak jiný den vyhledáš jedním kliknutím.</li>
             <li><b>Nejdřív celá země nebo světadíl, pak město.</b> Do „Kam“ napiš třeba „USA“ nebo „Asie“ – uvidíš, kam je to nejlevnější (New York, Miami, Bangkok…). Pak hledej to nejlevnější město na přesná data.</li>
-            <li><b>Přidej přestupní letiště – Vídeň, Mnichov, Berlín, Frankfurt.</b> Bývá odtud víc přímých dálkových letů a často i nižší ceny. U dálkových cílů je ATLAS přidává sám, jinak je zadej do „Odkud“ vedle svého města. Cena cesty na letiště je v ceně započtená.</li>
+            <li><b>Přidej přestupní letiště – Vídeň, Mnichov, Berlín, Frankfurt.</b> Bývá odtud víc přímých dálkových letů a často i nižší ceny. U dálkových cílů je ATLAS přidává sám, jinak je zadej do „Odkud“ vedle svého města. Kolik zhruba stojí cesta na letiště, uvidíš u každé nabídky.</li>
             <li><b>Zkus jednosměrné letenky každým směrem.</b> Hledej „Jen tam“ zvlášť tam a zvlášť zpět – dvě jednosměrné letenky bývají někdy levnější než zpáteční. Tam do New Yorku a zpět z Bostonu nebo cestu přes víc měst slož v <b>🗺️ Víc měst</b> (tlačítko ↩ Návrat z jiného města) – každý let hledám zvlášť a hlídám, aby na sebe navazovaly.</li>
             <li><b>Dálkové lety rezervuj obvykle 2–5 měsíců předem</b> a hledání si ulož tlačítkem ♡ Hlídat cenu – ATLAS cenu kontroluje, dokud máš stránku otevřenou, a ozve se, když klesne.</li>
             <li><b>Ověř cenu i jinde.</b> Kiwi.com neprodává všechny aerolinky (např. British Airways). U výsledků proklikni „Ověřit: Google Flights · Skyscanner“ – uvidíš i lety, které ATLAS nenajde.</li>

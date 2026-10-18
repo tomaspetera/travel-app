@@ -27,9 +27,9 @@
 
   /**
    * Cesta ze dvou samostatných letenek: let tam z kombinace ot a let zpět z kombinace bt (přesná data, pohled „Lety“),
-   * i když tahle dvojice mezi nejlepšími kombinacemi ze serveru není. Cena stejně jako na serveru: letenky + doprava
-   * na domácí letiště + zavazadla + cesta z letiště do města (leg.groundCzk / leg.bagCzk / leg.arrCzk – starší výsledky
-   * bez arrCzk = 0). Společná zpáteční letenka, jiné město, návrat na jiné letiště bez open-jaw nebo návrat dřív než 2 h
+   * i když tahle dvojice mezi nejlepšími kombinacemi ze serveru není. Cena stejně jako na serveru: letenky + zavazadla
+   * (perPersonCzk), s dopravou na domácí letiště a cestou z letiště do města tripCzk (leg.groundCzk / leg.bagCzk /
+   * leg.arrCzk – starší výsledky bez arrCzk = 0). Společná zpáteční letenka, jiné město, návrat na jiné letiště bez open-jaw nebo návrat dřív než 2 h
    * po příletu → null. Autem (park(fromIata, nights) → parkování Kč/os. na celou cestu jako na serveru): návrat jen na
    * letiště, kde auto parkuje.
    */
@@ -44,11 +44,11 @@
     if (b.date < o.date || !returnFits(o, b)) return null;
     const pk = park ? park(o.from, diffDays(o.date, b.date)) || 0 : 0;
     const flightCzk = o.czk + b.czk, groundCzk = o.groundCzk + b.groundCzk + pk, bagCzk = o.bagCzk + b.bagCzk, arrCzk = legArr(o) + legArr(b);
-    const perPersonCzk = flightCzk + groundCzk + bagCzk + arrCzk;
+    const perPersonCzk = flightCzk + bagCzk, tripCzk = perPersonCzk + groundCzk + arrCzk; // jako server: cena = letenky + zavazadla
     return {
       id: [o.provider, o.from, o.to, o.dep, b.provider, b.from, b.to, b.dep].join('|'),
       out: o, back: b, flightCzk, groundCzk, ...(pk ? { parkCzk: pk } : {}), bagCzk, bagEst: o.bagEst || b.bagEst || undefined, arrCzk,
-      perPersonCzk, totalCzk: perPersonCzk * adults, nights: diffDays(o.date, b.date),
+      perPersonCzk, tripCzk, totalCzk: perPersonCzk * adults, nights: diffDays(o.date, b.date),
       provider: o.provider === b.provider ? o.provider : 'mix', combined: false, bookUrl: null,
       distanceKm: ot.distanceKm, tempHi: ot.tempHi, destKey: ot.destKey,
       deal: { level: 'normal', score: null, drop: null }, composed: true,
@@ -971,7 +971,7 @@
     return { text: `~${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: ${sum} na osobu jedním směrem (zpět totéž), ~${hm(g.minutes)}. Odhad podle vzdálenosti a ceníků dopravců (vlak / bus za běžnou cenu), ne jízdní řád.` };
   }
   /**
-   * „Odkud se vyplatí letět“: nejlevnější celá cesta z každého letiště odletu (o.best ze serveru, vč. dopravy na letiště)
+   * „Odkud se vyplatí letět“: nejlevnější celá cesta z každého letiště odletu (o.best ze serveru – cena letenek)
    * proti nejbližšímu letišti (ref – ne přestupní) – o kolik levněji a o kolik déle cesta na letiště (zpáteční tam i zpět).
    * Zpáteční s návratem na jiné letiště (open-jaw) server k žádnému letišti nepočítá (filtr letišť ve výpisu ji u obou
    * schová) – jaw = nejlevnější taková ve výpisu (res.top, v Kamkoliv nabídky cílů), r.jaw = kolik jich letiště řádku má.
@@ -1021,15 +1021,11 @@
    * cesta do města) a co vypnuté ne; s nabídkami s návratem jinam, že se nepočítají.
    */
   function originFoot(res, oc = originCompare(res)) {
-    const q = (res && res.query) || {}, ret = q.trip === 'return', car = q.groundMode === 'car';
-    // odkud = celá země: bez domova se cesta na letiště nepočítá, i když je zapnutá
+    const q = (res && res.query) || {}, ret = q.trip === 'return';
+    // odkud = celá země: bez domova se cesta na letiště neodhaduje (ani její čas)
     const km = q.kmRate && ((res && res.origins) || []).some(o => o && o.ground);
-    const and = l => (l.length > 1 ? `${l.slice(0, -1).join(', ')} a ${l[l.length - 1]}` : l[0] || '');
-    const inc = [km && `dopravy na letiště${ret ? ' a zpět' : ''}${car ? ` (autem${ret ? ' i parkování' : ''})` : ''}`,
-      (q.bags === 'cabin' || q.bags === 'checked') && 'zavazadel', q.arrival && 'cesty do města'].filter(Boolean);
-    const exc = [!km && `dopravy na letiště${q.kmRate ? ' (odkud je celá země)' : ''}`, !q.arrival && 'cesty do města'].filter(Boolean);
-    const off = !q.kmRate || !q.arrival ? ' (vypnuto v Další možnosti)' : '';
-    return `${km ? 'Celá cesta' : 'Cena'} na osobu${inc.length ? ` vč. ${and(inc)}` : ''}${exc.length ? `${inc.length ? ',' : ''} bez ${and(exc)}${off}` : ''}`
+    const bags = q.bags === 'cabin' || q.bags === 'checked';
+    return `Cena letenek na osobu${bags ? ' vč. zavazadel' : ''} (doprava na letiště a do města je u nabídek zvlášť)`
       + ` – ${oc && oc.filtered ? 'nejlevnější z nabídek, které ukazují filtry výpisu' : 'nejlevnější ze všech nalezených nabídek, nejen z těch ve výpisu'}${oc && oc.jaw != null ? ', jen s odletem i návratem na totéž letiště (cesty s návratem jinam jsou jen ve výpisu)' : ''}.`
       + `${km ? ` Čas = odhad cesty na letiště${ret ? ' tam i zpět' : ''}.` : ''} Klepnutím ukážeš jen lety z daného letiště, dalším klepnutím zase všechna.`;
   }
@@ -1585,7 +1581,7 @@
   /**
    * Cesty buněk z calendar.grid jako celé nabídky (cell: true). Server je posílá kompaktně: řádek hodnot v pořadí
    * grid.keys, lety jako pořadí v grid.legs, bez toho, co jde dopočítat – id (jako fares.makeTrip), noci, dopravce,
-   * cena na osobu (letenky + doprava + zavazadla + cesta do města) a celkem (× počet osob); „Je to dobrá cena?“
+   * cena na osobu (letenky + zavazadla), s dopravou a cestou do města (tripCzk) a celkem (× počet osob); „Je to dobrá cena?“
    * dopočítá výpis ze statistiky hledání (PriceCheck). Starší odpověď s celými objekty taky. → [trip]
    */
   function cellTrips(g, adults = 1) {
@@ -1597,13 +1593,13 @@
       if (!o || !b) continue;
       if (!Array.isArray(row)) { out.push({ ...x, out: { ...o }, back: { ...b }, cell: true }); continue; }
       const prov = new Set([o.provider, b.provider].filter(Boolean)), d = Array.isArray(x.deal) ? x.deal : [];
-      const per = x.flightCzk + x.groundCzk + x.bagCzk + x.arrCzk;
+      const per = x.flightCzk + x.bagCzk; // cena nabídky = letenky + zavazadla, s dopravou na letiště a do města tripCzk
       out.push({
         id: [o.provider, o.from, o.to, o.dep, b.provider, b.from, b.to, b.dep].filter(Boolean).join('|'),
         out: { ...o }, back: { ...b }, flightCzk: x.flightCzk, nights: diffDays(o.date, b.date),
         provider: prov.size === 1 ? [...prov][0] : 'mix', combined: Boolean(x.combined), bookUrl: x.bookUrl || null,
         groundCzk: x.groundCzk, ...(x.parkCzk ? { parkCzk: x.parkCzk } : {}), bagCzk: x.bagCzk, ...(x.bagEst ? { bagEst: true } : {}),
-        arrCzk: x.arrCzk, perPersonCzk: per, totalCzk: per * adults, tempHi: x.tempHi ?? null, distanceKm: x.distanceKm,
+        arrCzk: x.arrCzk, perPersonCzk: per, tripCzk: per + x.groundCzk + x.arrCzk, totalCzk: per * adults, tempHi: x.tempHi ?? null, distanceKm: x.distanceKm,
         deal: { score: d[0] ?? null, level: d[1] || 'normal', drop: d[2] ?? null }, destKey: x.destKey, cell: true,
       });
     }
@@ -1693,7 +1689,9 @@
   function lastLoad(s, now, maxAge = 12 * 36e5) {
     try {
       const c = JSON.parse(s);
-      return c && c.res && Array.isArray(c.res.groups) && c.form && c.at > now - maxAge && c.at <= now + 6e4 ? c : null;
+      // starší verze počítala do ceny i dopravu na letiště (nabídky bez tripCzk) – takový výsledek už neobnovovat
+      const old = c && c.res && Array.isArray(c.res.groups) && c.res.groups.some(g => g && (g.options || []).some(t => t && t.tripCzk == null));
+      return c && c.res && Array.isArray(c.res.groups) && !old && c.form && c.at > now - maxAge && c.at <= now + 6e4 ? c : null;
     } catch (e) { return null; }
   }
   /** „9:12 (před 3 h)“, „včera 21:40 (před 11 h)“ – kdy se hledalo. */

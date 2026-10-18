@@ -326,6 +326,10 @@ export function tripDoor(t, legDoor) {
   return a > 0 && b > 0 ? Math.max(a, b) : null;
 }
 
+// Cena letadla pro srovnání s vlakem/busem: od dveří ke dveřím – letenka i s odhadem cesty na letiště a do města
+// (tripCzk; cena nabídky perPersonCzk je jen letenka a zavazadla)
+const doorCzk = (t) => (t ? t.tripCzk ?? t.perPersonCzk : 0);
+
 /**
  * Letadlo pro srovnání s vlakem/busem: nejlevnější cesta i s časem jejího vlastního letu tam (vč. přestupů) a
  * nejrychlejší cesta, je-li jiná a aspoň o FAST_GAP min rychlejší (cena i čas vždy z téže cesty).
@@ -337,10 +341,10 @@ export function planeOptions(trips, doorOf, slowOf = doorOf) {
   let cheap = null;
   let fast = null;
   for (const t of trips || []) {
-    if (!t || !t.out || !(t.perPersonCzk > 0)) continue;
-    if (!cheap || t.perPersonCzk < cheap.t.perPersonCzk) cheap = { t };
+    if (!t || !t.out || !(doorCzk(t) > 0)) continue;
+    if (!cheap || doorCzk(t) < doorCzk(cheap.t)) cheap = { t };
     const d = slowOf(t);
-    if (d > 0 && (!fast || d < fast.doorMin || (d === fast.doorMin && t.perPersonCzk < fast.t.perPersonCzk))) fast = { t, doorMin: d };
+    if (d > 0 && (!fast || d < fast.doorMin || (d === fast.doorMin && doorCzk(t) < doorCzk(fast.t)))) fast = { t, doorMin: d };
   }
   if (!cheap) return { cheap: null, fast: null };
   cheap.doorMin = doorOf(cheap.t) || null;
@@ -704,7 +708,7 @@ export function groundForDest({ home = null, from = null, dest, trip = null, tri
     const doorOf = (t) => legDoor(t.out, t.out.from);
     const p = planeOptions([trip, ...trips.filter((t) => t !== trip)], doorOf, (t) => tripDoor(t, legDoor));
     const cheap = p.cheap && p.cheap.t === trip ? p.cheap : { t: trip, doorMin: doorOf(trip) };
-    w = worth(est, { doorMin: cheap.doorMin, czk: trip.perPersonCzk || 0, trips: trip.back ? 2 : 1, fast: p.fast && { doorMin: p.fast.doorMin, czk: p.fast.t.perPersonCzk } });
+    w = worth(est, { doorMin: cheap.doorMin, czk: doorCzk(trip) || 0, trips: trip.back ? 2 : 1, fast: p.fast && { doorMin: p.fast.doorMin, czk: doorCzk(p.fast.t) } });
   } else {
     w = worth(est, { doorMin: doorByAir(from || a, dest), czk: 0, trips: 1 });
   }
@@ -746,14 +750,14 @@ export function attachGround({ home, origins = [], groups = [], dests = [], flat
     if (!d || !['airport', 'metro', 'place'].includes(d.type) || !Number.isFinite(d.lat)) continue;
     const dest = { id: d.id, label: d.label, cc: d.cc || '', lat: d.lat, lon: d.lon };
     const near = groups.filter((g) => g.ground && g.dest.lat != null && haversineKm(g.dest.lat, g.dest.lon, d.lat, d.lon) < 80);
-    const g = near.sort((x, y) => x.best.perPersonCzk - y.best.perPersonCzk)[0];
+    const g = near.sort((x, y) => doorCzk(x.best) - doorCzk(y.best))[0];
     // Místo dál od města letiště (Hallstatt, letiště Salcburk): vlakem/busem až k němu, letadlem přes skupinu.
     const far = g && haversineKm(g.dest.lat, g.dest.lon, d.lat, d.lon) > 25;
     const x = g && !far ? { ...g.ground }
       : g ? groundForDest({ home: hp, from, dest, trip: g.best, trips: tripsOf(g), accessOf })
         : from || fallback ? groundForDest({ home: hp || groundPlace(fallback), from: from || fallback, dest }) : null;
     // destKey = skupina letů do tohoto cíle (u víc cílů v hledání srovnává UI jen s lety sem, ne s nejlevnějším celkově)
-    if (x) return { ...x, flightCzk: g ? g.best.perPersonCzk : null, trips: g ? (g.best.back ? 2 : 1) : null, dest: d.label, destKey: g ? g.dest.key : null };
+    if (x) return { ...x, flightCzk: g ? doorCzk(g.best) : null, trips: g ? (g.best.back ? 2 : 1) : null, dest: d.label, destKey: g ? g.dest.key : null };
   }
   return null;
 }

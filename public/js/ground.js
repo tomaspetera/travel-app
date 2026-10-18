@@ -57,13 +57,15 @@
    * o hodinu rychlejší (cena i čas vždy z téže cesty). doorOf / slowOf(t) → minuty | null.
    * → { cheap: { t, doorMin } | null, fast: { t, doorMin } | null }
    */
+  // Cena letadla pro srovnání: od dveří ke dveřím – letenka i s odhadem cesty na letiště a do města (tripCzk)
+  const doorCzk = t => (t ? t.tripCzk ?? t.perPersonCzk : 0);
   function planeOptions(trips, doorOf, slowOf = doorOf) {
     let cheap = null, fast = null;
     for (const t of trips || []) {
-      if (!t || !t.out || !(t.perPersonCzk > 0)) continue;
-      if (!cheap || t.perPersonCzk < cheap.t.perPersonCzk) cheap = { t };
+      if (!t || !t.out || !(doorCzk(t) > 0)) continue;
+      if (!cheap || doorCzk(t) < doorCzk(cheap.t)) cheap = { t };
       const d = slowOf(t);
-      if (d > 0 && (!fast || d < fast.doorMin || (d === fast.doorMin && t.perPersonCzk < fast.t.perPersonCzk))) fast = { t, doorMin: d };
+      if (d > 0 && (!fast || d < fast.doorMin || (d === fast.doorMin && doorCzk(t) < doorCzk(fast.t)))) fast = { t, doorMin: d };
     }
     if (!cheap) return { cheap: null, fast: null };
     cheap.doorMin = doorOf(cheap.t) || null;
@@ -234,5 +236,5 @@
     fill('out', opts.date);
   }
 
-  window.Ground = { AIRPORT_BEFORE, AIRPORT_AFTER, hm, round5, flightDoor, tripDoor, planeOptions, worth, kindsTxt, typOf, priceTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, debounce, panel };
+  window.Ground = { AIRPORT_BEFORE, AIRPORT_AFTER, hm, round5, flightDoor, tripDoor, planeOptions, doorCzk, worth, kindsTxt, typOf, priceTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, debounce, panel };
 })();

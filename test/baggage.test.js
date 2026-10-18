@@ -151,7 +151,8 @@ test('hledání: bagCzk se přičte do ceny na osobu i celkem a změní pořadí
     const p = Object.fromEntries(flat(plain).map((t) => [t.out.carrier, { ...t }]));
     assert.equal(plain.groups[0].best.out.carrier, 'FR', 'bez zavazadel vede levnější letenka');
     assert.equal(p.FR.bagCzk, 0);
-    assert.equal(p.FR.perPersonCzk, p.FR.flightCzk + p.FR.groundCzk);
+    assert.equal(p.FR.perPersonCzk, p.FR.flightCzk, 'cena nabídky = letenka (doprava zvlášť v tripCzk)');
+    assert.equal(p.FR.tripCzk, p.FR.flightCzk + p.FR.groundCzk);
 
     const r = await search({ ...query, bags: 'checked' });
     assert.equal(r.query.bags, 'checked');
@@ -160,7 +161,8 @@ test('hledání: bagCzk se přičte do ceny na osobu i celkem a změní pořadí
     assert.equal(b.EK.bagCzk, 0, 'kufr v ceně');
     assert.equal(b.FR.bagEst, undefined);
     for (const t of [b.FR, b.EK]) {
-      assert.equal(t.perPersonCzk, t.flightCzk + t.groundCzk + t.bagCzk);
+      assert.equal(t.perPersonCzk, t.flightCzk + t.bagCzk);
+      assert.equal(t.tripCzk, t.perPersonCzk + t.groundCzk);
       assert.equal(t.totalCzk, t.perPersonCzk * 2);
     }
     assert.equal(b.FR.flightCzk, p.FR.flightCzk, 'cena letenky se nemění');
