@@ -445,3 +445,13 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .auto-pick.ok{background:rgba(52,211,153,.10);border-color:rgba(52,211,153,.32)}
 /* Objevuj – Inspirace: místa tvé rozpracované cesty první */
 .ex-insp .dest.ex-mine{outline:2px solid var(--accent);outline-offset:-2px}
+/* Shrnutí: dlouhý průběh cesty sbalený */
+.tl-more>summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;padding:10px 0 2px;list-style:none}
+.tl-more>summary::-webkit-details-marker{display:none}
+.tl-more>summary::after{content:' ▾'}
+.tl-more[open]>summary{display:none}
+@media (max-width:560px){
+  .sum-acts{display:grid !important;grid-template-columns:1fr 1fr}
+  .sum-acts>#sumSave{grid-column:1/-1}
+  .sum-acts>.btn{justify-content:center;text-align:center;font-size:13px;padding-left:8px;padding-right:8px}
+}
