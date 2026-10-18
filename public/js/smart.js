@@ -490,7 +490,29 @@
     if (/e$/.test(f) && !/ne$/.test(f)) out.push(cut(1) + 'a'); // Kréte? Olomouci ne – Bratislave → Bratislava
     if (/em$|ou$/.test(f)) out.push(cut(2), cut(2) + 'a'); // Brnem → Brno? (Brn) – Prahou → Praha
     if (/ich$|ech$/.test(f)) out.push(cut(3) + 'y'); // Benátkách? – Athénách → Athény (bez záruky)
+    if (/ů$/.test(w)) out.push(cut(1) + 'y'); // Varů → Vary
+    if (/ní$/.test(w)) out.push(cut(1) + 'ě'); // Lázní → Lázně
     return [...new Set(out.filter(x => x.length >= 3).map(x => head + x))];
+  }
+  /**
+   * Dvouslovné jméno místa ve 2. pádě do 1. pádu i s přídavným jménem (pro geokódování, které tvary nezná):
+   * „Kutné Hory“ → Kutná Hora, „Mariánských Lázní“ → Mariánské Lázně, „Nového Jičína“ → Nový Jičín, „Karlových Varů“
+   * → Karlovy Vary. Jen tvary, které se od napsaného liší; nejvýš 6.
+   */
+  function placeForms(phrase) {
+    const w = String(phrase || '').trim().split(/\s+/);
+    if (w.length !== 2) return [];
+    const a = w[0], f = fold(a), cut = n => a.slice(0, -n);
+    // přivlastňovací („Karlových“ → Karlovy) jinak než ostatní („Mariánských“ → Mariánské)
+    const heads = /eho$/.test(f) ? [cut(3) + 'ý', cut(3) + 'é'] : /(ov|in)ych$/.test(f) ? [cut(3) + 'y'] : /ych$/.test(f) ? [cut(3) + 'é'] : /é$/.test(a) ? [cut(1) + 'á'] : [];
+    // podstatné jméno: zvláštní koncovky (Varů → Vary, Lázní → Lázně) první, pak tvary ze slovníku koncovek – u „-y“
+    // ne useknuté („Hory“ → Hora, ne Hor), jinak i kratší (Jičína → Jičín, Boleslavi → Boleslav)
+    const n = w[1], nf = fold(n);
+    const nouns = [...new Set([...(/ů$/.test(n) ? [n.slice(0, -1) + 'y'] : []), ...(/ní$/.test(n) ? [n.slice(0, -1) + 'ě'] : []),
+      ...nominatives(n).slice(1).filter(x => !(/y$/.test(nf) && x.length < n.length) && fold(x) !== nf)])];
+    const out = [];
+    for (const h of heads) for (const x of nouns) out.push(`${h} ${x}`);
+    return out.slice(0, 4);
   }
 
   // Objevuj: druh plánu podle slov ve větě
@@ -544,5 +566,5 @@
     return { place, mode, days, km, start, interests: [...new Set(interests)], chips };
   }
 
-  window.Smart = { parse, stems, bestPlace, fold, nominatives, parseExplore };
+  window.Smart = { parse, stems, bestPlace, fold, nominatives, placeForms, parseExplore };
 })();
