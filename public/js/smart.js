@@ -335,6 +335,9 @@
     // --- kam: k moři, za teplem, exotika, kamkoliv ---
     rule(new RegExp(`(?:(?:k|ke|na|u)\\s+)?(?:mori|more|moricku|moricko|plaz\\w*|koupat|koupani|pobrezi)${W}`), (m, at) => {
       if (/mor/.test(m[0]) && SEA_NAMES.test(s.slice(0, at))) return false; // Rudé moře = místo
+      // „Slunečné / Lazurové pobřeží“: „pobřeží“ hned za slovem názvu je jméno místa
+      const prev = (s.slice(0, at).match(/([a-z]+)\s*$/) || [])[1];
+      if (m[0] === 'pobrezi' && prev && !FILL.has(prev) && !TO_WORDS.has(prev) && !FROM_WORDS.has(prev)) return false;
       kind = kind || 'sea';
     });
     rule(new RegExp(`(?:za|do|na)?\\s*(?:tepl(?:o|a|em|e|eho|emu|ou|y|ych|ym|ymi|ejsi[a-z]*|eji|ot[a-z]*)|slunce|sluncem|slunicko|slunicka|slunickem|jih|jihu)${W}`), () => { kind = kind || 'warm'; patch.minTemp = Math.max(patch.minTemp || 0, 20); });

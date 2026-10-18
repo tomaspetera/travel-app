@@ -362,3 +362,9 @@ test('„z Kutné Hory“: „Hory“ za slovem názvu je jméno místa, ne „n
   assert.equal(P('chci na hory').kind, 'mountains');
   assert.equal(P('levně hory').kind, 'mountains');
 });
+
+test('„Slunečné / Lazurové pobřeží“ je místo, „na pobřeží“ a „k moři“ dál moře', () => {
+  assert.deepEqual([P('Slunečné pobřeží').to, P('Slunečné pobřeží').kind || null], [['Slunečné pobřeží'], null]);
+  assert.deepEqual(P('na Lazurové pobřeží v červenci').to, ['Lazurové pobřeží']);
+  assert.equal(P('na pobřeží v létě').kind, 'sea');
+});
