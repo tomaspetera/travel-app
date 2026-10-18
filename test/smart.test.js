@@ -205,3 +205,35 @@ test('Objevuj: otázky kolem místa („co vidět v Římě“, „okolí Olomou
   assert.deepEqual([X('okolí Olomouce').place, X('okolí Olomouce').mode], ['Olomouce', 'day']);
   assert.equal(X('zajímavosti Krakova').place, 'Krakova');
 });
+
+test('pomlčka mezi místy = odkud → kam („Praha - Londýn“); bez cíle za ní („Řím – víkend“) je to cíl; data a Baden-Baden ne', () => {
+  assert.deepEqual([P('Praha - Londýn').from, P('Praha - Londýn').to], [['Praha'], ['Londýn']]);
+  const r = P('Praha–Londýn 3.12.');
+  assert.deepEqual([r.from, r.to, r.patch.xOut], [['Praha'], ['Londýn'], '2026-12-03']);
+  assert.deepEqual([P('Řím – víkend ve dvou').from, P('Řím – víkend ve dvou').to], [[], ['Řím']]);
+  assert.equal(P('Praha - Řím - Barcelona - Praha').chain, true);
+  assert.deepEqual(P('Baden-Baden').to, ['Baden-Baden']);
+  assert.deepEqual([P('3.–7. 6. Řím').to, P('3.–7. 6. Řím').patch.xBack], [['Řím'], '2027-06-07']);
+});
+
+test('dny odletu a návratu slovy („od pátku do neděle“, „čt–ne“) a zavazadla „bez kufru“', () => {
+  const r = P('Lisabon od pátku do neděle');
+  assert.deepEqual([r.to, r.patch.outDays, r.patch.backDays, r.patch.nMin, r.patch.nMax, r.patch.len], [['Lisabon'], [5], [0], 2, 2, 'custom']);
+  assert.deepEqual(chips(r), ['pátek → neděle', '2 noci']);
+  assert.deepEqual([P('čt-ne Paříž').patch.outDays, P('čt-ne Paříž').patch.backDays, P('čt-ne Paříž').to], [[4], [0], ['Paříž']]);
+  // „po do …“ bez pomlčky není rozsah dnů
+  assert.equal(P('z Brna po do Londýna').patch.outDays, undefined);
+  assert.deepEqual([P('bez kufru').patch.bags, P('bez kufru').to], ['none', []]);
+  assert.equal(P('jen s malým batohem').patch.bags, 'none');
+  assert.equal(P('s velkým kufrem').patch.bags, 'checked');
+});
+
+test('účel cesty a „levně“ nejsou místa; vánoční trhy = advent', () => {
+  assert.deepEqual(P('na svatbu do Milána 5.12.').to, ['Milána']);
+  assert.deepEqual(P('Madeira za pár korun').to, ['Madeira']);
+  assert.deepEqual(P('za babku do Londýna').to, ['Londýna']);
+  assert.deepEqual(P('s batohem do Asie').to, ['Asie']);
+  assert.deepEqual(P('co nejlevněji').to, []);
+  const t = P('na vánoční trhy do Vídně');
+  assert.deepEqual([t.to, t.patch.dFrom, t.patch.dTo, chips(t)], [['Vídně'], '2026-11-27', '2026-12-21', ['vánoční trhy']]);
+});

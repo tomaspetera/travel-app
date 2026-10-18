@@ -216,11 +216,11 @@
   // chytré hledání: termíny podle svátků a délky pobytu jako ve formuláři
   const smartOpts = () => ({ today: today(), presets: PRESETS, holidays: SearchHelp.holidayList(today()), holidayDates: SearchHelp.holidayDates });
   /** Místa z věty („do Říma“, „z Vídně“): tvar slova i se zkrácenou koncovkou → nejlepší návrh (Smart.bestPlace). */
-  async function smartResolve(hit, near, signal) {
+  async function smartResolve(hit, near, signal, geo = true) {
     // napřed vlastní data (rychle); geokódování (pomalejší, vesnice a místa mimo databázi) jen když nic nenajdou
     const look = (phrase, origin, remote) => Promise.all(Smart.stems(phrase).map(q => placesFor(q, origin, near, signal, remote)
       .then(items => ({ q, items }), e => { if (e.name === 'AbortError') throw e; return { q, items: [] }; })));
-    const one = async (phrase, origin) => Smart.bestPlace(await look(phrase, origin, false)) || Smart.bestPlace(await look(phrase, origin, true));
+    const one = async (phrase, origin) => Smart.bestPlace(await look(phrase, origin, false)) || (geo ? Smart.bestPlace(await look(phrase, origin, true)) : null);
     const [to, from] = await Promise.all([Promise.all(hit.sm.to.map(x => one(x, false))), Promise.all(hit.sm.from.map(x => one(x, true)))]);
     const item = x => ({ id: x.id, label: x.label, flag: x.flag || '📍', type: x.type });
     // cesta přes víc měst („Praha → Řím → Barcelona → Praha“): všechna místa v pořadí, jen města a letiště
@@ -229,6 +229,22 @@
     hit.to = to.filter(Boolean).map(item).slice(0, 5);
     hit.from = from.filter(x => x && x.type !== 'continent').map(item).slice(0, 3);
     hit.miss = [...hit.sm.to.filter((x, i) => !to[i]), ...hit.sm.from.filter((x, i) => !from[i] || from[i].type === 'continent')];
+  }
+  /**
+   * „Praha Londýn“ (bez z/do a pomlčky), které jako jedno místo neexistuje: zkusit rozdělit na odkud → kam
+   * (jen vlastní data – geokódování by ze zlomku názvu našlo vesnici).
+   */
+  async function smartSplit(q, near, signal) {
+    const w = q.trim().split(/\s+/);
+    if (w.length < 2 || w.length > 5) return null;
+    for (let i = 1; i < w.length; i++) {
+      const sm = Smart.parse(`${w.slice(0, i).join(' ')} → ${w.slice(i).join(' ')}`, smartOpts());
+      if (sm.from.length !== 1 || sm.to.length !== 1) continue;
+      const hit = { sm, to: [], from: [], miss: [] };
+      await smartResolve(hit, near, signal, false);
+      if (!hit.miss.length && hit.from.length && hit.to.length && hit.from[0].type !== 'region') return hit;
+    }
+    return null;
   }
   class PlaceInput {
     // smart = { run(hit), tips() } – chytré hledání (pole Kam): věta „k moři v květnu do 5000“ → ✨ řádek nahoře
@@ -275,8 +291,10 @@
           qq.length >= 2 ? placesFor(qq, this.origin, this.near(), signal) : [],
           hit ? smartResolve(hit, this.near(), signal) : null,
         ]);
+        // nic jako jedno místo → „Praha Londýn“ jako odkud → kam
+        const split = !hit && this.smart && !this.origin && !items.length && /\s/.test(q) ? await smartSplit(q, this.near(), signal) : null;
         if (q !== this.input.value.trim()) return;
-        this.hit = hit;
+        this.hit = hit || split;
         this.sugs = items.filter(s => !this.origin || s.type !== 'continent'); this.active = this.hit || this.sugs.length ? 0 : -1; this.open();
       } catch (e) { if (e.name !== 'AbortError') { this.hit = null; this.sugs = []; this.open(true); } }
     }
@@ -302,6 +320,28 @@
       $$('.pi-opt', this.dd).forEach(o => o.onmousedown = e => { e.preventDefault(); this.choose(rows[+o.dataset.i]); });
     }
     close() { this.dd.hidden = true; }
+    /**
+     * Text napsaný v poli, ale nevybraný z nabídky, a formulář odeslaný tlačítkem: věta → ✨ jako Enter ('run'),
+     * název → první návrh ('pick'); nic → false (a hláška). Prázdné pole → 'none'.
+     */
+    async settle() {
+      const q = this.input.value.trim();
+      if (!q) return 'none';
+      if (this.ctl) this.ctl.abort();
+      this.close();
+      try {
+        const sm = this.smart ? Smart.parse(q, smartOpts()) : null;
+        const hit = sm && (sm.chips.length || sm.from.length || sm.to.length >= 2) ? { sm, to: [], from: [], miss: [] } : null;
+        if (hit) await smartResolve(hit, this.near());
+        const items = hit || q.length < 2 ? [] : (await placesFor(q, this.origin, this.near())).filter(s => !this.origin || s.type !== 'continent');
+        const run = hit || (!items.length && this.smart ? await smartSplit(q, this.near()) : null);
+        if (run) { this.input.value = ''; this.smart.run(run); return 'run'; }
+        if (items[0]) { this.pick(items[0]); return 'pick'; }
+      } catch (e) { /* našeptávač nedostupný */ }
+      toast(`„${q}“ neznám – vyber místo z nabídky`, 'err');
+      this.input.focus();
+      return false;
+    }
     choose(r) {
       if (!r) return;
       if (r.sug) return this.pick(r.sug);
@@ -1061,7 +1101,13 @@
       if (k === 'eu') toast('Evropa = kamkoliv; seřaď výsledky podle ceny 😉');
     });
     $('#geoBtn').onclick = () => useMyLocation(fromInput);
-    $('#searchForm').onsubmit = e => { e.preventDefault(); startSearch(); };
+    // napsané, ale nevybrané místo nebo věta: nejdřív je použít (jinak by se hledalo bez nich – „kamkoliv“)
+    $('#searchForm').onsubmit = async e => {
+      e.preventDefault();
+      if ((await fromInput.settle()) === false) return;
+      const to = await toInput.settle();
+      if (to !== false && to !== 'run') startSearch();
+    };
     $('#watchBtn').onclick = () => addWatch();
     $('#formReset').onclick = () => resetSearch();
     // 📅 Posouvat termín s časem mění jen způsob uložení ♡, ne hledání (žádné rozbalení formuláře ani Nedávno)
@@ -4658,9 +4704,12 @@
       smart: { run: hit => smartRun(hit, heroFrom.items), tips: () => smartTips(() => heroFrom.items) } });
     paintSmartTry();
     heroFrom.set(S.home?.from || [], true);
-    $('#heroSearch').onsubmit = e => {
+    $('#heroSearch').onsubmit = async e => {
       e.preventDefault();
+      if ((await heroFrom.settle()) === false) return;
       if (!heroFrom.items.length) { toast('Zadej, odkud letíš', 'err'); heroFrom.input.focus(); return; }
+      const to = await heroTo.settle();
+      if (to === false || to === 'run') return;
       go('flights');
       setForm({ ...defaultForm(), ...prefsOf(S.form), from: heroFrom.items, to: heroTo.items });
       startSearch();
