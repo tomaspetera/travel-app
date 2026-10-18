@@ -1450,7 +1450,7 @@
     host.innerHTML = `<div class="card step-card">
       <div class="sc-head"><div><h3>🏨 Ubytování na trase</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(total)} · ${t.adults} ${t.adults === 1 ? 'host' : t.adults <= 4 ? 'hosté' : 'hostů'} · vybráno ${r.bases.filter(x => x.stay).length} z ${n}</div></div></div>
       ${allDone ? `<div class="auto-pick ok"><div class="ap-t"><b>✓ Ubytování máš ve všech místech</b><small>${sumStay ? `Celkem ${czk(sumStay)} · ` : ''}změnit ho můžeš v záložkách níž.</small></div><button type="button" class="btn primary" id="stayDone">Pokračovat k autu →</button></div>` : ''}
-      ${left ? `<div class="auto-pick"><div class="ap-t"><b>✨ Nechceš vybírat?</b><small>V ${left === n ? `každém místě` : `${left} ${left === 1 ? 'zbývajícím místě' : 'zbývajících místech'}`} vyberu hotel s nejlepším poměrem ceny a hodnocení. Změnit ho můžeš kdykoliv v záložkách.</small></div><button type="button" class="btn primary" id="stayAuto">Vyber za mě</button></div>` : ''}
+      ${left ? `<div class="auto-pick"><div class="ap-t"><b>✨ Nechceš vybírat?</b><small>V ${left === n ? `každém místě` : `${left} ${left === 1 ? 'zbývajícím místě' : 'zbývajících místech'}`} vyberu hotel s nejlepším poměrem ceny a hodnocení. Změnit ho můžeš kdykoliv v záložkách.</small></div><button type="button" class="btn primary" id="stayAuto"${autoBusy ? ' disabled' : ''}>${autoBusy ? '<span class="spin"></span> Vybírám…' : 'Vyber za mě'}</button></div>` : ''}
       ${baseTabs(r, i, x => Boolean(x.stay), 'data-bt')}
       <div class="sc-head" style="margin-top:14px"><div><h3 style="font-size:15.5px">${i + 1}. ${esc(b.name)}</h3><div class="muted">${dayLbl(d.checkin)} – ${dayLbl(d.checkout)} · ${nightsTxt(d.nights)}</div></div>
         ${b.stay ? `<div class="chosen">Vybráno: <b>${esc(stayState(b.stay))}</b>${stayCzk(b.stay) ? ` · ${czk(stayCzk(b.stay))}${b.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : ''}</div>` : ''}</div>
@@ -1465,7 +1465,7 @@
     $$('[data-bt]', host).forEach(x => x.onclick = () => goStayBase(+x.dataset.bt));
     const sd = $('#stayDone'); if (sd) sd.onclick = () => setStep('car');
     const ab = $('#stayAuto');
-    if (ab) ab.onclick = async () => {
+    if (ab && !autoBusy) ab.onclick = async () => {
       ab.disabled = true;
       const res = await autoPickStays(t, (k, of, name) => { ab.innerHTML = `<span class="spin"></span> ${esc(name)} ${k}/${of}`; });
       if (T() !== t) return;
@@ -1537,7 +1537,12 @@
    * „✨ Vyber za mě“: v každém místě trasy bez ubytování vybere hotel s nejlepším poměrem (postupně, ať se
    * nepřekročí limit dotazů). Místo, kde ceny nepřišly, zůstane nevybrané. Vrátí { ok, miss } (názvy míst).
    */
+  let autoBusy = false; // „Vyber za mě“ běží – překreslený krok (jiná záložka) ho nespustí podruhé
   async function autoPickStays(t, onProgress = () => {}) {
+    autoBusy = true;
+    try { return await autoPickRun(t, onProgress); } finally { autoBusy = false; }
+  }
+  async function autoPickRun(t, onProgress) {
     const bs = t.route.bases, dates = baseDates(t), ok = [], miss = [];
     const todo = bs.map((b, i) => i).filter(i => !bs[i].stay);
     for (const [k, i] of todo.entries()) {
@@ -1799,7 +1804,8 @@
     const r = t.route, f = t.flight;
     if (isFly(t)) {
       return `<div class="note info" style="margin-bottom:12px">✈️ <div><b>Mezi místy letíš</b> (${esc(r.bases.map(b => b.name).join(' → '))}) – auto na celou cestu nedává smysl.
-        Půjč si ho jen tam, kde ho chceš (níž je předvyplněné ${esc(r.bases[0].name)} do dalšího letu), nebo zvol <b>Auto nepotřebuji</b>.</div></div>`;
+        Půjč si ho jen tam, kde ho chceš (níž je předvyplněné ${esc(r.bases[0].name)} do dalšího letu), nebo:
+        <div style="margin-top:8px"><button type="button" class="btn sm primary" id="carSkipTop">Auto nepotřebuji →</button></div></div></div>`;
     }
     if (r.transport === 'transit') {
       const dates = baseDates(t);
@@ -1849,7 +1855,7 @@
       <div class="manual-row"><div class="muted" style="font-size:13px">Vybral sis auto? Zadej celkovou cenu:</div>
         <input class="input" id="carPrice" type="number" min="0" step="100" placeholder="Cena celkem v Kč" value="${t.car && t.car.mode === 'manual' ? t.car.totalCzk : ''}">
         <button class="btn" id="carSave">Uložit</button></div>
-      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${byTrain && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${byCar ? '<button class="btn ghost" id="carTransit" title="Přejezdy mezi místy trasy se přepočítají na vlak a autobus (jízdenky místo paliva)">Bez auta – mezi místy vlakem a busem →</button>' : ''}${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
+      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${(byTrain || isFly(t)) && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${byCar ? '<button class="btn ghost" id="carTransit" title="Přejezdy mezi místy trasy se přepočítají na vlak a autobus (jízdenky místo paliva)">Bez auta – mezi místy vlakem a busem →</button>' : ''}${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
     </div>`;
     const read = () => ({ pickup: $('#carPu').value.trim().toUpperCase(), dropoff: $('#carDo').value.trim().toUpperCase(), from: $('#carFrom').value, to: $('#carTo').value, age: +$('#carAge').value || 30 });
     // odkaz na srovnávač jen z nabídek pro tatáž letiště a časy (nabídky se načítají asynchronně – mohou být ke starým)
@@ -1881,6 +1887,7 @@
       persist(); setStep('program');
     };
     $('#carSkip').onclick = () => { t.car = { mode: 'skip', totalCzk: 0 }; persist(); setStep('program'); };
+    const st = $('#carSkipTop'); if (st) st.onclick = $('#carSkip').onclick; // cesta letadlem mezi místy: hned u vysvětlení
     const ct = $('#carTransit'); if (ct) ct.onclick = () => {
       // přejezdy mají časy i jízdné pro obojí – přepočet ze serveru (dlouhé přejezdy, cesta z letiště) doběhne na pozadí
       t.route.transport = 'transit'; t.car = { mode: 'skip', totalCzk: 0 };
