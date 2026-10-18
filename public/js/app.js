@@ -937,8 +937,8 @@ function openTrip(i) {
   </div>`);
   // ubytování v cíli cesty (Barcelona, ne hlavní město země) pro počet cestujících z cesty
   // ubytování v zadaném městě; země („Itálie“) nebo víc míst („Lisabon, Porto“) → hlavní město
-  const oneCity = t.dest && t.dest !== '—' && !/[,;+&/]|\s(a|–|-)\s/.test(t.dest) && !resolveCountry(t.dest);
-  $('#tripStay').onclick = () => openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2);
+  const oneCity = t.dest && t.dest !== '—' && !/[,;+&/→]|\s(a|–|-)\s/.test(t.dest) && !resolveCountry(t.dest);
+  $('#tripStay').onclick = () => (routeStays(t) || openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2));
   const tw = $('#tripWizard'); if (tw) tw.onclick = () => { modalClose(); Trip.openSaved(t.wizard, t.tripId); };
   const tv = $('#tripVisited');
   if (tv) tv.onclick = () => { const ccs = tripNotVisited(t); ccs.forEach(cc => setVisited(cc, true)); toast(`Na mapě navštívených: ${ccs.map(cc => byIso[cc].cs).join(', ')}`); openTrip(i); };
@@ -1089,6 +1089,21 @@ function tripModalSync(mi, mt, mj) {
   const el = f && document.getElementById(f.id); if (!el) return;
   if (/^(act|newCheck)-/.test(f.id)) el.value = f.v; // rozepsaná aktivita nebo položka
   el.focus(); if (f.s != null) try { el.setSelectionRange(f.s, f.e); } catch (x) { }
+}
+/**
+ * Ubytování u cesty přes víc míst (z průvodce): každé místo trasy se svým termínem – klepnutí = odkazy na Booking,
+ * Airbnb… pro to místo. Jiná cesta → false (odkazy pro cíl cesty).
+ */
+function routeStays(t) {
+  const w = t.wizard, bs = w && w.route && w.route.mode === 'multi' && Array.isArray(w.route.bases) ? w.route.bases : [];
+  if (bs.length < 2 || !window.Trip) return false;
+  let ds = [];
+  try { ds = Trip.baseDates(Trip.sanitizeTrip(JSON.parse(JSON.stringify(w)))); } catch (e) { ds = []; }
+  const pax = +t.pax || 2;
+  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování na trase</h2><div style="opacity:.85;font-size:13px">${bs.length} ${bs.length <= 4 ? 'místa' : 'míst'} · vyber místo</div></div></div>
+    <div class="modal-body"><div class="grid" style="gap:10px">${bs.map((b, i) => `<button type="button" class="result-link" data-rs="${i}" style="text-align:left;width:100%"><div class="lg" style="background:#003580">${i + 1}</div><div class="rl-b"><div class="rl-t">${esc(b.name)}</div><div class="rl-s">${ds[i] ? `${fmtDate(ds[i].checkin)} – ${fmtDate(ds[i].checkout)}` : ''}${b.stay && b.stay.name ? ` · vybráno: ${esc(b.stay.name)}` : ''}</div></div><div class="go">→</div></button>`).join('')}</div></div>`);
+  $$('[data-rs]').forEach(x => x.onclick = () => { const i = +x.dataset.rs, d = ds[i] || {}; openStay(bs[i].name, d.checkin || '', d.checkout || '', pax); });
+  return true;
 }
 window.openStay = (city, start, end, adults = 2) => {
   const n = Math.min(9, Math.max(1, Math.round(+adults) || 2));
