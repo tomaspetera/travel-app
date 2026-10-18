@@ -728,9 +728,10 @@
       if (!it || !it.searched || b.disabled) return;
       // 🔁 město z hledání letů bez souřadnic: najít (jako ✨ věta)
       b.disabled = true;
-      const s = await smartPlace(it.label).catch(() => null);
+      let down = false;
+      const s = await smartPlace(it.label).catch(e => { down = Boolean(e && e.down); return null; });
       b.disabled = false;
-      if (s) openPlace(s); else toast(`Místo „${it.label}“ jsem nenašel – napiš ho do hledání`, 'err');
+      if (s) openPlace(s); else toast(down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${it.label}“ jsem nenašel – napiš ho do hledání`, 'err');
     });
     // ✨ příklady vět: vepsat do hledání a spustit jako Enter (místo, druh plánu, dny)
     $$('[data-extry]', root).forEach(b => b.onclick = () => { const q = $('#exQ', root); q.value = EX_TRY[+b.dataset.extry]; q.focus(); q.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
@@ -762,7 +763,10 @@
   }
   async function smartPlace(phrase) {
     const cands = Smart.nominatives(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
-    const fl = await Promise.all(cands.map(c => getJson('api/places?q=' + enc(c)).then(j => j.items || [], () => [])));
+    let failed = 0;
+    const fl = await Promise.all(cands.map(c => getJson('api/places?q=' + enc(c)).then(j => j.items || [], () => { failed++; return []; })));
+    // server nedostupný (žádný dotaz neprošel) – ne „místo neznám“
+    if (cands.length && failed === cands.length) throw Object.assign(new Error('Server teď neodpovídá'), { down: true });
     // jen místa z databáze letů (letiště, města, země, oblasti) – geokódované vesnice (geo:…, „Brná“ pro „Brna“) ne;
     // shoda i podle jiného názvu (en „Rome“, místní „Roma“, „Toscana“) → hledá se český název („Řím“, „Toskánsko“)
     let known = null, region = null;
@@ -959,9 +963,10 @@
     const runSmart = async px => {
       const my = ++smartSeq; // novější věta předbíhá starší (pomalé hledání místa)
       dd.innerHTML = '<div class="pi-empty"><span class="spin dark"></span> Hledám místo…</div>'; dd.hidden = false;
-      const s = px.place ? await smartPlace(px.place).catch(() => null) : ex.place;
+      let down = false;
+      const s = px.place ? await smartPlace(px.place).catch(e => { down = Boolean(e && e.down); return null; }) : ex.place;
       if (my !== smartSeq) return;
-      if (!s) { dd.innerHTML = `<div class="pi-empty">Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název</div>`; return; }
+      if (!s) { dd.innerHTML = `<div class="pi-empty">${down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název`}</div>`; return; }
       dd.hidden = true; q.blur();
       exploreApply(px);
       if (px.place) openPlace(s); else paintExplore();

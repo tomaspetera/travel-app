@@ -362,12 +362,13 @@
       if (!q) return 'none';
       if (this.ctl) this.ctl.abort();
       this.close();
+      let down = false;
       try {
         const { hit, items } = await this.lookup(q);
         if (hit) { this.input.value = ''; this.smart.run(hit); return 'run'; }
         if (items[0]) { this.pick(items[0]); return 'pick'; }
-      } catch (e) { /* našeptávač nedostupný */ }
-      toast(`„${q}“ neznám – vyber místo z nabídky`, 'err');
+      } catch (e) { down = true; } // našeptávač nedostupný (výpadek sítě / serveru) – nejde o neznámé místo
+      toast(down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `„${q}“ neznám – vyber místo z nabídky`, 'err');
       this.input.focus();
       return false;
     }
