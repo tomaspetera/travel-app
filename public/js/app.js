@@ -363,8 +363,10 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-18e';
+const WN_ID = '2026-10-18f';
 const WHATS_NEW = [
+  ['🔎', 'Stačí napsat a klepnout na Najít lety', 'našeptávač rozumí i „do Barcelony“, „levně do Paříže“, „z Brna“ nebo „Praha Londýn“; napsaný text tlačítko <b>Najít lety</b> použije, i když nic nevybereš z nabídky.'],
+  ['🔁', 'Objevuj podle toho, co hledáš', 'v Inspiraci jsou nahoře města, kam jsi nedávno hledal letenky – jedním klepnutím, co tam vidět.'],
   ['🧳', 'Víc měst jednou větou', 'napiš „Praha → Řím → Barcelona → Praha 10. 11. – 17. 11.“ – nastavím lety mezi městy, termíny rozdělím a hledám.'],
   ['🔁', 'Hlídání podle toho, co hledáš', 'když stejnou cestu hledáš znovu, nabídnu nad výsledky <b>♡ Hlídat cenu</b> – na Přehledu pak uvidíš, kdy zlevní.'],
   ['🗣️', 'Hledání rozumí víc', 'dny slovy („20. listopadu“, „koncem listopadu“), den odletu („v pátek“, „od pátku do neděle“), svátky („o Velikonocích“, „jarní prázdniny“, „na Valentýna“, „vánoční trhy“), šipku i pomlčku („Vídeň → Nice“, „Praha - Londýn“, i jen „Praha Londýn“), „bez kufru“, místní názvy („Roma“, „Wien“, „Lisboa“) a oblasti jako Toskánsko, Apulie, Dalmácie nebo Laponsko – v Letech i v Objevuj.'],

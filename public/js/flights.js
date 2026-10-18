@@ -1418,7 +1418,7 @@
     const sum = $('#searchSum'); if (!sum || !f || !f.from?.length) return;
     const lw = f.len === 'holiday' && f.trip === 'return' && f.dateMode !== 'exact' && SearchHelp.holidayOf(f, today()); // „🎉 Vánoce 24.–27. 12.“ stačí
     const when = f.trip !== 'multi' && f.dateMode !== 'exact' && !lw ? `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ` : '';
-    sum.innerHTML = `<div class="ss-txt"><b>${esc(watchLabel(f))}</b><span class="faint">${esc(when + recentSub(f))} · ${+f.adults || 1} os.</span></div><button type="button" class="btn sm ghost" id="ssWatch">♡</button><button type="button" class="btn sm" id="ssEdit">✎ Upravit</button>`;
+    sum.innerHTML = `<div class="ss-txt"><b>${esc(watchLabel(f))}</b><span class="faint">${esc(when + recentSub(f, !when))} · ${+f.adults || 1} os.</span></div><button type="button" class="btn sm ghost" id="ssWatch">♡</button><button type="button" class="btn sm" id="ssEdit">✎ Upravit</button>`;
     sum.hidden = false;
     $('#searchForm').classList.add('collapsed');
     $('#ssEdit').onclick = () => { expandForm(); $('#searchForm').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
@@ -1444,13 +1444,13 @@
     toast('Hledání je zase prázdné – zadej, kam chceš letět');
   }
   // Kratší popis hledání na čip: termín nebo počet nocí.
-  function recentSub(f) {
+  function recentSub(f, withWhen = true) {
     const lw = f.len === 'holiday' && f.trip === 'return' && f.dateMode !== 'exact' ? SearchHelp.holidayOf(f, today()) : null;
     if (lw) return `🎉 ${lw.name} ${SearchHelp.dmRange(lw.start, lw.end)}`;
     if (f.trip === 'multi') return `${plural((f.legs || []).length, 'let', 'lety', 'letů')} od ${fmtDate(f.legs[0].date)}`;
     if (f.dateMode === 'exact') return `${fmtDate(f.xOut)}${f.trip === 'return' && f.xBack ? `–${fmtDate(f.xBack)}` : ' jen tam'}`;
     // „prosinec · 5–9 nocí“: termín, jen když ho hledání zúžilo (výchozí týdny dopředu by čip jen prodloužily)
-    const w = SearchHelp.recentWhen(f);
+    const w = withWhen ? SearchHelp.recentWhen(f) : '';
     const len = { weekend: 'víkend', long: 'prodl. víkend', week: 'týden', '2weeks': '2 týdny' }[f.len];
     return (w ? w + ' · ' : '') + (f.trip === 'return' ? len || SearchHelp.nightsRange(f.nMin, f.nMax) : 'jen tam');
   }
