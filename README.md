@@ -156,7 +156,8 @@ U všech 197 zemí ATLAS ukazuje, co je potřeba k cestě s českým pasem nebo 
   Maledivy IMUGA, Indie e-Arrival Card, Brunej E-Arrival Card, Nový Zéland NZTD, Papua Nová Guinea PNGDAC, Nigérie
   Landing Card, Mauricius All in One Travel Form, Jihoafrická republika SARS Traveller Declaration, Barbados,
   Dominika, Trinidad a Tobago a v Kosovu registrace cizinců do 3 dnů po příjezdu. U letu bez víza štítek
-  „📝 TDAC předem“ (u země s vízem jen v bublině – druhý štítek by se na telefon nevešel), v detailu země a v Před
+  „📝 TDAC předem“ (u země s vízem jen v bublině – druhý štítek by se na telefon nevešel; klepnutí na štítek 📝, 🛂
+  nebo ✈︎ ETA při přestupu otevře zemi u vstupních podmínek – na telefonu bublina není), v detailu země a v Před
   cestou zvýrazněný řádek s odkazem jen na oficiální web a kdy formulář vyplnit (*nejdříve 72 h před příletem*),
   v *Co zařídit* důležitý úkol, v seznamu věcí „Potvrzení: TDAC (QR kód v mobilu)“ a v kalendáři připomínka 2 dny
   před odletem (u 24h okna v den odletu). Ověřeno 10/2026 na oficiálních webech a v oznámeních úřadů; vynechané, kde
@@ -458,7 +459,8 @@ kalendář, mřížka termínů, pruh *📅 Nejbližší dny*, radar i hlídané
 a zpět ~180 Kč/os. – průměrná cena, odhad, v ceně letenky není* – aby bylo vidět, kolik zhruba stojí, ale cenu letenky
 nezkresloval (odhady bývají nepřesné). Kdo chce porovnat i s cestou, zvolí ve *Filtrech → Řazení* **Nejlevnější
 i s cestou na letiště (odhad)** (`tripCzk`) – řádky pak pod cenou letenky ukážou *i s cestou ~1 290 Kč* (podle toho
-se řadí), stejně řádky na telefonu i velké karty nahoře (*🚆 Nejlevnější i s cestou*); i řazení *Cena + délka cesty*
+se řadí), stejně řádky na telefonu, rozbalená nabídka u ceny i velké karty nahoře (*🚆 Nejlevnější i s cestou*) a patička
+výsledků to řekne; i řazení *Cena + délka cesty*
 počítá cenu s cestou. Srovnání letadla s vlakem / busem (*🚆 Vlakem/busem*) počítá letadlo od dveří ke dveřím, tedy
 i s cestou na letiště; rozpočet nové cesty v Plánovači z posledního hledání taky. Dřív se odhad do ceny přičítal
 (uložený stav má verzi cen `pv`, rozhoduje verze uložená, ne výchozí): uložené hlídání si při první kontrole vezme
@@ -520,6 +522,9 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
   (štítek letiště *🏠 350 Kč/os. tam*). Autem ani s *jízdné × 0* se nepoužijí. Starší server pole ignoruje a počítá odhad.
   Změna vlastní ceny není zlevnění: ♡ hlídaná cena si pamatuje, s jakými vlastními cenami letišť se počítala (otisk
   `own`), a když se při kontrole liší, neohlásí 📉 ani ↑ – cena „od změny 🏠 ceny“, nejnižší cena i graf začnou od nové.
+  Když po hledání změníš vlastní cenu, *jízdné ×*, veřejnou dopravu / auto nebo pohon a spotřebu, nad výsledky se
+  objeví *🔄 Cesta na letiště je teď nastavená jinak* s **↻ Přepočítat** (ceny dopravy a řazení *i s cestou* ve
+  výsledcích jsou ještě podle předchozího hledání); zmizí s dalším hledáním nebo když nastavení vrátíš.
   Radar podle svých letišť pozná, jestli se ho změna týká: cena u letiště mimo jeho okruh (MUC z Brna) uložený radar
   nezahodí, u jeho letiště hledá znovu (staré karty zůstanou vidět) a nové ceny neoznačí jako „↓“. Když je 12 cen
   plných, nová ustoupí nejstarší mimo náhled letišť a toast řekne kterou; obnova ze zálohy ukáže, kolik se nevešlo.
