@@ -59,7 +59,7 @@
     + 'nakupy nakupum vylety s batohem batoh rande sluzebne sluzebni pracovne pracovni co par korun babku hubicku bez '
     // za čím a jak („kam za kulturou“, „na safari do Keni“, „sever Španělska“, „Portugalsko autem“)
     + 'safari kultura kulturu kulturou kulturni pamatky pamatkami zabava zabavu zabavou party jidlem jidlo gastro vinem vino '
-    + 'sever severu zapad zapadu vychod vychodu autem vlakem autobusem busem zajezd zajezdy zajezdu pobyt pobytu pobyty').split(' '));
+    + 'sever severu zapad zapadu vychod vychodu autem vlakem autobusem busem zajezd zajezdy zajezdu pobyt pobytu pobyty ne').split(' '));
   const TO_WORDS = new Set(['do', 'na', 'k', 'ke', 'kam', 'v', 've', 'za', 'u', 'pres', 'po']);
   const FROM_WORDS = new Set(['z', 'ze', 'odkud', 'od']);
   // před „moře“ jméno moře → je to místo (Rudé moře), ne „k moři“
@@ -259,6 +259,13 @@
       len = { n, out: [a[1]], back: [b[1]] };
       chips.push(['🛫', `${a[2]} → ${b[2]}`]);
     });
+    // „od pátku“ (bez dne návratu): odlet v ten den – ne místo odletu „pátku“
+    rule(new RegExp(`od\\s+(nedele|pondeli|utery|stredy|ctvrtka|patku|soboty)${W}`), m => {
+      const d = wg(m[1]);
+      if (!d) return false;
+      patch.outDays = [...new Set([...(patch.outDays || []), d[1]])].sort();
+      chips.push(['🛫', `odlet ${['v neděli', 'v pondělí', 'v úterý', 've středu', 've čtvrtek', 'v pátek', 'v sobotu'][d[1]]}`]);
+    });
     // „v pátek“: odlet v ten den v týdnu (jako dny odletu ve formuláři)
     const WD = [['nedeli', 0, 'neděli'], ['pondeli', 1, 'pondělí'], ['utery', 2, 'úterý'], ['stredu', 3, 'středu'], ['ctvrtek', 4, 'čtvrtek'], ['patek', 5, 'pátek'], ['sobotu', 6, 'sobotu']];
     rule(new RegExp(`(?:v|ve|o)\\s+(${WD.map(x => x[0]).join('|')})${W}`), m => {
@@ -344,8 +351,9 @@
     const P = o.presets || {};
     if (typeof len === 'string') {
       patch.len = len;
-      if (P[len]) Object.assign(patch, { nMin: P[len].nMin, nMax: P[len].nMax, outDays: P[len].out.slice(), backDays: P[len].back.slice() });
-    } else if (len && len.n) Object.assign(patch, { len: 'custom', nMin: len.n, nMax: len.n, outDays: len.out || [], backDays: len.back || [] });
+      // den odletu z věty („v pátek na týden“, „od soboty na týden“) přednost před dny délky
+      if (P[len]) Object.assign(patch, { nMin: P[len].nMin, nMax: P[len].nMax, outDays: patch.outDays && patch.outDays.length ? patch.outDays : P[len].out.slice(), backDays: P[len].back.slice() });
+    } else if (len && len.n) Object.assign(patch, { len: 'custom', nMin: len.n, nMax: len.n, outDays: len.out || patch.outDays || [], backDays: len.back || [] });
 
     // --- termín → pole formuláře ---
     if (dates && dates.holiday) {
