@@ -465,8 +465,9 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
 
 - **Letiště ve tvém městě** → jízdenka MHD (Praha: bus 59 nebo 100 + metro, PID na 90 min 50 Kč, v aplikaci 46 Kč
   → ~50 Kč; Airport Express za 200 Kč se nepočítá – pid.cz 6. 10. 2026; Brno: IDS JMK ~30 Kč).
-- **Letiště jinde** → vlak / bus do města letiště **za běžnou cenu** (*běžně* = co typicky zaplatíš, když musíš jet
-  určitý den – ne nejlevnější akční jízdenka) **+** cesta z města na letiště. Vlak / bus: Praha ↔ 28 měst změřeno
+- **Letiště jinde** → MHD z domova na nádraží **+** vlak / bus do města letiště **za běžnou cenu konkrétního spoje**
+  (*běžně* = co typicky zaplatíš, když musíš jet určitý den – ne nejlevnější akční jízdenka; na letiště navíc v danou
+  hodinu, proto × 1,4, viz níže) **+** cesta z města na letiště. Vlak / bus: Praha ↔ 28 měst změřeno
   (Brno 199 Kč, Pardubice 119 Kč, Vídeň 249 Kč, Berlín 379 Kč, Krakov 418 Kč, Budapešť 569 Kč…), jinde model podle
   vzdálenosti po pásmech – obojí z živých cen RegioJetu 15. 10. 2026, viz [Vlak nebo bus místo
   letadla](#vlak-nebo-bus-místo-letadla); na kratší vzdálenost regionální jízdné ~30 Kč + 1,5 Kč/km. Z města na
@@ -512,13 +513,18 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
   nezahodí, u jeho letiště hledá znovu (staré karty zůstanou vidět) a nové ceny neoznačí jako „↓“. Když je 12 cen
   plných, nová ustoupí nejstarší mimo náhled letišť a toast řekne kterou; obnova ze zálohy ukáže, kolik se nevešlo.
 
-Z Prahy na osobu tam: PRG ~50 Kč, PED ~150 Kč, KLV ~210 Kč, JCL ~220 Kč, VIE ~360 Kč, DRS ~430 Kč, MUC ~480 Kč,
-BER ~500 Kč, KRK ~530 Kč, KTW ~550 Kč; z Brna: BRQ ~30 Kč, BTS ~190 Kč, VIE ~300 Kč. Čas = jízda podle téhož modelu +
-cesta na letiště + ~30 min na nádraží, přestup a čekání na navazující spoj. Ověřeno proti živým cenám RegioJetu a FlixBusu (6. 10. 2026, odjezdy
-20. 10. a 12. 11.): Praha → Karlovy Vary 139–259 Kč, Pardubice 119–169 Kč, České Budějovice 179–279 Kč, Drážďany busem
-319–369 Kč (+ S-Bahn ~85 Kč; počítá se změřená cena, viz výše), Brno → Bratislava 129–279 Kč; běžné ceny 15. 10. 2026
-viz [Vlak nebo bus místo letadla](#vlak-nebo-bus-místo-letadla). Dřív (nejnižší ceny + příplatek) vycházelo PED ~200 Kč,
-VIE ~440 Kč, KRK ~420 Kč, BTS z Brna ~270 Kč.
+Z Prahy na osobu tam: PRG ~50 Kč, PED ~240 Kč, KLV ~320 Kč, JCL ~330 Kč, BRQ ~350 Kč, VIE ~480 Kč, MUC ~520 Kč,
+DRS ~530 Kč, BER ~540 Kč, KRK ~740 Kč, KTW ~750 Kč; z Brna: BRQ ~30 Kč, BTS ~280 Kč, VIE ~330 Kč. Skládá se z **MHD
+z domova na nádraží** (ve městě s nádražím RegioJetu: Praha PID 30 min ~40 Kč, jinde jízdenka MHD země), **vlaku / busu
+do města letiště** a cesty z města na letiště. Na letiště se jede **konkrétním spojem v danou hodinu**, ne nejlevnějším
+spojem dne, ze kterého je změřená běžná cena a model: cena × 1,4, čas × 1,1 (nejrychlejší spoj dne → běžný). Ověřeno
+10/2026: Praha → Brno RegioJet 229 Kč (út) až 399 Kč (pá), ČD railjet 269–435 Kč; Praha → Pardubice ČD ~190 Kč, RegioJet
+a Leo Express 150–280 Kč, vlak 58–70 min; Praha → Karlovy Vary bus 180–270 Kč; Praha → Drážďany RegioJet od 299 Kč,
+plný bus 500–750 Kč (počítá se 400 Kč). Změřené spoje (Drážďany) a jízdní řád (Linec, Salcburk) se nenásobí. Čas = jízda
++ cesta z města na letiště + ~30 min z domova na nádraží, přestup a čekání na navazující spoj. Pardubice: bus 90
+z hlavního nádraží jede 150 a 120 min před odletem; České Budějovice (bus 40 jen ve dny letů) a Karlovy Vary mají lety
+hlavně v létě (charter červen–září) – náhled letišť to u nich řekne (*☀️ jen letní charter*). Dřív (nejlevnější spoj dne,
+bez MHD z domova) vycházelo PED ~150 Kč, KLV ~210 Kč, BRQ ~230 Kč, DRS ~430 Kč.
 
 **🚗 Autem** (za auto, pak děleno počtem cestujících):
 

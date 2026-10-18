@@ -452,6 +452,10 @@ function parseGeo(rest) {
  * Vrací { home: {lat,lon,label,cc?,iata?}|null, airports: [{iata, distKm, ground}] } seřazená podle vzdálenosti.
  * ground = cesta z domova na letiště (access.js: veřejnou dopravou / autem podle `access`, viz airportAccess).
  */
+// Letiště, odkud se létá jen v sezóně (letní charter) – náhled ve formuláři to řekne, ať je nikdo nečeká v listopadu.
+// Ověřeno 10/2026: JCL jen Smartwings Palma a Čedok (červen–září), KLV Antalya a Burgas (červen–začátek října).
+export const SEASONAL = { JCL: 'jen letní charter (červen–září)', KLV: 'hlavně letní charter (červen–září)' };
+
 export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOrigins, access = {}, exclude = [] } = {}) {
   let home = null;
   const picked = new Map();
@@ -523,6 +527,7 @@ export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOr
       iata: x.iata,
       distKm: Math.round(x.distKm),
       rank: x.rank,
+      ...(SEASONAL[x.iata] ? { seasonal: SEASONAL[x.iata] } : {}),
       ground: home ? airportAccess(home, x.iata, access) : null,
     })),
   };

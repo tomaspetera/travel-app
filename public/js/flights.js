@@ -1036,7 +1036,7 @@
       };
       host.innerHTML = originPreview.map((a, i) => {
         const l = SearchHelp.accessLabel(a.ground, { nights });
-        return `<button type="button" class="opill ${a.off ? 'off' : ''}${i >= 2 ? ' extra' : ''}" data-op="${a.iata}" title="${esc(a.name)}${l ? ` · ${esc(l.title)}` : a.ground ? ` · cesta ~${hm(a.ground.minutes)}` : ''}">
+        return `<button type="button" class="opill ${a.off ? 'off' : ''}${i >= 2 ? ' extra' : ''}" data-op="${a.iata}" title="${esc(a.name)}${a.seasonal ? ` · ☀️ ${esc(a.seasonal)}` : ''}${l ? ` · ${esc(l.title)}` : a.ground ? ` · cesta ~${hm(a.ground.minutes)}` : ''}">
         <b>${a.iata}</b> <span class="n">${esc(a.city)}</span>${a.distKm ? ` <span>${a.distKm} km</span>` : ''}${l ? ` <span class="g">${esc(l.text)}</span>` : ''}</button>`;
       }).join('')
         + (originPreview.length > max ? `<span class="faint" style="font-size:12px" title="Přednost mají blízká letiště, odkud se hodně létá; malá letiště s pár linkami jen když zbude místo.">prohledá se ${max} – blízká a větší mají přednost</span>` : '');
@@ -1066,7 +1066,7 @@
     const own = S.accessOwn || {};
     const item = a => {
       const g = a.ground, est = g.own ? g.estCzk : g.czk, v = Object.hasOwn(own, a.iata) ? own[a.iata] : '';
-      return { v, est, how: ownHow(g), title: `${a.name} – odhad ~${czk(est)} na osobu tam${v !== '' ? `, počítám s tvou cenou ${czk(v)}` : ''}` };
+      return { v, est, how: (a.seasonal ? `☀️ ${a.seasonal} · ` : '') + ownHow(g), title: `${a.name} – odhad ~${czk(est)} na osobu tam${v !== '' ? `, počítám s tvou cenou ${czk(v)}` : ''}` };
     };
     // stejná letiště: jen doplnit (pole, do kterého se zrovna píše, zůstane – Tab z jednoho pole do druhého)
     const cur = $$('[data-own]', list);

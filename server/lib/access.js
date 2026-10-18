@@ -67,9 +67,9 @@ export const ACCESS = {
   PRG: [50.0755, 14.4378, 'Praha', 46, 45, 'MHD – bus 59 + metro A (PID 90 min; Airport Express 200 Kč)', [590, 120]], // ověřeno 10/2026
   BRQ: [49.1951, 16.6068, 'Brno', 30, 30, 'bus E76 z hlavního nádraží (IDS JMK)', [170, 160]], // ověřeno 10/2026
   OSR: [49.8346, 18.2820, 'Ostrava', 50, 45, 'vlak do Mošnova (ODIS)', [0, 130]], // ověřeno 10/2026
-  PED: [50.0343, 15.7812, 'Pardubice', 25, 20, 'MHD Pardubice', [0, 0]], // ověřeno 10/2026: zdarma
-  KLV: [50.2310, 12.8714, 'Karlovy Vary', 30, 20, 'MHD Karlovy Vary', [280, 50]], // ověřeno 10/2026
-  JCL: [48.9745, 14.4743, 'České Budějovice', 25, 25, 'MHD České Budějovice', [120, 60]],
+  PED: [50.0343, 15.7812, 'Pardubice', 25, 20, 'bus 90 z hlavního nádraží (jede 150 a 120 min před odletem)', [0, 0]], // ověřeno 10/2026: parkování zdarma
+  KLV: [50.2310, 12.8714, 'Karlovy Vary', 30, 25, 'MHD bus 8 z Tržnice', [280, 50]], // ověřeno 10/2026
+  JCL: [48.9745, 14.4743, 'České Budějovice', 30, 25, 'bus 40 z nádraží (jen ve dny letů)', [120, 60]],
   VIE: [48.2082, 16.3738, 'Vídeň', 110, 40, 'vlak S7 / Railjet z centra (~4,40 €; CAT 14,90 €)', [850, 150]], // ověřeno 10/2026
   BTS: [48.1486, 17.1077, 'Bratislava', 35, 30, 'MHD bus 61 (60 min)', [670, 100]], // ověřeno 10/2026
   LNZ: [48.3069, 14.2858, 'Linec', 90, 30, 'bus / vlak do Hörschingu (~3,50 €)', [740, 100]], // ověřeno 10/2026
@@ -78,7 +78,7 @@ export const ACCESS = {
   NUE: [49.4521, 11.0767, 'Norimberk', 95, 20, 'metro U2 (VGN ~3,80 €)', [1580, 220]], // ověřeno 10/2026
   FMM: [48.1374, 11.5755, 'Mnichov', 370, 80, 'Allgäu Airport Express z Mnichova (online od 15 €)', [230, 120]], // jízdné ověřeno 10/2026
   BER: [52.5200, 13.4050, 'Berlín', 120, 40, 'S-Bahn / FEX z centra (BVG ABC ~4,70 €)', [1260, 100]], // ověřeno 10/2026
-  DRS: [51.0504, 13.7373, 'Drážďany', 85, 25, 'S-Bahn S2 z Hauptbahnhofu (DVB ~3,40 €)', [540, 120]], // ověřeno 10/2026
+  DRS: [51.0504, 13.7373, 'Drážďany', 85, 25, 'S-Bahn S2 z Hauptbahnhofu (DVB ~3,60 €)', [540, 120]], // ověřeno 10/2026
   LEJ: [51.3397, 12.3731, 'Lipsko', 130, 20, 'S-Bahn z Hauptbahnhofu (MDV ~5 €)', [750, 160]], // ověřeno 10/2026
   ERF: [50.9787, 11.0328, 'Erfurt', 70, 25, 'tramvaj 4 (~2,60 €)', [230, 120]],
   FRA: [50.1109, 8.6821, 'Frankfurt nad Mohanem', 170, 15, 'S-Bahn S8 / S9 z centra (RMV 6,90 €)', [1450, 280]], // jízdné ověřeno 10/2026
@@ -112,12 +112,13 @@ const DIRECT = {
 };
 // Změřená cena spoje z města domova do města letiště (dál MHD / S-Bahn z tabulky ACCESS): [Kč/os., minuty jízdy, čím].
 // Je to běžná cena konkrétních spojů, ne „od“ – příplatek za mezinárodní spoj se k ní nepřičítá. Změřeno 6. 10. 2026:
-// Praha → Drážďany FlixBus 319–339 Kč, RegioJet 369 Kč, vlak ČD / DB 623–647 Kč (model podle vzdálenosti dával ~240 Kč).
+// Praha → Drážďany FlixBus 319–339 Kč, RegioJet 369 Kč, vlak ČD / DB 623–647 Kč (model podle vzdálenosti dával ~240 Kč);
+// v danou hodinu bývá bus plnější a dražší (RegioJet od 299, plný 500–750 Kč – 10/2026) → 400 Kč.
 // Cena null = model podle vzdálenosti, jen čas z jízdního řádu 2026 (cd.cz, seat61.com, 10/2026): Praha → Linec přímý EC
 // ČD / ÖBB 3 h 45 min, Praha → Salcburk vlakem s přestupem v Linci ~5 h 25 min – model dával 3 h a 4 h 05 min; ceny
 // FlixBusu a ÖBB ~300–600 Kč model drží.
 const FARE = {
-  'Praha>DRS': [340, 115, 'busem (FlixBus, RegioJet)'],
+  'Praha>DRS': [400, 115, 'busem (FlixBus, RegioJet)'],
   'Praha>LNZ': [null, 225, 'vlakem (EC ČD / ÖBB) / busem'],
   'Praha>SZG': [null, 325, 'vlakem přes Linec / busem'],
 };
@@ -164,6 +165,11 @@ export const DEFAULT_CAR_FUEL = 'diesel';
 // cena v sousední zemi: „nafta 55,11 Kč/l v Rakousku · Oil Bulletin EU, k 28. 9. 2026“
 const FUEL_IN = { DE: 'v Německu', AT: 'v Rakousku', SK: 'na Slovensku', PL: 'v Polsku', HU: 'v Maďarsku' };
 const CITY_KM = 15; // domov do 15 km od středu města letiště = cesta MHD
+// Na letiště se jede konkrétním spojem v danou hodinu, ne nejlevnějším spojem dne (z toho jsou MEASURED a model):
+// cena ~1,4× (RegioJet Praha–Brno 229–399 Kč podle dne, ČD railjet 269–435 Kč, ne 199; Praha–Pardubice ČD ~190,
+// RegioJet / Leo 150–280 Kč, ne 119 – ověřeno 10/2026), čas ~1,1× (nejrychlejší spoj dne → běžný: Pardubice 58–70 min, ne 53)
+const SPECIFIC = 1.4;
+const SPECIFIC_MIN = 1.1;
 const NEAR_KM = 50; // letiště za humny: regionální spoj rovnou na letiště
 const ROAD = 1.25; // silnice ≈ 1,25 × vzdušná čára
 
@@ -288,11 +294,17 @@ export function transitAccess(home, a, { scale = 1, own = null } = {}) {
     items.push({ k: 'regional', label: 'regionální bus / vlak rovnou na letiště', czk: regionalCzk(km), min: regionalMin(km) });
     minutes = regionalMin(km) + 10;
   } else {
-    const key = `${groundPlace(o)?.label}>${a.iata}`;
-    // změřená cena spoje do města letiště (Praha → Drážďany), jinak model podle vzdálenosti
+    const hp = groundPlace(o);
+    const key = `${hp?.label}>${a.iata}`;
+    // změřená cena spoje do města letiště (Praha → Drážďany), jinak model podle vzdálenosti – na letiště se jede
+    // konkrétním spojem v danou hodinu, ne nejlevnějším dne: cena × SPECIFIC, čas × SPECIFIC_MIN (nejrychlejší spoj →
+    // běžný); změřený konkrétní spoj (FARE s cenou) a jízdní řád (FARE) už to v sobě mají
     const f = FARE[key];
-    const model = !f || f[0] == null ? intercity(o, { lat: c.lat, lon: c.lon, label: c.label, cc: a.cc }) : null;
+    const raw = !f || f[0] == null ? intercity(o, { lat: c.lat, lon: c.lon, label: c.label, cc: a.cc }) : null;
+    const model = raw && !raw.regional ? { ...raw, czk: r10(raw.czk * SPECIFIC), min: f ? raw.min : raw.min * SPECIFIC_MIN } : raw;
     const ic = f ? { ...model, czk: f[0] ?? model.czk, min: f[1] } : model;
+    // z domova na nádraží / autobusové nádraží MHD (Praha PID 30 min 39 Kč) – ve známém městě (s nádražím RegioJetu)
+    if (hp?.rj) items.push({ k: 'home', label: hp.label === 'Praha' ? 'MHD na nádraží (PID)' : `MHD na nádraží (${hp.label})`, czk: hp.label === 'Praha' ? 40 : LOCAL_TICKET[o.cc] ?? LOCAL_TICKET._ });
     const d = DIRECT[key];
     const via = ic.czk + c.czk + (ic.regional ? borderCzk(o.cc, a.cc, ic.czk) : 0);
     if (d && d[0] + borderCzk(o.cc, a.cc, d[0]) < via) {
@@ -305,11 +317,12 @@ export function transitAccess(home, a, { scale = 1, own = null } = {}) {
       typical = !ic.regional;
     }
   }
+  const lead = items.findIndex((x) => x.k !== 'home'); // hlavní úsek (příplatek za hranici, „local“) – ne MHD z domova
   // běžná cena spojů přes hranici už je cena mezinárodního spoje; příplatek jen k „od“ přímého busu a k regionálnímu spoji
-  const b = typical ? 0 : borderCzk(o.cc, a.cc, items[0].czk);
+  const b = typical ? 0 : borderCzk(o.cc, a.cc, items[lead].czk);
   if (b) items.push({ k: 'border', label: 'příplatek za mezinárodní spoj', czk: b });
   for (const x of items) x.czk = Math.max(scale > 0 ? 10 : 0, r10(x.czk * scale));
-  const local = items[0].k === 'access';
+  const local = items[lead].k === 'access';
   // letiště ve tvém městě: v noci (MHD nejede) taxi – čas autem bez parkování (Praha → Ruzyně ~25 min, ne 55 min MHD)
   const night = local ? { nightMin: r5(driveMin(Math.max(3, km * ROAD))) } : {};
   const est = { mode: 'transit', km: Math.round(km), minutes: r5(minutes), czk: items.reduce((s, x) => s + x.czk, 0), local, ...night, breakdown: items };
