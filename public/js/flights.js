@@ -2021,6 +2021,16 @@
     return btn(t.out.bookUrl, `Tam: ${esc(shopName(t.out.provider))} ↗`, t.out.provider) + btn(t.back.bookUrl, `Zpět: ${esc(shopName(t.back.provider))} ↗`, t.back.provider);
   }
 
+  // Ryanair a Wizz Air účtují v měně země odletu: let zpět z Itálie ukážou v eurech, i když je web česky – říct předem
+  // a kolik to v té měně bude (cena letenky na osobu, jak ji dopravce poslal)
+  const curFmt = (n, cur) => { try { return new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: cur, maximumFractionDigits: n >= 100 ? 0 : 2 }).format(n); } catch (e) { return `${Math.round(n)} ${cur}`; } };
+  function buyNote(t) {
+    if (t.bookUrl) return '';
+    const legs = [['tam', t.out], ['zpět', t.back]].filter(([, l]) => l && l.bookUrl && /^[A-Z]{3}$/.test(l.siteCur || '') && l.siteCur !== 'CZK');
+    if (!legs.length) return '';
+    return `<div class="buy-cur faint">💱 ${legs.map(([d, l]) => `${t.back ? `Let ${d}: ` : ''}${esc(shopName(l.provider))} ukáže cenu v ${esc(l.siteCur)}${l.sitePrice > 0 ? ` – ~${esc(curFmt(l.sitePrice, l.siteCur))}/os.` : ''}`).join(' · ')} (aerolinka účtuje v měně země odletu)</div>`;
+  }
+
   // pax = počet lidí nabídky (📌 Porovnat jde otevřít i bez výsledků na obrazovce)
   function verifyLinks(t, pax = lastResult.query.adults) {
     const sameAp = t.back && t.back.from === t.out.to && t.back.to === t.out.from;
@@ -2047,7 +2057,7 @@
       <div class="tr-legs">${legHtml(t.out)}${t.back ? legHtml(t.back, true) : ''}<div class="tr-badges">${badges(t, g, idx)}</div></div>
       ${priceBox(t, idx)}
       <div class="tr-act"><button type="button" class="btn sm primary" data-pick="${idx}">Vybrat a pokračovat →</button>
-        <div class="tr-buy">${bookButtons(t)}</div>
+        <div class="tr-buy">${bookButtons(t)}</div>${buyNote(t)}
         <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}${SearchHelp.isCached(t) ? ` · <button type="button" class="linkbtn" data-live="${idx}">⚡ Ověřit cenu živě</button>` : ''}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>${window.Entry && Entry.idNote(g.dest.cc) ? ' · ' + Entry.idNote(g.dest.cc) : ''}` : ''} · <button type="button" class="linkbtn pin-l" data-pin="${idx}">${pinOn(t) ? '📌 Odloženo ✓' : '📌 Odložit'}</button></div>
       </div></div>`;
   }
@@ -4585,7 +4595,7 @@
       <div class="pin-ln">🗓️ ${day(t.out.date)}${t.back ? ` – ${day(t.back.date)}${t.nights != null ? ` · ${nightsTxt(t.nights)}` : ''}${lt ? ` · <span title="${esc(lt.title)}">${esc(lt.text)}</span>` : ''}` : ' · jen tam'}</div>
       ${pinLeg(t.out)}${t.back ? pinLeg(t.back, true) : ''}${tail}
       ${dw ? `<div class="pin-ln ${dw < 0 ? 'good' : 'pin-warn'}" title="Při odložení ${czk(p.was.czk)}/os.">${dw < 0 ? '↓' : '↑'} o ${czk(Math.abs(dw))} od odložení</div>` : ''}${pinLive(p)}
-      <div class="pin-act"><button type="button" class="btn sm primary" data-pgo="${esc(p.k)}">Vybrat a pokračovat →</button><div class="tr-buy">${bookButtons(t)}</div><div class="tr-more">${verifyLinks(t, p.q.adults)}</div></div></div>`;
+      <div class="pin-act"><button type="button" class="btn sm primary" data-pgo="${esc(p.k)}">Vybrat a pokračovat →</button><div class="tr-buy">${bookButtons(t)}</div>${buyNote(t)}<div class="tr-more">${verifyLinks(t, p.q.adults)}</div></div></div>`;
   }
   // ⚡ Ověřit ceny: plné nabídky (ne demo) bez čerstvého ověření, nejstarší ceny první, nejvýš 3 na klepnutí
   let pinBusy = false;
