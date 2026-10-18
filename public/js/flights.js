@@ -19,7 +19,12 @@
   let view = { mode: 'list', sort: 'total', legSort: 'price', maxPrice: null, onlyDeals: false, newOnly: false, favOnly: false, showMuted: false, excludeOrigins: new Set(), onlyOrigin: null, excludeCarriers: new Set(), outDate: null, nights: null, expanded: new Set(), timeOpen: false, ocOpen: false, ...freshView() };
   // Výpis per hledání: vybraný let tam/zpět (sig), rozbalené sloupce letů, kolik kombinací ukázat, filtry času a přestupů
   // (jako 🔥 jen výhodné platí do dalšího hledání; otevřený panel filtrů zůstává).
-  function freshView() { return { leg: { out: null, back: null }, legAll: {}, legMore: false, flatN: 40, cmpN: 60, cexp: new Set(), time: SearchHelp.freshTime(), mPicks: [], mAll: {}, mCombos: 6, gndOpen: false, moreOpen: false }; }
+  // kolik výsledků hned: na telefonu méně (karta letu má ~500 px – 40 karet by bylo přes 20 000 px), další po „Další…“
+  // (deklarace funkcí: view výš je potřebuje už při načtení skriptu)
+  function onPhone() { return typeof matchMedia === 'function' && matchMedia('(max-width:760px)').matches; }
+  function flatPage() { return onPhone() ? 15 : 40; }
+  function cmpPage() { return onPhone() ? 25 : 60; }
+  function freshView() { return { leg: { out: null, back: null }, legAll: {}, legMore: false, flatN: flatPage(), cmpN: cmpPage(), cexp: new Set(), time: SearchHelp.freshTime(), mPicks: [], mAll: {}, mCombos: 6, gndOpen: false, moreOpen: false }; }
   let legsPref = true; // přesná data: začínat pohledem „✈︎ Lety“ (dokud si uživatel nevybere kombinace)
   let lastForm = null; // formulář posledního hledání – z něj vycházejí úpravy jedním kliknutím
   let lastResultAt = 0;
@@ -2000,7 +2005,7 @@
     const byKey = new Map(lastResult.groups.map(g => [g.dest.key, g]));
     const n = view.flatN, rest = list.length - n;
     return `<div class="card res-card flat">${list.slice(0, n).map(t => { const g = byKey.get(t.destKey); return tripRow(t, g, reg(t, g)); }).join('')}</div>
-      ${rest > 0 ? `<button type="button" class="more-btn" data-fmore="1">▼ ${Math.min(40, rest) <= 4 ? 'Další' : 'Dalších'} ${plural(Math.min(40, rest), 'kombinace', 'kombinace', 'kombinací')} (${rest >= 2 && rest <= 4 ? 'zbývají' : 'zbývá'} ${rest})</button>` : ''}`;
+      ${rest > 0 ? `<button type="button" class="more-btn" data-fmore="1">▼ ${Math.min(flatPage(), rest) <= 4 ? 'Další' : 'Dalších'} ${plural(Math.min(flatPage(), rest), 'kombinace', 'kombinace', 'kombinací')} (${rest >= 2 && rest <= 4 ? 'zbývají' : 'zbývá'} ${rest})</button>` : ''}`;
   }
 
   /* ---------- přesná data: jednotlivé lety tam a zpět (jako Google Flights) ---------- */
@@ -3026,7 +3031,7 @@
       r.oninput = () => { $('#' + id + 'Val', host).textContent = +r.value >= +r.max ? 'bez limitu' : 'do ' + hm(+r.value); };
       r.onchange = () => { view.time[key] = +r.value >= +r.max ? null : +r.value; rerender(true); };
     }
-    $$('[data-fmore]', host).forEach(b => b.onclick = () => { view.flatN += 40; rerender(true); });
+    $$('[data-fmore]', host).forEach(b => b.onclick = () => { view.flatN += flatPage(); rerender(true); });
     $$('[data-exp]', host).forEach(b => b.onclick = () => {
       const k = b.dataset.exp; view.expanded.has(k) ? view.expanded.delete(k) : view.expanded.add(k);
       // karta pod mapou: překreslit jen ji (celý výpis by mapu nakreslil znovu a kartu zavřel)
@@ -3041,7 +3046,7 @@
       requestAnimationFrame(() => { const r = $(`.cmp-row[data-cg="${CSS.escape(k)}"]`); if (r) r.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
     }; });
     $$('[data-cgh]', host).forEach(b => { b.onkeydown = e => { if (e.target === b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); cmpToggle(b.closest('[data-cg]')); } }; });
-    const cm = $('[data-cmore]', host); if (cm) cm.onclick = () => { view.cmpN = (view.cmpN || 60) + 60; rerender(true); };
+    const cm = $('[data-cmore]', host); if (cm) cm.onclick = () => { view.cmpN = (view.cmpN || cmpPage()) + cmpPage(); rerender(true); };
     // z „kamkoliv“ do jednoho cíle: stejné hledání jen do tohoto města a rovnou kalendář cen
     $$('[data-alldates]', host).forEach(b => b.onclick = () => {
       const g = lastResult.groups.find(x => x.dest.key === b.dataset.alldates); if (!g) return;
