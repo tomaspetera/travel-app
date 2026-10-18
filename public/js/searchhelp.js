@@ -1724,6 +1724,11 @@
     if (!k) return Array.isArray(list) ? list : [];
     return [e, ...(Array.isArray(list) ? list : []).filter(x => x && destKeyOf(x.id) !== k)].slice(0, cap);
   }
+  /** Hledá uživatel hlavně víkendy? Aspoň 3 z posledních 5 hledání (ne víc měst) na víkend, prodloužený víkend nebo svátek. */
+  function weekendHabit(recent) {
+    const lens = (Array.isArray(recent) ? recent : []).map(e => e && e.form).filter(f => f && f.trip !== 'multi').slice(0, 5).map(f => f.len);
+    return lens.filter(l => ['weekend', 'long', 'holiday'].includes(l)).length >= 3;
+  }
   /** Tip z prohlížených cílů: posledních 21 dní, bez ⭐ a 🙈 (skip = množina klíčů), nejvýš n. */
   function viewedPick(list, now, skip = new Set(), n = 3) {
     return (Array.isArray(list) ? list : []).filter(x => x && destKeyOf(x.id) && !skip.has(destKeyOf(x.id)) && now - (x.at || 0) <= 21 * 864e5).slice(0, n);
@@ -1765,7 +1770,7 @@
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
-    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
+    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
