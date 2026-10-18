@@ -1998,7 +1998,8 @@
   function foldBadges(host) {
     if (!onPhone()) return;
     $$('.tr-badges', host).forEach(b => {
-      const kids = [...b.children].filter(c => !c.classList.contains('wx-slot') && !c.classList.contains('b-more'));
+      // vízum a povinný formulář před příletem (entry.js, .ec-b) se neschovávají – musí je vidět každý
+      const kids = [...b.children].filter(c => !c.classList.contains('wx-slot') && !c.classList.contains('b-more') && !c.classList.contains('ec-b'));
       if (kids.length <= BADGE_TOP + 1 || b.querySelector('.b-more')) return; // „+1“ by nic neušetřilo
       kids.slice(BADGE_TOP).forEach(c => c.classList.add('b-x'));
       b.insertAdjacentHTML('beforeend', `<button type="button" class="b b-more" title="Další údaje o nabídce">+${kids.length - BADGE_TOP} další</button>`);
