@@ -891,7 +891,7 @@ async function saveTrip(iso, flightTxt) {
       } else {
         // „USA“, „Anglie“, „Holandsko“: našeptávač dá zemi na první místo (u „Kos“ je první ostrov, ne Kosovo)
         const top = (j.items || [])[0];
-        if (top && /^cc:[A-Z]{2}$/.test(top.id) && byIso[top.cc]) fiso = top.cc;
+        if (top && !top.fuzzy && /^cc:[A-Z]{2}$/.test(top.id) && byIso[top.cc]) fiso = top.cc; // ne oprava překlepu
       }
     } catch (e) { /* bez sítě nebo pomalý server: cesta bez země */ } finally { clearTimeout(tm); }
     if (!fiso && !place) { const c = resolveCountry(f.dest); if (c) fiso = c.iso2; }

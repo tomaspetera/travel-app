@@ -176,6 +176,15 @@ test('nejlepší návrh i podle jiného názvu ze serveru: en („Rome“) a ali
   assert.equal(best([{ q: 'Toscana', items: [{ id: 'geo:43.4,11.1|Toskánské ostrovy', label: 'Toskánské ostrovy', type: 'place' }, { id: 'rg:toskansko', label: 'Toskánsko', aliases: ['toskansko', 'toscana'], type: 'region' }] }]), 'rg:toskansko');
 });
 
+test('oprava překlepu ze serveru (fuzzy) jen na požádání (typos) – jinak se jako místo z věty nebere', () => {
+  const list = [{ q: 'Barcleony', items: [{ id: 'metro:BCN', label: 'Barcelona', type: 'metro', fuzzy: true }] }];
+  assert.equal(Smart.bestPlace(list), null);
+  assert.equal(Smart.bestPlace(list, true).id, 'metro:BCN');
+  // skutečná shoda vyhraje i s typos
+  list.push({ q: 'Barcl', items: [{ id: 'geo:1,2|Barclay', label: 'Barclay', type: 'place' }] });
+  assert.equal(Smart.bestPlace(list, true).id, 'geo:1,2|Barclay');
+});
+
 test('svátky slovy: Velikonoce (i bez seznamu svátků), státní svátek, jarní/podzimní prázdniny, Valentýn', () => {
   const e = (t) => { const r = JSON.parse(JSON.stringify(Smart.parse('Řím o Velikonocích', { today: t }))); return [r.to, r.patch.dFrom, r.patch.dTo, r.patch.len]; };
   // Velikonoční neděle 28. 3. 2027, 16. 4. 2028; odlet čt–pá před ní
