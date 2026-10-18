@@ -498,7 +498,8 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
   nejbližšího letiště – z Ústí nad Labem nebo Děčína (nejblíž Drážďany) se do Prahy nepočítá příplatek přes hranici
   ani česká dálniční známka.
 - **Jízdné ×** násobí celý odhad (0,5 = sleva 50 % pro žáky, studenty a seniory, 0 = nepočítat).
-- **🏠 Moje cena na letiště**: když cestu na některé letiště znáš líp (jezdíš tam s In Kartou, se slevou, někdo tě
+- **🏠 Kolik tě stojí cesta na letiště** (dřív *Moje cena na letiště*): u každého letiště z náhledu odhad jedním směrem
+  na osobu a pod ním, z čeho je (*Praha → Pardubice vlakem / busem ~120 + MHD Pardubice ~30 · ~1 h 45 min*). Když cestu na některé letiště znáš líp (jezdíš tam s In Kartou, se slevou, někdo tě
   vozí), zadej v *Další možnosti → Doprava na letiště* (veřejnou dopravou) u letišť z náhledu **cenu tam na osobu** –
   třeba VIE 350 Kč, BTS 270 Kč; prázdné pole = odhad (ukáže se jako nápověda v poli). Vlastní cena platí místo odhadu
   pro to letiště tam i zpět (na osobu, zpět totéž), *jízdné ×* se na ni nevztahuje, čas cesty zůstává odhad. Nejvýš

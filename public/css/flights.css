@@ -99,6 +99,13 @@
 .warm-row .seg button{padding:6px 10px;font-size:12.5px;white-space:nowrap}
 .quick-range button{padding:4px 9px;font-size:12px}
 .seg.wrap{flex-wrap:wrap}
+/* zavazadla: tři delší volby – na užší obrazovce pod sebou přes celou šířku (ne bublina s tlačítky) */
+#bags{display:flex}
+#bags button{flex:1 1 auto}
+@media (max-width:620px){
+  #bags{display:grid;grid-template-columns:1fr;border-radius:14px}
+  #bags button{border-radius:10px;text-align:left;padding:10px 14px}
+}
 .nights-row{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--muted)}
 .input.sm{width:68px;padding:8px 10px;text-align:center}
 .input.xs{width:62px;padding:4px 6px;display:inline-block;text-align:center}
@@ -142,13 +149,18 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .gm-own[hidden]{display:none}
 .gm-own-h{font-size:13px;font-weight:600;margin-bottom:6px}
 .gm-own-h .faint{font-weight:400}
-.gm-own-list{display:flex;flex-wrap:wrap;gap:6px 14px}
-.field label.gm-own-it{gap:5px}
-.gm-own-it b{min-width:30px}
+.gm-own-list{display:grid;gap:10px}
+/* řádek letiště: kód, město, pole s cenou; pod tím z čeho odhad je (jízdné a čas) */
+.field label.gm-own-it{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:2px 8px;white-space:normal}
+.gm-own-it b{min-width:34px}
+.gm-own-c{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.gm-own-v{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .gm-own-it .input.xs{width:76px}
+.gm-own-d{grid-column:1/-1;font-size:11.5px;line-height:1.35;color:var(--muted)}
 .gm-own-it.on b{color:var(--accent)}
-.dow{display:flex;gap:5px;flex-wrap:wrap}
-.dow button{width:42px;padding:8px 0;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font:700 12.5px Inter,sans-serif;cursor:pointer}
+/* dny vždy v jednom řádku (7 sloupců), i s větším písmem v telefonu */
+.dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;max-width:330px}
+.dow button{min-width:0;padding:8px 0;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font:700 12.5px Inter,sans-serif;cursor:pointer}
 .dow button.on{background:var(--grad);color:#fff;border-color:transparent}
 .btn.big{padding:14px 22px;font-size:15px}
 .btn:disabled{opacity:.7;cursor:progress;transform:none}
@@ -678,7 +690,6 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
   .home-chip{flex:0 1 auto;min-width:0;padding:9px 11px}
   .topbar>div:first-child{flex:none}
   .topbar{gap:8px}
-  .dow button{width:38px}
   .res-tools .seg{display:flex;width:100%}
   .res-tools .seg button{flex:1 1 auto;padding:8px 5px;font-size:12.5px}
   .kiwi-note{flex-wrap:wrap}

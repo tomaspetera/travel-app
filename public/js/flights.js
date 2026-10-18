@@ -1066,23 +1066,29 @@
     const own = S.accessOwn || {};
     const item = a => {
       const g = a.ground, est = g.own ? g.estCzk : g.czk, v = Object.hasOwn(own, a.iata) ? own[a.iata] : '';
-      return { v, est, title: `${a.name} – odhad ~${czk(est)} na osobu tam${v !== '' ? `, počítám s tvou cenou ${czk(v)}` : ''}` };
+      return { v, est, how: ownHow(g), title: `${a.name} – odhad ~${czk(est)} na osobu tam${v !== '' ? `, počítám s tvou cenou ${czk(v)}` : ''}` };
     };
     // stejná letiště: jen doplnit (pole, do kterého se zrovna píše, zůstane – Tab z jednoho pole do druhého)
     const cur = $$('[data-own]', list);
     if (cur.length === aps.length && cur.every((inp, i) => inp.dataset.own === aps[i].iata)) {
       cur.forEach((inp, i) => {
-        const x = item(aps[i]), lb = inp.closest('label');
+        const x = item(aps[i]), lb = inp.closest('label'), d = $('.gm-own-d', lb);
         inp.placeholder = `~${x.est}`; lb.title = x.title; lb.classList.toggle('on', x.v !== '');
+        if (d) d.textContent = x.v !== '' ? `počítám s tvou cenou · odhad ~${x.est} Kč` : x.how;
         if (document.activeElement !== inp) inp.value = x.v;
       });
       return;
     }
     list.innerHTML = aps.map(a => {
       const x = item(a);
-      return `<label class="gm-in gm-own-it${x.v !== '' ? ' on' : ''}" title="${esc(x.title)}"><b>${a.iata}</b><input class="input xs" type="number" min="0" max="${SearchHelp.OWN_MAX_CZK}" step="1" inputmode="numeric" data-own="${a.iata}" value="${x.v}" placeholder="~${x.est}" aria-label="Moje cena na letiště ${a.iata} (Kč na osobu tam, prázdné = odhad)"> Kč</label>`;
+      return `<label class="gm-in gm-own-it${x.v !== '' ? ' on' : ''}" title="${esc(x.title)}"><b>${a.iata}</b><span class="gm-own-c">${esc(a.city || '')}</span><span class="gm-own-v"><input class="input xs" type="number" min="0" max="${SearchHelp.OWN_MAX_CZK}" step="1" inputmode="numeric" data-own="${a.iata}" value="${x.v}" placeholder="~${x.est}" aria-label="Moje cena na letiště ${a.iata} (Kč na osobu tam, prázdné = odhad)"> Kč</span><small class="gm-own-d">${esc(x.v !== '' ? `počítám s tvou cenou · odhad ~${x.est} Kč` : x.how)}</small></label>`;
     }).join('');
     $$('[data-own]', list).forEach(inp => inp.onchange = () => setOwn(inp.dataset.own, inp));
+  }
+  // Z čeho odhad je: „Praha → Pardubice vlakem / busem ~120 + MHD Pardubice ~30 · ~1 h 45 min“ (rozpis serveru, bez závorek)
+  function ownHow(g) {
+    const parts = (g.breakdown || []).filter(x => x && x.czk > 0).map(x => `${String(x.label || '').replace(/\s*\([^)]*\)/g, '').trim()} ~${x.czk}`);
+    return [parts.join(' + '), g.minutes > 0 ? `~${hm(g.minutes)}` : ''].filter(Boolean).join(' · ');
   }
   function setOwn(iata, inp) {
     const raw = inp.value.trim(), own = { ...(S.accessOwn || {}) }, n = Number(raw);
