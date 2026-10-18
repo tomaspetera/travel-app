@@ -175,3 +175,24 @@ test('nejlepší návrh i podle jiného názvu ze serveru: en („Rome“) a ali
   assert.equal(best([{ q: 'Rome', items: [{ id: 'metro:ROM', label: 'Řím', en: 'Rome', type: 'metro' }] }]), 'metro:ROM');
   assert.equal(best([{ q: 'Toscana', items: [{ id: 'geo:43.4,11.1|Toskánské ostrovy', label: 'Toskánské ostrovy', type: 'place' }, { id: 'rg:toskansko', label: 'Toskánsko', aliases: ['toskansko', 'toscana'], type: 'region' }] }]), 'rg:toskansko');
 });
+
+test('svátky slovy: Velikonoce (i bez seznamu svátků), státní svátek, jarní/podzimní prázdniny, Valentýn', () => {
+  const e = (t) => { const r = JSON.parse(JSON.stringify(Smart.parse('Řím o Velikonocích', { today: t }))); return [r.to, r.patch.dFrom, r.patch.dTo, r.patch.len]; };
+  // Velikonoční neděle 28. 3. 2027, 16. 4. 2028; odlet čt–pá před ní
+  assert.deepEqual(e('2026-10-18'), [['Řím'], '2027-03-25', '2027-03-26', 'long']);
+  assert.deepEqual(e('2027-04-10').slice(1, 3), ['2028-04-13', '2028-04-14']);
+  // seznam prodloužených víkendů: nejbližší
+  assert.equal(P('na státní svátek').chips[0].text, 'Den boje za svobodu');
+  assert.deepEqual([P('na jarní prázdniny').patch.dFrom, P('na jarní prázdniny').patch.dTo], ['2027-02-01', '2027-03-20']);
+  assert.deepEqual([P('podzimní prázdniny do Londýna').patch.dFrom, P('podzimní prázdniny do Londýna').to], ['2026-10-24', ['Londýna']]);
+  assert.deepEqual([P('Paříž na Valentýna').patch.dFrom, P('Paříž na Valentýna').patch.dTo, P('Paříž na Valentýna').to], ['2027-02-12', '2027-02-14', ['Paříž']]);
+  // letní prázdniny dál jako léto
+  assert.equal(P('o prázdninách k moři').chips.find((c) => c.icon === '📅').text, 'prázdniny');
+});
+
+test('víc šipek = cesta přes víc měst (chain): odkud a místa v pořadí; jedna šipka nebo „k moři“ ne', () => {
+  const r = P('Praha → Řím → Barcelona → Praha 10. 11. – 17. 11.');
+  assert.deepEqual([r.chain, r.from, r.to, r.patch.xOut, r.patch.xBack], [true, ['Praha'], ['Řím', 'Barcelona', 'Praha'], '2026-11-10', '2026-11-17']);
+  assert.equal(P('Vídeň → Nice').chain, undefined);
+  assert.equal(P('Praha -> Lisabon -> Porto ve dvou').chain, true);
+});

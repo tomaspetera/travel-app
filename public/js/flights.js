@@ -223,6 +223,9 @@
     const one = async (phrase, origin) => Smart.bestPlace(await look(phrase, origin, false)) || Smart.bestPlace(await look(phrase, origin, true));
     const [to, from] = await Promise.all([Promise.all(hit.sm.to.map(x => one(x, false))), Promise.all(hit.sm.from.map(x => one(x, true)))]);
     const item = x => ({ id: x.id, label: x.label, flag: x.flag || '📍', type: x.type });
+    // cesta přes víc měst („Praha → Řím → Barcelona → Praha“): všechna místa v pořadí, jen města a letiště
+    const stop = x => x && ['airport', 'metro', 'city'].includes(x.type);
+    hit.chain = hit.sm.chain && stop(from[0]) && to.length <= 5 && to.every(stop) ? [from[0], ...to].map(item) : null;
     hit.to = to.filter(Boolean).map(item).slice(0, 5);
     hit.from = from.filter(x => x && x.type !== 'continent').map(item).slice(0, 3);
     hit.miss = [...hit.sm.to.filter((x, i) => !to[i]), ...hit.sm.from.filter((x, i) => !from[i] || from[i].type === 'continent')];
@@ -283,9 +286,10 @@
       const row = (r, i) => {
         const on = i === this.active ? ' on' : '';
         if (r.hit) {
-          const h = r.hit, places = [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`)];
+          const h = r.hit, places = h.chain ? [`🧳 ${h.chain.map(x => x.label).join(' → ')}`] : [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`)];
           const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}`)].join(' · ');
-          const sub = h.miss.length ? `„${h.miss.join('“, „')}“ neznám – hledám bez toho` : (h.sm.items && !h.to.length ? h.sm.items.map(x => x.label).join(', ') : 'klepni nebo Enter – nastavím a hledám');
+          const sub = h.chain ? 'víc měst – nastavím lety mezi nimi (termíny rozdělím) a hledám'
+            : h.miss.length ? `„${h.miss.join('“, „')}“ neznám – hledám bez toho` : (h.sm.items && !h.to.length ? h.sm.items.map(x => x.label).join(', ') : 'klepni nebo Enter – nastavím a hledám');
           return `<div class="pi-opt pi-smart${on}" data-i="${i}"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc(what)}</b><small>${esc(sub)}</small></span><span class="pi-type">hledat</span></div>`;
         }
         if (r.tip) return `<div class="pi-opt pi-tip${on}" data-i="${i}"><span class="pi-flag">${r.tip.icon}</span><span class="pi-t"><b>${esc(r.tip.text)}</b>${r.tip.sub ? `<small>${esc(r.tip.sub)}</small>` : ''}</span></div>`;
@@ -3994,7 +3998,32 @@
 
   /* ---------- ✨ chytré hledání (smart.js): věta → formulář → hledání ---------- */
   /** Věta rozebraná (Smart.parse) a místa dohledaná (smartResolve) → formulář Letů a hledání. from = odkud z pole, kde se psalo. */
+  /**
+   * Termíny letů cesty přes víc měst z věty: přesná data od–do rozdělí mezi místa rovnoměrně (poslední let v den
+   * návratu), jen od = 3 noci na místo; bez přesných dat od začátku okna (jinak za 2 týdny) po délce pobytu / místa.
+   */
+  function chainDates(p, n) {
+    const t = today(), gap = (from, per) => Array.from({ length: n }, (_, i) => addDays(from, i * per));
+    if (p.dateMode === 'exact' && p.xOut) {
+      if (!p.xBack || n < 2) return gap(p.xOut, 3);
+      const span = Math.max(n - 1, SearchHelp.diffDays(p.xOut, p.xBack));
+      return Array.from({ length: n }, (_, i) => addDays(p.xOut, Math.round(i * span / (n - 1))));
+    }
+    const start = p.dFrom && p.dFrom > t ? p.dFrom : addDays(t, 14);
+    const total = p.nMin ? Math.round((p.nMin + (p.nMax || p.nMin)) / 2) : 0;
+    return gap(start, Math.max(2, total ? Math.round(total / Math.max(1, n - 1)) : 3));
+  }
+  // věta s víc šipkami → Víc měst: lety mezi místy v pořadí, osoby, zavazadla, přímé lety a cena z věty
+  function smartChainRun(hit) {
+    const p = hit.sm.patch, c = hit.chain, ds = chainDates(p, c.length - 1);
+    const legs = c.slice(0, -1).map((a, i) => ({ from: [a], to: [c[i + 1]], date: ds[i], flex: 0 }));
+    const keep = Object.fromEntries(['adults', 'bags', 'directOnly', 'maxPrice'].filter(k => p[k] != null).map(k => [k, p[k]]));
+    go('flights');
+    setForm({ ...defaultForm(), ...prefsOf(S.form), ...keep, from: [c[0]], to: [], trip: 'multi', legs });
+    startSearch();
+  }
   function smartRun(hit, from) {
+    if (hit.chain && hit.chain.length >= 3) return smartChainRun(hit);
     const p = hit.sm.patch, to = (hit.to.length ? hit.to : hit.sm.items || []).slice(0, 5);
     const f = { ...defaultForm(), ...prefsOf(S.form), from: hit.from.length ? hit.from : (from && from.length ? from : S.home?.from || []), to, ...p };
     if (f.dateMode === 'exact' && !f.xBack) f.trip = 'oneway';

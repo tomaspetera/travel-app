@@ -6,6 +6,13 @@
   // bez diakritiky a malými písmeny – délka i pozice znaků zůstanou (české znaky jsou v NFC jeden znak)
   const fold = s => s.normalize('NFC').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const pad = n => String(n).padStart(2, '0');
+  /** Velikonoční neděle (gregoriánský kalendář, anonymní algoritmus) → 'YYYY-MM-DD'. */
+  function easter(y) {
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const n = h + l - 7 * m + 114;
+    return `${y}-${pad(Math.floor(n / 31))}-${pad((n % 31) + 1)}`;
+  }
   const ymd = d => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
   const parseYmd = s => new Date(s + 'T12:00:00Z');
   const addDays = (s, n) => { const d = parseYmd(s); d.setUTCDate(d.getUTCDate() + n); return ymd(d); };
@@ -153,6 +160,13 @@
       }
       dates = { ...r, month: true, label: MONTHS[k] };
     });
+    // nejbližší výskyt pevného období v roce (měsíc-den od–do), které ještě neskončilo
+    const nextSpan = (a, b, label) => { let y = +today.slice(0, 4); if (`${y}-${b}` < today) y++; const from = `${y}-${a}`; return { from: from < today ? today : from, to: `${y}-${b}`, label }; };
+    // jarní / podzimní prázdniny (ne letní): jarní se liší podle okresu – únor až polovina března
+    rule(new RegExp(`(?:na\\s+|o\\s+)?(?:jarni|jarnich)\\s+prazdnin\\w*${W}`), () => { if (dates) return false; dates = nextSpan('02-01', '03-20', 'jarní prázdniny'); len = len || 'week'; });
+    rule(new RegExp(`(?:na\\s+|o\\s+)?(?:podzimni|podzimnich)\\s+prazdnin\\w*${W}`), () => { if (dates) return false; dates = nextSpan('10-24', '11-01', 'podzimní prázdniny'); len = len || 'long'; });
+    // Valentýn: prodloužený víkend kolem 14. 2.
+    rule(new RegExp(`(?:na\\s+|o\\s+)?valentyn\\w*${W}`), () => { if (dates) return false; dates = nextSpan('02-12', '02-14', 'Valentýn'); len = len || 'weekend'; });
     const seasons = [['(?:v\\s+)?lete|leto|o\\s+prazdninach|prazdniny|na\\s+leto', 5, 7, 'léto'], ['(?:na\\s+)?jare|jaro', 2, 4, 'jaro'], ['(?:na\\s+)?podzim\\w*', 8, 10, 'podzim'], ['(?:v\\s+)?zime|zima|na\\s+zimu', 11, 13, 'zima']];
     for (const [re, a, b, label] of seasons) {
       rule(new RegExp(`(?:${re})${W}`), m => {
@@ -177,7 +191,18 @@
     });
     holRule('vanoc\\w*|vanocni\\s+svatky', 'vanoce', () => { const y = today.slice(5) > '12-27' ? +today.slice(0, 4) + 1 : +today.slice(0, 4); return { from: [today, `${y}-12-19`].sort()[1], to: `${y}-12-24`, label: 'Vánoce' }; });
     holRule('silvestr\\w*|novy\\s+rok|novyho\\s+roku', 'novy rok', () => { const y = +today.slice(0, 4) + (today.slice(5) > '12-31' ? 1 : 0); return { from: [today, `${y}-12-27`].sort()[1], to: `${y}-12-31`, label: 'Silvestr' }; });
-    holRule('velikonoc\\w*', 'velikonoce', () => null);
+    // Velikonoce bez prodlouženého víkendu v seznamu (dál než pár měsíců): odlet čt–pá před Velikonoční nedělí
+    holRule('velikonoc\\w*', 'velikonoce', () => {
+      let y = +today.slice(0, 4), e = easter(y);
+      if (addDays(e, 1) < today) e = easter(++y);
+      len = len || 'long';
+      return { from: [today, addDays(e, -3)].sort()[1], to: addDays(e, -2), label: 'Velikonoce' };
+    });
+    // „na státní svátek“, „o svátcích“: nejbližší prodloužený víkend
+    rule(new RegExp(`(?:na\\s+|o\\s+|pres\\s+)?(?:statni\\s+svat\\w*|svatek|svatky|svatcich)${W}`), () => {
+      if (dates || !hol[0] || !o.holidayDates) return false;
+      dates = { holiday: hol[0], label: hol[0].name };
+    });
     rule(new RegExp(`(?:co\\s+nejdriv|hned|ihned|narychlo|last\\s*minute|lastminute|co\\s+nejdrive)${W}`), () => { if (dates) return false; dates = { from: today, to: addDays(today, 14), label: 'co nejdřív' }; });
     rule(new RegExp(`(?:pristi|dalsi)\\s+tyden${W}`), () => { if (dates) return false; const mon = addDays(today, ((8 - dow(today)) % 7) || 7); dates = { from: mon, to: addDays(mon, 6), label: 'příští týden' }; });
     rule(new RegExp(`(?:tento|tenhle)\\s+tyden${W}`), () => { if (dates) return false; dates = { from: today, to: addDays(today, (7 - dow(today)) % 7), label: 'tento týden' }; });
@@ -250,7 +275,7 @@
 
     // --- zbytek věty: místa (z X = odkud, jinak kam) ---
     const to = [], from = [];
-    let mode = 'to', cur = [];
+    let mode = 'to', cur = [], arrows = 0;
     const flush = () => { if (cur.length) (mode === 'from' ? from : to).push(cur.join(' ')); cur = []; };
     const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+>]/gu;
     let m;
@@ -259,7 +284,7 @@
       if (used.slice(at, at + w.length).some(Boolean)) { flush(); continue; }
       // šipka: co bylo před ní (místo právě psané, jinak poslední „kam“), je odkud; za ní kam
       // (další šipka: „Praha → Řím → Barcelona“ – další místa jsou cíle, odkud je jen první)
-      if (w === '>') { if (cur.length) { (from.length ? to : from).push(cur.join(' ')); cur = []; } else if (to.length && !from.length) from.push(to.pop()); mode = 'to'; continue; }
+      if (w === '>') { arrows++; if (cur.length) { (from.length ? to : from).push(cur.join(' ')); cur = []; } else if (to.length && !from.length) from.push(to.pop()); mode = 'to'; continue; }
       if (/^[,/;&+]$/.test(w) || w === 'a' || w === 'nebo' || w === 'ci') { flush(); continue; }
       if (FROM_WORDS.has(w)) { flush(); mode = 'from'; continue; }
       if (TO_WORDS.has(w)) { flush(); mode = 'to'; continue; }
@@ -307,7 +332,9 @@
     if (patch.directOnly) chips.push(['✈️', 'jen přímé']);
     if (patch.bags) chips.push(['🧳', { none: 'bez kufru', cabin: 'kabinový kufr', checked: 'kufr k odbavení' }[patch.bags]]);
     if (patch.trip === 'oneway') chips.push(['➡️', 'jen tam']);
-    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items };
+    // „Praha → Řím → Barcelona → Praha“: dvě a víc šipek = cesta přes víc měst (odkud, pak místa v pořadí)
+    const chain = arrows >= 2 && from.length === 1 && to.length >= 2 && !kind;
+    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(chain ? { chain: true } : {}) };
   }
 
   /** Zkracování koncovek pro našeptávač („do Říma“ → Řím, „z Vídně“ → Víd): celé slovo, bez 1 a bez 2 znaků. */
