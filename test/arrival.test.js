@@ -310,7 +310,7 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   assert.equal(bva.warn, true);
   assert.match(bva.title, /^Z letiště BVA do Paříže: autobus Aérobus do Paris Porte Maillot – 17,90 € \(~440 Kč\) na osobu, ~1 h 15\. Online; na místě 18 €\. Zpět na letiště totéž\./);
   // za čas se k datu ověření přidá stáří („· před 4 měsíci“) – test nesmí záviset na dnešku
-  assert.match(bva.title, /V ceně nabídky tam i zpět ~880 Kč\/os\. Zdroj: aeroportparisbeauvais\.com, ověřeno 7\. 10\. 2026(?: · [^.]+)?\.$/);
+  assert.match(bva.title, /Odhad tam i zpět ~880 Kč\/os\. – v ceně letenky není\. Zdroj: aeroportparisbeauvais\.com, ověřeno 7\. 10\. 2026(?: · [^.]+)?\.$/);
   // open-jaw v cíli: přílet BGY (od 5 € online), odlet MXP (vlak 15 € → varovně, přes 350 Kč)
   const jaw = H.arrivalChips({ out: { to: 'BGY' }, back: { from: 'MXP' }, arrCzk: 490 }, ARR, { on: true });
   assert.deepEqual(plain(jaw.map((c) => [c.text, c.warn])), [['🚌 z letiště BGY do Milána od 5 € (~120 Kč) · 50 min', false], ['🚆 zpět na letiště MXP 15 € (~370 Kč) · 37 min', true]]);
@@ -327,7 +327,7 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   const ML = Object.fromEntries(['REU', 'BCN', 'ARN'].map((x) => [x, plain(A.arrivalTransfer(x))]));
   const last = H.arrivalLegChips({ from: 'REU', to: 'PRG' }, ML, new Set(['PRG']), { on: true });
   assert.deepEqual(plain(last.map((c) => [c.text, c.warn])), [['🚌 z Barcelony na letiště REU 18,50 € (~450 Kč) · 1 h 40', true]]);
-  assert.match(last[0].title, /^Z Barcelony na letiště REU: autobus Monbus – 18,50 € \(~450 Kč\) na osobu, ~1 h 40\. .* V ceně nabídky ~450 Kč\/os\./);
+  assert.match(last[0].title, /^Z Barcelony na letiště REU: autobus Monbus – 18,50 € \(~450 Kč\) na osobu, ~1 h 40\. .* Odhad ~450 Kč\/os\. – v ceně letenky není\./);
   assert.equal(last[0].sub, 'autobus Monbus · jen několik spojů denně');
   const mid = H.arrivalLegChips({ from: 'ARN', to: 'BCN' }, ML, new Set(['PRG']));
   assert.deepEqual(plain(mid.map((c) => c.text)), ['🚌 ze Stockholmu na letiště ARN od 129 SEK (~280 Kč) · 40 min', '🚌 z letiště BCN do Barcelony 7,45 € (~180 Kč) · 35 min']);
@@ -348,7 +348,7 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   assert.equal(H.arrivalChips({ out: { to: 'STN' } }, ARR)[0].text, '🚆 z letiště STN do Londýna od 9,90 £ (~280 Kč) · 48 min');
   assert.match(H.arrivalChips({ out: { to: 'LGW' } }, ARR)[0].title, /Zdroj \(sekundární, oficiální neuvádí\): lasttrip\.uk/);
   // vypnuto: informace zůstane, jen se nepočítá do ceny
-  assert.match(H.arrivalChips({ out: { to: 'BVA' } }, ARR, { on: false })[0].title, /Do ceny nabídky se nepočítá \(vypnuto v Další možnosti\)\./);
+  assert.match(H.arrivalChips({ out: { to: 'BVA' } }, ARR, { on: false })[0].title, /Neukazuje se \(vypnuto v Další možnosti\)\./);
   assert.deepEqual(plain(H.arrivalChips({ out: { to: 'XXX' } }, ARR)), []);
   assert.deepEqual(plain(H.arrivalChips({ out: { to: 'BVA' } }, null)), []);
   assert.equal(H.arrivalFare({ czk: 2500 * 0.06688, fare: 2500, cur: 'HUF' }), '2 500 Ft (~167 Kč)');

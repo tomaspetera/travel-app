@@ -526,7 +526,7 @@ test('kdy vyrazit: z domu na let tam a z ubytování na let zpět – průběh c
   const r1 = rows(render(c, t));
   const at = (re) => r1.findIndex((r) => re.test(r));
   assert.equal(r1[0], 'út 10. 11. 🚪 Vyraž z domu nejpozději ve 3:15 <span class="faint">(~45 min na letiště PRG + 2 h před odletem, odhad)</span>', r1.join('\n'));
-  assert.ok(at(/^út 10\. 11\. 🚌 Cesta na letiště PRG/) === 1 && at(/🛫 PRG 06:00/) === 2, r1.join('\n'));
+  assert.ok(at(/^út 10\. 11\. 🚆 Cesta na letiště PRG/) === 1 && at(/🛫 PRG 06:00/) === 2, r1.join('\n'));
   const h = at(/🚪 Z ubytování/);
   assert.equal(r1[h], 'so 14. 11. 🚪 Z ubytování na letiště VIE vyraž nejpozději ve 4:00 <span class="faint">(~1 h cesta + 2 h před odletem, odhad)</span> · brzy ráno – taxi objednej předem, nebo přespi u letiště');
   assert.match(r1[h + 1], /^so 14\. 11\. 🚆 Vídeň → letiště VIE.* · v noci spíš taxi$/, 'vyráží se před 5:00 – MHD ještě nejede');
@@ -565,6 +565,9 @@ test('kdy vyrazit: z domu na let tam a z ubytování na let zpět – průběh c
   const taxi = { ...t, ground: { out: { minutes: 55, local: true, mode: 'transit', nightMin: 25 } } };
   assert.deepEqual(plain([leaveBy(taxi).home.hm, leaveBy(taxi).home.min, leaveBy(taxi).home.taxi]), ['03:35', 25, true]);
   assert.ok(rows(render(c, taxi)).some((r) => r.includes('Vyraž z domu nejpozději ve 3:35 <span class="faint">(~25 min taxi na letiště PRG')));
+  // řádek cesty pod tím taky taxi (ne denní MHD s jiným časem), cena cesty dál MHD
+  const tr = rows(render(c, taxi)), ti = tr.findIndex((r) => r.includes('🚪 Vyraž z domu'));
+  assert.match(tr[ti + 1], /^út 10\. 11\. 🚕 Taxi na letiště PRG \(~25 min, v noci MHD nejede – objednej předem; v ceně cesty je MHD, odhad\)$/, tr.join('\n'));
   const dayT = { ...taxi, flight: { ...t.flight, out: { ...t.flight.out, dep: '2026-11-10T10:00:00', arr: '2026-11-10T11:00:00' } } };
   assert.deepEqual([leaveBy(dayT).home.hm, leaveBy(dayT).home.taxi], ['07:05', undefined]);
   // jedno místo, zpět z letiště jiného města (Paříž → … Londýn): cesta z ubytování se z tabulky letiště spočítat nedá

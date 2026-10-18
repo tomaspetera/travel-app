@@ -902,6 +902,16 @@
     const ok = Object.keys(o).filter(k => /^[A-Z]{3}$/.test(k) && Number.isInteger(o[k]) && o[k] >= 0 && o[k] <= OWN_MAX_CZK).slice(0, OWN_MAX).sort();
     return ok.length ? Object.fromEntries(ok.map(k => [k, o[k]])) : null;
   }
+  /**
+   * Hledání (q = jeho dotaz) počítalo cestu na letiště jinak, než je teď ve formuláři (g = groundPayload: 🏠 vlastní
+   * ceny, jízdné ×, autem/veřejnou, pohon a spotřeba)? Pak jsou ceny dopravy ve výsledcích staré → „↻ Přepočítat“.
+   */
+  const GROUND_KEYS = ['kmRate', 'groundMode', 'carFuel', 'carCons', 'carPrice', 'accessOverride'];
+  function groundChanged(q, g) {
+    if (!q || !g) return false;
+    const pick = o => JSON.stringify(GROUND_KEYS.map(k => (k === 'accessOverride' ? ownClean(o[k]) : o[k] ?? null)));
+    return pick(q) !== pick(g);
+  }
   /** Vlastní ceny do adresy /api/origins: „VIE:350,BTS:270“ ('' = žádné). */
   const ownQs = o => Object.entries(ownClean(o) || {}).map(([k, v]) => `${k}:${v}`).join(',');
   /**
@@ -1101,7 +1111,7 @@
   }
   /** Odkud je jízdné: „Zdroj: aeroportparisbeauvais.com, ověřeno 7. 10. 2026.“ (odhad bez zdroje → ''), u staršího i stáří. */
   const arrivalSource = (a, today = localToday()) => (a && a.basis === 'table' && a.src ? `Zdroj${a.sec ? ' (sekundární, oficiální neuvádí)' : ''}: ${srcHost(a.src)}, ověřeno ${dm(a.date)} ${String(a.date).slice(0, 4)}${dataAge(a.date, today).txt}.` : '');
-  const inPrice = (on, czk, both) => (on ? ` V ceně nabídky ${both ? 'tam i zpět ' : ''}~${kc(czk)}/os.` : ' Do ceny nabídky se nepočítá (vypnuto v Další možnosti).');
+  const inPrice = (on, czk, both) => (on ? ` Odhad ${both ? 'tam i zpět ' : ''}~${kc(czk)}/os. – v ceně letenky není.` : ' Neukazuje se (vypnuto v Další možnosti).');
   // sub = čím jet a poznámka ve směru štítku (na letiště spoj bez cíle cesty do města – arrivalVia)
   const arrChip = (x, text, title, dir = 'from') => ({
     text: `${ARR_ICON[x.mode] || '🚌'} ${text} ${arrivalFare(x)} · ${hhmmTxt(x.min)}${x.basis !== 'table' ? ' (odhad)' : ''}`,
@@ -1817,7 +1827,7 @@
     onlyOriginSet, recentWhen,
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
-    CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs, ownPrint, ownPrintFor,
+    CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs, groundChanged, ownPrint, ownPrintFor,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, directNear, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,

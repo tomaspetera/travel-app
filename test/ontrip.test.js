@@ -66,7 +66,7 @@ test('Trip.timeline: den programu nese program a den (trasa pěšky na kartě); 
   assert.deepEqual(plain(r13[0][3].day.items).map((x) => x.name), ['Belém', 'Jerónimos']);
   assert.equal(r13[0][3].plan.center.label, 'Hotel Lisboa Centro');
   assert.equal(r13[1][3], undefined);
-  assert.deepEqual(plain(rows.filter((r) => r[0] === '2026-11-17').map((r) => r[1])), ['📝', '🚪', '🚇', '🛬', '🚌'], 'aktivita dne odletu před cestou na letiště');
+  assert.deepEqual(plain(rows.filter((r) => r[0] === '2026-11-17').map((r) => r[1])), ['📝', '🚪', '🚇', '🛬', '🚆'], 'aktivita dne odletu před cestou na letiště');
   // trasa přes víc míst: program místa i vlastní aktivity
   const it = C.Trip.timeline(italy(), { own: { '2026-11-14': ['Uffizi – rezervace 10:15'] } });
   assert.deepEqual(lines(it.filter((r) => r[0] === '2026-11-14')), ['2026-11-14 📝 Uffizi – rezervace 10:15']);
@@ -342,7 +342,7 @@ test('nowParts + nowCard: dnešní řádky z průvodce, zítřek, ubytování s 
 
   // 2 dny před odletem: všechny řádky až do dne odletu, „Sbaleno“, posun času v cíli
   const b = c.tripNow([t], UTC('2026-11-10', '09:00')), pb = c.nowParts(b, UTC('2026-11-10', '09:00'));
-  assert.deepEqual(plain(pb.rows.map((r) => r[0] + r[1])), ['2026-11-11📲', '2026-11-12🚪', '2026-11-12🚌', '2026-11-12🛫', '2026-11-12🚇', '2026-11-12🏨', '2026-11-12📍']);
+  assert.deepEqual(plain(pb.rows.map((r) => r[0] + r[1])), ['2026-11-11📲', '2026-11-12🚪', '2026-11-12🚆', '2026-11-12🛫', '2026-11-12🚇', '2026-11-12🏨', '2026-11-12📍']);
   assert.deepEqual([plain(pb.todo), pb.hotel, pb.shift, pb.clock, pb.next], [{ zar: 1, bal: 1 }, null, -60, '09:00', null]);
   const hb = sp(c.nowCard(b, pb));
   assert.ok(hb.includes(`🧳 Za 2 dny odlet · <b>Lisabon</b> <span class="faint">${dayLbl('2026-11-12')}</span>`), hb);
@@ -440,7 +440,7 @@ test('tripNow: dálkový let – v cíli až po přistání (po vzletu na západ
   w.plan.span.departureTime = '21:30';
   const late = saved(w), n = UTC('2026-11-18', '08:00'), x = C.tripNow([late], n);
   assert.deepEqual([late.end, x.today, x.day, x.days], ['2026-11-17', '2026-11-18', 7, 7]);
-  assert.deepEqual(lines(C.nowParts(x, n).rows), ['2026-11-18 🚌 Cesta z letiště PRG domů (~45 min)']);
+  assert.deepEqual(lines(C.nowParts(x, n).rows), ['2026-11-18 🚆 Cesta z letiště PRG domů (~45 min)']);
   // přes datovou hranici (Tokio → Honolulu přistane „včera“): po odletu už ne „Zítra odlet“
   const hnl = { name: 'Havaj', start: '2026-11-12', end: '2026-11-15', legs: [L('HND', 'HNL', '2026-11-12', '2026-11-12T00:30', '2026-11-11T12:00', 'Asia/Tokyo', 'Pacific/Honolulu')] };
   assert.equal(at('2026-11-11T23:00:00Z', [hnl]), '2026-11-12 Pacific/Honolulu den 1 z 4');

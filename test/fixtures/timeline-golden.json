@@ -2,7 +2,7 @@
   "lisbon": [
     ["st 11. 11.","📲","Online check-in Ryanair PRG → LIS: otevře se 11.11. v 06:25 (24 h před odletem), zavře 2 h před odletem · na letišti se platí ~55 €/os."],
     ["čt 12. 11.","🚪","Vyraž z domu nejpozději v 3:40 <span class=\"faint\">(~45 min na letiště PRG + 2 h před odletem, odhad)</span>"],
-    ["čt 12. 11.","🚌","Cesta na letiště PRG (~45 min, odhad)"],
+    ["čt 12. 11.","🚆","Cesta na letiště PRG (~45 min, odhad)"],
     ["čt 12. 11.","🛫","PRG 06:25 → LIS 09:05 · Ryanair"],
     ["čt 12. 11.","🚇","Z letiště LIS → Lisabon · metro (červená linka) do Saldanha · ~25 min · ~46 Kč/os."],
     ["čt 12. 11.","🏨","Ubytování: Hotel Lisboa Centro"],
@@ -15,12 +15,12 @@
     ["út 17. 11.","🚪","Z ubytování na letiště LIS vyraž nejpozději v 7:15 <span class=\"faint\">(~45 min cesta + 2 h před odletem, odhad)</span>"],
     ["út 17. 11.","🚇","Lisabon → letiště LIS · metro (červená linka) do Saldanha · ~25 min · ~46 Kč/os."],
     ["út 17. 11.","🛬","LIS 10:00 → PRG 14:35 · Ryanair"],
-    ["út 17. 11.","🚌","Cesta z letiště PRG domů (~45 min)"]
+    ["út 17. 11.","🚆","Cesta z letiště PRG domů (~45 min)"]
   ],
   "lisbonOneWay": [
     ["st 11. 11.","📲","Online check-in Ryanair PRG → LIS: otevře se 11.11. v 06:25 (24 h před odletem), zavře 2 h před odletem · na letišti se platí ~55 €/os."],
     ["čt 12. 11.","🚪","Vyraž z domu nejpozději v 3:40 <span class=\"faint\">(~45 min na letiště PRG + 2 h před odletem, odhad)</span>"],
-    ["čt 12. 11.","🚌","Cesta na letiště PRG (~45 min, odhad)"],
+    ["čt 12. 11.","🚆","Cesta na letiště PRG (~45 min, odhad)"],
     ["čt 12. 11.","🛫","PRG 06:25 → LIS 09:05 · Ryanair"],
     ["čt 12. 11.","🚇","Z letiště LIS → Lisabon · metro (červená linka) do Saldanha · ~25 min · ~46 Kč/os."],
     ["čt 12. 11.","🏨","Ubytování: Hotel Lisboa Centro"],

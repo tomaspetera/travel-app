@@ -1155,6 +1155,14 @@ function flushNotes() { if (!notesP) return; const { t, v } = notesP; notesP = n
 window.setNotesSoon = (i, v) => { clearTimeout(notesP && notesP.tm); notesP = { t: S.trips[i], v, tm: setTimeout(flushNotes, 300) }; };
 window.addEventListener('pagehide', flushNotes);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushNotes(); });
+// čipy vstupu u letů (📝 TDAC předem, 🛂 vízum, ✈︎ ETA při přestupu) jsou klepnutelné i na telefonu: otevřou zemi u
+// podmínek vstupu (termín, oficiální web). Zachytí se dřív, než by klepnutí rozbalilo řádek nabídky, ve kterém čip je.
+document.addEventListener('click', e => {
+  const c = e.target.closest && e.target.closest('[data-ec]'); if (!c || !byIso[c.dataset.ec]) return;
+  e.preventDefault(); e.stopPropagation();
+  openCountry(c.dataset.ec);
+  setTimeout(() => { const b = $('#entryBox'); if (b) b.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 250);
+}, true);
 window.delTrip = i => { if (confirm('Opravdu smazat tuto cestu?')) { S.trips.splice(i, 1); save(); modalClose(); renderPlanner(); if (activeView === 'dashboard') renderDashStats(); toast('Cesta smazána'); } };
 /** Cesty z jiného panelu: nezměněné zůstanou tytéž objekty (okno cesty, rozepsaná poznámka), cesta upravená na svém
  *  místě (stejný počet cest) se přepíše na místě; ostatní se převezmou. */
