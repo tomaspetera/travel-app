@@ -65,27 +65,63 @@ function ico(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentCo
 function buildNav() {
   // U přehledu odznak „zlevnilo“ z hlídaných cen (plní flights.js).
   $('#nav').innerHTML = NAV.map(n => `<div class="nav-item" data-view="${n[0]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'map' ? '<span class="nav-badge" id="navBadge">0</span>' : n[0] === 'dashboard' ? '<span class="nav-badge drop" id="navDrops" title="Hlídané ceny, které od minule zlevnily" hidden></span>' : ''}</div>`).join('');
-  // Na mobilu pět sekcí: Přehled, Lety, Cesta, Objevuj a Svět (mapa a země s přepínačem nahoře).
-  // Plánovač, Doporučení, záloha, motiv a instalace jsou v menu ☰ v horní liště.
-  const MOBILE = ['dashboard', 'flights', 'trip', 'explore'];
-  $('#mobileNav').innerHTML = NAV.filter(n => MOBILE.includes(n[0])).map(n => `<div class="mi" data-view="${n[0]}" title="${n[1]}" aria-label="${n[1]}">${ico(n[3])}<span>${n[1]}</span>${n[0] === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden></i>' : ''}</div>`).join('')
-    + `<div class="mi" id="worldNav" title="Svět" aria-label="Svět – mapa a země">${ico(NAV.find(n => n[0] === 'countries')[3])}<span>Svět</span></div>`;
+  // Na mobilu dole pět míst: Přehled, 3 sekce, které uživatel otevírá nejčastěji (bez historie Lety, Cesta, Objevuj),
+  // a ⋯ Další – ostatní sekce jako dlaždice, záloha, vzhled, instalace. Výběr jen při spuštění (lišta se pod rukou
+  // nemění), sekce v liště v pevném pořadí; pět míst = stejná šířka jako dřív. Svět = mapa a země s přepínačem nahoře.
+  navBar = navSlots(S.navUse);
+  const mi = k => k === 'world'
+    ? `<div class="mi" id="worldNav" title="Svět" aria-label="Svět – mapa a země">${ico(NAV.find(n => n[0] === 'countries')[3])}<span>Svět</span></div>`
+    : (n => `<div class="mi" data-view="${k}" title="${n[1]}" aria-label="${n[1]}">${ico(n[3])}<span>${n[1]}</span>${k === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden></i>' : ''}</div>`)(NAV.find(n => n[0] === k));
+  $('#mobileNav').innerHTML = ['dashboard', ...navBar].map(mi).join('')
+    + `<div class="mi" id="moreNav" title="Další" aria-label="Další – ostatní sekce, záloha a vzhled">${ico('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z')}<span>Další</span></div>`;
   $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
-  $('#worldNav').onclick = () => go(WORLD_VIEWS.includes(activeView) ? activeView : lastWorld);
+  const wn = $('#worldNav'); if (wn) wn.onclick = () => go(WORLD_VIEWS.includes(activeView) ? activeView : lastWorld);
   $$('.world-tabs [data-w]').forEach(b => b.onclick = () => go(b.dataset.w, { keepScroll: true }));
-  $('#menuBtn').onclick = () => {
-    const MENU = ['planner', 'recommend'];
-    modalOpen(`<div class="modal-body"><h3 style="margin-bottom:12px">Menu</h3><div class="more-nav">${NAV.filter(n => MENU.includes(n[0])).map(n => `<button type="button" class="btn ghost" data-mv="${n[0]}" style="justify-content:flex-start;width:100%;margin-bottom:8px">${ico(n[3])} ${n[1]} <span class="faint" style="font-weight:400;margin-left:6px">${n[2]}</span></button>`).join('')}</div></div>`);
-    $$('[data-mv]').forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
-    if (window.Backup) {
-      $('.more-nav', $('#modal')).insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk" style="justify-content:flex-start;width:100%;margin-bottom:8px">💾 Přenos a záloha <span class="faint" style="font-weight:400;margin-left:6px">PC ↔ telefon, záloha do souboru</span></button>`);
-      $('#moreBk').onclick = () => { modalClose(); Backup.open(); };
-    }
-    // motiv: přepínač v postranním panelu je na telefonu skrytý
-    $('.more-nav', $('#modal')).insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme" style="justify-content:flex-start;width:100%;margin-bottom:8px">🌗 ${S.theme === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint" style="font-weight:400;margin-left:6px">vzhled aplikace</span></button>`);
-    $('#moreTheme').onclick = () => { modalClose(); $('#themeToggle').click(); };
-    if (window.Pwa) Pwa.addToMenu($('.more-nav', $('#modal'))); // 📲 Přidat ATLAS na plochu (pwa.js)
+  $('#moreNav').onclick = openMore;
+  $('#menuBtn').onclick = openMore;
+}
+// sekce, které mohou být v liště (world = Mapa a Země); výchozí náskok, aby jedno otevření pořadí nepřehodilo
+const NAV_PICK = ['flights', 'trip', 'explore', 'world', 'planner', 'recommend'];
+const NAV_PRIOR = { flights: 6, trip: 4, explore: 3, world: 2, planner: 0, recommend: 0 };
+const NAV_INFO = { world: ['Svět', 'Mapa procestovaných zemí a průvodce zeměmi', 'countries'] };
+let navBar = ['flights', 'trip', 'explore'], navLast = null;
+/** 3 sekce do spodní lišty podle počtu otevření (+ výchozí náskok), v pevném pořadí NAV_PICK. */
+function navSlots(use) {
+  const sc = k => ((use && use[k]) || 0) + NAV_PRIOR[k];
+  return NAV_PICK.slice().sort((a, b) => sc(b) - sc(a) || NAV_PICK.indexOf(a) - NAV_PICK.indexOf(b)).slice(0, 3)
+    .sort((a, b) => NAV_PICK.indexOf(a) - NAV_PICK.indexOf(b));
+}
+/** Otevření sekce do počtů (staré se časem vytrácí – nad 200 otevření se vše vydělí dvěma). */
+function navCount(v) {
+  const k = WORLD_VIEWS.includes(v) ? 'world' : v;
+  if (k === navLast || !NAV_PICK.includes(k)) { navLast = k; return; }
+  navLast = k;
+  const u = { ...(S.navUse || {}) };
+  u[k] = (u[k] || 0) + 1;
+  if (Object.values(u).reduce((a, b) => a + b, 0) > 200) for (const x of Object.keys(u)) u[x] = Math.floor(u[x] / 2);
+  S.navUse = u; save();
+}
+/** ⋯ Další: sekce, které nejsou v liště (dlaždice, nejpoužívanější první), a nastavení. */
+function openMore() {
+  const sc = k => ((S.navUse && S.navUse[k]) || 0) + NAV_PRIOR[k];
+  const rest = NAV_PICK.filter(k => !navBar.includes(k)).sort((a, b) => sc(b) - sc(a) || NAV_PICK.indexOf(a) - NAV_PICK.indexOf(b));
+  const tile = k => {
+    const n = NAV.find(x => x[0] === k), [lbl, sub, icoKey] = NAV_INFO[k] || [n[1], n[2], k];
+    return `<button type="button" class="more-tile" data-mv="${k === 'world' ? lastWorld : k}"><span class="mt-ico">${ico(NAV.find(x => x[0] === icoKey)[3])}</span><b>${lbl}</b><small>${sub}</small></button>`;
   };
+  modalOpen(`<div class="modal-body more-sheet"><h3>Další</h3><div class="mn-grid">${rest.map(tile).join('')}</div>
+    <div class="more-h">Nastavení</div><div class="more-nav"></div>
+    <p class="faint more-tip">Dole v liště jsou sekce, které otevíráš nejčastěji – podle toho se při dalším spuštění samy seřadí.</p></div>`);
+  $$('[data-mv]', $('#modal')).forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
+  const list = $('.more-nav', $('#modal'));
+  if (window.Backup) {
+    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">💾 Přenos a záloha <span class="faint">PC ↔ telefon</span></button>`);
+    $('#moreBk').onclick = () => { modalClose(); Backup.open(); };
+  }
+  // motiv: přepínač v postranním panelu je na telefonu skrytý
+  list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme">🌗 ${S.theme === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint">vzhled</span></button>`);
+  $('#moreTheme').onclick = () => { modalClose(); $('#themeToggle').click(); };
+  if (window.Pwa) Pwa.addToMenu(list); // 📲 Přidat ATLAS na plochu (pwa.js)
 }
 const WORLD_VIEWS = ['map', 'countries'];
 let lastWorld = 'map';
@@ -94,7 +130,10 @@ function go(v, opts = {}) {
   if (v !== 'dashboard') nowAsk = false;
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
   $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === v));
-  $$('.mobile-nav .mi').forEach(el => el.classList.toggle('active', el.dataset.view === v || (el.id === 'worldNav' && WORLD_VIEWS.includes(v))));
+  // sekce mimo lištu (z ⋯ Další) rozsvítí Další
+  const inBar = v === 'dashboard' || navBar.includes(WORLD_VIEWS.includes(v) ? 'world' : v);
+  $$('.mobile-nav .mi').forEach(el => el.classList.toggle('active', el.dataset.view === v || (el.id === 'worldNav' && WORLD_VIEWS.includes(v)) || (el.id === 'moreNav' && !inBar)));
+  navCount(v);
   if (WORLD_VIEWS.includes(v)) { lastWorld = v; $$('.world-tabs [data-w]').forEach(b => { b.classList.toggle('on', b.dataset.w === v); b.setAttribute('aria-pressed', String(b.dataset.w === v)); }); }
   const n = NAV.find(x => x[0] === v); $('#pageTitle').textContent = n[1]; $('#pageSub').textContent = n[2];
   if (!opts.keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -366,6 +405,7 @@ function showNow() {
 const WN_ID = '2026-10-18g';
 const WHATS_NEW = [
   ['👀', 'Zaujalo tě', 'cíle, které sis po hledání Kamkoliv rozbalil, nabídne prázdné pole <b>Kam</b> – jedním klepnutím lety jen tam ve stejném termínu.'],
+  ['🧭', 'Lišta podle tebe', 'dole jsou Přehled a 3 sekce, které otevíráš nejčastěji; zbytek, záloha a vzhled jsou pod <b>Další</b>. Karty radaru mají štítek počasí vždy – do 15 dní předpověď, dál dlouhodobý průměr 🌡️.'],
   ['🗣️', 'Hledání rozumí ještě víc', '„příští pátek“, „pozítří“, „mám 5000“, „do 80 €“, „z Kutné Hory“, „do Nového Zélandu“, „Slunečné pobřeží“ – a kdo hledá hlavně víkendy, tomu radar na Přehledu nabídne <b>Víkendy</b>.'],
   ['🔤', 'Překlep nevadí', '„Barcleona“, „Lodnýn“ nebo „Krakv na 2 dny“ – našeptávač nabídne „Překlep? Asi myslíš:“ se správným místem, v Letech i v Objevuj.'],
   ['🔎', 'Stačí napsat a klepnout na Najít lety', 'našeptávač rozumí i „do Barcelony“, „levně do Paříže“, „z Brna“ nebo „Praha Londýn“; napsaný text tlačítko <b>Najít lety</b> použije, i když nic nevybereš z nabídky.'],
