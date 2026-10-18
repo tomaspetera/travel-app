@@ -51,7 +51,10 @@
     + 'levne levny levnou levna levnej nejlevneji nejlevnejsi hledam hledame najdi najit ukaz jet jedu jedeme pojedu pojedeme cesta cestu cesty dovolena dovolenou dovolene '
     + 'vylet vyletu i pro nas me mi my ja jsem nejak nejaky nejakou nejake termin terminu okolo kolem cca asi prosim potrebuji potrebujem idealne klidne treba zase ten ta '
     + 'to tento tenhle ktery nebo ale jen jenom jeste uz nejlepe mozna nam vam si se nejlevnejsi nejlepsi super hezky hezkou nekde nekam kam odkud kdy kdyz tak taky take '
-    + 'tam zpet zpatky domu letadlo letadla mesto mesta kde neco nejakeho nejakem nejakou je jsou bude budou nez all inclusive allinclusive').split(' '));
+    + 'tam zpet zpatky domu letadlo letadla mesto mesta kde neco nejakeho nejakem nejakou je jsou bude budou nez all inclusive allinclusive '
+    // proč a jak levně („na svatbu do Milána“, „na trhy“, „za babku“) – místo to není
+    + 'svatbu svatba svatbe koncert koncertu festival festivalu zapas zapasu konferenci konference oslavu oslavy narozeniny navstevu trhy trh '
+    + 'nakupy nakupum vylety s batohem batoh rande sluzebne sluzebni pracovne pracovni co par korun babku hubicku bez').split(' '));
   const TO_WORDS = new Set(['do', 'na', 'k', 'ke', 'kam', 'v', 've', 'za', 'u', 'pres', 'po']);
   const FROM_WORDS = new Set(['z', 'ze', 'odkud', 'od']);
   // před „moře“ jméno moře → je to místo (Rudé moře), ne „k moři“
@@ -60,7 +63,9 @@
   function parse(text, o = {}) {
     const today = o.today || ymd(new Date());
     // „Vídeň → Nice“: šipka odděluje odkud a kam (ve zbytku věty jako „>“)
-    const raw = String(text || '').normalize('NFC').slice(0, 200).replace(/\s*(?:→|->|⇒|=>)\s*/gu, ' > ');
+    // „Praha - Londýn“, „Praha–Londýn“: pomlčka mezi slovy (ne mezi daty „3.–7. 6.“, ne „Baden-Baden“) jako ~ (měkká šipka)
+    const raw = String(text || '').normalize('NFC').slice(0, 200).replace(/\s*(?:→|->|⇒|=>)\s*/gu, ' > ')
+      .replace(/(?<=\p{L})(?:\s*[–—]\s*|\s+-\s+)(?=\p{L})/gu, ' ~ ');
     const s = fold(raw);
     const used = new Array(s.length).fill(false);
     const chips = [], patch = {};
@@ -189,6 +194,13 @@
       if (!r) return false;
       dates = r;
     });
+    // vánoční / adventní trhy: advent do 21. 12. (ne svátky – to už trhy končí), délku dá zbytek věty
+    rule(new RegExp(`(?:na\\s+)?(?:vanocni|adventni)\\s+trh\\w*${W}|(?:na\\s+)?advent\\w*${W}`), () => {
+      if (dates) return false;
+      const y = today.slice(5) > '12-21' ? +today.slice(0, 4) + 1 : +today.slice(0, 4);
+      dates = { from: [today, `${y}-11-27`].sort()[1], to: `${y}-12-21`, label: 'vánoční trhy' };
+      month = 11;
+    });
     holRule('vanoc\\w*|vanocni\\s+svatky', 'vanoce', () => { const y = today.slice(5) > '12-27' ? +today.slice(0, 4) + 1 : +today.slice(0, 4); return { from: [today, `${y}-12-19`].sort()[1], to: `${y}-12-24`, label: 'Vánoce' }; });
     holRule('silvestr\\w*|novy\\s+rok|novyho\\s+roku', 'novy rok', () => { const y = +today.slice(0, 4) + (today.slice(5) > '12-31' ? 1 : 0); return { from: [today, `${y}-12-27`].sort()[1], to: `${y}-12-31`, label: 'Silvestr' }; });
     // Velikonoce bez prodlouženého víkendu v seznamu (dál než pár měsíců): odlet čt–pá před Velikonoční nedělí
@@ -221,6 +233,18 @@
     rule(new RegExp(`(?:zitra|zejtra)${W}`), () => { if (dates) return false; dates = { exact: true, out: addDays(today, 1), back: null, label: 'zítra' }; });
     rule(new RegExp(`(?:dnes|dneska)${W}`), () => { if (dates) return false; dates = { exact: true, out: today, back: null, label: 'dnes' }; });
 
+    // „od pátku do neděle“, „čt–ne“: odlet a návrat v ty dny, noci mezi nimi (před „v pátek“ – „do neděle“ není místo)
+    const WG = [['nedele|nedeli|ne', 0, 'neděle'], ['pondeli|po', 1, 'pondělí'], ['utery|ut', 2, 'úterý'], ['stredy|stredu|st', 3, 'středa'], ['ctvrtka|ctvrtek|ct', 4, 'čtvrtek'], ['patku|patek|pa', 5, 'pátek'], ['soboty|sobotu|so', 6, 'sobota']];
+    const wg = w => WG.find(x => x[0].split('|').includes(w));
+    const WGA = WG.map(x => x[0]).join('|');
+    rule(new RegExp(`(?:od\\s+)?(${WGA})\\.?\\s*(?:-|–|—|~|do|az)\\s*(${WGA})\\.?${W}`), m => {
+      const a = wg(m[1]), b = wg(m[2]);
+      // zkratky („pa–ne“) jen s pomlčkou, ne „po do …“
+      if (!a || !b || a === b || ((m[1].length <= 2 || m[2].length <= 2) && !/[-–—~]/.test(m[0]))) return false;
+      const n = (b[1] - a[1] + 7) % 7;
+      len = { n, out: [a[1]], back: [b[1]] };
+      chips.push(['🛫', `${a[2]} → ${b[2]}`]);
+    });
     // „v pátek“: odlet v ten den v týdnu (jako dny odletu ve formuláři)
     const WD = [['nedeli', 0, 'neděli'], ['pondeli', 1, 'pondělí'], ['utery', 2, 'úterý'], ['stredu', 3, 'středu'], ['ctvrtek', 4, 'čtvrtek'], ['patek', 5, 'pátek'], ['sobotu', 6, 'sobotu']];
     rule(new RegExp(`(?:v|ve|o)\\s+(${WD.map(x => x[0]).join('|')})${W}`), m => {
@@ -256,9 +280,10 @@
     rule(new RegExp(`(?:s|se)\\s+(?:detmi|detma|deckama|ditkama)${W}|pro\\s+deti${W}`), () => { withKids = true; });
     rule(new RegExp(`s\\s+(?:pritelkyni|pritelem|partnerem|partnerkou|manzelkou|manzelem|holkou|klukem|zenou|muzem)${W}`), () => { people(2); });
     rule(new RegExp(`(?:primy|prime|primo|primym|primou|bez\\s+prestupu|bez\\s+prestupovani)${W}`), () => { patch.directOnly = true; });
+    // „bez kufru“ před „kufr“ (jinak by „kufru“ znamenalo kufr k odbavení)
+    rule(new RegExp(`(?:jen\\s+(?:s\\s+)?batoh\\w*|bez\\s+(?:velk\\w+\\s+)?kufr\\w*|bez\\s+(?:odbaven\\w+\\s+)?zavazad\\w*|jen\\s+(?:s\\s+)?(?:malym\\s+)?(?:batoh\\w*|taskou|kabelkou))${W}`), () => { patch.bags = 'none'; });
     rule(new RegExp(`(?:s\\s+)?(?:kabinov\\w*|prirucn\\w*)(?:\\s+(?:kufr\\w*|zavazad\\w*))?${W}|(?:s\\s+)?kufrik\\w*${W}`), () => { patch.bags = 'cabin'; });
     rule(new RegExp(`(?:s\\s+)?(?:velk\\w+\\s+)?kufr\\w*(?:\\s+k\\s+odbaveni)?${W}|odbaven\\w*\\s+zavazad\\w*${W}`), () => { patch.bags = patch.bags || 'checked'; });
-    rule(new RegExp(`(?:jen\\s+(?:s\\s+)?batoh\\w*|bez\\s+kufr\\w*|bez\\s+zavazad\\w*)${W}`), () => { patch.bags = 'none'; });
     rule(new RegExp(`(?:jen\\s+tam|jednosmern\\w*|one\\s*way|bez\\s+zpatecni\\w*|bez\\s+navratu)${W}`), () => { patch.trip = 'oneway'; });
     rule(new RegExp(`(?:tam\\s+(?:i|a)\\s+zpet|zpatecni\\w*)${W}`), () => { patch.trip = 'return'; });
 
@@ -275,16 +300,21 @@
 
     // --- zbytek věty: místa (z X = odkud, jinak kam) ---
     const to = [], from = [];
-    let mode = 'to', cur = [], arrows = 0;
+    let mode = 'to', cur = [], arrows = 0, soft = null;
     const flush = () => { if (cur.length) (mode === 'from' ? from : to).push(cur.join(' ')); cur = []; };
-    const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+>]/gu;
+    const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+>~]/gu;
     let m;
     while ((m = re.exec(s))) {
       const at = m.index, w = m[0], orig = raw.slice(at, at + w.length);
       if (used.slice(at, at + w.length).some(Boolean)) { flush(); continue; }
       // šipka: co bylo před ní (místo právě psané, jinak poslední „kam“), je odkud; za ní kam
       // (další šipka: „Praha → Řím → Barcelona“ – další místa jsou cíle, odkud je jen první)
-      if (w === '>') { arrows++; if (cur.length) { (from.length ? to : from).push(cur.join(' ')); cur = []; } else if (to.length && !from.length) from.push(to.pop()); mode = 'to'; continue; }
+      if (w === '>' || w === '~') {
+        const n = from.length;
+        arrows++; if (cur.length) { (from.length ? to : from).push(cur.join(' ')); cur = []; } else if (to.length && !from.length) from.push(to.pop()); mode = 'to';
+        if (w === '~' && from.length > n) soft = from[from.length - 1];
+        continue;
+      }
       if (/^[,/;&+]$/.test(w) || w === 'a' || w === 'nebo' || w === 'ci') { flush(); continue; }
       if (FROM_WORDS.has(w)) { flush(); mode = 'from'; continue; }
       if (TO_WORDS.has(w)) { flush(); mode = 'to'; continue; }
@@ -292,6 +322,8 @@
       cur.push(orig);
     }
     flush();
+    // pomlčka bez místa za ní („Řím – víkend“) nebyla odkud → kam: místo před ní je cíl
+    if (soft && !to.length && !kind && from.length === 1) { to.push(from.pop()); arrows--; }
 
     if (kids) patch.adults = Math.min(9, (patch.adults || 2) + kids);
     // --- délka → noci a dny odletu ---
@@ -299,7 +331,7 @@
     if (typeof len === 'string') {
       patch.len = len;
       if (P[len]) Object.assign(patch, { nMin: P[len].nMin, nMax: P[len].nMax, outDays: P[len].out.slice(), backDays: P[len].back.slice() });
-    } else if (len && len.n) Object.assign(patch, { len: 'custom', nMin: len.n, nMax: len.n, outDays: [], backDays: [] });
+    } else if (len && len.n) Object.assign(patch, { len: 'custom', nMin: len.n, nMax: len.n, outDays: len.out || [], backDays: len.back || [] });
 
     // --- termín → pole formuláře ---
     if (dates && dates.holiday) {

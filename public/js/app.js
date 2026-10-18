@@ -367,7 +367,7 @@ const WN_ID = '2026-10-18e';
 const WHATS_NEW = [
   ['🧳', 'Víc měst jednou větou', 'napiš „Praha → Řím → Barcelona → Praha 10. 11. – 17. 11.“ – nastavím lety mezi městy, termíny rozdělím a hledám.'],
   ['🔁', 'Hlídání podle toho, co hledáš', 'když stejnou cestu hledáš znovu, nabídnu nad výsledky <b>♡ Hlídat cenu</b> – na Přehledu pak uvidíš, kdy zlevní.'],
-  ['🗣️', 'Hledání rozumí víc', 'dny slovy („20. listopadu“, „koncem listopadu“), den odletu („v pátek“), svátky („o Velikonocích“, „jarní prázdniny“, „na Valentýna“), šipku („Vídeň → Nice“), místní názvy („Roma“, „Wien“, „Lisboa“) a oblasti jako Toskánsko, Apulie, Dalmácie nebo Laponsko – v Letech i v Objevuj.'],
+  ['🗣️', 'Hledání rozumí víc', 'dny slovy („20. listopadu“, „koncem listopadu“), den odletu („v pátek“, „od pátku do neděle“), svátky („o Velikonocích“, „jarní prázdniny“, „na Valentýna“, „vánoční trhy“), šipku i pomlčku („Vídeň → Nice“, „Praha - Londýn“, i jen „Praha Londýn“), „bez kufru“, místní názvy („Roma“, „Wien“, „Lisboa“) a oblasti jako Toskánsko, Apulie, Dalmácie nebo Laponsko – v Letech i v Objevuj.'],
   ['📏', 'Kratší obrazovky', 'shrnutí cesty má <b>Uložit</b> a <b>Sdílet</b> hned pod „Co zarezervovat“, celý průběh a podrobnosti se rozbalí na klepnutí; Objevuj ukáže nejdřív 8 míst.'],
   ['📅', 'Plánovač a cesty přes víc měst', 'lety po řádcích, <b>Hledat lety</b> znovu najde stejnou trasu a <b>Ubytování</b> nabídne každé místo s jeho termínem.'],
   ['✨', 'Vyber za mě', 'v Cestě přes víc míst vybere v kroku Ubytování jedním klepnutím hotel s nejlepším poměrem ceny a hodnocení v každém místě – změnit ho můžeš kdykoliv.'],
