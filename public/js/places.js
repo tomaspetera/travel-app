@@ -896,7 +896,8 @@
     // sugFor = text, ke kterému návrhy patří (starý seznam se po dalším písmenu nesmí vybrat)
     let ctl = null, sugs = [], act = 0, sugFor = '', err = false, t = null;
     // ✨ věta („Lisabon na 3 dny“, „výlety z Brna“): jen řádek s tím, jak jí rozumím – návrhy pro celou větu by mátly
-    const smartOf = text => { const px = window.Smart && Smart.parseExplore(text, { today: fmtYMD(new Date()) }); return px && px.chips.length && (px.place || ex.place) ? px : null; };
+    // věta s volbami („Lisabon na 3 dny“), nebo jen otázka kolem místa („co vidět v Římě“ → Řím)
+    const smartOf = text => { const px = window.Smart && Smart.parseExplore(text, { today: fmtYMD(new Date()) }); return px && (px.chips.length || (px.place && Smart.fold(px.place) !== Smart.fold(text))) && (px.place || ex.place) ? px : null; };
     const show = () => {
       const px = smartOf(q.value.trim());
       dd.innerHTML = px ? `<div class="pi-opt pi-smart on" data-smart="1"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc([px.place ? `📍 ${px.place}` : `📍 ${ex.place.label}`, ...px.chips].join(' · '))}</b><small>klepni nebo Enter – najdu místo a naplánuju</small></span><span class="pi-type">plánovat</span></div>`
