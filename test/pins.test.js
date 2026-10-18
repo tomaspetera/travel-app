@@ -309,7 +309,7 @@ test('shareText: čísla podle ceny, celkem pro 2 os., lety, jen tam, ⚠ po 24 
   assert.ok(!txt.includes('javascript:'));
   assert.ok(!txt.includes('x'.repeat(300)));
   assert.match(txt, /https:\/\/www\.google\.com\/travel\/flights\?hl=cs&curr=CZK&q=Flights%20from%20BRQ%20to%20NAP%20on%202026-11-13%20one%20way/);
-  assert.match(txt, /q=Flights%20from%20BRQ%20to%20NAP%20on%202026-11-13%20returning%202026-11-15/);
+  assert.match(txt, /q=Flights%20to%20NAP%20from%20BRQ%20on%202026-11-13%20through%202026-11-15/);
   // jedna osoba: bez „celkem“; dva odkazy tam a zpět
   const solo = row(trip({ out: { ...OUT, bookUrl: 'https://wizzair.com/a' }, back: { ...BACK, bookUrl: 'https://wizzair.com/b' } }), res(trip(), { query: { ...Q, adults: 1 } }));
   const s = P.shareText([solo], { now: NOW });

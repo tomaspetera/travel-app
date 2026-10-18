@@ -1772,7 +1772,7 @@
       const i = asNew ? -1 : findTripFor(S.trips, entry);
       let t = S.trips[i];
       if (t) mergeInto(t, entry);
-      else S.trips.push(t = { ...entry, explore: { [entry.src]: entry.days }, exploreNotes: { [entry.src]: entry.notes }, genName: entry.name, pax: '2', budget: '', checklist: PACK.map(x => ({ t: x, done: false })) });
+      else S.trips.push(t = { ...entry, explore: { [entry.src]: entry.days }, exploreNotes: { [entry.src]: entry.notes }, genName: entry.name, pax: '2', budget: '', checklist: packFor(entry.src).map(x => ({ t: x, done: false })) });
       save();
       $$('#exSave, #exSaveNew', body).forEach(b => { b.disabled = true; });
       const sv = $('#exSave', body);

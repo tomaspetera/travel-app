@@ -214,7 +214,7 @@
   const flagOf = cc => (/^[A-Z]{2}$/.test(cc || '') ? String.fromCodePoint(...[...cc].map(c => 0x1F1E6 + c.charCodeAt(0) - 65)) : '');
   const legTxt = l => [l.hasTime && l.dep ? String(l.dep).slice(11, 16) : '', `${l.from} → ${l.to}`, l.stops ? `${l.stops}× přestup` : l.provider === 'travelpayouts' ? '' : 'přímý'].filter(Boolean).join(' ');
   const who = t => [...new Set([t.out, t.back].filter(Boolean).map(l => l.carrierName || l.carrier || ''))].filter(Boolean).join(' + ');
-  const gq = (a, b, d1, d2) => `https://www.google.com/travel/flights?hl=cs&curr=CZK&q=${encodeURIComponent(`Flights from ${a} to ${b} on ${d1}${d2 ? ' returning ' + d2 : ' one way'}`)}`;
+  const gq = (a, b, d1, d2) => `https://www.google.com/travel/flights?hl=cs&curr=CZK&q=${encodeURIComponent(d2 ? `Flights to ${b} from ${a} on ${d1} through ${d2}` : `Flights from ${a} to ${b} on ${d1} one way`)}`;
   // Google Flights jako ve verifyLinks: zpět na jiné letiště dvěma odkazy
   const gLink = (a, b, d1, bf, bt, d2) => (!d2 || (bf === b && bt === a) ? gq(a, b, d1, d2) : `tam: ${gq(a, b, d1)} zpět: ${gq(bf, bt, d2)}`);
   const linkOk = u => typeof u === 'string' && /^https?:\/\//i.test(u) && u.length <= 300;

@@ -99,7 +99,7 @@ async function api(method, path, body, retried = false) {
 }
 
 export function bookingUrl({ from, to, dateOut, dateIn = null, adults = 1 }) {
-  return `https://wizzair.com/cs-cz/booking/select-flight/${from}/${to}/${dateOut}/${dateIn || 'null'}/${adults}/0/0/null`;
+  return `https://www.wizzair.com/cs-cz/booking/select-flight/${from}/${to}/${dateOut}/${dateIn || 'null'}/${adults}/0/0/null`;
 }
 
 export function parseNetwork(json) {

@@ -186,8 +186,8 @@ test('Wizz Air: timetable – obě podoby departureDates, vyprodané/neceněné 
   assert.equal(legs[0].durationMin, null);
   assert.ok(legs[0].estMin > 120 && legs[0].estMin < 180, `VIE→BCN ~2 h 20 min, ne ${legs[0].estMin}`);
   assert.equal(legs[0].layovers, undefined);
-  assert.equal(legs[0].bookUrl, 'https://wizzair.com/cs-cz/booking/select-flight/VIE/BCN/2026-11-03/null/2/0/0/null');
-  assert.equal(w6Url({ from: 'BUD', to: 'LTN', dateOut: '2026-11-03', dateIn: '2026-11-07' }), 'https://wizzair.com/cs-cz/booking/select-flight/BUD/LTN/2026-11-03/2026-11-07/1/0/0/null');
+  assert.equal(legs[0].bookUrl, 'https://www.wizzair.com/cs-cz/booking/select-flight/VIE/BCN/2026-11-03/null/2/0/0/null');
+  assert.equal(w6Url({ from: 'BUD', to: 'LTN', dateOut: '2026-11-03', dateIn: '2026-11-07' }), 'https://www.wizzair.com/cs-cz/booking/select-flight/BUD/LTN/2026-11-03/2026-11-07/1/0/0/null');
 });
 
 test('Wizz Air: session, verze a POST timetableV2 s tokenem', async () => {

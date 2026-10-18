@@ -154,8 +154,10 @@
     });
     rule(new RegExp(`(?:na\\s+)?vikend\\w*${W}`), () => { len = len || 'weekend'; });
     rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:noc|noci|nocich)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 30)) return false; len = { n }; });
-    rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:den|dny|dni|dnu)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 31)) return false; len = n === 14 ? '2weeks' : { n: Math.max(1, n - 1) }; });
-    rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*tydn[uy]?${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 4)) return false; len = n === 1 ? 'week' : n === 2 ? '2weeks' : { n: n * 7 }; });
+    // „na 10 dní“, „na 3 týdny“ je přibližná délka (jako „na 2 týdny“): od 5 nocí pár nocí na obě strany, kratší přesně
+    const about = k => { const d = k <= 4 ? 0 : k <= 6 ? 1 : k <= 10 ? 2 : 3; return { n: k, lo: Math.max(1, k - d), hi: Math.min(30, k + d) }; };
+    rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:den|dny|dni|dnu)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 31)) return false; len = n === 14 ? '2weeks' : about(Math.max(1, n - 1)); });
+    rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*tydn[uy]?${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 4)) return false; len = n === 1 ? 'week' : n === 2 ? '2weeks' : about(n * 7); });
     rule(new RegExp(`(?:na\\s+)?(?:cely\\s+)?tyden${W}`), () => { len = len || 'week'; });
     rule(new RegExp(`(?:na\\s+)?par\\s+dni${W}|kratk[yeou]+\\s+(?:vylet|vyletu|pobyt)${W}`), () => { len = len || 'long'; });
 
@@ -391,7 +393,7 @@
       patch.len = len;
       // den odletu z věty („v pátek na týden“, „od soboty na týden“) přednost před dny délky
       if (P[len]) Object.assign(patch, { nMin: P[len].nMin, nMax: P[len].nMax, outDays: patch.outDays && patch.outDays.length ? patch.outDays : P[len].out.slice(), backDays: P[len].back.slice() });
-    } else if (len && len.n) Object.assign(patch, { len: 'custom', nMin: len.n, nMax: len.n, outDays: len.out || patch.outDays || [], backDays: len.back || [] });
+    } else if (len && len.n) Object.assign(patch, { len: 'custom', nMin: len.lo || len.n, nMax: len.hi || len.n, outDays: len.out || patch.outDays || [], backDays: len.back || [] });
 
     // --- termín → pole formuláře ---
     // svátek a k němu delší pobyt („na Silvestra na týden“): odlet v okolí svátku s tou délkou, ne prodloužený víkend
@@ -414,7 +416,7 @@
       Object.assign(patch, { dateMode: 'flex', dFrom: dates.from, dTo: dates.to < dates.from ? dates.from : dates.to });
       chips.push(['📅', dates.label]);
     }
-    if (patch.len && !(dates && dates.exact) && patch.len !== 'holiday') chips.push(['🌙', patch.len === 'custom' ? `${patch.nMin} ${patch.nMin === 1 ? 'noc' : patch.nMin < 5 ? 'noci' : 'nocí'}` : { weekend: 'víkend', long: 'prodl. víkend', week: 'týden', '2weeks': '2 týdny' }[patch.len]]);
+    if (patch.len && !(dates && dates.exact) && patch.len !== 'holiday') chips.push(['🌙', patch.len === 'custom' ? (patch.nMax > patch.nMin ? `${patch.nMin}–${patch.nMax} nocí` : `${patch.nMin} ${patch.nMin === 1 ? 'noc' : patch.nMin < 5 ? 'noci' : 'nocí'}`) : { weekend: 'víkend', long: 'prodl. víkend', week: 'týden', '2weeks': '2 týdny' }[patch.len]]);
     if (patch.len && patch.len !== 'holiday' && patch.dateMode !== 'exact') patch.dateMode = 'flex';
 
     // --- kam podle druhu ---
@@ -433,7 +435,7 @@
     if (patch.trip === 'oneway') chips.push(['➡️', 'jen tam']);
     // „Praha → Řím → Barcelona → Praha“: dvě a víc šipek = cesta přes víc měst (odkud, pak místa v pořadí)
     const chain = arrows >= 2 && from.length === 1 && to.length >= 2 && !kind;
-    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(chain ? { chain: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
+    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(chain ? { chain: true } : {}), ...(withKids && !kids && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
   }
 
   /** Zkracování koncovek pro našeptávač („do Říma“ → Řím, „z Vídně“ → Víd): celé slovo, bez 1 a bez 2 znaků. */

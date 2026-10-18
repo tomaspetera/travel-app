@@ -23,6 +23,8 @@
   let stayView = { sort: 'value', minRating: 0, maxNight: null, type: '' };
   let staysData = null;
   let carsData = null;
+  // odkaz na srovnávač jen z nabídek pro tatáž letiště a časy (nabídky se načítají asynchronně – mohou být ke starým)
+  const carLinkFor = q => { const j = carsData && carsData.query; return q && j && j.pickup === q.pickup && j.dropoff === (q.dropoff || q.pickup) && j.from === q.from && j.to === q.to ? carsData.links[0]?.url || null : null; };
   const staysCache = new Map(); // nabídky ubytování podle dotazu (místo|termín|osoby) – přepínání míst trasy
   let staysRetry = null; // klíč dotazu, který se má po „Zkusit znovu“ přepočítat (retry=1 – server přeskočí neúplný výsledek)
   // ↻ Aktualizovat ceny (fresh=1 – server zjistí ceny hotelů znovu): { key, run: true } během dotazu, { key, fail: chyba }
@@ -580,7 +582,7 @@
         <span class="th-flag">${flag(t.dest.cc)}</span>
         <button type="button" class="th-reset" id="tripRestart" title="Zahodit tuhle cestu a začít znovu výběrem letu" aria-label="Začít znovu">↺<span class="th-rl"> Začít znovu</span></button>
         <div class="th-total" id="thTotal">${headTotal(t)}</div>
-        <div class="th-dest"><h2>${esc(t.dest.label)}</h2><div class="th-sub" id="thSub">${headSub(t)}</div></div>
+        <div class="th-dest"><h2>${esc(tripName(t))}</h2><div class="th-sub" id="thSub">${headSub(t)}</div></div>
       </div>
       <div class="stepbar">${STEPS.map((s, i) => `${i ? `<i${i <= idx ? ' class="done"' : ''}></i>` : ''}<button type="button" class="st ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${i < idx ? '✓' : s[1]}</span>${s[2]}</button>`).join('')}</div>
       <div id="tripStep"></div>`;
@@ -717,7 +719,7 @@
     const fly = isFly(t), legs = allLegs(t);
     host.innerHTML = `<div class="card step-card tf-card"><h3>✈️ ${fly ? `Vybrané lety (${legs.length})` : 'Vybraný let'}</h3>
       <div class="tl-legs">${fly ? legs.map((l, i) => legLine(l, false, `${i + 1}. let`)).join('') : `${legLine(t.flight.out)}${t.flight.back ? legLine(t.flight.back, true) : ''}`}</div>
-      ${fly ? `<div class="faint" style="font-size:12.5px;margin-top:6px">🎫 Každý let je samostatná letenka – při zpoždění jednoho letu další aerolinka nečeká. Mezi lety budeš v ${esc(t.route.bases.map(b => b.name).join(', '))}.</div>` : ''}
+      ${fly ? `<div class="faint" style="font-size:12.5px;margin-top:6px">🎫 Každý let je samostatná letenka – při zpoždění jednoho letu další aerolinka nečeká. Mezi lety: ${esc(t.route.bases.map(b => b.name).join(' → '))}.</div>` : ''}
       <div class="tf-costs">${costRows.map(r => `<div><span>${r[0]}${r[2] ? `<small>${r[2]}</small>` : ''}</span><b>${r[1]}</b></div>`).join('')}<div class="tf-pp">ceny na osobu</div></div>
       ${priceAgeHtml(t, 'tfAge')}
       ${t.arrival && t.arrival.out ? `<div class="faint" style="font-size:12.5px;margin-top:4px">${ARR_ICO[t.arrival.out.mode] || '🚌'} ${esc(arrivalRow(t.arrival.out))}${t.arrival.back && t.arrival.back.iata !== t.arrival.out.iata ? `<br>${ARR_ICO[t.arrival.back.mode] || '🚌'} ${esc(arrivalRow(t.arrival.back, true))}` : ''}</div>` : ''}
@@ -1884,8 +1886,7 @@
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${(byTrain || isFly(t)) && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${byCar ? '<button class="btn ghost" id="carTransit" title="Přejezdy mezi místy trasy se přepočítají na vlak a autobus (jízdenky místo paliva)">Bez auta – mezi místy vlakem a busem →</button>' : ''}${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
     </div>`;
     const read = () => ({ pickup: $('#carPu').value.trim().toUpperCase(), dropoff: $('#carDo').value.trim().toUpperCase(), from: $('#carFrom').value, to: $('#carTo').value, age: +$('#carAge').value || 30 });
-    // odkaz na srovnávač jen z nabídek pro tatáž letiště a časy (nabídky se načítají asynchronně – mohou být ke starým)
-    const linkFor = q => { const j = carsData && carsData.query; return j && j.pickup === q.pickup && j.dropoff === (q.dropoff || q.pickup) && j.from === q.from && j.to === q.to ? carsData.links[0]?.url || null : null; };
+    const linkFor = carLinkFor;
     const load = async () => {
       const q = read();
       if (q.from && q.to) $('#carDays').innerHTML = daysLine(q);
@@ -2126,6 +2127,10 @@
     const rows = [], lb = leaveBy(t);
     // z ubytování na letiště: před cestou na letiště (večer předchozího dne až po programu)
     const hotelRow = x => x && rows.push([x.date + (x.date < f.back.date ? '~' : ''), '🚪', `${x.noStay ? 'Z města' : 'Z ubytování'} na letiště ${esc(x.airport)} vyraž nejpozději ${lbTime(x)} <span class="faint">(~${minutesToHm(x.min)} cesta + ${lbBefore(x)} před odletem, odhad)</span>${x.hint ? ' · ' + esc(x.hint) : ''}`]);
+    // cesta na letiště v den, kdy se z ubytování vyráží (odlet po půlnoci → už předchozí večer, po řádku 🚪), v noci
+    // (vyrážíš před 5:00 nebo po 23:00) MHD a letištní vlaky obvykle nejezdí
+    const legDay = (x, l) => (x && x.date < l.date ? x.date + '~' : l.date);
+    const nightTxt = x => (x && (x.hm < '05:00' || x.hm >= '23:00') ? ' · v noci spíš taxi' : '');
     const gRow = (g, a, b) => `${esc(a)} → ${esc(b)} · ${esc(gTime(g))} · ${esc(gKind(g))}${g.fromStation ? ` · ${esc(g.fromStation)} → ${esc(g.toStation)}` : ''} (${esc(gWho(g))})`;
     // let bez času (cena z mezipaměti): ne vymyšlená půlnoc, ale „čas ověř“ jako u cesty z plánovače
     const fRow = l => (l.hasTime ? `${esc(l.from)} ${hhmm(l.dep)} → ${esc(l.to)} ${arrHm(l)} · ${legWho(l)}` : `${esc(l.from)} → ${esc(l.to)} · ${[legWho(l), 'čas ověř'].filter(Boolean).join(' · ')}`);
@@ -2160,15 +2165,15 @@
           const am = (t.arrival && Array.isArray(t.arrival.mid) && t.arrival.mid[i]) || {}, lx = lb.mids && lb.mids[i];
           if (lx) rows.push([lx.date + (lx.date < mid[i].date ? '~' : ''), '🚪', `Z ubytování na letiště ${esc(lx.airport)} vyraž nejpozději ${lbTime(lx)} <span class="faint">(~${minutesToHm(lx.min)} cesta + ${lbBefore(lx)} před odletem, odhad)</span>${lx.hint ? ' · ' + esc(lx.hint) : ''}`]);
           const gx = gapLeg(t, gapAt(t, i));
-          if (gx) rows.push([mid[i].date, trIcon('transit', gx), `${esc(b.name)} → letiště ${esc(mid[i].from)} · ${legTxt(gx, 'transit')} (${estTxt(gx, 'transit')})${legLink(gx, 'transit') ? ` · ${legLink(gx, 'transit')}` : ''}`]);
-          else if (am.from) rows.push([mid[i].date, ARR_ICO[am.from.mode] || '🚌', esc(arrivalRow(am.from, true))]);
+          if (gx) rows.push([legDay(lx, mid[i]), trIcon('transit', gx), `${esc(b.name)} → letiště ${esc(mid[i].from)} · ${legTxt(gx, 'transit')} (${estTxt(gx, 'transit')})${nightTxt(lx)}${legLink(gx, 'transit') ? ` · ${legLink(gx, 'transit')}` : ''}`]);
+          else if (am.from) rows.push([legDay(lx, mid[i]), ARR_ICO[am.from.mode] || '🚌', esc(arrivalRow(am.from, true) + nightTxt(lx))]);
           rows.push([mid[i].date, '✈️', `${fRow(mid[i])} · ${esc(b.name)} → ${esc(r.bases[i + 1].name)}`]);
           if (am.to) rows.push([arrivalAt(mid[i]).slice(0, 10), ARR_ICO[am.to.mode] || '🚌', esc(arrivalRow(am.to))]);
         } else if (i < r.bases.length - 1) rows.push([dates[i].checkout, trIcon(tr, x), `Přejezd ${esc(b.name)} → ${esc(r.bases[i + 1].name)}${x ? ` · ${legTxt(x, tr)} (${estTxt(x, tr)})${esc(borderTxt(x))}${legLink(x, tr) ? ` · ${legLink(x, tr)}` : ''}` : ''}`]);
       });
       ownRows(rows, o.own);
       hotelRow(lb.hotel);
-      if (!ov && f.back && legs.departure && legs.departure.km >= 1) rows.push([f.back.date, trIcon(tr, legs.departure), `${esc(r.bases.at(-1).name)} → letiště ${esc(f.back.from)} · ${legTxt(legs.departure, tr)} (${estTxt(legs.departure, tr)})${esc(borderTxt(legs.departure))}${esc(arrivalFareTxt(t, 'back', r.bases.at(-1), tr))}`]);
+      if (!ov && f.back && legs.departure && legs.departure.km >= 1) rows.push([legDay(lb.hotel, f.back), trIcon(tr, legs.departure), `${esc(r.bases.at(-1).name)} → letiště ${esc(f.back.from)} · ${legTxt(legs.departure, tr)} (${estTxt(legs.departure, tr)})${tr === 'transit' ? nightTxt(lb.hotel) : ''}${esc(borderTxt(legs.departure))}${esc(arrivalFareTxt(t, 'back', r.bases.at(-1), tr))}`]);
       if (ovl && ovl.departure && ovl.departure.km >= 1) rows.push([ov.back.date, trIcon(tr, ovl.departure), `${esc(r.bases.at(-1).name)} → ${esc(ov.to.label)} · ${legTxt(ovl.departure, tr)} (${estTxt(ovl.departure, tr)})${esc(borderTxt(ovl.departure))}`]);
     } else {
       if (t.stay && t.stay.mode !== 'skip') rows.push([checkin, '🏨', `Ubytování: ${esc(t.stay.name || '')}`]);
@@ -2180,8 +2185,8 @@
     if (!multi) hotelRow(lb.hotel);
     const ab = !ov && (!multi || fly) && f.back && t.arrival && t.arrival.back;
     const lg = fly ? gapLeg(t, gapAt(t, r.bases.length - 1)) : null;
-    if (lg) rows.push([f.back.date, trIcon('transit', lg), `${esc(r.bases.at(-1).name)} → letiště ${esc(f.back.from)} · ${legTxt(lg, 'transit')} (${estTxt(lg, 'transit')})${legLink(lg, 'transit') ? ` · ${legLink(lg, 'transit')}` : ''}`]);
-    else if (ab && !carCovers(t, 'back')) rows.push([f.back.date, ARR_ICO[ab.mode] || '🚌', esc(arrivalRow(ab, true))]);
+    if (lg) rows.push([legDay(lb.hotel, f.back), trIcon('transit', lg), `${esc(r.bases.at(-1).name)} → letiště ${esc(f.back.from)} · ${legTxt(lg, 'transit')} (${estTxt(lg, 'transit')})${nightTxt(lb.hotel)}${legLink(lg, 'transit') ? ` · ${legLink(lg, 'transit')}` : ''}`]);
+    else if (ab && !carCovers(t, 'back')) rows.push([legDay(lb.hotel, f.back), ARR_ICO[ab.mode] || '🚌', esc(arrivalRow(ab, true) + nightTxt(lb.hotel))]);
     if (ov) { if (ov.back) rows.push([ov.back.date, gIco(ov.back), gRow(ov.back, ov.to.label, ov.from.label)]); }
     else if (f.back) rows.push([f.back.date, '🛬', fRow(f.back)]);
     // Stabilní řazení podle data; „~“ za datem = až po ostatních položkách dne.
@@ -2283,7 +2288,7 @@
         url: (b.stay && b.stay.mode === 'pick' && b.stay.url) || baseSearchUrl(t, b, dates[i]),
       }) : [t.stay && t.stay.mode !== 'skip' ? { id: 'stay', label: `Ubytování${t.stay.name ? ': ' + t.stay.name : ''}${tripHint(t.stay.url)}`, url: t.stay.url || (staysData && staysData.key === stayKeyOf(t) && staysData.links[0]?.url) || stayFallbackUrl(t) } : null]),
       // odkaz na půjčovnu uložený s cenou auta (po znovuotevření aplikace nebo ve sdílené cestě už načtené nabídky nejsou)
-      t.car && t.car.mode !== 'skip' ? { id: 'car', label: 'Auto', url: t.car.url || (carsData && carsData.links[0]?.url) } : null,
+      t.car && t.car.mode !== 'skip' ? { id: 'car', label: 'Auto', url: t.car.url || carLinkFor(t.car) } : null,
     ].filter(Boolean);
     const tl = timeline(t);
     host.innerHTML = `<div class="sum-grid">
