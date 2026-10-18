@@ -4411,6 +4411,23 @@
     startSearch();
   }
 
+  /**
+   * „Hledat lety“ u cesty přes víc měst v plánovači: stejná trasa znovu – Víc měst, letiště z letenek, data letů;
+   * names = místa trasy (přílet i-tého letu = i-té místo) pro popisky v poli. Lety už proběhly → jen Lety.
+   */
+  function searchLegs(legs, names = []) {
+    go('flights');
+    const ok = legs.length >= 2 && legs.every(l => l && /^[A-Z]{3}$/.test(l.from) && /^[A-Z]{3}$/.test(l.to) && /^\d{4}-\d{2}-\d{2}$/.test(l.date));
+    if (!ok || legs[0].date < today()) { toast('Lety téhle cesty už proběhly – vyhledej nové', 'err'); return false; }
+    // letiště domova / minulého hledání se svým názvem („Praha“), jinak místo trasy („Řím (FCO)“) nebo kód
+    const known = [...(S.home?.from || []), ...(S.form?.from || [])];
+    const ap = (c, n) => { const k = known.find(x => x && x.id === 'ap:' + c); return [k ? { ...k } : { id: 'ap:' + c, label: n ? `${n} (${c})` : c, flag: '', type: 'airport' }]; };
+    const ls = legs.map((l, i) => ({ from: ap(l.from, i ? names[i - 1] : ''), to: ap(l.to, names[i] || ''), date: l.date, flex: 0 }));
+    setForm({ ...defaultForm(), ...prefsOf(S.form), from: ls[0].from, to: [], trip: 'multi', legs: ls });
+    startSearch();
+    return true;
+  }
+
   function renderSources() {
     const box = $('#srcBox'); if (!box || !health) return;
     // hotely: stačí jeden zapnutý zdroj (LiteAPI s ostrým klíčem, jinak TripAdvisor přes Xotelo)
@@ -4585,7 +4602,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, renderPins, refreshPins: pinsPaint, searchTo, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, renderPins, refreshPins: pinsPaint, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

@@ -793,6 +793,8 @@ function resolveCountry(text) { const t = norm(text); if (!t) return null; let c
 // Doprava uložená z průvodce cestou: let (✈️), nebo vlak/bus (text začíná 🚆).
 const planIco = f => /^🚆/u.test(String(f || '')) ? '🚆' : '✈️';
 const planTransport = f => /^🚆/u.test(String(f || '')) ? String(f) : '✈️ ' + f;
+// Lety v detailu plánu: cesta přes víc měst („1. PRG→FCO 11.11. 16:35 (…), 2. …“) po řádcích, ať se dá přečíst
+const planFlightHtml = f => String(f || '').replace(/^🚆\s*/u, '').split(/, (?=\d+\. )| · (?=samostatné letenky$)/u).map(esc).join('<br>');
 // 💾 Přenos a záloha (backup.js) nad plánovačem
 const bkTools = () => (window.Backup ? Backup.plannerTools() : '');
 const bkWire = () => { const b = $('#bkOpen'); if (b) b.onclick = () => Backup.open(); };
@@ -888,6 +890,11 @@ async function saveTrip(iso, flightTxt) {
 /** „Hledat lety“ u cesty v plánovači: do jejího města (nebo země) v termínu cesty, je-li ještě před ní. */
 window.planSearch = i => {
   const t = S.trips[i]; if (!t || !window.Flights) return go('flights');
+  // cesta přes víc měst letadlem (z průvodce): stejná trasa znovu, ne zpáteční let do prvního města
+  const wf = t.wizard && t.wizard.flight;
+  if (wf && wf.out && Array.isArray(wf.mid) && wf.mid.length && Flights.searchLegs) {
+    return Flights.searchLegs([wf.out, ...wf.mid, ...(wf.back ? [wf.back] : [])], ((t.wizard.route && t.wizard.route.bases) || []).map(b => b.name));
+  }
   const wd = t.wizard && t.wizard.dest, p = t.place || (wd && { id: wd.id, label: wd.label, flag: wd.cc ? flag(wd.cc) : '' });
   const to = p && /^(ap|metro):[A-Z]{3}$/.test(p.id || '') ? [{ id: p.id, label: String(p.label || ''), flag: p.flag || (t.iso ? flag(t.iso) : '') }]
     : t.iso && byIso[t.iso] ? [{ id: 'cc:' + t.iso, label: byIso[t.iso].cs, flag: flag(t.iso) }] : null;
@@ -912,7 +919,7 @@ function openTrip(i) {
   const days = dateRange(t.start, t.end);
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? ' – ' + fmtDate(t.end) : '') : ''} · ${t.pax} os.</div></div></div>
   <div class="modal-body">
-    ${t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${esc(t.flight.replace(/^🚆\s*/u, ''))}</div></div>` : ''}
+    ${t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${planFlightHtml(t.flight)}</div></div>` : ''}
     <div class="row wrap"><button class="btn primary" onclick="modalClose();planSearch(${i})">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>${t.wizard && window.Trip ? '<button class="btn" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
     ${tripEntryHtml(t)}${visitedPrompt(t)}
     <div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>
@@ -1003,7 +1010,7 @@ function previewPlan(p) {
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(p.iso) : '🧳'}</div><h2 style="font-size:24px;margin-top:4px;overflow-wrap:anywhere">${esc(p.name)}</h2><div style="opacity:.85;font-size:13px">Sdílený plán · ${esc(p.dest)}${p.start ? ' · ' + fmtDate(p.start) + (p.end && p.end !== p.start ? ' – ' + fmtDate(p.end) : '') : ''} · ${esc(p.pax)} os.</div></div></div>
   <div class="modal-body">
     <p class="muted" style="font-size:14px;margin-bottom:12px">Někdo ti poslal plán cesty. Zkontroluj ho a přidej si ho do plánovače – uloží se jen u tebe.</p>
-    ${p.flight ? `<div class="note info" style="margin-bottom:12px">${planIco(p.flight)} <div>${esc(p.flight.replace(/^🚆\s*/u, ''))}</div></div>` : ''}
+    ${p.flight ? `<div class="note info" style="margin-bottom:12px">${planIco(p.flight)} <div>${planFlightHtml(p.flight)}</div></div>` : ''}
     ${days.slice(0, 6).map(d => `<div class="act"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${fmtDate(d)}</b> ${esc(p.days[d].join(' · '))}</span></div>`).join('')}
     <div class="faint" style="font-size:12.5px;margin-top:8px">${acts} ${acts === 1 ? 'aktivita' : acts >= 2 && acts <= 4 ? 'aktivity' : 'aktivit'}${days.length > 6 ? ` · ${days.length} dní s programem` : ''}${+p.budget ? ' · rozpočet ' + czk(+p.budget) : ''}${p.notes ? ' · s poznámkami' : ''}</div>
     <div class="row wrap" style="gap:8px;margin-top:16px"><button class="btn primary" id="planImport">Přidat do plánovače</button><button class="btn ghost" id="planSkip">Nepřidávat</button></div>
