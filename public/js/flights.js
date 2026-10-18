@@ -1145,7 +1145,7 @@
     const f = h ? h.from : fromInput ? fromInput.items : [];
     const r = h ? (h.radius ?? 200) : $('#radius') ? +$('#radius').value : 200;
     const chip = $('#homeChip');
-    chip.innerHTML = f.length ? `📍 ${esc(f.map(x => x.label).join(', '))} <span>+${r} km</span>` : '📍 Nastav, odkud létáš';
+    chip.innerHTML = f.length ? `📍 ${esc(f.map(x => x.label).join(', '))} <span>+${r} km</span>` : '📍 Odkud létáš?';
     // domov radaru se mění v radaru na Přehledu (hledání odjinud ho nemění)
     chip.onclick = () => { go('dashboard'); setTimeout(() => { radarSetup(Boolean(h)); $('#radar').scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60); };
   }

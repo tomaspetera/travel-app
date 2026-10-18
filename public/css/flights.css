@@ -661,8 +661,10 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
   .res-tools{width:100%}
   .res-tools select{flex:1 1 100%}
   .home-chip span{display:none} /* na telefonu jen „📍 Brno“ – okruh by se stejně uřízl */
-  .home-chip{flex:none;padding:9px 11px} /* „📍 Brno“ celé – zalomí se raději podtitulek vlevo */
-  .topbar>div:first-child{min-width:0}
+  /* nadpis obrazovky celý, zúží se raději 📍 domov („📍 Hradec Kr…“) – jinak „Doporučení“ přetékal přes tlačítko */
+  .home-chip{flex:0 1 auto;min-width:0;padding:9px 11px}
+  .topbar>div:first-child{flex:none}
+  .topbar{gap:8px}
   .dow button{width:38px}
   .res-tools .seg{display:flex;width:100%}
   .res-tools .seg button{flex:1 1 auto;padding:8px 5px;font-size:12.5px}
