@@ -374,7 +374,8 @@ const SKIP_FC = /^(AIRP|AIRF|AIRH|AIRB|MT|MTS|HLL|HLLS|PK|PPLX|ADM\d*H?)$/;
  * Našeptávač: vlastní data + geokódování (Open-Meteo) jako doplněk.
  * near = ID domova (ap:BRQ, geo:49.2,16.6|…, cc:CZ) pro pořadí podle vzdálenosti; role 'from' = pole Odkud.
  */
-export async function suggest(query, { limit = 8, remote = true, near = '', role = 'to' } = {}) {
+// meta.geoErr = true: geokódování selhalo (výpadek, timeout) – návrhy jsou jen z vlastních dat
+export async function suggest(query, { limit = 8, remote = true, near = '', role = 'to', meta = {} } = {}) {
   const home = homePoint(near);
   const q = normalize(query);
   const cands = localScored(query, home);
@@ -385,6 +386,7 @@ export async function suggest(query, { limit = 8, remote = true, near = '', role
       geo = await geocode(query);
     } catch {
       // Geokódování je jen doplněk – při výpadku vrať lokální výsledky.
+      meta.geoErr = true;
     }
     const kept = cands.map((c) => c.s);
     // Silná shoda (vlastní místo nebo město z geokódování): pak vzdálené vesnice nepatří do návrhů. Bez ní ano –

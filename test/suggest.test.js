@@ -220,3 +220,18 @@ test('suggest: víceslovný název ve 2. pádě („Velké Británie“, „Nov�
   // jiný kmen = jiné místo (Jižní Afriky ≠ Jižní Amerika)
   assert.ok(!localSuggestions('Jižní Afriky', 5).some((s) => /Amerika/.test(s.label)));
 });
+
+test('suggest: výpadek geokódování → meta.geoErr (API pak vrátí partial), návrhy z vlastních dat zůstanou', async () => {
+  const mock = config.mock;
+  config.mock = false;
+  const stub = stubFetch(() => ({ status: 500, body: {} }));
+  try {
+    const meta = {};
+    const list = await suggest('Hronovice', { meta });
+    assert.equal(meta.geoErr, true);
+    assert.ok(Array.isArray(list));
+    const ok = {};
+    await suggest('Praha', { remote: false, meta: ok });
+    assert.equal(ok.geoErr, undefined);
+  } finally { stub.restore(); config.mock = mock; }
+});
