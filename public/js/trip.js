@@ -296,7 +296,7 @@
     // 🏠 vlastní cena na letiště (veřejnou dopravou) místo odhadu – u jednoho směru „vlastní cena a odhad“
     const legs = car ? [] : [g.out, f.back ? g.back : null].filter(Boolean), own = legs.filter(x => x.own === true).length;
     return {
-      icon: car ? '🚗' : '🚌',
+      icon: car ? '🚗' : '🚆',
       row: `${groundWhat(t, true)} (${car ? `${carFuelTxt(t)}, parkování, ` : ''}${own ? (own === legs.length ? 'vlastní cena' : 'vlastní cena a odhad') : 'odhad'})`,
       out: g.out ? `${gw} na letiště ${f.out.from} (${gf}~${minutesToHm(g.out.minutes)}, odhad)` : null,
       back: f.back && g.back ? `${gw} z letiště ${f.back.to} domů (${gf}~${minutesToHm(g.back.minutes)})` : null,
@@ -380,7 +380,7 @@
     const fare = window.SearchHelp ? SearchHelp.arrivalFare(a) : `~${czk(a.czk)}`;
     return `${back ? `${a.city} → letiště ${a.iata}` : `Z letiště ${a.iata} → ${a.city}`} · ${arrivalHow(a, back)} · ~${minutesToHm(a.min)} · ${fare}/os.${a.basis !== 'table' ? ' (odhad)' : ''}`;
   }
-  const ARR_ICO = { bus: '🚌', train: '🚆', metro: '🚇', tram: '🚊' };
+  const ARR_ICO = { bus: '🚌', train: '🚆', metro: '🚇', tram: '🚊', taxi: '🚕' };
   /**
    * Jízdné k přejezdu letiště ↔ 1. / poslední místo trasy: jen veřejnou dopravou a když je to místo ve městě letiště
    * (do 25 km od jeho středu) – „ · letištní bus 17,90 € (~440 Kč)/os.“; jinak '' (jízdné do jiného místa neznám).
@@ -1746,7 +1746,7 @@
     // hotely bez ceny na tvoje dny (často vyprodané) až na požádání, když je s cenou aspoň pár jiných; vyprodané dozadu
     const nGuess = items.filter(h => h.guess).length, hideGuess = !stayView.guess && nGuess > 0 && items.length - nGuess >= 3;
     if (hideGuess) items = items.filter(h => !h.guess);
-    items = [...items.filter(h => !h.soldOut), ...items.filter(h => h.soldOut)];
+    // vyprodaný (ověřeno při výběru) zůstane vidět tam, kde se na něj klepnulo – jen dostane štítek a „Vybrat i tak“
     const links = linkGrid(d.links, '#003580', true);
     const errs = d.providers.filter(p => !p.ok).map(p => `${esc(p.name)}: ${esc(p.error)}`).join(' · ');
     // „Zkusit znovu“: neúplný výsledek (ceny nestihly přijít) nebo chyba zdroje – nový dotaz bez mezipaměti prohlížeče
@@ -1794,11 +1794,11 @@
         <div class="seg" id="stayMin">${[[0, 'vše'], [7, five ? '3,5+' : '7+'], [8, five ? '4+' : '8+'], [9, five ? '4,5+' : '9+']].map(o => `<button type="button" data-v="${o[0]}" class="${stayView.minRating === o[0] ? 'on' : ''}">${o[1]}</button>`).join('')}</div>
         ${types.length > 1 ? `<select id="stayType"><option value="">všechny typy</option>${types.map(x => `<option ${stayView.type === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}
         <input class="input" id="stayMax" type="number" min="0" step="100" placeholder="max Kč/noc" value="${stayView.maxNight || ''}" style="max-width:130px">
-        <span class="faint" style="font-size:12px">${items.length} z ${d.items.length} nabídek</span>
+        <span class="faint" style="font-size:12px">${items.length} z ${d.items.length} nabídek${hideGuess ? ` · ${nGuess} bez ceny skryto` : ''}</span>
       </div>
       <div class="stay-list">${items.slice(0, lim).map((h) => stayCard(h, d.items.indexOf(h))).join('') || '<div class="empty">Filtrům nic neodpovídá.</div>'}</div>
       ${items.length > lim ? `<button type="button" class="more-btn" id="stayMoreN">▼ Další hotely (${items.length - lim})</button>` : ''}
-      ${hideGuess && items.length <= lim ? `<button type="button" class="linkbtn st-guess-btn" id="stayGuess">Ukázat i ${nGuess} ${nGuess === 1 ? 'hotel' : nGuess <= 4 ? 'hotely' : 'hotelů'} bez ceny na tvoje dny (často obsazené)</button>` : ''}
+      ${hideGuess ? `<button type="button" class="linkbtn st-guess-btn" id="stayGuess">Ukázat i ${nGuess} ${nGuess === 1 ? 'hotel' : nGuess <= 4 ? 'hotely' : 'hotelů'} bez ceny na tvoje dny (často obsazené)</button>` : ''}
       ${items.some(staySponsored) ? SPONSOR_NOTE : ''}
       ${errs ? `<div class="faint" style="font-size:12px;margin-top:6px">${errs}${xo ? '' : retryBtn}</div>` : ''}
       <details class="more" style="margin-top:12px"><summary>Další nabídky u partnerů</summary>${links}</details>`;
@@ -2180,7 +2180,8 @@
       const gl = groundLines(t), home = lb.home;
       // vyrazit z domu: večer předchozího dne až po ostatním (online check-in)
       if (home) rows.push([home.date + (home.date < f.out.date ? '~' : ''), '🚪', `Vyraž z domu nejpozději ${lbTime(home)} <span class="faint">(~${minutesToHm(home.min)} ${home.taxi ? 'taxi ' : ''}na letiště ${esc(home.airport)} + ${lbBefore(home)} před odletem, odhad)</span>`]);
-      if (gl.out) rows.push([f.out.date, gl.icon, esc(gl.out)]);
+      // brzy ráno z letiště ve tvém městě taxi (čas autem), ne denní MHD – stejně jako řádek 🚪 nad tím
+      if (gl.out) rows.push(home && home.taxi ? [f.out.date, '🚕', esc(`Taxi na letiště ${f.out.from} (~${minutesToHm(home.min)}, v noci MHD nejede – objednej předem; v ceně cesty je MHD, odhad)`)] : [f.out.date, gl.icon, esc(gl.out)]);
       // z letiště domů až po přistání (dálkový let zpět přistane i další den)
       if (gl.back) rows.push([arrivalAt(f.back).slice(0, 10) + '~', gl.icon, esc(gl.back)]);
       rows.push([f.out.date, '🛫', fRow(f.out)]);
@@ -2700,7 +2701,7 @@
   function cleanArrivalLeg(a) {
     if (!okObj(a) || !/^[A-Z0-9]{3}$/.test(a.iata || '') || !okFin(a.czk, 0, 1e5) || !okFin(a.min, 1, 600)) return null;
     return {
-      iata: a.iata, city: okStr(a.city, 60) || a.iata, gen: okStr(a.gen, 60) || null, mode: ['bus', 'train', 'metro', 'tram'].includes(a.mode) ? a.mode : 'bus',
+      iata: a.iata, city: okStr(a.city, 60) || a.iata, gen: okStr(a.gen, 60) || null, mode: ['bus', 'train', 'metro', 'tram', 'taxi'].includes(a.mode) ? a.mode : 'bus',
       how: okStr(a.how, 160), czk: Math.round(a.czk), min: Math.round(a.min), basis: ['table', 'access', 'estimate'].includes(a.basis) ? a.basis : 'estimate',
       ...(okFin(a.lat, -90, 90) && okFin(a.lon, -180, 180) ? { lat: a.lat, lon: a.lon } : {}),
       ...(okFin(a.fare, 0, 1e6) && /^[A-Z]{3}$/.test(a.cur || '') ? { fare: a.fare, cur: a.cur } : {}),

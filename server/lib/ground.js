@@ -283,9 +283,19 @@ export function estimate(a, b) {
   if (km < 20) return { ok: false, km, why: 'Stejné místo – letadlo ani dálkový spoj tu nedává smysl' };
   const other = a.rj === PRAHA_RJ ? b.rj : b.rj === PRAHA_RJ ? a.rj : null;
   const m = other && MEASURED[other];
-  if (m) return { ok: true, km, minutes: m.min, czk: m.czk, typ: m.typ, basis: 'measured', measuredAt: MEASURED_DATE };
+  if (m) return specific({ ok: true, km, minutes: m.min, czk: m.czk, typ: m.typ, basis: 'measured', measuredAt: MEASURED_DATE });
   const hills = mountainsOn(a, b);
-  return { ok: true, km, ...distanceModel(land, hills ? MOUNTAIN_SLOW : 1, priceBand(a, b)), basis: 'distance', ...(hills ? { hills } : {}) };
+  return specific({ ok: true, km, ...distanceModel(land, hills ? MOUNTAIN_SLOW : 1, priceBand(a, b)), basis: 'distance', ...(hills ? { hills } : {}) });
+}
+
+// Jede se konkrétním spojem v danou hodinu, ne nejlevnějším a nejrychlejším spojem dne (z toho je MEASURED i model):
+// běžně × 1,4, čas × 1,1 (nejvýš +30 min – dlouhé změřené časy už běžné jsou). Ověřeno 10/2026: Praha–Brno RegioJet
+// 229–399 Kč, ČD 269–435 Kč (ne 199); Praha–Vídeň 450–600 Kč (ne 249); Praha–Budapešť 700–850 Kč (ne 569). „Od“ zůstává.
+// Cesta na letiště (access.js) a přejezdy trasy (stayplan.js) berou MEASURED a model přímo a násobí stejnými konstantami.
+export const SPECIFIC = 1.4;
+export const SPECIFIC_MIN = 1.1;
+function specific(e) {
+  return { ...e, typ: Math.max(e.czk, roundCzk(e.typ * SPECIFIC)), minutes: round5(e.minutes + Math.min(30, e.minutes * (SPECIFIC_MIN - 1))) };
 }
 
 /** „4 h 20“, „45 min“ */
@@ -299,7 +309,7 @@ export function hm(min) {
 
 export const AIRPORT_BEFORE = 120; // na letišti před odletem
 export const AIRPORT_AFTER = 45; // po přistání (vystoupení, zavazadla)
-export const STATION_MIN = 30; // cesta na nádraží a z nádraží (oba konce dohromady)
+export const STATION_MIN = 45; // cesta na nádraží a z nádraží (oba konce dohromady; MHD k nádraží ~20–30 min + z něj)
 
 /** Letadlo od dveří ke dveřím: cesta na letiště + 2 h před odletem + let + 45 min po přistání + cesta do města. */
 export function flightDoor({ accessMin = 0, flightMin = 0, egressMin = 0 } = {}) {

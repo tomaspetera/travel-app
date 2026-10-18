@@ -165,7 +165,7 @@ test('čip u letu jen když je co vyřizovat; cena v €, „zdarma“, escapov�
   assert.match(Entry.flightChip('CN'), />📄 vízum předem</);
   for (const iso of ['DE', 'AL', 'TR', 'CZ', '', null, 'XX']) assert.equal(Entry.flightChip(iso), '', String(iso));
   // Korea: výjimka z K-ETA do 31. 12. 2026 – cesta v lednu 2027 dostane „⏳ ověř vstup“, prosincová ne
-  assert.match(Entry.flightChip('KR', '2027-01-05'), /^<span class="b ec-b ec-visa" title="Jižní Korea: Tento režim platí podle MZV zatím do 31\. 12\. 2026[^"]*">⏳ ověř vstup<\/span>$/);
+  assert.match(Entry.flightChip('KR', '2027-01-05'), /^<span class="b ec-b ec-visa" title="Jižní Korea: Tento režim platí podle MZV zatím do 31\. 12\. 2026[^"]*" data-ec="KR">⏳ ověř vstup<\/span>$/);
   assert.match(Entry.flightChip('KR', '2026-12-31'), />📝 e-Arrival Card předem</, 'bez víza: jen povinná e-Arrival Card');
   assert.doesNotMatch(Entry.flightChip('KR'), /ověř vstup/);
   assert.match(Entry.flightChip('US', '2027-01-05'), />🛂 ESTA 36 €</);
@@ -210,7 +210,7 @@ test('entry.json: povinné online formuláře k příletu (arrivalForm) – náz
 });
 
 test('online formulář k příletu: čip „📝 TDAC předem“ bez víza, u víza a „ověř vstup“ jen v bublině; texty kdy a kde', () => {
-  assert.match(Entry.flightChip('TH'), /^<span class="b ec-b ec-form" title="Thajsko: bez víza, ale povinný online formulář TDAC \(Thailand Digital Arrival Card\) – zdarma, nejdříve 72 h před příletem, jen na oficiálním webu tdac\.immigration\.go\.th\. Zdroj: MZV ČR[^"]*">📝 TDAC předem<\/span>$/);
+  assert.match(Entry.flightChip('TH'), /^<span class="b ec-b ec-form" title="Thajsko: bez víza, ale povinný online formulář TDAC \(Thailand Digital Arrival Card\) – zdarma, nejdříve 72 h před příletem, jen na oficiálním webu tdac\.immigration\.go\.th\. Zdroj: MZV ČR[^"]*" data-ec="TH">📝 TDAC předem<\/span>$/);
   assert.match(Entry.flightChip('PH'), />📝 eTravel předem</);
   assert.match(Entry.flightChip('SG'), />📝 SG Arrival Card předem</);
   assert.match(Entry.flightChip('MU'), />📝 formulář předem</, 'dlouhý název → „formulář“');
@@ -279,7 +279,7 @@ test('tranzit: přestup v USA / Kanadě → varování; cíl v té zemi, jiné z
   }
   assert.equal(Entry.transit([{ stops: 0 }, null, { layovers: [{ at: 'JFK', min: 90 }] }], 'MX').length, 0, 'bez země přestupu nic');
   const html = Entry.transitHtml([via(['JFK', 'US'])], 'MX');
-  assert.match(sp(html), /^<span class="b hot ec-warn" title="JFK: ESTA je nutná i při přestupu na letišti – ~36 € \(≈ 900 Kč\)\. Zdroj: MZV ČR \(ověřeno 10\/2026\)\.">✈︎ přestup v USA – i tranzit vyžaduje ESTA<\/span>$/);
+  assert.match(sp(html), /^<span class="b hot ec-warn" title="JFK: ESTA je nutná i při přestupu na letišti – ~36 € \(≈ 900 Kč\)\. Zdroj: MZV ČR \(ověřeno 10\/2026\)\." data-ec="US">✈︎ přestup v USA – i tranzit vyžaduje ESTA<\/span>$/);
 });
 
 test('makeLeg: přestupy dostanou zemi letiště z databáze (JFK → US), neznámé letiště null', () => {

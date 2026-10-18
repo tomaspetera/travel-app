@@ -485,7 +485,7 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   assert.equal(day.name, 'Výlety z: Barcelona');
   assert.deepEqual(plain(day.days['2026-10-12']), ['⛪ Montserrat (příjezd ~10:00)', '🏁 Zpět na start (Barcelona) ~19:25']);
   const bike = TB.plannerEntry({ rr: ROUTE({ km: 30.7 }), place, start: '2026-10-12' });
-  assert.equal(bike.name, 'Na kole z: Barcelona – 30.7 km');
+  assert.equal(bike.name, 'Na kole z: Barcelona – 30,7 km');
   assert.match(bike.notes, /^Trasa v Mapy\.com: https:\/\/mapy\.com\/.*\nGoogle Maps: https:\/\/www\.google\.com\/maps\/dir\//);
 
   // v plánovači už je program z Barcelony od 12. 10. → výlety, kolo i druhé uložení jdou k němu

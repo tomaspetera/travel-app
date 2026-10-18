@@ -902,6 +902,16 @@
     const ok = Object.keys(o).filter(k => /^[A-Z]{3}$/.test(k) && Number.isInteger(o[k]) && o[k] >= 0 && o[k] <= OWN_MAX_CZK).slice(0, OWN_MAX).sort();
     return ok.length ? Object.fromEntries(ok.map(k => [k, o[k]])) : null;
   }
+  /**
+   * Hledání (q = jeho dotaz) počítalo cestu na letiště jinak, než je teď ve formuláři (g = groundPayload: 🏠 vlastní
+   * ceny, jízdné ×, autem/veřejnou, pohon a spotřeba)? Pak jsou ceny dopravy ve výsledcích staré → „↻ Přepočítat“.
+   */
+  const GROUND_KEYS = ['kmRate', 'groundMode', 'carFuel', 'carCons', 'carPrice', 'accessOverride'];
+  function groundChanged(q, g) {
+    if (!q || !g) return false;
+    const pick = o => JSON.stringify(GROUND_KEYS.map(k => (k === 'accessOverride' ? ownClean(o[k]) : o[k] ?? null)));
+    return pick(q) !== pick(g);
+  }
   /** Vlastní ceny do adresy /api/origins: „VIE:350,BTS:270“ ('' = žádné). */
   const ownQs = o => Object.entries(ownClean(o) || {}).map(([k, v]) => `${k}:${v}`).join(',');
   /**
@@ -919,7 +929,8 @@
   /** Dní parkování pro cestu s N nocemi (odlet ráno, návrat večer = N + 1 započatých dní). */
   const parkDays = n => Math.max(1, Math.round(Number(n) || 0) + 1);
   /** Parkování za auto na `days` dní: základ + sazba za den (online předem) – jako server (access.js parkStay). */
-  const parkStay = (g, days) => (Number(g.parkBaseCzk) || 0) + g.parkDayCzk * days;
+  const parkStay = (g, days) => (g.parkBlockDays > 0 ? Math.ceil(days / g.parkBlockDays) * (Number(g.parkBaseCzk) || 0)
+    : (Number(g.parkBaseCzk) || 0) + g.parkDayCzk * days);
   /** Autem tam i zpět s N nocemi: parkování (+ druhá známka, když první nevystačí), Kč/os. – jako server (access.js parkCzk). */
   function parkCzk(g, nights) {
     if (!g || g.mode !== 'car' || g.off || g.dropOff) return 0;
@@ -957,6 +968,12 @@
       }
       // parkování online předem: základ + sazba za den (starší odpověď bez základu jen za den); základ i sazba 0 = zdarma
       const base = Number(g.parkBaseCzk) || 0;
+      if (g.parkBlockDays > 0) {
+        return {
+          text: `~${kc(r10(t.perPerson))}/os. vč. parkování na ${t.days} ${dnu(t.days)}`,
+          title: `Autem ${g.roadKm} km (~${hm(g.minutes)}): ${fuel} + parkování ${kc(base)} za každých započatých ${g.parkBlockDays} dní × ${Math.ceil(t.days / g.parkBlockDays)} = ~${kc(t.park)}${tolls} = ${per}.${src} Parkování ve výsledcích podle skutečné délky cesty. Odhad.`,
+        };
+      }
       if (!base && !g.parkDayCzk) {
         return {
           text: `~${kc(r10(t.perPerson))}/os. tam i zpět, parkování zdarma`,
@@ -1056,7 +1073,7 @@
   // Zvýraznit drahou nebo dlouhou cestu do města („levná“ letenka na vzdálené letiště) – stejné meze jako server
   // (ARRIVAL_WARN, test hlídá shodu): přes 350 Kč/os. jedním směrem nebo přes hodinu.
   const ARRIVAL_WARN = { czk: 350, min: 60 };
-  const ARR_ICON = { bus: '🚌', train: '🚆', metro: '🚇', tram: '🚊' };
+  const ARR_ICON = { bus: '🚌', train: '🚆', metro: '🚇', tram: '🚊', taxi: '🚕' };
   const CUR_SIGN = { EUR: '€', GBP: '£', USD: '$', CZK: 'Kč', PLN: 'zł', HUF: 'Ft', RON: 'lei' };
   const fareNum = x => (Number.isInteger(x) ? x.toLocaleString('cs-CZ') : x.toFixed(2).replace('.', ','));
   /** Jízdné „17,90 € (~440 Kč)“, „od 9,90 £ (~280 Kč)“ (cena online předem), bez ověřeného jízdného „~150 Kč“. */
@@ -1094,7 +1111,7 @@
   }
   /** Odkud je jízdné: „Zdroj: aeroportparisbeauvais.com, ověřeno 7. 10. 2026.“ (odhad bez zdroje → ''), u staršího i stáří. */
   const arrivalSource = (a, today = localToday()) => (a && a.basis === 'table' && a.src ? `Zdroj${a.sec ? ' (sekundární, oficiální neuvádí)' : ''}: ${srcHost(a.src)}, ověřeno ${dm(a.date)} ${String(a.date).slice(0, 4)}${dataAge(a.date, today).txt}.` : '');
-  const inPrice = (on, czk, both) => (on ? ` V ceně nabídky ${both ? 'tam i zpět ' : ''}~${kc(czk)}/os.` : ' Do ceny nabídky se nepočítá (vypnuto v Další možnosti).');
+  const inPrice = (on, czk, both) => (on ? ` Odhad ${both ? 'tam i zpět ' : ''}~${kc(czk)}/os. – v ceně letenky není.` : ' Neukazuje se (vypnuto v Další možnosti).');
   // sub = čím jet a poznámka ve směru štítku (na letiště spoj bez cíle cesty do města – arrivalVia)
   const arrChip = (x, text, title, dir = 'from') => ({
     text: `${ARR_ICON[x.mode] || '🚌'} ${text} ${arrivalFare(x)} · ${hhmmTxt(x.min)}${x.basis !== 'table' ? ' (odhad)' : ''}`,
@@ -1810,7 +1827,7 @@
     onlyOriginSet, recentWhen,
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,
-    CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs, ownPrint, ownPrintFor,
+    CAR_FUELS, carOpts, carEnergy, carPayload, fuelCzk, fuelItem, fuelFormula, fuelLine, energyTxt, kmTxt, priceTxt, OWN_MAX, OWN_MAX_CZK, ownClean, ownQs, groundChanged, ownPrint, ownPrintFor,
     legSig, returnFits, composeTrip, distinctLegs, sortLegs, pricedTimes, freeDeps, nearStrip, nearHeadline, kiwiOutage, lowcostOutage, nightsRange, activeFilters, isThin, nearHubs, smartActions, dm, addDays, diffDays,
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, directNear, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,

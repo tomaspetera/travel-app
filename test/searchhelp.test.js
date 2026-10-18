@@ -1346,3 +1346,13 @@ test('weekendHabit: aspoň 3 z posledních 5 hledání na víkend / prodloužen�
   assert.equal(H.weekendHabit([...r('week', 'week', 'week'), { form: { trip: 'multi', len: 'weekend' } }, ...r('weekend', 'weekend', 'weekend')]), false);
   assert.equal(H.weekendHabit(null), false);
 });
+
+test('groundChanged: po hledání jinak nastavená cesta na letiště (vlastní cena, jízdné ×, autem) → „↻ Přepočítat“', () => {
+  const q = { from: ['PRG'], kmRate: 1, groundMode: 'transit', accessOverride: { PED: 100, BRQ: 0 } };
+  assert.equal(H.groundChanged(q, { kmRate: 1, groundMode: 'transit', accessOverride: { BRQ: 0, PED: 100 } }), false, 'pořadí letišť nevadí');
+  assert.equal(H.groundChanged(q, { kmRate: 1, groundMode: 'transit', accessOverride: { BRQ: 0, PED: 0 } }), true, 'jiná vlastní cena');
+  assert.equal(H.groundChanged(q, { kmRate: 0.5, groundMode: 'transit', accessOverride: { BRQ: 0, PED: 100 } }), true, 'jízdné × 0,5');
+  assert.equal(H.groundChanged(q, { kmRate: 1, groundMode: 'transit' }), true, 'vlastní ceny smazané');
+  assert.equal(H.groundChanged({ kmRate: 1, groundMode: 'car', carFuel: 'diesel', carCons: 6 }, { kmRate: 1, groundMode: 'car', carFuel: 'petrol', carCons: 7 }), true, 'jiný pohon');
+  assert.equal(H.groundChanged(null, { kmRate: 1 }), false, 'bez výsledku nic');
+});

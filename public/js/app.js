@@ -416,8 +416,11 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-18j';
+const WN_ID = '2026-10-18k';
 const WHATS_NEW = [
+  ['🚕', 'Z letiště do města na 157 letištích', 'přibyly řecké a španělské ostrovy, Chorvatsko, Turecko, Pobaltí a Jordánsko; v Egyptě, Akabě a na Djerbě, kde autobus nejezdí, počítám taxi (cena za auto pro dva). Brzy ráno z letiště ve tvém městě ukáže průběh cesty taxi.'],
+  ['🚆', 'Vlak nebo bus místo letadla', 'cena konkrétního spoje za běžnou cenu (Praha–Vídeň ~500 Kč, ne akční 249) a čas i s cestou na nádraží. Auto na letiště počítá parkování podle ceníku letiště.'],
+  ['🔄', 'Přepočítat po změně', 'když po hledání změníš v <b>Další možnosti</b> cestu na letiště (vlastní cenu, jízdné × nebo auto), nad výsledky je <b>↻ Přepočítat</b>. Čipy 📝 a 🛂 u letu otevřou podmínky vstupu i na telefonu.'],
   ['🏨', 'Ubytování s ověřeným volnem', 'když v Cestě klepneš na <b>Vybrat</b>, ATLAS hned zjistí, jestli má hotel na tvoje dny pořád volno a za kolik – vyprodaný se nevybere. Hotely bez ceny na tvoje dny (často obsazené) jsou schované pod tlačítkem.'],
   ['🎫', 'Cesta na letiště za skutečné ceny', 'odhad teď počítá jízdenku na konkrétní spoj v danou hodinu (ne nejlevnější spoj dne), MHD z domova na nádraží a běžný čas jízdy – z Prahy do Pardubic ~240 Kč, do Brna ~350 Kč. V <b>Další možnosti</b> uvidíš u každého letiště, z čeho odhad je.'],
   ['🚆', 'Reálnější časy cest', 'vlak mezi městy jede rychlotratí jen tam, kde opravdu vede (Barcelona → Valencie ~3 h 25, ne 2 h 10), jízdenky po Itálii, Španělsku a Francii za běžné ceny, autem na letiště podle skutečné rychlosti a „Vyraž z ubytování“ i s cestou na zastávku. Z letiště ve tvém městě brzy ráno počítám s taxi 🚕.'],
@@ -1155,6 +1158,14 @@ function flushNotes() { if (!notesP) return; const { t, v } = notesP; notesP = n
 window.setNotesSoon = (i, v) => { clearTimeout(notesP && notesP.tm); notesP = { t: S.trips[i], v, tm: setTimeout(flushNotes, 300) }; };
 window.addEventListener('pagehide', flushNotes);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushNotes(); });
+// čipy vstupu u letů (📝 TDAC předem, 🛂 vízum, ✈︎ ETA při přestupu) jsou klepnutelné i na telefonu: otevřou zemi u
+// podmínek vstupu (termín, oficiální web). Zachytí se dřív, než by klepnutí rozbalilo řádek nabídky, ve kterém čip je.
+document.addEventListener('click', e => {
+  const c = e.target.closest && e.target.closest('[data-ec]'); if (!c || !byIso[c.dataset.ec]) return;
+  e.preventDefault(); e.stopPropagation();
+  openCountry(c.dataset.ec);
+  setTimeout(() => { const b = $('#entryBox'); if (b) b.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 250);
+}, true);
 window.delTrip = i => { if (confirm('Opravdu smazat tuto cestu?')) { S.trips.splice(i, 1); save(); modalClose(); renderPlanner(); if (activeView === 'dashboard') renderDashStats(); toast('Cesta smazána'); } };
 /** Cesty z jiného panelu: nezměněné zůstanou tytéž objekty (okno cesty, rozepsaná poznámka), cesta upravená na svém
  *  místě (stejný počet cest) se přepíše na místě; ostatní se převezmou. */

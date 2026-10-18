@@ -10,7 +10,7 @@ import { findTowns, mockTowns } from './poi.js';
 import { geocode } from './places.js';
 import { transferTimes, routeTransfers, driveRoute, routeKey, cachedRoute } from './transfers.js';
 import { carFuelCzk } from './fuel.js';
-import { distanceModel, priceBand } from './ground.js';
+import { SPECIFIC, distanceModel, priceBand } from './ground.js';
 
 export const MAX_BASES = 6; // ručně sestavená trasa; návrh dává nejvýš 4 místa
 // nejdelší běžný přejezd (min) – časy už počítají s provozem, hranicí i čekáním na spoj
@@ -46,7 +46,7 @@ export function transfer(a, b, transport = 'car', route = null) {
   const e = transferTimes(a, b, route);
   const air = haversineKm(a.lat, a.lon, b.lat, b.lon);
   const cost = e.km >= 1
-    ? { fuelCzk: carFuelCzk({ roadKm: e.km, country: a.cc || 'CZ' }), fareCzk: railFare(e, a, b, air) ?? distanceModel(air, 1, priceBand({ cc: a.cc, rj: 1 }, { cc: b.cc, rj: 1 })).typ }
+    ? { fuelCzk: carFuelCzk({ roadKm: e.km, country: a.cc || 'CZ' }), fareCzk: railFare(e, a, b, air) ?? Math.round(distanceModel(air, 1, priceBand({ cc: a.cc, rj: 1 }, { cc: b.cc, rj: 1 })).typ * SPECIFIC / 10) * 10 }
     : { fuelCzk: 0, fareCzk: 0 };
   return { ...e, ...cost, long: minOf(e, transport) > TRANSFER_MAX[transport], carUrl: gmDir(a, b, 'driving'), transitUrl: gmDir(a, b, 'transit') };
 }

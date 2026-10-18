@@ -156,7 +156,8 @@ U všech 197 zemí ATLAS ukazuje, co je potřeba k cestě s českým pasem nebo 
   Maledivy IMUGA, Indie e-Arrival Card, Brunej E-Arrival Card, Nový Zéland NZTD, Papua Nová Guinea PNGDAC, Nigérie
   Landing Card, Mauricius All in One Travel Form, Jihoafrická republika SARS Traveller Declaration, Barbados,
   Dominika, Trinidad a Tobago a v Kosovu registrace cizinců do 3 dnů po příjezdu. U letu bez víza štítek
-  „📝 TDAC předem“ (u země s vízem jen v bublině – druhý štítek by se na telefon nevešel), v detailu země a v Před
+  „📝 TDAC předem“ (u země s vízem jen v bublině – druhý štítek by se na telefon nevešel; klepnutí na štítek 📝, 🛂
+  nebo ✈︎ ETA při přestupu otevře zemi u vstupních podmínek – na telefonu bublina není), v detailu země a v Před
   cestou zvýrazněný řádek s odkazem jen na oficiální web a kdy formulář vyplnit (*nejdříve 72 h před příletem*),
   v *Co zařídit* důležitý úkol, v seznamu věcí „Potvrzení: TDAC (QR kód v mobilu)“ a v kalendáři připomínka 2 dny
   před odletem (u 24h okna v den odletu). Ověřeno 10/2026 na oficiálních webech a v oznámeních úřadů; vynechané, kde
@@ -300,7 +301,7 @@ krém…).
 | **Cena včetně cesty na letiště** | Ke každé letence přičte odhad cesty na letiště a zpět – 🚌 veřejnou dopravou (vlak/bus do města letiště za běžnou cenu + MHD na letiště; kde cestu znáš líp, 🏠 vlastní cena), nebo 🚗 autem (nafta, benzín nebo nabíjení elektroauta za aktuální ceny, parkování podle délky cesty, dálniční známky). Let z Vídně za 600 Kč tak férově porovná s letem z Brna za 900 Kč. Viz [Doprava na letiště](#doprava-na-letiště). |
 | **Kamkoliv z více letišť** | Jedno hledání = všechny destinace ze všech letišť v okolí, seskupené podle města (Londýn = STN + LTN + LGW…). |
 | **🆕 Jen nové země** | Když máš na mapě navštívených zemí označené aspoň 3 země, dostanou cíle v zemích, kde jsi ještě nebyl, štítek 🆕 (ve výsledcích „kamkoliv“ i na kartách radaru) a ve výsledcích je přepínač *🆕 jen nové země*, který jedním klepnutím schová země, kde už jsi byl. Platí do dalšího hledání (jako *🔥 jen výhodné*), přepínač se ukáže, jen když by opravdu něco schoval. |
-| **⭐ Moje cíle a 🙈 Nezajímá mě** | Města, která tě každý týden otravují nahoře (Eindhoven, Memmingen, Charleroi…), a ta, kam opravdu chceš (Porto, Tbilisi…). Tlačítko **⋯** na kartě radaru, v řádku *Kamkoliv* i na kartě cíle nabídne *⭐ Chci tam* a *🙈 Nezajímá mě* (klepnutím, i na telefonu). 🙈 město zmizí z radaru a na jeho místo se posune další karta (hláška má *↩ Vrátit*, kdyby to byl omyl) – radar si z hledání drží 20 nejlevnějších cílů mimo 🙈 a ukazuje 12, takže se nic znovu nehledá (starší uložený radar má do obnovení o kartu méně); 🙈 cíle si nechá na jejich místě, takže město vrácené z 🙈 se hned zase ukáže, a značky *nové* a *↓* porovnává jen s kartami, které minule ukazoval; v *Kamkoliv* a hledání do země či světadílu se schová za čip *🙈 skryto 3 · ukázat*. Hledání přímo do města ho ukáže vždy. ⭐ města mají štítek ⭐ a ve výsledcích přepínač *⭐ jen moje cíle*. Na Přehledu je pod radarem pruh **⭐ Moje cíle**: u každého města nejlevnější zpáteční letenka, kterou ATLAS v tomhle zařízení už viděl (paměť cen z *Je to dobrá cena?* – jen letenka, odlet od tohoto měsíce, např. *letenka od 1 890 Kč · z VIE · listopad · před 3 dny*, jinak *zatím neviděno*; telefon a počítač mají každý svou paměť). Klepnutí na město hledá sem, **🔎 Hledat moje cíle** jedno hledání do prvních 5 (víc pole Kam nepojme) v termínech a pro počet lidí radaru; totéž je v *Rychlém hledání*. Sám ATLAS kvůli seznamům nic nehledá. Každý seznam pojme 30 měst, město může být jen v jednom; *Upravit →* je ukáže, přesune mezi seznamy, odebere a ⬆ posune město mezi prvních 5. Seznamy jsou jen v zařízení a v 💾 záloze, do sdílených odkazů nejdou. |
+| **⭐ Moje cíle a 🙈 Nezajímá mě** | Města, která tě každý týden otravují nahoře (Eindhoven, Memmingen, Charleroi…), a ta, kam opravdu chceš (Porto, Tbilisi…). Tlačítko **⋯** na kartě radaru, v řádku *Kamkoliv* i na kartě cíle nabídne *⭐ Chci tam* a *🙈 Nezajímá mě* (klepnutím, i na telefonu). 🙈 město zmizí z radaru a na jeho místo se posune další karta (hláška má *↩ Vrátit*, kdyby to byl omyl) – radar si z hledání drží 20 nejlevnějších cílů mimo 🙈 a ukazuje 12, takže se nic znovu nehledá (starší uložený radar má do obnovení o kartu méně); 🙈 cíle si nechá na jejich místě, takže město vrácené z 🙈 se hned zase ukáže, a značky *nové* a *↓* porovnává jen s kartami, které minule ukazoval; v *Kamkoliv* a hledání do země či světadílu se schová za čip *🙈 skryto 3 · ukázat*. Hledání přímo do města ho ukáže vždy. ⭐ města mají štítek ⭐ a ve výsledcích přepínač *⭐ jen moje cíle*. Na Přehledu je pod radarem pruh **⭐ Moje cíle**: u každého města nejlevnější zpáteční letenka, kterou ATLAS v tomhle zařízení už viděl (paměť cen z *Je to dobrá cena?* – jen letenka, i kombinace dvou aerolinek z *Kamkoliv*, takže nikdy dražší než na kartě radaru; odlet od tohoto měsíce, např. *letenka od 1 890 Kč · z VIE · listopad · před 3 dny*, jinak *zatím neviděno*; telefon a počítač mají každý svou paměť). Klepnutí na město hledá sem, **🔎 Hledat moje cíle** jedno hledání do prvních 5 (víc pole Kam nepojme) v termínech a pro počet lidí radaru; totéž je v *Rychlém hledání*. Sám ATLAS kvůli seznamům nic nehledá. Každý seznam pojme 30 měst, město může být jen v jednom; *Upravit →* je ukáže, přesune mezi seznamy, odebere a ⬆ posune město mezi prvních 5. Seznamy jsou jen v zařízení a v 💾 záloze, do sdílených odkazů nejdou. |
 | **📌 Odložené nabídky** | Nabídky z různých hledání si odložíš a porovnáš vedle sebe – bez screenshotů a bez nového hledání. **📌 Odložit** je na konci řádku *Ověřit:* u každé nabídky a v nabídce **⋯** u řádku *Kamkoliv*, karty cíle i karty radaru (nejvýš 12 nabídek). Nad výsledky a na Přehledu je *📌 Odložené (3)* → **Porovnat**: na telefonu karty vedle sebe (posouváš prstem), na počítači v mřížce – cena na osobu i celkem s rozpisem (letenky, zavazadla, cesta na letiště, z letiště do města), úroveň ceny, termín, noci a dny dovolené, časy, přestupy, aerolinky a kdy cena byla (*ceny z 14:32 (před 3 h)*, starší než 24 h varovně). Když jsou nabídky spočítané pro jiný počet lidí, zavazadla nebo dopravu na letiště, okno to řekne. *Vybrat a pokračovat* otevře průvodce cestou stejně jako ve výsledcích (i s časem ceny), *Koupit* vede k prodejci. **⚡ Ověřit ceny** ověří přes Kiwi.com nejvýš 3 nejstarší ceny (stejné ověření i limit jako *⚡ Ověřit cenu živě*; Kiwi.com prodává i letenky Ryanairu a Wizz Air, často dráž – přesnou cenu ukáže rezervace). **📤 Poslat k výběru** pošle seznam jako text (sdílení telefonu – WhatsApp, e-mail…, jinak do schránky) s cenami, termíny a odkazem; druhý nic instalovat nemusí a na server se nic neukládá. Najde-li pozdější hledání se stejným nastavením stejnou nabídku, převezme její novou cenu, úroveň ceny i čas (*↑ o 210 Kč od odložení*); nabídka odložená z průběžných výsledků se doplní z konečného výsledku téhož hledání. Z karty radaru se odloží jen to, co karta zná (cena celkem, trasa, termín, odkaz) – *🔎 Najít tento termín* ji dohledá celou. Nabídky s odletem v minulosti zmizí samy, cesty přes víc měst se neodkládají. Odložené nabídky jsou jen v zařízení a v 💾 záloze. |
 | **Dálkové lety** | Cílem může být i světadíl (Asie, Afrika, Blízký východ, Amerika, Oceánie). Do vzdálených zemí se hledá i z velkých přestupních letišť v okolí (Vídeň, Mnichov, Berlín…) – cena cesty na ně je započtená. |
 | **Kombinace, které jinde nenajdeš** | Tam s Ryanairem, zpět s Wizz Air. Odlet z Vídně, návrat do Bratislavy. Přílet do Bergama, odlet z Malpensy. Optimalizátor skládá i takové cesty – u konkrétního cíle i v *Kamkoliv*, tam z letů tam a zpět, které hledání už stáhlo (bez dotazů navíc). Ve výpisu mají štítek *🔀 2 aerolinky* nebo *↩ návrat do BTS* (v řádku cíle hned za letišti *🔀* a *↩ BTS*, na kartě radaru *VIE → STN ↩ LTN → BTS*) a každý let se kupuje zvlášť svým tlačítkem. Autem se vracíš na letiště, kde stojí auto; bez *návrat i na jiné letiště v okolí* jen stejná letiště tam i zpět. |
@@ -445,7 +446,7 @@ U každé nabídky letenky je štítek **💚 Dobrá cena**, **Běžná cena** n
 
 - **Oproti ostatním nabídkám do stejného cíle v tomto hledání**: pozice ceny mezi všemi nalezenými nabídkami (ne jen zobrazenými) – nejlevnější, čtvrtina nejlevnějších, medián, rozpětí dat.
 - **Oproti průměrné ceně na tuto vzdálenost**: hrubé pravidlo podle kilometrů. Výhodná je letenka zhruba od 40 % pod průměrem, dražší než obvykle od 25 % nad ním. Když je nabídek k porovnání méně než 5, řídí se odhad jen tímhle pravidlem a řekne to.
-- **Co ATLAS na této trase viděl**: prohlížeč si pamatuje nejlevnější letenku z každého hledání podle trasy (letiště → město, měsíc odletu, zpáteční / jen tam) a kdy ji viděl. Při opakovaném stejném hledání (aspoň po 6 h, třeba při hlídání ♡) ukáže trend ↓ / → / ↑. Paměť je jen v tomto prohlížeči (localStorage), drží nejvýš 300 tras a zapomíná minulé měsíce a trasy neviděné přes 120 dní.
+- **Co ATLAS na této trase viděl**: prohlížeč si pamatuje nejlevnější letenku z každého hledání (i kombinaci dvou aerolinek, která do srovnání s ostatními nabídkami nepatří) podle trasy (letiště → město, měsíc odletu, zpáteční / jen tam) a kdy ji viděl. Při opakovaném stejném hledání (aspoň po 6 h, třeba při hlídání ♡) ukáže trend ↓ / → / ↑. Paměť je jen v tomto prohlížeči (localStorage), drží nejvýš 300 tras a zapomíná minulé měsíce a trasy neviděné přes 120 dní.
 - **Do odletu** a opatrná rada: nízká cena krátce před odletem → spíš koupit; víc než ~7 týdnů do odletu → hlídat cenu ♡ s cílovou cenou; jinak zkusit jiné dny nebo letiště. Ceny u nízkonákladovek se před odletem obvykle zvedají.
 
 Je to odhad, ne předpověď: porovnává se cena letenek na osobu bez dopravy na letiště a zavazadel.
@@ -458,7 +459,8 @@ kalendář, mřížka termínů, pruh *📅 Nejbližší dny*, radar i hlídané
 a zpět ~180 Kč/os. – průměrná cena, odhad, v ceně letenky není* – aby bylo vidět, kolik zhruba stojí, ale cenu letenky
 nezkresloval (odhady bývají nepřesné). Kdo chce porovnat i s cestou, zvolí ve *Filtrech → Řazení* **Nejlevnější
 i s cestou na letiště (odhad)** (`tripCzk`) – řádky pak pod cenou letenky ukážou *i s cestou ~1 290 Kč* (podle toho
-se řadí), stejně řádky na telefonu i velké karty nahoře (*🚆 Nejlevnější i s cestou*); i řazení *Cena + délka cesty*
+se řadí), stejně řádky na telefonu, rozbalená nabídka u ceny i velké karty nahoře (*🚆 Nejlevnější i s cestou*) a patička
+výsledků to řekne; i řazení *Cena + délka cesty*
 počítá cenu s cestou. Srovnání letadla s vlakem / busem (*🚆 Vlakem/busem*) počítá letadlo od dveří ke dveřím, tedy
 i s cestou na letiště; rozpočet nové cesty v Plánovači z posledního hledání taky. Dřív se odhad do ceny přičítal
 (uložený stav má verzi cen `pv`, rozhoduje verze uložená, ne výchozí): uložené hlídání si při první kontrole vezme
@@ -520,6 +522,9 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
   (štítek letiště *🏠 350 Kč/os. tam*). Autem ani s *jízdné × 0* se nepoužijí. Starší server pole ignoruje a počítá odhad.
   Změna vlastní ceny není zlevnění: ♡ hlídaná cena si pamatuje, s jakými vlastními cenami letišť se počítala (otisk
   `own`), a když se při kontrole liší, neohlásí 📉 ani ↑ – cena „od změny 🏠 ceny“, nejnižší cena i graf začnou od nové.
+  Když po hledání změníš vlastní cenu, *jízdné ×*, veřejnou dopravu / auto nebo pohon a spotřebu, nad výsledky se
+  objeví *🔄 Cesta na letiště je teď nastavená jinak* s **↻ Přepočítat** (ceny dopravy a řazení *i s cestou* ve
+  výsledcích jsou ještě podle předchozího hledání); zmizí s dalším hledáním nebo když nastavení vrátíš.
   Radar podle svých letišť pozná, jestli se ho změna týká: cena u letiště mimo jeho okruh (MUC z Brna) uložený radar
   nezahodí, u jeho letiště hledá znovu (staré karty zůstanou vidět) a nové ceny neoznačí jako „↓“. Když je 12 cen
   plných, nová ustoupí nejstarší mimo náhled letišť a toast řekne kterou; obnova ze zálohy ukáže, kolik se nevešlo.
@@ -570,12 +575,12 @@ bez MHD z domova) vycházelo PED ~150 Kč, KLV ~210 Kč, BRQ ~230 Kč, DRS ~430 
 
 | Letiště | Parkoviště, zdroj | Online 1 / 3 / 7 / 14 dní | Pro srovnání | Model (Kč) |
 |---|---|---|---|---|
-| Praha | booking.prg.aero, aeroparking.cz | 780 / 850 / 1 450 / 2 280 Kč | před T3 bez rezervace 1 000 / 1 700 / 2 500 / 3 900 Kč | 590 + 120 |
+| Praha | booking.prg.aero PD Holiday mimo prázdniny (příjezd 12. 11., zjištěno 18. 10. 2026; 2 / 4 / 8 / 15 dní 790 / 890 / 1 090 / 1 790 Kč) | ~740 / 840 / 1 065 / 1 690 Kč | o podzimních prázdninách 27. 10. dráž (8 dní 1 730 Kč); před T3 bez rezervace 1 000 / 1 700 / 2 500 / 3 900 Kč | 580 + 80 |
 | Vídeň | Mazur s kyvadlovou dopravou | 791 / 1 420 / 2 096 / 2 828 Kč | Parkplatz C online 827 / 2 196 / 3 057 / 4 071 Kč | 850 + 150 |
 | Brno | ceník brno-airport.cz od 1. 1. 2025 (online voucher stejně) | 300 / 650 / 1 300 / 2 350 Kč | – | 170 + 160 |
 | Ostrava | P3–P6, airport-ostrava.cz (rezervace parkum.app stejně) | 130 Kč za každý den | P1 před terminálem 360 Kč/den | 0 + 130 |
 | Pardubice | P1 + P2, airport-pardubice.cz | zdarma, bez rezervace | – | zdarma |
-| Karlovy Vary | P4 / P5 online, airport-k-vary.cz | 500 Kč za započatý týden (8 dní) | P4 na místě 200 / 400 / 700 / 1 300 Kč; P7 zdarma, místo nezaručené | 280 + 50 \* |
+| Karlovy Vary | P4 / P5 online, airport-k-vary.cz | 500 Kč za započatý týden (8 dní) | P4 na místě 200 / 400 / 700 / 1 300 Kč; P7 zdarma, místo nezaručené | 500 Kč za každých započatých 8 dní |
 | Bratislava | Parking Airport Bratislava, parkingairport.sk (kyvadlová doprava zdarma, ceník od 1. 10. 2026) | 35 / 41 / 50 / 90 € | letiště P2 online 36 / 55 / 95 / 170 € | 670 + 100 |
 | Linec | C1 Charter, linz-airport.com (ceník od 1. 1. 2026, rezervace nejde) | 16,70 / 40 / 63 / 86 € | – | 740 + 100 \* |
 | Salcburk | P3 / P7, salzburg-airport.com (sezóna 24. 10.–1. 11.; online obchod nedostupný) | 27 / 59 / 65 / 90 € | mimo sezónu 25 / 57 / 61 / 82 € | 1 170 + 70 \* |
@@ -726,17 +731,18 @@ na osobu – do ceny letenky se nepřičítá.
   dotaz na API bez pole `arrival` taky (viz [API](#api)).
 
 **Odkud jsou čísla** (`data/arrival.json`, `server/lib/arrival.js`) – na osobu a jeden směr, jízdenka pro dospělého,
-nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra (taxi ani soukromé transfery ne); „od“ = cena
-online předem:
+nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; kde z letiště veřejná doprava nejezdí (Hurghada,
+Šarm aš-Šajch, Marsa Alam, Akaba, Djerba), 🚕 taxi – cena za auto děleno dvěma; „od“ = cena online předem:
 
-1. **Ověřená tabulka 133 letišť** z oficiálních stránek letiště, dopravce nebo dopravního svazu, **ověřeno 7. 10. 2026**:
-   74 z prvního kola a 59 nejčastějších dalších cílů z Prahy a okolí (živé hledání „kamkoli“ ve třech obdobích –
+1. **Ověřená tabulka 157 letišť** z oficiálních stránek letiště, dopravce nebo dopravního svazu, **ověřeno 7. a 18. 10.
+   2026**: 74 z prvního kola, 59 nejčastějších dalších cílů z Prahy a okolí (živé hledání „kamkoli“ ve třech obdobích –
    britská regionální letiště, Itálie, Francie, Kanáry, Madeira, Řecko, Balkán, Kavkaz, Maroko, Perský záliv, Thajsko,
-   Male, Cancún, New York, Tokio); stránky, které se z cloudu nenačtou, ověřené ve skutečném Chromu (PC, `research/
-   arrival-check-2.md` na větvi `pc-research`). U 13 letišť (²) jen sekundární zdroj – oficiální stránka cenu neuvádí,
+   Male, Cancún, New York, Tokio) a 24 dalších (18. 10.: řecké a španělské ostrovy, Chorvatsko, turecká letoviska,
+   Pobaltí, Jordánsko, taxi v Egyptě, Akabě a na Djerbě); stránky, které se z cloudu nenačtou, ověřené ve skutečném Chromu (PC, `research/
+   arrival-check-2.md` na větvi `pc-research`). U 24 letišť (²) jen sekundární zdroj – oficiální stránka cenu neuvádí,
    ukazuje ji až po vyplnění formuláře nebo se nedala načíst; u 19 dalších je jízdné oficiální a jen čas jízdy ze
-   sekundárních zdrojů nebo odhadem (uvedeno v poznámce). Přepočet na Kč kurzem ČNB k 6. 10. 2026 (MAD, EGP, AED, ALL, RSD, MDL, GEL, AMD, QAR, MVR
-   kurzy ostatních měn k 30. 9. 2026), zaokrouhleno na 10 Kč a aspoň 10 Kč (městský autobus v Tbilisi, Batumi nebo
+   sekundárních zdrojů nebo odhadem (uvedeno v poznámce). Přepočet na Kč kurzem ČNB k 6. 10. 2026 (MAD, EGP, AED, ALL, RSD, MDL, GEL, AMD, QAR, MVR,
+   JOD, TND kurzy ostatních měn k 30. 9. 2026), zaokrouhleno na 10 Kč a aspoň 10 Kč (městský autobus v Tbilisi, Batumi nebo
    Kišiněvě stojí méně).
 2. **Letiště z tabulky [cesty na letiště](#doprava-na-letiště)** (~35 letišť do ~450 km od Česka, `access.js`) – stejný
    spoj obráceně (Vídeň, Mnichov, Berlín, Drážďany…), s popiskem odhad. Letiště v obou tabulkách mají stejné jízdné
@@ -747,8 +753,7 @@ online předem:
    15 min + 1,1 min/km + 10 min čekání) × cenová hladina země 1–5 z přehledu zemí (×0,5 / ×1 / ×2 / ×2,8 / ×4), aspoň
    jízdenka MHD země. Na ověřené tabulce dává odhad v geometrickém průměru ~1,2× skutečné ceny, u ~60 % letišť do
    dvojnásobku (test) – městský autobus za pár korun (Tbilisi, Dauhá, Bari) i expres za 10–15 € (Řím, Milán, Marseille)
-   jeden vzorec netrefí, proto se nejčastější cíle ověřují. Odhadem zůstávají mimo jiné **Hurghada, Šarm aš-Šajch
-   a Marsa Alam** – z letiště tam veřejná doprava nejezdí (jen taxi a hotelové transfery) – a Bournemouth (jediná linka
+   jeden vzorec netrefí, proto se nejčastější cíle ověřují. Odhadem zůstává mimo jiné Bournemouth (jediná linka
    z letiště do města, 737, měla licenci jen do 11. 9. 2026).
 
 | Letiště | Čím do centra | Jízdné | Kč | Čas | Zdroj |
@@ -886,6 +891,30 @@ online předem:
 | RVN Rovaniemi | autobus Airport Express do centra a na nádraží | 8 € | 200 | 15 min | [airportbus.fi](https://www.airportbus.fi/pages/timetables-summer) |
 | SBZ Sibiu | městský autobus Tursib 11 do centra | 3,50 lei | 20 | 20 min | [sibiuairport.ro](https://www.sibiuairport.ro/en/info/transport-public) |
 | VAR Varna | městský autobus 409 do centra | 1 € | 20 | 20 min | [visit.varna.bg](https://visit.varna.bg/en/public-transport-in-varna.html) |
+| HER Heraklion | městský autobus 1 do centra (náměstí Eleftherias) | od 1,30 € | 30 | 20 min | [astiko-irakleiou.gr](https://astiko-irakleiou.gr/en/tickets/) |
+| RHO Rhodos | městský autobus RODA do centra Rhodu | 2,50 € | 60 | 30 min | [rho-airport.gr](https://www.rho-airport.gr/en/category-detailed/ctg_id-265/nd_id-973) ² |
+| KGS Kos | autobus KTEL do města Kos | 4 € | 100 | 40 min | [ktel-kos.gr](https://ktel-kos.gr/wp-content/uploads/dromologia/%CE%91%CE%95%CE%A1%CE%9F%CE%94%CE%A1%CE%9F%CE%9C%CE%99%CE%9F.pdf) |
+| JTR Fira | autobus KTEL na autobusové nádraží ve Fiře | 2,20 € | 50 | 20 min | [ktel-santorini.gr](https://ktel-santorini.gr/pricetable/) |
+| ACE Arrecife | autobus 22 (o víkendu 23) do Arrecife | 1,40 € | 30 | 15 min | [spain.info](https://www.spain.info/en/aeroplane/lanzarote-cesar-manrique-airport/) ² |
+| IBZ Ibiza | autobus AERO 3 do města Ibiza (Eivissa) | 3,50 € | 90 | 20 min | [alsaibiza.es](https://www.alsaibiza.es/en/fares) |
+| MAH Mahón | autobus 10 na autobusové nádraží v Mahónu | 2,80 € | 70 | 15 min | [aena.es](https://www.aena.es/en/menorca/getting-there/bus.html) |
+| OLB Olbia | městský autobus ASPO 2 / 10 do centra Olbie | od 1 € | 20 | 15 min | [aspo.it](https://www.aspo.it/biglietti-e-abbonamenti/) |
+| PUY Pula | letištní shuttle bus na autobusové nádraží v Pule | 6 € | 150 | 20 min | [airport-pula.hr](https://airport-pula.hr/en/passenger-info/shuttle-bus/) |
+| ZAD Zadar | autobus Liburnija přes autobusové nádraží do starého města | 5 € | 120 | 20 min | [zadar-airport.hr](https://zadar-airport.hr/en/how-to-get-here/) |
+| BOJ Burgas | městský autobus 15 na autobusové nádraží Jug (centrum) | 0,80 € | 20 | 30 min | [aifly.one](https://aifly.one/2026/06/boj-airport-guide/) ² |
+| DLM Fethiye | autobus Havaş na autobusové nádraží Fethiye | 300 TRY | 130 | 1 h | [e-yasamrehberi.com](https://www.e-yasamrehberi.com/havas/dalaman-havalimani-fethiye-havas-saatleri.html) ² |
+| GZP Alanya | autobus Havaş do Alanye (autobusové nádraží) | 330 TRY | 150 | 1 h | [e-yasamrehberi.com](https://www.e-yasamrehberi.com/havas/gazipasa-havalimani-alanya-merkez-havas-saatleri.html) ² |
+| VRN Verona | autobus ATV Aerobus na nádraží Verona Porta Nuova | 7 € | 170 | 20 min | [trenitalia.com](https://www.trenitalia.com/it/regionale/collegamenti-regionale/verona-airlink.html) |
+| BIO Bilbao | autobus Bizkaibus A3247 do centra (Plaza Moyúa) a na Termibus | 5 € | 120 | 25 min | [bizkaia.eus](https://www.bizkaia.eus/documents/d/bizkaibus/tarifen-mapa-tarifas-2025-03-18) |
+| BGO Bergen | tramvaj Bybanen 1 do centra (Byparken) | 51 NOK | 120 | 45 min | [en.visitbergen.com](https://en.visitbergen.com/visitor-information/travel-information/getting-here/to-bergen-by-plane/bergen-airport-flesland-to-bergen-city-center) |
+| TLL Tallinn | tramvaj 2 / 4 do centra | 2 € | 50 | 20 min | [airport.ee](https://airport.ee/en/public-transport/) |
+| RIX Riga | městský autobus 22 do centra (Staré Město, autobusové nádraží) | od 1,50 € | 40 | 40 min | [liveriga.com](https://www.liveriga.com/en/13353-how-to-get-from-riga-airport-to-the-city-center) |
+| AMM Ammán | autobus Sariyah Airport Express na 7. okruh a severní autobusové nádraží | 3,50 JOD | 110 | 1 h | [qaiairport.com](https://www.qaiairport.com/en/facilities-services?facility=fa4be5ac-5615-4c16-96cb-584f721ba909) ² |
+| HRG Hurghada | taxi do centra (Dahar, Sakkala) | 175 EGP | 70 | 20 min | [airconnect.live](https://airconnect.live/en/airports/hurghada-airport-transport-guide) ² |
+| SSH Šarm aš-Šajch | taxi do Naama Bay | 150 EGP | 60 | 20 min | [airconnect.live](https://airconnect.live/en/airports/sharm-el-sheikh-airport-transport-guide) ² |
+| RMF Marsa Alam | taxi / předem objednaný transfer do Marsa Alamu | 17,50 € | 430 ⚠ | 55 min | [airportstaxitransfers.com](https://airportstaxitransfers.com/transportation/taxibookings/Transfer-from-Marsa-Alam-Airport-to-El-Quseir) ² |
+| AQJ Akaba | taxi do centra Akaby | 6 JOD | 180 | 15 min | [airconnect.live](https://airconnect.live/en/airports/aqaba-airport-transport-guide) ² |
+| DJE Houmt Souk | taxi do Houmt Souku | 12,50 TND | 90 | 15 min | [airmundo.com](https://airmundo.com/en/djerba-airport/taxi/) ² |
 
 ⚠ = zvýrazněno (přes 350 Kč nebo přes 60 min). ² = sekundární zdroj. Čas je typická jízda bez čekání na spoj (u vlaku
 a metra podle jízdního řádu, u autobusu podle dopravce).
@@ -914,14 +943,16 @@ i s cestou na letiště a odbavením – a mnohem levnější. ATLAS to ukáže 
   sdíleném odkazu i v kalendáři (.ics) – a jedním kliknutím jde vrátit zpět k letu.
 
 **Od a běžně:** *od* = nejnižší cena, kterou jde najít (s rezervou, ve vhodný den); *běžně* = co typicky zaplatíš,
-když musíš jet určitý den (medián nejlevnějšího spoje dne, který jde koupit). Rozhoduje a srovnává se vždy *běžně*:
+když musíš jet určitý den konkrétním spojem – medián nejlevnějšího spoje dne, který jde koupit, × 1,4 (v danou hodinu
+nejede ten nejlevnější: ověřeno 10/2026 Praha–Brno RegioJet 229–399 Kč, ČD 269–435 Kč místo 199; Praha–Vídeň 450–600 Kč
+místo 249; Praha–Budapešť 700–850 Kč místo 569), a čas nejrychlejšího spoje × 1,1 (nejvýš +30 min). Rozhoduje a srovnává se vždy *běžně*:
 pravidlo „aspoň o polovinu levněji“, srovnání letadlo × vlak/bus, cena 🚆 v průvodci cestou, vlak/bus do města letiště
 v [dopravě na letiště](#doprava-na-letiště) i přejezdy mezi místy trasy. Když si v *Ukázat spoje* nebo v průvodci
 vybereš konkrétní spoj RegioJetu, platí jeho skutečná cena.
 
 **Kde to dává smysl:** obě místa na pevnině Evropy (ne Velká Británie, Irsko, Island, Malta, Kypr ani ostrovy jako
 Mallorca, Kanáry, Korsika, Sardinie, Sicílie, Kréta) a nejvýš ~1 100 km vzdušnou čarou (do Švédska a Norska po souši přes Øresundský most – Stockholm ani Oslo už ne). **Zvýrazní se**, když platí
-jednoduché pravidlo: cesta po zemi (+30 min na nádraží) je nejvýš o 1,5 h delší než letadlo od dveří ke dveřím
+jednoduché pravidlo: cesta po zemi (+45 min na nádraží a z něj) je nejvýš o 1,5 h delší než letadlo od dveří ke dveřím
 (cesta na letiště + 2 h před odletem + nejrychlejší nalezený let – u zpáteční cesty pomalejší z obou směrů – + 45 min po přistání + cesta do města), **nebo** trvá do 6,5 h, **nebo** je
 za běžnou cenu aspoň o polovinu levnější než nejlevnější let a do 10 h. Důvod se u srovnání vždy napíše česky a jmenuje let, se kterým
 srovnává („rychleji než letadlem (nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11 994 Kč)“). Ve výsledcích se
@@ -1441,7 +1472,7 @@ vzdušnou čarou (Řím → Neapol ~590 Kč, Lisabon → Porto ~830 Kč, Barcelo
   (cena pak počítá, jako by ses vrátil k autu).
 - Časy *🏠 Kdy vyrazit* (z domu, domů, z ubytování na letiště) jsou odhad z modelu cesty na letiště, ne z jízdních
   řádů – ATLAS neví, kdy jede první vlak nebo poslední bus; 2 h před odletem a 45 min po přistání jsou paušál.
-- Cesta z letiště do města: jízdné z ověřené tabulky (133 letišť, u 13 jen sekundární zdroj; 7. 10. 2026) se mění – dopravci zdražují, „od“ platí
+- Cesta z letiště do města: jízdné z ověřené tabulky (157 letišť, u 24 jen sekundární zdroj; 7. a 18. 10. 2026) se mění – dopravci zdražují, „od“ platí
   jen online předem a u řidiče nebo ve špičce bývá dráž; čas je typická jízda bez čekání (po půlnoci letištní bus často
   nejede a zbývá taxi). Počítá se jízdenka pro dospělého na osobu do jednoho místa v centru (nádraží, terminál), ne
   k ubytování – rodinné, skupinové a časové jízdenky, slevy pro děti ani taxi pro víc lidí se nepočítají. Ostatní

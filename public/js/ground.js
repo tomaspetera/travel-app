@@ -35,7 +35,7 @@
   const basisTxt = (b, hills) => b === 'measured' ? 'odhad podle skutečných spojů a cen z 15. 10.' : `odhad podle vzdálenosti${hills ? ` (přes ${hills === 'Alpy' ? 'Alpy' : 'hory'} déle)` : ''}`;
 
   /* ---------- letadlo × vlak/bus: stejné pravidlo jako server (server/lib/ground.js), jen nad nabídkami po filtrech výpisu ---------- */
-  const AIRPORT_BEFORE = 120, AIRPORT_AFTER = 45, STATION_MIN = 30, FAST_GAP = 60;
+  const AIRPORT_BEFORE = 120, AIRPORT_AFTER = 45, STATION_MIN = 45, FAST_GAP = 60;
   const round5 = m => Math.max(5, Math.round(m / 5) * 5);
   /**
    * Letadlo od dveří ke dveřím pro let tam: cesta na letiště + 2 h před odletem + let (vč. přestupů) + 45 min po přistání

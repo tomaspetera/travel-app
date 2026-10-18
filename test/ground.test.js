@@ -11,23 +11,28 @@ const PRAHA = P('Praha', 'CZ', 50.0833, 14.4353, G.PRAHA_RJ, { fb: '40de1ad1-864
 const VIDEN = P('Vídeň', 'AT', 48.1855, 16.3768, 10202052, { loc: 'Wien', fb: '40de1f31-8646-11e6-9066-549f350fcb0c' });
 const BRNO = P('Brno', 'CZ', 49.1903, 16.6128, 10202002);
 const BUDAPEST = P('Budapešť', 'HU', 47.5003, 19.0839, 10202091, { loc: 'Budapest' });
+// konkrétní spoj v danou hodinu (ground.js specific): běžně × 1,4, čas × 1,1 (nejvýš +30 min), „od“ beze změny
+const rCzk = (x) => (x < 1000 ? Math.round(x / 10) * 10 : Math.round(x / 50) * 50);
+const spec = (m) => ({ minutes: Math.max(5, Math.round((m.minutes + Math.min(30, m.minutes * 0.1)) / 5) * 5), czk: m.czk, typ: Math.max(m.czk, rCzk(m.typ * 1.4)) });
 
 test('estimate: Praha ↔ změřené město = změřeno 15. 10. – od i běžně (oběma směry), jinak model podle vzdálenosti', () => {
   const e = G.estimate(PRAHA, VIDEN);
   assert.equal(e.ok, true);
   assert.equal(e.basis, 'measured');
-  assert.equal(e.minutes, 234);
-  assert.deepEqual([e.czk, e.typ], [249, 249]);
+  // změřeno 15. 10. (nejrychlejší spoj 234 min, nejlevnější spoj dne 249 Kč) → konkrétní spoj v danou hodinu
+  assert.equal(e.minutes, 255);
+  assert.deepEqual([e.czk, e.typ], [249, 350]);
+  assert.deepEqual([G.SPECIFIC, G.SPECIFIC_MIN], [1.4, 1.1]);
   assert.equal(e.measuredAt, '2026-10-15');
   assert.ok(e.km > 240 && e.km < 260, `Praha–Vídeň ${e.km} km`);
   assert.deepEqual(G.estimate(VIDEN, PRAHA), e, 'zpět stejně');
-  // běžně nad „od“: Praha–Budapešť od 399, běžně 569 Kč; Praha–Krakov od 279 (13. 10.), běžně 418 Kč
-  assert.deepEqual([G.estimate(PRAHA, BUDAPEST).czk, G.estimate(PRAHA, BUDAPEST).typ], [399, 569]);
+  // běžně nad „od“: Praha–Budapešť od 399, nejlevnější spoj dne 569 Kč → konkrétní spoj ~800 Kč (ČD / RegioJet 700–850)
+  assert.deepEqual([G.estimate(PRAHA, BUDAPEST).czk, G.estimate(PRAHA, BUDAPEST).typ], [399, 800]);
   const d = G.estimate(BRNO, BUDAPEST);
   assert.equal(d.basis, 'distance');
   assert.ok(d.minutes >= 200 && d.minutes <= 320, `Brno–Budapešť ${d.minutes} min`);
   assert.ok(d.czk >= 200 && d.czk <= 400, `Brno–Budapešť od ${d.czk} Kč`);
-  assert.ok(d.typ >= d.czk && Math.abs(d.typ - 369) / 369 <= 0.25, `Brno–Budapešť běžně ${d.typ} Kč (RegioJet běžně 369)`);
+  assert.ok(d.typ >= d.czk && Math.abs(d.typ - 369 * 1.4) / (369 * 1.4) <= 0.25, `Brno–Budapešť běžně ${d.typ} Kč (RegioJet nejlevnější spoj dne 369 × 1,4)`);
   assert.equal(d.minutes % 5, 0, 'čas zaokrouhlený na 5 min');
   assert.deepEqual([d.czk % 10, d.typ % 10], [0, 0], 'ceny zaokrouhlené');
   for (const [id, m] of Object.entries(G.MEASURED)) assert.ok(m.typ >= m.czk && m.min > 0, `${m.name} (${id}): běžně aspoň od`);
@@ -65,7 +70,7 @@ test('distanceModel: kalibrace 15. 10. na 41 trasách RegioJetu – běžně do 
     assert.ok(Math.abs(m.typ - typ) / typ <= 0.65, `${from}–${to}: model běžně ${m.typ} Kč, RegioJet ${typ} Kč`);
     assert.ok(m.typ >= m.czk, `${from}–${to}: běžně aspoň od`);
     // trasy z Prahy platí přesně změřené (běžně z 15. 10.)
-    if (from === 'Praha') assert.deepEqual([G.estimate(a, b).basis, G.estimate(a, b).typ], ['measured', typ], `${from}–${to} změřeno`);
+    if (from === 'Praha') assert.deepEqual([G.estimate(a, b).basis, G.estimate(a, b).typ], ['measured', Math.max(G.estimate(a, b).czk, rCzk(typ * 1.4))], `${from}–${to} změřeno (× 1,4 konkrétní spoj)`);
   }
   const within = err.typ.filter((x) => x <= 0.25).length;
   // před kalibrací (jeden model jen pro „od“): medián chyby od 19,5 %, běžně 19,9 % (do ±25 % 25 tras z 41)
@@ -129,7 +134,7 @@ test('estimate: přes Alpy a Dinárské hory o čtvrtinu déle (Klagenfurt není
   // skutečnost 10/2026 (RegioJet, FlixBus, ÖBB): Praha–Klagenfurt ~7 h 30–8 h 30, Praha–Štýrský Hradec ~6 h 30
   const klu = G.estimate(PRAHA, P('Klagenfurt', 'AT', 46.62, 14.31));
   assert.equal(klu.hills, 'Alpy');
-  assert.ok(klu.minutes >= 420 && klu.minutes <= 480, `Praha–Klagenfurt ${klu.minutes} min`);
+  assert.ok(klu.minutes >= 450 && klu.minutes <= 510, `Praha–Klagenfurt ${klu.minutes} min`);
   assert.notEqual(G.worth(klu).rule, 'short', 'už to není „cesta do 6,5 h“');
   assert.ok(G.estimate(PRAHA, P('Štýrský Hradec', 'AT', 47.07, 15.44)).minutes >= 360);
   assert.equal(G.estimate(PRAHA, P('Split', 'HR', 43.51, 16.44)).hills, 'Alpy', 'přímka vede nejdřív přes Alpy');
@@ -139,11 +144,11 @@ test('estimate: přes Alpy a Dinárské hory o čtvrtinu déle (Klagenfurt není
   for (const [label, cc, lat, lon] of [['Mnichov', 'DE', 48.14, 11.58], ['Curych', 'CH', 47.38, 8.54], ['Ženeva', 'CH', 46.2, 6.15], ['Bělehrad', 'RS', 44.82, 20.46], ['Lyon', 'FR', 45.73, 4.83], ['Osijek', 'HR', 45.55, 18.69]]) {
     const e = G.estimate(PRAHA, P(label, cc, lat, lon));
     assert.equal(e.hills, undefined, label);
-    assert.deepEqual([e.minutes, e.czk], [G.distanceModel(e.km).minutes, G.distanceModel(e.km).czk], `${label}: čistý model`);
+    assert.deepEqual([e.minutes, e.czk], [spec(G.distanceModel(e.km)).minutes, G.distanceModel(e.km).czk], `${label}: čistý model`);
   }
   // změřená cesta z Prahy zůstává změřená (Benátky 11 h 50)
   const vce = G.estimate(PRAHA, P('Benátky', 'IT', 45.48, 12.24, 10202080));
-  assert.deepEqual([vce.basis, vce.minutes, vce.hills], ['measured', 710, undefined]);
+  assert.deepEqual([vce.basis, vce.minutes, vce.hills], ['measured', 740, undefined]);
   // model přes Alpy je blíž změřeným Benátkám než bez nich
   const plain = G.distanceModel(vce.km).minutes;
   const hilly = G.distanceModel(vce.km, G.MOUNTAIN_SLOW).minutes;
@@ -155,14 +160,14 @@ test('estimate: na východě levné vlaky i dál než 450 km, na západě draž�
   // východu dál než 450 km roste jen pomalu (Lvov ~510 Kč, Brno–Varšava běžně 508 Kč)
   for (const [label, cc, lat, lon, real, rj] of [['Košice', 'SK', 48.72, 21.27, 549, 10202033], ['Varšava', 'PL', 52.23, 21.0, 399, 2737640000], ['Lvov', 'UA', 49.84, 24.03, 449, 271526030]]) {
     const e = G.estimate(PRAHA, P(label, cc, lat, lon, rj));
-    assert.ok(e.km > 450 && e.typ === real, `${label}: běžně ${e.typ} Kč (RegioJet ${real})`);
+    assert.ok(e.km > 450 && e.typ === Math.max(e.czk, rCzk(real * 1.4)), `${label}: běžně ${e.typ} Kč (RegioJet ${real} × 1,4)`);
     const m = G.distanceModel(G.landKm(PRAHA, P(label, cc, lat, lon)), 1, G.priceBand(PRAHA, P(label, cc, lat, lon, rj)));
     assert.ok(m.typ <= real * 1.3 && m.typ >= real * 0.8, `${label}: model běžně ${m.typ} Kč (RegioJet ${real})`);
   }
   // kam RegioJet nejezdí (jen FlixBus), levný východ neplatí: Praha–Gdaňsk FlixBus 10/2026 ~900 Kč jedním směrem
   const gdn = G.estimate(PRAHA, P('Gdaňsk', 'PL', 54.352, 18.6466));
   assert.ok(gdn.czk >= 750 && gdn.czk <= 1100, `Gdaňsk od ${gdn.czk} Kč`);
-  assert.ok(gdn.typ >= 850 && gdn.typ <= 1000, `Gdaňsk běžně ${gdn.typ} Kč`);
+  assert.ok(gdn.typ >= 1100 && gdn.typ <= 1450, `Gdaňsk běžně ${gdn.typ} Kč (konkrétní spoj)`);
   assert.equal(G.estimate(PRAHA, G.groundPlace({ lat: 54.352, lon: 18.6466, cc: 'PL' })).typ, gdn.typ, 'Gdaňsk z dat: bez RegioJetu');
   assert.equal(G.estimate(PRAHA, G.groundPlace({ lat: 52.2586, lon: 20.9946, cc: 'PL' })).typ < 600, true, 'Varšava z dat: RegioJet');
   // RegioJet 13. 10. 2026: Praha–Düsseldorf od 869 Kč
@@ -172,9 +177,9 @@ test('estimate: na východě levné vlaky i dál než 450 km, na západě draž�
   // Švédsko a Norsko: přes Øresundský most (a Göteborg, Oslo) – přímka přes moře by cestu zkrátila
   const mal = G.estimate(PRAHA, P('Malmö', 'SE', 55.6, 13.0));
   assert.equal(mal.ok, true);
-  assert.ok(mal.minutes - G.distanceModel(mal.km).minutes <= 20, `Malmö leží u mostu: ${mal.minutes} min`);
+  assert.ok(mal.minutes - spec(G.distanceModel(mal.km)).minutes <= 20, `Malmö leží u mostu: ${mal.minutes} min`);
   const klr = G.estimate(PRAHA, P('Kalmar', 'SE', 56.66, 16.36));
-  assert.ok(klr.ok && klr.km < 760 && klr.minutes > G.distanceModel(klr.km).minutes + 60, `Kalmar ${klr.km} km, ${klr.minutes} min`);
+  assert.ok(klr.ok && klr.km < 760 && klr.minutes > spec(G.distanceModel(klr.km)).minutes + 60, `Kalmar ${klr.km} km, ${klr.minutes} min`);
   assert.equal(G.landKm(PRAHA, P('Kalmar', 'SE', 56.66, 16.36)), G.landKm(P('Kalmar', 'SE', 56.66, 16.36), PRAHA), 'oběma směry');
   for (const [label, lat, lon] of [['Kristiansand', 58.15, 8.0], ['Oslo-Torp', 59.19, 10.26]]) {
     const e = G.estimate(PRAHA, P(label, 'NO', lat, lon));
@@ -190,13 +195,15 @@ test('estimate: na východě levné vlaky i dál než 450 km, na západě draž�
 test('worth: srovnání s letadlem od dveří ke dveřím – čas, krátká cesta, výrazně levněji', () => {
   const e = (minutes, czk = 300) => ({ ok: true, km: 300, minutes, czk, basis: 'distance' });
   // 1) po zemi nejvýš o 1,5 h déle než letadlem
-  const t = G.worth(e(400), { doorMin: 350 });
+  const t = G.worth(e(390), { doorMin: 350 });
   assert.equal(t.rule, 'time');
-  assert.equal(t.groundMin, 430);
+  assert.equal(t.groundMin, 435, 'jízda + 45 min na nádraží a z něj');
+  assert.equal(G.worth(e(400), { doorMin: 350 }).rule, null, '445 min > 350 + 90');
   assert.match(t.reason, /skoro jako letadlem/);
   assert.match(G.worth(e(200), { doorMin: 300 }).reason, /rychleji než letadlem/);
-  // 2) do 6,5 h i bez známého letu
-  const s = G.worth(e(360));
+  // 2) do 6,5 h od dveří ke dveřím i bez známého letu (jízda 5 h 45 + 45 min)
+  const s = G.worth(e(345));
+  assert.equal(G.worth(e(360)).rule, null, '6 h jízdy + 45 min = přes 6,5 h');
   assert.equal(s.rule, 'short');
   assert.equal(s.worth, true);
   // 3) aspoň o polovinu levněji (cena letu tam i zpět → dvě cesty po zemi) a do 10 h
@@ -256,7 +263,7 @@ test('worth + planeOptions: cena i čas z téže cesty – nejlevnější se sv�
   const e = (minutes, czk = 299) => ({ ok: true, km: 280, minutes, czk, basis: 'measured' });
   const w = G.worth(e(234), { doorMin: p.cheap.doorMin, czk: 4045, trips: 2, fast: { doorMin: p.fast.doorMin, czk: 11994 } });
   assert.equal(w.rule, 'time');
-  assert.equal(w.reason.replace(/\u00a0/g, ' '), 'Vlakem/busem ~3 h 54 – rychleji než letadlem (nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11 994 Kč).');
+  assert.equal(w.reason.replace(/\u00a0/g, ' '), 'Vlakem/busem ~3 h 54 – skoro jako letadlem (nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11 994 Kč).');
   assert.deepEqual([w.doorMin, w.fast.doorMin, w.fast.czk], [1085, 275, 11994]);
   const slow = G.worth(e(700, 300), { doorMin: 1085, czk: 4045, trips: 2, fast: { doorMin: 275, czk: 11994 } });
   assert.equal(slow.rule, null);

@@ -30,7 +30,8 @@ export const ARRIVAL_CHECKED = DATA.checked;
  * jedním směrem nebo přes hodinu – Beauvais, Charleroi, Girona, Torp, Weeze…, ne Paříž-CDG s vlakem za 14 €.
  */
 export const ARRIVAL_WARN = { czk: 350, min: 60 };
-export const ARRIVAL_MODES = ['bus', 'train', 'metro', 'tram'];
+// taxi: z letiště veřejná doprava nejezdí (Hurghada, Šarm aš-Šajch…) – jízdné = cena taxi za auto děleno dvěma
+export const ARRIVAL_MODES = ['bus', 'train', 'metro', 'tram', 'taxi'];
 
 // Odhad mimo tabulky: cenová hladina země (countries.json cost 1–5) × regionální jízdné – nastavené podle ověřené
 // tabulky (geometrický průměr odhad / skutečnost ~0,9, ¾ letišť do dvojnásobku; test v test/arrival.test.js).
