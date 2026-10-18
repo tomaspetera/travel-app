@@ -7,6 +7,7 @@
 import { addDays, daysBetween, weekday } from './dates.js';
 import { destKey } from './airports.js';
 import { makeTrip } from './fares.js';
+import { carrierFamily } from './airlines.js';
 
 /**
  * Pro každou kombinaci (from, to, datum) víc variant: nejlevnější, nejlevnější přímý a nejlevnější
@@ -35,11 +36,11 @@ export function legsPerDay(legs, k = 1, extra = () => 0, { variety = false } = {
     const pick = [list[0]];
     const direct = list.find((l) => !l.stops);
     if (direct && !pick.includes(direct)) pick.push(direct);
-    const seen = new Set(pick.map((l) => `${l.carrier}|${l.dep}`));
+    const seen = new Set(pick.map(flightSig));
     for (const l of list) {
       if (pick.length >= k) break;
-      const sig = `${l.carrier}|${l.dep}`;
-      if (seen.has(sig) || pick.some((p) => p.carrier === l.carrier)) continue;
+      const sig = flightSig(l);
+      if (seen.has(sig) || pick.some((p) => carrierFamily(p.carrier) === carrierFamily(l.carrier))) continue;
       seen.add(sig);
       pick.push(l);
     }
@@ -47,6 +48,9 @@ export function legsPerDay(legs, k = 1, extra = () => 0, { variety = false } = {
   }
   return out;
 }
+
+// Týž let (dopravce + čas odletu) – z Kiwi i z webu aerolinky, i když ho Kiwi vede pod kódem dceřiné aerolinky (W4 = W6)
+const flightSig = (l) => `${carrierFamily(l.carrier)}|${l.dep}`;
 
 // Část dne odletu: 0 = ráno (do 12 h), 1 = odpoledne (do 18 h), 2 = večer.
 const partOfDay = (l) => {
@@ -68,7 +72,7 @@ export function dayVariety(sorted, k) {
     const out = [];
     const at = new Map();
     for (const l of list) {
-      const sig = `${l.carrier}|${l.dep}`;
+      const sig = flightSig(l);
       if (seen.has(sig)) {
         const i = at.get(sig);
         const kept = out[i];

@@ -12,7 +12,10 @@
   const MONTHS = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
 
   /** Totožný let (trasa, odlet, dopravce, přestupy) – stejný klíč jako na serveru (topWithDays). */
-  const legSig = l => `${l.from}|${l.to}|${l.dep}|${l.carrier}|${l.stops}`;
+  // týž let z víc zdrojů: Kiwi ho vede pod kódem dceřiné aerolinky (W4 Wizz Air Malta), web aerolinky pod mateřským (W6)
+  const FAMILY = { W4: 'W6', W9: 'W6', '5W': 'W6', RK: 'FR', AL: 'FR', RR: 'FR', OE: 'FR', EC: 'U2', DS: 'U2' };
+  const fam = c => FAMILY[c] || c;
+  const legSig = l => `${l.from}|${l.to}|${l.dep}|${fam(l.carrier)}|${l.stops}`;
 
   // Návrat nejdřív 2 h po příletu tam – stejné pravidlo jako server (optimizer.js returnFits).
   const localMs = s => Date.parse(String(s).slice(0, 16) + ':00Z');
@@ -69,7 +72,7 @@
       let x = map.get(k);
       if (!x) map.set(k, x = { sig: k, leg: l, best: t, paired: null, count: 0, sep: null });
       x.count++;
-      if (t.perPersonCzk < x.best.perPersonCzk) x.best = t;
+      if (t.perPersonCzk < x.best.perPersonCzk) { x.best = t; x.leg = l; } // týž let z jiného zdroje levněji – řádek podle něj
       if (!t.combined && (!x.sep || t.perPersonCzk < x.sep.perPersonCzk)) x.sep = t;
       if (pair && t[other] && legSig(t[other]) === pair) {
         if (!x.paired || t.perPersonCzk < x.paired.perPersonCzk) x.paired = t;
@@ -114,13 +117,13 @@
   function pricedTimes(trips) {
     const s = new Set();
     for (const t of trips || []) {
-      for (const l of [t.out, t.back]) if (l && !l.stops && l.hasTime) s.add(`${l.from}|${l.to}|${l.date}|${l.carrier}|${hhmm(l)}`);
+      for (const l of [t.out, t.back]) if (l && !l.stops && l.hasTime) s.add(`${l.from}|${l.to}|${l.date}|${fam(l.carrier)}|${hhmm(l)}`);
     }
     return s;
   }
   /** Další odlety téhož dne bez ceny (otherDeps), kromě těch, které výsledky ukazují i s cenou. */
   function freeDeps(l, priced) {
-    return (l && l.otherDeps || []).filter(x => !(priced && priced.has(`${l.from}|${l.to}|${l.date}|${l.carrier}|${x}`)));
+    return (l && l.otherDeps || []).filter(x => !(priced && priced.has(`${l.from}|${l.to}|${l.date}|${fam(l.carrier)}|${x}`)));
   }
 
   /**

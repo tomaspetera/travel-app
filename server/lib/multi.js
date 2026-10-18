@@ -1,6 +1,7 @@
 // Cesta přes víc měst (multi-city, návrat z jiného místa): stihne se další let, výběr letů na úsek
 // a skládání celých cest. Čistá logika bez dotazů na zdroje – hledání úseků řídí search.js (searchMulti).
 import { destKey } from './airports.js';
+import { carrierFamily } from './airlines.js';
 import { localToUtcMs } from './dates.js';
 
 export const MULTI = {
@@ -26,7 +27,7 @@ export const MULTI = {
 
 const localMs = (s) => Date.parse(`${String(s).slice(0, 16)}:00Z`);
 const arrDate = (l) => (l.arr ? String(l.arr).slice(0, 10) : l.date);
-const legSig = (l) => `${l.from}|${l.to}|${l.dep}|${l.carrier}|${l.stops}`;
+const legSig = (l) => `${l.from}|${l.to}|${l.dep}|${carrierFamily(l.carrier)}|${l.stops}`;
 
 /**
  * Stihne se let `next` po letu `prev`? null = ano, jinak důvod:
