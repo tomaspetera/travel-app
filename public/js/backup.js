@@ -124,6 +124,9 @@
     // otisk 🏠 vlastních cen v ceně hlídání („BRQ:0,VIE:350“, SearchHelp.ownPrint; Alerts.rebaseWhy)
     if (typeof w.own === 'string' && /^([A-Z]{3}:\d{1,4}(,[A-Z]{3}:\d{1,4}){0,39})?$/.test(w.own)) o.own = w.own;
     if (fin(w.rebAt)) o.rebAt = w.rebAt;
+    if (['own', 'unmute', 'mute', 'price'].includes(w.rebWhy)) o.rebWhy = w.rebWhy;
+    // pv 2 = cena jen za letenku (Alerts.PV); bez něj se hlídání při příští kontrole přepočítá jako ze starší verze
+    if (w.pv === 2) o.pv = 2;
     return o;
   }
   // druh výsledku z Objevuj (city, bike, hike, train, day-car, loop-transit…) → řádky dnů, které tam uložil
@@ -527,7 +530,7 @@
           <input type="file" id="bkFile" accept=".json,.txt,application/json,text/plain" hidden>
         </div>
         <div class="faint" style="font-size:12.5px;margin-top:12px"><span id="bkStatus">${statusTxt()}</span><span id="bkStore"></span></div>
-        <div class="faint" style="font-size:12px;margin-top:8px">Na druhém zařízení otevři ATLAS → ${canShare ? 'Plánovač' : 'Plánovač nebo menu Více'} → 💾 Přenos a záloha → 📂 Obnovit ze zálohy. Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (uložené cesty v plánovači ji mají), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
+        <div class="faint" style="font-size:12px;margin-top:8px">Na druhém zařízení otevři ATLAS → ${canShare ? 'Plánovač' : 'Plánovač nebo ⋯ Další'} → 💾 Přenos a záloha → 📂 Obnovit ze zálohy. Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (uložené cesty v plánovači ji mají), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
       </div></div>`);
     if (canShare) $('#bkShare').onclick = () => share();
     $('#bkDown').onclick = () => { download(); toast('Záloha stažena'); };

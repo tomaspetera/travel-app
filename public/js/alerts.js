@@ -224,8 +224,9 @@
    * zůstane k nové kontrole), nejvýš 2× po sobě, pak se vezme i neúplná. Nižší cena platí i při výpadku.
    * own = otisk 🏠 vlastních cen na letiště, které hledání použilo (SearchHelp.ownPrint). Cena posunutá změnou nastavení
    * (rebaseWhy: jiné vlastní ceny, 🙈 u nejlevnějšího města) se nehlásí jako zlevnění, zdražení ani cíl – je to nový
-   * základ: výchozí, nejnižší i „viděná“ cena začnou od ní (rebased = 'own' | 'unmute' | 'mute', bod historie s own: 1,
-   * w.rebAt = kdy). Bez own (undefined) se otisk nehlídá.
+   * základ: výchozí, nejnižší i „viděná“ cena začnou od ní (rebased = 'own' | 'unmute' | 'mute' | 'price', bod historie
+   * s own: 1, w.rebAt = kdy, w.rebWhy = proč). 'price' = hlídání ze starší verze (cena i s dopravou na letiště): cílová
+   * cena se přepočítá ve stejném poměru k nové ceně. Bez own (undefined) se otisk nehlídá.
    */
   function applyCheck(w, best, now, cfg = CFG, { partial = false, own } = {}) {
     const h = Array.isArray(w.history) ? w.history : [];
@@ -251,8 +252,11 @@
       out.history = pushHistory(h, { at: now, czk: cur, own: 1 }, cfg.histCap);
       out.base = out.low = out.seen = cur;
       out.rebAt = now;
+      out.rebWhy = reb;
+      // cíl nastavený k ceně i s dopravou na letiště: ve stejném poměru k nové ceně jen za letenku (na 10 Kč)
+      if (reb === 'price' && num(w.target)) out.target = Math.max(10, Math.round(w.target * cur / prev / 10) * 10);
       // pod cílovou cenou už teď → tuhle cenu nehlásit (jako nastavení cíle), jinak dřív ohlášená cena neplatí
-      if (num(w.target) && cur <= w.target) { out.notified = cur; out.notifiedAt = now; } else { delete out.notified; delete out.notifiedAt; }
+      if (num(out.target) && cur <= out.target) { out.notified = cur; out.notifiedAt = now; } else { delete out.notified; delete out.notifiedAt; }
     } else if (cur) {
       out.history = pushHistory(h, { at: now, czk: cur }, cfg.histCap);
       out.low = lowest([w.low, ...he.map(x => x.czk), cur]);

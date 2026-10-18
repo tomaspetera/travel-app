@@ -59,6 +59,13 @@ test('délka, lidé, cena, zavazadla, přímé lety, druh cíle', () => {
   assert.deepEqual(P('na 5 nocí').patch.nMin, 5);
   assert.deepEqual([P('na 3 dny').patch.nMin, P('na 3 dny').patch.nMax], [2, 2]);
   assert.equal(P('na 2 týdny').patch.len, '2weeks');
+  // dny a týdny přibližně (jako 2 týdny), noci přesně
+  assert.deepEqual([P('na 10 dní').patch.nMin, P('na 10 dní').patch.nMax], [7, 11]);
+  assert.deepEqual([P('na 3 týdny').patch.nMin, P('na 3 týdny').patch.nMax], [18, 24]);
+  assert.deepEqual([P('na 15 dní').patch.nMin, P('na 15 dní').patch.nMax], [11, 17]);
+  assert.ok(P('na 10 dní').chips.some((c) => c.text === '7–11 nocí'));
+  assert.deepEqual([P('na 10 nocí').patch.nMin, P('na 10 nocí').patch.nMax], [10, 10]);
+  assert.deepEqual([P('Kréta 5. 6. na 10 dní').patch.xOut, P('Kréta 5. 6. na 10 dní').patch.xBack], ['2027-06-05', '2027-06-14'], 'přesné datum: prostřední délka');
   assert.equal(P('prodloužený víkend').patch.len, 'long');
   assert.equal(P('ve dvou').patch.adults, 2);
   assert.equal(P('pro 3 lidi').patch.adults, 3);
@@ -77,6 +84,9 @@ test('délka, lidé, cena, zavazadla, přímé lety, druh cíle', () => {
   // děti platí letenku: dospělí + děti; bez počtu dospělých dva
   assert.equal(P('2 dospělí a 2 děti k moři').patch.adults, 4);
   assert.equal(P('s dítětem do Říma').patch.adults, 3);
+  // „s dětmi“ bez počtu: hledá se s počtem z formuláře a výsledky připomenou upravit osoby
+  assert.equal(P('s dětmi do Londýna na jaře').askPax, true);
+  assert.equal(P('2 dospělí a 2 děti k moři').askPax, undefined);
   assert.equal(P('na jih').patch.minTemp, 20);
 });
 

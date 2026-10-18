@@ -54,6 +54,7 @@ test('veřejnou dopravou: cílové rozsahy na osobu jedním směrem z Prahy a z 
   const prg = transit(PRAHA, 'PRG');
   assert.deepEqual(prg.breakdown.map((x) => x.k), ['access']);
   assert.ok(prg.local && prg.minutes >= 40 && prg.minutes <= 70, `PRG ${prg.minutes} min`);
+  assert.ok(prg.nightMin >= 15 && prg.nightMin <= 35 && prg.nightMin < prg.minutes, `PRG v noci taxi ${prg.nightMin} min`);
   assert.match(prg.breakdown[0].label, /PID/);
   const klv = transit(PRAHA, 'KLV');
   assert.deepEqual(klv.breakdown.map((x) => x.k), ['intercity', 'access']);
@@ -175,7 +176,7 @@ test('🏠 vlastní cena na letiště (accessOverride): kontrola, místo odhadu 
   assert.deepEqual([H.OWN_MAX, H.OWN_MAX_CZK], [A.OWN_MAX, A.OWN_MAX_CZK]);
   const l = H.accessLabel(plain(est));
   assert.equal(l.text, '🏠 350 Kč/os. tam');
-  assert.match(l.title, /^Veřejnou dopravou: vlastní cena 350 Kč na osobu jedním směrem \(zpět totéž\) místo odhadu ~180 Kč, cesta ~4 h 55 min \(odhad\)\./, 'odhad s násobkem 0,5');
+  assert.match(l.title, /^Veřejnou dopravou: vlastní cena 350 Kč na osobu jedním směrem \(zpět totéž\) místo odhadu ~180 Kč, cesta ~5 h 5 min \(odhad\)\./, 'odhad s násobkem 0,5');
   assert.doesNotMatch(l.title, /Odhad podle vzdálenosti/);
   // radar hledá s vlastními cenami stejně jako formulář (jiný klíč uloženého radaru)
   const home = { from: [{ id: 'ap:PRG', label: 'Praha' }], radius: 200, adults: 2 };

@@ -44,6 +44,8 @@
 .pi-smart{background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 16%,transparent),color-mix(in srgb,var(--accent-2,#a855f7) 10%,transparent));border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);margin-bottom:4px}
 .pi-smart.on,.pi-smart:hover{background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 26%,transparent),color-mix(in srgb,var(--accent-2,#a855f7) 16%,transparent))}
 .pi-smart .pi-t b{white-space:normal;line-height:1.35}
+/* vysvětlení chytrého hledání („víc měst – nastavím lety mezi nimi…“) celé: nejvýš na 2 řádky, ne useknuté na jednom */
+.pi-smart .pi-t small{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.35}
 .pi-smart .pi-type{color:var(--accent)}
 .pi-tip .pi-t b{font-weight:650}
 .smart-try{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:2px;scrollbar-width:none;align-items:center}
@@ -205,6 +207,7 @@ details[open] .ps-more::after{content:" ▴"}
   /* 4 pohledy (Lety, Kombinace, Mapa, Kalendář) se vedle Filtrů nevejdou – vlastní řádek přes celou šířku */
   .res-tools .seg:has(> button:nth-child(4)){grid-column:1/-1}
   .res-tools .seg:has(> button:nth-child(4)) button{flex:1 1 auto}
+  #mSort button{padding:8px 12px} /* jen 2 volby (Nejlevnější, Podle času) – místa dost, ne nalepené na okraj */
   .rf-sort{width:100%}
   .rf-sort select{flex:1;min-width:0}
 }
@@ -596,6 +599,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .rc-panel{display:flex;flex-direction:column;gap:2px;padding:11px 12px 11px;border-radius:18px;background:rgba(10,14,30,.4);border:1px solid rgba(255,255,255,.2);
   box-shadow:0 10px 26px -14px rgba(0,0,0,.6);-webkit-backdrop-filter:blur(16px) saturate(160%);backdrop-filter:blur(16px) saturate(160%)}
 .radar-card .rc-city{font:700 17px/1.2 Sora,Inter,sans-serif;letter-spacing:-.01em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:break-word}
+.radar-card .rc-nw{white-space:nowrap}
 .radar-card .rc-info{display:inline-grid;place-items:center;vertical-align:-2px;width:20px;height:20px;margin-left:3px;padding:0;border:none;border-radius:50%;background:rgba(255,255,255,.18);
   color:#fff;font:600 12px/1 Inter,sans-serif;cursor:pointer}
 .rc-meta{font-size:12.5px;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1201,6 +1205,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .res-top-c{min-height:240px;cursor:pointer}
 .res-top-c .rt-price{margin-top:6px;font:800 21px/1.1 Sora,Inter,sans-serif;color:#fff}
 .res-top-c .rt-price small{font-size:12px;font-weight:600;opacity:.8}
+.res-top-c .rt-price .rt-trip{display:block;margin-top:2px;font-size:11px}
 .res-top-h{margin-top:4px}
 .cmp-row{scroll-margin-top:90px}
 @media(max-width:560px){
@@ -1271,5 +1276,6 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .trip-mini .tm-when small{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .trip-mini .tm-price{font-size:17px;font-weight:800;white-space:nowrap}
 .trip-mini .tm-price small{font-size:12px;font-weight:600;color:var(--muted);margin-left:2px}
+.trip-mini .tm-price .tm-trip{display:block;margin:1px 0 0;font-size:11px;text-align:right}
 .trip-mini .tm-chev{color:var(--muted);font-size:14px}
 .trip-mini:active{background:var(--surface-2)}

@@ -35,7 +35,7 @@ test('stayplan: odhad přejezdu bez trasy z plánovače (vzdušná vzdálenost +
   assert.equal(e.border, null);
   const mf = transferEstimate(MILAN, ITALY[4]);
   assert.ok(mf.carMin >= 185 && mf.carMin <= 220, `Milán–Florencie autem ${mf.carMin} min (skutečně ~3 h 10 min)`);
-  assert.ok(mf.transitMin <= 130, `Milán–Florencie rychlovlakem ${mf.transitMin} min`);
+  assert.ok(mf.transitMin >= 125 && mf.transitMin <= 145 && mf.fast, `Milán–Florencie rychlovlakem podle jízdního řádu (1 h 55 + 20 min) ${mf.transitMin} min`);
   assert.deepEqual({ ...transferEstimate(praha, praha) }, { km: 0, carMin: 0, transitMin: 0, transitKind: 'rail', border: null, basis: 'estimate' });
   // delší úsek nikdy netrvá kratší dobu
   let prev = 0;
@@ -149,10 +149,20 @@ test('evaluateRoute: přejezdy mezi místy a z/na letiště, odkazy do Google Ma
   const far = evaluateRoute([MILAN, ROME], { departure: FCO, transport: 'car' });
   assert.equal(far.transfers[0].long, true);
   assert.match(far.notes[0], /Milán → Řím trvá ~\d h( \d+ min)? – na jeden přesun je to hodně, zvaž místo mezi nimi nebo vlak\./, 'rychlovlak je rychlejší než auto');
-  // Rychlovlakem je Milán → Řím běžný přejezd (~3 h 30 min i s cestou na nádraží).
+  // Rychlovlakem je Milán → Řím běžný přejezd (Frecciarossa 2 h 59 min podle jízdního řádu + cesta na nádraží).
   const fast = evaluateRoute([MILAN, ROME], { transport: 'transit' }).transfers[0];
-  assert.deepEqual([fast.transitKind, fast.hsr, fast.long], ['rail', true, false]);
+  assert.deepEqual([fast.transitKind, fast.fast, fast.long], ['rail', true, false]);
   assert.ok(fast.transitMin >= 190 && fast.transitMin <= 225, `${fast.transitMin} min`);
+  // jízdenka: rychlovlak v Itálii za běžnou cenu (ne model mezinárodních busů), Benátky → Řím podle jízdního řádu
+  const rn = evaluateRoute([ROME, { name: 'Neapol', lat: 40.8518, lon: 14.2681, cc: 'IT' }], { transport: 'transit' }).transfers[0];
+  assert.ok(rn.fareCzk >= 520 && rn.fareCzk <= 660 && rn.fast, `Řím → Neapol ${rn.fareCzk} Kč`);
+  const vr = evaluateRoute([{ name: 'Benátky', lat: 45.4408, lon: 12.3155, cc: 'IT' }, ROME], { transport: 'transit' }).transfers[0];
+  assert.ok(vr.transitMin >= 250 && vr.transitMin <= 270 && vr.fast, `Benátky → Řím ${vr.transitMin} min (3 h 58 + 20 min)`);
+  const bv = evaluateRoute([{ name: 'Barcelona', lat: 41.3874, lon: 2.1686, cc: 'ES' }, { name: 'Valencie', lat: 39.4699, lon: -0.3763, cc: 'ES' }], { transport: 'transit' }).transfers[0];
+  assert.ok(bv.transitMin >= 195 && bv.transitMin <= 215 && !bv.hsr, `Barcelona → Valencie Euromed ${bv.transitMin} min`);
+  assert.ok(bv.fareCzk >= 820 && bv.fareCzk <= 1000, `Barcelona → Valencie (přímý Euromed) ${bv.fareCzk} Kč`);
+  const fp = evaluateRoute([{ name: 'Florencie', lat: 43.7696, lon: 11.2558, cc: 'IT' }, { name: 'Pisa', lat: 43.7228, lon: 10.4017, cc: 'IT' }], { transport: 'transit' }).transfers[0];
+  assert.ok(fp.fareCzk >= 140 && fp.fareCzk <= 220 && !fp.fast && !fp.hsr, `Florencie → Pisa regionálním vlakem ${fp.fareCzk} Kč`);
 });
 
 test('planStay: kontrola vstupu, body hledání u open-jaw, přepočet bez Wikidat, výpadek → 503', async () => {

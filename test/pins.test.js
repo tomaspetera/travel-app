@@ -73,6 +73,7 @@ test('fromRadar: jen co karta zná, základ ceny radaru, klíč z trasy a dnů',
   assert.deepEqual(plain(r.r), { from: 'BRQ', to: 'NAP', d1: '2026-11-13', d2: '2026-11-15', t1: '06:10', a2: '2026-11-15T23:20', czk: 2100, prov: 'ryanair', deal: 'super', buy: [['https://www.ryanair.com/cz/cs?x=1', 'ryanair', 'all']] });
   assert.deepEqual(plain(r.dest), { id: 'metro:NAP', key: 'NAP', label: 'Neapol', cc: 'IT', lat: 40.85, lon: 14.27 });
   assert.equal(r.at, NOW - H);
+  assert.equal(r.pv, 2, 'cena jen za letenku');
   // zpět z jiného letiště (bf/bt), jen tam
   assert.equal(P.fromRadar(radarX({ bf: 'CTA', bt: 'VIE' }), { adults: 1 }, NOW).k, 'r|BRQ|NAP|2026-11-13|CTA|VIE|2026-11-15|1|none|transit|1');
   assert.equal(P.fromRadar(radarX({ d2: undefined }), { adults: 1 }, NOW).k, 'r|BRQ|NAP|2026-11-13|-|-|-|1|none|transit|1');
@@ -180,6 +181,8 @@ test('clean: cizí vstup – tvary, odkazy jen http(s), čas ne z budoucnosti, b
   assert.deepEqual(cr.r, { from: 'BRQ', to: 'NAP', d1: '2026-11-13', czk: 2100, t1: '', a2: '', prov: '', buy: [['https://kiwi.com/b', 'kiwi', 'out']] });
   assert.equal(cr.k, `r|BRQ|NAP|2026-11-13|-|-|-|${BASIS}`, 'návrat před odletem → jen tam');
   assert.equal(P.clean([{ ...rad, r: { ...rad.r, czk: 0 } }], opts).length, 0);
+  // karta radaru ze starší verze (bez pv – cena i s dopravou, bez rozpisu) se zahodí
+  assert.equal(P.clean([{ ...rad, pv: undefined }], opts).length, 0);
   // duplicity: novější cena vyhrává; nejvýš 12; nejvýš 40 položek na vstupu
   const older = { ...ok, at: NOW - 5 * H, t: { ...ok.t, perPersonCzk: 2500 } };
   const d = plain(P.clean([older, ok], opts));
@@ -243,6 +246,9 @@ test('refresh: stejné id a nastavení → nová cena, čas a úroveň, bez „p
   // karta radaru se neobnovuje
   const rad = P.fromRadar(radarX(), { adults: 2 }, NOW);
   assert.equal(P.refresh([rad], res(fresh), NOW, NOW).n, 0);
+  // nabídka ze starší verze (bez pv, cena i s dopravou): nová cena bez „od odložení“
+  const old = P.refresh([{ ...pin, pv: undefined }], res(fresh), NOW - H, NOW).list[0];
+  assert.deepEqual([old.t.perPersonCzk, old.was, old.pv], [2100, undefined, 2]);
 });
 
 test('refresh: buňka mřížky bez úrovně ze serveru dostane úroveň z level(t); z průběžných rovnou z konečného, který už dorazil', () => {
@@ -298,15 +304,29 @@ test('shareText: čísla podle ceny, celkem pro 2 os., lety, jen tam, ⚠ po 24 
   assert.match(txt, /^ {3}https:\/\/www\.ryanair\.com\/cz\/cs\/trip\?x=1$/m);
   assert.match(txt, /^3\) Neapol 🇮🇹 · pá 13\. 11\. – ne 15\. 11\. · 2 noci$/m);
   assert.match(txt, /^ {3}2\s400 Kč\/os\. \(celkem 4\s800 Kč za 2 os\.\) \(DEMO – vymyšlená cena\)$/m);
-  assert.match(txt, /^ {3}BRQ → NAP ↩ BRQ · letenka \+ cesta na letiště a do města$/m);
+  assert.match(txt, /^ {3}BRQ → NAP ↩ BRQ · zpáteční letenka$/m);
   // dlouhý odkaz radaru a javascript: u jen tam → hledání na Google Flights
   assert.ok(!txt.includes('javascript:'));
   assert.ok(!txt.includes('x'.repeat(300)));
   assert.match(txt, /https:\/\/www\.google\.com\/travel\/flights\?hl=cs&curr=CZK&q=Flights%20from%20BRQ%20to%20NAP%20on%202026-11-13%20one%20way/);
-  assert.match(txt, /q=Flights%20from%20BRQ%20to%20NAP%20on%202026-11-13%20returning%202026-11-15/);
+  assert.match(txt, /q=Flights%20to%20NAP%20from%20BRQ%20on%202026-11-13%20through%202026-11-15/);
   // jedna osoba: bez „celkem“; dva odkazy tam a zpět
   const solo = row(trip({ out: { ...OUT, bookUrl: 'https://wizzair.com/a' }, back: { ...BACK, bookUrl: 'https://wizzair.com/b' } }), res(trip(), { query: { ...Q, adults: 1 } }));
   const s = P.shareText([solo], { now: NOW });
   assert.match(s, /^ {3}1\s890 Kč\/os\.$/m);
   assert.match(s, /^ {3}tam: https:\/\/wizzair\.com\/a zpět: https:\/\/wizzair\.com\/b$/m);
+});
+
+test('jednorázový přepočet starších odložených (flights.js init → clean): letenka + zavazadla, s dopravou tripCzk, karty radaru pryč', () => {
+  const opts = { today: TODAY, now: NOW };
+  // ve starší verzi byla cena na osobu i s dopravou na letiště a do města (1 800 + 60 + 30)
+  const old = { ...plain(row(trip({ perPersonCzk: 1890, totalCzk: 3780, tripCzk: undefined }))), was: { czk: 2100, at: NOW - 9 * H } };
+  delete old.pv; delete old.t.tripCzk;
+  const rad = plain(P.fromRadar(radarX(), { at: NOW - H, adults: 2 }, NOW));
+  delete rad.pv;
+  const out = plain(P.clean([old, rad], opts));
+  assert.equal(out.length, 1, 'karta radaru bez rozpisu se zahodí');
+  assert.deepEqual([out[0].pv, out[0].t.perPersonCzk, out[0].t.tripCzk, out[0].t.totalCzk, out[0].was], [2, 1800, 1890, 3600, undefined]);
+  // znovu už nic nemění
+  assert.deepEqual(plain(P.clean(out, opts)), out);
 });

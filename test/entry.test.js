@@ -36,7 +36,7 @@ const sp = (s) => String(s).replace(/\u00a0/g, ' ');
 
 /* ---------- data ---------- */
 const ENUM = ['none', 'eu', 'eta', 'evisa', 'voa', 'visa'];
-const KEYS = ['iso2', 'visa', 'idCard', 'maxStayDays', 'etaName', 'etaCostEur', 'etaUrl', 'transitEta', 'passportValidity', 'vaccinesRequired', 'vaccinesRecommended', 'notes', 'validUntil', 'source', 'verified'];
+const KEYS = ['iso2', 'visa', 'idCard', 'maxStayDays', 'etaName', 'etaCostEur', 'etaUrl', 'transitEta', 'passportValidity', 'vaccinesRequired', 'vaccinesRecommended', 'notes', 'validUntil', 'arrivalForm', 'source', 'verified'];
 // Zprostředkovatelé a agentury – na jejich weby nikdy neodkazovat (vybírají několikanásobek poplatku).
 const AGENCY = /ivisa|visahq|atlys|visasnews|visa-?central|cibt|evisa-?express|esta-?(online|us|form|apply)|(online|apply|fast|easy|my|go)-?visa|visa-?(online|apply|service|go|direct)|e-?visas?\.(com|org|net|co)\b|travel-?visa|eta-?(online|form|apply|canada|uk)|(canada|uk|us)-?eta|visagov|govisa|esta\.us/i;
 // Oficiální weby, které nemají vládní doménu (portály úřadů, provozovatelé pověření vládou) – nový musí někdo zkontrolovat.
@@ -163,11 +163,11 @@ test('čip u letu jen když je co vyřizovat; cena v €, „zdarma“, escapov�
   assert.match(Entry.flightChip('IN'), />🛂 e-vízum 22 €</);
   assert.match(Entry.flightChip('EG'), />🛂 vízum na hranici</);
   assert.match(Entry.flightChip('CN'), />📄 vízum předem</);
-  for (const iso of ['DE', 'AL', 'TH', 'TR', 'CZ', '', null, 'XX']) assert.equal(Entry.flightChip(iso), '', String(iso));
+  for (const iso of ['DE', 'AL', 'TR', 'CZ', '', null, 'XX']) assert.equal(Entry.flightChip(iso), '', String(iso));
   // Korea: výjimka z K-ETA do 31. 12. 2026 – cesta v lednu 2027 dostane „⏳ ověř vstup“, prosincová ne
   assert.match(Entry.flightChip('KR', '2027-01-05'), /^<span class="b ec-b ec-visa" title="Jižní Korea: Tento režim platí podle MZV zatím do 31\. 12\. 2026[^"]*">⏳ ověř vstup<\/span>$/);
-  assert.equal(Entry.flightChip('KR', '2026-12-31'), '');
-  assert.equal(Entry.flightChip('KR'), '');
+  assert.match(Entry.flightChip('KR', '2026-12-31'), />📝 e-Arrival Card předem</, 'bez víza: jen povinná e-Arrival Card');
+  assert.doesNotMatch(Entry.flightChip('KR'), /ověř vstup/);
   assert.match(Entry.flightChip('US', '2027-01-05'), />🛂 ESTA 36 €</);
   assert.match(Entry.idNote('AL'), /🪪 stačí OP/);
   assert.equal(Entry.idNote('US'), '');
@@ -182,6 +182,73 @@ test('čip u letu jen když je co vyřizovat; cena v €, „zdarma“, escapov�
     evil.window.Entry.flightChip('IN'), evil.window.Entry.detailHtml('IN'), evil.window.Entry.checklistHtml(['IN'], { ret: '2027-01-10' }), evil.window.Entry.transitHtml([{ layovers: [{ at: '<i>', cc: 'US' }] }], 'MX')]) {
     assert.ok(!/<img|<script|javascript:|<b>x<|<i>/i.test(html), html.slice(0, 200));
   }
+});
+
+test('entry.json: povinné online formuláře k příletu (arrivalForm) – název, oficiální https web, kdy, zdarma', () => {
+  const FORM_KEYS = ['name', 'full', 'url', 'hours', 'fromDeparture', 'afterDays', 'free'];
+  // oficiální weby formulářů bez vládní domény (portál úřadu) – nový musí někdo zkontrolovat
+  const FORM_OTHER = new Set(['safemauritius.govmu.org']);
+  const withForm = ENTRY.countries.filter((r) => r.arrivalForm);
+  for (const r of withForm) {
+    const f = r.arrivalForm, at = r.iso2;
+    assert.deepEqual(Object.keys(f).filter((k) => !FORM_KEYS.includes(k)), [], `${at}: neznámé pole formuláře`);
+    assert.ok(typeof f.name === 'string' && f.name.length >= 3 && f.name.length <= 40, `${at}: název`);
+    assert.ok(f.full === undefined || (typeof f.full === 'string' && f.full.length > 3), `${at}: celý název`);
+    assert.match(f.url, /^https:\/\/[^\s]+$/, `${at}: web`);
+    const host = new URL(f.url).hostname;
+    assert.ok(GOV.test(host) || FORM_OTHER.has(host), `${at}: ${host} není vládní doména ani ověřený portál`);
+    if (!GOV.test(host)) assert.ok(!AGENCY.test(host), `${at}: ${host} vypadá jako zprostředkovatel`);
+    assert.ok(f.hours === undefined || (Number.isInteger(f.hours) && f.hours >= 24 && f.hours <= 720), `${at}: hours`);
+    assert.ok(f.afterDays === undefined || (Number.isInteger(f.afterDays) && f.afterDays > 0 && f.afterDays <= 30), `${at}: afterDays`);
+    assert.ok(!(f.hours && f.afterDays), `${at}: buď před příletem, nebo po příjezdu`);
+    assert.ok(f.fromDeparture === undefined || (f.fromDeparture === true && f.hours > 0), `${at}: fromDeparture jen s hours`);
+    assert.ok(f.free === undefined || f.free === true, `${at}: free`);
+    for (const v of Object.values(f)) if (typeof v === 'string') assert.ok(!/[<>\u0000-\u001f]/.test(v), `${at}: HTML v datech formuláře`);
+  }
+  assert.deepEqual(withForm.map((r) => r.iso2).sort(), ['BB', 'BN', 'DM', 'ID', 'IN', 'KH', 'KR', 'MU', 'MV', 'MY', 'NG', 'NZ', 'PG', 'PH', 'SG', 'TH', 'TT', 'TW', 'XK', 'ZA']);
+  assert.deepEqual(plain(BY.TH.arrivalForm), { name: 'TDAC', full: 'Thailand Digital Arrival Card', url: 'https://tdac.immigration.go.th', hours: 72, free: true });
+});
+
+test('online formulář k příletu: čip „📝 TDAC předem“ bez víza, u víza a „ověř vstup“ jen v bublině; texty kdy a kde', () => {
+  assert.match(Entry.flightChip('TH'), /^<span class="b ec-b ec-form" title="Thajsko: bez víza, ale povinný online formulář TDAC \(Thailand Digital Arrival Card\) – zdarma, nejdříve 72 h před příletem, jen na oficiálním webu tdac\.immigration\.go\.th\. Zdroj: MZV ČR[^"]*">📝 TDAC předem<\/span>$/);
+  assert.match(Entry.flightChip('PH'), />📝 eTravel předem</);
+  assert.match(Entry.flightChip('SG'), />📝 SG Arrival Card předem</);
+  assert.match(Entry.flightChip('MU'), />📝 formulář předem</, 'dlouhý název → „formulář“');
+  assert.match(Entry.flightChip('XK'), />📝 registrace do 3 dnů</);
+  // s vízem jeden čip – formulář v bublině
+  assert.match(Entry.flightChip('IN'), />🛂 e-vízum 22 €</);
+  assert.match(Entry.flightChip('IN'), /title="[^"]*Navíc povinný online formulář e-Arrival Card – zdarma, nejdříve 72 h před příletem, jen na oficiálním webu indianvisaonline\.gov\.in\./);
+  assert.equal((Entry.flightChip('IN').match(/<span/g) || []).length, 1);
+  // Korea po konci výjimky z K-ETA: „ověř vstup“ a formulář v bublině
+  assert.match(Entry.flightChip('KR', '2027-01-05'), /⏳ ověř vstup/);
+  assert.match(Entry.flightChip('KR', '2027-01-05'), /Navíc povinný online formulář e-Arrival Card/);
+  assert.match(Entry.flightChip('KR'), />📝 e-Arrival Card předem</);
+  // kdy: hodiny, dny (nad 96 h), před odletem, po příjezdu, bez lhůty
+  assert.equal(Entry.formWhen(Entry.form('TH')), 'nejdříve 72 h před příletem');
+  assert.equal(Entry.formWhen(Entry.form('MV')), 'nejdříve 96 h před příletem');
+  assert.equal(Entry.formWhen(Entry.form('KH')), 'nejdříve 7 dní před příletem');
+  assert.equal(Entry.formWhen(Entry.form('NZ')), 'nejdříve 24 h před odletem');
+  assert.equal(Entry.formWhen(Entry.form('XK')), 'do 3 dnů po příjezdu');
+  assert.equal(Entry.formWhen(Entry.form('BN')), 'před příletem');
+  assert.equal(Entry.form('DE'), null);
+  assert.equal(Entry.form('XX'), null);
+  // „Před cestou“ a detail země: zvýrazněný řádek s odkazem; přestup ne
+  const th = sp(Entry.checklistHtml(['TH'], { ret: '2026-12-14' }));
+  assert.match(th, /<li class="ed-form">📝 <b>Povinný online formulář: TDAC \(Thailand Digital Arrival Card\)<\/b> – zdarma, nejdříve 72 h před příletem · <a href="https:\/\/tdac\.immigration\.go\.th" target="_blank" rel="noopener">oficiální web ↗<\/a><\/li>/);
+  assert.doesNotMatch(sp(Entry.checklistHtml(['MX'], { ret: '2026-12-14', via: ['TH'] })), /ed-form/, 'jen přestup: formulář ne');
+  assert.match(sp(Entry.detailHtml('TH')), /<div class="ed-form">📝 <b>Povinný online formulář: TDAC/);
+  assert.match(sp(Entry.detailHtml('XK')), /registrace cizinců \(u kosovské policie, online nebo na policii\)<\/b> – do 3 dnů po příjezdu · <a href="https:\/\/mzv\.gov\.cz\/pristina\/[^"]+" target="_blank" rel="noopener">informace MZV ↗<\/a>/);
+  assert.doesNotMatch(Entry.detailHtml('DE'), /ed-form/);
+  // escapování: texty formuláře z dat, odkaz jen https
+  const evil = load();
+  const data = JSON.parse(JSON.stringify(ENTRY));
+  data.countries.find((r) => r.iso2 === 'TH').arrivalForm = { name: '<img src=x onerror=alert(1)>', full: '"><script>alert(1)</script>', url: 'https://x.example/"onmouseover="alert(1)', hours: 72 };
+  data.countries.find((r) => r.iso2 === 'PH').arrivalForm = { name: 'eTravel', url: 'javascript:alert(1)' };
+  evil.window.Entry.set(data);
+  for (const html of [evil.window.Entry.flightChip('TH'), evil.window.Entry.detailHtml('TH'), evil.window.Entry.checklistHtml(['TH'], { ret: '2027-01-10' }), evil.window.Entry.flightChip('PH'), evil.window.Entry.detailHtml('PH')]) {
+    assert.ok(!/<img|<script|javascript:|"onmouseover/i.test(html), html.slice(0, 300));
+  }
+  assert.equal(evil.window.Entry.form('PH'), null, 'odkaz jinam než https → formulář se neukáže');
 });
 
 /* ---------- tranzit ---------- */

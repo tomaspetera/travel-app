@@ -704,4 +704,14 @@ test('applyCheck: hlídání ze starší verze (cena i s dopravou na letiště) 
   assert.deepEqual([r.why, r.rebased, r.w.pv, r.w.base, r.w.low, r.w.seen], [null, 'price', A.PV, 3100, 3100, 3100]);
   const r2 = applyCheckRaw(r.w, { czk: 2900 }, NOW + H);
   assert.deepEqual([r2.why, r2.rebased], ['drop', undefined], 'další kontrola už porovnává ceny letenek');
+  assert.equal(r.w.rebWhy, 'price');
+  // cílová cena nastavená k ceně i s dopravou: ve stejném poměru (2 100 × 3 100 / 3 400 ≈ 1 915 → 1 910), ne „splněno“
+  const t = applyCheckRaw({ ...old, target: 2100, notified: 2000 }, { czk: 3100 }, NOW);
+  assert.deepEqual([t.w.target, t.w.notified, t.why], [1910, undefined, null]);
+  assert.deepEqual(plain(A.news([t.w]).hits), []);
+  // pod přepočteným cílem už teď → tahle cena se nehlásí
+  const u = applyCheckRaw({ ...old, target: 3500 }, { czk: 3100 }, NOW);
+  assert.deepEqual([u.w.target, u.w.notified], [3190, 3100]);
+  // jiný nový základ (vlastní cena na letiště) cíl nemění
+  assert.equal(applyCheckRaw({ ...old, pv: A.PV, own: 'VIE:300', target: 2100 }, { czk: 3100 }, NOW, A.CFG, { own: 'VIE:350' }).w.target, 2100);
 });

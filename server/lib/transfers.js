@@ -27,6 +27,7 @@ const OPEN = RULES.openBorders.groups.map((g) => new Set(g));
 const JAMS = RULES.congestion.cities.map(([name, lat, lon, km, min]) => ({ name, lat, lon, km, min }));
 const HSR = RULES.hsr.cities.map(([cc, name, lat, lon]) => ({ cc, name, lat, lon }));
 const HSR_PACE = RULES.hsr.minPerKm; // min/km vzdušnou čarou podle země
+const HSR_LINES = RULES.hsr.lines; // země → tratě (seznamy měst); bez seznamu platí tempo mezi kterýmikoli městy země
 
 const ccOf = (p) => (/^[A-Z]{2}$/.test(p?.cc || '') ? p.cc : countryAt(p.lat, p.lon));
 export const regionKey = (cc) => REGION_OF.get(cc) || null;
@@ -67,7 +68,7 @@ export function transitKind(a, b, ccA = ccOf(a), ccB = ccOf(b)) {
   return 'rail';
 }
 
-/** Vysokorychlostní vlak mezi dvěma městy na trati v téže zemi (min), jinak null. */
+/** Vysokorychlostní vlak mezi dvěma městy na trati v téže zemi (min), jinak null – v zemích se seznamem tratí na téže trati. */
 export function hsrMin(a, b, air = haversineKm(a.lat, a.lon, b.lat, b.lon)) {
   if (air < 80) return null;
   const hub = (p) => HSR.find((h) => haversineKm(p.lat, p.lon, h.lat, h.lon) <= 12);
@@ -76,6 +77,9 @@ export function hsrMin(a, b, air = haversineKm(a.lat, a.lon, b.lat, b.lon)) {
   // tempo podle země (Itálie ~170 km/h vzdušnou čarou, Rakousko ~120 km/h) + cesta na nádraží a čekání
   // (Milán–Boloňa ~1 h 50 min, Vídeň–Salcburk ~2 h 45 min)
   if (!ha || !hb || ha === hb || ha.cc !== hb.cc) return null;
+  // Itálie, Francie, Španělsko: jen na téže trati (Barcelona–Valencie ani Bordeaux–Marseille rychlotratí nevedou)
+  const lines = HSR_LINES[ha.cc];
+  if (Array.isArray(lines) && !lines.some((l) => l.includes(ha.name) && l.includes(hb.name))) return null;
   return Math.round(40 + air * (HSR_PACE[ha.cc] ?? HSR_PACE.other));
 }
 

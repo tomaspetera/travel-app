@@ -407,6 +407,48 @@ test('aktivity: výchozí podle programu, země a podnebí; zvolené u cesty jen
   assert.ok(!itemIds(trip({ cc: 'IT', plan: plan(['museum']) })).includes('cl-modest'));
 });
 
+test('povinný online formulář k příletu: úkol „důležité“ s oficiálním odkazem, potvrzení do dokladů, připomínka; přestup a bez formuláře nic', () => {
+  const th = trip({ cc: 'TH', label: 'Bangkok', out: '2027-02-10', back: '2027-02-24' });
+  const f = byId(todo(th), 'form');
+  assert.equal(f.level, 'must');
+  assert.equal(f.title, 'Vyplň TDAC (Thailand Digital Arrival Card) – zdarma, nejdříve 72 h před příletem');
+  assert.equal(f.short, 'online formulář TDAC');
+  assert.deepEqual(plain(f.links), [['https://tdac.immigration.go.th', 'TDAC – oficiální web']]);
+  assert.match(strip(f.lines.join(' ')), /Thajsko: TDAC \(Thailand Digital Arrival Card\) – zdarma, nejdříve 72 h před příletem\. Potvrzení \(QR kód\) měj v mobilu\./);
+  assert.match(f.lines.join(' '), /zprostředkovatelé/);
+  assert.deepEqual(plain(todo(th).map((x) => x.id).slice(0, 2)), ['ins', 'form'], 'hned za pojištěním');
+  // víc zemí: jeden úkol se všemi formuláři; přestup v Singapuru bez vstupu ne
+  const two = P.todos(ctxOf(th, { isos: ['TH', 'MY'], via: ['SG'] }));
+  const f2 = byId(two, 'form');
+  assert.equal(f2.title, 'Vyplň povinné online formuláře: TDAC, MDAC');
+  assert.deepEqual(plain(f2.links).map((l) => l[1]), ['TDAC (Thajsko) – oficiální web', 'MDAC (Malajsie) – oficiální web']);
+  assert.ok(!byId(todo(trip({ cc: 'ES' })), 'form'));
+  assert.ok(!byId(P.todos(ctxOf(trip({ cc: 'ES' }), { via: ['TH'] })), 'form'), 'jen přestup');
+  // Kosovo: registrace po příjezdu, odkaz na informace MZV, bez QR kódu
+  const xk = byId(todo(trip({ cc: 'XK', label: 'Priština' })), 'form');
+  assert.equal(xk.title, 'Vyplň registrace cizinců (u kosovské policie, online nebo na policii) – do 3 dnů po příjezdu');
+  assert.match(xk.links[0][1], /informace MZV$/);
+  assert.doesNotMatch(xk.lines.join(' '), /QR/);
+  // seznam věcí: potvrzení v dokladech; Kosovo (registrace na místě) ne
+  assert.ok(itemIds(th).includes('doc-arr-TH'));
+  assert.equal(items(th).find((x) => x.id === 'doc-arr-TH').text, 'Potvrzení: TDAC (Thajsko)');
+  assert.ok(!itemIds(trip({ cc: 'XK', label: 'Priština' })).some((x) => x.startsWith('doc-arr-')));
+  assert.ok(!itemIds(trip({ cc: 'ES' })).some((x) => x.startsWith('doc-arr-')));
+  // kalendář: TDAC 2 dny před odletem (okno 72 h před příletem), NZTD v den odletu, Kambodža 6 dní předem
+  const ev = plain(P.reminders(th, { isos: ['TH'], climate: [], today: '2026-10-07' }));
+  const tdac = ev.find((e) => e.uid === 'atlas-pretrip-form-TH-2027-02-10');
+  assert.deepEqual([tdac.title, tdac.start, tdac.url], ['📝 Vyplnit TDAC (Thajsko)', '2027-02-08', 'https://tdac.immigration.go.th']);
+  assert.match(tdac.description, /Jen na oficiálním webu: https:\/\/tdac\.immigration\.go\.th/);
+  const nz = plain(P.reminders(trip({ cc: 'NZ', label: 'Auckland', out: '2027-02-10' }), { isos: ['NZ'], climate: [], today: '2026-10-07' })).find((e) => e.uid.startsWith('atlas-pretrip-form-'));
+  assert.equal(nz.start, '2027-02-10');
+  const kh = plain(P.reminders(trip({ cc: 'KH', label: 'Siem Reap', out: '2027-02-10' }), { isos: ['KH'], climate: [], today: '2026-10-07' })).find((e) => e.uid.startsWith('atlas-pretrip-form-'));
+  assert.equal(kh.start, '2027-02-04');
+  // karta: úkol důležitý (popis rovnou, ne pod „Podrobnosti“), odkaz na oficiální web
+  const html = P.html(th, { isos: ['TH'], climate: [] });
+  assert.match(html, /<li class="pt-item lv-must"><label class="pt-row"><input type="checkbox" data-ptk="todo:form" ><span class="pt-t">📝 <b>Vyplň TDAC \(Thailand Digital Arrival Card\)/);
+  assert.match(html, /<a href="https:\/\/tdac\.immigration\.go\.th" target="_blank" rel="noopener">TDAC – oficiální web ↗<\/a>/);
+});
+
 /* ---------- připomínky, plánovač ---------- */
 test('kalendář: pojištění 14 dní, MŘP 21 dní (jen když je nutný), DROZD 3 dny předem; pozdě = dnes, po odjezdu nic', () => {
   const t = trip({ cc: 'JP', label: 'Tokio', out: '2027-03-12', back: '2027-03-21', car: CAR });
