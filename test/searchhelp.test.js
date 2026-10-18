@@ -296,6 +296,18 @@ test('timeHidden + timeStats: kolik nabídek skrývá který filtr, rozsahy posu
   assert.deepEqual(plain(H.timeStats([])), { dur: null, lay: null, maxStops: 0 });
 });
 
+test('directHint: nejlevnější s přestupem → nejlevnější přímý let tam i zpět a o kolik dráž', () => {
+  const c = (t, czk) => ({ ...t, perPersonCzk: czk });
+  const t2 = c(T2, 2000), t1 = c(T1, 2600), t4 = c(T4, 3100);
+  assert.deepEqual(plain(H.directHint([t2, t1], [t2, t1, t4], tf({}))), { czk: 2600, more: 600, from: 'PRG' });
+  assert.equal(H.directHint([c(T1, 1900), t2], [t1, t2], tf({})), null, 'nejlevnější je přímý');
+  assert.deepEqual(plain(H.directHint([t1, t2], [t2, t1], tf({}))).more, 600, 'výpis řazený jinak než podle ceny');
+  assert.equal(H.directHint([t2], [t2, t1], tf({ stops: 1 })), null, 'filtr přestupů už je nastavený');
+  assert.equal(H.directHint([t2], [t2, c(T3, 900)], tf({})), null, 'jinde jen s přestupem');
+  assert.equal(H.directHint([t2], [t2, t1, t4], tf({ out: ['night'] })), null, 'přímé lety neprojdou filtrem času');
+  assert.equal(H.directHint([], [t1], tf({})), null);
+});
+
 test('timeChips + activeFilters: čipy s počtem skrytých nabídek, popisky podle směru', () => {
   const f = tf({ out: ['night', 'morning'], back: ['evening'], arrBy: 22, stops: 0, maxDur: 390, maxLay: 120 });
   const chips = H.activeFilters(null, { excludeOrigins: new Set(), excludeCarriers: new Set(), time: f }, {}, { hidden: { tOut: 3, maxLay: 1 }, ret: true });
