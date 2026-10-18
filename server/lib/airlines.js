@@ -23,6 +23,11 @@ export const AIRLINES = {
   VJ: 'VietJet', '5J': 'Cebu Pacific', JQ: 'Jetstar', SL: 'Thai Lion Air', QZ: 'Indonesia AirAsia',
 };
 
+// Dceřiné aerolinky prodávané pod kódem mateřské: týž let má u Kiwi „W4 Wizz Air Malta“ a na wizzair.com „W6“,
+// u Ryanairu provozují lety Malta Air, Ryanair UK, Buzz a Lauda. Pro poznání téhož letu z víc zdrojů.
+const FAMILY = { W4: 'W6', W9: 'W6', '5W': 'W6', RK: 'FR', AL: 'FR', RR: 'FR', OE: 'FR', EC: 'U2', DS: 'U2' };
+export const carrierFamily = (code) => FAMILY[code] || code;
+
 export function airlineName(code) {
   return AIRLINES[code] || code || '';
 }

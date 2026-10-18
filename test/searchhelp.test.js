@@ -308,6 +308,17 @@ test('directHint: nejlevnější s přestupem → nejlevnější přímý let ta
   assert.equal(H.directHint([], [t1], tf({})), null);
 });
 
+test('distinctLegs: týž let pod kódem dceřiné aerolinky (W4 z Kiwi, W6 z wizzair.com) je jeden řádek s levnější variantou', () => {
+  const leg = (carrier, czk, provider) => ({ from: 'PRG', to: 'FCO', dep: '2026-11-12T15:05:00', date: '2026-11-12', carrier, stops: 0, czk, provider });
+  const t = (l, czk) => ({ out: l, back: null, perPersonCzk: czk });
+  const w6 = leg('W6', 1279, 'wizzair'), w4 = leg('W4', 1216, 'kiwi');
+  const list = H.distinctLegs([t(w6, 1500), t(w4, 1437)], 'out');
+  assert.equal(list.length, 1);
+  assert.equal(list[0].leg.carrier, 'W4', 'řádek podle levnější varianty');
+  assert.equal(list[0].best.perPersonCzk, 1437);
+  assert.equal(H.legSig(w4), H.legSig(w6));
+});
+
 test('directNear: přímý let jen o málo dráž než nejlevnější s přestupem → index ve sloupci', () => {
   const x = (stops, czk, paired) => ({ leg: { stops }, best: { perPersonCzk: czk }, paired: paired == null ? null : { perPersonCzk: paired } });
   assert.deepEqual(plain(H.directNear([x(1, 2063), x(0, 2154), x(0, 2542)])), { i: 1, more: 91 });

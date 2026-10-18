@@ -241,6 +241,18 @@ test('přesná data (variety): všechny přímé lety, přestupní let nezabere 
   assert.deepEqual(tc, ['21', '06'], 'večer (nejlevnější) a ráno');
 });
 
+test('přesná data: týž let Wizz Air z Kiwi (W4 Wizz Air Malta) a z wizzair.com (W6) jen jednou', async () => {
+  const { dayVariety } = await import('../server/lib/optimizer.js');
+  const { carrierFamily } = await import('../server/lib/airlines.js');
+  const L = (provider, carrier, dep, czk) => makeLeg({ provider, carrier, from: 'PRG', to: 'FCO', dep: `2026-11-12T${dep}:00`, czk, price: czk, currency: 'CZK', stops: 0 });
+  const sorted = (a) => a.sort((x, y) => x.czk - y.czk);
+  const a = dayVariety(sorted([L('kiwi', 'W4', '15:05', 1216), L('wizzair', 'W6', '15:05', 1279), L('ryanair', 'FR', '06:15', 1370)]), 8);
+  assert.deepEqual(a.map((l) => `${l.provider} ${l.carrier} ${l.czk}`), ['kiwi W4 1216', 'ryanair FR 1370'], 'Kiwi o 5 % levněji → jen Kiwi');
+  const b = dayVariety(sorted([L('kiwi', 'W4', '15:05', 1260), L('wizzair', 'W6', '15:05', 1270)]), 8);
+  assert.deepEqual(b.map((l) => `${l.provider} ${l.carrier}`), ['wizzair W6'], 'skoro stejná cena → přímo od aerolinky');
+  assert.deepEqual(['W4', 'W9', 'RK', 'AL', 'EC', 'QS'].map(carrierFamily), ['W6', 'W6', 'FR', 'FR', 'U2', 'QS']);
+});
+
 test('přesná data: zpáteční kombinace – každý let tam i zpět aspoň jednou, párování omezené, přímo tam i zpět', () => {
   const L = (from, to, date, carrier, dep, czk, stops = 0) => makeLeg({ provider: 'kiwi', carrier, from, to, dep: `${date}T${dep}:00`, czk, price: czk, currency: 'CZK', stops });
   const out = [];
