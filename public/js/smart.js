@@ -341,7 +341,12 @@
     rule(new RegExp(`(?:do\\s+)?(?:horka|horko|vedra|vedro)${W}`), () => { kind = kind || 'warm'; patch.minTemp = 25; });
     rule(new RegExp(`(?:do\\s+|na\\s+)?(?:exotik\\w*|exoticky\\w*|tropu|tropy|do\\s+dalky|daleko)${W}`), () => { kind = 'exotic'; });
     rule(new RegExp(`(?:kamkoliv|kamkoli|kdekoliv|kdekoli|nekam|cokoliv|kamkolvek)${W}`), () => { kind = kind || 'any'; });
-    rule(new RegExp(`(?:na\\s+|do\\s+)?(?:hory|horach|hor|alpy|alp|alpach|alpami|lyze|lyzovat|lyzovani|lyzovack\\w*|lyzak\\w*|na\\s+snih)${W}`), () => { kind = kind || 'mountains'; });
+    // „hory“ bez „na/do“ hned za slovem názvu („z Kutné Hory“) je část jména místa, ne „na hory“
+    rule(new RegExp(`(?:na\\s+|do\\s+)?(?:hory|horach|hor|alpy|alp|alpach|alpami|lyze|lyzovat|lyzovani|lyzovack\\w*|lyzak\\w*|na\\s+snih)${W}`), (m, at) => {
+      const prev = (s.slice(0, at).match(/([a-z]+)\s*$/) || [])[1];
+      if (/^(?:hory|horach|hor)$/.test(m[0]) && prev && !FILL.has(prev) && !TO_WORDS.has(prev) && !FROM_WORDS.has(prev)) return false;
+      kind = kind || 'mountains';
+    });
 
     // --- zbytek věty: místa (z X = odkud, jinak kam) ---
     const to = [], from = [];
