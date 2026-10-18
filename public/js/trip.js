@@ -1776,6 +1776,8 @@
       <details class="st-more"><summary>Odkud ceny jsou</summary>Cena je nejlevnější nabídka z Booking, Agoda, Trip.com…, hodnocení hostů z TripAdvisoru (0–5).${items.some(h => h.guess) ? ' U hotelů s „od ~…/noc“ TripAdvisor cenu na tvoje dny zatím nemá – je to běžná cena, ověř ji odkazem.' : ''}${noTax ? ' Cena bez místních poplatků (např. městská taxa), pokud je web neuvádí.' : ''}</details></div></div>` : '';
     // stupnice filtru podle zdroje: TripAdvisor 0–5 (3,5+ / 4+ / 4,5+ = 7+ / 8+ / 9+ na stupnici 0–10)
     const five = d.items.length > 0 && d.items.every(h => h.rating5 != null);
+    // nejdřív 6 hotelů (na telefonu je každý ~200 px) – „Ubytování neřeším“ a vlastní cena jsou pak blízko
+    const lim = stayView.n || 6;
     host.innerHTML = `${testNote}${srcNote}<div class="stay-tools">
         <select id="staySort">${[['value', '🏆 Nejlepší poměr cena/hodnocení'], ['price', '💰 Nejlevnější'], ['rating', '⭐ Nejlépe hodnocené'], ['dist', '📍 Nejblíž centru']].map(o => `<option value="${o[0]}" ${stayView.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
         <div class="seg" id="stayMin">${[[0, 'vše'], [7, five ? '3,5+' : '7+'], [8, five ? '4+' : '8+'], [9, five ? '4,5+' : '9+']].map(o => `<button type="button" data-v="${o[0]}" class="${stayView.minRating === o[0] ? 'on' : ''}">${o[1]}</button>`).join('')}</div>
@@ -1783,15 +1785,18 @@
         <input class="input" id="stayMax" type="number" min="0" step="100" placeholder="max Kč/noc" value="${stayView.maxNight || ''}" style="max-width:130px">
         <span class="faint" style="font-size:12px">${items.length} z ${d.items.length} nabídek</span>
       </div>
-      <div class="stay-list">${items.map((h) => stayCard(h, d.items.indexOf(h))).join('') || '<div class="empty">Filtrům nic neodpovídá.</div>'}</div>
+      <div class="stay-list">${items.slice(0, lim).map((h) => stayCard(h, d.items.indexOf(h))).join('') || '<div class="empty">Filtrům nic neodpovídá.</div>'}</div>
+      ${items.length > lim ? `<button type="button" class="more-btn" id="stayMoreN">▼ Další hotely (${items.length - lim})</button>` : ''}
       ${items.some(staySponsored) ? SPONSOR_NOTE : ''}
       ${errs ? `<div class="faint" style="font-size:12px;margin-top:6px">${errs}${xo ? '' : retryBtn}</div>` : ''}
       <details class="more" style="margin-top:12px"><summary>Další nabídky u partnerů</summary>${links}</details>`;
     wireRetry();
-    $('#staySort').onchange = e => { stayView.sort = e.target.value; renderStays(); };
-    $$('#stayMin button').forEach(b => b.onclick = () => { stayView.minRating = +b.dataset.v; renderStays(); });
-    const ty = $('#stayType'); if (ty) ty.onchange = e => { stayView.type = e.target.value; renderStays(); };
-    $('#stayMax').onchange = e => { stayView.maxNight = +e.target.value || null; renderStays(); };
+    // změna řazení nebo filtru: zase od prvních 6
+    $('#staySort').onchange = e => { stayView.sort = e.target.value; stayView.n = 0; renderStays(); };
+    $$('#stayMin button').forEach(b => b.onclick = () => { stayView.minRating = +b.dataset.v; stayView.n = 0; renderStays(); });
+    const ty = $('#stayType'); if (ty) ty.onchange = e => { stayView.type = e.target.value; stayView.n = 0; renderStays(); };
+    $('#stayMax').onchange = e => { stayView.maxNight = +e.target.value || null; stayView.n = 0; renderStays(); };
+    const mn = $('#stayMoreN'); if (mn) mn.onclick = () => { stayView.n = lim + 10; renderStays(); };
     $$('[data-pick]', host).forEach(b => b.onclick = () => {
       staySlot.set(pickOf(d.items[+b.dataset.pick], d.query && d.query.nights));
       persist(); staySlot.next();

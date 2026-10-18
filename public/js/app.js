@@ -487,7 +487,7 @@ function renderDashStats() {
     w ? ['Hlídané ceny', `<span id="watchStatVal">${w}</span>`, `<span id="watchStatSub">${window.Flights ? Flights.watchStatTxt() : ''}</span>`, ''] : null,
     S.trips.length ? nextTripStat() : null,
   ].filter(Boolean);
-  if (tiles.length) tiles.push(['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs : '', '']);
+  if (tiles.length) tiles.push(['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs : '', topRec ? `<button type="button" class="linkbtn nt-open" data-tipiso="${topRec.c.iso2}">Proč tam →</button>` : '']);
   $('#statGrid').hidden = !tiles.length;
   $('#statGrid').innerHTML = tiles.map(s => `<div class="card stat"><div class="lab">${s[0]}</div><div class="val">${s[1]}</div><div class="sub">${s[2]}</div>${s[3] || ''}</div>`).join('');
   const recs = scoreCountries(m, {}).filter(r => !visited.has(r.c.iso2)).slice(0, 4);
@@ -497,6 +497,7 @@ function renderDashStats() {
   Photos.paint($('#dashRecs'));
   $$('[data-nt]').forEach(b => b.onclick = () => { go('planner'); setTimeout(() => openTrip(+b.dataset.nt), 250); });
   $$('[data-gop]').forEach(b => b.onclick = () => go('planner'));
+  $$('[data-tipiso]').forEach(b => b.onclick = () => openCountry(b.dataset.tipiso));
 }
 
 /* ================= DEST CARD ================= */
@@ -894,10 +895,12 @@ function tripWhen(t) {
   if ((t.end || t.start) < now) return 'proběhla';
   return d <= 0 ? 'právě probíhá' : inDays(d);
 }
+// název z průvodce je „Barcelona 10.11.“ – datum je hned pod ním, na kartě stačí „Barcelona“
+const tripTitle = t => (t.start && t.name && t.name.endsWith(' ' + fmtDate(t.start)) && t.name.length > fmtDate(t.start).length + 1 ? t.name.slice(0, -fmtDate(t.start).length - 1) : t.name);
 function tripCard(t, i) {
   const c = t.iso ? byIso[t.iso] : null, warm = c && c.cost >= 4, na = t.days ? Object.values(t.days).flat().length : 0;
   const photo = t.place?.label || (t.dest && t.dest !== '—' ? String(t.dest).split(',')[0] : '') || c?.cs || '', when = tripWhen(t);
-  return `<div class="card trip" data-ti="${i}"><div class="trip-top ${warm ? 'warm' : ''}"${photo ? ` data-photo="${esc(photo)}" style="--h:${ccHue(t.iso || photo)}"` : ''}>${when ? `<span class="tt-when">${when}</span>` : ''}<div class="tt-name">${esc(t.name)}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? '–' + fmtDate(t.end) : '') : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os.</span><span>${t.budget ? (+t.budget).toLocaleString('cs') + ' Kč' : 'rozpočet —'}</span></div>${t.flight ? `<div class="faint" style="font-size:12px;margin-bottom:4px">${esc(planTransport(t.flight))}</div>` : ''}<div class="muted" style="font-size:12.5px">${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</div></div></div>`;
+  return `<div class="card trip" data-ti="${i}"><div class="trip-top ${warm ? 'warm' : ''}"${photo ? ` data-photo="${esc(photo)}" style="--h:${ccHue(t.iso || photo)}"` : ''}>${when ? `<span class="tt-when">${when}</span>` : ''}<div class="tt-name">${esc(tripTitle(t))}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(t.dest)}${t.start ? ' · ' + fmtDate(t.start) + (t.end ? '–' + fmtDate(t.end) : '') : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os.</span><span>${t.budget ? (+t.budget).toLocaleString('cs') + ' Kč' : 'rozpočet —'}</span></div>${t.flight ? `<div class="faint" style="font-size:12px;margin-bottom:4px">${esc(planTransport(t.flight))}</div>` : ''}<div class="muted" style="font-size:12.5px">${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</div></div></div>`;
 }
 function newTrip(c, pre = {}) {
   const dest = pre.dest || (c ? c.cs : '');

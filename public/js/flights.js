@@ -4308,8 +4308,10 @@
   function renderResume() {
     const host = $('#resumeRow'); if (!host) return;
     const t = S.trip, d = t && t.flight && t.flight.out && window.Trip ? (() => { try { return Trip.stayDates(t); } catch (e) { return null; } })() : null;
-    // cesta, která ještě nezačala (průvodce pro uplynulý let už nepomůže)
-    const trip = d && t.flight.out.date >= today() ? t : null;
+    // cesta, která ještě nezačala (průvodce pro uplynulý let už nepomůže); sestavená a uložená v plánovači tu není –
+    // ukazuje ji karta „Nejbližší cesta“ níž (s odpočtem) a z plánovače jde „Otevřít v průvodci“
+    const saved = t && t.step === 'summary' && t.created && (S.trips || []).some(x => x && x.tripId === t.created);
+    const trip = d && t.flight.out.date >= today() && !saved ? t : null;
     const bases = trip && trip.route && trip.route.mode === 'multi' && Array.isArray(trip.route.bases) && trip.route.bases.length >= 2 ? trip.route.bases : null;
     const name = trip ? (bases ? bases.map(b => b.name).join(' → ') : trip.dest && trip.dest.label) || trip.flight.out.to : '';
     const picked = bases ? bases.filter(b => b.stay).length : 0;
