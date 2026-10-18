@@ -752,3 +752,16 @@ test('Inspirace: místa rozpracované cesty první („Tvoje cesta“) – jen b
   const bases = ['Řím', 'Florencie', 'Řím', 'Pisa', 'Lucca', 'Siena'].map((name, i) => ({ name, lat: 43 + i / 10, lon: 11, cc: 'IT', country: 'Itálie' }));
   assert.deepEqual(T.tripPlaces(trip({ route: { mode: 'multi', bases } })).map((p) => p.label), ['Řím', 'Florencie', 'Pisa', 'Lucca']);
 });
+
+test('Inspirace: 🔁 města z nedávných hledání letů (nejvýš 2, bez cesty a oblastí); známá s polohou, jiná až po klepnutí', () => {
+  const r = (...to) => ({ form: { to } });
+  const recent = [
+    r({ id: 'rg:kreta', label: 'Kréta', type: 'region', flag: '🏝️' }),
+    r({ id: 'metro:LON', label: 'Londýn', type: 'metro', flag: '🇬🇧' }, { id: 'metro:ROM', label: 'Řím', type: 'metro', flag: '🇮🇹' }),
+    r({ id: 'ap:LIS', label: 'Lisabon', type: 'airport', flag: '🇵🇹' }),
+  ];
+  const sp = plain(T.searchedPlaces(['Řím'], recent));
+  assert.deepEqual(sp.map((p) => [p.label, p.cc, p.searched, Number.isFinite(p.lat)]), [['Londýn', 'GB', true, false], ['Lisabon', 'PT', true, true]]);
+  assert.deepEqual(plain(T.searchedPlaces([], null)), []);
+  assert.deepEqual(plain(T.searchedPlaces([], [null, { form: {} }, r({ label: 'Kanada', type: 'country' })])), []);
+});

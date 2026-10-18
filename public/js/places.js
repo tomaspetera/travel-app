@@ -676,8 +676,32 @@
     const seen = new Set();
     return list.filter(p => p.label && p.lat != null && p.lon != null && cleanPlace(p) && !seen.has(p.label) && seen.add(p.label)).slice(0, 4).map(p => ({ ...p, trip: true }));
   }
-  const inspList = () => { const tp = tripPlaces(), own = new Set(tp.map(p => p.label)); return [...tp, ...INSP.filter(p => !own.has(p.label))]; };
-  const inspHtml = (list = inspList()) => `<div class="section-head ex-insp-h"><h2>Inspirace</h2></div><div class="dest-grid ex-insp">${list.map((p, i) => `<button type="button" class="card dest${p.trip ? ' ex-mine' : ''}" data-insp="${i}" data-photo="${esc(p.label)}" style="--h:${window.ccHue ? ccHue(p.cc) : 215}"><div class="flag">${flag(p.cc)}</div><div class="dest-panel"><div class="cname">${esc(p.label)}</div><div class="ccont">${p.trip ? `🧳 Tvoje cesta${p.from ? ` · od ${fmtDate(p.from)}` : ''}` : esc(p.country || '')}</div><div class="meta"><span class="chip accent">Co tam vidět</span><span>→</span></div></div></button>`).join('')}</div>`;
+  const ccOfFlag = f => { const c = [...String(f || '')].map(x => x.codePointAt(0) - 0x1F1E6); return c.length === 2 && c.every(x => x >= 0 && x < 26) ? String.fromCharCode(65 + c[0], 65 + c[1]) : ''; };
+  /**
+   * 🔁 Města, kam uživatel nedávno hledal letenky (S.recent) – v Inspiraci hned za vlastní cestou (nejvýš 2). Souřadnice
+   * z Inspirace, jinak žádné: místo najde smartPlace až po klepnutí.
+   */
+  function searchedPlaces(skip = [], recent = typeof S !== 'undefined' && S.recent) {
+    const out = [], seen = new Set(skip);
+    for (const e of (Array.isArray(recent) ? recent : [])) {
+      for (const x of (e && e.form && Array.isArray(e.form.to) ? e.form.to : [])) {
+        if (!x || !['metro', 'city', 'airport'].includes(x.type)) continue;
+        const label = String(x.label || '').replace(/\s*\(.*\)$/, '').trim();
+        if (!label || seen.has(label)) continue;
+        seen.add(label);
+        const known = INSP.find(p => p.label === label);
+        out.push({ ...(known || { label, cc: ccOfFlag(x.flag) }), searched: true });
+        if (out.length >= 2) return out;
+      }
+    }
+    return out;
+  }
+  const inspList = () => {
+    const tp = tripPlaces(), sp = searchedPlaces(tp.map(p => p.label)), own = new Set([...tp, ...sp].map(p => p.label));
+    return [...tp, ...sp, ...INSP.filter(p => !own.has(p.label))];
+  };
+  const inspSub = p => (p.trip ? `🧳 Tvoje cesta${p.from ? ` · od ${fmtDate(p.from)}` : ''}` : p.searched ? '🔁 hledal jsi sem lety' : esc(p.country || ''));
+  const inspHtml = (list = inspList()) => `<div class="section-head ex-insp-h"><h2>Inspirace</h2></div><div class="dest-grid ex-insp">${list.map((p, i) => `<button type="button" class="card dest${p.trip || p.searched ? ' ex-mine' : ''}" data-insp="${i}" data-photo="${esc(p.label)}" style="--h:${window.ccHue ? ccHue(p.cc) : 215}"><div class="flag">${flag(p.cc)}</div><div class="dest-panel"><div class="cname">${esc(p.label)}</div><div class="ccont">${inspSub(p)}</div><div class="meta"><span class="chip accent">Co tam vidět</span><span>→</span></div></div></button>`).join('')}</div>`;
   function renderExplore(root) {
     if (!root) return;
     ensureUi();
@@ -697,7 +721,16 @@
     paintRecent();
     wireBack();
     const cl = $('#exClear', root); if (cl) cl.onclick = () => resetExplore();
-    $$('[data-insp]', root).forEach(b => b.onclick = () => { const p = cleanPlace(insp[+b.dataset.insp]); if (p) openPlace(p); });
+    $$('[data-insp]', root).forEach(b => b.onclick = async () => {
+      const it = insp[+b.dataset.insp], p = cleanPlace(it);
+      if (p) return openPlace(p);
+      if (!it || !it.searched || b.disabled) return;
+      // 🔁 město z hledání letů bez souřadnic: najít (jako ✨ věta)
+      b.disabled = true;
+      const s = await smartPlace(it.label).catch(() => null);
+      b.disabled = false;
+      if (s) openPlace(s); else toast(`Místo „${it.label}“ jsem nenašel – napiš ho do hledání`, 'err');
+    });
     // ✨ příklady vět: vepsat do hledání a spustit jako Enter (místo, druh plánu, dny)
     $$('[data-extry]', root).forEach(b => b.onclick = () => { const q = $('#exQ', root); q.value = EX_TRY[+b.dataset.extry]; q.focus(); q.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
     if (window.Photos) Photos.paint(root);
@@ -1762,7 +1795,7 @@
   window.Places = {
     renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir, openAt, preview, previewHtml,
     // jen pro testy (test/places-ui.test.js)
-    _t: { tripPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
+    _t: { tripPlaces, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
