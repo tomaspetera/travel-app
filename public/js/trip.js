@@ -1865,6 +1865,7 @@
       <div class="sc-head"><div><h3>🚗 Auto na místě</h3><div class="muted">${ovOn(t) ? `Půjčovny bývají na letišti u cíle (${esc(t.flight.out.to)}) – vyzvednutí po příjezdu, vrácení před cestou zpět.` : 'Vyzvednutí na letišti po příletu, vrácení před odletem.'}</div></div>
       ${t.car ? `<div class="chosen">${t.car.mode === 'skip' ? 'Bez auta' : `Auto: <b>${czk(t.car.totalCzk)}</b>`}</div>` : ''}</div>
       ${routeCarNote(t)}
+      ${!isMulti(t) && !t.car ? '<div class="car-quick"><span class="muted">Na místě se obejdeš bez auta?</span><button type="button" class="btn sm" id="carSkipTop">Auto nepotřebuji →</button></div>' : ''}
       <div class="car-form">
         <div class="field"><label>Vyzvednutí</label><div class="row" style="gap:6px"><input class="input" id="carPu" value="${esc(def.pickup)}" maxlength="3" style="max-width:80px;text-transform:uppercase"><input class="input" type="datetime-local" id="carFrom" value="${def.from}"></div></div>
         <div class="field"><label>Vrácení</label><div class="row" style="gap:6px"><input class="input" id="carDo" value="${esc(def.dropoff)}" maxlength="3" style="max-width:80px;text-transform:uppercase"><input class="input" type="datetime-local" id="carTo" value="${def.to}"></div></div>
@@ -1908,7 +1909,7 @@
       persist(); setStep('program');
     };
     $('#carSkip').onclick = () => { t.car = { mode: 'skip', totalCzk: 0 }; persist(); setStep('program'); };
-    const st = $('#carSkipTop'); if (st) st.onclick = $('#carSkip').onclick; // cesta letadlem mezi místy: hned u vysvětlení
+    const st = $('#carSkipTop'); if (st) st.onclick = $('#carSkip').onclick; // hned nahoře (jinak je až pod srovnávači půjčoven)
     const ct = $('#carTransit'); if (ct) ct.onclick = () => {
       // přejezdy mají časy i jízdné pro obojí – přepočet ze serveru (dlouhé přejezdy, cesta z letiště) doběhne na pozadí
       t.route.transport = 'transit'; t.car = { mode: 'skip', totalCzk: 0 };
