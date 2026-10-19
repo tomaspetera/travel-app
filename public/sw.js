@@ -17,7 +17,10 @@ const CACHE = PREFIX + BUILD;
 // ze sítě, se otevře z uložené kopie a její soubory taky (stejná verze). Že je na serveru novější verze, pak řekne
 // pwa.js („Je k dispozici nová verze – Obnovit“), stejně jako když se verze změní za běhu.
 const PAGE_TIMEOUT = 1500;
-const fromCache = new Set(); // klienti (otevřené stránky), kterým se dala uložená stránka
+// Klienti (otevřené stránky), jejichž soubory se berou z uložené sady bez ptaní serveru: dostali uloženou stránku, nebo
+// stránku ze sítě se stejnou verzí (X-Atlas-Build = BUILD – otisk obsahu všech souborů, uložená sada je tedy totožná).
+// Ušetří ověřování ~30 souborů u serveru při každém otevření; jiná verze = soubory dál ze sítě, nikdy starý kód.
+const fromCache = new Set();
 
 /**
  * Kam s požadavkem (čistá funkce – test/pwa.test.js):
@@ -90,6 +93,7 @@ async function networkFirst(event, kind) {
       }
     }
     res = await net;
+    if (kind === 'page' && res.status === 200 && event.resultingClientId && res.headers.get('x-atlas-build') === BUILD) fromCache.add(event.resultingClientId);
     // chyba serveru (5xx – třeba při probouzení) místo stránky aplikace: uložená stránka, je-li
     if (kind === 'page' && res.status >= 500) {
       const hit = await cached(req, kind);

@@ -1127,6 +1127,13 @@ nic se neukládá na server a nepotřebuje to účet.
 - Server posílá kód aplikace (HTML, JS, CSS, manifest) s `Cache-Control: no-cache`: prohlížeč se při každém načtení
   zeptá (nezměněný soubor = `304` bez dat). S `max-age` by otevřený panel po obnovení vzal soubor z paměti bez ptaní –
   ani service worker by se o tom nedozvěděl – a po nasazení by běžel starý kód. Obrázky, písma a data mapy mezipaměť mají dál.
+  Soubory mají vedle `Last-Modified` i **ETag podle obsahu** (zvlášť pro brotli / gzip / bez komprese) a ten má přednost:
+  nasazení posune čas změny u všech souborů, ale nezměněné dál odpoví `304` – po nasazení se stáhne jen to, co se
+  opravdu změnilo (místo celé aplikace ~600 kB).
+- **Opakované otevření bez ptaní serveru:** stránka ze sítě nese verzi v hlavičce `X-Atlas-Build`; je-li stejná jako
+  verze service workeru (otisk obsahu všech souborů), vezme service worker skripty a styly té stránky rovnou z uložené
+  sady (jsou totožné) – ušetří ~30 ověření u serveru při každém otevření (na Renderu 0,2–0,8 s). Jiná verze = soubory
+  ze sítě jako dřív, starý kód nikdy.
 - `/sw.js` skládá server: verze je otisk obsahu všech souborů v `public/` a uložených dat (ne čas změny – nasazení
   se stejnými soubory nic nezmění) a seznam souborů k uložení při instalaci je stránka + vše, na co odkazuje
   `index.html` (skripty, styly, manifest a jeho ikony) + `data/countries.json`, `data/entry.json` a mapa světa.
