@@ -2727,7 +2727,7 @@
       iata: a.iata, city: okStr(a.city, 60) || a.iata, gen: okStr(a.gen, 60) || null, mode: ['bus', 'train', 'metro', 'tram', 'taxi'].includes(a.mode) ? a.mode : 'bus',
       how: okStr(a.how, 160), czk: Math.round(a.czk), min: Math.round(a.min), basis: ['table', 'access', 'estimate'].includes(a.basis) ? a.basis : 'estimate',
       ...(okFin(a.lat, -90, 90) && okFin(a.lon, -180, 180) ? { lat: a.lat, lon: a.lon } : {}),
-      ...(okFin(a.fare, 0, 1e6) && /^[A-Z]{3}$/.test(a.cur || '') ? { fare: a.fare, cur: a.cur } : {}),
+      ...(okFin(a.fare, 0, 1e6) && /^[A-Z]{3}$/.test(a.cur || '') ? { fare: a.fare, cur: a.cur, ...(okFin(a.typ, 0, 1e6) ? { typ: a.typ } : {}) } : {}),
       ...(a.from === true ? { from: true } : {}), ...(a.sec === true ? { sec: true } : {}), ...(okFin(a.km, 0, 1000) ? { km: Math.round(a.km) } : {}),
       ...(okStr(a.note, 140) ? { note: okStr(a.note, 140) } : {}), ...(okYmd(a.date) ? { date: a.date } : {}),
       ...(typeof a.src === 'string' && /^https:\/\/[^\s]{4,300}$/i.test(a.src) ? { src: a.src } : {}),

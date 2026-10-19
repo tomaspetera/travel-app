@@ -19,7 +19,11 @@ import { ACCESS, LOCAL_TICKET, regionalCzk, regionalMin } from './access.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DATA = JSON.parse(readFileSync(path.join(root, 'data', 'arrival.json'), 'utf8'));
-/** Ověřená tabulka: IATA → { city, gen, lat, lon, mode, how, fare, cur, from?, min, sec?, note?, src, date }. */
+/**
+ * Ověřená tabulka: IATA → { city, gen, lat, lon, mode, how, fare, cur, from?, typ?, min, sec?, note?, src, date }.
+ * from = fare je nejnižší cena (online předem); typ = co se běžně platí v den cesty (Stansted Express od 9,90 £,
+ * běžně 23 £) – do odhadu ceny cesty (czk) jde typ, je-li, jinak fare.
+ */
 export const ARRIVAL = DATA.airports;
 /** Kurzy pro převod jízdného do Kč (Kč za jednotku měny) a odkud jsou. */
 export const ARRIVAL_FX = DATA.fx;
@@ -57,7 +61,7 @@ function metroOf(iata) {
 function fromTable(a, x) {
   return {
     iata: a.iata, city: x.city, gen: x.gen, lat: x.lat, lon: x.lon, mode: x.mode, how: x.how,
-    fare: x.fare, cur: x.cur, ...(x.from ? { from: true } : {}), czk: fareCzk(x.fare, x.cur), min: x.min,
+    fare: x.fare, cur: x.cur, ...(x.from ? { from: true } : {}), ...(x.typ > 0 ? { typ: x.typ } : {}), czk: fareCzk(x.typ > 0 ? x.typ : x.fare, x.cur), min: x.min,
     km: Math.round(haversineKm(a.lat, a.lon, x.lat, x.lon)), ...(x.note ? { note: x.note } : {}),
     src: x.src, date: x.date, ...(x.sec ? { sec: true } : {}), basis: 'table',
   };
