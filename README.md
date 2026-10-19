@@ -742,7 +742,7 @@ na osobu – do ceny letenky se nepřičítá.
 nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; kde z letiště veřejná doprava nejezdí (Hurghada,
 Šarm aš-Šajch, Marsa Alam, Akaba, Djerba), 🚕 taxi – cena za auto děleno dvěma; „od“ = cena online předem; kde je známá i
 běžná cena v den cesty (pole `typ` – Stansted Express od 9,90 £, běžně 23 £; flibco Charleroi od 14,99 €, v den odjezdu
-~19 €; Terravision Bergamo od 5 €, běžně 8 €; Allgäu Airport Express online 15 €, v autobuse 20 €; Funchal 702 předem 2 €,
+~19 €; Terravision Bergamo od 5 €, běžně 8 €; Memmingen flibco online od 6,99 €, běžně ~15 € (Allgäu Airport Express online 15 €, v autobuse 20 €); Funchal 702 předem 2 €,
 na palubě 2,65 €), štítek ukáže obě a do odhadu ceny cesty (Kč) jde ta běžná. Cesta *na* letiště (odlet, `access.js`) počítá
 s cenou „od“ – jízdenka na odlet se kupuje předem:
 
@@ -758,7 +758,7 @@ s cenou „od“ – jízdenka na odlet se kupuje předem:
    Kišiněvě stojí méně).
 2. **Letiště z tabulky [cesty na letiště](#doprava-na-letiště)** (~35 letišť do ~450 km od Česka, `access.js`) – stejný
    spoj obráceně (Vídeň, Mnichov, Berlín, Drážďany…), s popiskem odhad. Letiště v obou tabulkách mají stejné jízdné „od“
-   a čas: podle ověření 10/2026 se v `access.js` opravily Memmingen (450 → 370 Kč, online od 15 €), Frankfurt (155 → 170
+   a čas: podle ověření 10/2026 se v `access.js` opravily Memmingen (450 → 370 Kč, online od 15 €; 19. 10. flibco od 6,99 € → 170 Kč), Frankfurt (155 → 170
    Kč), Krakov (80 → 110 Kč), Budapešť (140 → 170 Kč) a Záhřeb (200 → 220 Kč); test hlídá shodu.
 3. **Odhad** pro ostatní letiště: vzdálenost do centra (letiště metropole s víc letišti od jejího středu, jinak typicky
    15 km u velkého, 10 km u středního a 6 km u malého letiště) → regionální jízdné z cesty na letiště (30 Kč + 1,5 Kč/km;
@@ -805,7 +805,7 @@ s cenou „od“ – jízdenka na odlet se kupuje předem:
 | NRN Düsseldorf | autobus Airport Weeze Shuttle do Düsseldorf Hbf | 24 € | 590 ⚠ | 1 h 15 | [airport-weeze.com](https://airport-weeze.com/en/neuer-busdienst-vom-hauptbahnhof-duesseldorf-zum-airport-weeze/) |
 | DUS Düsseldorf | S-Bahn / tramvaj U80 na Düsseldorf Hbf | 3,80 € | 90 | 18 min | [vrr.de](https://www.vrr.de/fileadmin/user_upload/pdf/service/downloads/Weitere_Broschueren_und_Tarifinformationen/VRR_Preise_2026.pdf) |
 | CGN Kolín nad Rýnem | S-Bahn S19 na Köln Hbf | 4 € | 100 | 15 min | [vrs.de](https://www.vrs.de/fileadmin/01_Tickets/Rheinlandtarif/VRS_Preistabelle_06-2026_final.pdf) |
-| FMM Mnichov | autobus Allgäu Airport Express do München Hbf | od 15 €, běžně 20 € | 490 ⚠ | 1 h 20 | [allgaeu-airport.de](https://www.allgaeu-airport.de/mit-dem-bus-zum-flieger/) |
+| FMM Mnichov | autobus flibco do München Hbf (ZOB), 15× denně od 1. 10. 2026 | od 6,99 €, běžně ~15 € | 370 ⚠ | 1 h 25 | [flibco.com](https://www.flibco.com/en/shuttle/bus-munich-memmingen-airport) |
 | GRO Barcelona | autobus Sagalés Airport Line na Barcelona Nord | 22 € | 540 ⚠ | 1 h 15 | [sagalesairportline.com](https://www.sagalesairportline.com/en) |
 | REU Barcelona | autobus Monbus na Barcelona Sants | 18,50 € | 450 ⚠ | 1 h 40 | [catalunya.monbus.es](https://catalunya.monbus.es/wp-content/uploads/2026/04/H_AeropuertoReus_2026-04.pdf) |
 | BCN Barcelona | autobus Aerobús na Plaça de Catalunya | 7,45 € | 180 | 35 min | [aerobusbarcelona.es](https://aerobusbarcelona.es/en/rates/) |

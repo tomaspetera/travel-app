@@ -78,7 +78,7 @@ export const ACCESS = {
   SZG: [47.8095, 13.0550, 'Salcburk', 65, 25, 'trolejbus 2 / 10 (~2,50 €)', [1170, 70]], // ověřeno 10/2026
   MUC: [48.1374, 11.5755, 'Mnichov', 350, 45, 'S-Bahn S1 / S8 z centra (MVV ~14 €)', [790, 100]], // ověřeno 10/2026
   NUE: [49.4521, 11.0767, 'Norimberk', 95, 20, 'metro U2 (VGN ~3,80 €)', [1580, 220]], // ověřeno 10/2026
-  FMM: [48.1374, 11.5755, 'Mnichov', 370, 80, 'Allgäu Airport Express z Mnichova (online od 15 €)', [230, 120]], // jízdné ověřeno 10/2026
+  FMM: [48.1374, 11.5755, 'Mnichov', 170, 85, 'autobus flibco z Mnichova (online od 6,99 €; Allgäu Airport Express 15 €)', [230, 120]], // flibco ověřeno 19. 10. 2026
   BER: [52.5200, 13.4050, 'Berlín', 120, 40, 'S-Bahn / FEX z centra (BVG ABC ~5 €)', [1260, 100]], // ověřeno 10/2026
   DRS: [51.0504, 13.7373, 'Drážďany', 85, 25, 'S-Bahn S2 z Hauptbahnhofu (DVB ~3,60 €)', [540, 120]], // ověřeno 10/2026
   LEJ: [51.3397, 12.3731, 'Lipsko', 130, 20, 'S-Bahn z Hauptbahnhofu (MDV ~5 €)', [750, 160]], // ověřeno 10/2026

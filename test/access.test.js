@@ -70,8 +70,8 @@ test('veřejnou dopravou: cílové rozsahy na osobu jedním směrem z Prahy a z 
   // a letištní bus
   const plzen = { lat: 49.7384, lon: 13.3736, label: 'Plzeň' };
   assert.deepEqual(transit(plzen, 'MUC').breakdown.map((x) => x.k), ['home', 'intercity', 'access']);
-  // Allgäu Airport Express z Mnichova online od 15 € (ověřeno 10/2026, stejně jako v data/arrival.json)
-  assert.deepEqual(transit(PRAHA, 'FMM').breakdown.map((x) => [x.k, x.czk]), [['home', 40], ['intercity', 420], ['access', 370]]);
+  // flibco z Mnichova online od 6,99 € (ověřeno 19. 10. 2026, stejně jako v data/arrival.json)
+  assert.deepEqual(transit(PRAHA, 'FMM').breakdown.map((x) => [x.k, x.czk]), [['home', 40], ['intercity', 420], ['access', 170]]);
   // přímý bus jen když vyjde levněji (jeho „od“ + příplatek proti běžné ceně konkrétního spoje přes město): Brno → Vídeň
   // přímým busem 249 + 50 Kč; Praha → Vídeň přímým busem 369 + 70 Kč (vlak do Vídně 350 Kč + S7 ~110 Kč), Berlín 419 + 80
   // Kč; Plzeň → Mnichov přímý bus nemá – přes město; k tomu MHD na nádraží
