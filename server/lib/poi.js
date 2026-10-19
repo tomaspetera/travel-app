@@ -226,6 +226,9 @@ export function groupBindings(rows, center) {
     // kostel, který je i muzeem (Pantheon, Sainte-Chapelle), je kostel – ne dvouhodinové muzeum (čas podle významu
     // v itinerary.js); muzeum v kostele, které nese jeho jméno (Museo di San Marco), zůstane muzeem
     if (cats.has('church') && cats.has('museum') && !MUSEUM_NAME.test(p.name)) cats.delete('museum');
+    // antické fórum (Forum Romanum: „forum“ = náměstí + archeologické naleziště) je naleziště na hodinu, ne náměstí
+    // na půl hodiny
+    if (cats.has('square') && cats.has('ruins')) cats.delete('square');
     // Konkrétní typ (most, kostel, hrad…) vyhrává nad obecným „silnice/ulice“ (Karlův most je i silnice).
     const specific = CAT_PRIORITY.find((c) => c !== 'sight' && cats.has(c));
     const known = (p.heritage || types.includes(TOURIST_DEST)) && p.sitelinks >= 25;
