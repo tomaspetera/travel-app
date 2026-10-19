@@ -584,6 +584,24 @@ test('POST /api/roadtrip – jednodenní výlety i okruh s přespáním (DEMO)',
   assert.equal(got.score, all.find((x) => x.id === pick.id).score);
 });
 
+test('POST /api/roadtrip – okruh „po Toskánsku“ jen v Toskánsku (připnutý cíl smí ven), bez oblasti kruh (DEMO)', async () => {
+  const post = async (body) => (await fetch(`${base}/api/roadtrip`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json();
+  const start = new Date(Date.now() + 10 * 864e5).toISOString().slice(0, 10);
+  const FLR = { lat: 43.7696, lon: 11.2558, label: 'Florencie', start, days: 4, mode: 'loop' };
+  // ukázkové cíle kolem Florencie: demoTrip1, 4 a 8 leží mimo Toskánsko (data/regions.json)
+  const out = ['demoTrip1', 'demoTrip4', 'demoTrip8'];
+  const ids = (j) => [...j.days.flatMap((d) => d.stops), ...j.spare].map((s) => s.id);
+  const all = await post(FLR);
+  assert.ok(ids(all).some((id) => out.includes(id)), 'bez oblasti: kruh kolem města');
+  const tus = await post({ ...FLR, region: 'toskansko' });
+  assert.ok(tus.days.length >= 2);
+  assert.ok(!ids(tus).some((id) => out.includes(id)), 'v oblasti: jen cíle uvnitř hranice');
+  const pin = await post({ ...FLR, region: 'toskansko', include: ['demoTrip4'] });
+  assert.ok(pin.days.flatMap((d) => d.stops).some((s) => s.id === 'demoTrip4'), 'připnutý cíl mimo oblast zůstane');
+  const unknown = await post({ ...FLR, region: 'atlantida' });
+  assert.deepEqual(ids(unknown), ids(all), 'neznámá oblast = kruh');
+});
+
 test('POST /api/bike – okruh na kole (DEMO), kontrola polohy a voleb', async () => {
   const post = (body) => fetch(`${base}/api/bike`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
   const r = await post({ lat: 50.0875, lon: 14.4213, km: 60, bike: 'road', scenery: 'nature', hills: 'flat' });

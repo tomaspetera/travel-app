@@ -21,6 +21,7 @@ import { partnerLookups } from './lib/partnerids.js';
 import { searchCars } from './lib/cars.js';
 import { findPlaces, findTrips, mockPlaces, mockTrips, placesCached, tripsCached } from './lib/poi.js';
 import { planTrips } from './lib/roadtrip.js';
+import { keepInRegion } from './lib/regions.js';
 import { bikeLoop, mockBikeLoop, hikeLoop, mockHikeLoop, bikeFromStation, mockBikeFromStation } from './lib/bike.js';
 import { planItinerary } from './lib/itinerary.js';
 import { planStay, StayPlanError } from './lib/stayplan.js';
@@ -544,11 +545,15 @@ async function route(req, res) {
     }
     const exclude = new Set(Array.isArray(b.exclude) ? b.exclude.map(String) : []);
     const must = new Set(Array.isArray(b.include) ? b.include.map(String) : []);
-    const pool = candidates.filter((x) => !exclude.has(x.id)).map((x) => (must.has(x.id) ? { ...x, baseScore: x.score, score: x.score + 1000, pinned: true } : x));
+    const days = Number(b.days) || 1;
+    // Okruh „po Toskánsku“: kandidáti jsou z kruhu 120 km kolem města oblasti (i Ravenna, Perugia) – nech jen ty
+    // uvnitř oblasti (připnuté vždy); kdyby jich bylo málo na plán, zůstane kruh.
+    const area = keepInRegion(candidates, b.region, { min: Math.min(10, days) + 3, keep: (x) => must.has(x.id) });
+    const pool = area.filter((x) => !exclude.has(x.id)).map((x) => (must.has(x.id) ? { ...x, baseScore: x.score, score: x.score + 1000, pinned: true } : x));
     const plan = planTrips(pool, {
       base: { lat, lon, label: String(b.label || 'Start').slice(0, 120) },
       start: b.start,
-      days: Number(b.days) || 1,
+      days,
       mode: b.mode === 'loop' ? 'loop' : 'day',
       transport: b.transport === 'transit' ? 'transit' : 'car',
       interests: Array.isArray(b.interests) ? b.interests.map(String).slice(0, 6) : [],
