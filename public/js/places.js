@@ -807,10 +807,12 @@
     return ap && Number.isFinite(+ap.lat) ? { name: /\(.*\)$/.test(ap.label) && ap.en ? ap.en : String(ap.label).replace(/\s*\(.*\)$/, ''), ap, key: String(it.id || '').replace(/^rg:/, '') } : null;
   }
   /** ✨ Volby z věty do Objevuj: druh plánu, dny, délka trasy, od kdy, zájmy; plán se po načtení míst sestaví sám. */
-  function exploreApply(px) {
-    // věta bez druhu plánu, ale s dny nebo zájmy („Toscana na týden“, „Řím s dětmi“) = program ve městě – ne kolo
-    // z minulé věty
+  function exploreApply(px, s) {
+    // věta bez druhu plánu, ale s dny nebo zájmy („Lisabon na 3 dny“, „Řím s dětmi“) = program ve městě – ne kolo
+    // z minulé věty; oblast na víc dní („Toskánsko na 4 dny“, „Kréta na týden“) = okruh po oblasti, ne program jen
+    // v jejím městě (Florencie)
     if (px.mode) ex.mode = px.mode;
+    else if (s && s.region && px.days >= 2) ex.mode = 'loop';
     else if (px.days || px.interests.length) ex.mode = 'city';
     const road = ex.mode === 'day' || ex.mode === 'loop';
     if (px.days) {
@@ -983,7 +985,7 @@
       if (my !== smartSeq) return;
       if (!s) { dd.innerHTML = `<div class="pi-empty">${down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název`}</div>`; return; }
       dd.hidden = true; q.blur();
-      exploreApply(px);
+      exploreApply(px, s);
       if (px.place) openPlace(s); else paintExplore();
     };
     const pick = s => { if (!s) return; dd.hidden = true; openPlace(s); };
