@@ -138,3 +138,14 @@ test('searchStays: záloha z OpenStreetMap ne u LiteAPI a ne bez poskytovatele c
     stub.restore();
   }
 });
+
+test('rankOsm: téměř stejný záznam (název začíná druhým, do 300 m) jen jednou – zůstane ten s hvězdičkami', () => {
+  const h = (id, name, lat, lon, stars = null) => ({ id, name, lat, lon, stars, distanceKm: 1 });
+  const out = rankOsm([
+    h('osm:node/1', 'Quinta do Pinheiro', 39.5500, -8.9800),
+    h('osm:way/2', 'Quinta do Pinheiro - Hotel Rural', 39.5507, -8.9802, 3),
+    h('osm:node/3', 'Quinta do Pinheiro Velho', 39.5600, -8.9800), // 1,1 km – jiné místo
+    h('osm:node/4', 'Real', 39.5501, -8.9801), // krátký název se neslučuje
+  ]);
+  assert.deepEqual(out.map((x) => x.id), ['osm:way/2', 'osm:node/3', 'osm:node/4']);
+});

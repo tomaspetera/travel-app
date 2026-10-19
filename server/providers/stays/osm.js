@@ -101,7 +101,18 @@ export function rankOsm(items, max = OSM_MAX) {
       return true;
     })
     .sort((a, b) => Number(Boolean(b.stars)) - Number(Boolean(a.stars)) || (b.stars || 0) - (a.stars || 0) || (a.distanceKm ?? 99) - (b.distanceKm ?? 99))
+    // téměř stejné záznamy OSM („Quinta do Pinheiro“ a „Quinta do Pinheiro – Hotel Rural“ 100 m od sebe) jednou –
+    // zůstane ten výš (s hvězdičkami, blíž)
+    .filter((h, i, arr) => !arr.slice(0, i).some((g) => sameLodging(g, h)))
     .slice(0, max);
+}
+
+const nameKey = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+/** Stejné ubytování dvakrát: jeden název začíná druhým (aspoň 6 znaků) a leží do 300 m od sebe. */
+export function sameLodging(a, b) {
+  const x = nameKey(a.name), y = nameKey(b.name);
+  if (!x || !y || Math.min(x.length, y.length) < 6 || !(x.startsWith(y) || y.startsWith(x))) return false;
+  return haversineKm(a.lat, a.lon, b.lat, b.lon) <= 0.3;
 }
 
 // Ukázková ubytování pro DEMO (vymyšlená, kolem bodu) – ať jde záloha projít i bez sítě.
