@@ -1080,7 +1080,10 @@
   function arrivalFare(a) {
     if (!a) return '';
     if (!(a.fare > 0) || !a.cur || a.cur === 'CZK') return `~${kc(a.czk)}`;
-    return `${a.from ? 'od ' : ''}${fareNum(a.fare)} ${CUR_SIGN[a.cur] || a.cur} (~${kc(a.czk)})`;
+    const sign = CUR_SIGN[a.cur] || a.cur;
+    // od (online předem) i běžná cena v den cesty – v Kč (odhad do ceny cesty) ta běžná: „od 9,90 £, běžně 23 £ (~560 Kč)“
+    if (a.from && a.typ > a.fare) return `od ${fareNum(a.fare)} ${sign}, běžně ${fareNum(a.typ)} ${sign} (~${kc(a.czk)})`;
+    return `${a.from ? 'od ' : ''}${fareNum(a.fare)} ${sign} (~${kc(a.czk)})`;
   }
   /** Drahá (> 350 Kč/os.) nebo dlouhá (> 60 min) cesta do města. */
   const arrivalWarn = a => Boolean(a) && (a.czk > ARRIVAL_WARN.czk || a.min > ARRIVAL_WARN.min);
