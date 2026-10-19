@@ -531,6 +531,11 @@ test('kdy vyrazit: z domu na let tam a z ubytování na let zpět – průběh c
   assert.equal(r1[h], 'so 14. 11. 🚪 Z ubytování na letiště VIE vyraž nejpozději ve 4:00 <span class="faint">(~1 h cesta + 2 h před odletem, odhad)</span> · brzy ráno – taxi objednej předem, nebo přespi u letiště');
   assert.match(r1[h + 1], /^so 14\. 11\. 🚆 Vídeň → letiště VIE.* · v noci spíš taxi \(v odhadu ceny je MHD\)$/, 'vyráží se před 5:00 – MHD ještě nejede');
   assert.match(r1[h + 2], /^so 14\. 11\. 🛬 VIE 07:00/);
+  // letiště, kde už počítáme taxi (Hurghada, Djerba…): bez „v odhadu ceny je MHD“ – odhad je tam taxi
+  const tx = trip({ route: null, overland: null, ground: { out: { minutes: 45 }, back: { minutes: 45 } }, arrival: { out: null, back: { ...AB.back, mode: 'taxi', how: 'taxi' } } });
+  tx.flight.out = t.flight.out; tx.flight.back = t.flight.back;
+  const rt = rows(render(c, tx)), ht = rt.findIndex((r) => /🚪 Z ubytování/.test(r));
+  assert.ok(ht >= 0 && !/v noci spíš taxi/.test(rt[ht + 1]), rt.join('\n'));
   // let zpět po půlnoci: cesta na letiště už předchozí večer, hned po řádku 🚪 (ne v den odletu)
   const nt = { ...t, flight: { ...t.flight, back: { ...t.flight.back, date: '2026-11-15', dep: '2026-11-15T00:30:00', arr: '2026-11-15T01:30:00' } } };
   const r3 = rows(render(c, nt));
