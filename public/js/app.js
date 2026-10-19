@@ -443,8 +443,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-19a';
+const WN_ID = '2026-10-19b';
 const WHATS_NEW = [
+  ['🏡', 'Ubytování i v malých místech', 'když TripAdvisor pro místo na trase nic nemá (Palazzolo Acreide, Alcobaça), ukážu hotely, penziony a agroturistiky v okolí z OpenStreetMap – <b>Vybrat</b> a cenu doplníš sám, u každého odkaz na Booking.com s tvými daty.'],
   ['🧭', 'Okruh po oblasti', '„Toskánsko na 4 dny“ v <b>Objevuj</b> naplánuje okruh, který zůstane v Toskánsku (ne Rimini ani Perugia) – stejně Apulie, Istrie, Algarve, Skotsko a Laponsko. Bazilika sv. Petra má v programu hodinu, ne půl, a se zájmem „s dětmi“ přibydou ZOO a parky.'],
   ['🏝️', 'Hotely i u letišť na ostrovech', 'Tenerife Jih, Lanzarote, Gran Canaria nebo Rhodos – ubytování se hledá ve městě u letiště (dřív nic). <b>Vyber za mě</b> v Cestě ověří volno a vyprodaný hotel přeskočí.'],
   ['⛽', 'Auto v cíli za skutečné ceny', 'palivo za cenu v zemi, kudy jedeš (všechny země EU), a mýtné na dálnicích v Itálii, Francii a Chorvatsku.'],
