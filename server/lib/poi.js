@@ -112,7 +112,7 @@ export function sparqlNear(lat, lon, radiusKm, minLinks, items, { wv = false, la
       }
       hint:Query hint:optimizer "None" .
       ?item wikibase:sitelinks ?sl . FILTER(?sl >= ${minLinks})${types ? `
-      ?item wdt:P31/wdt:P279? ?ft . VALUES ?ft { ${types.map((t) => `wd:${t}`).join(' ')} }` : ''}
+      FILTER EXISTS { VALUES ?ft { ${types.map((t) => `wd:${t}`).join(' ')} } ?item wdt:P31/wdt:P279? ?ft . }` : ''}
     } ORDER BY DESC(?sl) LIMIT ${items}
   }
   ?item wdt:P31/wdt:P279? ?type .
