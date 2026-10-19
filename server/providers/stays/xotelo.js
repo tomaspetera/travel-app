@@ -4,8 +4,9 @@
 //   GET /api/list?location_key=g…&sort=best_value   hotely místa TripAdvisoru (název, poloha, hodnocení 0–5, fotka)
 //   GET /api/rates?hotel_key=g…-d…&chk_in&chk_out   cena za pokoj a noc u jednotlivých webů ([] = bez nabídky)
 // Místo TripAdvisoru (g…) z Wikidat (P3134 TripAdvisor ID): podle ID GeoNames místa, velká města z tabulky, podle názvu
-// místa v okolí bodu (rychlé), teprve pak obce v okolí bodu (pomalý dotaz). Na místo a termín 1 seznam + nejvýš 12 dotazů
-// na ceny, vše v mezipaměti; při výpadku Xotela se na chvíli vynechá (pojistka), ať hledání nečeká na timeouty.
+// místa v okolí bodu (rychlé), teprve pak obce v okolí bodu (pomalý dotaz); malé místo bez hotelů → hotely nejbližších
+// míst TripAdvisoru do 35 km (ceny z okolí). Na místo a termín 1 seznam (z okolí 2) + nejvýš 12 dotazů na ceny, vše
+// v mezipaměti; při výpadku Xotela se na chvíli vynechá (pojistka), ať hledání nečeká na timeouty.
 // Odkaz hotelu vede na web nejlevnější nabídky (Booking.com, Trip.com, Hotels.com, Expedia); u webů bez spolehlivého
 // odkazu na hotel (Agoda, Vio, web hotelu…) na Google Hotels s živými cenami hotelu u všech webů.
 import { request, limiter } from '../../lib/http.js';
@@ -78,6 +79,72 @@ export function seedCity(lat, lon) {
   for (const [id, clat, clon] of TA_PLACES) near(clat, clon, id, PLACE_KM);
   return best ? best.key : null;
 }
+
+// Malé místo, kde TripAdvisor hotely nemá (Palazzolo Acreide, Alcobaça): ceny z nejbližších míst TripAdvisoru v okolí
+// (Noto 21 km, Batalha 18 km) – hotely z jejich seznamů do NEARBY_RADIUS_KM od místa pobytu, vzdálenost od něj.
+export const NEARBY_KM = 35; // místo TripAdvisoru nejvýš tak daleko (střed jeho hotelů)
+export const NEARBY_RADIUS_KM = 40; // hotely z okolí nejvýš tak daleko od místa pobytu
+export const NEARBY_MAX = 2; // nejvýš tolik míst (2 seznamy hotelů)
+
+// Název místa z adresy hotelu („Noto Province of Syracuse Sicily“ → „Noto“, „Santa Cruz de Tenerife Tenerife“ →
+// „Santa Cruz de Tenerife“): oblast za názvem sdílí i jiná místa tabulky (ta jsou zkrácená na 32 znaků – stačí začátek
+// oblasti od 8 znaků). Před spojkou nebo slovem, za kterým název pokračuje („City of“, „San“, „Lake“), se nekončí;
+// nenajde-li se oblast, celý název (zkrácený bez useknutého slova).
+const OPEN = new Set(['of', 'de', 'di', 'da', 'do', 'dos', 'das', 'del', 'della', 'delle', 'dei', 'degli', 'la', 'le', 'les', 'du', 'des', 'am', 'an', 'im', 'upon', 'on', 'sur', 'y', 'e', 'en', 'and', 'the', 'The', 'San', 'Santa', 'Santo', 'Sant', 'St', 'Ste', 'Saint', 'Sainte', 'Sankt', 'Sao', 'Port', 'Porto', 'Puerto', 'Le', 'La', 'Les', 'Los', 'Las', 'El', 'Il', 'Lo', 'Bad', 'Den', 'De', 'Het', 'Al', 'Ras', 'Ko', 'Koh', 'Isla', 'Isle', 'Ile', 'Playa', 'Praia', 'Cala', 'Costa', 'Lago', 'Lake', 'Mount', 'Monte', 'Villa', 'Marina', 'Castel', 'Castello', 'Borgo', 'Torre', 'Punta', 'Cape', 'Cabo', 'Capo', 'Agios', 'Ayia', 'Agia', 'New', 'Old', 'North', 'South', 'East', 'West', 'Upper', 'Lower', 'Great', 'Little', 'Royal']);
+let tails = null; // konce názvů tabulky od každého slova (oblasti), jednou
+const labels = new Map();
+export function placeLabel(full) {
+  const n = String(full || '').trim();
+  if (labels.has(n)) return labels.get(n);
+  if (!tails) tails = TA_PLACES.map(([, , , x]) => [x, x.split(' ').slice(1).map((_, i, a) => a.slice(i).join(' '))]);
+  const t = n.split(' ');
+  let out = null;
+  for (let k = 1; k < t.length && !out; k++) {
+    if (OPEN.has(t[k - 1])) continue;
+    const T = t.slice(k).join(' ');
+    if (T.length < 4) continue;
+    if (tails.some(([x, ends]) => x !== n && (x.includes(` ${T}`) || ends.some((s) => s.length >= 8 && T.startsWith(s))))) out = t.slice(0, k).join(' ');
+  }
+  // dvakrát totéž („Khon Kaen Khon Kaen“ – město a provincie stejného jména)
+  const w = (out || n).split(' ');
+  if (w.length % 2 === 0 && w.slice(0, w.length / 2).join(' ') === w.slice(w.length / 2).join(' ')) out = w.slice(0, w.length / 2).join(' ');
+  if (!out) out = n.length >= 32 && t.length > 1 ? t.slice(0, -1).join(' ') : n;
+  labels.set(n, out);
+  return out;
+}
+
+const PLACE_BY_ID = new Map(TA_PLACES.map(([id, lat, lon, name]) => [`g${id}`, { lat, lon, name }]));
+const CITY_BY_ID = new Map(TA_CITIES.map(([name, lat, lon, id]) => [`g${id}`, { lat, lon, name }]));
+// Místo TripAdvisoru pro hotely z okolí: název pro kartu (velké město česky), pro odkazy na hotel (anglicky z adresy)
+const nearPlace = (key, lat, lon, km) => {
+  const p = PLACE_BY_ID.get(key);
+  const c = CITY_BY_ID.get(key);
+  const en = p ? placeLabel(p.name) : c?.name || '';
+  return { key, name: c?.name || en, en, km, lat, lon };
+};
+
+/**
+ * Nejbližší místa TripAdvisoru z tabulek (TA_CITIES, TA_PLACES) do maxKm od bodu, nejbližší první, nejvýš max:
+ * [{ key, name, en, km, lat, lon }] – pro malé místo bez vlastních hotelů (searchXotelo).
+ */
+export function nearbyPlaces(lat, lon, { maxKm = NEARBY_KM, max = NEARBY_MAX } = {}) {
+  const by = new Map();
+  const add = (key, clat, clon) => {
+    const km = haversineKm(lat, lon, clat, clon);
+    if (km <= maxKm && !(by.get(key)?.km <= km)) by.set(key, { key, clat, clon, km });
+  };
+  for (const [key, p] of CITY_BY_ID) add(key, p.lat, p.lon);
+  for (const [key, p] of PLACE_BY_ID) add(key, p.lat, p.lon);
+  return [...by.values()].sort((a, b) => a.km - b.km).slice(0, max).map((x) => nearPlace(x.key, x.clat, x.clon, x.km));
+}
+
+// Adresa místa z odkazu hotelu na TripAdvisoru (…-Reviews-Hotel_Name-Noto_Province_of_Syracuse_Sicily.html) – místo
+// z Wikidat, které v tabulkách není.
+const urlPlace = (u) => {
+  const m = /-Reviews-[^/]*-([^-/]+)\.html$/.exec(String(u || ''));
+  return m ? placeLabel(m[1].replace(/_/g, ' ')) : '';
+};
+const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : NaN; };
 
 export const sparqlGeonames = (gid) => `SELECT ?ta WHERE { ?item wdt:P1566 "${gid}" ; wdt:P3134 ?ta . }`;
 
@@ -525,10 +592,53 @@ export function chooseForRates(pool, n = MAX_RATES) {
 }
 
 /**
+ * Hotely z okolí pro místo bez vlastních (searchXotelo): nejbližší místa TripAdvisoru z tabulek (nearbyPlaces) a místa
+ * z Wikidat, jejichž hotely byly od místa pobytu dál než RADIUS_KM (tried – seznamy jsou v mezipaměti; střed = medián
+ * poloh hotelů), do NEARBY_KM, nejvýš NEARBY_MAX nejbližších; z jejich seznamů hotely do NEARBY_RADIUS_KM od místa
+ * pobytu, napřed z nejbližšího místa. → { pool, of: Map(klíč hotelu → místo), from: [{ name, km }] } nebo null (v okolí
+ * nic). Chyba seznamu (výpadek Xotela) se vyhodí, jen když z okolí nic není. deps.list = seznam hotelů místa.
+ */
+export async function nearbyPool(center, tried = [], { list = hotelList } = {}) {
+  const extra = [];
+  for (const key of tried) {
+    if (PLACE_BY_ID.has(key) || CITY_BY_ID.has(key)) continue; // z tabulek (nearbyPlaces)
+    const l = await list(key).catch(() => []);
+    const pts = l.map((h) => [Number(h?.geo?.latitude), Number(h?.geo?.longitude)]).filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
+    if (!pts.length) continue;
+    const lat = median(pts.map((p) => p[0]));
+    const lon = median(pts.map((p) => p[1]));
+    const km = haversineKm(center.lat, center.lon, lat, lon);
+    const name = l.map((h) => urlPlace(h?.url)).find(Boolean) || '';
+    if (km <= NEARBY_KM) extra.push({ key, name, en: name, km, lat, lon });
+  }
+  const all = [...nearbyPlaces(center.lat, center.lon), ...extra].sort((a, b) => a.km - b.km);
+  const places = all.filter((p, i) => all.findIndex((x) => x.key === p.key) === i).slice(0, NEARBY_MAX);
+  if (!places.length) return null;
+  let err = null;
+  const lists = await Promise.all(places.map((p) => list(p.key).catch((e) => { err = err || e; return []; })));
+  const pool = [];
+  const of = new Map();
+  const from = [];
+  places.forEach((p, i) => {
+    let n = 0;
+    for (const h of candidates(lists[i], center, NEARBY_RADIUS_KM)) {
+      if (of.has(h.key)) continue;
+      of.set(h.key, p);
+      pool.push(h);
+      n++;
+    }
+    if (n) from.push({ name: p.name, km: Math.round(p.km) });
+  });
+  if (!pool.length && err) throw err;
+  return pool.length ? { pool, of, from } : null;
+}
+
+/**
  * Hotely s cenou pro dotaz q (normalizeStayQuery). deps: sparql (Wikidata), budgetMs (rozpočet na ceny), fresh (ceny
  * znovu, ne z mezipaměti – místo a seznam hotelů z ní). Výsledek seřazený od nejlevnějšího; nestihly-li všechny ceny,
  * má příznak partial (kratší mezipaměť v searchStays) – i prázdný, když na ceny nezbyl čas (souběžná hledání), ne chyba
- * zdroje; stale = u fresh část cen aktualizovat nešlo (zůstaly dřívější).
+ * zdroje; stale = u fresh část cen aktualizovat nešlo (zůstaly dřívější). Malé místo bez hotelů na TripAdvisoru: hotely
+ * z okolí (nearbyPool) s nearby { place, km, city } u každého hotelu a nearbyFrom [{ name, km }] u výsledku.
  */
 export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh = false, slowMs = EMPTY_SLOW_MS } = {}) {
   const center = q.lat != null && q.lon != null ? { lat: q.lat, lon: q.lon } : null;
@@ -543,9 +653,24 @@ export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh
     }
     return false;
   };
+  // výpadek Wikidat u místa mimo tabulky: aspoň ceny z okolí (níž), jinak chyba zdroje
+  let keyErr = null;
+  const keys = await locationKeys(q, { sparql }).catch((e) => { if (!center) throw e; keyErr = e; return []; });
   // místo bez hotelů v okolí (ID atrakce, ID z tabulky nesedí) → teprve teď obce v okolí bodu (pomalejší dotaz)
-  if (!(await tryKeys(await locationKeys(q, { sparql }))) && center) await tryKeys(await nearbyKeys(q, { sparql }).catch(() => []));
-  if (!pool.length) return [];
+  if (!(await tryKeys(keys)) && center && !keyErr) await tryKeys(await nearbyKeys(q, { sparql }).catch(() => []));
+  // malé místo bez hotelů na TripAdvisoru → hotely nejbližších míst TripAdvisoru v okolí (nearby u každého hotelu)
+  const near = !pool.length && center ? await nearbyPool(center, [...tried]) : null;
+  if (near) pool = near.pool;
+  if (!pool.length) {
+    if (keyErr) throw keyErr;
+    return [];
+  }
+  // hotel z okolí: odkazy na weby hledají hotel v jeho místě („Hotel X, Noto“), ne v místě pobytu
+  const qOf = (h) => (near?.of.has(h.key) ? { ...q, cityEn: near.of.get(h.key).en || q.cityEn } : q);
+  const tag = (x, h) => {
+    const p = near?.of.get(h.key);
+    return x && p ? Object.assign(x, { nearby: { place: p.name, km: Math.round(p.km), city: p.en || p.name } }) : x;
+  };
   const pick = chooseForRates(pool);
   // Rozpočet běží od chvíle, kdy první dotaz hledání dostane místo ve frontě (souběžná hledání se střídají).
   const t0 = Date.now();
@@ -568,13 +693,17 @@ export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh
   clearTimeout(timer);
   const hard = errors.find((e) => !e.late);
   if (!got.size && hard) throw hard;
-  const out = pick.map((h) => (got.has(h.key) ? mapHotel(h, got.get(h.key), q, center) : null)).filter(Boolean);
+  const out = pick.map((h) => (got.has(h.key) ? tag(mapHotel(h, got.get(h.key), qOf(h), center), h) : null)).filter(Boolean);
   out.sort((a, b) => a.priceTotalCzk - b.priceTotalCzk);
   // Hotely bez ceny na tvoje dny (prázdné nabídky, nestihly přijít) a další z místa – orientačně, ať seznam není prázdný
   // jen proto, že TripAdvisor ceny teprve zjišťuje (pořadí TripAdvisoru = nejlepší poměr); zvlášť v guesses,
   // searchStays je přidá za nabídky s cenou.
   const priced = new Set(out.map((h) => h.id));
-  out.guesses = [...pick, ...pool.filter((h) => !pick.includes(h))].filter((h) => !priced.has(`xo:${h.key}`)).slice(0, GUESS_MAX).map((h) => mapHotelGuess(h, q, center));
+  out.guesses = [...pick, ...pool.filter((h) => !pick.includes(h))].filter((h) => !priced.has(`xo:${h.key}`)).slice(0, GUESS_MAX).map((h) => tag(mapHotelGuess(h, qOf(h), center), h));
+  // místa v okolí, odkud hotely jsou (pro poznámku „ceny z okolí – Noto ~21 km“)
+  if (near) out.nearbyFrom = near.from;
+  // místo se nepodařilo dohledat (výpadek Wikidat) – ceny z okolí jen na chvíli, pak se místo zkusí znovu (searchStays)
+  if (keyErr) out.retrySoon = true;
   // nestihly přijít, nebo Xotelo nestihl TripAdvisor (slow) – průvodce se doptá znovu
   if (got.size < pick.length || [...got.values()].some((rr) => rr.slow)) out.partial = true;
   const st = [...got.values()].filter((rr) => rr.stale).length;

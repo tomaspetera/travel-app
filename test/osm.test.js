@@ -96,26 +96,32 @@ test('OSM: dotaz na Nominatim – vlastní User-Agent, viewbox, bounded, extrata
   }
 });
 
-test('searchStays: malé místo bez hotelů z TripAdvisoru → ubytování v místě z OpenStreetMap (osmFallback); jinde ne', async () => {
+test('searchStays: malé místo bez hotelů z TripAdvisoru → hotely s cenou z okolí (Noto) a vedle nich ubytování v místě z OpenStreetMap; jinde ne', async () => {
   const prev = config.mock;
   config.mock = true;
   try {
     const raw = { city: 'Palazzolo Acreide', cc: 'IT', ...PAL, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1 };
     const r = await searchStays(raw);
     assert.equal(r.osmFallback, true);
-    assert.ok(r.items.length >= 3 && r.items.every((h) => h.provider === 'osm' && h.priceTotalCzk == null));
-    assert.deepEqual(r.providers.map((p) => [p.id, p.ok, p.count]), [['demo', true, 0], ['osm', true, r.items.length]]);
+    assert.deepEqual(r.nearbyFrom, [{ name: 'Noto', km: 21 }]);
+    const near = r.items.filter((h) => h.provider === 'demo');
+    const osm = r.items.filter((h) => h.provider === 'osm');
+    assert.equal(near.length + osm.length, r.items.length);
+    assert.equal(near.length, 8);
+    assert.ok(near.every((h) => h.priceTotalCzk > 0 && h.nearby.place === 'Noto' && h.nearby.km === 21 && h.distanceKm > 15 && h.distanceKm < 30), 'ceny z okolí, vzdálenost od místa pobytu');
+    assert.ok(osm.length >= 3 && osm.every((h) => h.priceTotalCzk == null && !h.nearby), 'v místě bez ceny');
+    assert.deepEqual(r.providers.map((p) => [p.id, p.ok, p.count]), [['demo', true, 8], ['osm', true, osm.length]]);
     assert.equal(r.providers[1].test, true, 'v DEMO vymyšlená ubytování');
     assert.ok(r.links.length > 0, 'odkazy na partnery zůstávají');
-    // místo s hotely: bez zálohy
+    // místo s hotely: bez zálohy i bez cen z okolí
     const praha = await searchStays({ city: 'Praha', cc: 'CZ', lat: 50.0875, lon: 14.4214, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 2 });
-    assert.equal(praha.osmFallback, undefined);
-    assert.ok(praha.items.every((h) => h.provider === 'demo'));
-    // záloha selže → zdroj s chybou (Zkusit znovu), nic nespadne; prázdná záloha → nic navíc
+    assert.deepEqual([praha.osmFallback, praha.nearbyFrom], [undefined, undefined]);
+    assert.ok(praha.items.every((h) => h.provider === 'demo' && !h.nearby));
+    // záloha selže → zdroj s chybou (Zkusit znovu), hotely z okolí zůstanou; prázdná záloha → nic navíc
     const fail = await searchStays({ ...raw, checkout: ymdPlus(34) }, { lodging: async () => { throw new Error('ubytování z OpenStreetMap se nepodařilo načíst – Nominatim teď není dostupný'); } });
-    assert.deepEqual([fail.items.length, fail.providers.at(-1).id, fail.providers.at(-1).ok], [0, 'osm', false]);
+    assert.deepEqual([fail.items.length, fail.providers.at(-1).id, fail.providers.at(-1).ok, fail.osmFallback], [8, 'osm', false, undefined]);
     const none = await searchStays({ ...raw, checkout: ymdPlus(35) }, { lodging: async () => [] });
-    assert.deepEqual([none.items.length, none.providers.map((p) => p.id), none.osmFallback], [0, ['demo'], undefined]);
+    assert.deepEqual([none.items.length, none.providers.map((p) => p.id), none.osmFallback, none.nearbyFrom.length], [8, ['demo'], undefined, 1]);
   } finally {
     config.mock = prev;
   }

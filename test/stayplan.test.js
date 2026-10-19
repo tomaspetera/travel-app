@@ -2,7 +2,7 @@
 // (i open-jaw – přílet a odlet z jiného letiště) a endpoint bez sítě (podstrčená města).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { suggestRoute, splitNights, transferEstimate, evaluateRoute, planStay, defaultCount, StayPlanError, TRANSFER_MAX, transfer, tollCzk } from '../server/lib/stayplan.js';
+import { suggestRoute, splitNights, transferEstimate, evaluateRoute, planStay, defaultCount, StayPlanError, TRANSFER_MAX, transfer, tollCzk, HOTEL_BONUS } from '../server/lib/stayplan.js';
 import { findTowns } from '../server/lib/poi.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { stubFetch } from './helpers.js';
@@ -356,4 +356,22 @@ test('přejezd autem: palivo za cenu v zemi startu, na delším přejezdu v Itá
   assert.ok(x.tollCzk > 0 && x.fuelCzk > 0, JSON.stringify(x));
   const cz = transfer({ name: 'Brno', cc: 'CZ', lat: 49.1951, lon: 16.6068 }, { name: 'Olomouc', cc: 'CZ', lat: 49.5938, lon: 17.2509 }, 'car');
   assert.equal(cz.tollCzk, undefined, 'v Česku dálniční známka, ne mýtné za km');
+});
+
+test('návrh trasy: při podobném skóre místo s hotely na TripAdvisoru (Noto) před místem bez nich (Palazzolo Acreide – ceny jen z okolí)', async () => {
+  const CATANIA = { id: 'city:CTA', name: 'Catania', lat: 37.5079, lon: 15.083, cc: 'IT', country: 'Itálie' };
+  const pal = T('Qp', 'Palazzolo Acreide', 37.0617, 14.9019, 70, { unescoPart: true });
+  const noto = T('Qn', 'Noto', 36.8908, 15.0697, 66, { unescoPart: true });
+  const opts = { arrival: CATANIA, nights: 4, transport: 'car', count: 2 };
+  assert.equal(HOTEL_BONUS, 6);
+  assert.deepEqual(suggestRoute([pal, noto], opts).bases.map((b) => b.name), ['Catania', 'Palazzolo Acreide'], 'bez údaje o hotelech vyšší skóre');
+  const withHotels = suggestRoute([pal, { ...noto, hotels: true }], opts);
+  assert.deepEqual(withHotels.bases.map((b) => b.name), ['Catania', 'Noto']);
+  assert.equal(withHotels.bases[1].score, 66, 'skóre (a noci) bez bonusu');
+  assert.deepEqual(suggestRoute([{ ...pal, score: 80 }, { ...noto, hotels: true }], opts).bases.map((b) => b.name), ['Catania', 'Palazzolo Acreide'], 'velký rozdíl bonus nepřebije');
+  // planStay: hotely podle tabulek míst TripAdvisoru (Noto je má, Palazzolo ne); místa zadaná ručně se nemění
+  const deps = { towns: async () => [pal, noto], geo: async () => [], route: null };
+  assert.deepEqual((await planStay({ arrival: 'CTA', nights: 4, count: 2 }, deps)).bases.map((b) => b.name), ['Catania', 'Noto']);
+  const own = await planStay({ arrival: 'CTA', bases: [{ name: 'Catania', lat: 37.5079, lon: 15.083 }, { name: 'Palazzolo Acreide', lat: 37.0617, lon: 14.9019 }] }, deps);
+  assert.deepEqual(own.bases.map((b) => b.name), ['Catania', 'Palazzolo Acreide']);
 });

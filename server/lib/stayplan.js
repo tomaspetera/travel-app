@@ -12,11 +12,17 @@ import { transferTimes, routeTransfers, driveRoute, routeKey, cachedRoute } from
 import { carFuelCzk } from './fuel.js';
 import { convert } from './fx.js';
 import { SPECIFIC, distanceModel, priceBand } from './ground.js';
+import { seedCity } from '../providers/stays/xotelo.js';
 
 export const MAX_BASES = 6; // ručně sestavená trasa; návrh dává nejvýš 4 místa
 // nejdelší běžný přejezd (min) – časy už počítají s provozem, hranicí i čekáním na spoj
 export const TRANSFER_MAX = { car: 200, transit: 225 };
 const GAP_KM = 50; // blíž než tohle = jednodenní výlet z předchozího místa, ne další ubytování
+// Místo s hotely na TripAdvisoru (hotels – místo z tabulek TA_CITIES / TA_PLACES do 12 / 8 km, xotelo.js seedCity): ceny
+// ubytování přímo v místě. Při podobném skóre má přednost (Noto před Palazzolem Acreide, kde jsou ceny jen z okolí);
+// ~6 bodů ≈ 50 min přejezdu. Jen pro výběr a pořadí míst návrhu, noci podle skutečného skóre.
+export const HOTEL_BONUS = 6;
+const pickScore = (b) => b.score + (b.hotels ? HOTEL_BONUS : 0);
 
 export class StayPlanError extends Error {
   constructor(msg) {
@@ -150,19 +156,19 @@ export function suggestRoute(candidates, opts) {
   const A = { ...opts.arrival, score: opts.arrival.score ?? top + 5, anchor: 'arrival' };
   const dc = opts.departureCity;
   const D = dc && far(dc, A) && !exclude.has(String(dc.id)) ? { ...dc, score: dc.score ?? top, anchor: 'departure' } : null;
-  // Kandidáti: nejlepší města, bez duplicit do 15 km a bez míst u města příletu/odletu.
+  // Kandidáti: nejlepší města (místo s hotely o HOTEL_BONUS výš), bez duplicit do 15 km a bez míst u města příletu/odletu.
   const pool = [];
-  for (const c of [...valid].sort((a, b) => b.score - a.score)) {
+  for (const c of [...valid].sort((a, b) => pickScore(b) - pickScore(a))) {
     if (pool.length >= 14) break;
     if (!far(c, A) || (D && !far(c, D)) || pool.some((p) => haversineKm(p.lat, p.lon, c.lat, c.lon) < 15)) continue;
     pool.push(c);
   }
   if (D) pool.push(D);
   const dep = opts.depAirport || null;
-  // Hodnota trasy: součet skóre míst minus čas přejezdů (~8 min ≈ 1 bod – s 12 min trasa kličkovala: Vídeň →
-  // Semmering → Brno → Bratislava, Milán → Brescia → Janov); v den odletu je cesta na letiště nad hodinu na úkor
-  // času před odletem, proto se počítá víc.
-  const value = (seq) => seq.reduce((s, b) => s + b.score, 0)
+  // Hodnota trasy: součet skóre míst (s bonusem za hotely) minus čas přejezdů (~8 min ≈ 1 bod – s 12 min trasa
+  // kličkovala: Vídeň → Semmering → Brno → Bratislava, Milán → Brescia → Janov); v den odletu je cesta na letiště nad
+  // hodinu na úkor času před odletem, proto se počítá víc.
+  const value = (seq) => seq.reduce((s, b) => s + pickScore(b), 0)
     - 0.12 * seq.slice(1).reduce((s, b, i) => s + mins(seq[i], b), 0)
     - (dep ? 0.12 * Math.max(0, mins(seq.at(-1), dep) - 60) : 0);
   // Všechna pořadí k míst (A první, každý přejezd do limitu, poslední v dosahu letiště odletu).
@@ -359,7 +365,7 @@ export async function planStay(raw, { mock = false, towns = findTowns, demoTowns
     if (!c || seen.has(c.id) || seen.has(k)) return false;
     seen.add(c.id).add(k);
     return true;
-  }).map((c) => (Number.isFinite(c.lat) && Number.isFinite(c.lon) ? withCountry(c) : c));
+  }).map((c) => (Number.isFinite(c.lat) && Number.isFinite(c.lon) ? { ...withCountry(c), hotels: Boolean(seedCity(c.lat, c.lon)) } : c));
   const opts = { arrival: city, departureCity: sameCity ? null : depCity, depAirport: departure, nights, transport, count, exclude };
   let plan = suggestRoute(cands, opts);
   // Návrh počítá s odhadem (a trasami z mezipaměti); trasy autem pro navržené přejezdy se dopočtou.
