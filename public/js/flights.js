@@ -1855,7 +1855,7 @@
     // vidět vždy); otevřené zůstane i po překreslení, otevřený panel času a přestupů ho drží otevřené
     const moreOpen = Boolean(view.moreOpen || view.timeOpen), nMore = chips.length + (view.sort !== 'total' ? 1 : 0);
     const summary = kiwiBanner(res) + `<div class="res-head">
-      <div><h2>${isRoute ? `✈️ ${destTxt}${res.partial ? ' <span class="part-tag">⏳ zatím část nabídek</span>' : ''}` : `🌍 ${res.partial ? 'Zatím ' : ''}${plural(res.groups.length, 'destinace', 'destinace', 'destinací')} ${res.destination.kind === 'countries' ? '· ' + destTxt : ''}`}</h2>
+      <div><h2>${isRoute ? `✈️ ${destTxt}${res.partial ? ' <span class="part-tag">⏳ zatím část nabídek</span>' : ''}` : `🌍 ${res.partial ? 'Zatím ' : ''}${groups.length < res.groups.length ? `${groups.length} ${zeN(res.groups.length)} ${res.groups.length} destinací` : plural(res.groups.length, 'destinace', 'destinace', 'destinací')} ${res.destination.kind === 'countries' ? '· ' + destTxt : ''}`}</h2>
       <div class="muted" style="font-size:13px">z ${res.origins.map(o => `<b>${o.iata}</b>`).join(', ')} · ${whenTxt(res.query)} · ${res.query.adults} os.${BAG_LBL[res.query.bags] ? ` · 🧳 vč. ${res.query.bags === 'cabin' ? 'kabinového kufru' : 'kufru k odbavení'}` : ''}
       ${best ? ` · nejlevněji <b class="good">${czk(best.perPersonCzk)}</b>/os.` : ''}<span id="pinHead">${pinNow.n ? ` · <button type="button" class="linkbtn pin-open" id="pinOpen">📌 Odložené (${pinNow.n})</button>` : ''}</span></div></div>
       <div class="res-tools">
@@ -4314,8 +4314,9 @@
       return Array.from({ length: n }, (_, i) => addDays(p.xOut, Math.round(i * span / (n - 1))));
     }
     const start = p.dFrom && p.dFrom > t ? p.dFrom : addDays(t, 14);
-    const total = p.nMin ? Math.round((p.nMin + (p.nMax || p.nMin)) / 2) : 0;
-    return gap(start, Math.max(2, total ? Math.round(total / Math.max(1, n - 1)) : 3));
+    // bez délky ve větě týden jako u běžného hledání (5–9 nocí): „Lisabon a zpět z Porta“ = 7 nocí, ne 3
+    const total = p.nMin ? Math.round((p.nMin + (p.nMax || p.nMin)) / 2) : 7;
+    return gap(start, Math.max(2, Math.round(total / Math.max(1, n - 1))));
   }
   // věta s víc šipkami → Víc měst: lety mezi místy v pořadí, osoby, zavazadla, přímé lety a cena z věty
   function smartChainRun(hit) {
