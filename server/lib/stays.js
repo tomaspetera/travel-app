@@ -110,7 +110,8 @@ export function rankStays(items) {
 
 /**
  * Ověření volna vybraného hotelu (Xotelo, při „Vybrat“): raw = stejný dotaz jako na nabídky + hotel (klíč TripAdvisoru
- * g…-d…) a name. → { available: true | false | null, … } (viz checkHotel); jiný zdroj nebo DEMO → { available: null }.
+ * g…-d…), name a u hotelu z okolí near (jeho místo, nearby.city). → { available: true | false | null, … } (viz
+ * checkHotel); jiný zdroj nebo DEMO → { available: null }.
  */
 export async function checkStay(raw, { check = checkHotel } = {}) {
   const q = normalizeStayQuery(raw);
@@ -118,6 +119,9 @@ export async function checkStay(raw, { check = checkHotel } = {}) {
   if (!/^g\d{1,12}-d\d{1,12}$/.test(hotel)) throw new StayQueryError('Neplatný hotel.');
   const name = String(raw.name || '').slice(0, 120).trim();
   if (!name) throw new StayQueryError('Chybí název hotelu.');
+  // hotel z okolí (malé místo bez hotelů na TripAdvisoru): odkazy na weby hledají hotel v jeho místě („Hotel X, Noto“)
+  const near = String(raw.near || '').replace(/[\r\n\t]/g, ' ').slice(0, 80).trim();
+  if (near) q.cityEn = near;
   if (!stayProviders().some((p) => p.id === 'xotelo')) return { available: null };
   return { hotel, ...(await check(hotel, name, q)), at: Date.now() };
 }
@@ -157,14 +161,16 @@ export async function searchStays(raw, { english = englishName, partners = null,
   }
   const status = [];
   const items = [];
+  let nearbyFrom = null; // malé místo: hotely s cenou z míst TripAdvisoru v okolí (Xotelo, DEMO)
   await Promise.all(providers.map(async (p) => {
     const t0 = Date.now();
     try {
       const key = `stay:${p.id}:${q.city}:${q.lat?.toFixed(3)}:${q.lon?.toFixed(3)}:${q.checkin}:${q.checkout}:${q.adults}:${q.rooms}`;
-      // neúplný výsledek (část cen nestihla přijít) jen na 5 min – další hledání doplní ceny z mezipaměti poskytovatele;
+      // neúplný výsledek (část cen nestihla přijít) jen na 5 min – další hledání doplní ceny z mezipaměti poskytovatele
+      // (stejně ceny z okolí při výpadku Wikidat – retrySoon, místo se pak zkusí dohledat znovu);
       // „Zkusit znovu“ (retry=1) ho přeskočí hned (doptá se jen na chybějící ceny, ostatní jsou v mezipaměti poskytovatele)
       if (retry && cache.get(key)?.partial) cache.map.delete(key);
-      const ttl = (v) => (v?.partial ? 5 * 60e3 : 45 * 60e3);
+      const ttl = (v) => (v?.partial || v?.retrySoon ? 5 * 60e3 : 45 * 60e3);
       // „Aktualizovat ceny“ (fresh=1, jen zdroj, který to umí – Xotelo): ceny hotelů znovu, ne z mezipaměti (místo
       // a seznam hotelů z ní). Na dotaz nejvýš jednou za 5 min, jinak z mezipaměti s refreshIn (za kolik s to půjde);
       // nepovede-li se, zůstane dřívější výsledek – stale (stejně jako ceny, které aktualizovat nešlo).
@@ -188,6 +194,7 @@ export async function searchStays(raw, { english = englishName, partners = null,
         if (stale === 'all') cache.map.delete(`${key}:fresh`);
       } else res = await cache.wrap(key, ttl, () => p.search(q));
       items.push(...res, ...(res.guesses || [])); // hotely bez ceny na tvoje dny (Xotelo) za nabídkami s cenou
+      if (res.nearbyFrom?.length) nearbyFrom = res.nearbyFrom;
       status.push({
         id: p.id, name: p.name, ok: true, count: res.length, ...(res.guesses?.length ? { guesses: res.guesses.length } : {}), ms: Date.now() - t0, test: Boolean(p.testData?.()), ...(res.partial ? { partial: true } : {}),
         ...(stale ? { stale: true } : {}), ...(stale === 'all' ? { staleAll: true } : {}), ...(last ? { refreshIn: Math.max(1, Math.ceil((last + FRESH_MS - Date.now()) / 1000)) } : {}),
@@ -198,10 +205,12 @@ export async function searchStays(raw, { english = englishName, partners = null,
   }));
   // Malé místo, kde TripAdvisor nic nemá (Palazzolo Acreide, Alcobaça – Xotelo bez hotelů s cenou i bez nich, nebo
   // výpadek): ubytování v místě z OpenStreetMap – názvy, typ, hvězdičky a odkaz na hledání hotelu u partnera, cenu
-  // uživatel ověří a zadá sám. Ne když ceny ještě přicházejí (partial) a ne u LiteAPI (vlastní pokrytí).
+  // uživatel ověří a zadá sám. I vedle hotelů s cenou z okolí (nearbyFrom – v místě samém TripAdvisor nic nemá, i když
+  // ceny z okolí ještě přicházejí); jinak ne, když ceny ještě přicházejí (partial), a ne u LiteAPI (vlastní pokrytí).
   let osmFallback = false;
   const xoLike = providers.some((p) => p.id === 'xotelo' || p.id === 'demo');
-  if (xoLike && !items.length && q.lat != null && !status.some((s) => s.ok && s.partial)) {
+  const inTown = items.some((h) => !h.nearby);
+  if (xoLike && !inTown && q.lat != null && (nearbyFrom || !status.some((s) => s.ok && s.partial))) {
     const t0 = Date.now();
     try {
       const list = await lodging(q);
@@ -226,6 +235,7 @@ export async function searchStays(raw, { english = englishName, partners = null,
     providers: status,
     items: rankStays([...best.values()]).slice(0, 60),
     ...(osmFallback ? { osmFallback: true } : {}),
+    ...(nearbyFrom ? { nearbyFrom } : {}),
     links: stayLinks(q, await ids),
   };
 }
