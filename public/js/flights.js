@@ -775,9 +775,10 @@
     if (!f.ground) bits.push('bez dopravy na letiště');
     else if (f.groundMode === 'car') bits.push(`🚗 na letiště autem (${FUEL_SHORT[f.carFuel] || 'nafta'})`);
     else if (+f.kmRate > 0) { // s jízdným × 0 se doprava nepočítá – ani vlastní ceny (seznam 🏠 je schovaný)
+      if (+f.kmRate !== 1) bits.push(`jízdné × ${String(+f.kmRate).replace('.', ',')}`);
       const own = SearchHelp.ownClean(S.accessOwn) || {}, ks = originPreview.filter(a => !a.off && Object.hasOwn(own, a.iata)).map(a => a.iata);
       if (ks.length) bits.push(`🏠 vlastní cena na letiště ${ks.join(', ')}`);
-    }
+    } else bits.push('bez dopravy na letiště (jízdné × 0)');
     if (f.arrival === false) bits.push('bez cesty z letiště do města');
     if (f.directOnly) bits.push('jen přímé');
     if (BAG_LBL[f.bags]) bits.push('🧳 ' + BAG_LBL[f.bags]);
