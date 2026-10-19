@@ -544,13 +544,15 @@ test('groupBindings (živá data): bez českého názvu místní (Font Màgica, 
   for (const p of Object.values(by)) assert.ok(p.csName === undefined && p.locName === undefined && p.csDesc === undefined);
 });
 
-test('groupBindings: kostel, který je i muzeem (Pantheon), je kostel; muzeum se jménem v kostele zůstane muzeem', () => {
+test('groupBindings: kostel, který je i muzeem (Pantheon), je kostel; muzeum se jménem v kostele zůstane muzeem; fórum je naleziště', () => {
   const rows = [
     row('Q99309', 'Pantheon', 41.8986, 12.4769, 81, 'Q16970'), row('Q99309', 'Pantheon', 41.8986, 12.4769, 81, 'Q33506'),
     row('Q1', 'Museo di San Marco', 43.7781, 11.2594, 40, 'Q16970'), row('Q1', 'Museo di San Marco', 43.7781, 11.2594, 40, 'Q33506'),
   ];
+  // Forum Romanum: forum (náměstí) i archeologické naleziště → naleziště
+  rows.push(row('Q180212', 'Forum Romanum', 41.8925, 12.4853, 72, 'Q174782'), row('Q180212', 'Forum Romanum', 41.8925, 12.4853, 72, 'Q839954'));
   const by = Object.fromEntries(groupBindings(rows, { lat: 41.9, lon: 12.5 }).map((p) => [p.name, p.category]));
-  assert.deepEqual(by, { Pantheon: 'church', 'Museo di San Marco': 'museum' });
+  assert.deepEqual(by, { Pantheon: 'church', 'Museo di San Marco': 'museum', 'Forum Romanum': 'ruins' });
 });
 
 test('familySlots: Řím plný kostelů a muzeí – pár míst pro zoo, zábavní park a park zůstane, limit platí', async () => {
