@@ -12,6 +12,9 @@ export const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; 
 const WDQS = 'https://query.wikidata.org/sparql';
 const limitWdqs = limiter(2);
 const limitWiki = limiter(4);
+// zoo a parky (familyQuery) vlastní frontou – běží hned s dotazem na město, ne až za ním a za výlety
+// (Wikidata snesou 5 dotazů naráz z jedné IP: 2 Objevuj + 1 tady + 2 ubytování)
+const limitFamily = limiter(1);
 
 // Typ (Wikidata P31 nebo jeho nadtřída) → kategorie.
 const TYPES = {
@@ -750,7 +753,7 @@ const tripsQuery = (lat, lon) => cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.
 // Zoo, zábavní a městské parky zvlášť: v Římě je mezi 500 nejznámějšími místy nevytlačí jen kostely a paláce
 // (bioparco: 14 jazykových verzí) – bez nich nemá zájem „s dětmi“ co zvýhodnit. Vlastní mezipaměť jako výlety:
 // když nestihne první zobrazení, příští načtení už ho má.
-const familyQuery = (lat, lon, r) => cache.wrap(`wdqs-family:${lat.toFixed(3)}:${lon.toFixed(3)}:${r}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, r, 4, 40, { lang: localLang(lat, lon), types: FAMILY_TYPES })));
+const familyQuery = (lat, lon, r) => cache.wrap(`wdqs-family:${lat.toFixed(3)}:${lon.toFixed(3)}:${r}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, r, 4, 40, { lang: localLang(lat, lon), types: FAMILY_TYPES }), 45000, { queue: limitFamily }));
 
 const tripsKey = ({ lat, lon, limit = 30 }) => `trips:${lat.toFixed(2)}:${lon.toFixed(2)}:${limit}`;
 /** Jsou cíle výletů (findTrips se stejnými volbami) celé v mezipaměti – odpověď bez dotazu na Wikidata? */
@@ -894,7 +897,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     // když nestihne první zobrazení, příští načtení už ho má.
     const tripsP = dayTrips ? tripsQuery(lat, lon).catch(() => null) : Promise.resolve([]);
     const cityP = wdqs(sparqlNear(lat, lon, r, 4, 500, { lang: localLang(lat, lon) }));
-    // zoo a parky (familyQuery) – na Wikidata jen dva dotazy najednou, takže čeká na město nebo výlety
+    // zoo a parky (familyQuery) – vlastní fronta, běží souběžně s městem
     const familyP = familyQuery(lat, lon, r).catch(() => null);
     let cityRows;
     try {
@@ -914,9 +917,9 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     if (tripsMissing) tripRows = [];
     // Obce a předměstí (italské comuni, francouzské communes…) nejsou „místa k vidění“ – ve městě
     // zůstanou jen s výrazným znakem (UNESCO); samotné město v centru se vyřadí vždy.
-    // seznam kvůli zoo a parkům nečeká déle než chvilku po městě a výletech (dotaz za nimi běží 6–10 s) – co nestihne
-    // nebo selže, přijde při dalším načtení (neúplný seznam má mezipaměť jen 15 min)
-    const familyRows = await within(familyP, 1500);
+    // zoo a parky (živě 6–10 s, město ~4 s): počkat do 12 s od začátku, nejméně 1,5 s po městě a výletech – co
+    // nestihne nebo selže, přijde při dalším načtení (neúplný seznam má mezipaměť jen 15 min)
+    const familyRows = await within(familyP, Math.max(1500, 12000 - (Date.now() - t0)));
     const familyMissing = familyRows == null;
     const city = groupBindings([...cityRows, ...(familyRows || [])], center).filter((p) => p.category !== 'town' || (p.unesco && p.distanceKm > 2));
     for (const p of city) if (p.category === 'town') p.category = 'oldtown';

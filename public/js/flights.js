@@ -40,7 +40,8 @@
   /* ---------- utility ---------- */
   const addDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00'); d.setDate(d.getDate() + n); return fmtYMD(d); };
   const today = () => fmtYMD(new Date());
-  const dayLabel = s => { const d = new Date(s.slice(0, 10) + 'T12:00:00'); return `${DOW[d.getDay()].toLowerCase()} ${d.getDate()}. ${d.getMonth() + 1}.`; };
+  // nezlomitelné mezery: „út 1. 12.“ se v řádku výsledku nerozdělí („út 1.“ a „12.“ na dalším řádku)
+  const dayLabel = s => { const d = new Date(s.slice(0, 10) + 'T12:00:00'); return `${DOW[d.getDay()].toLowerCase()}\u00a0${d.getDate()}.\u00a0${d.getMonth() + 1}.`; };
   const timeOf = l => l.hasTime ? l.dep.slice(11, 16) : '';
   // přílet další den (noční a dálkové lety) → „00:20 +1“
   const arrTime = l => l.arr && l.hasTime ? (l.arrEst ? '~' : '') + l.arr.slice(11, 16) + (l.arr.slice(0, 10) > l.date ? ` +${SearchHelp.diffDays(l.date, l.arr.slice(0, 10))}` : '') : '';
