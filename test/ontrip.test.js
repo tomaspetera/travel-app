@@ -230,6 +230,7 @@ test('tripNow + nowParts: večer po návratu domů má přednost zítřejší od
   // samotná cesta po návratu: karta do půlnoci (den 6 z 6), ale bez navigace do hotelu v Lisabonu
   const home = at([lis], '2026-11-17T19:00:00Z');
   assert.deepEqual([home.x.day, home.x.home, home.p.hotel, home.h.includes('🏨')], [6, true, null, false]);
+  assert.ok(home.h.includes('🏠 Zpátky doma · <b>Lisabon</b>') && !home.h.includes('Dnes na cestě ·') && !home.h.includes('🕐'), home.h);
   // hotel: ne doma před odletem, ano po přistání, ne po odletu zpět
   const hotel = (iso) => at([lis], iso).p.hotel && at([lis], iso).p.hotel.name;
   assert.deepEqual(['2026-11-12T03:00:00Z', '2026-11-12T07:00:00Z', '2026-11-12T09:10:00Z', '2026-11-17T09:30:00Z', '2026-11-17T10:05:00Z'].map(hotel), [null, null, 'Hotel Lisboa Centro', 'Hotel Lisboa Centro', null]);

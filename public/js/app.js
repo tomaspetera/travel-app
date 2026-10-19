@@ -371,12 +371,14 @@ function nowCard(x, p) {
     return u && u.url ? ` <span class="nw-walk">${u.trip ? '🚆 cesta na výlet' : '🗺️ trasa pěšky'}: <a href="${esc(safeUrl(u.url))}" target="_blank" rel="noopener">Google Maps ↗</a>${u.mapy ? ` · <a href="${esc(safeUrl(u.mapy))}" target="_blank" rel="noopener">Mapy.com ↗</a>` : ''}</span>` : '';
   };
   const row = (r, d) => `<li><span class="nw-i">${r[1]}</span><span>${d ? `<span class="nw-d">${tag(r[0])}</span>` : ''}${r[2]}${walk(r)}</span></li>`;
-  const head = x.on ? `📍 Dnes na cestě · den ${x.day} z ${x.days} · <b>${esc(p.place)}</b>`
+  // po návratu domů (poslední den, spoj zpět přistál) už ne „na cestě“ – karta zůstane do půlnoci kvůli kódům a plánu
+  const head = x.home ? `🏠 Zpátky doma · <b>${esc(p.place)}</b> <span class="faint">· den ${x.day} z ${x.days}</span>`
+    : x.on ? `📍 Dnes na cestě · den ${x.day} z ${x.days} · <b>${esc(p.place)}</b>`
     : `🧳 ${x.until === 1 ? 'Zítra' : `Za ${x.until} dny`} ${p.verb} · <b>${esc(p.place)}</b> <span class="faint">${dowLbl(t.start)}</span>`;
   const h = Math.abs(p.shift) / 60, shift = `o ${String(h).replace('.', ',')} h ${p.shift < 0 ? 'méně' : 'víc'} než v Praze`;
   const meta = [
     p.ahead ? `<span>${p.ahead.l.ground ? '🚆 Odjezd' : '✈️ Odlet'} ${esc(p.ahead.l.from)} → ${esc(p.ahead.l.to)} <b data-nw="cd"></b></span>` : '',
-    p.shift ? `<span>🕐 ${x.on ? 'Místní čas <b data-nw="clock"></b> – ' : 'V cíli je '}${shift}</span>` : '',
+    p.shift && !x.home ? `<span>🕐 ${x.on ? 'Místní čas <b data-nw="clock"></b> – ' : 'V cíli je '}${shift}</span>` : '',
     p.hotel ? `<span>🏨 ${esc(p.hotel.name)}${window.Places && Places.gmDir ? ` · <a href="${esc(safeUrl(Places.gmDir('', [p.hotel.q], 'transit')))}" target="_blank" rel="noopener">navigovat ↗</a>` : ''}</span>` : '',
   ].filter(Boolean);
   // před odjezdem řádky po dnech (dnes, zítra, den odjezdu)
@@ -424,14 +426,18 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-18k';
+const WN_ID = '2026-10-19a';
 const WHATS_NEW = [
-  ['🚕', 'Z letiště do města na 157 letištích', 'přibyly řecké a španělské ostrovy, Chorvatsko, Turecko, Pobaltí a Jordánsko; v Egyptě, Akabě a na Djerbě, kde autobus nejezdí, počítám taxi (cena za auto pro dva). Brzy ráno z letiště ve tvém městě ukáže průběh cesty taxi.'],
+  ['🧭', 'Okruh po oblasti', '„Toskánsko na 4 dny“ v <b>Objevuj</b> naplánuje okruh, který zůstane v Toskánsku (ne Rimini ani Perugia) – stejně Apulie, Istrie, Algarve, Skotsko a Laponsko. Bazilika sv. Petra má v programu hodinu, ne půl, a se zájmem „s dětmi“ přibydou ZOO a parky.'],
+  ['🏝️', 'Hotely i u letišť na ostrovech', 'Tenerife Jih, Lanzarote, Gran Canaria nebo Rhodos – ubytování se hledá ve městě u letiště (dřív nic). <b>Vyber za mě</b> v Cestě ověří volno a vyprodaný hotel přeskočí.'],
+  ['⛽', 'Auto v cíli za skutečné ceny', 'palivo za cenu v zemi, kudy jedeš (všechny země EU), a mýtné na dálnicích v Itálii, Francii a Chorvatsku.'],
+  ['🗓️', 'Celá sezóna u zemí', 'karty zemí ukazují všechny dobré měsíce („led–bře · čvc–zář“) a <b>Kam letos</b> řadí země mimo sezónu níž.'],
+  ['🚕', 'Z letiště do města na 157 letištích', 'přibyly řecké a španělské ostrovy, Chorvatsko, Turecko, Pobaltí a Jordánsko; v Egyptě, Akabě a na Djerbě, kde autobus nejezdí, počítám taxi (cena za auto pro dva). U Stanstedu a dalších vidíš vedle ceny „od“ i běžnou cenu v den cesty (Stansted Express od 9,90 £, běžně 23 £).'],
   ['🚆', 'Vlak nebo bus místo letadla', 'cena konkrétního spoje za běžnou cenu (Praha–Vídeň ~500 Kč, ne akční 249) a čas i s cestou na nádraží. Auto na letiště počítá parkování podle ceníku letiště.'],
   ['🔄', 'Přepočítat po změně', 'když po hledání změníš v <b>Další možnosti</b> cestu na letiště (vlastní cenu, jízdné × nebo auto), nad výsledky je <b>↻ Přepočítat</b>. Čipy 📝 a 🛂 u letu otevřou podmínky vstupu i na telefonu.'],
   ['🏨', 'Ubytování s ověřeným volnem', 'když v Cestě klepneš na <b>Vybrat</b>, ATLAS hned zjistí, jestli má hotel na tvoje dny pořád volno a za kolik – vyprodaný se nevybere. Hotely bez ceny na tvoje dny (často obsazené) jsou schované pod tlačítkem.'],
   ['🎫', 'Cesta na letiště za skutečné ceny', 'odhad teď počítá jízdenku na konkrétní spoj v danou hodinu (ne nejlevnější spoj dne), MHD z domova na nádraží a běžný čas jízdy – z Prahy do Pardubic ~240 Kč, do Brna ~350 Kč. V <b>Další možnosti</b> uvidíš u každého letiště, z čeho odhad je.'],
-  ['🚆', 'Reálnější časy cest', 'vlak mezi městy jede rychlotratí jen tam, kde opravdu vede (Barcelona → Valencie ~3 h 25, ne 2 h 10), jízdenky po Itálii, Španělsku a Francii za běžné ceny, autem na letiště podle skutečné rychlosti a „Vyraž z ubytování“ i s cestou na zastávku. Z letiště ve tvém městě brzy ráno počítám s taxi 🚕.'],
+  ['🚆', 'Reálnější časy cest', 'vlak mezi městy jede rychlotratí jen tam, kde opravdu vede (Barcelona → Valencie ~3 h 25, ne 2 h 10), jízdenky po Itálii, Španělsku a Francii za běžné ceny, autem na letiště podle skutečné rychlosti a „Vyraž z ubytování“ i s cestou na zastávku. Když brzy ráno vyrážíš na letiště ve svém městě a MHD ještě nejede, počítám v průběhu cesty s taxi 🚕.'],
   ['📝', 'Formulář před příletem', 'Thajsko (TDAC), Filipíny, Malajsie, Singapur, Korea, Indonésie a další chtějí online formulář – uvidíš to u letu, v Před cestou i v Co zařídit s odkazem na oficiální web.'],
   ['↻', 'Když hledání selže', 'uvidíš hned proč a tlačítko <b>Zkusit znovu</b>; 🙈 Nezajímá mě v radaru jde vrátit.'],
   ['💰', 'Cena = letenka', 'u nabídek, v radaru i v kalendáři je teď jen cena letenky (se zavazadly, když je vybereš). Doprava na letiště a z letiště do města je pod cenou zvlášť – jen pro představu, kolik zhruba stojí. Řazení „i s cestou na letiště“ je ve Filtrech.'],
@@ -802,10 +808,12 @@ window.stayLinks = iso => {
 window.addToPlan = iso => { newTrip(byIso[iso]); };
 
 /* weather + fx (LIVE z Open-Meteo / ER-API přímo z prohlížeče) */
+// Počasí a kurz v okně země: bez odpovědi do 8 s chyba (jinak „Načítám počasí…“ visí, když open-meteo neodpovídá)
+const wxSignal = () => (typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined);
 async function geocode(c) {
   if (S.geo[c.iso2]) return S.geo[c.iso2];
   try {
-    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${enc(c.cap || c.en)}&count=1&language=cs&format=json`); const j = await r.json();
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${enc(c.cap || c.en)}&count=1&language=cs&format=json`, { signal: wxSignal() }); const j = await r.json();
     if (j.results && j.results[0]) { const g = { lat: j.results[0].latitude, lon: j.results[0].longitude }; S.geo[c.iso2] = g; save(); return g; }
   } catch (e) { }
   return null;
@@ -817,8 +825,9 @@ async function loadWeather(c) {
   const box = () => (curIso === c.iso2 ? $('#wxBox') : null);
   const g = await geocode(c); if (!g) { if (box()) box().innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.<br>Zkontroluj připojení a dej Aktualizovat.</div>'; return; }
   try {
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=auto`);
-    const j = await r.json(); S.weather[c.iso2] = { ts: Date.now(), data: j }; save(); if (box()) paintWeather(j);
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=auto`, { signal: wxSignal() });
+    const j = await r.json(); if (!j || !j.current || !j.daily) throw new Error('bez počasí');
+    S.weather[c.iso2] = { ts: Date.now(), data: j }; save(); if (box()) paintWeather(j);
   } catch (e) { if (box()) box().innerHTML = '<div class="wico">🌐</div><div class="muted" style="font-size:13px">Počasí se teď nepodařilo načíst.</div>'; }
 }
 function paintWeather(j) {
@@ -830,7 +839,7 @@ function paintWeather(j) {
 }
 async function loadFx(c) {
   if (!c.cur || c.cur === 'CZK') { const el = $('#fxLine'); if (el) el.textContent = c.cur === 'CZK' ? 'domácí měna' : ''; return; }
-  if (!S.fx || Date.now() - S.fx.ts > 86400000) { try { const r = await fetch('https://open.er-api.com/v6/latest/CZK'); const j = await r.json(); if (j && j.rates) { S.fx = { ts: Date.now(), rates: j.rates }; save(); } } catch (e) { } }
+  if (!S.fx || Date.now() - S.fx.ts > 86400000) { try { const r = await fetch('https://open.er-api.com/v6/latest/CZK', { signal: wxSignal() }); const j = await r.json(); if (j && j.rates) { S.fx = { ts: Date.now(), rates: j.rates }; save(); } } catch (e) { } }
   const el = $('#fxLine'); if (!el || curIso !== c.iso2) return; // mezitím otevřená jiná země
   if (S.fx && S.fx.rates[c.cur]) { const v = 1 / S.fx.rates[c.cur], dp = v < 1 ? 3 : 2; el.textContent = `1 ${c.cur} ≈ ${v.toLocaleString('cs-CZ', { minimumFractionDigits: dp, maximumFractionDigits: dp })} Kč`; }
 }
