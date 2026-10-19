@@ -1244,3 +1244,41 @@ test('název webu nabídky: oficiální web hotelu i v cizím jazyce (kód SSC_�
   assert.equal(otaName('Hotels.com', 'HotelsCom2'), 'Hotels.com');
   assert.equal(otaName('Trip.com', 'CtripTA'), 'Trip.com');
 });
+
+test('výběr hotelu: pozdě doběhlé ověření volna nepřepíše pozdější volbu (druhý hotel, „jen odkazy“ a odchod z kroku)', async () => {
+  const now = Date.now();
+  const H = LIST_PRAGUE.slice(0, 4).map((h, k) => [h, [{ code: 'BookingCom', name: 'Booking.com', rate: 70 + 10 * k }], now - 50 * 60e3]);
+  const run = async (fn) => {
+    const first = xoteloReply(H);
+    const c = loadTrip(() => first);
+    const pend = [];
+    const base = c.fetch;
+    c.fetch = (u) => (String(u).startsWith('api/stays/check?')
+      ? new Promise((res) => pend.push(() => res({ ok: true, status: 200, json: async () => ({ available: true, priceTotalCzk: 1234, pricePerNightCzk: 617, rates: [], at: now }) })))
+      : base(u));
+    const t = pragueTrip();
+    const A = { dataset: { pick: '0' }, innerHTML: 'Vybrat' }, B = { dataset: { pick: '1' }, innerHTML: 'Vybrat' };
+    c.__all['[data-pick]'] = [A, B];
+    c.S.trip = t;
+    c.window.Trip.render();
+    await tick();
+    return fn({ t, A, B, pend, items: first.items });
+  };
+  // A se ověřuje pomalu, mezitím klepnutí na B: B ověřené první se vybere, pozdější odpověď pro A ho nepřepíše
+  await run(async ({ t, A, B, pend, items }) => {
+    const pa = A.onclick(); await tick();
+    const pb = B.onclick(); await tick();
+    pend[1](); await pb;
+    assert.equal(t.stay.name, items[1].name);
+    pend[0](); await pa;
+    assert.equal(t.stay.name, items[1].name, 'platí pozdější volba');
+  });
+  // během ověřování „jen odkazy“ a dál na shrnutí: odpověď krok nevrátí ani volbu nepřepíše
+  await run(async ({ t, A, pend }) => {
+    const pa = A.onclick(); await tick();
+    t.stay = { mode: 'links', name: '', totalCzk: 0 };
+    t.step = 'summary';
+    pend[0](); await pa;
+    assert.deepEqual([t.stay.mode, t.step], ['links', 'summary']);
+  });
+});
