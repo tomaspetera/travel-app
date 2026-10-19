@@ -1181,7 +1181,7 @@
     return head + days + spare
       + `<div class="faint" style="font-size:11.5px;margin-top:6px">${transit
         ? 'Časy vlakem a autobusem jsou orientační odhad (bez jízdních řádů) – konkrétní spoj a jízdenku najdeš přes odkaz „spoje ↗“ u každého úseku.'
-        : 'Časy jízdy jsou orientační odhad autem; přesnou trasu ukáže Google Maps.'} Cíle do ~120 km od místa.</div>`;
+        : 'Časy jízdy jsou orientační odhad autem; přesnou trasu ukáže Google Maps.'} ${trip.inRegion ? 'Cíle jen z oblasti (do ~120 km od místa).' : 'Cíle do ~120 km od místa.'}</div>`;
   }
 
   /* ---------- ✈️ Najít lety sem (Lety: cíl = místo, letiště do ~130 km vybere server) ---------- */

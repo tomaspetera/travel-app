@@ -600,6 +600,7 @@ test('POST /api/roadtrip – okruh „po Toskánsku“ jen v Toskánsku (připnu
   assert.ok(pin.days.flatMap((d) => d.stops).some((s) => s.id === 'demoTrip4'), 'připnutý cíl mimo oblast zůstane');
   const unknown = await post({ ...FLR, region: 'atlantida' });
   assert.deepEqual(ids(unknown), ids(all), 'neznámá oblast = kruh');
+  assert.deepEqual([all.inRegion, tus.inRegion, unknown.inRegion], [false, true, false], 'aplikace pod plán napíše „Cíle jen z oblasti“');
 });
 
 test('POST /api/bike – okruh na kole (DEMO), kontrola polohy a voleb', async () => {
