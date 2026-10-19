@@ -31,6 +31,7 @@
   // po nepovedeném – nabídky z dřívějška zatím zůstanou na obrazovce (freshStays)
   let staysUpd = null;
   let staySlot = null; // kam se ukládá vybraný hotel: celý pobyt (t.stay), nebo jedno místo trasy (base.stay)
+  let pickSeq = 0; // každá volba ubytování ho zvýší – pozdě doběhlé ověření volna starší volbu už nevybere
   let stayIdx = 0; // místo trasy v kroku Ubytování
   let progIdx = 0; // místo trasy v kroku Program
   let routeSeq = 0; // jen poslední odpověď návrhu/přepočtu trasy se vykreslí
@@ -1415,10 +1416,10 @@
     $('#manSave').onclick = () => {
       const price = +$('#manPrice').value;
       if (!(price > 0)) return toast('Zadej cenu ubytování', 'err');
-      t.stay = { mode: 'manual', name: $('#manName').value.trim() || 'Vlastní ubytování', totalCzk: price };
+      pickSeq++; t.stay = { mode: 'manual', name: $('#manName').value.trim() || 'Vlastní ubytování', totalCzk: price };
       persist(); setStep('car');
     };
-    $('#staySkip').onclick = () => { t.stay = { mode: 'skip', name: 'bez ubytování', totalCzk: 0 }; persist(); setStep('car'); };
+    $('#staySkip').onclick = () => { pickSeq++; t.stay = { mode: 'skip', name: 'bez ubytování', totalCzk: 0 }; persist(); setStep('car'); };
     const nx = $('#stayNext'); if (nx) nx.onclick = () => setStep('car');
 
     if (nights < 1) {
@@ -1500,10 +1501,10 @@
     $('#manSave').onclick = () => {
       const price = +$('#manPrice').value;
       if (!(price > 0)) return toast('Zadej cenu ubytování', 'err');
-      staySlot.set({ mode: 'manual', name: $('#manName').value.trim() || 'Vlastní ubytování', totalCzk: price });
+      pickSeq++; staySlot.set({ mode: 'manual', name: $('#manName').value.trim() || 'Vlastní ubytování', totalCzk: price });
       persist(); staySlot.next();
     };
-    $('#stayLinks').onclick = () => { staySlot.set({ mode: 'links', name: '', totalCzk: 0 }); persist(); staySlot.next(); };
+    $('#stayLinks').onclick = () => { pickSeq++; staySlot.set({ mode: 'links', name: '', totalCzk: 0 }); persist(); staySlot.next(); };
     $('#stayNext').onclick = () => (i < n - 1 && !allDone ? goStayBase(i + 1) : setStep('car'));
     const { params, key } = baseStayQuery(t, b, d);
     let data;
@@ -1561,7 +1562,7 @@
    */
   let autoBusy = false; // „Vyber za mě“ běží – překreslený krok (jiná záložka) ho nespustí podruhé
   async function autoPickStays(t, onProgress = () => {}) {
-    autoBusy = true;
+    autoBusy = true; pickSeq++;
     try { return await autoPickRun(t, onProgress); } finally { autoBusy = false; }
   }
   async function autoPickRun(t, onProgress) {
@@ -1810,12 +1811,14 @@
     $('#stayMax').onchange = e => { stayView.maxNight = +e.target.value || null; stayView.n = 0; renderStays(); };
     const mn = $('#stayMoreN'); if (mn) mn.onclick = () => { stayView.n = lim + 10; renderStays(); };
     const sg = $('#stayGuess'); if (sg) sg.onclick = () => { stayView.guess = true; renderStays(); };
-    const doPick = h => { staySlot.set(pickOf(h, d.query && d.query.nights)); persist(); staySlot.next(); };
+    const doPick = h => { pickSeq++; staySlot.set(pickOf(h, d.query && d.query.nights)); persist(); staySlot.next(); };
     $$('[data-pick]', host).forEach(b => b.onclick = async () => {
       const h = d.items[+b.dataset.pick], cur = staySlot && staySlot.get();
       if (b.dataset.anyway || (cur && cur.mode === 'pick' && cur.id === h.id)) return doPick(h);
+      const seq = ++pickSeq, slot = staySlot;
       const r = await checkStay(d, h, b);
-      if (staysData !== d) return; // mezitím jiné místo, krok nebo dotaz
+      // mezitím jiné místo, krok nebo dotaz, nebo jiná volba (další hotel, jen odkazy, vlastní) – platí ta pozdější
+      if (staysData !== d || seq !== pickSeq || slot !== staySlot || T().step !== 'stay') return;
       if (r && r.available === false) {
         h.soldOut = true; renderStays();
         toast(`${h.name}: na tvoje dny už nic nenabízí – nejspíš vyprodáno. Vyber jiný.`, 'err', 7000);

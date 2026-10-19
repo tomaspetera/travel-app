@@ -354,7 +354,9 @@ koupí až to další.
 a cena ve výsledcích je ta z české Kiwi. Ryanair a Wizz Air účtují vždy v měně země odletu (let z Prahy v Kč, zpět
 z Říma v eurech, z Londýna v librách) a odkaz to změnit nemůže – proto u nabídky pod tlačítky koupě (i u odložených
 a ve Shrnutí „Co zarezervovat“) je *💱 Let zpět: Wizz Air ukáže cenu v EUR – ~45,99 €/os.* (`leg.siteCur` /
-`sitePrice` ze země letiště odletu).
+`sitePrice` ze země letiště odletu). Aviasales korunovou verzi nemá (`currency=czk` ignoruje) a bez měny ukáže
+dolary – odkaz proto otevře eura (`currency=eur`) a pod tlačítkem je *💱 Aviasales ukáže cenu v eurech – ~259 €/os.
+(v korunách web neumí)*.
 
 Ceny Ryanair a Wizz Air jsou živé, ale do rezervace se mohou změnit; ceny z Travelpayouts jsou označené „⏱ z cache – ověř“
 (ve výpisu, ve sloupcích ✈︎ Lety i v krocích „Víc měst“) a je dobré je ověřit (u každého výsledku je odkaz na rezervaci

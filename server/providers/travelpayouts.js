@@ -21,9 +21,11 @@ export function bookingUrl(link, { from, to, dateOut, dateIn = null, adults = 1 
   // odkaz z API (/search/PRG0511LON1?t=…) má na konci kódu trasy vždy 1 cestujícího – nahradit skutečným počtem
   const pax = Math.min(9, Math.max(1, Math.round(Number(adults)) || 1));
   const path = link ? `${link.startsWith('/') ? '' : '/'}${link}`.replace(/^(\/search\/[A-Z]{3}\d{4}[A-Z]{3}(?:\d{4})?)\d/, `$1${pax}`) : null;
-  const base = path
+  const raw = path
     ? `https://www.aviasales.com${path}`
     : `https://www.aviasales.com/search/${from}${ddmm(dateOut)}${to}${dateIn ? ddmm(dateIn) : ''}${pax}`;
+  // korunovou verzi Aviasales nemá (currency=czk ignoruje) a bez měny ukáže dolary – eura jsou Čechovi bližší
+  const base = `${raw}${raw.includes('?') ? '&' : '?'}currency=eur`;
   if (affiliateOn('aviasales')) return affiliate(base, 'aviasales');
   if (!config.travelpayoutsMarker) return base;
   // Bez čísla projektu (trs) aspoň přímý odkaz s markerem – Aviasales ho při otevření přečte.

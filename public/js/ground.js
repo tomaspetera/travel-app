@@ -74,7 +74,7 @@
     return { cheap, fast: much ? fast : null };
   }
   /**
-   * Vyplatí se vlak/bus? (po zemi = jízda + 30 min na nádraží) 1. nejvýš o 1,5 h déle než nejrychlejší let od dveří
+   * Vyplatí se vlak/bus? (po zemi = jízda + 45 min na nádraží a z něj) 1. nejvýš o 1,5 h déle než nejrychlejší let od dveří
    * ke dveřím, 2. do 6,5 h, 3. aspoň o polovinu levněji (za běžnou cenu) než nejlevnější let a do 10 h. Důvod jmenuje
    * let, se kterým srovnává. est = { ok, minutes, czk, typ }, flight = { doorMin, czk, trips, fast: { doorMin, czk } }.
    */
@@ -236,5 +236,5 @@
     fill('out', opts.date);
   }
 
-  window.Ground = { AIRPORT_BEFORE, AIRPORT_AFTER, hm, round5, flightDoor, tripDoor, planeOptions, doorCzk, worth, kindsTxt, typOf, priceTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, debounce, panel };
+  window.Ground = { AIRPORT_BEFORE, AIRPORT_AFTER, STATION_MIN, hm, round5, flightDoor, tripDoor, planeOptions, doorCzk, worth, kindsTxt, typOf, priceTxt, chipText, basisTxt, legFromLive, legFromEst, tripCzk, legTxt, linksHtml, connRow, estRow, liveHtml, load, debounce, panel };
 })();

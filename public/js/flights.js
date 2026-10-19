@@ -775,9 +775,10 @@
     if (!f.ground) bits.push('bez dopravy na letiště');
     else if (f.groundMode === 'car') bits.push(`🚗 na letiště autem (${FUEL_SHORT[f.carFuel] || 'nafta'})`);
     else if (+f.kmRate > 0) { // s jízdným × 0 se doprava nepočítá – ani vlastní ceny (seznam 🏠 je schovaný)
+      if (+f.kmRate !== 1) bits.push(`jízdné × ${String(+f.kmRate).replace('.', ',')}`);
       const own = SearchHelp.ownClean(S.accessOwn) || {}, ks = originPreview.filter(a => !a.off && Object.hasOwn(own, a.iata)).map(a => a.iata);
       if (ks.length) bits.push(`🏠 vlastní cena na letiště ${ks.join(', ')}`);
-    }
+    } else bits.push('bez dopravy na letiště (jízdné × 0)');
     if (f.arrival === false) bits.push('bez cesty z letiště do města');
     if (f.directOnly) bits.push('jen přímé');
     if (BAG_LBL[f.bags]) bits.push('🧳 ' + BAG_LBL[f.bags]);
@@ -2073,11 +2074,15 @@
   // Ryanair a Wizz Air účtují v měně země odletu: let zpět z Itálie ukážou v eurech, i když je web česky – říct předem
   // a kolik to v té měně bude (cena letenky na osobu, jak ji dopravce poslal)
   const curFmt = (n, cur) => { try { return new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: cur, maximumFractionDigits: n >= 100 ? 0 : 2 }).format(n); } catch (e) { return `${Math.round(n)} ${cur}`; } };
+  // Aviasales korunovou verzi nemá – odkaz otevře eura (currency=eur, bez měny by byly dolary)
   function buyNote(t) {
-    if (t.bookUrl) return '';
-    const legs = [['tam', t.out], ['zpět', t.back]].filter(([, l]) => l && l.bookUrl && /^[A-Z]{3}$/.test(l.siteCur || '') && l.siteCur !== 'CZK');
+    const eur = lastResult && lastResult.fx && lastResult.fx.eurCzk, tp = l => l && l.provider === 'travelpayouts';
+    const inEur = czk => (eur > 0 && czk > 0 ? ` – ~${esc(curFmt(czk / eur, 'EUR'))}/os.` : '');
+    if (t.bookUrl) return tp(t.out) ? `<div class="buy-cur faint">💱 Aviasales ukáže cenu v eurech${inEur(t.flightCzk)} (v korunách web neumí)</div>` : '';
+    const legs = [['tam', t.out], ['zpět', t.back]].filter(([, l]) => l && l.bookUrl && (tp(l) || (/^[A-Z]{3}$/.test(l.siteCur || '') && l.siteCur !== 'CZK')));
     if (!legs.length) return '';
-    return `<div class="buy-cur faint">💱 ${legs.map(([d, l]) => `${t.back ? `Let ${d}: ` : ''}${esc(shopName(l.provider))} ukáže cenu v ${esc(l.siteCur)}${l.sitePrice > 0 ? ` – ~${esc(curFmt(l.sitePrice, l.siteCur))}/os.` : ''}`).join(' · ')} (aerolinka účtuje v měně země odletu)</div>`;
+    return `<div class="buy-cur faint">💱 ${legs.map(([d, l]) => `${t.back ? `Let ${d}: ` : ''}${tp(l) ? `Aviasales ukáže cenu v eurech${inEur(l.czk)} (v korunách web neumí)`
+      : `${esc(shopName(l.provider))} ukáže cenu v ${esc(l.siteCur)}${l.sitePrice > 0 ? ` – ~${esc(curFmt(l.sitePrice, l.siteCur))}/os.` : ''} (aerolinka účtuje v měně země odletu)`}`).join(' · ')}</div>`;
   }
 
   // pax = počet lidí nabídky (📌 Porovnat jde otevřít i bez výsledků na obrazovce)
@@ -2671,7 +2676,7 @@
     const tip = `${c.reason || ''} Cena: ${Ground.priceTxt(x, ret ? 2 : 1)} na osobu${ret ? ' tam i zpět' : ''}, odhad. Klikni pro spoje a odkazy.`;
     return `<button type="button" class="gnd-chip${c.worth ? ' hot' : ''}" data-gchip="${esc(g.dest.key)}" title="${esc(tip.trim())}">${esc(Ground.chipText(x, ret))} <small>odhad</small></button>`;
   }
-  // Srovnání letadlo × vlak/bus: cena na osobu a čas od dveří ke dveřím (vlak/bus = jízda + 30 min na nádraží; cena
+  // Srovnání letadlo × vlak/bus: cena na osobu a čas od dveří ke dveřím (vlak/bus = jízda + 45 min na nádraží a z něj; cena
   // běžná – co typicky zaplatíš v daný den – a pod ní „od“). Cena i čas letadla vždy z téže cesty (c = groundCmp);
   // hidden = lety jsou, ale žádný neprošel filtry.
   function groundCompare(x, c, ret, hidden = false) {
@@ -2682,7 +2687,7 @@
     const fast = t && c.fast ? `<span class="gb-fast">⚡ nejrychlejší ~${Ground.hm(Ground.round5(c.fast.doorMin))} od ${czk(Ground.doorCzk(c.fast.t))}${ret ? ' tam i zpět' : ''}</span>` : '';
     return `<div class="gb-cmp">
       <div class="gb-col"><span class="gb-l">✈️ Letadlo</span>${t ? `<b>od ${czk(Ground.doorCzk(t))}</b><small>na osobu${ret ? ', tam i zpět' : ''}, i s cestou na letiště</small>` : hidden ? '<b>skryto filtry</b><small>lety jsou, ale žádný neprošel filtry</small>' : '<b>nic nenalezeno</b><small>pro zadané termíny</small>'}${time ? `<span>${esc(time)}</span>` : ''}${fast}</div>
-      <div class="gb-col win"><span class="gb-l">🚆 Vlak / bus <em>odhad</em></span><b>${x.typ > 0 ? 'běžně' : 'od'} ~${czk(Ground.typOf(x) * n)}</b><small>${x.typ > 0 && x.czk > 0 && x.czk < x.typ ? `od ~${czk(x.czk * n)} · ` : ''}na osobu${ret ? ', tam i zpět' : ''}</small><span>~${Ground.hm(x.min + 30)} od dveří ke dveřím</span></div>
+      <div class="gb-col win"><span class="gb-l">🚆 Vlak / bus <em>odhad</em></span><b>${x.typ > 0 ? 'běžně' : 'od'} ~${czk(Ground.typOf(x) * n)}</b><small>${x.typ > 0 && x.czk > 0 && x.czk < x.typ ? `od ~${czk(x.czk * n)} · ` : ''}na osobu${ret ? ', tam i zpět' : ''}</small><span>~${Ground.hm(x.min + Ground.STATION_MIN)} od dveří ke dveřím</span></div>
     </div>`;
   }
   // Banner a panel se spoji u konkrétního cíle: nabídky po filtrech a u přesných dat tam i zpět i nejrychlejší dvojice
@@ -3780,7 +3785,7 @@
       if (b.id === 'notifBtn') askNotif();
       else if (b.dataset.wc) checkWatch(b.dataset.wc);
       else if (b.dataset.wo) openWatch(b.dataset.wo);
-      else if (b.dataset.wd) { S.watch = S.watch.filter(x => x.id !== b.dataset.wd); save(); renderWatch(); }
+      else if (b.dataset.wd) delWatch(b.dataset.wd);
       else if (b.dataset.wr) setRoll(b.dataset.wr, true);
     };
     // ukládat průběžně (překreslení karty během psaní nic neztratí), potvrdit až po dopsání
@@ -3789,6 +3794,16 @@
     $('#watchCheckAll').onclick = () => Promise.all((S.watch || []).filter(w => !Alerts.isPast(w.form, today())).map(w => checkWatch(w.id)));
     updateWatchBadges();
     observeSeen();
+  }
+  // ✕ smaže hned (i s historií cen a cílovou cenou) – „↩ Vrátit“ v hlášce ho vrátí na stejné místo
+  function delWatch(id) {
+    const i = (S.watch || []).findIndex(x => x.id === id); if (i < 0) return;
+    const w = S.watch[i];
+    S.watch = S.watch.filter(x => x.id !== id); save(); renderWatch(); updateWatchBtn();
+    toast(`Hlídání ${w.label || ''} smazáno`, '', 6000, { label: '↩ Vrátit', run: () => {
+      if ((S.watch || []).some(x => x.id === id || watchKey(x) === watchKey(w))) return; // mezitím hlídané znovu
+      S.watch = [...(S.watch || [])]; S.watch.splice(Math.min(i, S.watch.length), 0, w); save(); renderWatch(); updateWatchBtn();
+    } });
   }
   function paintCard(id) {
     const el = $(cardSel(id)), w = (S.watch || []).find(x => x.id === id);

@@ -1200,7 +1200,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   /* tlačítka: velké hledání přes celou šířku, hlídání pod ním */
   .sf-actions{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:16px !important}
   .sf-actions #doSearch{width:100%;min-height:54px;border-radius:18px;font-size:16px;justify-content:center;grid-column:1/-1}
-  .sf-actions #watchBtn,.sf-actions #formReset{width:100%;min-height:46px;border-radius:16px;justify-content:center;border:1px solid var(--border);white-space:normal;line-height:1.2;text-align:center;padding-inline:10px}
+  .sf-actions #watchBtn,.sf-actions #formReset{width:100%;min-height:46px;border-radius:16px;justify-content:center;border:1px solid var(--border);white-space:normal;line-height:1.2;text-align:center;padding-inline:10px;align-self:stretch}
   .sf-actions .guide-link{display:none}
   .sf-actions .roll-opt,.sf-actions #searchHint{justify-self:center;text-align:center;grid-column:1/-1}
   .sf-actions #searchHint:empty{display:none}
