@@ -356,6 +356,15 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   const [bgy, fmm] = ['BGY', 'FMM'].map((k) => A.arrivalTransfer(k));
   assert.deepEqual([bgy.typ, bgy.czk, fmm.typ, fmm.czk], [8, A.fareCzk(8, 'EUR'), 15, A.fareCzk(15, 'EUR')]);
   assert.equal(H.arrivalChips({ out: { to: 'FMM' } }, { FMM: fmm })[0].text, '🚌 z letiště FMM do Mnichova od 6,99 €, běžně 15 € (~370 Kč) · 1 h 25');
+  // běžná cena v den cesty jen ze sekundárních zdrojů (10/2026): Luton ~17 £, Manchester Anytime ~6 £, Torp ~360 NOK – popisek to říká
+  const day = Object.fromEntries(['LTN', 'MAN', 'TRF', 'LHR', 'KEF', 'SEN'].map((k) => [k, A.arrivalTransfer(k)]));
+  assert.deepEqual(['LTN', 'MAN', 'TRF'].map((k) => [day[k].fare, day[k].typ, day[k].czk]),
+    [[10, 17, A.fareCzk(17, 'GBP')], [2.9, 6, A.fareCzk(6, 'GBP')], [289, 360, A.fareCzk(360, 'NOK')]]);
+  assert.equal(H.arrivalChips({ out: { to: 'LTN' } }, day)[0].text, '🚆 z letiště LTN do Londýna od 10 £, běžně 17 £ (~490 Kč) · 32 min');
+  for (const k of ['LTN', 'MAN', 'TRF']) assert.match(H.arrivalChips({ out: { to: k } }, day)[0].title, /v den cesty [^.]*\(sekundární zdroj/, k);
+  // Heathrow (TfL bezkontaktně stejně kdykoli) a Keflavík (Flybus pevná cena) bez „od“; Southend: Off-Peak platí i v den cesty
+  assert.equal(H.arrivalChips({ out: { to: 'LHR' } }, day)[0].text, '🚇 z letiště LHR do Londýna 5,90 £ (~170 Kč) · 50 min');
+  assert.deepEqual([day.LHR.from, day.KEF.from, day.KEF.typ, day.SEN.from, day.SEN.typ], [undefined, undefined, undefined, true, undefined]);
   assert.match(H.arrivalChips({ out: { to: 'LGW' } }, ARR)[0].title, /Zdroj \(sekundární, oficiální neuvádí\): lasttrip\.uk/);
   // vypnuto: informace zůstane, jen se nepočítá do ceny
   assert.match(H.arrivalChips({ out: { to: 'BVA' } }, ARR, { on: false })[0].title, /Neukazuje se \(vypnuto v Další možnosti\)\./);
