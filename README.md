@@ -707,7 +707,7 @@ Ceny nafty a benzínu bere ATLAS z otevřených dat (`server/lib/fuel.js`, `GET 
 ## Z letiště do města
 
 „Levná“ letenka na vzdálené letiště levná být nemusí: z Paříže-Beauvais jede do Paříže autobus za 17,90 € a 1 h 15,
-z Girony do Barcelony za 22 €, z Torpu do Osla za 279 NOK a přes hodinu a půl – a to každým směrem. ATLAS proto
+z Girony do Barcelony za 22 €, z Torpu do Osla za 289 NOK a přes hodinu a půl – a to každým směrem. ATLAS proto
 u každé nabídky ukáže, kolik stojí a jak dlouho trvá cesta z letiště příletu do města (a z města na letiště odletu),
 a v *Další možnosti → Z letiště do města* (**ukázat cestu z letiště do města**, výchozí) ji pod cenou ukáže tam i zpět,
 na osobu – do ceny letenky se nepřičítá.
@@ -1261,7 +1261,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `GET /api/cars?pickup=BGY&dropoff=MXP&from=2026-11-10T09:00&to=2026-11-14T18:00` | předvyplněné odkazy na půjčovny |
 | `GET /api/ground?from=ap:PRG&to=ap:VIE&date=2026-11-10&adults=2` | vlak nebo bus místo letadla: `from`/`to` jako v hledání (`ap:`, `metro:`, `geo:`, kód letiště) nebo `fromLat`/`fromLon`/`fromName`/`fromCc`; volitelně `flightCzk`, `trips` (2 = cena letu tam i zpět), `flightMin`, `live=0`. Odpověď `{ from, to, km, est: { minutes, czk, typ, basis }, worth: { worth, rule, reason, doorMin }, why, links, live? }` (`czk` = od, `typ` = běžně) – `live` (spoje RegioJetu) jen s datem; `why` = proč se po zemi nedá (ostrov, moře, daleko) |
 | `GET /api/poi?lat=…&lon=…&radius=8` | místa k vidění (Wikidata + Wikipedie). `name` česky, jinak místní název (v Katalánsku katalánsky, v Portugalsku portugalsky…), teprve pak anglicky; `extract` (úvod článku) a `description` (krátký popis z Wikidat) – anglický úvod nahradí český popis, když nějaký je (anglický zůstane v `extractEn`); `descLang` = jazyk textu karty (`extract`, jinak `description`): `cs` / `en`; `includes` = části sloučené do celku (katedrála na Hradě); kavárna a restaurace `eatery`, `visitMin: 30` |
-| `POST /api/roadtrip` | výlety z místa: `mode` `day` (jednodenní) nebo `loop` (okruh s přespáním), `transport` `car` nebo `transit` (vlak a autobus), `interests` (`towns`, `sights`, `culture`, `nature`, `spa`, `kids`), `lat`, `lon`, `label`, `start`, `days`, `pace`, `exclude`, `include`. `degraded: true` jen když se nenačetly popisy z Wikipedie (ne když se příroda nebo hrady ještě načítají); cíl místo obce pod ním (Montserrat místo Monistrolu) má `gateway` = název obce; cíle mají `cc` a `nameEn`; přespání `overnight { name, cc, country, bookUrl }` – Booking hledá „název, země“ anglicky (u památky obec pod ní) |
+| `POST /api/roadtrip` | výlety z místa: `mode` `day` (jednodenní) nebo `loop` (okruh s přespáním), `transport` `car` nebo `transit` (vlak a autobus), `interests` (`towns`, `sights`, `culture`, `nature`, `spa`, `kids`), `lat`, `lon`, `label`, `start`, `days`, `pace`, `exclude`, `include`, `region` (klíč oblasti, např. `toskansko` – cíle jen uvnitř hranice z `data/regions.json`, připnuté vždy; když by jich zbylo méně než dny + 3, zůstane kruh 120 km; `inRegion: true` v odpovědi = cíle se omezily na oblast a aplikace pod plán napíše „Cíle jen z oblasti“). `degraded: true` jen když se nenačetly popisy z Wikipedie (ne když se příroda nebo hrady ještě načítají); cíl místo obce pod ním (Montserrat místo Monistrolu) má `gateway` = název obce; cíle mají `cc` a `nameEn`; přespání `overnight { name, cc, country, bookUrl }` – Booking hledá „název, země“ anglicky (u památky obec pod ní) |
 | `POST /api/bike` | okruh na kole: `lat`, `lon`, `km` (5–150), `bike` (`road`, `trekking`, `gravel`, `mtb`), `scenery` (`city`, `mixed`, `nature`), `hills` (`flat`, `normal`, `hilly`), `variant` (jiná trasa, 0–9 = deset různých směrů okruhu) → délka, stoupání, čas, povrch, geometrie a odkazy do Mapy.com / Google Map |
 | `POST /api/bike` (`kind: "train"`) | „Vlakem tam, na kole zpět“: navíc `label` a `cc` domova; odpověď má `station { name, lat, lon, cc }` a `train { idosUrl, googleUrl }`, trasa vede z nádraží domů. 404 = v dosahu není vhodné nádraží |
 | `POST /api/hike` | pěší okruh: `lat`, `lon`, `km` (2–40), `scenery`, `hills`, `variant` → jako `/api/bike` + `trailPct` (značené trasy), `roadPct`, `descent`; čas chůze podle DIN 33466 |
@@ -1566,7 +1566,8 @@ vzdušnou čarou (Řím → Neapol ~590 Kč, Lisabon → Porto ~830 Kč, Barcelo
 - Hranice oblastí pro okruh v Objevuj (Toskánsko, Apulie, Kalábrie, Istrie i se slovinským pobřežím, Algarve, Skotsko,
   Laponsko – zastávky okruhu „po Toskánsku“ zůstanou v Toskánsku): [OpenStreetMap](https://www.openstreetmap.org/copyright) přes Nominatim
   (© přispěvatelé OpenStreetMap, ODbL), zjednodušené na ~2 km, `data/regions.json`. Aktualizace:
-  `NODE_USE_ENV_PROXY=1 node scripts/build-regions.mjs` (proxy jen tam, kde je potřeba).
+  `NODE_USE_ENV_PROXY=1 node scripts/build-regions.mjs` (proxy jen tam, kde je potřeba; jen vybrané oblasti:
+  `node scripts/build-regions.mjs istrie`).
 - Ceny paliva: ČSÚ (DataStat, sada CENPHMT, CC0) a Evropská komise – Weekly Oil Bulletin; ceny nabíjení elektroaut:
   ceníky provozovatelů (ČEZ, PRE, E.ON, IONITY; Shell, MOL a Tesla ze sekundárních zdrojů) k 6. 10. 2026.
 - Cesta z letiště do města: ceníky letišť, dopravců a dopravních svazů (zdroj u každého letiště v `data/arrival.json`
