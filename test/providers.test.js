@@ -362,15 +362,15 @@ test('Travelpayouts: jednosměrné i zpáteční letenky (zpáteční = jedna sp
   assert.equal(bkk.out.stops, 1);
   assert.equal(bkk.out.carrierName, 'Qatar Airways');
   assert.equal(bkk.out.live, false);
-  assert.equal(bkk.bookUrl, 'https://www.aviasales.com/search/PRG0311BKK17111?t=QR');
+  assert.equal(bkk.bookUrl, 'https://www.aviasales.com/search/PRG0311BKK17111?t=QR&currency=eur');
   assert.equal(stn.out.to, 'STN');
   assert.equal(stn.flightCzk, 899);
   assert.equal(stn.out.durationMin, 115);
-  assert.equal(tpUrl(null, { from: 'VIE', to: 'BCN', dateOut: '2026-11-03', dateIn: '2026-11-10', adults: 2 }), 'https://www.aviasales.com/search/VIE0311BCN10112');
+  assert.equal(tpUrl(null, { from: 'VIE', to: 'BCN', dateOut: '2026-11-03', dateIn: '2026-11-10', adults: 2 }), 'https://www.aviasales.com/search/VIE0311BCN10112?currency=eur', 'v eurech – korunovou verzi Aviasales nemá, bez měny dolary');
   // odkaz z API má vždy 1 cestujícího – počet z hledání
-  assert.equal(tpUrl('/search/PRG0511LON1?t=W6', { adults: 3 }), 'https://www.aviasales.com/search/PRG0511LON3?t=W6');
-  assert.equal(tpUrl('search/PRG0311BKK17111?t=QR', { adults: 2 }), 'https://www.aviasales.com/search/PRG0311BKK17112?t=QR');
-  assert.equal(tpUrl('/search/PRG0311BKK17111?t=QR'), 'https://www.aviasales.com/search/PRG0311BKK17111?t=QR');
+  assert.equal(tpUrl('/search/PRG0511LON1?t=W6', { adults: 3 }), 'https://www.aviasales.com/search/PRG0511LON3?t=W6&currency=eur');
+  assert.equal(tpUrl('search/PRG0311BKK17111?t=QR', { adults: 2 }), 'https://www.aviasales.com/search/PRG0311BKK17112?t=QR&currency=eur');
+  assert.equal(tpUrl('/search/PRG0311BKK17111?t=QR'), 'https://www.aviasales.com/search/PRG0311BKK17111?t=QR&currency=eur');
 });
 
 test('Travelpayouts: let s přestupem s nemožnou délkou → přílet a délka neznámé (ne vymyšlené), přímý let beze změny', () => {

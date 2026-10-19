@@ -2074,11 +2074,15 @@
   // Ryanair a Wizz Air účtují v měně země odletu: let zpět z Itálie ukážou v eurech, i když je web česky – říct předem
   // a kolik to v té měně bude (cena letenky na osobu, jak ji dopravce poslal)
   const curFmt = (n, cur) => { try { return new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: cur, maximumFractionDigits: n >= 100 ? 0 : 2 }).format(n); } catch (e) { return `${Math.round(n)} ${cur}`; } };
+  // Aviasales korunovou verzi nemá – odkaz otevře eura (currency=eur, bez měny by byly dolary)
   function buyNote(t) {
-    if (t.bookUrl) return '';
-    const legs = [['tam', t.out], ['zpět', t.back]].filter(([, l]) => l && l.bookUrl && /^[A-Z]{3}$/.test(l.siteCur || '') && l.siteCur !== 'CZK');
+    const eur = lastResult && lastResult.fx && lastResult.fx.eurCzk, tp = l => l && l.provider === 'travelpayouts';
+    const inEur = czk => (eur > 0 && czk > 0 ? ` – ~${esc(curFmt(czk / eur, 'EUR'))}/os.` : '');
+    if (t.bookUrl) return tp(t.out) ? `<div class="buy-cur faint">💱 Aviasales ukáže cenu v eurech${inEur(t.flightCzk)} (v korunách web neumí)</div>` : '';
+    const legs = [['tam', t.out], ['zpět', t.back]].filter(([, l]) => l && l.bookUrl && (tp(l) || (/^[A-Z]{3}$/.test(l.siteCur || '') && l.siteCur !== 'CZK')));
     if (!legs.length) return '';
-    return `<div class="buy-cur faint">💱 ${legs.map(([d, l]) => `${t.back ? `Let ${d}: ` : ''}${esc(shopName(l.provider))} ukáže cenu v ${esc(l.siteCur)}${l.sitePrice > 0 ? ` – ~${esc(curFmt(l.sitePrice, l.siteCur))}/os.` : ''}`).join(' · ')} (aerolinka účtuje v měně země odletu)</div>`;
+    return `<div class="buy-cur faint">💱 ${legs.map(([d, l]) => `${t.back ? `Let ${d}: ` : ''}${tp(l) ? `Aviasales ukáže cenu v eurech${inEur(l.czk)} (v korunách web neumí)`
+      : `${esc(shopName(l.provider))} ukáže cenu v ${esc(l.siteCur)}${l.sitePrice > 0 ? ` – ~${esc(curFmt(l.sitePrice, l.siteCur))}/os.` : ''} (aerolinka účtuje v měně země odletu)`}`).join(' · ')}</div>`;
   }
 
   // pax = počet lidí nabídky (📌 Porovnat jde otevřít i bez výsledků na obrazovce)
