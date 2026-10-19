@@ -81,3 +81,25 @@ test('visitMinutes: významný kostel déle, malá stavba s částmi ne na 2 h, 
   assert.equal(visitMinutes({ category: 'sight', visitMin: 30, sitelinks: 99 }), 30);
   assert.equal(visitMinutes({ category: 'whatever' }), 45);
 });
+
+test('ZOO a zábavní park jednou za pobyt (s dětmi ne zoo každý den); připnutá zoo zůstane vždy', () => {
+  const BER = { lat: 52.52, lon: 13.405 };
+  const pool = [
+    { id: 'Z1', name: 'Zoologischer Garten', lat: 52.5079, lon: 13.3377, category: 'zoo', score: 60 },
+    { id: 'Z2', name: 'Tierpark', lat: 52.5041, lon: 13.5303, category: 'zoo', score: 50 },
+    { id: 'T1', name: 'Legoland Discovery', lat: 52.5098, lon: 13.3736, category: 'theme', score: 40 },
+    { id: 'T2', name: 'Jump House', lat: 52.53, lon: 13.41, category: 'theme', score: 35 },
+    ...Array.from({ length: 12 }, (_, k) => ({ id: `M${k}`, name: `Muzeum ${k}`, lat: 52.52 + k * 0.002, lon: 13.40 + k * 0.002, category: 'museum', score: 20 - k })),
+  ];
+  const cats = (r) => r.days.flatMap((d) => d.items).map((p) => p.id);
+  const kids = plan(pool, BER, 4, { interests: { zoo: 2, theme: 2, park: 1.4 } });
+  const ids = cats(kids);
+  assert.equal(ids.filter((x) => x.startsWith('Z')).length, 1, ids.join(','));
+  assert.equal(ids.filter((x) => x.startsWith('T')).length, 1, ids.join(','));
+  // připnutá zoo místo té nejznámější; připnuté obě = obě
+  const pin = (set) => pool.map((p) => (set.includes(p.id) ? { ...p, pinned: true, score: p.score + 1000 } : p));
+  const one = cats(plan(pin(['Z2']), BER, 4, { interests: { zoo: 2 } }));
+  assert.ok(one.includes('Z2') && !one.includes('Z1'), one.join(','));
+  const both = cats(plan(pin(['Z1', 'Z2']), BER, 4, { interests: { zoo: 2 } }));
+  assert.ok(both.includes('Z1') && both.includes('Z2'), both.join(','));
+});

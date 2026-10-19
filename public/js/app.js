@@ -1049,7 +1049,7 @@ function openTrip(i) {
     <div style="margin-top:10px">${days.length ? days.map((d, di) => { const acts = t.days[d] || []; return `<div class="day-block"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span></h4>${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button onclick="delAct(${i},'${d}',${ai})">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" placeholder="Přidej aktivitu…" onkeydown="if(event.key==='Enter')addAct(${i},'${d}')"><button class="btn sm" onclick="addAct(${i},'${d}')">Přidat</button></div></div>`; }).join('') : `<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Doplň termíny cesty a objeví se itinerář den po dni.</div></div>`}</div>
     ${refsHtml(t, i)}
     <div class="divider"></div>
-    <div class="grid" style="grid-template-columns:1fr 1fr;gap:20px">
+    <div class="grid trip-two">
       <div><h3 style="font-size:16px;margin-bottom:10px">🧾 Sbaleno</h3><div id="checkList">${(t.checklist || []).map((x, xi) => `<label class="check"><input type="checkbox" ${x.done ? 'checked' : ''} onchange="toggleCheck(${i},${xi})"><span style="${x.done ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.t)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" placeholder="Přidej položku…" onkeydown="if(event.key==='Enter')addCheck(${i})"><button class="btn sm" onclick="addCheck(${i})">+</button></div></div>
       <div><h3 style="font-size:16px;margin-bottom:10px">💰 Rozpočet</h3><div class="field"><label>Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${t.budget || ''}" onchange="setBudget(${i},this.value)"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label>Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…" oninput="setNotesSoon(${i},this.value)" onchange="setNotes(${i},this.value)">${esc(t.notes || '')}</textarea></div></div>
     </div>
@@ -1191,7 +1191,13 @@ document.addEventListener('click', e => {
   openCountry(c.dataset.ec);
   setTimeout(() => { const b = $('#entryBox'); if (b) b.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 250);
 }, true);
-window.delTrip = i => { if (confirm('Opravdu smazat tuto cestu?')) { S.trips.splice(i, 1); save(); modalClose(); renderPlanner(); if (activeView === 'dashboard') renderDashStats(); toast('Cesta smazána'); } };
+// smaže hned – „↩ Vrátit“ v hlášce ji vrátí na stejné místo (jako smazané hlídání; na telefonu bez systémového dotazu)
+window.delTrip = i => {
+  const t = S.trips[i]; if (!t) return;
+  const redraw = () => { save(); renderPlanner(); if (activeView === 'dashboard') renderDashStats(); };
+  S.trips.splice(i, 1); modalClose(); redraw();
+  toast(`Cesta ${t.name ? `„${t.name}“ ` : ''}smazána`, '', 6000, { label: '↩ Vrátit', run: () => { S.trips.splice(Math.min(i, S.trips.length), 0, t); redraw(); toast('Cesta je zpět'); } });
+};
 /** Cesty z jiného panelu: nezměněné zůstanou tytéž objekty (okno cesty, rozepsaná poznámka), cesta upravená na svém
  *  místě (stejný počet cest) se přepíše na místě; ostatní se převezmou. */
 function adoptTrips(nw) {

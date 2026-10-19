@@ -148,14 +148,17 @@ export function planItinerary(pois, opts) {
   // a pestrost by je pak jen vyškrtala, takže by dny zůstaly poloprázdné).
   const CAP = { church: 3, square: 2, monument: 3 };
   // Limit podle skutečného času (krátký den příletu/odletu se nepočítá jako celý den).
-  const catLimit = (cat) => (CAP[cat] ? CAP[cat] * Math.max(1, Math.round(totalCap / full)) : Infinity);
+  // ZOO a zábavní park (3–4 h) jednou za pobyt – „s dětmi“ jinak dá zoo každý den (Berlín: Zoo i Tierpark);
+  // připnuté místo platí vždy
+  const ONCE = { zoo: 1, theme: 1 };
+  const catLimit = (cat) => ONCE[cat] || (CAP[cat] ? CAP[cat] * Math.max(1, Math.round(totalCap / full)) : Infinity);
   const ranked = [...near].sort((a, b) => weight(b) - weight(a)).map((p) => ({ ...p, visitMin: visitMinutes(p) }));
   const choose = (skip) => {
     const out = [];
     const perCat = {};
     let used = 0;
     for (const p of ranked) {
-      if (skip.has(p.id) || used + p.visitMin > totalCap * 0.95 || (perCat[p.category] || 0) >= catLimit(p.category)) continue;
+      if (skip.has(p.id) || used + p.visitMin > totalCap * 0.95 || (!(p.pinned && ONCE[p.category]) && (perCat[p.category] || 0) >= catLimit(p.category))) continue;
       out.push(p);
       perCat[p.category] = (perCat[p.category] || 0) + 1;
       used += p.visitMin;

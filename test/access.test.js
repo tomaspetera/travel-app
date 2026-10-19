@@ -330,7 +330,7 @@ test('veřejnou dopravou: Praha → Drážďany změřeně (bus ~400 Kč + S-Bah
   // jinde do Drážďan dál model (z Plzně za běžnou cenu spoje přes hranici)
   assert.deepEqual(transit({ lat: 49.7384, lon: 13.3736, label: 'Plzeň' }, 'DRS').breakdown.map((x) => x.k), ['home', 'intercity', 'access']);
   // PID: linka 59 + metro A, Airport Express 200 Kč (pid.cz, 6. 10. 2026)
-  assert.match(transit(PRAHA, 'PRG').breakdown[0].label, /bus 59 \+ metro A.*Airport Express 200 Kč/);
+  assert.match(transit(PRAHA, 'PRG').breakdown[0].label, /autobus linky 59 \+ metro A.*Airport Express 200 Kč/);
 });
 
 test('autem: dálniční známky a mýtné jen v cizině, cesta přes sousední země', () => {

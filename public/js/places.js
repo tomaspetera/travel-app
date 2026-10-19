@@ -45,7 +45,8 @@
   const dayLbl = ymd => { const d = new Date(ymd + 'T12:00:00'); return `${['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'][d.getDay()]}\u00a0${d.getDate()}.\u00a0${d.getMonth() + 1}.`; };
   // desetinná čárka („0,6 km“), ne tečka
   const num = x => String(x).replace('.', ',');
-  const minTxt = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
+  // číslo a jednotka nezlomitelně („30 min“, „1 h“ – na telefonu ne „30“ a „min“ na dalším řádku)
+  const minTxt = m => m >= 60 ? `${Math.floor(m / 60)}\u00a0h${m % 60 ? ' ' + (m % 60) + '\u00a0min' : ''}` : `${m}\u00a0min`;
   const TRIP_ICON = { town: '🏘️', castle: '🏰', nature: '⛰️', monastery: '⛪', palace: '🏯', ruins: '🏚️' };
   const NATURE_ICON = { park: '🏞️', waterfall: '💧', cave: '🕳️', gorge: '🏞️', rock: '🪨', mountain: '⛰️', lake: '🌊', reserve: '🌿' };
   const tripIcon = p => (p.spa ? '♨️' : NATURE_ICON[p.natureKind] || TRIP_ICON[p.tripKind] || icon(p.tripKind || p.category));
@@ -544,7 +545,7 @@
       return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? (d.half ? ' · výlet do okolí' : ' · celodenní výlet') : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
         ${dayLinks(url, mapy)}</h4>
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${minTxt(p.visitMin)}</span>
-          ${inclHtml(p, 'dp-walk')}<div class="dp-walk">${j === 0 ? 'od ubytování' : 'dál'} ${p.transit ? `${num(p.fromPrevKm)} km – MHD/taxi` : `${num(p.fromPrevKm)} km pěšky (~${minTxt(p.fromPrevMin)})`}</div></div>
+          ${inclHtml(p, 'dp-walk')}<div class="dp-walk">${j === 0 ? 'od ubytování' : 'dál'} ${p.transit ? `${num(p.fromPrevKm)} km – MHD/taxi` : `${num(p.fromPrevKm)}\u00a0km pěšky (~${minTxt(p.fromPrevMin)})`}</div></div>
           <button type="button" title="Vyřadit z plánu" data-drop="${esc(p.id)}">✕</button></div>`).join('')
           : `<div class="faint" style="font-size:13px;padding:6px 0">${d.cap ? 'Volno – odpočinek, jídlo, procházka.' : 'Den cesty – bez programu.'}</div>`}
         ${d.items.length && d.kind !== 'daytrip' ? `<div class="faint" style="font-size:11.5px;margin-top:4px">celkem ~${minTxt(d.minutes)} prohlídek · ${num(d.walkKm)} km pěšky</div>` : ''}
