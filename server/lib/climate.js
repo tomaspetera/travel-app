@@ -23,6 +23,7 @@ function data() {
 const SOURCES = {
   wmo: 'meteostanice u letiště – normály WMO 1991–2020 (NOAA NCEI)',
   ghcn: 'meteostanice u letiště – průměr 1991–2020 z denních měření (NOAA GHCN-Daily), srážky NASA POWER',
+  manual: 'meteostanice u letiště – dlouhodobé normály převzaté ručně (Florencie NOAA 1991–2020, Santorini observatoř v Athénách 2013–2025)',
   nasa: 'NASA POWER – průměr 2001–2020 za okolí ~50 km (u pobřeží bývají maxima nižší než ve skutečnosti)',
 };
 /** Popis zdroje dat pro uživatele (src z výsledků níže). */
@@ -31,8 +32,8 @@ export const sourceText = (src) => SOURCES[src] || SOURCES.nasa;
 /** Klíč buňky 0,5° – stejně jako ve scripts/build-climate.mjs. */
 export const cellKey = (lat, lon) => `${Math.round(lat * 2) / 2},${Math.round(lon * 2) / 2}`;
 
-// src: 'wmo' | 'ghcn' = meteostanice (klíč „wmo:…“ / „ghcn:…“), 'nasa' = buňka modelu
-const srcOf = (key) => (String(key).startsWith('wmo:') ? 'wmo' : String(key).startsWith('ghcn:') ? 'ghcn' : 'nasa');
+// src: 'wmo' | 'ghcn' | 'manual' = meteostanice (klíč „wmo:…“ / „ghcn:…“ / „man:…“), 'nasa' = buňka modelu
+const srcOf = (key) => { const k = String(key); return k.startsWith('wmo:') ? 'wmo' : k.startsWith('ghcn:') ? 'ghcn' : k.startsWith('man:') ? 'manual' : 'nasa'; };
 const unpack = (v, key) => (v ? { hi: v.slice(0, 12), lo: v.slice(12, 24), p: v.slice(24, 36), src: srcOf(key) } : null);
 
 const NEAR_KM = 10;

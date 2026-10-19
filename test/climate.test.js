@@ -10,7 +10,7 @@ process.env.RYANAIR_ENABLED = '0';
 process.env.WIZZ_ENABLED = '0';
 process.env.KIWI_ENABLED = '1';
 process.env.TRAVELPAYOUTS_TOKEN = '';
-const { cellKey, climateAt, airportClimate, monthClimate, warmAirports, countryClimate } = await import('../server/lib/climate.js');
+const { cellKey, climateAt, airportClimate, monthClimate, warmAirports, countryClimate, sourceText } = await import('../server/lib/climate.js');
 const { search, normalizeQuery } = await import('../server/lib/search.js');
 const { LONG_HAUL_SWEEP } = await import('../server/lib/longhaul.js');
 const { resetKiwi } = await import('../server/providers/kiwi.js');
@@ -253,4 +253,13 @@ test('země za teplem: Španělsko v listopadu = Kanárské ostrovy, ne celá ze
   assert.equal(cold.r.groups.length, 0);
   assert.ok(cold.r.warm.dropped >= 1 && cold.r.warm.maxHi < 30);
   assert.ok(cold.r.warm.destHi >= cold.r.warm.maxHi && cold.r.warm.destHi < 30, 'nejtepleji, jak ve Španělsku v lednu bývá');
+});
+
+test('ručně převzaté normály (Florencie NOAA 1991–2020, Santorini NOA): buňka NASA byla o stupně vedle', () => {
+  const flr = airportClimate('FLR'), jtr = airportClimate('JTR');
+  assert.equal(flr.src, 'manual');
+  assert.deepEqual([flr.hi[0], flr.hi[10], flr.hi[6]], [11, 16, 32], 'leden 11, listopad 16, červenec 32 °C (buňka 5 / 11 / 29)');
+  assert.equal(jtr.src, 'manual');
+  assert.equal(jtr.hi[6], 30, 'Santorini v červenci 30 °C (buňka 27)');
+  assert.match(sourceText('manual'), /ručně/);
 });

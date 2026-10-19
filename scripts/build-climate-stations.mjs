@@ -3,7 +3,8 @@
 // scripts/build-climate.mjs) u pobřeží zahrnují i moře a v horách průměrují vrcholy s údolími – u letovisek
 // tak denní maxima vycházejí o 1–5 °C níž, než jaká naměří stanice na letišti (Tenerife Jih, Málaga,
 // Antalya, Phuket). Pořadí zdrojů pro každé letiště:
-//   0. ručně určená stanice WMO (OVERRIDE níže – Terst, Istanbul);
+//   0. ručně převzaté normály letiště, které v souborech NOAA nejsou (MANUAL níže – Florencie, Santorini), nebo
+//      ručně určená stanice WMO (OVERRIDE níže – Terst, Istanbul);
 //   1. WMO Climatological Standard Normals 1991–2020 (NOAA NCEI, accession 0253808) – oficiální normály,
 //      stanice do 10 km od letiště; nejvýš 2 nesousední chybějící měsíce se dopočtou ze sousedních (fillGaps);
 //   2. NOAA GHCN-Daily – průměr 1991–2020 spočítaný z denních měření (každý kalendářní měsíc aspoň ze 100 dní
@@ -46,6 +47,22 @@ const NEAR_MAX_ELEV = 600; // m – výš už se okolí letiště od něj často
 // (15 km) je ve Slovinsku → stanice Terst na pobřeží (normály 1991–2020 jako Aeronautica Militare); Istanbul –
 // nové letiště u Černého moře, stanice Kilyos 26 km na stejném pobřeží (buňka NASA dávala v červenci 25 °C, Kilyos 28 °C).
 const OVERRIDE = { TRS: '00016110', IST: '00017059' };
+// Normály stanice u letiště, které v souborech NOAA (normály WMO, GHCN-Daily) nejsou, převzaté ručně se zdrojem –
+// jen tam, kde buňka NASA vychází o víc stupňů vedle (klíč „man:IATA“, server/lib/climate.js src 'manual'):
+// Florencie – NOAA normály 1991–2020 stanice Firenze Peretola (en.wikipedia.org/wiki/Template:Florence_weatherbox),
+//   buňka NASA (Apeniny) dávala v lednu 5 °C a v listopadu 11 °C místo 11 a 16;
+// Santorini – National Observatory of Athens (meteo.gr), měsíční bulletiny 7/2013–3/2025 (en.wikipedia.org/wiki/Santorini),
+//   buňka NASA (moře) dávala v létě 27 °C místo 30. Kos má jen neověřitelnou stanici – zůstává buňka.
+const MANUAL = {
+  FLR: { name: 'Firenze Peretola – NOAA normály 1991–2020', lat: 43.81, lon: 11.2, el: 38,
+    hi: [11.2, 12.7, 16.2, 20.0, 24.3, 29.1, 32.3, 32.4, 27.3, 21.5, 15.6, 11.4],
+    lo: [2.1, 2.5, 5.1, 8.1, 11.9, 16.0, 18.4, 18.5, 15.0, 10.9, 6.4, 2.6],
+    p: [58.1, 63.8, 61.4, 67.2, 63.0, 44.8, 24.6, 36.5, 66.8, 105.1, 115.3, 81.4] },
+  JTR: { name: 'Santorini – NOA, průměr 7/2013–3/2025', lat: 36.42, lon: 25.43, el: 183,
+    hi: [14.3, 14.7, 16.1, 19.6, 23.3, 27.9, 30.1, 30.2, 27.2, 22.8, 19.4, 15.6],
+    lo: [10.1, 10.3, 11.3, 13.6, 16.9, 21.0, 23.3, 23.5, 21.3, 17.5, 14.7, 11.5],
+    p: [52.7, 40.7, 44.9, 12.1, 8.2, 3.6, 0.03, 2.5, 3.0, 15.1, 33.7, 54.6] },
+};
 
 const argCache = process.argv.indexOf('--cache');
 const CACHE = argCache > 0 ? process.argv[argCache + 1] : path.join(tmpdir(), 'atlas-climate-cache');
@@ -277,7 +294,7 @@ async function main() {
 
   const airportsMap = {};
   const stations = {};
-  const stats = { wmo: 0, ghcn: 0, wmoFar: 0, nasa: 0, rejected: 0, ghcnTried: 0 };
+  const stats = { manual: 0, wmo: 0, ghcn: 0, wmoFar: 0, nasa: 0, rejected: 0, ghcnTried: 0 };
   const ghcnUrl = (s) => [`${GHCN}/by_station/${s.id}.csv.gz`, `ghcn/${s.id}.csv.gz`];
   const ghcnCache = new Map();
   const ghcnData = async (s) => {
@@ -324,7 +341,13 @@ async function main() {
   const wmoById = new Map(wmo.map((s) => [s.key, s]));
   for (const { a, nasa, pNasa, w, wOk, cands } of plans) {
     airportsMap[a.iata] = a.cell;
-    // 0. ručně určená stanice (OVERRIDE)
+    // 0. ručně převzaté normály (MANUAL), ručně určená stanice (OVERRIDE)
+    const m = MANUAL[a.iata];
+    if (m && sane(m.hi, m.lo, nasa)) {
+      use(a, { key: `man:${a.iata}`, ...m }, m.hi, m.lo, m.p);
+      stats.manual++;
+      continue;
+    }
     const o = OVERRIDE[a.iata] && wmoById.get(`wmo:${OVERRIDE[a.iata]}`);
     if (o && sane(o.hi, o.lo, nasa) && (o.p || pNasa)) {
       use(a, o, o.hi, o.lo, o.p || pNasa);
@@ -387,7 +410,7 @@ async function main() {
     stations: Object.fromEntries(Object.entries(stations).sort()),
     near,
   }));
-  console.log(`hotovo: WMO do 10 km ${stats.wmo}, GHCN ${stats.ghcn}, WMO dál / podle názvu ${stats.wmoFar}, `
+  console.log(`hotovo: ručně ${stats.manual}, WMO do 10 km ${stats.wmo}, GHCN ${stats.ghcn}, WMO dál / podle názvu ${stats.wmoFar}, `
     + `NASA ${stats.nasa} (zamítnuto pro rozdíl > ${MAX_DIFF} °C: ${stats.rejected}); stanic GHCN staženo ${stats.ghcnTried}; `
     + `pro místa v okolí ${near.length} letišť`);
 }
