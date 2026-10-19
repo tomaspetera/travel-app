@@ -2193,7 +2193,8 @@
     // cesta na letiště v den, kdy se z ubytování vyráží (odlet po půlnoci → už předchozí večer, po řádku 🚪), v noci
     // (vyrážíš před 5:00 nebo po 23:00) MHD a letištní vlaky obvykle nejezdí
     const legDay = (x, l) => (x && x.date < l.date ? x.date + '~' : l.date);
-    const nightTxt = x => (x && (x.hm < '05:00' || x.hm >= '23:00') ? ' · v noci spíš taxi (v odhadu ceny je MHD)' : '');
+    // u letišť, kde už počítáme taxi (Hurghada, Djerba…), nic – odhad ceny je tam taxi
+    const nightTxt = (x, mode) => (mode !== 'taxi' && x && (x.hm < '05:00' || x.hm >= '23:00') ? ' · v noci spíš taxi (v odhadu ceny je MHD)' : '');
     const gRow = (g, a, b) => `${esc(a)} → ${esc(b)} · ${esc(gTime(g))} · ${esc(gKind(g))}${g.fromStation ? ` · ${esc(g.fromStation)} → ${esc(g.toStation)}` : ''} (${esc(gWho(g))})`;
     // let bez času (cena z mezipaměti): ne vymyšlená půlnoc, ale „čas ověř“ jako u cesty z plánovače
     const fRow = l => (l.hasTime ? `${esc(l.from)} ${hhmm(l.dep)} → ${esc(l.to)} ${arrHm(l)} · ${legWho(l)}` : `${esc(l.from)} → ${esc(l.to)} · ${[legWho(l), 'čas ověř'].filter(Boolean).join(' · ')}`);
@@ -2230,7 +2231,7 @@
           if (lx) rows.push([lx.date + (lx.date < mid[i].date ? '~' : ''), '🚪', `Z ubytování na letiště ${esc(lx.airport)} vyraž nejpozději ${lbTime(lx)} <span class="faint">(~${minutesToHm(lx.min)} cesta + ${lbBefore(lx)} před odletem, odhad)</span>${lx.hint ? ' · ' + esc(lx.hint) : ''}`]);
           const gx = gapLeg(t, gapAt(t, i));
           if (gx) rows.push([legDay(lx, mid[i]), trIcon('transit', gx), `${esc(b.name)} → letiště ${esc(mid[i].from)} · ${legTxt(gx, 'transit')} (${estTxt(gx, 'transit')})${nightTxt(lx)}${legLink(gx, 'transit') ? ` · ${legLink(gx, 'transit')}` : ''}`]);
-          else if (am.from) rows.push([legDay(lx, mid[i]), ARR_ICO[am.from.mode] || '🚌', esc(arrivalRow(am.from, true) + nightTxt(lx))]);
+          else if (am.from) rows.push([legDay(lx, mid[i]), ARR_ICO[am.from.mode] || '🚌', esc(arrivalRow(am.from, true) + nightTxt(lx, am.from.mode))]);
           rows.push([mid[i].date, '✈️', `${fRow(mid[i])} · ${esc(b.name)} → ${esc(r.bases[i + 1].name)}`]);
           if (am.to) rows.push([arrivalAt(mid[i]).slice(0, 10), ARR_ICO[am.to.mode] || '🚌', esc(arrivalRow(am.to))]);
         } else if (i < r.bases.length - 1) rows.push([dates[i].checkout, trIcon(tr, x), `Přejezd ${esc(b.name)} → ${esc(r.bases[i + 1].name)}${x ? ` · ${legTxt(x, tr)} (${estTxt(x, tr)})${esc(borderTxt(x))}${legLink(x, tr) ? ` · ${legLink(x, tr)}` : ''}` : ''}`]);
@@ -2250,7 +2251,7 @@
     const ab = !ov && (!multi || fly) && f.back && t.arrival && t.arrival.back;
     const lg = fly ? gapLeg(t, gapAt(t, r.bases.length - 1)) : null;
     if (lg) rows.push([legDay(lb.hotel, f.back), trIcon('transit', lg), `${esc(r.bases.at(-1).name)} → letiště ${esc(f.back.from)} · ${legTxt(lg, 'transit')} (${estTxt(lg, 'transit')})${nightTxt(lb.hotel)}${legLink(lg, 'transit') ? ` · ${legLink(lg, 'transit')}` : ''}`]);
-    else if (ab && !carCovers(t, 'back')) rows.push([legDay(lb.hotel, f.back), ARR_ICO[ab.mode] || '🚌', esc(arrivalRow(ab, true) + nightTxt(lb.hotel))]);
+    else if (ab && !carCovers(t, 'back')) rows.push([legDay(lb.hotel, f.back), ARR_ICO[ab.mode] || '🚌', esc(arrivalRow(ab, true) + nightTxt(lb.hotel, ab.mode))]);
     if (ov) { if (ov.back) rows.push([ov.back.date, gIco(ov.back), gRow(ov.back, ov.to.label, ov.from.label)]); }
     else if (f.back) rows.push([f.back.date, '🛬', fRow(f.back)]);
     // Stabilní řazení podle data; „~“ za datem = až po ostatních položkách dne.

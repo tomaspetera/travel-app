@@ -802,6 +802,10 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 }
 @media(max-width:560px){
   .ml-row{padding:8px;gap:6px 8px}
+  /* datum letu celé (i s rokem), tolerance „přesně / ±1 den“ pod ním */
+  .ml-dt{flex-wrap:wrap}
+  .ml-dt .input{flex:1 1 100%}
+  .ml-dt .ml-flex{flex:1 1 100%}
   .mc-combo{padding:8px 10px}
   .mc-cl{font-size:12.5px}
   .mc-gap{margin-left:4px}

@@ -89,18 +89,20 @@
     const vs = fast ? ` (nejrychlejší let ~${hm(fast.doorMin)} od dveří ke dveřím${fast.czk ? `, od ${kc(fast.czk)}` : ''})`
       : doorMin ? ` (letadlem ~${hm(round5(doorMin))} i s cestou na letiště a odbavením)` : '';
     const ground = `Vlakem/busem ~${hm(est.minutes)}`;
+    // srovnání s letadlem od dveří ke dveřím – jízda (~4 h 15) vedle letadla i s letištěm (~5 h 30) by úsporu přeháněla
+    const door = `od dveří ke dveřím ~${hm(round5(groundMin))}`;
     const out = (rule, reason) => ({ worth: Boolean(rule), rule, reason, doorMin: doorMin && round5(doorMin), groundMin, ...(fast ? { fast } : {}) });
     if (quick && groundMin <= quick + 90) {
-      return out('time', groundMin <= quick ? `${ground} – rychleji než letadlem${vs}.` : `${ground} – skoro jako letadlem${vs}.`);
+      return out('time', `${ground} – ${door}, ${groundMin <= quick ? 'rychleji než letadlem' : 'skoro jako letadlem'}${vs}.`);
     }
-    if (groundMin <= 390) return out('short', `${ground} – cesta do 6,5 h${vs}.`);
+    if (groundMin <= 390) return out('short', `${ground} – ${door}, cesta do 6,5 h${vs}.`);
     const trips = flight.trips === 2 ? 2 : 1;
     const groundCzk = typOf(est) * trips;
     if (flight.czk > 0 && groundCzk <= flight.czk * 0.5 && groundMin <= 600) {
       const less = `o ~${(Math.round((flight.czk - groundCzk) / 100) * 100).toLocaleString('cs-CZ')} Kč levněji na osobu`;
       return out('cheap', fast ? `${ground} a ${less} než nejlevnější let${doorMin ? ` (~${hm(round5(doorMin))} od dveří ke dveřím)` : ''}.` : `${ground} a ${less}${vs}.`);
     }
-    return out(null, `${ground} – letadlo tu vychází lépe${vs}.`);
+    return out(null, `${ground} – ${door}, letadlo tu vychází lépe${vs}.`);
   }
 
   /** Spoj RegioJetu (z /api/ground live.items) → úsek cesty po zemi pro průvodce cestou. */

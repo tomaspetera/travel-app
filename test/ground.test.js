@@ -265,7 +265,7 @@ test('worth + planeOptions: cena i čas z téže cesty – nejlevnější se sv�
   const e = (minutes, czk = 299) => ({ ok: true, km: 280, minutes, czk, basis: 'measured' });
   const w = G.worth(e(234), { doorMin: p.cheap.doorMin, czk: 4045, trips: 2, fast: { doorMin: p.fast.doorMin, czk: 11994 } });
   assert.equal(w.rule, 'time');
-  assert.equal(w.reason.replace(/\u00a0/g, ' '), 'Vlakem/busem ~3 h 54 – skoro jako letadlem (nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11 994 Kč).');
+  assert.equal(w.reason.replace(/\u00a0/g, ' '), 'Vlakem/busem ~3 h 54 – od dveří ke dveřím ~4 h 40, skoro jako letadlem (nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11 994 Kč).');
   assert.deepEqual([w.doorMin, w.fast.doorMin, w.fast.czk], [1085, 275, 11994]);
   const slow = G.worth(e(700, 300), { doorMin: 1085, czk: 4045, trips: 2, fast: { doorMin: 275, czk: 11994 } });
   assert.equal(slow.rule, null);
