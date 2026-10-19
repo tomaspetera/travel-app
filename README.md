@@ -1563,8 +1563,8 @@ vzdušnou čarou (Řím → Neapol ~590 Kč, Lisabon → Porto ~830 Kč, Barcelo
   [Wikidata](https://www.wikidata.org/) vlastnost P3872 (CC0), `data/airport-pax.json`. Aktualizace:
   `node scripts/build-airport-pax.mjs`.
 - Geokódování a počasí: [Open-Meteo](https://open-meteo.com/) (předpověď CC BY 4.0). Kurzy: open.er-api.com, ECB.
-- Hranice oblastí pro okruh v Objevuj (Toskánsko, Apulie, Kalábrie, Istrie, Algarve, Skotsko, Laponsko – zastávky
-  okruhu „po Toskánsku“ zůstanou v Toskánsku): [OpenStreetMap](https://www.openstreetmap.org/copyright) přes Nominatim
+- Hranice oblastí pro okruh v Objevuj (Toskánsko, Apulie, Kalábrie, Istrie i se slovinským pobřežím, Algarve, Skotsko,
+  Laponsko – zastávky okruhu „po Toskánsku“ zůstanou v Toskánsku): [OpenStreetMap](https://www.openstreetmap.org/copyright) přes Nominatim
   (© přispěvatelé OpenStreetMap, ODbL), zjednodušené na ~2 km, `data/regions.json`. Aktualizace:
   `NODE_USE_ENV_PROXY=1 node scripts/build-regions.mjs` (proxy jen tam, kde je potřeba).
 - Ceny paliva: ČSÚ (DataStat, sada CENPHMT, CC0) a Evropská komise – Weekly Oil Bulletin; ceny nabíjení elektroaut:

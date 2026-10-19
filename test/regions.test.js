@@ -16,6 +16,8 @@ test('inRegion: Toskánsko podle hranice, ne podle obdélníku (Ravenna a Trasim
   assert.equal(inRegion('kreta', 35.3, 25.1), null); // ostrov bez hranice v datech
   assert.equal(inRegion('istrie', 45.0812, 13.6387), true); // Rovinj
   assert.equal(inRegion('istrie', 45.6495, 13.7768), false); // Terst
+  assert.equal(inRegion('istrie', 45.528, 13.568), true); // Piran – slovinská Istrie patří k okruhu
+  assert.equal(inRegion('istrie', 45.327, 14.442), false); // Rijeka
 });
 
 test('keepInRegion: jen cíle v oblasti, připnuté vždy, příznaky pole zůstanou; málo cílů → kruh', () => {
