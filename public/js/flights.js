@@ -2672,7 +2672,7 @@
     const tip = `${c.reason || ''} Cena: ${Ground.priceTxt(x, ret ? 2 : 1)} na osobu${ret ? ' tam i zpět' : ''}, odhad. Klikni pro spoje a odkazy.`;
     return `<button type="button" class="gnd-chip${c.worth ? ' hot' : ''}" data-gchip="${esc(g.dest.key)}" title="${esc(tip.trim())}">${esc(Ground.chipText(x, ret))} <small>odhad</small></button>`;
   }
-  // Srovnání letadlo × vlak/bus: cena na osobu a čas od dveří ke dveřím (vlak/bus = jízda + 30 min na nádraží; cena
+  // Srovnání letadlo × vlak/bus: cena na osobu a čas od dveří ke dveřím (vlak/bus = jízda + 45 min na nádraží a z něj; cena
   // běžná – co typicky zaplatíš v daný den – a pod ní „od“). Cena i čas letadla vždy z téže cesty (c = groundCmp);
   // hidden = lety jsou, ale žádný neprošel filtry.
   function groundCompare(x, c, ret, hidden = false) {
@@ -2683,7 +2683,7 @@
     const fast = t && c.fast ? `<span class="gb-fast">⚡ nejrychlejší ~${Ground.hm(Ground.round5(c.fast.doorMin))} od ${czk(Ground.doorCzk(c.fast.t))}${ret ? ' tam i zpět' : ''}</span>` : '';
     return `<div class="gb-cmp">
       <div class="gb-col"><span class="gb-l">✈️ Letadlo</span>${t ? `<b>od ${czk(Ground.doorCzk(t))}</b><small>na osobu${ret ? ', tam i zpět' : ''}, i s cestou na letiště</small>` : hidden ? '<b>skryto filtry</b><small>lety jsou, ale žádný neprošel filtry</small>' : '<b>nic nenalezeno</b><small>pro zadané termíny</small>'}${time ? `<span>${esc(time)}</span>` : ''}${fast}</div>
-      <div class="gb-col win"><span class="gb-l">🚆 Vlak / bus <em>odhad</em></span><b>${x.typ > 0 ? 'běžně' : 'od'} ~${czk(Ground.typOf(x) * n)}</b><small>${x.typ > 0 && x.czk > 0 && x.czk < x.typ ? `od ~${czk(x.czk * n)} · ` : ''}na osobu${ret ? ', tam i zpět' : ''}</small><span>~${Ground.hm(x.min + 30)} od dveří ke dveřím</span></div>
+      <div class="gb-col win"><span class="gb-l">🚆 Vlak / bus <em>odhad</em></span><b>${x.typ > 0 ? 'běžně' : 'od'} ~${czk(Ground.typOf(x) * n)}</b><small>${x.typ > 0 && x.czk > 0 && x.czk < x.typ ? `od ~${czk(x.czk * n)} · ` : ''}na osobu${ret ? ', tam i zpět' : ''}</small><span>~${Ground.hm(x.min + Ground.STATION_MIN)} od dveří ke dveřím</span></div>
     </div>`;
   }
   // Banner a panel se spoji u konkrétního cíle: nabídky po filtrech a u přesných dat tam i zpět i nejrychlejší dvojice
@@ -3781,7 +3781,7 @@
       if (b.id === 'notifBtn') askNotif();
       else if (b.dataset.wc) checkWatch(b.dataset.wc);
       else if (b.dataset.wo) openWatch(b.dataset.wo);
-      else if (b.dataset.wd) { S.watch = S.watch.filter(x => x.id !== b.dataset.wd); save(); renderWatch(); }
+      else if (b.dataset.wd) delWatch(b.dataset.wd);
       else if (b.dataset.wr) setRoll(b.dataset.wr, true);
     };
     // ukládat průběžně (překreslení karty během psaní nic neztratí), potvrdit až po dopsání
@@ -3790,6 +3790,16 @@
     $('#watchCheckAll').onclick = () => Promise.all((S.watch || []).filter(w => !Alerts.isPast(w.form, today())).map(w => checkWatch(w.id)));
     updateWatchBadges();
     observeSeen();
+  }
+  // ✕ smaže hned (i s historií cen a cílovou cenou) – „↩ Vrátit“ v hlášce ho vrátí na stejné místo
+  function delWatch(id) {
+    const i = (S.watch || []).findIndex(x => x.id === id); if (i < 0) return;
+    const w = S.watch[i];
+    S.watch = S.watch.filter(x => x.id !== id); save(); renderWatch(); updateWatchBtn();
+    toast(`Hlídání ${w.label || ''} smazáno`, '', 6000, { label: '↩ Vrátit', run: () => {
+      if ((S.watch || []).some(x => x.id === id || watchKey(x) === watchKey(w))) return; // mezitím hlídané znovu
+      S.watch = [...(S.watch || [])]; S.watch.splice(Math.min(i, S.watch.length), 0, w); save(); renderWatch(); updateWatchBtn();
+    } });
   }
   function paintCard(id) {
     const el = $(cardSel(id)), w = (S.watch || []).find(x => x.id === id);

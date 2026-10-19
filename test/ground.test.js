@@ -21,7 +21,8 @@ test('estimate: Praha ↔ změřené město = změřeno 15. 10. – od i běžn�
   assert.equal(e.basis, 'measured');
   // změřeno 15. 10. (nejrychlejší spoj 234 min, nejlevnější spoj dne 249 Kč) → konkrétní spoj v danou hodinu
   assert.equal(e.minutes, 255);
-  assert.deepEqual([e.czk, e.typ], [249, 350]);
+  // běžně: RegioJet za 249 jezdí jen pár spojů denně, Railjet ČD/ÖBB 450–600 Kč (ověřeno 10/2026) → MEASURED typ 349 × 1,4
+  assert.deepEqual([e.czk, e.typ], [249, 490]);
   assert.deepEqual([G.SPECIFIC, G.SPECIFIC_MIN], [1.4, 1.1]);
   assert.equal(e.measuredAt, '2026-10-15');
   assert.ok(e.km > 240 && e.km < 260, `Praha–Vídeň ${e.km} km`);
@@ -70,7 +71,8 @@ test('distanceModel: kalibrace 15. 10. na 41 trasách RegioJetu – běžně do 
     assert.ok(Math.abs(m.typ - typ) / typ <= 0.65, `${from}–${to}: model běžně ${m.typ} Kč, RegioJet ${typ} Kč`);
     assert.ok(m.typ >= m.czk, `${from}–${to}: běžně aspoň od`);
     // trasy z Prahy platí přesně změřené (běžně z 15. 10.)
-    if (from === 'Praha') assert.deepEqual([G.estimate(a, b).basis, G.estimate(a, b).typ], ['measured', Math.max(G.estimate(a, b).czk, rCzk(typ * 1.4))], `${from}–${to} změřeno (× 1,4 konkrétní spoj)`);
+    // (Vídeň: běžně z cen ČD/ÖBB 349 Kč, ne RegioJet 249 – viz test výše)
+    if (from === 'Praha') assert.deepEqual([G.estimate(a, b).basis, G.estimate(a, b).typ], ['measured', Math.max(G.estimate(a, b).czk, rCzk((to === 'Vídeň' ? 349 : typ) * 1.4))], `${from}–${to} změřeno (× 1,4 konkrétní spoj)`);
   }
   const within = err.typ.filter((x) => x <= 0.25).length;
   // před kalibrací (jeden model jen pro „od“): medián chyby od 19,5 %, běžně 19,9 % (do ±25 % 25 tras z 41)

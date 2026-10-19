@@ -162,7 +162,7 @@ export const MEASURED = {
   10202033: { name: 'Košice', min: 512, czk: 499, typ: 549 },
   10202038: { name: 'Žilina', min: 296, czk: 199, typ: 274 },
   10202035: { name: 'Poprad', min: 407, czk: 299, typ: 399 },
-  10202052: { name: 'Vídeň', min: 234, czk: 249, typ: 249 },
+  10202052: { name: 'Vídeň', min: 234, czk: 249, typ: 349 }, // běžně: RegioJet za 249 jen pár spojů, Railjet ČD/ÖBB 450–600 Kč
   10202072: { name: 'Berlín', min: 250, czk: 329, typ: 379 },
   10202071: { name: 'Drážďany', min: 115, czk: 299, typ: 299 },
   10202006: { name: 'Mnichov', min: 270, czk: 299, typ: 299 },
@@ -367,7 +367,7 @@ export function planeOptions(trips, doorOf, slowOf = doorOf) {
 export const typOf = (est) => (est && est.typ > 0 ? est.typ : est ? est.czk : 0);
 
 /**
- * Stojí za to ukázat vlak/bus vedle letadla? Jednoduché pravidlo (po zemi = jízda + 30 min na nádraží):
+ * Stojí za to ukázat vlak/bus vedle letadla? Jednoduché pravidlo (po zemi = jízda + 45 min na nádraží a z něj):
  *  1. po zemi nejvýš o 1,5 h déle než letadlem od dveří ke dveřím (nejrychlejší nalezený let),
  *  2. nebo po zemi do 6,5 h,
  *  3. nebo aspoň o polovinu levněji než nejlevnější let a do 10 h – po zemi za běžnou cenu (est.typ; starší odhad bez ní
