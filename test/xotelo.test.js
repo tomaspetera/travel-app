@@ -1283,3 +1283,13 @@ test('výběr hotelu: pozdě doběhlé ověření volna nepřepíše pozdější
     assert.deepEqual([t.stay.mode, t.step], ['links', 'summary']);
   });
 });
+
+test('letiště na ostrově: hotely kolem místa z tabulky dopravy do města (Tenerife Jih → Los Cristianos), ne uprostřed ostrova', () => {
+  const q = normalizeStayQuery({ city: 'Tenerife', iata: 'TFS', lat: 28.0445, lon: -16.5725, checkin: ymdPlus(30), checkout: ymdPlus(37), adults: 2 });
+  assert.deepEqual([q.lat, q.lon], [28.0516, -16.7159]);
+  const r = normalizeStayQuery({ city: 'Rhodos', iata: 'RHO', lat: 36.4054, lon: 28.0862, checkin: ymdPlus(30), checkout: ymdPlus(33) });
+  assert.deepEqual([r.lat, r.lon], [36.4349, 28.2176], 'město Rhodos');
+  // metropole má střed z databáze, místo vybrané uživatelem (ne souřadnice letiště) zůstává
+  assert.deepEqual([normalizeStayQuery({ city: 'Řím', iata: 'FCO', lat: 41.8045, lon: 12.252, checkin: ymdPlus(30), checkout: ymdPlus(33) }).lat], [41.9028]);
+  assert.equal(normalizeStayQuery({ city: 'Adeje', iata: 'TFS', lat: 28.1227, lon: -16.726, checkin: ymdPlus(30), checkout: ymdPlus(33) }).lat, 28.1227);
+});

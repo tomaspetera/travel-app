@@ -898,7 +898,7 @@ function renderPlanner() {
   // ✈️ z posledního hledání: nejlevnější nabídka (cíl, dny, cestující, rozpočet a let) rovnou do formuláře nové cesty
   let pick = window.Flights && Flights.lastPick ? Flights.lastPick() : null;
   if (pick && S.trips.some(t => t.dest === pick.dest && t.start === pick.start)) pick = null; // z téhle nabídky už cesta je
-  const fromPick = () => newTrip(null, { dest: pick.dest, iso: pick.iso, start: pick.start, end: pick.end, pax: pick.pax, budget: pick.budget, flight: pick.flight });
+  const fromPick = () => newTrip(null, { dest: pick.dest, iso: pick.iso, start: pick.start, end: pick.end, pax: pick.pax, budget: pick.budget, budgetNote: pick.budgetNote, flight: pick.flight });
   const pickTxt = pick ? `${esc(pick.dest)} · ${fmtDate(pick.start)}${pick.end ? '–' + fmtDate(pick.end) : ''} · ${pick.czk.toLocaleString('cs')} Kč/os.` : '';
   if (!S.trips.length) {
     host.innerHTML = `${bkTools()}<div class="plan-empty"><div class="card dest plan-hero" data-photo="${esc(window.heroPlace ? heroPlace(3) : 'Santorini')}" style="--h:200"><div class="flag">📅</div><div class="dest-panel"><div class="cname">Zatím žádná cesta</div>
@@ -943,7 +943,7 @@ function newTrip(c, pre = {}) {
     <div class="field"><label>Název cesty</label><input class="input" id="ntName" placeholder="Např. Léto v Portugalsku" value="${esc(pre.name || (dest ? 'Cesta: ' + dest : ''))}"></div>
     <div class="field" style="margin-top:12px"><label>Destinace</label><input class="input" id="ntDest" placeholder="Země nebo město" value="${esc(dest)}"></div>
     <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Odjezd</label><input class="input" type="date" id="ntStart" value="${pre.start || ''}"></div><div class="field"><label>Návrat</label><input class="input" type="date" id="ntEnd" value="${pre.end || ''}" min="${pre.start || ''}"></div></div>
-    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Cestující</label><select id="ntPax">${[1, 2, 3, 4, 5, 6].map(n => `<option ${n === (pre.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>Rozpočet (Kč)</label><input class="input" type="number" id="ntBudget" placeholder="nepovinné" value="${pre.budget || ''}"></div></div>
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Cestující</label><select id="ntPax">${[1, 2, 3, 4, 5, 6].map(n => `<option ${n === (pre.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>Rozpočet (Kč)</label><input class="input" type="number" id="ntBudget" placeholder="nepovinné" value="${pre.budget || ''}">${pre.budget && pre.budgetNote ? `<small class="faint" style="display:block;font-size:11.5px;margin-top:4px">${esc(pre.budgetNote)}</small>` : ''}</div></div>
     <button class="btn primary block" style="margin-top:18px" id="ntSave">Vytvořit cestu</button>
   </div>`);
   $('#ntStart').onchange = e => { $('#ntEnd').min = e.target.value; };

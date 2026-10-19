@@ -9,6 +9,7 @@ import { checkHotel } from '../providers/stays/xotelo.js';
 import { getAirport, METRO_BY_CODE, COUNTRY_BY_ISO, countryAt } from './airports.js';
 import { geocode, englishName } from './places.js';
 import { haversineKm } from './geo.js';
+import { arrivalTransfer } from './arrival.js';
 import { config } from '../config.js';
 
 export class StayQueryError extends Error {
@@ -35,6 +36,11 @@ export function normalizeStayQuery(raw = {}) {
   // má měřit od centra města (dopočte se geokódováním v searchStays).
   const atAirport = ap && Number.isFinite(lat) && Number.isFinite(lon) && haversineKm(lat, lon, ap.lat, ap.lon) < 1.5;
   const hasPos = Number.isFinite(lat) && Number.isFinite(lon) && raw.lat !== '' && raw.lat != null && raw.lon !== '' && raw.lon != null && !atAirport;
+  // Letiště na ostrově („Tenerife“ → geokódování skončí uprostřed ostrova u Teide, kde TripAdvisor nemá žádné místo s hotely
+  // – Tenerife Jih, Lanzarote, Gran Canaria, Rhodos vracely 0 hotelů): střed místa, kam z letiště jezdí doprava do města
+  // (ověřená tabulka data/arrival.json – Los Cristianos, Arrecife, Las Palmas, město Rhodos).
+  const arr = atAirport && !metro ? arrivalTransfer(ap.iata) : null;
+  const center = arr && arr.basis === 'table' && Number.isFinite(arr.lat) ? arr : null;
   const adults = Math.min(9, Math.max(1, Math.round(Number(raw.adults) || 2)));
   // Pokoje: zadané (nejvýš tolik, kolik je dospělých), jinak po dvou na pokoj.
   const rooms = Math.min(adults, 5, Math.max(1, Math.round(Number(raw.rooms) || Math.ceil(adults / 2))));
@@ -51,8 +57,8 @@ export function normalizeStayQuery(raw = {}) {
     iata: ap?.iata || null,
     // ID GeoNames místa vybraného v hledání (anglický název, místo na TripAdvisoru)
     gid: /^\d{1,10}$/.test(String(raw.gid ?? '')) ? String(raw.gid) : null,
-    lat: hasPos ? lat : metro?.lat ?? null,
-    lon: hasPos ? lon : metro?.lon ?? null,
+    lat: hasPos ? lat : metro?.lat ?? center?.lat ?? null,
+    lon: hasPos ? lon : metro?.lon ?? center?.lon ?? null,
     checkin,
     checkout,
     nights,

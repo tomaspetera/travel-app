@@ -256,4 +256,26 @@ test('cesta přes víc měst: „✨ Vyber za mě“ vybere v každém místě b
   assert.equal(t2.route.bases[0].stay, null);
   assert.equal(t2.route.bases[1].stay.name, 'U babičky');
   assert.match(c2.__toasts.at(-1), /Ceny hotelů zatím nepřišly/);
+
+  // hotely z TripAdvisoru: volno se ověří – vyprodaný nejlepší se přeskočí, další se vybere s cenou z ověření
+  const c3 = load();
+  const t3 = begin(c3);
+  const checks = [];
+  const xo = (id, value, total) => hotel(`xo:g187791-d${id}`, value, total, { provider: 'xotelo' });
+  c3.fetch = async (url) => {
+    if (String(url).startsWith('api/stays/check?')) {
+      const q = new URLSearchParams(url.split('?')[1]);
+      checks.push(q.get('hotel'));
+      const sold = q.get('hotel') === 'g187791-d1';
+      return { ok: true, json: async () => (sold ? { available: false } : { available: true, priceTotalCzk: 6400, pricePerNightCzk: 2133, rates: [], at: 1 }) };
+    }
+    return { ok: true, json: async () => ({ items: [xo(1, 99, 6000), xo(2, 90, 7000), xo(3, 80, 7500)], providers: [{ name: 'Xotelo', ok: true }], links: [], query: { nights: 3 } }) };
+  };
+  render(c3, 'stay');
+  await tick();
+  await c3.__els['#stayAuto'].onclick();
+  await tick();
+  assert.deepEqual(plain(t3.route.bases.map((b) => [b.stay.name, b.stay.totalCzk])), [['Hotel xo:g187791-d2', 6400], ['Hotel xo:g187791-d2', 6400]]);
+  assert.deepEqual(checks, ['g187791-d1', 'g187791-d2', 'g187791-d1', 'g187791-d2'], 'nejvýš do prvního s volnem');
+  assert.match(c3.__toasts.at(-1), /Vybráno: Řím, Barcelona · volno ověřeno teď/);
 });

@@ -1494,7 +1494,8 @@
       ab.disabled = true;
       const res = await autoPickStays(t, (k, of, name) => { ab.innerHTML = `<span class="spin"></span> ${esc(name)} ${k}/${of}`; });
       if (T() !== t) return;
-      if (res.ok.length) toast(`Vybráno: ${res.ok.join(', ')}${res.miss.length ? ` · bez cen zatím: ${res.miss.join(', ')}` : ''}`, '', 4200);
+      const vf = res.verified.length === res.ok.length ? ' · volno ověřeno teď' : res.verified.length ? ` · volno ověřeno: ${res.verified.join(', ')}` : '';
+      if (res.ok.length) toast(`Vybráno: ${res.ok.join(', ')}${vf}${res.unsure.length ? ` · volno se nepodařilo ověřit: ${res.unsure.join(', ')}` : ''}${res.miss.length ? ` · bez cen zatím: ${res.miss.join(', ')}` : ''}`, '', 5200);
       else toast('Ceny hotelů zatím nepřišly – vyber prosím ručně, nebo to zkus za chvíli', 'err', 4200);
       // zůstaň v Ubytování: záložky s ✓ ukážou výběr; první místo bez ubytování, jinak to aktuální
       const miss = r.bases.findIndex(x => !x.stay);
@@ -1568,7 +1569,7 @@
     try { return await autoPickRun(t, onProgress); } finally { autoBusy = false; }
   }
   async function autoPickRun(t, onProgress) {
-    const bs = t.route.bases, dates = baseDates(t), ok = [], miss = [];
+    const bs = t.route.bases, dates = baseDates(t), ok = [], miss = [], unsure = [], verified = [];
     const todo = bs.map((b, i) => i).filter(i => !bs[i].stay);
     for (const [k, i] of todo.entries()) {
       if (T() !== t) break; // mezitím jiná cesta nebo Začít znovu
@@ -1585,13 +1586,23 @@
           staysRetry = key; data = await loadStays(key, params);
         }
         absorbStayQuery(b, data);
-        h = bestStay(data.items);
+        // stejně jako ruční Vybrat: volno se teď ověří (ceny v nabídce bývají až hodinu staré) – vyprodaný hotel se
+        // přeskočí a vezme se další nejlepší (nejvýš 3 ověření na místo); bez odpovědi se vybere s „volno neověřené“
+        const ranked = (data.items || []).filter(x => x.value != null && x.priceTotalCzk > 0).sort((a, b2) => b2.value - a.value).slice(0, 3);
+        for (const cand of ranked) {
+          const r = await checkStay(data, cand, null);
+          if (T() !== t) break;
+          if (r && r.available === false) { cand.soldOut = true; continue; }
+          if (r && r.available) { applyCheck(cand, r); verified.push(b.name); } else if (r) unsure.push(b.name);
+          h = cand;
+          break;
+        }
       } catch (e) { staysRetry = null; }
       if (T() !== t) break;
       if (h && !b.stay) { b.stay = { ...pickOf(h, d.nights), checkin: d.checkin, checkout: d.checkout }; ok.push(b.name); } else if (!b.stay) miss.push(b.name);
       persist();
     }
-    return { ok, miss };
+    return { ok, miss, unsure, verified };
   }
 
   // Partnerský (affiliate) odkaz přes Travelpayouts – i uložený v cestě (vybraný hotel, odkaz ve shrnutí).
@@ -1813,7 +1824,11 @@
     const ty = $('#stayType'); if (ty) ty.onchange = e => { stayView.type = e.target.value; stayView.n = 0; renderStays(); };
     $('#stayMax').onchange = e => { stayView.maxNight = +e.target.value || null; stayView.n = 0; renderStays(); };
     const mn = $('#stayMoreN'); if (mn) mn.onclick = () => { stayView.n = lim + 10; renderStays(); };
-    const sg = $('#stayGuess'); if (sg) sg.onclick = () => { stayView.guess = d.key; renderStays(); };
+    // hotely bez ceny jsou v pořadí až za limitem výpisu – ukázat celý seznam a posunout se k prvnímu z nich
+    const sg = $('#stayGuess'); if (sg) sg.onclick = () => {
+      stayView.guess = d.key; stayView.n = Math.max(lim, d.items.length); renderStays();
+      const g = $('.pp-guess', host); if (g && g.scrollIntoView) g.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    };
     const doPick = h => { pickSeq++; staySlot.set(pickOf(h, d.query && d.query.nights)); persist(); staySlot.next(); };
     $$('[data-pick]', host).forEach(b => b.onclick = async () => {
       const h = d.items[+b.dataset.pick], cur = staySlot && staySlot.get();
@@ -1829,7 +1844,7 @@
       }
       if (r && r.available) {
         const was = h.priceTotalCzk;
-        Object.assign(h, { priceTotalCzk: r.priceTotalCzk, pricePerNightCzk: r.pricePerNightCzk, rates: r.rates, ratesAt: r.ratesAt, bookUrl: r.bookUrl, bookSponsored: r.bookSponsored, guess: false, checkedAt: r.at || Date.now() });
+        applyCheck(h, r);
         const top = (r.rates || [])[0];
         toast(`✓ Volno ověřeno teď${top ? ` – ${top.name} ${czk(r.priceTotalCzk)}` : ''}${was && was !== r.priceTotalCzk ? ` (dřív ${czk(was)})` : ''}`, '', 4000);
       } else if (r) toast('Volno se teď ověřit nepovedlo – před rezervací ho zkontroluj na webu.', 'info', 5000);
@@ -1842,17 +1857,19 @@
    * vyprodá (na Bookingu pak „není k dispozici“). → { available: true (+ nové ceny) | false | null } nebo null (jiný zdroj,
    * chyba sítě, limit – vybere se bez ověření). Tlačítko mezitím „Ověřuji volno…“.
    */
+  // ověřené volno: nová cena a weby s cenou na tvoje dny
+  const applyCheck = (h, r) => Object.assign(h, { priceTotalCzk: r.priceTotalCzk, pricePerNightCzk: r.pricePerNightCzk, rates: r.rates, ratesAt: r.ratesAt, bookUrl: r.bookUrl, bookSponsored: r.bookSponsored, guess: false, checkedAt: r.at || Date.now() });
   async function checkStay(d, h, btn) {
     const m = /^xo:(g\d+-d\d+)$/.exec(h.id || '');
     if (!m || h.provider !== 'xotelo' || !d.params) return null;
-    const txt = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Ověřuji volno…';
+    const txt = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Ověřuji volno…'; }
     try {
       const r = await fetch('api/stays/check?' + new URLSearchParams({ ...d.params, hotel: m[1], name: h.name }));
       return r.ok ? await r.json() : { available: null };
     } catch (e) {
       return { available: null };
-    } finally { btn.disabled = false; btn.innerHTML = txt; }
+    } finally { if (btn) { btn.disabled = false; btn.innerHTML = txt; } }
   }
 
   /* ---------- auto ---------- */
