@@ -3,8 +3,9 @@
 // scripts/build-climate.mjs) u pobřeží zahrnují i moře a v horách průměrují vrcholy s údolími – u letovisek
 // tak denní maxima vycházejí o 1–5 °C níž, než jaká naměří stanice na letišti (Tenerife Jih, Málaga,
 // Antalya, Phuket). Pořadí zdrojů pro každé letiště:
+//   0. ručně určená stanice WMO (OVERRIDE níže – Terst, Istanbul);
 //   1. WMO Climatological Standard Normals 1991–2020 (NOAA NCEI, accession 0253808) – oficiální normály,
-//      stanice do 10 km od letiště;
+//      stanice do 10 km od letiště; nejvýš 2 nesousední chybějící měsíce se dopočtou ze sousedních (fillGaps);
 //   2. NOAA GHCN-Daily – průměr 1991–2020 spočítaný z denních měření (každý kalendářní měsíc aspoň ze 100 dní
 //      z 5 různých let); hlavně země, které normály WMO neposlaly (Řecko, Chorvatsko, Portugalsko, Malta,
 //      Mexiko…), jen letiště typu L a M;
@@ -40,6 +41,11 @@ const Y0 = 1991;
 const Y1 = 2020;
 const MAX_DIFF = 10; // °C proti buňce NASA v kterémkoli měsíci
 const NEAR_MAX_ELEV = 600; // m – výš už se okolí letiště od něj často liší (Tenerife Sever, El Alto)
+// Ručně určená stanice WMO tam, kde pravidla výše žádnou nenajdou, i když vhodná je (má přednost; kontrola proti
+// buňce NASA platí dál): Terst – letiště Ronchi dei Legionari je 28 km od města, nejbližší stanice Nova Gorica
+// (15 km) je ve Slovinsku → stanice Terst na pobřeží (normály 1991–2020 jako Aeronautica Militare); Istanbul –
+// nové letiště u Černého moře, stanice Kilyos 26 km na stejném pobřeží (buňka NASA dávala v červenci 25 °C, Kilyos 28 °C).
+const OVERRIDE = { TRS: '00016110', IST: '00017059' };
 
 const argCache = process.argv.indexOf('--cache');
 const CACHE = argCache > 0 ? process.argv[argCache + 1] : path.join(tmpdir(), 'atlas-climate-cache');
@@ -87,16 +93,27 @@ function grid(items) {
 }
 
 // ---------- WMO normály 1991–2020 (souhrnné CSV po veličinách) ----------
+/**
+ * Normály s nejvýš 2 chybějícími měsíci, které spolu nesousedí (ani prosinec s lednem): chybějící měsíc = průměr
+ * sousedních měsíců (Janov-Sestri nemá březen a květen) → { v, filled }; víc mezer nebo sousední → null.
+ */
+export function fillGaps(raw) {
+  const miss = raw.map((x, i) => (Number.isFinite(x) && x > -99 ? -1 : i)).filter((i) => i >= 0);
+  if (!miss.length) return { v: raw, filled: false };
+  if (miss.length > 2 || miss.some((i) => miss.includes((i + 1) % 12))) return null;
+  return { v: raw.map((x, i) => (miss.includes(i) ? (raw[(i + 11) % 12] + raw[(i + 1) % 12]) / 2 : x)), filled: true };
+}
+
 function parseWmo(text) {
   const out = new Map();
   for (const line of text.split(/\r?\n/).slice(1)) {
     const f = line.split(',');
     if (f.length < 22) continue;
-    const v = f.slice(-13, -1).map((x) => Number(x.trim()));
+    const g = fillGaps(f.slice(-13, -1).map((x) => Number(x.trim())));
     const mid = f.slice(7, f.length - 13).join(',').split(',').map((x) => x.trim());
     out.set(f[2].trim(), {
       lat: Number(f[4]), lon: Number(f[5]), el: Number(f[6]), country: mid[0], name: mid.slice(1).join(',').trim(),
-      v: v.some((x) => !Number.isFinite(x) || x <= -99) ? null : v,
+      v: g ? g.v : null, filled: Boolean(g && g.filled),
     });
   }
   return out;
@@ -107,7 +124,8 @@ async function wmoStations() {
     const full = parseWmo(await get(`${WMO}/data-composite-primary-parameters/wmo_normals_9120_${p}.csv`, `wmo_${p}.csv`));
     // normály aspoň z 24 let mají přednost
     const min24 = parseWmo(await get(`${WMO}/data-composite-primary-parameters-min24/wmo_normals_9120_${p}_min24.csv`, `wmo_${p}_min24.csv`));
-    for (const [id, s] of min24) if (s.v) full.set(id, s);
+    // (doplněná řada z min24 nenahradí úplnou)
+    for (const [id, s] of min24) if (s.v && (!s.filled || !full.get(id)?.v)) full.set(id, s);
     return full;
   };
   const [tx, tn, pr] = [await load('TMAX'), await load('TMIN'), await load('PRCP')];
@@ -115,9 +133,11 @@ async function wmoStations() {
   for (const [id, x] of tx) {
     const n = tn.get(id);
     if (!x.v || !n?.v || !valid(x.v, n.v)) continue;
+    // doplněné teploty = neúplná řada i u srážek (Janov má v květnu 0 mm) → srážky z buňky NASA
+    const filled = x.filled || n.filled;
     out.push({
       key: `wmo:${id}`, lat: x.lat, lon: x.lon, el: x.el > -100 && x.el < 6000 ? x.el : null,
-      country: x.country, name: x.name, hi: x.v, lo: n.v, p: pr.get(id)?.v || null,
+      country: x.country, name: x.name, hi: x.v, lo: n.v, p: filled || pr.get(id)?.filled ? null : pr.get(id)?.v || null,
       coarse: Number.isInteger(x.lat) && Number.isInteger(x.lon),
     });
   }
@@ -301,8 +321,16 @@ async function main() {
     }
   }));
 
+  const wmoById = new Map(wmo.map((s) => [s.key, s]));
   for (const { a, nasa, pNasa, w, wOk, cands } of plans) {
     airportsMap[a.iata] = a.cell;
+    // 0. ručně určená stanice (OVERRIDE)
+    const o = OVERRIDE[a.iata] && wmoById.get(`wmo:${OVERRIDE[a.iata]}`);
+    if (o && sane(o.hi, o.lo, nasa) && (o.p || pNasa)) {
+      use(a, o, o.hi, o.lo, o.p || pNasa);
+      stats.wmoFar++;
+      continue;
+    }
     if (w && !wOk) stats.rejected++;
     // 1. normály WMO do 10 km
     if (wOk && w.km <= 10) {

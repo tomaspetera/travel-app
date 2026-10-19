@@ -1558,7 +1558,9 @@ vzdušnou čarou (Řím → Neapol ~590 Kč, Lisabon → Porto ~830 Kč, Barcelo
   `data/ground.json` (zdroj a datum jsou v souboru).
 - Podnebí: meteostanice u letišť – [normály WMO 1991–2020](https://www.ncei.noaa.gov/products/wmo-climate-normals)
   (NOAA NCEI) a průměry 1991–2020 spočítané z denních měření [NOAA GHCN-Daily](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily)
-  (každý měsíc průměr aspoň ze 100 změřených dní z 5 různých let), sestavuje `node scripts/build-climate-stations.mjs`;
+  (každý měsíc průměr aspoň ze 100 změřených dní z 5 různých let), sestavuje `node scripts/build-climate-stations.mjs`
+  (normály WMO s nejvýš 2 nesousedními chybějícími měsíci se doplní průměrem sousedních – Janov; ručně určená
+  stanice tam, kde pravidla žádnou nenajdou – Terst, Istanbul);
   jinde [NASA POWER](https://power.larc.nasa.gov/) Climatology API (MERRA-2, 2001–2020, buňky 0,5°), sestavuje
   `node scripts/build-climate.mjs` (po něm je třeba znovu spustit i skript se stanicemi). Obojí do `data/climate.json`.
 - Země: cenová hladina podle Světové banky (PPP / směnný kurz, upravená na turistické ceny), bezpečnost podle MZV ČR,
