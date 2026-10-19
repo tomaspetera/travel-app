@@ -11,8 +11,8 @@ export const VISIT_MIN = {
   bridge: 15, tower: 45, ruins: 60, theatre: 30, sight: 45, daytrip: 360,
 };
 // Významný kostel nebo pomník (UNESCO, nebo článek v 60+ jazycích) – Bazilika sv. Petra ani Jerónimos nejsou zastávka
-// na půl hodiny jako kostelík za rohem.
-const MAJOR_MIN = { church: 60, monument: 40 };
+// na půl hodiny jako kostelík za rohem; Gaudího Casa Batlló a Casa Milà (UNESCO, „zajímavost“) ne na 45 min.
+const MAJOR_MIN = { church: 60, monument: 40, sight: 75 };
 // Malé stavby: sloučené části (kaple, vyhlídka…) přidají nejvýš půl hodiny – věž ani pomník nejsou na 2 h.
 const SMALL = new Set(['church', 'monument', 'tower', 'bridge', 'viewpoint']);
 const PACE = { relaxed: 240, normal: 360, intense: 480 }; // minut programu na celý den

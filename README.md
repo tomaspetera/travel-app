@@ -8,10 +8,13 @@ Z vybraného letu pak průvodce **Cesta** poskládá celou dovolenou: **let → 
 s celkovou cenou, seznamem, co v jakém pořadí zarezervovat, a časovou osou (prázdná Cesta má nahoře pole
 *Kam chceš jet?* – město, „kamkoliv“ nebo celá věta – a rovnou hledá lety). Sekce **Objevuj** funguje i samostatně:
 zadáš místo a ATLAS najde, co tam stojí za vidění, a rozplánuje to do dnů – jako pěší program ve městě,
-**jednodenní výlety** (ráno ven, večer zpět) nebo **vícedenní okruh** s přespáním po cestě, autem i vlakem
+**jednodenní výlety** (ráno ven, večer zpět) nebo **vícedenní okruh** s přespáním po cestě (u oblasti jako Toskánsko,
+Apulie, Istrie i se slovinským pobřežím, Algarve, Skotsko nebo Laponsko jen uvnitř její hranice), autem i vlakem
 a autobusem (čas cesty je odhad, skutečné spoje ukáže odkaz do Google Map u každého úseku). U výletů si zvolíš,
 co tě láká – města, památky (hrady, zámky, kláštery), poznávací, přírodu (národní parky, hory, vodopády, jeskyně,
-skály), lázně nebo výlety s dětmi. Režim **Na kole** naplánuje okruh zvolené délky (15–130 km) pro silniční,
+skály), lázně nebo výlety s dětmi. Program ve městě počítá s délkou návštěvy podle významu místa (Bazilika sv. Petra
+hodina, kostelík za rohem půl hodiny, Forum Romanum hodina jako naleziště) a se zájmem „s dětmi“ přidá ZOO a parky
+(ZOO a zábavní park nejvýš jednou za pobyt). Režim **Na kole** naplánuje okruh zvolené délky (15–130 km) pro silniční,
 trekové, gravel nebo horské kolo – městem (přes památky), smíšeně nebo přírodou (lesy, řeky, mimo silnice), po rovině
 nebo do kopců. Ukáže délku, stoupání, odhad času, podíl nezpevněných cest a cyklostezek, výškový profil, trasu
 v mapě, stáhne GPX a otevře trasu v Mapy.com (turistická mapa) nebo Google Mapách. Varianta **🚆 Vlakem tam, na kole
@@ -113,7 +116,7 @@ plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dota
 - **Víc cest najednou**: přednost má cesta, jejíž spoj právě letí či jede nebo odjíždí do 24 h (ráno odletu i večer
   před dalším odletem); jinak probíhající – cesta se spoji nebo z průvodce před výletem z plánovače či z Objevuj, pak
   naposledy začatá; pak nejbližší odjezd. Cesta, ze které ses už vrátil (let zpět přistál), drží kartu do půlnoci, jen
-  když není nic jiného. Ostatní probíhající cesty karta ukáže řádkem **📌 Také dnes** (program dne a odkaz na plán)
+  když není nic jiného – s nadpisem **🏠 Zpátky doma · Lisabon** a bez místního času v cíli. Ostatní probíhající cesty karta ukáže řádkem **📌 Také dnes** (program dne a odkaz na plán)
   a jejich 🔖 rezervace pod rezervacemi cesty. Poslední let cesty přes víc měst je „zpět“ (🛬, po programu dne), jen
   když končí tam, kde cesta začala (nebo aspoň ve stejné časové zóně) – PRG → FCO → BCN je ✈️ před programem.
 
@@ -324,6 +327,8 @@ krém…).
 | **Hlídání cen + živý radar** | Ulož hledání ♡ a nastav cílovou cenu. Dokud máš ATLAS otevřený v prohlížeči, kontroluje ho sám zhruba jednou za 6 h (po otevření hned všechna, která to potřebují, pak nejvýš 4 za půl hodiny), kreslí vývoj ceny a při zlevnění o 3 % nebo pod cílovou částku se ozve (i upozorněním prohlížeče). Stejné hledání (stejný dotaz – nezáleží na pořadí míst) se hlídá jen jednou: uložíš-li ho znovu (♡ pod formulářem i v *Je to dobrá cena?*), jen se mu aktualizuje cena a panel ukáže *✓ Tohle hledání už hlídáš*. Když stejné hledání spustíš podruhé a ještě ho nehlídáš, nabídne ho výsledek sám: *🔁 Tohle hledáš už po 2. – ♡ Hlídat cenu*. Radar ukazuje nejlevnější zpáteční lety z tvého okolí na příštích 6 týdnů. Přepínač *🗓️ Kdykoliv / 🏙️ Víkendy / 🎉 Svátky*: Kdykoliv = 2–7 nocí, Víkendy = odlet v pátek nebo v sobotu a návrat v neděli nebo v pondělí (1–3 noci, u karet i den v týdnu), Svátky = nejbližší prodloužený víkend kolem českého svátku (aspoň 3 volné dny; svátek v úterý nebo ve čtvrtek se přemostí jedním dnem volna, středa se přeskočí – tu najde *🗓️ Kdy si vzít dovolenou*; Velikonoce podle data Velikonoc) – odlet večer předem (od 16:00 – ranní lety v pracovní den server vyřadí už při hledání) nebo první volný den, návrat poslední volný den; pod přepínačem jsou na výběr tři nejbližší takové víkendy (volba se pamatuje). Kdo hledá hlavně víkendy (aspoň 3 z posledních 5 hledání na víkend, prodloužený víkend nebo svátek), tomu radar v režimu Kdykoliv nabídne *💡 Hledáš hlavně víkendy → ukázat Víkendy* – jednou, vlastní volba režimu nabídku ukončí. Volbu si ATLAS pamatuje, výsledky všech režimů drží půl hodiny (přepnutí tam a zpět nic znovu nehledá) a klik na kartu otevře vyhledávač se stejnými podmínkami – ceny radaru jsou za osobu pro počet cestujících z nastavení radaru (*změnit* u domova, výchozí 2) a klik na kartu hledá pro stejný počet, aby karta i proklik ukázaly stejnou cenu (u Svátků i s pravidlem „v předvečer jen odlety od 16:00“ – zaškrtávátko v *Další možnosti*, jde vypnout). Pod termínem každé karty radaru je, kolik dní dovolené cesta stojí. Karty s odletem do 15 dní mají štítek předpovědi počasí v cíli, ostatní dlouhodobý průměr denních maxim v měsíci odletu (*🌡️ ~8°*) (viz *Počasí v cíli*). |
 | **🔁 Klouzavé hlídání** | Hledání, které opakuješ každý týden („Brno +200 km → kamkoliv, víkendy, příštích 8 týdnů“), ulož s *📅 Posouvat termín s časem* (zaškrtávátko vedle ♡ Hlídat cenu u flexibilního termínu aspoň na týden – kratší rozsah by se posouval mimo zvolené dny odletu; zapnuté předem, když rozsah začíná nejpozději za 7 dní). Hlídání si pak místo dat pamatuje odstup a délku rozsahu – každá kontrola, *Otevřít* i řádek *Od minula* hledají vždy od dneška (*vždy příštích 8 týdnů (teď 14. 10.–9. 12.)*, se začátkem za víc než 3 dny *vždy odlet za 30–58 dní*), takže termín nikdy neproběhne a historie, cílová cena i *od uložení* zůstanou. U *🎉 Svátky* s nejbližším víkendem se uloží *vždy nejbližší prodloužený víkend* (i s vypnutým „v předvečer jen odlety od 16:00“; na další víkend přejde stejně jako nabídka 🎉 Svátky den před jeho začátkem – v den odletu večer předem). Ceny se tak porovnávají vždy s aktuálním termínem (karta to připomíná). Přesná data, víc měst a později vybraný svátek zůstávají pevné. Na kartě jde posouvání vypnout (zůstane dnešní termín) a starší flexibilní hlídání má odkaz *📅 převést na klouzavé* – i karta *⌛ Termín proběhl*, kde se rozsah posune jako v den uložení a hned se zkontroluje. Kontroluje se stejně často (asi jednou za 6 h, nejvýš 12 hlídání), záloha posouvání přenese. |
 | **🏖️ Dny dovolené** | U každé zpáteční nabídky je ve štítku nocí i počet dní dovolené: *🌙 4 noci · 🏖️ 2 dny dovolené*, nebo *· 🎉 bez dovolené* (po najetí které dny a který svátek pomáhá). Volno = víkendy a svátky ČR (státní i ostatní – dny pracovního klidu podle zákona č. 245/2000 Sb., Velikonoce výpočtem – nic se nemusí aktualizovat). Počítá se každý pracovní den od odletu do návratu včetně; odlet v pracovní den od 16:00 je po práci, let bez známého času odletu bere celý den; přílet zpět až další den od 5:00 (dálkový let) posune poslední den, noční přílet do 4:59 ne (ráno do práce). Řazení *Nejméně dovolené* (jen u zpátečních cest) dá nahoru nabídky s nejmíň dny dovolené, při shodě nejlevnější; v přehledu „kamkoliv“ je pak počet dní na začátku řádku. Odkaz *🗓️ Kdy si vzít dovolenou – nejvíc volna za nejmíň dní* pod *Délkou pobytu* ukáže nejdelší volna kolem svátků v příštích 12 měsících za nejvýš 1–5 dní dovolené (volba se pamatuje) – i se svátkem ve středu (28. 10. 2026: út večer odlet, čt + pá dovolená = st–ne 5 dní volna), ★ *nejvíc volna na den dovolené* u oken s nejlepším poměrem (dvě nejlepší a ta, co jsou s nimi stejně dobrá). *✈️ Hledat lety* vyplní termín jako 🎉 Svátky (odlet večer předem od 16:00 nebo první volný den, návrat poslední volný den) a hledá jednou – nic se nehledá, dokud na něj neklikneš. |
+| **↩ Smazání jde vrátit** | Smazané hlídání i smazaná cesta v plánovači (bez systémového dotazu) jdou vrátit tlačítkem *↩ Vrátit* v hlášce – na stejné místo, s cílovou cenou, rezervacemi i poznámkami. |
+| **Kam letos podle stylu** | V *Doporučení* má země, která odpovídá zvolenému stylu (hory, pláže, historie, příroda, města), čip *✓ hory* atd.; země mimo sezónu jsou níž. Nejlepší měsíce zemí jsou zkontrolované proti klimatickým normálům (19. 10. 2026). |
 
 ## Odkud bere ceny
 
@@ -334,6 +339,7 @@ krém…).
 | **Kiwi.com** (veřejný MCP server `mcp.kiwi.com`) | živé ceny všech aerolinek (low-cost i klasické, přestupy, kombinace různých aerolinek) – do konkrétního cíle, do zemí a světadílů (dotaz na každou oblíbenou zemi), „kamkoliv“ (Evropa + dálkové země) a při ověření vybraného letu | není potřeba |
 | **Travelpayouts / Aviasales Data API** | všechny ostatní aerolinky (i s přestupy, dálkové lety), ceny z vyhledávání uživatelů za posledních ~48 h | **zdarma** token z [travelpayouts.com](https://www.travelpayouts.com/) |
 | **Xotelo** (ubytování, výchozí) | hotely z TripAdvisoru s hodnocením (0–5) a orientačními cenami na zadané dny u Booking.com, Agody, Trip.com… – neoficiální API, viz [Ceny hotelů](#ceny-hotelů) | není potřeba |
+| **OpenStreetMap přes Nominatim** (ubytování, záloha) | hotely, penziony, agroturistiky a hostely v okolí místa (do ~5 km) s hvězdičkami a webem – jen když TripAdvisor (Xotelo) pro místo nic nemá (malá města jako Palazzolo Acreide nebo Alcobaça nemají ve Wikidatech ID TripAdvisoru). Bez ceny: *Vybrat* vybere ubytování a cenu doplníš sám, u každého odkaz na Booking.com s termínem, Google Maps a web | zdarma, bez klíče; podle pravidel Nominatim nejvýš 1 dotaz za sekundu, výsledek v mezipaměti 7 dní |
 | **LiteAPI** (ubytování, volitelně – má přednost) | hotely s cenou na zadané dny, hodnocením hostů a fotkou | **zdarma** klíč z [liteapi.travel](https://www.liteapi.travel/) (skutečné ceny jen s ostrým klíčem) |
 | **Wikidata + Wikipedie** (program) | místa k vidění, typ, význam, fotky, české popisy | není potřeba |
 | **ČSÚ + Weekly Oil Bulletin EU** (cesta autem na letiště) | týdenní ceny nafty a Natural 95 v Česku a sousedních zemích; elektroauto podle ceníků nabíjení – viz [Aktuální ceny paliva a nabíjení](#aktuální-ceny-paliva-a-nabíjení) | není potřeba |
@@ -737,7 +743,7 @@ na osobu – do ceny letenky se nepřičítá.
 nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; kde z letiště veřejná doprava nejezdí (Hurghada,
 Šarm aš-Šajch, Marsa Alam, Akaba, Djerba), 🚕 taxi – cena za auto děleno dvěma; „od“ = cena online předem; kde je známá i
 běžná cena v den cesty (pole `typ` – Stansted Express od 9,90 £, běžně 23 £; flibco Charleroi od 14,99 €, v den odjezdu
-~19 €; Terravision Bergamo od 5 €, běžně 8 €; Allgäu Airport Express online 15 €, v autobuse 20 €; Funchal 702 předem 2 €,
+~19 €; Terravision Bergamo od 5 €, běžně 8 €; Memmingen flibco online od 6,99 €, běžně ~15 € (Allgäu Airport Express online 15 €, v autobuse 20 €); Funchal 702 předem 2 €,
 na palubě 2,65 €), štítek ukáže obě a do odhadu ceny cesty (Kč) jde ta běžná. Cesta *na* letiště (odlet, `access.js`) počítá
 s cenou „od“ – jízdenka na odlet se kupuje předem:
 
@@ -753,7 +759,7 @@ s cenou „od“ – jízdenka na odlet se kupuje předem:
    Kišiněvě stojí méně).
 2. **Letiště z tabulky [cesty na letiště](#doprava-na-letiště)** (~35 letišť do ~450 km od Česka, `access.js`) – stejný
    spoj obráceně (Vídeň, Mnichov, Berlín, Drážďany…), s popiskem odhad. Letiště v obou tabulkách mají stejné jízdné „od“
-   a čas: podle ověření 10/2026 se v `access.js` opravily Memmingen (450 → 370 Kč, online od 15 €), Frankfurt (155 → 170
+   a čas: podle ověření 10/2026 se v `access.js` opravily Memmingen (450 → 370 Kč, online od 15 €; 19. 10. flibco od 6,99 € → 170 Kč), Frankfurt (155 → 170
    Kč), Krakov (80 → 110 Kč), Budapešť (140 → 170 Kč) a Záhřeb (200 → 220 Kč); test hlídá shodu.
 3. **Odhad** pro ostatní letiště: vzdálenost do centra (letiště metropole s víc letišti od jejího středu, jinak typicky
    15 km u velkého, 10 km u středního a 6 km u malého letiště) → regionální jízdné z cesty na letiště (30 Kč + 1,5 Kč/km;
@@ -800,7 +806,7 @@ s cenou „od“ – jízdenka na odlet se kupuje předem:
 | NRN Düsseldorf | autobus Airport Weeze Shuttle do Düsseldorf Hbf | 24 € | 590 ⚠ | 1 h 15 | [airport-weeze.com](https://airport-weeze.com/en/neuer-busdienst-vom-hauptbahnhof-duesseldorf-zum-airport-weeze/) |
 | DUS Düsseldorf | S-Bahn / tramvaj U80 na Düsseldorf Hbf | 3,80 € | 90 | 18 min | [vrr.de](https://www.vrr.de/fileadmin/user_upload/pdf/service/downloads/Weitere_Broschueren_und_Tarifinformationen/VRR_Preise_2026.pdf) |
 | CGN Kolín nad Rýnem | S-Bahn S19 na Köln Hbf | 4 € | 100 | 15 min | [vrs.de](https://www.vrs.de/fileadmin/01_Tickets/Rheinlandtarif/VRS_Preistabelle_06-2026_final.pdf) |
-| FMM Mnichov | autobus Allgäu Airport Express do München Hbf | od 15 €, běžně 20 € | 490 ⚠ | 1 h 20 | [allgaeu-airport.de](https://www.allgaeu-airport.de/mit-dem-bus-zum-flieger/) |
+| FMM Mnichov | autobus flibco do München Hbf (ZOB), 15× denně od 1. 10. 2026 | od 6,99 €, běžně ~15 € | 370 ⚠ | 1 h 25 | [flibco.com](https://www.flibco.com/en/shuttle/bus-munich-memmingen-airport) |
 | GRO Barcelona | autobus Sagalés Airport Line na Barcelona Nord | 22 € | 540 ⚠ | 1 h 15 | [sagalesairportline.com](https://www.sagalesairportline.com/en) |
 | REU Barcelona | autobus Monbus na Barcelona Sants | 18,50 € | 450 ⚠ | 1 h 40 | [catalunya.monbus.es](https://catalunya.monbus.es/wp-content/uploads/2026/04/H_AeropuertoReus_2026-04.pdf) |
 | BCN Barcelona | autobus Aerobús na Plaça de Catalunya | 7,45 € | 180 | 35 min | [aerobusbarcelona.es](https://aerobusbarcelona.es/en/rates/) |

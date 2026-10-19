@@ -352,10 +352,10 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   // od (online předem) i běžná cena v den cesty; v Kč (do odhadu ceny cesty) ta běžná
   assert.equal(H.arrivalChips({ out: { to: 'STN' } }, ARR)[0].text, '🚆 z letiště STN do Londýna od 9,90 £, běžně 23 £ (~660 Kč) · 48 min');
   assert.deepEqual([ARR.STN.fare, ARR.STN.typ, ARR.STN.czk], [9.9, 23, A.fareCzk(23, 'GBP')]);
-  // Terravision Bergamo od 5 €, běžně 8 €; Allgäu Airport Express online 15 €, v autobuse 20 € (ověřeno 10/2026)
+  // Terravision Bergamo od 5 €, běžně 8 €; Memmingen: flibco online od 6,99 €, běžně ~15 € jako Allgäu Airport Express (ověřeno 10/2026)
   const [bgy, fmm] = ['BGY', 'FMM'].map((k) => A.arrivalTransfer(k));
-  assert.deepEqual([bgy.typ, bgy.czk, fmm.typ, fmm.czk], [8, A.fareCzk(8, 'EUR'), 20, A.fareCzk(20, 'EUR')]);
-  assert.equal(H.arrivalChips({ out: { to: 'FMM' } }, { FMM: fmm })[0].text, '🚌 z letiště FMM do Mnichova od 15 €, běžně 20 € (~490 Kč) · 1 h 20');
+  assert.deepEqual([bgy.typ, bgy.czk, fmm.typ, fmm.czk], [8, A.fareCzk(8, 'EUR'), 15, A.fareCzk(15, 'EUR')]);
+  assert.equal(H.arrivalChips({ out: { to: 'FMM' } }, { FMM: fmm })[0].text, '🚌 z letiště FMM do Mnichova od 6,99 €, běžně 15 € (~370 Kč) · 1 h 25');
   assert.match(H.arrivalChips({ out: { to: 'LGW' } }, ARR)[0].title, /Zdroj \(sekundární, oficiální neuvádí\): lasttrip\.uk/);
   // vypnuto: informace zůstane, jen se nepočítá do ceny
   assert.match(H.arrivalChips({ out: { to: 'BVA' } }, ARR, { on: false })[0].title, /Neukazuje se \(vypnuto v Další možnosti\)\./);

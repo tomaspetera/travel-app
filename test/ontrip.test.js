@@ -25,7 +25,7 @@ function load({ clipboard = false } = {}) {
     var $$ = () => []; var go = (v) => { __go.push(v); }; var save = () => {}; var toast = (m) => { __toasts.push(m); }; var confirm = () => true;
     var byIso = { PT: { cs: 'Portugalsko' }, IT: { cs: 'Itálie' }, AT: { cs: 'Rakousko' } }; var PACK = ['Pas'];`, ctx, { filename: 'stubs.js' });
   for (const f of ['ics.js', 'planshare.js', 'backup.js', 'trip.js', 'places.js']) vm.runInContext(src(f), ctx, { filename: f });
-  vm.runInContext(pick('todayLocal', 'daysTo', 'inDays', 'okYmd', 'ymdPlus', 'wallAt', 'tripLegs', 'tripZone', 'tripBack', 'tripNow', 'tripRows', 'nowParts', 'hmTxt', 'dowLbl', 'canCopy', 'nowCard',
+  vm.runInContext(pick('todayLocal', 'daysTo', 'inDays', 'okYmd', 'ymdPlus', 'wallAt', 'tripLegs', 'tripZone', 'tripBack', 'tripNow', 'tripRows', 'pastRows', 'nowParts', 'hmTxt', 'dowLbl', 'canCopy', 'nowCard',
     'dateRange', 'planIco', 'planTransport', 'tripIsos', 'tripVia', 'planEvents'), ctx, { filename: 'app-now.js' });
   return ctx;
 }
@@ -231,6 +231,16 @@ test('tripNow + nowParts: večer po návratu domů má přednost zítřejší od
   const home = at([lis], '2026-11-17T19:00:00Z');
   assert.deepEqual([home.x.day, home.x.home, home.p.hotel, home.h.includes('🏨')], [6, true, null, false]);
   assert.ok(home.h.includes('🏠 Zpátky doma · <b>Lisabon</b>') && !home.h.includes('Dnes na cestě ·') && !home.h.includes('🕐'), home.h);
+  // dnešní řádky, které už proběhly, jsou ztlumené (ne schované)
+  const pastOf = (p) => p.rows.map((r, k) => `${r[1]}${p.past[k] ? '·' : ''}`).join(' ');
+  // ráno v Lisabonu nic; po 7:15 „vyraž z ubytování“; v letadle (do příletu 14:35) let ani metro ještě ne; doma vše
+  assert.deepEqual(['06:00', '09:30', '12:00'].map((hm) => pastOf(at([lis], `2026-11-17T${hm}:00Z`).p)),
+    ['🚪 🚇 🛬 🚆', '🚪· 🚇 🛬 🚆', '🚪· 🚇 🛬 🚆']);
+  assert.equal(pastOf(home.p), '🚪· 🚇· 🛬· 🚆·');
+  assert.equal((home.h.match(/<li class="nw-past">/g) || []).length, 4, home.h);
+  assert.equal((at([lis], '2026-11-17T06:00:00Z').h.match(/nw-past/g) || []).length, 0);
+  assert.equal(plain(C.pastRows([['d', '🍽️', 'Večeře ve 20:30'], ['d', '📍', 'Program'], ['d', '🛫', 'FCO <b>21:40</b> → PRG 23:35']], '21:00')).join(), 'true,false,false',
+    'večeře proběhla; program bez času po ní ne (další řádek ještě neproběhl); čas v HTML se počítá bez značek');
   // hotel: ne doma před odletem, ano po přistání, ne po odletu zpět
   const hotel = (iso) => at([lis], iso).p.hotel && at([lis], iso).p.hotel.name;
   assert.deepEqual(['2026-11-12T03:00:00Z', '2026-11-12T07:00:00Z', '2026-11-12T09:10:00Z', '2026-11-17T09:30:00Z', '2026-11-17T10:05:00Z'].map(hotel), [null, null, 'Hotel Lisboa Centro', 'Hotel Lisboa Centro', null]);

@@ -353,6 +353,14 @@ test('program ve městě: pěší den i v Mapy.com (start u ubytování), výlet
   assert.match(html, /<span class="dp-links">trasa: <a class="linkbtn"[^>]*>Google Maps ↗<\/a> · <a class="linkbtn"[^>]*>Mapy\.com ↗<\/a><\/span>/);
 });
 
+test('program ve městě: zastávka hned vedle předchozí – „hned vedle“, ne „0 km pěšky (~0 min)“', () => {
+  const TB = load({ byIso: { ES: { cs: 'Španělsko' } } }).window.Places._t;
+  const [a, b, c] = BCN.items.filter((x) => x.category !== 'daytrip').slice(0, 3);
+  const items = [{ ...a, visitMin: 75, fromPrevKm: 0.04, fromPrevMin: 0 }, { ...b, visitMin: 45, fromPrevKm: 0, fromPrevMin: 0 }, { ...c, visitMin: 45, fromPrevKm: 1.2, fromPrevMin: 15 }];
+  const walks = [...TB.planHtml({ days: [{ date: '2026-10-12', items, cap: 480, minutes: 165, walkKm: 1.2 }] }, BCN_C).matchAll(/<div class="dp-walk">([^<]*)<\/div>/g)].map((m) => m[1]);
+  assert.deepEqual(walks, ['hned u ubytování', 'hned vedle', 'dál 1,2 km pěšky (~15 min)']);
+});
+
 test('Mapy.com: nejvýš 15 mezizastávek, bez platných bodů žádný odkaz', () => {
   const pts = Array.from({ length: 20 }, (_, i) => ({ lat: 50 + i / 100, lon: 14 + i / 100 }));
   const u = new URL(T.mapyDir({ lat: 50, lon: 14 }, pts, 'foot_fast'));
