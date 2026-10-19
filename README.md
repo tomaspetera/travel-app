@@ -339,7 +339,7 @@ krém…).
 | **Kiwi.com** (veřejný MCP server `mcp.kiwi.com`) | živé ceny všech aerolinek (low-cost i klasické, přestupy, kombinace různých aerolinek) – do konkrétního cíle, do zemí a světadílů (dotaz na každou oblíbenou zemi), „kamkoliv“ (Evropa + dálkové země) a při ověření vybraného letu | není potřeba |
 | **Travelpayouts / Aviasales Data API** | všechny ostatní aerolinky (i s přestupy, dálkové lety), ceny z vyhledávání uživatelů za posledních ~48 h | **zdarma** token z [travelpayouts.com](https://www.travelpayouts.com/) |
 | **Xotelo** (ubytování, výchozí) | hotely z TripAdvisoru s hodnocením (0–5) a orientačními cenami na zadané dny u Booking.com, Agody, Trip.com… – neoficiální API, viz [Ceny hotelů](#ceny-hotelů) | není potřeba |
-| **OpenStreetMap přes Nominatim** (ubytování, záloha) | hotely, penziony, agroturistiky a hostely v okolí místa (do ~5 km) s hvězdičkami a webem – jen když TripAdvisor (Xotelo) pro místo nic nemá (malá města jako Palazzolo Acreide nebo Alcobaça nemají ve Wikidatech ID TripAdvisoru). Bez ceny: *Vybrat* vybere ubytování a cenu doplníš sám, u každého odkaz na Booking.com s termínem, Google Maps a web | zdarma, bez klíče; podle pravidel Nominatim nejvýš 1 dotaz za sekundu, výsledek v mezipaměti 7 dní |
+| **OpenStreetMap přes Nominatim** (ubytování, záloha) | hotely, penziony, agroturistiky a hostely v okolí místa (do ~5 km) s hvězdičkami a webem – jen když TripAdvisor (Xotelo) v místě samém nic nemá (malá města jako Palazzolo Acreide nebo Alcobaça nemají ve Wikidatech ID TripAdvisoru); vedle hotelů s cenou z okolí jako „V místě (bez ceny)“. Bez ceny: *Vybrat* vybere ubytování a cenu doplníš sám, u každého odkaz na Booking.com s termínem, Google Maps a web | zdarma, bez klíče; podle pravidel Nominatim nejvýš 1 dotaz za sekundu, výsledek v mezipaměti 7 dní |
 | **LiteAPI** (ubytování, volitelně – má přednost) | hotely s cenou na zadané dny, hodnocením hostů a fotkou | **zdarma** klíč z [liteapi.travel](https://www.liteapi.travel/) (skutečné ceny jen s ostrým klíčem) |
 | **Wikidata + Wikipedie** (program) | místa k vidění, typ, význam, fotky, české popisy | není potřeba |
 | **ČSÚ + Weekly Oil Bulletin EU** (cesta autem na letiště) | týdenní ceny nafty a Natural 95 v Česku a sousedních zemích; elektroauto podle ceníků nabíjení – viz [Aktuální ceny paliva a nabíjení](#aktuální-ceny-paliva-a-nabíjení) | není potřeba |
@@ -414,9 +414,18 @@ které ID GeoNames nemá (Lisabon, Paříž, Řím, Vídeň, Berlín…), živě
 na obce v okolí bodu (živě 3–21 s, timeout 35 s): obec, ve které místo leží (nebo aspoň třetinová část; čtvrť má
 v P3134 často ID atrakce), dál od místa jen větší město (vesnice → město v okolí, ne předměstí velkoměsta). Ten se
 pošle i dodatečně, když nalezené místo nemá v okolí žádné hotely. Dotazy na Wikidata mají vlastní frontu (nečekají za
-dlouhými dotazy Objevuj); výpadek Wikidat se pamatuje 10 min, ať další hledání nečeká na timeout znovu. Místo bez ID
-(třeba Český Krumlov) dostane jen odkazy. Hotely dál než 15 km od místa pobytu a bez recenzí se zahodí – špatné ID se
-tak projeví jen tím, že ceny chybí.
+dlouhými dotazy Objevuj); výpadek Wikidat se pamatuje 10 min, ať další hledání nečeká na timeout znovu. Hotely dál
+než 15 km od místa pobytu a bez recenzí se zahodí – špatné ID se tak projeví jen tím, že ceny chybí.
+
+**Malé místo bez hotelů na TripAdvisoru** (Palazzolo Acreide, Alcobaça – další zastávky trasy přes víc míst): ceny
+**z okolí** – hotely nejbližších (nejvýš 2) míst TripAdvisoru do 35 km (tabulky `TA_CITIES` / `TA_PLACES`, místa
+z Wikidat, jejichž hotely jsou dál než 15 km) do 40 km od místa pobytu; živě 10/2026 Palazzolo → Noto 21 km a Modica
+34 km, Alcobaça → Batalha 18 km a Caldas da Rainha 22 km. Karta je stejná jako u hotelu v místě (ceny u webů, *Vybrat*
+ověří volno) s řádkem „📍 v okolí: Noto · 24 km od Palazzolo Acreide“; odkazy na weby hledají hotel v jeho místě
+(„Hotel X, Noto“). Pod nimi ubytování **v místě bez ceny** z OpenStreetMap (viz zdroje). Při výpadku Wikidat taky ceny
+z okolí, v mezipaměti jen 5 min. Návrh trasy přes víc míst dává při podobném skóre přednost místům s hotely
+na TripAdvisoru (`HOTEL_BONUS` v `server/lib/stayplan.js`, ~6 bodů ≈ 50 min přejezdu). Místo, kde v okolí nic není,
+dostane jen odkazy.
 
 **Kolik dotazů:** na místo a termín 1 seznam hotelů (TripAdvisor „nejlepší poměr“, 40 hotelů, timeout 10 s bez
 opakování) + nejvýš **12 dotazů na ceny** (8 nejlépe hodnocených podle poměru a 4 nejlevnější podle ceníku
@@ -736,6 +745,12 @@ na osobu – do ceny letenky se nepřičítá.
   ve Shrnutí položka **Doprava z letiště do města a zpět (odhad)** – jen když byla v ceně hledání. Úsek, který nahradí
   auto půjčené na letišti příletu (nebo vrácené na letišti odletu), odpadá. U trasy přes víc míst je jízdné u přejezdu
   z letiště na první místo a z posledního místa na letiště, leží-li to místo ve městě letiště (do 25 km).
+- **V noci taxi s pevnou cenou:** vyráží-li se z ubytování na letiště, nebo přistává-li se, před 5:00 či od 23:00, MHD
+  a letištní vlaky obvykle nejezdí. U letišť s **úřední pevnou cenou taxi** do centra (tabulka níže) průvodce ten úsek
+  počítá taxíkem – cena za auto (noční, je-li; u rozpětí podle části města horní) děleno počtem dospělých, nad 4 osoby
+  další auto – a v časové ose napíše *· v noci taxi, pevná cena 55 € za auto (v odhadu ceny započteno)*, v kroku Let
+  a ve Shrnutí u dopravy *taxi na letiště FCO (noc) 55 € za auto*. U ostatních letišť zůstává *v noci spíš taxi
+  (v odhadu ceny je MHD)*. Výsledky hledání (bez známých časů cesty z ubytování) počítají dál MHD.
 - **Hlídané ceny** uložené před touto volbou se dál počítají bez cesty do města, ať jde nová cena porovnat s dřívější;
   dotaz na API bez pole `arrival` taky (viz [API](#api)).
 
@@ -744,8 +759,13 @@ nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; k
 Šarm aš-Šajch, Marsa Alam, Akaba, Djerba), 🚕 taxi – cena za auto děleno dvěma; „od“ = cena online předem; kde je známá i
 běžná cena v den cesty (pole `typ` – Stansted Express od 9,90 £, běžně 23 £; flibco Charleroi od 14,99 €, v den odjezdu
 ~19 €; Terravision Bergamo od 5 €, běžně 8 €; Memmingen flibco online od 6,99 €, běžně ~15 € (Allgäu Airport Express online 15 €, v autobuse 20 €); Funchal 702 předem 2 €,
-na palubě 2,65 €), štítek ukáže obě a do odhadu ceny cesty (Kč) jde ta běžná. Cesta *na* letiště (odlet, `access.js`) počítá
-s cenou „od“ – jízdenka na odlet se kupuje předem:
+na palubě 2,65 €; Luton od 10 £, běžně ~17 £; Manchester od 2,90 £, běžně ~6 £; Torp-ekspressen od 289 NOK, běžně
+~360 NOK), štítek ukáže obě a do odhadu ceny cesty (Kč) jde ta běžná. U Stanstedu, Lutonu, Manchesteru a Torpu je běžná
+cena jen ze sekundárních zdrojů (²; oficiální stránka cenu v den cesty neuvádí) a poznámka štítku to říká. Kde se cena
+v den cesty neliší, „od“ se nepíše (Heathrow metro 5,90 £ kdykoli podle TfL, Flybus Keflavík pevně 3 999 ISK); Southend:
+Off-Peak 13,40 £ platí i v den cesty (ve špičce 20,10 £). Bez běžné ceny zůstávají Flygbussarna ve Stockholmu (Skavsta,
+Arlanda, Västerås) a flibco Hahn – cenu v den cesty neuvádí oficiální ani důvěryhodný sekundární zdroj. Cesta *na*
+letiště (odlet, `access.js`) počítá s cenou „od“ – jízdenka na odlet se kupuje předem:
 
 1. **Ověřená tabulka 157 letišť** z oficiálních stránek letiště, dopravce nebo dopravního svazu, **ověřeno 7. a 18. 10.
    2026**: 74 z prvního kola, 59 nejčastějších dalších cílů z Prahy a okolí (živé hledání „kamkoli“ ve třech obdobích –
@@ -777,11 +797,11 @@ s cenou „od“ – jízdenka na odlet se kupuje předem:
 | CRL Brusel | autobus flibco do Bruxelles-Midi | od 14,99 €, běžně ~19 € | 460 ⚠ | 55 min | [flibco.com](https://www.flibco.com/en/shuttle/bus-brussels-charleroi-airport) |
 | BRU Brusel | autobus STIB Airport Line 12 do evropské čtvrti | 7,90 € | 190 | 30 min | [stib-mivb.be](https://www.stib-mivb.be/travel/other-mobility-solutions/airport-line) |
 | STN Londýn | vlak Stansted Express do Liverpool Street | od 9,90 £, běžně 23 £ ² | 660 ⚠ | 48 min | [stanstedexpress.com](https://www.stanstedexpress.com/tickets-fares/ticket-types) |
-| LTN Londýn | Luton DART + vlak Luton Airport Express do St Pancras | od 10 £ | 290 | 32 min | [london-luton.co.uk](https://www.london-luton.co.uk/to-and-from-lla/trains/luton-airport-express) |
+| LTN Londýn | Luton DART + vlak Luton Airport Express do St Pancras | od 10 £, běžně ~17 £ ² | 490 ⚠ | 32 min | [london-luton.co.uk](https://www.london-luton.co.uk/to-and-from-lla/trains/luton-airport-express) |
 | LGW Londýn | vlak Southern / Thameslink do Victoria nebo London Bridge | 10,70 £ | 310 | 35 min | [lasttrip.uk](https://lasttrip.uk/blog/cheapest-way-london-to-gatwick.html) ² |
-| LHR Londýn | metro Piccadilly line do centra | od 5,50 £ | 160 | 50 min | [heathrow.com](https://www.heathrow.com/transport-and-directions/getting-to-central-london) |
-| SEN Londýn | vlak Greater Anglia do Liverpool Street | od 13,40 £ | 390 ⚠ | 52 min | [londonsouthendairport.com](https://londonsouthendairport.com/getting-to-and-from/trains/) |
-| MAN Manchester | vlak do Manchester Piccadilly | od 2,90 £ | 80 | 20 min | [tpexpress.co.uk](https://www.tpexpress.co.uk/travelling-with-us/routes/trains-from-manchester-airport-to-manchester-piccadilly) |
+| LHR Londýn | metro Piccadilly line do centra | 5,90 £ | 170 | 50 min | [api.tfl.gov.uk](https://api.tfl.gov.uk/Stoppoint/940GZZLUHRC/FareTo/940GZZLUPCC) |
+| SEN Londýn | vlak Greater Anglia do Liverpool Street | od 13,40 £ (Off-Peak) | 390 ⚠ | 52 min | [greateranglia.co.uk](https://www.greateranglia.co.uk/train-times/southend-airport-to-london-liverpool-street) |
+| MAN Manchester | vlak do Manchester Piccadilly | od 2,90 £, běžně ~6 £ ² | 170 | 20 min | [tpexpress.co.uk](https://www.tpexpress.co.uk/travelling-with-us/routes/trains-from-manchester-airport-to-manchester-piccadilly) |
 | EDI Edinburgh | autobus Airlink 100 na Waverley Bridge | 6 £ | 170 | 30 min | [lothianbuses.com](https://www.lothianbuses.com/our-services/airport-buses/) |
 | DUB Dublin | městský autobus Dublin Bus 16 do centra | 2,60 € | 60 | 40 min | [dublinbus.ie](https://www.dublinbus.ie/journey-information/dublin-airport-hub) |
 | BGY Milán | autobus Terravision do Milano Centrale | od 5 €, běžně 8 € | 200 | 50 min | [terravision.eu](https://www.terravision.eu/airport_transfer/bus-bergamo-airport-milan/) |
@@ -799,7 +819,7 @@ s cenou „od“ – jízdenka na odlet se kupuje předem:
 | ARN Stockholm | autobus Flygbussarna do Stockholm C (Cityterminalen) | od 129 SEK | 280 | 40 min | [flygbussarna.se](https://www.flygbussarna.se/en/arlanda) |
 | VST Stockholm | autobus Flygbussarna do Stockholm C (Cityterminalen) | od 229 SEK | 500 ⚠ | 1 h 20 | [flygbussarna.se](https://www.flygbussarna.se/en/vasteras) |
 | GOT Göteborg | autobus Flygbussarna do Göteborg C | 129 SEK | 280 | 20 min | [flygbussarna.se](https://www.flygbussarna.se/en/landvetter) |
-| TRF Oslo | autobus Torp-ekspressen do centra Osla | od 289 NOK | 650 ⚠ | 1 h 35 | [torpekspressen.no](https://www.torpekspressen.no/billetter-og-priser/) |
+| TRF Oslo | autobus Torp-ekspressen do centra Osla | od 289 NOK, běžně ~360 NOK ² | 820 ⚠ | 1 h 35 | [torpekspressen.no](https://www.torpekspressen.no/billetter-og-priser/) |
 | OSL Oslo | regionální vlak Vy na Oslo S | 129 NOK | 290 | 23 min | [visitoslo.com](https://www.visitoslo.com/no/transport/transport-flyplass/oslo-gardermoen) ² |
 | HHN Frankfurt | autobus flibco do Frankfurt Hbf | od 18,99 € | 460 ⚠ | 2 h 10 | [flibco.com](https://www.flibco.com/en/shuttle/bus-frankfurt-hahn-airport) |
 | FRA Frankfurt | S-Bahn S8 / S9 do centra (Hauptbahnhof ~11 min) | 6,90 € | 170 | 15 min | [vgf-ffm.de](https://www.vgf-ffm.de/fileadmin/VGF/Tickets__Tarife__Plaene/Fahrpreise/Documents/Preisliste_2026.pdf) |
@@ -837,7 +857,7 @@ s cenou „od“ – jízdenka na odlet se kupuje předem:
 | AMS Amsterdam | vlak NS na Amsterdam Centraal | 5,60 € | 140 | 17 min | [amsterdamtips.com](https://www.amsterdamtips.com/?p=2759) ² |
 | EIN Eindhoven | autobus Hermes 400 na Eindhoven Centraal | 5,15 € | 130 | 20 min | [eindhovenairport.nl](https://www.eindhovenairport.nl/en/public-transport) |
 | RTM Rotterdam | autobus 33 + metro E do centra | 5,50 € | 130 | 20 min | [ret.nl](https://www.ret.nl/en/home/travel-products/tourist/rotterdam-the-hague-airport.html) |
-| KEF Reykjavík | autobus Flybus na terminál BSÍ | od 3 999 ISK | 710 ⚠ | 45 min | [flybus.is](https://flybus.is/keflavik-reykjavik-airport-transfer/) |
+| KEF Reykjavík | autobus Flybus na terminál BSÍ | 3 999 ISK | 710 ⚠ | 45 min | [flybus.is](https://flybus.is/keflavik-reykjavik-airport-transfer/) |
 | IST Istanbul | autobus Havaist na Taksim | 426 TRY | 190 ⚠ | 1 h 30 | [hava.ist](https://www.hava.ist/) |
 | SAW Istanbul | autobus Havabüs na Taksim | 485 TRY | 210 ⚠ | 1 h 30 | [havabus.com](https://www.havabus.com/yolcuservisi/taksim-sabihagokcenhavalimani.aspx) |
 | TLV Tel Aviv | vlak Israel Railways do Tel Avivu (HaHagana, Savidor) | 13,50 ILS | 100 | 20 min | [visit.tel-aviv.gov.il](https://visit.tel-aviv.gov.il/move/airport) |
@@ -931,6 +951,27 @@ s cenou „od“ – jízdenka na odlet se kupuje předem:
 
 ⚠ = zvýrazněno (přes 350 Kč nebo přes 60 min). ² = sekundární zdroj. Čas je typická jízda bez čekání na spoj (u vlaku
 a metra podle jízdního řádu, u autobusu podle dopravce).
+
+**Pevná cena taxi z letiště do centra** (pole `taxi` v `data/arrival.json`, za auto do 4 osob, ověřeno 19. 10. 2026) –
+jen tam, kde ji úředně stanoví město, stát nebo letiště; Lisabon, Barcelona, Vídeň, Budapešť, Malta (cena jen u stánku
+na letišti) a další jezdí podle taxametru, proto v tabulce nejsou:
+
+| Letiště | Kam | Pevná cena za auto | Kč (v noci) | Zdroj |
+|---|---|---|---|---|
+| FCO Řím | do centra uvnitř Aureliánských hradeb, vše v ceně | 55 € | 1 340 | [romamobilita.it](https://romamobilita.it/muoversi-a-roma/taxi/) (Roma Capitale) |
+| CIA Řím | do centra uvnitř Aureliánských hradeb, vše v ceně | 40 € | 980 | [romamobilita.it](https://romamobilita.it/muoversi-a-roma/taxi/) |
+| CDG Paříž | pravý břeh 56 €, levý břeh 65 €, bez příplatku za zavazadla | 56–65 € | 1 590 | [Arrêté du 24 décembre 2025](https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053228231) |
+| ORY Paříž | levý břeh 36 €, pravý břeh 45 € | 36–45 € | 1 100 | [Arrêté du 24 décembre 2025](https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053228231) |
+| MAD Madrid | kamkoli uvnitř okruhu M-30, nonstop, zavazadla v ceně | 33 € | 810 | [comunidad.madrid](https://comunidad.madrid/sites/default/files/doc/consumo/certificado_tarifas_apc_taxi_24_40590322.pdf) |
+| ATH Atény | do centra; noční (0–5 h) 65 €, příplatky v ceně | 50 € / noční 65 € | 1 590 | [aia.gr](https://www.aia.gr/en/traveller/transportation-airport/taxi-limousines-transfer) |
+| FLR Florencie | do centra; svátek 30 €, noční 32 €, zavazadlo +1,20 € | 28 € / noční 32 € | 780 | [comune.fi.it](https://servizi.comune.fi.it/sites/www.comune.fi.it/files/all._3_tariffe_fase_2-16052023_df.pdf) |
+| NAP Neapol | nádraží a historické centrum 21 €, Molo Beverello 24 €, hotely na nábřeží 28,50 € | 21–28,50 € | 700 | [comune.napoli.it](https://static-www.comune.napoli.it/wp-content/uploads/2025/05/Tariffario_Taxi_2024.pdf) |
+| MXP Milán | kamkoli v Miláně, mýto v ceně | 114 € | 2 780 | [comune.milano.it](https://www.comune.milano.it/documents/20118/68224/Tariffario+Taxi+(agg.+luglio+2024).pdf) |
+| BGY Milán | kamkoli v Miláně | 128 € | 3 120 | [comune.milano.it](https://www.comune.milano.it/documents/20118/68224/Tariffario+Taxi+(agg.+luglio+2024).pdf) |
+| JFK New York | na Manhattan; navíc příplatky (~5–10 $), mýto a spropitné | 70 $ | 1 520 | [nyc.gov (TLC)](https://www.nyc.gov/site/tlc/passengers/taxi-fare.page) |
+
+Noční cena (Atény 0–5 h, Florencie 22–6 h) se v odhadu počítá pro celé noční okno průvodce (před 5:00 a od 23:00) –
+u Atén mezi 23. a 24. hodinou je to o 15 € víc, než se skutečně platí.
 
 ## Vlak nebo bus místo letadla
 
@@ -1262,7 +1303,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `GET /api/fuel` | aktuální ceny paliva v Kč/l po zemích `CZ`, `DE`, `AT`, `SK`, `PL`, `HU` – `{ diesel, petrol, date, source, label }` (`source` `czso` / `wob` / `builtin` / `demo`) – a `updated`, `sources`, `defaultFuel`, `lPer100`; `ev` = nabíjení elektroauta `{ default: 16, range: [13, 22], date: "2026-10-06", label, kwhPer100: 19, operators: [{ name, ac?, dc?, price?, note?, secondary?, text }] }`. Cache 1 h |
 | `POST /api/search` | hledání, viz `normalizeQuery` v `server/lib/search.js`; odpověď je NDJSON (průběh, pak výsledek); mezi nimi nejvýš 3× `{ type: "partial", result }` – náhled s `partial: true` (nejvýš 30 cílů, ve výpisu ~60 nabídek, bez mřížky termínů a nejbližších dnů), než doběhnou pomalejší zdroje; `"noPartial": true` náhledy vypne (kontrola hlídaných cen, radar) |
 | `GET /api/verify?from=BGY&to=BCN&out=2026-11-10&back=2026-11-14&adults=2` | živá cena a alternativy z Kiwi.com |
-| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery (`links[]` s `prefill`: `full` / `city` / `none`; Trip.com, Agoda a Hostelworld s ID místa dohledaným u partnera, viz `PARTNER_LOOKUP`); bez `cc` se země dopočte z `lat`/`lon`, bez `cityEn` anglický název z geokódování (podle `gid` – ID GeoNames místa vybraného v hledání, jinak podle názvu v okolí); `gid` zároveň najde místo na TripAdvisoru. Nabídky z Xotela mají navíc `rating5` (TripAdvisor 0–5), `reviewsUrl` a `rates: [{ name, totalCzk, perNightCzk }]` (ceny u webů, nejlevnější první); `providers[]` má u neúplného výsledku `partial: true`. Souřadnice samotného letiště se nepoužijí: metropole má střed z databáze, letiště z ověřené tabulky dopravy do města (`data/arrival.json`) střed místa, kam doprava jede (Tenerife Jih → Los Cristianos, Lanzarote → Arrecife, Rhodos → město Rhodos – geokódování názvu ostrova by skončilo uprostřed ostrova bez hotelů), jinak geokódování názvu |
+| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery (`links[]` s `prefill`: `full` / `city` / `none`; Trip.com, Agoda a Hostelworld s ID místa dohledaným u partnera, viz `PARTNER_LOOKUP`); bez `cc` se země dopočte z `lat`/`lon`, bez `cityEn` anglický název z geokódování (podle `gid` – ID GeoNames místa vybraného v hledání, jinak podle názvu v okolí); `gid` zároveň najde místo na TripAdvisoru. Nabídky z Xotela mají navíc `rating5` (TripAdvisor 0–5), `reviewsUrl` a `rates: [{ name, totalCzk, perNightCzk }]` (ceny u webů, nejlevnější první); `providers[]` má u neúplného výsledku `partial: true`. Malé místo bez hotelů na TripAdvisoru: hotely z okolí s `nearby: { place, km, city }` (místo TripAdvisoru, jeho vzdálenost; `distanceKm` od místa pobytu) a v odpovědi `nearbyFrom: [{ name, km }]`, ubytování v místě bez ceny z OpenStreetMap (`provider: 'osm'`) s `osmFallback: true`; `GET /api/stays/check` (ověření volna) bere u nich `near` = místo hotelu pro odkazy na weby. Souřadnice samotného letiště se nepoužijí: metropole má střed z databáze, letiště z ověřené tabulky dopravy do města (`data/arrival.json`) střed místa, kam doprava jede (Tenerife Jih → Los Cristianos, Lanzarote → Arrecife, Rhodos → město Rhodos – geokódování názvu ostrova by skončilo uprostřed ostrova bez hotelů), jinak geokódování názvu |
 | `POST /api/stayplan` | trasa přes víc míst: návrh `{ arrival, departure, nights, transport, count?, exclude? }`, nebo přepočet `{ arrival, departure, transport, bases: [{ name, lat, lon, cc }], ground? }`. Přejezdy `{ km, carMin, transitMin, transitKind: 'rail'\|'bus', border: { from, to }\|null, basis: 'route'\|'estimate', hsr?: true, fast?: true, long, carUrl, transitUrl }` (`hsr` = odhad tempa rychlovlaku, `fast` = přímý vlak z tabulky jízdních řádů), `pending` = kolik tras autem se ještě počítá; u přepočtu i `bases[{ cc, country }]` a s `ground` (město, kam se jede vlakem/busem) `groundLegs`. Přepočet nad limitem přepočtů na IP odpoví bez nových tras z BRouteru |
 | `GET /api/cars?pickup=BGY&dropoff=MXP&from=2026-11-10T09:00&to=2026-11-14T18:00` | předvyplněné odkazy na půjčovny |
 | `GET /api/ground?from=ap:PRG&to=ap:VIE&date=2026-11-10&adults=2` | vlak nebo bus místo letadla: `from`/`to` jako v hledání (`ap:`, `metro:`, `geo:`, kód letiště) nebo `fromLat`/`fromLon`/`fromName`/`fromCc`; volitelně `flightCzk`, `trips` (2 = cena letu tam i zpět), `flightMin`, `live=0`. Odpověď `{ from, to, km, est: { minutes, czk, typ, basis }, worth: { worth, rule, reason, doorMin }, why, links, live? }` (`czk` = od, `typ` = běžně) – `live` (spoje RegioJetu) jen s datem; `why` = proč se po zemi nedá (ostrov, moře, daleko) |
