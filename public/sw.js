@@ -107,7 +107,10 @@ async function networkFirst(event, kind) {
     if (hit) return hit;
     throw err;
   }
-  if (res.status === 200 && res.type === 'basic') event.waitUntil(remember(req, kind, res.clone()));
+  // stránka jiné (novější) verze se pod tuto verzi neukládá: po nepovedené instalaci nového service workeru by se
+  // offline otevřela s uloženými soubory starší verze
+  const build = kind === 'page' ? res.headers.get('x-atlas-build') : null;
+  if ((!build || build === BUILD) && res.status === 200 && res.type === 'basic') event.waitUntil(remember(req, kind, res.clone()));
   return res;
 }
 

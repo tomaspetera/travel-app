@@ -184,7 +184,8 @@ test('GET /api/origins a /api/nearby – autem podle pohonu: nafta, benzín, ele
   // vlastní cena nebo elektroauto: položka bez země, fuelCc zůstává (aktuální cena ve formuláři pro srovnání)
   const vieEv = await (await fetch(`${base}/api/origins?from=${encodeURIComponent('geo:48.2082,16.3738|Vídeň')}&radius=80&groundMode=car&carFuel=ev`)).json();
   assert.deepEqual([vieEv.access.fuelCc, fuelOf(vieEv.airports[0]).country, fuelOf(vieEv.airports[0]).price], ['AT', null, 16]);
-  assert.equal((await (await fetch(`${base}/api/origins?from=${encodeURIComponent('geo:45.46,9.19|Milán')}&radius=60&groundMode=car`)).json()).access.fuelCc, 'CZ', 'země bez ceny → Česko');
+  assert.equal((await (await fetch(`${base}/api/origins?from=${encodeURIComponent('geo:45.46,9.19|Milán')}&radius=60&groundMode=car`)).json()).access.fuelCc, 'IT', 'země EU z bulletinu');
+  assert.equal((await (await fetch(`${base}/api/origins?from=${encodeURIComponent('geo:44.79,20.45|Bělehrad')}&radius=60&groundMode=car`)).json()).access.fuelCc, 'CZ', 'země bez ceny (mimo EU) → Česko');
   // /api/nearby: stejné volby (výchozí veřejnou dopravou)
   const near = await (await fetch(`${base}/api/nearby?lat=50.0755&lon=14.4378&radius=150`)).json();
   assert.ok(near.items.length && near.items.every((x) => x.ground.mode === 'transit'));

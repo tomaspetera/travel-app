@@ -1,6 +1,6 @@
 // Aktuální ceny pohonných hmot (Kč/l) pro cenu cesty autem: nafta (výchozí) a benzín Natural 95.
 // ČR: ČSÚ – týdenní průměrné spotřebitelské ceny PHM (DataStat API, sada CENPHMT, otevřená data CC0; nový týden
-// vychází v pátek ráno). Sousední země (DE, AT, SK, PL, HU) a záloha pro ČR: Evropská komise – Weekly Oil Bulletin,
+// vychází v pátek ráno). Ostatní země EU (sousedé i cíle cest autem) a záloha pro ČR: Evropská komise – Weekly Oil Bulletin,
 // ceny s daněmi (XLSX, EUR za 1000 l k pondělí; na Kč přes fx.js). Každý zdroj nejvýš 1× za 24 h (po chybě znovu
 // za 2 h), timeout 8 s; mezitím platí poslední známé ceny (stale-while-revalidate – hledání na síť nikdy nečeká),
 // bez dat vestavěné ceny s datem. DEMO (ATLAS_MOCK=1) a FUEL_LIVE=0 = pevné ceny bez sítě.
@@ -24,7 +24,9 @@ const offline = () => config.mock || process.env.FUEL_LIVE === '0';
 
 export const FUELS = ['diesel', 'petrol'];
 export const DEFAULT_FUEL = 'diesel';
-export const COUNTRIES = ['CZ', 'DE', 'AT', 'SK', 'PL', 'HU'];
+// ČR, sousedé a ostatní země EU z bulletinu – auto v cíli (přejezdy trasy v Chorvatsku, Itálii…) platí palivo tam, ne
+// za českou cenu (11/2026: Itálie a Francie o 8–12 % dráž, Chorvatsko a Španělsko o 6–9 % levněji)
+export const COUNTRIES = ['CZ', 'DE', 'AT', 'SK', 'PL', 'HU', 'BE', 'BG', 'CY', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PT', 'RO', 'SE', 'SI'];
 // Běžná spotřeba osobního auta (l/100 km), když ji uživatel nezadá.
 export const DEFAULT_L_PER_100 = { diesel: 6, petrol: 7 };
 const FUEL_CS = { diesel: 'nafta', petrol: 'benzín N95' };
@@ -69,6 +71,27 @@ export const FALLBACK = {
     SK: { diesel: 48.26, petrol: 45.21 },
     PL: { diesel: 50.27, petrol: 45.2 },
     HU: { diesel: 47.14, petrol: 42.19 },
+    BE: { diesel: 59.3, petrol: 49.57 },
+    BG: { diesel: 47.03, petrol: 40.86 },
+    CY: { diesel: 49.35, petrol: 42.28 },
+    DK: { diesel: 62.01, petrol: 64.85 },
+    EE: { diesel: 54.62, petrol: 47.04 },
+    ES: { diesel: 47.19, petrol: 47.32 },
+    FI: { diesel: 61.55, petrol: 56.87 },
+    FR: { diesel: 57.84, petrol: 53.99 },
+    GR: { diesel: 54.06, petrol: 53.8 },
+    HR: { diesel: 49.68, petrol: 44.11 },
+    IE: { diesel: 51.79, petrol: 48.11 },
+    IT: { diesel: 57.35, petrol: 52.6 },
+    LT: { diesel: 54.96, petrol: 47.66 },
+    LU: { diesel: 51.11, petrol: 46.06 },
+    LV: { diesel: 52.03, petrol: 49.72 },
+    MT: { diesel: 29.52, petrol: 32.69 },
+    NL: { diesel: 61.63, petrol: 60.13 },
+    PT: { diesel: 53.33, petrol: 51.21 },
+    RO: { diesel: 51.34, petrol: 46.29 },
+    SE: { diesel: 52.09, petrol: 38.91 },
+    SI: { diesel: 49.06, petrol: 42.56 },
   },
 };
 

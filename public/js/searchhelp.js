@@ -778,7 +778,12 @@
   };
   const FUEL_KEYS = ['diesel', 'petrol', 'ev'];
   const CAR_KM_CZK = 2.6; // dřívější výchozí Kč/km za auto (formulář s carKm, dotaz s carKmCzk)
-  const FUEL_IN = { DE: 'v Německu', AT: 'v Rakousku', SK: 'na Slovensku', PL: 'v Polsku', HU: 'v Maďarsku' };
+  const FUEL_IN = {
+    DE: 'v Německu', AT: 'v Rakousku', SK: 'na Slovensku', PL: 'v Polsku', HU: 'v Maďarsku', BE: 'v Belgii', BG: 'v Bulharsku',
+    CY: 'na Kypru', DK: 'v Dánsku', EE: 'v Estonsku', ES: 've Španělsku', FI: 've Finsku', FR: 've Francii', GR: 'v Řecku',
+    HR: 'v Chorvatsku', IE: 'v Irsku', IT: 'v Itálii', LT: 'v Litvě', LU: 'v Lucembursku', LV: 'v Lotyšsku', MT: 'na Maltě',
+    NL: 'v Nizozemsku', PT: 'v Portugalsku', RO: 'v Rumunsku', SE: 've Švédsku', SI: 've Slovinsku',
+  };
   const given = v => v != null && v !== '';
   const clamp = (x, r) => Math.min(r[1], Math.max(r[0], x));
   const comma = x => String(x).replace('.', ',');

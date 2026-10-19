@@ -1423,7 +1423,7 @@
     const g = gs.reduce((m, x) => x.best.perPersonCzk < m.best.perPersonCzk ? x : m), t = g.best, pax = +(res.query && res.query.adults) || 1;
     const leg = l => `${l.from}→${l.to} ${fmtDate(l.date)}${timeOf(l) ? ' ' + timeOf(l) : ''} (${l.carrierName || provName(l.provider)})`;
     return { dest: g.dest.label, iso: g.dest.cc && byIso[g.dest.cc] ? g.dest.cc : null, start: t.out.date, end: t.back ? t.back.date : '', pax, czk: t.perPersonCzk,
-      budget: Math.round((t.tripCzk ?? t.perPersonCzk) * pax), flight: `${leg(t.out)}${t.back ? `, zpět ${leg(t.back)}` : ''}` };
+      budget: Math.round((t.tripCzk ?? t.perPersonCzk) * pax), budgetNote: 'předvyplněno: letenky a cesta na letiště – bez ubytování a útraty', flight: `${leg(t.out)}${t.back ? `, zpět ${leg(t.back)}` : ''}` };
   }
 
   /* ---------- poslední výsledky a nedávná hledání ---------- */

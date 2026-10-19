@@ -10,6 +10,7 @@ import { findTowns, mockTowns } from './poi.js';
 import { geocode } from './places.js';
 import { transferTimes, routeTransfers, driveRoute, routeKey, cachedRoute } from './transfers.js';
 import { carFuelCzk } from './fuel.js';
+import { convert } from './fx.js';
 import { SPECIFIC, distanceModel, priceBand } from './ground.js';
 
 export const MAX_BASES = 6; // ručně sestavená trasa; návrh dává nejvýš 4 místa
@@ -45,10 +46,22 @@ const minOf = (e, tr) => (tr === 'transit' ? e.transitMin : e.carMin);
 export function transfer(a, b, transport = 'car', route = null) {
   const e = transferTimes(a, b, route);
   const air = haversineKm(a.lat, a.lon, b.lat, b.lon);
+  const toll = tollCzk(e.km, a.cc);
   const cost = e.km >= 1
-    ? { fuelCzk: carFuelCzk({ roadKm: e.km, country: a.cc || 'CZ' }), fareCzk: railFare(e, a, b, air) ?? Math.round(distanceModel(air, 1, priceBand({ cc: a.cc, rj: 1 }, { cc: b.cc, rj: 1 })).typ * SPECIFIC / 10) * 10 }
+    ? { fuelCzk: carFuelCzk({ roadKm: e.km, country: a.cc || 'CZ' }), ...(toll ? { tollCzk: toll } : {}), fareCzk: railFare(e, a, b, air) ?? Math.round(distanceModel(air, 1, priceBand({ cc: a.cc, rj: 1 }, { cc: b.cc, rj: 1 })).typ * SPECIFIC / 10) * 10 }
     : { fuelCzk: 0, fareCzk: 0 };
   return { ...e, ...cost, long: minOf(e, transport) > TRANSFER_MAX[transport], carUrl: gmDir(a, b, 'driving'), transitUrl: gmDir(a, b, 'transit') };
+}
+
+// Mýtné za auto na delším přejezdu (od 80 km – kratší vedou často mimo placené dálnice) v zemích s mýtem podle km,
+// €/km osobního auta podle ceníků 2026: Itálie 0,07–0,08 (Autostrade, Ayvens), Francie ~0,08 (A6 Paříž–Lyon 35,80–41,30 €),
+// Chorvatsko ~0,065–0,07 (Záhřeb–Split 26,40 €). Jinde (dálniční známka, Španělsko většinou zdarma) 0.
+const TOLL_KM_EUR = { IT: 0.08, FR: 0.08, HR: 0.065 };
+export function tollCzk(roadKm, cc) {
+  const rate = TOLL_KM_EUR[cc];
+  if (!rate || !(roadKm >= 80)) return 0;
+  const czk = convert(roadKm * rate, 'EUR', 'CZK');
+  return Number.isFinite(czk) ? Math.round(czk / 10) * 10 : 0;
 }
 
 // Vlak v západní, severní a jižní Evropě je dražší než mezinárodní bus, na kterém je kalibrovaný model podle vzdálenosti
