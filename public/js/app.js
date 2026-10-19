@@ -639,15 +639,17 @@ function scoreCountries(month, opt) {
     // nesmí předběhnout zemi, kde je teď sezóna
     const total = (season * 3 + value * 2 + safety * 1.5 + vm * 3 + (c.safety >= 4 ? .3 : 0)) * (season ? 1 : 0.55);
     const max = vibe ? 9.8 : 6.8;
-    return { c, score: Math.round(total / max * 100), season };
+    return { c, score: Math.round(total / max * 100), season, vibe: vm ? vibe : '' };
   }).sort((a, b) => b.score - a.score);
 }
+const VIBE_TAG = { 'pláže': 'pláže a moře', hory: 'hory', historie: 'historie', safari: 'příroda', 'město': 'města' };
 function renderRecs() {
   const m = +$('#rMonth').value, vibe = $('#rVibe').value, budget = +$('#rBudget').value, safe = +$('#rSafe').value;
   $('#recTitle').textContent = 'Kam vyrazit · ' + MNS_FULL[m - 1];
   const list = scoreCountries(m, { vibe, budget, safe }).slice(0, 18);
   $('#recGrid').innerHTML = list.map(r => {
-    const reasons = []; if (r.season === 1) reasons.push('ideální počasí'); if (r.c.cost <= 2) reasons.push('levné'); if (r.c.safety >= 5) reasons.push('velmi bezpečné'); else if (r.c.safety >= 4) reasons.push('bezpečné');
+    // zvolený styl, který země splňuje, napřed („✓ hory“) – jinak by Litva mezi horami vypadala jako horská
+    const reasons = r.vibe ? [VIBE_TAG[r.vibe] || r.vibe] : []; if (r.season === 1) reasons.push('ideální počasí'); if (r.c.cost <= 2) reasons.push('levné'); if (r.c.safety >= 5) reasons.push('velmi bezpečné'); else if (r.c.safety >= 4) reasons.push('bezpečné');
     const c = r.c;
     return `<div class="card dest" data-iso="${c.iso2}" data-photo="${esc(c.capCs || c.cap || c.cs)}" style="--h:${ccHue(c.iso2)}"><div class="score-pill">${r.score}</div>
       <div class="flag">${flag(c.iso2)}</div><div class="dest-panel"><div class="cname">${c.cs}</div><div class="ccont">${c.cont}</div>
