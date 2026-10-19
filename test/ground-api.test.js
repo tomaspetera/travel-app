@@ -88,7 +88,8 @@ test('POST /api/search: skupiny v dosahu nesou odhad po zemi, daleké ne; konkr�
   assert.equal(v.ground.to, 'Vídeň');
   assert.equal(v.ground.basis, 'measured');
   assert.equal(v.ground.worth, true);
-  if (v.groups.length) assert.equal(v.ground.flightCzk, Math.min(...v.groups.map((g) => g.best.perPersonCzk)));
+  // letadlo od dveří ke dveřím: letenka + cesta na letiště (tripCzk), jako řazení „i s cestou“
+  if (v.groups.length) assert.equal(v.ground.flightCzk, Math.min(...v.groups.map((g) => g.best.tripCzk ?? g.best.perPersonCzk)));
   const l = await search({ from: ['ap:PRG'], to: ['ap:LIS'], radiusKm: 0, dateFrom: ymdPlus(10), dateTo: ymdPlus(30), trip: 'oneway' });
   assert.equal(l.ground, null);
   assert.ok(l.groups.every((g) => !g.ground));
