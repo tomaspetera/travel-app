@@ -551,8 +551,13 @@ test('groupBindings: kostel, který je i muzeem (Pantheon), je kostel; muzeum se
   ];
   // Forum Romanum: forum (náměstí) i archeologické naleziště → naleziště
   rows.push(row('Q180212', 'Forum Romanum', 41.8925, 12.4853, 72, 'Q174782'), row('Q180212', 'Forum Romanum', 41.8925, 12.4853, 72, 'Q839954'));
-  const by = Object.fromEntries(groupBindings(rows, { lat: 41.9, lon: 12.5 }).map((p) => [p.name, p.category]));
-  assert.deepEqual(by, { Pantheon: 'church', 'Museo di San Marco': 'museum', 'Forum Romanum': 'ruins' });
+  // Casa Vicens: muzeum, ale dům-muzeum (historic house museum) – prohlídka na 75 min, ne 2 h; obyčejné muzeum bez délky
+  rows.push(row('Q1144374', 'Casa Vicens', 41.4035, 2.1508, 33, 'Q33506', { whs: lit('320') }), row('Q1144374', 'Casa Vicens', 41.4035, 2.1508, 33, 'Q2087181'));
+  const out = groupBindings(rows, { lat: 41.9, lon: 12.5 });
+  const by = Object.fromEntries(out.map((p) => [p.name, p.category]));
+  assert.deepEqual(by, { Pantheon: 'church', 'Museo di San Marco': 'museum', 'Forum Romanum': 'ruins', 'Casa Vicens': 'museum' });
+  const vm = Object.fromEntries(out.map((p) => [p.name, p.visitMin]));
+  assert.deepEqual([vm['Casa Vicens'], vm['Museo di San Marco']], [75, undefined]);
 });
 
 test('familySlots: Řím plný kostelů a muzeí – pár míst pro zoo, zábavní park a park zůstane, limit platí', async () => {

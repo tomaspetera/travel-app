@@ -230,6 +230,8 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .nw-rows li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:6px;font-size:13.5px;line-height:1.45}
 .nw-rows li>span:last-child{min-width:0;overflow-wrap:anywhere}
 .nw-rows .nw-next{padding-top:6px;border-top:1px dashed var(--border);color:var(--muted)}
+/* dnešní řádky, které už proběhly (let odletěl, cesta na letiště za tebou) – ztlumené, ne schované */
+.nw-rows .nw-past{opacity:.55}
 .nw-rows .nw-day,.nw-d{display:inline-block;margin-right:6px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
 .nw-rows .nw-day{display:block;margin-top:2px}
 .nw-walk{display:block;font-size:12.5px;color:var(--muted)}
