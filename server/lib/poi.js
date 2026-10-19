@@ -747,6 +747,11 @@ function within(p, ms) {
 // S článkem na Wikivoyage: město, o kterém píše cestovní průvodce, je skutečný cíl (ne vesnice nebo předměstí).
 const tripsQuery = (lat, lon) => cache.wrap(`wdqs-trips:${lat.toFixed(2)}:${lon.toFixed(2)}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, 120, 45, 300, { wv: true, lang: localLang(lat, lon) }), 58000));
 
+// Zoo, zábavní a městské parky zvlášť: v Římě je mezi 500 nejznámějšími místy nevytlačí jen kostely a paláce
+// (bioparco: 14 jazykových verzí) – bez nich nemá zájem „s dětmi“ co zvýhodnit. Vlastní mezipaměť jako výlety:
+// když nestihne první zobrazení, příští načtení už ho má.
+const familyQuery = (lat, lon, r) => cache.wrap(`wdqs-family:${lat.toFixed(3)}:${lon.toFixed(3)}:${r}`, 7 * 864e5, () => wdqs(sparqlNear(lat, lon, r, 4, 40, { lang: localLang(lat, lon), types: FAMILY_TYPES })));
+
 const tripsKey = ({ lat, lon, limit = 30 }) => `trips:${lat.toFixed(2)}:${lon.toFixed(2)}:${limit}`;
 /** Jsou cíle výletů (findTrips se stejnými volbami) celé v mezipaměti – odpověď bez dotazu na Wikidata? */
 export const tripsCached = (opts) => cache.get(tripsKey(opts)) !== undefined;
@@ -889,9 +894,8 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     // když nestihne první zobrazení, příští načtení už ho má.
     const tripsP = dayTrips ? tripsQuery(lat, lon).catch(() => null) : Promise.resolve([]);
     const cityP = wdqs(sparqlNear(lat, lon, r, 4, 500, { lang: localLang(lat, lon) }));
-    // Zoo, zábavní a městské parky zvlášť: v Římě je mezi 500 nejznámějšími místy nevytlačí jen kostely a paláce
-    // (bioparco: 14 jazykových verzí) – bez nich nemá zájem „s dětmi“ co zvýhodnit. Výpadek nevadí.
-    const familyP = wdqs(sparqlNear(lat, lon, r, 4, 40, { lang: localLang(lat, lon), types: FAMILY_TYPES })).catch(() => []);
+    // zoo a parky (familyQuery) – na Wikidata jen dva dotazy najednou, takže čeká na město nebo výlety
+    const familyP = familyQuery(lat, lon, r).catch(() => null);
     let cityRows;
     try {
       cityRows = await cityP;
@@ -910,7 +914,11 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     if (tripsMissing) tripRows = [];
     // Obce a předměstí (italské comuni, francouzské communes…) nejsou „místa k vidění“ – ve městě
     // zůstanou jen s výrazným znakem (UNESCO); samotné město v centru se vyřadí vždy.
-    const city = groupBindings([...cityRows, ...(await familyP)], center).filter((p) => p.category !== 'town' || (p.unesco && p.distanceKm > 2));
+    // seznam kvůli zoo a parkům nečeká déle než chvilku po městě a výletech (dotaz za nimi běží 6–10 s) – co nestihne
+    // nebo selže, přijde při dalším načtení (neúplný seznam má mezipaměť jen 15 min)
+    const familyRows = await within(familyP, 1500);
+    const familyMissing = familyRows == null;
+    const city = groupBindings([...cityRows, ...(familyRows || [])], center).filter((p) => p.category !== 'town' || (p.unesco && p.distanceKm > 2));
     for (const p of city) if (p.category === 'town') p.category = 'oldtown';
     const trips = tripsFromRows(tripRows, center, Math.max(r, 15));
     for (const p of city) p.score = scorePlace(p);
@@ -928,7 +936,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     const picked = [...merged, ...trips.sort((a, b) => b.score - a.score).slice(0, 8)];
     const enrichFailed = await enrich(picked, { preferCs: true });
     const out = picked.map(({ partOf, island, serial, wv, minor, ...p }) => ({ ...p, categoryLabel: p.eatery ? 'Kavárna / restaurace' : catLabel(p) || p.category }));
-    if (tripsMissing || enrichFailed || wvFailed) out.degraded = true;
+    if (tripsMissing || familyMissing || enrichFailed || wvFailed) out.degraded = true;
     return out;
   });
 }
