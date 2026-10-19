@@ -328,6 +328,22 @@ function tripRows(t) {
   return { w, all };
 }
 /**
+ * Které dnešní řádky už proběhly (karta je ztlumí, neschová): řádek s časem, jehož poslední čas v textu („LIS 10:00 →
+ * PRG 14:35“ = přílet) je dřív než teď, a řádek bez času před ním (metro na letiště před odletem, program dne před
+ * večerním odletem). Po návratu domů (home) proběhlo všechno.
+ */
+function pastRows(rows, hm, home) {
+  const out = rows.map(() => Boolean(home));
+  if (home) return out;
+  let later = false;
+  for (let k = rows.length - 1; k >= 0; k--) {
+    const m = [...String(rows[k][2]).replace(/<[^>]*>/g, '').matchAll(/\b(\d{1,2}):(\d{2})\b/g)].at(-1);
+    if (m) later = later || `${m[1].padStart(2, '0')}:${m[2]}` < hm;
+    out[k] = later;
+  }
+  return out;
+}
+/**
  * Obsah karty pro cestu z tripNow: řádky průběhu cesty na dnešek a první zítřejší (před odjezdem všechny až do dne
  * odjezdu), místo a ubytování (u trasy přes víc míst to dnešní; jen v cíli – po příletu a do odjezdu zpět), posun času
  * proti Praze, nejbližší odjezd (do 24 h), co ze „Sbaleno“ ještě zbývá (před odjezdem), dnešek ostatních probíhajících
@@ -347,8 +363,9 @@ function nowParts(x, now = Date.now()) {
   const ck = (Array.isArray(t.checklist) ? t.checklist : []).filter(c => c && !c.done), zar = c => /^Zařídit/i.test(c.t || '');
   // rezervace této cesty, pod nimi ostatních probíhajících (stejná dvakrát jen jednou)
   const seen = new Set(), refs = window.Backup ? [t, ...also0.map(y => y.t)].flatMap(z => Backup.cleanRefs(z.refs)).filter(r => !seen.has(r.co + '\n' + r.kod) && seen.add(r.co + '\n' + r.kod)) : [];
+  const rows = all.filter(r => (x.on ? r[0] === x.today : r[0] >= x.today && r[0] <= t.start));
   return {
-    rows: all.filter(r => (x.on ? r[0] === x.today : r[0] >= x.today && r[0] <= t.start)), next: x.on ? all.find(r => r[0] === tomorrow) || null : null,
+    rows, next: x.on ? all.find(r => r[0] === tomorrow) || null : null, past: x.on && x.tz ? pastRows(rows, wallAt(x.tz, now).slice(11, 16), x.home) : rows.map(() => false),
     place: pl ? pl.name : t.dest && t.dest !== '—' ? t.dest : t.name, verb: fly ? 'odlet' : 'odjezd', spoje: Boolean(ls.length || w || ft),
     hotel: x.on && there && pl && pl.hotel ? { name: pl.hotel, q: [pl.hotel, pl.city, pl.country].filter(Boolean).join(', ') } : null,
     shift, clock: shift ? wallAt(tz, now).slice(11, 16) : '',
@@ -370,7 +387,7 @@ function nowCard(x, p) {
     const m = r[3], u = m && m.day.items.length && m.plan.center && window.Places && Places.dayRoute ? Places.dayRoute(m.plan.center, m.day) : null;
     return u && u.url ? ` <span class="nw-walk">${u.trip ? '🚆 cesta na výlet' : '🗺️ trasa pěšky'}: <a href="${esc(safeUrl(u.url))}" target="_blank" rel="noopener">Google Maps ↗</a>${u.mapy ? ` · <a href="${esc(safeUrl(u.mapy))}" target="_blank" rel="noopener">Mapy.com ↗</a>` : ''}</span>` : '';
   };
-  const row = (r, d) => `<li><span class="nw-i">${r[1]}</span><span>${d ? `<span class="nw-d">${tag(r[0])}</span>` : ''}${r[2]}${walk(r)}</span></li>`;
+  const row = (r, d, past) => `<li${past ? ' class="nw-past"' : ''}><span class="nw-i">${r[1]}</span><span>${d ? `<span class="nw-d">${tag(r[0])}</span>` : ''}${r[2]}${walk(r)}</span></li>`;
   // po návratu domů (poslední den, spoj zpět přistál) už ne „na cestě“ – karta zůstane do půlnoci kvůli kódům a plánu
   const head = x.home ? `🏠 Zpátky doma · <b>${esc(p.place)}</b> <span class="faint">· den ${x.day} z ${x.days}</span>`
     : x.on ? `📍 Dnes na cestě · den ${x.day} z ${x.days} · <b>${esc(p.place)}</b>`
@@ -384,7 +401,7 @@ function nowCard(x, p) {
   // před odjezdem řádky po dnech (dnes, zítra, den odjezdu)
   // dnešek ostatních probíhajících cest (výlet z plánovače či z Objevuj v den letu) – jedním řádkem s odkazem na plán
   const also = (p.also || []).map(a => `<li class="nw-also"><span class="nw-i">📌</span><span><span class="nw-d">také dnes</span><b>${esc(a.name)}</b>${a.rows.map(r => ` · ${/^(📍|📝)$/u.test(r[1]) ? '' : `${r[1]} `}${r[2]}`).join('')} · <button type="button" class="linkbtn" data-nw-plan="${a.i}">Otevřít plán →</button></span></li>`).join('');
-  const body = p.rows.map((r, k) => `${x.on || (k && p.rows[k - 1][0] === r[0]) ? '' : `<li class="nw-day">${tag(r[0])}</li>`}${row(r)}`).join('') || (x.on && also ? '' : `<li class="faint"><span class="nw-i">🌤️</span><span>${x.on ? 'Dnes nic naplánovaného' : p.spoje ? 'Časy spojů v plánu nemáš – ověř je v rezervaci' : 'Do odjezdu nic naplánovaného'}</span></li>`);
+  const body = p.rows.map((r, k) => `${x.on || (k && p.rows[k - 1][0] === r[0]) ? '' : `<li class="nw-day">${tag(r[0])}</li>`}${row(r, false, p.past && p.past[k])}`).join('') || (x.on && also ? '' : `<li class="faint"><span class="nw-i">🌤️</span><span>${x.on ? 'Dnes nic naplánovaného' : p.spoje ? 'Časy spojů v plánu nemáš – ověř je v rezervaci' : 'Do odjezdu nic naplánovaného'}</span></li>`);
   const refs = p.refs.length ? `<div class="nw-refs">${p.refs.map(r => `<div class="nw-ref"><span>🔖${r.co ? ` ${esc(r.co)}` : ''}</span>${r.kod ? `<code>${esc(r.kod)}</code>${canCopy() ? `<button type="button" class="nw-copy" data-copy="${esc(r.kod)}" aria-label="Zkopírovat kód ${esc(r.kod)}">Kopírovat</button>` : ''}` : ''}${r.pozn ? `<span class="faint">${esc(r.pozn)}</span>` : ''}</div>`).join('')}</div>` : '';
   const todo = p.todo && (p.todo.zar || p.todo.bal) ? `<div class="nw-todo">🧾 Před cestou zbývá ${[p.todo.zar && `zařídit ${p.todo.zar}`, p.todo.bal && `sbalit ${p.todo.bal}`].filter(Boolean).join(' a ')} · <button type="button" class="linkbtn" data-nw-plan="${x.i}">odškrtat v plánu →</button></div>` : '';
   return `<div class="card now-card" id="nowCard" tabindex="-1" role="region" aria-label="Dnes na cestě">

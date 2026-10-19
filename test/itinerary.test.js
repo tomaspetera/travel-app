@@ -77,8 +77,12 @@ test('visitMinutes: významný kostel déle, malá stavba s částmi ne na 2 h, 
   // Pražský hrad s katedrálou, Zlatou uličkou…: +20 min za část, nejvýš +2 h
   assert.equal(visitMinutes({ category: 'castle', sitelinks: 90, includes: ['a', 'b', 'c'] }), 160);
   assert.equal(visitMinutes({ category: 'castle', includes: Array(8).fill('x') }), 220);
-  // vlastní délka (kavárna) a neznámá kategorie
+  // Casa Batlló / Casa Milà: zajímavost UNESCO 75 min, ne 45; Casa Amatller (bez UNESCO, 21 jazyků) zůstane 45
+  assert.equal(visitMinutes({ category: 'sight', sitelinks: 51, unesco: true }), 75);
+  assert.equal(visitMinutes({ category: 'sight', sitelinks: 21 }), 45);
+  // vlastní délka (kavárna, dům-muzeum) a neznámá kategorie
   assert.equal(visitMinutes({ category: 'sight', visitMin: 30, sitelinks: 99 }), 30);
+  assert.equal(visitMinutes({ category: 'museum', visitMin: 75, unesco: true }), 75, 'Casa Vicens: dům-muzeum, ne 2 h');
   assert.equal(visitMinutes({ category: 'whatever' }), 45);
 });
 

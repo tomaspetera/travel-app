@@ -43,6 +43,7 @@ const TYPES = {
 const CASTLE_PROPER = ['Q23413', 'Q1785071', 'Q17715832'];
 const GATE = /\b(brána|gate|tor|porta|puerta|porte|barbakan|barbican|bastion|bašta|hradby|city walls?|stadtmauer)\b/i;
 const MUSEUM_NAME = /^(museo|museum|musée|muzeum|múzeum|museu|muzej|pinacoteca|galleria|gallery|galerie|galería)\b/i;
+const HOUSE_MUSEUM = 'Q2087181'; // historic house museum
 // Když má místo víc typů, rozhoduje tohle pořadí (ne náhodné pořadí řádků SPARQL).
 const CAT_PRIORITY = ['castle', 'palace', 'zoo', 'theme', 'museum', 'gallery', 'church', 'oldtown', 'square', 'bridge', 'tower',
   'viewpoint', 'ruins', 'monument', 'market', 'theatre', 'park', 'garden', 'beach', 'nature', 'sight'];
@@ -256,6 +257,8 @@ export function groupBindings(rows, center) {
       category = classifyText(head) || 'sight';
       if (category === 'sight' && has(EATERY)) { p.eatery = true; p.visitMin = 30; } // Café A Brasileira, Els Quatre Gats
     }
+    // dům-muzeum (Casa Vicens, Rubensův dům) je prohlídka bytu na hodinu a čtvrt, ne dvouhodinové muzeum se sbírkami
+    if (category === 'museum' && types.includes(HOUSE_MUSEUM)) p.visitMin = 75;
     if ((category === 'sight' || category === 'tower') && !p.eatery && !p.unesco && (has(MINOR_TYPES) || MINOR_TEXT.test(`${p.name} ${p.description}`))) p.minor = true;
     p.category = category;
     p.island = types.includes(ISLAND);
