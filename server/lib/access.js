@@ -71,14 +71,15 @@ export const ACCESS = {
   PED: [50.0343, 15.7812, 'Pardubice', 25, 20, 'bus 90 z hlavního nádraží (jede 150 a 120 min před odletem)', [0, 0]], // ověřeno 10/2026: parkování zdarma
   KLV: [50.2310, 12.8714, 'Karlovy Vary', 30, 25, 'MHD bus 8 z Tržnice', [500, 0, 8]], // ověřeno 10/2026: 500 Kč za každých započatých 8 dní
   JCL: [48.9745, 14.4743, 'České Budějovice', 30, 25, 'bus 40 z nádraží (jen ve dny letů)', [120, 60]],
-  VIE: [48.2082, 16.3738, 'Vídeň', 110, 40, 'vlak S7 / Railjet z centra (~4,40 €; CAT 14,90 €)', [850, 150]], // ověřeno 10/2026
+  // do 10/2027 výluka kmenové trati: S7 jen do St. Marx, z centra REX7 z Hauptbahnhofu, CAT jezdí jako bus (wien.info)
+  VIE: [48.2082, 16.3738, 'Vídeň', 140, 40, 'vlak REX7 / S7 z centra (5,50 €; S7 kvůli výluce končí v St. Marx, CAT jezdí jako bus)', [850, 150]], // ověřeno 10/2026
   BTS: [48.1486, 17.1077, 'Bratislava', 35, 30, 'MHD bus 61 (60 min)', [670, 100]], // ověřeno 10/2026
   LNZ: [48.3069, 14.2858, 'Linec', 90, 30, 'bus / vlak do Hörschingu (~3,50 €)', [740, 100]], // ověřeno 10/2026
   SZG: [47.8095, 13.0550, 'Salcburk', 65, 25, 'trolejbus 2 / 10 (~2,50 €)', [1170, 70]], // ověřeno 10/2026
   MUC: [48.1374, 11.5755, 'Mnichov', 350, 45, 'S-Bahn S1 / S8 z centra (MVV ~14 €)', [790, 100]], // ověřeno 10/2026
   NUE: [49.4521, 11.0767, 'Norimberk', 95, 20, 'metro U2 (VGN ~3,80 €)', [1580, 220]], // ověřeno 10/2026
   FMM: [48.1374, 11.5755, 'Mnichov', 370, 80, 'Allgäu Airport Express z Mnichova (online od 15 €)', [230, 120]], // jízdné ověřeno 10/2026
-  BER: [52.5200, 13.4050, 'Berlín', 120, 40, 'S-Bahn / FEX z centra (BVG ABC ~4,70 €)', [1260, 100]], // ověřeno 10/2026
+  BER: [52.5200, 13.4050, 'Berlín', 120, 40, 'S-Bahn / FEX z centra (BVG ABC ~5 €)', [1260, 100]], // ověřeno 10/2026
   DRS: [51.0504, 13.7373, 'Drážďany', 85, 25, 'S-Bahn S2 z Hauptbahnhofu (DVB ~3,60 €)', [540, 120]], // ověřeno 10/2026
   LEJ: [51.3397, 12.3731, 'Lipsko', 130, 20, 'S-Bahn z Hauptbahnhofu (MDV ~5 €)', [750, 160]], // ověřeno 10/2026
   ERF: [50.9787, 11.0328, 'Erfurt', 70, 25, 'tramvaj 4 (~2,60 €)', [230, 120]],
