@@ -1292,4 +1292,6 @@ test('letiště na ostrově: hotely kolem místa z tabulky dopravy do města (Te
   // metropole má střed z databáze, místo vybrané uživatelem (ne souřadnice letiště) zůstává
   assert.deepEqual([normalizeStayQuery({ city: 'Řím', iata: 'FCO', lat: 41.8045, lon: 12.252, checkin: ymdPlus(30), checkout: ymdPlus(33) }).lat], [41.9028]);
   assert.equal(normalizeStayQuery({ city: 'Adeje', iata: 'TFS', lat: 28.1227, lon: -16.726, checkin: ymdPlus(30), checkout: ymdPlus(33) }).lat, 28.1227);
+  // doprava z letiště jezdí do jiného, vzdáleného města (Memmingen → Mnichov 100 km): hotely v cíli – geokódování názvu
+  assert.equal(normalizeStayQuery({ city: 'Memmingen', iata: 'FMM', lat: 47.9881, lon: 10.2382, checkin: ymdPlus(30), checkout: ymdPlus(33) }).lat, null);
 });
