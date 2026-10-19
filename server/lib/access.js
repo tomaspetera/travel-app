@@ -164,8 +164,13 @@ export const CAR_FUELS = {
   ev: { name: 'nabíjení', unit: 'kWh', cons: DEFAULT_KWH_PER_100, consRange: [8, 40], priceRange: [1, 40] },
 };
 export const DEFAULT_CAR_FUEL = 'diesel';
-// cena v sousední zemi: „nafta 55,11 Kč/l v Rakousku · Oil Bulletin EU, k 28. 9. 2026“
-const FUEL_IN = { DE: 'v Německu', AT: 'v Rakousku', SK: 'na Slovensku', PL: 'v Polsku', HU: 'v Maďarsku' };
+// cena v jiné zemi EU: „nafta 55,11 Kč/l v Rakousku · Oil Bulletin EU, k 28. 9. 2026“
+const FUEL_IN = {
+  DE: 'v Německu', AT: 'v Rakousku', SK: 'na Slovensku', PL: 'v Polsku', HU: 'v Maďarsku', BE: 'v Belgii', BG: 'v Bulharsku',
+  CY: 'na Kypru', DK: 'v Dánsku', EE: 'v Estonsku', ES: 've Španělsku', FI: 've Finsku', FR: 've Francii', GR: 'v Řecku',
+  HR: 'v Chorvatsku', IE: 'v Irsku', IT: 'v Itálii', LT: 'v Litvě', LU: 'v Lucembursku', LV: 'v Lotyšsku', MT: 'na Maltě',
+  NL: 'v Nizozemsku', PT: 'v Portugalsku', RO: 'v Rumunsku', SE: 've Švédsku', SI: 've Slovinsku',
+};
 const CITY_KM = 15; // domov do 15 km od středu města letiště = cesta MHD
 // Na letiště se jede konkrétním spojem v danou hodinu, ne nejlevnějším spojem dne (z toho jsou MEASURED a model):
 // cena ~1,4× (RegioJet Praha–Brno 229–399 Kč podle dne, ČD railjet 269–435 Kč, ne 199; Praha–Pardubice ČD ~190,

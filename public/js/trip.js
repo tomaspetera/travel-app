@@ -338,8 +338,10 @@
     }
     // autem z letiště a na letiště jen s autem vyzvednutým / vráceným na letišti (jinak ten úsek kryje doprava z letiště);
     // po příjezdu vlakem/busem se doprava z letiště nepočítá – oba konce palivem
-    const endFuel = (x, side) => (x && x.fuelCzk && (ov || carCovers(t, side)) ? x.fuelCzk : 0);
-    return Math.round(xs.reduce((s, x) => s + ((x && x.fuelCzk) || 0), 0) + endFuel(ends.arrival, 'out') + endFuel(ends.departure, 'back'));
+    // za auto palivo a na delším přejezdu v Itálii, Francii a Chorvatsku mýtné (tollCzk ze serveru)
+    const carCost = x => (x ? (x.fuelCzk || 0) + (x.tollCzk || 0) : 0);
+    const endFuel = (x, side) => (x && x.fuelCzk && (ov || carCovers(t, side)) ? carCost(x) : 0);
+    return Math.round(xs.reduce((s, x) => s + carCost(x), 0) + endFuel(ends.arrival, 'out') + endFuel(ends.departure, 'back'));
   }
 
   /* ---------- cesta z letiště do města (z hledání: res.arrivals, v ceně letu flight.arrCzk) ---------- */
@@ -2304,7 +2306,7 @@
         unpriced.length ? ['🏨', `Ubytování zatím bez ceny · ${unpriced.join(', ')}`, null] : null,
       ] : [t.stay && t.stay.mode !== 'skip' ? ['🏨', `Ubytování · ${nightsTxt(nights)}${t.stay.name ? ' · ' + t.stay.name : ''}${t.stay.est ? ' (odhad – ověř cenu)' : ''}`, c.stay] : null]),
       t.car && t.car.mode !== 'skip' ? ['🚗', 'Auto', c.car] : null,
-      c.transfers ? (r.transport === 'transit' ? ['🚆', `Přejezdy na trase – jízdenky (${t.adults} os., odhad)`, c.transfers] : ['⛽', 'Přejezdy autem – palivo (odhad, nafta 6 l/100 km)', c.transfers]) : null,
+      c.transfers ? (r.transport === 'transit' ? ['🚆', `Přejezdy na trase – jízdenky (${t.adults} os., odhad)`, c.transfers] : ['⛽', `Přejezdy autem – palivo${(r.transfers || []).some(x => x && x.tollCzk) ? ' a mýtné' : ''} (odhad, nafta 6 l/100 km)`, c.transfers]) : null,
     ].filter(Boolean);
     // vstupní poplatky (ESTA, e-vízum…): zvlášť pod součtem, do „Celkem“ se nezapočítávají – platí se mimo cestu
     const isos = tripCountries(t), via = tripVia(t);
@@ -2792,7 +2794,7 @@
       ...(x.transitKind === 'bus' || x.transitKind === 'rail' ? { transitKind: x.transitKind } : {}), basis: x.basis === 'route' ? 'route' : 'estimate',
       border: obj(x.border) && cc2(x.border.from) && cc2(x.border.to) ? { from: x.border.from, to: x.border.to } : null, ...(x.hsr === true ? { hsr: true } : {}), ...(x.fast === true ? { fast: true } : {}),
       // odhad ceny přejezdu (palivo za auto, jízdenka na osobu)
-      ...(fin(x.fuelCzk, 0, 100000) ? { fuelCzk: Math.round(x.fuelCzk) } : {}), ...(fin(x.fareCzk, 0, 100000) ? { fareCzk: Math.round(x.fareCzk) } : {}),
+      ...(fin(x.fuelCzk, 0, 100000) ? { fuelCzk: Math.round(x.fuelCzk) } : {}), ...(fin(x.tollCzk, 0, 100000) ? { tollCzk: Math.round(x.tollCzk) } : {}), ...(fin(x.fareCzk, 0, 100000) ? { fareCzk: Math.round(x.fareCzk) } : {}),
     } : null);
     // přejezdy z města příjezdu vlakem/busem: klíč = poloha města a prvního/posledního místa
     const gl = r.groundLegs;

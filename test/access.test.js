@@ -421,10 +421,11 @@ test('auto: Kč/km podle pohonu, spotřeby a ceny (aktuální v zemi domova, nab
   assert.deepEqual([e({ carFuel: 'diesel', carCons: 5.5, carPrice: 55 }).kmCzk, e({ carFuel: 'diesel', carCons: 5.5, carPrice: 55 }).priceLabel], [3.025, 'nafta 55,00 Kč/l · vlastní cena']);
   assert.deepEqual([e({ carFuel: 'ev', carCons: 17, carPrice: 8.5 }).kmCzk, e({ carFuel: 'ev', carCons: 17, carPrice: 8.5 }).priceLabel], [1.445, 'nabíjení 8,50 Kč/kWh · vlastní cena']);
   assert.equal(e({ carFuel: 'ev', carPrice: 12 }).priceLabel, 'nabíjení 12 Kč/kWh · vlastní cena');
-  // země domova: sousední země z bulletinu, neznámá → ČR
+  // země domova: země EU z bulletinu (sousedé i Itálie, Chorvatsko…), mimo EU a neznámá → ČR
   assert.deepEqual([e({}, 'AT').price, e({}, 'AT').country, e({}, 'AT').priceLabel], [55.11, 'AT', 'nafta 55,11 Kč/l v Rakousku · orientačně, k 28. 9. 2026']);
   assert.equal(e({ carFuel: 'petrol' }, 'sk').priceLabel, 'benzín N95 45,21 Kč/l na Slovensku · orientačně, k 28. 9. 2026');
-  assert.deepEqual([e({}, 'IT').country, e({}, '').country, e({}, undefined).country], ['CZ', 'CZ', 'CZ']);
+  assert.deepEqual([e({}, 'IT').country, e({}, 'IT').price, e({}, 'HR').price], ['IT', 57.35, 49.68]);
+  assert.deepEqual([e({}, 'RS').country, e({}, '').country, e({}, undefined).country], ['CZ', 'CZ', 'CZ']);
   // meze: spotřeba nafta / benzín 2–30 l, elektro 8–40 kWh; cena 5–150 Kč/l, 1–40 Kč/kWh; 0, záporné a nesmysl = výchozí
   const c = (raw) => plain(A.normalizeCar(raw));
   assert.deepEqual(c({ carFuel: 'diesel', carCons: 99, carPrice: 999 }), { carFuel: 'diesel', carCons: 30, carPrice: 150, carKmCzk: null });

@@ -2,7 +2,7 @@
 // (i open-jaw – přílet a odlet z jiného letiště) a endpoint bez sítě (podstrčená města).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { suggestRoute, splitNights, transferEstimate, evaluateRoute, planStay, defaultCount, StayPlanError, TRANSFER_MAX } from '../server/lib/stayplan.js';
+import { suggestRoute, splitNights, transferEstimate, evaluateRoute, planStay, defaultCount, StayPlanError, TRANSFER_MAX, transfer, tollCzk } from '../server/lib/stayplan.js';
 import { findTowns } from '../server/lib/poi.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { stubFetch } from './helpers.js';
@@ -344,4 +344,16 @@ test('suggestRoute (živá data, okolí Vídně, 9 nocí): bez kličkování –
   const VIE = { id: 'city:VIE', name: 'Vídeň', lat: 48.2082, lon: 16.3738, cc: 'AT', country: 'Rakousko' };
   const r = suggestRoute(VIE_TOWNS, { arrival: VIE, departureCity: null, depAirport: { iata: 'VIE', lat: 48.1103, lon: 16.5697 }, nights: 9, transport: 'car', times: transferEstimate });
   assert.deepEqual(r.bases.map((b) => b.name), ['Vídeň', 'Brno', 'Bratislava', 'Rust']);
+});
+
+test('přejezd autem: palivo za cenu v zemi startu, na delším přejezdu v Itálii, Francii a Chorvatsku i mýtné', async () => {
+  const { setRates } = await import('../server/lib/fx.js');
+  setRates({ base: 'EUR', rates: { EUR: 1, CZK: 24.4 }, source: 'test', date: null });
+  // Záhřeb–Split 380 km ~26 € (HAC), Paříž–Lyon 465 km ~37 € (A6); krátký přejezd a Španělsko bez mýtného
+  assert.deepEqual([tollCzk(380, 'HR'), tollCzk(465, 'FR'), tollCzk(230, 'IT'), tollCzk(60, 'IT'), tollCzk(300, 'ES')], [600, 910, 450, 0, 0]);
+  const split = { name: 'Split', cc: 'HR', lat: 43.5081, lon: 16.4402 }, dub = { name: 'Dubrovník', cc: 'HR', lat: 42.6507, lon: 18.0944 };
+  const x = transfer(split, dub, 'car');
+  assert.ok(x.tollCzk > 0 && x.fuelCzk > 0, JSON.stringify(x));
+  const cz = transfer({ name: 'Brno', cc: 'CZ', lat: 49.1951, lon: 16.6068 }, { name: 'Olomouc', cc: 'CZ', lat: 49.5938, lon: 17.2509 }, 'car');
+  assert.equal(cz.tollCzk, undefined, 'v Česku dálniční známka, ne mýtné za km');
 });

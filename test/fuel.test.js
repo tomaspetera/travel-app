@@ -120,7 +120,7 @@ test('parseWob: skutečný XLSX bulletinu → EUR/l pro všech 27 zemí, datum z
   assert.equal(Math.round(w.eur.CZ.diesel * 24.397 * 100) / 100, 50.65);
   assert.equal(Math.round(w.eur.CZ.petrol * 24.397 * 100) / 100, 45.87);
   // vestavěné ceny sousedů = tentýž bulletin × 24,397
-  for (const cc of ['DE', 'AT', 'SK', 'PL', 'HU']) {
+  for (const cc of fuel.COUNTRIES.filter((c) => c !== 'CZ')) {
     for (const f of fuel.FUELS) assert.ok(Math.abs(fuel.FALLBACK.prices[cc][f] - w.eur[cc][f] * 24.397) < 0.011, `${cc} ${f}`);
   }
 });
