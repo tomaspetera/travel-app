@@ -76,6 +76,23 @@ test('meteostanice u letišť: přednost před buňkou NASA, zdroj a místa do 1
   assert.equal(airportClimate('RHO').src, 'nasa', 'Rhodos stanici s daty nemá');
 });
 
+test('meteostanice: Terst a Istanbul ručně určená stanice, Janov normály WMO s doplněným březnem a květnem', async () => {
+  // normály 1991–2020 (NOAA NCEI / Météo-Climat): Terst XI 14,3 / VII 29,1 °C, Janov XI 16,1 / III 15,2 / V 21,5, Kilyos XI 15,6
+  const trs = airportClimate('TRS');
+  assert.deepEqual([trs.src, trs.hi[10], trs.hi[6]], ['wmo', 14, 29], 'Terst, ne vnitrozemská buňka NASA (XI 9 °C)');
+  const goa = airportClimate('GOA');
+  assert.deepEqual([goa.src, goa.hi[10], goa.hi[2], goa.hi[4]], ['wmo', 16, 15, 21]);
+  assert.ok(goa.p[4] > 20, `Janov: srážky v květnu z buňky NASA, ne neúplná řada stanice (0 mm): ${goa.p[4]}`);
+  const ist = airportClimate('IST');
+  assert.deepEqual([ist.src, ist.hi[10], ist.hi[6]], ['wmo', 16, 28]);
+  const { fillGaps } = await import('../scripts/build-climate-stations.mjs');
+  const m = [12, 13, -99.9, 18, -99.9, 25, 28, 28, 25, 20, 16, 13];
+  assert.deepEqual(fillGaps(m), { v: [12, 13, 15.5, 18, 21.5, 25, 28, 28, 25, 20, 16, 13], filled: true });
+  assert.equal(fillGaps(m.map((x, i) => (i === 3 ? -99.9 : x))), null, 'sousední mezery (III–V) ne');
+  assert.equal(fillGaps(m.map((x, i) => (i === 0 || i === 11 ? -99.9 : x))), null, 'prosinec a leden spolu sousedí');
+  assert.equal(fillGaps([1, -99.9, 3, -99.9, 5, -99.9, 7, 8, 9, 10, 11, 12]), null, 'víc než 2 mezery ne');
+});
+
 test('data/climate.json: každé letiště vede na data, stanice mají 12 měsíců a maxima nad minimy', () => {
   const d = JSON.parse(readFileSync(new URL('../data/climate.json', import.meta.url), 'utf8'));
   let stations = 0;
