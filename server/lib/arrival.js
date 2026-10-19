@@ -20,9 +20,11 @@ import { ACCESS, LOCAL_TICKET, regionalCzk, regionalMin } from './access.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DATA = JSON.parse(readFileSync(path.join(root, 'data', 'arrival.json'), 'utf8'));
 /**
- * Ověřená tabulka: IATA → { city, gen, lat, lon, mode, how, fare, cur, from?, typ?, min, sec?, note?, src, date }.
+ * Ověřená tabulka: IATA → { city, gen, lat, lon, mode, how, fare, cur, from?, typ?, min, sec?, note?, src, date, taxi? }.
  * from = fare je nejnižší cena (online předem); typ = co se běžně platí v den cesty (Stansted Express od 9,90 £,
- * běžně 23 £) – do odhadu ceny cesty (czk) jde typ, je-li, jinak fare.
+ * běžně 23 £) – do odhadu ceny cesty (czk) jde typ, je-li, jinak fare. taxi = úřední pevná cena taxi do centra za auto
+ * { fare, hi?, night?, cur, pax, to, src, date } (Řím 55 €, Paříž-CDG 56–65 €…) – průvodce cestou ji počítá místo MHD
+ * u úseků v noci (vyráží se / přistává před 5:00 nebo po 23:00), výsledky hledání dál MHD.
  */
 export const ARRIVAL = DATA.airports;
 /** Kurzy pro převod jízdného do Kč (Kč za jednotku měny) a odkud jsou. */
@@ -58,12 +60,19 @@ function metroOf(iata) {
   return null;
 }
 
+// Pevná cena taxi za auto (tabulka → taxi): czk = cena v noci v Kč – noční, je-li, u rozpětí podle části města horní.
+function taxiOf(x) {
+  const czk = fareCzk(Math.max(x.fare, x.night || 0, x.hi || 0), x.cur);
+  return czk ? { ...x, czk } : null;
+}
+
 function fromTable(a, x) {
+  const taxi = x.taxi ? taxiOf(x.taxi) : null;
   return {
     iata: a.iata, city: x.city, gen: x.gen, lat: x.lat, lon: x.lon, mode: x.mode, how: x.how,
     fare: x.fare, cur: x.cur, ...(x.from ? { from: true } : {}), ...(x.typ > 0 ? { typ: x.typ } : {}), czk: fareCzk(x.typ > 0 ? x.typ : x.fare, x.cur), min: x.min,
     km: Math.round(haversineKm(a.lat, a.lon, x.lat, x.lon)), ...(x.note ? { note: x.note } : {}),
-    src: x.src, date: x.date, ...(x.sec ? { sec: true } : {}), basis: 'table',
+    src: x.src, date: x.date, ...(x.sec ? { sec: true } : {}), ...(taxi ? { taxi } : {}), basis: 'table',
   };
 }
 
@@ -97,7 +106,8 @@ export function estimateArrival(a) {
 const memo = new Map();
 /**
  * Cesta z letiště `iata` do města, na osobu a jeden směr (tam i zpět stejně): { iata, city, gen, lat, lon, mode, how,
- * fare?, cur?, from?, czk, min, km, note?, src?, date?, sec?, basis: 'table' | 'access' | 'estimate', est? }.
+ * fare?, cur?, from?, czk, min, km, note?, src?, date?, sec?, taxi?, basis: 'table' | 'access' | 'estimate', est? }.
+ * taxi = pevná cena taxi z tabulky a k ní czk (Kč za auto v noci).
  * gen = 2. pád názvu města („do Paříže“; u odhadu null → „do centra“). Neznámé letiště → null.
  */
 export function arrivalTransfer(iata) {

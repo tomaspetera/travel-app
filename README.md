@@ -736,6 +736,12 @@ na osobu – do ceny letenky se nepřičítá.
   ve Shrnutí položka **Doprava z letiště do města a zpět (odhad)** – jen když byla v ceně hledání. Úsek, který nahradí
   auto půjčené na letišti příletu (nebo vrácené na letišti odletu), odpadá. U trasy přes víc míst je jízdné u přejezdu
   z letiště na první místo a z posledního místa na letiště, leží-li to místo ve městě letiště (do 25 km).
+- **V noci taxi s pevnou cenou:** vyráží-li se z ubytování na letiště, nebo přistává-li se, před 5:00 či od 23:00, MHD
+  a letištní vlaky obvykle nejezdí. U letišť s **úřední pevnou cenou taxi** do centra (tabulka níže) průvodce ten úsek
+  počítá taxíkem – cena za auto (noční, je-li; u rozpětí podle části města horní) děleno počtem dospělých, nad 4 osoby
+  další auto – a v časové ose napíše *· v noci taxi, pevná cena 55 € za auto (v odhadu ceny započteno)*, v kroku Let
+  a ve Shrnutí u dopravy *taxi na letiště FCO (noc) 55 € za auto*. U ostatních letišť zůstává *v noci spíš taxi
+  (v odhadu ceny je MHD)*. Výsledky hledání (bez známých časů cesty z ubytování) počítají dál MHD.
 - **Hlídané ceny** uložené před touto volbou se dál počítají bez cesty do města, ať jde nová cena porovnat s dřívější;
   dotaz na API bez pole `arrival` taky (viz [API](#api)).
 
@@ -936,6 +942,27 @@ letiště (odlet, `access.js`) počítá s cenou „od“ – jízdenka na odlet
 
 ⚠ = zvýrazněno (přes 350 Kč nebo přes 60 min). ² = sekundární zdroj. Čas je typická jízda bez čekání na spoj (u vlaku
 a metra podle jízdního řádu, u autobusu podle dopravce).
+
+**Pevná cena taxi z letiště do centra** (pole `taxi` v `data/arrival.json`, za auto do 4 osob, ověřeno 19. 10. 2026) –
+jen tam, kde ji úředně stanoví město, stát nebo letiště; Lisabon, Barcelona, Vídeň, Budapešť, Malta (cena jen u stánku
+na letišti) a další jezdí podle taxametru, proto v tabulce nejsou:
+
+| Letiště | Kam | Pevná cena za auto | Kč (v noci) | Zdroj |
+|---|---|---|---|---|
+| FCO Řím | do centra uvnitř Aureliánských hradeb, vše v ceně | 55 € | 1 340 | [romamobilita.it](https://romamobilita.it/muoversi-a-roma/taxi/) (Roma Capitale) |
+| CIA Řím | do centra uvnitř Aureliánských hradeb, vše v ceně | 40 € | 980 | [romamobilita.it](https://romamobilita.it/muoversi-a-roma/taxi/) |
+| CDG Paříž | pravý břeh 56 €, levý břeh 65 €, bez příplatku za zavazadla | 56–65 € | 1 590 | [Arrêté du 24 décembre 2025](https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053228231) |
+| ORY Paříž | levý břeh 36 €, pravý břeh 45 € | 36–45 € | 1 100 | [Arrêté du 24 décembre 2025](https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053228231) |
+| MAD Madrid | kamkoli uvnitř okruhu M-30, nonstop, zavazadla v ceně | 33 € | 810 | [comunidad.madrid](https://comunidad.madrid/sites/default/files/doc/consumo/certificado_tarifas_apc_taxi_24_40590322.pdf) |
+| ATH Atény | do centra; noční (0–5 h) 65 €, příplatky v ceně | 50 € / noční 65 € | 1 590 | [aia.gr](https://www.aia.gr/en/traveller/transportation-airport/taxi-limousines-transfer) |
+| FLR Florencie | do centra; svátek 30 €, noční 32 €, zavazadlo +1,20 € | 28 € / noční 32 € | 780 | [comune.fi.it](https://servizi.comune.fi.it/sites/www.comune.fi.it/files/all._3_tariffe_fase_2-16052023_df.pdf) |
+| NAP Neapol | nádraží a historické centrum 21 €, Molo Beverello 24 €, hotely na nábřeží 28,50 € | 21–28,50 € | 700 | [comune.napoli.it](https://static-www.comune.napoli.it/wp-content/uploads/2025/05/Tariffario_Taxi_2024.pdf) |
+| MXP Milán | kamkoli v Miláně, mýto v ceně | 114 € | 2 780 | [comune.milano.it](https://www.comune.milano.it/documents/20118/68224/Tariffario+Taxi+(agg.+luglio+2024).pdf) |
+| BGY Milán | kamkoli v Miláně | 128 € | 3 120 | [comune.milano.it](https://www.comune.milano.it/documents/20118/68224/Tariffario+Taxi+(agg.+luglio+2024).pdf) |
+| JFK New York | na Manhattan; navíc příplatky (~5–10 $), mýto a spropitné | 70 $ | 1 520 | [nyc.gov (TLC)](https://www.nyc.gov/site/tlc/passengers/taxi-fare.page) |
+
+Noční cena (Atény 0–5 h, Florencie 22–6 h) se v odhadu počítá pro celé noční okno průvodce (před 5:00 a od 23:00) –
+u Atén mezi 23. a 24. hodinou je to o 15 € víc, než se skutečně platí.
 
 ## Vlak nebo bus místo letadla
 

@@ -696,3 +696,52 @@ test('průvodce: trasa autem bez auta – v kroku Auto „Bez auta – mezi mís
   assert.ok(!render(c, { ...t, step: 'car' }).includes('id="carTransit"'));
   assert.ok(!render(c, { ...trip({ overland: OV({ on: false }), step: 'car' }), route: { ...t.route, mode: 'single' } }).includes('id="carTransit"'));
 });
+
+test('v noci taxi s pevnou cenou (Řím 55 € za auto): v průběhu cesty i v ceně místo MHD – jen v noci, děleno dospělými', () => {
+  const c = load();
+  vm.runInContext(`${src('searchhelp.js')}\nvar SearchHelp = window.SearchHelp;`, c, { filename: 'searchhelp.js' });
+  const { costs, timeline, sanitizeTrip, leaveBy } = c.window.Trip;
+  const FCO = { iata: 'FCO', city: 'Řím', gen: 'Říma', how: 'vlak Leonardo Express do Roma Termini', min: 32, czk: 340, fare: 14, cur: 'EUR', mode: 'train', basis: 'table', lat: 41.9028, lon: 12.4964, taxi: { fare: 55, cur: 'EUR', pax: 4, czk: 1340 } };
+  // let zpět v 7:00 → z ubytování ve 4:08 (32 min + 20 min na zastávku + 2 h): v noci; přílet v 9:00 ve dne
+  const t = trip({ route: null, overland: null, ground: {}, dest: { label: 'Řím', country: 'Itálie', cc: 'IT', lat: 41.8, lon: 12.25 }, arrival: { out: FCO, back: FCO } });
+  t.flight = { ...t.flight, arrCzk: 680, out: leg('PRG', 'FCO', '2026-11-10', '07:00', '09:00', 'Europe/Prague', 'Europe/Rome'), back: leg('FCO', 'PRG', '2026-11-14', '07:00', '09:00', 'Europe/Rome', 'Europe/Prague') };
+  assert.equal(leaveBy(t).hotel.hm, '04:08');
+  // 2 dospělí: tam vlak 340 Kč/os., zpět taxi 1 340 Kč za auto / 2
+  assert.equal(costs(t).arrival, (340 + 670) * 2);
+  const day = { ...t, flight: { ...t.flight, back: { ...t.flight.back, dep: '2026-11-14T12:00:00', arr: '2026-11-14T14:00:00' } } };
+  assert.equal(costs(day).arrival, 680 * 2, 've dne MHD');
+  // 5 dospělých: dvě auta (4 + 1) → 2 × 1 340 / 5 = 536 Kč/os.
+  assert.equal(costs({ ...t, adults: 5 }).arrival, (340 + 536) * 5);
+  // přílet po 23:00 i odlet v noci: oba úseky taxi
+  const late = { ...t, flight: { ...t.flight, out: { ...t.flight.out, dep: '2026-11-10T21:30:00', arr: '2026-11-10T23:30:00' } } };
+  assert.equal(costs(late).arrival, 670 * 2 * 2);
+  // průběh cesty: řádek cesty na letiště s pevnou cenou taxi; ve dne nic
+  const txt = (x) => timeline(x).map((r) => r[2]);
+  assert.equal(txt(t).find((r) => r.startsWith('Řím → letiště FCO')), 'Řím → letiště FCO · vlak Leonardo Express · ~32 min · 14 € (~340 Kč)/os. · v noci taxi, pevná cena 55 € za auto (v odhadu ceny započteno)');
+  assert.doesNotMatch(txt(day).find((r) => r.startsWith('Řím → letiště FCO')), /v noci/);
+  assert.match(txt(late).find((r) => r.startsWith('Z letiště FCO → Řím')), / · v noci taxi, pevná cena 55 € za auto \(v odhadu ceny započteno\)$/);
+  assert.doesNotMatch(txt(t).find((r) => r.startsWith('Z letiště FCO → Řím')), /taxi/, 'přílet v 9:00');
+  // souhrn: řádek dopravy říká, co se počítá
+  const html = render(c, { ...t, step: 'summary' });
+  assert.ok(html.includes('Doprava z letiště do města a zpět (odhad) · taxi na letiště FCO (noc) 55 € za auto'), html.slice(html.indexOf('Doprava'), html.indexOf('Doprava') + 200));
+  // krok Let: na osobu (340 + 670 Kč) a proč
+  assert.ok(render(c, { ...t, step: 'flight' }).includes('<span>Z letiště do města a zpět<small>taxi na letiště FCO (noc) 55 € za auto</small></span><b>~1 010 Kč</b>'));
+  // Paříž podle části města (horní cena v odhadu), Atény noční cena
+  const CDG = { ...FCO, iata: 'CDG', city: 'Paříž', how: 'vlak RER B do centra', taxi: { fare: 56, hi: 65, cur: 'EUR', pax: 4, czk: 1580 } };
+  assert.match(txt({ ...t, arrival: { out: CDG, back: CDG } }).find((r) => r.includes('→ letiště CDG')), / · v noci taxi, pevná cena 56–65 € za auto podle části města \(v odhadu ceny započteno 65 €\)$/);
+  const ATH = { ...FCO, iata: 'ATH', city: 'Atény', how: 'autobus X95 na Syntagma', mode: 'bus', taxi: { fare: 50, night: 65, cur: 'EUR', pax: 4, czk: 1580 } };
+  assert.match(txt({ ...t, arrival: { out: ATH, back: ATH } }).find((r) => r.includes('→ letiště ATH')), / · v noci taxi, pevná noční cena 65 € za auto \(v odhadu ceny započteno\)$/);
+  // bez pevné ceny, bez cesty do města v ceně, nebo autem z letiště: jako dřív
+  const noFare = { ...t, arrival: { out: { ...FCO, taxi: undefined }, back: { ...FCO, taxi: undefined } } };
+  assert.equal(costs(noFare).arrival, 680 * 2);
+  assert.match(txt(noFare).find((r) => r.startsWith('Řím → letiště FCO')), / · v noci spíš taxi \(v odhadu ceny je MHD\)$/);
+  const off = { ...t, flight: { ...t.flight, arrCzk: 0 } };
+  assert.equal(costs(off).arrival, 0);
+  assert.match(txt(off).find((r) => r.startsWith('Řím → letiště FCO')), / · v noci spíš taxi \(v odhadu ceny je MHD\)$/);
+  const car = { ...late, car: { mode: 'manual', totalCzk: 3000, pickup: 'FCO', dropoff: 'FCO', from: '2026-11-11T00:15', to: '2026-11-14T04:30' } };
+  assert.equal(costs(car).arrival, 0, 'auto z letiště i na letiště');
+  // sdílený odkaz / uložená cesta: taxi jen čísla v mezích
+  const san = plain(sanitizeTrip(plain({ ...t, arrival: { out: { ...FCO, taxi: { ...FCO.taxi, src: 'javascript:x', evil: 1 } }, back: { ...FCO, taxi: { fare: 'x', cur: 'EUR', czk: 5 } } } })).arrival);
+  assert.deepEqual(san.out.taxi, { fare: 55, cur: 'EUR', czk: 1340, pax: 4 });
+  assert.equal(san.back.taxi, undefined);
+});
