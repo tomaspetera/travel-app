@@ -6,6 +6,7 @@ import { stayLinks } from './links.js';
 import { partnerIds } from './partnerids.js';
 import { stayProviders } from '../providers/stays/index.js';
 import { checkHotel } from '../providers/stays/xotelo.js';
+import { osmLodging, osm } from '../providers/stays/osm.js';
 import { getAirport, METRO_BY_CODE, COUNTRY_BY_ISO, countryAt } from './airports.js';
 import { geocode, englishName } from './places.js';
 import { haversineKm, normalize } from './geo.js';
@@ -126,9 +127,10 @@ export const FRESH_MS = 5 * 60e3; // „Aktualizovat ceny“ (fresh=1) na dotaz 
 /**
  * raw: dotaz (normalizeStayQuery) + retry=1 („Zkusit znovu“), fresh=1 („Aktualizovat ceny“).
  * deps: english (anglický název místa), partners (dohledání ID místa u partnerů ubytování – partnerLookups()
- * z partnerids.js; null = odkazy bez ID, bez sítě: DEMO, testy, PARTNER_LOOKUP=0)
+ * z partnerids.js; null = odkazy bez ID, bez sítě: DEMO, testy, PARTNER_LOOKUP=0), lodging (ubytování v místě
+ * z OpenStreetMap, osmLodging)
  */
-export async function searchStays(raw, { english = englishName, partners = null } = {}) {
+export async function searchStays(raw, { english = englishName, partners = null, lodging = osmLodging } = {}) {
   const q = normalizeStayQuery(raw);
   const retry = String(raw.retry ?? '') === '1';
   const fresh = String(raw.fresh ?? '') === '1';
@@ -194,6 +196,24 @@ export async function searchStays(raw, { english = englishName, partners = null 
       status.push({ id: p.id, name: p.name, ok: false, error: e.message || String(e), ms: Date.now() - t0 });
     }
   }));
+  // Malé místo, kde TripAdvisor nic nemá (Palazzolo Acreide, Alcobaça – Xotelo bez hotelů s cenou i bez nich, nebo
+  // výpadek): ubytování v místě z OpenStreetMap – názvy, typ, hvězdičky a odkaz na hledání hotelu u partnera, cenu
+  // uživatel ověří a zadá sám. Ne když ceny ještě přicházejí (partial) a ne u LiteAPI (vlastní pokrytí).
+  let osmFallback = false;
+  const xoLike = providers.some((p) => p.id === 'xotelo' || p.id === 'demo');
+  if (xoLike && !items.length && q.lat != null && !status.some((s) => s.ok && s.partial)) {
+    const t0 = Date.now();
+    try {
+      const list = await lodging(q);
+      if (list.length) {
+        items.push(...list);
+        osmFallback = true;
+        status.push({ id: osm.id, name: osm.name, ok: true, count: list.length, ms: Date.now() - t0, test: Boolean(config.mock) });
+      }
+    } catch (e) {
+      status.push({ id: osm.id, name: osm.name, ok: false, error: e.message || String(e), ms: Date.now() - t0 });
+    }
+  }
   // Stejný hotel od více poskytovatelů → nech nejlevnější nabídku.
   const best = new Map();
   for (const h of items) {
@@ -205,6 +225,7 @@ export async function searchStays(raw, { english = englishName, partners = null 
     query: q,
     providers: status,
     items: rankStays([...best.values()]).slice(0, 60),
+    ...(osmFallback ? { osmFallback: true } : {}),
     links: stayLinks(q, await ids),
   };
 }

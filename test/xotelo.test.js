@@ -15,6 +15,7 @@ import {
   resetXoteloBreaker, xoteloBlocked, xoteloRetryAfter, offerLink, offerSite, RATES_TTL, EMPTY_SLOW_MS, EMPTY_TTL, checkHotel, otaName,
 } from '../server/providers/stays/xotelo.js';
 import { stayProviders } from '../server/providers/stays/index.js';
+import { mapOsm, rankOsm } from '../server/providers/stays/osm.js';
 import { providerStatus } from '../server/providers/index.js';
 import { normalizeStayQuery, searchStays, rankStays, FRESH_MS, checkStay } from '../server/lib/stays.js';
 import { googleHotelsTs, stayLinks } from '../server/lib/links.js';
@@ -1294,4 +1295,55 @@ test('letiště na ostrově: hotely kolem místa z tabulky dopravy do města (Te
   assert.equal(normalizeStayQuery({ city: 'Adeje', iata: 'TFS', lat: 28.1227, lon: -16.726, checkin: ymdPlus(30), checkout: ymdPlus(33) }).lat, 28.1227);
   // doprava z letiště jezdí do jiného, vzdáleného města (Memmingen → Mnichov 100 km): hotely v cíli – geokódování názvu
   assert.equal(normalizeStayQuery({ city: 'Memmingen', iata: 'FMM', lat: 47.9881, lon: 10.2382, checkin: ymdPlus(30), checkout: ymdPlus(33) }).lat, null);
+});
+
+test('malé místo bez cen z TripAdvisoru: ubytování z OpenStreetMap jde vybrat bez ověřování volna, cenu doplníš ručně', async () => {
+  const at = (dLat, dLon) => ({ lat: String(PRAGUE.lat + dLat), lon: String(PRAGUE.lon + dLon) });
+  const rows = [
+    { category: 'tourism', type: 'hotel', name: 'Hotel Colle Acre', osm_type: 'way', osm_id: 77, ...at(0.002, 0.003), extratags: { stars: '4', website: 'https://collacre.it' } },
+    { category: 'tourism', type: 'guest_house', name: 'Agriturismo Bosco', osm_type: 'node', osm_id: 78, ...at(-0.01, 0.01), extratags: {} },
+  ];
+  const items = rankStays(rankOsm(rows.map((r) => mapOsm(r, STAY_Q, PRAGUE))));
+  const reply = { query: STAY_Q, providers: [{ id: 'xotelo', name: 'TripAdvisor (Xotelo)', ok: true, count: 0, ms: 5, test: false }, { id: 'osm', name: 'OpenStreetMap', ok: true, count: 2, ms: 3, test: false }], items, osmFallback: true, links: stayLinks(STAY_Q) };
+  const c = loadTrip(() => reply);
+  const t = pragueTrip();
+  const i = items.findIndex((h) => h.name === 'Hotel Colle Acre');
+  const pick = { dataset: { pick: String(i) } };
+  c.__all['[data-pick]'] = [pick];
+  c.S.trip = t;
+  c.window.Trip.render();
+  await tick();
+  const html = sp(c.__els['#stayBody'].innerHTML);
+  assert.match(html, /<b>TripAdvisor tu ceny nemá<\/b> – v místě jsou tato ubytování \(OpenStreetMap\)\. Cenu ověř u partnera a zadej ji níže\./);
+  assert.doesNotMatch(html, /nemám přímé nabídky/);
+  assert.doesNotMatch(html, /id="stayMin"/, 'bez hodnocení – filtr hodnocení není');
+  const card = cardOf(html, 'Hotel Colle Acre');
+  assert.match(card, /cenu ověř u partnera/);
+  assert.match(card, /href="https:\/\/www\.booking\.com\/searchresults\.cs\.html\?ss=Hotel\+Colle\+Acre%2C\+Prague[^"]*"[^>]*>Booking\.com ↗/);
+  assert.match(card, /href="https:\/\/collacre\.it"[^>]*>web ubytování ↗/);
+  assert.match(card, /href="https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=Hotel%20Colle%20Acre%2C%20Prague"[^>]*>mapa ↗/);
+  // Vybrat: bez dotazu na volno (není to hotel z TripAdvisoru), vybere se bez ceny s odkazem na Booking
+  await pick.onclick();
+  assert.equal(c.__urls.filter((u) => u.startsWith('api/stays/check?')).length, 0);
+  assert.deepEqual([t.stay.mode, t.stay.id, t.stay.provider, t.stay.totalCzk, /^https:\/\/www\.booking\.com\//.test(t.stay.url)], ['pick', 'osm:way/77', 'osm', 0, true]);
+  // zpět v kroku: název předvyplněný, uložená cena přibude k vybranému ubytování (odkaz zůstane)
+  t.step = 'stay';
+  c.window.Trip.render();
+  await tick();
+  const step = sp(c.__els['#tripStep'].innerHTML);
+  assert.match(step, /Cenu za <b>Hotel Colle Acre<\/b> ověř u partnera a zadej ji \(celkem za pobyt\):/);
+  assert.match(step, /id="manName" placeholder="Název \(nepovinné\)" value="Hotel Colle Acre"/);
+  c.$('#manName').value = 'Hotel Colle Acre';
+  c.$('#manPrice').value = '4500';
+  c.$('#manSave').onclick();
+  assert.deepEqual([t.stay.mode, t.stay.id, t.stay.totalCzk, /^https:\/\/www\.booking\.com\//.test(t.stay.url)], ['pick', 'osm:way/77', 4500, true]);
+  // jiný název = vlastní ubytování
+  t.stay = { ...t.stay, totalCzk: 0 };
+  t.step = 'stay';
+  c.window.Trip.render();
+  await tick();
+  c.$('#manName').value = 'Penzion u kostela';
+  c.$('#manPrice').value = '3900';
+  c.$('#manSave').onclick();
+  assert.deepEqual([t.stay.mode, t.stay.name, t.stay.totalCzk], ['manual', 'Penzion u kostela', 3900]);
 });
