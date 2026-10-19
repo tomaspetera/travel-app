@@ -744,8 +744,13 @@ nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; k
 Šarm aš-Šajch, Marsa Alam, Akaba, Djerba), 🚕 taxi – cena za auto děleno dvěma; „od“ = cena online předem; kde je známá i
 běžná cena v den cesty (pole `typ` – Stansted Express od 9,90 £, běžně 23 £; flibco Charleroi od 14,99 €, v den odjezdu
 ~19 €; Terravision Bergamo od 5 €, běžně 8 €; Memmingen flibco online od 6,99 €, běžně ~15 € (Allgäu Airport Express online 15 €, v autobuse 20 €); Funchal 702 předem 2 €,
-na palubě 2,65 €), štítek ukáže obě a do odhadu ceny cesty (Kč) jde ta běžná. Cesta *na* letiště (odlet, `access.js`) počítá
-s cenou „od“ – jízdenka na odlet se kupuje předem:
+na palubě 2,65 €; Luton od 10 £, běžně ~17 £; Manchester od 2,90 £, běžně ~6 £; Torp-ekspressen od 289 NOK, běžně
+~360 NOK), štítek ukáže obě a do odhadu ceny cesty (Kč) jde ta běžná. U Stanstedu, Lutonu, Manchesteru a Torpu je běžná
+cena jen ze sekundárních zdrojů (²; oficiální stránka cenu v den cesty neuvádí) a poznámka štítku to říká. Kde se cena
+v den cesty neliší, „od“ se nepíše (Heathrow metro 5,90 £ kdykoli podle TfL, Flybus Keflavík pevně 3 999 ISK); Southend:
+Off-Peak 13,40 £ platí i v den cesty (ve špičce 20,10 £). Bez běžné ceny zůstávají Flygbussarna ve Stockholmu (Skavsta,
+Arlanda, Västerås) a flibco Hahn – cenu v den cesty neuvádí oficiální ani důvěryhodný sekundární zdroj. Cesta *na*
+letiště (odlet, `access.js`) počítá s cenou „od“ – jízdenka na odlet se kupuje předem:
 
 1. **Ověřená tabulka 157 letišť** z oficiálních stránek letiště, dopravce nebo dopravního svazu, **ověřeno 7. a 18. 10.
    2026**: 74 z prvního kola, 59 nejčastějších dalších cílů z Prahy a okolí (živé hledání „kamkoli“ ve třech obdobích –
@@ -777,11 +782,11 @@ s cenou „od“ – jízdenka na odlet se kupuje předem:
 | CRL Brusel | autobus flibco do Bruxelles-Midi | od 14,99 €, běžně ~19 € | 460 ⚠ | 55 min | [flibco.com](https://www.flibco.com/en/shuttle/bus-brussels-charleroi-airport) |
 | BRU Brusel | autobus STIB Airport Line 12 do evropské čtvrti | 7,90 € | 190 | 30 min | [stib-mivb.be](https://www.stib-mivb.be/travel/other-mobility-solutions/airport-line) |
 | STN Londýn | vlak Stansted Express do Liverpool Street | od 9,90 £, běžně 23 £ ² | 660 ⚠ | 48 min | [stanstedexpress.com](https://www.stanstedexpress.com/tickets-fares/ticket-types) |
-| LTN Londýn | Luton DART + vlak Luton Airport Express do St Pancras | od 10 £ | 290 | 32 min | [london-luton.co.uk](https://www.london-luton.co.uk/to-and-from-lla/trains/luton-airport-express) |
+| LTN Londýn | Luton DART + vlak Luton Airport Express do St Pancras | od 10 £, běžně ~17 £ ² | 490 ⚠ | 32 min | [london-luton.co.uk](https://www.london-luton.co.uk/to-and-from-lla/trains/luton-airport-express) |
 | LGW Londýn | vlak Southern / Thameslink do Victoria nebo London Bridge | 10,70 £ | 310 | 35 min | [lasttrip.uk](https://lasttrip.uk/blog/cheapest-way-london-to-gatwick.html) ² |
-| LHR Londýn | metro Piccadilly line do centra | od 5,50 £ | 160 | 50 min | [heathrow.com](https://www.heathrow.com/transport-and-directions/getting-to-central-london) |
-| SEN Londýn | vlak Greater Anglia do Liverpool Street | od 13,40 £ | 390 ⚠ | 52 min | [londonsouthendairport.com](https://londonsouthendairport.com/getting-to-and-from/trains/) |
-| MAN Manchester | vlak do Manchester Piccadilly | od 2,90 £ | 80 | 20 min | [tpexpress.co.uk](https://www.tpexpress.co.uk/travelling-with-us/routes/trains-from-manchester-airport-to-manchester-piccadilly) |
+| LHR Londýn | metro Piccadilly line do centra | 5,90 £ | 170 | 50 min | [api.tfl.gov.uk](https://api.tfl.gov.uk/Stoppoint/940GZZLUHRC/FareTo/940GZZLUPCC) |
+| SEN Londýn | vlak Greater Anglia do Liverpool Street | od 13,40 £ (Off-Peak) | 390 ⚠ | 52 min | [greateranglia.co.uk](https://www.greateranglia.co.uk/train-times/southend-airport-to-london-liverpool-street) |
+| MAN Manchester | vlak do Manchester Piccadilly | od 2,90 £, běžně ~6 £ ² | 170 | 20 min | [tpexpress.co.uk](https://www.tpexpress.co.uk/travelling-with-us/routes/trains-from-manchester-airport-to-manchester-piccadilly) |
 | EDI Edinburgh | autobus Airlink 100 na Waverley Bridge | 6 £ | 170 | 30 min | [lothianbuses.com](https://www.lothianbuses.com/our-services/airport-buses/) |
 | DUB Dublin | městský autobus Dublin Bus 16 do centra | 2,60 € | 60 | 40 min | [dublinbus.ie](https://www.dublinbus.ie/journey-information/dublin-airport-hub) |
 | BGY Milán | autobus Terravision do Milano Centrale | od 5 €, běžně 8 € | 200 | 50 min | [terravision.eu](https://www.terravision.eu/airport_transfer/bus-bergamo-airport-milan/) |
@@ -799,7 +804,7 @@ s cenou „od“ – jízdenka na odlet se kupuje předem:
 | ARN Stockholm | autobus Flygbussarna do Stockholm C (Cityterminalen) | od 129 SEK | 280 | 40 min | [flygbussarna.se](https://www.flygbussarna.se/en/arlanda) |
 | VST Stockholm | autobus Flygbussarna do Stockholm C (Cityterminalen) | od 229 SEK | 500 ⚠ | 1 h 20 | [flygbussarna.se](https://www.flygbussarna.se/en/vasteras) |
 | GOT Göteborg | autobus Flygbussarna do Göteborg C | 129 SEK | 280 | 20 min | [flygbussarna.se](https://www.flygbussarna.se/en/landvetter) |
-| TRF Oslo | autobus Torp-ekspressen do centra Osla | od 289 NOK | 650 ⚠ | 1 h 35 | [torpekspressen.no](https://www.torpekspressen.no/billetter-og-priser/) |
+| TRF Oslo | autobus Torp-ekspressen do centra Osla | od 289 NOK, běžně ~360 NOK ² | 820 ⚠ | 1 h 35 | [torpekspressen.no](https://www.torpekspressen.no/billetter-og-priser/) |
 | OSL Oslo | regionální vlak Vy na Oslo S | 129 NOK | 290 | 23 min | [visitoslo.com](https://www.visitoslo.com/no/transport/transport-flyplass/oslo-gardermoen) ² |
 | HHN Frankfurt | autobus flibco do Frankfurt Hbf | od 18,99 € | 460 ⚠ | 2 h 10 | [flibco.com](https://www.flibco.com/en/shuttle/bus-frankfurt-hahn-airport) |
 | FRA Frankfurt | S-Bahn S8 / S9 do centra (Hauptbahnhof ~11 min) | 6,90 € | 170 | 15 min | [vgf-ffm.de](https://www.vgf-ffm.de/fileadmin/VGF/Tickets__Tarife__Plaene/Fahrpreise/Documents/Preisliste_2026.pdf) |
@@ -837,7 +842,7 @@ s cenou „od“ – jízdenka na odlet se kupuje předem:
 | AMS Amsterdam | vlak NS na Amsterdam Centraal | 5,60 € | 140 | 17 min | [amsterdamtips.com](https://www.amsterdamtips.com/?p=2759) ² |
 | EIN Eindhoven | autobus Hermes 400 na Eindhoven Centraal | 5,15 € | 130 | 20 min | [eindhovenairport.nl](https://www.eindhovenairport.nl/en/public-transport) |
 | RTM Rotterdam | autobus 33 + metro E do centra | 5,50 € | 130 | 20 min | [ret.nl](https://www.ret.nl/en/home/travel-products/tourist/rotterdam-the-hague-airport.html) |
-| KEF Reykjavík | autobus Flybus na terminál BSÍ | od 3 999 ISK | 710 ⚠ | 45 min | [flybus.is](https://flybus.is/keflavik-reykjavik-airport-transfer/) |
+| KEF Reykjavík | autobus Flybus na terminál BSÍ | 3 999 ISK | 710 ⚠ | 45 min | [flybus.is](https://flybus.is/keflavik-reykjavik-airport-transfer/) |
 | IST Istanbul | autobus Havaist na Taksim | 426 TRY | 190 ⚠ | 1 h 30 | [hava.ist](https://www.hava.ist/) |
 | SAW Istanbul | autobus Havabüs na Taksim | 485 TRY | 210 ⚠ | 1 h 30 | [havabus.com](https://www.havabus.com/yolcuservisi/taksim-sabihagokcenhavalimani.aspx) |
 | TLV Tel Aviv | vlak Israel Railways do Tel Avivu (HaHagana, Savidor) | 13,50 ILS | 100 | 20 min | [visit.tel-aviv.gov.il](https://visit.tel-aviv.gov.il/move/airport) |
