@@ -125,10 +125,10 @@ test('krátký spoj přes hranici: regionální jízdné s příplatkem, meziná
   assert.deepEqual(ks(OSTRAVA, 'KTW'), [['home', 30], ['intercity', 140], ['access', 150], ['border', 30]]);
   // Děčín → Drážďany 45 km, Břeclav → Vídeň 72 km: regionální jízdné + příplatek 50 Kč (dřív 90 / 130 Kč bez příplatku)
   assert.deepEqual(ks(DECIN, 'DRS'), [['home', 30], ['intercity', 100], ['access', 90], ['border', 50]]);
-  assert.deepEqual(ks(BRECLAV, 'VIE'), [['home', 30], ['intercity', 140], ['access', 110], ['border', 50]]);
+  assert.deepEqual(ks(BRECLAV, 'VIE'), [['home', 30], ['intercity', 140], ['access', 140], ['border', 50]]);
   // Znojmo → Vídeň, České Budějovice → Linec ~76 km: běžná cena mezinárodního spoje jako na 115 km (190 Kč, konkrétní
   // spoj × 1,4 = 270 Kč), ne model protažený pod kalibraci (130 Kč)
-  assert.deepEqual(ks(ZNOJMO, 'VIE'), [['home', 30], ['intercity', 270], ['access', 110]]);
+  assert.deepEqual(ks(ZNOJMO, 'VIE'), [['home', 30], ['intercity', 270], ['access', 140]]);
   assert.deepEqual(ks(CB, 'LNZ'), [['home', 30], ['intercity', 270], ['access', 90]]);
   // spoj přes hranici nikdy levněji než domácí regionální jízdenka na stejnou vzdálenost; delší trasy beze změny
   for (const [h, iata] of [[DECIN, 'DRS'], [BRECLAV, 'VIE'], [ZNOJMO, 'VIE'], [CB, 'LNZ'], [OSTRAVA, 'KTW']]) {
@@ -671,7 +671,7 @@ test('resolveOrigins a přestupní letiště: doprava podle zvoleného způsobu'
   assert.deepEqual([prg.ground.mode, prg.ground.czk], ['transit', 50]);
   const klv = r.airports.find((a) => a.iata === 'KLV');
   assert.ok(klv.ground.czk >= 260 && klv.ground.czk <= 380, `KLV ${klv.ground.czk}`);
-  assert.equal(klv.seasonal, 'hlavně letní charter (červen–září)', 'KLV: létá se hlavně v létě');
+  assert.equal(klv.seasonal, 'hlavně letní charter (červen–začátek října)', 'KLV: létá se hlavně v létě');
   assert.equal(prg.seasonal, undefined);
   const rc = resolveOrigins(['ap:PRG'], { radiusKm: 200, access: { mode: 'car', adults: 2, carKmCzk: 3 } });
   // parkování za den všude kromě Pardubic (P1 + P2 zdarma bez rezervace – airport-pardubice.cz, ověřeno 10/2026)

@@ -1239,6 +1239,7 @@ test('název webu nabídky: oficiální web hotelu i v cizím jazyce (kód SSC_�
   assert.equal(otaName('ไซต์ที่เป็นทางการ', 'SSC_WuBook_1Fvye4H'), 'web hotelu');
   assert.equal(otaName('Официальный сайт', 'X'), 'web hotelu');
   assert.equal(otaName('Official Site'), 'web hotelu');
+  assert.equal(otaName('Hotels.com™', 'HotelsCom2'), 'Hotels.com™', 'značka ™ není cizí písmo');
   assert.equal(otaName('Agoda.com', 'Agoda'), 'Agoda');
   assert.equal(otaName('Booking.com', 'BookingCom'), 'Booking.com');
   assert.equal(otaName('Hotels.com', 'HotelsCom2'), 'Hotels.com');

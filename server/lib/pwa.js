@@ -165,7 +165,8 @@ export function serveIndex(req, res, dirs) {
     indexMemo = { key, body, gz: zlib.gzipSync(body), etag: `"ix-${createHash('sha256').update(body).digest('hex').slice(0, 16)}"` };
   }
   const { body, gz, etag } = indexMemo;
-  const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag, Vary: 'Accept-Encoding' };
+  // X-Atlas-Build: service worker se stejnou verzí pak soubory stránky vezme z uložené sady bez ptaní serveru (sw.js)
+  const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag, Vary: 'Accept-Encoding', ...(build ? { 'X-Atlas-Build': build } : {}) };
   if ((req.headers['if-none-match'] || '').split(/\s*,\s*/).includes(etag)) {
     res.writeHead(304, headers);
     return res.end();

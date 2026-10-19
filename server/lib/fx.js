@@ -5,13 +5,13 @@
 import { cache } from './cache.js';
 import { request } from './http.js';
 
-// Orientační kurzy za 1 EUR (záloha při výpadku obou zdrojů).
+// Orientační kurzy za 1 EUR (záloha při výpadku obou zdrojů), aktualizováno 19. 10. 2026 podle ECB a open.er-api.
 export const FALLBACK_EUR = {
-  EUR: 1, CZK: 24.6, USD: 1.1, GBP: 0.85, PLN: 4.25, HUF: 395, RON: 5.0, SEK: 11.2, NOK: 11.6,
-  DKK: 7.46, CHF: 0.94, BGN: 1.956, TRY: 45, MAD: 10.8, AED: 4.0, RSD: 117, ALL: 98, MKD: 61.5,
-  BAM: 1.956, GEL: 3.0, ILS: 4.1, JOD: 0.78, ISK: 145, SAR: 4.1, QAR: 4.0, EGP: 53, TND: 3.4,
-  AMD: 425, AZN: 1.87, KZT: 560, UZS: 14000, MDL: 19.5, UAH: 46, THB: 37, JPY: 165, CNY: 7.9,
-  INR: 93, AUD: 1.65, CAD: 1.5, KRW: 1500, SGD: 1.45, MYR: 4.9, IDR: 18000, VND: 28000, ZAR: 20,
+  EUR: 1, CZK: 24.6, USD: 1.1, GBP: 0.85, PLN: 4.25, HUF: 363, RON: 5.33, SEK: 11.2, NOK: 10.6,
+  DKK: 7.46, CHF: 0.94, BGN: 1.956, TRY: 55.7, MAD: 10.8, AED: 4.0, RSD: 117, ALL: 91, MKD: 61.5,
+  BAM: 1.956, GEL: 3.0, ILS: 3.48, JOD: 0.78, ISK: 145, SAR: 4.1, QAR: 4.0, EGP: 60, TND: 3.4,
+  AMD: 425, AZN: 1.87, KZT: 509, UZS: 14000, MDL: 19.5, UAH: 50.5, THB: 37, JPY: 178, CNY: 7.52,
+  INR: 107, AUD: 1.65, CAD: 1.59, KRW: 1500, SGD: 1.45, MYR: 4.59, IDR: 20300, VND: 28000, ZAR: 18.5,
 };
 
 let rates = { base: 'EUR', rates: FALLBACK_EUR, source: 'approx', date: null };

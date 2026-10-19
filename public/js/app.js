@@ -670,7 +670,8 @@ function renderCountries() {
 }
 
 /* ================= COUNTRY MODAL ================= */
-function modalOpen(html) { $('#modal').innerHTML = html; $('#modalBg').classList.add('show'); }
+// hláška z předchozí akce („📌 Odloženo…“) by zakryla spodek panelu s tlačítky – s otevřením okna zmizí
+function modalOpen(html) { $('#modal').innerHTML = html; $('#modalBg').classList.add('show'); $('#toast').classList.remove('show'); }
 function modalClose() { $('#modalBg').classList.remove('show'); }
 $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) modalClose(); };
 // telefon: panel zespodu jde zavřít stažením za horní okraj (úchyt) dolů – jen když je obsah odscrollovaný nahoru

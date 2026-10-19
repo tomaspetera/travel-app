@@ -3,6 +3,7 @@
 // Spuštění: node server/index.js   (Node 20+, žádné závislosti)
 import http from 'node:http';
 import { createReadStream, readFileSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { config } from './config.js';
@@ -51,20 +52,31 @@ function wantsBr(req) {
 // Zkomprimované soubory aplikace v paměti (brotli / gzip jednou na verzi souboru): menší přenos na mobilu a rychlejší
 // odpověď – soubor se nekomprimuje znovu při každém otevření.
 const packed = new Map();
-function packedBody(file, st, enc) {
+function packedFile(file, st) {
   let p = packed.get(file);
   if (!p || p.mtime !== st.mtimeMs || p.size !== st.size) { p = { mtime: st.mtimeMs, size: st.size, raw: readFileSync(file) }; packed.set(file, p); }
+  return p;
+}
+// ETag podle obsahu: nasazení posune čas změny u všech souborů (Last-Modified), nezměněné ale dál odpoví 304 –
+// po nasazení se stáhne jen to, co se opravdu změnilo (bez ETagu celá aplikace znovu, ~600 kB)
+const etagOf = (file, st) => { const p = packedFile(file, st); return p.etag || (p.etag = `"${createHash('sha1').update(p.raw).digest('base64url').slice(0, 22)}"`); };
+function packedBody(file, st, enc) {
+  const p = packedFile(file, st);
   if (enc === 'br') return p.br || (p.br = zlib.brotliCompressSync(p.raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: p.raw.length } }));
   return p.gz || (p.gz = zlib.gzipSync(p.raw, { level: 9 }));
 }
 
+// Odpovědi API brotli kvality 4: o ~12 % menší než gzip za stejný čas procesoru (vyšší kvalita by na Renderu zdarma
+// zdržovala) – stejné nastavení i pro průběžné výsledky hledání (streamSearch).
+const BR_API = { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } };
 function sendJson(req, res, status, obj, extra = {}) {
   const body = Buffer.from(JSON.stringify(obj));
   const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra };
-  if (wantsGzip(req) && body.length > 1024) {
-    headers['Content-Encoding'] = 'gzip';
+  const enc = body.length > 1024 ? (wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '') : '';
+  if (enc) {
+    headers['Content-Encoding'] = enc;
     res.writeHead(status, headers);
-    res.end(zlib.gzipSync(body));
+    res.end(enc === 'br' ? zlib.brotliCompressSync(body, BR_API) : zlib.gzipSync(body));
   } else {
     res.writeHead(status, headers);
     res.end(body);
@@ -82,14 +94,19 @@ function serveFile(req, res, file, { maxAge = 300 } = {}) {
   const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
   // maxAge 0 = no-cache: prohlížeč (i service worker) se u každého použití zeptá serveru (304 je levné)
   const headers = { 'Content-Type': type, 'Cache-Control': maxAge > 0 ? `public, max-age=${maxAge}` : 'no-cache', 'Last-Modified': st.mtime.toUTCString() };
-  if (req.headers['if-modified-since'] && new Date(req.headers['if-modified-since']) >= new Date(st.mtime.toUTCString())) {
+  const compressible = /text|json|javascript|svg/.test(type) && st.size > 1024;
+  if (compressible) headers.Vary = 'Accept-Encoding';
+  const enc = compressible ? (wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '') : '';
+  // ETag podle obsahu a komprese (br / gzip / bez – každá podoba souboru má vlastní)
+  if (st.size < 3e6) headers.ETag = etagOf(file, st).replace(/"$/, enc ? `-${enc}"` : '"');
+  // If-None-Match má přednost před If-Modified-Since (RFC 9110) – shodný obsah = 304, i když se soubor nasadil znovu
+  const inm = req.headers['if-none-match'];
+  if (inm && headers.ETag ? inm.split(/\s*,\s*/).some((t) => t.replace(/^W\//, '') === headers.ETag || t === '*')
+    : req.headers['if-modified-since'] && new Date(req.headers['if-modified-since']) >= new Date(st.mtime.toUTCString())) {
     res.writeHead(304, headers);
     res.end();
     return true;
   }
-  const compressible = /text|json|javascript|svg/.test(type) && st.size > 1024;
-  if (compressible) headers.Vary = 'Accept-Encoding';
-  const enc = compressible ? (wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '') : '';
   if (enc && st.size < 3e6) {
     const body = packedBody(file, st, enc);
     headers['Content-Encoding'] = enc;
@@ -193,14 +210,14 @@ async function handleSearch(req, res) {
 }
 
 async function streamSearch(req, res, body) {
-  const gzip = wantsGzip(req);
+  const enc = wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '';
   res.writeHead(200, {
     'Content-Type': 'application/x-ndjson; charset=utf-8',
     'Cache-Control': 'no-store',
     'X-Accel-Buffering': 'no',
-    ...(gzip ? { 'Content-Encoding': 'gzip' } : {}),
+    ...(enc ? { 'Content-Encoding': enc } : {}),
   });
-  const out = gzip ? zlib.createGzip() : null;
+  const out = enc === 'br' ? zlib.createBrotliCompress(BR_API) : enc ? zlib.createGzip() : null;
   if (out) out.pipe(res);
   let closed = false;
   res.on('close', () => { closed = true; });
@@ -209,7 +226,7 @@ async function streamSearch(req, res, body) {
     const line = JSON.stringify(obj) + '\n';
     if (out) {
       out.write(line);
-      out.flush(zlib.constants.Z_SYNC_FLUSH);
+      out.flush(enc === 'br' ? zlib.constants.BROTLI_OPERATION_FLUSH : zlib.constants.Z_SYNC_FLUSH); // řádek hned
     } else res.write(line);
   };
   try {

@@ -454,7 +454,7 @@ function parseGeo(rest) {
  */
 // Letiště, odkud se létá jen v sezóně (letní charter) – náhled ve formuláři to řekne, ať je nikdo nečeká v listopadu.
 // Ověřeno 10/2026: JCL jen Smartwings Palma a Čedok (červen–září), KLV Antalya a Burgas (červen–začátek října).
-export const SEASONAL = { JCL: 'jen letní charter (červen–září)', KLV: 'hlavně letní charter (červen–září)' };
+export const SEASONAL = { JCL: 'jen letní charter (červen–září)', KLV: 'hlavně letní charter (červen–začátek října)' };
 
 export function resolveOrigins(ids, { radiusKm = 250, maxAirports = config.maxOrigins, access = {}, exclude = [] } = {}) {
   let home = null;

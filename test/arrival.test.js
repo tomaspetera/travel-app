@@ -97,7 +97,7 @@ test('arrivalTransfer: ověřená tabulka, tabulka cesty na letiště, odhad pod
   const vie = A.arrivalTransfer('VIE');
   assert.deepEqual([vie.city, vie.czk, vie.min, vie.basis, vie.est, vie.mode], ['Vídeň', ACCESS.VIE[3], ACCESS.VIE[4], 'access', undefined, 'train']);
   // text tabulky cesty na letiště je psaný směrem na letiště: „z centra“ → „do centra“, jiné místo se vynechá
-  assert.equal(vie.how, 'vlak S7 / Railjet do centra (~4,40 €; CAT 14,90 €)');
+  assert.equal(vie.how, 'vlak REX7 / S7 do centra (5,50 €; S7 kvůli výluce končí v St. Marx, CAT jezdí jako bus)');
   assert.equal(A.accessHow('bus E76 z hlavního nádraží (IDS JMK)'), 'bus E76 (IDS JMK)');
   assert.equal(A.accessHow('vlak do Mošnova (ODIS)'), 'vlak (ODIS)');
   assert.equal(A.accessHow('MHD bus 61 (60 min)'), 'MHD bus 61 (60 min)');
@@ -343,7 +343,7 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   assert.match(bod.title, /odhad ~150 Kč na osobu, ~40 min – podle vzdálenosti letiště od města \(~15 km\)/);
   assert.doesNotMatch(bod.title, /Zdroj/);
   // tabulka cesty na letiště (Vídeň) je taky jen odhad
-  assert.match(H.arrivalChips({ out: { to: 'VIE' } }, ARR)[0].text, /^🚆 z letiště VIE do centra ~110 Kč · 40 min \(odhad\)$/);
+  assert.match(H.arrivalChips({ out: { to: 'VIE' } }, ARR)[0].text, /^🚆 z letiště VIE do centra ~140 Kč · 40 min \(odhad\)$/);
   // „od“ (online předem) a sekundární zdroj
   assert.equal(H.arrivalChips({ out: { to: 'STN' } }, ARR)[0].text, '🚆 z letiště STN do Londýna od 9,90 £ (~280 Kč) · 48 min');
   assert.match(H.arrivalChips({ out: { to: 'LGW' } }, ARR)[0].title, /Zdroj \(sekundární, oficiální neuvádí\): lasttrip\.uk/);

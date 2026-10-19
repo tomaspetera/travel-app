@@ -203,6 +203,8 @@ test('server: /sw.js bez mezipaměti s verzí a 304, HEAD; kód aplikace (HTML, 
 
   for (const p of ['/', '/index.html', '/neexistujici-stranka']) {
     const h = await fetch(`${base}${p}`);
+    // service worker se stejnou verzí vezme soubory stránky z uložené sady (sw.js fromCache)
+    assert.equal(h.headers.get('x-atlas-build'), build, `${p}: verze stránky`);
     assert.equal(h.status, 200, p);
     assert.match(h.headers.get('content-type'), /^text\/html/, p);
     assert.equal(h.headers.get('cache-control'), 'no-cache', `${p}: HTML se vždy ověří u serveru`);
@@ -554,4 +556,23 @@ test('pwa.js: místo „Failed to fetch“ česká hláška u API (offline / ser
   assert.equal(mode({ ua: mac, platform: 'MacIntel', touch: 0 }), null, 'Safari na Macu: nic');
   assert.equal(mode({ ua: 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0' }), null, 'Firefox na počítači: nic');
   assert.equal(mode({ ua: `${iphone} Instagram 300.0` }), null, 'vestavěný prohlížeč aplikace na plochu neumí');
+});
+
+test('ETag podle obsahu: znovu nasazený nezměněný soubor (nový čas změny) odpoví 304, změněný 200', async () => {
+  const a = await fetch(`${base}/js/app.js`, { headers: { 'accept-encoding': 'br' } });
+  const tag = a.headers.get('etag');
+  assert.match(tag, /^"[\w-]{22}-br"$/);
+  // nasazení posune Last-Modified – starší If-Modified-Since by dal 200, shodný ETag má přednost → 304
+  const old = new Date(Date.parse(a.headers.get('last-modified')) - 864e5).toUTCString();
+  const same = await fetch(`${base}/js/app.js`, { headers: { 'accept-encoding': 'br', 'if-none-match': tag, 'if-modified-since': old } });
+  assert.equal(same.status, 304);
+  assert.equal(same.headers.get('etag'), tag);
+  // jiná komprese = jiná podoba souboru
+  const gz = await fetch(`${base}/js/app.js`, { headers: { 'accept-encoding': 'gzip', 'if-none-match': tag } });
+  assert.equal(gz.status, 200);
+  assert.match(gz.headers.get('etag'), /-gzip"$/);
+  await gz.arrayBuffer();
+  const other = await fetch(`${base}/js/app.js`, { headers: { 'accept-encoding': 'br', 'if-none-match': '"jiny-obsah-br"' } });
+  assert.equal(other.status, 200);
+  await other.arrayBuffer();
 });

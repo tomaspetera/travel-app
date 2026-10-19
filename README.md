@@ -486,7 +486,7 @@ ceník parkoviště; hledání se kvůli němu na síť neptá (jen ceny paliva 
   (Brno 199 Kč, Pardubice 119 Kč, Vídeň 249 Kč, Berlín 379 Kč, Krakov 418 Kč, Budapešť 569 Kč…), jinde model podle
   vzdálenosti po pásmech – obojí z živých cen RegioJetu 15. 10. 2026, viz [Vlak nebo bus místo
   letadla](#vlak-nebo-bus-místo-letadla); na kratší vzdálenost regionální jízdné ~30 Kč + 1,5 Kč/km. Z města na
-  letiště: tabulka ~35 letišť do ~450 km od Česka (MHD, S-Bahn, letištní bus – např. Vídeň vlak S7 ~110 Kč, Mnichov
+  letiště: tabulka ~35 letišť do ~450 km od Česka (MHD, S-Bahn, letištní bus – např. Vídeň vlak REX7 / S7 ~140 Kč, Mnichov
   S-Bahn ~350 Kč, Berlín ~120 Kč, Drážďany ~85 Kč, Budapešť bus 100E ~170 Kč; Memmingen = letištní bus z Mnichova),
   jinde jízdenka MHD země + 20–40 Kč podle velikosti letiště. Běžná cena spoje přes hranici už je cena mezinárodního
   spoje (měřilo se na nich), takže se k ní nic nepřičítá. Model je na spojích přes hranici kalibrovaný od ~115 km
@@ -810,8 +810,8 @@ nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; k
 | FAO Faro | autobus Próximo 16 na autobusové nádraží | 2,50 € | 60 | 15 min | [citiesinsider.com](https://citiesinsider.com/country/portugal/faro/guides/faro-transport/de) ² |
 | ATH Atény | autobus X95 na Syntagma | 5,50 € | 130 | 1 h | [oasa.gr](https://www.oasa.gr/en/visit-athens/airport-express-bus-lines/) |
 | SKG Soluň | autobus 01X do centra a na nádraží | 1,80 € | 40 | 45 min | [skg-airport.gr](https://www.skg-airport.gr/en/category-detailed/ctg_id-37/nd_id-425) |
-| LCA Larnaka | městský autobus do centra (Finikoudes) | 1,50 € | 40 | 20 min | [cyprusbybus.com](https://www.cyprusbybus.com/busfares.aspx) |
-| PFO Pafos | městský autobus 612 do Kato Pafos (přístav) | 1,50 € | 40 | 35 min | [cyprusbybus.com](https://www.cyprusbybus.com/busfares.aspx) |
+| LCA Larnaka | městský autobus do centra (Finikoudes) | 2,70 € (karta Motion 2 €) | 70 | 20 min | [publictransport.com.cy](https://www.publictransport.com.cy/cms/page/cash-tickets) |
+| PFO Pafos | městský autobus 612 do Kato Pafos (přístav) | 2 € (po 21:00 3 €) | 50 | 35 min | [pafosbuses.com](https://www.pafosbuses.com/tickets) |
 | MLA Valletta | autobus Airport Direct TD4 do Valletty | 3 € | 70 | 25 min | [publictransport.com.mt](https://www.publictransport.com.mt/easy-and-convenient-airport-transfers-with-airport-direct/) |
 | DBV Dubrovník | autobus Platanus ke starému městu a do Gruže | 10 € | 240 | 35 min | [platanus.hr](https://platanus.hr/dubrovnik-airport-shuttle/) |
 | SPU Split | autobus Platanus na autobusové nádraží | 10 € | 240 | 30 min | [platanus.hr](https://platanus.hr/split-airport-shuttle-bus/) |
@@ -905,9 +905,9 @@ nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; k
 | ZAD Zadar | autobus Liburnija přes autobusové nádraží do starého města | 5 € | 120 | 20 min | [zadar-airport.hr](https://zadar-airport.hr/en/how-to-get-here/) |
 | BOJ Burgas | městský autobus 15 na autobusové nádraží Jug (centrum) | 0,80 € | 20 | 30 min | [aifly.one](https://aifly.one/2026/06/boj-airport-guide/) ² |
 | DLM Fethiye | autobus Havaş na autobusové nádraží Fethiye | 300 TRY | 130 | 1 h | [e-yasamrehberi.com](https://www.e-yasamrehberi.com/havas/dalaman-havalimani-fethiye-havas-saatleri.html) ² |
-| GZP Alanya | autobus Havaş do Alanye (autobusové nádraží) | 330 TRY | 150 | 1 h | [e-yasamrehberi.com](https://www.e-yasamrehberi.com/havas/gazipasa-havalimani-alanya-merkez-havas-saatleri.html) ² |
+| GZP Alanya | autobus Havaş do Alanye (autobusové nádraží) | 350 TRY | 150 | 1 h | [e-yasamrehberi.com](https://www.e-yasamrehberi.com/havas/havas-alanya-gazipasa-havalimani-otobus-saatleri.htm) ² |
 | VRN Verona | autobus ATV Aerobus na nádraží Verona Porta Nuova | 7 € | 170 | 20 min | [trenitalia.com](https://www.trenitalia.com/it/regionale/collegamenti-regionale/verona-airlink.html) |
-| BIO Bilbao | autobus Bizkaibus A3247 do centra (Plaza Moyúa) a na Termibus | 5 € | 120 | 25 min | [bizkaia.eus](https://www.bizkaia.eus/documents/d/bizkaibus/tarifen-mapa-tarifas-2025-03-18) |
+| BIO Bilbao | autobus Bizkaibus A3247 do centra (Plaza Moyúa) a na Termibus | 5 € | 120 | 25 min | [bizkaia.eus](https://www.bizkaia.eus/es/web/bizkaibus/bus-al-aeropuerto) |
 | BGO Bergen | tramvaj Bybanen 1 do centra (Byparken) | 51 NOK | 120 | 45 min | [en.visitbergen.com](https://en.visitbergen.com/visitor-information/travel-information/getting-here/to-bergen-by-plane/bergen-airport-flesland-to-bergen-city-center) |
 | TLL Tallinn | tramvaj 2 / 4 do centra | 2 € | 50 | 20 min | [airport.ee](https://airport.ee/en/public-transport/) |
 | RIX Riga | městský autobus 22 do centra (Staré Město, autobusové nádraží) | od 1,50 € | 40 | 40 min | [liveriga.com](https://www.liveriga.com/en/13353-how-to-get-from-riga-airport-to-the-city-center) |
@@ -1127,6 +1127,13 @@ nic se neukládá na server a nepotřebuje to účet.
 - Server posílá kód aplikace (HTML, JS, CSS, manifest) s `Cache-Control: no-cache`: prohlížeč se při každém načtení
   zeptá (nezměněný soubor = `304` bez dat). S `max-age` by otevřený panel po obnovení vzal soubor z paměti bez ptaní –
   ani service worker by se o tom nedozvěděl – a po nasazení by běžel starý kód. Obrázky, písma a data mapy mezipaměť mají dál.
+  Soubory mají vedle `Last-Modified` i **ETag podle obsahu** (zvlášť pro brotli / gzip / bez komprese) a ten má přednost:
+  nasazení posune čas změny u všech souborů, ale nezměněné dál odpoví `304` – po nasazení se stáhne jen to, co se
+  opravdu změnilo (místo celé aplikace ~600 kB).
+- **Opakované otevření bez ptaní serveru:** stránka ze sítě nese verzi v hlavičce `X-Atlas-Build`; je-li stejná jako
+  verze service workeru (otisk obsahu všech souborů), vezme service worker skripty a styly té stránky rovnou z uložené
+  sady (jsou totožné) – ušetří ~30 ověření u serveru při každém otevření (na Renderu 0,2–0,8 s). Jiná verze = soubory
+  ze sítě jako dřív, starý kód nikdy.
 - `/sw.js` skládá server: verze je otisk obsahu všech souborů v `public/` a uložených dat (ne čas změny – nasazení
   se stejnými soubory nic nezmění) a seznam souborů k uložení při instalaci je stránka + vše, na co odkazuje
   `index.html` (skripty, styly, manifest a jeho ikony) + `data/countries.json`, `data/entry.json` a mapa světa.
@@ -1558,7 +1565,9 @@ vzdušnou čarou (Řím → Neapol ~590 Kč, Lisabon → Porto ~830 Kč, Barcelo
   `data/ground.json` (zdroj a datum jsou v souboru).
 - Podnebí: meteostanice u letišť – [normály WMO 1991–2020](https://www.ncei.noaa.gov/products/wmo-climate-normals)
   (NOAA NCEI) a průměry 1991–2020 spočítané z denních měření [NOAA GHCN-Daily](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily)
-  (každý měsíc průměr aspoň ze 100 změřených dní z 5 různých let), sestavuje `node scripts/build-climate-stations.mjs`;
+  (každý měsíc průměr aspoň ze 100 změřených dní z 5 různých let), sestavuje `node scripts/build-climate-stations.mjs`
+  (normály WMO s nejvýš 2 nesousedními chybějícími měsíci se doplní průměrem sousedních – Janov; ručně určená
+  stanice tam, kde pravidla žádnou nenajdou – Terst, Istanbul);
   jinde [NASA POWER](https://power.larc.nasa.gov/) Climatology API (MERRA-2, 2001–2020, buňky 0,5°), sestavuje
   `node scripts/build-climate.mjs` (po něm je třeba znovu spustit i skript se stanicemi). Obojí do `data/climate.json`.
 - Země: cenová hladina podle Světové banky (PPP / směnný kurz, upravená na turistické ceny), bezpečnost podle MZV ČR,
