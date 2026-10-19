@@ -27,6 +27,8 @@ export const demoStays = {
   testData: () => true,
   async search(q) {
     if (q.lat == null) return [];
+    // ukázka malého místa, kde TripAdvisor nic nemá → záloha z OpenStreetMap (osm.js, v DEMO vymyšlená ubytování)
+    if (/^(Palazzolo Acreide|Alcobaça)$/i.test(String(q.city || '').trim())) return [];
     const r = rng(`${q.cityEn}|${q.checkin}|${q.adults}`);
     const city = q.cityEn || q.city;
     return NAMES.map(([tpl, type, stars], i) => {
