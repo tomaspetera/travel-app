@@ -41,7 +41,8 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
    i **veřejnou dopravou** – vlakem jen tam, kde se mezi městy vlakem jezdí, jinde *autobusem / minibusem* – a přechod
    hranice s odkazem na vstupní podmínky (viz [Přejezdy mezi místy](#přejezdy-mezi-místy)). Trasa začíná u letiště
    příletu (u vlaku/busu ve městě příjezdu) a končí u letiště odletu, i jiného (open-jaw); cesta z posledního místa
-   na letiště nebo zpět k vlaku/busu je v časové ose. Ubytování a program pak vybíráš pro každé místo zvlášť – nebo jedním klepnutím **✨ Vyber za mě** (hotel s nejlepším poměrem ceny a hodnocení v každém místě).
+   na letiště nebo zpět k vlaku/busu je v časové ose. Ubytování a program pak vybíráš pro každé místo zvlášť – nebo jedním klepnutím **✨ Vyber za mě** (hotel s nejlepším poměrem ceny a hodnocení v každém místě; volno se u něj ověří
+   stejně jako u ručního Vybrat – vyprodaný se přeskočí a vezme se další, nejvýš 3 ověření na místo).
 3. **Ubytování** – nabídky na tvoje data seřazené podle **nejlepšího poměru cena / hodnocení** (hodnocení je očištěné
    o malý počet recenzí, takže 10/10 ze 2 recenzí nepřebije 8,9 z 2 000). Přepneš na nejlevnější, nejlépe hodnocené
    nebo nejblíž centru, filtruješ 7+/8+/9+, typ a max. cenu za noc. U každého místa trasy (i přidaného ručně) jsou
@@ -677,10 +678,10 @@ Ceny nafty a benzínu bere ATLAS z otevřených dat (`server/lib/fuel.js`, `GET 
   [CENPHMT](https://data.csu.gov.cz/datastat/info/SADA/CENPHMT), otevřená data CC0): nafta a Natural 95 v Kč/l za poslední
   úplný týden, nový týden vychází v pátek ráno. Např. 40. týden 2026 (28. 9.–4. 10.): nafta 50,65 Kč/l, Natural 95
   45,87 Kč/l.
-- **Sousední země** (Německo, Rakousko, Slovensko, Polsko, Maďarsko) a záloha pro Česko: Evropská komise –
+- **Ostatní země EU** (sousedé i cíle cest autem – Chorvatsko, Itálie, Francie, Španělsko…) a záloha pro Česko: Evropská komise –
   [Weekly Oil Bulletin](https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en), ceny s daněmi (EUR za 1000 l
-  k pondělí), na Kč aktuálním kurzem. Platí cena v zemi, odkud jedeš (z Bratislavy slovenská nafta, z Vídně rakouská;
-  jiná země → česká cena). Českou cenu z bulletinu ATLAS vezme, jen když ČSÚ neodpoví nebo je o víc než týden starší.
+  k pondělí), na Kč aktuálním kurzem. Platí cena v zemi, odkud jedeš (z Bratislavy slovenská nafta, z Vídně rakouská,
+  přejezd po Chorvatsku chorvatská; země mimo EU → česká cena). Českou cenu z bulletinu ATLAS vezme, jen když ČSÚ neodpoví nebo je o víc než týden starší.
 - **Obnovení:** každý zdroj nejvýš jednou za 24 hodin (po chybě znovu za 2 h, timeout 8 s). Hledání na síť nikdy
   nečeká – počítá s posledními staženými cenami a nové stáhne na pozadí. Když zdroje nejsou k dispozici, platí
   **vestavěné ceny s datem** (ČSÚ za 40. týden 2026, bulletin k 28. 9. 2026 při kurzu ECB 24,397 Kč/€) s popiskem
@@ -1251,7 +1252,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `GET /api/fuel` | aktuální ceny paliva v Kč/l po zemích `CZ`, `DE`, `AT`, `SK`, `PL`, `HU` – `{ diesel, petrol, date, source, label }` (`source` `czso` / `wob` / `builtin` / `demo`) – a `updated`, `sources`, `defaultFuel`, `lPer100`; `ev` = nabíjení elektroauta `{ default: 16, range: [13, 22], date: "2026-10-06", label, kwhPer100: 19, operators: [{ name, ac?, dc?, price?, note?, secondary?, text }] }`. Cache 1 h |
 | `POST /api/search` | hledání, viz `normalizeQuery` v `server/lib/search.js`; odpověď je NDJSON (průběh, pak výsledek); mezi nimi nejvýš 3× `{ type: "partial", result }` – náhled s `partial: true` (nejvýš 30 cílů, ve výpisu ~60 nabídek, bez mřížky termínů a nejbližších dnů), než doběhnou pomalejší zdroje; `"noPartial": true` náhledy vypne (kontrola hlídaných cen, radar) |
 | `GET /api/verify?from=BGY&to=BCN&out=2026-11-10&back=2026-11-14&adults=2` | živá cena a alternativy z Kiwi.com |
-| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery (`links[]` s `prefill`: `full` / `city` / `none`; Trip.com, Agoda a Hostelworld s ID místa dohledaným u partnera, viz `PARTNER_LOOKUP`); bez `cc` se země dopočte z `lat`/`lon`, bez `cityEn` anglický název z geokódování (podle `gid` – ID GeoNames místa vybraného v hledání, jinak podle názvu v okolí); `gid` zároveň najde místo na TripAdvisoru. Nabídky z Xotela mají navíc `rating5` (TripAdvisor 0–5), `reviewsUrl` a `rates: [{ name, totalCzk, perNightCzk }]` (ceny u webů, nejlevnější první); `providers[]` má u neúplného výsledku `partial: true` |
+| `GET /api/stays?city=Milán&iata=BGY&checkin=…&checkout=…&adults=2` | ubytování seřazené podle poměru cena/hodnocení + odkazy na partnery (`links[]` s `prefill`: `full` / `city` / `none`; Trip.com, Agoda a Hostelworld s ID místa dohledaným u partnera, viz `PARTNER_LOOKUP`); bez `cc` se země dopočte z `lat`/`lon`, bez `cityEn` anglický název z geokódování (podle `gid` – ID GeoNames místa vybraného v hledání, jinak podle názvu v okolí); `gid` zároveň najde místo na TripAdvisoru. Nabídky z Xotela mají navíc `rating5` (TripAdvisor 0–5), `reviewsUrl` a `rates: [{ name, totalCzk, perNightCzk }]` (ceny u webů, nejlevnější první); `providers[]` má u neúplného výsledku `partial: true`. Souřadnice samotného letiště se nepoužijí: metropole má střed z databáze, letiště z ověřené tabulky dopravy do města (`data/arrival.json`) střed místa, kam doprava jede (Tenerife Jih → Los Cristianos, Lanzarote → Arrecife, Rhodos → město Rhodos – geokódování názvu ostrova by skončilo uprostřed ostrova bez hotelů), jinak geokódování názvu |
 | `POST /api/stayplan` | trasa přes víc míst: návrh `{ arrival, departure, nights, transport, count?, exclude? }`, nebo přepočet `{ arrival, departure, transport, bases: [{ name, lat, lon, cc }], ground? }`. Přejezdy `{ km, carMin, transitMin, transitKind: 'rail'\|'bus', border: { from, to }\|null, basis: 'route'\|'estimate', hsr?: true, fast?: true, long, carUrl, transitUrl }` (`hsr` = odhad tempa rychlovlaku, `fast` = přímý vlak z tabulky jízdních řádů), `pending` = kolik tras autem se ještě počítá; u přepočtu i `bases[{ cc, country }]` a s `ground` (město, kam se jede vlakem/busem) `groundLegs`. Přepočet nad limitem přepočtů na IP odpoví bez nových tras z BRouteru |
 | `GET /api/cars?pickup=BGY&dropoff=MXP&from=2026-11-10T09:00&to=2026-11-14T18:00` | předvyplněné odkazy na půjčovny |
 | `GET /api/ground?from=ap:PRG&to=ap:VIE&date=2026-11-10&adults=2` | vlak nebo bus místo letadla: `from`/`to` jako v hledání (`ap:`, `metro:`, `geo:`, kód letiště) nebo `fromLat`/`fromLon`/`fromName`/`fromCc`; volitelně `flightCzk`, `trips` (2 = cena letu tam i zpět), `flightMin`, `live=0`. Odpověď `{ from, to, km, est: { minutes, czk, typ, basis }, worth: { worth, rule, reason, doorMin }, why, links, live? }` (`czk` = od, `typ` = běžně) – `live` (spoje RegioJetu) jen s datem; `why` = proč se po zemi nedá (ostrov, moře, daleko) |
@@ -1359,7 +1360,9 @@ a posledního dne (hodinu kryje rezerva 1,5 h po příletu a 3 h před odletem).
 cesta z města příjezdu (ne z letiště):
 
 Cena přejezdů je ve Shrnutí a v „Celkem“ jako odhad: **autem palivo** za auto (nafta 6 l/100 km za cenu v zemi startu,
-`server/lib/fuel.js`; i z letiště na první místo a z posledního zpět), **vlakem / autobusem jízdenky** na osobu mezi
+`server/lib/fuel.js`; i z letiště na první místo a z posledního zpět) a na přejezdu od 80 km v Itálii, Francii a Chorvatsku
+**mýtné** podle km (0,08 / 0,08 / 0,065 €/km – ceníky 2026: A6 Paříž–Lyon ~37 €, Záhřeb–Split 26,40 €; `tollCzk` ve
+`server/lib/stayplan.js`), **vlakem / autobusem jízdenky** na osobu mezi
 místy podle vzdálenosti (stejný model jako cesta vlakem místo letu, `distanceModel` v `server/lib/ground.js`; z letiště
 a na letiště je v dopravě z letiště do města). Vlak v západní, severní a jižní Evropě je dražší než mezinárodní bus,
 na kterém je model kalibrovaný: rychlovlak (vysokorychlostní trať nebo přímý spoj z tabulky níže) ~60 Kč + 2,8 Kč/km
