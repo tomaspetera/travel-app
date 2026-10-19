@@ -66,13 +66,17 @@ function packedBody(file, st, enc) {
   return p.gz || (p.gz = zlib.gzipSync(p.raw, { level: 9 }));
 }
 
+// Odpovědi API brotli kvality 4: o ~12 % menší než gzip za stejný čas procesoru (vyšší kvalita by na Renderu zdarma
+// zdržovala) – stejné nastavení i pro průběžné výsledky hledání (streamSearch).
+const BR_API = { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } };
 function sendJson(req, res, status, obj, extra = {}) {
   const body = Buffer.from(JSON.stringify(obj));
   const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra };
-  if (wantsGzip(req) && body.length > 1024) {
-    headers['Content-Encoding'] = 'gzip';
+  const enc = body.length > 1024 ? (wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '') : '';
+  if (enc) {
+    headers['Content-Encoding'] = enc;
     res.writeHead(status, headers);
-    res.end(zlib.gzipSync(body));
+    res.end(enc === 'br' ? zlib.brotliCompressSync(body, BR_API) : zlib.gzipSync(body));
   } else {
     res.writeHead(status, headers);
     res.end(body);
@@ -206,14 +210,14 @@ async function handleSearch(req, res) {
 }
 
 async function streamSearch(req, res, body) {
-  const gzip = wantsGzip(req);
+  const enc = wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '';
   res.writeHead(200, {
     'Content-Type': 'application/x-ndjson; charset=utf-8',
     'Cache-Control': 'no-store',
     'X-Accel-Buffering': 'no',
-    ...(gzip ? { 'Content-Encoding': 'gzip' } : {}),
+    ...(enc ? { 'Content-Encoding': enc } : {}),
   });
-  const out = gzip ? zlib.createGzip() : null;
+  const out = enc === 'br' ? zlib.createBrotliCompress(BR_API) : enc ? zlib.createGzip() : null;
   if (out) out.pipe(res);
   let closed = false;
   res.on('close', () => { closed = true; });
@@ -222,7 +226,7 @@ async function streamSearch(req, res, body) {
     const line = JSON.stringify(obj) + '\n';
     if (out) {
       out.write(line);
-      out.flush(zlib.constants.Z_SYNC_FLUSH);
+      out.flush(enc === 'br' ? zlib.constants.BROTLI_OPERATION_FLUSH : zlib.constants.Z_SYNC_FLUSH); // řádek hned
     } else res.write(line);
   };
   try {

@@ -728,7 +728,7 @@ test('POST /api/search – totéž hledání z téže adresy, které ještě bě
   }
 });
 
-test('POST /api/search – průběžné výsledky přijdou gzip streamem hned, ne až s výsledkem; noPartial je vypne', async () => {
+test('POST /api/search – průběžné výsledky přijdou gzip i brotli streamem hned, ne až s výsledkem; noPartial je vypne', async () => {
   const { PARTIAL } = await import('../server/lib/search.js');
   const { mockProviders } = await import('../server/providers/mock.js');
   const keep = { ...PARTIAL };
@@ -739,13 +739,13 @@ test('POST /api/search – průběžné výsledky přijdou gzip streamem hned, n
   jet.daily = async (...a) => { await new Promise((r) => setTimeout(r, 900)); return orig.apply(jet, a); };
   const q = { from: ['ap:VIE'], radiusKm: 60, to: ['metro:LON'], dateFrom: ymdPlus(20), dateTo: ymdPlus(40), trip: 'return', nightsMin: 2, nightsMax: 5 };
   const stub = stubFetch(() => ({ status: 404, body: {} })); // kurzy bez sítě
-  // řádky NDJSON s časem, kdy je klient dostal (rozbalené z gzipu po kouscích)
-  const read = (body) => new Promise((resolve, reject) => {
+  // řádky NDJSON s časem, kdy je klient dostal (rozbalené z gzipu / brotli po kouscích)
+  const read = (body, enc = 'gzip') => new Promise((resolve, reject) => {
     const t0 = Date.now();
     const req = http.request({ host: '127.0.0.1', port: server.address().port, path: '/api/search', method: 'POST',
-      headers: { 'content-type': 'application/json', 'accept-encoding': 'gzip', 'x-forwarded-for': '10.20.30.44' } }, (res) => {
-      if (res.headers['content-encoding'] !== 'gzip') return reject(new Error('bez gzipu'));
-      const gz = res.pipe(zlib.createGunzip());
+      headers: { 'content-type': 'application/json', 'accept-encoding': enc, 'x-forwarded-for': '10.20.30.44' } }, (res) => {
+      if (res.headers['content-encoding'] !== enc) return reject(new Error(`bez ${enc}`));
+      const gz = res.pipe(enc === 'br' ? zlib.createBrotliDecompress() : zlib.createGunzip());
       gz.setEncoding('utf8');
       const lines = [];
       let buf = '';
@@ -769,6 +769,10 @@ test('POST /api/search – průběžné výsledky přijdou gzip streamem hned, n
     assert.ok(part.ev.result.groups.length > 0);
     assert.ok(part.at < last.at - 400, `náhled za ${part.at} ms, výsledek za ${last.at} ms`);
     assert.ok(lines.indexOf(part) < lines.length - 1 && last.ev.result.partial === undefined);
+    // brotli (prohlížeče ho posílají v Accept-Encoding): náhled taky hned, ne až na konci proudu
+    const br = await read(q, 'br');
+    const bp = br.find((l) => l.ev.type === 'partial');
+    assert.ok(bp && bp.at < br.at(-1).at - 400, `brotli: náhled za ${bp?.at} ms, výsledek za ${br.at(-1).at} ms`);
     const off = await read({ ...q, noPartial: true });
     assert.equal(off.at(-1).ev.type, 'result');
     assert.ok(!off.some((l) => l.ev.type === 'partial'), 'noPartial (kontrola hlídaných cen, radar) bez náhledů');
