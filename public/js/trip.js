@@ -1448,7 +1448,7 @@
   const stayState = s => !s ? 'nevybráno' : s.mode === 'links' ? 'jen odkazy' : s.mode === 'skip' ? 'neřeším' : s.name || 'vlastní ubytování';
   const baseTabs = (r, i, done, attr) => `<div class="base-tabs">${r.bases.map((x, j) => `<button type="button" class="bt ${j === i ? 'on' : ''} ${done(x, j) ? 'done' : ''}" ${attr}="${j}"><span class="bt-n" style="background:${BASE_COLORS[j % BASE_COLORS.length]}">${done(x, j) ? '✓' : j + 1}</span><span class="bt-t"><b>${esc(x.name)}</b><small>${esc(attr === 'data-bt' ? stayState(x.stay) : nightsTxt(x.nights))}</small></span></button>`).join('')}</div>`;
 
-  function goStayBase(i) { stayIdx = i; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  function goStayBase(i) { stayIdx = i; stayView.n = 0; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   // Po výběru: další místo bez ubytování (nejdřív za tímto), jinak dál k autu.
   function nextStayBase(i) {
     const bs = T().route.bases;
@@ -1588,7 +1588,7 @@
         absorbStayQuery(b, data);
         // stejně jako ruční Vybrat: volno se teď ověří (ceny v nabídce bývají až hodinu staré) – vyprodaný hotel se
         // přeskočí a vezme se další nejlepší (nejvýš 3 ověření na místo); bez odpovědi se vybere s „volno neověřené“
-        const ranked = (data.items || []).filter(x => x.value != null && x.priceTotalCzk > 0).sort((a, b2) => b2.value - a.value).slice(0, 3);
+        const ranked = (data.items || []).filter(x => x.value != null && x.priceTotalCzk > 0 && !x.soldOut).sort((a, b2) => b2.value - a.value).slice(0, 3);
         for (const cand of ranked) {
           const r = await checkStay(data, cand, null);
           if (T() !== t) break;
@@ -2323,7 +2323,7 @@
         unpriced.length ? ['🏨', `Ubytování zatím bez ceny · ${unpriced.join(', ')}`, null] : null,
       ] : [t.stay && t.stay.mode !== 'skip' ? ['🏨', `Ubytování · ${nightsTxt(nights)}${t.stay.name ? ' · ' + t.stay.name : ''}${t.stay.est ? ' (odhad – ověř cenu)' : ''}`, c.stay] : null]),
       t.car && t.car.mode !== 'skip' ? ['🚗', 'Auto', c.car] : null,
-      c.transfers ? (r.transport === 'transit' ? ['🚆', `Přejezdy na trase – jízdenky (${t.adults} os., odhad)`, c.transfers] : ['⛽', `Přejezdy autem – palivo${(r.transfers || []).some(x => x && x.tollCzk) ? ' a mýtné' : ''} (odhad, nafta 6 l/100 km)`, c.transfers]) : null,
+      c.transfers ? (r.transport === 'transit' ? ['🚆', `Přejezdy na trase – jízdenky (${t.adults} os., odhad)`, c.transfers] : ['⛽', `Přejezdy autem – palivo${[...(r.transfers || []), ...Object.values(ovOn(t) ? overlandLegs(t) : r.legs || {})].some(x => x && x.tollCzk) ? ' a mýtné' : ''} (odhad, nafta 6 l/100 km)`, c.transfers]) : null,
     ].filter(Boolean);
     // vstupní poplatky (ESTA, e-vízum…): zvlášť pod součtem, do „Celkem“ se nezapočítávají – platí se mimo cestu
     const isos = tripCountries(t), via = tripVia(t);
@@ -2727,7 +2727,7 @@
       iata: a.iata, city: okStr(a.city, 60) || a.iata, gen: okStr(a.gen, 60) || null, mode: ['bus', 'train', 'metro', 'tram', 'taxi'].includes(a.mode) ? a.mode : 'bus',
       how: okStr(a.how, 160), czk: Math.round(a.czk), min: Math.round(a.min), basis: ['table', 'access', 'estimate'].includes(a.basis) ? a.basis : 'estimate',
       ...(okFin(a.lat, -90, 90) && okFin(a.lon, -180, 180) ? { lat: a.lat, lon: a.lon } : {}),
-      ...(okFin(a.fare, 0, 1e6) && /^[A-Z]{3}$/.test(a.cur || '') ? { fare: a.fare, cur: a.cur } : {}),
+      ...(okFin(a.fare, 0, 1e6) && /^[A-Z]{3}$/.test(a.cur || '') ? { fare: a.fare, cur: a.cur, ...(okFin(a.typ, 0, 1e6) ? { typ: a.typ } : {}) } : {}),
       ...(a.from === true ? { from: true } : {}), ...(a.sec === true ? { sec: true } : {}), ...(okFin(a.km, 0, 1000) ? { km: Math.round(a.km) } : {}),
       ...(okStr(a.note, 140) ? { note: okStr(a.note, 140) } : {}), ...(okYmd(a.date) ? { date: a.date } : {}),
       ...(typeof a.src === 'string' && /^https:\/\/[^\s]{4,300}$/i.test(a.src) ? { src: a.src } : {}),

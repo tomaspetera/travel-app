@@ -55,7 +55,9 @@ test('tabulka: každé letiště má zdroj, datum ověření, město ve 2. pád�
     // střed města, kam spoj vede, je u letiště (Hahn → Frankfurt ~100 km, Torp → Oslo ~90 km)
     const km = haversineKm(a.lat, a.lon, x.lat, x.lon);
     assert.ok(km >= 1 && km <= 120, `${iata} ${Math.round(km)} km od ${x.city}`);
-    for (const k of Object.keys(x)) assert.ok(['city', 'gen', 'lat', 'lon', 'mode', 'how', 'fare', 'cur', 'from', 'min', 'sec', 'note', 'src', 'date'].includes(k), `${iata}: neznámé pole ${k}`);
+    for (const k of Object.keys(x)) assert.ok(['city', 'gen', 'lat', 'lon', 'mode', 'how', 'fare', 'cur', 'from', 'typ', 'min', 'sec', 'note', 'src', 'date'].includes(k), `${iata}: neznámé pole ${k}`);
+    // běžná cena v den cesty jen u ceny „od“ a vyšší než ona (Stansted Express od 9,90 £, běžně 23 £)
+    if (x.typ != null) assert.ok(x.from && x.typ > x.fare && x.typ <= x.fare * 3, `${iata}: běžně ${x.typ} vs od ${x.fare}`);
   }
   // kurzy ČNB: euro kolem 24–25 Kč, ostatní kladné
   assert.ok(A.ARRIVAL_FX.czk.EUR > 23 && A.ARRIVAL_FX.czk.EUR < 26);
@@ -345,7 +347,9 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   // tabulka cesty na letiště (Vídeň) je taky jen odhad
   assert.match(H.arrivalChips({ out: { to: 'VIE' } }, ARR)[0].text, /^🚆 z letiště VIE do centra ~140 Kč · 40 min \(odhad\)$/);
   // „od“ (online předem) a sekundární zdroj
-  assert.equal(H.arrivalChips({ out: { to: 'STN' } }, ARR)[0].text, '🚆 z letiště STN do Londýna od 9,90 £ (~280 Kč) · 48 min');
+  // od (online předem) i běžná cena v den cesty; v Kč (do odhadu ceny cesty) ta běžná
+  assert.equal(H.arrivalChips({ out: { to: 'STN' } }, ARR)[0].text, '🚆 z letiště STN do Londýna od 9,90 £, běžně 23 £ (~660 Kč) · 48 min');
+  assert.deepEqual([ARR.STN.fare, ARR.STN.typ, ARR.STN.czk], [9.9, 23, A.fareCzk(23, 'GBP')]);
   assert.match(H.arrivalChips({ out: { to: 'LGW' } }, ARR)[0].title, /Zdroj \(sekundární, oficiální neuvádí\): lasttrip\.uk/);
   // vypnuto: informace zůstane, jen se nepočítá do ceny
   assert.match(H.arrivalChips({ out: { to: 'BVA' } }, ARR, { on: false })[0].title, /Neukazuje se \(vypnuto v Další možnosti\)\./);

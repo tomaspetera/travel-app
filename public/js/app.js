@@ -12,6 +12,14 @@ const safeUrl = u => /^https?:\/\//i.test(String(u ?? '').trim()) ? String(u).tr
 // URL do CSS url('…') – uvozovky a závorky zakódovat, aby nešlo vyskočit z hodnoty.
 const cssUrl = u => safeUrl(u).replace(/['"()\\\s]/g, c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'));
 const MNS = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'];
+/** Nejlepší měsíce jako rozsahy: [1,2,3,7,8,9] → „led–bře · čvc–zář“, přes konec roku [11,12,1,2] → „lis–úno“ (ne jen první tři). */
+function monthRanges(ms) {
+  const set = new Set((ms || []).filter(m => m >= 1 && m <= 12));
+  if (!set.size) return '';
+  if (set.size === 12) return 'celý rok';
+  const start = [...set].sort((a, b) => a - b).filter(m => !set.has(m === 1 ? 12 : m - 1));
+  return start.map(m0 => { let m = m0; while (set.has(m === 12 ? 1 : m + 1)) m = m === 12 ? 1 : m + 1; return m === m0 ? MNS[m0 - 1] : `${MNS[m0 - 1]}–${MNS[m - 1]}`; }).join(' · ');
+}
 const MNS_FULL = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
 const MNS_LOC = ['v lednu', 'v únoru', 'v březnu', 'v dubnu', 'v květnu', 'v červnu', 'v červenci', 'v srpnu', 'v září', 'v říjnu', 'v listopadu', 'v prosinci']; // „odlet v listopadu“
 const CONTS = ['Evropa', 'Asie', 'Afrika', 'Severní Amerika', 'Jižní Amerika', 'Oceánie'];
@@ -600,7 +608,7 @@ window.ccHue = ccHue;
 window.heroPlace = (off = 0) => HERO_PLACES[(Math.floor(Date.now() / 864e5) + off) % HERO_PLACES.length];
 
 function destCard(c, score) {
-  const months = c.months ? c.months.slice(0, 3).map(m => MNS[m - 1]).join(' · ') : '';
+  const months = c.months ? monthRanges(c.months) : '';
   return `<div class="card dest ${visited.has(c.iso2) ? 'visited' : ''}" data-iso="${c.iso2}" data-photo="${esc(c.capCs || c.cap || c.cs)}" style="--h:${ccHue(c.iso2)}">
     ${score ? `<div class="score-pill">${score}</div>` : `<div class="vmark"><svg viewBox="0 0 24 24" width="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>`}
     <div class="flag">${flag(c.iso2)}</div>
@@ -621,7 +629,9 @@ function scoreCountries(month, opt) {
     let season = 0; if (c.months.includes(month)) season = 1; else if (c.months.includes(month % 12 + 1) || c.months.includes((month + 10) % 12 + 1)) season = .5;
     const value = (6 - c.cost) / 5, safety = c.safety / 5;
     let vm = 0; if (vibe) { const kws = VIBES[vibe] || []; const hay = norm(c.blurb + ' ' + (c.tags || []).join(' ')); if (kws.some(k => hay.includes(norm(k)))) vm = 1; }
-    const total = season * 3 + value * 2 + safety * 1.5 + vm * 3 + (c.safety >= 4 ? .3 : 0);
+    // mimo nejlepší měsíce (ani o měsíc vedle) výrazně níž: levná a bezpečná země v monzunu (Srí Lanka v červenci)
+    // nesmí předběhnout zemi, kde je teď sezóna
+    const total = (season * 3 + value * 2 + safety * 1.5 + vm * 3 + (c.safety >= 4 ? .3 : 0)) * (season ? 1 : 0.55);
     const max = vibe ? 9.8 : 6.8;
     return { c, score: Math.round(total / max * 100), season };
   }).sort((a, b) => b.score - a.score);
@@ -637,7 +647,7 @@ function renderRecs() {
       <div class="flag">${flag(c.iso2)}</div><div class="dest-panel"><div class="cname">${c.cs}</div><div class="ccont">${c.cont}</div>
       <div class="cblurb">${c.blurb}</div>
       <div class="tags">${reasons.map(x => `<span class="tag">✓ ${x}</span>`).join('')}</div>
-      ${entryChip(c.iso2)}<div class="meta">${costDots(c.cost)}<span>${c.months.slice(0, 3).map(x => MNS[x - 1]).join(' · ')}</span></div></div></div>`;
+      ${entryChip(c.iso2)}<div class="meta">${costDots(c.cost)}<span>${monthRanges(c.months)}</span></div></div></div>`;
   }).join('');
   bindDest('#recGrid');
   Photos.paint($('#recGrid'));

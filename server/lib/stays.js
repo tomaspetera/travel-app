@@ -8,7 +8,7 @@ import { stayProviders } from '../providers/stays/index.js';
 import { checkHotel } from '../providers/stays/xotelo.js';
 import { getAirport, METRO_BY_CODE, COUNTRY_BY_ISO, countryAt } from './airports.js';
 import { geocode, englishName } from './places.js';
-import { haversineKm } from './geo.js';
+import { haversineKm, normalize } from './geo.js';
 import { arrivalTransfer } from './arrival.js';
 import { config } from '../config.js';
 
@@ -39,8 +39,11 @@ export function normalizeStayQuery(raw = {}) {
   // Letiště na ostrově („Tenerife“ → geokódování skončí uprostřed ostrova u Teide, kde TripAdvisor nemá žádné místo s hotely
   // – Tenerife Jih, Lanzarote, Gran Canaria, Rhodos vracely 0 hotelů): střed místa, kam z letiště jezdí doprava do města
   // (ověřená tabulka data/arrival.json – Los Cristianos, Arrecife, Las Palmas, město Rhodos).
+  // Jen místo u letiště (do 40 km) nebo stejného jména – Memmingen (FMM → Mnichov 100 km) a Weeze (NRN → Düsseldorf)
+  // hledají hotely v cíli, ne ve městě, kam jezdí autobus.
   const arr = atAirport && !metro ? arrivalTransfer(ap.iata) : null;
-  const center = arr && arr.basis === 'table' && Number.isFinite(arr.lat) ? arr : null;
+  const near = arr && Number.isFinite(arr.lat) && (haversineKm(ap.lat, ap.lon, arr.lat, arr.lon) <= 40 || normalize(arr.city) === normalize(city));
+  const center = arr && arr.basis === 'table' && near ? arr : null;
   const adults = Math.min(9, Math.max(1, Math.round(Number(raw.adults) || 2)));
   // Pokoje: zadané (nejvýš tolik, kolik je dospělých), jinak po dvou na pokoj.
   const rooms = Math.min(adults, 5, Math.max(1, Math.round(Number(raw.rooms) || Math.ceil(adults / 2))));

@@ -735,7 +735,9 @@ na osobu – do ceny letenky se nepřičítá.
 
 **Odkud jsou čísla** (`data/arrival.json`, `server/lib/arrival.js`) – na osobu a jeden směr, jízdenka pro dospělého,
 nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; kde z letiště veřejná doprava nejezdí (Hurghada,
-Šarm aš-Šajch, Marsa Alam, Akaba, Djerba), 🚕 taxi – cena za auto děleno dvěma; „od“ = cena online předem:
+Šarm aš-Šajch, Marsa Alam, Akaba, Djerba), 🚕 taxi – cena za auto děleno dvěma; „od“ = cena online předem; kde je známá i
+běžná cena v den cesty (pole `typ` – Stansted Express od 9,90 £, běžně 23 £; flibco Charleroi od 14,99 €, v den odjezdu
+~19 €; Funchal 702 předem 2 €, na palubě 2,65 €), štítek ukáže obě a do odhadu ceny cesty (Kč) jde ta běžná:
 
 1. **Ověřená tabulka 157 letišť** z oficiálních stránek letiště, dopravce nebo dopravního svazu, **ověřeno 7. a 18. 10.
    2026**: 74 z prvního kola, 59 nejčastějších dalších cílů z Prahy a okolí (živé hledání „kamkoli“ ve třech obdobích –
@@ -764,9 +766,9 @@ nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; k
 | BVA Paříž | autobus Aérobus do Paris Porte Maillot | 17,90 € | 440 ⚠ | 1 h 15 | [aeroportparisbeauvais.com](https://www.aeroportparisbeauvais.com/acces-et-parking/navette-aerobus-paris-aeroport) |
 | CDG Paříž | vlak RER B do centra (Gare du Nord, Châtelet) | 14 € | 340 | 35 min | [iledefrance-mobilites.fr](https://www.iledefrance-mobilites.fr/titres-et-tarifs/detail/ticket-paris-region-aeroports) |
 | ORY Paříž | metro 14 do Châtelet | 14 € | 340 | 25 min | [iledefrance-mobilites.fr](https://www.iledefrance-mobilites.fr/titres-et-tarifs/detail/ticket-paris-region-aeroports) |
-| CRL Brusel | autobus flibco do Bruxelles-Midi | od 14,99 € | 370 ⚠ | 55 min | [flibco.com](https://www.flibco.com/en/shuttle/bus-brussels-charleroi-airport) |
+| CRL Brusel | autobus flibco do Bruxelles-Midi | od 14,99 €, běžně ~19 € | 460 ⚠ | 55 min | [flibco.com](https://www.flibco.com/en/shuttle/bus-brussels-charleroi-airport) |
 | BRU Brusel | autobus STIB Airport Line 12 do evropské čtvrti | 7,90 € | 190 | 30 min | [stib-mivb.be](https://www.stib-mivb.be/travel/other-mobility-solutions/airport-line) |
-| STN Londýn | vlak Stansted Express do Liverpool Street | od 9,90 £ | 280 | 48 min | [stanstedexpress.com](https://www.stanstedexpress.com/tickets-fares/ticket-types) |
+| STN Londýn | vlak Stansted Express do Liverpool Street | od 9,90 £, běžně 23 £ ² | 660 ⚠ | 48 min | [stanstedexpress.com](https://www.stanstedexpress.com/tickets-fares/ticket-types) |
 | LTN Londýn | Luton DART + vlak Luton Airport Express do St Pancras | od 10 £ | 290 | 32 min | [london-luton.co.uk](https://www.london-luton.co.uk/to-and-from-lla/trains/luton-airport-express) |
 | LGW Londýn | vlak Southern / Thameslink do Victoria nebo London Bridge | 10,70 £ | 310 | 35 min | [lasttrip.uk](https://lasttrip.uk/blog/cheapest-way-london-to-gatwick.html) ² |
 | LHR Londýn | metro Piccadilly line do centra | od 5,50 £ | 160 | 50 min | [heathrow.com](https://www.heathrow.com/transport-and-directions/getting-to-central-london) |
@@ -839,7 +841,7 @@ nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; k
 | LPA Las Palmas | autobus Global 60 / 91 do centra (San Telmo) | 2,30 € | 60 | 20 min | [guaguasglobal.com](https://guaguasglobal.com/en/routes-timetables/touristic-information/airport/) |
 | FUE Puerto del Rosario | autobus Tiadhe 3 do centra Puerto del Rosario | 1,45 € | 40 | 15 min | [tiadhe.com](https://tiadhe.com/en/line-03/) |
 | OVD Oviedo | autobus ALSA na autobusové nádraží | 9 € | 220 | 45 min | [ctaconecta.com](https://www.ctaconecta.com/es/preguntas-frecuentes-2/) |
-| FNC Funchal | autobus 702 (dříve 113) do centra Funchalu | od 2 € | 50 | 50 min | [siga.madeira.gov.pt](https://siga.madeira.gov.pt/public/index.php/tiim) |
+| FNC Funchal | autobus 702 (dříve 113) do centra Funchalu | od 2 €, na palubě 2,65 € | 60 | 50 min | [siga.madeira.gov.pt](https://siga.madeira.gov.pt/public/index.php/tiim) |
 | CFU Kerkyra | městský autobus 15 na náměstí San Rocco | od 1,30 € | 30 | 15 min | [astikoktelkerkyras.gr](https://astikoktelkerkyras.gr/en/tickets/) |
 | CHQ Chania | autobus KTEL na autobusové nádraží | 2,20 € | 50 | 25 min | [e-ktel.com](https://www.e-ktel.com/) |
 | JSI Skiathos | autobus do města ke konečné u přístavu (zastávka 0) | 3 € | 70 | 10 min | [skiathostransports.gr](https://skiathostransports.gr/en/tickets/) |
