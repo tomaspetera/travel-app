@@ -119,7 +119,8 @@
   const pick1 = (v, ok) => (ok.includes(v) ? v : undefined);
   const cleanPlace = p => (p && typeof p === 'object' && Number.isFinite(+p.lat) && Number.isFinite(+p.lon) && Math.abs(+p.lat) <= 90 && Math.abs(+p.lon) <= 180
     && typeof p.label === 'string' && p.label.trim()
-    ? { lat: +p.lat, lon: +p.lon, label: p.label.slice(0, 120), cc: /^[A-Z]{2}$/.test(p.cc) ? p.cc : '', geo: Boolean(p.geo), country: typeof p.country === 'string' ? p.country.slice(0, 60) : '' } : null);
+    ? { lat: +p.lat, lon: +p.lon, label: p.label.slice(0, 120), cc: /^[A-Z]{2}$/.test(p.cc) ? p.cc : '', geo: Boolean(p.geo), country: typeof p.country === 'string' ? p.country.slice(0, 60) : '',
+      ...(/^[a-z-]{2,30}$/.test(p.region) ? { region: p.region } : {}) } : null);
   const samePlace = (a, b) => Boolean(a && b && a.label === b.label && Math.abs(a.lat - b.lat) < 1e-3 && Math.abs(a.lon - b.lon) < 1e-3);
   // „Naposledy“: nejnovější první, bez opakování, bez „Moje okolí“ (poloha se mění).
   const pushRecent = (list, p) => (!p || p.geo ? list : [cleanPlace(p), ...list.filter(x => !samePlace(x, p))].filter(Boolean).slice(0, 5));
@@ -782,33 +783,36 @@
     const geo = async c => (await getJson('api/geocode?q=' + enc(c)).catch(() => ({ items: [] }))).items || [];
     for (const c of known ? [known] : [...cands.slice(1), cands[0]]) {
       const items = await geo(c), hit = items.find(it => same(it.label, c)) || (known && !region ? items[0] : null);
-      if (hit) return hit;
+      if (hit) return region ? { ...hit, region: region.key } : hit;
     }
     // město oblasti, které geokódování česky nezná (Heraklion → jen „Heraklion Airport Terminal“): poloha letiště
-    if (region) return { label: region.name, lat: region.ap.lat, lon: region.ap.lon, cc: region.ap.cc || '' };
+    if (region) return { label: region.name, lat: region.ap.lat, lon: region.ap.lon, cc: region.ap.cc || '', region: region.key };
     // překlep („Krakv“, „Lisabn“): oprava z našeptávače míst letů (fuzzy) – geokódování by našlo Krokvåg v Norsku
     const fz = known ? null : fl.flat().find(x => x.fuzzy && !/^geo:/.test(x.id || ''));
     if (fz) {
       const rc = fz.type === 'region' ? await regionCity(fz) : null, nm = rc ? rc.name : String(fz.label).replace(/\s*\(.*\)$/, '');
       const hit = (await geo(nm)).find(it => same(it.label, nm));
-      if (hit) return hit;
-      if (rc) return { label: rc.name, lat: rc.ap.lat, lon: rc.ap.lon, cc: rc.ap.cc || '' };
+      if (hit) return rc ? { ...hit, region: rc.key } : hit;
+      if (rc) return { label: rc.name, lat: rc.ap.lat, lon: rc.ap.lon, cc: rc.ap.cc || '', region: rc.key };
     }
     return (await geo(cands[0]))[0] || null;
   }
-  // oblast (Toskánsko, Kréta…) nemá v geokódování střed – místo ní město jejího prvního letiště (Florencie, Heraklion)
+  // oblast (Toskánsko, Kréta…) nemá v geokódování střed – místo ní město jejího prvního letiště (Florencie, Heraklion);
+  // key (toskansko) jde s místem do okruhu, ať zastávky zůstanou v oblasti
   async function regionCity(it) {
     const iata = (String(it.sub || '').match(/\b[A-Z]{3}\b/) || [])[0];
     if (!iata) return null;
     const ap = ((await getJson('api/places?q=' + enc(iata)).catch(() => ({ items: [] }))).items || []).find(x => x.id === 'ap:' + iata);
     // „Kréta (Heraklion)“ → město letiště (anglicky Heraklion), „Florencie“ → Florencie; ap = poloha pro zálohu
-    return ap && Number.isFinite(+ap.lat) ? { name: /\(.*\)$/.test(ap.label) && ap.en ? ap.en : String(ap.label).replace(/\s*\(.*\)$/, ''), ap } : null;
+    return ap && Number.isFinite(+ap.lat) ? { name: /\(.*\)$/.test(ap.label) && ap.en ? ap.en : String(ap.label).replace(/\s*\(.*\)$/, ''), ap, key: String(it.id || '').replace(/^rg:/, '') } : null;
   }
   /** ✨ Volby z věty do Objevuj: druh plánu, dny, délka trasy, od kdy, zájmy; plán se po načtení míst sestaví sám. */
-  function exploreApply(px) {
-    // věta bez druhu plánu, ale s dny nebo zájmy („Toscana na týden“, „Řím s dětmi“) = program ve městě – ne kolo
-    // z minulé věty
+  function exploreApply(px, s) {
+    // věta bez druhu plánu, ale s dny nebo zájmy („Lisabon na 3 dny“, „Řím s dětmi“) = program ve městě – ne kolo
+    // z minulé věty; oblast na víc dní („Toskánsko na 4 dny“, „Kréta na týden“) = okruh po oblasti, ne program jen
+    // v jejím městě (Florencie)
     if (px.mode) ex.mode = px.mode;
+    else if (s && s.region && px.days >= 2) ex.mode = 'loop';
     else if (px.days || px.interests.length) ex.mode = 'city';
     const road = ex.mode === 'day' || ex.mode === 'loop';
     if (px.days) {
@@ -830,7 +834,7 @@
   function setPlace(s) {
     // země podle kódu (česky, „Španělsko“) – kontext pro odkazy do Google Map
     const country = s.geo ? '' : s.country || (typeof byIso !== 'undefined' && byIso[s.cc]?.cs) || '';
-    ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc || '', geo: Boolean(s.geo), country };
+    ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc || '', geo: Boolean(s.geo), country, ...(s.region ? { region: s.region } : {}) };
     forget();
     ex.recent = pushRecent(ex.recent, ex.place);
     remember();
@@ -981,7 +985,7 @@
       if (my !== smartSeq) return;
       if (!s) { dd.innerHTML = `<div class="pi-empty">${down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název`}</div>`; return; }
       dd.hidden = true; q.blur();
-      exploreApply(px);
+      exploreApply(px, s);
       if (px.place) openPlace(s); else paintExplore();
     };
     const pick = s => { if (!s) return; dd.hidden = true; openPlace(s); };
@@ -1117,7 +1121,7 @@
   const tripKey = (mode, transport) => `${mode}:${transport}`;
   async function makeTrip(p, mode, transport) {
     const body = { lat: p.lat, lon: p.lon, label: p.label, start: ex.start, days: ex.tripDays[mode], mode, transport, pace: ex.pace, interests: [...ex.tripInterests],
-      exclude: [...ex.tripEx], include: [...ex.tripMust] };
+      exclude: [...ex.tripEx], include: [...ex.tripMust], region: p.region || undefined };
     return getJson('api/roadtrip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   }
 
