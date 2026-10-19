@@ -151,7 +151,9 @@ test('tabulka cesty na letiště (access.js) a tabulka příletů se u společn�
   assert.deepEqual(both.sort(), ['BUD', 'FMM', 'FRA', 'KRK', 'WAW', 'WMI', 'ZAG']);
   for (const iata of both) {
     const x = A.arrivalTransfer(iata);
-    assert.ok(Math.abs(ACCESS[iata][3] - x.czk) <= 10, `${iata}: ${ACCESS[iata][3]} vs ${x.czk} Kč`);
+    // na odlet se jízdenka kupuje předem – cesta na letiště počítá s cenou „od“, cesta z letiště (typ) s běžnou
+    const od = x.fare > 0 ? A.fareCzk(x.fare, x.cur) : x.czk;
+    assert.ok(Math.abs(ACCESS[iata][3] - od) <= 10, `${iata}: ${ACCESS[iata][3]} vs ${od} Kč`);
     assert.ok(Math.abs(ACCESS[iata][4] - x.min) <= 10, `${iata}: ${ACCESS[iata][4]} vs ${x.min} min`);
   }
 });
@@ -235,11 +237,11 @@ test('search: open-jaw v cíli (přílet BGY, odlet MXP) a přesná data – let
     ]);
     const res = await search({ from: ['ap:PRG'], to: ['metro:MIL'], trip: 'return', exactOut: D, exactBack: plus(D, 3), radiusKm: 0, kmRate: 0, arrival: true }, () => {}, { providers: [p] });
     const jaw = res.top.find((t) => t.back.from === 'MXP');
-    // BGY → Milán 5 € (120 Kč), Milán → MXP 15 € (370 Kč)
-    assert.deepEqual([jaw.arrCzk, jaw.perPersonCzk, jaw.tripCzk], [120 + 370, 1800, 1800 + 490]);
-    assert.deepEqual([jaw.out.arrCzk, jaw.back.arrCzk], [120, 370], 'přesná data: po letech');
+    // BGY → Milán běžně 8 € (200 Kč; „od“ 5 € do ceny cesty nejde), Milán → MXP 15 € (370 Kč)
+    assert.deepEqual([jaw.arrCzk, jaw.perPersonCzk, jaw.tripCzk], [200 + 370, 1800, 1800 + 570]);
+    assert.deepEqual([jaw.out.arrCzk, jaw.back.arrCzk], [200, 370], 'přesná data: po letech');
     const same = res.top.find((t) => t.back.from === 'BGY');
-    assert.equal(same.arrCzk, 240);
+    assert.equal(same.arrCzk, 400);
     assert.ok(res.top[0] === jaw, 'pořadí podle letenky');
     // nejbližší dny: den vedle s levnější letenkou (cesta do města je u nabídky zvlášť)
     const next = res.nearby.out.days.find((d) => d.date === plus(D, 1));
@@ -314,12 +316,12 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   // za čas se k datu ověření přidá stáří („· před 4 měsíci“) – test nesmí záviset na dnešku
   assert.match(bva.title, /Odhad tam i zpět ~880 Kč\/os\. – v ceně letenky není\. Zdroj: aeroportparisbeauvais\.com, ověřeno 7\. 10\. 2026(?: · [^.]+)?\.$/);
   // open-jaw v cíli: přílet BGY (od 5 € online), odlet MXP (vlak 15 € → varovně, přes 350 Kč)
-  const jaw = H.arrivalChips({ out: { to: 'BGY' }, back: { from: 'MXP' }, arrCzk: 490 }, ARR, { on: true });
-  assert.deepEqual(plain(jaw.map((c) => [c.text, c.warn])), [['🚌 z letiště BGY do Milána od 5 € (~120 Kč) · 50 min', false], ['🚆 zpět na letiště MXP 15 € (~370 Kč) · 37 min', true]]);
+  const jaw = H.arrivalChips({ out: { to: 'BGY' }, back: { from: 'MXP' }, arrCzk: 570 }, ARR, { on: true });
+  assert.deepEqual(plain(jaw.map((c) => [c.text, c.warn])), [['🚌 z letiště BGY do Milána od 5 €, běžně 8 € (~200 Kč) · 50 min', false], ['🚆 zpět na letiště MXP 15 € (~370 Kč) · 37 min', true]]);
   // opačným směrem bez cíle cesty do města („do Milano Cadorna“), přestupy v opačném pořadí
   assert.match(jaw[1].title, /^Z Milána na letiště MXP: vlak Malpensa Express – 15 € \(~370 Kč\) na osobu, ~37 min/);
   // čím jet a poznámka ve směru štítku (řádek 🔎 Co tam je): zpět na letiště spoj z města, ne „do centra“
-  assert.deepEqual(plain(jaw.map((c) => c.sub)), ['autobus Terravision do Milano Centrale · online předem; Orio Shuttle 10–12 €', 'vlak Malpensa Express · do Milano Centrale ~51 min']);
+  assert.deepEqual(plain(jaw.map((c) => c.sub)), ['autobus Terravision do Milano Centrale · online předem; běžně 8 €; Orio Shuttle 10–12 €', 'vlak Malpensa Express · do Milano Centrale ~51 min']);
   assert.equal(bva.sub, 'autobus Aérobus do Paris Porte Maillot · online; na místě 18 €');
   const PL = Object.fromEntries(['WAW', 'WMI'].map((x) => [x, plain(A.arrivalTransfer(x))]));
   assert.deepEqual(plain(H.arrivalChips({ out: { to: 'WAW' }, back: { from: 'WMI' } }, PL).map((c) => [c.text.replace(/ \d.*$/, ''), c.sub])), [
@@ -350,6 +352,10 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   // od (online předem) i běžná cena v den cesty; v Kč (do odhadu ceny cesty) ta běžná
   assert.equal(H.arrivalChips({ out: { to: 'STN' } }, ARR)[0].text, '🚆 z letiště STN do Londýna od 9,90 £, běžně 23 £ (~660 Kč) · 48 min');
   assert.deepEqual([ARR.STN.fare, ARR.STN.typ, ARR.STN.czk], [9.9, 23, A.fareCzk(23, 'GBP')]);
+  // Terravision Bergamo od 5 €, běžně 8 €; Allgäu Airport Express online 15 €, v autobuse 20 € (ověřeno 10/2026)
+  const [bgy, fmm] = ['BGY', 'FMM'].map((k) => A.arrivalTransfer(k));
+  assert.deepEqual([bgy.typ, bgy.czk, fmm.typ, fmm.czk], [8, A.fareCzk(8, 'EUR'), 20, A.fareCzk(20, 'EUR')]);
+  assert.equal(H.arrivalChips({ out: { to: 'FMM' } }, { FMM: fmm })[0].text, '🚌 z letiště FMM do Mnichova od 15 €, běžně 20 € (~490 Kč) · 1 h 20');
   assert.match(H.arrivalChips({ out: { to: 'LGW' } }, ARR)[0].title, /Zdroj \(sekundární, oficiální neuvádí\): lasttrip\.uk/);
   // vypnuto: informace zůstane, jen se nepočítá do ceny
   assert.match(H.arrivalChips({ out: { to: 'BVA' } }, ARR, { on: false })[0].title, /Neukazuje se \(vypnuto v Další možnosti\)\./);

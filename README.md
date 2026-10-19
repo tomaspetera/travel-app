@@ -737,7 +737,9 @@ na osobu – do ceny letenky se nepřičítá.
 nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; kde z letiště veřejná doprava nejezdí (Hurghada,
 Šarm aš-Šajch, Marsa Alam, Akaba, Djerba), 🚕 taxi – cena za auto děleno dvěma; „od“ = cena online předem; kde je známá i
 běžná cena v den cesty (pole `typ` – Stansted Express od 9,90 £, běžně 23 £; flibco Charleroi od 14,99 €, v den odjezdu
-~19 €; Funchal 702 předem 2 €, na palubě 2,65 €), štítek ukáže obě a do odhadu ceny cesty (Kč) jde ta běžná:
+~19 €; Terravision Bergamo od 5 €, běžně 8 €; Allgäu Airport Express online 15 €, v autobuse 20 €; Funchal 702 předem 2 €,
+na palubě 2,65 €), štítek ukáže obě a do odhadu ceny cesty (Kč) jde ta běžná. Cesta *na* letiště (odlet, `access.js`) počítá
+s cenou „od“ – jízdenka na odlet se kupuje předem:
 
 1. **Ověřená tabulka 157 letišť** z oficiálních stránek letiště, dopravce nebo dopravního svazu, **ověřeno 7. a 18. 10.
    2026**: 74 z prvního kola, 59 nejčastějších dalších cílů z Prahy a okolí (živé hledání „kamkoli“ ve třech obdobích –
@@ -750,7 +752,7 @@ běžná cena v den cesty (pole `typ` – Stansted Express od 9,90 £, běžně 
    JOD, TND kurzy ostatních měn k 30. 9. 2026), zaokrouhleno na 10 Kč a aspoň 10 Kč (městský autobus v Tbilisi, Batumi nebo
    Kišiněvě stojí méně).
 2. **Letiště z tabulky [cesty na letiště](#doprava-na-letiště)** (~35 letišť do ~450 km od Česka, `access.js`) – stejný
-   spoj obráceně (Vídeň, Mnichov, Berlín, Drážďany…), s popiskem odhad. Letiště v obou tabulkách mají stejné jízdné
+   spoj obráceně (Vídeň, Mnichov, Berlín, Drážďany…), s popiskem odhad. Letiště v obou tabulkách mají stejné jízdné „od“
    a čas: podle ověření 10/2026 se v `access.js` opravily Memmingen (450 → 370 Kč, online od 15 €), Frankfurt (155 → 170
    Kč), Krakov (80 → 110 Kč), Budapešť (140 → 170 Kč) a Záhřeb (200 → 220 Kč); test hlídá shodu.
 3. **Odhad** pro ostatní letiště: vzdálenost do centra (letiště metropole s víc letišti od jejího středu, jinak typicky
@@ -776,7 +778,7 @@ běžná cena v den cesty (pole `typ` – Stansted Express od 9,90 £, běžně 
 | MAN Manchester | vlak do Manchester Piccadilly | od 2,90 £ | 80 | 20 min | [tpexpress.co.uk](https://www.tpexpress.co.uk/travelling-with-us/routes/trains-from-manchester-airport-to-manchester-piccadilly) |
 | EDI Edinburgh | autobus Airlink 100 na Waverley Bridge | 6 £ | 170 | 30 min | [lothianbuses.com](https://www.lothianbuses.com/our-services/airport-buses/) |
 | DUB Dublin | městský autobus Dublin Bus 16 do centra | 2,60 € | 60 | 40 min | [dublinbus.ie](https://www.dublinbus.ie/journey-information/dublin-airport-hub) |
-| BGY Milán | autobus Terravision do Milano Centrale | od 5 € | 120 | 50 min | [terravision.eu](https://www.terravision.eu/airport_transfer/bus-bergamo-airport-milan/) |
+| BGY Milán | autobus Terravision do Milano Centrale | od 5 €, běžně 8 € | 200 | 50 min | [terravision.eu](https://www.terravision.eu/airport_transfer/bus-bergamo-airport-milan/) |
 | MXP Milán | vlak Malpensa Express do Milano Cadorna | 15 € | 370 ⚠ | 37 min | [malpensaexpress.it](https://www.malpensaexpress.it/en/travel-documents/tickets/) |
 | LIN Milán | metro M4 do San Babila | 2,20 € | 50 | 12 min | [atm.it](https://www.atm.it/en/ViaggiaConNoi/InfoTraffico/Pages/M4passengerserviceinformation2.aspx) |
 | TSF Benátky | autobus Barzi Service do Mestre a na Piazzale Roma | 10 € | 240 | 40 min | [barziservice.com](https://barziservice.com/en/travel-with-us/treviso-airport-line/) |
@@ -791,14 +793,14 @@ běžná cena v den cesty (pole `typ` – Stansted Express od 9,90 £, běžně 
 | ARN Stockholm | autobus Flygbussarna do Stockholm C (Cityterminalen) | od 129 SEK | 280 | 40 min | [flygbussarna.se](https://www.flygbussarna.se/en/arlanda) |
 | VST Stockholm | autobus Flygbussarna do Stockholm C (Cityterminalen) | od 229 SEK | 500 ⚠ | 1 h 20 | [flygbussarna.se](https://www.flygbussarna.se/en/vasteras) |
 | GOT Göteborg | autobus Flygbussarna do Göteborg C | 129 SEK | 280 | 20 min | [flygbussarna.se](https://www.flygbussarna.se/en/landvetter) |
-| TRF Oslo | autobus Torp-ekspressen do centra Osla | od 279 NOK | 630 ⚠ | 1 h 35 | [en.torpekspressen.no](https://en.torpekspressen.no/tickets-and-prices/) |
+| TRF Oslo | autobus Torp-ekspressen do centra Osla | od 289 NOK | 650 ⚠ | 1 h 35 | [torpekspressen.no](https://www.torpekspressen.no/billetter-og-priser/) |
 | OSL Oslo | regionální vlak Vy na Oslo S | 129 NOK | 290 | 23 min | [visitoslo.com](https://www.visitoslo.com/no/transport/transport-flyplass/oslo-gardermoen) ² |
 | HHN Frankfurt | autobus flibco do Frankfurt Hbf | od 18,99 € | 460 ⚠ | 2 h 10 | [flibco.com](https://www.flibco.com/en/shuttle/bus-frankfurt-hahn-airport) |
 | FRA Frankfurt | S-Bahn S8 / S9 do centra (Hauptbahnhof ~11 min) | 6,90 € | 170 | 15 min | [vgf-ffm.de](https://www.vgf-ffm.de/fileadmin/VGF/Tickets__Tarife__Plaene/Fahrpreise/Documents/Preisliste_2026.pdf) |
 | NRN Düsseldorf | autobus Airport Weeze Shuttle do Düsseldorf Hbf | 24 € | 590 ⚠ | 1 h 15 | [airport-weeze.com](https://airport-weeze.com/en/neuer-busdienst-vom-hauptbahnhof-duesseldorf-zum-airport-weeze/) |
 | DUS Düsseldorf | S-Bahn / tramvaj U80 na Düsseldorf Hbf | 3,80 € | 90 | 18 min | [vrr.de](https://www.vrr.de/fileadmin/user_upload/pdf/service/downloads/Weitere_Broschueren_und_Tarifinformationen/VRR_Preise_2026.pdf) |
 | CGN Kolín nad Rýnem | S-Bahn S19 na Köln Hbf | 4 € | 100 | 15 min | [vrs.de](https://www.vrs.de/fileadmin/01_Tickets/Rheinlandtarif/VRS_Preistabelle_06-2026_final.pdf) |
-| FMM Mnichov | autobus Allgäu Airport Express do München Hbf | od 15 € | 370 ⚠ | 1 h 20 | [allgaeu-airport.de](https://www.allgaeu-airport.de/mit-dem-bus-zum-flieger/) |
+| FMM Mnichov | autobus Allgäu Airport Express do München Hbf | od 15 €, běžně 20 € | 490 ⚠ | 1 h 20 | [allgaeu-airport.de](https://www.allgaeu-airport.de/mit-dem-bus-zum-flieger/) |
 | GRO Barcelona | autobus Sagalés Airport Line na Barcelona Nord | 22 € | 540 ⚠ | 1 h 15 | [sagalesairportline.com](https://www.sagalesairportline.com/en) |
 | REU Barcelona | autobus Monbus na Barcelona Sants | 18,50 € | 450 ⚠ | 1 h 40 | [catalunya.monbus.es](https://catalunya.monbus.es/wp-content/uploads/2026/04/H_AeropuertoReus_2026-04.pdf) |
 | BCN Barcelona | autobus Aerobús na Plaça de Catalunya | 7,45 € | 180 | 35 min | [aerobusbarcelona.es](https://aerobusbarcelona.es/en/rates/) |
