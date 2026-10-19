@@ -343,7 +343,7 @@ export async function hotelRates(hotelKey, q, { deadline = Infinity, queue = (fn
 
 // Názvy webů pro chipy s cenou (ostatní jak je posílá TripAdvisor): web hotelu česky, „Agoda.com“ → „Agoda“. Rezervační
 // systém hotelu (kód SSC_…) posílá TripAdvisor někdy v jiném jazyce („ไซต์ที่เป็นทางการ“ = oficiální web) – taky web hotelu.
-export const otaName = (n, code = '') => (/^(official (hotel )?(hotel|site|website)|hotel website)$/i.test(n.trim()) || /^SSC_/.test(code) || /[^\u0000-\u024F\u2000-\u206F]/.test(n) ? 'web hotelu' : n === 'Agoda.com' ? 'Agoda' : n);
+export const otaName = (n, code = '') => (/^(official (hotel )?(hotel|site|website)|hotel website)$/i.test(n.trim()) || /^SSC_/.test(code) || /[^\u0000-\u024F\u2000-\u206F\u2100-\u214F]/.test(n) ? 'web hotelu' : n === 'Agoda.com' ? 'Agoda' : n);
 
 /**
  * Nabídky webů v Kč za celý pobyt (sazba za pokoj a noc × pokoje × noci), nejlevnější první; web dvakrát → levnější.

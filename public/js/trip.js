@@ -1745,7 +1745,8 @@
     };
     items = [...items].sort(sorters[stayView.sort]);
     // hotely bez ceny na tvoje dny (často vyprodané) až na požádání, když je s cenou aspoň pár jiných; vyprodané dozadu
-    const nGuess = items.filter(h => h.guess).length, hideGuess = !stayView.guess && nGuess > 0 && items.length - nGuess >= 3;
+    // „Ukázat i hotely bez ceny“ platí jen pro tohle místo a termín (stayView.guess = klíč dotazu), další místo začne skryté
+    const nGuess = items.filter(h => h.guess).length, hideGuess = stayView.guess !== d.key && nGuess > 0 && items.length - nGuess >= 3;
     if (hideGuess) items = items.filter(h => !h.guess);
     // vyprodaný (ověřeno při výběru) zůstane vidět tam, kde se na něj klepnulo – jen dostane štítek a „Vybrat i tak“
     const links = linkGrid(d.links, '#003580', true);
@@ -1810,7 +1811,7 @@
     const ty = $('#stayType'); if (ty) ty.onchange = e => { stayView.type = e.target.value; stayView.n = 0; renderStays(); };
     $('#stayMax').onchange = e => { stayView.maxNight = +e.target.value || null; stayView.n = 0; renderStays(); };
     const mn = $('#stayMoreN'); if (mn) mn.onclick = () => { stayView.n = lim + 10; renderStays(); };
-    const sg = $('#stayGuess'); if (sg) sg.onclick = () => { stayView.guess = true; renderStays(); };
+    const sg = $('#stayGuess'); if (sg) sg.onclick = () => { stayView.guess = d.key; renderStays(); };
     const doPick = h => { pickSeq++; staySlot.set(pickOf(h, d.query && d.query.nights)); persist(); staySlot.next(); };
     $$('[data-pick]', host).forEach(b => b.onclick = async () => {
       const h = d.items[+b.dataset.pick], cur = staySlot && staySlot.get();
