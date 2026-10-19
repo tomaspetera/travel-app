@@ -65,7 +65,7 @@ import { COUNTRIES as FUEL_CC, DEFAULT_KWH_PER_100, DEFAULT_L_PER_100, EV_DC, EV
 // Jízdné a čas u letišť, která jsou i v tabulce cesty z letiště do města (data/arrival.json – FMM, FRA, KRK, BUD, ZAG,
 // WAW, WMI), odpovídají ověřeným cenám dopravců ze 7. 10. 2026 (test hlídá shodu).
 export const ACCESS = {
-  PRG: [50.0755, 14.4378, 'Praha', 46, 45, 'MHD – bus 59 + metro A (PID 90 min; Airport Express 200 Kč)', [580, 80]], // ověřeno 10/2026 (parkování mimo prázdniny)
+  PRG: [50.0755, 14.4378, 'Praha', 46, 45, 'MHD – autobus linky 59 + metro A (PID 90 min; Airport Express 200 Kč)', [580, 80]], // ověřeno 10/2026 (parkování mimo prázdniny)
   BRQ: [49.1951, 16.6068, 'Brno', 30, 30, 'bus E76 z hlavního nádraží (IDS JMK)', [170, 160]], // ověřeno 10/2026
   OSR: [49.8346, 18.2820, 'Ostrava', 50, 45, 'vlak do Mošnova (ODIS)', [0, 130]], // ověřeno 10/2026
   PED: [50.0343, 15.7812, 'Pardubice', 25, 20, 'bus 90 z hlavního nádraží (jede 150 a 120 min před odletem)', [0, 0]], // ověřeno 10/2026: parkování zdarma
