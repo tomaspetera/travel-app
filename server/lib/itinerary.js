@@ -10,7 +10,22 @@ export const VISIT_MIN = {
   viewpoint: 30, park: 60, garden: 60, nature: 150, beach: 180, zoo: 180, theme: 240, market: 45,
   bridge: 15, tower: 45, ruins: 60, theatre: 30, sight: 45, daytrip: 360,
 };
+// Významný kostel nebo pomník (UNESCO, nebo článek v 60+ jazycích) – Bazilika sv. Petra ani Jerónimos nejsou zastávka
+// na půl hodiny jako kostelík za rohem.
+const MAJOR_MIN = { church: 60, monument: 40 };
+// Malé stavby: sloučené části (kaple, vyhlídka…) přidají nejvýš půl hodiny – věž ani pomník nejsou na 2 h.
+const SMALL = new Set(['church', 'monument', 'tower', 'bridge', 'viewpoint']);
 const PACE = { relaxed: 240, normal: 360, intense: 480 }; // minut programu na celý den
+
+/**
+ * Délka návštěvy (min): podle kategorie a významu; celek se sloučenými částmi (Pražský hrad s katedrálou, Zlatou
+ * uličkou…) = delší návštěva: +20 min za část, nejvýš +2 h (u malých staveb nejvýš +30 min).
+ */
+export function visitMinutes(p) {
+  const major = Boolean(p.unesco) || p.sitelinks >= 60;
+  const base = p.visitMin || (major && MAJOR_MIN[p.category]) || VISIT_MIN[p.category] || 45;
+  return base + Math.min(SMALL.has(p.category) ? 30 : 120, 20 * (p.includes?.length || 0));
+}
 
 const toXY = (p, lat0) => [p.lon * 111.32 * Math.cos((lat0 * Math.PI) / 180), p.lat * 110.57];
 
@@ -134,9 +149,7 @@ export function planItinerary(pois, opts) {
   const CAP = { church: 3, square: 2, monument: 3 };
   // Limit podle skutečného času (krátký den příletu/odletu se nepočítá jako celý den).
   const catLimit = (cat) => (CAP[cat] ? CAP[cat] * Math.max(1, Math.round(totalCap / full)) : Infinity);
-  // Celek se sloučenými částmi (Pražský hrad s katedrálou, Zlatou uličkou…) = delší návštěva: +20 min za část, nejvýš +2 h.
-  const ranked = [...near].sort((a, b) => weight(b) - weight(a))
-    .map((p) => ({ ...p, visitMin: (p.visitMin || VISIT_MIN[p.category] || 45) + Math.min(120, 20 * (p.includes?.length || 0)) }));
+  const ranked = [...near].sort((a, b) => weight(b) - weight(a)).map((p) => ({ ...p, visitMin: visitMinutes(p) }));
   const choose = (skip) => {
     const out = [];
     const perCat = {};

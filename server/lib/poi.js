@@ -101,7 +101,7 @@ export function localLang(lat, lon) {
  * Název: český, jinak místní (`lang` – Font Màgica, Plaça Reial), teprve pak anglický; popis: český, jinak anglický.
  * Doplňky až na konci (hned za poddotazem rozbily plán dotazu – odpověď se po 24 s utrhla; takhle trvá jako dřív).
  */
-export function sparqlNear(lat, lon, radiusKm, minLinks, items, { wv = false, lang = '' } = {}) {
+export function sparqlNear(lat, lon, radiusKm, minLinks, items, { wv = false, lang = '', types = null } = {}) {
   return `SELECT ?item ?itemLabel ?itemDescription ?lat ?lon ?sl ?type ?img ?her ?cs ?en ?part ?cc ?whs ?csl ?csd${lang ? ' ?loc' : ''}${wv ? ' ?wv' : ''} WHERE {
   {
     SELECT ?item ?coord ?sl WHERE {
@@ -111,7 +111,8 @@ export function sparqlNear(lat, lon, radiusKm, minLinks, items, { wv = false, la
         bd:serviceParam wikibase:radius "${radiusKm}" .
       }
       hint:Query hint:optimizer "None" .
-      ?item wikibase:sitelinks ?sl . FILTER(?sl >= ${minLinks})
+      ?item wikibase:sitelinks ?sl . FILTER(?sl >= ${minLinks})${types ? `
+      ?item wdt:P31/wdt:P279? ?ft . VALUES ?ft { ${types.map((t) => `wd:${t}`).join(' ')} }` : ''}
     } ORDER BY DESC(?sl) LIMIT ${items}
   }
   ?item wdt:P31/wdt:P279? ?type .
@@ -219,6 +220,9 @@ export function groupBindings(rows, center) {
     // muzeum nebo galerie v paláci, které nese jejich jméno (Museo Poldi Pezzoli, Pinacoteca di Brera) – jde se do
     // sbírek, ne na prohlídku paláce (ikona 🏛️ a čas na muzeum, ne 👑)
     if (cats.has('palace') && (cats.has('museum') || cats.has('gallery')) && MUSEUM_NAME.test(p.name)) cats.delete('palace');
+    // kostel, který je i muzeem (Pantheon, Sainte-Chapelle), je kostel – ne dvouhodinové muzeum (čas podle významu
+    // v itinerary.js); muzeum v kostele, které nese jeho jméno (Museo di San Marco), zůstane muzeem
+    if (cats.has('church') && cats.has('museum') && !MUSEUM_NAME.test(p.name)) cats.delete('museum');
     // Konkrétní typ (most, kostel, hrad…) vyhrává nad obecným „silnice/ulice“ (Karlův most je i silnice).
     const specific = CAT_PRIORITY.find((c) => c !== 'sight' && cats.has(c));
     const known = (p.heritage || types.includes(TOURIST_DEST)) && p.sitelinks >= 25;
@@ -846,6 +850,23 @@ export function mockTowns({ lat, lon }) {
   }).sort((a, b) => b.score - a.score);
 }
 
+const FAMILY = ['zoo', 'theme', 'park'];
+const FAMILY_TYPES = FAMILY.flatMap((c) => TYPES[c]);
+/**
+ * Nejlepší místa (seřazená podle skóre) do `limit`, ale s místem pro rodiny: z každé kategorie zoo, zábavní park a park
+ * aspoň `per` (je-li v okolí), místo nejslabších jiných míst – Řím má jinak 60 kostelů, muzeí a zřícenin a nic pro děti.
+ */
+export function familySlots(sorted, limit, per = 2) {
+  const out = sorted.slice(0, limit);
+  const add = FAMILY.flatMap((c) => sorted.slice(limit).filter((p) => p.category === c && !p.minor).slice(0, Math.max(0, per - out.filter((p) => p.category === c).length)));
+  for (const p of add) {
+    const i = out.findLastIndex((x) => !FAMILY.includes(x.category));
+    if (i < 0) break;
+    out.splice(i, 1);
+    out.push(p);
+  }
+  return out.sort((a, b) => b.score - a.score);
+}
 const placesKey = ({ lat, lon, radiusKm = 10, dayTrips = true, limit = 60 }) => `poi:${lat.toFixed(3)}:${lon.toFixed(3)}:${Math.min(25, Math.max(1, radiusKm))}:${dayTrips}:${limit}`;
 /** Je výsledek findPlaces se stejnými volbami celý v mezipaměti – odpověď bez dotazu na Wikidata a Wikipedii? */
 export const placesCached = (opts) => cache.get(placesKey(opts)) !== undefined;
@@ -867,9 +888,13 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     // Výlety (okruh 120 km) jsou pomalejší dotaz: běží na pozadí a výsledek se uloží zvlášť, takže
     // když nestihne první zobrazení, příští načtení už ho má.
     const tripsP = dayTrips ? tripsQuery(lat, lon).catch(() => null) : Promise.resolve([]);
+    const cityP = wdqs(sparqlNear(lat, lon, r, 4, 500, { lang: localLang(lat, lon) }));
+    // Zoo, zábavní a městské parky zvlášť: v Římě je mezi 500 nejznámějšími místy nevytlačí jen kostely a paláce
+    // (bioparco: 14 jazykových verzí) – bez nich nemá zájem „s dětmi“ co zvýhodnit. Výpadek nevadí.
+    const familyP = wdqs(sparqlNear(lat, lon, r, 4, 40, { lang: localLang(lat, lon), types: FAMILY_TYPES })).catch(() => []);
     let cityRows;
     try {
-      cityRows = await wdqs(sparqlNear(lat, lon, r, 4, 500, { lang: localLang(lat, lon) }));
+      cityRows = await cityP;
     } catch {
       // Wikidata SPARQL nedostupné (výpadek, limit, přechod na QLever) → záloha přes Wikipedii.
       const fb = applyWikivoyage(await findPlacesViaWikipedia({ lat, lon }), await wvP).sort((a, b) => b.score - a.score);
@@ -885,12 +910,12 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     if (tripsMissing) tripRows = [];
     // Obce a předměstí (italské comuni, francouzské communes…) nejsou „místa k vidění“ – ve městě
     // zůstanou jen s výrazným znakem (UNESCO); samotné město v centru se vyřadí vždy.
-    const city = groupBindings(cityRows, center).filter((p) => p.category !== 'town' || (p.unesco && p.distanceKm > 2));
+    const city = groupBindings([...cityRows, ...(await familyP)], center).filter((p) => p.category !== 'town' || (p.unesco && p.distanceKm > 2));
     for (const p of city) if (p.category === 'town') p.category = 'oldtown';
     const trips = tripsFromRows(tripRows, center, Math.max(r, 15));
     for (const p of city) p.score = scorePlace(p);
     applyWikivoyage(city, await wvP);
-    const top = city.sort((a, b) => b.score - a.score).slice(0, limit);
+    const top = familySlots(city.sort((a, b) => b.score - a.score), limit);
     // Části jiného vybraného místa (Sixtinská kaple ve Vatikánských muzeích, katedrála na Hradě)
     // nejsou samostatná zastávka – připiš je k celku.
     const byId = new Map(top.map((p) => [p.id, p]));

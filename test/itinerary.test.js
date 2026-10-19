@@ -2,7 +2,7 @@
 // odlehlá místa mimo program, delší návštěva celku se sloučenými částmi.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planItinerary } from '../server/lib/itinerary.js';
+import { planItinerary, visitMinutes } from '../server/lib/itinerary.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { LIS_PLACES, PRA_PLACES } from './fixtures/wikidata.js';
 
@@ -64,4 +64,20 @@ test('malé místo bez ničeho v dosahu pěšky (živě Nizza Monferrato): den p
   // místo s programem ve městě se nemění
   const city = planItinerary([...pool, { id: 'Q9', name: 'Piazza Garibaldi', lat: 44.7750, lon: 8.3560, category: 'square', score: 30 }], { center: NIZZA, start: '2026-11-19', end: '2026-11-20', arrivalTime: '12:45', departureTime: '11:00', pace: 'normal', interests: {} });
   assert.deepEqual([city.days[0].kind, city.days[0].items.map((p) => p.name)], ['city', ['Piazza Garibaldi']]);
+});
+
+test('visitMinutes: významný kostel déle, malá stavba s částmi ne na 2 h, hrad s částmi ano (round-6)', () => {
+  // Bazilika sv. Petra (131 jazykových verzí) a Pantheon (kostel, 81) nejsou na 30 min; Jerónimos (UNESCO) taky ne
+  assert.equal(visitMinutes({ category: 'church', sitelinks: 131 }), 60);
+  assert.equal(visitMinutes({ category: 'church', sitelinks: 20, unesco: true }), 60);
+  assert.equal(visitMinutes({ category: 'church', sitelinks: 25 }), 30, 'kostelík za rohem');
+  // Torre de Belém: pomník (UNESCO) se 4 sloučenými částmi – dřív 20 + 80 = 1 h 40
+  assert.equal(visitMinutes({ category: 'monument', sitelinks: 70, unesco: true, includes: ['a', 'b', 'c', 'd'] }), 70);
+  assert.equal(visitMinutes({ category: 'tower', sitelinks: 30, includes: ['a', 'b', 'c'] }), 75);
+  // Pražský hrad s katedrálou, Zlatou uličkou…: +20 min za část, nejvýš +2 h
+  assert.equal(visitMinutes({ category: 'castle', sitelinks: 90, includes: ['a', 'b', 'c'] }), 160);
+  assert.equal(visitMinutes({ category: 'castle', includes: Array(8).fill('x') }), 220);
+  // vlastní délka (kavárna) a neznámá kategorie
+  assert.equal(visitMinutes({ category: 'sight', visitMin: 30, sitelinks: 99 }), 30);
+  assert.equal(visitMinutes({ category: 'whatever' }), 45);
 });

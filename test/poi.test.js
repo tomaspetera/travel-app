@@ -53,7 +53,7 @@ test('findPlaces: Wikidata + popisy z Wikipedie, výlety mimo město, User-Agent
   const stub = stubFetch((url) => {
     if (url.startsWith('https://query.wikidata.org/sparql')) {
       const q = decodeURIComponent(new URL(url).searchParams.get('query'));
-      return { body: { results: { bindings: q.includes('"120"') ? TRIPS : CITY } } };
+      return { body: { results: { bindings: q.includes('"120"') ? TRIPS : q.includes('VALUES ?ft') ? [] : CITY } } };
     }
     if (url.startsWith('https://cs.wikipedia.org/w/api.php')) {
       return { body: { query: { pages: [{ title: 'Milánská katedrála', extract: 'Milánská katedrála je gotická katedrála v Miláně.', thumbnail: { source: 'https://upload.wikimedia.org/duomo-480.jpg' } }] } } };
@@ -66,7 +66,8 @@ test('findPlaces: Wikidata + popisy z Wikipedie, výlety mimo město, User-Agent
   try {
     const items = await findPlaces({ lat: CENTER.lat, lon: CENTER.lon, radiusKm: 10 });
     const sparql = stub.calls.filter((c) => c.url.includes('query.wikidata.org'));
-    assert.equal(sparql.length, 2, 'město + výlety');
+    assert.equal(sparql.length, 3, 'město + zoo/parky + výlety');
+    assert.equal(sparql.filter((c) => decodeURIComponent(c.url).includes('wd:Q43501')).length, 1, 'zoo a parky zvlášť');
     assert.match(sparql[0].init.headers['User-Agent'], /^ATLAS-travel\/.*github\.com/);
     const duomo = items.find((p) => p.id === 'Q18068');
     assert.equal(duomo.extract, 'Milánská katedrála je gotická katedrála v Miláně.');
@@ -541,4 +542,28 @@ test('groupBindings (živá data): bez českého názvu místní (Font Màgica, 
   assert.equal(by.Q215003.unesco, true);
   // pomocná pole ven nejdou
   for (const p of Object.values(by)) assert.ok(p.csName === undefined && p.locName === undefined && p.csDesc === undefined);
+});
+
+test('groupBindings: kostel, který je i muzeem (Pantheon), je kostel; muzeum se jménem v kostele zůstane muzeem', () => {
+  const rows = [
+    row('Q99309', 'Pantheon', 41.8986, 12.4769, 81, 'Q16970'), row('Q99309', 'Pantheon', 41.8986, 12.4769, 81, 'Q33506'),
+    row('Q1', 'Museo di San Marco', 43.7781, 11.2594, 40, 'Q16970'), row('Q1', 'Museo di San Marco', 43.7781, 11.2594, 40, 'Q33506'),
+  ];
+  const by = Object.fromEntries(groupBindings(rows, { lat: 41.9, lon: 12.5 }).map((p) => [p.name, p.category]));
+  assert.deepEqual(by, { Pantheon: 'church', 'Museo di San Marco': 'museum' });
+});
+
+test('familySlots: Řím plný kostelů a muzeí – pár míst pro zoo, zábavní park a park zůstane, limit platí', async () => {
+  const { familySlots } = await import('../server/lib/poi.js');
+  const P = (id, category, score, extra = {}) => ({ id, category, score, ...extra });
+  const sights = Array.from({ length: 70 }, (_, i) => P(`s${i}`, ['church', 'museum', 'ruins'][i % 3], 90 - i * 0.5));
+  const family = [P('zoo', 'zoo', 40), P('park1', 'park', 38), P('park2', 'park', 36), P('park3', 'park', 35), P('minor', 'theme', 50, { minor: true })];
+  const out = familySlots([...sights, ...family].sort((a, b) => b.score - a.score), 60);
+  assert.equal(out.length, 60);
+  assert.deepEqual(out.filter((p) => ['zoo', 'theme', 'park'].includes(p.category)).map((p) => p.id), ['zoo', 'park1', 'park2']);
+  assert.ok(out.every((p, i) => i === 0 || out[i - 1].score >= p.score), 'seřazené podle skóre');
+  assert.ok(out.some((p) => p.id === 's56') && !out.some((p) => p.id === 's57'), 'ustoupila nejslabší jiná místa');
+  // vejde-li se všechno, nic se nemění
+  const few = [...sights.slice(0, 10), ...family].sort((a, b) => b.score - a.score);
+  assert.deepEqual(familySlots(few, 60), few);
 });
