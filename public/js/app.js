@@ -601,10 +601,11 @@ const Photos = (() => {
     el.title = `Foto: ${e.by} / ${src[0]}`;
     if (el.clientWidth < 140 || el.querySelector(':scope > .ph-cr')) return;
     const bu = /^https:\/\/(www\.)?(unsplash|pexels)\.com\/[^\s"'<>]*$/.test(e.bu || '') ? e.bu : '';
-    const lk = (href, txt) => `<span class="ph-a" role="link" tabindex="0" data-href="${esc(href)}">${esc(txt)}</span>`;
+    const lk = (href, txt, cls = '') => `<span class="ph-a${cls}" role="link" tabindex="0" data-href="${esc(href)}">${esc(txt)}</span>`;
     const s = document.createElement('span');
     s.className = 'ph-cr';
-    s.innerHTML = `Foto: ${bu ? lk(bu, e.by) : esc(e.by)} / ${lk(src[1], src[0])}`;
+    // dlouhé jméno autora se zkrátí (…), zdroj („/ Unsplash“) zůstane celý
+    s.innerHTML = `<span>Foto:</span>${bu ? lk(bu, e.by, ' ph-by') : `<span class="ph-by">${esc(e.by)}</span>`}<span>/</span>${lk(src[1], src[0])}`;
     el.append(s);
   }
   // odkaz v popisku fotky: nové okno, ne klepnutí na kartu pod ním (karty bývají tlačítka – <a> v nich nejde)

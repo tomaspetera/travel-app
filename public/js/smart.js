@@ -546,7 +546,13 @@
     take(new RegExp(`(?:co|kam|jak)\\s+(?:videt|navstivit|delat|zazit|podniknout|stoji\\s+za\\s+to|jit|zajit)${W}|(?:zajimav\\w*|tipy|tip|doporuceni)${W}`), () => {});
     take(new RegExp(`(\\d{1,3})\\s*km${W}`), m => { km = +m[1]; });
     take(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:den|dny|dni|dnu)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 14)) return false; days = n; });
-    take(new RegExp(`(?:(?:na|o|pres)\\s+)?(?:prodlouzen\\w+\\s+)?vikend\\w*${W}`), m => { days = days || (/prodlouz/.test(m[0]) ? 3 : 2); });
+    // víkend bez data („Porto na víkend“): od soboty nejbližšího víkendu (prodloužený od pátku), „příští víkend“ o týden dál
+    let wk = null;
+    take(new RegExp(`(?:(?:na|o|pres)\\s+)?(?:(pristi|dalsi|tento|tenhle|nejblizsi)\\s+)?(?:prodlouzen\\w+\\s+)?vikend\\w*${W}`), m => {
+      const long = /prodlouz/.test(m[0]);
+      days = days || (long ? 3 : 2);
+      wk = { long, next: /pristi|dalsi/.test(m[1] || '') };
+    });
     // „příští týden“ je kdy (začátek), ne délka – nechat pro parse()
     take(new RegExp(`(?:na\\s+)?(?:cely\\s+)?tyden${W}`), m => { if (/(?:pristi|dalsi|tento|tenhle)\s+$/.test(s.slice(0, m.index))) return false; days = days || 7; });
     take(new RegExp(`(?:s|se)\\s+(?:detmi|ditetem|ditkem|deckama)${W}|pro\\s+deti${W}`), () => { interests.push('kids'); });
@@ -558,6 +564,11 @@
     // „od pátku do neděle“: dny = noci + 1, začátek nejbližší ten den v týdnu (dnes, je-li to on)
     if (!days && pt.len === 'custom' && pt.nMin) days = Math.min(14, pt.nMin + 1);
     if (!start && pt.outDays && pt.outDays.length === 1) { const t = o.today || ymd(new Date()); start = addDays(t, (pt.outDays[0] - dow(t) + 7) % 7); }
+    if (!start && wk) {
+      // v neděli už ten příští (jako „tento víkend“ u letů); prodloužený v sobotu = od dneška
+      const t = o.today || ymd(new Date()), sat = addDays(t, ((6 - dow(t) + 7) % 7) + (wk.next ? 7 : 0)), s0 = wk.long ? addDays(sat, -1) : sat;
+      start = s0 < t ? t : s0;
+    }
     const place = p.to[0] || p.from[0] || '';
     const chips = [];
     if (mode) chips.push(EX_MODE[mode]);
