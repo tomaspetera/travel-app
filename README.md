@@ -421,18 +421,25 @@ pošle i dodatečně, když nalezené místo nemá v okolí žádné hotely. Dot
 dlouhými dotazy Objevuj); výpadek Wikidat se pamatuje 10 min, ať další hledání nečeká na timeout znovu. Hotely dál
 než 15 km od místa pobytu a bez recenzí se zahodí – špatné ID se tak projeví jen tím, že ceny chybí.
 
-**Malé místo bez hotelů na TripAdvisoru** (Palazzolo Acreide, Alcobaça – další zastávky trasy přes víc míst): ceny
+**Tabulka míst TripAdvisoru** (`TA_PLACES` v `server/providers/stays/ta-places.js`) má i 49 turistických míst, která
+plánovač navrhuje a ve Wikidatech ID nemají (doplněno 10/2026: Agrigento, Ragusa, Piazza Armerina, Palazzolo Acreide,
+Cefalù, Trapani, Caltagirone, Pienza, Volterra, Úbeda, Baeza, Alcobaça, Leiria, Herceg Novi…) – ID z adres stránek
+TripAdvisoru, každé ověřené přes Xotelo (střed hotelů místa 0,1–1,4 km od obce). Místo **stejného jména** jako místo
+pobytu platí do 15 km (`SAME_NAME_KM`; střed hotelů malého města bývá mimo město – Montalcino 11 km), jiné jen do 8 km.
+
+**Malé místo bez hotelů na TripAdvisoru** (Pachino, Castelmezzano – další zastávky trasy přes víc míst): ceny
 **z okolí** – hotely nejbližších (nejvýš 2) míst TripAdvisoru do 35 km (tabulky `TA_CITIES` / `TA_PLACES`, místa
-z Wikidat, jejichž hotely jsou dál než 15 km) do 40 km od místa pobytu; živě 10/2026 Palazzolo → Noto 21 km a Modica
-34 km, Alcobaça → Batalha 18 km a Caldas da Rainha 22 km. Karta je stejná jako u hotelu v místě (ceny u webů, *Vybrat*
-ověří volno) s řádkem „📍 v okolí: Noto · 24 km od místa Palazzolo Acreide“; odkazy na weby hledají hotel v jeho místě
+z Wikidat, jejichž hotely jsou dál než 15 km) do 40 km od místa pobytu; Pachino → Noto 22 km a Modica 24 km,
+Castelmezzano → Potenza 23 km. Karta je stejná jako u hotelu v místě (ceny u webů, *Vybrat*
+ověří volno) s řádkem „📍 v okolí: Noto · 20 km od místa Pachino“; odkazy na weby hledají hotel v jeho místě
 („Hotel X, Noto“). Pod nimi ubytování **v místě bez ceny** z OpenStreetMap (viz zdroje). Vybraný hotel z okolí je
 v průběhu cesty, ve shrnutí i na kartě „Dnes na cestě“ s místem („Stanze Barocche (Modica)“) a program místa se skládá
 v místě samém (od centra, ne kolem hotelu 26 km daleko) s poznámkou „🏨 Spíš v okolí…“. Místo TripAdvisoru stejného
 jména jako místo pobytu (Montalcino – střed jeho hotelů 11 km od středu obce) se za okolí nepočítá. Při výpadku Wikidat taky ceny
 z okolí, v mezipaměti jen 5 min. Návrh trasy přes víc míst dává při podobném skóre přednost místům s hotely
-na TripAdvisoru (`HOTEL_BONUS` v `server/lib/stayplan.js`, ~6 bodů ≈ 50 min přejezdu). Místo, kde v okolí nic není,
-dostane jen odkazy. **Rychlost:** ubytování z OpenStreetMap se hledá hned, jak je jasné, že ceny budou z okolí –
+na TripAdvisoru (`HOTEL_BONUS` v `server/lib/stayplan.js`, ~6 bodů ≈ 50 min přejezdu); místo bez hotelů i v okolí
+(žádné místo z tabulek do 35 km – jen ubytování bez ceny) navrhne, jen když je jasně lepší (`NO_HOTELS_PENALTY`,
+12 bodů ≈ 1 h 40 min přejezdu). Místa zadaná ručně se nemění. Místo, kde v okolí nic není, dostane jen odkazy. **Rychlost:** ubytování z OpenStreetMap se hledá hned, jak je jasné, že ceny budou z okolí –
 souběžně s cenami, ne po nich (Nominatim ~4 s); dohledávají-li Wikidata místo mimo tabulky dlouho, seznamy hotelů
 míst v okolí se po 1,5 s načtou dopředu a po 8 s (`KEYS_CAP_MS`) se nečeká – ceny z okolí hned, výsledek je neúplný
 a průvodce se doptá (dohledané místo s vlastními hotely pak má přednost). Nepovedený anglický název místa

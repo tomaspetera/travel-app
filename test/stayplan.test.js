@@ -2,7 +2,7 @@
 // (i open-jaw – přílet a odlet z jiného letiště) a endpoint bez sítě (podstrčená města).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { suggestRoute, splitNights, transferEstimate, evaluateRoute, planStay, defaultCount, StayPlanError, TRANSFER_MAX, transfer, tollCzk, HOTEL_BONUS } from '../server/lib/stayplan.js';
+import { suggestRoute, splitNights, transferEstimate, evaluateRoute, planStay, defaultCount, StayPlanError, TRANSFER_MAX, transfer, tollCzk, HOTEL_BONUS, NO_HOTELS_PENALTY, hotelCoverage } from '../server/lib/stayplan.js';
 import { findTowns } from '../server/lib/poi.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { stubFetch } from './helpers.js';
@@ -358,20 +358,41 @@ test('přejezd autem: palivo za cenu v zemi startu, na delším přejezdu v Itá
   assert.equal(cz.tollCzk, undefined, 'v Česku dálniční známka, ne mýtné za km');
 });
 
-test('návrh trasy: při podobném skóre místo s hotely na TripAdvisoru (Noto) před místem bez nich (Palazzolo Acreide – ceny jen z okolí)', async () => {
+test('návrh trasy: při podobném skóre místo s hotely na TripAdvisoru (Noto) před místem bez nich (Pachino – ceny jen z okolí)', async () => {
   const CATANIA = { id: 'city:CTA', name: 'Catania', lat: 37.5079, lon: 15.083, cc: 'IT', country: 'Itálie' };
-  const pal = T('Qp', 'Palazzolo Acreide', 37.0617, 14.9019, 70, { unescoPart: true });
+  const pac = T('Qp', 'Pachino', 36.7167, 15.0907, 70);
   const noto = T('Qn', 'Noto', 36.8908, 15.0697, 66, { unescoPart: true });
   const opts = { arrival: CATANIA, nights: 4, transport: 'car', count: 2 };
   assert.equal(HOTEL_BONUS, 6);
-  assert.deepEqual(suggestRoute([pal, noto], opts).bases.map((b) => b.name), ['Catania', 'Palazzolo Acreide'], 'bez údaje o hotelech vyšší skóre');
-  const withHotels = suggestRoute([pal, { ...noto, hotels: true }], opts);
+  assert.deepEqual(suggestRoute([pac, noto], opts).bases.map((b) => b.name), ['Catania', 'Pachino'], 'bez údaje o hotelech vyšší skóre');
+  const withHotels = suggestRoute([pac, { ...noto, hotels: true }], opts);
   assert.deepEqual(withHotels.bases.map((b) => b.name), ['Catania', 'Noto']);
   assert.equal(withHotels.bases[1].score, 66, 'skóre (a noci) bez bonusu');
-  assert.deepEqual(suggestRoute([{ ...pal, score: 80 }, { ...noto, hotels: true }], opts).bases.map((b) => b.name), ['Catania', 'Palazzolo Acreide'], 'velký rozdíl bonus nepřebije');
-  // planStay: hotely podle tabulek míst TripAdvisoru (Noto je má, Palazzolo ne); místa zadaná ručně se nemění
-  const deps = { towns: async () => [pal, noto], geo: async () => [], route: null };
+  assert.deepEqual(suggestRoute([{ ...pac, score: 80 }, { ...noto, hotels: true }], opts).bases.map((b) => b.name), ['Catania', 'Pachino'], 'velký rozdíl bonus nepřebije');
+  // planStay: hotely podle tabulek míst TripAdvisoru (Noto je má, Pachino ne – jen ceny z okolí); místa zadaná ručně se nemění
+  const deps = { towns: async () => [pac, noto], geo: async () => [], route: null };
   assert.deepEqual((await planStay({ arrival: 'CTA', nights: 4, count: 2 }, deps)).bases.map((b) => b.name), ['Catania', 'Noto']);
-  const own = await planStay({ arrival: 'CTA', bases: [{ name: 'Catania', lat: 37.5079, lon: 15.083 }, { name: 'Palazzolo Acreide', lat: 37.0617, lon: 14.9019 }] }, deps);
-  assert.deepEqual(own.bases.map((b) => b.name), ['Catania', 'Palazzolo Acreide']);
+  const own = await planStay({ arrival: 'CTA', bases: [{ name: 'Catania', lat: 37.5079, lon: 15.083 }, { name: 'Pachino', lat: 36.7167, lon: 15.0907 }] }, deps);
+  assert.deepEqual(own.bases.map((b) => b.name), ['Catania', 'Pachino']);
+});
+
+test('návrh trasy: místo bez hotelů na TripAdvisoru ani v okolí (Barumini) jen když je jasně lepší; místa podle tabulek míst TripAdvisoru', async () => {
+  assert.equal(NO_HOTELS_PENALTY, 12);
+  assert.deepEqual(hotelCoverage({ name: 'Ragusa', lat: 36.925, lon: 14.7306 }), { hotels: true }, 'doplněno do tabulky 10/2026');
+  assert.deepEqual(hotelCoverage({ name: 'Montalcino', lat: 43.0566, lon: 11.4892 }), { hotels: true }, 'místo stejného jména 11 km');
+  assert.deepEqual(hotelCoverage({ name: 'Pachino', lat: 36.7167, lon: 15.0907 }), { hotels: false }, 'ceny z okolí (Noto, Modica)');
+  assert.deepEqual(hotelCoverage({ name: 'Barumini', lat: 39.7038, lon: 9.0036 }), { hotels: false, noHotels: true });
+  const CAGLIARI = { id: 'city:CAG', name: 'Cagliari', lat: 39.2238, lon: 9.1217, cc: 'IT', country: 'Itálie' };
+  const bar = T('Qb', 'Barumini', 39.7038, 9.0036, 75, { unescoPart: true });
+  const ori = T('Qo', 'Oristano', 39.9036, 8.5917, 66, { hotels: true });
+  const opts = { arrival: CAGLIARI, nights: 4, transport: 'car', count: 2 };
+  assert.deepEqual(suggestRoute([bar, ori], opts).bases.map((b) => b.name), ['Cagliari', 'Barumini'], 'bez údaje o hotelech');
+  assert.deepEqual(suggestRoute([{ ...bar, hotels: false, noHotels: true }, ori], opts).bases.map((b) => b.name), ['Cagliari', 'Oristano']);
+  const clear = suggestRoute([{ ...bar, score: 90, hotels: false, noHotels: true }, ori], opts);
+  assert.deepEqual([clear.bases.map((b) => b.name), clear.bases[1].score], [['Cagliari', 'Barumini'], 90], 'jasně lepší – skóre a noci bez srážky');
+  // planStay: pokrytí z tabulek (Barumini nic, Oristano – ceny z okolí); ručně zadané místo zůstane
+  const deps = { towns: async () => [bar, { ...ori, hotels: undefined }], geo: async () => [], route: null };
+  assert.deepEqual((await planStay({ arrival: 'CAG', nights: 4, count: 2 }, deps)).bases.map((b) => b.name), ['Cagliari', 'Oristano']);
+  const own = await planStay({ arrival: 'CAG', bases: [{ name: 'Cagliari', lat: 39.2238, lon: 9.1217 }, { name: 'Barumini', lat: 39.7038, lon: 9.0036 }] }, deps);
+  assert.deepEqual(own.bases.map((b) => b.name), ['Cagliari', 'Barumini']);
 });

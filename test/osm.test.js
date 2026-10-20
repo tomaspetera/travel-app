@@ -100,15 +100,16 @@ test('searchStays: malé místo bez hotelů z TripAdvisoru → hotely s cenou z 
   const prev = config.mock;
   config.mock = true;
   try {
-    const raw = { city: 'Palazzolo Acreide', cc: 'IT', ...PAL, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1 };
+    // Pachino: v tabulkách míst TripAdvisoru nic do 15 km, Noto 22 km (Palazzolo Acreide má od 10/2026 vlastní místo)
+    const raw = { city: 'Pachino', cc: 'IT', lat: 36.7167, lon: 15.0907, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1 };
     const r = await searchStays(raw);
     assert.equal(r.osmFallback, true);
-    assert.deepEqual(r.nearbyFrom, [{ name: 'Noto', km: 21 }]);
+    assert.deepEqual(r.nearbyFrom, [{ name: 'Noto', km: 22 }]);
     const near = r.items.filter((h) => h.provider === 'demo');
     const osm = r.items.filter((h) => h.provider === 'osm');
     assert.equal(near.length + osm.length, r.items.length);
     assert.equal(near.length, 8);
-    assert.ok(near.every((h) => h.priceTotalCzk > 0 && h.nearby.place === 'Noto' && h.nearby.km === 21 && h.distanceKm > 15 && h.distanceKm < 30), 'ceny z okolí, vzdálenost od místa pobytu');
+    assert.ok(near.every((h) => h.priceTotalCzk > 0 && h.nearby.place === 'Noto' && h.nearby.km === 22 && h.distanceKm > 15 && h.distanceKm < 30), 'ceny z okolí, vzdálenost od místa pobytu');
     assert.ok(osm.length >= 3 && osm.every((h) => h.priceTotalCzk == null && !h.nearby), 'v místě bez ceny');
     assert.deepEqual(r.providers.map((p) => [p.id, p.ok, p.count]), [['demo', true, 8], ['osm', true, osm.length]]);
     assert.equal(r.providers[1].test, true, 'v DEMO vymyšlená ubytování');
