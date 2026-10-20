@@ -1841,6 +1841,30 @@
     return wasSmart ? { directOnly: false, smart: false } : { smart: false };
   }
 
+  /* ---------- Odkazy do aplikací v mobilu (otevřou nainstalovanou aplikaci, jinak web) ---------- */
+  /**
+   * Waze: navigace autem na místo p = { lat, lon } – oficiální formát https://waze.com/ul?ll=…&navigate=yes
+   * (developers.google.com/waze/deeplinks, ověřeno 20. 10. 2026). Souřadnice na 5 desetinných míst (~1 m), bez platných
+   * souřadnic jen hledání podle názvu (p.q – Waze ukáže výsledky, navigaci spustíš klepnutím), jinak null.
+   */
+  function wazeUrl(p) {
+    const ok = (v, max) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= max;
+    if (p && ok(p.lat, 90) && ok(p.lon, 180) && (p.lat || p.lon)) {
+      const r = v => String(Math.round(v * 1e5) / 1e5);
+      return `https://waze.com/ul?ll=${r(p.lat)},${r(p.lon)}&navigate=yes`;
+    }
+    const q = String((p && p.q) || '').trim().slice(0, 200);
+    return q ? `https://waze.com/ul?q=${encodeURIComponent(q)}` : null;
+  }
+  // Waze: navigace domů – oblíbené místo Domov uložené ve Waze (favorite=home, stejný zdroj)
+  const WAZE_HOME = 'https://waze.com/ul?favorite=home&navigate=yes';
+  // PID Lítačka – oficiální aplikace Pražské integrované dopravy (jízdenky PID v mobilu): její stránka s odkazy do App
+  // Store a Google Play (odkaz z pid.cz/informace-k-cestovani/mobilni-aplikace, ověřeno 20. 10. 2026). Odkaz s předvyplněnou
+  // jízdenkou aplikace nemá.
+  const PID_APP = 'https://app.pidlitacka.cz/';
+  /** Cesta na letiště veřejnou dopravou vede pražskou MHD (rozpis ze serveru: „… (PID 90 min …)“, „MHD na nádraží (PID)“). */
+  const pidLeg = g => Boolean(g && g.mode !== 'car' && (g.breakdown || []).some(x => /\bPID\b/.test(String((x && x.label) || ''))));
+
   window.SearchHelp = {
     onlyOriginSet, recentWhen,
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
@@ -1857,5 +1881,6 @@
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
     destCenter, geoNames, geoCenter, stayPlan, smartDirect,
+    wazeUrl, WAZE_HOME, PID_APP, pidLeg,
   };
 })();
