@@ -871,3 +871,53 @@ test('okruh 50/100 km a celá země: dotazy api/poi/trips a api/poi/country jedn
   assert.equal(X.country.data.city[0].name, 'Barcelona');
   assert.match(body.innerHTML, /Hledám to nejlepší v zemi/, 'čekání s vlastním textem');
 });
+
+// 🌍 Celá země vybraná jménem: země podle názvu (i v jiném pádě), návrhy „Francie – celá země“, výběr země bez místa
+function loadCountries() {
+  const countries = JSON.parse(readFileSync(new URL('../data/countries.json', import.meta.url), 'utf8'));
+  const byIso = Object.fromEntries(countries.map((c) => [c.iso2, c]));
+  const ctx = { window: {}, URLSearchParams, console, byIso };
+  vm.createContext(ctx);
+  vm.runInContext(src('app.js').match(/^const (esc|enc|flag|safeUrl|cssUrl|pad|fmtYMD) = .*$/gm).join('\n'), ctx, { filename: 'app-helpers.js' });
+  vm.runInContext(src('smart.js'), ctx, { filename: 'smart.js' });
+  vm.runInContext(src('places.js'), ctx, { filename: 'places.js' });
+  return ctx.window.Places._t;
+}
+
+test('celá země jménem: Francie, ve Francii, Česko, Česká republika, Italy, Velké Británii; město zemí není', () => {
+  const TC = loadCountries();
+  const cases = { Francie: 'FR', Francii: 'FR', Itálii: 'IT', Česko: 'CZ', Česku: 'CZ', 'Česká republika': 'CZ', italy: 'IT', Chorvatsku: 'HR', Španělsko: 'ES', 'Velké Británii': 'GB', 'Spojené království': 'GB', Řecko: 'GR', Rakousku: 'AT' };
+  for (const [t, cc] of Object.entries(cases)) assert.equal(TC.countryOfText(t), cc, t);
+  for (const t of ['Paříž', 'Řím', 'Toskánsko', 'Kréta', 'Lisabon', '', 'x']) assert.equal(TC.countryOfText(t), '', t);
+  // ✨ věta jen se zemí → přehled země; se dny, druhem plánu nebo zájmy zůstává plán (okruh po oblasti apod.)
+  assert.equal(TC.wholeCountryOf({ place: 'Francie', interests: [] }), 'FR');
+  assert.equal(TC.wholeCountryOf({ place: 'Itálie', days: 7, interests: [] }), '');
+  assert.equal(TC.wholeCountryOf({ place: 'Itálie', mode: 'loop', interests: [] }), '');
+  assert.equal(TC.wholeCountryOf({ place: 'Lisabon', interests: [] }), '');
+});
+
+test('návrhy zemí: celý název i začátek (od 3 písmen), nejvýš 2, „– celá země“ s vlajkou', () => {
+  const TC = loadCountries();
+  const fr = TC.countrySugs('Francie');
+  assert.equal(fr[0].ccPick, 'FR');
+  assert.equal(fr[0].label, 'Francie – celá země');
+  assert.equal(fr[0].flag, '🇫🇷');
+  assert.equal(TC.countrySugs('Fran')[0].ccPick, 'FR');
+  assert.equal(TC.countrySugs('ital')[0].ccPick, 'IT');
+  assert.equal(TC.countrySugs('Ma').length, 0, 'dvě písmena nestačí (Malta, Maroko, Maďarsko…)');
+  assert.ok(TC.countrySugs('Mal').length <= 2);
+  assert.equal(TC.countrySugs('Lisabon').length, 0);
+});
+
+test('výběr země: nadpis, oblíbené (Itálie první), všechny země A–Ž s vlajkou', () => {
+  const TC = loadCountries();
+  const h = TC.pickerHtml();
+  assert.match(h, /🌍 Vyber zemi/);
+  const pop = h.slice(h.indexOf('id="exCcPop"'), h.indexOf('id="exCcAll"'));
+  assert.deepEqual([...pop.matchAll(/data-cc="([A-Z]{2})"/g)].map((m) => m[1]).slice(0, 4), ['IT', 'FR', 'ES', 'HR']);
+  const all = h.slice(h.indexOf('id="exCcAll"'));
+  const ccs = [...all.matchAll(/data-cc="([A-Z]{2})"/g)].map((m) => m[1]);
+  assert.equal(ccs.length, 197);
+  assert.equal(ccs[0], 'AF', 'Afghánistán první (česky A–Ž)');
+  assert.match(all, /data-cc="FR" data-ccn="francie france"/);
+});

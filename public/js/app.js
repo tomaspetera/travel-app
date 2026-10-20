@@ -847,6 +847,7 @@ function openCountry(iso) {
      ${geoNote}
      <div class="row wrap cm-acts">
        <button class="btn primary" onclick="modalClose();fromCountrySearch('${iso}')">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Najít lety sem</button>
+       ${window.Places && Places.openCountryView ? `<button class="btn" onclick="modalClose();Places.openCountryView('${iso}')">🌍 Objevuj celou zemi</button>` : ''}
        <button class="btn" onclick="stayLinks('${iso}')">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>
        <button class="btn" onclick="addToPlan('${iso}')">${ico('M12 5v14M5 12h14')} Do plánu</button>
        <button class="btn ${isV ? 'warm' : 'ghost'}" id="visBtn" onclick="toggleVis('${iso}')">${isV ? '✓ Navštíveno' : 'Byl/a jsem tu'}</button>

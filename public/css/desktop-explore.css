@@ -24,6 +24,10 @@
   #exCList>.poi-sec{grid-column:1/-1;margin:16px 2px 0;font-size:15px}
   #exCList>.poi-sec:first-child{margin-top:0}
   .ex-cnote{max-width:80ch}
+  /* 🌍 výběr země: oblíbené dlaždice v jednom až dvou řádcích, všechny země ve sloupcích */
+  .ex-cc-pop{grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:10px}
+  .ex-cc-all{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px 8px}
+  .ex-cc-tile:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(15,23,42,.10)}
 
   /* značka místa, na které ukazuje myš v seznamu (places.js) */
   .maplibregl-marker.mk.hot{z-index:5;width:19px;height:19px;box-shadow:0 0 0 3px #fff,0 0 0 6px rgba(91,140,255,.6),0 4px 12px rgba(0,0,0,.35)}

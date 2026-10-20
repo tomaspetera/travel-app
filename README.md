@@ -19,7 +19,10 @@ ve městě (do 20 km – program dne dál vede jen po nich) nejzajímavější m
 příroda – stejné cíle jako jednodenní výlety, s odhadem doby jízdy autem a tlačítkem **🎒 Výlet sem**, které naplánuje
 jednodenní výlety s tím místem) a **🌍 Celá země** ukáže to nejlepší v zemi: města a další cíle, které vybral cestovní
 průvodce Wikivoyage, památky UNESCO a národní parky (Wikidata) s mapou, vzdáleností od místa a **🔎 Prozkoumat**
-(Objevuj toho místa). Režim **Na kole** naplánuje okruh zvolené délky (15–130 km) pro silniční,
+(Objevuj toho místa). Zemi jde vybrat i bez místa: napsat ji do hledání („Francie“, „ve Francii“, „Česká republika“ –
+návrh „🇫🇷 Francie – celá země“ je nad městy), nebo zvolit 🌍 Celá země a vybrat ji z dlaždic (oblíbené nahoře, pak
+všechny A–Ž s hledáním); vzdálenosti jsou pak od hlavního města, **🌍 Jiná země** vrátí výběr a v okně země (Země) je
+**🌍 Objevuj celou zemi**. Věta se zemí a dny („Itálie na týden“) dál plánuje jako dřív. Režim **Na kole** naplánuje okruh zvolené délky (15–130 km) pro silniční,
 trekové, gravel nebo horské kolo – městem (přes památky), smíšeně nebo přírodou (lesy, řeky, mimo silnice), po rovině
 nebo do kopců. Ukáže délku, stoupání, odhad času, podíl nezpevněných cest a cyklostezek, výškový profil, trasu
 v mapě, stáhne GPX a otevře trasu v Mapy.com (turistická mapa) nebo Google Mapách. Varianta **🚆 Vlakem tam, na kole
