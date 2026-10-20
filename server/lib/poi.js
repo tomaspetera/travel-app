@@ -6,7 +6,7 @@
 import { request, limiter } from './http.js';
 import { cache } from './cache.js';
 import { haversineKm, normalize } from './geo.js';
-import { countryAt, COUNTRY_BY_ISO } from './airports.js';
+import { countryAt, COUNTRY_BY_ISO, airportsInCountry } from './airports.js';
 
 export const UA = 'ATLAS-travel/2.0 (https://github.com/tomaspetera/travel-app; hobby travel planner)';
 const WDQS = 'https://query.wikidata.org/sparql';
@@ -1178,6 +1178,8 @@ export async function countryHighlights(cc) {
     const ids = [...new Set([...[...wv.city, ...wv.dest].map((d) => d.wikidata).filter(Boolean).slice(0, 40), ...lists.unesco, ...lists.park, ...(lists.city || [])])];
     const rows = ids.length ? await q(sparqlCountry(ids)) : [];
     const groups = countryGroups(rows, wv, lists);
+    const here = inCountry(cc);
+    for (const g of COUNTRY_KINDS) groups[g] = groups[g].filter(here);
     const all = COUNTRY_KINDS.flatMap((g) => groups[g]);
     const enrichFailed = await enrich(all, { preferCs: true });
     const out = Object.fromEntries(COUNTRY_KINDS.map((g) => [g, groups[g].map(({ wiki, ...p }) => p)]));
@@ -1193,6 +1195,19 @@ async function countryQid(cc) {
     if (!/^Q\d+$/.test(cq)) throw new Error(`Země ${cc} není na Wikidatech`);
     return cq;
   });
+}
+
+/**
+ * Leží bod v zemi cc? Hrubě: v obdélníku letišť země (i malých) s okrajem – Wikidata mívají u položky chybnou zemi
+ * (pláž na švédském Ölandu „v Česku“). Země bez letišť v tabulce (Andorra, Vatikán…) bez kontroly.
+ */
+export function inCountry(cc) {
+  const ap = airportsInCountry(cc, { includeSmall: true }).filter((a) => Number.isFinite(a.lat) && Number.isFinite(a.lon));
+  if (ap.length < 2) return () => true;
+  const lat = ap.map((a) => a.lat), lon = ap.map((a) => a.lon);
+  const [la0, la1, lo0, lo1] = [Math.min(...lat), Math.max(...lat), Math.min(...lon), Math.max(...lon)];
+  const mLa = Math.max(1, (la1 - la0) * 0.25), mLo = Math.max(1.2, (lo1 - lo0) * 0.25);
+  return (p) => !(Number.isFinite(p.lat) && Number.isFinite(p.lon)) || (p.lat >= la0 - mLa && p.lat <= la1 + mLa && p.lon >= lo0 - mLo && p.lon <= lo1 + mLo);
 }
 
 const countryCatKey = (cc, cat) => `country:${cc}:${cat}`;
@@ -1215,7 +1230,7 @@ export async function countryCategory(cc, cat, { query } = {}) {
     let ids = await search(false);
     if (!ids.length) ids = await search(true);
     const rows = ids.length ? await q(sparqlCountry([...new Set(ids)])) : [];
-    const items = [...countryById(rows).values()].filter((p) => p.name).sort((a, b) => b.sitelinks - a.sitelinks).slice(0, 20);
+    const items = [...countryById(rows).values()].filter((p) => p.name).filter(inCountry(cc)).sort((a, b) => b.sitelinks - a.sitelinks).slice(0, 20);
     const failed = query ? false : await enrich(items, { preferCs: true });
     const out = {
       items: items.map(({ wiki, kinds, types, ...p }) => {
