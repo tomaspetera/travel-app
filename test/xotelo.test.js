@@ -13,8 +13,9 @@ import {
   xotelo, locationKeys, nearbyKeys, pickSettlements, pickByName, placeNames, sparqlNames, seedCity, sparqlAround, hotelList,
   hotelRates, ratesKey, offers, mapHotel, mapHotelGuess, candidates, PLACE_KM, chooseForRates, searchXotelo, locationCacheKey, RADIUS_KM, MAX_RATES,
   resetXoteloBreaker, xoteloBlocked, xoteloRetryAfter, offerLink, offerSite, RATES_TTL, EMPTY_SLOW_MS, EMPTY_TTL, checkHotel, otaName,
-  nearbyPlaces, nearbyPool, placeLabel, NEARBY_KM, NEARBY_RADIUS_KM, NEARBY_MAX, SPEC_MS, KEYS_CAP_MS,
+  nearbyPlaces, nearbyPool, placeLabel, NEARBY_KM, NEARBY_RADIUS_KM, NEARBY_MAX, SPEC_MS, KEYS_CAP_MS, SAME_NAME_KM,
 } from '../server/providers/stays/xotelo.js';
+import { TA_PLACES } from '../server/providers/stays/ta-places.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { stayProviders } from '../server/providers/stays/index.js';
 import { mapOsm, rankOsm } from '../server/providers/stays/osm.js';
@@ -85,6 +86,41 @@ test('místo podle polohy: Madrid bez ID – čtvrť s ID atrakce ani menší p�
   assert.equal(seedCity(53.5511, 9.9937), 'g187331', 'Hamburk (velké město z TA_CITIES)');
   assert.equal(seedCity(61.5, 25.1), null, 'Finsko v tabulkách není');
   assert.match(sparqlAround(50.1, 14.4), /wikibase:radius "20"[\s\S]*wdt:P3134[\s\S]*UNION[\s\S]*wikibase:radius "3"[\s\S]*wdt:P1082/);
+});
+
+test('místo TripAdvisoru stejného jména jako místo pobytu platí do 15 km (Montalcino 11 km), před bližším místem jiného jména', async () => {
+  assert.equal(SAME_NAME_KM, 15);
+  const MON = { lat: 43.0566, lon: 11.4892 };
+  assert.equal(seedCity(MON.lat, MON.lon), null, 'bez názvu: místo z tabulky je 11 km daleko (víc než PLACE_KM)');
+  assert.equal(seedCity(MON.lat, MON.lon, ['Montalcino']), 'g635634');
+  assert.equal(seedCity(MON.lat, MON.lon, ['MONTALCINO', 'x']), 'g635634', 'bez ohledu na velikost písmen');
+  assert.equal(seedCity(MON.lat, MON.lon, ['Siena']), null, 'jiný název nepomůže');
+  assert.equal(seedCity(MON.lat + 0.1, MON.lon, ['Montalcino']), null, 'dál než 15 km ne');
+  // Modica: střed hotelů 12 km od obce, Ragusa 8 km – stejný název má přednost
+  assert.equal(seedCity(36.8586, 14.7608), 'g194872');
+  assert.equal(seedCity(36.8586, 14.7608, ['Modica']), 'g616190');
+  // bez diakritiky (Cefalù = „Cefalu“ z adresy hotelu), velké město z TA_CITIES česky
+  assert.equal(seedCity(38.0334, 14.13, ['Cefalù']), 'g194726');
+  assert.equal(seedCity(49.97, 14.4), null);
+  assert.equal(seedCity(49.97, 14.4, ['Praha']), 'g274707', 'Praha 13 km od středu');
+  // locationKeys: z tabulky podle názvu, bez dotazu na Wikidata
+  const sparql = async () => { throw new Error('na Wikidata se nemá ptát'); };
+  assert.deepEqual(await locationKeys(normalizeStayQuery({ city: 'Montalcino', cityEn: 'Montalcino', cc: 'IT', ...MON, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1 }), { sparql }), ['g635634']);
+});
+
+test('tabulka míst TripAdvisoru: doplněná turistická místa (10/2026) – vlastní místo, název z adresy; ID jednou', () => {
+  const towns = [['Agrigento', 37.3125, 13.575, 'g194662'], ['Ragusa', 36.925, 14.7306, 'g194872'], ['Piazza Armerina', 37.3833, 14.3667, 'g580232'],
+    ['Palazzolo Acreide', 37.0617, 14.9019, 'g1204633'], ['Cefalù', 38.0383, 14.0264, 'g194726'], ['Úbeda', 38.0117, -3.3717, 'g580278'],
+    ['Alcobaça', 39.55, -8.975, 'g230083'], ['Paestum', 40.4226, 15.0056, 'g194845'], ['Vers-Pont-du-Gard', 43.9686, 4.5244, 'g651718']];
+  for (const [name, lat, lon, key] of towns) {
+    assert.equal(seedCity(lat, lon), key, name);
+    assert.equal(seedCity(lat, lon, [name]), key, `${name} podle názvu`);
+  }
+  const label = (id) => placeLabel(TA_PLACES.find((p) => p[0] === id)[3]);
+  assert.deepEqual([194662, 580232, 1204633, 668217, 194845, 651718, 230083].map(label), ['Agrigento', 'Piazza Armerina', 'Palazzolo Acreide', 'San Quirico d Orcia', 'Paestum', 'Vers-Pont-du-Gard', 'Alcobaca']);
+  const ids = TA_PLACES.map((p) => p[0]);
+  assert.equal(new Set(ids).size, ids.length, 'každé ID jednou');
+  assert.ok(TA_PLACES.every(([id, lat, lon, n]) => Number.isInteger(id) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && typeof n === 'string' && n.length <= 33 && n === n.trim()));
 });
 
 test('místo podle polohy: Krumlov bez ID nedostane menší Kaplici; vesnice dostane větší město v okolí; malé místo samo sebe', () => {
@@ -553,9 +589,9 @@ test('první místo bez hotelů v okolí (ID atrakce, ID z tabulky nesedí) → 
     return { status: 404, body: '{}' };
   });
   try {
-    // bod 13 km jižně od středu Prahy – mimo tabulku (12 km), hotely z fixtury do 15 km
+    // obec 13 km jižně od středu Prahy – mimo tabulku (12 km, jiný název), hotely z fixtury do 15 km
     const sparql = async () => [row('Qa', { ta: '900010', pop: 9000, dist: 0.5 }), row('Qb', { ta: '900011', pop: 3000, dist: 1 })];
-    const q = query({ lat: 49.97, lon: 14.4 });
+    const q = query({ lat: 49.97, lon: 14.4, city: 'Jesenice', cityEn: 'Jesenice' });
     assert.equal(seedCity(q.lat, q.lon), null);
     const items = await searchXotelo(q, { sparql });
     assert.deepEqual(stub.calls.filter((c) => c.url.includes('/api/list?')).map((c) => new URL(c.url).searchParams.get('location_key')), ['g900010', 'g900011']);
@@ -1350,19 +1386,21 @@ test('malé místo bez cen z TripAdvisoru: ubytování z OpenStreetMap jde vybra
   assert.deepEqual([t.stay.mode, t.stay.name, t.stay.totalCzk], ['manual', 'Penzion u kostela', 3900]);
 });
 
-// Malé místo bez hotelů na TripAdvisoru (Palazzolo Acreide – Wikidata bez ID místa do 50 km): ceny z nejbližších míst
-// TripAdvisoru v okolí (Noto 21 km, Modica 34 km), ubytování v místě bez ceny z OpenStreetMap zvlášť.
+// Malé místo bez hotelů na TripAdvisoru: ceny z nejbližších míst TripAdvisoru v okolí, ubytování v místě bez ceny
+// z OpenStreetMap zvlášť. Pachino (PAC) v tabulkách nemá místo do 15 km – okolí Noto 22 km, Modica 24 km, dál nic do 35 km;
+// PAL (Palazzolo Acreide, Noto 21 km, Modica 34 km) pro karty hotelů z okolí v průvodci (data v testu podaná přímo).
 const PAL = { lat: 37.0617, lon: 14.9019 };
+const PAC = { lat: 36.7167, lon: 15.0907 };
 const taHotel = (key, name, lat, lon, place = 'Noto_Province_of_Syracuse_Sicily') => ({
   name, key, accommodation_type: 'Hotel', url: `https://www.tripadvisor.com/Hotel_Review-${key}-Reviews-${name.replace(/ /g, '_')}-${place}.html`,
   review_summary: { rating: 4.5, count: 320 }, price_ranges: { maximum: 220, minimum: 80 }, geo: { latitude: lat, longitude: lon }, image: null, merchandising_labels: [],
 });
 const LIST_NOTO = [
   taHotel('g652022-d101', 'Gagliardi Boutique Hotel', 36.8925, 15.0697), taHotel('g652022-d102', 'Masseria Della Volpe', 36.85, 15.05),
-  taHotel('g652022-d103', 'Hotel Porta Reale', 36.8931, 15.071), taHotel('g652022-d104', 'Marzamemi Resort', 36.72, 15.12), // 42 km – dál než 40 km
+  taHotel('g652022-d103', 'Hotel Porta Reale', 36.8931, 15.071), taHotel('g652022-d104', 'Ortigia Resort', 37.07, 15.28), // 43 km – dál než 40 km
 ];
 const LIST_MODICA = [taHotel('g616190-d201', 'Hotel Modica Palace', 36.77, 14.83, 'Modica_Province_of_Ragusa_Sicily')];
-const palQuery = (extra = {}) => normalizeStayQuery({ city: 'Palazzolo Acreide', cityEn: 'Palazzolo Acreide', cc: 'IT', ...PAL, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1, ...extra });
+const pacQuery = (extra = {}) => normalizeStayQuery({ city: 'Pachino', cityEn: 'Pachino', cc: 'IT', ...PAC, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1, ...extra });
 const nearStub = (lists) => stubFetch((url) => {
   if (url.startsWith('https://query.wikidata.org/')) return { body: { results: { bindings: [] } } }; // TripAdvisor ID v okolí nemá
   if (url.includes('/api/list?')) return { body: { error: null, result: { list: lists[new URL(url).searchParams.get('location_key')] || [] } } };
@@ -1373,11 +1411,11 @@ const listKeys = (stub) => stub.calls.filter((c) => c.url.includes('/api/list?')
 
 test('místa TripAdvisoru v okolí: nejbližší z tabulek do 35 km, nejvýš 2; název místa z adresy hotelu', () => {
   assert.deepEqual([NEARBY_KM, NEARBY_RADIUS_KM, NEARBY_MAX], [35, 40, 2]);
-  const pal = nearbyPlaces(PAL.lat, PAL.lon);
-  assert.deepEqual(pal.map((p) => [p.key, p.name, p.en, Math.round(p.km)]), [['g652022', 'Noto', 'Noto', 21], ['g616190', 'Modica', 'Modica', 34]]);
-  // Syrakusy (34,8 km) až třetí – jen 2 nejbližší místa
-  assert.deepEqual(nearbyPlaces(PAL.lat, PAL.lon, { max: 9 }).map((p) => p.key), ['g652022', 'g616190', 'g187891']);
-  assert.deepEqual(nearbyPlaces(39.5527, -8.9779).map((p) => [p.name, Math.round(p.km)]), [['Batalha', 18], ['Caldas da Rainha', 22]], 'Alcobaça');
+  const pac = nearbyPlaces(PAC.lat, PAC.lon);
+  assert.deepEqual(pac.map((p) => [p.key, p.name, p.en, Math.round(p.km)]), [['g652022', 'Noto', 'Noto', 22], ['g616190', 'Modica', 'Modica', 24]]);
+  // dál nic do 35 km (Syrakusy 43 km)
+  assert.deepEqual(nearbyPlaces(PAC.lat, PAC.lon, { max: 9 }).map((p) => p.key), ['g652022', 'g616190']);
+  assert.deepEqual(nearbyPlaces(39.5527, -8.9779).map((p) => [p.name, Math.round(p.km)]), [['Alcobaca', 1], ['Batalha', 18]], 'Alcobaça (od 10/2026 v tabulce i místo samo)');
   assert.ok(nearbyPlaces(39.5527, -8.9779, { max: 9 }).every((p, i, a) => p.km <= NEARBY_KM && (!i || a[i - 1].km <= p.km)), 'nejbližší první');
   assert.deepEqual(nearbyPlaces(40, -40), [], 'uprostřed Atlantiku nic');
   // velké město z tabulky česky, odkazy na hotel anglicky (z adresy hotelů)
@@ -1389,22 +1427,22 @@ test('místa TripAdvisoru v okolí: nejbližší z tabulek do 35 km, nejvýš 2;
 test('malé místo bez hotelů na TripAdvisoru: hotely s cenou z míst v okolí (Noto, Modica) – vzdálenost od místa pobytu, odkazy hledají hotel v jeho místě', async () => {
   const stub = nearStub({ g652022: LIST_NOTO, g616190: LIST_MODICA });
   try {
-    const q = palQuery();
+    const q = pacQuery();
     assert.equal(seedCity(q.lat, q.lon), null, 'v místě TripAdvisor nic nemá');
     const items = await searchXotelo(q, { sparql: async () => [] });
     assert.deepEqual(listKeys(stub), ['g616190', 'g652022']);
-    assert.deepEqual(items.nearbyFrom, [{ name: 'Noto', km: 21 }, { name: 'Modica', km: 34 }]);
+    assert.deepEqual(items.nearbyFrom, [{ name: 'Noto', km: 22 }, { name: 'Modica', km: 24 }]);
     assert.equal(items.length, 4, 'hotel 42 km daleko se zahodí');
-    assert.ok(!items.some((h) => /Marzamemi/.test(h.name)) && !items.guesses.some((h) => /Marzamemi/.test(h.name)));
+    assert.ok(!items.some((h) => /Ortigia/.test(h.name)) && !items.guesses.some((h) => /Ortigia/.test(h.name)));
     const g = items.find((h) => h.name === 'Gagliardi Boutique Hotel');
-    assert.deepEqual(g.nearby, { place: 'Noto', km: 21, city: 'Noto' });
-    assert.equal(g.distanceKm, Math.round(haversineKm(PAL.lat, PAL.lon, 36.8925, 15.0697) * 10) / 10);
-    assert.ok(g.distanceKm > 20 && g.priceTotalCzk > 0 && g.rates.length === 3);
+    assert.deepEqual(g.nearby, { place: 'Noto', km: 22, city: 'Noto' });
+    assert.equal(g.distanceKm, Math.round(haversineKm(PAC.lat, PAC.lon, 36.8925, 15.0697) * 10) / 10);
+    assert.ok(g.distanceKm > 15 && g.priceTotalCzk > 0 && g.rates.length === 3);
     assert.equal(new URL(g.rates.find((r) => r.site === 'booking').url).searchParams.get('ss'), 'Gagliardi Boutique Hotel, Noto');
-    assert.deepEqual(items.find((h) => h.name === 'Hotel Modica Palace').nearby, { place: 'Modica', km: 34, city: 'Modica' });
+    assert.deepEqual(items.find((h) => h.name === 'Hotel Modica Palace').nearby, { place: 'Modica', km: 24, city: 'Modica' });
     // nic v okolí → [] bez dotazu na seznam hotelů
     stub.calls.length = 0;
-    assert.deepEqual(await searchXotelo(palQuery({ city: 'Nikde', cityEn: 'Nowhere', cc: '', lat: 40, lon: -40 }), { sparql: async () => [] }), []);
+    assert.deepEqual(await searchXotelo(pacQuery({ city: 'Nikde', cityEn: 'Nowhere', cc: '', lat: 40, lon: -40 }), { sparql: async () => [] }), []);
     assert.equal(listKeys(stub).length, 0);
   } finally {
     stub.restore();
@@ -1421,13 +1459,13 @@ test('malé místo bez hotelů na TripAdvisoru: hotely s cenou z míst v okolí 
 });
 
 test('ceny z okolí i z místa z Wikidat, jehož hotely jsou dál než 15 km (střed = medián hotelů, název z adresy); výpadek seznamu → chyba jen bez hotelů', async () => {
-  const cb = [taHotel('g900020-d301', 'Hotel Canicattini', PAL.lat - 0.16, PAL.lon, 'Canicattini_Bagni_Province_of_Syracuse_Sicily'), taHotel('g900020-d302', 'B&B Iblei', PAL.lat - 0.165, PAL.lon + 0.01, 'Canicattini_Bagni_Province_of_Syracuse_Sicily')];
+  const cb = [taHotel('g900020-d301', 'Hotel Canicattini', PAC.lat - 0.16, PAC.lon, 'Canicattini_Bagni_Province_of_Syracuse_Sicily'), taHotel('g900020-d302', 'B&B Iblei', PAC.lat - 0.165, PAC.lon + 0.01, 'Canicattini_Bagni_Province_of_Syracuse_Sicily')];
   const stub = nearStub({ g900020: cb, g652022: LIST_NOTO, g616190: LIST_MODICA });
   try {
     const sparql = async (qq) => (qq.includes('wikibase:around') ? [row('Qc', { ta: '900020', pop: 7000, dist: 18 })] : []);
-    const items = await searchXotelo(palQuery(), { sparql });
-    const km = Math.round(haversineKm(PAL.lat, PAL.lon, PAL.lat - 0.16, PAL.lon));
-    assert.deepEqual(items.nearbyFrom, [{ name: 'Canicattini Bagni', km }, { name: 'Noto', km: 21 }], 'dvě nejbližší místa – Modica už ne');
+    const items = await searchXotelo(pacQuery(), { sparql });
+    const km = Math.round(haversineKm(PAC.lat, PAC.lon, PAC.lat - 0.16, PAC.lon));
+    assert.deepEqual(items.nearbyFrom, [{ name: 'Canicattini Bagni', km }, { name: 'Noto', km: 22 }], 'dvě nejbližší místa – Modica už ne');
     assert.deepEqual(listKeys(stub), ['g652022', 'g900020']);
     assert.equal(items.find((h) => h.name === 'Hotel Canicattini').nearby.place, 'Canicattini Bagni');
   } finally {
@@ -1438,41 +1476,41 @@ test('ceny z okolí i z místa z Wikidat, jehož hotely jsou dál než 15 km (st
   const s2 = nearStub({ g652022: LIST_NOTO, g616190: LIST_MODICA });
   try {
     const wdDown = async (s, ms) => { throw new Error(`Timeout ${ms} ms: https://query.wikidata.org/sparql`); };
-    const items = await searchXotelo(palQuery(), { sparql: wdDown });
+    const items = await searchXotelo(pacQuery(), { sparql: wdDown });
     assert.deepEqual([items.length, items.retrySoon, items.nearbyFrom.length], [4, true, 2]);
-    await assert.rejects(searchXotelo(palQuery({ lat: 40, lon: -40 }), { sparql: wdDown }), /Wikidata neodpověděla včas/);
+    await assert.rejects(searchXotelo(pacQuery({ lat: 40, lon: -40 }), { sparql: wdDown }), /Wikidata neodpověděla včas/);
   } finally {
     s2.restore();
   }
   cache.map.clear();
   const down = stubFetch((url) => (url.includes('/api/list?') ? { status: 503, body: 'x' } : { status: 404, body: '{}' }));
   try {
-    await assert.rejects(nearbyPool(PAL, []), /výpadek/);
+    await assert.rejects(nearbyPool(PAC, []), /výpadek/);
   } finally {
     down.restore();
   }
   // jedno místo s hotely stačí, chyba druhého nevadí
-  assert.equal((await nearbyPool(PAL, [], { list: async (k) => { if (k === 'g616190') throw new Error('x'); return LIST_NOTO; } })).pool.length, 3);
+  assert.equal((await nearbyPool(PAC, [], { list: async (k) => { if (k === 'g616190') throw new Error('x'); return LIST_NOTO; } })).pool.length, 3);
   assert.equal(await nearbyPool({ lat: 40, lon: -40 }, []), null);
 });
 
 test('malé místo, které Wikidata dohledávají dlouho: seznamy míst v okolí dopředu, déle než strop se nečeká – ceny z okolí hned (neúplné), pak hotely místa samého', async () => {
   assert.deepEqual([SPEC_MS, KEYS_CAP_MS], [1500, 8000]);
-  const own = [taHotel('g900031-d401', 'Hotel Akrai', PAL.lat + 0.004, PAL.lon + 0.002, 'Palazzolo_Acreide_Province_of_Syracuse_Sicily')];
+  const own = [taHotel('g900031-d401', 'Hotel Akrai', PAC.lat + 0.004, PAC.lon + 0.002, 'Pachino_Province_of_Syracuse_Sicily')];
   // místo samo TripAdvisor ID má (podle názvu), Wikidata ale odpoví až po 150 ms
-  const nameRow = { item: { type: 'uri', value: 'http://www.wikidata.org/entity/Q490' }, ta: lit('900031'), c: lit(`Point(${PAL.lon} ${PAL.lat})`), pop: lit(8700) };
+  const nameRow = { item: { type: 'uri', value: 'http://www.wikidata.org/entity/Q490' }, ta: lit('900031'), c: lit(`Point(${PAC.lon} ${PAC.lat})`), pop: lit(8700) };
   const slowWd = (qq) => new Promise((r) => setTimeout(() => r(qq.includes('rdfs:label') ? [nameRow] : []), 150));
   const nearKeys = (stub) => listKeys(stub).filter((k) => k !== 'g900031');
   const stub = nearStub({ g652022: LIST_NOTO, g616190: LIST_MODICA, g900031: own });
   try {
     let hinted = 0;
-    const first = await searchXotelo(palQuery(), { sparql: slowWd, specMs: 10, capMs: 60, onNearby: () => { hinted++; } });
-    assert.deepEqual(first.nearbyFrom, [{ name: 'Noto', km: 21 }, { name: 'Modica', km: 34 }]);
+    const first = await searchXotelo(pacQuery(), { sparql: slowWd, specMs: 10, capMs: 60, onNearby: () => { hinted++; } });
+    assert.deepEqual(first.nearbyFrom, [{ name: 'Noto', km: 22 }, { name: 'Modica', km: 24 }]);
     assert.equal(first.partial, true, 'místo se ještě dohledává – průvodce se doptá');
     assert.equal(hinted, 1, 'searchStays rozběhne ubytování z OpenStreetMap hned');
     assert.deepEqual(nearKeys(stub), ['g616190', 'g652022'], 'seznam každého místa v okolí jednou (dopředu, pro ceny z mezipaměti)');
     await new Promise((r) => setTimeout(r, 200)); // dohledání místa doběhne do mezipaměti
-    const next = await searchXotelo(palQuery(), { sparql: slowWd, specMs: 10, capMs: 60, onNearby: () => { hinted++; } });
+    const next = await searchXotelo(pacQuery(), { sparql: slowWd, specMs: 10, capMs: 60, onNearby: () => { hinted++; } });
     assert.deepEqual([next.map((h) => h.name), next.nearbyFrom, next.partial, hinted], [['Hotel Akrai'], undefined, undefined, 1]);
   } finally {
     stub.restore();
@@ -1482,7 +1520,7 @@ test('malé místo, které Wikidata dohledávají dlouho: seznamy míst v okolí
   const s2 = nearStub({ g652022: LIST_NOTO, g616190: LIST_MODICA, g900031: own });
   try {
     let hinted = 0;
-    const items = await searchXotelo(palQuery(), { sparql: async (qq) => (qq.includes('rdfs:label') ? [nameRow] : []), specMs: 20, capMs: 40, onNearby: () => { hinted++; } });
+    const items = await searchXotelo(pacQuery(), { sparql: async (qq) => (qq.includes('rdfs:label') ? [nameRow] : []), specMs: 20, capMs: 40, onNearby: () => { hinted++; } });
     await new Promise((r) => setTimeout(r, 60));
     assert.deepEqual([items.map((h) => h.name), items.partial, hinted, listKeys(s2)], [['Hotel Akrai'], undefined, 0, ['g900031']]);
   } finally {
@@ -1492,7 +1530,7 @@ test('malé místo, které Wikidata dohledávají dlouho: seznamy míst v okolí
   cache.map.clear();
   const s3 = nearStub({});
   try {
-    const items = await searchXotelo(palQuery(), { sparql: slowWd, specMs: 10, capMs: 30 });
+    const items = await searchXotelo(pacQuery(), { sparql: slowWd, specMs: 10, capMs: 30 });
     assert.deepEqual([items.length, items.partial], [0, true]);
   } finally {
     await new Promise((r) => setTimeout(r, 350)); // dohledání doběhne (seznam místa ještě ze stubu, ne ze sítě)
@@ -1514,12 +1552,12 @@ test('searchStays: ceny z okolí → ubytování z OpenStreetMap se hledá hned,
     }
     return { status: 404, body: '{}' };
   });
-  const lodging = async (q) => { seen.push([q.city, done]); return [mapOsm({ category: 'tourism', type: 'hotel', name: 'Hotel Colle Acre', osm_type: 'way', osm_id: 77, lat: String(PAL.lat + 0.002), lon: String(PAL.lon + 0.003), extratags: {} }, q, PAL)]; };
+  const lodging = async (q) => { seen.push([q.city, done]); return [mapOsm({ category: 'tourism', type: 'hotel', name: 'Hotel Colle Acre', osm_type: 'way', osm_id: 77, lat: String(PAC.lat + 0.002), lon: String(PAC.lon + 0.003), extratags: {} }, q, PAC)]; };
   try {
     await withConfig({ mock: false, liteapiKey: '', xotelo: true }, async () => {
-      const r = await searchStays({ city: 'Palazzolo Acreide', cityEn: 'Palazzolo Acreide', cc: 'IT', ...PAL, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1 }, { lodging });
+      const r = await searchStays({ city: 'Pachino', cityEn: 'Pachino', cc: 'IT', ...PAC, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1 }, { lodging });
       assert.deepEqual([r.osmFallback, r.nearbyFrom.length, r.items.filter((h) => h.provider === 'osm').length], [true, 2, 1]);
-      assert.deepEqual(seen, [['Palazzolo Acreide', 0]], 'OpenStreetMap jednou, ještě než přišla první cena');
+      assert.deepEqual(seen, [['Pachino', 0]], 'OpenStreetMap jednou, ještě než přišla první cena');
       assert.ok(done >= 4);
       seen.length = 0;
       const praha = await searchStays({ city: 'Praha', cityEn: 'Prague', cc: 'CZ', ...PRAGUE, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 2 }, { lodging });
@@ -1533,13 +1571,13 @@ test('searchStays: ceny z okolí → ubytování z OpenStreetMap se hledá hned,
 
 test('searchStays: ceny z okolí a ubytování v místě z OpenStreetMap spolu (nearbyFrom, osmFallback); ověření volna hotelu z okolí hledá v jeho místě', async () => {
   const stub = nearStub({ g652022: LIST_NOTO, g616190: LIST_MODICA });
-  const lodging = async (q) => [mapOsm({ category: 'tourism', type: 'hotel', name: 'Hotel Colle Acre', osm_type: 'way', osm_id: 77, lat: String(PAL.lat + 0.002), lon: String(PAL.lon + 0.003), extratags: { stars: '4' } }, q, PAL)];
+  const lodging = async (q) => [mapOsm({ category: 'tourism', type: 'hotel', name: 'Hotel Colle Acre', osm_type: 'way', osm_id: 77, lat: String(PAC.lat + 0.002), lon: String(PAC.lon + 0.003), extratags: { stars: '4' } }, q, PAC)];
   try {
     await withConfig({ mock: false, liteapiKey: '', xotelo: true }, async () => {
-      const raw = { city: 'Palazzolo Acreide', cityEn: 'Palazzolo Acreide', cc: 'IT', ...PAL, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1 };
+      const raw = { city: 'Pachino', cityEn: 'Pachino', cc: 'IT', ...PAC, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1 };
       const r = await searchStays(raw, { lodging });
       assert.equal(r.osmFallback, true);
-      assert.deepEqual(r.nearbyFrom, [{ name: 'Noto', km: 21 }, { name: 'Modica', km: 34 }]);
+      assert.deepEqual(r.nearbyFrom, [{ name: 'Noto', km: 22 }, { name: 'Modica', km: 24 }]);
       assert.deepEqual(r.providers.map((p) => [p.id, p.ok]), [['xotelo', true], ['osm', true]]);
       assert.ok(r.items.filter((h) => h.provider === 'xotelo').every((h) => h.nearby));
       assert.deepEqual(r.items.filter((h) => h.provider === 'osm').map((h) => [h.name, h.nearby]), [['Hotel Colle Acre', undefined]]);
@@ -1547,7 +1585,7 @@ test('searchStays: ceny z okolí a ubytování v místě z OpenStreetMap spolu (
       const got = await checkStay({ ...raw, hotel: 'g652022-d101', name: 'Gagliardi Boutique Hotel', near: 'Noto' }, { check: async (k, n, qq) => ({ available: true, city: qq.cityEn }) });
       assert.deepEqual([got.hotel, got.available, got.city], ['g652022-d101', true, 'Noto']);
       const own = await checkStay({ ...raw, hotel: 'g652022-d101', name: 'X' }, { check: async (k, n, qq) => ({ available: true, city: qq.cityEn }) });
-      assert.equal(own.city, 'Palazzolo Acreide');
+      assert.equal(own.city, 'Pachino');
     });
   } finally {
     stub.restore();

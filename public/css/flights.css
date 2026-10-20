@@ -1136,6 +1136,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .fl-hero{position:relative;height:210px;margin:0 0 -74px;border-radius:26px;overflow:hidden;color:#fff;
   background:radial-gradient(120% 90% at 20% 10%,hsl(200 45% 46%),transparent 60%),linear-gradient(160deg,hsl(205 40% 34%),hsl(230 45% 14%))}
 .fl-hero.ph{background:#0b1226 var(--ph) center/cover no-repeat}
+.fl-hero>.ph-cr{top:6px;bottom:auto} /* spodek hlavičky zakrývá formulář (záporný okraj) – popisek fotky nahoře */
 .fl-hero::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.12) 45%,rgba(5,9,22,.5) 100%)}
 .fl-hero-in{position:relative;padding:24px 26px 0}
 .fl-hero h1{font:800 30px/1.12 Sora,Inter,sans-serif;letter-spacing:-.02em;text-shadow:0 2px 16px rgba(0,0,0,.35)}

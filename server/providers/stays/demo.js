@@ -29,8 +29,8 @@ export const demoStays = {
   async search(q) {
     if (q.lat == null) return [];
     // ukázka malého místa, kde TripAdvisor nic nemá (jako Xotelo): hotely s cenou z nejbližšího místa v okolí (Noto pro
-    // Palazzolo Acreide) a vedle nich ubytování v místě bez ceny z OpenStreetMap (osm.js, v DEMO vymyšlená ubytování)
-    if (/^(Palazzolo Acreide|Alcobaça)$/i.test(String(q.city || '').trim())) {
+    // Pachino) a vedle nich ubytování v místě bez ceny z OpenStreetMap (osm.js, v DEMO vymyšlená ubytování)
+    if (/^(Pachino|Castelmezzano)$/i.test(String(q.city || '').trim())) {
       const p = nearbyPlaces(q.lat, q.lon, { max: 1 })[0];
       if (!p) return [];
       const nearby = { place: p.name, km: Math.round(p.km), city: p.en || p.name };

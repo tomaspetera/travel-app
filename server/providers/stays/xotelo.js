@@ -65,16 +65,31 @@ const val = (b, k) => b?.[k]?.value;
 const isTa = (v) => /^\d{2,12}$/.test(String(v ?? ''));
 
 export const PLACE_KM = 8; // místo z TA_PLACES platí do 8 km od středu jeho hotelů (malá města blízko u sebe)
+// Místo TripAdvisoru stejného jména jako místo pobytu platí i dál – střed jeho hotelů bývá u malého města s hotely
+// po okolí mimo město (Montalcino: 11 km od středu obce); dál než RADIUS_KM ne – jeho hotely by se stejně zahodily
+export const SAME_NAME_KM = 15;
+// název pro porovnání: bez diakritiky a velkých písmen, jen písmena a číslice („Piazza Armerina“ = „piazza armerina“)
+const fold = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 /**
- * Místo TripAdvisoru z tabulek – velké město (TA_CITIES, do 12 km od středu), nebo místo s oblíbenými hotely (TA_PLACES,
- * do PLACE_KM); nejbližší vyhrává, jinak null. Bez dotazu na Wikidata (ty místa měst často nemají – Janov, Verona).
+ * Místo TripAdvisoru z tabulek – místo stejného jména (names: český / anglický název místa pobytu, do SAME_NAME_KM),
+ * jinak velké město (TA_CITIES, do 12 km od středu), nebo místo s oblíbenými hotely (TA_PLACES, do PLACE_KM); nejbližší
+ * vyhrává, jinak null. Bez dotazu na Wikidata (ty místa měst často nemají – Janov, Verona).
  */
-export function seedCity(lat, lon) {
+export function seedCity(lat, lon, names = []) {
   let best = null;
   const near = (clat, clon, id, max) => {
     const d = haversineKm(lat, lon, clat, clon);
     if (d <= max && (!best || d < best.d)) best = { d, key: `g${id}` };
   };
+  const want = new Set((Array.isArray(names) ? names : [names]).map(fold).filter((n) => n.length >= 3));
+  if (want.size) {
+    for (const [name, clat, clon, id] of TA_CITIES) if (want.has(fold(name))) near(clat, clon, id, SAME_NAME_KM);
+    for (const [id, clat, clon, name] of TA_PLACES) {
+      // placeLabel jen u míst v dosahu (první volání staví index názvů)
+      if (Math.abs(clat - lat) < 0.25 && Math.abs(clon - lon) < 0.35 && want.has(fold(placeLabel(name)))) near(clat, clon, id, SAME_NAME_KM);
+    }
+    if (best) return best.key;
+  }
   for (const [, clat, clon, id] of TA_CITIES) near(clat, clon, id, 12);
   for (const [id, clat, clon] of TA_PLACES) near(clat, clon, id, PLACE_KM);
   return best ? best.key : null;
@@ -282,7 +297,7 @@ export async function locationKeys(q, { sparql = wd } = {}) {
     let err = null;
     const fail = (e) => { err = err || e; return null; };
     const byId = gid ? await sparql(sparqlGeonames(gid), 10000).then((rows) => (rows || []).map((b) => val(b, 'ta')).find(isTa) || null, fail) : null;
-    const seed = pos ? seedCity(q.lat, q.lon) : null;
+    const seed = pos ? seedCity(q.lat, q.lon, placeNames(q).map(([n]) => n)) : null;
     let out = [...new Set([byId && `g${byId}`, seed].filter(Boolean))];
     if (out.length) return out;
     const names = pos ? placeNames(q) : [];
@@ -671,7 +686,7 @@ export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh
   // seznamy hotelů míst v okolí se načtou dopředu a déle než capMs se nečeká – ceny z okolí hned, výsledek neúplný
   // (partial – průvodce se doptá; dohledání místa mezitím doběhne do mezipaměti a další dotaz vezme případně hotely
   // místa samého). Dohledané místo (jen jeho seznam hotelů) se čeká celé – výsledek pro místo s hotely se nemění.
-  const hint = center && !seedCity(center.lat, center.lon) ? nearbyPlaces(center.lat, center.lon) : [];
+  const hint = center && !seedCity(center.lat, center.lon, placeNames(q).map(([n]) => n)) ? nearbyPlaces(center.lat, center.lon) : [];
   let mine = null;
   if (hint.length) {
     const timers = [];

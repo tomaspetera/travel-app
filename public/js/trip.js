@@ -211,8 +211,21 @@
   const nearOf = s => s && s.mode === 'pick' && s.near ? ` (${s.near})` : '';
   // hotel z okolí: program se skládá v místě samém (Palazzolo Acreide), ne kolem hotelu (v Modice by byl o Modice)
   const nearStay = s => Boolean(s && s.mode === 'pick' && s.near);
-  /** „🏨 Spíš v okolí – Stanze Barocche (Modica, ~26 km)…“ nad programem místa, kde je hotel z okolí. */
-  const nearProgNote = (s, place) => (nearStay(s) ? `<div class="faint prog-near">🏨 Spíš v okolí – ${esc(s.name || '')} (${esc(s.near)}${s.lat != null && place.lat != null ? `, ~${Math.round(distKm(place, s))} km` : ''}): program je v místě ${esc(place.name || place.label || '')}, na začátek dne počítej cestu z ubytování.</div>` : '');
+  // vlastní hotel daleko od středu místa (Avignon → hotel v Sorgues ~6 km): program od centra, ne kolem hotelu
+  const FAR_STAY_KM = 3;
+  const farStay = (s, place) => Boolean(s && s.mode === 'pick' && !s.near && s.lat != null && place && place.lat != null && distKm(place, s) > FAR_STAY_KM);
+  // program od středu místa (startAt 'center'), ne od ubytování: hotel z okolí nebo vlastní hotel daleko od středu
+  const outStay = (s, place) => nearStay(s) || farStay(s, place);
+  /**
+   * Nad programem místa, kde se nespí v centru: „🏨 Spíš v okolí – Stanze Barocche (Modica, ~26 km)…“ (hotel z okolí),
+   * „🏨 Ubytování je ~6 km od centra – Hotel X…“ (vlastní hotel daleko od středu).
+   */
+  const nearProgNote = (s, place) => {
+    const where = esc(place.name || place.label || '');
+    if (nearStay(s)) return `<div class="faint prog-near">🏨 Spíš v okolí – ${esc(s.name || '')} (${esc(s.near)}${s.lat != null && place.lat != null ? `, ~${Math.round(distKm(place, s))} km` : ''}): program je v místě ${where}, na začátek dne počítej cestu z ubytování.</div>`;
+    if (farStay(s, place)) return `<div class="faint prog-near">🏨 Ubytování je ~${Math.round(distKm(place, s))} km od centra – ${esc(s.name || '')}: program začíná v centru (${where}), na začátek dne počítej cestu z ubytování.</div>`;
+    return '';
+  };
   // Veřejná doprava přejezdu (ze serveru): 'rail' = mezi městy se jezdí vlakem, 'bus' = autobusy a minibusy;
   // přímý vlak z tabulky spojů (fast, čas podle jízdního řádu) jen „vlakem“.
   const trIcon = (tr, x) => tr === 'transit' ? (x && x.transitKind === 'bus' ? '🚌' : '🚆') : '🚗';
@@ -2278,10 +2291,11 @@
     if (!(progIdx >= 0 && progIdx < n)) progIdx = 0;
     const i = progIdx, b = r.bases[i], last = i === n - 1;
     const p = baseProgram(t, i);
-    const atStay = b.stay && b.stay.mode === 'pick' && b.stay.lat != null && !nearStay(b.stay);
+    const out = outStay(b.stay, b);
+    const atStay = b.stay && b.stay.mode === 'pick' && b.stay.lat != null && !out;
     const center = atStay ? { lat: b.stay.lat, lon: b.stay.lon, label: b.stay.name } : { lat: b.lat, lon: b.lon, label: b.name };
     host.innerHTML = `<div class="card step-card"><div class="sc-head"><div><h3>📍 Program na trase</h3>
-      <div class="muted">Každé místo má vlastní program na dny, kdy tam budeš${b.stay && b.stay.mode === 'pick' && !nearStay(b.stay) ? ' (kolem ubytování)' : ''} – můžeš ho upravit.</div></div></div>
+      <div class="muted">Každé místo má vlastní program na dny, kdy tam budeš${b.stay && b.stay.mode === 'pick' && !out ? ' (kolem ubytování)' : ''} – můžeš ho upravit.</div></div></div>
       ${baseTabs(r, i, (x, j) => Boolean(basePlan(t, j)), 'data-pt')}
       <h3 class="base-h" style="font-size:15.5px;margin:14px 0 2px">${i + 1}. ${esc(b.name)} <span class="muted" style="font-weight:600;font-size:13px">· ${dayLbl(p.start)} – ${dayLbl(p.end)}${flyHead(t, i, p, last)}</span></h3>
       ${nearProgNote(b.stay, b)}
@@ -2294,7 +2308,7 @@
     if (window.Places) {
       Places.renderPlanner($('#tripPlaces'), {
         lat: center.lat, lon: center.lon, label: center.label, city: b.name, country: b.country || t.dest.country || '', cc: b.cc || t.dest.cc,
-        ...p, ...(nearStay(b.stay) ? { startAt: 'center' } : {}), plan: b.plan, onPlan: plan => { b.plan = plan; persist(); },
+        ...p, ...(out ? { startAt: 'center' } : {}), plan: b.plan, onPlan: plan => { b.plan = plan; persist(); },
       });
     }
   }
@@ -2307,22 +2321,22 @@
     // Program začíná dnem příletu (při příletu po půlnoci je check-in o den dřív, program ne).
     const span = progSpan(t), progStart = span.start;
     const progDays = Math.max(1, Math.round((new Date(checkout) - new Date(progStart)) / 864e5) + 1);
-    let center = t.stay && t.stay.lat != null && !nearStay(t.stay) ? { lat: t.stay.lat, lon: t.stay.lon, label: t.stay.name } : null;
-    if (!center) {
-      // Střed města (souřadnice cíle bývají poloha letiště, které může být daleko od centra).
-      if (!t.cityCenter) {
-        try {
-          const r = await fetch(`api/geocode?q=${enc(t.dest.label.replace(/ \(.*\)$/, '').replace(/-.*$/, ''))}&cc=${enc(t.dest.cc || '')}`);
-          const j = await r.json();
-          const hit = (j.items || []).find(x => !t.dest.cc || x.cc === t.dest.cc);
-          if (hit) { t.cityCenter = { lat: hit.lat, lon: hit.lon, label: hit.label }; persist(); }
-        } catch { /* použij polohu cíle */ }
-      }
-      center = t.cityCenter || { lat: t.dest.lat, lon: t.dest.lon, label: t.dest.label };
+    // Střed města (souřadnice cíle bývají poloha letiště, které může být daleko od centra) – i s hotelem: je-li hotel
+    // dál než FAR_STAY_KM od středu, program začíná v centru, ne kolem hotelu.
+    const own = t.stay && t.stay.lat != null && !nearStay(t.stay) ? t.stay : null;
+    if (!t.cityCenter) {
+      try {
+        const r = await fetch(`api/geocode?q=${enc(t.dest.label.replace(/ \(.*\)$/, '').replace(/-.*$/, ''))}&cc=${enc(t.dest.cc || '')}`);
+        const j = await r.json();
+        const hit = (j.items || []).find(x => !t.dest.cc || x.cc === t.dest.cc);
+        if (hit) { t.cityCenter = { lat: hit.lat, lon: hit.lon, label: hit.label }; persist(); }
+      } catch { /* použij polohu cíle */ }
     }
+    const far = Boolean(own && t.cityCenter && farStay(own, t.cityCenter));
+    const center = own && !far ? { lat: own.lat, lon: own.lon, label: own.name } : t.cityCenter || { lat: t.dest.lat, lon: t.dest.lon, label: t.dest.label };
     if (T() !== t || t.step !== 'program') return;
     host.innerHTML = `<div class="card step-card"><div class="sc-head"><div><h3>🗺️ Co dělat · ${esc(t.dest.label)}</h3>
-      <div class="muted">Návrh programu na ${daysTxt(progDays)}${t.stay && t.stay.lat != null && !nearStay(t.stay) ? ' kolem tvého ubytování' : ''} – můžeš ho upravit.</div></div></div>
+      <div class="muted">Návrh programu na ${daysTxt(progDays)}${own && !far ? ' kolem tvého ubytování' : ''} – můžeš ho upravit.</div></div></div>
       ${nearProgNote(t.stay, { ...center, name: t.dest.label.replace(/ \(.*\)$/, '') })}
       <div id="tripPlaces"></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn primary" id="progNext">Pokračovat ke shrnutí →</button></div></div>`;
@@ -2330,7 +2344,7 @@
     if (window.Places && center.lat != null) {
       Places.renderPlanner($('#tripPlaces'), {
         lat: center.lat, lon: center.lon, label: center.label || t.dest.label, city: t.cityCenter ? t.cityCenter.label : t.dest.label.replace(/ \(.*\)$/, ''), country: t.dest.country || '', cc: t.dest.cc,
-        ...span, ...(nearStay(t.stay) ? { startAt: 'center' } : {}), plan: t.plan, // termín a časy jako tripPlan (shrnutí, kalendář, plánovač)
+        ...span, ...(nearStay(t.stay) || far ? { startAt: 'center' } : {}), plan: t.plan, // termín a časy jako tripPlan (shrnutí, kalendář, plánovač)
         onPlan: plan => { T().plan = plan; persist(); },
       });
     } else {
