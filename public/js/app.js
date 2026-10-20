@@ -566,11 +566,11 @@ function costDots(n) { return `<span class="dots warm">${[1, 2, 3, 4, 5].map(i =
    na displeji potřebuje (~40–150 kB, pak v mezipaměti prohlížeče). U fotky z Pexels a Unsplash drobně autor s odkazem
    na jeho profil a na zdroj (podmínky Unsplash API) – odkaz otevře nové okno, karta pod ním se neotevře. */
 const Photos = (() => {
-  const KEY = 'atlas_ph7', TTL = { pexels: 30 * 864e5, unsplash: 30 * 864e5, wiki: 6 * 36e5 };
+  const KEY = 'atlas_ph8', TTL = { pexels: 30 * 864e5, unsplash: 30 * 864e5, wiki: 6 * 36e5 };
   // zdroj fotky podle serveru, odkud se načítá: název a odkaz zpět (Unsplash s utm)
   const SRC = { 'images.pexels.com': ['Pexels', 'https://www.pexels.com/'], 'images.unsplash.com': ['Unsplash', 'https://unsplash.com/?utm_source=atlas_letenky&utm_medium=referral'] };
   const srcOf = u => SRC[(/^https:\/\/([^/]+)\//.exec(u) || [])[1]] || null;
-  try { ['atlas_ph', 'atlas_ph2', 'atlas_ph3', 'atlas_ph4', 'atlas_ph5', 'atlas_ph6'].forEach(k => localStorage.removeItem(k)); } catch (e) { /* nevadí */ }
+  try { ['atlas_ph', 'atlas_ph2', 'atlas_ph3', 'atlas_ph4', 'atlas_ph5', 'atlas_ph6', 'atlas_ph7'].forEach(k => localStorage.removeItem(k)); } catch (e) { /* nevadí */ }
   let mem = null, timer = null, io = null;
   const queue = new Set();
   const store = () => { if (!mem) { try { mem = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { mem = {}; } } return mem; };
@@ -624,8 +624,8 @@ const Photos = (() => {
     const ask = [...new Set(els.map(el => el.dataset.photo).filter(t => t && !fresh(st[t], now)))].slice(0, 30);
     if (ask.length) {
       try {
-        // v=2 (a nový klíč atlas_ph7): fotky uložené v prohlížeči ještě před Unsplash se znovu nepoužijí
-        const j = await (await fetch('api/photos?v=2&t=' + enc(ask.join('|')))).json(), p = Object.hasOwn(TTL, j.prov) ? j.prov : 'wiki';
+        // v=3 (a nový klíč atlas_ph8): fotky uložené v prohlížeči před lepším výběrem z Unsplash se znovu nepoužijí
+        const j = await (await fetch('api/photos?v=3&t=' + enc(ask.join('|')))).json(), p = Object.hasOwn(TTL, j.prov) ? j.prov : 'wiki';
         // náhradní výběr (zdroj neodpověděl) jen na den – pak hezčí fotka
         for (const [t, u] of Object.entries(j.photos || {})) st[t] = { u: String(u || ''), t: j.partial ? now - TTL[p] + 864e5 : now, p, by: String((j.by || {})[t] || ''), bu: String((j.bu || {})[t] || '') };
         save();

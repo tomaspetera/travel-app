@@ -180,6 +180,16 @@ test('unsplashPick: jen fotka se jménem města (popis, adresa, štítky, místo
   assert.equal(unsplashPick([usp({ description: 'Lisbon', user: { name: 'X', links: { html: 'javascript:alert(1)' } } })], lis).bu, '');
 });
 
+test('unsplashPick: přednost fotce města (panorama, památka) před lidmi; jen lidé → nic (fotka z Wikimedie)', () => {
+  const rio = ['Rio de Janeiro', 'Rio de Janeiro'];
+  const people = usp({ description: 'silhouette of people at sunset in Rio de Janeiro', urls: { raw: 'https://images.unsplash.com/photo-p?ixid=1' } });
+  const city = usp({ alt_description: 'aerial view of Rio de Janeiro city with Sugarloaf mountain', urls: { raw: 'https://images.unsplash.com/photo-c?ixid=2' } });
+  const tram = usp({ description: 'Tram in Rio de Janeiro', urls: { raw: 'https://images.unsplash.com/photo-t?ixid=3' } });
+  assert.match(unsplashPick([people, tram, city], rio).u, /photo-c/);
+  assert.match(unsplashPick([people, tram], rio).u, /photo-t/, 'bez lidí, i bez slova o městě');
+  assert.equal(unsplashPick([people], rio), null);
+});
+
 test('unsplashClient: dotaz s klíčem a verzí; po vyčerpání limitu (403) čtvrt hodiny bez dotazů, po neplatném klíči (401) 6 h', async () => {
   let t = 1e12;
   const calls = [];

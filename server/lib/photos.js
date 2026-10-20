@@ -100,6 +100,9 @@ export function pexelsPick(photos, names) {
 }
 
 // Unsplash: odkazy zpět na Unsplash s utm (podmínky API)
+// popis fotky: město (celkový pohled, památka, ulice, pobřeží) / lidé, jídlo, zvířata, detail
+const CITYISH = /skyline|cityscape|city ?view|aerial|panoram|architecture|building|landmark|street|old ?town|cathedral|church|basilica|mosque|temple|bridge|harbou?r|port\b|coast|beach|bay\b|castle|tower|palace|square|plaza|canal|river|rooftop|historic|monument|statue of|downtown|skyscraper|houses|village|town\b|city\b/i;
+const PEOPLE = /\b(person|people|man|men|woman|women|girl|boy|child|kid|silhouettes?|portrait|crowd|couple|selfie|model|fashion|wedding|bride|hands?|face|food|dish|meal|coffee|drink|cocktail|dog|cat|bird|flower|car interior|concert|party|festival crowd|dancer|dancing)\b/i;
 export const UNSPLASH_UTM = 'utm_source=atlas_letenky&utm_medium=referral';
 const UNSPLASH_RATE_MS = 15 * 6e4; // po vyčerpání limitu (ukázkový režim 50 dotazů/h) Unsplash na čtvrt hodiny vynechat
 const UNSPLASH_KEY_MS = 6 * 36e5; // neplatný klíč – na 6 h
@@ -136,8 +139,17 @@ const unsplashApi = () => (unsplashDefault ||= unsplashClient(config.unsplashKey
 export function unsplashPick(results, names) {
   const text = (x) => [x.description, x.alt_description, x.slug, ...Object.values(x.alternative_slugs || {}), ...(Array.isArray(x.tags) ? x.tags.map((t) => t && t.title) : []),
     x.location && x.location.city, x.location && x.location.name].filter((v) => typeof v === 'string').join(' ').replace(/-/g, ' ');
-  const p = (results || []).find((x) => x && x.urls && /^https:\/\/images\.unsplash\.com\/[^\s"'<>]+$/.test(x.urls.raw || '') && x.width >= 1000 && namesCity(text(x), names));
-  if (!p) return null;
+  // z fotek s jménem města ta, na které je město (panorama, památka, ulice), ne lidé, jídlo nebo detail – pořadí
+  // Unsplash (relevance) rozhoduje při shodě; jen lidé a podobně → nic (karta dostane fotku z Wikimedie)
+  let p = null, best = -Infinity;
+  (results || []).forEach((x, i) => {
+    if (!(x && x.urls && /^https:\/\/images\.unsplash\.com\/[^\s"'<>]+$/.test(x.urls.raw || '') && x.width >= 1000)) return;
+    const t = text(x);
+    if (!namesCity(t, names)) return;
+    const s = (CITYISH.test(t) ? 2 : 0) - (PEOPLE.test(t) ? 4 : 0) - i * 0.01;
+    if (s > best) { best = s; p = x; }
+  });
+  if (!p || best < -1) return null;
   const prof = httpsOn(p.user && p.user.links && p.user.links.html, 'unsplash\\.com');
   return { u: `${p.urls.raw}${p.urls.raw.includes('?') ? '&' : '?'}w=960&h=1200&fit=crop&crop=entropy&q=75&auto=format`, by: (p.user && p.user.name) || '', bu: prof && `${prof}${prof.includes('?') ? '&' : '?'}${UNSPLASH_UTM}` };
 }
