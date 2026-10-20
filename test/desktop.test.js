@@ -28,10 +28,22 @@ test('desktop.css: všechna pravidla jen v @media od 1024 px (telefon a tablet b
   for (const m of media) assert.match(m, /^@media \(min-width:(1024|1600)px\)/, m);
 });
 
-test('desktop.css se načítá jako poslední styl stránky', () => {
+test('desktop.css se načítá za základními styly, desktopové doplňky obrazovek (desktop-*.css) až za ním', () => {
   const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g)].map((m) => m[1]);
-  assert.equal(links.at(-1), 'css/desktop.css', links.join(', '));
+  const at = links.indexOf('css/desktop.css');
+  assert.ok(at > 0, links.join(', '));
+  assert.ok(links.slice(at + 1).every((l) => /^css\/desktop-[a-z]+\.css$/.test(l)), links.join(', '));
+  assert.ok(links.slice(0, at).every((l) => !/desktop/.test(l)), links.join(', '));
   assert.ok(links.includes('css/atlas.css') && links.includes('css/trip.css'));
+});
+
+test('desktop-flights.css: jen v @media od 1024 px, načtený za desktop.css', () => {
+  const src = readFileSync(new URL('../public/css/desktop-flights.css', import.meta.url), 'utf8');
+  const { media } = topLevel(src);
+  assert.ok(media.length >= 2, media.join(' | '));
+  for (const m of media) assert.match(m, /^@media \(min-width:(1024|1200|1600)px\)/, m);
+  const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g)].map((m) => m[1]);
+  assert.ok(links.indexOf('css/desktop-flights.css') > links.indexOf('css/desktop.css'), links.join(', '));
 });
 
 test('desktop.css: obsah i horní lišta ve stejném kontejneru uprostřed (stejný výpočet okrajů)', () => {
