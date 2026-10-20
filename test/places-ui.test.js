@@ -921,3 +921,63 @@ test('výběr země: nadpis, oblíbené (Itálie první), všechny země A–Ž 
   assert.equal(ccs[0], 'AF', 'Afghánistán první (česky A–Ž)');
   assert.match(all, /data-cc="FR" data-ccn="francie france"/);
 });
+
+// 🌍 „Co hledáš?“ v přehledu země: čipy filtrují seznam i mapu, hory/pláže/… se načtou až po výběru
+const CD = {
+  cc: 'IT', country: 'Itálie',
+  city: [{ id: 'Q220', name: 'Řím', lat: 41.9, lon: 12.5, unesco: true, cats: [] }, { id: 'Q490', name: 'Milán', lat: 45.46, lon: 9.19, cats: [] }],
+  dest: [{ id: 'Q1', name: 'Dolomity', lat: 46.4, lon: 11.8, cats: ['mountain'], nature: true }, { id: 'Q2', name: 'Amalfinské pobřeží', lat: 40.6, lon: 14.6, cats: ['beach'], nature: true, unesco: true },
+    { id: 'Q3', name: 'Cinque Terre', lat: 44.1, lon: 9.7, cats: [], nature: false }],
+  unesco: [{ id: 'Q4', name: 'Hadriánova vila', lat: 41.94, lon: 12.77, unesco: true }],
+  park: [{ id: 'Q5', name: 'Gran Paradiso', lat: 45.5, lon: 7.3, nature: true }],
+};
+const names = (r) => r.items.map((x) => x.name);
+
+test('🌍 Co hledáš?: Vše, města, památky (i města a cíle s UNESCO), příroda, hory z Wikivoyage + načtené bez opakování', () => {
+  assert.deepEqual(plain(T.CC_CATS.map((c) => c[0])), ['all', 'city', 'unesco', 'nature', 'mountain', 'beach', 'island', 'lake', 'castle', 'sight']);
+  const all = T.countryPick(CD, 'all');
+  assert.equal(all.items.length, 7);
+  assert.deepEqual(plain(all.sections.map(([g, l]) => [g[0], l.length])), [['city', 2], ['dest', 3], ['unesco', 1], ['park', 1]]);
+  assert.deepEqual(plain(names(T.countryPick(CD, 'city'))), ['Řím', 'Milán']);
+  assert.deepEqual(plain(names(T.countryPick(CD, 'unesco'))), ['Řím', 'Amalfinské pobřeží', 'Hadriánova vila']);
+  assert.deepEqual(plain(names(T.countryPick(CD, 'nature'))), ['Dolomity', 'Amalfinské pobřeží', 'Gran Paradiso']);
+  // hory: Dolomity z Wikivoyage hned, načtené přibudou (Dolomity podruhé ne, bez polohy pryč)
+  assert.deepEqual(plain(names(T.countryPick(CD, 'mountain', null))), ['Dolomity']);
+  const loaded = [{ id: 'Q1', name: 'Dolomity', lat: 46.4, lon: 11.8 }, { id: 'Q6', name: 'Etna', lat: 37.75, lon: 14.99, cats: ['mountain'] }, { id: 'Q7', name: 'Bez polohy' }, null];
+  const m = T.countryPick(CD, 'mountain', loaded);
+  assert.deepEqual(plain(names(m)), ['Dolomity', 'Etna']);
+  assert.deepEqual(plain(m.sections.map(([g, l]) => [g[0], g[1], g[2], l.map((x) => x.group)])), [['mountain', '⛰️', 'Hory', ['mountain', 'mountain']]]);
+  assert.deepEqual(plain(T.countryPick(CD, 'island', [])), { items: [], sections: [] }, 'prázdná kategorie');
+  assert.equal(T.countryPick(CD, 'nesmysl').items.length, 7, 'neznámá = vše');
+  // karta místa z kategorie: vlastní ikona a druh
+  const card = T.countryCard({ ...m.items[1], group: 'mountain', distanceKm: 540 }, m.sections[0][0], { label: 'Řím' });
+  assert.match(card, /⛰️ Etna/);
+  assert.match(card, /Hory · 540 km/);
+});
+
+test('🌍 Co hledáš?: zapamatovaná kategorie platí, nesmysl ne', () => {
+  for (const c of ['all', 'mountain', 'castle', 'nature']) assert.equal(T.uiRestore({ cCat: c }, '2026-10-10').cCat, c);
+  for (const c of ['bad', 'constructor', 1, null]) assert.equal(T.uiRestore({ cCat: c }, '2026-10-10').cCat, undefined);
+});
+
+test('🌍 Co hledáš?: kategorie se načte jednou na zemi (api/poi/country?cat=), chyba se zapamatuje pro „Zkusit znovu“', async () => {
+  const urls = [];
+  let fail = false;
+  const P = load({ setTimeout, clearTimeout, $: () => null, localStorage: { getItem: () => null, setItem: () => {} },
+    fetch: async (u) => { urls.push(u); return fail ? { ok: false, status: 503, json: async () => ({ error: 'Wikidata neodpovídá' }) } : { ok: true, status: 200, json: async () => ({ items: [{ id: 'Q6', name: 'Etna', lat: 37.75, lon: 14.99 }] }) }; } }).window.Places;
+  const X = P._t.ex;
+  X.place = { label: 'Řím', lat: 41.9, lon: 12.5, cc: 'IT', geo: false };
+  X.radius = T.COUNTRY;
+  X.country = { place: X.place, data: CD };
+  X.cCat = 'mountain';
+  await P._t.loadCountryCat('mountain');
+  await P._t.loadCountryCat('mountain');
+  await P._t.loadCountryCat('city'); // města se nenačítají
+  assert.deepEqual(urls, ['api/poi/country?cc=IT&cat=mountain&lat=41.9&lon=12.5']);
+  assert.equal(X.country.cats.mountain.items[0].name, 'Etna');
+  fail = true;
+  await P._t.loadCountryCat('castle');
+  assert.match(X.country.cats.castle.err, /Wikidata neodpovídá/);
+  await P._t.loadCountryCat('castle');
+  assert.equal(urls.length, 3, 'po chybě znovu (Zkusit znovu smaže stav, tady načte znovu i sám)');
+});

@@ -20,7 +20,7 @@
   // all = místa načtená ze serveru (pro loaded.radius), items = z nich ta v právě zvoleném okruhu
   // far = místa v okolí pro okruh 50/100 km ({ place, items, busy, err }), country = přehled země ({ place, data, busy, err }),
   // lastKm = okruh v km před přepnutím na celou zemi
-  const ex = { place: null, all: [], items: [], loaded: null, far: null, country: null, lastKm: 10, cat: '', radius: 10, plan: null, interests: new Set(), pace: 'normal', days: 3, start: '', mode: 'city', transport: 'car', trips: {}, tripDays: { day: 2, loop: 4 }, tripEx: new Set(), tripMust: new Set(), tripInterests: new Set(), ms: null,
+  const ex = { place: null, all: [], items: [], loaded: null, far: null, country: null, lastKm: 10, cat: '', cCat: 'all', radius: 10, plan: null, interests: new Set(), pace: 'normal', days: 3, start: '', mode: 'city', transport: 'car', trips: {}, tripDays: { day: 2, loop: 4 }, tripEx: new Set(), tripMust: new Set(), tripInterests: new Set(), ms: null,
     errs: {}, recent: [], listOpen: false, restored: false,
     bike: { km: 40, bike: 'trekking', scenery: 'mixed', hills: 'normal', variant: 0, kind: 'loop' }, bikeRoute: null, trainRoute: null,
     hike: { km: 10, scenery: 'mixed', hills: 'normal', variant: 0 }, hikeRoute: null };
@@ -84,6 +84,10 @@
   // nejzajímavější místa v okolí do zvoleného okruhu (cíle výletů, api/poi/trips). COUNTRY = 🌍 celá země (api/poi/country).
   const CITY_KM = 20;
   const COUNTRY = 'country';
+  // „Co hledáš?“: Vše / města / památky / příroda filtrují načtený přehled, ostatní (hory, pláže…) se načtou až po
+  // výběru (api/poi/country?cat=) – k nim cíle Wikivoyage stejného druhu
+  const CC_CATS = [['all', 'Vše'], ['city', '🏙️ Města'], ['unesco', '🏛️ Památky a UNESCO'], ['nature', '🏞️ Příroda a národní parky'], ['mountain', '⛰️ Hory'],
+    ['beach', '🏖️ Pláže a pobřeží'], ['island', '🏝️ Ostrovy'], ['lake', '💧 Jezera a vodopády'], ['castle', '🏰 Hrady a zámky'], ['sight', '✨ Zajímavá místa']];
   const RAD_OK = [...RADII, COUNTRY];
   const cityKm = r => (typeof r === 'number' ? Math.min(r, CITY_KM) : 10);
   const farOn = r => typeof r === 'number' && r > CITY_KM;
@@ -151,7 +155,7 @@
   function uiSnapshot(s) {
     return {
       place: cleanPlace(s.place), radius: s.radius, mode: s.mode, start: s.start, days: s.days, tripDays: { ...s.tripDays }, transport: s.transport,
-      interests: [...s.interests], tripInterests: [...s.tripInterests], pace: s.pace,
+      interests: [...s.interests], tripInterests: [...s.tripInterests], pace: s.pace, cCat: s.cCat,
       bike: { km: s.bike.km, bike: s.bike.bike, scenery: s.bike.scenery, hills: s.bike.hills, kind: s.bike.kind },
       hike: { km: s.hike.km, scenery: s.hike.scenery, hills: s.hike.hills }, recent: s.recent || [], datePicked: Boolean(s.datePicked),
     };
@@ -171,6 +175,7 @@
       place: place && !place.geo ? place : null, radius: pick1(o.radius, RAD_OK), mode: pick1(o.mode, ids(MODES)),
       start, datePicked: start && o.datePicked === true ? true : undefined, // vybraný termín (ne výchozí zítřek) – „Najít lety sem“ přesně
       days: pick1(o.days, [1, 2, 3, 4, 5, 6, 7, 10]), transport: pick1(o.transport, ids(TRANSPORTS)), pace: pick1(o.pace, ['relaxed', 'normal', 'intense']),
+      cCat: pick1(o.cCat, CC_CATS.map(c => c[0])),
       tripDays: { day: pick1(ob(o.tripDays).day, [1, 2, 3, 4, 5, 7]), loop: pick1(ob(o.tripDays).loop, [2, 3, 4, 5, 6, 7, 10]) },
       interests: arr(o.interests, ids(INTERESTS)), tripInterests: arr(o.tripInterests, ids(TRIP_INTERESTS)),
       bike: { km: pick1(ob(o.bike).km, [15, 25, 40, 60, 80, 100, 130]), bike: pick1(ob(o.bike).bike, ids(BIKE_TYPES)), scenery: pick1(ob(o.bike).scenery, ids(BIKE_SCENERY)),
@@ -752,7 +757,7 @@
     let raw = null;
     try { raw = JSON.parse(localStorage.getItem(UI_LS)); } catch { return; }
     const r = uiRestore(raw, fmtYMD(new Date()));
-    for (const k of ['radius', 'mode', 'start', 'datePicked', 'days', 'transport', 'pace', 'recent']) if (r[k] !== undefined) ex[k] = r[k];
+    for (const k of ['radius', 'mode', 'start', 'datePicked', 'days', 'transport', 'pace', 'recent', 'cCat']) if (r[k] !== undefined) ex[k] = r[k];
     if (r.place) ex.place = r.place;
     Object.assign(ex.tripDays, r.tripDays);
     Object.assign(ex.bike, r.bike);
@@ -1307,6 +1312,30 @@
   /* ---------- 🌍 celá země: města a cíle z Wikivoyage, UNESCO, národní parky ---------- */
   const C_GROUPS = [['city', '🏙️', 'Města', 'Město'], ['dest', '🧭', 'Další cíle', 'Cíl'], ['unesco', '🏛️', 'Památky UNESCO', 'UNESCO'], ['park', '🏞️', 'Národní parky', 'Národní park']];
   const countryItems = d => C_GROUPS.flatMap(([g]) => (Array.isArray(d?.[g]) ? d[g] : []).filter(x => x && x.name && okPt(x)).map(x => ({ ...x, group: g })));
+  // skupina (ikona, nadpis, druh na kartě) míst načtených podle kategorie
+  const CAT_GROUPS = { mountain: ['mountain', '⛰️', 'Hory', 'Hory'], beach: ['beach', '🏖️', 'Pláže a pobřeží', 'Pobřeží'], island: ['island', '🏝️', 'Ostrovy', 'Ostrov'],
+    lake: ['lake', '💧', 'Jezera a vodopády', 'Voda'], castle: ['castle', '🏰', 'Hrady a zámky', 'Hrad / zámek'], sight: ['sight', '✨', 'Zajímavá místa', 'Zajímavost'] };
+  const lazyCat = c => Object.hasOwn(CAT_GROUPS, c);
+  /**
+   * Položky přehledu země pro kategorii: { items, sections: [[skupina, položky]] }. Vše = všechny skupiny; města,
+   * památky (UNESCO i města a cíle s UNESCO), příroda (parky a přírodní cíle); hory, pláže… = cíle Wikivoyage toho druhu
+   * a načtená místa (loaded – null, dokud nejsou).
+   */
+  function countryPick(d, cat, loaded) {
+    const all = countryItems(d);
+    const bySec = list => C_GROUPS.map(g => [g, list.filter(x => x.group === g[0])]).filter(([, l]) => l.length);
+    if (cat === 'city') return { items: all.filter(x => x.group === 'city'), sections: bySec(all.filter(x => x.group === 'city')) };
+    if (cat === 'unesco') { const l = all.filter(x => x.group === 'unesco' || x.unesco); return { items: l, sections: bySec(l) }; }
+    if (cat === 'nature') { const l = all.filter(x => x.group === 'park' || (x.nature && x.group !== 'city')); return { items: l, sections: bySec(l) }; }
+    if (lazyCat(cat)) {
+      const g = CAT_GROUPS[cat], seen = new Set();
+      const wv = all.filter(x => Array.isArray(x.cats) && x.cats.includes(cat));
+      const more = (loaded || []).filter(x => x && x.name && okPt(x));
+      const l = [...wv, ...more].filter(x => !seen.has(x.id) && seen.add(x.id)).map(x => ({ ...x, group: cat }));
+      return { items: l, sections: l.length ? [[g, l]] : [] };
+    }
+    return { items: all, sections: bySec(all) };
+  }
   // Země místa česky (byIso), jinak z odpovědi serveru
   const countryName = (p, d) => d?.country || countryCs(p.cc) || p.country || '';
   // země jako cíl hledání letů (cc:IT – všechna letiště země)
@@ -1347,30 +1376,54 @@
     }
     paintCountry();
   }
+  // Kategorie země (hory, pláže…) jednou na zemi; přehled se překreslí, jen když je pořád ta země a kategorie.
+  async function loadCountryCat(cat) {
+    const c = ex.country;
+    if (!c || !lazyCat(cat)) return;
+    const st = c.cats || (c.cats = {});
+    if (st[cat] && (st[cat].busy || st[cat].items)) return;
+    st[cat] = { busy: true };
+    const p = c.place, d = c.data || {};
+    try {
+      const j = await getJson(`api/poi/country?cc=${enc(d.cc || p.cc || '')}&cat=${cat}&lat=${p.lat}&lon=${p.lon}`);
+      st[cat] = { items: j.items || [] };
+    } catch (e) {
+      st[cat] = { err: e.message };
+    }
+    if (ex.country === c && ex.radius === COUNTRY && ex.cCat === cat) paintCountry();
+  }
   function paintCountry() {
     const body = $('#exBody'); if (!body) return;
     const p = ex.place, d = ex.country?.data || {};
     hideBack();
     const name = countryName(p, d), tgt = countryTarget(d.cc || p.cc, name);
-    const all = countryItems(d);
-    const sec = ([g, ico, title]) => {
-      const list = all.filter(x => x.group === g);
-      return list.length ? `<div class="poi-sec"><b>${ico} ${esc(title)}</b> <span class="faint">(${list.length})</span></div>${list.map(x => countryCard(x, C_GROUPS.find(c => c[0] === g), p)).join('')}` : '';
-    };
+    const cat = CC_CATS.some(c => c[0] === ex.cCat) ? ex.cCat : 'all';
+    const st = lazyCat(cat) ? (ex.country?.cats || {})[cat] : null;
+    if (lazyCat(cat) && !st) loadCountryCat(cat);
+    const { items: all, sections } = countryPick(d, cat, st && st.items);
+    const sec = ([g, list]) => `<div class="poi-sec"><b>${g[1]} ${esc(g[2])}</b> <span class="faint">(${list.length})</span></div>${list.map(x => countryCard(x, g, p)).join('')}`;
+    const catName = (CC_CATS.find(c => c[0] === cat) || CC_CATS[0])[1].replace(/^\S+\s/, ''), lbl = catName.toLowerCase();
+    const busy = lazyCat(cat) && (!st || st.busy);
+    const listHtml = (st && st.err ? errHtml(`${catName} se nepodařilo načíst`, st.err, 'exCRetry') : '')
+      + sections.map(sec).join('')
+      + (busy ? `<div class="loading-row ex-busy" role="status"><span class="spin dark"></span><div><b>Hledám ${esc(lbl)}…</b><div class="ex-wait">Poprvé to trvá obvykle 3–15 s, příště je hned.</div></div></div>`
+        : !all.length && !(st && st.err) ? '<div class="empty">K tomu jsem tu nic nenašel – zkus jinou kategorii.</div>' : '');
+    const chips = `<div class="ex-ccats" role="group" aria-label="Co hledáš?"><span class="ex-ccats-l">Co hledáš?</span>${CC_CATS.map(([id, l]) => `<button type="button" class="fchip${id === cat ? ' on' : ''}" data-ccat="${id}" aria-pressed="${id === cat}">${esc(l)}</button>`).join('')}</div>`;
     const lastKm = ex.lastKm || 10;
     body.innerHTML = `${d.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
       <div class="section-head ex-head" style="margin-top:6px"><h2>${flag(d.cc || p.cc || '')} ${esc(name || 'Země')} · celá země</h2><span class="ex-head-act">${window.Flights && tgt ? `<button type="button" class="btn sm ghost" id="exCFly" title="Hledat lety kamkoliv do země">✈️ Najít lety sem</button>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Vybrat jinou zemi">🌍 Jiná země</button></span></div>
       <div class="muted ex-cnote">Města a další cíle, které vybral cestovní průvodce Wikivoyage, památky UNESCO a národní parky. Vzdálenost od ${p.capital ? 'hlavního města' : 'místa'} ${esc(p.label)} vzdušnou čarou. 🔎 Prozkoumat ukáže, co je v místě k vidění.
         <span class="ex-cact"><button type="button" class="fchip" data-cback="city">🏙️ ${esc(p.label)} · okruh ${lastKm} km</button><button type="button" class="fchip" data-cback="loop">🧭 Okruh odsud na pár dní</button></span></div>
       ${d.degraded ? '<div class="faint" style="font-size:12px;margin:6px 0">Část údajů se teď nenačetla (popisy nebo výběr Wikivoyage) – zkus to později znovu.</div>' : ''}
+      ${chips}
       <div class="ex-layout ex-main"><div id="exMapSlot"></div>
-      <div class="ex-places"><div class="poi-list all" id="exCList">${C_GROUPS.map(sec).join('') || '<div class="empty">Pro tuhle zemi jsem nic nenašel.</div>'}</div></div></div>
+      <div class="ex-places"><div class="poi-list all" id="exCList">${listHtml}</div></div></div>
       <div class="faint" style="font-size:11.5px;margin-top:10px">Zdroj: Wikivoyage, Wikidata a Wikipedie (CC BY-SA), mapa © OpenFreeMap, OpenMapTiles, OpenStreetMap.</div>`;
     const ms = exploreMap(p);
     $('#exMapSlot', body).replaceWith(ms.el);
     if (ms.map) ms.map.resize();
-    const ico = g => (C_GROUPS.find(c => c[0] === g) || C_GROUPS[0])[1];
-    const col = { city: '#5b8cff', dest: '#14b8a6', unesco: '#f59e0b', park: '#22c55e' };
+    const ico = g => (C_GROUPS.find(c => c[0] === g) || CAT_GROUPS[g] || C_GROUPS[0])[1];
+    const col = { city: '#5b8cff', dest: '#14b8a6', unesco: '#f59e0b', park: '#22c55e', mountain: '#8b5cf6', beach: '#06b6d4', island: '#0ea5e9', lake: '#3b82f6', castle: '#ef4444', sight: '#ec4899' };
     paintMap(ms, p, all.map(x => ({ id: x.id, lat: x.lat, lon: x.lon, color: col[x.group], label: `${ico(x.group)} ${x.name}`, q: gq(x.name, name), place: x })), [],
       x => { const el = $(`#exCList [data-cpoi="${CSS.escape(x.id)}"]`); if (el) { if (!stacked()) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); flash(el); } }, null);
     // 🔎 Prozkoumat: Objevuj toho místa jako po výběru v hledání (okruh 10 km)
@@ -1392,6 +1445,11 @@
     });
     const fl = $('#exCFly', body); if (fl) fl.onclick = () => Flights.searchTo([tgt]);
     const rs = $('#exReset', body); if (rs) rs.onclick = () => resetExplore();
+    $$('[data-ccat]', body).forEach(b => b.onclick = () => { ex.cCat = b.dataset.ccat; remember(); paintCountry(); });
+    // na telefonu je řada čipů posuvná – vybraný čip po překreslení vidět
+    const cr = $('.ex-ccats', body), on = cr && $('.fchip.on', cr);
+    if (on && cr.scrollWidth > cr.clientWidth) cr.scrollLeft = Math.max(0, on.getBoundingClientRect().left - cr.getBoundingClientRect().left - 48);
+    const rt = $('#exCRetry', body); if (rt) rt.onclick = () => { if (ex.country?.cats) delete ex.country.cats[cat]; paintCountry(); };
     remember();
   }
 
@@ -2175,7 +2233,7 @@
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
       plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan,
-      RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, setRadius, paintCountry, loadFar,
+      RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
       countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP },
   };
 })();

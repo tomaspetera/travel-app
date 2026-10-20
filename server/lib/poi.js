@@ -1036,23 +1036,64 @@ export function sparqlCountryList(countryQid, kind) {
 
 /** Poloha, fotka, články a česká jména pro QID (cíle Wikivoyage, UNESCO, parky) – jeden krátký dotaz. */
 export function sparqlCountry(ids) {
-  return `SELECT ?item ?sl ?lat ?lon ?img ?cs ?en ?csd ?itemLabel ?itemDescription WHERE {
+  return `SELECT ?item ?sl ?lat ?lon ?img ?cs ?en ?csd ?csl ?t ?itemLabel ?itemDescription WHERE {
   VALUES ?item { ${ids.map((q) => `wd:${q}`).join(' ')} }
   ?item wikibase:sitelinks ?sl ; wdt:P625 ?c . BIND(geof:latitude(?c) AS ?lat) BIND(geof:longitude(?c) AS ?lon)
   OPTIONAL { ?item wdt:P18 ?img }
   OPTIONAL { ?cs schema:about ?item ; schema:isPartOf <https://cs.wikipedia.org/> }
   OPTIONAL { ?en schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> }
   OPTIONAL { ?item schema:description ?csd FILTER(lang(?csd) = "cs") }
+  OPTIONAL { ?item rdfs:label ?csl FILTER(lang(?csl) = "cs") }
+  OPTIONAL { ?item wdt:P31/wdt:P279? ?t }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "cs,en". }
 }`;
 }
 
-const COUNTRY_MAX = { city: 12, dest: 12, unesco: 20, park: 12 };
+/* ---------- 🌍 „Co hledáš?“: kategorie v přehledu země ---------- */
+// Třídy Wikidat (P31) pro každou kategorii. Seznam bere vyhledávání Wikidat (CirrusSearch přes mwapi: haswbstatement
+// země a typu, podle odkazů) – přímý dotaz „všechny hory Itálie“ (P31 + P17) trvá přes minutu, tohle 1–15 s. Cíle
+// Wikivoyage se zařadí podle P31 i o úroveň výš (P279: ledovcové jezero → jezero, „ostrov Španělska“ → ostrov).
+export const COUNTRY_CATS = {
+  mountain: ['Q8502', 'Q46831', 'Q8072', 'Q1061151'], // hora, pohoří, sopka, masiv
+  beach: ['Q40080', 'Q39594', 'Q185113', 'Q93352', 'Q45776'], // pláž, zátoka, mys, pobřeží, fjord
+  island: ['Q23442', 'Q33837', 'Q1161185'], // ostrov, souostroví, sopečný ostrov
+  lake: ['Q23397', 'Q211302', 'Q34038'], // jezero, ledovcové jezero (Comské), vodopád
+  castle: ['Q23413', 'Q751876', 'Q53536964', 'Q1785071'], // hrad, zámek, královský palác, pevnost (ne „palác“ – to jsou i Uffizi a úřady)
+  sight: ['Q35509', 'Q150784', 'Q1266922', 'Q23790', 'Q6017969', 'Q570116', 'Q2319498'], // jeskyně, kaňon, průlomové údolí (Verdon), přírodní památka, vyhlídka, turistická atrakce, dominanta
+};
+// příroda (čip „Příroda a národní parky“): hory, pobřeží, ostrovy, vody + jeskyně, kaňony, přírodní památky, národní
+// park, chráněné území, rezervace, údolí, řeka, les, mokřad, laguna, přírodní oblast (Camargue, údolí Loiry)
+const NATURE = new Set([...COUNTRY_CATS.mountain, ...COUNTRY_CATS.beach, ...COUNTRY_CATS.island, ...COUNTRY_CATS.lake,
+  'Q35509', 'Q150784', 'Q1266922', 'Q23790', 'Q46169', 'Q473972', 'Q179049', 'Q39816', 'Q4022', 'Q4421', 'Q170321', 'Q187223', 'Q1970725', 'Q572995']);
+/** Kategorie („mountain“…) a příroda podle tříd P31 položky. */
+export function catsOf(types) {
+  const t = types instanceof Set ? types : new Set(types || []);
+  return { cats: Object.keys(COUNTRY_CATS).filter((c) => COUNTRY_CATS[c].some((q) => t.has(q))), nature: [...t].some((q) => NATURE.has(q)) };
+}
 /**
- * Řádky dotazu (sparqlCountry) + cíle Wikivoyage + QID památek UNESCO a parků (lists) → { city, dest, unesco, park }
- * bez opakování (město z Wikivoyage se mezi UNESCO neukáže znovu).
+ * Nejznámější místa kategorie cat v zemi (QID země): vyhledávání Wikidat, seřazené podle jazykových verzí, nejvýš 24.
+ * again = opakovaný dotaz jinak napsaný (WDQS drží odpověď na stejný dotaz chvíli v mezipaměti, i prázdnou).
  */
-export function countryGroups(rows, wv = { city: [], dest: [] }, lists = {}) {
+export function sparqlCountryCat(countryQid, cat, again = false) {
+  const C = String(countryQid).replace(/[^Q0-9]/g, '');
+  const types = Object.hasOwn(COUNTRY_CATS, cat) ? COUNTRY_CATS[cat] : null;
+  if (!types) throw new Error(`Neznámá kategorie ${cat}`);
+  const search = `haswbstatement:P17=${C} haswbstatement:${types.map((q) => `P31=${q}`).join('|')}`;
+  return `SELECT ?item ?sl WHERE {
+  SERVICE wikibase:mwapi { bd:serviceParam wikibase:endpoint "www.wikidata.org"; wikibase:api "Search"; mwapi:srsearch "${search}"; mwapi:srsort "incoming_links_desc"; mwapi:srlimit "40". ?item wikibase:apiOutputItem mwapi:title. }
+  ?item wikibase:sitelinks ?sl .
+} ORDER BY DESC(?sl) LIMIT 24${again ? '\n# znovu' : ''}`;
+}
+
+// název česky: český štítek Wikidat, jinak název českého článku (bez upřesnění v závorce), jinak štítek (anglicky);
+// známé cíle bez českého štítku i článku ručně (údolí Loiry má česky jen zámky a vinařskou oblast)
+const CS_NAMES = { Q1050483: 'Údolí Loiry' };
+const csName = (label, csl, csTitle) => {
+  const n = csl || (csTitle ? csTitle.replace(/\s*\([^)]*\)$/, '') : '') || (label && !/^Q\d+$/.test(label) ? label : '');
+  return n.charAt(0).toUpperCase() + n.slice(1); // „zámek Kroměříž“ → „Zámek Kroměříž“
+};
+/** Řádky sparqlCountry → Map(QID → místo { id, name, description, lat, lon, sitelinks, kinds, types, image, wiki }). */
+export function countryById(rows) {
   const by = new Map();
   for (const b of rows) {
     const id = qid(val(b, 'item'));
@@ -1061,30 +1102,41 @@ export function countryGroups(rows, wv = { city: [], dest: [] }, lists = {}) {
     if (!id || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
     let p = by.get(id);
     if (!p) {
-      const name = val(b, 'itemLabel');
       const img = val(b, 'img');
+      const wiki = { cs: title(val(b, 'cs')), en: title(val(b, 'en')) };
       p = {
-        id, name: name && !/^Q\d+$/.test(name) ? name : '', description: val(b, 'csd') || val(b, 'itemDescription') || '', descLang: val(b, 'csd') ? 'cs' : 'en',
-        lat, lon, sitelinks: Number(val(b, 'sl')) || 0, kinds: new Set(), image: img ? `${img.replace(/^http:/, 'https:')}?width=500` : null,
-        wiki: { cs: title(val(b, 'cs')), en: title(val(b, 'en')) },
+        id, name: CS_NAMES[id] || csName(val(b, 'itemLabel'), val(b, 'csl'), wiki.cs), description: val(b, 'csd') || val(b, 'itemDescription') || '', descLang: val(b, 'csd') ? 'cs' : 'en',
+        lat, lon, sitelinks: Number(val(b, 'sl')) || 0, kinds: new Set(), types: new Set(), image: img ? `${img.replace(/^http:/, 'https:')}?width=500` : null, wiki,
       };
       by.set(id, p);
     }
+    const t = qid(val(b, 't'));
+    if (t) p.types.add(t);
   }
+  return by;
+}
+
+const COUNTRY_MAX = { city: 12, dest: 12, unesco: 20, park: 12 };
+/**
+ * Řádky dotazu (sparqlCountry) + cíle Wikivoyage + QID památek UNESCO a parků (lists) → { city, dest, unesco, park }
+ * bez opakování (město z Wikivoyage se mezi UNESCO neukáže znovu).
+ */
+export function countryGroups(rows, wv = { city: [], dest: [] }, lists = {}) {
+  const by = countryById(rows);
   for (const k of ['unesco', 'park', 'city']) for (const id of lists[k] || []) by.get(id)?.kinds.add(k);
   const out = { city: [], dest: [], unesco: [], park: [] };
   const used = new Set();
   const take = (group, x, extra = {}) => {
     if (!x || used.has(x.id) || out[group].length >= COUNTRY_MAX[group]) return;
     used.add(x.id);
-    out[group].push({ ...x, kinds: new Set(x.kinds), ...extra });
+    out[group].push({ ...x, kinds: new Set(x.kinds), types: new Set(x.types), ...extra });
   };
   // Wikivoyage v pořadí redaktorů; bez QID nebo polohy na Wikidatech poloha ze šablony
   for (const g of ['city', 'dest']) {
     for (const d of wv[g] || []) {
       const p = d.wikidata && by.get(d.wikidata);
       if (p) take(g, p, { name: p.name || d.label, blurb: d.blurb, wv: true });
-      else if (Number.isFinite(d.lat)) take(g, { id: d.wikidata || `wv:${d.title || d.label}`, name: d.label, description: '', descLang: 'en', lat: d.lat, lon: d.lon, sitelinks: 0, kinds: new Set(), image: null, wiki: { cs: null, en: null } }, { blurb: d.blurb, wv: true });
+      else if (Number.isFinite(d.lat)) take(g, { id: d.wikidata || `wv:${d.title || d.label}`, name: d.label, description: '', descLang: 'en', lat: d.lat, lon: d.lon, sitelinks: 0, kinds: new Set(), types: new Set(), image: null, wiki: { cs: null, en: null } }, { blurb: d.blurb, wv: true });
     }
   }
   const rank = (k) => [...by.values()].filter((p) => p.kinds.has(k) && p.name).sort((a, b) => b.sitelinks - a.sitelinks);
@@ -1092,7 +1144,14 @@ export function countryGroups(rows, wv = { city: [], dest: [] }, lists = {}) {
   if (out.city.length < 3) for (const p of rank('city')) take('city', p);
   for (const p of rank('unesco')) take('unesco', p);
   for (const p of rank('park')) take('park', p);
-  for (const g of COUNTRY_KINDS) for (const p of out[g]) { p.unesco = p.kinds.has('unesco'); delete p.kinds; }
+  for (const g of COUNTRY_KINDS) {
+    for (const p of out[g]) {
+      p.unesco = p.kinds.has('unesco');
+      Object.assign(p, catsOf(p.types));
+      delete p.kinds;
+      delete p.types;
+    }
+  }
   return out;
 }
 
@@ -1110,8 +1169,7 @@ export async function countryHighlights(cc) {
     let wvFailed = false;
     const wv = await wikivoyageCountry(cc).catch(() => { wvFailed = true; return { city: [], dest: [] }; });
     const q = (s, ms = 25000) => wdqs(s, ms, { queue: limitFamily });
-    const cq = qid(val((await q(sparqlCountryId(cc), 15000))[0] || {}, 'c'));
-    if (!/^Q\d+$/.test(cq)) throw new Error(`Země ${cc} není na Wikidatech`);
+    const cq = await countryQid(cc);
     const lists = {};
     const list = async (k) => (await q(sparqlCountryList(cq, k))).map((b) => qid(val(b, 'item'))).filter(Boolean);
     for (const k of ['unesco', 'park']) lists[k] = await list(k);
@@ -1128,10 +1186,74 @@ export async function countryHighlights(cc) {
   });
 }
 
+/** QID země podle kódu ISO (mezipaměť 90 dní – nemění se). */
+async function countryQid(cc) {
+  return cache.wrap(`country-qid:${cc}`, 90 * 864e5, async () => {
+    const cq = qid(val((await wdqs(sparqlCountryId(cc), 15000, { queue: limitFamily }))[0] || {}, 'c'));
+    if (!/^Q\d+$/.test(cq)) throw new Error(`Země ${cc} není na Wikidatech`);
+    return cq;
+  });
+}
+
+const countryCatKey = (cc, cat) => `country:${cc}:${cat}`;
+/** Je kategorie země v mezipaměti? */
+export const countryCatCached = (cc, cat) => cache.get(countryCatKey(cc, cat)) !== undefined;
+
+/**
+ * „Co hledáš?“ v přehledu země: nejznámější hory, pláže, ostrovy, jezera, hrady nebo zajímavá místa země cc –
+ * { items: [{ id, name, description, lat, lon, image, url, extract, cats, nature }] } podle jazykových verzí, nejvýš 20.
+ * Načítá se až po výběru kategorie; stejná fronta Wikidat jako přehled země, mezipaměť 30 dní (bez popisů hodinu).
+ * deps.query = dotaz na Wikidata (testy).
+ */
+export async function countryCategory(cc, cat, { query } = {}) {
+  if (!Object.hasOwn(COUNTRY_CATS, cat)) throw new Error(`Neznámá kategorie ${cat}`);
+  return cache.wrap(countryCatKey(cc, cat), (v) => (v.degraded ? 36e5 : 30 * 864e5), async () => {
+    const q = query || ((s, ms = 30000) => wdqs(s, ms, { queue: limitFamily }));
+    const cq = query ? qid(val((await q(sparqlCountryId(cc)))[0] || {}, 'c')) : await countryQid(cc);
+    const search = async (again) => (await q(sparqlCountryCat(cq, cat, again))).map((b) => qid(val(b, 'item'))).filter((x) => /^Q\d+$/.test(x));
+    // prázdné vyhledávání bývá i výpadek vyhledávání Wikidat (0 výsledků bez chyby) – jednou znovu
+    let ids = await search(false);
+    if (!ids.length) ids = await search(true);
+    const rows = ids.length ? await q(sparqlCountry([...new Set(ids)])) : [];
+    const items = [...countryById(rows).values()].filter((p) => p.name).sort((a, b) => b.sitelinks - a.sitelinks).slice(0, 20);
+    const failed = query ? false : await enrich(items, { preferCs: true });
+    const out = {
+      items: items.map(({ wiki, kinds, types, ...p }) => {
+        const c = catsOf(types);
+        return { ...p, ...c, cats: [...new Set([cat, ...c.cats])] };
+      }),
+    };
+    if (failed || !ids.length) out.degraded = true; // bez popisů nebo pořád prázdné – jen na hodinu
+    return out;
+  });
+}
+
+/** Položky se vzdáleností od místa (lat, lon) – bez polohy beze změny. */
+export const withDistance = (items, lat, lon) => (Number.isFinite(lat) && Number.isFinite(lon) ? items.map((p) => ({ ...p, distanceKm: Math.round(haversineKm(lat, lon, p.lat, p.lon)) })) : items.map((p) => ({ ...p })));
+
 /** Přehled země se vzdáleností od místa (lat, lon) – každá položka s distanceKm, pořadí skupin zůstane. */
 export function countryWithDistance(groups, lat, lon) {
   const ok = Number.isFinite(lat) && Number.isFinite(lon);
   return Object.fromEntries(COUNTRY_KINDS.map((g) => [g, (groups[g] || []).map((p) => (ok ? { ...p, distanceKm: Math.round(haversineKm(lat, lon, p.lat, p.lon)) } : { ...p }))]));
+}
+
+/** DEMO režim: vymyšlená místa kategorie (hory, pláže…) kolem bodu. */
+export function mockCountryCat({ lat, lon }, cat) {
+  const names = {
+    mountain: ['Ukázková hora', 'Vzorové pohoří', 'Příkladná sopka'], beach: ['Ukázková pláž', 'Vzorová zátoka', 'Příkladný mys'], island: ['Ukázkový ostrov', 'Vzorové souostroví'],
+    lake: ['Ukázkové jezero', 'Vzorový vodopád', 'Příkladné horské jezero'], castle: ['Ukázkový hrad', 'Vzorový zámek', 'Příkladný palác', 'Testovací pevnost'],
+    sight: ['Ukázková jeskyně', 'Vzorový kaňon', 'Příkladná vyhlídka'],
+  }[cat] || [];
+  return {
+    items: names.map((name, i) => {
+      const a = ((i * 97 + cat.length * 31) * Math.PI) / 180;
+      const d = 0.8 + i * 0.9;
+      return {
+        id: `demoCat${cat}${i}`, name, description: 'demo data', descLang: 'cs', lat: lat + Math.sin(a) * d, lon: lon + Math.cos(a) * d * 1.4, sitelinks: 50 - i, image: null, url: null,
+        extract: 'Vymyšlené místo pro ukázku aplikace (DEMO režim).', cats: [cat], nature: cat !== 'castle',
+      };
+    }),
+  };
 }
 
 /** DEMO režim: vymyšlený přehled země kolem bodu (50–450 km). */
@@ -1143,13 +1265,14 @@ export function mockCountry({ lat, lon }) {
   const out = {};
   let i = 0;
   for (const g of COUNTRY_KINDS) {
-    out[g] = names[g].map((name) => {
+    out[g] = names[g].map((name, j) => {
       const a = (i * 137.5 * Math.PI) / 180;
       const d = 0.5 + (i % 5) * 0.8;
       i++;
       return {
         id: `demoCountry${i}`, name, description: 'demo data', descLang: 'cs', lat: lat + Math.sin(a) * d, lon: lon + Math.cos(a) * d * 1.4, sitelinks: 100 - i * 4,
         image: null, url: null, unesco: g === 'unesco', extract: 'Vymyšlené místo pro ukázku aplikace (DEMO režim).', ...(g === 'city' || g === 'dest' ? { blurb: 'demo data' } : {}),
+        cats: g === 'dest' ? [['beach', 'lake', 'mountain'][j]] : [], nature: g === 'park' || g === 'dest',
       };
     });
   }
