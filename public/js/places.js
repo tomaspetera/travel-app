@@ -540,13 +540,15 @@
   function planHtml(plan, center) {
     if (!plan) return '';
     const warn = (plan.warnings || []).map(w => `<div class="note warn" style="margin-bottom:10px">⚠️ <div>${esc(w)}</div></div>`).join('');
+    // program v místě, kde se nespí (hotel z okolí – Cesta): první místo dne od centra, ne od ubytování
+    const fromC = center.startAt === 'center';
     return warn + plan.days.map((d, i) => {
       const { trip, url, mapy } = dayRoute(center, d);
       return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? (d.half ? ' · výlet do okolí' : ' · celodenní výlet') : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
         ${dayLinks(url, mapy)}</h4>
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${minTxt(p.visitMin)}</span>
-          ${inclHtml(p, 'dp-walk')}<div class="dp-walk">${!p.transit && !(p.fromPrevKm >= 0.1) ? (j === 0 ? 'hned u ubytování' : 'hned vedle') // Casa Amatller vedle Casa Batlló – ne „0 km pěšky (~0 min)“
-            : `${j === 0 ? 'od ubytování' : 'dál'} ${p.transit ? `${num(p.fromPrevKm)} km – MHD/taxi` : `${num(p.fromPrevKm)}\u00a0km pěšky (~${minTxt(p.fromPrevMin)})`}`}</div></div>
+          ${inclHtml(p, 'dp-walk')}<div class="dp-walk">${!p.transit && !(p.fromPrevKm >= 0.1) ? (j === 0 ? (fromC ? 'hned v centru' : 'hned u ubytování') : 'hned vedle') // Casa Amatller vedle Casa Batlló – ne „0 km pěšky (~0 min)“
+            : `${j === 0 ? (fromC ? 'od centra' : 'od ubytování') : 'dál'} ${p.transit ? `${num(p.fromPrevKm)} km – MHD/taxi` : `${num(p.fromPrevKm)}\u00a0km pěšky (~${minTxt(p.fromPrevMin)})`}`}</div></div>
           <button type="button" title="Vyřadit z plánu" data-drop="${esc(p.id)}">✕</button></div>`).join('')
           : `<div class="faint" style="font-size:13px;padding:6px 0">${d.cap ? 'Volno – odpočinek, jídlo, procházka.' : 'Den cesty – bez programu.'}</div>`}
         ${d.items.length && d.kind !== 'daytrip' ? `<div class="faint" style="font-size:11.5px;margin-top:4px">celkem ~${minTxt(d.minutes)} prohlídek · ${num(d.walkKm)} km pěšky</div>` : ''}
@@ -596,7 +598,7 @@
    */
   async function renderPlanner(host, opts) {
     const st = { ...prefsOf(opts.plan?.prefs, opts), items: [], map: null, layers: null };
-    const center = { lat: opts.lat, lon: opts.lon, label: opts.label, city: opts.city, country: opts.country };
+    const center = { lat: opts.lat, lon: opts.lon, label: opts.label, city: opts.city, country: opts.country, ...(opts.startAt === 'center' ? { startAt: 'center' } : {}) };
     host.innerHTML = `${plannerControls(st)}<div class="ex-layout"><div><div id="tpPlan"><div class="loading-row"><span class="spin dark"></span> Hledám, co stojí za vidění, a skládám program…</div></div></div><div class="ex-map" id="tpMap"></div></div>`;
     st.map = makeMap($('#tpMap', host), center);
     let seq = 0;
