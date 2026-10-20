@@ -18,7 +18,9 @@
   ];
   const DAY_COLORS = ['#5b8cff', '#f59e0b', '#22c55e', '#ec4899', '#14b8a6', '#a855f7', '#ef4444', '#0ea5e9'];
   // all = místa načtená ze serveru (pro loaded.radius), items = z nich ta v právě zvoleném okruhu
-  const ex = { place: null, all: [], items: [], loaded: null, cat: '', radius: 10, plan: null, interests: new Set(), pace: 'normal', days: 3, start: '', mode: 'city', transport: 'car', trips: {}, tripDays: { day: 2, loop: 4 }, tripEx: new Set(), tripMust: new Set(), tripInterests: new Set(), ms: null,
+  // far = místa v okolí pro okruh 50/100 km ({ place, items, busy, err }), country = přehled země ({ place, data, busy, err }),
+  // lastKm = okruh v km před přepnutím na celou zemi
+  const ex = { place: null, all: [], items: [], loaded: null, far: null, country: null, lastKm: 10, cat: '', radius: 10, plan: null, interests: new Set(), pace: 'normal', days: 3, start: '', mode: 'city', transport: 'car', trips: {}, tripDays: { day: 2, loop: 4 }, tripEx: new Set(), tripMust: new Set(), tripInterests: new Set(), ms: null,
     errs: {}, recent: [], listOpen: false, restored: false,
     bike: { km: 40, bike: 'trekking', scenery: 'mixed', hills: 'normal', variant: 0, kind: 'loop' }, bikeRoute: null, trainRoute: null,
     hike: { km: 10, scenery: 'mixed', hills: 'normal', variant: 0 }, hikeRoute: null };
@@ -77,9 +79,27 @@
   const placesTxt = n => plural(n, 'místo', 'místa', 'míst');
   // „vybráno 1 místo“, „vybrána 3 místa“, „vybráno 7 míst“
   const mustTxt = n => `${n >= 2 && n <= 4 ? 'vybrána' : 'vybráno'} ${placesTxt(n)}`;
-  const RADII = [3, 5, 10, 20];
-  // Okruh se zmenšuje v prohlížeči nad už načtenými místy; výlety mimo město (daytrip) leží za okruhem vždy.
-  const inRadius = (items, km) => items.filter(x => x.category === 'daytrip' || x.distanceKm == null || x.distanceKm <= km);
+  const RADII = [3, 5, 10, 20, 50, 100];
+  // Okruh 50 a 100 km: místa ve městě do CITY_KM (dotaz na město víc nesnese – server ho omezuje na 25 km) a k nim
+  // nejzajímavější místa v okolí do zvoleného okruhu (cíle výletů, api/poi/trips). COUNTRY = 🌍 celá země (api/poi/country).
+  const CITY_KM = 20;
+  const COUNTRY = 'country';
+  const RAD_OK = [...RADII, COUNTRY];
+  const cityKm = r => (typeof r === 'number' ? Math.min(r, CITY_KM) : 10);
+  const farOn = r => typeof r === 'number' && r > CITY_KM;
+  // Okruh se zmenšuje v prohlížeči nad už načtenými místy; výlety mimo město (daytrip) leží za okruhem vždy –
+  // u okruhu 50/100 km jen ty do něj.
+  const inRadius = (items, km) => items.filter(x => (x.category === 'daytrip' ? !farOn(km) || x.distanceKm == null || x.distanceKm <= km
+    : x.distanceKm == null || x.distanceKm <= km));
+  // Okruh 50/100 km: k místům ve městě cíle z okolí (místo výletů, které už seznam má – ty z plánovače výletů mají
+  // úplnější údaje), seřazené podle významu
+  const withFar = (all, far) => {
+    if (!far?.length) return all;
+    const ids = new Set(far.map(x => x.id));
+    return [...all.filter(x => !ids.has(x.id)), ...[...far].sort((a, b) => (b.score || 0) - (a.score || 0))];
+  };
+  // Doba jízdy autem z místa (vzdušnou čarou × 1,3 silnicí, ~70 km/h), na 5 min – jen orientačně
+  const driveMin = km => Math.max(10, Math.round((km * 1.3 / 70 * 60) / 5) * 5);
   // Nový dotaz jen při zvětšení nad to, co je načtené.
   const needsFetch = (loadedKm, km) => !(loadedKm >= km);
   // Místa za zvoleným okruhem (načtená pro větší): program je nesmí vybrat – kromě těch, která si uživatel přidal sám.
@@ -104,10 +124,13 @@
     list: ['První načtení místa trvá obvykle 20–40 s, příště je hned.', 'Pořád načítám – u nového místa server stahuje data z Wikidat a popisy z Wikipedie, někdy i přes půl minuty. Příště už to bude hned.'],
     city: ['', 'Trvá to déle než obvykle – server data o místech zřejmě načítá znovu (i 20–40 s). Pak už to bude hned.'],
     trips: ['Poprvé to pro nové místo trvá obvykle 20–40 s, příště je hned.', 'Pořád hledám – cíle výletů v okolí 120 km se z Wikidat načítají pomalu, někdy i přes půl minuty. Příště už to bude hned.'],
+    far: ['Poprvé to pro nové místo trvá obvykle 20–60 s, příště je hned.', 'Pořád hledám – místa v okolí se z Wikidat načítají pomalu, někdy i přes minutu. Příště už to bude hned.'],
+    country: ['Poprvé to trvá obvykle 5–15 s, příště je hned.', 'Pořád načítám – Wikivoyage a Wikidata odpovídají pomalu. Příště už to bude hned.'],
     train: ['Nádraží v okolí se poprvé hledají obvykle 20–40 s.', 'Pořád hledám – nádraží se z Wikidat načítají pomalu, někdy i přes půl minuty. Příště už to bude rychlejší.'],
     route: ['', 'Trvá to déle než obvykle – plánovač tras (BRouter) nebo server odpovídá pomalu. Zkouším to dál.'],
   };
-  const WAIT_LEAD = { list: 'Hledám zajímavá místa kolem:', city: 'Skládám program…', trips: 'Hledám cíle výletů…', train: 'Hledám nádraží a trasu…', route: 'Plánuju trasu…' };
+  const WAIT_LEAD = { list: 'Hledám zajímavá místa kolem:', city: 'Skládám program…', trips: 'Hledám cíle výletů…', train: 'Hledám nádraží a trasu…', route: 'Plánuju trasu…',
+    far: 'Hledám nejzajímavější místa v okolí…', country: 'Hledám to nejlepší v zemi…' };
   const waitHtml = (kind, slow, label, note) => `<div class="loading-row ex-busy" role="status"><span class="spin dark"></span><div><b>${esc(kind === 'list' ? `${WAIT_LEAD.list} ${label}…` : WAIT_LEAD[kind])}</b>${
     (note || WAIT[kind][slow ? 1 : 0]) ? `<div class="ex-wait">${esc(note || WAIT[kind][slow ? 1 : 0])}</div>` : ''}</div></div>`;
   const ERR_LEAD = { city: 'Program se nepodařilo sestavit', trips: 'Výlety se nepodařilo naplánovat', route: 'Trasu se nepodařilo naplánovat', train: 'Nádraží a trasu se nepodařilo najít' };
@@ -145,7 +168,7 @@
     const start = okStart(o.start, today) ? o.start : undefined;
     const r = {
       // „Moje okolí“ se neobnoví – poloha se mění (jako u „Naposledy“)
-      place: place && !place.geo ? place : null, radius: pick1(o.radius, RADII), mode: pick1(o.mode, ids(MODES)),
+      place: place && !place.geo ? place : null, radius: pick1(o.radius, RAD_OK), mode: pick1(o.mode, ids(MODES)),
       start, datePicked: start && o.datePicked === true ? true : undefined, // vybraný termín (ne výchozí zítřek) – „Najít lety sem“ přesně
       days: pick1(o.days, [1, 2, 3, 4, 5, 6, 7, 10]), transport: pick1(o.transport, ids(TRANSPORTS)), pace: pick1(o.pace, ['relaxed', 'normal', 'intense']),
       tripDays: { day: pick1(ob(o.tripDays).day, [1, 2, 3, 4, 5, 7]), loop: pick1(ob(o.tripDays).loop, [2, 3, 4, 5, 6, 7, 10]) },
@@ -353,15 +376,16 @@
     }
   }
 
-  function focusOnMap(ms, p) {
+  function focusOnMap(ms, p, zoom = 15) {
     if (!ms?.map) return;
-    ms.map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(ms.map.getZoom(), 15) });
+    ms.map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(ms.map.getZoom(), zoom) });
     const mk = ms.byId?.get(p.id);
     if (mk && !mk.getPopup().isOpen()) mk.togglePopup();
   }
 
   // Program ve městě: body podle dne (barva + pořadí) nebo kategorie, pěší trasy dnů čárkovaně.
-  function drawOnMap(state, center, items, plan, onClick) {
+  // fitAll: mapa obsáhne i výlety mimo město (okruh 50/100 km)
+  function drawOnMap(state, center, items, plan, onClick, fitAll = false) {
     if (!state.map) return;
     const dayOf = new Map();
     (plan?.days || []).forEach((d, i) => d.items.forEach((p, j) => dayOf.set(p.id, { i, j })));
@@ -373,7 +397,7 @@
     const lines = (plan?.days || []).filter(d => d.items.length && d.kind !== 'daytrip')
       .map(d => ({ color: DAY_COLORS[plan.days.indexOf(d) % DAY_COLORS.length], coords: [[center.lon, center.lat], ...d.items.map(p => [p.lon, p.lat])] }));
     // výlety mimo město nepřibližují mapu, pokud jich je víc (jinak by město bylo malinké)
-    const fitIds = new Set(items.filter(p => p.category !== 'daytrip' || items.length < 5 || dayOf.has(p.id)).map(p => p.id));
+    const fitIds = fitAll ? null : new Set(items.filter(p => p.category !== 'daytrip' || items.length < 5 || dayOf.has(p.id)).map(p => p.id));
     paintMap(state.map, center, pts, lines, onClick, fitIds);
   }
 
@@ -521,12 +545,13 @@
     return `<div class="poi" data-poi="${esc(p.id)}">
       <div class="poi-img" ${p.image ? `style="background-image:url('${esc(cssUrl(p.image))}')"` : ''}>${p.image ? '' : picon(p)}</div>
       <div><div class="poi-name">${picon(p)} ${esc(p.name)}</div>
-        <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${num(p.distanceKm)} km` : ''}${p.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : p.heritage ? ' · památka' : ''}${p.wikivoyage ? ' · <b style="color:var(--good)" title="Místo doporučuje cestovní průvodce Wikivoyage">👍 doporučuje Wikivoyage</b>' : ''}</div>
+        <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${num(p.distanceKm)} km` : ''}${opts.drive && p.distanceKm != null ? ` · ~${minTxt(driveMin(p.distanceKm))} autem` : ''}${p.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : p.heritage ? ' · památka' : ''}${p.wikivoyage ? ' · <b style="color:var(--good)" title="Místo doporučuje cestovní průvodce Wikivoyage">👍 doporučuje Wikivoyage</b>' : ''}</div>
         ${inclHtml(p, 'poi-inc')}<div class="poi-desc">${descHtml(p.extract || p.description || '', p.descLang)}</div>
         <div class="poi-acts">${p.url ? `<a href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Wikipedie ↗</a>` : ''}
           <a href="${esc(gmSearch(opts.center ? poiQ(p, opts.center) : p.name))}" target="_blank" rel="noopener" data-gm onclick="event.stopPropagation()">Google Maps ↗</a>
           ${opts.toggle ? (opts.inPlan?.has(p.id) ? '<span class="poi-in">✓ v plánu</span>' : mustBtn(p.id, opts.must?.has(p.id))) : ''}
-          ${opts.tripToggle ? `<button type="button" class="linkbtn" data-tmust="${esc(p.id)}">+ přidat do výletu</button>` : ''}</div></div>
+          ${opts.tripToggle ? `<button type="button" class="linkbtn" data-tmust="${esc(p.id)}">+ přidat do výletu</button>` : ''}
+          ${opts.tripGo ? `<button type="button" class="linkbtn" data-tgo="${esc(p.id)}" title="Naplánovat jednodenní výlety s tímto místem">🎒 Výlet sem</button>` : ''}</div></div>
     </div>`;
   }
 
@@ -721,7 +746,7 @@
         <div class="field" style="margin:0"><label>Kam se chceš podívat? <span class="lab-hint">město, obec, ostrov, místo…</span></label>
           <div style="position:relative"><input class="input${ex.place ? ' has-clear' : ''}" id="exQ" placeholder="Např. Lisabon, nebo „Lisabon na 3 dny“" autocomplete="off" value="${esc(ex.place?.label || '')}">${ex.place ? '<button type="button" class="in-clear" id="exClear" title="Začít znovu – zrušit místo i plány" aria-label="Začít znovu">✕</button>' : ''}<div class="pi-dd" id="exDd" hidden></div></div></div>
         <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">📍 Tady</button>
-        <div class="field" style="margin:0"><label>Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}</select></div>
+        <div class="field" style="margin:0"><label>Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}<option value="${COUNTRY}" ${ex.radius === COUNTRY ? 'selected' : ''}>🌍 Celá země</option></select></div>
       </div><div class="ex-recent" id="exRecent" hidden></div>${ex.place || !window.Smart ? '' : `<div class="ex-try"><span class="faint">✨ Zkus:</span>${EX_TRY.map((x, i) => `<button type="button" class="fchip" data-extry="${i}">${esc(x)}</button>`).join('')}</div>`}</div>
       <div id="exBody">${ex.place ? '' : inspHtml(insp)}</div>
       <button type="button" class="ex-back" id="exBack" hidden></button>`;
@@ -743,8 +768,9 @@
     // ✨ příklady vět: vepsat do hledání a spustit jako Enter (místo, druh plánu, dny)
     $$('[data-extry]', root).forEach(b => b.onclick = () => { const q = $('#exQ', root); q.value = EX_TRY[+b.dataset.extry]; q.focus(); q.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
     if (window.Photos) Photos.paint(root);
-    // Návrat do Objevuj: už načtený seznam se jen překreslí (žádný nový dotaz na server).
-    if (ex.place && ex.loaded?.place === ex.place && !needsFetch(ex.loaded.radius, ex.radius)) paintExplore();
+    // Návrat do Objevuj: už načtený seznam (přehled země) se jen překreslí (žádný nový dotaz na server).
+    if (ex.place && ex.radius === COUNTRY) { if (ex.country?.place === ex.place && ex.country.data) paintCountry(); else loadCountry(); }
+    else if (ex.place && ex.loaded?.place === ex.place && !needsFetch(ex.loaded.radius, cityKm(ex.radius))) paintExplore();
     else if (ex.place) loadExplore();
   }
 
@@ -815,6 +841,8 @@
     // věta bez druhu plánu, ale s dny nebo zájmy („Lisabon na 3 dny“, „Řím s dětmi“) = program ve městě – ne kolo
     // z minulé věty; oblast na víc dní („Toskánsko na 4 dny“, „Kréta na týden“) = okruh po oblasti, ne program jen
     // v jejím městě (Florencie)
+    // věta plánuje místo – ne přehled celé země
+    if (ex.radius === COUNTRY) ex.radius = ex.lastKm || 10;
     if (px.mode) ex.mode = px.mode;
     else if (s && s.region && px.days >= 2) ex.mode = 'loop';
     else if (px.days || px.interests.length) ex.mode = 'city';
@@ -847,7 +875,7 @@
   function forget() {
     ex.listAll = false;
     ex.plan = null; ex.trips = {}; ex.bikeRoute = null; ex.trainRoute = null; ex.hikeRoute = null; ex.tripEx.clear(); ex.tripMust.clear();
-    ex.cat = ''; ex.planState = null; ex.errs = {}; ex.loaded = null; ex.all = []; ex.items = [];
+    ex.cat = ''; ex.planState = null; ex.errs = {}; ex.loaded = null; ex.all = []; ex.items = []; ex.far = null; ex.country = null;
     for (const k of Object.keys(busy)) delete busy[k];
     redo.clear();
     clearTimeout(soonT); ex.replanNow = null; // odložené přeplánování patřilo předchozímu místu
@@ -884,6 +912,7 @@
     const d = [1, 2, 3, 4, 5, 6, 7, 10].filter(x => x <= days).pop();
     if (d) ex.days = d;
     ex.mode = 'city';
+    if (ex.radius === COUNTRY) ex.radius = ex.lastKm || 10; // program ve městě, ne přehled země
     setPlace(p);
     go('explore'); // renderExplore: místa z náhledu hned, jinak dotaz
     return true;
@@ -904,7 +933,7 @@
   /** Místa pro náhled cíle p ({ lat, lon }) → Promise({ items, demo, km }); znovu otevřený cíl bez nového dotazu. */
   function preview(p) {
     ensureUi();
-    const km = Math.max(PREVIEW_KM, ex.radius), k = pvKey(p), hit = pvFor(p, km);
+    const km = Math.max(PREVIEW_KM, cityKm(ex.radius)), k = pvKey(p), hit = pvFor(p, km);
     if (hit) return hit.p;
     const x = { km, at: Date.now() };
     x.p = getJson(poiUrl(p, km)).then(j => ({ items: j.items || [], demo: Boolean(j.demo), km }), e => { if (pv.get(k) === x) pv.delete(k); throw e; });
@@ -936,7 +965,7 @@
    */
   function previewHtml(items, km = PREVIEW_KM) {
     ensureUi();
-    const r = Math.min(km, ex.radius);
+    const r = Math.min(km, cityKm(ex.radius));
     const all = inRadius((items || []).filter(x => x && x.name), r), list = previewPick(all);
     if (!list.length) return `<div class="faint dp-none">Do ${r} km od centra jsem nenašel nic, co by stálo za zmínku – zkus v Objevuj větší okruh nebo výlety do okolí.</div>`;
     const trips = all.filter(x => x.category === 'daytrip').length;
@@ -954,14 +983,17 @@
     $$('[data-recent]', el).forEach(b => b.onclick = () => openPlace(list[+b.dataset.recent]));
   }
 
-  // Okruh: zmenšení jen vyfiltruje načtená místa (hned), nový dotaz až při zvětšení nad načtené.
+  // Okruh: zmenšení jen vyfiltruje načtená místa (hned), nový dotaz až při zvětšení nad načtené (50/100 km: místa ve městě
+  // do CITY_KM a k nim místa v okolí); celá země = přehled země (jednou na místo).
   function setRadius(km) {
+    if (typeof ex.radius === 'number' && km === COUNTRY) ex.lastKm = ex.radius;
     ex.radius = km;
     remember();
     const sel = $('#exRad');
     if (sel) sel.value = String(km);
     if (!ex.place) return;
-    if (ex.loaded?.place === ex.place && !needsFetch(ex.loaded.radius, km)) paintExplore();
+    if (km === COUNTRY) { if (ex.country?.place === ex.place && ex.country.data) paintCountry(); else loadCountry(); return; }
+    if (ex.loaded?.place === ex.place && !needsFetch(ex.loaded.radius, cityKm(km))) paintExplore();
     else loadExplore();
   }
 
@@ -1045,7 +1077,7 @@
       } else if (e.key === 'Escape') dd.hidden = true;
     };
     q.onblur = () => setTimeout(() => { dd.hidden = true; }, 150);
-    $('#exRad', root).onchange = e => setRadius(+e.target.value);
+    $('#exRad', root).onchange = e => setRadius(e.target.value === COUNTRY ? COUNTRY : +e.target.value);
     $('#exGeo', root).onclick = () => {
       if (!navigator.geolocation) return toast('Prohlížeč nepodporuje polohu', 'err');
       navigator.geolocation.getCurrentPosition(p => pick({ lat: p.coords.latitude, lon: p.coords.longitude, label: 'Moje okolí', geo: true }), () => toast('Polohu se nepodařilo zjistit', 'err'), { timeout: 10000 });
@@ -1054,9 +1086,10 @@
 
   let exSeq = 0;
   async function loadExplore() {
+    if (ex.radius === COUNTRY) return loadCountry();
     const body = $('#exBody'); if (!body) return;
     const p = ex.place;
-    const km = ex.radius;
+    const km = cityKm(ex.radius);
     const my = ++exSeq; // pomalá starší odpověď nesmí přepsat novější místo/okruh
     hideBack();
     const wait = slow => { if (my === exSeq && body.isConnected) body.innerHTML = waitHtml('list', slow, p.label); };
@@ -1079,6 +1112,115 @@
       clearTimeout(slowT);
     }
     paintExplore();
+  }
+
+  // Okruh 50/100 km: místa v okolí (cíle výletů do ~120 km) jednou na místo; seznam ve městě je mezitím vidět.
+  async function loadFar() {
+    const p = ex.place;
+    if (!p || (ex.far?.place === p && !ex.far.err)) return;
+    const f = ex.far = { place: p, items: [], busy: true, t0: Date.now() };
+    const slowT = setTimeout(() => { if (ex.far === f && f.busy && farOn(ex.radius) && ex.place === p) paintExplore(); }, SLOW_MS);
+    try {
+      const j = await getJson(`api/poi/trips?lat=${p.lat}&lon=${p.lon}`);
+      f.items = j.items || [];
+    } catch (e) {
+      f.err = e.message;
+    } finally {
+      f.busy = false;
+      clearTimeout(slowT);
+    }
+    if (ex.far === f && ex.place === p && farOn(ex.radius)) paintExplore();
+  }
+
+  /* ---------- 🌍 celá země: města a cíle z Wikivoyage, UNESCO, národní parky ---------- */
+  const C_GROUPS = [['city', '🏙️', 'Města', 'Město'], ['dest', '🧭', 'Další cíle', 'Cíl'], ['unesco', '🏛️', 'Památky UNESCO', 'UNESCO'], ['park', '🏞️', 'Národní parky', 'Národní park']];
+  const countryItems = d => C_GROUPS.flatMap(([g]) => (Array.isArray(d?.[g]) ? d[g] : []).filter(x => x && x.name && okPt(x)).map(x => ({ ...x, group: g })));
+  // Země místa česky (byIso), jinak z odpovědi serveru
+  const countryName = (p, d) => d?.country || countryCs(p.cc) || p.country || '';
+  // země jako cíl hledání letů (cc:IT – všechna letiště země)
+  const countryTarget = (cc, name) => (/^[A-Z]{2}$/.test(cc || '') && name ? { id: `cc:${cc}`, type: 'country', label: name, flag: flag(cc) } : null);
+  /** Karta cíle v přehledu země: fotka, druh, vzdálenost od místa, popis (český, jinak úryvek z Wikivoyage) a akce. */
+  function countryCard(x, g, center) {
+    const desc = x.extract || x.description || x.blurb || '';
+    return `<div class="poi" data-cpoi="${esc(x.id)}">
+      <div class="poi-img" ${x.image ? `style="background-image:url('${esc(cssUrl(x.image))}')"` : ''}>${x.image ? '' : g[1]}</div>
+      <div><div class="poi-name">${g[1]} ${esc(x.name)}</div>
+        <div class="poi-meta">${esc(g[3])}${x.distanceKm != null ? ` · ${num(x.distanceKm)} km` : ''}${x.unesco && g[0] !== 'unesco' ? ' · <b style="color:var(--warn)">UNESCO</b>' : ''}${x.wv ? ' · <b style="color:var(--good)" title="Vybral cestovní průvodce Wikivoyage">👍 Wikivoyage</b>' : ''}</div>
+        <div class="poi-desc">${descHtml(desc, x.extract || x.description ? x.descLang : 'en')}</div>
+        <div class="poi-acts"><button type="button" class="linkbtn" data-cgo="${esc(x.id)}">🔎 Prozkoumat</button>${x.url ? `<a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Wikipedie ↗</a>` : ''}
+          <a href="${esc(gmSearch(gq(x.name, center.country || '')))}" target="_blank" rel="noopener" data-gm onclick="event.stopPropagation()">Google Maps ↗</a></div></div>
+    </div>`;
+  }
+  async function loadCountry() {
+    const body = $('#exBody'); if (!body) return;
+    const p = ex.place;
+    const my = ++exSeq; // pomalá starší odpověď nesmí přepsat novější místo/okruh
+    hideBack();
+    const wait = slow => { if (my === exSeq && body.isConnected) body.innerHTML = waitHtml('country', slow, ''); };
+    wait(false);
+    const slowT = setTimeout(() => wait(true), SLOW_MS);
+    try {
+      const j = await getJson(`api/poi/country?${p.cc ? `cc=${enc(p.cc)}&` : ''}lat=${p.lat}&lon=${p.lon}`);
+      if (my !== exSeq) return;
+      ex.country = { place: p, data: j };
+    } catch (e) {
+      if (my !== exSeq) return;
+      if (body.isConnected) {
+        body.innerHTML = errHtml('Přehled země se nepodařilo načíst', e.message, 'exRetry');
+        $('#exRetry', body).onclick = () => loadCountry();
+      }
+      return;
+    } finally {
+      clearTimeout(slowT);
+    }
+    paintCountry();
+  }
+  function paintCountry() {
+    const body = $('#exBody'); if (!body) return;
+    const p = ex.place, d = ex.country?.data || {};
+    hideBack();
+    const name = countryName(p, d), tgt = countryTarget(d.cc || p.cc, name);
+    const all = countryItems(d);
+    const sec = ([g, ico, title]) => {
+      const list = all.filter(x => x.group === g);
+      return list.length ? `<div class="poi-sec"><b>${ico} ${esc(title)}</b> <span class="faint">(${list.length})</span></div>${list.map(x => countryCard(x, C_GROUPS.find(c => c[0] === g), p)).join('')}` : '';
+    };
+    const lastKm = ex.lastKm || 10;
+    body.innerHTML = `${d.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
+      <div class="section-head ex-head" style="margin-top:6px"><h2>${flag(d.cc || p.cc || '')} ${esc(name || 'Celá země')} · to nejlepší v zemi</h2><span class="ex-head-act">${window.Flights && tgt ? `<button type="button" class="btn sm ghost" id="exCFly" title="Hledat lety kamkoliv do země">✈️ Najít lety sem</button>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span></div>
+      <div class="muted ex-cnote">Města a další cíle, které vybral cestovní průvodce Wikivoyage, památky UNESCO a národní parky. Vzdálenost od místa ${esc(p.label)} vzdušnou čarou. 🔎 Prozkoumat ukáže, co je v místě k vidění.
+        <span class="ex-cact"><button type="button" class="fchip" data-cback="city">🏙️ ${esc(p.label)} · okruh ${lastKm} km</button><button type="button" class="fchip" data-cback="loop">🧭 Okruh odsud na pár dní</button></span></div>
+      ${d.degraded ? '<div class="faint" style="font-size:12px;margin:6px 0">Část údajů se teď nenačetla (popisy nebo výběr Wikivoyage) – zkus to později znovu.</div>' : ''}
+      <div class="ex-layout ex-main"><div id="exMapSlot"></div>
+      <div class="ex-places"><div class="poi-list all" id="exCList">${C_GROUPS.map(sec).join('') || '<div class="empty">Pro tuhle zemi jsem nic nenašel.</div>'}</div></div></div>
+      <div class="faint" style="font-size:11.5px;margin-top:10px">Zdroj: Wikivoyage, Wikidata a Wikipedie (CC BY-SA), mapa © OpenFreeMap, OpenMapTiles, OpenStreetMap.</div>`;
+    const ms = exploreMap(p);
+    $('#exMapSlot', body).replaceWith(ms.el);
+    if (ms.map) ms.map.resize();
+    const ico = g => (C_GROUPS.find(c => c[0] === g) || C_GROUPS[0])[1];
+    const col = { city: '#5b8cff', dest: '#14b8a6', unesco: '#f59e0b', park: '#22c55e' };
+    paintMap(ms, p, all.map(x => ({ id: x.id, lat: x.lat, lon: x.lon, color: col[x.group], label: `${ico(x.group)} ${x.name}`, q: gq(x.name, name), place: x })), [],
+      x => { const el = $(`#exCList [data-cpoi="${CSS.escape(x.id)}"]`); if (el) { if (!stacked()) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); flash(el); } }, null);
+    // 🔎 Prozkoumat: Objevuj toho místa jako po výběru v hledání (okruh 10 km)
+    const go = x => {
+      ex.radius = 10;
+      const sel = $('#exRad'); if (sel) sel.value = String(ex.radius);
+      openPlace({ lat: x.lat, lon: x.lon, label: x.name, cc: d.cc || p.cc || '', country: name });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    $$('[data-cgo]', body).forEach(b => b.onclick = e => { e.stopPropagation(); const x = all.find(i => i.id === b.dataset.cgo); if (x) go(x); });
+    $$('#exCList [data-cpoi]', body).forEach(c => c.onclick = e => {
+      if (e.target.closest('a,button')) return;
+      const x = all.find(i => i.id === c.dataset.cpoi);
+      if (x && ms.byId?.has(x.id)) { focusOnMap(ms, x, 8); bringMap(ms, 'seznam'); }
+    });
+    $$('[data-cback]', body).forEach(b => b.onclick = () => {
+      if (b.dataset.cback === 'loop') { ex.mode = 'loop'; ex.planOpen = true; }
+      setRadius(ex.lastKm || 10);
+    });
+    const fl = $('#exCFly', body); if (fl) fl.onclick = () => Flights.searchTo([tgt]);
+    const rs = $('#exReset', body); if (rs) rs.onclick = () => resetExplore();
+    remember();
   }
 
   /* ---------- telefon: mapa pod plánem a nad seznamem, klepnutí na kartu k ní odroluje ---------- */
@@ -1446,18 +1588,23 @@
     soonT = setTimeout(() => { if (curKey() === key && ex.replanNow) ex.replanNow(); }, 400);
   };
   const mustHtml = n => (n ? `★ ${mustTxt(n)} <button type="button" class="linkbtn" data-mustclear>zrušit výběr</button>` : '');
-  // Prázdný okruh: rovnou největší okruh (jeden dotaz, menší pak filtruje prohlížeč) a u programu ve městě
-  // tip na režimy, které fungují i bez památek v okolí.
+  // Prázdný okruh: rovnou největší okruh ve městě (jeden dotaz, menší pak filtruje prohlížeč), z něj okruh 100 km
+  // (nejzajímavější místa v okolí) a u programu ve městě tip na režimy, které fungují i bez památek v okolí.
   const MAX_R = RADII.at(-1);
+  const nextR = r => (typeof r !== 'number' ? null : r < CITY_KM ? CITY_KM : r < MAX_R ? MAX_R : null);
   const emptyHtml = (radius, mode) => `<div class="empty" style="padding:26px 12px">V okruhu ${radius} km jsem nic zajímavého nenašel.${
-    radius < MAX_R ? `<div style="margin-top:12px"><button type="button" class="btn sm" data-rad="${MAX_R}">Zvětšit okruh na ${MAX_R} km</button></div>` : ''}${
+    nextR(radius) ? `<div style="margin-top:12px"><button type="button" class="btn sm" data-rad="${nextR(radius)}">Zvětšit okruh na ${nextR(radius)} km</button></div>` : ''}${
     mode === 'city' ? `<div class="ex-alt"><span>I tady naplánuju:</span>${MODES.filter(([id]) => ['day', 'bike', 'hike'].includes(id)).map(([id, l]) => `<button type="button" class="fchip" data-mode="${id}">${l}</button>`).join('')}</div>` : ''}</div>`;
 
   function paintExplore() {
+    // celá země: přehled země (doběhlý plán nebo místa v okolí ho nepřepíšou; načítání ho vykreslí samo)
+    if (ex.radius === COUNTRY) { if (ex.country?.place === ex.place && ex.country.data) paintCountry(); return; }
     const body = $('#exBody'); if (!body) return;
     const p = ex.place;
     hideBack(); // po překreslení původní pozice v seznamu neplatí
-    ex.items = inRadius(ex.all, ex.radius);
+    // okruh 50/100 km: k místům ve městě (do CITY_KM) nejzajímavější místa v okolí do okruhu
+    const far = farOn(ex.radius), fr = far && ex.far?.place === p ? ex.far : null;
+    ex.items = inRadius(far ? withFar(ex.all, fr?.items) : ex.all, ex.radius);
     const cats = [...new Set(ex.items.map(x => x.category))];
     if (ex.cat && !cats.includes(ex.cat)) ex.cat = ''; // filtr kategorie, která v okruhu už není
     const list = ex.items.filter(x => !ex.cat || x.category === ex.cat);
@@ -1483,12 +1630,17 @@
     const cityPlan = Boolean(ex.plan?.days.some(d => d.items.length));
     const hasPlan = routeMode ? rr : road ? trip && trip.days.length : cityPlan;
     const out = routeMode ? routeHtml(rr, p, ex.start) : road ? tripHtml(trip, p) : !ex.plan ? ''
-      : cityPlan ? planHtml(ex.plan, p) : `<div class="empty" style="padding:18px 12px">Program není z čeho sestavit – v okruhu ${ex.radius} km nejsou žádná místa.</div>`;
+      : cityPlan ? planHtml(ex.plan, p) : `<div class="empty" style="padding:18px 12px">Program není z čeho sestavit – v okruhu ${cityKm(ex.radius)} km nejsou žádná místa.</div>`;
     const inPlan = ex.mode === 'city' ? planIds(ex.plan) : new Set();
-    // V režimu výletů jde z výpisu přidat jen výlet mimo město (do programu ve městě patří ostatní).
+    // V režimu výletů jde z výpisu přidat jen výlet mimo město (do programu ve městě patří ostatní). Místo z okolí
+    // (okruh 50/100 km), které program ve městě nezná, nabídne „🎒 Výlet sem“ (jednodenní výlety s ním).
+    const inPool = new Set(ex.all.map(x => x.id));
+    const drive = x => far && x.category === 'daytrip';
     const card = x => (road
-      ? poiCard(x, x.category === 'daytrip' ? { tripToggle: true, center: p } : { center: p })
-      : routeMode ? poiCard(x, { center: p }) : poiCard(x, { toggle: true, must: st.must, inPlan, center: p }));
+      ? poiCard(x, x.category === 'daytrip' ? { tripToggle: true, center: p, drive: drive(x) } : { center: p })
+      : routeMode ? poiCard(x, { center: p, drive: drive(x) })
+        : x.category === 'daytrip' && !inPool.has(x.id) ? poiCard(x, { center: p, drive: true, tripGo: true })
+          : poiCard(x, { toggle: true, must: st.must, inPlan, center: p, drive: drive(x) }));
     const segBtns = (list, attr, cur) => list.map(([id, l]) => `<button type="button" ${attr}="${id}" class="${cur === id ? 'on' : ''}">${l}</button>`).join('');
     const saveBtn = hasPlan ? saveHtml(findTripFor(S.trips, plannerEntry({ rr, trip, plan: ex.plan, place: p, start: ex.start })), S.trips) : '';
     const planLbl = routeMode ? 'Naplánovat trasu' : road ? 'Naplánovat výlet' : 'Sestavit program';
@@ -1507,14 +1659,25 @@
     const errNote = er ? errHtml(errLead(kind, er.other), er.msg, 'exRetry', out ? KEPT[kind] : '') : '';
     const wait = bz ? waitHtml(bz.kind, Date.now() - bz.t0 >= SLOW_MS, '', bz.note) : '';
     const empty = cityN ? '<div class="empty">Nic v této kategorii.</div>' : emptyHtml(ex.radius, ex.mode);
+    // okruh 50/100 km: dva oddíly (ve městě, v okolí) – z každého prvních LIST_TOP, další po „Zobrazit další místa“
+    const cards = xs => xs.map((x, i) => (i < LIST_TOP ? card(x) : card(x).replace('class="', 'class="poi-x '))).join('');
+    const cityL = list.filter(x => x.category !== 'daytrip'), farL = list.filter(x => x.category === 'daytrip');
+    const farState = !far ? '' : fr?.busy ? waitHtml('far', Date.now() - fr.t0 >= SLOW_MS, '')
+      : fr?.err ? errHtml('Místa v okolí se nepodařilo načíst', fr.err, 'exFarRetry', '') : '';
+    const listIn = !far ? cards(list) || empty
+      : `${cityL.length ? `<div class="poi-sec"><b>🏙️ Ve městě do ${CITY_KM} km</b> <span class="faint">(${cityL.length})</span></div>${cards(cityL)}` : ''}
+        ${farL.length || farState ? `<div class="poi-sec"><b>🚗 V okolí do ${ex.radius} km</b> <span class="faint">${farL.length ? `(${farL.length}) · ` : ''}nejzajímavější města, hrady a příroda, doba jízdy autem odhadem</span></div>${farState}${cards(farL)}` : ''}`
+        || empty;
+    const hidden = far ? Math.max(0, cityL.length - LIST_TOP) + Math.max(0, farL.length - LIST_TOP) : Math.max(0, list.length - LIST_TOP);
     const placesIn = `${cats.length ? `<div class="ex-cats"><button type="button" data-cat="" class="${!ex.cat ? 'on' : ''}">Vše</button>${cats.map(c => `<button type="button" data-cat="${c}" class="${ex.cat === c ? 'on' : ''}">${icon(c)} ${(CAT[c] || CAT.sight)[1]}</button>`).join('')}</div>` : ''}
-        <div class="poi-list${ex.listAll ? ' all' : ''}" id="exList">${list.map((x, i) => (i < LIST_TOP ? card(x) : card(x).replace('class="', 'class="poi-x '))).join('') || empty}</div>
-        ${list.length > LIST_TOP && !ex.listAll ? `<button type="button" class="btn ghost poi-morebtn" id="exListMore">Zobrazit další místa (${list.length - LIST_TOP})</button>` : ''}`;
+        <div class="poi-list${ex.listAll ? ' all' : ''}" id="exList">${listIn}</div>
+        ${hidden && !ex.listAll ? `<button type="button" class="btn ghost poi-morebtn" id="exListMore">Zobrazit další místa (${hidden})</button>` : ''}`;
     // Na kole, pěšky a u výletů je hlavní výsledek trasa na mapě – seznam míst ve městě je sbalený.
     const places = ex.mode === 'city' ? `<div class="ex-places">${placesIn}</div>`
       : `<details class="more ex-places" id="exPlaces"${ex.listOpen ? ' open' : ''}><summary>📍 Místa v okolí (${ex.items.length})</summary>${placesIn}</details>`;
     body.innerHTML = `${ex.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
-      <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) : '📍'} ${esc(p.label)} · ${placesTxt(cityN)} do ${ex.radius} km${tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2>${
+      <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) : '📍'} ${esc(p.label)} · ${placesTxt(cityN)} do ${cityKm(ex.radius)} km${far ? (tripN ? ` <span class="ex-head-more">+ ${placesTxt(tripN)} v okolí do ${ex.radius} km</span>` : '')
+          : tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2>${
         `<span class="ex-head-act">${window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">✈️ Najít lety sem</button>' : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span>`}</div>
       <div class="ex-layout ex-main">
       <div class="card step-card ex-plan${ex.planOpen || out || bz || wait ? '' : ' shut'}" id="exPlanCard"><h3 class="ex-plan-h"><button type="button" class="ex-plan-tg" id="exPlanTg">🗓️ Naplánovat <span class="faint ex-plan-hint">– program, výlety, kolo, pěšky</span><span class="ex-plan-chev" aria-hidden="true">▾</span></button></h3>
@@ -1558,7 +1721,7 @@
     else if (trip) drawTrips(st, p, trip, hl);
     // u programu i zastávky mimo načtený seznam (připnuté, za okruhem)
     else if (ex.mode === 'city' && ex.plan) drawOnMap(st, p, withPlanStops(ex.items, ex.plan), ex.plan, hl);
-    else drawOnMap(st, p, list, null, hl);
+    else drawOnMap(st, p, list, null, hl, far);
     // Na mapě je jen to, co je na ní nakreslené. Bez značky (kolo, pěšky, výlety) se karta aspoň zvýrazní
     // a nabídne odkaz do Google Map.
     const focus = (x, el, what) => {
@@ -1741,8 +1904,9 @@
           if (my !== replanSeq[key] || ex.place !== p) return; // mezitím jiné místo nebo novější dotaz
           ex.trips[key] = t;
         } else {
-          // Okruh: server vezme seznam z mezipaměti (načtený okruh) a místa za zvoleným okruhem vynechá.
-          const km = ex.radius;
+          // Okruh: server vezme seznam z mezipaměti (načtený okruh) a místa za zvoleným okruhem vynechá; u okruhu
+          // 50/100 km jen místa ve městě (do CITY_KM) – den programu nevede 90 km daleko.
+          const km = cityKm(ex.radius);
           const plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '09:00', departureTime: null },
             { radius: ex.loaded?.radius || km, exclude: [...st.exclude, ...outsideIds(ex.all, km, st.must)] });
           if (my !== replanSeq[key] || ex.place !== p) return;
@@ -1775,6 +1939,16 @@
     $$('[data-drop]', body).forEach(b => b.onclick = () => { st.exclude.add(b.dataset.drop); st.must.delete(b.dataset.drop); replan(); });
     $$('[data-tdrop]', body).forEach(b => b.onclick = () => { ex.tripEx.add(b.dataset.tdrop); ex.tripMust.delete(b.dataset.tdrop); onlyThisTrip(); replan(); });
     $$('[data-tmust]', body).forEach(b => b.onclick = e => { e.stopPropagation(); ex.tripMust.add(b.dataset.tmust); ex.tripEx.delete(b.dataset.tmust); onlyThisTrip(); replan(); });
+    // 🎒 Výlet sem (místo z okolí v okruhu 50/100 km): jednodenní výlety s tímto místem – naplánují se hned
+    $$('[data-tgo]', body).forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      ex.tripMust.add(b.dataset.tgo); ex.tripEx.delete(b.dataset.tgo);
+      for (const k of new Set([...Object.keys(ex.trips), ...Object.keys(busy)])) if (keyKind(k) === 'trips') dropPlan(k); // plány bez nového cíle
+      ex.mode = 'day'; ex.planOpen = true; ex.autoPlan = true;
+      paintExplore();
+      $('#exPlanCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    on('#exFarRetry', 'onclick', () => loadFar());
     // Uložení: zůstává se v Objevuj (toast s „Otevřít v plánovači“); cesta do stejného místa se stejným začátkem
     // v plánovači už je → přidá se k ní (bez opakování řádků), „jako novou“ založí další.
     const store = asNew => {
@@ -1799,7 +1973,9 @@
     on('#exSaveNew', 'onclick', () => store(true));
     remember();
     // Program pro jiný okruh (okruh se mezitím změnil) se přeplánuje sám – jen když zrovna neběží a neselhal.
-    if (ex.mode === 'city' && ex.plan && ex.plan.radius != null && ex.plan.radius !== ex.radius && !bz && !er) replanSoon('city');
+    if (ex.mode === 'city' && ex.plan && ex.plan.radius != null && ex.plan.radius !== cityKm(ex.radius) && !bz && !er) replanSoon('city');
+    // okruh 50/100 km: místa v okolí (jednou na místo, seznam ve městě je mezitím vidět)
+    if (far && !(ex.far?.place === p)) loadFar();
     // Plán se starým termínem / tempem (režim se přepnul dřív, než se přeplánoval, nebo přeplánování selhalo): zešedlý, bez uložení.
     if (redo.has(seqKey)) {
       $('#exPlanOut', body).classList.add('stale');
@@ -1826,6 +2002,7 @@
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
-      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan },
+      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan,
+      RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, setRadius, paintCountry, loadFar },
   };
 })();

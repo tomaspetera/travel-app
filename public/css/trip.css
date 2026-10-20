@@ -143,6 +143,11 @@ details.more.ex-places>summary::before{content:none}
 .toast svg{flex:none} /* fajfka se vedle dlouhého textu nesmrskne */
 .toast-act{flex:none;margin-left:4px;padding:6px 12px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--accent);font:700 13px Inter,sans-serif;cursor:pointer;white-space:nowrap}
 .ex-head-more{font-size:13px;font-weight:600;color:var(--muted)}
+/* okruh 50/100 km a celá země: oddíly seznamu (ve městě / v okolí; města, UNESCO, národní parky) */
+.poi-sec{margin:6px 2px -2px;font-size:13.5px;line-height:1.35}
+.poi-sec .faint{font-size:12px}
+.ex-cnote{font-size:13px;margin:-4px 0 10px}
+.ex-cact{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .ex-recent{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;font-size:12.5px}
 .ex-recent[hidden]{display:none}
 .ex-mustn{font-size:12.5px;font-weight:700;color:var(--warn);align-self:center}

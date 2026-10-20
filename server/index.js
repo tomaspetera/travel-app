@@ -13,13 +13,13 @@ import { stayProviders } from './providers/stays/index.js';
 import { activeProviders, providerStatus } from './providers/index.js';
 import { fxInfo, loadRates } from './lib/fx.js';
 import { cache } from './lib/cache.js';
-import { airportsNear, getAirport } from './lib/airports.js';
+import { airportsNear, getAirport, countryAt, COUNTRY_BY_ISO } from './lib/airports.js';
 import { accessOpts, airportAccess, carTrip, fuelCountry, normalizeAccess } from './lib/access.js';
 import { addDays, todayYmd } from './lib/dates.js';
 import { searchStays, checkStay } from './lib/stays.js';
 import { partnerLookups } from './lib/partnerids.js';
 import { searchCars } from './lib/cars.js';
-import { findPlaces, findTrips, mockPlaces, mockTrips, placesCached, tripsCached } from './lib/poi.js';
+import { findPlaces, findTrips, mockPlaces, mockTrips, placesCached, tripsCached, countryHighlights, countryCached, countryWithDistance, mockCountry } from './lib/poi.js';
 import { planTrips } from './lib/roadtrip.js';
 import { keepInRegion } from './lib/regions.js';
 import { bikeLoop, mockBikeLoop, hikeLoop, mockHikeLoop, bikeFromStation, mockBikeFromStation } from './lib/bike.js';
@@ -496,6 +496,39 @@ async function route(req, res) {
     if (exploreLimited(req, placesCached({ lat, lon, radiusKm, dayTrips }))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
     const items = config.mock ? mockPlaces({ lat, lon }) : await findPlaces({ lat, lon, radiusKm, dayTrips });
     return sendJson(req, res, 200, { demo: config.mock, items });
+  }
+  if (p === '/api/poi/trips') {
+    // Objevuj s okruhem 50/100 km: nejzajímavější místa v okolí do ~120 km – stejné cíle (a mezipaměť) jako plánovač
+    // výletů, takže „🎒 Výlet sem“ pak nečeká na další dotaz.
+    const lat = Number(url.searchParams.get('lat'));
+    const lon = Number(url.searchParams.get('lon'));
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
+    if (exploreLimited(req, tripsCached({ lat, lon }))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
+    try {
+      const items = config.mock ? mockTrips({ lat, lon }) : await findTrips({ lat, lon });
+      return sendJson(req, res, 200, { demo: config.mock, items });
+    } catch (e) {
+      console.warn(`poi/trips: ${e.message}`);
+      return sendJson(req, res, 503, { error: 'Místa v okolí se teď nepodařilo načíst (Wikidata neodpovídá) – zkus to prosím za chvíli.' });
+    }
+  }
+  if (p === '/api/poi/country') {
+    // 🌍 Celá země v Objevuj: města a cíle z Wikivoyage, UNESCO a národní parky; vzdálenost od místa (lat/lon), země podle
+    // kódu (cc), jinak podle polohy.
+    const lat = url.searchParams.get('lat') == null ? NaN : Number(url.searchParams.get('lat'));
+    const lon = url.searchParams.get('lon') == null ? NaN : Number(url.searchParams.get('lon'));
+    const at = Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+    const raw = (url.searchParams.get('cc') || '').toUpperCase();
+    const cc = /^[A-Z]{2}$/.test(raw) ? raw : at ? countryAt(lat, lon) : '';
+    if (!cc || !COUNTRY_BY_ISO.has(cc)) return sendJson(req, res, 400, { error: 'Neznámá země.' });
+    if (exploreLimited(req, countryCached(cc))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
+    try {
+      const g = config.mock ? mockCountry(at ? { lat, lon } : { lat: 50, lon: 15 }) : await countryHighlights(cc);
+      return sendJson(req, res, 200, { demo: config.mock, cc, country: COUNTRY_BY_ISO.get(cc).cs, degraded: Boolean(g.degraded), ...countryWithDistance(g, at ? lat : NaN, at ? lon : NaN) });
+    } catch (e) {
+      console.warn(`poi/country ${cc}: ${e.message}`);
+      return sendJson(req, res, 503, { error: 'Přehled země se teď nepodařilo načíst (Wikidata neodpovídá) – zkus to prosím za chvíli.' });
+    }
   }
   if (p === '/api/itinerary' && req.method === 'POST') {
     let b;
