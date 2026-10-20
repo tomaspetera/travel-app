@@ -1164,7 +1164,8 @@
       $(s).oninput = carInfo;
       $(s).onchange = () => { const c = readCar(); $('#gmCons').value = c.carCons; $('#gmPrice').value = c.carPrice ?? ''; carInfo(); refreshOrigins(); syncFormUI(); paintGroundStale(); };
     });
-    ['#maxPrice', '#directOnly', '#arrivalOn', '#depAfterOn'].forEach(s => $(s).onchange = syncFormUI);
+    ['#maxPrice', '#arrivalOn', '#depAfterOn'].forEach(s => $(s).onchange = syncFormUI);
+    $('#directOnly').onchange = () => { S.directSmart = false; syncFormUI(); }; // zaškrtnuté ručně – další věta ho nechá
     ['#dFrom', '#dTo'].forEach(s => $(s).onchange = () => { leaveHolidayDays(); syncFormUI(); });
     $('#openJaw').onchange = () => { if (!carMode()) ojPref = $('#openJaw').checked; syncFormUI(); };
     // autem: cena na osobu a parkování závisí na počtu cestujících a délce cesty
@@ -2224,7 +2225,8 @@
   // celé karty pod sebou (~500 px každá) se na telefonu nedaly porovnat
   const flatCompact = () => Boolean(window.matchMedia && matchMedia('(max-width: 700px)').matches);
   function tripMini(t) {
-    const r = `${t.out.from} → ${t.out.to}${t.back ? ` ↩ ${t.back.from !== t.out.to ? `${t.back.from} → ` : ''}${t.back.to}` : ''}`;
+    // letiště tam a zpět jako celek (nedělitelné mezery) – na úzkém telefonu se zalomí za nocemi, ne uprostřed trasy
+    const r = `${t.out.from}\u00a0→\u00a0${t.out.to}${t.back ? `\u00a0↩\u00a0${t.back.from !== t.out.to ? `${t.back.from}\u00a0→\u00a0` : ''}${t.back.to}` : ''}`;
     const pl = levelFor(t), tag = t.deal && t.deal.level === 'super' && (!pl || pl.level === 'low') ? '🔥 ' : pl && pl.level === 'low' ? '💚 ' : '';
     const stops = [t.out, t.back].some(l => l && l.stops) ? ' · s přestupem' : '';
     return `<button type="button" class="trip-mini" data-tmini="${esc(t.id)}" aria-expanded="false">
@@ -4319,13 +4321,19 @@
     const total = p.nMin ? Math.round((p.nMin + (p.nMax || p.nMin)) / 2) : 7;
     return gap(start, Math.max(2, Math.round(total / Math.max(1, n - 1))));
   }
+  // „jen přímé“ z věty jen pro tu větu: další věta bez něj ho vypne (zaškrtnuté ručně ve formuláři zůstane)
+  function smartDirect(p) {
+    const d = SearchHelp.smartDirect(p, S.directSmart);
+    S.directSmart = d.smart;
+    return 'directOnly' in d ? { directOnly: d.directOnly } : {};
+  }
   // věta s víc šipkami → Víc měst: lety mezi místy v pořadí, osoby, zavazadla, přímé lety a cena z věty
   function smartChainRun(hit) {
     const p = hit.sm.patch, c = hit.chain, ds = chainDates(p, c.length - 1);
     const legs = c.slice(0, -1).map((a, i) => ({ from: [a], to: [c[i + 1]], date: ds[i], flex: 0 }));
     const keep = Object.fromEntries(['adults', 'bags', 'directOnly', 'maxPrice'].filter(k => p[k] != null).map(k => [k, p[k]]));
     go('flights');
-    setForm({ ...defaultForm(), ...prefsOf(S.form), ...keep, from: [c[0]], to: [], trip: 'multi', legs });
+    setForm({ ...defaultForm(), ...prefsOf(S.form), ...keep, ...smartDirect(p), from: [c[0]], to: [], trip: 'multi', legs });
     startSearch();
   }
   // „do Říma a zpět z Neapole“ → Víc měst: tam do cíle, zpět z místa návratu domů (mezi nimi po zemi)
@@ -4336,14 +4344,14 @@
     const ds = chainDates(p, 2);
     const legs = [{ from: home, to: [hit.to[0]], date: ds[0], flex: 0 }, { from: [hit.back], to: home, date: ds[1], flex: 0 }];
     const keep = Object.fromEntries(['adults', 'bags', 'directOnly', 'maxPrice'].filter(k => p[k] != null).map(k => [k, p[k]]));
-    setForm({ ...defaultForm(), ...prefsOf(S.form), ...keep, from: home, to: [], trip: 'multi', legs });
+    setForm({ ...defaultForm(), ...prefsOf(S.form), ...keep, ...smartDirect(p), from: home, to: [], trip: 'multi', legs });
     startSearch();
   }
   function smartRun(hit, from) {
     if (hit.chain && hit.chain.length >= 3) return smartChainRun(hit);
     if (hit.back && hit.to.length === 1) return smartBackRun(hit, from);
     const p = hit.sm.patch, to = (hit.to.length ? hit.to : hit.sm.items || []).slice(0, 5);
-    const f = { ...defaultForm(), ...prefsOf(S.form), from: hit.from.length ? hit.from : (from && from.length ? from : S.home?.from || []), to, ...p };
+    const f = { ...defaultForm(), ...prefsOf(S.form), from: hit.from.length ? hit.from : (from && from.length ? from : S.home?.from || []), to, ...p, ...smartDirect(p) };
     if (f.dateMode === 'exact' && !f.xBack) f.trip = 'oneway';
     go('flights');
     setForm(f);

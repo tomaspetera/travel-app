@@ -719,6 +719,10 @@ test('v noci taxi s pevnou cenou (Řím 55 € za auto): v průběhu cesty i v c
   const txt = (x) => timeline(x).map((r) => r[2]);
   assert.equal(txt(t).find((r) => r.startsWith('Řím → letiště FCO')), 'Řím → letiště FCO · vlak Leonardo Express · ~32 min · 14 € (~340 Kč)/os. · v noci taxi, pevná cena 55 € za auto (v odhadu ceny započteno)');
   assert.doesNotMatch(txt(day).find((r) => r.startsWith('Řím → letiště FCO')), /v noci/);
+  // krok Let: tam i zpět přes FCO – jeden řádek s „zpět stejně“ (cena „a zpět“ je za oba směry)
+  const fs = render(c, { ...day, step: 'flight' });
+  assert.match(fs, /Z letiště FCO → Řím · vlak Leonardo Express do Roma Termini · ~32 min · 14 € \(~340 Kč\)\/os\. · zpět stejně/);
+  assert.doesNotMatch(fs, /Řím → letiště FCO/);
   assert.match(txt(late).find((r) => r.startsWith('Z letiště FCO → Řím')), / · v noci taxi, pevná cena 55 € za auto \(v odhadu ceny započteno\)$/);
   assert.doesNotMatch(txt(t).find((r) => r.startsWith('Z letiště FCO → Řím')), /taxi/, 'přílet v 9:00');
   // souhrn: řádek dopravy říká, co se počítá

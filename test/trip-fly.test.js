@@ -83,6 +83,11 @@ test('cesta přes víc měst: krok Let ukáže všechny lety bez živého ověř
   assert.match(f, /Každý let je samostatná letenka/);
   assert.doesNotMatch(f, /tfVerify/, 'živé ověření umí jen tam a zpět');
   assert.equal(c.S.trip.verifiedAt, undefined);
+  // pod cenou „Z letiště do města a zpět“ všechny sčítané úseky: přílet, odlet z Říma, přílet do Barcelony, návrat
+  const rowsF = f.match(/Z letiště FCO → Řím|Řím → letiště FCO|Z letiště BCN → Barcelona|Barcelona → letiště BCN/g);
+  assert.deepEqual(rowsF, ['Z letiště FCO → Řím', 'Řím → letiště FCO', 'Z letiště BCN → Barcelona', 'Barcelona → letiště BCN']);
+  // hlavička: trasa přes dvě země – obě
+  assert.match(sp(c.__els['#tripRoot'].innerHTML), /Itálie, Španělsko · /);
   const r = render(c, 'route');
   assert.match(r, /Trasa podle letů/);
   assert.match(r, /Řím.*3<\/b> noci.*2\. let FCO → BCN.*Barcelona.*3<\/b> noci/s);
