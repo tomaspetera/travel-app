@@ -16,5 +16,5 @@ services:
         value: "22"
 # Klíče se přidávají až potom: služba → Environment →
 #   TRAVELPAYOUTS_TOKEN (další aerolinky), LITEAPI_KEY (hotely s cenou a hodnocením – bez něj ceny hotelů
-#   z TripAdvisoru přes Xotelo, XOTELO=off vypne).
+#   z TripAdvisoru přes Xotelo, XOTELO=off vypne), UNSPLASH_ACCESS_KEY (hezčí fotky měst – bez něj Wikimedia).
 # PORT nenastavovat – Render ho dodá sám a server ho čte.

@@ -1036,7 +1036,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .rc-head .rc-dp+.dm-btn{margin-left:0}
 .modal:has(.dp){width:min(640px,100%)}
 .dp{padding:20px 22px 0}
-.dp-hero{height:220px;margin:-20px -22px 16px;border-radius:24px 24px 0 0;
+.dp-hero{position:relative;height:220px;margin:-20px -22px 16px;border-radius:24px 24px 0 0;
   background:radial-gradient(120% 90% at 20% 10%,hsl(var(--h,215) 42% 46%),transparent 60%),linear-gradient(160deg,hsl(var(--h,215) 38% 34%),hsl(calc(var(--h,215) + 25) 45% 14%))}
 .dp-hero.ph{background:#0b1226 var(--ph) center/cover no-repeat}
 .dp-head{display:flex;align-items:flex-start;gap:12px}

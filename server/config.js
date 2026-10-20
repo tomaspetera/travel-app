@@ -33,6 +33,9 @@ export const config = {
   travelpayoutsMarket: (env.TRAVELPAYOUTS_MARKET ?? 'cz').toLowerCase(),
   // Fotky měst na kartách (pexels.com/api – zdarma, 200 dotazů/h): profesionální snímky na výšku. Bez klíče Wikimedia.
   pexelsKey: env.PEXELS_API_KEY || '',
+  // Totéž z Unsplash (unsplash.com/developers – zdarma, v ukázkovém režimu 50 dotazů/h): když Pexels klíč nemá nebo
+  // fotku nenajde. Fotky se vkládají přímo z Unsplash a u fotky je autor s odkazem (podmínky Unsplash API).
+  unsplashKey: env.UNSPLASH_ACCESS_KEY || '',
   // Hotely s cenou a hodnocením (liteapi.travel). Bez klíče jen odkazy na Booking/Airbnb/Google.
   liteapiKey: env.LITEAPI_KEY || '',
   // Volitelná white-label rezervační stránka LiteAPI (např. moje.nuitee.link) – jinak odkaz na Booking.com.
