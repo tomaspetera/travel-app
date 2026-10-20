@@ -1,0 +1,88 @@
+/* ============ DESKTOP (od 1024 px) – Objevuj, Plánovač, Doporučení, Mapa, Přehled a okna ============
+   Navazuje na desktop.css (kontejner, --gap, --section, --card-min). Objevuj s místem: vlevo plán a seznam míst, vpravo
+   velká mapa přes výšku okna, která se při posouvání drží pod lištou; přehled celé země: mapa přes šířku a skupiny míst
+   v mřížce karet. Mapa navštívených zemí přes celou šířku a statistiky pod ní ve třech sloupcích. Okna (země, náhled
+   cíle, cesta) na širokém displeji ve dvou sloupcích – ne jeden úzký sloupec s dlouhým posouváním. Telefon a tablet
+   (< 1024 px) beze změny – vše jen v @media (min-width:1024px). Načítá se po desktop.css. */
+@media (min-width:1024px){
+  :root{--sticky-top:104px} /* pod lepící se horní lištou (nadpis stránky a tlačítka) */
+
+  /* ---------- Objevuj s místem: plán a seznam vlevo, mapa vpravo přes výšku okna ---------- */
+  .ex-layout.ex-main{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);grid-template-areas:"plan map" "places map";
+    grid-template-rows:auto 1fr;gap:var(--gap)}
+  .ex-main>.ex-map{position:sticky;top:var(--sticky-top);height:calc(100vh - var(--sticky-top) - 24px);min-height:460px;max-height:920px;border-radius:22px}
+  .ex-main>.ex-plan{padding:20px 22px}
+  /* režimy plánu: řádky tlačítek přes celou šířku (zalomený přepínač v oválu vypadal rozbitě) */
+  .ex-plan #exMode{display:flex;flex-wrap:wrap;border-radius:16px;gap:4px}
+  .ex-plan #exMode button{flex:1 1 auto;border-radius:12px;white-space:nowrap}
+  .ex-cats button{padding:5px 11px}
+  .ex-head{margin-bottom:14px}
+  /* přehled celé země: mapa přes šířku, skupiny (města, cíle, UNESCO, parky) jako mřížka karet */
+  .ex-layout.ex-main:has(#exCList){grid-template-columns:minmax(0,1fr);grid-template-areas:"map" "places";grid-template-rows:auto}
+  .ex-main:has(#exCList)>.ex-map{position:relative;top:auto;height:min(460px,52vh);min-height:340px}
+  #exCList{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px var(--gap);align-items:stretch}
+  #exCList>.poi-sec{grid-column:1/-1;margin:16px 2px 0;font-size:15px}
+  #exCList>.poi-sec:first-child{margin-top:0}
+  .ex-cnote{max-width:80ch}
+
+  /* ---------- Plánovač: karty cest ve stejné mřížce jako ostatní (4 vedle sebe na 1440 px), „Nová cesta“ stejně vysoká ---------- */
+  .trip-grid{grid-template-columns:repeat(auto-fill,minmax(max(250px,calc((100% - 60px) / 4)),1fr));gap:20px} /* nejvýš 4 vedle sebe */
+  .trip-top[data-photo]{min-height:168px}
+
+  /* ---------- Doporučení: karta bez fotky má velkou vlajku jako v Zemích (ne prázdný přechod) ---------- */
+  #recGrid>.dest[data-photo]:not(.ph) .flag{top:24px;left:50%;width:84px;height:84px;font-size:48px;
+    transform:translateX(-50%);background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.16)}
+  #recGrid>.dest[data-photo] .flag{transition:left .3s var(--ease),width .3s var(--ease),height .3s var(--ease),font-size .3s var(--ease),transform .3s var(--ease)}
+
+  /* ---------- Přehled: dlaždice statistik vyplní celou šířku (3 dlaždice = 3 sloupce, ne prázdné místo vpravo) ---------- */
+  .stat-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin:20px 0 0} /* ne nalepené na úvodní fotku */
+  .now-card{padding:16px 20px}
+
+  /* ---------- Mapa: mapa světa přes celou šířku, pod ní legenda a statistiky ve třech sloupcích ---------- */
+  .map-layout{grid-template-columns:minmax(0,1fr);gap:var(--gap)}
+  .map-wrap{position:relative;top:auto;width:100%;aspect-ratio:960/470;min-height:0;max-height:calc(100vh - 230px);border-radius:24px}
+  .map-layout>div:last-child{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.1fr) minmax(0,1.1fr);gap:var(--gap);align-items:start}
+  .map-layout>div:last-child>.card{margin:0 !important;height:100%}
+  .map-layout>div:last-child>.legend{order:-1;grid-column:1/-1;margin:-8px 2px 0}
+}
+/* menší notebook: Objevuj půl na půl (seznam by vedle mapy byl moc úzký), statistiky mapy ve dvou sloupcích */
+@media (min-width:1024px) and (max-width:1279px){
+  .ex-layout.ex-main{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .map-layout>div:last-child{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .map-layout>div:last-child>.visited-card{grid-column:1/-1}
+}
+
+/* ---------- okna na širokém displeji ---------- */
+/* náhled cíle (🔎 Co tam je): vlevo fotka, let, cesta z letiště a počasí, vpravo místa k vidění */
+@media (min-width:1100px){
+  .modal:has(.dp #dpSights){width:min(1040px,calc(100vw - 80px))}
+  .dp:has(#dpSights){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);column-gap:28px;align-items:start}
+  .dp:has(#dpSights)>.dp-hero{grid-column:1/-1;grid-row:1;height:250px}
+  .dp:has(#dpSights)>.dp-head{grid-column:1;grid-row:2}
+  .dp:has(#dpSights)>.dp-trip{grid-column:1;grid-row:3}
+  .dp:has(#dpSights)>.dp-chips{grid-column:1;grid-row:4}
+  .dp:has(#dpSights)>.dp-facts{grid-column:1;grid-row:5}
+  .dp:has(#dpSights)>.dp-h{grid-column:2;grid-row:2;margin:6px 0 0}
+  .dp:has(#dpSights)>#dpSights{grid-column:2;grid-row:3 / span 4;margin-top:-6px}
+  .dp:has(#dpSights)>.dp-act{grid-column:1/-1;grid-row:7}
+  /* okno cesty z plánovače: širší, dny itineráře ve dvou sloupcích */
+  .modal:has(.trip-two){width:min(980px,calc(100vw - 80px))}
+  .modal-body div:has(>.day-block){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .modal-body div:has(>.day-block)>.day-block{margin:0}
+}
+/* okno země: vlevo fotka hlavního města s vlajkou, názvem a popisem přes celou výšku, vpravo údaje (posouvají se samy) */
+@media (min-width:1180px){
+  .modal:has(>.modal-hero.mh-photo){display:grid;grid-template-columns:40% 60%;width:min(1100px,calc(100vw - 80px));
+    height:min(86vh,860px);max-height:none;overflow:hidden}
+  .modal>.modal-hero.mh-photo{min-height:0;height:100%;padding:32px;border-radius:24px 0 0 24px;overflow:visible}
+  .modal>.modal-hero.mh-photo>.mh-bg{border-radius:inherit}
+  .modal>.modal-hero.mh-photo .mh-name{font-size:30px}
+  .modal>.modal-hero.mh-photo .mh-blurb{max-width:36ch}
+  .modal:has(>.modal-hero.mh-photo)>.modal-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:30px 32px 32px}
+  /* akce jako na telefonu: „Najít lety sem“ přes šířku (vedle zavíracího tlačítka), pod ním tři stejně široká */
+  .modal:has(>.modal-hero.mh-photo) .cm-acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .modal:has(>.modal-hero.mh-photo) .cm-acts .btn{justify-content:center;min-width:0}
+  .modal:has(>.modal-hero.mh-photo) .cm-acts .btn.primary{grid-column:1/-1;margin-right:52px;min-height:46px}
+  /* zavírací tlačítko vpravo nahoře celého okna (hlavička je 40 % šířky: -150 % jejích = zbytek okna) */
+  .modal>.modal-hero.mh-photo>.modal-close{right:calc(-150% + 18px);top:18px;background:var(--surface-2);border-color:var(--border-2);color:var(--text)}
+}

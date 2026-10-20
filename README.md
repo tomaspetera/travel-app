@@ -1146,7 +1146,17 @@ Karty (radar, rychlé hledání, tipy, Objevuj, Země, Doporučení) mají ve v�
 nadpisy sekcí jeden styl a nadpisy na fotkách tmavý přechod zleva, aby byly čitelné. Formulář Letů je v pravidelné
 mřížce (Odkud | Kam, pod tím Cesta a Termín | Délka pobytu | Odlet mezi; do 1440 px Odlet mezi na vlastním řádku),
 úvod Cesty má vlevo fotku a „Kam chceš jet?“, vpravo „Jak to funguje“. Karta země bez fotky ukáže velkou vlajku.
-Vše je v `public/css/desktop.css` (načtený jako poslední, jen `@media (min-width:1024px)`), telefon a tablet se nemění.
+Vše je v `public/css/desktop.css` (načtený po základních stylech, jen `@media (min-width:1024px)`), telefon a tablet
+se nemění.
+
+Objevuj, Plánovač, Doporučení, Mapa a okna mají vlastní doplněk `public/css/desktop-explore.css` (po desktop.css, taky
+jen od 1024 px): v Objevuj s místem je vlevo plán a seznam míst a vpravo velká mapa přes výšku okna, která se při
+posouvání drží pod lištou; přehled celé země má mapu přes šířku a skupiny (města, cíle, UNESCO, parky) v mřížce karet.
+Mapa navštívených zemí je přes celou šířku, legenda a statistiky pod ní ve třech sloupcích. Plánovač ukáže čtyři cesty
+vedle sebe (dlaždice „Nová cesta“ stejně vysoká), dlaždice statistik na Přehledu vyplní šířku. Na širokém displeji je
+okno země ve dvou sloupcích (vlevo fotka hlavního města s názvem, vpravo údaje), náhled cíle 🔎 vlevo let, cesta
+z letiště a počasí a vpravo místa k vidění, okno cesty z plánovače širší s dny itineráře ve dvou sloupcích. Nově
+otevřené okno začíná nahoře (dřív si drželo posun z minulého).
 
 ## Aplikace na ploše a offline
 
