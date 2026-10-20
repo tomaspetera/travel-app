@@ -127,6 +127,15 @@ test('Objevuj: věta → místo, druh plánu, dny, km, od kdy, zájmy; základn�
   assert.deepEqual([X('okruh po Toskánsku na týden').mode, X('okruh po Toskánsku na týden').days, X('okruh po Toskánsku na týden').place], ['loop', 7, 'Toskánsku']);
   assert.deepEqual([X('Řím s dětmi od 15. 5.').start, X('Řím s dětmi od 15. 5.').interests], ['2027-05-15', ['kids']]);
   assert.deepEqual(X('Praha').chips, []);
+  // víkend bez data: od soboty nejbližšího víkendu (v neděli už příští), prodloužený od pátku, „příští víkend“ o týden dál
+  const V = (q, t = today) => { const r = Smart.parseExplore(q, { today: t }); return [r.place, r.days, r.start]; };
+  assert.deepEqual(V('Porto na víkend'), ['Porto', 2, '2026-10-24']);
+  assert.deepEqual(V('Porto na víkend', '2026-10-20'), ['Porto', 2, '2026-10-24']);
+  assert.deepEqual(V('Porto příští víkend', '2026-10-20'), ['Porto', 2, '2026-10-31']);
+  assert.deepEqual(V('Řím na prodloužený víkend', '2026-10-20'), ['Řím', 3, '2026-10-23']);
+  assert.deepEqual(V('Řím na prodloužený víkend', '2026-10-24'), ['Řím', 3, '2026-10-24'], 'v sobotu od dneška');
+  assert.deepEqual(V('Porto na víkend od 7. 11.', '2026-10-20'), ['Porto', 2, '2026-11-07'], 'datum má přednost');
+  assert.ok(Smart.parseExplore('Porto na víkend', { today: '2026-10-20' }).chips.includes('🗓️ od 24. 10.'), Smart.parseExplore('Porto na víkend', { today: '2026-10-20' }).chips.join(','));
   const N = (p) => [...Smart.nominatives(p)];
   assert.ok(N('Brna').includes('Brno'));
   assert.ok(N('Prahy').includes('Praha'));

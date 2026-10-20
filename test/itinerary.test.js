@@ -107,3 +107,16 @@ test('ZOO a zábavní park jednou za pobyt (s dětmi ne zoo každý den); připn
   const both = cats(plan(pin(['Z1', 'Z2']), BER, 4, { interests: { zoo: 2 } }));
   assert.ok(both.includes('Z1') && both.includes('Z2'), both.join(','));
 });
+
+test('stejně dlouhé dny: den s nejvýznamnějším místem co nejdřív (Avignon: Papežský palác 1. celý den, ne poslední)', () => {
+  const AVI = { lat: 43.9493, lon: 4.8055 };
+  // dvě čtvrti ~0,8 km od sebe: hlavní (palác, katedrála, most) a vedlejší (kostely, muzea)
+  const main = [['P1', 'Papežský palác', 43.9508, 4.8076, 'castle', 120], ['P2', 'Katedrála Notre-Dame-des-Doms', 43.9514, 4.8078, 'church', 60], ['P3', 'Avignonský most', 43.9539, 4.8048, 'monument', 70], ['P4', 'Musée du Petit Palais', 43.9527, 4.8073, 'museum', 40]];
+  const side = [['S1', 'Collégiale Saint-Didier', 43.9437, 4.8064, 'church', 30], ['S2', 'Musée Calvet', 43.9440, 4.8017, 'museum', 35], ['S3', 'Musée Angladon', 43.9446, 4.8045, 'museum', 30], ['S4', 'Chapelle de l’Oratoire', 43.9452, 4.8058, 'church', 20], ['S5', 'Palais du Roure', 43.9476, 4.8050, 'museum', 25], ['S6', 'Synagogue', 43.9479, 4.8098, 'church', 20]];
+  // přílet ráno: dny 1 a 2 celé (stejný čas), den 3 odlet
+  const r = planItinerary(places([...side, ...main]), { center: AVI, start: '2026-11-10', end: '2026-11-12', arrivalTime: '08:00', departureTime: '12:00', pace: 'normal', interests: {} });
+  const days = r.days.map((d) => d.items.map((p) => p.name).join(' → ')).join(' | ');
+  const full = r.days.filter((d) => d.cap === r.days[0].cap && d.items.length);
+  assert.ok(full.length >= 2, days);
+  assert.ok(full[0].items.some((p) => p.id === 'P1'), days);
+});

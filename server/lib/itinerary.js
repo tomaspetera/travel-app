@@ -247,6 +247,16 @@ export function planItinerary(pois, opts) {
       }
     }
   }
+  // Stejně dlouhé dny: den s nejvýznamnějším místem (Papežský palác v Avignonu) co nejdřív, ne až poslední celý den
+  // (kdyby se plán změnil, hlavní věci nepropadnou). Jen výměna programů mezi dny se stejným časem – limity sedí dál.
+  const topW = (items) => items.reduce((m, p) => Math.max(m, weight(p)), -Infinity);
+  const byCap = new Map();
+  for (const d of days.filter((x) => x.kind === 'city' && x.items.length)) byCap.set(d.cap, [...(byCap.get(d.cap) || []), d]);
+  for (const g of byCap.values()) {
+    if (g.length < 2) continue;
+    const sets = g.map((d) => d.items).sort((a, b) => topW(b) - topW(a));
+    g.forEach((d, i) => { d.items = sets[i]; }); // g je v pořadí dnů (days)
+  }
   trips.slice(0, tripDays).forEach((p, i) => {
     const d = days.find((x) => x.date === [...tripDayDates][i]);
     if (d) d.items = [{ ...p, visitMin: VISIT_MIN.daytrip }];

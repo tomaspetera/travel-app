@@ -412,11 +412,47 @@ test('hotel z okolí (malé místo bez hotelů na TripAdvisoru): program v míst
   // v průběhu cesty (shrnutí) a na kartě „Dnes na cestě“ (placeOn) s místem hotelu
   assert.match(render(c, 'summary'), /<b>Řím<\/b> · 3 noci · Stanze Barocche \(Modica\)/);
   assert.deepEqual(plain(c.window.Trip.placeOn(t, '2026-11-11')), { name: 'Řím', hotel: 'Stanze Barocche', city: 'Modica', country: 'Itálie', near: 'Modica' });
-  // hotel v místě: program kolem něj, bez poznámky
+  // vlastní hotel daleko od středu (~21 km, Avignon → Sorgues): program od centra s poznámkou, ne kolem hotelu
   delete b.stay.near;
   const p2 = render(c, 'program');
-  assert.doesNotMatch(p2, /Spíš v okolí/);
-  assert.match(p2, /\(kolem ubytování\)/);
-  assert.deepEqual([calls[1].lat, calls[1].lon, calls[1].label, calls[1].startAt], [41.95, 12.75, 'Stanze Barocche', undefined]);
+  assert.doesNotMatch(p2, /Spíš v okolí|\(kolem ubytování\)/);
+  assert.match(p2, /🏨 Ubytování je ~21 km od centra – Stanze Barocche: program začíná v centru \(Řím\), na začátek dne počítej cestu z ubytování\./);
+  assert.deepEqual([calls[1].lat, calls[1].lon, calls[1].label, calls[1].startAt], [41.9, 12.5, 'Řím', 'center']);
   assert.equal(c.window.Trip.placeOn(t, '2026-11-11').near, '');
+  // hotel v místě do 3 km od středu: program kolem něj, bez poznámky
+  Object.assign(b.stay, { lat: 41.91, lon: 12.52 });
+  const p3 = render(c, 'program');
+  assert.doesNotMatch(p3, /Spíš v okolí|od centra –/);
+  assert.match(p3, /\(kolem ubytování\)/);
+  assert.deepEqual([calls[2].lat, calls[2].lon, calls[2].label, calls[2].startAt], [41.91, 12.52, 'Stanze Barocche', undefined]);
+});
+
+test('jedno místo: hotel dál než 3 km od středu města → program od centra (střed z geokodéru) s poznámkou; blízký hotel → kolem hotelu', async () => {
+  const tick = () => new Promise((r) => setImmediate(r));
+  const run = async (stay) => {
+    const c = load();
+    const calls = [], asked = [];
+    c.Places = c.window.Places = { renderPlanner: (host, opts) => calls.push(opts) };
+    c.enc = encodeURIComponent; // z app.js
+    c.fetch = async (url) => { asked.push(String(url).split('?')[0]); return { ok: true, json: async () => ({ items: [{ lat: 43.949, lon: 4.806, label: 'Avignon', cc: 'FR' }] }) }; };
+    const AVN = { key: 'AVN', id: 'ap:AVN', label: 'Avignon', cc: 'FR', country: 'Francie', lat: 43.907, lon: 4.901 };
+    const t = { id: 'x', out: leg('PRG', 'MRS', '2026-11-10', '10:00', '12:00', 'Europe/Prague', 'Europe/Paris'), back: leg('MRS', 'PRG', '2026-11-13', '18:00', '20:00', 'Europe/Paris', 'Europe/Prague'), flightCzk: 3000, groundCzk: 0, bagCzk: 0, arrCzk: 0, perPersonCzk: 3000, totalCzk: 6000, provider: 'demo-air', combined: false, bookUrl: null, deal: { level: 'normal' } };
+    c.window.Trip.start({ t, g: { dest: AVN }, result: { origins: [], query: { adults: 2, bags: 'none' }, home: null, arrivals: {} } });
+    c.S.trip.stay = { mode: 'pick', id: 'xo:g1-d9', name: 'Hôtel Sorgues', totalCzk: 6000, ...stay };
+    c.S.trip.step = 'program';
+    c.window.Trip.render();
+    for (let i = 0; i < 4; i++) await tick();
+    return [sp(c.__els['#tripStep'].innerHTML), calls[0], asked];
+  };
+  // hotel v Sorgues (~10 km od středu Avignonu): střed z geokodéru, program od centra
+  const [p, o, asked] = await run({ lat: 44.008, lon: 4.873 });
+  assert.deepEqual(asked, ['api/geocode']);
+  assert.match(p, /🏨 Ubytování je ~8 km od centra – Hôtel Sorgues: program začíná v centru \(Avignon\)/);
+  assert.doesNotMatch(p, /kolem tvého ubytování/);
+  assert.deepEqual([o.lat, o.lon, o.label, o.startAt], [43.949, 4.806, 'Avignon', 'center']);
+  // hotel u hradeb (~1 km): program kolem hotelu
+  const [p2, o2] = await run({ lat: 43.945, lon: 4.818 });
+  assert.match(p2, /kolem tvého ubytování/);
+  assert.doesNotMatch(p2, /od centra –/);
+  assert.deepEqual([o2.lat, o2.lon, o2.label, o2.startAt], [43.945, 4.818, 'Hôtel Sorgues', undefined]);
 });

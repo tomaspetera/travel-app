@@ -275,8 +275,10 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
   box-shadow:0 16px 34px -18px rgba(0,0,0,.6)}
 .dest[data-photo].ph{background:#0b1226 var(--ph) center/cover no-repeat}
 /* popisek fotky z Pexels/Unsplash (autor a zdroj s odkazy) – drobně dole vpravo, čitelný na fotce; klepnutí mimo odkazy patří kartě */
-.ph-cr{position:absolute;right:9px;bottom:2px;z-index:3;max-width:calc(100% - 18px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+.ph-cr{position:absolute;right:9px;bottom:2px;z-index:3;display:flex;gap:0 .3em;max-width:calc(100% - 18px);white-space:nowrap;
   font:500 9.5px/1.3 Inter,system-ui,sans-serif;color:rgba(255,255,255,.82);text-shadow:0 1px 3px rgba(0,0,0,.8);pointer-events:none}
+.ph-cr>*{flex:none}
+.ph-cr>.ph-by{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis} /* dlouhé jméno autora zkrátit, zdroj ne */
 .ph-cr .ph-a{pointer-events:auto;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.45);text-underline-offset:1.5px}
 .dest[data-photo]::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,.28) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 50%,rgba(0,0,0,.3) 100%)}
 .dest[data-photo]:hover{border-color:transparent}
