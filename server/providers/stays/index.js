@@ -1,8 +1,9 @@
 // Registr poskytovatelů ubytování (cena + hodnocení). Bez nich aplikace nabídne jen odkazy s předvyplněným hledáním
 // (server/lib/links.js).
 //
-// Rozhraní poskytovatele: { id, name, search(q, { fresh }) → Promise<Stay[]>, probe?() → Promise<string> (ostrý test
-// /api/diag), refresh? (umí fresh – ceny znovu, ne z mezipaměti: „Aktualizovat ceny“) }
+// Rozhraní poskytovatele: { id, name, search(q, { fresh, onNearby }) → Promise<Stay[]>, probe?() → Promise<string> (ostrý
+// test /api/diag), refresh? (umí fresh – ceny znovu, ne z mezipaměti: „Aktualizovat ceny“) }; onNearby() = ceny budou
+// z okolí (malé místo bez hotelů) – searchStays rozběhne ubytování v místě z OpenStreetMap hned
 // Stay: { id, provider, name, type, stars, rating (0–10), reviews, address, lat, lon, distanceKm,
 //         photo, priceTotalCzk, pricePerNightCzk, bookUrl, bookSponsored (partnerský odkaz → „reklama“), freeCancellation, breakfast }
 // Xotelo navíc: rating5 (TripAdvisor 0–5), reviewsUrl (stránka na TripAdvisoru), rates [{ code, name, totalCzk,

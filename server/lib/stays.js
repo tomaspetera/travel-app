@@ -162,6 +162,16 @@ export async function searchStays(raw, { english = englishName, partners = null,
   const status = [];
   const items = [];
   let nearbyFrom = null; // malé místo: hotely s cenou z míst TripAdvisoru v okolí (Xotelo, DEMO)
+  // Ubytování v místě z OpenStreetMap (níž) – jednou na hledání; Xotelo ho rozběhne hned, jak ví, že ceny budou z okolí
+  // (onNearby), souběžně se zjišťováním cen (Nominatim ~4 s, 1 dotaz za sekundu), ne až po nich.
+  let osmP = null;
+  const startOsm = () => {
+    if (!osmP) {
+      osmP = lodging(q);
+      osmP.catch(() => {}); // chybu ukáže až použití níž (rozběhnuté zbytečně se neukáže)
+    }
+    return osmP;
+  };
   await Promise.all(providers.map(async (p) => {
     const t0 = Date.now();
     try {
@@ -182,7 +192,7 @@ export async function searchStays(raw, { english = englishName, partners = null,
         cache.set(`${key}:fresh`, Date.now(), FRESH_MS);
         const old = cache.get(key);
         try {
-          res = await p.search(q, { fresh: true });
+          res = await p.search(q, { fresh: true, onNearby: startOsm });
           cache.set(key, res, ttl(res));
           stale = res.staleAll ? 'all' : Boolean(res.stale);
         } catch (e) {
@@ -192,7 +202,7 @@ export async function searchStays(raw, { english = englishName, partners = null,
         }
         // nepovedlo se nic (výpadek, pojistka) – zábrana 5 min neplatí, další pokus zase hlídá pojistka zdroje
         if (stale === 'all') cache.map.delete(`${key}:fresh`);
-      } else res = await cache.wrap(key, ttl, () => p.search(q));
+      } else res = await cache.wrap(key, ttl, () => p.search(q, { onNearby: startOsm }));
       items.push(...res, ...(res.guesses || [])); // hotely bez ceny na tvoje dny (Xotelo) za nabídkami s cenou
       if (res.nearbyFrom?.length) nearbyFrom = res.nearbyFrom;
       status.push({
@@ -213,7 +223,7 @@ export async function searchStays(raw, { english = englishName, partners = null,
   if (xoLike && !inTown && q.lat != null && (nearbyFrom || !status.some((s) => s.ok && s.partial))) {
     const t0 = Date.now();
     try {
-      const list = await lodging(q);
+      const list = await startOsm();
       if (list.length) {
         items.push(...list);
         osmFallback = true;

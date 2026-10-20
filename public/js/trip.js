@@ -26,6 +26,7 @@
   // odkaz na srovnávač jen z nabídek pro tatáž letiště a časy (nabídky se načítají asynchronně – mohou být ke starým)
   const carLinkFor = q => { const j = carsData && carsData.query; return q && j && j.pickup === q.pickup && j.dropoff === (q.dropoff || q.pickup) && j.from === q.from && j.to === q.to ? carsData.links[0]?.url || null : null; };
   const staysCache = new Map(); // nabídky ubytování podle dotazu (místo|termín|osoby) – přepínání míst trasy
+  const staysLoading = new Map(); // klíč → rozběhnutý dotaz api/stays (místo načítané dopředu a jeho záložka jedním)
   let staysRetry = null; // klíč dotazu, který se má po „Zkusit znovu“ přepočítat (retry=1 – server přeskočí neúplný výsledek)
   // ↻ Aktualizovat ceny (fresh=1 – server zjistí ceny hotelů znovu): { key, run: true } během dotazu, { key, fail: chyba }
   // po nepovedeném – nabídky z dřívějška zatím zůstanou na obrazovce (freshStays)
@@ -1445,14 +1446,46 @@
   async function loadStays(key, params, { fresh = false } = {}) {
     const retry = staysRetry === key;
     if (!retry && !fresh && staysCache.has(key)) return staysCache.get(key);
-    const r = await fetch('api/stays?' + new URLSearchParams({ ...params, ...(retry ? { retry: 1 } : {}), ...(fresh ? { fresh: 1 } : {}) }));
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-    if (retry) staysRetry = null;
-    const d = { key, ...j, got: Date.now(), params: { ...params } };
-    if (staysIncomplete(d)) staysCache.delete(key);
-    else staysCache.set(key, d);
-    return d;
+    // místo načítané dopředu (warmStays, Vyber za mě) a jeho záložka se nezeptají dvakrát
+    if (!retry && !fresh && staysLoading.has(key)) return staysLoading.get(key);
+    const p = (async () => {
+      const r = await fetch('api/stays?' + new URLSearchParams({ ...params, ...(retry ? { retry: 1 } : {}), ...(fresh ? { fresh: 1 } : {}) }));
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      if (retry) staysRetry = null;
+      const d = { key, ...j, got: Date.now(), params: { ...params } };
+      if (staysIncomplete(d)) staysCache.delete(key);
+      else staysCache.set(key, d);
+      return d;
+    })();
+    if (!retry && !fresh) {
+      staysLoading.set(key, p);
+      const done = () => { if (staysLoading.get(key) === p) staysLoading.delete(key); };
+      p.then(done, done);
+    }
+    return p;
+  }
+
+  // Další místa trasy se načtou dopředu, jedno po druhém, když má aktuální místo nabídky (ceny už nedoplňuje): přepnutí
+  // záložky ani „Vyber za mě“ pak nečeká na dohledání místa a cen (malé místo bez TripAdvisoru i 15 s) – server má
+  // výsledek v mezipaměti. Jen místa bez vybraného ubytování, napřed ta za aktuálním (pořadí „Další místo“).
+  // Každé místo a termín nejvýš jednou (neúplný výsledek se do staysCache neukládá – další překreslení by se ptalo znovu).
+  let staysWarm = false;
+  const staysWarmed = new Set();
+  async function warmStays(t) {
+    if (staysWarm || autoBusy || !t || !isMulti(t) || t.step !== 'stay') return;
+    const bs = t.route.bases, dates = baseDates(t), n = bs.length;
+    const todo = bs.map((b, j) => (stayIdx + 1 + j) % n).filter(j => j !== stayIdx && !bs[j].stay && dates[j] && dates[j].nights >= 1)
+      .map(j => baseStayQuery(t, bs[j], dates[j])).filter(x => !staysCache.has(x.key) && !staysWarmed.has(x.key));
+    if (!todo.length) return;
+    staysWarm = true;
+    try {
+      for (const { key, params } of todo) {
+        if (T() !== t || t.step !== 'stay' || autoBusy) break; // jiná cesta, krok, nebo Vyber za mě (načítá sám)
+        staysWarmed.add(key);
+        try { await loadStays(key, params); } catch (e) { /* nevadí – záložka se zeptá sama */ }
+      }
+    } finally { staysWarm = false; }
   }
 
   // Ceny hotelů se zjišťují jedna po druhé (živě bývá 5–15 s): když se po 4 s pořád hledá, poznámka proč a co mezitím
@@ -1646,15 +1679,21 @@
     // noPrice = místa, kde TripAdvisor ceny nemá (jen ubytování z OpenStreetMap bez ceny) – vybere si uživatel sám
     const bs = t.route.bases, dates = baseDates(t), ok = [], miss = [], unsure = [], verified = [], noPrice = [];
     const todo = bs.map((b, i) => i).filter(i => !bs[i].stay);
+    const qs = todo.map(i => (dates[i] && dates[i].nights >= 1 ? baseStayQuery(t, bs[i], dates[i]) : null));
+    // další místo se načítá, zatímco se tady doptává na ceny a ověřuje volno (loadStays pak navrátí rozběhnutý dotaz);
+    // ne souběžně s hledáním tohoto – dvě hledání naráz si dělí frontu na Xotelo a obě by stihla méně cen (živě 12/2026
+    // 4 malá místa: první odpověď 3–4 hotely s cenou místo 5–10)
+    const ahead = k => { const x = qs.slice(k).find(Boolean); if (x) loadStays(x.key, x.params).catch(() => {}); };
     for (const [k, i] of todo.entries()) {
       if (T() !== t) break; // mezitím jiná cesta nebo Začít znovu
       onProgress(k + 1, todo.length, bs[i].name);
       const b = bs[i], d = dates[i];
-      if (!(d && d.nights >= 1)) { miss.push(b.name); continue; }
-      const { params, key } = baseStayQuery(t, b, d);
+      if (!qs[k]) { miss.push(b.name); continue; }
+      const { params, key } = qs[k];
       let h = null, osmOnly = false;
       try {
         let data = await loadStays(key, params);
+        ahead(k + 1);
         // ceny hotelů se teprve doplňují (Xotelo) → jednou znovu, server dopočítá jen chybějící
         if (!bestStay(data.items) && staysIncomplete(data)) {
           await new Promise(res => setTimeout(res, 2000));
@@ -1825,6 +1864,7 @@
     const host = $('#stayBody'); if (!host || !staysData) return;
     const d = staysData;
     const filling = stayAutoFill(d);
+    if (!filling) warmStays(T()); // místo má nabídky → další místa trasy dopředu
     const fillTxt = ' <span class="st-upd"><span class="spin dark"></span> Doplňuji ceny dalších hotelů…</span>';
     const types = [...new Set(d.items.map(h => h.type).filter(Boolean))];
     // typ zapamatovaný z jiného místa nebo cesty, který tu není (výběr by ho ani neukázal) – bez filtru

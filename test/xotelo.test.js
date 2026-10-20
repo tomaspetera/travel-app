@@ -13,7 +13,7 @@ import {
   xotelo, locationKeys, nearbyKeys, pickSettlements, pickByName, placeNames, sparqlNames, seedCity, sparqlAround, hotelList,
   hotelRates, ratesKey, offers, mapHotel, mapHotelGuess, candidates, PLACE_KM, chooseForRates, searchXotelo, locationCacheKey, RADIUS_KM, MAX_RATES,
   resetXoteloBreaker, xoteloBlocked, xoteloRetryAfter, offerLink, offerSite, RATES_TTL, EMPTY_SLOW_MS, EMPTY_TTL, checkHotel, otaName,
-  nearbyPlaces, nearbyPool, placeLabel, NEARBY_KM, NEARBY_RADIUS_KM, NEARBY_MAX,
+  nearbyPlaces, nearbyPool, placeLabel, NEARBY_KM, NEARBY_RADIUS_KM, NEARBY_MAX, SPEC_MS, KEYS_CAP_MS,
 } from '../server/providers/stays/xotelo.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { stayProviders } from '../server/providers/stays/index.js';
@@ -1454,6 +1454,81 @@ test('ceny z okolí i z místa z Wikidat, jehož hotely jsou dál než 15 km (st
   // jedno místo s hotely stačí, chyba druhého nevadí
   assert.equal((await nearbyPool(PAL, [], { list: async (k) => { if (k === 'g616190') throw new Error('x'); return LIST_NOTO; } })).pool.length, 3);
   assert.equal(await nearbyPool({ lat: 40, lon: -40 }, []), null);
+});
+
+test('malé místo, které Wikidata dohledávají dlouho: seznamy míst v okolí dopředu, déle než strop se nečeká – ceny z okolí hned (neúplné), pak hotely místa samého', async () => {
+  assert.deepEqual([SPEC_MS, KEYS_CAP_MS], [1500, 8000]);
+  const own = [taHotel('g900031-d401', 'Hotel Akrai', PAL.lat + 0.004, PAL.lon + 0.002, 'Palazzolo_Acreide_Province_of_Syracuse_Sicily')];
+  // místo samo TripAdvisor ID má (podle názvu), Wikidata ale odpoví až po 150 ms
+  const nameRow = { item: { type: 'uri', value: 'http://www.wikidata.org/entity/Q490' }, ta: lit('900031'), c: lit(`Point(${PAL.lon} ${PAL.lat})`), pop: lit(8700) };
+  const slowWd = (qq) => new Promise((r) => setTimeout(() => r(qq.includes('rdfs:label') ? [nameRow] : []), 150));
+  const nearKeys = (stub) => listKeys(stub).filter((k) => k !== 'g900031');
+  const stub = nearStub({ g652022: LIST_NOTO, g616190: LIST_MODICA, g900031: own });
+  try {
+    let hinted = 0;
+    const first = await searchXotelo(palQuery(), { sparql: slowWd, specMs: 10, capMs: 60, onNearby: () => { hinted++; } });
+    assert.deepEqual(first.nearbyFrom, [{ name: 'Noto', km: 21 }, { name: 'Modica', km: 34 }]);
+    assert.equal(first.partial, true, 'místo se ještě dohledává – průvodce se doptá');
+    assert.equal(hinted, 1, 'searchStays rozběhne ubytování z OpenStreetMap hned');
+    assert.deepEqual(nearKeys(stub), ['g616190', 'g652022'], 'seznam každého místa v okolí jednou (dopředu, pro ceny z mezipaměti)');
+    await new Promise((r) => setTimeout(r, 200)); // dohledání místa doběhne do mezipaměti
+    const next = await searchXotelo(palQuery(), { sparql: slowWd, specMs: 10, capMs: 60, onNearby: () => { hinted++; } });
+    assert.deepEqual([next.map((h) => h.name), next.nearbyFrom, next.partial, hinted], [['Hotel Akrai'], undefined, undefined, 1]);
+  } finally {
+    stub.restore();
+  }
+  // místo dohledané hned: seznamy míst v okolí se nenačítají, strop neplatí, výsledek z hotelů místa jako dřív
+  cache.map.clear();
+  const s2 = nearStub({ g652022: LIST_NOTO, g616190: LIST_MODICA, g900031: own });
+  try {
+    let hinted = 0;
+    const items = await searchXotelo(palQuery(), { sparql: async (qq) => (qq.includes('rdfs:label') ? [nameRow] : []), specMs: 20, capMs: 40, onNearby: () => { hinted++; } });
+    await new Promise((r) => setTimeout(r, 60));
+    assert.deepEqual([items.map((h) => h.name), items.partial, hinted, listKeys(s2)], [['Hotel Akrai'], undefined, 0, ['g900031']]);
+  } finally {
+    s2.restore();
+  }
+  // místa v okolí bez hotelů a místo se ještě dohledává → prázdné neúplné (průvodce se doptá), ne „nic“
+  cache.map.clear();
+  const s3 = nearStub({});
+  try {
+    const items = await searchXotelo(palQuery(), { sparql: slowWd, specMs: 10, capMs: 30 });
+    assert.deepEqual([items.length, items.partial], [0, true]);
+  } finally {
+    await new Promise((r) => setTimeout(r, 350)); // dohledání doběhne (seznam místa ještě ze stubu, ne ze sítě)
+    s3.restore();
+  }
+});
+
+test('searchStays: ceny z okolí → ubytování z OpenStreetMap se hledá hned, souběžně s cenami (ne až po nich); místo s hotely ho nehledá', async () => {
+  let done = 0;
+  const seen = [];
+  const lists = { g652022: LIST_NOTO, g616190: LIST_MODICA, g274707: LIST_PRAGUE };
+  const stub = stubFetch(async (url) => {
+    if (url.startsWith('https://query.wikidata.org/')) return { body: { results: { bindings: [] } } };
+    if (url.includes('/api/list?')) return { body: { error: null, result: { list: lists[new URL(url).searchParams.get('location_key')] || [] } } };
+    if (url.includes('/api/rates?')) {
+      await new Promise((r) => setTimeout(r, 40));
+      done++;
+      return { body: ratesFor(new URL(url).searchParams.get('hotel_key')) };
+    }
+    return { status: 404, body: '{}' };
+  });
+  const lodging = async (q) => { seen.push([q.city, done]); return [mapOsm({ category: 'tourism', type: 'hotel', name: 'Hotel Colle Acre', osm_type: 'way', osm_id: 77, lat: String(PAL.lat + 0.002), lon: String(PAL.lon + 0.003), extratags: {} }, q, PAL)]; };
+  try {
+    await withConfig({ mock: false, liteapiKey: '', xotelo: true }, async () => {
+      const r = await searchStays({ city: 'Palazzolo Acreide', cityEn: 'Palazzolo Acreide', cc: 'IT', ...PAL, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 1 }, { lodging });
+      assert.deepEqual([r.osmFallback, r.nearbyFrom.length, r.items.filter((h) => h.provider === 'osm').length], [true, 2, 1]);
+      assert.deepEqual(seen, [['Palazzolo Acreide', 0]], 'OpenStreetMap jednou, ještě než přišla první cena');
+      assert.ok(done >= 4);
+      seen.length = 0;
+      const praha = await searchStays({ city: 'Praha', cityEn: 'Prague', cc: 'CZ', ...PRAGUE, checkin: ymdPlus(30), checkout: ymdPlus(33), adults: 2 }, { lodging });
+      assert.ok(praha.items.length > 0 && !praha.osmFallback);
+      assert.deepEqual(seen, [], 'místo s hotely z TripAdvisoru OpenStreetMap nepotřebuje');
+    });
+  } finally {
+    stub.restore();
+  }
 });
 
 test('searchStays: ceny z okolí a ubytování v místě z OpenStreetMap spolu (nearbyFrom, osmFallback); ověření volna hotelu z okolí hledá v jeho místě', async () => {
