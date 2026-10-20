@@ -151,6 +151,21 @@ details.more.ex-places>summary::before{content:none}
 .poi-sec .faint{font-size:12px}
 .ex-cnote{font-size:13px;margin:-4px 0 10px}
 .ex-cact{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+/* 🌍 výběr země v Objevuj (Celá země bez místa): oblíbené dlaždice, pak všechny země A–Ž */
+.ex-cc-q{margin:2px 0 12px;max-width:420px}
+.ex-cc-pop{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:16px}
+.ex-cc-pop[hidden],.ex-cc-tile[hidden]{display:none}
+.ex-cc-tile{display:flex;align-items:center;gap:8px;min-width:0;padding:9px 11px;border:1px solid var(--border);border-radius:12px;background:var(--surface);
+  color:var(--text);font:600 13px/1.25 Inter,system-ui,sans-serif;text-align:left;cursor:pointer;transition:border-color .15s,transform .15s}
+.ex-cc-tile>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ex-cc-tile:hover{border-color:var(--accent)}
+.ex-cc-tile:active{transform:scale(.97)}
+.ex-cc-flag{flex:none;font-size:20px;line-height:1}
+.ex-cc-pop .ex-cc-tile{flex-direction:column;align-items:flex-start;gap:6px;padding:12px;border-radius:14px;font-size:13.5px}
+.ex-cc-pop .ex-cc-flag{font-size:30px}
+.ex-cc-allh{margin-top:4px}
+.ex-cc-all{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.ex-cc-all .ex-cc-tile{padding:7px 10px;border-radius:10px;font-weight:500}
 .ex-recent{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;font-size:12.5px}
 .ex-recent[hidden]{display:none}
 .ex-mustn{font-size:12.5px;font-weight:700;color:var(--warn);align-self:center}
