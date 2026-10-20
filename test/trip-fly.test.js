@@ -279,3 +279,52 @@ test('cesta přes víc měst: „✨ Vyber za mě“ vybere v každém místě b
   assert.deepEqual(checks, ['g187791-d1', 'g187791-d2', 'g187791-d1', 'g187791-d2'], 'nejvýš do prvního s volnem');
   assert.match(c3.__toasts.at(-1), /Vybráno: Řím, Barcelona · volno ověřeno teď/);
 });
+
+test('„✨ Vyber za mě“ blízko centra: hotel v místě do 3 km (jinak do 8 km), z okolí do 10 km od nejbližšího; místo TripAdvisoru stejného jména není „z okolí“', async () => {
+  const hotel = (id, value, total, extra = {}) => ({ id, name: `Hotel ${id}`, value, priceTotalCzk: total, pricePerNightCzk: total / 3, rating: 8.6, provider: 'demo', bookUrl: `https://hotel.example/${id}`, lat: 41.9, lon: 12.5, ...extra });
+  const near = (place, km) => ({ nearby: { place, km: 30 }, distanceKm: km });
+  const tick = () => new Promise((r) => setImmediate(r));
+  const run = async (rome) => {
+    const c = load();
+    const t = begin(c);
+    c.fetch = async (url) => {
+      const q = new URLSearchParams(url.split('?')[1]);
+      // Barcelona: jen hotely z okolí (31, 38 a 52 km) – do 10 km od nejbližšího, z nich nejlepší poměr
+      const items = q.get('city') === 'Řím' ? rome : [hotel('b1', 40, 5000, near('Sitges', 31)), hotel('b2', 95, 8100, near('Sitges', 38)), hotel('b3', 99, 7000, near('Sitges', 52))];
+      return { ok: true, json: async () => ({ items, providers: [{ name: 'Xotelo', ok: true }], links: [], query: { nights: 3, city: q.get('city') } }) };
+    };
+    render(c, 'stay');
+    await tick();
+    await c.__els['#stayAuto'].onclick();
+    await tick();
+    return plain(t.route.bases.map((b) => [b.stay.name, b.stay.near || null]));
+  };
+  // Řím: „own“ 1,2 km (místo TripAdvisoru „Řím“ = místo samo, ne okolí) před „sub“ 5,5 km a „far“ 26 km s lepším poměrem
+  assert.deepEqual(await run([hotel('far', 99, 5000, near('Sant Albino', 26.4)), hotel('own', 80, 6000, { nearby: { place: 'Řím', km: 11 }, distanceKm: 1.2 }), hotel('sub', 90, 5500, { distanceKm: 5.5 })]),
+    [['Hotel own', null], ['Hotel b2', 'Sitges']]);
+  // nic do 3 km: do 8 km nejlepší poměr („b“ 7,9 km), ne „c“ 12 km
+  assert.deepEqual((await run([hotel('a', 70, 5000, { distanceKm: 5.5 }), hotel('b', 90, 5200, { distanceKm: 7.9 }), hotel('c', 99, 4000, { distanceKm: 12 })]))[0], ['Hotel b', null]);
+});
+
+test('hotel z okolí (malé místo bez hotelů na TripAdvisoru): program v místě samém s poznámkou, v průběhu cesty i na kartě dne místo hotelu', () => {
+  const c = load();
+  const t = begin(c);
+  const calls = [];
+  c.Places = c.window.Places = { renderPlanner: (host, opts) => calls.push(opts) };
+  const b = t.route.bases[0];
+  b.stay = { mode: 'pick', id: 'xo:g1-d1', name: 'Stanze Barocche', near: 'Modica', lat: 41.95, lon: 12.75, totalCzk: 3000, checkin: '2026-11-10', checkout: '2026-11-13' };
+  const p = render(c, 'program');
+  assert.match(p, /🏨 Spíš v okolí – Stanze Barocche \(Modica, ~21 km\): program je v místě Řím, na začátek dne počítej cestu z ubytování\./);
+  assert.doesNotMatch(p, /\(kolem ubytování\)/);
+  assert.deepEqual([calls[0].lat, calls[0].lon, calls[0].label, calls[0].startAt], [41.9, 12.5, 'Řím', 'center']);
+  // v průběhu cesty (shrnutí) a na kartě „Dnes na cestě“ (placeOn) s místem hotelu
+  assert.match(render(c, 'summary'), /<b>Řím<\/b> · 3 noci · Stanze Barocche \(Modica\)/);
+  assert.deepEqual(plain(c.window.Trip.placeOn(t, '2026-11-11')), { name: 'Řím', hotel: 'Stanze Barocche', city: 'Modica', country: 'Itálie', near: 'Modica' });
+  // hotel v místě: program kolem něj, bez poznámky
+  delete b.stay.near;
+  const p2 = render(c, 'program');
+  assert.doesNotMatch(p2, /Spíš v okolí/);
+  assert.match(p2, /\(kolem ubytování\)/);
+  assert.deepEqual([calls[1].lat, calls[1].lon, calls[1].label, calls[1].startAt], [41.95, 12.75, 'Stanze Barocche', undefined]);
+  assert.equal(c.window.Trip.placeOn(t, '2026-11-11').near, '');
+});

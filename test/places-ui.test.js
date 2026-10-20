@@ -359,6 +359,10 @@ test('program ve městě: zastávka hned vedle předchozí – „hned vedle“,
   const items = [{ ...a, visitMin: 75, fromPrevKm: 0.04, fromPrevMin: 0 }, { ...b, visitMin: 45, fromPrevKm: 0, fromPrevMin: 0 }, { ...c, visitMin: 45, fromPrevKm: 1.2, fromPrevMin: 15 }];
   const walks = [...TB.planHtml({ days: [{ date: '2026-10-12', items, cap: 480, minutes: 165, walkKm: 1.2 }] }, BCN_C).matchAll(/<div class="dp-walk">([^<]*)<\/div>/g)].map((m) => m[1]);
   assert.deepEqual(walks, ['hned u ubytování', 'hned vedle', 'dál 1,2 km pěšky (~15 min)']);
+  // program v místě, kde se nespí (hotel z okolí – Cesta): první zastávka dne od centra
+  const walk = (it) => [...TB.planHtml({ days: [{ date: '2026-10-12', items: it, cap: 480, minutes: 165, walkKm: 1.2 }] }, { ...BCN_C, startAt: 'center' }).matchAll(/<div class="dp-walk">([^<]*)<\/div>/g)].map((m) => m[1]);
+  assert.deepEqual(walk(items), ['hned v centru', 'hned vedle', 'dál 1,2 km pěšky (~15 min)']);
+  assert.deepEqual(walk([items[2]]), ['od centra 1,2 km pěšky (~15 min)']);
 });
 
 test('Mapy.com: nejvýš 15 mezizastávek, bez platných bodů žádný odkaz', () => {

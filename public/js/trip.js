@@ -208,6 +208,10 @@
   const hotelName = s => s && (s.mode === 'pick' || s.mode === 'manual') ? s.name || '' : '';
   // hotel z okolí místa (malé místo bez hotelů na TripAdvisoru): „ (Noto)“
   const nearOf = s => s && s.mode === 'pick' && s.near ? ` (${s.near})` : '';
+  // hotel z okolí: program se skládá v místě samém (Palazzolo Acreide), ne kolem hotelu (v Modice by byl o Modice)
+  const nearStay = s => Boolean(s && s.mode === 'pick' && s.near);
+  /** „🏨 Spíš v okolí – Stanze Barocche (Modica, ~26 km)…“ nad programem místa, kde je hotel z okolí. */
+  const nearProgNote = (s, place) => (nearStay(s) ? `<div class="faint prog-near">🏨 Spíš v okolí – ${esc(s.name || '')} (${esc(s.near)}${s.lat != null && place.lat != null ? `, ~${Math.round(distKm(place, s))} km` : ''}): program je v místě ${esc(place.name || place.label || '')}, na začátek dne počítej cestu z ubytování.</div>` : '');
   // Veřejná doprava přejezdu (ze serveru): 'rail' = mezi městy se jezdí vlakem, 'bus' = autobusy a minibusy;
   // přímý vlak z tabulky spojů (fast, čas podle jízdního řádu) jen „vlakem“.
   const trIcon = (tr, x) => tr === 'transit' ? (x && x.transitKind === 'bus' ? '🚌' : '🚆') : '🚗';
@@ -1535,7 +1539,7 @@
     host.innerHTML = `<div class="card step-card">
       <div class="sc-head"><div><h3>🏨 Ubytování na trase</h3><div class="muted">${n} ${n <= 4 ? 'místa' : 'míst'} · ${nightsTxt(total)} · ${t.adults} ${t.adults === 1 ? 'host' : t.adults <= 4 ? 'hosté' : 'hostů'} · vybráno ${r.bases.filter(x => x.stay).length} z ${n}</div></div></div>
       ${allDone ? `<div class="auto-pick ok"><div class="ap-t"><b>✓ Ubytování máš ve všech místech</b><small>${sumStay ? `Celkem ${czk(sumStay)} · ` : ''}změnit ho můžeš v záložkách níž.</small></div><button type="button" class="btn primary" id="stayDone">Pokračovat k autu →</button></div>` : ''}
-      ${left ? `<div class="auto-pick"><div class="ap-t"><b>✨ Nechceš vybírat?</b><small>V ${left === n ? `každém místě` : `${left} ${left === 1 ? 'zbývajícím místě' : 'zbývajících místech'}`} vyberu hotel s nejlepším poměrem ceny a hodnocení. Změnit ho můžeš kdykoliv v záložkách.</small></div><button type="button" class="btn primary" id="stayAuto"${autoBusy ? ' disabled' : ''}>${autoBusy ? '<span class="spin"></span> Vybírám…' : 'Vyber za mě'}</button></div>` : ''}
+      ${left ? `<div class="auto-pick"><div class="ap-t"><b>✨ Nechceš vybírat?</b><small>V ${left === n ? `každém místě` : `${left} ${left === 1 ? 'zbývajícím místě' : 'zbývajících místech'}`} vyberu hotel s nejlepším poměrem ceny a hodnocení blízko centra. Změnit ho můžeš kdykoliv v záložkách.</small></div><button type="button" class="btn primary" id="stayAuto"${autoBusy ? ' disabled' : ''}>${autoBusy ? '<span class="spin"></span> Vybírám…' : 'Vyber za mě'}</button></div>` : ''}
       ${baseTabs(r, i, x => Boolean(x.stay), 'data-bt')}
       <div class="sc-head" style="margin-top:14px"><div><h3 style="font-size:15.5px">${i + 1}. ${esc(b.name)}</h3><div class="muted">${dayLbl(d.checkin)} – ${dayLbl(d.checkout)} · ${nightsTxt(d.nights)}</div></div>
         ${b.stay ? `<div class="chosen">Vybráno: <b>${esc(stayState(b.stay))}</b>${stayCzk(b.stay) ? ` · ${czk(stayCzk(b.stay))}${b.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : ''}</div>` : ''}</div>
@@ -1613,10 +1617,15 @@
    * zarezervovat“ ve shrnutí vede tam, kde pokoj je; hotel bez ceny na tvoje dny: odhad z běžné ceny za noc (ve shrnutí
    * označený), ať celková cena cesty nechybí. Hotel z okolí (malé místo bez hotelů na TripAdvisoru): near = jeho místo.
    */
-  function pickOf(h, nights) {
+  function pickOf(h, nights, q = null) {
     const est = !h.priceTotalCzk && h.guess && h.nightFromCzk > 0 ? Math.round(h.nightFromCzk * (nights || 1)) : 0;
-    return { mode: 'pick', id: h.id, name: h.name, totalCzk: h.priceTotalCzk || est, ...(est ? { est: true } : {}), url: h.bookUrl, lat: h.lat, lon: h.lon, rating: h.rating, provider: h.provider, ...(h.nearby && h.nearby.place ? { near: h.nearby.place } : {}) };
+    return { mode: 'pick', id: h.id, name: h.name, totalCzk: h.priceTotalCzk || est, ...(est ? { est: true } : {}), url: h.bookUrl, lat: h.lat, lon: h.lon, rating: h.rating, provider: h.provider, ...(nearFar(h, q) ? { near: h.nearby.place } : {}) };
   }
+  // Místo TripAdvisoru „z okolí“ se stejným názvem jako místo pobytu (Montalcino: střed jeho hotelů 11 km od středu obce)
+  // je pořád to místo – hotel z něj není „v okolí“ (ani v poznámce, kartě, výběru a programu). q = dotaz (city, cityEn).
+  const placeKey = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const samePlace = (name, q) => Boolean(name) && Boolean(q) && [q.city, q.cityEn].some(c => c && placeKey(c) === placeKey(name));
+  const nearFar = (h, q) => Boolean(h && h.nearby && h.nearby.place && !samePlace(h.nearby.place, q));
 
   /** Nejlepší poměr ceny a hodnocení (value ze serveru) s cenou na tvoje dny – jako první karta při řazení „Nejlepší poměr“. */
   const bestStay = items => (items || []).filter(h => h.value != null && h.priceTotalCzk > 0).sort((a, b) => b.value - a.value)[0] || null;
@@ -1626,6 +1635,18 @@
    * nepřekročí limit dotazů). Místo, kde ceny nepřišly, zůstane nevybrané. Vrátí { ok, miss } (názvy míst).
    */
   let autoBusy = false; // „Vyber za mě“ běží – překreslený krok (jiná záložka) ho nespustí podruhé
+  /**
+   * Kandidáti „Vyber za mě“ (s cenou, nevyprodaní) blízko místa: hotely v místě do 3 km od středu (není-li žádný, do 8 km),
+   * hotely z okolí (malé místo bez hotelů na TripAdvisoru) do 10 km od nejbližšího – ne „nejlepší poměr“ 8 km za městem
+   * (Aix-en-Provence) nebo 26 km daleko (Montalcino), když jsou hotely blíž. q = dotaz (místo stejného jména není „okolí“).
+   */
+  function autoCands(items, q) {
+    const priced = (items || []).filter(x => x.value != null && x.priceTotalCzk > 0 && !x.soldOut);
+    const own = priced.filter(x => !nearFar(x, q)), far = priced.filter(x => nearFar(x, q));
+    if (own.length) return [3, 8].map(k => own.filter(x => !(x.distanceKm > k))).find(l => l.length) || own;
+    const d0 = Math.min(...far.map(x => x.distanceKm).filter(Number.isFinite));
+    return far.filter(x => !(x.distanceKm > d0 + 10));
+  }
   async function autoPickStays(t, onProgress = () => {}) {
     autoBusy = true; pickSeq++;
     try { return await autoPickRun(t, onProgress); } finally { autoBusy = false; }
@@ -1652,7 +1673,7 @@
         osmOnly = Boolean(data.osmFallback);
         // stejně jako ruční Vybrat: volno se teď ověří (ceny v nabídce bývají až hodinu staré) – vyprodaný hotel se
         // přeskočí a vezme se další nejlepší (nejvýš 3 ověření na místo); bez odpovědi se vybere s „volno neověřené“
-        const ranked = (data.items || []).filter(x => x.value != null && x.priceTotalCzk > 0 && !x.soldOut).sort((a, b2) => b2.value - a.value).slice(0, 3);
+        const ranked = autoCands(data.items, data.query || params).sort((a, b2) => b2.value - a.value).slice(0, 3);
         for (const cand of ranked) {
           const r = await checkStay(data, cand, null);
           if (T() !== t) break;
@@ -1663,7 +1684,7 @@
         }
       } catch (e) { staysRetry = null; }
       if (T() !== t) break;
-      if (h && !b.stay) { b.stay = { ...pickOf(h, d.nights), checkin: d.checkin, checkout: d.checkout }; ok.push(b.name); } else if (!b.stay) (osmOnly ? noPrice : miss).push(b.name);
+      if (h && !b.stay) { b.stay = { ...pickOf(h, d.nights, params), checkin: d.checkin, checkout: d.checkout }; ok.push(b.name); } else if (!b.stay) (osmOnly ? noPrice : miss).push(b.name);
       persist();
     }
     return { ok, miss, unsure, verified, noPrice };
@@ -1712,9 +1733,12 @@
   // Partnerský odkaz na kartě (hlavní, Booking.com u Xotela) – i v chipu ceny.
   const staySponsored = h => Boolean(h.bookUrl && h.bookSponsored) || (h.provider === 'xotelo' && (h.rates || []).some(r => r.url && r.sponsored));
 
-  // hotel z okolí (malé místo bez hotelů na TripAdvisoru): „📍 v okolí: Noto · 24 km od Palazzolo Acreide“
-  const nearLine = (h, base) => h.nearby ? `<div class="st-near">📍 v okolí${h.nearby.place ? `: <b>${esc(h.nearby.place)}</b>` : ''}${h.distanceKm != null ? ` · ${Math.round(h.distanceKm)} km od ${esc(base || 'místa pobytu')}` : ''}</div>` : '';
-  function stayCard(h, i, base = '') {
+  // hotel z okolí (malé místo bez hotelů na TripAdvisoru): „📍 v okolí: Noto · 24 km od místa Palazzolo Acreide“ (název
+  // místa v 1. pádě – „od Ragusa“ by nesedělo)
+  const nearLine = (h, base) => h.nearby ? `<div class="st-near">📍 v okolí${h.nearby.place ? `: <b>${esc(h.nearby.place)}</b>` : ''}${h.distanceKm != null ? ` · ${Math.round(h.distanceKm)} km od ${base ? `místa ${esc(base)}` : 'místa pobytu'}` : ''}</div>` : '';
+  function stayCard(h, i, base = '', q = null) {
+    // hotel z místa TripAdvisoru se stejným názvem (Montalcino) jako hotel v místě – „km od centra“, bez „v okolí“
+    if (h.nearby && !nearFar(h, q) && q) h = { ...h, nearby: null };
     const cur = staySlot && staySlot.get();
     const chosen = cur && cur.mode === 'pick' && cur.id === h.id;
     const badges = (h.badges || []).map(b => STAY_BADGES[b] ? `<span class="b ${STAY_BADGES[b][1]}">${b === 'cheapest-good' && h.rating5 != null ? '💚 Nejlevnější s hodnocením 4+/5' : STAY_BADGES[b][0]}</span>` : '').join('');
@@ -1819,7 +1843,10 @@
     if (stayView.type && !types.includes(stayView.type)) stayView.type = '';
     // malé místo bez hotelů na TripAdvisoru: hotely s cenou z okolí (nearbyFrom) a pod nimi ubytování v místě bez ceny
     // (OpenStreetMap) zvlášť – filtr ceny a hodnocení se na ně nevztahuje (nemají je), typ ano
+    // místo z okolí se stejným názvem (Montalcino ~11 km u Montalcina) je místo samo – v poznámce jen ta ostatní
+    const dq = d.query || d.params || null;
     const near = d.nearbyFrom && d.nearbyFrom.length ? d.nearbyFrom : null;
+    const nearOther = near ? near.filter(x => !samePlace(x.name, dq)) : [];
     const isOsm = h => h.provider === 'osm';
     const split = Boolean(near) && d.items.some(isOsm) && d.items.some(h => !isOsm(h));
     const main = split ? d.items.filter(h => !isOsm(h)) : d.items;
@@ -1881,15 +1908,18 @@
     // malé místo, kde TripAdvisor nic nemá: ceny z míst v okolí (Noto ~21 km), ubytování v místě z OpenStreetMap (bez ceny
     // a hodnocení)
     const base = (d.query && d.query.city) || '';
-    const nearTxt = near ? near.map(x => `${esc(x.name || 'okolí')} ~${x.km} km`).join(', ') : '';
-    const osmNote = near ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>${base ? `${esc(base)} TripAdvisor nemá` : 'TripAdvisor tu hotely nemá'}</b> – ceny jsou z okolí (${nearTxt}).${split ? ' V místě jsou i ubytování bez ceny (OpenStreetMap) níže.' : ''}</div></div>`
+    const nearTxt = nearOther.map(x => `${esc(x.name || 'okolí')} ~${x.km} km`).join(', ');
+    const townTxt = split ? ' V místě jsou i ubytování bez ceny (OpenStreetMap) níže.' : '';
+    const osmNote = near ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div>${nearOther.length < near.length
+      ? (nearOther.length ? `<b>Část hotelů je z okolí</b> (${nearTxt}).${townTxt}` : townTxt.trim())
+      : `<b>${base ? `TripAdvisor nemá hotely přímo v místě ${esc(base)}` : 'TripAdvisor tu hotely nemá'}</b> – ceny jsou z okolí (${nearTxt}).${townTxt}`}</div></div>`
       : d.osmFallback ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>TripAdvisor tu ceny nemá</b> – v místě jsou tato ubytování (OpenStreetMap). Cenu ověř u partnera a zadej ji níže.</div></div>` : '';
     // stupnice filtru podle zdroje: TripAdvisor 0–5 (3,5+ / 4+ / 4,5+ = 7+ / 8+ / 9+ na stupnici 0–10); bez hodnocení (OSM) bez filtru
     const five = main.length > 0 && main.every(h => h.rating5 != null), rated = main.some(h => h.rating != null);
     // ubytování v místě bez ceny: nejdřív 3, zbytek na požádání (jen pro tohle místo a termín)
     const osmLim = stayView.osm === d.key ? inTown.length : 3;
     const townHtml = inTown.length ? `<div class="st-town"><h4>🏡 V místě${base ? ` – ${esc(base)}` : ''} (bez ceny)</h4><div class="faint" style="font-size:12px;margin-bottom:8px">Ubytování z OpenStreetMap – cenu a volno ověř u partnera a zadej ji níže.</div>
-        <div class="stay-list">${inTown.slice(0, osmLim).map(h => stayCard(h, d.items.indexOf(h), base)).join('')}</div>
+        <div class="stay-list">${inTown.slice(0, osmLim).map(h => stayCard(h, d.items.indexOf(h), base, dq)).join('')}</div>
         ${inTown.length > osmLim ? `<button type="button" class="more-btn" id="stayTownN">▼ Další v místě (${inTown.length - osmLim})</button>` : ''}</div>` : '';
     // nejdřív 6 hotelů (na telefonu je každý ~200 px) – „Ubytování neřeším“ a vlastní cena jsou pak blízko
     const lim = stayView.n || 6;
@@ -1900,7 +1930,7 @@
         <input class="input" id="stayMax" type="number" min="0" step="100" placeholder="max Kč/noc" value="${stayView.maxNight || ''}" style="max-width:130px">
         <span class="faint" style="font-size:12px">${items.length} z ${main.length} nabídek${hideGuess ? ` · ${nGuess} bez ceny skryto` : ''}${split ? ` · ${inTown.length} v místě bez ceny` : ''}</span>
       </div>
-      <div class="stay-list">${items.slice(0, lim).map((h) => stayCard(h, d.items.indexOf(h), base)).join('') || '<div class="empty">Filtrům nic neodpovídá.</div>'}</div>
+      <div class="stay-list">${items.slice(0, lim).map((h) => stayCard(h, d.items.indexOf(h), base, dq)).join('') || '<div class="empty">Filtrům nic neodpovídá.</div>'}</div>
       ${items.length > lim ? `<button type="button" class="more-btn" id="stayMoreN">▼ Další hotely (${items.length - lim})</button>` : ''}
       ${hideGuess ? `<button type="button" class="linkbtn st-guess-btn" id="stayGuess">Ukázat i ${nGuess} ${nGuess === 1 ? 'hotel' : nGuess <= 4 ? 'hotely' : 'hotelů'} bez ceny na tvoje dny (často obsazené)</button>` : ''}
       ${townHtml}
@@ -1920,7 +1950,7 @@
       stayView.guess = d.key; stayView.n = Math.max(lim, d.items.length); renderStays();
       const g = $('.pp-guess', host); if (g && g.scrollIntoView) g.scrollIntoView({ block: 'center', behavior: 'smooth' });
     };
-    const doPick = h => { pickSeq++; staySlot.set(pickOf(h, d.query && d.query.nights)); persist(); staySlot.next(); };
+    const doPick = h => { pickSeq++; staySlot.set(pickOf(h, d.query && d.query.nights, d.query || d.params)); persist(); staySlot.next(); };
     $$('[data-pick]', host).forEach(b => b.onclick = async () => {
       const h = d.items[+b.dataset.pick], cur = staySlot && staySlot.get();
       if (b.dataset.anyway || (cur && cur.mode === 'pick' && cur.id === h.id)) return doPick(h);
@@ -2196,11 +2226,13 @@
     if (!(progIdx >= 0 && progIdx < n)) progIdx = 0;
     const i = progIdx, b = r.bases[i], last = i === n - 1;
     const p = baseProgram(t, i);
-    const center = b.stay && b.stay.mode === 'pick' && b.stay.lat != null ? { lat: b.stay.lat, lon: b.stay.lon, label: b.stay.name } : { lat: b.lat, lon: b.lon, label: b.name };
+    const atStay = b.stay && b.stay.mode === 'pick' && b.stay.lat != null && !nearStay(b.stay);
+    const center = atStay ? { lat: b.stay.lat, lon: b.stay.lon, label: b.stay.name } : { lat: b.lat, lon: b.lon, label: b.name };
     host.innerHTML = `<div class="card step-card"><div class="sc-head"><div><h3>📍 Program na trase</h3>
-      <div class="muted">Každé místo má vlastní program na dny, kdy tam budeš${b.stay && b.stay.mode === 'pick' ? ' (kolem ubytování)' : ''} – můžeš ho upravit.</div></div></div>
+      <div class="muted">Každé místo má vlastní program na dny, kdy tam budeš${b.stay && b.stay.mode === 'pick' && !nearStay(b.stay) ? ' (kolem ubytování)' : ''} – můžeš ho upravit.</div></div></div>
       ${baseTabs(r, i, (x, j) => Boolean(basePlan(t, j)), 'data-pt')}
       <h3 class="base-h" style="font-size:15.5px;margin:14px 0 2px">${i + 1}. ${esc(b.name)} <span class="muted" style="font-weight:600;font-size:13px">· ${dayLbl(p.start)} – ${dayLbl(p.end)}${flyHead(t, i, p, last)}</span></h3>
+      ${nearProgNote(b.stay, b)}
       <div id="tripPlaces"></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn primary" id="progNext">${last ? 'Pokračovat ke shrnutí →' : `Další místo: ${esc(r.bases[i + 1].name)} →`}</button>${last ? '' : '<button class="btn ghost" id="progSum">Rovnou ke shrnutí</button>'}</div></div>`;
     const goBase = j => { progIdx = j; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -2210,7 +2242,7 @@
     if (window.Places) {
       Places.renderPlanner($('#tripPlaces'), {
         lat: center.lat, lon: center.lon, label: center.label, city: b.name, country: b.country || t.dest.country || '', cc: b.cc || t.dest.cc,
-        ...p, plan: b.plan, onPlan: plan => { b.plan = plan; persist(); },
+        ...p, ...(nearStay(b.stay) ? { startAt: 'center' } : {}), plan: b.plan, onPlan: plan => { b.plan = plan; persist(); },
       });
     }
   }
@@ -2223,7 +2255,7 @@
     // Program začíná dnem příletu (při příletu po půlnoci je check-in o den dřív, program ne).
     const span = progSpan(t), progStart = span.start;
     const progDays = Math.max(1, Math.round((new Date(checkout) - new Date(progStart)) / 864e5) + 1);
-    let center = t.stay && t.stay.lat != null ? { lat: t.stay.lat, lon: t.stay.lon, label: t.stay.name } : null;
+    let center = t.stay && t.stay.lat != null && !nearStay(t.stay) ? { lat: t.stay.lat, lon: t.stay.lon, label: t.stay.name } : null;
     if (!center) {
       // Střed města (souřadnice cíle bývají poloha letiště, které může být daleko od centra).
       if (!t.cityCenter) {
@@ -2238,14 +2270,15 @@
     }
     if (T() !== t || t.step !== 'program') return;
     host.innerHTML = `<div class="card step-card"><div class="sc-head"><div><h3>🗺️ Co dělat · ${esc(t.dest.label)}</h3>
-      <div class="muted">Návrh programu na ${daysTxt(progDays)}${t.stay && t.stay.lat != null ? ' kolem tvého ubytování' : ''} – můžeš ho upravit.</div></div></div>
+      <div class="muted">Návrh programu na ${daysTxt(progDays)}${t.stay && t.stay.lat != null && !nearStay(t.stay) ? ' kolem tvého ubytování' : ''} – můžeš ho upravit.</div></div></div>
+      ${nearProgNote(t.stay, { ...center, name: t.dest.label.replace(/ \(.*\)$/, '') })}
       <div id="tripPlaces"></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn primary" id="progNext">Pokračovat ke shrnutí →</button></div></div>`;
     $('#progNext').onclick = () => setStep('summary');
     if (window.Places && center.lat != null) {
       Places.renderPlanner($('#tripPlaces'), {
         lat: center.lat, lon: center.lon, label: center.label || t.dest.label, city: t.cityCenter ? t.cityCenter.label : t.dest.label.replace(/ \(.*\)$/, ''), country: t.dest.country || '', cc: t.dest.cc,
-        ...span, plan: t.plan, // termín a časy jako tripPlan (shrnutí, kalendář, plánovač)
+        ...span, ...(nearStay(t.stay) ? { startAt: 'center' } : {}), plan: t.plan, // termín a časy jako tripPlan (shrnutí, kalendář, plánovač)
         onPlan: plan => { T().plan = plan; persist(); },
       });
     } else {
@@ -2314,7 +2347,8 @@
       if (!ov && legs.arrival && legs.arrival.km >= 1) rows.push([arrivalAt(f.out).slice(0, 10), trIcon(tr, legs.arrival), `Z letiště ${esc(f.out.to)} → ${esc(r.bases[0].name)} · ${legTxt(legs.arrival, tr)} (${estTxt(legs.arrival, tr)})${esc(borderTxt(legs.arrival))}${esc(arrivalFareTxt(t, 'out', r.bases[0], tr) + nightTxt(null, null, 'out'))}`]);
       if (ovl && ovl.arrival && ovl.arrival.km >= 1) rows.push([ov.out.date, trIcon(tr, ovl.arrival), `${esc(ov.to.label)} → ${esc(r.bases[0].name)} · ${legTxt(ovl.arrival, tr)} (${estTxt(ovl.arrival, tr)})${esc(borderTxt(ovl.arrival))}`]);
       r.bases.forEach((b, i) => {
-        rows.push([dates[i].checkin, '🏨', `<b>${esc(b.name)}</b> · ${nightsTxt(b.nights)} · ${esc(hotelName(b.stay) || (b.stay && b.stay.mode === 'skip' ? 'ubytování neřeším' : 'ubytování zatím nevybráno'))}`]);
+        // hotel z okolí (malé místo bez hotelů na TripAdvisoru): „Stanze Barocche (Modica)“ – spí se jinde než v místě
+        rows.push([dates[i].checkin, '🏨', `<b>${esc(b.name)}</b> · ${nightsTxt(b.nights)} · ${esc(hotelName(b.stay) ? hotelName(b.stay) + nearOf(b.stay) : b.stay && b.stay.mode === 'skip' ? 'ubytování neřeším' : 'ubytování zatím nevybráno')}`]);
         // den cesty bez programu (přílet pozdě večer, odjezd ráno) jako v kroku Program – bez řádku „volno“
         const bp = basePlan(t, i);
         for (const d of (bp?.days || []).map(y => progDay(y, b.name, o.drop))) if (d.items.length || d.cap) rows.push([d.date, '📍', `${esc(b.name)}: ${d.items.map(x => esc(x.name)).join(' · ') || 'volno'}`, { plan: bp, day: d }]);
@@ -2358,14 +2392,15 @@
     return rows;
   }
   /** Kde cesta z průvodce v den ymd je: místo, kde se ten den spí (u trasy přes víc míst; v den odjezdu poslední), a jeho
-   *  ubytování → { name, hotel ('' bez vybraného), city, country }. */
+   *  ubytování → { name, hotel ('' bez vybraného), city, country, near } – near = místo hotelu z okolí („Modica“). */
   function placeOn(t, ymd) {
+    const nearIn = s => (hotelName(s) && s.mode === 'pick' && s.near) || '';
     if (isMulti(t)) {
       const ds = baseDates(t), k = ds.findIndex(d => ymd < d.checkout), b = t.route.bases[k < 0 ? ds.length - 1 : k];
-      return { name: b.name, hotel: hotelName(b.stay), city: (b.stay && b.stay.mode === 'pick' && b.stay.near) || b.name, country: b.country || '' };
+      return { name: b.name, hotel: hotelName(b.stay), city: nearIn(b.stay) || b.name, country: b.country || '', near: nearIn(b.stay) };
     }
     const name = ovOn(t) ? t.overland.to.label : t.dest.label;
-    return { name, hotel: hotelName(t.stay), city: (t.stay && t.stay.mode === 'pick' && t.stay.near) || (t.cityCenter && t.cityCenter.label) || name, country: t.dest.country || '' };
+    return { name, hotel: hotelName(t.stay), city: nearIn(t.stay) || (t.cityCenter && t.cityCenter.label) || name, country: t.dest.country || '', near: nearIn(t.stay) };
   }
   /** Spoj last je cesta zpět: končí, kde spoj first začal – stejné letiště / město, nebo aspoň stejná časová zóna (návrat
    *  na jiné letiště u domova, BRQ místo PRG). Víc měst jen tam (PRG → FCO, FCO → BCN) ne. Spoje ve tvaru legBrief / groundBrief. */

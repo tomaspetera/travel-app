@@ -44,7 +44,8 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
    i **veřejnou dopravou** – vlakem jen tam, kde se mezi městy vlakem jezdí, jinde *autobusem / minibusem* – a přechod
    hranice s odkazem na vstupní podmínky (viz [Přejezdy mezi místy](#přejezdy-mezi-místy)). Trasa začíná u letiště
    příletu (u vlaku/busu ve městě příjezdu) a končí u letiště odletu, i jiného (open-jaw); cesta z posledního místa
-   na letiště nebo zpět k vlaku/busu je v časové ose. Ubytování a program pak vybíráš pro každé místo zvlášť – nebo jedním klepnutím **✨ Vyber za mě** (hotel s nejlepším poměrem ceny a hodnocení v každém místě; volno se u něj ověří
+   na letiště nebo zpět k vlaku/busu je v časové ose. Ubytování a program pak vybíráš pro každé místo zvlášť – nebo jedním klepnutím **✨ Vyber za mě** (hotel s nejlepším poměrem ceny a hodnocení v každém místě – blízko centra: do 3 km od
+   středu, není-li žádný, do 8 km; hotely z okolí do 10 km od nejbližšího; volno se u něj ověří
    stejně jako u ručního Vybrat – vyprodaný se přeskočí a vezme se další, nejvýš 3 ověření na místo).
 3. **Ubytování** – nabídky na tvoje data seřazené podle **nejlepšího poměru cena / hodnocení** (hodnocení je očištěné
    o malý počet recenzí, takže 10/10 ze 2 recenzí nepřebije 8,9 z 2 000). Přepneš na nejlevnější, nejlépe hodnocené
@@ -421,8 +422,11 @@ než 15 km od místa pobytu a bez recenzí se zahodí – špatné ID se tak pro
 **z okolí** – hotely nejbližších (nejvýš 2) míst TripAdvisoru do 35 km (tabulky `TA_CITIES` / `TA_PLACES`, místa
 z Wikidat, jejichž hotely jsou dál než 15 km) do 40 km od místa pobytu; živě 10/2026 Palazzolo → Noto 21 km a Modica
 34 km, Alcobaça → Batalha 18 km a Caldas da Rainha 22 km. Karta je stejná jako u hotelu v místě (ceny u webů, *Vybrat*
-ověří volno) s řádkem „📍 v okolí: Noto · 24 km od Palazzolo Acreide“; odkazy na weby hledají hotel v jeho místě
-(„Hotel X, Noto“). Pod nimi ubytování **v místě bez ceny** z OpenStreetMap (viz zdroje). Při výpadku Wikidat taky ceny
+ověří volno) s řádkem „📍 v okolí: Noto · 24 km od místa Palazzolo Acreide“; odkazy na weby hledají hotel v jeho místě
+(„Hotel X, Noto“). Pod nimi ubytování **v místě bez ceny** z OpenStreetMap (viz zdroje). Vybraný hotel z okolí je
+v průběhu cesty, ve shrnutí i na kartě „Dnes na cestě“ s místem („Stanze Barocche (Modica)“) a program místa se skládá
+v místě samém (od centra, ne kolem hotelu 26 km daleko) s poznámkou „🏨 Spíš v okolí…“. Místo TripAdvisoru stejného
+jména jako místo pobytu (Montalcino – střed jeho hotelů 11 km od středu obce) se za okolí nepočítá. Při výpadku Wikidat taky ceny
 z okolí, v mezipaměti jen 5 min. Návrh trasy přes víc míst dává při podobném skóre přednost místům s hotely
 na TripAdvisoru (`HOTEL_BONUS` v `server/lib/stayplan.js`, ~6 bodů ≈ 50 min přejezdu). Místo, kde v okolí nic není,
 dostane jen odkazy.

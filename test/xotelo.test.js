@@ -1479,7 +1479,7 @@ test('searchStays: ceny z okolí a ubytování v místě z OpenStreetMap spolu (
   }
 });
 
-test('karta hotelu z okolí: „v okolí: Noto · 24 km od Palazzolo Acreide“, poznámka nahoře, ubytování v místě bez ceny zvlášť pod hotely (filtr ceny ho neschová); Vybrat ověří volno v Notu', async () => {
+test('karta hotelu z okolí: „v okolí: Noto · 24 km od místa Palazzolo Acreide“, poznámka nahoře, ubytování v místě bez ceny zvlášť pod hotely (filtr ceny ho neschová); Vybrat ověří volno v Notu', async () => {
   const Q = { ...STAY_Q, city: 'Palazzolo Acreide', cityEn: 'Palazzolo Acreide', cc: 'IT', country: 'Itálie' };
   const tag = (h, place, km) => Object.assign(mapHotel(h, ratesFor(h.key).result, { ...Q, cityEn: place }, PAL), { nearby: { place, km, city: place } });
   const osmRows = ['Hotel Colle Acre', 'Agriturismo Bosco', 'Domus Hyblaea', 'Casa Akrai'].map((name, k) => ({ category: 'tourism', type: k ? 'guest_house' : 'hotel', name, osm_type: 'node', osm_id: 80 + k, lat: String(PAL.lat + 0.002 * k), lon: String(PAL.lon + 0.003), extratags: {} }));
@@ -1499,9 +1499,9 @@ test('karta hotelu z okolí: „v okolí: Noto · 24 km od Palazzolo Acreide“,
   c.window.Trip.render();
   await tick();
   let html = sp(c.__els['#stayBody'].innerHTML);
-  assert.match(html, /<b>Palazzolo Acreide TripAdvisor nemá<\/b> – ceny jsou z okolí \(Noto ~21 km, Modica ~34 km\)\. V místě jsou i ubytování bez ceny \(OpenStreetMap\) níže\./);
+  assert.match(html, /<b>TripAdvisor nemá hotely přímo v místě Palazzolo Acreide<\/b> – ceny jsou z okolí \(Noto ~21 km, Modica ~34 km\)\. V místě jsou i ubytování bez ceny \(OpenStreetMap\) níže\./);
   const card = cardOf(html, 'Gagliardi Boutique Hotel');
-  assert.match(card, /<div class="st-near">📍 v okolí: <b>Noto<\/b> · 24 km od Palazzolo Acreide<\/div>/);
+  assert.match(card, /<div class="st-near">📍 v okolí: <b>Noto<\/b> · 24 km od místa Palazzolo Acreide<\/div>/);
   assert.doesNotMatch(card, /km od centra/);
   assert.match(card, /class="ota best"/, 'ceny u webů jako u hotelu v místě');
   assert.match(html, /id="stayMin"/, 'filtr hodnocení pro hotely s cenou');
@@ -1525,4 +1525,40 @@ test('karta hotelu z okolí: „v okolí: Noto · 24 km od Palazzolo Acreide“,
   const p = new URLSearchParams(cu[0].slice(16));
   assert.deepEqual([p.get('hotel'), p.get('near'), p.get('city')], ['g652022-d101', 'Noto', 'Palazzolo Acreide']);
   assert.deepEqual([t.stay.mode, t.stay.name, t.stay.near, t.stay.totalCzk > 0], ['pick', 'Gagliardi Boutique Hotel', 'Noto', true]);
+});
+
+test('místo TripAdvisoru „z okolí“ se stejným názvem jako místo pobytu (Montalcino ~11 km) je místo samo: karta „km od centra“, v poznámce jen ostatní místa, výběr bez „near“', async () => {
+  const MON = { lat: 43.0586, lon: 11.4893 };
+  const Q = { ...STAY_Q, city: 'Montalcino', cityEn: 'Montalcino', cc: 'IT', country: 'Itálie' };
+  const tag = (h, place, km) => Object.assign(mapHotel(h, ratesFor(h.key).result, { ...Q, cityEn: place }, MON), { nearby: { place, km, city: place } });
+  const items = rankStays([tag(LIST_NOTO[0], 'Montalcino', 11), tag(LIST_MODICA[0], 'Sant Albino Montepulciano', 26)]);
+  const reply = { query: Q, providers: [{ id: 'xotelo', name: 'TripAdvisor (Xotelo)', ok: true, count: 2, ms: 5, test: false }], items, nearbyFrom: [{ name: 'Montalcino', km: 11 }, { name: 'Sant Albino Montepulciano', km: 26 }], links: stayLinks(Q) };
+  const c = loadTrip(() => reply);
+  const base = c.fetch;
+  c.fetch = async (u) => (String(u).startsWith('api/stays/check?') ? { ok: true, status: 200, json: async () => ({ available: null }) } : base(u));
+  const t = { ...pragueTrip(), dest: { label: 'Montalcino', country: 'Itálie', cc: 'IT', ...MON } };
+  const gi = items.findIndex((h) => h.name === LIST_NOTO[0].name);
+  const pick = { dataset: { pick: String(gi) } };
+  c.__all['[data-pick]'] = [pick];
+  c.S.trip = t;
+  c.window.Trip.render();
+  await tick();
+  const html = sp(c.__els['#stayBody'].innerHTML);
+  assert.match(html, /<b>Část hotelů je z okolí<\/b> \(Sant Albino Montepulciano ~26 km\)\./);
+  assert.doesNotMatch(html, /TripAdvisor nemá hotely přímo v místě/);
+  const own = cardOf(html, LIST_NOTO[0].name);
+  assert.doesNotMatch(own, /v okolí/);
+  assert.match(own, /km od centra/);
+  assert.match(cardOf(html, LIST_MODICA[0].name), /📍 v okolí: <b>Sant Albino Montepulciano<\/b>/);
+  await pick.onclick();
+  assert.deepEqual([t.stay.name, t.stay.near], [LIST_NOTO[0].name, undefined]);
+  // jen místo stejného jména: bez poznámky o okolí
+  reply.nearbyFrom = [{ name: 'Montalcino', km: 11 }];
+  reply.items = rankStays([tag(LIST_NOTO[0], 'Montalcino', 11)]);
+  t.stay = null;
+  t.adults = 3; // jiný dotaz (nabídky se v průvodci drží v paměti podle místa, dnů a hostů)
+  t.step = 'stay'; // po výběru průvodce pokračoval dál
+  c.window.Trip.render();
+  await tick();
+  assert.doesNotMatch(sp(c.__els['#stayBody'].innerHTML), /z okolí|TripAdvisor nemá/);
 });

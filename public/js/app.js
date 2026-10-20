@@ -367,7 +367,7 @@ function nowParts(x, now = Date.now()) {
   return {
     rows, next: x.on ? all.find(r => r[0] === tomorrow) || null : null, past: x.on && x.tz ? pastRows(rows, wallAt(x.tz, now).slice(11, 16), x.home) : rows.map(() => false),
     place: pl ? pl.name : t.dest && t.dest !== '—' ? t.dest : t.name, verb: fly ? 'odlet' : 'odjezd', spoje: Boolean(ls.length || w || ft),
-    hotel: x.on && there && pl && pl.hotel ? { name: pl.hotel, q: [pl.hotel, pl.city, pl.country].filter(Boolean).join(', ') } : null,
+    hotel: x.on && there && pl && pl.hotel ? { name: pl.hotel, ...(pl.near ? { near: pl.near } : {}), q: [pl.hotel, pl.city, pl.country].filter(Boolean).join(', ') } : null,
     shift, clock: shift ? wallAt(tz, now).slice(11, 16) : '',
     ahead: ahead && ahead.at - now <= 864e5 ? { l: ahead.l, min: Math.ceil((ahead.at - now) / 6e4) } : null,
     // před odjezdem (v den odjezdu do prvního spoje)
@@ -396,7 +396,7 @@ function nowCard(x, p) {
   const meta = [
     p.ahead ? `<span>${p.ahead.l.ground ? '🚆 Odjezd' : '✈️ Odlet'} ${esc(p.ahead.l.from)} → ${esc(p.ahead.l.to)} <b data-nw="cd"></b></span>` : '',
     p.shift && !x.home ? `<span>🕐 ${x.on ? 'Místní čas <b data-nw="clock"></b> – ' : 'V cíli je '}${shift}</span>` : '',
-    p.hotel ? `<span>🏨 ${esc(p.hotel.name)}${window.Places && Places.gmDir ? ` · <a href="${esc(safeUrl(Places.gmDir('', [p.hotel.q], 'transit')))}" target="_blank" rel="noopener">navigovat ↗</a>` : ''}</span>` : '',
+    p.hotel ? `<span>🏨 ${esc(p.hotel.name)}${p.hotel.near ? ` <span class="faint">(${esc(p.hotel.near)})</span>` : ''}${window.Places && Places.gmDir ? ` · <a href="${esc(safeUrl(Places.gmDir('', [p.hotel.q], 'transit')))}" target="_blank" rel="noopener">navigovat ↗</a>` : ''}</span>` : '',
   ].filter(Boolean);
   // před odjezdem řádky po dnech (dnes, zítra, den odjezdu)
   // dnešek ostatních probíhajících cest (výlet z plánovače či z Objevuj v den letu) – jedním řádkem s odkazem na plán
