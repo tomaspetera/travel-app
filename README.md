@@ -1148,6 +1148,14 @@ mřížce (Odkud | Kam, pod tím Cesta a Termín | Délka pobytu | Odlet mezi; d
 úvod Cesty má vlevo fotku a „Kam chceš jet?“, vpravo „Jak to funguje“. Karta země bez fotky ukáže velkou vlajku.
 Vše je v `public/css/desktop.css` (načtený jako poslední, jen `@media (min-width:1024px)`), telefon a tablet se nemění.
 
+**Průvodce Cestou od 1280 px** (`public/css/desktop-trip.css`, hned za `desktop.css`): u kroků Let, Trasa, Ubytování
+a Auto je vpravo přilepený **přehled cesty** – termín, kroky s cenou a stavem („vybráno 1 z 2“, „zatím nevybráno“;
+klepnutím se ke kroku vrátíš) a cena celkem i na osobu (v hlavičce se pak neopakuje). Ubytování má filtry v jednom
+řádku nástrojů, na monitoru od 1600 px hotely jako karty ve dvou sloupcích (do 1440 px v řádku bez sloupce hodnocení).
+Program je přes celou šířku s mapou přilepenou vedle dnů a zastávkami dne spojenými čarou, Shrnutí ve dvou sloupcích:
+vlevo průběh cesty, vstup a Co zařídit, vpravo cena, rezervace a tlačítka. Na telefonu je přehled skrytý (cena je
+v hlavičce) a rozvržení kroků stejné jako dřív.
+
 ## Aplikace na ploše a offline
 
 ATLAS jde přidat na plochu telefonu i počítače jako aplikaci (PWA): otevře se přes celou obrazovku bez lišty prohlížeče

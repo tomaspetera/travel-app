@@ -82,6 +82,9 @@
 
 /* shrnutí */
 .sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+/* přehled cesty vedle kroku a pravý sloupec Shrnutí jen na počítači (desktop-trip.css) – jinde bez vlivu na rozvržení */
+.trip-aside{display:none}
+.sum-side{display:contents}
 table.cost{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
 table.cost td{padding:7px 4px;border-bottom:1px solid var(--border)}
 table.cost td:first-child{width:28px}

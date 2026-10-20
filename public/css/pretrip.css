@@ -72,7 +72,7 @@
   /* štítky černobíle s rámečkem (barevný text na bílé se špatně čte) */
   .pt-lv,.pt-v,.pt-prog{background:none !important;color:#000 !important;border:1px solid #888}
   /* „🖨️ Vytisknout“ u karty: jen „Před cestou“ */
-  body.pt-print .content>:not(#view-trip),body.pt-print #tripRoot>:not(#tripStep),body.pt-print #tripStep>:not(#preTrip){display:none !important}
+  body.pt-print .content>:not(#view-trip),body.pt-print #tripRoot>:not(.tw-body),body.pt-print .trip-aside,body.pt-print #tripStep>:not(#preTrip){display:none !important}
   body.pt-print .pt-card{border:none !important;padding:0}
   .pt-grid{display:block}
   .pt-sec{margin-bottom:10px}

@@ -28,9 +28,10 @@ test('desktop.css: všechna pravidla jen v @media od 1024 px (telefon a tablet b
   for (const m of media) assert.match(m, /^@media \(min-width:(1024|1600)px\)/, m);
 });
 
-test('desktop.css se načítá jako poslední styl stránky', () => {
+test('desktop.css se načítá jako poslední styl stránky (za ním jen desktopové styly obrazovek, desktop-*.css)', () => {
   const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g)].map((m) => m[1]);
-  assert.equal(links.at(-1), 'css/desktop.css', links.join(', '));
+  const at = links.indexOf('css/desktop.css');
+  assert.ok(at >= 0 && links.slice(at + 1).every((l) => /^css\/desktop-[a-z]+\.css$/.test(l)), links.join(', '));
   assert.ok(links.includes('css/atlas.css') && links.includes('css/trip.css'));
 });
 
