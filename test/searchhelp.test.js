@@ -1356,3 +1356,13 @@ test('groundChanged: po hledání jinak nastavená cesta na letiště (vlastní 
   assert.equal(H.groundChanged({ kmRate: 1, groundMode: 'car', carFuel: 'diesel', carCons: 6 }, { kmRate: 1, groundMode: 'car', carFuel: 'petrol', carCons: 7 }), true, 'jiný pohon');
   assert.equal(H.groundChanged(null, { kmRate: 1 }), false, 'bez výsledku nic');
 });
+
+test('smartDirect: „jen přímé“ z věty platí pro tu větu – další věta bez něj ho vypne, zaškrtnuté ve formuláři nechá', () => {
+  // věta s „přímé“ ho zapne a zapamatuje si, že ho zapnula věta
+  assert.deepEqual(plain(H.smartDirect({ directOnly: true }, false)), { directOnly: true, smart: true });
+  // další věta bez „přímé“: zapnula ho věta → vypnout
+  assert.deepEqual(plain(H.smartDirect({ nMin: 5 }, true)), { directOnly: false, smart: false });
+  // zaškrtnuté ručně ve formuláři (ne věta) → beze změny (bez directOnly)
+  assert.deepEqual(plain(H.smartDirect({}, false)), { smart: false });
+  assert.deepEqual(plain(H.smartDirect(null, false)), { smart: false });
+});

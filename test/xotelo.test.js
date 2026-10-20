@@ -1673,5 +1673,7 @@ test('místo TripAdvisoru „z okolí“ se stejným názvem jako místo pobytu 
   t.step = 'stay'; // po výběru průvodce pokračoval dál
   c.window.Trip.render();
   await tick();
-  assert.doesNotMatch(sp(c.__els['#stayBody'].innerHTML), /z okolí|TripAdvisor nemá/);
+  const only = sp(c.__els['#stayBody'].innerHTML);
+  assert.doesNotMatch(only, /z okolí|TripAdvisor nemá/);
+  assert.doesNotMatch(only, /ℹ️ <div><\/div>/, 'bez prázdné poznámky');
 });

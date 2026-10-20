@@ -228,6 +228,11 @@ details[open] .ps-more::after{content:" ▴"}
 @media(max-width:430px){
   .res-tools .seg .vs-ic{display:none} /* úzký telefon: jen slova, ať se celá vejdou (i 3 pohledy vedle Filtrů) */
 }
+@media(max-width:380px){
+  /* 360 px s počtem filtrů u ⚙️ Filtry: „Sezn… Ma… Kalen…“ – bez šipky a s užším okrajem se slova vejdou celá */
+  .res-more-btn>span[aria-hidden]{display:none}
+  .res-head .res-tools .seg button{padding:8px 2px} /* přebije i pozdější pravidlo pro ≤ 560 px */
+}
 .fchip{border:1px solid var(--border);background:var(--surface);color:var(--faint);border-radius:9px;padding:5px 9px;font:700 12px Inter,sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
 .fchip small{font-weight:600;color:var(--faint)}
 .fchip i{width:8px;height:8px;border-radius:50%}
@@ -1294,6 +1299,8 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .trip-mini .tm-when{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .trip-mini .tm-when b{font-size:15px;font-weight:700}
 .trip-mini .tm-when small{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* úzký telefon (360 px): „7 nocí · KLV → K…“ – raději na dva řádky, letiště celá */
+@media(max-width:430px){.trip-mini .tm-when small{white-space:normal}}
 .trip-mini .tm-price{font-size:17px;font-weight:800;white-space:nowrap}
 .trip-mini .tm-price small{font-size:12px;font-weight:600;color:var(--muted);margin-left:2px}
 .trip-mini .tm-price .tm-trip{display:block;margin:1px 0 0;font-size:11px;text-align:right}

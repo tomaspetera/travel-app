@@ -1831,6 +1831,16 @@
     return new Set([...excluded, ...origins].filter(x => x !== only));
   }
 
+  /**
+   * „jen přímé“ z věty v chytrém hledání platí pro tu větu, ne napořád: → { directOnly?, smart } (smart = zapnula ho věta).
+   * Věta s „přímé“ ho zapne, další věta bez něj ho vypne – jen když ho předtím zapnula věta (wasSmart), ne když si ho
+   * uživatel zaškrtl ve formuláři; bez directOnly ve výsledku zůstane, co je ve formuláři.
+   */
+  function smartDirect(patch, wasSmart) {
+    if (patch && patch.directOnly != null) return { directOnly: Boolean(patch.directOnly), smart: Boolean(patch.directOnly) };
+    return wasSmart ? { directOnly: false, smart: false } : { smart: false };
+  }
+
   window.SearchHelp = {
     onlyOriginSet, recentWhen,
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
@@ -1846,6 +1856,6 @@
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
-    destCenter, geoNames, geoCenter, stayPlan,
+    destCenter, geoNames, geoCenter, stayPlan, smartDirect,
   };
 })();

@@ -188,6 +188,9 @@ test('unsplashPick: přednost fotce města (panorama, památka) před lidmi; jen
   assert.match(unsplashPick([people, tram, city], rio).u, /photo-c/);
   assert.match(unsplashPick([people, tram], rio).u, /photo-t/, 'bez lidí, i bez slova o městě');
   assert.equal(unsplashPick([people], rio), null);
+  // „bird's eye view“ je pohled na město shora, ne pták
+  assert.match(unsplashPick([usp({ alt_description: "bird's eye view of Rio de Janeiro city", urls: { raw: 'https://images.unsplash.com/photo-b?ixid=4' } })], rio).u, /photo-b/);
+  assert.match(unsplashPick([usp({ description: 'Birds-eye view, Rio de Janeiro', urls: { raw: 'https://images.unsplash.com/photo-e?ixid=5' } })], rio).u, /photo-e/);
 });
 
 test('unsplashClient: dotaz s klíčem a verzí; po vyčerpání limitu (403) čtvrt hodiny bez dotazů, po neplatném klíči (401) 6 h', async () => {
@@ -261,4 +264,8 @@ test('cityPhotos s Unsplash: autor a odkaz na profil jdou s fotkou (i z paměti)
   const ttl = (k) => cache.map.get(k).exp - Date.now();
   const [tv, tw] = [ttl('ph6:unsplash:Testov V'), ttl('ph6:unsplash:Testov W')];
   assert.ok(tv > 6 * 864e5 && tw <= 36e5, `${tv} ${tw}`);
+  // náhradní fotka z paměti (do hodiny, jiné zařízení) je pořád jen na chvíli – partial, ať ji prohlížeč nedrží 30 dní
+  const hit = await cityPhotos(['Testov W'], { pick: async () => { throw new Error('z paměti'); }, prov: 'unsplash' });
+  assert.deepEqual([hit.photos, hit.partial], [{ 'Testov W': 'https://x/w-wiki.jpg' }, true]);
+  assert.equal((await cityPhotos(['Testov V'], { pick: async () => { throw new Error('z paměti'); }, prov: 'unsplash' })).partial, false);
 });

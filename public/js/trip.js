@@ -213,7 +213,10 @@
   const nearStay = s => Boolean(s && s.mode === 'pick' && s.near);
   // vlastní hotel daleko od středu místa (Avignon → hotel v Sorgues ~6 km): program od centra, ne kolem hotelu
   const FAR_STAY_KM = 3;
-  const farStay = (s, place) => Boolean(s && s.mode === 'pick' && !s.near && s.lat != null && place && place.lat != null && distKm(place, s) > FAR_STAY_KM);
+  const farStay = (s, place) => Boolean(s && s.mode === 'pick' && !s.near && s.lat != null && place && place.lat != null && !place.noFar && distKm(place, s) > FAR_STAY_KM);
+  // Místo leží na letišti cíle (ostrov nebo oblast – Mallorca, Kréta: cíl i geokodér dají jen polohu letiště PMI, ne střed
+  // města) – hotel od něj dál neznamená „za městem“, program zůstane kolem hotelu (noFar).
+  const airportPt = (t, p) => Boolean(p && p.lat != null && t.dest && /^ap:/.test(t.dest.id || '') && t.dest.lat != null && distKm(p, t.dest) < 1);
   // program od středu místa (startAt 'center'), ne od ubytování: hotel z okolí nebo vlastní hotel daleko od středu
   const outStay = (s, place) => nearStay(s) || farStay(s, place);
   /**
@@ -466,6 +469,23 @@
   }
   const ARR_ICO = { bus: '🚌', train: '🚆', metro: '🚇', tram: '🚊', taxi: '🚕' };
   /**
+   * Řádky cesty z letiště do města pod cenou v kroku Let – všechny úseky, které cena „Z letiště do města“ sčítá: přílet,
+   * u trasy podle letů i odlet z každého místa a přílet do dalšího (ne úsek, který nahradí přejezd po zemi), návrat. Zpět
+   * přes stejné letiště jako přílet jen „· zpět stejně“ (jinak by řádek s cenou za jeden směr vypadal jako celá cena).
+   */
+  function arrivalLines(t, fly) {
+    const a = t.arrival || {}, rows = [], row = (x, back, tail = '') => `${ARR_ICO[x.mode] || '🚌'} ${esc(arrivalRow(x, back) + tail)}`;
+    if (!a.out) return '';
+    const back = t.flight.back && a.back ? a.back : null, same = back && back.iata === a.out.iata;
+    rows.push(row(a.out, false, same && !arrivalDrop(t, 'back') ? ' · zpět stejně' : ''));
+    if (fly && Array.isArray(a.mid)) a.mid.forEach((m, i) => {
+      if (m && m.from && !gapLeg(t, gapAt(t, i))) rows.push(row(m.from, true));
+      if (m && m.to) rows.push(row(m.to));
+    });
+    if (back && !same) rows.push(row(back, true));
+    return `<div class="faint" style="font-size:12.5px;margin-top:4px">${rows.join('<br>')}</div>`;
+  }
+  /**
    * Jízdné k přejezdu letiště ↔ 1. / poslední místo trasy: jen veřejnou dopravou a když je to místo ve městě letiště
    * (do 25 km od jeho středu) – „ · letištní bus 17,90 € (~440 Kč)/os.“; jinak '' (jízdné do jiného místa neznám).
    */
@@ -706,7 +726,9 @@
   function headSub(t) {
     const { checkin, checkout, nights } = stayDates(t);
     const route = isMulti(t) ? t.route.bases.map(b => `${b.name} (${b.nights})`).join(' → ') : '';
-    return `${esc(t.dest.country || '')} · ${fmtDate(checkin)}–${fmtDate(checkout)} · ${backLeg(t) ? nightsTxt(nights) : 'jen tam'} · ${t.adults} os.${ovOn(t) ? ' · 🚆 vlakem/busem' : ''}${route ? `<div class="th-route">🧭 ${esc(route)}</div>` : ''}`;
+    // trasa přes víc zemí (Řím → Barcelona): všechny země, ne jen první
+    const cs = [...new Set([t.dest.country, ...(isMulti(t) ? t.route.bases.map(b => b.country) : [])].filter(Boolean))];
+    return `${esc(cs.slice(0, 3).join(', ') + (cs.length > 3 ? '…' : ''))} · ${fmtDate(checkin)}–${fmtDate(checkout)} · ${backLeg(t) ? nightsTxt(nights) : 'jen tam'} · ${t.adults} os.${ovOn(t) ? ' · 🚆 vlakem/busem' : ''}${route ? `<div class="th-route">🧭 ${esc(route)}</div>` : ''}`;
   }
   function headTotal(t) {
     const c = costs(t);
@@ -807,7 +829,7 @@
       ${fly ? `<div class="faint" style="font-size:12.5px;margin-top:6px">🎫 Každý let je samostatná letenka – při zpoždění jednoho letu další aerolinka nečeká. Mezi lety: ${esc(t.route.bases.map(b => b.name).join(' → '))}.</div>` : ''}
       <div class="tf-costs">${costRows.map(r => `<div><span>${r[0]}${r[2] ? `<small>${r[2]}</small>` : ''}</span><b>${r[1]}</b></div>`).join('')}<div class="tf-pp">ceny na osobu</div></div>
       ${priceAgeHtml(t, 'tfAge')}
-      ${t.arrival && t.arrival.out ? `<div class="faint" style="font-size:12.5px;margin-top:4px">${ARR_ICO[t.arrival.out.mode] || '🚌'} ${esc(arrivalRow(t.arrival.out))}${t.arrival.back && t.arrival.back.iata !== t.arrival.out.iata ? `<br>${ARR_ICO[t.arrival.back.mode] || '🚌'} ${esc(arrivalRow(t.arrival.back, true))}` : ''}</div>` : ''}
+      ${arrivalLines(t, fly)}
       <div id="tfPl">${priceRow(t)}</div>
       <div class="step-act"><button class="btn primary" id="tfNext">Pokračovat: Trasa →</button><div class="step-act2"><button class="btn" id="tfBack">↩ Jiný let</button>${fly ? '' : '<button class="btn" id="tfVerify" title="Ověřit živou cenu a porovnat aerolinky">🔄 Ověřit živou cenu</button>'}</div></div>
       <div id="tfAlt"></div></div>${groundOffer(t)}`;
@@ -1975,9 +1997,11 @@
     const base = (d.query && d.query.city) || '';
     const nearTxt = nearOther.map(x => `${esc(x.name || 'okolí')} ~${x.km} km`).join(', ');
     const townTxt = split ? ' V místě jsou i ubytování bez ceny (OpenStreetMap) níže.' : '';
-    const osmNote = near ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div>${nearOther.length < near.length
+    // jen místo stejného jména a nic v místě bez ceny → bez poznámky (ne prázdný rámeček)
+    const nearMsg = !near ? '' : nearOther.length < near.length
       ? (nearOther.length ? `<b>Část hotelů je z okolí</b> (${nearTxt}).${townTxt}` : townTxt.trim())
-      : `<b>${base ? `TripAdvisor nemá hotely přímo v místě ${esc(base)}` : 'TripAdvisor tu hotely nemá'}</b> – ceny jsou z okolí (${nearTxt}).${townTxt}`}</div></div>`
+      : `<b>${base ? `TripAdvisor nemá hotely přímo v místě ${esc(base)}` : 'TripAdvisor tu hotely nemá'}</b> – ceny jsou z okolí (${nearTxt}).${townTxt}`;
+    const osmNote = near ? (nearMsg ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div>${nearMsg}</div></div>` : '')
       : d.osmFallback ? `<div class="note info st-src" style="margin-bottom:10px">ℹ️ <div><b>TripAdvisor tu ceny nemá</b> – v místě jsou tato ubytování (OpenStreetMap). Cenu ověř u partnera a zadej ji níže.</div></div>` : '';
     // stupnice filtru podle zdroje: TripAdvisor 0–5 (3,5+ / 4+ / 4,5+ = 7+ / 8+ / 9+ na stupnici 0–10); bez hodnocení (OSM) bez filtru
     const five = main.length > 0 && main.every(h => h.rating5 != null), rated = main.some(h => h.rating != null);
@@ -2291,14 +2315,15 @@
     if (!(progIdx >= 0 && progIdx < n)) progIdx = 0;
     const i = progIdx, b = r.bases[i], last = i === n - 1;
     const p = baseProgram(t, i);
-    const out = outStay(b.stay, b);
+    const bp = airportPt(t, b) ? { ...b, noFar: true } : b;
+    const out = outStay(b.stay, bp);
     const atStay = b.stay && b.stay.mode === 'pick' && b.stay.lat != null && !out;
     const center = atStay ? { lat: b.stay.lat, lon: b.stay.lon, label: b.stay.name } : { lat: b.lat, lon: b.lon, label: b.name };
     host.innerHTML = `<div class="card step-card"><div class="sc-head"><div><h3>📍 Program na trase</h3>
       <div class="muted">Každé místo má vlastní program na dny, kdy tam budeš${b.stay && b.stay.mode === 'pick' && !out ? ' (kolem ubytování)' : ''} – můžeš ho upravit.</div></div></div>
       ${baseTabs(r, i, (x, j) => Boolean(basePlan(t, j)), 'data-pt')}
       <h3 class="base-h" style="font-size:15.5px;margin:14px 0 2px">${i + 1}. ${esc(b.name)} <span class="muted" style="font-weight:600;font-size:13px">· ${dayLbl(p.start)} – ${dayLbl(p.end)}${flyHead(t, i, p, last)}</span></h3>
-      ${nearProgNote(b.stay, b)}
+      ${nearProgNote(b.stay, bp)}
       <div id="tripPlaces"></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn primary" id="progNext">${last ? 'Pokračovat ke shrnutí →' : `Další místo: ${esc(r.bases[i + 1].name)} →`}</button>${last ? '' : '<button class="btn ghost" id="progSum">Rovnou ke shrnutí</button>'}</div></div>`;
     const goBase = j => { progIdx = j; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -2332,7 +2357,8 @@
         if (hit) { t.cityCenter = { lat: hit.lat, lon: hit.lon, label: hit.label }; persist(); }
       } catch { /* použij polohu cíle */ }
     }
-    const far = Boolean(own && t.cityCenter && farStay(own, t.cityCenter));
+    // ostrov nebo oblast (Mallorca, Kréta, Bali): geokodér vrátí jen bod letiště (= cíl), ne střed města – pak kolem hotelu
+    const far = Boolean(own && t.cityCenter && !airportPt(t, t.cityCenter) && farStay(own, t.cityCenter));
     const center = own && !far ? { lat: own.lat, lon: own.lon, label: own.name } : t.cityCenter || { lat: t.dest.lat, lon: t.dest.lon, label: t.dest.label };
     if (T() !== t || t.step !== 'program') return;
     host.innerHTML = `<div class="card step-card"><div class="sc-head"><div><h3>🗺️ Co dělat · ${esc(t.dest.label)}</h3>
