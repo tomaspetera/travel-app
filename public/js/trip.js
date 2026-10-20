@@ -703,6 +703,7 @@
     else if (t.step === 'program') programStep();
     else summaryStep();
     tabIntoView();
+    asideNext(); // tlačítko kroku i v přehledu vpravo (krok už je vykreslený)
   }
   /** Záložky míst trasy (Ubytování, Program) se na telefonu nevejdou: vybrané místo posunout doprostřed lišty. */
   function tabIntoView() {
@@ -772,9 +773,27 @@
       <div class="ta-rows">${rows.map(([k, ico, label, txt, czkVal]) => `<${k ? 'button type="button"' : 'div'} class="ta-row${k === t.step ? ' on' : ''}${k && at(k) < idx ? ' done' : ''}${k ? '' : ' sub'}"${k ? ` data-step="${k}"` : ''}>
         <span class="ta-ico" aria-hidden="true">${ico}</span><span class="ta-l"><b>${label}</b><small>${esc(txt)}</small></span><span class="ta-p">${czkVal ? czk(czkVal) : '–'}</span></${k ? 'button' : 'div'}>`).join('')}</div>
       <div class="ta-tot"><span>Celkem zatím</span><b>${czk(c.total)}</b><small>${czk(c.perPerson)} na osobu · ceny ověř u partnerů</small></div>
+      <div class="ta-next" id="taNext" hidden></div>
     </div>`;
   }
-  const asideWire = () => $$('#tripAside [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step));
+  const asideWire = () => { $$('#tripAside [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step)); asideNext(); };
+  /**
+   * Hlavní tlačítko kroku („Pokračovat: Trasa →“, „Pokračovat ke shrnutí →“) i v přilepeném přehledu vpravo – u dlouhého
+   * kroku (ubytování, auto) je v kroku až úplně dole. Klepnutí zmáčkne tlačítko v kroku (to, co je tam teď); ještě
+   * nepovolené (trasa bez míst) jen ukáže, kde je.
+   */
+  const NEXT_IDS = ['tfNext', 'rtNext', 'stayNext', 'carNext', 'progNext', 'carSkip'];
+  function asideNext() {
+    const slot = $('#taNext');
+    if (!slot) return;
+    const find = () => NEXT_IDS.map(id => $(`#tripStep #${id}`)).find(b => b && b.isConnected !== false && String(b.textContent || '').trim());
+    const nx = find();
+    slot.hidden = !nx;
+    if (!nx) { slot.innerHTML = ''; return; }
+    slot.innerHTML = `<button type="button" class="btn${nx.classList && nx.classList.contains('primary') ? ' primary' : ''}">${esc(String(nx.textContent).trim())}</button>`;
+    const btn = slot.firstElementChild;
+    if (btn) btn.onclick = () => { const b = find(); if (!b) return; if (b.disabled) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); else b.click(); };
+  }
 
   // Přestupy letu jako ve výsledcích („1× přestup (FRA 1 h 35 min)“) – ať je vidět i země „jen přestup“ z 🛂 Před cestou.
   const stopsTxt = l => (l.stops > 0 ? `${l.stops}× přestup${(l.layovers || []).length ? ` (${l.layovers.map(x => `${x.at || ''} ${x.min > 0 ? minutesToHm(x.min) : ''}`.trim()).join(', ')})` : ''}` : '');

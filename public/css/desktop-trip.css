@@ -2,10 +2,32 @@
    Krok vlevo, vpravo „Přehled cesty“ (#tripAside: kroky s cenou a stavem, celkem) – přilepený pod horní lištou, ať je
    cena pořád vidět; cena v hlavičce se pak neopakuje. Program (vlastní mapa) a Shrnutí (vlastní cena) přes celou šířku:
    Shrnutí ve dvou sloupcích – průběh cesty, vstup a Co zařídit vlevo, cena, rezervace a tlačítka vpravo. Ubytování na
-   širokém monitoru (od 1600 px) jako karty ve dvou sloupcích. Navazuje na tokeny z desktop.css (--gap); telefon,
-   tablet a malý notebook (< 1280 px) beze změny. */
+   širokém monitoru (od 1600 px) jako karty ve dvou sloupcích. Navazuje na tokeny z desktop.css (--gap); telefon a
+   tablet (< 1024 px) beze změny.
+   Od 1024 px: nižší fotka cíle (krok začíná v horní třetině okna, ne až v půlce) a lišta kroků přilepená pod horní
+   lištou – při posouvání dlouhého kroku (ubytování, program) jde kdykoli přeskočit na jiný krok. */
+@media (min-width:1024px){
+  /* lišta kroků hned pod plnou částí lepivé horní lišty (95 px, spodních 14 px přechází do průhledna – tam nic
+     neprosvítá); pod ní přilepený obsah (přehled, mapa programu, pravý sloupec Shrnutí) */
+  :root{--trip-bar:80px;--trip-stick:160px}
+  #tripRoot>.trip-head{min-height:0;height:150px;padding:18px 24px;margin-bottom:12px}
+  #tripRoot>.trip-head .th-dest h2{font-size:28px}
+  #tripRoot>.stepbar{position:sticky;top:var(--trip-bar);z-index:6;margin:0 0 16px;padding:8px 14px 7px;border-radius:18px;
+    background:var(--bg2);background:color-mix(in srgb,var(--bg2) 90%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    box-shadow:0 10px 24px -18px rgba(15,23,42,.45)}
+  #tripRoot>.stepbar .st{gap:3px;font-size:11px}
+  #tripRoot>.stepbar .st span{width:32px;height:32px;font-size:15px}
+  #tripRoot>.stepbar .st.done span{font-size:13px}
+  #tripRoot>.stepbar i{margin-top:15px}
+  #tripRoot>.stepbar .st:hover span{border-color:var(--border-2);transform:translateY(-1px)}
+  #tripRoot>.stepbar .st:focus-visible{outline:none}
+  #tripRoot>.stepbar .st:focus-visible span{box-shadow:0 0 0 3px rgba(91,140,255,.45)}
+  /* Shrnutí má cenu ve vlastní kartě vpravo – bublina „Celkem zatím“ ve fotce by ji jen opakovala */
+  #tripRoot[data-step=summary] .th-total{display:none}
+  #tripRoot[data-step=program] .ex-map{top:var(--trip-stick);height:min(720px,calc(100vh - var(--trip-stick) - 24px))}
+}
 @media (min-width:1280px){
-  :root{--trip-aside:320px;--trip-stick:104px}
+  :root{--trip-aside:320px}
 
   /* ---------- krok + přehled cesty vpravo ---------- */
   #tripRoot .tw-body{display:grid;grid-template-columns:minmax(0,1fr) var(--trip-aside);gap:var(--gap);align-items:start}
@@ -40,13 +62,22 @@
   .ta-tot>span{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
   .ta-tot>b{font:800 24px/1.1 Sora,Inter,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
   .ta-tot>small{grid-column:1/-1;font-size:12px;color:var(--muted)}
+  /* hlavní tlačítko kroku i tady – v kroku je u dlouhého seznamu až dole */
+  .ta-next{padding-top:14px}
+  .ta-next[hidden]{display:none}
+  .ta-next .btn{width:100%;justify-content:center;min-height:46px;white-space:normal;text-align:center}
 
   /* ---------- Ubytování: filtry v jednom řádku nástrojů ---------- */
-  #tripStep .stay-tools{flex-wrap:wrap;gap:8px 10px}
-  #tripStep .stay-tools #staySort{flex:0 1 auto;min-width:0}
-  #tripStep .stay-tools #stayType{flex:1 1 150px;min-width:0}
-  #tripStep .stay-tools #stayMax{flex:0 0 132px;min-width:0}
-  #tripStep .stay-tools>.faint:last-child{margin-left:auto}
+  /* nástroje ve dvou pravidelných řádcích (ne „max Kč/noc“ samo na řádku a useknuté řazení):
+     řazení | hodnocení, pod tím typ | max. cena | počet nabídek */
+  #tripStep .stay-tools{display:grid;grid-template-columns:minmax(0,1fr) 136px auto;grid-template-areas:"sort sort min" "type max count";gap:8px 10px;align-items:center}
+  #tripStep .stay-tools #staySort{grid-area:sort;width:100%;min-width:0}
+  #tripStep .stay-tools #stayMin{grid-area:min;justify-self:end}
+  #tripStep .stay-tools #stayType{grid-area:type;width:100%;min-width:0}
+  #tripStep .stay-tools #stayMax{grid-area:max;width:100%;max-width:none !important;min-width:0}
+  #tripStep .stay-tools>.faint:last-child{grid-area:count;justify-self:end;text-align:right;white-space:nowrap}
+  #tripStep .stay-tools:not(:has(#stayType)){grid-template-areas:"sort sort min" "max count count"}
+  #tripStep .stay-tools:not(:has(#stayType)) #stayMax{max-width:160px !important}
   /* „Vybral sis jinde?“ nad poli (vedle by název hotelu nebyl vidět) */
   #tripStep .manual-row:has(#manName){grid-template-columns:minmax(0,1fr) 170px auto}
   #tripStep .manual-row:has(#manName)>div:first-child{grid-column:1/-1}
@@ -54,8 +85,7 @@
   /* odkazy na partnery (půjčovny, ubytování): čtyři jako mřížka 2 × 2, ne tři a jeden osamocený pod nimi */
   #tripStep .link-grid:not(.compact):has(>:nth-child(4):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
 
-  /* ---------- Program: mapa přilepená vedle dnů, vysoká jako okno ---------- */
-  #tripRoot[data-step=program] .ex-map{top:var(--trip-stick);height:min(720px,calc(100vh - var(--trip-stick) - 24px))}
+  /* ---------- Program: mapa přilepená vedle dnů, vysoká jako okno (výška výš, od 1024 px) ---------- */
   /* den jako časová osa: zastávky spojené svislou čarou (místo přerušovaných oddělovačů) */
   #tripRoot[data-step=program] .day-plan{padding:14px 16px;border-radius:18px}
   #tripRoot[data-step=program] .dp-item{position:relative;border-top:none;padding:8px 0}
@@ -86,6 +116,10 @@
 @media (min-width:1600px){
   #tripStep .stay-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
   #tripStep .stay-list>:not(.stay){grid-column:1/-1}
+  /* nástroje tu vejdou do jednoho řádku (řazení by jinak bylo přes celou šířku) */
+  #tripStep .stay-tools{grid-template-columns:minmax(0,1.3fr) auto minmax(0,1fr) 136px auto;grid-template-areas:"sort min type max count"}
+  #tripStep .stay-tools:not(:has(#stayType)){grid-template-columns:minmax(0,1fr) auto 136px auto;grid-template-areas:"sort min max count"}
+  #tripStep .stay-tools:not(:has(#stayType)) #stayMax{max-width:none !important}
   #tripStep .stay{grid-template-columns:104px minmax(0,1fr);grid-template-rows:1fr auto;grid-template-areas:"img main" "foot foot";align-items:start;gap:12px 14px;padding:12px}
   #tripStep .st-img{grid-area:img;width:104px;height:96px}
   #tripStep .st-main{grid-area:main}

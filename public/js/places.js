@@ -283,6 +283,23 @@
     ms.map = map;
     map.atlasState = ms;
     liveMaps.add(map);
+    // Výška mapy přijde z rozvržení někdy až po vykreslení (na počítači mapa vedle seznamu přes výšku okna) – výřez
+    // spočítaný pro menší plochu by nechal body v rohu nebo mimo. Dokud mapou nikdo nepohnul, přizpůsobit ho znovu.
+    map.on('movestart', e => { if (e.originalEvent) ms.moved = true; });
+    if (typeof ResizeObserver === 'function') {
+      let size = '';
+      const ro = new ResizeObserver(() => {
+        const k = `${el.clientWidth}x${el.clientHeight}`;
+        if (k === size || !el.clientWidth || !el.clientHeight) return;
+        const first = !size;
+        size = k;
+        if (first) return;
+        map.resize();
+        if (ms.fit && !ms.moved) map.fitBounds(ms.fit, { ...FIT, duration: 0 });
+      });
+      ro.observe(el);
+      map.once('remove', () => ro.disconnect());
+    }
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.touchZoomRotate.disableRotation();
     // Na úzké mapě (mobil) by rozbalená atribuce zakryla spodek mapy: sbal ji do tlačítka ⓘ (klepnutím se rozbalí).
@@ -351,6 +368,7 @@
       el.className = `mk ${cls}${pt.num ? ' num' : ''}`;
       el.style.background = pt.color;
       if (pt.num) el.textContent = pt.num;
+      if (pt.day != null) el.dataset.day = pt.day; // den programu (najetí na den v seznamu ztlumí ostatní)
       el.title = pt.label;
       // focusAfterOpen: false – jinak bublina vezme fokus a prohlížeč odroluje stránku k mapě (na telefonu o tisíce px)
       const pop = new maplibregl.Popup({ offset: 12, closeButton: false, maxWidth: '240px', focusAfterOpen: false })
@@ -371,9 +389,35 @@
       const b = new maplibregl.LngLatBounds([center.lon, center.lat], [center.lon, center.lat]);
       fit.forEach(pt => b.extend([pt.lon, pt.lat]));
       fitLines.forEach(l => l.coords.forEach(c => b.extend([c[0], c[1]])));
-      // dole víc místa, ať start trasy neskončí pod atribucí
-      map.fitBounds(b, { padding: { top: 40, right: 40, bottom: 56, left: 40 }, maxZoom: 15, duration: 0 });
+      map.fitBounds(b, { ...FIT, duration: 0 });
+      ms.fit = b; // při změně velikosti mapy znovu (initMap)
+      ms.moved = false;
     }
+  }
+  // dole víc místa, ať start trasy neskončí pod atribucí
+  const FIT = { padding: { top: 40, right: 40, bottom: 56, left: 40 }, maxZoom: 15 };
+
+  // Na počítači: najetí myší na místo v seznamu (nebo zastávku programu) zvýrazní jeho značku na mapě vedle, najetí na
+  // den programu ztlumí značky ostatních dnů – klik na značku už naopak odroluje k místu v seznamu.
+  if (typeof document !== 'undefined' && document.addEventListener && typeof matchMedia === 'function' && matchMedia('(hover:hover)').matches) {
+    let hot = null, dayMap = null, dayOn = null;
+    const setHot = el => { if (hot === el) return; if (hot) hot.classList.remove('hot'); hot = el; if (el) el.classList.add('hot'); };
+    const setDay = (m, day) => {
+      if (dayMap === m && dayOn === day) return;
+      if (dayMap && dayMap !== m) dayMap.atlasState?.markers.forEach(x => x.getElement().classList.remove('dim'));
+      dayMap = m; dayOn = day;
+      if (m) m.atlasState?.markers.forEach(x => { const el = x.getElement(); el.classList.toggle('dim', day != null && el.dataset.day !== day && !el.classList.contains('ctr')); });
+    };
+    document.addEventListener('mouseover', e => {
+      const t = e.target && e.target.closest ? e.target : null;
+      const box = t && t.closest('.ex-layout');
+      const m = box && [...liveMaps].find(x => box.contains(x.getContainer()));
+      const card = m && t.closest('[data-poi],[data-cpoi]');
+      const mk = card && m.atlasState && m.atlasState.byId ? m.atlasState.byId.get(card.dataset.poi || card.dataset.cpoi) : null;
+      setHot(mk ? mk.getElement() : null);
+      const day = m && t.closest('.day-plan[data-day]');
+      setDay(m || dayMap, day ? day.dataset.day : null);
+    });
   }
 
   function focusOnMap(ms, p, zoom = 15) {
@@ -392,12 +436,15 @@
     const pts = items.map(p => {
       const d = dayOf.get(p.id);
       return { id: p.id, lat: p.lat, lon: p.lon, color: d ? DAY_COLORS[d.i % DAY_COLORS.length] : color(p.category), num: d ? d.j + 1 : null,
-        label: `${icon(p.category)} ${p.name}${d ? ` · den ${d.i + 1}` : ''}`, q: poiQ(p, center), place: p };
+        label: `${icon(p.category)} ${p.name}${d ? ` · den ${d.i + 1}` : ''}`, q: poiQ(p, center), place: p, day: d ? d.i : null };
     });
     const lines = (plan?.days || []).filter(d => d.items.length && d.kind !== 'daytrip')
       .map(d => ({ color: DAY_COLORS[plan.days.indexOf(d) % DAY_COLORS.length], coords: [[center.lon, center.lat], ...d.items.map(p => [p.lon, p.lat])] }));
-    // výlety mimo město nepřibližují mapu, pokud jich je víc (jinak by město bylo malinké)
-    const fitIds = fitAll ? null : new Set(items.filter(p => p.category !== 'daytrip' || items.length < 5 || dayOf.has(p.id)).map(p => p.id));
+    // výlety mimo město nepřibližují mapu, pokud jich je víc (jinak by město bylo malinké) – ani celodenní výlet
+    // z programu, když jsou v programu i dny ve městě (město by se scvrklo do rohu; výlet je na mapě dál vidět po oddálení)
+    const outDay = new Set((plan?.days || []).filter(d => d.kind === 'daytrip').flatMap(d => d.items.map(p => p.id)));
+    const inTown = items.some(p => dayOf.has(p.id) && !outDay.has(p.id));
+    const fitIds = fitAll ? null : new Set(items.filter(p => (p.category !== 'daytrip' || items.length < 5 || dayOf.has(p.id)) && !(inTown && outDay.has(p.id))).map(p => p.id));
     paintMap(state.map, center, pts, lines, onClick, fitIds);
   }
 
@@ -569,7 +616,7 @@
     const fromC = center.startAt === 'center';
     return warn + plan.days.map((d, i) => {
       const { trip, url, mapy } = dayRoute(center, d);
-      return `<div class="day-plan"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? (d.half ? ' · výlet do okolí' : ' · celodenní výlet') : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
+      return `<div class="day-plan" data-day="${i}"><h4><span><span style="color:${DAY_COLORS[i % DAY_COLORS.length]}">●</span> Den ${i + 1} · ${dayLbl(d.date)}${trip ? (d.half ? ' · výlet do okolí' : ' · celodenní výlet') : ''}${wxSlot((trip && d.items[0]) || center, d.date)}</span>
         ${dayLinks(url, mapy)}</h4>
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${minTxt(p.visitMin)}</span>
           ${inclHtml(p, 'dp-walk')}<div class="dp-walk">${!p.transit && !(p.fromPrevKm >= 0.1) ? (j === 0 ? (fromC ? 'hned v centru' : 'hned u ubytování') : 'hned vedle') // Casa Amatller vedle Casa Batlló – ne „0 km pěšky (~0 min)“
