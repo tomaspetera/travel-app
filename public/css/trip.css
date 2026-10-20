@@ -64,6 +64,7 @@
 /* hotel z okolí (malé místo bez hotelů na TripAdvisoru) a ubytování v místě bez ceny pod hotely s cenou */
 .st-near{font-size:12.5px;margin-top:3px;color:var(--accent)}
 .st-near b{font-weight:700}
+.prog-near{font-size:12.5px;margin:2px 0 8px;line-height:1.4}
 .st-town{margin-top:16px}
 .st-town h4{margin:0 0 2px;font-size:14.5px}
 /* ↻ Aktualizovat ceny běží – dřívější nabídky zůstanou vidět */
