@@ -918,3 +918,24 @@ test('Objevuj má vlastní limit: vyčerpaný → 429, hledání letů dál fung
     else process.env.BROUTER_GAP_MS = prev.gap;
   }
 });
+
+test('Objevuj okruh 50/100 km a celá země (DEMO): /api/poi/trips a /api/poi/country, neplatné vstupy 400', async () => {
+  const headers = { 'x-forwarded-for': '10.20.30.77' };
+  const get = async (path) => { const r = await fetch(`${base}${path}`, { headers }); return { status: r.status, j: await r.json() }; };
+  const t = await get('/api/poi/trips?lat=41.3874&lon=2.1686');
+  assert.equal(t.status, 200);
+  assert.equal(t.j.demo, true);
+  assert.ok(t.j.items.length >= 5 && t.j.items.every((x) => x.category === 'daytrip' && x.distanceKm > 0));
+  assert.equal((await get('/api/poi/trips?lat=x&lon=2')).status, 400);
+  // země podle kódu, vzdálenost od místa
+  const c = await get('/api/poi/country?cc=it&lat=41.9&lon=12.5');
+  assert.equal(c.status, 200);
+  assert.deepEqual([c.j.cc, c.j.country, c.j.demo], ['IT', 'Itálie', true]);
+  for (const k of ['city', 'dest', 'unesco', 'park']) assert.ok(c.j[k].length && c.j[k].every((x) => Number.isFinite(x.distanceKm)), k);
+  // bez kódu podle polohy; bez polohy bez vzdálenosti
+  assert.equal((await get('/api/poi/country?lat=48.2082&lon=16.3738')).j.cc, 'AT');
+  const nc = await get('/api/poi/country?cc=PT');
+  assert.equal(nc.status, 200);
+  assert.equal(nc.j.city[0].distanceKm, undefined);
+  for (const bad of ['/api/poi/country', '/api/poi/country?cc=XX', '/api/poi/country?cc=ITA', '/api/poi/country?lat=95&lon=0']) assert.equal((await get(bad)).status, 400, bad);
+});

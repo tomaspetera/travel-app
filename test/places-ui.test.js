@@ -395,7 +395,9 @@ test('drobnosti: „varianta n/10“ u Jiné trasy, prázdný okruh, mapa bez po
   assert.match(e3, /V okruhu 3 km jsem nic zajímavého nenašel\./);
   assert.match(e3, /data-rad="20">Zvětšit okruh na 20 km</, 'rovnou největší okruh – menší pak filtruje prohlížeč');
   assert.deepEqual([...e3.matchAll(/data-mode="(\w+)"/g)].map((m) => m[1]), ['day', 'bike', 'hike']);
-  assert.ok(!T.emptyHtml(20, 'city').includes('data-rad'), 'větší okruh už není');
+  assert.match(T.emptyHtml(20, 'city'), /data-rad="100">Zvětšit okruh na 100 km</, 'z největšího okruhu ve městě místa v okolí do 100 km');
+  assert.match(T.emptyHtml(50, 'city'), /data-rad="100"/);
+  assert.ok(!T.emptyHtml(100, 'city').includes('data-rad'), 'větší okruh už není');
   assert.ok(!T.emptyHtml(5, 'bike').includes('data-mode'), 'v jiném režimu bez tipu na režimy');
 
   const blank = T.blankHtml(BCN_C);
@@ -776,4 +778,96 @@ test('Inspirace: 🔁 města z nedávných hledání letů (nejvýš 2, bez cest
   assert.deepEqual(sp.map((p) => [p.label, p.cc, p.searched, Number.isFinite(p.lat)]), [['Londýn', 'GB', true, false], ['Lisabon', 'PT', true, true]]);
   assert.deepEqual(plain(T.searchedPlaces([], null)), []);
   assert.deepEqual(plain(T.searchedPlaces([], [null, { form: {} }, r({ label: 'Kanada', type: 'country' })])), []);
+});
+
+test('okruh 50/100 km: místa ve městě do 20 km + nejzajímavější místa v okolí jen do zvoleného okruhu, doba jízdy, „🎒 Výlet sem“', () => {
+  assert.deepEqual([...T.RADII], [3, 5, 10, 20, 50, 100]);
+  assert.deepEqual([3, 20, 50, 100, T.COUNTRY].map(T.cityKm), [3, 20, 20, 20, 10], 'dotaz na město nejvýš 20 km, celá země jako výchozí náhled');
+  assert.deepEqual([10, 20, 50, 100, T.COUNTRY].map(T.farOn), [false, false, true, true, false]);
+  // do 20 km výlety mimo město leží za okruhem vždy (jako dřív), od 50 km jen ty do okruhu
+  const trips = (xs) => xs.filter((x) => x.category === 'daytrip').map((x) => x.name);
+  assert.equal(trips(T.inRadius(BCN.items, 20)).length, 8);
+  assert.deepEqual(plain(trips(T.inRadius(BCN.items, 50))), ['Terrasa', 'Sabadell', 'Mataró']);
+  assert.deepEqual(plain(trips(T.inRadius(BCN.items, 100))).sort(), ['Girona', 'Malgrat de Mar', 'Mataró', 'Reus', 'Sabadell', 'Tarragona', 'Terrasa']);
+  assert.equal(T.inRadius(BCN.items, 100).filter((x) => x.category !== 'daytrip').length, 60, 'místa ve městě všechna');
+  // místa v okolí z plánovače výletů: nahradí stejné výlety ze seznamu (úplnější), seřazená podle významu
+  const girona = BCN.items.find((x) => x.name === 'Girona');
+  const far = [{ id: 'mon', name: 'Montserrat', category: 'daytrip', distanceKm: 38, score: 70 }, { ...girona, score: 90, extract: 'úplnější' }, { id: 'tor', name: 'Tortosa', category: 'daytrip', distanceKm: 160, score: 95 }];
+  const all = T.withFar(BCN.items, far);
+  assert.equal(all.length, BCN.items.length + 2);
+  assert.equal(all.filter((x) => x.name === 'Girona').length, 1);
+  assert.equal(all.find((x) => x.name === 'Girona').extract, 'úplnější');
+  assert.deepEqual(plain(all.slice(-3).map((x) => x.name)), ['Tortosa', 'Girona', 'Montserrat']);
+  assert.ok(!T.inRadius(all, 100).some((x) => x.name === 'Tortosa'), 'za okruhem 100 km ne');
+  assert.equal(T.withFar(BCN.items, null), BCN.items);
+  // doba jízdy autem: odhad na 5 min, nejméně 10 min
+  assert.deepEqual([3, 38, 88].map(T.driveMin), [10, 40, 100]);
+  const card = T.poiCard({ id: 'mon', name: 'Montserrat', category: 'daytrip', categoryLabel: 'Hora', distanceKm: 38 }, { center: { lat: 41.39, lon: 2.17, label: 'Barcelona', country: 'Španělsko' }, drive: true, tripGo: true });
+  assert.match(card, /38 km · ~40 min autem/);
+  assert.match(card, /data-tgo="mon"[^>]*>🎒 Výlet sem</);
+  assert.ok(!T.poiCard({ id: 'x', name: 'X', category: 'museum', distanceKm: 2 }, {}).includes('autem'), 'místo ve městě bez doby jízdy');
+  // prázdný okruh: z 20 km nabídne okolí do 100 km
+  assert.match(T.emptyHtml(20, 'city'), /Zvětšit okruh na 100 km/);
+});
+
+test('zapamatovaný okruh: 50, 100 km a celá země platí, jiné hodnoty ne', () => {
+  for (const r of [50, 100, T.COUNTRY]) assert.equal(T.uiRestore({ radius: r }, '2026-10-10').radius, r);
+  for (const r of [37, '50', 'kontinent', null]) assert.equal(T.uiRestore({ radius: r }, '2026-10-10').radius, undefined);
+});
+
+test('🌍 celá země: skupiny (města, cíle, UNESCO, parky), karty bez XSS, lety do země', () => {
+  const d = {
+    cc: 'IT', country: 'Itálie',
+    city: [{ id: 'Q220', name: 'Řím', lat: 41.9, lon: 12.5, distanceKm: 2, image: IMG, extract: 'Řím je hlavní město Itálie.', descLang: 'cs', url: 'https://cs.wikipedia.org/wiki/%C5%98%C3%ADm', wv: true },
+      { id: 'bez', name: 'Bez polohy' }],
+    dest: [{ id: 'Q212214', name: XSS, lat: 40.6, lon: 14.6, distanceKm: 225, blurb: 'stunningly beautiful rocky coastline, so popular that private cars are banned', unesco: true }],
+    unesco: [{ id: 'Q1', name: 'Hadriánova vila', lat: 41.94, lon: 12.77, distanceKm: 23, description: 'antický komplex', descLang: 'cs', unesco: true }],
+    park: 'nesmysl',
+  };
+  const items = T.countryItems(d);
+  assert.deepEqual(plain(items.map((x) => [x.group, x.name === XSS ? 'XSS' : x.name])), [['city', 'Řím'], ['dest', 'XSS'], ['unesco', 'Hadriánova vila']], 'bez polohy a nesmysly pryč');
+  const g = (k) => T.C_GROUPS.find((c) => c[0] === k);
+  const rome = T.countryCard(items[0], g('city'), { label: 'Řím', country: 'Itálie' });
+  assert.match(rome, /🏙️ Řím/);
+  assert.match(rome, /Město · 2 km · <b[^>]*>👍 Wikivoyage<\/b>/);
+  assert.match(rome, /data-cgo="Q220">🔎 Prozkoumat</);
+  assert.match(rome, /Řím je hlavní město Itálie\./);
+  const coast = T.countryCard(items[1], g('dest'), { label: 'Řím', country: 'Itálie' });
+  assert.ok(!coast.includes('<img src=x'), 'název escapovaný');
+  assert.match(coast, /UNESCO/);
+  assert.match(coast, /anglicky<\/span> stunningly beautiful/, 'popis z Wikivoyage označený jako anglický');
+  assert.ok(!T.countryCard(items[2], g('unesco'), { label: 'Řím' }).includes('· <b style="color:var(--warn)">UNESCO'), 've skupině UNESCO se značka neopakuje');
+  assert.deepEqual(plain(T.countryTarget('IT', 'Itálie')), { id: 'cc:IT', type: 'country', label: 'Itálie', flag: plain(T.countryTarget('IT', 'Itálie')).flag });
+  assert.equal(T.countryTarget('Itálie', 'Itálie'), null);
+  assert.equal(T.countryTarget('IT', ''), null);
+});
+
+test('okruh 50/100 km a celá země: dotazy api/poi/trips a api/poi/country jednou na místo', async () => {
+  const urls = [];
+  const replies = {
+    'api/poi/trips': { items: [{ id: 'mon', name: 'Montserrat', category: 'daytrip', distanceKm: 38, score: 70, lat: 41.6, lon: 1.8 }] },
+    'api/poi/country': { cc: 'ES', country: 'Španělsko', city: [{ id: 'Q1492', name: 'Barcelona', lat: 41.39, lon: 2.17 }], dest: [], unesco: [], park: [] },
+  };
+  let P = null;
+  // #exBody jen pro načítání přehledu země (vykreslení – mapa, karty – se v testu přeskočí)
+  const body = { isConnected: true, innerHTML: '' };
+  P = load({ go: () => {}, setTimeout, clearTimeout, $: (s) => (s === '#exBody' && P._t.ex.radius === T.COUNTRY && !P._t.ex.country ? body : null),
+    fetch: async (u) => { urls.push(u); return { ok: true, status: 200, json: async () => replies[u.split('?')[0]] || {} }; },
+    localStorage: { getItem: () => null, setItem: () => {} } }).window.Places;
+  const X = P._t.ex;
+  X.place = { label: 'Barcelona', lat: 41.3874, lon: 2.1686, cc: 'ES', geo: false, country: 'Španělsko' };
+  X.radius = 100;
+  await P._t.loadFar();
+  await P._t.loadFar(); // podruhé nic
+  assert.deepEqual(urls, ['api/poi/trips?lat=41.3874&lon=2.1686']);
+  assert.equal(X.far.items[0].name, 'Montserrat');
+  assert.equal(X.far.busy, false);
+  // celá země: předchozí okruh v km se zapamatuje (návrat „Zpět na …“), přehled se načte jednou
+  X.radius = 50;
+  P._t.setRadius(T.COUNTRY);
+  assert.equal(X.lastKm, 50);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(urls.slice(1), ['api/poi/country?cc=ES&lat=41.3874&lon=2.1686']);
+  assert.equal(X.country.data.city[0].name, 'Barcelona');
+  assert.match(body.innerHTML, /Hledám to nejlepší v zemi/, 'čekání s vlastním textem');
 });

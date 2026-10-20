@@ -949,3 +949,209 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     return out;
   });
 }
+
+/* ---------- 🌍 Celá země (Objevuj): to nejlepší v zemi ---------- */
+// Města a „další cíle“ z článku o zemi na anglické Wikivoyage (redaktoři vybírají kolem 9 + 9 nejlepších – Řím, Benátky,
+// Cinque Terre, Amalfinské pobřeží), k nim památky UNESCO a národní parky z Wikidat: jeden krátký dotaz (~2–4 s; dotazy
+// na všechna města nebo hory země trvají přes minutu), popisy z Wikipedie. Země se nemění – mezipaměť 30 dní.
+export const COUNTRY_KINDS = ['city', 'dest', 'unesco', 'park'];
+// článek Wikivoyage, kde se anglický název země liší
+const WV_COUNTRY = { CZ: 'Czech Republic', US: 'United States of America', GB: 'United Kingdom', KR: 'South Korea', KP: 'North Korea', CD: 'Democratic Republic of the Congo', CG: 'Republic of the Congo', MK: 'North Macedonia', VA: 'Vatican City', TL: 'East Timor', CI: 'Ivory Coast', CV: 'Cape Verde', MM: 'Myanmar', GE: 'Georgia (country)', GM: 'The Gambia', BS: 'Bahamas' };
+// pole šablony {{marker|name=…|wikidata=…}}: hodnota končí svislítkem mimo odkaz [[…|…]] a šablonu {{…}}
+const tplField = (body, k) => (body.match(new RegExp(`(?:^|\\|)\\s*${k}\\s*=\\s*((?:\\[\\[[^\\]]*\\]\\]|\\{\\{[^}]*\\}\\}|[^|])*)`, 'i'))?.[1] || '').trim();
+// wikitext → prostý text (odkazy jejich textem, {{UNESCO}} slovem, ostatní šablony a formátování pryč)
+const wvPlain = (s) => String(s || '').replace(/\{\{\s*UNESCO\s*\}\}/gi, 'UNESCO').replace(/\{\{[^{}]*\}\}/g, '')
+  .replace(/\[\[(?:[^|\]]*\|)?([^\]]*)\]\]/g, '$1').replace(/\[https?:[^\s\]]+\s*([^\]]*)\]/g, '$1').replace(/'{2,}/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+
+/** Řádek seznamu „* {{marker|type=city|name=[[Lisbon]]|wikidata=Q597}} – popis“ nebo „* [[Lisbon]] – popis“ → cíl. */
+export function destLine(line) {
+  const mk = /\{\{\s*marker\s*\|((?:[^{}]|\{\{[^{}]*\}\})*)\}\}/i.exec(line);
+  const src = mk ? tplField(mk[1], 'name') : line;
+  const ln = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/.exec(src);
+  const raw = ln ? ln[1] : mk ? wvPlain(src) : '';
+  const label = wvPlain(ln ? ln[2] || ln[1].split('#')[0] : raw);
+  if (!label) return null;
+  const wd = mk ? tplField(mk[1], 'wikidata') : '';
+  const lat = mk ? Number(tplField(mk[1], 'lat')) : NaN;
+  const lon = mk ? Number(tplField(mk[1], 'long')) : NaN;
+  // popis za šablonou nebo odkazem: bez místního názvu v závorce na začátku a bez pomlčky
+  const after = mk ? line.slice(mk.index + mk[0].length) : ln ? line.slice(line.indexOf(ln[0]) + ln[0].length) : '';
+  const blurb = wvPlain(after).replace(/^\([^)]*\)\s*/, '').replace(/^[\s–—:,-]+/, '').slice(0, 220);
+  return {
+    title: raw.split('#')[0].trim(), label, wikidata: /^Q\d+$/.test(wd) ? wd : null,
+    ...(mk && tplField(mk[1], 'lat') && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? { lat, lon } : {}),
+    blurb,
+  };
+}
+
+/** Wikitext článku o zemi → { city, dest }: položky seznamů v sekcích „Cities“ a „Other destinations“. */
+export function parseDestinations(wikitext) {
+  const text = String(wikitext || '');
+  const sec = (name) => {
+    const m = new RegExp(`^==\\s*${name}\\s*==\\s*$`, 'mi').exec(text);
+    if (!m) return '';
+    const rest = text.slice(m.index + m[0].length);
+    const end = /^==[^=]/m.exec(rest);
+    return end ? rest.slice(0, end.index) : rest;
+  };
+  const list = (name) => sec(name).split('\n').filter((l) => /^\*[^*]/.test(l)).map(destLine).filter(Boolean).slice(0, 15);
+  return { city: list('Cities'), dest: list('Other destinations') };
+}
+
+/** Města a další cíle země z Wikivoyage; položkám bez wikidata= doplní QID z článku Wikivoyage (pageprops). */
+async function wikivoyageCountry(cc) {
+  const name = WV_COUNTRY[cc] || COUNTRY_BY_ISO.get(cc)?.en;
+  if (!name) return { city: [], dest: [] };
+  const get = (params) => limitWiki(() => request(`https://en.wikivoyage.org/w/api.php?${new URLSearchParams({ action: 'query', format: 'json', formatversion: '2', redirects: '1', ...params })}`,
+    { headers: { 'User-Agent': UA }, retry429: true, timeoutMs: 15000, retries: 1 }));
+  const j = await get({ prop: 'revisions', rvprop: 'content', rvslots: 'main', titles: name });
+  const pg = j.query?.pages?.[0];
+  const d = parseDestinations(pg?.revisions?.[0]?.slots?.main?.content);
+  const need = [...new Set([...d.city, ...d.dest].filter((x) => !x.wikidata && x.title).map((x) => x.title))].slice(0, 50);
+  if (need.length) {
+    const k = await get({ prop: 'pageprops', ppprop: 'wikibase_item', titles: need.join('|') }).catch(() => null);
+    const fin = new Map(need.map((t) => [t, t]));
+    for (const step of [k?.query?.normalized || [], k?.query?.redirects || []]) for (const { from, to } of step) for (const [a, b] of fin) if (b === from) fin.set(a, to);
+    const qidOf = new Map((k?.query?.pages || []).map((p) => [p.title, p.pageprops?.wikibase_item]));
+    for (const x of [...d.city, ...d.dest]) if (!x.wikidata && qidOf.get(fin.get(x.title))) x.wikidata = qidOf.get(fin.get(x.title));
+  }
+  return d;
+}
+
+/** QID země podle kódu ISO (Q38 = Itálie) – krátký dotaz; přímé QID je v dalším dotazu mnohem rychlejší než P297. */
+export const sparqlCountryId = (cc) => `SELECT ?c ?sl WHERE { ?c wdt:P297 "${String(cc).replace(/[^A-Z]/g, '')}" ; wikibase:sitelinks ?sl . } ORDER BY DESC(?sl) LIMIT 1`;
+
+/**
+ * Nejznámější památky UNESCO jen této země (ne společné s jinými – bukové pralesy Evropy) nebo národní parky: jen QID
+ * a jazykové verze. Krátké dotazy po sobě (~1–3 s) – spojené do jednoho s polohou a názvy trvaly přes minutu; města
+ * jsou jen z Wikivoyage (dotaz na města země podle typu trvá podle vytížení Wikidat 2–35 s).
+ */
+export function sparqlCountryList(countryQid, kind) {
+  const C = `wd:${String(countryQid).replace(/[^Q0-9]/g, '')}`;
+  if (kind === 'unesco') return `SELECT DISTINCT ?item ?sl WHERE { ?item wdt:P1435 wd:${UNESCO} ; wdt:P17 ${C} ; wikibase:sitelinks ?sl . FILTER NOT EXISTS { ?item wdt:P17 ?o . FILTER(?o != ${C}) } } ORDER BY DESC(?sl) LIMIT 30`;
+  if (kind === 'park') return `SELECT DISTINCT ?item ?sl WHERE { ?item wdt:P31/wdt:P279? wd:Q46169 ; wdt:P17 ${C} ; wikibase:sitelinks ?sl . } ORDER BY DESC(?sl) LIMIT 15`;
+  // záloha, když Wikivoyage měst nedá: velkoměsta a hlavní město podle jazykových verzí
+  return `SELECT DISTINCT ?item ?sl WHERE { VALUES ?t { wd:Q515 wd:Q1549591 wd:Q1637706 wd:Q5119 } ?item wdt:P31 ?t ; wdt:P17 ${C} ; wikibase:sitelinks ?sl . FILTER(?sl >= 40) } ORDER BY DESC(?sl) LIMIT 12`;
+}
+
+/** Poloha, fotka, články a česká jména pro QID (cíle Wikivoyage, UNESCO, parky) – jeden krátký dotaz. */
+export function sparqlCountry(ids) {
+  return `SELECT ?item ?sl ?lat ?lon ?img ?cs ?en ?csd ?itemLabel ?itemDescription WHERE {
+  VALUES ?item { ${ids.map((q) => `wd:${q}`).join(' ')} }
+  ?item wikibase:sitelinks ?sl ; wdt:P625 ?c . BIND(geof:latitude(?c) AS ?lat) BIND(geof:longitude(?c) AS ?lon)
+  OPTIONAL { ?item wdt:P18 ?img }
+  OPTIONAL { ?cs schema:about ?item ; schema:isPartOf <https://cs.wikipedia.org/> }
+  OPTIONAL { ?en schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> }
+  OPTIONAL { ?item schema:description ?csd FILTER(lang(?csd) = "cs") }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "cs,en". }
+}`;
+}
+
+const COUNTRY_MAX = { city: 12, dest: 12, unesco: 20, park: 12 };
+/**
+ * Řádky dotazu (sparqlCountry) + cíle Wikivoyage + QID památek UNESCO a parků (lists) → { city, dest, unesco, park }
+ * bez opakování (město z Wikivoyage se mezi UNESCO neukáže znovu).
+ */
+export function countryGroups(rows, wv = { city: [], dest: [] }, lists = {}) {
+  const by = new Map();
+  for (const b of rows) {
+    const id = qid(val(b, 'item'));
+    const lat = Number(val(b, 'lat'));
+    const lon = Number(val(b, 'lon'));
+    if (!id || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    let p = by.get(id);
+    if (!p) {
+      const name = val(b, 'itemLabel');
+      const img = val(b, 'img');
+      p = {
+        id, name: name && !/^Q\d+$/.test(name) ? name : '', description: val(b, 'csd') || val(b, 'itemDescription') || '', descLang: val(b, 'csd') ? 'cs' : 'en',
+        lat, lon, sitelinks: Number(val(b, 'sl')) || 0, kinds: new Set(), image: img ? `${img.replace(/^http:/, 'https:')}?width=500` : null,
+        wiki: { cs: title(val(b, 'cs')), en: title(val(b, 'en')) },
+      };
+      by.set(id, p);
+    }
+  }
+  for (const k of ['unesco', 'park', 'city']) for (const id of lists[k] || []) by.get(id)?.kinds.add(k);
+  const out = { city: [], dest: [], unesco: [], park: [] };
+  const used = new Set();
+  const take = (group, x, extra = {}) => {
+    if (!x || used.has(x.id) || out[group].length >= COUNTRY_MAX[group]) return;
+    used.add(x.id);
+    out[group].push({ ...x, kinds: new Set(x.kinds), ...extra });
+  };
+  // Wikivoyage v pořadí redaktorů; bez QID nebo polohy na Wikidatech poloha ze šablony
+  for (const g of ['city', 'dest']) {
+    for (const d of wv[g] || []) {
+      const p = d.wikidata && by.get(d.wikidata);
+      if (p) take(g, p, { name: p.name || d.label, blurb: d.blurb, wv: true });
+      else if (Number.isFinite(d.lat)) take(g, { id: d.wikidata || `wv:${d.title || d.label}`, name: d.label, description: '', descLang: 'en', lat: d.lat, lon: d.lon, sitelinks: 0, kinds: new Set(), image: null, wiki: { cs: null, en: null } }, { blurb: d.blurb, wv: true });
+    }
+  }
+  const rank = (k) => [...by.values()].filter((p) => p.kinds.has(k) && p.name).sort((a, b) => b.sitelinks - a.sitelinks);
+  // města z Wikidat jen, když Wikivoyage (nedostupná, článek bez seznamu) dala méně než 3
+  if (out.city.length < 3) for (const p of rank('city')) take('city', p);
+  for (const p of rank('unesco')) take('unesco', p);
+  for (const p of rank('park')) take('park', p);
+  for (const g of COUNTRY_KINDS) for (const p of out[g]) { p.unesco = p.kinds.has('unesco'); delete p.kinds; }
+  return out;
+}
+
+const countryKey = (cc) => `country:${cc}`;
+/** Je přehled země v mezipaměti – odpověď bez dotazů na Wikivoyage, Wikidata a Wikipedii? */
+export const countryCached = (cc) => cache.get(countryKey(cc)) !== undefined;
+
+/**
+ * To nejlepší v zemi cc (ISO 3166-1 alpha-2): { city, dest, unesco, park } – položky { id, name, description, lat, lon,
+ * image, url, extract, unesco, blurb }. Dotaz na Wikidata frontou zoo a parků (Wikidata snesou 5 dotazů naráz
+ * z jedné IP – fronty Objevuj, zoo a ubytování je vyčerpají). Neúplné (Wikivoyage, popisy) jen na hodinu.
+ */
+export async function countryHighlights(cc) {
+  return cache.wrap(countryKey(cc), (v) => (v.degraded ? 36e5 : 30 * 864e5), async () => {
+    let wvFailed = false;
+    const wv = await wikivoyageCountry(cc).catch(() => { wvFailed = true; return { city: [], dest: [] }; });
+    const q = (s, ms = 25000) => wdqs(s, ms, { queue: limitFamily });
+    const cq = qid(val((await q(sparqlCountryId(cc), 15000))[0] || {}, 'c'));
+    if (!/^Q\d+$/.test(cq)) throw new Error(`Země ${cc} není na Wikidatech`);
+    const lists = {};
+    const list = async (k) => (await q(sparqlCountryList(cq, k))).map((b) => qid(val(b, 'item'))).filter(Boolean);
+    for (const k of ['unesco', 'park']) lists[k] = await list(k);
+    // Wikivoyage bez měst (výpadek, krátký článek): velkoměsta z Wikidat – ten dotaz bývá pomalejší, jen když je potřeba
+    if (wv.city.length < 3) lists.city = await list('city').catch(() => []);
+    const ids = [...new Set([...[...wv.city, ...wv.dest].map((d) => d.wikidata).filter(Boolean).slice(0, 40), ...lists.unesco, ...lists.park, ...(lists.city || [])])];
+    const rows = ids.length ? await q(sparqlCountry(ids)) : [];
+    const groups = countryGroups(rows, wv, lists);
+    const all = COUNTRY_KINDS.flatMap((g) => groups[g]);
+    const enrichFailed = await enrich(all, { preferCs: true });
+    const out = Object.fromEntries(COUNTRY_KINDS.map((g) => [g, groups[g].map(({ wiki, ...p }) => p)]));
+    if (wvFailed || enrichFailed) out.degraded = true;
+    return out;
+  });
+}
+
+/** Přehled země se vzdáleností od místa (lat, lon) – každá položka s distanceKm, pořadí skupin zůstane. */
+export function countryWithDistance(groups, lat, lon) {
+  const ok = Number.isFinite(lat) && Number.isFinite(lon);
+  return Object.fromEntries(COUNTRY_KINDS.map((g) => [g, (groups[g] || []).map((p) => (ok ? { ...p, distanceKm: Math.round(haversineKm(lat, lon, p.lat, p.lon)) } : { ...p }))]));
+}
+
+/** DEMO režim: vymyšlený přehled země kolem bodu (50–450 km). */
+export function mockCountry({ lat, lon }) {
+  const names = {
+    city: ['Ukázkové hlavní město', 'Vzorové přístavní město', 'Příkladné univerzitní město', 'Testovací lázně'], dest: ['Ukázkové pobřeží', 'Vzorové jezero', 'Příkladné hory'],
+    unesco: ['Ukázkové historické centrum', 'Vzorová katedrála', 'Příkladná archeologická lokalita'], park: ['Ukázkový národní park', 'Vzorový národní park'],
+  };
+  const out = {};
+  let i = 0;
+  for (const g of COUNTRY_KINDS) {
+    out[g] = names[g].map((name) => {
+      const a = (i * 137.5 * Math.PI) / 180;
+      const d = 0.5 + (i % 5) * 0.8;
+      i++;
+      return {
+        id: `demoCountry${i}`, name, description: 'demo data', descLang: 'cs', lat: lat + Math.sin(a) * d, lon: lon + Math.cos(a) * d * 1.4, sitelinks: 100 - i * 4,
+        image: null, url: null, unesco: g === 'unesco', extract: 'Vymyšlené místo pro ukázku aplikace (DEMO režim).', ...(g === 'city' || g === 'dest' ? { blurb: 'demo data' } : {}),
+      };
+    });
+  }
+  return out;
+}
