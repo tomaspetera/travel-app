@@ -17,13 +17,21 @@
   .ex-plan #exMode button{flex:1 1 auto;border-radius:12px;white-space:nowrap}
   .ex-cats button{padding:5px 11px}
   .ex-head{margin-bottom:14px}
-  /* přehled celé země: mapa přes šířku, skupiny (města, cíle, UNESCO, parky) jako mřížka karet */
-  .ex-layout.ex-main:has(#exCList){grid-template-columns:minmax(0,1fr);grid-template-areas:"map" "places";grid-template-rows:auto}
-  .ex-main:has(#exCList)>.ex-map{position:relative;top:auto;height:min(460px,52vh);min-height:340px}
-  #exCList{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px var(--gap);align-items:stretch}
+  /* přehled celé země jako u města: skupiny (města, cíle, UNESCO, parky) vlevo, mapa vpravo přilepená – při procházení
+     seznamu je pořád vidět, kde místo leží (klik na značku odroluje ke kartě, najetí na kartu zvýrazní značku) */
+  .ex-layout.ex-main:has(#exCList){grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"places map";grid-template-rows:auto}
+  #exCList{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px 16px;align-items:stretch}
   #exCList>.poi-sec{grid-column:1/-1;margin:16px 2px 0;font-size:15px}
   #exCList>.poi-sec:first-child{margin-top:0}
   .ex-cnote{max-width:80ch}
+
+  /* značka místa, na které ukazuje myš v seznamu (places.js) */
+  .maplibregl-marker.mk.hot{z-index:5;width:19px;height:19px;box-shadow:0 0 0 3px #fff,0 0 0 6px rgba(91,140,255,.6),0 4px 12px rgba(0,0,0,.35)}
+  .maplibregl-marker.mk.num.hot{width:28px;height:28px;line-height:24px;font-size:12.5px}
+  /* najetí na den programu: značky ostatních dnů ztlumené */
+  .maplibregl-marker.mk{transition:width .12s,height .12s,box-shadow .12s,opacity .15s}
+  .maplibregl-marker.mk.dim{opacity:.22 !important} /* MapLibre dává značce průhlednost do style */
+  .ex-layout [data-poi]:hover,.ex-layout [data-cpoi]:hover{border-color:var(--border-2)}
 
   /* ---------- Plánovač: karty cest ve stejné mřížce jako ostatní (4 vedle sebe na 1440 px), „Nová cesta“ stejně vysoká ---------- */
   .trip-grid{grid-template-columns:repeat(auto-fill,minmax(max(250px,calc((100% - 60px) / 4)),1fr));gap:20px} /* nejvýš 4 vedle sebe */
