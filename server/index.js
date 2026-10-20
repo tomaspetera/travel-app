@@ -440,7 +440,8 @@ async function route(req, res) {
     const t = (url.searchParams.get('t') || '').split('|').filter(Boolean);
     if (!t.length) return sendJson(req, res, 400, { error: 'Zadej názvy měst (t=Řím|Tirana).' });
     const r = await cityPhotos(t);
-    return sendJson(req, res, 200, r, { 'Cache-Control': `public, max-age=${r.partial ? 3600 : 86400}` });
+    // fotky z Wikimedie jen na 6 h – po přidání klíče (Unsplash, Pexels) se brzy vymění za hezčí
+    return sendJson(req, res, 200, r, { 'Cache-Control': `public, max-age=${r.partial ? 3600 : r.prov === 'wiki' ? 21600 : 86400}` });
   }
   if (p === '/api/climate') {
     // Dlouhodobé podnebí (meteostanice u letiště, jinak NASA POWER) u letiště, místa nebo hlavního letiště země – data se nemění.
