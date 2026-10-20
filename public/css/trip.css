@@ -151,6 +151,12 @@ details.more.ex-places>summary::before{content:none}
 .poi-sec .faint{font-size:12px}
 .ex-cnote{font-size:13px;margin:-4px 0 10px}
 .ex-cact{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+/* 🌍 „Co hledáš?“ v přehledu země: čipy kategorií – na telefonu v pruhu do strany, na počítači zalomené */
+.ex-ccats{display:flex;align-items:center;gap:6px;margin:4px 0 12px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.ex-ccats::-webkit-scrollbar{display:none}
+.ex-ccats>.fchip{flex:none;white-space:nowrap}
+.ex-ccats-l{flex:none;font:800 11px Inter,system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-right:2px}
+@media (min-width:761px){.ex-ccats{flex-wrap:wrap;overflow:visible}}
 /* 🌍 výběr země v Objevuj (Celá země bez místa): oblíbené dlaždice, pak všechny země A–Ž */
 .ex-cc-q{margin:2px 0 12px;max-width:420px}
 .ex-cc-pop{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:16px}

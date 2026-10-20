@@ -19,7 +19,7 @@ import { addDays, todayYmd } from './lib/dates.js';
 import { searchStays, checkStay } from './lib/stays.js';
 import { partnerLookups } from './lib/partnerids.js';
 import { searchCars } from './lib/cars.js';
-import { findPlaces, findTrips, mockPlaces, mockTrips, placesCached, tripsCached, countryHighlights, countryCached, countryWithDistance, mockCountry } from './lib/poi.js';
+import { findPlaces, findTrips, mockPlaces, mockTrips, placesCached, tripsCached, countryHighlights, countryCached, countryWithDistance, mockCountry, countryCategory, countryCatCached, mockCountryCat, withDistance, COUNTRY_CATS } from './lib/poi.js';
 import { planTrips } from './lib/roadtrip.js';
 import { keepInRegion } from './lib/regions.js';
 import { bikeLoop, mockBikeLoop, hikeLoop, mockHikeLoop, bikeFromStation, mockBikeFromStation } from './lib/bike.js';
@@ -521,6 +521,19 @@ async function route(req, res) {
     const raw = (url.searchParams.get('cc') || '').toUpperCase();
     const cc = /^[A-Z]{2}$/.test(raw) ? raw : at ? countryAt(lat, lon) : '';
     if (!cc || !COUNTRY_BY_ISO.has(cc)) return sendJson(req, res, 400, { error: 'Neznámá země.' });
+    // „Co hledáš?“: hory, pláže, ostrovy, jezera, hrady, zajímavá místa – až po výběru kategorie (?cat=mountain)
+    const cat = url.searchParams.get('cat');
+    if (cat != null) {
+      if (!Object.hasOwn(COUNTRY_CATS, cat)) return sendJson(req, res, 400, { error: 'Neznámá kategorie.' });
+      if (exploreLimited(req, countryCatCached(cc, cat))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
+      try {
+        const r = config.mock ? mockCountryCat(at ? { lat, lon } : { lat: 50, lon: 15 }, cat) : await countryCategory(cc, cat);
+        return sendJson(req, res, 200, { demo: config.mock, cc, country: COUNTRY_BY_ISO.get(cc).cs, cat, degraded: Boolean(r.degraded), items: withDistance(r.items || [], at ? lat : NaN, at ? lon : NaN) });
+      } catch (e) {
+        console.warn(`poi/country ${cc} ${cat}: ${e.message}`);
+        return sendJson(req, res, 503, { error: 'Wikidata teď neodpovídá – zkus to prosím za chvíli.' });
+      }
+    }
     if (exploreLimited(req, countryCached(cc))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
     try {
       const g = config.mock ? mockCountry(at ? { lat, lon } : { lat: 50, lon: 15 }) : await countryHighlights(cc);

@@ -938,4 +938,11 @@ test('Objevuj okruh 50/100 km a celá země (DEMO): /api/poi/trips a /api/poi/co
   assert.equal(nc.status, 200);
   assert.equal(nc.j.city[0].distanceKm, undefined);
   for (const bad of ['/api/poi/country', '/api/poi/country?cc=XX', '/api/poi/country?cc=ITA', '/api/poi/country?lat=95&lon=0']) assert.equal((await get(bad)).status, 400, bad);
+  // „Co hledáš?“: kategorie země (hory, pláže…) se vzdáleností od místa; neznámá kategorie 400
+  const m = await get('/api/poi/country?cc=IT&cat=mountain&lat=41.9&lon=12.5');
+  assert.equal(m.status, 200);
+  assert.deepEqual([m.j.cc, m.j.country, m.j.cat, m.j.demo, m.j.degraded], ['IT', 'Itálie', 'mountain', true, false]);
+  assert.ok(m.j.items.length && m.j.items.every((x) => x.cats.includes('mountain') && Number.isFinite(x.distanceKm)));
+  assert.equal((await get('/api/poi/country?cc=CZ&cat=castle')).j.items[0].distanceKm, undefined);
+  for (const bad of ['?cc=IT&cat=bad', '?cc=IT&cat=', '?cc=IT&cat=constructor', '?cc=XX&cat=mountain']) assert.equal((await get(`/api/poi/country${bad}`)).status, 400, bad);
 });
