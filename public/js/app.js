@@ -576,21 +576,34 @@ const Photos = (() => {
   const store = () => { if (!mem) { try { mem = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { mem = {}; } } return mem; };
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(Object.fromEntries(Object.entries(store()).sort((a, b) => b[1].t - a[1].t).slice(0, 400)))); } catch (e) { /* plné úložiště */ } };
   const fresh = (e, now) => e && now - e.t < (TTL[e.p] || TTL.wiki);
-  // Pexels a Unsplash: výřez na výšku podle výšky karty; Wikimedia: fotka na šířku vyplní kartu na výšku → šířka 330/500/960
+  // Pexels a Unsplash: výřez přesně na tvar karty (šířka po stupních, ať se fotka v prohlížeči znovu použije), displej
+  // nejvýš 2× (víc na fotce pod textem vidět není), kvalita 60; Wikimedia: fotka na šířku vyplní kartu → šířka 330/500/960
+  const dprOf = () => Math.min(window.devicePixelRatio || 1, 2);
   function sized(u, el) {
-    const need = el.clientHeight * (window.devicePixelRatio || 1);
-    if (srcOf(u)) { const h = need <= 620 ? 600 : need <= 920 ? 900 : 1200; return u.replace(/w=960&h=1200/, `w=${h * 0.8}&h=${h}`); }
-    return need * 1.5 <= 330 ? u.replace('/960px-', '/330px-') : need * 1.5 <= 560 ? u.replace('/960px-', '/500px-') : u;
+    const cw = el.clientWidth * dprOf(), ch = el.clientHeight * dprOf();
+    if (srcOf(u)) {
+      const w = [400, 600, 800, 1200, 1600].find(x => x >= cw) || 1600, h = Math.min(2000, Math.round((w * ch) / Math.max(1, cw) / 50) * 50) || w;
+      return u.replace(/w=960&h=1200/, `w=${w}&h=${h}`).replace('&q=75', '&q=60');
+    }
+    const need = Math.max(cw, ch * 1.5);
+    return need <= 330 ? u.replace('/960px-', '/330px-') : need <= 560 ? u.replace('/960px-', '/500px-') : u;
   }
+  // náhled ~1 kB (Pexels, Unsplash): karta má hned rozmazanou fotku, ostrá se dosadí, až se načte
+  const tinyOf = (u, el) => u.replace(/w=960&h=1200/, `w=24&h=${Math.max(8, Math.round((24 * el.clientHeight) / Math.max(1, el.clientWidth)))}`).replace('&q=75', '&q=30');
   function show(el) {
     const e = store()[el.dataset.photo];
     if (!e || !/^https:\/\//.test(e.u) || !el.isConnected) return;
     const src = sized(e.u, el), img = new Image();
+    const set = s => { el.style.setProperty('--ph', `url("${s.replace(/["\\]/g, encodeURIComponent)}")`); el.classList.add('ph'); credit(el, e); };
+    let sharp = false;
+    if (srcOf(e.u)) {
+      const lo = new Image(), tiny = tinyOf(e.u, el);
+      lo.onload = () => { if (!sharp && el.isConnected) set(tiny); };
+      lo.src = tiny;
+    }
     img.onload = () => {
-      if (!el.isConnected) return;
-      el.style.setProperty('--ph', `url("${src.replace(/["\\]/g, encodeURIComponent)}")`);
-      el.classList.add('ph');
-      credit(el, e);
+      sharp = true;
+      if (el.isConnected) set(src);
     };
     img.src = src;
   }
