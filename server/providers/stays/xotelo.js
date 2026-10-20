@@ -85,6 +85,10 @@ export function seedCity(lat, lon) {
 export const NEARBY_KM = 35; // místo TripAdvisoru nejvýš tak daleko (střed jeho hotelů)
 export const NEARBY_RADIUS_KM = 40; // hotely z okolí nejvýš tak daleko od místa pobytu
 export const NEARBY_MAX = 2; // nejvýš tolik míst (2 seznamy hotelů)
+// Místo mimo tabulky, které Wikidata ještě dohledávají (dotaz na okolí bodu živě 1–21 s): po SPEC_MS se načtou seznamy
+// hotelů míst v okolí dopředu, po KEYS_CAP_MS se na Wikidata nečeká (searchXotelo).
+export const SPEC_MS = 1500;
+export const KEYS_CAP_MS = 8000;
 
 // Název místa z adresy hotelu („Noto Province of Syracuse Sicily“ → „Noto“, „Santa Cruz de Tenerife Tenerife“ →
 // „Santa Cruz de Tenerife“): oblast za názvem sdílí i jiná místa tabulky (ta jsou zkrácená na 32 znaků – stačí začátek
@@ -640,30 +644,60 @@ export async function nearbyPool(center, tried = [], { list = hotelList } = {}) 
  * zdroje; stale = u fresh část cen aktualizovat nešlo (zůstaly dřívější). Malé místo bez hotelů na TripAdvisoru: hotely
  * z okolí (nearbyPool) s nearby { place, km, city } u každého hotelu a nearbyFrom [{ name, km }] u výsledku.
  */
-export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh = false, slowMs = EMPTY_SLOW_MS } = {}) {
+export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh = false, slowMs = EMPTY_SLOW_MS, onNearby = null, specMs = SPEC_MS, capMs = KEYS_CAP_MS } = {}) {
   const center = q.lat != null && q.lon != null ? { lat: q.lat, lon: q.lon } : null;
-  let pool = [];
-  const tried = new Set();
-  const tryKeys = async (keys) => {
-    for (const key of keys) {
-      if (tried.has(key)) continue;
-      tried.add(key);
-      pool = candidates(await hotelList(key), center);
-      if (pool.length) return true;
+  // Hotely místa samého: místo TripAdvisoru z Wikidat (výpadek u místa mimo tabulky: aspoň ceny z okolí níž, jinak
+  // chyba zdroje), první kandidát s hotely v okolí; nic (ID atrakce, ID z tabulky nesedí) → teprve teď obce v okolí bodu
+  // (pomalejší dotaz). → { pool, tried, err }; located = místo dohledané (i jako „nic“).
+  let located = false;
+  const own = (async () => {
+    const tried = [];
+    let err = null;
+    const firstWith = async (keys) => {
+      for (const key of keys) {
+        if (tried.includes(key)) continue;
+        tried.push(key);
+        const list = candidates(await hotelList(key), center);
+        if (list.length) return list;
+      }
+      return [];
+    };
+    const keys = await locationKeys(q, { sparql }).catch((e) => { if (!center) throw e; err = e; return []; }).finally(() => { located = true; });
+    let pool = await firstWith(keys);
+    if (!pool.length && center && !err) pool = await firstWith(await nearbyKeys(q, { sparql }).catch(() => []));
+    return { pool, tried, err };
+  })();
+  // Malé místo mimo tabulky s místy TripAdvisoru v okolí (Palazzolo Acreide → Noto): dohledává-li ho Wikidata dlouho,
+  // seznamy hotelů míst v okolí se načtou dopředu a déle než capMs se nečeká – ceny z okolí hned, výsledek neúplný
+  // (partial – průvodce se doptá; dohledání místa mezitím doběhne do mezipaměti a další dotaz vezme případně hotely
+  // místa samého). Dohledané místo (jen jeho seznam hotelů) se čeká celé – výsledek pro místo s hotely se nemění.
+  const hint = center && !seedCity(center.lat, center.lon) ? nearbyPlaces(center.lat, center.lon) : [];
+  let mine = null;
+  if (hint.length) {
+    const timers = [];
+    const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+    later(specMs, () => { if (!located) for (const p of hint) hotelList(p.key).catch(() => {}); });
+    const cap = new Promise((res) => later(capMs, () => { if (!located) res(null); }));
+    try {
+      mine = await Promise.race([own, cap]);
+    } finally {
+      timers.forEach(clearTimeout);
     }
-    return false;
-  };
-  // výpadek Wikidat u místa mimo tabulky: aspoň ceny z okolí (níž), jinak chyba zdroje
-  let keyErr = null;
-  const keys = await locationKeys(q, { sparql }).catch((e) => { if (!center) throw e; keyErr = e; return []; });
-  // místo bez hotelů v okolí (ID atrakce, ID z tabulky nesedí) → teprve teď obce v okolí bodu (pomalejší dotaz)
-  if (!(await tryKeys(keys)) && center && !keyErr) await tryKeys(await nearbyKeys(q, { sparql }).catch(() => []));
-  // malé místo bez hotelů na TripAdvisoru → hotely nejbližších míst TripAdvisoru v okolí (nearby u každého hotelu)
-  const near = !pool.length && center ? await nearbyPool(center, [...tried]) : null;
-  if (near) pool = near.pool;
+    if (!mine) own.catch(() => {}); // doběhne do mezipaměti (výpadek se ukáže až dalšímu dotazu)
+  } else mine = await own;
+  const pending = !mine;
+  let pool = mine ? mine.pool : [];
+  const keyErr = mine ? mine.err : null;
+  // malé místo bez hotelů na TripAdvisoru → hotely nejbližších míst TripAdvisoru v okolí (nearby u každého hotelu);
+  // onNearby – searchStays hned rozběhne ubytování v místě z OpenStreetMap (souběžně s cenami)
+  const near = !pool.length && center ? await nearbyPool(center, mine ? mine.tried : []) : null;
+  if (near) {
+    pool = near.pool;
+    onNearby?.();
+  }
   if (!pool.length) {
     if (keyErr) throw keyErr;
-    return [];
+    return pending ? Object.assign([], { partial: true }) : [];
   }
   // hotel z okolí: odkazy na weby hledají hotel v jeho místě („Hotel X, Noto“), ne v místě pobytu
   const qOf = (h) => (near?.of.has(h.key) ? { ...q, cityEn: near.of.get(h.key).en || q.cityEn } : q);
@@ -704,8 +738,9 @@ export async function searchXotelo(q, { sparql = wd, budgetMs = BUDGET_MS, fresh
   if (near) out.nearbyFrom = near.from;
   // místo se nepodařilo dohledat (výpadek Wikidat) – ceny z okolí jen na chvíli, pak se místo zkusí znovu (searchStays)
   if (keyErr) out.retrySoon = true;
-  // nestihly přijít, nebo Xotelo nestihl TripAdvisor (slow) – průvodce se doptá znovu
-  if (got.size < pick.length || [...got.values()].some((rr) => rr.slow)) out.partial = true;
+  // nestihly přijít, nebo Xotelo nestihl TripAdvisor (slow), nebo místo samo ještě dohledávají Wikidata (pending) –
+  // průvodce se doptá znovu
+  if (pending || got.size < pick.length || [...got.values()].some((rr) => rr.slow)) out.partial = true;
   const st = [...got.values()].filter((rr) => rr.stale).length;
   if (st) out.stale = true;
   if (st && st === got.size) out.staleAll = true; // aktualizovat nešlo nic – „Aktualizovat ceny“ jde zkusit hned znovu
@@ -716,7 +751,7 @@ export const xotelo = {
   id: 'xotelo',
   name: 'TripAdvisor (Xotelo)',
   refresh: true, // umí „Aktualizovat ceny“ (search s fresh)
-  search: (q, { fresh = false } = {}) => searchXotelo(q, { fresh }),
+  search: (q, { fresh = false, onNearby = null } = {}) => searchXotelo(q, { fresh, onNearby }),
   // ostrý test (/api/diag): jeden malý seznam hotelů ve Vídni, bez mezipaměti
   async probe() {
     const j = await limit(() => request(`${API}/list?location_key=g190454&limit=3&sort=popularity`, { headers: HEADERS, timeoutMs: 12000, retries: 0 }));

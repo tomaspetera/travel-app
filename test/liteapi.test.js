@@ -199,3 +199,17 @@ test('englishName: anglický název z geokódování jen v okolí místa a ve st
     stub.restore();
   }
 });
+
+test('englishName: nepovedený dotaz (timeout) → null a 10 min bez dalšího dotazu – doptání průvodce na ceny nečeká znovu', async () => {
+  const { englishName } = await import('../server/lib/places.js');
+  const stub = stubFetch(() => { throw new Error('This operation was aborted'); });
+  try {
+    assert.equal(await englishName('Civita di Bagnoregio', 42.6273, 12.1135, 'IT'), null);
+    assert.equal(await englishName('Civita di Bagnoregio', 42.6273, 12.1135, 'IT'), null);
+    assert.equal(await englishName('Civita', 42.6273, 12.1135, 'IT', 6542103), null, 'ID GeoNames stejně');
+    assert.equal(await englishName('Civita', 42.6273, 12.1135, 'IT', 6542103), null);
+    assert.equal(stub.calls.length, 3, 'podruhé bez dotazu (název i ID)');
+  } finally {
+    stub.restore();
+  }
+});

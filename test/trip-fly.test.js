@@ -279,3 +279,95 @@ test('cesta přes víc měst: „✨ Vyber za mě“ vybere v každém místě b
   assert.deepEqual(checks, ['g187791-d1', 'g187791-d2', 'g187791-d1', 'g187791-d2'], 'nejvýš do prvního s volnem');
   assert.match(c3.__toasts.at(-1), /Vybráno: Řím, Barcelona · volno ověřeno teď/);
 });
+
+test('cesta přes víc měst: v noci taxi s pevnou cenou i u letů mezi místy (z ubytování na letiště i z letiště); v Aténách noční cena jen 0–5 h', () => {
+  const ATHENS = { key: 'ATH', id: 'ap:ATH', label: 'Atény', cc: 'GR', country: 'Řecko', lat: 37.98, lon: 23.73 };
+  const A2 = {
+    FCO: { ...ARR.FCO, taxi: { fare: 55, cur: 'EUR', pax: 4, czk: 1340 } },
+    ATH: { iata: 'ATH', city: 'Atény', mode: 'bus', how: 'autobus X95 na Syntagma', czk: 140, min: 60, basis: 'table', lat: 37.98, lon: 23.73, taxi: { fare: 50, night: 65, nightFrom: '00:00', nightTo: '05:00', cur: 'EUR', pax: 4, czk: 1580, dayCzk: 1215 } },
+  };
+  const BACK2 = leg('ATH', 'PRG', '2026-11-16', '18:10', '19:35', 'Europe/Athens', 'Europe/Prague');
+  // cesta z letiště do města v ceně: tam FCO 350 + mezi místy FCO 350 a ATH 140 + zpět ATH 140 = 980 Kč/os.
+  const go = (mid) => {
+    const c = load();
+    const t = { id: 'x', out: OUT, mid: [mid], back: BACK2, flightCzk: 3000, groundCzk: 200, bagCzk: 0, arrCzk: 980, perPersonCzk: 4180, totalCzk: 8360, provider: 'demo-air', combined: false, bookUrl: null, deal: { level: 'normal' } };
+    c.window.Trip.start({ t, g: { dest: ROM }, result: { origins: [], query: { adults: 2, bags: 'none' }, home: null, arrivals: A2 }, stops: [ROM, ATHENS] });
+    const rows = c.window.Trip.timeline(c.S.trip).map((x) => sp(x[2]).replace(/<[^>]+>/g, ''));
+    return [c, c.S.trip, rows];
+  };
+  // ranní let mezi místy (7:35): z ubytování v Římě ve 4:43 → taxi 55 € za auto místo vlaku (+ 1 340 / 2 − 350 Kč/os.)
+  const [c1, t1, r1] = go(leg('FCO', 'ATH', '2026-11-13', '07:35', '10:05', 'Europe/Rome', 'Europe/Athens'));
+  assert.equal(c1.window.Trip.costs(t1).arrival, (980 + 670 - 350) * 2);
+  assert.match(r1.find((x) => x.startsWith('Řím → letiště FCO')), / · v noci taxi, pevná cena 55 € za auto \(v odhadu ceny započteno\)$/, r1.join('\n'));
+  assert.doesNotMatch(r1.find((x) => x.startsWith('Z letiště ATH')), /taxi/, 'přílet v 10:05');
+  assert.match(render(c1, 'summary'), /taxi na letiště FCO \(noc\) 55 € za auto/);
+  // večerní let s příletem ve 23:40: z letiště ATH taxi za denní cenu 50 € (noční až od půlnoci)
+  const [c2, t2, r2] = go(leg('FCO', 'ATH', '2026-11-13', '21:00', '23:40', 'Europe/Rome', 'Europe/Athens'));
+  assert.equal(c2.window.Trip.costs(t2).arrival, (980 + 1215 / 2 - 140) * 2);
+  assert.match(r2.find((x) => x.startsWith('Z letiště ATH')), / · v noci taxi, pevná cena 50 € za auto \(v odhadu ceny započteno\)$/, r2.join('\n'));
+  assert.doesNotMatch(r2.find((x) => x.startsWith('Řím → letiště FCO')), /taxi/, 'z ubytování navečer');
+  assert.match(render(c2, 'flight'), /taxi z letiště ATH \(noc\) 50 € za auto/);
+  // přílet v 1:10: noční 65 €
+  const [c3, t3, r3] = go(leg('FCO', 'ATH', '2026-11-13', '22:30', '01:10', 'Europe/Rome', 'Europe/Athens', '2026-11-14'));
+  assert.equal(c3.window.Trip.costs(t3).arrival, (980 + 1580 / 2 - 140) * 2);
+  assert.match(r3.find((x) => x.startsWith('Z letiště ATH')), / · v noci taxi, pevná noční cena 65 € za auto \(v odhadu ceny započteno\)$/, r3.join('\n'));
+});
+
+test('cesta přes víc měst: další místa se načtou dopředu (jednou, až má aktuální místo nabídky) a záložka už nečeká; „Vyber za mě“ načítá další místo, zatímco ověřuje volno', async () => {
+  const tick = () => new Promise((r) => setImmediate(r));
+  const hotel = (id, value, total) => ({ id: `xo:g187791-d${id}`, name: `Hotel ${id}`, value, priceTotalCzk: total, pricePerNightCzk: total / 3, rating: 8.6, provider: 'xotelo', bookUrl: `https://hotel.example/${id}`, lat: 41.9, lon: 12.5 });
+  const log = [];
+  let partial = false;
+  const fetchFor = () => async (url) => {
+    const q = new URLSearchParams(String(url).split('?')[1]);
+    if (String(url).startsWith('api/stays/check?')) {
+      log.push(`check+ ${q.get('city')}`);
+      await tick(); await tick(); await tick();
+      log.push(`check- ${q.get('city')}`);
+      return { ok: true, json: async () => ({ available: true, priceTotalCzk: 6400, pricePerNightCzk: 2133, rates: [], at: 1 }) };
+    }
+    log.push(`stays ${q.get('city')}`);
+    await tick();
+    const city = q.get('city');
+    return { ok: true, json: async () => ({ items: [hotel(city === 'Řím' ? 1 : 2, 90, 6000)], providers: [{ id: 'xotelo', name: 'Xotelo', ok: true, ...(partial && city === 'Řím' ? { partial: true } : {}) }], links: [], query: { nights: 3 } }) };
+  };
+  // aktuální místo (Řím) s nabídkami → Barcelona dopředu, jednou; záložka Barcelony ji má hned, bez dalšího dotazu
+  const c = load();
+  const t = begin(c);
+  c.fetch = fetchFor();
+  render(c, 'stay');
+  for (let i = 0; i < 6; i++) await tick();
+  assert.deepEqual(log, ['stays Řím', 'stays Barcelona']);
+  c.window.Trip.render(); // překreslení (filtr, řazení) se znovu neptá
+  for (let i = 0; i < 4; i++) await tick();
+  assert.deepEqual(log, ['stays Řím', 'stays Barcelona']);
+  c.__all['[data-bt]'] = [{ dataset: { bt: '1' } }];
+  c.window.Trip.render();
+  c.__all['[data-bt]'][0].onclick();
+  for (let i = 0; i < 4; i++) await tick();
+  assert.deepEqual(log, ['stays Řím', 'stays Barcelona'], 'záložka Barcelony z mezipaměti');
+  assert.match(sp(c.__els['#tripStep'].innerHTML), /2\. Barcelona/);
+  assert.ok(t.route.bases.every((b) => !b.stay), 'dopředu načtené nic nevybírá');
+  // ceny aktuálního místa se teprve doplňují → dopředu zatím nic
+  log.length = 0;
+  partial = true;
+  const c2 = load();
+  begin(c2);
+  c2.fetch = fetchFor();
+  render(c2, 'stay');
+  for (let i = 0; i < 6; i++) await tick();
+  assert.deepEqual(log, ['stays Řím']);
+  partial = false;
+  // Vyber za mě hned po otevření kroku: Řím jedním dotazem (krok i výběr), Barcelona se načítá, než doběhne ověření Říma
+  log.length = 0;
+  const c3 = load();
+  const t3 = begin(c3);
+  c3.fetch = fetchFor();
+  render(c3, 'stay');
+  await c3.__els['#stayAuto'].onclick();
+  for (let i = 0; i < 4; i++) await tick();
+  assert.equal(log.filter((x) => x === 'stays Řím').length, 1);
+  assert.equal(log.filter((x) => x === 'stays Barcelona').length, 1);
+  assert.ok(log.indexOf('stays Barcelona') < log.indexOf('check- Řím'), log.join(' | '));
+  assert.deepEqual(plain(t3.route.bases.map((b) => [b.stay.name, b.stay.totalCzk])), [['Hotel 1', 6400], ['Hotel 2', 6400]]);
+});

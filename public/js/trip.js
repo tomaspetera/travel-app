@@ -26,6 +26,7 @@
   // odkaz na srovnávač jen z nabídek pro tatáž letiště a časy (nabídky se načítají asynchronně – mohou být ke starým)
   const carLinkFor = q => { const j = carsData && carsData.query; return q && j && j.pickup === q.pickup && j.dropoff === (q.dropoff || q.pickup) && j.from === q.from && j.to === q.to ? carsData.links[0]?.url || null : null; };
   const staysCache = new Map(); // nabídky ubytování podle dotazu (místo|termín|osoby) – přepínání míst trasy
+  const staysLoading = new Map(); // klíč → rozběhnutý dotaz api/stays (místo načítané dopředu a jeho záložka jedním)
   let staysRetry = null; // klíč dotazu, který se má po „Zkusit znovu“ přepočítat (retry=1 – server přeskočí neúplný výsledek)
   // ↻ Aktualizovat ceny (fresh=1 – server zjistí ceny hotelů znovu): { key, run: true } během dotazu, { key, fail: chyba }
   // po nepovedeném – nabídky z dřívějška zatím zůstanou na obrazovce (freshStays)
@@ -375,22 +376,33 @@
   }
   /** Totéž a úseky v noci k letišti s pevnou cenou taxi taxíkem místo MHD (nightTaxis). */
   function arrivalCzk(t) {
-    return Math.max(0, arrivalBase(t) + nightTaxis(t).reduce((s, x) => s + taxiPp(x.a, t.adults) - (x.a.czk || 0), 0));
+    return Math.max(0, arrivalBase(t) + nightTaxis(t).reduce((s, x) => s + taxiPp(x.a, t.adults, x.hm) - (x.a.czk || 0), 0));
   }
 
   /* ---------- v noci taxi s pevnou cenou (data/arrival.json → taxi, ze serveru a.taxi) ---------- */
   // Vyráží-li se z ubytování na letiště nebo přistává-li se před 5:00 či od 23:00, MHD a letištní vlaky obvykle nejezdí.
   // U letišť s úřední pevnou cenou taxi za auto (Řím, Paříž, Madrid, Atény…) se ten úsek v odhadu ceny počítá taxíkem:
   // cena za auto (noční, je-li; u rozpětí podle části města horní – taxi.czk ze serveru) děleno dospělými, nad pax osob
-  // další auto. Jen v průvodci, kde jsou časy známé – výsledky hledání dál počítají MHD.
-  const nightHm = hm => typeof hm === 'string' && /^\d\d:\d\d$/.test(hm) && (hm < '05:00' || hm >= '23:00');
+  // další auto. Platí-li noční cena jen v části noci (nightFrom–nightTo: Atény 0–5 h), mimo ni denní (taxi.dayCzk) –
+  // podle času, kdy se jede (přílet, odchod z ubytování). Jen v průvodci, kde jsou časy známé – výsledky hledání dál MHD.
+  const okHm = hm => typeof hm === 'string' && /^\d\d:\d\d$/.test(hm);
+  const nightHm = hm => okHm(hm) && (hm < '05:00' || hm >= '23:00');
   const taxiOk = a => Boolean(a && a.mode !== 'taxi' && a.taxi && a.taxi.czk > 0);
+  /** Platí v hm noční cena taxi? Bez hodin (nightFrom–nightTo) v celé noci; okno přes půlnoc (22–6 h) i ne. */
+  const taxiNight = (x, hm) => {
+    if (!(x.night > 0)) return false;
+    if (!okHm(x.nightFrom) || !okHm(x.nightTo) || !okHm(hm)) return true;
+    return x.nightFrom < x.nightTo ? hm >= x.nightFrom && hm < x.nightTo : hm >= x.nightFrom || hm < x.nightTo;
+  };
+  /** Taxi za auto v Kč v čase hm: noční, nebo mimo noční hodiny denní. */
+  const taxiCzk = (x, hm) => (x.dayCzk > 0 && !taxiNight(x, hm) ? x.dayCzk : x.czk);
   /** Taxi na osobu v Kč: auto děleno dospělými, nad pax osob (4) další auto. */
-  const taxiPp = (a, adults) => { const n = Math.max(1, adults || 1), pax = a.taxi.pax > 0 ? a.taxi.pax : 4; return (Math.ceil(n / pax) * a.taxi.czk) / n; };
+  const taxiPp = (a, adults, hm) => { const n = Math.max(1, adults || 1), pax = a.taxi.pax > 0 ? a.taxi.pax : 4; return (Math.ceil(n / pax) * taxiCzk(a.taxi, hm)) / n; };
   /**
-   * Úseky cesty mezi letištěm a městem v noci k letišti s pevnou cenou taxi, které jsou v odhadu ceny: [{ a, key }] –
-   * key 'out' (přílet), 'back' (z ubytování na let zpět), 'from<i>' / 'to<i>' (lety mezi místy). Ne úsek, který nahradí
-   * auto nebo přejezd trasy (trasa po zemi: jen veřejnou dopravou do města letiště), ne bez cesty do města v ceně.
+   * Úseky cesty mezi letištěm a městem v noci k letišti s pevnou cenou taxi, které jsou v odhadu ceny: [{ a, key, hm }] –
+   * key 'out' (přílet), 'back' (z ubytování na let zpět), 'from<i>' / 'to<i>' (lety mezi místy), hm = kdy se jede. Ne
+   * úsek, který nahradí auto nebo přejezd trasy (trasa po zemi: jen veřejnou dopravou do města letiště), ne bez cesty
+   * do města v ceně.
    */
   function nightTaxis(t) {
     const f = t.flight, a = t.arrival, xs = [];
@@ -398,30 +410,31 @@
     const multi = isMulti(t), fly = isFly(t);
     let lb0 = null; const lb = () => (lb0 ||= leaveBy(t)); // jen když je co počítat
     const counted = side => !arrivalDrop(t, side) && (!multi || fly || (t.route.transport === 'transit' && arrCovers(t, side)));
-    if (taxiOk(a.out) && counted('out') && f.out.hasTime && nightHm(arrivalAt(f.out).slice(11, 16))) xs.push({ a: a.out, key: 'out' });
+    const landHm = l => arrivalAt(l).slice(11, 16);
+    if (taxiOk(a.out) && counted('out') && f.out.hasTime && nightHm(landHm(f.out))) xs.push({ a: a.out, key: 'out', hm: landHm(f.out) });
     const lg = fly ? gapLeg(t, gapAt(t, t.route.bases.length - 1)) : null;
-    if (taxiOk(a.back) && f.back && counted('back') && !lg && lb().hotel && nightHm(lb().hotel.hm)) xs.push({ a: a.back, key: 'back' });
+    if (taxiOk(a.back) && f.back && counted('back') && !lg && lb().hotel && nightHm(lb().hotel.hm)) xs.push({ a: a.back, key: 'back', hm: lb().hotel.hm });
     if (fly) midLegs(t).forEach((l, i) => {
       const am = (Array.isArray(a.mid) && a.mid[i]) || {}, lx = taxiOk(am.from) && lb().mids && lb().mids[i];
-      if (lx && !gapLeg(t, gapAt(t, i)) && nightHm(lx.hm)) xs.push({ a: am.from, key: `from${i}` });
-      if (taxiOk(am.to) && l.hasTime && nightHm(arrivalAt(l).slice(11, 16))) xs.push({ a: am.to, key: `to${i}` });
+      if (lx && !gapLeg(t, gapAt(t, i)) && nightHm(lx.hm)) xs.push({ a: am.from, key: `from${i}`, hm: lx.hm });
+      if (taxiOk(am.to) && l.hasTime && nightHm(landHm(l))) xs.push({ a: am.to, key: `to${i}`, hm: landHm(l) });
     });
     return xs;
   }
   const CUR_SIGN = { EUR: '€', USD: '$', GBP: '£' };
   const curNum = n => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace('.', ','));
-  /** Pevná cena taxi za auto: „55 €“, v noci noční „65 €“, podle části města „56–65 €“. */
-  function taxiPrice(x) {
+  /** Pevná cena taxi za auto v čase hm: „55 €“, v nočních hodinách noční „65 €“, podle části města „56–65 €“. */
+  function taxiPrice(x, hm) {
     const sign = CUR_SIGN[x.cur] || x.cur;
-    return x.night > 0 ? `${curNum(x.night)} ${sign}` : x.hi > x.fare ? `${curNum(x.fare)}–${curNum(x.hi)} ${sign}` : `${curNum(x.fare)} ${sign}`;
+    return taxiNight(x, hm) ? `${curNum(x.night)} ${sign}` : x.hi > x.fare ? `${curNum(x.fare)}–${curNum(x.hi)} ${sign}` : `${curNum(x.fare)} ${sign}`;
   }
-  /** „ · v noci taxi, pevná cena 55 € za auto (v odhadu ceny započteno)“ k řádku cesty v průběhu cesty. */
-  function taxiTxt(a) {
-    const x = a.taxi, range = !(x.night > 0) && x.hi > x.fare;
-    return ` · v noci taxi, pevná ${x.night > 0 ? 'noční ' : ''}cena ${taxiPrice(x)} za auto${range ? ' podle části města' : ''} (v odhadu ceny započteno${range ? ` ${taxiPrice({ ...x, fare: x.hi, hi: 0 })}` : ''})`;
+  /** „ · v noci taxi, pevná cena 55 € za auto (v odhadu ceny započteno)“ k řádku cesty v průběhu cesty (n z nightTaxis). */
+  function taxiTxt(n) {
+    const x = n.a.taxi, night = taxiNight(x, n.hm), range = !night && x.hi > x.fare;
+    return ` · v noci taxi, pevná ${night ? 'noční ' : ''}cena ${taxiPrice(x, n.hm)} za auto${range ? ' podle části města' : ''} (v odhadu ceny započteno${range ? ` ${taxiPrice({ ...x, fare: x.hi, hi: 0 }, n.hm)}` : ''})`;
   }
   /** „taxi na letiště FCO (noc) 55 € za auto“ – úseky v noci taxíkem k řádku ceny. */
-  const taxiWhat = xs => xs.map(x => `taxi ${/^(out|to)/.test(x.key) ? 'z letiště' : 'na letiště'} ${x.a.iata} (noc) ${taxiPrice(x.a.taxi)} za auto`).join(', ');
+  const taxiWhat = xs => xs.map(x => `taxi ${/^(out|to)/.test(x.key) ? 'z letiště' : 'na letiště'} ${x.a.iata} (noc) ${taxiPrice(x.a.taxi, x.hm)} za auto`).join(', ');
   /** Popisek ceny cesty z letiště do města podle směrů, které se počítají. */
   function arrivalWhat(t) {
     const a = t.arrival || {}, out = !(a.out && arrivalDrop(t, 'out')), back = Boolean(t.flight.back) && !(a.back && arrivalDrop(t, 'back'));
@@ -1433,14 +1446,46 @@
   async function loadStays(key, params, { fresh = false } = {}) {
     const retry = staysRetry === key;
     if (!retry && !fresh && staysCache.has(key)) return staysCache.get(key);
-    const r = await fetch('api/stays?' + new URLSearchParams({ ...params, ...(retry ? { retry: 1 } : {}), ...(fresh ? { fresh: 1 } : {}) }));
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-    if (retry) staysRetry = null;
-    const d = { key, ...j, got: Date.now(), params: { ...params } };
-    if (staysIncomplete(d)) staysCache.delete(key);
-    else staysCache.set(key, d);
-    return d;
+    // místo načítané dopředu (warmStays, Vyber za mě) a jeho záložka se nezeptají dvakrát
+    if (!retry && !fresh && staysLoading.has(key)) return staysLoading.get(key);
+    const p = (async () => {
+      const r = await fetch('api/stays?' + new URLSearchParams({ ...params, ...(retry ? { retry: 1 } : {}), ...(fresh ? { fresh: 1 } : {}) }));
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      if (retry) staysRetry = null;
+      const d = { key, ...j, got: Date.now(), params: { ...params } };
+      if (staysIncomplete(d)) staysCache.delete(key);
+      else staysCache.set(key, d);
+      return d;
+    })();
+    if (!retry && !fresh) {
+      staysLoading.set(key, p);
+      const done = () => { if (staysLoading.get(key) === p) staysLoading.delete(key); };
+      p.then(done, done);
+    }
+    return p;
+  }
+
+  // Další místa trasy se načtou dopředu, jedno po druhém, když má aktuální místo nabídky (ceny už nedoplňuje): přepnutí
+  // záložky ani „Vyber za mě“ pak nečeká na dohledání místa a cen (malé místo bez TripAdvisoru i 15 s) – server má
+  // výsledek v mezipaměti. Jen místa bez vybraného ubytování, napřed ta za aktuálním (pořadí „Další místo“).
+  // Každé místo a termín nejvýš jednou (neúplný výsledek se do staysCache neukládá – další překreslení by se ptalo znovu).
+  let staysWarm = false;
+  const staysWarmed = new Set();
+  async function warmStays(t) {
+    if (staysWarm || autoBusy || !t || !isMulti(t) || t.step !== 'stay') return;
+    const bs = t.route.bases, dates = baseDates(t), n = bs.length;
+    const todo = bs.map((b, j) => (stayIdx + 1 + j) % n).filter(j => j !== stayIdx && !bs[j].stay && dates[j] && dates[j].nights >= 1)
+      .map(j => baseStayQuery(t, bs[j], dates[j])).filter(x => !staysCache.has(x.key) && !staysWarmed.has(x.key));
+    if (!todo.length) return;
+    staysWarm = true;
+    try {
+      for (const { key, params } of todo) {
+        if (T() !== t || t.step !== 'stay' || autoBusy) break; // jiná cesta, krok, nebo Vyber za mě (načítá sám)
+        staysWarmed.add(key);
+        try { await loadStays(key, params); } catch (e) { /* nevadí – záložka se zeptá sama */ }
+      }
+    } finally { staysWarm = false; }
   }
 
   // Ceny hotelů se zjišťují jedna po druhé (živě bývá 5–15 s): když se po 4 s pořád hledá, poznámka proč a co mezitím
@@ -1634,15 +1679,21 @@
     // noPrice = místa, kde TripAdvisor ceny nemá (jen ubytování z OpenStreetMap bez ceny) – vybere si uživatel sám
     const bs = t.route.bases, dates = baseDates(t), ok = [], miss = [], unsure = [], verified = [], noPrice = [];
     const todo = bs.map((b, i) => i).filter(i => !bs[i].stay);
+    const qs = todo.map(i => (dates[i] && dates[i].nights >= 1 ? baseStayQuery(t, bs[i], dates[i]) : null));
+    // další místo se načítá, zatímco se tady doptává na ceny a ověřuje volno (loadStays pak navrátí rozběhnutý dotaz);
+    // ne souběžně s hledáním tohoto – dvě hledání naráz si dělí frontu na Xotelo a obě by stihla méně cen (živě 12/2026
+    // 4 malá místa: první odpověď 3–4 hotely s cenou místo 5–10)
+    const ahead = k => { const x = qs.slice(k).find(Boolean); if (x) loadStays(x.key, x.params).catch(() => {}); };
     for (const [k, i] of todo.entries()) {
       if (T() !== t) break; // mezitím jiná cesta nebo Začít znovu
       onProgress(k + 1, todo.length, bs[i].name);
       const b = bs[i], d = dates[i];
-      if (!(d && d.nights >= 1)) { miss.push(b.name); continue; }
-      const { params, key } = baseStayQuery(t, b, d);
+      if (!qs[k]) { miss.push(b.name); continue; }
+      const { params, key } = qs[k];
       let h = null, osmOnly = false;
       try {
         let data = await loadStays(key, params);
+        ahead(k + 1);
         // ceny hotelů se teprve doplňují (Xotelo) → jednou znovu, server dopočítá jen chybějící
         if (!bestStay(data.items) && staysIncomplete(data)) {
           await new Promise(res => setTimeout(res, 2000));
@@ -1813,6 +1864,7 @@
     const host = $('#stayBody'); if (!host || !staysData) return;
     const d = staysData;
     const filling = stayAutoFill(d);
+    if (!filling) warmStays(T()); // místo má nabídky → další místa trasy dopředu
     const fillTxt = ' <span class="st-upd"><span class="spin dark"></span> Doplňuji ceny dalších hotelů…</span>';
     const types = [...new Set(d.items.map(h => h.type).filter(Boolean))];
     // typ zapamatovaný z jiného místa nebo cesty, který tu není (výběr by ho ani neukázal) – bez filtru
@@ -2288,7 +2340,7 @@
     // u letišť, kde už počítáme taxi (Hurghada, Djerba…), nic – odhad ceny je tam taxi; u letišť s pevnou cenou taxi
     // (Řím, Paříž…) úsek v noci (k = klíč z nightTaxis, i přílet) taxi za pevnou cenu, v odhadu ceny započtené
     const nts = nightTaxis(t), ntOf = k => (k ? nts.find(n => n.key === k) : null);
-    const nightTxt = (x, mode, k) => (ntOf(k) ? taxiTxt(ntOf(k).a) : mode !== 'taxi' && x && (x.hm < '05:00' || x.hm >= '23:00') ? ' · v noci spíš taxi (v odhadu ceny je MHD)' : '');
+    const nightTxt = (x, mode, k) => (ntOf(k) ? taxiTxt(ntOf(k)) : mode !== 'taxi' && x && (x.hm < '05:00' || x.hm >= '23:00') ? ' · v noci spíš taxi (v odhadu ceny je MHD)' : '');
     const gRow = (g, a, b) => `${esc(a)} → ${esc(b)} · ${esc(gTime(g))} · ${esc(gKind(g))}${g.fromStation ? ` · ${esc(g.fromStation)} → ${esc(g.toStation)}` : ''} (${esc(gWho(g))})`;
     // let bez času (cena z mezipaměti): ne vymyšlená půlnoc, ale „čas ověř“ jako u cesty z plánovače
     const fRow = l => (l.hasTime ? `${esc(l.from)} ${hhmm(l.dep)} → ${esc(l.to)} ${arrHm(l)} · ${legWho(l)}` : `${esc(l.from)} → ${esc(l.to)} · ${[legWho(l), 'čas ověř'].filter(Boolean).join(' · ')}`);
@@ -2737,7 +2789,10 @@
     const arr = a => {
       if (!a) return a;
       const x = { ...a }; for (const k of ['note', 'src', 'date', 'sec', 'gen', 'km']) delete x[k];
-      if (x.taxi) x.taxi = { fare: x.taxi.fare, cur: x.taxi.cur, czk: x.taxi.czk, ...(x.taxi.hi ? { hi: x.taxi.hi } : {}), ...(x.taxi.night ? { night: x.taxi.night } : {}), ...(x.taxi.pax ? { pax: x.taxi.pax } : {}) }; // pevná cena taxi bez zdroje
+      if (x.taxi) {
+        const y = x.taxi; // pevná cena taxi bez zdroje
+        x.taxi = { fare: y.fare, cur: y.cur, czk: y.czk, ...(y.hi ? { hi: y.hi } : {}), ...(y.night ? { night: y.night } : {}), ...(y.dayCzk ? { dayCzk: y.dayCzk } : {}), ...(y.nightFrom ? { nightFrom: y.nightFrom, nightTo: y.nightTo } : {}), ...(y.pax ? { pax: y.pax } : {}) };
+      }
       return x;
     };
     if (o.arrival) o.arrival = { out: arr(o.arrival.out), back: arr(o.arrival.back), ...(Array.isArray(o.arrival.mid) ? { mid: o.arrival.mid.map(x => ({ from: arr(x && x.from), to: arr(x && x.to) })) } : {}) };
@@ -2840,6 +2895,8 @@
     if (!okObj(x) || !okFin(x.fare, 0.01, 1e5) || !/^[A-Z]{3}$/.test(x.cur || '') || !okFin(x.czk, 1, 1e5)) return null;
     return {
       fare: x.fare, cur: x.cur, czk: Math.round(x.czk), ...(okFin(x.hi, 0.01, 1e5) ? { hi: x.hi } : {}), ...(okFin(x.night, 0.01, 1e5) ? { night: x.night } : {}),
+      ...(okFin(x.dayCzk, 1, 1e5) ? { dayCzk: Math.round(x.dayCzk) } : {}),
+      ...(/^\d\d:\d\d$/.test(x.nightFrom || '') && /^\d\d:\d\d$/.test(x.nightTo || '') ? { nightFrom: x.nightFrom, nightTo: x.nightTo } : {}),
       ...(okFin(x.pax, 1, 8) ? { pax: Math.round(x.pax) } : {}), ...(okStr(x.to, 140) ? { to: okStr(x.to, 140) } : {}), ...(okYmd(x.date) ? { date: x.date } : {}),
       ...(typeof x.src === 'string' && /^https:\/\/[^\s]{4,300}$/i.test(x.src) ? { src: x.src } : {}),
     };

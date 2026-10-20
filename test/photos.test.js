@@ -2,7 +2,7 @@
 // odpovědi API jsou vzorky ve tvaru formatversion=2.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePageImages, photoScore, namesCity, pexelsPick, pickPhotos, cityPhotos } from '../server/lib/photos.js';
+import { parsePageImages, photoScore, namesCity, pexelsPick, unsplashPick, unsplashClient, UNSPLASH_UTM, pickPhotos, cityPhotos } from '../server/lib/photos.js';
 
 const FP = 'Category:Featured pictures on Wikimedia Commons';
 const QI = 'Category:Quality images';
@@ -96,21 +96,21 @@ test('pickPhotos: z článku vybere oceněnou fotku města, cíl po letišti dos
   assert.ok(!calls[2][1].includes('Map of Rome') && !calls[2][1].includes('Statue') && !calls[2][1].includes('Montage'));
   // Commons neodpovídá (429): zatím úvodní obrázky bez koláže, partial
   const down = await pickPhotos(['Řím', 'Oradea'], async (host, p) => { if (host === 'commons.wikimedia.org') throw new Error('429'); return api(host, p); });
-  assert.deepEqual(down, { photos: { 'Řím': '', Oradea: 'https://u/thumb/500px-Oradea_lead.jpg' }, by: {}, partial: true });
+  assert.deepEqual(down, { photos: { 'Řím': '', Oradea: 'https://u/thumb/500px-Oradea_lead.jpg' }, by: {}, bu: {}, partial: true, retry: [] });
 });
 
 test('cityPhotos: z paměti bez dotazu, „fotka není“ jako prázdná adresa, výpadek se neuloží', async () => {
   const ok = (photos, by = {}) => async () => ({ photos, by, partial: false });
   const opt = (pick) => ({ pick, prov: 'wiki' });
   assert.deepEqual(await cityPhotos(['Testov A', 'Testov B', 'Testov A', 'X|Y', ''], opt(ok({ 'Testov A': 'https://x/a.jpg' }))),
-    { photos: { 'Testov A': 'https://x/a.jpg', 'Testov B': '' }, by: {}, partial: false, prov: 'wiki' });
+    { photos: { 'Testov A': 'https://x/a.jpg', 'Testov B': '' }, by: {}, bu: {}, partial: false, prov: 'wiki' });
   assert.deepEqual((await cityPhotos(['Testov A', 'Testov B'], opt(async () => { throw new Error('nemá se ptát'); }))).photos, { 'Testov A': 'https://x/a.jpg', 'Testov B': '' });
   assert.deepEqual((await cityPhotos(['Testov C'], opt(async () => { throw new Error('429'); }))).photos, {});
   const half = await cityPhotos(['Testov C'], opt(async () => ({ photos: { 'Testov C': 'https://x/c.jpg' }, partial: true })));
   assert.deepEqual([half.photos, half.partial], [{ 'Testov C': 'https://x/c.jpg' }, true]);
   // s Pexels: autor fotky jde s ní (i z paměti); paměť je zvlášť pro Pexels a Wikimedii
   const px = { pick: ok({ 'Testov D': 'https://images.pexels.com/d.jpeg' }, { 'Testov D': 'Jana Nováková' }), prov: 'pexels' };
-  assert.deepEqual(await cityPhotos(['Testov D'], px), { photos: { 'Testov D': 'https://images.pexels.com/d.jpeg' }, by: { 'Testov D': 'Jana Nováková' }, partial: false, prov: 'pexels' });
+  assert.deepEqual(await cityPhotos(['Testov D'], px), { photos: { 'Testov D': 'https://images.pexels.com/d.jpeg' }, by: { 'Testov D': 'Jana Nováková' }, bu: {}, partial: false, prov: 'pexels' });
   assert.deepEqual((await cityPhotos(['Testov D'], { pick: async () => { throw new Error('z paměti'); }, prov: 'pexels' })).by, { 'Testov D': 'Jana Nováková' });
   assert.deepEqual((await cityPhotos(['Testov D'], opt(ok({ 'Testov D': 'https://x/wiki-d.jpg' })))).photos, { 'Testov D': 'https://x/wiki-d.jpg' });
 });
@@ -137,7 +137,7 @@ test('pickPhotos: hlavní fotka anglického článku (Eiffelovka) před oceněno
 test('pexelsPick: jen fotka, v jejímž popisu nebo adrese je jméno města; náhled na výšku 960 × 1200', () => {
   const ph = (alt, url, o = 'https://images.pexels.com/photos/1/x.jpeg') => ({ alt, url, photographer: 'Autor', src: { original: o } });
   assert.deepEqual(pexelsPick([ph('Aerial view of a city', 'https://www.pexels.com/photo/city-1/'), ph('Colosseum in Rome at sunset', 'https://www.pexels.com/photo/2/', 'https://images.pexels.com/photos/2/r.jpeg')], ['Rome', 'Řím']),
-    { u: 'https://images.pexels.com/photos/2/r.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=960&h=1200', by: 'Autor' });
+    { u: 'https://images.pexels.com/photos/2/r.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=960&h=1200', by: 'Autor', bu: '' });
   assert.equal(pexelsPick([ph('', 'https://www.pexels.com/photo/old-town-of-krakow-poland-3/')], ['Kraków'])?.by, 'Autor'); // jméno jen v adrese
   assert.equal(pexelsPick([ph('Beautiful landscape of Romania', 'https://www.pexels.com/photo/4/')], ['Oradea']), null);
   assert.equal(pexelsPick(null, ['Rome']), null);
@@ -158,4 +158,97 @@ test('pickPhotos s Pexels: fotka města z Pexels, co Pexels nemá, dohledá Wiki
   assert.deepEqual(asked.sort(), ['Oradea city', 'Rome city']);
   assert.deepEqual(out.photos, { 'Řím': 'https://images.pexels.com/photos/9/t.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=960&h=1200', Oradea: 'https://u/thumb/960px-Oradea_lead.jpg' });
   assert.deepEqual(out.by, { 'Řím': 'Luca' });
+});
+
+// ---------- Unsplash (UNSPLASH_ACCESS_KEY) ----------
+const usp = (o = {}) => ({ width: 4000, height: 6000, urls: { raw: 'https://images.unsplash.com/photo-1?ixid=abc' }, user: { name: 'Ana Silva', links: { html: 'https://unsplash.com/@anasilva' } }, links: { html: 'https://unsplash.com/photos/x' }, ...o });
+
+test('unsplashPick: jen fotka se jménem města (popis, adresa, štítky, místo), dost velká; výřez 960 × 1200, autor s utm', () => {
+  const lis = ['Lisbon', 'Lisabon'];
+  assert.deepEqual(unsplashPick([usp({ alt_description: 'a city street with tall buildings' }), usp({ description: 'Tram 28 in Lisbon', urls: { raw: 'https://images.unsplash.com/photo-2?ixid=q' } })], lis), {
+    u: 'https://images.unsplash.com/photo-2?ixid=q&w=960&h=1200&fit=crop&crop=entropy&q=75&auto=format',
+    by: 'Ana Silva', bu: `https://unsplash.com/@anasilva?${UNSPLASH_UTM}`,
+  });
+  assert.equal(unsplashPick([usp({ slug: 'yellow-tram-lisbon-portugal-AbC' })], lis)?.by, 'Ana Silva'); // jméno jen v adrese
+  assert.equal(unsplashPick([usp({ tags: [{ title: 'portugal' }, { title: 'lisboa' }] })], ['Lisboa']) !== null, true); // štítek
+  assert.equal(unsplashPick([usp({ location: { city: 'Lisbon' } })], lis) !== null, true); // místo
+  assert.equal(unsplashPick([usp({ description: 'Lisbon', width: 640 })], lis), null); // malá fotka
+  assert.equal(unsplashPick([usp({ description: 'Lisbon', urls: { raw: 'https://evil.example/x.jpg' } })], lis), null); // jen z Unsplash
+  assert.equal(unsplashPick([usp({ description: 'Beautiful Portugal coast' })], lis), null);
+  assert.equal(unsplashPick(null, lis), null);
+  // profil autora jen na unsplash.com, jinak bez odkazu
+  assert.equal(unsplashPick([usp({ description: 'Lisbon', user: { name: 'X', links: { html: 'javascript:alert(1)' } } })], lis).bu, '');
+});
+
+test('unsplashClient: dotaz s klíčem a verzí; po vyčerpání limitu (403) čtvrt hodiny bez dotazů, po neplatném klíči (401) 6 h', async () => {
+  let t = 1e12;
+  const calls = [];
+  let status = 0;
+  const req = async (url, o) => {
+    calls.push([url, o.headers]);
+    if (status) throw Object.assign(new Error(`HTTP ${status}`), { status });
+    return { results: [usp({ description: 'Rome' })] };
+  };
+  const api = unsplashClient('KEY', { req, now: () => t });
+  assert.equal((await api('Rome city')).length, 1);
+  const u = new URL(calls[0][0]);
+  assert.equal(u.origin + u.pathname, 'https://api.unsplash.com/search/photos');
+  assert.deepEqual([u.searchParams.get('query'), u.searchParams.get('orientation'), u.searchParams.get('content_filter')], ['Rome city', 'portrait', 'high']);
+  assert.deepEqual(calls[0][1], { Authorization: 'Client-ID KEY', 'Accept-Version': 'v1' });
+  status = 403; // Rate Limit Exceeded
+  await assert.rejects(api('Paris city'), (e) => e.soon === true);
+  await assert.rejects(api('Oslo city'), (e) => e.soon === true && /vynechán/.test(e.message));
+  assert.equal(calls.length, 2, 'během pauzy se Unsplash neptá');
+  t += 16 * 6e4; status = 0;
+  assert.equal((await api('Oslo city')).length, 1, 'po čtvrthodině znovu');
+  status = 401;
+  await assert.rejects(api('Bern city'), (e) => e.soon === false);
+  t += 5 * 36e5;
+  await assert.rejects(api('Bern city'), (e) => e.soon === false);
+  assert.equal(calls.length, 4, 'neplatný klíč: 6 h bez dotazů');
+});
+
+test('pickPhotos s Unsplash: co Pexels nemá, zkusí Unsplash, zbytek Wikimedia; limit Unsplash → partial (Wikimedia jen na chvíli)', async () => {
+  const api = async (host) => {
+    if (host === 'cs.wikipedia.org') return { query: { pages: [
+      { title: 'Řím', thumbnail: { source: 'https://u/thumb/960px-Rome_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Rome' }] },
+      { title: 'Oradea', thumbnail: { source: 'https://u/thumb/960px-Oradea_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Oradea' }] },
+      { title: 'Lisabon', thumbnail: { source: 'https://u/thumb/960px-Lisbon_lead.jpg' }, langlinks: [{ lang: 'en', title: 'Lisbon' }] },
+    ] } };
+    if (host === 'en.wikipedia.org') return { query: { pages: [{ title: 'Oradea', images: [] }, { title: 'Rome', images: [] }, { title: 'Lisbon', images: [] }] } };
+    return { query: { pages: [] } };
+  };
+  const pAsked = [], uAsked = [];
+  const pexels = async (q) => { pAsked.push(q); return q.startsWith('Rome') ? [{ alt: 'Rome', url: 'https://www.pexels.com/photo/9/', photographer: 'Luca', photographer_url: 'https://www.pexels.com/@luca', src: { original: 'https://images.pexels.com/photos/9/t.jpeg' } }] : []; };
+  const unsplash = async (q) => { uAsked.push(q); return q.startsWith('Lisbon') ? [usp({ description: 'Lisbon at dusk' })] : []; };
+  const out = await pickPhotos(['Řím', 'Oradea', 'Lisabon'], api, pexels, unsplash);
+  assert.deepEqual(pAsked.sort(), ['Lisbon city', 'Oradea city', 'Rome city']);
+  assert.deepEqual(uAsked.sort(), ['Lisbon city', 'Oradea city'], 'Unsplash jen na to, co Pexels nemá');
+  assert.match(out.photos['Řím'], /^https:\/\/images\.pexels\.com\//);
+  assert.match(out.photos.Lisabon, /^https:\/\/images\.unsplash\.com\/photo-1\?ixid=abc&w=960&h=1200/);
+  assert.equal(out.photos.Oradea, 'https://u/thumb/960px-Oradea_lead.jpg');
+  assert.deepEqual(out.by, { 'Řím': 'Luca', Lisabon: 'Ana Silva' });
+  assert.deepEqual(out.bu, { 'Řím': 'https://www.pexels.com/@luca', Lisabon: `https://unsplash.com/@anasilva?${UNSPLASH_UTM}` });
+  assert.equal(out.partial, false);
+  // limit dotazů Unsplash: fotky z Wikimedie jen na chvíli; neplatný klíč ne (jinak by se Wikimedia ptala pořád)
+  const limited = await pickPhotos(['Lisabon'], api, null, async () => { throw Object.assign(new Error('HTTP 403'), { status: 403, soon: true }); });
+  assert.deepEqual([limited.photos.Lisabon, limited.partial, limited.retry], ['https://u/thumb/960px-Lisbon_lead.jpg', false, ['Lisabon']]);
+  const badKey = await pickPhotos(['Lisabon'], api, null, async () => { throw Object.assign(new Error('HTTP 401'), { status: 401, soon: false }); });
+  assert.deepEqual([badKey.partial, badKey.retry], [false, []]);
+});
+
+test('cityPhotos s Unsplash: autor a odkaz na profil jdou s fotkou (i z paměti), paměť zvlášť pro Unsplash', async () => {
+  const pick = async () => ({ photos: { 'Testov U': 'https://images.unsplash.com/u.jpg' }, by: { 'Testov U': 'Ana' }, bu: { 'Testov U': 'https://unsplash.com/@ana?x=1' }, partial: false });
+  assert.deepEqual(await cityPhotos(['Testov U'], { pick, prov: 'unsplash' }),
+    { photos: { 'Testov U': 'https://images.unsplash.com/u.jpg' }, by: { 'Testov U': 'Ana' }, bu: { 'Testov U': 'https://unsplash.com/@ana?x=1' }, partial: false, prov: 'unsplash' });
+  const again = await cityPhotos(['Testov U'], { pick: async () => { throw new Error('z paměti'); }, prov: 'unsplash' });
+  assert.deepEqual([again.by, again.bu], [{ 'Testov U': 'Ana' }, { 'Testov U': 'https://unsplash.com/@ana?x=1' }]);
+  assert.deepEqual((await cityPhotos(['Testov U'], { pick: async () => ({ photos: { 'Testov U': 'https://x/w.jpg' }, partial: false }), prov: 'wiki' })).photos, { 'Testov U': 'https://x/w.jpg' });
+  // limit dotazů Unsplash: fotka z Wikimedie jen na hodinu (pak z Unsplash), nalezená z Unsplash na týden; odpověď partial
+  const r = await cityPhotos(['Testov V', 'Testov W'], { pick: async () => ({ photos: { 'Testov V': 'https://images.unsplash.com/v.jpg', 'Testov W': 'https://x/w-wiki.jpg' }, by: { 'Testov V': 'Ana' }, partial: false, retry: ['Testov W'] }), prov: 'unsplash' });
+  assert.equal(r.partial, true);
+  const { cache } = await import('../server/lib/cache.js');
+  const ttl = (k) => cache.map.get(k).exp - Date.now();
+  const [tv, tw] = [ttl('ph6:unsplash:Testov V'), ttl('ph6:unsplash:Testov W')];
+  assert.ok(tv > 6 * 864e5 && tw <= 36e5, `${tv} ${tw}`);
 });

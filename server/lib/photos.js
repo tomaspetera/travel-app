@@ -8,7 +8,9 @@
 //   vítězí oceněná fotka na šířku s celkovým pohledem (panorama, staré město, výhled), bez map, znaků a koláží.
 // Bez oceněné fotky zůstane úvodní obrázek článku (není-li to koláž nebo SVG), jinak karta bez fotky.
 // S klíčem PEXELS_API_KEY (zdarma) mají přednost profesionální fotky z Pexels na výšku – jen ty, v jejichž popisu
-// nebo adrese je jméno města (náhodná fotka „Rumunska“ místo Oradey ne); jinak Wikimedia jako dřív.
+// nebo adrese je jméno města (náhodná fotka „Rumunska“ místo Oradey ne); s klíčem UNSPLASH_ACCESS_KEY totéž
+// z Unsplash (co Pexels nemá nebo bez klíče Pexels); jinak Wikimedia jako dřív. U fotky z Pexels a Unsplash autor
+// s odkazem na jeho profil (Unsplash to v podmínkách API vyžaduje, fotky se vkládají přímo z jeho serveru).
 import { request, limiter } from './http.js';
 import { config } from '../config.js';
 import { cache } from './cache.js';
@@ -85,17 +87,68 @@ async function pexelsApi(key, query) {
   return (j && j.photos) || [];
 }
 
-/** První fotka z Pexels, v jejímž popisu (alt) nebo adrese je jméno města; adresa náhledu 960 × 1200 (karta na výšku). */
+// odkaz na profil autora: jen https na webu zdroje
+const httpsOn = (u, host) => (typeof u === 'string' && u.length <= 300 && new RegExp(`^https://(www\\.)?${host}/[^\\s"'<>]*$`).test(u) ? u : '');
+
+/**
+ * První fotka z Pexels, v jejímž popisu (alt) nebo adrese je jméno města; adresa náhledu 960 × 1200 (karta na výšku),
+ * by = autor, bu = jeho profil.
+ */
 export function pexelsPick(photos, names) {
   const p = (photos || []).find((x) => x && x.src && x.src.original && (namesCity(x.alt || '', names) || namesCity(String(x.url || '').replace(/-/g, ' '), names)));
-  return p ? { u: `${p.src.original}?auto=compress&cs=tinysrgb&fit=crop&w=960&h=1200`, by: p.photographer || '' } : null;
+  return p ? { u: `${p.src.original}?auto=compress&cs=tinysrgb&fit=crop&w=960&h=1200`, by: p.photographer || '', bu: httpsOn(p.photographer_url, 'pexels\\.com') } : null;
+}
+
+// Unsplash: odkazy zpět na Unsplash s utm (podmínky API)
+export const UNSPLASH_UTM = 'utm_source=atlas_letenky&utm_medium=referral';
+const UNSPLASH_RATE_MS = 15 * 6e4; // po vyčerpání limitu (ukázkový režim 50 dotazů/h) Unsplash na čtvrt hodiny vynechat
+const UNSPLASH_KEY_MS = 6 * 36e5; // neplatný klíč – na 6 h
+
+/**
+ * Hledání fotek na Unsplash (search/photos, na výšku, bez citlivého obsahu) → pole výsledků. Vlastní pojistka: po 403/429
+ * (vyčerpaný limit dotazů) se Unsplash na 15 min vynechá, po 401 (neplatný klíč) na 6 h; chyba má soon: true, když se
+ * vyplatí zkusit to brzy znovu (limit, výpadek), ne u neplatného klíče. deps: req (request), now (hodiny).
+ */
+export function unsplashClient(key, { req = request, now = Date.now } = {}) {
+  const limit = limiter(2);
+  let off = 0, offSoon = true;
+  return async (query) => {
+    if (now() < off) throw Object.assign(new Error('Unsplash vynechán'), { soon: offSoon });
+    const qs = new URLSearchParams({ query, orientation: 'portrait', content_filter: 'high', per_page: '15' });
+    try {
+      const j = await limit(() => req(`https://api.unsplash.com/search/photos?${qs}`, { headers: { Authorization: `Client-ID ${key}`, 'Accept-Version': 'v1' }, timeoutMs: 10000, retries: 0 }));
+      return (j && Array.isArray(j.results) && j.results) || [];
+    } catch (e) {
+      if (e.status === 401) { off = now() + UNSPLASH_KEY_MS; offSoon = false; }
+      else if (e.status === 403 || e.status === 429) { off = now() + UNSPLASH_RATE_MS; offSoon = true; }
+      throw Object.assign(e, { soon: e.status !== 401 });
+    }
+  };
+}
+let unsplashDefault = null;
+const unsplashApi = () => (unsplashDefault ||= unsplashClient(config.unsplashKey));
+
+/**
+ * První fotka z Unsplash, v jejímž popisu, adrese (slug), štítcích nebo místě je jméno města, dost velká (aspoň
+ * 1000 px na šířku); adresa z urls.raw (Unsplash chce fotky vkládat přímo ze svého serveru) s výřezem 960 × 1200,
+ * by = autor, bu = jeho profil s utm.
+ */
+export function unsplashPick(results, names) {
+  const text = (x) => [x.description, x.alt_description, x.slug, ...Object.values(x.alternative_slugs || {}), ...(Array.isArray(x.tags) ? x.tags.map((t) => t && t.title) : []),
+    x.location && x.location.city, x.location && x.location.name].filter((v) => typeof v === 'string').join(' ').replace(/-/g, ' ');
+  const p = (results || []).find((x) => x && x.urls && /^https:\/\/images\.unsplash\.com\/[^\s"'<>]+$/.test(x.urls.raw || '') && x.width >= 1000 && namesCity(text(x), names));
+  if (!p) return null;
+  const prof = httpsOn(p.user && p.user.links && p.user.links.html, 'unsplash\\.com');
+  return { u: `${p.urls.raw}${p.urls.raw.includes('?') ? '&' : '?'}w=960&h=1200&fit=crop&crop=entropy&q=75&auto=format`, by: (p.user && p.user.name) || '', bu: prof && `${prof}${prof.includes('?') ? '&' : '?'}${UNSPLASH_UTM}` };
 }
 
 /**
- * Fotky pro názvy měst (bez mezipaměti) – { photos: { název: adresa | '' }, partial }. Výpadek české Wikipedie vyhodí
- * chybu; výpadek anglické nebo Commons vrátí úvodní obrázky s partial: true.
+ * Fotky pro názvy měst (bez mezipaměti) – { photos: { název: adresa | '' }, by: { název: autor }, bu: { název: profil
+ * autora }, partial, retry }. Výpadek české Wikipedie vyhodí chybu; výpadek anglické nebo Commons vrátí úvodní obrázky
+ * s partial: true; retry = názvy, u kterých Unsplash narazil na limit dotazů (fotka z Wikimedie jen na chvíli).
  */
-export async function pickPhotos(titles, api = wikiApi, pexels = config.pexelsKey ? (q) => pexelsApi(config.pexelsKey, q) : null) {
+export async function pickPhotos(titles, api = wikiApi, pexels = config.pexelsKey ? (q) => pexelsApi(config.pexelsKey, q) : null,
+  unsplash = config.unsplashKey ? (q) => unsplashApi()(q) : null) {
   // 1) česká Wikipedie: článek, úvodní obrázek, anglický název; cíl po letišti → město před pomlčkou
   const alt = new Map(titles.map((t) => [t, t.split(/\s*[-–]\s*/)[0]]).filter(([t, a]) => a && a !== t));
   const ask = [...new Set([...titles, ...alt.values()])];
@@ -110,25 +163,26 @@ export async function pickPhotos(titles, api = wikiApi, pexels = config.pexelsKe
     const ll = p && (p.langlinks || []).find((l) => l.lang === 'en');
     enOf[t] = ll ? ll.title : p ? '' : t; // bez českého článku zkus anglický pod stejným názvem
   }
-  // Pexels (s klíčem): profesionální fotka města; co nenajde, dohledá Wikimedia
-  const photos = {}, by = {};
-  if (pexels) {
-    await Promise.all(titles.map(async (t) => {
+  // Pexels, pak Unsplash (s klíčem): profesionální fotka města; co nenajdou, dohledá Wikimedia
+  const photos = {}, by = {}, bu = {}, retry = [];
+  for (const [src, pickIt] of [[pexels, pexelsPick], [unsplash, unsplashPick]]) {
+    if (!src) continue;
+    await Promise.all(titles.filter((t) => !photos[t]).map(async (t) => {
       const en = enOf[t] || t, names = [en, t, t.split(/\s*[-–]\s*/)[0]];
       try {
-        const hit = pexelsPick(await pexels(`${en.split(/[,(]/)[0].trim()} city`), names);
-        if (hit) { photos[t] = hit.u; by[t] = hit.by; }
-      } catch { /* výpadek Pexels – Wikimedia */ }
+        const hit = pickIt(await src(`${en.split(/[,(]/)[0].trim()} city`), names);
+        if (hit) { photos[t] = hit.u; by[t] = hit.by; if (hit.bu) bu[t] = hit.bu; }
+      } catch (e) { if (src === unsplash && e.soon) retry.push(t); /* výpadek – Wikimedia */ }
     }));
   }
   const rest = titles.filter((t) => !photos[t]);
-  if (!rest.length) return { photos, by, partial: false };
+  if (!rest.length) return { photos, by, bu, partial: false, retry };
   // 2–3) výpadek anglické Wikipedie nebo Commons: zatím úvodní obrázky (bez koláží), jen na krátko (partial)
   try {
-    return { photos: { ...photos, ...(await bestPhotos(rest, api, lead, enOf)) }, by, partial: false };
+    return { photos: { ...photos, ...(await bestPhotos(rest, api, lead, enOf)) }, by, bu, partial: false, retry };
   } catch {
     for (const t of rest) photos[t] = leadOk(lead[t]) ? lead[t] : '';
-    return { photos, by, partial: true };
+    return { photos, by, bu, partial: true, retry };
   }
 }
 
@@ -190,29 +244,32 @@ async function bestPhotos(titles, api, lead, enOf) {
 }
 
 /**
- * { photos: { název: adresa fotky | '' (fotka není) }, by: { název: autor fotky z Pexels }, partial, prov }.
- * Výpadek Wikimedie (chyba, 429): nic se neuloží a nenalezené názvy v odpovědi chybí – příště znovu. Náhradní výběr
- * (partial) se uloží jen na hodinu. prov: 'pexels' s klíčem, jinak 'wiki' (prohlížeč wiki fotky drží kratší dobu,
- * aby po přidání klíče brzy přešel na Pexels).
+ * { photos: { název: adresa fotky | '' (fotka není) }, by: { název: autor fotky z Pexels/Unsplash }, bu: { název:
+ * profil autora }, partial, prov }. Výpadek Wikimedie (chyba, 429): nic se neuloží a nenalezené názvy v odpovědi
+ * chybí – příště znovu. Náhradní výběr (partial, u Unsplash po limitu dotazů retry) se uloží jen na hodinu – partial
+ * pak má i odpověď, ať se prohlížeč brzy zeptá znovu. prov: 'pexels' / 'unsplash' s klíčem, jinak
+ * 'wiki' (prohlížeč wiki fotky drží kratší dobu, aby po přidání klíče brzy přešel na hezčí fotky).
  */
-export async function cityPhotos(titles, { pick = pickPhotos, prov = config.pexelsKey ? 'pexels' : 'wiki' } = {}) {
+export async function cityPhotos(titles, { pick = pickPhotos, prov = config.pexelsKey ? 'pexels' : config.unsplashKey ? 'unsplash' : 'wiki' } = {}) {
   const want = [...new Set(titles.map((t) => String(t || '').trim()).filter((t) => t && t.length <= 80 && !t.includes('|')))].slice(0, MAX);
-  const photos = {}, by = {}, miss = [];
+  const photos = {}, by = {}, bu = {}, miss = [];
   let partial = false;
   for (const t of want) {
     const c = cache.get(`ph6:${prov}:${t}`);
-    if (c !== undefined) { photos[t] = c.u; if (c.by) by[t] = c.by; } else miss.push(t);
+    if (c !== undefined) { photos[t] = c.u; if (c.by) by[t] = c.by; if (c.bu) bu[t] = c.bu; } else miss.push(t);
   }
   if (miss.length) {
     try {
       const got = await pick(miss);
-      partial = got.partial;
+      const soon = new Set(got.retry || []);
+      partial = Boolean(got.partial) || soon.size > 0;
       for (const t of miss) {
         photos[t] = got.photos[t] || '';
         if (got.by && got.by[t]) by[t] = got.by[t];
-        cache.set(`ph6:${prov}:${t}`, { u: photos[t], by: by[t] || '' }, partial ? 36e5 : TTL);
+        if (got.bu && got.bu[t]) bu[t] = got.bu[t];
+        cache.set(`ph6:${prov}:${t}`, { u: photos[t], by: by[t] || '', ...(bu[t] ? { bu: bu[t] } : {}) }, got.partial || soon.has(t) ? 36e5 : TTL);
       }
     } catch { /* výpadek – příště znovu */ }
   }
-  return { photos, by, partial, prov };
+  return { photos, by, bu, partial, prov };
 }

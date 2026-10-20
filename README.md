@@ -425,7 +425,14 @@ ověří volno) s řádkem „📍 v okolí: Noto · 24 km od Palazzolo Acreide�
 („Hotel X, Noto“). Pod nimi ubytování **v místě bez ceny** z OpenStreetMap (viz zdroje). Při výpadku Wikidat taky ceny
 z okolí, v mezipaměti jen 5 min. Návrh trasy přes víc míst dává při podobném skóre přednost místům s hotely
 na TripAdvisoru (`HOTEL_BONUS` v `server/lib/stayplan.js`, ~6 bodů ≈ 50 min přejezdu). Místo, kde v okolí nic není,
-dostane jen odkazy.
+dostane jen odkazy. **Rychlost:** ubytování z OpenStreetMap se hledá hned, jak je jasné, že ceny budou z okolí –
+souběžně s cenami, ne po nich (Nominatim ~4 s); dohledávají-li Wikidata místo mimo tabulky dlouho, seznamy hotelů
+míst v okolí se po 1,5 s načtou dopředu a po 8 s (`KEYS_CAP_MS`) se nečeká – ceny z okolí hned, výsledek je neúplný
+a průvodce se doptá (dohledané místo s vlastními hotely pak má přednost). Nepovedený anglický název místa
+(geokódování, timeout 5 s) se pamatuje 10 min. Živě 10/2026 první odpověď u Palazzola, Alcobaçy, Castelmezzana
+a Civity di Bagnoregio ~11 s místo 16–23 s. V cestě přes víc míst se další místa načtou dopředu (jedno po druhém,
+až má aktuální místo nabídky) a **✨ Vyber za mě** načítá další místo, zatímco v předchozím ověřuje volno (4 malá
+místa: ~62 s → ~47 s); dvě hledání naráz záměrně ne – dělila by se o frontu na Xotelo a obě by stihla méně cen.
 
 **Kolik dotazů:** na místo a termín 1 seznam hotelů (TripAdvisor „nejlepší poměr“, 40 hotelů, timeout 10 s bez
 opakování) + nejvýš **12 dotazů na ceny** (8 nejlépe hodnocených podle poměru a 4 nejlevnější podle ceníku
@@ -747,8 +754,9 @@ na osobu – do ceny letenky se nepřičítá.
   z letiště na první místo a z posledního místa na letiště, leží-li to místo ve městě letiště (do 25 km).
 - **V noci taxi s pevnou cenou:** vyráží-li se z ubytování na letiště, nebo přistává-li se, před 5:00 či od 23:00, MHD
   a letištní vlaky obvykle nejezdí. U letišť s **úřední pevnou cenou taxi** do centra (tabulka níže) průvodce ten úsek
-  počítá taxíkem – cena za auto (noční, je-li; u rozpětí podle části města horní) děleno počtem dospělých, nad 4 osoby
-  další auto – a v časové ose napíše *· v noci taxi, pevná cena 55 € za auto (v odhadu ceny započteno)*, v kroku Let
+  počítá taxíkem – cena za auto (noční jen v nočních hodinách taxi – Atény 0–5 h, Florencie 22–6 h –, jinak denní;
+  u rozpětí podle části města horní) děleno počtem dospělých, nad 4 osoby další auto – podle času příletu nebo odchodu
+  z ubytování (i u letů mezi místy trasy) – a v časové ose napíše *· v noci taxi, pevná cena 55 € za auto (v odhadu ceny započteno)*, v kroku Let
   a ve Shrnutí u dopravy *taxi na letiště FCO (noc) 55 € za auto*. U ostatních letišť zůstává *v noci spíš taxi
   (v odhadu ceny je MHD)*. Výsledky hledání (bez známých časů cesty z ubytování) počítají dál MHD.
 - **Hlídané ceny** uložené před touto volbou se dál počítají bez cesty do města, ať jde nová cena porovnat s dřívější;
@@ -952,7 +960,7 @@ letiště (odlet, `access.js`) počítá s cenou „od“ – jízdenka na odlet
 ⚠ = zvýrazněno (přes 350 Kč nebo přes 60 min). ² = sekundární zdroj. Čas je typická jízda bez čekání na spoj (u vlaku
 a metra podle jízdního řádu, u autobusu podle dopravce).
 
-**Pevná cena taxi z letiště do centra** (pole `taxi` v `data/arrival.json`, za auto do 4 osob, ověřeno 19. 10. 2026) –
+**Pevná cena taxi z letiště do centra** (pole `taxi` v `data/arrival.json`, za auto do 4 osob, ověřeno 20. 10. 2026) –
 jen tam, kde ji úředně stanoví město, stát nebo letiště; Lisabon, Barcelona, Vídeň, Budapešť, Malta (cena jen u stánku
 na letišti) a další jezdí podle taxametru, proto v tabulce nejsou:
 
@@ -962,16 +970,18 @@ na letišti) a další jezdí podle taxametru, proto v tabulce nejsou:
 | CIA Řím | do centra uvnitř Aureliánských hradeb, vše v ceně | 40 € | 980 | [romamobilita.it](https://romamobilita.it/muoversi-a-roma/taxi/) |
 | CDG Paříž | pravý břeh 56 €, levý břeh 65 €, bez příplatku za zavazadla | 56–65 € | 1 590 | [Arrêté du 24 décembre 2025](https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053228231) |
 | ORY Paříž | levý břeh 36 €, pravý břeh 45 € | 36–45 € | 1 100 | [Arrêté du 24 décembre 2025](https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000053228231) |
-| MAD Madrid | kamkoli uvnitř okruhu M-30, nonstop, zavazadla v ceně | 33 € | 810 | [comunidad.madrid](https://comunidad.madrid/sites/default/files/doc/consumo/certificado_tarifas_apc_taxi_24_40590322.pdf) |
-| ATH Atény | do centra; noční (0–5 h) 65 €, příplatky v ceně | 50 € / noční 65 € | 1 590 | [aia.gr](https://www.aia.gr/en/traveller/transportation-airport/taxi-limousines-transfer) |
-| FLR Florencie | do centra; svátek 30 €, noční 32 €, zavazadlo +1,20 € | 28 € / noční 32 € | 780 | [comune.fi.it](https://servizi.comune.fi.it/sites/www.comune.fi.it/files/all._3_tariffe_fase_2-16052023_df.pdf) |
+| MAD Madrid | kamkoli uvnitř okruhu M-30, nonstop, zavazadla v ceně (tarifa 4, i pro 2026) | 33 € | 810 | [madrid.es](https://www.madrid.es/portales/munimadrid/es/Inicio/Actualidad/Noticias/Madrid-actualiza-las-tarifas-para-el-taxi-con-una-subida-de-2-36-para-2026/?vgnextfmt=default&vgnextoid=793c06373b2fa910VgnVCM200000f921e388RCRD&vgnextchannel=a12149fa40ec9410VgnVCM100000171f5a0aRCRD) ³ |
+| ATH Atény | do centra (uvnitř okruhu); 0–5 h noční 65 €, příplatky v ceně; od září 2026 (dřív 40 / 55 €) | 50 € / 0–5 h 65 € | 1 590 | [naftemporiki.gr](https://www.naftemporiki.gr/society/2162512/ayxiseis-stis-times-ton-tachi-sta-50-eyro-i-diadromi-aerodromio-athina/) ² |
+| FLR Florencie | do centra; svátek 30 €, v noci (22–6 h) 32 €, zavazadlo +1,20 € | 28 € / 22–6 h 32 € | 780 | [comune.fi.it](https://servizi.comune.fi.it/sites/www.comune.fi.it/files/all._3_tariffe_fase_2-16052023_df.pdf) |
 | NAP Neapol | nádraží a historické centrum 21 €, Molo Beverello 24 €, hotely na nábřeží 28,50 € | 21–28,50 € | 700 | [comune.napoli.it](https://static-www.comune.napoli.it/wp-content/uploads/2025/05/Tariffario_Taxi_2024.pdf) |
 | MXP Milán | kamkoli v Miláně, mýto v ceně | 114 € | 2 780 | [comune.milano.it](https://www.comune.milano.it/documents/20118/68224/Tariffario+Taxi+(agg.+luglio+2024).pdf) |
 | BGY Milán | kamkoli v Miláně | 128 € | 3 120 | [comune.milano.it](https://www.comune.milano.it/documents/20118/68224/Tariffario+Taxi+(agg.+luglio+2024).pdf) |
 | JFK New York | na Manhattan; navíc příplatky (~5–10 $), mýto a spropitné | 70 $ | 1 520 | [nyc.gov (TLC)](https://www.nyc.gov/site/tlc/passengers/taxi-fare.page) |
 
-Noční cena (Atény 0–5 h, Florencie 22–6 h) se v odhadu počítá pro celé noční okno průvodce (před 5:00 a od 23:00) –
-u Atén mezi 23. a 24. hodinou je to o 15 € víc, než se skutečně platí.
+Noční cena platí jen v nočních hodinách taxi (`nightFrom`–`nightTo`: Atény 0–5 h, Florencie 22–6 h) – přílet
+v Aténách ve 23:30 je za denních 50 €, v 1:30 za nočních 65 € (server k tomu posílá i `dayCzk`, Kč za auto ve dne).
+² = zpráva o rozhodnutí ministerstva dopravy (září 2026; web letiště aia.gr se z ověřování nedá načíst). ³ = stránka
+města se z ověřování nedá načíst, ceny podle výsledků vyhledávání (stejně jako dřívější ceník comunidad.madrid).
 
 ## Vlak nebo bus místo letadla
 
@@ -1055,7 +1065,8 @@ Zkopíruj `.env.example` na `.env`:
 | `TRAVELPAYOUTS_MARKET` | `cz` | trh Aviasales, z jehož vyhledávání se berou ceny (bez něj API čte ruský trh) |
 | `KIWI_ENABLED` | `1` | Kiwi.com: živá cena a porovnání aerolinek k vybranému letu (zdarma, bez klíče); `0` = vypnout |
 | `XOTELO` | zapnuto | ceny hotelů z TripAdvisoru přes neoficiální bezplatné API Xotelo (bez klíče, bez provizí), když není ostrý klíč LiteAPI – viz [Ceny hotelů](#ceny-hotelů); `off` = vypnout (zůstanou odkazy na partnery). Na místo a termín 1 + nejvýš 12 dotazů, v mezipaměti |
-| `PEXELS_API_KEY` | – | krásné fotky měst na kartách (radar, tipy, detail cíle) z Pexels – zdarma klíč na pexels.com/api (200 dotazů/h, fotky se drží 7 dní na serveru a 30 dní v prohlížeči). Bez klíče fotky z Wikimedia Commons (oceněné fotky z článku o městě) |
+| `PEXELS_API_KEY` | – | krásné fotky měst na kartách (radar, tipy, detail cíle) z Pexels – zdarma klíč na pexels.com/api (200 dotazů/h, fotky se drží 7 dní na serveru a 30 dní v prohlížeči; **Pexels teď nové klíče nevydává** – stávající klíč funguje dál). Bez klíče fotky z Unsplash (klíč níž), jinak z Wikimedia Commons (oceněné fotky z článku o městě) |
+| `UNSPLASH_ACCESS_KEY` | – | totéž z Unsplash, když Pexels klíč chybí nebo fotku nenajde. Zdarma: účet na [unsplash.com/developers](https://unsplash.com/developers) → *Your apps* → *New Application* (souhlas s podmínkami, název ATLAS) → do Renderu se vkládá **Access Key** (ne Secret key). Nová aplikace je v ukázkovém režimu (50 dotazů/h) – stačí, fotka města se drží 7 dní na serveru a 30 v prohlížeči; při vyčerpání limitu se Unsplash na 15 min vynechá a karta má zatím fotku z Wikimedie. Bere se jen fotka, v jejímž popisu, adrese nebo štítcích je jméno města; podle podmínek Unsplash se fotky vkládají přímo z jeho serveru a u každé je drobně „Foto: autor / Unsplash“ s odkazy (u Pexels „/ Pexels“) |
 | `LITEAPI_KEY` | – | hotely s cenou na tvoje data a hodnocením hostů (zdarma klíč na dashboard.liteapi.travel; `sand_…` = testovací data, pak se použije Xotelo). Ostrý klíč má přednost před Xotelem a umožňuje provize |
 | `LITEAPI_WHITELABEL` | – | doména white-label rezervační stránky LiteAPI – tlačítko „detail“ pak vede tam místo na Booking.com |
 | `PARTNER_LOOKUP` | `1` | odkazy na Trip.com, Agodu a Hostelworld s termínem a hosty: server u nich jednou dohledá ID místa (jeden dotaz na místo a partnera, timeout 4 s, mezipaměť 30 dní); `0` = bez dotazů, odkazy jen s názvem místa (Trip.com hledání potvrdíš, Agoda úvodní stránka, Hostelworld stránka města bez dat). V DEMO se neptá nikdy |

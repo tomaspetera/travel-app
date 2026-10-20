@@ -88,10 +88,13 @@ test('pevná cena taxi z letiště do centra: úřední zdroj https, datum, rozu
   assert.deepEqual(rows.map(([k]) => k).sort(), ['ATH', 'BGY', 'CDG', 'CIA', 'FCO', 'FLR', 'JFK', 'MAD', 'MXP', 'NAP', 'ORY']);
   for (const [iata, { taxi: x, mode }] of rows) {
     assert.notEqual(mode, 'taxi', `${iata}: veřejná doprava jezdí, taxi jen v noci`);
-    for (const k of Object.keys(x)) assert.ok(['fare', 'hi', 'night', 'cur', 'pax', 'to', 'src', 'date'].includes(k), `${iata}: neznámé pole taxi.${k}`);
+    for (const k of Object.keys(x)) assert.ok(['fare', 'hi', 'night', 'nightFrom', 'nightTo', 'cur', 'pax', 'to', 'src', 'date'].includes(k), `${iata}: neznámé pole taxi.${k}`);
     assert.ok(x.fare > 0 && x.cur in A.ARRIVAL_FX.czk, `${iata}: ${x.fare} ${x.cur}`);
     assert.ok(x.hi == null || x.hi > x.fare, `${iata}: rozpětí ${x.fare}–${x.hi}`);
     assert.ok(x.night == null || x.night > x.fare, `${iata}: noční ${x.night}`);
+    // noční hodiny jen u noční ceny, obě HH:MM
+    assert.equal(x.nightFrom == null, x.nightTo == null, `${iata}: noční hodiny od–do`);
+    if (x.nightFrom != null) assert.ok(x.night > 0 && /^\d\d:\d\d$/.test(x.nightFrom) && /^\d\d:\d\d$/.test(x.nightTo) && x.nightFrom !== x.nightTo, `${iata}: ${x.nightFrom}–${x.nightTo}`);
     assert.ok(Number.isInteger(x.pax) && x.pax >= 1 && x.pax <= 8, `${iata}: ${x.pax} osob`);
     assert.ok(typeof x.to === 'string' && x.to.length >= 8 && x.to.length <= 140, `${iata}: kam`);
     assert.match(x.src, /^https:\/\/[^\s<>"']+$/, `${iata} zdroj`);
@@ -100,6 +103,8 @@ test('pevná cena taxi z letiště do centra: úřední zdroj https, datum, rozu
     const czk = A.fareCzk(Math.max(x.fare, x.night || 0, x.hi || 0), x.cur);
     assert.ok(czk > A.arrivalTransfer(iata).czk && czk <= 3500, `${iata}: taxi ${czk} Kč`);
     assert.equal(A.arrivalTransfer(iata).taxi.czk, czk, `${iata}: Kč v noci (noční / horní z rozpětí)`);
+    // noční cena jen v části noci: i denní cena v Kč (mimo noční hodiny)
+    assert.equal(A.arrivalTransfer(iata).taxi.dayCzk, x.nightFrom ? A.fareCzk(Math.max(x.fare, x.hi || 0), x.cur) : undefined, `${iata}: dayCzk`);
   }
   // úřední ceny: Řím uvnitř Aureliánských hradeb (Roma Capitale), Paříž (arrêté), Madrid uvnitř M-30, Atény den / noc
   const fco = A.arrivalTransfer('FCO');
@@ -107,7 +112,11 @@ test('pevná cena taxi z letiště do centra: úřední zdroj https, datum, rozu
   assert.match(fco.taxi.src, /romamobilita\.it/);
   assert.deepEqual([A.ARRIVAL.CDG.taxi.fare, A.ARRIVAL.CDG.taxi.hi, A.ARRIVAL.ORY.taxi.fare, A.ARRIVAL.ORY.taxi.hi], [56, 65, 36, 45]);
   assert.equal(A.arrivalTransfer('CDG').taxi.czk, A.fareCzk(65, 'EUR'), 'rozpětí → horní');
-  assert.deepEqual([A.ARRIVAL.ATH.taxi.fare, A.ARRIVAL.ATH.taxi.night, A.arrivalTransfer('ATH').taxi.czk], [50, 65, A.fareCzk(65, 'EUR')]);
+  // Atény: noční cena jen 0–5 h (rozhodnutí ministerstva 9/2026), Florencie noční tarif 22–6 h (Comune di Firenze)
+  const ath = A.arrivalTransfer('ATH').taxi;
+  assert.deepEqual([ath.fare, ath.night, ath.nightFrom, ath.nightTo, ath.czk, ath.dayCzk], [50, 65, '00:00', '05:00', A.fareCzk(65, 'EUR'), A.fareCzk(50, 'EUR')]);
+  const flr = A.arrivalTransfer('FLR').taxi;
+  assert.deepEqual([flr.fare, flr.night, flr.nightFrom, flr.nightTo, flr.dayCzk], [28, 32, '22:00', '06:00', A.fareCzk(28, 'EUR')]);
   assert.equal(A.ARRIVAL.MAD.taxi.fare, 33);
   // bez úřední pevné ceny (Lisabon, Barcelona, Vídeň…) nic
   for (const iata of ['LIS', 'BCN', 'VIE', 'BVA', 'HRG']) assert.equal(A.arrivalTransfer(iata).taxi, undefined, iata);

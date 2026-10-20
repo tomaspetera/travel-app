@@ -561,21 +561,25 @@ function renderDashStats() {
 function costDots(n) { return `<span class="dots warm">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? 'f' : ''}"></i>`).join('')}</span>`; }
 /* ================= 📷 FOTKY NA KARTÁCH =================
    Prvek s data-photo="Řím" dostane fotku města jako pozadí (--ph, třída ph), až je skoro vidět. Adresy z api/photos
-   (Pexels s klíčem, jinak Wikimedia; jeden dotaz na viditelné karty), v prohlížeči 30 dní – fotky z Wikimedie 3 dny,
-   ať se po přidání klíče Pexels brzy vymění. Fotka se na kartu dá až načtená a jen tak velká, jak ji karta na displeji
-   potřebuje (~40–150 kB, pak v mezipaměti prohlížeče). */
+   (Pexels nebo Unsplash s klíčem, jinak Wikimedia; jeden dotaz na viditelné karty), v prohlížeči 30 dní – fotky
+   z Wikimedie 3 dny, ať se po přidání klíče brzy vymění. Fotka se na kartu dá až načtená a jen tak velká, jak ji karta
+   na displeji potřebuje (~40–150 kB, pak v mezipaměti prohlížeče). U fotky z Pexels a Unsplash drobně autor s odkazem
+   na jeho profil a na zdroj (podmínky Unsplash API) – odkaz otevře nové okno, karta pod ním se neotevře. */
 const Photos = (() => {
-  const KEY = 'atlas_ph6', TTL = { pexels: 30 * 864e5, wiki: 3 * 864e5 };
+  const KEY = 'atlas_ph6', TTL = { pexels: 30 * 864e5, unsplash: 30 * 864e5, wiki: 3 * 864e5 };
+  // zdroj fotky podle serveru, odkud se načítá: název a odkaz zpět (Unsplash s utm)
+  const SRC = { 'images.pexels.com': ['Pexels', 'https://www.pexels.com/'], 'images.unsplash.com': ['Unsplash', 'https://unsplash.com/?utm_source=atlas_letenky&utm_medium=referral'] };
+  const srcOf = u => SRC[(/^https:\/\/([^/]+)\//.exec(u) || [])[1]] || null;
   try { ['atlas_ph', 'atlas_ph2', 'atlas_ph3', 'atlas_ph4', 'atlas_ph5'].forEach(k => localStorage.removeItem(k)); } catch (e) { /* nevadí */ }
   let mem = null, timer = null, io = null;
   const queue = new Set();
   const store = () => { if (!mem) { try { mem = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { mem = {}; } } return mem; };
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(Object.fromEntries(Object.entries(store()).sort((a, b) => b[1].t - a[1].t).slice(0, 400)))); } catch (e) { /* plné úložiště */ } };
   const fresh = (e, now) => e && now - e.t < (TTL[e.p] || TTL.wiki);
-  // Pexels: výřez na výšku podle výšky karty; Wikimedia: fotka na šířku vyplní kartu na výšku → šířka 330/500/960
+  // Pexels a Unsplash: výřez na výšku podle výšky karty; Wikimedia: fotka na šířku vyplní kartu na výšku → šířka 330/500/960
   function sized(u, el) {
     const need = el.clientHeight * (window.devicePixelRatio || 1);
-    if (/images\.pexels\.com/.test(u)) { const h = need <= 620 ? 600 : need <= 920 ? 900 : 1200; return u.replace(/w=960&h=1200/, `w=${h * 0.8}&h=${h}`); }
+    if (srcOf(u)) { const h = need <= 620 ? 600 : need <= 920 ? 900 : 1200; return u.replace(/w=960&h=1200/, `w=${h * 0.8}&h=${h}`); }
     return need * 1.5 <= 330 ? u.replace('/960px-', '/330px-') : need * 1.5 <= 560 ? u.replace('/960px-', '/500px-') : u;
   }
   function show(el) {
@@ -586,10 +590,33 @@ const Photos = (() => {
       if (!el.isConnected) return;
       el.style.setProperty('--ph', `url("${src.replace(/["\\]/g, encodeURIComponent)}")`);
       el.classList.add('ph');
-      if (e.by) el.title = `Foto: ${e.by} / Pexels`;
+      credit(el, e);
     };
     img.src = src;
   }
+  /** „Foto: Jméno / Unsplash“ – autor s odkazem na profil, zdroj s odkazem; na malé ikonce (srovnání, hlídání) jen v title. */
+  function credit(el, e) {
+    const src = srcOf(e.u);
+    if (!src || !e.by) return;
+    el.title = `Foto: ${e.by} / ${src[0]}`;
+    if (el.clientWidth < 140 || el.querySelector(':scope > .ph-cr')) return;
+    const bu = /^https:\/\/(www\.)?(unsplash|pexels)\.com\/[^\s"'<>]*$/.test(e.bu || '') ? e.bu : '';
+    const lk = (href, txt) => `<span class="ph-a" role="link" tabindex="0" data-href="${esc(href)}">${esc(txt)}</span>`;
+    const s = document.createElement('span');
+    s.className = 'ph-cr';
+    s.innerHTML = `Foto: ${bu ? lk(bu, e.by) : esc(e.by)} / ${lk(src[1], src[0])}`;
+    el.append(s);
+  }
+  // odkaz v popisku fotky: nové okno, ne klepnutí na kartu pod ním (karty bývají tlačítka – <a> v nich nejde)
+  const openCredit = ev => {
+    const a = ev.target && ev.target.closest && ev.target.closest('.ph-cr [data-href]');
+    if (!a || (ev.type === 'keydown' && ev.key !== 'Enter')) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    window.open(a.dataset.href, '_blank', 'noopener');
+  };
+  document.addEventListener('click', openCredit, true);
+  document.addEventListener('keydown', openCredit, true);
   async function flush() {
     const els = [...queue].filter(el => el.isConnected);
     queue.clear();
@@ -597,9 +624,9 @@ const Photos = (() => {
     const ask = [...new Set(els.map(el => el.dataset.photo).filter(t => t && !fresh(st[t], now)))].slice(0, 30);
     if (ask.length) {
       try {
-        const j = await (await fetch('api/photos?t=' + enc(ask.join('|')))).json(), p = j.prov === 'pexels' ? 'pexels' : 'wiki';
+        const j = await (await fetch('api/photos?t=' + enc(ask.join('|')))).json(), p = Object.hasOwn(TTL, j.prov) ? j.prov : 'wiki';
         // náhradní výběr (zdroj neodpověděl) jen na den – pak hezčí fotka
-        for (const [t, u] of Object.entries(j.photos || {})) st[t] = { u: String(u || ''), t: j.partial ? now - TTL[p] + 864e5 : now, p, by: (j.by || {})[t] || '' };
+        for (const [t, u] of Object.entries(j.photos || {})) st[t] = { u: String(u || ''), t: j.partial ? now - TTL[p] + 864e5 : now, p, by: String((j.by || {})[t] || ''), bu: String((j.bu || {})[t] || '') };
         save();
       } catch (e) { /* bez sítě: karty bez fotek, příště znovu */ }
     }
