@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { stubFetch } from './helpers.js';
 import {
   destLine, parseDestinations, sparqlCountryId, sparqlCountryList, sparqlCountry, countryGroups, countryHighlights, countryCached, countryWithDistance, mockCountry, COUNTRY_KINDS,
-  COUNTRY_CATS, catsOf, sparqlCountryCat, countryById, countryCategory, countryCatCached, mockCountryCat, withDistance,
+  COUNTRY_CATS, catsOf, sparqlCountryCat, countryById, countryCategory, countryCatCached, mockCountryCat, withDistance, inCountry,
 } from '../server/lib/poi.js';
 
 // Úryvek článku „Portugal“ z Wikivoyage (10/2026): šablona marker s QID a polohou, kotva #Q…, prostý odkaz bez šablony
@@ -113,9 +113,10 @@ test('countryHighlights: Wikivoyage + 4 krátké dotazy na Wikidata + popisy; me
     assert.equal(countryCached('PT'), true);
     await countryHighlights('PT');
     assert.equal(sparql.length, 4, 'podruhé z mezipaměti');
-    // Wikivoyage nedostupná (Kanada tu neodpovídá) → velkoměsta z Wikidat (dotaz navíc), UNESCO a parky, neúplné na hodinu
+    // Wikivoyage nedostupná (Španělsko tu neodpovídá; ukázková místa leží v jeho obdélníku) → velkoměsta z Wikidat
+    // (dotaz navíc), UNESCO a parky, neúplné na hodinu
     const n = sparql.length;
-    const ca = await countryHighlights('CA');
+    const ca = await countryHighlights('ES');
     assert.equal(ca.degraded, true);
     assert.equal(sparql.length - n, 5, 'i dotaz na velkoměsta');
     assert.deepEqual([ca.city.map((x) => x.name), ca.dest.length, ca.unesco.length], [['Lisabon'], 0, 1]);
@@ -232,4 +233,14 @@ test('DEMO: vymyšlená místa pro každou kategorii; vzdálenost jen s polohou'
   const d = withDistance(mockCountryCat({ lat: 42, lon: 12.5 }, 'beach').items, 42, 12.5);
   assert.ok(d.every((x) => x.distanceKm > 0 && x.distanceKm < 500));
   assert.equal(withDistance([{ lat: 1, lon: 1 }], NaN, NaN)[0].distanceKm, undefined);
+});
+
+test('inCountry: místa s chybnou zemí na Wikidatech mimo obdélník letišť země vypadnou (pláž na Ölandu „v Česku“)', () => {
+  const cz = inCountry('CZ');
+  assert.equal(cz({ lat: 57.33, lon: 17.0 }), false, 'Byxelkrok, Öland');
+  assert.equal(cz({ lat: 49.37, lon: 16.73 }), true, 'Macocha');
+  assert.equal(cz({ lat: 48.97, lon: 13.5 }), true, 'Šumava u hranic');
+  assert.equal(inCountry('IT')({ lat: 48.85, lon: 2.35 }), false, 'Paříž není v Itálii');
+  assert.equal(inCountry('ES')({ lat: 28.3, lon: -16.5 }), true, 'Tenerife');
+  assert.equal(cz({ name: 'bez polohy' }), true);
 });
