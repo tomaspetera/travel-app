@@ -469,6 +469,23 @@
   }
   const ARR_ICO = { bus: '🚌', train: '🚆', metro: '🚇', tram: '🚊', taxi: '🚕' };
   /**
+   * Řádky cesty z letiště do města pod cenou v kroku Let – všechny úseky, které cena „Z letiště do města“ sčítá: přílet,
+   * u trasy podle letů i odlet z každého místa a přílet do dalšího (ne úsek, který nahradí přejezd po zemi), návrat. Zpět
+   * přes stejné letiště jako přílet jen „· zpět stejně“ (jinak by řádek s cenou za jeden směr vypadal jako celá cena).
+   */
+  function arrivalLines(t, fly) {
+    const a = t.arrival || {}, rows = [], row = (x, back, tail = '') => `${ARR_ICO[x.mode] || '🚌'} ${esc(arrivalRow(x, back) + tail)}`;
+    if (!a.out) return '';
+    const back = t.flight.back && a.back ? a.back : null, same = back && back.iata === a.out.iata;
+    rows.push(row(a.out, false, same && !arrivalDrop(t, 'back') ? ' · zpět stejně' : ''));
+    if (fly && Array.isArray(a.mid)) a.mid.forEach((m, i) => {
+      if (m && m.from && !gapLeg(t, gapAt(t, i))) rows.push(row(m.from, true));
+      if (m && m.to) rows.push(row(m.to));
+    });
+    if (back && !same) rows.push(row(back, true));
+    return `<div class="faint" style="font-size:12.5px;margin-top:4px">${rows.join('<br>')}</div>`;
+  }
+  /**
    * Jízdné k přejezdu letiště ↔ 1. / poslední místo trasy: jen veřejnou dopravou a když je to místo ve městě letiště
    * (do 25 km od jeho středu) – „ · letištní bus 17,90 € (~440 Kč)/os.“; jinak '' (jízdné do jiného místa neznám).
    */
@@ -709,7 +726,9 @@
   function headSub(t) {
     const { checkin, checkout, nights } = stayDates(t);
     const route = isMulti(t) ? t.route.bases.map(b => `${b.name} (${b.nights})`).join(' → ') : '';
-    return `${esc(t.dest.country || '')} · ${fmtDate(checkin)}–${fmtDate(checkout)} · ${backLeg(t) ? nightsTxt(nights) : 'jen tam'} · ${t.adults} os.${ovOn(t) ? ' · 🚆 vlakem/busem' : ''}${route ? `<div class="th-route">🧭 ${esc(route)}</div>` : ''}`;
+    // trasa přes víc zemí (Řím → Barcelona): všechny země, ne jen první
+    const cs = [...new Set([t.dest.country, ...(isMulti(t) ? t.route.bases.map(b => b.country) : [])].filter(Boolean))];
+    return `${esc(cs.slice(0, 3).join(', ') + (cs.length > 3 ? '…' : ''))} · ${fmtDate(checkin)}–${fmtDate(checkout)} · ${backLeg(t) ? nightsTxt(nights) : 'jen tam'} · ${t.adults} os.${ovOn(t) ? ' · 🚆 vlakem/busem' : ''}${route ? `<div class="th-route">🧭 ${esc(route)}</div>` : ''}`;
   }
   function headTotal(t) {
     const c = costs(t);
@@ -810,7 +829,7 @@
       ${fly ? `<div class="faint" style="font-size:12.5px;margin-top:6px">🎫 Každý let je samostatná letenka – při zpoždění jednoho letu další aerolinka nečeká. Mezi lety: ${esc(t.route.bases.map(b => b.name).join(' → '))}.</div>` : ''}
       <div class="tf-costs">${costRows.map(r => `<div><span>${r[0]}${r[2] ? `<small>${r[2]}</small>` : ''}</span><b>${r[1]}</b></div>`).join('')}<div class="tf-pp">ceny na osobu</div></div>
       ${priceAgeHtml(t, 'tfAge')}
-      ${t.arrival && t.arrival.out ? `<div class="faint" style="font-size:12.5px;margin-top:4px">${ARR_ICO[t.arrival.out.mode] || '🚌'} ${esc(arrivalRow(t.arrival.out))}${t.arrival.back && t.arrival.back.iata !== t.arrival.out.iata ? `<br>${ARR_ICO[t.arrival.back.mode] || '🚌'} ${esc(arrivalRow(t.arrival.back, true))}` : ''}</div>` : ''}
+      ${arrivalLines(t, fly)}
       <div id="tfPl">${priceRow(t)}</div>
       <div class="step-act"><button class="btn primary" id="tfNext">Pokračovat: Trasa →</button><div class="step-act2"><button class="btn" id="tfBack">↩ Jiný let</button>${fly ? '' : '<button class="btn" id="tfVerify" title="Ověřit živou cenu a porovnat aerolinky">🔄 Ověřit živou cenu</button>'}</div></div>
       <div id="tfAlt"></div></div>${groundOffer(t)}`;
