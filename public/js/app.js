@@ -592,7 +592,8 @@ const Photos = (() => {
   const tinyOf = (u, el) => u.replace(/w=960&h=1200/, `w=24&h=${Math.max(8, Math.round((24 * el.clientHeight) / Math.max(1, el.clientWidth)))}`).replace('&q=75', '&q=30');
   function show(el) {
     const e = store()[el.dataset.photo];
-    if (!e || !/^https:\/\//.test(e.u) || !el.isConnected) return;
+    if (!e || !/^https:\/\//.test(e.u) || !el.isConnected || el.dataset.phu === e.u) return;
+    el.dataset.phu = e.u;
     const src = sized(e.u, el), img = new Image();
     const set = s => { el.style.setProperty('--ph', `url("${s.replace(/["\\]/g, encodeURIComponent)}")`); el.classList.add('ph'); credit(el, e); };
     let sharp = false;
@@ -607,7 +608,10 @@ const Photos = (() => {
     };
     img.src = src;
   }
-  /** „Foto: Jméno / Unsplash“ – autor s odkazem na profil, zdroj s odkazem; na malé ikonce (srovnání, hlídání) jen v title. */
+  /**
+   * Autor fotky (podmínky Unsplash): jen drobné ⓘ v rohu fotky – klepnutí (na počítači i najetí myší) ukáže „Foto: Jméno /
+   * Unsplash“ s odkazy na profil a zdroj; na malé ikonce (srovnání, hlídání) jen v title.
+   */
   function credit(el, e) {
     const src = srcOf(e.u);
     if (!src || !e.by) return;
@@ -618,16 +622,21 @@ const Photos = (() => {
     const s = document.createElement('span');
     s.className = 'ph-cr';
     // dlouhé jméno autora se zkrátí (…), zdroj („/ Unsplash“) zůstane celý
-    s.innerHTML = `<span>Foto:</span>${bu ? lk(bu, e.by, ' ph-by') : `<span class="ph-by">${esc(e.by)}</span>`}<span>/</span>${lk(src[1], src[0])}`;
+    s.innerHTML = `<span class="ph-i" role="button" tabindex="0" aria-label="Kdo fotil">i</span><span class="ph-pop"><span>Foto:</span>${bu ? lk(bu, e.by, ' ph-by') : `<span class="ph-by">${esc(e.by)}</span>`}<span>/</span>${lk(src[1], src[0])}</span>`;
     el.append(s);
   }
-  // odkaz v popisku fotky: nové okno, ne klepnutí na kartu pod ním (karty bývají tlačítka – <a> v nich nejde)
+  // ⓘ otevře popisek (karta pod ním se neotevře); odkaz v popisku: nové okno; klepnutí jinam popisek zavře
+  // (karty bývají tlačítka – <a> v nich nejde)
   const openCredit = ev => {
-    const a = ev.target && ev.target.closest && ev.target.closest('.ph-cr [data-href]');
-    if (!a || (ev.type === 'keydown' && ev.key !== 'Enter')) return;
+    const t = ev.target && ev.target.closest ? ev.target : null;
+    const i = t && t.closest('.ph-cr .ph-i'), a = t && t.closest('.ph-cr [data-href]');
+    if (ev.type === 'keydown' && ev.key !== 'Enter') return;
+    $$('.ph-cr.open').forEach(c => { if (!i || c !== i.parentNode) c.classList.remove('open'); });
+    if (!i && !a) return;
     ev.preventDefault();
     ev.stopPropagation();
-    window.open(a.dataset.href, '_blank', 'noopener');
+    if (i) i.parentNode.classList.toggle('open');
+    else window.open(a.dataset.href, '_blank', 'noopener');
   };
   document.addEventListener('click', openCredit, true);
   document.addEventListener('keydown', openCredit, true);
@@ -635,6 +644,9 @@ const Photos = (() => {
     const els = [...queue].filter(el => el.isConnected);
     queue.clear();
     const st = store(), now = Date.now();
+    // fotky uložené v prohlížeči hned (i starší – obnoví se na pozadí); na server (po uspání se i minutu probouzí)
+    // čekají jen karty, které fotku ještě nemají
+    els.forEach(el => { if (st[el.dataset.photo] && st[el.dataset.photo].u) show(el); });
     const ask = [...new Set(els.map(el => el.dataset.photo).filter(t => t && !fresh(st[t], now)))].slice(0, 30);
     if (ask.length) {
       try {
@@ -654,7 +666,7 @@ const Photos = (() => {
     if (!els.length) return;
     els.forEach(el => { el.dataset.phw = '1'; });
     if (!('IntersectionObserver' in window)) { els.forEach(want); return; }
-    io = io || new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { io.unobserve(e.target); want(e.target); } }), { rootMargin: '300px 300px' });
+    io = io || new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { io.unobserve(e.target); want(e.target); } }), { rootMargin: '600px 1200px' }); // pruhy do strany a kus dolů dopředu
     els.forEach(el => io.observe(el));
   }
   return { paint };
