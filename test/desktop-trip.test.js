@@ -54,3 +54,10 @@ test('přehled cesty a pravý sloupec Shrnutí mimo počítač nic nemění (skr
   // tisk „Před cestou“: obal kroku (.tw-body) zůstane, přehled cesty ne
   assert.match(read('css/pretrip.css'), /#tripRoot>:not\(\.tw-body\),body\.pt-print \.trip-aside/);
 });
+
+test('trip.css: Trasa – seznam míst vedle mapy jen v dost širokém kroku (na desktopu vedle souhrnu pod sebou)', () => {
+  const trip = read('css/trip.css');
+  assert.match(trip, /\.route-layout\{grid-template-columns:minmax\(0,1\.3fr\) minmax\(0,1fr\)\}/);
+  assert.match(trip, /#routeBody\{container:route\/inline-size\}/);
+  assert.match(trip, /@container route \(max-width:899px\)\{\.route-layout\{grid-template-columns:minmax\(0,1fr\)\}/);
+});

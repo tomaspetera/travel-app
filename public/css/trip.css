@@ -108,7 +108,7 @@ table.cost tr.tot td{font:800 17px Sora,sans-serif;border-bottom:none;padding-to
 .poi-name{font-weight:800;font-size:14.5px}
 .poi-meta{font-size:12px;color:var(--faint);margin-top:2px}
 .poi-desc{font-size:12.5px;color:var(--muted);margin-top:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.poi-acts{display:flex;gap:10px;margin-top:6px;font-size:12px}
+.poi-acts{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font-size:12px}
 .day-plan{border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:10px;background:var(--surface)}
 .day-plan h4{font-size:14px;font-weight:800;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .dp-item{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:start;padding:7px 0;border-top:1px dashed var(--border);font-size:13.5px}
@@ -289,8 +289,12 @@ details.more.ex-places>summary::before{content:none}
 .rc-opt small{display:block;color:var(--muted);font-size:12.5px;line-height:1.45}
 .route-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 .route-tools .seg button{padding:7px 11px;font-size:12.5px}
-.route-layout{grid-template-columns:1.3fr 1fr}
+.route-layout{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}
 .route-map{height:480px}
+/* seznam míst vedle mapy jen tam, kde je krok Trasa dost široký – na desktopu vedle souhrnu je sloupec úzký
+   (~650 px při 1300 px) a karta místa se smrskla na pár pixelů; pak mapa pod seznam jako na telefonu */
+#routeBody{container:route/inline-size}
+@container route (max-width:899px){.route-layout{grid-template-columns:minmax(0,1fr)}.route-map{height:340px}}
 .route-list{display:flex;flex-direction:column}
 .rb{display:grid;grid-template-columns:30px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:11px 12px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
 .rb-n,.bt-n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font:800 13px Inter,sans-serif;flex:none}
