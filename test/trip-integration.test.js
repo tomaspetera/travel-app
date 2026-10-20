@@ -729,7 +729,7 @@ test('v noci taxi s pevnou cenou (Řím 55 € za auto): v průběhu cesty i v c
   // Paříž podle části města (horní cena v odhadu), Atény noční cena
   const CDG = { ...FCO, iata: 'CDG', city: 'Paříž', how: 'vlak RER B do centra', taxi: { fare: 56, hi: 65, cur: 'EUR', pax: 4, czk: 1580 } };
   assert.match(txt({ ...t, arrival: { out: CDG, back: CDG } }).find((r) => r.includes('→ letiště CDG')), / · v noci taxi, pevná cena 56–65 € za auto podle části města \(v odhadu ceny započteno 65 €\)$/);
-  const ATH = { ...FCO, iata: 'ATH', city: 'Atény', how: 'autobus X95 na Syntagma', mode: 'bus', taxi: { fare: 50, night: 65, cur: 'EUR', pax: 4, czk: 1580 } };
+  const ATH = { ...FCO, iata: 'ATH', city: 'Atény', how: 'autobus X95 na Syntagma', mode: 'bus', taxi: { fare: 50, night: 65, nightFrom: '00:00', nightTo: '05:00', cur: 'EUR', pax: 4, czk: 1580, dayCzk: 1215 } };
   assert.match(txt({ ...t, arrival: { out: ATH, back: ATH } }).find((r) => r.includes('→ letiště ATH')), / · v noci taxi, pevná noční cena 65 € za auto \(v odhadu ceny započteno\)$/);
   // bez pevné ceny, bez cesty do města v ceně, nebo autem z letiště: jako dřív
   const noFare = { ...t, arrival: { out: { ...FCO, taxi: undefined }, back: { ...FCO, taxi: undefined } } };
@@ -744,4 +744,55 @@ test('v noci taxi s pevnou cenou (Řím 55 € za auto): v průběhu cesty i v c
   const san = plain(sanitizeTrip(plain({ ...t, arrival: { out: { ...FCO, taxi: { ...FCO.taxi, src: 'javascript:x', evil: 1 } }, back: { ...FCO, taxi: { fare: 'x', cur: 'EUR', czk: 5 } } } })).arrival);
   assert.deepEqual(san.out.taxi, { fare: 55, cur: 'EUR', czk: 1340, pax: 4 });
   assert.equal(san.back.taxi, undefined);
+  // noční hodiny a denní cena projdou, nesmysl ne
+  const sanA = plain(sanitizeTrip(plain({ ...t, arrival: { out: ATH, back: { ...ATH, taxi: { ...ATH.taxi, nightFrom: '0:00', dayCzk: -5 } } } })).arrival);
+  assert.deepEqual([sanA.out.taxi.nightFrom, sanA.out.taxi.nightTo, sanA.out.taxi.dayCzk], ['00:00', '05:00', 1215]);
+  assert.deepEqual([sanA.back.taxi.nightFrom, sanA.back.taxi.dayCzk], [undefined, undefined]);
+});
+
+test('v noci taxi: Atény – noční cena jen 0–5 h (přílet ve 23:30 denní 50 €, v 1:30 noční 65 €); odchod z ubytování ve 4:00', () => {
+  const c = load();
+  vm.runInContext(`${src('searchhelp.js')}\nvar SearchHelp = window.SearchHelp;`, c, { filename: 'searchhelp.js' });
+  const { costs, timeline, leaveBy } = c.window.Trip;
+  const ATH = { iata: 'ATH', city: 'Atény', gen: 'Atén', how: 'autobus X95 na Syntagma', min: 32, czk: 140, fare: 5.5, cur: 'EUR', mode: 'bus', basis: 'table', lat: 37.98, lon: 23.73, taxi: { fare: 50, night: 65, nightFrom: '00:00', nightTo: '05:00', cur: 'EUR', pax: 4, czk: 1580, dayCzk: 1215 } };
+  const base = trip({ route: null, overland: null, ground: {}, dest: { label: 'Atény', country: 'Řecko', cc: 'GR', lat: 37.98, lon: 23.73 }, arrival: { out: ATH, back: ATH } });
+  const tz = 'Europe/Athens';
+  const flight = (out, back) => ({ ...base.flight, arrCzk: 280, out, back });
+  const day = leg('ATH', 'PRG', '2026-11-14', '12:00', '13:30', tz, 'Europe/Prague');
+  const txt = (x) => timeline(x).map((r) => r[2]);
+  // přílet ve 23:30: MHD už nejede, taxi za denní cenu (noční až od půlnoci)
+  const late = { ...base, flight: flight(leg('PRG', 'ATH', '2026-11-10', '20:30', '23:30', 'Europe/Prague', tz), day) };
+  assert.equal(costs(late).arrival, (1215 / 2 + 140) * 2);
+  assert.match(txt(late).find((r) => r.startsWith('Z letiště ATH → Atény')), / · v noci taxi, pevná cena 50 € za auto \(v odhadu ceny započteno\)$/);
+  assert.ok(render(c, { ...late, step: 'summary' }).includes('taxi z letiště ATH (noc) 50 € za auto'));
+  // přílet v 1:30: noční 65 €
+  const night = { ...base, flight: flight({ ...leg('PRG', 'ATH', '2026-11-10', '22:30', '01:30', 'Europe/Prague', tz), arr: '2026-11-11T01:30:00' }, day) };
+  assert.equal(costs(night).arrival, (1580 / 2 + 140) * 2);
+  assert.match(txt(night).find((r) => r.startsWith('Z letiště ATH → Atény')), / · v noci taxi, pevná noční cena 65 € za auto \(v odhadu ceny započteno\)$/);
+  // odlet v 6:52 → z ubytování ve 4:00 (32 min + 20 min na zastávku + 2 h): noční 65 €; ve 23:30 (odlet 2:22) denní 50 €
+  const early = { ...base, flight: flight(leg('PRG', 'ATH', '2026-11-10', '07:00', '10:00', 'Europe/Prague', tz), leg('ATH', 'PRG', '2026-11-14', '06:52', '08:22', tz, 'Europe/Prague')) };
+  assert.equal(leaveBy(early).hotel.hm, '04:00');
+  assert.equal(costs(early).arrival, (140 + 1580 / 2) * 2);
+  assert.match(txt(early).find((r) => r.startsWith('Atény → letiště ATH')), / · v noci taxi, pevná noční cena 65 € za auto \(v odhadu ceny započteno\)$/);
+  const eve = { ...base, flight: flight(early.flight.out, { ...leg('ATH', 'PRG', '2026-11-14', '02:22', '03:52', tz, 'Europe/Prague'), date: '2026-11-15', dep: '2026-11-15T02:22:00', arr: '2026-11-15T03:52:00' }) };
+  assert.equal(leaveBy(eve).hotel.hm, '23:30');
+  assert.equal(costs(eve).arrival, (140 + 1215 / 2) * 2);
+  assert.match(txt(eve).find((r) => r.startsWith('Atény → letiště ATH')), / · v noci taxi, pevná cena 50 € za auto \(v odhadu ceny započteno\)$/);
+  // Řím (pevná cena bez nočních hodin): ve 4:00 taxi 55 €
+  const FCO = { ...ATH, iata: 'FCO', city: 'Řím', how: 'vlak Leonardo Express do Roma Termini', mode: 'train', czk: 340, taxi: { fare: 55, cur: 'EUR', pax: 4, czk: 1340 } };
+  const rome = { ...early, flight: { ...early.flight, arrCzk: 680 }, arrival: { out: FCO, back: FCO } };
+  assert.equal(leaveBy(rome).hotel.hm, '04:00');
+  assert.equal(costs(rome).arrival, (340 + 1340 / 2) * 2);
+  // souhrn: řádky ceny dají dohromady „Celkem“ – 1, 2 i 5 dospělých (5 → dvě auta), oba úseky taxi
+  const both = { ...night, flight: { ...night.flight, back: early.flight.back } };
+  for (const adults of [1, 2, 5]) {
+    const x = { ...both, adults, step: 'summary' };
+    const cc = costs(x);
+    assert.equal(cc.arrival, Math.round((adults > 4 ? 2 : 1) * 1580 * 2), `${adults} os.: dvakrát noční taxi za auto`);
+    const tab = render(c, x).match(/<table class="cost">([\s\S]*?)<\/table>/)[1];
+    const nums = [...tab.matchAll(/<tr><td>[^<]*<\/td><td>[\s\S]*?<\/td><td>([^<]*)<\/td><\/tr>/g)].map((m) => Number(m[1].replace(/\D/g, '')));
+    const tot = Number(tab.match(/<tr class="tot"><td><\/td><td>Celkem<\/td><td>([^<]*)</)[1].replace(/\D/g, ''));
+    assert.equal(nums.reduce((s, n) => s + n, 0), tot, `${adults} os.: ${nums.join(' + ')} = ${tot}`);
+    assert.equal(tot, cc.total);
+  }
 });

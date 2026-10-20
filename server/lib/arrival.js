@@ -23,8 +23,9 @@ const DATA = JSON.parse(readFileSync(path.join(root, 'data', 'arrival.json'), 'u
  * Ověřená tabulka: IATA → { city, gen, lat, lon, mode, how, fare, cur, from?, typ?, min, sec?, note?, src, date, taxi? }.
  * from = fare je nejnižší cena (online předem); typ = co se běžně platí v den cesty (Stansted Express od 9,90 £,
  * běžně 23 £) – do odhadu ceny cesty (czk) jde typ, je-li, jinak fare. taxi = úřední pevná cena taxi do centra za auto
- * { fare, hi?, night?, cur, pax, to, src, date } (Řím 55 €, Paříž-CDG 56–65 €…) – průvodce cestou ji počítá místo MHD
- * u úseků v noci (vyráží se / přistává před 5:00 nebo po 23:00), výsledky hledání dál MHD.
+ * { fare, hi?, night?, nightFrom?, nightTo?, cur, pax, to, src, date } (Řím 55 €, Paříž-CDG 56–65 €…) – průvodce cestou
+ * ji počítá místo MHD u úseků v noci (vyráží se / přistává před 5:00 nebo po 23:00), výsledky hledání dál MHD; noční
+ * cena (night) jen v hodinách nightFrom–nightTo (Atény 0–5 h, Florencie 22–6 h), bez nich v celé noci.
  */
 export const ARRIVAL = DATA.airports;
 /** Kurzy pro převod jízdného do Kč (Kč za jednotku měny) a odkud jsou. */
@@ -61,9 +62,11 @@ function metroOf(iata) {
 }
 
 // Pevná cena taxi za auto (tabulka → taxi): czk = cena v noci v Kč – noční, je-li, u rozpětí podle části města horní.
+// Noční cena jen v některých hodinách (nightFrom–nightTo, Atény 0–5 h): dayCzk = denní cena v Kč pro úsek mimo ně.
 function taxiOf(x) {
   const czk = fareCzk(Math.max(x.fare, x.night || 0, x.hi || 0), x.cur);
-  return czk ? { ...x, czk } : null;
+  const dayCzk = x.night && x.nightFrom ? fareCzk(Math.max(x.fare, x.hi || 0), x.cur) : 0;
+  return czk ? { ...x, czk, ...(dayCzk ? { dayCzk } : {}) } : null;
 }
 
 function fromTable(a, x) {
@@ -107,7 +110,7 @@ const memo = new Map();
 /**
  * Cesta z letiště `iata` do města, na osobu a jeden směr (tam i zpět stejně): { iata, city, gen, lat, lon, mode, how,
  * fare?, cur?, from?, czk, min, km, note?, src?, date?, sec?, taxi?, basis: 'table' | 'access' | 'estimate', est? }.
- * taxi = pevná cena taxi z tabulky a k ní czk (Kč za auto v noci).
+ * taxi = pevná cena taxi z tabulky a k ní czk (Kč za auto v noci), u noční ceny jen v části noci i dayCzk (Kč mimo ni).
  * gen = 2. pád názvu města („do Paříže“; u odhadu null → „do centra“). Neznámé letiště → null.
  */
 export function arrivalTransfer(iata) {
