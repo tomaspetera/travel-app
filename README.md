@@ -1146,7 +1146,16 @@ Karty (radar, rychlé hledání, tipy, Objevuj, Země, Doporučení) mají ve v�
 nadpisy sekcí jeden styl a nadpisy na fotkách tmavý přechod zleva, aby byly čitelné. Formulář Letů je v pravidelné
 mřížce (Odkud | Kam, pod tím Cesta a Termín | Délka pobytu | Odlet mezi; do 1440 px Odlet mezi na vlastním řádku),
 úvod Cesty má vlevo fotku a „Kam chceš jet?“, vpravo „Jak to funguje“. Karta země bez fotky ukáže velkou vlajku.
-Vše je v `public/css/desktop.css` (načtený jako poslední, jen `@media (min-width:1024px)`), telefon a tablet se nemění.
+Vše je v `public/css/desktop.css` (načtený za základními styly, jen `@media (min-width:1024px)`), telefon a tablet se nemění.
+
+Výsledky Letů (`public/css/desktop-flights.css`, za `desktop.css`): od 1200 px ve dvou sloupcích – vlevo panel
+**Filtry a řazení** (řazení, letiště, aerolinky, max. cena, přepínače, Čas a přestupy, Odkud se vyplatí letět), který
+při posunu stránky zůstává vidět, vpravo nabídky (nejlevnější cíle, seznam, karty, mapa, kalendář). Hlavička výsledků
+s přepínačem pohledů a čipy aktivních filtrů jdou přes celou šířku; pořadí v HTML zůstává jako na telefonu (tam je panel
+za tlačítkem ⚙️ Filtry). Řádek letu má do 1600 px cenu vedle letu a tlačítka pod ním, na velkém monitoru tři sloupce.
+Srovnání 📌 odložených nabídek má karty uprostřed okna. Na Přehledu se úvodní Odkud / Kam neláme ani na 1024 px,
+„Naposledy“ má odstup od fotky a dlaždice ⭐/📌 drží mřížku karet; v Zemích je hledání a přepínač na jednom řádku
+a čtyři filtry pod nimi ve stejných sloupcích.
 
 ## Aplikace na ploše a offline
 
