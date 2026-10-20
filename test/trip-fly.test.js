@@ -498,3 +498,29 @@ test('jedno místo: ostrov nebo oblast (Mallorca) – geokodér vrátí jen bod 
   assert.match(p, /kolem tvého ubytování/);
   assert.deepEqual([calls[0].lat, calls[0].lon, calls[0].label, calls[0].startAt], [39.853, 3.121, 'Hotel Alcúdia', undefined]);
 });
+
+test('na počítači přehled cesty vedle kroku (#tripAside): kroky s cenou a stavem, celkem; klepnutí na krok ho otevře', () => {
+  const c = load();
+  const t = begin(c);
+  render(c, 'stay');
+  const root = sp(c.__els['#tripRoot'].innerHTML);
+  assert.match(root, /<div class="tw-body"><div id="tripStep"><\/div><aside class="trip-aside" id="tripAside"/);
+  const aside = () => sp(c.__els['#tripRoot'].innerHTML).split('id="tripAside"')[1].replace(/\s+/g, ' ');
+  let a = aside();
+  assert.match(a, /Řím → Barcelona/);
+  assert.match(a, /<button type="button" class="ta-row done" data-step="flight">.*<b>Let<\/b><small>PRG → FCO · 3 lety<\/small><\/span><span class="ta-p">6 000 Kč<\/span>/);
+  assert.match(a, /class="ta-row on" data-step="stay">.*<b>Ubytování<\/b><small>zatím nevybráno<\/small>/);
+  assert.match(a, /<div class="ta-row sub">.*<b>Doprava<\/b><small>na letiště a do města \(odhad\)<\/small>/);
+  const tot = c.window.Trip.costs(t).total.toLocaleString('cs-CZ').replace(/\s/g, ' ');
+  assert.ok(a.includes(`Celkem zatím</span><b>${tot} Kč</b>`), a);
+  // vybraný hotel v prvním místě: stav a cena ubytování
+  t.route.bases[0].stay = { mode: 'pick', id: 'xo:1', name: 'Hotel 1', totalCzk: 6400 };
+  render(c, 'stay');
+  a = aside();
+  assert.match(a, /<b>Ubytování<\/b><small>vybráno 1 z 2<\/small><\/span><span class="ta-p">6 400 Kč<\/span>/);
+  // klepnutí na krok v přehledu → ten krok
+  c.__all['#tripAside [data-step]'] = [{ dataset: { step: 'car' } }];
+  render(c, 'stay');
+  c.__all['#tripAside [data-step]'][0].onclick();
+  assert.equal(t.step, 'car');
+});

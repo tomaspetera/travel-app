@@ -1,0 +1,96 @@
+/* ============ DESKTOP – průvodce Cestou (od 1280 px) ============
+   Krok vlevo, vpravo „Přehled cesty“ (#tripAside: kroky s cenou a stavem, celkem) – přilepený pod horní lištou, ať je
+   cena pořád vidět; cena v hlavičce se pak neopakuje. Program (vlastní mapa) a Shrnutí (vlastní cena) přes celou šířku:
+   Shrnutí ve dvou sloupcích – průběh cesty, vstup a Co zařídit vlevo, cena, rezervace a tlačítka vpravo. Ubytování na
+   širokém monitoru (od 1600 px) jako karty ve dvou sloupcích. Navazuje na tokeny z desktop.css (--gap); telefon,
+   tablet a malý notebook (< 1280 px) beze změny. */
+@media (min-width:1280px){
+  :root{--trip-aside:320px;--trip-stick:104px}
+
+  /* ---------- krok + přehled cesty vpravo ---------- */
+  #tripRoot .tw-body{display:grid;grid-template-columns:minmax(0,1fr) var(--trip-aside);gap:var(--gap);align-items:start}
+  #tripRoot .trip-aside{display:block;position:sticky;top:var(--trip-stick)}
+  #tripRoot:is([data-step=flight],[data-step=route],[data-step=stay],[data-step=car]) .th-total{display:none}
+  #tripRoot:is([data-step=program],[data-step=summary]) .tw-body{display:block}
+  #tripRoot:is([data-step=program],[data-step=summary]) .trip-aside{display:none}
+  #tripRoot .tw-body .step-card{margin-bottom:var(--gap)}
+
+  .ta-card{padding:18px 18px 16px;border-radius:24px;margin:0}
+  .ta-h{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+  .ta-flag{flex:none;width:40px;height:40px;display:grid;place-items:center;border-radius:50%;font-size:22px;line-height:1;background:var(--surface-2);border:1px solid var(--border)}
+  .ta-h>div{min-width:0}
+  .ta-h b{display:block;font:800 16px/1.25 Sora,Inter,sans-serif;letter-spacing:-.01em;overflow-wrap:anywhere}
+  .ta-h small{display:block;margin-top:3px;font-size:12.5px;color:var(--muted)}
+  .ta-rows{display:flex;flex-direction:column;gap:2px;padding:10px 0}
+  .ta-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:10px;width:calc(100% + 16px);margin:0 -8px;padding:8px;
+    border:none;border-radius:14px;background:none;color:var(--text);font:inherit;text-align:left;cursor:pointer;transition:background .15s}
+  .ta-row:hover{background:var(--surface-2)}
+  .ta-row.on{background:var(--surface-2);box-shadow:inset 3px 0 0 var(--accent)}
+  .ta-row.sub{cursor:default;padding-top:2px}
+  .ta-row.sub:hover{background:none}
+  .ta-row.sub .ta-ico{background:none;border-color:transparent;opacity:.75}
+  .ta-row.sub .ta-l small{white-space:normal}
+  .ta-ico{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;font-size:14px;line-height:1;background:var(--surface-2);border:1px solid var(--border)}
+  .ta-row.done .ta-ico{border-color:var(--good);box-shadow:0 0 0 1px var(--good) inset}
+  .ta-l{min-width:0}
+  .ta-l b{display:block;font-size:13.5px;font-weight:700;line-height:1.3}
+  .ta-l small{display:block;font-size:12px;line-height:1.35;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ta-p{font:700 13.5px/1 Inter,sans-serif;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .ta-tot{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:2px 12px;padding-top:14px;border-top:1px solid var(--border)}
+  .ta-tot>span{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .ta-tot>b{font:800 24px/1.1 Sora,Inter,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .ta-tot>small{grid-column:1/-1;font-size:12px;color:var(--muted)}
+
+  /* ---------- Ubytování: filtry v jednom řádku nástrojů ---------- */
+  #tripStep .stay-tools{flex-wrap:wrap;gap:8px 10px}
+  #tripStep .stay-tools #staySort{flex:0 1 auto;min-width:0}
+  #tripStep .stay-tools #stayType{flex:1 1 150px;min-width:0}
+  #tripStep .stay-tools #stayMax{flex:0 0 132px;min-width:0}
+  #tripStep .stay-tools>.faint:last-child{margin-left:auto}
+  /* „Vybral sis jinde?“ nad poli (vedle by název hotelu nebyl vidět) */
+  #tripStep .manual-row:has(#manName){grid-template-columns:minmax(0,1fr) 170px auto}
+  #tripStep .manual-row:has(#manName)>div:first-child{grid-column:1/-1}
+
+  /* odkazy na partnery (půjčovny, ubytování): čtyři jako mřížka 2 × 2, ne tři a jeden osamocený pod nimi */
+  #tripStep .link-grid:not(.compact):has(>:nth-child(4):last-child){grid-template-columns:repeat(2,minmax(0,1fr))}
+
+  /* ---------- Program: mapa přilepená vedle dnů, vysoká jako okno ---------- */
+  #tripRoot[data-step=program] .ex-map{top:var(--trip-stick);height:min(720px,calc(100vh - var(--trip-stick) - 24px))}
+  /* den jako časová osa: zastávky spojené svislou čarou (místo přerušovaných oddělovačů) */
+  #tripRoot[data-step=program] .day-plan{padding:14px 16px;border-radius:18px}
+  #tripRoot[data-step=program] .dp-item{position:relative;border-top:none;padding:8px 0}
+  #tripRoot[data-step=program] .dp-item:has(+.dp-item)::before{content:"";position:absolute;left:10px;top:32px;bottom:-6px;width:2px;border-radius:1px;background:var(--border-2)}
+  #tripRoot[data-step=program] .dp-n{position:relative;z-index:1}
+
+  /* ---------- Shrnutí: vlevo průběh cesty, vstup a Co zařídit; vpravo cena, rezervace a tlačítka ---------- */
+  #tripRoot[data-step=summary] #tripStep{display:grid;grid-template-columns:minmax(0,1fr) 384px;column-gap:var(--gap);align-items:start}
+  #tripRoot[data-step=summary] #tripStep>*{grid-column:1;min-width:0}
+  #tripRoot[data-step=summary] #tripStep>.sum-side{display:flex;flex-direction:column;grid-column:2;grid-row:1/span 40;position:sticky;top:var(--trip-stick)}
+  #tripRoot[data-step=summary] #tripStep>.sum-tl{order:-1}
+  #tripRoot[data-step=summary] .sum-grid{grid-template-columns:minmax(0,1fr);gap:0}
+  #tripRoot[data-step=summary] #tripStep .step-card{margin-bottom:var(--gap)}
+  #tripRoot[data-step=summary] .sum-acts{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch;margin:0 !important}
+  #tripRoot[data-step=summary] .sum-acts>.btn{justify-content:center;text-align:center;min-width:0;white-space:normal}
+  #tripRoot[data-step=summary] .sum-acts>#sumSave{grid-column:1/-1;min-height:48px}
+  #tripRoot[data-step=summary] .tl-row{grid-template-columns:96px 26px minmax(0,1fr)}
+}
+/* menší notebook (1280–1439 px): u přehledu cesty užší krok – hotel v řádku bez sloupce hodnocení (hodnocení u názvu) */
+@media (min-width:1280px) and (max-width:1439px){
+  :root{--trip-aside:300px}
+  #tripStep .stay{grid-template-columns:100px minmax(0,1fr) 150px}
+  #tripStep .st-img{width:100px;height:84px}
+  #tripStep .st-rating{display:none}
+  #tripStep .st-rate-inline{display:block}
+}
+/* široký monitor: ubytování jako karty ve dvou sloupcích (fotka a popis nahoře, cena a Vybrat dole) */
+@media (min-width:1600px){
+  #tripStep .stay-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  #tripStep .stay-list>:not(.stay){grid-column:1/-1}
+  #tripStep .stay{grid-template-columns:104px minmax(0,1fr);grid-template-rows:1fr auto;grid-template-areas:"img main" "foot foot";align-items:start;gap:12px 14px;padding:12px}
+  #tripStep .st-img{grid-area:img;width:104px;height:96px}
+  #tripStep .st-main{grid-area:main}
+  #tripStep .st-rating{display:none}
+  #tripStep .st-rate-inline{display:block}
+  #tripStep .st-price{grid-area:foot;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 10px;padding-top:10px;border-top:1px solid var(--border)}
+  #tripStep .st-pp{align-items:flex-start;margin-right:auto;text-align:left}
+}
