@@ -78,8 +78,12 @@ test('desktop-explore.css: všechna pravidla jen v @media od 1024 px (telefon a 
 
 test('desktop-explore.css: Objevuj – mapa vedle seznamu přes výšku okna, přehled země jako mřížka karet, okno země ve dvou sloupcích', () => {
   assert.match(explore, /\.ex-main>\.ex-map\{position:sticky;top:var\(--sticky-top\);height:calc\(100vh - var\(--sticky-top\) - 24px\)/);
-  assert.match(explore, /\.ex-layout\.ex-main:has\(#exCList\)\{grid-template-columns:minmax\(0,1fr\);grid-template-areas:"map" "places"/);
-  assert.match(explore, /#exCList\{display:grid;grid-template-columns:repeat\(auto-fill,minmax\(340px,1fr\)\)/);
+  // celá země jako město: skupiny vlevo, mapa vpravo přilepená (stejné pravidlo .ex-main>.ex-map), karty v mřížce
+  assert.match(explore, /\.ex-layout\.ex-main:has\(#exCList\)\{grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\);grid-template-areas:"places map"/);
+  assert.doesNotMatch(explore, /\.ex-main:has\(#exCList\)>\.ex-map\{position:relative/);
+  assert.match(explore, /#exCList\{display:grid;grid-template-columns:repeat\(auto-fill,minmax\(300px,1fr\)\)/);
+  // značka místa pod myší (places.js přidá .hot)
+  assert.match(explore, /\.maplibregl-marker\.mk\.hot\{/);
   assert.match(explore, /\.modal:has\(>\.modal-hero\.mh-photo\)\{display:grid;grid-template-columns:40% 60%/);
   // zavírací tlačítko vpravo nahoře okna: hlavička 40 % → -150 % její šířky = zbývajících 60 %
   assert.match(explore, /\.modal>\.modal-hero\.mh-photo>\.modal-close\{right:calc\(-150% \+ 18px\)/);
