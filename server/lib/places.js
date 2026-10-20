@@ -309,25 +309,35 @@ export async function geocode(query) {
 /**
  * Anglický název místa (Open-Meteo, language=en) pro partnery ubytování, kteří český exonym („Benátky“) nepoznají:
  * podle ID GeoNames (gid – místo vybrané v hledání), jinak výsledek hledání názvu do 25 km od polohy a ve stejné
- * zemi; nic → null. V mezipaměti 30 dní.
+ * zemi; nic → null. V mezipaměti 30 dní; nepovedený dotaz (timeout 5 s) 10 min → null hned, ať každé doptání průvodce
+ * na ceny hotelů nečeká znovu.
  */
 export async function englishName(name, lat, lon, cc = '', gid = null) {
   if (/^\d{1,10}$/.test(String(gid ?? ''))) {
-    const byId = await cache.wrap(`geo-en-id:${gid}`, 30 * 864e5, async () => {
+    const byId = await enLookup(`geo-en-id:${gid}`, async () => {
       const r = await request(`https://geocoding-api.open-meteo.com/v1/get?id=${gid}&language=en`, { timeoutMs: 5000, retries: 0 });
       // jen když ID sedí k místu (cizí ID ze sdíleného odkazu nesmí přejmenovat jiné město)
       return r?.name && Number.isFinite(r.latitude) ? { name: r.name, lat: r.latitude, lon: r.longitude } : null;
-    }).catch(() => null);
+    });
     if (byId && haversineKm(lat, lon, byId.lat, byId.lon) <= 25) return byId.name;
   }
   const q = String(name || '').trim();
   if (q.length < 2 || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  return cache.wrap(`geo-en:${normalize(q)}:${lat.toFixed(2)}:${lon.toFixed(2)}`, 30 * 864e5, async () => {
+  return enLookup(`geo-en:${normalize(q)}:${lat.toFixed(2)}:${lon.toFixed(2)}`, async () => {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=en&format=json`;
     const j = await request(url, { timeoutMs: 5000, retries: 0 });
     const hit = (j.results || []).filter((r) => (!cc || String(r.country_code || '').toUpperCase() === cc) && haversineKm(lat, lon, r.latitude, r.longitude) <= 25)
       .sort((a, b) => haversineKm(lat, lon, a.latitude, a.longitude) - haversineKm(lat, lon, b.latitude, b.longitude))[0];
     return hit?.name || null;
+  });
+}
+const EN_FAIL_TTL = 10 * 60e3;
+/** Dotaz englishName v mezipaměti (30 dní); chyba → null, 10 min bez dalšího dotazu. */
+async function enLookup(key, fn) {
+  if (cache.get(`${key}:fail`)) return null;
+  return cache.wrap(key, 30 * 864e5, fn).catch(() => {
+    cache.set(`${key}:fail`, 1, EN_FAIL_TTL);
+    return null;
   });
 }
 

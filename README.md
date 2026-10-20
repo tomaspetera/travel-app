@@ -425,7 +425,14 @@ ověří volno) s řádkem „📍 v okolí: Noto · 24 km od Palazzolo Acreide�
 („Hotel X, Noto“). Pod nimi ubytování **v místě bez ceny** z OpenStreetMap (viz zdroje). Při výpadku Wikidat taky ceny
 z okolí, v mezipaměti jen 5 min. Návrh trasy přes víc míst dává při podobném skóre přednost místům s hotely
 na TripAdvisoru (`HOTEL_BONUS` v `server/lib/stayplan.js`, ~6 bodů ≈ 50 min přejezdu). Místo, kde v okolí nic není,
-dostane jen odkazy.
+dostane jen odkazy. **Rychlost:** ubytování z OpenStreetMap se hledá hned, jak je jasné, že ceny budou z okolí –
+souběžně s cenami, ne po nich (Nominatim ~4 s); dohledávají-li Wikidata místo mimo tabulky dlouho, seznamy hotelů
+míst v okolí se po 1,5 s načtou dopředu a po 8 s (`KEYS_CAP_MS`) se nečeká – ceny z okolí hned, výsledek je neúplný
+a průvodce se doptá (dohledané místo s vlastními hotely pak má přednost). Nepovedený anglický název místa
+(geokódování, timeout 5 s) se pamatuje 10 min. Živě 10/2026 první odpověď u Palazzola, Alcobaçy, Castelmezzana
+a Civity di Bagnoregio ~11 s místo 16–23 s. V cestě přes víc míst se další místa načtou dopředu (jedno po druhém,
+až má aktuální místo nabídky) a **✨ Vyber za mě** načítá další místo, zatímco v předchozím ověřuje volno (4 malá
+místa: ~62 s → ~47 s); dvě hledání naráz záměrně ne – dělila by se o frontu na Xotelo a obě by stihla méně cen.
 
 **Kolik dotazů:** na místo a termín 1 seznam hotelů (TripAdvisor „nejlepší poměr“, 40 hotelů, timeout 10 s bez
 opakování) + nejvýš **12 dotazů na ceny** (8 nejlépe hodnocených podle poměru a 4 nejlevnější podle ceníku
