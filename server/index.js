@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { config } from './config.js';
-import { suggest, describe, resolveOrigins, geocodePlaces } from './lib/places.js';
+import { suggest, describe, resolveOrigins, geocodeExplore, mapySugCached } from './lib/places.js';
 import { search, UserError, legBagCzk } from './lib/search.js';
 import { stayProviders } from './providers/stays/index.js';
 import { activeProviders, providerStatus } from './providers/index.js';
@@ -35,6 +35,7 @@ import { cityPhotos } from './lib/photos.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 import { serveIndex, serveServiceWorker } from './lib/pwa.js';
+import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from './lib/mapy.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -147,6 +148,8 @@ const rechecks = new Map(); // přepočty trasy přes víc míst (stayplan s bas
 const verifies = new Map(); // živé ověření ceny (/api/verify): vlastní limit, do hledání se nepočítá
 const stayChecks = new Map(); // ověření volna hotelu při výběru (/api/stays/check)
 const explores = new Map(); // Objevuj (místa, program, výlety, kolo, pěšky): vlastní limit, do hledání se nepočítá
+const mapySugs = new Map(); // návrhy Mapy.com v hledání Objevuj (jen dotazy mimo mezipaměť serveru)
+const tileHits = new Map(); // dlaždice Mapy.com přes server (jen mimo mezipaměť serveru)
 const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
   if (!max) return false;
@@ -322,7 +325,8 @@ async function route(req, res) {
   }
   if (p === '/api/health') {
     await loadRates();
-    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), fx: fxInfo(), cache: cache.stats() });
+    // maps: mapové služby (Mapy.com) – mimo providers, ty jsou zdroje cen (Zdroje cen, průběh hledání)
+    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), maps: [mapyStatus()], fx: fxInfo(), cache: cache.stats() });
   }
   if (p === '/api/places') {
     const q = (url.searchParams.get('q') || '').slice(0, 80);
@@ -336,11 +340,13 @@ async function route(req, res) {
     return sendJson(req, res, 200, { items, ...(meta.geoErr ? { partial: true } : {}) });
   }
   if (p === '/api/geocode') {
-    // Města a místa (střed města, ne letiště) – pro objevování a program.
+    // Města a místa (střed města, ne letiště) – pro objevování a program. mapy=1 (hledání v Objevuj): s klíčem Mapy.com
+    // i jejich návrhy (vesnice, adresy, hrady, rozhledny…); dotazy mimo mezipaměť mají vlastní limit na IP – nad ním bez nich.
     const q = (url.searchParams.get('q') || '').slice(0, 80);
+    const mapy = url.searchParams.get('mapy') === '1' && mapyOn() && (mapySugCached(q) || !rateLimited(req, config.explorePer10Min, mapySugs));
     let items = [];
     try {
-      items = await geocodePlaces(q);
+      items = await geocodeExplore(q, { mapy });
     } catch (e) {
       return sendJson(req, res, 502, { error: `Geokódování nedostupné: ${e.message}` });
     }
@@ -678,7 +684,8 @@ async function route(req, res) {
         const places = sent.length >= 3 ? sent : await findPlaces(near).catch(() => []);
         q.sights = places.filter((x) => x.category !== 'daytrip').sort((x, y) => (y.score || 0) - (x.score || 0)).map((x) => ({ name: x.name, lat: x.lat, lon: x.lon }));
       }
-      return sendJson(req, res, 200, { demo: false, ...(await plan(q)) });
+      // tiles: 'mapy' = server nabízí turistickou mapu Mapy.com (/api/tiles/mapy/outdoor/…) – mapa ji dá pod trasu
+      return sendJson(req, res, 200, { demo: false, ...(await plan(q)), ...(mapyReady(1) ? { tiles: 'mapy' } : {}) });
     } catch (e) {
       if (e.code === 'LIMIT') return sendJson(req, res, 429, TOO_MANY_EXPLORE);
       console.warn(`${hike ? 'hike' : 'bike'}: ${e.message}`);
@@ -689,6 +696,21 @@ async function route(req, res) {
     }
   }
   if (p === '/api/search' && req.method === 'POST') return handleSearch(req, res);
+  if (p.startsWith('/api/tiles/mapy/')) {
+    // Dlaždice Mapy.com přes server: klíč zůstane tady, platí strop kreditů a mezipaměť; prohlížeč si dlaždici drží týden.
+    const t = parseTile(p);
+    if (!t) return sendJson(req, res, 400, { error: 'Neplatná dlaždice (sada basic / outdoor / winter / aerial, zoom 0–20).' });
+    if (!mapyOn()) return sendJson(req, res, 404, { error: 'Mapy.com není zapnuté (chybí MAPY_API_KEY).' });
+    if (!tileCached(t) && rateLimited(req, config.tilesPer10Min, tileHits)) return sendJson(req, res, 429, { error: 'Příliš mnoho dlaždic – zkus to za pár minut.' });
+    try {
+      const { body, type } = await mapyTile(t);
+      res.writeHead(200, { 'Content-Type': type, 'Content-Length': body.length, 'Cache-Control': 'public, max-age=604800' });
+      return res.end(body);
+    } catch (e) {
+      // strop kreditů, pojistka, chyba Mapy.com: mapa v prohlížeči po pár chybách vrstvu Mapy.com sundá (zůstane OpenFreeMap)
+      return sendJson(req, res, 503, { error: 'Dlaždice Mapy.com teď není k dispozici.' }, { 'Retry-After': '300' });
+    }
+  }
   if (p.startsWith('/api/')) return sendJson(req, res, 404, { error: 'Neznámý endpoint' });
 
   // Service worker (aplikace na ploše, offline): verze a seznam souborů z obsahu public/ – server/lib/pwa.js

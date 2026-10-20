@@ -3,10 +3,12 @@
 // profil hiking-mountain; krajina → přednost lesům a řekám / památkám ve městě, kopce → cena stoupání.
 // Na kole i „vlakem tam, na kole zpět“: nádraží (Wikidata) v dosahu zvolené délky a trasa z něj domů.
 // Výsledek: délka, stoupání, odhad času, povrch, trasa (pro mapu a GPX) a odkazy do Mapy.com a Google Map.
+// S klíčem Mapy.com (MAPY_API_KEY) naplánuje trasu Mapy.com, když BRouter neodpovídá (source: 'mapy', bez rozboru povrchu).
 import { cache } from './cache.js';
 import { haversineKm, normalize } from './geo.js';
 import { wdqs, localLang } from './poi.js';
 import { BROUTER, brouterGet } from './brouter.js';
+import { mapyReady, mapyRouteFull, roundWaypoints } from './mapy.js';
 
 // mapy = routeType v Mapy.com (silniční / horské kolo), pace = násobek času BRouteru (počítá ~100 W).
 export const BIKES = {
@@ -147,11 +149,43 @@ export function googleUrl(start, geometry, travelmode = 'bicycling', end = start
 const missing = (key, onMiss) => { if (onMiss && cache.get(key) === undefined) onMiss(); };
 const isLimit = (e) => e?.code === 'LIMIT';
 
-async function route(args, pace, onMiss) {
-  const url = brouterUrl(args);
-  missing(`brouter:${url}`, onMiss);
-  return cache.wrap(`brouter:${url}`, 7 * 864e5, async () => parseRoute(await brouterGet(url), { pace }));
+// Záloha s klíčem Mapy.com (mapy.js): když BRouter neodpovídá (výpadek, přetížení, timeout), naplánuje trasu Mapy.com –
+// bez rozboru povrchu a druhu cesty (ten dává jen BRouter z OpenStreetMap), výšky z výškového profilu Mapy.com. Po
+// výpadku jde 5 minut každá nová trasa rovnou na Mapy.com, ať nečeká na timeout BRouteru. Bez klíče beze změny.
+let brouterDownUntil = 0;
+const outage = (e) => e?.code === 'BUSY' || !e?.status || e.status >= 500 || e.status === 429;
+/** alt = trasa pro Mapy.com: { routeType, pts: [[lon, lat]…] } nebo okruh { routeType, start, round: { radiusM, direction } }. */
+function viaMapy(alt, onMiss) {
+  const pts = alt.round ? [alt.start, ...roundWaypoints(alt.start, alt.round.radiusM, alt.round.direction), alt.start] : alt.pts;
+  const key = `mapy-route:${alt.routeType}:${pts.map((p) => `${p[0]},${p[1]}`).join(';')}`;
+  missing(key, onMiss);
+  // bez výšek (výškový profil nevyšel) jen hodinu – pak znovu
+  return cache.wrap(key, (v) => (v.ascent == null ? 3600e3 : 7 * 864e5),
+    () => mapyRouteFull({ start: pts[0], end: pts.at(-1), waypoints: pts.slice(1, -1), routeType: alt.routeType }));
 }
+
+async function route(args, pace, onMiss, alt) {
+  const url = brouterUrl(args);
+  const key = `brouter:${url}`;
+  if (alt && Date.now() < brouterDownUntil && cache.get(key) === undefined && mapyReady(8)) {
+    try {
+      return await viaMapy(alt, onMiss);
+    } catch (e) {
+      if (isLimit(e)) throw e; // jinak zkusit BRouter
+    }
+  }
+  missing(key, onMiss);
+  try {
+    return await cache.wrap(key, 7 * 864e5, async () => parseRoute(await brouterGet(url), { pace }));
+  } catch (e) {
+    if (isLimit(e) || !alt || !outage(e) || !mapyReady(8)) throw e;
+    brouterDownUntil = Date.now() + 5 * 60e3;
+    console.warn(`BRouter: ${e.message} – trasa z Mapy.com`);
+    return viaMapy(alt, onMiss).catch((e2) => Promise.reject(isLimit(e2) ? e2 : e));
+  }
+}
+/** Jen pro testy: zapomenout výpadek BRouteru. */
+export const _resetBrouterDown = () => { brouterDownUntil = 0; };
 
 /**
  * Památky pro okruh městem: nejvýznamnější v dosahu, polovina z vnějšího pásu (ať okruh není jen
@@ -177,7 +211,7 @@ export function pickSights(q, km, variant = 0, { radius = Math.max(1.5, km / 6),
  * Okruh dané délky ze startu: „městem“ přes památky (když okruh přes ně vyjde rozumně dlouhý), jinak
  * round-trip BRouteru – body na kružnici o poloměru km / factor, při odchylce > 12 % jedna korekce.
  */
-async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights }) {
+async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights, mapy }) {
   const start = [Math.round(q.lon * 1e4) / 1e4, Math.round(q.lat * 1e4) / 1e4];
   const variant = Math.max(0, Math.round(Number(q.variant) || 0)) % 10 || 0;
   let r;
@@ -186,7 +220,7 @@ async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights }) {
     via = pickSights(q, km, variant, sights);
     if (via.length >= 2) {
       const lonlats = [start, ...via.map((s) => [s.lon, s.lat]), start].map((p) => `${p[0]},${p[1]}`).join('|');
-      r = await route({ profile, vars, lonlats }, pace, q.onMiss);
+      r = await route({ profile, vars, lonlats }, pace, q.onMiss, { routeType: mapy, pts: [start, ...via.map((s) => [s.lon, s.lat]), start] });
       // Památky jsou často namačkané v centru – vyjde-li okruh přes ně o hodně kratší / delší, bere se okruh dané délky.
       if (r.km < km * 0.65 || r.km > km * 1.5) r = null;
     }
@@ -197,9 +231,10 @@ async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights }) {
     const radius0 = (km * 1000) / factor;
     let radiusM = radius0;
     const lonlats = `${start[0]},${start[1]}`;
-    const tryRound = (R, fallback) => route({ profile, vars, lonlats, round: { radiusM: R, direction } }, pace, q.onMiss)
+    const alt = (R) => ({ routeType: mapy, start, round: { radiusM: R, direction } });
+    const tryRound = (R, fallback) => route({ profile, vars, lonlats, round: { radiusM: R, direction } }, pace, q.onMiss, alt(R))
       .catch((e) => (isLimit(e) ? Promise.reject(e) : fallback));
-    r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace, q.onMiss);
+    r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace, q.onMiss, alt(radiusM));
     if (Math.abs(r.km - km) / km > 0.12) {
       radiusM *= km / Math.max(1, r.km);
       // korekce může skončit na odříznuté cestě („target island“) – pak platí první trasa
@@ -227,7 +262,7 @@ export async function bikeLoop(q) {
   const { profile, pace } = BIKES[bike];
   const km = Math.min(150, Math.max(5, Number(q.km) || 30));
   // Délka okruhu vyjde ~5–6× poloměr (ve městě víc objížděk).
-  const { r, start, variant, via } = await loopRoute(q, { km, profile, vars: profileVars(bike, q.scenery, q.hills), pace, factor: q.scenery === 'city' ? 6 : 5.2 });
+  const { r, start, variant, via } = await loopRoute(q, { km, profile, vars: profileVars(bike, q.scenery, q.hills), pace, factor: q.scenery === 'city' ? 6 : 5.2, mapy: BIKES[bike].mapy });
   return {
     ...r, activity: 'bike', kind: 'loop',
     target: km, bike, scenery: q.scenery || 'mixed', hills: q.hills || 'normal', variant,
@@ -242,7 +277,7 @@ export async function hikeLoop(q) {
   const km = Math.min(40, Math.max(2, Number(q.km) || 10));
   // Pěšky vyjde okruh ~4,9× poloměr (změřeno: R 2,5 km → 12,2 km); památky v pěším dosahu.
   const { r, start, variant, via } = await loopRoute(q, {
-    km, profile: HIKE.profile, vars: hikeVars(q.scenery, q.hills), factor: 4.9,
+    km, profile: HIKE.profile, vars: hikeVars(q.scenery, q.hills), factor: 4.9, mapy: HIKE.mapy,
     sights: { radius: Math.max(1, km / 5), n: Math.min(8, Math.max(3, Math.round(km / 3))) },
   });
   return {
@@ -382,7 +417,7 @@ export async function bikeFromStation(q) {
   for (let i = 0; i < Math.min(3, cands.length); i++) {
     const idx = (variant + i) % cands.length;
     const st = cands[idx];
-    const r = await route({ profile, vars, lonlats: `${st.lon},${st.lat}|${home[0]},${home[1]}` }, pace, q.onMiss);
+    const r = await route({ profile, vars, lonlats: `${st.lon},${st.lat}|${home[0]},${home[1]}` }, pace, q.onMiss, { routeType: BIKES[bike].mapy, pts: [[st.lon, st.lat], home] });
     const ok = r.km >= km * 0.75 && r.km <= km * 1.35;
     if (ok || !best) best = { r, st, idx };
     if (ok) break;

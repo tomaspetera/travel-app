@@ -17,6 +17,7 @@ import { airportAccess } from './access.js';
 import { cache } from './cache.js';
 import { request } from './http.js';
 import { config } from '../config.js';
+import { mapyOn, mapySuggest } from './mapy.js';
 
 const flag = (cc) =>
   cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)) : '';
@@ -364,6 +365,37 @@ export async function geocodePlaces(query) {
     if (fix) items = [{ ...fix, fuzzy: true }, ...items.filter((x) => x.id !== fix.id)];
   }
   return items;
+}
+
+const mapySugKey = (q) => `mapy-sug:${normalize(q)}`;
+/** Má návrhy Mapy.com k textu už mezipaměť (pak se do limitu dotazů z jedné IP nepočítají)? */
+export const mapySugCached = (q) => cache.get(mapySugKey(String(q || '').trim())) !== undefined;
+
+/**
+ * Hledání místa v Objevuj: geokódování (Open-Meteo) a s klíčem Mapy.com i jejich našeptávač – vesnice a části obcí,
+ * adresy, hrady, rozhledny, chaty a další místa, která GeoNames nezná. Pořadí: větší místa z Open-Meteo (od 1000
+ * obyvatel, oprava překlepu), pak Mapy.com, pak zbytek; stejné místo (stejný název do 10 km) jen jednou, nejvýš 10.
+ * mapy: false (nebo bez klíče, výpadek, strop kreditů) = jen geocodePlaces. Návrhy Mapy.com mají src: 'mapy'
+ * (u výsledků se pak ukáže logo Mapy.com – podmínka jejich API).
+ */
+export async function geocodeExplore(query, { mapy = true } = {}) {
+  const q = String(query || '').trim();
+  const fromMapy = mapy && mapyOn() && q.length >= 2
+    ? cache.wrap(mapySugKey(q), 7 * 864e5, () => mapySuggest(q, { limit: 6 })) : Promise.resolve([]);
+  const [om, my] = await Promise.allSettled([geocodePlaces(q), fromMapy]);
+  const extra = my.status === 'fulfilled' ? my.value : [];
+  if (om.status === 'rejected' && !extra.length) throw om.reason;
+  const base = om.status === 'fulfilled' ? om.value : [];
+  if (!extra.length) return base; // bez Mapy.com přesně jako geocodePlaces
+  const conv = extra.map((x) => ({
+    id: `geo:${x.lat.toFixed(4)},${x.lon.toFixed(4)}|${x.name.replace(/\|/g, ' ')}`, type: 'place', label: x.name, flag: flag(x.cc),
+    sub: [x.label, x.location].filter(Boolean).join(' · '), ...(x.cc ? { cc: x.cc } : {}), lat: x.lat, lon: x.lon, pop: 0, src: 'mapy',
+  }));
+  const strong = base.filter((x) => x.fuzzy || x.pop >= 1000);
+  // stejné místo z obou zdrojů jednou; v rámci Mapy.com ne (hrad Karlštejn a obec Karlštejn jsou dvě místa)
+  const dup = (a, b) => normalize(a.label) === normalize(b.label) && haversineKm(a.lat, a.lon, b.lat, b.lon) < 10;
+  return [...strong, ...conv.filter((x) => !strong.some((y) => dup(x, y))),
+    ...base.filter((y) => !strong.includes(y) && !conv.some((x) => dup(x, y)))].slice(0, 10);
 }
 
 /** Střed města z vlastních dat (města domova, metropole; jinak poloha letiště) – záloha bez sítě. */

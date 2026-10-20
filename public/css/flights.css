@@ -39,6 +39,7 @@
 .pi-t small{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pi-type{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
 .pi-empty{padding:12px;color:var(--muted);font-size:13px}
+.pi-by{padding:6px 10px 4px;font-size:11.5px;color:var(--muted);text-align:right}
 /* ✨ chytré hledání: řádek „jak větě rozumím“, tipy podle chování, příklady vět */
 .pi-head{padding:8px 10px 6px;font-size:12px;font-weight:700;color:var(--muted)}
 .pi-smart{background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 16%,transparent),color-mix(in srgb,var(--accent-2,#a855f7) 10%,transparent));border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);margin-bottom:4px}
