@@ -1146,7 +1146,33 @@ Karty (radar, rychlé hledání, tipy, Objevuj, Země, Doporučení) mají ve v�
 nadpisy sekcí jeden styl a nadpisy na fotkách tmavý přechod zleva, aby byly čitelné. Formulář Letů je v pravidelné
 mřížce (Odkud | Kam, pod tím Cesta a Termín | Délka pobytu | Odlet mezi; do 1440 px Odlet mezi na vlastním řádku),
 úvod Cesty má vlevo fotku a „Kam chceš jet?“, vpravo „Jak to funguje“. Karta země bez fotky ukáže velkou vlajku.
-Vše je v `public/css/desktop.css` (načtený jako poslední, jen `@media (min-width:1024px)`), telefon a tablet se nemění.
+Vše je v `public/css/desktop.css` (načtený za základními styly, jen `@media (min-width:1024px)`), telefon a tablet se nemění.
+
+Výsledky Letů (`public/css/desktop-flights.css`, za `desktop.css`): od 1200 px ve dvou sloupcích – vlevo panel
+**Filtry a řazení** (řazení, letiště, aerolinky, max. cena, přepínače, Čas a přestupy, Odkud se vyplatí letět), který
+při posunu stránky zůstává vidět, vpravo nabídky (nejlevnější cíle, seznam, karty, mapa, kalendář). Hlavička výsledků
+s přepínačem pohledů a čipy aktivních filtrů jdou přes celou šířku; pořadí v HTML zůstává jako na telefonu (tam je panel
+za tlačítkem ⚙️ Filtry). Řádek letu má do 1600 px cenu vedle letu a tlačítka pod ním, na velkém monitoru tři sloupce.
+Srovnání 📌 odložených nabídek má karty uprostřed okna. Na Přehledu se úvodní Odkud / Kam neláme ani na 1024 px,
+„Naposledy“ má odstup od fotky a dlaždice ⭐/📌 drží mřížku karet; v Zemích je hledání a přepínač na jednom řádku
+a čtyři filtry pod nimi ve stejných sloupcích.
+
+Objevuj, Plánovač, Doporučení, Mapa a okna mají vlastní doplněk `public/css/desktop-explore.css` (po desktop.css, taky
+jen od 1024 px): v Objevuj s místem je vlevo plán a seznam míst a vpravo velká mapa přes výšku okna, která se při
+posouvání drží pod lištou; přehled celé země má mapu přes šířku a skupiny (města, cíle, UNESCO, parky) v mřížce karet.
+Mapa navštívených zemí je přes celou šířku, legenda a statistiky pod ní ve třech sloupcích. Plánovač ukáže čtyři cesty
+vedle sebe (dlaždice „Nová cesta“ stejně vysoká), dlaždice statistik na Přehledu vyplní šířku. Na širokém displeji je
+okno země ve dvou sloupcích (vlevo fotka hlavního města s názvem, vpravo údaje), náhled cíle 🔎 vlevo let, cesta
+z letiště a počasí a vpravo místa k vidění, okno cesty z plánovače širší s dny itineráře ve dvou sloupcích. Nově
+otevřené okno začíná nahoře (dřív si drželo posun z minulého).
+
+**Průvodce Cestou od 1280 px** (`public/css/desktop-trip.css`, hned za `desktop.css`): u kroků Let, Trasa, Ubytování
+a Auto je vpravo přilepený **přehled cesty** – termín, kroky s cenou a stavem („vybráno 1 z 2“, „zatím nevybráno“;
+klepnutím se ke kroku vrátíš) a cena celkem i na osobu (v hlavičce se pak neopakuje). Ubytování má filtry v jednom
+řádku nástrojů, na monitoru od 1600 px hotely jako karty ve dvou sloupcích (do 1440 px v řádku bez sloupce hodnocení).
+Program je přes celou šířku s mapou přilepenou vedle dnů a zastávkami dne spojenými čarou, Shrnutí ve dvou sloupcích:
+vlevo průběh cesty, vstup a Co zařídit, vpravo cena, rezervace a tlačítka. Na telefonu je přehled skrytý (cena je
+v hlavičce) a rozvržení kroků stejné jako dřív.
 
 ## Aplikace na ploše a offline
 
