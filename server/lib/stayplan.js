@@ -12,17 +12,26 @@ import { transferTimes, routeTransfers, driveRoute, routeKey, cachedRoute } from
 import { carFuelCzk } from './fuel.js';
 import { convert } from './fx.js';
 import { SPECIFIC, distanceModel, priceBand } from './ground.js';
-import { seedCity } from '../providers/stays/xotelo.js';
+import { seedCity, nearbyPlaces } from '../providers/stays/xotelo.js';
 
 export const MAX_BASES = 6; // ručně sestavená trasa; návrh dává nejvýš 4 místa
 // nejdelší běžný přejezd (min) – časy už počítají s provozem, hranicí i čekáním na spoj
 export const TRANSFER_MAX = { car: 200, transit: 225 };
 const GAP_KM = 50; // blíž než tohle = jednodenní výlet z předchozího místa, ne další ubytování
-// Místo s hotely na TripAdvisoru (hotels – místo z tabulek TA_CITIES / TA_PLACES do 12 / 8 km, xotelo.js seedCity): ceny
-// ubytování přímo v místě. Při podobném skóre má přednost (Noto před Palazzolem Acreide, kde jsou ceny jen z okolí);
-// ~6 bodů ≈ 50 min přejezdu. Jen pro výběr a pořadí míst návrhu, noci podle skutečného skóre.
+// Místo s hotely na TripAdvisoru (hotels – místo z tabulek TA_CITIES / TA_PLACES do 12 / 8 km nebo stejného jména do
+// 15 km, xotelo.js seedCity): ceny ubytování přímo v místě. Při podobném skóre má přednost (Noto před Pachinem, kde jsou
+// ceny jen z okolí); ~6 bodů ≈ 50 min přejezdu. Místo bez hotelů na TripAdvisoru i v okolí (noHotels – žádné místo
+// z tabulek do 35 km: ani ceny z okolí, jen ubytování bez ceny z OpenStreetMap) návrh vezme, jen když je jasně lepší
+// (NO_HOTELS_PENALTY ≈ 1 h 40 min přejezdu). Jen pro výběr a pořadí míst návrhu, noci podle skutečného skóre; místa
+// zadaná ručně se nemění.
 export const HOTEL_BONUS = 6;
-const pickScore = (b) => b.score + (b.hotels ? HOTEL_BONUS : 0);
+export const NO_HOTELS_PENALTY = 12;
+const pickScore = (b) => b.score + (b.hotels ? HOTEL_BONUS : 0) - (b.noHotels ? NO_HOTELS_PENALTY : 0);
+/** { hotels, noHotels? } místa c podle tabulek míst TripAdvisoru (vlastní místo, nebo aspoň místa v okolí do 35 km). */
+export function hotelCoverage(c) {
+  if (seedCity(c.lat, c.lon, [c.name, c.nameEn].filter(Boolean))) return { hotels: true };
+  return nearbyPlaces(c.lat, c.lon, { max: 1 }).length ? { hotels: false } : { hotels: false, noHotels: true };
+}
 
 export class StayPlanError extends Error {
   constructor(msg) {
@@ -156,7 +165,8 @@ export function suggestRoute(candidates, opts) {
   const A = { ...opts.arrival, score: opts.arrival.score ?? top + 5, anchor: 'arrival' };
   const dc = opts.departureCity;
   const D = dc && far(dc, A) && !exclude.has(String(dc.id)) ? { ...dc, score: dc.score ?? top, anchor: 'departure' } : null;
-  // Kandidáti: nejlepší města (místo s hotely o HOTEL_BONUS výš), bez duplicit do 15 km a bez míst u města příletu/odletu.
+  // Kandidáti: nejlepší města (místo s hotely o HOTEL_BONUS výš, bez hotelů i v okolí o NO_HOTELS_PENALTY níž), bez duplicit
+  // do 15 km a bez míst u města příletu/odletu.
   const pool = [];
   for (const c of [...valid].sort((a, b) => pickScore(b) - pickScore(a))) {
     if (pool.length >= 14) break;
@@ -365,7 +375,7 @@ export async function planStay(raw, { mock = false, towns = findTowns, demoTowns
     if (!c || seen.has(c.id) || seen.has(k)) return false;
     seen.add(c.id).add(k);
     return true;
-  }).map((c) => (Number.isFinite(c.lat) && Number.isFinite(c.lon) ? { ...withCountry(c), hotels: Boolean(seedCity(c.lat, c.lon)) } : c));
+  }).map((c) => (Number.isFinite(c.lat) && Number.isFinite(c.lon) ? { ...withCountry(c), ...hotelCoverage(c) } : c));
   const opts = { arrival: city, departureCity: sameCity ? null : depCity, depAirport: departure, nights, transport, count, exclude };
   let plan = suggestRoute(cands, opts);
   // Návrh počítá s odhadem (a trasami z mezipaměti); trasy autem pro navržené přejezdy se dopočtou.
