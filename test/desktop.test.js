@@ -41,9 +41,25 @@ test('desktop-flights.css: jen v @media od 1024 px, načtený za desktop.css', (
   const src = readFileSync(new URL('../public/css/desktop-flights.css', import.meta.url), 'utf8');
   const { media } = topLevel(src);
   assert.ok(media.length >= 2, media.join(' | '));
-  for (const m of media) assert.match(m, /^@media \(min-width:(1024|1200|1600)px\)/, m);
+  for (const m of media) assert.match(m, /^@media \(min-width:(1024|1200|1600|1800)px\)/, m);
   const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g)].map((m) => m[1]);
   assert.ok(links.indexOf('css/desktop-flights.css') > links.indexOf('css/desktop.css'), links.join(', '));
+});
+
+test('desktop-flights.css (průchod uživatele): nabídky nad ohybem, nižší karty, mozaika Rychlého hledání, srovnání podle karet; „/“ do hledání', () => {
+  const src = readFileSync(new URL('../public/css/desktop-flights.css', import.meta.url), 'utf8');
+  // radar: výška podle textu (ne 4:5), 3 / 4 / 6 sloupců podle šířky
+  assert.match(src, /#radar \.radar-grid>\.radar-card\{aspect-ratio:auto;min-height:200px;padding-top:48px\}/);
+  assert.match(src, /@media \(min-width:1024px\) and \(max-width:1279px\)\{\s*#radar \.radar-grid\{grid-template-columns:repeat\(3,/);
+  assert.match(src, /@media \(min-width:1800px\)\{\s*#radar \.radar-grid\{grid-template-columns:repeat\(6,/);
+  // Rychlé hledání: 7 dlaždic = první přes dvě řady + 6 ve třech sloupcích (bez díry)
+  assert.match(src, /#quickFlights>\.dest:first-child:nth-last-child\(7\),#flIdeas>\.dest:first-child:nth-last-child\(7\)\{grid-row:span 2\}/);
+  // nízký notebook: úvod bez vysvětlující věty; srovnání 📌 se dvěma kartami 800 px
+  assert.match(src, /@media \(min-width:1024px\) and \(max-height:820px\)\{\s*#heroBox p\{display:none\}/);
+  assert.match(src, /\.modal:has\(\.pin-modal \.pin-cards>:nth-child\(2\):last-child\)\{width:min\(800px,100%\)\}/);
+  const app = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+  assert.match(app, /const SLASH = \{ dashboard: '#heroTo input', flights: '#toInput input', explore: '#exQ', countries: '#cSearch' \}/);
+  assert.match(app, /e\.key !== '\/'.*\|\| !SLASH\[activeView\]/);
 });
 
 // Objevuj, Plánovač, Doporučení, Mapa a okna na desktopu (public/css/desktop-explore.css)
