@@ -34,7 +34,8 @@ zpět** najde nádraží ve vzdálenosti podle zvolené délky a naplánuje jíz
 Režim **🥾 Pěšky** naplánuje pěší okruh 5–30 km (značené trasy, čas chůze podle DIN 33466). U každého dne výletu i u trasy
 je **předpověď počasí** (Open-Meteo) a když má pršet, ATLAS navrhne lepší den; na termíny za víc než 15 dní ukáže
 dlouhodobý průměr. Mapa je zdarma a bez klíče (MapLibre + OpenFreeMap, záloha OpenStreetMap) a odkazy do Google Map
-hledají místo podle názvu. Plán jde **exportovat do kalendáře** (.ics, Google Kalendář) a **sdílet odkazem**.
+hledají místo podle názvu. S volitelným bezplatným klíčem [Mapy.com](#mapycom-volitelně-zdarma) je pod trasou pěšky a na
+kole turistická mapa se značenými trasami a hledání v Objevuj najde i malé vesnice, hrady a rozhledny. Plán jde **exportovat do kalendáře** (.ics, Google Kalendář) a **sdílet odkazem**.
 
 K tomu zůstalo vše z původního ATLAS: mapa navštívených zemí, přehled všech 197 zemí s cenovou hladinou, nejlepšími
 měsíci, průměrnými teplotami a aktuálními varováními MZV ČR, doporučení podle měsíce a plánovač cest. Nově u každé
@@ -1108,7 +1109,34 @@ Zkopíruj `.env.example` na `.env`:
 | `REGIOJET_GAP_MS` | `1000` | nejmenší odstup dotazů na RegioJet (ms) |
 | `FUEL_LIVE` | `1` | `0` = ceny paliva bez sítě (vestavěné orientační ceny s datem místo ČSÚ a Oil Bulletinu) |
 | `FUEL_TIMEOUT_MS` | `8000` | timeout stahování cen paliva z ČSÚ a Oil Bulletinu (ms) |
+| `MAPY_API_KEY` | – | volitelné, zdarma: [Mapy.com](#mapycom-volitelně-zdarma) – turistická mapa pod trasou pěšky a na kole, hledání vesnic, adres a míst (hrady, rozhledny) v Objevuj a záloha plánovače tras, když BRouter neodpovídá. Klíč: účet Seznam → [developer.mapy.com](https://developer.mapy.com/) → *Můj účet* → *Projekty* → *Nový projekt* (název ATLAS) → v projektu je hned první **API klíč** – ten zkopírovat do Renderu. Bez klíče vše jako dřív |
+| `MAPY_MAX_PER_HOUR` | `340` | strop kreditů Mapy.com za hodinu (dlaždice mapy 1, hledání / trasa / výškový profil 4). 340 × 720 h ≈ 245 000 < 250 000 kreditů zdarma měsíčně – volné kredity tak nedojdou ani při zneužití; nad stropem se Mapy.com do konce hodiny vynechá (mapa OpenFreeMap, trasy BRouter, hledání Open-Meteo) |
+| `TILES_RATE_LIMIT` | `300` | max. dlaždic Mapy.com z jedné IP za 10 minut (jen ty mimo mezipaměť serveru) |
 | `ATLAS_MOCK` | `0` | `1` = demo data (totéž co `npm run demo`) |
+
+### Mapy.com (volitelně, zdarma)
+
+S klíčem `MAPY_API_KEY` (postup v tabulce výše; základní tarif dává **250 000 kreditů měsíčně zdarma**, bez karty – když
+dojdou, služba do konce měsíce stojí, placená spotřeba se bez výslovného zapnutí nezapne) ATLAS přidá:
+
+- **🗺️ Turistickou mapu** (Mapy.com *outdoor*, značené turistické a cyklotrasy) pod trasu 🥾 Pěšky, 🚴 Na kole
+  i 🚆 Vlakem tam, na kole zpět. Ostatní mapy zůstávají OpenFreeMap. Nad mapou je logo Mapy.com a copyright
+  („© Seznam.cz a.s. a další“), jak vyžadují [podmínky](https://developer.mapy.com/cs/rest-api/atributovani/).
+- **🔎 Hledání míst v Objevuj** doplněné o našeptávač Mapy.com: vesnice a části obcí, adresy, hrady, rozhledny, chaty –
+  i ty, které geokódování Open-Meteo (GeoNames) nezná. Větší města zůstávají první, stejné místo z obou zdrojů se ukáže
+  jednou, pod návrhy je „Hledají i Mapy.com“. Ostatní hledání (lety, průvodce cestou) se nemění.
+- **🧭 Zálohu plánovače tras:** když veřejný BRouter neodpovídá (výpadek, přetížení, timeout), trasu pěšky / na kole
+  naplánuje Mapy.com (`foot_hiking`, `bike_road`, `bike_mountain`), výšky z jejich výškového profilu; okruh dané délky
+  přes body na kružnici jako u BRouteru. Taková trasa nemá rozbor povrchu a cest (ten dává jen BRouter z OpenStreetMap)
+  a pod ní je „Plánují Mapy.com“. Po výpadku jde 5 minut každá nová trasa rovnou na Mapy.com. Když BRouter jede,
+  trasy dál plánuje on – rozbor povrchu, značených tras a cyklostezek zůstává a kredity se šetří.
+
+**Klíč zůstává na serveru:** dotazy jdou z ATLASu s hlavičkou `X-Mapy-Api-Key` a dlaždice mapy si prohlížeč bere přes
+server (`/api/tiles/mapy/…`). Mapy.com sice umí klíč pro prohlížeč omezit na doménu, jenže hlavičku Referer podvrhne
+každý skript – cizí by pak vyčerpal volné kredity. Přes server navíc platí hodinový strop kreditů (`MAPY_MAX_PER_HOUR`),
+limit na IP, mezipaměť (dlaždice ~24 MB v paměti serveru a týden v prohlížeči, návrhy a trasy 7 dní) a stačí jeden
+klíč v Renderu. Pojistka: odmítnutý klíč nebo došlé kredity (HTTP 401/403) → hodinu bez Mapy.com, 429 → podle
+Retry-After, výpadek 3× po sobě → 5 minut; vše pak běží jako bez klíče. Stav je v `/api/health` (`maps`).
 
 ### Nasazení na internet (trvalý odkaz)
 
@@ -1383,7 +1411,9 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 
 | Endpoint | |
 |---|---|
-| `GET /api/health` | stav zdrojů, kurzy |
+| `GET /api/health` | stav zdrojů (`providers` = zdroje cen, `maps` = Mapy.com: zapnuto, pojistka, kredity za hodinu), kurzy |
+| `GET /api/geocode?q=Karlštejn&mapy=1` | města a místa (střed, ne letiště) z Open-Meteo; `mapy=1` (hledání v Objevuj) s klíčem Mapy.com i jejich návrhy (`src: "mapy"`) |
+| `GET /api/tiles/mapy/{set}/{z}/{x}/{y}[@2x]` | dlaždice Mapy.com přes server (jen s `MAPY_API_KEY`): `set` `basic` / `outdoor` / `winter` / `aerial`, `z` 0–20, `@2x` jen `basic` a `outdoor`; neplatná 400, bez klíče 404, strop kreditů / chyba Mapy.com 503 |
 | `GET /api/places?q=vid` | našeptávač (`ap:VIE`, `metro:LON`, `cc:CZ`, `rg:kanary`, `geo:lat,lon\|Název`) |
 | `GET /api/origins?from=ap:BRQ&radius=200` | letiště, která se prohledají, se vzdáleností a cestou na letiště (`ground`); volitelně jako u hledání `groundMode`, `kmRate`, `carFuel`, `carCons`, `carPrice` (dřívější `carKmCzk`), `adults`, `trip=oneway` a `nights` (autem parkování na typickou délku cesty, výchozí 7) a `own=VIE:350,BTS:270` (🏠 vlastní ceny na letiště, jako `accessOverride` u hledání). Odpověď má i `access` (použité volby a `fuelCc` – země domova, jejíž cena nafty a benzínu platí) |
 | `GET /api/nearby?lat=49.2&lon=16.6&radius=250` | letiště v okolí bodu (nejvýš 15) s cestou na letiště (`ground`); volby jako u `/api/origins` (výchozí veřejnou dopravou), odpověď má i `access` |
@@ -1402,6 +1432,7 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `POST /api/bike` | okruh na kole: `lat`, `lon`, `km` (5–150), `bike` (`road`, `trekking`, `gravel`, `mtb`), `scenery` (`city`, `mixed`, `nature`), `hills` (`flat`, `normal`, `hilly`), `variant` (jiná trasa, 0–9 = deset různých směrů okruhu) → délka, stoupání, čas, povrch, geometrie a odkazy do Mapy.com / Google Map |
 | `POST /api/bike` (`kind: "train"`) | „Vlakem tam, na kole zpět“: navíc `label` a `cc` domova; odpověď má `station { name, lat, lon, cc }` a `train { idosUrl, googleUrl }`, trasa vede z nádraží domů. 404 = v dosahu není vhodné nádraží |
 | `POST /api/hike` | pěší okruh: `lat`, `lon`, `km` (2–40), `scenery`, `hills`, `variant` → jako `/api/bike` + `trailPct` (značené trasy), `roadPct`, `descent`; čas chůze podle DIN 33466 |
+| | `/api/bike` i `/api/hike` s klíčem Mapy.com: `tiles: "mapy"` = pod trasu turistickou mapu; `source: "mapy"` = trasa ze zálohy Mapy.com (`…Pct` pak `null`, `ascent` `null`, když nevyšel výškový profil) |
 | `GET /api/climate?iata=BKK` / `?lat=&lon=` / `?cc=TH` | dlouhodobé podnebí: `hi[12]`, `lo[12]` (průměrná denní maxima a minima °C), `p[12]` (srážky mm/měsíc), `src` (`wmo` / `ghcn` = meteostanice, `nasa` = model) a `source` (popis zdroje); země bez údajů (`?cc=AD`) vrací `{ none: true }` |
 | `POST /api/itinerary` | rozplánování míst do dnů (`lat`, `lon`, `start`, `end`, `arrivalTime`, `departureTime`, `pace`, `interests`, `exclude`, `include`, `radius` – okruh míst jako u `/api/poi`, 1–25 km, výchozí 10) |
 | `GET /api/diag` | živý test, jestli server dosáhne na jednotlivé zdroje |
@@ -1732,4 +1763,6 @@ vzdušnou čarou (Řím → Neapol ~590 Kč, Lisabon → Porto ~830 Kč, Barcelo
   (© OpenMapTiles, data © přispěvatelé OpenStreetMap, ODbL), záloha dlaždice OpenStreetMap.
 - Trasy na kole a přejezdy autem mezi místy trasy: [BRouter](https://brouter.de/) (veřejný server, bez klíče; jiný
   server přes `BROUTER_URL`), data © přispěvatelé OpenStreetMap. Odkazy do [Mapy.com](https://mapy.com/) přes jejich veřejné URL API (bez klíče).
+- Volitelně (`MAPY_API_KEY`): [REST API Mapy.com](https://developer.mapy.com/) – turistická mapa, našeptávač míst,
+  plánování tras a výškový profil, © Seznam.cz, a.s. a další; logo a copyright podle jejich pravidel atribuce.
 - Původní jednosouborová verze aplikace je pro srovnání v `legacy/ATLAS-puvodni.html`.

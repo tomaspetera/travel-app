@@ -36,6 +36,12 @@ export const config = {
   // Totéž z Unsplash (unsplash.com/developers – zdarma, v ukázkovém režimu 50 dotazů/h): když Pexels klíč nemá nebo
   // fotku nenajde. Fotky se vkládají přímo z Unsplash a u fotky je autor s odkazem (podmínky Unsplash API).
   unsplashKey: env.UNSPLASH_ACCESS_KEY || '',
+  // Mapy.com (developer.mapy.com – zdarma 250 000 kreditů měsíčně): turistická mapa u tras pěšky a na kole, hledání míst
+  // v Objevuj a záloha plánovače tras (server/lib/mapy.js). Bez klíče vše jako dřív (OpenFreeMap, Open-Meteo, BRouter).
+  mapyKey: (env.MAPY_API_KEY || '').trim(),
+  // Strop kreditů Mapy.com za hodinu (dlaždice 1, hledání / trasa / výškový profil 4): 340 × 720 h ≈ 245 000 < 250 000
+  // zdarma – volné kredity nedojdou ani při zneužití; nad stropem se Mapy.com do konce hodiny vynechá.
+  mapyMaxPerHour: num(env.MAPY_MAX_PER_HOUR, 340),
   // Hotely s cenou a hodnocením (liteapi.travel). Bez klíče jen odkazy na Booking/Airbnb/Google.
   liteapiKey: env.LITEAPI_KEY || '',
   // Volitelná white-label rezervační stránka LiteAPI (např. moje.nuitee.link) – jinak odkaz na Booking.com.
@@ -57,4 +63,6 @@ export const config = {
   // Objevuj (místa, program, výlety, kolo, pěšky): vlastní limit, do hledání se nepočítá; odpověď celá z mezipaměti
   // serveru (stejné místo podruhé, návrat do Objevuj) se nepočítá vůbec
   explorePer10Min: num(env.EXPLORE_RATE_LIMIT, 3 * num(env.SEARCH_RATE_LIMIT, 40)),
+  // Dlaždice Mapy.com přes server (/api/tiles/mapy/…): z jedné IP za 10 minut nejvýš tolik dlaždic mimo mezipaměť serveru.
+  tilesPer10Min: num(env.TILES_RATE_LIMIT, 300),
 };

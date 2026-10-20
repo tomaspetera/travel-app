@@ -118,8 +118,12 @@
   };
   // Enter v hledání: návrhy k právě napsanému textu → vyber; jinak (čeká se, stará odpověď, chyba) hledej hned.
   const enterAction = ({ text, sugFor, count, err }) => (text.length < 2 ? 'none' : sugFor === text && !err ? (count ? 'pick' : 'none') : 'fetch');
+  // Logo Mapy.com (podmínka jejich API): u návrhů z Mapy.com („Hledají i Mapy.com“) a nad turistickou mapou.
+  const MAPY_LOGO = 'https://api.mapy.com/img/api/logo.svg';
+  const mapyBy = what => `<a class="mapy-by" href="https://mapy.com/" target="_blank" rel="noopener">${what} <img src="${MAPY_LOGO}" alt="Mapy.com" height="14"></a>`;
   const sugHtml = (sugs, act, err) => (err ? '<div class="pi-empty">Hledání míst teď nefunguje – zkus to za chvíli</div>'
     : sugs.length ? (sugs[0].fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '') + sugs.map((s, i) => `<div class="pi-opt ${i === act ? 'on' : ''}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span></div>`).join('')
+      + (sugs.some(s => s.src === 'mapy') ? `<div class="pi-by">${mapyBy('Hledají i')}</div>` : '')
       : '<div class="pi-empty">Nic nenalezeno</div>');
 
   // Čekání: rovnou poctivý odhad, po SLOW_MS výslovnější vysvětlení (spinner zůstává).
@@ -295,9 +299,41 @@
     document.head.appendChild(sc);
   }));
 
+  // 🗺️ Turistická mapa Mapy.com (outdoor, značené trasy) pod trasou pěšky a na kole – jen když ji server nabízí
+  // (odpověď trasy má tiles: 'mapy', na serveru je klíč MAPY_API_KEY). Dlaždice jdou přes server (/api/tiles/mapy/…),
+  // klíč v prohlížeči není. Nad mapou logo Mapy.com a copyright (podmínky API); po 3 chybách dlaždic se vrstva sundá
+  // a zůstane OpenFreeMap. Na displejích s vyšší hustotou dlaždice @2x (stejný kredit, ostřejší).
+  const MAPY_SRC = 'mapy-outdoor';
+  const mapyTiles = () => `${new URL('api/tiles/mapy/outdoor/', document.baseURI).href}{z}/{x}/{y}${(window.devicePixelRatio || 1) > 1.4 ? '@2x' : ''}`;
+  const mapyCtl = () => ({
+    onAdd() {
+      const d = document.createElement('div');
+      d.className = 'maplibregl-ctrl mapy-attr';
+      d.innerHTML = `<a href="https://mapy.com/" target="_blank" rel="noopener"><img src="${MAPY_LOGO}" alt="Mapy.com" height="30"></a><a class="mapy-c" href="https://api.mapy.com/copyright" target="_blank" rel="noopener">© Seznam.cz a.s. a další</a>`;
+      this.el = d;
+      return d;
+    },
+    onRemove() { this.el.remove(); },
+  });
+  function setOutdoor(ms, on) {
+    ms.outdoor = on;
+    const map = ms.map;
+    if (!map || !ms.styleReady) return; // po načtení stylu (style.load) znovu
+    const want = on && !ms.mapyFailed;
+    if (want && !map.getLayer(MAPY_SRC)) {
+      if (!map.getSource(MAPY_SRC)) map.addSource(MAPY_SRC, { type: 'raster', tiles: [mapyTiles()], tileSize: 256, maxzoom: 18 });
+      map.addLayer({ id: MAPY_SRC, type: 'raster', source: MAPY_SRC }, map.getLayer('atlas-lines') ? 'atlas-lines' : undefined);
+    } else if (!want && map.getLayer(MAPY_SRC)) {
+      map.removeLayer(MAPY_SRC);
+      map.removeSource(MAPY_SRC);
+    }
+    if (want && !ms.mapyCtl) map.addControl(ms.mapyCtl = mapyCtl(), 'bottom-left');
+    else if (!want && ms.mapyCtl) { map.removeControl(ms.mapyCtl); ms.mapyCtl = null; }
+  }
+
   /** Vrátí stav mapy hned; samotná mapa vznikne po načtení knihovny (ms.ready). */
   function makeMap(el, center) {
-    const ms = { map: null, markers: [], lines: null, raster: false, errors: 0 };
+    const ms = { map: null, markers: [], lines: null, raster: false, errors: 0, mapyErrors: 0 };
     el.innerHTML = '<div class="map-fallback"><span class="spin dark"></span></div>';
     ms.ready = loadMapLib().then(() => initMap(ms, el, center), e => { ms.dead = true; mapFallback(el, center, e.message); });
     return ms;
@@ -356,6 +392,8 @@
     // Nenačtený styl nebo popis zdroje dlaždic (TileJSON) = mapa by zůstala prázdná → hned záloha;
     // jednotlivé dlaždice až po několika chybách (chybějící ikonky/písma nevadí).
     map.on('error', e => {
+      // turistická mapa Mapy.com je jen nadstavba: její chyby podklad nepřepínají, po třech se vrstva sundá
+      if (e.sourceId === MAPY_SRC) { if (++ms.mapyErrors >= 3) { ms.mapyFailed = true; setOutdoor(ms, ms.outdoor); } return; }
       if (!ms.styleReady || (e.sourceId && !e.tile) || (e.tile && ++ms.errors >= 3)) toRaster();
     });
     // Dlaždice, které se „zaseknou“ (požadavek visí bez chyby), by nechaly mapu prázdnou: když po
@@ -369,6 +407,7 @@
     map.on('style.load', () => {
       ms.styleReady = true;
       clearTimeout(timer);
+      if (ms.outdoor) setOutdoor(ms, true); // pod čáry tras (i po přepnutí na záložní OpenStreetMap)
       addLines(ms);
       clearTimeout(watchdog);
       tiles = 0;
@@ -395,10 +434,11 @@
   /**
    * pts: [{ id, lat, lon, color, num?, big?, label, place }], lines: [{ color, coords:[[lon,lat],…] }]
    */
-  function paintMap(ms, center, pts, lines, onClick, fitIds) {
+  function paintMap(ms, center, pts, lines, onClick, fitIds, outdoor = false) {
     if (!ms) return;
-    if (!ms.map) { ms.ready.then(() => ms.map && paintMap(ms, center, pts, lines, onClick, fitIds)); return; }
+    if (!ms.map) { ms.ready.then(() => ms.map && paintMap(ms, center, pts, lines, onClick, fitIds, outdoor)); return; }
     const map = ms.map;
+    setOutdoor(ms, outdoor);
     ms.markers.forEach(m => m.remove());
     ms.markers = [];
     ms.byId = new Map();
@@ -522,7 +562,7 @@
       const st = r.station;
       pts.push({ id: 'station', lat: st.lat, lon: st.lon, color: '#0ea5e9', num: '🚆', big: true, label: `🚆 ${st.name} – start jízdy`, q: /nádr|station|bahnhof|hbf/i.test(st.name) ? st.name : `${st.name} nádraží` });
     }
-    paintMap(state.map, center, pts, [{ color: col, coords: r.geometry.map(c => [c[0], c[1]]), solid: true, fit: true }]);
+    paintMap(state.map, center, pts, [{ color: col, coords: r.geometry.map(c => [c[0], c[1]]), solid: true, fit: true }], null, null, r.tiles === 'mapy');
   }
 
   /* ---------- počasí (weather.js: předpověď Open-Meteo, dál než 15 dní dlouhodobý průměr) ---------- */
@@ -1205,7 +1245,8 @@
       if (ctl) ctl.abort();
       const my = ctl = new AbortController();
       try {
-        const j = await getJson('api/geocode?q=' + enc(text), { signal: my.signal });
+        // mapy=1: s klíčem Mapy.com na serveru i jejich návrhy (vesnice, adresy, hrady, rozhledny…)
+        const j = await getJson('api/geocode?mapy=1&q=' + enc(text), { signal: my.signal });
         if (my !== ctl) return null;
         // 🌍 země („Francie – celá země“) před městy; geokódovaný střed té země (bod uprostřed Francie) ne
         const cs = countrySugs(text), names = new Set(cs.map(x => foldName(countryCs(x.ccPick))));
@@ -1696,10 +1737,11 @@
   const slug = s => String(s || 'trasa').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'trasa';
   const routeName = (r, center) => (r.activity === 'hike' ? `Pěšky z: ${center.label} – ${num(r.km)} km`
     : r.kind === 'train' ? `Na kole z: ${r.station.name} do: ${center.label} – ${num(r.km)} km` : `Na kole z: ${center.label} – ${num(r.km)} km`);
-  // Řádky do plánovače (den výletu).
-  const routeLines = (r, center) => (r.activity === 'hike' ? [`🥾 Pěšky: ${num(r.km)} km, ↗ ${r.ascent} m, ~${minTxt(r.minutes)} chůze`]
-    : r.kind === 'train' ? [`🚆 Vlakem: ${center.label} → ${r.station.name}`, `🚴 Na kole zpět: ${num(r.km)} km, ↗ ${r.ascent} m, ~${minTxt(r.minutes)} (${BIKE_LBL[r.bike] || ''})`]
-    : [`🚴 Okruh na kole: ${num(r.km)} km, ↗ ${r.ascent} m, ~${minTxt(r.minutes)} (${BIKE_LBL[r.bike] || ''})`]);
+  // Řádky do plánovače (den výletu). Stoupání chybí jen u trasy z Mapy.com bez výškového profilu (ascent null).
+  const upTxt = r => (r.ascent != null ? `↗ ${r.ascent} m, ` : '');
+  const routeLines = (r, center) => (r.activity === 'hike' ? [`🥾 Pěšky: ${num(r.km)} km, ${upTxt(r)}~${minTxt(r.minutes)} chůze`]
+    : r.kind === 'train' ? [`🚆 Vlakem: ${center.label} → ${r.station.name}`, `🚴 Na kole zpět: ${num(r.km)} km, ${upTxt(r)}~${minTxt(r.minutes)} (${BIKE_LBL[r.bike] || ''})`]
+    : [`🚴 Okruh na kole: ${num(r.km)} km, ${upTxt(r)}~${minTxt(r.minutes)} (${BIKE_LBL[r.bike] || ''})`]);
 
   // Povrch a druh cesty jsou dvě různá měřítka (nezpevněná cyklotrasa patří do obou, cyklopruh vede i po rušné
   // silnici) – vedle sebe se nesčítají. Každé zvlášť jako pruh do 100 %; při překryvu má přednost varování
@@ -1718,6 +1760,7 @@
   }
   const SURF_COL = { paved: '#94a3b8', unpaved: '#b45309', cycle: '#22c55e', trail: '#f97316', other: '#64748b', busy: '#ef4444', road: '#ef4444' };
   function surfaceHtml(r) {
+    if (r.unpavedPct === null) return ''; // trasa z Mapy.com (záloha) povrch a druh cesty nevrací
     const rows = surfaceRows(r).map(({ label, parts }) => `<div class="surf-row"><span class="surf-l">${label}</span><span class="surf-bar">${
       parts.map(x => `<i style="width:${x.pct}%;background:${SURF_COL[x.k]}"></i>`).join('')}</span><span class="surf-k">${
       parts.map(x => `<span${x.tip ? ` title="${esc(x.tip)}"` : ''}><i style="background:${SURF_COL[x.k]}"></i>${x.name} ${x.pct} %</span>`).join(' · ')}</span></div>`).join('');
@@ -1750,7 +1793,7 @@
       ${wxSlot(train ? st : center, date, true)}
       ${sunSlot(train ? st : center, date, late ? '23:59' : toHm(back.back), `Počítám se startem v 9:00${back.train ? ` (vlakem ~${minTxt(back.train)})` : ''} a s přestávkami – zpět kolem ${toHm(back.back)}${late ? ' (po půlnoci)' : ''}.`)}
       ${trainHtml}
-      <div class="bike-stats">${train ? '<span>🚴 Na kole zpět:</span>' : ''}<b>${num(r.km)} km</b><span>↗ ${r.ascent} m stoupání</span>${train ? `<span>↘ ${r.descent ?? r.ascent} m klesání</span>` : ''}<span>⏱️ ~${minTxt(r.minutes)} ${hike ? 'chůze' : 'v sedle'}</span></div>
+      <div class="bike-stats">${train ? '<span>🚴 Na kole zpět:</span>' : ''}<b>${num(r.km)} km</b>${r.ascent != null ? `<span>↗ ${r.ascent} m stoupání</span>` : ''}${train && r.ascent != null ? `<span>↘ ${r.descent ?? r.ascent} m klesání</span>` : ''}<span>⏱️ ~${minTxt(r.minutes)} ${hike ? 'chůze' : 'v sedle'}</span></div>
       ${surfaceHtml(r)}
       ${r.via.length ? `<div class="dp-walk">👀 Po cestě: ${r.via.map((v, i) => `${i + 1}. ${esc(v.name)}`).join(' · ')}</div>` : ''}
       ${elevSvg(r.geometry, routeColor(r))}
@@ -1761,7 +1804,9 @@
         <a class="btn" href="${esc(safeUrl(r.mapyUrl))}" target="_blank" rel="noopener">Otevřít v Mapy.com ↗</a>
         <a class="btn" href="${esc(safeUrl(r.googleUrl))}" target="_blank" rel="noopener">Google Maps ↗</a>
       </div></div>
-      <div class="faint" style="font-size:11.5px;margin-top:6px">${hike
+      <div class="faint" style="font-size:11.5px;margin-top:6px">${r.source === 'mapy'
+        ? `${train ? 'Nádraží: Wikidata. ' : ''}Trasa: ${mapyBy('Plánují')} – plánovač BRouter teď neodpovídá, proto bez rozboru povrchu a cest${r.ascent != null ? '; výšky z výškového profilu Mapy.com' : ''}. ${hike ? 'Čas chůze podle turistického vzorce DIN 33466, bez přestávek.' : 'Čas je odhad Mapy.com, bez zastávek.'}`
+        : hike
         ? 'Trasa: BRouter (profil pěší turistiky) nad mapou © OpenStreetMap. Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu), bez přestávek. „Spíš rovina“ se vyhýbá stoupání, „Do kopců“ dává přednost pěšinám a horským stezkám (kopce ale plánovač sám nevyhledá).'
         : `${train ? 'Nádraží: Wikidata. ' : ''}Trasa: BRouter (brouter.de) nad mapou © OpenStreetMap. Čas je odhad podle kola a převýšení, bez zastávek.`}
         GPX nahraješ do Mapy.com, Garminu, Komootu či Stravy; odkazy do Mapy.com a Google Map vedou trasu přes několik bodů, takže se může mírně lišit.</div>`;

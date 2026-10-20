@@ -440,6 +440,25 @@ test('povrch trasy: dva pruhy, každý přesně do 100 % (údaje serveru se pře
   assert.match(T.routeHtml(ROUTE(), BCN_C, '2026-10-12'), /class="surf"/);
 });
 
+test('Mapy.com: logo u návrhů z Mapy.com; trasa ze zálohy Mapy.com bez rozboru povrchu, s logem, bez stoupání, když chybí výšky', () => {
+  const sug = T.sugHtml([{ label: 'Karlštejn', sub: 'Hrad · Středočeský kraj', flag: '🇨🇿', src: 'mapy' }, { label: 'Praha' }], 0, false);
+  assert.match(sug, /<div class="pi-by"><a class="mapy-by" href="https:\/\/mapy\.com\/" target="_blank" rel="noopener">Hledají i <img src="https:\/\/api\.mapy\.com\/img\/api\/logo\.svg" alt="Mapy\.com" height="14"><\/a><\/div>$/);
+  assert.equal(sug.match(/data-i=/g).length, 2, 'řádek s logem není návrh');
+  assert.ok(!T.sugHtml([{ label: 'Praha' }], 0, false).includes('mapy'), 'bez Mapy.com bez loga');
+  const NIL = { unpavedPct: null, cyclePct: null, trailPct: null, roadPct: null, busyPct: null, source: 'mapy' };
+  const h = T.routeHtml(ROUTE(NIL), BCN_C, '2026-10-12');
+  assert.ok(!h.includes('class="surf"'), 'povrch Mapy.com nevrací – žádné pruhy „zpevněný 100 %“');
+  assert.match(h, /Trasa: <a class="mapy-by" href="https:\/\/mapy\.com\/"[^>]*>Plánují <img[^>]*alt="Mapy\.com"/);
+  assert.match(h, /BRouter teď neodpovídá/);
+  assert.match(h, /↗ 320 m stoupání/);
+  assert.match(h, /výšky z výškového profilu Mapy\.com/);
+  const noEle = T.routeHtml(ROUTE({ ...NIL, ascent: null, descent: null, kind: 'train', station: { name: 'Vic', lat: 41.93, lon: 2.25, cc: 'ES' }, train: { googleUrl: 'https://www.google.com/maps/dir/?api=1' } }), BCN_C, '2026-10-12');
+  assert.ok(!/stoupání|klesání|null/.test(noEle.replace(/výškového profilu/g, '')), 'bez výšek žádné „↗ null m“');
+  assert.match(noEle, /Nádraží: Wikidata\. Trasa: <a class="mapy-by"/);
+  // stará uložená trasa bez údajů o povrchu vypadá jako dřív
+  assert.match(T.routeHtml(ROUTE({ unpavedPct: undefined }), BCN_C, '2026-10-12'), /class="surf"/);
+});
+
 test('návrat po setmění: výlet s návratem po západu slunce, kolo a pěšky podle délky (start 9:00)', async () => {
   // 15 min před západem už varuje (za šera); čas bez údaje nic nehlásí
   assert.deepEqual([['19:25', '19:19'], ['19:05', '19:19'], ['19:04', '19:19'], ['17:00', '19:19'], ['19:25', null], ['', '19:19']].map(([a, b]) => T.afterDark(a, b)),
