@@ -1,0 +1,119 @@
+/* ============ DESKTOP (od 1024 px) – jeden systém rozvržení ============
+   Obsah i horní lišta v jednom kontejneru uprostřed vedle postranního panelu (--content-max, okraje --gutter): nadpis
+   stránky a tlačítka vpravo lícují s okraji obsahu, na širokém monitoru obsah nevisí vlevo s prázdnem vpravo.
+   Mřížka karet se stejně širokými kartami ve všech sekcích (--card-min), nadpisy sekcí jedním stylem a rytmem
+   (--section), nadpisy na fotkách čitelné (tmavý přechod zleva pod textem). Telefon a tablet (< 1024 px) beze změny –
+   všechna pravidla jsou jen v @media (min-width:1024px). Načítá se jako poslední styl. */
+@media (min-width:1024px){
+  :root{--content-max:1240px;--gutter:40px;--gap:24px;--section:40px;--card-min:228px}
+
+  /* ---------- kontejner: horní lišta i obsah se stejnými okraji (pozadí lišty dál přes celou šířku) ---------- */
+  .topbar{padding:20px max(var(--gutter),calc((100% - var(--content-max)) / 2)) 18px}
+  .content{max-width:none;padding:4px max(var(--gutter),calc((100% - var(--content-max)) / 2)) 72px}
+  .page-title{font-size:24px;letter-spacing:-.02em}
+  .page-sub{font-size:13px;margin-top:1px}
+
+  /* 12sloupcová mřížka pro rozvržení stránek (.d-grid > .d-span-N) */
+  .d-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--gap)}
+  .d-span-4{grid-column:span 4}.d-span-5{grid-column:span 5}.d-span-6{grid-column:span 6}.d-span-7{grid-column:span 7}.d-span-8{grid-column:span 8}.d-span-12{grid-column:1/-1}
+
+  /* ---------- nadpisy sekcí: jeden styl (písmo, velikost, odkaz vpravo na stejné účaří) a stejné mezery ---------- */
+  .section-head{margin:var(--section) 0 16px;align-items:baseline;gap:16px}
+  .section-head h2{font:800 20px/1.25 Sora,Inter,sans-serif;letter-spacing:-.02em}
+  .section-head h2 .faint{font:500 13px/1.4 Inter,sans-serif;letter-spacing:0}
+  .section-head .link,.section-head>.faint{font-size:13px;margin-left:auto}
+  .view>.section-head:first-child{margin-top:8px}
+
+  /* ---------- karty: stejná šířka (auto-fill) a mezery ve všech mřížkách ---------- */
+  .dest-grid,.radar-grid{grid-template-columns:repeat(auto-fill,minmax(var(--card-min),1fr));gap:20px}
+  .dest-grid>.dest[data-photo]{min-height:0;aspect-ratio:4/5}
+  .radar-grid>.radar-card{aspect-ratio:4/5}
+  .dest[data-photo]:hover,.radar-card:hover{transform:translateY(-3px)}
+  /* karta země bez fotky (fotka se ještě načítá nebo není): velká vlajka uprostřed místo prázdného přechodu */
+  #countryGrid>.dest[data-photo]:not(.ph) .flag{top:24px;left:50%;width:84px;height:84px;font-size:48px;
+    transform:translateX(-50%);background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.16)}
+  #countryGrid>.dest[data-photo] .flag{transition:left .3s var(--ease),width .3s var(--ease),height .3s var(--ease),font-size .3s var(--ease),transform .3s var(--ease)}
+
+  /* ---------- úvodní fotky: čitelný nadpis (tmavý přechod zleva pod textem + dole pod formulářem) ---------- */
+  .hero{padding:44px 44px 40px;border-radius:28px;margin-bottom:0}
+  .hero[data-photo]{min-height:360px}
+  .hero h1{font-size:40px;letter-spacing:-.025em;max-width:640px}
+  .hero p{font-size:16px;max-width:560px;color:rgba(255,255,255,.88)}
+  .hero.ph .hero-bg::after{background:linear-gradient(90deg,rgba(6,10,24,.74) 0%,rgba(6,10,24,.5) 34%,rgba(6,10,24,.14) 64%,rgba(6,10,24,0) 100%),
+    linear-gradient(180deg,rgba(6,10,24,.2) 0%,rgba(6,10,24,0) 38%,rgba(6,10,24,.45) 100%)}
+  .hero.ph h1,.hero.ph p{text-shadow:0 2px 18px rgba(0,0,0,.45)}
+  .hero-search2{max-width:900px;margin-top:26px;padding:10px;border-radius:20px}
+  .hero.ph .hero-search2{background:rgba(10,14,30,.5);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+  .smart-try{flex-wrap:wrap;overflow:visible;margin-top:14px;row-gap:8px}
+  /* Lety a Objevuj: pás s fotkou a nadpisem, formulář na něm (stejný přesah a odsazení) */
+  .fl-hero{height:236px;margin-bottom:-86px;border-radius:28px}
+  .fl-hero::before{background:linear-gradient(90deg,rgba(5,9,22,.72) 0%,rgba(5,9,22,.42) 36%,rgba(5,9,22,.08) 66%,rgba(5,9,22,0) 100%),
+    linear-gradient(180deg,rgba(5,9,22,.18) 0%,rgba(5,9,22,0) 40%,rgba(5,9,22,.45) 100%)}
+  .fl-hero-in{padding:30px 40px 0}
+  .fl-hero h1{font-size:34px;text-shadow:0 2px 18px rgba(0,0,0,.45)}
+  .fl-hero p{font-size:15px;margin-top:8px;text-shadow:0 1px 12px rgba(0,0,0,.55)}
+  #view-flights .search-card,.search-card.on-hero{margin-left:28px;margin-right:28px;padding:26px 28px 24px;border-radius:24px}
+
+  /* ---------- Lety: formulář v pravidelné mřížce ---------- */
+  .sf-grid{gap:20px 28px}
+  .sf-route{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  /* Cesta a Termín (sloupec na šířku přepínače) | Délka pobytu | Odlet mezi; na užším displeji Odlet mezi pod nimi */
+  .sf-when{grid-template-columns:max-content minmax(0,1fr) minmax(0,.9fr);align-items:start}
+  #exactField,#multiField{grid-column:span 2}
+  .search-card .field>label{margin-bottom:8px}
+  .search-card>.divider{margin:22px 0}
+  /* skupiny tlačítek v mřížce: přes celou šířku sloupce, Délka pobytu jako mřížka 3 × 2 (ne zubaté zalomení) */
+  .sf-when .seg{display:flex;width:100%;border-radius:16px}
+  .sf-when .seg button{flex:1 1 0;border-radius:12px;padding:8px 12px;white-space:nowrap}
+  .sf-when #lenPreset{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .sf-when #lenPreset button{padding:8px 6px}
+  /* rychlé volby termínu: řádky vyplní šířku sloupce (zarovnané okraje), text se neláme */
+  .sf-when .quick-range{gap:6px}
+  .sf-when .quick-range button{flex:1 1 auto;padding:6px 10px;text-align:center;white-space:nowrap}
+  #flexField .row>.input{flex:1 1 0;min-width:0;width:100%}
+  .sf-when .nights-row{margin-top:10px}
+  .origin-pills>.faint{font-size:13px;line-height:1.45}
+  .sf-actions{align-items:center;gap:12px !important;margin-top:22px !important}
+  .sf-actions #doSearch{padding-inline:26px}
+  .sf-actions .roll-opt{margin:0 0 0 auto}
+  .sf-actions .roll-opt[hidden]+.guide-link{margin-left:auto}
+
+  /* ---------- Cesta – úvod: vlevo fotka a „Kam chceš jet?“, vpravo „Jak to funguje“ ---------- */
+  .trip-intro{max-width:none;display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);column-gap:var(--gap);align-items:start}
+  .trip-intro>.trip-hero{grid-column:1;grid-row:1;min-height:300px}
+  .trip-intro>.trip-ask{grid-column:1;grid-row:2}
+  .trip-intro>.trip-intro-act{grid-column:1;grid-row:3}
+  .trip-intro>.trip-steps-h{grid-column:2;grid-row:1;align-self:start;margin:4px 2px 0}
+  .trip-intro>.trip-steps{grid-column:2;grid-row:1/span 3;margin:30px 0 0;gap:10px}
+  .trip-steps li{padding:14px 16px}
+
+  /* ---------- Mapa: mapa nahoře zarovnaná s panelem vpravo (pozdější .map-wrap{position:relative} v atlas.css
+     rušil „sticky“ a top:96px ji tak posouval o 96 px dolů) ---------- */
+  .map-wrap{position:sticky;top:112px}
+
+  /* ---------- Lety – výsledky: tři nejlepší cíle přes celou šířku (ne tři karty vlevo a prázdno vpravo) ---------- */
+  .dest-grid.res-top{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .dest-grid.res-top>.dest[data-photo]{aspect-ratio:16/10}
+
+  /* ---------- Doporučení: filtry ve čtyřech stejných sloupcích přes šířku karty ---------- */
+  #view-recommend>.card:first-child{padding:22px 24px !important}
+  #view-recommend>.card:first-child>.row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px !important}
+  #view-recommend>.card:first-child select{width:100%}
+  #view-countries .toolbar{gap:12px}
+}
+/* notebook do 1440 px: Odlet mezi pod Cestou a Délkou pobytu přes celou šířku (tři sloupce by byly moc úzké),
+   „Jak hledat chytře“ vlastní řádek vpravo */
+@media (min-width:1024px) and (max-width:1439px){
+  .sf-when{grid-template-columns:max-content minmax(0,1fr)}
+  #exactField{grid-column:2}
+  #flexField,#multiField{grid-column:1/-1}
+  .sf-actions .guide-link{flex-basis:100%;text-align:right}
+}
+/* menší notebook: užší postranní panel a okraje – víc místa pro obsah */
+@media (min-width:1024px) and (max-width:1279px){
+  :root{--gutter:28px}
+  .app{grid-template-columns:216px 1fr}
+  #view-flights .search-card,.search-card.on-hero{margin-left:12px;margin-right:12px;padding:22px}
+}
+/* široký monitor: o trochu širší obsah (stále uprostřed) */
+@media (min-width:1600px){:root{--content-max:1360px}}
