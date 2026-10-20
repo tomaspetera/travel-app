@@ -456,3 +456,40 @@ test('jedno místo: hotel dál než 3 km od středu města → program od centra
   assert.doesNotMatch(p2, /od centra –/);
   assert.deepEqual([o2.lat, o2.lon, o2.label, o2.startAt], [43.945, 4.818, 'Hôtel Sorgues', undefined]);
 });
+
+test('cesta přes víc míst: místo příletu na ostrově (Mallorca) leží na letišti – hotel v Palmě (~8 km) není „daleko od centra“, program kolem hotelu', () => {
+  const c = load();
+  const calls = [];
+  c.Places = c.window.Places = { renderPlanner: (host, opts) => calls.push(opts) };
+  const PMI = { key: 'PMI', id: 'ap:PMI', label: 'Mallorca', cc: 'ES', country: 'Španělsko', lat: 39.5517, lon: 2.7388 };
+  const t = { id: 'x', out: leg('PRG', 'PMI', '2026-11-10', '10:00', '12:30', 'Europe/Prague', 'Europe/Madrid'), mid: [MID], back: BACK, flightCzk: 3000, groundCzk: 200, bagCzk: 0, arrCzk: 0, perPersonCzk: 3200, totalCzk: 6400, provider: 'demo-air', combined: false, bookUrl: null, deal: { level: 'normal' } };
+  c.window.Trip.start({ t, g: { dest: PMI }, result: { origins: [], query: { adults: 2, bags: 'none' }, home: null, arrivals: {} }, stops: [PMI, BCN] });
+  const b = c.S.trip.route.bases[0];
+  b.stay = { mode: 'pick', id: 'xo:g1-d3', name: 'Hotel Palma', lat: 39.5696, lon: 2.6502, totalCzk: 3000, checkin: '2026-11-10', checkout: '2026-11-13' };
+  const p = render(c, 'program');
+  assert.doesNotMatch(p, /od centra –|program začíná v centru/);
+  assert.match(p, /\(kolem ubytování\)/);
+  assert.deepEqual([calls[0].lat, calls[0].lon, calls[0].label, calls[0].startAt], [39.5696, 2.6502, 'Hotel Palma', undefined]);
+});
+
+test('jedno místo: ostrov nebo oblast (Mallorca) – geokodér vrátí jen bod letiště, ne střed města: program kolem hotelu, ne od letiště', async () => {
+  const tick = () => new Promise((r) => setImmediate(r));
+  const c = load();
+  const calls = [];
+  c.Places = c.window.Places = { renderPlanner: (host, opts) => calls.push(opts) };
+  c.enc = encodeURIComponent;
+  // „Mallorca“ v geokodéru = poloha letiště PMI (stejná jako cíl)
+  c.fetch = async () => ({ ok: true, json: async () => ({ items: [{ lat: 39.552, lon: 2.739, label: 'Mallorca', cc: 'ES' }] }) });
+  const PMI = { key: 'PMI', id: 'ap:PMI', label: 'Mallorca', cc: 'ES', country: 'Španělsko', lat: 39.5517, lon: 2.7388 };
+  const t = { id: 'x', out: leg('PRG', 'PMI', '2026-11-10', '10:00', '12:30', 'Europe/Prague', 'Europe/Madrid'), back: leg('PMI', 'PRG', '2026-11-13', '18:00', '20:30', 'Europe/Madrid', 'Europe/Prague'), flightCzk: 3000, groundCzk: 0, bagCzk: 0, arrCzk: 0, perPersonCzk: 3000, totalCzk: 6000, provider: 'demo-air', combined: false, bookUrl: null, deal: { level: 'normal' } };
+  c.window.Trip.start({ t, g: { dest: PMI }, result: { origins: [], query: { adults: 2, bags: 'none' }, home: null, arrivals: {} } });
+  // hotel v Alcúdii (~45 km od letiště)
+  c.S.trip.stay = { mode: 'pick', id: 'xo:g1-d7', name: 'Hotel Alcúdia', totalCzk: 6000, lat: 39.853, lon: 3.121 };
+  c.S.trip.step = 'program';
+  c.window.Trip.render();
+  for (let i = 0; i < 4; i++) await tick();
+  const p = sp(c.__els['#tripStep'].innerHTML);
+  assert.doesNotMatch(p, /od centra –|program začíná v centru/);
+  assert.match(p, /kolem tvého ubytování/);
+  assert.deepEqual([calls[0].lat, calls[0].lon, calls[0].label, calls[0].startAt], [39.853, 3.121, 'Hotel Alcúdia', undefined]);
+});

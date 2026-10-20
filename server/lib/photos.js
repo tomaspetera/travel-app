@@ -102,7 +102,7 @@ export function pexelsPick(photos, names) {
 // Unsplash: odkazy zpět na Unsplash s utm (podmínky API)
 // popis fotky: město (celkový pohled, památka, ulice, pobřeží) / lidé, jídlo, zvířata, detail
 const CITYISH = /skyline|cityscape|city ?view|aerial|panoram|architecture|building|landmark|street|old ?town|cathedral|church|basilica|mosque|temple|bridge|harbou?r|port\b|coast|beach|bay\b|castle|tower|palace|square|plaza|canal|river|rooftop|historic|monument|statue of|downtown|skyscraper|houses|village|town\b|city\b/i;
-const PEOPLE = /\b(person|people|man|men|woman|women|girl|boy|child|kid|silhouettes?|portrait|crowd|couple|selfie|model|fashion|wedding|bride|hands?|face|food|dish|meal|coffee|drink|cocktail|dog|cat|bird|flower|car interior|concert|party|festival crowd|dancer|dancing)\b/i;
+const PEOPLE = /\b(person|people|man|men|woman|women|girl|boy|child|kid|silhouettes?|portrait|crowd|couple|selfie|model|fashion|wedding|bride|hands?|face|food|dish|meal|coffee|drink|cocktail|dog|cat|bird(?!['’]?s?[ -]eye)|flower|car interior|concert|party|festival crowd|dancer|dancing)\b/i;
 export const UNSPLASH_UTM = 'utm_source=atlas_letenky&utm_medium=referral';
 const UNSPLASH_RATE_MS = 15 * 6e4; // po vyčerpání limitu (ukázkový režim 50 dotazů/h) Unsplash na čtvrt hodiny vynechat
 const UNSPLASH_KEY_MS = 6 * 36e5; // neplatný klíč – na 6 h
@@ -268,18 +268,20 @@ export async function cityPhotos(titles, { pick = pickPhotos, prov = config.pexe
   let partial = false;
   for (const t of want) {
     const c = cache.get(`ph6:${prov}:${t}`);
-    if (c !== undefined) { photos[t] = c.u; if (c.by) by[t] = c.by; if (c.bu) bu[t] = c.bu; } else miss.push(t);
+    // náhradní výběr z paměti (s: do hodiny) je pořád jen na chvíli – partial, ať ho prohlížeč nedrží 30 dní
+    if (c !== undefined) { photos[t] = c.u; if (c.by) by[t] = c.by; if (c.bu) bu[t] = c.bu; if (c.s) partial = true; } else miss.push(t);
   }
   if (miss.length) {
     try {
       const got = await pick(miss);
       const soon = new Set(got.retry || []);
-      partial = Boolean(got.partial) || soon.size > 0;
+      partial = partial || Boolean(got.partial) || soon.size > 0;
       for (const t of miss) {
         photos[t] = got.photos[t] || '';
         if (got.by && got.by[t]) by[t] = got.by[t];
         if (got.bu && got.bu[t]) bu[t] = got.bu[t];
-        cache.set(`ph6:${prov}:${t}`, { u: photos[t], by: by[t] || '', ...(bu[t] ? { bu: bu[t] } : {}) }, got.partial || soon.has(t) ? 36e5 : TTL);
+        const short = Boolean(got.partial || soon.has(t));
+        cache.set(`ph6:${prov}:${t}`, { u: photos[t], by: by[t] || '', ...(bu[t] ? { bu: bu[t] } : {}), ...(short ? { s: 1 } : {}) }, short ? 36e5 : TTL);
       }
     } catch { /* výpadek – příště znovu */ }
   }
