@@ -1138,6 +1138,16 @@ docker build -t atlas . && docker run -p 8080:8080 --env-file .env atlas
 
 GitHub Pages nestačí (je to jen statický hosting bez serveru).
 
+## Na počítači
+
+Na obrazovce od 1024 px je obsah v jednom kontejneru uprostřed vedle postranního panelu (1240 px, od 1600 px 1360 px):
+nadpis stránky a tlačítka vpravo lícují s okraji obsahu a na širokém monitoru nic nevisí vlevo s prázdnem vpravo.
+Karty (radar, rychlé hledání, tipy, Objevuj, Země, Doporučení) mají ve všech sekcích stejnou šířku i poměr stran,
+nadpisy sekcí jeden styl a nadpisy na fotkách tmavý přechod zleva, aby byly čitelné. Formulář Letů je v pravidelné
+mřížce (Odkud | Kam, pod tím Cesta a Termín | Délka pobytu | Odlet mezi; do 1440 px Odlet mezi na vlastním řádku),
+úvod Cesty má vlevo fotku a „Kam chceš jet?“, vpravo „Jak to funguje“. Karta země bez fotky ukáže velkou vlajku.
+Vše je v `public/css/desktop.css` (načtený jako poslední, jen `@media (min-width:1024px)`), telefon a tablet se nemění.
+
 ## Aplikace na ploše a offline
 
 ATLAS jde přidat na plochu telefonu i počítače jako aplikaci (PWA): otevře se přes celou obrazovku bez lišty prohlížeče
