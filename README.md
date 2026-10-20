@@ -1157,6 +1157,15 @@ Srovnání 📌 odložených nabídek má karty uprostřed okna. Na Přehledu se
 „Naposledy“ má odstup od fotky a dlaždice ⭐/📌 drží mřížku karet; v Zemích je hledání a přepínač na jednom řádku
 a čtyři filtry pod nimi ve stejných sloupcích.
 
+Objevuj, Plánovač, Doporučení, Mapa a okna mají vlastní doplněk `public/css/desktop-explore.css` (po desktop.css, taky
+jen od 1024 px): v Objevuj s místem je vlevo plán a seznam míst a vpravo velká mapa přes výšku okna, která se při
+posouvání drží pod lištou; přehled celé země má mapu přes šířku a skupiny (města, cíle, UNESCO, parky) v mřížce karet.
+Mapa navštívených zemí je přes celou šířku, legenda a statistiky pod ní ve třech sloupcích. Plánovač ukáže čtyři cesty
+vedle sebe (dlaždice „Nová cesta“ stejně vysoká), dlaždice statistik na Přehledu vyplní šířku. Na širokém displeji je
+okno země ve dvou sloupcích (vlevo fotka hlavního města s názvem, vpravo údaje), náhled cíle 🔎 vlevo let, cesta
+z letiště a počasí a vpravo místa k vidění, okno cesty z plánovače širší s dny itineráře ve dvou sloupcích. Nově
+otevřené okno začíná nahoře (dřív si drželo posun z minulého).
+
 ## Aplikace na ploše a offline
 
 ATLAS jde přidat na plochu telefonu i počítače jako aplikaci (PWA): otevře se přes celou obrazovku bez lišty prohlížeče

@@ -766,7 +766,7 @@ function renderCountries() {
 function modalOpen(html) {
   const was = $('#modalBg').classList.contains('show');
   $('#modal').innerHTML = html; $('#modalBg').classList.add('show');
-  if (!was) $('#toast').classList.remove('show');
+  if (!was) { $('#toast').classList.remove('show'); $('#modal').scrollTop = 0; } // nové okno nahoře, ne s posunem z minulého
 }
 function modalClose() { $('#modalBg').classList.remove('show'); }
 $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) modalClose(); };
