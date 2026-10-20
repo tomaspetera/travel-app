@@ -289,8 +289,12 @@ details.more.ex-places>summary::before{content:none}
 .rc-opt small{display:block;color:var(--muted);font-size:12.5px;line-height:1.45}
 .route-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 .route-tools .seg button{padding:7px 11px;font-size:12.5px}
-.route-layout{grid-template-columns:1.3fr 1fr}
+.route-layout{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}
 .route-map{height:480px}
+/* seznam míst vedle mapy jen tam, kde je krok Trasa dost široký – na desktopu vedle souhrnu je sloupec úzký
+   (~650 px při 1300 px) a karta místa se smrskla na pár pixelů; pak mapa pod seznam jako na telefonu */
+#routeBody{container:route/inline-size}
+@container route (max-width:899px){.route-layout{grid-template-columns:minmax(0,1fr)}.route-map{height:340px}}
 .route-list{display:flex;flex-direction:column}
 .rb{display:grid;grid-template-columns:30px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:11px 12px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
 .rb-n,.bt-n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font:800 13px Inter,sans-serif;flex:none}
