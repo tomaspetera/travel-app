@@ -1157,6 +1157,20 @@ Srovnání 📌 odložených nabídek má karty uprostřed okna. Na Přehledu se
 „Naposledy“ má odstup od fotky a dlaždice ⭐/📌 drží mřížku karet; v Zemích je hledání a přepínač na jednom řádku
 a čtyři filtry pod nimi ve stejných sloupcích.
 
+Z průchodu uživatele na notebooku (1366×768, 1440×900) a monitoru (1920×1080), taky v `desktop-flights.css`:
+- **Nabídky hned vidět:** úvod Přehledu je nižší (na obrazovce do 820 px bez vysvětlující věty, „Zkus napsat“ na jednom
+  řádku) a přepínač Kdykoliv / Víkendy / Svátky stojí vedle poznámky „Za osobu…“ – na 1366×768 je vidět celá první řada
+  radaru (dřív žádná karta).
+- **Nižší karty:** radar s výškou podle textu (pruh na štítky nahoře) po 4 v řadě (na 1024–1279 px po 3, od 1800 px po 6
+  = 2 řady); Rychlé hledání a Nápady jako mozaika (první dlaždice přes dvě řady, 7 dlaždic bez díry); Tipy v jedné řadě;
+  Země a Doporučení po 5–6 s výškou podle textu (Přehled na 1440 px z ~3 000 na ~2 260 px).
+- **Země:** hledání a filtry se při procházení drží pod horní lištou (obrazovka od 821 px výšky).
+- **Srovnání 📌:** okno široké jako karty (1 karta 460 px, 2 karty 800 px, 3 a víc 1100 px).
+- **Klávesa „/“:** kurzor do hlavního hledání obrazovky (Přehled a Lety pole Kam, Objevuj místo, Země hledání; sbalený
+  formulář Letů se rozbalí) – ne při psaní v poli ani s otevřeným oknem; u pole Kam na Přehledu drobná nápověda „/“.
+- **Lety:** tipy „Jak ulovit nejlevnější letenku“ v plných řadách; karty se při najetí zvednou se stínem, z klávesnice
+  mají viditelný rámeček.
+
 Objevuj, Plánovač, Doporučení, Mapa a okna mají vlastní doplněk `public/css/desktop-explore.css` (po desktop.css, taky
 jen od 1024 px): v Objevuj s místem je vlevo plán a seznam míst a vpravo velká mapa přes výšku okna, která se při
 posouvání drží pod lištou; přehled celé země má mapu přes šířku a skupiny (města, cíle, UNESCO, parky) v mřížce karet.

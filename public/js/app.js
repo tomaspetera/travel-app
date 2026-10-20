@@ -1348,6 +1348,20 @@ function wireEvents() {
   // ⟳: počasí a kurz znovu; radar se obnoví s dosavadními kartami (ne šedé dlaždice) a se značkami změn od minula
   $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; save(); toast('Aktualizuji…'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') { renderDash(); Flights.renderRadar(true); } };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') modalClose(); });
+  // „/“ (na počítači, jako na webech zvykem): kurzor do hlavního hledání obrazovky – Přehled a Lety pole Kam, Objevuj
+  // místo, Země hledání; sbalený formulář Letů se rozbalí. Ne při psaní v poli a s otevřeným oknem.
+  const SLASH = { dashboard: '#heroTo input', flights: '#toInput input', explore: '#exQ', countries: '#cSearch' };
+  document.addEventListener('keydown', e => {
+    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || !SLASH[activeView]) return;
+    const t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) || $('#modalBg').classList.contains('show')) return;
+    let el = $(SLASH[activeView]);
+    if (el && !el.offsetParent && activeView === 'flights') { const ed = $('#searchSum:not([hidden]) #ssEdit'); if (ed) { ed.click(); el = $(SLASH[activeView]); } }
+    if (!el || !el.offsetParent) return;
+    e.preventDefault();
+    el.focus();
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
   // 📍 Dnes na cestě: odpočet, místní čas a půlnoc (nový den) i v otevřené aplikaci a po návratu do ní
   setInterval(() => { if (activeView === 'dashboard' && !document.hidden) renderNow(); }, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && activeView === 'dashboard') renderNow(); });

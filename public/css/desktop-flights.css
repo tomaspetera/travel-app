@@ -90,3 +90,87 @@
   #results .tr-act .tr-buy .btn{flex:none;width:100%}
   #results .tr-more{text-align:center}
 }
+
+/* ============ DESKTOP – fáze C1: uživatelský průchod (Přehled, Lety, Země, Doporučení) ============
+   Na notebooku 1366×768 nebyla nad ohybem stránky žádná nabídka (úvod s formulářem zabral celou výšku) a karty na výšku
+   4:5 dělaly z Přehledu i Zemí tisíce pixelů posouvání. Na počítači: kompaktní úvod, nižší karty radaru, Rychlé hledání
+   jako mozaika bez díry, Země a Doporučení hustěji (karta podle obsahu), srovnání 📌 tak široké jako karty. */
+@media (min-width:1024px){
+  /* ---------- Přehled: úvod nižší (nabídky radaru nad ohybem) ---------- */
+  #heroBox.hero{padding:30px 40px 24px}
+  #heroBox.hero[data-photo]{min-height:0}
+  #heroBox h1{font-size:34px}
+  #heroBox p{margin-top:6px;max-width:760px;font-size:15px}
+  #heroBox .hero-search2{margin-top:18px}
+  #heroBox .smart-try{margin-top:12px}
+  /* klávesa „/“ skočí do pole Kam (app.js) – nenápadná nápověda u popisku Kam */
+  .hero-search2 .hs-field:nth-child(2) .hs-lab::after{content:"/";display:inline-grid;place-items:center;min-width:16px;height:16px;
+    margin-left:8px;padding:0 4px;border-radius:5px;border:1px solid rgba(255,255,255,.35);font:700 10px/1 Inter,sans-serif;
+    color:rgba(255,255,255,.75);letter-spacing:0;text-transform:none;vertical-align:1px}
+
+  /* ---------- Radar: přepínač Kdykoliv/Víkendy/Svátky a poznámky („Za osobu…“) vedle sebe, ne pod sebou ---------- */
+  #radarModes:not([hidden]){float:left;margin:0 20px 14px 0}
+  #radarModes:not([hidden])~#radar>.faint{line-height:1.5;padding-top:1px}
+  #radarModes:not([hidden])~#radar>.radar-grid,#radarModes:not([hidden])~#radar>.note,#radarModes:not([hidden])~#radar>.empty,#radarLw:not([hidden]){clear:both}
+  #radar>.radar-grid{margin-top:4px}
+
+  /* ---------- Radar: nižší karty (výška podle textu místo 4:5 – nahoře jen pruh na štítky), 4 v řadě (12 karet = 3
+     řady), na menším notebooku 3, na velkém monitoru 6 (2 řady). Štítky v jednom řádku, panel s textem je nepřekryje. */
+  #radar .radar-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+  #radar .radar-grid>.radar-card{aspect-ratio:auto;min-height:200px;padding-top:48px}
+  #radar .radar-card.skel{aspect-ratio:auto;min-height:200px}
+  /* dva štítky (super cena + počasí) se v užší kartě zalomí do dvou řádků – místo i na ten druhý */
+  #radar .radar-grid>.radar-card:has(.rc-badges>.b:nth-child(2)){padding-top:80px}
+  .radar-card:focus-visible,.dest:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+  .dest[data-photo]:hover{box-shadow:0 22px 40px -20px rgba(0,0,0,.55)}
+
+  /* ---------- Rychlé hledání (Přehled) a Nápady (Lety): mozaika – první dlaždice velká přes dvě řady, ostatní nízké;
+     7 dlaždic = 4 sloupce × 2 řady bez díry vpravo dole (s ⭐ Moje cíle 8 = dvě plné řady) ---------- */
+  #quickFlights,#flIdeas{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:190px;gap:16px}
+  #quickFlights>.dest[data-photo],#flIdeas>.dest[data-photo]{aspect-ratio:auto;min-height:0;height:100%}
+  #quickFlights>.dest:first-child:nth-last-child(7),#flIdeas>.dest:first-child:nth-last-child(7){grid-row:span 2}
+  #quickFlights>.dest:first-child:nth-last-child(7) .cname,#flIdeas>.dest:first-child:nth-last-child(7) .cname{font-size:24px}
+  #quickFlights>.dest .cblurb,#flIdeas>.dest .cblurb{-webkit-line-clamp:1}
+  #quickFlights>.dest:first-child:nth-last-child(7) .cblurb,#flIdeas>.dest:first-child:nth-last-child(7) .cblurb{-webkit-line-clamp:3;font-size:13.5px}
+
+  /* ---------- Tipy na tenhle měsíc (4 tipy) v jedné řadě; Země a Doporučení hustěji – karta podle obsahu ---------- */
+  #dashRecs{grid-template-columns:repeat(4,minmax(0,1fr))}
+  #countryGrid,#recGrid{grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:16px}
+  /* výška podle textu (ne 4:5): nahoře místo na vlajku / kus fotky, panel s textem ji nikdy nepřekryje */
+  #dashRecs>.dest[data-photo],#countryGrid>.dest[data-photo],#recGrid>.dest[data-photo]{aspect-ratio:auto;min-height:0;padding-top:100px}
+  #countryGrid>.dest[data-photo]:not(.ph) .flag{top:20px;width:72px;height:72px;font-size:40px}
+
+  /* ---------- Lety: „Jak ulovit nejlevnější letenku“ – 7 tipů v plných řadách (poslední řada se roztáhne, žádná díra) */
+  #flightTips{display:flex;flex-wrap:wrap;gap:16px}
+  #flightTips>*{flex:1 1 240px;min-width:0}
+
+  /* ---------- Srovnání 📌: okno tak široké jako karty (ne dvě karty uprostřed 1100 px prázdna) ---------- */
+  .modal:has(.pin-modal .pin-cards>:only-child){width:min(460px,100%)}
+  .modal:has(.pin-modal .pin-cards>:nth-child(2):last-child){width:min(800px,100%)}
+  .modal:has(.pin-modal .pin-cards>:nth-child(3):last-child){width:min(1100px,100%)}
+}
+/* notebook: „Zkus napsat“ na jednom řádku (pátý příklad až na velkém monitoru); nízká obrazovka (768 px) bez
+   vysvětlující věty pod nadpisem – formulář s popisky mluví sám za sebe a radar je hned vidět */
+@media (min-width:1024px) and (max-width:1599px){
+  #smartTry .st-chip:nth-of-type(n+5){display:none}
+}
+/* menší notebook: radar po třech (karty dost široké na název a cenu), „Zkus napsat“ tři příklady */
+@media (min-width:1024px) and (max-width:1279px){
+  #radar .radar-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #smartTry .st-chip:nth-of-type(n+4){display:none}
+}
+@media (min-width:1024px) and (max-height:820px){
+  #heroBox p{display:none}
+}
+/* Země: hledání a filtry se při procházení 60 karet drží pod horní lištou – jiný filtr bez posouvání nahoru
+   (jen na dost vysoké obrazovce, na 768 px by zabraly moc místa) */
+@media (min-width:1024px) and (min-height:821px){
+  /* plné pozadí začíná už pod průhledným spodkem horní lišty – mezi lištou a filtry neprosvítají karty */
+  #view-countries .toolbar{position:sticky;top:80px;z-index:15;margin:-16px calc(-1 * var(--gutter)) 22px;padding:26px var(--gutter) 14px;
+    background:linear-gradient(180deg,var(--bg) calc(100% - 12px),transparent)}
+}
+/* velký monitor: radar ve dvou řadách po šesti (12 karet) */
+@media (min-width:1800px){
+  #radar .radar-grid{grid-template-columns:repeat(6,minmax(0,1fr))}
+  #radar .radar-grid>.radar-card,#radar .radar-card.skel{min-height:220px}
+}
