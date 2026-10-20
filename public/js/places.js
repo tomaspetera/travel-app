@@ -1514,9 +1514,14 @@
       <div class="dp-walk">${legTxt(transit, s.travelKm, s.travelMin, fromQ, q, `${dayLbl(date)} ~${s.depart}`)} · ${transit ? `odjezd ~${esc(s.depart)} · ` : ''}příjezd ~${esc(s.arrive)} · na místě ~${minTxt(s.visitMin)}</div>
       ${s.highlights?.length ? `<div class="dp-walk">👀 Uvidíš: ${esc(s.highlights.join(', '))}</div>` : ''}
       ${s.extract ? `<div class="poi-desc" style="-webkit-line-clamp:2">${descHtml(s.extract, s.descLang)}</div>` : ''}
-      <div class="poi-acts">${s.url ? `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}<a href="${esc(gmSearch(q))}" target="_blank" rel="noopener">Google Maps ↗</a></div></div>
+      <div class="poi-acts">${s.url ? `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}<a href="${esc(gmSearch(q))}" target="_blank" rel="noopener">Google Maps ↗</a>${transit ? '' : wazeLink(s)}</div></div>
       <button type="button" title="Vyřadit z výletu" data-tdrop="${esc(s.id)}">✕</button></div>`;
   }
+  // Výlet autem: navigace na zastávku ve Waze (otevře aplikaci v mobilu, jinak web; SearchHelp.wazeUrl)
+  const wazeLink = s => {
+    const u = window.SearchHelp && window.SearchHelp.wazeUrl({ lat: s.lat, lon: s.lon });
+    return u ? `<a class="app-chip" href="${esc(safeUrl(u))}" target="_blank" rel="noopener" title="${esc(`Navigace autem ve Waze – ${s.name || ''}`)}">🚗 Navigovat ve Waze</a>` : '';
+  };
 
   function tripHtml(trip, center) {
     if (!trip) return '';

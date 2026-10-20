@@ -375,7 +375,7 @@ test('nowParts: trasa přes víc míst (místo a hotel toho dne), vlak místo le
   const it = saved(italy()), at = (t, iso) => { const n = Date.parse(iso); return C.nowParts(C.tripNow([t], n), n); };
   const p13 = at(it, '2026-11-13T12:00:00Z');
   assert.equal(p13.place, 'Florencie', 'v den přejezdu se spí na dalším místě');
-  assert.deepEqual(plain(p13.hotel), { name: 'U kamaráda', q: 'U kamaráda, Florencie, Itálie' });
+  assert.deepEqual(plain(p13.hotel), { name: 'U kamaráda', q: 'U kamaráda, Florencie, Itálie', car: true }, 's půjčeným autem (k navigaci i Waze)');
   assert.deepEqual(plain(p13.rows.map((r) => r[1])), ['🚗', '🏨']);
   assert.equal(p13.shift, 0, 'Itálie má stejný čas jako Praha');
   const p17 = at(it, '2026-11-17T12:00:00Z');
@@ -396,6 +396,19 @@ test('nowParts: trasa přes víc míst (místo a hotel toho dne), vlak místo le
   const hx = C.nowCard(C.tripNow([x], n), C.nowParts(C.tripNow([x], n), n));
   assert.ok(!/<img|<script/.test(hx), hx);
   assert.ok(hx.includes('<b>&lt;img src=x onerror=alert(1)&gt;</b>') && hx.includes('<span>🔖 &lt;b&gt;</span><code>&quot;&gt;&lt;script&gt;</code>'), hx);
+});
+
+test('Na cestě s autem: Waze u přejezdu do dalšího místa (poloha místa) a u hotelu (hledání podle názvu)', () => {
+  const CS = load();
+  vm.runInContext(src('searchhelp.js'), CS, { filename: 'searchhelp.js' });
+  const it = saved(italy()), n = Date.parse('2026-11-13T12:00:00Z'), x = CS.tripNow([it], n), h = CS.nowCard(x, CS.nowParts(x, n));
+  const wz = [...h.matchAll(/href="(https:\/\/waze\.com\/[^"]+)"/g)].map((m) => new URL(m[1].replace(/&amp;/g, '&')));
+  // nahoře u hotelu hledání podle názvu, v řádku přejezdu navigace na polohu místa
+  assert.deepEqual(wz.map((u) => u.searchParams.get('q') || u.searchParams.get('ll')), ['U kamaráda, Florencie, Itálie', '43.7696,11.2558'], h);
+  assert.equal(wz[1].searchParams.get('navigate'), 'yes');
+  // bez auta (vlak do Vídně): žádný Waze
+  const v = saved(vienna()), nv = Date.parse('2026-11-04T12:00:00Z'), xv = CS.tripNow([v], nv);
+  assert.ok(!/waze\.com/.test(CS.nowCard(xv, CS.nowParts(xv, nv))));
 });
 
 test('tripNow + nowParts: spoj bez času – žádný vymyšlený odpočet ani poledne; „Sbaleno“ celý den odletu, v cíli až po půlnoci', () => {

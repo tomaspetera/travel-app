@@ -1195,6 +1195,26 @@ Program je přes celou šířku s mapou přilepenou vedle dnů a zastávkami dne
 vlevo průběh cesty, vstup a Co zařídit, vpravo cena, rezervace a tlačítka. Na telefonu je přehled skrytý (cena je
 v hlavičce) a rozvržení kroků stejné jako dřív.
 
+## Odkazy do aplikací v telefonu
+
+Aplikace na cestování většinou veřejné API nemají, ATLAS je proto otevírá **odkazem**. Je-li aplikace v telefonu,
+otevře se ona, jinak její web. Odkazy jsou malé štítky vedle odkazu na trasu (`SearchHelp.wazeUrl`, `PID_APP`, `pidLeg`):
+
+- **🚗 Navigovat ve Waze** (oficiální formát `https://waze.com/ul?ll=LAT,LON&navigate=yes`, developers.google.com/waze/deeplinks,
+  ověřeno 20. 10. 2026; souřadnice na 5 desetinných míst). Ukáže se u úseků autem:
+  - autem na letiště odletu (poloha letiště z hledání) a z letiště domů (`favorite=home` – adresa Domov uložená ve Waze);
+  - z letiště do prvního místa, přejezdy mezi místy a z posledního místa na letiště (krok Trasa i Průběh cesty);
+  - zastávky výletu autem v Objevuj;
+  - v kartě 📍 Dnes na cestě u hotelu, jen u cesty s půjčeným autem. Tam jde o hledání podle názvu (`q=`), protože hotel polohu nemá.
+- **🎫 Jízdenka v PID Lítačka**: u cesty na letiště pražskou MHD (na Ruzyni autobus 59 + metro A, k vlaku/busu na jiné letiště MHD na nádraží; podle
+  rozpisu ceny ze serveru) v kroku Let, v souhrnu a v průběhu cesty. Odkaz vede na oficiální stránku aplikace
+  `app.pidlitacka.cz` s odkazy do App Store a Google Play (odkaz z pid.cz). Jízdenku předvyplnit nejde.
+- **Bez odkazu zůstává:**
+  - **ČD / Můj vlak**: vyhledávání na cd.cz je skriptová aplikace bez veřejného formátu adresy s odkud/kam/datem. Vlaky ČD dál přes IDOS.
+  - **easyJet** a **Scoot**: vlastní formát hledání není veřejně popsaný a web easyJet automatické ověření blokuje (403). U jejich letů dál Kiwi.com, Google Flights a Skyscanner.
+  - **Mytrip** a **Airpaz**: zdokumentované hledání s trasou a datem nemají.
+  - Odkazy FlixBus zůstávají beze změny.
+
 ## Aplikace na ploše a offline
 
 ATLAS jde přidat na plochu telefonu i počítače jako aplikaci (PWA): otevře se přes celou obrazovku bez lišty prohlížeče
