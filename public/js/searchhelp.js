@@ -1619,6 +1619,29 @@
     return b && { date: b[0], n: b[1], cost: b[2], text: `Nejlevněji: odlet ${DOW_LC[new Date(b[0] + 'T12:00:00Z').getUTCDay()]} ${dm(b[0])}, ${nightsTxt(b[1])}` };
   }
   /**
+   * 📅 Kalendář „Kamkoliv“ a hledání do země (kalendář ze serveru je jen u jednoho cíle): z načtených nabídek
+   * t { out: { date, from, to }, back?: { date }, perPersonCzk, destKey } pro každý den odletu nejlevnější cesta
+   * a kolik různých cílů ten den odlétá; u zpátečních totéž podle dne návratu. destOf(t) → { key, label, cc } (cíl
+   * nabídky; bez něj destKey). → { out: [{ date, cost, key, label, cc, from, to, backDate, n }], back: [{ …, outDate }] }
+   * seřazené podle dne; stejná cena → první nalezená (pořadí výpisu).
+   */
+  function dayCal(trips, { destOf = null } = {}) {
+    const by = (pick, other) => {
+      const m = new Map();
+      for (const t of trips || []) {
+        if (!t || !t.out || !Number.isFinite(t.perPersonCzk)) continue;
+        const d = pick(t); if (!d) continue;
+        const x = (destOf && destOf(t)) || {}, key = x.key != null ? x.key : t.destKey != null ? t.destKey : x.label || '';
+        let e = m.get(d);
+        if (!e) m.set(d, e = { date: d, cost: Infinity, keys: new Set() });
+        e.keys.add(key);
+        if (t.perPersonCzk < e.cost) Object.assign(e, { cost: t.perPersonCzk, key, label: x.label || '', cc: x.cc || '', from: t.out.from, to: t.out.to, [other]: other === 'backDate' ? (t.back ? t.back.date : null) : t.out.date });
+      }
+      return [...m.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).map(({ keys, ...e }) => ({ ...e, cost: Math.round(e.cost), n: keys.size }));
+    };
+    return { out: by(t => t.out.date, 'backDate'), back: by(t => t.back && t.back.date, 'outDate') };
+  }
+  /**
    * Cesty buněk z calendar.grid jako celé nabídky (cell: true). Server je posílá kompaktně: řádek hodnot v pořadí
    * grid.keys, lety jako pořadí v grid.legs, bez toho, co jde dopočítat – id (jako fares.makeTrip), noci, dopravce,
    * cena na osobu (letenky + zavazadla), s dopravou a cestou do města (tripCzk) a celkem (× počet osob); „Je to dobrá cena?“
@@ -1876,7 +1899,7 @@
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows,
-    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
+    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips, dayCal,
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,

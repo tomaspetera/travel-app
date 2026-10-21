@@ -500,6 +500,15 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cd.click{cursor:pointer}
 .cd.click:hover{outline:2px solid var(--accent)}
 .cd.sel{outline:2px solid var(--accent);outline-offset:1px}
+/* 📅 Kalendář Kamkoliv a země: v dni vlajka nejlevnějšího cíle za číslem dne, měsíce vedle sebe, kde je místo (na
+   telefonu pod sebou); dny návratu sbalené pod odlety; nadpis cílů vybraného dne s ✕ vpravo, pod přilepenou lištou */
+.dest-cal .cal-ms{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(270px,100%),1fr));column-gap:22px}
+.cd-f{font-style:normal;font-size:10px;margin-left:2px}
+.dc-back{margin-top:2px;border-top:1px solid var(--border);padding-top:10px}
+.dc-back>summary{cursor:pointer;font-size:14px;font-weight:800;margin-bottom:8px;list-style-position:inside}
+.dc-back:not([open])>summary{margin-bottom:0}
+.dc-head{scroll-margin-top:90px;gap:10px}
+.dc-head .linkbtn{white-space:nowrap;font-size:13px}
 /* mřížka termínů: den odletu × počet nocí (posouvá se uvnitř karty, datum a noci zůstanou vidět) */
 .dg-card{padding:16px 18px;margin-bottom:14px}
 .dg-card h4{font-size:14px;font-weight:800;margin-bottom:6px}
