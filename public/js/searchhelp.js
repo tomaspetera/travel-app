@@ -1403,6 +1403,60 @@
         + ' · volno = víkendy a svátky ČR',
     };
   }
+  /* ---------- 📅 termín letu v kalendáři (karta nabídky, náhled cíle) ---------- */
+  const SPAN_DOW = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
+  /** Den příletu letu l, když je pozdější než den odletu (noční / dálkový let), jinak null. */
+  const arrDay = l => { const a = String((l && l.arr) || '').slice(0, 10); return l && l.hasTime && isYmd(a) && a > l.date ? a : null; };
+  const hmOf = s => { const v = String(s || '').slice(11, 16); return /^\d\d:\d\d$/.test(v) ? v : ''; };
+  /**
+   * Kalendář jedné nabídky: lety out (a back) { date, dep, arr, hasTime } → měsíce k nakreslení a souhrn termínu.
+   * Měsíce od odletu po poslední den cesty (přílet zpět, když je až další den); přes víc než dva měsíce jen první
+   * a poslední (gap: true – mezi nimi se nic nekreslí). Buňka { date, d, role: 'out' | 'back' | 'both' (tam i zpět týž den) | 'night' | null
+   * (night = dny mezi odletem a návratem; jen tam: jen den odletu), arr: 'out' | 'back' | null (přílet až další den –
+   * noční let), wknd, hol (název českého svátku), today, past }. Měsíc { key: 'YYYY-MM', y, m, name, lead (prázdných
+   * buněk před 1. dnem – týden od pondělí), cells }.
+   * Souhrn { out, back, nights (opts.nights z nabídky, jinak dny mezi odletem a návratem), days (dny na cestě od
+   * odletu po přílet zpět), leave (leaveDays), holidays: [{ date, name, inTrip }] (svátky ČR v nakreslených měsících,
+   * inTrip = v termínu cesty, i o víkendu), times:
+   * { outDep, outArr, backDep, backArr } ('HH:MM' nebo '') } · neplatný odlet → null.
+   */
+  function spanCal(out, back = null, { today = '', nights = null } = {}) {
+    if (!out || !isYmd(out.date)) return null;
+    const b = back && isYmd(back.date) && back.date >= out.date ? back : null;
+    const oa = arrDay(out), ba = b ? arrDay(b) : null;
+    const last = [out.date, oa, b && b.date, ba].filter(Boolean).sort().pop();
+    const mk = d => d.slice(0, 7);
+    const keys = [];
+    for (let k = mk(out.date); k <= mk(last);) {
+      keys.push(k);
+      const [y, m] = k.split('-').map(Number);
+      k = m === 12 ? `${y + 1}-01` : `${y}-${pad(m + 1)}`;
+    }
+    const gap = keys.length > 2;
+    const show = gap ? [keys[0], keys[keys.length - 1]] : keys;
+    const hols = [];
+    const months = show.map(key => {
+      const [y, m] = key.split('-').map(Number), n = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      const cells = [];
+      for (let i = 1; i <= n; i++) {
+        const date = `${key}-${pad(i)}`, w = dowOf(date), hol = holOf(y).get(date) || '';
+        const role = date === out.date ? (b && b.date === out.date ? 'both' : 'out') : b && date === b.date ? 'back' : b && date > out.date && date < b.date ? 'night' : null;
+        const arr = oa && date === oa ? 'out' : ba && date === ba ? 'back' : null;
+        if (hol) hols.push({ date, name: hol, inTrip: date >= out.date && date <= last });
+        cells.push({ date, d: i, role, arr, wknd: w === 0 || w === 6, hol, today: date === today, past: Boolean(today) && date < today });
+      }
+      return { key, y, m, name: MONTHS[m - 1], lead: (dowOf(`${key}-01`) + 6) % 7, cells };
+    });
+    return {
+      out: out.date, back: b ? b.date : null, gap, months,
+      nights: b ? (Number.isFinite(nights) ? nights : diffDays(out.date, b.date)) : null,
+      days: diffDays(out.date, last) + 1,
+      leave: b ? leaveDays(out, b) : null,
+      holidays: hols,
+      times: { outDep: out.hasTime ? hmOf(out.dep) : '', outArr: out.hasTime ? hmOf(out.arr) : '', backDep: b && b.hasTime ? hmOf(b.dep) : '', backArr: b && b.hasTime ? hmOf(b.arr) : '' },
+    };
+  }
+
   /**
    * Kdy si vzít dovolenou: nejdelší volna kolem státních svátků v příštích horizon dnech (začátek aspoň za 2 dny) za nejvýš
    * maxLeave dní dovolené – i se svátkem ve středu, který longWeekend přeskakuje. Okno = minLen–maxLen dní v řadě
@@ -1617,6 +1671,29 @@
       if (!b || c[2] < b[2] || (c[2] === b[2] && (c[0] < b[0] || (c[0] === b[0] && c[1] < b[1])))) b = c;
     }
     return b && { date: b[0], n: b[1], cost: b[2], text: `Nejlevněji: odlet ${DOW_LC[new Date(b[0] + 'T12:00:00Z').getUTCDay()]} ${dm(b[0])}, ${nightsTxt(b[1])}` };
+  }
+  /**
+   * 📅 Kalendář „Kamkoliv“ a hledání do země (kalendář ze serveru je jen u jednoho cíle): z načtených nabídek
+   * t { out: { date, from, to }, back?: { date }, perPersonCzk, destKey } pro každý den odletu nejlevnější cesta
+   * a kolik různých cílů ten den odlétá; u zpátečních totéž podle dne návratu. destOf(t) → { key, label, cc } (cíl
+   * nabídky; bez něj destKey). → { out: [{ date, cost, key, label, cc, from, to, backDate, n }], back: [{ …, outDate }] }
+   * seřazené podle dne; stejná cena → první nalezená (pořadí výpisu).
+   */
+  function dayCal(trips, { destOf = null } = {}) {
+    const by = (pick, other) => {
+      const m = new Map();
+      for (const t of trips || []) {
+        if (!t || !t.out || !Number.isFinite(t.perPersonCzk)) continue;
+        const d = pick(t); if (!d) continue;
+        const x = (destOf && destOf(t)) || {}, key = x.key != null ? x.key : t.destKey != null ? t.destKey : x.label || '';
+        let e = m.get(d);
+        if (!e) m.set(d, e = { date: d, cost: Infinity, keys: new Set() });
+        e.keys.add(key);
+        if (t.perPersonCzk < e.cost) Object.assign(e, { cost: t.perPersonCzk, key, label: x.label || '', cc: x.cc || '', from: t.out.from, to: t.out.to, [other]: other === 'backDate' ? (t.back ? t.back.date : null) : t.out.date });
+      }
+      return [...m.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).map(({ keys, ...e }) => ({ ...e, cost: Math.round(e.cost), n: keys.size }));
+    };
+    return { out: by(t => t.out.date, 'backDate'), back: by(t => t.back && t.back.date, 'outDate') };
   }
   /**
    * Cesty buněk z calendar.grid jako celé nabídky (cell: true). Server je posílá kompaktně: řádek hodnot v pořadí
@@ -1875,8 +1952,8 @@
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
-    leaveDays, leaveTxt, leaveWindows,
-    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips,
+    leaveDays, leaveTxt, leaveWindows, spanCal, SPAN_DOW,
+    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips, dayCal,
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,

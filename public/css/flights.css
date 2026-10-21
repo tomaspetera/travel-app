@@ -500,6 +500,15 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cd.click{cursor:pointer}
 .cd.click:hover{outline:2px solid var(--accent)}
 .cd.sel{outline:2px solid var(--accent);outline-offset:1px}
+/* 📅 Kalendář Kamkoliv a země: v dni vlajka nejlevnějšího cíle za číslem dne, měsíce vedle sebe, kde je místo (na
+   telefonu pod sebou); dny návratu sbalené pod odlety; nadpis cílů vybraného dne s ✕ vpravo, pod přilepenou lištou */
+.dest-cal .cal-ms{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(270px,100%),1fr));column-gap:22px}
+.cd-f{font-style:normal;font-size:10px;margin-left:2px}
+.dc-back{margin-top:2px;border-top:1px solid var(--border);padding-top:10px}
+.dc-back>summary{cursor:pointer;font-size:14px;font-weight:800;margin-bottom:8px;list-style-position:inside}
+.dc-back:not([open])>summary{margin-bottom:0}
+.dc-head{scroll-margin-top:90px;gap:10px}
+.dc-head .linkbtn{white-space:nowrap;font-size:13px}
 /* mřížka termínů: den odletu × počet nocí (posouvá se uvnitř karty, datum a noci zůstanou vidět) */
 .dg-card{padding:16px 18px;margin-bottom:14px}
 .dg-card h4{font-size:14px;font-weight:800;margin-bottom:6px}
@@ -1307,3 +1316,45 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .trip-mini .tm-price .tm-trip{display:block;margin:1px 0 0;font-size:11px;text-align:right}
 .trip-mini .tm-chev{color:var(--muted);font-size:14px}
 .trip-mini:active{background:var(--surface-2)}
+/* ---------- 📅 termín nabídky v kalendáři (karta nabídky, náhled cíle) ---------- */
+.scal-slot{margin-top:8px}
+.scal-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:600 12px Inter,sans-serif;cursor:pointer}
+.scal-btn:hover{border-color:var(--border-2)}
+.scal-btn[aria-expanded="true"]{border-color:var(--accent);background:rgba(91,140,255,.1)}
+.scal{margin-top:8px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface);max-width:820px}
+.scal-h{font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:8px}
+.scal-h b{color:var(--text)}
+.scal-ms{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-start}
+.scal-m{flex:1 1 250px;min-width:0;max-width:400px}
+.scal-mt{font:700 12.5px Inter,sans-serif;margin-bottom:5px}
+.scal-gap{align-self:center;color:var(--faint);font-weight:800}
+.scal-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px 0}
+.sc-w{font-size:10.5px;font-weight:700;color:var(--faint);text-align:center;padding-bottom:2px}
+.sc-w.wk{color:#d6334f}
+.sc-d{position:relative;min-height:34px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12.5px;line-height:1.1;font-variant-numeric:tabular-nums}
+.sc-d span{font-weight:600}
+.sc-d small{font-size:9.5px;font-weight:700;margin-top:1px;white-space:nowrap}
+.sc-d.wk span,.sc-d.hol span{color:#d6334f}
+.sc-d.hol::after{content:'';position:absolute;top:4px;right:calc(50% - 13px);width:5px;height:5px;border-radius:50%;background:#f59e0b}
+.sc-d.past{opacity:.4}
+.sc-d.now span{box-shadow:0 0 0 1.5px var(--text);border-radius:6px;padding:0 3px}
+/* pobyt = pás od odletu do návratu: den odletu začíná, den návratu končí zaobleně */
+.sc-d.r-night{background:rgba(91,140,255,.16)}
+.sc-d.r-out{background:var(--accent);border-radius:10px 0 0 10px}
+.sc-d.r-back{background:var(--accent2);border-radius:0 10px 10px 0}
+.sc-d.r-both,.sc-d.r-out.solo{border-radius:10px}
+.sc-d.r-both{background:linear-gradient(135deg,var(--accent) 50%,var(--accent2) 50%)}
+.sc-d.r-out span,.sc-d.r-back span,.sc-d.r-both span,.sc-d.r-out small,.sc-d.r-back small,.sc-d.r-both small{color:#fff}
+.sc-d.a-out,.sc-d.a-back{box-shadow:inset 0 0 0 1.5px var(--accent);border-radius:8px}
+.sc-d.a-back{box-shadow:inset 0 0 0 1.5px var(--accent2)}
+.sc-d.a-out small,.sc-d.a-back small{color:var(--muted)}
+.sc-d.sc-e{min-height:0}
+.scal-legs{display:flex;flex-direction:column;gap:3px;margin-top:10px;font-size:12.5px;color:var(--muted);line-height:1.4}
+.scal-legs b{color:var(--text)}
+.sl{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.sl-out{background:var(--accent)}.sl-back{background:var(--accent2)}.sl-night{background:rgba(91,140,255,.3)}
+.sl-hol{background:#f59e0b;border-radius:50%;width:7px;height:7px;margin:0 8px 0 1.5px;vertical-align:1px}
+.scal-act{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:12.5px}
+[data-theme="dark"] .sc-w.wk,[data-theme="dark"] .sc-d.wk span,[data-theme="dark"] .sc-d.hol span{color:#fb7185}
+[data-theme="dark"] .sc-d.r-night{background:rgba(91,140,255,.22)}
+[data-theme="dark"] .sc-d:is(.r-out,.r-back,.r-both) span{color:#fff}
