@@ -2121,12 +2121,75 @@
 
   function tripRow(t, g, idx) {
     return `<div class="trip-row" data-tid="${esc(t.id)}">
-      <div class="tr-legs">${legHtml(t.out)}${t.back ? legHtml(t.back, true) : ''}<div class="tr-badges">${badges(t, g, idx)}</div></div>
+      <div class="tr-legs">${legHtml(t.out)}${t.back ? legHtml(t.back, true) : ''}<div class="tr-badges">${badges(t, g, idx)}</div>${scalSlot(t, idx)}</div>
       ${priceBox(t, idx)}
       <div class="tr-act"><button type="button" class="btn sm primary" data-pick="${idx}">Vybrat a pokračovat →</button>
         <div class="tr-buy">${bookButtons(t)}</div>${buyNote(t)}
         <div class="tr-more"><span class="faint">Ověřit:</span> ${verifyLinks(t)}${SearchHelp.isCached(t) ? ` · <button type="button" class="linkbtn" data-live="${idx}">⚡ Ověřit cenu živě</button>` : ''}${g && byIso[g.dest.cc] ? ` · <button type="button" class="linkbtn" data-country="${g.dest.cc}">Info o zemi</button>${window.Entry && Entry.idNote(g.dest.cc) ? ' · ' + Entry.idNote(g.dest.cc) : ''}` : ''} · <button type="button" class="linkbtn pin-l" data-pin="${idx}">${pinOn(t) ? '📌 Odloženo ✓' : '📌 Odložit'}</button></div>
       </div></div>`;
+  }
+
+  /* ---------- 📅 termín nabídky v kalendáři (SearchHelp.spanCal) ---------- */
+  // Kalendáře otevřené u nabídek výpisu (t.id) – po překreslení výpisu (filtr, řazení, nové ceny) zůstanou otevřené.
+  const scalOpen = new Set();
+  const scalBtn = (on, attr) => `<button type="button" class="scal-btn" ${attr} aria-expanded="${on}">📅 V kalendáři <span aria-hidden="true">${on ? '▴' : '▾'}</span></button>`;
+  /** Tlačítko pod lety nabídky výpisu a pod ním kalendář, když ho uživatel otevřel. */
+  const scalSlot = (t, idx) => { const on = scalOpen.has(t.id); return `<div class="scal-slot">${scalBtn(on, `data-scal="${idx}"`)}${on ? scalHtml(t.out, t.back, { nights: t.nights, ics: `data-scalics="${idx}"`, dest: scalDest(t) }) : ''}</div>`; };
+  const scalDest = t => { const g = shownRes && (shownRes.groups || []).find(x => x.dest.key === t.destKey); return g ? g.dest.label : t.out.to; };
+  /**
+   * Kalendář termínu cesty: lety out (a back) { date, dep, arr, hasTime, from, to } → měsíc(e) s dnem odletu, nocemi
+   * na místě a dnem návratu, víkendy, svátky ČR a dnešek; pod ním lety s časy a „Přidat do kalendáře“ (ics = atribut
+   * tlačítka .ics, '' = bez něj) a celá cesta jako událost Google Kalendáře.
+   */
+  function scalHtml(out, back, { nights = null, ics = '', dest = '' } = {}) {
+    const c = SearchHelp.spanCal(out, back, { today: fmtYMD(new Date()), nights });
+    if (!c) return '';
+    const tm = c.times, lv = c.leave && SearchHelp.leaveTxt(c.leave);
+    const legTxt = (l, dep) => `${dayLabel(l.date)}${dep ? ` v\u00a0${dep}` : ''} · ${esc(l.from || '')}\u00a0→\u00a0${esc(l.to || '')}${arrTime(l) ? ` (přílet ${esc(arrTime(l))})` : ''}`;
+    const tip = x => [dayLabel(x.date),
+      x.role === 'out' || x.role === 'both' ? `odlet tam${tm.outDep ? ' v ' + tm.outDep : ''}` : '', x.role === 'back' || x.role === 'both' ? `odlet zpět${tm.backDep ? ' v ' + tm.backDep : ''}` : '',
+      x.role === 'night' ? 'na místě' : '', x.arr === 'out' ? `přílet tam${tm.outArr ? ' v ' + tm.outArr : ''}` : '', x.arr === 'back' ? `přílet domů${tm.backArr ? ' v ' + tm.backArr : ''}` : '',
+      x.hol, x.today ? 'dnes' : ''].filter(Boolean).join(' · ');
+    const cell = x => {
+      const sub = x.role === 'out' || x.role === 'both' ? tm.outDep || 'tam' : x.role === 'back' ? tm.backDep || 'zpět' : x.arr ? 'přílet' : '';
+      const cls = ['sc-d', x.role && 'r-' + x.role, x.role === 'out' && !c.back && 'solo', x.arr && 'a-' + x.arr, x.wknd && 'wk', x.hol && 'hol', x.today && 'now', x.past && 'past'].filter(Boolean).join(' ');
+      return `<div class="${cls}" title="${esc(tip(x))}"><span>${x.d}</span>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    };
+    const month = m => `<div class="scal-m"><div class="scal-mt">${cap(m.name)} ${m.y}</div><div class="scal-g">${SearchHelp.SPAN_DOW.map((w, i) => `<div class="sc-w${i > 4 ? ' wk' : ''}">${w}</div>`).join('')}${'<div class="sc-d sc-e"></div>'.repeat(m.lead)}${m.cells.map(cell).join('')}</div></div>`;
+    const gcal = window.Ics && Ics.gcalUrl({
+      title: `✈️ ${dest || out.to}`, start: c.out, end: c.back || c.out, location: dest || '',
+      description: [`Tam: ${dayLabel(out.date).replace(/\u00a0/g, ' ')}${tm.outDep ? ' ' + tm.outDep : ''} ${out.from} → ${out.to}`, back ? `Zpět: ${dayLabel(back.date).replace(/\u00a0/g, ' ')}${tm.backDep ? ' ' + tm.backDep : ''} ${back.from} → ${back.to}` : ''].filter(Boolean).join('\n'),
+    });
+    return `<div class="scal">
+      <div class="scal-h"><b>${dayLabel(c.out)}${c.back ? ` → ${dayLabel(c.back)}` : ''}</b><span> · ${c.back ? nightsTxt(c.nights) : 'jen tam'}</span>${lv ? `<span title="${esc(lv.title)}"> · ${esc(lv.text)}</span>` : ''}</div>
+      <div class="scal-ms">${c.months.map((m, i) => (i && c.gap ? '<div class="scal-gap" aria-hidden="true">⋯</div>' : '') + month(m)).join('')}</div>
+      <div class="scal-legs"><div><i class="sl sl-out"></i><b>Tam</b> ${legTxt(out, tm.outDep)}</div>${back ? `<div><i class="sl sl-back"></i><b>Zpět</b> ${legTxt(back, tm.backDep)}</div>` : ''}${back && c.nights ? `<div><i class="sl sl-night"></i>${nightsTxt(c.nights)} na místě</div>` : ''}
+        ${c.holidays.map(h => `<div${h.inTrip ? '' : ' class="faint"'}><i class="sl sl-hol"></i>${dayLabel(h.date)} ${esc(h.name)} (svátek${h.inTrip ? ' v termínu cesty' : ''})</div>`).join('')}</div>
+      <div class="scal-act">${ics ? `<button type="button" class="linkbtn" ${ics}>📥 Přidat do kalendáře (.ics)</button>` : ''}${gcal ? `<a class="linkbtn" href="${esc(safeUrl(gcal))}" target="_blank" rel="noopener">Google Kalendář ↗</a>` : ''}</div>
+    </div>`;
+  }
+  /** Lety nabídky jako události kalendáře (s časy, jinak celý den) a online check-in u Ryanairu a Wizz Air. */
+  function scalEvents(t, dest) {
+    const brief = l => Trip.legBrief(l), pax = (shownRes || lastResult || {}).query?.adults;
+    const ev = [Ics.flightEvent(brief(t.out), { url: t.out.bookUrl || t.bookUrl || undefined, note: `Let tam · ${dest}${pax ? ` · ${pax} os.` : ''}` })];
+    if (t.back) ev.push(Ics.flightEvent(brief(t.back), { url: t.back.bookUrl || t.bookUrl || undefined, note: `Let zpět · ${dest}` }));
+    for (const l of [t.out, t.back].filter(Boolean)) { const e = Ics.checkinEvent({ ...brief(l), carrier: l.carrier || l.carrierName }); if (e) ev.push(e); }
+    return ev;
+  }
+  const scalIcs = (t, dest) => icsDownload(`atlas-${dest}-${t.out.date}`, scalEvents(t, dest), { name: dest });
+  /** Klepnutí na „📅 V kalendáři“ v nabídce výpisu: kalendář vloží / schová bez překreslení výpisu. */
+  function scalToggle(b) {
+    const i = +b.dataset.scal, r = rowRegistry[i]; if (!r) return;
+    const on = !scalOpen.has(r.t.id);
+    if (on) scalOpen.add(r.t.id); else scalOpen.delete(r.t.id);
+    const slot = b.closest('.scal-slot');
+    slot.innerHTML = scalBtn(on, `data-scal="${i}"`) + (on ? scalHtml(r.t.out, r.t.back, { nights: r.t.nights, ics: `data-scalics="${i}"`, dest: scalDest(r.t) }) : '');
+    scalWire(slot);
+    $('[data-scal]', slot).focus({ preventScroll: true });
+  }
+  function scalWire(host) {
+    $$('[data-scal]', host).forEach(b => b.onclick = () => scalToggle(b));
+    $$('[data-scalics]', host).forEach(b => b.onclick = () => { const r = rowRegistry[+b.dataset.scalics]; if (r) scalIcs(r.t, scalDest(r.t)); });
   }
 
   // Navštívené země pro 🆕: z mapy, a když jich je aspoň 3, i domovská země (domov radaru a nejbližší letiště odletu).
@@ -2814,6 +2877,7 @@
       // předpověď výsledku (štítky výpisu) – žádný dotaz navíc
       wxP: w.res === res && (w.map || w.p) ? (w.map ? Promise.resolve(w.map) : w.p.then(() => w.map)) : null,
       ground: gc && (gc.worth || g.ground.min <= GROUND_CHIP_MAX_MIN) ? { x: g.ground, ret: Boolean(back), c: gc, open: () => openGroundModal(g) } : null,
+      legs: { out: t.out, back, t }, // 📅 V kalendáři (s časy letů a .ics)
       go: () => pickTrip(t, g, res), goLbl: 'Vybrat let a pokračovat →',
     }, from);
   }
@@ -2825,6 +2889,7 @@
       d1: x.d1, d2: x.d2 || null, nights: x.d2 ? SearchHelp.diffDays(x.d1, x.d2) : null, arrDay: x.d1, czk: x.czk, route: SearchHelp.radarRoute(x),
       arr: x.ar ? dpArr({ out: { to: x.to }, back }, { [x.to]: x.ar }, true) : [], tempHi: x.th ?? null,
       wxP: radarWxP && radarWxP.r === r ? radarWxP.p : null, ground: null,
+      legs: { out: { date: x.d1, from: x.from, to: x.to, hasTime: false }, back: x.d2 ? { date: x.d2, from: x.bf || x.to, to: x.bt || x.from, hasTime: false } : null, t: null },
       go: () => radarGo(x, q), goLbl: x.buy && x.buy.length ? 'Všechny termíny →' : 'Hledat lety sem →', buy: x.buy,
     }, from);
   }
@@ -2872,6 +2937,7 @@
       <div class="dp-head"><span class="dp-flag" aria-hidden="true">${flag(d.cc)}</span><div class="dp-ttl"><h2 id="dpTitle">${esc(d.label)}</h2><div class="muted">${[esc(d.country), `letiště ${d.aps.map(esc).join(', ')}`].filter(Boolean).join(' · ')}</div></div>
         <button type="button" class="icon-btn dp-x" id="dpX" aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button></div>
       <div class="dp-trip">✈︎ <span class="dp-nw">${esc(d.route)}</span> · ${day(d.d1)}${d.d2 ? ` – ${day(d.d2)}` : ''} · <span class="dp-nw">${d.d2 ? (d.nights != null ? nightsTxt(d.nights) : 'zpáteční') : 'jen tam'}</span> · <span class="dp-nw"><b>${czk(d.czk)}</b>/os.</span></div>
+      ${d.legs ? `<div class="dp-scal scal-slot">${scalBtn(false, 'id="dpScal"')}</div>` : ''}
       <div class="dp-chips">${ent}${c && c.cost ? `<span class="b dp-cost" title="Cenová hladina země – jídlo, doprava a ubytování na místě">ceny na místě ${costDots(c.cost)} ${COST_TXT[c.cost]}</span>` : ''}${c ? '<button type="button" class="linkbtn" id="dpCountry">Info o zemi</button>' : ''}</div>
       <div class="dp-facts">
         ${d.arr.map(a => dpFact(a.ic, esc(a.b), esc(a.s), { cls: a.warn ? ' warn' : '', title: a.title })).join('')}
@@ -2892,6 +2958,13 @@
     $('#dpGo').onclick = () => dpClose(d.go);
     const cb = $('#dpCountry'); if (cb) cb.onclick = () => openCountry(d.cc); // přes náhled – Zpět zavře i to
     const gb = $('#dpGnd'); if (gb) gb.onclick = () => d.ground.open();
+    const sb = $('#dpScal');
+    if (sb) sb.onclick = function tog() {
+      const slot = $('#dpScal').closest('.scal-slot'), on = !$('.scal', slot), L = d.legs;
+      slot.innerHTML = scalBtn(on, 'id="dpScal"') + (on ? scalHtml(L.out, L.back, { nights: d.nights, ics: L.t ? 'id="dpScalIcs"' : '', dest: d.label }) : '');
+      const nb = $('#dpScal'); nb.onclick = tog; nb.focus({ preventScroll: true });
+      const ib = $('#dpScalIcs'); if (ib) ib.onclick = () => scalIcs(L.t, d.label);
+    };
     // okno je pořád tohle (mezitím nezavřené, nepřepsané jiným oknem) → prvek, jinak null
     const mine = sel => (my === dpSeq && $('#modalBg').classList.contains('show') ? $(sel) : null);
     dpWx(d).then(w => { const el = mine('#dpWx'); if (el && w) el.outerHTML = dpWxRow(w); }).catch(() => { });
@@ -3333,6 +3406,7 @@
     }
     $$('[data-fmore]', host).forEach(b => b.onclick = () => { view.flatN += flatPage(); rerender(true); });
     $$('[data-tmini]', host).forEach(b => b.onclick = () => { (view.fopen = view.fopen || new Set()).add(b.dataset.tmini); rerender(true); });
+    scalWire(host); // 📅 V kalendáři u nabídek
     $$('[data-exp]', host).forEach(b => b.onclick = () => {
       const k = b.dataset.exp; view.expanded.has(k) ? view.expanded.delete(k) : (view.expanded.add(k), noteViewed(k));
       // karta pod mapou: překreslit jen ji (celý výpis by mapu nakreslil znovu a kartu zavřel)
