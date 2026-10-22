@@ -190,6 +190,39 @@
     return d === 1 ? 'před 1 dnem' : `před ${d} dny`;
   }
 
+  /* ---------- 📅 Připomínat: týdenní událost v kalendáři místo upozornění v telefonu ---------- */
+  const pad2 = n => String(n).padStart(2, '0');
+  /** Nejbližší pondělí v 9:00 místního času od okamžiku now ('YYYY-MM-DDT09:00'); v pondělí před devátou ještě týž den. */
+  function nextMonday9(now) {
+    const d = new Date(now);
+    const add = (8 - d.getDay()) % 7 || (d.getHours() < 9 ? 0 : 7);
+    d.setDate(d.getDate() + add);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T09:00`;
+  }
+  /**
+   * Událost pro Ics.build: každé pondělí v 9:00 (8×) „Zkontroluj ceny: Praha → Řím“ s poslední nejnižší cenou
+   * a odkazem appUrl#watch=<id>. Bez zóny = plovoucí čas – po změně letního času zůstane 9:00 (v UTC by se posunula).
+   */
+  function remindEvent(w, { appUrl = '', now = Date.now() } = {}) {
+    const c = num(w && w.best && w.best.czk), at = num(w && w.checked);
+    const d = at && new Date(at);
+    const price = c ? `Poslední nejnižší cena: ${Math.round(c).toLocaleString('cs-CZ')} Kč/os.${d ? ` (viděna ${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()})` : ''}` : 'Cenu jsem zatím nezjistil.';
+    const url = appUrl ? `${String(appUrl).replace(/#.*$/, '')}#watch=${encodeURIComponent(w.id)}` : '';
+    return {
+      title: `Zkontroluj ceny: ${w.label || 'hlídané hledání'}`,
+      description: [price, w.best && w.best.desc, 'Otevři ATLAS – cenu zkontroluji znovu.'].filter(Boolean).join('\n'),
+      start: nextMonday9(now), durationMin: 15, rrule: 'FREQ=WEEKLY;COUNT=8',
+      url, uid: `atlas-watch-${String(w.id).replace(/[^\w.-]/g, '')}`,
+    };
+  }
+  /** Id hlídání z adresy '#watch=<id>' (odkaz z připomínky v kalendáři), jinak null. */
+  function watchFromHash(hash) {
+    const m = /^#watch=([^&]+)$/.exec(String(hash || ''));
+    if (!m) return null;
+    let id; try { id = decodeURIComponent(m[1]); } catch (e) { return null; }
+    return /^[\w-]{1,40}$/.test(id) ? id : null;
+  }
+
   /** Některý zdroj (Ryanair, Wizz Air, Kiwi…) v hledání neodpověděl celý – výsledek může být dražší než skutečnost. */
   const incomplete = providers => (providers || []).some(p => p && p.outage);
 
@@ -424,5 +457,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, PV, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler };
+  window.Alerts = { CFG, PV, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler, nextMonday9, remindEvent, watchFromHash };
 })();

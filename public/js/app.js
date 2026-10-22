@@ -444,8 +444,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-21';
+const WN_ID = '2026-10-22';
 const WHATS_NEW = [
+  ['📅', 'Připomínka hlídané ceny v kalendáři', 'na kartě hlídání na Přehledu je <b>📅 Připomínat</b> – stáhne událost do kalendáře na každé pondělí v 9:00 (8 týdnů) s poslední nejnižší cenou. Odkaz v ní otevře ATLAS přímo na tomhle hlídání a cenu zkontroluje znovu.'],
   ['📅', 'Termín letu v kalendáři', 'u každého letu tlačítko <b>📅 V kalendáři</b> – den odletu a návratu s časy, noci mezi nimi, víkendy a svátky; jedním klepnutím lety do kalendáře v mobilu (.ics). A <b>Kalendář</b> mají i výsledky Kamkoliv: v každém dni nejlevnější cíl, klepnutím na den všechny cíle s odletem ten den.'],
   ['🏡', 'Ubytování s cenou na každém místě trasy', 'když TripAdvisor malé místo nezná (Pachino, Castelmezzano), ukážu hotely s cenou z nejbližšího okolí (Noto, Potenza) – s porovnáním webů a <b>Vybrat</b> s ověřením volna jako u prvního místa, na kartě „v okolí: Noto · 24 km“. Pod nimi penziony a agroturistiky přímo v místě z OpenStreetMap (bez ceny). Plánovač trasy teď radši volí místa, kde hotely s cenou jsou.'],
   ['🌙', 'V noci taxi za pevnou cenu', 'když přistáváš nebo vyrážíš na letiště před 5:00 či po 23:00 v Římě, Paříži, Madridu, Aténách, Florencii, Neapoli, Miláně nebo New Yorku, odhad ceny počítá úřední pevnou cenu taxi za auto (Fiumicino 55 €) místo MHD, která v noci nejezdí.'],
@@ -1194,6 +1195,17 @@ function icsDownload(filename, events, opts) {
 function sharePlan(i) {
   return ShareLink.copy('plan', PlanShare.json(S.trips[i])).then(r => (r.copied ? toast('Odkaz na plán zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz na plán:', r.url)));
 }
+/**
+ * 📅 Připomínka hlídání v kalendáři otevřela #watch=<id>: Přehled, posun na kartu (Flights.showWatch). Adresa se přepíše
+ * na #dashboard, ať obnovení stránky kartu neotevírá znovu. Neznámé id → hláška a běžný Přehled. → true, když šlo o #watch=.
+ */
+function openWatchFromHash() {
+  const id = window.Alerts && Alerts.watchFromHash(location.hash);
+  if (!id && !/^#watch=/.test(location.hash)) return false;
+  go('dashboard');
+  if (!id || !window.Flights || !Flights.showWatch(id)) toast('Hlídání nenalezeno', 'err');
+  return true;
+}
 /** Sdílený plán z #plan=… (při startu a při změně adresy): náhled a import do plánovače → Promise<boolean>. */
 async function importPlanFromHash() {
   const hash = location.hash;
@@ -1372,6 +1384,7 @@ function wireEvents() {
   window.addEventListener('hashchange', async () => {
     if (window.Trip && await Trip.importFromHash()) return go('trip', { noHash: true });
     if (await importPlanFromHash()) return go('planner', { noHash: true });
+    if (openWatchFromHash()) return;
     const v = location.hash.slice(1);
     if (v === 'now') return showNow(); // zkratka „Na cestě“ v už otevřené aplikaci
     if (v !== activeView && NAV.some(n => n[0] === v)) go(v, { noHash: true });
@@ -1448,6 +1461,7 @@ async function start() {
   refreshStats();
   const shared = window.Trip && await Trip.importFromHash();
   const plan = !shared && await importPlanFromHash();
+  if (!shared && !plan && openWatchFromHash()) return;
   const v = shared ? 'trip' : plan ? 'planner' : location.hash.slice(1);
   if (v === 'now') return showNow(); // zkratka aplikace „Na cestě“
   go(NAV.some(n => n[0] === v) ? v : 'dashboard', { noHash: true });
