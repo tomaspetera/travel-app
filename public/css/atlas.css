@@ -330,7 +330,8 @@ button.dest{font:inherit;text-align:left;width:100%}
   #view-countries .toolbar .search-wide .input{min-width:0;width:100%}
   .c-filt-btn{display:inline-flex;flex:none;border-radius:14px;white-space:nowrap}
   #view-countries .toolbar:not(.f-open) select{display:none}
-  #view-countries .toolbar select{flex:1 1 calc(50% - 4px);min-width:0}
+  /* šipka blíž k okraji – i „Severní Amerika“ se vedle druhého výběru vejde celá (jako na menším notebooku) */
+  #view-countries .toolbar select{flex:1 1 calc(50% - 4px);min-width:0;padding-right:28px;background-position:right 9px center}
   #view-countries .toolbar #cVisited{display:flex;width:100%}
   #view-countries .toolbar #cVisited button{flex:1 1 0;white-space:nowrap;padding:9px 6px;font-size:13px}
 }
@@ -398,7 +399,9 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   .modal-bg{align-items:flex-end;padding:0}
   .modal{width:100%;max-height:90vh;max-height:90dvh;border-radius:22px 22px 0 0;border-bottom:none;animation:sheetUp .26s var(--ease)}
   .modal:not(:has(.dp)){padding-bottom:env(safe-area-inset-bottom)}
-  .modal-hero{border-radius:22px 22px 0 0}
+  /* hlavička s fotkou má roh jako vnitřek panelu (22 px − 1 px rámeček) – s větším rohem prosvítal v horních rozích
+     bílý srpek pozadí okna mezi fotkou a rámečkem */
+  .modal-hero{border-radius:21px 21px 0 0}
   .modal::before{content:"";position:absolute;top:7px;left:50%;z-index:5;width:38px;height:5px;margin-left:-19px;border-radius:3px;background:var(--border-2);pointer-events:none}
   .modal:has(.modal-hero)::before{background:rgba(255,255,255,.55)}
 }
@@ -418,6 +421,11 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .months{display:grid;grid-template-columns:repeat(12,1fr);gap:5px;margin-top:8px}
 .months .m{text-align:center;font-size:10.5px;font-weight:700;padding:8px 2px;border-radius:8px;background:var(--surface);color:var(--faint);border:1px solid var(--border)}
 .months .m.best{background:rgba(52,211,153,.16);color:var(--good);border-color:rgba(52,211,153,.3)}
+/* detail země ve světlém režimu: nejlepší měsíce a bezpečnost tmavšími barvami – mátová, žlutá a růžová na bílé mají
+   kontrast kolem 2 : 1 */
+[data-theme="light"] .months .m.best,[data-theme="light"] .kv .safe-ok{color:#047857}
+.kv .safe-ok{color:var(--good)}.kv .safe-mid{color:var(--warn)}.kv .safe-bad{color:var(--bad)}
+[data-theme="light"] .kv .safe-mid{color:#8a5a00}[data-theme="light"] .kv .safe-bad{color:#be123c}
 .months .m.now{outline:2px solid var(--accent);outline-offset:1px}
 .clim-k{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .clim-k span{text-transform:none;letter-spacing:0;font-weight:500}

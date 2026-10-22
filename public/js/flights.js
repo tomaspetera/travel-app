@@ -1730,7 +1730,8 @@
   }
   /* ---------- cesta z letiště do města (server/lib/arrival.js; tabulka ověřená 10/2026, jinde odhad) ---------- */
   /** Štítky u nabídky – „🚌 z letiště BVA do Paříže 17,90 € (~440 Kč) · 1 h 15“, drahé nebo dlouhé varovně. */
-  const arrChipHtml = c => `<span class="b arrv${c.warn ? ' warn' : ''}" title="${esc(c.title)}">${esc(c.text)}</span>`;
+  // nbsp (u náhledu cíle níž): štítek se na úzkém telefonu láme na dva řádky – „1“ / „h 15“ ani „~460“ / „Kč)“ ne
+  const arrChipHtml = c => `<span class="b arrv${c.warn ? ' warn' : ''}" title="${esc(c.title)}">${nbsp(esc(c.text))}</span>`;
   const arrivalChips = (t, res = lastResult) => (res ? SearchHelp.arrivalChips(t, res.arrivals, { on: Boolean(res.query.arrival) }) : []).map(arrChipHtml);
   /** Popisek „+ z letiště do města a zpět ~880 Kč/os.“ u ceny nabídky (jen když je v ceně) s rozpisem v title. */
   function arrivalPart(t, res = lastResult) {
@@ -2281,7 +2282,7 @@
     return `<div class="card res-card" id="g-${esc(g.dest.key)}">
       <div class="rc-head">
         <div class="rc-flag">${flag(g.dest.cc)}</div>
-        <div class="rc-name"><h3>${esc(g.dest.label)}${prefBadge(g.dest.key)}${newBadge(g.dest.cc)}</h3><div class="faint">${esc(g.dest.country || '')}${g.dest.airports.length > 1 ? ` · letiště ${g.dest.airports.join(', ')}` : ` · ${g.dest.airports[0]}`}${t.distanceKm ? ` · ${t.distanceKm.toLocaleString('cs')} km` : ''}${c && c.cost ? ` · ceny na místě ${costDots(c.cost)}` : ''}</div></div>
+        <div class="rc-name"><h3>${esc(g.dest.label)}${prefBadge(g.dest.key)}${newBadge(g.dest.cc)}</h3><div class="faint">${esc(g.dest.country || '')}${g.dest.airports.length > 1 ? ` · letiště ${g.dest.airports.join(', ')}` : ` · ${g.dest.airports[0]}`}${t.distanceKm ? ` · ${t.distanceKm.toLocaleString('cs')}\u00a0km` : ''}${c && c.cost ? ` · ceny na místě ${costDots(c.cost)}` : ''}</div></div>
         <button type="button" class="btn sm ghost rc-dp" data-dp="${esc(g.dest.key)}" title="Místa k vidění, cesta z letiště do města, počasí a vstup">🔎 Co tam je</button>
         ${dmBtn(g.dest, `data-dm="${esc(g.dest.key)}" data-dmr="${i0}"`)}
       </div>
@@ -2298,8 +2299,9 @@
   // celé karty pod sebou (~500 px každá) se na telefonu nedaly porovnat
   const flatCompact = () => Boolean(window.matchMedia && matchMedia('(max-width: 700px)').matches);
   function tripMini(t) {
-    // letiště tam a zpět jako celek (nedělitelné mezery) – na úzkém telefonu se zalomí za nocemi, ne uprostřed trasy
-    const r = `${t.out.from}\u00a0→\u00a0${t.out.to}${t.back ? `\u00a0↩\u00a0${t.back.from !== t.out.to ? `${t.back.from}\u00a0→\u00a0` : ''}${t.back.to}` : ''}`;
+    // letiště tam a zpět každé jako celek (nedělitelné mezery) – na úzkém telefonu se zalomí za nocemi nebo před ↩, ne
+    // uprostřed letu; celá trasa jako jeden kus se na 360 px vedle ceny nevešla a konec („→ PRG“) uřízly tři tečky
+    const r = `${t.out.from}\u00a0→\u00a0${t.out.to}${t.back ? ` ↩\u00a0${t.back.from !== t.out.to ? `${t.back.from}\u00a0→\u00a0` : ''}${t.back.to}` : ''}`;
     const pl = levelFor(t), tag = t.deal && t.deal.level === 'super' && (!pl || pl.level === 'low') ? '🔥 ' : pl && pl.level === 'low' ? '💚 ' : '';
     const stops = [t.out, t.back].some(l => l && l.stops) ? ' · s přestupem' : '';
     return `<button type="button" class="trip-mini" data-tmini="${esc(t.id)}" aria-expanded="false">
@@ -3567,7 +3569,7 @@
     } else search = '<p>Jiné nabídky do tohoto cíle tohle hledání nemá – odhad se řídí průměrnou cenou na vzdálenost.</p>';
     // 2) průměrná cena na vzdálenost (prahy jako distanceLevel: výhodná ≥ ~41 % pod, dražší > 25 % nad)
     const vs = pl.vsRef <= -5 ? `o <b>${-pl.vsRef} %</b> levnější` : pl.vsRef >= 5 ? `o <b>${pl.vsRef} %</b> dražší` : 'zhruba stejně drahá';
-    const dist = t.distanceKm ? `<p>Na ${t.distanceKm.toLocaleString('cs')} km ${ret ? 'tam i zpět' : 'jedním směrem'} stojí letenka v průměru kolem <b>${czk(pl.ref)}</b>/os. Tahle je ${vs}.
+    const dist = t.distanceKm ? `<p>Na ${t.distanceKm.toLocaleString('cs')}\u00a0km ${ret ? 'tam i zpět' : 'jedním směrem'} stojí letenka v průměru kolem <b>${czk(pl.ref)}</b>/os. Tahle je ${vs}.
       <span class="faint">Nízkonákladovky bývají pod průměrem běžně – za výhodnou ATLAS bere letenku zhruba od 40 % pod ním, za dražší než obvykle od 25 % nad ním. Hrubé pravidlo podle vzdálenosti, ne podle konkrétní trasy.</span></p>`
       : '<p>Vzdálenost letu neznám.</p>';
     // 3) paměť cen v tomto prohlížeči

@@ -1084,11 +1084,14 @@
   /** Jízdné „17,90 € (~440 Kč)“, „od 9,90 £ (~280 Kč)“ (cena online předem), bez ověřeného jízdného „~150 Kč“. */
   function arrivalFare(a) {
     if (!a) return '';
-    if (!(a.fare > 0) || !a.cur || a.cur === 'CZK') return `~${kc(a.czk)}`;
+    // částka a měna s pevnou mezerou – v průběhu cesty, kartě „Dnes na cestě“ i štítku u letu se na telefonu „Kč)“
+    // ani „€“ neodtrhne od čísla na další řádek
+    const k = n => kc(n).replace(/ Kč$/, '\u00a0Kč');
+    if (!(a.fare > 0) || !a.cur || a.cur === 'CZK') return `~${k(a.czk)}`;
     const sign = CUR_SIGN[a.cur] || a.cur;
     // od (online předem) i běžná cena v den cesty – v Kč (odhad do ceny cesty) ta běžná: „od 9,90 £, běžně 23 £ (~560 Kč)“
-    if (a.from && a.typ > a.fare) return `od ${fareNum(a.fare)} ${sign}, běžně ${fareNum(a.typ)} ${sign} (~${kc(a.czk)})`;
-    return `${a.from ? 'od ' : ''}${fareNum(a.fare)} ${sign} (~${kc(a.czk)})`;
+    if (a.from && a.typ > a.fare) return `od ${fareNum(a.fare)}\u00a0${sign}, běžně ${fareNum(a.typ)}\u00a0${sign} (~${k(a.czk)})`;
+    return `${a.from ? 'od ' : ''}${fareNum(a.fare)}\u00a0${sign} (~${k(a.czk)})`;
   }
   /** Drahá (> 350 Kč/os.) nebo dlouhá (> 60 min) cesta do města. */
   const arrivalWarn = a => Boolean(a) && (a.czk > ARRIVAL_WARN.czk || a.min > ARRIVAL_WARN.min);

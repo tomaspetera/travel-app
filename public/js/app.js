@@ -26,7 +26,8 @@ const CONTS = ['Evropa', 'Asie', 'Afrika', 'Severní Amerika', 'Jižní Amerika'
 const pad = n => String(n).padStart(2, '0');
 const fmtYMD = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 const fmtDate = s => { if (!s) return ''; const [, m, d] = s.split('-'); return `${+d}.${+m}.`; };
-const czk = n => n == null || !isFinite(n) ? '—' : Math.round(n).toLocaleString('cs-CZ') + ' Kč';
+// „733 Kč“ s pevnou mezerou – na telefonu se „Kč“ neodtrhne od částky na další řádek (Je to dobrá cena?, z letišť od …)
+const czk = n => n == null || !isFinite(n) ? '—' : Math.round(n).toLocaleString('cs-CZ') + '\u00a0Kč';
 
 let COUNTRIES = [];
 const byIso = {}, byM49 = {}, byEn = {};
@@ -874,14 +875,14 @@ function openCountry(iso) {
      <div class="divider"></div>
      <div class="kv">
        <div><div class="k">Cenová hladina</div><div class="v">${c.cost ? costDots(c.cost) : '—'}</div><div class="faint" style="font-size:12px">${costTxt}</div></div>
-       <div><div class="k">Bezpečnost</div><div class="v" style="color:${c.safety >= 4 ? 'var(--good)' : c.safety >= 3 ? 'var(--warn)' : 'var(--bad)'}">${safeTxt}</div></div>
+       <div><div class="k">Bezpečnost</div><div class="v ${c.safety >= 4 ? 'safe-ok' : c.safety >= 3 ? 'safe-mid' : 'safe-bad'}">${safeTxt}</div></div>
        <div><div class="k">Měna</div><div class="v" style="font-size:15px">${c.cur || '—'}</div><div class="faint" id="fxLine" style="font-size:12px"></div></div>
      </div>
      ${iso !== 'CZ' && window.Entry ? `<div id="entryBox">${Entry.ready() ? Entry.detailHtml(iso) : `<div class="faint" style="font-size:12.5px;margin-top:12px">🛂 Načítám vstupní podmínky… (jinak je najdeš na <a href="${mzv}" target="_blank" rel="noopener">webu MZV ČR</a>)</div>`}</div>` : ''}
      <div style="margin-top:14px"><div class="k" style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em">Nejlepší období${c.months ? '' : ' — orientačně'}</div>${monthsStrip(c.months)}</div>
      <div id="climBox" style="margin-top:12px" title="Dlouhodobý průměr – není to předpověď"><div class="k clim-k">Průměrná denní maxima <span id="climWhere" class="faint"></span></div>${climStrip(null)}</div>
      ${c.tags ? `<div class="tags" style="margin-top:16px">${c.tags.map(t => `<span class="chip accent">${t}</span>`).join('')}</div>` : ''}
-     <div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Bezpečnostní a geopolitická situace se mění. Před cestou si vždy ověř aktuální doporučení na <a href="${mzv}" target="_blank" rel="noopener" style="color:var(--info);text-decoration:underline">MZV ČR</a>.</div></div>
+     <div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Bezpečnostní a geopolitická situace se mění. Před cestou si vždy ověř aktuální doporučení na <a href="${mzv}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">MZV ČR</a>.</div></div>
    </div>`);
   Photos.paint($('#modal')); // fotka hlavního města v hlavičce
   loadWeather(c);
@@ -1360,7 +1361,9 @@ window.openStay = (city, start, end, adults = 2, opts = {}) => {
 
 /* ================= INIT / EVENTS ================= */
 function fillSelects() {
-  $('#cCont').innerHTML = '<option value="">Všechny kontinenty</option>' + CONTS.map(c => `<option>${c}</option>`).join('');
+  // „Kontinent: vše“ jako „Cena: vše“ a „Vstup: vše“ vedle – „Všechny kontinenty“ se na telefonu (360 px, dva výběry
+  // vedle sebe) nevešlo a končilo „Všechny kontine“
+  $('#cCont').innerHTML = '<option value="">Kontinent: vše</option>' + CONTS.map(c => `<option>${c}</option>`).join('');
   const m = new Date().getMonth() + 1;
   $('#rMonth').innerHTML = MNS_FULL.map((n, i) => `<option value="${i + 1}" ${i + 1 === m ? 'selected' : ''}>${n.charAt(0).toUpperCase() + n.slice(1)}</option>`).join('');
 }
