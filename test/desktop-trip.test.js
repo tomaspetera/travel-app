@@ -43,7 +43,7 @@ test('přehled vpravo má tlačítko dalšího kroku; nástroje ubytování v m�
 });
 
 test('desktop-trip.css se načítá za desktop.css (s ostatními desktop-*.css)', () => {
-  const links = [...read('index.html').matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g)].map((m) => m[1]);
+  const links = [...read('index.html').matchAll(/<link rel="stylesheet" href="(css\/[^"]+)"(?: media="[^"]*")?>/g)].map((m) => m[1]);
   assert.ok(links.indexOf('css/desktop-trip.css') > links.indexOf('css/desktop.css') && links.indexOf('css/desktop.css') >= 0, links.join(', '));
 });
 

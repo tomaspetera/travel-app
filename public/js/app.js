@@ -1529,7 +1529,10 @@ function launchDone(now) {
 }
 setTimeout(() => launchDone(true), Math.max(2000, 3100 - performance.now()));
 async function boot() {
-  try { await start(); } finally { launchDone(); }
+  try { await start(); } finally {
+    document.documentElement.classList.add('booted'); // Přehled je vykreslený – ukázat i sekce pod úvodem (atlas.css)
+    launchDone();
+  }
 }
 async function start() {
   if (window.Flights) Flights.warm(); // stav serveru souběžně s daty zemí – rychlejší start

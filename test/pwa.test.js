@@ -517,6 +517,57 @@ test('service worker v akci: instalace ze sítě s ověřením, aktivace smaže 
   assert.equal(answer, 'v2');
 });
 
+test('service worker: stránka přes navigation preload (požadavek odeslaný už při probouzení service workeru), jinak jako dřív', async () => {
+  const src = read('public/sw.js').replace(/^const BUILD = .*$/m, "const BUILD = 'v1';").replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(['./', 'js/app.js'])};`);
+  const sw = loadSw(src);
+  const { net, store, event, ctx } = sw;
+  const file = (p, body, type = 'text/javascript') => { net.files[SCOPE + p] = { body, type }; };
+  file('', '<html>v1</html>', 'text/html; charset=utf-8');
+  file('js/app.js', 'app v1');
+  await Promise.all(event('install').waits);
+  // aktivace zapne navigation preload, umí-li to prohlížeč (bez navigationPreload – testy výš – nic)
+  let enabled = 0;
+  ctx.registration.navigationPreload = { enable: async () => { enabled++; } };
+  await Promise.all(event('activate').waits);
+  assert.equal(enabled, 1);
+
+  const page = (body, build = 'v1') => new BasicResponse(body, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'x-atlas-build': build } });
+  const run = async (extra) => {
+    const ev = event('fetch', extra);
+    const res = ev.responded && (await ev.responded);
+    await Promise.all(ev.waits);
+    return { ev, text: res ? await res.text() : null };
+  };
+  // odpověď z preload: žádný další požadavek na stránku, uloží se pod adresu aplikace, soubory pak z uložené sady
+  net.log.length = 0;
+  file('js/app.js', 'app v1 – ze sítě by přišlo tohle');
+  let x = await run({ request: req('/', { mode: 'navigate' }), preloadResponse: Promise.resolve(page('<html>v1 nová</html>')), resultingClientId: 'p1' });
+  assert.equal(x.text, '<html>v1 nová</html>');
+  assert.equal(net.log.length, 0, 'stránka jen jedním požadavkem – tím z preload');
+  assert.equal(store.get('atlas-v1').get(SCOPE), '<html>v1 nová</html>');
+  assert.equal((await run({ request: req('/js/app.js'), clientId: 'p1' })).text, 'app v1', 'stejná verze → soubory z uložené sady');
+  // jiná verze na serveru: stránka ze sítě se pod starou verzi neuloží (jako bez preload)
+  x = await run({ request: req('/', { mode: 'navigate' }), preloadResponse: Promise.resolve(page('<html>v2</html>', 'v2')), resultingClientId: 'p2' });
+  assert.equal(x.text, '<html>v2</html>');
+  assert.equal(store.get('atlas-v1').get(SCOPE), '<html>v1 nová</html>');
+  // prohlížeč preload neposlal (undefined) nebo selhal: nový požadavek s ověřením jako dřív
+  for (const preloadResponse of [Promise.resolve(undefined), Promise.reject(new TypeError('preload zrušen'))]) {
+    net.log.length = 0;
+    x = await run({ request: req('/', { mode: 'navigate' }), preloadResponse, resultingClientId: 'p3' });
+    assert.equal(x.text, '<html>v1</html>');
+    assert.deepEqual(net.log.map((r) => [r.url, r.cache, r.redirect]), [[SCOPE, 'no-cache', 'manual']]);
+  }
+  // offline: preload i nový požadavek selžou → poslední uložená stránka (ta z požadavku výš)
+  net.offline = true;
+  x = await run({ request: req('/?zdroj=plocha', { mode: 'navigate' }), preloadResponse: Promise.reject(new TypeError('Failed to fetch')) });
+  assert.equal(x.text, '<html>v1</html>');
+  net.offline = false;
+  // navigace, do které se service worker neplete (api/…): preload nechá prohlížeči, jen ho nezruší (i když selže)
+  x = await run({ request: req('/api/health', { mode: 'navigate' }), preloadResponse: Promise.reject(new TypeError('Failed to fetch')) });
+  assert.equal(x.ev.responded, null);
+  assert.equal(x.ev.waits.length, 1);
+});
+
 /* ---------- pwa.js ---------- */
 function loadPwa() {
   const ctx = { window: {}, URL, console };
