@@ -1942,7 +1942,27 @@
   /** Cesta na letiště veřejnou dopravou vede pražskou MHD (rozpis ze serveru: „… (PID 90 min …)“, „MHD na nádraží (PID)“). */
   const pidLeg = g => Boolean(g && g.mode !== 'car' && (g.breakdown || []).some(x => /\bPID\b/.test(String((x && x.label) || ''))));
 
+  /* ---------- první spuštění: „Odkud letíš?“ v uvítání ---------- */
+  // Města domova se stejným ID jako v našeptávači (server/lib/names.js CITIES → places.js citySuggestion): domov z čipu
+  // je totéž, jako vybrat město v „Odkud obvykle létáš?“ (radar, pořadí návrhů, cesta na letiště podle města)
+  const HOME_CITIES = [['Praha', 'CZ', 50.0880, 14.4208], ['Brno', 'CZ', 49.1952, 16.6080], ['Ostrava', 'CZ', 49.8347, 18.2820],
+    ['Vídeň', 'AT', 48.2085, 16.3721], ['Bratislava', 'SK', 48.1482, 17.1067]];
+  const ccFlag = cc => String.fromCodePoint(...[...cc].map(c => 127397 + c.charCodeAt(0)));
+  const cityPlace = ([label, cc, lat, lon]) => ({ id: `geo:${lat.toFixed(4)},${lon.toFixed(4)}|${label}`, type: 'city', label, flag: ccFlag(cc), cc, lat, lon });
+  /** 📍 Moje poloha jako místo Odkud (v Letech i v uvítání) – poloha na 4 desetinná místa. */
+  const myPlace = (lat, lon) => ({ id: `geo:${(+lat).toFixed(4)},${(+lon).toFixed(4)}|Moje poloha`, label: 'Moje poloha', flag: '📍', type: 'place' });
+  /**
+   * Domov radaru z čipu uvítání: název města z HOME_CITIES nebo hotové místo (📍 Moje poloha) → tvar S.home jako
+   * z nastavení domova, letiště do 150 km a ceny pro 2 osoby. Neznámé město = null.
+   */
+  function homeOf(chip) {
+    const c = typeof chip === 'string' ? HOME_CITIES.find(x => x[0] === chip) : null;
+    const place = c ? cityPlace(c) : chip && typeof chip === 'object' && chip.id ? chip : null;
+    return place ? { from: [place], radius: 150, adults: 2 } : null;
+  }
+
   window.SearchHelp = {
+    HOME_CITIES, myPlace, homeOf,
     onlyOriginSet, recentWhen,
     ARRIVAL_WARN, arrivalFare, arrivalWarn, arrivalVia, arrivalLine, arrivalSource, arrivalChips, arrivalLegChips,
     groundForm, parkDays, parkStay, parkCzk, carTrip, accessLabel, originCompare, originDiffTxt, originFoot,

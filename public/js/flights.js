@@ -1196,7 +1196,7 @@
       else toInput.set([]);
       if (k === 'eu') toast('Evropa = kamkoliv; seřaď výsledky podle ceny 😉');
     });
-    $('#geoBtn').onclick = () => useMyLocation(fromInput);
+    $('#geoBtn').onclick = () => useMyLocation(p => fromInput.set([...fromInput.items.filter(x => !/\|Moje poloha$/.test(x.id)), p]));
     // napsané, ale nevybrané místo nebo věta: nejdřív je použít (jinak by se hledalo bez nich – „kamkoliv“)
     $('#searchForm').onsubmit = async e => {
       e.preventDefault();
@@ -1227,13 +1227,12 @@
     if (stale) $('#groundRerun').onclick = () => startSearch();
   }
 
-  function useMyLocation(input) {
-    if (!navigator.geolocation) return toast('Prohlížeč nepodporuje polohu', 'err');
+  // 📍 Moje poloha: put(místo); bez polohy (odmítnutí, chyba) hláška – fail(text) ji ukáže po svém (uvítání nechá čipy)
+  function useMyLocation(put, fail = msg => toast(msg, 'err')) {
+    if (!navigator.geolocation) return fail('Prohlížeč nepodporuje polohu');
     toast('Zjišťuji polohu…');
-    navigator.geolocation.getCurrentPosition(p => {
-      const lat = p.coords.latitude.toFixed(4), lon = p.coords.longitude.toFixed(4);
-      input.set([...input.items.filter(x => !/\|Moje poloha$/.test(x.id)), { id: `geo:${lat},${lon}|Moje poloha`, label: 'Moje poloha', flag: '📍', type: 'place' }]);
-    }, () => toast('Polohu se nepodařilo zjistit', 'err'), { timeout: 10000, maximumAge: 600000 });
+    navigator.geolocation.getCurrentPosition(p => put(SearchHelp.myPlace(p.coords.latitude, p.coords.longitude)),
+      () => fail('Polohu se nepodařilo zjistit'), { timeout: 10000, maximumAge: 600000 });
   }
 
   /* ---------- domov (odkud obvykle létáš) ---------- */
@@ -4236,12 +4235,26 @@
     if (edit) pi.set(S.home.from, true);
     $('#radarGo').onclick = () => {
       if (!pi.items.length) return toast('Vyber místo ze seznamu', 'err');
-      S.home = { from: pi.items.slice(), radius: +$('#radarRadius').value, adults: +$('#radarAdults').value || 2 }; save(); updateHomeChip();
-      // prázdné Odkud ve formuláři: domov i s okruhem (jinak by hledání z Lety šlo s výchozími 200 km)
-      if (fromInput && !fromInput.items.length) { $('#radius').value = S.home.radius; $('#radiusVal').textContent = $('#radius').value + ' km'; fromInput.set(pi.items); }
-      renderRadar(true); heroFrom && heroFrom.set(pi.items, true);
+      applyHome({ from: pi.items.slice(), radius: +$('#radarRadius').value, adults: +$('#radarAdults').value || 2 });
     };
     const cn = $('#radarCancel'); if (cn) cn.onclick = () => renderRadar();
+  }
+  /** Nový domov radaru: uložit, čip domova, Odkud v Letech (když je prázdné) a v hledání na Přehledu, radar. */
+  function applyHome(home) {
+    S.home = home; save(); updateHomeChip();
+    // prázdné Odkud ve formuláři: domov i s okruhem (jinak by hledání z Lety šlo s výchozími 200 km)
+    if (fromInput && !fromInput.items.length) { $('#radius').value = home.radius; $('#radiusVal').textContent = $('#radius').value + ' km'; fromInput.set(home.from); }
+    renderRadar(true); heroFrom && heroFrom.set(home.from, true);
+  }
+  /**
+   * Domov z uvítání („Odkud letíš?“): čip města (SearchHelp.HOME_CITIES) nebo 'geo' = 📍 Moje poloha. Radar pak hned
+   * hledá a stránka na něj plynule sjede. done(true) po nastavení, done(false) bez polohy (hláška, čipy zůstanou).
+   */
+  function homeFromChip(chip, done = () => { }) {
+    // done před posunem: uvítání schová čipy dřív, než se změřený cíl posunu pod ním zvedne
+    const set = home => { applyHome(home); done(true); $('#radarHead').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    if (chip !== 'geo') { const h = SearchHelp.homeOf(chip); return h ? set(h) : done(false); }
+    useMyLocation(p => set(SearchHelp.homeOf(p)), msg => { toast(msg + ' – vyber město', 'err'); done(false); });
   }
   async function radarSearch(q, key) {
     busySearches++;
@@ -5124,7 +5137,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, renderPins, refreshPins: pinsPaint, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

@@ -1366,3 +1366,28 @@ test('smartDirect: „jen přímé“ z věty platí pro tu větu – další v�
   assert.deepEqual(plain(H.smartDirect({}, false)), { smart: false });
   assert.deepEqual(plain(H.smartDirect(null, false)), { smart: false });
 });
+
+test('homeOf: čip „Odkud letíš?“ v uvítání → domov radaru jako z nastavení domova (místo z našeptávače, 150 km, 2 osoby)', async () => {
+  const { localSuggestions } = await import('../server/lib/places.js');
+  assert.deepEqual(plain(H.HOME_CITIES.map((c) => c[0])), ['Praha', 'Brno', 'Ostrava', 'Vídeň', 'Bratislava']);
+  for (const [name] of H.HOME_CITIES) {
+    const h = plain(H.homeOf(name));
+    assert.equal(h.radius, 150);
+    assert.equal(h.adults, 2);
+    assert.equal(h.from.length, 1);
+    // stejné ID, název, vlajka a poloha jako město, které nabídne našeptávač v poli Odkud
+    const s = localSuggestions(name, 6, { role: 'from' }).find((x) => x.type === 'city' && x.label === name);
+    assert.ok(s, name);
+    const { id, type, label, flag, cc, lat, lon } = s;
+    assert.deepEqual(h.from[0], { id, type, label, flag, cc, lat, lon });
+  }
+  assert.equal(plain(H.homeOf('Brno')).from[0].id, 'geo:49.1952,16.6080|Brno');
+  // 📍 Moje poloha: stejné místo jako tlačítko 📍 v Letech
+  const me = H.myPlace(49.19523, 16.60801);
+  assert.deepEqual(plain(me), { id: 'geo:49.1952,16.6080|Moje poloha', label: 'Moje poloha', flag: '📍', type: 'place' });
+  assert.deepEqual(plain(H.homeOf(me)), { from: [plain(me)], radius: 150, adults: 2 });
+  // neznámé město, nic → null (domov se nemění)
+  assert.equal(H.homeOf('Plzeň'), null);
+  assert.equal(H.homeOf(null), null);
+  assert.equal(H.homeOf({}), null);
+});

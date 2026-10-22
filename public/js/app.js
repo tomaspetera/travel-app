@@ -507,7 +507,12 @@ function renderWhatsNew() {
   const li = x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${x[2]}</div></li>`;
   if (firstVisit(seen)) {
     el.classList.add('welcome');
+    // „Odkud letíš?“ hned nahoře: jedno klepnutí nastaví domov a radar níž začne ukazovat lety (bez domova je prázdný
+    // a jeho „Odkud obvykle létáš?“ je až pod přehybem)
+    const homeRow = window.Flights && Flights.homeFromChip && !S.home?.from?.length
+      ? `<div class="wc-home"><b>Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div></div>` : '';
     el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
+      ${homeRow}
       <ol class="wc-steps">
         <li><span class="wc-n">1</span><div><b>Napiš, kam chceš</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
         <li><span class="wc-n">2</span><div><b>Vyber let</b><small>nejlevnější letenky nahoře, doprava na letiště zvlášť pod cenou</small></div></li>
@@ -518,6 +523,13 @@ function renderWhatsNew() {
       hide();
       const inp = $('#heroTo input'); if (inp) { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus({ preventScroll: true }); }
     };
+    // domov nastavený → řádek zmizí (uvítání zůstane); bez polohy čipy zůstanou na výběr
+    $$('[data-wch]', el).forEach(b => b.onclick = () => {
+      $$('[data-wch]', el).forEach(x => { x.disabled = true; });
+      Flights.homeFromChip(b.dataset.wch, ok => {
+        if (ok) { const r = $('.wc-home', el); if (r) r.remove(); } else $$('[data-wch]', el).forEach(x => { x.disabled = false; });
+      });
+    });
   } else {
     el.classList.remove('welcome');
     const more = WHATS_NEW.slice(WN_TOP);
