@@ -344,7 +344,8 @@ async function route(req, res) {
       return sendJson(req, res, e instanceof UserError ? 413 : 400, { error: e instanceof UserError ? e.message : 'Neplatný JSON' });
     }
     const r = cleanReport(b);
-    if (r) console.warn(recordClientError(r));
+    const line = r && recordClientError(r);
+    if (line) console.warn(line);
     res.writeHead(204, { 'Cache-Control': 'no-store' });
     return res.end();
   }

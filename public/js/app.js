@@ -825,7 +825,8 @@ function renderCountries() {
   const reset = $('#cReset'); if (reset) reset.onclick = () => {
     ['#cSearch', '#cCont', '#cCost', '#cEntry'].forEach(s => { $(s).value = ''; });
     $$('#cVisited button').forEach(b => b.classList.toggle('on', b.dataset.v === 'all'));
-    renderCountries();
+    // přes obsluhu výběru (cFilt + renderCountries): jinak by na telefonu zůstal na ⚙️ Filtry starý počet filtrů
+    $('#cCont').onchange();
   };
   bindDest('#countryGrid');
   Photos.paint($('#countryGrid'));

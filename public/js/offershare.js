@@ -16,8 +16,16 @@
   const localDt = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d/.test(s) && isYmd(s.slice(0, 10)) ? s.slice(0, 16) : null;
   // text bez znaků pro vložení HTML/JS a řídicích znaků (vypisuje se i přes esc() – tohle je druhá pojistka)
   const txt = (v, n) => (typeof v === 'string' ? v.replace(/[<>"'`]/g, '').replace(/[\x00-\x1f\x7f‪-‮⁦-⁩]/g, ' ').trim().slice(0, n) : '');
-  const http = u => (typeof u === 'string' && u.length <= 2000 && /^https?:\/\/[^\s<>"'`]+$/i.test(u) ? u : null);
-  const prov = s => (typeof s === 'string' && /^[a-z0-9-]{1,20}$/.test(s) ? s : '');
+  // Koupit z cizího odkazu jen přes https k prodejcům, kam vedou tlačítka Koupit ve výsledcích (server/providers, tp.media
+  // = partnerský odkaz Aviasales) – jinak by karta „nabídky z ATLASu“ mohla poslat na podvodnou stránku. Prodejce na
+  // tlačítku podle adresy, ne podle údaje v odkazu (ten by mohl tvrdit „Ryanair“). Název serveru se čte bez new URL()
+  // (testy v node:vm): znak jako @ nebo \ hned za ním adresu odmítne, takže https://www.ryanair.com@zly.web neprojde.
+  const SHOPS = [['kiwi.com', 'kiwi'], ['ryanair.com', 'ryanair'], ['wizzair.com', 'wizzair'], ['aviasales.com', 'travelpayouts'], ['tp.media', 'travelpayouts']];
+  function shop(u) {
+    const m = typeof u === 'string' && u.length <= 2000 && /^[^\s<>"'`]+$/.test(u) && u.match(/^https:\/\/([a-z0-9.-]+)(?::\d{1,5})?(?:[/?#]|$)/i);
+    const h = m && m[1].toLowerCase(), s = h && SHOPS.find(([d]) => h === d || h.endsWith('.' + d));
+    return s ? s[1] : null;
+  }
   const BAGS = ['none', 'cabin', 'checked'];
 
   function leg(l) {
@@ -40,7 +48,7 @@
       // čas ceny ne z budoucnosti (hodiny jiného zařízení)
       at: fin(raw.at, 1.5e12, now + 864e5) ? raw.at : null,
       bags: BAGS.includes(raw.bags) ? raw.bags : 'none',
-      buy: (Array.isArray(raw.buy) ? raw.buy : []).filter(b => Array.isArray(b) && http(b[0]) && ['all', 'out', 'back'].includes(b[2])).slice(0, 2).map(b => [b[0], prov(b[1]), b[2]]),
+      buy: (Array.isArray(raw.buy) ? raw.buy : []).filter(b => Array.isArray(b) && shop(b[0]) && ['all', 'out', 'back'].includes(b[2])).slice(0, 2).map(b => [b[0], shop(b[0]), b[2]]),
     };
     if (fin(raw.total, o.czk, 1e8)) o.total = Math.round(raw.total);
     if (o.back && Number.isInteger(raw.nights) && raw.nights >= 0 && raw.nights <= 366) o.nights = raw.nights;

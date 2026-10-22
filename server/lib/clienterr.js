@@ -28,11 +28,21 @@ export function cleanReport(b) {
   };
 }
 
+// Strop řádků v logu za hodinu ze všech adres dohromady: limit 30 za hodinu na adresu (server/index.js) obejde, kdo
+// v každém požadavku podvrhne jinou X-Forwarded-For – falešná hlášení by zaplavila log Renderu a skutečné chyby by
+// v něm zapadly. I chyba, která potká všechny uživatele, tak má v logu dost příkladů a celkový počet ukáže /api/health.
+export const LOG_PER_HOUR = 120;
+let hourAt = 0, inHour = 0;
+
 const recent = [];
 let total = 0;
 
-/** Uloží hlášení (nejnovější na konci, nejvýš 50) a vrátí řádek pro log. */
+/** Uloží hlášení (nejnovější na konci, nejvýš 50) a vrátí řádek pro log; nad hodinový strop null (jen se započte). */
 export function recordClientError(r, at = new Date()) {
+  const t = at.getTime();
+  if (t < hourAt || t - hourAt >= 3600e3) { hourAt = t; inHour = 0; }
+  if (inHour >= LOG_PER_HOUR) { total++; return null; }
+  inHour++;
   recent.push({ at: at.toISOString(), ...r });
   if (recent.length > KEEP) recent.splice(0, recent.length - KEEP);
   total++;

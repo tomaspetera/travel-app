@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 
 process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
-const { cleanReport, recordClientError, recentClientErrors, stripUrl } = await import('../server/lib/clienterr.js');
+const { cleanReport, recordClientError, recentClientErrors, clientErrorCount, stripUrl, LOG_PER_HOUR } = await import('../server/lib/clienterr.js');
 
 let server, base;
 before(async () => {
@@ -119,4 +119,15 @@ test('POST /api/client-error: 204, log, počet v /api/health, limit 30 za hodinu
   } finally {
     console.warn = warn;
   }
+});
+
+test('clienterr.js: nejvýš LOG_PER_HOUR řádků v logu za hodinu ze všech adres (podvržená X-Forwarded-For limit na adresu obejde)', () => {
+  const r = { kind: 'error', msg: 'záplava', src: '', build: '', ua: '' };
+  const h = new Date(Date.now() + 5 * 3600e3); // nová hodina – nezávisle na hlášeních z předchozích testů
+  const n0 = clientErrorCount();
+  for (let i = 0; i < LOG_PER_HOUR; i++) assert.ok(recordClientError(r, new Date(h.getTime() + i)), `řádek ${i + 1}`);
+  assert.equal(recordClientError(r, new Date(h.getTime() + 60e3)), null, 'nad stropem už do logu ne');
+  assert.equal(recentClientErrors().at(-1).at, new Date(h.getTime() + LOG_PER_HOUR - 1).toISOString(), 'ani do paměti');
+  assert.equal(clientErrorCount(), n0 + LOG_PER_HOUR + 1, 'v /api/health se počítá i to nad stropem');
+  assert.ok(recordClientError(r, new Date(h.getTime() + 3600e3)), 'další hodinu zase');
 });
