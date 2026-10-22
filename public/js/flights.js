@@ -2955,7 +2955,7 @@
   }
   function dpShow(d, from) {
     const my = ++dpSeq;
-    modalOpen(dpHtml(d));
+    modalOpen(dpHtml(d), { hist: false }); // krok historie náhledu řídí dpOpen (návrat posunu, akce až po návratu)
     if (window.Photos) Photos.paint($('#modal')); // velká fotka města nahoře (jako detail v cestovních aplikacích)
     $('#modal').scrollTop = 0; // okno si jinak drží posun z minulého otevření
     dpOpen(from);
