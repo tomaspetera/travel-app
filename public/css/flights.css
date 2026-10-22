@@ -180,7 +180,9 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 .part-tag{font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap}
 /* Wizz Air: další hledání vezme trasy, na které nedošlo */
 .more-routes{margin:-8px 0 18px}
-.ph{font-weight:800;font-size:14px;margin-bottom:10px}
+/* jen v kartě průběhu – samotné .ph je i třída „fotka načtena“ (Photos v app.js) a karty, úvod i hlavičky by po načtení
+   fotky dostaly tučný text a okraj 10 px dole */
+.progress-card .ph{font-weight:800;font-size:14px;margin-bottom:10px}
 details.progress-card>summary.ph{list-style:none;cursor:pointer;margin-bottom:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:0 4px}
 details.progress-card>summary.ph::-webkit-details-marker{display:none}
 details.progress-card[open]>summary.ph{margin-bottom:10px}
@@ -1290,7 +1292,9 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .resume-recent::-webkit-scrollbar{display:none}
 .resume-recent .faint{flex:none;font-size:12.5px;font-weight:700}
 .resume-recent .recent-chip{flex:none;white-space:nowrap}
-.mc-why{margin-top:4px;font-size:12.5px}
+/* „Co to znamená?“ v modré poznámce: text jako zbytek poznámky – ne žlutý tučný (.mc-why je i varování u šedého letu,
+   které si tak nechá své menší písmo) */
+.mc-note .mc-why{margin-top:4px;font-size:12.5px;font-weight:inherit;color:inherit}
 .mc-why>summary{cursor:pointer;color:var(--accent);font-weight:600;list-style:none;display:inline}
 .mc-why>summary::-webkit-details-marker{display:none}
 .mc-why>summary::after{content:' ▾'}
