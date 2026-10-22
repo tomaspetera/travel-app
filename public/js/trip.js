@@ -606,7 +606,7 @@
    */
   const linkSig = x => {
     const { done, ...p } = x.pretrip || {};
-    return JSON.stringify({ ...x, flight: x.flight && { ...x.flight, pricedAt: undefined }, pretrip: Object.keys(p).length ? p : undefined }, (k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(n => [n, v[n]])) : v));
+    return JSON.stringify({ ...x, shared: undefined, sharedOn: undefined, flight: x.flight && { ...x.flight, pricedAt: undefined }, pretrip: Object.keys(p).length ? p : undefined }, (k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(n => [n, v[n]])) : v));
   };
 
   /* ---------- start z výsledků hledání ---------- */
@@ -786,11 +786,13 @@
         <div class="th-dest"><h2>${esc(tripName(t))}</h2><div class="th-sub" id="thSub">${headSub(t)}</div></div>
       </div>
       <div class="stepbar">${STEPS.map((s, i) => `${i ? `<i${i <= idx ? ' class="done"' : ''}></i>` : ''}<button type="button" class="st ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${i < idx ? '✓' : s[1]}</span>${s[2]}</button>`).join('')}</div>
+      ${sharedHtml(t)}
       <div class="tw-body"><div id="tripStep"></div><aside class="trip-aside" id="tripAside" aria-label="Přehled cesty">${asideHtml(t)}</aside></div>`;
     if (window.Photos) Photos.paint(root); // fotka cíle v hlavičce
     asideWire();
     $$('.stepbar [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step));
     $('#tripRestart').onclick = () => restart();
+    if (t.shared) $('#tripSharedSave').onclick = () => saveToPlanner();
     if (t.step === 'flight') flightStep();
     else if (t.step === 'route') routeStep();
     else if (t.step === 'stay') stayStep();
@@ -799,6 +801,16 @@
     else summaryStep();
     tabIntoView();
     asideNext(); // tlačítko kroku i v přehledu vpravo (krok už je vykreslený)
+  }
+  /**
+   * Cesta otevřená z cizího odkazu (#trip=, importFromHash), dokud si ji příjemce neuloží: ceny jsou z doby sdílení
+   * (den z odkazu; starší odkazy ho nemají) a 💾 Uložit si ji – uložení do plánovače z ní udělá vlastní cestu.
+   */
+  function sharedHtml(t) {
+    if (!t.shared) return '';
+    const on = t.shared.on;
+    return `<div class="note info trip-shared"><span aria-hidden="true">🔗</span><div class="ts-t"><b>Sdílená cesta</b> – ${on ? `ceny jsou z doby sdílení (${+on.slice(8, 10)}.\u00a0${+on.slice(5, 7)}.)` : 'ceny se mohly změnit'}. Před nákupem je ověř.</div>
+      <button type="button" class="btn sm primary" id="tripSharedSave">💾 Uložit si ji</button></div>`;
   }
   /** Záložky míst trasy (Ubytování, Program) se na telefonu nevejdou: vybrané místo posunout doprostřed lišty. */
   function tabIntoView() {
@@ -3136,6 +3148,7 @@
         days,
       };
     } else S.trips.push(entry);
+    delete t.shared; // sdílená cesta je teď vlastní (poznámka o stáří cen a „💾 Uložit si ji“ zmizí)
     persist();
     toast(i >= 0 ? 'Cesta v plánovači aktualizována' : 'Cesta uložena do plánovače');
     if (!o.stay) go('planner', { drill: true }); // Zpět telefonu vrátí do Shrnutí
@@ -3167,7 +3180,8 @@
 
   /** JSON cesty do sdíleného odkazu (#trip=…, zkomprimovaný – sharelink.js): bez odškrtnutých rezervací a času založení. */
   function shareJson(t) {
-    const slim = { ...t, booked: {}, created: undefined, statsWait: undefined, statsPreview: undefined, statsPart: t.statsPart ? true : undefined };
+    // shared = příznak cesty otevřené z cizího odkazu (jen u příjemce) – do plánovače ani dalšího odkazu nepatří
+    const slim = { ...t, booked: {}, created: undefined, shared: undefined, sharedOn: undefined, statsWait: undefined, statsPreview: undefined, statsPart: t.statsPart ? true : undefined };
     // „Co zařídit a co sbalit“: aktivity, vlastní položky i odškrtnutí (ta jsou jinak jen v localStorage tohoto prohlížeče)
     if (window.PreTrip) slim.pretrip = PreTrip.shareState(t);
     if (t.route) {
@@ -3193,6 +3207,9 @@
       ...(x.cc ? { cc: x.cc } : {}), ...(Array.isArray(x.includes) && x.includes.length ? { includes: x.includes } : {}) });
     const plan = p => (p && Array.isArray(p.days) ? { ...p, spare: undefined, created: undefined, center: geo(p.center), days: p.days.map(d => ({ ...d, items: (d.items || []).map(item) })) } : p);
     delete o.step; delete o.booked; delete o.created; // příjemce je nastaví sám (importFromHash)
+    // den sdílení – příjemce uvidí „ceny jsou z doby sdílení (12. 10.)“; jen den (ne čas), ať je odkaz připravený při
+    // vykreslení shrnutí stejný jako ten po kliknutí (ShareLink.prepare). Starší verze aplikace pole přeskočí.
+    o.sharedOn = fmtYMD(new Date());
     if (o.flight) {
       const f = { ...o.flight };
       for (const k of ['id', 'perPersonCzk', 'tripCzk', 'totalCzk', 'tempHi', 'nights']) delete f[k];
@@ -3285,6 +3302,9 @@
     t.statsPreview = cleanPriceStats(t.statsPreview);
     giveUpStats(t);
     if (t.statsPart) t.statsPart = true; else delete t.statsPart;
+    // sdílená cesta (importFromHash): { on – den sdílení, null u starších odkazů }; den z odkazu čte importFromHash sám
+    if (okObj(t.shared)) t.shared = { on: sharedDay(t.shared.on) }; else delete t.shared;
+    delete t.sharedOn;
     const pl = t.flight.priceLevel;
     if (pl != null && !(okObj(pl) && ['low', 'normal', 'high'].includes(pl.level) && typeof pl.reason === 'string' && okFin(pl.ref, 0, 1e7) && okFin(pl.vsRef, -100, 1e5) && (pl.pos == null || okFin(pl.pos, 0, 100)))) delete t.flight.priceLevel;
     t.ccs = Array.isArray(t.ccs) ? [...new Set(t.ccs.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x)))].slice(0, 8) : undefined;
@@ -3328,6 +3348,8 @@
   const okFin = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
   const okStr = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
   const okYmd = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v + 'T00:00:00Z')) ? v : null;
+  // den sdílení z odkazu: platné datum, ne z budoucnosti (hodiny jiného zařízení – den rezerva), jinak null
+  const sharedDay = v => (okYmd(v) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v && v >= '2020-01-01' && v <= fmtYMD(new Date(Date.now() + 864e5)) ? v : null);
   const okDt = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(v.slice(0, 16)) && okYmd(v.slice(0, 10)) ? v.slice(0, 16) : null;
   const okTz = v => typeof v === 'string' && v.length <= 40 && /^[A-Za-z][\w+-]*(\/[\w+-]+){0,2}$/.test(v) ? v : null;
   // ID míst z aplikace (ap:VIE, metro:PAR, geo:lat,lon|Název) – posílají se serveru, který je ještě ověří
@@ -3452,7 +3474,7 @@
     try {
       const parsed = JSON.parse(await ShareLink.unpack(m[1]));
       if (!parsed || !parsed.flight || !parsed.flight.out) throw new Error('neplatná data');
-      const t = sanitizeTrip(parsed);
+      const t = sanitizeTrip(parsed), on = sharedDay(parsed.sharedOn);
       const mine = S.trip;
       // tatáž cesta (stejné spoje, lidé, ubytování, auto i trasa): vlastní odkaz, nebo novější verze od spolucestujícího
       const same = (() => { try { return Boolean(mine && mine.flight) && tripSig(mine) === tripSig(t); } catch (e) { return false; } })(); // poškozená rozpracovaná cesta = jiná
@@ -3478,8 +3500,11 @@
         return false;
       }
       // tatáž cesta: odškrtnuté rezervace i čas založení zůstanou (plánovač ji aktualizuje, odškrtnutí karty se přidají)
-      S.trip = same ? { ...t, booked: mine.booked || {}, step: 'summary', created: Number.isFinite(mine.created) ? mine.created : Date.now() }
-        : { ...t, booked: {}, step: 'summary', created: Date.now() };
+      // cizí cesta je „sdílená“ (poznámka o stáří cen a 💾 Uložit si ji), dokud si ji příjemce neuloží; nová verze vlastní
+      // cesty zůstane vlastní, nová verze ještě neuložené sdílené cesty dostane den sdílení z odkazu
+      const shared = !same || mine.shared ? { shared: { on } } : {};
+      S.trip = same ? { ...t, shared: undefined, ...shared, booked: mine.booked || {}, step: 'summary', created: Number.isFinite(mine.created) ? mine.created : Date.now() }
+        : { ...t, ...shared, booked: {}, step: 'summary', created: Date.now() };
       staysData = null; carsData = null; // nabídky ubytování a aut patřily předchozí cestě
       // odškrtnutí z odkazu k nové cestě do localStorage (odškrtnutí ostatních cest zůstanou)
       if (window.PreTrip) PreTrip.adopt(S.trip);

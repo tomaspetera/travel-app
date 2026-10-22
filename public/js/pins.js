@@ -2,7 +2,7 @@
    z řádku výsledků nese vše, co porovnání potřebuje bez nového hledání (rozpis ceny, lety, letiště, statistika cen),
    z karty radaru jen to, co karta zná. Přepnutí, úklid nabídek s odletem v minulosti, pročištění cizího vstupu
    (💾 záloha, jednorázový přepočet nabídek ze starší verze – pv), sloučení, tichá obnova ceny z pozdějšího hledání se
-   stejným nastavením a text pro sdílení.
+   stejným nastavením, pořadí v 📌 Porovnat podle ceny i s cestou na letiště a do města (door, rank) a text pro sdílení.
    UI je ve flights.js (priceBox, bookButtons, pickTrip…), záloha v backup.js. */
 (function () {
   const MAX = 12, OLD_MIN = 1440; // nejvýš nabídek; cena starší než 24 h varovně
@@ -58,7 +58,7 @@
     if (!x || !isIata(x.from) || !isIata(x.to) || !isYmd(x.d1)) return null;
     // základ ceny radaru: bez zavazadel, veřejnou dopravou na letiště, s cestou do města (SearchHelp.radarQuery)
     const q = { adults: Math.min(9, Math.max(1, Math.round(+adults) || 1)), bags: 'none', groundMode: 'transit', carFuel: null, kmRate: 1, arrival: true, trip: x.d2 ? 'return' : 'oneway' }, r = {};
-    for (const k of ['from', 'to', 'd1', 'd2', 'bf', 'bt', 't1', 'a2', 'czk', 'prov', 'deal', 'buy']) if (x[k] !== undefined) r[k] = x[k];
+    for (const k of ['from', 'to', 'd1', 'd2', 'bf', 'bt', 't1', 'a2', 'czk', 'gc', 'ac', 'prov', 'deal', 'buy']) if (x[k] !== undefined) r[k] = x[k];
     return copy({ k: radarKey(x, basis(q)), kind: 'r', at: at > 0 ? at : now, pinnedAt: now, q, pv: 2, dest: { id: x.id || null, key: keyOf(x.id) || x.to, label: x.label || x.to, cc: x.cc || '', ...geo(x) }, r, ...(demo ? { demo: 1 } : {}) });
   }
 
@@ -127,6 +127,7 @@
   function cleanRadar(r) {
     if (!obj(r) || !isIata(r.from) || !isIata(r.to) || !isYmd(r.d1) || !fin(r.czk, 1, 1e7)) return null;
     const o = { from: r.from, to: r.to, d1: r.d1, ...(isYmd(r.d2) && r.d2 >= r.d1 ? { d2: r.d2 } : {}), czk: r.czk };
+    for (const k of ['gc', 'ac']) if (fin(r[k], 0, 1e6)) o[k] = r[k]; // doprava na letiště a do města (extras)
     for (const k of ['bf', 'bt']) if (isIata(r[k])) o[k] = r[k];
     o.t1 = typeof r.t1 === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(r.t1) ? r.t1 : '';
     o.a2 = typeof r.a2 === 'string' && /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/.test(r.a2) ? r.a2 : '';
@@ -202,6 +203,52 @@
     });
     return { list: n ? out : cur, n };
   }
+  /* ---------- 📌 Porovnat: cena i s cestou na osobu (odhad) ---------- */
+  const gOk = g => obj(g) && !g.off && fin(g.czk, 0, 1e6);
+  /**
+   * Doprava nabídky t z hledání s nastavením q na osobu: na letiště a zpět (t.groundCzk – autem i parkování) a z letiště
+   * do města a zpět (t.arrCzk; bez volby „v ceně“ z jízdného arrivals, které hledání posílá kvůli štítkům) → { ground,
+   * arr }, null = neznáme: doprava na letiště vypnutá (off), odkud celá země (letiště bez ground), letiště bez údaje
+   * o cestě do města. Stejně pro řádek výsledků (door) i kartu radaru (gc, ac v flights.js).
+   */
+  function extras(t, q, origins, arrivals) {
+    if (!obj(t) || !obj(t.out)) return { ground: null, arr: null };
+    const O = Array.isArray(origins) ? origins : [], A = obj(arrivals) ? arrivals : {};
+    const gOf = i => O.some(o => obj(o) && o.iata === i && gOk(o.ground));
+    const ground = fin(t.groundCzk, 0, 1e6) && gOf(t.out.from) && (!t.back || gOf(t.back.to)) ? t.groundCzk : null;
+    const aOk = x => obj(x) && fin(x.czk, 0, 1e5), a = A[t.out.to], b = t.back ? A[t.back.from] : null, has = aOk(a) && (!t.back || aOk(b));
+    const arr = obj(q) && q.arrival && fin(t.arrCzk, 0, 1e6) && (t.arrCzk > 0 || has) ? t.arrCzk : has ? a.czk + (t.back ? b.czk : 0) : null;
+    return { ground, arr };
+  }
+  /**
+   * Kolik nabídka p stojí na osobu i s cestou: letenka (+ zavazadla) + doprava na letiště a zpět + z letiště do města
+   * a zpět (obojí průměrná cena, odhad). Co neznáme (extras; karta radaru ze starší verze nemá nic), do součtu nejde –
+   * total je pak jen dolní mez → { ticket, ground, arr, total, full, miss: ['ground' | 'arr'] }.
+   */
+  function door(p) {
+    const x = p.kind === 'r'
+      ? { ticket: p.r.czk, ground: fin(p.r.gc, 0, 1e6) ? p.r.gc : null, arr: fin(p.r.ac, 0, 1e6) ? p.r.ac : null }
+      : { ticket: p.t.perPersonCzk, ...extras(p.t, p.q, p.origins, p.arrivals) };
+    const miss = [x.ground == null && 'ground', x.arr == null && 'arr'].filter(Boolean);
+    return { ...x, total: Math.round(x.ticket + (x.ground || 0) + (x.arr || 0)), full: !miss.length, miss };
+  }
+  /**
+   * 📌 Porovnat podle ceny i s cestou (door): od nejlevnější. Srovnatelná (exact) je nabídka, které chybí jen to, co
+   * neznáme u žádné (skip – třeba doprava na letiště vypnutá ve všech hledáních). Nejlevnější (best) je jen srovnatelná;
+   * nesrovnatelná, která i bez chybějící části vyjde levněji, je „možná levnější“ (maybe), jinak aspoň o diff dráž –
+   * nic se nepředstírá. Při shodě srovnatelná napřed, pak levnější letenka a dřív odložená.
+   * → { rows: [{ p, d, exact, best, maybe, diff (o kolik dráž než nejlevnější; u maybe záporné) }], skip }
+   */
+  function rank(list) {
+    const xs = (Array.isArray(list) ? list.filter(obj) : []).map(p => ({ p, d: door(p) }));
+    const skip = ['ground', 'arr'].filter(k => xs.length && xs.every(x => x.d.miss.includes(k)));
+    for (const x of xs) x.exact = x.d.miss.length === skip.length;
+    xs.sort((a, b) => a.d.total - b.d.total || b.exact - a.exact || a.d.ticket - b.d.ticket || a.p.pinnedAt - b.p.pinnedAt);
+    // žádná srovnatelná (jedné chybí doprava na letiště, druhé cesta do města): pořadí podle známé části, bez vítěze
+    const top = xs.find(x => x.exact), min = top ? top.d.total : null;
+    return { rows: xs.map(x => ({ ...x, best: x === top, maybe: Boolean(top) && !x.exact && x.d.total < min, diff: top ? x.d.total - min : null })), skip };
+  }
+
   /** Stáří ceny (SearchHelp.resultAge) + day = starší než 24 h, ago = „před 3 dny“; bez času null. */
   function age(at, now = Date.now()) { const a = window.SearchHelp.resultAge(at, now); return a ? { ...a, day: a.min >= OLD_MIN, ago: a.txt.slice(a.when.length + 2, -1) } : null; }
 
@@ -243,5 +290,5 @@
     return out.join('\n');
   }
 
-  window.Pins = { MAX, OLD_MIN, basis, sigTrip, sigRadar, rowKey, radarKey, fromRow, fromRadar, has, toggle, alive, clean, merge, refresh, age, price, dep, sorted, shareText };
+  window.Pins = { MAX, OLD_MIN, basis, sigTrip, sigRadar, rowKey, radarKey, fromRow, fromRadar, has, toggle, alive, clean, merge, refresh, age, price, dep, sorted, extras, door, rank, shareText };
 })();
