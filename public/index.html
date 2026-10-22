@@ -154,7 +154,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
     <nav class="nav" id="nav"></nav>
     <div class="side-foot">
       <div class="src-box" id="srcBox"></div>
-      <div class="theme-toggle" id="themeToggle">
+      <div class="theme-toggle" id="themeToggle" role="button" tabindex="0">
         <span id="themeLabel">Tmavý režim</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
       </div>
@@ -184,6 +184,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
       <section class="view active" id="view-dashboard">
         <!-- 📍 Dnes na cestě: od 2 dnů před odjezdem do konce uložené cesty (app.js renderNow) -->
         <div class="now-trip" id="nowTrip" hidden></div>
+        <!-- 🕘 Od minula: po návratu jiný den co se změnilo (hlídané ceny, cesta, radar, odložené) – app.js renderSince -->
+        <div class="since-wrap" id="sinceCard" hidden></div>
         <!-- 📉 hlídaná cena zlevnila / je pod cílovou cenou: velká karta nahoře (flights.js renderDropCard) -->
         <div class="drop-wrap" id="dropCard" hidden></div>
         <div class="hero" id="heroBox">
@@ -531,6 +533,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <script src="js/places.js"></script>
 <script src="js/trip.js"></script>
 <script src="js/alerts.js"></script>
+<script src="js/since.js"></script>
 <script src="js/searchhelp.js"></script>
 <script src="js/smart.js"></script>
 <script src="js/pins.js"></script>

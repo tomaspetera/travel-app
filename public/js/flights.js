@@ -4153,6 +4153,10 @@
     // nejdůležitější (pod cílovou cenou, jinak největší zlevnění) jako velká karta úplně nahoře, zbytek v řádku
     const top = n.hits[0] || n.watch[0];
     renderDropCard(top && (S.watch || []).find(w => w.id === top.id), n.hits.length + n.watch.length);
+    // 🕘 karta Od minula po návratu (app.js) – až po 📉 kartě, ať neopakuje její hlídání; dokud je vidět (nebo ji
+    // uživatel v tomhle okně zavřel ✕), tenhle řádek by říkal totéž podruhé
+    if (typeof renderSince === 'function') renderSince();
+    const since = $('#sinceCard'), quiet = Boolean(since && since.dataset.quiet);
     const hits = n.hits.filter(x => x !== top), drops = n.watch.filter(x => x !== top);
     const parts = [
       ...hits.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">🎯 ${esc(x.label)} pod tvou cenou (${czk(x.czk)})</button>`),
@@ -4160,7 +4164,7 @@
       hits.length + drops.length > Math.min(2, hits.length) + Math.min(2, drops.length) ? `<span class="faint">+${hits.length + drops.length - Math.min(2, hits.length) - Math.min(2, drops.length)} další</span>` : '',
       n.down || n.fresh ? `<button type="button" class="linkbtn" data-nl="radar">📡 radar: ${[n.down ? `${n.down} ${n.down === 1 ? 'cíl' : n.down <= 4 ? 'cíle' : 'cílů'} levněji` : '', n.fresh ? `${n.fresh} ${n.fresh === 1 ? 'nový' : n.fresh <= 4 ? 'nové' : 'nových'}` : ''].filter(Boolean).join(' · ')}</button>` : '',
     ].filter(Boolean);
-    el.hidden = !parts.length;
+    el.hidden = !parts.length || quiet;
     el.innerHTML = parts.length ? `<b>Od minula:</b> ${parts.join('<span class="faint"> · </span>')}` : '';
     $$('[data-nl]', el).forEach(b => b.onclick = () => $(b.dataset.nl === 'radar' ? '#radar' : '#watchHead')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
@@ -4168,6 +4172,7 @@
   function renderDropCard(w, total) {
     const el = $('#dropCard'); if (!el) return;
     el.hidden = !w;
+    el.dataset.wid = w ? w.id : ''; // karta Od minula (app.js renderSince) tohle hlídání neopakuje
     if (!w) { el.innerHTML = ''; return; }
     const cur = w.best.czk, hit = +w.target > 0 && cur <= w.target, drop = Alerts.isDropped(w);
     const pct = drop ? Alerts.pctChange(w.seen, cur) : null;
@@ -4248,6 +4253,14 @@
   const radarCached = q => (!q || q.none ? null : q.mode === 'holiday' ? (S.radar?.lw || {})[q.lw.start] : S.radar?.[q.mode]) || null;
   // uložený výsledek jen s kartami, které radar ukazuje (bez 🙈 cílů, nejvýš 12)
   const radarVisible = e => (e && Array.isArray(e.items) ? { ...e, items: SearchHelp.radarShown(e.items, prefLists().mute).map(s => s.x) } : e);
+  /** Uložený radar pro dnešní domov a režim, jen karty, které ukazuje (karta Od minula v app.js – bez hledání) → { at, items, mode, partial } | null. */
+  function radarNow() {
+    if (!S.home?.from?.length) return null;
+    const q = SearchHelp.radarQuery(S.radarMode, radarHome(), today(), S.radarHoliday), r = radarCached(q);
+    if (!r || !SearchHelp.radarSame(r.key, radarKey(q))) return null;
+    const v = radarVisible(r);
+    return { at: v.at, items: v.items, mode: q.mode, partial: Boolean(v.partial) };
+  }
   let radarLast = null; // naposledy vykreslený výsledek radaru – ⭐ / 🙈 ho překreslí bez hledání
   /** Čipy prodloužených víkendů v radaru, u každého nejlevnější cena z uloženého výsledku (žádné hledání navíc). */
   function paintLw(q) {
@@ -4865,15 +4878,19 @@
   const pinRes = p => ({ mode: 'route', partial: false, demo: Boolean(p.demo), query: { ...p.q }, origins: p.origins || [], arrivals: p.arrivals || {}, home: p.home ? { label: p.home } : null, priceStats: p.stats || null, groups: [] });
   const pinG = p => ({ dest: { ...p.dest, airports: [p.t.out.to] }, priceStats: p.stats || null, ground: p.ground || null });
 
-  /** 📌 Odložené nabídky na Přehledu (pod ⭐ Moje cíle): dlaždice podle ceny, klepnutím Porovnat s tou nabídkou na očích. */
+  /**
+   * 📌 Odložené nabídky na Přehledu (pod ⭐ Moje cíle): dlaždice v pořadí jako 📌 Porovnat (Pins.sorted – i s cestou
+   * na letiště a do města, ta je pak na dlaždici vidět), klepnutím Porovnat s tou nabídkou na očích.
+   */
   function renderPins() {
     const host = $('#pinSec'); if (!host) return;
     const list = Pins.sorted(pinList()), now = Date.now();
     host.hidden = !list.length;
     if (!list.length) { host.innerHTML = ''; return; }
     const tile = p => {
-      const a = Pins.age(p.at, now), one = p.kind === 'r' ? !p.r.d2 : !p.t.back;
+      const a = Pins.age(p.at, now), one = p.kind === 'r' ? !p.r.d2 : !p.t.back, d = Pins.door(p);
       return `<button type="button" class="fav-i" data-pinx="${esc(p.k)}"><span class="fav-n">${flag(p.dest.cc)} <b>${esc(p.dest.label)}</b></span><span class="fav-p">od <b>${czk(Pins.price(p))}</b>/os.</span>`
+        + (d.ground != null || d.arr != null ? `<span class="fav-w">i s cestou ${d.full ? '' : 'aspoň '}~${czk(d.total)}/os.</span>` : '')
         + `<span class="fav-w">${esc(pinWhen(p))}${one ? ' jen tam' : ''}${a ? ` · <span class="pin-age${a.day ? ' old' : ''}">${a.day ? `⚠ ${esc(a.ago)}` : `ceny ${a.z} ${esc(a.when)}`}</span>` : ''}</span></button>`;
     };
     host.innerHTML = `<div class="section-head"><h2>📌 Odložené nabídky <span class="faint" style="font-size:13px;font-weight:600">· ${list.length}</span></h2><button type="button" class="link" id="pinAll">Porovnat →</button></div>
@@ -5322,7 +5339,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, showWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, openOffer, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, showWatch, renderRadar, renderNews, radarNow, renderFav, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, openOffer, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

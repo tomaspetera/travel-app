@@ -81,6 +81,9 @@ a{color:inherit}
 .theme-toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border:1px solid var(--border);border-radius:13px;cursor:pointer;font-size:13px;color:var(--muted);background:var(--surface)}
 .theme-toggle:hover{color:var(--text)}
 .theme-toggle svg{width:18px;height:18px;flex:none}
+/* ℹ️ O aplikaci a soukromí (about.js) – počítač a tablet nemají ⋯ Další; postranní panel je na telefonu skrytý */
+.side-foot .side-about{width:100%;font:inherit;font-size:13px;text-align:left;justify-content:flex-start}
+.side-foot .side-about:hover{border-color:var(--border-2)}
 
 .main{min-width:0;display:flex;flex-direction:column}
 .topbar{
@@ -665,6 +668,24 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .dt-b .btn{margin-top:8px}
 .dt-x{flex:none;border:none;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;padding:6px 8px;border-radius:7px}
 .dt-x:hover,.dt-x:focus-visible{color:var(--text);background:var(--surface-2)}
+/* 🕘 Od minula (Přehled nahoře po návratu jiný den, app.js renderSince): nejvýš 3 řádky, celý řádek je tlačítko
+   (na telefonu dost velký cíl pro prst), dlouhý název se zalomí */
+.since-wrap{margin-bottom:16px}
+.since-wrap[hidden]{display:none}
+.since-card{padding:10px 8px 8px 14px;border-color:rgba(91,140,255,.35)}
+.sc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sc-h{font:700 15px/1.35 'Sora','Inter',sans-serif;min-width:0}
+.sc-h .faint{font:600 12.5px Inter,sans-serif}
+.sc-rows{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column}
+.sc-rows li+li{border-top:1px dashed var(--border)}
+.sc-row{display:grid;grid-template-columns:22px minmax(0,1fr) 14px;gap:6px;align-items:start;width:100%;min-height:44px;padding:8px 6px 8px 0;border:none;background:none;color:var(--text);font:13.5px/1.45 Inter,sans-serif;text-align:left;cursor:pointer;border-radius:8px}
+.sc-row:hover,.sc-row:focus-visible{background:var(--surface-2)}
+.sc-i{text-align:center;font-size:15px}
+.sc-t{min-width:0;overflow-wrap:anywhere;color:var(--muted)}
+.sc-t b{color:var(--text)}
+.sc-go{color:var(--accent);font-weight:800;font-size:17px;line-height:1.2}
+[data-theme="light"] .sc-go{color:#2f5fd0}
+#watchList .watch{scroll-margin-top:90px} /* klepnutí na zlevnění v Od minula: karta hlídání pod lepicí hlavičkou */
 /* Vítej – první návštěva: 3 kroky místo seznamu novinek */
 .whats-new.welcome{padding:16px 16px 14px;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(52,211,153,.08))}
 .wc-h{font-size:16px;line-height:1.35;margin:0 0 12px}

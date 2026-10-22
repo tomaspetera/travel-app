@@ -25,8 +25,9 @@
   const radarKey = (x, b) => `r|${sigRadar(x)}|${b}`;
   const price = p => (p.kind === 'r' ? p.r.czk : p.t.perPersonCzk);
   const dep = p => (p.kind === 'r' ? obj(p.r) && p.r.d1 : obj(p.t) && obj(p.t.out) && p.t.out.date) || '';
-  // jako porovnání: podle ceny na osobu, při shodě dřív odložená
-  const sorted = list => (Array.isArray(list) ? list.filter(obj) : []).sort((a, b) => price(a) - price(b) || a.pinnedAt - b.pinnedAt);
+  // stejné pořadí jako 📌 Porovnat (rank – cena na osobu i s cestou, kde ji známe): dlaždice na Přehledu a „📤 Poslat
+  // k výběru“ – jinak by číslo 1 ve zprávě byla jiná nabídka než „nejlevnější celkem“ v porovnání
+  const sorted = list => rank(list).rows.map(x => x.p);
 
   const T_KEYS = ['id', 'out', 'back', 'flightCzk', 'perPersonCzk', 'tripCzk', 'totalCzk', 'bagCzk', 'bagEst', 'groundCzk', 'parkCzk', 'arrCzk', 'nights', 'provider', 'combined', 'composed', 'cell', 'bookUrl', 'deal', 'priceLevel', 'tempHi', 'distanceKm', 'destKey'];
   const qOf = (q, trip) => ({ adults: +q.adults || 1, bags: ENUM.bags.includes(q.bags) ? q.bags : 'none', groundMode: q.groundMode === 'car' ? 'car' : 'transit', carFuel: q.groundMode === 'car' && ENUM.carFuel.includes(q.carFuel) ? q.carFuel : null, kmRate: fin(q.kmRate, 0, 5) ? q.kmRate : 1, arrival: Boolean(q.arrival), trip });
@@ -274,14 +275,22 @@
     if (b && linkOk(o.bookUrl) && linkOk(b.bookUrl)) return `tam: ${o.bookUrl} zpět: ${b.bookUrl}`;
     return gLink(o.from, o.to, o.date, b && b.from, b && b.to, b && b.date);
   }
-  /** Text „Kam pojedeme?“: nabídky očíslované podle ceny na osobu, s termínem, cenou, lety, stářím ceny a odkazem. */
+  const PART = { ground: 'dopravy na letiště', arr: 'cesty do města' };
+  /** Řádek „i s cestou ~1 659 Kč/os.“ (door) – podle něj je pořadí; bez známé dopravy null (pořadí jen podle letenky). */
+  function doorTxt(d) {
+    if (d.ground == null && d.arr == null) return null;
+    return d.full ? `i s cestou ~${kc(d.total)}/os. (odhad dopravy na letiště a do města)` : `i s cestou aspoň ~${kc(d.total)}/os. (bez ${d.miss.map(k => PART[k]).join(' a ')})`;
+  }
+  /** Text „Kam pojedeme?“: nabídky očíslované jako v 📌 Porovnat (sorted), s termínem, cenou, cenou i s cestou, lety,
+   *  stářím ceny a odkazem. */
   function shareText(list, { now = Date.now() } = {}) {
     const out = ['✈️ Kam pojedeme? Vyber číslo (ceny za osobu):', ''];
     sorted(list).forEach((p, i) => {
       const r = p.kind === 'r' ? p.r : null, t = p.t, d1 = r ? r.d1 : t.out.date, d2 = r ? r.d2 : t.back && t.back.date;
-      const n = d2 ? (!r && t.nights != null ? t.nights : nightsOf(d1, d2)) : null, pax = p.q.adults, a = age(p.at, now), fl = flagOf(p.dest.cc);
+      const n = d2 ? (!r && t.nights != null ? t.nights : nightsOf(d1, d2)) : null, pax = p.q.adults, a = age(p.at, now), fl = flagOf(p.dest.cc), dt = doorTxt(door(p));
       out.push(`${i + 1}) ${p.dest.label}${fl ? ' ' + fl : ''} · ${d2 ? `${day(d1)} – ${day(d2)} · ${nightsTxt(n)}` : `${day(d1)} · jen tam`}`,
         `   ${kc(price(p))}/os.${pax > 1 ? ` (celkem ${kc(r ? r.czk * pax : t.totalCzk)} za ${pax} os.)` : ''}${p.demo ? ' (DEMO – vymyšlená cena)' : ''}`,
+        ...(dt ? [`   ${dt}`] : []),
         `   ${r ? `${r.from} → ${r.to}${d2 ? ` ↩ ${r.bf && r.bf !== r.to ? r.bf + ' → ' : ''}${r.bt || r.from}` : ''} · ${d2 ? 'zpáteční letenka' : 'letenka'}` : [`tam ${legTxt(t.out)}`, t.back ? `zpět ${legTxt(t.back)}` : '', who(t)].filter(Boolean).join(' · ')}`,
         ...(a ? [`   ${a.day ? `⚠ cena ${a.z} ${a.txt} – může být jiná` : `cena ${a.z} ${a.txt}`}`] : []),
         `   ${shareLink(p)}`, '');

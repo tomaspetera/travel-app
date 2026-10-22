@@ -199,6 +199,34 @@ test('průvodce: návrat lištou kroků cestu zkrátí, odchod z Cesty ji zahod�
   assert.equal(c.trip.step, 'flight');
 });
 
+test('Zpět na počítači: sekce z postranního panelu přidá krok – šipka Zpět vrátí na předchozí sekci i s posunem', () => {
+  // postranní panel volá go(v, { drill: true }) (app.js, .nav-item) – lišta dole na telefonu dál bez něj
+  assert.match(APP, /\$\$\('\.nav-item'\)\.forEach\(el => \{[\s\S]*?el\.onclick = \(\) => go\(el\.dataset\.view, \{ drill: true \}\);/);
+  const side = (a, v) => a.tap(v, { drill: true });
+  const a = app();
+  side(a, 'flights');
+  a.ctx.window.scrollY = 640; // uživatel sjel k výsledkům
+  side(a, 'explore');
+  a.ctx.window.scrollY = 0;
+  side(a, 'planner');
+  assert.deepEqual(plain(a.H.list.map((x) => x.url)), ['', '#flights', '#explore', '#planner']);
+  a.back();
+  assert.equal(a.view(), 'explore');
+  a.back();
+  assert.equal(a.view(), 'flights');
+  assert.equal(a.ctx.scrolls.at(-1), 640, 'zpět na místo ve výsledcích');
+  a.back();
+  assert.equal(a.view(), 'dashboard');
+  assert.equal(a.H.exits, 0);
+  // Přehled z panelu vrátí všechny kroky (ne další krok nad sekcemi); táž sekce znovu krok nepřidá
+  const b = app();
+  side(b, 'flights'); side(b, 'flights'); side(b, 'explore'); side(b, 'dashboard');
+  assert.equal(b.H.i, 0);
+  assert.equal(b.view(), 'dashboard');
+  b.back();
+  assert.equal(b.H.exits, 1);
+});
+
 test('viewHist: lišta přepisuje krok sekce, obsah přidá krok, Přehled vrátí všechny kroky', () => {
   const vh = new Function(`${pick('histDepth', 'viewHist')}; return viewHist;`)();
   assert.deepEqual(vh('flights', null, ''), { back: 0, how: 'push' });

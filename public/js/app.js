@@ -93,6 +93,13 @@ function buildNav() {
   $('#mobileNav').innerHTML = ['dashboard', ...navBar].map(mi).join('')
     + `<div class="mi" id="moreNav" title="Další" aria-label="Další – ostatní sekce, záloha a vzhled">${ico('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z')}<span>Další</span></div>`;
   $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
+  // Postranní panel (počítač, tablet – na telefonu skrytý): sekce přidá krok historie jako na webu – Zpět prohlížeče
+  // vrátí na sekci, odkud uživatel přišel (ne vždy na Přehled), a tam, kde na ní byl. Z klávesnice Tab + Enter.
+  $$('.nav-item').forEach(el => {
+    el.tabIndex = 0; el.setAttribute('role', 'link');
+    el.onclick = () => go(el.dataset.view, { drill: true });
+    el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } };
+  });
   const wn = $('#worldNav'); if (wn) wn.onclick = () => go(WORLD_VIEWS.includes(activeView) ? activeView : lastWorld);
   $$('.world-tabs [data-w]').forEach(b => b.onclick = () => go(b.dataset.w, { keepScroll: true }));
   $('#moreNav').onclick = openMore;
@@ -149,8 +156,9 @@ let lastWorld = 'map';
    krok historie (atlasV = hloubka nad Přehledem) – Zpět z ní vrátí na Přehled a teprve z něj aplikace skončí, jako
    aplikace s lištou dole na Androidu; přepínání sekcí v liště krok jen přepíše (Zpět neprochází všechno, co uživatel
    kdy otevřel). Sekce otevřená z obsahu (Vybrat a pokračovat → Cesta, Uložit do plánovače) přidá krok navíc – Zpět
-   vrátí tam, odkud uživatel přišel (k výsledkům, do Shrnutí). Průvodce Cestou má nad sebou ještě krok průvodce
-   (atlasT): Zpět vrací po krocích, kterými uživatel prošel (histTrip). Otevřené okno (list zespodu) má vlastní krok
+   vrátí tam, odkud uživatel přišel (k výsledkům, do Shrnutí). Stejně sekce z postranního panelu na počítači: šipka Zpět
+   prohlížeče vrací na předchozí sekci jako na webu (Lety → Země → Zpět = Lety), Přehled z panelu vrátí všechny kroky.
+   Průvodce Cestou má nad sebou ještě krok průvodce (atlasT): Zpět vrací po krocích, kterými uživatel prošel (histTrip). Otevřené okno (list zespodu) má vlastní krok
    (atlasM): Zpět ho zavře a sekce pod ním zůstane. Náhled cíle si krok řídí sám (flights.js dpOpen, atlasDp).
    Okno zavřené jinak (✕, klepnutí vedle, stažení dolů, Escape) svůj krok vrátí přes history.back() – ten je
    asynchronní: zápisy do historie, které přijdou mezitím (go() hned po modalClose(), další okno), počkají na jeho
@@ -295,6 +303,8 @@ const themeNow = () => themeOf(S.theme, Boolean(sysLightMq && sysLightMq.matches
 function applyTheme() { const t = themeNow(); document.documentElement.dataset.theme = t; $('#themeLabel').textContent = t === 'dark' ? 'Tmavý režim' : 'Světlý režim'; }
 function themeRepaint() { applyTheme(); if (window.Flights) Flights.repaintMap(); if (window.Places) Places.retheme(); }
 $('#themeToggle').onclick = () => { S.theme = themeNow() === 'dark' ? 'light' : 'dark'; save(); themeRepaint(); };
+// přepínač v postranním panelu i z klávesnice (Tab + Enter / mezerník)
+$('#themeToggle').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } };
 // bez vlastní volby motiv sleduje systém i za běhu (telefon večer sám přepne na tmavý)
 if (sysLightMq) {
   const sysChanged = () => { if (themeOf(S.theme, true) !== themeOf(S.theme, false)) themeRepaint(); };
@@ -581,8 +591,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-22e';
+const WN_ID = '2026-10-22f';
 const WHATS_NEW = [
+  ['🕘', 'Od minula', 'když ATLAS otevřeš jiný den, nahoře na <b>Přehledu</b> uvidíš, co se od minula změnilo pro tebe: která hlídaná cena zlevnila a o kolik, kdy odlétáš na uloženou cestu (i kdy se otevírá online check-in), nové levné cíle v radaru a propadlé odložené nabídky. Nejvýš 3 řádky, klepnutím na místo, ✕ je skryje, dokud nebude něco nového. Bez upozornění v telefonu.'],
   ['📝', 'Rozepsané hledání se neztratí', 'když v <b>Letech</b> upravíš formulář (odkud, kam, termín, noci, cestující, zavazadla…) a hledat nestihneš, ATLAS si ho zapamatuje – i když telefon aplikaci na pozadí zavře. Po návratu ho najdeš vyplněný (3 dny, minulé termíny vynechá); <b>↺ Začít znovu</b> ho smaže.'],
   ['📌', 'Porovnat i s cestou na letiště', 'odložené nabídky v <b>📌 Porovnat</b> se řadí podle ceny <b>i s cestou</b> – letenka + odhad dopravy na letiště a zpět a z letiště do města. Levnější letenka z Mnichova tak nevyhraje, když cesta na letiště stojí o 500 Kč víc. Co neznám, napíšu – cena letenky zůstává vidět.'],
   ['🔗', 'Sdílená cesta', 'cesta nebo plán z odkazu od kamaráda ukáže, z kdy jsou ceny (u nových odkazů den sdílení), a <b>💾 Uložit si ji</b> ji přidá do tvého plánovače – pak je to tvoje cesta.'],
@@ -698,6 +709,82 @@ function renderWhatsNew() {
   }
   $('#wnHide').onclick = hide;
 }
+/* ---------- 🕘 Od minula ----------
+   Karta nahoře na Přehledu po návratu jiný den (since.js): co se od poslední návštěvy změnilo pro uživatele – bez
+   upozornění v telefonu a bez dotazů na server, jen z uloženého stavu. Stav okna v atlas_since (ne v záloze – patří
+   k zařízení). Kopie v paměti jako u atlas_tip: když localStorage nejde zapsat, ✕ platí aspoň do obnovení stránky. */
+const SINCE_LS = 'atlas_since';
+let sinceMem = null;
+function sinceLoad() {
+  if (!sinceMem) { try { sinceMem = JSON.parse(localStorage.getItem(SINCE_LS)) || {}; } catch (e) { sinceMem = {}; } }
+  return sinceMem;
+}
+function sinceSave(m) { sinceMem = m; try { localStorage.setItem(SINCE_LS, JSON.stringify(m)); } catch (e) { /* soukromé okno – platí kopie v paměti */ } }
+/** Při startu: návrat po dni otevře okno „Od minula“; propadlé odložené nabídky zachytit dřív, než je aplikace uklidí. */
+function sinceStart() {
+  if (!window.Since) return;
+  try {
+    const g = Since.gate(sinceLoad(), Date.now());
+    if (g.from) { const gone = Since.gonePins(g.mem.gone, S.pins, todayLocal()); if (gone.length) g.mem.gone = gone; }
+    sinceSave(g.mem);
+  } catch (e) { /* poškozený stav – karta se jen neukáže */ }
+}
+// poslední návštěva = kdy uživatel aplikaci naposledy opustil (skrytý panel, zavřená aplikace); návrat do aplikace,
+// kterou telefon nechal na pozadí (bez nového načtení stránky), je taky návrat – okno „Od minula“ se otevře i tak
+document.addEventListener('visibilitychange', () => {
+  if (!window.Since) return;
+  if (document.hidden) return sinceSave({ ...sinceLoad(), last: Date.now() });
+  sinceStart();
+  if (window.Flights && Flights.renderNews) Flights.renderNews(); else renderSince();
+});
+let sinceShown = '';
+// jednopísmenná předložka a spojka („v pondělí“, „o 210 Kč“, „a 2 další“) nezůstane na konci řádku, „check-in“ se nerozdělí;
+// dvakrát kvůli dvěma za sebou („a v pondělí“) – bez lookbehind, který starší Safari nezná (app.js by se nenačetl)
+const SINCE_NB = /(^|[\s(])([ovkszuaiOVKSZUAI]) /g;
+const sinceNb = s => esc(s).replace(SINCE_NB, '$1$2\u00a0').replace(SINCE_NB, '$1$2\u00a0').replace(/check-in/g, 'check\u2011in');
+/**
+ * Karta „Od minula“ (nejvýš 3 řádky, klepnutí vede na místo, ✕ skryje, dokud se řádek nezmění). Volá ji i
+ * Flights.renderNews (po kontrole hlídané ceny, novém radaru) – 📉 karta už ukazuje svoje hlídání (data-wid), to se
+ * neopakuje. Dokud je karta vidět nebo ji uživatel v tomhle okně zavřel ✕, řádek „Od minula“ pod hledáním mlčí
+ * (data-quiet → renderNews) – jinak by po ✕ hned ukázal totéž znovu.
+ */
+function renderSince() {
+  const el = $('#sinceCard'); if (!el || !window.Since) return;
+  const m = sinceLoad(), now = Date.now(), drop = $('#dropCard');
+  let lines = [];
+  const open = Boolean(m.from && m.at && now - m.at < Since.CFG.hold);
+  if (open) {
+    try {
+      lines = Since.digest({
+        from: m.from, now, today: todayLocal(), watch: S.watch, trips: S.trips, gone: m.gone, hid: m.hid,
+        skip: drop && !drop.hidden && drop.dataset.wid ? [drop.dataset.wid] : [],
+        radar: window.Flights && Flights.radarNow ? Flights.radarNow() : null,
+      });
+    } catch (e) { lines = []; }
+  }
+  const h = lines.length ? `<div class="card since-card" role="region" aria-label="Od minula">
+    <div class="sc-top"><span class="sc-h">🕘 Od minula <span class="faint">· naposledy ${sinceNb(Since.dayRef(m.from, now))}</span></span><button type="button" class="dt-x" id="scX" title="Skrýt – ukážu, až bude něco nového" aria-label="Skrýt Od minula">✕</button></div>
+    <ul class="sc-rows">${lines.map((l, k) => `<li><button type="button" class="sc-row" data-sc="${k}"><span class="sc-i" aria-hidden="true">${l.ico}</span><span class="sc-t"><b>${sinceNb(l.b)}:</b> ${sinceNb(l.t)}</span><span class="sc-go" aria-hidden="true">›</span></button></li>`).join('')}</ul></div>` : '';
+  el.hidden = !h;
+  el.dataset.quiet = h || (open && m.shut === m.at) ? '1' : '';
+  if (h === sinceShown) return;
+  sinceShown = h; el.innerHTML = h;
+  if (!h) return;
+  $$('[data-sc]', el).forEach(b => b.onclick = () => sinceGo(lines[+b.dataset.sc].go));
+  $('#scX').onclick = () => {
+    const cur = sinceLoad();
+    sinceSave({ ...cur, hid: [...(cur.hid || []), ...lines.map(l => l.sig)].slice(-Since.CFG.hidCap), shut: cur.at });
+    if (window.Flights && Flights.renderNews) Flights.renderNews(); else renderSince();
+  };
+}
+function sinceGo(g) {
+  const to = sel => { const x = $(sel); if (x) x.scrollIntoView({ behavior: 'smooth', block: 'start' }); return Boolean(x); };
+  if (g.to === 'watch') to(`#watchList [data-w="${CSS.escape(String(g.id))}"]`) || to('#watchHead');
+  else if (g.to === 'trip') openTrip(g.i);
+  else if (g.to === 'radar') to('#radarHead');
+  else if (g.to === 'search' && window.Flights) Flights.searchTo(g.places.map(p => ({ id: p.id, label: p.label, flag: p.cc ? flag(p.cc) : '' })));
+  else go('flights');
+}
 /* ---------- 💡 Věděl jsi? ----------
    Jeden tip denně na funkci, kterou uživatel ještě nepoužil – poznáno jen z toho, co už je uložené (S a Objevuj).
    Ne při prvním spuštění (bez domova a hledání), skrytý tip se už neukáže. atlas_tip = { day, id, hid: [skryté] }.
@@ -748,6 +835,7 @@ function renderDashTip() {
   $('#dtX').onclick = () => { put({ day: today, id: null, hid: [...hid, tip.id] }); el.hidden = true; };
 }
 function renderDash() {
+  renderSince();
   renderDashStats();
   renderWhatsNew();
   renderDashTip();
@@ -1713,6 +1801,7 @@ async function start() {
   // obnovená stránka na kroku okna nebo průvodce (okno po obnovení zavřené, cesta kroků zapomenutá): krok přeskočit –
   // Zpět by jinak napoprvé „nic neudělal“
   if (history.state && (history.state.atlasM || history.state.atlasDp || history.state.atlasT)) histBack();
+  sinceStart(); // 🕘 Od minula: dřív, než aplikace uklidí propadlé odložené nabídky
   if (window.Flights) Flights.warm(); // stav serveru souběžně s daty zemí – rychlejší start
   applyTheme(); applyMapStyle(); buildNav(); fillSelects(); wireEvents(); renderTips();
   if (window.Entry) {
