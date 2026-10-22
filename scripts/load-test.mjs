@@ -105,6 +105,6 @@ async function run(base, pid) {
   // polovina stejných hledání (sdílí jeden běh), polovina různých (jiný domov a termín)
   if (want('search-mix')) await phase('search-mix', NS, (i) => post(i % 2 ? same : { ...same, from: [HOMES[i % HOMES.length]], dateTo: ymd(30 + (i % 25)) }, ip(i, 2)));
   if (want('search-same')) await phase('search-same', NS, (i) => post({ ...same, dateTo: ymd(41) }, ip(i, 3)));
-  // 60 různých hledání z jedné adresy: nad limitem adresy 429, nad frontou serveru 503
+  // 60 různých hledání z jedné adresy: nad stropem rozběhnutých hledání na adresu (SEARCH_PER_CLIENT) hned 429
   if (want('search-1ip')) await phase('search-1ip', 60, (i) => post({ ...same, dateTo: ymd(20 + i) }, '10.99.99.99'));
 }

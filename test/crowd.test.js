@@ -1,5 +1,6 @@
 // Nával uživatelů: limit z jedné adresy s omezenou pamětí, mezipaměť s úklidem a pojistkou paměti, sdílené stejné
-// hledání, strop souběžných hledání s frontou, časové limity příjmu požadavku a pojistky po 429 u Ryanairu a Wizz Air.
+// hledání, strop souběžných hledání s frontou, strop rozběhnutých hledání na adresu, časové limity příjmu požadavku
+// a pojistky po 429 u Ryanairu a Wizz Air.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -11,8 +12,8 @@ process.env.SEARCH_CONCURRENCY = '1';
 process.env.SEARCH_QUEUE = '1';
 const { RateLimiter } = await import('../server/lib/ratelimit.js');
 const { TTLCache } = await import('../server/lib/cache.js');
-const { sharedRuns, gate } = await import('../server/lib/crowd.js');
-const { createServer } = await import('../server/index.js');
+const { sharedRuns, gate, perClient } = await import('../server/lib/crowd.js');
+const { createServer, _searchClients } = await import('../server/index.js');
 const { config } = await import('../server/config.js');
 const { mockProviders } = await import('../server/providers/mock.js');
 const { ryanair, _resetRyanairBlock } = await import('../server/providers/ryanair.js');
@@ -154,6 +155,29 @@ test('gate: strop souběžných úloh, fronta, plná fronta, úloha klienta, kte
   assert.deepEqual(g.stats(), { active: 0, queued: 0, concurrency: 1, maxQueue: 1 });
 });
 
+test('perClient: strop na klienta, místo se vrátí jen jednou (konec i odchod klienta), prázdný klient zmizí z paměti', () => {
+  const pc = perClient();
+  assert.equal(pc.full('a', 2), false);
+  const r1 = pc.take('a');
+  const r2 = pc.take('a');
+  assert.equal(pc.full('a', 2), true);
+  assert.equal(pc.full('a', 3), false);
+  assert.equal(pc.full('a', 0), false, '0 = bez stropu');
+  assert.equal(pc.full('b', 2), false, 'jiná adresa má vlastní strop');
+  r1();
+  r1(); // odchod klienta i konec hledání – podruhé už nic nevrací
+  assert.equal(pc.count('a'), 1);
+  assert.equal(pc.full('a', 2), false);
+  r2();
+  assert.equal(pc.count('a'), 0);
+  assert.equal(pc.size, 0, 'klient bez hledání v paměti nezůstane');
+  // tisíc adres, každá jedno hledání: po skončení prázdno
+  const rel = Array.from({ length: 1000 }, (_, i) => pc.take(`10.0.${i >> 8}.${i & 255}`));
+  assert.equal(pc.size, 1000);
+  rel.forEach((r) => r());
+  assert.equal(pc.size, 0);
+});
+
 const q = { from: ['ap:VIE'], to: ['ap:BCN'], radiusKm: 0, dateFrom: ymdPlus(20), dateTo: ymdPlus(30), trip: 'return', nightsMin: 3, nightsMax: 5 };
 const post = (body, ip, signal) => fetch(`${base}/api/search`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': ip }, body: JSON.stringify(body), signal });
 const lastLine = async (r) => JSON.parse((await r.text()).trim().split('\n').at(-1));
@@ -255,6 +279,75 @@ test('server: 429 z limitu adresy má Retry-After (za kolik sekund znovu) a čes
     assert.match(flights, /async function httpErr\(r\) \{\s*const j = await r\.json\(\)\.catch\(\(\) => \(\{\}\)\);\s*return new Error\(j\.error \|\|/);
   } finally {
     config.searchesPer10Min = prev;
+  }
+});
+
+/** Počká, až platí cond() (nejvýš ~2 s). */
+async function until(cond) {
+  for (let i = 0; i < 200 && !cond(); i++) await sleep(10);
+  return cond();
+}
+
+test('server: jedna adresa nezaplní frontu – nad stropem rozběhnutých hledání 429 česky s Retry-After, ostatní projdou', async () => {
+  const mock = slowMock(150);
+  const prev = config.searchPerClient;
+  config.searchPerClient = 1;
+  try {
+    const mine = { ...q, dateFrom: ymdPlus(22), dateTo: ymdPlus(40) };
+    const a = await post(mine, '10.5.0.1'); // běží
+    assert.equal(_searchClients.count('10.5.0.1'), 1);
+    // druhé jiné hledání z téže adresy: fronta má místo (nebylo by 503), ale adresa je na stropu
+    const a2 = await post({ ...mine, dateTo: ymdPlus(41) }, '10.5.0.1');
+    assert.equal(a2.status, 429);
+    assert.equal(a2.headers.get('retry-after'), '30');
+    assert.match((await a2.json()).error, /moc hledání naráz – počkej prosím, až některé doběhne/);
+    // jiná adresa se do fronty dostane
+    const b = await post({ ...mine, dateTo: ymdPlus(42) }, '10.5.0.2');
+    assert.equal(b.status, 200);
+    // stejné hledání, které už běží (obnovená stránka, druhé okno): frontu nezabere – projde i nad stropem
+    const a3 = await post(mine, '10.5.0.1');
+    assert.equal(a3.status, 200);
+    for (const r of [a, b, a3]) assert.equal((await lastLine(r)).type, 'result');
+    assert.equal(_searchClients.size, 0, 'po skončení hledání se počty vrátí na prázdno');
+    // a adresa může hledat znovu
+    const again = await post({ ...mine, dateTo: ymdPlus(41) }, '10.5.0.1');
+    assert.equal(again.status, 200);
+    assert.equal((await lastLine(again)).type, 'result');
+    assert.equal(_searchClients.size, 0);
+  } finally {
+    config.searchPerClient = prev;
+    mock.restore();
+  }
+});
+
+test('server: místo na adrese se vrátí hned po odchodu klienta (i když hledání ještě běží) a po chybě hledání', async () => {
+  const mock = slowMock(300);
+  const prev = config.searchPerClient;
+  config.searchPerClient = 1;
+  try {
+    const ctl = new AbortController();
+    const left = { ...q, dateFrom: ymdPlus(23), dateTo: ymdPlus(43) };
+    const a = await post(left, '10.6.0.1', ctl.signal);
+    assert.equal(a.status, 200);
+    while (!mock.calls.some((x) => x.dateFrom === ymdPlus(23))) await sleep(5);
+    ctl.abort(); // zrušené hledání (uživatel změnil formulář)
+    await a.text().catch(() => null);
+    assert.ok(await until(() => _searchClients.size === 0), 'místo se vrátilo hned po odchodu');
+    // jeho hledání ještě běží (zdroje odpovídají 300 ms) – nové hledání téže adresy přesto projde (čeká ve frontě)
+    const b = await post({ ...left, dateTo: ymdPlus(44) }, '10.6.0.1');
+    assert.equal(b.status, 200);
+    assert.equal((await lastLine(b)).type, 'result');
+    // hledání, které skončí chybou (špatný dotaz), místo taky vrátí
+    const bad = await post({ ...q, from: [] }, '10.6.0.1');
+    assert.equal(bad.status, 200);
+    assert.equal((await lastLine(bad)).type, 'error');
+    const ok = await post({ ...left, dateTo: ymdPlus(45) }, '10.6.0.1');
+    assert.equal(ok.status, 200);
+    assert.equal((await lastLine(ok)).type, 'result');
+    assert.equal(_searchClients.size, 0, 'nic nezůstalo započtené');
+  } finally {
+    config.searchPerClient = prev;
+    mock.restore();
   }
 });
 
