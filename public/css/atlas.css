@@ -151,6 +151,9 @@ a{color:inherit}
 /* odkaz do aplikace v mobilu (🚗 Waze, 🎫 PID Lítačka) – malý štítek vedle odkazu na trasu, nezalomí se uvnitř */
 .app-chip{display:inline-block;padding:0 8px;border-radius:10px;font-size:11.5px;font-weight:600;line-height:1.65;white-space:nowrap;background:var(--surface-2);border:1px solid var(--border);color:var(--accent);text-decoration:none;vertical-align:baseline}
 .app-chip:hover{border-color:var(--border-2)}
+/* 320 px: „🎫 Jízdenka v PID Lítačka“ vedle cesty na letiště v Průběhu cesty je širší než sloupec textu – bez zalomení
+   roztáhla celou kartu Shrnutí doprava; štítek se zalomí uvnitř jen tehdy, když se nevejde ani na samostatný řádek */
+@media(max-width:380px){.app-chip{white-space:normal}}
 .input,select,textarea{
   width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);
   font-family:inherit;font-size:14px;outline:none;transition:.15s
@@ -614,9 +617,11 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .mh-name{font:800 30px/1.1 Sora,Inter,sans-serif;letter-spacing:-.02em;text-shadow:0 2px 14px rgba(0,0,0,.35)}
 .mh-sub{margin-top:4px;font-size:13.5px;font-weight:600;opacity:.9;text-shadow:0 1px 8px rgba(0,0,0,.45)}
 .mh-blurb{margin-top:8px;font-size:14px;line-height:1.45;max-width:520px;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+/* telefon: pod „Najít lety sem“ čtyři tlačítka 2 × 2 – ve třech sloupcích se „🌍 Objevuj celou zemi“ nevešlo (emoji
+   přes levý okraj, text uříznutý); dlouhý popisek se raději zalomí uvnitř tlačítka */
 @media(max-width:560px){
-  .cm-acts{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr))}
-  .cm-acts .btn{justify-content:center;padding:10px 8px;font-size:13px;min-width:0}
+  .cm-acts{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
+  .cm-acts .btn{justify-content:center;padding:10px 8px;font-size:13px;min-width:0;white-space:normal;text-align:center;line-height:1.25}
   .cm-acts .btn.primary{grid-column:1/-1;min-height:50px;border-radius:16px;font-size:15px}
   .cm-acts .btn svg{flex:none}
 }

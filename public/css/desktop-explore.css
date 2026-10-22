@@ -42,7 +42,9 @@
   .trip-top[data-photo]{min-height:168px}
 
   /* ---------- Doporučení: karta bez fotky má velkou vlajku jako v Zemích (ne prázdný přechod) ---------- */
-  #recGrid>.dest[data-photo]:not(.ph) .flag{top:24px;left:50%;width:84px;height:84px;font-size:48px;
+  /* velikost jako v Zemích (72 px od 20 px) – vlajka 84 px od 24 px sahala pod horní okraj karty (padding 100 px) a panel
+     s textem ji u delšího popisu (Gruzie, Uzbekistán) překryl */
+  #recGrid>.dest[data-photo]:not(.ph) .flag{top:20px;left:50%;width:72px;height:72px;font-size:40px;
     transform:translateX(-50%);background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.16)}
   #recGrid>.dest[data-photo] .flag{transition:left .3s var(--ease),width .3s var(--ease),height .3s var(--ease),font-size .3s var(--ease),transform .3s var(--ease)}
 
@@ -68,12 +70,15 @@
 /* náhled cíle (🔎 Co tam je): vlevo fotka, let, cesta z letiště a počasí, vpravo místa k vidění */
 @media (min-width:1100px){
   .modal:has(.dp #dpSights){width:min(1040px,calc(100vw - 80px))}
-  .dp:has(#dpSights){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);column-gap:28px;align-items:start}
+  /* řádek 6 (fakta) bere zbytek výšky míst vpravo – jinak se výška míst rozdělila mezi řádky vlevo a mezi letem,
+     štítky a fakty zely díry; 📅 V kalendáři hned pod letem (bez místa v mřížce spadlo až pod fakta) */
+  .dp:has(#dpSights){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);grid-template-rows:auto auto auto auto auto 1fr auto;column-gap:28px;align-items:start}
   .dp:has(#dpSights)>.dp-hero{grid-column:1/-1;grid-row:1;height:250px}
   .dp:has(#dpSights)>.dp-head{grid-column:1;grid-row:2}
   .dp:has(#dpSights)>.dp-trip{grid-column:1;grid-row:3}
-  .dp:has(#dpSights)>.dp-chips{grid-column:1;grid-row:4}
-  .dp:has(#dpSights)>.dp-facts{grid-column:1;grid-row:5}
+  .dp:has(#dpSights)>.dp-scal{grid-column:1;grid-row:4}
+  .dp:has(#dpSights)>.dp-chips{grid-column:1;grid-row:5}
+  .dp:has(#dpSights)>.dp-facts{grid-column:1;grid-row:6}
   .dp:has(#dpSights)>.dp-h{grid-column:2;grid-row:2;margin:6px 0 0}
   .dp:has(#dpSights)>#dpSights{grid-column:2;grid-row:3 / span 4;margin-top:-6px}
   .dp:has(#dpSights)>.dp-act{grid-column:1/-1;grid-row:7}

@@ -253,6 +253,8 @@
 
   /* ---------- vysvětlení a rada ---------- */
   const agoTxt = d => (d <= 0 ? 'dnes' : d === 1 ? 'včera' : `před ${d} dny`);
+  // „do odletu zbývá 10 dní“ – přesně jako řádek 📅 Do odletu nad radou (dřív „necelé 3 týdny“ i u 3 dnů)
+  const leftTxt = d => (d <= 0 ? 'odlet je už dnes' : `do odletu zbývá ${d === 1 ? '1 den' : d <= 4 ? `${d} dny` : `${d} dní`}`);
   /**
    * Opatrná rada podle úrovně ceny a dní do odletu → { kind: 'buy' | 'watch' | 'compare' | 'late', text } nebo null.
    * Nic neslibuje: jen obvyklé chování cen (u nízkonákladovek se před odletem obvykle zvedají).
@@ -261,7 +263,7 @@
     if (days == null || days < 0) return null;
     if (level === 'low') {
       return days < 21
-        ? { kind: 'buy', text: 'Cena vypadá dobře a do odletu zbývají necelé 3 týdny. Ceny u nízkonákladovek se před odletem obvykle zvedají – pokud ti termín sedí, čekáním se nejspíš nic nezíská.' }
+        ? { kind: 'buy', text: `Cena vypadá dobře a ${leftTxt(days)}. Ceny u nízkonákladovek se před odletem obvykle zvedají – pokud ti termín sedí, čekáním se nejspíš nic nezíská.` }
         : { kind: 'buy', text: 'Cena vypadá dobře. Pokud ti termín sedí, není moc důvod čekat – levněji to být může, ale nemusí. Kdo chce riskovat, může hledání uložit ♡ a sledovat.' };
     }
     const dear = level === 'high' ? 'Cena je vyšší než obvykle. ' : '';

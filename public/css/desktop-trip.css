@@ -10,7 +10,9 @@
   /* lišta kroků hned pod plnou částí lepivé horní lišty (95 px, spodních 14 px přechází do průhledna – tam nic
      neprosvítá); pod ní přilepený obsah (přehled, mapa programu, pravý sloupec Shrnutí) */
   :root{--trip-bar:80px;--trip-stick:160px}
-  #tripRoot>.trip-head{min-height:0;height:150px;padding:18px 24px;margin-bottom:12px}
+  /* 150 px, ale s místem pro vlajku a „Začít znovu“ nahoře (14 + 44 px): u trasy přes víc míst má hlavička třetí řádek
+     („Milán (3) → …“) a pevná výška ho tlačila pod vlajku – pak hlavička o pár px naroste */
+  #tripRoot>.trip-head{min-height:150px;height:auto;padding:66px 24px 18px;margin-bottom:12px}
   #tripRoot>.trip-head .th-dest h2{font-size:28px}
   #tripRoot>.stepbar{position:sticky;top:var(--trip-bar);z-index:6;margin:0 0 16px;padding:8px 14px 7px;border-radius:18px;
     background:var(--bg2);background:color-mix(in srgb,var(--bg2) 90%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
@@ -65,7 +67,7 @@
   /* hlavní tlačítko kroku i tady – v kroku je u dlouhého seznamu až dole */
   .ta-next{padding-top:14px}
   .ta-next[hidden]{display:none}
-  .ta-next .btn{width:100%;justify-content:center;min-height:46px;white-space:normal;text-align:center}
+  .ta-next .btn{width:100%;justify-content:center;min-height:46px;white-space:normal;text-align:center;text-wrap:balance} /* „Další místo: Modelín na Kopci →“ bez osamělé šipky na druhém řádku */
 
   /* ---------- Ubytování: filtry v jednom řádku nástrojů ---------- */
   /* nástroje ve dvou pravidelných řádcích (ne „max Kč/noc“ samo na řádku a useknuté řazení):
