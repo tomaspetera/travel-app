@@ -102,7 +102,7 @@ jobs:
             exit 0
           fi
           npm test
-          BR="claude/${MODE}-${ISSUE_NUMBER:+$ISSUE_NUMBER-}$(date -u +%Y%m%d-%H%M)"
+          BR="claude/${MODE}-${ISSUE_NUMBER:+$ISSUE_NUMBER-}$(date -u +%Y%m%d)-${GITHUB_RUN_ID}" # číslo běhu: souběžné běhy ve stejné minutě by si větev přepsaly
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -q -b "$BR"
