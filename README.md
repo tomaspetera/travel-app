@@ -1169,28 +1169,32 @@ Služba vytvořená z adresy veřejného repozitáře se na Renderu sama nenasaz
 
 #### Claude na GitHubu (volitelně, z API kreditu)
 
-Dvě automatizace s [Claude Code GitHub Action](https://code.claude.com/docs/en/github-actions), placené z kreditu
-Anthropic API (ne z předplatného); pravidla pro Clauda jsou v `CLAUDE.md`:
+Workflow `.github/workflows/claude-agent.yml` spouští Clauda přes [Agent SDK](https://code.claude.com/docs/en/agent-sdk/typescript)
+(skript `.github/claude/agent.mjs`), placeného z kreditu Anthropic API – ne z předplatného. Propagační kredit API
+pokrývá Agent SDK a API, **ne** Claude Code GitHub Action (ta skončí hláškou „Credit balance is too low“). Claude jen
+mění soubory; větev, commit, PR a komentář dělá workflow, Claude sám ke GitHubu ani `git push` přístup nemá. Pravidla
+pro Clauda jsou v `CLAUDE.md`.
 
-- **`@claude`** (`.github/workflows/claude.yml`) – napiš `@claude` do nového issue nebo do komentáře k issue / PR
-  („@claude na mobilu v Objevuj přetéká …“): Claude chybu dohledá, opraví, spustí testy a pošle větev s odkazem
-  na vytvoření PR. Reaguje jen na lidi s právem zápisu do repozitáře.
-- **Týdenní kontrola** (`.github/workflows/claude-weekly.yml`) – každé pondělí ráno projde změny za týden a živé
-  `/api/health`, potvrzené drobné chyby opraví a pošle jako PR „Týdenní kontrola …“; když není co opravit, nic
-  nezaloží. Ručně: **Actions → Claude – týdenní kontrola → Run workflow**.
+- **`@claude`** v novém issue nebo v komentáři k issue („@claude na mobilu v Objevuj přetéká …“) → oprava jako PR
+  a odkaz v issue; na otázku jen odpoví komentářem. Reaguje jen na lidi s právem zápisu do repozitáře.
+- **Denní kontrola** (6:17 UTC) – každý den jedna oblast aplikace (Lety, Cesta, Objevuj, Přehled, zdroje cen, data,
+  vzhled); ověřené chyby opraví a pošle jako PR, jinak nic nezaloží. Po 8. 11. 2026 (konec propagačního kreditu)
+  se sama nespouští.
+- **Ručně**: Actions → **Claude (Agent SDK)** → **Run workflow**, s vlastním úkolem, nebo prázdné = denní kontrola.
+
+Jeden běh má strop 8 $ a 80 kroků (`CLAUDE_MAX_USD`, `CLAUDE_MAX_TURNS`). PR založený workflow sám testy nespustí,
+proto je workflow spustí na jeho větvi (výsledek je u PR).
 
 Nastavení (jednou):
 
-1. [platform.claude.com/settings/keys](https://platform.claude.com/settings/keys) → **Create key** (název např.
-   `atlas-github`, platnost **Never**, nebo delší – prošlý klíč automatizace zastaví) → zkopíruj klíč.
+1. [platform.claude.com/settings/keys](https://platform.claude.com/settings/keys) → **Create key** (scope **Default
+   workspace**, platnost **Never**) → zkopíruj klíč.
 2. GitHub → repozitář → **Settings → Secrets and variables → Actions → New repository secret**, název
    `ANTHROPIC_API_KEY`, hodnota = klíč → **Add secret**. Klíč nikam jinam nevkládej.
-3. Strop útraty: [platform.claude.com/settings/billing](https://platform.claude.com/settings/billing) → **Spend limits**
-   (např. 20 $ měsíčně). Spotřeba je vidět na [platform.claude.com/usage](https://platform.claude.com/usage).
-4. Aplikace Claude pro GitHub ([github.com/apps/claude](https://github.com/apps/claude)) musí mít přístup
-   k repozitáři – bez ní `@claude` neodpoví.
+3. Strop útraty: [platform.claude.com/settings/billing](https://platform.claude.com/settings/billing) → **Spend limits**.
+   Zůstatek a platnost kreditu jsou tamtéž, spotřeba na [platform.claude.com/usage](https://platform.claude.com/usage).
 
-Bez klíče obě automatizace nic nedělají (běh v záložce Actions skončí hned a zeleně), na aplikaci ani nasazení to vliv nemá.
+Bez klíče workflow nic nedělá (běh skončí hned a zeleně), na aplikaci ani nasazení to vliv nemá.
 
 Funguje i kdekoliv jinde, kde běží Node.js – **Railway** (Hobby 5 $/měs.), **Fly.io**, vlastní VPS. Je přiložen `Dockerfile`:
 

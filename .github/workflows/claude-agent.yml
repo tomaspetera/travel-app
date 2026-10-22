@@ -1,0 +1,115 @@
+# Claude na GitHubu přes Agent SDK – platí se z kreditu Anthropic API (tajný údaj ANTHROPIC_API_KEY; propagační kredit
+# pokrývá Agent SDK a API, ne Claude Code GitHub Action). Claude jen mění soubory (.github/claude/agent.mjs), větev,
+# commit, PR a komentář dělá tenhle workflow – Claude sám ke GitHubu ani git push přístup nemá.
+# - @claude v novém issue nebo v komentáři k issue (jen lidé s právem zápisu) → oprava jako PR + odkaz v issue
+# - každý den 6:17 UTC kontrola jedné oblasti aplikace (do vypršení kreditu 8. 11. 2026) → PR, jen když něco opravil
+# - ručně: Actions → Claude (Agent SDK) → Run workflow, s vlastním úkolem nebo prázdné = denní kontrola
+name: Claude (Agent SDK)
+
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Úkol pro Clauda (prázdné = denní kontrola jedné oblasti)"
+        required: false
+        default: ""
+
+concurrency:
+  group: claude-agent-${{ github.event.issue.number || 'run' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+jobs:
+  agent:
+    if: |
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(format('{0} {1}', github.event.issue.title, github.event.issue.body), '@claude') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)) ||
+      (github.event_name == 'issue_comment' && !github.event.issue.pull_request && contains(github.event.comment.body, '@claude') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+      MODE: ${{ github.event_name == 'schedule' && 'check' || (github.event_name == 'workflow_dispatch' && (inputs.task == '' && 'check' || 'task')) || 'issue' }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Spustit?
+        id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$HAS_KEY" != true ]; then echo "::notice::Bez ANTHROPIC_API_KEY se nic nespouští"; echo run=false >> "$GITHUB_OUTPUT"; exit 0; fi
+          # propagační kredit platí do 8. 11. 2026 – denní kontrola potom nic nespustí (ruční úkol a @claude ano)
+          if [ "$EVENT" = schedule ] && [[ "$(date -u +%F)" > "2026-11-08" ]]; then echo "::notice::Kredit vypršel, denní kontrola stojí"; echo run=false >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo run=true >> "$GITHUB_OUTPUT"
+      - name: Kontrola klíče Anthropic API
+        if: steps.gate.outputs.run == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        # jeden malý dotaz (1 token) – při chybě vypíše jen typ a text chyby z API, ne klíč
+        run: |
+          code=$(curl -s -o /tmp/r.json -w '%{http_code}' https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" -H 'anthropic-version: 2023-06-01' -H 'content-type: application/json' \
+            -d '{"model":"claude-opus-5-5","max_tokens":1,"messages":[{"role":"user","content":"ok"}]}')
+          if [ "$code" != 200 ]; then
+            python3 -c "import json; e=json.load(open('/tmp/r.json')).get('error',{}); print('::error::Anthropic API $code', e.get('type'), '-', e.get('message'))"
+            exit 1
+          fi
+      - name: Claude (Agent SDK)
+        if: steps.gate.outputs.run == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODE: ${{ env.MODE }}
+          CLAUDE_TASK: ${{ inputs.task }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/sdk" && cd "$RUNNER_TEMP/sdk"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund --silent @anthropic-ai/claude-agent-sdk@0.3.308
+          cp "$GITHUB_WORKSPACE/.github/claude/agent.mjs" .
+          node agent.mjs
+      - name: Změny → větev a PR
+        if: steps.gate.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          S="$RUNNER_TEMP/claude-summary.md"
+          TITLE=$(head -n 1 "$S" | cut -c1-120)
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Beze změn: $TITLE"
+            if [ -n "$ISSUE_NUMBER" ]; then gh issue comment "$ISSUE_NUMBER" --body-file "$S"; fi
+            exit 0
+          fi
+          npm test
+          BR="claude/${MODE}-${ISSUE_NUMBER:+$ISSUE_NUMBER-}$(date -u +%Y%m%d-%H%M)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b "$BR"
+          git add -A
+          git commit -q -m "$TITLE" -m "Claude (Agent SDK), ${MODE}${ISSUE_NUMBER:+, issue #$ISSUE_NUMBER}"
+          git push -q origin "$BR"
+          PR=$(gh pr create --base main --head "$BR" --title "$TITLE" --body-file "$S")
+          echo "PR: $PR"
+          # PR založený tokenem Actions sám testy nespustí – pustit je ručně na větvi (výsledek se ukáže u PR)
+          gh workflow run deploy.yml --ref "$BR" || true
+          if [ -n "$ISSUE_NUMBER" ]; then gh issue comment "$ISSUE_NUMBER" --body "Návrh opravy: $PR"; fi
