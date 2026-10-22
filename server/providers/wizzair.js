@@ -75,6 +75,8 @@ async function api(method, path, body, retried = false) {
   s.busy++;
   try {
     return await s.run(async () => {
+      // 429 přišla, zatímco dotaz čekal ve frontě relace: už ho neposílat (další dotazy by blokaci jen prodloužily)
+      if (Date.now() < state.blockedUntil) throw new WizzBlocked('Wizz Air dočasně blokuje dotazy (429)');
       await ensureSession(s);
       await pause();
       const headers = { ...BASE_HEADERS };

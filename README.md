@@ -1106,6 +1106,9 @@ Zkopíruj `.env.example` na `.env`:
 | `SEARCH_RATE_LIMIT` | `40` | max. hledání z jedné IP za 10 minut (ochrana při veřejném nasazení, `0` = bez limitu); počítají se do něj i dotazy na živé spoje RegioJetu (jen ty, které opravdu jdou na RegioJet – odpověď z mezipaměti ne). Stejné hledání z téže adresy, které ještě běží (obnovená stránka, dvojklik), se podruhé nepočítá; aplikace totéž běžící hledání nespouští znovu, jen na něj počká |
 | `VERIFY_RATE_LIMIT` | jako `SEARCH_RATE_LIMIT` | max. živých ověření ceny (`/api/verify` – Kiwi.com) z jedné IP za 10 minut, zvlášť od hledání; po hledání „kamkoliv“ aplikace sama ověří nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli, další jen na tlačítko „⚡ Ověřit cenu živě“ |
 | `EXPLORE_RATE_LIMIT` | 3× `SEARCH_RATE_LIMIT` | max. požadavků Objevuj (`/api/poi`, `/api/poi/trips`, `/api/poi/country`, `/api/itinerary`, `/api/roadtrip`, `/api/bike`, `/api/hike`) z jedné IP za 10 minut, zvlášť od hledání (`0` = bez limitu). Počítá se jen požadavek, který opravdu jde na Wikidata, Wikipedii nebo BRouter – odpověď celá z mezipaměti serveru (stejné místo podruhé, návrat do Objevuj, už jednou spočítaná trasa) ne; v DEMO se počítá každý |
+| `SEARCH_CONCURRENCY` | `4` | nával uživatelů: kolik různých hledání smí běžet naráz (jedno = 1–3 s procesoru a desítky MB paměti). Stejné hledání, které už běží (od kohokoli), se k němu jen připojí a nic navíc nestojí. Viz [docs/skalovani.md](docs/skalovani.md) |
+| `SEARCH_QUEUE` | `20` | kolik dalších hledání čeká ve frontě; nad ní server nové hledání odmítne „ATLAS teď hledá pro hodně lidí najednou – zkus to prosím za minutu“ (503) místo pádu celého serveru. Hledání ve frontě, jehož klient odešel, se nespustí |
+| `CACHE_SOFT_MB` | `320` | měkký strop paměti procesu (MB): nad ním server zahodí starší polovinu mezipaměti (Render zdarma má 512 MB) |
 | `REGIOJET_LIVE` | `1` | `0` = vypnout živé spoje RegioJetu (vlak/bus místo letadla zůstane jako odhad a odkazy) |
 | `REGIOJET_MAX_PER_HOUR` | `60` | nejvýš tolik dotazů na RegioJet za hodinu (pak jen odhad) |
 | `REGIOJET_GAP_MS` | `1000` | nejmenší odstup dotazů na RegioJet (ms) |
@@ -1214,6 +1217,8 @@ nadpisy sekcí jeden styl a nadpisy na fotkách tmavý přechod zleva, aby byly 
 mřížce (Odkud | Kam, pod tím Cesta a Termín | Délka pobytu | Odlet mezi; do 1440 px Odlet mezi na vlastním řádku),
 úvod Cesty má vlevo fotku a „Kam chceš jet?“, vpravo „Jak to funguje“. Karta země bez fotky ukáže velkou vlajku.
 Vše je v `public/css/desktop.css` (načtený za základními styly, jen `@media (min-width:1024px)`), telefon a tablet se nemění.
+Odkazy na `desktop*.css` mají v `index.html` stejné `media="(min-width:1024px)"` – na telefonu neblokují první vykreslení
+(test hlídá, že žádné pravidlo není mimo `@media` od 1024 px).
 
 Výsledky Letů (`public/css/desktop-flights.css`, za `desktop.css`): od 1200 px ve dvou sloupcích – vlevo panel
 **Filtry a řazení** (řazení, letiště, aerolinky, max. cena, přepínače, Čas a přestupy, Odkud se vyplatí letět), který
@@ -1353,6 +1358,15 @@ nic se neukládá na server a nepotřebuje to účet.
   verze service workeru (otisk obsahu všech souborů), vezme service worker skripty a styly té stránky rovnou z uložené
   sady (jsou totožné) – ušetří ~30 ověření u serveru při každém otevření (na Renderu 0,2–0,8 s). Jiná verze = soubory
   ze sítě jako dřív, starý kód nikdy.
+- **Rychlý start na telefonu** (měřeno v Playwrightu: 412 px, ~Fast 4G 150 ms / 1,6 Mbit/s, procesor 4× pomalejší):
+  stránku si prohlížeč žádá ze sítě už při probouzení service workeru (*navigation preload* – ověření u serveru dál
+  zajistí `Cache-Control: no-cache` stránky); `data/countries.json` a `/api/health`, na které start čeká, než ukáže pole
+  Odkud/Kam, se stahují hned se stránkou (`<link rel="preload" as="fetch" crossorigin>` – týž požadavek jako `fetch()`
+  v aplikaci, nestahuje se dvakrát); desktopové styly mají `media="(min-width:1024px)"`, na telefonu tedy neblokují
+  první vykreslení; `flags.js` si pamatuje, jestli prohlížeč umí vlajky (kreslení emoji na plátno jen jednou na verzi
+  prohlížeče). Bez poskakování: pole úvodu mají výšku už v HTML (třídy `pi pi-dark`) a sekce Přehledu pod úvodem jsou
+  do startu (`html.booted`, app.js `boot`) skryté – dřív se nadpisy bez obsahu po vykreslení radaru a karet posunuly
+  dolů (CLS 0,14 → 0,005). Mizející úvodní obrazovka aplikace na ploše už nepřekáží klepnutí.
 - `/sw.js` skládá server: verze je otisk obsahu všech souborů v `public/` a uložených dat (ne čas změny – nasazení
   se stejnými soubory nic nezmění) a seznam souborů k uložení při instalaci je stránka + vše, na co odkazuje
   `index.html` (skripty, styly, manifest a jeho ikony) + `data/countries.json`, `data/entry.json` a mapa světa.

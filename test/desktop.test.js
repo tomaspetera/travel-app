@@ -2,7 +2,7 @@
 // jako poslední styl, ať přebije základní pravidla.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const css = readFileSync(new URL('../public/css/desktop.css', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
@@ -29,7 +29,7 @@ test('desktop.css: všechna pravidla jen v @media od 1024 px (telefon a tablet b
 });
 
 test('desktop.css se načítá za základními styly, desktopové doplňky obrazovek (desktop-*.css) až za ním', () => {
-  const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g)].map((m) => m[1]);
+  const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)"(?: media="[^"]*")?>/g)].map((m) => m[1]);
   const at = links.indexOf('css/desktop.css');
   assert.ok(at > 0, links.join(', '));
   assert.ok(links.slice(at + 1).every((l) => /^css\/desktop-[a-z]+\.css$/.test(l)), links.join(', '));
@@ -37,12 +37,28 @@ test('desktop.css se načítá za základními styly, desktopové doplňky obraz
   assert.ok(links.includes('css/atlas.css') && links.includes('css/trip.css'));
 });
 
+test('desktopové styly mají v index.html media od 1024 px (na telefonu neblokují první vykreslení), základní styly bez media', () => {
+  const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)"(?: media="([^"]*)")?>/g)].map((m) => [m[1], m[2]]);
+  const desk = links.filter(([h]) => /^css\/desktop/.test(h));
+  assert.ok(desk.length >= 4, desk.join(' | '));
+  // každý desktop*.css ze složky je v index.html (nový soubor se tak nevyhne kontrole níž)
+  const files = readdirSync(new URL('../public/css/', import.meta.url)).filter((f) => /^desktop.*\.css$/.test(f)).map((f) => `css/${f}`);
+  assert.deepEqual(desk.map(([h]) => h).sort(), files.sort());
+  for (const [h, media] of links) assert.equal(media, /^css\/desktop/.test(h) ? '(min-width:1024px)' : undefined, h);
+  // media u odkazu je bezpečné, jen když je celý soubor v @media od 1024 px (užší okno ho nesmí potřebovat)
+  for (const [h] of desk) {
+    const { rest, media } = topLevel(readFileSync(new URL(`../public/${h}`, import.meta.url), 'utf8'));
+    assert.equal(media.reduce((r, m) => r.replace(m, ''), rest).trim(), '', `${h}: pravidla mimo @media`);
+    for (const m of media) assert.ok(Number((/^@media \(min-width:(\d+)px\)/.exec(m) || [])[1]) >= 1024, `${h}: ${m}`);
+  }
+});
+
 test('desktop-flights.css: jen v @media od 1024 px, načtený za desktop.css', () => {
   const src = readFileSync(new URL('../public/css/desktop-flights.css', import.meta.url), 'utf8');
   const { media } = topLevel(src);
   assert.ok(media.length >= 2, media.join(' | '));
   for (const m of media) assert.match(m, /^@media \(min-width:(1024|1200|1600|1800)px\)/, m);
-  const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g)].map((m) => m[1]);
+  const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)"(?: media="[^"]*")?>/g)].map((m) => m[1]);
   assert.ok(links.indexOf('css/desktop-flights.css') > links.indexOf('css/desktop.css'), links.join(', '));
 });
 
@@ -72,7 +88,7 @@ test('desktop-explore.css: všechna pravidla jen v @media od 1024 px (telefon a 
     const min = Number((/^@media \(min-width:(\d+)px\)/.exec(m) || [])[1]);
     assert.ok(min >= 1024, m);
   }
-  const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)">/g)].map((m) => m[1]);
+  const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)"(?: media="[^"]*")?>/g)].map((m) => m[1]);
   assert.ok(links.indexOf('css/desktop-explore.css') > links.indexOf('css/desktop.css'), links.join(', '));
 });
 

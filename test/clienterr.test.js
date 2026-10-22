@@ -116,6 +116,9 @@ test('POST /api/client-error: 204, log, počet v /api/health, limit 30 za hodinu
     let last;
     for (let i = 0; i < 30; i++) last = await post(JSON.stringify({ msg: `chyba ${i}` }));
     assert.equal(last.status, 429, 'víc než 30 za hodinu z jedné adresy');
+    // okno je hodina (ne 10 min jako u ostatních limitů): znovu až za skoro hodinu
+    const s = Number(last.headers.get('retry-after'));
+    assert.ok(s > 3500 && s <= 3600, String(s));
   } finally {
     console.warn = warn;
   }

@@ -2,6 +2,9 @@
    - Stránka a soubory aplikace (HTML, JS, CSS, vendor/, data/*.json): vždy nejdřív ze sítě, a to s ověřením u serveru
      (cache: 'no-cache' – ne neověřená kopie z mezipaměti prohlížeče). Každou úspěšnou odpověď uloží; uloženou kopii
      použije, jen když síť selže (offline).
+   - Stránku prohlížeč žádá ze sítě hned při otevření, souběžně se spouštěním service workeru (navigation preload –
+     na telefonu se uspaný service worker probouzí i stovky ms). Ověření u serveru zajistí jeho Cache-Control: no-cache
+     u stránky (server/lib/pwa.js serveIndex) – stejně jako u běžné navigace bez service workeru.
    - /api/*, jiné metody než GET a cizí weby (dlaždice map, písma, partneři): do těch se service worker neplete –
      jdou rovnou na server, nic se neukládá; offline selžou a aplikace ukáže svou hlášku.
    - Verzi (BUILD = otisk obsahu souborů aplikace) a seznam souborů k uložení při instalaci dosadí server
@@ -76,7 +79,11 @@ async function networkFirst(event, kind) {
     const hit = await cached(req, kind);
     if (hit) return hit;
   }
-  const net = fetch(fresh(req, kind));
+  // stránka: požadavek, který prohlížeč poslal už při spouštění service workeru (navigation preload); bez něj (starší
+  // prohlížeč, nepovedený) nový požadavek jako dřív
+  const net = kind === 'page'
+    ? Promise.resolve(event.preloadResponse).then((r) => r || fetch(fresh(req, kind)), () => fetch(fresh(req, kind)))
+    : fetch(fresh(req, kind));
   let res;
   try {
     if (kind === 'page') {
@@ -143,6 +150,8 @@ self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => k.startsWith(PREFIX) && k !== CACHE).map((k) => caches.delete(k)));
+    // stránka ze sítě souběžně se spouštěním service workeru (networkFirst – event.preloadResponse)
+    if (self.registration.navigationPreload) await self.registration.navigationPreload.enable().catch(() => { });
     await self.clients.claim();
   })());
 });
@@ -150,6 +159,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const kind = route(event.request, self.registration.scope);
   if (kind) event.respondWith(networkFirst(event, kind));
+  // navigace, do které se nepleteme (api/…, sw.js): prohlížeč použije už odeslaný požadavek – jen ho nezrušit
+  else if (event.preloadResponse) event.waitUntil(Promise.resolve(event.preloadResponse).catch(() => { }));
 });
 
 // Stránka načtená offline se ptá, z jaké verze je její uložená kopie (pwa.js – upozornění na novou verzi).

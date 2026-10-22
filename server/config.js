@@ -57,6 +57,13 @@ export const config = {
   wizzMaxCalls: num(env.WIZZ_MAX_CALLS, 60),
   // Ochrana veřejně nasazeného serveru: max. počet hledání z jedné IP za 10 minut (0 = bez limitu).
   searchesPer10Min: num(env.SEARCH_RATE_LIMIT, 40),
+  // Nával uživatelů (server/lib/crowd.js): kolik různých hledání smí běžet naráz (jedno = 1–2 s procesoru a desítky MB
+  // paměti; čekání na aerolinky nic nestojí) a kolik dalších čeká ve frontě – nad ní se nové hledání slušně odmítne
+  // (503 „zkus to za chvíli“) místo pádu celého serveru. Stejné hledání, které už běží, se jen připojí (nepočítá se).
+  // Výchozí 4 + 20 na Render zdarma (0,1 CPU, 512 MB): víc hledání naráz tam nic nezrychlí, jen zabere paměť;
+  // na větším plánu zvýšit (docs/skalovani.md).
+  searchConcurrency: Math.max(1, num(env.SEARCH_CONCURRENCY, 4)),
+  searchQueue: Math.max(0, num(env.SEARCH_QUEUE, 20)),
   // Přepočty trasy přes víc míst (každý až 8 nových tras z veřejného BRouteru): z jedné IP za 10 minut 3× tolik
   // co hledání, zvlášť; nad limitem přepočet odpoví bez nových tras (z mezipaměti, jinak odhad), ne chybou.
   rechecksPer10Min: 3 * num(env.SEARCH_RATE_LIMIT, 40),

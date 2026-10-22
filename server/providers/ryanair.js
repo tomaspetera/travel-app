@@ -40,9 +40,36 @@ export async function warmSession(force = false) {
   return session.pending;
 }
 
+// Pojistka proti zablokování adresy serveru: po HTTP 429 (Ryanair hlásí příliš mnoho dotazů) se Ryanair na chvíli
+// vynechá – další dotazy by blokaci jen prodlužovaly (při návalu uživatelů desítky za sekundu). Na dobu z Retry-After,
+// jinak 2 min (nejvýš 15 min); dotazy čekající ve frontě už nevyjdou. Hledání to hlásí jako výpadek s odpočtem
+// (outage 'blocked', isBlocked/retryAfter níž) stejně jako u Wizz Air.
+const BLOCK_MS = 2 * 60e3;
+const block = { until: 0 };
+const blocked = () => Date.now() < block.until;
+const blockedError = () => Object.assign(new Error('Ryanair dočasně omezuje dotazy (429) – na chvíli vynechán'), { status: 429, blocked: true });
+
+/** Jen pro testy: zrušit pojistku po 429. */
+export function _resetRyanairBlock() {
+  block.until = 0;
+}
+
 async function get(url) {
+  if (blocked()) throw blockedError();
   await warmSession();
-  return limit(() => request(url, { headers: HEADERS, jar: session.jar, timeoutMs: 15000, retries: 1 }));
+  return limit(async () => {
+    if (blocked()) throw blockedError();
+    try {
+      return await request(url, { headers: HEADERS, jar: session.jar, timeoutMs: 15000, retries: 1 });
+    } catch (e) {
+      if (e.status === 429 && !e.blocked) {
+        const ms = e.retryAfter > 0 ? Math.min(15 * 60e3, e.retryAfter * 1000) : BLOCK_MS;
+        block.until = Math.max(block.until, Date.now() + ms);
+        throw blockedError();
+      }
+      throw e;
+    }
+  });
 }
 
 async function farfnd(path, params) {
@@ -136,6 +163,8 @@ export const ryanair = {
   live: true,
   // Kódy letů skupiny Ryanair v letovém řádu (i u stejných letů nalezených přes Kiwi).
   carriers: ['FR', 'RK'],
+  isBlocked: blocked,
+  retryAfter: () => Math.max(0, Math.ceil((block.until - Date.now()) / 1000)), // s do konce pojistky (pro „Zkusit znovu“)
 
   /** Množina IATA kódů letišť, kam Ryanair létá (null = neznámo). */
   async stations() {
@@ -245,6 +274,7 @@ export const ryanair = {
    */
   async departures(from, to, days) {
     const out = {};
+    if (blocked()) return out; // po 429 ani letový řád (jen doplňuje další odlety dne)
     const months = [...new Set(days.map((d) => d.slice(0, 7)))];
     await Promise.all(months.map(async (ym) => {
       let json;
