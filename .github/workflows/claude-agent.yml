@@ -108,8 +108,15 @@ jobs:
           git add -A
           git commit -q -m "$TITLE" -m "Claude (Agent SDK), ${MODE}${ISSUE_NUMBER:+, issue #$ISSUE_NUMBER}"
           git push -q origin "$BR"
-          PR=$(gh pr create --base main --head "$BR" --title "$TITLE" --body-file "$S")
-          echo "PR: $PR"
-          # PR založený tokenem Actions sám testy nespustí – pustit je ručně na větvi (výsledek se ukáže u PR)
-          gh workflow run deploy.yml --ref "$BR" || true
+          # PR jde založit jen se zapnutým Settings → Actions → General → „Allow GitHub Actions to create and approve
+          # pull requests“; jinak zůstane větev s odkazem na založení PR (v issue a ve shrnutí běhu)
+          if PR=$(gh pr create --base main --head "$BR" --title "$TITLE" --body-file "$S"); then
+            echo "PR: $PR"
+            # PR založený tokenem Actions sám testy nespustí – pustit je ručně na větvi (výsledek se ukáže u PR)
+            gh workflow run deploy.yml --ref "$BR" || true
+          else
+            PR="https://github.com/${GITHUB_REPOSITORY}/compare/main...${BR}?expand=1"
+            echo "::warning::PR nešel založit (Actions nemají povolené zakládat PR) – větev $BR, založit: $PR"
+          fi
+          echo "**${TITLE}** – $PR" >> "$GITHUB_STEP_SUMMARY"
           if [ -n "$ISSUE_NUMBER" ]; then gh issue comment "$ISSUE_NUMBER" --body "Návrh opravy: $PR"; fi
