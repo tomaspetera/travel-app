@@ -14,7 +14,7 @@ Podklad k podnikatelskému plánu (cíl: 1000+ lidí naráz). Stav k 22. 10. 202
 | 1000× statické soubory | p50 2,2 s, p95 3,0 s | beze změny |
 | 100 hledání (½ stejných, ½ různých) | **pád serveru**: paměť 2,2 GB → „heap out of memory“, 100 chyb, `/healthz` stál 105 s | 96 hotových, 4× 503 „zkus to za minutu“; paměť max 1,0 GB; vše do 104 s; `/healthz` nejvýš 11 s |
 | 100 stejných hledání | **pád serveru** (2,2 GB), 100 chyb | 100 hotových, p50 9 s, p95 10 s; procesor 10 s místo ~100× víc |
-| 60 různých z jedné adresy | 40 hotových (p50 110 s), 20× 429; paměť 1,6 GB; `/healthz` až 61 s | 24 hotových (do 46 s), 36× 503 (fronta plná, do limitu adresy se nepočítá); `/healthz` max 5 s |
+| 60 různých z jedné adresy | 40 hotových (p50 110 s), 20× 429; paměť 1,6 GB; `/healthz` až 61 s | 8 hotových (do 13 s), 52× 429 hned (strop 8 rozběhnutých na adresu, do limitu adresy se nepočítá); paměť max 0,36 GB; `/healthz` max 3 s. Bez stropu na adresu (předchozí úprava): 24 hotových, 36× 503 – fronta plná i pro ostatní |
 
 Pozn.: DEMO hledání zabere i ~70 MB (skutečné méně). Když hledání skončí, jeho výsledek se k uživateli dostane, až
 procesor dopočítá ostatní (proto p50 ≈ konec) – jedno vlákno Node je úzké hrdlo, viz níž.
@@ -27,6 +27,13 @@ Zopakovat: `node scripts/load-test.mjs` (spustí si vlastní DEMO server, `ONLY=
   hned 503 „ATLAS teď hledá pro hodně lidí najednou – zkus to prosím za minutu“ (aplikace hlášku ukáže) místo pádu
   pro všechny. Hledání ve frontě, jehož klient mezitím odešel, se vůbec nespustí a místo ve frontě nedrží.
   Sdílí se jen běžící hledání: skončí-li chybou, dostanou ji ti, kdo na něj čekali, a další stejné hledání se spustí znovu.
+- **Strop na adresu** (`SEARCH_PER_CLIENT`, výchozí 8): jedna adresa smí mít naráz nejvýš 8 rozběhnutých hledání
+  (běží i čekají ve frontě), nad tím hned 429 s `Retry-After: 30` a „Z tvého připojení teď běží moc hledání naráz –
+  počkej prosím, až některé doběhne…“ (do limitu adresy se nepočítá). Jedna adresa tak frontu (4 + 20) nezaplní.
+  Místo se vrátí, jakmile hledání skončí (i chybou), nebo hned, když klient odejde (zrušené hledání, zavřená stránka),
+  i když jeho hledání ještě běží. Připojení ke stejnému běžícímu hledání frontu nezabírá, takže projde i nad stropem
+  (počítá se ale, ať jím nejde držet běhy, které jejich zakladatel opustil). Počty jsou jen pro právě otevřená
+  hledání – po skončení se záznam adresy smaže, paměť s časem neroste.
 - **Mezipaměť**: prošlé záznamy se jednou za minutu uklidí; nad 320 MB paměti procesu (`CACHE_SOFT_MB`) se
   zahodí starší polovina (odpověď Ryanairu „kamkoliv“ má stovky kB – strop 5 000 záznamů by se do 512 MB nevešel).
   Kolikrát se to stalo, ukazuje `/api/health` → `cache.trims`.
@@ -37,8 +44,14 @@ Zopakovat: `node scripts/load-test.mjs` (spustí si vlastní DEMO server, `ONLY=
 - **Pomalý klient**: hlavičky do 20 s, celý požadavek do 30 s (odpověď – streamované hledání – se nezkracuje).
 - Jeden uživatel nepozná rozdíl: limity z adresy mají stejné hodnoty a okna jako dřív (hledání 40 / 10 min, hlášení
   chyb z prohlížeče 30 / hodinu…), hledání bez návalu běží hned. Hlášky 429 i 503 aplikace ukáže česky (pole `error`).
-- Ověřeno testy `test/crowd.test.js` (limity, mezipaměť, sdílení, fronta, 503/429 s Retry-After, pojistky aerolinek)
-  a `test/clienterr.test.js` (hodinový limit hlášení chyb).
+  Strop 8 na adresu je nad tím, co aplikace v jednom okně pustí sama: radar 1 hledání (kontrola hlídaných cen jen
+  když nic jiného neběží, po jedné), s hledáním v Letech a ruční kontrolou ceny běžně 1–3; nejvýš 7, když se radar
+  rychle přepne přes Kdykoliv, Víkendy a 3 víkendy svátků (rozběhnuté hledání radaru se neruší, výsledek se uloží).
+  Nové hledání v Letech předchozí zruší – místo se vrátí hned.
+- Ověřeno testy `test/crowd.test.js` (limity, mezipaměť, sdílení, fronta, 503/429 s Retry-After, strop na adresu
+  a jeho uvolnění po konci, chybě i odchodu klienta, pojistky aerolinek), `test/crowd-client.test.js` (výchozí nastavení:
+  7 hledání naráz z jedné adresy projde, z 30 projde 8 a ostatní adresy dál hledají) a `test/clienterr.test.js`
+  (hodinový limit hlášení chyb).
 - Už dřív v pořádku: komprese statiky (brotli/gzip předpočítané v paměti, ETag, Cache-Control), timeout u každého
   dotazu ven, souběžnost na zdroj (Ryanair 6, Kiwi 3, Wizz 3 relace za sebou), pojistky Kiwi/Xotelo/Mapy.com,
   limit těla požadavku 64 kB, limity hledání / Objevuj / ověření z jedné adresy.
@@ -59,8 +72,12 @@ Zopakovat: `node scripts/load-test.mjs` (spustí si vlastní DEMO server, `ONLY=
   server. Víc uživatelů = víc odpovědí z mezipaměti (paměť tras Wizz 6 h), ne víc dotazů.
 - **Adresa klienta**: limity berou první adresu z `X-Forwarded-For`. Ověřit na Renderu, že ji klient nemůže
   podvrhnout (jinak brát adresu, kterou doplní Render/Cloudflare) – jinak limit obejde kdokoli.
-- **Fronta je společná**: jedna adresa může do limitu (40 hledání) zaplnit celou frontu (20) a ostatní pak chvíli
-  dostanou 503. Strop běžících hledání na adresu by to řešil – zatím jen návrh.
+- **Fronta je společná** – vyřešeno pro jednu adresu: strop 8 rozběhnutých hledání na adresu (viz výš), takže jedna
+  adresa frontu nezaplní. Zbývá: tři a víc adres naráz (útok z více adres) ji zaplnit pořád můžou – to bez sdílených
+  limitů a ověření klienta zdarma nevyřešíme. A naopak víc lidí za jednou adresou (domácí síť, sdílená adresa
+  mobilního operátora) má strop i limit 40 / 10 min společný – při dnešním provozu nepravděpodobné, kdyžtak zvýšit
+  `SEARCH_PER_CLIENT`. Hledání, které klient opustil, už se nepočítá; pokud už běželo, doběhne (nejvýš
+  `SEARCH_CONCURRENCY` naráz, do limitu 40 / 10 min) – čekající se nespustí.
 - **Pojistka paměti měří RSS** (to hlídá Render). Node paměť po úklidu systému vrací pomalu, takže po špičce může
   mezipaměť ještě pár minut zahazovat polovinu každých 30 s – jen pomalejší hledání, ne chyba.
 - Rozběhnuté dotazy na aerolinky po odchodu klienta doběhnou (sdílí je ostatní a výsledek zůstane v mezipaměti);

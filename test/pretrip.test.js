@@ -277,7 +277,7 @@ test('seznam věcí: zima → teplé oblečení; pláž + horko → plavky a opa
   const c1 = itemIds(cold, { climate: [at('TOS', 'Tromsø')] });
   for (const id of ['cl-warm', 'cl-hat', 'cl-thermo', 'cl-boots', 'cl-sweater']) assert.ok(c1.includes(id), id);
   assert.ok(!c1.includes('cl-umbrella') && !c1.includes('ac-swim') && !c1.includes('hl-sun'), c1.join());
-  assert.equal(items(cold, { climate: [at('TOS', 'Tromsø')] }).find((x) => x.id === 'cl-warm').note, 'ráno kolem −5 °C');
+  assert.equal(items(cold, { climate: [at('TOS', 'Tromsø')] }).find((x) => x.id === 'cl-warm').note, 'ráno kolem −5\u00a0°C');
   // Barcelona v červenci: horko a pláže (štítek země) → plavky, opalovací krém, lehké oblečení
   const beach = trip({ cc: 'ES', bags: 'cabin' });
   const cx = ctxOf(beach, { climate: [at('BCN', 'Barcelona')] });
@@ -539,6 +539,8 @@ test('karta: oddíly, zaškrtávátka, aktivity, podnebí a zdroje; odškrtnuté
   assert.match(h, /<button type="button" class="fchip on" data-pt-act="city" aria-pressed="true">🏙️ Města a památky<\/button>/);
   assert.match(h, /<button type="button" class="fchip" data-pt-act="beach" aria-pressed="false">/);
   assert.match(h, /🌡️ <b>Tokio<\/b>: přes den ~13 °C, v noci ~6 °C, srážky do ~106 mm za měsíc/);
+  // °C a mm s pevnou mezerou (h je bez nich) – na telefonu se jednotka neodtrhne od čísla
+  assert.match(c.window.PreTrip.html(t, { isos: ['JP'], climate: [at('NRT', 'Tokio')] }), /přes den ~13\u00a0°C, v noci ~6\u00a0°C, srážky do ~106\u00a0mm za měsíc/);
   assert.match(h, /data-pt-print>🖨️ Vytisknout<\/button>/);
   assert.match(h, /✔ 1\/\d+/);
   assert.match(h, /Informativní přehled \(stav 10\/2026\)/);

@@ -352,7 +352,7 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   assert.deepEqual(plain(H.ARRIVAL_WARN), plain(A.ARRIVAL_WARN), 'stejné meze jako server');
   const [bva] = H.arrivalChips({ out: { to: 'BVA' }, back: { from: 'BVA' }, arrCzk: 880 }, ARR, { on: true });
   assert.equal(sp(bva.text), '🚌 z letiště BVA do Paříže 17,90 € (~440 Kč) · 1 h 15');
-  assert.match(bva.text, /17,90\u00a0€ \(~440\u00a0Kč\)/, 'pevné mezery mezi částkou a měnou');
+  assert.match(bva.text, /17,90\u00a0€ \(~440\u00a0Kč\) · 1\u00a0h\u00a015$/, 'pevné mezery mezi částkou a měnou i v délce cesty');
   assert.equal(bva.warn, true);
   assert.match(sp(bva.title), /^Z letiště BVA do Paříže: autobus Aérobus do Paris Porte Maillot – 17,90 € \(~440 Kč\) na osobu, ~1 h 15\. Online; na místě 18 €\. Zpět na letiště totéž\./);
   // za čas se k datu ověření přidá stáří („· před 4 měsíci“) – test nesmí záviset na dnešku
@@ -386,7 +386,7 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   // odhad mimo tabulku: bez měny a zdroje, „(odhad)“ i s tím, z čeho vychází
   const [bod] = H.arrivalChips({ out: { to: 'BOD' } }, ARR, { on: true });
   assert.equal(sp(bod.text), '🚌 z letiště BOD do centra ~150 Kč · 40 min (odhad)');
-  assert.match(bod.title, /odhad ~150 Kč na osobu, ~40 min – podle vzdálenosti letiště od města \(~15 km\)/);
+  assert.match(bod.title, /odhad ~150 Kč na osobu, ~40\u00a0min – podle vzdálenosti letiště od města \(~15 km\)/);
   assert.doesNotMatch(bod.title, /Zdroj/);
   // tabulka cesty na letiště (Vídeň) je taky jen odhad
   assert.match(sp(H.arrivalChips({ out: { to: 'VIE' } }, ARR)[0].text), /^🚆 z letiště VIE do centra ~140 Kč · 40 min \(odhad\)$/);

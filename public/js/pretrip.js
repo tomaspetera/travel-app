@@ -45,6 +45,8 @@
   // teplota se znaménkem minus (−5), rozsah „12–19“ / „−11 až −5“, stejné hodnoty jednou („~25“)
   const deg = n => (n < 0 ? `−${-n}` : String(n));
   const span = (a, b) => (a === b ? `~${deg(a)}` : a < 0 || b < 0 ? `${deg(a)} až ${deg(b)}` : `${a}–${b}`);
+  // „~25 °C“, „12–19 °C“ s pevnou mezerou – v seznamu věcí na úzkém telefonu se „°C“ neodtrhne na další řádek
+  const degC = n => `${deg(n)}\u00a0°C`, spanC = (a, b) => `${span(a, b)}\u00a0°C`;
   const country = iso => (typeof byIso !== 'undefined' && byIso[iso]) || null;
   const name = iso => (country(iso) && country(iso).cs) || iso;
   const flagOf = iso => (typeof flag === 'function' ? flag(iso) + ' ' : '');
@@ -541,21 +543,21 @@
     add(clo, 'cl-under', `Spodní prádlo a ponožky (${Math.min(days, 7)}×)`, days > 7 ? 'na delší cestu počítej s praním' : '');
     add(clo, 'cl-sleep', 'Oblečení na spaní');
     if (c) {
-      if (c.hi >= 27) add(clo, 'cl-light', 'Lehké vzdušné oblečení (trička, kraťasy)', `přes den až ~${deg(c.hi)} °C`);
-      else if (c.hi >= 20) add(clo, 'cl-tee', 'Trička a lehké kalhoty nebo kraťasy', `přes den ${span(c.minHi, c.hi)} °C`);
-      else add(clo, 'cl-long', c.hi <= 8 ? 'Teplé dlouhé kalhoty a vrstvy s dlouhým rukávem' : 'Dlouhé kalhoty a tričko s dlouhým rukávem', `přes den ${span(c.minHi, c.hi)} °C`);
+      if (c.hi >= 27) add(clo, 'cl-light', 'Lehké vzdušné oblečení (trička, kraťasy)', `přes den až ~${degC(c.hi)}`);
+      else if (c.hi >= 20) add(clo, 'cl-tee', 'Trička a lehké kalhoty nebo kraťasy', `přes den ${spanC(c.minHi, c.hi)}`);
+      else add(clo, 'cl-long', c.hi <= 8 ? 'Teplé dlouhé kalhoty a vrstvy s dlouhým rukávem' : 'Dlouhé kalhoty a tričko s dlouhým rukávem', `přes den ${spanC(c.minHi, c.hi)}`);
       const cold = c.lo <= 3 || c.minHi <= 8;
-      if (cold) add(clo, 'cl-warm', 'Teplá zimní bunda', `ráno kolem ${deg(c.lo)} °C`);
-      else if (c.minHi <= 14 || c.lo <= 8) add(clo, 'cl-jacket', 'Přechodová bunda', `ráno a večer kolem ${deg(c.lo)} °C`);
-      if (c.lo <= 15 && !cold) add(clo, 'cl-layer', 'Mikina nebo svetr', `na večer, kolem ${deg(c.lo)} °C`);
+      if (cold) add(clo, 'cl-warm', 'Teplá zimní bunda', `ráno kolem ${degC(c.lo)}`);
+      else if (c.minHi <= 14 || c.lo <= 8) add(clo, 'cl-jacket', 'Přechodová bunda', `ráno a večer kolem ${degC(c.lo)}`);
+      if (c.lo <= 15 && !cold) add(clo, 'cl-layer', 'Mikina nebo svetr', `na večer, kolem ${degC(c.lo)}`);
       if (cold) add(clo, 'cl-sweater', 'Teplý svetr nebo fleece');
       if (c.lo <= 0 || c.minHi <= 5) add(clo, 'cl-hat', 'Čepice, rukavice a šála');
       if (c.minHi <= 0) { add(clo, 'cl-thermo', 'Termoprádlo a teplé ponožky'); add(clo, 'cl-boots', 'Zimní boty s pevnou podrážkou', c.p >= 60 ? 'nepromokavé – srážky padají jako sníh' : ''); }
       if (c.hi >= 24) { add(clo, 'cl-cap', 'Kšiltovka nebo klobouk proti slunci'); add(clo, 'cl-sunglass', 'Sluneční brýle'); }
       // v mrazu prší sníh – deštník nepomůže (stačí nepromokavé boty a bunda výš)
       if (c.hi > 3) {
-        if (c.p >= 200) add(clo, 'cl-rainjacket', 'Nepromokavá bunda nebo pončo', `období dešťů – až ~${c.p} mm srážek za měsíc`);
-        else if (c.p >= 90) add(clo, 'cl-umbrella', 'Skládací deštník nebo pláštěnka', `srážky ~${c.p} mm za měsíc`);
+        if (c.p >= 200) add(clo, 'cl-rainjacket', 'Nepromokavá bunda nebo pončo', `období dešťů – až ~${c.p}\u00a0mm srážek za měsíc`);
+        else if (c.p >= 90) add(clo, 'cl-umbrella', 'Skládací deštník nebo pláštěnka', `srážky ~${c.p}\u00a0mm za měsíc`);
       }
     } else add(clo, 'cl-weather', 'Oblečení podle počasí', ctx.pending ? 'podnebí v termínu cesty načítám…' : 'předpověď zkontroluj pár dní před odjezdem');
     if (acts.has('city') || acts.has('hike')) add(clo, 'cl-shoes', 'Pohodlné boty na celodenní chození');
@@ -695,7 +697,7 @@
   function climateHtml(ctx) {
     const c = ctx.climate;
     if (!c) return ctx.pending ? '<div class="pt-clim faint">🌡️ Načítám podnebí v termínu cesty…</div>' : '';
-    const rows = c.places.map(p => `<b>${esc(p.name)}</b>: přes den ${span(p.minHi, p.hi)} °C, v noci ${span(p.lo, p.maxLo)} °C, srážky do ~${p.p} mm za měsíc`);
+    const rows = c.places.map(p => `<b>${esc(p.name)}</b>: přes den ${spanC(p.minHi, p.hi)}, v noci ${spanC(p.lo, p.maxLo)}, srážky do ~${p.p}\u00a0mm za měsíc`);
     return `<div class="pt-clim">🌡️ ${rows.join('<br>')} <span class="faint">(dlouhodobý průměr pro měsíce cesty z meteostanic, jinde z NASA POWER – ne předpověď)</span></div>`;
   }
   function chk(kind, id, done) {

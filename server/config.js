@@ -64,6 +64,12 @@ export const config = {
   // na větším plánu zvýšit (docs/skalovani.md).
   searchConcurrency: Math.max(1, num(env.SEARCH_CONCURRENCY, 4)),
   searchQueue: Math.max(0, num(env.SEARCH_QUEUE, 20)),
+  // Kolik hledání smí mít jedna adresa rozběhnutých naráz (běží i čekají ve frontě) – jinak by jedna adresa v rámci
+  // limitu (40 za 10 min) zaplnila celou frontu a ostatní by chvíli dostávali 503. Nad stropem 429 „počkej, až doběhnou“.
+  // Aplikace v jednom okně pustí sama naráz nejvýš 7 hledání (radar při rychlém přepínání Kdykoliv / Víkendy / 3 víkendy
+  // svátků – předchozí se neruší, výsledek se uloží – + hledání v Letech + ruční kontrola hlídané ceny), běžně 1–3.
+  // Výchozí 8 = jeden uživatel nic nepozná (ani se dvěma zařízeními za jednou adresou). 0 = bez stropu.
+  searchPerClient: Math.max(0, num(env.SEARCH_PER_CLIENT, 8)),
   // Přepočty trasy přes víc míst (každý až 8 nových tras z veřejného BRouteru): z jedné IP za 10 minut 3× tolik
   // co hledání, zvlášť; nad limitem přepočet odpoví bez nových tras (z mezipaměti, jinak odhad), ne chybou.
   rechecksPer10Min: 3 * num(env.SEARCH_RATE_LIMIT, 40),

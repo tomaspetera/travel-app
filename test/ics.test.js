@@ -162,6 +162,17 @@ test('Ics.gcalUrl: odkaz do Google Kalendáře (celodenní exkluzivně, časy v 
   assert.equal(long, 'a' + '🏰'.repeat(749));
 });
 
+test('Ics: pevné mezery z textů aplikace („~45 min“, „733 Kč“ – kvůli zalamování na telefonu) v kalendáři obyčejné', () => {
+  const ev = { title: 'Přejezd · 56\u00a0km', start: '2026-11-10T08:00', description: 'Odhad: ~45\u00a0min cesta + 2\u00a0h před odletem · 733\u202fKč', location: 'Letiště\u00a0PRG' };
+  const text = unfold(build([ev]));
+  assert.ok(!/[\u00a0\u202f]/.test(text));
+  assert.equal(prop(text, 'SUMMARY'), 'Přejezd · 56 km');
+  assert.equal(prop(text, 'DESCRIPTION'), 'Odhad: ~45 min cesta + 2 h před odletem · 733 Kč');
+  assert.equal(prop(text, 'LOCATION'), 'Letiště PRG');
+  const u = new URL(Ics.gcalUrl(ev)).searchParams;
+  assert.deepEqual([u.get('text'), u.get('details'), u.get('location')], ['Přejezd · 56 km', 'Odhad: ~45 min cesta + 2 h před odletem · 733 Kč', 'Letiště PRG']);
+});
+
 test('PlanShare: odkaz na plán – tam a zpět beze ztráty (čeština, emoji, lety), zkomprimovaný i dřívější', async () => {
   const trip = {
     name: 'Léto v Portugalsku 🌞', dest: 'Lisabon', iso: 'PT', start: '2026-07-01', end: '2026-07-05', pax: '2', budget: '42000',

@@ -105,6 +105,9 @@ table.bud-t tr.bud-sum td{font-weight:800;border-bottom:none}
 .bud-bar i{display:block;height:100%;border-radius:3px;background:var(--good)}
 .bud-bar.over i{background:var(--bad)}
 .bud-txt{font-size:13px;margin-top:6px}
+/* v součtu chybí položka bez ceny (budgetMissing) – „Zbývá …“ by jinak klamalo */
+.bud-miss{font-size:12.5px;margin-top:4px;color:var(--warn)}
+[data-theme="light"] .bud-miss{color:#8a5a00}
 .timeline{display:flex;flex-direction:column;gap:2px;margin-top:8px}
 .tl-row{display:grid;grid-template-columns:90px 26px 1fr;gap:8px;padding:7px 0;border-bottom:1px dashed var(--border);font-size:13.5px}
 .tl-d{color:var(--muted);font-weight:700;font-size:12.5px}

@@ -38,7 +38,7 @@ import { serveIndex, serveServiceWorker } from './lib/pwa.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
-import { sharedRuns, gate } from './lib/crowd.js';
+import { sharedRuns, gate, perClient } from './lib/crowd.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -192,6 +192,12 @@ const TOO_MANY = { error: 'Příliš mnoho hledání za krátkou dobu – zkus t
 const searchRuns = sharedRuns();
 const searchGate = gate(config.searchConcurrency, config.searchQueue);
 const BUSY = { error: 'ATLAS teď hledá pro hodně lidí najednou – zkus to prosím za minutu.' };
+// Fronta je společná – jedna adresa v ní smí mít naráz nejvýš config.searchPerClient hledání (běží i čekají), jinak by ji
+// v rámci svého limitu zaplnila sama a ostatní by dostávali 503. Místo se vrátí, jakmile hledání skončí (i chybou) nebo
+// klient odejde (zavřená stránka, zrušené hledání) – i když jeho hledání, pokud už běží, ještě doběhne.
+// Export jen pro testy (počty se po skončení vrátí na prázdno).
+export const _searchClients = perClient();
+const MANY_AT_ONCE = { error: 'Z tvého připojení teď běží moc hledání naráz – počkej prosím, až některé doběhne, a zkus to znovu.' };
 
 // Hledání streamuje průběh jako NDJSON (1 JSON objekt na řádek), na konci { type: 'result' }.
 async function handleSearch(req, res) {
@@ -205,18 +211,26 @@ async function handleSearch(req, res) {
   }
   // Přetížený server: nové hledání (stejné neběží) nad frontou se odmítne hned – do limitu adresy se nepočítá.
   const shareKey = JSON.stringify(body);
-  if (!searchRuns.has(shareKey) && searchGate.full()) return sendJson(req, res, 503, BUSY, { 'Retry-After': '60' });
+  const fresh = !searchRuns.has(shareKey);
+  if (fresh && searchGate.full()) return sendJson(req, res, 503, BUSY, { 'Retry-After': '60' });
+  // Strop na adresu: nové hledání nad ním hned 429 (do limitu adresy se nepočítá). Připojení ke stejnému běžícímu
+  // hledání frontu nezabere – projde vždy, ale počítá se (drží běh naživu, i když ten, kdo ho spustil, odešel).
+  const ip = clientIp(req);
+  if (fresh && _searchClients.full(ip, config.searchPerClient)) return sendJson(req, res, 429, MANY_AT_ONCE, { 'Retry-After': '30' });
   // Stejné hledání z téže adresy ještě běží (obnovená stránka, druhý panel, dvojí spuštění): do limitu se podruhé
   // nepočítá – připojí se k běžícímu (searchRuns). Zdarma jen jedna kopie navíc, víc ne.
-  const key = `${clientIp(req)}|${text}`;
+  const key = `${ip}|${text}`;
   const free = runningSearches.get(key) === 1;
   if (!free && rateLimited(req)) return sendJson(req, res, 429, TOO_MANY);
   // Cesta přes víc měst = hledání několika úseků → do limitu se počítá dvakrát.
   if (!free && body && body.trip === 'multi' && rateLimited(req)) return sendJson(req, res, 429, TOO_MANY);
   runningSearches.set(key, (runningSearches.get(key) || 0) + 1);
+  const release = _searchClients.take(ip);
+  res.once('close', release); // klient odešel (nebo odpověď skončila) – místo hned, nečeká se na konec hledání
   try {
     await streamSearch(req, res, body, shareKey);
   } finally {
+    release();
     const n = (runningSearches.get(key) || 1) - 1;
     if (n > 0) runningSearches.set(key, n);
     else runningSearches.delete(key);
