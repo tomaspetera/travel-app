@@ -16,7 +16,7 @@ const AREAS = [
   'Lety – hledání, výsledky, filtry, kalendář a mřížka termínů (public/js/flights.js, public/js/searchhelp.js, server/lib/search.js)',
   'Průvodce Cestou – trasa, ubytování, auto, program, shrnutí (public/js/trip.js, server/lib/stays.js, server/lib/stayplan.js)',
   'Objevuj – místa, výlety, celá země, trasy pěšky a na kole (public/js/places.js, server/lib/poi.js, server/lib/mapy.js)',
-  'Přehled – radar cen, hlídání cen, Co je nového, odložené nabídky (public/js/app.js, public/js/alerts.js, public/js/pins.js)',
+  'Přehled – radar cen, hlídání cen, Od minula, Co je nového, odložené nabídky (public/js/app.js, public/js/alerts.js, public/js/since.js, public/js/pins.js)',
   'Zdroje cen na serveru – Ryanair, Wizz Air, Kiwi.com, Travelpayouts, Xotelo: chyby, časové limity, mezipaměť (server/providers/, server/lib/)',
   'Data – data/*.json (doprava z letiště do města, země, vstupní podmínky): rozpory, zastaralé údaje, chybějící hodnoty, testy k nim',
   'Vzhled – CSS pro telefon (public/css/atlas.css, flights.css, trip.css) a počítač (public/css/desktop*.css): přetékání, nekonzistence',

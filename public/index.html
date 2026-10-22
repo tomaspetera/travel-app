@@ -184,6 +184,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
       <section class="view active" id="view-dashboard">
         <!-- 📍 Dnes na cestě: od 2 dnů před odjezdem do konce uložené cesty (app.js renderNow) -->
         <div class="now-trip" id="nowTrip" hidden></div>
+        <!-- 🕘 Od minula: po návratu jiný den co se změnilo (hlídané ceny, cesta, radar, odložené) – app.js renderSince -->
+        <div class="since-wrap" id="sinceCard" hidden></div>
         <!-- 📉 hlídaná cena zlevnila / je pod cílovou cenou: velká karta nahoře (flights.js renderDropCard) -->
         <div class="drop-wrap" id="dropCard" hidden></div>
         <div class="hero" id="heroBox">
@@ -531,6 +533,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <script src="js/places.js"></script>
 <script src="js/trip.js"></script>
 <script src="js/alerts.js"></script>
+<script src="js/since.js"></script>
 <script src="js/searchhelp.js"></script>
 <script src="js/smart.js"></script>
 <script src="js/pins.js"></script>
