@@ -148,6 +148,11 @@
   .modal:has(.pin-modal .pin-cards>:only-child){width:min(460px,100%)}
   .modal:has(.pin-modal .pin-cards>:nth-child(2):last-child){width:min(800px,100%)}
   .modal:has(.pin-modal .pin-cards>:nth-child(3):last-child){width:min(1100px,100%)}
+
+  /* ---------- 📅 Kalendář Kamkoliv: měsíc zabere tolik řádků mřížky, kolik má týdnů (+ nadpis) – pod ořezaným
+     krátkým měsícem (hledání od 28. 10. → říjen jen jeden týden) začne další měsíc, ne prázdná plocha vedle listopadu */
+  .dest-cal .cal-ms{align-items:start}
+  .dest-cal .cal-month{grid-row:span var(--cr,7)}
 }
 /* notebook: „Zkus napsat“ na jednom řádku (pátý příklad až na velkém monitoru); nízká obrazovka (768 px) bez
    vysvětlující věty pod nadpisem – formulář s popisky mluví sám za sebe a radar je hned vidět */

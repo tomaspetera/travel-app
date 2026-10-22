@@ -3247,7 +3247,9 @@
         const h = heat(x.cost);
         cells += `<div class="cd ${clickable ? 'click' : ''} ${view.outDate === key ? 'sel' : ''}" ${clickable ? `data-day="${key}"` : ''} style="--h:${h}" title="${esc(tip(x, key))}"><span>${d}${mark ? mark(x) : ''}</span><b>${calNum(x.cost)}</b></div>`;
       }
-      return `<div class="cal-month"><div class="cm-t">${MNS_FULL[mo - 1]} ${y}</div><div class="cal-grid">${['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'].map(x => `<div class="cdw">${x}</div>`).join('')}${cells}</div></div>`;
+      // --cr = řádky měsíce (nadpis + týdny): na počítači tolik řádků mřížky měsíců, pod krátký měsíc se vejde další
+      const rows = 1 + Math.ceil((offset + d1 - Math.max(1, d0) + 1) / 7);
+      return `<div class="cal-month" style="--cr:${rows}"><div class="cm-t">${MNS_FULL[mo - 1]} ${y}</div><div class="cal-grid">${['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'].map(x => `<div class="cdw">${x}</div>`).join('')}${cells}</div></div>`;
     }).join('')}</div></div>`;
   }
   /**
