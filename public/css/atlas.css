@@ -624,6 +624,11 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   .cm-acts .btn.primary{grid-column:1/-1;min-height:50px;border-radius:16px;font-size:15px}
   .cm-acts .btn svg{flex:none}
 }
+/* ℹ️ O aplikaci a soukromí (about.js) */
+.about-modal .ab-h{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:16px 0 6px}
+.about-modal .ab-list{margin:0 0 10px;padding-left:0;list-style:none;font-size:13.5px;line-height:1.45}
+.about-modal .ab-list li{margin:0 0 6px}
+.about-modal #abBk,.about-modal #abMail{width:100%;justify-content:center;margin-top:4px}
 /* 💾 Přenos a záloha (backup.js) */
 .plan-tools{gap:10px;align-items:center;margin-bottom:14px;font-size:12.5px}
 .bk-actions{display:flex;flex-wrap:wrap;gap:8px}
