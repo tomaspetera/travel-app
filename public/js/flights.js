@@ -4229,7 +4229,7 @@
     paintLw(q);
     $('#radarHome').onclick = () => radarSetup(true);
     $('#radarReload').style.visibility = ''; $('#radarReload').onclick = () => renderRadar(true);
-    if (q.none) { renderNews(); host.innerHTML = `<div class="note info">🗓️ <div>${esc(q.empty)}</div></div>`; return; }
+    if (q.none) { renderNews(); radarEmpty(q, '🗓️'); return; }
     const c = radarCached(q);
     if (!force && c && c.key === key && Date.now() - c.at < 30 * 60e3 && SearchHelp.radarOwnOk(c, S.accessOwn)) return paintRadar(c, q);
     // Starší výsledek stejného dotazu se ukáže hned a nový se hledá na pozadí – po uspání serveru to trvá i přes minutu.
@@ -4243,8 +4243,21 @@
     } catch (e) {
       if (radarWant !== key) return;
       if (old) paintRadar(old, q, { error: e.message });
-      else host.innerHTML = `<div class="note warn">⚠️ <div>Radar se nepodařilo načíst: ${esc(e.message)}</div></div>`;
+      else {
+        host.innerHTML = `<div class="note warn kiwi-note">⚠️ <div>Radar se nepodařilo načíst: ${esc(e.message)}</div><button type="button" class="btn sm" id="radarRetry">↻ Zkusit znovu</button></div>`;
+        $('#radarRetry').onclick = () => renderRadar(true);
+      }
     }
+  }
+  /** Prázdný radar: hláška (větší okruh, Kdykoliv, Víkendy) i s tlačítky, ať se nemusí hledat, kde to změnit. */
+  function radarEmpty(q, icon) {
+    const host = $('#radar');
+    const modes = q.none ? ['all', 'weekend'] : q.mode !== 'all' ? ['all'] : [];
+    host.innerHTML = `<div class="note info kiwi-note">${icon} <div>${esc(q.empty)}</div>`
+      + (q.none ? '' : '<button type="button" class="btn sm" id="radarWider">Větší okruh</button>')
+      + modes.map(m => `<button type="button" class="btn sm" data-rm="${m}">${m === 'all' ? 'Kdykoliv' : 'Víkendy'}</button>`).join('') + '</div>';
+    const w = $('#radarWider', host); if (w) w.onclick = () => radarSetup(true);
+    $$('[data-rm]', host).forEach(b => b.onclick = () => { S.radarNudged = true; S.radarMode = b.dataset.rm; save(); renderRadar(); });
   }
   /** Nastavení domova radaru („Odkud obvykle létáš?“) – poprvé, nebo změna (edit: předvyplněné, se Zrušit). */
   function radarSetup(edit = false) {
@@ -4349,7 +4362,7 @@
     renderNews();
     if (q.lw) paintLw(q);
     const host = $('#radar');
-    if (!r.items.length) { host.innerHTML = `<div class="note info">ℹ️ <div>${esc(q.empty)}</div></div>`; return; }
+    if (!r.items.length) { radarEmpty(q, 'ℹ️'); return; }
     // 🙈 cíle pryč, na jejich místo další uložené karty (radar si jich drží víc – RADAR_KEEP); ⭐ se štítkem
     const pl = prefLists(), shown = SearchHelp.radarShown(r.items, pl.mute);
     if (!shown.length) { host.innerHTML = `<div class="note info">🙈 <div>Všechny nalezené cíle máš v 🙈 Nezajímá mě. Klepni na <b>Obnovit</b> – radar pak hledá bez nich – nebo uprav seznam v ⭐ Moje cíle níž.</div></div>`; return; }

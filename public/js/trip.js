@@ -1618,9 +1618,10 @@
     // místo načítané dopředu (warmStays, Vyber za mě) a jeho záložka se nezeptají dvakrát
     if (!retry && !fresh && staysLoading.has(key)) return staysLoading.get(key);
     const p = (async () => {
+      // 502–504 z Renderu při probouzení (HTML místo JSON) česky – ne „Unexpected token“ (výpadek sítě přeloží pwa.js)
       const r = await fetch('api/stays?' + new URLSearchParams({ ...params, ...(retry ? { retry: 1 } : {}), ...(fresh ? { fresh: 1 } : {}) }));
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j) throw new Error(j?.error || (r.ok || r.status >= 500 ? 'Server se právě probouzí nebo je přetížený – zkus to za chvíli znovu.' : `Chyba serveru (HTTP ${r.status}).`));
       if (retry) staysRetry = null;
       const d = { key, ...j, got: Date.now(), params: { ...params } };
       if (staysIncomplete(d)) staysCache.delete(key);
@@ -1715,13 +1716,19 @@
       try {
         staysData = await loadStays(key, params);
       } catch (e) {
-        if (T() === t && t.step === 'stay') $('#stayBody').innerHTML = `<div class="note warn">⚠️ <div>Nabídky se nepodařilo načíst: ${esc(e.message)}</div></div>`;
+        if (T() === t && t.step === 'stay') stayLoadFail(e);
         return;
       }
     }
     // Mezitím se změnil počet nocí (novější dotaz) nebo krok → tuhle odpověď nevykresluj.
     if (T() !== t || t.step !== 'stay' || !staysData || staysData.key !== key) return;
     renderStays();
+  }
+
+  // Nabídky ubytování se nenačetly: proč a „Zkusit znovu“ (chyba se nepamatuje – překreslení kroku se zeptá znovu).
+  function stayLoadFail(e, more = '') {
+    $('#stayBody').innerHTML = `<div class="note warn kiwi-note">⚠️ <div>Nabídky se nepodařilo načíst: ${esc(String(e.message || '').replace(/[.\s]+$/, ''))}. Mezitím můžeš níž zadat vlastní cenu.</div><button type="button" class="btn sm" id="stayErrRetry">↻ Zkusit znovu</button></div>${more}`;
+    $('#stayErrRetry').onclick = () => render();
   }
 
   // Stav ubytování místa trasy (v záložkách a ve shrnutí).
@@ -1797,7 +1804,7 @@
     try {
       data = await loadStays(key, params);
     } catch (e) {
-      if (T() === t && t.step === 'stay' && stayIdx === i) $('#stayBody').innerHTML = `<div class="note warn">⚠️ <div>Nabídky se nepodařilo načíst: ${esc(e.message)}</div></div>${linkGrid([{ name: 'Booking.com', note: 'hledání na tvoje data', url: baseSearchUrl(t, b, d) }], '#003580')}`;
+      if (T() === t && t.step === 'stay' && stayIdx === i) stayLoadFail(e, linkGrid([{ name: 'Booking.com', note: 'hledání na tvoje data', url: baseSearchUrl(t, b, d) }], '#003580'));
       return;
     }
     if (T() !== t || t.step !== 'stay' || stayIdx !== i) return;
@@ -2165,7 +2172,7 @@
         <input class="input" id="stayMax" type="number" min="0" step="100" placeholder="max Kč/noc" value="${stayView.maxNight || ''}" style="max-width:130px">
         <span class="faint" style="font-size:12px">${items.length} z ${main.length} nabídek${hideGuess ? ` · ${nGuess} bez ceny skryto` : ''}${split ? ` · ${inTown.length} v místě bez ceny` : ''}</span>
       </div>
-      <div class="stay-list">${items.slice(0, lim).map((h) => stayCard(h, d.items.indexOf(h), base, dq)).join('') || '<div class="empty">Filtrům nic neodpovídá.</div>'}</div>
+      <div class="stay-list">${items.slice(0, lim).map((h) => stayCard(h, d.items.indexOf(h), base, dq)).join('') || `<div class="empty">Filtrům nic neodpovídá. Uvolni hodnocení, max. cenu nebo typ ubytování.<div style="margin-top:10px"><button type="button" class="btn sm" id="stayClear">Zrušit filtry</button></div></div>`}</div>
       ${items.length > lim ? `<button type="button" class="more-btn" id="stayMoreN">▼ Další hotely (${items.length - lim})</button>` : ''}
       ${hideGuess ? `<button type="button" class="linkbtn st-guess-btn" id="stayGuess">Ukázat i ${nGuess} ${nGuess === 1 ? 'hotel' : nGuess <= 4 ? 'hotely' : 'hotelů'} bez ceny na tvoje dny (často obsazené)</button>` : ''}
       ${townHtml}
@@ -2178,6 +2185,8 @@
     $$('#stayMin button').forEach(b => b.onclick = () => { stayView.minRating = +b.dataset.v; stayView.n = 0; renderStays(); });
     const ty = $('#stayType'); if (ty) ty.onchange = e => { stayView.type = e.target.value; stayView.n = 0; renderStays(); };
     $('#stayMax').onchange = e => { stayView.maxNight = +e.target.value || null; stayView.n = 0; renderStays(); };
+    // filtry skryly všechno: hodnocení, max. cena a typ pryč jedním klepnutím (řazení zůstane)
+    const sc = $('#stayClear'); if (sc) sc.onclick = () => { Object.assign(stayView, { minRating: 0, maxNight: null, type: '', n: 0 }); renderStays(); };
     const mn = $('#stayMoreN'); if (mn) mn.onclick = () => { stayView.n = lim + 10; renderStays(); };
     const tn = $('#stayTownN'); if (tn) tn.onclick = () => { stayView.osm = d.key; renderStays(); };
     // hotely bez ceny jsou v pořadí až za limitem výpisu – ukázat celý seznam a posunout se k prvnímu z nich

@@ -818,8 +818,14 @@ function renderCountries() {
   const rest = list.length - cLimit;
   $('#countryGrid').innerHTML = list.length ? list.slice(0, cLimit).map(c => destCard(c)).join('')
     + (rest > 0 ? `<button type="button" class="btn c-more" id="cMore">Zobrazit další země (${rest})</button>` : '')
-    : `<div class="empty" style="grid-column:1/-1"><div class="ei">${ico('M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20')}</div><div>Nic nenalezeno. Zkus jiný filtr.</div></div>`;
+    : `<div class="empty" style="grid-column:1/-1"><div class="ei">${ico('M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20')}</div><div>Hledání a filtrům neodpovídá žádná země – zkus jiný název nebo filtry uvolni.</div><button type="button" class="btn sm" id="cReset" style="margin-top:12px">Zrušit filtry</button></div>`;
   const more = $('#cMore'); if (more) more.onclick = () => { cLimit += cPage() * 2; renderCountries(); };
+  // prázdný výsledek: hledání i filtry pryč jedním klepnutím (řazení zůstane)
+  const reset = $('#cReset'); if (reset) reset.onclick = () => {
+    ['#cSearch', '#cCont', '#cCost', '#cEntry'].forEach(s => { $(s).value = ''; });
+    $$('#cVisited button').forEach(b => b.classList.toggle('on', b.dataset.v === 'all'));
+    renderCountries();
+  };
   bindDest('#countryGrid');
   Photos.paint($('#countryGrid'));
 }

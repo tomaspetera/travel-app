@@ -762,7 +762,8 @@
         paint(plan);
       } catch (e) {
         if (my !== seq) return;
-        $('#tpPlan', host).innerHTML = `<div class="note warn">⚠️ <div>Program se nepodařilo sestavit: ${esc(e.message)}</div></div>`;
+        $('#tpPlan', host).innerHTML = errHtml(errLead('city'), e.message, 'tpRetry');
+        $('#tpRetry', host).onclick = () => { $('#tpPlan', host).innerHTML = '<div class="loading-row"><span class="spin dark"></span> Skládám program…</div>'; run(); };
       }
     };
     // „další místa“ z programu, u sdíleného odkazu (bez nich) z už načtených míst v okolí
@@ -920,7 +921,7 @@
       if (my !== exSeq) return;
       const cities = (data.city || []).filter(okPt);
       const cap = cities.find(x => [c.capCs, c.cap].some(n => n && foldName(n) === foldName(x.name))) || cities[0] || (data.dest || []).filter(okPt)[0];
-      if (!cap) { if (body && body.isConnected) body.innerHTML = '<div class="empty">Pro tuhle zemi jsem nic nenašel.</div>'; return; }
+      if (!cap) { if (body && body.isConnected) body.innerHTML = '<div class="empty">Pro tuhle zemi jsem nic nenašel – napiš do hledání nahoře konkrétní město nebo místo.</div>'; return; }
       p = { label: cap.name, lat: cap.lat, lon: cap.lon };
       data = { ...data, ...Object.fromEntries(C_GROUPS.map(([g]) => [g, (data[g] || []).map(x => (okPt(x) ? { ...x, distanceKm: Math.round(kmBetween([p.lon, p.lat], [x.lon, x.lat])) } : x))])) };
     }
@@ -1878,7 +1879,11 @@
   const nextR = r => (typeof r !== 'number' ? null : r < CITY_KM ? CITY_KM : r < MAX_R ? MAX_R : null);
   const emptyHtml = (radius, mode) => `<div class="empty" style="padding:26px 12px">V okruhu ${radius} km jsem nic zajímavého nenašel.${
     nextR(radius) ? `<div style="margin-top:12px"><button type="button" class="btn sm" data-rad="${nextR(radius)}">Zvětšit okruh na ${nextR(radius)} km</button></div>` : ''}${
-    mode === 'city' ? `<div class="ex-alt"><span>I tady naplánuju:</span>${MODES.filter(([id]) => ['day', 'bike', 'hike'].includes(id)).map(([id, l]) => `<button type="button" class="fchip" data-mode="${id}">${l}</button>`).join('')}</div>` : ''}</div>`;
+    mode === 'city' ? altModesHtml() : ''}</div>`;
+  const altModesHtml = () => `<div class="ex-alt"><span>I tady naplánuju:</span>${MODES.filter(([id]) => ['day', 'bike', 'hike'].includes(id)).map(([id, l]) => `<button type="button" class="fchip" data-mode="${id}">${l}</button>`).join('')}</div>`;
+  // Program ve městě bez jediného místa: větší okruh pomůže jen pod CITY_KM (program bere místa nejvýš do něj), jinak jiný režim.
+  const planEmptyHtml = radius => `<div class="empty" style="padding:18px 12px">Program není z čeho sestavit – v okruhu ${cityKm(radius)} km nejsou žádná místa.${
+    typeof radius === 'number' && radius < CITY_KM ? `<div style="margin-top:12px"><button type="button" class="btn sm" data-rad="${CITY_KM}">Zvětšit okruh na ${CITY_KM} km</button></div>` : ''}${altModesHtml()}</div>`;
 
   function paintExplore() {
     // celá země: přehled země (doběhlý plán nebo místa v okolí ho nepřepíšou; načítání ho vykreslí samo)
@@ -1914,7 +1919,7 @@
     const cityPlan = Boolean(ex.plan?.days.some(d => d.items.length));
     const hasPlan = routeMode ? rr : road ? trip && trip.days.length : cityPlan;
     const out = routeMode ? routeHtml(rr, p, ex.start) : road ? tripHtml(trip, p) : !ex.plan ? ''
-      : cityPlan ? planHtml(ex.plan, p) : `<div class="empty" style="padding:18px 12px">Program není z čeho sestavit – v okruhu ${cityKm(ex.radius)} km nejsou žádná místa.</div>`;
+      : cityPlan ? planHtml(ex.plan, p) : planEmptyHtml(ex.radius);
     const inPlan = ex.mode === 'city' ? planIds(ex.plan) : new Set();
     // V režimu výletů jde z výpisu přidat jen výlet mimo město (do programu ve městě patří ostatní). Místo z okolí
     // (okruh 50/100 km), které program ve městě nezná, nabídne „🎒 Výlet sem“ (jednodenní výlety s ním).
@@ -2284,7 +2289,7 @@
     // jen pro testy (test/places-ui.test.js)
     _t: { tripPlaces, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
-      countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
+      countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
       plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
