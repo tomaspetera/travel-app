@@ -261,6 +261,39 @@ test('server: hledání ve frontě, jehož klient mezitím odešel, se vůbec ne
   }
 });
 
+test('server: hledání čekající ve frontě posílá znamení { type: wait } – aplikace ho po 2 min bez dat nevzdá (Pwa.readOrStall)', async () => {
+  const mock = slowMock(500);
+  const prev = config.searchPingMs;
+  config.searchPingMs = 40; // v aplikaci 20 s proti 2 min API_WAIT – tady zmenšené
+  try {
+    const t0 = Date.now();
+    const a = await post({ ...q, dateFrom: ymdPlus(24), dateTo: ymdPlus(47) }, '10.7.0.1'); // běží
+    const b = await post({ ...q, dateFrom: ymdPlus(25), dateTo: ymdPlus(47) }, '10.7.0.2'); // čeká ve frontě
+    // nejdelší pauza bez dat v odpovědi čekajícího (readOrStall ji měří od posledního bajtu)
+    const reader = b.body.getReader(), dec = new TextDecoder();
+    let last = Date.now(), gap = 0, text = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      gap = Math.max(gap, Date.now() - last);
+      last = Date.now();
+      if (done) break;
+      text += dec.decode(value, { stream: true });
+    }
+    const lines = text.trim().split('\n').map((l) => JSON.parse(l));
+    assert.equal((await lastLine(a)).type, 'result');
+    assert.ok(Date.now() - t0 > 500, 'první hledání drželo frontu přes 0,5 s');
+    assert.ok(gap < 300, `ve frontě bez dat ${gap} ms`);
+    assert.equal(lines[0].type, 'wait', 'znamení dřív než průběh');
+    assert.equal(lines.at(-1).type, 'result', 'a pak výsledek');
+    // aplikace znamení přeskočí (runSearch zná jen progress / partial / result / error)
+    const flights = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+    assert.match(flights, /if \(ev\.type === 'progress' && onProgress\) onProgress\(ev\);[\s\S]{0,300}else if \(ev\.type === 'error'\) error = ev\.error;\n\s*\}/);
+  } finally {
+    config.searchPingMs = prev;
+    mock.restore();
+  }
+});
+
 test('server: 429 z limitu adresy má Retry-After (za kolik sekund znovu) a českou hlášku', async () => {
   const prev = config.searchesPer10Min;
   config.searchesPer10Min = 1;
