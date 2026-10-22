@@ -18,3 +18,13 @@ test('atlas.css: otevřené okno zamkne posun stránky přes body a samo posun n
 test('flights.css: karta radaru se super cenou nemá vlastní rámeček', () => {
   assert.doesNotMatch(read('css/flights.css'), /\.radar-card\.hot\{/);
 });
+
+test('atlas.css: vlastní posuvník a mezera po něm jen s myší – na telefonu by ukrojily pravý okraj okna', () => {
+  const css = read('css/atlas.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const fine = [...css.matchAll(/@media \(hover:hover\) and \(pointer:fine\)\{([\s\S]*?\})\s*\}/g)].map(m => m[1]).join('\n');
+  const outside = css.replace(/@media \(hover:hover\) and \(pointer:fine\)\{[\s\S]*?\}\s*\}/g, '');
+  assert.match(fine, /\*::-webkit-scrollbar\{width:10px/);
+  assert.match(fine, /scrollbar-gutter:stable/);
+  assert.doesNotMatch(outside, /\*::-webkit-scrollbar\{/);
+  assert.doesNotMatch(outside, /html:has\(#modalBg\.show\)\{scrollbar-gutter/);
+});
