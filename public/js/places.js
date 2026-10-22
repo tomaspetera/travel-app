@@ -149,11 +149,14 @@
 
   /* ---------- zapamatovaný stav Objevuj (localStorage; po obnovení stránky stejné místo a volby) ---------- */
   const UI_LS = 'atlas_explore_v1';
+  // druhy míst v přírodě ze serveru (NATURE v server/lib/names.js): pohoří, národní park / CHKO, hora, jeskyně, skály, jezero
+  const NATURE_KINDS = ['range', 'park', 'peak', 'cave', 'rocks', 'lake'];
   const pick1 = (v, ok) => (ok.includes(v) ? v : undefined);
   const cleanPlace = p => (p && typeof p === 'object' && Number.isFinite(+p.lat) && Number.isFinite(+p.lon) && Math.abs(+p.lat) <= 90 && Math.abs(+p.lon) <= 180
     && typeof p.label === 'string' && p.label.trim()
     ? { lat: +p.lat, lon: +p.lon, label: p.label.slice(0, 120), cc: /^[A-Z]{2}$/.test(p.cc) ? p.cc : '', geo: Boolean(p.geo), country: typeof p.country === 'string' ? p.country.slice(0, 60) : '',
-      ...(/^[a-z-]{2,30}$/.test(p.region) ? { region: p.region } : {}) } : null);
+      ...(/^[a-z-]{2,30}$/.test(p.region) ? { region: p.region } : {}),
+      ...(NATURE_KINDS.includes(p.nature) ? { nature: p.nature, ...(RADII.includes(+p.km) ? { km: +p.km } : {}) } : {}) } : null);
   const samePlace = (a, b) => Boolean(a && b && a.label === b.label && Math.abs(a.lat - b.lat) < 1e-3 && Math.abs(a.lon - b.lon) < 1e-3);
   // „Naposledy“: nejnovější první, bez opakování, bez „Moje okolí“ (poloha se mění).
   const pushRecent = (list, p) => (!p || p.geo ? list : [cleanPlace(p), ...list.filter(x => !samePlace(x, p))].filter(Boolean).slice(0, 5));
@@ -983,7 +986,8 @@
   const smartNames = new Map();
   async function smartName(phrase) {
     const cands = placeCands(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
-    const fl = await Promise.all(cands.map(c => getJson('api/places?remote=0&q=' + enc(c)).then(j => j.items || [], () => [])));
+    // nature=1: i hory a příroda („na Sněžku“ → Sněžka, „do Krkonoš“ → Krkonoše)
+    const fl = await Promise.all(cands.map(c => getJson('api/places?remote=0&nature=1&q=' + enc(c)).then(j => j.items || [], () => [])));
     let name = null;
     for (const [i, c] of cands.entries()) {
       // remote=0: jen vlastní data (i města bez letiště – Olomouc), geokódované vesnice tu nejsou
@@ -1000,10 +1004,14 @@
   async function smartPlace(phrase) {
     const cands = placeCands(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
     let failed = 0;
-    // remote=0: níž se berou jen místa z vlastních dat (ne geo:) – geokódování každého tvaru by jen zdrželo a stálo dotazy
-    const fl = await Promise.all(cands.map(c => getJson('api/places?remote=0&q=' + enc(c)).then(j => j.items || [], () => { failed++; return []; })));
+    // remote=0: níž se berou jen místa z vlastních dat (ne geo:) – geokódování každého tvaru by jen zdrželo a stálo dotazy;
+    // nature=1: i hory a příroda přesným názvem nebo tvarem („Krkonoš“)
+    const fl = await Promise.all(cands.map(c => getJson('api/places?remote=0&nature=1&q=' + enc(c)).then(j => j.items || [], () => { failed++; return []; })));
     // server nedostupný (žádný dotaz neprošel) – ne „místo neznám“
     if (cands.length && failed === cands.length) throw Object.assign(new Error('Server teď neodpovídá'), { down: true });
+    // hory a příroda (Sněžka, „v Krkonoších“, „do Dolomit“) rovnou s polohou: geokodér je zná špatně (Šumava = zastávka) a
+    // před oblastí stejného jména (Dolomity – město jejich letiště, Verona, do hor nevede)
+    for (const items of fl) { const n = items.find(x => x.nature); if (n) return n; }
     // jen místa z databáze letů (letiště, města, země, oblasti) – geokódované vesnice (geo:…, „Brná“ pro „Brna“) ne;
     // shoda i podle jiného názvu (en „Rome“, místní „Roma“, „Toscana“) → hledá se český název („Řím“, „Toskánsko“)
     let known = null, region = null;
@@ -1047,6 +1055,8 @@
     if (px.mode) ex.mode = px.mode;
     else if (s && s.region && px.days >= 2) ex.mode = 'loop';
     else if (px.days || px.interests.length) ex.mode = 'city';
+    // druh plánu z věty platí – u dalšího místa ho natureMode nevrátí (hory pak z „programu ve městě“ udělají pěšky)
+    if (ex.auto && (px.mode || px.days || px.interests.length)) ex.auto.mode = null;
     const road = ex.mode === 'day' || ex.mode === 'loop';
     if (px.days) {
       const opts = ex.mode === 'loop' ? [2, 3, 4, 5, 6, 7, 10] : ex.mode === 'day' ? [1, 2, 3, 4, 5, 7] : [1, 2, 3, 4, 5, 6, 7, 10];
@@ -1067,10 +1077,28 @@
   function setPlace(s) {
     // země podle kódu (česky, „Španělsko“) – kontext pro odkazy do Google Map
     const country = s.geo ? '' : s.country || (typeof byIso !== 'undefined' && byIso[s.cc]?.cs) || '';
-    ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc || '', geo: Boolean(s.geo), country, ...(s.region ? { region: s.region } : {}), ...(s.capital ? { capital: true } : {}) };
+    ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc || '', geo: Boolean(s.geo), country, ...(s.region ? { region: s.region } : {}), ...(s.capital ? { capital: true } : {}),
+      ...(NATURE_KINDS.includes(s.nature) ? { nature: s.nature, ...(RADII.includes(+s.km) ? { km: +s.km } : {}) } : {}) };
+    natureMode(ex.place);
     forget();
     if (!s.capital) ex.recent = pushRecent(ex.recent, ex.place); // hlavní město z výběru země do „Naposledy“ ne
     remember();
+  }
+  /**
+   * Hory a příroda (Sněžka, Šumava, Pravčická brána): místo programu ve městě po památkách 🥾 pěšky s otevřeným plánováním
+   * a okruh na celou oblast (km ze serveru: pohoří 20 km, hora nebo jeskyně 10 km; menší zvolený okruh se zvětší).
+   * U dalšího místa (město) zpět, co bylo předtím – jen co uživatel mezitím sám nezměnil.
+   */
+  function natureMode(p) {
+    const a = ex.auto;
+    ex.auto = null;
+    if (a) { if (ex.mode === a.mode) { ex.mode = a.was.mode; ex.planOpen = a.was.planOpen; } if (ex.radius === a.radius) ex.radius = a.was.radius; }
+    if (!p || !p.nature) return;
+    const was = { mode: ex.mode, radius: ex.radius, planOpen: ex.planOpen };
+    if (ex.mode === 'city') { ex.mode = 'hike'; ex.planOpen = true; }
+    const km = p.km || (p.nature === 'range' || p.nature === 'park' ? 20 : 10);
+    if (typeof ex.radius === 'number' && ex.radius < km) ex.radius = km;
+    if (ex.mode !== was.mode || ex.radius !== was.radius) ex.auto = { mode: ex.mode, radius: ex.radius, was };
   }
   // plány, vyřazená a vybraná místa, filtr a chyby místa
   function forget() {
@@ -1096,6 +1124,8 @@
     if (root && $('.ex-hero', root)) return renderExplore(root);
     const q = $('#exQ');
     if (q) q.value = s.label;
+    const sel = $('#exRad');
+    if (sel) sel.value = String(ex.radius); // okruh podle místa (hory: celá oblast)
     paintRecent();
     loadExplore();
   }
@@ -2300,6 +2330,6 @@
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
       plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
-      countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName },
+      countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply },
   };
 })();

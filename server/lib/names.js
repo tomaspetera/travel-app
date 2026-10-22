@@ -207,6 +207,47 @@ export const REGIONS = [
   { key: 'tyrolsko', cs: 'Tyrolsko', flag: '🇦🇹', aliases: ['tyrolsko', 'tyrol'], airports: ['INN'] }, // bez „tirol“ – „Tir…“ je Tirana
 ];
 
+// Hory, národní parky, jeskyně, skalní města a jezera, kam se jezdí na výlety a na túry – jen pro hledání v Objevuj
+// (do návrhů letů nepatří). Geokodér je najde nespolehlivě: Šumava = zastávka autobusu, Jeseníky = směnárna, Pálava =
+// Palavas-les-Flots ve Francii, Lipno v Polsku, Königssee = Königsee v Durynsku, Tatry = vesnice v Polsku (živě 10/2026),
+// a bez klíče Mapy.com (DEMO) vůbec. Polohy z odpovědí geokodéru (Mapy.com, GeoNames) a z ta-places.js, 10/2026;
+// pohoří = střed hlavní turistické oblasti (Jeseníky = Praděd, Beskydy = Radhošť, Malá Fatra = Vrátna dolina, Český ráj =
+// Hrubá Skála). kind: range pohoří, park národní park / CHKO, peak hora, cave jeskyně, rocks skalní město / brána, lake jezero
+// a přehrada; km = okruh v Objevuj (celá oblast); aliases = jiné názvy a tvary z věty, které Smart.nominatives neodvodí
+// („do Krkonoš“, „do Beskyd“, „do Tater“).
+export const NATURE = [
+  { cs: 'Krkonoše', kind: 'range', sub: 'pohoří a národní park, Sněžka', cc: 'CZ', lat: 50.7672, lon: 15.6222, km: 20, aliases: ['krkonos', 'karkonosze', 'riesengebirge'] },
+  { cs: 'Sněžka', kind: 'peak', sub: 'hora 1603 m, Krkonoše', cc: 'CZ', lat: 50.7360, lon: 15.7396, km: 10 },
+  { cs: 'Šumava', kind: 'range', sub: 'pohoří a národní park', cc: 'CZ', lat: 48.9769, lon: 13.6331, km: 20, aliases: ['np sumava', 'bohmerwald'] },
+  { cs: 'Boubín', kind: 'peak', sub: 'hora 1362 m a prales, Šumava', cc: 'CZ', lat: 48.9913, lon: 13.8175, km: 10, aliases: ['boubinsky prales'] },
+  { cs: 'Lipno', kind: 'lake', sub: 'vodní nádrž, Šumava', cc: 'CZ', lat: 48.7018, lon: 14.0626, km: 20, aliases: ['lipenska prehrada', 'vodni nadrz lipno'] },
+  { cs: 'Jeseníky', kind: 'range', sub: 'pohoří a CHKO, Praděd', cc: 'CZ', lat: 50.0831, lon: 17.2310, km: 20, aliases: ['hruby jesenik'] },
+  { cs: 'Praděd', kind: 'peak', sub: 'hora 1491 m, Jeseníky', cc: 'CZ', lat: 50.0831, lon: 17.2310, km: 10 },
+  { cs: 'Beskydy', kind: 'range', sub: 'pohoří a CHKO, Radhošť a Pustevny', cc: 'CZ', lat: 49.4916, lon: 18.2231, km: 20, aliases: ['beskyd', 'moravskoslezske beskydy'] },
+  { cs: 'Radhošť', kind: 'peak', sub: 'hora 1129 m, Beskydy', cc: 'CZ', lat: 49.4916, lon: 18.2231, km: 10 },
+  { cs: 'Bílé Karpaty', kind: 'range', sub: 'pohoří a CHKO, Velká Javořina', cc: 'CZ', lat: 48.8574, lon: 17.6752, km: 20, aliases: ['bilych karpat'] },
+  { cs: 'Pálava', kind: 'park', sub: 'CHKO a vinice, Pavlovské vrchy', cc: 'CZ', lat: 48.8585, lon: 16.6414, km: 10, aliases: ['pavlovske vrchy', 'palavske vrchy'] },
+  { cs: 'Moravský kras', kind: 'cave', sub: 'jeskyně a propast Macocha', cc: 'CZ', lat: 49.3732, lon: 16.7298, km: 10 },
+  { cs: 'Propast Macocha', kind: 'cave', sub: 'propast, Moravský kras', cc: 'CZ', lat: 49.3732, lon: 16.7298, km: 10, aliases: ['macocha'] },
+  { cs: 'Punkevní jeskyně', kind: 'cave', sub: 'jeskyně, Moravský kras', cc: 'CZ', lat: 49.3711, lon: 16.7260, km: 10 },
+  { cs: 'České Švýcarsko', kind: 'park', sub: 'národní park, Pravčická brána', cc: 'CZ', lat: 50.8673, lon: 14.3538, km: 20, aliases: ['np ceske svycarsko', 'narodni park ceske svycarsko'] },
+  { cs: 'Pravčická brána', kind: 'rocks', sub: 'skalní brána, České Švýcarsko', cc: 'CZ', lat: 50.8839, lon: 14.2816, km: 10 },
+  { cs: 'Adršpašsko-teplické skály', kind: 'rocks', sub: 'skalní město', cc: 'CZ', lat: 50.6012, lon: 16.1257, km: 10, aliases: ['adrspach', 'adrspasske skaly', 'teplicke skaly'] },
+  { cs: 'Český ráj', kind: 'park', sub: 'CHKO, skalní města a hrady', cc: 'CZ', lat: 50.5452, lon: 15.1947, km: 20 },
+  { cs: 'Prachovské skály', kind: 'rocks', sub: 'skalní město, Český ráj', cc: 'CZ', lat: 50.4673, lon: 15.2932, km: 10 },
+  { cs: 'Máchovo jezero', kind: 'lake', sub: 'jezero a pláže, Doksy', cc: 'CZ', lat: 50.5835, lon: 14.6498, km: 10 },
+  { cs: 'Křivoklátsko', kind: 'park', sub: 'lesy nad Berounkou, hrad Křivoklát', cc: 'CZ', lat: 50.0367, lon: 13.8707, km: 20 },
+  { cs: 'Slapská přehrada', kind: 'lake', sub: 'vodní nádrž na Vltavě', cc: 'CZ', lat: 49.7417, lon: 14.3567, km: 20, aliases: ['slapy', 'vodni nadrz slapy'] },
+  // v zahraničí
+  { cs: 'Dolomity', kind: 'range', sub: 'pohoří, UNESCO', cc: 'IT', lat: 46.3833, lon: 11.8500, km: 20, aliases: ['dolomit', 'dolomites', 'dolomiti'] },
+  { cs: 'Vysoké Tatry', kind: 'range', sub: 'pohoří a národní park', cc: 'SK', lat: 49.1382, lon: 20.2193, km: 20, aliases: ['tatry', 'tater', 'vysokych tater', 'tatras'] },
+  { cs: 'Malá Fatra', kind: 'park', sub: 'národní park, Vrátna dolina', cc: 'SK', lat: 49.1935, lon: 19.0386, km: 20, aliases: ['vratna dolina'] },
+  { cs: 'Slovenský ráj', kind: 'park', sub: 'národní park, Suchá Belá a Sokolia dolina', cc: 'SK', lat: 48.9491, lon: 20.3836, km: 20 },
+  { cs: 'Hallstatt', kind: 'lake', sub: 'městečko u Halštatského jezera, Solná komora', cc: 'AT', lat: 47.5622, lon: 13.6487, km: 10, aliases: ['halstatt'] },
+  { cs: 'Königssee', kind: 'lake', sub: 'jezero, národní park Berchtesgaden', cc: 'DE', lat: 47.5551, lon: 12.9766, km: 10, aliases: ['koenigssee'] },
+  { cs: 'Plitvická jezera', kind: 'park', sub: 'národní park, UNESCO', cc: 'HR', lat: 44.8835, lon: 15.6138, km: 10, aliases: ['plitvice', 'plitvice lakes'] },
+];
+
 // Další aliasy zemí (doplňují české názvy z data/countries.json).
 export const COUNTRY_ALIASES = {
   cesko: 'CZ', 'ceska republika': 'CZ', cr: 'CZ', cechy: 'CZ', morava: 'CZ', czechia: 'CZ',
