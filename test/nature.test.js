@@ -9,7 +9,7 @@ import { stubFetch } from './helpers.js';
 import { config } from '../server/config.js';
 
 const { suggest, localSuggestions, geocodeExplore, natureMatches } = await import('../server/lib/places.js');
-const { NATURE } = await import('../server/lib/names.js');
+const { NATURE, NATURE_KINDS } = await import('../server/lib/names.js');
 const { COUNTRY_BY_ISO } = await import('../server/lib/airports.js');
 const { haversineKm } = await import('../server/lib/geo.js');
 const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
@@ -58,6 +58,22 @@ const SEARCH = [
   // bez diakritiky, malými, slovensky
   ['snezka', 'Sněžka', 'peak', 50.7360, 15.7396], ['sumava', 'Šumava', 'range', 48.9769, 13.6331], ['krkonose', 'Krkonoše', 'range', 50.7672, 15.6222],
   ['CESKE SVYCARSKO', 'České Švýcarsko', 'park', 50.8673, 14.3538], ['Slovenský raj', 'Slovenský ráj', 'park', 48.9491, 20.3836], ['Koenigssee', 'Königssee', 'lake', 47.5551, 12.9766],
+  // druhá várka – polohy z produkčního geokodéru (api/geocode?mapy=1, 10/2026): GeoNames MTS/MT/PK/PRK nebo Mapy.com
+  ['Lysá hora', 'Lysá hora', 'peak', 49.54597, 18.44733], ['Pustevny', 'Pustevny', 'peak', 49.48886, 18.26514], ['Javorníky', 'Javorníky', 'range', 49.33333, 18.4],
+  ['Hostýn', 'Hostýn', 'peak', 49.38014, 17.70175], ['Svatý Hostýn', 'Hostýn', 'peak', 49.38014, 17.70175], ['Jizerské hory', 'Jizerské hory', 'range', 50.84278, 15.21028],
+  ['Jizerky', 'Jizerské hory', 'range', 50.84278, 15.21028], ['Ještěd', 'Ještěd', 'peak', 50.73262, 14.98505], ['Orlické hory', 'Orlické hory', 'range', 50.25, 16.41667],
+  ['Králický Sněžník', 'Králický Sněžník', 'peak', 50.2075, 16.84756], ['Dlouhé stráně', 'Dlouhé stráně', 'lake', 50.0713, 17.15671],
+  ['Krušné hory', 'Krušné hory', 'range', 50.5, 13.16667], ['Erzgebirge', 'Krušné hory', 'range', 50.5, 13.16667], ['Brdy', 'Brdy', 'range', 49.75385, 13.96996],
+  ['Blaník', 'Blaník', 'peak', 49.64181, 14.87368], ['Velký Blaník', 'Blaník', 'peak', 49.64181, 14.87368], ['Říp', 'Říp', 'peak', 50.38653, 14.28962],
+  ['Bezděz', 'Bezděz', 'peak', 50.53911, 14.72026], ['Kokořínsko', 'Kokořínsko', 'park', 50.43239, 14.58098], ['Kokořínský důl', 'Kokořínsko', 'park', 50.43239, 14.58098],
+  ['Tiské stěny', 'Tiské stěny', 'rocks', 50.78778, 14.03207], ['Děčínský Sněžník', 'Děčínský Sněžník', 'peak', 50.79158, 14.10388],
+  ['Žďárské vrchy', 'Žďárské vrchy', 'park', 49.61667, 16.05], ['Novohradské hory', 'Novohradské hory', 'range', 48.63333, 14.66667], ['Podyjí', 'Podyjí', 'park', 48.87563, 15.87018],
+  ['Nízké Tatry', 'Nízké Tatry', 'range', 48.91017, 19.86244], ['Nízke Tatry', 'Nízké Tatry', 'range', 48.91017, 19.86244], ['Velká Fatra', 'Velká Fatra', 'park', 48.89978, 19.08116],
+  ['Veľká Fatra', 'Velká Fatra', 'park', 48.89978, 19.08116], ['Slovenský kras', 'Slovenský kras', 'park', 48.57796, 20.77416], ['Súľovské skaly', 'Súľovské skaly', 'rocks', 49.17123, 18.58067],
+  ['Sulovske skaly', 'Súľovské skaly', 'rocks', 49.17123, 18.58067], ['Pieniny', 'Pieniny', 'park', 49.419, 20.38735], ['Saské Švýcarsko', 'Saské Švýcarsko', 'park', 50.96175, 14.07196],
+  ['Sächsische Schweiz', 'Saské Švýcarsko', 'park', 50.96175, 14.07196], ['Bastei', 'Bastei', 'rocks', 50.96175, 14.07196], ['Großglockner', 'Großglockner', 'peak', 47.07455, 12.69388],
+  ['Grossglockner', 'Großglockner', 'peak', 47.07455, 12.69388], ['Triglav', 'Triglav', 'peak', 46.3783, 13.83658], ['Bledské jezero', 'Bledské jezero', 'lake', 46.36391, 14.09381],
+  ['Lake Bled', 'Bledské jezero', 'lake', 46.36391, 14.09381],
 ];
 
 test('Objevuj, hledání: hory, národní parky, jeskyně, skály a jezera → první návrh s druhem a polohou (DEMO, bez geokódování)', () => demo(async () => {
@@ -75,7 +91,9 @@ test('seznam míst v přírodě: druh, okruh, země a poloha v pořádku, názvy
     assert.ok(['range', 'park', 'peak', 'cave', 'rocks', 'lake'].includes(n.kind), n.cs);
     assert.ok([10, 20].includes(n.km), `${n.cs}: okruh z nabídky Objevuj`);
     assert.ok(COUNTRY_BY_ISO.has(n.cc), n.cs);
-    assert.ok(n.lat > 44 && n.lat < 51.1 && n.lon > 11 && n.lon < 20.5, `${n.cs}: poloha ve střední Evropě`);
+    // (od Triglavu a Plitvic po Krkonoše a Bastei, od Dolomit po Slovenský kras)
+    assert.ok(n.lat > 44 && n.lat < 51.1 && n.lon > 11 && n.lon < 21, `${n.cs}: poloha ve střední Evropě`);
+    assert.ok(NATURE_KINDS.includes(n.kind), n.cs);
     for (const a of [n.cs, ...(n.aliases || [])]) {
       const k = a.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/-/g, ' ');
       assert.ok(!seen.has(k), `${a}: i u ${seen.get(k)}`);
@@ -141,6 +159,18 @@ const SENTENCES = [
   ['na Praděd', 'Praděd'], ['na Boubín', 'Boubín'], ['do Bílých Karpat', 'Bílé Karpaty'], ['na Křivoklátsko', 'Křivoklátsko'], ['na Slapy', 'Slapská přehrada'],
   ['do Dolomit', 'Dolomity'], ['v Dolomitech', 'Dolomity'], ['do Tater', 'Vysoké Tatry'], ['ve Vysokých Tatrách', 'Vysoké Tatry'], ['na Malou Fatru', 'Malá Fatra'],
   ['do Slovenského ráje', 'Slovenský ráj'], ['do Hallstattu', 'Hallstatt'], ['Plitvická jezera na 2 dny', 'Plitvická jezera'],
+  // 2. a 3. pád množného čísla a 3. pád přídavného jména
+  ['u Plitvických jezer', 'Plitvická jezera'], ['výlet k Plitvickým jezerům', 'Plitvická jezera'], ['k Bledskému jezeru', 'Bledské jezero'],
+  ['ke Králickému Sněžníku', 'Králický Sněžník'], ['k Tiským stěnám', 'Tiské stěny'], ['do Tiských stěn', 'Tiské stěny'],
+  // druhá várka
+  ['na Lysou horu', 'Lysá hora'], ['na Pustevny', 'Pustevny'], ['do Javorníků', 'Javorníky'], ['na Hostýn', 'Hostýn'], ['do Jizerských hor', 'Jizerské hory'],
+  ['v Jizerských horách', 'Jizerské hory'], ['do Jizerek', 'Jizerské hory'], ['na Ještěd', 'Ještěd'], ['do Orlických hor', 'Orlické hory'],
+  ['na Králický Sněžník', 'Králický Sněžník'], ['na Dlouhé stráně', 'Dlouhé stráně'], ['do Krušných hor', 'Krušné hory'], ['v Krušných horách', 'Krušné hory'],
+  ['do Brd', 'Brdy'], ['v Brdech', 'Brdy'], ['na Blaník', 'Blaník'], ['na Říp', 'Říp'], ['na Bezděz', 'Bezděz'], ['na Kokořínsko', 'Kokořínsko'],
+  ['na Kokořínsku', 'Kokořínsko'], ['na Děčínský Sněžník', 'Děčínský Sněžník'], ['do Žďárských vrchů', 'Žďárské vrchy'], ['do Novohradských hor', 'Novohradské hory'],
+  ['v Podyjí', 'Podyjí'], ['do Nízkých Tater', 'Nízké Tatry'], ['v Nízkých Tatrách', 'Nízké Tatry'], ['na Velkou Fatru', 'Velká Fatra'],
+  ['do Slovenského krasu', 'Slovenský kras'], ['do Súľovských skal', 'Súľovské skaly'], ['do Pienin', 'Pieniny'], ['do Saského Švýcarska', 'Saské Švýcarsko'],
+  ['na Bastei', 'Bastei'], ['na Großglockner', 'Großglockner'], ['na Triglav', 'Triglav'], ['pěšky na Říp', 'Říp'],
 ];
 
 test('Objevuj, věta: hory a příroda ve tvaru z věty → místo s druhem (smartPlace, DEMO); města a oblasti jako dřív', () => demo(async () => {
@@ -165,7 +195,10 @@ test('tvary dvouslovných jmen: 6. pád, 4. pád, přivlastňovací, 2. pád mno
   const F = (p) => [...Smart.placeForms(p)];
   for (const [p, want] of [['Českém Švýcarsku', 'České Švýcarsko'], ['Českého Švýcarska', 'České Švýcarsko'], ['Máchovu jezeru', 'Máchovo jezero'],
     ['Máchova jezera', 'Máchovo jezero'], ['Malou Fatru', 'Malá Fatra'], ['Bílých Karpat', 'Bílé Karpaty'], ['Krušných hor', 'Krušné hory'],
-    ['Vysokých Tatrách', 'Vysoké Tatry'], ['Českém Krumlově', 'Český Krumlov'], ['Novém Městě', 'Nové Město']]) {
+    ['Vysokých Tatrách', 'Vysoké Tatry'], ['Českém Krumlově', 'Český Krumlov'], ['Novém Městě', 'Nové Město'],
+    // střední rod v množném čísle (-á jezera), 3. pád množného (-ým -ům / -ám) a jednotného čísla (-ému)
+    ['Plitvických jezer', 'Plitvická jezera'], ['Plitvickým jezerům', 'Plitvická jezera'], ['Tiským stěnám', 'Tiské stěny'],
+    ['Bledskému jezeru', 'Bledské jezero'], ['Slovenskému krasu', 'Slovenský kras'], ['Jizerských hor', 'Jizerské hory']]) {
     assert.ok(F(p).slice(0, 2).includes(want), `${p} → ${want}: ${F(p).join(', ')}`);
   }
   assert.equal(F('Českém Krumlově')[0], 'Český Krumlov');
