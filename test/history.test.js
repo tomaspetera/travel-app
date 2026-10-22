@@ -199,6 +199,41 @@ test('průvodce: návrat lištou kroků cestu zkrátí, odchod z Cesty ji zahod�
   assert.equal(c.trip.step, 'flight');
 });
 
+test('Zpět po obnovení stránky (Shrnutí → Uložit do plánovače, telefon pak aplikaci na pozadí zavřel): krok průvodce bez cesty kroků se přeskočí', () => {
+  const a = app();
+  a.tap('flights');
+  a.tap('trip', { drill: true }); // Vybrat a pokračovat
+  a.ctx.histTrip('flight', 'summary'); a.trip.step = 'summary'; a.tick();
+  a.tap('planner', { drill: true }); // 💾 Uložit do plánovače
+  assert.deepEqual(plain(a.H.list.map((x) => x.url)), ['#dashboard', '#flights', '#trip', '#trip', '#planner']);
+  // obnovená stránka: stejná historie, aplikace začíná znovu na plánovači (cesta kroků průvodce je zapomenutá)
+  const b = app();
+  b.H.list = a.H.list; b.H.i = a.H.i;
+  vm.runInContext("activeView = 'planner'", b.ctx);
+  b.back();
+  assert.equal(b.view(), 'trip', 'Zpět z plánovače do průvodce');
+  b.back();
+  assert.equal(b.view(), 'flights', 'další Zpět k výsledkům – ne „nic“ na kroku průvodce z doby před obnovením');
+  b.back();
+  assert.equal(b.view(), 'dashboard');
+  assert.equal(b.H.exits, 0);
+  // obnoveno s oknem (⋯ Další) otevřeným nad krokem průvodce: start() krok okna přeskočí – a s ním i krok průvodce
+  assert.ok(APP.includes('if (history.state && (history.state.atlasM || history.state.atlasDp || history.state.atlasT)) histBack();'), 'start(): krok okna nebo průvodce po obnovení přeskočit');
+  const c = app();
+  c.tap('flights');
+  c.tap('trip', { drill: true });
+  c.ctx.histTrip('flight', 'route'); c.trip.step = 'route'; c.tick();
+  c.ctx.modalOpen('<p>Další</p>'); c.tick();
+  const d = app();
+  d.H.list = c.H.list; d.H.i = c.H.i;
+  vm.runInContext("activeView = 'trip'", d.ctx);
+  d.ctx.histBack(); d.tick(); // start()
+  assert.equal(d.view(), 'trip');
+  d.back();
+  assert.equal(d.view(), 'flights', 'první Zpět po obnovení k výsledkům');
+  assert.equal(d.H.exits, 0);
+});
+
 test('Zpět na počítači: sekce z postranního panelu přidá krok – šipka Zpět vrátí na předchozí sekci i s posunem', () => {
   // postranní panel volá go(v, { drill: true }) (app.js, .nav-item) – lišta dole na telefonu dál bez něj
   assert.match(APP, /\$\$\('\.nav-item'\)\.forEach\(el => \{[\s\S]*?el\.onclick = \(\) => go\(el\.dataset\.view, \{ drill: true \}\);/);

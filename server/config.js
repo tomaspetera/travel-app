@@ -70,6 +70,9 @@ export const config = {
   // svátků – předchozí se neruší, výsledek se uloží – + hledání v Letech + ruční kontrola hlídané ceny), běžně 1–3.
   // Výchozí 8 = jeden uživatel nic nepozná (ani se dvěma zařízeními za jednou adresou). 0 = bez stropu.
   searchPerClient: Math.max(0, num(env.SEARCH_PER_CLIENT, 8)),
+  // Hledání ve frontě (nebo zdroj, který dlouho mlčí): po tolika ms bez řádku pošle server znamení { type: 'wait' } –
+  // aplikace hledání bez dat vzdává po 2 minutách (public/js/pwa.js API_WAIT); 20 s je s velkou rezervou.
+  searchPingMs: 20e3,
   // Přepočty trasy přes víc míst (každý až 8 nových tras z veřejného BRouteru): z jedné IP za 10 minut 3× tolik
   // co hledání, zvlášť; nad limitem přepočet odpoví bez nových tras (z mezipaměti, jinak odhad), ne chybou.
   rechecksPer10Min: 3 * num(env.SEARCH_RATE_LIMIT, 40),

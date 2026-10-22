@@ -250,9 +250,11 @@ async function streamSearch(req, res, body, shareKey = JSON.stringify(body)) {
   const out = enc === 'br' ? zlib.createBrotliCompress(BR_API) : enc ? zlib.createGzip() : null;
   if (out) out.pipe(res);
   let closed = false;
+  let lastAt = Date.now(); // kdy odešel poslední řádek (znamení { type: 'wait' } níž)
   res.on('close', () => { closed = true; });
   const write = (obj) => {
     if (closed) return;
+    lastAt = Date.now();
     const line = JSON.stringify(obj) + '\n';
     if (out) {
       out.write(line);
@@ -260,6 +262,11 @@ async function streamSearch(req, res, body, shareKey = JSON.stringify(body)) {
     } else res.write(line);
   };
   write.gone = () => closed;
+  // Hledání čekající ve frontě (searchGate) nepošle nic, dokud na něj nepřijde řada – při návalu i minuty. Aplikace by ho
+  // po 2 minutách bez jediného bajtu (pwa.js readOrStall) vzdala jako zaseklé spojení a čekající by se nikdy nedočkal
+  // (nové hledání = zase na konec fronty). Proto po config.searchPingMs bez řádku znamení { type: 'wait' } – aplikace
+  // ho přeskočí, jen ví, že server žije.
+  const ping = setInterval(() => { if (Date.now() - lastAt >= config.searchPingMs) write({ type: 'wait' }); }, config.searchPingMs);
   try {
     // Stejné běžící hledání: připojit se (poslední průběh a náhled hned, další živě). Jinak nové – hned, nebo až
     // na něj přijde řada; odešli-li do té doby všichni, kdo na něj čekají, vůbec se nespustí (null).
@@ -268,6 +275,8 @@ async function streamSearch(req, res, body, shareKey = JSON.stringify(body)) {
   } catch (e) {
     if (!(e instanceof UserError)) console.error('[search]', e);
     write({ type: 'error', error: e instanceof UserError ? e.message : `Chyba serveru: ${e.message}` });
+  } finally {
+    clearInterval(ping);
   }
   if (out) out.end();
   else res.end();
