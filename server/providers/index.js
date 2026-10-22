@@ -39,7 +39,7 @@ export function providerStatus() {
     return mockProviders.map((p) => ({ id: p.id, ...PROVIDER_INFO[p.id], enabled: true }));
   }
   return [
-    { id: 'ryanair', ...PROVIDER_INFO.ryanair, enabled: config.ryanair },
+    { id: 'ryanair', ...PROVIDER_INFO.ryanair, enabled: config.ryanair, blocked: ryanair.isBlocked(), retryAfter: ryanair.retryAfter() },
     { id: 'wizzair', ...PROVIDER_INFO.wizzair, enabled: config.wizz, blocked: wizzair.isBlocked() },
     { id: 'kiwi', ...PROVIDER_INFO.kiwi, enabled: config.kiwi, blocked: kiwiBlocked(), retryAfter: kiwiRetryAfter() },
     {

@@ -37,6 +37,8 @@ import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 import { serveIndex, serveServiceWorker } from './lib/pwa.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
+import { RateLimiter } from './lib/ratelimit.js';
+import { sharedRuns, gate } from './lib/crowd.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -74,7 +76,9 @@ function packedBody(file, st, enc) {
 const BR_API = { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } };
 function sendJson(req, res, status, obj, extra = {}) {
   const body = Buffer.from(JSON.stringify(obj));
-  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra };
+  // 429: za kolik sekund to z této adresy půjde znovu (rateLimited) – standardní hlavička pro prohlížeč i proxy
+  const retry = status === 429 && req.retryAfter ? { 'Retry-After': String(req.retryAfter) } : {};
+  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...retry, ...extra };
   const enc = body.length > 1024 ? (wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '') : '';
   if (enc) {
     headers['Content-Encoding'] = enc;
@@ -144,25 +148,21 @@ function readBody(req, limit = 64 * 1024) {
   });
 }
 
-const hits = new Map();
-const rechecks = new Map(); // přepočty trasy přes víc míst (stayplan s bases): vlastní limit, do hledání se nepočítají
-const verifies = new Map(); // živé ověření ceny (/api/verify): vlastní limit, do hledání se nepočítá
-const stayChecks = new Map(); // ověření volna hotelu při výběru (/api/stays/check)
-const explores = new Map(); // Objevuj (místa, program, výlety, kolo, pěšky): vlastní limit, do hledání se nepočítá
-const mapySugs = new Map(); // návrhy Mapy.com v hledání Objevuj (jen dotazy mimo mezipaměť serveru)
-const tileHits = new Map(); // dlaždice Mapy.com přes server (jen mimo mezipaměť serveru)
-const clientErrs = new Map(); // hlášení chyb z prohlížeče (/api/client-error): 30 za hodinu z jedné adresy
+// Limity z jedné adresy za 10 minut (RateLimiter: omezená paměť, při návalu se nemaže všem najednou)
+const hits = new RateLimiter();
+const rechecks = new RateLimiter(); // přepočty trasy přes víc míst (stayplan s bases): vlastní limit, do hledání se nepočítají
+const verifies = new RateLimiter(); // živé ověření ceny (/api/verify): vlastní limit, do hledání se nepočítá
+const stayChecks = new RateLimiter(); // ověření volna hotelu při výběru (/api/stays/check)
+const explores = new RateLimiter(); // Objevuj (místa, program, výlety, kolo, pěšky): vlastní limit, do hledání se nepočítá
+const mapySugs = new RateLimiter(); // návrhy Mapy.com v hledání Objevuj (jen dotazy mimo mezipaměť serveru)
+const tileHits = new RateLimiter(); // dlaždice Mapy.com přes server (jen mimo mezipaměť serveru)
+const clientErrs = new RateLimiter({ windowMs: 60 * 60e3 }); // hlášení chyb z prohlížeče (/api/client-error): 30 za hodinu z jedné adresy
 const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
-function rateLimited(req, max = config.searchesPer10Min, bucket = hits, windowMs = 10 * 60e3) {
-  if (!max) return false;
-  const ip = clientIp(req);
-  const now = Date.now();
-  const list = (bucket.get(ip) || []).filter((t) => now - t < windowMs);
-  if (list.length >= max) return true;
-  list.push(now);
-  bucket.set(ip, list);
-  if (bucket.size > 5000) bucket.clear();
-  return false;
+/** Nad limitem → true a req.retryAfter = za kolik sekund to půjde znovu (hlavička Retry-After u 429). */
+function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
+  const wait = bucket.hit(clientIp(req), max);
+  if (wait) req.retryAfter = wait;
+  return wait > 0;
 }
 
 // Objevuj: do limitu se počítá jen požadavek, který opravdu půjde na Wikidata, Wikipedii nebo BRouter – odpověď celá
@@ -170,7 +170,7 @@ function rateLimited(req, max = config.searchesPer10Min, bucket = hits, windowMs
 const TOO_MANY_EXPLORE = { error: 'Příliš mnoho požadavků – zkus to za pár minut.' };
 // Odpovědi z mezipaměti mají vlastní, štědrý limit (5× víc) – výpočet okruhů výletů zabere CPU i z mezipaměti a nesmí
 // jít opakovat donekonečna; běžný uživatel se k němu nepřiblíží.
-const exploresCached = new Map();
+const exploresCached = new RateLimiter();
 const exploreLimited = (req, cached = false) => (cached && !config.mock
   ? rateLimited(req, 5 * config.explorePer10Min, exploresCached)
   : rateLimited(req, config.explorePer10Min, explores));
@@ -187,6 +187,11 @@ function exploreCharge(req) {
 // Stejné hledání z téže adresy, které ještě běží: `${ip}|${tělo}` → počet běžících kopií
 const runningSearches = new Map();
 const TOO_MANY = { error: 'Příliš mnoho hledání za krátkou dobu – zkus to za pár minut.' };
+// Nával (server/lib/crowd.js): stejné hledání od kohokoli, které ještě běží, se jen připojí; různých nejvýš
+// config.searchConcurrency naráz, dalších config.searchQueue čeká, nad tím 503 česky (aplikace hlášku ukáže).
+const searchRuns = sharedRuns();
+const searchGate = gate(config.searchConcurrency, config.searchQueue);
+const BUSY = { error: 'ATLAS teď hledá pro hodně lidí najednou – zkus to prosím za minutu.' };
 
 // Hledání streamuje průběh jako NDJSON (1 JSON objekt na řádek), na konci { type: 'result' }.
 async function handleSearch(req, res) {
@@ -198,8 +203,11 @@ async function handleSearch(req, res) {
   } catch (e) {
     return sendJson(req, res, 400, { error: e instanceof UserError ? e.message : 'Neplatný JSON' });
   }
+  // Přetížený server: nové hledání (stejné neběží) nad frontou se odmítne hned – do limitu adresy se nepočítá.
+  const shareKey = JSON.stringify(body);
+  if (!searchRuns.has(shareKey) && searchGate.full()) return sendJson(req, res, 503, BUSY, { 'Retry-After': '60' });
   // Stejné hledání z téže adresy ještě běží (obnovená stránka, druhý panel, dvojí spuštění): do limitu se podruhé
-  // nepočítá – dotazy na aerolinky sdílí s běžícím (cache.wrap, Kiwi). Zdarma jen jedna kopie navíc, víc ne.
+  // nepočítá – připojí se k běžícímu (searchRuns). Zdarma jen jedna kopie navíc, víc ne.
   const key = `${clientIp(req)}|${text}`;
   const free = runningSearches.get(key) === 1;
   if (!free && rateLimited(req)) return sendJson(req, res, 429, TOO_MANY);
@@ -207,7 +215,7 @@ async function handleSearch(req, res) {
   if (!free && body && body.trip === 'multi' && rateLimited(req)) return sendJson(req, res, 429, TOO_MANY);
   runningSearches.set(key, (runningSearches.get(key) || 0) + 1);
   try {
-    await streamSearch(req, res, body);
+    await streamSearch(req, res, body, shareKey);
   } finally {
     const n = (runningSearches.get(key) || 1) - 1;
     if (n > 0) runningSearches.set(key, n);
@@ -215,7 +223,7 @@ async function handleSearch(req, res) {
   }
 }
 
-async function streamSearch(req, res, body) {
+async function streamSearch(req, res, body, shareKey = JSON.stringify(body)) {
   const enc = wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '';
   res.writeHead(200, {
     'Content-Type': 'application/x-ndjson; charset=utf-8',
@@ -223,6 +231,8 @@ async function streamSearch(req, res, body) {
     'X-Accel-Buffering': 'no',
     ...(enc ? { 'Content-Encoding': enc } : {}),
   });
+  // hlavičky hned, i když hledání čeká ve frontě (searchGate) – prohlížeč i proxy vidí, že server odpověděl
+  res.flushHeaders();
   const out = enc === 'br' ? zlib.createBrotliCompress(BR_API) : enc ? zlib.createGzip() : null;
   if (out) out.pipe(res);
   let closed = false;
@@ -235,9 +245,12 @@ async function streamSearch(req, res, body) {
       out.flush(enc === 'br' ? zlib.constants.BROTLI_OPERATION_FLUSH : zlib.constants.Z_SYNC_FLUSH); // řádek hned
     } else res.write(line);
   };
+  write.gone = () => closed;
   try {
-    const result = await search(body, write);
-    write({ type: 'result', result });
+    // Stejné běžící hledání: připojit se (poslední průběh a náhled hned, další živě). Jinak nové – hned, nebo až
+    // na něj přijde řada; odešli-li do té doby všichni, kdo na něj čekají, vůbec se nespustí (null).
+    const result = await searchRuns(shareKey, (fan, run) => searchGate(() => search(body, fan), () => [...run.subs].every((w) => w.gone())), write);
+    if (result) write({ type: 'result', result });
   } catch (e) {
     if (!(e instanceof UserError)) console.error('[search]', e);
     write({ type: 'error', error: e instanceof UserError ? e.message : `Chyba serveru: ${e.message}` });
@@ -336,7 +349,7 @@ async function route(req, res) {
     // Chyba z prohlížeče (public/js/errlog.js): jeden řádek do logu Renderu, v paměti posledních 50 – v /api/health
     // jen jejich počet. Odpověď bez obsahu; klient na ni nečeká a nic neukazuje.
     if (req.method !== 'POST') return sendJson(req, res, 405, { error: 'Jen POST' }, { Allow: 'POST' });
-    if (rateLimited(req, 30, clientErrs, 60 * 60e3)) return sendJson(req, res, 429, { error: 'Příliš mnoho hlášení' });
+    if (rateLimited(req, 30, clientErrs)) return sendJson(req, res, 429, { error: 'Příliš mnoho hlášení' });
     let b;
     try {
       b = JSON.parse((await readBody(req, CLIENT_ERR_MAX)) || 'null');
@@ -766,7 +779,9 @@ async function route(req, res) {
 }
 
 export function createServer() {
-  return http.createServer((req, res) => {
+  // Pomalý klient (hlavičky / tělo po kapkách) nesmí držet spojení minuty: hlavičky do 20 s, celý požadavek do 30 s.
+  // Platí jen pro příjem požadavku – dlouhé streamované hledání (odpověď) se tím nezkracuje.
+  return http.createServer({ headersTimeout: 20e3, requestTimeout: 30e3 }, (req, res) => {
     route(req, res).catch((e) => {
       // Chyba cizí služby (HttpError z request()) není chyba uživatele: 503 a česky, bez adresy API.
       if (e instanceof HttpError) {
