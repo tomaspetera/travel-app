@@ -233,7 +233,13 @@ function tripEntry(on) {
   });
 }
 function histPop() {
-  if (hist.backs) { if (--hist.backs <= 0) histFlush(); return; } // návrat, který si aplikace sama vyžádala
+  if (hist.backs) { // návrat, který si aplikace sama vyžádala
+    if (--hist.backs > 0) return;
+    // skončil na kroku průvodce z doby před obnovením stránky (obnoveno s oknem otevřeným nad průvodcem – start):
+    // ještě o krok, jinak by další Zpět „nic neudělal“ (níž)
+    if (history.state && history.state.atlasT && !hist.step) return histBack();
+    return histFlush();
+  }
   // Zpět při otevřeném okně: krok okna už je pryč – jen ho zavřít
   if (hist.modal) { hist.modal = false; $('#modalBg').classList.remove('show'); }
   const st = history.state;
@@ -247,8 +253,9 @@ function histPop() {
     return;
   }
   // krok okna, které už otevřené není (Zpět z náhledu otevřeného nad oknem, náhled po přepnutí pohledu z něj, Vpřed
-  // v prohlížeči): přeskočit – jinak by další Zpět „nic neudělal“
-  if (st && (st.atlasM || st.atlasDp) && !$('#modalBg').classList.contains('show')) histBack();
+  // v prohlížeči), a krok průvodce, ke kterému už cesta kroků není (stránka se mezitím obnovila – Zpět z plánovače,
+  // kam cestu uložilo Shrnutí): přeskočit – jinak by další Zpět „nic neudělal“
+  if (st && ((st.atlasM || st.atlasDp) && !$('#modalBg').classList.contains('show') || st.atlasT && !hist.step)) histBack();
 }
 window.addEventListener('popstate', histPop);
 /** Adresa se změnila (Zpět, Vpřed, odkaz na sekci): přepnout na její sekci. */

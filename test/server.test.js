@@ -641,6 +641,12 @@ test('POST /api/hike – pěší okruh (DEMO): délka 2–40 km, odkazy pěšky,
   assert.equal(d.km, 40, 'nejvýš 40 km');
   assert.equal(d.scenery, 'mixed');
   assert.equal((await (await post({ lat: 50, lon: 14 })).json()).km, 10, 'výchozí 10 km');
+  // hory a příroda z Objevuj (nature + area): start túry mimo cíl; neznámý druh = jako město
+  const th = await (await post({ lat: 50.736, lon: 15.7396, km: 10, nature: 'peak', area: 10 })).json();
+  assert.equal(th.trailhead.name, 'Demo parkoviště');
+  assert.ok(th.start.lat < 50.736);
+  assert.equal((await (await post({ lat: 50.736, lon: 15.7396, km: 10, nature: 'volcano', area: 10 })).json()).trailhead, undefined);
+  assert.equal(j.trailhead, undefined, 'město bez startu túry');
   assert.equal((await post({ lat: 'x', lon: 14 })).status, 400);
   assert.equal((await post('[]')).status, 400);
   assert.equal((await post('{nope')).status, 400);

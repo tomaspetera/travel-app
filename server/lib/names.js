@@ -215,6 +215,12 @@ export const REGIONS = [
 // Hrubá Skála). kind: range pohoří, park národní park / CHKO, peak hora, cave jeskyně, rocks skalní město / brána, lake jezero
 // a přehrada; km = okruh v Objevuj (celá oblast); aliases = jiné názvy a tvary z věty, které Smart.nominatives neodvodí
 // („do Krkonoš“, „do Beskyd“, „do Tater“).
+// Druhá várka (od Lysé hory) jen z odpovědí produkčního geokodéru (api/geocode?mapy=1, 10/2026): pohoří GeoNames (MTS),
+// jinak hora, skalní město nebo vodní plocha Mapy.com; bez jasné oblasti hlavní cíl (Kokořínsko = Kokořínský důl,
+// Saské Švýcarsko = Bastei, Velká Fatra = Ostredok). Vynechané: Labské pískovce a Bavorský les (geokodér nemá oblast),
+// Schneeberg a Rax (napřed město v Sasku / vesnice ve Štýrsku), Javorník i Javorníky (víc hor a obcí; střed
+// pohoří z GeoNames 49,33 / 18,40 leží spíš na slovenské straně – země i cíl nejisté).
+export const NATURE_KINDS = ['range', 'park', 'peak', 'cave', 'rocks', 'lake'];
 export const NATURE = [
   { cs: 'Krkonoše', kind: 'range', sub: 'pohoří a národní park, Sněžka', cc: 'CZ', lat: 50.7672, lon: 15.6222, km: 20, aliases: ['krkonos', 'karkonosze', 'riesengebirge'] },
   { cs: 'Sněžka', kind: 'peak', sub: 'hora 1603 m, Krkonoše', cc: 'CZ', lat: 50.7360, lon: 15.7396, km: 10 },
@@ -238,6 +244,25 @@ export const NATURE = [
   { cs: 'Máchovo jezero', kind: 'lake', sub: 'jezero a pláže, Doksy', cc: 'CZ', lat: 50.5835, lon: 14.6498, km: 10 },
   { cs: 'Křivoklátsko', kind: 'park', sub: 'lesy nad Berounkou, hrad Křivoklát', cc: 'CZ', lat: 50.0367, lon: 13.8707, km: 20 },
   { cs: 'Slapská přehrada', kind: 'lake', sub: 'vodní nádrž na Vltavě', cc: 'CZ', lat: 49.7417, lon: 14.3567, km: 20, aliases: ['slapy', 'vodni nadrz slapy'] },
+  { cs: 'Lysá hora', kind: 'peak', sub: 'nejvyšší hora Beskyd', cc: 'CZ', lat: 49.5460, lon: 18.4473, km: 10 },
+  { cs: 'Pustevny', kind: 'peak', sub: 'horské sedlo s Jurkovičovými chatami, Beskydy', cc: 'CZ', lat: 49.4889, lon: 18.2651, km: 10 },
+  { cs: 'Hostýn', kind: 'peak', sub: 'hora 735 m a poutní místo', cc: 'CZ', lat: 49.3801, lon: 17.7018, km: 10, aliases: ['svaty hostyn'] },
+  { cs: 'Jizerské hory', kind: 'range', sub: 'pohoří a CHKO', cc: 'CZ', lat: 50.8428, lon: 15.2103, km: 20, aliases: ['jizerky', 'jizerek', 'isergebirge'] },
+  { cs: 'Ještěd', kind: 'peak', sub: 'hora 1012 m s vysílačem a hotelem', cc: 'CZ', lat: 50.7326, lon: 14.9851, km: 10 },
+  { cs: 'Orlické hory', kind: 'range', sub: 'pohoří a CHKO', cc: 'CZ', lat: 50.2500, lon: 16.4167, km: 20 },
+  { cs: 'Králický Sněžník', kind: 'peak', sub: 'hora 1423 m', cc: 'CZ', lat: 50.2075, lon: 16.8476, km: 10, aliases: ['snieznik'] },
+  { cs: 'Dlouhé stráně', kind: 'lake', sub: 'horní nádrž přečerpávací elektrárny, Jeseníky', cc: 'CZ', lat: 50.0713, lon: 17.1567, km: 10 },
+  { cs: 'Krušné hory', kind: 'range', sub: 'pohoří a hornická krajina UNESCO', cc: 'CZ', lat: 50.5000, lon: 13.1667, km: 20, aliases: ['erzgebirge'] },
+  { cs: 'Brdy', kind: 'range', sub: 'pohoří a CHKO', cc: 'CZ', lat: 49.7539, lon: 13.9700, km: 20, aliases: ['brd'] },
+  { cs: 'Blaník', kind: 'peak', sub: 'hora 638 m, pověst o rytířích', cc: 'CZ', lat: 49.6418, lon: 14.8737, km: 10, aliases: ['velky blanik'] },
+  { cs: 'Říp', kind: 'peak', sub: 'hora 461 m s rotundou', cc: 'CZ', lat: 50.3865, lon: 14.2896, km: 10, aliases: ['hora rip'] },
+  { cs: 'Bezděz', kind: 'peak', sub: 'hora 606 m s hradem', cc: 'CZ', lat: 50.5391, lon: 14.7203, km: 10, aliases: ['hrad bezdez'] },
+  { cs: 'Kokořínsko', kind: 'park', sub: 'CHKO, Kokořínský důl a pískovcové skály', cc: 'CZ', lat: 50.4324, lon: 14.5810, km: 20, aliases: ['kokorinsky dul'] },
+  { cs: 'Tiské stěny', kind: 'rocks', sub: 'skalní město, Labské pískovce', cc: 'CZ', lat: 50.7878, lon: 14.0321, km: 10 },
+  { cs: 'Děčínský Sněžník', kind: 'peak', sub: 'stolová hora 723 m s rozhlednou', cc: 'CZ', lat: 50.7916, lon: 14.1039, km: 10 },
+  { cs: 'Žďárské vrchy', kind: 'park', sub: 'CHKO na Vysočině', cc: 'CZ', lat: 49.6167, lon: 16.0500, km: 20 },
+  { cs: 'Novohradské hory', kind: 'range', sub: 'pohoří u hranic s Rakouskem', cc: 'CZ', lat: 48.6333, lon: 14.6667, km: 20 },
+  { cs: 'Podyjí', kind: 'park', sub: 'národní park, údolí Dyje', cc: 'CZ', lat: 48.8756, lon: 15.8702, km: 20, aliases: ['np podyji', 'narodni park podyji', 'thayatal'] },
   // v zahraničí
   { cs: 'Dolomity', kind: 'range', sub: 'pohoří, UNESCO', cc: 'IT', lat: 46.3833, lon: 11.8500, km: 20, aliases: ['dolomit', 'dolomites', 'dolomiti'] },
   { cs: 'Vysoké Tatry', kind: 'range', sub: 'pohoří a národní park', cc: 'SK', lat: 49.1382, lon: 20.2193, km: 20, aliases: ['tatry', 'tater', 'vysokych tater', 'tatras'] },
@@ -246,6 +271,16 @@ export const NATURE = [
   { cs: 'Hallstatt', kind: 'lake', sub: 'městečko u Halštatského jezera, Solná komora', cc: 'AT', lat: 47.5622, lon: 13.6487, km: 10, aliases: ['halstatt'] },
   { cs: 'Königssee', kind: 'lake', sub: 'jezero, národní park Berchtesgaden', cc: 'DE', lat: 47.5551, lon: 12.9766, km: 10, aliases: ['koenigssee'] },
   { cs: 'Plitvická jezera', kind: 'park', sub: 'národní park, UNESCO', cc: 'HR', lat: 44.8835, lon: 15.6138, km: 10, aliases: ['plitvice', 'plitvice lakes'] },
+  { cs: 'Nízké Tatry', kind: 'range', sub: 'pohoří a národní park', cc: 'SK', lat: 48.9102, lon: 19.8624, km: 20, aliases: ['nizkych tater'] },
+  { cs: 'Velká Fatra', kind: 'park', sub: 'národní park, Ostredok', cc: 'SK', lat: 48.8998, lon: 19.0812, km: 20 },
+  { cs: 'Slovenský kras', kind: 'park', sub: 'národní park, Zádielská dolina', cc: 'SK', lat: 48.5780, lon: 20.7742, km: 20 },
+  { cs: 'Súľovské skaly', kind: 'rocks', sub: 'skalní město', cc: 'SK', lat: 49.1712, lon: 18.5807, km: 10 },
+  { cs: 'Pieniny', kind: 'park', sub: 'národní park, Dunajec a Tři koruny', cc: 'PL', lat: 49.4190, lon: 20.3874, km: 20, aliases: ['pienin'] },
+  { cs: 'Saské Švýcarsko', kind: 'park', sub: 'národní park, Bastei', cc: 'DE', lat: 50.9618, lon: 14.0720, km: 20, aliases: ['sachsische schweiz', 'saechsische schweiz'] },
+  { cs: 'Bastei', kind: 'rocks', sub: 'skalní vyhlídka a most, Saské Švýcarsko', cc: 'DE', lat: 50.9618, lon: 14.0720, km: 10 },
+  { cs: 'Großglockner', kind: 'peak', sub: 'nejvyšší hora Rakouska, 3798 m', cc: 'AT', lat: 47.0746, lon: 12.6939, km: 10, aliases: ['grossglockner', 'glockner'] },
+  { cs: 'Triglav', kind: 'peak', sub: 'nejvyšší hora Slovinska, národní park', cc: 'SI', lat: 46.3783, lon: 13.8366, km: 10, aliases: ['triglavsky narodni park'] },
+  { cs: 'Bledské jezero', kind: 'lake', sub: 'jezero s ostrůvkem, Bled', cc: 'SI', lat: 46.3639, lon: 14.0938, km: 10, aliases: ['blejsko jezero', 'lake bled', 'jezero bled'] },
 ];
 
 // Další aliasy zemí (doplňují české názvy z data/countries.json).

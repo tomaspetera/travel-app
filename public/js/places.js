@@ -566,6 +566,9 @@
       const st = r.station;
       pts.push({ id: 'station', lat: st.lat, lon: st.lon, color: '#0ea5e9', num: '🚆', big: true, label: `🚆 ${st.name} – start jízdy`, q: /nádr|station|bahnhof|hbf/i.test(st.name) ? st.name : `${st.name} nádraží` });
     }
+    // pěšky u hor a přírody: start túry (parkoviště, nádraží, obec) – cíl je střed mapy
+    const th = r.trailhead;
+    if (th) pts.push({ id: 'trailhead', lat: th.lat, lon: th.lon, color: '#0ea5e9', num: TH_ICON[th.kind] || '📍', big: true, label: `${TH_ICON[th.kind] || '📍'} ${th.name} – start túry`, q: th.name });
     paintMap(state.map, center, pts, [{ color: col, coords: r.geometry.map(c => [c[0], c[1]]), solid: true, fit: true }], null, null, r.tiles === 'mapy');
   }
 
@@ -1096,10 +1099,15 @@
     if (!p || !p.nature) return;
     const was = { mode: ex.mode, radius: ex.radius, planOpen: ex.planOpen };
     if (ex.mode === 'city') { ex.mode = 'hike'; ex.planOpen = true; }
-    const km = p.km || (p.nature === 'range' || p.nature === 'park' ? 20 : 10);
+    const km = areaKm(p);
     if (typeof ex.radius === 'number' && ex.radius < km) ex.radius = km;
     if (ex.mode !== was.mode || ex.radius !== was.radius) ex.auto = { mode: ex.mode, radius: ex.radius, was };
   }
+  // okruh oblasti místa v přírodě (ze serveru; starší záznam bez km: pohoří a parky 20 km, jinak 10 km)
+  const areaKm = p => p.km || (p.nature === 'range' || p.nature === 'park' ? 20 : 10);
+  // Pěšky u hor a přírody: druh a okruh oblasti do api/hike – server najde start u cíle (parkoviště, nádraží, obec)
+  // a okruh povede přes cíl; u města nic
+  const hikeNature = p => (p && p.nature ? { nature: p.nature, area: areaKm(p) } : {});
   // plány, vyřazená a vybraná místa, filtr a chyby místa
   function forget() {
     ex.listAll = false;
@@ -1782,11 +1790,22 @@
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
   const slug = s => String(s || 'trasa').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'trasa';
-  const routeName = (r, center) => (r.activity === 'hike' ? `Pěšky z: ${center.label} – ${num(r.km)} km`
+  // start túry u hor a přírody (server, Wikidata): druh → ikona a popis
+  const TH_ICON = { parking: '🅿️', station: '🚉', town: '🏘️' };
+  const TH_KIND = { parking: 'parkoviště', station: 'nádraží / zastávka', town: 'obec' };
+  // Start túry: „🅿️ Start: Karpacz (obec) · 3,5 km od cíle Sněžka“; míjí-li okruh cíl o víc než 1 km, řekne to i s radou
+  function trailheadHtml(r, center) {
+    const th = r.trailhead;
+    if (!th) return '';
+    const miss = th.miss > 1 ? ` <span class="faint">– okruh vede nejblíž ~${num(th.miss)} km od cíle, zkus „Jiná trasa“ nebo delší okruh</span>` : '';
+    return `<div class="ride-train">${TH_ICON[th.kind] || '📍'} Start: <b>${esc(th.name)}</b> <span class="faint">(${TH_KIND[th.kind] || 'start'} · ${num(th.km)} km vzdušnou čarou od cíle ${esc(center.label)})</span>${miss}</div>`;
+  }
+  const routeName = (r, center) => (r.activity === 'hike' ? `Pěšky z: ${r.trailhead ? r.trailhead.name : center.label} – ${num(r.km)} km`
     : r.kind === 'train' ? `Na kole z: ${r.station.name} do: ${center.label} – ${num(r.km)} km` : `Na kole z: ${center.label} – ${num(r.km)} km`);
   // Řádky do plánovače (den výletu). Stoupání chybí jen u trasy z Mapy.com bez výškového profilu (ascent null).
   const upTxt = r => (r.ascent != null ? `↗ ${r.ascent} m, ` : '');
-  const routeLines = (r, center) => (r.activity === 'hike' ? [`🥾 Pěšky: ${num(r.km)} km, ${upTxt(r)}~${minTxt(r.minutes)} chůze`]
+  const routeLines = (r, center) => (r.activity === 'hike' ? [...(r.trailhead ? [`${TH_ICON[r.trailhead.kind] || '📍'} Start: ${r.trailhead.name} (${num(r.trailhead.km)} km od cíle ${center.label})`] : []),
+    `🥾 Pěšky: ${num(r.km)} km, ${upTxt(r)}~${minTxt(r.minutes)} chůze`]
     : r.kind === 'train' ? [`🚆 Vlakem: ${center.label} → ${r.station.name}`, `🚴 Na kole zpět: ${num(r.km)} km, ${upTxt(r)}~${minTxt(r.minutes)} (${BIKE_LBL[r.bike] || ''})`]
     : [`🚴 Okruh na kole: ${num(r.km)} km, ${upTxt(r)}~${minTxt(r.minutes)} (${BIKE_LBL[r.bike] || ''})`]);
 
@@ -1825,11 +1844,11 @@
     // u vlaku je délka jízdy zpět přijatelná v 75–135 % zvolené (nádraží nejsou všude)
     const off = train ? r.km < r.target * 0.75 || r.km > r.target * 1.35 : Math.abs(r.km - r.target) / r.target > 0.15;
     const head = [
-      r.demo ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>DEMO data</b> – ${train ? 'nádraží i trasa jsou vymyšlené' : 'trasa je jen ukázkový kruh'}.</div></div>` : '',
+      r.demo ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>DEMO data</b> – ${train ? 'nádraží i trasa jsou vymyšlené' : r.trailhead ? 'start túry je vymyšlený a trasa jen ukázkový kruh' : 'trasa je jen ukázkový kruh'}.</div></div>` : '',
       off ? `<div class="note info" style="margin-bottom:10px">ℹ️ <div>${train ? `Jízda z nádraží vyšla na ${num(r.km)} km místo ${r.target} km – z okolních nádraží se zvolené délce přiblížit nepodařilo. Zkus „Jiné nádraží“ nebo jinou délku.`
         : `Trasa vyšla na ${num(r.km)} km místo ${r.target} km${r.via.length ? ' – vede přes památky po cestě' : ' – v okolí se přesněji naplánovat nedala'}. Zkus „Jiná trasa“.`}</div></div>` : '',
     ].join('');
-    const title = hike ? `🥾 Pěšky z: ${esc(center.label)}` : train ? `🚆 Vlakem tam, 🚴 na kole zpět · ${esc(BIKE_LBL[r.bike] || '')}` : `🚴 Okruh z: ${esc(center.label)} · ${esc(BIKE_LBL[r.bike] || '')}`;
+    const title = hike ? `🥾 Pěšky ${r.trailhead ? `na: ${esc(center.label)}` : `z: ${esc(center.label)}`}` : train ? `🚆 Vlakem tam, 🚴 na kole zpět · ${esc(BIKE_LBL[r.bike] || '')}` : `🚴 Okruh z: ${esc(center.label)} · ${esc(BIKE_LBL[r.bike] || '')}`;
     const st = r.station;
     const back = routeBack(r, center);
     // návrat po půlnoci se porovná jako 23:59 (toHm by čas přetočil na „01:59“ a varování by zmizelo)
@@ -1839,7 +1858,7 @@
     return `${head}<div class="day-plan"><h4><span>${title}</span></h4>
       ${wxSlot(train ? st : center, date, true)}
       ${sunSlot(train ? st : center, date, late ? '23:59' : toHm(back.back), `Počítám se startem v 9:00${back.train ? ` (vlakem ~${minTxt(back.train)})` : ''} a s přestávkami – zpět kolem ${toHm(back.back)}${late ? ' (po půlnoci)' : ''}.`)}
-      ${trainHtml}
+      ${trainHtml}${trailheadHtml(r, center)}
       <div class="bike-stats">${train ? '<span>🚴 Na kole zpět:</span>' : ''}<b>${num(r.km)} km</b>${r.ascent != null ? `<span>↗ ${r.ascent} m stoupání</span>` : ''}${train && r.ascent != null ? `<span>↘ ${r.descent ?? r.ascent} m klesání</span>` : ''}<span>⏱️ ~${minTxt(r.minutes)} ${hike ? 'chůze' : 'v sedle'}</span></div>
       ${surfaceHtml(r)}
       ${r.via.length ? `<div class="dp-walk">👀 Po cestě: ${r.via.map((v, i) => `${i + 1}. ${esc(v.name)}`).join(' · ')}</div>` : ''}
@@ -1852,9 +1871,9 @@
         <a class="btn" href="${esc(safeUrl(r.googleUrl))}" target="_blank" rel="noopener">Google Maps ↗</a>
       </div></div>
       <div class="faint" style="font-size:11.5px;margin-top:6px">${r.source === 'mapy'
-        ? `${train ? 'Nádraží: Wikidata. ' : ''}Trasa: ${mapyBy('Plánují')} – plánovač BRouter teď neodpovídá, proto bez rozboru povrchu a cest${r.ascent != null ? '; výšky z výškového profilu Mapy.com' : ''}. ${hike ? 'Čas chůze podle turistického vzorce DIN 33466, bez přestávek.' : 'Čas je odhad Mapy.com, bez zastávek.'}`
+        ? `${train ? 'Nádraží: Wikidata. ' : r.trailhead ? 'Start túry: Wikidata. ' : ''}Trasa: ${mapyBy('Plánují')} – plánovač BRouter teď neodpovídá, proto bez rozboru povrchu a cest${r.ascent != null ? '; výšky z výškového profilu Mapy.com' : ''}. ${hike ? 'Čas chůze podle turistického vzorce DIN 33466, bez přestávek.' : 'Čas je odhad Mapy.com, bez zastávek.'}`
         : hike
-        ? 'Trasa: BRouter (profil pěší turistiky) nad mapou © OpenStreetMap. Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu), bez přestávek. „Spíš rovina“ se vyhýbá stoupání, „Do kopců“ dává přednost pěšinám a horským stezkám (kopce ale plánovač sám nevyhledá).'
+        ? `${r.trailhead ? 'Start túry: Wikidata. ' : ''}Trasa: BRouter (profil pěší turistiky) nad mapou © OpenStreetMap. Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu), bez přestávek. „Spíš rovina“ se vyhýbá stoupání, „Do kopců“ dává přednost pěšinám a horským stezkám (kopce ale plánovač sám nevyhledá).`
         : `${train ? 'Nádraží: Wikidata. ' : ''}Trasa: BRouter (brouter.de) nad mapou © OpenStreetMap. Čas je odhad podle kola a převýšení, bez zastávek.`}
         GPX nahraješ do Mapy.com, Garminu, Komootu či Stravy; odkazy do Mapy.com a Google Map vedou trasu přes několik bodů, takže se může mírně lišit.</div>`;
   }
@@ -2208,7 +2227,8 @@
           const sights = ro.scenery === 'city' && !train ? ex.items.filter(x => x.category !== 'daytrip').slice(0, 40).map(x => ({ name: x.name, lat: x.lat, lon: x.lon, score: x.score })) : undefined;
           // Vlakem tam: název a země domova pro odkaz na spojení (u „Moje okolí“ název není).
           const home = train ? { label: p.geo ? '' : p.label, cc: p.cc || '' } : {};
-          const ask = () => getJson(hikeMode ? 'api/hike' : 'api/bike', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: p.lat, lon: p.lon, ...ro, variant, ...home, sights }) });
+          const nat = hikeMode ? hikeNature(p) : {};
+          const ask = () => getJson(hikeMode ? 'api/hike' : 'api/bike', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: p.lat, lon: p.lon, ...ro, variant, ...home, ...nat, sights }) });
           // Nádraží z Wikidat napoprvé (prázdná mezipaměť) občas nestihnou – jednou to zkusím znovu jako u výletů.
           const r = await ask().catch(e => {
             if (!train || e.status !== 503) throw e;
@@ -2330,6 +2350,6 @@
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
       plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
-      countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply },
+      countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature },
   };
 })();
