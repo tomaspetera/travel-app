@@ -1042,6 +1042,14 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .pin-rel{flex:none;padding-top:5px;font-size:12.5px;font-weight:700;color:var(--muted)}
 .pin-tags{display:flex;flex-wrap:wrap;gap:5px}
 .pin-tags:empty{display:none}
+/* „Celkem i s cestou“: letenka + odhad dopravy na letiště a do města (podle toho pořadí karet) */
+.pin-why{font-size:12px;line-height:1.45;margin:-4px 0 10px}
+.pin-door{padding:7px 10px;border-radius:10px;background:var(--surface-2);font-size:12.5px;line-height:1.45}
+.pin-dt b{font-size:14.5px;color:var(--text)}
+.pin-dd{color:var(--muted)}
+.pin-dn{font-size:11px;color:var(--faint)}
+.pin-unk{color:var(--warn)}
+[data-theme=light] .pin-unk{color:#8a5a00}
 .pin-ln,.pin-age{font-size:12.5px;line-height:1.45}
 .pin-act{display:flex;flex-direction:column;gap:6px;margin-top:auto;padding-top:6px}
 .pin-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:14px}

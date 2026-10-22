@@ -330,3 +330,88 @@ test('jednorázový přepočet starších odložených (flights.js init → clea
   // znovu už nic nemění
   assert.deepEqual(plain(P.clean(out, opts)), out);
 });
+
+/* ---------- 📌 Porovnat: cena i s cestou na letiště a do města ---------- */
+// nabídka z jiného letiště odletu (Mnichov): letenka, doprava na letiště a zpět a z letiště do města na osobu
+const fromAp = (ap, czk, ground, arr, extra = {}) => {
+  const t = trip({ id: `ryanair|${ap}|NAP|2026-11-13T06:10`, out: { ...OUT, from: ap }, back: { ...BACK, to: ap }, flightCzk: czk, perPersonCzk: czk, groundCzk: ground, arrCzk: arr, ...extra });
+  const origins = [{ iata: ap, name: ap, cc: 'DE', distKm: 330, ground: { mode: 'transit', czk: ground / 2 } }];
+  return row(t, res(t, { origins }));
+};
+
+test('door: letenka + doprava na letiště a zpět + z letiště do města a zpět; co neznáme, je null a v součtu chybí', () => {
+  assert.deepEqual(plain(P.door(row())), { ticket: 1890, ground: 60, arr: 30, total: 1980, full: true, miss: [] });
+  // doprava na letiště vypnutá v hledání (off), odkud celá země (letiště bez ground), starší záznam bez letišť
+  const off = row(trip(), res(trip(), { origins: [{ ...ORIGINS[0], ground: { mode: 'transit', czk: 0, off: true } }] }));
+  assert.deepEqual(plain(P.door(off)), { ticket: 1890, ground: null, arr: 30, total: 1920, full: false, miss: ['ground'] });
+  assert.equal(P.door(row(trip(), res(trip(), { origins: [{ ...ORIGINS[0], ground: null }] }))).ground, null);
+  assert.equal(P.door({ ...row(), origins: undefined }).ground, null);
+  // návrat na jiné letiště: doprava jen s oběma letišti
+  const vie = trip({ back: { ...BACK, to: 'VIE' } });
+  assert.equal(P.door(row(vie, res(vie))).ground, 60);
+  assert.equal(P.door(row(vie, res(vie, { origins: [ORIGINS[0]] }))).ground, null, 'z VIE domů neznámá');
+  // cesta do města bez volby „v ceně“: z jízdného, které hledání posílá ke štítkům (tam i zpět)
+  const noArr = row(trip({ arrCzk: 0 }), res(trip({ arrCzk: 0 }), { query: { ...Q, arrival: false } }));
+  assert.equal(P.door(noArr).arr, 30);
+  const jaw = trip({ back: { ...BACK, from: 'BCN' }, arrCzk: 0 });
+  assert.equal(P.door(row(jaw, res(jaw, { query: { ...Q, arrival: false } }))).arr, 15 + 120, 'z NAP do města, z města na BCN');
+  // letiště bez údaje o cestě do města → neznámá (ne 0)
+  const none = row(trip({ arrCzk: 0 }), res(trip({ arrCzk: 0 }), { arrivals: {} }));
+  assert.deepEqual(plain(P.door(none)), { ticket: 1890, ground: 60, arr: null, total: 1950, full: false, miss: ['arr'] });
+  // vlastní cena na letiště 0 Kč je známá nula
+  assert.equal(P.door(row(trip({ groundCzk: 0 }), res(trip({ groundCzk: 0 }), { origins: [{ ...ORIGINS[0], ground: { mode: 'transit', czk: 0, own: true } }] }))).ground, 0);
+});
+
+test('door: karta radaru s dopravou (gc, ac) i bez ní (starší uložený radar); fromRadar a clean je nesou dál', () => {
+  const r = P.fromRadar(radarX({ gc: 640, ac: 30 }), { at: NOW - H, adults: 2 }, NOW);
+  assert.deepEqual(plain(P.door(r)), { ticket: 2100, ground: 640, arr: 30, total: 2770, full: true, miss: [] });
+  assert.deepEqual(plain(P.door(P.fromRadar(radarX(), { adults: 2 }, NOW))), { ticket: 2100, ground: null, arr: null, total: 2100, full: false, miss: ['ground', 'arr'] });
+  const back = plain(P.clean([plain(r), { ...plain(r), k: 'x', r: { ...plain(r.r), d1: '2026-11-14', gc: -5, ac: '30' } }], { today: TODAY, now: NOW }));
+  assert.deepEqual([back[0].r.gc, back[0].r.ac], [640, 30]);
+  assert.deepEqual([back[1].r.gc, back[1].r.ac], [undefined, undefined], 'nesmysly pryč');
+  // extras pro kartu radaru (flights.js radarSearch): stejné jako u řádku výsledků
+  assert.deepEqual(plain(P.extras(trip(), Q, ORIGINS, ARR)), { ground: 60, arr: 30 });
+  assert.deepEqual(plain(P.extras(trip(), Q, [], {})), { ground: null, arr: 30 }, 'cestu do města spočítal server (v ceně)');
+  assert.deepEqual(plain(P.extras(trip(), { ...Q, arrival: false }, [], {})), { ground: null, arr: null });
+  assert.deepEqual(plain(P.extras(null, Q, ORIGINS, ARR)), { ground: null, arr: null });
+});
+
+test('rank: Mnichov s levnější letenkou, ale dražší cestou na letiště, nevyhraje; pořadí i s cestou, letenka zůstává', () => {
+  const prg = fromAp('PRG', 2000, 300, 30), muc = fromAp('MUC', 1700, 800, 30), vie = fromAp('VIE', 1900, 500, 30);
+  assert.deepEqual(plain(P.sorted([prg, muc, vie]).map((p) => p.t.out.from)), ['MUC', 'VIE', 'PRG'], 'jen letenka: Mnichov');
+  const { rows, skip } = P.rank([muc, vie, prg]);
+  assert.deepEqual(plain(rows.map((x) => [x.p.t.out.from, x.d.ticket, x.d.total, x.best, x.diff])), [['PRG', 2000, 2330, true, 0], ['VIE', 1900, 2430, false, 100], ['MUC', 1700, 2530, false, 200]]);
+  assert.deepEqual(plain(skip), []);
+  assert.ok(rows.every((x) => x.exact && !x.maybe));
+  // stejný součet: levnější letenka napřed
+  const a = fromAp('PRG', 2000, 300, 30), b = fromAp('BRQ', 1900, 400, 30);
+  assert.deepEqual(plain(P.rank([a, b]).rows.map((x) => [x.p.t.out.from, x.best, x.diff])), [['BRQ', true, 0], ['PRG', false, 0]]);
+});
+
+test('rank: neúplná nabídka se nepředstírá – „možná levnější“ nebo „aspoň“, nejlevnější jen ze srovnatelných', () => {
+  const prg = fromAp('PRG', 2000, 300, 30);
+  const cheapR = P.fromRadar(radarX({ czk: 1500 }), { adults: 2 }, NOW); // bez dopravy: aspoň 1 500
+  const dearR = P.fromRadar(radarX({ czk: 2600, d1: '2026-11-14' }), { adults: 2 }, NOW); // aspoň 2 600
+  const { rows, skip } = P.rank([dearR, prg, cheapR]);
+  assert.deepEqual(plain(skip), []);
+  assert.deepEqual(plain(rows.map((x) => [x.d.ticket, x.exact, x.best, x.maybe, x.diff])), [
+    [1500, false, false, true, -830], // levnější i bez dopravy – možná levnější, ne „nejlevnější“
+    [2000, true, true, false, 0],
+    [2600, false, false, false, 270], // aspoň o 270 dráž
+  ]);
+  // stejná dolní mez jako nejlevnější úplná: úplná napřed, neúplná „aspoň stejně“
+  const tie = P.fromRadar(radarX({ czk: 2330, d1: '2026-11-15' }), { adults: 2 }, NOW);
+  assert.deepEqual(plain(P.rank([tie, prg]).rows.map((x) => [x.d.ticket, x.best, x.maybe, x.diff])), [[2000, true, false, 0], [2330, false, false, 0]]);
+  // doprava na letiště vypnutá ve všech hledáních: porovnání bez ní, nejlevnější z nich
+  const off = (ap, czk) => { const p = fromAp(ap, czk, 0, 30); p.origins[0].ground = { mode: 'transit', czk: 0, off: true }; return p; };
+  const r2 = P.rank([off('MUC', 1700), off('PRG', 2000)]);
+  assert.deepEqual(plain(r2.skip), ['ground']);
+  assert.deepEqual(plain(r2.rows.map((x) => [x.p.t.out.from, x.exact, x.best, x.diff])), [['MUC', true, true, 0], ['PRG', true, false, 300]]);
+  // nic srovnatelného (jedné chybí doprava na letiště, druhé cesta do města): pořadí podle známé části, bez vítěze
+  const noArr = fromAp('PRG', 2000, 300, 0);
+  noArr.arrivals = {};
+  const r3 = P.rank([noArr, off('MUC', 1700)]);
+  assert.deepEqual(plain(r3.rows.map((x) => [x.p.t.out.from, x.best, x.maybe, x.diff])), [['MUC', false, false, null], ['PRG', false, false, null]]);
+  assert.deepEqual(plain(P.rank([]).rows), []);
+  assert.deepEqual(plain(P.rank(null).skip), []);
+});

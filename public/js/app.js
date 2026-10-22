@@ -568,8 +568,10 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-22d';
+const WN_ID = '2026-10-22e';
 const WHATS_NEW = [
+  ['📌', 'Porovnat i s cestou na letiště', 'odložené nabídky v <b>📌 Porovnat</b> se řadí podle ceny <b>i s cestou</b> – letenka + odhad dopravy na letiště a zpět a z letiště do města. Levnější letenka z Mnichova tak nevyhraje, když cesta na letiště stojí o 500 Kč víc. Co neznám, napíšu – cena letenky zůstává vidět.'],
+  ['🔗', 'Sdílená cesta', 'cesta nebo plán z odkazu od kamaráda ukáže, z kdy jsou ceny (u nových odkazů den sdílení), a <b>💾 Uložit si ji</b> ji přidá do tvého plánovače – pak je to tvoje cesta.'],
   ['◀️', 'Zpět na telefonu', 'tlačítko nebo gesto Zpět nejdřív zavře otevřené okno, v průvodci <b>Cestou</b> vrátí o krok a z Cesty zpět k výsledkům, ze kterých jsi let vybral (na stejné místo ve výpisu) – aplikace se zavře až z Přehledu.'],
   ['📤', 'Sdílet cestu rovnou do WhatsAppu', 've Shrnutí průvodce a u plánu v plánovači otevře <b>Sdílet</b> na telefonu nabídku sdílení (WhatsApp, Messenger, e-mail) – bez kopírování odkazu.'],
   ['📍', 'Dnes na cestě i bez plánovače', 'cestu poskládanou v průvodci, kterou jsi neuložil, ti Přehled 2 dny před odletem nabídne <b>💾 Uložit do plánovače</b> – pak tam každý den uvidíš program, ubytování a spoje.'],
@@ -1458,15 +1460,18 @@ async function openOfferFromHash() {
   if (o && window.Flights) Flights.openOffer(o);
   return true;
 }
-function previewPlan(p) {
+/** Náhled plánu z odkazu (#plan=): co v něm je, z kdy jsou ceny (sharedOn) a 💾 Uložit si ji – pak je to vlastní plán. */
+function previewPlan(shared) {
+  const { sharedOn, ...p } = shared; // den sdílení jen pro poznámku, do plánovače ne
   const c = p.iso ? byIso[p.iso] : null, days = Object.keys(p.days).sort(), acts = days.reduce((n, d) => n + p.days[d].length, 0);
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(p.iso) : '🧳'}</div><h2 style="font-size:24px;margin-top:4px;overflow-wrap:anywhere">${esc(p.name)}</h2><div style="opacity:.85;font-size:13px">Sdílený plán · ${esc(p.dest)}${p.start ? ' · ' + fmtDate(p.start) + (p.end && p.end !== p.start ? ' – ' + fmtDate(p.end) : '') : ''} · ${esc(p.pax)} os.</div></div></div>
   <div class="modal-body">
-    <p class="muted" style="font-size:14px;margin-bottom:12px">Někdo ti poslal plán cesty. Zkontroluj ho a přidej si ho do plánovače – uloží se jen u tebe.</p>
+    <p class="muted" style="font-size:14px;margin-bottom:12px">Někdo ti poslal plán cesty. Zkontroluj ho a ulož si ho do plánovače – uloží se jen u tebe.</p>
+    <div class="note info" style="margin-bottom:12px">🔗 <div><b>Sdílená cesta</b> – ${sharedOn ? `ceny jsou z doby sdílení (${+sharedOn.slice(8, 10)}.\u00a0${+sharedOn.slice(5, 7)}.)` : 'ceny se mohly změnit'}. Před nákupem je ověř.</div></div>
     ${p.flight ? `<div class="note info" style="margin-bottom:12px">${planIco(p.flight)} <div>${planFlightHtml(p.flight)}</div></div>` : ''}
     ${days.slice(0, 6).map(d => `<div class="act"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${fmtDate(d)}</b> ${esc(p.days[d].join(' · '))}</span></div>`).join('')}
     <div class="faint" style="font-size:12.5px;margin-top:8px">${acts} ${acts === 1 ? 'aktivita' : acts >= 2 && acts <= 4 ? 'aktivity' : 'aktivit'}${days.length > 6 ? ` · ${days.length} dní s programem` : ''}${+p.budget ? ' · rozpočet ' + czk(+p.budget) : ''}${p.notes ? ' · s poznámkami' : ''}</div>
-    <div class="row wrap" style="gap:8px;margin-top:16px"><button class="btn primary" id="planImport">Přidat do plánovače</button><button class="btn ghost" id="planSkip">Nepřidávat</button></div>
+    <div class="row wrap" style="gap:8px;margin-top:16px"><button class="btn primary" id="planImport">💾 Uložit si ji</button><button class="btn ghost" id="planSkip">Nepřidávat</button></div>
   </div>`);
   $('#planSkip').onclick = modalClose;
   $('#planImport').onclick = () => {
