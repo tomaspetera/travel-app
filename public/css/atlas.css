@@ -81,6 +81,9 @@ a{color:inherit}
 .theme-toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border:1px solid var(--border);border-radius:13px;cursor:pointer;font-size:13px;color:var(--muted);background:var(--surface)}
 .theme-toggle:hover{color:var(--text)}
 .theme-toggle svg{width:18px;height:18px;flex:none}
+/* ℹ️ O aplikaci a soukromí (about.js) – počítač a tablet nemají ⋯ Další; postranní panel je na telefonu skrytý */
+.side-foot .side-about{width:100%;font:inherit;font-size:13px;text-align:left;justify-content:flex-start}
+.side-foot .side-about:hover{border-color:var(--border-2)}
 
 .main{min-width:0;display:flex;flex-direction:column}
 .topbar{

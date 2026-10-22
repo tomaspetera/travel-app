@@ -15,6 +15,13 @@
   .fav-card{padding:20px}
   .fav-strip{grid-template-columns:repeat(auto-fill,minmax(var(--card-min),1fr));gap:12px}
   .fav-i{padding:12px 14px}
+  /* 👋 Uvítání: tři kroky vedle sebe (pod sebou zabraly půl výšky okna a vpravo zelo prázdno – radar až pod ohybem),
+     čipy „Odkud letíš?“ reagují na myš jako ostatní tlačítka */
+  .wc-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 20px}
+  .wc-chips .fchip:hover:not(:disabled){border-color:var(--accent);color:var(--text)}
+  /* 🔔 Hlídané ceny: karta aspoň tak široká jako na telefonu – ve třetině obsahu se trasa („Praha → Mi…“) i termín
+     ořízly vedle ceny */
+  .watch-grid{grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
 
   /* ---------- Země: vyhledávání a přepínač na jednom řádku, čtyři filtry pod nimi ve stejných sloupcích ---------- */
   #view-countries .toolbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:center;margin-bottom:22px}

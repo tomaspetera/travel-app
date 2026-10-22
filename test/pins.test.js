@@ -378,7 +378,6 @@ test('door: karta radaru s dopravou (gc, ac) i bez ní (starší uložený radar
 
 test('rank: Mnichov s levnější letenkou, ale dražší cestou na letiště, nevyhraje; pořadí i s cestou, letenka zůstává', () => {
   const prg = fromAp('PRG', 2000, 300, 30), muc = fromAp('MUC', 1700, 800, 30), vie = fromAp('VIE', 1900, 500, 30);
-  assert.deepEqual(plain(P.sorted([prg, muc, vie]).map((p) => p.t.out.from)), ['MUC', 'VIE', 'PRG'], 'jen letenka: Mnichov');
   const { rows, skip } = P.rank([muc, vie, prg]);
   assert.deepEqual(plain(rows.map((x) => [x.p.t.out.from, x.d.ticket, x.d.total, x.best, x.diff])), [['PRG', 2000, 2330, true, 0], ['VIE', 1900, 2430, false, 100], ['MUC', 1700, 2530, false, 200]]);
   assert.deepEqual(plain(skip), []);
@@ -414,4 +413,25 @@ test('rank: neúplná nabídka se nepředstírá – „možná levnější“ n
   assert.deepEqual(plain(r3.rows.map((x) => [x.p.t.out.from, x.best, x.maybe, x.diff])), [['MUC', false, false, null], ['PRG', false, false, null]]);
   assert.deepEqual(plain(P.rank([]).rows), []);
   assert.deepEqual(plain(P.rank(null).skip), []);
+});
+
+test('sorted a 📤 Poslat k výběru: stejné pořadí jako 📌 Porovnat (i s cestou), u nabídky řádek „i s cestou“', () => {
+  const prg = fromAp('PRG', 2000, 300, 30), muc = fromAp('MUC', 1700, 800, 30), vie = fromAp('VIE', 1900, 500, 30);
+  // dlaždice na Přehledu (flights.js renderPins) i zpráva: Mnichov s nejlevnější letenkou až poslední, jako v porovnání
+  const order = (xs) => plain(xs.map((p) => p.t.out.from));
+  assert.deepEqual(order(P.sorted([muc, vie, prg])), ['PRG', 'VIE', 'MUC']);
+  assert.deepEqual(order(P.sorted([muc, vie, prg])), order(P.rank([vie, prg, muc]).rows.map((x) => x.p)));
+  assert.deepEqual(plain(P.sorted(null)), []);
+  const txt = P.shareText([muc, vie, prg], { now: NOW });
+  const nums = [...txt.matchAll(/^(\d)\) .*\n {3}(\d[\d\s]*) Kč\/os\./gm)].map((m) => [m[1], m[2].replace(/\s/g, '')]);
+  assert.deepEqual(nums, [['1', '2000'], ['2', '1900'], ['3', '1700']], 'čísla podle ceny i s cestou, cena letenky zůstává');
+  assert.match(txt, /^1\) .*\n {3}2\s000 Kč\/os\. \(celkem [\d\s]+ Kč za 2 os\.\)\n {3}i s cestou ~2\s330 Kč\/os\. \(odhad dopravy na letiště a do města\)$/m);
+  assert.match(txt, /^3\) .*\n {3}1\s700 Kč\/os\..*\n {3}i s cestou ~2\s530 Kč\/os\./m);
+  // část dopravy neznámá: „aspoň“ a co chybí; karta radaru bez dopravy: bez řádku (pořadí jen podle letenky)
+  const part = P.fromRadar(radarX({ czk: 1500, gc: 640, d1: '2026-11-14' }), { adults: 2 }, NOW);
+  const bare = P.fromRadar(radarX({ czk: 2600, d1: '2026-11-16' }), { adults: 2 }, NOW);
+  const t2 = P.shareText([bare, part], { now: NOW });
+  assert.match(t2, /^ {3}1\s500 Kč\/os\..*\n {3}i s cestou aspoň ~2\s140 Kč\/os\. \(bez cesty do města\)$/m);
+  assert.match(t2, /^ {3}2\s600 Kč\/os\..*\n {3}BRQ → NAP/m, 'radar bez dopravy: hned trasa, žádný řádek „i s cestou“');
+  assert.equal((t2.match(/i s cestou/g) || []).length, 1);
 });

@@ -93,6 +93,13 @@ function buildNav() {
   $('#mobileNav').innerHTML = ['dashboard', ...navBar].map(mi).join('')
     + `<div class="mi" id="moreNav" title="Další" aria-label="Další – ostatní sekce, záloha a vzhled">${ico('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z')}<span>Další</span></div>`;
   $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
+  // Postranní panel (počítač, tablet – na telefonu skrytý): sekce přidá krok historie jako na webu – Zpět prohlížeče
+  // vrátí na sekci, odkud uživatel přišel (ne vždy na Přehled), a tam, kde na ní byl. Z klávesnice Tab + Enter.
+  $$('.nav-item').forEach(el => {
+    el.tabIndex = 0; el.setAttribute('role', 'link');
+    el.onclick = () => go(el.dataset.view, { drill: true });
+    el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } };
+  });
   const wn = $('#worldNav'); if (wn) wn.onclick = () => go(WORLD_VIEWS.includes(activeView) ? activeView : lastWorld);
   $$('.world-tabs [data-w]').forEach(b => b.onclick = () => go(b.dataset.w, { keepScroll: true }));
   $('#moreNav').onclick = openMore;
@@ -149,8 +156,9 @@ let lastWorld = 'map';
    krok historie (atlasV = hloubka nad Přehledem) – Zpět z ní vrátí na Přehled a teprve z něj aplikace skončí, jako
    aplikace s lištou dole na Androidu; přepínání sekcí v liště krok jen přepíše (Zpět neprochází všechno, co uživatel
    kdy otevřel). Sekce otevřená z obsahu (Vybrat a pokračovat → Cesta, Uložit do plánovače) přidá krok navíc – Zpět
-   vrátí tam, odkud uživatel přišel (k výsledkům, do Shrnutí). Průvodce Cestou má nad sebou ještě krok průvodce
-   (atlasT): Zpět vrací po krocích, kterými uživatel prošel (histTrip). Otevřené okno (list zespodu) má vlastní krok
+   vrátí tam, odkud uživatel přišel (k výsledkům, do Shrnutí). Stejně sekce z postranního panelu na počítači: šipka Zpět
+   prohlížeče vrací na předchozí sekci jako na webu (Lety → Země → Zpět = Lety), Přehled z panelu vrátí všechny kroky.
+   Průvodce Cestou má nad sebou ještě krok průvodce (atlasT): Zpět vrací po krocích, kterými uživatel prošel (histTrip). Otevřené okno (list zespodu) má vlastní krok
    (atlasM): Zpět ho zavře a sekce pod ním zůstane. Náhled cíle si krok řídí sám (flights.js dpOpen, atlasDp).
    Okno zavřené jinak (✕, klepnutí vedle, stažení dolů, Escape) svůj krok vrátí přes history.back() – ten je
    asynchronní: zápisy do historie, které přijdou mezitím (go() hned po modalClose(), další okno), počkají na jeho
@@ -295,6 +303,8 @@ const themeNow = () => themeOf(S.theme, Boolean(sysLightMq && sysLightMq.matches
 function applyTheme() { const t = themeNow(); document.documentElement.dataset.theme = t; $('#themeLabel').textContent = t === 'dark' ? 'Tmavý režim' : 'Světlý režim'; }
 function themeRepaint() { applyTheme(); if (window.Flights) Flights.repaintMap(); if (window.Places) Places.retheme(); }
 $('#themeToggle').onclick = () => { S.theme = themeNow() === 'dark' ? 'light' : 'dark'; save(); themeRepaint(); };
+// přepínač v postranním panelu i z klávesnice (Tab + Enter / mezerník)
+$('#themeToggle').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } };
 // bez vlastní volby motiv sleduje systém i za běhu (telefon večer sám přepne na tmavý)
 if (sysLightMq) {
   const sysChanged = () => { if (themeOf(S.theme, true) !== themeOf(S.theme, false)) themeRepaint(); };

@@ -4865,15 +4865,19 @@
   const pinRes = p => ({ mode: 'route', partial: false, demo: Boolean(p.demo), query: { ...p.q }, origins: p.origins || [], arrivals: p.arrivals || {}, home: p.home ? { label: p.home } : null, priceStats: p.stats || null, groups: [] });
   const pinG = p => ({ dest: { ...p.dest, airports: [p.t.out.to] }, priceStats: p.stats || null, ground: p.ground || null });
 
-  /** 📌 Odložené nabídky na Přehledu (pod ⭐ Moje cíle): dlaždice podle ceny, klepnutím Porovnat s tou nabídkou na očích. */
+  /**
+   * 📌 Odložené nabídky na Přehledu (pod ⭐ Moje cíle): dlaždice v pořadí jako 📌 Porovnat (Pins.sorted – i s cestou
+   * na letiště a do města, ta je pak na dlaždici vidět), klepnutím Porovnat s tou nabídkou na očích.
+   */
   function renderPins() {
     const host = $('#pinSec'); if (!host) return;
     const list = Pins.sorted(pinList()), now = Date.now();
     host.hidden = !list.length;
     if (!list.length) { host.innerHTML = ''; return; }
     const tile = p => {
-      const a = Pins.age(p.at, now), one = p.kind === 'r' ? !p.r.d2 : !p.t.back;
+      const a = Pins.age(p.at, now), one = p.kind === 'r' ? !p.r.d2 : !p.t.back, d = Pins.door(p);
       return `<button type="button" class="fav-i" data-pinx="${esc(p.k)}"><span class="fav-n">${flag(p.dest.cc)} <b>${esc(p.dest.label)}</b></span><span class="fav-p">od <b>${czk(Pins.price(p))}</b>/os.</span>`
+        + (d.ground != null || d.arr != null ? `<span class="fav-w">i s cestou ${d.full ? '' : 'aspoň '}~${czk(d.total)}/os.</span>` : '')
         + `<span class="fav-w">${esc(pinWhen(p))}${one ? ' jen tam' : ''}${a ? ` · <span class="pin-age${a.day ? ' old' : ''}">${a.day ? `⚠ ${esc(a.ago)}` : `ceny ${a.z} ${esc(a.when)}`}</span>` : ''}</span></button>`;
     };
     host.innerHTML = `<div class="section-head"><h2>📌 Odložené nabídky <span class="faint" style="font-size:13px;font-weight:600">· ${list.length}</span></h2><button type="button" class="link" id="pinAll">Porovnat →</button></div>
