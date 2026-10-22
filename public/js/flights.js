@@ -191,7 +191,9 @@
     const dec = new TextDecoder();
     let buf = '', result = null, error = null;
     for (; ;) {
-      const { value, done } = await reader.read();
+      // Spojení, které se uprostřed zaseklo (slabý signál), skončí po limitu bez dat chybou (pwa.js readOrStall) – jinak
+      // by „Hledám…“ viselo donekonečna a stejné hledání by nešlo spustit znovu (startSearch čeká na běžící).
+      const { value, done } = await (window.Pwa && Pwa.readOrStall ? Pwa.readOrStall(reader) : reader.read());
       if (done) break;
       buf += dec.decode(value, { stream: true });
       let i;
@@ -2480,9 +2482,10 @@
     const aDate = p.arr && p.hasTime ? p.arr.slice(0, 10) : p.date;
     const days = SearchHelp.diffDays(aDate, q.date);
     const city = res.legs[i - 1].to, from = res.legs[i].from;
-    const wall = s => Date.parse(String(s).slice(0, 16) + ':00Z');
+    // přes skutečné okamžiky v zóně města (jako server, multi.js legFits) – v noci změny času by ručičky lhaly o hodinu
+    const tz = p.toTz || q.fromTz, at = s => (tz && window.Ics ? Ics.localToUtc(String(s).slice(0, 16), tz) : null) ?? Date.parse(String(s).slice(0, 16) + ':00Z');
     let txt = days > 0 ? `🏙️ ${esc(city)}: ${nightsTxt(days)}`
-      : p.arr && p.hasTime && q.hasTime ? `⏱ ${hm(Math.max(0, Math.round((wall(q.dep) - wall(p.arr)) / 60000)))} na přestup` : '⏱ týž den';
+      : p.arr && p.hasTime && q.hasTime ? `⏱ ${hm(Math.max(0, Math.round((at(q.dep) - at(p.arr)) / 60000)))} na přestup` : '⏱ týž den';
     if (p.to !== q.from) txt += city === from ? ` · jiné letiště ${esc(p.to)} → ${esc(q.from)}` : ` · přejezd ${esc(city)} → ${esc(from)} (${esc(p.to)} → ${esc(q.from)}) vlastní dopravou`;
     return `<div class="mc-gap">${txt}</div>`;
   }
@@ -2952,7 +2955,7 @@
   }
   function dpShow(d, from) {
     const my = ++dpSeq;
-    modalOpen(dpHtml(d));
+    modalOpen(dpHtml(d), { hist: false }); // krok historie náhledu řídí dpOpen (návrat posunu, akce až po návratu)
     if (window.Photos) Photos.paint($('#modal')); // velká fotka města nahoře (jako detail v cestovních aplikacích)
     $('#modal').scrollTop = 0; // okno si jinak drží posun z minulého otevření
     dpOpen(from);
@@ -4247,6 +4250,9 @@
       if (radarWant === key) paintRadar(r, q);
     } catch (e) {
       if (radarWant !== key) return;
+      // nenačetl se jen kvůli výpadku připojení (hledání na server ani nedošlo): po návratu online znovu sám – jinak
+      // by „Jsi offline“ zůstalo, dokud uživatel neklepne; jinde než na přehledu ho načte příští otevření přehledu
+      if (e.offline && window.Pwa && Pwa.whenOnline) Pwa.whenOnline('radar', () => { if (radarWant === key && $('#view-dashboard.active')) renderRadar(); });
       if (old) paintRadar(old, q, { error: e.message });
       else {
         host.innerHTML = `<div class="note warn kiwi-note">⚠️ <div>Radar se nepodařilo načíst: ${esc(e.message)}</div><button type="button" class="btn sm" id="radarRetry">↻ Zkusit znovu</button></div>`;

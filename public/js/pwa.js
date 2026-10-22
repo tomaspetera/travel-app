@@ -4,6 +4,12 @@
 (function () {
   const OFFLINE_MSG = 'Jsi offline – připoj se k internetu a zkus to znovu.';
   const DOWN_MSG = 'Server ATLAS je teď nedostupný – zkontroluj připojení k internetu a zkus to znovu.';
+  // Slabý signál (v zahraničí „čárky“ bez dat): požadavek, na který nepřijde ani hlavička odpovědi, by jinak visel
+  // donekonečna – spinner bez konce, a kde aplikace stejný dotaz podruhé nespouští (stav serveru, ubytování), ani nejde
+  // zkusit znovu. Limit pokryje probouzení uspaného serveru (Render zdarma ~1 min) i pomalý výpočet (místa v okolí přes
+  // minutu); stream hledání po hlavičce hlídá stejně dlouhá pauza bez dat (readOrStall).
+  const API_WAIT = 120e3;
+  const SLOW_MSG = 'Server ATLAS přes 2 minuty neodpovídá – spojení je nejspíš moc slabé. Zkus to znovu.';
   const THEME = { dark: '#080c1a', light: '#eef2fb' }; // --bg motivů z atlas.css = barva lišty a okna aplikace
 
   /** Požadavek na API ATLASu (adresa pod api/ vůči stránce). */
@@ -27,6 +33,63 @@
     return e;
   }
 
+  /** Chyba „server neodpověděl včas“ (API_WAIT, pauza ve streamu hledání) – česky, jako výpadek sítě (NetworkError). */
+  function slowError(cause) {
+    const e = new Error(SLOW_MSG);
+    e.name = 'NetworkError';
+    e.timeout = true;
+    if (cause) e.cause = cause;
+    return e;
+  }
+
+  /**
+   * doFetch(input, init) s limitem ms na hlavičku odpovědi: nepřijde-li včas, požadavek se zruší a odmítne slowError.
+   * Signál volajícího platí dál (jeho zrušení = AbortError jako dřív); prohlížeč bez AbortSignal.any takový požadavek
+   * nechá bez limitu. Tělo odpovědi (stream hledání) limit nemá – časovač končí s hlavičkou.
+   */
+  function withDeadline(doFetch, input, init, ms = API_WAIT) {
+    const own = (init && init.signal) || (input && typeof input === 'object' && input.signal) || null;
+    if (own && (typeof AbortSignal === 'undefined' || typeof AbortSignal.any !== 'function')) return doFetch(input, init);
+    const ctl = new AbortController();
+    let late = false;
+    const t = setTimeout(() => { late = true; ctl.abort(); }, ms);
+    return doFetch(input, { ...init, signal: own ? AbortSignal.any([own, ctl.signal]) : ctl.signal }).then((r) => {
+      clearTimeout(t);
+      return r;
+    }, (e) => {
+      clearTimeout(t);
+      throw late && !(own && own.aborted) ? slowError(e) : e;
+    });
+  }
+
+  /**
+   * reader.read() ze streamu odpovědi API (průběh hledání), nebo po ms bez jediného bajtu slowError a zrušený stream.
+   * Server posílá průběh po každém zdroji a zdroje mají limity v desítkách sekund – tak dlouhá pauza = zaseklé spojení.
+   */
+  function readOrStall(reader, ms = API_WAIT) {
+    let t;
+    const stall = new Promise((resolve, reject) => {
+      t = setTimeout(() => {
+        reject(slowError()); // dřív než cancel – ten čekající read() ukončí jako „konec streamu“ (bez výsledku)
+        reader.cancel().catch(() => { });
+      }, ms);
+    });
+    return Promise.race([reader.read(), stall]).finally(() => clearTimeout(t));
+  }
+
+  // Obsah, který se načítá sám (radar, místa v Objevuj) a nenačetl se, protože zařízení bylo offline: po návratu
+  // připojení se jednou načte znovu (bez klepnutí na „Zkusit znovu“). Pod jedním klíčem čeká jen poslední – opakovaný
+  // výpadek nic nehromadí. Hledání letů se samo nespouští (to je na uživateli).
+  const onlineQueue = new Map();
+  const whenOnline = (key, fn) => { onlineQueue.set(key, fn); };
+  function flushOnline() {
+    const fns = [...onlineQueue.values()];
+    onlineQueue.clear();
+    for (const fn of fns) {
+      try { fn(); } catch (e) { console.error(e); }
+    }
+  }
+
   /** Jak nabídnout instalaci: 'prompt' (Chrome, Edge, Android – dialog prohlížeče), 'ios' (návod Sdílet → Přidat
       na plochu), null = nic (už běží z plochy, nebo to prohlížeč neumí – Firefox na počítači, vestavěný prohlížeč). */
   function installMode({ standalone, prompt, ua = '', platform = '', touch = 0 }) {
@@ -36,7 +99,7 @@
     return ios && !/FBAN|FBAV|Instagram/.test(ua) ? 'ios' : null;
   }
 
-  const api = { netError, installMode, isApi, OFFLINE_MSG, DOWN_MSG, THEME, addToMenu() {} };
+  const api = { netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, addToMenu() {} };
   window.Pwa = api;
   if (typeof document === 'undefined' || !document.documentElement) return; // testy v node:vm – jen funkce výše
 
@@ -44,10 +107,14 @@
   const nativeFetch = typeof window.fetch === 'function' ? window.fetch : null;
 
   /* 1) Srozumitelná chyba místo „Failed to fetch“ ve všech hláškách aplikace (hledání, radar, cesta, ubytování,
-        program…): jen u API ATLASu a jen při chybě sítě – odpovědi serveru i zrušená hledání beze změny. */
+        program…): jen u API ATLASu a jen při chybě sítě – odpovědi serveru i zrušená hledání beze změny. API navíc
+        s limitem na odpověď (API_WAIT), ať slabý signál nenechá spinner točit donekonečna. */
   if (nativeFetch) {
-    window.fetch = function (input) {
-      return nativeFetch.apply(window, arguments).catch((e) => {
+    window.fetch = function (input, init) {
+      const p = isApi(input, document.baseURI)
+        ? withDeadline((i, o) => nativeFetch.call(window, i, o), input, init)
+        : nativeFetch.apply(window, arguments);
+      return p.catch((e) => {
         throw netError(e, input, { online: navigator.onLine !== false, base: document.baseURI });
       });
     };
@@ -62,7 +129,7 @@
   if (demo) demo.after(offBar); else if (main) main.prepend(offBar);
   const paintOnline = () => { offBar.hidden = navigator.onLine !== false; };
   window.addEventListener('offline', paintOnline);
-  window.addEventListener('online', () => { paintOnline(); checkVersion(true); });
+  window.addEventListener('online', () => { paintOnline(); checkVersion(true); flushOnline(); });
   paintOnline();
 
   /* 3) Barva lišty prohlížeče a okna aplikace podle motivu ATLASu (přepínač v aplikaci, ne nastavení systému –

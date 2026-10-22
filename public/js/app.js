@@ -143,7 +143,118 @@ function openMore() {
 }
 const WORLD_VIEWS = ['map', 'countries'];
 let lastWorld = 'map';
+/* ---------- Zpět (tlačítko a gesto telefonu, šipka prohlížeče) ----------
+   Zpět nesmí aplikaci zavřít uprostřed práce. Sekce otevřená z lišty (Lety, Cesta, Objevuj…) má nad Přehledem jeden
+   krok historie (atlasV = hloubka nad Přehledem) – Zpět z ní vrátí na Přehled a teprve z něj aplikace skončí, jako
+   aplikace s lištou dole na Androidu; přepínání sekcí v liště krok jen přepíše (Zpět neprochází všechno, co uživatel
+   kdy otevřel). Sekce otevřená z obsahu (Vybrat a pokračovat → Cesta, Uložit do plánovače) přidá krok navíc – Zpět
+   vrátí tam, odkud uživatel přišel (k výsledkům, do Shrnutí). Průvodce Cestou má nad sebou ještě krok průvodce
+   (atlasT): Zpět vrací po krocích, kterými uživatel prošel (histTrip). Otevřené okno (list zespodu) má vlastní krok
+   (atlasM): Zpět ho zavře a sekce pod ním zůstane. Náhled cíle si krok řídí sám (flights.js dpOpen, atlasDp).
+   Okno zavřené jinak (✕, klepnutí vedle, stažení dolů, Escape) svůj krok vrátí přes history.back() – ten je
+   asynchronní: zápisy do historie, které přijdou mezitím (go() hned po modalClose(), další okno), počkají na jeho
+   popstate, jinak by návrat skončil na staré adrese a hashchange přepnul pohled zpátky. */
+const hist = { modal: false, mq: null, step: false, trail: [], backs: 0, queue: [], t: 0 };
+// Posun stránky po Zpět řídí aplikace (sekce tam, kde uživatel byl – viewStep, okno a náhled stránkou nehýbou):
+// automatická obnova prohlížeče by skočila na posun z dřívějška i ve chvíli, kdy se mezitím přepnula sekce (okno
+// zavřené a hned jiná sekce) a nová sekce by začala uprostřed. Nové kroky ruční obnovu přebírají od aktuálního.
+try { history.scrollRestoration = 'manual'; } catch (e) { /* starý prohlížeč */ }
+function histFlush() { clearTimeout(hist.t); hist.backs = 0; const q = hist.queue; hist.queue = []; q.forEach(f => f()); }
+// n kroků zpět jedním přesunem (jeden popstate)
+function histBack(n = 1) {
+  hist.backs++;
+  clearTimeout(hist.t); hist.t = setTimeout(histFlush, 700); // pojistka, kdyby popstate nepřišel
+  history.go(-n);
+}
+/** Zápis do historie hned, nebo až po rozběhnutém návratu (histBack). */
+function histDo(f) { if (hist.backs) hist.queue.push(f); else f(); }
+const histDepth = st => (st && st.atlasV ? Math.max(1, Math.round(+st.atlasV) || 1) : 0);
+/**
+ * Co udělat s historií při přepnutí na sekci v (st = history.state, hash = location.hash, drill = otevřeno z obsahu,
+ * ne z lišty) → { back, how }: back = kolik kroků vrátit (k Přehledu nebo ke kroku sekce z lišty), how = pak
+ * 'replace' (přepsat adresu kroku), 'push' (nový krok sekce nad Přehledem), 'drill' (krok navíc nad aktuální sekcí)
+ * nebo '' (nic).
+ */
+function viewHist(v, st, hash, drill = false) {
+  const d = histDepth(st);
+  if (v === 'dashboard') return { back: d, how: 'replace' };
+  if (hash.slice(1) === v) return { back: 0, how: '' };
+  if (drill) return { back: 0, how: 'drill' };
+  return d ? { back: d - 1, how: 'replace' } : { back: 0, how: 'push' };
+}
+// y = posun stránky, ze které se odchází (Přehled pod sekcí, výsledky pod Cestou): krok si ho pamatuje a Zpět na něj
+// vrátí (hashchange) – jinak by se uživatel po Zpět hledal od začátku výpisu
+function viewStep(v, drill, y = null) {
+  const { back, how } = viewHist(v, history.state, location.hash, drill);
+  const at = st => ({ ...st, y: y == null ? undefined : y }); // bez posunu ani starý – patřil jiné sekci
+  if (back) { hist.step = false; hist.trail = []; histBack(back); } // odchod z Cesty: kroky průvodce začnou znovu
+  if (how) histDo(() => {
+    const st = history.state;
+    if (how === 'replace') { if (location.hash.slice(1) !== v) history.replaceState(st, '', '#' + v); return; }
+    if (how === 'drill') { history.replaceState(at(st), ''); return history.pushState({ atlasV: histDepth(st) + 1 }, '', '#' + v); }
+    // pod sekcí vždy Přehled (i když aplikace začala jinde – zkratka, sdílený odkaz): Zpět vrátí tam
+    history.replaceState(at(st), '', '#dashboard');
+    history.pushState({ atlasV: 1 }, '', '#' + v);
+  });
+}
+/**
+ * Cesta kroků průvodce po přechodu z kroku cur na step: návrat na krok, kterým uživatel už prošel, ji zkrátí (Zpět
+ * pak nekrouží mezi dvěma kroky), jinak se cur přidá na konec.
+ */
+const trailNext = (trail, cur, step) => { const i = trail.indexOf(step); return i >= 0 ? trail.slice(0, i) : [...trail, cur]; };
+/**
+ * Průvodce Cestou přešel z kroku cur na step (Pokračovat, lišta kroků, ⚡ – trip.js): Zpět telefonu se pak vrátí na cur,
+ * ne rovnou pryč z Cesty. Cesta kroků platí, dokud je v historii krok průvodce – po odchodu z Cesty nebo obnovení
+ * stránky začíná znovu.
+ */
+function histTrip(cur, step) {
+  if (!cur || cur === step || activeView !== 'trip' || hist.modal) return;
+  hist.trail = trailNext(hist.step ? hist.trail : [], cur, step);
+  tripEntry(hist.trail.length > 0);
+}
+function tripEntry(on) {
+  if (on === hist.step) return;
+  hist.step = on;
+  if (!on) return histBack();
+  histDo(() => {
+    let st = history.state;
+    // Cesta bez kroku sekce (aplikace otevřená rovnou v ní): Přehled pod ní jako u sekce z lišty
+    if (!histDepth(st)) { history.replaceState(st, '', '#dashboard'); history.pushState(st = { atlasV: 1 }, '', '#trip'); }
+    history.pushState({ atlasV: histDepth(st) + 1, atlasT: 1 }, '', '#trip');
+  });
+}
+function histPop() {
+  if (hist.backs) { if (--hist.backs <= 0) histFlush(); return; } // návrat, který si aplikace sama vyžádala
+  // Zpět při otevřeném okně: krok okna už je pryč – jen ho zavřít
+  if (hist.modal) { hist.modal = false; $('#modalBg').classList.remove('show'); }
+  const st = history.state;
+  // Zpět z kroku průvodce: předchozí krok, kterým uživatel prošel (krok, na kterém cesta už je, se přeskočí); krok
+  // průvodce se vrátí, dokud je kam couvat – nebylo-li kam, Zpět pokračuje o krok dál (výsledky, Přehled)
+  if (hist.step && !(st && st.atlasT)) {
+    hist.step = false;
+    let prev, moved = false;
+    while (!moved && (prev = hist.trail.pop())) moved = Boolean(window.Trip && Trip.stepTo && Trip.stepTo(prev));
+    if (moved) tripEntry(hist.trail.length > 0); else histBack();
+    return;
+  }
+  // krok okna, které už otevřené není (Zpět z náhledu otevřeného nad oknem, náhled po přepnutí pohledu z něj, Vpřed
+  // v prohlížeči): přeskočit – jinak by další Zpět „nic neudělal“
+  if (st && (st.atlasM || st.atlasDp) && !$('#modalBg').classList.contains('show')) histBack();
+}
+window.addEventListener('popstate', histPop);
+/** Adresa se změnila (Zpět, Vpřed, odkaz na sekci): přepnout na její sekci. */
+function hashView() {
+  // Zpět na první krok bez # (aplikace otevřená na adrese bez sekce) = Přehled
+  const v = location.hash.slice(1) || 'dashboard';
+  if (v === 'now') return showNow(); // zkratka „Na cestě“ v už otevřené aplikaci
+  if (v === activeView || !NAV.some(n => n[0] === v)) return;
+  // Zpět na sekci: tam, kde uživatel byl (posun uložený v kroku – viewStep), jinak nahoru
+  const y = history.state && Number.isFinite(history.state.y) ? history.state.y : null;
+  go(v, { noHash: true, keepScroll: y != null });
+  if (y != null) window.scrollTo(0, y);
+}
 function go(v, opts = {}) {
+  const from = activeView, y0 = Math.round(window.scrollY || 0); // kde uživatel byl – Zpět ho tam vrátí (viewStep)
   activeView = v;
   if (v !== 'dashboard') nowAsk = false;
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
@@ -155,7 +266,7 @@ function go(v, opts = {}) {
   if (WORLD_VIEWS.includes(v)) { lastWorld = v; $$('.world-tabs [data-w]').forEach(b => { b.classList.toggle('on', b.dataset.w === v); b.setAttribute('aria-pressed', String(b.dataset.w === v)); }); }
   const n = NAV.find(x => x[0] === v); $('#pageTitle').textContent = n[1]; $('#pageSub').textContent = n[2];
   if (!opts.keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
-  if (location.hash.slice(1) !== v && !opts.noHash) history.replaceState(null, '', '#' + v);
+  if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));
   if (v === 'map') initMap();
   if (v === 'countries') renderCountries();
   if (v === 'recommend') renderRecs();
@@ -420,6 +531,14 @@ function nowNone() {
     ? `Nejbližší: <b>${esc(n.t.dest && n.t.dest !== '—' ? n.t.dest : n.t.name)}</b> ${fmtDate(n.t.start)} (${inDays(daysTo(today, n.t.start))}) · <button type="button" class="linkbtn" data-nw-plan="${n.i}">Otevřít plán →</button>`
     : 'Naplánovanou cestu zatím nemáš · <button type="button" class="linkbtn" data-nw-go="planner">Plánovač →</button>'}</span></div></div>`;
 }
+/** Cesta poskládaná v průvodci, ale neuložená do plánovače (Trip.unsavedNow): karta by na cestě nic neukázala –
+ *  nabídnout uložení jedním klepnutím (bez něj by „Dnes na cestě“ tvrdil, že cestu nemáš). */
+function nowUnsaved(today) {
+  const u = window.Trip && Trip.unsavedNow ? Trip.unsavedNow(today) : null;
+  if (!u) return '';
+  const d = daysTo(today, u.start);
+  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">📍 Cesta ${u.cc ? flag(u.cc) + ' ' : ''}${esc(u.label)} ${d > 0 ? 'začíná ' + inDays(d) : 'právě probíhá'}</div><div class="nw-meta"><span>Ještě není v plánovači – ulož ji a tady uvidíš na každý den program, ubytování a spoje, i bez signálu. <button type="button" class="linkbtn" data-nw-save>💾 Uložit do plánovače</button></span></div></div>`;
+}
 let nowAsk = false, nowShown = ''; // nowAsk: otevřeno přes #now – bez cesty aspoň poznámka
 /** Karta nahoře na Přehledu; překreslí se jen při změně, hodiny a odpočet se jen přepíšou (výběr kódu zůstane). */
 function renderNow() {
@@ -427,11 +546,13 @@ function renderNow() {
   const now = Date.now();
   let x = null, p = null, h = '';
   // poškozená uložená cesta nesmí rozbít Přehled – karta se pak jen neukáže
-  try { x = tripNow(S.trips, now); p = x && nowParts(x, now); h = p ? nowCard(x, p) : nowAsk ? nowNone() : ''; } catch (e) { p = null; h = ''; }
+  try { x = tripNow(S.trips, now); p = x && nowParts(x, now); h = p ? nowCard(x, p) : nowUnsaved(todayLocal()) || (nowAsk ? nowNone() : ''); } catch (e) { p = null; h = ''; }
   if (h !== nowShown) {
     nowShown = h; el.innerHTML = h; el.hidden = !h;
     $$('[data-nw-plan]', el).forEach(b => b.onclick = () => openTrip(+b.dataset.nwPlan));
     $$('[data-nw-go]', el).forEach(b => b.onclick = () => go(b.dataset.nwGo));
+    // uložit cestu z průvodce a zůstat na Přehledu – karta se hned překreslí na „Dnes na cestě“ (i dlaždice cest)
+    $$('[data-nw-save]', el).forEach(b => b.onclick = () => { Trip.saveToPlanner({ stay: true }); renderDashStats(); });
     $$('[data-copy]', el).forEach(b => b.onclick = () => navigator.clipboard.writeText(b.dataset.copy).then(() => toast('Zkopírováno: ' + b.dataset.copy), () => toast('Kód se nepodařilo zkopírovat – podrž na něm prst', 'err')));
   }
   if (!p) return;
@@ -447,8 +568,11 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-22c';
+const WN_ID = '2026-10-22d';
 const WHATS_NEW = [
+  ['◀️', 'Zpět na telefonu', 'tlačítko nebo gesto Zpět nejdřív zavře otevřené okno, v průvodci <b>Cestou</b> vrátí o krok a z Cesty zpět k výsledkům, ze kterých jsi let vybral (na stejné místo ve výpisu) – aplikace se zavře až z Přehledu.'],
+  ['📤', 'Sdílet cestu rovnou do WhatsAppu', 've Shrnutí průvodce a u plánu v plánovači otevře <b>Sdílet</b> na telefonu nabídku sdílení (WhatsApp, Messenger, e-mail) – bez kopírování odkazu.'],
+  ['📍', 'Dnes na cestě i bez plánovače', 'cestu poskládanou v průvodci, kterou jsi neuložil, ti Přehled 2 dny před odletem nabídne <b>💾 Uložit do plánovače</b> – pak tam každý den uvidíš program, ubytování a spoje.'],
   ['💡', 'Věděl jsi?', 'na Přehledu občas malý tip na funkci, kterou jsi ještě nezkusil (Kamkoliv, hlídání ceny, ⚡ Poskládej cestu…) – nejvýš jeden denně, tlačítkem ji rovnou otevřeš, křížkem tip skryješ natrvalo.'],
   ['🧾', 'Rozpočet cesty', 've <b>Shrnutí</b> průvodce Cestou je cena po položkách (letenky, doprava, ubytování, auto a přejezdy) za osobu i celkem – odhady jsou označené. Do pole <b>Můj rozpočet</b> zadej, kolik chceš utratit, a uvidíš, kolik zbývá, nebo o kolik je cesta dražší.'],
   ['📤', 'Sdílet jednu letenku', 'u nabídky ve výsledcích je <b>📤 Sdílet</b> (vedle 📌 Odložit) – pošle krátký odkaz s trasou, termínem, cenou, aerolinkou a odkazem na koupi. Příjemci se otevře karta nabídky s upozorněním, že se cena mohla změnit, a <b>🔎 Hledat znovu</b> mu předvyplní formulář.'],
@@ -504,18 +628,26 @@ const WHATS_NEW = [
   ['🏨', 'Hotely s cenami', 'v průvodci Cesta → Ubytování: odkaz na web, kde je pokoj na tvoje dny volný, a ↻ Aktualizovat ceny.'],
 ];
 // Úplně nový uživatel (nic uloženého): místo seznamu novinek krátké „Vítej“ ve 3 krocích – novinky by ho jen zahltily.
+// Uvítání vydrží, dokud ho uživatel neskryje: atlas_wn = WN_ID + WN_NEW. Bez toho by po výběru domova nebo prvním
+// hledání (už „není nový“) místo uvítání vyskočilo 50 novinek – pro někoho, kdo aplikaci otevřel před minutou, nic
+// nového. Novinky pak uvidí až s další sadou (jiné WN_ID).
+const WN_NEW = '+vitej';
 const firstVisit = seen => seen == null && !S.home && !S.trip && !S.trips.length && !S.recent.length && !S.watch.length;
+/** Co ukázat v kartě novinek: 'welcome' (uvítání), 'news' (novinky), '' (nic – skryté). seen = atlas_wn. */
+const wnMode = (seen, id = WN_ID) => (seen === id ? '' : seen === id + WN_NEW || firstVisit(seen) ? 'welcome' : 'news');
 const WN_TOP = 4; // nejnovější novinky hned, starší pod „Starší novinky“
 function renderWhatsNew() {
   const el = $('#whatsNew'); if (!el) return;
   let seen = null; try { seen = localStorage.getItem('atlas_wn'); } catch (e) { /* soukromé okno */ }
-  el.hidden = seen === WN_ID;
+  const mode = wnMode(seen);
+  el.hidden = !mode;
   if (el.hidden) return;
+  if (mode === 'welcome' && seen !== WN_ID + WN_NEW) try { localStorage.setItem('atlas_wn', WN_ID + WN_NEW); } catch (e) { /* soukromé okno */ }
   const hide = () => { try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* nevadí */ } el.hidden = true; };
   // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
   const unit = s => s.replace(/(\d) (?=(Kč|km|h|min|°C)(?![\p{L}]))/gu, '$1\u00a0').replace(/(\d\u00a0h) (?=\d)/g, '$1\u00a0');
   const li = x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${unit(x[2])}</div></li>`;
-  if (firstVisit(seen)) {
+  if (mode === 'welcome') {
     el.classList.add('welcome');
     // „Odkud letíš?“ hned nahoře: jedno klepnutí nastaví domov a radar níž začne ukazovat lety (bez domova je prázdný
     // a jeho „Odkud obvykle létáš?“ je až pod přehybem)
@@ -844,12 +976,26 @@ function renderCountries() {
 /* ================= COUNTRY MODAL ================= */
 // hláška z předchozí akce („📌 Odloženo…“) by zakryla spodek panelu s tlačítky – s otevřením okna zmizí; překreslení už
 // otevřeného okna (📌 Odložené po ⚡ Ověřit) ji nechá – vysvětluje, co se právě stalo
-function modalOpen(html) {
+// o.hist === false: okno si krok historie řídí samo (náhled cíle – flights.js dpOpen)
+function modalOpen(html, o = {}) {
   const was = $('#modalBg').classList.contains('show');
   $('#modal').innerHTML = html; $('#modalBg').classList.add('show');
   if (!was) { $('#toast').classList.remove('show'); $('#modal').scrollTop = 0; } // nové okno nahoře, ne s posunem z minulého
+  // krok historie jen pro nově otevřené okno – okno otevřené z okna (Info o zemi z náhledu…) ho jen nahradí
+  if (!was && o.hist !== false && !hist.modal) {
+    hist.modal = true;
+    const push = () => { if (hist.mq === push) hist.mq = null; history.pushState({ atlasM: 1 }, ''); };
+    hist.mq = hist.backs ? push : null; // krok čeká na rozběhnutý návrat – okno zavřené dřív ho jen zruší
+    histDo(push);
+  }
 }
-function modalClose() { $('#modalBg').classList.remove('show'); }
+function modalClose() {
+  $('#modalBg').classList.remove('show');
+  if (!hist.modal) return;
+  // krok okna zpět (Zpět by jinak napoprvé „nic neudělal“); ještě nezapsaný krok jen zrušit – návrat navíc by vedl mimo
+  hist.modal = false;
+  if (hist.mq) { hist.queue = hist.queue.filter(f => f !== hist.mq); hist.mq = null; } else histBack();
+}
 $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) modalClose(); };
 // telefon: panel zespodu jde zavřít stažením za horní okraj (úchyt) dolů – jen když je obsah odscrollovaný nahoru
 (() => {
@@ -992,7 +1138,8 @@ function paintWeather(j) {
   const cur = j.current, [ci, ct] = wIco(cur.weather_code);
   $('#wxBox').innerHTML = `<div class="wico">${ci}</div><div style="flex:1"><div class="muted" style="font-size:12px">Teď v hlavním městě · ${ct}</div><div class="temp">${Math.round(cur.temperature_2m)}°</div><div class="faint" style="font-size:12px">💨 ${Math.round(cur.wind_speed_10m)} km/h · 💧 ${cur.relative_humidity_2m ?? '–'} %</div></div>`;
   const d = j.daily; const days = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So'];
-  $('#fcBox').innerHTML = d.time.map((t, i) => { const dt = new Date(t); const [ic] = wIco(d.weather_code[i]); return `<div class="fc"><div class="d">${i === 0 ? 'Dnes' : days[dt.getDay()]}</div><div class="i">${ic}</div><div class="t">${Math.round(d.temperature_2m_max[i])}°<small> ${Math.round(d.temperature_2m_min[i])}°</small></div></div>`; }).join('');
+  // den v týdnu z data samotného: new Date('2026-10-25') je půlnoc UTC – v telefonu s časem New Yorku ještě sobota
+  $('#fcBox').innerHTML = d.time.map((t, i) => { const dt = new Date(t + 'T12:00:00Z'); const [ic] = wIco(d.weather_code[i]); return `<div class="fc"><div class="d">${i === 0 ? 'Dnes' : days[dt.getUTCDay()]}</div><div class="i">${ic}</div><div class="t">${Math.round(d.temperature_2m_max[i])}°<small> ${Math.round(d.temperature_2m_min[i])}°</small></div></div>`; }).join('');
 }
 async function loadFx(c) {
   if (!c.cur || c.cur === 'CZK') { const el = $('#fxLine'); if (el) el.textContent = c.cur === 'CZK' ? 'domácí měna' : ''; return; }
@@ -1269,9 +1416,12 @@ function icsDownload(filename, events, opts) {
   const n = Ics.download(filename, events, opts).split('\r\nBEGIN:VEVENT\r\n').length - 1;
   toast(`Soubor .ics stažen (${n} ${n === 1 ? 'událost' : n >= 2 && n <= 4 ? 'události' : 'událostí'}) – otevři ho v kalendáři`);
 }
-/** Odkaz na plán (zkomprimovaný – sharelink.js; připravený už při otevření plánu) do schránky, jinak k ručnímu zkopírování. */
+/** Odkaz na plán (zkomprimovaný – sharelink.js; připravený už při otevření plánu): na telefonu rovnou nabídka sdílení
+ *  (WhatsApp, e-mail…), s myší do schránky (ShareLink.send), jinak k ručnímu zkopírování. */
 function sharePlan(i) {
-  return ShareLink.copy('plan', PlanShare.json(S.trips[i])).then(r => (r.copied ? toast('Odkaz na plán zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz na plán:', r.url)));
+  const t = S.trips[i];
+  return ShareLink.send('plan', PlanShare.json(t), { title: `🧳 ${t.name || 'Plán cesty'}`, text: `🧳 ${t.name || 'Plán cesty'} – plán cesty v ATLASu:` })
+    .then(r => (r.shared || r.aborted ? null : r.copied ? toast('Odkaz na plán zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz na plán:', r.url)));
 }
 /**
  * 📅 Připomínka hlídání v kalendáři otevřela #watch=<id>: Přehled, posun na kartu (Flights.showWatch). Adresa se přepíše
@@ -1480,9 +1630,7 @@ function wireEvents() {
     if (await importPlanFromHash()) return go('planner', { noHash: true });
     if (await openOfferFromHash()) return;
     if (openWatchFromHash()) return;
-    const v = location.hash.slice(1);
-    if (v === 'now') return showNow(); // zkratka „Na cestě“ v už otevřené aplikaci
-    if (v !== activeView && NAV.some(n => n[0] === v)) go(v, { noHash: true });
+    hashView();
   });
   // Jiný panel s ATLAS (karta, aplikace na ploše) uložil stav: převzít ho, jinak by další uložení tady smazalo, co tam přibylo.
   // Jen změněné klíče (průvodce poznává svoji cestu podle S.trip === t, okno cesty a poznámka svoji cestu podle objektu
@@ -1543,6 +1691,9 @@ async function boot() {
   }
 }
 async function start() {
+  // obnovená stránka na kroku okna nebo průvodce (okno po obnovení zavřené, cesta kroků zapomenutá): krok přeskočit –
+  // Zpět by jinak napoprvé „nic neudělal“
+  if (history.state && (history.state.atlasM || history.state.atlasDp || history.state.atlasT)) histBack();
   if (window.Flights) Flights.warm(); // stav serveru souběžně s daty zemí – rychlejší start
   applyTheme(); applyMapStyle(); buildNav(); fillSelects(); wireEvents(); renderTips();
   if (window.Entry) {

@@ -210,5 +210,23 @@
     }
   }
 
-  window.ShareLink = { pack, unpack, prepare, copy, MAX_JSON };
+  /** Telefon (dotyk) s nabídkou sdílení systému: odkaz rovnou do WhatsAppu, Messengeru, e-mailu… S myší zůstane
+   *  kopírování – okno sdílení Windows či macOS tam nikdo nečeká. */
+  const native = () => typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+    && typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  /**
+   * Pošle odkaz nabídkou sdílení telefonu (jako 📤 u nabídky letu), jinak ho zkopíruje (copy) → Promise<{ url, shared,
+   * aborted, copied }>. Zavřená nabídka (aborted) = uživatel si to rozmyslel – žádné kopírování ani hláška.
+   */
+  async function send(kind, json, { title = '', text = '' } = {}) {
+    if (native()) {
+      const e = prepare(kind, json), url = e.url || await e.done;
+      try { await navigator.share({ title, text, url }); return { url, shared: true }; } catch (err) {
+        if (err && err.name === 'AbortError') return { url, aborted: true };
+      }
+    }
+    return copy(kind, json);
+  }
+
+  window.ShareLink = { pack, unpack, prepare, copy, send, native, MAX_JSON };
 })();

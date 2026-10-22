@@ -630,7 +630,7 @@
     if (mine && mine.flight && JSON.stringify([mine.flight.out, midLegs(mine), mine.flight.back || null]) === JSON.stringify([t.out, Array.isArray(t.mid) ? t.mid : [], t.back || null])
       && +mine.adults === +result.query.adults && (mine.bags || 'none') === (result.query.bags || 'none')) {
       if (at > 0 && at - mem > (mine.flight.pricedAt || 0) && at <= Date.now() && mine.flight.flightCzk === t.flightCzk) { mine.flight.pricedAt = at - mem; persist(); }
-      go('trip'); return;
+      go('trip', { drill: true }); return;
     }
     if (mine && mine.flight) {
       const done = progressOf(mine);
@@ -679,7 +679,7 @@
     };
     staysData = null; carsData = null;
     persist();
-    go('trip');
+    go('trip', { drill: true }); // Zpět telefonu vrátí k výsledkům, ze kterých let je (app.js viewHist)
   }
   // statistika cen cíle (skupiny), u konkrétního cíle celé trasy – bez nejlevnějších po trasách (mins, paměť cen)
   const statsFrom = (g, res) => { const st = (g && g.priceStats) || res.priceStats; return st ? { ...st, mins: undefined } : null; };
@@ -724,8 +724,17 @@
 
   function setStep(step) {
     if (!T()) return;
+    if (typeof histTrip === 'function') histTrip(T().step, step); // Zpět telefonu pak vrátí na dosavadní krok (app.js)
     autoNote = null; // uživatel přepíná kroky sám – hláška ⚡ už nepatří
     T().step = step; persist(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  /** Krok průvodce bez zápisu do historie (Zpět telefonu – app.js) → false, když na něm cesta už je (nebo krok neexistuje). */
+  function stepTo(step) {
+    const t = T();
+    if (!t || t.step === step || !STEPS.some(s => s[0] === step)) return false;
+    autoNote = null;
+    t.step = step; persist(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    return true;
   }
 
   /* ---------- vykreslení ---------- */
@@ -2577,6 +2586,9 @@
     ? `<div class="note ${autoNote.kind === 'warn' ? 'warn' : 'info'} auto-note" id="autoNote">${autoNote.kind === 'run' ? '<span class="spin dark"></span>' : autoNote.kind === 'warn' ? '⚠️' : '⚡'} <div>${esc(autoNote.msg)}</div></div>` : '');
   const autoSay = (kind, msg) => { if (autoNote) Object.assign(autoNote, { kind, msg }); const el = $('#autoNote'); if (el) el.outerHTML = autoNoteHtml(T(), autoNote && autoNote.step); };
   function autoGo(t, step, kind, msg) {
+    // Zpět z hotové cesty vrátí na krok, odkud se skládala (ne na mezikrok „vybírám ubytování…“)
+    const mid = autoNote && autoNote.t === t && autoNote.kind === 'run';
+    if (!mid && typeof histTrip === 'function') histTrip(t.step, step);
     autoNote = { t, step, kind, msg };
     t.step = step; persist(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -2882,7 +2894,7 @@
       </div></div>
       <div class="row wrap sum-acts" style="gap:8px;margin:0 0 14px">
         <button class="btn primary" id="sumSave">💾 Uložit do plánovače</button>
-        <button class="btn" id="sumShare">🔗 Zkopírovat odkaz na cestu</button>
+        <button class="btn" id="sumShare">${window.ShareLink && ShareLink.native && ShareLink.native() ? '📤 Sdílet cestu' : '🔗 Zkopírovat odkaz na cestu'}</button>
         <button class="btn" id="sumIcs">📅 Do kalendáře</button>
         <a class="btn ghost" href="${esc(safeUrl(Ics.gcalUrl(tripEvent(t))))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>
         <button class="btn ghost" id="sumNew">Začít novou cestu</button>
@@ -3038,7 +3050,23 @@
     };
   }
 
-  function saveToPlanner() {
+  /**
+   * Rozpracovaná cesta z průvodce, která v plánovači není, a začíná do 2 dnů nebo právě probíhá → { label, cc, start,
+   * end }, jinak null. „📍 Dnes na cestě“ (app.js) bere jen cesty z plánovače – bez uložení by na cestě nic neukázal.
+   */
+  function unsavedNow(today) {
+    const t = T();
+    if (!t || !t.flight || !t.flight.out) return null;
+    if ((Array.isArray(S.trips) ? S.trips : []).some(x => x && x.tripId && x.tripId === t.created)) return null;
+    let start = null, end = null;
+    try { const b = backLeg(t); start = outLeg(t).date; end = b ? b.date : stayDates(t).checkout; } catch (e) { return null; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(start || '')) return null;
+    if (today > (end && end > start ? end : start) || daysBetween(today, start) > 2) return null;
+    return { label: tripName(t), cc: t.dest && t.dest.cc, start, end };
+  }
+
+  // o.stay: zůstat, kde uživatel je (uložení z karty „Dnes na cestě“ na Přehledu) – jinak se otevře plánovač
+  function saveToPlanner(o = {}) {
     const t = T();
     const c = costs(t);
     const { checkin, checkout } = stayDates(t);
@@ -3110,7 +3138,7 @@
     } else S.trips.push(entry);
     persist();
     toast(i >= 0 ? 'Cesta v plánovači aktualizována' : 'Cesta uložena do plánovače');
-    go('planner');
+    if (!o.stay) go('planner', { drill: true }); // Zpět telefonu vrátí do Shrnutí
   }
   /** Cesta z průvodce k uložení v plánovači: jako sdílený odkaz, ale s odškrtnutými rezervacemi. */
   function wizardJson(t) {
@@ -3198,9 +3226,12 @@
     return JSON.stringify(o);
   }
 
-  /** Zkopíruje odkaz na cestu (připravený už při vykreslení shrnutí); vrací Promise kvůli testům. */
+  /** Odkaz na cestu (připravený už při vykreslení shrnutí): na telefonu rovnou nabídka sdílení (ShareLink.send) – bez
+   *  kopírování a přepínání do WhatsAppu, jinak do schránky; vrací Promise kvůli testům. */
   function share() {
-    return ShareLink.copy('trip', linkJson(T())).then(r => (r.copied ? toast('Odkaz zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz:', r.url)));
+    const t = T(), { checkin, checkout } = stayDates(t);
+    return ShareLink.send('trip', linkJson(t), { title: `🧳 ${tripName(t)}`, text: `🧳 ${tripName(t)} ${fmtDate(checkin)}–${fmtDate(checkout)} – let, ubytování a program v ATLASu:` })
+      .then(r => (r.shared || r.aborted ? null : r.copied ? toast('Odkaz zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz:', r.url)));
   }
 
   /**
@@ -3479,5 +3510,5 @@
   // Aplikace zavřená nebo znovu načtená dřív, než hledání doběhlo: na jeho konečný výsledek už cesta nepočká.
   if (typeof S !== 'undefined' && S && S.trip && S.trip.statsWait) { giveUpStats(S.trip); persist(); }
 
-  window.Trip = { start, flyOk, finalStats, statsGiveUp, openSaved, render: safeRender, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, legBack };
+  window.Trip = { start, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, legBack };
 })();

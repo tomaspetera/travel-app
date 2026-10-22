@@ -15,9 +15,12 @@ export function isYmd(s) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) && !Number.isNaN(parseYmd(s).getTime());
 }
 
+/**
+ * Dnešek v UTC – jako na Renderu, ať nezáleží na časovém pásmu počítače (TZ), na kterém server běží. Dnešek
+ * v Česku je stejný nebo o den dál, takže pražské „dnes“ se nikdy neodmítne jako minulost.
+ */
 export function todayYmd() {
-  const n = new Date();
-  return `${n.getFullYear()}-${pad(n.getMonth() + 1)}-${pad(n.getDate())}`;
+  return ymd(new Date());
 }
 
 export function addDays(s, n) {
@@ -77,24 +80,40 @@ export function clampRange(from, to) {
 
 // --- časová pásma (délka letu z lokálních časů odletu a příletu) ---
 
+// Formátovač na zónu jen jednou – vytvoření Intl.DateTimeFormat je drahé a makeLeg ho volá u každého letu.
+const tzFmts = new Map();
 function tzOffsetMin(tz, utcMs) {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
-  const p = Object.fromEntries(dtf.formatToParts(new Date(utcMs)).map((x) => [x.type, x.value]));
+  let dtf = tzFmts.get(tz);
+  if (!dtf) {
+    dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+    tzFmts.set(tz, dtf);
+  }
+  const t = Math.floor(utcMs / 1000) * 1000;
+  const p = Object.fromEntries(dtf.formatToParts(new Date(t)).map((x) => [x.type, x.value]));
   const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second);
-  return (asUtc - utcMs) / 60000;
+  return Math.round((asUtc - t) / 60000);
 }
 
+/**
+ * Místní čas v zóně tz → UTC milisekundy. Posun se nesmí brát v okamžiku „místní čas jako by byl UTC“: v noci změny
+ * času leží ten okamžik na druhé straně změny (přílet do Prahy 25. 10. 2026 v 1:30 letního času by vyšel o hodinu
+ * vedle a let o hodinu delší). Proto posun před změnou a po ní (±1 den) a platí ten, se kterým místní čas sedí – jako
+ * Ics.localToUtc v prohlížeči: dvakrát nastalý čas (podzim) je ten první, neexistující (jaro) s posunem před změnou.
+ */
 export function localToUtcMs(localIso, tz) {
-  const guess = Date.parse(String(localIso).slice(0, 19) + 'Z');
-  if (Number.isNaN(guess)) return null;
-  if (!tz) return guess;
+  const wall = Date.parse(String(localIso).slice(0, 19) + 'Z');
+  if (Number.isNaN(wall)) return null;
+  if (!tz) return wall;
   try {
-    return guess - tzOffsetMin(tz, guess) * 60000;
+    const before = tzOffsetMin(tz, wall - 864e5);
+    const after = tzOffsetMin(tz, wall + 864e5);
+    const hits = [before, after].filter((off) => tzOffsetMin(tz, wall - off * 60000) === off).map((off) => wall - off * 60000);
+    return hits.length ? Math.min(...hits) : wall - before * 60000;
   } catch {
-    return guess;
+    return wall;
   }
 }
 

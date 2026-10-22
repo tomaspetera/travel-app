@@ -8,7 +8,8 @@ import { limiter } from '../lib/http.js';
 import { cache } from '../lib/cache.js';
 import { makeLeg, makeTrip } from '../lib/fares.js';
 import { airlineName } from '../lib/airlines.js';
-import { chunkRange } from '../lib/dates.js';
+import { chunkRange, localToUtcMs } from '../lib/dates.js';
+import { getAirport } from '../lib/airports.js';
 import { toCzk } from '../lib/fx.js';
 
 const ENDPOINT = 'https://mcp.kiwi.com';
@@ -281,12 +282,20 @@ export function flightNoOf(seg) {
  */
 export function layoversOf(segs) {
   if (!Array.isArray(segs) || segs.length < 2) return null;
-  const ms = (s) => (/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(String(s || '')) ? Date.parse(`${String(s).slice(0, 16)}:00Z`) : NaN);
+  // Okamžik z místního času v zóně letiště přestupu – ručičky by v noci změny času lhaly o hodinu (přílet do Frankfurtu
+  // 25. 10. v 0:30, odlet v 6:30 = 7 h čekání, ne 6 h); čas s posunem („+07:00“) je okamžik sám o sobě.
+  const ms = (s, tz) => {
+    const v = String(s || '');
+    if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d/.test(v)) return NaN;
+    return /(?:Z|[+-]\d\d:?\d\d)$/.test(v) ? Date.parse(v) : localToUtcMs(v.slice(0, 16), tz) ?? NaN;
+  };
   const out = [];
   for (let i = 1; i < segs.length; i++) {
-    const min = Math.round((ms(segs[i].departureTime) - ms(segs[i - 1].arrivalTime)) / 60000);
+    const at = segs[i].from || segs[i - 1].to || null;
+    const tz = getAirport(at)?.tz;
+    const min = Math.round((ms(segs[i].departureTime, tz) - ms(segs[i - 1].arrivalTime, tz)) / 60000);
     if (!Number.isFinite(min) || min < 0) return null;
-    out.push({ at: segs[i].from || segs[i - 1].to || null, min });
+    out.push({ at, min });
   }
   return out;
 }

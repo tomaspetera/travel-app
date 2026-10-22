@@ -143,7 +143,8 @@
    * neaktualizované trasy.
    */
   function prune(store, now, max = CFG.maxRoutes) {
-    const month = new Date(now).toISOString().slice(0, 7);
+    // místní měsíc jako v seenMin – v UTC už je v New Yorku 31. 10. večer listopad a říjnové odlety (i ten dnešní) by zmizely
+    const d = new Date(now), month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     const old = now - CFG.maxAgeDays * DAY;
     for (const k of Object.keys(store.r)) if ((k.split('|')[1] || '') < month || store.r[k].u < old) delete store.r[k];
     const keys = Object.keys(store.r);

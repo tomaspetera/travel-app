@@ -569,12 +569,13 @@ test('service worker: stránka přes navigation preload (požadavek odeslaný u�
 });
 
 /* ---------- pwa.js ---------- */
-function loadPwa() {
-  const ctx = { window: {}, URL, console };
+function loadPwaCtx() {
+  const ctx = { window: {}, URL, console, setTimeout, clearTimeout, AbortController, AbortSignal };
   vm.createContext(ctx);
   vm.runInContext(read('public/js/pwa.js'), ctx, { filename: 'pwa.js' });
-  return ctx.window;
+  return ctx;
 }
+const loadPwa = () => loadPwaCtx().window;
 
 test('pwa.js: místo „Failed to fetch“ česká hláška u API (offline / server nedostupný), ostatní chyby beze změny; kdy nabídnout instalaci', () => {
   const { Pwa } = loadPwa();
@@ -607,6 +608,64 @@ test('pwa.js: místo „Failed to fetch“ česká hláška u API (offline / ser
   assert.equal(mode({ ua: mac, platform: 'MacIntel', touch: 0 }), null, 'Safari na Macu: nic');
   assert.equal(mode({ ua: 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0' }), null, 'Firefox na počítači: nic');
   assert.equal(mode({ ua: `${iphone} Instagram 300.0` }), null, 'vestavěný prohlížeč aplikace na plochu neumí');
+});
+
+test('pwa.js: slabý signál – API bez hlavičky odpovědi do limitu skončí českou chybou, zaseklý stream hledání taky; zrušení volajícím zůstane AbortError', async () => {
+  const ctx = loadPwaCtx(), { Pwa } = ctx.window;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  // „síť“: odpoví za `after` ms (nikdy = null); zrušení signálem odmítne AbortError jako fetch v prohlížeči
+  const net = (after) => (input, init) => new Promise((resolve, reject) => {
+    init.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    if (after != null) setTimeout(resolve, after, { ok: true, signal: init.signal });
+  });
+  assert.equal(Pwa.API_WAIT, 120e3, 'pokryje probouzení serveru na Renderu (~1 min) i pomalá místa v okolí');
+  assert.match(Pwa.SLOW_MSG, /2 minuty/);
+
+  // odpověď včas: projde a limit končí s hlavičkou – pozdější stream (tělo) se nezruší
+  const r = await Pwa.withDeadline(net(5), 'api/health', undefined, 30);
+  assert.equal(r.ok, true);
+  await wait(50);
+  assert.equal(r.signal.aborted, false, 'tělo odpovědi limit nemá');
+
+  // zaseklé spojení: po limitu NetworkError s českou hláškou (aplikace ji ukáže se „Zkusit znovu“), ne AbortError
+  await assert.rejects(Pwa.withDeadline(net(null), 'api/stays?x=1', { method: 'GET' }, 20),
+    (e) => e.name === 'NetworkError' && e.timeout === true && e.message === Pwa.SLOW_MSG && e.cause.name === 'AbortError');
+
+  // vlastní signál volajícího (jiné hledání, našeptávač) platí dál: zrušení = AbortError jako dřív
+  const own = new AbortController();
+  const p = Pwa.withDeadline(net(null), 'api/search', { method: 'POST', signal: own.signal }, 1000);
+  setTimeout(() => own.abort(), 5);
+  await assert.rejects(p, (e) => e.name === 'AbortError');
+  // … a limit platí i u něj
+  await assert.rejects(Pwa.withDeadline(net(null), 'api/search', { signal: new AbortController().signal }, 20), (e) => e.timeout === true);
+
+  // stream hledání: data jdou dál, po limitu bez jediného bajtu chyba a zrušený stream
+  // jako ReadableStream v prohlížeči (sliby téhož prostředí – pořadí jako v Chromu): cancel() ukončí čekající read()
+  // jako konec streamu ({ done: true }) – kdyby vyhrál, hledání by skončilo „Server neposlal výsledek“
+  const rd = vm.runInContext(`(() => {
+    const chunks = [{ value: 'a', done: false }];
+    let pending = null;
+    return { cancelled: 0, read: () => (chunks.length ? Promise.resolve(chunks.shift()) : new Promise((r) => { pending = r; })),
+      cancel() { this.cancelled++; if (pending) pending({ value: undefined, done: true }); return Promise.resolve(); } };
+  })()`, ctx);
+  assert.deepEqual({ ...(await Pwa.readOrStall(rd, 20)) }, { value: 'a', done: false });
+  await assert.rejects(Pwa.readOrStall(rd, 20), (e) => e.name === 'NetworkError' && e.message === Pwa.SLOW_MSG);
+  assert.equal(rd.cancelled, 1, 'zaseklý stream se zruší (spojení se uzavře)');
+});
+
+test('pwa.js: po návratu online se jednou znovu načte, co se offline nenačetlo (radar, Objevuj) – pod jedním klíčem jen poslední', () => {
+  const { Pwa } = loadPwa();
+  const calls = [];
+  Pwa.whenOnline('radar', () => calls.push('radar 1'));
+  Pwa.whenOnline('radar', () => calls.push('radar 2')); // opakovaný výpadek: nic se nehromadí
+  Pwa.whenOnline('explore', () => { calls.push('explore'); throw new Error('chyba jednoho nezastaví ostatní'); });
+  Pwa.whenOnline('x', () => calls.push('x'));
+  const err = console.error;
+  console.error = () => { };
+  try { Pwa.flushOnline(); } finally { console.error = err; }
+  assert.deepEqual(calls, ['radar 2', 'explore', 'x']);
+  Pwa.flushOnline(); // další návrat online: jen jednou, žádné opakování
+  assert.equal(calls.length, 3);
 });
 
 test('ETag podle obsahu: znovu nasazený nezměněný soubor (nový čas změny) odpoví 304, změněný 200', async () => {

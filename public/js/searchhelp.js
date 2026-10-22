@@ -1760,7 +1760,8 @@
   /* ---------- poslední výsledky a nedávná hledání (uložené v tomto prohlížeči) ---------- */
   /**
    * Poslední hledání k uložení ({ at, form, payload, res }) jako text: celé, nebo – když je delší než cap znaků (místo
-   * v localStorage, kolem 5 MB, musí zbýt pro stav aplikace) – s nejvýš `keep` nabídkami na cíl a ve výpisu (res.top)
+   * v localStorage, kolem 5 MB, musí zbýt pro stav aplikace) – s nejvýš `keep` nabídkami na cíl (nevejde-li se ani to,
+   * s jednou, nejlevnější) a ve výpisu (res.top)
    * s tolika nejlevnějšími kombinacemi, kolik se vejde, vždy ale s nejlevnější z každého dne odletu (kalendář) a z každé
    * buňky mřížky termínů, která svou cestu v calendar.grid nemá. Když se nevejdou ani ty, bez mřížky (buňka bez cesty
    * by po klepnutí nic neukázala); null = nevejde se ani tak. Cesty buněk, které do top přidal gridTrips (cell),
@@ -1773,10 +1774,17 @@
     if (s.length <= cap) return s;
     // prvních keep nabídek cíle + nejlevnější z každého dalšího letiště odletu (filtr „jen lety z X“ i po obnovení)
     const opts = o => { const out = o.slice(0, keep), have = new Set(out.map(t => t && t.out && t.out.from)); for (const t of o.slice(keep)) if (t && t.out && !have.has(t.out.from)) { have.add(t.out.from); out.push(t); } return out; };
-    const res = { ...r, groups: (r.groups || []).map(g => ({ ...g, options: opts(g.options || []) })) };
-    if (!Array.isArray(r.top)) { const t = JSON.stringify({ ...c, res }); return t.length <= cap ? t : null; }
     const cal = r.calendar && r.calendar.grid ? (({ grid, ...rest }) => rest)(r.calendar) : null;
-    return topPack(c, res, cap) || (cal ? topPack(c, { ...res, calendar: cal }, cap) : null);
+    const pack = groups => {
+      const res = { ...r, groups };
+      if (!Array.isArray(r.top)) { const t = JSON.stringify({ ...c, res }); return t.length <= cap ? t : null; }
+      return topPack(c, res, cap) || (cal ? topPack(c, { ...res, calendar: cal }, cap) : null);
+    };
+    const gs = r.groups || [];
+    return pack(gs.map(g => ({ ...g, options: opts(g.options || []) })))
+      // Kamkoliv z víc letišť (150 cílů po 6–8 nabídkách) se nevejde ani tak – aspoň nejlevnější nabídka každého cíle:
+      // bez ní by po zavření aplikace (třeba na cestě bez signálu) z hledání nezbylo nic
+      || pack(gs.map(g => ({ ...g, options: (g.options || []).slice(0, 1) })));
   }
   // lastPack: výpis (res.top) zkrácený tak, aby se celé hledání vešlo do cap znaků – povinné nejlevnější z každého dne
   // odletu a z každé buňky mřížky bez vlastní cesty, k nim co nejvíc nejlevnějších bez mezer → text, nebo null.

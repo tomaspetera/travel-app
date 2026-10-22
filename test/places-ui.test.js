@@ -168,6 +168,9 @@ test('getJson: výpadek sítě česky (ne „Failed to fetch“), přerušení z
   await assert.rejects(mk(async () => { throw new TypeError('Failed to fetch'); })('api/poi'), /Server teď neodpovídá/);
   const abort = Object.assign(new Error('aborted'), { name: 'AbortError' });
   await assert.rejects(mk(async () => { throw abort; })('api/geocode'), (e) => e.name === 'AbortError');
+  // hláška z pwa.js („Jsi offline“, nic přes 2 min) zůstane i s příznakem offline – Objevuj se po návratu online načte samo
+  const off = Object.assign(new Error('Jsi offline – připoj se k internetu a zkus to znovu.'), { name: 'NetworkError', offline: true });
+  await assert.rejects(mk(async () => { throw off; })('api/poi'), (e) => e === off);
   await assert.rejects(mk(async () => ({ ok: false, status: 503, json: async () => ({ error: 'Wikidata neodpovídá' }) }))('api/roadtrip'),
     (e) => e.status === 503 && e.message === 'Wikidata neodpovídá');
   await assert.rejects(mk(async () => ({ ok: false, status: 504, json: async () => { throw new SyntaxError('html'); } }))('api/poi'), /probouzí/);
