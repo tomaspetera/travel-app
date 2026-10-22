@@ -1,0 +1,67 @@
+# Týdenní kontrola: každé pondělí ráno Claude projde změny za poslední týden a živou aplikaci, potvrzené drobné chyby
+# opraví (s testy) a pošle je jako PR „Týdenní kontrola …“ – sloučit ho můžeš ty, nebo o to požádej Clauda v aplikaci.
+# Když není co opravit, nic nezaloží. Ručně: Actions → Claude – týdenní kontrola → Run workflow.
+# Platí se z API kreditu (tajný údaj ANTHROPIC_API_KEY), jeden běh řádově jednotky dolarů; strop útraty nastav
+# v konzoli Anthropic (Spend limits).
+name: Claude – týdenní kontrola
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # pondělí 6:17 UTC (8:17 v létě, 7:17 v zimě)
+  workflow_dispatch:
+
+concurrency:
+  group: claude-weekly
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+  actions: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 200
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Git identita pro commity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - uses: anthropics/claude-code-action@v1
+        if: env.HAS_KEY == 'true' # bez klíče se nic nespustí (běh skončí zeleně)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --model claude-opus-5-5
+            --max-turns 80
+            --allowedTools "Read,Edit,Write,Glob,Grep,WebFetch(domain:atlas-letenky.onrender.com),Bash(npm test),Bash(node --test:*),Bash(date:*),Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git checkout -b:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(gh pr list:*),Bash(gh pr create:*),Bash(gh pr comment:*)"
+          prompt: |
+            Jsi týdenní kontrola aplikace ATLAS (repozitář ${{ github.repository }}, živě https://atlas-letenky.onrender.com).
+            Nejdřív si přečti CLAUDE.md a drž se jeho pravidel. Postup:
+            1. Spusť `npm test`. Když neprojde, najdi příčinu a oprav ji.
+            2. Projdi změny za posledních 7 dní (`git log --since="7 days ago" --stat`, pak `git show` u podezřelých commitů)
+               a hledej skutečné chyby: špatná logika, data nebo čísla, rozbité odkazy, české texty, které si odporují,
+               stavy, které se nevynulují. Opravuj jen to, co ověříš (test nebo jasný důkaz v kódu), malými změnami ve stylu
+               okolního kódu. Žádné nové závislosti, žádné placené služby, žádné velké přestavby ani nové funkce.
+            3. Zkontroluj živou aplikaci jen přes GET /api/health a GET /api/places?q=vid (nikdy /api/search): všechny
+               zdroje mají odpovídat a nemají hlásit chybu. Výpadek cizí služby jen zmiň, neopravuj.
+            4. Ke každé opravě přidej nebo uprav test v test/ a znovu spusť `npm test` – musí projít.
+            5. Když jsi něco opravil: `gh pr list --state open --search "Týdenní kontrola in:title"` – je-li otevřený PR
+               z minulé kontroly, nezakládej nový, jen do něj napiš komentář s novými nálezy. Jinak vytvoř větev
+               `claude/tydenni-kontrola-<datum z date +%F>`, commitni (česká zpráva), pushni a `gh pr create` do main
+               s názvem „Týdenní kontrola <datum>: …“ a českým popisem: co bylo špatně, co se změnilo, jak je to ověřené,
+               a zvlášť nálezy, které jsi neopravil, s důvodem.
+            6. Když není co opravit, nic nezakládej a jen shrň, co jsi zkontroloval.
