@@ -616,7 +616,6 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .radar-card::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(0,0,0,.28) 0%,rgba(0,0,0,0) 28%,rgba(0,0,0,0) 52%,rgba(0,0,0,.35) 100%)}
 .radar-card:hover{transform:translateY(-3px);box-shadow:0 22px 40px -18px rgba(0,0,0,.7)}
 @media(hover:none){.radar-card:hover{transform:none}.radar-card:active{transform:scale(.98)}}
-.radar-card.hot{box-shadow:0 0 0 2px rgba(251,113,133,.8),0 16px 34px -18px rgba(0,0,0,.6)}
 .radar-card.skel{aspect-ratio:4/5;box-shadow:none}
 .radar-card .rc-badges{position:absolute;top:10px;left:10px;right:52px;display:flex;flex-wrap:wrap;gap:5px}
 .radar-card .rc-badges:empty{display:none}
