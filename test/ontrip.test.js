@@ -42,7 +42,8 @@ const lines = (rows) => plain(rows).map((r) => `${r[0]} ${r[1]} ${r[2]}`);
 
 test('Trip.timeline: průběh cesty ve shrnutí je řádek po řádku Trip.timeline – stejný jako před refaktorem, navíc jen číslo letu', () => {
   // Zachyceno ze shrnutí před vytažením Trip.timeline (test/fixtures/timeline-golden.json); jediná zamýšlená změna:
-  // u letu tam / zpět i číslo letu (karta „Dnes na cestě“ ho chce, tabule na letišti ho ukazují).
+  // u letu tam / zpět i číslo letu (karta „Dnes na cestě“ ho chce, tabule na letišti ho ukazují). Ceny z czk() mají
+  // před „Kč“ pevnou mezeru (na telefonu se částka neroztrhne na dva řádky) – i v uloženém vzoru.
   const GOLD = JSON.parse(readFileSync(new URL('./fixtures/timeline-golden.json', import.meta.url), 'utf8'));
   const FLNO = { lisbon: ['FR 1234', 'FR 1235'], lisbonOneWay: ['FR 1234'], italy: ['W6 2301', 'W6 2301'], vienna: [] };
   for (const [name, mk] of Object.entries({ lisbon, lisbonOneWay, italy, vienna })) {

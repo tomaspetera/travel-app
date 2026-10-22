@@ -654,6 +654,9 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
     margin:0 -16px;padding:2px 16px 14px;scroll-padding:0 16px;scrollbar-width:none}
   .radar-grid::-webkit-scrollbar{display:none}
   .radar-card{scroll-snap-align:start;border-radius:26px}
+  /* dny dovolené na vlastním řádku pod letišti – za nimi se na úzké kartě nevešly a končily „🏖️ 5 dní dov…“ */
+  .rc-sub .rc-lv{display:block;overflow:hidden;text-overflow:ellipsis}
+  .rc-sub .rc-lv::before{content:none}
   .radar-card .rc-city{font-size:19px}
   .radar-card .rc-price{font-size:19px}
 }
@@ -761,6 +764,10 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 [data-theme=light] .pc-trend.up b{color:#b91c1c}
 [data-theme=light] .nav-badge.drop{color:#047857}
 [data-theme=light] .nb-hint{color:#8a5a00}
+/* zelené ceny a štítky (ceny ve výpisu Lety, nejlevnější den, „💚 Dobrá cena“, „↓ zlevnilo“) a modré štítky („↩ návrat
+   do…“, teplota): mátová a světle modrá na bílé mají kontrast pod 2 : 1 – na slunci skoro nečitelné */
+[data-theme=light] .good,[data-theme=light] .b.good,[data-theme=light] .cmp-price b:not(.stale),[data-theme=light] .nb-d.best b{color:#047857}
+[data-theme=light] .b.info{color:#075985}
 ol.guide{padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:14px}
 ol.guide a{color:var(--accent)}
 ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radius:6px;font-size:12.5px}
@@ -1072,6 +1079,10 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .dp-ttl h2{font-size:23px;line-height:1.2;overflow-wrap:anywhere}
 .dp-ttl .muted{font-size:13px;margin-top:2px}
 .dp-x{flex:none;width:38px;height:38px}
+/* ✕ dostane po otevření fokus skriptem (čtečka začne v okně); po klepnutí na kartu radaru (není to tlačítko) ho Chrome
+   na telefonu bral jako fokus z klávesnice a kreslil kolem ✕ oranžový rámeček – na dotykovém displeji bez myši ho
+   nekreslit (TalkBack má vlastní) */
+@media (hover:none) and (pointer:coarse){.dp-x:focus-visible{outline:none}}
 .dp-trip{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.5}
 .dp-trip b{color:var(--text)}
 .dp-nw{white-space:nowrap}
@@ -1111,7 +1122,8 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   .modal-bg:has(.dp){align-items:flex-end;padding:0}
   .modal:has(.dp){width:100%;max-height:90vh;max-height:90dvh;border-radius:20px 20px 0 0;border-bottom:none;animation:dpUp .25s var(--ease)}
   .dp{padding:16px 16px 0}
-  .dp-hero{height:200px;margin:-16px -16px 14px;border-radius:22px 22px 0 0}
+  /* roh fotky = vnitřek listu (20 px − 1 px rámeček); s 22 px zůstal v horních rozích bílý srpek mezi fotkou a rámečkem */
+  .dp-hero{height:200px;margin:-16px -16px 14px;border-radius:19px 19px 0 0}
   .dp-flag{font-size:32px}
   .dp-ttl h2{font-size:20px}
   .dp-sl{grid-template-columns:minmax(0,1fr)}

@@ -81,7 +81,7 @@ test('trip: kalendář – pobyt na každém místě (celodenní), přejezdy s �
   ]);
   assert.equal(stays[0].url, 'https://hotel.example/duomo');
   assert.match(stays[2].url, /^https:\/\/www\.booking\.com\/searchresults\.cs\.html\?ss=%C5%98%C3%ADm%2C\+It%C3%A1lie&checkin=2026-11-16&checkout=2026-11-18&group_adults=2/, 'místo bez hotelu → hledání na jeho data');
-  assert.match(stays[0].description, /Cena celkem 9[\s ]000 Kč/);
+  assert.match(stays[0].description, /Cena celkem 9[\s ]000\u00a0Kč/);
   assert.match(stays[2].description, /zatím nevybráno/);
   const moves = ev.filter((e) => e.title.startsWith('🚗 Přejezd'));
   assert.deepEqual(moves.map((e) => [e.title, e.start, e.tz, e.durationMin]), [
