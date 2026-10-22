@@ -296,6 +296,27 @@ test('PlanShare: odškrtnutí „Sbaleno“ – maska v odkazu tam a zpět, star
   assert.deepEqual(plain(PlanShare.decode(enc({ v: 1, checklist: ['a', '<>', 'c', 'd'], done: '3' })).checklist), [{ t: 'a', done: false }, { t: 'c', done: true }, { t: 'd', done: true }]);
 });
 
+test('PlanShare: den sdílení (sharedOn) – nový odkaz ho nese, starší ne, podvržený nebo z budoucnosti se zahodí; do plánovače nepatří', async () => {
+  const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const d = new Date(), today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const trip = { name: 'Víkend', dest: 'Vídeň', start: '2026-12-04', end: '2026-12-06', pax: '2', checklist: [{ t: 'Pas / OP', done: true }] };
+  const json = PlanShare.json(trip);
+  assert.equal(JSON.parse(json).sharedOn, today, 'jen den – připravený odkaz je stejný jako ten po kliknutí');
+  assert.equal(PlanShare.json(trip), json);
+  assert.equal(JSON.parse(json).v, 1, 'verze beze změny – starší aplikace pole přeskočí');
+  const p = await PlanShare.fromHash('#plan=' + await ShareLink.pack(json));
+  assert.equal(p.sharedOn, today);
+  assert.equal(p.name, 'Víkend');
+  // pročištění plánu (plánovač, 💾 záloha) den sdílení nezná – v plánovači se neuloží
+  assert.equal(PlanShare.sanitize(p).sharedOn, undefined);
+  assert.equal(JSON.parse(PlanShare.json(p)).sharedOn, today, 'další sdílení = nový den');
+  // starší odkaz bez dne, podvržený, neplatný nebo z budoucnosti → bez dne („ceny se mohly změnit“)
+  for (const on of [undefined, '<b>', '2026-02-30', '2999-01-01', '1999-12-31', 20261001, null]) {
+    assert.equal(PlanShare.decode(enc({ v: 1, name: 'Starý', sharedOn: on })).sharedOn, undefined, String(on));
+  }
+  assert.equal(PlanShare.decode(enc({ v: 1, name: 'Starý', sharedOn: '2026-10-01' })).sharedOn, '2026-10-01');
+});
+
 test('Plánovač: dny cesty přes změnu času – žádný den dvakrát ani chybějící (export po dnech)', () => {
   // dateRange z app.js (celý app.js potřebuje DOM) v místní zóně prohlížeče uživatele.
   const src = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8').match(/^function dateRange\(.*$/m)[0];

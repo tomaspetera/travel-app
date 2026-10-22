@@ -436,6 +436,10 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 /* kroky: ikona v kruhu, pod ní název, čára mezi kroky (hotové zeleně) */
 .stepbar{display:flex;align-items:flex-start;gap:0;margin:0 0 16px;padding:12px 10px 10px;border-radius:22px;background:var(--surface);border:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
 .stepbar::-webkit-scrollbar{display:none}
+/* Cesta otevřená z cizího odkazu: stáří cen a 💾 Uložit si ji (zmizí po uložení) */
+.trip-shared{align-items:center;flex-wrap:wrap;margin:0 0 14px}
+.trip-shared .ts-t{flex:1 1 180px;min-width:0}
+.trip-shared .btn{flex:none;margin-left:auto}
 .stepbar i{flex:1 1 0;min-width:6px;height:2px;margin-top:18px;background:var(--border-2);border-radius:2px}
 .stepbar i.done{background:var(--good)}
 .stepbar .st{flex:none;display:flex;flex-direction:column;align-items:center;gap:5px;padding:0 2px;border:none;background:none;color:var(--muted);font:700 11.5px Inter,sans-serif;cursor:pointer;white-space:nowrap}

@@ -839,6 +839,67 @@ test('novější odkaz na tutéž cestu (spolucestující poslal program a odšk
   assert.deepEqual([o.r, o.asked.length, mine.created, mine.plan.days.length], [true, 0, 7, 1]);
 });
 
+test('sdílená cesta (#trip=): den sdílení v odkazu, u příjemce poznámka o stáří cen a 💾 Uložit si ji → vlastní cesta; starší odkazy', async () => {
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = ymd(new Date()), dm = (s) => `${+s.slice(8, 10)}. ${+s.slice(5, 7)}.`;
+  // odesílatel: odkaz nese den sdílení (jen den – připravený odkaz je stejný jako ten po kliknutí)
+  const a = wizard(memStorage());
+  const t = { ...tokyo(), stay: { mode: 'pick', id: 'h1', name: 'Hotel Sakura', totalCzk: 20000, url: 'https://hotel.example/s' } };
+  a.c.S.trip = t;
+  a.Trip.render();
+  assert.ok(!sp(a.c.__root.innerHTML).includes('Sdílená cesta'), 'vlastní cesta bez poznámky');
+  await a.els['#sumShare'].onclick();
+  const url = a.c.copied[0], sent = sentOf(url);
+  assert.equal(sent.sharedOn, today);
+  assert.equal(sent.shared, undefined);
+  // příjemce: sdílená cesta s poznámkou a tlačítkem v každém kroku
+  const b = wizard(memStorage(), url.slice(url.indexOf('#')));
+  assert.equal(await b.Trip.importFromHash(), true);
+  assert.deepEqual(plain(b.c.S.trip.shared), { on: today });
+  assert.equal(b.c.S.trip.sharedOn, undefined, 'den sdílení jen v příznaku');
+  b.Trip.render();
+  const h = sp(b.c.__root.innerHTML);
+  assert.match(h, new RegExp(`<b>Sdílená cesta</b> – ceny jsou z doby sdílení \\(${dm(today).replace(/\./g, '\\.')}\\)\\. Před nákupem je ověř\\.`));
+  assert.match(h, /id="tripSharedSave">💾 Uložit si ji</);
+  // 💾 Uložit si ji = uložení do plánovače (stejná cesta jako ve Shrnutí); pak vlastní cesta bez poznámky
+  b.els['#tripSharedSave'].onclick();
+  assert.equal(b.c.S.trips.length, 1);
+  assert.equal(b.c.S.trips[0].dest, 'Tokio');
+  assert.equal(b.c.S.trip.shared, undefined);
+  assert.ok(!JSON.stringify(b.c.S.trips[0].wizard).includes('shared'), 'do plánovače příznak nepatří');
+  b.Trip.render();
+  assert.ok(!sp(b.c.__root.innerHTML).includes('Sdílená cesta'));
+  // … a sdílí ji dál jako svou: odkaz bez příznaku, s dnešním dnem
+  b.c.copied.length = 0;
+  await b.els['#sumShare'].onclick();
+  assert.deepEqual([sentOf(b.c.copied[0]).shared, sentOf(b.c.copied[0]).sharedOn], [undefined, today]);
+  b.els['#sumSave'].onclick();
+  assert.equal(b.c.S.trips.length, 1, 'znovu uložená se aktualizuje, ne zdvojí');
+  // starší odkaz bez dne sdílení: „ceny se mohly změnit“; den z budoucnosti nebo nesmysl jako starší odkaz
+  for (const on of [undefined, '2999-01-01', '<b>', 5, '2026-02-30']) {
+    const o = wizard(memStorage(), tripHash({ ...sent, sharedOn: on }));
+    assert.equal(await o.Trip.importFromHash(), true);
+    assert.deepEqual(plain(o.c.S.trip.shared), { on: null }, String(on));
+    o.Trip.render();
+    assert.match(sp(o.c.__root.innerHTML), /<b>Sdílená cesta<\/b> – ceny se mohly změnit\. Před nákupem je ověř\./);
+  }
+  // podvržený příznak v odkazu se nepřevezme – den sdílení jen z odkazu
+  const fake = wizard(memStorage(), tripHash({ ...sent, sharedOn: '2026-10-01', shared: { on: '<script>' } }));
+  assert.equal(await fake.Trip.importFromHash(), true);
+  assert.deepEqual(plain(fake.c.S.trip.shared), { on: '2026-10-01' });
+  // vlastní odkaz otevřený u sebe (i s jiným dnem sdílení): tatáž cesta, bez otázky a bez poznámky
+  const st = memStorage(), own = wizard(st, tripHash({ ...sent, sharedOn: '2026-10-01' }));
+  own.c.S.trip = plain(t);
+  own.c.confirm = () => assert.fail('bez otázky');
+  assert.equal(await own.Trip.importFromHash(), true);
+  assert.equal(own.c.S.trip.shared, undefined);
+  // novější verze ještě neuložené sdílené cesty (program navíc): zůstane sdílená, s dnem z nového odkazu
+  const again = wizard(memStorage(), tripHash({ ...sent, sharedOn: '2026-10-05', plan: { center: { lat: 35.68, lon: 139.76 }, days: [{ date: '2027-03-13', cap: 360, items: [{ id: 'q1', name: 'Sensódži', lat: 35.71, lon: 139.79, category: 'sight', visitMin: 60 }] }] } }));
+  again.c.S.trip = { ...plain(b.c.S.trip), shared: { on: today }, created: 9 };
+  assert.equal(await again.Trip.importFromHash(), true);
+  assert.deepEqual([plain(again.c.S.trip.shared), again.c.S.trip.created], [{ on: '2026-10-05' }, 9]);
+});
+
 test('vlak/bus místo letu jindy (a zpět k letu): odškrtnutí „Co zařídit a co sbalit“ zůstanou u cesty', () => {
   const w = wizard(memStorage());
   const place = (label, lat, lon) => ({ label, cc: label === 'Praha' ? 'CZ' : 'AT', lat, lon, tz: 'Europe/Prague' });

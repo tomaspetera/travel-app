@@ -1,6 +1,6 @@
 /* ATLAS – sdílení plánu cesty z plánovače odkazem #plan=… (JSON plánu zkomprimovaný – sharelink.js; dřívější odkazy
    #plan=<base64url JSON> fungují dál). Data z odkazu jsou cizí vstup: sanitize() z nich postaví nový objekt jen se
-   známými poli. */
+   známými poli. Nové odkazy nesou den sdílení (sharedOn) – příjemce uvidí, z kdy jsou ceny. */
 (function () {
   const MAX_HASH = 150000; // ~110 kB JSON – víc plán z plánovače nemá
   const b64urlEncode = str => {
@@ -115,20 +115,28 @@
     return plan;
   }
 
+  // dnešek v místním čase (YYYY-MM-DD)
+  const today = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   /** JSON plánu do odkazu (plán se před zakódováním pročistí stejně jako při načtení). */
   function json(trip) {
     const p = sanitize(trip), done = doneMask(p.checklist);
-    return JSON.stringify({ v: 1, ...p, checklist: p.checklist.map(x => x.t), ...(done ? { done } : {}) });
+    // sharedOn = den sdílení („ceny jsou z doby sdílení“ u příjemce) – jen den, ať je odkaz připravený při otevření plánu
+    // stejný jako ten po kliknutí (ShareLink.prepare); verze zůstává 1, starší verze aplikace pole přeskočí
+    return JSON.stringify({ v: 1, ...p, checklist: p.checklist.map(x => x.t), ...(done ? { done } : {}), sharedOn: today() });
   }
 
   const checked = payload => {
     if (typeof payload !== 'string' || !/^[A-Za-z0-9_-]+$/.test(payload) || payload.length > MAX_HASH) throw new Error('poškozený odkaz');
     return payload;
   };
+  /** Den sdílení z odkazu: platné datum, ne z budoucnosti (hodiny jiného zařízení – den rezerva), jinak null. */
+  const sharedDay = v => (isYmd(v) && v >= '2020-01-01' && v <= today(new Date(Date.now() + 864e5)) ? v : null);
+  // plán z odkazu + sharedOn (den sdílení), když ho odkaz nese – do plánovače se neukládá (previewPlan ho odebere)
   const fromJson = text => {
     const raw = JSON.parse(text);
     if (!obj(raw) || (raw.v != null && raw.v !== 1)) throw new Error('neznámý formát plánu');
-    return sanitize(raw);
+    const p = sanitize(raw), on = sharedDay(raw.sharedOn);
+    return on ? { ...p, sharedOn: on } : p;
   };
 
   /** Dřívější tvar odkazu: base64url JSON bez komprese (ten nový dělá ShareLink.pack z json()). */

@@ -976,10 +976,13 @@
    * města, letiště, země) – ten se geokóduje; jinak geokódování s přesným názvem (upravené tvary před původním), nakonec
    * první výsledek původního tvaru.
    */
+  // Tvary jména z věty: původní první, pak 1. pád s přídavným jménem („Českého Krumlova“ → Český Krumlov – geokódování
+  // ani vlastní data „Českého Krumlov“ neznají), pak tvary posledního slova (Smart.nominatives)
+  const placeCands = phrase => { const n = Smart.nominatives(phrase); return [...new Set([...n.slice(0, 1), ...(Smart.placeForms ? Smart.placeForms(phrase).slice(0, 2) : []), ...n.slice(1)])]; };
   // ✨ řádek: základní tvar místa z věty („Římě“ → Řím) jen z vlastních dat (rychle, bez geokódování); null = nevím
   const smartNames = new Map();
   async function smartName(phrase) {
-    const cands = Smart.nominatives(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
+    const cands = placeCands(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
     const fl = await Promise.all(cands.map(c => getJson('api/places?remote=0&q=' + enc(c)).then(j => j.items || [], () => [])));
     let name = null;
     for (const [i, c] of cands.entries()) {
@@ -995,9 +998,10 @@
     return name;
   }
   async function smartPlace(phrase) {
-    const cands = Smart.nominatives(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
+    const cands = placeCands(phrase), same = (a, b) => Smart.fold(String(a || '').replace(/\s*\(.*\)$/, '')) === Smart.fold(b);
     let failed = 0;
-    const fl = await Promise.all(cands.map(c => getJson('api/places?q=' + enc(c)).then(j => j.items || [], () => { failed++; return []; })));
+    // remote=0: níž se berou jen místa z vlastních dat (ne geo:) – geokódování každého tvaru by jen zdrželo a stálo dotazy
+    const fl = await Promise.all(cands.map(c => getJson('api/places?remote=0&q=' + enc(c)).then(j => j.items || [], () => { failed++; return []; })));
     // server nedostupný (žádný dotaz neprošel) – ne „místo neznám“
     if (cands.length && failed === cands.length) throw Object.assign(new Error('Server teď neodpovídá'), { down: true });
     // jen místa z databáze letů (letiště, města, země, oblasti) – geokódované vesnice (geo:…, „Brná“ pro „Brna“) ne;
@@ -2296,6 +2300,6 @@
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
       plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
-      countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP },
+      countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName },
   };
 })();

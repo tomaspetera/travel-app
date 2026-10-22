@@ -1904,6 +1904,43 @@
     return f.dFrom && f.dFrom >= today ? f : { ...f, dFrom: today };
   }
 
+  /* ---------- rozepsané hledání (koncept formuláře Letů, který se ještě nehledal) ---------- */
+  // Start aplikace vrací formulář na poslední hledání (S.form) – úpravy, které se ještě nehledaly, by obnovení stránky
+  // nebo Android, který aplikaci na pozadí zavře, zahodily. Koncept platí jen nad tím hledáním, ze kterého vznikl
+  // (base = otisk S.form): pozdější hledání (i v jiném okně), ↺ Začít znovu nebo obnova zálohy ho tak vždy přebijí.
+  const DRAFT_MAX_AGE = 3 * 864e5;
+  /** Krátký otisk hodnoty (FNV-1a z JSON + délka) – stačí poznat, jestli je uložené hledání pořád totéž. */
+  function formSig(f) {
+    const s = JSON.stringify(f == null ? null : f);
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+    return (h >>> 0).toString(36) + '.' + s.length.toString(36);
+  }
+  /** Klíč formuláře pro „změnil se?“: vyřazená letiště bez ohledu na pořadí (náhled letišť je po startu načte znovu). */
+  function formKey(f) {
+    return JSON.stringify(f && typeof f === 'object' ? { ...f, exclude: [...(Array.isArray(f.exclude) ? f.exclude : [])].sort() } : null);
+  }
+  /** Koncept k uložení jako text: formulář, kdy se naposledy upravil (at) a nad jakým hledáním vznikl (base = formSig). */
+  function draftPack(form, base, now) { return JSON.stringify({ v: 1, at: now, base, form }); }
+  /**
+   * Uložený koncept zpět → formulář, nebo null: poškozený, starší než maxAge (3 dny) od poslední úpravy, z budoucnosti
+   * nebo vzniklý nad jiným hledáním, než je teď uložené (base ≠ formSig(S.form) – mezitím se hledalo). Minulé termíny
+   * pryč (formulář doplní výchozí): rozsah, který celý minul, a přesný odlet v minulosti; rozsah, který už začal, od
+   * dneška; minulé datum letu cesty přes víc měst prázdné; odlet „v předvečer volna“ z minulého svátku vypnutý.
+   */
+  function draftLoad(s, { base, now, today, maxAge = DRAFT_MAX_AGE }) {
+    let d = null;
+    try { d = JSON.parse(s); } catch (e) { return null; }
+    if (!d || d.v !== 1 || !d.form || typeof d.form !== 'object' || Array.isArray(d.form)) return null;
+    if (!(d.at > now - maxAge) || d.at > now + 6e4 || d.base !== base) return null;
+    const f = { ...d.form }, ymd = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    if (!ymd(f.dTo) || f.dTo < today) { delete f.dFrom; delete f.dTo; } else if (!ymd(f.dFrom) || f.dFrom < today) f.dFrom = today;
+    if (!ymd(f.xOut) || f.xOut < today) { delete f.xOut; delete f.xBack; }
+    if (Array.isArray(f.legs)) f.legs = f.legs.map(l => (l && typeof l === 'object' && ymd(l.date) && l.date < today ? { ...l, date: '' } : l));
+    if (f.depAfter && !(typeof f.depAfter === 'object' && ymd(f.depAfter.date) && f.depAfter.date >= today)) f.depAfter = null;
+    return f;
+  }
+
   /** Termín nedávného hledání na čip, když ho uživatel zúžil: celý měsíc („prosinec“), krátký rozsah („1.–14. 12.“); výchozí okno na týdny dopředu → ''. */
   function recentWhen(f) {
     if (!f || f.dateMode === 'exact' || !f.dFrom || !f.dTo) return '';
@@ -1986,7 +2023,7 @@
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
     easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows, spanCal, SPAN_DOW,
-    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips, dayCal,
+    lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, DRAFT_MAX_AGE, formSig, formKey, draftPack, draftLoad, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips, dayCal,
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,

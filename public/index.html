@@ -55,11 +55,14 @@ if (!Object.hasOwn) Object.hasOwn = function (o, k) { return Object.prototype.ha
 if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configurable: true, writable: true, value: function (i) { i = Math.trunc(i) || 0; if (i < 0) i += this.length; return this[i]; } });
 </script>
 <script>
-/* Motiv, mapa a barva lišty hned při startu (ne až po načtení skriptů) – bez probliknutí; dál je hlídá app.js a pwa.js */
+/* Motiv, mapa a barva lišty hned při startu (ne až po načtení skriptů) – bez probliknutí; dál je hlídá app.js a pwa.js.
+   Motiv zvolený přepínačem, jinak (nový uživatel – uložený motiv nemá) podle systému; stejně jako app.js themeOf. */
 (function () {
   var s = null;
   try { s = JSON.parse(localStorage.getItem('atlas_v1')); } catch (e) { }
-  var light = Boolean(s && s.theme === 'light'), root = document.documentElement;
+  var t = s && (s.theme === 'light' || s.theme === 'dark') ? s.theme
+    : window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  var light = t === 'light', root = document.documentElement;
   root.setAttribute('data-theme', light ? 'light' : 'dark');
   root.setAttribute('data-map', s && s.mapStyle === 'dark' ? 'dark' : 'light');
   var m = document.querySelectorAll('meta[name="theme-color"]');
@@ -93,6 +96,10 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
   #launch .l-pp{animation:l-fly .74s cubic-bezier(.5,0,.9,.55) .16s forwards}
   #launch .l-paper{animation:l-out .18s linear .3s forwards}
   #launch .l-air{opacity:0;animation:l-in .18s linear .3s forwards}
+  /* světlý motiv: úvodní obrazovka světlá jako aplikace pod ní (ne tmavá, která by se pak rozplynula do světlé);
+     ikona zůstane, letadlo po vzletu a název tmavé */
+  [data-theme=light] #launch{background:#eef2fb;color:#0f1830}
+  [data-theme=light] #launch .l-air,[data-theme=light] #launch .l-jet path{fill:#0f1830}
 }
 /* vzlet ve směru špičky vlaštovky (−38,5°) – na konci se rozplyne (na širokém okně by jinak zůstalo stát u okraje); pak
    (čeká-li se dál) letadlo přelétá zleva doprava s mírným stoupáním */

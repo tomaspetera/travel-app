@@ -113,6 +113,9 @@ export const EXONYMS = {
   munchen: 'ap:MUC', muenchen: 'ap:MUC', koln: 'ap:CGN', koeln: 'ap:CGN', cologne: 'ap:CGN', warszawa: 'metro:WAW',
   krakow: 'ap:KRK', bruxelles: 'metro:BRU', brussel: 'metro:BRU', kobenhavn: 'ap:CPH', nizza: 'ap:NCE', geneve: 'ap:GVA', genf: 'ap:GVA',
   zeneva: 'ap:GVA', beograd: 'ap:BEG', bucuresti: 'metro:BUH',
+  // starší a hovorové české názvy (Solnohrad, Inšpruk, Cařihrad, Minorka) a celé české názvy („Frankfurt nad Mohanem“)
+  solnohrad: 'ap:SZG', inspruk: 'ap:INN', carihrad: 'metro:IST', 'novy york': 'metro:NYC', 'frankfurt nad mohanem': 'metro:FRA',
+  'san francisko': 'ap:SFO', sajgon: 'ap:SGN', minorka: 'ap:MAH', menorka: 'ap:MAH',
 };
 
 export const METROS = [
@@ -160,7 +163,7 @@ export const CITIES = [
 export const REGIONS = [
   { key: 'kanary', cs: 'Kanárské ostrovy', aliases: ['kanary', 'kanarske ostrovy', 'canary islands', 'canaries'], airports: ['TFS', 'TFN', 'LPA', 'ACE', 'FUE', 'SPC'] },
   { key: 'baleary', cs: 'Baleáry', aliases: ['baleary', 'balearske ostrovy', 'balearic islands'], airports: ['PMI', 'IBZ', 'MAH'] },
-  { key: 'mallorca', cs: 'Mallorca', aliases: ['mallorca', 'malorka', 'majorca'], airports: ['PMI'] },
+  { key: 'mallorca', cs: 'Mallorca', aliases: ['mallorca', 'malorka', 'mallorka', 'majorka', 'majorca'], airports: ['PMI'] },
   { key: 'kreta', cs: 'Kréta', aliases: ['kreta', 'crete'], airports: ['HER', 'CHQ'] },
   { key: 'sicilie', cs: 'Sicílie', aliases: ['sicilie', 'sicily', 'sicilia'], airports: ['PMO', 'CTA', 'TPS', 'CIY'] },
   { key: 'sardinie', cs: 'Sardinie', aliases: ['sardinie', 'sardinia', 'sardegna'], airports: ['CAG', 'OLB', 'AHO'] },
@@ -172,6 +175,8 @@ export const REGIONS = [
   { key: 'zakynthos', cs: 'Zakynthos', aliases: ['zakynthos', 'zante'], airports: ['ZTH'] },
   { key: 'santorini', cs: 'Santorini', aliases: ['santorini', 'thira'], airports: ['JTR'] },
   { key: 'kos', cs: 'Kos', aliases: ['kos'], airports: ['KGS'] },
+  // (za řeckými ostrovy: „Kor…“ napřed Korfu, kam se z Česka létá víc)
+  { key: 'korsika', cs: 'Korsika', aliases: ['korsika', 'corsica', 'corse'], airports: ['AJA', 'BIA', 'FSC', 'CLY'] },
   { key: 'chorvatske-pobrezi', cs: 'Chorvatské pobřeží', aliases: ['chorvatske pobrezi', 'jadran', 'dalmacie'], airports: ['SPU', 'DBV', 'ZAD', 'PUY', 'RJK'] },
   { key: 'algarve', cs: 'Algarve', aliases: ['algarve'], airports: ['FAO'] },
   { key: 'costa-del-sol', cs: 'Costa del Sol', aliases: ['costa del sol'], airports: ['AGP'] },
@@ -197,6 +202,9 @@ export const REGIONS = [
   { key: 'bulharske-pobrezi', cs: 'Bulharské pobřeží', flag: '🇧🇬', aliases: ['bulharske pobrezi', 'slunecne pobrezi', 'sunny beach', 'zlate pisky', 'golden sands', 'cerne more bulharsko'], airports: ['BOJ', 'VAR'] },
   { key: 'skotsko', cs: 'Skotsko', flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', aliases: ['skotsko', 'scotland'], airports: ['EDI', 'GLA', 'ABZ', 'INV'] },
   { key: 'laponsko', cs: 'Laponsko', flag: '🇫🇮', aliases: ['laponsko', 'lapland', 'lappi'], airports: ['RVN', 'KTT'] },
+  // geokodér spolkové země do našeptávače nepustí (správní celek) – bez nich „Bavorsko“, „do Tyrolska“ nic nenajdou
+  { key: 'bavorsko', cs: 'Bavorsko', flag: '🇩🇪', aliases: ['bavorsko', 'bavaria', 'bayern'], airports: ['MUC', 'NUE', 'FMM'] },
+  { key: 'tyrolsko', cs: 'Tyrolsko', flag: '🇦🇹', aliases: ['tyrolsko', 'tyrol'], airports: ['INN'] }, // bez „tirol“ – „Tir…“ je Tirana
 ];
 
 // Další aliasy zemí (doplňují české názvy z data/countries.json).
