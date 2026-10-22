@@ -1167,6 +1167,31 @@ Služba vytvořená z adresy veřejného repozitáře se na Renderu sama nenasaz
 3. Hotovo – každá nová verze v `main` se nasadí sama (průběh v záložce **Actions**), odkaz zůstává stejný.
    Ručně jde nasazení spustit v Renderu přes **Manual Deploy → Deploy latest commit**.
 
+#### Claude na GitHubu (volitelně, z API kreditu)
+
+Dvě automatizace s [Claude Code GitHub Action](https://code.claude.com/docs/en/github-actions), placené z kreditu
+Anthropic API (ne z předplatného); pravidla pro Clauda jsou v `CLAUDE.md`:
+
+- **`@claude`** (`.github/workflows/claude.yml`) – napiš `@claude` do nového issue nebo do komentáře k issue / PR
+  („@claude na mobilu v Objevuj přetéká …“): Claude chybu dohledá, opraví, spustí testy a pošle větev s odkazem
+  na vytvoření PR. Reaguje jen na lidi s právem zápisu do repozitáře.
+- **Týdenní kontrola** (`.github/workflows/claude-weekly.yml`) – každé pondělí ráno projde změny za týden a živé
+  `/api/health`, potvrzené drobné chyby opraví a pošle jako PR „Týdenní kontrola …“; když není co opravit, nic
+  nezaloží. Ručně: **Actions → Claude – týdenní kontrola → Run workflow**.
+
+Nastavení (jednou):
+
+1. [platform.claude.com/settings/keys](https://platform.claude.com/settings/keys) → **Create key** (název např.
+   `atlas-github`, platnost **Never**, nebo delší – prošlý klíč automatizace zastaví) → zkopíruj klíč.
+2. GitHub → repozitář → **Settings → Secrets and variables → Actions → New repository secret**, název
+   `ANTHROPIC_API_KEY`, hodnota = klíč → **Add secret**. Klíč nikam jinam nevkládej.
+3. Strop útraty: [platform.claude.com/settings/billing](https://platform.claude.com/settings/billing) → **Spend limits**
+   (např. 20 $ měsíčně). Spotřeba je vidět na [platform.claude.com/usage](https://platform.claude.com/usage).
+4. Aplikace Claude pro GitHub ([github.com/apps/claude](https://github.com/apps/claude)) musí mít přístup
+   k repozitáři – bez ní `@claude` neodpoví.
+
+Bez klíče obě automatizace nic nedělají (běh v záložce Actions skončí hned a zeleně), na aplikaci ani nasazení to vliv nemá.
+
 Funguje i kdekoliv jinde, kde běží Node.js – **Railway** (Hobby 5 $/měs.), **Fly.io**, vlastní VPS. Je přiložen `Dockerfile`:
 
 ```bash
