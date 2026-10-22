@@ -438,26 +438,34 @@
     return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(chain ? { chain: true } : {}), ...(withKids && !kids && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
   }
 
-  /** Zkracování koncovek pro našeptávač („do Říma“ → Řím, „z Vídně“ → Víd): celé slovo, bez 1 a bez 2 znaků. */
+  /**
+   * Zkracování koncovek pro našeptávač („do Říma“ → Řím, „z Vídně“ → Víd): celé slovo, bez 1 a bez 2 znaků; tříznakové
+   * koncovky množného čísla i celé („v Benátkách“ → Benátk, „na Kanárech“ → Kanár, „v Katovicích“ → Katovic) a vypadlé
+   * „e“ zpět („z Lince“ → Linec, „z Liberce“ → Liberec – zkrácené „Linc“ by našlo Lincoln v USA).
+   */
   function stems(phrase) {
     const w = String(phrase || '').trim();
     if (!w) return [];
-    const out = [w];
-    for (const k of [1, 2]) { const v = w.slice(0, -k); if (v.replace(/\s/g, '').length >= 3 && !/\s$/.test(v)) out.push(v); }
+    const out = [w], f = fold(w);
+    for (const k of [1, 2, ...(/(ach|ech|ich|ami)$/.test(f) ? [3] : [])]) { const v = w.slice(0, -k); if (v.replace(/\s/g, '').length >= 3 && !/\s$/.test(v)) out.push(v); }
+    if (/[^aeiouy\s]c[ei]$/.test(f) && w.length >= 5) out.push(w.slice(0, -2) + 'ec');
+    // 2. pád na -y celý („do Malagy“ → Malaga – zkrácené „Mala“ by vybralo Malajsii, „do Ženevy“ → Ženeva)
+    if (/[^aeiouy\s]y$/.test(f) && w.length >= 5) out.push(w.slice(0, -1) + 'a');
     return [...new Set(out)];
   }
   // pořadí druhů míst: země a oblasti před městy, náhodná místa z geokódování až nakonec
   const TYPE_RANK = { country: 0, region: 1, continent: 2, metro: 3, airport: 4, city: 5, place: 6 };
   /**
-   * Nejlepší návrh pro frázi ze všech dotazů (list = [{ q, items }] pro tvary ze stems): jen návrhy, jejichž název začíná
-   * hledaným tvarem (bez diakritiky), lepší druh a delší tvar dřív; geokódovaná místa (geo:) jen bez jiné shody.
+   * Nejlepší návrh pro frázi ze všech dotazů (list = [{ q, items, local }] pro tvary ze stems): jen návrhy, jejichž název
+   * začíná hledaným tvarem (bez diakritiky), lepší druh a delší tvar dřív; geokódovaná místa (geo:) jen bez jiné shody.
+   * local = návrhy jen z vlastních dat (remote=0): geo: tam jsou známá města (Liberec), ne náhodná místa z geokódování.
    * typos = true: i opravy překlepů ze serveru (fuzzy) – volající je zkouší až po všem ostatním.
    */
   function bestPlace(list, typos = false) {
     let best = null;
     // přesná shoda celého slova („Malaga“ = Málaga) má přednost před zkráceným tvarem („Mala…“ → Malajsie)
     const full = list[0] ? fold(list[0].q).replace(/\s+/g, ' ') : '';
-    for (const { q, items } of list) {
+    for (const { q, items, local } of list) {
       const fq = fold(q).replace(/\s+/g, ' ');
       for (const it of items || []) {
         const lab = fold(String(it.label || '')).replace(/\s*\(.*\)$/, '');
@@ -466,9 +474,11 @@
         const ok = lab.startsWith(fq) || lab.split(/[\s-]+/).some(p => p.startsWith(fq)) || alt.some(a => a.startsWith(fq));
         // typos: i místo, které server našel jako opravu překlepu (fuzzy)
         if (!ok && !(typos && it.fuzzy)) continue;
-        const geo = /^geo:/.test(it.id || '');
-        const exact = lab === full || alt.includes(full);
-        const score = (ok ? 0 : 500) + (geo ? 100 : 0) + (exact ? -50 : 0) + (TYPE_RANK[it.type] ?? 7) * 10 - fq.length / 100;
+        const geo = /^geo:/.test(it.id || '') && !local;
+        // přesně i tvar bez koncovky, který je celým názvem („Říma“ → Řím, „Liberce“ → Liberec), ne jen napsané slovo –
+        // víc než rozdíl druhů: město přesně před zemí ze zkráceného tvaru („Liber…“ → Libérie)
+        const exact = lab === full || alt.includes(full) || lab === fq;
+        const score = (ok ? 0 : 500) + (geo ? 100 : 0) + (exact ? -60 : 0) + (TYPE_RANK[it.type] ?? 7) * 10 - fq.length / 100;
         if (!best || score < best.score) best = { score, it };
       }
     }
@@ -484,6 +494,10 @@
     if (w.length < 3) return p ? [p] : [];
     const out = [w], f = fold(w), cut = n => w.slice(0, -n);
     if (/ne$/.test(f) && /ě$/.test(w)) out.push(cut(2) + 'eň'); // Vídně → Vídeň, Plzně → Plzeň
+    if (/[^aeiouy]ni$/.test(f)) out.push(cut(2) + 'eň'); // ve Vídni → Vídeň, v Plzni → Plzeň (v Kodani → Kodan = Kodaň níž)
+    if (/ach$/.test(f)) out.push(cut(3) + 'y'); // v Benátkách → Benátky, v Aténách → Atény
+    if (/ich$/.test(f)) out.push(cut(3) + 'e'); // v Katovicích → Katovice, v Pardubicích → Pardubice
+    if (/[^aeiouy]c[ei]$/.test(f)) out.push(cut(2) + 'ec'); // z Lince → Linec, v Liberci → Liberec (vypadlé „e“)
     if (/ě$/.test(w)) out.push(cut(1) + 'o'); // v Brně → Brno, v Mnichově → Mnichovo? (i Mnichov níž)
     if (/[aeiyu]$/.test(f)) out.push(cut(1)); // Lisabonu → Lisabon, Paříže → Paříž, Krakova → Krakov
     if (/a$/.test(f)) out.push(cut(1) + 'o'); // Brna → Brno, Ostravy? ne – Kolína nad Rýnem…
