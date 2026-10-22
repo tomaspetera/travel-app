@@ -119,6 +119,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <link rel="stylesheet" href="css/desktop-flights.css">
 <link rel="stylesheet" href="css/desktop-explore.css">
 <link rel="stylesheet" href="css/desktop-trip.css">
+<script src="js/errlog.js"></script>
 <script src="js/flags.js"></script>
 </head>
 <body>
@@ -189,6 +190,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
         <div class="news-line" id="newsLine" hidden></div>
         <!-- ✨ Co je nového: krátký přehled novinek a kde je najít, dokud ho uživatel neskryje (app.js renderWhatsNew) -->
         <div class="card whats-new" id="whatsNew" hidden></div>
+        <!-- 💡 Věděl jsi?: nejvýš jeden tip denně na funkci, kterou uživatel ještě nepoužil (app.js renderDashTip) -->
+        <div class="card dash-tip" id="dashTip" role="note" hidden></div>
         <div class="stat-grid" id="statGrid"></div>
 
         <div class="section-head" id="radarHead"><h2>Kam letět levně <span class="faint" id="radarSub"></span></h2><span class="link" id="radarReload">Obnovit →</span></div>
@@ -504,6 +507,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <script src="js/ics.js"></script>
 <script src="js/sharelink.js"></script>
 <script src="js/planshare.js"></script>
+<script src="js/offershare.js"></script>
 <script src="js/weather.js"></script>
 <script src="js/app.js"></script>
 <script src="js/ground.js"></script>

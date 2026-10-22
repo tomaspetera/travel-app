@@ -358,6 +358,47 @@
     return { flights, bags, ground, arrival, overland, stay, car, transfers, total, perPerson: Math.round(total / pax) };
   }
   /**
+   * Rozpočet po skupinách ve Shrnutí: [{ icon, label, czk, pp, est }] – letenky (se zavazadly) nebo vlak/bus, doprava
+   * na letiště a z letiště do města, ubytování, auto a přejezdy; za osobu = celek / počet osob. est = aspoň část je odhad
+   * (zavazadla, doprava, přejezdy vždy; ubytování s odhadnutou cenou; vlak/bus bez ceny z RegioJetu). Prázdné skupiny vynechá.
+   */
+  function budgetGroups(t, c = costs(t)) {
+    const pax = t.adults || 1, ov = ovOn(t) ? t.overland : null;
+    const legsOwn = t.groundMode !== 'car' && t.ground && [t.ground.out, t.flight && t.flight.back ? t.ground.back : null].filter(Boolean);
+    const stayEst = isMulti(t) ? t.route.bases.some(b => b.stay && b.stay.est && stayCzk(b.stay)) : Boolean(t.stay && t.stay.est);
+    return [
+      ov ? { icon: '🚆', label: 'Vlak / bus', czk: c.overland, est: [ov.out, ov.back].some(g => g && g.source !== 'regiojet') }
+        : { icon: '✈️', label: c.bags ? 'Letenky a zavazadla' : 'Letenky', czk: c.flights + c.bags, est: c.bags > 0 },
+      // vlastní cena na letiště (všechny směry) odhad není, z letiště do města ano
+      { icon: c.ground ? groundLines(t).icon : '🚌', label: 'Doprava na letiště a do města', czk: c.ground + c.arrival, est: c.arrival > 0 || !(legsOwn && legsOwn.length && legsOwn.every(x => x.own === true)) },
+      { icon: '🏨', label: 'Ubytování', czk: c.stay, est: stayEst },
+      { icon: '🚗', label: c.car && c.transfers ? 'Auto a přejezdy' : c.car ? 'Auto' : 'Přejezdy', czk: c.car + c.transfers, est: c.transfers > 0 },
+    ].filter(g => g.czk > 0).map(g => ({ ...g, pp: Math.round(g.czk / pax) }));
+  }
+  /** Můj rozpočet proti ceně cesty: null bez rozpočtu; jinak { left (záporné = o kolik dražší), over, pct – podíl 0–100 pro pruh }. */
+  function budgetLeft(total, budget) {
+    if (!(budget > 0)) return null;
+    const left = Math.round(budget - total);
+    return { left, over: left < 0, pct: Math.min(100, Math.max(0, Math.round(total / budget * 100))) };
+  }
+  // Můj rozpočet cesty (localStorage, jen v tomhle prohlížeči, ne v odkazu na cestu): klíč = cíl a den cesty tam –
+  // zůstane i po uložení do plánovače; jen posledních BUDGET_KEEP cest.
+  const BUDGET_LS = 'atlas_budget', BUDGET_KEEP = 20;
+  const budgetKey = t => {
+    const out = ovOn(t) ? t.overland.out : t.flight && t.flight.out;
+    return `${(t.dest && (t.dest.cc || '') + (t.dest.label || '')) || ''}:${(out && out.date) || ''}`.slice(0, 80);
+  };
+  function budgetStore() {
+    try { const s = JSON.parse(localStorage.getItem(BUDGET_LS)); return s && typeof s === 'object' && !Array.isArray(s) ? s : {}; } catch (e) { return {}; }
+  }
+  const budgetOf = t => { const x = budgetStore()[budgetKey(t)]; return x && x.czk > 0 ? x.czk : 0; };
+  function setBudget(t, czk) {
+    const s = budgetStore(), k = budgetKey(t);
+    if (czk > 0) s[k] = { czk: Math.round(czk), at: Date.now() }; else delete s[k];
+    for (const x of Object.keys(s).sort((a, b) => ((s[b] && s[b].at) || 0) - ((s[a] && s[a].at) || 0)).slice(BUDGET_KEEP)) delete s[x];
+    try { localStorage.setItem(BUDGET_LS, JSON.stringify(s)); } catch (e) { /* plné nebo zakázané úložiště – rozpočet jen do obnovení stránky */ }
+  }
+  /**
    * Přejezdy na trase přes víc míst (odhad ze serveru u každého přejezdu): autem palivo za auto i z letiště na 1. místo
    * a z posledního zpět, vlakem / busem jízdenky mezi místy na osobu (z a na letiště je v dopravě z letiště).
    */
@@ -1577,9 +1618,10 @@
     // místo načítané dopředu (warmStays, Vyber za mě) a jeho záložka se nezeptají dvakrát
     if (!retry && !fresh && staysLoading.has(key)) return staysLoading.get(key);
     const p = (async () => {
+      // 502–504 z Renderu při probouzení (HTML místo JSON) česky – ne „Unexpected token“ (výpadek sítě přeloží pwa.js)
       const r = await fetch('api/stays?' + new URLSearchParams({ ...params, ...(retry ? { retry: 1 } : {}), ...(fresh ? { fresh: 1 } : {}) }));
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j) throw new Error(j?.error || (r.ok || r.status >= 500 ? 'Server se právě probouzí nebo je přetížený – zkus to za chvíli znovu.' : `Chyba serveru (HTTP ${r.status}).`));
       if (retry) staysRetry = null;
       const d = { key, ...j, got: Date.now(), params: { ...params } };
       if (staysIncomplete(d)) staysCache.delete(key);
@@ -1674,13 +1716,19 @@
       try {
         staysData = await loadStays(key, params);
       } catch (e) {
-        if (T() === t && t.step === 'stay') $('#stayBody').innerHTML = `<div class="note warn">⚠️ <div>Nabídky se nepodařilo načíst: ${esc(e.message)}</div></div>`;
+        if (T() === t && t.step === 'stay') stayLoadFail(e);
         return;
       }
     }
     // Mezitím se změnil počet nocí (novější dotaz) nebo krok → tuhle odpověď nevykresluj.
     if (T() !== t || t.step !== 'stay' || !staysData || staysData.key !== key) return;
     renderStays();
+  }
+
+  // Nabídky ubytování se nenačetly: proč a „Zkusit znovu“ (chyba se nepamatuje – překreslení kroku se zeptá znovu).
+  function stayLoadFail(e, more = '') {
+    $('#stayBody').innerHTML = `<div class="note warn kiwi-note">⚠️ <div>Nabídky se nepodařilo načíst: ${esc(String(e.message || '').replace(/[.\s]+$/, ''))}. Mezitím můžeš níž zadat vlastní cenu.</div><button type="button" class="btn sm" id="stayErrRetry">↻ Zkusit znovu</button></div>${more}`;
+    $('#stayErrRetry').onclick = () => render();
   }
 
   // Stav ubytování místa trasy (v záložkách a ve shrnutí).
@@ -1756,7 +1804,7 @@
     try {
       data = await loadStays(key, params);
     } catch (e) {
-      if (T() === t && t.step === 'stay' && stayIdx === i) $('#stayBody').innerHTML = `<div class="note warn">⚠️ <div>Nabídky se nepodařilo načíst: ${esc(e.message)}</div></div>${linkGrid([{ name: 'Booking.com', note: 'hledání na tvoje data', url: baseSearchUrl(t, b, d) }], '#003580')}`;
+      if (T() === t && t.step === 'stay' && stayIdx === i) stayLoadFail(e, linkGrid([{ name: 'Booking.com', note: 'hledání na tvoje data', url: baseSearchUrl(t, b, d) }], '#003580'));
       return;
     }
     if (T() !== t || t.step !== 'stay' || stayIdx !== i) return;
@@ -2124,7 +2172,7 @@
         <input class="input" id="stayMax" type="number" min="0" step="100" placeholder="max Kč/noc" value="${stayView.maxNight || ''}" style="max-width:130px">
         <span class="faint" style="font-size:12px">${items.length} z ${main.length} nabídek${hideGuess ? ` · ${nGuess} bez ceny skryto` : ''}${split ? ` · ${inTown.length} v místě bez ceny` : ''}</span>
       </div>
-      <div class="stay-list">${items.slice(0, lim).map((h) => stayCard(h, d.items.indexOf(h), base, dq)).join('') || '<div class="empty">Filtrům nic neodpovídá.</div>'}</div>
+      <div class="stay-list">${items.slice(0, lim).map((h) => stayCard(h, d.items.indexOf(h), base, dq)).join('') || `<div class="empty">Filtrům nic neodpovídá. Uvolni hodnocení, max. cenu nebo typ ubytování.<div style="margin-top:10px"><button type="button" class="btn sm" id="stayClear">Zrušit filtry</button></div></div>`}</div>
       ${items.length > lim ? `<button type="button" class="more-btn" id="stayMoreN">▼ Další hotely (${items.length - lim})</button>` : ''}
       ${hideGuess ? `<button type="button" class="linkbtn st-guess-btn" id="stayGuess">Ukázat i ${nGuess} ${nGuess === 1 ? 'hotel' : nGuess <= 4 ? 'hotely' : 'hotelů'} bez ceny na tvoje dny (často obsazené)</button>` : ''}
       ${townHtml}
@@ -2137,6 +2185,8 @@
     $$('#stayMin button').forEach(b => b.onclick = () => { stayView.minRating = +b.dataset.v; stayView.n = 0; renderStays(); });
     const ty = $('#stayType'); if (ty) ty.onchange = e => { stayView.type = e.target.value; stayView.n = 0; renderStays(); };
     $('#stayMax').onchange = e => { stayView.maxNight = +e.target.value || null; stayView.n = 0; renderStays(); };
+    // filtry skryly všechno: hodnocení, max. cena a typ pryč jedním klepnutím (řazení zůstane)
+    const sc = $('#stayClear'); if (sc) sc.onclick = () => { Object.assign(stayView, { minRating: 0, maxNight: null, type: '', n: 0 }); renderStays(); };
     const mn = $('#stayMoreN'); if (mn) mn.onclick = () => { stayView.n = lim + 10; renderStays(); };
     const tn = $('#stayTownN'); if (tn) tn.onclick = () => { stayView.osm = d.key; renderStays(); };
     // hotely bez ceny jsou v pořadí až za limitem výpisu – ukázat celý seznam a posunout se k prvnímu z nich
@@ -2800,6 +2850,7 @@
         ${fees.map(x => `<tr class="entry-fee"><td>🛂</td><td>${esc(x.label)} <span class="faint">– vstupní poplatek, orientačně</span></td><td>+ ${czk(x.czk)}</td></tr>`).join('')}
         ${fees.length ? `<tr class="entry-tot"><td></td><td>Celkem i se vstupními poplatky</td><td>${czk(c.total + feeCzk)}</td></tr>` : ''}</table>
         <div class="faint" style="font-size:12px;margin-top:8px">${ov ? 'Vlak / bus: cena vybraného spoje RegioJetu, nebo odhad – jízdenky kup u dopravce.' : c.bags ? 'Zavazadla jsou odhad podle dopravce.' : t.bags && t.bags !== 'none' ? 'Zavazadlo je podle ceníku dopravce v ceně letenky.' : 'Letenky bez zavazadel.'} Ceny u partnerů ověř před zaplacením.</div>
+        ${budgetHtml(t, c)}
       </div>
       <div class="card step-card"><h3>✅ Co zarezervovat (v tomhle pořadí)</h3>
         ${steps.map((s, i) => `<label class="check"><input type="checkbox" data-bk="${esc(s.id)}" ${t.booked[s.id] ? 'checked' : ''}><span>${i + 1}. ${esc(s.label)}</span>${s.url ? `${affUrl(s.url) ? '<span class="ad-tag" style="margin-left:auto">reklama</span>' : ''}<a class="btn sm" href="${esc(safeUrl(s.url))}" target="_blank" rel="${affUrl(s.url) ? 'sponsored nofollow noopener' : 'noopener'}"${affUrl(s.url) ? '' : ' style="margin-left:auto"'}>Otevřít ↗</a>` : ''}</label>`).join('')}
@@ -2823,6 +2874,9 @@
     // odškrtnutá (i zase zrušená) letenka: „↻ Ověř cenu“ u ceny letenek zmizí (vrátí se) hned
     $$('[data-bk]', host).forEach(cb => cb.onchange = () => { t.booked[cb.dataset.bk] = cb.checked; persist(); if (/^flight\d+$/.test(cb.dataset.bk)) ageRefresh(); });
     wireAge();
+    // rozpočet se ukládá při psaní a přepíše se jen řádek pod polem (překreslení celého shrnutí by vzalo poli kurzor)
+    const est = budgetGroups(t, c).some(g => g.est);
+    $('#myBudget').oninput = () => { const v = Math.max(0, +$('#myBudget').value || 0); setBudget(t, v); $('#budgetOut').innerHTML = budgetOutHtml(c.total, v, est); };
     $('#sumSave').onclick = () => saveToPlanner();
     $('#sumShare').onclick = () => share();
     // odkaz se zkomprimuje hned, aby ho kliknutí jen zkopírovalo (Safari dovolí zápis do schránky jen v obsluze kliknutí)
@@ -2831,6 +2885,23 @@
     $('#sumNew').onclick = () => restart();
     // vstupní podmínky dorazily až po vykreslení → shrnutí znovu (jen když je pořád otevřené)
     if (window.Entry && !Entry.ready()) Entry.whenReady(() => { if ($('#tripEntry') && T() && T().step === 'summary') summaryStep(); });
+  }
+
+  /** Rozpočet ve Shrnutí: skupiny za osobu i celkem (odhady označené) a pole Můj rozpočet s pruhem. */
+  function budgetHtml(t, c) {
+    const g = budgetGroups(t, c), mine = budgetOf(t), est = g.some(x => x.est);
+    return `<div class="bud"><table class="cost bud-t"><tr class="bud-h"><td></td><td>Po položkách</td><td>na osobu</td><td>celkem</td></tr>
+      ${g.map(x => `<tr><td>${x.icon}</td><td>${esc(x.label)}${x.est ? ' <span class="faint">· odhad</span>' : ''}</td><td>${x.est ? '~' : ''}${czk(x.pp)}</td><td>${x.est ? '~' : ''}${czk(x.czk)}</td></tr>`).join('')}
+      <tr class="bud-sum"><td></td><td>Celkem${est ? ' <span class="faint">· s odhady</span>' : ''}</td><td>${czk(c.perPerson)}</td><td>${czk(c.total)}</td></tr></table>
+      <label class="bud-in"><span>Můj rozpočet</span><input class="input" id="myBudget" type="number" inputmode="numeric" min="0" step="1000" placeholder="Kč za celou cestu" value="${mine || ''}"></label>
+      <div id="budgetOut">${budgetOutHtml(c.total, mine, est)}</div></div>`;
+  }
+  /** Řádek pod polem Můj rozpočet: pruh (podíl ceny z rozpočtu) a kolik zbývá / o kolik je cesta dražší. */
+  function budgetOutHtml(total, mine, est) {
+    const b = budgetLeft(total, mine);
+    if (!b) return '<div class="faint bud-txt">Zadej, kolik chceš za cestu utratit – uvidíš, kolik zbývá.</div>';
+    return `<div class="bud-bar${b.over ? ' over' : ''}"><i style="width:${b.pct}%"></i></div>
+      <div class="bud-txt">${b.over ? `Cesta je o <b>${czk(-b.left)}</b> dražší než rozpočet` : `Zbývá <b>${czk(b.left)}</b> z ${czk(mine)}`}${est ? ' <span class="faint">(část cen je odhad)</span>' : ''}</div>`;
   }
 
   // Průběh cesty ve shrnutí: prvních TL_TOP řádků, zbytek pod „Zobrazit celý průběh“ (na telefonu by byl na 2 obrazovky)
@@ -3382,5 +3453,5 @@
   // Aplikace zavřená nebo znovu načtená dřív, než hledání doběhlo: na jeho konečný výsledek už cesta nepočká.
   if (typeof S !== 'undefined' && S && S.trip && S.trip.statsWait) { giveUpStats(S.trip); persist(); }
 
-  window.Trip = { start, flyOk, finalStats, statsGiveUp, openSaved, render: safeRender, ageRefresh, importFromHash, costs, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, legBack };
+  window.Trip = { start, flyOk, finalStats, statsGiveUp, openSaved, render: safeRender, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, legBack };
 })();

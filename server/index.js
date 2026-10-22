@@ -36,6 +36,7 @@ import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 import { serveIndex, serveServiceWorker } from './lib/pwa.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from './lib/mapy.js';
+import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -150,12 +151,13 @@ const stayChecks = new Map(); // ověření volna hotelu při výběru (/api/sta
 const explores = new Map(); // Objevuj (místa, program, výlety, kolo, pěšky): vlastní limit, do hledání se nepočítá
 const mapySugs = new Map(); // návrhy Mapy.com v hledání Objevuj (jen dotazy mimo mezipaměť serveru)
 const tileHits = new Map(); // dlaždice Mapy.com přes server (jen mimo mezipaměť serveru)
+const clientErrs = new Map(); // hlášení chyb z prohlížeče (/api/client-error): 30 za hodinu z jedné adresy
 const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
-function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
+function rateLimited(req, max = config.searchesPer10Min, bucket = hits, windowMs = 10 * 60e3) {
   if (!max) return false;
   const ip = clientIp(req);
   const now = Date.now();
-  const list = (bucket.get(ip) || []).filter((t) => now - t < 10 * 60e3);
+  const list = (bucket.get(ip) || []).filter((t) => now - t < windowMs);
   if (list.length >= max) return true;
   list.push(now);
   bucket.set(ip, list);
@@ -328,7 +330,24 @@ async function route(req, res) {
     // maps: mapové služby (Mapy.com) – mimo providers, ty jsou zdroje cen (Zdroje cen, průběh hledání);
     // feedback: adresa pro 💬 Napsat nám – jen když je FEEDBACK_EMAIL nastavená, jinak tlačítko v aplikaci chybí
     const feedback = config.feedbackEmail ? { feedback: { email: config.feedbackEmail } } : {};
-    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), maps: [mapyStatus()], fx: fxInfo(), cache: cache.stats(), ...feedback });
+    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), maps: [mapyStatus()], fx: fxInfo(), cache: cache.stats(), clientErrors: clientErrorCount(), ...feedback });
+  }
+  if (p === '/api/client-error') {
+    // Chyba z prohlížeče (public/js/errlog.js): jeden řádek do logu Renderu, v paměti posledních 50 – v /api/health
+    // jen jejich počet. Odpověď bez obsahu; klient na ni nečeká a nic neukazuje.
+    if (req.method !== 'POST') return sendJson(req, res, 405, { error: 'Jen POST' }, { Allow: 'POST' });
+    if (rateLimited(req, 30, clientErrs, 60 * 60e3)) return sendJson(req, res, 429, { error: 'Příliš mnoho hlášení' });
+    let b;
+    try {
+      b = JSON.parse((await readBody(req, CLIENT_ERR_MAX)) || 'null');
+    } catch (e) {
+      return sendJson(req, res, e instanceof UserError ? 413 : 400, { error: e instanceof UserError ? e.message : 'Neplatný JSON' });
+    }
+    const r = cleanReport(b);
+    const line = r && recordClientError(r);
+    if (line) console.warn(line);
+    res.writeHead(204, { 'Cache-Control': 'no-store' });
+    return res.end();
   }
   if (p === '/api/places') {
     const q = (url.searchParams.get('q') || '').slice(0, 80);

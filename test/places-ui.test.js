@@ -402,6 +402,13 @@ test('drobnosti: „varianta n/10“ u Jiné trasy, prázdný okruh, mapa bez po
   assert.match(T.emptyHtml(50, 'city'), /data-rad="100"/);
   assert.ok(!T.emptyHtml(100, 'city').includes('data-rad'), 'větší okruh už není');
   assert.ok(!T.emptyHtml(5, 'bike').includes('data-mode'), 'v jiném režimu bez tipu na režimy');
+  // prázdný program ve městě: větší okruh jen do 20 km (program dál nebere), vždy tip na jiný režim
+  const p3 = T.planEmptyHtml(3);
+  assert.match(p3, /Program není z čeho sestavit – v okruhu 3 km nejsou žádná místa\./);
+  assert.match(p3, /data-rad="20">Zvětšit okruh na 20 km</);
+  assert.deepEqual([...p3.matchAll(/data-mode="(\w+)"/g)].map((m) => m[1]), ['day', 'bike', 'hike']);
+  assert.ok(!T.planEmptyHtml(50).includes('data-rad'), 'z 50 km má program stejně jen místa do 20 km');
+  assert.match(T.planEmptyHtml(50), /v okruhu 20 km/);
 
   const blank = T.blankHtml(BCN_C);
   assert.match(blank, /🗺️ Mapa se nenačetla/);
