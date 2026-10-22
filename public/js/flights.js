@@ -235,7 +235,7 @@
   // databázi) jen když nic nenajdou
   async function resolvePlace(phrase, origin, near, signal, geo = true) {
     const look = remote => Promise.all(Smart.stems(phrase).map(q => placesFor(q, origin, near, signal, remote)
-      .then(items => ({ q, items }), e => { if (e.name === 'AbortError') throw e; return { q, items: [] }; })));
+      .then(items => ({ q, items, local: !remote }), e => { if (e.name === 'AbortError') throw e; return { q, items: [] }; })));
     // opravený překlep („do Barcleony“) až nakonec – skutečné místo z geokódování (vesnice toho jména) má přednost
     const loc = await look(false), found = Smart.bestPlace(loc);
     if (found) return found;

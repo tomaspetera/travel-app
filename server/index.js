@@ -394,7 +394,8 @@ async function route(req, res) {
     const mapy = url.searchParams.get('mapy') === '1' && mapyOn() && (mapySugCached(q) || !rateLimited(req, config.explorePer10Min, mapySugs));
     let items = [];
     try {
-      items = await geocodeExplore(q, { mapy });
+      // regions: oblast přesným názvem (Toskánsko, Kanáry) jako její hlavní město – jen hledání v Objevuj (mapy=1)
+      items = await geocodeExplore(q, { mapy, regions: url.searchParams.get('mapy') === '1' });
     } catch (e) {
       return sendJson(req, res, 502, { error: `Geokódování nedostupné: ${e.message}` });
     }

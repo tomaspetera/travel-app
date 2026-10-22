@@ -153,7 +153,9 @@ function localScored(query, home) {
   }
   for (const r of REGIONS) {
     const sc = Math.max(matchScore(q, r.cs), ...r.aliases.map((al) => matchScore(q, al)));
-    if (sc >= 60) push(regionSuggestion(r), sc, sc + 12);
+    // přesně jméno jednoho z letišť oblasti („Hurghada“ v Rudém moři): napřed to letiště, celá oblast hned za ním
+    const own = sc === 100 && r.airports.length > 1 && r.airports.some((c) => { const a = getAirport(c); return a && normalize(a.cityCs) === q; });
+    if (sc >= 60) push(regionSuggestion(r), sc, sc + (own ? -20 : 12));
   }
   // Velká města (metropole a města domova): jejich jmenovci jinde (London v Kanadě u „Londýn“) z návrhů vypadnou.
   const bigNames = new Set();
@@ -170,6 +172,7 @@ function localScored(query, home) {
   for (const [alias, id] of Object.entries(EXONYMS)) {
     const sc = matchScore(q, alias);
     if (sc < 80 || (sc < 100 && q.length < 4)) continue; // „Br“ je spíš Brno než Brussel
+    if (sc < 100 && alias.includes(' ') && !q.includes(' ')) continue; // „Nový“ ještě není Nový York (Nový Zéland)
     const [kind, code] = id.split(':');
     const m = kind === 'metro' ? METRO_BY_CODE.get(code) : null, a = kind === 'ap' ? AIRPORTS.get(code) : null;
     if (m) { push({ ...metroSuggestion(m), aliases: [alias] }, sc, sc + 15 + metroBonus(m) - distPenalty(home, m.lat, m.lon)); bigNames.add(alias); m.airports.forEach((x) => metroAirports.add(x)); }
@@ -205,6 +208,14 @@ function localScored(query, home) {
     for (const c of CONTINENTS) if (decl(c.cs, ...c.aliases)) add(continentSuggestion(c), 6);
     for (const m of METRO_BY_CODE.values()) if (decl(m.cs, m.en)) add(metroSuggestion(m), Math.min(10, metroBonus(m)), m.lat, m.lon);
     for (const c of CITIES) if (decl(c.cs, c.en)) add(citySuggestion(c), Math.min(10, popBonus(c.pop) + 3), c.lat, c.lon);
+    // víceslovné místní a české názvy („do Nového Yorku“, „z Frankfurtu nad Mohanem“)
+    for (const [alias, id] of Object.entries(EXONYMS)) {
+      if (!alias.includes(' ') || !decl(alias)) continue;
+      const [kind, code] = id.split(':');
+      const m = kind === 'metro' ? METRO_BY_CODE.get(code) : null, a = kind === 'ap' ? AIRPORTS.get(code) : null;
+      if (m) add(metroSuggestion(m), Math.min(10, metroBonus(m)), m.lat, m.lon);
+      if (a) add(airportSuggestion(a), Math.min(10, apBonus(a)), a.lat, a.lon);
+    }
   }
   // Překlep („Barcleona“, „Lodnýn“, „Amstrdam“): bez jiné shody slovo od 5 znaků podobné názvu země, oblasti, velkého
   // města nebo letiště (1 překlep, od 9 znaků 2; od 6 znaků i rozepsaný začátek názvu). První písmeno musí sedět a skóre je nízké –
@@ -378,24 +389,43 @@ export const mapySugCached = (q) => cache.get(mapySugKey(String(q || '').trim())
  * mapy: false (nebo bez klíče, výpadek, strop kreditů) = jen geocodePlaces. Návrhy Mapy.com mají src: 'mapy'
  * (u výsledků se pak ukáže logo Mapy.com – podmínka jejich API).
  */
-export async function geocodeExplore(query, { mapy = true } = {}) {
+export async function geocodeExplore(query, { mapy = true, regions = false } = {}) {
   const q = String(query || '').trim();
   const fromMapy = mapy && mapyOn() && q.length >= 2
     ? cache.wrap(mapySugKey(q), 7 * 864e5, () => mapySuggest(q, { limit: 6 })) : Promise.resolve([]);
-  const [om, my] = await Promise.allSettled([geocodePlaces(q), fromMapy]);
+  const [om, my, rg] = await Promise.allSettled([geocodePlaces(q), fromMapy, regions ? regionPlace(q) : null]);
   const extra = my.status === 'fulfilled' ? my.value : [];
-  if (om.status === 'rejected' && !extra.length) throw om.reason;
-  const base = om.status === 'fulfilled' ? om.value : [];
+  if (om.status === 'rejected' && !extra.length && !rg.value) throw om.reason;
+  let base = om.status === 'fulfilled' ? om.value : [];
+  if (rg.value) base = [rg.value, ...base.filter((x) => x.id !== rg.value.id)];
   if (!extra.length) return base; // bez Mapy.com přesně jako geocodePlaces
   const conv = extra.map((x) => ({
     id: `geo:${x.lat.toFixed(4)},${x.lon.toFixed(4)}|${x.name.replace(/\|/g, ' ')}`, type: 'place', label: x.name, flag: flag(x.cc),
     sub: [x.label, x.location].filter(Boolean).join(' · '), ...(x.cc ? { cc: x.cc } : {}), lat: x.lat, lon: x.lon, pop: 0, src: 'mapy',
   }));
-  const strong = base.filter((x) => x.fuzzy || x.pop >= 1000);
+  const strong = base.filter((x) => x.fuzzy || x.region || x.pop >= 1000);
   // stejné místo z obou zdrojů jednou; v rámci Mapy.com ne (hrad Karlštejn a obec Karlštejn jsou dvě místa)
   const dup = (a, b) => normalize(a.label) === normalize(b.label) && haversineKm(a.lat, a.lon, b.lat, b.lon) < 10;
   return [...strong, ...conv.filter((x) => !strong.some((y) => dup(x, y))),
     ...base.filter((y) => !strong.includes(y) && !conv.some((x) => dup(x, y)))].slice(0, 10);
+}
+
+/**
+ * Oblast nebo ostrov z vlastních dat přesným názvem („Toskánsko“, „Kanáry“, „Mallorka“, „Bavorsko“) pro hledání
+ * v Objevuj: geokodér je nezná, nebo vrátí jen střed správního celku na venkově. Místo toho město největšího letiště
+ * oblasti s jejím klíčem (okruh pak zůstane v oblasti) – stejně jako ✨ věta v Objevuj (public/js/places.js regionCity).
+ * Jinak null.
+ */
+async function regionPlace(query) {
+  const hit = localScored(query, CZ_CENTER).find((c) => c.m === 100 && c.s.type === 'region');
+  const r = hit && REGIONS.find((x) => `rg:${x.key}` === hit.s.id);
+  const a = r && getAirport(r.airports[0]);
+  if (!a) return null;
+  // „Kréta (Heraklion)“ → Heraklion (anglický název města letiště), „Florencie“ zůstane
+  const name = /\(.*\)$/.test(a.cityCs) ? a.city : a.cityCs;
+  const g = (await geocode(name).catch(() => [])).find((x) => normalize(x.label) === normalize(name) && haversineKm(a.lat, a.lon, x.lat, x.lon) < 60);
+  const p = g || { id: `geo:${a.lat.toFixed(4)},${a.lon.toFixed(4)}|${name}`, type: 'place', label: name, flag: flag(a.cc), cc: a.cc, lat: a.lat, lon: a.lon, pop: 0 };
+  return { ...p, region: r.key, sub: [r.cs, p.sub].filter(Boolean).join(' · ') };
 }
 
 /** Střed města z vlastních dat (města domova, metropole; jinak poloha letiště) – záloha bez sítě. */
