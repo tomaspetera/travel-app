@@ -128,6 +128,27 @@ test('searchStays: malé místo bez hotelů z TripAdvisoru → hotely s cenou z 
   }
 });
 
+test('searchStays: ubytování s názvem jen řecky (OpenStreetMap) se neslučují – stejný hotel od dvou zdrojů ano', async () => {
+  const prev = config.mock;
+  config.mock = true;
+  try {
+    // Pachino jako výš (TripAdvisor tu nic nemá → záloha z OpenStreetMap); dvě různá ubytování ve stejném pruhu šířky
+    const raw = { city: 'Pachino', cc: 'IT', lat: 36.7167, lon: 15.0907, checkin: ymdPlus(30), checkout: ymdPlus(36), adults: 1 };
+    const at = { lat: raw.lat, lon: raw.lon };
+    const gr = (name, dLon, id) => ({ category: 'tourism', type: 'guest_house', name, osm_type: 'node', osm_id: id, lat: String(raw.lat + 0.0011), lon: String(raw.lon + dLon), extratags: {} });
+    const lodging = async (q) => [
+      mapOsm(gr('Ξενώνας Μαρία', 0.004, 21), q, at),
+      mapOsm(gr('Δωμάτια Ελένη', 0.009, 22), q, at),
+      mapOsm(gr('Ξενώνας Μαρία', 0.0041, 23), q, at), // tentýž znovu (jiný záznam) → jednou
+    ];
+    const r = await searchStays(raw, { lodging });
+    const osm = r.items.filter((h) => h.provider === 'osm');
+    assert.deepEqual(osm.map((h) => h.name).sort(), ['Δωμάτια Ελένη', 'Ξενώνας Μαρία']);
+  } finally {
+    config.mock = prev;
+  }
+});
+
 test('searchStays: záloha z OpenStreetMap ne u LiteAPI a ne bez poskytovatele cen', async () => {
   const prev = { mock: config.mock, liteapiKey: config.liteapiKey, xotelo: config.xotelo };
   const calls = [];
