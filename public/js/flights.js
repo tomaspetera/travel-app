@@ -45,7 +45,7 @@
   const timeOf = l => l.hasTime ? l.dep.slice(11, 16) : '';
   // přílet další den (noční a dálkové lety) → „00:20 +1“
   const arrTime = l => l.arr && l.hasTime ? (l.arrEst ? '~' : '') + l.arr.slice(11, 16) + (l.arr.slice(0, 10) > l.date ? ` +${SearchHelp.diffDays(l.date, l.arr.slice(0, 10))}` : '') : '';
-  const dur = m => m ? `${Math.floor(m / 60)} h ${pad(m % 60)} min` : '';
+  const dur = m => m ? `${Math.floor(m / 60)}\u00a0h ${pad(m % 60)}\u00a0min` : ''; // jednotka se neodtrhne od čísla
   // Let z cache (Travelpayouts / Aviasales): cena z hledání jiných uživatelů; u přestupu bez věrohodné délky i přílet neznámý.
   const CACHE_TIP = 'Cena z vyhledávání jiných uživatelů Aviasales za posledních ~48 h – let i cenu před nákupem ověř.';
   const UNK_TIP = 'Přílet neznám: cache u letu s přestupem neuvádí věrohodnou délku cesty (nejspíš jen čas ve vzduchu bez přestupu) – ověř v rezervaci.';
@@ -2899,8 +2899,9 @@
   // z api/climate). Řádek { ic, b (HTML), s, title }.
   const dpWxRow = w => `<div class="dp-f" id="dpWx"${w.title ? ` title="${esc(w.title)}"` : ''}><span class="dp-fi" aria-hidden="true">${w.ic}</span><div><b>${w.b}</b><small>${esc(w.s)}</small></div></div>`;
   // Weather.summary („☀️ 22° · 💧 10 %“, „🌧️ prší 2 dny ze 3“) → ikona zvlášť, „Přes den ~22 °C · 💧 10 %“ jako průměr
-  const dpFc = (d, s) => { const [ic, ...w] = s.text.split(' '); return { ic, b: esc(cap(w.join(' ').replace(/^(-?\d+)°/, 'přes den ~$1 °C'))), s: `předpověď na ${d.d2 ? 'dny cesty' : 'první 3 dny'} (Open-Meteo)`, title: s.title }; };
-  const dpClim = (d, wait) => (d.tempHi != null ? { ic: '🌡️', b: `Přes den ~${Math.round(d.tempHi)} °C`, s: `dlouhodobý průměr v ${MNS_IN[+String(d.d1).slice(5, 7) - 1]} – ${wait ? 'předpověď se načítá' : 'není to předpověď'}` } : null);
+  // (°C s pevnou mezerou – na telefonu se jednotka neodtrhne od čísla)
+  const dpFc = (d, s) => { const [ic, ...w] = s.text.split(' '); return { ic, b: esc(cap(w.join(' ').replace(/^(-?\d+)°/, 'přes den ~$1\u00a0°C'))), s: `předpověď na ${d.d2 ? 'dny cesty' : 'první 3 dny'} (Open-Meteo)`, title: s.title }; };
+  const dpClim = (d, wait) => (d.tempHi != null ? { ic: '🌡️', b: `Přes den ~${Math.round(d.tempHi)}\u00a0°C`, s: `dlouhodobý průměr v ${MNS_IN[+String(d.d1).slice(5, 7) - 1]} – ${wait ? 'předpověď se načítá' : 'není to předpověď'}` } : null);
   async function dpWx(d) {
     if (!window.Weather || !wxGeo(d)) return null;
     if (wxWin(d.d1)) {
@@ -2911,7 +2912,7 @@
     if (d.tempHi != null) return dpClim(d, false);
     const n = await Weather.normal(d.lat, d.lon, d.d1).catch(() => null);
     if (!n || !Number.isFinite(+n.hi)) return null;
-    return { ic: '🌡️', b: `Přes den ~${Math.round(n.hi)} °C${Number.isFinite(+n.lo) ? `, v noci ~${Math.round(n.lo)} °C` : ''}`, s: `dlouhodobý průměr v ${MNS_IN[n.month]}${Number.isFinite(+n.p) ? `, srážky ~${Math.round(n.p)} mm za měsíc` : ''} – není to předpověď` };
+    return { ic: '🌡️', b: `Přes den ~${Math.round(n.hi)}\u00a0°C${Number.isFinite(+n.lo) ? `, v noci ~${Math.round(n.lo)}\u00a0°C` : ''}`, s: `dlouhodobý průměr v ${MNS_IN[n.month]}${Number.isFinite(+n.p) ? `, srážky ~${Math.round(n.p)} mm za měsíc` : ''} – není to předpověď` };
   }
   // Vlak/bus místo letadla (jako čip u cíle): „Vlakem/busem ~4 h 20 · tam i zpět běžně ~900 Kč“, pod tím proč (bez opakování)
   function dpGround({ x, ret, c }) {

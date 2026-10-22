@@ -4,8 +4,8 @@
    automatické využití dat nepovolují). Čistá logika nahoře jde testovat v node (test/ground-ui.test.js). */
 (function () {
   const kc = n => Math.round(n).toLocaleString('cs-CZ') + ' Kč';
-  /** „4 h 20“, „45 min“, „12 h“ */
-  const hm = m => { m = Math.round(+m || 0); const h = Math.floor(m / 60); return h ? `${h} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}` : `${m} min`; };
+  /** „4 h 20“, „45 min“, „12 h“ – s pevnými mezerami, na telefonu se nerozdělí na dva řádky */
+  const hm = m => { m = Math.round(+m || 0); const h = Math.floor(m / 60); return h ? `${h}\u00a0h${m % 60 ? '\u00a0' + String(m % 60).padStart(2, '0') : ''}` : `${m}\u00a0min`; };
   const KIND = { TRAIN: 'vlak', BUS: 'bus' };
   const kindsTxt = k => (k || []).map(x => KIND[x]).filter(Boolean).join(' + ') || 'vlak / bus';
   const kindIco = k => (k || []).includes('TRAIN') ? '🚆' : (k || []).includes('BUS') ? '🚌' : '🚆';

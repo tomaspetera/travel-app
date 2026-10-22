@@ -335,7 +335,7 @@ test('timeChips + activeFilters: čipy s počtem skrytých nabídek, popisky pod
   const chips = H.activeFilters(null, { excludeOrigins: new Set(), excludeCarriers: new Set(), time: f }, {}, { hidden: { tOut: 3, maxLay: 1 }, ret: true });
   assert.deepEqual(plain(chips.map((c) => [c.key, c.label, c.hidden])), [
     ['tOut', '🛫 odlet tam ráno, v noci', 3], ['tBack', '🛬 odlet zpět večer', 0], ['arrBy', 'přílet do 22:00', 0], ['stops', 'bez přestupu', 0],
-    ['maxDur', '⏱ cesta max. 6 h 30 min', 0], ['maxLay', '⌛ přestup max. 2 h', 1]]);
+    ['maxDur', '⏱ cesta max. 6\u00a0h 30\u00a0min', 0], ['maxLay', '⌛ přestup max. 2\u00a0h', 1]]);
   assert.ok(chips.every((c) => c.time && !c.rerun));
   const one = H.timeChips(tf({ out: ['afternoon'], back: ['morning'], arrBy: 24, stops: 1 }), { ret: false });
   assert.deepEqual(plain(one.map((c) => c.label)), ['🛫 odlet odpoledne', 'přílet před půlnocí', 'max. 1 přestup'], 'jen tam: bez filtru zpět');
@@ -360,7 +360,7 @@ test('reach: kdy vyrazit z domu a kdy budeš doma (odhad) – noc veřejnou dopr
   const at = (from, dep, extra) => ({ out: TL(from, 'BCN', dep, null, extra), back: null });
   const r = H.reach(at('VIE', '2026-11-12T06:30:00'), VIE, null);
   assert.deepEqual(plain([r.out.clock, r.out.min, r.out.early, r.out.warn, r.out.prevDay, r.out.text, r.back]), ['1:35', 95, true, true, false, '⏰ z domu už v 1:35', null]);
-  assert.equal(r.out.title, 'Odlet 06:30 − 2 h na letišti − ~2 h 55 min cesta na letiště VIE (vlak / bus a MHD, odhad) = vyrazit z domu ~1:35. Veřejná doprava v noci většinou nejede – ověř první spoj (IDOS), jinak taxi nebo noc u letiště.');
+  assert.equal(r.out.title, 'Odlet 06:30 − 2\u00a0h na letišti − ~2\u00a0h 55\u00a0min cesta na letiště VIE (vlak / bus a MHD, odhad) = vyrazit z domu ~1:35. Veřejná doprava v noci většinou nejede – ověř první spoj (IDOS), jinak taxi nebo noc u letiště.');
   // letiště ve tvém městě: v noci taxi, ne varování
   const prg = H.reach(at('PRG', '2026-11-12T06:00:00'), { mode: 'transit', local: true, minutes: 40 }, null).out;
   assert.deepEqual(plain([prg.clock, prg.early, prg.warn, prg.local]), ['3:20', true, false, true]);
@@ -368,7 +368,7 @@ test('reach: kdy vyrazit z domu a kdy budeš doma (odhad) – noc veřejnou dopr
   // se serverovým nightMin (čas autem): taxi ~25 min místo denní MHD 55 min
   const night = H.reach(at('PRG', '2026-11-12T06:00:00'), { mode: 'transit', local: true, minutes: 55, nightMin: 25 }, null).out;
   assert.deepEqual(plain([night.clock, night.taxi, night.warn, night.text]), ['3:35', true, false, '🚕 z domu ve 3:35']);
-  assert.match(night.title, /~25 min cesta na letiště PRG \(v noci taxi, odhad\).*Denní MHD by trvala ~55 min\./);
+  assert.match(night.title, /~25\u00a0min cesta na letiště PRG \(v noci taxi, odhad\).*Denní MHD by trvala ~55\u00a0min\./);
   const day = H.reach(at('PRG', '2026-11-12T10:00:00'), { mode: 'transit', local: true, minutes: 55, nightMin: 25 }, null).out;
   assert.deepEqual([day.clock, day.taxi], ['7:05', undefined], 've dne MHD');
   const car = H.reach(at('BRQ', '2026-11-12T06:00:00'), { mode: 'car', minutes: 130 }, null).out;
@@ -382,7 +382,7 @@ test('reach: kdy vyrazit z domu a kdy budeš doma (odhad) – noc veřejnou dopr
   // návrat: přílet + 45 min + cesta domů
   const back = H.reach({ out: TL('PRG', 'BCN', '2026-11-12T10:00:00', null), back: TL('BCN', 'VIE', '2026-11-15T20:40:00', '2026-11-15T23:30:00') }, null, VIE).back;
   assert.deepEqual(plain([back.clock, back.late, back.warn, back.text]), ['3:10', true, true, '🏠 domů až ~3:10']);
-  assert.match(back.title, /^Přílet 23:30 \+ 45 min na letišti \+ ~2 h 55 min cesta z letiště VIE domů \(vlak \/ bus a MHD, odhad\) = doma ~3:10\. Veřejná doprava v noci/);
+  assert.match(back.title, /^Přílet 23:30 \+ 45\u00a0min na letišti \+ ~2\u00a0h 55\u00a0min cesta z letiště VIE domů \(vlak \/ bus a MHD, odhad\) = doma ~3:10\. Veřejná doprava v noci/);
   const home = (arr) => H.reach({ out: TL('PRG', 'BCN', '2026-11-12T10:00:00', null), back: TL('BCN', 'VIE', '2026-11-15T18:00:00', arr) }, null, VIE).back;
   assert.deepEqual(plain(['2026-11-15T20:40:00', '2026-11-15T20:50:00', '2026-11-16T01:19:00', '2026-11-16T01:20:00'].map((a) => [home(a).clock, home(a).late])),
     [['0:20', false], ['0:30', true], ['4:59', true], ['5:00', false]], 'doma 0:30–5:00 = pozdě');
@@ -540,13 +540,13 @@ test('multiPlan: nejlevnější celá cesta přes víc měst podle výběru, cen
   // krok bez letů
   assert.equal(H.multiPlan([[100], []], [[[]]], []).best, null);
   // důvody česky
-  assert.match(H.multiWhy(no, 'prev'), /od příletu předchozího letu jen 1 h – potřeba aspoň 3 h/);
-  assert.match(H.multiWhy({ why: 'short', gapMin: 95, needMin: 300 }, 'next'), /do odletu vybraného dalšího letu jen 1 h 35 min – potřeba aspoň 5 h/);
-  assert.match(H.multiWhy({ why: 'short', gapMin: 40, needMin: 480, move: true }, 'prev'), /jen 40 min – s přejezdem do jiného města potřeba aspoň 8 h/);
+  assert.match(H.multiWhy(no, 'prev'), /od příletu předchozího letu jen 1\u00a0h – potřeba aspoň 3\u00a0h/);
+  assert.match(H.multiWhy({ why: 'short', gapMin: 95, needMin: 300 }, 'next'), /do odletu vybraného dalšího letu jen 1\u00a0h 35\u00a0min – potřeba aspoň 5\u00a0h/);
+  assert.match(H.multiWhy({ why: 'short', gapMin: 40, needMin: 480, move: true }, 'prev'), /jen 40\u00a0min – s přejezdem do jiného města potřeba aspoň 8\u00a0h/);
   assert.match(H.multiWhy({ why: 'early' }, 'prev'), /dřív, než vybraný předchozí let přistane/);
   assert.match(H.multiWhy({ why: 'nextday' }, 'prev'), /nejdřív další den/);
-  assert.equal(H.multiWhy({ why: 'unknown', gapMin: 630, needMin: 1440 }, 'prev'), 'vybraný předchozí let má přestup a neznámý přílet (z cache) – tenhle let nejdřív 24 h po jeho odletu');
-  assert.match(H.multiWhy({ why: 'unknown', needMin: 1440 }, 'next'), /^tenhle let má přestup a neznámý přílet \(z cache\) – další let nejdřív 24 h/);
+  assert.equal(H.multiWhy({ why: 'unknown', gapMin: 630, needMin: 1440 }, 'prev'), 'vybraný předchozí let má přestup a neznámý přílet (z cache) – tenhle let nejdřív 24\u00a0h po jeho odletu');
+  assert.match(H.multiWhy({ why: 'unknown', needMin: 1440 }, 'next'), /^tenhle let má přestup a neznámý přílet \(z cache\) – další let nejdřív 24\u00a0h/);
   assert.equal(H.multiWhy(null), '');
 });
 
@@ -991,10 +991,10 @@ test('originCompare: odkud se vyplatí letět – nejbližší (ne přestupní) 
   assert.equal(oc.win.iata, 'MUC');
   const vie = oc.rows[1];
   assert.deepEqual([vie.diff, vie.extraMin, vie.n, vie.mode, vie.minutes, vie.ref, vie.city], [-450, 160, 3, 'transit', 105, false, 'Vídeň']);
-  assert.equal(H.originDiffTxt(vie), '−450 Kč · +2 h 40 min cesty');
+  assert.equal(H.originDiffTxt(vie), '−450 Kč · +2\u00a0h 40\u00a0min cesty');
   assert.deepEqual([oc.rows[2].ref, oc.rows[2].diff, oc.rows[2].extraMin, H.originDiffTxt(oc.rows[2])], [true, null, null, 'nejbližší letiště']);
   assert.deepEqual([oc.rows[0].hub, oc.rows[0].mode, oc.rows[0].diff, oc.rows[3].czk, oc.rows[3].n], [true, null, -600, null, 0]);
-  assert.equal(H.originDiffTxt({ diff: 0, extraMin: -40 }), 'stejně · −40 min cesty');
+  assert.equal(H.originDiffTxt({ diff: 0, extraMin: -40 }), 'stejně · −40\u00a0min cesty');
   assert.equal(H.originDiffTxt({ diff: 1250, extraMin: 0 }), `+${kc(1250)}`);
   // jedním směrem: cesta na letiště jen tam
   assert.equal(plain(H.originCompare({ ...res, query: { trip: 'oneway' } })).rows[1].extraMin, 80);
@@ -1013,7 +1013,7 @@ test('originCompare: odkud se vyplatí letět – nejbližší (ne přestupní) 
   const pc = plain(H.originCompare({ ...res, origins: priced }));
   const pv = pc.rows.find((r) => r.iata === 'VIE');
   assert.deepEqual([pv.diff, pv.extraCzk], [-450, 660]);
-  assert.equal(H.originDiffTxt(pv), `−450 Kč (s dopravou +${kc(210)}) · +2 h 40 min cesty`);
+  assert.equal(H.originDiffTxt(pv), `−450 Kč (s dopravou +${kc(210)}) · +2\u00a0h 40\u00a0min cesty`);
   assert.equal(pc.rows.find((r) => r.iata === 'MUC').extraCzk, null, 'bez ceny dopravy nic');
   assert.equal(plain(H.originCompare({ ...res, query: { trip: 'oneway' }, origins: priced })).rows.find((r) => r.iata === 'VIE').extraCzk, 330, 'jen tam');
   const car = (fuel, park) => ({ mode: 'car', minutes: 60, czk: fuel, fuelCzk: fuel, parkBaseCzk: 0, parkDayCzk: park, adults: 1, tolls: [] });

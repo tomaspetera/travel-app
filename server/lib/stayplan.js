@@ -48,7 +48,8 @@ const routeFor = (routes, a, b) => routes?.get(routeKey(a, b)) ?? cachedRoute(a,
 // Odkazy do Google Map podle názvu (letiště podle kódu, město se zemí, je-li známá).
 const placeQ = (p) => (p.iata ? `${p.iata} airport` : [p.name, p.country].filter(Boolean).join(', '));
 const gmDir = (a, b, mode) => `https://www.google.com/maps/dir/?${new URLSearchParams({ api: '1', origin: placeQ(a), destination: placeQ(b), travelmode: mode })}`;
-const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`);
+// „~3 h 20 min“ v poznámce k trase: číslo a jednotka s pevnou mezerou (na telefonu se jednotka neodtrhne na další řádek)
+const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)}\u00a0h${m % 60 ? ` ${m % 60}\u00a0min` : ''}` : `${m}\u00a0min`);
 const minOf = (e, tr) => (tr === 'transit' ? e.transitMin : e.carMin);
 
 /**

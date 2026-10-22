@@ -52,10 +52,12 @@
   }
 
   /* ---------- text ---------- */
-  // Jen dobře utvořený Unicode (osamocené surrogaty pryč), bez řídicích znaků kromě tabulátoru a konce řádku.
+  // Jen dobře utvořený Unicode (osamocené surrogaty pryč), bez řídicích znaků kromě tabulátoru a konce řádku. Pevné
+  // mezery z textů aplikace („~45 min“, „733 Kč“ – kvůli zalamování na telefonu) jako obyčejné: v kalendáři i odkazu
+  // na Google Kalendář nejsou k ničemu a některé kalendáře je ukážou jako divný znak.
   const plain = s => String(s ?? '').normalize('NFC')
     .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDFFF]/g, m => m.length === 2 ? m : '')
-    .replace(/\r\n?/g, '\n').replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '');
+    .replace(/\r\n?/g, '\n').replace(/[\x00-\x08\x0b-\x1f\x7f]/g, '').replace(/[\u00a0\u202f]/g, ' ');
   // Zkrátit před čištěním – rozpůlený emoji (surrogate pár) plain() odstraní.
   const cut = (s, n) => plain(String(s ?? '').slice(0, n));
   /** Hodnota TEXT (RFC 5545 3.3.11): \ ; , a konce řádků escapovat. */

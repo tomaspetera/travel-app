@@ -379,7 +379,8 @@ function nowParts(x, now = Date.now()) {
     refs,
   };
 }
-const hmTxt = m => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`);
+// odpočet „za 2 h 5 min“: jednotka s pevnou mezerou, na úzkém telefonu se neodtrhne od čísla
+const hmTxt = m => (m >= 60 ? `${Math.floor(m / 60)}\u00a0h${m % 60 ? ` ${m % 60}\u00a0min` : ''}` : `${m}\u00a0min`);
 const dowLbl = ymd => { const d = new Date(ymd + 'T12:00:00'); return `${['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'][d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`; };
 const canCopy = () => Boolean(navigator.clipboard && navigator.clipboard.writeText);
 /** Karta „📍 Dnes na cestě“ (HTML). Hodiny a odpočet se doplňují každou minutu do [data-nw] (renderNow). */
@@ -395,7 +396,7 @@ function nowCard(x, p) {
   const head = x.home ? `🏠 Zpátky doma · <b>${esc(p.place)}</b> <span class="faint">· den ${x.day} z ${x.days}</span>`
     : x.on ? `📍 Dnes na cestě · den ${x.day} z ${x.days} · <b>${esc(p.place)}</b>`
     : `🧳 ${x.until === 1 ? 'Zítra' : `Za ${x.until} dny`} ${p.verb} · <b>${esc(p.place)}</b> <span class="faint">${dowLbl(t.start)}</span>`;
-  const h = Math.abs(p.shift) / 60, shift = `o ${String(h).replace('.', ',')} h ${p.shift < 0 ? 'méně' : 'víc'} než v Praze`;
+  const h = Math.abs(p.shift) / 60, shift = `o ${String(h).replace('.', ',')}\u00a0h ${p.shift < 0 ? 'méně' : 'víc'} než v Praze`;
   const meta = [
     p.ahead ? `<span>${p.ahead.l.ground ? '🚆 Odjezd' : '✈️ Odlet'} ${esc(p.ahead.l.from)} → ${esc(p.ahead.l.to)} <b data-nw="cd"></b></span>` : '',
     p.shift && !x.home ? `<span>🕐 ${x.on ? 'Místní čas <b data-nw="clock"></b> – ' : 'V cíli je '}${shift}</span>` : '',
@@ -511,7 +512,9 @@ function renderWhatsNew() {
   el.hidden = seen === WN_ID;
   if (el.hidden) return;
   const hide = () => { try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* nevadí */ } el.hidden = true; };
-  const li = x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${x[2]}</div></li>`;
+  // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
+  const unit = s => s.replace(/(\d) (?=(Kč|km|h|min|°C)(?![\p{L}]))/gu, '$1\u00a0').replace(/(\d\u00a0h) (?=\d)/g, '$1\u00a0');
+  const li = x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${unit(x[2])}</div></li>`;
   if (firstVisit(seen)) {
     el.classList.add('welcome');
     // „Odkud letíš?“ hned nahoře: jedno klepnutí nastaví domov a radar níž začne ukazovat lety (bez domova je prázdný
@@ -577,12 +580,17 @@ function tipPick(s, x, mem, today) {
   const k = DASH_TIPS.findIndex(t => t.id === m.id);
   return ok.find(t => DASH_TIPS.indexOf(t) > k) || ok[0] || null;
 }
+// Kopie atlas_tip v paměti: když localStorage nejde číst ani zapsat (soukromé okno, zablokované úložiště), ✕ by se
+// jinak nezapsalo a skrytý tip by se vrátil při dalším vykreslení Přehledu – takhle zůstane skrytý aspoň do obnovení.
+// Co se v tomhle sezení zapsalo, platí před tím, co je v úložišti (zápis tam mohl selhat).
+let tipMem = null;
 function renderDashTip() {
   const el = $('#dashTip'); if (!el) return;
   let mem = null, explore = false;
   try { mem = JSON.parse(localStorage.getItem('atlas_tip')); explore = localStorage.getItem('atlas_explore_v1') != null; } catch (e) { /* soukromé okno, poškozený zápis */ }
+  if (tipMem) mem = tipMem;
   const today = todayLocal(), tip = tipPick(S, { explore }, mem, today), hid = mem && Array.isArray(mem.hid) ? mem.hid : [];
-  const put = m => { try { localStorage.setItem('atlas_tip', JSON.stringify(m)); } catch (e) { /* nevadí */ } };
+  const put = m => { tipMem = m; try { localStorage.setItem('atlas_tip', JSON.stringify(m)); } catch (e) { /* nevadí – platí kopie v paměti */ } };
   el.hidden = !tip;
   if (!tip) { el.innerHTML = ''; return; }
   if (!mem || mem.day !== today || mem.id !== tip.id) put({ day: today, id: tip.id, hid });
