@@ -1,0 +1,284 @@
+// Zpět na telefonu (app.js: kroky historie sekcí, oken a průvodce Cestou) a další drobnosti cesty uživatele: uvítání
+// nového uživatele místo 50 novinek (wnMode), cesta z průvodce neuložená do plánovače na kartě „Dnes na cestě“
+// (Trip.unsavedNow) a sdílení odkazu nabídkou telefonu (ShareLink.send). Funkce z app.js jsou skutečné řádky vybrané
+// podle jména (celý app.js potřebuje DOM), historie prohlížeče je napodobená i s asynchronním návratem.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import { readFileSync } from 'node:fs';
+import { lisbon } from './fixtures/trips-now.js';
+
+const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
+const APP = src('app.js');
+/** Konstanty a funkce z app.js podle jména (jednořádkové i víceřádkové). */
+const pick = (...names) => names.map((n) => {
+  const m = APP.match(new RegExp(`^(const ${n} = (?:.*\\{\\n[\\s\\S]*?^\\};|.*)|function ${n}\\([^\\n]*\\}|function ${n}\\([\\s\\S]*?^\\})$`, 'm'));
+  assert.ok(m, `app.js: ${n}`);
+  return m[0];
+}).join('\n');
+const plain = (x) => JSON.parse(JSON.stringify(x));
+
+/**
+ * Aplikace v node:vm s napodobenou historií: pushState / replaceState hned, go(-n) až při tick() (jako v prohlížeči
+ * asynchronně) – pak popstate a při změně # hashchange (hashView). Návrat z prvního kroku = odchod z aplikace (exits).
+ */
+function app() {
+  const H = { list: [{ url: '', state: null }], i: 0, pending: [], exits: 0 };
+  const el = () => { const c = new Set(); return { innerHTML: '', scrollTop: 0, classList: { add: (k) => c.add(k), remove: (k) => c.delete(k), contains: (k) => c.has(k) } }; };
+  const els = { '#modalBg': el(), '#modal': el(), '#toast': el() };
+  const copy = (s) => (s == null ? null : structuredClone(s));
+  const ctx = {
+    console, structuredClone, setTimeout: () => 0, clearTimeout: () => {}, Number, Math, Boolean,
+    $: (s) => els[s], scrolls: [],
+    location: { get hash() { return H.list[H.i].url; } },
+    history: {
+      get state() { return H.list[H.i].state; },
+      pushState(st, t, url) { H.list = H.list.slice(0, H.i + 1); H.list.push({ url: url ?? H.list[H.i].url, state: copy(st) }); H.i++; },
+      replaceState(st, t, url) { H.list[H.i] = { url: url ?? H.list[H.i].url, state: copy(st) }; },
+      go(n) { H.pending.push(n); },
+      back() { H.pending.push(-1); },
+    },
+    window: { addEventListener() {}, scrollY: 0, scrollTo(x, y) { ctx.scrolls.push(y); } },
+    showNow() {},
+  };
+  ctx.Trip = ctx.window.Trip = {
+    step: 'flight',
+    stepTo(s) { if (s === ctx.Trip.step) return false; ctx.Trip.step = s; return true; },
+  };
+  vm.createContext(ctx);
+  vm.runInContext(`var activeView = 'dashboard'; var NAV = ['dashboard', 'flights', 'trip', 'explore', 'planner'].map(k => [k]);
+    // go() jako v app.js – jen pohled a jeho zápis do historie (stejný řádek jako v go)
+    function go(v, opts = {}) {
+      const from = activeView, y0 = Math.round(window.scrollY || 0);
+      activeView = v;
+      if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));
+    }`, ctx);
+  vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'histPop', 'hashView', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
+  // go() v app.js volá viewStep přes histDo – ověřit, že řádek ve stubu je opravdu ten z app.js
+  assert.ok(APP.includes("if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));"), 'go(): zápis do historie');
+  /** Prohlížeč dokončí naplánované návraty (každý svým popstate, pak hashchange). */
+  const tick = () => {
+    for (let k = 0; k < 20 && H.pending.length; k++) {
+      const n = H.pending.shift(), before = H.list[H.i].url;
+      if (H.i + n < 0) { H.exits++; continue; }
+      H.i += n;
+      ctx.histPop();
+      if (H.list[H.i].url !== before) ctx.hashView();
+    }
+  };
+  const back = () => { ctx.history.back(); tick(); };
+  const tap = (v, o) => { ctx.go(v, o); tick(); };
+  const view = () => vm.runInContext('activeView', ctx);
+  const modal = () => els['#modalBg'].classList.contains('show');
+  return { ctx, H, tick, back, tap, view, modal, trip: ctx.window.Trip };
+}
+
+test('Zpět: sekce z lišty vrátí na Přehled a teprve z něj aplikace skončí; přepínání sekcí historii nehromadí', () => {
+  const a = app();
+  a.tap('flights'); a.tap('trip'); a.tap('explore');
+  assert.equal(a.H.list.length, 2, 'Přehled + jeden krok sekce');
+  assert.equal(a.ctx.location.hash, '#explore');
+  a.back();
+  assert.equal(a.view(), 'dashboard');
+  assert.equal(a.H.exits, 0);
+  a.back();
+  assert.equal(a.H.exits, 1, 'z Přehledu Zpět aplikaci zavře');
+  // Přehled z lišty = krok sekce zpět (ne nový krok nad ní)
+  const b = app();
+  b.tap('flights'); b.tap('dashboard');
+  assert.equal(b.H.i, 0);
+  assert.equal(b.ctx.location.hash, '#dashboard');
+  b.back();
+  assert.equal(b.H.exits, 1);
+});
+
+test('Zpět: otevřené okno zavře a sekce zůstane; ✕ a hned jiná sekce nebo další okno historii nerozbijí', () => {
+  const a = app();
+  a.tap('flights');
+  a.ctx.modalOpen('<p>Info o zemi</p>');
+  assert.equal(a.H.list.length, 3);
+  a.back();
+  assert.equal(a.modal(), false);
+  assert.equal(a.view(), 'flights', 'Zpět zavřelo jen okno');
+  a.back();
+  assert.equal(a.view(), 'dashboard');
+  // ⋯ Další → dlaždice: modalClose(); go(…) – zápis sekce počká na návrat z kroku okna
+  const b = app();
+  b.ctx.modalOpen('<p>Další</p>');
+  b.ctx.modalClose(); b.ctx.go('planner'); b.tick();
+  assert.equal(b.ctx.location.hash, '#planner');
+  assert.deepEqual(plain(b.H.list.map((x) => x.url)), ['#dashboard', '#planner'], 'krok okna je pryč, sekce nad Přehledem');
+  b.back();
+  assert.equal(b.view(), 'dashboard');
+  assert.equal(b.H.exits, 0);
+  // ✕ a hned další okno (Přenos a záloha): Zpět zavře to nové
+  const c = app();
+  c.tap('flights');
+  c.ctx.modalOpen('<p>Další</p>');
+  c.ctx.modalClose(); c.ctx.modalOpen('<p>Záloha</p>'); c.tick();
+  assert.equal(c.modal(), true);
+  assert.equal(c.H.list.length, 3);
+  c.back();
+  assert.equal(c.modal(), false);
+  assert.equal(c.view(), 'flights');
+  // okno otevřené a zavřené dřív, než se stihl zapsat jeho krok: žádný návrat navíc (nevyjde z aplikace)
+  const d = app();
+  d.ctx.modalOpen('<p>1</p>');
+  d.ctx.modalClose(); d.ctx.modalOpen('<p>2</p>'); d.ctx.modalClose(); d.tick();
+  assert.equal(d.H.exits, 0);
+  assert.equal(d.H.i, 0);
+  // okno otevřené z okna (Info o zemi z náhledu) krok nepřidá
+  const e = app();
+  e.ctx.modalOpen('<p>A</p>'); e.ctx.modalOpen('<p>B</p>');
+  assert.equal(e.H.list.length, 2);
+});
+
+test('Zpět v průvodci Cestou: po krocích, kterými uživatel prošel, pak k výsledkům, ze kterých let je – i s posunem', () => {
+  const a = app();
+  a.tap('flights');
+  a.ctx.window.scrollY = 907; // uživatel sjel na nabídku
+  a.tap('trip', { drill: true }); // Vybrat a pokračovat
+  a.ctx.window.scrollY = 0;
+  const step = (s) => { a.ctx.histTrip(a.trip.step, s); a.trip.step = s; a.tick(); };
+  step('route'); step('stay'); step('car');
+  assert.equal(a.H.list.length, 4, 'Přehled, Lety, Cesta a jeden krok průvodce – ne krok na každý krok');
+  a.back(); assert.equal(a.trip.step, 'stay');
+  a.back(); assert.equal(a.trip.step, 'route');
+  a.back(); assert.equal(a.trip.step, 'flight');
+  assert.equal(a.view(), 'trip');
+  a.back();
+  assert.equal(a.view(), 'flights', 'zpět k výsledkům');
+  assert.equal(a.ctx.scrolls.at(-1), 907, 'na nabídku, ze které let je');
+  a.back();
+  assert.equal(a.view(), 'dashboard');
+  assert.equal(a.H.exits, 0);
+});
+
+test('průvodce: návrat lištou kroků cestu zkrátí, odchod z Cesty ji zahodí a sekce z lišty jde rovnou na Přehled', () => {
+  assert.deepEqual(new Function(`${pick('trailNext')}; return trailNext;`)()(['flight', 'route', 'stay'], 'car', 'route'), ['flight']);
+  assert.deepEqual(new Function(`${pick('trailNext')}; return trailNext;`)()(['flight'], 'route', 'stay'), ['flight', 'route']);
+  const a = app();
+  a.tap('trip');
+  const step = (s) => { a.ctx.histTrip(a.trip.step, s); a.trip.step = s; a.tick(); };
+  step('summary'); step('stay'); step('summary'); // ⚡ hotová cesta, pak Ubytování a zpět do Shrnutí
+  a.back();
+  assert.equal(a.trip.step, 'flight', 'Shrnutí → Let (bez kroužení přes Ubytování)');
+  a.back();
+  assert.equal(a.view(), 'dashboard');
+  // z kroku průvodce do Objevuj (lišta): Zpět → Přehled, ne zpět do průvodce
+  const b = app();
+  b.tap('trip');
+  b.ctx.histTrip('flight', 'route'); b.trip.step = 'route'; b.tick();
+  b.tap('explore');
+  assert.deepEqual(plain(b.H.list.slice(0, b.H.i + 1).map((x) => x.url)), ['#dashboard', '#explore']);
+  assert.deepEqual(plain(vm.runInContext('hist.trail', b.ctx)), []);
+  b.back();
+  assert.equal(b.view(), 'dashboard');
+  // 💾 Uložit do plánovače ze Shrnutí (krok z obsahu): Zpět vrátí do Shrnutí, další Zpět krok průvodce před ním
+  const d = app();
+  d.tap('trip');
+  d.ctx.histTrip('flight', 'summary'); d.trip.step = 'summary'; d.tick();
+  d.tap('planner', { drill: true });
+  d.back();
+  assert.equal(d.view(), 'trip');
+  assert.equal(d.trip.step, 'summary');
+  d.back();
+  assert.equal(d.trip.step, 'flight');
+  d.back();
+  assert.equal(d.view(), 'dashboard');
+  assert.equal(d.H.exits, 0);
+  // okno nad krokem průvodce: Zpět zavře okno, další Zpět vrátí krok
+  const c = app();
+  c.tap('trip');
+  c.ctx.histTrip('flight', 'route'); c.trip.step = 'route'; c.tick();
+  c.ctx.modalOpen('<p>Další</p>');
+  c.back();
+  assert.equal(c.modal(), false);
+  assert.equal(c.trip.step, 'route');
+  c.back();
+  assert.equal(c.trip.step, 'flight');
+});
+
+test('viewHist: lišta přepisuje krok sekce, obsah přidá krok, Přehled vrátí všechny kroky', () => {
+  const vh = new Function(`${pick('histDepth', 'viewHist')}; return viewHist;`)();
+  assert.deepEqual(vh('flights', null, ''), { back: 0, how: 'push' });
+  assert.deepEqual(vh('trip', { atlasV: 1 }, '#flights'), { back: 0, how: 'replace' });
+  assert.deepEqual(vh('trip', { atlasV: 1 }, '#flights', true), { back: 0, how: 'drill' });
+  assert.deepEqual(vh('explore', { atlasV: 3, atlasT: 1 }, '#trip'), { back: 2, how: 'replace' });
+  assert.deepEqual(vh('planner', { atlasV: 3, atlasT: 1 }, '#trip', true), { back: 0, how: 'drill' }, 'Uložit do plánovače ze Shrnutí');
+  assert.deepEqual(vh('dashboard', { atlasV: 2 }, '#trip'), { back: 2, how: 'replace' });
+  assert.deepEqual(vh('dashboard', null, '#dashboard'), { back: 0, how: 'replace' });
+  assert.deepEqual(vh('trip', { atlasV: 2 }, '#trip'), { back: 0, how: '' });
+});
+
+test('uvítání nového uživatele vydrží výběr domova i první hledání; novinky až s další sadou', () => {
+  const S = { home: null, trip: null, trips: [], recent: [], watch: [] };
+  const wnMode = new Function('S', `${pick('WN_NEW', 'firstVisit', 'wnMode')}; return wnMode;`)(S);
+  assert.equal(wnMode(null, 'A'), 'welcome', 'úplně nový');
+  S.home = { from: [{ id: 'city:PRG' }] }; S.recent = [{}];
+  assert.equal(wnMode('A+vitej', 'A'), 'welcome', 'po výběru domova a hledání pořád uvítání, ne 50 novinek');
+  assert.equal(wnMode('A', 'A'), '', 'Rozumím – skryté');
+  assert.equal(wnMode('A+vitej', 'B'), 'news', 'nová sada novinek');
+  assert.equal(wnMode(null, 'A'), 'news', 'dřívější uživatel bez záznamu');
+  assert.equal(wnMode('stará', 'A'), 'news');
+});
+
+test('📍 Dnes na cestě: cesta z průvodce bez uložení do plánovače → nabídka uložit (do 2 dnů před odletem až do návratu)', () => {
+  const ctx = { console, URLSearchParams, TextEncoder, TextDecoder, btoa, atob, navigator: {} };
+  ctx.window = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(pick('esc', 'enc', 'flag', 'safeUrl', 'cssUrl', 'pad', 'fmtYMD', 'fmtDate', 'czk'), ctx);
+  vm.runInContext(`var S = { trips: [] }, __go = [], __toasts = [];
+    var $ = () => ({ innerHTML: '', value: '' }); var $$ = () => []; var go = (v) => { __go.push(v); }; var save = () => {};
+    var toast = (m) => { __toasts.push(m); }; var confirm = () => true; var byIso = { PT: { cs: 'Portugalsko' } }; var PACK = ['Pas'];`, ctx);
+  for (const f of ['ics.js', 'planshare.js', 'backup.js', 'trip.js']) vm.runInContext(src(f), ctx, { filename: f });
+  vm.runInContext(pick('daysTo', 'inDays', 'nowUnsaved'), ctx);
+  const T = ctx.Trip;
+  ctx.S.trip = lisbon(); // 12. 11. – 17. 11.
+  assert.equal(T.unsavedNow('2026-11-09'), null, '3 dny před odletem ještě ne');
+  assert.deepEqual(plain(T.unsavedNow('2026-11-10')), { label: 'Lisabon', cc: 'PT', start: '2026-11-12', end: '2026-11-17' });
+  assert.ok(T.unsavedNow('2026-11-17'));
+  assert.equal(T.unsavedNow('2026-11-18'), null, 'po návratu ne');
+  const h = ctx.nowUnsaved('2026-11-14');
+  assert.match(h, /Cesta 🇵🇹 Lisabon právě probíhá/);
+  assert.match(h, /data-nw-save/);
+  assert.match(ctx.nowUnsaved('2026-11-11'), /začíná zítra/);
+  // uložení z karty: zůstane na Přehledu (bez přepnutí do plánovače), pak už se nenabízí
+  T.saveToPlanner({ stay: true });
+  assert.deepEqual(plain(ctx.__go), []);
+  assert.equal(ctx.S.trips.length, 1);
+  assert.equal(T.unsavedNow('2026-11-14'), null);
+  assert.equal(ctx.nowUnsaved('2026-11-14'), '');
+  // tlačítko ve Shrnutí dál otevře plánovač
+  T.saveToPlanner();
+  assert.deepEqual(plain(ctx.__go), ['planner']);
+  assert.equal(ctx.S.trips.length, 1, 'stejná cesta se aktualizuje');
+});
+
+test('ShareLink.send: na telefonu nabídka sdílení (zavřená nabídka nic nekopíruje), s myší a bez ní do schránky', async () => {
+  const load = ({ coarse, share }) => {
+    const copied = [], shared = [];
+    const ctx = { window: {}, TextEncoder, TextDecoder, btoa, atob, Blob, CompressionStream, DecompressionStream, location: { origin: 'https://atlas.example', pathname: '/' },
+      navigator: { clipboard: { writeText: async (u) => { copied.push(u); } }, ...(share ? { share: async (d) => { shared.push(d); if (share === 'abort') throw Object.assign(new Error('x'), { name: 'AbortError' }); } } : {}) },
+      matchMedia: (q) => ({ matches: q === '(pointer: coarse)' && coarse }) };
+    vm.createContext(ctx);
+    vm.runInContext(src('sharelink.js'), ctx);
+    return { L: ctx.window.ShareLink, copied, shared };
+  };
+  const json = JSON.stringify({ a: 1 });
+  const phone = load({ coarse: true, share: true });
+  assert.equal(phone.L.native(), true);
+  const r = await phone.L.send('trip', json, { title: 'T', text: 'X' });
+  assert.equal(r.shared, true);
+  assert.equal(phone.shared.length, 1);
+  assert.match(phone.shared[0].url, /^https:\/\/atlas\.example\/#trip=/);
+  assert.equal(phone.copied.length, 0);
+  const ab = load({ coarse: true, share: 'abort' });
+  assert.equal((await ab.L.send('trip', json)).aborted, true);
+  assert.equal(ab.copied.length, 0, 'rozmyslel si to – nic nekopírovat');
+  const pc = load({ coarse: false, share: true });
+  assert.equal(pc.L.native(), false);
+  assert.equal((await pc.L.send('plan', json)).copied, true);
+  assert.equal(pc.shared.length, 0);
+  assert.match(pc.copied[0], /#plan=/);
+});
