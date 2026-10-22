@@ -8,6 +8,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { config } from './config.js';
 import { suggest, describe, resolveOrigins, geocodeExplore, mapySugCached } from './lib/places.js';
+import { NATURE_KINDS } from './lib/names.js';
 import { search, UserError, legBagCzk } from './lib/search.js';
 import { stayProviders } from './providers/stays/index.js';
 import { activeProviders, providerStatus } from './providers/index.js';
@@ -721,6 +722,8 @@ async function route(req, res) {
       scenery: ['city', 'mixed', 'nature'].includes(b.scenery) ? b.scenery : 'mixed',
       hills: ['flat', 'normal', 'hilly'].includes(b.hills) ? b.hills : 'normal',
     };
+    // Pěšky u hor a přírody (Objevuj): start okruhu na parkovišti, nádraží nebo v obci u cíle; area = okruh oblasti (10/20 km).
+    if (hike && NATURE_KINDS.includes(b.nature)) q.area = Number(b.area) === 20 ? 20 : 10;
     // Kolo: typ kola; „vlakem tam, na kole zpět“ potřebuje i název a zemi domova (odkaz do IDOS).
     if (!hike) {
       Object.assign(q, { bike: String(b.bike || 'trekking'), kind: b.kind === 'train' ? 'train' : 'loop' });

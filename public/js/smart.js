@@ -521,16 +521,22 @@
     if (w.length !== 2) return [];
     const a = w[0], f = fold(a), cut = n => a.slice(0, -n);
     // přivlastňovací („Karlových“ → Karlovy) jinak než ostatní („Mariánských“ → Mariánské)
-    // 6. pád („v Českém Švýcarsku“ → České, Český), 4. pád ženského rodu („na Malou Fatru“ → Malá), přivlastňovací
-    // „Máchovu / Máchova jezera“ → Máchovo
-    const heads = /eho$/.test(f) ? [cut(3) + 'ý', cut(3) + 'é'] : /(ov|in)ych$/.test(f) ? [cut(3) + 'y'] : /ych$/.test(f) ? [cut(3) + 'é'] : /é$/.test(a) ? [cut(1) + 'á']
+    // 6. pád („v Českém Švýcarsku“ → České, Český) i 3. pád („k Bledskému jezeru“), 4. pád ženského rodu („na Malou
+    // Fatru“ → Malá), přivlastňovací „Máchovu / Máchova jezera“ → Máchovo
+    // množné číslo: „-ých“ (2. a 6. pád) i „-ým“ (3. pád, „k Plitvickým jezerům“) → -é (hory, Karpaty) i -á (střední rod:
+    // Plitvická jezera)
+    const heads = /e(ho|mu)$/.test(f) ? [cut(3) + 'ý', cut(3) + 'é'] : /(ov|in)ych$/.test(f) ? [cut(3) + 'y'] : /ych$/.test(f) ? [cut(3) + 'é', cut(3) + 'á']
+      : /ym$/.test(f) ? [cut(2) + 'é', cut(2) + 'á'] : /é$/.test(a) ? [cut(1) + 'á']
       : /em$/.test(f) ? [cut(2) + 'ý', cut(2) + 'é'] : /ou$/.test(f) ? [cut(2) + 'á'] : /(ov|in)[au]$/.test(f) ? [cut(1) + 'o'] : [];
     // podstatné jméno: zvláštní koncovky (Varů → Vary, Lázní → Lázně) první, pak tvary ze slovníku koncovek – u „-y“
     // ne useknuté („Hory“ → Hora, ne Hor), jinak i kratší (Jičína → Jičín, Boleslavi → Boleslav); 2. pád množného čísla
-    // bez koncovky po „-ých“ s -y („Bílých Karpat“ → Karpaty, „Krušných hor“ → hory)
+    // bez koncovky po „-ých“ s -y i -a („Bílých Karpat“ → Karpaty, „Krušných hor“ → hory, „Plitvických jezer“ → jezera);
+    // 3. pád množného čísla („jezerům“ → jezera, „stěnám“ → stěny)
     const n = w[1], nf = fold(n);
-    const nouns = [...new Set([...(/ů$/.test(n) ? [n.slice(0, -1) + 'y'] : []), ...(/ní$/.test(n) ? [n.slice(0, -1) + 'ě'] : []),
-      ...(/ych$/.test(f) && /[^aeiouy]$/.test(nf) && !/[aei]ch$/.test(nf) ? [n + 'y'] : []),
+    const nouns = [...new Set([...(/ym$/.test(f) && /um$/.test(nf) ? [n.slice(0, -2) + 'a', n.slice(0, -2) + 'y'] : []),
+      ...(/ym$/.test(f) && /am$/.test(nf) ? [n.slice(0, -2) + 'y'] : []),
+      ...(/ů$/.test(n) ? [n.slice(0, -1) + 'y'] : []), ...(/ní$/.test(n) ? [n.slice(0, -1) + 'ě'] : []),
+      ...(/ych$/.test(f) && /[^aeiouy]$/.test(nf) && !/[aei]ch$/.test(nf) ? [n + 'y', n + 'a'] : []),
       ...nominatives(n).slice(1).filter(x => !(/y$/.test(nf) && x.length < n.length) && fold(x) !== nf)])];
     // shoda rodu: Český + souhláska (Krumlov, ráj), České + -o/-e/-y (Švýcarsko, Lázně, Tatry), Kutná + -a, Máchovo + -o,
     // Karlovy + -y; ostatní dvojice až za nimi (pořadí jinak zůstává)

@@ -208,10 +208,25 @@ export function pickSights(q, km, variant = 0, { radius = Math.max(1.5, km / 6),
 }
 
 /**
+ * Směr okruhu ve stupních (BRouter „direction“: střed kružnice okruhu leží o poloměr tím směrem, start je na ní).
+ * Varianty 0–4 po 72° (trasy v mezipaměti platí), 5–9 mezi nimi. aim = cíl túry mimo start ({ bearing, km } – směr
+ * a vzdálenost od startu): varianty 0 a 1 vedou přes cíl z obou stran – start i cíl leží na kružnici o poloměru
+ * radiusKm (úhel od směru k cíli acos(km / 2R)); je-li cíl dál než průměr kružnice, okruh míří přímo k němu.
+ */
+export function loopDirection(variant, aim = null, radiusKm = 0) {
+  if (aim && variant < 2) {
+    const off = radiusKm > 0 ? (Math.acos(Math.min(1, aim.km / (2 * radiusKm))) * 180) / Math.PI : 0;
+    return Math.round((((aim.bearing + (variant ? -off : off)) % 360) + 360) % 360);
+  }
+  return (variant < 5 ? variant * 72 + 30 : (variant - 5) * 72 + 66) % 360;
+}
+
+/**
  * Okruh dané délky ze startu: „městem“ přes památky (když okruh přes ně vyjde rozumně dlouhý), jinak
  * round-trip BRouteru – body na kružnici o poloměru km / factor, při odchylce > 12 % jedna korekce.
+ * aim (jen pěšky u hor a přírody): cíl túry mimo start – směr okruhu podle loopDirection.
  */
-async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights, mapy }) {
+async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights, mapy, aim = null }) {
   const start = [Math.round(q.lon * 1e4) / 1e4, Math.round(q.lat * 1e4) / 1e4];
   const variant = Math.max(0, Math.round(Number(q.variant) || 0)) % 10 || 0;
   let r;
@@ -226,15 +241,15 @@ async function loopRoute(q, { km, profile, vars, pace = 1, factor, sights, mapy 
     }
   }
   if (!r) {
-    // Deset různých směrů: varianty 0–4 po 72° jako dřív (trasy v mezipaměti platí), 5–9 mezi nimi.
-    const direction = (variant < 5 ? variant * 72 + 30 : (variant - 5) * 72 + 66) % 360;
+    // Deset různých směrů (loopDirection); přes cíl túry se směr počítá pro každý poloměr (i po korekci délky).
+    const dir = (R) => loopDirection(variant, aim, R / 1000);
     const radius0 = (km * 1000) / factor;
     let radiusM = radius0;
     const lonlats = `${start[0]},${start[1]}`;
-    const alt = (R) => ({ routeType: mapy, start, round: { radiusM: R, direction } });
-    const tryRound = (R, fallback) => route({ profile, vars, lonlats, round: { radiusM: R, direction } }, pace, q.onMiss, alt(R))
+    const alt = (R) => ({ routeType: mapy, start, round: { radiusM: R, direction: dir(R) } });
+    const tryRound = (R, fallback) => route({ profile, vars, lonlats, round: { radiusM: R, direction: dir(R) } }, pace, q.onMiss, alt(R))
       .catch((e) => (isLimit(e) ? Promise.reject(e) : fallback));
-    r = await route({ profile, vars, lonlats, round: { radiusM, direction } }, pace, q.onMiss, alt(radiusM));
+    r = await route({ profile, vars, lonlats, round: { radiusM, direction: dir(radiusM) } }, pace, q.onMiss, alt(radiusM));
     if (Math.abs(r.km - km) / km > 0.12) {
       radiusM *= km / Math.max(1, r.km);
       // korekce může skončit na odříznuté cestě („target island“) – pak platí první trasa
@@ -272,22 +287,133 @@ export async function bikeLoop(q) {
   };
 }
 
-/** Pěší okruh – stejné volby jako na kole (bez typu kola), délka 2–40 km, čas chůze podle hikeMinutes. */
+/**
+ * Pěší okruh – stejné volby jako na kole (bez typu kola), délka 2–40 km, čas chůze podle hikeMinutes.
+ * q.area (hory a příroda z Objevuj, okruh oblasti 10/20 km): start na parkovišti, nádraží nebo v obci u cíle
+ * (trailheadFor) a okruh vede přes cíl; trailhead ve výsledku = odkud se jde (a jak blízko cíli okruh vede – miss).
+ */
 export async function hikeLoop(q) {
   const km = Math.min(40, Math.max(2, Number(q.km) || 10));
+  const th = q.area ? await trailheadFor(q, km) : null;
   // Pěšky vyjde okruh ~4,9× poloměr (změřeno: R 2,5 km → 12,2 km); památky v pěším dosahu.
-  const { r, start, variant, via } = await loopRoute(q, {
-    km, profile: HIKE.profile, vars: hikeVars(q.scenery, q.hills), factor: 4.9, mapy: HIKE.mapy,
+  const { r, start, variant, via } = await loopRoute(th ? { ...q, lat: th.lat, lon: th.lon } : q, {
+    km, profile: HIKE.profile, vars: hikeVars(q.scenery, q.hills), factor: HIKE_FACTOR, mapy: HIKE.mapy,
     sights: { radius: Math.max(1, km / 5), n: Math.min(8, Math.max(3, Math.round(km / 3))) },
+    aim: th ? { bearing: bearingDeg(th, q), km: th.km } : null,
   });
   return {
     ...r, minutes: hikeMinutes(r.km, r.ascent, r.descent), activity: 'hike', kind: 'loop',
     target: km, scenery: q.scenery || 'mixed', hills: q.hills || 'normal', variant,
     start: { lon: start[0], lat: start[1] }, via,
+    ...(th ? { trailhead: { ...th, miss: Math.round(missKm(r.geometry, q) * 10) / 10 } } : {}),
     mapyUrl: mapyUrl(start, r.geometry, 'hike'),
     googleUrl: googleUrl(start, r.geometry, 'walking'),
   };
 }
+const HIKE_FACTOR = 4.9;
+
+/* ---------- start túry u hor a přírody ---------- */
+// Střed místa v přírodě je vrchol, propast, skalní brána nebo hladina jezera – odtud se na túru nevyráží. Start: nejbližší
+// místo u cíle, kam se dá dojet autem nebo vlakem – parkoviště, nádraží a zastávky, obce a jejich části (Wikidata, stejný
+// zdroj jako nádraží u „vlakem tam“; zdarma a bez klíče). Nic vhodného (nebo Wikidata neodpoví) → start ve středu jako dřív.
+const TH_PARKING = ['Q6501349']; // parkoviště
+const TH_STATION = ['Q55488', 'Q55678', 'Q494829', 'Q953806']; // železniční stanice a zastávka, autobusové nádraží a zastávka
+// sídlo, vesnice, osada, město, obce a jejich části (Česko, Slovensko, Německo, Rakousko, Polsko, Itálie, Švýcarsko)
+const TH_TOWN = ['Q486972', 'Q532', 'Q5084', 'Q3957', 'Q515', 'Q15978299', 'Q5153359', 'Q61089180', 'Q6784672', 'Q262166', 'Q116457956',
+  'Q667509', 'Q3558970', 'Q747074', 'Q70208', 'Q15284'];
+// dotaz do 8 km od cíle (jeden na místo – start okruhu do 40 km bývá blíž); jen přímý druh (P31): s podtřídami
+// (P31/P279?) trvá dotaz u Sněžky 20 s a u Pravčické brány nedoběhne (živě 10/2026), takhle 3–6 s
+export const TRAILHEAD_KM = 8;
+const TH_WAIT_MS = 12000; // déle trasa na start nečeká – dotaz doběhne do mezipaměti a „Jiná trasa“ už start má
+
+function sparqlTrailheads(lat, lon, km, lang = '') {
+  return `SELECT ?item ?itemLabel ?coord ?sl ?t WHERE {
+  SERVICE wikibase:around {
+    ?item wdt:P625 ?coord .
+    bd:serviceParam wikibase:center "Point(${lon} ${lat})"^^geo:wktLiteral .
+    bd:serviceParam wikibase:radius "${km}" .
+  }
+  VALUES ?t { ${[...TH_PARKING, ...TH_STATION, ...TH_TOWN].map((t) => `wd:${t}`).join(' ')} }
+  ?item wdt:P31 ?t ; wikibase:sitelinks ?sl .
+  FILTER NOT EXISTS { ?item wdt:P576 [] }
+  FILTER NOT EXISTS { ?item wdt:P5817 ?closed . VALUES ?closed { ${CLOSED.map((x) => `wd:${x}`).join(' ')} } }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "cs,${lang ? `${lang},` : ''}en". }
+} LIMIT 3000`;
+}
+
+/** Řádky SPARQL → kandidáti { id, name, kind: 'parking' | 'station' | 'town', lat, lon, sitelinks } (druh: parkoviště > nádraží > obec). */
+export function trailheadRows(rows) {
+  const rank = { parking: 3, station: 2, town: 1 };
+  const by = new Map();
+  for (const b of rows) {
+    const id = String(b.item?.value || '').split('/').pop();
+    const name = b.itemLabel?.value;
+    const m = /Point\(([-\d.]+) ([-\d.]+)\)/.exec(b.coord?.value || '');
+    if (!id || !name || /^Q\d+$/.test(name) || !m) continue;
+    const t = String(b.t?.value || '').split('/').pop();
+    const kind = TH_PARKING.includes(t) ? 'parking' : TH_STATION.includes(t) ? 'station' : 'town';
+    const o = by.get(id);
+    if (o) { if (rank[kind] > rank[o.kind]) o.kind = kind; continue; }
+    by.set(id, { id, name, kind, lat: Number(m[2]), lon: Number(m[1]), sitelinks: Number(b.sl?.value) || 0 });
+  }
+  return [...by.values()];
+}
+
+/** Kandidáti na start túry do TRAILHEAD_KM od cíle (Wikidata; v mezipaměti 30 dní, prázdný výsledek hodinu). */
+export async function trailheadsNear(lat, lon, onMiss) {
+  const [la, lo] = [lat.toFixed(3), lon.toFixed(3)];
+  const key = `wdqs-trailheads:${la}:${lo}`;
+  missing(key, onMiss);
+  return cache.wrap(key, (v) => (v.length ? 30 * 864e5 : 3600e3),
+    async () => trailheadRows(await wdqs(sparqlTrailheads(la, lo, TRAILHEAD_KM, localLang(lat, lon)), 30000)));
+}
+
+// Parkoviště je start túry skoro vždycky, nádraží a zastávka pro cestu vlakem / autobusem taky: „blíž“ o 1 / 0,5 km než obec.
+const TH_BONUS = { parking: 1, station: 0.5, town: 0 };
+// Známější místo (aspoň 10 jazykových verzí: Špindlerův Mlýn vedle Bedřichova) o 0,3 km „blíž“, položka bez článku
+// (zdvojené „Kurort Rathen (Kr Pirna)“ vedle nádraží Kurort Rathen) o 0,2 km dál.
+const thScore = (c) => c.km - TH_BONUS[c.kind] - (c.sitelinks >= 10 ? 0.3 : c.sitelinks >= 1 ? 0 : -0.2);
+/**
+ * Start túry k cíli (target { lat, lon }) z kandidátů trailheadRows: nejblíž cíli (s bonusem parkoviště a nádraží), do maxKm.
+ * Obce a osady jen s aspoň dvěma jazykovými verzemi článku – horské osady bez silnice (Růžohorky, Sagesserovy boudy
+ * u Sněžky) mají jednu. Je-li u samotného cíle (do 0,5 km) cokoli z nich (Hallstatt, Punkevní žleb u Macochy), dá se
+ * dojet až k cíli a start zůstane ve středu → null; nic v dosahu → null. Výsledek { name, kind, lat, lon, km (od cíle) }.
+ */
+export function pickTrailhead(cands, target, { maxKm }) {
+  const all = (cands || []).filter((c) => c && c.name && Number.isFinite(c.lat) && Number.isFinite(c.lon) && TH_BONUS[c.kind] !== undefined)
+    .map((c) => ({ ...c, km: haversineKm(target.lat, target.lon, c.lat, c.lon) }));
+  if (all.some((c) => c.km < 0.5)) return null;
+  const best = all.filter((c) => c.km <= maxKm && (c.kind !== 'town' || c.sitelinks >= 2))
+    .sort((a, b) => thScore(a) - thScore(b) || b.sitelinks - a.sitelinks)[0];
+  return best ? { name: best.name, kind: best.kind, lat: best.lat, lon: best.lon, km: Math.round(best.km * 10) / 10 } : null;
+}
+
+/**
+ * Start túry pro okruh délky km: okruh dojde nejdál o průměr své kružnice (2 × km / 4,9) – start dál od cíle by ho minul;
+ * zároveň v okruhu oblasti (q.area). Wikidata déle než TH_WAIT_MS nebo chyba → null (start ve středu); limit dotazů ne.
+ */
+async function trailheadFor(q, km) {
+  const maxKm = Math.min(q.area, TRAILHEAD_KM, (0.95 * 2 * km) / HIKE_FACTOR);
+  let timer;
+  try {
+    const cands = await Promise.race([trailheadsNear(q.lat, q.lon, q.onMiss), new Promise((r) => { timer = setTimeout(r, TH_WAIT_MS, null); })]);
+    return cands ? pickTrailhead(cands, q, { maxKm }) : null;
+  } catch (e) {
+    if (isLimit(e)) throw e;
+    console.warn(`start túry: ${e.message}`);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Směr z a do b ve stupních (0 = sever, 90 = východ) – na pár kilometrů stačí rovinný odhad. */
+export function bearingDeg(a, b) {
+  const deg = (Math.atan2((b.lon - a.lon) * Math.cos((a.lat * Math.PI) / 180), b.lat - a.lat) * 180) / Math.PI;
+  return (deg + 360) % 360;
+}
+/** Nejmenší vzdálenost trasy (geometrie [lon, lat, …]) od bodu v km. */
+const missKm = (geometry, p) => geometry.reduce((m, g) => Math.min(m, haversineKm(p.lat, p.lon, g[1], g[0])), Infinity);
 
 // Nádraží v provozu – bez stavu užívání vyřazen z provozu, mimo provoz, zavřeno pro veřejnost, opuštěno, dočasně uzavřeno.
 const CLOSED = ['Q11639308', 'Q56651571', 'Q55570340', 'Q63065035', 'Q55653430'];
@@ -459,13 +585,18 @@ export function mockBikeLoop(q) {
 
 export function mockHikeLoop(q) {
   const km = Math.min(40, Math.max(2, Number(q.km) || 10));
-  const geometry = mockRing(q, km, 40);
-  const start = [q.lon, q.lat];
+  // u hor a přírody (area) vymyšlené parkoviště jižně od cíle – kruh z něj dojde právě k cíli (průměr kruhu km / π)
+  const d = Math.round((km / Math.PI) * 10) / 10;
+  const th = q.area ? { name: 'Demo parkoviště', kind: 'parking', lat: Math.round((q.lat - d / 111) * 1e4) / 1e4, lon: q.lon, km: d } : null;
+  const from = th ? { lat: th.lat, lon: th.lon } : q;
+  const geometry = mockRing(from, km, 40);
+  const start = [from.lon, from.lat];
   const ascent = Math.round(km * 20);
   return {
     km, ascent, descent: ascent, minutes: hikeMinutes(km, ascent, ascent), unpavedPct: 45, cyclePct: 5, trailPct: 60, roadPct: 5, busyPct: 0, geometry,
     activity: 'hike', kind: 'loop', target: km, scenery: q.scenery || 'mixed', hills: q.hills || 'normal', variant: Number(q.variant) || 0,
-    start: { lon: q.lon, lat: q.lat }, via: [], mapyUrl: mapyUrl(start, geometry, 'hike'), googleUrl: googleUrl(start, geometry, 'walking'),
+    start: { lon: from.lon, lat: from.lat }, via: [], ...(th ? { trailhead: { ...th, miss: Math.round(missKm(geometry, q) * 10) / 10 } } : {}),
+    mapyUrl: mapyUrl(start, geometry, 'hike'), googleUrl: googleUrl(start, geometry, 'walking'),
   };
 }
 
