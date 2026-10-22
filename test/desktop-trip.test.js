@@ -27,7 +27,7 @@ test('desktop-trip.css: všechna pravidla jen v @media od 1024 px (telefon a tab
 
 test('desktop-trip.css: lišta kroků přilepená pod horní lištou, nižší fotka cíle, cena ve Shrnutí jen jednou', () => {
   assert.match(css, /#tripRoot>\.stepbar\{position:sticky;top:var\(--trip-bar\)/);
-  assert.match(css, /#tripRoot>\.trip-head\{min-height:0;height:150px/);
+  assert.match(css, /#tripRoot>\.trip-head\{min-height:150px;height:auto;padding:66px 24px 18px/);
   assert.match(css, /#tripRoot\[data-step=summary\] \.th-total\{display:none\}/);
   // přilepený obsah (přehled vpravo, mapa programu, pravý sloupec Shrnutí) až pod lištou kroků
   assert.match(css, /--trip-stick:160px/);
