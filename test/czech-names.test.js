@@ -136,7 +136,7 @@ test('Objevuj: oblast přesným názvem → město jejího největšího letišt
     const first = async (q, regions = true) => (await geocodeExplore(q, { mapy: false, regions }))[0];
     for (const [q, label, region] of [['Toskánsko', 'Florencie', 'toskansko'], ['Kanáry', 'Tenerife', 'kanary'], ['Mallorka', 'Mallorca', 'mallorca'],
       ['Kréta', 'Heraklion', 'kreta'], ['Korsika', 'Ajaccio', 'korsika'], ['Bavorsko', 'Mnichov', 'bavorsko'], ['Tyrolsko', 'Innsbruck', 'tyrolsko'],
-      ['Sicílie', 'Palermo', 'sicilie'], ['Sardinie', 'Cagliari', 'sardinie'], ['Dolomity', 'Verona', 'dolomity']]) {
+      ['Sicílie', 'Palermo', 'sicilie'], ['Sardinie', 'Cagliari', 'sardinie']]) {
       const s = await first(q);
       assert.deepEqual([s?.label, s?.region], [label, region], q);
       assert.ok(Number.isFinite(s.lat) && Number.isFinite(s.lon), q);
@@ -144,6 +144,8 @@ test('Objevuj: oblast přesným názvem → město jejího největšího letišt
     assert.equal((await first('Tosk'))?.region, undefined, 'začátek názvu ne – jen přesná shoda');
     assert.equal((await first('Toskánsko', false))?.region, undefined, 'bez regions (api/geocode bez mapy=1) beze změny');
     assert.equal((await first('Benátky')).label, 'Benátky', 'město zůstává městem');
+    // Dolomity jsou i hory (server/lib/names.js NATURE): napřed hory, ne Verona (test/nature.test.js)
+    assert.deepEqual([(await first('Dolomity'))?.label, (await first('Dolomity'))?.nature], ['Dolomity', 'range']);
   } finally {
     config.mock = mock;
   }

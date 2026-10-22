@@ -10,7 +10,7 @@
 import {
   AIRPORTS, COUNTRIES, COUNTRY_BY_ISO, METRO_BY_CODE, airportsInCountry, airportsNear, getAirport, sizePenaltyKm,
 } from './airports.js';
-import { CITIES, COUNTRY_ALIASES, EXONYMS, REGIONS } from './names.js';
+import { CITIES, COUNTRY_ALIASES, EXONYMS, NATURE, REGIONS } from './names.js';
 import { CONTINENTS, CONTINENT_BY_KEY, continentCountries } from './longhaul.js';
 import { haversineKm, normalize } from './geo.js';
 import { airportAccess } from './access.js';
@@ -128,6 +128,32 @@ function continentSuggestion(c) {
 
 function regionSuggestion(r) {
   return { id: `rg:${r.key}`, type: 'region', label: r.cs, flag: r.flag || '🏝️', sub: `region · ${r.airports.join(', ')}`, aliases: r.aliases };
+}
+
+const NATURE_FLAG = { range: '⛰️', peak: '🏔️', park: '🏞️', cave: '🕳️', rocks: '🪨', lake: '🌊' };
+/** Místo v přírodě jako geokódované místo (geo: ID) – nature = druh (Objevuj podle něj volí pěšky a okruh km). */
+function natureSuggestion(n) {
+  return {
+    id: `geo:${n.lat.toFixed(4)},${n.lon.toFixed(4)}|${n.cs}`, type: 'place', label: n.cs, flag: NATURE_FLAG[n.kind] || '📍', cc: n.cc,
+    sub: [n.sub, COUNTRY_BY_ISO.get(n.cc)?.cs].filter(Boolean).join(' · '), lat: n.lat, lon: n.lon, pop: 0, nature: n.kind, km: n.km,
+    aliases: n.aliases || [],
+  };
+}
+
+/**
+ * Hory, národní parky, jeskyně a jezera (NATURE) pro Objevuj: { s: návrh, exact } – přesný název nebo jiný název / tvar
+ * z věty (exact: true), od 4 znaků i začátek názvu (rozepsané „Krkon“). Přesné shody první. Pole letů ji nevolají.
+ */
+export function natureMatches(query) {
+  const q = normalize(query);
+  if (q.length < 3) return [];
+  const out = [];
+  for (const n of NATURE) {
+    const names = [n.cs, ...(n.aliases || [])].map(normalize);
+    const exact = names.includes(q);
+    if (exact || (q.length >= 4 && names.some((x) => x.startsWith(q)))) out.push({ s: natureSuggestion(n), exact });
+  }
+  return [...out.filter((x) => x.exact), ...out.filter((x) => !x.exact)];
 }
 
 /** Kandidáti z vlastních dat: { s: návrh, m: shoda názvu (100/80/60/30), score: m + velikost − vzdálenost }. */
@@ -391,23 +417,44 @@ export const mapySugCached = (q) => cache.get(mapySugKey(String(q || '').trim())
  */
 export async function geocodeExplore(query, { mapy = true, regions = false } = {}) {
   const q = String(query || '').trim();
+  // regions (hledání v Objevuj) i hory a příroda z vlastního seznamu (Sněžka, Šumava, „Krkon…“)
+  const nat = regions ? natureMatches(q) : [];
+  const natExact = nat.some((x) => x.exact);
   const fromMapy = mapy && mapyOn() && q.length >= 2
     ? cache.wrap(mapySugKey(q), 7 * 864e5, () => mapySuggest(q, { limit: 6 })) : Promise.resolve([]);
-  const [om, my, rg] = await Promise.allSettled([geocodePlaces(q), fromMapy, regions ? regionPlace(q) : null]);
+  // oblast stejného jména jako hory (Dolomity): napřed hory – město největšího letiště oblasti (Verona) do hor nevede
+  const [om, my, rg] = await Promise.allSettled([geocodePlaces(q), fromMapy, regions && !natExact ? regionPlace(q) : null]);
   const extra = my.status === 'fulfilled' ? my.value : [];
-  if (om.status === 'rejected' && !extra.length && !rg.value) throw om.reason;
+  if (om.status === 'rejected' && !extra.length && !rg.value && !nat.length) throw om.reason;
   let base = om.status === 'fulfilled' ? om.value : [];
   if (rg.value) base = [rg.value, ...base.filter((x) => x.id !== rg.value.id)];
-  if (!extra.length) return base; // bez Mapy.com přesně jako geocodePlaces
-  const conv = extra.map((x) => ({
-    id: `geo:${x.lat.toFixed(4)},${x.lon.toFixed(4)}|${x.name.replace(/\|/g, ' ')}`, type: 'place', label: x.name, flag: flag(x.cc),
-    sub: [x.label, x.location].filter(Boolean).join(' · '), ...(x.cc ? { cc: x.cc } : {}), lat: x.lat, lon: x.lon, pop: 0, src: 'mapy',
-  }));
-  const strong = base.filter((x) => x.fuzzy || x.region || x.pop >= 1000);
   // stejné místo z obou zdrojů jednou; v rámci Mapy.com ne (hrad Karlštejn a obec Karlštejn jsou dvě místa)
   const dup = (a, b) => normalize(a.label) === normalize(b.label) && haversineKm(a.lat, a.lon, b.lat, b.lon) < 10;
-  return [...strong, ...conv.filter((x) => !strong.some((y) => dup(x, y))),
-    ...base.filter((y) => !strong.includes(y) && !conv.some((x) => dup(x, y)))].slice(0, 10);
+  let list = base; // bez Mapy.com přesně jako geocodePlaces
+  if (extra.length) {
+    const conv = extra.map((x) => ({
+      id: `geo:${x.lat.toFixed(4)},${x.lon.toFixed(4)}|${x.name.replace(/\|/g, ' ')}`, type: 'place', label: x.name, flag: flag(x.cc),
+      sub: [x.label, x.location].filter(Boolean).join(' · '), ...(x.cc ? { cc: x.cc } : {}), lat: x.lat, lon: x.lon, pop: 0, src: 'mapy',
+    }));
+    const strong = base.filter((x) => x.fuzzy || x.region || x.pop >= 1000);
+    list = [...strong, ...conv.filter((x) => !strong.some((y) => dup(x, y))),
+      ...base.filter((y) => !strong.includes(y) && !conv.some((x) => dup(x, y)))].slice(0, 10);
+  }
+  return nat.length ? withNature(list, nat) : list;
+}
+
+/**
+ * Hory a příroda v návrzích Objevuj: přesný název nahoře (Lipno v Polsku, Palavas-les-Flots nebo zastávka „Šumava“ až
+ * pod ním), rozepsaný začátek názvu za většími místy (u „Jese“ město Jeseník, pak Jeseníky). Totéž místo z geokodéru
+ * („Sněžka (1603 m)“ z Mapy.com) jednou a bez opravy překlepu – začátek skutečného názvu překlep není.
+ */
+function withNature(list, nat) {
+  const ns = nat.map((x) => x.s);
+  const same = (n, x) => normalize(String(x.label || '').replace(/\s*\(.*\)$/, '')) === normalize(n.label) && haversineKm(n.lat, n.lon, x.lat, x.lon) < 10;
+  const rest = list.filter((x) => !x.fuzzy && !ns.some((n) => same(n, x)));
+  const big = rest.findIndex((x) => !(x.region || x.pop >= 1000));
+  const at = big < 0 ? rest.length : big;
+  return [...nat.filter((x) => x.exact).map((x) => x.s), ...rest.slice(0, at), ...nat.filter((x) => !x.exact).map((x) => x.s), ...rest.slice(at)].slice(0, 10);
 }
 
 /**
@@ -447,7 +494,8 @@ const SKIP_FC = /^(AIRP|AIRF|AIRH|AIRB|MT|MTS|HLL|HLLS|PK|PPLX|ADM\d*H?)$/;
  * near = ID domova (ap:BRQ, geo:49.2,16.6|…, cc:CZ) pro pořadí podle vzdálenosti; role 'from' = pole Odkud.
  */
 // meta.geoErr = true: geokódování selhalo (výpadek, timeout) – návrhy jsou jen z vlastních dat
-export async function suggest(query, { limit = 8, remote = true, near = '', role = 'to', meta = {} } = {}) {
+// nature = true (jen Objevuj, místo z věty): navrch i hory a příroda přesným názvem nebo tvarem („Krkonoš“) – pole letů ne
+export async function suggest(query, { limit = 8, remote = true, near = '', role = 'to', meta = {}, nature = false } = {}) {
   const home = homePoint(near);
   const q = normalize(query);
   const cands = localScored(query, home);
@@ -488,7 +536,8 @@ export async function suggest(query, { limit = 8, remote = true, near = '', role
       kept.push(s);
     }
   }
-  return rank(cands, { role, limit });
+  const list = rank(cands, { role, limit });
+  return nature ? [...natureMatches(query).filter((x) => x.exact).map((x) => x.s), ...list].slice(0, limit) : list;
 }
 
 /** Najde popis místa podle ID (pro zobrazení štítku). */

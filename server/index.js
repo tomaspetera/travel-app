@@ -384,7 +384,8 @@ async function route(req, res) {
     const role = url.searchParams.get('role') === 'from' ? 'from' : 'to';
     // partial: geokódování teď nejde (návrhy jen z vlastních dat) – našeptávač to zkusí znovu
     const meta = {};
-    const items = await suggest(q, { remote, near, role, meta });
+    // nature=1: i hory a příroda přesným názvem (jen Objevuj – místo z věty), pole letů je nechtějí
+    const items = await suggest(q, { remote, near, role, meta, nature: url.searchParams.get('nature') === '1' });
     return sendJson(req, res, 200, { items, ...(meta.geoErr ? { partial: true } : {}) });
   }
   if (p === '/api/geocode') {
@@ -394,7 +395,8 @@ async function route(req, res) {
     const mapy = url.searchParams.get('mapy') === '1' && mapyOn() && (mapySugCached(q) || !rateLimited(req, config.explorePer10Min, mapySugs));
     let items = [];
     try {
-      // regions: oblast přesným názvem (Toskánsko, Kanáry) jako její hlavní město – jen hledání v Objevuj (mapy=1)
+      // regions: oblast přesným názvem (Toskánsko, Kanáry) jako její hlavní město a hory a příroda z vlastního seznamu
+      // (Sněžka, Šumava) – jen hledání v Objevuj (mapy=1)
       items = await geocodeExplore(q, { mapy, regions: url.searchParams.get('mapy') === '1' });
     } catch (e) {
       return sendJson(req, res, 502, { error: `Geokódování nedostupné: ${e.message}` });

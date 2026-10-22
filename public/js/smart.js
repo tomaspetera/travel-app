@@ -513,22 +513,34 @@
   /**
    * Dvouslovné jméno místa ve 2. pádě do 1. pádu i s přídavným jménem (pro geokódování, které tvary nezná):
    * „Kutné Hory“ → Kutná Hora, „Mariánských Lázní“ → Mariánské Lázně, „Nového Jičína“ → Nový Jičín, „Karlových Varů“
-   * → Karlovy Vary. Jen tvary, které se od napsaného liší; nejvýš 6.
+   * → Karlovy Vary, „v Českém Švýcarsku“ → České Švýcarsko, „k Máchovu jezeru“ → Máchovo jezero. Jen tvary, které se od
+   * napsaného liší, napřed ty se shodou rodu (Český Krumlov, České Švýcarsko – Objevuj zkouší jen první dva); nejvýš 4.
    */
   function placeForms(phrase) {
     const w = String(phrase || '').trim().split(/\s+/);
     if (w.length !== 2) return [];
     const a = w[0], f = fold(a), cut = n => a.slice(0, -n);
     // přivlastňovací („Karlových“ → Karlovy) jinak než ostatní („Mariánských“ → Mariánské)
-    const heads = /eho$/.test(f) ? [cut(3) + 'ý', cut(3) + 'é'] : /(ov|in)ych$/.test(f) ? [cut(3) + 'y'] : /ych$/.test(f) ? [cut(3) + 'é'] : /é$/.test(a) ? [cut(1) + 'á'] : [];
+    // 6. pád („v Českém Švýcarsku“ → České, Český), 4. pád ženského rodu („na Malou Fatru“ → Malá), přivlastňovací
+    // „Máchovu / Máchova jezera“ → Máchovo
+    const heads = /eho$/.test(f) ? [cut(3) + 'ý', cut(3) + 'é'] : /(ov|in)ych$/.test(f) ? [cut(3) + 'y'] : /ych$/.test(f) ? [cut(3) + 'é'] : /é$/.test(a) ? [cut(1) + 'á']
+      : /em$/.test(f) ? [cut(2) + 'ý', cut(2) + 'é'] : /ou$/.test(f) ? [cut(2) + 'á'] : /(ov|in)[au]$/.test(f) ? [cut(1) + 'o'] : [];
     // podstatné jméno: zvláštní koncovky (Varů → Vary, Lázní → Lázně) první, pak tvary ze slovníku koncovek – u „-y“
-    // ne useknuté („Hory“ → Hora, ne Hor), jinak i kratší (Jičína → Jičín, Boleslavi → Boleslav)
+    // ne useknuté („Hory“ → Hora, ne Hor), jinak i kratší (Jičína → Jičín, Boleslavi → Boleslav); 2. pád množného čísla
+    // bez koncovky po „-ých“ s -y („Bílých Karpat“ → Karpaty, „Krušných hor“ → hory)
     const n = w[1], nf = fold(n);
     const nouns = [...new Set([...(/ů$/.test(n) ? [n.slice(0, -1) + 'y'] : []), ...(/ní$/.test(n) ? [n.slice(0, -1) + 'ě'] : []),
+      ...(/ych$/.test(f) && /[^aeiouy]$/.test(nf) && !/[aei]ch$/.test(nf) ? [n + 'y'] : []),
       ...nominatives(n).slice(1).filter(x => !(/y$/.test(nf) && x.length < n.length) && fold(x) !== nf)])];
+    // shoda rodu: Český + souhláska (Krumlov, ráj), České + -o/-e/-y (Švýcarsko, Lázně, Tatry), Kutná + -a, Máchovo + -o,
+    // Karlovy + -y; ostatní dvojice až za nimi (pořadí jinak zůstává)
+    const agree = (h, x) => {
+      const e = fold(h).slice(-1), z = fold(x).slice(-1);
+      return e === 'y' ? (/ý$/.test(h) ? !/[aeiouy]/.test(z) : z === 'y') : e === 'e' ? /[oey]/.test(z) : e === z;
+    };
     const out = [];
-    for (const h of heads) for (const x of nouns) out.push(`${h} ${x}`);
-    return out.slice(0, 4);
+    for (const h of heads) for (const x of nouns) out.push([h, x, agree(h, x)]);
+    return out.sort((p, q) => q[2] - p[2]).map(([h, x]) => `${h} ${x}`).slice(0, 4);
   }
 
   // Objevuj: druh plánu podle slov ve větě
