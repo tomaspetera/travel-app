@@ -800,3 +800,51 @@ test('v noci taxi: Atény – noční cena jen 0–5 h (přílet ve 23:30 denní
     assert.equal(tot, cc.total);
   }
 });
+
+test('shrnutí: rozpočet po položkách za osobu i celkem (odhady označené) a Můj rozpočet – kolik zbývá / o kolik dražší', () => {
+  const c = load();
+  const { costs, budgetGroups, budgetLeft } = c.window.Trip;
+  // Můj rozpočet: bez rozpočtu nic; zbývá; dražší (pruh plný, ne přes 100 %)
+  assert.equal(budgetLeft(20000, 0), null);
+  assert.equal(budgetLeft(20000, NaN), null);
+  assert.deepEqual(plain(budgetLeft(15000, 20000)), { left: 5000, over: false, pct: 75 });
+  assert.deepEqual(plain(budgetLeft(26000, 20000)), { left: -6000, over: true, pct: 100 });
+  assert.deepEqual(plain(budgetLeft(0, 20000)), { left: 20000, over: false, pct: 0 });
+  // let + trasa autem: letenky a zavazadla, ubytování (v Salcburku odhad), auto a přejezdy
+  const t = trip({ overland: OV({ on: false }), car: { mode: 'manual', totalCzk: 5000 } });
+  t.flight.bagCzk = 500;
+  t.route.bases[0].stay = { mode: 'manual', totalCzk: 4000, name: 'Hotel Wien' };
+  t.route.bases[1].stay = { mode: 'pick', totalCzk: 3000, name: 'Hotel Salzburg', est: true };
+  t.route.transfers[0].fuelCzk = 800; // palivo Vídeň → Salcburk (jinak počítá server)
+  const cc = costs(t), g = plain(budgetGroups(t));
+  assert.deepEqual(g.map((x) => x.label), ['Letenky a zavazadla', 'Ubytování', 'Auto a přejezdy'], 'prázdná doprava na letiště se nevypíše');
+  assert.deepEqual(g[0], { icon: '✈️', label: 'Letenky a zavazadla', czk: 7000, est: true, pp: 3500 });
+  assert.deepEqual(g[1], { icon: '🏨', label: 'Ubytování', czk: 7000, est: true, pp: 3500 });
+  assert.equal(g[2].czk, 5000 + cc.transfers);
+  assert.ok(cc.transfers > 0 && g[2].est, 'přejezdy jsou odhad');
+  assert.equal(g.reduce((s, x) => s + x.czk, 0), cc.total, 'skupiny dají dohromady Celkem');
+  // bez zavazadel a s ručně zadaným ubytováním: letenky i ubytování nejsou odhad
+  t.flight.bagCzk = 0; delete t.route.bases[1].stay.est;
+  const g2 = plain(budgetGroups(t));
+  assert.deepEqual(g2.slice(0, 2).map((x) => [x.label, x.est]), [['Letenky', false], ['Ubytování', false]]);
+  // vlak/bus z RegioJetu: skupina Vlak / bus bez odhadu, jen přejezdy
+  const ov = plain(budgetGroups(trip()));
+  assert.deepEqual(ov.map((x) => [x.label, x.est]), [['Vlak / bus', false], ['Přejezdy', true]]);
+  assert.equal(ov[0].czk, 299 * 2 * 2);
+  assert.equal(ov[0].pp, 299 * 2);
+  // ve shrnutí: tabulka po položkách, odhady s „~“ a pole Můj rozpočet
+  const h = render(c, t);
+  assert.ok(h.includes('<td>Po položkách</td><td>na osobu</td><td>celkem</td>'));
+  assert.match(h, /Auto a přejezdy <span class="faint">· odhad<\/span><\/td><td>~/);
+  assert.ok(h.includes('id="myBudget"'));
+  assert.ok(h.includes('Zadej, kolik chceš za cestu utratit'), 'bez rozpočtu jen nápověda');
+  // psaní do pole: řádek pod ním ukáže, o kolik je cesta dražší (localStorage v testu není – nevadí)
+  const kc = (n) => sp(vm.runInContext(`czk(${n})`, c)), total = costs(t).total; // už bez zavazadel
+  c.__els['#myBudget'].value = '1000';
+  c.__els['#myBudget'].oninput();
+  assert.ok(sp(c.__els['#budgetOut'].innerHTML).includes(`Cesta je o <b>${kc(total - 1000)}</b> dražší než rozpočet`));
+  assert.ok(c.__els['#budgetOut'].innerHTML.includes('class="bud-bar over"'));
+  c.__els['#myBudget'].value = String(total + 2000);
+  c.__els['#myBudget'].oninput();
+  assert.ok(sp(c.__els['#budgetOut'].innerHTML).includes(`Zbývá <b>${kc(2000)}</b>`));
+});
