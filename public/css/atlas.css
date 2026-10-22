@@ -642,6 +642,14 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .wn-ic{flex:none;width:22px;text-align:center}
 .wn-more{margin:-4px 0 12px}
 .wn-more>summary{font-size:13px;color:var(--muted)}
+/* 💡 Věděl jsi? (Přehled): jeden tip s tlačítkem a křížkem */
+.dash-tip{display:flex;gap:10px;align-items:flex-start;margin:14px 0;padding:12px 10px 12px 14px;font-size:13.5px;line-height:1.45}
+.dash-tip[hidden]{display:none}
+.dt-ic{flex:none;width:22px;text-align:center;font-size:17px}
+.dt-b{flex:1;min-width:0;overflow-wrap:anywhere}
+.dt-b .btn{margin-top:8px}
+.dt-x{flex:none;border:none;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;padding:6px 8px;border-radius:7px}
+.dt-x:hover,.dt-x:focus-visible{color:var(--text);background:var(--surface-2)}
 /* Vítej – první návštěva: 3 kroky místo seznamu novinek */
 .whats-new.welcome{padding:16px 16px 14px;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(52,211,153,.08))}
 .wc-h{font-size:16px;line-height:1.35;margin:0 0 12px}
