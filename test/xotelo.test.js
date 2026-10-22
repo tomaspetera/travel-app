@@ -1182,6 +1182,29 @@ test('„Ceny z“ a poznámka o poplatcích jen z hotelů, které filtry ukazuj
   c.__els['#stayMax'].onchange({ target: { value: '1' } });
   html = body();
   assert.ok(html.includes('Filtrům nic neodpovídá.') && !html.includes('Ceny z') && !html.includes('místních poplatků'));
+  // další krok tlačítkem: Zrušit filtry → zase všechny tři hotely
+  assert.match(html, /id="stayClear">Zrušit filtry</);
+  c.__els['#stayClear'].onclick();
+  html = body();
+  assert.ok(html.includes('Mosaic House') && html.includes('Hermitage') && !html.includes('Filtrům nic neodpovídá'), html.slice(0, 600));
+});
+
+test('nabídky ubytování se nenačetly: proč, další krok (vlastní cena) a ↻ Zkusit znovu, které se zeptá znovu', async () => {
+  const NET = 'Server ATLAS je teď nedostupný – zkontroluj připojení k internetu a zkus to znovu.';
+  const ok = xoteloReply([[LIST_PRAGUE[0], [{ code: 'BookingCom', name: 'Booking.com', rate: 70 }], Date.now()]]);
+  let reply = () => { throw new Error(NET); };
+  const c = loadTrip((u) => reply(u));
+  c.S.trip = pragueTrip();
+  c.window.Trip.render();
+  await tick();
+  let html = sp(c.__els['#stayBody'].innerHTML);
+  assert.ok(html.includes(`Nabídky se nepodařilo načíst: ${NET.slice(0, -1)}. Mezitím můžeš níž zadat vlastní cenu.`), html.slice(0, 600));
+  assert.match(html, /id="stayErrRetry">↻ Zkusit znovu</);
+  reply = () => ok;
+  c.__els['#stayErrRetry'].onclick();
+  await tick();
+  html = sp(c.__els['#stayBody'].innerHTML);
+  assert.ok(html.includes('Mosaic House Design Hotel') && !html.includes('nepodařilo načíst'), html.slice(0, 600));
 });
 
 test('ověření volna při výběru: ceny znovu (ne z mezipaměti) – vyprodáno, nová cena, nepovedlo se; kontrola vstupu', async () => {
