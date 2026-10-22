@@ -187,6 +187,25 @@ test('cesta přes víc měst: let z jiného města (Řím → let z Neapole) –
   assert.equal(n, 1);
 });
 
+test('cesta přes víc měst: s přejezdem na letiště jiného města se cesta z jeho města na letiště nepočítá dvakrát', () => {
+  // hledání má v ceně cestu do města na obou koncích letů: FCO 350 + NAP 140 (Neapol → letiště) + BCN 180 + GRO 120
+  const NAP = { iata: 'NAP', city: 'Neapol', mode: 'bus', how: 'autobus Alibus', czk: 140, min: 20, basis: 'table', lat: 40.85, lon: 14.27 };
+  const GRO = { iata: 'GRO', city: 'Girona', mode: 'bus', how: 'autobus', czk: 120, min: 25, basis: 'table', lat: 41.98, lon: 2.82 };
+  const gap = (fareCzk) => ({ km: 100, carMin: 80, transitMin: 75, transitKind: 'rail', fareCzk, basis: 'estimate' });
+  const c = load();
+  const t = begin(c, { mid: [{ ...MID, from: 'NAP' }], back: { ...BACK, from: 'GRO' } });
+  Object.assign(t.flight, { arrCzk: 350 + 140 + 180 + 120 });
+  t.arrival = { out: ARR.FCO, back: GRO, mid: [{ from: NAP, to: ARR.BCN }] };
+  // přejezdy ještě nespočítané: jízdné z města na letiště zůstává (jinak by cesta na letiště v ceně chyběla)
+  assert.deepEqual([c.window.Trip.costs(t).arrival, c.window.Trip.costs(t).transfers], [790 * 2, 0]);
+  // Řím → letiště NAP a Barcelona → letiště GRO spočítané: jízdenky jsou v přejezdech, Neapol → NAP ani Girona → GRO se nejede
+  t.route.gaps = { g0NAP: gap(620), g1GRO: gap(150) };
+  assert.deepEqual([c.window.Trip.costs(t).arrival, c.window.Trip.costs(t).transfers], [(350 + 180) * 2, (620 + 150) * 2]);
+  // nepovedený přejezd (false): cestu si naplánuje sám, jízdné z města letiště zůstane
+  t.route.gaps = { g0NAP: false, g1GRO: false };
+  assert.equal(c.window.Trip.costs(t).arrival, 790 * 2);
+});
+
 test('cesta přes víc měst jen tam (Praha → Řím → Barcelona): poslední město na zvolený počet nocí, bez letu zpět', () => {
   const c = load();
   const { Trip } = c.window;

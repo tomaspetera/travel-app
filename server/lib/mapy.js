@@ -250,7 +250,11 @@ function tilePut(key, e) {
     tileBytes -= old.body.length;
   }
 }
-export const tileCached = (t) => tiles.has(tileKey(t));
+// prošlá dlaždice (starší než den) se stáhne znovu za kredit – pro limit z jedné IP v mezipaměti není
+export const tileCached = (t) => {
+  const e = tiles.get(tileKey(t));
+  return Boolean(e) && Date.now() - e.at <= TILE_TTL;
+};
 export const tileStats = () => ({ tiles: tiles.size, bytes: tileBytes });
 
 /** Dlaždice z mezipaměti, jinak z Mapy.com (1 kredit) → { body: Buffer, type }. Chybová dlaždice (obrázek s textem chyby) se nevrací. */

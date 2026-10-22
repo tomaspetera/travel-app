@@ -107,6 +107,9 @@ test('popis jen anglicky: první věta se štítkem; sloučené části „Zahrn
   const castle = { id: 'Q1', name: 'Pražský hrad', category: 'castle', includes: ['Katedrála sv. Víta', 'Zlatá ulička', 'Starý královský palác', 'Bazilika sv. Jiří', 'Daliborka', 'Prašná věž', XSS] };
   const inc = T.inclHtml(castle, 'poi-inc');
   assert.match(inc, /^<div class="poi-inc">Zahrnuje: Katedrála sv\. Víta, Zlatá ulička, Starý královský palác, Bazilika sv\. Jiří, Daliborka a 2 další<\/div>$/);
+  // „a 5 dalších“, ne „a 5 další“
+  assert.match(T.inclHtml({ includes: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] }, 'x'), /E a 5 dalších<\/div>$/);
+  assert.match(T.inclHtml({ includes: ['A', 'B', 'C', 'D', 'E', 'F'] }, 'x'), /E a 1 další<\/div>$/);
   assert.equal(T.inclHtml({ includes: [] }, 'x'), '');
   assert.equal(T.inclHtml({ includes: 'x' }, 'x'), '', 'neznámý tvar se ignoruje');
   assert.match(T.poiCard(castle, {}), /Zahrnuje: Katedrála sv\. Víta/);

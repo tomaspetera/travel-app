@@ -394,18 +394,25 @@
     const a = !ovOn(t) && +t.flight.arrCzk > 0 && t.arrival && t.arrival[side], bs = t.route.bases, base = side === 'out' ? bs[0] : bs[bs.length - 1];
     return Boolean(a && Number.isFinite(a.lat) && base && distKm(base, a) <= 25);
   };
+  /** Trasa podle letů: z místa i se jede rovnou na letiště jiného města (spočítaný přejezd gapAt, jízdenka je v přejezdech). */
+  const gapDrop = (t, i) => isFly(t) && Boolean(gapLeg(t, gapAt(t, i === 'last' ? t.route.bases.length - 1 : i)));
   /** Úsek cesty z letiště do města, který odpadá: nahradí ho půjčené auto, nebo (trasa vlakem / busem) jízdenka
-   *  z letiště na 1. / z posledního místa mimo město letiště, která je v přejezdech trasy. */
+   *  z letiště na 1. / z posledního místa mimo město letiště, která je v přejezdech trasy; u trasy podle letů cesta
+   *  z města letiště odletu, když se na letiště jede rovnou z posledního místa (gapDrop). */
   const arrivalDrop = (t, side) => carCovers(t, side) || (isMulti(t) && t.route.transport === 'transit' && !arrCovers(t, side)
-    && ((t.route.legs || {})[side === 'out' ? 'arrival' : 'departure'] || {}).fareCzk > 0);
+    && ((t.route.legs || {})[side === 'out' ? 'arrival' : 'departure'] || {}).fareCzk > 0)
+    || (side === 'back' && gapDrop(t, 'last'));
   /**
    * Cesta z letiště do města a zpět, Kč/os. – jen byla-li v hledání (odhad „z letiště do města“, v ceně letenky není); úsek,
-   * který nahradí půjčené auto nebo jízdenka na trase, odpadá (starší cesta bez rozpisu po směrech: celá).
+   * který nahradí půjčené auto nebo jízdenka na trase, odpadá (starší cesta bez rozpisu po směrech: celá). Trasa podle letů:
+   * hledání počítá cestu do města na obou koncích každého letu – z města na letiště jiného města, kam se jede rovnou
+   * z místa trasy (přejezd v ceně trasy), odpadá taky.
    */
   function arrivalBase(t) {
     const all = +t.flight.arrCzk || 0, a = t.arrival || {};
     if (!all || (!a.out && !a.back)) return all;
-    return Math.max(0, all - (arrivalDrop(t, 'out') && a.out ? a.out.czk : 0) - (arrivalDrop(t, 'back') && a.back ? a.back.czk : 0));
+    const mids = Array.isArray(a.mid) ? a.mid.reduce((s, m, i) => s + (m && m.from && gapDrop(t, i) ? m.from.czk || 0 : 0), 0) : 0;
+    return Math.max(0, all - (arrivalDrop(t, 'out') && a.out ? a.out.czk : 0) - (arrivalDrop(t, 'back') && a.back ? a.back.czk : 0) - mids);
   }
   /** Totéž a úseky v noci k letišti s pevnou cenou taxi taxíkem místo MHD (nightTaxis). */
   function arrivalCzk(t) {

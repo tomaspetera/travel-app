@@ -233,10 +233,13 @@ export async function searchStays(raw, { english = englishName, partners = null,
       status.push({ id: osm.id, name: osm.name, ok: false, error: e.message || String(e), ms: Date.now() - t0 });
     }
   }
-  // Stejný hotel od více poskytovatelů → nech nejlevnější nabídku.
+  // Stejný hotel od více poskytovatelů → nech nejlevnější nabídku. Název bez diakritiky, ale s písmeny všech abeced –
+  // ubytování z OpenStreetMap v Řecku nebo Srbsku mívá název jen řecky / azbukou (s [a-z0-9] by z něj nezbylo nic
+  // a různá ubytování ve stejném pruhu šířky ~100 m by se sloučila do jednoho); bez názvu podle id.
   const best = new Map();
   for (const h of items) {
-    const k = `${h.name.toLowerCase().replace(/[^a-z0-9]+/g, '')}|${h.lat?.toFixed(3) ?? ''}`;
+    const n = String(h.name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]+/gu, '');
+    const k = n ? `${n}|${h.lat?.toFixed(3) ?? ''}` : `id:${h.id}`;
     const prev = best.get(k);
     if (!prev || (h.priceTotalCzk || Infinity) < (prev.priceTotalCzk || Infinity)) best.set(k, h);
   }

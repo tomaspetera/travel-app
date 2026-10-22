@@ -31,7 +31,13 @@ async function loadEcb() {
   return { base: 'EUR', rates: { ...FALLBACK_EUR, ...out }, source: 'ECB', date };
 }
 
+// Výpadek obou zdrojů se nikam neuloží – bez pojistky by každé hledání i /api/health znovu čekalo na timeouty
+// obou zdrojů (8 s × 2 pokusy u každého). Po neúspěchu se proto 15 min zůstává u dosavadních / orientačních kurzů.
+const FAIL_MS = 15 * 60e3;
+let failedUntil = 0;
+
 export async function loadRates() {
+  if (Date.now() < failedUntil) return rates;
   try {
     rates = await cache.wrap('fx:rates', 6 * 3600e3, async () => {
       try {
@@ -42,6 +48,7 @@ export async function loadRates() {
     });
   } catch {
     // Zůstaň u předchozích / orientačních kurzů.
+    failedUntil = Date.now() + FAIL_MS;
   }
   return rates;
 }
