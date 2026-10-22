@@ -66,7 +66,8 @@
     try {
       r = await fetch(url, opts);
     } catch (e) {
-      if (e.name === 'AbortError') throw e;
+      // zrušené, a česká hláška z pwa.js („Jsi offline“, server nedostupný, nic přes 2 min) – i s e.offline (Pwa.whenOnline)
+      if (e.name === 'AbortError' || e.name === 'NetworkError') throw e;
       throw new Error('Server teď neodpovídá – zkontroluj připojení a zkus to znovu.'); // místo anglického „Failed to fetch“
     }
     const j = await r.json().catch(() => ({}));
@@ -1325,6 +1326,8 @@
       if (body.isConnected) {
         body.innerHTML = errHtml('Místa se nepodařilo načíst', e.message, 'exRetry');
         $('#exRetry', body).onclick = () => loadExplore();
+        // offline: po návratu připojení načíst znovu samo (stejné místo, hláška ještě na obrazovce)
+        if (e.offline && window.Pwa && Pwa.whenOnline) Pwa.whenOnline('explore', () => { if (my === exSeq && body.isConnected && $('#exRetry', body)) loadExplore(); });
       }
       return;
     } finally {

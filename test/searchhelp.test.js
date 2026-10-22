@@ -652,6 +652,13 @@ test('lastPack/lastLoad: poslední výsledky – celé, zkrácené na 3 nabídky
   assert.ok(slim);
   assert.equal(JSON.parse(slim).res.groups[0].options.length, 3);
   assert.equal(JSON.parse(slim).res.groups.length, 20);
+  // nevejdou se ani 3 nabídky na cíl (Kamkoliv ze 6 letišť, 150 cílů): aspoň nejlevnější z každého cíle – po zavření
+  // aplikace (třeba na cestě bez signálu) výsledky zůstanou
+  const one = H.lastPack(c, slim.length - 1);
+  assert.ok(one, 'nejlevnější nabídka každého cíle se vejde');
+  assert.deepEqual(JSON.parse(one).res.groups.map((g) => g.options.map((o) => o.id).join()), Array(20).fill('t0'));
+  assert.equal(H.lastLoad(one, 1000 + 36e5).res.groups.length, 20, 'zkrácené se i obnoví');
+  assert.equal(H.lastPack(c, one.length - 1), null);
   assert.equal(H.lastPack(c, 100), null);
   const now = 1000 + 3 * 36e5;
   assert.equal(H.lastLoad(full, now).res.groups.length, 20);

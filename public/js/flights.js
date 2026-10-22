@@ -191,7 +191,9 @@
     const dec = new TextDecoder();
     let buf = '', result = null, error = null;
     for (; ;) {
-      const { value, done } = await reader.read();
+      // Spojení, které se uprostřed zaseklo (slabý signál), skončí po limitu bez dat chybou (pwa.js readOrStall) – jinak
+      // by „Hledám…“ viselo donekonečna a stejné hledání by nešlo spustit znovu (startSearch čeká na běžící).
+      const { value, done } = await (window.Pwa && Pwa.readOrStall ? Pwa.readOrStall(reader) : reader.read());
       if (done) break;
       buf += dec.decode(value, { stream: true });
       let i;
@@ -4248,6 +4250,9 @@
       if (radarWant === key) paintRadar(r, q);
     } catch (e) {
       if (radarWant !== key) return;
+      // nenačetl se jen kvůli výpadku připojení (hledání na server ani nedošlo): po návratu online znovu sám – jinak
+      // by „Jsi offline“ zůstalo, dokud uživatel neklepne; jinde než na přehledu ho načte příští otevření přehledu
+      if (e.offline && window.Pwa && Pwa.whenOnline) Pwa.whenOnline('radar', () => { if (radarWant === key && $('#view-dashboard.active')) renderRadar(); });
       if (old) paintRadar(old, q, { error: e.message });
       else {
         host.innerHTML = `<div class="note warn kiwi-note">⚠️ <div>Radar se nepodařilo načíst: ${esc(e.message)}</div><button type="button" class="btn sm" id="radarRetry">↻ Zkusit znovu</button></div>`;
