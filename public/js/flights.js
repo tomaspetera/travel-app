@@ -2480,9 +2480,10 @@
     const aDate = p.arr && p.hasTime ? p.arr.slice(0, 10) : p.date;
     const days = SearchHelp.diffDays(aDate, q.date);
     const city = res.legs[i - 1].to, from = res.legs[i].from;
-    const wall = s => Date.parse(String(s).slice(0, 16) + ':00Z');
+    // přes skutečné okamžiky v zóně města (jako server, multi.js legFits) – v noci změny času by ručičky lhaly o hodinu
+    const tz = p.toTz || q.fromTz, at = s => (tz && window.Ics ? Ics.localToUtc(String(s).slice(0, 16), tz) : null) ?? Date.parse(String(s).slice(0, 16) + ':00Z');
     let txt = days > 0 ? `🏙️ ${esc(city)}: ${nightsTxt(days)}`
-      : p.arr && p.hasTime && q.hasTime ? `⏱ ${hm(Math.max(0, Math.round((wall(q.dep) - wall(p.arr)) / 60000)))} na přestup` : '⏱ týž den';
+      : p.arr && p.hasTime && q.hasTime ? `⏱ ${hm(Math.max(0, Math.round((at(q.dep) - at(p.arr)) / 60000)))} na přestup` : '⏱ týž den';
     if (p.to !== q.from) txt += city === from ? ` · jiné letiště ${esc(p.to)} → ${esc(q.from)}` : ` · přejezd ${esc(city)} → ${esc(from)} (${esc(p.to)} → ${esc(q.from)}) vlastní dopravou`;
     return `<div class="mc-gap">${txt}</div>`;
   }

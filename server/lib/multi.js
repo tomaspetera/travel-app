@@ -25,7 +25,6 @@ export const MULTI = {
   departures: 2,
 };
 
-const localMs = (s) => Date.parse(`${String(s).slice(0, 16)}:00Z`);
 const arrDate = (l) => (l.arr ? String(l.arr).slice(0, 10) : l.date);
 const legSig = (l) => `${l.from}|${l.to}|${l.dep}|${carrierFamily(l.carrier)}|${l.stops}`;
 
@@ -50,7 +49,10 @@ export function legFits(prev, next) {
   const sameCity = sameAp || destKey(prev.to) === destKey(next.from);
   const timed = Boolean(prev.arr && prev.hasTime && next.hasTime);
   if (sameCity && timed) {
-    const gapMin = Math.round((localMs(next.dep) - localMs(prev.arr)) / 60000);
+    // V témže městě stačí ručičky – jen v noci změny času ne (přílet 25. 10. v 1:30, odlet ve 4:00 = 3 h 30 min, ne 2 h 30 min):
+    // proto přes skutečné okamžiky v zóně města (bez zóny ručičky jako dřív).
+    const tz = prev.toTz || next.fromTz;
+    const gapMin = Math.round(((localToUtcMs(next.dep, tz) ?? NaN) - (localToUtcMs(prev.arr, tz) ?? NaN)) / 60000);
     const needMin = sameAp ? MULTI.sameAirportMin : MULTI.sameCityMin;
     if (Number.isFinite(gapMin)) {
       if (gapMin < 0) return { why: 'early' };

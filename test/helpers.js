@@ -18,8 +18,8 @@ export function stubFetch(handler) {
   return { calls, restore: () => { globalThis.fetch = original; } };
 }
 
+// Den za `days` dní od dneška v UTC – stejný „dnešek“ jako server (dates.js todayYmd). Dřív místní setDate a pak
+// toISOString (UTC): v Tokiu ráno nebo v New Yorku večer to byl jiný den než serverový a testy padaly podle hodiny.
 export function ymdPlus(days) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return new Date(Date.now() + days * 864e5).toISOString().slice(0, 10);
 }

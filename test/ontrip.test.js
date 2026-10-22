@@ -171,15 +171,18 @@ test('tripNow + nowCard: výlet z plánovače či z Objevuj ve dnech cesty se sp
   const c = load({ clipboard: true });
   const lis = saved(lisbon(), { refs: [{ co: 'Let tam i zpět', kod: 'K7QW2P', pozn: 'Ryanair' }] });
   lis.checklist = [{ t: 'Zařídit: cestovní pojištění', done: false }, ...Array.from({ length: 21 }, (_, k) => ({ t: `Věc ${k}`, done: false }))];
-  // Plánovač → Nová cesta (bez letu) na den příletu a výlet pěšky z Objevuj
-  const alfama = { name: 'Odpoledne v Alfamě', dest: 'Lisabon', iso: null, start: '2026-11-12', end: '2026-11-12', pax: '2', budget: '', flight: null, days: {}, checklist: Array.from({ length: 8 }, (_, k) => ({ t: `x${k}`, done: false })), notes: '' };
-  const hike = { name: 'Pěšky: Lisabon – Alfama 6 km', dest: 'Alfama', iso: 'PT', start: '2026-11-13', end: '2026-11-13', days: { '2026-11-13': ['🥾 Okruh 6 km z Alfama', 'Trasa v Mapy.com'] }, notes: '', src: 'hike', explore: {}, pax: '2', budget: '', checklist: [{ t: 'Pas', done: false }] };
+  // Plánovač → Nová cesta (bez letu) na den příletu a výlet pěšky z Objevuj. Cesty bez spojů berou den zařízení – den
+  // v zóně tohoto počítače v okamžiku karty (v Praze 12. a 13. 11.; v New Yorku je ve 4:00 pražského času ještě 11. 11.)
+  const devDay = (iso) => { const x = new Date(iso); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+  const d12 = devDay('2026-11-12T03:00:00Z'), d13 = devDay('2026-11-13T10:00:00Z');
+  const alfama = { name: 'Odpoledne v Alfamě', dest: 'Lisabon', iso: null, start: d12, end: d12, pax: '2', budget: '', flight: null, days: {}, checklist: Array.from({ length: 8 }, (_, k) => ({ t: `x${k}`, done: false })), notes: '' };
+  const hike = { name: 'Pěšky: Lisabon – Alfama 6 km', dest: 'Alfama', iso: 'PT', start: d13, end: d13, days: { [d13]: ['🥾 Okruh 6 km z Alfama', 'Trasa v Mapy.com'] }, notes: '', src: 'hike', explore: {}, pax: '2', budget: '', checklist: [{ t: 'Pas', done: false }] };
   const card = (trips, iso) => { const n = Date.parse(iso), x = c.tripNow(trips, n), p = c.nowParts(x, n); return { x, p, h: sp(c.nowCard(x, p)) }; };
   // ráno odletu (4:00 v Praze): pořád cesta s letem – z domu, let, odpočet, rezervace, „Sbaleno“ z její (22 věcí)
   for (const trips of [[lis, alfama], [alfama, lis]]) {
     const m = card(trips, '2026-11-12T03:00:00Z');
     assert.equal(m.x.t, lis);
-    assert.deepEqual(plain(m.x.also.map((y) => [y.t.name, y.today])), [['Odpoledne v Alfamě', '2026-11-12']]);
+    assert.deepEqual(plain(m.x.also.map((y) => [y.t.name, y.today])), [['Odpoledne v Alfamě', d12]]);
     assert.ok(m.h.includes('📍 Dnes na cestě · den 1 z 6 · <b>Lisabon</b>') && m.h.includes('Vyraž z domu nejpozději v 3:40') && m.h.includes('PRG 06:25 → LIS 09:05 · Ryanair · FR 1234'), m.h);
     assert.ok(m.h.includes('✈️ Odlet PRG → LIS <b data-nw="cd"></b>') && m.h.includes('<code>K7QW2P</code>'), m.h);
     assert.ok(m.h.includes('🧾 Před cestou zbývá zařídit 1 a sbalit 21'), m.h);
@@ -206,7 +209,7 @@ test('tripNow + nowCard: výlet z plánovače či z Objevuj ve dnech cesty se sp
   assert.equal(card([lis, porto], '2026-11-16T09:00:00Z').x.t.name, 'Porto');
   assert.equal(card([lis, porto], '2026-11-16T22:00:00Z').x.t.name, lis.name, 'zpět v Lisabonu (Porto doma)');
   // deštník bez spojů (celý listopad): probíhá, ale den před odletem (do 24 h) má přednost cesta se spoji
-  const long = { name: 'Celý listopad', start: '2026-11-01', end: '2026-11-30', days: { '2026-11-11': ['Večeře'] } };
+  const long = { name: 'Celý listopad', start: '2026-11-01', end: '2026-11-30', days: { [devDay('2026-11-11T07:00:00Z')]: ['Večeře'] } };
   assert.equal(card([long, lis], '2026-11-10T12:00:00Z').x.t.name, 'Celý listopad', 'odlet za víc než 24 h – probíhající');
   const e = card([long, lis], '2026-11-11T07:00:00Z');
   assert.deepEqual([e.x.t, e.x.on, e.x.until, e.p.ahead.l.from], [lis, false, 1, 'PRG']);
