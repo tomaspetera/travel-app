@@ -80,3 +80,19 @@ jobs:
                s názvem „Týdenní kontrola <datum>: …“ a českým popisem: co bylo špatně, co se změnilo, jak je to ověřené,
                a zvlášť nálezy, které jsi neopravil, s důvodem.
             6. Když není co opravit, nic nezakládej a jen shrň, co jsi zkontroloval.
+      - name: Proč Claude skončil (jen poslední zpráva)
+        if: failure()
+        # výstup akce je skrytý; z jejího záznamu vypíše jen závěrečnou zprávu (např. chybu z API), ne celý průběh
+        run: |
+          python3 - <<'PY'
+          import json, os
+          p = os.path.join(os.environ.get('RUNNER_TEMP', '/tmp'), 'claude-execution-output.json')
+          try:
+              d = json.load(open(p))
+          except Exception as e:
+              print('záznam nenalezen:', e); raise SystemExit
+          msgs = d if isinstance(d, list) else [d]
+          res = [m for m in msgs if isinstance(m, dict) and m.get('type') == 'result']
+          last = res[-1] if res else (msgs[-1] if msgs else {})
+          print('::warning::' + str(last.get('result') or last.get('error') or last)[:1500].replace('\n', ' '))
+          PY
