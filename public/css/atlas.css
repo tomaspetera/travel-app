@@ -555,7 +555,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   /* telefon: kratší Přehled – úvod bez odstavce, dlaždice, rychlé hledání a tipy v pruhu do strany */
   .hero{padding:20px 16px;margin-bottom:16px;border-radius:22px}.hero h1{font-size:23px}.hero p{display:none}
   .hero-search2{margin-top:14px}
-  .stat-grid,#quickFlights,#dashRecs{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:43%;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding-bottom:6px;scrollbar-width:none}
+  .stat-grid{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:43%;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding-bottom:6px;scrollbar-width:none}
   #quickFlights,#flIdeas,#dashRecs,.ex-insp{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:66%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:12px;margin:0 -16px;padding:2px 16px 12px;scroll-padding:0 16px}
   .ex-insp>*{scroll-snap-align:start}
   .ex-insp::-webkit-scrollbar{display:none}
@@ -602,7 +602,6 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .ed-src{font-size:12px;margin-top:8px}
 .ed-note{margin-top:10px;font-size:12.5px}
 .entry-detail a,.entry-card a{color:var(--info);text-decoration:underline;overflow-wrap:anywhere}
-@media(max-width:520px){#view-countries .toolbar select{min-width:0;flex:1 1 40%}}
 /* detail země na mobilu: delší text (platnost pasu) přes celou šířku, ne čtyři řádky v polovině */
 @media(max-width:560px){.ed-kv .ed-wide{grid-column:1/-1}}
 .ed-regime.ec-free{background:var(--surface-2)}
