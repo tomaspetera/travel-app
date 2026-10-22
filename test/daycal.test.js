@@ -67,6 +67,6 @@ test('výsledky: 📅 Kalendář i u Kamkoliv a země (z načtených nabídek), 
   assert.match(js, /SearchHelp\.dayCal\(vis\.flatMap\(g => g\.vis\), opt\)/);
   assert.match(js, /compactList\(groups, \{ strip: false \}\)/);
   assert.match(js, /data-af="outDate">✕ zrušit den</);
-  // u jednoho cíle beze změny: kalendář ze serveru (calendarHtml) se stejným vykreslením měsíců (calBox)
-  assert.match(js, /const render = \(days, title, clickable, all\) => calBox\(days, title, clickable, all, \{ fOn, by, tip \}\);/);
+  // u jednoho cíle: kalendář ze serveru (calendarHtml) se stejným vykreslením měsíců (calBox) – i bez prázdných týdnů
+  assert.match(js, /const render = \(days, title, clickable, all\) => calBox\(days, title, clickable, all, \{ fOn, by, tip, trim: true \}\);/);
 });

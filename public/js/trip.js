@@ -1276,7 +1276,8 @@
   }
 
   // Odkaz do Google Map: autem trasa, veřejnou dopravou jen ověření spojů (časy jsou odhad).
-  const legLink = (x, tr, long) => { const u = legUrl(x, tr); return u ? `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${tr === 'transit' ? 'ověř spoje' : 'trasa'}${long ? ' v Google Maps' : ''} ↗</a>` : ''; };
+  // šipka s nezlomitelnou mezerou – na telefonu se jinak „↗“ zalomí samo na další řádek před štítek Waze
+  const legLink = (x, tr, long) => { const u = legUrl(x, tr); return u ? `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${tr === 'transit' ? 'ověř spoje' : 'trasa'}${long ? ' v Google Maps' : ''} ↗</a>` : ''; };
   // Odkazy do aplikací v mobilu jako malé štítky vedle odkazu na trasu (SearchHelp): autem 🚗 Waze s navigací do cíle
   // úseku p ({ lat, lon }), MHD v Praze 🎫 PID Lítačka (jízdenka v aplikaci). Bez SearchHelp nebo polohy nic.
   const appChip = (url, label, title) => (url ? ` <a class="app-chip" href="${esc(safeUrl(url))}" target="_blank" rel="noopener" title="${esc(title)}">${label}</a>` : '');

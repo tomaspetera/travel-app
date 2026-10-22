@@ -257,6 +257,12 @@ test('paměť cen: průběžný výsledek hledání (jen část zdrojů) se neza
 test('rada: koupit / hlídat / zkusit jiné dny podle úrovně a dní do odletu, vždy opatrně', () => {
   assert.equal(P.advice('low', 10).kind, 'buy');
   assert.match(P.advice('low', 10).text, /obvykle zvedají/);
+  // počet dní jako řádek 📅 Do odletu (dřív „necelé 3 týdny“ i u 10 dnů)
+  assert.match(P.advice('low', 10).text, /^Cena vypadá dobře a do odletu zbývá 10 dní\./);
+  assert.match(P.advice('low', 3).text, /do odletu zbývá 3 dny\./);
+  assert.match(P.advice('low', 1).text, /do odletu zbývá 1 den\./);
+  assert.match(P.advice('low', 0).text, /^Cena vypadá dobře a odlet je už dnes\./);
+  assert.doesNotMatch(P.advice('low', 20).text, /necelé/);
   assert.equal(P.advice('low', 90).kind, 'buy');
   assert.match(P.advice('low', 90).text, /může, ale nemusí/);
   assert.equal(P.advice('normal', 50).kind, 'watch');

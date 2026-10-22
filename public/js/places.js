@@ -1487,9 +1487,13 @@
     const fl = $('#exCFly', body); if (fl) fl.onclick = () => Flights.searchTo([tgt]);
     const rs = $('#exReset', body); if (rs) rs.onclick = () => resetExplore();
     $$('[data-ccat]', body).forEach(b => b.onclick = () => { ex.cCat = b.dataset.ccat; remember(); paintCountry(); });
-    // na telefonu je řada čipů posuvná – vybraný čip po překreslení vidět
+    // na telefonu je řada čipů posuvná – vybraný čip po překreslení vidět; posunout jen když by byl mimo, jinak by
+    // u „Vše“ zajel popisek „Co hledáš?“ napůl pod okraj („EDÁŠ?“)
     const cr = $('.ex-ccats', body), on = cr && $('.fchip.on', cr);
-    if (on && cr.scrollWidth > cr.clientWidth) cr.scrollLeft = Math.max(0, on.getBoundingClientRect().left - cr.getBoundingClientRect().left - 48);
+    if (on && cr.scrollWidth > cr.clientWidth) {
+      const r = on.getBoundingClientRect(), x = r.left - cr.getBoundingClientRect().left + cr.scrollLeft;
+      cr.scrollLeft = x + r.width <= cr.clientWidth ? 0 : Math.max(0, x - 48);
+    }
     const rt = $('#exCRetry', body); if (rt) rt.onclick = () => { if (ex.country?.cats) delete ex.country.cats[cat]; paintCountry(); };
     remember();
   }

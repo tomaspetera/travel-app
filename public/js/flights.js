@@ -3300,7 +3300,9 @@
       backDays = trip ? byDay(t => t.back && t.back.date) : [];
     }
     const tip = (x, key) => (x.outDate ? `${dayLabel(key)}: letenky tam i zpět od ${czk(x.cost)}/os. (${x.from}→${x.to} ${fmtDate(x.outDate)}, zpět ${fmtDate(x.backDate)} do ${x.backTo})` : `${dayLabel(key)}: ${czk(x.cost)} (${x.from}→${x.to}, ${provName(x.provider)})`);
-    const render = (days, title, clickable, all) => calBox(days, title, clickable, all, { fOn, by, tip });
+    // bez prázdných týdnů před prvním a po posledním dni s nabídkou (hledání od 29. 10. = jen poslední týden října,
+    // na telefonu dřív 4 prázdné řádky) – jako kalendář Kamkoliv
+    const render = (days, title, clickable, all) => calBox(days, title, clickable, all, { fOn, by, tip, trim: true });
     // co je v ceně (jako kalendář ze serveru): letenky a zavazadla – doprava na letiště a do města je u nabídek zvlášť
     const q = res.query;
     const incl = [trip ? 'letenky tam i zpět' : 'letenka tam', BAG_LBL[q.bags] ? 'zavazadla' : ''].filter(Boolean).join(' + ');
