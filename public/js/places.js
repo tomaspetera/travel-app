@@ -666,7 +666,7 @@
     ? `<span class="poi-lang" title="Český popis chybí – úryvek z anglické Wikipedie">anglicky</span> ${esc(firstSentence(text, 'en'))}` : esc(text));
   // Části sloučené do celku (katedrála na Hradě, orloj u radnice) – jinak by v aplikaci nebyly vidět vůbec.
   const inclHtml = (p, cls) => (Array.isArray(p.includes) && p.includes.length
-    ? `<div class="${cls}">Zahrnuje: ${esc(p.includes.slice(0, 5).join(', '))}${p.includes.length > 5 ? ` a ${p.includes.length - 5} další` : ''}</div>` : '');
+    ? `<div class="${cls}">Zahrnuje: ${esc(p.includes.slice(0, 5).join(', '))}${p.includes.length > 5 ? ` a ${p.includes.length - 5} ${p.includes.length - 5 >= 5 ? 'dalších' : 'další'}` : ''}</div>` : '');
   function poiCard(p, opts = {}) {
     return `<div class="poi" data-poi="${esc(p.id)}">
       <div class="poi-img" ${p.image ? `style="background-image:url('${esc(cssUrl(p.image))}')"` : ''}>${p.image ? '' : picon(p)}</div>

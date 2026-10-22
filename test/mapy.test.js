@@ -287,6 +287,16 @@ test('dlaždice: limit z jedné IP jen na dotazy mimo mezipaměť serveru', asyn
     assert.equal((await get('/api/tiles/mapy/outdoor/5/1/3', h)).status, 429);
     assert.equal((await get('/api/tiles/mapy/outdoor/5/1/1', h)).status, 200, 'z mezipaměti i nad limitem');
     assert.equal((await get('/api/tiles/mapy/outdoor/5/1/3', { 'x-forwarded-for': '10.1.1.2' })).status, 200, 'jiná IP');
+    // dlaždice starší než den se stáhne znovu (kredit) – do limitu z jedné IP se počítá
+    const t = mapy.parseTile('/api/tiles/mapy/outdoor/5/1/1');
+    assert.equal(mapy.tileCached(t), true);
+    const now = Date.now;
+    Date.now = () => now() + 864e5 + 1000;
+    try {
+      assert.equal(mapy.tileCached(t), false, 'prošlá dlaždice není v mezipaměti');
+    } finally {
+      Date.now = now;
+    }
   } finally {
     config.tilesPer10Min = prev;
     stub.restore();
