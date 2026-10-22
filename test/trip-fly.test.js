@@ -166,7 +166,7 @@ test('cesta přes víc měst: let z jiného města (Řím → let z Neapole) –
   assert.deepEqual(asked.map(([u, b]) => [u, b.departure, b.bases[0].name, b.transport]), [['api/stayplan', 'NAP', 'Řím', 'transit']]);
   const r = render(c, 'route');
   assert.match(r, /Na letiště NAP: <b>~1 h 15 min vlakem<\/b>/);
-  assert.match(r, /~620 Kč\/os\./);
+  assert.match(r, /~620\u00a0Kč\/os\./);
   assert.doesNotMatch(r, /naplánuj/);
   const rows = c.window.Trip.timeline(t).map((x) => `${x[0]} ${x[1]} ${sp(x[2]).replace(/<[^>]+>/g, '')}`);
   assert.ok(rows.some((x) => /^2026-11-13 🚆 Řím → letiště NAP · ~1 h 15 min vlakem \(jízdní řád\)/.test(x)), rows.join('\n'));

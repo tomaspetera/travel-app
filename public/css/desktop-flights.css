@@ -23,7 +23,7 @@
   #view-countries .toolbar #cVisited{grid-column:3/5;grid-row:1;justify-self:end}
   #view-countries .toolbar select{width:100%;min-width:0;text-overflow:ellipsis}
 }
-/* menší notebook: v úzkých výběrech celý text („Všechny kontinenty“), ne useknutý pod šipkou */
+/* menší notebook: v úzkých výběrech celý text („Severní Amerika“), ne useknutý pod šipkou */
 @media (min-width:1024px) and (max-width:1279px){
   #view-countries .toolbar select{padding-left:12px;padding-right:28px;background-position:right 9px center;font-size:13.5px}
 }

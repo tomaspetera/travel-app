@@ -136,11 +136,11 @@ test('Ground: HTML spojů a odkazů – cizí texty escapované, odkazy jen http
   const off = Ground.liveHtml({ est: j.est, live: { ok: false, error: `RegioJet ${XSS} vypnutý` } });
   assert.match(off, /odhad/);
   assert.ok(!off.includes('<img'));
-  assert.match(off, /<b>od ~299 Kč<\/b>/, 'starší odhad bez běžné ceny');
+  assert.match(off, /<b>od ~299\u00a0Kč<\/b>/, 'starší odhad bez běžné ceny');
   // řádek odhadu s běžnou cenou: běžně tučně, od pod ní
   const typ = Ground.estRow({ minutes: 371, czk: 399, typ: 569, basis: 'measured' });
-  assert.match(typ, /<b>běžně ~569 Kč<\/b><small>od ~399 Kč · odhad<\/small>/);
-  assert.match(Ground.estRow({ minutes: 234, czk: 249, typ: 249, basis: 'measured' }), /<b>běžně ~249 Kč<\/b><small>odhad<\/small>/);
+  assert.match(typ, /<b>běžně ~569\u00a0Kč<\/b><small>od ~399\u00a0Kč · odhad<\/small>/);
+  assert.match(Ground.estRow({ minutes: 234, czk: 249, typ: 249, basis: 'measured' }), /<b>běžně ~249\u00a0Kč<\/b><small>odhad<\/small>/);
   assert.match(typ, /skutečných spojů a cen z 15\. 10\./);
 });
 
