@@ -40,7 +40,8 @@ Pravidla: drž se CLAUDE.md. Malé, ověřené změny ve stylu okolního kódu. 
 a spusť \`npm test\` – musí projít. Na živou aplikaci (https://atlas-letenky.onrender.com) smíš jen GET /api/health a
 /api/places, nikdy /api/search. Commity, větve a PR nedělej – udělá je workflow z tvých změn v souborech.
 
-Na úplný konec napiš shrnutí česky: první řádek krátký název změny (bude to název PR, bez „#“), pak prázdný řádek a
+Na úplný konec napiš shrnutí česky: první řádek krátký název změny (bude to název PR, bez „#“, do 80 znaků; popiš,
+co se v aplikaci změnilo, např. „Hlídání: prošlé datum už nehlásí zlevnění“, ne „Hotovo“ ani „Funkce je hotová“), pak prázdný řádek a
 odrážky: co bylo špatně, co se změnilo a jak je to ověřené, a zvlášť nálezy, které jsi neopravil, s důvodem.
 Když jsi nic neměnil, první řádek začni „Beze změn:“.`;
 

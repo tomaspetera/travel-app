@@ -500,6 +500,15 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .auto-pick .btn .spin{width:14px;height:14px;vertical-align:-2px}
 @media (max-width:560px){.auto-pick{flex-direction:column;align-items:stretch}.auto-pick .btn{width:100%}}
 .auto-pick.ok{background:rgba(52,211,153,.10);border-color:rgba(52,211,153,.32)}
+/* „⚡ Poskládej celou cestu za mě“ v kroku Let – výrazné, ale pod hlavním „Pokračovat“ */
+.auto-trip{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:12px;padding:10px 12px;border-radius:14px;border:1px dashed rgba(99,102,241,.38);background:linear-gradient(135deg,rgba(99,102,241,.07),rgba(52,211,153,.07))}
+.auto-trip .btn{font-weight:700;border-color:rgba(99,102,241,.45);color:var(--accent)}
+.auto-trip .btn .spin{width:14px;height:14px;vertical-align:-2px}
+.auto-trip small{color:var(--muted);font-size:12.5px;line-height:1.35}
+@media (max-width:560px){.auto-trip .btn{width:100%;justify-content:center}}
+/* hláška ⚡ v kroku; ve Shrnutí na počítači nad průběhem cesty (ten má order:-1) */
+.auto-note{margin-bottom:12px;order:-2}
+.auto-note .spin{flex:none;margin-top:2px}
 /* Objevuj – Inspirace: místa tvé rozpracované cesty první */
 .ex-insp .dest.ex-mine{outline:2px solid var(--accent);outline-offset:-2px}
 /* Shrnutí: dlouhý průběh cesty sbalený */

@@ -1196,7 +1196,7 @@
       else toInput.set([]);
       if (k === 'eu') toast('Evropa = kamkoliv; seřaď výsledky podle ceny 😉');
     });
-    $('#geoBtn').onclick = () => useMyLocation(fromInput);
+    $('#geoBtn').onclick = () => useMyLocation(p => fromInput.set([...fromInput.items.filter(x => !/\|Moje poloha$/.test(x.id)), p]));
     // napsané, ale nevybrané místo nebo věta: nejdřív je použít (jinak by se hledalo bez nich – „kamkoliv“)
     $('#searchForm').onsubmit = async e => {
       e.preventDefault();
@@ -1227,13 +1227,12 @@
     if (stale) $('#groundRerun').onclick = () => startSearch();
   }
 
-  function useMyLocation(input) {
-    if (!navigator.geolocation) return toast('Prohlížeč nepodporuje polohu', 'err');
+  // 📍 Moje poloha: put(místo); bez polohy (odmítnutí, chyba) hláška – fail(text) ji ukáže po svém (uvítání nechá čipy)
+  function useMyLocation(put, fail = msg => toast(msg, 'err')) {
+    if (!navigator.geolocation) return fail('Prohlížeč nepodporuje polohu');
     toast('Zjišťuji polohu…');
-    navigator.geolocation.getCurrentPosition(p => {
-      const lat = p.coords.latitude.toFixed(4), lon = p.coords.longitude.toFixed(4);
-      input.set([...input.items.filter(x => !/\|Moje poloha$/.test(x.id)), { id: `geo:${lat},${lon}|Moje poloha`, label: 'Moje poloha', flag: '📍', type: 'place' }]);
-    }, () => toast('Polohu se nepodařilo zjistit', 'err'), { timeout: 10000, maximumAge: 600000 });
+    navigator.geolocation.getCurrentPosition(p => put(SearchHelp.myPlace(p.coords.latitude, p.coords.longitude)),
+      () => fail('Polohu se nepodařilo zjistit'), { timeout: 10000, maximumAge: 600000 });
   }
 
   /* ---------- domov (odkud obvykle létáš) ---------- */
@@ -3878,7 +3877,7 @@
     const st = wState.get(w.id);
     const since = Alerts.pctChange(w.base ?? h[0]?.czk, cur);
     const low = Alerts.lowest([w.low, ...h.map(x => x.czk), cur]);
-    const drop = Alerts.isDropped(w);
+    const drop = !past && Alerts.isDropped(w); // proběhlý termín: „📉 zlevnilo“ už nekoupíš (jako odznak a „Od minula“)
     const id = esc(w.id);
     const when = st === 'run' ? '<span class="spin dark"></span> kontroluji…' : st === 'wait' ? '⏳ čeká na kontrolu…'
       : w.checked ? `zkontrolováno <span data-ago="${+w.checked}" title="${esc(new Date(w.checked).toLocaleString('cs-CZ'))}">${Alerts.agoTxt(now - w.checked)}</span>` : 'zatím nezkontrolováno';
@@ -3896,7 +3895,8 @@
         <div class="w-main">${sparkSvg(w)}<div class="w-stats">${since != null ? `<span${own ? ` title="${w.rebWhy === 'price' ? 'Ceny jsou teď jen za letenku (doprava na letiště zvlášť) – ceny před tím byly i s ní a s novými se nesrovnávají' : 'Cena se přepočítala po změně 🏠 vlastní ceny na letiště nebo seznamu 🙈 – ceny před tím se s novými nesrovnávají'}"` : ''}>${own ? (w.rebWhy === 'price' ? 'od přepočtu cen' : 'od změny nastavení') : 'od uložení'} <b class="${since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>` : ''}${low ? `<span>nejnižší ${czk(low)}</span>` : ''}</div></div>
         <div class="w-desc">${esc(w.best?.desc || 'zatím bez výsledku')}</div>
         ${past ? `<div class="note warn w-past">⌛ <div>Termín proběhl – tohle hledání už hlídat nejde. ${canRoll ? `<button type="button" class="linkbtn" data-wr="${id}">📅 Převést na klouzavé</button> – termín se pak bude posouvat s časem a historie i cílová cena zůstanou. Nebo ho smaž.` : 'Smaž ho, nebo ho otevři a vyber nové datum.'}</div></div>`
-        : `<label class="w-target">🎯 Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target ? '' : 'hidden'}>✓ splněno</span></label>`}
+        : `<label class="w-target">🎯 Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target ? '' : 'hidden'}>✓ splněno</span></label>
+        <div class="w-cal"><button type="button" class="linkbtn" data-wcal="${id}" title="Stáhne událost do kalendáře: každé pondělí v 9:00 (8 týdnů) s odkazem zpět na tohle hlídání">📅 Připomínat</button><span class="faint">v pondělí v kalendáři</span></div>`}
         <div class="w-foot"><div class="w-st faint">${when}</div>
         <div class="row w-act">${past ? `<button class="btn sm" data-wd="${id}">🗑 Smazat</button><button class="btn sm ghost" data-wo="${id}">Otevřít</button>`
         : `<button class="btn sm primary" data-wo="${id}">Otevřít</button><button class="btn sm ghost w-ic" data-wc="${id}" ${st ? 'disabled' : ''} title="Zkontrolovat cenu teď" aria-label="Zkontrolovat cenu teď">↻</button><button class="btn sm ghost w-ic" data-wd="${id}" title="Smazat" aria-label="Smazat">✕</button>`}</div></div>
@@ -3924,6 +3924,7 @@
       else if (b.dataset.wo) openWatch(b.dataset.wo);
       else if (b.dataset.wd) delWatch(b.dataset.wd);
       else if (b.dataset.wr) setRoll(b.dataset.wr, true);
+      else if (b.dataset.wcal) remindWatch(b.dataset.wcal);
     };
     // ukládat průběžně (překreslení karty během psaní nic neztratí), potvrdit až po dopsání
     host.oninput = e => { if (e.target.dataset.wt) setTarget(e.target.dataset.wt, e.target.value); };
@@ -3947,6 +3948,28 @@
     if (el && w) { keepTyping(() => { el.outerHTML = watchCard(w); }); if (window.Photos) Photos.paint($('#watchList')); }
   }
   function setState(id, st) { st ? wState.set(id, st) : wState.delete(id); paintCard(id); }
+  /** 📅 Připomínat: .ics s týdenní připomínkou – vrátí uživatele do ATLASu bez upozornění v telefonu. */
+  function remindWatch(id) {
+    const w = (S.watch || []).find(x => x.id === id); if (!w || !window.Ics) return;
+    Ics.download(`atlas-hlidani-${w.label || id}`, [Alerts.remindEvent(w, { appUrl: location.origin + location.pathname })]);
+    toast('Připomínka stažena – otevři ji v kalendáři (každé pondělí v 9:00, 8 týdnů)');
+  }
+  /**
+   * Odkaz #watch=<id> z připomínky: posunout na kartu a krátce ji zvýraznit; zastaralé hlídání zkontrolovat stejnou
+   * frontou jako ↻ (automatická kontrola ho pak už nehledá znovu). → false, když hlídání neexistuje.
+   */
+  function showWatch(id) {
+    const w = (S.watch || []).find(x => x.id === id); if (!w) return false;
+    if (!$(cardSel(id))) renderWatch();
+    setTimeout(() => {
+      const el = $(cardSel(id)); if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 2500);
+    }, 350);
+    if (!Alerts.isPast(w.form, today()) && Alerts.isStale(w, Date.now())) checkWatch(id);
+    return true;
+  }
   function openWatch(id) {
     const w = (S.watch || []).find(x => x.id === id); if (!w) return;
     // stejné hledání jako kontrola (watchForm, termín, který už začal, od dneška) – setForm by celý termín posunul
@@ -4062,7 +4085,7 @@
 
   /* ukazatel „zlevnilo od minule“ – zmizí, když si uživatel seznam na přehledu prohlédne */
   function watchStatTxt() {
-    const list = S.watch || [], n = Alerts.droppedCount(list);
+    const list = S.watch || [], n = Alerts.droppedCount(list, today());
     return n ? `<b class="good">📉 Zlevnilo od minule: ${n}</b>` : list.length ? 'Hlídám, dokud máš ATLAS otevřený' : 'Ulož hledání tlačítkem ♡';
   }
   /** „Od minula: 📉 Brno → Řím −380 Kč · 🎯 Londýn pod tvou cenou · 📡 radar: 3 cíle levněji“ hned pod hledáním. */
@@ -4110,7 +4133,7 @@
   }
   function updateWatchBadges() {
     renderNews();
-    const n = Alerts.droppedCount(S.watch);
+    const n = Alerts.droppedCount(S.watch, today());
     const nb = $('#navDrops'); if (nb) { nb.hidden = !n; nb.textContent = '📉 ' + n; }
     const md = $('#mobDrops'); if (md) md.hidden = !n;
     const val = $('#watchStatVal'); if (val) val.textContent = (S.watch || []).length;
@@ -4236,12 +4259,26 @@
     if (edit) pi.set(S.home.from, true);
     $('#radarGo').onclick = () => {
       if (!pi.items.length) return toast('Vyber místo ze seznamu', 'err');
-      S.home = { from: pi.items.slice(), radius: +$('#radarRadius').value, adults: +$('#radarAdults').value || 2 }; save(); updateHomeChip();
-      // prázdné Odkud ve formuláři: domov i s okruhem (jinak by hledání z Lety šlo s výchozími 200 km)
-      if (fromInput && !fromInput.items.length) { $('#radius').value = S.home.radius; $('#radiusVal').textContent = $('#radius').value + ' km'; fromInput.set(pi.items); }
-      renderRadar(true); heroFrom && heroFrom.set(pi.items, true);
+      applyHome({ from: pi.items.slice(), radius: +$('#radarRadius').value, adults: +$('#radarAdults').value || 2 });
     };
     const cn = $('#radarCancel'); if (cn) cn.onclick = () => renderRadar();
+  }
+  /** Nový domov radaru: uložit, čip domova, Odkud v Letech (když je prázdné) a v hledání na Přehledu, radar. */
+  function applyHome(home) {
+    S.home = home; save(); updateHomeChip();
+    // prázdné Odkud ve formuláři: domov i s okruhem (jinak by hledání z Lety šlo s výchozími 200 km)
+    if (fromInput && !fromInput.items.length) { $('#radius').value = home.radius; $('#radiusVal').textContent = $('#radius').value + ' km'; fromInput.set(home.from); }
+    renderRadar(true); heroFrom && heroFrom.set(home.from, true);
+  }
+  /**
+   * Domov z uvítání („Odkud letíš?“): čip města (SearchHelp.HOME_CITIES) nebo 'geo' = 📍 Moje poloha. Radar pak hned
+   * hledá a stránka na něj plynule sjede. done(true) po nastavení, done(false) bez polohy (hláška, čipy zůstanou).
+   */
+  function homeFromChip(chip, done = () => { }) {
+    // done před posunem: uvítání schová čipy dřív, než se změřený cíl posunu pod ním zvedne
+    const set = home => { applyHome(home); done(true); $('#radarHead').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    if (chip !== 'geo') { const h = SearchHelp.homeOf(chip); return h ? set(h) : done(false); }
+    useMyLocation(p => set(SearchHelp.homeOf(p)), msg => { toast(msg + ' – vyber město', 'err'); done(false); });
   }
   async function radarSearch(q, key) {
     busySearches++;
@@ -5124,7 +5161,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, renderPins, refreshPins: pinsPaint, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, showWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

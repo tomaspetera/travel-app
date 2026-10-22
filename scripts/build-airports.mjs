@@ -13,6 +13,7 @@ import path from 'node:path';
 const OURAIRPORTS = 'https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/airports.csv';
 const OPENFLIGHTS = 'https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat';
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const TZ_COUNTRY = { MD: 'Europe/Chisinau', BL: 'America/St_Barthelemy', MF: 'America/Marigot', SZ: 'Africa/Mbabane' };
 
 async function load(src) {
   if (/^https?:/.test(src)) {
@@ -94,7 +95,8 @@ async function main() {
       const d = (a[4] - b[4]) ** 2 + ((a[5] - b[5]) * Math.cos((a[4] * Math.PI) / 180)) ** 2;
       if (d < bestD) { bestD = d; best = b; }
     }
-    if (best) a[7] = best[7];
+    // Jediné letiště země bez pásma v OpenFlights (Kišiněv, Svatý Bartoloměj, Svatý Martin, Eswatini): pásmo země.
+    a[7] = best ? best[7] : TZ_COUNTRY[a[3]] || '';
   }
   const file = path.join(root, 'data', 'airports.json');
   await writeFile(file, '[\n' + list.map((a) => JSON.stringify(a)).join(',\n') + '\n]\n');
