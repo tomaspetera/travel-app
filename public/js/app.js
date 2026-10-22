@@ -449,6 +449,7 @@ const WN_ID = '2026-10-22b';
 const WHATS_NEW = [
   ['💡', 'Věděl jsi?', 'na Přehledu občas malý tip na funkci, kterou jsi ještě nezkusil (Kamkoliv, hlídání ceny, ⚡ Poskládej cestu…) – nejvýš jeden denně, tlačítkem ji rovnou otevřeš, křížkem tip skryješ natrvalo.'],
   ['🧾', 'Rozpočet cesty', 've <b>Shrnutí</b> průvodce Cestou je cena po položkách (letenky, doprava, ubytování, auto a přejezdy) za osobu i celkem – odhady jsou označené. Do pole <b>Můj rozpočet</b> zadej, kolik chceš utratit, a uvidíš, kolik zbývá, nebo o kolik je cesta dražší.'],
+  ['📤', 'Sdílet jednu letenku', 'u nabídky ve výsledcích je <b>📤 Sdílet</b> (vedle 📌 Odložit) – pošle krátký odkaz s trasou, termínem, cenou, aerolinkou a odkazem na koupi. Příjemci se otevře karta nabídky s upozorněním, že se cena mohla změnit, a <b>🔎 Hledat znovu</b> mu předvyplní formulář.'],
   ['ℹ️', 'O aplikaci a soukromí', 'pod <b>Další</b>: odkud ATLAS bere ceny a data, co se ukládá (jen v tomhle prohlížeči, žádné cookies ani analytika), jak se řadí výsledky a verze aplikace.'],
   ['📅', 'Připomínka hlídané ceny v kalendáři', 'na kartě hlídání na Přehledu je <b>📅 Připomínat</b> – stáhne událost do kalendáře na každé pondělí v 9:00 (8 týdnů) s poslední nejnižší cenou. Odkaz v ní otevře ATLAS přímo na tomhle hlídání a cenu zkontroluje znovu.'],
   ['📅', 'Termín letu v kalendáři', 'u každého letu tlačítko <b>📅 V kalendáři</b> – den odletu a návratu s časy, noci mezi nimi, víkendy a svátky; jedním klepnutím lety do kalendáře v mobilu (.ics). A <b>Kalendář</b> mají i výsledky Kamkoliv: v každém dni nejlevnější cíl, klepnutím na den všechny cíle s odletem ten den.'],
@@ -1283,6 +1284,20 @@ async function importPlanFromHash() {
   if (p) previewPlan(p);
   return true;
 }
+/**
+ * Sdílená nabídka letu z #offer=… (při startu a při změně adresy): Lety a karta nabídky (Flights.openOffer). Adresa se
+ * přepíše na #flights, ať obnovení stránky kartu neotevírá znovu → Promise<boolean> (true, když šlo o #offer=).
+ */
+async function openOfferFromHash() {
+  const hash = location.hash;
+  if (!/^#offer=/.test(hash)) return false;
+  history.replaceState(null, '', '#flights');
+  go('flights', { noHash: true });
+  let o = null;
+  try { o = await OfferShare.fromHash(hash); } catch (e) { toast('Odkaz na nabídku je poškozený', 'err'); }
+  if (o && window.Flights) Flights.openOffer(o);
+  return true;
+}
 function previewPlan(p) {
   const c = p.iso ? byIso[p.iso] : null, days = Object.keys(p.days).sort(), acts = days.reduce((n, d) => n + p.days[d].length, 0);
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(p.iso) : '🧳'}</div><h2 style="font-size:24px;margin-top:4px;overflow-wrap:anywhere">${esc(p.name)}</h2><div style="opacity:.85;font-size:13px">Sdílený plán · ${esc(p.dest)}${p.start ? ' · ' + fmtDate(p.start) + (p.end && p.end !== p.start ? ' – ' + fmtDate(p.end) : '') : ''} · ${esc(p.pax)} os.</div></div></div>
@@ -1451,6 +1466,7 @@ function wireEvents() {
   window.addEventListener('hashchange', async () => {
     if (window.Trip && await Trip.importFromHash()) return go('trip', { noHash: true });
     if (await importPlanFromHash()) return go('planner', { noHash: true });
+    if (await openOfferFromHash()) return;
     if (openWatchFromHash()) return;
     const v = location.hash.slice(1);
     if (v === 'now') return showNow(); // zkratka „Na cestě“ v už otevřené aplikaci
@@ -1528,7 +1544,7 @@ async function start() {
   refreshStats();
   const shared = window.Trip && await Trip.importFromHash();
   const plan = !shared && await importPlanFromHash();
-  if (!shared && !plan && openWatchFromHash()) return;
+  if (!shared && !plan && (await openOfferFromHash() || openWatchFromHash())) return;
   const v = shared ? 'trip' : plan ? 'planner' : location.hash.slice(1);
   if (v === 'now') return showNow(); // zkratka aplikace „Na cestě“
   go(NAV.some(n => n[0] === v) ? v : 'dashboard', { noHash: true });
