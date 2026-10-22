@@ -45,7 +45,8 @@ function migratePrices(s, pv) {
   if (pv === 2) return s;
   return { ...s, pv: 2, radar: null, viewed: (s.viewed || []).map(x => (x && typeof x === 'object' ? { ...x, czk: null } : x)) };
 }
-function defState() { return { visited: [], trips: [], theme: 'dark', mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null, accessOwn: {}, fav: [], mute: [], pins: [], viewed: [], pv: 2 }; }
+// theme: null = podle systému, dokud uživatel motiv nepřepne (themeOf)
+function defState() { return { visited: [], trips: [], theme: null, mapStyle: 'light', geo: {}, weather: {}, fx: null, home: null, watch: [], form: null, recent: [], radar: null, radarMode: 'all', radarHoliday: null, backupAt: null, accessOwn: {}, fav: [], mute: [], pins: [], viewed: [], pv: 2 }; }
 // Plné úložiště: uvolnit místo po uložených výsledcích posledního hledání (flights.js) – stav aplikace má přednost.
 // Vrací, jestli se stav uložil (💾 obnova ze zálohy při plném úložišti nic nesloučí).
 function save() {
@@ -137,7 +138,7 @@ function openMore() {
   }
   if (window.About) About.addToMenu(list); // ℹ️ O aplikaci a soukromí (about.js)
   // motiv: přepínač v postranním panelu je na telefonu skrytý
-  list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme">🌗 ${S.theme === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint">vzhled</span></button>`);
+  list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme">🌗 ${themeNow() === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint">vzhled</span></button>`);
   $('#moreTheme').onclick = () => { modalClose(); $('#themeToggle').click(); };
   if (window.Pwa) Pwa.addToMenu(list); // 📲 Přidat ATLAS na plochu (pwa.js)
 }
@@ -285,8 +286,20 @@ function toast(msg, kind, ms = 2600, act = null) {
 }
 
 /* theme */
-function applyTheme() { document.documentElement.dataset.theme = S.theme; $('#themeLabel').textContent = S.theme === 'dark' ? 'Tmavý režim' : 'Světlý režim'; }
-$('#themeToggle').onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); if (window.Flights) Flights.repaintMap(); if (window.Places) Places.retheme(); };
+// Motiv zvolený přepínačem ('light' / 'dark'), jinak podle systému: nový uživatel má S.theme null (světlý telefon =
+// světlý ATLAS). Kdo ATLAS používal dřív, má uložený motiv – i výchozí tmavý, který nejde odlišit od zvoleného – a ten
+// mu zůstane. Stejné pravidlo jako skript na začátku index.html (motiv hned při startu, bez probliknutí).
+const themeOf = (t, sysLight) => (t === 'light' || t === 'dark' ? t : sysLight ? 'light' : 'dark');
+const sysLightMq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+const themeNow = () => themeOf(S.theme, Boolean(sysLightMq && sysLightMq.matches));
+function applyTheme() { const t = themeNow(); document.documentElement.dataset.theme = t; $('#themeLabel').textContent = t === 'dark' ? 'Tmavý režim' : 'Světlý režim'; }
+function themeRepaint() { applyTheme(); if (window.Flights) Flights.repaintMap(); if (window.Places) Places.retheme(); }
+$('#themeToggle').onclick = () => { S.theme = themeNow() === 'dark' ? 'light' : 'dark'; save(); themeRepaint(); };
+// bez vlastní volby motiv sleduje systém i za běhu (telefon večer sám přepne na tmavý)
+if (sysLightMq) {
+  const sysChanged = () => { if (themeOf(S.theme, true) !== themeOf(S.theme, false)) themeRepaint(); };
+  if (sysLightMq.addEventListener) sysLightMq.addEventListener('change', sysChanged); else if (sysLightMq.addListener) sysLightMq.addListener(sysChanged);
+}
 /* mapy: světlé (čitelné i na slunci, výchozí) nebo tmavé – přepínač u mapy světa platí pro všechny mapy v aplikaci */
 const MOON = 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z', SUN = 'M12 7a5 5 0 1 0 0 10a5 5 0 1 0 0-10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4';
 function applyMapStyle() {
@@ -568,8 +581,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-22d';
+const WN_ID = '2026-10-22e';
 const WHATS_NEW = [
+  ['📝', 'Rozepsané hledání se neztratí', 'když v <b>Letech</b> upravíš formulář (odkud, kam, termín, noci, cestující, zavazadla…) a hledat nestihneš, ATLAS si ho zapamatuje – i když telefon aplikaci na pozadí zavře. Po návratu ho najdeš vyplněný (3 dny, minulé termíny vynechá); <b>↺ Začít znovu</b> ho smaže.'],
   ['◀️', 'Zpět na telefonu', 'tlačítko nebo gesto Zpět nejdřív zavře otevřené okno, v průvodci <b>Cestou</b> vrátí o krok a z Cesty zpět k výsledkům, ze kterých jsi let vybral (na stejné místo ve výpisu) – aplikace se zavře až z Přehledu.'],
   ['📤', 'Sdílet cestu rovnou do WhatsAppu', 've Shrnutí průvodce a u plánu v plánovači otevře <b>Sdílet</b> na telefonu nabídku sdílení (WhatsApp, Messenger, e-mail) – bez kopírování odkazu.'],
   ['📍', 'Dnes na cestě i bez plánovače', 'cestu poskládanou v průvodci, kterou jsi neuložil, ti Přehled 2 dny před odletem nabídne <b>💾 Uložit do plánovače</b> – pak tam každý den uvidíš program, ubytování a spoje.'],

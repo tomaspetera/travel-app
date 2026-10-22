@@ -132,8 +132,9 @@
   window.addEventListener('online', () => { paintOnline(); checkVersion(true); flushOnline(); });
   paintOnline();
 
-  /* 3) Barva lišty prohlížeče a okna aplikace podle motivu ATLASu (přepínač v aplikaci, ne nastavení systému –
-        meta theme-color s media v index.html platí jen do spuštění skriptů). */
+  /* 3) Barva lišty prohlížeče a okna aplikace podle motivu ATLASu (přepínač v aplikaci, bez vlastní volby systém –
+        app.js themeOf; meta theme-color s media v index.html platí jen do spuštění skriptů a vybraný motiv může být
+        jiný než systémový). */
   const metas = [...document.querySelectorAll('meta[name="theme-color"]')];
   const syncTheme = () => {
     const c = THEME[document.documentElement.dataset.theme] || THEME.dark;

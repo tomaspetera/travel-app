@@ -1218,6 +1218,7 @@
     // na širší obrazovce je vidět i „sbalený“ formulář – souhrn by popisoval jiné hledání než ♡
     if (!$('#searchSum').hidden) expandForm();
     updateWatchBtn(); renderRecent(); // jiné hledání → zase „♡ Hlídat cenu“
+    draftSoon(); // výběr z našeptávače je mimo formulář – jeho události by koncept nezachytily
   }
   // Po hledání změněná cesta na letiště (🏠 vlastní cena, jízdné ×, autem/veřejnou): ceny dopravy ve výsledcích jsou
   // ještě podle předchozího nastavení → nad výsledky „↻ Přepočítat“ (hledání znovu). Zmizí s novým hledáním
@@ -1280,6 +1281,7 @@
     }
     // domov radaru („Odkud obvykle létáš“) jen poprvé – zkušební hledání z Mnichova ho nepřepíše (mění se v radaru)
     S.form = f; if (!S.home || !S.home.from?.length) S.home = { from: f.from, radius: f.radius, adults: Math.min(6, Math.max(1, +f.adults || 2)) }; save(); updateHomeChip();
+    draftClear(); // hledá se – rozepsaný formulář je teď uložené hledání
     collapseForm(f);
     // karta zůstane i pro totéž hledání znovu (↻ Zkusit znovu po výpadku zdroje)
     fromCard = opts.card ? { x: opts.card, key: pkey } : fromCard && fromCard.key === pkey ? fromCard : null;
@@ -1451,6 +1453,49 @@
     renderRestored();
     renderResults();
   }
+  /*
+   * 📝 Rozepsané hledání: úpravy formuláře, které se ještě nehledaly, přežijí obnovení stránky i Android, který aplikaci
+   * na pozadí bez varování zavře (start jinak vrátí formulář na poslední hledání S.form). Ukládá se s odstupem po úpravě
+   * a hned, když se aplikace schová; hledání a ↺ Začít znovu koncept smažou. Kdy platí (stáří, minulé termíny, mezitím
+   * jiné hledání) – SearchHelp.draftLoad. Při startu se vrací hned po S.form, tedy dřív než odkazy (#offer=, #trip=,
+   * #watch=), chytrá věta nebo uvítání nového uživatele – co nastaví ony, platí.
+   */
+  const DRAFT_LS = 'atlas_draft';
+  let draftT = 0; // čekající uložení (setTimeout)
+  let draftBase = ''; // otisk S.form, nad kterým se teď upravuje (SearchHelp.formSig)
+  let draftKey0 = ''; // formulář toho hledání (SearchHelp.formKey) – úpravy vrácené zpět = žádný koncept
+  /** Start: base = otisk S.form spočítaný před setForm (setForm posouvá minulé lety cesty přes víc měst i v S.form). */
+  function draftStart(base) {
+    draftBase = base; draftKey0 = SearchHelp.formKey(getForm());
+    let f = null;
+    try {
+      const s = localStorage.getItem(DRAFT_LS);
+      f = s ? SearchHelp.draftLoad(s, { base, now: Date.now(), today: today() }) : null;
+      if (s && !f) localStorage.removeItem(DRAFT_LS); // starý nebo přebitý pozdějším hledáním
+    } catch (e) { /* zakázané úložiště */ }
+    if (f) setForm(f);
+    const form = $('#searchForm');
+    ['input', 'change', 'click'].forEach(t => form.addEventListener(t, draftSoon));
+    document.addEventListener('visibilitychange', () => { if (document.hidden) draftFlush(); });
+    window.addEventListener('pagehide', draftFlush);
+  }
+  function draftSoon() { clearTimeout(draftT); draftT = setTimeout(draftSave, 700); }
+  function draftFlush() { if (draftT) { clearTimeout(draftT); draftSave(); } }
+  function draftSave() {
+    draftT = 0;
+    if (!fromInput) return;
+    const f = getForm();
+    try {
+      if (SearchHelp.formKey(f) === draftKey0) localStorage.removeItem(DRAFT_LS);
+      else localStorage.setItem(DRAFT_LS, SearchHelp.draftPack(f, draftBase, Date.now()));
+    } catch (e) { /* plné nebo zakázané úložiště – koncept je jen pohodlí navíc */ }
+  }
+  /** Hledání a ↺ Začít znovu: formulář je teď uložené hledání (S.form) – koncept pryč, další úpravy vznikají nad ním. */
+  function draftClear() {
+    clearTimeout(draftT); draftT = 0;
+    draftBase = SearchHelp.formSig(S.form); draftKey0 = SearchHelp.formKey(getForm());
+    try { localStorage.removeItem(DRAFT_LS); } catch (e) { /* zakázané úložiště */ }
+  }
   function renderRestored(a = SearchHelp.resultAge(lastResultAt, Date.now()), part = false) {
     $('#progress').innerHTML = `<div class="note info last-note"><span>🕘</span><div>${esc(SearchHelp.ageNote(a, part))}</div><button type="button" class="btn sm" id="lastRerun">↻ Hledat znovu</button></div>`;
     $('#lastRerun').onclick = () => rerun();
@@ -1524,7 +1569,7 @@
     try { localStorage.removeItem(LAST_LS); } catch (e) { /* zakázané úložiště */ }
     $('#results').innerHTML = ''; $('#results').classList.remove('aged'); $('#progress').innerHTML = ''; paintGroundStale(true);
     expandForm();
-    S.form = getForm(); save();
+    S.form = getForm(); save(); draftClear();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     toast('Hledání je zase prázdné – zadej, kam chceš letět');
   }
@@ -5009,6 +5054,7 @@
     const x = o.out.date, y = o.back && o.back.date;
     const ex = x >= today() && x <= addDays(today(), 359) ? { dateMode: 'exact', xOut: x, xFlex: 0, ...(y && SearchHelp.diffDays(x, y) <= 45 ? { trip: 'return', xBack: y } : { trip: 'oneway' }) } : {};
     setForm({ ...defaultForm(), ...prefsOf(S.form), from, to: [{ id: o.dest.id || 'ap:' + o.out.to, label: o.dest.label, flag: flag(o.dest.cc) }], ...ex, adults: o.pax, bags: o.bags, directOnly: false });
+    draftSoon(); // předvyplněné, ale nehledané – přežije i zavření aplikace (třeba při kontrole termínu v kalendáři)
     expandForm();
     $('#searchForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
     toast(ex.xOut ? 'Formulář je předvyplněný – hledání spustíš tlačítkem dole' : 'Termín už proběhl – vyber nový a spusť hledání');
@@ -5212,7 +5258,9 @@
     PROV.mix = { name: 'kombinace', color: '#5b8cff' };
     renderSources();
     buildForm();
+    const base = SearchHelp.formSig(S.form);
     setForm(S.form || defaultForm());
+    draftStart(base); // 📝 rozepsané hledání přes poslední hledání (obnovené výsledky níž zůstanou)
     updateHomeChip();
     restoreLast();
     renderRecent();
