@@ -187,6 +187,10 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 @keyframes aurora{0%{transform:translate(-4%,-2%) rotate(0deg) scale(1.05)}100%{transform:translate(4%,3%) rotate(8deg) scale(1.15)}}
 .hero-grain{position:absolute;inset:0;z-index:1;opacity:.5;background:radial-gradient(circle at 1px 1px,rgba(255,255,255,.06) 1px,transparent 0);background-size:22px 22px}
 .hero-inner{position:relative;z-index:2;color:#fff}
+/* Než aplikace naběhne (app.js boot → html.booted), je z Přehledu vidět jen úvod s hledáním: nadpisy sekcí bez obsahu
+   by po vykreslení radaru a karet poskočily dolů (posun obsahu při startu). Pojistka: bez startu se ukážou za 6 s. */
+html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 0s linear 6s forwards}
+@keyframes boot-show{to{visibility:visible}}
 /* otevřený našeptávač (✨ chytré hledání, tipy) přesahuje fotku – jinak by ho úvod ořízl */
 .hero-bg,.hero-grain{border-radius:inherit}
 .hero:has(.pi-dd:not([hidden])){overflow:visible;z-index:30}

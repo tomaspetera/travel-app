@@ -17,11 +17,23 @@
     const black = px('#000');
     return white === black && !black.startsWith('0,0,0,');
   }
+  // Výsledek si prohlížeč pamatuje: kreslení emoji na plátno stojí na telefonu desítky ms a brzdí první vykreslení
+  // (skript je v <head>). Stejný prohlížeč (userAgent) vlajky umí, nebo neumí, pořád stejně; nová verze = nové zjištění.
+  const KEY = 'atlas_flags', ua = navigator.userAgent;
+  let need = null;
   try {
-    if (!colored('😊') || colored('🇨🇭')) return;
-  } catch (e) {
-    return;
+    const c = JSON.parse(localStorage.getItem(KEY));
+    if (c && c.ua === ua && typeof c.need === 'boolean') need = c.need;
+  } catch (e) { /* soukromé okno, poškozený záznam: zjistit znovu */ }
+  if (need === null) {
+    try {
+      need = colored('😊') && !colored('🇨🇭');
+    } catch (e) {
+      return;
+    }
+    try { localStorage.setItem(KEY, JSON.stringify({ ua, need })); } catch (e) { /* plné úložiště: příště znovu */ }
   }
+  if (!need) return;
   const range = 'U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F';
   // Chrome skládá rodinu jen z řezů stejné váhy – vlajkový řez proto musí mít každá váha, kterou
   // načítá Google Fonts (index.html: Inter 400–800, Sora 600–800); rozsah „100 900“ nestačí.

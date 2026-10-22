@@ -86,7 +86,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
   #launch .l-ico{position:absolute;left:50%;top:45%;width:128px;height:128px;margin:-64px 0 0 -64px;overflow:visible}
   #launch .l-jet{position:absolute;left:0;top:41%;width:48px;height:48px;opacity:0;animation:l-jet 1.9s linear .9s infinite}
   #launch b{position:absolute;left:0;right:0;bottom:52px;text-align:center;font:400 21px/24px Roboto,system-ui,-apple-system,"Segoe UI",sans-serif}
-  #launch.out{opacity:0;visibility:hidden}
+  /* mizející obrazovka už nepřekáží: klepnutí jde rovnou na přehled, ne až po doznění (0,35 s) */
+  #launch.out{opacity:0;visibility:hidden;pointer-events:none}
   #launch .l-sq,#launch .l-pp{transform-box:fill-box;transform-origin:center}
   #launch .l-sq{animation:l-sq .45s ease-in .3s forwards}
   #launch .l-pp{animation:l-fly .74s cubic-bezier(.5,0,.9,.55) .16s forwards}
@@ -105,6 +106,11 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 </style>
 <link rel="stylesheet" href="css/pwa.css">
 <script src="js/pwa.js" defer></script>
+<!-- Data zemí a stav serveru čeká start aplikace (app.js start, Flights.init), než ukáže pole Odkud/Kam: stahují se
+     hned se stránkou, ne až po načtení všech skriptů (na mobilu o jedno kolo k serveru dřív). as="fetch" + crossorigin
+     = stejný požadavek jako fetch() v aplikaci, prohlížeč ho tak použije a nestahuje znovu. -->
+<link rel="preload" href="data/countries.json" as="fetch" crossorigin>
+<link rel="preload" href="api/health" as="fetch" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://images.unsplash.com">
@@ -115,10 +121,11 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <link rel="stylesheet" href="css/flights.css">
 <link rel="stylesheet" href="css/trip.css">
 <link rel="stylesheet" href="css/pretrip.css">
-<link rel="stylesheet" href="css/desktop.css">
-<link rel="stylesheet" href="css/desktop-flights.css">
-<link rel="stylesheet" href="css/desktop-explore.css">
-<link rel="stylesheet" href="css/desktop-trip.css">
+<!-- desktopové styly (vše v @media od 1024 px): na telefonu neblokují první vykreslení, stáhnou se až po ostatním -->
+<link rel="stylesheet" href="css/desktop.css" media="(min-width:1024px)">
+<link rel="stylesheet" href="css/desktop-flights.css" media="(min-width:1024px)">
+<link rel="stylesheet" href="css/desktop-explore.css" media="(min-width:1024px)">
+<link rel="stylesheet" href="css/desktop-trip.css" media="(min-width:1024px)">
 <script src="js/flags.js"></script>
 </head>
 <body>
@@ -177,8 +184,9 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
             <h1 id="heroGreet">Kam poletíme?</h1>
             <p>Prohledám všechna letiště ve tvém okolí najednou – Ryanair, Wizz Air i další aerolinky – a spočítám i cestu na letiště. Stačí napsat odkud.</p>
             <form class="hero-search2" id="heroSearch" autocomplete="off">
-              <div class="hs-field"><span class="hs-lab">Odkud</span><div class="place-input" id="heroFrom"></div></div>
-              <div class="hs-field"><span class="hs-lab">Kam</span><div class="place-input" id="heroTo"></div></div>
+              <!-- třídy pi pi-dark (jinak je přidá až PlaceInput): pole mají výšku už před načtením skriptů – bez poskočení -->
+              <div class="hs-field"><span class="hs-lab">Odkud</span><div class="place-input pi pi-dark" id="heroFrom"></div></div>
+              <div class="hs-field"><span class="hs-lab">Kam</span><div class="place-input pi pi-dark" id="heroTo"></div></div>
               <button class="btn primary" type="submit">Najít lety</button>
             </form>
             <div class="smart-try" id="smartTry"></div>
