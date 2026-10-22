@@ -3878,7 +3878,7 @@
     const st = wState.get(w.id);
     const since = Alerts.pctChange(w.base ?? h[0]?.czk, cur);
     const low = Alerts.lowest([w.low, ...h.map(x => x.czk), cur]);
-    const drop = Alerts.isDropped(w);
+    const drop = !past && Alerts.isDropped(w); // proběhlý termín: „📉 zlevnilo“ už nekoupíš (jako odznak a „Od minula“)
     const id = esc(w.id);
     const when = st === 'run' ? '<span class="spin dark"></span> kontroluji…' : st === 'wait' ? '⏳ čeká na kontrolu…'
       : w.checked ? `zkontrolováno <span data-ago="${+w.checked}" title="${esc(new Date(w.checked).toLocaleString('cs-CZ'))}">${Alerts.agoTxt(now - w.checked)}</span>` : 'zatím nezkontrolováno';
@@ -4062,7 +4062,7 @@
 
   /* ukazatel „zlevnilo od minule“ – zmizí, když si uživatel seznam na přehledu prohlédne */
   function watchStatTxt() {
-    const list = S.watch || [], n = Alerts.droppedCount(list);
+    const list = S.watch || [], n = Alerts.droppedCount(list, today());
     return n ? `<b class="good">📉 Zlevnilo od minule: ${n}</b>` : list.length ? 'Hlídám, dokud máš ATLAS otevřený' : 'Ulož hledání tlačítkem ♡';
   }
   /** „Od minula: 📉 Brno → Řím −380 Kč · 🎯 Londýn pod tvou cenou · 📡 radar: 3 cíle levněji“ hned pod hledáním. */
@@ -4110,7 +4110,7 @@
   }
   function updateWatchBadges() {
     renderNews();
-    const n = Alerts.droppedCount(S.watch);
+    const n = Alerts.droppedCount(S.watch, today());
     const nb = $('#navDrops'); if (nb) { nb.hidden = !n; nb.textContent = '📉 ' + n; }
     const md = $('#mobDrops'); if (md) md.hidden = !n;
     const val = $('#watchStatVal'); if (val) val.textContent = (S.watch || []).length;

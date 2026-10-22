@@ -316,7 +316,8 @@
     const cur = num(w && w.best && w.best.czk), seen = num(w && w.seen);
     return !!(cur && seen && cur <= seen * (1 - pct / 100));
   }
-  function droppedCount(list) { return (list || []).filter(w => isDropped(w)).length; }
+  // hledání s proběhlým termínem (today = 'YYYY-MM-DD') se nepočítá – jako v „Od minula“ (odznak by hlásil zlevnění, které nikde není)
+  function droppedCount(list, today = null) { return (list || []).filter(w => isDropped(w) && !(today && isPast(w && w.form, today))).length; }
 
   /**
    * Řádek „Od minula“ nahoře na Přehledu: hlídání pod cílovou cenou (hits), zlevněná od posledního pohledu na seznam

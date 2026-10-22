@@ -287,6 +287,10 @@ test('isDropped / droppedCount: zlevnění od poslední návštěvy přehledu', 
   assert.equal(A.isDropped({ best: { czk: 1980 }, seen: 2000 }), true, '−1 % už ano');
   assert.equal(A.droppedCount(list), 1);
   assert.equal(A.droppedCount(undefined), 0);
+  // proběhlý termín se do odznaku nepočítá – stejně jako do „Od minula“ (news)
+  const past = { best: { czk: 1800 }, seen: 2000, form: { dateMode: 'flex', dFrom: '2026-08-01', dTo: '2026-09-01' } };
+  assert.equal(A.droppedCount([...list, past], '2026-10-10'), 1);
+  assert.equal(A.droppedCount([...list, past]), 2, 'bez dneška jako dřív');
 });
 
 test('mergeWatches: složení a úpravy z jiného panelu platí, vlastní novější kontrola se neztratí', () => {
