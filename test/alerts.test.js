@@ -719,3 +719,32 @@ test('applyCheck: hlídání ze starší verze (cena i s dopravou na letiště) 
   // jiný nový základ (vlastní cena na letiště) cíl nemění
   assert.equal(applyCheckRaw({ ...old, pv: A.PV, own: 'VIE:300', target: 2100 }, { czk: 3100 }, NOW, A.CFG, { own: 'VIE:350' }).w.target, 2100);
 });
+
+test('📅 nextMonday9: nejbližší pondělí v 9:00 místního času (v pondělí před devátou týž den)', () => {
+  const at = (...a) => new Date(...a).getTime();
+  assert.equal(A.nextMonday9(at(2026, 9, 22, 10, 0)), '2026-10-26T09:00', 'čtvrtek');
+  assert.equal(A.nextMonday9(at(2026, 9, 25, 23, 0)), '2026-10-26T09:00', 'neděle večer');
+  assert.equal(A.nextMonday9(at(2026, 9, 26, 8, 59)), '2026-10-26T09:00', 'pondělí ráno');
+  assert.equal(A.nextMonday9(at(2026, 9, 26, 9, 0)), '2026-11-02T09:00', 'pondělí od 9:00 až další týden');
+  assert.equal(A.nextMonday9(at(2026, 11, 29, 12, 0)), '2027-01-04T09:00', 'přes konec roku');
+});
+
+test('📅 remindEvent: název, popis bez ceny, URL #watch=<id> bez starého # a stabilní UID', () => {
+  const ev = plain(A.remindEvent({ id: 'abc_1', label: 'Brno → kamkoliv' }, { appUrl: 'http://localhost:3000/', now: NOW }));
+  assert.equal(ev.title, 'Zkontroluj ceny: Brno → kamkoliv');
+  assert.equal(ev.url, 'http://localhost:3000/#watch=abc_1');
+  assert.equal(ev.uid, 'atlas-watch-abc_1');
+  assert.equal(ev.rrule, 'FREQ=WEEKLY;COUNT=8');
+  assert.match(ev.description, /^Cenu jsem zatím nezjistil\./);
+  assert.equal(ev.tz, undefined, 'plovoucí čas – 9:00 i po změně letního času');
+  assert.equal(A.remindEvent({ id: 'x', label: 'A → B' }).url, '', 'bez adresy aplikace bez odkazu');
+});
+
+test('📅 watchFromHash: #watch=<id> z připomínky, cokoliv jiného null', () => {
+  assert.equal(A.watchFromHash('#watch=mf3k9x'), 'mf3k9x');
+  assert.equal(A.watchFromHash('#watch=a-b_C9'), 'a-b_C9');
+  assert.equal(A.watchFromHash('#watch=ab%2Dc'), 'ab-c', 'kódované znaky');
+  for (const h of ['', '#watch=', '#dashboard', '#watchx=1', 'watch=abc', '#watch=a b', '#watch=<img>', '#watch=%E0%A4%A', '#watch=a&b=1', '#plan=xyz', '#watch=' + 'a'.repeat(41), null, undefined]) {
+    assert.equal(A.watchFromHash(h), null, String(h));
+  }
+});

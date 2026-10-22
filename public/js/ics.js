@@ -1,5 +1,6 @@
 /* ATLAS – export do kalendáře (iCalendar, RFC 5545) a odkaz „Přidat do Google Kalendáře“.
-   Událost: { title, start, end?, tz?, endTz?, durationMin?, description?, location?, url?, uid? }
+   Událost: { title, start, end?, tz?, endTz?, durationMin?, description?, location?, url?, uid?, rrule? }
+   rrule = opakování bez „RRULE:“, např. 'FREQ=WEEKLY;COUNT=8' (jen jednoduchý tvar, jiný se vynechá).
    start/end 'YYYY-MM-DD' = celodenní (end = poslední den včetně),
    'YYYY-MM-DDTHH:MM' = místní čas v IANA zóně tz (end v endTz) → v souboru UTC; bez platné zóny plovoucí čas. */
 (function () {
@@ -80,6 +81,9 @@
   }
 
   /* ---------- události ---------- */
+  // Opakování (RFC 5545 3.3.10) jen v jednoduchém tvaru – nic, co by kalendář mohl odmítnout.
+  const DAY = '(MO|TU|WE|TH|FR|SA|SU)';
+  const RRULE = new RegExp(`^FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)(;(COUNT=[1-9]\\d{0,2}|INTERVAL=[1-9]\\d?|UNTIL=\\d{8}(T\\d{6}Z)?|BYDAY=${DAY}(,${DAY})*))*$`);
   /** Událost → { dtStart, dtEnd, allDay, … } s hodnotami pro ICS, nebo null, když nemá platný začátek. */
   function prepare(e) {
     if (!e || typeof e !== 'object') return null;
@@ -89,6 +93,7 @@
       location: cut(e.location, 300).replace(/\s*\n\s*/g, ', ').trim(),
       url: httpUrl(e.url).length <= 4000 ? httpUrl(e.url) : '',
       uid: typeof e.uid === 'string' && /^[\w.@-]{1,120}$/.test(e.uid) ? e.uid : '',
+      rrule: typeof e.rrule === 'string' && RRULE.test(e.rrule) ? e.rrule : '',
     };
     if (isYmd(e.start)) {
       const last = isYmd(e.end) && e.end > e.start ? e.end : e.start;
@@ -132,6 +137,7 @@
         ev.allDay ? 'DTSTART;VALUE=DATE:' + ev.dtStart : 'DTSTART:' + ev.dtStart,
         ev.allDay ? 'DTEND;VALUE=DATE:' + ev.dtEnd : 'DTEND:' + ev.dtEnd,
         'SUMMARY:' + escText(ev.title));
+      if (ev.rrule) lines.push('RRULE:' + ev.rrule);
       if (desc) lines.push('DESCRIPTION:' + escText(desc));
       if (ev.location) lines.push('LOCATION:' + escText(ev.location));
       if (ev.url) lines.push('URL:' + ev.url);

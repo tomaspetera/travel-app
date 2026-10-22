@@ -3895,7 +3895,8 @@
         <div class="w-main">${sparkSvg(w)}<div class="w-stats">${since != null ? `<span${own ? ` title="${w.rebWhy === 'price' ? 'Ceny jsou teď jen za letenku (doprava na letiště zvlášť) – ceny před tím byly i s ní a s novými se nesrovnávají' : 'Cena se přepočítala po změně 🏠 vlastní ceny na letiště nebo seznamu 🙈 – ceny před tím se s novými nesrovnávají'}"` : ''}>${own ? (w.rebWhy === 'price' ? 'od přepočtu cen' : 'od změny nastavení') : 'od uložení'} <b class="${since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>` : ''}${low ? `<span>nejnižší ${czk(low)}</span>` : ''}</div></div>
         <div class="w-desc">${esc(w.best?.desc || 'zatím bez výsledku')}</div>
         ${past ? `<div class="note warn w-past">⌛ <div>Termín proběhl – tohle hledání už hlídat nejde. ${canRoll ? `<button type="button" class="linkbtn" data-wr="${id}">📅 Převést na klouzavé</button> – termín se pak bude posouvat s časem a historie i cílová cena zůstanou. Nebo ho smaž.` : 'Smaž ho, nebo ho otevři a vyber nové datum.'}</div></div>`
-        : `<label class="w-target">🎯 Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target ? '' : 'hidden'}>✓ splněno</span></label>`}
+        : `<label class="w-target">🎯 Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target ? '' : 'hidden'}>✓ splněno</span></label>
+        <div class="w-cal"><button type="button" class="linkbtn" data-wcal="${id}" title="Stáhne událost do kalendáře: každé pondělí v 9:00 (8 týdnů) s odkazem zpět na tohle hlídání">📅 Připomínat</button><span class="faint">v pondělí v kalendáři</span></div>`}
         <div class="w-foot"><div class="w-st faint">${when}</div>
         <div class="row w-act">${past ? `<button class="btn sm" data-wd="${id}">🗑 Smazat</button><button class="btn sm ghost" data-wo="${id}">Otevřít</button>`
         : `<button class="btn sm primary" data-wo="${id}">Otevřít</button><button class="btn sm ghost w-ic" data-wc="${id}" ${st ? 'disabled' : ''} title="Zkontrolovat cenu teď" aria-label="Zkontrolovat cenu teď">↻</button><button class="btn sm ghost w-ic" data-wd="${id}" title="Smazat" aria-label="Smazat">✕</button>`}</div></div>
@@ -3923,6 +3924,7 @@
       else if (b.dataset.wo) openWatch(b.dataset.wo);
       else if (b.dataset.wd) delWatch(b.dataset.wd);
       else if (b.dataset.wr) setRoll(b.dataset.wr, true);
+      else if (b.dataset.wcal) remindWatch(b.dataset.wcal);
     };
     // ukládat průběžně (překreslení karty během psaní nic neztratí), potvrdit až po dopsání
     host.oninput = e => { if (e.target.dataset.wt) setTarget(e.target.dataset.wt, e.target.value); };
@@ -3946,6 +3948,28 @@
     if (el && w) { keepTyping(() => { el.outerHTML = watchCard(w); }); if (window.Photos) Photos.paint($('#watchList')); }
   }
   function setState(id, st) { st ? wState.set(id, st) : wState.delete(id); paintCard(id); }
+  /** 📅 Připomínat: .ics s týdenní připomínkou – vrátí uživatele do ATLASu bez upozornění v telefonu. */
+  function remindWatch(id) {
+    const w = (S.watch || []).find(x => x.id === id); if (!w || !window.Ics) return;
+    Ics.download(`atlas-hlidani-${w.label || id}`, [Alerts.remindEvent(w, { appUrl: location.origin + location.pathname })]);
+    toast('Připomínka stažena – otevři ji v kalendáři (každé pondělí v 9:00, 8 týdnů)');
+  }
+  /**
+   * Odkaz #watch=<id> z připomínky: posunout na kartu a krátce ji zvýraznit; zastaralé hlídání zkontrolovat stejnou
+   * frontou jako ↻ (automatická kontrola ho pak už nehledá znovu). → false, když hlídání neexistuje.
+   */
+  function showWatch(id) {
+    const w = (S.watch || []).find(x => x.id === id); if (!w) return false;
+    if (!$(cardSel(id))) renderWatch();
+    setTimeout(() => {
+      const el = $(cardSel(id)); if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 2500);
+    }, 350);
+    if (!Alerts.isPast(w.form, today()) && Alerts.isStale(w, Date.now())) checkWatch(id);
+    return true;
+  }
   function openWatch(id) {
     const w = (S.watch || []).find(x => x.id === id); if (!w) return;
     // stejné hledání jako kontrola (watchForm, termín, který už začal, od dneška) – setForm by celý termín posunul
@@ -5137,7 +5161,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, showWatch, renderRadar, renderFav, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu

@@ -389,3 +389,36 @@ test('PlanShare: město cesty (place) projde odkazem jen s platným kódem leti�
   assert.equal(PlanShare.sanitize({ ...base, place: { id: 'javascript:x', label: 'x' } }).place, undefined);
   assert.equal(PlanShare.sanitize(base).place, undefined);
 });
+
+test('📅 Připomínat u hlídání: týdenní událost (RRULE), plovoucí 9:00 v pondělí, escapování a zalomení řádků', () => {
+  const { Alerts } = load('alerts.js');
+  const w = { id: 'mf3k9x', label: 'Praha, Brno → Řím; Neapol', best: { czk: 1234, desc: 'Řím · 6. 11.–9. 11. · z PRG' }, checked: new Date(2026, 9, 21, 15, 30).getTime() };
+  const ev = Alerts.remindEvent(w, { appUrl: 'https://atlas-letenky.onrender.com/#dashboard', now: new Date(2026, 9, 22, 10, 0).getTime() });
+  const text = build([ev]);
+  assert.equal(prop(text, 'RRULE'), 'FREQ=WEEKLY;COUNT=8');
+  // bez zóny plovoucí čas: 9:00 zůstane 9:00 i po změně letního času (čtvrtek 22. 10. → pondělí 26. 10.)
+  assert.equal(prop(text, 'DTSTART'), '20261026T090000');
+  assert.equal(prop(text, 'DTEND'), '20261026T091500');
+  assert.equal(prop(text, 'UID'), 'atlas-watch-mf3k9x');
+  assert.equal(prop(text, 'SUMMARY'), 'Zkontroluj ceny: Praha\\, Brno → Řím\\; Neapol');
+  assert.equal(prop(text, 'URL'), 'https://atlas-letenky.onrender.com/#watch=mf3k9x');
+  const desc = prop(text, 'DESCRIPTION');
+  assert.match(desc, /^Poslední nejnižší cena: 1.234 Kč\/os\. \(viděna 21\. 10\. 2026\)\\nŘím · 6\. 11\.–9\. 11\. · z PRG\\n/);
+  assert.ok(desc.endsWith('\\n\\nhttps://atlas-letenky.onrender.com/#watch=mf3k9x'), 'odkaz i v popisu (kalendáře bez URL)');
+  // žádný řádek delší než 75 oktetů, pokračování začíná mezerou
+  for (const l of text.split('\r\n')) assert.ok(Buffer.byteLength(l) <= 75, l);
+  assert.ok(text.includes('\r\n '), 'dlouhý popis je zalomený');
+  // RRULE hned za SUMMARY, jen jednou
+  assert.equal(props(text, 'RRULE').length, 1);
+  assert.match(unfold(text), /\r\nSUMMARY:[^\r]*\r\nRRULE:FREQ=WEEKLY;COUNT=8\r\nDESCRIPTION:/);
+});
+
+test('Ics.build: rrule jen v jednoduchém tvaru, bez něj se událost neopakuje (stávající exporty beze změny)', () => {
+  const ev = { title: 'x', start: '2026-11-02T09:00' };
+  assert.equal(prop(build([{ ...ev, rrule: 'FREQ=WEEKLY;COUNT=8' }]), 'RRULE'), 'FREQ=WEEKLY;COUNT=8');
+  assert.equal(prop(build([{ ...ev, rrule: 'FREQ=WEEKLY;BYDAY=MO,TH;UNTIL=20261231T235959Z' }]), 'RRULE'), 'FREQ=WEEKLY;BYDAY=MO,TH;UNTIL=20261231T235959Z');
+  for (const bad of ['FREQ=WEEKLY\r\nATTENDEE:x', 'freq=weekly', 'FREQ=SECONDLY', 'FREQ=WEEKLY;COUNT=0', 'RRULE:FREQ=WEEKLY', 42, null]) {
+    assert.ok(!build([{ ...ev, rrule: bad }]).includes('RRULE'), String(bad));
+  }
+  assert.ok(!build([ev, { title: 'y', start: '2026-11-03' }]).includes('RRULE'));
+});
