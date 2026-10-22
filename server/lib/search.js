@@ -184,7 +184,7 @@ async function settle(fn, st, p, ctx) {
     st.state = st.error ? 'partial' : 'done';
   } catch (e) {
     st.state = 'error';
-    st.error = e.message || String(e);
+    st.error = errText(e);
   } finally {
     st.ms = Date.now() - t0;
     Object.assign(st, outageOf(st, p, ctx));
@@ -196,6 +196,18 @@ async function settle(fn, st, p, ctx) {
  * outage = null | 'partial' (část dotazů selhala) | 'down' (nic neprošlo) | 'blocked' (vynecháno po
  * výpadku v jiných hledáních, znovu za retryAfter s). Kiwi počítá dotazy i opakování (ctx).
  */
+/**
+ * Text chyby zdroje pro aplikaci: bez adresy API (uživateli nic neřekne a v aplikaci vypadá jako porucha ATLASu),
+ * jen lidsky, co se stalo, a kód HTTP pro případné hlášení.
+ */
+export function errText(e) {
+  const s = Number(e?.status) || 0;
+  if (s >= 500) return `výpadek na straně aerolinky (HTTP ${s})`;
+  if (s === 401 || s === 403) return `aerolinka dotaz odmítla (HTTP ${s})`;
+  if (s) return `chyba HTTP ${s}`;
+  return String(e?.message || e || 'neznámá chyba').replace(/\s*https?:\/\/\S+/g, '').trim() || 'neznámá chyba';
+}
+
 export function outageOf(st, p, ctx) {
   const failed = ctx ? ctx.failed : st.failed || 0;
   let outage = null;
@@ -735,7 +747,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     })));
     st.failed += failed;
     if (failed && failed === tasks.length) throw firstErr;
-    if (failed) st.error = `${failed}/${tasks.length} dotazů selhalo: ${firstErr.message}`;
+    if (failed) st.error = `${failed}/${tasks.length} dotazů selhalo: ${errText(firstErr)}`;
   }
 
   // Kiwi: země / světadíl / „kamkoliv“ – jeden dotaz na zemi a okno dat (≤ 31 dní), z víc letišť

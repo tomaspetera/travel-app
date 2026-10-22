@@ -464,3 +464,32 @@ test('Wizz Air: paměť tras – stejné dny bez dotazu, překryv jen chybějíc
     wizzair._resetMemory();
   }
 });
+
+test('Wizz Air: 503 → nová relace a dotaz znovu (Wizz tak odmítá „podezřelou“ relaci)', async () => {
+  const from = ymdPlus(6);
+  const to = ymdPlus(12);
+  let sessionsMade = 0;
+  let tt = 0;
+  const realNow = Date.now;
+  Date.now = () => realNow() + 3600e3; // případná obnova po 503 z dřívějších testů je „stará“ – povolená znovu
+  const stub = stubFetch((url, init) => {
+    if (url.startsWith('https://www.wizzair.com/')) return { body: '<script>apiUrl:"https://be.wizzair.com/30.1.0/Api"</script>', headers: { 'content-type': 'text/html' } };
+    if (url.endsWith('/userSession/new')) { sessionsMade++; return { body: '{}', headers: { 'set-cookie': `RequestVerificationToken=t${sessionsMade}; path=/` } }; }
+    if (url.includes('/search/timetableV2')) {
+      tt++;
+      if (sessionsMade < 2) return { status: 503, body: 'Service Unavailable', headers: { 'content-type': 'text/plain' } };
+      const f = JSON.parse(init.body).flightList[0];
+      return { body: { outboundFlights: [{ departureStation: f.departureStation, arrivalStation: f.arrivalStation, departureDate: `${f.from}T00:00:00`, price: { amount: 19.99, currencyCode: 'EUR' }, priceType: 'price', departureDates: [`${f.from}T09:00:00`] }] } };
+    }
+    return { status: 404, body: '{}' };
+  });
+  try {
+    const legs = await wizzair.daily({ from: 'PRG', to: 'TIA', dateFrom: from, dateTo: to });
+    assert.ok(sessionsMade >= 2, 'po 503 vznikla nová relace');
+    assert.ok(tt >= 2);
+    assert.equal(legs.length, 1);
+  } finally {
+    stub.restore();
+    Date.now = realNow;
+  }
+});

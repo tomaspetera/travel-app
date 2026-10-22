@@ -69,6 +69,13 @@ async function ensureSession(s, force = false) {
 
 class WizzBlocked extends Error {}
 
+// 503 → obnova relace nejvýš jednou za minutu na relaci (při skutečném výpadku by jinak každá trasa zakládala novou)
+function fresh503(s) {
+  if (Date.now() - (s.r503 || 0) < 60e3) return false;
+  s.r503 = Date.now();
+  return true;
+}
+
 async function api(method, path, body, retried = false) {
   if (Date.now() < state.blockedUntil) throw new WizzBlocked('Wizz Air dočasně blokuje dotazy (429)');
   const s = sessions.reduce((a, b) => (b.busy < a.busy ? b : a)); // nejméně vytížená relace
@@ -89,8 +96,9 @@ async function api(method, path, body, retried = false) {
       state.blockedUntil = Date.now() + 10 * 60e3;
       throw new WizzBlocked('Wizz Air dočasně blokuje dotazy (429)');
     }
-    // Nová verze API (404/410) nebo neplatný token → obnov tuhle relaci a zkus jednou znovu.
-    if (!retried && (e.status === 404 || e.status === 410 || /InvalidProtocol/.test(e.body || ''))) {
+    // Nová verze API (404/410), neplatný token, nebo 503 (Wizz Air tak často odmítne „podezřelou“ relaci – z jiné
+    // adresy se stejný dotaz podaří) → obnov tuhle relaci a zkus jednou znovu.
+    if (!retried && (e.status === 404 || e.status === 410 || (e.status === 503 && (s.refreshing || fresh503(s))) || /InvalidProtocol/.test(e.body || ''))) {
       await ensureSession(s, true);
       return api(method, path, body, true);
     }
