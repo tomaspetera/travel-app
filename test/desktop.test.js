@@ -2,7 +2,7 @@
 // jako poslední styl, ať přebije základní pravidla.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const css = readFileSync(new URL('../public/css/desktop.css', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
@@ -41,6 +41,9 @@ test('desktopové styly mají v index.html media od 1024 px (na telefonu nebloku
   const links = [...html.matchAll(/<link rel="stylesheet" href="(css\/[^"]+)"(?: media="([^"]*)")?>/g)].map((m) => [m[1], m[2]]);
   const desk = links.filter(([h]) => /^css\/desktop/.test(h));
   assert.ok(desk.length >= 4, desk.join(' | '));
+  // každý desktop*.css ze složky je v index.html (nový soubor se tak nevyhne kontrole níž)
+  const files = readdirSync(new URL('../public/css/', import.meta.url)).filter((f) => /^desktop.*\.css$/.test(f)).map((f) => `css/${f}`);
+  assert.deepEqual(desk.map(([h]) => h).sort(), files.sort());
   for (const [h, media] of links) assert.equal(media, /^css\/desktop/.test(h) ? '(min-width:1024px)' : undefined, h);
   // media u odkazu je bezpečné, jen když je celý soubor v @media od 1024 px (užší okno ho nesmí potřebovat)
   for (const [h] of desk) {

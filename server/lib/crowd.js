@@ -71,7 +71,13 @@ export function gate(concurrency, maxQueue) {
     queue.push({ fn, gone, resolve, reject });
     next();
   });
-  run.full = () => active >= concurrency && queue.length >= maxQueue;
+  run.full = () => {
+    // úlohy klientů, kteří už odešli, místo ve frontě nedrží (jinak by po zavřených stránkách odmítala i nové)
+    for (let i = queue.length - 1; i >= 0; i--) {
+      if (queue[i].gone && queue[i].gone()) queue.splice(i, 1)[0].resolve(null);
+    }
+    return active >= concurrency && queue.length >= maxQueue;
+  };
   run.stats = () => ({ active, queued: queue.length, concurrency, maxQueue });
   return run;
 }

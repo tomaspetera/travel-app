@@ -25,7 +25,8 @@ Zopakovat: `node scripts/load-test.mjs` (spustí si vlastní DEMO server, `ONLY=
   průběh i výsledek). Dotazy na aerolinky se sdílely už dřív (cache.wrap), teď i výpočet (1–3 s procesoru).
 - **Strop souběžných hledání** (`SEARCH_CONCURRENCY`, výchozí 4) a fronta (`SEARCH_QUEUE`, 20). Nad frontou
   hned 503 „ATLAS teď hledá pro hodně lidí najednou – zkus to prosím za minutu“ (aplikace hlášku ukáže) místo pádu
-  pro všechny. Hledání ve frontě, jehož klient mezitím odešel, se vůbec nespustí.
+  pro všechny. Hledání ve frontě, jehož klient mezitím odešel, se vůbec nespustí a místo ve frontě nedrží.
+  Sdílí se jen běžící hledání: skončí-li chybou, dostanou ji ti, kdo na něj čekali, a další stejné hledání se spustí znovu.
 - **Mezipaměť**: prošlé záznamy se jednou za minutu uklidí; nad 320 MB paměti procesu (`CACHE_SOFT_MB`) se
   zahodí starší polovina (odpověď Ryanairu „kamkoliv“ má stovky kB – strop 5 000 záznamů by se do 512 MB nevešel).
   Kolikrát se to stalo, ukazuje `/api/health` → `cache.trims`.
@@ -34,6 +35,10 @@ Zopakovat: `node scripts/load-test.mjs` (spustí si vlastní DEMO server, `ONLY=
 - **Ochrana aerolinek**: po HTTP 429 se Ryanair na chvíli vynechá (Retry-After, jinak 2 min) – aplikace ukáže
   výpadek s odpočtem jako u Wizz Air; u Wizz Air po 429 nevyjdou ani dotazy, které už čekaly ve frontě.
 - **Pomalý klient**: hlavičky do 20 s, celý požadavek do 30 s (odpověď – streamované hledání – se nezkracuje).
+- Jeden uživatel nepozná rozdíl: limity z adresy mají stejné hodnoty a okna jako dřív (hledání 40 / 10 min, hlášení
+  chyb z prohlížeče 30 / hodinu…), hledání bez návalu běží hned. Hlášky 429 i 503 aplikace ukáže česky (pole `error`).
+- Ověřeno testy `test/crowd.test.js` (limity, mezipaměť, sdílení, fronta, 503/429 s Retry-After, pojistky aerolinek)
+  a `test/clienterr.test.js` (hodinový limit hlášení chyb).
 - Už dřív v pořádku: komprese statiky (brotli/gzip předpočítané v paměti, ETag, Cache-Control), timeout u každého
   dotazu ven, souběžnost na zdroj (Ryanair 6, Kiwi 3, Wizz 3 relace za sebou), pojistky Kiwi/Xotelo/Mapy.com,
   limit těla požadavku 64 kB, limity hledání / Objevuj / ověření z jedné adresy.
@@ -54,5 +59,9 @@ Zopakovat: `node scripts/load-test.mjs` (spustí si vlastní DEMO server, `ONLY=
   server. Víc uživatelů = víc odpovědí z mezipaměti (paměť tras Wizz 6 h), ne víc dotazů.
 - **Adresa klienta**: limity berou první adresu z `X-Forwarded-For`. Ověřit na Renderu, že ji klient nemůže
   podvrhnout (jinak brát adresu, kterou doplní Render/Cloudflare) – jinak limit obejde kdokoli.
+- **Fronta je společná**: jedna adresa může do limitu (40 hledání) zaplnit celou frontu (20) a ostatní pak chvíli
+  dostanou 503. Strop běžících hledání na adresu by to řešil – zatím jen návrh.
+- **Pojistka paměti měří RSS** (to hlídá Render). Node paměť po úklidu systému vrací pomalu, takže po špičce může
+  mezipaměť ještě pár minut zahazovat polovinu každých 30 s – jen pomalejší hledání, ne chyba.
 - Rozběhnuté dotazy na aerolinky po odchodu klienta doběhnou (sdílí je ostatní a výsledek zůstane v mezipaměti);
   zastaví se jen hledání, které ještě čekalo ve frontě.

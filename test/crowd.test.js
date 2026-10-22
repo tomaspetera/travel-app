@@ -2,6 +2,7 @@
 // hledání, strop souběžných hledání s frontou, časové limity příjmu požadavku a pojistky po 429 u Ryanairu a Wizz Air.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { stubFetch, ymdPlus } from './helpers.js';
 
 // Malý strop, ať se dá ověřit fronta i odmítnutí (config se čte při prvním importu – proto až dynamické importy níž).
@@ -117,6 +118,9 @@ test('sharedRuns: stejná práce jednou pro všechny, pozdě příchozí dostane
   // chyba práce dostanou všichni
   const fail = async () => { await sleep(5); throw new Error('výpadek'); };
   await Promise.all([assert.rejects(run('e', fail, () => {}), /výpadek/), assert.rejects(run('e', fail, () => {}), /výpadek/)]);
+  // chyba se sdílí jen po dobu běhu: další stejné hledání se spustí znovu (nedostane starou chybu)
+  assert.equal(run.has('e'), false);
+  assert.deepEqual(await run('e', async () => 'znovu', () => {}), 'znovu');
 });
 
 test('gate: strop souběžných úloh, fronta, plná fronta, úloha klienta, který odešel, se nespustí', async () => {
@@ -135,6 +139,16 @@ test('gate: strop souběžných úloh, fronta, plná fronta, úloha klienta, kte
   const p4 = g(async () => { ran = true; }, () => true);
   assert.equal(await p4, null);
   assert.equal(await p3, 3);
+  assert.equal(ran, false);
+  // plná fronta, ale klient čekající úlohy mezitím odešel: místo se uvolní pro nový požadavek
+  let left = false;
+  const p5 = g(job(5, 20));
+  const p6 = g(async () => { ran = true; }, () => left);
+  assert.equal(g.full(), true);
+  left = true;
+  assert.equal(g.full(), false);
+  assert.equal(await p6, null);
+  assert.equal(await p5, 5);
   assert.equal(ran, false);
   await assert.rejects(g(async () => { throw new Error('x'); }), /x/);
   assert.deepEqual(g.stats(), { active: 0, queued: 0, concurrency: 1, maxQueue: 1 });
@@ -235,6 +249,10 @@ test('server: 429 z limitu adresy má Retry-After (za kolik sekund znovu) a čes
     const s = Number(r.headers.get('retry-after'));
     assert.ok(s > 590 && s <= 600, String(s));
     assert.match((await r.json()).error, /Příliš mnoho hledání/);
+    // aplikace u chybové odpovědi hledání (429, 503) ukáže českou hlášku serveru (pole error), ne „HTTP 429“
+    const flights = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+    assert.match(flights, /const r = await fetch\('api\/search'[^\n]*\n\s*if \(!r\.ok \|\| !r\.body\) throw await httpErr\(r\);/);
+    assert.match(flights, /async function httpErr\(r\) \{\s*const j = await r\.json\(\)\.catch\(\(\) => \(\{\}\)\);\s*return new Error\(j\.error \|\|/);
   } finally {
     config.searchesPer10Min = prev;
   }
