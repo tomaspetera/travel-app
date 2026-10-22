@@ -218,7 +218,8 @@ export const REGIONS = [
 // Druhá várka (od Lysé hory) jen z odpovědí produkčního geokodéru (api/geocode?mapy=1, 10/2026): pohoří GeoNames (MTS),
 // jinak hora, skalní město nebo vodní plocha Mapy.com; bez jasné oblasti hlavní cíl (Kokořínsko = Kokořínský důl,
 // Saské Švýcarsko = Bastei, Velká Fatra = Ostredok). Vynechané: Labské pískovce a Bavorský les (geokodér nemá oblast),
-// Schneeberg a Rax (napřed město v Sasku / vesnice ve Štýrsku), samotný Javorník (víc hor a obcí – jsou tu Javorníky).
+// Schneeberg a Rax (napřed město v Sasku / vesnice ve Štýrsku), Javorník i Javorníky (víc hor a obcí; střed
+// pohoří z GeoNames 49,33 / 18,40 leží spíš na slovenské straně – země i cíl nejisté).
 export const NATURE_KINDS = ['range', 'park', 'peak', 'cave', 'rocks', 'lake'];
 export const NATURE = [
   { cs: 'Krkonoše', kind: 'range', sub: 'pohoří a národní park, Sněžka', cc: 'CZ', lat: 50.7672, lon: 15.6222, km: 20, aliases: ['krkonos', 'karkonosze', 'riesengebirge'] },
@@ -245,7 +246,6 @@ export const NATURE = [
   { cs: 'Slapská přehrada', kind: 'lake', sub: 'vodní nádrž na Vltavě', cc: 'CZ', lat: 49.7417, lon: 14.3567, km: 20, aliases: ['slapy', 'vodni nadrz slapy'] },
   { cs: 'Lysá hora', kind: 'peak', sub: 'nejvyšší hora Beskyd', cc: 'CZ', lat: 49.5460, lon: 18.4473, km: 10 },
   { cs: 'Pustevny', kind: 'peak', sub: 'horské sedlo s Jurkovičovými chatami, Beskydy', cc: 'CZ', lat: 49.4889, lon: 18.2651, km: 10 },
-  { cs: 'Javorníky', kind: 'range', sub: 'pohoří na hranici se Slovenskem', cc: 'CZ', lat: 49.3333, lon: 18.4000, km: 20 },
   { cs: 'Hostýn', kind: 'peak', sub: 'hora 735 m a poutní místo', cc: 'CZ', lat: 49.3801, lon: 17.7018, km: 10, aliases: ['svaty hostyn'] },
   { cs: 'Jizerské hory', kind: 'range', sub: 'pohoří a CHKO', cc: 'CZ', lat: 50.8428, lon: 15.2103, km: 20, aliases: ['jizerky', 'jizerek', 'isergebirge'] },
   { cs: 'Ještěd', kind: 'peak', sub: 'hora 1012 m s vysílačem a hotelem', cc: 'CZ', lat: 50.7326, lon: 14.9851, km: 10 },
@@ -271,9 +271,9 @@ export const NATURE = [
   { cs: 'Hallstatt', kind: 'lake', sub: 'městečko u Halštatského jezera, Solná komora', cc: 'AT', lat: 47.5622, lon: 13.6487, km: 10, aliases: ['halstatt'] },
   { cs: 'Königssee', kind: 'lake', sub: 'jezero, národní park Berchtesgaden', cc: 'DE', lat: 47.5551, lon: 12.9766, km: 10, aliases: ['koenigssee'] },
   { cs: 'Plitvická jezera', kind: 'park', sub: 'národní park, UNESCO', cc: 'HR', lat: 44.8835, lon: 15.6138, km: 10, aliases: ['plitvice', 'plitvice lakes'] },
-  { cs: 'Nízké Tatry', kind: 'range', sub: 'pohoří a národní park, Chopok a Ďumbier', cc: 'SK', lat: 48.9102, lon: 19.8624, km: 20, aliases: ['nizke tatry', 'nizkych tater'] },
+  { cs: 'Nízké Tatry', kind: 'range', sub: 'pohoří a národní park', cc: 'SK', lat: 48.9102, lon: 19.8624, km: 20, aliases: ['nizkych tater'] },
   { cs: 'Velká Fatra', kind: 'park', sub: 'národní park, Ostredok', cc: 'SK', lat: 48.8998, lon: 19.0812, km: 20 },
-  { cs: 'Slovenský kras', kind: 'park', sub: 'národní park, jeskyně Domica', cc: 'SK', lat: 48.5780, lon: 20.7742, km: 20 },
+  { cs: 'Slovenský kras', kind: 'park', sub: 'národní park, Zádielská dolina', cc: 'SK', lat: 48.5780, lon: 20.7742, km: 20 },
   { cs: 'Súľovské skaly', kind: 'rocks', sub: 'skalní město', cc: 'SK', lat: 49.1712, lon: 18.5807, km: 10 },
   { cs: 'Pieniny', kind: 'park', sub: 'národní park, Dunajec a Tři koruny', cc: 'PL', lat: 49.4190, lon: 20.3874, km: 20, aliases: ['pienin'] },
   { cs: 'Saské Švýcarsko', kind: 'park', sub: 'národní park, Bastei', cc: 'DE', lat: 50.9618, lon: 14.0720, km: 20, aliases: ['sachsische schweiz', 'saechsische schweiz'] },
