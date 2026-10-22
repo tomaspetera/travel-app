@@ -325,8 +325,10 @@ async function route(req, res) {
   }
   if (p === '/api/health') {
     await loadRates();
-    // maps: mapové služby (Mapy.com) – mimo providers, ty jsou zdroje cen (Zdroje cen, průběh hledání)
-    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), maps: [mapyStatus()], fx: fxInfo(), cache: cache.stats() });
+    // maps: mapové služby (Mapy.com) – mimo providers, ty jsou zdroje cen (Zdroje cen, průběh hledání);
+    // feedback: adresa pro 💬 Napsat nám – jen když je FEEDBACK_EMAIL nastavená, jinak tlačítko v aplikaci chybí
+    const feedback = config.feedbackEmail ? { feedback: { email: config.feedbackEmail } } : {};
+    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), maps: [mapyStatus()], fx: fxInfo(), cache: cache.stats(), ...feedback });
   }
   if (p === '/api/places') {
     const q = (url.searchParams.get('q') || '').slice(0, 80);
