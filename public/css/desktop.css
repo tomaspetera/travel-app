@@ -93,7 +93,9 @@
 
   /* ---------- Lety – výsledky: tři nejlepší cíle přes celou šířku (ne tři karty vlevo a prázdno vpravo) ---------- */
   .dest-grid.res-top{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .dest-grid.res-top>.dest[data-photo]{aspect-ratio:16/10}
+  /* výška podle obsahu s místem na vlajku nahoře (12 + 42 px): ve sloupci výsledků vedle filtrů je karta ~210 px
+     široká, 16:10 jen ~130 px a panel s názvem na dva řádky vlajku překryl (karta má overflow:hidden, nenaroste sama) */
+  .dest-grid.res-top>.dest[data-photo]{aspect-ratio:auto;min-height:0;padding-top:62px}
 
   /* ---------- Doporučení: filtry ve čtyřech stejných sloupcích přes šířku karty ---------- */
   #view-recommend>.card:first-child{padding:22px 24px !important}

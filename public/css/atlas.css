@@ -151,6 +151,9 @@ a{color:inherit}
 /* odkaz do aplikace v mobilu (🚗 Waze, 🎫 PID Lítačka) – malý štítek vedle odkazu na trasu, nezalomí se uvnitř */
 .app-chip{display:inline-block;padding:0 8px;border-radius:10px;font-size:11.5px;font-weight:600;line-height:1.65;white-space:nowrap;background:var(--surface-2);border:1px solid var(--border);color:var(--accent);text-decoration:none;vertical-align:baseline}
 .app-chip:hover{border-color:var(--border-2)}
+/* 320 px: „🎫 Jízdenka v PID Lítačka“ vedle cesty na letiště v Průběhu cesty je širší než sloupec textu – bez zalomení
+   roztáhla celou kartu Shrnutí doprava; štítek se zalomí uvnitř jen tehdy, když se nevejde ani na samostatný řádek */
+@media(max-width:380px){.app-chip{white-space:normal}}
 .input,select,textarea{
   width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);
   font-family:inherit;font-size:14px;outline:none;transition:.15s

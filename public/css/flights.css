@@ -678,6 +678,12 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
   .tr-more{text-align:left}
   .sf-when{grid-template-columns:1fr 1fr}
 }
+/* 320 px (a širší písmo, když se webová písma nenačtou): „Tam: …“ a „Zpět: …“ se vedle sebe nevejdou – druhé pod první
+   přes celou šířku, místo aby celá karta nabídky přetekla doprava */
+@media(max-width:380px){
+  .tr-act .tr-buy{flex-wrap:wrap;min-width:0}
+  .tr-act .tr-buy .btn{flex:1 1 auto;max-width:100%;white-space:normal}
+}
 @media(max-width:860px){
   .demo-banner{padding:8px 16px}
   /* minmax(0,…): sloupec se smí zúžit pod nejširší obsah (dvě pole data vedle sebe), jinak formulář přetéká */
