@@ -165,11 +165,11 @@ test('cesta přes víc měst: let z jiného města (Řím → let z Neapole) –
   await new Promise((r) => setImmediate(r));
   assert.deepEqual(asked.map(([u, b]) => [u, b.departure, b.bases[0].name, b.transport]), [['api/stayplan', 'NAP', 'Řím', 'transit']]);
   const r = render(c, 'route');
-  assert.match(r, /Na letiště NAP: <b>~1 h 15 min vlakem<\/b>/);
+  assert.match(r, /Na letiště NAP: <b>~1\u00a0h 15\u00a0min vlakem<\/b>/);
   assert.match(r, /~620\u00a0Kč\/os\./);
   assert.doesNotMatch(r, /naplánuj/);
   const rows = c.window.Trip.timeline(t).map((x) => `${x[0]} ${x[1]} ${sp(x[2]).replace(/<[^>]+>/g, '')}`);
-  assert.ok(rows.some((x) => /^2026-11-13 🚆 Řím → letiště NAP · ~1 h 15 min vlakem \(jízdní řád\)/.test(x)), rows.join('\n'));
+  assert.ok(rows.some((x) => /^2026-11-13 🚆 Řím → letiště NAP · ~1\u00a0h 15\u00a0min vlakem \(jízdní řád\)/.test(x)), rows.join('\n'));
   assert.ok(rows.some((x) => /Z ubytování na letiště NAP vyraž nejpozději v 4:20/.test(x)), 'přejezd 75 min + 2 h před odletem 7:35');
   assert.equal(c.window.Trip.costs(t).transfers, 620 * 2);
   // odkaz a uložená cesta přejezd nesou
@@ -430,7 +430,7 @@ test('hotel z okolí (malé místo bez hotelů na TripAdvisoru): program v míst
   const b = t.route.bases[0];
   b.stay = { mode: 'pick', id: 'xo:g1-d1', name: 'Stanze Barocche', near: 'Modica', lat: 41.95, lon: 12.75, totalCzk: 3000, checkin: '2026-11-10', checkout: '2026-11-13' };
   const p = render(c, 'program');
-  assert.match(p, /🏨 Spíš v okolí – Stanze Barocche \(Modica, ~21 km\): program je v místě Řím, na začátek dne počítej cestu z ubytování\./);
+  assert.match(p, /🏨 Spíš v okolí – Stanze Barocche \(Modica, ~21\u00a0km\): program je v místě Řím, na začátek dne počítej cestu z ubytování\./);
   assert.doesNotMatch(p, /\(kolem ubytování\)/);
   assert.deepEqual([calls[0].lat, calls[0].lon, calls[0].label, calls[0].startAt], [41.9, 12.5, 'Řím', 'center']);
   // v průběhu cesty (shrnutí) a na kartě „Dnes na cestě“ (placeOn) s místem hotelu
@@ -440,7 +440,7 @@ test('hotel z okolí (malé místo bez hotelů na TripAdvisoru): program v míst
   delete b.stay.near;
   const p2 = render(c, 'program');
   assert.doesNotMatch(p2, /Spíš v okolí|\(kolem ubytování\)/);
-  assert.match(p2, /🏨 Ubytování je ~21 km od centra – Stanze Barocche: program začíná v centru \(Řím\), na začátek dne počítej cestu z ubytování\./);
+  assert.match(p2, /🏨 Ubytování je ~21\u00a0km od centra – Stanze Barocche: program začíná v centru \(Řím\), na začátek dne počítej cestu z ubytování\./);
   assert.deepEqual([calls[1].lat, calls[1].lon, calls[1].label, calls[1].startAt], [41.9, 12.5, 'Řím', 'center']);
   assert.equal(c.window.Trip.placeOn(t, '2026-11-11').near, '');
   // hotel v místě do 3 km od středu: program kolem něj, bez poznámky
@@ -471,7 +471,7 @@ test('jedno místo: hotel dál než 3 km od středu města → program od centra
   // hotel v Sorgues (~10 km od středu Avignonu): střed z geokodéru, program od centra
   const [p, o, asked] = await run({ lat: 44.008, lon: 4.873 });
   assert.deepEqual(asked, ['api/geocode']);
-  assert.match(p, /🏨 Ubytování je ~8 km od centra – Hôtel Sorgues: program začíná v centru \(Avignon\)/);
+  assert.match(p, /🏨 Ubytování je ~8\u00a0km od centra – Hôtel Sorgues: program začíná v centru \(Avignon\)/);
   assert.doesNotMatch(p, /kolem tvého ubytování/);
   assert.deepEqual([o.lat, o.lon, o.label, o.startAt], [43.949, 4.806, 'Avignon', 'center']);
   // hotel u hradeb (~1 km): program kolem hotelu

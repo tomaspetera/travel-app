@@ -212,9 +212,11 @@
   const DAYPARTS = [['morning', 'Ráno', 5, 12], ['afternoon', 'Odpoledne', 12, 18], ['evening', 'Večer', 18, 24], ['night', 'Noc', 0, 5]];
   const PART_TXT = { morning: 'ráno', afternoon: 'odpoledne', evening: 'večer', night: 'v noci' };
   const freshTime = () => ({ out: [], back: [], arrBy: null, stops: null, maxDur: null, maxLay: null, reach: null });
-  const hm = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`;
-  // „4 h 20“ (jako u odhadu cesty vlakem/busem)
-  const hhmmTxt = m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + pad(m % 60) : ''}` : `${m} min`; };
+  // číslo a jednotka s pevnou mezerou – na úzkém telefonu se „min“ ani „h“ neodtrhne na další řádek („1 h 5 min“ se smí
+  // zalomit jen mezi hodinami a minutami)
+  const hm = m => m >= 60 ? `${Math.floor(m / 60)}\u00a0h${m % 60 ? ' ' + (m % 60) + '\u00a0min' : ''}` : `${m}\u00a0min`;
+  // „4 h 20“ (jako u odhadu cesty vlakem/busem) – celé bez zalomení
+  const hhmmTxt = m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)}\u00a0h${m % 60 ? '\u00a0' + pad(m % 60) : ''}` : `${m}\u00a0min`; };
   const clock = s => { const x = String(s || ''); const h = +x.slice(11, 13), m = +x.slice(14, 16); return x.length >= 16 && Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null; };
 
   /** Část dne odletu letu, nebo null (čas neznámý). */

@@ -28,6 +28,8 @@ function load(state = {}) {
 const plain = (x) => JSON.parse(JSON.stringify(x));
 const sp = (s) => String(s).replace(/ /g, ' ');
 const hm = (m) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`);
+// totéž s pevnými mezerami, jak délku píše průvodce (render() je přes sp převádí na obyčejné) – poznámky, kalendář, průběh
+const hmNb = (m) => (m >= 60 ? `${Math.floor(m / 60)}\u00a0h${m % 60 ? ' ' + (m % 60) + '\u00a0min' : ''}` : `${m}\u00a0min`);
 
 const leg = (from, to, date, dep, arr, fromTz, toTz) => ({
   from, to, date, dep: `${date}T${dep}:00`, arr: `${date}T${arr}:00`, hasTime: true, fromTz, toTz, carrier: 'DA', carrierName: 'Demo Air', flightNo: 'DA 1', provider: 'demo-air', bookUrl: 'https://air.example/book',
@@ -126,7 +128,7 @@ test('průvodce: přímý vlak z tabulky jízdních řádů (fast) – „vlakem
   assert.ok(!cal.description.includes('vlakem / busem'), cal.description);
   vm.runInContext("var byIso = { AT: { cs: 'Rakousko' } }; var PACK = ['Pas']; S.trips = [];", c);
   c.__els['#sumSave'].onclick();
-  assert.ok(c.S.trips[0].notes.split('\n').includes(`Přejezd Vídeň → Salcburk: ${time} (jízdní řád)`), c.S.trips[0].notes);
+  assert.ok(c.S.trips[0].notes.split('\n').includes(`Přejezd Vídeň → Salcburk: ~${hmNb(x.transitMin)} vlakem (jízdní řád)`), c.S.trips[0].notes);
   // odhad (bez fast) a autem beze změny
   delete x.fast;
   render(c, t);
@@ -473,8 +475,8 @@ test('průvodce: západní Afrika – čas podle trasy, autobusem / minibusem (n
   c.__els['#sumSave'].onclick();
   const x0 = t2.route.transfers[0];
   const notes = c.S.trips[0].notes.split('\n');
-  assert.ok(notes.includes(`Přejezd Lagos → Cotonou: ${x0.km} km · ~${hm(x0.carMin)} autem (odhad) · 🛂 hranice Nigérie → Benin`), notes.join('\n'));
-  assert.ok(notes.includes(`Přejezd Porto Novo → letiště LOS: ${dep.km} km · ~3 h 10 min autem (odhad) · 🛂 hranice Benin → Nigérie`));
+  assert.ok(notes.includes(`Přejezd Lagos → Cotonou: ${x0.km}\u00a0km · ~${hmNb(x0.carMin)} autem (odhad) · 🛂 hranice Nigérie → Benin`), notes.join('\n'));
+  assert.ok(notes.includes(`Přejezd Porto Novo → letiště LOS: ${dep.km}\u00a0km · ~3\u00a0h 10\u00a0min autem (odhad) · 🛂 hranice Benin → Nigérie`));
   assert.ok(notes.some((n) => n.startsWith('Přejezd letiště LOS → Lagos: ')));
   // program: cestu z/na letiště nad hodinu (kterou kryje rezerva programu) ubere z prvního a posledního dne
   const [p0, p2] = [0, 2].map((i) => c.window.Trip.baseProgram(t2, i));
@@ -550,9 +552,12 @@ test('kdy vyrazit: z domu na let tam a z ubytování na let zpět – průběh c
   assert.deepEqual(cal.map((e) => [e.title, e.start, e.tz, e.durationMin, e.location]), [
     ['🚪 Vyraž z domu na letiště PRG', '2026-11-10T03:15', 'Europe/Prague', 45, 'Letiště PRG'],
     ['🚪 Vyraž na letiště VIE', '2026-11-14T04:00', 'Europe/Vienna', 60, 'Letiště VIE']]);
-  assert.equal(cal[0].description, 'Odhad: ~45 min cesta na letiště + 2 h před odletem. Spoj ověř (IDOS).');
-  assert.equal(cal[1].description, 'Odhad: ~1 h cesta z ubytování na letiště + 2 h před odletem.\nBrzy ráno – taxi objednej předem, nebo přespi u letiště.');
+  assert.equal(cal[0].description, 'Odhad: ~45\u00a0min cesta na letiště + 2\u00a0h před odletem. Spoj ověř (IDOS).');
+  assert.equal(cal[1].description, 'Odhad: ~1\u00a0h cesta z ubytování na letiště + 2\u00a0h před odletem.\nBrzy ráno – taxi objednej předem, nebo přespi u letiště.');
   const ics = c.window.Ics.build(c.window.Trip.calendarEvents(t), { now: Date.UTC(2026, 9, 5) });
+  // do souboru .ics s obyčejnými mezerami (pevné jsou jen kvůli zalamování na telefonu)
+  assert.ok(ics.replace(/\r\n /g, '').includes('DESCRIPTION:Odhad: ~45 min cesta na letiště + 2 h před odletem. Spoj ověř (IDOS).'));
+  assert.ok(!ics.includes('\u00a0'));
   assert.ok(ics.includes('DTSTART:20261110T021500Z\r\nDTEND:20261110T030000Z'), '3:15 v Praze = 2:15Z, 45 min');
   // bez času z domu (neznámá cesta na letiště, neznámý čas odletu); auto vrácené na letišti; vlak/bus místo letu
   assert.equal(leaveBy({ ...t, ground: {} }).home, null);
@@ -717,7 +722,7 @@ test('v noci taxi s pevnou cenou (Řím 55 € za auto): v průběhu cesty i v c
   assert.equal(costs(late).arrival, 670 * 2 * 2);
   // průběh cesty: řádek cesty na letiště s pevnou cenou taxi; ve dne nic
   const txt = (x) => timeline(x).map((r) => r[2]);
-  assert.equal(txt(t).find((r) => r.startsWith('Řím → letiště FCO')), 'Řím → letiště FCO · vlak Leonardo Express · ~32 min · 14\u00a0€ (~340\u00a0Kč)/os. · v noci taxi, pevná cena 55 € za auto (v odhadu ceny započteno)');
+  assert.equal(txt(t).find((r) => r.startsWith('Řím → letiště FCO')), 'Řím → letiště FCO · vlak Leonardo Express · ~32\u00a0min · 14\u00a0€ (~340\u00a0Kč)/os. · v noci taxi, pevná cena 55 € za auto (v odhadu ceny započteno)');
   assert.doesNotMatch(txt(day).find((r) => r.startsWith('Řím → letiště FCO')), /v noci/);
   // krok Let: tam i zpět přes FCO – jeden řádek s „zpět stejně“ (cena „a zpět“ je za oba směry)
   const fs = render(c, { ...day, step: 'flight' });
@@ -847,4 +852,63 @@ test('shrnutí: rozpočet po položkách za osobu i celkem (odhady označené) a
   c.__els['#myBudget'].value = String(total + 2000);
   c.__els['#myBudget'].oninput();
   assert.ok(sp(c.__els['#budgetOut'].innerHTML).includes(`Zbývá <b>${kc(2000)}</b>`));
+  assert.ok(!c.__els['#budgetOut'].innerHTML.includes('bud-miss'), 'všechno má cenu – bez poznámky');
+});
+
+test('Můj rozpočet: položka bez ceny (ubytování místa trasy, auto, přejezdy…) se v součtu počítá jako 0 – poznámka u porovnání', () => {
+  const c = load();
+  const { budgetMissing, costs } = c.window.Trip;
+  const miss = (t) => plain(budgetMissing(t));
+  // let + trasa autem: Vídeň s cenou ubytování, Salcburk zatím bez ceny
+  const t = trip({ overland: OV({ on: false }), car: { mode: 'manual', totalCzk: 5000 } });
+  t.route.bases[0].stay = { mode: 'manual', totalCzk: 4000, name: 'Hotel Wien' };
+  t.route.transfers[0].fuelCzk = 800;
+  assert.deepEqual(miss(t), ['ubytování (Salcburk)']);
+  t.route.bases[1].stay = { mode: 'links' }; // jen odkazy na hledání – cena neznámá
+  assert.deepEqual(miss(t), ['ubytování (Salcburk)']);
+  t.route.bases[1].stay = { mode: 'skip', totalCzk: 0 }; // „neřeším“ – nechybí
+  assert.deepEqual(miss(t), []);
+  t.route.bases[0].stay = null; t.route.bases[1].stay = null;
+  assert.deepEqual(miss(t), ['ubytování (Vídeň, Salcburk)']);
+  // auto vybrané bez ceny, přejezd bez spočítaného paliva (starší uložená trasa), letenka bez ceny
+  t.car = { mode: 'manual', totalCzk: 0 };
+  delete t.route.transfers[0].fuelCzk;
+  t.flight.flightCzk = 0;
+  assert.deepEqual(miss(t), ['letenky', 'ubytování (Vídeň, Salcburk)', 'auto', 'přejezdy mezi místy']);
+  t.car = { mode: 'skip', totalCzk: 0 }; t.flight.flightCzk = 3000;
+  t.route.transport = 'transit'; t.route.transfers[0].fareCzk = 450; // vlakem / busem: jízdenka má cenu
+  assert.deepEqual(miss(t), ['ubytování (Vídeň, Salcburk)']);
+  // vlak / bus místo letu: jízdenka bez ceny
+  const o = trip();
+  assert.ok(!miss(o).includes('jízdenky na vlak / bus'), 'spoje RegioJetu mají cenu');
+  o.overland.back.czk = 0;
+  assert.ok(miss(o).includes('jízdenky na vlak / bus'));
+  // jedno místo: ubytování nevybrané (krok přeskočený) chybí, „bez ubytování“ a zadaná cena ne
+  const s = trip({ overland: OV({ on: false }), route: { mode: 'single' }, stay: null });
+  assert.deepEqual(miss(s), ['ubytování']);
+  s.stay = { mode: 'skip', name: 'bez ubytování', totalCzk: 0 };
+  assert.deepEqual(miss(s), []);
+  s.stay = { mode: 'manual', totalCzk: 6000 };
+  assert.deepEqual(miss(s), []);
+
+  // ve shrnutí: s rozpočtem poznámka pod porovnáním – „Zbývá“ není celá pravda
+  t.route.bases[0].stay = { mode: 'manual', totalCzk: 4000, name: 'Hotel Wien' };
+  const h = render(c, t);
+  assert.ok(h.includes('Ubytování zatím bez ceny · Salcburk'), 'v tabulce ceny řádek bez ceny');
+  c.__els['#myBudget'].value = String(costs(t).total + 5000);
+  c.__els['#myBudget'].oninput();
+  const out = sp(c.__els['#budgetOut'].innerHTML);
+  assert.ok(out.includes('Zbývá <b>'), out);
+  assert.ok(out.includes('<div class="bud-miss">⚠️ Zatím bez ceny: ubytování (Salcburk) – v součtu chybí, cesta vyjde dráž.</div>'), out);
+  // víc položek: „a“ před poslední
+  t.car = { mode: 'manual', totalCzk: 0 };
+  render(c, t);
+  c.__els['#myBudget'].oninput();
+  assert.ok(sp(c.__els['#budgetOut'].innerHTML).includes('Zatím bez ceny: ubytování (Salcburk) a auto – v součtu chybí'));
+  // vše s cenou → bez poznámky; ubytování „neřeším“ v tabulce není „bez ceny“
+  t.car = { mode: 'skip', totalCzk: 0 };
+  t.route.bases[1].stay = { mode: 'skip', totalCzk: 0 };
+  assert.ok(!render(c, t).includes('zatím bez ceny'));
+  c.__els['#myBudget'].oninput();
+  assert.ok(!c.__els['#budgetOut'].innerHTML.includes('bud-miss'));
 });

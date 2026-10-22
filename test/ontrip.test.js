@@ -77,10 +77,10 @@ test('Trip.timeline: den programu nese program a den (trasa pěšky na kartě); 
 test('Trip.timeline: cesta jen z plánovače – lety s časem, dopravcem a číslem, online check-in, vlak, aktivity dnů; zpět až po aktivitách', () => {
   const t = plannerOnly({ days: { '2026-11-13': ['Belém', 'Pastéis <de> Belém'], '2026-11-17': ['Time Out Market'] } });
   assert.deepEqual(lines(C.Trip.timeline(t)), [
-    '2026-11-11 📲 Online check-in Ryanair PRG → LIS: otevře se 11.11. v 06:25 (24 h před odletem), zavře 2 h před odletem · na letišti se platí ~55 €/os.',
+    '2026-11-11 📲 Online check-in Ryanair PRG → LIS: otevře se 11.11. v 06:25 (24\u00a0h před odletem), zavře 2\u00a0h před odletem · na letišti se platí ~55\u00a0€/os.',
     '2026-11-12 🛫 PRG 06:25 → LIS 09:05 · Ryanair · FR 1234',
     '2026-11-13 📍 Belém · Pastéis &lt;de&gt; Belém',
-    '2026-11-16 📲 Online check-in Ryanair LIS → PRG: otevře se 16.11. v 10:00 (24 h před odletem), zavře 2 h před odletem · na letišti se platí ~55 €/os.',
+    '2026-11-16 📲 Online check-in Ryanair LIS → PRG: otevře se 16.11. v 10:00 (24\u00a0h před odletem), zavře 2\u00a0h před odletem · na letišti se platí ~55\u00a0€/os.',
     '2026-11-17 📍 Time Out Market',
     '2026-11-17 🛬 LIS 10:00 → PRG 14:35 · Ryanair · FR 1235',
   ]);
@@ -94,7 +94,7 @@ test('Trip.timeline: cesta jen z plánovače – lety s časem, dopravcem a čí
   assert.deepEqual(lines(C.Trip.timeline(g)), [
     '2026-11-12 🛫 PRG → OPO · TAP · čas ověř',
     '2026-11-13 🚆 Praha 06:01 → Vídeň 09:55 · vlak · hl.n. → Wien Hbf (RegioJet)',
-    '2026-11-17 🚌 Vídeň → Praha · bus · ~4 h 30 min, čas ověř',
+    '2026-11-17 🚌 Vídeň → Praha · bus · ~4\u00a0h 30\u00a0min, čas ověř',
   ]);
   assert.deepEqual(plain(C.Trip.timeline({ name: 'Bez ničeho' })), []);
 });
@@ -342,7 +342,7 @@ test('nowParts + nowCard: dnešní řádky z průvodce, zítřek, ubytování s 
   assert.deepEqual(plain(p.refs), [{ co: 'Let tam', kod: 'ABC123', pozn: 'Ryanair, 2 os.' }, { co: 'Hotel', kod: '4021.775.913', pozn: '' }]);
   const h = sp(c.nowCard(x, p));
   assert.ok(h.includes('📍 Dnes na cestě · den 2 z 6 · <b>Lisabon</b>'), h);
-  assert.ok(h.includes('🕐 Místní čas <b data-nw="clock"></b> – o 1 h méně než v Praze'));
+  assert.ok(h.includes('🕐 Místní čas <b data-nw="clock"></b> – o 1\u00a0h méně než v Praze'));
   assert.ok(h.includes('🏨 Hotel Lisboa Centro · <a href="https://www.google.com/maps/dir/?api=1&amp;destination=Hotel+Lisboa+Centro%2C+Lisabon%2C+Portugalsko&amp;travelmode=transit" target="_blank" rel="noopener">navigovat ↗</a>'));
   assert.match(h, /🗺️ trasa pěšky: <a href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;origin=Hotel\+Lisboa\+Centro[^"]*travelmode=walking"[^>]*>Google Maps ↗<\/a> · <a href="https:\/\/mapy\.com\/fnc\/v1\/route\?[^"]*routeType=foot_fast/);
   assert.ok(h.includes('<li class="nw-next"><span class="nw-i">📍</span><span><span class="nw-d">zítra</span>volný den</span></li>'));
@@ -358,7 +358,7 @@ test('nowParts + nowCard: dnešní řádky z průvodce, zítřek, ubytování s 
   assert.deepEqual([plain(pb.todo), pb.hotel, pb.shift, pb.clock, pb.next], [{ zar: 1, bal: 1 }, null, -60, '09:00', null]);
   const hb = sp(c.nowCard(b, pb));
   assert.ok(hb.includes(`🧳 Za 2 dny odlet · <b>Lisabon</b> <span class="faint">${dayLbl('2026-11-12')}</span>`), hb);
-  assert.ok(hb.includes('🕐 V cíli je o 1 h méně než v Praze'));
+  assert.ok(hb.includes('🕐 V cíli je o 1\u00a0h méně než v Praze'));
   // řádky po dnech: zítra online check-in, v den odletu cesta na letiště, let, hotel…
   assert.ok(hb.includes('<li class="nw-day">zítra</li><li><span class="nw-i">📲</span><span>Online check-in Ryanair PRG → LIS'), hb);
   assert.ok(hb.includes(`<li class="nw-day">${dayLbl('2026-11-12')}</li><li><span class="nw-i">🚪</span><span>Vyraž z domu nejpozději v 3:40`));
@@ -369,7 +369,7 @@ test('nowParts + nowCard: dnešní řádky z průvodce, zítřek, ubytování s 
   assert.deepEqual([pm.ahead.l.from, pm.ahead.l.to, pm.ahead.min, Boolean(pm.todo), pm.shift], ['PRG', 'LIS', 205, true, 0]);
   assert.ok(sp(c.nowCard(c.tripNow([t], m), pm)).includes('✈️ Odlet PRG → LIS <b data-nw="cd"></b>'));
   assert.equal(c.nowParts(c.tripNow([t], UTC('2026-11-12', '07:00')), UTC('2026-11-12', '07:00')).todo, null);
-  assert.deepEqual(plain(vm.runInContext('[205, 45, 60].map(hmTxt)', c)), ['3 h 25 min', '45 min', '1 h']);
+  assert.deepEqual(plain(vm.runInContext('[205, 45, 60].map(hmTxt)', c)), ['3\u00a0h 25\u00a0min', '45\u00a0min', '1\u00a0h']);
 });
 
 test('nowParts: trasa přes víc míst (místo a hotel toho dne), vlak místo letu, cesta jen z plánovače, poškozená cesta z průvodce', () => {
@@ -465,7 +465,7 @@ test('tripNow: dálkový let – v cíli až po přistání (po vzletu na západ
   w.plan.span.departureTime = '21:30';
   const late = saved(w), n = UTC('2026-11-18', '08:00'), x = C.tripNow([late], n);
   assert.deepEqual([late.end, x.today, x.day, x.days], ['2026-11-17', '2026-11-18', 7, 7]);
-  assert.deepEqual(lines(C.nowParts(x, n).rows), ['2026-11-18 🚆 Cesta z letiště PRG domů (~45 min)']);
+  assert.deepEqual(lines(C.nowParts(x, n).rows), ['2026-11-18 🚆 Cesta z letiště PRG domů (~45\u00a0min)']);
   // přes datovou hranici (Tokio → Honolulu přistane „včera“): po odletu už ne „Zítra odlet“
   const hnl = { name: 'Havaj', start: '2026-11-12', end: '2026-11-15', legs: [L('HND', 'HNL', '2026-11-12', '2026-11-12T00:30', '2026-11-11T12:00', 'Asia/Tokyo', 'Pacific/Honolulu')] };
   assert.equal(at('2026-11-11T23:00:00Z', [hnl]), '2026-11-12 Pacific/Honolulu den 1 z 4');

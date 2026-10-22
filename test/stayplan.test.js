@@ -148,7 +148,7 @@ test('evaluateRoute: přejezdy mezi místy a z/na letiště, odkazy do Google Ma
   assert.deepEqual(evaluateRoute([MILAN], {}).legs, { arrival: null, departure: null });
   const far = evaluateRoute([MILAN, ROME], { departure: FCO, transport: 'car' });
   assert.equal(far.transfers[0].long, true);
-  assert.match(far.notes[0], /Milán → Řím trvá ~\d h( \d+ min)? – na jeden přesun je to hodně, zvaž místo mezi nimi nebo vlak\./, 'rychlovlak je rychlejší než auto');
+  assert.match(far.notes[0], /Milán → Řím trvá ~\d\u00a0h( \d+\u00a0min)? – na jeden přesun je to hodně, zvaž místo mezi nimi nebo vlak\./, 'rychlovlak je rychlejší než auto');
   // Rychlovlakem je Milán → Řím běžný přejezd (Frecciarossa 2 h 59 min podle jízdního řádu + cesta na nádraží).
   const fast = evaluateRoute([MILAN, ROME], { transport: 'transit' }).transfers[0];
   assert.deepEqual([fast.transitKind, fast.fast, fast.long], ['rail', true, false]);

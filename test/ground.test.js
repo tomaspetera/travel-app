@@ -266,16 +266,19 @@ test('worth + planeOptions: cena i čas z téže cesty – nejlevnější se sv�
   const w = G.worth(e(234), { doorMin: p.cheap.doorMin, czk: 4045, trips: 2, fast: { doorMin: p.fast.doorMin, czk: 11994 } });
   assert.equal(w.rule, 'time');
   assert.equal(w.reason.replace(/\u00a0/g, ' '), 'Vlakem/busem ~3 h 54 – od dveří ke dveřím ~4 h 40, skoro jako letadlem (nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11 994 Kč).');
+  // délky s pevnou mezerou – v textu srovnání se na telefonu „h“ ani minuty neodtrhnou od čísla
+  assert.match(w.reason, /^Vlakem\/busem ~3\u00a0h\u00a054 – od dveří ke dveřím ~4\u00a0h\u00a040,/);
+  assert.deepEqual([G.hm(45), G.hm(65), G.hm(720)], ['45\u00a0min', '1\u00a0h\u00a005', '12\u00a0h']);
   assert.deepEqual([w.doorMin, w.fast.doorMin, w.fast.czk], [1085, 275, 11994]);
   const slow = G.worth(e(700, 300), { doorMin: 1085, czk: 4045, trips: 2, fast: { doorMin: 275, czk: 11994 } });
   assert.equal(slow.rule, null);
-  assert.match(slow.reason, /letadlo tu vychází lépe \(nejrychlejší let ~4 h 35 od dveří ke dveřím, od 11[\s\u00a0]994 Kč\)/);
+  assert.match(slow.reason, /letadlo tu vychází lépe \(nejrychlejší let ~4\u00a0h\u00a035 od dveří ke dveřím, od 11[\s\u00a0]994 Kč\)/);
   const c = G.worth(e(540, 600), { doorMin: 1085, czk: 4045, trips: 2, fast: { doorMin: 275, czk: 11994 } });
   assert.equal(c.rule, 'cheap');
-  assert.match(c.reason, /o ~2[\s\u00a0]800 Kč levněji na osobu než nejlevnější let \(~18 h 05 od dveří ke dveřím\)/);
+  assert.match(c.reason, /o ~2[\s\u00a0]800 Kč levněji na osobu než nejlevnější let \(~18\u00a0h\u00a005 od dveří ke dveřím\)/);
   // nejrychlejší „pomalejší“ než nejlevnější se nebere; bez rychlejšího letu zůstává původní text
   assert.equal(G.worth(e(234), { doorMin: 300, fast: { doorMin: 400, czk: 1 } }).fast, undefined);
-  assert.match(G.worth(e(234), { doorMin: 300 }).reason, /rychleji než letadlem \(letadlem ~5 h i s cestou na letiště a odbavením\)/);
+  assert.match(G.worth(e(234), { doorMin: 300 }).reason, /rychleji než letadlem \(letadlem ~5\u00a0h i s cestou na letiště a odbavením\)/);
 });
 
 test('links: RegioJet a FlixBus jen se známými ID, IDOS a Google vždy; formáty data a kódování', () => {
@@ -489,7 +492,7 @@ test('attachGround: odhad ke skupinám v dosahu, od dveří ke dveřím s nejkra
   assert.ok(vie.ground.fast.doorMin >= 40 + 120 + 50 + 45 && vie.ground.fast.doorMin < 360, `přímý let 50 min: ${vie.ground.fast.doorMin}`);
   assert.equal(vie.ground.fast.czk, 10172);
   assert.equal(vie.ground.rule, 'time');
-  assert.match(vie.ground.reason, /rychleji než letadlem \(nejrychlejší let ~\d h( \d\d)? od dveří ke dveřím, od 10[\s\u00a0]172 Kč\)/);
+  assert.match(vie.ground.reason, /rychleji než letadlem \(nejrychlejší let ~\d\u00a0h(\u00a0\d\d)? od dveří ke dveřím, od 10[\s\u00a0]172 Kč\)/);
   assert.equal(vie.ground.q.to, 'ap:VIE');
   assert.match(vie.ground.q.from, /^geo:50\.0755,14\.4378\|Praha$/);
   assert.deepEqual([r.to, r.flightCzk, r.trips], ['Vídeň', 5843, 2]);

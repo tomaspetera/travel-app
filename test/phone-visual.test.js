@@ -52,6 +52,38 @@ test('czk(): „733 Kč“ s pevnou mezerou – na telefonu se „Kč“ neodtrh
   assert.equal(ctx.czk(null), '—');
 });
 
+test('délky, teploty a vzdálenosti: „~32 min“, „8 °C“, „1,5 h“, „530 km“ s pevnou mezerou – na 360 px se jednotka neodtrhne', () => {
+  // skutečné řádky pomocných funkcí ze zdrojáků (soubory celé potřebují DOM)
+  const line = (f, name) => {
+    const m = read(`js/${f}`).match(new RegExp(`^\\s*const ${name} = .*$`, 'm'));
+    assert.ok(m, `${f}: ${name}`);
+    return m[0].trim().replace(/^const /, 'var ');
+  };
+  const ctx = vm.createContext({ pad: (n) => String(n).padStart(2, '0') });
+  vm.runInContext([line('trip.js', 'minutesToHm'), line('trip.js', 'kmTxt'), line('app.js', 'hmTxt'), line('flights.js', 'dur'),
+    line('pretrip.js', 'deg'), line('pretrip.js', 'span'), line('pretrip.js', 'degC')].join('\n'), ctx);
+  const sh = vm.createContext({ pad: ctx.pad });
+  vm.runInContext([line('searchhelp.js', 'hm'), line('searchhelp.js', 'hhmmTxt')].join('\n'), sh);
+  const out = {
+    'průběh cesty': [ctx.minutesToHm(32), ctx.minutesToHm(48), ctx.minutesToHm(60), ctx.minutesToHm(65), ctx.kmTxt(530)],
+    'Dnes na cestě': [ctx.hmTxt(48), ctx.hmTxt(125)],
+    'let ve výsledcích': [ctx.dur(125)],
+    'seznam věcí': [ctx.degC(8), ctx.degC(-5), ctx.spanC(12, 19), ctx.spanC(-11, -5)],
+    'filtry a cesta na letiště': [sh.hm(45), sh.hm(390), sh.hhmmTxt(260), sh.hhmmTxt(50)],
+  };
+  assert.deepEqual(out['průběh cesty'], ['32\u00a0min', '48\u00a0min', '1\u00a0h', '1\u00a0h 5\u00a0min', '530\u00a0km']);
+  assert.deepEqual(out['Dnes na cestě'], ['48\u00a0min', '2\u00a0h 5\u00a0min']);
+  assert.deepEqual(out['let ve výsledcích'], ['2\u00a0h 05\u00a0min']);
+  assert.deepEqual(out['seznam věcí'], ['8\u00a0°C', '−5\u00a0°C', '12–19\u00a0°C', '−11 až −5\u00a0°C']);
+  assert.deepEqual(out['filtry a cesta na letiště'], ['45\u00a0min', '6\u00a0h 30\u00a0min', '4\u00a0h\u00a020', '50\u00a0min']);
+  for (const [k, xs] of Object.entries(out)) for (const x of xs) assert.doesNotMatch(x, /\d (min|h|km|°C)\b/, `${k}: ${x}`); // mezi „1 h“ a „5 min“ zalomit smí
+  // Dnes na cestě: posun času „o 1,5 h méně než v Praze“; náhled cíle: „Přes den ~22 °C“
+  assert.match(read('js/app.js'), /shift = `o \$\{String\(h\)\.replace\('\.', ','\)\}\\u00a0h \$\{/);
+  const fl = read('js/flights.js');
+  assert.match(fl, /b: `Přes den ~\$\{Math\.round\(d\.tempHi\)\}\\u00a0°C`/);
+  assert.match(fl, /'přes den ~\$1\\u00a0°C'/);
+});
+
 test('výsledky: vzdálenost „1 352 km“ a štítek cesty z letiště bez zalomení před jednotkou', () => {
   const js = read('js/flights.js');
   assert.match(js, /distanceKm\.toLocaleString\('cs'\)\}\\u00a0km` : ''\}\$\{c && c\.cost/, 'hlavička karty cíle');

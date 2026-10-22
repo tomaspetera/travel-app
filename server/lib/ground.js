@@ -298,11 +298,11 @@ function specific(e) {
   return { ...e, typ: Math.max(e.czk, roundCzk(e.typ * SPECIFIC)), minutes: round5(e.minutes + Math.min(30, e.minutes * (SPECIFIC_MIN - 1))) };
 }
 
-/** „4 h 20“, „45 min“ */
+/** „4 h 20“, „45 min“ – s pevnými mezerami: v textu srovnání s letadlem se na telefonu nerozdělí na dva řádky */
 export function hm(min) {
   const m = Math.round(min);
   const h = Math.floor(m / 60);
-  return h ? `${h} h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}` : ''}` : `${m} min`;
+  return h ? `${h}\u00a0h${m % 60 ? `\u00a0${String(m % 60).padStart(2, '0')}` : ''}` : `${m}\u00a0min`;
 }
 
 /* ---------- letadlo vs. vlak/bus ---------- */

@@ -77,21 +77,21 @@ test('„Kdy vyrazit z domu“ (SearchHelp.REACH) počítá se stejným časem n
 
 test('Ground: text čipu, délka cesty, převod spoje a odhadu na úsek cesty, cena za všechny', () => {
   // běžná cena (co typicky zaplatíš v daný den), „od“ jen v popisku a ve srovnání
-  assert.equal(Ground.chipText({ min: 260, czk: 299, typ: 450 }), '🚆 ~4 h 20 · běžně ~450 Kč');
+  assert.equal(Ground.chipText({ min: 260, czk: 299, typ: 450 }), '🚆 ~4\u00a0h\u00a020 · běžně ~450 Kč');
   // zpáteční hledání: cena tam i zpět jako u letenek vedle čipu
-  assert.equal(Ground.chipText({ min: 260, czk: 299, typ: 450 }, true), '🚆 ~4 h 20 · tam\u00a0i\u00a0zpět\u00a0běžně\u00a0~900\u00a0Kč');
+  assert.equal(Ground.chipText({ min: 260, czk: 299, typ: 450 }, true), '🚆 ~4\u00a0h\u00a020 · tam\u00a0i\u00a0zpět\u00a0běžně\u00a0~900\u00a0Kč');
   // starší uložený výsledek bez běžné ceny: „od“ jako dřív
-  assert.equal(Ground.chipText({ min: 260, czk: 299 }), '🚆 ~4 h 20 · od ~299 Kč');
-  assert.equal(Ground.chipText({ min: 260, czk: 299 }, true), '🚆 ~4 h 20 · tam\u00a0i\u00a0zpět\u00a0od\u00a0~598\u00a0Kč');
+  assert.equal(Ground.chipText({ min: 260, czk: 299 }), '🚆 ~4\u00a0h\u00a020 · od ~299 Kč');
+  assert.equal(Ground.chipText({ min: 260, czk: 299 }, true), '🚆 ~4\u00a0h\u00a020 · tam\u00a0i\u00a0zpět\u00a0od\u00a0~598\u00a0Kč');
   // cena s „od“: stejné ceny jen běžně, tam i zpět ×2
   assert.equal(Ground.priceTxt({ czk: 299, typ: 450 }), 'běžně ~450\u00a0Kč (od ~299\u00a0Kč)');
   assert.equal(Ground.priceTxt({ czk: 299, typ: 450 }, 2), 'běžně ~900\u00a0Kč (od ~598\u00a0Kč)');
   assert.equal(Ground.priceTxt({ czk: 249, typ: 249 }), 'běžně ~249\u00a0Kč');
   assert.equal(Ground.priceTxt({ czk: 299 }), 'od ~299\u00a0Kč');
   assert.deepEqual([Ground.typOf({ czk: 299, typ: 450 }), Ground.typOf({ czk: 299 }), Ground.typOf(null)], [450, 299, 0]);
-  assert.equal(Ground.hm(45), '45 min');
-  assert.equal(Ground.hm(720), '12 h');
-  assert.equal(Ground.hm(65), '1 h 05');
+  assert.equal(Ground.hm(45), '45\u00a0min');
+  assert.equal(Ground.hm(720), '12\u00a0h');
+  assert.equal(Ground.hm(65), '1\u00a0h\u00a005');
   assert.match(Ground.basisTxt('measured'), /skutečných spojů/);
   assert.match(Ground.basisTxt('distance'), /vzdálenosti/);
   assert.match(Ground.basisTxt('distance', 'Alpy'), /přes Alpy déle/);
@@ -105,8 +105,8 @@ test('Ground: text čipu, délka cesty, převod spoje a odhadu na úsek cesty, c
   assert.deepEqual([et.czk, et.fromCzk], [569, 399]);
   assert.equal(Ground.tripCzk({ out: et, back: null }, 2), 569 * 2);
   assert.equal(Ground.tripCzk({ out: l, back: e }, 2), (299 + 299) * 2);
-  assert.equal(Ground.legTxt(l), '10. 11. 06:01 → 10:21 · 4 h 20 · vlak, přímý');
-  assert.equal(Ground.legTxt({ ...l, arr: '2026-11-11T04:00', transfers: 1, kinds: ['TRAIN', 'BUS'] }), '10. 11. 06:01 → 04:00 +1 · 4 h 20 · vlak + bus, 1× přestup');
+  assert.equal(Ground.legTxt(l), '10. 11. 06:01 → 10:21 · 4\u00a0h\u00a020 · vlak, přímý');
+  assert.equal(Ground.legTxt({ ...l, arr: '2026-11-11T04:00', transfers: 1, kinds: ['TRAIN', 'BUS'] }), '10. 11. 06:01 → 04:00 +1 · 4\u00a0h\u00a020 · vlak + bus, 1× přestup');
   assert.match(Ground.legTxt(e), /odhad/);
 });
 
@@ -150,12 +150,12 @@ test('SearchHelp: blízký cíl s málo lety → nabídka vlaku/busu; daleký c�
   const acts = SearchHelp.smartActions(form, res, { today: '2026-10-06' });
   assert.equal(acts[0].key, 'ground');
   assert.equal(acts[0].ground, true);
-  assert.equal(acts[0].label, '🚆 Vlakem/busem ~3 h 54 · tam i zpět od ~598 Kč (odhad)', 'zpáteční: cena jako ve srovnání nad nápovědou');
-  assert.equal(SearchHelp.smartActions({ ...form, trip: 'oneway', xBack: null }, res, { today: '2026-10-06' })[0].label, '🚆 Vlakem/busem ~3 h 54 · od ~299 Kč (odhad)');
+  assert.equal(acts[0].label, '🚆 Vlakem/busem ~3\u00a0h\u00a054 · tam i zpět od ~598 Kč (odhad)', 'zpáteční: cena jako ve srovnání nad nápovědou');
+  assert.equal(SearchHelp.smartActions({ ...form, trip: 'oneway', xBack: null }, res, { today: '2026-10-06' })[0].label, '🚆 Vlakem/busem ~3\u00a0h\u00a054 · od ~299 Kč (odhad)');
   // s běžnou cenou (nový server): běžně, tam i zpět ×2
   const rt = { ...res, ground: { ...res.ground, czk: 249, typ: 279 } };
-  assert.equal(SearchHelp.smartActions(form, rt, { today: '2026-10-06' })[0].label, '🚆 Vlakem/busem ~3 h 54 · tam i zpět běžně ~558 Kč (odhad)');
-  assert.equal(SearchHelp.smartActions({ ...form, trip: 'oneway', xBack: null }, rt, { today: '2026-10-06' })[0].label, '🚆 Vlakem/busem ~3 h 54 · běžně ~279 Kč (odhad)');
+  assert.equal(SearchHelp.smartActions(form, rt, { today: '2026-10-06' })[0].label, '🚆 Vlakem/busem ~3\u00a0h\u00a054 · tam i zpět běžně ~558 Kč (odhad)');
+  assert.equal(SearchHelp.smartActions({ ...form, trip: 'oneway', xBack: null }, rt, { today: '2026-10-06' })[0].label, '🚆 Vlakem/busem ~3\u00a0h\u00a054 · běžně ~279 Kč (odhad)');
   // nevýhodné (dlouhé) a lety existují → nenabízet; žádné lety → nabídnout i delší cestu
   const slow = { ...res, ground: { ...res.ground, worth: false, min: 700 }, groups: [{ best: {} }] };
   assert.ok(!SearchHelp.smartActions(form, slow, { today: '2026-10-06' }).some((a) => a.key === 'ground'));
@@ -385,17 +385,17 @@ test('průvodce cestou: souhrn a průběh cesty autem uvádí pohon (nafta, benz
   const g = (over) => plain(Trip.groundLines(Trip.sanitizeTrip(plain(trip({ overland: null, ground: { out: { minutes: 45 }, back: { minutes: 50 } }, ...over })))));
   assert.deepEqual(g({ groundMode: 'car', carFuel: 'diesel' }), {
     icon: '🚗', row: 'Autem na letiště a zpět (nafta, parkování, odhad)',
-    out: 'Autem na letiště PRG (nafta, ~45 min, odhad)', back: 'Autem z letiště PRG domů (nafta, ~50 min)',
+    out: 'Autem na letiště PRG (nafta, ~45\u00a0min, odhad)', back: 'Autem z letiště PRG domů (nafta, ~50\u00a0min)',
   });
   assert.equal(g({ groundMode: 'car', carFuel: 'petrol' }).row, 'Autem na letiště a zpět (benzín, parkování, odhad)');
   assert.deepEqual(g({ groundMode: 'car', carFuel: 'ev' }), {
     icon: '🚗', row: 'Elektroautem na letiště a zpět (nabíjení, parkování, odhad)',
-    out: 'Elektroautem na letiště PRG (~45 min, odhad)', back: 'Elektroautem z letiště PRG domů (~50 min)',
+    out: 'Elektroautem na letiště PRG (~45\u00a0min, odhad)', back: 'Elektroautem z letiště PRG domů (~50\u00a0min)',
   });
   // starší cesta autem bez pohonu
-  assert.deepEqual([g({ groundMode: 'car' }).row, g({ groundMode: 'car' }).out], ['Autem na letiště a zpět (palivo, parkování, odhad)', 'Autem na letiště PRG (palivo, ~45 min, odhad)']);
+  assert.deepEqual([g({ groundMode: 'car' }).row, g({ groundMode: 'car' }).out], ['Autem na letiště a zpět (palivo, parkování, odhad)', 'Autem na letiště PRG (palivo, ~45\u00a0min, odhad)']);
   assert.deepEqual(g({ groundMode: 'transit' }), {
-    icon: '🚆', row: 'Doprava na letiště a zpět (odhad)', out: 'Cesta na letiště PRG (~45 min, odhad)', back: 'Cesta z letiště PRG domů (~50 min)',
+    icon: '🚆', row: 'Doprava na letiště a zpět (odhad)', out: 'Cesta na letiště PRG (~45\u00a0min, odhad)', back: 'Cesta z letiště PRG domů (~50\u00a0min)',
   });
   // jen tam, cesta na letiště neznámá
   const oneWay = plain(Trip.groundLines(Trip.sanitizeTrip(plain(trip({ overland: null, groundMode: 'car', carFuel: 'ev', ground: {}, flight: { ...trip().flight, back: null } })))));
@@ -422,5 +422,5 @@ test('průvodce cestou: odhad vlaku/busu za běžnou cenu („od“ jen v popisk
   assert.equal(g({ out: { minutes: 45, own: true }, back: { minutes: 50, own: true } }).row, 'Doprava na letiště a zpět (vlastní cena)');
   assert.equal(g({ out: { minutes: 45, own: true }, back: { minutes: 50 } }).row, 'Doprava na letiště a zpět (vlastní cena a odhad)');
   assert.equal(g({ out: { minutes: 45 }, back: { minutes: 50 } }).row, 'Doprava na letiště a zpět (odhad)');
-  assert.equal(g({ out: { minutes: 45, own: true }, back: { minutes: 50, own: true } }).out, 'Cesta na letiště PRG (~45 min, odhad)', 'čas zůstává odhad');
+  assert.equal(g({ out: { minutes: 45, own: true }, back: { minutes: 50, own: true } }).out, 'Cesta na letiště PRG (~45\u00a0min, odhad)', 'čas zůstává odhad');
 });

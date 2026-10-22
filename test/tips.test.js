@@ -74,3 +74,41 @@ test('TIPS: krátké české texty s tlačítkem', () => {
     assert.ok(t.t.length <= 130, `${t.id}: text do 130 znaků (${t.t.length})`);
   }
 });
+
+// renderDashTip (skutečné řádky z app.js) nad zástupným DOM: $ vrací stálé objekty podle selektoru, ✕ = zavolání onclick.
+// store: null = localStorage hází (soukromé okno, zablokované úložiště), { readOnly } = čtení jde, zápis hází.
+function dash(store) {
+  const c = APP.indexOf('function renderDash()');
+  assert.ok(c > b, 'app.js: renderDashTip před renderDash');
+  const data = {};
+  const localStorage = {
+    getItem(k) { if (!store) throw new Error('SecurityError'); return k in data ? data[k] : null; },
+    setItem(k, v) { if (!store || store.readOnly) throw new Error('QuotaExceededError'); data[k] = String(v); },
+  };
+  const els = {};
+  const $ = (s) => (els[s] ||= { hidden: false, innerHTML: '' });
+  const x = vm.createContext({ localStorage, S: base(), esc: (s) => String(s), todayLocal: () => TODAY, $ });
+  vm.runInContext(APP.slice(a, c) + '\nthis.renderDashTip = renderDashTip;', x, { filename: 'app-tips-dom.js' });
+  return { render: () => x.renderDashTip(), el: $('#dashTip'), close: () => $('#dtX').onclick(), data };
+}
+
+test('renderDashTip: ✕ tip skryje i bez localStorage (soukromé okno) – při dalším vykreslení Přehledu se nevrátí', () => {
+  for (const store of [null, { readOnly: true }]) {
+    const d = dash(store), what = store ? 'zápis do úložiště hází' : 'úložiště hází';
+    d.render();
+    assert.equal(d.el.hidden, false, what);
+    assert.match(d.el.innerHTML, /💡 Věděl jsi\? Kamkoliv/, what);
+    d.close();
+    assert.equal(d.el.hidden, true, what);
+    d.render(); // další vykreslení Přehledu (návrat z jiné obrazovky)
+    assert.equal(d.el.hidden, true, `${what}: skrytý tip se nevrátil`);
+    assert.equal(d.el.innerHTML, '', what);
+  }
+  // s funkčním úložištěm beze změny: skrytí se zapíše do atlas_tip a platí i po obnovení stránky (nová kopie v paměti)
+  const d = dash({});
+  d.render();
+  d.close();
+  assert.deepEqual(JSON.parse(d.data.atlas_tip), { day: TODAY, id: null, hid: ['any'] });
+  d.render();
+  assert.equal(d.el.hidden, true);
+});
