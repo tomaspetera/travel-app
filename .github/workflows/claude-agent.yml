@@ -20,8 +20,9 @@ on:
         required: false
         default: ""
 
+# jeden běh na issue najednou; ruční úkoly a denní kontrola běží každý zvlášť (víc oblastí najednou se nezahodí)
 concurrency:
-  group: claude-agent-${{ github.event.issue.number || 'run' }}
+  group: claude-agent-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
 permissions:
