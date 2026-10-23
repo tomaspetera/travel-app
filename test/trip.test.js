@@ -91,7 +91,8 @@ test('stays/cars: validace dotazu a odkazy s předvyplněnými daty', () => {
   assert.equal(r.query.days, 5);
   assert.match(r.query.pickupName, /Bergamo/);
   const kayak = r.links.find((l) => l.id === 'kayak').url;
-  assert.equal(kayak, `https://www.cz.kayak.com/cars/BGY/MXP/${d1}-8h/${d5}-19h?sort=price_a`, 'česká verze Kayaku v Kč');
+  // vyzvednutí 8:30 → 9h (ne před příletem), vrácení 19:00 → 19h
+  assert.equal(kayak, `https://www.cz.kayak.com/cars/BGY/MXP/${d1}-9h/${d5}-19h?sort=price_a`, 'česká verze Kayaku v Kč');
 });
 
 test('planItinerary: nejvýš 3 kostely za den', () => {
@@ -100,7 +101,7 @@ test('planItinerary: nejvýš 3 kostely za den', () => {
   for (const d of plan.days) assert.ok(d.items.filter((p) => p.category === 'church').length <= 3, `${d.date}: příliš mnoho kostelů`);
 });
 
-test('cars: Rentalcars/Booking Cars s kódem letiště, celé půlhodiny, řazení podle ceny', () => {
+test('cars: Rentalcars/Booking Cars s kódem letiště, celé půlhodiny (vyzvednutí nahoru, vrácení dolů), řazení podle ceny', () => {
   const [d1, d5] = [ymdPlus(40), ymdPlus(44)];
   const r = searchCars({ pickup: 'BGY', dropoff: 'MXP', from: `${d1}T08:45`, to: `${d5}T19:10` });
   const rc = new URL(r.links.find((l) => l.id === 'rentalcars').url);
@@ -108,10 +109,29 @@ test('cars: Rentalcars/Booking Cars s kódem letiště, celé půlhodiny, řazen
   assert.equal(rc.searchParams.get('locationIata'), 'BGY');
   assert.equal(rc.searchParams.get('dropLocationIata'), 'MXP');
   assert.equal(rc.searchParams.get('ftsType'), 'A');
-  assert.deepEqual(['puDay', 'puMonth', 'puHour', 'puMinute', 'doHour', 'doMinute'].map((k) => rc.searchParams.get(k)), [String(+d1.slice(8)), String(+d1.slice(5, 7)), '8', '30', '19', '0']);
+  assert.deepEqual(['puDay', 'puMonth', 'puHour', 'puMinute', 'doHour', 'doMinute'].map((k) => rc.searchParams.get(k)), [String(+d1.slice(8)), String(+d1.slice(5, 7)), '9', '0', '19', '0']);
+  assert.deepEqual([rc.searchParams.get('locationName'), rc.searchParams.get('dropLocationName')].map((x) => x.split(' – ')[0]), ['Milán-Bergamo', 'Milán'], 'vrácení se stejným popisem jako vyzvednutí');
+  assert.deepEqual([r.query.pickupCc, r.query.dropoffCc], ['IT', 'IT']);
   assert.equal(rc.searchParams.get('filterCriteria_sortBy'), 'PRICE');
   assert.equal(new URL(r.links.find((l) => l.id === 'bookingcars').url).host, 'cars.booking.com');
   assert.ok(!r.links.some((l) => l.id === 'google'), 'žádný neověřený formát');
+});
+
+test('cars: vyzvednutí po příletu se zaokrouhlí nahoru i přes půlnoc a konec roku, vrácení dolů; vrácení v jiné zemi', async () => {
+  const { carTimeParts, carLinks } = await import('../server/lib/links.js');
+  // přílet 13:10 + 45 min = 13:55: Kayak dřív dal 13h – rezervaci před přistáním
+  assert.deepEqual([carTimeParts('2026-11-10T13:55', 60, true).hh, carTimeParts('2026-11-10T13:55', 30, true).hh, carTimeParts('2026-11-10T13:55', 30, true).mm], [14, 14, 0]);
+  assert.deepEqual([carTimeParts('2026-11-10T13:00', 60, true).hh, carTimeParts('2026-11-10T13:20', 30, true).mm], [13, 30], 'celé hodiny a půlhodiny beze změny, jinak nahoru');
+  assert.deepEqual([carTimeParts('2026-11-15T12:59', 60).hh, carTimeParts('2026-11-15T12:59', 30).mm], [12, 30], 'vrácení dolů');
+  const nye = carTimeParts('2026-12-31T23:40', 60, true);
+  assert.deepEqual([nye.d, nye.y, nye.m, nye.day, nye.hh, nye.mm], ['2027-01-01', 2027, 1, 1, 0, 0]);
+  const links = carLinks({ pickup: 'LIS', dropoff: 'LIS', pickupName: 'Lisabon', from: '2026-12-31T23:40', to: '2027-01-03T08:10', age: 30 });
+  assert.equal(links.find((l) => l.id === 'kayak').url, 'https://www.cz.kayak.com/cars/LIS/2027-01-01-0h/2027-01-03-8h?sort=price_a');
+  const rc = new URL(links.find((l) => l.id === 'rentalcars').url).searchParams;
+  assert.deepEqual(['puDay', 'puMonth', 'puYear', 'puHour', 'puMinute', 'doDay', 'doHour', 'doMinute'].map((k) => rc.get(k)), ['1', '1', '2027', '0', '0', '3', '8', '0']);
+  const d1 = ymdPlus(30);
+  const q = searchCars({ pickup: 'MUC', dropoff: 'VIE', from: `${d1}T10:00`, to: `${ymdPlus(33)}T10:00` }).query;
+  assert.deepEqual([q.pickupCc, q.dropoffCc], ['DE', 'AT']);
 });
 
 test('affiliate: bez čísla projektu (trs) zůstávají odkazy přímé; s ním jen ověřené značky přes tp.media', async () => {

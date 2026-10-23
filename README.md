@@ -1652,9 +1652,9 @@ a posledního dne (hodinu kryje rezerva 1,5 h po příletu a 3 h před odletem).
 cesta z města příjezdu (ne z letiště):
 
 Cena přejezdů je ve Shrnutí a v „Celkem“ jako odhad: **autem palivo** za auto (nafta 6 l/100 km za cenu v zemi startu,
-`server/lib/fuel.js`; i z letiště na první místo a z posledního zpět) a na přejezdu od 80 km v Itálii, Francii a Chorvatsku
-**mýtné** podle km (0,08 / 0,08 / 0,065 €/km – ceníky 2026: A6 Paříž–Lyon ~37 €, Záhřeb–Split 26,40 €; `tollCzk` ve
-`server/lib/stayplan.js`), **vlakem / autobusem jízdenky** na osobu mezi
+`server/lib/fuel.js`; i z letiště na první místo a z posledního zpět) a na přejezdu od 80 km v Itálii, Francii, Chorvatsku
+a Portugalsku **mýtné** podle km (0,08 / 0,08 / 0,065 / 0,08 €/km – ceníky 2026: A6 Paříž–Lyon ~37 €, Záhřeb–Split 26,40 €,
+A1 Lisabon–Porto 25,05 €; `tollCzk` ve `server/lib/stayplan.js`), **vlakem / autobusem jízdenky** na osobu mezi
 místy podle vzdálenosti (stejný model jako cesta vlakem místo letu, `distanceModel` v `server/lib/ground.js`; z letiště
 a na letiště je v dopravě z letiště do města). Vlak v západní, severní a jižní Evropě je dražší než mezinárodní bus,
 na kterém je model kalibrovaný: rychlovlak (vysokorychlostní trať nebo přímý spoj z tabulky níže) ~60 Kč + 2,8 Kč/km

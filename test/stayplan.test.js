@@ -346,11 +346,12 @@ test('suggestRoute (živá data, okolí Vídně, 9 nocí): bez kličkování –
   assert.deepEqual(r.bases.map((b) => b.name), ['Vídeň', 'Brno', 'Bratislava', 'Rust']);
 });
 
-test('přejezd autem: palivo za cenu v zemi startu, na delším přejezdu v Itálii, Francii a Chorvatsku i mýtné', async () => {
+test('přejezd autem: palivo za cenu v zemi startu, na delším přejezdu v Itálii, Francii, Chorvatsku a Portugalsku i mýtné', async () => {
   const { setRates } = await import('../server/lib/fx.js');
   setRates({ base: 'EUR', rates: { EUR: 1, CZK: 24.4 }, source: 'test', date: null });
-  // Záhřeb–Split 380 km ~26 € (HAC), Paříž–Lyon 465 km ~37 € (A6); krátký přejezd a Španělsko bez mýtného
-  assert.deepEqual([tollCzk(380, 'HR'), tollCzk(465, 'FR'), tollCzk(230, 'IT'), tollCzk(60, 'IT'), tollCzk(300, 'ES')], [600, 910, 450, 0, 0]);
+  // Záhřeb–Split 380 km ~26 € (HAC), Paříž–Lyon 465 km ~37 € (A6), Lisabon–Porto 313 km ~25 € (A1 25,05 € v roce 2026);
+  // krátký přejezd a Španělsko bez mýtného
+  assert.deepEqual([tollCzk(380, 'HR'), tollCzk(465, 'FR'), tollCzk(230, 'IT'), tollCzk(60, 'IT'), tollCzk(300, 'ES'), tollCzk(313, 'PT')], [600, 910, 450, 0, 0, 610]);
   const split = { name: 'Split', cc: 'HR', lat: 43.5081, lon: 16.4402 }, dub = { name: 'Dubrovník', cc: 'HR', lat: 42.6507, lon: 18.0944 };
   const x = transfer(split, dub, 'car');
   assert.ok(x.tollCzk > 0 && x.fuelCzk > 0, JSON.stringify(x));
