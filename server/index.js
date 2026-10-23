@@ -371,7 +371,14 @@ async function diagnose() {
 }
 
 async function route(req, res) {
-  const url = new URL(req.url, 'http://localhost');
+  let url;
+  try {
+    url = new URL(req.url, 'http://localhost');
+  } catch {
+    // „//“ (roboti, překlep v odkazu) URL nepřečte – 400 jako u poškozené adresy, ne 500 s výpisem chyby do logu
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('Bad request');
+  }
   const p = url.pathname;
 
   if (p.startsWith('/api/')) {

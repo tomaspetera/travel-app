@@ -282,7 +282,11 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 .ride-in{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,1.1fr);gap:6px}
 .ride-in label{display:flex;flex-direction:column;gap:2px;min-width:0}
 .ride-in label>span{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ride-in .input{padding:7px 8px;border-radius:9px;font-size:14px;min-width:0;background:var(--surface)}
+/* pevná výška: pole času (type="time") je jinak vyšší než textová vedle něj (Chrome: ikona hodin, 37 × 32 px) a v Safari
+   na iPhonu prázdné nižší – řádek 2 × 2 by nelícoval */
+.ride-in .input{padding:7px 8px;border-radius:9px;font-size:14px;min-width:0;height:36px;background:var(--surface)}
+/* iPhone: čas v poli zarovnaný vlevo jako text v polích vedle (Safari ho jinak dává doprostřed) */
+.ride-in .input::-webkit-date-and-time-value{text-align:left}
 .ride-in [data-rf="kod"]{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.04em}
 /* úzký den (telefon, na počítači itinerář ve dvou sloupcích): pole 2 × 2 */
 @container (max-width:460px){.ride-in{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}

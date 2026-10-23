@@ -1707,6 +1707,7 @@ function rideEd(r) {
     + `<div class="ride-in">${f('dep', 'Odjezd', ' type="time"')}${f('plat', 'Nástupiště', ' maxlength="12"')}${f('seat', 'Vůz / místo', ' maxlength="30"')}${f('kod', 'Kód jízdenky', ' maxlength="40" autocapitalize="characters" spellcheck="false"')}</div></div>`;
 }
 function openTrip(i) {
+  flushRide(); // rozepsané pole vlaku (rideSoon) napřed uložit – překreslené okno ho ukáže
   const t = S.trips[i]; if (!t) return; tripShown = t; const c = t.iso ? byIso[t.iso] : null; const city = c && c.cap ? c.cap : t.dest;
   const local = localTrip(t) && !t.flight && !t.wizard;
   // výlet z Objevuj uložený dřív s cestovním seznamem (pas, adaptér…), nic neodškrtnuté → seznam na den venku
@@ -1749,7 +1750,10 @@ function openTrip(i) {
     $$('input[data-addact]', b).forEach(x => { x.onkeydown = enter(() => addAct(i, d)); });
     $$('button[data-addact]', b).forEach(x => { x.onclick = () => addAct(i, d); });
   });
-  $$('[data-ride]', m).forEach(b => $$('[data-rf]', b).forEach(x => { x.onchange = () => setRide(i, b.dataset.ride, x.dataset.rf, x.value); }));
+  $$('[data-ride]', m).forEach(b => $$('[data-rf]', b).forEach(x => {
+    x.onchange = () => setRide(i, b.dataset.ride, x.dataset.rf, x.value);
+    x.oninput = () => setRideSoon(i, b.dataset.ride, x.dataset.rf, x.value);
+  }));
   // vlaky a busy mezi místy trasy zná průvodce (trip.js se stahuje až po startu) – po jeho načtení okno znovu
   if (t.wizard && !window.Trip && window.Lazy) Lazy.need('trip').then(() => { if (tripShown === t && $('#modalBg').classList.contains('show') && S.trips.includes(t)) openTrip(S.trips.indexOf(t)); }, () => { });
   $$('[data-check]', m).forEach(x => { x.onchange = () => toggleCheck(i, +x.dataset.check); });
@@ -1935,14 +1939,39 @@ function rideSet(t, key, k, v) {
  * 🚆 Pole vlaku / busu v itineráři – uloží se bez překreslení okna (psaní v dalším poli zůstane). Karta „Dnes na cestě“
  * i připravený odkaz na plán hned s novým časem.
  */
-window.setRide = (i, key, k, v) => {
-  i = tripIdx(i); const t = S.trips[i], next = t && rideSet(t, key, k, v);
+function putRide(t, key, k, v) {
+  const next = t && rideSet(t, key, k, v);
   if (!next) return;
   if (next.length) t.rides = next; else delete t.rides;
   save();
   ShareLink.prepare('plan', PlanShare.json(t));
   if (activeView === 'dashboard') renderNow();
+}
+// Pole vlaku už při psaní (jako poznámky): „change“ přijde až po opuštění pole – kód jízdenky vložený z e-mailu by
+// aplikace zavřená (nebo uspaná a systémem ukončená) dřív, než pole opustil, ztratila. Čekající hodnota patří k cestě
+// (ne k pořadí v plánovači – mezitím smazaná cesta nic nepřepíše).
+let rideP = null;
+/** Čekající hodnotu pole vlaku uložit hned (další pole, skrytí nebo zavření aplikace). */
+function flushRide() {
+  if (!rideP) return;
+  const { t, key, k, v, tm } = rideP;
+  clearTimeout(tm); rideP = null;
+  if (S.trips.includes(t)) putRide(t, key, k, v);
+}
+/** Psaní v poli k vlaku key cesty t: uloží se za 400 ms od posledního znaku (jiné pole napřed uloží to předchozí). */
+function rideSoon(t, key, k, v) {
+  if (rideP && (rideP.t !== t || rideP.key !== key || rideP.k !== k)) flushRide();
+  if (rideP) clearTimeout(rideP.tm);
+  rideP = { t, key, k, v, tm: setTimeout(flushRide, 400) };
+}
+window.setRide = (i, key, k, v) => {
+  i = tripIdx(i); const t = S.trips[i];
+  if (rideP && rideP.t === t && rideP.key === key && rideP.k === k) { clearTimeout(rideP.tm); rideP = null; } // „change“ = totéž hned
+  putRide(t, key, k, v);
 };
+window.setRideSoon = (i, key, k, v) => { const t = S.trips[tripIdx(i)]; if (t) rideSoon(t, key, k, v); };
+window.addEventListener('pagehide', flushRide);
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushRide(); });
 // „change“ přijde i při překreslení okna po změně z jiného panelu – patří k cestě v okně (smazaná: nic)
 window.setBudget = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].budget = v; reTrip(i); };
 window.setNotes = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].notes = v; save(); };
