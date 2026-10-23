@@ -14,8 +14,13 @@
   --surface:rgba(255,255,255,.045); --surface-2:rgba(255,255,255,.07);
   --surface-solid:#111a32; --card:rgba(20,28,52,.66);
   --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.16);
-  --text:#eaf0ff; --muted:#94a3c8; --faint:#6b779c;
+  /* --faint: popisky a poznámky – i na nejsvětlejší ploše (dlaždice v kartě, okno) aspoň 4,5 : 1; dřívější #6b779c
+     měl na kartě jen 4 : 1 a na dlaždici 3,4 : 1 (večer na telefonu skoro nečitelné) */
+  --text:#eaf0ff; --muted:#94a3c8; --faint:#8692b6;
   --nav-bg:rgba(24,33,64,.8); --nav-line:rgba(255,255,255,.1); --nav-ico:rgba(234,240,255,.6);
+  /* prvky, které kreslí prohlížeč (zaškrtávátka, ikona kalendáře v poli data, nabídka výběru, výchozí placeholder,
+     posuvníky), tmavě – jinak svítí bílé čtverečky a černá ikona data na tmavém poli téměř zmizí */
+  color-scheme:dark;
 }
 [data-theme="light"]{
   --bg:#eef2fb; --bg2:#ffffff; --bg-grad:radial-gradient(1200px 700px at 85% -10%,rgba(168,85,247,.12),transparent 60%),radial-gradient(1000px 600px at -10% 5%,rgba(34,211,238,.12),transparent 55%),#eef2fb;
@@ -165,6 +170,8 @@ a{color:inherit}
   font-family:inherit;font-size:14px;outline:none;transition:.15s
 }
 .input:focus,select:focus,textarea:focus{border-color:var(--accent);background:var(--surface-2)}
+/* výchozí šedý placeholder prohlížeče (#757575) má na tmavém poli jen 3,3–3,5 : 1 („Přidej aktivitu…“, „bez limitu“) */
+[data-theme="dark"] ::placeholder{color:var(--faint)}
 .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
 .field{margin-bottom:2px}
 select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2394a3c8' stroke-width='2.5' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
@@ -438,6 +445,9 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .clim-k span{text-transform:none;letter-spacing:0;font-weight:500}
 .months.clim{gap:4px;margin-top:6px}
 .months.clim .m{padding:5px 1px;color:var(--muted);font-weight:600}
+/* tmavý režim: na barevné dlaždici teploty má šedomodrý měsíc jen 3,1–4,2 : 1 – měsíc světlý jako teplota (odliší ho
+   menší a slabší písmo) */
+[data-theme="dark"] .months.clim .m{color:var(--text)}
 .months.clim .m b{display:block;font-size:12.5px;font-weight:800;color:var(--text);margin-top:1px}
 .note{padding:13px 15px;border-radius:13px;font-size:13px;display:flex;gap:10px;align-items:flex-start}
 .note.warn{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.28);color:#f5d488}
