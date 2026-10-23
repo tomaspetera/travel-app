@@ -629,8 +629,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-23c';
+const WN_ID = '2026-10-23d';
 const WHATS_NEW = [
+  ['🚗', 'Auto na místě s radou', 'v kroku <b>Auto</b> průvodce Cestou ATLAS řekne, kdy auto nepotřebuješ (bydlíš ve městě s metrem nebo vlakem z letiště, mezi místy trasy je rychlejší vlak), upozorní na zóny ZTL v italských městech, elektronické mýtné v Portugalsku a vrácení auta v jiné zemi a napíše, co je v ceně auta a co se počítá zvlášť.'],
   ['📲', 'Přenos do jiného zařízení QR kódem', 'pod <b>Další</b> (na počítači vlevo dole) je <b>📲 Přenést do jiného zařízení</b>: QR kód, který naskenuješ fotoaparátem druhého telefonu, nebo odkaz, který si pošleš (AirDrop, Quick Share, e-mail, chat). Přenese cesty, hlídané ceny, odložené nabídky, ⭐ / 🙈 města, navštívené země i domov – bez účtu, data jdou jen v odkazu, na server ne. Druhé zařízení ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>.'],
   ['💡', 'Kdy koupit hlídanou letenku', 'karta hlídání na <b>Přehledu</b> má graf ceny od uložení se zeleně vyznačenou nejnižší cenou, řádky <b>Nejníž</b> (kdy to bylo), <b>Teď</b> a šipku, jak se cena změnila za týden. Pod tím krátký <b>💡 tip</b> s důvodem – koupit, nebo ještě počkat – podle historie cen, dní do odletu a „Je to dobrá cena?“. Je to jen odhad, jistotu nedává nikdo.'],
   ['👨‍👩‍👧', 'Cesta s dětmi', 'v <b>Letech</b> → Další možnosti → <b>Cestující</b> přidáš děti (2–11 let) a miminka (do 2 let). Cena celkem je za všechna sedadla – dítě platí sedadlo, u nízkonákladových aerolinek obvykle jako dospělý; miminko letí na klíně a poplatek aerolinky se doplní při nákupu. Ryanair a Wizz Air dostanou děti rovnou do odkazu na rezervaci, jinde je přidáš na webu. V průvodci Cestou je rozpočet na osobu za všechna sedadla a odkazy na ubytování s celou rodinou.'],

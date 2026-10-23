@@ -23,6 +23,9 @@
   let stayView = { sort: 'value', minRating: 0, maxNight: null, type: '' };
   let staysData = null;
   let carsData = null;
+  // pořadí dotazů api/cars: po rychlé změně polí (i po novém vykreslení kroku Auto) smí srovnávače vykreslit jen
+  // odpověď na poslední – starší by ukázala odkazy s jinými časy
+  let carSeq = 0;
   // odkaz na srovnávač jen z nabídek pro tatáž letiště a časy (nabídky se načítají asynchronně – mohou být ke starým)
   const carLinkFor = q => { const j = carsData && carsData.query; return q && j && j.pickup === q.pickup && j.dropoff === (q.dropoff || q.pickup) && j.from === q.from && j.to === q.to ? carsData.links[0]?.url || null : null; };
   const staysCache = new Map(); // nabídky ubytování podle dotazu (místo|termín|osoby) – přepínání míst trasy
@@ -453,7 +456,7 @@
     }
     // autem z letiště a na letiště jen s autem vyzvednutým / vráceným na letišti (jinak ten úsek kryje doprava z letiště);
     // po příjezdu vlakem/busem se doprava z letiště nepočítá – oba konce palivem
-    // za auto palivo a na delším přejezdu v Itálii, Francii a Chorvatsku mýtné (tollCzk ze serveru)
+    // za auto palivo a na delším přejezdu v Itálii, Francii, Chorvatsku a Portugalsku mýtné (tollCzk ze serveru)
     const carCost = x => (x ? (x.fuelCzk || 0) + (x.tollCzk || 0) : 0);
     const endFuel = (x, side) => (x && x.fuelCzk && (ov || carCovers(t, side)) ? carCost(x) : 0);
     return Math.round(xs.reduce((s, x) => s + carCost(x), 0) + endFuel(ends.arrival, 'out') + endFuel(ends.departure, 'back'));
@@ -466,8 +469,20 @@
     // cesta přes víc měst: z města na letiště a z letiště do dalšího města u letů mezi místy
     ...(Array.isArray(f.mid) && f.mid.length ? { mid: f.mid.map(l => ({ from: arr[l.from] || null, to: arr[l.to] || null })) } : {}),
   } : null);
-  /** Úsek cesty do města, který nahradí půjčené auto (vyzvednutí na letišti příletu, vrácení na letišti odletu). */
-  const carCovers = (t, side) => { const c = t.car && t.car.mode !== 'skip' ? t.car : null, f = t.flight; return Boolean(c) && (side === 'out' ? c.pickup === f.out.to : Boolean(f.back) && c.dropoff === f.back.from); };
+  /**
+   * Úsek cesty do města, který nahradí půjčené auto: vyzvednutí na letišti příletu krátce po příletu, vrácení na letišti
+   * odletu krátce před odletem (do CAR_NEAR_H hodin; let bez času = týž den). Auto jen na pár dní uprostřed pobytu
+   * (Lisabon 5 nocí, auto 12.–14.) cestu z letiště do města ani zpět nekryje – ta se počítá dál. Auto bez času (starší
+   * cesta) jako dřív podle letiště.
+   */
+  const CAR_NEAR_H = 6;
+  const carNear = (dt, l, at) => !dt || !l || (l.hasTime ? Math.abs(Date.parse(`${String(dt).slice(0, 16)}:00Z`) - Date.parse(`${at}:00Z`)) <= CAR_NEAR_H * 36e5 : String(dt).slice(0, 10) === l.date);
+  const carCovers = (t, side) => {
+    const c = t.car && t.car.mode !== 'skip' ? t.car : null, f = t.flight;
+    if (!c) return false;
+    if (side === 'out') return c.pickup === f.out.to && carNear(c.from, f.out, arrivalAt(f.out));
+    return Boolean(f.back) && c.dropoff === f.back.from && carNear(c.to, f.back, String(f.back.dep).slice(0, 16));
+  };
   /** Trasa přes víc míst: 1. (side 'out') / poslední místo je ve městě letiště (do 25 km) – přejezd k letišti kryje doprava z letiště do města. */
   const arrCovers = (t, side) => {
     const a = !ovOn(t) && +t.flight.arrCzk > 0 && t.arrival && t.arrival[side], bs = t.route.bases, base = side === 'out' ? bs[0] : bs[bs.length - 1];
@@ -2337,12 +2352,80 @@
     const ends = ovOn(t) ? overlandLegs(t) : r.legs || {};
     const km = [ends.arrival, ...(r.transfers || []), ends.departure].reduce((s, x) => s + (x ? x.km : 0), 0);
     const pu = f.out.to, back = f.back ? f.back.from : null;
+    const train = trainFaster(t);
     if (ovOn(t)) {
       return `<div class="note info" style="margin-bottom:12px">🧭 <div><b>Trasa autem: ${esc(r.bases.map(b => b.name).join(' → '))}</b>${km ? ` · přejezdy celkem ~${kmTxt(km)}` : ''}.<br>
-        Přijedeš vlakem / busem – auto si půjč na místě (třeba na letišti <b>${esc(pu)}</b> – ${esc(t.overland.to.label)}) a vrať ho tam před cestou zpět.</div></div>`;
+        Přijedeš vlakem / busem – auto si půjč na místě (třeba na letišti <b>${esc(pu)}</b> – ${esc(t.overland.to.label)}) a vrať ho tam před cestou zpět.${train}</div></div>`;
     }
     return `<div class="note info" style="margin-bottom:12px">🧭 <div><b>Trasa autem: ${esc(r.bases.map(b => b.name).join(' → '))}</b>${km ? ` · přejezdy celkem ~${kmTxt(km)}` : ''}.<br>
-      ${back ? `Auto vyzvedni na letišti příletu <b>${esc(pu)}</b> a vrať na letišti odletu <b>${esc(back)}</b>${back !== pu ? ' – jednosměrný pronájem (one-way) bývá dražší, příplatek za vrácení jinde ověř ve srovnávači' : ''}.` : `Auto vyzvedni na letišti příletu <b>${esc(pu)}</b>; místo vrácení zadej podle toho, kde cestu končíš.`}</div></div>`;
+      ${back ? `Auto vyzvedni na letišti příletu <b>${esc(pu)}</b> a vrať na letišti odletu <b>${esc(back)}</b>${back !== pu ? ' – jednosměrný pronájem (one-way) bývá dražší, příplatek za vrácení jinde ověř ve srovnávači' : ''}.` : `Auto vyzvedni na letišti příletu <b>${esc(pu)}</b>; místo vrácení zadej podle toho, kde cestu končíš.`}${train}</div></div>`;
+  }
+
+  /**
+   * Trasa autem, kde je vlak mezi místy jasně rychlejší (přejezd ze serveru: vlakem aspoň o TRAIN_WIN_MIN min dřív než
+   * autem s provozem a parkováním – Řím → Florencie rychlovlakem ~1 h 55 min, autem ~3 h 15 min): krátký důvod, proč
+   * auto nebrat na celou trasu. Všechny přejezdy rychleji vlakem → bez auta; jen některé → auto jen na část trasy.
+   */
+  const TRAIN_WIN_MIN = 20;
+  /** Přejezdy trasy rychlejší vlakem: { fast: ['Řím → Florencie ~1 h 55 min (autem ~3 h 15 min)'…], all: všechny }. */
+  function trainLegs(t) {
+    const r = t.route, xs = r.transfers || [];
+    const fast = r.bases.slice(1).map((b, i) => {
+      const x = xs[i];
+      return x && x.transitKind === 'rail' && x.transitMin > 0 && x.carMin - x.transitMin >= TRAIN_WIN_MIN
+        ? `${esc(r.bases[i].name)} → ${esc(b.name)} ~${minutesToHm(x.transitMin)} (autem ~${minutesToHm(x.carMin)})` : null;
+    }).filter(Boolean);
+    return { fast, all: fast.length > 0 && fast.length === r.bases.length - 1 };
+  }
+  function trainFaster(t) {
+    const { fast, all } = trainLegs(t);
+    if (!fast.length) return '';
+    return `<div class="car-train">🚆 <b>Vlakem rychleji:</b> ${fast.join(', ')} – ${all ? 'mezi místy auto nepotřebuješ (tlačítko <b>Bez auta – mezi místy vlakem a busem</b> níž)' : 'auto si můžeš půjčit jen na část trasy (vrácení jinde bývá za příplatek)'}.</div>`;
+  }
+
+  /**
+   * Jedno místo ve městě, kam z letiště jede metro, vlak nebo tramvaj (cesta z letiště do města – t.arrival.out.mode),
+   * a ubytování nejvýš ~8 km od centra: krátký důvod, proč auto nepůjčovat (jen na výlety na pár dní). Trasa přes víc
+   * míst, vlak/bus místo letu, letiště jen s autobusem (Mallorca, Kréta – auto se hodí) a ubytování za městem → ''.
+   */
+  const CAR_CITY_RAIL = { metro: 'metro', train: 'vlak', tram: 'tramvaj' };
+  function carCityTip(t) {
+    if (isMulti(t) || ovOn(t)) return '';
+    const a = t.arrival && t.arrival.out, s = t.stay, how = a && CAR_CITY_RAIL[a.mode];
+    if (!how || !Number.isFinite(a.lat) || !Number.isFinite(a.lon)) return '';
+    if (s && s.mode !== 'skip' && Number.isFinite(s.lat) && Number.isFinite(s.lon) && distKm(a, s) > 8) return '';
+    return `<b>Ve městě auto spíš nepotřebuješ</b> – ${esc(a.city || t.dest.label)} projdeš pěšky a MHD, z letiště jede ${how} a parkování v centru bývá drahé. Na výlety mimo město si auto půjč jen na ty dny – uprav vyzvednutí a vrácení níž.`;
+  }
+
+  /**
+   * Auto v zemích, kde se snadno přehlédne povinnost mimo cenu půjčovny (cíl a místa trasy):
+   * Itálie – historická centra mnoha měst jsou zóny ZTL za elektronickými branami s kamerami, vjezd jen s povolením,
+   *   pokuta se doručuje i do ciziny a půjčovna na žádost předá úřadu údaje řidiče (Generální konzulát Itálie v Torontu,
+   *   MZV Itálie: https://constoronto.esteri.it/en/?p=960 „Fines and tickets due to traffic violations in Italy“, ověřeno
+   *   10/2026); hotel v zóně může SPZ hosta zapsat k povolenému vjezdu (Florencie: Servizi alla Strada pro město,
+   *   https://www.serviziallastrada.it/le-news-di-firenzesas/ztl-6 – zápis SPZ ubytovacími zařízeními, ověřeno 10/2026).
+   * Portugalsko – část dálnic má jen elektronické mýtné (brány bez budek, platit na místě nejde); půjčovny mají auta
+   *   s transpondérem a službu si zákazník objedná při převzetí, jinak auto s portugalskou SPZ doplatí mýtné na poště CTT
+   *   nebo v Payshopu do 15 pracovních dnů; transpondér je za poplatek (Infraestruturas de Portugal – FAQ portagens,
+   *   https://www.infraestruturasdeportugal.pt/pt-pt/node/8018, ověřeno 10/2026).
+   */
+  function carCountryNotes(t) {
+    const ccs = new Set([t.dest && t.dest.cc, ...(isMulti(t) ? t.route.bases.map(b => b.cc) : [])].filter(Boolean));
+    const out = [];
+    if (ccs.has('IT')) out.push('🚫 <div><b>Itálie – zóny ZTL:</b> do historických center mnoha měst smí jen auta s povolením. Vjezd hlídají kamery a pokuta přijde i domů (půjčovna předá úřadu tvoje údaje). Parkuj mimo centrum; bydlíš-li uvnitř zóny, dej hotelu předem SPZ – může ji zapsat k povolenému vjezdu.</div>');
+    if (ccs.has('PT')) out.push('🛣️ <div><b>Portugalsko – elektronické mýtné:</b> část dálnic má jen brány bez budek, na místě se platit nedá. Při převzetí auta si objednej mýtnou službu půjčovny (transpondér, za poplatek) – jinak mýtné doplatíš na poště CTT do 15 pracovních dnů.</div>');
+    return out.length ? `<div class="car-notes">${out.map(x => `<div class="note warn">${x}</div>`).join('')}</div>` : '';
+  }
+
+  /**
+   * Co je v ceně auta a co se počítá zvlášť: cena = co zaplatíš půjčovně; palivo a mýtné na přejezdech trasy autem jsou
+   * odhad v Přejezdech (transferCzk); palivo na výlety a parkování v ceně cesty nejsou.
+   */
+  function carCostNote(t) {
+    const tr = isMulti(t) && !isFly(t) && t.route.transport !== 'transit' ? transferCzk(t) : 0;
+    return `<div class="faint car-cost">Do ceny zadej, co zaplatíš půjčovně – i pojištění, autosedačky a příplatek za vrácení jinde. ${tr > 0
+      ? `Palivo a mýtné na přejezdech trasy počítám zvlášť (odhad ~${czk(tr)}); palivo na výlety a parkování ve městech v ceně cesty nejsou.`
+      : 'Palivo, mýtné a parkování v ceně cesty nejsou – počítej s nimi navíc.'}</div>`;
   }
 
   /**
@@ -2360,16 +2443,27 @@
     const host = $('#tripStep');
     const def = t.car && t.car.mode !== 'skip' && t.car.from ? t.car : carDefaults(t);
     // délka pronájmu a příplatek za vrácení jinde – i po úpravě letišť a časů
-    const daysLine = q => `${daysTxt(Math.max(1, Math.ceil((new Date(q.to + ':00Z') - new Date(q.from + ':00Z')) / 864e5) || 1))} pronájmu${q.dropoff && q.dropoff !== q.pickup ? ` · vrácení na jiném letišti (${esc(q.dropoff)}) může stát příplatek` : ''}`;
+    // Půjčovny počítají po 24 h od vyzvednutí: vrácení jen kousek (do 3 h) po celých dnech stojí den navíc – řekni,
+    // do kdy auto vrátit (přílet 11:00 → vyzvednutí 11:45, odlet 15:00 → vrácení 13:00 = 6 dní místo 5).
+    const daysLine = q => {
+      const ms = new Date(q.to + ':00Z') - new Date(q.from + ':00Z'), n = Math.max(1, Math.ceil(ms / 864e5) || 1), over = ms - (n - 1) * 864e5;
+      const save = n > 1 && over > 0 && over <= 3 * 36e5 ? ` · vrátíš-li auto do ${esc(String(q.from).slice(11, 16))}, bývá pronájem o den kratší` : '';
+      return `${daysTxt(n)} pronájmu${save}${q.dropoff && q.dropoff !== q.pickup ? ` · vrácení na jiném letišti (${esc(q.dropoff)}) může stát příplatek` : ''}`;
+    };
     const byTrain = isMulti(t) && t.route.transport === 'transit';
     // trasa přes víc míst autem a auto zatím nevybrané: bez auta jde přejet vlakem a busem (Auto nepotřebuji by nechalo
     // přejezdy autem – palivo i časy za auto, které nebude)
     const byCar = isMulti(t) && !byTrain && (!t.car || t.car.mode === 'skip');
+    const cityTip = !t.car ? carCityTip(t) : '';
+    // všechny přejezdy trasy rychleji vlakem → „Bez auta – mezi místy vlakem a busem“ jako hlavní volba
+    const trainAll = byCar && trainLegs(t).all;
     host.innerHTML = `<div class="card step-card">
       <div class="sc-head"><div><h3>🚗 Auto na místě</h3><div class="muted">${ovOn(t) ? `Půjčovny bývají na letišti u cíle (${esc(t.flight.out.to)}) – vyzvednutí po příjezdu, vrácení před cestou zpět.` : 'Vyzvednutí na letišti po příletu, vrácení před odletem.'}</div></div>
       ${t.car ? `<div class="chosen">${t.car.mode === 'skip' ? 'Bez auta' : `Auto: <b>${czk(t.car.totalCzk)}</b>`}</div>` : ''}</div>
       ${routeCarNote(t)}
-      ${!isMulti(t) && !t.car ? '<div class="car-quick"><span class="muted">Na místě se obejdeš bez auta?</span><button type="button" class="btn sm" id="carSkipTop">Auto nepotřebuji →</button></div>' : ''}
+      ${cityTip ? `<div class="note info car-city" style="margin-bottom:12px">🏙️ <div>${cityTip}<div style="margin-top:8px"><button type="button" class="btn sm primary" id="carSkipTop">Auto nepotřebuji →</button></div></div></div>`
+        : !isMulti(t) && !t.car ? '<div class="car-quick"><span class="muted">Na místě se obejdeš bez auta?</span><button type="button" class="btn sm" id="carSkipTop">Auto nepotřebuji →</button></div>' : ''}
+      ${carCountryNotes(t)}
       <div class="car-form">
         <div class="field"><label>Vyzvednutí</label><div class="row" style="gap:6px"><input class="input" id="carPu" value="${esc(def.pickup)}" maxlength="3" style="max-width:80px;text-transform:uppercase"><input class="input" type="datetime-local" id="carFrom" value="${def.from}"></div></div>
         <div class="field"><label>Vrácení</label><div class="row" style="gap:6px"><input class="input" id="carDo" value="${esc(def.dropoff)}" maxlength="3" style="max-width:80px;text-transform:uppercase"><input class="input" type="datetime-local" id="carTo" value="${def.to}"></div></div>
@@ -2382,26 +2476,35 @@
       <div class="manual-row"><div class="muted" style="font-size:13px">Vybral sis auto? Zadej celkovou cenu:</div>
         <input class="input" id="carPrice" type="number" min="0" step="100" placeholder="Cena celkem v Kč" value="${t.car && t.car.mode === 'manual' ? t.car.totalCzk : ''}">
         <button class="btn" id="carSave">Uložit</button></div>
-      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${(byTrain || isFly(t)) && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${byCar ? '<button class="btn ghost" id="carTransit" title="Přejezdy mezi místy trasy se přepočítají na vlak a autobus (jízdenky místo paliva)">Bez auta – mezi místy vlakem a busem →</button>' : ''}${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
+      ${carCostNote(t)}
+      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${(byTrain || isFly(t)) && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${byCar ? `<button class="btn ${trainAll ? 'primary' : 'ghost'}" id="carTransit" title="Přejezdy mezi místy trasy se přepočítají na vlak a autobus (jízdenky místo paliva)">Bez auta – mezi místy vlakem a busem →</button>` : ''}${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
     </div>`;
     const read = () => ({ pickup: $('#carPu').value.trim().toUpperCase(), dropoff: $('#carDo').value.trim().toUpperCase(), from: $('#carFrom').value, to: $('#carTo').value, age: +$('#carAge').value || 30 });
     const linkFor = carLinkFor;
     const load = async () => {
-      const q = read();
+      const q = read(), my = ++carSeq;
       if (q.from && q.to) $('#carDays').innerHTML = daysLine(q);
-      if (!/^[A-Z]{3}$/.test(q.pickup) || !q.from || !q.to) return;
+      // neúplný formulář: místo odkazů se starými údaji (nebo věčného „Připravuji nabídky…“) říct, co doplnit
+      if (!/^[A-Z]{3}$/.test(q.pickup) || (q.dropoff && !/^[A-Z]{3}$/.test(q.dropoff)) || !q.from || !q.to) {
+        $('#carBody').innerHTML = '<div class="note info">ℹ️ <div>Doplň kód letiště vyzvednutí a vrácení (3 písmena, třeba LIS) a datum a čas vyzvednutí i vrácení – pak ukážu srovnávače půjčoven.</div></div>';
+        return;
+      }
       try {
         const r = await fetch('api/cars?' + new URLSearchParams({ pickup: q.pickup, dropoff: q.dropoff || q.pickup, from: q.from, to: q.to, age: q.age }));
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        if (my !== carSeq) return;
         carsData = j;
         // uložené auto bez odkazu („Pokračovat“ dřív, než se nabídky k novým časům načetly) ho dostane teď
         if (t.car && t.car.mode === 'manual' && !t.car.url && linkFor(t.car)) { t.car.url = linkFor(t.car); persist(); }
         if (!$('#carBody')) return; // krok Auto už je pryč
-        $('#carBody').innerHTML = `<div class="muted" style="font-size:13px;margin-bottom:8px">Srovnávače půjčoven – <b>předvyplněné na letiště ${esc(j.query.pickupName || q.pickup)} a tvoje časy</b>:</div>
+        // vrácení v jiné zemi: mezinárodní one-way stojí víc než vrácení na jiném letišti téže země (to hlásí carDays)
+        const jq = j.query, abroad = jq.pickupCc && jq.dropoffCc && jq.pickupCc !== jq.dropoffCc;
+        $('#carBody').innerHTML = `${abroad ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>Vrácení v jiné zemi</b> (${esc(ccName(jq.dropoffCc))}) – mezinárodní jednosměrný pronájem bývá výrazně dražší a ne každá půjčovna ho dovolí; ověř příplatek v podmínkách nabídky.</div></div>` : ''}
+          <div class="muted" style="font-size:13px;margin-bottom:8px">Srovnávače půjčoven – <b>předvyplněné na letiště ${esc(jq.pickupName || q.pickup)} a tvoje časy</b>:</div>
           ${linkGrid(j.links, '#ff690f')}`;
       } catch (e) {
-        if ($('#carBody')) $('#carBody').innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
+        if (my === carSeq && $('#carBody')) $('#carBody').innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
       }
     };
     ['#carPu', '#carDo', '#carFrom', '#carTo', '#carAge'].forEach(s => $(s).onchange = load);

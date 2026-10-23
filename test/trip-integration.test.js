@@ -694,7 +694,9 @@ test('průvodce: trasa autem bez auta – v kroku Auto „Bez auta – mezi mís
   assert.ok(!render(c, { ...t, step: 'summary', route: { ...t.route, transport: 'transit' } }).includes(warn));
   // krok Auto: volba bez auta přepne přejezdy na vlak a bus a pokračuje k programu
   const h = render(c, t);
-  assert.match(h, /<button class="btn ghost" id="carTransit" title="[^"]+">Bez auta – mezi místy vlakem a busem →<\/button>/);
+  // Vídeň → Salcburk vlakem ~2 h 45 min, autem ~3 h 15 min → bez auta jako hlavní volba, s důvodem u trasy
+  assert.match(h, /<button class="btn primary" id="carTransit" title="[^"]+">Bez auta – mezi místy vlakem a busem →<\/button>/);
+  assert.match(h, /Vlakem rychleji:<\/b> Vídeň → Salcburk/);
   c.__els['#carTransit'].onclick();
   assert.deepEqual([t.route.transport, t.car.mode, t.step], ['transit', 'skip', 'program']);
   // trasa vlakem, nebo jedno místo: volba se nenabízí

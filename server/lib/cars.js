@@ -27,11 +27,16 @@ export function normalizeCarQuery(raw = {}) {
   const days = Math.ceil((Date.parse(`${to}:00Z`) - Date.parse(`${from}:00Z`)) / 864e5);
   if (days > 60) throw new CarQueryError('Pronájem může mít nejvýše 60 dní.');
   const ap = getAirport(pickup);
+  const dp = getAirport(dropoff);
+  const nameOf = (a) => `${a.cityCs} – ${a.name}`.replace(/ \(.*?\)/g, '');
   return {
     pickup,
     dropoff,
-    pickupName: `${ap.cityCs} – ${ap.name}`.replace(/ \(.*?\)/g, ''),
-    dropoffName: getAirport(dropoff).name,
+    pickupName: nameOf(ap),
+    dropoffName: nameOf(dp),
+    // země vyzvednutí a vrácení: vrácení v jiné zemi průvodce zvlášť upozorní (mezinárodní one-way je výrazně dražší)
+    pickupCc: ap.cc || '',
+    dropoffCc: dp.cc || '',
     from,
     to,
     days,

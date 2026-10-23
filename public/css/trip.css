@@ -555,3 +555,7 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 /* ubytování: hotel, který při výběru už nic nenabízel (ověřeno teď), a hotely bez ceny na tvoje dny na požádání */
 .st-sold{font-size:12px;font-weight:700;color:var(--bad,#c0392b);margin:0 0 4px;white-space:nowrap}
 .st-guess-btn{display:block;margin:10px auto 0;font-size:13px}
+/* 🚗 krok Auto: upozornění k zemi (ZTL, elektronické mýtné), co je v ceně auta, kde je rychlejší vlak */
+.car-notes{display:grid;gap:8px;margin:0 0 12px}
+.car-cost{font-size:12.5px;margin:8px 0 0}
+.car-train{margin-top:6px}
