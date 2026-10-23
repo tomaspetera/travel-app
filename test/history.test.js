@@ -49,13 +49,15 @@ function app() {
   vm.runInContext(`var activeView = 'dashboard'; var NAV = ['dashboard', 'flights', 'trip', 'explore', 'planner'].map(k => [k]);
     // go() jako v app.js – jen pohled a jeho zápis do historie (stejný řádek jako v go)
     function go(v, opts = {}) {
-      const from = activeView, y0 = Math.round(window.scrollY || 0);
+      const from = activeView, y0 = opts.noHash ? 0 : Math.round(window.scrollY || 0);
       activeView = v;
       if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));
     }`, ctx);
   vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'histPop', 'hashView', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
   // go() v app.js volá viewStep přes histDo – ověřit, že řádek ve stubu je opravdu ten z app.js
   assert.ok(APP.includes("if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));"), 'go(): zápis do historie');
+  // posun stránky se čte jen pro nový krok (čtení scrollY vynutí rozvržení – při startu zbytečně)
+  assert.ok(APP.includes('const from = activeView, y0 = opts.noHash ? 0 : Math.round(window.scrollY || 0);'), 'go(): posun jako ve stubu');
   /** Prohlížeč dokončí naplánované návraty (každý svým popstate, pak hashchange). */
   const tick = () => {
     for (let k = 0; k < 20 && H.pending.length; k++) {

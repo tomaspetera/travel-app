@@ -317,15 +317,19 @@ class BasicResponse extends Response {
   get type() { return 'basic'; } // odpověď ze stejného původu jako v prohlížeči
 }
 function loadSw(src = read('public/sw.js')) {
-  const handlers = {}, calls = { skip: 0, claim: 0 }, store = new Map();
-  const net = { offline: false, delay: 0, files: {}, log: [] };
+  const handlers = {}, calls = { skip: 0, claim: 0 }, store = new Map(), puts = [];
+  const net = { offline: false, delay: 0, files: {}, log: [], putFails: false };
   const keyOf = (r) => (typeof r === 'string' ? new URL(r, SCOPE).href : r.url).split('#')[0];
   const caches = {
     async open(name) {
       if (!store.has(name)) store.set(name, new Map());
       const m = store.get(name);
       return {
-        put: async (r, res) => { m.set(keyOf(r), await res.text()); },
+        put: async (r, res) => {
+          if (net.putFails) throw new Error('QuotaExceededError');
+          puts.push(keyOf(r));
+          m.set(keyOf(r), await res.text());
+        },
         match: async (r) => (m.has(keyOf(r)) ? new BasicResponse(m.get(keyOf(r)), { status: 200 }) : undefined),
       };
     },
@@ -360,7 +364,7 @@ function loadSw(src = read('public/sw.js')) {
     handlers[type](ev);
     return ev;
   };
-  return { ctx, handlers, calls, store, net, event, CACHE: vm.runInContext('CACHE', ctx) };
+  return { ctx, handlers, calls, store, puts, net, event, CACHE: vm.runInContext('CACHE', ctx) };
 }
 const req = (url, { method = 'GET', mode = 'no-cors', headers = new Headers() } = {}) => ({ url: new URL(url, SCOPE).href, method, mode, headers, cache: 'default' });
 
@@ -515,6 +519,37 @@ test('service worker v akci: instalace ze sítě s ověřením, aktivace smaže 
   let answer = null;
   sw.handlers.message({ data: 'atlas-build', ports: [{ postMessage: (m) => { answer = m; } }] });
   assert.equal(answer, 'v2');
+});
+
+test('service worker: po aktivaci skripty z uložené sady jednou znovu uloží (bez předkompilace z instalace) – bez sítě, obsah stejný', async () => {
+  const precache = ['./', 'js/app.js', 'js/flights.js', 'css/atlas.css', 'data/countries.json', 'js/smazany.js'];
+  const src = read('public/sw.js').replace(/^const BUILD = .*$/m, "const BUILD = 'v3';").replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(precache)};`);
+  const files = {
+    '': ['<html>v3</html>', 'text/html; charset=utf-8'], 'js/app.js': ['app v3'], 'js/flights.js': ['lety v3'],
+    'css/atlas.css': ['css v3', 'text/css'], 'data/countries.json': ['[3]', 'application/json'],
+  };
+  const installed = async () => {
+    const sw = loadSw(src);
+    for (const [p, [body, type = 'text/javascript']] of Object.entries(files)) sw.net.files[SCOPE + p] = { body, type };
+    await Promise.all(sw.event('install').waits);
+    sw.puts.length = 0; sw.net.log.length = 0;
+    return sw;
+  };
+  const sw = await installed();
+  const before = new Map(sw.store.get('atlas-v3'));
+  sw.net.files[`${SCOPE}js/app.js`] = { body: 'app v4', type: 'text/javascript' }; // server už má novější – aktivace síť nebere
+  await Promise.all(sw.event('activate').waits);
+  assert.deepEqual(sw.puts.sort(), [`${SCOPE}js/app.js`, `${SCOPE}js/flights.js`], 'jen skripty, které instalace uložila (smazany.js – 404 – ne)');
+  assert.equal(sw.net.log.length, 0, 'bez sítě');
+  assert.deepEqual(new Map(sw.store.get('atlas-v3')), before, 'uložená sada beze změny (offline stejné soubory)');
+  assert.equal(sw.calls.claim, 1);
+  // uložit nejde (plné úložiště): aktivace stejně doběhne, kopie z instalace zůstanou
+  const full = await installed();
+  const kept = new Map(full.store.get('atlas-v3'));
+  full.net.putFails = true;
+  await Promise.all(full.event('activate').waits);
+  assert.equal(full.calls.claim, 1);
+  assert.deepEqual(new Map(full.store.get('atlas-v3')), kept);
 });
 
 test('service worker: stránka přes navigation preload (požadavek odeslaný už při probouzení service workeru), jinak jako dřív', async () => {
