@@ -287,7 +287,11 @@
 
   window.addEventListener('load', async () => {
     if (sw && secure) {
-      sw.register('sw.js', { updateViaCache: 'none' })
+      // Moduly, které lazy.js stahuje až po vykreslení Přehledu, napřed: instalace service workeru je pak u serveru jen
+      // ověří (304), nestahuje je při první návštěvě podruhé souběžně se stránkou. Nejvýš 15 s – pak i bez nich.
+      const later = window.Lazy && Lazy.settled ? Promise.race([Lazy.settled, new Promise((r) => setTimeout(r, 15e3))]) : null;
+      Promise.resolve(later)
+        .then(() => sw.register('sw.js', { updateViaCache: 'none' }))
         .then((r) => { reg = r; })
         .catch((e) => console.warn('ATLAS: service worker se nepodařilo zaregistrovat –', e && e.message));
     }
