@@ -31,7 +31,12 @@ trekové, gravel nebo horské kolo – městem (přes památky), smíšeně nebo
 nebo do kopců. Ukáže délku, stoupání, odhad času, podíl nezpevněných cest a cyklostezek, výškový profil, trasu
 v mapě, stáhne GPX a otevře trasu v Mapy.com (turistická mapa) nebo Google Mapách. Varianta **🚆 Vlakem tam, na kole
 zpět** najde nádraží ve vzdálenosti podle zvolené délky a naplánuje jízdu domů (spojení vlakem přes IDOS / Google).
-Režim **🥾 Pěšky** naplánuje pěší okruh 5–30 km (značené trasy, čas chůze podle DIN 33466). U každého dne výletu i u trasy
+Režim **🥾 Pěšky** naplánuje pěší okruh 5–30 km (značené trasy, čas chůze podle DIN 33466), nebo **🗓️ Túru na každý den**:
+v horách a přírodě (Krkonoše, Šumava, Tatry, Dolomity – „Krkonoše na 3 dny“ i krok Program průvodce Cestou, když místo
+pobytu leží v oblasti hor) na každý den jiný cíl tam a zpět – hlavní vrchol, voda / skály / vyhlídka / chata, lehčí den –
+z ubytování nebo ze startu u cíle (parkoviště, nádraží, obec z Wikidat), s délkou, převýšením, časem chůze, obtížností,
+chatami po cestě (OpenStreetMap), kratší variantou do deště, s dětmi lehčími cíli a kratší túrou v den příjezdu a odjezdu.
+Bez trasy z BRouteru zůstane odhad vzdušnou čarou a odkaz do Mapy.com. U každého dne výletu i u trasy
 je **předpověď počasí** (Open-Meteo) a když má pršet, ATLAS navrhne lepší den; na termíny za víc než 15 dní ukáže
 dlouhodobý průměr. Mapa je zdarma a bez klíče (MapLibre + OpenFreeMap, záloha OpenStreetMap) a odkazy do Google Map
 hledají místo podle názvu. S volitelným bezplatným klíčem [Mapy.com](#mapycom-volitelně-zdarma) je pod trasou pěšky a na
@@ -1170,7 +1175,7 @@ Zkopíruj `.env.example` na `.env`:
 | `RYANAIR_ENABLED` / `WIZZ_ENABLED` | `1` | `0` = zdroj vypnout |
 | `SEARCH_RATE_LIMIT` | `40` | max. hledání z jedné IP za 10 minut (ochrana při veřejném nasazení, `0` = bez limitu); počítají se do něj i dotazy na živé spoje RegioJetu (jen ty, které opravdu jdou na RegioJet – odpověď z mezipaměti ne). Stejné hledání z téže adresy, které ještě běží (obnovená stránka, dvojklik), se podruhé nepočítá; aplikace totéž běžící hledání nespouští znovu, jen na něj počká |
 | `VERIFY_RATE_LIMIT` | jako `SEARCH_RATE_LIMIT` | max. živých ověření ceny (`/api/verify` – Kiwi.com) z jedné IP za 10 minut, zvlášť od hledání; po hledání „kamkoliv“ aplikace sama ověří nejvýš 3 ceny z mezipaměti mezi prvními 10 cíli, další jen na tlačítko „⚡ Ověřit cenu živě“ |
-| `EXPLORE_RATE_LIMIT` | 3× `SEARCH_RATE_LIMIT` | max. požadavků Objevuj (`/api/poi`, `/api/poi/trips`, `/api/poi/country`, `/api/itinerary`, `/api/roadtrip`, `/api/bike`, `/api/hike`) z jedné IP za 10 minut, zvlášť od hledání (`0` = bez limitu). Počítá se jen požadavek, který opravdu jde na Wikidata, Wikipedii nebo BRouter – odpověď celá z mezipaměti serveru (stejné místo podruhé, návrat do Objevuj, už jednou spočítaná trasa) ne; v DEMO se počítá každý |
+| `EXPLORE_RATE_LIMIT` | 3× `SEARCH_RATE_LIMIT` | max. požadavků Objevuj (`/api/poi`, `/api/poi/trips`, `/api/poi/country`, `/api/itinerary`, `/api/roadtrip`, `/api/bike`, `/api/hike`, `/api/hikeplan`) z jedné IP za 10 minut, zvlášť od hledání (`0` = bez limitu). Počítá se jen požadavek, který opravdu jde na Wikidata, Wikipedii nebo BRouter – odpověď celá z mezipaměti serveru (stejné místo podruhé, návrat do Objevuj, už jednou spočítaná trasa) ne; v DEMO se počítá každý |
 | `SEARCH_CONCURRENCY` | `4` | nával uživatelů: kolik různých hledání smí běžet naráz (jedno = 1–3 s procesoru a desítky MB paměti). Stejné hledání, které už běží (od kohokoli), se k němu jen připojí a nic navíc nestojí. Viz [docs/skalovani.md](docs/skalovani.md) |
 | `SEARCH_QUEUE` | `20` | kolik dalších hledání čeká ve frontě; nad ní server nové hledání odmítne „ATLAS teď hledá pro hodně lidí najednou – zkus to prosím za minutu“ (503) místo pádu celého serveru. Hledání ve frontě, jehož klient odešel, se nespustí |
 | `CACHE_SOFT_MB` | `320` | měkký strop paměti procesu (MB): nad ním server zahodí starší polovinu mezipaměti (Render zdarma má 512 MB) |
@@ -1646,6 +1651,8 @@ prohlížeč (public/)                         server (server/, Node bez závisl
 | `POST /api/hike` | pěší okruh: `lat`, `lon`, `km` (2–40), `scenery`, `hills`, `variant` → jako `/api/bike` + `trailPct` (značené trasy), `roadPct`, `descent`; čas chůze podle DIN 33466 |
 | | `/api/bike` i `/api/hike` s klíčem Mapy.com: `tiles: "mapy"` = pod trasu turistickou mapu; `source: "mapy"` = trasa ze zálohy Mapy.com (`…Pct` pak `null`, `ascent` `null`, když nevyšel výškový profil) |
 | `GET /api/climate?iata=BKK` / `?lat=&lon=` / `?cc=TH` | dlouhodobé podnebí: `hi[12]`, `lo[12]` (průměrná denní maxima a minima °C), `p[12]` (srážky mm/měsíc), `src` (`wmo` / `ghcn` = meteostanice, `nasa` = model) a `source` (popis zdroje); země bez údajů (`?cc=AD`) vrací `{ none: true }` |
+| `POST /api/hikeplan` | túra na každý den: `lat`, `lon`, `label`, `start`, `end`, `arrivalTime`, `departureTime`, `kids`, `fromBase` (`false` = střed oblasti, start každý den u cíle), `radius`, `exclude` (id cílů) → `days[]` s `hike` (cíl, start, `km`, `ascent`, `minutes` podle DIN 33466, `difficulty`, `food` z OpenStreetMap nebo `null` = neznám, `rain`, `kids`, `geometry`, `mapyUrl`) a `items` pro plánovač; `area`, `spare`, `warnings`. Nejvýš 6 tras z BRouteru na plán (bez zálohy Mapy.com), jeden dotaz Overpass |
+| `GET /api/nature` | oblast hor a přírody, ve které místo leží (`lat`, `lon` → `area: { cs, kind, sub }` nebo `null`) – krok Program pak nabídne túry |
 | `POST /api/itinerary` | rozplánování míst do dnů (`lat`, `lon`, `start`, `end`, `arrivalTime`, `departureTime`, `pace`, `interests`, `exclude`, `include`, `radius` – okruh míst jako u `/api/poi`, 1–25 km, výchozí 10) |
 | `GET /api/diag` | živý test, jestli server dosáhne na jednotlivé zdroje |
 
@@ -1998,6 +2005,8 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
   (© OpenMapTiles, data © přispěvatelé OpenStreetMap, ODbL), záloha dlaždice OpenStreetMap.
 - Trasy na kole a přejezdy autem mezi místy trasy: [BRouter](https://brouter.de/) (veřejný server, bez klíče; jiný
   server přes `BROUTER_URL`), data © přispěvatelé OpenStreetMap. Odkazy do [Mapy.com](https://mapy.com/) přes jejich veřejné URL API (bez klíče).
+- Chaty a restaurace u túr na každý den: [Overpass API](https://overpass-api.de/) nad OpenStreetMap (veřejný server,
+  bez klíče, jeden dotaz na plán, mezipaměť 30 dní; jiný server přes `OVERPASS_URL`), data © přispěvatelé OpenStreetMap.
 - Volitelně (`MAPY_API_KEY`): [REST API Mapy.com](https://developer.mapy.com/) – turistická mapa, našeptávač míst,
   plánování tras a výškový profil, © Seznam.cz, a.s. a další; logo a copyright podle jejich pravidel atribuce.
 - Původní jednosouborová verze aplikace je pro srovnání v `legacy/ATLAS-puvodni.html`.

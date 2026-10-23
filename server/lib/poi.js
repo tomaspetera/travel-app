@@ -79,6 +79,9 @@ const EATERY = ['Q30022', 'Q11707', 'Q112654507', 'Q27077054'];
 const MINOR_TYPES = ['Q1049757', 'Q589481', 'Q107640409', 'Q27686', 'Q63099748', 'Q48835818', 'Q38723', 'Q875538'];
 const MINOR_TEXT = /stadion|stadium|univerzit|university|\bhotel\b/i;
 const CAT_OF = new Map(Object.entries(TYPES).flatMap(([cat, ids]) => ids.map((id) => [id, cat])));
+// Přírodní místo podle typu (pořadí rozhoduje: vodopád na řece je vodopád, horské jezero jezero, ne hora).
+const NATURE_TYPE = [['waterfall', ['Q34038']], ['lake', ['Q23397']], ['cave', ['Q35509']], ['gorge', ['Q150784']], ['river', ['Q39594']],
+  ['mountain', ['Q8502']], ['park', ['Q46169', 'Q179049']]];
 const UNESCO = 'Q9259';
 
 // Mešita a synagoga nejsou „kostel“: přesnější popis kategorie church podle názvu místa
@@ -280,6 +283,8 @@ export function groupBindings(rows, center) {
     if (category === 'museum' && types.includes(HOUSE_MUSEUM)) p.visitMin = 75;
     if ((category === 'sight' || category === 'tower') && !p.eatery && !p.unesco && (has(MINOR_TYPES) || MINOR_TEXT.test(`${p.name} ${p.description}`))) p.minor = true;
     p.category = category;
+    // druh přírodního místa (hora, vodopád, jezero…) – túry na víc dní (hikeplan.js) podle něj střídají cíle
+    if (category === 'nature') { const nt = NATURE_TYPE.find(([, ids]) => has(ids)); if (nt) p.natureType = nt[0]; }
     p.island = types.includes(ISLAND);
     p.serial = p.coords.size > 3; // místo rozeseté po mnoha lokalitách (sériová památka)
     p.partOf = [...p.partOf];
