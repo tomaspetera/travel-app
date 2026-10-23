@@ -36,6 +36,8 @@ import { cityPhotos, photosCached } from './lib/photos.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 import { serveIndex, serveServiceWorker } from './lib/pwa.js';
+import { headTags, robotsTxt, sitemapXml, sendGenerated, serveManifest, serveNotFound } from './lib/seo.js';
+import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
@@ -44,6 +46,9 @@ import { SECURITY_HEADERS, API_CSP, clientIp, crossSite } from './lib/security.j
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
+// Soubory aplikace pro service worker a stránku (pwa.js); salt = název, popis a adresa webu, které server dosazuje do
+// stránky a manifestu – i jejich změna je nová verze aplikace
+const appDirs = () => ({ publicDir: PUBLIC, dataDir: DATA, salt: JSON.stringify([BRAND, config.publicUrl]) });
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon',
@@ -805,15 +810,21 @@ async function route(req, res) {
   if (p.startsWith('/api/')) return sendJson(req, res, 404, { error: 'Neznámý endpoint' });
 
   // Service worker (aplikace na ploše, offline): verze a seznam souborů z obsahu public/ – server/lib/pwa.js
-  if (p === '/sw.js') return serveServiceWorker(req, res, { publicDir: PUBLIC, dataDir: DATA });
+  if (p === '/sw.js') return serveServiceWorker(req, res, appDirs());
+
+  // Vyhledávače a náhledy odkazů (server/lib/seo.js): adresa webu z PUBLIC_URL, název a popis z server/brand.js
+  if (p === '/robots.txt') return sendGenerated(req, res, 200, robotsTxt(config.publicUrl), { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+  if (p === '/sitemap.xml') return sendGenerated(req, res, 200, sitemapXml(config.publicUrl), { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+  if (p === '/manifest.webmanifest' && serveManifest(req, res, path.join(PUBLIC, 'manifest.webmanifest'))) return;
 
   // Statické soubory
   if (p === '/data/countries.json' || p === '/data/entry.json') {
     // entry.json = vstupní podmínky pro občany ČR; prohlížeč ho načítá až po startu (nezdržuje první vykreslení)
     if (serveFile(req, res, path.join(DATA, p.slice(6)), { maxAge: 3600 })) return;
   }
-  // Stránka aplikace s dosazenou verzí (pwa.js podle ní pozná novou verzi i v aplikaci na ploše)
-  if (p === '/' || p === '/index.html') return serveIndex(req, res, { publicDir: PUBLIC, dataDir: DATA });
+  // Stránka aplikace s dosazenou verzí (pwa.js podle ní pozná novou verzi i v aplikaci na ploše) a titulkem, popisem
+  // a náhledem odkazu (seo.js). Sdílené odkazy do aplikace (#trip=, #plan=, #offer=, zkratky #flights…) vedou sem.
+  if (p === '/' || p === '/index.html') return serveIndex(req, res, appDirs(), headTags(config.publicUrl));
   let rel;
   try {
     rel = decodeURIComponent(p);
@@ -828,14 +839,16 @@ async function route(req, res) {
   }
   // Skryté soubory a složky (.env, .git, .DS_Store) se nikdy neposílají – kdyby se do public/ dostaly; service worker
   // je taky nebere (pwa.js walk)
-  if (/(^|[\\/])\./.test(path.relative(PUBLIC, file))) return serveIndex(req, res, { publicDir: PUBLIC, dataDir: DATA });
+  if (/(^|[\\/])\./.test(path.relative(PUBLIC, file))) return serveNotFound(req, res);
   // Kód aplikace (HTML, JS, CSS, manifest) se vždy ověří u serveru (no-cache → levné 304): po nasazení nikdy stará
   // verze – ani z paměti otevřeného panelu, která by soubor s max-age použila bez ptaní. Obrázky, písma a data mapy
   // ve vendor/ mají mezipaměť jako dřív.
   const maxAge = /\.(?:html|js|css|webmanifest)$/.test(rel) ? 0 : rel.startsWith('/vendor/') ? 86400 * 30 : 60;
   if (serveFile(req, res, file, { maxAge })) return;
-  // SPA fallback
-  serveIndex(req, res, { publicDir: PUBLIC, dataDir: DATA });
+  // Neznámá adresa: česká stránka 404 s odkazem do aplikace. Dřív stránka aplikace se stavem 200 – vyhledávačům se pak
+  // každá adresa jevila jako kopie úvodní stránky. Aplikace má sekce i sdílené odkazy za # na „/“, takže je to nemění;
+  // offline dá service worker na každou adresu dál uloženou stránku aplikace (sw.js), online ukáže tuhle 404.
+  serveNotFound(req, res);
 }
 
 export function createServer() {

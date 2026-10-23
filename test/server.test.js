@@ -494,7 +494,7 @@ test('statické soubory, data a ochrana proti path traversal', async () => {
   for (const p of ['/../server/config.js', '/%2e%2e%2fserver%2fconfig.js', '/..%2f..%2f.env']) {
     const { status, body } = await rawGet(p);
     assert.ok(!body.includes('export const config'), `${p} nesmí vrátit zdrojový kód serveru`);
-    assert.ok(status === 403 || status === 200, `${p}: ${status}`);
+    assert.ok(status === 403 || status === 404, `${p}: ${status}`);
   }
   const js = await fetch(`${base}/js/flights.js`, { headers: { 'accept-encoding': 'gzip' } });
   assert.equal(js.status, 200);

@@ -14,7 +14,8 @@
     "test": "node --test test/*.test.js",
     "build:airports": "node scripts/build-airports.mjs",
     "build:ground": "node scripts/build-ground.mjs",
-    "build:icons": "node scripts/build-icons.mjs"
+    "build:icons": "node scripts/build-icons.mjs",
+    "build:og": "node scripts/build-og-image.mjs"
   },
   "license": "MIT"
 }

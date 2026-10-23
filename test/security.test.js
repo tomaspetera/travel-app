@@ -209,7 +209,8 @@ test('texty chyb pro aplikaci bez adres zdrojů dat; skryté soubory v public/ s
     for (const p of [`/${name}`, `/%2e${name.slice(1)}`]) {
       const r = await raw(p);
       assert.doesNotMatch(r.body, /TAJNE/, p);
-      assert.match(r.headers['content-type'], /text\/html/, `${p}: stránka aplikace jako u neznámé adresy`);
+      assert.equal(r.status, 404, `${p}: jako neznámá adresa`);
+      assert.match(r.headers['content-type'], /text\/html/, `${p}: stránka 404 jako u neznámé adresy`);
     }
   } finally {
     unlinkSync(file);

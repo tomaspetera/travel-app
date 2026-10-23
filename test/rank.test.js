@@ -22,10 +22,18 @@ const GROUND = {
   PRG: { mode: 'transit', minutes: 55, czk: 50, local: true, nightMin: 25 },
   VIE: { mode: 'transit', minutes: 245, czk: 520, local: false },
   BRQ: { mode: 'transit', minutes: 220, czk: 350, local: false },
+  PED: { mode: 'transit', minutes: 110, czk: 240, local: false },
 };
-// z letiště do města (arrivals[iata].min)
-const ARR = { BCN: { min: 30, czk: 140 }, VLC: { min: 25, czk: 60 }, LIL: { min: 30, czk: 100 }, FCO: { min: 35, czk: 360 }, MXP: { min: 55, czk: 300 }, LIS: { min: 30, czk: 50 }, CGN: { min: 20, czk: 80 }, NAP: { min: 25, czk: 150 } };
-const CC = { BCN: 'ES', VLC: 'ES', LIL: 'FR', ROM: 'IT', MIL: 'IT', LIS: 'PT', CGN: 'DE', NAP: 'IT', DUS: 'DE', STR: 'DE', LEJ: 'DE', BLQ: 'IT' };
+// Praha +300 km a Brno +200 km (odhady access.js: vlak / bus a MHD, Kč na osobu jedním směrem)
+const PRAHA300 = { ...GROUND, BER: { mode: 'transit', minutes: 270, czk: 540, local: false }, MUC: { mode: 'transit', minutes: 320, czk: 520, local: false }, VIE: { mode: 'transit', minutes: 315, czk: 480, local: false } };
+const BRNO = { BRQ: { mode: 'transit', minutes: 40, czk: 30, local: true, nightMin: 15 }, VIE: { mode: 'transit', minutes: 130, czk: 330, local: false }, BTS: { mode: 'transit', minutes: 180, czk: 280, local: false }, KTW: { mode: 'transit', minutes: 290, czk: 570, local: false } };
+// z letiště do města (arrivals[iata]; od Málagy dál podle ověřené tabulky data/arrival.json)
+const ARR = {
+  BCN: { min: 30, czk: 140 }, VLC: { min: 25, czk: 60 }, LIL: { min: 30, czk: 100 }, FCO: { min: 35, czk: 360 }, MXP: { min: 55, czk: 300 }, LIS: { min: 30, czk: 50 }, CGN: { min: 20, czk: 80 }, NAP: { min: 25, czk: 150 },
+  AGP: { min: 15, czk: 100 }, ALC: { min: 25, czk: 110 }, PMI: { min: 25, czk: 120 }, BRI: { min: 50, czk: 20 }, CTA: { min: 15, czk: 100 }, CAG: { min: 8, czk: 30 }, BGY: { min: 50, czk: 200 },
+  SPU: { min: 30, czk: 240 }, ZAD: { min: 20, czk: 120 }, CFU: { min: 15, czk: 30 }, HER: { min: 20, czk: 30 }, MLA: { min: 25, czk: 70 }, FAO: { min: 15, czk: 60 }, PSA: { min: 5, czk: 160 },
+};
+const CC = { BCN: 'ES', VLC: 'ES', LIL: 'FR', ROM: 'IT', MIL: 'IT', LIS: 'PT', CGN: 'DE', NAP: 'IT', DUS: 'DE', STR: 'DE', LEJ: 'DE', BLQ: 'IT', AGP: 'ES', ALC: 'ES', PMI: 'ES', BRI: 'IT', CTA: 'IT', CAG: 'IT', PSA: 'IT', SPU: 'HR', ZAD: 'HR', CFU: 'GR', HER: 'GR', MLA: 'MT', FAO: 'PT' };
 const pad = (n) => String(n).padStart(2, '0');
 const plusMin = (ymdhm, m) => new Date(Date.parse(`${ymdhm}:00Z`) + m * 60000).toISOString().slice(0, 16);
 /** Let: odlet 'YYYY-MM-DDTHH:MM' (místní čas), délka v minutách, přestupy [[letiště, minuty]]. */
@@ -36,18 +44,18 @@ function leg(from, to, dep, dur, lays = []) {
   };
 }
 let seq = 0;
-/** Zpáteční nabídka: ticket = letenka/os., km = vzdálenost; doprava na letiště a do města jako server (tripCzk). */
-function offer({ dest, out, back, ticket, km, level = 'low', nights = null }) {
-  const ground = (GROUND[out.from]?.czk || 0) + (back ? GROUND[back.to]?.czk || 0 : 0);
+/** Zpáteční nabídka: ticket = letenka/os., km = vzdálenost; doprava na letiště (home) a do města jako server (tripCzk). */
+function offer({ dest, out, back, ticket, km, level = 'low', nights = null, home = GROUND }) {
+  const ground = (home[out.from]?.czk || 0) + (back ? home[back.to]?.czk || 0 : 0);
   const arr = (ARR[out.to]?.czk || 0) + (back ? ARR[back.from]?.czk || 0 : 0);
   return {
     id: `t${++seq}`, destKey: dest, out, back, flightCzk: ticket, perPersonCzk: ticket, groundCzk: ground, arrCzk: arr, tripCzk: ticket + ground + arr,
     distanceKm: km, nights: nights ?? (back ? H.diffDays(out.date, back.date) : null), priceLevel: { level },
   };
 }
-function context({ stats = {}, dealBase = null } = {}) {
+function context({ stats = {}, dealBase = null, home = GROUND } = {}) {
   return {
-    ground: (i) => GROUND[i] || null, arrival: (i) => ARR[i] || null, stats: (k) => stats[k] || null, cc: (k) => CC[k] || null,
+    ground: (i) => home[i] || null, arrival: (i) => ARR[i] || null, stats: (k) => stats[k] || null, cc: (k) => CC[k] || null,
     level: (t) => t.priceLevel, memo: new WeakMap(), dealBase,
   };
 }
@@ -180,8 +188,8 @@ test('order: pestrost – další cíl ze stejné země o 8 % dráž, cíle bez 
     { name: 'tři německé za sebou: italský o 5 % dražší předběhne druhý a třetí německý', items: [it(1000, 'DE'), it(1010, 'DE'), it(1020, 'DE'), it(1050, 'IT')], want: [1000, 1050, 1010, 1020] },
     { name: 'velký cenový rozdíl pestrost nepřebije', items: [it(1000, 'DE'), it(1050, 'DE'), it(2000, 'IT')], want: [1000, 1050, 2000] },
     { name: 'bez země a se shodou podle původního pořadí', items: [it(900, ''), it(900, ''), it(900, 'DE')], want: [900, 900, 900] },
-    // 7. německý: bez stropu × 1,48 = 1 490 > 1 450, se stropem × 1,40 = 1 410 – zůstane před italským
-    { name: 'přirážka nejvýš 5×', items: [1, 2, 3, 4, 5, 6, 7].map((i) => it(1000 + i, 'DE')).concat(it(1450, 'IT')), want: [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1450] },
+    // 5. německý: bez stropu × 1,32 = 1 327 > 1 300, se stropem × 1,24 = 1 246 – zůstane před italským
+    { name: 'přirážka nejvýš 3×', items: [1, 2, 3, 4, 5].map((i) => it(1000 + i, 'DE')).concat(it(1300, 'IT')), want: [1001, 1002, 1003, 1004, 1005, 1300] },
   ];
   for (const r of rows) assert.deepEqual(plain(Rank.order(r.items, key, cc).map((x) => x.k)), r.want, r.name);
   const same = [it(900, ''), it(900, ''), it(900, 'DE')];
@@ -271,9 +279,10 @@ test('radarDiff: jiná nabídka cíle s dražší letenkou (doporučené pořad�
   const key = JSON.stringify(H.radarQuery('all', home, '2026-10-08').payload);
   const T0 = Date.parse('2026-10-08T09:00:00Z'), T1 = T0 + 6 * 3600e3;
   const it = (id, czk, from, d1) => ({ id, label: id, czk, from, to: id, d1, d2: '2026-11-16' });
-  const prev = { key, at: T0, items: [it('BCN', 990, 'VIE', '2026-11-13'), it('LIS', 1800, 'PRG', '2026-11-13'), it('ROM', 1500, 'PRG', '2026-11-13')] };
+  const prev = { key, at: T0, items: [{ ...it('BCN', 990, 'VIE', '2026-11-13'), newAt: T0 - 3600e3 }, it('LIS', 1800, 'PRG', '2026-11-13'), it('ROM', 1500, 'PRG', '2026-11-13')] };
   const now = plain(H.radarDiff(prev, [it('BCN', 1490, 'PRG', '2026-11-13'), it('LIS', 1500, 'PRG', '2026-11-14'), it('ROM', 1700, 'PRG', '2026-11-13')], key, T1));
   assert.equal(now[0].was, undefined, 'Barcelona: místo Vídně v noci Praha – jiná nabídka, ne zdražení');
+  assert.equal(now[0].newAt, T0 - 3600e3, 'Barcelona: „nové“ z minula zůstane – cíl je pořád nový, jen s jinou nabídkou');
   assert.deepEqual(now[1].was, { czk: 1800, at: T0 }, 'Lisabon: jiný den a levněji – cíl opravdu zlevnil');
   assert.deepEqual(now[2].was, { czk: 1500, at: T0 }, 'Řím: stejná nabídka dráž – zdražila');
 });
@@ -291,6 +300,193 @@ test('groupOptions (server): 6 nejlevnějších různých, + z každého letišt
   assert.deepEqual(groupOptions(trips.slice(0, 3)).map((x) => x.id), ['a', 'b', 'c'], 'nejlevnější i s cestou už mezi nimi je');
 });
 
+test('noc na cestě: ranní let ze vzdáleného letiště s odjezdem večer předem ani přílet s domovem až ráno nevyjdou líp než o hodinu jindy', () => {
+  // Praha → Vídeň 5 h 15 min veřejnou dopravou: let v 6:00 = z domu ve 22:45 předchozího dne – podle hodiny (štítek ⏰)
+  // „ne brzy“, ale noc v autobuse a na letišti stejně jako let v 9:00 s odjezdem v 1:45
+  const c = context({ home: PRAHA300 });
+  const out = (dep) => Rank.score(offer({ home: PRAHA300, dest: 'BCN', km: 1350, ticket: 990, out: leg('VIE', 'BCN', `2026-11-13T${dep}`, 150), back: leg('BCN', 'PRG', '2026-11-16T15:00', 140) }), c);
+  const deps = ['02:30', '04:00', '06:00', '07:30', '09:00', '10:30', '12:00'];
+  assert.deepEqual(plain(deps.map((d) => out(d).parts.night)), [700, 700, 700, 700, 700, 700, 0], 'z domu před 4:30 dne letu (i večer předem) = noc');
+  assert.deepEqual(plain(deps.slice(0, 5).map((d) => out(d).notes[0].txt)), [
+    'odlet v noci (2:30)', 'odlet v noci (4:00)', 'z domu už ve 22:45 večer předem (noc na cestě)',
+    'z domu už v 0:15 (v noci veřejná doprava nejede)', 'z domu už v 1:45 (v noci veřejná doprava nejede)',
+  ]);
+  // zpět do Vídně: přílet ve 23:30 = doma v 5:30 – po celé noci v autobuse, ne „v pořádku, doma po páté“
+  const back = (arr) => Rank.score(offer({ home: PRAHA300, dest: 'BCN', km: 1350, ticket: 990, out: leg('PRG', 'BCN', '2026-11-13T10:00', 140), back: leg('BCN', 'VIE', plusMin(`2026-11-16T${arr}`, -150), 150) }), c);
+  const arrs = ['17:50', '18:40', '20:30', '23:30', '01:30'];
+  assert.deepEqual(plain(arrs.map((a) => back(a).parts.night)), [0, 700, 700, 700, 700]);
+  assert.deepEqual(plain(arrs.slice(1, 5).map((a) => back(a).notes[0].txt)), [
+    'domů až ~0:40 (v noci veřejná doprava nejede)', 'domů až ~2:30 (v noci veřejná doprava nejede)', 'domů až ráno ~5:30 (noc na cestě)', 'přílet zpět v noci (1:30), domů ~7:30',
+  ]);
+  // letiště ve tvém městě (Praha, v noci taxi) a auto: noc jen nevyspání
+  const prg = Rank.score(offer({ dest: 'BCN', km: 1350, ticket: 990, out: leg('PRG', 'BCN', '2026-11-13T01:30', 140), back: leg('BCN', 'PRG', '2026-11-16T15:00', 140) }), context());
+  assert.deepEqual(plain([prg.parts.night, prg.notes[0].txt]), [W.nightSoft, 'odlet v noci (1:30)']);
+  const car = { ...PRAHA300, VIE: { mode: 'car', minutes: 225, czk: 296 } };
+  assert.equal(Rank.score(offer({ home: car, dest: 'BCN', km: 1350, ticket: 990, out: leg('VIE', 'BCN', '2026-11-13T06:00', 150), back: leg('BCN', 'PRG', '2026-11-16T15:00', 140) }), context({ home: car })).parts.night, W.nightSoft);
+});
+
+test('Praha +300 km vs. jen Praha, k moři v květnu: levná letenka z Berlína s nocí na cestě nepřebije Prahu, Praha zůstane stejná', () => {
+  // Málaga na týden: Praha 3 490 Kč v rozumných časech, Berlín 1 490 Kč (odlet 6:10 = z domu ve 23:40, přílet zpět
+  // 0:55 = doma ráno), Berlín 1 490 Kč přes den, Vídeň 2 290 Kč
+  const c = context({ home: PRAHA300 });
+  const agp = (from, ticket, dep, backDep, to = from) => offer({ home: PRAHA300, dest: 'AGP', km: 2050, ticket, out: leg(from, 'AGP', `2027-05-15T${dep}`, 215), back: leg('AGP', to, `2027-05-22T${backDep}`, 205) });
+  const prg = agp('PRG', 3490, '10:15', '14:30'), berNight = agp('BER', 1490, '06:10', '21:30'), berDay = agp('BER', 1490, '11:00', '15:00'), vie = agp('VIE', 2290, '11:00', '15:00');
+  const s = (t) => Rank.score(t, c);
+  assert.deepEqual(plain(s(berNight).notes.map((n) => n.txt)), ['z domu už ve 23:40 večer předem (noc na cestě)', 'přílet zpět v noci (0:55), domů ~6:10']);
+  assert.equal(s(berNight).czk - s(berDay).czk, 2 * W.nightHome, 'tatáž letenka s nocí na cestě o 1 400 Kč hůř');
+  // ušetřených 2 000 Kč na letence skoro vyrovná 9 h autobusu a 1 080 Kč za jízdenky – přes den Berlín těsně za Prahou
+  assert.ok(s(prg).czk < s(berDay).czk && s(berDay).czk - s(prg).czk < 200, `${s(prg).czk} / ${s(berDay).czk}`);
+  const r = Rank.radar(c), g = { dest: { key: 'AGP', cc: 'ES', label: 'Málaga' } };
+  assert.equal(r.pick([berNight, vie, berDay, prg]), prg, 'z okolí +300 km: Praha');
+  assert.equal(Rank.score(prg, context()).czk, s(prg).czk, 'jen Praha: tatáž srovnávací cena – okolí ji nemění');
+  assert.equal(H.radarPick([{ ...g, best: berNight, options: [berNight, vie, berDay, prg] }], null, 1, null, r)[0].t, prg);
+});
+
+test('k moři v květnu z Brna +200 km (Vídeň, Bratislava): rozumných prvních 10, pestrost nejvýš +24 %', () => {
+  // Brno: letiště ve městě skoro bez letů k moři, Vídeň 2 h 10 min a 330 Kč, Bratislava 3 h a 280 Kč (odhady access.js);
+  // Ryanair / Wizz Air s reálnými časy (první vlna 6:00–7:30, odpolední, večerní) a cenami na týden v květnu
+  const c = context({ home: BRNO });
+  const o = (dest, from, ticket, dep, dur, backDep, km) => offer({ home: BRNO, dest, km, ticket, out: leg(from, dest, `2027-05-15T${dep}`, dur), back: leg(dest, from, `2027-05-22T${backDep}`, dur) });
+  const rows = [
+    ['Málaga', o('AGP', 'VIE', 1890, '06:30', 205, '10:30', 2000)], // z domu ve 2:20
+    ['Málaga', o('AGP', 'BTS', 2090, '10:00', 210, '14:15', 2050)],
+    ['Alicante', o('ALC', 'BTS', 1690, '13:20', 180, '17:00', 1800)],
+    ['Mallorca', o('PMI', 'VIE', 2490, '09:45', 140, '18:30', 1300)],
+    ['Bari', o('BRI', 'VIE', 1190, '11:40', 95, '16:10', 720)],
+    ['Bari', o('BRI', 'BTS', 1090, '20:45', 95, '22:50', 700)], // přílet 0:25, doma ve 4:10
+    ['Neapol', o('NAP', 'VIE', 1390, '08:25', 100, '11:15', 830)],
+    ['Catania', o('CTA', 'BTS', 1290, '15:30', 125, '18:40', 1220)],
+    ['Cagliari', o('CAG', 'VIE', 1590, '12:05', 115, '14:45', 1000)],
+    ['Pisa', o('PSA', 'VIE', 1190, '17:55', 85, '20:25', 620)],
+    ['Split', o('SPU', 'VIE', 1490, '10:00', 65, '11:30', 450)],
+    ['Zadar', o('ZAD', 'BTS', 1090, '06:00', 70, '07:20', 470)], // z domu v 1:00
+    ['Korfu', o('CFU', 'VIE', 1790, '09:10', 120, '12:35', 1000)],
+    ['Kréta', o('HER', 'VIE', 2690, '07:00', 165, '11:00', 1500)],
+    ['Malta', o('MLA', 'BTS', 1590, '11:25', 145, '14:30', 1300)],
+    ['Faro', o('FAO', 'BTS', 2490, '16:55', 255, '21:15', 2600)],
+  ];
+  const groups = Object.values(rows.reduce((m, [label, t]) => {
+    (m[t.destKey] = m[t.destKey] || { dest: { key: t.destKey, cc: CC[t.destKey], label }, options: [] }).options.push(t);
+    return m;
+  }, {})).map((g) => ({ ...g, best: g.options.reduce((a, b) => (b.perPersonCzk < a.perPersonCzk ? b : a)) }));
+  const rec = H.radarPick(groups, null, Infinity, null, Rank.radar(c));
+  const top = rec.slice(0, 10).map((x) => x.g.dest.label);
+  // Málaga z Bratislavy (přes den), ne z Vídně v 6:30; Bari z Vídně, ne z Bratislavy s návratem domů ve 4:10
+  assert.equal(rec.find((x) => x.g.dest.key === 'AGP').t.out.from, 'BTS');
+  assert.equal(rec.find((x) => x.g.dest.key === 'BRI').t.out.from, 'VIE');
+  // nejlevnější letenka (Zadar 1 090 Kč) s odjezdem z domu v 1:00 není mezi prvními třemi; Itálie nejvýš 4× v top 10
+  assert.ok(top.indexOf('Zadar') > 2, top.join(', '));
+  assert.ok(top.filter((l) => ['Bari', 'Neapol', 'Catania', 'Cagliari', 'Pisa'].includes(l)).length <= 4, top.join(', '));
+  assert.ok(top.includes('Split') && top.includes('Alicante'), top.join(', '));
+  // nic výš než cíl, který má o víc než 24 % nižší srovnávací cenu (strop pestrosti)
+  const czk = rec.map((x) => Rank.score(x.t, c).czk);
+  czk.forEach((a, i) => czk.slice(i + 1).forEach((b) => assert.ok(a <= b * (1 + W.sameCountry * W.sameMax) + 1e-9, `${a} nad ${b}`)));
+});
+
+test('reasons: štítek platí doslova – víc času na noc, lepší (ne rozumné) časy, přestupy, cesta do města, neznámé časy', () => {
+  const c = context();
+  const rows = [
+    {
+      name: 'Kolín na 1 noc (13 h přes den) nad Lille na 2 noci (18 h): víc času NA NOC, hodin má míň',
+      list: [['Lille', offer({ dest: 'LIL', km: 830, ticket: 1190, out: leg('PRG', 'LIL', '2026-11-27T20:00', 96), back: leg('LIL', 'PRG', '2026-11-29T14:00', 90) })], ['Kolín nad Rýnem', offer({ dest: 'CGN', km: 540, ticket: 1290, out: leg('PRG', 'CGN', '2026-11-28T09:00', 75), back: leg('CGN', 'PRG', '2026-11-29T13:00', 75) })]],
+      want: ['víc času na místě na noc', /z tamté zbude na místě ~18 h přes den za 2 noci, z téhle ~13 h za 1 noc/],
+    },
+    {
+      name: 'obě v 6:00 z Prahy, levnější i s návratem po půlnoci: „lepší časy“, ne „rozumné“',
+      list: [['Řím', offer({ dest: 'ROM', km: 920, ticket: 1250, out: leg('PRG', 'FCO', '2026-11-13T06:00', 110), back: leg('FCO', 'PRG', '2026-11-16T21:40', 110) })], ['Milán', offer({ dest: 'MIL', km: 650, ticket: 1300, out: leg('PRG', 'MXP', '2026-11-13T06:00', 90), back: leg('MXP', 'PRG', '2026-11-16T18:00', 90) })]],
+      want: ['lepší časy', /tamta: z domu už ve 3:35, domů až ~1:10; tahle: z domu už ve 3:35/],
+    },
+    {
+      name: 'přímý let nad letem s přestupem 7 h',
+      list: [['Lisabon', offer({ dest: 'LIS', km: 2250, ticket: 1500, level: 'normal', out: leg('PRG', 'LIS', '2026-11-13T15:00', 660, [['IST', 420]]), back: leg('LIS', 'PRG', '2026-11-20T10:00', 200) })], ['Faro', offer({ dest: 'FAO', km: 2500, ticket: 2500, level: 'normal', out: leg('PRG', 'FAO', '2026-11-13T15:00', 230), back: leg('FAO', 'PRG', '2026-11-20T10:00', 230) })]],
+      want: ['bez přestupu', /tamta má přestup 7\sh, tahle letí přímo/],
+    },
+    {
+      name: 'přestup 2 h nad přestupem 7 h',
+      list: [['Lisabon', offer({ dest: 'LIS', km: 2250, ticket: 1500, level: 'normal', out: leg('PRG', 'LIS', '2026-11-13T15:00', 660, [['IST', 420]]), back: leg('LIS', 'PRG', '2026-11-20T10:00', 200) })], ['Faro', offer({ dest: 'FAO', km: 2500, ticket: 2100, level: 'normal', out: leg('PRG', 'FAO', '2026-11-13T15:00', 330, [['MAD', 120]]), back: leg('FAO', 'PRG', '2026-11-20T10:00', 230) })]],
+      want: ['bez dlouhého přestupu', /tamta má přestup 7\sh, tahle nejvýš 2\sh/],
+    },
+    {
+      name: 'obě z Prahy – Korfu nad Bergamem díky cestě do města (30 Kč proti 200 Kč), ne „levnější cesta na letiště“',
+      list: [['Bergamo', offer({ dest: 'MIL', km: 650, ticket: 1390, out: leg('PRG', 'BGY', '2027-05-15T10:00', 85), back: leg('BGY', 'PRG', '2027-05-22T12:00', 85) })], ['Korfu', offer({ dest: 'CFU', km: 1150, ticket: 1790, out: leg('PRG', 'CFU', '2027-05-15T10:00', 120), back: leg('CFU', 'PRG', '2027-05-22T12:00', 120) })]],
+      want: ['levnější cesta z letiště do města', /cesta z letiště do města a zpět tu stojí ~60\sKč, tam ~400\sKč/],
+    },
+    {
+      name: 'let bez známých časů (cena z cache) nad letem v 6:00: o časech téhle nic nevíme – „levnější let je v noci“',
+      list: [['Řím', offer({ dest: 'ROM', km: 920, ticket: 1250, out: leg('PRG', 'FCO', '2026-11-13T06:00', 110), back: leg('FCO', 'PRG', '2026-11-16T18:00', 110) })], ['Milán', offer({ dest: 'MIL', km: 650, ticket: 1300, out: { ...leg('PRG', 'MXP', '2026-11-13T00:00', 90), hasTime: false }, back: { ...leg('MXP', 'PRG', '2026-11-16T00:00', 90), hasTime: false } })]],
+      want: ['levnější let je v noci', /tamta: z domu už ve 3:35; časy téhle letenky neznám/],
+    },
+  ];
+  for (const r of rows) {
+    const list = ranked(r.list, c);
+    const w = Rank.reasons(list, 10);
+    assert.notEqual(list[0].label, r.list[0][0], `${r.name}: levnější letenka není první`);
+    assert.equal(w.get(0)?.text, r.want[0], r.name);
+    assert.match(w.get(0).title, r.want[1], r.name);
+  }
+});
+
+test('reasons: pestrost jen když tahle levnější letenky nepředběhla ničím jiným; jinak důvod proti té, kterou předběhla', () => {
+  const c = context();
+  const city = (label, iata, ticket, from = 'PRG') => [label, offer({ dest: iata, km: 600, ticket, out: leg(from, iata, '2026-11-13T10:00', 70), back: leg(iata, from, '2026-11-15T19:00', 70) })];
+  // Düsseldorf, Bologna (výš jen díky pestrosti nad Stuttgartem), Stuttgart, Lipsko z Pardubic (levnější letenka, ale
+  // 1 h 50 min a 240 Kč na letiště) – Bologna má proti Lipsku opravdový důvod, Stuttgart je jen „pestřejší“
+  const list = ranked([city('Düsseldorf', 'DUS', 1000), city('Bologna', 'BLQ', 1060), city('Stuttgart', 'STR', 1010), city('Lipsko', 'LEJ', 900, 'PED')], c);
+  assert.deepEqual(plain(list.map((x) => x.label)), ['Düsseldorf', 'Bologna', 'Stuttgart', 'Lipsko']);
+  const w = Rank.reasons(list, 10);
+  assert.match(w.get(1).title, /^Lipsko \(PED → LEJ/, 'Bologna: proti Lipsku, které předběhla srovnávací cenou');
+  assert.notEqual(w.get(1).text, 'pestřejší výběr');
+  assert.ok(Rank.score(list[1].t, c).czk > Rank.score(list[2].t, c).czk, 'nad Stuttgartem jen díky pestrosti');
+});
+
+test('score: chybějící odhady (doprava, cesta do města, časy, délka letu, cena i s cestou) – jen to, co známe, nikdy NaN', () => {
+  const full = () => offer({ dest: 'BCN', km: 1350, ticket: 1490, out: leg('PRG', 'BCN', '2026-11-13T06:00', 300, [['MUC', 90]]), back: leg('BCN', 'PRG', '2026-11-16T18:00', 140) });
+  // bez odhadů (prázdný kontext, bez ceny i s cestou): letenka a přestup, nic dalšího se nedomýšlí
+  const bare = Rank.score({ ...full(), tripCzk: undefined, groundCzk: undefined }, {});
+  assert.deepEqual(plain(bare.parts), { ground: 0, access: 0, lay: Math.round(Math.round(300 - (1350 / 780 * 60 + 35)) / 60 * W.hourCzk), night: 0, stay: 0, deal: 0 });
+  assert.equal(bare.czk, 1490 + bare.parts.lay);
+  // náhodně vynechané odhady a pole nabídky: srovnávací cena vždy konečná a aspoň letenka bez slevy za výhodnost
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const junk = [undefined, null, NaN, '', 'x', -5, 0];
+  const pickJunk = () => junk[Math.floor(rnd() * junk.length)];
+  for (let i = 0; i < 300; i++) {
+    const t = full();
+    for (const k of ['tripCzk', 'groundCzk', 'distanceKm', 'nights', 'flightCzk']) if (rnd() < 0.4) t[k] = pickJunk();
+    for (const l of [t.out, t.back]) for (const k of ['dep', 'arr', 'durationMin', 'layovers', 'stops', 'hasTime']) if (rnd() < 0.25) l[k] = pickJunk();
+    const g = (x) => (rnd() < 0.5 ? x : { ...x, minutes: pickJunk() });
+    const ctx = { ...context(), ground: (iata) => (rnd() < 0.3 ? null : g(GROUND[iata] || {})), arrival: (iata) => (rnd() < 0.3 ? null : { min: rnd() < 0.5 ? pickJunk() : ARR[iata]?.min }), memo: new WeakMap() };
+    const s = Rank.score(t, ctx);
+    assert.ok(Number.isFinite(s.czk) && s.czk >= t.perPersonCzk * (1 - W.dealCap) - 1, `${i}: ${s.czk}`);
+    assert.ok(Object.values(s.parts).every(Number.isFinite), `${i}: ${JSON.stringify(s.parts)}`);
+    assert.doesNotThrow(() => Rank.explain(s));
+  }
+});
+
+test('výkon: 160 cílů × 8 nabídek – srovnávací cena, výběr, pořadí a štítky v řádu milisekund (telefon ~5× pomaleji)', () => {
+  const groups = [];
+  const cities = ['BCN', 'VLC', 'LIL', 'NAP', 'LIS', 'CGN', 'AGP', 'ALC', 'PMI', 'BRI', 'CTA', 'CAG', 'SPU', 'ZAD', 'CFU', 'HER'];
+  for (let i = 0; i < 160; i++) {
+    const iata = cities[i % cities.length], key = `${iata}${i}`;
+    const options = Array.from({ length: 8 }, (_, j) => {
+      const from = ['PRG', 'VIE', 'BRQ'][j % 3], dep = `${String(5 + ((i + j * 3) % 17)).padStart(2, '0')}:${j % 2 ? '35' : '05'}`;
+      const t = offer({ dest: iata, km: 600 + i * 7, ticket: 900 + ((i * 37 + j * 113) % 1700), out: leg(from, iata, `2026-11-${String(10 + (j % 9)).padStart(2, '0')}T${dep}`, 90 + (i % 5) * 20, j === 7 ? [['MUC', 95]] : []), back: leg(iata, from, `2026-11-${String(12 + (j % 9) + (i % 3)).padStart(2, '0')}T${dep}`, 90 + (i % 5) * 20) });
+      t.destKey = key;
+      return t;
+    });
+    groups.push({ dest: { key, cc: CC[iata], label: key }, best: options[0], options, priceStats: { n: 8, median: 1800 }, minFlightCzk: Math.min(...options.map((t) => t.flightCzk)) });
+  }
+  const res = { groups, origins: Object.entries(GROUND).map(([iata, ground]) => ({ iata, ground })), arrivals: ARR };
+  const once = () => {
+    const r = plain(res), t0 = performance.now(), c = Rank.ctxOf(r);
+    const rec = H.radarPick(r.groups, null, Infinity, null, Rank.radar(c));
+    Rank.reasons(rec.map(({ g, t }) => ({ t, sc: Rank.score(t, c), label: g.dest.label, cc: g.dest.cc })), 10);
+    return performance.now() - t0;
+  };
+  const times = Array.from({ length: 9 }, once).sort((a, b) => a - b);
+  // naměřeno ~3–5 ms zahřáté (Node 22, notebook); 60 ms je pojistka proti kvadratickému zpomalení, ne cíl
+  assert.ok(times[4] < 60, `medián ${times[4].toFixed(1)} ms`);
+});
 /* ---------- demo: Kamkoliv víkend z Prahy +200 km (vymyšlená data) ---------- */
 let server;
 let base;
@@ -301,11 +497,18 @@ before(async () => {
 });
 after(() => server.close());
 
-test('demo Kamkoliv víkend z Prahy +200 km: doporučené pořadí je levnější i s cestou a štítky říkají pravdu', async () => {
+let demoRes = null;
+async function demo() {
+  if (demoRes) return plain(demoRes);
   const today = new Date().toISOString().slice(0, 10);
   const q = H.radarQuery('weekend', { from: [H.homeOf('Praha').from[0]], radius: 200, adults: 1 }, today);
   const r = await fetch(`${base}/api/search`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...q.payload, noPartial: true }) });
-  const res = plain(JSON.parse((await r.text()).trim().split('\n').at(-1)).result);
+  demoRes = JSON.parse((await r.text()).trim().split('\n').at(-1)).result;
+  return plain(demoRes);
+}
+
+test('demo Kamkoliv víkend z Prahy +200 km: doporučené pořadí je levnější i s cestou a štítky říkají pravdu', async () => {
+  const res = await demo();
   assert.ok(res.groups.length >= 20);
   const c = Rank.ctxOf(res);
   const rec = H.radarPick(res.groups, null, Infinity, null, Rank.radar(c));
@@ -329,8 +532,25 @@ test('demo Kamkoliv víkend z Prahy +200 km: doporučené pořadí je levnějš�
     assert.equal(w.has(i), beaten, `${items[i].label}: štítek právě tehdy, když předběhl levnější letenku`);
   }
   assert.ok(w.size >= 5, 'nahoře nejsou jen nejlevnější letenky');
+  // nic výš než cíl s o víc než 24 % nižší srovnávací cenou (strop pestrosti)
+  const czk = rec.map((x) => Rank.score(x.t, c).czk);
+  czk.forEach((a, i) => czk.slice(i + 1).forEach((b) => assert.ok(a <= b * (1 + W.sameCountry * W.sameMax) + 1e-9, `${a} nad ${b}`)));
   for (const [i, x] of w) {
     if (x.k === 'airport') assert.ok(all.every((t) => items[i].t.tripCzk <= t.tripCzk), `${items[i].label}: „i s cestou na letiště nejlevnější“`);
     assert.ok(x.text.length <= 34, x.text);
   }
+});
+
+test('stabilita: stejný vstup → stejné pořadí, štítky i výběr nabídky (demo hledání dvakrát od nuly)', async () => {
+  await demo();
+  const run = () => {
+    const res = plain(demoRes);
+    const c = Rank.ctxOf(res);
+    const rec = H.radarPick(res.groups, null, Infinity, null, Rank.radar(c));
+    const items = rec.map(({ g, t }) => ({ t, sc: Rank.score(t, c), label: g.dest.label, cc: g.dest.cc }));
+    return { order: rec.map((x) => `${x.g.dest.key}:${x.t.id}`), why: [...Rank.reasons(items, 10)].map(([i, x]) => `${i}:${x.text}`) };
+  };
+  const a = run(), b = run();
+  assert.deepEqual(a, b);
+  assert.ok(a.order.length >= 20);
 });

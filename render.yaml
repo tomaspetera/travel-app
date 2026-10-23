@@ -17,4 +17,5 @@ services:
 # Klíče se přidávají až potom: služba → Environment →
 #   TRAVELPAYOUTS_TOKEN (další aerolinky), LITEAPI_KEY (hotely s cenou a hodnocením – bez něj ceny hotelů
 #   z TripAdvisoru přes Xotelo, XOTELO=off vypne), UNSPLASH_ACCESS_KEY (hezčí fotky měst – bez něj Wikimedia).
+# Vlastní doména (Settings → Custom Domains): PUBLIC_URL=https://… – kanonická adresa a náhledy sdílených odkazů.
 # PORT nenastavovat – Render ho dodá sám a server ho čte.

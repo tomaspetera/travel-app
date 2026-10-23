@@ -111,7 +111,8 @@ i Zpět (tlačítko nebo gesto) a nové výsledky hledání, které mezitím dor
 ## 📍 Dnes na cestě
 
 Od 2 dnů před odjezdem do konce uložené cesty začíná **Přehled** kartou s tím, co tě dnes čeká – bez listování celým
-plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dotaz na server ani partnery):
+plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dotaz na server ani partnery – jen předpověď
+počasí z Open-Meteo, a ta se uloží):
 
 - **Před odjezdem** „🧳 Za 2 dny odlet · Lisabon“ a řádky po dnech až do dne odjezdu (online check-in, kdy nejpozději
   vyrazit z domu, cesta na letiště, let s časem, dopravcem a číslem, z letiště do města, ubytování) a kolik položek
@@ -139,6 +140,25 @@ plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dota
   když není nic jiného – s nadpisem **🏠 Zpátky doma · Lisabon** a bez místního času v cíli. Ostatní probíhající cesty karta ukáže řádkem **📌 Také dnes** (program dne a odkaz na plán)
   a jejich 🔖 rezervace pod rezervacemi cesty. Poslední let cesty přes víc měst je „zpět“ (🛬, po programu dne), jen
   když končí tam, kde cesta začala (nebo aspoň ve stejné časové zóně) – PRG → FCO → BCN je ✈️ před programem.
+
+**🚆 Vlak a bus s časem**: průvodce u přejezdu mezi místy trasy (Lisabon → Porto vlakem) zná jen odhad délky, ne
+spoj. V Itineráři plánovače má každý vlak a bus (přejezd vlakem / busem z průvodce, vlak či bus z plánovače) v dni
+odjezdu kompaktní pole **Odjezd**, **Nástupiště**, **Vůz / místo** a **Kód jízdenky** – ukládají se hned při změně
+(`t.rides`, úsek = den + odkud + kam; u vlaku místo letu je výchozí čas ten z plánu). Karta pak odpočítává jako u letu:
+„🚆 Vlak do Porta v 10:42 – za 1 h 20 min · nástupiště 4 · vůz 3, místo 45“ (večer předem „zítra v 10:42“; „do Porta“
+jen u jmen s jistou koncovkou, jinak „Porto → Lisabon“) s odkazem **🚉 nádraží** do Google Map (zastávka z plánu, jinak
+nádraží ve městě odjezdu). V průběhu cesty „Přejezd Lisabon 10:42 → Porto ~13:32“ (příjezd odhadem – po něm se řádek
+ztlumí). Čas, nástupiště a místo jdou i do odkazu na plán a do kalendáře (.ics), **kód jízdenky jen do 💾 zálohy**
+(jako 🔖 rezervace). Znovu uložená cesta z průvodce je nechá u vlaků, které trasa pořád má.
+
+**🌤️ Počasí na kartě**: místo, kde dnes jsi (v den přejezdu obě), a zítřejší další místo trasy; večer před odjezdem
+cíl na den odjezdu – ikona, max / min °C a pravděpodobnost srážek (Open-Meteo přes `Weather.forecast`, jeden dotaz
+na všechna místa, nejvýš jednou za 2 h). Předpověď se uloží v telefonu (`atlas_nowwx`), takže je vidět i bez signálu –
+pak, nebo když je starší než 2 h, s „předpověď z 9:22“. Mimo cestu (a u cesty jen z plánovače bez poloh míst) žádný dotaz.
+
+**Okno cesty během cesty**: dokud cesta probíhá (jako karta – ne po návratu domů), začíná okno v plánovači částí
+**📍 Dnes na cestě** s dnešním dnem (vlak, program, přidání aktivity) a 🔖 rezervacemi; doprava, *Hledat lety*,
+🛂 Před cestou a celý Itinerář (dnešek v něm jen odkazem nahoru) jsou až pod nimi. Před cestou a po ní obvyklé pořadí.
 
 **🔖 Rezervace**: v okně cesty v plánovači si k cestě zapíšeš až 6 kódů – co (let tam, hotel…), kód (PNR, číslo
 potvrzení) a poznámku; Enter v poli „Co“ (a v prázdném kódu) jen přejde na další pole, uloží až s kódem nebo
@@ -523,18 +543,24 @@ nabídky, které by si rozumný cestovatel opravdu vybral – ne jen nejlevněj�
 | Cena | letenka + zavazadla + odhad cesty na letiště a z letiště do města (`tripCzk`) |
 | Cesta | hodiny z domova na letiště a z letiště do města tam i zpět × 150 Kč |
 | Přestup | čas navíc proti přímému letu × 150 Kč/h, přestup 6 h a víc (často přes noc) +500 Kč |
-| Noc | z domu před 4:30 nebo domů po 0:30 ([Kdy vyrazit](#-kdy-vyrazit)): veřejnou dopravou mimo tvoje město +700 Kč, jinak +250 Kč; v cíli do města po 23:30 nebo z města před 4:30 +300 Kč |
+| Noc | cesta z domu začne před 4:30 dne letu (i večer předem na ranní let ze vzdáleného letiště, nebo let před 4:30), cesta domů skončí po 0:30 (i ráno po celé noci v autobuse) nebo začne přistáním před 5:00 ([Kdy vyrazit](#-kdy-vyrazit)): veřejnou dopravou mimo tvoje město +700 Kč, autem a z letiště ve tvém městě +250 Kč; v cíli do města po 23:30 nebo z města před 4:30 +300 Kč |
 | Pobyt | na místě přes den (8–22 h) méně než 85 % z 12 h na noc → až +80 % ceny (přílet v sobotu večer, odlet v neděli ráno) |
 | Výhodnost | letenka aspoň o 15 % pod obvyklou cenou do cíle (medián nabídek hledání, „Je to dobrá cena?“ = dobrá) a hlouběji, než bývá nejlevnější nabídka cílů hledání → sleva o ten rozdíl, nejvýš 25 % ceny |
 
 V každém cíli se vezme nabídka s nejnižší srovnávací cenou (proto může karta ukázat dražší letenku z Prahy místo
-levnější z Vídně v noci); každý další cíl ze stejné země se porovná o 8 % dráž (nejvýš 5×), aby nahoře nebylo pětkrát
-Německo. Kde pořadí předběhne levnější letenku, řekne proč štítek **✓** (*i s cestou na letiště nejlevnější*, *rozumné
-časy*, *víc času na místě*, *o 30 % pod obvyklou cenou*, *kratší cesta na letiště*, *pestřejší výběr*…) – po najetí
-myší celá věta s rozpisem srovnávací ceny, na telefonu v rozbalené kartě cíle. Ceny na kartách zůstávají cenou letenky;
+levnější z Vídně v noci); každý další cíl ze stejné země se porovná o 8 % dráž (nejvýš 3×, tj. +24 % – odhady cesty
+jsou přesné asi na pětinu, o víc horší cíl pestrost nepředřadí), aby nahoře nebylo pětkrát Německo. Kde pořadí předběhne
+levnější letenku, řekne proč štítek **✓** (*i s cestou na letiště nejlevnější*, *rozumné časy*, *víc času na místě*,
+*o 30 % pod obvyklou cenou*, *kratší cesta na letiště*, *levnější cesta z letiště do města*, *pestřejší výběr*…) – jen
+to, co platí doslova (ne *rozumné časy* u letu s nočním odjezdem nebo bez známých časů, ne *víc času na místě*, když je
+hodin míň a jen méně nocí), a proti levnější letence, kterou nabídka předběhla srovnávací cenou; *pestřejší výběr* jen
+tam, kde nic jiného neplatí. Po najetí myší celá věta s rozpisem srovnávací ceny, na telefonu v rozbalené kartě cíle.
+Ceny na kartách zůstávají cenou letenky;
 čistě podle ceny řadí *Nejlevnější letenka*. Radar u cíle, kde doporučené pořadí vybralo jinou nabídku s dražší
 letenkou, neukáže falešné *↑ zdražilo*. Server k nabídkám cíle přidává i tu nejlevnější i s cestou (`groupOptions`).
-Testy: `test/rank.test.js` (tabulky vymyšlených nabídek z Prahy +200 km a demo hledání).
+Testy: `test/rank.test.js` (tabulky vymyšlených nabídek z Prahy +200 i +300 km a Brna +200 km s reálnými odhady cesty,
+k moři v květnu, chybějící odhady, stabilita, výkon a demo hledání). Výkon: 150 cílů × ~6 nabídek ~4 ms (zahřáté),
+první výpočet po načtení stránky ~18 ms (Node 22).
 
 ## Doprava na letiště
 
@@ -1158,6 +1184,7 @@ Zkopíruj `.env.example` na `.env`:
 | `PHOTOS_RATE_LIMIT` | `60` | max. dotazů na fotky měst (`/api/photos`, dávka až 30 karet) z jedné IP za 10 minut – jen ty, které nejdou celé z mezipaměti serveru (Wikimedia, Pexels, Unsplash mají strop pro celý server) |
 | `GEOCODE_RATE_LIMIT` | `200` | max. geokódování přes Open-Meteo (našeptávač, hledání míst) z jedné IP za 10 minut, jen mimo mezipaměť; nad limitem našeptávač nabídne místa z vlastních dat |
 | `FEEDBACK_EMAIL` | – | volitelné: adresa pro **💬 Napsat nám** v *⋯ Další → ℹ️ O aplikaci a soukromí* (mailto s předmětem „ATLAS – zpětná vazba (verze …, obrazovka: …)“). `/api/health` ji pošle jako `feedback: { email }` jen když je nastavená a platná (jedna adresa); bez ní tlačítko chybí. Adresa jen tady, v kódu žádná |
+| `PUBLIC_URL` | `https://atlas-letenky.onrender.com` | veřejná adresa webu (bez `/` na konci) pro kanonickou adresu, náhledy sdílených odkazů a `sitemap.xml` – až bude vlastní doména, stačí ji nastavit tady (viz [Přejmenování a doména](#přejmenování-a-doména)); výchozí je `url` v `server/brand.js` |
 | `ATLAS_MOCK` | `0` | `1` = demo data (totéž co `npm run demo`) |
 
 ### Mapy.com (volitelně, zdarma)
@@ -1247,6 +1274,50 @@ docker build -t atlas . && docker run -p 8080:8080 --env-file .env atlas
 ```
 
 GitHub Pages nestačí (je to jen statický hosting bez serveru).
+
+## Vyhledávače a náhledy odkazů
+
+Když někdo pošle odkaz na ATLAS (WhatsApp, Messenger, Facebook, X, Slack, iMessage), ukáže se náhled s obrázkem,
+názvem a popisem. Vše skládá server (`server/lib/seo.js`) z jednoho místa – `server/brand.js` a `PUBLIC_URL`:
+
+- **Stránka** dostane `<title>`, popis, kanonickou adresu, Open Graph (`og:title`, `og:description`, `og:image`
+  1200 × 630 s absolutní adresou, `og:locale` `cs_CZ`), Twitter Card `summary_large_image`, název aplikace pro iOS
+  a JSON-LD `WebApplication` – jen stálá fakta (česky, zdarma), žádná hodnocení. V `public/index.html` je místo nich
+  jen blok `<!-- brand … -->` / `<!-- /brand -->`, který server nahradí. JSON-LD je datový blok: CSP ho nehashuje
+  (prohlížeč ho nespouští).
+- **Náhledový obrázek** `public/og-image.png` (1200 × 630, ~215 kB – WhatsApp větší než ~300 kB nemusí ukázat).
+  Sdílené odkazy na cestu, plán nebo nabídku nesou data za `#`, která roboti sociálních sítí nevidí, takže náhled je
+  u všech odkazů stejný, obecný.
+- **`/robots.txt`** (vše povoleno, odkaz na mapu webu) a **`/sitemap.xml`** (jediná stránka – sekce aplikace jsou za `#`).
+- **Stránka 404** pro neznámé adresy mimo API: česky, světlá i tmavá podle systému, s tlačítkem *Otevřít ATLAS*, které
+  vezme s sebou i část adresy za `#`. Dřív server na každou neznámou adresu poslal stránku aplikace se stavem 200 –
+  vyhledávačům se pak jevila jako nekonečno kopií úvodní stránky. Sekce i sdílené odkazy (`/#trip=`, `/#plan=`,
+  `/#offer=`, zkratky `/#flights`) jsou na `/`, takže se pro ně nic nemění; offline dá service worker na jakoukoli
+  adresu dál uloženou aplikaci. Chybějící soubor (`/js/neni.js`) dostane taky 404, ne stránku aplikace.
+- **Manifest** (`/manifest.webmanifest`) posílá server se jménem a popisem z `brand.js`; ikony, barvy a zkratky jsou
+  v souboru `public/manifest.webmanifest`.
+- Po nasazení náhled ověříš ve [Sharing Debuggeru Facebooku](https://developers.facebook.com/tools/debug/) – tlačítko
+  *Scrape Again* stáhne nový náhled (Facebook a Messenger si ho jinak pamatují i dny).
+
+### Přejmenování a doména
+
+| Co | Kde to změnit |
+|---|---|
+| Název, titulek, popis pro vyhledávače a náhled, popis aplikace na ploše, slogan a tři body na obrázku, popis obrázku | `server/brand.js` (jedno místo – stránka, náhled, manifest, JSON-LD, 404) |
+| Adresa webu (kanonická, náhled, `sitemap.xml`, `robots.txt`) | proměnná `PUBLIC_URL` na Renderu; výchozí `url` v `server/brand.js` |
+| Náhledový obrázek `public/og-image.png` | `npm run build:og` – šablona je v `scripts/build-og-image.mjs`, texty bere z `brand.js`. Potřebuje Playwright s Chromiem (`npm i -g playwright && npx playwright install chromium`), projekt závislost nemá. `npm test` pozná, když se obrázek po změně `brand.js` nebo šablony znovu nevygeneroval |
+| Logo a ikony (na plochu, úvodní obrazovky iOS) | `scripts/build-icons.mjs` (`npm run build:icons`); favicon a logo v postranním panelu a na úvodní obrazovce `#launch` v `public/index.html` |
+| Barvy | `public/css/atlas.css` (`--grad`, `--bg`), `theme_color` a `background_color` v `public/manifest.webmanifest` |
+| Název v textech aplikace (postranní panel, hlášky, *O aplikaci*) | `public/index.html` a `public/js/*.js` (`grep -rn ATLAS public/`) |
+
+Změna `brand.js` nebo `PUBLIC_URL` je nová verze aplikace (patří do otisku verze v `server/lib/pwa.js`): service
+worker se aktualizuje a aplikace na ploše si nový název vezme sama (Chrome kontroluje manifest nejvýš jednou denně).
+
+**Vlastní doména (.cz):** Render → služba → **Settings → Custom Domains**, u registrátora DNS záznam podle Renderu
+(HTTPS zařídí Render), pak `PUBLIC_URL=https://…` v **Environment**. Uložené cesty a hlídané ceny jsou v prohlížeči
+pod adresou webu – na nové doméně je uživatel neuvidí. Starou adresu `…onrender.com` proto nepřesměrovávej (kanonická
+adresa vede vyhledávače na novou) a uživatelům doporuč přenos přes **💾 Přenos a záloha**: soubor stažený na staré
+adrese nahrají na nové.
 
 ## Na počítači
 
