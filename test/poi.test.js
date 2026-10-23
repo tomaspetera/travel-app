@@ -96,6 +96,13 @@ test('classifyText: kategorie z popisu, nádraží/ulice/školy pryč', async ()
   assert.equal(classifyText('railway station in Milan'), null);
   assert.equal(classifyText('ulice v Praze'), null);
   assert.equal(classifyText('square in Kraków'), 'square');
+  // „zahrada“ není hrad; zoo, zábavní a národní park nejsou obecný park
+  assert.equal(classifyText('botanická zahrada v Praze'), 'park');
+  assert.equal(classifyText('zoologická zahrada v Praze'), 'zoo');
+  assert.equal(classifyText('amusement park in Barcelona'), 'theme');
+  assert.equal(classifyText('národní park v Chorvatsku'), 'nature');
+  assert.equal(classifyText('Pražský hrad'), 'castle');
+  assert.equal(classifyText('městský park'), 'park');
 });
 
 test('findPlaces: při výpadku Wikidata SPARQL použije Wikipedia geosearch + počty jazykových verzí', async () => {
