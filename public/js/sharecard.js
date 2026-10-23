@@ -368,6 +368,11 @@
   // schránka bez čekání (Safari dovolí zápis jen v obsluze klepnutí – nabídka sdílení hned po něm)
   const clip = s => { try { const p = navigator.clipboard && navigator.clipboard.writeText(s); if (p) p.catch(() => { }); return Boolean(p); } catch (e) { return false; } };
 
+  // Instagram ani Facebook nedovolí aplikaci přidat k obrázku klikací odkaz – zkopíruje se a nápověda řekne, kam ho vložit
+  const HINT = {
+    story: 'Odkaz na cestu se zkopíruje. V Instagramu přidej nálepku „Odkaz“ a vlož ho – kdo klepne, uvidí termín.',
+    post: 'Text s odkazem se zkopíruje – vlož ho do popisku. Na Facebooku bude odkaz klikací, na Instagramu se ti lidi ozvou v komentářích.',
+  };
   const SVG = (d, w = 22) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const I_CHAT = '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>';
   const I_ADD = '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3 2.9-4.8 5.5-4.8s4.9 1.8 5.5 4.8"/><path d="M17 7.5v5M14.5 10h5"/>';
@@ -395,6 +400,7 @@
         <div class="jed-row">${thumb('story', 'Story', true)}${thumb('post', 'Příspěvek', false)}
           <div class="jed-on"><span>Na kartě:</span><b>${cardTxt}</b><span>bez ceny, bez ubytování</span></div></div>
         <button type="button" class="jed-go2" id="jedShare" disabled>${SVG(I_SHARE, 18)}<span>Chystám obrázky…</span></button>
+        <div class="jed-hint" id="jedHint">${HINT.story}</div>
       </div>`}
       <div class="jed-lock">${SVG(I_LOCK, 16)}Bez účtu. Ubytování ani adresa se nikdy nesdílí.</div>
     </div>`);
@@ -406,6 +412,7 @@
     $$('#modal .jed-th').forEach(b => {
       b.onclick = () => {
         kind = b.dataset.kind;
+        $('#jedHint').textContent = HINT[kind];
         $$('#modal .jed-th').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', String(x === b)); });
       };
     });
