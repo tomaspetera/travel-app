@@ -387,6 +387,8 @@
     const past = d.o < fmtYMD(new Date());
     const link = ShareLink.prepare('jed', json(d0));
     const cardTxt = `${d.f ? `${esc(d.f)} → ` : ''}${esc(d.dest)} · ${MONTHS[monthOf(d) - 1]}`;
+    // „bez ubytování“ platí jen pro kartu na sítě – Poslat kamarádům posílá celou cestu i s ubytováním (proto zámek jen
+    // u karty; pod celým oknem by tvrdil opak toho, co je o řádek výš, u proběhlé cesty dokonce jen pod Poslat kamarádům)
     const thumb = (k, n, on) => `<div class="jed-tw"><button type="button" class="jed-th ${k}${on ? ' on' : ''}" data-kind="${k}" aria-pressed="${on}" aria-label="Karta: ${n}"><span class="jed-ph"></span></button><span>${n}</span></div>`;
     modalOpen(`<div class="modal-body jed-sheet">
       <div class="jed-top"><h3>Sdílet cestu</h3><button type="button" class="jed-x" data-close aria-label="Zavřít">${SVG('<path d="M6 6l12 12M18 6L6 18"/>', 18)}</button></div>
@@ -397,7 +399,7 @@
           <div class="jed-on"><span>Na kartě:</span><b>${cardTxt}</b><span>bez ceny, bez ubytování</span></div></div>
         <button type="button" class="jed-go2" id="jedShare" disabled>${SVG(I_SHARE, 18)}<span>Chystám obrázky…</span></button>
       </div>`}
-      <div class="jed-lock">${SVG(I_LOCK, 16)}Bez účtu. Ubytování ani adresa se nikdy nesdílí.</div>
+      ${past ? '' : `<div class="jed-lock">${SVG(I_LOCK, 16)}Bez účtu. Karta pro sítě nikdy neukáže ubytování ani adresu.</div>`}
     </div>`);
     $$('#modal [data-close]').forEach(b => { b.onclick = () => modalClose(); });
     $('#jedSend').onclick = () => { modalClose(); if (o.send) o.send(); };

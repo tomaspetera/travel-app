@@ -65,6 +65,30 @@ test('dlouhý cíl na letence menším písmem', () => {
   assert.equal(C.kamSize('Santiago de Compostela', 96), 58);
 });
 
+test('okno Sdílet: „bez ubytování“ jen u karty na sítě – Poslat kamarádům posílá celou cestu i s ubytováním', () => {
+  /** HTML okna Sdílet cestu (ShareCard.open) pro cestu s odletem o → text bez značek. */
+  const sheet = (o) => {
+    let html = '';
+    const el = () => ({ onclick: null, disabled: false, isConnected: true, innerHTML: '', textContent: '', querySelector: () => ({ textContent: '' }), replaceWith: () => { } });
+    const c = {
+      window: {}, TextEncoder, TextDecoder, btoa, atob, navigator: {}, location: ctx.location, CompressionStream, DecompressionStream,
+      fmtYMD: (d) => d.toISOString().slice(0, 10), esc: (s) => String(s), modalOpen: (h) => { html = h; }, modalClose: () => { },
+      $: () => el(), $$: () => [], fetch: () => new Promise(() => { }), setTimeout: () => 0, document: { getElementById: () => null, querySelector: () => ({}) },
+    };
+    vm.createContext(c);
+    for (const f of ['sharelink.js', 'sharecard.js']) vm.runInContext(src(f), c, { filename: f });
+    c.ShareLink = c.window.ShareLink;
+    c.window.ShareCard.open({ ...TRIP, o, b: null }, { send: () => { } });
+    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  };
+  const future = sheet('2099-11-12'), past = sheet('2020-11-12');
+  assert.match(future, /Poslat kamarádům soukromě Celá cesta – lety, ubytování a program po dnech/);
+  assert.match(future, /Karta pro sítě nikdy neukáže ubytování ani adresu/);
+  assert.match(past, /Celá cesta – lety, ubytování/);
+  for (const s of [future, past]) assert.doesNotMatch(s, /Ubytování ani adresa se nikdy nesdílí/, 'okno by si odporovalo');
+  assert.doesNotMatch(past, /ubytování ani adresu|Jede někdo se mnou/, 'proběhlá cesta: karta na sítě není, zámek také ne');
+});
+
 test('okno Sdílet: písma Googlu se nestáhla (bez sítě, blokovaná) – karty se kreslí hned, ne až po 8 s „Chystám obrázky…“', async () => {
   // index.html si nestažený styl písem poznamená (data-err) – událost error by sharecard.js zachytit nestihl
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
