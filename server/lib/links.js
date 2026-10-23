@@ -23,25 +23,34 @@ export function affiliate(url, brand) {
   return `https://tp.media/r?${qs}`;
 }
 
+/**
+ * Hosté s dětmi (děti 2–11 let a miminka do 2 let z hledání letů): weby, které děti v adrese berou zvlášť (Booking.com
+ * group_children, Trip.com a Agoda children), je dostanou zvlášť – věk dětí si web vyžádá; ostatním (Airbnb, Kayak,
+ * Hotels.com, Google Hotels, Hostelworld) se děti 2–11 přičtou k dospělým, ať ubytování pojme všechny (miminko spí
+ * v postýlce a kapacitu nezabírá). Bez dětí jako dřív.
+ */
+export const kidsOf = (q) => (q.children || 0) + (q.infants || 0);
+export const bedsOf = (q) => q.adults + (q.children || 0);
+
 /** Hledání konkrétního hotelu na Booking.com („název, místo“ + termín, hosté, pokoje) – tlačítko „detail“ u nabídky. */
 export function bookingSearchUrl(name, city, q) {
-  const p = new URLSearchParams({ ss: `${name}, ${city}`, checkin: q.checkin, checkout: q.checkout, group_adults: String(q.adults), no_rooms: String(q.rooms), lang: 'cs', selected_currency: 'CZK' });
+  const p = new URLSearchParams({ ss: `${name}, ${city}`, checkin: q.checkin, checkout: q.checkout, group_adults: String(q.adults), no_rooms: String(q.rooms), ...(kidsOf(q) ? { group_children: String(kidsOf(q)) } : {}), lang: 'cs', selected_currency: 'CZK' });
   return `https://www.booking.com/searchresults.cs.html?${p}`;
 }
 
 /** Trip.com podle názvu (searchWord – místo, nebo „hotel, místo“): vyplní hledání i termín a hosty, potvrdí se Hledat. */
 export function tripSearchUrl(word, q) {
-  return `https://www.trip.com/hotels/list?${new URLSearchParams({ searchWord: word, checkin: q.checkin, checkout: q.checkout, adult: String(q.adults), crn: String(q.rooms), curr: 'CZK', locale: 'cs-CZ' })}`;
+  return `https://www.trip.com/hotels/list?${new URLSearchParams({ searchWord: word, checkin: q.checkin, checkout: q.checkout, adult: String(q.adults), ...(kidsOf(q) ? { children: String(kidsOf(q)) } : {}), crn: String(q.rooms), curr: 'CZK', locale: 'cs-CZ' })}`;
 }
 
 /** Hledání Expedia Group (Hotels.com, Expedia): destination = místo, nebo „hotel, místo“, s termínem, hosty a pokoji. */
 export function expediaSearchUrl(host, destination, q) {
-  return `https://${host}/Hotel-Search?${new URLSearchParams({ destination, startDate: q.checkin, endDate: q.checkout, adults: String(q.adults), rooms: String(q.rooms) })}`;
+  return `https://${host}/Hotel-Search?${new URLSearchParams({ destination, startDate: q.checkin, endDate: q.checkout, adults: String(bedsOf(q)), rooms: String(q.rooms) })}`;
 }
 
 /** Google Hotels: hledání (místo, nebo konkrétní hotel – pak jeho živé ceny u všech webů) na termín a hosty (ts). */
 export function googleHotelsUrl(text, q) {
-  const gts = googleHotelsTs(q.checkin, q.checkout, q.adults);
+  const gts = googleHotelsTs(q.checkin, q.checkout, bedsOf(q));
   return `https://www.google.com/travel/search?q=${enc(text)}&hl=cs&curr=CZK${gts ? `&ts=${gts}` : ''}`;
 }
 
@@ -113,7 +122,7 @@ export function googleHotelsTs(checkin, checkout, adults, currency = 'CZK') {
 }
 
 /**
- * Odkazy na partnery ubytování. q: { city, cityEn, cc, country, checkin, checkout, adults, rooms }
+ * Odkazy na partnery ubytování. q: { city, cityEn, cc, country, checkin, checkout, adults, children, infants, rooms }
  * ids: ID místa u partnerů dohledaná na serveru (partnerids.js) – { trip, agoda, hostelworld }: číslo = ID,
  * hostelworld false = Hostelworld v místě hostely nemá (404 nebo „0 Hostels“ → stránka země na konci seznamu); cokoli
  * jiného = odkaz bez ID.
@@ -139,32 +148,32 @@ export function stayLinks(q, ids = {}) {
     checkout: q.checkout,
     group_adults: String(q.adults),
     no_rooms: String(q.rooms),
-    group_children: '0',
+    group_children: String(kidsOf(q)),
     lang: 'cs',
     selected_currency: 'CZK',
     ...extra,
   });
-  const airbnb = new URLSearchParams({ checkin: q.checkin, checkout: q.checkout, adults: String(q.adults) });
+  const airbnb = new URLSearchParams({ checkin: q.checkin, checkout: q.checkout, adults: String(bedsOf(q)) });
   const airbnbSlug = [cityEn, countryEn].filter(Boolean).join('--');
   // Trip.com: s ID města (cityId) hned nabídky (Cotonou 132 ubytování), jen s názvem (searchWord) 0 výsledků, dokud
   // uživatel nepotvrdí Hledat.
   const tripId = partnerId(ids.trip);
   const trip = tripId
-    ? { note: 'silný v Asii', url: `https://www.trip.com/hotels/list?${new URLSearchParams({ cityId: String(tripId), checkin: q.checkin, checkout: q.checkout, crn: String(q.rooms), adult: String(q.adults), children: '0', curr: 'CZK', locale: 'cs-CZ' })}` }
+    ? { note: 'silný v Asii', url: `https://www.trip.com/hotels/list?${new URLSearchParams({ cityId: String(tripId), checkin: q.checkin, checkout: q.checkout, crn: String(q.rooms), adult: String(q.adults), children: String(kidsOf(q)), curr: 'CZK', locale: 'cs-CZ' })}` }
     : { note: 'silný v Asii – potvrď Hledat', url: tripSearchUrl(place, q) };
   // Kayak: „Město-Země“ anglicky s pomlčkami (Porto-Novo-Benin) – samotné jméno pošle Lagos do Portugalska a Porto Novo
   // na Kapverdy, tvar „Město, Země“ s čárkou skončí na úvodní stránce bez místa i dat (ověřeno 10/2026 v Chromu).
   const kayakPlace = [String(cityEn).split(',')[0], KAYAK_COUNTRY[q.cc] || countryEn]
     .filter(Boolean).join(' ').replace(/[/;,]/g, ' ').trim().replace(/\s+/g, '-');
-  const kayak = `${KAYAK}/hotels/${enc(kayakPlace)}/${q.checkin}/${q.checkout}/${q.adults}adults`;
-  const gts = googleHotelsTs(q.checkin, q.checkout, q.adults);
+  const kayak = `${KAYAK}/hotels/${enc(kayakPlace)}/${q.checkin}/${q.checkout}/${bedsOf(q)}adults`;
+  const gts = googleHotelsTs(q.checkin, q.checkout, bedsOf(q));
   // Hostelworld: s ID města vlastní hledání webu (místo doplní samo); místo bez hostelů (404 nebo „0 Hostels“, Lagos,
   // Mikulov) stránka země – i stránka města by s daty nic nenašla.
   const hwId = partnerId(ids.hostelworld);
   const hwPage = hostelworldCityPage(q);
   const hwNone = Boolean(hwPage) && ids.hostelworld === false;
   const hostelworld = hwId
-    ? { note: 'hostely a levná lůžka', prefill: 'full', url: `https://www.hostelworld.com/pwa/s?${new URLSearchParams({ type: 'city', id: String(hwId), from: q.checkin, to: q.checkout, guests: String(q.adults) })}` }
+    ? { note: 'hostely a levná lůžka', prefill: 'full', url: `https://www.hostelworld.com/pwa/s?${new URLSearchParams({ type: 'city', id: String(hwId), from: q.checkin, to: q.checkout, guests: String(bedsOf(q)) })}` }
     : hwNone
       ? { note: 'v místě hostely nemá – zkus jinde v zemi', prefill: 'none', url: hwPage.replace(/[\w-]+\/$/, '') }
       : hwPage
@@ -173,7 +182,7 @@ export function stayLinks(q, ids = {}) {
   // Agoda: bez ID města jen úvodní stránka (na stránku města se termín ani hosté přidat nedají).
   const agodaId = partnerId(ids.agoda);
   const agoda = agodaId
-    ? { note: 'silná v Asii', prefill: 'full', url: `https://www.agoda.com/search?${new URLSearchParams({ city: String(agodaId), checkIn: q.checkin, checkOut: q.checkout, los: String(nights), rooms: String(q.rooms), adults: String(q.adults), children: '0' })}` }
+    ? { note: 'silná v Asii', prefill: 'full', url: `https://www.agoda.com/search?${new URLSearchParams({ city: String(agodaId), checkIn: q.checkin, checkOut: q.checkout, los: String(nights), rooms: String(q.rooms), adults: String(q.adults), children: String(kidsOf(q)) })}` }
     : { note: 'silná v Asii – zadej místo a data', prefill: 'none', url: 'https://www.agoda.com/cs-cz/' };
   const links = [
     // nflt=review_score=80 → jen hodnocení 8+, order=price → od nejlevnějšího.

@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { pageCsp } from './security.js';
 
 // Data, která aplikace stahuje až za běhu (ne přes <script>/<link> v index.html) a bez kterých by offline chyběly
 // země (přehled, plánovač), vstupní podmínky, karta „Co zařídit a co sbalit“ a mapa navštívených zemí. data/…
@@ -162,11 +163,12 @@ export function serveIndex(req, res, dirs) {
   if (!indexMemo || indexMemo.key !== key) {
     const html = readFileSync(file, 'utf8');
     const body = Buffer.from(build ? html.replace(BUILD_META_RE, `<meta name="atlas-build" content="${build}">`) : html);
-    indexMemo = { key, body, gz: zlib.gzipSync(body), etag: `"ix-${createHash('sha256').update(body).digest('hex').slice(0, 16)}"` };
+    // CSP s otisky vložených skriptů právě této stránky (security.js) – změna skriptu v index.html se projeví sama
+    indexMemo = { key, body, gz: zlib.gzipSync(body), etag: `"ix-${createHash('sha256').update(body).digest('hex').slice(0, 16)}"`, csp: pageCsp(body.toString('utf8')) };
   }
-  const { body, gz, etag } = indexMemo;
+  const { body, gz, etag, csp } = indexMemo;
   // X-Atlas-Build: service worker se stejnou verzí pak soubory stránky vezme z uložené sady bez ptaní serveru (sw.js)
-  const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag, Vary: 'Accept-Encoding', ...(build ? { 'X-Atlas-Build': build } : {}) };
+  const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ETag: etag, Vary: 'Accept-Encoding', 'Content-Security-Policy': csp, ...(build ? { 'X-Atlas-Build': build } : {}) };
   if ((req.headers['if-none-match'] || '').split(/\s*,\s*/).includes(etag)) {
     res.writeHead(304, headers);
     return res.end();

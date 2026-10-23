@@ -598,8 +598,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-22f';
+const WN_ID = '2026-10-23a';
 const WHATS_NEW = [
+  ['👨‍👩‍👧', 'Cesta s dětmi', 'v <b>Letech</b> → Další možnosti → <b>Cestující</b> přidáš děti (2–11 let) a miminka (do 2 let). Cena celkem je za všechna sedadla – dítě platí sedadlo, u nízkonákladových aerolinek obvykle jako dospělý; miminko letí na klíně a poplatek aerolinky se doplní při nákupu. Ryanair a Wizz Air dostanou děti rovnou do odkazu na rezervaci, jinde je přidáš na webu. V průvodci Cestou je rozpočet na osobu za všechna sedadla a odkazy na ubytování s celou rodinou.'],
   ['🕘', 'Od minula', 'když ATLAS otevřeš jiný den, nahoře na <b>Přehledu</b> uvidíš, co se od minula změnilo pro tebe: která hlídaná cena zlevnila a o kolik, kdy odlétáš na uloženou cestu (i kdy se otevírá online check-in), nové levné cíle v radaru a propadlé odložené nabídky. Nejvýš 3 řádky, klepnutím na místo, ✕ je skryje, dokud nebude něco nového. Bez upozornění v telefonu.'],
   ['📝', 'Rozepsané hledání se neztratí', 'když v <b>Letech</b> upravíš formulář (odkud, kam, termín, noci, cestující, zavazadla…) a hledat nestihneš, ATLAS si ho zapamatuje – i když telefon aplikaci na pozadí zavře. Po návratu ho najdeš vyplněný (3 dny, minulé termíny vynechá); <b>↺ Začít znovu</b> ho smaže.'],
   ['📌', 'Porovnat i s cestou na letiště', 'odložené nabídky v <b>📌 Porovnat</b> se řadí podle ceny <b>i s cestou</b> – letenka + odhad dopravy na letiště a zpět a z letiště do města. Levnější letenka z Mnichova tak nevyhraje, když cesta na letiště stojí o 500 Kč víc. Co neznám, napíšu – cena letenky zůstává vidět.'],
@@ -1108,6 +1109,8 @@ function modalClose() {
   if (hist.mq) { hist.queue = hist.queue.filter(f => f !== hist.mq); hist.mq = null; } else histBack();
 }
 $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) modalClose(); };
+// ✕ (data-close) ve všech oknech jednou obsluhou: obsluhy v atributech HTML (onclick) CSP stránky nepustí (server/lib/security.js)
+$('#modal').addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-close]')) modalClose(); });
 // telefon: panel zespodu jde zavřít stažením za horní okraj (úchyt) dolů – jen když je obsah odscrollovaný nahoru
 (() => {
   const m = $('#modal');
@@ -1173,7 +1176,7 @@ function openCountry(iso) {
   const costTxt = c.cost ? ['', 'velmi levné', 'levné', 'střední', 'dražší', 'drahé'][c.cost] : '—';
   modalOpen(`
    <div class="modal-hero mh-photo" data-photo="${esc(c.capCs || c.cap || c.cs)}"><div class="mh-bg ${c.cost >= 4 ? 'warm' : ''}"></div>
-     <button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button>
+     <button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>
      <div class="modal-hero-inner">
        <div class="mh-flag">${flag(iso)}</div>
        <h2 class="mh-name">${c.cs}</h2>
@@ -1184,11 +1187,11 @@ function openCountry(iso) {
    <div class="modal-body">
      ${geoNote}
      <div class="row wrap cm-acts">
-       <button class="btn primary" onclick="modalClose();fromCountrySearch('${iso}')">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Najít lety sem</button>
-       ${window.Places && Places.openCountryView ? `<button class="btn" onclick="modalClose();Places.openCountryView('${iso}')">🌍 Objevuj celou zemi</button>` : ''}
-       <button class="btn" onclick="stayLinks('${iso}')">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>
-       <button class="btn" onclick="addToPlan('${iso}')">${ico('M12 5v14M5 12h14')} Do plánu</button>
-       <button class="btn ${isV ? 'warm' : 'ghost'}" id="visBtn" onclick="toggleVis('${iso}')">${isV ? '✓ Navštíveno' : 'Byl/a jsem tu'}</button>
+       <button class="btn primary" data-cm="search">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Najít lety sem</button>
+       ${window.Places && Places.openCountryView ? `<button class="btn" data-cm="explore">🌍 Objevuj celou zemi</button>` : ''}
+       <button class="btn" data-cm="stay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>
+       <button class="btn" data-cm="plan">${ico('M12 5v14M5 12h14')} Do plánu</button>
+       <button class="btn ${isV ? 'warm' : 'ghost'}" id="visBtn" data-cm="vis">${isV ? '✓ Navštíveno' : 'Byl/a jsem tu'}</button>
      </div>
      <div id="wxBox" class="weather-now"><div class="wico">⏳</div><div><div class="muted" style="font-size:12px">Načítám počasí…</div><div class="temp">--°</div></div></div>
      <div id="fcBox" class="forecast"></div>
@@ -1204,6 +1207,9 @@ function openCountry(iso) {
      ${c.tags ? `<div class="tags" style="margin-top:16px">${c.tags.map(t => `<span class="chip accent">${t}</span>`).join('')}</div>` : ''}
      <div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Bezpečnostní a geopolitická situace se mění. Před cestou si vždy ověř aktuální doporučení na <a href="${mzv}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">MZV ČR</a>.</div></div>
    </div>`);
+  // tlačítka okna (data-cm) – obsluha tady, ne atributem onclick v HTML (CSP)
+  const cmActs = { search: () => { modalClose(); fromCountrySearch(iso); }, explore: () => { modalClose(); Places.openCountryView(iso); }, stay: () => stayLinks(iso), plan: () => addToPlan(iso), vis: () => toggleVis(iso) };
+  $$('#modal [data-cm]').forEach(b => { b.onclick = () => cmActs[b.dataset.cm](); });
   Photos.paint($('#modal')); // fotka hlavního města v hlavičce
   loadWeather(c);
   loadFx(c);
@@ -1372,12 +1378,12 @@ function tripCard(t, i) {
 }
 function newTrip(c, pre = {}) {
   const dest = pre.dest || (c ? c.cs : '');
-  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:24px">Nová cesta</h2><div style="opacity:.85;font-size:13px">Vyplň základ, detaily doladíš potom</div></div></div>
+  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:24px">Nová cesta</h2><div style="opacity:.85;font-size:13px">Vyplň základ, detaily doladíš potom</div></div></div>
   <div class="modal-body">
     <div class="field"><label>Název cesty</label><input class="input" id="ntName" placeholder="Např. Léto v Portugalsku" value="${esc(pre.name || (dest ? 'Cesta: ' + dest : ''))}"></div>
     <div class="field" style="margin-top:12px"><label>Destinace</label><input class="input" id="ntDest" placeholder="Země nebo město" value="${esc(dest)}"></div>
     <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Odjezd</label><input class="input" type="date" id="ntStart" value="${pre.start || ''}"></div><div class="field"><label>Návrat</label><input class="input" type="date" id="ntEnd" value="${pre.end || ''}" min="${pre.start || ''}"></div></div>
-    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Cestující</label><select id="ntPax">${[1, 2, 3, 4, 5, 6].map(n => `<option ${n === (pre.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>Rozpočet (Kč)</label><input class="input" type="number" id="ntBudget" placeholder="nepovinné" value="${pre.budget || ''}">${pre.budget && pre.budgetNote ? `<small class="faint" style="display:block;font-size:11.5px;margin-top:4px">${esc(pre.budgetNote)}</small>` : ''}</div></div>
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Cestující</label><select id="ntPax">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<option ${n === (pre.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>Rozpočet (Kč)</label><input class="input" type="number" id="ntBudget" placeholder="nepovinné" value="${pre.budget || ''}">${pre.budget && pre.budgetNote ? `<small class="faint" style="display:block;font-size:11.5px;margin-top:4px">${esc(pre.budgetNote)}</small>` : ''}</div></div>
     <button class="btn primary block" style="margin-top:18px" id="ntSave">Vytvořit cestu</button>
   </div>`);
   $('#ntStart').onchange = e => { $('#ntEnd').min = e.target.value; };
@@ -1453,27 +1459,48 @@ function openTrip(i) {
   // výlet z Objevuj uložený dřív s cestovním seznamem (pas, adaptér…), nic neodškrtnuté → seznam na den venku
   if (local && Array.isArray(t.checklist) && t.checklist.length === PACK.length && t.checklist.every((x, k) => x && x.t === PACK[k] && !x.done)) { t.checklist = packFor(t.src).map(x => ({ t: x, done: false })); save(); }
   const days = dateRange(t.start, t.end);
-  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div></div></div>
+  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div></div></div>
   <div class="modal-body">
     ${t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${planFlightHtml(t.flight)}</div></div>` : ''}
-    <div class="row wrap">${local ? '' : `<button class="btn primary" onclick="modalClose();planSearch(${i})">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${t.wizard && window.Trip ? '<button class="btn" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${c ? `<button class="btn ghost" onclick="modalClose();openCountry('${t.iso}')">Info o zemi</button>` : ''}</div>
+    <div class="row wrap">${local ? '' : `<button class="btn primary" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${t.wizard && window.Trip ? '<button class="btn" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${c ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>
     ${tripEntryHtml(t)}${visitedPrompt(t)}
     <div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>
     <div class="divider"></div>
     <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + (days.length === 1 ? ' den' : days.length < 5 ? ' dny' : ' dní') : 'doplň termíny'}</span></div>
-    <div style="margin-top:10px">${days.length ? days.map((d, di) => { const acts = t.days[d] || []; return `<div class="day-block"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span></h4>${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button onclick="delAct(${i},'${d}',${ai})">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" placeholder="Přidej aktivitu…" onkeydown="if(event.key==='Enter')addAct(${i},'${d}')"><button class="btn sm" onclick="addAct(${i},'${d}')">Přidat</button></div></div>`; }).join('') : `<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Doplň termíny cesty a objeví se itinerář den po dni.</div></div>`}</div>
+    <div style="margin-top:10px">${days.length ? days.map((d, di) => { const acts = t.days[d] || []; return `<div class="day-block" data-day="${d}"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span></h4>${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button data-delact="${ai}" aria-label="Smazat aktivitu">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" data-addact placeholder="Přidej aktivitu…"><button class="btn sm" data-addact>Přidat</button></div></div>`; }).join('') : `<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Doplň termíny cesty a objeví se itinerář den po dni.</div></div>`}</div>
     ${refsHtml(t, i)}
     <div class="divider"></div>
     <div class="grid trip-two">
-      <div><h3 style="font-size:16px;margin-bottom:10px">🧾 Sbaleno</h3><div id="checkList">${(t.checklist || []).map((x, xi) => `<label class="check"><input type="checkbox" ${x.done ? 'checked' : ''} onchange="toggleCheck(${i},${xi})"><span style="${x.done ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.t)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" placeholder="Přidej položku…" onkeydown="if(event.key==='Enter')addCheck(${i})"><button class="btn sm" onclick="addCheck(${i})">+</button></div></div>
-      <div><h3 style="font-size:16px;margin-bottom:10px">💰 Rozpočet</h3><div class="field"><label>Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${t.budget || ''}" onchange="setBudget(${i},this.value)"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label>Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…" oninput="setNotesSoon(${i},this.value)" onchange="setNotes(${i},this.value)">${esc(t.notes || '')}</textarea></div></div>
+      <div><h3 style="font-size:16px;margin-bottom:10px">🧾 Sbaleno</h3><div id="checkList">${(t.checklist || []).map((x, xi) => `<label class="check"><input type="checkbox" ${x.done ? 'checked' : ''} data-check="${xi}"><span style="${x.done ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.t)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" data-addcheck placeholder="Přidej položku…"><button class="btn sm" data-addcheck aria-label="Přidat položku">+</button></div></div>
+      <div><h3 style="font-size:16px;margin-bottom:10px">💰 Rozpočet</h3><div class="field"><label>Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${esc(t.budget || '')}"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label>Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…">${esc(t.notes || '')}</textarea></div></div>
     </div>
     <div class="divider"></div>
-    <button class="btn ghost block" style="color:var(--bad);border-color:rgba(251,113,133,.3)" onclick="delTrip(${i})">Smazat cestu</button>
+    <button class="btn ghost block" style="color:var(--bad);border-color:rgba(251,113,133,.3)" id="tripDel">Smazat cestu</button>
   </div>`);
   // ubytování v cíli cesty (Barcelona, ne hlavní město země) pro počet cestujících z cesty
   // ubytování v zadaném městě; země („Itálie“) nebo víc míst („Lisabon, Porto“) → hlavní město
   const oneCity = t.dest && t.dest !== '—' && !/[,;+&/→]|\s(a|–|-)\s/.test(t.dest) && !resolveCountry(t.dest);
+  // ovládání okna – obsluhy tady, ne atributy onclick / onkeydown v HTML (CSP stránky je nepustí)
+  const m = $('#modal'), enter = fn => e => { if (e.key === 'Enter' && !e.isComposing) fn(); };
+  const tsr = $('#tripSearch'); if (tsr) tsr.onclick = () => { modalClose(); planSearch(i); };
+  const tco = $('#tripCountry'); if (tco) tco.onclick = () => { modalClose(); openCountry(t.iso); };
+  $$('.day-block[data-day]', m).forEach(b => {
+    const d = b.dataset.day;
+    $$('[data-delact]', b).forEach(x => { x.onclick = () => delAct(i, d, +x.dataset.delact); });
+    $$('input[data-addact]', b).forEach(x => { x.onkeydown = enter(() => addAct(i, d)); });
+    $$('button[data-addact]', b).forEach(x => { x.onclick = () => addAct(i, d); });
+  });
+  $$('[data-check]', m).forEach(x => { x.onchange = () => toggleCheck(i, +x.dataset.check); });
+  $$('input[data-addcheck]', m).forEach(x => { x.onkeydown = enter(() => addCheck(i)); });
+  $$('button[data-addcheck]', m).forEach(x => { x.onclick = () => addCheck(i); });
+  $('#bud-' + i).onchange = e => setBudget(i, e.target.value);
+  const notes = $('#notes-' + i);
+  notes.addEventListener('input', () => setNotesSoon(i, notes.value));
+  notes.addEventListener('change', () => setNotes(i, notes.value));
+  $$('[data-refk]', m).forEach(x => { x.onkeydown = e => refKey(e, i, +x.dataset.refk); });
+  $$('[data-delref]', m).forEach(x => { x.onclick = () => delRef(i, +x.dataset.delref); });
+  $$('[data-addref]', m).forEach(x => { x.onclick = () => addRef(i); });
+  $('#tripDel').onclick = () => delTrip(i);
   const ts = $('#tripStay'); if (ts) ts.onclick = () => (routeStays(t) || openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2));
   const tw = $('#tripWizard'); if (tw) tw.onclick = () => { modalClose(); Trip.openSaved(t.wizard, t.tripId); };
   const tv = $('#tripVisited');
@@ -1490,11 +1517,11 @@ function openTrip(i) {
 function refsHtml(t, i) {
   if (!window.Backup) return '';
   // Enter (na telefonu „Další“ / „Hotovo“): z „Co“ a z prázdného „Kódu“ na další pole, uloží až kód nebo poslední pole
-  const refs = Backup.cleanRefs(t.refs), L = Backup.REF_LEN, enter = k => `enterkeyhint="${k ? 'done' : 'next'}" onkeydown="refKey(event,${i},${k})"`;
+  const refs = Backup.cleanRefs(t.refs), L = Backup.REF_LEN, enter = k => `enterkeyhint="${k ? 'done' : 'next'}" data-refk="${k}"`;
   return `<div class="divider"></div>
     <div class="row wrap" style="justify-content:space-between;gap:4px 10px"><h3 style="font-size:16px">🔖 Rezervace</h3><span class="faint" style="font-size:12px">kódy zůstanou jen v tomto zařízení a v záloze, do odkazů nejdou</span></div>
-    <div style="margin-top:10px">${refs.map((r, k) => `<div class="act ref-row"><span>${r.co ? `<b>${esc(r.co)}</b> ` : ''}${r.kod ? `<code class="ref-kod">${esc(r.kod)}</code>` : ''}${r.pozn ? ` <span class="faint">${esc(r.pozn)}</span>` : ''}</span><button type="button" onclick="delRef(${i},${k})" title="Smazat" aria-label="Smazat rezervaci ${esc(r.kod || r.co)}">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}
-    ${refs.length < Backup.REFS_MAX ? `<div class="ref-add"><input class="input" id="refCo-${i}" maxlength="${L.co}" placeholder="Co (let tam, hotel…)" aria-label="Co je to za rezervaci" ${enter(0)}><input class="input ref-kod-in" id="refKod-${i}" maxlength="${L.kod}" placeholder="Kód (PNR)" aria-label="Kód rezervace" autocomplete="off" autocapitalize="characters" spellcheck="false" ${enter(1)}><input class="input" id="refNote-${i}" maxlength="${L.pozn}" placeholder="Poznámka (nepovinná)" aria-label="Poznámka k rezervaci" ${enter(2)}><button type="button" class="btn sm" onclick="addRef(${i})">Přidat</button></div>` : ''}</div>`;
+    <div style="margin-top:10px">${refs.map((r, k) => `<div class="act ref-row"><span>${r.co ? `<b>${esc(r.co)}</b> ` : ''}${r.kod ? `<code class="ref-kod">${esc(r.kod)}</code>` : ''}${r.pozn ? ` <span class="faint">${esc(r.pozn)}</span>` : ''}</span><button type="button" data-delref="${k}" title="Smazat" aria-label="Smazat rezervaci ${esc(r.kod || r.co)}">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}
+    ${refs.length < Backup.REFS_MAX ? `<div class="ref-add"><input class="input" id="refCo-${i}" maxlength="${L.co}" placeholder="Co (let tam, hotel…)" aria-label="Co je to za rezervaci" ${enter(0)}><input class="input ref-kod-in" id="refKod-${i}" maxlength="${L.kod}" placeholder="Kód (PNR)" aria-label="Kód rezervace" autocomplete="off" autocapitalize="characters" spellcheck="false" ${enter(1)}><input class="input" id="refNote-${i}" maxlength="${L.pozn}" placeholder="Poznámka (nepovinná)" aria-label="Poznámka k rezervaci" ${enter(2)}><button type="button" class="btn sm" data-addref>Přidat</button></div>` : ''}</div>`;
 }
 
 /* vstupní podmínky cesty z plánovače: země z kódu (iso, u cesty přes víc zemí isos; via = přestupy s registrací) – nic dalšího se neukládá */
@@ -1573,7 +1600,7 @@ async function openOfferFromHash() {
 function previewPlan(shared) {
   const { sharedOn, ...p } = shared; // den sdílení jen pro poznámku, do plánovače ne
   const c = p.iso ? byIso[p.iso] : null, days = Object.keys(p.days).sort(), acts = days.reduce((n, d) => n + p.days[d].length, 0);
-  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(p.iso) : '🧳'}</div><h2 style="font-size:24px;margin-top:4px;overflow-wrap:anywhere">${esc(p.name)}</h2><div style="opacity:.85;font-size:13px">Sdílený plán · ${esc(p.dest)}${p.start ? ' · ' + fmtDate(p.start) + (p.end && p.end !== p.start ? ' – ' + fmtDate(p.end) : '') : ''} · ${esc(p.pax)} os.</div></div></div>
+  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(p.iso) : '🧳'}</div><h2 style="font-size:24px;margin-top:4px;overflow-wrap:anywhere">${esc(p.name)}</h2><div style="opacity:.85;font-size:13px">Sdílený plán · ${esc(p.dest)}${p.start ? ' · ' + fmtDate(p.start) + (p.end && p.end !== p.start ? ' – ' + fmtDate(p.end) : '') : ''} · ${esc(p.pax)} os.</div></div></div>
   <div class="modal-body">
     <p class="muted" style="font-size:14px;margin-bottom:12px">Někdo ti poslal plán cesty. Zkontroluj ho a ulož si ho do plánovače – uloží se jen u tebe.</p>
     <div class="note info" style="margin-bottom:12px">🔗 <div><b>Sdílená cesta</b> – ${sharedOn ? `ceny jsou z doby sdílení (${+sharedOn.slice(8, 10)}.\u00a0${+sharedOn.slice(5, 7)}.)` : 'ceny se mohly změnit'}. Před nákupem je ověř.</div></div>
@@ -1681,7 +1708,7 @@ function routeStays(t) {
   let ds = [];
   try { ds = Trip.baseDates(Trip.sanitizeTrip(JSON.parse(JSON.stringify(w)))); } catch (e) { ds = []; }
   const pax = +t.pax || 2;
-  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování na trase</h2><div style="opacity:.85;font-size:13px">${bs.length} ${bs.length <= 4 ? 'místa' : 'míst'} · vyber místo</div></div></div>
+  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování na trase</h2><div style="opacity:.85;font-size:13px">${bs.length} ${bs.length <= 4 ? 'místa' : 'míst'} · vyber místo</div></div></div>
     <div class="modal-body"><div class="grid" style="gap:10px">${bs.map((b, i) => `<button type="button" class="result-link" data-rs="${i}" style="text-align:left;width:100%"><div class="lg" style="background:#003580">${i + 1}</div><div class="rl-b"><div class="rl-t">${esc(b.name)}</div><div class="rl-s">${ds[i] ? `${fmtDate(ds[i].checkin)} – ${fmtDate(ds[i].checkout)}` : ''}${b.stay && b.stay.name ? ` · vybráno: ${esc(b.stay.name)}` : ''}</div></div><div class="go">→</div></button>`).join('')}</div></div>`);
   $$('[data-rs]').forEach(x => x.onclick = () => { const i = +x.dataset.rs, d = ds[i] || {}; openStay(bs[i].name, d.checkin || '', d.checkout || '', pax); });
   return true;
@@ -1697,7 +1724,7 @@ window.openStay = (city, start, end, adults = 2, opts = {}) => {
   const b = `https://www.booking.com/searchresults.cs.html?ss=${enc(city)}${start ? `&checkin=${start}&checkout=${end || ''}` : ''}&group_adults=${n}&no_rooms=1&selected_currency=CZK`;
   const a = `https://www.airbnb.cz/s/${enc(city)}/homes?${start ? `checkin=${start}&checkout=${end || ''}&` : ''}adults=${n}`;
   const h = opts.hw || 'https://www.hostelworld.com/';
-  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování · ${esc(opts.label || city)}</h2><div style="opacity:.85;font-size:13px">${start ? fmtDate(start) + (end ? ' – ' + fmtDate(end) : '') : 'vyber si termín na webu'}</div></div></div><div class="modal-body"><div class="grid" style="gap:12px">${provLink('Booking.com', 'Hotely, apartmány, penziony', b, '#003580', 'B.')}${provLink('Airbnb', 'Bydlení u místních', a, '#ff385c', 'A')}${provLink('Hostelworld', opts.hw ? 'Hostely a levná lůžka – stránka města, termín zadej na webu' : 'Hostely a levná lůžka – město a termín zadej na webu', h, '#ff5a00', 'H')}</div><div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Booking a Airbnb otevřou hledání s předvyplněnou destinací (a termínem, pokud je v cestě zadaný).</div></div></div>`);
+  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování · ${esc(opts.label || city)}</h2><div style="opacity:.85;font-size:13px">${start ? fmtDate(start) + (end ? ' – ' + fmtDate(end) : '') : 'vyber si termín na webu'}</div></div></div><div class="modal-body"><div class="grid" style="gap:12px">${provLink('Booking.com', 'Hotely, apartmány, penziony', b, '#003580', 'B.')}${provLink('Airbnb', 'Bydlení u místních', a, '#ff385c', 'A')}${provLink('Hostelworld', opts.hw ? 'Hostely a levná lůžka – stránka města, termín zadej na webu' : 'Hostely a levná lůžka – město a termín zadej na webu', h, '#ff5a00', 'H')}</div><div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Booking a Airbnb otevřou hledání s předvyplněnou destinací (a termínem, pokud je v cestě zadaný).</div></div></div>`);
 };
 
 /* ================= INIT / EVENTS ================= */

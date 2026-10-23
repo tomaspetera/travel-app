@@ -15,8 +15,15 @@
   const keyOf = id => { const m = /^(?:metro|ap):([A-Z0-9]{3})$/.exec(String(id || '')); return m ? m[1] : null; };
   const copy = v => JSON.parse(JSON.stringify(v));
 
-  /** Nastavení, pro které je cena spočítaná: „2|none|transit|1“ (lidé, zavazadla, doprava na letiště, cesta do města). */
-  const basis = q => { const x = q || {}; return `${+x.adults || 1}|${x.bags || 'none'}|${(x.kmRate ?? 1) > 0 ? (x.groundMode === 'car' ? 'car' : 'transit') : 'none'}|${x.arrival ? 1 : 0}`; };
+  /**
+   * Nastavení, pro které je cena spočítaná: „2|none|transit|1“ (lidé, zavazadla, doprava na letiště, cesta do města);
+   * s dětmi „2+2+1|…“ (dospělí + děti + miminka) – bez dětí klíč jako dřív, odložené nabídky zůstanou.
+   */
+  const paxKey = x => `${+x.adults || 1}${x.children > 0 || x.infants > 0 ? `+${x.children || 0}+${x.infants || 0}` : ''}`;
+  const basis = q => { const x = q || {}; return `${paxKey(x)}|${x.bags || 'none'}|${(x.kmRate ?? 1) > 0 ? (x.groundMode === 'car' ? 'car' : 'transit') : 'none'}|${x.arrival ? 1 : 0}`; };
+  // děti 2–11 let a miminka do 2 let v nastavení nabídky jen s nimi (starší nabídky je nemají); sedadla = dospělí + děti
+  const kidsQ = q => ({ ...(Number.isInteger(q.children) && q.children > 0 && q.children <= 9 - q.adults ? { children: q.children } : {}), ...(Number.isInteger(q.infants) && q.infants > 0 && q.infants <= q.adults ? { infants: q.infants } : {}) });
+  const seatsOf = q => q.adults + (q.children || 0);
   // trasa a dny (tam | zpět, u jen tam „-“) – stejné pro řádek výsledků i kartu radaru
   const sig = (a, b, d1, bf, bt, d2) => [a, b, d1, d2 ? bf : '-', d2 ? bt : '-', d2 || '-'].join('|');
   const sigTrip = t => sig(t.out.from, t.out.to, t.out.date, t.back && t.back.from, t.back && t.back.to, t.back && t.back.date);
@@ -30,7 +37,7 @@
   const sorted = list => rank(list).rows.map(x => x.p);
 
   const T_KEYS = ['id', 'out', 'back', 'flightCzk', 'perPersonCzk', 'tripCzk', 'totalCzk', 'bagCzk', 'bagEst', 'groundCzk', 'parkCzk', 'arrCzk', 'nights', 'provider', 'combined', 'composed', 'cell', 'bookUrl', 'deal', 'priceLevel', 'tempHi', 'distanceKm', 'destKey'];
-  const qOf = (q, trip) => ({ adults: +q.adults || 1, bags: ENUM.bags.includes(q.bags) ? q.bags : 'none', groundMode: q.groundMode === 'car' ? 'car' : 'transit', carFuel: q.groundMode === 'car' && ENUM.carFuel.includes(q.carFuel) ? q.carFuel : null, kmRate: fin(q.kmRate, 0, 5) ? q.kmRate : 1, arrival: Boolean(q.arrival), trip });
+  const qOf = (q, trip) => ({ adults: +q.adults || 1, ...kidsQ({ adults: +q.adults || 1, children: +q.children || 0, infants: +q.infants || 0 }), bags: ENUM.bags.includes(q.bags) ? q.bags : 'none', groundMode: q.groundMode === 'car' ? 'car' : 'transit', carFuel: q.groundMode === 'car' && ENUM.carFuel.includes(q.carFuel) ? q.carFuel : null, kmRate: fin(q.kmRate, 0, 5) ? q.kmRate : 1, arrival: Boolean(q.arrival), trip });
   const geo = d => (fin(d.lat, -90, 90) && fin(d.lon, -180, 180) ? { lat: d.lat, lon: d.lon } : {});
   /**
    * Nabídka t z řádku výsledku res (g = skupina cíle, at = čas cen – SearchHelp.shownAt) → { k, kind: 'f', at, pinnedAt,
@@ -94,7 +101,7 @@
   const cleanStats = s => (obj(s) && STATS.every(k => fin(s[k], 0, 1e7)) && isYmd(s.dateFrom) && isYmd(s.dateTo) ? { ...Object.fromEntries(STATS.map(k => [k, s[k]])), dateFrom: s.dateFrom, dateTo: s.dateTo } : null);
   function cleanQ(q, trip) {
     if (!obj(q) || !Number.isInteger(q.adults) || q.adults < 1 || q.adults > 9) return null;
-    return { adults: q.adults, bags: ENUM.bags.includes(q.bags) ? q.bags : 'none', groundMode: ENUM.groundMode.includes(q.groundMode) ? q.groundMode : 'transit', carFuel: ENUM.carFuel.includes(q.carFuel) ? q.carFuel : null, kmRate: fin(q.kmRate, 0, 5) ? q.kmRate : 1, arrival: q.arrival === true, trip };
+    return { adults: q.adults, ...kidsQ(q), bags: ENUM.bags.includes(q.bags) ? q.bags : 'none', groundMode: ENUM.groundMode.includes(q.groundMode) ? q.groundMode : 'transit', carFuel: ENUM.carFuel.includes(q.carFuel) ? q.carFuel : null, kmRate: fin(q.kmRate, 0, 5) ? q.kmRate : 1, arrival: q.arrival === true, trip };
   }
   function cleanDest(d, iata) {
     d = obj(d) ? d : {};
@@ -109,7 +116,7 @@
     // odloženo ve starší verzi (cena i s dopravou na letiště a do města): cena = letenky + zavazadla, s dopravou
     // tripCzk; dřívější cena „od odložení“ byla s dopravou – neporovnávat
     const per = t.flightCzk + (t.bagCzk || 0), oldPrice = x.pv !== 2 && Math.abs(t.perPersonCzk - per) > 0.5;
-    if (oldPrice) Object.assign(t, { perPersonCzk: per, tripCzk: per + (t.groundCzk || 0) + (t.arrCzk || 0), totalCzk: per * q.adults });
+    if (oldPrice) Object.assign(t, { perPersonCzk: per, tripCzk: per + (t.groundCzk || 0) + (t.arrCzk || 0), totalCzk: per * seatsOf(q) });
     else if ('tripCzk' in t && !fin(t.tripCzk, 0, 1e7)) delete t.tripCzk;
     t.bookUrl = http(t.bookUrl); t.out.bookUrl = http(t.out.bookUrl);
     if (t.back) t.back.bookUrl = http(t.back.bookUrl);
@@ -287,9 +294,11 @@
     const out = ['✈️ Kam pojedeme? Vyber číslo (ceny za osobu):', ''];
     sorted(list).forEach((p, i) => {
       const r = p.kind === 'r' ? p.r : null, t = p.t, d1 = r ? r.d1 : t.out.date, d2 = r ? r.d2 : t.back && t.back.date;
-      const n = d2 ? (!r && t.nights != null ? t.nights : nightsOf(d1, d2)) : null, pax = p.q.adults, a = age(p.at, now), fl = flagOf(p.dest.cc), dt = doorTxt(door(p));
+      const n = d2 ? (!r && t.nights != null ? t.nights : nightsOf(d1, d2)) : null, pax = seatsOf(p.q), a = age(p.at, now), fl = flagOf(p.dest.cc), dt = doorTxt(door(p));
+      // s dětmi: celkem za sedadla (děti platí jako dospělí), miminko na klíně bez poplatku aerolinky
+      const kids = p.q.children ? ` vč. ${p.q.children} ${p.q.children === 1 ? 'dítěte' : 'dětí'}` : '', baby = p.q.infants ? ` + ${p.q.infants === 1 ? 'miminko' : `${p.q.infants} ${p.q.infants <= 4 ? 'miminka' : 'miminek'}`} (poplatek aerolinky navíc)` : '';
       out.push(`${i + 1}) ${p.dest.label}${fl ? ' ' + fl : ''} · ${d2 ? `${day(d1)} – ${day(d2)} · ${nightsTxt(n)}` : `${day(d1)} · jen tam`}`,
-        `   ${kc(price(p))}/os.${pax > 1 ? ` (celkem ${kc(r ? r.czk * pax : t.totalCzk)} za ${pax} os.)` : ''}${p.demo ? ' (DEMO – vymyšlená cena)' : ''}`,
+        `   ${kc(price(p))}/os.${pax > 1 || baby ? ` (celkem ${kc(r ? r.czk * pax : t.totalCzk)} za ${pax} os.${kids}${baby})` : ''}${p.demo ? ' (DEMO – vymyšlená cena)' : ''}`,
         ...(dt ? [`   ${dt}`] : []),
         `   ${r ? `${r.from} → ${r.to}${d2 ? ` ↩ ${r.bf && r.bf !== r.to ? r.bf + ' → ' : ''}${r.bt || r.from}` : ''} · ${d2 ? 'zpáteční letenka' : 'letenka'}` : [`tam ${legTxt(t.out)}`, t.back ? `zpět ${legTxt(t.back)}` : '', who(t)].filter(Boolean).join(' · ')}`,
         ...(a ? [`   ${a.day ? `⚠ cena ${a.z} ${a.txt} – může být jiná` : `cena ${a.z} ${a.txt}`}`] : []),

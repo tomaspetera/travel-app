@@ -40,11 +40,15 @@
     const out = leg(raw.out), back = raw.back != null ? leg(raw.back) : null;
     if (!out || !fin(raw.czk, 1, 1e7)) throw new Error('neplatná nabídka');
     const pax = Number.isInteger(raw.pax) && raw.pax >= 1 && raw.pax <= 9 ? raw.pax : 1;
+    // pax = sedadla (dospělí + děti), ch = z toho děti 2–11 let, inf = miminka na klíně navíc (nejvýš jedno na dospělého);
+    // starší odkazy bez nich = jen dospělí
+    const ch = Number.isInteger(raw.ch) && raw.ch > 0 && raw.ch < pax ? raw.ch : 0;
+    const inf = Number.isInteger(raw.inf) && raw.inf > 0 && raw.inf <= pax - ch ? raw.inf : 0;
     const d = obj(raw.dest) ? raw.dest : {};
     const o = {
       dest: { id: typeof d.id === 'string' && /^(ap|metro):[A-Z0-9]{3}$/.test(d.id) ? d.id : null, label: txt(d.label, 80) || out.to, cc: typeof d.cc === 'string' && /^[A-Z]{2}$/.test(d.cc) ? d.cc : '' },
       out, back: back && back.date >= out.date ? back : null,
-      czk: Math.round(raw.czk), pax,
+      czk: Math.round(raw.czk), pax, ...(ch ? { ch } : {}), ...(inf ? { inf } : {}),
       // čas ceny ne z budoucnosti (hodiny jiného zařízení)
       at: fin(raw.at, 1.5e12, now + 864e5) ? raw.at : null,
       bags: BAGS.includes(raw.bags) ? raw.bags : 'none',
@@ -63,7 +67,7 @@
     const t = p.t, buy = t.bookUrl ? [[t.bookUrl, t.provider, 'all']] : !t.back ? [[t.out.bookUrl, t.out.provider, 'all']] : [[t.out.bookUrl, t.out.provider, 'out'], [t.back.bookUrl, t.back.provider, 'back']];
     return {
       dest: { id: p.dest.id, label: p.dest.label, cc: p.dest.cc }, out: legOf(t.out), back: t.back ? legOf(t.back) : null,
-      czk: t.perPersonCzk, pax: p.q.adults, total: t.totalCzk, nights: t.nights, at: p.at, bags: p.q.bags, buy, ...(p.demo ? { demo: true } : {}),
+      czk: t.perPersonCzk, pax: p.q.adults + (p.q.children || 0), ...(p.q.children ? { ch: p.q.children } : {}), ...(p.q.infants ? { inf: p.q.infants } : {}), total: t.totalCzk, nights: t.nights, at: p.at, bags: p.q.bags, buy, ...(p.demo ? { demo: true } : {}),
     };
   }
   /** JSON nabídky do odkazu (pročištěný stejně jako při načtení). */
@@ -92,11 +96,14 @@
     const air = [...new Set([o.out, o.back].filter(Boolean).map(l => l.air).filter(Boolean))].join(' + ');
     return [
       `✈️ ${o.dest.label} · ${o.back ? `${day(o.out.date)} – ${day(o.back.date)}${o.nights != null ? ` · ${nightsTxt(o.nights)}` : ''}` : `${day(o.out.date)} · jen tam`}`,
-      `${kc(o.czk)}/os.${o.pax > 1 && o.total ? ` (celkem ${kc(o.total)} za ${o.pax} os.)` : ''}${o.demo ? ' (DEMO – vymyšlená cena)' : ''}`,
+      `${kc(o.czk)}/os.${(o.pax > 1 || o.inf) && o.total ? ` (celkem ${kc(o.total)} za ${o.pax} os.${o.ch ? ` vč. ${o.ch} ${o.ch === 1 ? 'dítěte' : 'dětí'}` : ''}${o.inf ? ` + ${o.inf === 1 ? 'miminko' : `${o.inf} ${o.inf <= 4 ? 'miminka' : 'miminek'}`} (poplatek aerolinky navíc)` : ''})` : ''}${o.demo ? ' (DEMO – vymyšlená cena)' : ''}`,
       [`tam ${legTxt(o.out)}`, o.back ? `zpět ${legTxt(o.back)}` : '', air].filter(Boolean).join(' · '),
       '(ATLAS – cena se mohla změnit, ověř ji před nákupem)',
     ].join('\n');
   }
 
-  window.OfferShare = { sanitize, fromPin, json, unpack, fromHash, text };
+  /** Cestující nabídky do formuláře / k ceně (SearchHelp.paxOf): { adults, children, infants }. */
+  const paxQ = o => ({ adults: Math.max(1, o.pax - (o.ch || 0)), children: o.ch || 0, infants: o.inf || 0 });
+
+  window.OfferShare = { sanitize, fromPin, json, unpack, fromHash, text, paxQ };
 })();

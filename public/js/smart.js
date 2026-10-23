@@ -75,7 +75,7 @@
     const s = fold(raw);
     const used = new Array(s.length).fill(false);
     const chips = [], patch = {};
-    let kind = null, month = null, dates = null, len = null, kids = 0, withKids = false;
+    let kind = null, month = null, dates = null, len = null, kids = 0, babies = 0, withKids = false;
     // obrat najdi, označ jako použitý; fn vrátí false = nepoužít (shoda zůstane ve zbytku věty)
     const rule = (re, fn) => {
       const g = new RegExp(re.source, 'g' + (re.flags.includes('i') ? 'i' : ''));
@@ -313,15 +313,22 @@
     rule(new RegExp(`${AMT}\\s*(tisic\\w*|tis\\.?)?\\s*(?:kc|korun\\w*|czk)${W}`), m => { const n = price(m[1], m[2]); if (!n || patch.maxPrice) return false; patch.maxPrice = String(n); });
 
     // --- lidé, přestupy, zavazadla, jen tam ---
-    const people = n => { if (n >= 1 && n <= 9) { patch.adults = n; return true; } return false; };
+    // „ve dvou“, „pro 4 osoby“ = tolik lidí celkem – děti z minulého hledání ne (zmíněné děti se přidají níž)
+    const people = n => { if (n >= 1 && n <= 9) { patch.adults = n; patch.children = 0; patch.infants = 0; return true; } return false; };
     rule(new RegExp(`(?:ve|pro)\\s+(${NUM_RE})(?:\\s+(?:lidi|lide|osoby|osob|dospele|dospeli|dospelych|lidi))?${W}`), m => (people(num(m[1])) ? undefined : false));
     rule(new RegExp(`(${NUM_RE})\\s*(?:lidi|lide|osoby|osob|dospeli|dospelych|pasazeri|pasazery|cestujici)${W}`), m => (people(num(m[1])) ? undefined : false));
     rule(new RegExp(`(?:sam|sama|samotn[yaá]|solo|jen\\s+ja)${W}`), () => { people(1); });
-    // děti platí letenku jako dospělí: „2 dospělí a 2 děti“ = 4 cestující (bez počtu dospělých dva)
-    rule(new RegExp(`(?:a\\s+|s\\s+)?(${NUM_RE})\\s*(?:deti|ditka|detmi|ditetem|dite)${W}|(?:s|se|a)\\s+(?:ditetem|ditkem|miminkem|dite|ditko|miminko)${W}`), m => {
+    // děti 2–11 let platí sedadlo, miminko letí na klíně: „2 dospělí a 2 děti“ = 2 dospělí + 2 děti, „s miminkem“ =
+    // miminko navíc (bez počtu dospělých dva); „dítě“ / „miminko“ i bez předložky („2 dospělí, dítě a miminko“)
+    rule(new RegExp(`(?:a\\s+|s\\s+)?(${NUM_RE})\\s*(?:deti|ditka|detmi|ditetem|dite)${W}|(?:(?:s|se|a)\\s+)?(?:ditetem|ditkem|dite|ditko)${W}`), m => {
       const k = m[1] ? num(m[1]) : 1;
       if (!(k >= 1 && k <= 6)) return false;
       kids = k;
+    });
+    rule(new RegExp(`(?:a\\s+|s\\s+)?(${NUM_RE})\\s*(?:miminka|miminek|miminky|mimina)${W}|(?:(?:s|se|a)\\s+)?(?:miminkem|miminko|mimino|miminem)${W}`), m => {
+      const k = m[1] ? num(m[1]) : 1;
+      if (!(k >= 1 && k <= 4)) return false;
+      babies = k;
     });
     // „s dětmi“ bez počtu: kolik jich je, nevím – jen se nebere jako místo a připomene upravit počet osob
     rule(new RegExp(`(?:s|se)\\s+(?:detmi|detma|deckama|ditkama)${W}|pro\\s+deti${W}`), () => { withKids = true; });
@@ -386,7 +393,11 @@
     // pomlčka bez místa za ní („Řím – víkend“) nebyla odkud → kam: místo před ní je cíl
     if (soft && !to.length && !kind && from.length === 1) { to.push(from.pop()); arrows--; }
 
-    if (kids) patch.adults = Math.min(9, (patch.adults || 2) + kids);
+    if (kids || babies) {
+      patch.adults = patch.adults || 2;
+      patch.children = Math.min(kids, 9 - patch.adults);
+      patch.infants = Math.min(babies, patch.adults); // miminko na klíně – nejvýš jedno na dospělého
+    }
     // --- délka → noci a dny odletu ---
     const P = o.presets || {};
     if (typeof len === 'string') {
@@ -428,14 +439,16 @@
     else if (kind === 'aurora') items = AURORA.map(([iata, label, flag]) => ({ id: `ap:${iata}`, label, flag, type: 'airport' }));
     if (kind) chips.unshift([{ sea: '🏖️', warm: '☀️', exotic: '🌴', any: '🌍', mountains: '🏔️', aurora: '🌌' }[kind], { sea: 'k moři', warm: patch.minTemp >= 25 ? 'do horka' : 'za teplem', exotic: 'exotika', any: 'kamkoliv', mountains: 'na hory', aurora: 'polární záře' }[kind]]);
     if (patch.maxPrice) chips.push(['💰', `do ${czk(+patch.maxPrice)}`]);
-    if (patch.adults) chips.push(['👥', `${patch.adults} ${patch.adults === 1 ? 'osoba' : patch.adults < 5 ? 'osoby' : 'osob'}${kids ? ' vč. dětí' : ''}`]);
-    if (withKids && !kids && !patch.adults) chips.push(['🧒', 's dětmi – počet osob uprav']);
+    const cs3 = (n, a, b, c) => `${n} ${n === 1 ? a : n < 5 ? b : c}`;
+    if (patch.adults && !patch.children && !patch.infants) chips.push(['👥', cs3(patch.adults, 'osoba', 'osoby', 'osob')]);
+    else if (patch.adults) chips.push(['👥', [cs3(patch.adults, 'dospělý', 'dospělí', 'dospělých'), patch.children ? cs3(patch.children, 'dítě', 'děti', 'dětí') : '', patch.infants ? cs3(patch.infants, 'miminko', 'miminka', 'miminek') : ''].filter(Boolean).join(' + ')]);
+    if (withKids && !kids && !babies && !patch.adults) chips.push(['🧒', 's dětmi – kolik jich je, uprav v Cestujících']);
     if (patch.directOnly) chips.push(['✈️', 'jen přímé']);
     if (patch.bags) chips.push(['🧳', { none: 'bez kufru', cabin: 'kabinový kufr', checked: 'kufr k odbavení' }[patch.bags]]);
     if (patch.trip === 'oneway') chips.push(['➡️', 'jen tam']);
     // „Praha → Řím → Barcelona → Praha“: dvě a víc šipek = cesta přes víc měst (odkud, pak místa v pořadí)
     const chain = arrows >= 2 && from.length === 1 && to.length >= 2 && !kind;
-    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(chain ? { chain: true } : {}), ...(withKids && !kids && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
+    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(chain ? { chain: true } : {}), ...(withKids && !kids && !babies && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
   }
 
   /**

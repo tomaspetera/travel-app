@@ -12,6 +12,7 @@ import { geocode, englishName } from './places.js';
 import { haversineKm, normalize } from './geo.js';
 import { arrivalTransfer } from './arrival.js';
 import { config } from '../config.js';
+import { publicMessage } from './http.js';
 
 export class StayQueryError extends Error {
   constructor(msg) {
@@ -46,6 +47,10 @@ export function normalizeStayQuery(raw = {}) {
   const near = arr && Number.isFinite(arr.lat) && (haversineKm(ap.lat, ap.lon, arr.lat, arr.lon) <= 40 || normalize(arr.city) === normalize(city));
   const center = arr && arr.basis === 'table' && near ? arr : null;
   const adults = Math.min(9, Math.max(1, Math.round(Number(raw.adults) || 2)));
+  // Děti 2–11 let a miminka do 2 let (rodina z hledání letů): spí s rodiči, pokoje se počítají jen z dospělých. Ceny
+  // hotelů ze zdrojů (TripAdvisor, LiteAPI) jsou za pokoj pro dospělé – věk dětí neznáme; děti jdou do odkazů na weby.
+  const children = Math.min(8, Math.max(0, Math.round(Number(raw.children)) || 0));
+  const infants = Math.min(adults, Math.max(0, Math.round(Number(raw.infants)) || 0));
   // Pokoje: zadané (nejvýš tolik, kolik je dospělých), jinak po dvou na pokoj.
   const rooms = Math.min(adults, 5, Math.max(1, Math.round(Number(raw.rooms) || Math.ceil(adults / 2))));
   // Země: zadaná, letiště, jinak podle polohy (místo trasy z Wikidat nebo přidané ručně) – bez ní LiteAPI
@@ -67,6 +72,8 @@ export function normalizeStayQuery(raw = {}) {
     checkout,
     nights,
     adults,
+    children,
+    infants,
     rooms,
   };
 }
@@ -175,7 +182,9 @@ export async function searchStays(raw, { english = englishName, partners = null,
   await Promise.all(providers.map(async (p) => {
     const t0 = Date.now();
     try {
-      const key = `stay:${p.id}:${q.city}:${q.lat?.toFixed(3)}:${q.lon?.toFixed(3)}:${q.checkin}:${q.checkout}:${q.adults}:${q.rooms}`;
+      // děti jen s nimi (odkazy na hotel u webů je mají v sobě), bez dětí klíč jako dřív
+      const kids = q.children || q.infants ? `:${q.children}+${q.infants}` : '';
+      const key = `stay:${p.id}:${q.city}:${q.lat?.toFixed(3)}:${q.lon?.toFixed(3)}:${q.checkin}:${q.checkout}:${q.adults}:${q.rooms}${kids}`;
       // neúplný výsledek (část cen nestihla přijít) jen na 5 min – další hledání doplní ceny z mezipaměti poskytovatele
       // (stejně ceny z okolí při výpadku Wikidat – retrySoon, místo se pak zkusí dohledat znovu);
       // „Zkusit znovu“ (retry=1) ho přeskočí hned (doptá se jen na chybějící ceny, ostatní jsou v mezipaměti poskytovatele)
@@ -210,7 +219,7 @@ export async function searchStays(raw, { english = englishName, partners = null,
         ...(stale ? { stale: true } : {}), ...(stale === 'all' ? { staleAll: true } : {}), ...(last ? { refreshIn: Math.max(1, Math.ceil((last + FRESH_MS - Date.now()) / 1000)) } : {}),
       });
     } catch (e) {
-      status.push({ id: p.id, name: p.name, ok: false, error: e.message || String(e), ms: Date.now() - t0 });
+      status.push({ id: p.id, name: p.name, ok: false, error: publicMessage(e), ms: Date.now() - t0 }); // text chyby bez adresy API zdroje
     }
   }));
   // Malé místo, kde TripAdvisor nic nemá (Palazzolo Acreide, Alcobaça – Xotelo bez hotelů s cenou i bez nich, nebo
@@ -230,7 +239,7 @@ export async function searchStays(raw, { english = englishName, partners = null,
         status.push({ id: osm.id, name: osm.name, ok: true, count: list.length, ms: Date.now() - t0, test: Boolean(config.mock) });
       }
     } catch (e) {
-      status.push({ id: osm.id, name: osm.name, ok: false, error: e.message || String(e), ms: Date.now() - t0 });
+      status.push({ id: osm.id, name: osm.name, ok: false, error: publicMessage(e), ms: Date.now() - t0 });
     }
   }
   // Stejný hotel od více poskytovatelů → nech nejlevnější nabídku. Název bez diakritiky, ale s písmeny všech abeced –

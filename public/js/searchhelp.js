@@ -1736,7 +1736,7 @@
     const g = res && res.calendar && res.calendar.grid;
     if (!g || !Array.isArray(res.top)) return res;
     const have = new Set(res.top.map(t => t.id));
-    const add = cellTrips(g, Number(res.query && res.query.adults) || 1).filter(t => !have.has(t.id));
+    const add = cellTrips(g, paxOf(res.query).seats).filter(t => !have.has(t.id)); // celkem za sedadla (dospělí i děti)
     if (add.length) res.top = res.top.concat(add).sort((a, b) => a.perPersonCzk - b.perPersonCzk);
     return res;
   }
@@ -2011,6 +2011,65 @@
     return place ? { from: [place], radius: 150, adults: 2 } : null;
   }
 
+  /* ---------- 👨‍👩‍👧 cestující: dospělí, děti 2–11 let, miminka do 2 let ---------- */
+  // Stejná pravidla jako server (search.js paxQuery): dospělí 1–9, dítě platí sedadlo (sedadel nejvýš 9), miminko letí
+  // na klíně – nejvýš jedno na dospělého a do ceny se nepočítá (poplatek aerolinky za let ATLAS nezná). Starší formuláře,
+  // výsledky a odložené nabídky bez dětí = jen dospělí.
+  const PAX_MAX = 9;
+  function paxOf(x) {
+    const n = (v, lo, hi, d) => { const k = Math.round(Number(v)); return Number.isFinite(k) && v !== '' && v != null ? Math.min(hi, Math.max(lo, k)) : d; };
+    const o = x && typeof x === 'object' ? x : {};
+    const adults = n(o.adults, 1, PAX_MAX, 1);
+    const children = n(o.children, 0, PAX_MAX - adults, 0);
+    const infants = n(o.infants, 0, adults, 0);
+    return { adults, children, infants, seats: adults + children };
+  }
+  const plural3 = (n, one, few, many) => `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
+  const kidsOf = p => p.children + p.infants;
+  /** „2 dospělí · 2 děti · 1 miminko“ (tlačítko Cestující), bez dětí „2 dospělí“. */
+  function paxTxt(x) {
+    const p = paxOf(x);
+    return [plural3(p.adults, 'dospělý', 'dospělí', 'dospělých'), p.children ? plural3(p.children, 'dítě', 'děti', 'dětí') : '', p.infants ? plural3(p.infants, 'miminko', 'miminka', 'miminek') : ''].filter(Boolean).join(' · ');
+  }
+  /** Krátce do souhrnů: bez dětí jako dřív „2 os.“, s dětmi „2 dosp. + 2 děti + miminko“. */
+  function paxShort(x) {
+    const p = paxOf(x);
+    if (!kidsOf(p)) return `${p.adults} os.`;
+    return [`${p.adults} dosp.`, p.children ? plural3(p.children, 'dítě', 'děti', 'dětí') : '', p.infants ? (p.infants === 1 ? 'miminko' : plural3(p.infants, 'miminko', 'miminka', 'miminek')) : ''].filter(Boolean).join(' + ');
+  }
+  /** Popisek ceny celkem: bez dětí jako dřív „celkem 2 os.“, s dětmi „celkem za 4 osoby + miminko“ (miminko bez ceny). */
+  function paxTotalLbl(x) {
+    const p = paxOf(x);
+    if (!kidsOf(p)) return `celkem ${p.seats} os.`;
+    return `celkem za ${p.seats} ${p.seats === 1 ? 'osobu' : p.seats <= 4 ? 'osoby' : 'osob'}${p.infants ? ` + ${p.infants === 1 ? 'miminko' : plural3(p.infants, 'miminko', 'miminka', 'miminek')}` : ''}`;
+  }
+  /** Ukázat cenu celkem: víc sedadel, nebo miminko navíc (i u jednoho dospělého). */
+  const paxTotalOn = x => { const p = paxOf(x); return p.seats > 1 || p.infants > 0; };
+  /** Poznámka k ceně s dětmi: dítě platí sedadlo jako dospělý, miminko jen poplatek aerolinky (ten ATLAS nezná); bez dětí ''. */
+  function paxNote(x) {
+    const p = paxOf(x);
+    if (!kidsOf(p)) return '';
+    const kids = p.children ? `${p.children === 1 ? 'dítě platí' : 'děti platí'} na sedadlo jako ${p.children === 1 ? 'dospělý' : 'dospělí'}` : '';
+    const baby = p.infants ? `${p.infants === 1 ? 'miminko' : 'miminka'} na klíně – poplatek aerolinky se doplní při nákupu` : '';
+    return [kids, baby].filter(Boolean).join(', ');
+  }
+  // Rezervační odkazy, které děti a miminka umí předvyplnit (server/providers: Ryanair i Wizz Air v adrese); ostatní
+  // (Kiwi.com, Aviasales, Ověřit na Google Flights / Skyscanneru) otevřou jen dospělé.
+  const KIDS_LINK = ['ryanair', 'wizzair'];
+  /**
+   * Věta pod tlačítky Koupit s dětmi (provs = zdroje odkazů nabídky, nameOf = jméno prodejce): kde jsou děti v odkazu
+   * a kde je přidat na webu. Bez dětí nebo bez odkazu ''.
+   */
+  function kidsBuyNote(x, provs, nameOf = id => id) {
+    const p = paxOf(x), n = kidsOf(p);
+    const list = [...new Set((provs || []).filter(Boolean))];
+    if (!n || !list.length) return '';
+    const who = [p.children ? (p.children === 1 ? 'dítě' : 'děti') : '', p.infants ? (p.infants === 1 ? 'miminko' : 'miminka') : ''].filter(Boolean).join(' a ');
+    const names = ids => ids.map(nameOf).join(' a ');
+    const yes = list.filter(id => KIDS_LINK.includes(id)), no = list.filter(id => !KIDS_LINK.includes(id));
+    return [yes.length ? `${names(yes)}: ${who} už v odkazu` : '', no.length ? `${names(no)}: ${who} přidej na webu (odkaz jen s dospělými)` : ''].filter(Boolean).join(' · ');
+  }
+
   window.SearchHelp = {
     HOME_CITIES, myPlace, homeOf,
     onlyOriginSet, recentWhen,
@@ -2029,5 +2088,6 @@
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
     destCenter, geoNames, geoCenter, stayPlan, smartDirect,
     wazeUrl, WAZE_HOME, PID_APP, pidLeg,
+    PAX_MAX, paxOf, paxTxt, paxShort, paxTotalLbl, paxTotalOn, paxNote, kidsBuyNote,
   };
 })();

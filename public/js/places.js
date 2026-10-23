@@ -680,8 +680,8 @@
       <div><div class="poi-name">${picon(p)} ${esc(p.name)}</div>
         <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${num(p.distanceKm)} km` : ''}${opts.drive && p.distanceKm != null ? ` · ~${minTxt(driveMin(p.distanceKm))} autem` : ''}${p.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : p.heritage ? ' · památka' : ''}${p.wikivoyage ? ' · <b style="color:var(--good)" title="Místo doporučuje cestovní průvodce Wikivoyage">👍 doporučuje Wikivoyage</b>' : ''}</div>
         ${inclHtml(p, 'poi-inc')}<div class="poi-desc">${descHtml(p.extract || p.description || '', p.descLang)}</div>
-        <div class="poi-acts">${p.url ? `<a href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Wikipedie ↗</a>` : ''}
-          <a href="${esc(gmSearch(opts.center ? poiQ(p, opts.center) : p.name))}" target="_blank" rel="noopener" data-gm onclick="event.stopPropagation()">Google Maps ↗</a>
+        <div class="poi-acts">${p.url ? `<a href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}
+          <a href="${esc(gmSearch(opts.center ? poiQ(p, opts.center) : p.name))}" target="_blank" rel="noopener" data-gm>Google Maps ↗</a>
           ${opts.toggle ? (opts.inPlan?.has(p.id) ? '<span class="poi-in">✓ v plánu</span>' : mustBtn(p.id, opts.must?.has(p.id))) : ''}
           ${opts.tripToggle ? `<button type="button" class="linkbtn" data-tmust="${esc(p.id)}">+ přidat do výletu</button>` : ''}
           ${opts.tripGo ? `<button type="button" class="linkbtn" data-tgo="${esc(p.id)}" title="Naplánovat jednodenní výlety s tímto místem">🎒 Výlet sem</button>` : ''}</div></div>
@@ -1435,8 +1435,8 @@
       <div><div class="poi-name">${g[1]} ${esc(x.name)}</div>
         <div class="poi-meta">${esc(g[3])}${x.distanceKm != null ? ` · ${num(x.distanceKm)} km` : ''}${x.unesco && g[0] !== 'unesco' ? ' · <b style="color:var(--warn)">UNESCO</b>' : ''}${x.wv ? ' · <b style="color:var(--good)" title="Vybral cestovní průvodce Wikivoyage">👍 Wikivoyage</b>' : ''}</div>
         <div class="poi-desc">${descHtml(desc, x.extract || x.description ? x.descLang : 'en')}</div>
-        <div class="poi-acts"><button type="button" class="linkbtn" data-cgo="${esc(x.id)}">🔎 Prozkoumat</button>${x.url ? `<a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Wikipedie ↗</a>` : ''}
-          <a href="${esc(gmSearch(gq(x.name, center.country || '')))}" target="_blank" rel="noopener" data-gm onclick="event.stopPropagation()">Google Maps ↗</a></div></div>
+        <div class="poi-acts"><button type="button" class="linkbtn" data-cgo="${esc(x.id)}">🔎 Prozkoumat</button>${x.url ? `<a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}
+          <a href="${esc(gmSearch(gq(x.name, center.country || '')))}" target="_blank" rel="noopener" data-gm>Google Maps ↗</a></div></div>
     </div>`;
   }
   async function loadCountry() {
@@ -2093,7 +2093,8 @@
       onlyThisTrip();
       if (trip) replanSoon(seqKey); // zobrazený plán se přeplánuje (i po víc kliknutích jen jednou)
     });
-    $$('#exList [data-poi]', body).forEach(c => c.onclick = () => focus(ex.items.find(i => i.id === c.dataset.poi), c, 'seznam'));
+    // odkaz v kartě (Wikipedie, Google Maps) jen otevře odkaz – kartu nezaměří (dřív atribut onclick se stopPropagation v HTML – ten CSP nepustí)
+    $$('#exList [data-poi]', body).forEach(c => c.onclick = e => { if (!e.target.closest('a')) focus(ex.items.find(i => i.id === c.dataset.poi), c, 'seznam'); });
     const lm = $('#exListMore', body); if (lm) lm.onclick = () => { ex.listAll = true; $('#exList', body).classList.add('all'); lm.remove(); };
     $$('#exPlanOut [data-poi]', body).forEach(c => c.onclick = e => {
       if (e.target.closest('a,button')) return;

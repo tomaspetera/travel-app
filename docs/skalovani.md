@@ -70,8 +70,10 @@ Zopakovat: `node scripts/load-test.mjs` (spustí si vlastní DEMO server, `ONLY=
   (Travelpayouts/Aviasales, Kiwi partner), případně placené GDS/NDC (Duffel, Amadeus).
 - **Kapacita zdrojů**: Wizz Air ~3 dotazy naráz, Kiwi 3, Ryanair 6 – to je strop celé aplikace bez ohledu na
   server. Víc uživatelů = víc odpovědí z mezipaměti (paměť tras Wizz 6 h), ne víc dotazů.
-- **Adresa klienta**: limity berou první adresu z `X-Forwarded-For`. Ověřit na Renderu, že ji klient nemůže
-  podvrhnout (jinak brát adresu, kterou doplní Render/Cloudflare) – jinak limit obejde kdokoli.
+- **Adresa klienta**: limity berou `CF-Connecting-IP` (před Renderem je Cloudflare – odpovědi mají `server: cloudflare`,
+  hlavičku doplní a podvrženou přepíše), IPv6 po síti /64; první adresa z `X-Forwarded-For` (tu klient podvrhne) jen
+  bez Cloudflare (server/lib/security.js clientIp). Po nasazení je v logu Renderu jednou řádek „Limity: adresa
+  klienta z …“ – kdyby hlásil, že CF-Connecting-IP chybí, limit jde obejít a je potřeba to řešit.
 - **Fronta je společná** – vyřešeno pro jednu adresu: strop 8 rozběhnutých hledání na adresu (viz výš), takže jedna
   adresa frontu nezaplní. Zbývá: tři a víc adres naráz (útok z více adres) ji zaplnit pořád můžou – to bez sdílených
   limitů a ověření klienta zdarma nevyřešíme. A naopak víc lidí za jednou adresou (domácí síť, sdílená adresa

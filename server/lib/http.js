@@ -13,6 +13,12 @@ export class HttpError extends Error {
   }
 }
 
+/**
+ * Text chyby pro odpověď klientovi: bez adres cizích služeb (HttpError a timeout v textu nesou adresu API aerolinky
+ * nebo zdroje dat – ta do aplikace nepatří, jen do logu serveru), nejvýš 200 znaků.
+ */
+export const publicMessage = (e) => String(e?.message || e || '').replace(/\b(?:https?|wss?):\/\/[^\s"'<>)]+/gi, '(zdroj dat)').slice(0, 200);
+
 export class CookieJar {
   constructor() {
     this.cookies = new Map();

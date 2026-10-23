@@ -75,7 +75,8 @@
 
   // Volby formuláře jen ze známých hodnot – neznámá by formulář rozbila (žádné tlačítko .on), nechá se výchozí.
   const ENUM = { trip: ['return', 'oneway', 'multi'], dateMode: ['flex', 'exact'], len: ['weekend', 'long', 'week', '2weeks', 'custom', 'holiday'], groundMode: ['transit', 'car'], carFuel: ['diesel', 'petrol', 'ev'], bags: ['none', 'cabin', 'checked'] };
-  const NUM = { radius: [0, 500], nMin: [0, 60], nMax: [0, 60], adults: [1, 9], xFlex: [0, 3], minTemp: [0, 40], kmRate: [0, 5] };
+  // děti 2–11 let a miminka do 2 let (sedadel nejvýš 9, miminko na dospělého – dohlídá SearchHelp.paxOf při načtení)
+  const NUM = { radius: [0, 500], nMin: [0, 60], nMax: [0, 60], adults: [1, 9], children: [0, 8], infants: [0, 9], xFlex: [0, 3], minTemp: [0, 40], kmRate: [0, 5] };
   const DATE = ['dFrom', 'dTo', 'xOut', 'xBack'];
   const FUELS = ['diesel', 'petrol', 'ev'];
   // 📅 klouzavý termín hlídání (Alerts.rollForm): celá čísla off 0–60 a span 7–180, nebo lw jen 'next' (eve: false = bez

@@ -974,6 +974,20 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .lw-row .btn{flex:none;margin-left:auto}
 .lw-foot{font-size:12px;margin-top:12px}
 .cmp-lv{color:var(--muted);font-weight:600}
+/* 👥 Cestující: ve formuláři jen řádek („2 dospělí · 1 dítě“), stepery v okně (na telefonu panel zespodu) */
+.pax-btn{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;cursor:pointer;min-height:44px}
+.pax-btn span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pax-chev{color:var(--faint);font-size:12px}
+.pax-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);font-size:14.5px}
+.pax-row .faint{font-size:12px;margin-top:2px}
+.pax-step{display:flex;align-items:center;gap:6px;flex:none}
+.pax-step button{width:44px;height:44px;border-radius:12px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);font:600 22px/1 Inter,sans-serif;cursor:pointer}
+.pax-step button:disabled{opacity:.35;cursor:default}
+.pax-step button:not(:disabled):active{background:var(--surface-2)}
+.pax-step output{min-width:26px;text-align:center;font-weight:800;font-size:18px}
+.pax-foot{font-size:12px;margin:12px 0 14px}
+.pax-done{width:100%}
+.pd.pax-note{color:var(--muted)}
 
 /* ⭐ Moje cíle a 🙈 Nezajímá mě: ⋯ u cíle (radar, Kamkoliv), štítky, pruh na Přehledu, okna s volbou a úpravou */
 .dm-btn{flex:none;width:30px;height:30px;display:grid;place-items:center;padding:0;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);font:800 15px/1 Inter,sans-serif;cursor:pointer}

@@ -91,20 +91,30 @@ async function farfnd(path, params) {
   throw lastErr;
 }
 
-export function bookingUrl({ from, to, dateOut, dateIn = null, adults = 1 }) {
+/**
+ * Rezervace na ryanair.com s předvyplněnými cestujícími: adults, teens (12–15 let – ATLAS je počítá mezi dospělé),
+ * children (2–11) a infants (do 2 let), každý i jako tp… – bez dětí jako dřív (children=0, infants=0).
+ */
+export function bookingUrl({ from, to, dateOut, dateIn = null, adults = 1, children = 0, infants = 0 }) {
+  const ch = String(Math.max(0, Math.round(Number(children)) || 0));
+  const inf = String(Math.max(0, Math.round(Number(infants)) || 0));
   const p = new URLSearchParams({
-    adults: String(adults), teens: '0', children: '0', infants: '0',
+    adults: String(adults), teens: '0', children: ch, infants: inf,
     dateOut, dateIn: dateIn || '', isConnectedFlight: 'false', discount: '0', promoCode: '',
     isReturn: dateIn ? 'true' : 'false', originIata: from, destinationIata: to,
-    tpAdults: String(adults), tpTeens: '0', tpChildren: '0', tpInfants: '0',
+    tpAdults: String(adults), tpTeens: '0', tpChildren: ch, tpInfants: inf,
     tpStartDate: dateOut, tpEndDate: dateIn || '', tpDiscount: '0', tpPromoCode: '',
     tpOriginIata: from, tpDestinationIata: to,
   });
   return `https://www.ryanair.com/cz/cs/trip/flights/select?${p}`;
 }
 
+// Cestující: číslo (jen dospělí – starší volání) nebo { adults, children, infants }. Fare Finder počty nebere (cena je
+// za osobu – dítě na sedadle platí u Ryanairu obvykle jako dospělý), jen odkaz na rezervaci.
+const paxOf = (p) => (p && typeof p === 'object' ? { adults: p.adults || 1, children: p.children || 0, infants: p.infants || 0 } : { adults: p || 1, children: 0, infants: 0 });
+
 /** Převod jednoho „outbound/inbound“ objektu z farfnd na Leg. */
-export function parseFareLeg(f, adults = 1) {
+export function parseFareLeg(f, pax = 1) {
   if (!f || !f.price || !(f.price.value > 0)) return null;
   const from = f.departureAirport.iataCode;
   const to = f.arrivalAirport.iataCode;
@@ -122,28 +132,28 @@ export function parseFareLeg(f, adults = 1) {
     currency: f.price.currencyCode,
     prevPrice: f.previousPrice?.value ?? null,
     foundAt: f.priceUpdated || null,
-    bookUrl: bookingUrl({ from, to, dateOut: f.departureDate.slice(0, 10), adults }),
+    bookUrl: bookingUrl({ from, to, dateOut: f.departureDate.slice(0, 10), ...paxOf(pax) }),
   });
 }
 
-export function parseOneWay(json, adults = 1) {
-  return (json?.fares || []).map((x) => parseFareLeg(x.outbound, adults)).filter(Boolean).map((leg) => makeTrip(leg));
+export function parseOneWay(json, pax = 1) {
+  return (json?.fares || []).map((x) => parseFareLeg(x.outbound, pax)).filter(Boolean).map((leg) => makeTrip(leg));
 }
 
-export function parseRoundTrip(json, adults = 1) {
+export function parseRoundTrip(json, pax = 1) {
   const out = [];
   for (const x of json?.fares || []) {
-    const o = parseFareLeg(x.outbound, adults);
-    const b = parseFareLeg(x.inbound, adults);
+    const o = parseFareLeg(x.outbound, pax);
+    const b = parseFareLeg(x.inbound, pax);
     if (!o || !b) continue;
     const trip = makeTrip(o, b);
-    trip.bookUrl = bookingUrl({ from: o.from, to: o.to, dateOut: o.date, dateIn: b.date, adults });
+    trip.bookUrl = bookingUrl({ from: o.from, to: o.to, dateOut: o.date, dateIn: b.date, ...paxOf(pax) });
     out.push(trip);
   }
   return out;
 }
 
-export function parseCheapestPerDay(json, from, to, adults = 1) {
+export function parseCheapestPerDay(json, from, to, pax = 1) {
   const out = [];
   for (const f of json?.outbound?.fares || []) {
     if (!f.price || !(f.price.value > 0) || f.soldOut || f.unavailable) continue;
@@ -151,7 +161,7 @@ export function parseCheapestPerDay(json, from, to, adults = 1) {
       provider: 'ryanair', carrier: 'FR', carrierName: 'Ryanair', from, to,
       dep: f.departureDate || `${f.day}T00:00:00`, arr: f.arrivalDate,
       price: f.price.value, currency: f.price.currencyCode,
-      bookUrl: bookingUrl({ from, to, dateOut: f.day, adults }),
+      bookUrl: bookingUrl({ from, to, dateOut: f.day, ...paxOf(pax) }),
     }));
   }
   return out;
@@ -194,10 +204,10 @@ export const ryanair = {
 
   /**
    * Nejlevnější cesta do každé destinace z jednoho letiště.
-   * q: { origin, dateFrom, dateTo, ret?: { nightsMin, nightsMax }, country?, destination?, adults }
+   * q: { origin, dateFrom, dateTo, ret?: { nightsMin, nightsMax }, country?, destination?, adults, children?, infants? }
    */
   async explore(q) {
-    const adults = q.adults || 1;
+    const pax = paxOf(q);
     // Stejná sada parametrů jako web ryanair.com / knihovna ryanair-py.
     const base = {
       departureAirportIataCode: q.origin,
@@ -215,7 +225,7 @@ export const ryanair = {
       if (!q.ret) {
         const params = { ...base, outboundDepartureDateFrom: from, outboundDepartureDateTo: to };
         const json = await cache.wrap(`fr:ow:${JSON.stringify(params)}`, FARE_TTL, () => farfnd('oneWayFares', params));
-        results.push(...parseOneWay(json, adults));
+        results.push(...parseOneWay(json, pax));
       } else {
         const params = {
           ...base,
@@ -239,7 +249,7 @@ export const ryanair = {
             return farfnd('roundTripFares', rest);
           }
         });
-        results.push(...parseRoundTrip(json, adults));
+        results.push(...parseRoundTrip(json, pax));
       }
     }
     return results;
@@ -250,14 +260,14 @@ export const ryanair = {
    * near = { from, to }: širší okno (dny kolem přesného data) – vrátí i ty dny, i když padnou do sousedního měsíce
    * (u data na konci měsíce jeden dotaz navíc, v mezipaměti), jinak by „Nejbližší dny“ 29. 11. neukázaly 1. 12.
    */
-  async daily({ from, to, dateFrom, dateTo, adults = 1, near = null }) {
+  async daily({ from, to, dateFrom, dateTo, adults = 1, children = 0, infants = 0, near = null }) {
     const a = near && near.from < dateFrom ? near.from : dateFrom;
     const b = near && near.to > dateTo ? near.to : dateTo;
     const months = monthsInRange(a, b), core = new Set(monthsInRange(dateFrom, dateTo));
     const parts = await Promise.all(months.map((m) =>
       cache.wrap(`fr:cpd:${from}:${to}:${m}`, FARE_TTL, () =>
         farfnd(`oneWayFares/${from}/${to}/cheapestPerDay`, { outboundMonthOfDate: m, currency: 'EUR' }),
-      ).then((json) => parseCheapestPerDay(json, from, to, adults))
+      ).then((json) => parseCheapestPerDay(json, from, to, { adults, children, infants }))
         .catch((e) => {
           // 404 = trasa v daném měsíci neexistuje; chyba sousedního měsíce (jen pro „Nejbližší dny“) neshodí ceny
           // hledaných dní

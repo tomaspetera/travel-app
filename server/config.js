@@ -83,6 +83,11 @@ export const config = {
   explorePer10Min: num(env.EXPLORE_RATE_LIMIT, 3 * num(env.SEARCH_RATE_LIMIT, 40)),
   // Dlaždice Mapy.com přes server (/api/tiles/mapy/…): z jedné IP za 10 minut nejvýš tolik dlaždic mimo mezipaměť serveru.
   tilesPer10Min: num(env.TILES_RATE_LIMIT, 300),
+  // Fotky měst (/api/photos) a geokódování (našeptávač, hledání míst – Open-Meteo): z jedné IP za 10 minut nejvýš tolik
+  // dotazů, které nejdou celé z mezipaměti serveru. Pexels (200/h), Unsplash (50/h) i Open-Meteo mají strop pro celý
+  // server – náhodné názvy by ho jinak vyčerpaly všem. Běžný uživatel se k limitu nepřiblíží (dávka fotek = až 30 karet).
+  photosPer10Min: num(env.PHOTOS_RATE_LIMIT, 60),
+  geocodePer10Min: num(env.GEOCODE_RATE_LIMIT, 200),
   // 💬 Napsat nám v ℹ️ O aplikaci: kam vede mailto. Bez adresy (nebo s neplatnou) se tlačítko neukáže – adresa
   // jen v proměnné prostředí, v kódu žádná.
   feedbackEmail: cleanEmail(env.FEEDBACK_EMAIL),

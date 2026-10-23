@@ -349,6 +349,9 @@ export function parseKiwiSearch(json, { adults = 1 } = {}) {
   return out;
 }
 
+// Cestující: jen dospělí (adults; děti a miminka z hledání se ignorují). Parametr pro děti v nástroji search-flight
+// ověřený nemáme a odkaz na rezervaci (bookingUrl z odpovědi) by je jako dospělé i zapsal – děti se doplní na webu
+// Kiwi.com, cenu za všechna sedadla dopočte hledání z ceny na osobu.
 export const kiwi = {
   id: 'kiwi',
   name: 'Kiwi.com',

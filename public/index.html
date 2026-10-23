@@ -122,7 +122,11 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://images.unsplash.com">
 <!-- písma bez blokování startu: pomalý server Googlu nesmí zdržet aplikaci (do načtení systémové písmo) -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link id="fontCss" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" media="print">
+<script>
+/* Písmo platí až po stažení (media print → all). Ne atributem onload v HTML – ten CSP stránky nepustí (server/lib/security.js). */
+(function (l) { if (!l) return; var on = function () { l.media = 'all'; }; if (l.sheet) on(); else l.addEventListener('load', on); })(document.getElementById('fontCss'));
+</script>
 <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/atlas.css">
 <link rel="stylesheet" href="css/flights.css">
@@ -334,7 +338,11 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
           <details class="more" id="moreOpts">
             <summary>Další možnosti <span class="faint" id="moreSummary"></span></summary>
             <div class="sf-grid more-grid">
-              <div class="field"><label>Cestující</label><select id="adults"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+              <div class="field"><label for="paxBtn">Cestující <span class="lab-hint">děti i miminka</span></label>
+                <!-- počty v hidden polích (getForm/setForm), upravují se v okně Cestující (flights.js paxSheet) -->
+                <button type="button" class="input pax-btn" id="paxBtn" aria-haspopup="dialog"><span id="paxSum">2 dospělí</span><span class="pax-chev" aria-hidden="true">▾</span></button>
+                <input type="hidden" id="adults" value="2"><input type="hidden" id="children" value="0"><input type="hidden" id="infants" value="0">
+              </div>
               <div class="field"><label>Max. cena letenky na osobu</label><input class="input" type="number" id="maxPrice" placeholder="bez limitu" min="0" step="100"></div>
               <div class="field gm-field" style="grid-column:1/-1"><label>Doprava na letiště <span class="lab-hint">odhad na osobu – u nabídky zvlášť, do ceny letenky se nepočítá</span></label>
                 <div class="gm-row">

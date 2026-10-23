@@ -81,9 +81,17 @@ test('délka, lidé, cena, zavazadla, přímé lety, druh cíle', () => {
   assert.deepEqual(P('exotika').items.map((x) => x.id), ['cc:TH', 'cc:ID', 'cc:VN', 'cc:AE', 'cc:LK']);
   assert.deepEqual(P('na hory').items.map((x) => x.id), ['ap:INN', 'ap:SZG', 'ap:GVA', 'ap:TRN']);
   assert.equal(P('kamkoliv').kind, 'any');
-  // děti platí letenku: dospělí + děti; bez počtu dospělých dva
-  assert.equal(P('2 dospělí a 2 děti k moři').patch.adults, 4);
-  assert.equal(P('s dítětem do Říma').patch.adults, 3);
+  // děti 2–11 let a miminka zvlášť od dospělých (dítě platí sedadlo, miminko na klíně); bez počtu dospělých dva
+  const fam = P('2 dospělí a 2 děti k moři').patch;
+  assert.deepEqual([fam.adults, fam.children, fam.infants], [2, 2, 0]);
+  assert.deepEqual(chips(P('2 dospělí a 2 děti k moři')).filter((x) => /dosp/.test(x)), ['2 dospělí + 2 děti']);
+  assert.deepEqual([P('s dítětem do Říma').patch.adults, P('s dítětem do Říma').patch.children], [2, 1]);
+  const baby = P('s miminkem do Říma');
+  assert.deepEqual([baby.patch.adults, baby.patch.children, baby.patch.infants, baby.to], [2, 0, 1, ['Říma']]);
+  assert.deepEqual([P('dva dospělí, dítě a miminko').patch.children, P('dva dospělí, dítě a miminko').patch.infants], [1, 1]);
+  // „ve dvou“ = dva lidé celkem – děti z minulého hledání pryč
+  assert.deepEqual([P('ve dvou').patch.children, P('ve dvou').patch.infants], [0, 0]);
+  assert.equal(P('do Říma').patch.children, undefined, 'bez lidí ve větě zůstanou cestující z formuláře');
   // „s dětmi“ bez počtu: hledá se s počtem z formuláře a výsledky připomenou upravit osoby
   assert.equal(P('s dětmi do Londýna na jaře').askPax, true);
   assert.equal(P('2 dospělí a 2 děti k moři').askPax, undefined);
@@ -283,7 +291,7 @@ test('přesné datum s délkou: návrat dopočtený a vidět v čipu; mezi svát
   assert.deepEqual(chips(P('Paříž 5.12. jen tam')), ['5. 12.', 'jen tam']);
   const m = P('mezi svátky na hory');
   assert.deepEqual([m.kind, m.patch.dFrom, m.patch.dTo, chips(m)], ['mountains', '2026-12-26', '2026-12-30', ['na hory', 'mezi svátky']]);
-  assert.deepEqual([P('dva dospělí a dítě do Barcelony').patch.adults, P('dva dospělí a dítě do Barcelony').to], [3, ['Barcelony']]);
+  assert.deepEqual([P('dva dospělí a dítě do Barcelony').patch.adults, P('dva dospělí a dítě do Barcelony').patch.children, P('dva dospělí a dítě do Barcelony').to], [2, 1, ['Barcelony']]);
   assert.deepEqual([P('lyžovačka v Rakousku').kind, P('lyžovačka v Rakousku').to], ['mountains', ['Rakousku']]);
   assert.deepEqual([chips(P('letní dovolená Řecko')), P('letní dovolená Řecko').to], [['léto'], ['Řecko']]);
   assert.deepEqual(P('zájezd Chorvatsko').to, ['Chorvatsko']);

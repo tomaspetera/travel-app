@@ -537,5 +537,8 @@ export function normalizeAccess(raw = {}) {
 /** Pole auta pro další dotaz (úseky cesty přes víc měst): carFuel, carCons, carPrice, nebo dřívější carKmCzk. */
 export const carQuery = (q) => (q.carFuel ? { carFuel: q.carFuel, carCons: q.carCons, ...(q.carPrice ? { carPrice: q.carPrice } : {}) } : { carKmCzk: q.carKmCzk });
 
-/** Volby pro airportAccess z normalizovaného dotazu (normalizeQuery). */
-export const accessOpts = (q, oneWay = false) => ({ mode: q.groundMode, scale: q.kmRate, ...carQuery(q), adults: q.adults, oneWay, ...(q.accessOverride ? { own: q.accessOverride } : {}) });
+/**
+ * Volby pro airportAccess z normalizovaného dotazu (normalizeQuery). Auto se dělí mezi všechny, kdo platí sedadlo
+ * (dospělí i děti – seats), jízdné na osobu se pak násobí stejným počtem; dotaz bez dětí (seats chybí) = dospělí.
+ */
+export const accessOpts = (q, oneWay = false) => ({ mode: q.groundMode, scale: q.kmRate, ...carQuery(q), adults: q.seats ?? q.adults, oneWay, ...(q.accessOverride ? { own: q.accessOverride } : {}) });
