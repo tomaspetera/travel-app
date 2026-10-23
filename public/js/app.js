@@ -841,6 +841,13 @@ const WN_NEW = '+vitej';
 const firstVisit = seen => seen == null && !S.home && !S.trip && !S.trips.length && !S.recent.length && !S.watch.length;
 /** Co ukázat v kartě novinek: 'welcome' (uvítání), 'news' (novinky), '' (nic – skryté). seen = atlas_wn. */
 const wnMode = (seen, id = WN_ID) => (seen === id ? '' : seen === id + WN_NEW || firstVisit(seen) ? 'welcome' : 'news');
+/**
+ * Při startu, dřív než odkaz něco uloží: úplně nový uživatel má dostat uvítání, i když přišel z odkazu kamaráda (cesta
+ * #trip=, plán #plan=, nabídka, „Jede někdo se mnou?“) nebo rovnou na Lety. Přehled se vykreslí až po importu cesty
+ * nebo prvním hledání – firstVisit by pak vrátil false a nováček by místo „Vítej“ dostal desítky novinek o funkcích,
+ * které nikdy neviděl. Přenos z jiného zařízení (#sync=) nováček není. → nová hodnota atlas_wn, nebo null (beze změny).
+ */
+const wnAtStart = (seen, hash, id = WN_ID) => (!/^#sync=/.test(String(hash || '')) && firstVisit(seen) ? id + WN_NEW : null);
 const WN_TOP = 4; // nejnovější novinky hned, starší pod „Starší novinky“
 function renderWhatsNew() {
   const el = $('#whatsNew'); if (!el) return;
@@ -2243,6 +2250,8 @@ async function start() {
   // obnovená stránka na kroku okna nebo průvodce (okno po obnovení zavřené, cesta kroků zapomenutá): krok přeskočit –
   // Zpět by jinak napoprvé „nic neudělal“
   if (history.state && (history.state.atlasM || history.state.atlasDp || history.state.atlasT)) histBack();
+  // ✨ uvítání nováčka si zapamatovat dřív, než sdílená cesta nebo plán z odkazu naplní stav (wnAtStart)
+  try { const wn = wnAtStart(localStorage.getItem('atlas_wn'), location.hash); if (wn) localStorage.setItem('atlas_wn', wn); } catch (e) { /* soukromé okno */ }
   sinceStart(); // 🕘 Od minula: dřív, než aplikace uklidí propadlé odložené nabídky
   if (window.Flights) Flights.warm(); // stav serveru souběžně s daty zemí – rychlejší start
   applyTheme(); applyMapStyle(); buildNav(); fillSelects(); wireEvents(); renderTips();

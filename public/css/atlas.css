@@ -27,7 +27,9 @@
   --surface:rgba(13,22,48,.04); --surface-2:rgba(13,22,48,.07);
   --surface-solid:#ffffff; --card:rgba(255,255,255,.8);
   --border:rgba(13,22,48,.1); --border-2:rgba(13,22,48,.18);
-  --text:#0f1830; --muted:#56638a; --faint:#8a96b8;
+  /* --faint: popisky a poznámky (trasa a termín u výsledku, „cena z …“, nápovědy) – na pozadí, kartě i v okně aspoň
+     4,5 : 1 (ve dne na slunci); dřívější #8a96b8 měl jen 2,6–2,9 : 1. Pořád slabší než --muted. */
+  --text:#0f1830; --muted:#56638a; --faint:#606d92;
   --nav-bg:rgba(15,24,48,.93); --nav-line:rgba(255,255,255,.06); --nav-ico:rgba(255,255,255,.62);
 }
 /* Mapy (svět, výsledky letů, výlety): světlé jako atlas – čitelné i na slunci, v tmavém i světlém režimu.

@@ -289,6 +289,23 @@ test('uvítání nového uživatele vydrží výběr domova i první hledání; 
   assert.equal(wnMode('stará', 'A'), 'news');
 });
 
+test('kamarád z odkazu na cestu je nováček: uvítání se zapamatuje při startu, ne až na Přehledu po importu cesty', () => {
+  const S = { home: null, trip: null, trips: [], recent: [], watch: [] };
+  const [wnMode, wnAtStart] = new Function('S', `${pick('WN_NEW', 'firstVisit', 'wnMode', 'wnAtStart')}; return [wnMode, wnAtStart];`)(S);
+  // start: nic uloženého → uvítání hned do atlas_wn (i s odkazem na cestu, plán, krátkým odkazem /c/ → #s=, #jed=)
+  for (const h of ['', '#trip=zAbc', '#plan=eyJ', '#s=Ab3kQ9xZ', '#jed=zX', '#offer=zY', '#flights']) assert.equal(wnAtStart(null, h, 'A'), 'A+vitej', h);
+  // odkaz pak uloží cestu (S.trip) – Přehled pořád uvítání, ne desítky novinek
+  S.trip = { dest: { label: 'Klagenfurt' }, shared: { on: '2026-10-23' } };
+  assert.equal(wnMode('A+vitej', 'A'), 'welcome');
+  assert.equal(wnMode(null, 'A'), 'news', 'bez zápisu při startu by kamarád dostal novinky');
+  // dřívější uživatel, přenos z jiného zařízení a uložená volba se nemění
+  assert.equal(wnAtStart(null, '', 'A'), null, 'už má cestu');
+  S.trip = null;
+  assert.equal(wnAtStart(null, '#sync=zQ', 'A'), null, 'přenos z jiného zařízení');
+  assert.equal(wnAtStart('A', '#trip=zAbc', 'A'), null, 'Rozumím – skryté zůstane');
+  assert.equal(wnAtStart('stará', '#trip=zAbc', 'A'), null);
+});
+
 test('📍 Dnes na cestě: cesta z průvodce bez uložení do plánovače → nabídka uložit (do 2 dnů před odletem až do návratu)', () => {
   const ctx = { console, URLSearchParams, TextEncoder, TextDecoder, btoa, atob, navigator: {} };
   ctx.window = ctx;
