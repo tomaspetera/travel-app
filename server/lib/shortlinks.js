@@ -147,7 +147,10 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
  * Stránka /c/<id>: náhled odkazu (WhatsApp, Messenger, Facebook čtou jen meta značky) a hned přesměrování do aplikace
  * (/#s=<id>) – bez skriptu, CSP stránky ho nepotřebuje. base = veřejná adresa webu, fallbackImg = obecný náhled.
  */
-export function sharePage(id, rec, base, fallbackImg) {
+// Roboti náhledů odkazů (Facebook, WhatsApp, Messenger, Telegram…): bez přesměrování – některé ho následují a náhled
+// by pak byl obecný z úvodní stránky místo cíle a termínu cesty.
+export const PREVIEW_BOT = /facebookexternalhit|facebookcatalog|meta-externalagent|WhatsApp|Twitterbot|TelegramBot|Slackbot|Discordbot|LinkedInBot|Pinterest|SkypeUriPreview|Viber|Applebot|Googlebot|bingbot/i;
+export function sharePage(id, rec, base, fallbackImg, { bot = false } = {}) {
   const m = rec.m || {}, url = `${base}/c/${id}`, to = `/#s=${id}`, img = m.img || fallbackImg;
   const title = m.title || 'Cesta z ATLASu';
   const meta = (k, v, a = 'property') => `<meta ${a}="${k}" content="${esc(v)}">`;
@@ -164,7 +167,6 @@ ${meta('og:title', title)}
 ${meta('og:description', m.desc || '')}
 ${meta('og:image', img)}
 ${m.img ? '' : `${meta('og:image:width', '1200')}\n${meta('og:image:height', '630')}\n`}${meta('twitter:card', 'summary_large_image', 'name')}
-<meta http-equiv="refresh" content="0;url=${esc(to)}">
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;background:#eef2fb;color:#0f1830}a{color:#1d4ed8;font-weight:700}</style>
+${bot ? '' : `<meta http-equiv="refresh" content="0;url=${esc(to)}">\n`}<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;background:#eef2fb;color:#0f1830}a{color:#1d4ed8;font-weight:700}</style>
 </head><body><p>Otevírám cestu v ATLASu… <a href="${esc(to)}">Otevřít</a></p></body></html>`;
 }

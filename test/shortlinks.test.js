@@ -130,3 +130,16 @@ test('API: zkoušení náhodných id má limit (každé je příkaz do Upstash),
   assert.match(await page.text(), /<meta http-equiv="refresh" content="0;url=\/#s=Rndzzzzz">/);
   assert.equal(page.headers.get('cache-control'), 'no-store');
 });
+
+test('robot náhledu (Facebook, WhatsApp) dostane stránku bez přesměrování, prohlížeč s přesměrováním', async () => {
+  const r = await fetch(`${base}/api/share`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: 'trip', j: JSON.stringify(TRIP) }) });
+  const { id } = await r.json();
+  for (const ua of ['facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)', 'WhatsApp/2.23.20.0 A']) {
+    const html = await (await fetch(`${base}/c/${id}`, { headers: { 'User-Agent': ua } })).text();
+    assert.match(html, /og:title" content="Tirana/, ua);
+    assert.doesNotMatch(html, /http-equiv="refresh"/, ua);
+  }
+  const page = await fetch(`${base}/c/${id}`, { headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile' } });
+  assert.match(await page.text(), /http-equiv="refresh"/);
+  assert.equal(page.headers.get('vary'), 'User-Agent');
+});

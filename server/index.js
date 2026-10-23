@@ -42,7 +42,7 @@ import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
-import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, ogPhoto, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
+import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, ogPhoto, PREVIEW_BOT, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
 import { sharedRuns, gate, perClient } from './lib/crowd.js';
 import { SECURITY_HEADERS, API_CSP, clientIp, crossSite } from './lib/security.js';
 
@@ -923,7 +923,9 @@ async function route(req, res) {
     let r = null;
     let down = shareGetLimited(req, id);
     if (!down) try { r = await loadShare(shareStore, id); } catch (e) { down = true; console.warn(`krátký odkaz: ${e.message}`); }
-    if (r || down) return sendGenerated(req, res, 200, sharePage(id, r || { m: {} }, config.publicUrl, `${config.publicUrl}/${BRAND.image.path}`), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': r ? 'public, max-age=3600' : 'no-store' });
+    // robot náhledu dostane stránku bez přesměrování (PREVIEW_BOT) – obsah podle User-Agent, proto jen soukromá mezipaměť
+    const bot = PREVIEW_BOT.test(req.headers['user-agent'] || '');
+    if (r || down) return sendGenerated(req, res, 200, sharePage(id, r || { m: {} }, config.publicUrl, `${config.publicUrl}/${BRAND.image.path}`, { bot }), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': r ? 'private, max-age=3600' : 'no-store', Vary: 'User-Agent' });
   }
 
   // Statické soubory
