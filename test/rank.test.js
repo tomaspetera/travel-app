@@ -554,3 +554,16 @@ test('stabilita: stejný vstup → stejné pořadí, štítky i výběr nabídky
   assert.deepEqual(a, b);
   assert.ok(a.order.length >= 20);
 });
+
+test('ctxOf: sleva za výhodnost jen ze statistiky cíle – statistika celého hledání jen u hledání s jedním cílem', () => {
+  const route = { n: 40, median: 3000 }, bcn = { n: 8, median: 1800 };
+  const two = Rank.ctxOf({ priceStats: route, groups: [{ dest: { key: 'BCN', cc: 'ES' }, priceStats: bcn }, { dest: { key: 'LON', cc: 'GB' }, priceStats: null }] });
+  assert.equal(two.stats('BCN'), bcn);
+  assert.equal(two.stats('LON'), null, 'Londýn bez statistiky nesmí dostat slevu za cenu pod mediánem letenek do všech cílů');
+  // letenka do Londýna za 1 900 Kč, „dobrá cena“ podle vzdálenosti: proti mediánu celého hledání (3 000 Kč) o 37 % níž
+  const t = { id: 'x', out: { from: 'PRG', to: 'STN', date: '2026-11-12' }, flightCzk: 1900, perPersonCzk: 1900, destKey: 'LON', distanceKm: 1030, priceLevel: { level: 'low' } };
+  assert.deepEqual([Rank.score(t, two).parts.deal, Rank.score(t, two).pct], [0, null]);
+  const one = Rank.ctxOf({ priceStats: route, groups: [{ dest: { key: 'LON', cc: 'GB' }, priceStats: null }] });
+  assert.equal(one.stats('LON'), route, 'hledání do jednoho cíle: statistika trasy je statistika cíle');
+  assert.ok(Rank.score(t, one).parts.deal < 0, 'kontrola: se statistikou trasy sleva je');
+});

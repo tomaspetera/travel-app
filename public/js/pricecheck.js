@@ -81,6 +81,17 @@
     else reason = `kolem obvyklé ceny do tohoto cíle (polovina nabídek stojí nejvýš ${kc(st.median)})`;
     return { level, basis, reason, ref, vsRef, pos, n, est: true };
   }
+  /**
+   * Statistika cen do cíle destKey z výsledku hledání: ze skupiny cíle. Statistika celého hledání (res.priceStats)
+   * jen u výsledku s nejvýš jedním cílem – u „kamkoliv“ jsou v ní nabídky do všech cílů a cesta do cíle bez vlastní
+   * statistiky (jen kombinace dvou letenek, buňka mřížky mimo výpis) by se srovnávala s cenami jinam („levnější než
+   * 90 % nabídek do tohoto cíle“ podle letů do Vídně). Server takovou cestu hodnotí jen průměrnou cenou na vzdálenost.
+   */
+  function statsOf(res, destKey) {
+    if (!res) return null;
+    const gs = res.groups || [], g = destKey ? gs.find(x => x && x.dest && x.dest.key === destKey) : null;
+    return (g && g.priceStats) || (gs.length <= 1 && res.priceStats) || null;
+  }
 
   /* ---------- paměť cen v tomto prohlížeči ---------- */
   const ym = d => String(d || '').slice(0, 7);
@@ -306,7 +317,7 @@
   }
 
   window.PriceCheck = {
-    CFG, STORE_KEY, refOf, distanceLevel, searchLevel, levelOf, estPos, assess,
+    CFG, STORE_KEY, refOf, distanceLevel, searchLevel, levelOf, estPos, assess, statsOf,
     routeKey, tripKey, scopeOf, entriesOf, record, prune, memoryOf, seenMin, load, save, remember, agoTxt, advice, explain,
   };
 })();

@@ -3661,8 +3661,8 @@
   /* ---------- „Je to dobrá cena?“: štítek u nabídky a panel s vysvětlením ---------- */
   const PL_BADGE = { low: ['good', '💚 Dobrá cena'], normal: ['', 'Běžná cena'], high: ['dear', '🔺 Dráž než obvykle'] };
   const groupOf = (t, res = lastResult) => (res && t.destKey ? res.groups.find(g => g.dest.key === t.destKey) : null) || null;
-  // Statistika cen pro cestu: skupina jejího cíle, jinak celá trasa (konkrétní cíl).
-  const statsFor = (t, res = lastResult) => (groupOf(t, res) || {}).priceStats || (res && res.priceStats) || null;
+  // Statistika cen pro cestu: skupina jejího cíle, celá trasa jen u hledání s jedním cílem (PriceCheck.statsOf).
+  const statsFor = (t, res = lastResult) => PriceCheck.statsOf(res, t && t.destKey);
   // Úroveň ceny je ze serveru; cestu složenou v prohlížeči ze dvou letenek a cestu buňky mřížky termínů (server ji
   // posílá bez úrovně) ohodnotí PriceCheck stejným pravidlem.
   function levelFor(t) {
@@ -3892,7 +3892,7 @@
     const hid = gs === shown ? res.groups.filter(x => !shown.includes(x) && x.best.perPersonCzk < t.perPersonCzk).map(x => x.dest.key).slice(0, SearchHelp.DEST_MAX) : [];
     // 💡 tip na kartě hlídání: den odletu (kolik zbývá) a „Je to dobrá cena?“ téhle nabídky (úroveň ze serveru, cestu
     // složenou ze dvou letenek ohodnotí PriceCheck ze statistiky jejího cíle – ne z lastResult, kontrola je jiné hledání)
-    const pl = t.priceLevel || PriceCheck.assess(t, g.priceStats || res.priceStats || null);
+    const pl = t.priceLevel || PriceCheck.assess(t, PriceCheck.statsOf(res, g.dest.key));
     return { czk: t.perPersonCzk, desc: `${g.dest.label} · ${fmtDate(t.out.date)}${t.back ? '–' + fmtDate(t.back.date) : ''} · z ${t.out.from}`, key: g.dest.key, ...(hid.length ? { hid: hid.join(',') } : {}),
       dep: t.out.date, ...(pl && pl.level ? { lvl: pl.level, lvlWhy: String(pl.reason || '').slice(0, 160) } : {}) };
   }

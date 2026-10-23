@@ -367,3 +367,26 @@ test('seenMin (⭐ Moje cíle na Přehledu): nejlevnější zpáteční letenka 
   const lon = P.record(null, [{ key: P.routeKey('VIE', 'LON', '2026-11', 'rt'), czk: 1500 }], { now: NOW - DAY });
   assert.deepEqual(plain(P.seenMin(lon, 'LON', NOW)), { czk: 1500, from: 'VIE', month: '2026-11', at: NOW - DAY, ago: 1 });
 });
+
+test('statsOf: cíl bez vlastní statistiky se v hledání „kamkoliv“ nesrovnává s cenami do jiných cílů', () => {
+  // kamkoliv z Prahy: Barcelona má 10 nabídek, do Londýna jen kombinace dvou letenek (bez statistiky cíle); statistika
+  // celého hledání jsou nabídky do všech cílů
+  const all = priceStats(entries([...PRICES, 2400, 2700, 3100, 5200]));
+  const res = { priceStats: all, groups: [{ dest: { key: 'BCN' }, priceStats: ST }, { dest: { key: 'LON' }, priceStats: null }] };
+  assert.equal(P.statsOf(res, 'BCN'), ST);
+  assert.equal(P.statsOf(res, 'LON'), null, 'statistika jiných cílů do Londýna nepatří');
+  assert.equal(P.statsOf(res, 'XXX'), null, 'cíl mimo výpis (buňka mřížky) taky ne');
+  // kombinace do Londýna za 1 900 Kč (zpáteční, 1 030 km): s cenami jinam by byla „nejlevnější nabídka do tohoto cíle“
+  const lon = trip(1900, { distanceKm: 1030, destKey: 'LON', composed: true });
+  assert.equal(plain(P.assess(lon, all)).basis, 'search', 'kontrola: se statistikou všech cílů by tvrdila pozici mezi nabídkami');
+  const pl = plain(P.assess(lon, P.statsOf(res, 'LON')));
+  assert.deepEqual([pl.level, pl.basis, pl.n, pl.pos], ['low', 'distance', 0, null]);
+  assert.match(pl.reason, /pod průměrnou cenou na tuto vzdálenost \(jiné nabídky k porovnání nejsou\)/);
+  assert.doesNotMatch(pl.reason, /do tohoto cíle/);
+  // stejně jako server: cesta bez statistiky cíle se hodnotí jen podle vzdálenosti
+  assert.deepEqual(plain(P.levelOf(lon, P.statsOf(res, 'LON'))), levelOf(lon, undefined));
+  // hledání do jednoho cíle: statistika celé trasy je statistika toho cíle
+  assert.equal(P.statsOf({ priceStats: all, groups: [{ dest: { key: 'LON' }, priceStats: null }] }, 'LON'), all);
+  assert.equal(P.statsOf({ priceStats: all, groups: [] }, 'LON'), all);
+  assert.equal(P.statsOf(null, 'LON'), null);
+});
