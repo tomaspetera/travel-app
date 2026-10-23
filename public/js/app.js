@@ -757,8 +757,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-23h';
+const WN_ID = '2026-10-23i';
 const WHATS_NEW = [
+  ['🔒', 'Program podle zavíracích dnů', '<b>Program ve městě</b> v <b>Objevuj</b> i v průvodci Cestou zná zavírací dny asi 55 nejnavštěvovanějších památek (Louvre v úterý, Uffizi v pondělí, Vatikánská muzea v neděli kromě poslední v měsíci, Pergamonmuseum v rekonstrukci) – podle jejich oficiálních webů. Památku nedá na den, kdy je zavřená, a u zastávky napíše třeba „🕘 zavřeno v úterý · otevřeno 9:00–18:00“.'],
   ['🌍', 'Doporučení podle sezóny a tebe', 'v <b>Doporučení</b> (menu ☰) i v tipech na Přehledu je u země proč – třeba „🏖️ Kanárské ostrovy: ~25 °C přes den“ nebo „✈️ tam i zpět od 1 890 Kč“ z radaru – a tlačítko <b>✈️ Najít lety</b> s odletem v tom měsíci. Od 20. dne tipuje už na příští měsíc, k moři jen tam, kde je opravdu teplo, blízké země výš; když hledáš hlavně k moři nebo s dětmi, vezme to v úvahu, ⭐ moje cíle dá výš a země s 🙈 městem vynechá. Země, kam MZV ČR nedoporučuje cestovat, mají v seznamu zemí štítek ⚠️.'],
   ['🗓️', 'Program s časy a obědem', '<b>Program ve městě</b> v <b>Objevuj</b> i v průvodci Cestou má u každé zastávky přibližný čas (podle chůze a MHD), pauzu na oběd s tipem na tržnici nebo kavárnu kousek od ní, co uvidíš cestou kolem, kam na večer a – když předpověď na ten den hlásí déšť – místa pod střechou. Nejznámější místa (Koloseum, Fontána di Trevi, Belémská věž) v programu nechybí, za den nejvýš 2 muzea, muzeum a zoo spíš dopoledne. Cesta s dětmi má rovnou zájem <b>🧒 S dětmi</b>.'],
   ['🚆', 'Vlak na cestě s časem a počasí', 'v <b>Plánovači</b> zapíšeš k vlaku nebo busu mezi místy trasy (třeba Lisabon → Porto) čas odjezdu z jízdenky, nástupiště, vůz a místo i kód. Karta <b>📍 Dnes na cestě</b> pak odpočítává („vlak do Porta v 10:42 – za 1 h 20 min“) s odkazem na nádraží v mapě a ukáže dnešní předpověď počasí – i bez signálu. Během cesty má plán nahoře dnešní den a kódy rezervací.'],
@@ -1253,7 +1254,7 @@ function renderRecs() {
       <div class="tags">${r.tags.map(x => `<span class="tag">✓ ${x}</span>`).join('')}</div>
       ${entryChip(c.iso2)}<div class="meta">${costDots(c.cost)}<span>${monthRanges(c.months)}</span></div>
       <button type="button" class="btn sm rec-fly" data-fly="${i}" title="Nejlevnější lety: ${esc(r.fly.label)}, odlet ${MNS_LOC[m - 1]}">✈️ Najít lety</button></div></div>`;
-  }).join('') : `<div class="empty" style="grid-column:1/-1">Zvoleným filtrům nic neodpovídá – uvolni rozpočet nebo bezpečnost.</div>`;
+  }).join('') : `<div class="empty" style="grid-column:1/-1">Zvoleným filtrům nic neodpovídá – uvolni rozpočet nebo bezpečnost${hidden.mute.length ? ', nebo uprav 🙈 Nezajímá mě (vynechané země jsou pod tímhle)' : ''}.</div>`;
   // vynechané (ať je vidět proč tu nějaká země není)
   const foot = [hidden.unsafe ? `Doporučení vynechává ${hidden.unsafe} zemí, před kterými MZV ČR varuje nebo kam doporučuje jen nezbytné cesty.` : '',
     hidden.mute.length ? `🙈 Vynechané kvůli Nezajímá mě: ${hidden.mute.join(', ')} – seznam upravíš přes ⋯ u cíle ve výsledcích hledání.` : '',

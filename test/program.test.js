@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { planItinerary, dayTimeline, eveningOrder, mustSeeIds, clusterDays, segKm, addTips } from '../server/lib/itinerary.js';
+import { planItinerary, dayTimeline, eveningOrder, mustSeeIds, clusterDays, segKm, addTips, dayCapacities } from '../server/lib/itinerary.js';
 import { groupBindings, spreadCats } from '../server/lib/poi.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { bindings } from './fixtures/wikidata.js';
@@ -123,6 +123,38 @@ test('nic dvakrát, každý den se vejde do svého okna (prohlídky + chůze + o
       }
     }
   }
+});
+
+test('přílet po půlnoci (0:40) a brzy ráno: program až od 9:00, ne prohlídka Andělského hradu ve 2:37', () => {
+  const from = (arrivalTime) => dayCapacities({ start: '2026-11-06', end: '2026-11-08', arrivalTime, departureTime: '18:00' })[0].from;
+  assert.equal(from('00:40'), 9 * 60);
+  assert.equal(from('06:00'), 9 * 60);
+  assert.equal(from('10:30'), 12 * 60, 'jinak 1,5 h po příletu');
+  const r = plan('ROM', '2026-11-06', '2026-11-08', '00:40', '18:00');
+  assert.ok(r.days[0].items[0].at >= '09:00', show(r));
+});
+
+test('Řím, přílet večer (2 dny programu): odlehlé místo se znovu vyřadí i po náhradě – ne Via Appia v 16:43 po setmění', () => {
+  for (const arr of ['18:30', '22:30']) {
+    const n = names(plan('ROM', '2026-11-06', '2026-11-08', arr, '18:00'));
+    for (const no of ['Via Appia', 'Bazilika svatého Pavla za hradbami']) assert.ok(!n.includes(no), `${arr}: ${no}`);
+  }
+});
+
+test('Řím na 12 dní: nic dvakrát a „výlet do okolí“ ne do čtvrti, kterou už prochází jiný den (Vatikán)', () => {
+  const r = plan('ROM', '2026-11-01', '2026-11-12', '10:30', '18:00');
+  const ids = r.days.flatMap((d) => d.items.map((p) => p.id));
+  assert.equal(new Set(ids).size, ids.length);
+  const areas = r.days.flatMap((d) => (d.area ? d.area.split(', ') : []));
+  for (const d of r.days) for (const p of d.items) assert.ok(!areas.includes(p.name), `${d.date}: ${p.name} je už oblastí jiného dne\n${show(r)}`);
+});
+
+test('místo bez souřadnic program nerozbije (žádné NaN), jen v něm není', () => {
+  const pois = [...F.places(F.ROM).slice(0, 12), { id: 'X', name: 'Bez polohy', category: 'museum', score: 99, sitelinks: 200 }];
+  const r = planItinerary(pois, { center: F.ROM_C, start: '2026-11-06', end: '2026-11-08', arrivalTime: '10:30', departureTime: '18:00' });
+  assert.ok(!names(r).includes('Bez polohy'));
+  assert.ok(names(r).includes('Koloseum'));
+  for (const d of r.days) for (const p of d.items) assert.match(p.at || '00:00', /^\d{2}:\d{2}$/);
 });
 
 /* ---------- čisté funkce ---------- */
@@ -258,7 +290,8 @@ test('planHtml: čas zastávky, oběd mezi zastávkami, cestou kolem, oblast, ko
   const it = (id, name, atHm, extra = {}) => ({ id, name, lat: 41.89, lon: 12.49, category: 'ruins', visitMin: 90, fromPrevKm: 1.2, fromPrevMin: 15, at: atHm, ...extra });
   const day = {
     date: '2026-11-06', kind: 'city', cap: 288, minutes: 180, walkKm: 2.4, end: '15:10', area: 'Vatikán',
-    items: [it('a', 'Koloseum', '12:26', { passBy: ['Domus Aurea'] }), it('b', 'Forum Romanum', '14:58')],
+    items: [it('a', 'Koloseum', '12:26', { passBy: ['Domus Aurea'] }), it('b', 'Forum Romanum', '14:58', { hoursNote: '25. 12. zavřeno' })],
+    closed: [{ id: 'q', name: 'Vatikánská <muzea>', why: 'v neděli zavřeno' }],
     lunch: { after: 0, at: '13:56', tip: { name: 'Mercato <Monti>', km: 0.4 } },
     evening: { name: 'Piazza Venezia', km: 0.7 }, rain: [{ name: 'Kapitolská muzea' }, { name: 'Altare della Patria' }],
   };
@@ -270,6 +303,8 @@ test('planHtml: čas zastávky, oběd mezi zastávkami, cestou kolem, oblast, ko
   assert.match(html, /2,4 km pěšky · konec ~15:10/);
   assert.match(html, /🌙 Na večer: Piazza Venezia <span class="faint">\(0,7 km\)<\/span>/);
   assert.match(html, /<div class="dp-tip dp-rain" hidden>🌧️ Když prší: Kapitolská muzea · Altare della Patria<\/div>/);
+  assert.match(html, /<div class="dp-walk dp-hours">🕘 25\. 12\. zavřeno<\/div>/);
+  assert.match(html, /<div class="dp-tip">🔒 Vatikánská &lt;muzea&gt;: v neděli zavřeno<\/div>/);
   assert.match(T.planHtml({ days: [{ ...day, rural: true, items: [it('c', 'Sněžka', '12:10', { transit: true, fromPrevKm: 9.4 })] }] }, C0), /9,4\s+km – autem \/ busem/);
   assert.match(T.planHtml({ days: [{ ...day, items: [it('d', 'Lokrum', '16:04', { transit: true, boat: true, fromPrevKm: 2.2 })] }] }, C0), /2,2\s+km – lodí/);
   // starší uložený program bez časů a tipů vypadá jako dřív

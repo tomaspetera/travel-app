@@ -2,9 +2,10 @@
 // Bez AI – deterministický algoritmus: nejznámější místa napřed, pak podle skóre a zájmů s limity kategorií za den →
 // k-means shluky po dnech z několika začátků (s vyvážením kapacity) → pořadí nejbližší soused + 2-opt (a obráceně,
 // když tak muzea a zoo stihnou zavírací dobu) → časy zastávek s chůzí, MHD a obědem v okně dne → tipy (oběd, cestou,
-// na večer, na déšť) z míst, která v programu nejsou.
+// na večer, na déšť) z míst, která v programu nejsou. Známé památky ne v jejich zavírací den (data/sight-hours.json).
 import { haversineKm, normalize } from './geo.js';
 import { addDays, daysBetween } from './dates.js';
+import { sightHours, closedOn, closedWhy, hoursNote } from './hours.js';
 
 // Typická délka návštěvy podle kategorie (min).
 export const VISIT_MIN = {
@@ -50,9 +51,9 @@ export function dayCapacities({ start, end, arrivalTime = '12:00', departureTime
   };
   const caps = [];
   for (let i = 0; i < n; i++) {
-    // Okno dne: od 9:00 (den příletu 1,5 h po příletu) do 20:00 (den odletu 3 h před odletem);
-    // u jednodenní cesty platí obojí naráz.
-    const from = i === 0 ? hour(arrivalTime) + 1.5 : 9;
+    // Okno dne: od 9:00 (den příletu 1,5 h po příletu, ale ne dřív než v 9:00 – přílet v 0:40 neznamená prohlídku
+    // Andělského hradu ve 2:37) do 20:00 (den odletu 3 h před odletem); u jednodenní cesty platí obojí naráz.
+    const from = i === 0 ? Math.max(9, hour(arrivalTime) + 1.5) : 9;
     const to = i === n - 1 && departureTime ? Math.min(20, hour(departureTime) - 3) : 20;
     const cap = Math.max(0, Math.min(full, (to - from) * 60 * (full / 600)));
     // from/to = okno dne v minutách od půlnoci (časy zastávek a oběd v dayTimeline)
@@ -279,8 +280,19 @@ const NATIONAL_PARK = /národní park|national park|nationalpark|parque nacional
  */
 export function planItinerary(pois, opts) {
   const { center, pace = 'normal', kids = false } = opts;
+  // místo bez polohy (poškozený záznam) by rozbilo shluky dnů (NaN ve středu dne) – do programu nejde
+  pois = pois.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon));
   // s dětmi o 15 % méně prohlídek za den – přestávky, hřiště, zmrzlina (Barcelona: jinak zoo a pak ještě do 19:20)
   const caps = dayCapacities(opts).map((c) => (kids ? { ...c, cap: Math.round(c.cap * 0.85) } : c));
+  // Zavírací dny památek (data/sight-hours.json): zavřená po celý pobyt (Pergamonmuseum v rekonstrukci, Louvre na
+  // jednodenní cestě v úterý) do programu nejde – a když je nejznámější nebo připnutá, řekne to upozornění; ostatní
+  // jen ne v den, kdy je zavřená (Vatikánská muzea v neděli).
+  const hoursOf = new Map();
+  for (const p of pois) { const h = sightHours(p); if (h) hoursOf.set(p.id, h); }
+  const shutOn = (p, date) => Boolean(closedOn(hoursOf.get(p.id), date));
+  const stay = caps.filter((c) => c.cap > 0).map((c) => c.date);
+  const closedAll = pois.filter((p) => hoursOf.has(p.id) && stay.length && stay.every((date) => shutOn(p, date)));
+  if (closedAll.length) pois = pois.filter((p) => !closedAll.includes(p));
   const interests = { ...(opts.interests || {}) };
   // s dětmi: zoo, park a pláž výš, galerie a kostely níž – kromě toho, co si uživatel sám vybral (zájem „Muzea a umění“)
   if (kids) for (const [k, v] of Object.entries(KIDS_W)) interests[k] = v < 1 ? (interests[k] > 1 ? interests[k] : v) : Math.max(interests[k] ?? 1, v);
@@ -329,7 +341,13 @@ export function planItinerary(pois, opts) {
   const catLimit = (cat) => ONCE[cat] || (CAP[cat] ? CAP[cat] * Math.max(1, CAP[cat] === 1 ? longDays : Math.round(totalCap / full)) : Infinity);
   // Nejznámější místa (3 na celý den pobytu, celkem 3–10) jdou do výběru hned po připnutých – jinak čas zaplnily delší,
   // méně známé paláce a hradby (Řím: Fontána di Trevi i Vatikánská muzea zůstaly mezi „dalšími místy“).
-  const must = mustSeeIds(near, Math.min(10, Math.max(3, Math.round((totalCap / full) * 3))), center, rural ? 15 : 8, rural ? 5 : 2.5);
+  const mustN = Math.min(10, Math.max(3, Math.round((totalCap / full) * 3)));
+  const must = mustSeeIds(near, mustN, center, rural ? 15 : 8, rural ? 5 : 2.5);
+  // nejznámější (nebo připnutá) památka zavřená po celý pobyt: upozornění, ať ji uživatel nehledá
+  const mustClosed = closedAll.length ? mustSeeIds([...near, ...closedAll], mustN, center, rural ? 15 : 8, rural ? 5 : 2.5) : new Set();
+  for (const p of closedAll) {
+    if (p.pinned || mustClosed.has(p.id)) warnings.push(`${p.name}: ${closedWhy(hoursOf.get(p.id), stay[0])} – v programu není.`);
+  }
   const byWeight = [...near].sort((a, b) => weight(b) - weight(a)).map((p) => ({ ...p, visitMin: visitMinutes(p) }));
   const ranked = [...byWeight.filter((p) => p.pinned), ...byWeight.filter((p) => !p.pinned && must.has(p.id)), ...byWeight.filter((p) => !p.pinned && !must.has(p.id))];
   const choose = (skip) => {
@@ -348,20 +366,23 @@ export function planItinerary(pois, opts) {
   // o MHD tam a zpět – do programu po čtvrtích nepatří, kromě připnutých a nejznámějších (dřív deseti nejvýš
   // v pořadí: v Římě tak den příletu skončil po setmění u sv. Pavla za hradbami a na Via Appia). Na jeho místo se
   // vybere další v pořadí.
-  let chosen = choose(new Set());
-  const outliers = new Set(chosen.filter((p) => !p.pinned && !must.has(p.id)
-    && !chosen.some((q) => q !== p && haversineKm(p.lat, p.lon, q.lat, q.lon) <= (rural ? 5 : 2.5))).map((p) => p.id));
+  const outlier = (p, list) => !p.pinned && !must.has(p.id)
+    && !list.some((q) => q !== p && haversineKm(p.lat, p.lon, q.lat, q.lon) <= (rural ? 5 : 2.5));
   // Čtvrť nebo historické centrum (Alfama, Barri Gòtic, Vatikán), jehož památky program prochází (aspoň 2 do 600 m),
   // není další zastávka na hodinu a půl – čas by se počítal dvakrát. Jméno čtvrti pak dostane den, který jí vede.
   const AREA_KM = 0.6;
   const areaOf = (list) => list.filter((p) => p.category === 'oldtown' && !p.pinned
     && list.filter((q) => q.category !== 'oldtown' && haversineKm(p.lat, p.lon, q.lat, q.lon) <= AREA_KM).length >= 2);
-  const skip = new Set(outliers);
-  if (skip.size) chosen = choose(skip);
+  const skip = new Set();
   const areas = [];
-  for (let round = 0; round < 3; round++) {
+  let chosen = choose(skip);
+  // Za vyřazené se vybere další v pořadí – a i to může být odlehlé nebo čtvrť, proto znovu, dokud se výběr mění
+  // (Řím na 2 dny: místo sv. Pavla za hradbami přišla Via Appia a den skončil v 18:00 po setmění za městem).
+  for (let round = 0; round < 4; round++) {
+    const out = chosen.filter((p) => outlier(p, chosen));
     const more = areaOf(chosen).filter((p) => !skip.has(p.id));
-    if (!more.length) break;
+    if (!out.length && !more.length) break;
+    for (const p of out) skip.add(p.id);
     for (const p of more) { skip.add(p.id); areas.push(p); }
     chosen = choose(skip);
   }
@@ -470,7 +491,8 @@ export function planItinerary(pois, opts) {
           && (!short || haversineKm(center.lat, center.lon, p.lat, p.lon) <= 3);
         const once = (x) => ONCE[x.category] && dayOrder.some((y) => y.items.some((q) => q.category === x.category));
         const weak = short ? weakShort : weakAll;
-        const p = ranked.find((x) => !inPlan.has(x.id) && !skip.has(x.id) && !weak.has(x.id) && x.visitMin <= free * 1.1 && !(CAP[x.category] && cnt(x.category) >= CAP[x.category]) && !once(x) && local(x));
+        const p = ranked.find((x) => !inPlan.has(x.id) && !skip.has(x.id) && !weak.has(x.id) && x.visitMin <= free * 1.1 && !(CAP[x.category] && cnt(x.category) >= CAP[x.category]) && !once(x) && local(x)
+          && !shutOn(x, d.date));
         if (!p) break;
         d.items.push(p);
         inPlan.add(p.id);
@@ -488,15 +510,26 @@ export function planItinerary(pois, opts) {
     const sets = g.map((d) => d.items).sort((a, b) => topW(b) - topW(a));
     g.forEach((d, i) => { d.items = sets[i]; }); // g je v pořadí dnů (days)
   }
-  trips.slice(0, tripDays).forEach((p, i) => {
-    const d = days.find((x) => x.date === [...tripDayDates][i]);
-    if (d) d.items = [{ ...p, visitMin: VISIT_MIN.daytrip }];
-  });
+  // Památka v den, kdy je zavřená: jiný den, nebo z programu ven – nejznámější a připnutá s poznámkou u dne
+  // („🔒 Louvre: v úterý zavřeno“). Krátký den (přílet, odlet) jen s místy do 4 km jako výš.
+  const cityList = days.filter((x) => x.kind === 'city');
+  const canGo = (x, p) => x.cap >= full * 0.7 || haversineKm(center.lat, center.lon, p.lat, p.lon) <= 4;
+  for (const { day, p } of closedFix(cityList, shutOn, CAP, canGo)) {
+    if (p.pinned || must.has(p.id)) day.closed = [...(day.closed || []), { id: p.id, name: p.name, why: closedWhy(hoursOf.get(p.id), day.date) }];
+  }
+  // výlet na den, kdy je cíl otevřený (Neuschwanstein na Štědrý den ne)
+  const tripUsed = new Set();
+  for (const date of tripDayDates) {
+    const d = days.find((x) => x.date === date);
+    const p = trips.find((x) => !tripUsed.has(x.id) && !shutOn(x, date));
+    if (p && d) { tripUsed.add(p.id); d.items = [{ ...p, visitMin: VISIT_MIN.daytrip }]; } else if (d) d.kind = 'city';
+  }
   // Den bez programu (malé místo: v dosahu pěšky nic, krátký den příjezdu bere jen místa do 4 km) a s aspoň 2,5 h času:
-  // výlet do okolí do 30 km (Nizza Monferrato → Asti 18 km), ať den není jen „volno“, když kousek je co vidět.
-  const taken = new Set(days.flatMap((d) => d.items.map((p) => p.id)));
+  // výlet do okolí do 30 km (Nizza Monferrato → Asti 18 km), ať den není jen „volno“, když kousek je co vidět. Ne
+  // čtvrť, kterou už program prochází (Řím na 12 dní: poslední den „výlet“ do Vatikánu, kde byl den 3).
+  const taken = new Set([...days.flatMap((d) => d.items.map((p) => p.id)), ...areas.map((p) => p.id)]);
   for (const d of days.filter((x) => !x.items.length && x.cap >= 150)) {
-    const p = pois.filter((x) => !taken.has(x.id))
+    const p = pois.filter((x) => !taken.has(x.id) && !shutOn(x, d.date))
       .map((x) => ({ x, km: haversineKm(center.lat, center.lon, x.lat, x.lon) }))
       .filter((c) => c.km > 4 && c.km <= 30)
       .sort((a, b) => weight(b.x) - weight(a.x))[0]?.x;
@@ -510,7 +543,9 @@ export function planItinerary(pois, opts) {
     const prev = i ? arr[i - 1] : center;
     const km = walkKm(prev, p);
     const ship = boat(prev, p);
-    return { ...p, fromPrevKm: Math.round(km * 10) / 10, fromPrevMin: Math.round((km / speed) * 60), transit: ship || km > transitKm(kids), ...(ship ? { boat: true } : {}) };
+    // zavírací den a otevírací doba známé památky („zavřeno v úterý · otevřeno 9:00–18:00“)
+    const note = hoursNote(hoursOf.get(p.id), opts.start, opts.end);
+    return { ...p, fromPrevKm: Math.round(km * 10) / 10, fromPrevMin: Math.round((km / speed) * 60), transit: ship || km > transitKm(kids), ...(ship ? { boat: true } : {}), ...(note ? { hoursNote: note } : {}) };
   });
   const capOf = new Map(caps.map((c) => [c.date, c]));
   for (const d of days) {
@@ -541,7 +576,7 @@ export function planItinerary(pois, opts) {
     d.minutes = d.items.reduce((s, p) => s + p.visitMin, 0);
     delete d.center;
   }
-  addTips(days, near.map((p) => ({ ...p, visitMin: visitMinutes(p) })), areas, { weight, kids, start: center });
+  addTips(days, near.map((p) => ({ ...p, visitMin: visitMinutes(p) })), areas, { weight, kids, start: center, closed: shutOn });
   const usedIds = new Set(days.flatMap((d) => d.items.map((p) => p.id)));
   return { days, spare: pois.filter((p) => !usedIds.has(p.id)).slice(0, 30), warnings };
 }
@@ -554,7 +589,7 @@ export function planItinerary(pois, opts) {
  *  evening – náměstí, vyhlídka, čtvrť, divadlo nebo pláž do 1,2 km od konce dne (každé jen jednou)
  *  passBy (u zastávky) – známé stavby, kolem kterých vede pěší cesta k ní
  */
-export function addTips(days, pool, areas = [], { weight = (p) => p.score, kids = false, start = null } = {}) {
+export function addTips(days, pool, areas = [], { weight = (p) => p.score, kids = false, start = null, closed = () => false } = {}) {
   const used = new Set(days.flatMap((d) => d.items.map((p) => p.id)));
   const evenings = new Set(); // stejný tip na večer ne každý den (Lisabon: třikrát náměstí Figueira)
   const passed = new Set();
@@ -569,18 +604,20 @@ export function addTips(days, pool, areas = [], { weight = (p) => p.score, kids 
   }
   for (const d of days.filter((x) => x.kind === 'city' && x.items.length)) {
     const other = new Set(days.filter((x) => x !== d).flatMap((x) => x.items.map((p) => p.id)));
+    // tipy jen na místa, která jsou ten den otevřená (na déšť ne muzeum se zavíracím dnem)
+    const open = (p) => !closed(p, d.date);
     if (d.lunch) {
       const at = d.items[d.lunch.after];
-      const tip = best(pool.filter((p) => (p.category === 'market' || p.eatery) && !other.has(p.id) && haversineKm(at.lat, at.lon, p.lat, p.lon) <= 0.8))[0];
+      const tip = best(pool.filter((p) => (p.category === 'market' || p.eatery) && !other.has(p.id) && open(p) && haversineKm(at.lat, at.lon, p.lat, p.lon) <= 0.8))[0];
       if (tip) d.lunch.tip = slim(tip, at);
     }
     const mid = centroid(d.items);
     const outside = d.items.filter((p) => OUTDOOR.has(p.category)).reduce((s, p) => s + p.visitMin, 0);
-    const rain = outside >= 60 ? best(pool.filter((p) => !used.has(p.id) && indoor(p) && !(kids && p.category === 'gallery')
+    const rain = outside >= 60 ? best(pool.filter((p) => !used.has(p.id) && indoor(p) && !(kids && p.category === 'gallery') && open(p)
       && haversineKm(mid.lat, mid.lon, p.lat, p.lon) <= 1.5)).slice(0, 2) : [];
     if (rain.length) d.rain = rain.map((p) => slim(p));
     const last = d.items.at(-1);
-    const eve = best(pool.filter((p) => !used.has(p.id) && !evenings.has(p.id) && !passed.has(p.id) && EVENING_IDEA.has(p.category) && !rain.includes(p)
+    const eve = best(pool.filter((p) => !used.has(p.id) && !evenings.has(p.id) && !passed.has(p.id) && EVENING_IDEA.has(p.category) && !rain.includes(p) && open(p)
       && haversineKm(last.lat, last.lon, p.lat, p.lon) <= 1.2))[0];
     if (eve) { d.evening = slim(eve, last); evenings.add(eve.id); }
     // Cestou kolem: známá stavba do 150 m od pěšího úseku (Hofburg mezi morovým sloupem a operou) – bez zastávky v programu,
@@ -657,6 +694,46 @@ export function improveDays(days, CAP = {}) {
     }
     if (!changed) break;
   }
+}
+
+/**
+ * Památky v den, kdy jsou zavřené (isClosed(p, datum)): napřed výměna celého programu s jiným dnem, kde je všechno
+ * otevřené – Vatikánská muzea a bazilika sv. Petra zůstanou v jednom dni; pak přesun místa do nejbližšího dne s volným
+ * časem, nebo výměna s místem, které je otevřené i v původním dni. Co nejde nikam, z programu vypadne → [{ day, p }].
+ * canGo(den, místo) = smí místo do dne (krátký den příletu jen kousek od ubytování).
+ */
+export function closedFix(days, isClosed, CAP = {}, canGo = () => true) {
+  const bad = (items, date) => items.filter((p) => isClosed(p, date));
+  const fits = (items, d) => !items.length || (mins(items) <= d.cap * 1.1 && items.every((p) => canGo(d, p)));
+  for (const d of days) {
+    if (!bad(d.items, d.date).length) continue;
+    const x = days.filter((y) => y !== d && y.cap > 0 && !bad(d.items, y.date).length && !bad(y.items, d.date).length && fits(d.items, y) && fits(y.items, d))
+      .sort((a, b) => Math.abs(a.cap - d.cap) - Math.abs(b.cap - d.cap))[0];
+    if (x) [d.items, x.items] = [x.items, d.items];
+  }
+  const dropped = [];
+  const catOk = (x, p, out) => !CAP[p.category] || x.items.filter((q) => q !== out && q.category === p.category).length < CAP[p.category];
+  for (const d of days) {
+    for (const p of bad(d.items, d.date)) {
+      d.items = d.items.filter((q) => q !== p);
+      const open = days.filter((x) => x !== d && x.cap > 0 && !isClosed(p, x.date) && canGo(x, p)).sort((a, b) => distToItems(a, p) - distToItems(b, p));
+      let target = open.find((x) => catOk(x, p) && mins(x.items) + p.visitMin <= x.cap * 1.1);
+      for (const x of target ? [] : open) {
+        // výměna: z cílového dne místo, které je otevřené i tady a vejde se sem (nejblíž zbytku tohoto dne)
+        const q = x.items.filter((y) => !y.pinned && !isClosed(y, d.date) && canGo(d, y) && catOk(x, p, y) && catOk(d, y)
+          && mins(x.items) - y.visitMin + p.visitMin <= x.cap * 1.1 && mins(d.items) + y.visitMin <= d.cap * 1.1)
+          .sort((a, b) => distToItems(d, a) - distToItems(d, b))[0];
+        if (!q) continue;
+        x.items = x.items.filter((y) => y !== q);
+        d.items.push(q);
+        target = x;
+        break;
+      }
+      if (target) target.items.push(p);
+      else dropped.push({ day: d, p });
+    }
+  }
+  return dropped;
 }
 
 function distToItems(day, p) {

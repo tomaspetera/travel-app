@@ -712,7 +712,7 @@
         ${d.area ? `<p class="dp-area">🏘️ Oblast: ${esc(d.area)}</p>` : ''}
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${p.at ? `~${esc(p.at)}, ` : ''}${minTxt(p.visitMin)}</span>
           ${inclHtml(p, 'dp-walk')}<div class="dp-walk">${!p.transit && !(p.fromPrevKm >= 0.1) ? (j === 0 ? (fromC ? 'hned v centru' : 'hned u ubytování') : 'hned vedle') // Casa Amatller vedle Casa Batlló – ne „0 km pěšky (~0 min)“
-            : `${j === 0 ? (fromC ? 'od centra' : 'od ubytování') : 'dál'} ${p.transit ? `${num(p.fromPrevKm)}\u00a0km – ${p.boat ? 'lodí' : ride}` : `${num(p.fromPrevKm)}\u00a0km pěšky (~${minTxt(p.fromPrevMin)})`}`}${passByTxt(p)}</div></div>
+            : `${j === 0 ? (fromC ? 'od centra' : 'od ubytování') : 'dál'} ${p.transit ? `${num(p.fromPrevKm)}\u00a0km – ${p.boat ? 'lodí' : ride}` : `${num(p.fromPrevKm)}\u00a0km pěšky (~${minTxt(p.fromPrevMin)})`}`}${passByTxt(p)}</div>${p.hoursNote ? `<div class="dp-walk dp-hours">🕘 ${esc(p.hoursNote)}</div>` : ''}</div>
           <button type="button" title="Vyřadit z plánu" data-drop="${esc(p.id)}">✕</button></div>${lunchHtml(d, j)}`).join('')
           : `<div class="faint" style="font-size:13px;padding:6px 0">${d.cap ? 'Volno – odpočinek, jídlo, procházka.' : 'Den cesty – bez programu.'}</div>`}
         ${d.items.length && d.kind !== 'daytrip' ? `<div class="faint" style="font-size:11.5px;margin-top:4px">celkem ~${minTxt(d.minutes)} prohlídek · ${num(d.walkKm)} km pěšky${d.end ? ` · konec ~${esc(d.end)}` : ''}</div>` : ''}
@@ -727,6 +727,8 @@
     ? `<div class="dp-pause">🍽️ Oběd${d.lunch.at ? ` ~${esc(d.lunch.at)}` : ''}${d.lunch.tip ? ` · tip: ${tipName(d.lunch.tip)}` : ''}</div>` : '');
   const passByTxt = p => (Array.isArray(p.passBy) && p.passBy.length ? ` · cestou kolem: ${esc(p.passBy.join(', '))}` : '');
   const tipsHtml = d => [
+    // nejznámější nebo vybrané místo, které ten den zavírá a jiný den se nevešlo (Louvre na jednodenní cestě v úterý)
+    Array.isArray(d.closed) && d.closed.length ? `<div class="dp-tip">🔒 ${d.closed.map(x => `${esc(x.name)}: ${esc(x.why)}`).join(' · ')}</div>` : '',
     d.evening ? `<div class="dp-tip">🌙 Na večer: ${tipName(d.evening)}</div>` : '',
     Array.isArray(d.rain) && d.rain.length ? `<div class="dp-tip dp-rain" hidden>🌧️ Když prší: ${d.rain.map(tipName).join(' · ')}</div>` : '',
   ].join('');
