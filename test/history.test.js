@@ -24,7 +24,7 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
  */
 function app() {
   const H = { list: [{ url: '', state: null }], i: 0, pending: [], exits: 0 };
-  const el = () => { const c = new Set(); return { innerHTML: '', scrollTop: 0, classList: { add: (k) => c.add(k), remove: (k) => c.delete(k), contains: (k) => c.has(k) } }; };
+  const el = () => { const c = new Set(); return { innerHTML: '', scrollTop: 0, contains: () => false, classList: { add: (k) => c.add(k), remove: (k) => c.delete(k), contains: (k) => c.has(k) } }; };
   const els = { '#modalBg': el(), '#modal': el(), '#toast': el() };
   const copy = (s) => (s == null ? null : structuredClone(s));
   const ctx = {
@@ -54,7 +54,7 @@ function app() {
       activeView = v;
       if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));
     }`, ctx);
-  vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'histPop', 'hashView', 'modalKb', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
+  vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'histPop', 'hashView', 'modalKb', 'kbSel', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
   // go() v app.js volá viewStep přes histDo – ověřit, že řádek ve stubu je opravdu ten z app.js
   assert.ok(APP.includes("if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));"), 'go(): zápis do historie');
   // posun stránky se čte jen pro nový krok (čtení scrollY vynutí rozvržení – při startu zbytečně)

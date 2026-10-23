@@ -208,3 +208,28 @@ test('zapojení: skripty po sharelink.js a backup.js, ⋯ Další, postranní pa
   assert.doesNotMatch(tf, /\son[a-z]+="/, 'žádné obsluhy v atributech (CSP)');
   assert.match(app, /\['📲', 'Přenos do jiného zařízení QR kódem'/);
 });
+
+test('QR přes celou obrazovku: Escape zavře jen QR kód, ne i okno Přenést pod ním (to zavírá Escape na document)', async () => {
+  const { url } = await linkOf(light());
+  const ls = [], el = { removed: false, setAttribute() {}, remove() { this.removed = true; }, querySelector: () => ({ style: {} }) };
+  Object.assign(ctx, {
+    document: { createElement: () => el, body: { appendChild() {} } },
+    addEventListener: (type, fn, cap) => ls.push({ type, fn, cap: cap === true }),
+    removeEventListener: (type, fn, cap) => { const i = ls.findIndex((l) => l.type === type && l.fn === fn && l.cap === (cap === true)); if (i >= 0) ls.splice(i, 1); },
+    innerWidth: 412, innerHeight: 860, devicePixelRatio: 2,
+  });
+  try {
+    T.zoom(T.fit(url).qr);
+    const key = ls.find((l) => l.type === 'keydown');
+    assert.ok(key && key.cap, 'Escape zachycený na window dřív (capture), než dojde k obsluze okna na document');
+    let stopped = false;
+    key.fn({ key: 'Tab', stopPropagation() { stopped = true; } });
+    assert.equal(el.removed || stopped, false, 'jiná klávesa QR kód nezavře');
+    key.fn({ key: 'Escape', stopPropagation() { stopped = true; } });
+    assert.ok(el.removed, 'QR kód zavřený');
+    assert.ok(stopped, 'Escape dál nejde – okno Přenést zůstane otevřené');
+    assert.deepEqual(ls.map((l) => l.type), [], 'obsluhy (i keydown s capture) uklizené');
+  } finally {
+    for (const k of ['document', 'addEventListener', 'removeEventListener', 'innerWidth', 'innerHeight', 'devicePixelRatio']) delete ctx[k];
+  }
+});

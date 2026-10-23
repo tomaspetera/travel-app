@@ -171,9 +171,13 @@ test('klávesnice: karty a odkazy z <div>/<span> jdou Tabem vybrat a Enterem ote
 });
 
 test('klávesnice: otevřené okno dostane fokus, Tab v něm koluje a po zavření se fokus vrátí (jen počítač s myší)', () => {
-  assert.match(appJs, /const modalKb = \{ ret: null, mq: [^\n]*matchMedia\('\(min-width:1024px\) and \(hover:hover\) and \(pointer:fine\)'\)/);
-  assert.match(appJs, /if \(!was\) modalKb\.ret = document\.activeElement;/);
+  assert.match(appJs, /const modalKb = \{ ret: null, sel: '', mq: [^\n]*matchMedia\('\(min-width:1024px\) and \(hover:hover\) and \(pointer:fine\)'\)/);
+  // okno z okna přes modalClose() + modalOpen() (Info o zemi z okna cesty): fokus je na tlačítku zavřeného okna, které
+  // zmizí – zůstane původní tlačítko
+  assert.match(appJs, /if \(!was && !\$\('#modal'\)\.contains\(document\.activeElement\)\) \{ modalKb\.ret = document\.activeElement; modalKb\.sel = kbSel\(modalKb\.ret\); \}/);
   assert.match(appJs, /if \(on\) \{ if \(!m\.contains\(a\)\) \{ m\.tabIndex = -1; m\.focus\(\{ preventScroll: true \}\); \} return; \}/);
+  // tlačítko překreslené, zatímco bylo okno otevřené (karta cesty v Plánovači po úpravě v okně): stejné id / data-*
+  assert.match(appJs, /const r = r0 && r0\.isConnected \? r0 : sel \? \$\$\(sel\)\.find\(x => !m\.contains\(x\) && x\.getClientRects\(\)\.length\) : null;/);
   assert.match(appJs, /r\.focus\(\{ preventScroll: true \}\)/);
   assert.match(appJs, /if \(e\.key !== 'Tab' \|\| e\.defaultPrevented \|\| !\$\('#modalBg'\)\.classList\.contains\('show'\)\) return;/);
   assert.match(css, /#modal:focus\{outline:none\}/);
@@ -186,4 +190,18 @@ test('myš a dlouhé řádky: odkazy sekcí a čipy reagují na najetí, „Jak 
   assert.match(css, /\.sg-list>li\{break-inside:avoid/);
   assert.match(css, /#results \.res-foot\{max-width:min\(100%,90ch\)\}/);
   assert.match(flightsCss, /#results>\.res-more~\.res-foot\{[^}]*max-width:min\(calc\(100% - var\(--side\) - var\(--gap\)\),90ch\)\}/);
+});
+
+test('klávesnice: fokus po zavření okna najde i překreslené tlačítko – podle id, jinak podle prvního data-* atributu', () => {
+  const src = appJs.match(/^function kbSel\(el\) \{[\s\S]*?^\}/m);
+  assert.ok(src, 'app.js: kbSel');
+  const body = { tagName: 'BODY' };
+  const kbSel = new Function('document', 'CSS', `${src[0]}; return kbSel;`)({ body }, { escape: (s) => String(s).replace(/["\\]/g, '\\$&') });
+  const el = (tagName, id, attrs) => ({ tagName, id, attributes: Object.entries(attrs).map(([name, value]) => ({ name, value })) });
+  assert.equal(kbSel(el('BUTTON', 'tripCountry', { class: 'btn' })), '#tripCountry');
+  assert.equal(kbSel(el('DIV', '', { class: 'card trip', 'data-ti': '0', tabindex: '0' })), 'div[data-ti="0"]', 'karta cesty v Plánovači');
+  assert.equal(kbSel(el('DIV', '', { class: 'card dest', 'data-iso': 'PT', 'data-photo': 'x' })), 'div[data-iso="PT"]');
+  assert.equal(kbSel(el('SPAN', '', { class: 'link' })), '', 'bez id a data-* nic');
+  assert.equal(kbSel(body), '');
+  assert.equal(kbSel(null), '');
 });
