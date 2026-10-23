@@ -1151,7 +1151,9 @@ function renderCountries() {
 // o.hist === false: okno si krok historie řídí samo (náhled cíle – flights.js dpOpen)
 function modalOpen(html, o = {}) {
   const was = $('#modalBg').classList.contains('show');
-  if (!was) modalKb.ret = document.activeElement; // tlačítko, které okno otevřelo – po zavření na něj vrátit fokus
+  // tlačítko, které okno otevřelo – po zavření na něj vrátit fokus; okno z okna přes modalClose() a hned modalOpen()
+  // (Info o zemi z okna cesty) má fokus ještě na tlačítku zavřeného okna, které zmizí – vrátit na původní tlačítko
+  if (!was && !$('#modal').contains(document.activeElement)) { modalKb.ret = document.activeElement; modalKb.sel = kbSel(modalKb.ret); }
   $('#modal').innerHTML = html; $('#modalBg').classList.add('show');
   if (!was) { $('#toast').classList.remove('show'); $('#modal').scrollTop = 0; } // nové okno nahoře, ne s posunem z minulého
   // krok historie jen pro nově otevřené okno – okno otevřené z okna (Info o zemi z náhledu…) ho jen nahradí
@@ -1175,7 +1177,17 @@ $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) modalClose(); };
    posouvají okno), Tab v něm koluje dokola a po zavření (✕, Escape, Zpět, klik vedle) se fokus vrátí na tlačítko,
    které okno otevřelo. Jen počítač s myší – na telefonu beze změny. Okno, které fokus dá samo dovnitř (nabídka ⋯), si
    ho nechá. */
-const modalKb = { ret: null, mq: window.matchMedia ? matchMedia('(min-width:1024px) and (hover:hover) and (pointer:fine)') : null };
+const modalKb = { ret: null, sel: '', mq: window.matchMedia ? matchMedia('(min-width:1024px) and (hover:hover) and (pointer:fine)') : null };
+/**
+ * Jak tlačítko, které okno otevřelo, najít i po překreslení stránky (karta cesty v Plánovači po úpravě v okně, karta
+ * země): podle id, jinak podle prvního data-* atributu ('' = nejde).
+ */
+function kbSel(el) {
+  if (!el || !el.tagName || el === document.body) return '';
+  if (el.id) return `#${CSS.escape(el.id)}`;
+  const d = [...el.attributes].find(x => x.name.startsWith('data-'));
+  return d ? `${el.tagName.toLowerCase()}[${d.name}="${CSS.escape(d.value)}"]` : '';
+}
 new MutationObserver(() => {
   const m = $('#modal'), on = $('#modalBg').classList.contains('show');
   if (on === modalKb.on) return;
@@ -1183,9 +1195,10 @@ new MutationObserver(() => {
   if (!modalKb.mq || !modalKb.mq.matches) return;
   const a = document.activeElement;
   if (on) { if (!m.contains(a)) { m.tabIndex = -1; m.focus({ preventScroll: true }); } return; }
-  const r = modalKb.ret; modalKb.ret = null;
+  const r0 = modalKb.ret, sel = modalKb.sel; modalKb.ret = null; modalKb.sel = '';
+  const r = r0 && r0.isConnected ? r0 : sel ? $$(sel).find(x => !m.contains(x) && x.getClientRects().length) : null;
   // fokus někam přesunula sama akce okna (náhled cíle vrací na 🔎) → nechat
-  if ((!a || a === document.body || $('#modalBg').contains(a)) && r && r.isConnected && r.getClientRects().length) r.focus({ preventScroll: true });
+  if ((!a || a === document.body || $('#modalBg').contains(a)) && r && r.getClientRects().length) r.focus({ preventScroll: true });
 }).observe($('#modalBg'), { attributes: true, attributeFilter: ['class'] });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Tab' || e.defaultPrevented || !$('#modalBg').classList.contains('show')) return;
