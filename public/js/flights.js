@@ -829,7 +829,7 @@
     if (f.arrival === false) bits.push('bez cesty z letiště do města');
     if (f.directOnly) bits.push('jen přímé');
     if (BAG_LBL[f.bags]) bits.push('🧳 ' + BAG_LBL[f.bags]);
-    if (f.outDays.length && !multi) bits.push('odlet ' + f.outDays.map(d => DOW[d]).join(','));
+    if (f.outDays.length && !multi) bits.push('odlet ' + SearchHelp.dowList(f.outDays)); // „odlet pá nebo so“ (ne „Pá,So“)
     syncDepAfter();
     if (f.depAfter) bits.push(`${fmtDate(f.depAfter.date)} odlet od ${f.depAfter.time}`);
     $('#moreSummary').textContent = bits.length ? '· ' + bits.join(' · ') : '';
@@ -1298,9 +1298,23 @@
     const f = h ? h.from : fromInput ? fromInput.items : [];
     const r = h ? (h.radius ?? 200) : $('#radius') ? +$('#radius').value : 200;
     const chip = $('#homeChip');
-    chip.innerHTML = f.length ? `📍 ${esc(f.map(x => x.label).join(', '))} <span>+${r} km</span>` : '📍 Odkud létáš?';
+    // bez domova akce, ne další „Odkud létáš?“ – ptá se jen jedno místo na Přehledu (homeAsk), čip k němu vede
+    chip.innerHTML = f.length ? `📍 ${esc(f.map(x => x.label).join(', '))} <span>+${r} km</span>` : '📍 Nastavit domov';
     // domov radaru se mění v radaru na Přehledu (hledání odjinud ho nemění)
-    chip.onclick = () => { go('dashboard'); setTimeout(() => { radarSetup(Boolean(h)); $('#radar').scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60); };
+    chip.onclick = () => { go('dashboard'); setTimeout(() => homeAsk(Boolean(h)), 60); };
+  }
+  /**
+   * Čip domova nahoře → místo, kde se Přehled ptá, odkud uživatel létá: bez domova pole „Odkud letíš?“ v uvítání
+   * (nového uživatele), jinak nastavení domova radaru. Posune k poli a dá do něj kurzor – dřív jen sjel k radaru
+   * a pole muselo dostat ještě jedno klepnutí. Změna domova (edit) jen ukáže předvyplněné nastavení, klávesnici neotvírá.
+   */
+  function homeAsk(edit) {
+    const wc = !edit && $('#whatsNew:not([hidden]) .wc-home .pi-input');
+    if (!wc) radarSetup(edit);
+    const inp = wc || (!edit && $('#radarFrom .pi-input'));
+    if (!inp) return $('#radar').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    inp.focus({ preventScroll: true });
   }
 
   /* ---------- hledání ---------- */
@@ -4479,6 +4493,12 @@
     $('#radarModes').hidden = true; $('#radarLw').hidden = true;
     $('#radarSub').textContent = '';
     $('#radarReload').style.visibility = S.home?.from?.length ? '' : 'hidden'; // bez domova není co obnovit
+    // nový uživatel: „Odkud letíš?“ je nahoře v uvítání (app.js) – radar se neptá podruhé, jen řekne, co tu bude
+    // (po skrytí uvítání se překreslí s nastavením)
+    if (!edit && $('#whatsNew:not([hidden]) .wc-home')) {
+      host.innerHTML = '<div class="card radar-setup radar-wait"><div class="muted" style="font-size:13px">📍 Až nahoře v uvítání vybereš, odkud letíš, ukážu tu nejlevnější lety z okolí na příštích 6 týdnů.</div></div>';
+      return;
+    }
     const rad = +(S.home?.radius ?? 200);
     host.innerHTML = `<div class="card radar-setup"><div><b>Odkud obvykle létáš?</b><div class="muted" style="font-size:13px">${edit ? 'Radar ukazuje nejlevnější lety z okolí tohoto místa. Jiná hledání ho nemění.' : 'Nastav výchozí místo a radar ti tu bude ukazovat nejlevnější lety z okolí na příštích 6 týdnů.'}</div></div><div class="rs-where"><div class="place-input" id="radarFrom"></div><label class="rs-radius faint">+ letiště do <select id="radarRadius">${[...new Set([0, 50, 100, 150, 200, 300, 400, 500, rad])].sort((a, b) => a - b).map(k => `<option value="${k}"${k === rad ? ' selected' : ''}>${k ? k + ' km' : '0 km (jen tohle)'}</option>`).join('')}</select></label><label class="rs-radius faint">ceny pro <select id="radarAdults">${[1, 2, 3, 4, 5, 6].map(n => `<option value="${n}"${n === Math.min(6, radarAdults()) ? ' selected' : ''}>${n} ${n === 1 ? 'osobu' : n < 5 ? 'osoby' : 'osob'}</option>`).join('')}</select></label></div><div class="row" style="gap:8px"><button class="btn primary" id="radarGo">${edit ? 'Uložit' : 'Nastavit'}</button>${edit ? '<button class="btn ghost" id="radarCancel">Zrušit</button>' : ''}</div></div>`;
     const pi = new PlaceInput($('#radarFrom'), { origin: true, placeholder: 'Např. Brno, Praha, Vídeň…' });
@@ -4835,11 +4855,12 @@
       if (recent.length >= 2) break;
     }
     host.hidden = !trip && !recent.length;
-    // u shrnutí je cesta sestavená – „Tvoje cesta“ a Otevřít (ne „rozpracovaná“ a Pokračovat)
-    const done = trip && trip.step === 'summary';
-    host.innerHTML = `${trip ? `<div class="card resume-trip"><span class="rs-ico">🧳</span><div class="rs-t"><b>${done ? 'Tvoje cesta' : 'Rozpracovaná cesta'}: ${esc(name)}</b>
-        <small>${fmtDate(d.checkin)}–${fmtDate(d.checkout)} · ${done ? 'sestavená – shrnutí a co zarezervovat' : `krok ${esc(STEP_LBL[trip.step] || 'let')}`}${bases && trip.step === 'stay' ? ` (vybráno ${picked} z ${bases.length})` : ''}</small></div>
-        <button type="button" class="btn sm primary" id="rsTrip">${done ? 'Otevřít' : 'Pokračovat'} →</button></div>` : ''}
+    // u shrnutí je cesta sestavená – „Tvoje cesta“ a Otevřít (ne „rozpracovaná“ a Pokračovat); cesta kamaráda z odkazu,
+    // kterou si příjemce neuložil, „Sdílená cesta“ (tvoje je až po 💾 Uložit si ji) – SearchHelp.resumeKind
+    const kind = trip ? SearchHelp.resumeKind(trip) : '', done = kind === 'done', shared = kind === 'shared';
+    host.innerHTML = `${trip ? `<div class="card resume-trip"><span class="rs-ico">${shared ? '🔗' : '🧳'}</span><div class="rs-t"><b>${shared ? 'Sdílená cesta' : done ? 'Tvoje cesta' : 'Rozpracovaná cesta'}: ${esc(name)}</b>
+        <small>${fmtDate(d.checkin)}–${fmtDate(d.checkout)} · ${shared ? 'z odkazu, zatím neuložená' : done ? 'sestavená – shrnutí a co zarezervovat' : `krok ${esc(STEP_LBL[trip.step] || 'let')}`}${bases && trip.step === 'stay' && !shared ? ` (vybráno ${picked} z ${bases.length})` : ''}</small></div>
+        <button type="button" class="btn sm primary" id="rsTrip">${done || shared ? 'Otevřít' : 'Pokračovat'} →</button></div>` : ''}
       ${recent.length ? `<div class="resume-recent"><span class="faint">🔁 Naposledy:</span>${recent.map((f, i) => `<button type="button" class="recent-chip" data-rsr="${i}" title="Hledat znovu">${esc(watchLabel(f))} <small>${esc(recentSub(f))}</small></button>`).join('')}</div>` : ''}`;
     const b = $('#rsTrip', host); if (b) b.onclick = () => go('trip');
     $$('[data-rsr]', host).forEach(x => x.onclick = () => { go('flights'); setForm(recent[+x.dataset.rsr]); startSearch(); });

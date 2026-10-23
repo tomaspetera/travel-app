@@ -907,7 +907,8 @@
       </div>
       <div class="stepbar">${STEPS.map((s, i) => `${i ? `<i${i <= idx ? ' class="done"' : ''}></i>` : ''}<button type="button" class="st ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${i < idx ? '✓' : s[1]}</span>${s[2]}</button>`).join('')}</div>
       ${sharedHtml(t)}
-      <div class="tw-body"><div id="tripStep"></div><aside class="trip-aside" id="tripAside" aria-label="Přehled cesty">${asideHtml(t)}</aside></div>`;
+      <div class="tw-body"><div id="tripStep"></div><aside class="trip-aside" id="tripAside" aria-label="Přehled cesty">${asideHtml(t)}</aside></div>
+      <div class="trip-next" id="tripNext" hidden></div>`;
     if (window.Photos) Photos.paint(root); // fotka cíle v hlavičce
     asideWire();
     $$('.stepbar [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step));
@@ -921,6 +922,8 @@
     else summaryStep();
     tabIntoView();
     asideNext(); // tlačítko kroku i v přehledu vpravo (krok už je vykreslený)
+    // krok se dokresluje i bez posunu stránky (hotely, trasa, auta dorazí později) – kopie tlačítka na telefonu podle něj
+    if (typeof ResizeObserver === 'function') { stepRO = stepRO || new ResizeObserver(pnSoon); stepRO.disconnect(); stepRO.observe($('#tripStep')); }
   }
   /**
    * Cesta otevřená z cizího odkazu (#trip=, importFromHash), dokud si ji příjemce neuloží: ceny jsou z doby sdílení
@@ -1010,16 +1013,54 @@
    * nepovolené (trasa bez míst) jen ukáže, kde je.
    */
   const NEXT_IDS = ['tfNext', 'rtNext', 'stayNext', 'carNext', 'progNext', 'carSkip'];
+  const NEXT_ALT = { carSkip: 'carSkipTop', stayNext: 'stayDone' }; // stejná akce výš v kroku
+  const nextBtn = () => NEXT_IDS.map(id => $(`#tripStep #${id}`)).find(b => b && b.isConnected !== false && String(b.textContent || '').trim());
+  // kopie zmáčkne tlačítko, které je v kroku teď; ještě nepovolené jen ukáže, kde je
+  const nextPress = () => { const b = nextBtn(); if (!b) return; if (b.disabled) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); else b.click(); };
   function asideNext() {
+    phoneNext();
     const slot = $('#taNext');
     if (!slot) return;
-    const find = () => NEXT_IDS.map(id => $(`#tripStep #${id}`)).find(b => b && b.isConnected !== false && String(b.textContent || '').trim());
-    const nx = find();
+    const nx = nextBtn();
     slot.hidden = !nx;
     if (!nx) { slot.innerHTML = ''; return; }
     slot.innerHTML = `<button type="button" class="btn${nx.classList && nx.classList.contains('primary') ? ' primary' : ''}">${esc(String(nx.textContent).trim())}</button>`;
     const btn = slot.firstElementChild;
-    if (btn) btn.onclick = () => { const b = find(); if (!b) return; if (b.disabled) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); else b.click(); };
+    if (btn) btn.onclick = nextPress;
+  }
+  /**
+   * Telefon: hlavní tlačítko kroku nad plovoucí spodní lištou, dokud v kroku není celé vidět. Po přepnutí kroku je
+   * stránka nahoře a tlačítko leží podle délky kroku kdekoliv – často napůl pod lištou (klepnutí na jeho viditelný kus
+   * trefilo lištu a odvedlo z průvodce) nebo daleko dole. Kopie jako v přehledu vpravo na počítači (asideNext); jakmile
+   * je tlačítko v kroku celé vidět, zmizí. Bez spodní lišty (počítač) se neukazuje.
+   */
+  function phoneNext() {
+    const bar = $('#tripNext'), nav = $('.mobile-nav'), view = $('#view-trip');
+    if (!bar || !nav || !nav.getBoundingClientRect || typeof getComputedStyle !== 'function') return;
+    const b = nextBtn(), r = b && b.getBoundingClientRect ? b.getBoundingClientRect() : null;
+    let show = false;
+    if (r && r.height && view && view.classList.contains('active') && getComputedStyle(nav).display !== 'none') {
+      const head = $('.topbar'), top = head ? head.getBoundingClientRect().bottom : 0, end = nav.getBoundingClientRect().top - 6;
+      const seen = x => x && x.top >= top && x.bottom <= end;
+      // totéž tlačítko i nahoře v kroku („Auto nepotřebuji →“, „Pokračovat k autu →“ u hotelů ve všech místech) – když je
+      // vidět to, kopie by ho jen zdvojila
+      const alt = NEXT_ALT[b.id] && $(`#tripStep #${NEXT_ALT[b.id]}`), ar = alt && alt.getBoundingClientRect ? alt.getBoundingClientRect() : null;
+      show = !seen(r) && !(ar && ar.height && seen(ar));
+    }
+    bar.hidden = !show;
+    if (!show) return;
+    const cls = `btn${b.classList.contains('primary') ? ' primary' : ''}`, txt = String(b.textContent).trim(), key = `${cls}|${b.disabled}|${txt}`;
+    if (bar.dataset.k === key) return;
+    bar.dataset.k = key;
+    bar.innerHTML = `<button type="button" class="${cls}"${b.disabled ? ' aria-disabled="true"' : ''}>${esc(txt)}</button>`;
+    bar.firstElementChild.onclick = nextPress;
+  }
+  // po přepnutí kroku stránka plyne nahoru a krok se posouvá prstem – kopie tlačítka se dopočítá jednou za snímek
+  let pnFrame = 0, stepRO = null;
+  const pnSoon = () => { if (!pnFrame) pnFrame = requestAnimationFrame(() => { pnFrame = 0; phoneNext(); }); };
+  if (typeof addEventListener === 'function' && typeof requestAnimationFrame === 'function') {
+    addEventListener('scroll', pnSoon, { passive: true });
+    addEventListener('resize', pnSoon);
   }
 
   // Přestupy letu jako ve výsledcích („1× přestup (FRA 1 h 35 min)“) – ať je vidět i země „jen přestup“ z 🛂 Před cestou.
@@ -4142,6 +4183,6 @@
   if (typeof S !== 'undefined' && S && S.trip && S.trip.statsWait) { giveUpStats(S.trip); persist(); }
 
   window.Trip = { start, cardData, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, placePt, rideLegs, legBack,
-    // doprava po úsecích trasy a auto jen na některé dny (testy)
-    routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts };
+    // doprava po úsecích trasy a auto jen na některé dny, tlačítko kroku nad spodní lištou (testy)
+    routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts, phoneNext };
 })();

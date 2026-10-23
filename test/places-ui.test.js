@@ -807,6 +807,17 @@ test('Inspirace: místa rozpracované cesty první („Tvoje cesta“) – jen b
   assert.deepEqual(T.tripPlaces(trip({ route: { mode: 'multi', bases } })).map((p) => p.label), ['Řím', 'Florencie', 'Pisa', 'Lucca']);
 });
 
+test('Inspirace: cesta kamaráda z odkazu (#trip=), kterou si příjemce neuložil, není „Tvoje cesta“, ale „🔗 Sdílená cesta“', () => {
+  const trip = (o) => ({ flight: { out: { date: '2099-05-10' } }, dest: { label: 'Řím (Itálie)', lat: 41.9, lon: 12.5, cc: 'IT', country: 'Itálie' }, ...o });
+  const shared = plain(T.tripPlaces(trip({ shared: { on: '2099-04-01' } })));
+  assert.deepEqual(shared.map((p) => [p.label, p.trip, p.shared]), [['Řím', true, true]]);
+  assert.equal(T.inspSub({ ...shared[0], from: '' }), '🔗 Sdílená cesta');
+  // vlastní cesta (i sdílená, kterou si uložil – shared pak zmizí) dál „Tvoje cesta“
+  const own = plain(T.tripPlaces(trip()));
+  assert.equal(own[0].shared, undefined);
+  assert.equal(T.inspSub({ ...own[0], from: '' }), '🧳 Tvoje cesta');
+});
+
 test('Inspirace: 🔁 města z nedávných hledání letů (nejvýš 2, bez cesty a oblastí); známá s polohou, jiná až po klepnutí', () => {
   const r = (...to) => ({ form: { to } });
   const recent = [

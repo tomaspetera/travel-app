@@ -856,16 +856,23 @@ function renderWhatsNew() {
   el.hidden = !mode;
   if (el.hidden) return;
   if (mode === 'welcome' && seen !== WN_ID + WN_NEW) try { localStorage.setItem('atlas_wn', WN_ID + WN_NEW); } catch (e) { /* soukromé okno */ }
-  const hide = () => { try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* nevadí */ } el.hidden = true; };
+  const hide = () => {
+    try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* nevadí */ }
+    const asked = Boolean($('.wc-home', el));
+    el.hidden = true;
+    // uvítání se ptalo „Odkud letíš?“ místo radaru – bez domova se teď ptá radar (radarSetup ve flights.js)
+    if (asked && window.Flights && !S.home?.from?.length) Flights.renderRadar();
+  };
   // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
   const unit = s => s.replace(/(\d) (?=(Kč|km|h|min|°C)(?![\p{L}]))/gu, '$1\u00a0').replace(/(\d\u00a0h) (?=\d)/g, '$1\u00a0');
   const li = x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${unit(x[2])}</div></li>`;
   if (mode === 'welcome') {
     el.classList.add('welcome');
     // „Odkud letíš?“ hned nahoře: jedno klepnutí nastaví domov a radar níž začne ukazovat lety (bez domova je prázdný
-    // a jeho „Odkud obvykle létáš?“ je až pod přehybem)
-    const homeRow = window.Flights && Flights.homeFromChip && !S.home?.from?.length
-      ? `<div class="wc-home"><b>Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div></div>` : '';
+    // a jeho „Odkud obvykle létáš?“ je až pod přehybem). Jediné místo, kde se Přehled ptá – radar pod ním mezitím jen
+    // odkáže sem (radarSetup ve flights.js) a čip domova nahoře sem dá kurzor; jiné město než na čipech napíše do pole.
+    const homeRow = window.Flights && Flights.homeFromChip && Flights.PlaceInput && !S.home?.from?.length
+      ? `<div class="wc-home"><b id="wcHomeL">Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div><div class="place-input wc-from" id="wcFrom"></div></div>` : '';
     el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
       ${homeRow}
       <ol class="wc-steps">
@@ -879,12 +886,19 @@ function renderWhatsNew() {
       const inp = $('#heroTo input'); if (inp) { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus({ preventScroll: true }); }
     };
     // domov nastavený → řádek zmizí (uvítání zůstane); bez polohy čipy zůstanou na výběr
-    $$('[data-wch]', el).forEach(b => b.onclick = () => {
+    const setHome = chip => {
       $$('[data-wch]', el).forEach(x => { x.disabled = true; });
-      Flights.homeFromChip(b.dataset.wch, ok => {
+      Flights.homeFromChip(chip, ok => {
         if (ok) { const r = $('.wc-home', el); if (r) r.remove(); } else $$('[data-wch]', el).forEach(x => { x.disabled = false; });
       });
-    });
+    };
+    $$('[data-wch]', el).forEach(b => b.onclick = () => setHome(b.dataset.wch));
+    // jiné město nebo letiště z našeptávače = domov jako z čipu (letiště do 150 km, 2 osoby – SearchHelp.homeOf)
+    const wf = $('#wcFrom', el);
+    if (wf) {
+      const pi = new Flights.PlaceInput(wf, { origin: true, max: 1, placeholder: 'Jiné město nebo letiště…', onChange: () => { if (pi.items.length) setHome(pi.items[0]); } });
+      pi.input.setAttribute('aria-labelledby', 'wcHomeL');
+    }
   } else {
     el.classList.remove('welcome');
     const more = WHATS_NEW.slice(WN_TOP);
@@ -1815,7 +1829,8 @@ function openTrip(i) {
   $$('[data-addref]', m).forEach(x => { x.onclick = () => addRef(i); });
   $('#tripDel').onclick = () => delTrip(i);
   // termíny míst trasy počítá průvodce (routeStays – Trip.baseDates): klepnutí před jeho dostažením na něj počká
-  const ts = $('#tripStay'); if (ts) ts.onclick = () => withMod('trip', () => routeStays(t) || openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2));
+  // hotel vybraný v průvodci (cesta uložená z průvodce) první, obecné odkazy jen pod ním
+  const ts = $('#tripStay'); if (ts) ts.onclick = () => withMod('trip', () => routeStays(t) || openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2, { chosen: stayChoice((tripWiz(t) || {}).stay) }));
   const tw = $('#tripWizard'); if (tw) tw.onclick = () => { modalClose(); withMod('trip', () => Trip.openSaved(t.wizard, t.tripId)); };
   const tv = $('#tripVisited');
   if (tv) tv.onclick = () => { const ccs = tripNotVisited(t); ccs.forEach(cc => setVisited(cc, true)); toast(`Na mapě navštívených: ${ccs.map(cc => byIso[cc].cs).join(', ')}`); openTrip(i); };
@@ -2115,26 +2130,51 @@ function tripModalSync(mi, mt, mj) {
 function routeStays(t) {
   const w = t.wizard, bs = w && w.route && w.route.mode === 'multi' && Array.isArray(w.route.bases) ? w.route.bases : [];
   if (bs.length < 2 || !window.Trip) return false;
-  let ds = [];
-  try { ds = Trip.baseDates(Trip.sanitizeTrip(JSON.parse(JSON.stringify(w)))); } catch (e) { ds = []; }
+  let ds = [], sw = null;
+  try { sw = Trip.sanitizeTrip(JSON.parse(JSON.stringify(w)), { quotes: true }); ds = Trip.baseDates(sw); } catch (e) { ds = []; } // výstup escapuje
   const pax = +t.pax || 2;
+  // hotel vybraný v průvodci pro místo trasy (z pročištěné cesty) – v okně místa první
+  const chosen = i => stayChoice(sw && sw.route && Array.isArray(sw.route.bases) && sw.route.bases[i] ? sw.route.bases[i].stay : null);
   modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování na trase</h2><div style="opacity:.85;font-size:13px">${bs.length} ${bs.length <= 4 ? 'místa' : 'míst'} · vyber místo</div></div></div>
     <div class="modal-body"><div class="grid" style="gap:10px">${bs.map((b, i) => `<button type="button" class="result-link" data-rs="${i}" style="text-align:left;width:100%"><div class="lg" style="background:#003580">${i + 1}</div><div class="rl-b"><div class="rl-t">${esc(b.name)}</div><div class="rl-s">${ds[i] ? `${fmtDate(ds[i].checkin)} – ${fmtDate(ds[i].checkout)}` : ''}${b.stay && b.stay.name ? ` · vybráno: ${esc(b.stay.name)}` : ''}</div></div><div class="go">→</div></button>`).join('')}</div></div>`);
-  $$('[data-rs]').forEach(x => x.onclick = () => { const i = +x.dataset.rs, d = ds[i] || {}; openStay(bs[i].name, d.checkin || '', d.checkout || '', pax); });
+  $$('[data-rs]').forEach(x => x.onclick = () => { const i = +x.dataset.rs, d = ds[i] || {}; openStay(bs[i].name, d.checkin || '', d.checkout || '', pax, { chosen: chosen(i) }); });
   return true;
+}
+/**
+ * Ubytování vybrané v průvodci (hotel z nabídky nebo zadané ručně) → { name, url, sub, aff } | null. Okno Ubytování
+ * v plánovači ho ukáže první, obecné hledání (Booking, Airbnb, Hostelworld) jen pod ním – dřív tam bylo jen hledání
+ * a vybraný hotel uživatel nenašel. „Jen odkazy“ a „neřeším“ nic nevybraly → null. aff = partnerský odkaz (reklama).
+ */
+function stayChoice(s) {
+  const name = s && typeof s === 'object' && ['pick', 'manual'].includes(s.mode) ? String(s.name || '').trim() : '';
+  if (!name) return null;
+  const url = /^https:\/\//.test(String(s.url || '')) ? String(s.url) : '', aff = /^https:\/\/tp\.media\//.test(url);
+  // web, na který odkaz vede (u partnerského odkazu cílová adresa v u=)
+  let site = '';
+  try { const u = new URL(url); site = (aff ? new URL(u.searchParams.get('u') || '') : u).hostname.replace(/^www\./, ''); } catch (e) { site = ''; }
+  const price = +s.totalCzk > 0 ? `${s.est ? '~' : ''}${czk(+s.totalCzk)} celkem` : '';
+  return { name, url, aff, sub: [s.mode === 'manual' ? 'zadané ručně' : 'vybráno v průvodci', price, site].filter(Boolean).join(' · ') };
+}
+/** Vybrané ubytování nahoře v okně Ubytování: odkaz na hotel (na termín cesty), ručně zadané bez odkazu jen jako řádek. */
+function stayChosenHtml(c) {
+  const body = `<div class="lg" style="background:#16a34a">✓</div><div class="rl-b"><div class="rl-t">${esc(c.name)}</div><div class="rl-s">${esc(c.sub)}${c.aff ? ' <span class="ad-tag">reklama</span>' : ''}</div></div>`;
+  return `<div class="faint stay-h">🏨 Tvoje ubytování</div>${c.url
+    ? `<a class="result-link stay-own" href="${esc(safeUrl(c.url))}" target="_blank" rel="${c.aff ? 'sponsored nofollow noopener' : 'noopener'}">${body}<div class="go">${ico('M5 12h14M13 6l6 6-6 6')}</div></a>`
+    : `<div class="result-link stay-own">${body}</div>`}<div class="faint stay-h">Nebo hledej jinde</div>`;
 }
 // Hostelworld: hledání z adresy (/s?q=) vede na 404 – stránka města /hostels/<kontinent>/<země>/<město>/ (jako
 // server/lib/links.js; termín z adresy nebere), když známe zemi a anglický název města; jinak úvodní stránka webu
 const HW_CONT = { Evropa: 'europe', Afrika: 'africa', Asie: 'asia', 'Severní Amerika': 'north-america', 'Jižní Amerika': 'south-america', 'Oceánie': 'oceania' };
 const hwSlug = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const hwCityPage = (c, cityEn) => (c && HW_CONT[c.cont] && c.en && hwSlug(cityEn) ? `https://www.hostelworld.com/hostels/${HW_CONT[c.cont]}/${hwSlug(c.en)}/${hwSlug(cityEn)}/` : null);
-// opts: label = název do nadpisu (jinak city), hw = stránka města na Hostelworldu
+// opts: label = název do nadpisu (jinak city), hw = stránka města na Hostelworldu, chosen = ubytování vybrané v průvodci
+// (stayChoice) – první, obecné hledání pod ním
 window.openStay = (city, start, end, adults = 2, opts = {}) => {
   const n = Math.min(9, Math.max(1, Math.round(+adults) || 2));
   const b = `https://www.booking.com/searchresults.cs.html?ss=${enc(city)}${start ? `&checkin=${start}&checkout=${end || ''}` : ''}&group_adults=${n}&no_rooms=1&selected_currency=CZK`;
   const a = `https://www.airbnb.cz/s/${enc(city)}/homes?${start ? `checkin=${start}&checkout=${end || ''}&` : ''}adults=${n}`;
   const h = opts.hw || 'https://www.hostelworld.com/';
-  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování · ${esc(opts.label || city)}</h2><div style="opacity:.85;font-size:13px">${start ? fmtDate(start) + (end ? ' – ' + fmtDate(end) : '') : 'vyber si termín na webu'}</div></div></div><div class="modal-body"><div class="grid" style="gap:12px">${provLink('Booking.com', 'Hotely, apartmány, penziony', b, '#003580', 'B.')}${provLink('Airbnb', 'Bydlení u místních', a, '#ff385c', 'A')}${provLink('Hostelworld', opts.hw ? 'Hostely a levná lůžka – stránka města, termín zadej na webu' : 'Hostely a levná lůžka – město a termín zadej na webu', h, '#ff5a00', 'H')}</div><div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Booking a Airbnb otevřou hledání s předvyplněnou destinací (a termínem, pokud je v cestě zadaný).</div></div></div>`);
+  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování · ${esc(opts.label || city)}</h2><div style="opacity:.85;font-size:13px">${start ? fmtDate(start) + (end ? ' – ' + fmtDate(end) : '') : 'vyber si termín na webu'}</div></div></div><div class="modal-body"><div class="grid" style="gap:12px">${opts.chosen ? stayChosenHtml(opts.chosen) : ''}${provLink('Booking.com', 'Hotely, apartmány, penziony', b, '#003580', 'B.')}${provLink('Airbnb', 'Bydlení u místních', a, '#ff385c', 'A')}${provLink('Hostelworld', opts.hw ? 'Hostely a levná lůžka – stránka města, termín zadej na webu' : 'Hostely a levná lůžka – město a termín zadej na webu', h, '#ff5a00', 'H')}</div><div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Booking a Airbnb otevřou hledání s předvyplněnou destinací (a termínem, pokud je v cestě zadaný).</div></div></div>`);
 };
 
 /* ================= INIT / EVENTS ================= */

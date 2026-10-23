@@ -565,6 +565,17 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .step-act2 .btn{flex:1 1 0;justify-content:center;min-height:44px;border-radius:14px}
 /* 320 px bez webových písem: „↩ Jiný let“ a „🔄 Ověřit živou cenu“ se vedle sebe nevejdou – pod sebe, ne přes okraj */
 @media(max-width:380px){.step-act2{flex-wrap:wrap}.step-act2 .btn{flex:1 1 auto;white-space:normal}}
+/* telefon: hlavní tlačítko kroku nad plovoucí spodní lištou (62 px nad okrajem), dokud ho v kroku není celé vidět
+   (trip.js phoneNext) – jinak po přepnutí kroku leželo napůl pod lištou; bez spodní lišty se neukazuje */
+.trip-next{display:none}
+@media(max-width:860px){
+  .trip-next:not([hidden]){display:block;position:fixed;z-index:49;left:max(14px,env(safe-area-inset-left));right:max(14px,env(safe-area-inset-right));
+    bottom:calc(max(12px,env(safe-area-inset-bottom)) + 70px)}
+  .trip-next .btn{width:100%;min-height:52px;border-radius:18px;font-size:15.5px;white-space:normal;text-align:center;text-wrap:balance;
+    box-shadow:0 12px 30px -10px rgba(0,0,0,.55)}
+  .trip-next .btn:not(.primary){background:var(--surface-solid)} /* „Auto nepotřebuji →“: obsah pod ním neprosvítá */
+  .trip-next .btn[aria-disabled="true"]{opacity:.6}
+}
 @media(min-width:861px){.trip-head{min-height:220px;padding:22px 24px}.th-dest h2{font-size:32px}.step-act{flex-direction:row-reverse;align-items:center}.step-act>.btn.primary{flex:none;padding:0 26px}.step-act2{flex:1}.step-act2 .btn{flex:none}}
 @media(max-width:560px){
   .trip-head{min-height:180px;padding:14px 16px;border-radius:24px}

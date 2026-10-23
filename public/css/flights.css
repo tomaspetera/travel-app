@@ -696,6 +696,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .skel{background:linear-gradient(90deg,var(--surface) 0%,var(--surface-2) 50%,var(--surface) 100%);background-size:200% 100%;animation:skel 1.2s ease-in-out infinite}
 @keyframes skel{0%{background-position:100% 0}100%{background-position:-100% 0}}
 .radar-setup{padding:16px 18px;display:grid;grid-template-columns:1.2fr 1.4fr auto;gap:14px;align-items:center}
+.radar-setup.radar-wait{display:block} /* jen věta (na „Odkud letíš?“ se ptá uvítání) */
 .radar-modes{margin:-2px 0 14px}
 /* termíny radaru jako kapsle: vybraná plná (jako cestovní aplikace), ostatní obrys */
 .seg.radar-modes{display:flex;gap:8px;padding:0;background:none;border:none;border-radius:0}
