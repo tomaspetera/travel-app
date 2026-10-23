@@ -1772,6 +1772,30 @@ function addBests(into, add) {
   return into;
 }
 
+/**
+ * Nabídky cíle do odpovědi (options; první = best) z jeho cest seřazených podle ceny letenky: nejvýš 6 nejlevnějších
+ * s různými letišti / daty / aerolinkami (ne 5× totéž o den vedle), + nejlevnější cesta z každého dalšího letiště
+ * odletu (s návratem tam) – filtr „jen lety z X“ (Odkud se vyplatí letět, čip letiště) by jinak cíl schoval, i když
+ * odsud let je (fromBest ho ukazuje), + nejlevnější i s cestou na letiště a do města (tripCzk) – doporučené pořadí
+ * v prohlížeči (rank.js) vybírá z options a s návratem na jiné letiště domova (open-jaw) by mezi nimi chybět mohla.
+ */
+export function groupOptions(trips) {
+  const picked = [];
+  const sig = new Set();
+  for (const t of trips) {
+    const s = `${t.out.from}|${t.out.to}|${t.back?.to || ''}|${t.provider}|${t.out.date.slice(0, 8)}${Math.floor(Number(t.out.date.slice(8)) / 4)}`;
+    if (sig.has(s) && picked.length >= 2) continue;
+    sig.add(s);
+    picked.push(t);
+    if (picked.length >= 6) break;
+  }
+  const have = new Set(picked.map((t) => t.out.from));
+  for (const t of trips) if (homeOf(t) && !have.has(t.out.from)) { have.add(t.out.from); picked.push(t); }
+  const byTrip = trips.reduce((a, t) => (t.tripCzk < a.tripCzk ? t : a), trips[0]);
+  if (byTrip && !picked.includes(byTrip)) picked.push(byTrip);
+  return picked;
+}
+
 // cells (mřížka termínů) = nejlevnější cesty buněk: ocení se a projdou filtry stejně, ale do skupin, výpisu, počtu
 // skrytých ani statistiky cen („Je to dobrá cena?“, výhodnost) nepatří – vrátí se zvlášť (cells), nabídky se nezmění.
 // maxGroups = kolik nejlevnějších cílů odpověď nese (průběžný náhled méně). mixed = kombinace aerolinek a letišť
@@ -1866,20 +1890,7 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
   const obOf = new Map(); // skupina → nejlevnější cesta z každého letiště { czk, n }
   for (const [key, g] of map) {
     g.trips.sort((a, b) => a.perPersonCzk - b.perPersonCzk);
-    // Alternativy: různá letiště/data/aerolinky, ne jen 5× totéž o den vedle.
-    const picked = [];
-    const sig = new Set();
-    for (const t of g.trips) {
-      const s = `${t.out.from}|${t.out.to}|${t.back?.to || ''}|${t.provider}|${t.out.date.slice(0, 8)}${Math.floor(Number(t.out.date.slice(8)) / 4)}`;
-      if (sig.has(s) && picked.length >= 2) continue;
-      sig.add(s);
-      picked.push(t);
-      if (picked.length >= 6) break;
-    }
-    // + nejlevnější cesta z každého dalšího letiště odletu (s návratem tam) – filtr „jen lety z X“ (Odkud se vyplatí
-    // letět, čip letiště) by jinak cíl schoval, i když odsud let je (fromBest ho ukazuje)
-    const have = new Set(picked.map((t) => t.out.from));
-    for (const t of g.trips) if (homeOf(t) && !have.has(t.out.from)) { have.add(t.out.from); picked.push(t); }
+    const picked = groupOptions(g.trips);
     const ob = originBests(g.trips);
     groups.push({
       dest: { ...g.dest, airports: [...new Set(g.trips.map((t) => t.out.to))], climate: monthClimate(picked[0].out.to, picked[0].out.date) },

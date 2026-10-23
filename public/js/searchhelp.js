@@ -1250,21 +1250,24 @@
    * Karty radaru ze skupin výsledku: nejlevnější nabídka cíle; u prodlouženého víkendu (lw) jen s odletem první volný
    * den, nebo večer předem (od 16:00; let bez známého času se bere) – jinak by karta potřebovala další den volna.
    * → [{ g, t }] (u svátků po ceně), n cílů; cíle s klíčem ve skip (🙈 Nezajímá mě) se do n nepočítají.
+   * rank = doporučené pořadí (Rank.radar v rank.js): { pick(nabídky cíle) → nabídka, order([{ g, t }]) → pořadí } místo
+   * nejlevnější letenky a pořadí podle ceny.
    */
-  function radarPick(groups, lw = null, n = 12, skip = null) {
+  function radarPick(groups, lw = null, n = 12, skip = null, rank = null) {
     // 🙈 cíle (skip = klíče cílů) zůstanou na svém místě, místo nich se vezme další nejlevnější – radar je schová až při
     // vykreslení (radarShown), takže cíl vrácený z 🙈 se ukáže hned, bez nového hledání
     const take = ps => { const out = []; let k = 0; for (const p of ps) { if (k >= n) break; out.push(p); if (!(skip && p.g.dest && skip.has(p.g.dest.key))) k++; } return out; };
     const gs = (groups || []).filter(Boolean);
-    if (!lw) return take(gs.filter(g => g.best).map(g => ({ g, t: g.best })));
+    if (!lw && !rank) return take(gs.filter(g => g.best).map(g => ({ g, t: g.best })));
     // server už ranní odlety v předvečer vyřadil (depAfter) – tady jen pojistka
-    const ok = t => t && t.out && (t.out.date >= lw.start || !t.out.hasTime || String(t.out.dep || '').slice(11, 16) >= LW_DEP);
+    const ok = t => t && t.out && (!lw || t.out.date >= lw.start || !t.out.hasTime || String(t.out.dep || '').slice(11, 16) >= LW_DEP);
     const out = [];
     for (const g of gs) {
-      const t = [g.best, ...(g.options || [])].filter(ok).sort((a, b) => a.perPersonCzk - b.perPersonCzk)[0];
+      const ts = [g.best, ...(g.options || [])].filter(ok);
+      const t = rank ? rank.pick(ts) : ts.sort((a, b) => a.perPersonCzk - b.perPersonCzk)[0];
       if (t) out.push({ g, t });
     }
-    return take(out.sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk));
+    return take(rank ? rank.order(out) : out.sort((a, b) => a.t.perPersonCzk - b.t.perPersonCzk));
   }
   // odlet v předvečer prodlouženého víkendu nejdřív v (po práci)
   const LW_DEP = '16:00';
@@ -1585,6 +1588,10 @@
       // 🙈 cíl bez „nové“ – neukazuje se a po vrácení z 🙈 se vrátí známé město, ne nové
       if (!o) return skip.has(destKeyOf(x.id)) ? y : { ...y, newAt: now };
       const moved = Math.abs(x.czk - o.czk) >= Math.max(30, o.czk * 0.03);
+      // doporučené pořadí (rank.js) může u cíle vybrat jinou nabídku (jiný den, letiště – lepší časy) s dražší letenkou:
+      // to není zdražení – bez značky „↑“ (levnější jiná nabídka je „↓“ dál, cíl opravdu zlevnil)
+      const same = o.from === x.from && o.to === x.to && o.d1 === x.d1 && o.d2 === x.d2 && (o.bt || '') === (x.bt || '');
+      if (moved && !same && x.czk > o.czk) return y;
       if (moved) y.was = { czk: o.czk, at: prev.at };
       else if (o.was && now - o.was.at < 3 * 864e5) y.was = o.was;
       if (o.newAt && now - o.newAt < 864e5) y.newAt = o.newAt;
