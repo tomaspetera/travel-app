@@ -9,7 +9,8 @@
      jdou rovnou na server, nic se neukládá; offline selžou a aplikace ukáže svou hlášku.
    - Verzi (BUILD = otisk obsahu souborů aplikace) a seznam souborů k uložení při instalaci dosadí server
      (server/lib/pwa.js). Nová verze na serveru = jiný sw.js → prohlížeč nainstaluje nový service worker, ten si uloží
-     novou sadu souborů, převezme otevřené stránky a staré mezipaměti smaže. */
+     novou sadu souborů, převezme otevřené stránky a staré mezipaměti smaže. Skripty pak z uložené sady jednou uloží
+     znovu (rewriteScripts) – bez předkompilace z instalace, která na telefonu brzdila každý start. */
 'use strict';
 
 const BUILD = 'dev'; // server dosadí otisk obsahu aplikace
@@ -153,8 +154,26 @@ self.addEventListener('activate', (event) => {
     // stránka ze sítě souběžně se spouštěním service workeru (networkFirst – event.preloadResponse)
     if (self.registration.navigationPreload) await self.registration.navigationPreload.enable().catch(() => { });
     await self.clients.claim();
+    await rewriteScripts().catch(() => { });
   })());
 });
+
+/**
+ * Skripty uložené při instalaci jednou znovu uložit – z uložené sady, bez sítě a beze změny obsahu. Ke skriptům, které
+ * service worker uloží během instalace, si Chrome přidá úplnou předkompilaci (V8 code cache se všemi funkcemi) a tu
+ * pak při každém otevření načítá na hlavním vlákně: nejpomalejší část opakovaného startu na telefonu (Playwright,
+ * 412 px, procesor 4× pomalejší: ~0,9 s na hlavním vlákně, DOMContentLoaded ~1,6 s → ~0,8 s; celý prohlížeč na
+ * jednom jádře bez zpomalení ~0,85 → ~0,5 s).
+ * Skripty uložené mimo instalaci se kompilují na pozadí jako bez service workeru a předkompilaci si prohlížeč uloží jen
+ * pro to, co se při startu opravdu spustilo. Selže-li to, zůstane kopie z instalace jako dřív – offline se nic nemění.
+ */
+async function rewriteScripts() {
+  const cache = await caches.open(CACHE);
+  await Promise.all(PRECACHE.filter((u) => /\.js$/.test(u)).map(async (u) => {
+    const res = await cache.match(u);
+    if (res) await cache.put(u, res);
+  }));
+}
 
 self.addEventListener('fetch', (event) => {
   const kind = route(event.request, self.registration.scope);

@@ -32,6 +32,11 @@
   // Poslední výsledky přežijí zavření aplikace (vlastní klíč – stav aplikace má přednost, viz save() v app.js).
   const LAST_LS = 'atlas_last';
   let restored = false; // výsledky na obrazovce jsou uložené z minula, ne z hledání teď
+  // Výsledky z minula (restoreLast) se vykreslí až při prvním otevření Letů (lastDrawNow), ne při startu do skrytého
+  // panelu: výpis stovek nabídek (s předpovědí počasí cílů) zdržel start na telefonu o ~0,15 s (4× pomalejší procesor)
+  // a po dočtení vstupních podmínek se kreslil ještě jednou. Data (lastResult, parse ~20 ms) jsou načtená hned –
+  // plánovač, hlídání cen i průvodce je čtou.
+  let lastDraw = false;
   let running = null; // právě běžící hledání uživatele: { key (dotaz JSON), ctl (AbortController), job (Promise) }
   let fromInput, toInput, heroFrom, heroTo;
   let radarAll = false; // telefon: radar rozbalený na všechny karty („Ukázat další“)
@@ -1296,6 +1301,7 @@
     // filtry výpisu (i 🔥 jen výhodné, čas a přestupy) platí jen pro jedno hledání
     view = { ...view, excludeOrigins: new Set(), onlyOrigin: null, excludeCarriers: new Set(), outDate: null, nights: null, expanded: new Set(), maxPrice: null, onlyDeals: false, newOnly: false, favOnly: false, showMuted: false, ...freshView() };
     if (opts.keepView) Object.assign(view, opts.keepView); // ✕ u filtru hledání: ostatní filtry výpisu zůstanou
+    lastDraw = false; // nevykreslené výsledky z minula už na obrazovku nepatří (Lety ukážou průběh tohoto hledání)
     $('#results').innerHTML = ''; $('#results').classList.remove('aged'); paintGroundStale(true);
     const btn = $('#doSearch'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Hledám…';
     renderProgress({ providers: [], ...(f.trip === 'multi' ? { legs: f.legs.map((l, i) => ({ label: `${(i ? l.from : f.from).map(x => x.label).join(', ')} → ${l.to.map(x => x.label).join(', ')}`, state: 'pending' })) } : {}) }, true);
@@ -1450,6 +1456,20 @@
     fitMode(c.res);
     // sbalit jen když formulář je to hledání (jinak – rozdělané pozdější hledání – zůstane formulář vidět)
     if (watchKey({ form: getForm() }) === watchKey({ form: lastForm })) collapseForm(lastForm);
+    lastDraw = true; // výpis až na Letech (ageCheck → lastDrawNow)
+    // předpověď počasí cílů (Open-Meteo, štítky ve výpisu) až po startu – hotová dřív, než uživatel Lety otevře
+    const res = lastResult;
+    whenIdle(() => { if (lastDraw && lastResult === res) wxLoad(res); });
+  }
+  /** fn, až prohlížeč nemá co dělat (start, vykreslení); bez requestIdleCallback (Safari) za chvíli. */
+  function whenIdle(fn) {
+    if (window.requestIdleCallback) requestIdleCallback(() => fn(), { timeout: 4000 }); else setTimeout(fn, 1500);
+  }
+  /** Lety se ukázaly: výsledky z minula teď na obrazovku (jednou; nové hledání nebo ↺ Začít znovu je zahodí). */
+  function lastDrawNow() {
+    if (!lastDraw) return;
+    lastDraw = false;
+    if (!restored || !lastResult) return;
     renderRestored();
     renderResults();
   }
@@ -1508,6 +1528,7 @@
    * keep = výpis nechat na místě (ne po přepnutí na Lety – stránka tam jede nahoru).
    */
   function ageCheck(keep = true) {
+    if (lastDraw && $('#view-flights.active')) lastDrawNow(); // první otevření Letů: výsledky z minula (stejný krok jako přepnutí – bez probliknutí)
     const host = $('#results'), pr = $('#progress');
     if (document.hidden || !host || !pr || !$('#view-flights.active') || !lastResult || running || !host.children.length) return;
     const part = Boolean(lastResult.partial), a = SearchHelp.resultAge(SearchHelp.shownAt(lastResult, lastResultAt, Date.now()), Date.now());
@@ -1565,7 +1586,7 @@
     const keep = Object.fromEntries(['ground', 'groundMode', 'kmRate', 'carFuel', 'carCons', 'carPrice', 'arrival'].filter(k => S.form && S.form[k] !== undefined).map(k => [k, S.form[k]]));
     mlTouched = false;
     setForm({ ...defaultForm(), ...keep, adults: S.home?.adults || 2 });
-    lastResult = null; lastResultAt = 0; lastPayload = null; lastResultPayload = null; restored = false; fromCard = null;
+    lastResult = null; lastResultAt = 0; lastPayload = null; lastResultPayload = null; restored = false; fromCard = null; lastDraw = false;
     try { localStorage.removeItem(LAST_LS); } catch (e) { /* zakázané úložiště */ }
     $('#results').innerHTML = ''; $('#results').classList.remove('aged'); $('#progress').innerHTML = ''; paintGroundStale(true);
     expandForm();
@@ -3538,6 +3559,7 @@
     return rk ? `.trip-row[data-tid="${CSS.escape(row.dataset.tid)}"] [data-${rk}]` : null;
   }
   function rerender(keepScroll) {
+    if (lastDraw) return; // výsledky z minula ještě nejsou na obrazovce – při otevření Letů se vykreslí celé, už s tím, co se změnilo
     const y = window.scrollY;
     // ovládací prvek s fokusem najít i v překresleném výpisu (stejný klíč víckrát: stejně kolikátý)
     const a = document.activeElement, sel = a && a !== document.body && $('#results').contains(a) ? focusSel(a) : null;

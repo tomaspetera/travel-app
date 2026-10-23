@@ -1,5 +1,6 @@
 // Rychlý start na telefonu: co stránka stahuje hned (preload), desktopové styly mimo kritickou cestu, úvod Přehledu
-// bez poskočení obsahu, úvodní obrazovka aplikace na ploše a zapamatované zjištění vlajek (public/js/flags.js).
+// bez poskočení obsahu, výsledky z minula až při otevření Letů, úvodní obrazovka aplikace na ploše a zapamatované
+// zjištění vlajek (public/js/flags.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -52,6 +53,30 @@ test('service worker ukládá i nové skripty (errlog.js, offershare.js) a deskt
   // nová verze (jiný obsah souborů) = jiný sw.js → prohlížeč po nasazení nainstaluje nový service worker
   assert.match(build, /^[0-9a-f]{12}$/);
   assert.ok(String(body).includes(`const BUILD = '${build}';`));
+});
+
+test('výsledky z minula se při startu jen načtou – vykreslí se až při prvním otevření Letů; go() při startu nevynutí rozvržení', () => {
+  const flights = read('public/js/flights.js');
+  const fn = (name) => {
+    const m = flights.match(new RegExp(`\\n  (?:async )?function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n  \\}`));
+    assert.ok(m, `flights.js: ${name}`);
+    return m[0];
+  };
+  const restore = fn('restoreLast');
+  assert.ok(!/renderResults\(\)|renderRestored\(/.test(restore), 'restoreLast do skrytých Letů nekreslí');
+  assert.match(restore, /lastDraw = true;/);
+  // předpověď počasí cílů až po startu – a jen pro obnovený výsledek, který mezitím nenahradilo hledání
+  assert.match(restore, /whenIdle\(\(\) => \{ if \(lastDraw && lastResult === res\) wxLoad\(res\); \}\);/);
+  assert.match(fn('lastDrawNow'), /if \(!restored \|\| !lastResult\) return;\s*renderRestored\(\);\s*renderResults\(\);/);
+  // přepnutí na Lety (app.js go → Flights.ageCheck) vykreslí v témže kroku; do té doby se skryté překreslení přeskočí
+  assert.match(fn('ageCheck'), /function ageCheck\(keep = true\) \{\n\s*if \(lastDraw && \$\('#view-flights\.active'\)\) lastDrawNow\(\);/);
+  assert.match(read('public/js/app.js'), /if \(v === 'flights' && window\.Flights && Flights\.ageCheck\) Flights\.ageCheck\(/);
+  assert.match(fn('rerender'), /function rerender\(keepScroll\) \{\n\s*if \(lastDraw\) return;/);
+  // nové hledání a ↺ Začít znovu nevykreslené výsledky zahodí – Lety pak ukážou průběh hledání, ne staré výsledky
+  assert.match(fn('startSearch'), /lastDraw = false;[^\n]*\n\s*\$\('#results'\)\.innerHTML = '';/);
+  assert.match(fn('resetSearch'), /restored = false; fromCard = null; lastDraw = false;/);
+  // posun na (0, 0) i s left: prohlížeč ho provede bez vynuceného rozvržení stránky (jen top by si ho vyžádal)
+  assert.match(read('public/js/app.js'), /if \(!opts\.keepScroll\) window\.scrollTo\(\{ top: 0, left: 0, behavior: 'smooth' \}\);/);
 });
 
 test('úvodní obrazovka aplikace na ploše: při mizení už nepřekáží klepnutí na přehled', () => {
