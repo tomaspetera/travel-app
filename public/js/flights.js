@@ -4598,9 +4598,8 @@
     radarWx(r);
     radarPhotos(r);
   }
-  // Počet lidí z radaru do formuláře – jen bez dětí ve formuláři: rodina z minulého hledání zůstane (cena za osobu je
-  // stejná, radar děti nezná)
-  const radarPax = n => (S.form && (S.form.children > 0 || S.form.infants > 0) ? {} : { adults: n, children: 0, infants: 0 });
+  // Počet lidí z radaru do formuláře – jen bez dětí ve formuláři: rodina z minulého hledání zůstane (SearchHelp.radarPax)
+  const radarPax = n => SearchHelp.radarPax(S.form, n);
   /** Karta radaru → hledání do jejího cíle, všechny termíny. */
   function radarGo(x, q) {
     go('flights');
@@ -5163,7 +5162,7 @@
     const r = p.r, ret = Boolean(r.d2) && SearchHelp.diffDays(r.d1, r.d2) <= 45;
     modalClose();
     go('flights');
-    setForm({ ...defaultForm(), ...prefsOf(S.form), from: S.home?.from?.length ? S.home.from : fromInput.items, to: [{ id: p.dest.id || `ap:${r.to}`, label: p.dest.label, flag: flag(p.dest.cc) }], dateMode: 'exact', xOut: r.d1, xFlex: 0, ...(ret ? { trip: 'return', xBack: r.d2 } : { trip: 'oneway' }), adults: p.q.adults, children: p.q.children || 0, infants: p.q.infants || 0, directOnly: false });
+    setForm({ ...defaultForm(), ...prefsOf(S.form), from: S.home?.from?.length ? S.home.from : fromInput.items, to: [{ id: p.dest.id || `ap:${r.to}`, label: p.dest.label, flag: flag(p.dest.cc) }], dateMode: 'exact', xOut: r.d1, xFlex: 0, ...(ret ? { trip: 'return', xBack: r.d2 } : { trip: 'oneway' }), ...radarPax(p.q.adults), directOnly: false });
     if (!getForm().from.length) { askFrom(() => startSearch({ card: r })); return; }
     startSearch({ card: r });
   }

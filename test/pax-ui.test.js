@@ -49,6 +49,19 @@ test('kidsBuyNote: Ryanair a Wizz Air mají děti v odkazu, ostatní je přidaj�
   assert.equal(H.kidsBuyNote(fam, ['wizzair', 'travelpayouts', 'wizzair'], name), 'Wizz Air: děti a miminko už v odkazu · Aviasales: děti a miminko přidej na webu (odkaz jen s dospělými)');
 });
 
+test('z radaru do formuláře (radarPax): rodina z minulého hledání zůstane, bez dětí počet lidí radaru – i u 📌 karty radaru', () => {
+  assert.deepEqual(plain(H.radarPax({ adults: 2 }, 3)), { adults: 3, children: 0, infants: 0 });
+  assert.deepEqual(plain(H.radarPax(null, 2)), { adults: 2, children: 0, infants: 0 });
+  assert.deepEqual(plain(H.radarPax({ adults: 2, children: 1 }, 3)), {}, 'děti zůstanou (prefsOf(S.form))');
+  assert.deepEqual(plain(H.radarPax({ adults: 2, infants: 1 }, 2)), {}, 'miminko nezmizí');
+  // karta radaru, ⭐ Moje cíle i 🔎 Najít tento termín u odložené karty radaru (dřív tam rodina zmizela: dospělí = lidé
+  // radaru, děti a miminka 0)
+  const F = src('flights.js');
+  const body = (name) => F.slice(F.indexOf(`function ${name}(`), F.indexOf('\n  }\n', F.indexOf(`function ${name}(`)));
+  for (const fn of ['radarGo', 'searchFavs', 'pinSearch']) assert.match(body(fn), /\.\.\.radarPax\([^)]*\)/, fn);
+  assert.doesNotMatch(body('pinSearch'), /children: p\.q\.children/);
+});
+
 test('mřížka termínů (gridTrips): cena celkem za všechna sedadla', () => {
   const l = (from, to, date) => ({ from, to, date, dep: `${date}T08:00:00`, provider: 'ryanair' });
   const res = { query: { adults: 2, children: 1, infants: 1 }, top: [], calendar: { grid: { keys: ['out', 'back', 'flightCzk', 'bagCzk', 'groundCzk', 'arrCzk'], legs: [l('PRG', 'BCN', '2026-11-10'), l('BCN', 'PRG', '2026-11-14')], trips: [[0, 1, 2000, 0, 0, 0]] } } };
