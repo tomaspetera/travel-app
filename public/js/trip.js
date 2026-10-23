@@ -3495,7 +3495,7 @@
     $('#myBudget').oninput = () => { const v = Math.max(0, +$('#myBudget').value || 0); setBudget(t, v); $('#budgetOut').innerHTML = budgetOutHtml(c.total, v, est, miss); };
     $('#sumSave').onclick = () => saveToPlanner();
     // okno Sdílet: celá cesta kamarádům (share – jako dřív) nebo karta „Jede někdo se mnou?“ na sítě (sharecard.js)
-    // prime: krátký odkaz se ukládá, jakmile se okno otevře – Poslat kamarádům pak nečeká
+    // prime: krátký odkaz se začne ukládat při dotyku Poslat kamarádům – sdílení pak skoro nečeká
     $('#sumShare').onclick = () => (window.ShareCard ? ShareCard.open(cardData(t), { send: share, prime: () => ShareLink.short('trip', linkJson(t)) }) : share());
     // odkaz se zkomprimuje hned, aby ho kliknutí jen zkopírovalo (Safari dovolí zápis do schránky jen v obsluze kliknutí)
     if (window.ShareLink) ShareLink.prepare('trip', linkJson(t));

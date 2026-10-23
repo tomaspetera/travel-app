@@ -80,10 +80,11 @@
       l.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap&text=' + encodeURIComponent(HAND);
       document.head.appendChild(l);
     });
-    // písma aplikace platí až po stažení jejich stylu (index.html: media print → all) – do té doby by fonts.load nic nenačetl
+    // písma aplikace platí až po stažení jejich stylu (index.html: media print → all) – do té doby by fonts.load nic nenačetl;
+    // styl, který se stáhnout nepovedlo (data-err), už nepřijde – nečekat
     const app = new Promise(r => {
       const l = document.getElementById('fontCss');
-      if (!l || l.media === 'all') return r();
+      if (!l || l.media === 'all' || l.hasAttribute('data-err')) return r();
       l.addEventListener('load', () => setTimeout(r, 0)); l.addEventListener('error', r);
     });
     const load = (f, s) => (document.fonts && document.fonts.load ? document.fonts.load(f, s).catch(() => { }) : null);
@@ -388,10 +389,11 @@
   function open(d0, o = {}) {
     let d;
     try { d = sanitize(d0); } catch (e) { if (o.send) o.send(); return; }
-    if (o.prime) o.prime(); // krátký odkaz na celou cestu se chystá, než uživatel vybere (sharelink.js short)
     const past = d.o < fmtYMD(new Date());
     const link = ShareLink.prepare('jed', json(d0));
     const cardTxt = `${d.f ? `${esc(d.f)} → ` : ''}${esc(d.dest)} · ${MONTHS[monthOf(d) - 1]}`;
+    // „bez ubytování“ platí jen pro kartu na sítě – Poslat kamarádům posílá celou cestu i s ubytováním (proto zámek jen
+    // u karty; pod celým oknem by tvrdil opak toho, co je o řádek výš, u proběhlé cesty dokonce jen pod Poslat kamarádům)
     const thumb = (k, n, on) => `<div class="jed-tw"><button type="button" class="jed-th ${k}${on ? ' on' : ''}" data-kind="${k}" aria-pressed="${on}" aria-label="Karta: ${n}"><span class="jed-ph"></span></button><span>${n}</span></div>`;
     modalOpen(`<div class="modal-body jed-sheet">
       <div class="jed-top"><h3>Sdílet cestu</h3><button type="button" class="jed-x" data-close aria-label="Zavřít">${SVG('<path d="M6 6l12 12M18 6L6 18"/>', 18)}</button></div>
@@ -403,9 +405,11 @@
         <button type="button" class="jed-go2" id="jedShare" disabled>${SVG(I_SHARE, 18)}<span>Chystám obrázky…</span></button>
         <div class="jed-hint" id="jedHint">${HINT.story}</div>
       </div>`}
-      <div class="jed-lock">${SVG(I_LOCK, 16)}Bez účtu. Ubytování ani adresa se nikdy nesdílí.</div>
+      ${past ? '' : `<div class="jed-lock">${SVG(I_LOCK, 16)}Bez účtu. Karta pro sítě nikdy neukáže ubytování ani adresu.</div>`}
     </div>`);
     $$('#modal [data-close]').forEach(b => { b.onclick = () => modalClose(); });
+    // krátký odkaz na celou cestu (sharelink.js short) se začne ukládat už při dotyku – až když ji opravdu posílá
+    $('#jedSend').onpointerdown = () => { if (o.prime) o.prime(); };
     $('#jedSend').onclick = () => { modalClose(); if (o.send) o.send(); };
     if (past) return;
     let cards = null, kind = 'story';

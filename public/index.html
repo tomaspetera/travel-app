@@ -126,8 +126,10 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 <!-- písma bez blokování startu: pomalý server Googlu nesmí zdržet aplikaci (do načtení systémové písmo) -->
 <link id="fontCss" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" media="print">
 <script>
-/* Písmo platí až po stažení (media print → all). Ne atributem onload v HTML – ten CSP stránky nepustí (server/lib/security.js). */
-(function (l) { if (!l) return; var on = function () { l.media = 'all'; }; if (l.sheet) on(); else l.addEventListener('load', on); })(document.getElementById('fontCss'));
+/* Písmo platí až po stažení (media print → all). Ne atributem onload v HTML – ten CSP stránky nepustí (server/lib/security.js).
+   Nestažený styl (bez sítě, blokovaná písma Googlu) si poznamená data-err: karta „Jede někdo se mnou?“ (sharecard.js fonts)
+   na něj pak nečeká – událost error už by znovu nepřišla a okno Sdílet by 8 s ukazovalo „Chystám obrázky…“. */
+(function (l) { if (!l) return; var on = function () { l.media = 'all'; }; if (l.sheet) on(); else { l.addEventListener('load', on); l.addEventListener('error', function () { l.setAttribute('data-err', '1'); }); } })(document.getElementById('fontCss'));
 </script>
 <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/atlas.css">

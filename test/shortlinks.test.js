@@ -57,6 +57,29 @@ test('fotka do náhledu ve výřezu 1200 × 630, jen https', () => {
   assert.equal(S.ogPhoto('https://x.cz/"><script>'), null);
 });
 
+test('mezipaměť před Upstash: uložený odkaz jen jednou z úložiště, neexistující id chvíli bez dotazu', async () => {
+  let t = 0, gets = 0;
+  const inner = S.memoryStore(() => t);
+  const st = S.cachedStore({ kind: 'upstash', get: (k) => { gets++; return inner.get(k); }, add: inner.add }, { max: 2, missMs: 1000, now: () => t });
+  const id = await S.createShare(st, 'trip', JSON.stringify(TRIP));
+  assert.ok(st.has('s:' + id), 'právě uložený odkaz je v mezipaměti');
+  for (let i = 0; i < 5; i++) assert.equal((await S.loadShare(st, id)).k, 'trip');
+  assert.equal(gets, 0, 'otevření i náhledy sítí bez příkazu do Upstash');
+  assert.equal(await S.loadShare(st, 'Zzzzzzzz'), null);
+  assert.equal(await S.loadShare(st, 'Zzzzzzzz'), null);
+  assert.equal(gets, 1, 'neexistující id podruhé bez dotazu');
+  t = 2000;
+  assert.equal(st.has('s:Zzzzzzzz'), false);
+  await S.loadShare(st, 'Zzzzzzzz');
+  assert.equal(gets, 2, 'po chvíli znovu (odkaz mohl mezitím vzniknout jinde)');
+  // nejvýš max záznamů: nejdéle nepoužitý vypadne a načte se znovu z úložiště
+  await S.createShare(st, 'trip', JSON.stringify({ ...TRIP, n: 1 }));
+  await S.createShare(st, 'trip', JSON.stringify({ ...TRIP, n: 2 }));
+  assert.equal(st.has('s:' + id), false);
+  assert.equal((await S.loadShare(st, id)).k, 'trip');
+  assert.equal(gets, 3);
+});
+
 let server, base;
 before(async () => {
   server = createServer();
@@ -84,4 +107,39 @@ test('API v demu: krátký odkaz → stránka s náhledem a přesměrováním do
   assert.equal((await fetch(`${base}/c/Zzzzzzzz`)).status, 404);
   assert.equal((await fetch(`${base}/api/share`)).status, 405);
   assert.equal((await fetch(`${base}/api/share`, { method: 'POST', body: JSON.stringify({ k: 'trip', j: '{}' }) })).status, 400);
+});
+
+test('API: velká cesta pod MAX_JSON projde, i když v těle požadavku zdvojené uvozovky přesáhnou MAX_JSON bajtů', async () => {
+  const json = JSON.stringify({ ...TRIP, notes: Array(37000).fill('ab') });
+  assert.ok(json.length < S.MAX_JSON && JSON.stringify({ k: 'trip', j: json }).length > S.MAX_JSON + 2048);
+  const r = await fetch(`${base}/api/share`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: 'trip', j: json }) });
+  assert.equal(r.status, 200);
+});
+
+test('API: zkoušení náhodných id má limit (každé je příkaz do Upstash), uložené odkazy z mezipaměti ho neubírají', async () => {
+  const r = await fetch(`${base}/api/share`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: 'plan', j: JSON.stringify({ name: 'Řím', dest: 'Řím' }) }) });
+  const { id } = await r.json();
+  const codes = [];
+  for (let i = 0; i < 70; i++) codes.push((await fetch(`${base}/api/share/Rnd${String(i).padStart(5, 'x')}`)).status);
+  assert.ok(codes.includes(429), 'nad limitem 429');
+  assert.ok(codes.slice(0, 50).every((c) => c === 404));
+  assert.equal((await fetch(`${base}/api/share/${id}`)).status, 200, 'uložený odkaz jde otevřít dál');
+  // stránka odkazu nad limitem: bez náhledu, ale přesměrování do aplikace funguje
+  const page = await fetch(`${base}/c/Rndzzzzz`);
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /<meta http-equiv="refresh" content="0;url=\/#s=Rndzzzzz">/);
+  assert.equal(page.headers.get('cache-control'), 'no-store');
+});
+
+test('robot náhledu (Facebook, WhatsApp) dostane stránku bez přesměrování, prohlížeč s přesměrováním', async () => {
+  const r = await fetch(`${base}/api/share`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: 'trip', j: JSON.stringify(TRIP) }) });
+  const { id } = await r.json();
+  for (const ua of ['facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)', 'WhatsApp/2.23.20.0 A']) {
+    const html = await (await fetch(`${base}/c/${id}`, { headers: { 'User-Agent': ua } })).text();
+    assert.match(html, /og:title" content="Tirana/, ua);
+    assert.doesNotMatch(html, /http-equiv="refresh"/, ua);
+  }
+  const page = await fetch(`${base}/c/${id}`, { headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile' } });
+  assert.match(await page.text(), /http-equiv="refresh"/);
+  assert.equal(page.headers.get('vary'), 'User-Agent');
 });

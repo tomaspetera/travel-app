@@ -42,6 +42,36 @@ export function memoryStore(now = Date.now) {
   };
 }
 
+/**
+ * Mezipaměť serveru před Upstash: uložená cesta se nemění, takže stačí ji načíst jednou – každé otevření odkazu jsou
+ * jinak dva příkazy (/c/ a /api/share/) a náhledy sítí (WhatsApp, Facebook, Telegram) stránku stahují znovu; strop
+ * zdarma je 500 000 příkazů měsíčně. Neexistující id si pamatuje 10 minut (zkoušení náhodných id). Nejvýš max
+ * záznamů (~7 kB jeden). has(k) = odpověď bude bez dotazu do úložiště (do limitu adresy se nepočítá).
+ */
+export function cachedStore(store, { max = 300, missMs = 10 * 60e3, now = Date.now } = {}) {
+  const hits = new Map(); // nejdéle nepoužitý na začátku
+  const misses = new Map(); // id → do kdy platí „neexistuje“
+  const keep = (k, v) => { hits.delete(k); hits.set(k, v); if (hits.size > max) hits.delete(hits.keys().next().value); };
+  const missing = (k) => (misses.get(k) || 0) > now();
+  return {
+    kind: store.kind,
+    has: (k) => hits.has(k) || missing(k),
+    async get(k) {
+      if (hits.has(k)) { const v = hits.get(k); keep(k, v); return v; }
+      if (missing(k)) return null;
+      const v = await store.get(k);
+      if (typeof v === 'string') keep(k, v);
+      else { misses.set(k, now() + missMs); if (misses.size > 10 * max) misses.delete(misses.keys().next().value); }
+      return v;
+    },
+    async add(k, v, ttlSec) {
+      const ok = await store.add(k, v, ttlSec);
+      if (ok) { misses.delete(k); keep(k, v); }
+      return ok;
+    },
+  };
+}
+
 // text z cizí cesty do náhledu: bez řídicích znaků a HTML (do stránky jde ještě přes esc)
 const txt = (v, n) => (typeof v === 'string' ? v.replace(/[\x00-\x1f\x7f<>"`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '');
 const ymd = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
@@ -117,7 +147,10 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
  * Stránka /c/<id>: náhled odkazu (WhatsApp, Messenger, Facebook čtou jen meta značky) a hned přesměrování do aplikace
  * (/#s=<id>) – bez skriptu, CSP stránky ho nepotřebuje. base = veřejná adresa webu, fallbackImg = obecný náhled.
  */
-export function sharePage(id, rec, base, fallbackImg) {
+// Roboti náhledů odkazů (Facebook, WhatsApp, Messenger, Telegram…): bez přesměrování – některé ho následují a náhled
+// by pak byl obecný z úvodní stránky místo cíle a termínu cesty.
+export const PREVIEW_BOT = /facebookexternalhit|facebookcatalog|meta-externalagent|WhatsApp|Twitterbot|TelegramBot|Slackbot|Discordbot|LinkedInBot|Pinterest|SkypeUriPreview|Viber|Applebot|Googlebot|bingbot/i;
+export function sharePage(id, rec, base, fallbackImg, { bot = false } = {}) {
   const m = rec.m || {}, url = `${base}/c/${id}`, to = `/#s=${id}`, img = m.img || fallbackImg;
   const title = m.title || 'Cesta z ATLASu';
   const meta = (k, v, a = 'property') => `<meta ${a}="${k}" content="${esc(v)}">`;
@@ -134,7 +167,6 @@ ${meta('og:title', title)}
 ${meta('og:description', m.desc || '')}
 ${meta('og:image', img)}
 ${m.img ? '' : `${meta('og:image:width', '1200')}\n${meta('og:image:height', '630')}\n`}${meta('twitter:card', 'summary_large_image', 'name')}
-<meta http-equiv="refresh" content="0;url=${esc(to)}">
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;background:#eef2fb;color:#0f1830}a{color:#1d4ed8;font-weight:700}</style>
+${bot ? '' : `<meta http-equiv="refresh" content="0;url=${esc(to)}">\n`}<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;background:#eef2fb;color:#0f1830}a{color:#1d4ed8;font-weight:700}</style>
 </head><body><p>Otevírám cestu v ATLASu… <a href="${esc(to)}">Otevřít</a></p></body></html>`;
 }

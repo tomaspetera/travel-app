@@ -174,3 +174,11 @@ test('krátký odkaz: cesta se uloží jednou (/api/share), sdílí a kopíruje 
   const r = await off.send('trip', TRIP);
   assert.match(r.url, /#trip=z/, 'server bez úložiště (503) → dlouhý odkaz jako dřív');
 });
+
+test('krátký odkaz: nepovedené uložení (výpadek) se příště zkusí znovu', async () => {
+  let n = 0;
+  const L2 = load({ fetch: async () => (++n === 1 ? { ok: false, json: async () => ({}) } : { ok: true, json: async () => ({ id: 'Ab3kQ9xZ' }) }) });
+  assert.equal(await L2.short('trip', TRIP).done, null);
+  assert.equal(await L2.short('trip', TRIP).done, 'https://atlas.example/c/Ab3kQ9xZ');
+  assert.equal(n, 2);
+});

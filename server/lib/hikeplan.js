@@ -316,15 +316,28 @@ export async function foodAlong(lines, { onMiss } = {}) {
   const key = `overpass-food:${createHash('sha1').update(query).digest('base64url').slice(0, 22)}`;
   const hit = cache.get(key);
   if (hit !== undefined) return hit;
-  if (Date.now() < overpassDownUntil) throw new Error('Overpass je chvíli mimo provoz.');
+  const down = () => {
+    if (Date.now() < overpassDownUntil) throw Object.assign(new Error('Overpass je chvíli mimo provoz.'), { code: 'DOWN' });
+  };
+  down();
   if (onMiss) onMiss();
   try {
-    return await cache.wrap(key, (v) => (v.length ? 30 * 864e5 : 864e5), async () => foodRows(await limitOverpass(() => request(OVERPASS, {
-      method: 'POST', body: `data=${encodeURIComponent(query)}`, timeoutMs: 15000, retries: 0,
-      headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-    }))));
+    // dotazy jdou po jednom: plány, které čekaly ve frontě, když Overpass vypadl, už ho nezkoušejí – jinak by každý čekal
+    // na svých 15 s a další plány túr za ním minuty
+    return await cache.wrap(key, (v) => (v.length ? 30 * 864e5 : 864e5), async () => foodRows(await limitOverpass(async () => {
+      down();
+      try {
+        return await request(OVERPASS, {
+          method: 'POST', body: `data=${encodeURIComponent(query)}`, timeoutMs: 15000, retries: 0,
+          headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+        });
+      } catch (e) {
+        overpassDownUntil = Date.now() + 10 * 60e3; // ještě než fronta pustí další dotaz
+        throw e;
+      }
+    })));
   } catch (e) {
-    if (e?.code !== 'LIMIT') overpassDownUntil = Date.now() + 10 * 60e3;
+    if (e?.code !== 'LIMIT' && e?.code !== 'DOWN') overpassDownUntil = Date.now() + 10 * 60e3;
     throw e;
   }
 }

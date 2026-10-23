@@ -6,9 +6,35 @@ export function ymd(d) {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
+// Den → půlnoc UTC v ms a zpět, s pamětí: skládání cest volá addDays / daysBetween / weekday pro každý let tam × noci ×
+// návraty (statisíce volání nad pár stovkami různých dnů) – rozebírat řetězec a vytvářet Date pokaždé znovu bralo
+// ~15 % procesoru celého hledání. Paměť je malá (nejvýš 4096 dnů, pak se smaže celá) a výsledky jsou stejné jako dřív.
+const msMemo = new Map();
+const ymdMemo = new Map();
+const DAY = 864e5;
+function dayMs(s) {
+  const k = typeof s === 'string' && s.length === 10 ? s : String(s).slice(0, 10);
+  let v = msMemo.get(k);
+  if (v === undefined) {
+    const [y, m, d] = k.split('-').map(Number);
+    v = Date.UTC(y, m - 1, d);
+    if (msMemo.size >= 4096) msMemo.clear();
+    msMemo.set(k, v);
+  }
+  return v;
+}
+function ymdOfMs(ms) {
+  let v = ymdMemo.get(ms);
+  if (v === undefined) {
+    v = ymd(new Date(ms));
+    if (ymdMemo.size >= 4096) ymdMemo.clear();
+    ymdMemo.set(ms, v);
+  }
+  return v;
+}
+
 export function parseYmd(s) {
-  const [y, m, d] = String(s).slice(0, 10).split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d));
+  return new Date(dayMs(s));
 }
 
 export function isYmd(s) {
@@ -24,18 +50,22 @@ export function todayYmd() {
 }
 
 export function addDays(s, n) {
+  // celé dny: v UTC bez letního času je to přesně n × 24 h; cokoli jiného (řetězec, zlomek) postaru přes Date
+  if (Number.isInteger(n)) return ymdOfMs(dayMs(s) + n * DAY);
   const d = parseYmd(s);
   d.setUTCDate(d.getUTCDate() + n);
   return ymd(d);
 }
 
 export function daysBetween(a, b) {
-  return Math.round((parseYmd(b) - parseYmd(a)) / 864e5);
+  return Math.round((dayMs(b) - dayMs(a)) / DAY);
 }
 
 /** 0 = neděle … 6 = sobota */
 export function weekday(s) {
-  return parseYmd(s).getUTCDay();
+  const ms = dayMs(s);
+  // 1. 1. 1970 byl čtvrtek (4); neplatné datum → NaN jako dřív getUTCDay()
+  return Number.isNaN(ms) ? NaN : (((Math.floor(ms / DAY) + 4) % 7) + 7) % 7;
 }
 
 export function lastDayOfMonth(s) {
