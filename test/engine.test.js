@@ -408,7 +408,9 @@ test('průběžné výsledky: náhled, dokud pomalejší zdroj hledá; konečný
   const keep = { ...PARTIAL };
   Object.assign(PARTIAL, { firstMs: 20, gapMs: 40 });
   const plain = (v) => JSON.parse(JSON.stringify(v));
-  const strip = (r) => { const x = plain(r); x.stats.ms = 0; for (const p of x.providers) p.ms = 0; return x; };
+  // stats.mix.peak (nejvíc letů držených najednou) závisí na tom, jak se odpovědi zdrojů prolnou s uvolňováním smyčky
+  // (breathe) – s náhledy i bez nich občas o 1 jinak; je to jen údaj o paměti, výsledek hledání se nemění
+  const strip = (r) => { const x = plain(r); x.stats.ms = 0; if (x.stats.mix) x.stats.mix.peak = 0; for (const p of x.providers) p.ms = 0; return x; };
   const third = makeMock({ id: 'demo-three', name: 'Demo Three', code: 'D3', seed: 'c', share: 0.2 });
   async function run(raw, partials) {
     const events = [];

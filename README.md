@@ -1500,8 +1500,9 @@ nic se neukládá na server a nepotřebuje to účet.
   **Skripty a styly s otiskem obsahu v adrese** (`server/lib/pwa.js` `versionAssets`): server ve stránce doplní ke
   skriptům, stylům, odloženým modulům (`data-later`) a knihovnám map (`data-files` → `Lazy.url`) `?v=<otisk>` a takovou
   adresu posílá s `Cache-Control: public, max-age=31536000, immutable` – obsah pod ní se nikdy nezmění (nová verze =
-  nová adresa), takže ji Cloudflare i prohlížeč drží bez ptaní serveru. Adresa bez otisku nebo s jiným (starší stránka
-  či service worker) dostane dnešní soubor s `no-cache` jako dřív. Měření a co hlídat v Cloudflare: `docs/skalovani.md`.
+  nová adresa), takže ji prohlížeč drží bez ptaní serveru (a s placeným Edge Caching na Renderu i Cloudflare – na
+  plánu zdarma Render na okraji nic neukládá). Adresa bez otisku nebo s jiným (starší stránka či service worker)
+  dostane dnešní soubor s `no-cache` jako dřív. Měření a co hlídat: `docs/skalovani.md`.
 - **Opakované otevření bez ptaní serveru:** stránka ze sítě nese verzi v hlavičce `X-Atlas-Build`; je-li stejná jako
   verze service workeru (otisk obsahu všech souborů), vezme service worker skripty a styly té stránky rovnou z uložené
   sady (jsou totožné) – ušetří ~30 ověření u serveru při každém otevření (na Renderu 0,2–0,8 s). Jiná verze = soubory

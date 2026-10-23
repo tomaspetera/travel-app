@@ -4,9 +4,16 @@ Podklad k podnikatelskému plánu (cíl: 1000+ lidí naráz, později desítky t
 
 ## Soubory aplikace z Cloudflare (23. 10. 2026)
 
-Před Renderem je Cloudflare, ale skripty a styly dostával každý návštěvník od serveru: měly `no-cache` (každé použití
-se ověří u serveru, aby po nasazení nikdy neběžel starý kód), a takovou odpověď Cloudflare nedrží – i 304 šlo přes
-Cloudflare až na server s desetinou jádra.
+Skripty a styly dostával každý návštěvník od serveru: měly `no-cache` (každé použití se ověří u serveru, aby po
+nasazení nikdy neběžel starý kód) – i 304 šlo až na server s desetinou jádra.
+
+**Kde to pomáhá dnes a kde až později** (ověřeno na produkci 24. 10.): Cloudflare před Renderem je Renderův a na plánu
+zdarma nic neukládá – všechny odpovědi mají `cf-cache-status: DYNAMIC`, i obrázky s `max-age` (docs Renderu: „Edge
+caching is not available for free web services“). Dnes proto úspora jde z **mezipaměti prohlížeče**: vracející se
+návštěvník a aktualizace po nasazení vezmou nezměněné soubory z telefonu bez ptaní (níž „bez service workeru“ a „po
+nasazení“). Řádky „další nový návštěvník“ a „nový návštěvník po nasazení“ platí až s ukládáním na okraji: placený
+web service na Renderu → Settings → Edge Caching → „Common static file types“ (Render při každém nasazení mezipaměť
+sám vyprázdní), nebo vlastní doména přes vlastní účet Cloudflare. Kód se pro to už měnit nemusí.
 
 ### Co se změnilo
 - **Otisk obsahu v adrese**: server ve stránce doplní ke každému skriptu a stylu otisk obsahu – `js/app.js?v=b481b0bbfa`
@@ -60,17 +67,17 @@ z adres s otiskem; další nasazení za běhu → „Je k dispozici nová verze 
 a `Lazy.url` s otiskem).
 
 ### Na co dát pozor (nasazení)
-- **Cloudflare musí brát `?v=` jako součást adresy** (Caching → Configuration → Caching Level „Standard“, výchozí;
-  žádné Cache Rule s „Ignore query string“). Jinak by Cloudflare po nasazení dával pod novou adresou starý soubor až rok.
-  Kontrola po nasazení (jen statické soubory, ne `/api/search`): `curl -sI '…/js/app.js?v=0000000000'` → `cache-control:
-  no-cache`; adresa skriptu ze stránky podruhé → `cf-cache-status: HIT` a `cache-control: public, max-age=31536000,
-  immutable`. Při chybě: Caching Level na Standard a „Purge Everything“.
+- **Až se zapne ukládání na okraji** (Render Edge Caching nebo vlastní Cloudflare): `?v=` musí být součást adresy
+  v mezipaměti (u vlastního Cloudflare Caching Level „Standard“, výchozí, a žádné Cache Rule s „Ignore query string“).
+  Kontrola (jen statické soubory, ne `/api/search`): `curl -sI '…/js/app.js?v=0000000000'` → `cache-control: no-cache`;
+  adresa skriptu ze stránky podruhé → `cf-cache-status: HIT` a `cache-control: public, max-age=31536000, immutable`.
+  Render navíc při každém nasazení mezipaměť okraje vyprázdní; u vlastního Cloudflare při chybě „Purge Everything“.
 - **Starší verze u uživatelů**: stará stránka a starý service worker chtějí adresy bez otisku – server je dál posílá
   (`no-cache`). Ověřeno: první otevření po nasazení se starým service workerem funguje a nainstaluje nový.
 - **Chvíle nasazení**, kdy odpovídá stará i nová instance (Render přepíná): soubor s cizím otiskem dostane obsah
   dané instance s `no-cache` – nikde se neuloží napořád a service worker ho pod adresu s otiskem neuloží. Stránka
   načtená přesně v tu chvíli může dostat směs verzí jako dřív; „Obnovit“ ji spraví.
-- Purge Cloudflare při nasazení není potřeba, nic se neudržuje.
+- Na Renderu zdarma se na okraji nic neukládá, takže ani nic neuvízne; ručně se nic neudržuje.
 
 ## Návštěvníci aplikace naráz (23. 10. 2026)
 
@@ -249,10 +256,10 @@ skriptu; tehdy zdroje bez mezipaměti – od 23. 10. ji skript zdrojům dává j
    40, `CACHE_SOFT_MB` ~1200, `SEARCH_RESULT_MB` 64; `SEARCH_RESULT_TTL` klidně 300 (ceny zdrojů platí 20–30 min).
    Bez dalších úprav kódu – jen proměnné prostředí. Výpočet hledání mimo hlavní vlákno (`worker_threads`, 1 vlákno
    na jádro) až s 2+ CPU – na jednom jádře nic nezrychlí.
-3. **Soubory aplikace přes Cloudflare** – skripty a styly hotové (23. 10., výš). Zbývá bez změny kódu, jen nastavením
-   Cloudflare (pravidlo „Cache Rule“, zdarma): data `/data/*.json` a `/vendor/*.json` (~320 kB na nového návštěvníka,
-   mají `max-age`, ale JSON Cloudflare bez pravidla nedrží) a neměnné odpovědi API (`/api/climate`, `/api/nature`
-   mají `max-age`). Pravidlo má respektovat `Cache-Control` serveru („Use cache-control header if present“).
+3. **Soubory aplikace z okraje sítě** – skripty a styly mají otisk v adrese (23. 10., výš); na Renderu zdarma pomáhá
+   jen mezipaměť prohlížeče. S placeným plánem zapnout Settings → Edge Caching („Common static file types“; data
+   `/data/*.json` a `/vendor/*.json`, ~320 kB na nového návštěvníka, a neměnné odpovědi API jako `/api/climate`
+   s `max-age` by chtěly „All file types“ – pak ověřit, že dynamické odpovědi mají `no-store`/`private`).
 4. **Stovky lidí naráz → víc instancí**: každá má vlastní mezipaměť cen, hotové výsledky, limity a frontu. Pak
    sdílená mezipaměť a hotové výsledky + limity z adresy ve sdíleném úložišti (Redis/Valkey, např. Render Key Value)
    a směrování stejného dotazu na stejnou instanci (sticky podle klíče hledání), jinak se běžící hledání nesdílí.
