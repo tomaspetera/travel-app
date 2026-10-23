@@ -1544,6 +1544,17 @@ from?, czk, min, km, note?, src, date, sec?, basis: "table" } }` k letištím p�
 město ve 2. pádě, `from` = cena online předem, `sec` = sekundární zdroj); letiště z tabulky cesty na letiště
 `basis: "access"`, ostatní `basis: "estimate"` s `est: true` (bez `fare`, `src`, `date`).
 
+Cestující s dětmi (`server/lib/search.js` `paxQuery`): vedle `adults` (1–9) volitelně `children` (děti 2–11 let, platí
+sedadlo) a `infants` (miminka do 2 let na klíně, nejvýš jedno na dospělého); sedadel (`seats` = dospělí + děti) nejvýš 9.
+Ceny zůstávají na osobu, `totalCzk` je za všechna sedadla – miminko se do ceny nepočítá (poplatek aerolinky za let ATLAS
+nezná, doplní se při nákupu). Wizz Air dostane v `adultCount` všechna sedadla (místo pro celou rodinu; `childCount` ani
+`infantCount` se neposílají – jak s nimi timetable počítá cenu, ověřené není), odkazy na rezervaci Ryanairu (`children`,
+`infants`) a Wizz Air (`…/dospělí/děti/miminka/null`) děti a miminka předvyplní. Kiwi.com, Aviasales a Ověřit (Google
+Flights, Skyscanner) dostanou jen dospělé – zápis dětí v jejich adrese ověřený není, UI to u tlačítek Koupit říká. Bez
+dětí se dotaz ani odpověď nemění. `/api/stays` bere `children` a `infants` taky: Booking.com (`group_children`),
+Trip.com a Agoda (`children`) je dostanou zvlášť, ostatním odkazům se děti 2–11 přičtou k hostům; ceny hotelů ze zdrojů
+jsou za pokoj pro dospělé.
+
 Přesná data: místo `dateFrom`/`dateTo` + nocí pošli `"exactOut": "2026-11-14", "exactBack": "2026-11-21"` (a volitelně
 `"flexDays": 1` = každé datum ±1 den); u `"trip": "oneway"` stačí `exactOut`. U přesných dat se na den a trasu nechají
 všechny přímé lety (+ lety s přestupem, nejvýš ~12 variant), Kiwi se ptá se seznamy letišť a zvlášť jen na přímé lety.

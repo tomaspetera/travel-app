@@ -19,6 +19,7 @@ const ddmm = (s) => `${s.slice(8, 10)}${s.slice(5, 7)}`;
 
 export function bookingUrl(link, { from, to, dateOut, dateIn = null, adults = 1 } = {}) {
   // odkaz z API (/search/PRG0511LON1?t=…) má na konci kódu trasy vždy 1 cestujícího – nahradit skutečným počtem
+  // dospělých (zápis dětí a miminek v adrese Aviasales ověřený nemáme – doplní se na webu, výsledky to říkají)
   const pax = Math.min(9, Math.max(1, Math.round(Number(adults)) || 1));
   const path = link ? `${link.startsWith('/') ? '' : '/'}${link}`.replace(/^(\/search\/[A-Z]{3}\d{4}[A-Z]{3}(?:\d{4})?)\d/, `$1${pax}`) : null;
   const raw = path

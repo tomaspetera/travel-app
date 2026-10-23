@@ -20,7 +20,7 @@ export const MEMORY_TTL = 6 * 3600e3;
 // 150+ tras × 2 směry), jinak si hledání samo vytlačuje paměť a dotazuje se znovu nad rozpočet. Dny se ukládají
 // zhuštěně (jen pole pro parseTimetable), ~150 B na den → 2 000 směrů × 60 dní ≈ 18 MB nejvýš.
 const MEMORY_ROUTES = 2000;
-const memory = new Map(); // `${from}|${to}|${adults}` → { spans: [{ a, b, at }], days: Map<ymd, { at, f }> }
+const memory = new Map(); // `${from}|${to}|${sedadla}` → { spans: [{ a, b, at }], days: Map<ymd, { at, f }> }
 // Wizz po každé odpovědi mění ověřovací token (cookie RequestVerificationToken) a souběžné dotazy
 // se starým tokenem odmítá (HTTP 400 InvalidProtocol). Proto 3 nezávislé relace, v každé dotazy
 // za sebou – token se čte až těsně před odesláním.
@@ -108,9 +108,19 @@ async function api(method, path, body, retried = false) {
   }
 }
 
-export function bookingUrl({ from, to, dateOut, dateIn = null, adults = 1 }) {
-  return `https://www.wizzair.com/cs-cz/booking/select-flight/${from}/${to}/${dateOut}/${dateIn || 'null'}/${adults}/0/0/null`;
+/**
+ * Rezervace na wizzair.com: …/select-flight/ODKUD/KAM/TAM/ZPĚT/dospělí/děti/miminka/promo – stejné pořadí jako počty
+ * cestujících v dotazu timetableV2 (adultCount, childCount, infantCount); bez dětí jako dřív …/2/0/0/null.
+ */
+export function bookingUrl({ from, to, dateOut, dateIn = null, adults = 1, children = 0, infants = 0 }) {
+  const n = (v, lo) => Math.max(lo, Math.round(Number(v)) || 0);
+  return `https://www.wizzair.com/cs-cz/booking/select-flight/${from}/${to}/${dateOut}/${dateIn || 'null'}/${n(adults, 1)}/${n(children, 0)}/${n(infants, 0)}/null`;
 }
+// Cestující: číslo (jen dospělí – starší volání) nebo { adults, children, infants }.
+const paxOf = (p) => (p && typeof p === 'object' ? { adults: p.adults || 1, children: p.children || 0, infants: p.infants || 0 } : { adults: p || 1, children: 0, infants: 0 });
+// Sedadla: dospělí + děti (miminko letí na klíně). Dítě na sedadle platí u Wizz Air obvykle jako dospělý – počet sedadel
+// ale rozhoduje, jestli na let ještě je místo pro všechny.
+const seatsOf = (p) => paxOf(p).adults + paxOf(p).children;
 
 export function parseNetwork(json) {
   const net = new Map();
@@ -133,7 +143,8 @@ function pickDeparture(list, f) {
   return cheapest ? cheapest.date : f.departureDate;
 }
 
-export function parseTimetable(list, adults = 1) {
+export function parseTimetable(list, pax = 1) {
+  const { adults, children, infants } = paxOf(pax);
   const out = [];
   for (const f of list || []) {
     const amount = f.price?.amount;
@@ -144,7 +155,7 @@ export function parseTimetable(list, adults = 1) {
       provider: 'wizzair', carrier: 'W6', carrierName: 'Wizz Air',
       from: f.departureStation, to: f.arrivalStation, dep,
       price: amount, currency: f.price.currencyCode,
-      bookUrl: bookingUrl({ from: f.departureStation, to: f.arrivalStation, dateOut: String(dep).slice(0, 10), adults }),
+      bookUrl: bookingUrl({ from: f.departureStation, to: f.arrivalStation, dateOut: String(dep).slice(0, 10), adults, children, infants }),
     });
     // Další odlety téhož dne (cena jen u nejlevnějšího) – zobrazí se jako „další lety tento den“.
     const own = String(dep).slice(11, 16);
@@ -207,8 +218,8 @@ function remember(m, a, b, list, at) {
  * Stav trasy v paměti: calls = dotazů k čerstvým cenám, usable = celé období v paměti (≤ 6 h), at = nejstarší použitá
  * data, empty = celé období v paměti a žádný den s cenou (sezónní trasa mimo sezónu) – zpáteční směr pak není potřeba.
  */
-function routeState({ from, to, dateFrom, dateTo, adults = 1 }, now = Date.now()) {
-  const m = memOf(`${from}|${to}|${adults}`, false);
+function routeState({ from, to, dateFrom, dateTo, adults = 1, children = 0 }, now = Date.now()) {
+  const m = memOf(`${from}|${to}|${seatsOf({ adults, children })}`, false);
   const spans = m ? m.spans : [];
   const calls = missingWindows(spans, dateFrom, dateTo, now - FARE_TTL).length;
   const usable = !missingWindows(spans, dateFrom, dateTo, now - MEMORY_TTL).length;
@@ -223,18 +234,22 @@ function routeState({ from, to, dateFrom, dateTo, adults = 1 }, now = Date.now()
   return { calls, usable, at, empty };
 }
 
-async function timetable(from, to, dateFrom, dateTo, adults, { maxAgeMs = FARE_TTL, memoryOnly = false } = {}) {
+async function timetable(from, to, dateFrom, dateTo, pax, { maxAgeMs = FARE_TTL, memoryOnly = false } = {}) {
+  // Ceny po dnech podle počtu sedadel (paměť i dotaz) – odkaz na rezervaci s dětmi a miminky se skládá až při čtení.
+  const seats = seatsOf(pax);
   // jen z paměti: nic nezakládat ani nevytlačovat (hledání by si jinak samo mazalo trasy, které má v plánu)
-  const m = memOf(`${from}|${to}|${adults}`, !memoryOnly);
+  const m = memOf(`${from}|${to}|${seats}`, !memoryOnly);
   if (!m) return [];
   const now = Date.now();
   prune(m, now);
   if (!memoryOnly) {
     for (const [a, b] of missingWindows(m.spans, dateFrom, dateTo, now - Math.min(maxAgeMs, MEMORY_TTL))) {
-      // cache jen pro souběžné stejné dotazy (dvě hledání najednou = jeden dotaz)
-      const json = await cache.wrap(`w6:tt:${from}:${to}:${a}:${b}:${adults}`, 60e3, () => api('POST', 'search/timetableV2', {
+      // cache jen pro souběžné stejné dotazy (dvě hledání najednou = jeden dotaz). Děti jako sedadla v adultCount (cena
+      // za osobu jako u dospělého); childCount ani infantCount ATLAS neposílá – jak s nimi timetable počítá cenu, ověřené
+      // nemáme. Poplatek za miminko na klíně se doplní při rezervaci.
+      const json = await cache.wrap(`w6:tt:${from}:${to}:${a}:${b}:${seats}`, 60e3, () => api('POST', 'search/timetableV2', {
         flightList: [{ departureStation: from, arrivalStation: to, from: a, to: b }],
-        priceType: 'regular', adultCount: adults, childCount: 0, infantCount: 0,
+        priceType: 'regular', adultCount: seats, childCount: 0, infantCount: 0,
       }));
       remember(m, a, b, json?.outboundFlights, Date.now());
     }
@@ -243,7 +258,7 @@ async function timetable(from, to, dateFrom, dateTo, adults, { maxAgeMs = FARE_T
   const t = Date.now();
   for (const [d, x] of m.days) {
     if (d < dateFrom || d > dateTo) continue;
-    for (const leg of parseTimetable([x.f], adults)) {
+    for (const leg of parseTimetable([x.f], pax)) {
       leg.fetchedAt = x.at;
       if (t - x.at > FARE_TTL) leg.memAgeMin = Math.round((t - x.at) / 60e3);
       legs.push(leg);
@@ -294,11 +309,11 @@ export const wizzair = {
    * Ceny po dnech. near = { from, to }: dny kolem přesného data – vejde-li se širší okno do jednoho
    * dotazu (≤ 30 dní), zeptá se rovnou na něj (žádný dotaz navíc), jinak jen na dateFrom..dateTo.
    */
-  async daily({ from, to, dateFrom, dateTo, adults = 1, near = null, maxAgeMs, memoryOnly }) {
+  async daily({ from, to, dateFrom, dateTo, adults = 1, children = 0, infants = 0, near = null, maxAgeMs, memoryOnly }) {
     const a = near && near.from < dateFrom ? near.from : dateFrom;
     const b = near && near.to > dateTo ? near.to : dateTo;
     const wide = chunkRange(a, b, WINDOW_DAYS).length <= chunkRange(dateFrom, dateTo, WINDOW_DAYS).length;
-    return timetable(from, to, wide ? a : dateFrom, wide ? b : dateTo, adults, { maxAgeMs, memoryOnly });
+    return timetable(from, to, wide ? a : dateFrom, wide ? b : dateTo, { adults, children, infants }, { maxAgeMs, memoryOnly });
   },
 
   routeState,

@@ -598,8 +598,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-22f';
+const WN_ID = '2026-10-23a';
 const WHATS_NEW = [
+  ['👨‍👩‍👧', 'Cesta s dětmi', 'v <b>Letech</b> → Další možnosti → <b>Cestující</b> přidáš děti (2–11 let) a miminka (do 2 let). Cena celkem je za všechna sedadla – dítě platí sedadlo, u nízkonákladových aerolinek obvykle jako dospělý; miminko letí na klíně a poplatek aerolinky se doplní při nákupu. Ryanair a Wizz Air dostanou děti rovnou do odkazu na rezervaci, jinde je přidáš na webu. V průvodci Cestou je rozpočet na osobu za všechna sedadla a odkazy na ubytování s celou rodinou.'],
   ['🕘', 'Od minula', 'když ATLAS otevřeš jiný den, nahoře na <b>Přehledu</b> uvidíš, co se od minula změnilo pro tebe: která hlídaná cena zlevnila a o kolik, kdy odlétáš na uloženou cestu (i kdy se otevírá online check-in), nové levné cíle v radaru a propadlé odložené nabídky. Nejvýš 3 řádky, klepnutím na místo, ✕ je skryje, dokud nebude něco nového. Bez upozornění v telefonu.'],
   ['📝', 'Rozepsané hledání se neztratí', 'když v <b>Letech</b> upravíš formulář (odkud, kam, termín, noci, cestující, zavazadla…) a hledat nestihneš, ATLAS si ho zapamatuje – i když telefon aplikaci na pozadí zavře. Po návratu ho najdeš vyplněný (3 dny, minulé termíny vynechá); <b>↺ Začít znovu</b> ho smaže.'],
   ['📌', 'Porovnat i s cestou na letiště', 'odložené nabídky v <b>📌 Porovnat</b> se řadí podle ceny <b>i s cestou</b> – letenka + odhad dopravy na letiště a zpět a z letiště do města. Levnější letenka z Mnichova tak nevyhraje, když cesta na letiště stojí o 500 Kč víc. Co neznám, napíšu – cena letenky zůstává vidět.'],
@@ -1377,7 +1378,7 @@ function newTrip(c, pre = {}) {
     <div class="field"><label>Název cesty</label><input class="input" id="ntName" placeholder="Např. Léto v Portugalsku" value="${esc(pre.name || (dest ? 'Cesta: ' + dest : ''))}"></div>
     <div class="field" style="margin-top:12px"><label>Destinace</label><input class="input" id="ntDest" placeholder="Země nebo město" value="${esc(dest)}"></div>
     <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Odjezd</label><input class="input" type="date" id="ntStart" value="${pre.start || ''}"></div><div class="field"><label>Návrat</label><input class="input" type="date" id="ntEnd" value="${pre.end || ''}" min="${pre.start || ''}"></div></div>
-    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Cestující</label><select id="ntPax">${[1, 2, 3, 4, 5, 6].map(n => `<option ${n === (pre.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>Rozpočet (Kč)</label><input class="input" type="number" id="ntBudget" placeholder="nepovinné" value="${pre.budget || ''}">${pre.budget && pre.budgetNote ? `<small class="faint" style="display:block;font-size:11.5px;margin-top:4px">${esc(pre.budgetNote)}</small>` : ''}</div></div>
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Cestující</label><select id="ntPax">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<option ${n === (pre.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>Rozpočet (Kč)</label><input class="input" type="number" id="ntBudget" placeholder="nepovinné" value="${pre.budget || ''}">${pre.budget && pre.budgetNote ? `<small class="faint" style="display:block;font-size:11.5px;margin-top:4px">${esc(pre.budgetNote)}</small>` : ''}</div></div>
     <button class="btn primary block" style="margin-top:18px" id="ntSave">Vytvořit cestu</button>
   </div>`);
   $('#ntStart').onchange = e => { $('#ntEnd').min = e.target.value; };

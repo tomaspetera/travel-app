@@ -2,6 +2,8 @@
 .step-card{padding:20px;margin-bottom:14px}
 .step-card h3{font-size:17px;font-weight:800;margin-bottom:4px}
 .sc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.stay-kids{font-size:12px;margin-top:4px;max-width:60ch} /* 👶 ubytování s dětmi: ceny za pokoj pro dospělé */
+.car-pax{font-size:12.5px;margin:-6px 0 12px} /* 🚗 auto pro rodinu: počet míst a autosedačky */
 .chosen{font-size:13px;padding:7px 12px;border-radius:10px;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.3)}
 .loading-row{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13.5px;padding:18px 4px}
 .loading-row+.slow{margin:-10px 0 12px 32px;font-size:12px;overflow:hidden;animation:stay-slow .3s ease 4s both}
@@ -93,6 +95,7 @@ table.cost tr.tot td{font:800 17px Sora,sans-serif;border-bottom:none;padding-to
 /* Rozpočet ve Shrnutí: skupiny za osobu i celkem, pole Můj rozpočet a tenký pruh (nenápadný, na 412 px na řádek) */
 .bud{margin-top:14px;padding-top:4px;border-top:1px dashed var(--border-2)}
 table.bud-t{font-size:13px}
+.bud-pax{font-size:12px;margin:2px 3px 8px} /* 👶 rozpočet rodiny: na osobu = na sedadlo, miminko bez poplatku */
 table.bud-t td{padding:6px 3px}
 table.bud-t td:nth-child(3){text-align:right;white-space:nowrap;color:var(--muted)}
 table.bud-t tr.bud-h td{font-size:11.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}

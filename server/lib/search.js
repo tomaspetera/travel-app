@@ -88,10 +88,25 @@ export function normalizeQuery(raw = {}) {
   };
 }
 
+/**
+ * Cestující: dospělí (1–9), děti 2–11 let a miminka do 2 let. Dítě platí sedadlo – počítá se do ceny i do volných míst
+ * (seats = dospělí + děti, nejvýš 9 jako u rezervace aerolinky); miminko letí na klíně dospělého (nejvýš jedno na
+ * dospělého) a platí jen poplatek aerolinky za let, který ATLAS nezná – do ceny se nepočítá. Bez dětí jako dřív.
+ */
+export function paxQuery(raw = {}) {
+  const adults = int(raw.adults, 1, 1, 9);
+  const children = int(raw.children, 0, 0, 9 - adults);
+  const infants = int(raw.infants, 0, 0, adults);
+  return { adults, children, infants, seats: adults + children };
+}
+// Cestující do dotazu na zdroj letů: každý zdroj si z nich vezme, co umí (Wizz Air sedadla, odkazy Ryanairu a Wizz Air
+// i děti a miminka, ostatní jen dospělé).
+const pax = (q) => ({ adults: q.adults, children: q.children, infants: q.infants });
+
 // Pole společná pro všechna hledání (i cestu přes víc měst).
 const sharedQuery = (raw) => ({
   radiusKm: int(raw.radiusKm, 200, 0, 600),
-  adults: int(raw.adults, 1, 1, 9),
+  ...paxQuery(raw),
   maxPrice: raw.maxPrice ? int(raw.maxPrice, null, 0, 1e7) : null,
   directOnly: Boolean(raw.directOnly),
   // Doprava na letiště: groundMode 'transit' (veřejnou dopravou) | 'car' (autem), kmRate = násobek odhadu jízdného
@@ -249,9 +264,9 @@ export function routesNote({ total, live, memory, skipped, oldestMin, blocked = 
  */
 export function planRoutes(p, routes, { q, backFrom, backTo, ret, budget, now = Date.now() }) {
   const rs = routes.map((r, i) => {
-    const out = p.routeState({ from: r.o, to: r.d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults }, now);
+    const out = p.routeState({ from: r.o, to: r.d, dateFrom: q.dateFrom, dateTo: q.dateTo, ...pax(q) }, now);
     // trasa bez jediného letu tam (v paměti) zpáteční směr nepotřebuje – jinak by ho rezervovala navždy a nikdy nevyčerpala
-    const back = ret && !out.empty ? p.routeState({ from: r.d, to: r.o, dateFrom: backFrom, dateTo: backTo, adults: q.adults }, now) : { calls: 0, usable: true, at: out.at ?? now };
+    const back = ret && !out.empty ? p.routeState({ from: r.d, to: r.o, dateFrom: backFrom, dateTo: backTo, ...pax(q) }, now) : { calls: 0, usable: true, at: out.at ?? now };
     return { ...r, i, calls: out.calls + back.calls, usable: out.usable && back.usable, at: Math.min(out.at ?? now, back.at ?? now) };
   });
   let left = budget;
@@ -783,7 +798,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
           try {
             res = await p.search({
               origins: c.origins, to: c.to, dateFrom: a, dateTo: b, ret, exact: q.exact,
-              adults: q.adults, directOnly: q.directOnly, outDays: q.outDays, backDays: q.backDays, oneForCity: c.oneForCity, deadline, ctx: ctxOf(p),
+              ...pax(q), directOnly: q.directOnly, outDays: q.outDays, backDays: q.backDays, oneForCity: c.oneForCity, deadline, ctx: ctxOf(p),
             });
           } catch (e) {
             if (/vypršel čas/.test(e.message)) { skipped++; return; }
@@ -842,7 +857,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       await runTasks(st, [...ors.map((o) => ({ origin: o.iata })), ...hubCalls].map((c) => async () => {
         const res = await p.explore({
           origin: c.origin, ...(c.destination ? { destination: c.destination } : {}), dateFrom: q.dateFrom, dateTo: q.dateTo, ret, country: singleCountry,
-          adults: q.adults, directOnly: q.directOnly,
+          ...pax(q), directOnly: q.directOnly,
         });
         for (const t of res) {
           // cíl v okruhu domova (z cache Travelpayouts třeba Vídeň → Bratislava) není „kamkoliv“ – jako u ostatních zdrojů
@@ -926,13 +941,13 @@ export async function search(raw, emit = () => {}, opts = {}) {
 
   // Ceny po dnech pro jednu trasu → nejlepší cesty (bez open-jaw; kombinace s lety jiných tras a zdrojů skládá mixTrips).
   async function routeTrips(p, o, d, { perPair, memoryOnly = false }) {
-    const all = await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, adults: q.adults, directOnly: q.directOnly, memoryOnly });
+    const all = await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, ...pax(q), directOnly: q.directOnly, memoryOnly });
     const out = all.filter((l) => warmLeg(l) && depOk(l));
     if (!ret) return bestOneWays(out, rankGround, { ...constraints, perDestLimit: perPair, limit: perPair });
     // Lety tam jsou, jen je filtr vyřadil (za teplem, odlet v předvečer od 16:00): zpáteční směr, se kterým plán trasy
     // počítal, se stejně načte – jinak by trasa zůstala navždy „nehledaná“ a brala rozpočet každému hledání.
     if (!out.length && !(all.length && p.routeState && !memoryOnly)) return [];
-    const back = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, adults: q.adults, directOnly: q.directOnly, memoryOnly });
+    const back = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, ...pax(q), directOnly: q.directOnly, memoryOnly });
     // ceny z mezipaměti (Travelpayouts dohledává po dnech taky) se nekombinují (mixAdd jen živé zdroje)
     mixAdd(p, out, back);
     return bestRoundTrips(out, back, rankGround, { ...constraints, openJawHome: false, openJawDest: false, perDestLimit: perPair, limit: perPair });
@@ -961,7 +976,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       const capped = pairs.slice(0, Math.min(16, limits.maxPairs || 16));
       if (pairs.length > capped.length) st.note = `prohledáno ${capped.length} z ${pairs.length} kombinací letišť`;
       await runTasks(st, capped.map(({ o, d }) => async () => {
-        const res = await p.explore({ origin: o, destination: d, dateFrom: q.dateFrom, dateTo: q.dateTo, ret, adults: q.adults, directOnly: q.directOnly });
+        const res = await p.explore({ origin: o, destination: d, dateFrom: q.dateFrom, dateTo: q.dateTo, ret, ...pax(q), directOnly: q.directOnly });
         for (const t of res) {
           if (dateOk(t.out.date, t.back?.date, constraints) && depOk(t.out)) {
             trips.push(t);
@@ -993,7 +1008,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
           let res;
           try {
             res = await p.search({
-              origins: froms, to: tos, dateFrom: a, dateTo: b, ret, exact: q.exact, adults: q.adults, directOnly: q.directOnly,
+              origins: froms, to: tos, dateFrom: a, dateTo: b, ret, exact: q.exact, ...pax(q), directOnly: q.directOnly,
               outDays: q.outDays, backDays: q.backDays, deadline: longDeadline, ctx: ctxOf(p),
             });
           } catch (e) {
@@ -1042,9 +1057,9 @@ export async function search(raw, emit = () => {}, opts = {}) {
       if (!q.directOnly) lists.push({ from: froms, to: tos, directOnly: true });
       if (homes.length && homes.length < froms.length) lists.push({ from: homes, to: tos, directOnly: q.directOnly });
       for (const l of lists) {
-        tasks.push(async () => collect(await p.daily({ ...l, dateFrom: q.dateFrom, dateTo: dayTo, adults: q.adults, deadline, ctx }), outLegs, nearLegs.out, q.dateFrom, dayTo));
+        tasks.push(async () => collect(await p.daily({ ...l, dateFrom: q.dateFrom, dateTo: dayTo, ...pax(q), deadline, ctx }), outLegs, nearLegs.out, q.dateFrom, dayTo));
         if (ret) {
-          tasks.push(async () => collect(await p.daily({ from: l.to, to: l.from, directOnly: l.directOnly, dateFrom: backFrom, dateTo: dayBackTo, adults: q.adults, deadline, ctx }), backLegs, nearLegs.back, backFrom, dayBackTo));
+          tasks.push(async () => collect(await p.daily({ from: l.to, to: l.from, directOnly: l.directOnly, dateFrom: backFrom, dateTo: dayBackTo, ...pax(q), deadline, ctx }), backLegs, nearLegs.back, backFrom, dayBackTo));
         }
       }
       st.note = `přesná data: ${froms.length} × ${tos.length} letišť najednou, zvlášť jen přímé lety${lists.length > 2 ? ` a z ${homes.join(', ')}` : ''}`;
@@ -1057,17 +1072,17 @@ export async function search(raw, emit = () => {}, opts = {}) {
       const own = new Set(providers.map((x) => x.id));
       const exclude = [...(own.has('ryanair') ? ['FR', 'RK', 'AL'] : []), ...(own.has('wizzair') ? ['W6', 'W4', 'W9', '5W'] : [])];
       const l = { from: froms, to: tos, directOnly: q.directOnly, exclude };
-      tasks.push(async () => collect(await p.daily({ ...l, dateFrom: q.dateFrom, dateTo: dayTo, adults: q.adults, deadline, ctx }), outLegs, nearLegs.out, q.dateFrom, dayTo));
+      tasks.push(async () => collect(await p.daily({ ...l, dateFrom: q.dateFrom, dateTo: dayTo, ...pax(q), deadline, ctx }), outLegs, nearLegs.out, q.dateFrom, dayTo));
       if (ret) {
-        tasks.push(async () => collect(await p.daily({ from: tos, to: froms, directOnly: q.directOnly, exclude, dateFrom: backFrom, dateTo: dayBackTo, adults: q.adults, deadline, ctx }), backLegs, nearLegs.back, backFrom, dayBackTo));
+        tasks.push(async () => collect(await p.daily({ from: tos, to: froms, directOnly: q.directOnly, exclude, dateFrom: backFrom, dateTo: dayBackTo, ...pax(q), deadline, ctx }), backLegs, nearLegs.back, backFrom, dayBackTo));
       }
       st.note = `${froms.length} × ${tos.length} letišť najednou${exclude.length ? ' (bez Ryanairu a Wizz Air – ty z vlastních zdrojů)' : ''}`;
     }
     for (const { o, d } of capped) {
-      tasks.push(async () => collect(await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: dayTo, adults: q.adults, directOnly: q.directOnly, deadline, ctx, near: nearOut }),
+      tasks.push(async () => collect(await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: dayTo, ...pax(q), directOnly: q.directOnly, deadline, ctx, near: nearOut }),
         outLegs, nearLegs.out, q.dateFrom, dayTo));
       if (ret) {
-        tasks.push(async () => collect(await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: dayBackTo, adults: q.adults, directOnly: q.directOnly, deadline, ctx, near: nearBack }),
+        tasks.push(async () => collect(await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: dayBackTo, ...pax(q), directOnly: q.directOnly, deadline, ctx, near: nearBack }),
           backLegs, nearLegs.back, backFrom, dayBackTo));
       }
     }
@@ -1332,7 +1347,7 @@ async function searchMulti(q, emit, opts = {}) {
         trip: 'oneway', exactOut: l.date, flexDays: l.flex,
         radiusKm: i === 0 ? q.radiusKm : 0, kmRate: i === 0 ? q.kmRate : 0, exclude: i === 0 ? q.exclude : [],
         groundMode: q.groundMode, ...carQuery(q), ...(i === 0 && q.accessOverride ? { accessOverride: q.accessOverride } : {}),
-        adults: q.adults, directOnly: q.directOnly, bags: q.bags, arrival: q.arrival,
+        ...pax(q), directOnly: q.directOnly, bags: q.bags, arrival: q.arrival,
       }, (ev) => {
         if (ev.type !== 'progress') return;
         per[i] = ev.providers;
@@ -1392,7 +1407,7 @@ async function searchMulti(q, emit, opts = {}) {
     const same = combos.filter((c) => legs[n - 1].options[c.picks[n - 1]].out.to === legs[0].options[c.picks[0]].out.from);
     combos = (same.length ? same : combos).slice(0, MULTI.combos);
   }
-  for (const c of combos) c.totalCzk = c.perPersonCzk * q.adults;
+  for (const c of combos) c.totalCzk = c.perPersonCzk * q.seats; // za všechna sedadla (dospělí i děti), miminka bez poplatku aerolinky
   // trasa „Praha → Řím · Neapol → Praha“: navazující úseky jednou šipkou, open-jaw (přejezd) tečkou
   let route = labels[0];
   for (let i = 1; i < n; i++) route += places[i].fromLabel === places[i - 1].toLabel ? ` → ${places[i].toLabel}` : ` · ${labels[i]}`;
@@ -1809,7 +1824,7 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
     // Cena nabídky = letenka + zavazadla (co se platí aerolince); s odhadem cesty na letiště a do města tripCzk
     t.perPersonCzk = t.flightCzk + t.bagCzk;
     t.tripCzk = t.perPersonCzk + t.groundCzk + t.arrCzk;
-    t.totalCzk = t.perPersonCzk * q.adults;
+    t.totalCzk = t.perPersonCzk * q.seats; // za všechna sedadla (dospělí i děti), miminka bez poplatku aerolinky
     // Dlouhodobý průměr denních maxim v cíli v měsíci odletu (meteostanice u letiště, jinak NASA POWER); neznámé podnebí za teplem nepustí.
     t.tempHi = monthClimate(t.out.to, t.out.date)?.hi ?? null;
     const cold = warm && (t.tempHi == null || t.tempHi < q.minTemp);
