@@ -643,8 +643,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-23e';
+const WN_ID = '2026-10-23f';
 const WHATS_NEW = [
+  ['👍', 'Doporučené pořadí letů', 'výsledky <b>Kamkoliv</b> i radar <b>Kam letět levně</b> řadí nahoru nabídky, které by sis opravdu vybral – ne jen nejlevnější letenku: počítá s cestou na letiště a do města (cena i čas), nočními odjezdy bez spojů, tím, kolik času zbude na místě, a cenou pod obvyklou; další cíl ze stejné země dá o kus níž. Proč je nabídka nad levnější letenkou, řekne štítek <b>✓</b> (třeba „i s cestou na letiště nejlevnější“). Čistě podle ceny dál řadí <b>Nejlevnější letenka</b> ve <b>Filtrech</b>.'],
   ['🔀', 'Auto jen na část cesty', 'v kroku <b>Auto</b> průvodce Cestou vybereš <b>📅 dny auta</b> – třeba v Lisabonu jen 2. a 3. den na výlety: vyzvednutí i vrácení ve městě a z letiště do města dál metrem. Na trase přes víc míst má každý přejezd přepínač <b>🚗 / 🚆</b> s časem a cenou – auto se půjčí jen na úseky autem a ATLAS řekne, kde ho vyzvednout a kde vrátit.'],
   ['🚗', 'Auto na místě s radou', 'v kroku <b>Auto</b> průvodce Cestou ATLAS řekne, kdy auto nepotřebuješ (bydlíš ve městě s metrem nebo vlakem z letiště, mezi místy trasy je rychlejší vlak), upozorní na zóny ZTL v italských městech, elektronické mýtné v Portugalsku a vrácení auta v jiné zemi a napíše, co je v ceně auta a co se počítá zvlášť.'],
   ['📲', 'Přenos do jiného zařízení QR kódem', 'pod <b>Další</b> (na počítači vlevo dole) je <b>📲 Přenést do jiného zařízení</b>: QR kód, který naskenuješ fotoaparátem druhého telefonu, nebo odkaz, který si pošleš (AirDrop, Quick Share, e-mail, chat). Přenese cesty, hlídané ceny, odložené nabídky, ⭐ / 🙈 města, navštívené země i domov – bez účtu, data jdou jen v odkazu, na server ne. Druhé zařízení ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>.'],
