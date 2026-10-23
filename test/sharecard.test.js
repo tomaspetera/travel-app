@@ -64,3 +64,26 @@ test('dlouhý cíl na letence menším písmem', () => {
   assert.equal(C.kamSize('Kanárské ostr', 96), 77);
   assert.equal(C.kamSize('Santiago de Compostela', 96), 58);
 });
+
+test('okno Sdílet: písma Googlu se nestáhla (bez sítě, blokovaná) – karty se kreslí hned, ne až po 8 s „Chystám obrázky…“', async () => {
+  // index.html si nestažený styl písem poznamená (data-err) – událost error by sharecard.js zachytit nestihl
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(html, /l\.addEventListener\('error', function \(\) \{ l\.setAttribute\('data-err', '1'\); \}\)/);
+  /** render(): po písmech (fonts) se stahuje fotka cíle – fetch api/photos = písma vyřízená. Pojistka 8 s nedoběhne. */
+  const photosAsked = async (failed) => {
+    const asked = [];
+    const link = { media: 'print', hasAttribute: (a) => failed && a === 'data-err', addEventListener: () => { } };
+    const c = {
+      window: {}, TextEncoder, TextDecoder, btoa, atob, navigator: {}, location: ctx.location, setTimeout: () => 0,
+      document: { getElementById: (id) => (id === 'fontCss' ? link : null), querySelector: () => ({}), fonts: { load: async () => [] } },
+      fetch: (u) => { asked.push(u); return new Promise(() => { }); },
+    };
+    vm.createContext(c);
+    for (const f of ['sharelink.js', 'sharecard.js']) vm.runInContext(src(f), c, { filename: f });
+    c.window.ShareCard.render(c.window.ShareCard.sanitize(TRIP));
+    await new Promise((r) => setImmediate(r));
+    return asked.length > 0;
+  };
+  assert.equal(await photosAsked(true), true, 'styl písem se nestáhl → nečeká se');
+  assert.equal(await photosAsked(false), false, 'styl se ještě stahuje → čeká se (nejvýš 8 s)');
+});

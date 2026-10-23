@@ -80,10 +80,11 @@
       l.href = 'https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap&text=' + encodeURIComponent(HAND);
       document.head.appendChild(l);
     });
-    // písma aplikace platí až po stažení jejich stylu (index.html: media print → all) – do té doby by fonts.load nic nenačetl
+    // písma aplikace platí až po stažení jejich stylu (index.html: media print → all) – do té doby by fonts.load nic nenačetl;
+    // styl, který se stáhnout nepovedlo (data-err), už nepřijde – nečekat
     const app = new Promise(r => {
       const l = document.getElementById('fontCss');
-      if (!l || l.media === 'all') return r();
+      if (!l || l.media === 'all' || l.hasAttribute('data-err')) return r();
       l.addEventListener('load', () => setTimeout(r, 0)); l.addEventListener('error', r);
     });
     const load = (f, s) => (document.fonts && document.fonts.load ? document.fonts.load(f, s).catch(() => { }) : null);
