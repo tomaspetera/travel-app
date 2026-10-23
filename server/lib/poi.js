@@ -41,7 +41,16 @@ const TYPES = {
 };
 // Skutečný hrad, pevnost nebo zřícenina hradu – samotné „opevnění“ s typem věž (Prašná brána) je věž.
 const CASTLE_PROPER = ['Q23413', 'Q1785071', 'Q17715832'];
-const GATE = /\b(brána|gate|tor|porta|puerta|porte|barbakan|barbican|bastion|bašta|hradby|city walls?|stadtmauer)\b/i;
+const GATE = /\b(brána|gate|tor|porta|puerta|porte|vrata|kapija|barbakan|barbican|bastion|bašta)\b/i;
+// Městské hradby nejsou hrad na 1 h 40 min, ale ani brána na 20 min: procházka po hradbách (Dubrovník) trvá přes hodinu.
+const WALLS = /\b(hradby|hradba|city walls?|town walls?|stadtmauer|mura|murallas?|muralhas?|zidine|remparts?)\b/i;
+const WALLS_MIN = 75;
+// Antický amfiteátr nebo cirkus (Koloseum, Circus Maximus, aréna ve Veroně) má ve Wikidatech i typ stadion / sportoviště –
+// je to ale archeologické naleziště, ne sportoviště k vyřazení (živě 10/2026: Koloseum v Římě úplně chybělo).
+const SPORT = ['Q483110', 'Q641226', 'Q1076486', 'Q137884967'];
+// Vítězný oblouk, pamětní sloup, obelisk (Konstantinův oblouk, Trajánův sloup) – památník na pár minut, ne naleziště na hodinu.
+const MEMORIAL = ['Q143912', 'Q97466153', 'Q51845395', 'Q1930585', 'Q170980'];
+const MEMORIAL_NAME = /\b(oblouk|arch|arco|arc|sloup|column|colonna|columna|obelisk|obelisco|obélisque)\b/i;
 const MUSEUM_NAME = /^(museo|museum|musée|muzeum|múzeum|museu|muzej|pinacoteca|galleria|gallery|galerie|galería)\b/i;
 const HOUSE_MUSEUM = 'Q2087181'; // historic house museum
 // Když má místo víc typů, rozhoduje tohle pořadí (ne náhodné pořadí řádků SPARQL).
@@ -211,16 +220,26 @@ export function groupBindings(rows, center) {
     const types = [...p.types];
     const has = (list) => types.some((t) => list.includes(t));
     const structure = has(STRUCTURE);
-    const hardTypes = types.filter((t) => HARD_EXCLUDE.includes(t));
+    const ancient = has(TYPES.ruins);
+    // stadion nebo aréna, která je zároveň antickým nalezištěm (Koloseum), se nevyřazuje
+    const hardTypes = types.filter((t) => HARD_EXCLUDE.includes(t) && !(ancient && SPORT.includes(t)));
     const hard = hardTypes.length > 0;
     const soft = types.filter((t) => SOFT_EXCLUDE.includes(t));
     const cats = new Set(types.map((t) => CAT_OF.get(t)).filter(Boolean));
     // brána nebo věž v hradbách s výstavou (Prašná brána) je věž, ne hrad ani dvouhodinové muzeum
     if (cats.has('castle') && cats.has('tower') && !has(CASTLE_PROPER)) cats.delete('castle');
     if (cats.has('tower') && cats.has('museum')) cats.delete('museum');
-    // městská brána, barbakan, bašta nebo hradby (jen „opevnění“, ne hrad ani pevnost) – krátká zastávka, ne prohlídka
-    // hradu na 1 h 40 min (živě: Floriánská brána a Barbakan v Krakově)
-    if (cats.has('castle') && !has(CASTLE_PROPER) && GATE.test(`${p.name} ${p.description}`)) { cats.delete('castle'); cats.add('monument'); }
+    // městská brána, barbakan, bašta (jen „opevnění“, ne hrad ani pevnost) – krátká zastávka, ne prohlídka hradu na
+    // 1 h 40 min (živě: Floriánská brána a Barbakan v Krakově, Vrata od Pila v Dubrovníku); hradby = procházka po nich
+    const text = `${p.name} ${p.description}`;
+    if (cats.has('castle') && !has(CASTLE_PROPER) && (GATE.test(text) || WALLS.test(text))) {
+      cats.delete('castle'); cats.add('monument');
+      if (!GATE.test(p.name) && WALLS.test(text)) p.visitMin = WALLS_MIN;
+    }
+    // naleziště, které je státním muzeem (Koloseum, Palatin, Caracallovy lázně – v Itálii „národní muzeum“), se
+    // prochází jako naleziště, ne jako dvouhodinová sbírka; muzeum se jménem muzea zůstane muzeem
+    if (cats.has('ruins') && cats.has('museum') && !MUSEUM_NAME.test(p.name)) cats.delete('museum');
+    if (cats.has('ruins') && (has(MEMORIAL) || MEMORIAL_NAME.test(p.name))) { cats.delete('ruins'); cats.add('monument'); }
     // muzeum nebo galerie v paláci, které nese jejich jméno (Museo Poldi Pezzoli, Pinacoteca di Brera) – jde se do
     // sbírek, ne na prohlídku paláce (ikona 🏛️ a čas na muzeum, ne 👑)
     if (cats.has('palace') && (cats.has('museum') || cats.has('gallery')) && MUSEUM_NAME.test(p.name)) cats.delete('palace');
@@ -885,6 +904,22 @@ export function familySlots(sorted, limit, per = 2) {
   }
   return out.sort((a, b) => b.score - a.score);
 }
+/**
+ * Pestrý seznam: z jedné kategorie nejvýš `share` limitu (Řím: 15 kostelů, 10 muzeí a 10 nalezišť vytlačilo Španělské
+ * schody i Piazza di Spagna). Přebytek se nevyhodí – jde na konec pořadí, takže doplní seznam, když jiných míst není
+ * dost (hory: samé vrcholy). Jinak pořadí podle skóre beze změny.
+ */
+export function spreadCats(sorted, limit, share = 0.2) {
+  const cap = Math.max(6, Math.round(limit * share));
+  const seen = {};
+  const keep = [];
+  const later = [];
+  for (const p of sorted) {
+    seen[p.category] = (seen[p.category] || 0) + 1;
+    (seen[p.category] > cap ? later : keep).push(p);
+  }
+  return [...keep, ...later];
+}
 const placesKey = ({ lat, lon, radiusKm = 10, dayTrips = true, limit = 60 }) => `poi:${lat.toFixed(3)}:${lon.toFixed(3)}:${Math.min(25, Math.max(1, radiusKm))}:${dayTrips}:${limit}`;
 /** Je výsledek findPlaces se stejnými volbami celý v mezipaměti – odpověď bez dotazu na Wikidata a Wikipedii? */
 export const placesCached = (opts) => cache.get(placesKey(opts)) !== undefined;
@@ -936,7 +971,7 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     const trips = tripsFromRows(tripRows, center, Math.max(r, 15));
     for (const p of city) p.score = scorePlace(p);
     applyWikivoyage(city, await wvP);
-    const top = familySlots(city.sort((a, b) => b.score - a.score), limit);
+    const top = familySlots(spreadCats(city.sort((a, b) => b.score - a.score), limit), limit);
     // Části jiného vybraného místa (Sixtinská kaple ve Vatikánských muzeích, katedrála na Hradě)
     // nejsou samostatná zastávka – připiš je k celku.
     const byId = new Map(top.map((p) => [p.id, p]));
@@ -948,7 +983,8 @@ export async function findPlaces({ lat, lon, radiusKm = 10, dayTrips = true, lim
     });
     const picked = [...merged, ...trips.sort((a, b) => b.score - a.score).slice(0, 8)];
     const enrichFailed = await enrich(picked, { preferCs: true });
-    const out = picked.map(({ partOf, island, serial, wv, minor, ...p }) => ({ ...p, categoryLabel: p.eatery ? 'Kavárna / restaurace' : catLabel(p) || p.category }));
+    // island zůstane: na ostrov (Lokrum u Dubrovníku) se v programu jede lodí, ne jde pěšky
+    const out = picked.map(({ partOf, island, serial, wv, minor, ...p }) => ({ ...p, ...(island ? { island: true } : {}), categoryLabel: p.eatery ? 'Kavárna / restaurace' : catLabel(p) || p.category }));
     if (tripsMissing || familyMissing || enrichFailed || wvFailed) out.degraded = true;
     return out;
   });

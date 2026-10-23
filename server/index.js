@@ -680,6 +680,8 @@ async function route(req, res) {
       center: { lat, lon }, start: b.start, end: b.end, pace: ['relaxed', 'normal', 'intense'].includes(b.pace) ? b.pace : 'normal',
       arrivalTime: /^\d{2}:\d{2}$/.test(b.arrivalTime || '') ? b.arrivalTime : '09:00',
       departureTime: /^\d{2}:\d{2}$/.test(b.departureTime || '') ? b.departureTime : null, interests,
+      // s dětmi (zájem „S dětmi“, cesta s dětmi): zoo a park výš, nejvýš 1 muzeum za den, pomalejší chůze
+      kids: b.kids === true,
     });
     return sendJson(req, res, 200, { demo: config.mock, ...plan, places });
   }
