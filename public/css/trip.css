@@ -42,8 +42,11 @@
 .stay{display:grid;grid-template-columns:120px 1fr 110px 160px;gap:14px;align-items:center;padding:10px;border-radius:14px;border:1px solid var(--border);background:var(--surface);transition:.15s}
 .stay:hover{border-color:var(--border-2)}
 .stay.chosen{border-color:var(--good);box-shadow:0 0 0 1px var(--good) inset}
-.st-img{width:120px;height:90px;border-radius:10px;background:var(--surface-2) center/cover no-repeat;display:grid;place-items:center;font-size:30px}
+.st-img{position:relative;overflow:hidden;width:120px;height:90px;border-radius:10px;background:var(--surface-2);display:grid;place-items:center;font-size:30px}
+/* fotka (loading=lazy) přes celý rámeček pevné velikosti – načtení nic neposune */
+.st-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .st-name{font-weight:800;font-size:15px}
+.st-meta{font-size:12.5px}
 .st-stars{color:var(--warn);font-size:12px;letter-spacing:1px}
 .st-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .st-main{min-width:0}
@@ -80,6 +83,9 @@
 .st-pp .faint{font-size:12px;white-space:nowrap}
 .st-price .pp,.st-price .linkbtn{white-space:nowrap}
 .st-bk{display:inline-flex;align-items:center;white-space:nowrap} /* odkaz + štítek „reklama“ na jednom řádku */
+/* Vybrat a odkazy: na počítači a tabletu přímo ve sloupci ceny (obal se nepočítá), „další weby“ jen na telefonu */
+.st-acts{display:contents}
+.st-webs-t,.st-trh{display:none}
 
 /* auto */
 .car-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
@@ -231,7 +237,7 @@ details.more.ex-places>summary::before{content:none}
   .ex-layout.ex-main{grid-template-columns:minmax(0,1fr);grid-template-areas:"plan" "map" "places";grid-template-rows:auto}
   .ex-main>.ex-map{height:300px}}
 @media(max-width:860px){.sum-grid{grid-template-columns:1fr}.manual-row{grid-template-columns:1fr 1fr}.manual-row>div{grid-column:1/-1}.ex-back{bottom:calc(90px + env(safe-area-inset-bottom,0px))}}
-@media(max-width:560px){.stay{grid-template-columns:84px minmax(0,1fr)}.st-img{width:84px;height:70px}.st-price{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 10px}.st-pp{align-items:flex-start;margin-right:auto;text-align:left}.ex-search{grid-template-columns:auto minmax(0,1fr)}.ex-search>.field:first-child{grid-column:1/-1}.poi{grid-template-columns:72px 1fr}.poi-img{width:72px;height:64px}
+@media(max-width:560px){.ex-search{grid-template-columns:auto minmax(0,1fr)}.ex-search>.field:first-child{grid-column:1/-1}.poi{grid-template-columns:72px 1fr}.poi-img{width:72px;height:64px}
   /* kategorie v jednom posuvném řádku místo pěti; chyba se „Zkusit znovu“ pod textem */
   .ex-cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
   .ex-cats button{flex:none;white-space:nowrap}
@@ -242,6 +248,59 @@ details.more.ex-places>summary::before{content:none}
   #exMode .m-short{display:flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap}
   #exMode .m-short b{font-size:17px;font-weight:400;line-height:1.25}
   .ex-err{flex-wrap:wrap}.ex-err .btn{width:100%}}
+/* Telefon: kompaktní karta ubytování (~135–160 px místo 230–460 px u TripAdvisoru – na obrazovku se vejde ~5 hotelů místo 2,
+   porovnává se bez posouvání). .st-main a .st-price se rozpustí do mřížky karty: nahoře malá fotka, název, typ
+   a vzdálenost, hodnocení s počtem; vpravo cena celkem, za noc a „další weby ▾“ (ceny u dalších webů, vedlejší
+   odkazy a poznámka o Booking.com až po rozbalení – pod cenou je vedle dvou řádků názvu místo zadarmo); pod tím štítky
+   a dole Vybrat s hlavním odkazem. Adresa, hvězdičky u názvu (jsou v typu „4★ hotel“), slovo k hodnocení (jen opakuje
+   číslo) a „cena/hodnocení“ u štítku se nevejdou. Nápověda k Trip.com je za odkazem, ne na vlastním řádku.
+   Až za @media(max-width:1080px) – jinak by jeho mřížka karty přebila tuhle. */
+@media(max-width:560px){
+  .stay{grid-template-columns:56px minmax(0,1fr) fit-content(104px);grid-template-areas:"img head pp" "tail tail tail" "acts acts acts";gap:0 8px;align-items:start}
+  .st-img{grid-area:img;width:56px;height:56px;border-radius:9px;font-size:22px}
+  .st-main,.st-price{display:contents}
+  .st-head{grid-area:head;min-width:0}
+  .st-tail{grid-area:tail;min-width:0}
+  /* dlouhý název na dva řádky; celý po rozbalení karty */
+  .st-name{font-size:14px;line-height:1.22;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
+  .stay.open .st-name{display:block;-webkit-line-clamp:none;line-clamp:none}
+  .st-stars,.st-addr,.st-rw,.st-bl,.st-tail>.st-nobk{display:none}
+  .st-meta{font-size:12px;margin-top:2px}
+  .st-near{font-size:12px;margin-top:2px}
+  .st-rate-inline{font-size:12px;margin-top:3px}
+  .st-rate-inline b{font-size:12px;margin-right:2px}
+  .st-pp{grid-area:pp;gap:1px}
+  .st-price .pp{font-size:16.5px;line-height:1.15}
+  .st-pp .faint{font-size:11.5px;line-height:1.3;white-space:normal}
+  .st-pp .st-sep{display:none}
+  .st-pp .st-pn{display:block;white-space:nowrap}
+  .st-pp .st-gv{display:block}
+  .pp-guess{font-size:13px;white-space:nowrap}
+  .st-webs-t{display:inline-flex;align-items:center;min-height:24px;font-size:12px;white-space:nowrap}
+  .stay:not(.open) .st-web,.stay:not(.open) .st-bk.sec{display:none}
+  .st-badges{gap:4px;margin-top:5px}
+  .st-badges:empty{display:none}
+  .stay .b{font-size:11px;padding:1px 7px}
+  .st-acts{grid-area:acts;display:flex;flex-wrap:wrap;align-items:center;gap:2px 14px;margin-top:8px}
+  .st-acts .btn{padding:6px 16px}
+  .st-acts .linkbtn{font-size:13px;min-height:30px;display:inline-flex;align-items:center} /* větší plocha na klepnutí */
+  .st-trh{display:inline;margin-left:5px;font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .st-sold{flex-basis:100%;margin:0}
+}
+/* 360 px: vedle fotky a ceny zbývá na text ~125 px – typ se vzdáleností i hodnocení by se lámaly na dva řádky. Cena
+   proto jen vedle názvu a typu, hodnocení (a „v okolí“) pod nimi až k pravému okraji; menší fotka. */
+@media(max-width:380px){
+  .stay{grid-template-columns:48px minmax(0,1fr) fit-content(96px);grid-template-areas:"img name pp" "img meta pp" "img near near" "img rate rate" "tail tail tail" "acts acts acts"}
+  .st-img{width:48px;height:48px;font-size:20px}
+  .st-head{display:contents}
+  .st-name{grid-area:name}
+  .st-meta{grid-area:meta}
+  .st-near{grid-area:near}
+  .st-rate-inline{grid-area:rate}
+  /* Vybrat + „Booking.com ↗ REKLAMA“ ještě na jednom řádku */
+  .st-acts{column-gap:10px}
+  .st-acts .btn{padding:6px 12px}
+}
 .alt-flights{display:flex;flex-direction:column;gap:8px}
 .alt-f{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);font-size:13.5px}
 .alt-p{font:800 17px Sora,sans-serif}
