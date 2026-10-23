@@ -273,6 +273,25 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 .ref-add{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr) auto;gap:8px;margin-top:4px}
 .ref-kod-in{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.04em}
 @media(max-width:620px){.ref-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.ref-add>:nth-child(n+3){grid-column:1/-1}}
+/* 🌤️ předpověď na kartě „Dnes na cestě“: štítek počasí hned za místem, „předpověď z 7:15“ (bez signálu) za ním */
+.nw-wx .wx{margin-left:2px}
+.nw-wx .faint{font-size:11.5px;white-space:nowrap}
+/* 🚆 vlak / bus v itineráři plánovače: čas odjezdu, nástupiště, vůz / místo a kód v jednom řádku (na telefonu 2 × 2) */
+.ride-ed{container-type:inline-size;padding:8px 10px 10px;border-radius:10px;background:var(--surface-2);margin-bottom:6px;font-size:13.5px}
+.ride-h{min-width:0;overflow-wrap:anywhere;margin-bottom:6px}
+.ride-in{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,1.1fr);gap:6px}
+.ride-in label{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ride-in label>span{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ride-in .input{padding:7px 8px;border-radius:9px;font-size:14px;min-width:0;background:var(--surface)}
+.ride-in [data-rf="kod"]{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.04em}
+/* úzký den (telefon, na počítači itinerář ve dvou sloupcích): pole 2 × 2 */
+@container (max-width:460px){.ride-in{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+/* okno cesty během cesty: dnešek a 🔖 rezervace nahoře, v itineráři na dnešní den jen odkaz */
+.trip-live .live-h{font:800 13px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.day-block.today{border-color:rgba(91,140,255,.5)}
+.day-now{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.day-ptr{padding:9px 12px;margin-bottom:12px;border:1px dashed var(--border-2);border-radius:14px;font-size:13px;color:var(--muted)}
+[data-theme="light"] .trip-live .live-h,[data-theme="light"] .day-now{color:#2f5fd0}
 /* světlý motiv: drobné modré texty karty tmavší – čitelné i venku na slunci */
 [data-theme="light"] .now-card a,[data-theme="light"] .now-card .linkbtn,[data-theme="light"] .nw-d,[data-theme="light"] .nw-rows .nw-day{color:#2f5fd0}
 .section-head h2{font-size:18px;font-weight:800}

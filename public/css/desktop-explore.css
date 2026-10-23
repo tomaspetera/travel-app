@@ -84,8 +84,9 @@
   .dp:has(#dpSights)>.dp-act{grid-column:1/-1;grid-row:7}
   /* okno cesty z plánovače: širší, dny itineráře ve dvou sloupcích */
   .modal:has(.trip-two){width:min(980px,calc(100vw - 80px))}
-  .modal-body div:has(>.day-block){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-  .modal-body div:has(>.day-block)>.day-block{margin:0}
+  /* během cesty dnešní den nahoře (.trip-live) přes celou šířku, nad 🔖 rezervacemi – ne do sloupců */
+  .modal-body div:has(>.day-block):not(.trip-live){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .modal-body div:has(>.day-block):not(.trip-live)>:is(.day-block,.day-ptr){margin:0}
 }
 /* okno země: vlevo fotka hlavního města s vlajkou, názvem a popisem přes celou výšku, vpravo údaje (posouvají se samy) */
 @media (min-width:1180px){
