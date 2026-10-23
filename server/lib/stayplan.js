@@ -71,8 +71,13 @@ export function transfer(a, b, transport = 'car', route = null) {
 
 // Mýtné za auto na delším přejezdu (od 80 km – kratší vedou často mimo placené dálnice) v zemích s mýtem podle km,
 // €/km osobního auta podle ceníků 2026: Itálie 0,07–0,08 (Autostrade, Ayvens), Francie ~0,08 (A6 Paříž–Lyon 35,80–41,30 €),
-// Chorvatsko ~0,065–0,07 (Záhřeb–Split 26,40 €). Jinde (dálniční známka, Španělsko většinou zdarma) 0.
-const TOLL_KM_EUR = { IT: 0.08, FR: 0.08, HR: 0.065 };
+// Chorvatsko ~0,065–0,07 (Záhřeb–Split 26,40 €), Portugalsko ~0,08 (třída 1 od 1. 1. 2026: A1 Lisabon–Porto 25,05 €
+// za ~300 km, A2 Lisabon–Algarve 23,80 € – tisková zpráva Brisy podle RTP/Lusa, rtp.pt/noticias/economia/
+// portagens-sobem-45-centimos-entre-lisboa-e-porto-e-50-centimos-entre-lisboa-e-algarve_n1707053, ověřeno 10/2026;
+// většina bývalých SCUT – A22 Algarve, A23, A24, A25, A4, A13 – je od 1. 1. 2025 bez mýta podle zákona 37/2024,
+// files.diariodarepublica.pt/1s/2024/08/15200/0001300014.pdf – tam je odhad vyšší). Jinde (dálniční známka, Španělsko
+// většinou zdarma) 0.
+const TOLL_KM_EUR = { IT: 0.08, FR: 0.08, HR: 0.065, PT: 0.08 };
 export function tollCzk(roadKm, cc) {
   const rate = TOLL_KM_EUR[cc];
   if (!rate || !(roadKm >= 80)) return 0;

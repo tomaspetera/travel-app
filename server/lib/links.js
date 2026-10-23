@@ -200,25 +200,36 @@ export function stayLinks(q, ids = {}) {
   return hwNone ? [...links.filter((l) => l.id !== 'hostelworld'), links.find((l) => l.id === 'hostelworld')] : links;
 }
 
-/** Datum a čas „YYYY-MM-DDTHH:MM“ → části. */
-function parts(dt) {
-  const [d, t = '10:00'] = String(dt).split('T');
-  const [y, m, day] = d.split('-').map(Number);
-  const [hh, mm] = t.split(':').map(Number);
-  return { d, y, m, day, hh: hh || 0, mm: mm || 0 };
+/**
+ * Datum a čas „YYYY-MM-DDTHH:MM“ → části, zaokrouhlené na krok step minut (60 = celá hodina, 30 = půlhodina):
+ * up = nahoru (i přes půlnoc na další den), jinak dolů.
+ */
+export function carTimeParts(dt, step = 1, up = false) {
+  const [d0, t = '10:00'] = String(dt).split('T');
+  const [y0, m0, day0] = d0.split('-').map(Number);
+  const [hh0, mm0] = t.split(':').map(Number);
+  const min = (hh0 || 0) * 60 + (mm0 || 0);
+  const r = (up ? Math.ceil(min / step) : Math.floor(min / step)) * step;
+  const x = new Date(Date.UTC(y0, m0 - 1, day0, 0, r));
+  return { d: x.toISOString().slice(0, 10), y: x.getUTCFullYear(), m: x.getUTCMonth() + 1, day: x.getUTCDate(), hh: x.getUTCHours(), mm: x.getUTCMinutes() };
 }
 
 /** q: { pickup (IATA), dropoff (IATA), pickupName, from 'YYYY-MM-DDTHH:MM', to, age } */
 export function carLinks(q) {
-  const a = parts(q.from);
-  const b = parts(q.to);
+  // Srovnávače berou jen celé hodiny (Kayak) nebo půlhodiny (Rentalcars): vyzvednutí se zaokrouhlí nahoru a vrácení
+  // dolů – rezervace tak nezačne dřív, než přiletíš (přílet 13:10 + 45 min nedá vyzvednutí ve 13:00 před přistáním),
+  // neskončí až po odletu a pronájem nevyjde o den delší, než ukazuje průvodce.
   const drop = q.dropoff && q.dropoff !== q.pickup ? q.dropoff : null;
-  // Kayak: /cars/{PU}[/{DO}]/{datum}-{hodina}h/… – hodina celá (16:30 → 16h), řazení od nejlevnějšího; česká verze
-  // v Kč (cz.kayak.com/cars/BGY/MXP/… ověřeno 10/2026: místa, termín i řazení stejně jako na kayak.com).
-  const kayak = `${KAYAK}/cars/${q.pickup}${drop ? `/${drop}` : ''}/${a.d}-${a.hh}h/${b.d}-${b.hh}h?sort=price_a`;
+  // Kayak: /cars/{PU}[/{DO}]/{datum}-{hodina}h/… – hodina celá (16:30 → 17h vyzvednutí, 16h vrácení), řazení od
+  // nejlevnějšího; česká verze v Kč (cz.kayak.com/cars/BGY/MXP/… ověřeno 10/2026: místa, termín i řazení stejně jako
+  // na kayak.com).
+  const ka = carTimeParts(q.from, 60, true);
+  const kb = carTimeParts(q.to, 60);
+  const kayak = `${KAYAK}/cars/${q.pickup}${drop ? `/${drop}` : ''}/${ka.d}-${ka.hh}h/${kb.d}-${kb.hh}h?sort=price_a`;
   // Rentalcars.com a Booking.com Cars mají stejné vyhledávání; letiště se zadává kódem IATA (ftsType=A),
   // minuty jen 0 nebo 30, čísla bez úvodních nul, řazení podle ceny.
-  const half = (m) => (m >= 30 ? 30 : 0);
+  const a = carTimeParts(q.from, 30, true);
+  const b = carTimeParts(q.to, 30);
   const label = q.pickupName || q.pickup;
   const dropLabel = drop ? q.dropoffName || drop : label;
   const rc = new URLSearchParams({
@@ -226,8 +237,8 @@ export function carLinks(q) {
     locationIata: q.pickup, dropLocationIata: drop || q.pickup,
     locationName: label, dropLocationName: dropLabel,
     ftsType: 'A', dropFtsType: 'A',
-    puDay: String(a.day), puMonth: String(a.m), puYear: String(a.y), puHour: String(a.hh), puMinute: String(half(a.mm)),
-    doDay: String(b.day), doMonth: String(b.m), doYear: String(b.y), doHour: String(b.hh), doMinute: String(half(b.mm)),
+    puDay: String(a.day), puMonth: String(a.m), puYear: String(a.y), puHour: String(a.hh), puMinute: String(a.mm),
+    doDay: String(b.day), doMonth: String(b.m), doYear: String(b.y), doHour: String(b.hh), doMinute: String(b.mm),
     driversAge: String(q.age || 30),
     filterCriteria_sortBy: 'PRICE', filterCriteria_sortAscending: 'true',
   });

@@ -20,9 +20,12 @@
     cheapest: ['💰 Nejlevnější', 'info'],
     'top-rated': ['⭐ Nejlépe hodnocené', 'hot'],
   };
-  let stayView = { sort: 'value', minRating: 0, maxNight: null, type: '' };
+  let stayView = { sort: 'value', minRating: 0, maxNight: null, type: '', free: false };
   let staysData = null;
   let carsData = null;
+  // pořadí dotazů api/cars: po rychlé změně polí (i po novém vykreslení kroku Auto) smí srovnávače vykreslit jen
+  // odpověď na poslední – starší by ukázala odkazy s jinými časy
+  let carSeq = 0;
   // odkaz na srovnávač jen z nabídek pro tatáž letiště a časy (nabídky se načítají asynchronně – mohou být ke starým)
   const carLinkFor = q => { const j = carsData && carsData.query; return q && j && j.pickup === q.pickup && j.dropoff === (q.dropoff || q.pickup) && j.from === q.from && j.to === q.to ? carsData.links[0]?.url || null : null; };
   const staysCache = new Map(); // nabídky ubytování podle dotazu (místo|termín|osoby) – přepínání míst trasy
@@ -276,8 +279,9 @@
   // na weby počítají s celou rodinou (server/lib/links.js)
   const stayKidsNote = t => (kidsN(t) ? `<div class="faint stay-kids">👶 Ceny hotelů jsou za pokoj pro ${csN(+t.adults, 'dospělého', 'dospělé', 'dospělých')} – s dětmi může být pokoj dražší. Odkazy na weby počítají s celou rodinou, věk dětí doplníš tam.</div>` : '');
   // Hledání ubytování na Booking.com (stejný formát jako odkazy ve zbytku aplikace) – místo bez načtených nabídek; děti
-  // a miminka jako group_children (věk si Booking vyžádá), bez dětí odkaz jako dřív.
-  const bookingSearch = (place, checkin, checkout, t) => `https://www.booking.com/searchresults.cs.html?${new URLSearchParams({ ss: place, checkin, checkout, group_adults: String(t.adults), no_rooms: '1', ...(kidsN(t) ? { group_children: String(kidsN(t)) } : {}), lang: 'cs', selected_currency: 'CZK' })}`;
+  // a miminka jako group_children (věk si Booking vyžádá), bez dětí odkaz jako dřív. Pokoje po dvou dospělých (nejvýš 5)
+  // jako nabídky ze serveru (normalizeStayQuery) – 4 dospělí v jednom pokoji by na Bookingu našli jen apartmány.
+  const bookingSearch = (place, checkin, checkout, t) => `https://www.booking.com/searchresults.cs.html?${new URLSearchParams({ ss: place, checkin, checkout, group_adults: String(t.adults), no_rooms: String(Math.min(5, Math.max(1, Math.ceil((+t.adults || 1) / 2)))), ...(kidsN(t) ? { group_children: String(kidsN(t)) } : {}), lang: 'cs', selected_currency: 'CZK' })}`;
   // Odkaz z nabídek partnerů jen pro stejný termín (po změně nocí by vedl na jiná data); partneři
   // spolehlivěji poznají anglický název města („Bologna“) než český („Boloňa“).
   const baseSearchUrl = (t, b, d) => (b.searchUrl && b.searchUrl.includes(d.checkin) && b.searchUrl.includes(d.checkout) ? b.searchUrl
@@ -453,7 +457,7 @@
     }
     // autem z letiště a na letiště jen s autem vyzvednutým / vráceným na letišti (jinak ten úsek kryje doprava z letiště);
     // po příjezdu vlakem/busem se doprava z letiště nepočítá – oba konce palivem
-    // za auto palivo a na delším přejezdu v Itálii, Francii a Chorvatsku mýtné (tollCzk ze serveru)
+    // za auto palivo a na delším přejezdu v Itálii, Francii, Chorvatsku a Portugalsku mýtné (tollCzk ze serveru)
     const carCost = x => (x ? (x.fuelCzk || 0) + (x.tollCzk || 0) : 0);
     const endFuel = (x, side) => (x && x.fuelCzk && (ov || carCovers(t, side)) ? carCost(x) : 0);
     return Math.round(xs.reduce((s, x) => s + carCost(x), 0) + endFuel(ends.arrival, 'out') + endFuel(ends.departure, 'back'));
@@ -466,8 +470,20 @@
     // cesta přes víc měst: z města na letiště a z letiště do dalšího města u letů mezi místy
     ...(Array.isArray(f.mid) && f.mid.length ? { mid: f.mid.map(l => ({ from: arr[l.from] || null, to: arr[l.to] || null })) } : {}),
   } : null);
-  /** Úsek cesty do města, který nahradí půjčené auto (vyzvednutí na letišti příletu, vrácení na letišti odletu). */
-  const carCovers = (t, side) => { const c = t.car && t.car.mode !== 'skip' ? t.car : null, f = t.flight; return Boolean(c) && (side === 'out' ? c.pickup === f.out.to : Boolean(f.back) && c.dropoff === f.back.from); };
+  /**
+   * Úsek cesty do města, který nahradí půjčené auto: vyzvednutí na letišti příletu krátce po příletu, vrácení na letišti
+   * odletu krátce před odletem (do CAR_NEAR_H hodin; let bez času = týž den). Auto jen na pár dní uprostřed pobytu
+   * (Lisabon 5 nocí, auto 12.–14.) cestu z letiště do města ani zpět nekryje – ta se počítá dál. Auto bez času (starší
+   * cesta) jako dřív podle letiště.
+   */
+  const CAR_NEAR_H = 6;
+  const carNear = (dt, l, at) => !dt || !l || (l.hasTime ? Math.abs(Date.parse(`${String(dt).slice(0, 16)}:00Z`) - Date.parse(`${at}:00Z`)) <= CAR_NEAR_H * 36e5 : String(dt).slice(0, 10) === l.date);
+  const carCovers = (t, side) => {
+    const c = t.car && t.car.mode !== 'skip' ? t.car : null, f = t.flight;
+    if (!c) return false;
+    if (side === 'out') return c.pickup === f.out.to && carNear(c.from, f.out, arrivalAt(f.out));
+    return Boolean(f.back) && c.dropoff === f.back.from && carNear(c.to, f.back, String(f.back.dep).slice(0, 16));
+  };
   /** Trasa přes víc míst: 1. (side 'out') / poslední místo je ve městě letiště (do 25 km) – přejezd k letišti kryje doprava z letiště do města. */
   const arrCovers = (t, side) => {
     const a = !ovOn(t) && +t.flight.arrCzk > 0 && t.arrival && t.arrival[side], bs = t.route.bases, base = side === 'out' ? bs[0] : bs[bs.length - 1];
@@ -2034,6 +2050,9 @@
   // hotel z okolí (malé místo bez hotelů na TripAdvisoru): „📍 v okolí: Noto · 24 km od místa Palazzolo Acreide“ (název
   // místa v 1. pádě – „od Ragusa“ by nesedělo)
   const nearLine = (h, base) => h.nearby ? `<div class="st-near">📍 v okolí${h.nearby.place ? `: <b>${esc(h.nearby.place)}</b>` : ''}${h.distanceKm != null ? ` · ${kmTxt(Math.round(h.distanceKm))} od ${base ? `místa ${esc(base)}` : 'místa pobytu'}` : ''}</div>` : '';
+  // Hlavní odkaz karty bez cen u jednotlivých webů (LiteAPI, ukázková data): kam vede – hledání hotelu na Booking.com
+  // (i přes partnerský tp.media) s termínem a hosty, jinak rezervace u zdroje (white-label LiteAPI); „detail“ neříkal kam.
+  const bookName = u => (/^https:\/\/www\.booking\.com\//.test(u || '') || /^https:\/\/tp\.media\/r\?.*u=https%3A%2F%2Fwww\.booking\.com%2F/.test(u || '') ? 'Booking.com' : 'rezervovat');
   function stayCard(h, i, base = '', q = null) {
     // hotel z místa TripAdvisoru se stejným názvem (Montalcino) jako hotel v místě – „km od centra“, bez „v okolí“
     if (h.nearby && !nearFar(h, q) && q) h = { ...h, nearby: null };
@@ -2053,7 +2072,9 @@
         : h.osm ? bkLink(h.bookUrl, 'Booking.com', 'Hledání ubytování na Booking.com na tvoje dny – cenu a volno ověř tam', h.bookSponsored)
           + (h.website ? bkLink(h.website, 'web ubytování', 'Vlastní web ubytování (z OpenStreetMap)', false) : '')
           + (h.mapUrl ? bkLink(h.mapUrl, 'mapa', 'Ubytování na Google Mapách', false) : '')
-          : bkLink(h.bookUrl, 'detail', '', h.bookSponsored);
+          : bkLink(h.bookUrl, bookName(h.bookUrl), bookName(h.bookUrl) === 'Booking.com' ? 'Hotel na Booking.com na tvoje dny a hosty – cenu a volno ověř tam' : 'Rezervace hotelu na tvoje dny', h.bookSponsored);
+    // cena celkem za kolik nocí (q = dotaz s počtem nocí) – „celkem“ samo neříkalo, za co
+    const forN = q && q.nights > 0 ? `za ${nightsTxt(q.nights)}` : 'celkem';
     // hotel bez ceny na tvoje dny (TripAdvisor ji zatím nemá): běžné rozpětí za noc
     const guess = h.guess ? `<div class="pp-guess" title="${h.nightToCzk > h.nightFromCzk ? `běžně ${czk(h.nightFromCzk)}–${czk(h.nightToCzk)} za noc` : ''}">${h.nightFromCzk ? `od ~${czk(h.nightFromCzk)}/noc` : 'cena na webu'}</div><div class="faint">běžná cena · volno na tvoje dny neověřené</div>` : '';
     return `<div class="stay ${chosen ? 'chosen' : ''}">
@@ -2066,7 +2087,7 @@
         ${otaChips(h)}${top && !bk ? '<div class="faint st-nobk">Booking.com na tvoje dny nic nenabízí</div>' : ''}${top && top.site === 'trip' ? '<div class="faint st-nobk">Trip.com: hledání potvrď tlačítkem Hledat</div>' : ''}
       </div>
       <div class="st-rating">${rt.col}</div>
-      <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">celkem · ${czk(h.pricePerNightCzk)}/noc</div>` : guess || `<div class="faint">${h.osm ? 'cenu ověř u partnera' : 'cena na webu'}</div>`}</div>
+      <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">${forN} · ${czk(h.pricePerNightCzk)}/noc</div>` : guess || `<div class="faint">${h.osm ? 'cenu ověř u partnera' : 'cena na webu'}</div>`}</div>
         ${h.soldOut && !chosen ? '<div class="st-sold">❌ na tvoje dny vyprodáno</div>' : ''}
         <button class="btn sm ${h.soldOut && !chosen ? 'ghost' : 'primary'}" data-pick="${i}"${h.soldOut && !chosen ? ' data-anyway="1" title="Volno jsem ověřil teď – TripAdvisor na tvoje dny nic nenabízí"' : ''}>${chosen ? '✓ Vybráno' : h.soldOut ? 'Vybrat i tak' : 'Vybrat'}</button>
         ${links}</div>
@@ -2150,10 +2171,15 @@
     const split = Boolean(near) && d.items.some(isOsm) && d.items.some(h => !isOsm(h));
     const main = split ? d.items.filter(h => !isOsm(h)) : d.items;
     const inTown = split ? d.items.filter(h => isOsm(h) && (!stayView.type || h.type === stayView.type)) : [];
+    // Storno zdarma zná jen část zdrojů (LiteAPI, ukázková data; TripAdvisor ne) – filtr jen tam, kde ho aspoň jeden hotel
+    // má; zapamatovaný z jiného místa by tu skryl všechno
+    const freeKnown = main.some(h => h.freeCancellation === true);
+    if (!freeKnown) stayView.free = false;
     // bez hodnocení u žádného (ubytování z OpenStreetMap) filtr hodnocení z jiného místa neplatí
     let items = main.filter(h => (h.rating ?? 0) >= stayView.minRating || stayView.minRating === 0 || !main.some(x => x.rating != null))
       .filter(h => !stayView.maxNight || ((h.pricePerNightCzk || h.nightFromCzk) && (h.pricePerNightCzk || h.nightFromCzk) <= stayView.maxNight))
-      .filter(h => !stayView.type || h.type === stayView.type);
+      .filter(h => !stayView.type || h.type === stayView.type)
+      .filter(h => !stayView.free || h.freeCancellation === true);
     const sorters = {
       value: (a, b) => (b.value ?? -1) - (a.value ?? -1),
       price: (a, b) => (a.priceTotalCzk || Infinity) - (b.priceTotalCzk || Infinity),
@@ -2224,14 +2250,19 @@
         ${inTown.length > osmLim ? `<button type="button" class="more-btn" id="stayTownN">▼ Další v místě (${inTown.length - osmLim})</button>` : ''}</div>` : '';
     // nejdřív 6 hotelů (na telefonu je každý ~200 px) – „Ubytování neřeším“ a vlastní cena jsou pak blízko
     const lim = stayView.n || 6;
+    // vybraný hotel je vidět vždy, i když ho filtry nebo řazení odsunuly (návrat do kroku: co mám vybráno, změnit, porovnat)
+    const cur = staySlot && staySlot.get();
+    const picked = cur && cur.mode === 'pick' ? main.find(h => h.id === cur.id) : null;
+    let shown = items.slice(0, lim);
+    if (picked && !shown.includes(picked)) shown = [picked, ...shown];
     host.innerHTML = `${testNote}${osmNote}${srcNote}<div class="stay-tools">
         <select id="staySort">${[['value', '🏆 Nejlepší poměr cena/hodnocení'], ['price', '💰 Nejlevnější'], ['rating', '⭐ Nejlépe hodnocené'], ['dist', '📍 Nejblíž centru']].map(o => `<option value="${o[0]}" ${stayView.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
         ${rated ? `<div class="seg" id="stayMin">${[[0, 'vše'], [7, five ? '3,5+' : '7+'], [8, five ? '4+' : '8+'], [9, five ? '4,5+' : '9+']].map(o => `<button type="button" data-v="${o[0]}" class="${stayView.minRating === o[0] ? 'on' : ''}">${o[1]}</button>`).join('')}</div>` : ''}
         ${types.length > 1 ? `<select id="stayType"><option value="">všechny typy</option>${types.map(x => `<option ${stayView.type === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}
         <input class="input" id="stayMax" type="number" min="0" step="100" placeholder="max Kč/noc" value="${stayView.maxNight || ''}" style="max-width:130px">
-        <span class="faint" style="font-size:12px">${items.length} z ${main.length} nabídek${hideGuess ? ` · ${nGuess} bez ceny skryto` : ''}${split ? ` · ${inTown.length} v místě bez ceny` : ''}</span>
+        <span class="faint" style="font-size:12px">${freeKnown ? `<button type="button" class="chip st-free${stayView.free ? ' accent' : ''}" id="stayFree" aria-pressed="${stayView.free}">${stayView.free ? '✓ ' : ''}zdarma storno</button>` : ''}${items.length} z ${main.length} nabídek${hideGuess ? ` · ${nGuess} bez ceny skryto` : ''}${split ? ` · ${inTown.length} v místě bez ceny` : ''}</span>
       </div>
-      <div class="stay-list">${items.slice(0, lim).map((h) => stayCard(h, d.items.indexOf(h), base, dq)).join('') || `<div class="empty">Filtrům nic neodpovídá. Uvolni hodnocení, max. cenu nebo typ ubytování.<div style="margin-top:10px"><button type="button" class="btn sm" id="stayClear">Zrušit filtry</button></div></div>`}</div>
+      <div class="stay-list">${shown.map((h) => stayCard(h, d.items.indexOf(h), base, dq)).join('')}${items.length ? '' : `<div class="empty">Filtrům nic neodpovídá. Uvolni hodnocení, max. cenu, typ ubytování nebo storno zdarma.<div style="margin-top:10px"><button type="button" class="btn sm" id="stayClear">Zrušit filtry</button></div></div>`}</div>
       ${items.length > lim ? `<button type="button" class="more-btn" id="stayMoreN">▼ Další hotely (${items.length - lim})</button>` : ''}
       ${hideGuess ? `<button type="button" class="linkbtn st-guess-btn" id="stayGuess">Ukázat i ${nGuess} ${nGuess === 1 ? 'hotel' : nGuess <= 4 ? 'hotely' : 'hotelů'} bez ceny na tvoje dny (často obsazené)</button>` : ''}
       ${townHtml}
@@ -2244,8 +2275,9 @@
     $$('#stayMin button').forEach(b => b.onclick = () => { stayView.minRating = +b.dataset.v; stayView.n = 0; renderStays(); });
     const ty = $('#stayType'); if (ty) ty.onchange = e => { stayView.type = e.target.value; stayView.n = 0; renderStays(); };
     $('#stayMax').onchange = e => { stayView.maxNight = +e.target.value || null; stayView.n = 0; renderStays(); };
-    // filtry skryly všechno: hodnocení, max. cena a typ pryč jedním klepnutím (řazení zůstane)
-    const sc = $('#stayClear'); if (sc) sc.onclick = () => { Object.assign(stayView, { minRating: 0, maxNight: null, type: '', n: 0 }); renderStays(); };
+    const fr = $('#stayFree'); if (fr) fr.onclick = () => { stayView.free = !stayView.free; stayView.n = 0; renderStays(); };
+    // filtry skryly všechno: hodnocení, max. cena, typ a storno pryč jedním klepnutím (řazení zůstane)
+    const sc = $('#stayClear'); if (sc) sc.onclick = () => { Object.assign(stayView, { minRating: 0, maxNight: null, type: '', free: false, n: 0 }); renderStays(); };
     const mn = $('#stayMoreN'); if (mn) mn.onclick = () => { stayView.n = lim + 10; renderStays(); };
     const tn = $('#stayTownN'); if (tn) tn.onclick = () => { stayView.osm = d.key; renderStays(); };
     // hotely bez ceny jsou v pořadí až za limitem výpisu – ukázat celý seznam a posunout se k prvnímu z nich
@@ -2337,12 +2369,80 @@
     const ends = ovOn(t) ? overlandLegs(t) : r.legs || {};
     const km = [ends.arrival, ...(r.transfers || []), ends.departure].reduce((s, x) => s + (x ? x.km : 0), 0);
     const pu = f.out.to, back = f.back ? f.back.from : null;
+    const train = trainFaster(t);
     if (ovOn(t)) {
       return `<div class="note info" style="margin-bottom:12px">🧭 <div><b>Trasa autem: ${esc(r.bases.map(b => b.name).join(' → '))}</b>${km ? ` · přejezdy celkem ~${kmTxt(km)}` : ''}.<br>
-        Přijedeš vlakem / busem – auto si půjč na místě (třeba na letišti <b>${esc(pu)}</b> – ${esc(t.overland.to.label)}) a vrať ho tam před cestou zpět.</div></div>`;
+        Přijedeš vlakem / busem – auto si půjč na místě (třeba na letišti <b>${esc(pu)}</b> – ${esc(t.overland.to.label)}) a vrať ho tam před cestou zpět.${train}</div></div>`;
     }
     return `<div class="note info" style="margin-bottom:12px">🧭 <div><b>Trasa autem: ${esc(r.bases.map(b => b.name).join(' → '))}</b>${km ? ` · přejezdy celkem ~${kmTxt(km)}` : ''}.<br>
-      ${back ? `Auto vyzvedni na letišti příletu <b>${esc(pu)}</b> a vrať na letišti odletu <b>${esc(back)}</b>${back !== pu ? ' – jednosměrný pronájem (one-way) bývá dražší, příplatek za vrácení jinde ověř ve srovnávači' : ''}.` : `Auto vyzvedni na letišti příletu <b>${esc(pu)}</b>; místo vrácení zadej podle toho, kde cestu končíš.`}</div></div>`;
+      ${back ? `Auto vyzvedni na letišti příletu <b>${esc(pu)}</b> a vrať na letišti odletu <b>${esc(back)}</b>${back !== pu ? ' – jednosměrný pronájem (one-way) bývá dražší, příplatek za vrácení jinde ověř ve srovnávači' : ''}.` : `Auto vyzvedni na letišti příletu <b>${esc(pu)}</b>; místo vrácení zadej podle toho, kde cestu končíš.`}${train}</div></div>`;
+  }
+
+  /**
+   * Trasa autem, kde je vlak mezi místy jasně rychlejší (přejezd ze serveru: vlakem aspoň o TRAIN_WIN_MIN min dřív než
+   * autem s provozem a parkováním – Řím → Florencie rychlovlakem ~1 h 55 min, autem ~3 h 15 min): krátký důvod, proč
+   * auto nebrat na celou trasu. Všechny přejezdy rychleji vlakem → bez auta; jen některé → auto jen na část trasy.
+   */
+  const TRAIN_WIN_MIN = 20;
+  /** Přejezdy trasy rychlejší vlakem: { fast: ['Řím → Florencie ~1 h 55 min (autem ~3 h 15 min)'…], all: všechny }. */
+  function trainLegs(t) {
+    const r = t.route, xs = r.transfers || [];
+    const fast = r.bases.slice(1).map((b, i) => {
+      const x = xs[i];
+      return x && x.transitKind === 'rail' && x.transitMin > 0 && x.carMin - x.transitMin >= TRAIN_WIN_MIN
+        ? `${esc(r.bases[i].name)} → ${esc(b.name)} ~${minutesToHm(x.transitMin)} (autem ~${minutesToHm(x.carMin)})` : null;
+    }).filter(Boolean);
+    return { fast, all: fast.length > 0 && fast.length === r.bases.length - 1 };
+  }
+  function trainFaster(t) {
+    const { fast, all } = trainLegs(t);
+    if (!fast.length) return '';
+    return `<div class="car-train">🚆 <b>Vlakem rychleji:</b> ${fast.join(', ')} – ${all ? 'mezi místy auto nepotřebuješ (tlačítko <b>Bez auta – mezi místy vlakem a busem</b> níž)' : 'auto si můžeš půjčit jen na část trasy (vrácení jinde bývá za příplatek)'}.</div>`;
+  }
+
+  /**
+   * Jedno místo ve městě, kam z letiště jede metro, vlak nebo tramvaj (cesta z letiště do města – t.arrival.out.mode),
+   * a ubytování nejvýš ~8 km od centra: krátký důvod, proč auto nepůjčovat (jen na výlety na pár dní). Trasa přes víc
+   * míst, vlak/bus místo letu, letiště jen s autobusem (Mallorca, Kréta – auto se hodí) a ubytování za městem → ''.
+   */
+  const CAR_CITY_RAIL = { metro: 'metro', train: 'vlak', tram: 'tramvaj' };
+  function carCityTip(t) {
+    if (isMulti(t) || ovOn(t)) return '';
+    const a = t.arrival && t.arrival.out, s = t.stay, how = a && CAR_CITY_RAIL[a.mode];
+    if (!how || !Number.isFinite(a.lat) || !Number.isFinite(a.lon)) return '';
+    if (s && s.mode !== 'skip' && Number.isFinite(s.lat) && Number.isFinite(s.lon) && distKm(a, s) > 8) return '';
+    return `<b>Ve městě auto spíš nepotřebuješ</b> – ${esc(a.city || t.dest.label)} projdeš pěšky a MHD, z letiště jede ${how} a parkování v centru bývá drahé. Na výlety mimo město si auto půjč jen na ty dny – uprav vyzvednutí a vrácení níž.`;
+  }
+
+  /**
+   * Auto v zemích, kde se snadno přehlédne povinnost mimo cenu půjčovny (cíl a místa trasy):
+   * Itálie – historická centra mnoha měst jsou zóny ZTL za elektronickými branami s kamerami, vjezd jen s povolením,
+   *   pokuta se doručuje i do ciziny a půjčovna na žádost předá úřadu údaje řidiče (Generální konzulát Itálie v Torontu,
+   *   MZV Itálie: https://constoronto.esteri.it/en/?p=960 „Fines and tickets due to traffic violations in Italy“, ověřeno
+   *   10/2026); hotel v zóně může SPZ hosta zapsat k povolenému vjezdu (Florencie: Servizi alla Strada pro město,
+   *   https://www.serviziallastrada.it/le-news-di-firenzesas/ztl-6 – zápis SPZ ubytovacími zařízeními, ověřeno 10/2026).
+   * Portugalsko – část dálnic má jen elektronické mýtné (brány bez budek, platit na místě nejde); půjčovny mají auta
+   *   s transpondérem a službu si zákazník objedná při převzetí, jinak auto s portugalskou SPZ doplatí mýtné na poště CTT
+   *   nebo v Payshopu do 15 pracovních dnů; transpondér je za poplatek (Infraestruturas de Portugal – FAQ portagens,
+   *   https://www.infraestruturasdeportugal.pt/pt-pt/node/8018, ověřeno 10/2026).
+   */
+  function carCountryNotes(t) {
+    const ccs = new Set([t.dest && t.dest.cc, ...(isMulti(t) ? t.route.bases.map(b => b.cc) : [])].filter(Boolean));
+    const out = [];
+    if (ccs.has('IT')) out.push('🚫 <div><b>Itálie – zóny ZTL:</b> do historických center mnoha měst smí jen auta s povolením. Vjezd hlídají kamery a pokuta přijde i domů (půjčovna předá úřadu tvoje údaje). Parkuj mimo centrum; bydlíš-li uvnitř zóny, dej hotelu předem SPZ – může ji zapsat k povolenému vjezdu.</div>');
+    if (ccs.has('PT')) out.push('🛣️ <div><b>Portugalsko – elektronické mýtné:</b> část dálnic má jen brány bez budek, na místě se platit nedá. Při převzetí auta si objednej mýtnou službu půjčovny (transpondér, za poplatek) – jinak mýtné doplatíš na poště CTT do 15 pracovních dnů.</div>');
+    return out.length ? `<div class="car-notes">${out.map(x => `<div class="note warn">${x}</div>`).join('')}</div>` : '';
+  }
+
+  /**
+   * Co je v ceně auta a co se počítá zvlášť: cena = co zaplatíš půjčovně; palivo a mýtné na přejezdech trasy autem jsou
+   * odhad v Přejezdech (transferCzk); palivo na výlety a parkování v ceně cesty nejsou.
+   */
+  function carCostNote(t) {
+    const tr = isMulti(t) && !isFly(t) && t.route.transport !== 'transit' ? transferCzk(t) : 0;
+    return `<div class="faint car-cost">Do ceny zadej, co zaplatíš půjčovně – i pojištění, autosedačky a příplatek za vrácení jinde. ${tr > 0
+      ? `Palivo a mýtné na přejezdech trasy počítám zvlášť (odhad ~${czk(tr)}); palivo na výlety a parkování ve městech v ceně cesty nejsou.`
+      : 'Palivo, mýtné a parkování v ceně cesty nejsou – počítej s nimi navíc.'}</div>`;
   }
 
   /**
@@ -2360,16 +2460,27 @@
     const host = $('#tripStep');
     const def = t.car && t.car.mode !== 'skip' && t.car.from ? t.car : carDefaults(t);
     // délka pronájmu a příplatek za vrácení jinde – i po úpravě letišť a časů
-    const daysLine = q => `${daysTxt(Math.max(1, Math.ceil((new Date(q.to + ':00Z') - new Date(q.from + ':00Z')) / 864e5) || 1))} pronájmu${q.dropoff && q.dropoff !== q.pickup ? ` · vrácení na jiném letišti (${esc(q.dropoff)}) může stát příplatek` : ''}`;
+    // Půjčovny počítají po 24 h od vyzvednutí: vrácení jen kousek (do 3 h) po celých dnech stojí den navíc – řekni,
+    // do kdy auto vrátit (přílet 11:00 → vyzvednutí 11:45, odlet 15:00 → vrácení 13:00 = 6 dní místo 5).
+    const daysLine = q => {
+      const ms = new Date(q.to + ':00Z') - new Date(q.from + ':00Z'), n = Math.max(1, Math.ceil(ms / 864e5) || 1), over = ms - (n - 1) * 864e5;
+      const save = n > 1 && over > 0 && over <= 3 * 36e5 ? ` · vrátíš-li auto do ${esc(String(q.from).slice(11, 16))}, bývá pronájem o den kratší` : '';
+      return `${daysTxt(n)} pronájmu${save}${q.dropoff && q.dropoff !== q.pickup ? ` · vrácení na jiném letišti (${esc(q.dropoff)}) může stát příplatek` : ''}`;
+    };
     const byTrain = isMulti(t) && t.route.transport === 'transit';
     // trasa přes víc míst autem a auto zatím nevybrané: bez auta jde přejet vlakem a busem (Auto nepotřebuji by nechalo
     // přejezdy autem – palivo i časy za auto, které nebude)
     const byCar = isMulti(t) && !byTrain && (!t.car || t.car.mode === 'skip');
+    const cityTip = !t.car ? carCityTip(t) : '';
+    // všechny přejezdy trasy rychleji vlakem → „Bez auta – mezi místy vlakem a busem“ jako hlavní volba
+    const trainAll = byCar && trainLegs(t).all;
     host.innerHTML = `<div class="card step-card">
       <div class="sc-head"><div><h3>🚗 Auto na místě</h3><div class="muted">${ovOn(t) ? `Půjčovny bývají na letišti u cíle (${esc(t.flight.out.to)}) – vyzvednutí po příjezdu, vrácení před cestou zpět.` : 'Vyzvednutí na letišti po příletu, vrácení před odletem.'}</div></div>
       ${t.car ? `<div class="chosen">${t.car.mode === 'skip' ? 'Bez auta' : `Auto: <b>${czk(t.car.totalCzk)}</b>`}</div>` : ''}</div>
       ${routeCarNote(t)}
-      ${!isMulti(t) && !t.car ? '<div class="car-quick"><span class="muted">Na místě se obejdeš bez auta?</span><button type="button" class="btn sm" id="carSkipTop">Auto nepotřebuji →</button></div>' : ''}
+      ${cityTip ? `<div class="note info car-city" style="margin-bottom:12px">🏙️ <div>${cityTip}<div style="margin-top:8px"><button type="button" class="btn sm primary" id="carSkipTop">Auto nepotřebuji →</button></div></div></div>`
+        : !isMulti(t) && !t.car ? '<div class="car-quick"><span class="muted">Na místě se obejdeš bez auta?</span><button type="button" class="btn sm" id="carSkipTop">Auto nepotřebuji →</button></div>' : ''}
+      ${carCountryNotes(t)}
       <div class="car-form">
         <div class="field"><label>Vyzvednutí</label><div class="row" style="gap:6px"><input class="input" id="carPu" value="${esc(def.pickup)}" maxlength="3" style="max-width:80px;text-transform:uppercase"><input class="input" type="datetime-local" id="carFrom" value="${def.from}"></div></div>
         <div class="field"><label>Vrácení</label><div class="row" style="gap:6px"><input class="input" id="carDo" value="${esc(def.dropoff)}" maxlength="3" style="max-width:80px;text-transform:uppercase"><input class="input" type="datetime-local" id="carTo" value="${def.to}"></div></div>
@@ -2382,26 +2493,35 @@
       <div class="manual-row"><div class="muted" style="font-size:13px">Vybral sis auto? Zadej celkovou cenu:</div>
         <input class="input" id="carPrice" type="number" min="0" step="100" placeholder="Cena celkem v Kč" value="${t.car && t.car.mode === 'manual' ? t.car.totalCzk : ''}">
         <button class="btn" id="carSave">Uložit</button></div>
-      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${(byTrain || isFly(t)) && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${byCar ? '<button class="btn ghost" id="carTransit" title="Přejezdy mezi místy trasy se přepočítají na vlak a autobus (jízdenky místo paliva)">Bez auta – mezi místy vlakem a busem →</button>' : ''}${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
+      ${carCostNote(t)}
+      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${(byTrain || isFly(t)) && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${byCar ? `<button class="btn ${trainAll ? 'primary' : 'ghost'}" id="carTransit" title="Přejezdy mezi místy trasy se přepočítají na vlak a autobus (jízdenky místo paliva)">Bez auta – mezi místy vlakem a busem →</button>` : ''}${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
     </div>`;
     const read = () => ({ pickup: $('#carPu').value.trim().toUpperCase(), dropoff: $('#carDo').value.trim().toUpperCase(), from: $('#carFrom').value, to: $('#carTo').value, age: +$('#carAge').value || 30 });
     const linkFor = carLinkFor;
     const load = async () => {
-      const q = read();
+      const q = read(), my = ++carSeq;
       if (q.from && q.to) $('#carDays').innerHTML = daysLine(q);
-      if (!/^[A-Z]{3}$/.test(q.pickup) || !q.from || !q.to) return;
+      // neúplný formulář: místo odkazů se starými údaji (nebo věčného „Připravuji nabídky…“) říct, co doplnit
+      if (!/^[A-Z]{3}$/.test(q.pickup) || (q.dropoff && !/^[A-Z]{3}$/.test(q.dropoff)) || !q.from || !q.to) {
+        $('#carBody').innerHTML = '<div class="note info">ℹ️ <div>Doplň kód letiště vyzvednutí a vrácení (3 písmena, třeba LIS) a datum a čas vyzvednutí i vrácení – pak ukážu srovnávače půjčoven.</div></div>';
+        return;
+      }
       try {
         const r = await fetch('api/cars?' + new URLSearchParams({ pickup: q.pickup, dropoff: q.dropoff || q.pickup, from: q.from, to: q.to, age: q.age }));
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        if (my !== carSeq) return;
         carsData = j;
         // uložené auto bez odkazu („Pokračovat“ dřív, než se nabídky k novým časům načetly) ho dostane teď
         if (t.car && t.car.mode === 'manual' && !t.car.url && linkFor(t.car)) { t.car.url = linkFor(t.car); persist(); }
         if (!$('#carBody')) return; // krok Auto už je pryč
-        $('#carBody').innerHTML = `<div class="muted" style="font-size:13px;margin-bottom:8px">Srovnávače půjčoven – <b>předvyplněné na letiště ${esc(j.query.pickupName || q.pickup)} a tvoje časy</b>:</div>
+        // vrácení v jiné zemi: mezinárodní one-way stojí víc než vrácení na jiném letišti téže země (to hlásí carDays)
+        const jq = j.query, abroad = jq.pickupCc && jq.dropoffCc && jq.pickupCc !== jq.dropoffCc;
+        $('#carBody').innerHTML = `${abroad ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>Vrácení v jiné zemi</b> (${esc(ccName(jq.dropoffCc))}) – mezinárodní jednosměrný pronájem bývá výrazně dražší a ne každá půjčovna ho dovolí; ověř příplatek v podmínkách nabídky.</div></div>` : ''}
+          <div class="muted" style="font-size:13px;margin-bottom:8px">Srovnávače půjčoven – <b>předvyplněné na letiště ${esc(jq.pickupName || q.pickup)} a tvoje časy</b>:</div>
           ${linkGrid(j.links, '#ff690f')}`;
       } catch (e) {
-        if ($('#carBody')) $('#carBody').innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
+        if (my === carSeq && $('#carBody')) $('#carBody').innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
       }
     };
     ['#carPu', '#carDo', '#carFrom', '#carTo', '#carAge'].forEach(s => $(s).onchange = load);
