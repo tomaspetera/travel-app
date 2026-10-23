@@ -15,8 +15,9 @@
   ];
   const DOW = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
   const STAY_BADGES = {
-    'best-value': ['🏆 Nejlepší poměr cena/hodnocení', 'good'],
-    'cheapest-good': ['💚 Nejlevnější s hodnocením 8+', 'good'],
+    // [v hranatých závorkách] část štítku, která se na telefonu schová – kompaktní karta, štítky vedle sebe na řádku
+    'best-value': ['🏆 Nejlepší poměr[ cena/hodnocení]', 'good'],
+    'cheapest-good': ['💚 Nejlevnější[ s hodnocením] 8+', 'good'],
     cheapest: ['💰 Nejlevnější', 'info'],
     'top-rated': ['⭐ Nejlépe hodnocené', 'hot'],
   };
@@ -2016,19 +2017,22 @@
     return `<div class="link-grid${compact ? ' compact' : ''}">${html}</div>${links.some(l => l.sponsored) ? SPONSOR_NOTE : ''}`;
   }
 
-  /** Hodnocení na kartě: TripAdvisor (Xotelo) „4,5/5 (2 163 hodnocení)“, ostatní 0–10 „8,9 Vynikající · 2 100 recenzí“. */
+  /**
+   * Hodnocení na kartě: TripAdvisor (Xotelo) „4,5/5 Výborné (2 163 hodnocení)“, ostatní 0–10 „8,9 Vynikající · 2 100 recenzí“.
+   * Slovo (st-rw) jen opakuje číslo – na telefonu se schová, ať se hodnocení s počtem vejde na jeden řádek.
+   */
   function stayRating(h) {
     if (h.rating == null) return { inline: '', col: '<div class="faint">bez hodnocení</div>' };
     if (h.rating5 != null) {
       const n = h.reviews ? `${h.reviews.toLocaleString('cs')} hodnocení` : '';
       const cnt = n && h.reviewsUrl ? `<a href="${esc(safeUrl(h.reviewsUrl))}" target="_blank" rel="noopener" title="Hodnocení hostů na TripAdvisoru">${n}</a>` : n;
       return {
-        inline: `<div class="st-rate-inline"><b class="ta">${dec1(h.rating5)}/5</b> ${ratingWord5(h.rating5)}${cnt ? ` (${cnt})` : ''}</div>`,
+        inline: `<div class="st-rate-inline"><b class="ta">${dec1(h.rating5)}/5</b><span class="st-rw"> ${ratingWord5(h.rating5)}</span>${cnt ? ` (${cnt})` : ''}</div>`,
         col: `<div class="rt ta">${dec1(h.rating5)}<small>/5</small></div><div class="faint">${ratingWord5(h.rating5)}${cnt ? `<br>${cnt}` : ''}<br>TripAdvisor</div>`,
       };
     }
     return {
-      inline: `<div class="st-rate-inline"><b>${dec1(h.rating)}</b> ${ratingWord(h.rating)}${h.reviews ? ` · ${reviewsTxt(h.reviews)}` : ''}</div>`,
+      inline: `<div class="st-rate-inline"><b>${dec1(h.rating)}</b><span class="st-rw"> ${ratingWord(h.rating)}${h.reviews ? ' ·' : ''}</span>${h.reviews ? ` ${reviewsTxt(h.reviews)}` : ''}</div>`,
       col: `<div class="rt">${dec1(h.rating)}</div><div class="faint">${ratingWord(h.rating)}${h.reviews ? `<br>${reviewsTxt(h.reviews)}` : ''}</div>`,
     };
   }
@@ -2053,44 +2057,70 @@
   // Hlavní odkaz karty bez cen u jednotlivých webů (LiteAPI, ukázková data): kam vede – hledání hotelu na Booking.com
   // (i přes partnerský tp.media) s termínem a hosty, jinak rezervace u zdroje (white-label LiteAPI); „detail“ neříkal kam.
   const bookName = u => (/^https:\/\/www\.booking\.com\//.test(u || '') || /^https:\/\/tp\.media\/r\?.*u=https%3A%2F%2Fwww\.booking\.com%2F/.test(u || '') ? 'Booking.com' : 'rezervovat');
+  // Karty s rozbalenými „další weby“ (id hotelu) – rozbalená zůstane i po překreslení (doplnění cen, řazení, filtr).
+  const stayOpen = new Set();
+  const websTxt = on => `další weby ${on ? '▴' : '▾'}`;
+  /**
+   * Karta hotelu. Na počítači fotka, popis, hodnocení a cena vedle sebe jako dřív; na telefonu kompaktní (trip.css,
+   * max-width:560px): .st-main a .st-price se rozpustí do mřížky karty – nahoře malá fotka, název, typ a vzdálenost,
+   * hodnocení a cena vpravo, pod tím štítky a dole Vybrat s hlavním odkazem. Ceny u dalších webů (.st-web), vedlejší
+   * odkazy (.st-bk.sec) a poznámka o Booking.com jsou na telefonu schované pod „další weby ▾“ pod cenou (.stay.open).
+   * Části textu jen pro větší obrazovku (adresa, slovo k hodnocení…) mají vlastní značku, na telefonu se schovají.
+   */
   function stayCard(h, i, base = '', q = null) {
     // hotel z místa TripAdvisoru se stejným názvem (Montalcino) jako hotel v místě – „km od centra“, bez „v okolí“
     if (h.nearby && !nearFar(h, q) && q) h = { ...h, nearby: null };
     const cur = staySlot && staySlot.get();
     const chosen = cur && cur.mode === 'pick' && cur.id === h.id;
-    const badges = (h.badges || []).map(b => STAY_BADGES[b] ? `<span class="b ${STAY_BADGES[b][1]}">${b === 'cheapest-good' && h.rating5 != null ? '💚 Nejlevnější s hodnocením 4+/5' : STAY_BADGES[b][0]}</span>` : '').join('');
+    const badges = (h.badges || []).map(b => STAY_BADGES[b] ? `<span class="b ${STAY_BADGES[b][1]}">${(b === 'cheapest-good' && h.rating5 != null ? STAY_BADGES[b][0].replace('8+', '4+/5') : STAY_BADGES[b][0]).replace(/\[(.*?)\]/g, '<span class="st-bl">$1</span>')}</span>` : '').join('');
     const rt = stayRating(h);
     // Xotelo: hlavní odkaz = web nejlevnější nabídky (bez spolehlivého odkazu „porovnat ceny“ na Google Hotels);
     // Booking.com zvlášť, jen když na tvoje dny něco nabízí – jinak poznámka, proč by tam hotel byl vyprodaný.
     const top = h.provider === 'xotelo' && Array.isArray(h.rates) && h.rates[0] && h.rates[0].url ? h.rates[0] : null;
     const bk = top && h.rates.find(r => r.site === 'booking');
-    const bkLink = (url, label, title, sp) => `<span class="st-bk">${outLink(url, `${label} ↗`, { title, sponsored: sp })}${sp ? '<span class="ad-tag">reklama</span>' : ''}</span>`;
+    // sec = vedlejší odkaz (na telefonu až po „další weby“); after = text hned za odkazem
+    const bkLink = (url, label, title, sp, sec = false, after = '') => `<span class="st-bk${sec ? ' sec' : ''}">${outLink(url, `${label} ↗`, { title, sponsored: sp })}${sp ? '<span class="ad-tag">reklama</span>' : ''}${after}</span>`;
+    // nápověda k Trip.com (hledá podle názvu, výsledky až po Hledat): na počítači řádek pod cenami webů, na telefonu
+    // hned za odkazem (ten řádek je tam schovaný – title se na telefonu neukáže)
+    const tripTip = top && top.site === 'trip' ? '<span class="st-trh">– potvrď Hledat</span>' : '';
     const links = !h.bookUrl ? '' : top
-      ? bkLink(h.bookUrl, top.site ? esc(top.name) : 'porovnat ceny', otaTitle(top), h.bookSponsored) + (bk && bk !== top ? bkLink(bk.url, 'Booking.com', otaTitle(bk), bk.sponsored) : '')
+      ? bkLink(h.bookUrl, top.site ? esc(top.name) : 'porovnat ceny', otaTitle(top), h.bookSponsored, false, tripTip) + (bk && bk !== top ? bkLink(bk.url, 'Booking.com', otaTitle(bk), bk.sponsored, true) : '')
       : h.guess ? bkLink(h.bookUrl, 'ceny na tvoje dny', 'Google Hotels – ceny hotelu na tvoje dny u všech webů', false)
         // ubytování z OpenStreetMap (bez ceny): hledání u Bookingu na tvoje dny, vlastní web a mapa
         : h.osm ? bkLink(h.bookUrl, 'Booking.com', 'Hledání ubytování na Booking.com na tvoje dny – cenu a volno ověř tam', h.bookSponsored)
-          + (h.website ? bkLink(h.website, 'web ubytování', 'Vlastní web ubytování (z OpenStreetMap)', false) : '')
-          + (h.mapUrl ? bkLink(h.mapUrl, 'mapa', 'Ubytování na Google Mapách', false) : '')
+          + (h.website ? bkLink(h.website, 'web ubytování', 'Vlastní web ubytování (z OpenStreetMap)', false, true) : '')
+          + (h.mapUrl ? bkLink(h.mapUrl, 'mapa', 'Ubytování na Google Mapách', false, true) : '')
           : bkLink(h.bookUrl, bookName(h.bookUrl), bookName(h.bookUrl) === 'Booking.com' ? 'Hotel na Booking.com na tvoje dny a hosty – cenu a volno ověř tam' : 'Rezervace hotelu na tvoje dny', h.bookSponsored);
-    // cena celkem za kolik nocí (q = dotaz s počtem nocí) – „celkem“ samo neříkalo, za co
+    // ceny u webů a proč tam Booking.com není – na telefonu až po rozbalení „další weby ▾“ (pod cenou, kde je místo)
+    const web = otaChips(h) + (top && !bk ? '<div class="faint st-nobk">Booking.com na tvoje dny nic nenabízí</div>' : '');
+    const open = stayOpen.has(h.id);
+    const more = web || links.includes('st-bk sec') ? `<button type="button" class="linkbtn st-webs-t" data-webs="${i}" aria-expanded="${open}">${websTxt(open)}</button>` : '';
+    // cena celkem za kolik nocí (q = dotaz s počtem nocí) – „celkem“ samo neříkalo, za co; za noc na telefonu pod tím
     const forN = q && q.nights > 0 ? `za ${nightsTxt(q.nights)}` : 'celkem';
     // hotel bez ceny na tvoje dny (TripAdvisor ji zatím nemá): běžné rozpětí za noc
-    const guess = h.guess ? `<div class="pp-guess" title="${h.nightToCzk > h.nightFromCzk ? `běžně ${czk(h.nightFromCzk)}–${czk(h.nightToCzk)} za noc` : ''}">${h.nightFromCzk ? `od ~${czk(h.nightFromCzk)}/noc` : 'cena na webu'}</div><div class="faint">běžná cena · volno na tvoje dny neověřené</div>` : '';
-    return `<div class="stay ${chosen ? 'chosen' : ''}">
-      <div class="st-img" ${h.photo ? `style="background-image:url('${esc(cssUrl(h.photo))}')"` : ''}>${h.photo ? '' : '🏨'}</div>
+    const guess = h.guess ? `<div class="pp-guess" title="${h.nightToCzk > h.nightFromCzk ? `běžně ${czk(h.nightFromCzk)}–${czk(h.nightToCzk)} za noc` : ''}">${h.nightFromCzk ? `od ~${czk(h.nightFromCzk)}/noc` : 'cena na webu'}</div><div class="faint">běžná cena<span class="st-sep"> · </span><span class="st-gv">volno na tvoje dny neověřené</span></div>` : '';
+    // typ · adresa · vzdálenost; adresa (st-addr) i s oddělovačem – na telefonu se schová, typ a vzdálenost zůstanou
+    const km = h.distanceKm != null && !h.nearby ? `${kmTxt(dec1(h.distanceKm))} od centra` : '', typ = h.typeLabel || '';
+    const meta = `${esc(typ)}${h.address ? `<span class="st-addr">${typ ? ' · ' : ''}${esc(h.address)}${!typ && km ? ' · ' : ''}</span>` : ''}${km ? `${typ ? ' · ' : ''}${esc(km)}` : ''}`;
+    // fotka jako <img loading=lazy> v rámečku pevné velikosti: načte se až u obrazovky a nic neposune
+    return `<div class="stay ${[chosen && 'chosen', open && 'open'].filter(Boolean).join(' ')}">
+      <div class="st-img">${h.photo ? `<img src="${esc(safeUrl(h.photo))}" alt="" loading="lazy" decoding="async">` : '🏨'}</div>
       <div class="st-main">
-        <div class="st-name">${esc(h.name)} <span class="st-stars">${stars(h.stars)}</span></div>
-        <div class="faint" style="font-size:12.5px">${esc([h.typeLabel, h.address, h.distanceKm != null && !h.nearby ? `${kmTxt(dec1(h.distanceKm))} od centra` : ''].filter(Boolean).join(' · '))}</div>
-        ${nearLine(h, base)}${rt.inline}
-        <div class="st-badges">${badges}${h.freeCancellation ? '<span class="b good">zdarma storno</span>' : ''}${h.breakfast ? '<span class="b">snídaně</span>' : ''}</div>
-        ${otaChips(h)}${top && !bk ? '<div class="faint st-nobk">Booking.com na tvoje dny nic nenabízí</div>' : ''}${top && top.site === 'trip' ? '<div class="faint st-nobk">Trip.com: hledání potvrď tlačítkem Hledat</div>' : ''}
+        <div class="st-head">
+          <div class="st-name">${esc(h.name)} <span class="st-stars">${stars(h.stars)}</span></div>
+          <div class="faint st-meta">${meta}</div>
+          ${nearLine(h, base)}${rt.inline}
+        </div>
+        <div class="st-tail">
+          <div class="st-badges">${badges}${h.freeCancellation ? '<span class="b good">zdarma storno</span>' : ''}${h.breakfast ? '<span class="b">snídaně</span>' : ''}</div>
+          ${web ? `<div class="st-web">${web}</div>` : ''}${tripTip ? '<div class="faint st-nobk">Trip.com: hledání potvrď tlačítkem Hledat</div>' : ''}
+        </div>
       </div>
       <div class="st-rating">${rt.col}</div>
-      <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">${forN} · ${czk(h.pricePerNightCzk)}/noc</div>` : guess || `<div class="faint">${h.osm ? 'cenu ověř u partnera' : 'cena na webu'}</div>`}</div>
-        ${h.soldOut && !chosen ? '<div class="st-sold">❌ na tvoje dny vyprodáno</div>' : ''}
+      <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">${forN}<span class="st-sep"> · </span><span class="st-pn">${czk(h.pricePerNightCzk)}/noc</span></div>` : guess || `<div class="faint">${h.osm ? 'cenu ověř u partnera' : 'cena na webu'}</div>`}${more}</div>
+        <div class="st-acts">${h.soldOut && !chosen ? '<div class="st-sold">❌ na tvoje dny vyprodáno</div>' : ''}
         <button class="btn sm ${h.soldOut && !chosen ? 'ghost' : 'primary'}" data-pick="${i}"${h.soldOut && !chosen ? ' data-anyway="1" title="Volno jsem ověřil teď – TripAdvisor na tvoje dny nic nenabízí"' : ''}>${chosen ? '✓ Vybráno' : h.soldOut ? 'Vybrat i tak' : 'Vybrat'}</button>
-        ${links}</div>
+        ${links}</div></div>
     </div>`;
   }
 
@@ -2248,7 +2278,7 @@
     const townHtml = inTown.length ? `<div class="st-town"><h4>🏡 V místě${base ? ` – ${esc(base)}` : ''} (bez ceny)</h4><div class="faint" style="font-size:12px;margin-bottom:8px">Ubytování z OpenStreetMap – cenu a volno ověř u partnera a zadej ji níže.</div>
         <div class="stay-list">${inTown.slice(0, osmLim).map(h => stayCard(h, d.items.indexOf(h), base, dq)).join('')}</div>
         ${inTown.length > osmLim ? `<button type="button" class="more-btn" id="stayTownN">▼ Další v místě (${inTown.length - osmLim})</button>` : ''}</div>` : '';
-    // nejdřív 6 hotelů (na telefonu je každý ~200 px) – „Ubytování neřeším“ a vlastní cena jsou pak blízko
+    // nejdřív 6 hotelů (na telefonu je každý ~140 px) – „Ubytování neřeším“ a vlastní cena jsou pak blízko
     const lim = stayView.n || 6;
     // vybraný hotel je vidět vždy, i když ho filtry nebo řazení odsunuly (návrat do kroku: co mám vybráno, změnit, porovnat)
     const cur = staySlot && staySlot.get();
@@ -2285,6 +2315,15 @@
       stayView.guess = d.key; stayView.n = Math.max(lim, d.items.length); renderStays();
       const g = $('.pp-guess', host); if (g && g.scrollIntoView) g.scrollIntoView({ block: 'center', behavior: 'smooth' });
     };
+    // „další weby ▾“ (jen telefon): rozbalí jen tuhle kartu, bez překreslení seznamu (to by znovu rozběhlo doplňování cen)
+    $$('[data-webs]', host).forEach(b => b.onclick = () => {
+      const h = d.items[+b.dataset.webs], on = !stayOpen.has(h.id), card = b.closest('.stay');
+      if (on) stayOpen.add(h.id); else stayOpen.delete(h.id);
+      if (card) card.classList.toggle('open', on);
+      b.setAttribute('aria-expanded', String(on)); b.textContent = websTxt(on);
+    });
+    // fotka, která se nenačte (TripAdvisor ji smazal, výpadek CDN): ikona místo prázdného rámečku
+    $$('.st-img img', host).forEach(im => im.onerror = () => { const p = im.parentNode; im.remove(); if (p) p.textContent = '🏨'; });
     const doPick = h => { pickSeq++; staySlot.set(pickOf(h, d.query && d.query.nights, d.query || d.params)); persist(); staySlot.next(); };
     $$('[data-pick]', host).forEach(b => b.onclick = async () => {
       const h = d.items[+b.dataset.pick], cur = staySlot && staySlot.get();

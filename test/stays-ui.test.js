@@ -137,11 +137,67 @@ test('karta hotelu: cena „za 3 noci · …/noc“, odkaz říká kam vede (Boo
   await open(c, romeTrip());
   c.__els['#staySort'].onchange({ target: { value: 'price' } }); // h4 h2 h8 h5 h6 h1
   const card = (id) => html(c).split('<div class="stay ').find((x) => x.includes(`<div class="st-name">Hotel ${id} `));
-  assert.match(card('h4'), /<div class="pp">3 000 Kč<\/div><div class="faint">za 3 noci · 1 000 Kč\/noc<\/div>/);
+  // „za 3 noci · 1 000 Kč/noc“ (na telefonu za noc na dalším řádku – oddělovač a cena za noc ve vlastních značkách)
+  assert.match(card('h4'), /<div class="pp">3 000 Kč<\/div><div class="faint">za 3 noci<span class="st-sep"> · <\/span><span class="st-pn">1 000 Kč\/noc<\/span><\/div>/);
   assert.match(card('h1'), /title="Hotel na Booking\.com na tvoje dny a hosty – cenu a volno ověř tam">Booking\.com ↗<\/a>/);
   assert.match(card('h2'), />Booking\.com ↗<\/a>/, 'partnerský odkaz na Booking.com');
   assert.match(card('h4'), /title="Rezervace hotelu na tvoje dny">rezervovat ↗<\/a>/);
   assert.ok(!html(c).includes('detail ↗'));
+});
+
+// Hotel z TripAdvisoru (Xotelo) jako z mapHotel: ceny u webů s odkazy, nejlevnější první
+const xoHotel = (id, rates, extra = {}) => ({
+  id, provider: 'xotelo', name: `Hotel ${id}`, type: 'hotel', typeLabel: 'hotel', stars: null, rating: 9.2, rating5: 4.6, reviews: 1234, address: '', lat: 41.9, lon: 12.49, distanceKm: 1.1,
+  photo: 'https://dynamic-media-cdn.tripadvisor.com/media/photo-o/1/x.jpg?w=400&h=-1&s=1', freeCancellation: null, breakfast: null,
+  priceTotalCzk: rates[0].totalCzk, pricePerNightCzk: rates[0].perNightCzk, rates, ratesAt: Date.now(), bookUrl: rates[0].url, bookSponsored: false, ...extra,
+});
+const rate = (name, site, totalCzk) => ({ code: name, name, totalCzk, perNightCzk: totalCzk / 3, tax: false, site, url: site === 'trip' ? `https://www.trip.com/hotels/list?searchWord=${name}` : `https://www.booking.com/x?${name}`, sponsored: false });
+
+test('karta na telefonu: „další weby ▾“ jen když je co schovat (ceny webů, vedlejší odkazy); rozbalí jen svou kartu a zůstane rozbalená po překreslení', async () => {
+  const items = rankStays([
+    xoHotel('x1', [rate('Trip.com', 'trip', 6000), rate('Booking.com', 'booking', 6300), rate('Vio.com', null, 6400)]),
+    ...hotels().filter((h) => h.id === 'h1' || h.id === 'h2'),
+  ]);
+  const c = loadTrip(replyOf(items));
+  await open(c, romeTrip());
+  const card = (id) => html(c).split('<div class="stay ').find((x) => x.includes(`<div class="st-name">Hotel ${id} `));
+  const x1 = card('x1');
+  // fotka líně, v rámečku pevné velikosti (CSS) – ne obrázek na pozadí
+  assert.match(x1, /<div class="st-img"><img src="https:\/\/dynamic-media-cdn\.tripadvisor\.com\/[^"]+" alt="" loading="lazy" decoding="async"><\/div>/);
+  // hlavní odkaz s nápovědou k Trip.com hned za ním; Booking.com vedlejší (sec), ceny webů v .st-web; přepínač pod cenou
+  assert.match(x1, /<span class="st-bk"><a class="linkbtn" href="https:\/\/www\.trip\.com\/[^"]+"[^>]*>Trip\.com ↗<\/a><span class="st-trh">– potvrď Hledat<\/span><\/span><span class="st-bk sec"><a [^>]*>Booking\.com ↗<\/a><\/span>/);
+  assert.match(x1, /<div class="st-web"><div class="st-otas">/);
+  const i = items.findIndex((h) => h.id === 'x1');
+  assert.ok(x1.includes(`<button type="button" class="linkbtn st-webs-t" data-webs="${i}" aria-expanded="false">další weby ▾</button></div>`));
+  assert.match(x1, /<div class="st-rate-inline"><b class="ta">4,6\/5<\/b><span class="st-rw"> Výborné<\/span> \(1 234 hodnocení\)<\/div>/);
+  // ukázková data: jeden odkaz, žádné ceny webů → bez přepínače
+  for (const id of ['h1', 'h2']) assert.ok(!card(id).includes('st-webs-t') && !card(id).includes('st-web'), id);
+  // klepnutí: jen tahle karta (bez překreslení), text a aria-expanded; po překreslení (řazení) zůstane rozbalená
+  const el = { open: false, classList: { toggle: (k, on) => { assert.equal(k, 'open'); el.open = on; } } };
+  const btn = { dataset: { webs: String(i) }, attrs: {}, textContent: '', closest: (s) => (s === '.stay' ? el : null), setAttribute(k, v) { this.attrs[k] = v; } };
+  c.__all['[data-webs]'] = [btn];
+  c.__els['#staySort'].onchange({ target: { value: 'value' } });
+  btn.onclick();
+  assert.deepEqual([el.open, btn.attrs['aria-expanded'], btn.textContent], [true, 'true', 'další weby ▴']);
+  c.__els['#staySort'].onchange({ target: { value: 'price' } });
+  assert.ok(html(c).includes('<div class="stay open">') && card('x1').includes('aria-expanded="true">další weby ▴'));
+  btn.onclick();
+  assert.deepEqual([el.open, btn.attrs['aria-expanded'], btn.textContent], [false, 'false', 'další weby ▾']);
+  c.__els['#staySort'].onchange({ target: { value: 'value' } });
+  assert.ok(!html(c).includes(' open"'));
+});
+
+test('kompaktní karta na telefonu (trip.css): části karty v mřížce až za pravidly do 1080 px, na počítači a tabletu vše vidět', () => {
+  const css = readFileSync(new URL('../public/css/trip.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  // mimo @media: obal tlačítek se nepočítá (sloupec ceny jako dřív), přepínač a nápověda za odkazem jen na telefonu
+  assert.match(css, /\n\.st-acts\{display:contents\}\n\.st-webs-t,\.st-trh\{display:none\}/);
+  const phone = css.indexOf('.st-main,.st-price{display:contents}');
+  const head = css.lastIndexOf('@media', phone);
+  assert.equal(css.slice(head, css.indexOf('{', head)), '@media(max-width:560px)');
+  // pravidla pro 1080 px (.stay se třemi sloupci) jsou dřív – jinak by přebila mřížku telefonu
+  assert.ok(css.indexOf('@media(max-width:1080px){') < head && css.indexOf('.stay{grid-template-columns:100px') < head);
+  const block = css.slice(head, css.indexOf('\n}', head));
+  for (const r of ['.stay:not(.open) .st-web,.stay:not(.open) .st-bk.sec{display:none}', 'grid-template-areas:"img head pp" "tail tail tail" "acts acts acts"', '.st-webs-t{display:inline-flex']) assert.ok(block.includes(r), r);
 });
 
 test('záložní odkaz na Booking.com (nabídky se nenačetly, Shrnutí): pokoje po dvou dospělých jako na serveru, děti zvlášť', () => {
