@@ -111,7 +111,8 @@ i Zpět (tlačítko nebo gesto) a nové výsledky hledání, které mezitím dor
 ## 📍 Dnes na cestě
 
 Od 2 dnů před odjezdem do konce uložené cesty začíná **Přehled** kartou s tím, co tě dnes čeká – bez listování celým
-plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dotaz na server ani partnery):
+plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dotaz na server ani partnery – jen předpověď
+počasí z Open-Meteo, a ta se uloží):
 
 - **Před odjezdem** „🧳 Za 2 dny odlet · Lisabon“ a řádky po dnech až do dne odjezdu (online check-in, kdy nejpozději
   vyrazit z domu, cesta na letiště, let s časem, dopravcem a číslem, z letiště do města, ubytování) a kolik položek
@@ -139,6 +140,25 @@ plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dota
   když není nic jiného – s nadpisem **🏠 Zpátky doma · Lisabon** a bez místního času v cíli. Ostatní probíhající cesty karta ukáže řádkem **📌 Také dnes** (program dne a odkaz na plán)
   a jejich 🔖 rezervace pod rezervacemi cesty. Poslední let cesty přes víc měst je „zpět“ (🛬, po programu dne), jen
   když končí tam, kde cesta začala (nebo aspoň ve stejné časové zóně) – PRG → FCO → BCN je ✈️ před programem.
+
+**🚆 Vlak a bus s časem**: průvodce u přejezdu mezi místy trasy (Lisabon → Porto vlakem) zná jen odhad délky, ne
+spoj. V Itineráři plánovače má každý vlak a bus (přejezd vlakem / busem z průvodce, vlak či bus z plánovače) v dni
+odjezdu kompaktní pole **Odjezd**, **Nástupiště**, **Vůz / místo** a **Kód jízdenky** – ukládají se hned při změně
+(`t.rides`, úsek = den + odkud + kam; u vlaku místo letu je výchozí čas ten z plánu). Karta pak odpočítává jako u letu:
+„🚆 Vlak do Porta v 10:42 – za 1 h 20 min · nástupiště 4 · vůz 3, místo 45“ (večer předem „zítra v 10:42“; „do Porta“
+jen u jmen s jistou koncovkou, jinak „Porto → Lisabon“) s odkazem **🚉 nádraží** do Google Map (zastávka z plánu, jinak
+nádraží ve městě odjezdu). V průběhu cesty „Přejezd Lisabon 10:42 → Porto ~13:32“ (příjezd odhadem – po něm se řádek
+ztlumí). Čas, nástupiště a místo jdou i do odkazu na plán a do kalendáře (.ics), **kód jízdenky jen do 💾 zálohy**
+(jako 🔖 rezervace). Znovu uložená cesta z průvodce je nechá u vlaků, které trasa pořád má.
+
+**🌤️ Počasí na kartě**: místo, kde dnes jsi (v den přejezdu obě), a zítřejší další místo trasy; večer před odjezdem
+cíl na den odjezdu – ikona, max / min °C a pravděpodobnost srážek (Open-Meteo přes `Weather.forecast`, jeden dotaz
+na všechna místa, nejvýš jednou za 2 h). Předpověď se uloží v telefonu (`atlas_nowwx`), takže je vidět i bez signálu –
+pak, nebo když je starší než 2 h, s „předpověď z 9:22“. Mimo cestu (a u cesty jen z plánovače bez poloh míst) žádný dotaz.
+
+**Okno cesty během cesty**: dokud cesta probíhá (jako karta – ne po návratu domů), začíná okno v plánovači částí
+**📍 Dnes na cestě** s dnešním dnem (vlak, program, přidání aktivity) a 🔖 rezervacemi; doprava, *Hledat lety*,
+🛂 Před cestou a celý Itinerář (dnešek v něm jen odkazem nahoru) jsou až pod nimi. Před cestou a po ní obvyklé pořadí.
 
 **🔖 Rezervace**: v okně cesty v plánovači si k cestě zapíšeš až 6 kódů – co (let tam, hotel…), kód (PNR, číslo
 potvrzení) a poznámku; Enter v poli „Co“ (a v prázdném kódu) jen přejde na další pole, uloží až s kódem nebo

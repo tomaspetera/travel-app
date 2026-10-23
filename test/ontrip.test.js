@@ -24,8 +24,11 @@ function load({ clipboard = false } = {}) {
     var $ = (s) => (__els[s] ||= { innerHTML: '', value: '', remove() {} });
     var $$ = () => []; var go = (v) => { __go.push(v); }; var save = () => {}; var toast = (m) => { __toasts.push(m); }; var confirm = () => true;
     var byIso = { PT: { cs: 'Portugalsko' }, IT: { cs: 'Itálie' }, AT: { cs: 'Rakousko' } }; var PACK = ['Pas'];`, ctx, { filename: 'stubs.js' });
-  for (const f of ['ics.js', 'planshare.js', 'backup.js', 'trip.js', 'places.js']) vm.runInContext(src(f), ctx, { filename: f });
-  vm.runInContext(pick('todayLocal', 'daysTo', 'inDays', 'okYmd', 'ymdPlus', 'wallAt', 'tripLegs', 'tripZone', 'tripBack', 'tripNow', 'tripRows', 'pastRows', 'nowParts', 'hmTxt', 'dowLbl', 'canCopy', 'nowCard',
+  // ikony počasí (štítek předpovědi na kartě) – jen tabulka z data.js, zbytek dat aplikace karta nepotřebuje
+  vm.runInContext(src('data.js').match(/^const (WC|wIco)=.*$/gm).join('\n'), ctx, { filename: 'data.js' });
+  for (const f of ['ics.js', 'planshare.js', 'weather.js', 'backup.js', 'trip.js', 'places.js']) vm.runInContext(src(f), ctx, { filename: f });
+  vm.runInContext(pick('todayLocal', 'daysTo', 'inDays', 'okYmd', 'ymdPlus', 'wallAt', 'ridesOf', 'dtPlus', 'rideOn', 'tripGround', 'tripLegs', 'tripZone', 'tripBack', 'tripNow', 'tripWiz', 'tripRows', 'pastRows', 'nowParts',
+    'hmTxt', 'dowLbl', 'canCopy', 'doGen', 'rideAhead', 'nowCard', 'NWX_LS', 'nowWx', 'tripLive', 'tripOrder', 'tripRides', 'rideEd', 'rideSet',
     'dateRange', 'planIco', 'planTransport', 'tripIsos', 'tripVia', 'planEvents'), ctx, { filename: 'app-now.js' });
   return ctx;
 }

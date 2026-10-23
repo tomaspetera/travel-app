@@ -188,6 +188,7 @@ function tripSoonIn(S, today = '2026-10-23') {
   const pick = (re) => { const m = app.match(re); assert.ok(m, String(re)); return m[0]; };
   const src = [
     pick(/const okYmd = [^\n]*\n/), pick(/const ymdPlus = [^\n]*\n/), pick(/const wallAt = [\s\S]*?\n\};\n/),
+    pick(/const ridesOf = [^\n]*\n/), pick(/const dtPlus = [^\n]*\n/), pick(/function rideOn\(g, r\) \{[\s\S]*?\n\}\n/), pick(/function tripGround\(t\) \{[\s\S]*?\n\}\n/),
     pick(/function tripLegs\(t\) \{[\s\S]*?\n\}\n/), pick(/function tripZone\(t, now\) \{[\s\S]*?\n\}\n/), pick(/const tripBack = [^\n]*\n/),
     pick(/function tripNow\(trips, now = Date\.now\(\)\) \{[\s\S]*?\n\}\n/), pick(/function tripSoon\(\) \{[\s\S]*?\n\}\n/),
   ].join('');

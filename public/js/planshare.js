@@ -67,6 +67,23 @@
     };
   }
 
+  // 🚆 Vlak / bus, ke kterému uživatel v plánovači zapsal čas odjezdu (průvodce ho u přejezdů mezi místy nezná),
+  // nástupiště, vůz / místo a kód jízdenky (app.js tripRides). Úsek = den + odkud + kam (bez uvozovek – průvodce je
+  // v textech nechává, odkaz je mění na ’). Kód jízdenky jen ve vlastní záloze (kod), do odkazů ani kalendáře nejde.
+  const RIDES_MAX = 8, RIDE_LEN = { plat: 12, seat: 30, kod: 40 };
+  const rideKey = r => `${r.date}|${String(r.from || '').replace(/[<>"'`’]/g, '')}|${String(r.to || '').replace(/[<>"'`’]/g, '')}`;
+  function rides(v, { kod = false, raw = false } = {}) {
+    const T = (x, max) => txt(x, max, false, raw), seen = new Set();
+    return (Array.isArray(v) ? v.slice(0, 30) : []).map(r => {
+      if (!obj(r) || !isYmd(r.date) || !T(r.from, 80) || !T(r.to, 80)) return null;
+      const dep = typeof r.dep === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(r.dep) ? r.dep : '', min = Math.round(Number(r.min));
+      const o = { date: r.date, from: T(r.from, 80), to: T(r.to, 80), kind: r.kind === 'bus' ? 'bus' : 'vlak', dep, min: min > 0 && min < 3000 ? min : null, tz: tz(r.tz),
+        plat: T(r.plat, RIDE_LEN.plat), seat: T(r.seat, RIDE_LEN.seat), ...(kod ? { kod: T(r.kod, RIDE_LEN.kod) } : {}) };
+      // prázdný záznam (vše smazané) nic nenese; stejný úsek dvakrát jen jednou
+      return (o.dep || o.plat || o.seat || o.kod) && !seen.has(rideKey(o)) && seen.add(rideKey(o)) ? o : null;
+    }).filter(Boolean).slice(0, RIDES_MAX);
+  }
+
   /** Bezpečná kopie plánu: jen známá pole, ověřená data, omezené délky a počty (lim: delší limity pro vlastní zálohu – backup.js). */
   function sanitize(raw, lim = {}) {
     const L = { act: 300, acts: 40, ck: 80, ckLen: 120, notes: 3000, raw: false, ...lim };
@@ -104,6 +121,9 @@
     };
     if (legs.length) plan.legs = legs;
     if (grounds.length) plan.ground = grounds;
+    // vlaky a busy s časem z plánovače – jen ve dnech cesty; kód jízdenky jen ve vlastní záloze (raw), ne v odkazu
+    const rs = start ? rides(raw.rides, { kod: L.raw, raw: L.raw }).filter(r => r.date >= start && r.date <= (end || start)) : [];
+    if (rs.length) plan.rides = rs;
     // cesta přes víc zemí: jen kódy zemí (vstupní podmínky si plánovač dopočítá z dat)
     const codes = v => (Array.isArray(v) ? [...new Set(v.filter(x => typeof x === 'string' && /^[A-Z]{2}$/.test(x)))].slice(0, 8) : []);
     const isos = codes(raw.isos), via = codes(raw.via);
@@ -152,5 +172,5 @@
     return m ? unpack(m[1]) : null;
   }
 
-  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash, txt };
+  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash, txt, rides, rideKey, RIDE_LEN };
 })();
