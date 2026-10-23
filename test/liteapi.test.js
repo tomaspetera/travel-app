@@ -59,6 +59,9 @@ test('LiteAPI: hotely v cílovém městě s cenou za noc, hodnocením a odkazem'
     assert.equal(duomo.pricePerNightCzk, Math.round(duomo.priceTotalCzk / 3));
     assert.ok(duomo.distanceKm < 1);
     assert.match(duomo.bookUrl, /^https:\/\/www\.booking\.com\/searchresults/);
+    // hotel na Booking.com anglickým názvem místa (jako Xotelo, DEMO a OpenStreetMap), termín a hosté
+    const bu = new URL(duomo.bookUrl);
+    assert.deepEqual(['ss', 'checkin', 'checkout', 'group_adults', 'no_rooms'].map((k) => bu.searchParams.get(k)), ['Hotel Duomo, Milan', q.checkin, q.checkout, '2', '1']);
     const ost = items.find((h) => h.name === 'Ostello Navigli');
     assert.equal(ost.reviews, 700, 'hodnocení z bloku hotels[] v odpovědi rates má přednost');
     assert.equal(ost.freeCancellation, false);
