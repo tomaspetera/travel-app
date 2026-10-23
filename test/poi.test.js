@@ -53,7 +53,8 @@ test('findPlaces: Wikidata + popisy z Wikipedie, výlety mimo město, User-Agent
   const stub = stubFetch((url) => {
     if (url.startsWith('https://query.wikidata.org/sparql')) {
       const q = decodeURIComponent(new URL(url).searchParams.get('query'));
-      return { body: { results: { bindings: q.includes('"120"') ? TRIPS : q.includes('VALUES ?ft') ? [] : CITY } } };
+      // UNESCO (wdt:P757 ?whs ; …) a klasické výlety (VALUES ?item) tu nic nevrátí
+      return { body: { results: { bindings: q.includes('"120"') ? TRIPS : q.includes('VALUES ?ft') || q.includes('VALUES ?item') || q.includes('?whs ; wdt:P625') ? [] : CITY } } };
     }
     if (url.startsWith('https://cs.wikipedia.org/w/api.php')) {
       return { body: { query: { pages: [{ title: 'Milánská katedrála', extract: 'Milánská katedrála je gotická katedrála v Miláně.', thumbnail: { source: 'https://upload.wikimedia.org/duomo-480.jpg' } }] } } };
@@ -66,7 +67,8 @@ test('findPlaces: Wikidata + popisy z Wikipedie, výlety mimo město, User-Agent
   try {
     const items = await findPlaces({ lat: CENTER.lat, lon: CENTER.lon, radiusKm: 10 });
     const sparql = stub.calls.filter((c) => c.url.includes('query.wikidata.org'));
-    assert.equal(sparql.length, 3, 'město + zoo/parky + výlety');
+    // bez článku o městě na Wikivoyage (Milán tu nemá ?wv) se doporučení „Go next“ nehledají
+    assert.equal(sparql.length, 5, 'město + zoo/parky + výlety + UNESCO + klasické výlety');
     assert.equal(sparql.filter((c) => decodeURIComponent(c.url).includes('wd:Q43501')).length, 1, 'zoo a parky zvlášť');
     assert.match(sparql[0].init.headers['User-Agent'], /^ATLAS-travel\/.*github\.com/);
     const duomo = items.find((p) => p.id === 'Q18068');
@@ -80,8 +82,11 @@ test('findPlaces: Wikidata + popisy z Wikipedie, výlety mimo město, User-Agent
     assert.deepEqual(como.highlights, ['Katedrála v Comu'], 'co je ve městě k vidění');
     assert.equal(como.unesco, true, 'UNESCO z památky ve městě');
     assert.ok(!items.some((p) => p.id === 'Q1120'), 'katedrála je součástí výletu do Coma, ne zvlášť');
-    const legnano = items.find((p) => p.id === 'Q7000');
-    assert.ok(legnano && como.score > legnano.score + 20, 'město s památkou (UNESCO) má přednost před městem bez památek');
+    assert.ok(!items.some((p) => p.id === 'Q7000'), 'město bez památek 25 km od Milána (předměstí) výletem není');
+    // jak se tam dostat a proč tam jet
+    assert.ok(como.reach.transitMin > 30 && como.reach.carMin > 20 && ['rail', 'bus'].includes(como.reach.mode));
+    assert.equal(como.why, 'Památka UNESCO · k vidění: Katedrála v Comu');
+    assert.ok(!('goNext' in como) && !('classic' in como) && !('wvTitle' in como), 'interní příznaky ven nejdou');
     assert.ok(!items.some((p) => p.id === 'Q99'), 'firma není výlet');
     assert.ok(!items.some((p) => p.id === 'Q490'), 'samotné město (v centru) není „místo k návštěvě“');
   } finally {
