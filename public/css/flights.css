@@ -1442,3 +1442,55 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 [data-theme="dark"] .sc-w.wk,[data-theme="dark"] .sc-d.wk span,[data-theme="dark"] .sc-d.hol span{color:#fb7185}
 [data-theme="dark"] .sc-d.r-night{background:rgba(91,140,255,.22)}
 [data-theme="dark"] .sc-d:is(.r-out,.r-back,.r-both) span{color:#fff}
+/* 📤 Sdílet cestu: celá cesta kamarádům, nebo karta „Jede někdo se mnou?“ na sítě (sharecard.js) */
+.jed-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.jed-top h3{font-family:'Sora',Inter,sans-serif;font-size:20px}
+.jed-x{flex:none;width:44px;height:44px;border:0;border-radius:22px;background:var(--surface-2);color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.jed-opt{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;padding:14px;border-radius:20px;border:1px solid var(--border);background:var(--surface-solid);color:var(--text);font:inherit;cursor:pointer}
+.jed-opt>svg{flex:none;margin-top:13px;color:var(--faint)}
+.jed-opt.plain{padding:0;border:0;background:none;cursor:default}
+.jed-ic{flex:none;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:rgba(91,140,255,.15);color:#2563eb}
+.jed-ic.pub{background:rgba(168,85,247,.15);color:#6d28d9}
+.jed-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.jed-n{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px}
+.jed-n b{font-size:16px}
+.jed-d{font-size:13.5px;line-height:1.4;color:var(--muted)}
+.jed-tag{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:rgba(91,140,255,.15);color:#1e40af}
+.jed-tag.pub{background:rgba(168,85,247,.15);color:#5b21b6}
+.jed-pub{margin-top:14px;padding:14px;border-radius:20px;border:1.5px solid rgba(168,85,247,.45);background:rgba(168,85,247,.05);display:flex;flex-direction:column;gap:12px}
+.jed-row{display:flex;gap:10px;align-items:flex-end}
+.jed-tw{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)}
+.jed-th{padding:0;border:0;border-radius:12px;overflow:hidden;background:var(--surface-2);cursor:pointer;outline:2.5px solid transparent;outline-offset:2px;transition:outline-color .15s}
+.jed-th.on{outline-color:#7c3aed}
+.jed-th.on+span{color:#6d28d9}
+.jed-th.story{width:74px;height:132px}
+.jed-th.post{width:92px;height:115px}
+.jed-th canvas,.jed-ph{display:block;width:100%;height:100%}
+.jed-ph{background:linear-gradient(135deg,#0e7490,#1e3a8a 50%,#5b21b6);opacity:.35;animation:jedPulse 1.4s ease-in-out infinite alternate}
+@keyframes jedPulse{to{opacity:.6}}
+.jed-on{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding-bottom:22px;font-size:12.5px;line-height:1.35;color:var(--muted)}
+.jed-on b{font-size:13.5px;color:var(--text)}
+.jed-go2{height:50px;border:0;border-radius:16px;background:linear-gradient(135deg,#2563eb 0%,#7c3aed 100%);color:#fff;font:inherit;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.jed-go2:disabled{opacity:.6;cursor:default}
+.jed-lock{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:12.5px;color:var(--muted)}
+.jed-lock svg{flex:none}
+[data-theme="dark"] .jed-ic{color:#8fb0ff}
+[data-theme="dark"] .jed-ic.pub,[data-theme="dark"] .jed-th.on+span{color:#c4a1ff}
+[data-theme="dark"] .jed-tag{color:#a9c1ff}
+[data-theme="dark"] .jed-tag.pub{color:#d2b8ff}
+[data-theme="dark"] .jed-th.on{outline-color:#a855f7}
+@media(prefers-reduced-motion:reduce){.jed-ph{animation:none}}
+/* okno pro kamaráda z odkazu #jed=: fotka cíle, termín, počasí a hledání letů z jeho letiště */
+.jed-hero{position:relative;min-height:230px;display:flex;align-items:flex-end;padding:22px;border-radius:24px 24px 0 0;overflow:hidden;color:#fff;background:linear-gradient(135deg,#0e7490,#1e3a8a 50%,#5b21b6)}
+.jed-hero.ph{background:#0b1226 var(--ph) center/cover no-repeat}
+.jed-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(8,12,26,.78) 0%,rgba(8,12,26,.15) 60%,rgba(8,12,26,.35) 100%)}
+.jed-hero-in{position:relative;z-index:1}
+.jed-hero h2{font-family:'Sora',Inter,sans-serif;font-size:32px;line-height:1.05;margin:4px 0 0;text-shadow:0 2px 14px rgba(0,0,0,.5)}
+.jed-kick{font-size:14px;font-weight:700}
+.jed-from{font-size:13px;margin-top:4px;opacity:.9}
+.jed-land .modal-body{display:flex;flex-direction:column;gap:12px}
+.jed-term{display:flex;gap:14px;align-items:center;padding:14px 16px}
+.jed-term b{font-size:17px}
+.jed-go{width:100%;min-height:50px;font-size:16px;justify-content:center}
+.jed-home,.jed-foot{font-size:12.5px;text-align:center}
+@media(max-width:560px){.jed-hero{border-radius:21px 21px 0 0}.modal:has(.jed-hero)::before{background:rgba(255,255,255,.55)}}

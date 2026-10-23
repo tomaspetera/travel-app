@@ -3476,7 +3476,7 @@
       </div></div>
       <div class="row wrap sum-acts" style="gap:8px;margin:0 0 14px">
         <button class="btn primary" id="sumSave">💾 Uložit do plánovače</button>
-        <button class="btn" id="sumShare">${window.ShareLink && ShareLink.native && ShareLink.native() ? '📤 Sdílet cestu' : '🔗 Zkopírovat odkaz na cestu'}</button>
+        <button class="btn" id="sumShare">📤 Sdílet cestu</button>
         <button class="btn" id="sumIcs">📅 Do kalendáře</button>
         <a class="btn ghost" href="${esc(safeUrl(Ics.gcalUrl(tripEvent(t))))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>
         <button class="btn ghost" id="sumNew">Začít novou cestu</button>
@@ -3494,7 +3494,8 @@
     const est = budgetGroups(t, c).some(g => g.est), miss = budgetMissing(t);
     $('#myBudget').oninput = () => { const v = Math.max(0, +$('#myBudget').value || 0); setBudget(t, v); $('#budgetOut').innerHTML = budgetOutHtml(c.total, v, est, miss); };
     $('#sumSave').onclick = () => saveToPlanner();
-    $('#sumShare').onclick = () => share();
+    // okno Sdílet: celá cesta kamarádům (share – jako dřív) nebo karta „Jede někdo se mnou?“ na sítě (sharecard.js)
+    $('#sumShare').onclick = () => (window.ShareCard ? ShareCard.open(cardData(t), { send: share }) : share());
     // odkaz se zkomprimuje hned, aby ho kliknutí jen zkopírovalo (Safari dovolí zápis do schránky jen v obsluze kliknutí)
     if (window.ShareLink) ShareLink.prepare('trip', linkJson(t));
     $('#sumIcs').onclick = () => icsDownload(`atlas-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` });
@@ -3834,6 +3835,14 @@
       .then(r => (r.shared || r.aborted ? null : r.copied ? toast('Odkaz zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz:', r.url)));
   }
 
+  /** Data karty „Jede někdo se mnou?“ (sharecard.js): cíl, letiště cíle (pro hledání a počasí), termín a odkud – bez
+   *  cen a ubytování. Cesta vlakem nebo busem místo letadla letiště cíle nemá (kamarád hledá lety do cíle). */
+  function cardData(t) {
+    const f = t.flight || {}, ov = ovOn(t), o = outLeg(t), b = backLeg(t);
+    return { d: t.dest.label, cc: t.dest.cc, id: t.dest.id, a: !ov && f.out && /^[A-Z]{3}$/.test(f.out.to) ? f.out.to : null,
+      o: o && o.date, b: b ? b.date : null, f: ov ? t.overland.from && t.overland.from.label : t.home || (f.out && f.out.from) || '' };
+  }
+
   /**
    * Data ze sdíleného odkazu jsou cizí vstup: z textů odstraň znaky, které by šly použít k vložení
    * HTML (<, >, uvozovky, `), čísla převeď na čísla a odkazy pustí dál jen safeUrl při vykreslení.
@@ -4131,7 +4140,7 @@
   // Aplikace zavřená nebo znovu načtená dřív, než hledání doběhlo: na jeho konečný výsledek už cesta nepočká.
   if (typeof S !== 'undefined' && S && S.trip && S.trip.statsWait) { giveUpStats(S.trip); persist(); }
 
-  window.Trip = { start, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, placePt, rideLegs, legBack,
+  window.Trip = { start, cardData, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, placePt, rideLegs, legBack,
     // doprava po úsecích trasy a auto jen na některé dny (testy)
     routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts };
 })();

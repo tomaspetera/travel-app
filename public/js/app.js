@@ -757,8 +757,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-23i';
+const WN_ID = '2026-10-23j';
 const WHATS_NEW = [
+  ['🙋', 'Jede někdo se mnou?', 've <b>Shrnutí</b> průvodce Cestou (i u budoucí cesty v plánovači) je pod <b>📤 Sdílet cestu</b> kromě poslání celé cesty kamarádům i karta na sítě: <b>Instagram Story</b> nebo <b>příspěvek na Instagram či Facebook</b> ve tvaru palubní vstupenky – odkud, kam, měsíc a „vedle mě: třeba ty?“. Cena, přesné datum ani ubytování na kartě nejsou. Kdo klepne na odkaz, uvidí termín a jedním klepnutím lety na stejné dny ze svého letiště.'],
   ['🚆', 'Lepší výlety z města', '<b>Výlety</b> v <b>Objevuj</b> a celodenní výlety v programu cesty vybírá ATLAS podle toho, co tam je k vidění (UNESCO, známé památky, doporučení průvodce Wikivoyage, klasiky jako Sintra z Lisabonu, Tivoli a Ostia Antica z Říma nebo Wieliczka z Krakova) a jak daleko to je – předměstí a města u letiště už nevycházejí. U každého výletu je čas cesty vlakem, busem nebo lodí i autem (odhad), odkaz <b>spoje ↗</b> a jednou větou, proč tam jet.'],
   ['🔒', 'Program podle zavíracích dnů', '<b>Program ve městě</b> v <b>Objevuj</b> i v průvodci Cestou zná zavírací dny asi 55 nejnavštěvovanějších památek (Louvre v úterý, Uffizi v pondělí, Vatikánská muzea v neděli kromě poslední v měsíci, Pergamonmuseum v rekonstrukci) – podle jejich oficiálních webů. Památku nedá na den, kdy je zavřená, a u zastávky napíše třeba „🕘 zavřeno v úterý · otevřeno 9:00–18:00“.'],
   ['🥾', 'Túra na každý den v horách', 'pobyt v Krkonoších, na Šumavě, v Tatrách nebo v Dolomitech už nedostane program po památkách: krok <b>Program</b> v průvodci Cestou (a v <b>Objevuj</b> → 🥾 Pěšky → <b>Túra na každý den</b>, třeba „Krkonoše na 3 dny“) navrhne na každý den jinou túru z ubytování nebo ze startu u cíle – hlavní vrchol, voda, skály nebo vyhlídka, lehčí den. U každé délka, převýšení, čas chůze (DIN 33466), obtížnost, chaty po cestě, kratší varianta do deště, s dětmi lehčí cíle a v den příjezdu a odjezdu kratší túra. ✕ u cíle naplánuje jiný, trasa jde do Mapy.com nebo jako GPX.'],
@@ -1759,7 +1760,7 @@ function openTrip(i) {
     flight: t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${planFlightHtml(t.flight)}</div></div>` : '',
     acts: `<div class="row wrap">${local ? '' : `<button class="btn primary" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${t.wizard && (window.Trip || window.Lazy) ? '<button class="btn" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${c ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>`,
     entry: `${tripEntryHtml(t)}${visitedPrompt(t)}`,
-    share: `<div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>`,
+    share: `<div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${t.wizard && okYmd(t.start) && t.start >= todayLocal() ? '<button class="btn sm" id="tripJed">🙋 Jede někdo se mnou?</button>' : ''}${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>`,
     days: `<div class="divider"></div>
     <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + (days.length === 1 ? ' den' : days.length < 5 ? ' dny' : ' dní') : 'doplň termíny'}</span></div>
     <div style="margin-top:10px">${days.length ? days.map((d, di) => (live && live.today === d ? `<div class="day-ptr"><b>Den ${di + 1}</b> · ${fmtDate(d)} · dnes – je nahoře ↑</div>` : dayHtml(d, di))).join('') : `<div class="note info">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Doplň termíny cesty a objeví se itinerář den po dni.</div></div>`}</div>`,
@@ -1815,6 +1816,8 @@ function openTrip(i) {
   // Poznámky se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
   const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(t)[0])); });
   $('#tripShare').onclick = () => sharePlan(i);
+  // karta „Jede někdo se mnou?“ na sítě z cesty uložené z průvodce (data cesty umí Trip.cardData)
+  const tj = $('#tripJed'); if (tj) tj.onclick = () => withMod('trip', () => window.ShareCard && ShareCard.open(Trip.cardData(t.wizard), { send: () => sharePlan(i) }));
   ShareLink.prepare('plan', PlanShare.json(t)); // kliknutí pak jen zkopíruje hotový odkaz (Safari)
 }
 
@@ -1914,6 +1917,21 @@ async function openOfferFromHash() {
   let o = null;
   try { o = await OfferShare.fromHash(hash); } catch (e) { toast('Odkaz na nabídku je poškozený', 'err'); }
   if (o && window.Flights) Flights.openOffer(o);
+  return true;
+}
+/**
+ * „Jede někdo se mnou?“ z odkazu #jed=… (při startu a při změně adresy): Přehled a nad ním okno s termínem a hledáním
+ * letů z vlastního letiště (sharecard.js). Adresa se přepíše na #dashboard, ať obnovení stránky okno neotevírá znovu.
+ */
+async function openJedFromHash() {
+  const hash = location.hash;
+  if (!/^#jed=/.test(hash)) return false;
+  history.replaceState(null, '', '#dashboard');
+  go('dashboard', { noHash: true });
+  if (window.Lazy) await Lazy.need('sharecard').catch(() => { });
+  let d = null;
+  try { d = window.ShareCard && await ShareCard.fromHash(hash); } catch (e) { toast('Odkaz je poškozený', 'err'); }
+  if (d) ShareCard.landing(d);
   return true;
 }
 /** Náhled plánu z odkazu (#plan=): co v něm je, z kdy jsou ceny (sharedOn) a 💾 Uložit si ji – pak je to vlastní plán. */
@@ -2137,6 +2155,7 @@ function wireEvents() {
     if (await importPlanFromHash()) return go('planner', { noHash: true });
     if (window.Transfer && Transfer.fromHash()) return go('dashboard', { noHash: true }); // 📲 přenos (#sync=)
     if (await openOfferFromHash()) return;
+    if (await openJedFromHash()) return;
     if (openWatchFromHash()) return;
     hashView();
   });
@@ -2225,7 +2244,7 @@ async function start() {
   const plan = !shared && await importPlanFromHash();
   // 📲 přenos z jiného zařízení (#sync=, transfer.js): Přehled hned, náhled přenosu nad ním, až se odkaz přečte
   if (!shared && !plan && window.Transfer && Transfer.fromHash()) return go('dashboard', { noHash: true });
-  if (!shared && !plan && (await openOfferFromHash() || openWatchFromHash())) return;
+  if (!shared && !plan && (await openOfferFromHash() || await openJedFromHash() || openWatchFromHash())) return;
   const v = shared ? 'trip' : plan ? 'planner' : location.hash.slice(1);
   if (v === 'now') return showNow(); // zkratka aplikace „Na cestě“
   go(NAV.some(n => n[0] === v) ? v : 'dashboard', { noHash: true });
