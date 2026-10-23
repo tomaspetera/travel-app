@@ -214,11 +214,18 @@ export function carTimeParts(dt, step = 1, up = false) {
   return { d: x.toISOString().slice(0, 10), y: x.getUTCFullYear(), m: x.getUTCMonth() + 1, day: x.getUTCDate(), hh: x.getUTCHours(), mm: x.getUTCMinutes() };
 }
 
-/** q: { pickup (IATA), dropoff (IATA), pickupName, from 'YYYY-MM-DDTHH:MM', to, age } */
+/**
+ * q: { pickup (IATA), dropoff (IATA), pickupName, from 'YYYY-MM-DDTHH:MM', to, age, pickupCity?, dropoffCity? }
+ * pickupCity / dropoffCity (cars.js): vyzvednutí / vrácení ve městě – srovnávače hledají na nejbližším letišti
+ * (city.iata), pobočky ve městě ukáže Google Mapy.
+ */
 export function carLinks(q) {
   // Srovnávače berou jen celé hodiny (Kayak) nebo půlhodiny (Rentalcars): vyzvednutí se zaokrouhlí nahoru a vrácení
   // dolů – rezervace tak nezačne dřív, než přiletíš (přílet 13:10 + 45 min nedá vyzvednutí ve 13:00 před přistáním),
   // neskončí až po odletu a pronájem nevyjde o den delší, než ukazuje průvodce.
+  const pu = q.pickupCity?.iata || q.pickup;
+  const dro = q.dropoffCity?.iata || q.dropoff;
+  q = { ...q, pickup: pu, dropoff: dro };
   const drop = q.dropoff && q.dropoff !== q.pickup ? q.dropoff : null;
   // Kayak: /cars/{PU}[/{DO}]/{datum}-{hodina}h/… – hodina celá (16:30 → 17h vyzvednutí, 16h vrácení), řazení od
   // nejlevnějšího; česká verze v Kč (cz.kayak.com/cars/BGY/MXP/… ověřeno 10/2026: místa, termín i řazení stejně jako
@@ -242,11 +249,19 @@ export function carLinks(q) {
     driversAge: String(q.age || 30),
     filterCriteria_sortBy: 'PRICE', filterCriteria_sortAscending: 'true',
   });
+  // Pobočky ve městě (vyzvednutí / vrácení ve městě): hledání na Google Mapách – zdokumentovaný tvar Maps URLs
+  // (developers.google.com/maps/documentation/urls/get-started, akce search; stejné api=1 jako trasy v stayplan.js).
+  const cities = [q.pickupCity, q.dropoffCity].filter((c, i, a) => c && a.findIndex((x) => x && x.name === c.name) === i);
+  const maps = cities.map((c, i) => ({
+    id: `mapy${i}`, name: `Půjčovny – ${c.name}`, note: 'pobočky ve městě na Google Mapách',
+    url: `https://www.google.com/maps/search/?${new URLSearchParams({ api: '1', query: [`půjčovna aut ${c.name}`, COUNTRY_BY_ISO.get(c.cc)?.cs].filter(Boolean).join(', ') })}`,
+  }));
   return [
     { id: 'kayak', name: 'Kayak', note: 'srovnání půjčoven, seřazeno od nejlevnějšího', url: kayak },
     { id: 'rentalcars', name: 'Rentalcars.com', note: 'velký výběr na letištích, od nejlevnějšího', url: `https://www.rentalcars.com/search-results?${rc}&preflang=cs&prefcurrency=CZK` },
     { id: 'bookingcars', name: 'Booking.com Cars', note: 'stejná nabídka v rozhraní Booking.com', url: `https://cars.booking.com/search-results?${rc}&preflang=cs&prefcurrency=CZK` },
     // DiscoverCars neumí předvyplněné hledání (odkazy na výsledky jsou vázané na relaci) → jen úvodní stránka.
     { id: 'discovercars', name: 'DiscoverCars', note: 'často nejlevnější – letiště a data zadej na webu', url: affiliate('https://www.discovercars.com/', 'discovercars'), sponsored: affiliateOn('discovercars') },
+    ...maps,
   ];
 }

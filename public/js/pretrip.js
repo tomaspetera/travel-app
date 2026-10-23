@@ -251,7 +251,8 @@
     const via = uniq(o.via).filter(x => !isos.includes(x));
     // auto na místě: vybrané auto, nebo trasa autem přes víc míst, dokud ho cestovatel výslovně neodmítl
     const carMode = t.car && t.car.mode;
-    const car = carMode ? carMode !== 'skip' : multi && t.route.transport === 'car';
+    // (kombinovaná trasa: aspoň jeden úsek autem – route.legModes z průvodce)
+    const car = carMode ? carMode !== 'skip' : multi && (t.route.transport === 'car' || (Array.isArray(t.route.legModes) && t.route.legModes.some(m => m && m.m === 'car')));
     const cats = new Set();
     for (const p of multi ? t.route.bases.map(b => b.plan) : [t.plan]) {
       for (const d of (p && Array.isArray(p.days) ? p.days : [])) {

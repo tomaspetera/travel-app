@@ -563,3 +563,26 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .car-notes{display:grid;gap:8px;margin:0 0 12px}
 .car-cost{font-size:12.5px;margin:8px 0 0}
 .car-train{margin-top:6px}
+/* 📅 auto jen na některé dny: dva výběry dne vedle sebe, na telefonu se celé vejdou do řádku pod popiskem */
+.car-range{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 12px;padding:9px 12px;border-radius:14px;background:var(--surface-2);font-size:13px}
+.car-range .cr-l{font-weight:700}
+.car-range .cr-sel{display:flex;align-items:center;gap:6px;min-width:0}
+.car-range select{width:auto;min-width:0;padding:7px 9px;border-radius:10px;font-size:13px}
+.car-range .cr-n{font-size:12.5px}
+/* místo vyzvednutí / vrácení: popisek s přepínačem 🏙️ ve městě ⇄ ✈️ na letišti, město jako štítek místo kódu letiště */
+.car-lbl{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px}
+.car-lbl label{margin-bottom:0}
+.car-lbl .linkbtn{font-size:12.5px}
+/* datum a čas se zúží vedle štítku města (bez min-width:0 by pole s datem přeteklo z karty) */
+.car-form .row>.input[type="datetime-local"]{flex:1 1 0;min-width:0}
+.car-city{display:inline-flex;align-items:center;flex:0 1 auto;min-width:0;max-width:42%;padding:11px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.car-city[hidden]{display:none}
+.car-split{margin:0 0 12px}
+/* trasa: přepínač dopravy úseku (🚗 / 🚆) vpravo u přejezdu, přejezdy celkem a návrh „vlakem rychleji“ */
+.rt-tr.sw,.rt-leg.sw{grid-template-columns:24px minmax(0,1fr) auto;align-items:start}
+.leg-sw{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.leg-sw button{border:none;background:transparent;border-radius:8px;padding:5px 7px;font-size:14px;line-height:1;cursor:pointer;opacity:.55;font-family:inherit}
+.leg-sw button.on{background:var(--surface-2);opacity:1;box-shadow:0 0 0 1px var(--border-2) inset}
+.rt-total{margin:10px 0 0;font-size:13px}
+.rt-sug{margin:6px 0 0;font-size:12.5px}
+.rt-sug .linkbtn{font-size:12.5px}

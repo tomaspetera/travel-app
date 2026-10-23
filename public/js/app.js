@@ -629,8 +629,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-23d';
+const WN_ID = '2026-10-23e';
 const WHATS_NEW = [
+  ['🔀', 'Auto jen na část cesty', 'v kroku <b>Auto</b> průvodce Cestou vybereš <b>📅 dny auta</b> – třeba v Lisabonu jen 2. a 3. den na výlety: vyzvednutí i vrácení ve městě a z letiště do města dál metrem. Na trase přes víc míst má každý přejezd přepínač <b>🚗 / 🚆</b> s časem a cenou – auto se půjčí jen na úseky autem a ATLAS řekne, kde ho vyzvednout a kde vrátit.'],
   ['🚗', 'Auto na místě s radou', 'v kroku <b>Auto</b> průvodce Cestou ATLAS řekne, kdy auto nepotřebuješ (bydlíš ve městě s metrem nebo vlakem z letiště, mezi místy trasy je rychlejší vlak), upozorní na zóny ZTL v italských městech, elektronické mýtné v Portugalsku a vrácení auta v jiné zemi a napíše, co je v ceně auta a co se počítá zvlášť.'],
   ['📲', 'Přenos do jiného zařízení QR kódem', 'pod <b>Další</b> (na počítači vlevo dole) je <b>📲 Přenést do jiného zařízení</b>: QR kód, který naskenuješ fotoaparátem druhého telefonu, nebo odkaz, který si pošleš (AirDrop, Quick Share, e-mail, chat). Přenese cesty, hlídané ceny, odložené nabídky, ⭐ / 🙈 města, navštívené země i domov – bez účtu, data jdou jen v odkazu, na server ne. Druhé zařízení ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>.'],
   ['💡', 'Kdy koupit hlídanou letenku', 'karta hlídání na <b>Přehledu</b> má graf ceny od uložení se zeleně vyznačenou nejnižší cenou, řádky <b>Nejníž</b> (kdy to bylo), <b>Teď</b> a šipku, jak se cena změnila za týden. Pod tím krátký <b>💡 tip</b> s důvodem – koupit, nebo ještě počkat – podle historie cen, dní do odletu a „Je to dobrá cena?“. Je to jen odhad, jistotu nedává nikdo.'],
