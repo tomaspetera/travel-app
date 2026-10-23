@@ -122,3 +122,22 @@ test('telefon: dny dovolené na kartě radaru na vlastním řádku (ne „🏖�
   assert.match(read('index.html'), /<select id="cCont"><option value="">Kontinent: vše<\/option><\/select>/);
   assert.match(read('js/app.js'), /\$\('#cCont'\)\.innerHTML = '<option value="">Kontinent: vše<\/option>'/);
 });
+
+test('světlý režim (ve dne na slunci): --faint na pozadí, kartě i v okně aspoň 4,5 : 1 a pořád slabší než --muted', () => {
+  // tokeny z atlas.css, plochy skládané z poloprůhledných vrstev jako v prohlížeči (jako dark-visual.test.js pro večer)
+  const block = noComments(read('css/atlas.css')).match(/\[data-theme="light"\]\{([^}]*)\}/)[1];
+  const tok = (n) => block.match(new RegExp(`--${n}:([^;]+);`))[1].trim();
+  const rgb = (s) => (s.startsWith('#') ? { r: parseInt(s.slice(1, 3), 16), g: parseInt(s.slice(3, 5), 16), b: parseInt(s.slice(5, 7), 16), a: 1 }
+    : (([r, g, b, a = 1]) => ({ r, g, b, a }))(s.match(/rgba?\(([^)]+)\)/)[1].split(',').map(Number)));
+  const over = (t, u) => ({ r: t.r * t.a + u.r * (1 - t.a), g: t.g * t.a + u.g * (1 - t.a), b: t.b * t.a + u.b * (1 - t.a), a: 1 });
+  const lum = ({ r, g, b }) => [r, g, b].map((c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; })
+    .reduce((s, c, i) => s + c * [0.2126, 0.7152, 0.0722][i], 0);
+  const contrast = (x, y) => { const [a, b] = [lum(x), lum(y)].sort((p, q) => q - p); return (a + 0.05) / (b + 0.05); };
+  const BG = rgb(tok('bg'));
+  const surfaces = { pozadí: BG, karta: over(rgb(tok('card')), BG), okno: rgb(tok('surface-solid')) };
+  for (const [where, bg] of Object.entries(surfaces)) {
+    const c = contrast(rgb(tok('faint')), bg);
+    assert.ok(c >= 4.5, `--faint na ploše „${where}“: ${c.toFixed(2)} : 1`);
+    assert.ok(c < contrast(rgb(tok('muted')), bg), `popisky slabší než --muted (${where})`);
+  }
+});
