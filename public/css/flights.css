@@ -336,6 +336,8 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 /* doprava na letiště a do města pod cenou letenky – jen pro představu */
 .pd.px{flex-basis:100%;margin-top:6px;padding:6px 9px;border-radius:10px;background:var(--surface-2);color:var(--muted);line-height:1.45}
 .px-n{display:block;font-size:11px;color:var(--faint)}
+/* tmavý režim: drobná poznámka na světlejším podkladu (rámeček dopravy, zelený štítek vlaku) by měla jen 4,2 : 1 */
+[data-theme="dark"] .px-n,[data-theme="dark"] .gnd-chip.hot small{color:var(--muted)}
 .tr-act{display:flex;flex-direction:column;gap:6px;align-items:stretch}
 .btn.book{background:var(--pc,var(--accent));border-color:transparent;color:#fff;justify-content:center;white-space:normal;text-align:center;line-height:1.25}
 .btn.book:hover{filter:brightness(1.12)}
@@ -500,7 +502,8 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cdw{font-size:10.5px;color:var(--faint);text-align:center;font-weight:700}
 .cd{border-radius:8px;padding:4px 2px;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10.5px;background:hsla(var(--h),70%,50%,.2);border:1px solid hsla(var(--h),70%,50%,.35)}
 .cd span{color:var(--muted);font-weight:600}
-.cd b{font-size:11.5px;font-weight:800;color:hsl(var(--h),70%,60%)}
+/* cena v tmavém režimu světlejší (66 %): červená „dražší“ měla na svém dni jen 4 : 1, takhle aspoň 4,9 : 1 */
+.cd b{font-size:11.5px;font-weight:800;color:hsl(var(--h),70%,66%)}
 [data-theme=light] .cd b{color:hsl(var(--h),70%,35%)}
 .cd.empty{background:none;border:none}
 .cd.none{background:var(--surface);border:1px solid var(--border)}
@@ -530,7 +533,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .dg thead th:first-child{left:0;z-index:2;text-align:left;padding-left:4px}
 .dg tr.on th{color:var(--accent)}
 .dg td{padding:2px}
-.dg-c{display:block;width:100%;min-width:50px;padding:7px 4px;border-radius:8px;border:1px solid hsla(var(--h),70%,50%,.35);background:hsla(var(--h),70%,50%,.2);color:hsl(var(--h),70%,60%);font:500 12px Inter,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer}
+.dg-c{display:block;width:100%;min-width:50px;padding:7px 4px;border-radius:8px;border:1px solid hsla(var(--h),70%,50%,.35);background:hsla(var(--h),70%,50%,.2);color:hsl(var(--h),70%,66%);font:500 12px Inter,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer}
 [data-theme=light] .dg-c{color:hsl(var(--h),70%,35%)}
 .dg-c.rmin{font-weight:800}
 .dg-c.best{box-shadow:inset 0 0 0 2px var(--text)}

@@ -296,6 +296,8 @@ details.more.ex-places>summary::before{content:none}
 .wx small{font-size:inherit;font-weight:500;opacity:.7}
 .wx.wet{background:rgba(56,189,248,.14);border-color:rgba(56,189,248,.35);color:#a5dbf5}
 .wx.avg{background:none;border-style:dashed;color:var(--muted)}
+/* tmavý režim: šedomodrá noční teplota s průhledností .7 měla na kartě 3,9 : 1 – plná barva --faint 5,6 : 1 */
+[data-theme="dark"] .wx.avg small{opacity:1;color:var(--faint)}
 [data-theme="light"] .wx.wet{color:#075985}
 .wx-day{min-height:22px;margin:4px 0 6px;font-size:12.5px;color:var(--muted)}
 .wx-day .note{margin-top:8px}
