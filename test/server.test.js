@@ -673,6 +673,23 @@ test('POST /api/bike kind=train – vlakem tam, na kole zpět (DEMO)', async () 
   assert.equal(loop.station, undefined);
 });
 
+test('POST /api/itinerary (DEMO): časy zastávek, oběd a konec dne; s dětmi (kids) nejvýš 1 muzeum za den', async () => {
+  const post = async (body) => (await fetch(`${base}/api/itinerary`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json();
+  const start = ymdPlus(20);
+  const end = ymdPlus(22);
+  const plan = await post({ lat: 41.39, lon: 2.17, start, end, arrivalTime: '09:00' });
+  const full = plan.days[1];
+  assert.ok(full.items.length > 1);
+  assert.ok(full.items.every((p, i) => /^\d{2}:\d{2}$/.test(p.at) && (!i || p.at > full.items[i - 1].at)), 'časy po sobě');
+  assert.match(full.end, /^\d{2}:\d{2}$/);
+  assert.ok(full.lunch && full.lunch.after >= 0 && full.lunch.at >= '11:45');
+  const kids = await post({ lat: 41.39, lon: 2.17, start, end, arrivalTime: '09:00', kids: true });
+  for (const d of kids.days) assert.ok(d.items.filter((p) => p.category === 'museum').length <= 1, d.items.map((p) => p.category).join(','));
+  // jen true zapne režim s dětmi
+  const str = await post({ lat: 41.39, lon: 2.17, start, end, arrivalTime: '09:00', kids: 'ano' });
+  assert.deepEqual(str.days.map((d) => d.cap), plan.days.map((d) => d.cap));
+});
+
 test('POST /api/stayplan – trasa přes víc míst (DEMO): návrh open-jaw, přepočet upravené trasy, chyby', async () => {
   const post = (body) => fetch(`${base}/api/stayplan`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
   const r = await post({ arrival: 'BGY', departure: 'FCO', nights: 8, transport: 'car' });

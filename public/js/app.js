@@ -757,8 +757,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-23g';
+const WN_ID = '2026-10-23h';
 const WHATS_NEW = [
+  ['🗓️', 'Program s časy a obědem', '<b>Program ve městě</b> v <b>Objevuj</b> i v průvodci Cestou má u každé zastávky přibližný čas (podle chůze a MHD), pauzu na oběd s tipem na tržnici nebo kavárnu kousek od ní, co uvidíš cestou kolem, kam na večer a – když předpověď na ten den hlásí déšť – místa pod střechou. Nejznámější místa (Koloseum, Fontána di Trevi, Belémská věž) v programu nechybí, za den nejvýš 2 muzea, muzeum a zoo spíš dopoledne. Cesta s dětmi má rovnou zájem <b>🧒 S dětmi</b>.'],
   ['🚆', 'Vlak na cestě s časem a počasí', 'v <b>Plánovači</b> zapíšeš k vlaku nebo busu mezi místy trasy (třeba Lisabon → Porto) čas odjezdu z jízdenky, nástupiště, vůz a místo i kód. Karta <b>📍 Dnes na cestě</b> pak odpočítává („vlak do Porta v 10:42 – za 1 h 20 min“) s odkazem na nádraží v mapě a ukáže dnešní předpověď počasí – i bez signálu. Během cesty má plán nahoře dnešní den a kódy rezervací.'],
   ['👍', 'Doporučené pořadí letů', 'výsledky <b>Kamkoliv</b> i radar <b>Kam letět levně</b> řadí nahoru nabídky, které by sis opravdu vybral – ne jen nejlevnější letenku: počítá s cestou na letiště a do města (cena i čas), nočními odjezdy bez spojů, tím, kolik času zbude na místě, a cenou pod obvyklou; další cíl ze stejné země dá o kus níž. Proč je nabídka nad levnější letenkou, řekne štítek <b>✓</b> (třeba „i s cestou na letiště nejlevnější“). Čistě podle ceny dál řadí <b>Nejlevnější letenka</b> ve <b>Filtrech</b>.'],
   ['🔀', 'Auto jen na část cesty', 'v kroku <b>Auto</b> průvodce Cestou vybereš <b>📅 dny auta</b> – třeba v Lisabonu jen 2. a 3. den na výlety: vyzvednutí i vrácení ve městě a z letiště do města dál metrem. Na trase přes víc míst má každý přejezd přepínač <b>🚗 / 🚆</b> s časem a cenou – auto se půjčí jen na úseky autem a ATLAS řekne, kde ho vyzvednout a kde vrátit.'],
