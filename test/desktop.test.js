@@ -119,3 +119,71 @@ test('postranní lišta: obsah, který se nevejde do výšky okna, jde posunout 
   assert.match(rule, /position:sticky/);
   assert.match(rule, /overflow-y:auto/);
 });
+
+// Kontrola na počítači (1366×650 až 2560×1440): přilepené panely průvodce, klávesnice, posun pod lepicí lištu
+const tripCss = readFileSync(new URL('../public/css/desktop-trip.css', import.meta.url), 'utf8');
+const flightsCss = readFileSync(new URL('../public/css/desktop-flights.css', import.meta.url), 'utf8');
+const appJs = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+const flightsJs = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+/** Deklarace pravidla s přesným selektorem (komentáře pryč). */
+const decl = (src, sel) => {
+  const s = src.replace(/\/\*[\s\S]*?\*\//g, '');
+  const at = s.indexOf(sel + '{');
+  assert.ok(at >= 0, sel);
+  return s.slice(at + sel.length + 1, s.indexOf('}', at));
+};
+
+test('průvodce: přilepený přehled cesty a pravý sloupec Shrnutí se posouvají samy, tlačítka zůstanou vidět', () => {
+  // Shrnutí: sloupec ~1100 px přilepený na 160 px – 💾 Uložit do plánovače byl i na 1912 × 904 pod okrajem okna
+  for (const sel of ['#tripRoot .trip-aside', '#tripRoot[data-step=summary] #tripStep>.sum-side']) {
+    const r = decl(tripCss, sel);
+    assert.match(r, /position:sticky;top:var\(--trip-stick\)/, sel);
+    assert.match(r, /max-height:calc\(100vh - var\(--trip-stick\) - \d+px\)/, sel);
+    assert.match(r, /overflow-y:auto/, sel);
+  }
+  assert.match(decl(tripCss, '#tripRoot[data-step=summary] #tripStep>.sum-side>.sum-acts'), /position:sticky;bottom:0/);
+  assert.match(decl(tripCss, '.ta-next'), /position:sticky;bottom:0/);
+  assert.match(tripCss, /html:has\(#view-trip\.active\)\{scroll-padding-top:var\(--trip-stick\)\}/);
+});
+
+test('posun k prvku (Tab, Shift+Tab, odrolování) končí pod lepicí horní lištou, v Zemích pod přilepenými filtry', () => {
+  assert.match(css, /html\{scroll-padding-top:104px\}/);
+  // odsazení pro telefon (90–100 px) by se na počítači sečetlo s odsazením stránky
+  assert.match(css, /#watchList \.watch,#radarHead,#progress,[^{]*\{scroll-margin-top:0\}/);
+  assert.match(flightsCss, /@media \(min-width:1024px\) and \(min-height:821px\)\{[\s\S]*?html:has\(#view-countries\.active\)\{scroll-padding-top:232px\}/);
+});
+
+test('klávesnice: karty a odkazy z <div>/<span> jdou Tabem vybrat a Enterem otevřít', () => {
+  const kb = appJs.match(/^function kbClick\(el\) \{[\s\S]*?^\}/m);
+  assert.ok(kb, 'app.js: kbClick');
+  assert.match(kb[0], /el\.tabIndex = 0; el\.setAttribute\('role', 'button'\)/);
+  assert.match(kb[0], /e\.target === el && \(e\.key === 'Enter' \|\| e\.key === ' '\)/);
+  // karta země (Země, Doporučení, Tipy), odkaz v nadpisu sekce, cesta v Plánovači a Nová cesta
+  assert.match(appJs, /function bindDest\(sel\) \{[^\n]*kbClick\(el\)/);
+  assert.match(appJs, /\$\$\('\.link\[data-go\]'\)\.forEach\(l => \{ l\.onclick = [^\n]*kbClick\(l\)/);
+  assert.match(appJs, /\$\$\('\.trip\[data-ti\]'\)\.forEach\(el => \{ el\.onclick = [^\n]*kbClick\(el\)/);
+  assert.match(appJs, /kbClick\(\$\('#newTripTile'\)\)/);
+  // Rychlé hledání / Nápady, ⭐ Moje cíle, Obnovit → a Zkontrolovat vše →
+  assert.match(flightsJs, /\$\$\('\[data-qf\]'\)\.forEach\(kbClick\)/);
+  assert.match(flightsJs, /qv\.onclick = [^\n]*kbClick\(qv\)/);
+  assert.match(flightsJs, /kbClick\(\$\('#radarReload'\)\)/);
+  assert.match(flightsJs, /kbClick\(\$\('#watchCheckAll'\)\)/);
+});
+
+test('klávesnice: otevřené okno dostane fokus, Tab v něm koluje a po zavření se fokus vrátí (jen počítač s myší)', () => {
+  assert.match(appJs, /const modalKb = \{ ret: null, mq: [^\n]*matchMedia\('\(min-width:1024px\) and \(hover:hover\) and \(pointer:fine\)'\)/);
+  assert.match(appJs, /if \(!was\) modalKb\.ret = document\.activeElement;/);
+  assert.match(appJs, /if \(on\) \{ if \(!m\.contains\(a\)\) \{ m\.tabIndex = -1; m\.focus\(\{ preventScroll: true \}\); \} return; \}/);
+  assert.match(appJs, /r\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(appJs, /if \(e\.key !== 'Tab' \|\| e\.defaultPrevented \|\| !\$\('#modalBg'\)\.classList\.contains\('show'\)\) return;/);
+  assert.match(css, /#modal:focus\{outline:none\}/);
+});
+
+test('myš a dlouhé řádky: odkazy sekcí a čipy reagují na najetí, „Jak hledat chytře“ ve dvou sloupcích, poznámka pod výsledky užší', () => {
+  assert.match(css, /\.section-head \.link:hover\{text-decoration:underline/);
+  assert.match(css, /\.fchip:hover:not\(:disabled\)\{border-color:var\(--accent\)/);
+  assert.match(css, /\.sg-list\{display:block;columns:2/);
+  assert.match(css, /\.sg-list>li\{break-inside:avoid/);
+  assert.match(css, /#results \.res-foot\{max-width:min\(100%,90ch\)\}/);
+  assert.match(flightsCss, /#results>\.res-more~\.res-foot\{[^}]*max-width:min\(calc\(100% - var\(--side\) - var\(--gap\)\),90ch\)\}/);
+});

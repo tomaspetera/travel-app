@@ -103,6 +103,26 @@
   #view-recommend>.card:first-child select{width:100%}
   #view-countries .toolbar{gap:12px}
 }
+/* ---------- klávesnice, myš a dlouhé řádky (kontrola na počítači 1366–2560 px) ---------- */
+@media (min-width:1024px){
+  /* posun k prvku (Tab a hlavně Shift+Tab nahoru, „♥ Hlídáš – na Přehledu“, odrolování k výsledku): cíl vždy pod lepicí
+     horní lištou (95 px) – fokus dřív zůstal schovaný pod ní; prvky s vlastním odsazením pro telefon (90–100 px) by
+     tu spadly o lištu níž */
+  html{scroll-padding-top:104px}
+  #watchList .watch,#radarHead,#progress,.lcol,.legs-pick,.smart-guide,.dc-head,#mcol-0,#mcol-1,#mcol-2,#mcol-3,#mcPick,.cmp-row,#exPlanOut,.ex-err{scroll-margin-top:0}
+  /* okno dostane po otevření fokus (app.js modalKb) – bez rámečku kolem celého okna */
+  #modal:focus{outline:none}
+  /* odkazy v nadpisech sekcí („Obnovit →“, „Porovnat →“) a čipy filtrů na najetí myší reagují jako ostatní tlačítka */
+  .section-head .link:hover{text-decoration:underline;text-underline-offset:3px}
+  .fchip:hover:not(:disabled){border-color:var(--accent);color:var(--text)}
+  .seg button:not(.on):not(:disabled):hover{color:var(--text);background:var(--surface-2)}
+  .radar-card .rc-info:hover{background:rgba(255,255,255,.36)}
+  /* „Jak hledat chytře“ ve dvou sloupcích: přes celou šířku měly řádky až 190 znaků (špatně se čtou) */
+  .sg-list{display:block;columns:2;column-gap:40px}
+  .sg-list>li{break-inside:avoid;margin-bottom:9px}
+  /* poznámka pod výsledky: řádek nejvýš ~110 znaků (na širokém monitoru jich měl 160; ch = šířka číslice, text je užší) */
+  #results .res-foot{max-width:min(100%,90ch)}
+}
 /* notebook do 1440 px: Odlet mezi pod Cestou a Délkou pobytu přes celou šířku (tři sloupce by byly moc úzké),
    „Jak hledat chytře“ vlastní řádek vpravo */
 @media (min-width:1024px) and (max-width:1439px){
