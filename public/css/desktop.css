@@ -119,3 +119,13 @@
 }
 /* široký monitor: o trochu širší obsah (stále uprostřed) */
 @media (min-width:1600px){:root{--content-max:1360px}}
+/* nižší okno notebooku (do ~940 px výšky): postranní lišta úspornější, ať se vejde celá bez posouvání */
+@media (min-width:1024px) and (max-height:940px){
+  .sidebar{padding:14px 14px;gap:4px}
+  .brand{padding:2px 8px 8px}
+  .nav{gap:1px}
+  .nav-item{padding:8px 13px}
+  .side-foot{gap:6px;padding-top:8px}
+  .side-foot .theme-toggle,.side-foot .side-about,.side-foot .pwa-install{padding-top:7px;padding-bottom:7px}
+  .src-box{padding:8px 12px}
+}
