@@ -99,7 +99,13 @@
 .warm-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-top:10px;font-size:13px}
 .warm-row .seg button{padding:6px 10px;font-size:12.5px;white-space:nowrap}
 .quick-range button{padding:4px 9px;font-size:12px}
-.seg.wrap{flex-wrap:wrap}
+.seg.wrap{flex-wrap:wrap;border-radius:20px}
+/* zalomený přepínač (2 řádky) s poloměrem pilulky vypadal rozbitě: rámeček i tlačítka se zaoblují jako obdélník,
+   na jednom řádku (výška ~42 px) to vypadá pořád jako pilulka */
+.seg.wrap button{border-radius:15px}
+/* Délka pobytu: 6 voleb jako úhledná mřížka 3 × 2 se stejně širokými políčky (na telefonu se dřív lámaly nepravidelně) */
+#lenPreset{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
+#lenPreset button{padding:7px 4px;min-height:38px;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15}
 /* zavazadla: tři delší volby – na užší obrazovce pod sebou přes celou šířku (ne bublina s tlačítky) */
 #bags{display:flex}
 #bags button{flex:1 1 auto}
