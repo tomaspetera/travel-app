@@ -187,13 +187,43 @@
     return e;
   }
 
+  /*
+   * Krátký odkaz /c/<id> (server/lib/shortlinks.js – cesta uložená na serveru, náhled odkazu s cílem a fotkou) místo
+   * stěny písmen za #. Jen cesta a plán a až když je uživatel opravdu sdílí (okno Sdílet, dotyk tlačítka Sdílet) –
+   * nic se neukládá jen tak. Server bez úložiště nebo výpadek → null a zůstane dlouhý odkaz jako dřív.
+   */
+  const SHORT = ['trip', 'plan'];
+  const shorts = new Map();
+  /** Krátký odkaz {url (až po uložení), done: Promise<url | null>} – další volání se stejnou cestou vrátí tentýž. */
+  function short(kind, json) {
+    if (!SHORT.includes(kind) || typeof fetch !== 'function') return { url: null, done: Promise.resolve(null) };
+    const key = kind + '\n' + json;
+    let e = shorts.get(key);
+    if (!e) {
+      e = { url: null };
+      e.done = fetch('api/share', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: kind, j: json }) })
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => (j && /^[A-Za-z0-9]{8}$/.test(j.id) ? (e.url = `${location.origin}/c/${j.id}`) : null))
+        .catch(() => null);
+      shorts.set(key, e);
+      if (shorts.size > 4) shorts.delete(shorts.keys().next().value);
+    }
+    return e;
+  }
+  // krátký odkaz, je-li hotový nebo do ms hotový bude; jinak null (dlouhý odkaz)
+  const shortNow = async (kind, json, ms) => {
+    if (!SHORT.includes(kind)) return null;
+    const s = short(kind, json);
+    return s.url || Promise.race([s.done, new Promise(r => setTimeout(() => r(null), ms))]);
+  };
+
   /**
    * Zkopíruje odkaz do schránky → Promise<{ url, copied }>. Hotový odkaz se zapíše hned (ještě v obsluze kliknutí),
    * jinak ClipboardItem s Promise (Safari počká na kompresi) a nakonec writeText. Nezkopírovaný odkaz (copied: false)
-   * nabídne volající k ručnímu zkopírování.
+   * nabídne volající k ručnímu zkopírování. url = krátký odkaz místo dlouhého (send).
    */
-  async function copy(kind, json) {
-    const e = prepare(kind, json), cb = navigator.clipboard;
+  async function copy(kind, json, url = null) {
+    const e = url ? { url, done: Promise.resolve(url) } : prepare(kind, json), cb = navigator.clipboard;
     try {
       if (!cb) throw new Error('bez schránky');
       if (e.url) await cb.writeText(e.url);
@@ -219,14 +249,20 @@
    * aborted, copied }>. Zavřená nabídka (aborted) = uživatel si to rozmyslel – žádné kopírování ani hláška.
    */
   async function send(kind, json, { title = '', text = '' } = {}) {
+    const ready = Boolean(short(kind, json).url), sUrl = await shortNow(kind, json, 2500);
     if (native()) {
-      const e = prepare(kind, json), url = e.url || await e.done;
+      const e = prepare(kind, json), url = sUrl || e.url || await e.done;
       try { await navigator.share({ title, text, url }); return { url, shared: true }; } catch (err) {
         if (err && err.name === 'AbortError') return { url, aborted: true };
+        // čekání na krátký odkaz prohlížeči „spotřebovalo“ klepnutí (Safari): sdílet dalším klepnutím na hlášce
+        if (err && err.name === 'NotAllowedError' && !ready && typeof window.toast === 'function') {
+          window.toast('Odkaz je připravený', 'info', 8000, { label: '📤 Sdílet', run: () => navigator.share({ title, text, url }).catch(() => { }) });
+          return { url, aborted: true };
+        }
       }
     }
-    return copy(kind, json);
+    return copy(kind, json, sUrl);
   }
 
-  window.ShareLink = { pack, unpack, prepare, copy, send, native, MAX_JSON };
+  window.ShareLink = { pack, unpack, prepare, short, copy, send, native, MAX_JSON };
 })();

@@ -45,6 +45,10 @@ export const config = {
   travelpayoutsMarket: (env.TRAVELPAYOUTS_MARKET ?? 'cz').toLowerCase(),
   // Fotky měst na kartách (pexels.com/api – zdarma, 200 dotazů/h): profesionální snímky na výšku. Bez klíče Wikimedia.
   pexelsKey: env.PEXELS_API_KEY || '',
+  // Krátké odkazy na sdílenou cestu (/c/…, server/lib/shortlinks.js): Upstash Redis zdarma (console.upstash.com →
+  // databáze → REST API). Bez nich aplikace posílá dlouhý odkaz s cestou za # jako dřív.
+  upstashUrl: /^https:\/\/[\w.-]+$/.test((env.UPSTASH_REDIS_REST_URL || '').trim()) ? env.UPSTASH_REDIS_REST_URL.trim() : '',
+  upstashToken: (env.UPSTASH_REDIS_REST_TOKEN || '').trim(),
   // Totéž z Unsplash (unsplash.com/developers – zdarma, v ukázkovém režimu 50 dotazů/h): když Pexels klíč nemá nebo
   // fotku nenajde. Fotky se vkládají přímo z Unsplash a u fotky je autor s odkazem (podmínky Unsplash API).
   unsplashKey: env.UNSPLASH_ACCESS_KEY || '',

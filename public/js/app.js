@@ -1816,8 +1816,10 @@ function openTrip(i) {
   // Poznámky se ukládají bez překreslení – odkaz do Google Kalendáře je musí mít aktuální.
   const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(t)[0])); });
   $('#tripShare').onclick = () => sharePlan(i);
+  // krátký odkaz se začne ukládat už při dotyku – sdílení pak nečeká (Safari ho chce ještě v obsluze klepnutí)
+  $('#tripShare').onpointerdown = () => ShareLink.short('plan', PlanShare.json(t));
   // karta „Jede někdo se mnou?“ na sítě z cesty uložené z průvodce (data cesty umí Trip.cardData)
-  const tj = $('#tripJed'); if (tj) tj.onclick = () => withMod('trip', () => window.ShareCard && ShareCard.open(Trip.cardData(t.wizard), { send: () => sharePlan(i) }));
+  const tj = $('#tripJed'); if (tj) tj.onclick = () => withMod('trip', () => window.ShareCard && ShareCard.open(Trip.cardData(t.wizard), { send: () => sharePlan(i), prime: () => ShareLink.short('plan', PlanShare.json(t)) }));
   ShareLink.prepare('plan', PlanShare.json(t)); // kliknutí pak jen zkopíruje hotový odkaz (Safari)
 }
 
@@ -1917,6 +1919,24 @@ async function openOfferFromHash() {
   let o = null;
   try { o = await OfferShare.fromHash(hash); } catch (e) { toast('Odkaz na nabídku je poškozený', 'err'); }
   if (o && window.Flights) Flights.openOffer(o);
+  return true;
+}
+/**
+ * Krátký odkaz /c/<id> přesměruje sem na #s=<id> (server/lib/shortlinks.js): cesta nebo plán se stáhne ze serveru
+ * a adresa se přepíše na dlouhý tvar #trip= / #plan= – dál se otevře jako dřív. Vypršelý odkaz → hláška a Přehled.
+ * → Promise<boolean> (true, když šlo o #s=).
+ */
+async function shortFromHash() {
+  const m = location.hash.match(/^#s=([A-Za-z0-9]{8})$/);
+  if (!m) return false;
+  try {
+    const r = await fetch('api/share/' + m[1]), j = r.ok ? await r.json() : null;
+    if (!j || !['trip', 'plan'].includes(j.k) || typeof j.j !== 'string') throw new Error('odkaz vypršel');
+    history.replaceState(null, '', `#${j.k}=${await ShareLink.pack(j.j)}`);
+  } catch (e) {
+    history.replaceState(null, '', '#dashboard');
+    toast('Odkaz na cestu neexistuje nebo vypršel', 'err');
+  }
   return true;
 }
 /**
@@ -2150,6 +2170,7 @@ function wireEvents() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden && activeView === 'dashboard') renderNow(); });
   // Odkaz na cestu, plán nebo sekci vložený do už otevřené stránky (mění se jen #, stránka se nenačte znovu).
   window.addEventListener('hashchange', async () => {
+    await shortFromHash(); // krátký odkaz → #trip= / #plan= (bez události hashchange)
     if (window.Lazy && /^#trip=/.test(location.hash)) await Lazy.need('trip').catch(() => { }); // průvodce ještě nedostažený (lazy.js)
     if (window.Trip && await Trip.importFromHash()) return go('trip', { noHash: true });
     if (await importPlanFromHash()) return go('planner', { noHash: true });
@@ -2239,6 +2260,7 @@ async function start() {
   refreshStats();
   // průvodce cestou (trip.js) se stahuje až po startu (lazy.js); hned ho potřebuje sdílená cesta z odkazu a Přehled
   // s rozpracovanou nebo právě probíhající cestou – na něj se počká (karty se pak nepřekreslují pod rukama)
+  await shortFromHash(); // krátký odkaz (/c/… → #s=) na cestu nebo plán → #trip= / #plan=
   if (window.Lazy && (/^#trip=/.test(location.hash) || tripSoon())) await Lazy.need('trip').catch(() => { });
   const shared = window.Trip && await Trip.importFromHash();
   const plan = !shared && await importPlanFromHash();
