@@ -135,3 +135,56 @@ test('Objevuj: „Krkonoše na 3 dny“ = túra na každý den (ne program po m�
   Object.assign(ex, { mode: 'city', days: 3, auto: null });
   ex.hike.kind = 'loop';
 });
+
+// Krok Program s minimální náhražkou stránky: jeden „prvek“ na selektor, přepínač druhu jako dvě tlačítka.
+function fakeEl() {
+  const kids = new Map();
+  const tpk = [{ dataset: { tpk: 'hike' } }, { dataset: { tpk: 'city' } }];
+  return {
+    innerHTML: '', hidden: false, isConnected: true, dataset: {}, style: {},
+    classList: { toggle() {}, add() {}, remove() {}, contains: () => false }, setAttribute() {},
+    querySelector(s) { if (!kids.has(s)) kids.set(s, fakeEl()); return kids.get(s); },
+    querySelectorAll: (s) => (s === '[data-tpk]' ? tpk : []),
+  };
+}
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+test('krok Program: přepnutí na program po místech, než túry doběhnou – pozdní túry program cesty nepřepíšou ani se nevykreslí', async () => {
+  const hikeJson = plain(await H.planHikes({ ...F.PEC, start: '2027-07-09', end: '2027-07-11' }, deps));
+  const json = (j) => ({ ok: true, status: 200, json: async () => j });
+  let hikeDone = null;
+  let hikeCalls = 0;
+  const fetch = async (url) => {
+    if (url.startsWith('api/nature')) return json({ area: { cs: 'Krkonoše', kind: 'range' } });
+    if (url === 'api/hikeplan') { hikeCalls++; return new Promise((r) => { hikeDone = () => r(json(hikeJson)); }); } // túry poprvé i 40 s
+    if (url === 'api/itinerary') return json({ days: [{ date: '2027-07-09', kind: 'city', items: [], cap: 300 }], spare: [], places: [] });
+    return json({ items: [] });
+  };
+  const c = { console, URLSearchParams, setTimeout, clearTimeout, fetch, document: { createElement() { throw new Error('bez mapy'); } } };
+  c.window = c;
+  vm.createContext(c);
+  vm.runInContext(src('app.js').match(/^const (\$|esc|enc|flag|safeUrl|cssUrl|pad|fmtYMD) = .*$/gm).join('\n'), c);
+  vm.runInContext('const fmtDate = (d) => d;', c);
+  for (const f of ['smart.js', 'places.js']) vm.runInContext(src(f), c, { filename: f });
+  const host = fakeEl();
+  const kinds = [];
+  c.Places.renderPlanner(host, { ...PEC, start: '2027-07-09', end: '2027-07-11', onPlan: (p) => kinds.push(p.kind || 'city') });
+  for (let i = 0; i < 20 && !hikeDone; i++) await tick();
+  assert.ok(hikeDone, 'v horách se napřed plánují túry');
+  const kindEl = host.querySelector('#tpKind');
+  const btn = (k) => kindEl.querySelectorAll('[data-tpk]').find((b) => b.dataset.tpk === k);
+  const shown = () => host.querySelector('#tpBody').querySelector('#tpPlan').innerHTML;
+  btn('city').onclick();
+  for (let i = 0; i < 20; i++) await tick();
+  assert.deepEqual(kinds, ['city']);
+  hikeDone();
+  for (let i = 0; i < 20; i++) await tick();
+  assert.deepEqual(kinds, ['city'], 'program cesty zůstane po místech, jak uživatel zvolil');
+  assert.ok(!shown().includes('hk-day'), 'pod přepínačem „Program po místech“ nejsou túry');
+  // zpět na túry: hotové túry hned, bez nového plánování
+  btn('hike').onclick();
+  for (let i = 0; i < 20; i++) await tick();
+  assert.deepEqual(kinds, ['city', 'hike']);
+  assert.ok(shown().includes('hk-day'));
+  assert.equal(hikeCalls, 1);
+});

@@ -284,6 +284,20 @@ test('Overpass: jeden POST na plán, v mezipaměti, po výpadku 10 minut nic', a
   }
 });
 
+test('Overpass: plány túr, které čekají ve frontě, když Overpass vypadne, už ho nezkoušejí (nečekají každý 15 s)', async () => {
+  H._resetOverpass();
+  const slow = stubFetch(async () => { await new Promise((r) => setTimeout(r, 30)); return { status: 504, body: 'busy' }; });
+  try {
+    const runs = await Promise.allSettled([1, 2, 3, 4].map((i) => H.foodAlong([[[16 + i / 100, 50.5], [16.01 + i / 100, 50.51]]])));
+    assert.ok(runs.every((r) => r.status === 'rejected'), 'občerstvení „nevím“ u všech');
+    assert.equal(slow.calls.length, 1, 'jen první dotaz – ostatní po výpadku hned');
+    assert.ok(runs.slice(1).every((r) => /chvíli mimo provoz/.test(r.reason.message)));
+  } finally {
+    slow.restore();
+    H._resetOverpass();
+  }
+});
+
 test('DEMO: stejný plánovač nad vymyšlenými cíli – túry, chata po cestě, s dětmi varianta', async () => {
   const r = await H.mockHikePlan({ lat: 50.6917, lon: 15.7333, label: 'Pec pod Sněžkou', start: '2027-07-09', end: '2027-07-11', kids: true });
   assert.equal(r.days.length, 3);
