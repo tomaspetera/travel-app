@@ -527,13 +527,24 @@ function nowParts(x, now = Date.now()) {
   // rezervace této cesty, pod nimi ostatních probíhajících (stejná dvakrát jen jednou)
   const seen = new Set(), refs = window.Backup ? [t, ...also0.map(y => y.t)].flatMap(z => Backup.cleanRefs(z.refs)).filter(r => !seen.has(r.co + '\n' + r.kod) && seen.add(r.co + '\n' + r.kod)) : [];
   const rows = all.filter(r => (x.on ? r[0] === x.today : r[0] >= x.today && r[0] <= t.start));
+  // den přejezdu na trase přes víc míst: odkud kam („Lisabon → Porto“) – ráno je cestovatel ještě v předchozím místě
+  const pl0 = pl && x.on && x.day > 1 ? Trip.placeOn(w, ymdPlus(x.today, -1)) : null;
+  // půjčené auto (průvodce) k navigaci do hotelu i ve Waze jen ve dny auta: od vyzvednutí, v den vrácení jen do něj a jen
+  // ve městě, kde se spí (auto vrácené ráno před vlakem do dalšího místa ne); auto bez časů (starší cesty) jako dřív
+  const car = w && w.car && w.car.mode !== 'skip' ? w.car : null, cf = String((car && car.from) || ''), ct = String((car && car.to) || ''), wall = wallAt(x.tz, now);
+  const carOn = Boolean(car) && (!okYmd(cf.slice(0, 10)) || !okYmd(ct.slice(0, 10)) || (x.today >= cf.slice(0, 10)
+    && (x.today < ct.slice(0, 10) || (x.today === ct.slice(0, 10) && wall < ct.slice(0, 16) && !(car.doCity && pl && car.doCity.name !== pl.name)))));
+  // online check-in dalšího letu (Ryanair, Wizz Air – Ics.checkin): do kdy ho stihnout, dokud je otevřený (místní čas odletu)
+  const ci = ahead && !ahead.l.ground && window.Ics ? Ics.checkin({ carrier: ahead.l.carrier, dep: String(ahead.l.dep || '').slice(0, 16), fromTz: ahead.l.fromTz }) : null;
+  const ciEnd = ci ? ahead.at - ci.closeH * 36e5 : 0;
   return {
-    rows, next: x.on ? all.find(r => r[0] === tomorrow) || null : null, past: x.on && x.tz ? pastRows(rows, wallAt(x.tz, now).slice(11, 16), x.home) : rows.map(() => false),
-    place: pl ? pl.name : t.dest && t.dest !== '—' ? t.dest : t.name, verb: fly ? 'odlet' : 'odjezd', spoje: Boolean(ls.length || w || ft),
-    // car = cesta s půjčeným autem (průvodce) → k navigaci do hotelu i Waze
-    hotel: x.on && there && pl && pl.hotel ? { name: pl.hotel, ...(pl.near ? { near: pl.near } : {}), q: [pl.hotel, pl.city, pl.country].filter(Boolean).join(', '), ...(w.car && w.car.mode !== 'skip' ? { car: true } : {}) } : null,
+    rows, next: x.on ? all.find(r => r[0] === tomorrow) || null : null, past: x.on && x.tz ? pastRows(rows, wall.slice(11, 16), x.home) : rows.map(() => false),
+    place: pl ? pl.name : t.dest && t.dest !== '—' ? t.dest : t.name, from: pl0 && pl0.name !== pl.name ? pl0.name : '', verb: fly ? 'odlet' : 'odjezd', spoje: Boolean(ls.length || w || ft),
+    // car = ten den s půjčeným autem → k navigaci do hotelu i Waze
+    hotel: x.on && there && pl && pl.hotel ? { name: pl.hotel, ...(pl.near ? { near: pl.near } : {}), q: [pl.hotel, pl.city, pl.country].filter(Boolean).join(', '), ...(carOn ? { car: true } : {}) } : null,
     shift, clock: shift ? wallAt(tz, now).slice(11, 16) : '',
-    ahead: ahead && ahead.at - now <= 864e5 ? { l: ahead.l, min: Math.ceil((ahead.at - now) / 6e4) } : null,
+    // ck = do kdy je online check-in otevřený ('YYYY-MM-DDTHH:MM' v zóně odletu)
+    ahead: ahead && ahead.at - now <= 864e5 ? { l: ahead.l, min: Math.ceil((ahead.at - now) / 6e4), ...(ciEnd > now ? { ck: wallAt(ahead.l.fromTz, ciEnd) } : {}) } : null,
     // před odjezdem (v den odjezdu do prvního spoje)
     todo: !x.on || (x.day === 1 && !(first && first.at != null && first.at <= now)) ? { zar: ck.filter(zar).length, bal: ck.filter(c => !zar(c)).length } : null,
     also: also0.map(y => ({ i: y.i, name: String(y.t.name || y.t.dest || ''), rows: tripRows(y.t).all.filter(r => r[0] === y.today) })),
@@ -555,11 +566,14 @@ function nowCard(x, p) {
   const row = (r, d, past) => `<li${past ? ' class="nw-past"' : ''}><span class="nw-i">${r[1]}</span><span>${d ? `<span class="nw-d">${tag(r[0])}</span>` : ''}${r[2]}${walk(r)}</span></li>`;
   // po návratu domů (poslední den, spoj zpět přistál) už ne „na cestě“ – karta zůstane do půlnoci kvůli kódům a plánu
   const head = x.home ? `🏠 Zpátky doma · <b>${esc(p.place)}</b> <span class="faint">· den ${x.day} z ${x.days}</span>`
-    : x.on ? `📍 Dnes na cestě · den ${x.day} z ${x.days} · <b>${esc(p.place)}</b>`
+    : x.on ? `📍 Dnes na cestě · den ${x.day} z ${x.days} · ${p.from ? `${esc(p.from)} → ` : ''}<b>${esc(p.place)}</b>`
     : `🧳 ${x.until === 1 ? 'Zítra' : `Za ${x.until} dny`} ${p.verb} · <b>${esc(p.place)}</b> <span class="faint">${dowLbl(t.start)}</span>`;
   const h = Math.abs(p.shift) / 60, shift = `o ${String(h).replace('.', ',')}\u00a0h ${p.shift < 0 ? 'méně' : 'víc'} než v Praze`;
+  // online check-in: řádek 📲 v průběhu cesty je jen v den otevření – večer předem a ráno odletu čas zavření tady
+  // (pevné mezery: „do zítra 4:25“ se na úzkém telefonu neroztrhne)
+  const ck = p.ahead && p.ahead.ck ? ` · online check-in do\u00a0${p.ahead.ck.slice(0, 10) > x.today ? 'zítra\u00a0' : ''}<b>${p.ahead.ck.slice(11, 16).replace(/^0/, '')}</b>` : '';
   const meta = [
-    p.ahead ? `<span>${p.ahead.l.ground ? '🚆 Odjezd' : '✈️ Odlet'} ${esc(p.ahead.l.from)} → ${esc(p.ahead.l.to)} <b data-nw="cd"></b></span>` : '',
+    p.ahead ? `<span>${p.ahead.l.ground ? '🚆 Odjezd' : '✈️ Odlet'} ${esc(p.ahead.l.from)} → ${esc(p.ahead.l.to)} <b data-nw="cd"></b>${ck}</span>` : '',
     p.shift && !x.home ? `<span>🕐 ${x.on ? 'Místní čas <b data-nw="clock"></b> – ' : 'V cíli je '}${shift}</span>` : '',
     p.hotel ? `<span>🏨 ${esc(p.hotel.name)}${p.hotel.near ? ` <span class="faint">(${esc(p.hotel.near)})</span>` : ''}${window.Places && Places.gmDir ? ` · <a href="${esc(safeUrl(Places.gmDir('', [p.hotel.q], 'transit')))}" target="_blank" rel="noopener">navigovat ↗</a>` : ''}${p.hotel.car && window.SearchHelp ? ` <a class="app-chip" href="${esc(safeUrl(window.SearchHelp.wazeUrl({ q: p.hotel.q })))}" target="_blank" rel="noopener" title="Najít ubytování ve Waze a navigovat autem">🚗 Waze</a>` : ''}</span>` : '',
   ].filter(Boolean);
@@ -629,8 +643,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-23e';
+const WN_ID = '2026-10-23f';
 const WHATS_NEW = [
+  ['👍', 'Doporučené pořadí letů', 'výsledky <b>Kamkoliv</b> i radar <b>Kam letět levně</b> řadí nahoru nabídky, které by sis opravdu vybral – ne jen nejlevnější letenku: počítá s cestou na letiště a do města (cena i čas), nočními odjezdy bez spojů, tím, kolik času zbude na místě, a cenou pod obvyklou; další cíl ze stejné země dá o kus níž. Proč je nabídka nad levnější letenkou, řekne štítek <b>✓</b> (třeba „i s cestou na letiště nejlevnější“). Čistě podle ceny dál řadí <b>Nejlevnější letenka</b> ve <b>Filtrech</b>.'],
   ['🔀', 'Auto jen na část cesty', 'v kroku <b>Auto</b> průvodce Cestou vybereš <b>📅 dny auta</b> – třeba v Lisabonu jen 2. a 3. den na výlety: vyzvednutí i vrácení ve městě a z letiště do města dál metrem. Na trase přes víc míst má každý přejezd přepínač <b>🚗 / 🚆</b> s časem a cenou – auto se půjčí jen na úseky autem a ATLAS řekne, kde ho vyzvednout a kde vrátit.'],
   ['🚗', 'Auto na místě s radou', 'v kroku <b>Auto</b> průvodce Cestou ATLAS řekne, kdy auto nepotřebuješ (bydlíš ve městě s metrem nebo vlakem z letiště, mezi místy trasy je rychlejší vlak), upozorní na zóny ZTL v italských městech, elektronické mýtné v Portugalsku a vrácení auta v jiné zemi a napíše, co je v ceně auta a co se počítá zvlášť.'],
   ['📲', 'Přenos do jiného zařízení QR kódem', 'pod <b>Další</b> (na počítači vlevo dole) je <b>📲 Přenést do jiného zařízení</b>: QR kód, který naskenuješ fotoaparátem druhého telefonu, nebo odkaz, který si pošleš (AirDrop, Quick Share, e-mail, chat). Přenese cesty, hlídané ceny, odložené nabídky, ⭐ / 🙈 města, navštívené země i domov – bez účtu, data jdou jen v odkazu, na server ne. Druhé zařízení ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>.'],
@@ -1137,7 +1152,9 @@ function renderCountries() {
 // o.hist === false: okno si krok historie řídí samo (náhled cíle – flights.js dpOpen)
 function modalOpen(html, o = {}) {
   const was = $('#modalBg').classList.contains('show');
-  if (!was) modalKb.ret = document.activeElement; // tlačítko, které okno otevřelo – po zavření na něj vrátit fokus
+  // tlačítko, které okno otevřelo – po zavření na něj vrátit fokus; okno z okna přes modalClose() a hned modalOpen()
+  // (Info o zemi z okna cesty) má fokus ještě na tlačítku zavřeného okna, které zmizí – vrátit na původní tlačítko
+  if (!was && !$('#modal').contains(document.activeElement)) { modalKb.ret = document.activeElement; modalKb.sel = kbSel(modalKb.ret); }
   $('#modal').innerHTML = html; $('#modalBg').classList.add('show');
   if (!was) { $('#toast').classList.remove('show'); $('#modal').scrollTop = 0; } // nové okno nahoře, ne s posunem z minulého
   // krok historie jen pro nově otevřené okno – okno otevřené z okna (Info o zemi z náhledu…) ho jen nahradí
@@ -1161,7 +1178,17 @@ $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) modalClose(); };
    posouvají okno), Tab v něm koluje dokola a po zavření (✕, Escape, Zpět, klik vedle) se fokus vrátí na tlačítko,
    které okno otevřelo. Jen počítač s myší – na telefonu beze změny. Okno, které fokus dá samo dovnitř (nabídka ⋯), si
    ho nechá. */
-const modalKb = { ret: null, mq: window.matchMedia ? matchMedia('(min-width:1024px) and (hover:hover) and (pointer:fine)') : null };
+const modalKb = { ret: null, sel: '', mq: window.matchMedia ? matchMedia('(min-width:1024px) and (hover:hover) and (pointer:fine)') : null };
+/**
+ * Jak tlačítko, které okno otevřelo, najít i po překreslení stránky (karta cesty v Plánovači po úpravě v okně, karta
+ * země): podle id, jinak podle prvního data-* atributu ('' = nejde).
+ */
+function kbSel(el) {
+  if (!el || !el.tagName || el === document.body) return '';
+  if (el.id) return `#${CSS.escape(el.id)}`;
+  const d = [...el.attributes].find(x => x.name.startsWith('data-'));
+  return d ? `${el.tagName.toLowerCase()}[${d.name}="${CSS.escape(d.value)}"]` : '';
+}
 new MutationObserver(() => {
   const m = $('#modal'), on = $('#modalBg').classList.contains('show');
   if (on === modalKb.on) return;
@@ -1169,9 +1196,10 @@ new MutationObserver(() => {
   if (!modalKb.mq || !modalKb.mq.matches) return;
   const a = document.activeElement;
   if (on) { if (!m.contains(a)) { m.tabIndex = -1; m.focus({ preventScroll: true }); } return; }
-  const r = modalKb.ret; modalKb.ret = null;
+  const r0 = modalKb.ret, sel = modalKb.sel; modalKb.ret = null; modalKb.sel = '';
+  const r = r0 && r0.isConnected ? r0 : sel ? $$(sel).find(x => !m.contains(x) && x.getClientRects().length) : null;
   // fokus někam přesunula sama akce okna (náhled cíle vrací na 🔎) → nechat
-  if ((!a || a === document.body || $('#modalBg').contains(a)) && r && r.isConnected && r.getClientRects().length) r.focus({ preventScroll: true });
+  if ((!a || a === document.body || $('#modalBg').contains(a)) && r && r.getClientRects().length) r.focus({ preventScroll: true });
 }).observe($('#modalBg'), { attributes: true, attributeFilter: ['class'] });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Tab' || e.defaultPrevented || !$('#modalBg').classList.contains('show')) return;
@@ -1614,10 +1642,19 @@ function planEvents(t) {
   const info = [dest && 'Cíl: ' + dest, `Cestující: ${t.pax || 1}`, +t.budget ? 'Rozpočet: ' + czk(+t.budget) : '', t.flight ? planTransport(t.flight) : '', t.notes || ''].filter(Boolean).join('\n');
   const ev = [{ title: '🧳 ' + t.name, start: t.start, end: t.end || t.start, description: info, location: dest }];
   // Let (nebo vlak/bus) uložený z průvodce cestou má přesné časy a zóny; jinak jen text v den odjezdu.
-  if (t.legs && t.legs.length) t.legs.forEach(l => ev.push(Ics.flightEvent(l, { note: t.name })));
+  // u letu Ryanairu / Wizz Air i připomínka online check-inu (jako v kalendáři z průvodce) – na letišti se za odbavení platí
+  if (t.legs && t.legs.length) t.legs.forEach(l => { ev.push(Ics.flightEvent(l, { note: t.name })); const c = Ics.checkinEvent(l); if (c) ev.push(c); });
   else if (t.ground && t.ground.length) t.ground.forEach(g => ev.push(Ics.groundEvent(g, { note: t.name })));
   else if (t.flight) ev.push({ title: `${planIco(t.flight)} ${/^🚆/u.test(t.flight) ? 'Cesta' : 'Let'} – ${dest || t.name}`, start: t.start, description: t.flight, location: dest });
-  days.forEach((d, di) => { const acts = (t.days || {})[d] || []; if (acts.length) ev.push({ title: `Den ${di + 1} – ${dest || t.name}`, start: d, description: acts.map(a => '• ' + a).join('\n'), location: dest }); });
+  // trasa přes víc míst z průvodce: den pod místy toho dne (aktivity „Porto: Ribeira“, den přejezdu „Lisabon → Porto“),
+  // den jen s vlastními aktivitami pod místem předchozího dne – ne celá cesta pod prvním cílem
+  const wr = t.wizard && t.wizard.route, bases = wr && wr.mode === 'multi' && Array.isArray(wr.bases) ? wr.bases.map(b => b && typeof b.name === 'string' ? b.name : '').filter(Boolean) : [];
+  let at = bases[0] || dest;
+  days.forEach((d, di) => {
+    const acts = (t.days || {})[d] || [], here = bases.filter(n => acts.some(a => String(a).startsWith(n + ': ')));
+    if (here.length) at = here.at(-1);
+    if (acts.length) ev.push({ title: `Den ${di + 1} – ${(here.length ? here.join(' → ') : at) || t.name}`, start: d, description: acts.map(a => '• ' + a).join('\n'), location: at });
+  });
   // připomínka „🛂 Vyřídit ESTA (USA)“ před odletem, když země cesty chce registraci nebo vízum
   if (window.Entry) ev.push(...Entry.reminders(tripIsos(t), t.start, fmtYMD(new Date()), tripVia(t)));
   return ev;

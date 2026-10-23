@@ -270,8 +270,10 @@
       pending = typeof fetch === 'function' && got.some(x => !x.hit || !x.hit.done);
       climate = summarize(got.filter(x => x.hit && x.hit.data).map(x => ({ name: x.p.name, ...x.hit.data })), months);
     }
+    // děti 2–11 let a miminka do 2 let (cestující z hledání letů – Trip.sanitizeTrip je drží v mezích)
+    const kidN = v => Math.min(9, Math.max(0, Math.round(+v || 0)));
     const ctx = {
-      isos, via, start, end, nights: start && end ? nightsBetween(start, end) : t.nightsOneWay || 3, car,
+      isos, via, start, end, nights: start && end ? nightsBetween(start, end) : t.nightsOneWay || 3, car, kids: kidN(t.children), babies: kidN(t.infants),
       mode: ov ? 'ground' : 'flight', bags: ov ? null : ['none', 'cabin', 'checked'].includes(t.bags) ? t.bags : 'none',
       cats, tags, climate, pending, custom: customOf(t),
     };
@@ -506,10 +508,13 @@
       // povinný online formulář k příletu (TDAC…) – potvrzení s QR kódem; jen cílové země
       for (const i of dest) { const f = Entry.form && Entry.form(i); if (f && !f.afterDays) add(docs, `doc-arr-${i}`, `Potvrzení: ${f.name} (${name(i)})`, 'QR kód v mobilu'); }
     } else add(docs, 'doc-id', 'Cestovní pas nebo občanský průkaz', 'co platí, ukáže blok 🛂 Před cestou');
+    // dítě potřebuje vlastní cestovní doklad (zápis do pasu rodiče od roku 2012 neplatí); kde stačí OP, stačí i dítěti
+    const kids = ctx.kids + ctx.babies;
+    if (kids) add(docs, 'doc-kid', `Vlastní doklad pro ${kids === 1 ? 'dítě' : 'každé dítě'}`, `${has(docs, 'doc-pass') ? 'cestovní pas' : has(docs, 'doc-op') ? 'občanský průkaz nebo pas' : 'pas, nebo občanský průkaz, kde stačí'} – zápis v pasu rodiče neplatí`);
     add(docs, 'doc-copy', 'Kopie dokladů', 'papírově i v mobilu, odděleně od originálů');
     add(docs, 'doc-ins', 'Doklad o cestovním pojištění', 'a telefon na asistenční službu');
     if (DATA) {
-      if (dest.some(i => DATA.health.ehic.includes(i) || ['RS', 'ME', 'MK'].includes(i))) add(docs, 'doc-ehic', 'Evropský průkaz zdravotního pojištění (EHIC)');
+      if (dest.some(i => DATA.health.ehic.includes(i) || ['RS', 'ME', 'MK'].includes(i))) add(docs, 'doc-ehic', 'Evropský průkaz zdravotního pojištění (EHIC)', kids ? 'každý má svůj, i děti' : '');
       for (const i of dest) { const m = own(DATA.health.contract, i) && /CZ\/[A-Z]{2} 111/.exec(DATA.health.contract[i]); if (m) add(docs, `doc-form-${i}`, `Formulář ${m[0]} od zdravotní pojišťovny (${name(i)})`); }
     }
     // očkovací průkaz: žlutá zimnice doporučená (země s rizikem), nebo povinná bez podmínky příletu z rizikové země
@@ -588,6 +593,14 @@
       }
       if (acts.has('city')) add(gear, 'ac-daybag', 'Malý batoh nebo taška přes rameno');
       if (!gear.items.length) groups.pop();
+    }
+
+    // děti: autosedačka k půjčenému autu (směrnice 2003/20/ES: do 150 cm, státy smějí 135 cm), zabavení na cestu, miminko
+    if (kids) {
+      const kg = group('kids', '🧸', 'Pro děti');
+      if (ctx.car) add(kg, 'kd-seat', 'Dětská autosedačka', 'v EU povinná pro děti do 135–150 cm podle země – objednej ji k autu, nebo vezmi vlastní');
+      if (ctx.kids) add(kg, 'kd-fun', 'Zábava na cestu', 'knížka, hra, sluchátka');
+      if (ctx.babies) add(kg, 'kd-baby', 'Plenky, vlhčené ubrousky a jídlo pro miminko', flight ? 'dětskou výživu a mléko smíš vzít na palubu i nad 100 ml' : '');
     }
 
     // elektronika
@@ -693,6 +706,7 @@
     if (ctx.start && ctx.end) bits.push(`${dmy(ctx.start).replace(/ \d{4}$/, '')} – ${dmy(ctx.end)}`, days === 1 ? '1 den' : days <= 4 ? `${days} dny` : `${days} dní`);
     bits.push(ctx.mode === 'ground' ? 'vlakem / busem' : ctx.bags === 'none' ? 'let jen s malým zavazadlem' : ctx.bags === 'cabin' ? 'let s kabinovým kufrem' : 'let s kufrem k odbavení');
     if (ctx.car) bits.push('auto na místě');
+    if (ctx.kids + ctx.babies) bits.push(ctx.kids + ctx.babies === 1 ? 's dítětem' : 's dětmi');
     return bits.filter(Boolean).join(' · ');
   }
   function climateHtml(ctx) {

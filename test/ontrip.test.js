@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { lisbon, lisbonOneWay, italy, vienna, plannerOnly, saved } from './fixtures/trips-now.js';
+import { lisbon, lisbonOneWay, italy, vienna, plannerOnly, saved, lisbonPorto } from './fixtures/trips-now.js';
 
 const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
 const APP = src('app.js');
@@ -614,6 +614,76 @@ test('🔖 rezervace v 💾 záloze: zabalí se, pročistí, k cestě v zaříze
   const keep = B.merge(cur2, inc, { deps: d });
   assert.equal(keep.trips[0].name, 'Lisabon (upraveno)', 'bez přepsání plán zůstane…');
   assert.deepEqual(plain(keep.trips[0].refs).map((r) => r.kod), ['M0', 'M1', 'M2', 'M3', 'M4', 'ABC123'], '…a kódy se doplní');
+});
+
+test('Lisabon → Porto (2 dosp. + dítě, auto 2.–3. den, do Porta vlakem): co je na řadě teď – od 3 dnů před odletem po den po návratu', () => {
+  // pevné hodiny (UTC); 25. 10. v 1:00 UTC změna času v Praze (CEST → CET) i v Lisabonu (WEST → WET)
+  const t = saved(lisbonPorto(), { refs: [{ co: 'Ryanair', kod: 'K7XQ2M', pozn: '' }] });
+  const at = (iso) => { const n = Date.parse(iso), x = C.tripNow([t], n), p = x && C.nowParts(x, n); return { x, p, h: p ? sp(C.nowCard(x, p)) : '' }; };
+  const ic = (p) => plain(p.rows).map((r) => r[1]).join('');
+  // 3 dny před odletem: karta ještě ne
+  assert.equal(at('2026-10-21T17:00:00Z').x, null);
+  // večer před odletem (18:00 v Praze): online check-in je otevřený – do kdy (zítra 4:25 = 2 h před odletem 6:25)
+  const eve = at('2026-10-23T16:00:00Z');
+  assert.deepEqual([eve.x.on, eve.x.until, eve.p.ahead.min, eve.p.ahead.ck], [false, 1, 12 * 60 + 25, '2026-10-24T04:25']);
+  assert.ok(eve.h.includes('✈️ Odlet PRG → LIS <b data-nw="cd"></b> · online check-in do\u00a0zítra\u00a0<b>4:25</b>'), eve.h);
+  // ráno odletu doma (3:30): den 1, odpočet, check-in do 4:25, „Sbaleno“, ještě bez hotelu a posunu času
+  const dawn = at('2026-10-24T01:30:00Z');
+  assert.deepEqual([dawn.x.day, dawn.x.days, dawn.x.tz, dawn.p.ahead.min, dawn.p.ahead.ck, dawn.p.hotel, Boolean(dawn.p.todo), dawn.p.from], [1, 5, 'Europe/Prague', 175, '2026-10-24T04:25', null, true, '']);
+  assert.ok(dawn.h.includes('· online check-in do\u00a0<b>4:25</b>'), dawn.h);
+  // po zavření check-inu už ne (na letišti se platí)
+  assert.equal(at('2026-10-24T02:30:00Z').p.ahead.ck, undefined);
+  // večer po příletu (20:30 v Lisabonu, telefon v kterékoli zóně): hotel s navigací, ale bez Waze – auto až zítra ráno
+  const arr = at('2026-10-24T19:30:00Z');
+  assert.deepEqual([arr.x.tz, arr.x.today, arr.p.clock, arr.p.shift, arr.p.place], ['Europe/Lisbon', '2026-10-24', '20:30', -60, 'Lisabon']);
+  assert.deepEqual(plain(arr.p.hotel), { name: 'Hotel Lisboa Centro', q: 'Hotel Lisboa Centro, Lisabon, Portugalsko' });
+  assert.deepEqual(plain(arr.p.next).slice(0, 3), ['2026-10-25', '🚗', 'Vyzvednutí auta Lisabon (město) 09:00']);
+  assert.equal(arr.p.past[plain(arr.p.rows).findIndex((r) => r[1] === '🛫')], true, 'let už proběhl (ztlumený)');
+  // den 2 po změně času (7:30 WET = 7:30 UTC): vyzvednutí auta, program, Waze k hotelu; zítra nejdřív vrácení auta
+  const d2 = at('2026-10-25T07:30:00Z');
+  assert.deepEqual([d2.x.day, d2.p.clock, d2.p.shift, ic(d2.p), d2.p.hotel.car], [2, '07:30', -60, '🚗📍', true]);
+  assert.equal(d2.p.rows[0][2], 'Vyzvednutí auta Lisabon (město) 09:00');
+  assert.deepEqual(plain(d2.p.next).slice(0, 3), ['2026-10-26', '🚗', 'Vrácení auta Lisabon (město) 10:00']);
+  // den vlaku: Lisabon → Porto; auto se vrací v Lisabonu dopoledne – před přejezdem, ne až po příjezdu do Porta
+  const d3 = at('2026-10-26T08:00:00Z');
+  assert.deepEqual([d3.x.day, d3.p.from, d3.p.place, ic(d3.p)], [3, 'Lisabon', 'Porto', '🚗📍🚆🏨📍']);
+  assert.match(d3.p.rows[2][2], /^Přejezd Lisabon → Porto · ~2\sh 50\smin vlakem/);
+  assert.deepEqual(plain(d3.p.hotel), { name: 'Porto Ribeira Guesthouse', q: 'Porto Ribeira Guesthouse, Porto, Portugalsko' }, 'do Porta vlakem – bez Waze');
+  assert.ok(d3.h.includes('📍 Dnes na cestě · den 3 z 5 · Lisabon → <b>Porto</b>'), d3.h);
+  assert.deepEqual(plain(at('2026-10-26T11:00:00Z').p.past), [true, false, false, false, false], 'po vrácení auta (11:00)');
+  // poslední den ráno (6:30 v Portu): odlet za 4 h, check-in do 8:30, hotel ještě ano, bez auta
+  const d5 = at('2026-10-28T06:30:00Z');
+  assert.deepEqual([d5.x.day, d5.x.home, d5.p.place, d5.p.from, d5.p.ahead.l.from, d5.p.ahead.min, d5.p.ahead.ck, d5.p.hotel.car], [5, false, 'Porto', '', 'OPO', 240, '2026-10-28T08:30', undefined]);
+  assert.deepEqual(ic(d5.p), '🚪🚆🛬🚆');
+  // po přistání doma: karta do půlnoci kvůli kódům, vše proběhlé; další den nic
+  const home = at('2026-10-28T15:30:00Z');
+  assert.deepEqual([home.x.home, home.p.ahead, home.p.hotel, plain(home.p.past).every(Boolean)], [true, null, null, true]);
+  assert.ok(home.h.includes('🏠 Zpátky doma') && home.h.includes('K7XQ2M'));
+  assert.equal(at('2026-10-29T09:00:00Z').x, null);
+  // auto přes den přejezdu (dny auta 2.–3. → Lisabon → Porto autem, vrácení večer v Portu): vrácení až po příjezdu, Waze i v Portu
+  const w2 = lisbonPorto({ car: { ...lisbonPorto().car, dropoff: 'OPO', to: '2026-10-26T18:00', doCity: { name: 'Porto', lat: 41.1579, lon: -8.6291, cc: 'PT' } } });
+  w2.route.legModes = [{ a: '', b: 'city:LIS', m: 'transit' }, { a: 'city:LIS', b: 'city:OPO', m: 'car' }, { a: 'city:OPO', b: '', m: 'transit' }];
+  const t2 = saved(w2), n2 = Date.parse('2026-10-26T08:00:00Z'), p2 = C.nowParts(C.tripNow([t2], n2), n2);
+  assert.deepEqual([ic(p2), p2.rows.at(-1)[2], p2.hotel.car], ['📍🚗🏨📍🚗', 'Vrácení auta Porto (město) 18:00', true]);
+});
+
+test('kalendář z plánovače (.ics): připomínka online check-inu u letů, dny trasy přes víc míst pod místem toho dne', () => {
+  const t = saved(lisbonPorto(), {
+    days: { '2026-10-24': ['Lisabon: Alfama'], '2026-10-26': ['Lisabon: Belém', 'Porto: Ribeira'], '2026-10-27': ['Porto: Livraria Lello'], '2026-10-28': ['Snídaně na Ribeiře'] },
+  });
+  const ev = plain(C.planEvents(t));
+  assert.deepEqual(ev.filter((e) => /^📲/u.test(e.title)).map((e) => [e.title, e.start, e.tz]), [
+    ['📲 Online check-in Ryanair · PRG → LIS', '2026-10-23T06:25', 'Europe/Prague'], ['📲 Online check-in Ryanair · OPO → PRG', '2026-10-27T10:30', 'Europe/Lisbon'],
+  ]);
+  assert.deepEqual(ev.filter((e) => /^Den /.test(e.title)).map((e) => [e.title, e.location]), [
+    ['Den 1 – Lisabon', 'Lisabon'], ['Den 3 – Lisabon → Porto', 'Porto'], ['Den 4 – Porto', 'Porto'], ['Den 5 – Porto', 'Porto'],
+  ]);
+  // v .ics v UTC: check-in tam 4:25 UTC (letní čas), zpět 10:30 UTC (po změně času)
+  const ics = C.Ics.build(C.planEvents(t), { name: t.name, now: 0 });
+  assert.ok(ics.includes('DTSTART:20261023T042500Z') && ics.includes('DTSTART:20261027T103000Z'), ics);
+  // cesta s jedním místem beze změny: dny pod cílem
+  const one = plain(C.planEvents(saved(lisbon(), { days: { '2026-11-13': ['Belém'] } }))).filter((e) => /^Den /.test(e.title));
+  assert.deepEqual(one.map((e) => [e.title, e.location]), [['Den 2 – Lisabon', 'Lisabon']]);
 });
 
 test('zkratka aplikace „Na cestě“ (/#now) vedle Letů a Plánovače', () => {

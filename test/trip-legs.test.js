@@ -339,3 +339,67 @@ test('krok Trasa u trasy autem: 💡 vlakem rychleji – jedním klepnutím vlak
   c.__all['[data-carsug]'][0].onclick();
   assert.equal(modes(c, t2), 'transit transit car car');
 });
+
+test('kombinovaná trasa: po změně trasy (noci, pořadí, jedno místo, doprava celé trasy) auto k úsekům autem pryč; auto z letiště na letiště zůstane', () => {
+  const c = load(), { Trip } = c.window;
+  c.fetch = () => new Promise(() => {});
+  const withCar = (t) => { t.car = { mode: 'manual', totalCzk: 3100, age: 30, ...plain(Trip.carStart(t)) }; return t; };
+  const click = (t, sel, dataset) => { c.__all[sel] = [{ dataset }]; render(c, t); c.__all[sel][0].onclick(); };
+  // Florencie o noc méně: přejezd Florencie → Siena autem už 11. 11., auto se ve Florencii vyzvedá až 12. 11.
+  let t = withCar(pisa(undefined, { step: 'route' }));
+  assert.equal(t.car.from, '2026-11-12T09:00');
+  click(t, '[data-nm]', { nm: '0' });
+  assert.equal(t.route.bases[0].nights, 1);
+  assert.equal(t.car, null);
+  assert.deepEqual(plain(c.__toasts), ['Úseky trasy autem se změnily – zadej znovu auto']);
+  // Siena první: úseky Florencie ↔ Siena jsou jiné (výjimky k nim nepatří) – auto z Florencie neplatí
+  t = withCar(pisa(undefined, { step: 'route' }));
+  click(t, '[data-down]', { down: '0' });
+  assert.deepEqual([t.route.bases[0].name, t.car], ['Siena', null]);
+  // jedno místo celý pobyt: auto vyzvednuté ve Florencii k Pise nepatří
+  t = withCar(pisa(undefined, { step: 'route' }));
+  click(t, '[data-rmode]', { rmode: 'single' });
+  assert.deepEqual([t.route.mode, t.car], ['single', null]);
+  // celá trasa autem tlačítkem nahoře: auto z letiště, ne z Florencie
+  t = withCar(pisa(undefined, { step: 'route' }));
+  click(t, '[data-tr]', { tr: 'car' });
+  assert.deepEqual([modes(c, t), t.car], ['car car car', null]);
+  // trasa celá autem (auto z letiště na letiště): o noc méně ve Florencii – auto platí dál, bez hlášky
+  t = withCar({ ...italy(), step: 'route' });
+  click(t, '[data-nm]', { nm: '1' });
+  assert.equal(t.route.bases[1].nights, 1);
+  assert.equal(t.car.totalCzk, 3100);
+  assert.deepEqual(plain(c.__toasts), []);
+  // celá trasa vlakem, auto jen 13. 11. ve Florencii na výlet: Benátky o noc méně nevadí, Florencie o noc méně ano
+  // (večer 13. 11. už spíš v Benátkách – auto by se vracelo ve Florencii)
+  t = { ...italy('transit'), step: 'route' };
+  t.car = { mode: 'manual', totalCzk: 1200, age: 30, ...plain(c.window.Trip.carRange(t, '2026-11-13', '2026-11-13')) };
+  assert.deepEqual([t.car.puCity.name, t.car.doCity.name, t.car.from, t.car.to], ['Florencie', 'Florencie', '2026-11-13T09:00', '2026-11-13T18:00']);
+  click(t, '[data-nm]', { nm: '2' });
+  assert.equal(t.car.totalCzk, 1200);
+  t.route.bases[2].nights = 2;
+  click(t, '[data-nm]', { nm: '1' });
+  assert.equal(t.car, null);
+});
+
+test('krok Auto: pozdní přílet (23:40 → auto 0:25 na letišti) patří ke dni příletu, brzký odlet ke dni odletu – změna dnů auto z letiště nepřesune', () => {
+  const c = load();
+  c.fetch = () => new Promise(() => {});
+  const t = lisbon({ flight: { ...lisbon().flight, out: leg('PRG', 'LIS', '2026-11-10', '20:00', '23:40', 'Europe/Prague', 'Europe/Lisbon') } });
+  const h = render(c, t);
+  assert.match(h, /<option value="2026-11-10" selected>út 10\. 11\. · přílet<\/option>/);
+  assert.match(h, /id="carRangeN">celý pobyt</);
+  assert.match(h, /id="carFrom" value="2026-11-11T00:25"/);
+  // jen zkrátit auto do pátku: vyzvednutí zůstane na letišti po příletu (ne ve městě až ráno)
+  c.$('#carAge').value = '30';
+  c.$('#carD1').value = '2026-11-10';
+  c.$('#carD2').value = '2026-11-13';
+  c.__els['#carD2'].onchange();
+  assert.deepEqual([c.$('#carFrom').value, c.$('#carPu').hidden, c.$('#carTo').value], ['2026-11-11T00:25', false, '2026-11-13T18:00']);
+  // odlet 0:30 → vrácení 22:30 den předem: ve výběru den odletu, celý pobyt
+  const e = lisbon({ flight: { ...lisbon().flight, back: leg('LIS', 'PRG', '2026-11-15', '00:30', '04:40', 'Europe/Lisbon', 'Europe/Prague') } });
+  const h2 = render(c, e);
+  assert.match(h2, /<option value="2026-11-15" selected>ne 15\. 11\. · odlet<\/option>/);
+  assert.match(h2, /id="carRangeN">celý pobyt</);
+  assert.match(h2, /id="carTo" value="2026-11-14T22:30"/);
+});

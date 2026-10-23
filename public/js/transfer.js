@@ -83,12 +83,14 @@
     document.body.appendChild(el);
     const svg = el.querySelector('svg');
     const size = () => { svg.style.width = svg.style.height = `${sizePx(Math.min(innerWidth, innerHeight) - 24, q.size + 8, devicePixelRatio || 1)}px`; };
-    const key = e => { if (e.key === 'Escape') close(); };
-    const close = () => { el.remove(); removeEventListener('resize', size); removeEventListener('keydown', key); removeEventListener('popstate', close); };
+    // Escape zavře jen QR kód, ne i okno Přenést pod ním (to Escapem zavírá app.js na document): zachytit ho dřív
+    // (capture na window) a dál nepustit
+    const key = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    const close = () => { el.remove(); removeEventListener('resize', size); removeEventListener('keydown', key, true); removeEventListener('popstate', close); };
     size();
     el.onclick = close;
     addEventListener('resize', size);
-    addEventListener('keydown', key);
+    addEventListener('keydown', key, true);
     addEventListener('popstate', close);
   }
 
@@ -173,5 +175,5 @@
     }
   }
 
-  window.Transfer = { KIND, MAX_LINK, payloadOf, fit, sizePx, read, receive, fromHash, open, addToMenu };
+  window.Transfer = { KIND, MAX_LINK, payloadOf, fit, sizePx, read, receive, fromHash, open, addToMenu, zoom };
 })();

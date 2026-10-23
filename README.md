@@ -122,8 +122,11 @@ plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dota
 - **Na cestě** „📍 Dnes na cestě · den 3 z 6 · Lisabon“: dnešní řádky (program s trasou pěšky do Google Map a Mapy.com,
   přejezd, kdy vyrazit z ubytování na letiště, let zpět) a první řádek zítřka; ubytování toho dne s odkazem
   **navigovat** (Google Maps odtud, kde právě jsi – až po příletu a jen do odletu zpět), místní čas a posun proti Praze, odpočet do odletu či odjezdu
-  (posledních 24 h, jen u spoje s časem – u „čas ověř“ si karta čas nevymýšlí). U trasy přes víc míst je to místo, kde
-  ten den spíš. **📋 Celý plán →** otevře okno cesty.
+  (posledních 24 h, jen u spoje s časem – u „čas ověř“ si karta čas nevymýšlí) a u letu Ryanairu či Wizz Air, do kdy je
+  otevřený online check-in („online check-in do zítra 4:25“ – řádek 📲 je jen v den otevření). U trasy přes víc míst je
+  to místo, kde ten den spíš, v den přejezdu „Lisabon → **Porto**“. 🚗 Waze u hotelu jen ve dny s půjčeným autem (ne před
+  vyzvednutím ani po vrácení – auto vrácené ráno v Lisabonu před vlakem do Porta je v průběhu cesty první řádek dne,
+  ne až po příjezdu). **📋 Celý plán →** otevře okno cesty.
 - Řádky jsou tytéž jako v časové ose shrnutí průvodce (`Trip.timeline` – karta a shrnutí se nerozejdou); u cesty jen
   z plánovače z jejích letů či vlaku a aktivit dnů, u cesty z průvodce i s aktivitami přidanými v plánovači – a bez
   těch, které jsi v Itineráři smazal nebo přejmenoval (karta ukáže totéž co plán, trasa pěšky jen k tomu, co zbylo).
@@ -249,7 +252,10 @@ a seznam věcí na míru cestě (země, termín, doprava, zavazadla z hledání,
   powerbanka jen do kabiny; s malým zavazadlem na delší cestu „bal na vrstvy“ jen v chladu, při velkém rozdílu dne
   a noci, na horách nebo na sněhu – ve stálém horku ne; vlak/bus jízdenky), **dokladů** (občanský průkaz, nebo pas
   s datem platnosti; potvrzení ESTA, eTA, e-víza), **zdraví** (repelent a antimalarika jen podle doporučených očkování
-  a v teple, očkovací průkaz u žluté zimnice), **auta** (řidičák, MŘP) a **aktivit**: 🏖️ pláž, 🥾 turistika, 🏙️ města,
+  a v teple, očkovací průkaz u žluté zimnice), **auta** (řidičák, MŘP), **dětí** z hledání letů (vlastní doklad pro
+  dítě – zápis v pasu rodiče neplatí; EHIC pro každého; skupina *Pro děti*: k autu dětská autosedačka – v EU povinná
+  do 135–150 cm podle země, směrnice 2003/20/ES –, zábava na cestu, u miminka plenky a výživa, kterou smíš vzít na
+  palubu i nad 100 ml) a **aktivit**: 🏖️ pláž, 🥾 turistika, 🏙️ města,
   ⛷️ sníh – výchozí výběr podle programu (kategorie míst), štítků země a podnebí, přepíná se čipy; u kostelů a chrámů
   v programu oblečení zakrývající ramena a kolena.
 - **Vlastní položky** – pole „Přidat vlastní položku…“ pod seznamem věcí. Položky (nejvýš 30 po 80 znacích, bez HTML)
@@ -506,10 +512,35 @@ U každé nabídky letenky je štítek **💚 Dobrá cena**, **Běžná cena** n
 
 Je to odhad, ne předpověď: porovnává se cena letenek na osobu bez dopravy na letiště a zavazadel.
 
+## Doporučené pořadí
+
+Výchozí řazení výsledků (**Doporučené** ve *Filtrech → Řazení*) a pořadí karet radaru *Kam letět levně* dává nahoru
+nabídky, které by si rozumný cestovatel opravdu vybral – ne jen nejlevnější letenku. Každá nabídka dostane
+**srovnávací cenu** v Kč na osobu (`public/js/rank.js`, pevné váhy, nic se neučí ani nestahuje):
+
+| Složka | Jak |
+|---|---|
+| Cena | letenka + zavazadla + odhad cesty na letiště a z letiště do města (`tripCzk`) |
+| Cesta | hodiny z domova na letiště a z letiště do města tam i zpět × 150 Kč |
+| Přestup | čas navíc proti přímému letu × 150 Kč/h, přestup 6 h a víc (často přes noc) +500 Kč |
+| Noc | z domu před 4:30 nebo domů po 0:30 ([Kdy vyrazit](#-kdy-vyrazit)): veřejnou dopravou mimo tvoje město +700 Kč, jinak +250 Kč; v cíli do města po 23:30 nebo z města před 4:30 +300 Kč |
+| Pobyt | na místě přes den (8–22 h) méně než 85 % z 12 h na noc → až +80 % ceny (přílet v sobotu večer, odlet v neděli ráno) |
+| Výhodnost | letenka aspoň o 15 % pod obvyklou cenou do cíle (medián nabídek hledání, „Je to dobrá cena?“ = dobrá) a hlouběji, než bývá nejlevnější nabídka cílů hledání → sleva o ten rozdíl, nejvýš 25 % ceny |
+
+V každém cíli se vezme nabídka s nejnižší srovnávací cenou (proto může karta ukázat dražší letenku z Prahy místo
+levnější z Vídně v noci); každý další cíl ze stejné země se porovná o 8 % dráž (nejvýš 5×), aby nahoře nebylo pětkrát
+Německo. Kde pořadí předběhne levnější letenku, řekne proč štítek **✓** (*i s cestou na letiště nejlevnější*, *rozumné
+časy*, *víc času na místě*, *o 30 % pod obvyklou cenou*, *kratší cesta na letiště*, *pestřejší výběr*…) – po najetí
+myší celá věta s rozpisem srovnávací ceny, na telefonu v rozbalené kartě cíle. Ceny na kartách zůstávají cenou letenky;
+čistě podle ceny řadí *Nejlevnější letenka*. Radar u cíle, kde doporučené pořadí vybralo jinou nabídku s dražší
+letenkou, neukáže falešné *↑ zdražilo*. Server k nabídkám cíle přidává i tu nejlevnější i s cestou (`groupOptions`).
+Testy: `test/rank.test.js` (tabulky vymyšlených nabídek z Prahy +200 km a demo hledání).
+
 ## Doprava na letiště
 
-**Cena nabídky je jen letenka** (+ zavazadla, když je vybereš) – podle ní se řadí, filtruje *Max. cena*, počítá
-kalendář, mřížka termínů, pruh *📅 Nejbližší dny*, radar i hlídané ceny. Odhad cesty z domova na letiště odletu a zpět
+**Cena nabídky je jen letenka** (+ zavazadla, když je vybereš) – podle ní řadí *Nejlevnější letenka*, filtruje *Max. cena*,
+počítá kalendář, mřížka termínů, pruh *📅 Nejbližší dny*, ceny radaru i hlídané ceny. Výchozí pořadí výsledků a radaru je
+[doporučené](#doporučené-pořadí) – s odhadem cesty na letiště počítá, cenu nabídky nemění. Odhad cesty z domova na letiště odletu a zpět
 (na osobu) je u každé nabídky **zvlášť pod cenou** – *🚆 doprava na letiště a zpět ~100 Kč/os. · 🚌 z letiště do města
 a zpět ~180 Kč/os. – průměrná cena, odhad, v ceně letenky není* – aby bylo vidět, kolik zhruba stojí, ale cenu letenky
 nezkresloval (odhady bývají nepřesné). Kdo chce porovnat i s cestou, zvolí ve *Filtrech → Řazení* **Nejlevnější
@@ -1279,7 +1310,7 @@ otevře se ona, jinak její web. Odkazy jsou malé štítky vedle odkazu na tras
   - autem na letiště odletu (poloha letiště z hledání) a z letiště domů (`favorite=home` – adresa Domov uložená ve Waze);
   - z letiště do prvního místa, přejezdy mezi místy a z posledního místa na letiště (krok Trasa i Průběh cesty);
   - zastávky výletu autem v Objevuj;
-  - v kartě 📍 Dnes na cestě u hotelu, jen u cesty s půjčeným autem. Tam jde o hledání podle názvu (`q=`), protože hotel polohu nemá.
+  - v kartě 📍 Dnes na cestě u hotelu, jen ve dny s půjčeným autem. Tam jde o hledání podle názvu (`q=`), protože hotel polohu nemá.
 - **🎫 Jízdenka v PID Lítačka**: u cesty na letiště pražskou MHD (na Ruzyni autobus 59 + metro A, k vlaku/busu na jiné letiště MHD na nádraží; podle
   rozpisu ceny ze serveru) v kroku Let, v souhrnu a v průběhu cesty. Odkaz vede na oficiální stránku aplikace
   `app.pidlitacka.cz` s odkazy do App Store a Google Play (odkaz z pid.cz). Jízdenku předvyplnit nejde.

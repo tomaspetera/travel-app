@@ -348,6 +348,26 @@ test('seznam věcí: doklady (OP vs. pas, registrace), očkování a antimalarik
   assert.equal(items(trip({ out: '2027-07-01', back: '2027-07-15' })).find((x) => x.id === 'cl-under').note, 'na delší cestu počítej s praním');
 });
 
+test('cesta s dětmi: vlastní doklad pro dítě, EHIC pro každého, k autu dětská autosedačka, miminko; bez dětí nic navíc', () => {
+  const ids = (t, o) => plain(itemIds(t, o)).filter((id) => id === 'doc-kid' || /^kd-/.test(id));
+  // Portugalsko (stačí OP), 2 dospělí + dítě, auto na místě
+  const pt = items(trip({ cc: 'PT', label: 'Lisabon', car: CAR, children: 1 }));
+  assert.deepEqual(plain(pt.find((x) => x.id === 'doc-kid')), { id: 'doc-kid', text: 'Vlastní doklad pro dítě', note: 'občanský průkaz nebo pas – zápis v pasu rodiče neplatí' });
+  assert.equal(pt.find((x) => x.id === 'doc-ehic').note, 'každý má svůj, i děti');
+  assert.match(pt.find((x) => x.id === 'kd-seat').note, /^v EU povinná pro děti do 135–150 cm podle země/);
+  assert.deepEqual(ids(trip({ cc: 'PT', car: CAR, children: 1 })), ['doc-kid', 'kd-seat', 'kd-fun']);
+  // pas tam, kde OP nestačí; dvě děti a miminko bez auta: bez autosedačky, s věcmi pro miminko (výživa na palubu)
+  const jp = items(trip({ cc: 'JP', children: 2, infants: 1 }));
+  assert.deepEqual([jp.find((x) => x.id === 'doc-kid').text, jp.find((x) => x.id === 'doc-kid').note], ['Vlastní doklad pro každé dítě', 'cestovní pas – zápis v pasu rodiče neplatí']);
+  assert.deepEqual(ids(trip({ cc: 'JP', children: 2, infants: 1 })), ['doc-kid', 'kd-fun', 'kd-baby']);
+  assert.match(jp.find((x) => x.id === 'kd-baby').note, /na palubu i nad 100 ml/);
+  // bez dětí beze změny
+  assert.deepEqual(ids(trip({ cc: 'PT', car: CAR })), []);
+  assert.equal(items(trip({ cc: 'PT' })).find((x) => x.id === 'doc-ehic').note, undefined);
+  // shrnutí karty
+  assert.match(strip(P.html(trip({ cc: 'PT', children: 1 }), { isos: ['PT'], climate: [] })), /let jen s malým zavazadlem · s dítětem/);
+});
+
 test('balit na vrstvy: ve stálém horku ne (Bangkok, Phuket), v chladu, při velkém rozdílu dne a noci, na horách a na sněhu ano', () => {
   const layered = /; na 10 nocí bal na vrstvy a počítej s praním\.$/;
   const tip = (t, climate) => P.bagTips(ctxOf(t, { climate }))[0];
