@@ -31,7 +31,7 @@ import { isYmd, daysBetween } from './lib/dates.js';
 import { affiliateOn } from './lib/links.js';
 import { HttpError, publicMessage } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
-import { airportClimate, climateAt, countryClimate, sourceText } from './lib/climate.js';
+import { airportClimate, climateAt, countryClimate, seasonMonth, sourceText } from './lib/climate.js';
 import { cityPhotos, photosCached } from './lib/photos.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
@@ -549,6 +549,12 @@ async function route(req, res) {
     const iata = (sp.get('iata') || '').toUpperCase();
     const cc = (sp.get('cc') || '').toUpperCase();
     let c;
+    if (sp.has('month')) {
+      // Doporučení: měsíc ve všech zemích najednou (u moře, u hlavního letiště, vzdálenost z Prahy) – jeden dotaz místo 190
+      const s = seasonMonth(sp.get('month'));
+      if (!s) return sendJson(req, res, 400, { error: 'Měsíc musí být 1–12.' });
+      return sendJson(req, res, 200, { ...s, source: 'meteostanice u letišť (normály 1991–2020), jinde NASA POWER – dlouhodobý průměr, ne předpověď' }, { 'Cache-Control': 'public, max-age=604800' });
+    }
     if (cc) {
       if (!/^[A-Z]{2}$/.test(cc)) return sendJson(req, res, 400, { error: 'Neplatný kód země.' });
       c = countryClimate(cc);

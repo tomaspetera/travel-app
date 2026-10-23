@@ -352,6 +352,16 @@ button.dest{font:inherit;text-align:left;width:100%}
 .dest .ec{white-space:normal}
 .dest[data-photo] .score-pill,.dest[data-photo] .vmark{top:12px;right:12px}
 .dest[data-photo] .score-pill{background:rgba(255,255,255,.92);color:#0b1226;border-radius:999px;padding:5px 10px}
+/* Doporučení: proč (počasí v měsíci, letenka z radaru, ⭐) a ✈️ Najít lety – panel karty je vždy tmavé sklo nad fotkou,
+   proto bílé písmo a světlé tlačítko v obou motivech */
+.rec-why{display:flex;flex-direction:column;gap:3px;margin-top:7px;font-size:12px;font-weight:600;line-height:1.35;color:var(--text)}
+.rec-why span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dest[data-photo] .rec-why{color:#fff}
+.rec-fly{width:100%;justify-content:center;margin-top:10px;background:rgba(255,255,255,.92);border-color:transparent;color:#0b1226;font-weight:700}
+.rec-fly:hover{border-color:transparent;background:#fff}
+.rec-prof{font-size:12.5px;line-height:1.45;margin:-4px 0 14px}
+.rec-filters{gap:14px}
+.rec-foot{display:grid;gap:4px;font-size:12px;line-height:1.45;margin-top:16px}
 
 /* ============ FILTER BAR ============ */
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
@@ -615,6 +625,14 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   #countryGrid .dest[data-photo] .cblurb,#recGrid .dest[data-photo] .cblurb,#recGrid .dest[data-photo] .tags{display:none}
   #countryGrid .dest-panel,#recGrid .dest-panel{padding:10px 10px}
   #countryGrid .dest[data-photo] .cname,#recGrid .dest[data-photo] .cname{font-size:15px}
+  /* proč (nejvýš dvě věty) menším písmem, tlačítko menší – karta je půl šířky telefonu; panel s nimi (v Zemích se
+     štítkem ⚠️ MZV a vstupu) je vyšší, karta roste nahoru a vlajka se skóre nad ním zůstanou vidět */
+  #recGrid .dest[data-photo],#countryGrid .dest[data-photo]{padding-top:62px}
+  #recGrid .rec-why{font-size:11.5px;margin-top:5px}
+  #recGrid .rec-fly{margin-top:8px;padding:7px 8px;font-size:12.5px}
+  /* výběr měsíce, stylu, rozpočtu a bezpečnosti 2 × 2 i na 360 px (pod sebou zabíral celou obrazovku) */
+  .rec-filters{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .rec-filters select{width:100%;min-width:0;padding-right:28px;background-position:right 9px center}
   /* dlaždice v pruhu: odsazení uvnitř pruhu, ať stín karet není useknutý do šedého obdélníku; dvě dlaždice na celou šířku */
   .stat-grid{grid-auto-columns:minmax(43%,1fr);margin:0 -16px 4px;padding:2px 16px 18px;scroll-padding:0 16px}
   .stat-grid>*,#quickFlights>*,#flIdeas>*,#dashRecs>*{scroll-snap-align:start}

@@ -9,6 +9,7 @@ import path from 'node:path';
 import { AIRPORTS, COUNTRY_BY_ISO, airportsInCountry, getAirport } from './airports.js';
 import { HUBS } from './longhaul.js';
 import { haversineKm, normalize } from './geo.js';
+import { REGIONS } from './names.js';
 
 const FILE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'data', 'climate.json');
 let DATA = null;
@@ -152,4 +153,57 @@ export function countryClimate(cc) {
   const iata = mainAirport(code);
   const c = iata ? airportClimate(iata) : null;
   return c ? { iata, city: getAirport(iata).cityCs, ...c } : null;
+}
+
+// Turistické oblasti u moře z names.js (Kanáry, Kréta, Rudé moře…) – podle nich Doporučení pozná, jestli je v zemi
+// v daném měsíci počasí k moři. Hlavní letiště bývá ve vnitrozemí (Madrid, Řím, Záhřeb) a v listopadu by Španělsko
+// „k moři“ neprošlo, i když je na Kanárech 25 °C. Vnitrozemí (Toskánsko, Dolomity, Bavorsko…) a Island ne.
+const SEA_RG = new Set(['kanary', 'baleary', 'mallorca', 'kreta', 'sicilie', 'sardinie', 'madeira', 'azory', 'kypr', 'rhodos',
+  'korfu', 'zakynthos', 'santorini', 'kos', 'korsika', 'chorvatske-pobrezi', 'dalmacie', 'istrie', 'algarve', 'costa-del-sol',
+  'apulie', 'kalabrie', 'amalfi', 'azurove-pobrezi', 'bulharske-pobrezi', 'bali', 'zanzibar', 'maledivy', 'mauricius',
+  'seychely', 'phuket', 'egypt-more', 'turecka-riviera']);
+const seasonMemo = new Map();
+const monthOf = (c, m) => ({ hi: c.hi[m - 1], hiPrev: c.hi[(m + 10) % 12], p: c.p[m - 1] });
+const kmFrom = (ref, a) => Math.round(haversineKm(ref.lat, ref.lon, a.lat, a.lon) / 10) * 10;
+
+/**
+ * Měsíc m (1–12) ve všech zemích pro Doporučení (api/climate?month=m): u hlavního letiště země průměrné denní maximum
+ * v měsíci a v měsíci před ním a srážky (city, iata, hi, hiPrev, p), vzdálenost z Prahy vzdušnou čarou (km – „blízko /
+ * daleko“, hrubý odhad délky a ceny letu) a je-li v zemi oblast u moře, její nejteplejší letiště (sea: { name, rg, iata,
+ * hi, hiPrev, p, km } – Kanáry jsou z Prahy dvakrát dál než Madrid). hiPrev: moře se ohřívá pomaleji než vzduch –
+ * v květnu je na Jadranu přes den 23 °C, ale moře má 18.
+ * → { m, ref: 'PRG', countries: { CC: … } } | null (špatný měsíc). Data se nemění – počítá se jednou na měsíc.
+ */
+export function seasonMonth(m) {
+  m = Number(m);
+  if (!Number.isInteger(m) || m < 1 || m > 12) return null;
+  if (seasonMemo.has(m)) return seasonMemo.get(m);
+  const ref = getAirport('PRG');
+  const sea = new Map(); // cc → nejteplejší oblast u moře v měsíci m
+  for (const r of REGIONS) {
+    if (!SEA_RG.has(r.key)) continue;
+    for (const iata of r.airports) {
+      const a = getAirport(iata);
+      const c = a && airportClimate(iata);
+      if (!c) continue;
+      const cur = sea.get(a.cc);
+      if (!cur || c.hi[m - 1] > cur.hi) sea.set(a.cc, { name: r.cs, rg: r.key, iata, ...monthOf(c, m), km: kmFrom(ref, a) });
+    }
+  }
+  const countries = {};
+  for (const cc of COUNTRY_BY_ISO.keys()) {
+    const iata = mainAirport(cc);
+    const a = iata && getAirport(iata);
+    if (!a) continue;
+    const c = airportClimate(iata);
+    countries[cc] = {
+      city: a.cityCs, iata,
+      ...(c ? monthOf(c, m) : {}),
+      km: kmFrom(ref, a),
+      ...(sea.has(cc) ? { sea: sea.get(cc) } : {}),
+    };
+  }
+  const out = { m, ref: 'PRG', countries };
+  seasonMemo.set(m, out);
+  return out;
 }

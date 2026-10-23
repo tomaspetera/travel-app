@@ -5280,7 +5280,8 @@
     const { from, radius, exclude, to, trip, len, nMin, nMax, dFrom, dTo, outDays, backDays, depAfter, dateMode, xOut, xBack, xFlex, legs, minTemp, maxPrice, ...rest } = singleTrip(f);
     return rest;
   }
-  function searchTo(items, { xOut = '', xBack = '' } = {}) {
+  // dFrom / dTo: odlet kdykoliv v rozmezí (Doporučení – měsíc, na který tip platí)
+  function searchTo(items, { xOut = '', xBack = '', dFrom = '', dTo = '' } = {}) {
     go('flights');
     // odkud jako minulé hledání, jinak domov radaru
     const o = S.form && S.form.from?.length ? { from: S.form.from, radius: S.form.radius ?? 200, exclude: S.form.exclude || [] }
@@ -5290,7 +5291,8 @@
     const ymd = v => /^\d{4}-\d{2}-\d{2}$/.test(v);
     // (359: server v UTC má po půlnoci našeho času ještě včerejšek – jeho limit 360 dní by jinak den přetekl)
     const ex = ymd(xOut) && xOut >= today() && xOut <= addDays(today(), 359)
-      ? { dateMode: 'exact', xOut, xFlex: 0, ...(ymd(xBack) && xBack >= xOut && SearchHelp.diffDays(xOut, xBack) <= 45 ? { trip: 'return', xBack } : { trip: 'oneway' }) } : {};
+      ? { dateMode: 'exact', xOut, xFlex: 0, ...(ymd(xBack) && xBack >= xOut && SearchHelp.diffDays(xOut, xBack) <= 45 ? { trip: 'return', xBack } : { trip: 'oneway' }) }
+      : ymd(dFrom) && ymd(dTo) && dTo >= dFrom && dTo >= today() ? { dateMode: 'flex', dFrom: dFrom < today() ? today() : dFrom, dTo } : {};
     const f = { ...defaultForm(), ...prefsOf(S.form), ...o, ...ex, to: items }; // odkud jako minulé hledání
     setForm(f);
     if (!f.from.length) { askFrom(); return; }
