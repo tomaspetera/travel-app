@@ -139,8 +139,9 @@ function openMore() {
     <p class="faint more-tip">Dole v liště jsou sekce, které otevíráš nejčastěji – podle toho se při dalším spuštění samy seřadí.</p></div>`);
   $$('[data-mv]', $('#modal')).forEach(b => b.onclick = () => { modalClose(); go(b.dataset.mv); });
   const list = $('.more-nav', $('#modal'));
+  if (window.Transfer) Transfer.addToMenu(list); // 📲 Přenést do jiného zařízení – odkaz a QR kód (transfer.js)
   if (window.Backup) {
-    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">💾 Přenos a záloha <span class="faint">PC ↔ telefon</span></button>`);
+    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">💾 Přenos a záloha <span class="faint">soubor</span></button>`);
     $('#moreBk').onclick = () => { modalClose(); Backup.open(); };
   }
   if (window.About) About.addToMenu(list); // ℹ️ O aplikaci a soukromí (about.js)
@@ -628,8 +629,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-23b';
+const WN_ID = '2026-10-23c';
 const WHATS_NEW = [
+  ['📲', 'Přenos do jiného zařízení QR kódem', 'pod <b>Další</b> (na počítači vlevo dole) je <b>📲 Přenést do jiného zařízení</b>: QR kód, který naskenuješ fotoaparátem druhého telefonu, nebo odkaz, který si pošleš (AirDrop, Quick Share, e-mail, chat). Přenese cesty, hlídané ceny, odložené nabídky, ⭐ / 🙈 města, navštívené země i domov – bez účtu, data jdou jen v odkazu, na server ne. Druhé zařízení ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>.'],
   ['💡', 'Kdy koupit hlídanou letenku', 'karta hlídání na <b>Přehledu</b> má graf ceny od uložení se zeleně vyznačenou nejnižší cenou, řádky <b>Nejníž</b> (kdy to bylo), <b>Teď</b> a šipku, jak se cena změnila za týden. Pod tím krátký <b>💡 tip</b> s důvodem – koupit, nebo ještě počkat – podle historie cen, dní do odletu a „Je to dobrá cena?“. Je to jen odhad, jistotu nedává nikdo.'],
   ['👨‍👩‍👧', 'Cesta s dětmi', 'v <b>Letech</b> → Další možnosti → <b>Cestující</b> přidáš děti (2–11 let) a miminka (do 2 let). Cena celkem je za všechna sedadla – dítě platí sedadlo, u nízkonákladových aerolinek obvykle jako dospělý; miminko letí na klíně a poplatek aerolinky se doplní při nákupu. Ryanair a Wizz Air dostanou děti rovnou do odkazu na rezervaci, jinde je přidáš na webu. V průvodci Cestou je rozpočet na osobu za všechna sedadla a odkazy na ubytování s celou rodinou.'],
   ['🕘', 'Od minula', 'když ATLAS otevřeš jiný den, nahoře na <b>Přehledu</b> uvidíš, co se od minula změnilo pro tebe: která hlídaná cena zlevnila a o kolik, kdy odlétáš na uloženou cestu (i kdy se otevírá online check-in), nové levné cíle v radaru a propadlé odložené nabídky. Nejvýš 3 řádky, klepnutím na místo, ✕ je skryje, dokud nebude něco nového. Bez upozornění v telefonu.'],
@@ -1802,6 +1804,7 @@ function wireEvents() {
     if (window.Lazy && /^#trip=/.test(location.hash)) await Lazy.need('trip').catch(() => { }); // průvodce ještě nedostažený (lazy.js)
     if (window.Trip && await Trip.importFromHash()) return go('trip', { noHash: true });
     if (await importPlanFromHash()) return go('planner', { noHash: true });
+    if (window.Transfer && Transfer.fromHash()) return go('dashboard', { noHash: true }); // 📲 přenos (#sync=)
     if (await openOfferFromHash()) return;
     if (openWatchFromHash()) return;
     hashView();
@@ -1889,6 +1892,8 @@ async function start() {
   if (window.Lazy && (/^#trip=/.test(location.hash) || tripSoon())) await Lazy.need('trip').catch(() => { });
   const shared = window.Trip && await Trip.importFromHash();
   const plan = !shared && await importPlanFromHash();
+  // 📲 přenos z jiného zařízení (#sync=, transfer.js): Přehled hned, náhled přenosu nad ním, až se odkaz přečte
+  if (!shared && !plan && window.Transfer && Transfer.fromHash()) return go('dashboard', { noHash: true });
   if (!shared && !plan && (await openOfferFromHash() || openWatchFromHash())) return;
   const v = shared ? 'trip' : plan ? 'planner' : location.hash.slice(1);
   if (v === 'now') return showNow(); // zkratka aplikace „Na cestě“

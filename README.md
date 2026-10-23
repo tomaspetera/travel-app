@@ -316,7 +316,7 @@ krém…).
 
 | | ATLAS |
 |---|---|
-| **Lišta podle tebe (telefon)** | Dole je *Přehled* a 3 sekce, které otevíráš nejčastěji (bez historie Lety, Cesta, Objevuj; Svět, Plánovač a Doporučení se do lišty dostanou, když je používáš víc). Pořadí se počítá jen při spuštění, takže se lišta pod rukou nemění, a má pořád 5 míst – nerozjede se ani na úzkém telefonu. Zbytek je pod *⋯ Další* jako dlaždice s popisem, pod nimi Přenos a záloha, Světlý/Tmavý režim a Přidat na plochu (dřív menu ☰ nahoře). |
+| **Lišta podle tebe (telefon)** | Dole je *Přehled* a 3 sekce, které otevíráš nejčastěji (bez historie Lety, Cesta, Objevuj; Svět, Plánovač a Doporučení se do lišty dostanou, když je používáš víc). Pořadí se počítá jen při spuštění, takže se lišta pod rukou nemění, a má pořád 5 míst – nerozjede se ani na úzkém telefonu. Zbytek je pod *⋯ Další* jako dlaždice s popisem, pod nimi 📲 Přenést do jiného zařízení, Přenos a záloha, Světlý/Tmavý režim a Přidat na plochu (dřív menu ☰ nahoře). |
 | **Výsledky na telefonu** | U hledání do konkrétního cíle je nejlevnější kombinace rozbalená celá, ostatní jsou krátké řádky (termín, noci, letiště, cena, 🔥/💚) – klepnutí rozbalí celou kartu s koupí a *Vybrat a pokračovat*. Když chybí *Odkud* (nový uživatel napíše jen „Barcelona v listopadu“), pole se zvýrazní s nápovědou a po výběru místa hledání proběhne samo. |
 | **Odlet odkudkoliv** | Zadáš město, obec, zemi nebo polohu → prohledá *všechna* letiště v okruhu (např. z Jihlavy PED, BRQ, PRG, VIE, BTS, LNZ…). Letiště lze ručně vyřadit. |
 | **Cena včetně cesty na letiště** | Ke každé letence přičte odhad cesty na letiště a zpět – 🚌 veřejnou dopravou (vlak/bus do města letiště za běžnou cenu + MHD na letiště; kde cestu znáš líp, 🏠 vlastní cena), nebo 🚗 autem (nafta, benzín nebo nabíjení elektroauta za aktuální ceny, parkování podle délky cesty, dálniční známky). Let z Vídně za 600 Kč tak férově porovná s letem z Brna za 900 Kč. Viz [Doprava na letiště](#doprava-na-letiště). |
@@ -1303,8 +1303,25 @@ k internetu a zkus to znovu.“ (při připojení, ale nedostupném serveru „S
 ### 💾 Přenos a záloha (PC ↔ telefon)
 
 Cesty z plánovače, hlídané ceny, 📌 odložené nabídky, domov radaru, navštívené země, ⭐ moje cíle a 🙈 skrytá města,
-odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v localStorage jednoho prohlížeče. **💾 Přenos a záloha** (nad plánovačem, na mobilu i v nabídce **Více**) je přenese souborem –
+odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v localStorage jednoho prohlížeče. **📲 Přenést do jiného zařízení** (⋯ Další, na počítači postranní panel)
+je přenese odkazem s QR kódem, **💾 Přenos a záloha** (nad plánovačem, na mobilu i v nabídce **Více**) souborem –
 nic se neukládá na server a nepotřebuje to účet.
+
+- **📲 Přenést do jiného zařízení** (`public/js/transfer.js`, QR kodér `public/js/qr.js`): totéž co soubor zálohy
+  (stejný formát s verzí `v`, stejné pročištění a sloučení v `backup.js`) zkomprimované (deflate-raw, base64url –
+  `sharelink.js`) v odkazu `#sync=…`. Část za `#` prohlížeč na server neposílá, hlášení chyb ji vynechává a aplikace ji
+  po otevření hned smaže z adresy (`history.replaceState`), takže nezůstane v historii. QR kód je vlastní kodér podle
+  ISO/IEC 18004 (bajtový režim, oprava M, a když se nevejde, L, verze 1–40 podle délky): odkaz do 2 331 bajtů s M,
+  do 2 953 s L – menší data (pár hlídání, cest z plánovače, ⭐ a domov) se vejdou, s několika cestami z průvodce obvykle
+  ne. Pak okno nabídne **📤 Poslat odkaz** (sdílení telefonu – AirDrop, Quick Share, e-mail, chat) nebo na počítači
+  **🔗 Kopírovat odkaz**, a soubor zálohy; odkaz nad 200 000 znaků jen soubor. Klepnutí na QR kód ho ukáže přes celou
+  obrazovku, velikost je na celé pixely displeje (ostřejší pro fotoaparát). Druhé zařízení po otevření odkazu ukáže, co
+  přibude, a nabídne **Sloučit** (jako obnova ze zálohy – nic nesmaže) nebo **Nahradit…**: to nejdřív řekne, co by
+  z tohoto zařízení zmizelo nebo se přepsalo, nabídne stáhnout zálohu, a hláška po nahrazení má **Vrátit**. Do
+  prázdného zařízení jen **📥 Přenést sem**. Odkaz jde i vložit (**📥 Mám odkaz z jiného zařízení**) – pro ATLAS na
+  ploše iPhonu, který má jiné úložiště než Safari, kam se otevře odkaz z fotoaparátu. Motiv a nastavení zařízení se
+  nepřenášejí. Testy: `test/qr.test.js` (příklady normy, matice referenčního kodéru segno pro všech 40 verzí × L/M,
+  zpětné dekódování nezávislým dekodérem `test/qrdecode.js`), `test/transfer.test.js`.
 
 - **⬇️ Stáhnout zálohu** uloží `atlas-zaloha-RRRR-MM-DD.json`. **📲 Poslat do jiného zařízení** (telefon s Chromem)
   otevře systémové sdílení (e-mail, Disk, Nearby Share…); soubor se posílá jako `.txt`, protože Chrome sdílí jen

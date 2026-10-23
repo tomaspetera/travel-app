@@ -40,11 +40,11 @@
       <ul class="ab-list">${SOURCES.map(([i, t, d]) => `<li><span aria-hidden="true">${i}</span> <b>${h(t)}</b> – ${h(d)}</li>`).join('')}</ul>
       <h4 class="ab-h">Co se ukládá a kam</h4>
       <ul class="ab-list">
-        <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání a nastavení. Na jiné zařízení je přeneseš jen zálohou.</li>
+        <li><b>Jen v tomhle prohlížeči na tomhle zařízení</b> (localStorage): cesty, hlídané ceny, odložené nabídky, domov, navštívené země, oblíbená a skrytá místa, poslední i rozepsané hledání a nastavení. Na jiné zařízení je přeneseš odkazem s QR kódem (📲 Přenést do jiného zařízení) nebo zálohou.</li>
         <li><b>Na serveru nic o tobě</b>: žádný účet, databáze ani soubory s tvými daty, <b>žádné cookies, analytika ani měření návštěvnosti</b>.</li>
         <li><b>Co se na server posílá</b> – jen to, co je potřeba k odpovědi: u hledání letů odkud, kam, termín, počet cestujících, zavazadla a cesta na letiště (i 🏠 vlastní ceny); u ubytování místo, termín a počet hostů; v Objevuj místo a volby plánu; polohu, jen když sám použiješ 📍 Moje poloha nebo Moje okolí. Server odpovědi chvíli drží v mezipaměti (bez vazby na tebe) a IP adresu si pamatuje 10 minut kvůli limitu hledání.</li>
         <li><b>Přímo z prohlížeče</b> se načítá počasí a hledání míst (Open-Meteo), kurzy v okně země (open.er-api.com), písmo (Google Fonts), mapy (OpenFreeMap, OpenStreetMap) a fotky (Unsplash, Pexels, Wikimedia) – tyhle služby vidí tvou IP adresu jako u každého webu.</li>
-        <li>Sdílený odkaz na cestu nese plán v části adresy za #, kterou prohlížeč na server neposílá. Po klepnutí na odkaz k rezervaci jsi na webu partnera a platí jeho pravidla.</li>
+        <li>Sdílený odkaz na cestu nese plán (odkaz 📲 přenosu tvoje data) v části adresy za #, kterou prohlížeč na server neposílá. Po klepnutí na odkaz k rezervaci jsi na webu partnera a platí jeho pravidla.</li>
       </ul>
       ${backup ? '<button type="button" class="btn ghost" id="abBk">💾 Přenos a záloha <span class="faint">PC ↔ telefon</span></button>' : ''}
       <h4 class="ab-h">Jak se řadí výsledky</h4>
