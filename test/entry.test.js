@@ -121,6 +121,39 @@ test('entry.json: odkazy na registrace a e-víza jen na oficiální weby, nikdy 
   for (const h of ['www.ivisa.com', 'gov.uk.eta-online.com', 'esta.gov.us.com']) assert.ok(!GOV.test(h), `${h} není vládní`);
 });
 
+// Poplatky nejčastějších registrací ověřené 23. 10. 2026 na oficiálních webech: gov.uk („An ETA costs £20“),
+// Federal Register 2026-20185 (ESTA od 16. 10. 2026 za 40,62 USD), canada.ca (eTA 7 CAD). Eura podle kurzu ECB
+// z 22. 10. 2026 – při změně poplatku se musí změnit poznámka i etaCostEur, jinak test spadne.
+test('entry.json: klíčové poplatky – britská ETA, americká ESTA, kanadská eTA (oficiální weby 10/2026)', () => {
+  const KEY = {
+    GB: { cur: 'GBP', fee: 20, perEur: 0.8377, eur: 24, name: 'ETA (UK)', url: 'https://www.gov.uk/eta/apply', transit: 'landside', chip: 'ETA 24 €' },
+    US: { cur: 'USD', fee: 40.62, perEur: 1.1205, eur: 36, name: 'ESTA', url: 'https://esta.cbp.dhs.gov/', transit: true, chip: 'ESTA 36 €' },
+    CA: { cur: 'CAD', fee: 7, perEur: 1.5725, eur: 4, name: 'eTA (Canada)', url: 'https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada/eta/apply.html', transit: true, chip: 'eTA 4 €' },
+  };
+  for (const [iso, k] of Object.entries(KEY)) {
+    const r = BY[iso];
+    assert.deepEqual([r.visa, r.idCard, r.verified, r.etaName, r.etaUrl, r.transitEta], ['eta', false, true, k.name, k.url, k.transit], iso);
+    // částka v poznámce (oficiální měna) = ověřený poplatek a etaCostEur jí odpovídá po přepočtu (± 1 €)
+    const m = r.notes.match(new RegExp(`(\\d+(?:,\\d+)?) ${k.cur}`));
+    assert.ok(m, `${iso}: poplatek v ${k.cur} v poznámce`);
+    assert.equal(Number(m[1].replace(',', '.')), k.fee, `${iso}: poplatek v poznámce`);
+    assert.equal(r.etaCostEur, k.eur, iso);
+    assert.ok(Math.abs(k.fee / k.perEur - r.etaCostEur) < 1, `${iso}: ${k.fee} ${k.cur} ≈ ${(k.fee / k.perEur).toFixed(1)} €, v datech ${r.etaCostEur} €`);
+    // čip u letu i bublina ukazují stejnou částku jako data
+    assert.match(Entry.flightChip(iso), new RegExp(`>🛂 ${k.chip}</span>$`));
+    assert.match(sp(Entry.cardChip(iso)), new RegExp(`– ~${k.eur} € \\(≈ ${k.eur * 25} Kč\\)`));
+  }
+  assert.match(BY.GB.notes, /platí 2 roky/);
+  assert.match(BY.US.notes, /40,62 USD \(od 16\. 10\. 2026/);
+  assert.match(BY.CA.notes, /7 CAD, až 5 let/);
+  // Srí Lanka: ETA od 25. 5. 2026 zdarma (eta.gov.lk), žádat předem ale nutné; Keňa: eTA 30 USD + povinné pojištění (MZV)
+  assert.deepEqual([BY.LK.visa, BY.LK.etaCostEur], ['eta', 0]);
+  assert.deepEqual([BY.KE.visa, BY.KE.etaCostEur], ['eta', 27]);
+  assert.match(BY.KE.notes, /30 USD.*pojištění/);
+  // SAE, Jordánsko, Izrael: MZV (1. 3. 2026, stále platí 23. 10. 2026) – cestovat jen v nezbytných případech
+  for (const iso of ['AE', 'JO', 'IL']) assert.match(BY[iso].notes, /^MZV: .*nezbytn/, iso);
+});
+
 /* ---------- čipy ---------- */
 test('kind/čip země: stačí OP, registrace, e-vízum, vízum na hranici, vízum předem, bez víza', () => {
   const k = (iso) => { const x = Entry.kind(Entry.get(iso)); return [x.key, x.icon, x.label, x.need]; };
@@ -158,7 +191,7 @@ test('kind/čip země: stačí OP, registrace, e-vízum, vízum na hranici, víz
 
 test('čip u letu jen když je co vyřizovat; cena v €, „zdarma“, escapování textů z dat', () => {
   assert.match(Entry.flightChip('US'), />🛂 ESTA 36 €<\/span>$/);
-  assert.match(Entry.flightChip('GB'), />🛂 ETA 23 €</);
+  assert.match(Entry.flightChip('GB'), />🛂 ETA 24 €</);
   assert.match(Entry.flightChip('LK'), />🛂 ETA zdarma</);
   assert.match(Entry.flightChip('IN'), />🛂 e-vízum 22 €</);
   assert.match(Entry.flightChip('EG'), />🛂 vízum na hranici</);

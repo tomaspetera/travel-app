@@ -383,7 +383,8 @@
 
   /**
    * Křivka ceny pro <svg viewBox="0 0 width height">: osa x podle času kontroly (když chybí, rovnoměrně),
-   * nižší cena = níž v grafu. Vrací null pro méně než 2 body.
+   * nižší cena = níž v grafu. xy = souřadnice bodů, lo = index nejnižší ceny (poslední, když jich je víc – značka
+   * „nejníž“ v grafu). Vrací null pro méně než 2 body.
    */
   function sparkPath(points, width = 120, height = 32, pad = 3) {
     const pts = (points || []).map(p => (typeof p === 'number' ? { czk: p } : p || {})).filter(p => num(p.czk));
@@ -395,7 +396,139 @@
     // SVG má y dolů: nejdražší nahoře (pad), nejlevnější dole (height − pad).
     const y = c => r(max === min ? height / 2 : pad + (max - c) / (max - min) * (height - 2 * pad));
     const xy = pts.map((p, i) => [r(pad + (byTime ? (t[i] - t[0]) / (t[t.length - 1] - t[0]) : i / (pts.length - 1)) * (width - 2 * pad)), y(p.czk)]);
-    return { d: 'M' + xy.map(p => p.join(' ')).join('L'), last: xy[xy.length - 1], min, max, y };
+    return { d: 'M' + xy.map(p => p.join(' ')).join('L'), last: xy[xy.length - 1], min, max, y, xy, lo: v.lastIndexOf(min) };
+  }
+
+  /* ---------- 💡 karta hlídání: kdy koupit – statistika historie a opatrný tip (jen z dat, která aplikace má) ---------- */
+  const DAY = 864e5;
+  /*
+   * Prahy 💡 tipu – schválně opatrné: tip nesmí radit „počkej“ podle šumu ani „kup“ podle jedné kontroly. Je to jen
+   * odhad z cen, které ATLAS sám viděl (historie kontrol v tomhle prohlížeči), z dní do odletu a z hodnocení
+   * „Je to dobrá cena?“ (PriceCheck – úroveň ceny uložená při kontrole). Nic jiného (trh, sezóna, vyprodanost) nezná.
+   *  - late 21: do odletu míň než 3 týdny → ceny u nízkonákladovek se obvykle už spíš zvedají (jako PriceCheck.advice)
+   *  - far 50: od 50 dní do odletu je čas sledovat (PriceCheck.advice: víc než 7 týdnů); 21–49 dní = čekání se spíš nevyplatí
+   *  - near 2: cena nejvýš o 2 % nad nejnižší viděnou se počítá jako „u nejnižší“ (drobné výkyvy kurzu)
+   *  - swing 10: rozpětí historie aspoň 10 % nejnižší ceny = „kolísá“ (menší rozdíl u letenek nic neznamená)
+   *  - trend 3: změna proti týden staré ceně pod 3 % = beze změny (jako PriceCheck.CFG.trendPct a CFG.dropPct)
+   *  - minN 3 + minDays 2: závěry z vývoje ceny až z 3 kontrol rozložených aspoň na 2 dny (víc kontrol v jednom dni
+   *    je pořád jeden den trhu)
+   *  - lowDays 7: „nejníž za dobu hlídání“ jako důvod koupit až po týdnu hlídání
+   */
+  const TIP = { late: 21, far: 50, near: 2, swing: 10, trend: 3, minN: 3, minDays: 2, lowDays: 7 };
+  const kc = n => Math.round(n).toLocaleString('cs-CZ') + '\u00a0Kč'; // pevná mezera jako czk() v app.js
+  const dnu = n => `${n} ${n === 1 ? 'den' : n >= 2 && n <= 4 ? 'dny' : 'dní'}`;
+  /** Den okamžiku ms vůči now (místní čas): 'dnes' | 'včera' | '12. 10.'. */
+  function dayTxt(ms, now) {
+    if (!num(ms) || !num(now)) return '';
+    const d = new Date(ms), a = new Date(now);
+    const day = x => Date.UTC(x.getFullYear(), x.getMonth(), x.getDate());
+    const n = Math.round((day(a) - day(d)) / DAY);
+    return n === 0 ? 'dnes' : n === 1 ? 'včera' : `${d.getDate()}. ${d.getMonth() + 1}.`;
+  }
+  /**
+   * Statistika hlídané ceny pro kartu – jen body od posledního nového základu (epoch), poškozené body vynechá.
+   * → { n (kontrol), cur (cena teď = w.best, jinak null), low: { czk, at } | null (nejnižší cena a poslední kontrola
+   * s ní; at = null, když je nejnižší w.low z kontroly, která už z historie vypadla – drží se jen 60 bodů), min, max
+   * (historie), swing (rozpětí historie v % nejnižší ceny), span (celé dny od první kontroly do now), days (celé dny
+   * mezi první a poslední kontrolou), week: { czk (cena tehdy), at, d (Kč), pct, days, dir: 'down'|'flat'|'up' } | null }.
+   * week = změna proti ceně před týdnem: kontrola nejblíž 7 dnům před poslední, nejvýš o 12 h mladší (kontroly nejsou
+   * na minutu); když tak stará není, nejstarší kontrola aspoň ~den stará (days řekne, za kolik dní to je).
+   */
+  function watchStats(w, now = Date.now(), cfg = TIP) {
+    const pts = epoch(w && w.history).filter(p => p && num(p.czk) && num(p.at));
+    const cur = num(w && w.best && w.best.czk);
+    const n = pts.length, v = pts.map(p => p.czk);
+    const min = n ? Math.min(...v) : null, max = n ? Math.max(...v) : null;
+    let low = null;
+    if (n) { const i = v.lastIndexOf(min); low = { czk: min, at: pts[i].at }; }
+    if (cur && (!low || cur < low.czk)) low = { czk: cur, at: num(w.checked) || now };
+    const wl = num(w && w.low);
+    if (wl && low && wl < low.czk) low = { czk: wl, at: null };
+    const lastAt = n ? pts[n - 1].at : null;
+    let week = null;
+    if (cur && n >= 2) {
+      const half = 12 * 3600e3, aim = lastAt - 7 * DAY;
+      let ref = null;
+      for (let i = 0; i < n - 1; i++) if (pts[i].at <= aim + half && (!ref || Math.abs(pts[i].at - aim) <= Math.abs(ref.at - aim))) ref = pts[i];
+      if (!ref && lastAt - pts[0].at >= DAY - half) ref = pts[0];
+      if (ref) {
+        const pct = Math.round((cur - ref.czk) / ref.czk * 100);
+        week = { czk: ref.czk, at: ref.at, d: cur - ref.czk, pct, days: Math.max(1, Math.round((lastAt - ref.at) / DAY)), dir: pct <= -cfg.trend ? 'down' : pct >= cfg.trend ? 'up' : 'flat' };
+      }
+    }
+    return {
+      n, cur, low, min, max,
+      swing: n && min ? Math.round((max - min) / min * 100) : 0,
+      span: n ? Math.max(0, Math.floor((now - pts[0].at) / DAY)) : 0,
+      days: n ? Math.floor((lastAt - pts[0].at) / DAY) : 0,
+      week,
+    };
+  }
+  /**
+   * Za kolik dní je odlet (today = 'YYYY-MM-DD'): nejlevnější nabídky z poslední kontroly (w.best.dep), jinak u přesných
+   * dat odlet, u cesty přes víc měst první let. Flexibilní rozsah bez data nabídky (starší kontroly) → null – začátek
+   * rozsahu není odlet (u „příštích 8 týdnů“ by tip tvrdil „do odletu 3 dny“). Proběhlý odlet → null.
+   */
+  function depDays(w, today) {
+    if (!w || !isYmd(today)) return null;
+    const f = w.form || {}, b = w.best || {};
+    const d = isYmd(b.dep) ? b.dep : f.trip === 'multi' ? (f.legs || [])[0] && f.legs[0].date : f.dateMode === 'exact' ? f.xOut : null;
+    if (!isYmd(d)) return null;
+    const n = daysTo(today, d);
+    return n >= 0 ? n : null;
+  }
+  const leftTxt = d => (d === 0 ? 'Odlet je dnes' : `Do odletu ${dnu(d)}`);
+  /**
+   * 💡 Tip na kartě hlídání: koupit, nebo počkat – vždy s důvodem, nikdy jistota. st = watchStats, x = { days (do
+   * odletu, null = nevím – depDays), level ('low'|'normal'|'high' z „Je to dobrá cena?“, null = nehodnoceno), lvlWhy
+   * (zdůvodnění hodnocení), target (🎯 cílová cena) }. Pravidla v pořadí (první platí):
+   *  1. cena na cílové ceně nebo pod ní → kup
+   *  2. „Je to dobrá cena?“ = dobrá → kup (ne daleko před odletem, když byla nedávno o ≥ swing % levnější – to kolísá)
+   *  3. do odletu < late dní → ceny už spíš rostou (u ceny nad obvyklou: jiné dny nebo letiště)
+   *  4. aspoň lowDays dní hlídání, cena u nejnižší (near %) a historie se hýbe (≥ trend %), ne nad obvyklou → kup
+   *     (daleko před odletem ne, když cena za týden pořád klesá – to je pravidlo 6)
+   *  5. do odletu < far dní → čekání se spíš nevyplatí
+   *  6. daleko (nebo nevím kdy): málo dat → sleduj; klesá (za týden o ≥ trend % a teď je nejníž, nebo se jinak moc
+   *     nehýbe) → počkej; kolísá (rozpětí ≥ swing %) → počkej; nad obvyklou → počkej; stoupá → sleduj; jinak se drží →
+   *     můžeš počkat
+   * → { kind: 'buy' | 'late' | 'wait' | 'info', text, why } | null (bez ceny nebo s proběhlým odletem).
+   */
+  function buyTip(st, { days = null, level = null, lvlWhy = '', target = null } = {}, cfg = TIP) {
+    const cur = st && num(st.cur);
+    if (!cur) return null;
+    const d = Number.isInteger(days) && days >= 0 ? days : null, t = num(target);
+    const low = st.low && num(st.low.czk) ? st.low.czk : cur;
+    const atLow = cur <= low * (1 + cfg.near / 100);
+    const far = d == null || d >= cfg.far, left = d == null ? '' : ` (zbývá ${dnu(d)})`;
+    const enough = st.n >= cfg.minN && st.days >= cfg.minDays;
+    const wk = st.week, wkTxt = wk ? `za ${wk.days === 7 ? 'týden' : dnu(wk.days)}` : '', down = Boolean(wk) && wk.dir === 'down';
+    const pc = String(lvlWhy || '').trim().slice(0, 160), pcWhy = pc ? `„Je to dobrá cena?“: ${pc}` : '';
+    if (t && cur <= t) return { kind: 'buy', text: 'Teď je pod tvou cílovou cenou – kup, jestli ti termín sedí', why: `🎯 tvoje cena ${kc(t)}, teď ${kc(cur)}` };
+    if (level === 'low' && !(far && cur > low * (1 + cfg.swing / 100))) {
+      return { kind: 'buy', text: 'Teď je to pod obvyklou cenou – kup', why: pcWhy || '„Je to dobrá cena?“ ji hodnotí jako dobrou' };
+    }
+    if (d != null && d < cfg.late) {
+      return level === 'high'
+        ? { kind: 'late', text: `${leftTxt(d)} – levněji už to nejspíš nebude`, why: 'cena je nad obvyklou – zkus jiné dny nebo letiště' }
+        : { kind: 'late', text: `${leftTxt(d)} – ceny u nízkonákladovek obvykle už spíš rostou`, why: atLow && st.n >= 2 ? 'teď je u nejnižší ceny, jakou ATLAS viděl – jestli ti termín sedí, nečekej' : 'jestli ti termín sedí, čekáním se nejspíš nic nezíská' };
+    }
+    if (enough && st.span >= cfg.lowDays && atLow && st.swing >= cfg.trend && level !== 'high' && !(far && down)) {
+      return { kind: 'buy', text: `Teď je nejníž za ${dnu(st.span)} hlídání – kup, jestli ti termín sedí`, why: 'levněji to ještě být může, ale nemusí' };
+    }
+    if (!far) {
+      return level === 'high'
+        ? { kind: 'late', text: `${leftTxt(d)} a cena je nad obvyklou – čekání se spíš nevyplatí`, why: 'ušetřit se dá spíš jiným dnem nebo letištěm' }
+        : { kind: 'late', text: `${leftTxt(d)} – čekání se už spíš nevyplatí`, why: 'ceny u nízkonákladovek se před odletem obvykle zvedají – jestli ti cena sedí, kup' };
+    }
+    const aim = t ? `ATLAS hlídá tvou cenu ${kc(t)}` : 'nastav si 🎯\u00a0cílovou cenu'; // 🎯 se neodtrhne od slova
+    if (!enough) return { kind: 'info', text: `Zatím sleduj${left}`, why: 'na radu z vývoje ceny je zatím málo kontrol' };
+    // klesá: za týden levněji a teď nejníž (nebo se cena jinak moc nehýbe); levněji než před týdnem, ale nad nedávným
+    // minimem o ≥ swing % = kolísá
+    if (down && (atLow || st.swing < cfg.swing)) return { kind: 'wait', text: `Cena klesá, zatím počkej${left}`, why: `${wkTxt} o ${kc(-wk.d)} (${fmtPct(wk.pct)}) – ${aim}` };
+    if (st.swing >= cfg.swing) return { kind: 'wait', text: `Cena kolísá, zatím počkej${left}`, why: `za ${dnu(Math.max(1, st.days))} mezi ${kc(st.min)} a ${kc(st.max)} – ${aim}` };
+    if (level === 'high') return { kind: 'wait', text: `Teď je dráž než obvykle, zatím počkej${left}`, why: pcWhy || 'do odletu je ještě čas' };
+    if (wk && wk.dir === 'up') return { kind: 'wait', text: `Cena stoupá – zatím sleduj${left}`, why: `${wkTxt} o ${kc(wk.d)} (${fmtPct(wk.pct)}); do odletu je čas, může zase klesnout, ale nemusí` };
+    return { kind: 'wait', text: `Cena se drží, zatím můžeš počkat${left}`, why: `už ${dnu(Math.max(1, st.days))} kolem ${kc(cur)} – ${aim}` };
   }
 
   /** Stav upozornění v prohlížeči: 'unsupported' | 'default' | 'granted' | 'denied'. */
@@ -458,5 +591,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
   }
 
-  window.Alerts = { CFG, PV, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, notifState, scheduler, nextMonday9, remindEvent, watchFromHash };
+  window.Alerts = { CFG, PV, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, TIP, dayTxt, watchStats, depDays, buyTip, notifState, scheduler, nextMonday9, remindEvent, watchFromHash };
 })();

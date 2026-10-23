@@ -14,7 +14,10 @@ import { pageCsp } from './security.js';
 export const RUNTIME_ASSETS = ['data/countries.json', 'data/entry.json', 'data/pretrip.json', 'vendor/countries-110m.json'];
 const LINK_RELS = /^(?:stylesheet|manifest|icon|shortcut icon|apple-touch-icon)$/i;
 
-/** Místní soubory, na které odkazuje index.html: skripty, styly, manifest a ikony (ne cizí weby, data: ani preconnect). */
+/**
+ * Místní soubory, na které odkazuje index.html: skripty, styly, manifest a ikony (ne cizí weby, data: ani preconnect).
+ * Skripty i z data-later (moduly, které js/lazy.js načte až po startu) – offline musí být všechny.
+ */
 export function shellAssets(html) {
   const out = [];
   for (const m of html.matchAll(/<(script|link)\b[^>]*>/gi)) {
@@ -22,10 +25,12 @@ export function shellAssets(html) {
     const attr = (name) => tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'))?.slice(1).find((x) => x !== undefined);
     const isScript = m[1].toLowerCase() === 'script';
     if (!isScript && !LINK_RELS.test((attr('rel') || '').trim())) continue;
-    const url = attr(isScript ? 'src' : 'href');
-    if (!url || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(url)) continue;
-    const rel = url.replace(/^\.?\//, '').split('#')[0];
-    if (rel && !out.includes(rel)) out.push(rel);
+    const later = isScript ? (attr('data-later') || '').split(/\s+/) : [];
+    for (const url of [attr(isScript ? 'src' : 'href'), ...later]) {
+      if (!url || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(url)) continue;
+      const rel = url.replace(/^\.?\//, '').split('#')[0];
+      if (rel && !out.includes(rel)) out.push(rel);
+    }
   }
   return out;
 }
