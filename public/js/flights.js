@@ -569,11 +569,11 @@
   }
   const PAX_ROWS = [['adults', 'Dospělí', 'od 12 let'], ['children', 'Děti', '2–11 let · vlastní sedadlo'], ['infants', 'Miminka', 'do 2 let · na klíně, jedno na dospělého']];
   function paxSheet() {
-    modalOpen(`<div class="modal-body pax-sheet"><div class="row lw-head"><h3>👥 Cestující</h3><button type="button" class="icon-btn" onclick="modalClose()" aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button></div>
+    modalOpen(`<div class="modal-body pax-sheet"><div class="row lw-head"><h3>👥 Cestující</h3><button type="button" class="icon-btn" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button></div>
       ${PAX_ROWS.map(([k, name, sub]) => `<div class="pax-row"><div><b>${name}</b><div class="faint">${sub}</div></div>
         <div class="pax-step" role="group" aria-label="${name}"><button type="button" data-px="${k}" data-d="-1" aria-label="${name} – ubrat">−</button><output data-pv="${k}" aria-live="polite"></output><button type="button" data-px="${k}" data-d="1" aria-label="${name} – přidat">+</button></div></div>`).join('')}
       <div class="faint pax-foot">Dítě platí sedadlo – u nízkonákladových aerolinek obvykle jako dospělý, cena celkem je proto za všechna sedadla. Miminko letí na klíně dospělého: aerolinka za něj účtuje poplatek za let, ten se doplní při nákupu. Nejvýš ${SearchHelp.PAX_MAX} sedadel.</div>
-      <button type="button" class="btn primary pax-done" onclick="modalClose()">Hotovo</button></div>`);
+      <button type="button" class="btn primary pax-done" data-close>Hotovo</button></div>`);
     // stepery na místě (bez nového vykreslení okna – fokus zůstane na tlačítku); meze jako server: sedadel nejvýš 9,
     // miminek nejvýš tolik co dospělých (ubraný dospělý vezme i miminko)
     const paint = () => {
