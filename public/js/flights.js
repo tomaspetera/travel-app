@@ -3855,7 +3855,11 @@
     const g = gs.reduce((m, x) => x.best.perPersonCzk < m.best.perPersonCzk ? x : m), t = g.best;
     // key = město; hid = 🙈 města levnější než ono – vrácené z 🙈 příště není zlevnění (Alerts.rebaseWhy)
     const hid = gs === shown ? res.groups.filter(x => !shown.includes(x) && x.best.perPersonCzk < t.perPersonCzk).map(x => x.dest.key).slice(0, SearchHelp.DEST_MAX) : [];
-    return { czk: t.perPersonCzk, desc: `${g.dest.label} · ${fmtDate(t.out.date)}${t.back ? '–' + fmtDate(t.back.date) : ''} · z ${t.out.from}`, key: g.dest.key, ...(hid.length ? { hid: hid.join(',') } : {}) };
+    // 💡 tip na kartě hlídání: den odletu (kolik zbývá) a „Je to dobrá cena?“ téhle nabídky (úroveň ze serveru, cestu
+    // složenou ze dvou letenek ohodnotí PriceCheck ze statistiky jejího cíle – ne z lastResult, kontrola je jiné hledání)
+    const pl = t.priceLevel || PriceCheck.assess(t, g.priceStats || res.priceStats || null);
+    return { czk: t.perPersonCzk, desc: `${g.dest.label} · ${fmtDate(t.out.date)}${t.back ? '–' + fmtDate(t.back.date) : ''} · z ${t.out.from}`, key: g.dest.key, ...(hid.length ? { hid: hid.join(',') } : {}),
+      dep: t.out.date, ...(pl && pl.level ? { lvl: pl.level, lvlWhy: String(pl.reason || '').slice(0, 160) } : {}) };
   }
   // Formulář hlídaného hledání tak, jak se kontroluje: starší uložené doplněné o výchozí hodnoty (kmRate v Kč/km);
   // hlídané před cestou z letiště do města bez ní (cena i historie bez ní); klouzavý termín (form.roll) na dnešek.
@@ -3976,14 +3980,43 @@
   const notifCtor = !(navigator.userAgentData && /Android/i.test(navigator.userAgent));
   const notifOk = () => notifCtor ? Alerts.notifState(window.Notification, window.isSecureContext !== false) : 'unsupported';
 
-  // graf jen od poslední změny 🏠 vlastní ceny na letiště (Alerts.epoch) – starší ceny jsou s jinou cestou na letiště
-  function sparkSvg(w) {
-    const hs = Alerts.epoch(w.history), W = 120, H = 34, sp = Alerts.sparkPath(hs, W, H, 4);
+  // graf jen od poslední změny 🏠 vlastní ceny na letiště (Alerts.epoch) – starší ceny jsou s jinou cestou na letiště;
+  // ze 2 bodů by „vývoj“ byla jedna čára – graf až od 3 kontrol, jinak jen řádky s cenami (st = Alerts.watchStats)
+  function sparkSvg(w, st, now = Date.now()) {
+    const hs = Alerts.epoch(w.history), W = 140, H = 46, sp = hs.length >= 3 && Alerts.sparkPath(hs, W, H, 5);
     if (!sp) return '';
-    const n = hs.length;
-    const lab = `Vývoj ceny za ${n} ${n < 5 ? 'kontroly' : 'kontrol'}: ${czk(sp.min)} až ${czk(sp.max)}`;
+    const n = sp.xy.length, [lx, ly] = sp.xy[sp.lo], [cx, cy] = sp.last, both = sp.lo === n - 1;
+    // značka nejnižší ceny jen když je nejnižší cena v grafu (ne z kontroly, která už z historie vypadla)
+    const lo = st.low && st.low.czk === sp.min;
+    const lab = `Vývoj ceny za ${n} ${n < 5 ? 'kontroly' : 'kontrol'}: ${czk(sp.min)} až ${czk(sp.max)}${lo && st.low.at ? `, nejníž ${czk(sp.min)} (${Alerts.dayTxt(st.low.at, now)})` : ''}${st.cur ? `, teď ${czk(st.cur)}` : ''}`;
     const tgt = w.target >= sp.min && w.target <= sp.max ? `<path class="ws-tgt" d="M0 ${sp.y(w.target)}H${W}"/>` : '';
-    return `<svg class="w-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(lab)}"><title>${esc(lab)}</title>${tgt}<path class="ws-line" d="${sp.d}"/><path class="ws-dot" d="M${sp.last[0]} ${sp.last[1]}h0"/></svg>`;
+    // tečky = nulové úsečky s kulatým koncem (vector-effect: zůstanou kulaté i v roztaženém grafu); lem v barvě karty je oddělí od čáry
+    const dot = (x, y) => `M${x} ${y}h0`;
+    return `<svg class="w-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(lab)}"><title>${esc(lab)}</title>`
+      + `<path class="ws-area" d="${sp.d}L${cx} ${H}L${sp.xy[0][0]} ${H}Z"/>${tgt}<path class="ws-line" d="${sp.d}"/>`
+      + `<path class="ws-halo" d="${lo && !both ? dot(lx, ly) : ''}${dot(cx, cy)}"/>`
+      + (lo && !both ? `<path class="ws-low" d="${dot(lx, ly)}"/>` : '')
+      + `<path class="ws-dot${lo && both ? ' lo' : ''}" d="${dot(cx, cy)}"/></svg>`;
+  }
+  /** Řádky vedle grafu: Nejníž (kdy), Teď, změna za týden (šipka) a od uložení. */
+  function watchLines(w, st, h, own, now) {
+    const since = Alerts.pctChange(w.base ?? h[0]?.czk, st.cur), wk = st.week, L = [];
+    // po první kontrole je nejnižší cena ta dnešní – stačí „Teď“
+    if (st.low && (st.n > 1 || st.low.czk !== st.cur)) L.push(`<span><i class="w-lg lo" aria-hidden="true"></i>Nejníž: <b>${czk(st.low.czk)}</b> <span class="faint">(${st.low.at ? Alerts.dayTxt(st.low.at, now) : 'dřív'})</span></span>`);
+    if (st.cur) L.push(`<span><i class="w-lg" aria-hidden="true"></i>Teď: <b>${czk(st.cur)}</b></span>`);
+    if (wk) {
+      const per = wk.days === 7 ? 'za týden' : `za ${plural(wk.days, 'den', 'dny', 'dní')}`;
+      const tip = `${Alerts.dayTxt(wk.at, now)} ${czk(wk.czk)} → teď ${czk(st.cur)} (${Alerts.fmtPct(wk.pct)})`;
+      L.push(`<span class="w-wk ${wk.dir === 'down' ? 'good' : wk.dir === 'up' ? 'bad' : ''}" title="${esc(tip)}">${wk.dir === 'down' ? `↓ ${czk(-wk.d)}` : wk.dir === 'up' ? `↑ ${czk(wk.d)}` : '→ beze změny'} ${per}</span>`);
+    }
+    if (since != null) L.push(`<span${own ? ` title="${w.rebWhy === 'price' ? 'Ceny jsou teď jen za letenku (doprava na letiště zvlášť) – ceny před tím byly i s ní a s novými se nesrovnávají' : 'Cena se přepočítala po změně 🏠 vlastní ceny na letiště nebo seznamu 🙈 – ceny před tím se s novými nesrovnávají'}"` : ''}>${own ? (w.rebWhy === 'price' ? 'od přepočtu cen' : 'od změny nastavení') : 'od uložení'} <b class="${since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>`);
+    return L.join('');
+  }
+  /** 💡 Tip: koupit, nebo počkat (Alerts.buyTip) – jen u hlídání, které ještě jde koupit. */
+  function tipHtml(w, st) {
+    const b = w.best || {};
+    const t = Alerts.buyTip(st, { days: Alerts.depDays(w, today()), level: b.lvl || null, lvlWhy: b.lvlWhy || '', target: w.target });
+    return t ? `<div class="w-tip ${t.kind}" title="Jen odhad z cen, které ATLAS při kontrolách viděl, a z dní do odletu – jistotu nedává nikdo"><span class="w-tk">💡 Tip:</span> ${esc(t.text)}<small>${esc(t.why)}</small></div>` : '';
   }
   function watchBar() {
     const n = {
@@ -4001,8 +4034,8 @@
     const diff = prev && cur ? cur - prev : 0;
     const past = Alerts.isPast(w.form, today());
     const st = wState.get(w.id);
-    const since = Alerts.pctChange(w.base ?? h[0]?.czk, cur);
-    const low = Alerts.lowest([w.low, ...h.map(x => x.czk), cur]);
+    const ps = Alerts.watchStats(w, now); // Nejníž, Teď, za týden a 💡 tip
+    const sv = sparkSvg(w, ps, now), ln = watchLines(w, ps, h, own, now);
     const drop = !past && Alerts.isDropped(w); // proběhlý termín: „📉 zlevnilo“ už nekoupíš (jako odznak a „Od minula“)
     const id = esc(w.id);
     const when = st === 'run' ? '<span class="spin dark"></span> kontroluji…' : st === 'wait' ? '⏳ čeká na kontrolu…'
@@ -4018,8 +4051,8 @@
           <div class="w-tt"><div class="w-t">${esc(w.label)}</div><div class="w-sub">${esc(subOf(w))}</div></div>
           <div class="w-p">${cur ? czk(cur) : '—'}<small>/os.</small>${diff ? `<span class="${diff < 0 ? 'good' : 'bad'}" title="Oproti minulé kontrole">${diff < 0 ? '↓' : '↑'} ${czk(Math.abs(diff))}</span>` : ''}</div></div>
         ${drop ? '<span class="b good w-drop">📉 zlevnilo</span>' : ''}${roll}
-        <div class="w-main">${sparkSvg(w)}<div class="w-stats">${since != null ? `<span${own ? ` title="${w.rebWhy === 'price' ? 'Ceny jsou teď jen za letenku (doprava na letiště zvlášť) – ceny před tím byly i s ní a s novými se nesrovnávají' : 'Cena se přepočítala po změně 🏠 vlastní ceny na letiště nebo seznamu 🙈 – ceny před tím se s novými nesrovnávají'}"` : ''}>${own ? (w.rebWhy === 'price' ? 'od přepočtu cen' : 'od změny nastavení') : 'od uložení'} <b class="${since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>` : ''}${low ? `<span>nejnižší ${czk(low)}</span>` : ''}</div></div>
-        <div class="w-desc">${esc(w.best?.desc || 'zatím bez výsledku')}</div>
+        ${sv || ln ? `<div class="w-main${sv ? '' : ' nochart'}">${sv}<div class="w-stats">${ln}</div></div>` : ''}
+        <div class="w-desc">${esc(w.best?.desc || 'zatím bez výsledku')}</div>${past ? '' : tipHtml(w, ps)}
         ${past ? `<div class="note warn w-past">⌛ <div>Termín proběhl – tohle hledání už hlídat nejde. ${canRoll ? `<button type="button" class="linkbtn" data-wr="${id}">📅 Převést na klouzavé</button> – termín se pak bude posouvat s časem a historie i cílová cena zůstanou. Nebo ho smaž.` : 'Smaž ho, nebo ho otevři a vyber nové datum.'}</div></div>`
         : `<label class="w-target">🎯 Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target ? '' : 'hidden'}>✓ splněno</span></label>
         <div class="w-cal"><button type="button" class="linkbtn" data-wcal="${id}" title="Stáhne událost do kalendáře: každé pondělí v 9:00 (8 týdnů) s odkazem zpět na tohle hlídání">📅 Připomínat</button><span class="faint">v pondělí v kalendáři</span></div>`}
@@ -4108,6 +4141,8 @@
     w.target = n > 0 ? n : null;
     const met = !!(cur && w.target && cur <= w.target);
     const hit = $(`${cardSel(id)} .w-hit`); if (hit) hit.hidden = !met;
+    // 💡 tip počítá s cílovou cenou („pod tvou cílovou cenou – kup“) – překreslit jen jeho, pole s kurzorem zůstane
+    const tip = $(`${cardSel(id)} .w-tip`); if (tip) tip.outerHTML = tipHtml(w, Alerts.watchStats(w, Date.now()));
     // Už teď splněno → tuhle cenu znovu nehlásit, ozvat se až při dalším zlevnění.
     if (done && met) w.notified = cur;
     // nový cíl nad cenou ohlášenou dřív (třeba „📉 zlevnilo“) – jinak by ji shouldNotify bralo za už ohlášený cíl a 🎯 by nepřišlo

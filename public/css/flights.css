@@ -544,10 +544,26 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .w-p{font:800 22px Sora,sans-serif;margin:8px 0 2px}
 .w-p small{font-size:12px;color:var(--muted)}
 .w-p span{display:block;font:700 12.5px Inter,sans-serif;margin-top:3px}
-.w-spark{width:120px;max-width:42%;height:34px;flex:none;overflow:visible}
+.w-spark{width:150px;max-width:46%;height:46px;flex:none;overflow:visible}
+.ws-area{fill:var(--accent);opacity:.1}
 .ws-line{fill:none;stroke:var(--muted);stroke-width:2px;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
-.ws-dot{stroke:var(--accent);stroke-width:8px;stroke-linecap:round;vector-effect:non-scaling-stroke}
+/* tečky: lem v barvě karty, nejnižší cena zeleně, cena teď modře (zelená, když je teď nejníž) – stejné barvy jako legenda u řádků */
+.ws-halo{stroke:var(--surface-solid);stroke-width:12px;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.ws-dot,.ws-low{stroke:var(--accent);stroke-width:8px;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.ws-low,.ws-dot.lo{stroke:var(--good)}
 .ws-tgt{stroke:var(--good);stroke-width:1px;stroke-dasharray:3 3;opacity:.8;vector-effect:non-scaling-stroke}
+.w-lg{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:5px;vertical-align:1px}
+.w-lg.lo{background:var(--good)}
+/* 💡 tip: koupit (zeleně), čas tlačí (oranžově), počkat / sledovat (modře) */
+.w-tip{margin-top:10px;padding:8px 11px;border-radius:12px;font-size:12.5px;line-height:1.4;color:var(--text);background:var(--surface);border:1px solid var(--border)}
+.w-tip .w-tk{font-weight:800}
+.w-tip small{display:block;margin-top:2px;font-size:12px;color:var(--muted)}
+.w-tip.buy{background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.32)}
+.w-tip.late{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.32)}
+.w-tip.wait{background:rgba(91,140,255,.08);border-color:rgba(91,140,255,.28)}
+[data-theme=light] .ws-low,[data-theme=light] .ws-dot.lo{stroke:#059669}
+[data-theme=light] .w-lg.lo{background:#059669}
+[data-theme=light] .w-stats .bad{color:#be123c}
 .w-stats{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12px;color:var(--muted);margin-bottom:2px}
 .w-stats b{font-weight:800}
 .w-target{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:12.5px;color:var(--muted);font-weight:600;margin-top:10px}
@@ -1309,7 +1325,10 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .w-drop{align-self:flex-start;margin-top:8px}
 .watch .w-main{margin-top:10px;gap:12px;align-items:center}
 .watch .w-main .w-spark{flex:none}
-.watch .w-main .w-stats{flex:1;flex-direction:column;align-items:flex-end;text-align:right;margin:0}
+.watch .w-main .w-stats{flex:1;flex-direction:column;align-items:flex-end;text-align:right;margin:0;line-height:1.4}
+.watch .w-main .w-stats b:not(.good):not(.bad){color:var(--text)}
+/* méně než 3 kontroly: bez grafu, řádky vedle sebe */
+.watch .w-main.nochart .w-stats{flex-direction:row;flex-wrap:wrap;align-items:baseline;justify-content:flex-start;text-align:left;gap:2px 14px}
 .w-desc{font-size:12px;color:var(--muted);margin-top:6px}
 .w-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 .w-foot .w-st{margin:0;flex:1;min-width:0;display:block;line-height:1.35}
