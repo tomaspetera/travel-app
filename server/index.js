@@ -25,6 +25,7 @@ import { planTrips } from './lib/roadtrip.js';
 import { keepInRegion } from './lib/regions.js';
 import { bikeLoop, mockBikeLoop, hikeLoop, mockHikeLoop, bikeFromStation, mockBikeFromStation } from './lib/bike.js';
 import { planItinerary } from './lib/itinerary.js';
+import { planHikes, mockHikePlan, natureAreaAt } from './lib/hikeplan.js';
 import { planStay, StayPlanError } from './lib/stayplan.js';
 import { kiwi } from './providers/kiwi.js';
 import { isYmd, daysBetween } from './lib/dates.js';
@@ -684,6 +685,49 @@ async function route(req, res) {
       kids: b.kids === true,
     });
     return sendJson(req, res, 200, { demo: config.mock, ...plan, places });
+  }
+  if (p === '/api/nature') {
+    // Leží místo v horách nebo v přírodě ze seznamu (Pec pod Sněžkou = Krkonoše, Poprad = Vysoké Tatry)? Program pobytu
+    // pak nabídne túry na každý den. Jen výpočet nad vlastním seznamem – bez dotazu ven.
+    const lat = Number(url.searchParams.get('lat'));
+    const lon = Number(url.searchParams.get('lon'));
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
+    return sendJson(req, res, 200, { area: natureAreaAt(lat, lon) }, { 'Cache-Control': 'public, max-age=86400' });
+  }
+  if (p === '/api/hikeplan' && req.method === 'POST') {
+    // Túry na víc dní (server/lib/hikeplan.js): na každý den pobytu jedna túra z ubytování nebo ze startu u cíle.
+    let b;
+    try {
+      b = JSON.parse((await readBody(req)) || '{}');
+    } catch (e) {
+      return badBody(req, res, e);
+    }
+    if (!b || typeof b !== 'object' || Array.isArray(b)) return sendJson(req, res, 400, { error: 'Neplatný JSON' });
+    const lat = Number(b.lat);
+    const lon = Number(b.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return sendJson(req, res, 400, { error: 'Chybí poloha (lat/lon).' });
+    if (!isYmd(b.start) || !isYmd(b.end) || daysBetween(b.start, b.end) < 0 || daysBetween(b.start, b.end) > 30) return sendJson(req, res, 400, { error: 'Neplatné datum (max. 31 dní).' });
+    const hm = (v) => (/^\d{2}:\d{2}$/.test(v || '') ? v : null);
+    // radius = okruh míst načtených v Objevuj (stejná mezipaměť), fromBase false = střed oblasti z Objevuj, ne ubytování
+    const radius = Number(b.radius) > 0 ? Math.min(25, Math.max(5, Number(b.radius))) : 0;
+    const q = {
+      lat, lon, label: String(b.label || '').slice(0, 120), start: b.start, end: b.end, arrivalTime: hm(b.arrivalTime), departureTime: hm(b.departureTime),
+      kids: b.kids === true, fromBase: b.fromBase !== false, radius, exclude: Array.isArray(b.exclude) ? b.exclude.map(String).slice(0, 60) : [],
+    };
+    if (config.mock) {
+      if (exploreLimited(req)) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
+      return sendJson(req, res, 200, { demo: true, ...(await mockHikePlan(q)) });
+    }
+    if (exploreLimited(req, placesCached({ lat, lon, radiusKm: radius || 15, dayTrips: Boolean(radius) }))) return sendJson(req, res, 429, TOO_MANY_EXPLORE);
+    // starty u cílů (Wikidata), trasy (BRouter) a občerstvení (Overpass) mimo mezipaměť jdou do limitu Objevuj (jednou)
+    q.onMiss = exploreCharge(req);
+    try {
+      return sendJson(req, res, 200, { demo: false, ...(await planHikes(q)), ...(mapyReady(1) ? { tiles: 'mapy' } : {}) });
+    } catch (e) {
+      if (e.code === 'LIMIT') return sendJson(req, res, 429, TOO_MANY_EXPLORE);
+      console.warn(`hikeplan: ${e.message}`);
+      return sendJson(req, res, 503, { error: 'Túry se teď nepodařilo naplánovat (Wikidata neodpovídá) – zkus to prosím za chvíli.' });
+    }
   }
   if (p === '/api/roadtrip' && req.method === 'POST') {
     let b;

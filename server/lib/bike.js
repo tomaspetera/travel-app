@@ -312,6 +312,17 @@ export async function hikeLoop(q) {
 }
 const HIKE_FACTOR = 4.9;
 
+/**
+ * Túra tam a zpět (start → cíl → start) profilem pěší turistiky přírodou – túry na víc dní (hikeplan.js). Jen BRouter,
+ * bez zálohy Mapy.com: plán na týden by jinak při výpadku BRouteru spotřeboval kredity za 7 tras (bez trasy zůstane
+ * v plánu odhad a odkaz do Mapy.com). Čas chůze podle hikeMinutes (DIN 33466); v mezipaměti 7 dní jako ostatní trasy.
+ */
+export async function hikeThereBack(start, goal, { onMiss } = {}) {
+  const p = (x) => `${Math.round(x.lon * 1e4) / 1e4},${Math.round(x.lat * 1e4) / 1e4}`;
+  const r = await route({ profile: HIKE.profile, vars: hikeVars('nature', 'normal'), lonlats: [start, goal, start].map(p).join('|') }, 1, onMiss, null);
+  return { ...r, minutes: hikeMinutes(r.km, r.ascent, r.descent) };
+}
+
 /* ---------- start túry u hor a přírody ---------- */
 // Střed místa v přírodě je vrchol, propast, skalní brána nebo hladina jezera – odtud se na túru nevyráží. Start: nejbližší
 // místo u cíle, kam se dá dojet autem nebo vlakem – parkoviště, nádraží a zastávky, obce a jejich části (Wikidata, stejný

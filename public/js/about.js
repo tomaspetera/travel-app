@@ -14,7 +14,7 @@
     ['🏨', 'Ubytování', 'TripAdvisor přes Xotelo (orientační ceny), LiteAPI, když je na serveru zapnuté, penziony z OpenStreetMap (bez ceny); odkazy na Booking.com, Airbnb, Trip.com, Agodu a Hostelworld'],
     ['🚆', 'Vlak a bus', 'RegioJet (spoje a ceny na vyžádání); FlixBus a IDOS jen jako odkazy'],
     ['🌤️', 'Počasí a podnebí', 'Open-Meteo (předpověď a hledání míst), dlouhodobé průměry NOAA a NASA POWER'],
-    ['🗺️', 'Mapy a trasy', 'OpenFreeMap a OpenStreetMap, Mapy.com, BRouter (trasy na kole a autem)'],
+    ['🗺️', 'Mapy a trasy', 'OpenFreeMap a OpenStreetMap, Mapy.com, BRouter (trasy na kole, pěšky a autem), chaty u túr z OpenStreetMap (Overpass)'],
     ['🏛️', 'Místa a program', 'Wikidata, Wikipedie a Wikivoyage'],
     ['📷', 'Fotky', 'Unsplash, Pexels a Wikimedia Commons'],
     ['⛽', 'Palivo a kurzy', 'ČSÚ a Weekly Oil Bulletin EU; kurzy ECB a open.er-api.com'],
