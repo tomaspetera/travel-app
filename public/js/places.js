@@ -677,12 +677,25 @@
   // Části sloučené do celku (katedrála na Hradě, orloj u radnice) – jinak by v aplikaci nebyly vidět vůbec.
   const inclHtml = (p, cls) => (Array.isArray(p.includes) && p.includes.length
     ? `<div class="${cls}">Zahrnuje: ${esc(p.includes.slice(0, 5).join(', '))}${p.includes.length > 5 ? ` a ${p.includes.length - 5} ${p.includes.length - 5 >= 5 ? 'dalších' : 'další'}` : ''}</div>` : '');
+  // Výlet: jak se tam dostat (server: reach – odhad vlakem / busem / lodí a autem z města, ne jízdní řád) s odkazem na
+  // skutečné spoje v Google Maps, a proč tam jet (why: UNESCO, oblíbený výlet, doporučení průvodce, co je k vidění).
+  const REACH = { rail: ['🚆', 'vlakem'], bus: ['🚌', 'busem'], boat: ['⛴️', 'lodí'] };
+  const okMin = m => Number.isFinite(+m) && +m > 0;
+  function reachHtml(p, center, cls = 'poi-inc') {
+    const r = p.reach;
+    if (!r || !okMin(r.transitMin)) return '';
+    const [ico, how] = REACH[r.mode] || REACH.bus;
+    const from = center && center.lat != null ? centerQ(center) : '';
+    const link = from ? ` · <a href="${esc(safeUrl(gmDir(from, [poiQ(p, center)], 'transit')))}" target="_blank" rel="noopener">spoje ↗</a>` : '';
+    return `<div class="${cls}">${ico} ~${minTxt(Math.round(+r.transitMin))} ${how}${okMin(r.carMin) ? ` · 🚗 ~${minTxt(Math.round(+r.carMin))} autem` : ''} <span class="faint">(odhad)</span>${link}</div>`;
+  }
+  const whyHtml = (p, cls = 'poi-inc') => (p.why ? `<div class="${cls}">✨ ${esc(p.why)}</div>` : '');
   function poiCard(p, opts = {}) {
     return `<div class="poi" data-poi="${esc(p.id)}">
       <div class="poi-img" ${p.image ? `style="background-image:url('${esc(cssUrl(p.image))}')"` : ''}>${p.image ? '' : picon(p)}</div>
       <div><div class="poi-name">${picon(p)} ${esc(p.name)}</div>
-        <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${num(p.distanceKm)} km` : ''}${opts.drive && p.distanceKm != null ? ` · ~${minTxt(driveMin(p.distanceKm))} autem` : ''}${p.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : p.heritage ? ' · památka' : ''}${p.wikivoyage ? ' · <b style="color:var(--good)" title="Místo doporučuje cestovní průvodce Wikivoyage">👍 doporučuje Wikivoyage</b>' : ''}</div>
-        ${inclHtml(p, 'poi-inc')}<div class="poi-desc">${descHtml(p.extract || p.description || '', p.descLang)}</div>
+        <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${num(p.distanceKm)} km` : ''}${opts.drive && p.distanceKm != null && !p.reach ? ` · ~${minTxt(driveMin(p.distanceKm))} autem` : ''}${p.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : p.heritage ? ' · památka' : ''}${p.wikivoyage ? ' · <b style="color:var(--good)" title="Místo doporučuje cestovní průvodce Wikivoyage">👍 doporučuje Wikivoyage</b>' : ''}</div>
+        ${inclHtml(p, 'poi-inc')}${reachHtml(p, opts.center)}${whyHtml(p)}<div class="poi-desc">${descHtml(p.extract || p.description || '', p.descLang)}</div>
         <div class="poi-acts">${p.url ? `<a href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}
           <a href="${esc(gmSearch(opts.center ? poiQ(p, opts.center) : p.name))}" target="_blank" rel="noopener" data-gm>Google Maps ↗</a>
           ${opts.toggle ? (opts.inPlan?.has(p.id) ? '<span class="poi-in">✓ v plánu</span>' : mustBtn(p.id, opts.must?.has(p.id))) : ''}
@@ -711,8 +724,8 @@
         ${dayLinks(url, mapy)}</h4>
         ${d.area ? `<p class="dp-area">🏘️ Oblast: ${esc(d.area)}</p>` : ''}
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${p.at ? `~${esc(p.at)}, ` : ''}${minTxt(p.visitMin)}</span>
-          ${inclHtml(p, 'dp-walk')}<div class="dp-walk">${!p.transit && !(p.fromPrevKm >= 0.1) ? (j === 0 ? (fromC ? 'hned v centru' : 'hned u ubytování') : 'hned vedle') // Casa Amatller vedle Casa Batlló – ne „0 km pěšky (~0 min)“
-            : `${j === 0 ? (fromC ? 'od centra' : 'od ubytování') : 'dál'} ${p.transit ? `${num(p.fromPrevKm)}\u00a0km – ${p.boat ? 'lodí' : ride}` : `${num(p.fromPrevKm)}\u00a0km pěšky (~${minTxt(p.fromPrevMin)})`}`}${passByTxt(p)}</div></div>
+          ${inclHtml(p, 'dp-walk')}${trip && p.reach ? reachHtml(p, center, 'dp-walk') + whyHtml(p, 'dp-walk') : `<div class="dp-walk">${!p.transit && !(p.fromPrevKm >= 0.1) ? (j === 0 ? (fromC ? 'hned v centru' : 'hned u ubytování') : 'hned vedle') // Casa Amatller vedle Casa Batlló – ne „0 km pěšky (~0 min)“
+            : `${j === 0 ? (fromC ? 'od centra' : 'od ubytování') : 'dál'} ${p.transit ? `${num(p.fromPrevKm)}\u00a0km – ${p.boat ? 'lodí' : ride}` : `${num(p.fromPrevKm)}\u00a0km pěšky (~${minTxt(p.fromPrevMin)})`}`}${passByTxt(p)}</div>`}</div>
           <button type="button" title="Vyřadit z plánu" data-drop="${esc(p.id)}">✕</button></div>${lunchHtml(d, j)}`).join('')
           : `<div class="faint" style="font-size:13px;padding:6px 0">${d.cap ? 'Volno – odpočinek, jídlo, procházka.' : 'Den cesty – bez programu.'}</div>`}
         ${d.items.length && d.kind !== 'daytrip' ? `<div class="faint" style="font-size:11.5px;margin-top:4px">celkem ~${minTxt(d.minutes)} prohlídek · ${num(d.walkKm)} km pěšky${d.end ? ` · konec ~${esc(d.end)}` : ''}</div>` : ''}

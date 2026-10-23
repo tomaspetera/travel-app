@@ -757,8 +757,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-23h';
+const WN_ID = '2026-10-23i';
 const WHATS_NEW = [
+  ['🚆', 'Lepší výlety z města', '<b>Výlety</b> v <b>Objevuj</b> a celodenní výlety v programu cesty vybírá ATLAS podle toho, co tam je k vidění (UNESCO, známé památky, doporučení průvodce Wikivoyage, klasiky jako Sintra z Lisabonu, Tivoli a Ostia Antica z Říma nebo Wieliczka z Krakova) a jak daleko to je – předměstí a města u letiště už nevycházejí. U každého výletu je čas cesty vlakem, busem nebo lodí i autem (odhad), odkaz <b>spoje ↗</b> a jednou větou, proč tam jet.'],
   ['🌍', 'Doporučení podle sezóny a tebe', 'v <b>Doporučení</b> (menu ☰) i v tipech na Přehledu je u země proč – třeba „🏖️ Kanárské ostrovy: ~25 °C přes den“ nebo „✈️ tam i zpět od 1 890 Kč“ z radaru – a tlačítko <b>✈️ Najít lety</b> s odletem v tom měsíci. Od 20. dne tipuje už na příští měsíc, k moři jen tam, kde je opravdu teplo, blízké země výš; když hledáš hlavně k moři nebo s dětmi, vezme to v úvahu, ⭐ moje cíle dá výš a země s 🙈 městem vynechá. Země, kam MZV ČR nedoporučuje cestovat, mají v seznamu zemí štítek ⚠️.'],
   ['🗓️', 'Program s časy a obědem', '<b>Program ve městě</b> v <b>Objevuj</b> i v průvodci Cestou má u každé zastávky přibližný čas (podle chůze a MHD), pauzu na oběd s tipem na tržnici nebo kavárnu kousek od ní, co uvidíš cestou kolem, kam na večer a – když předpověď na ten den hlásí déšť – místa pod střechou. Nejznámější místa (Koloseum, Fontána di Trevi, Belémská věž) v programu nechybí, za den nejvýš 2 muzea, muzeum a zoo spíš dopoledne. Cesta s dětmi má rovnou zájem <b>🧒 S dětmi</b>.'],
   ['🚆', 'Vlak na cestě s časem a počasí', 'v <b>Plánovači</b> zapíšeš k vlaku nebo busu mezi místy trasy (třeba Lisabon → Porto) čas odjezdu z jízdenky, nástupiště, vůz a místo i kód. Karta <b>📍 Dnes na cestě</b> pak odpočítává („vlak do Porta v 10:42 – za 1 h 20 min“) s odkazem na nádraží v mapě a ukáže dnešní předpověď počasí – i bez signálu. Během cesty má plán nahoře dnešní den a kódy rezervací.'],
