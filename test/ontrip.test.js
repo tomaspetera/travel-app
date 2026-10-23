@@ -312,8 +312,10 @@ test('🔖 rezervace v okně cesty: Enter v „Co“ (a v prázdném „Kódu“
   vm.runInContext(`var __add = []; var addRef = (i) => { __add.push(i); }; var ico = () => '';`, c);
   vm.runInContext(pick('refsHtml', 'refKey'), c);
   const h = c.refsHtml({ refs: [] }, 3);
-  assert.ok(h.includes('id="refCo-3" maxlength="40" placeholder="Co (let tam, hotel…)" aria-label="Co je to za rezervaci" enterkeyhint="next" onkeydown="refKey(event,3,0)"'), h);
-  assert.ok(h.includes('enterkeyhint="done" onkeydown="refKey(event,3,1)"') && h.includes('enterkeyhint="done" onkeydown="refKey(event,3,2)"') && h.includes('onclick="addRef(3)">Přidat'), h);
+  // pole s data-refk (Enter obslouží openTrip přes refKey) – bez obsluh v HTML (atribut onkeydown CSP stránky nepustí)
+  assert.ok(h.includes('id="refCo-3" maxlength="40" placeholder="Co (let tam, hotel…)" aria-label="Co je to za rezervaci" enterkeyhint="next" data-refk="0"'), h);
+  assert.ok(h.includes('enterkeyhint="done" data-refk="1"') && h.includes('enterkeyhint="done" data-refk="2"') && h.includes('data-addref>Přidat'), h);
+  assert.doesNotMatch(h, /\son[a-z]+=/, 'žádná obsluha v HTML');
   const focus = [];
   for (const k of ['refCo', 'refKod', 'refNote']) c.__els[`#${k}-3`] = { value: '', focus() { focus.push(k); } };
   const key = (k, o = {}) => { let prevented = false; c.refKey({ key: 'Enter', preventDefault() { prevented = true; }, ...o }, 3, k); return prevented; };

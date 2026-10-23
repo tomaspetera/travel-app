@@ -12,6 +12,7 @@ import { geocode, englishName } from './places.js';
 import { haversineKm, normalize } from './geo.js';
 import { arrivalTransfer } from './arrival.js';
 import { config } from '../config.js';
+import { publicMessage } from './http.js';
 
 export class StayQueryError extends Error {
   constructor(msg) {
@@ -218,7 +219,7 @@ export async function searchStays(raw, { english = englishName, partners = null,
         ...(stale ? { stale: true } : {}), ...(stale === 'all' ? { staleAll: true } : {}), ...(last ? { refreshIn: Math.max(1, Math.ceil((last + FRESH_MS - Date.now()) / 1000)) } : {}),
       });
     } catch (e) {
-      status.push({ id: p.id, name: p.name, ok: false, error: e.message || String(e), ms: Date.now() - t0 });
+      status.push({ id: p.id, name: p.name, ok: false, error: publicMessage(e), ms: Date.now() - t0 }); // text chyby bez adresy API zdroje
     }
   }));
   // Malé místo, kde TripAdvisor nic nemá (Palazzolo Acreide, Alcobaça – Xotelo bez hotelů s cenou i bez nich, nebo
@@ -238,7 +239,7 @@ export async function searchStays(raw, { english = englishName, partners = null,
         status.push({ id: osm.id, name: osm.name, ok: true, count: list.length, ms: Date.now() - t0, test: Boolean(config.mock) });
       }
     } catch (e) {
-      status.push({ id: osm.id, name: osm.name, ok: false, error: e.message || String(e), ms: Date.now() - t0 });
+      status.push({ id: osm.id, name: osm.name, ok: false, error: publicMessage(e), ms: Date.now() - t0 });
     }
   }
   // Stejný hotel od více poskytovatelů → nech nejlevnější nabídku. Název bez diakritiky, ale s písmeny všech abeced –

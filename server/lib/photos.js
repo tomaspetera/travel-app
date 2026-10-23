@@ -255,6 +255,13 @@ async function bestPhotos(titles, api, lead, enOf) {
   return out;
 }
 
+const defaultProv = () => (config.pexelsKey ? 'pexels' : config.unsplashKey ? 'unsplash' : 'wiki');
+// názvy z dotazu, které se opravdu hledají (bez prázdných, dlouhých a opakovaných, nejvýš MAX)
+const wanted = (titles) => [...new Set(titles.map((t) => String(t || '').trim()).filter((t) => t && t.length <= 80 && !t.includes('|')))].slice(0, MAX);
+
+/** Má server fotky (nebo „fotka není“) ke všem názvům v mezipaměti? Pak dotaz nic nestojí a do limitu se nepočítá. */
+export const photosCached = (titles, prov = defaultProv()) => wanted(titles).every((t) => cache.get(`ph6:${prov}:${t}`) !== undefined);
+
 /**
  * { photos: { název: adresa fotky | '' (fotka není) }, by: { název: autor fotky z Pexels/Unsplash }, bu: { název:
  * profil autora }, partial, prov }. Výpadek Wikimedie (chyba, 429): nic se neuloží a nenalezené názvy v odpovědi
@@ -262,8 +269,8 @@ async function bestPhotos(titles, api, lead, enOf) {
  * pak má i odpověď, ať se prohlížeč brzy zeptá znovu. prov: 'pexels' / 'unsplash' s klíčem, jinak
  * 'wiki' (prohlížeč wiki fotky drží kratší dobu, aby po přidání klíče brzy přešel na hezčí fotky).
  */
-export async function cityPhotos(titles, { pick = pickPhotos, prov = config.pexelsKey ? 'pexels' : config.unsplashKey ? 'unsplash' : 'wiki' } = {}) {
-  const want = [...new Set(titles.map((t) => String(t || '').trim()).filter((t) => t && t.length <= 80 && !t.includes('|')))].slice(0, MAX);
+export async function cityPhotos(titles, { pick = pickPhotos, prov = defaultProv() } = {}) {
+  const want = wanted(titles);
   const photos = {}, by = {}, bu = {}, miss = [];
   let partial = false;
   for (const t of want) {

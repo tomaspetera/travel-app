@@ -1118,6 +1118,8 @@ Zkopíruj `.env.example` na `.env`:
 | `MAPY_API_KEY` | – | volitelné, zdarma: [Mapy.com](#mapycom-volitelně-zdarma) – turistická mapa pod trasou pěšky a na kole, hledání vesnic, adres a míst (hrady, rozhledny) v Objevuj a záloha plánovače tras, když BRouter neodpovídá. Klíč: účet Seznam → [developer.mapy.com](https://developer.mapy.com/) → *Můj účet* → *Projekty* → *Nový projekt* (název ATLAS) → v projektu je hned první **API klíč** – ten zkopírovat do Renderu. Bez klíče vše jako dřív |
 | `MAPY_MAX_PER_HOUR` | `340` | strop kreditů Mapy.com za hodinu (dlaždice mapy 1, hledání / trasa / výškový profil 4). 340 × 720 h ≈ 245 000 < 250 000 kreditů zdarma měsíčně – volné kredity tak nedojdou ani při zneužití; nad stropem se Mapy.com do konce hodiny vynechá (mapa OpenFreeMap, trasy BRouter, hledání Open-Meteo) |
 | `TILES_RATE_LIMIT` | `300` | max. dlaždic Mapy.com z jedné IP za 10 minut (jen ty mimo mezipaměť serveru) |
+| `PHOTOS_RATE_LIMIT` | `60` | max. dotazů na fotky měst (`/api/photos`, dávka až 30 karet) z jedné IP za 10 minut – jen ty, které nejdou celé z mezipaměti serveru (Wikimedia, Pexels, Unsplash mají strop pro celý server) |
+| `GEOCODE_RATE_LIMIT` | `200` | max. geokódování přes Open-Meteo (našeptávač, hledání míst) z jedné IP za 10 minut, jen mimo mezipaměť; nad limitem našeptávač nabídne místa z vlastních dat |
 | `FEEDBACK_EMAIL` | – | volitelné: adresa pro **💬 Napsat nám** v *⋯ Další → ℹ️ O aplikaci a soukromí* (mailto s předmětem „ATLAS – zpětná vazba (verze …, obrazovka: …)“). `/api/health` ji pošle jako `feedback: { email }` jen když je nastavená a platná (jedna adresa); bez ní tlačítko chybí. Adresa jen tady, v kódu žádná |
 | `ATLAS_MOCK` | `0` | `1` = demo data (totéž co `npm run demo`) |
 

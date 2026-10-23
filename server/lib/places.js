@@ -323,11 +323,25 @@ export function localSuggestions(query, limit = 10, { home = CZ_CENTER, role = '
   return rank(localScored(query, home), { role, limit });
 }
 
-export async function geocode(query) {
+const geoKey = (q) => `geo:${normalize(q)}`;
+/** Odpoví geokódování textu bez dotazu na Open-Meteo (krátký text, DEMO, mezipaměť)? Pak se do limitu nepočítá. */
+export const geocodeCached = (query) => {
+  const q = String(query || '').trim();
+  return q.length < 2 || config.mock || cache.get(geoKey(q)) !== undefined;
+};
+const geoLimited = () => Object.assign(new Error('Příliš mnoho hledání míst – zkus to za pár minut.'), { code: 'LIMIT' });
+
+/**
+ * Geokódování (Open-Meteo, v mezipaměti 7 dní). allow: smí jít dotaz mimo mezipaměť na Open-Meteo (limit z jedné adresy
+ * – index.js)? Zdarma má Open-Meteo strop dotazů pro celý server; náhodné texty by ho jinak vyčerpaly všem a vytlačily
+ * z mezipaměti hledání letů. Nesmí → chyba code 'LIMIT' (našeptávač pak nabídne jen místa z vlastních dat).
+ */
+export async function geocode(query, { allow = null } = {}) {
   const q = String(query || '').trim();
   if (q.length < 2) return [];
   if (config.mock) return localCityCenters(q);
-  return cache.wrap(`geo:${normalize(q)}`, 7 * 864e5, async () => {
+  if (allow && !geocodeCached(q) && !allow()) throw geoLimited();
+  return cache.wrap(geoKey(q), 7 * 864e5, async () => {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=cs&format=json`;
     // občasná 502 Open-Meteo (živě 10/2026: Objevuj „Krakov“ nic nenašel, o chvíli později v pořádku) – jednou znovu;
     // timeout ne (hledání by trvalo dvakrát tak dlouho)
@@ -384,10 +398,10 @@ async function enLookup(key, fn) {
  * Překlep („Krakv“ → geokodér najde Krokvåg v Norsku): když žádný název nezačíná napsaným textem, nahoře oprava
  * z vlastních dat (fuzzy: true – nabídka ukáže „Překlep? Asi myslíš:“).
  */
-export async function geocodePlaces(query) {
+export async function geocodePlaces(query, { allow = null } = {}) {
   let items;
   try {
-    items = await geocode(query);
+    items = await geocode(query, { allow });
   } catch (e) {
     items = localCityCenters(query);
     if (!items.length) throw e;
@@ -415,7 +429,7 @@ export const mapySugCached = (q) => cache.get(mapySugKey(String(q || '').trim())
  * mapy: false (nebo bez klíče, výpadek, strop kreditů) = jen geocodePlaces. Návrhy Mapy.com mají src: 'mapy'
  * (u výsledků se pak ukáže logo Mapy.com – podmínka jejich API).
  */
-export async function geocodeExplore(query, { mapy = true, regions = false } = {}) {
+export async function geocodeExplore(query, { mapy = true, regions = false, allow = null } = {}) {
   const q = String(query || '').trim();
   // regions (hledání v Objevuj) i hory a příroda z vlastního seznamu (Sněžka, Šumava, „Krkon…“)
   const nat = regions ? natureMatches(q) : [];
@@ -423,7 +437,7 @@ export async function geocodeExplore(query, { mapy = true, regions = false } = {
   const fromMapy = mapy && mapyOn() && q.length >= 2
     ? cache.wrap(mapySugKey(q), 7 * 864e5, () => mapySuggest(q, { limit: 6 })) : Promise.resolve([]);
   // oblast stejného jména jako hory (Dolomity): napřed hory – město největšího letiště oblasti (Verona) do hor nevede
-  const [om, my, rg] = await Promise.allSettled([geocodePlaces(q), fromMapy, regions && !natExact ? regionPlace(q) : null]);
+  const [om, my, rg] = await Promise.allSettled([geocodePlaces(q, { allow }), fromMapy, regions && !natExact ? regionPlace(q) : null]);
   const extra = my.status === 'fulfilled' ? my.value : [];
   if (om.status === 'rejected' && !extra.length && !rg.value && !nat.length) throw om.reason;
   let base = om.status === 'fulfilled' ? om.value : [];
@@ -495,7 +509,8 @@ const SKIP_FC = /^(AIRP|AIRF|AIRH|AIRB|MT|MTS|HLL|HLLS|PK|PPLX|ADM\d*H?)$/;
  */
 // meta.geoErr = true: geokódování selhalo (výpadek, timeout) – návrhy jsou jen z vlastních dat
 // nature = true (jen Objevuj, místo z věty): navrch i hory a příroda přesným názvem nebo tvarem („Krkonoš“) – pole letů ne
-export async function suggest(query, { limit = 8, remote = true, near = '', role = 'to', meta = {}, nature = false } = {}) {
+// allow: smí geokódování mimo mezipaměť na Open-Meteo (limit z jedné adresy – geocode)? Nesmí → jako výpadek (geoErr).
+export async function suggest(query, { limit = 8, remote = true, near = '', role = 'to', meta = {}, nature = false, allow = null } = {}) {
   const home = homePoint(near);
   const q = normalize(query);
   const cands = localScored(query, home);
@@ -503,7 +518,7 @@ export async function suggest(query, { limit = 8, remote = true, near = '', role
   if (remote && q.length >= 3 && cands.filter((c) => c.m >= 80).length < 5) {
     let geo = [];
     try {
-      geo = await geocode(query);
+      geo = await geocode(query, { allow });
     } catch {
       // Geokódování je jen doplněk – při výpadku vrať lokální výsledky.
       meta.geoErr = true;

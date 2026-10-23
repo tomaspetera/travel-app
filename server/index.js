@@ -29,10 +29,10 @@ import { planStay, StayPlanError } from './lib/stayplan.js';
 import { kiwi } from './providers/kiwi.js';
 import { isYmd, daysBetween } from './lib/dates.js';
 import { affiliateOn } from './lib/links.js';
-import { HttpError } from './lib/http.js';
+import { HttpError, publicMessage } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
 import { airportClimate, climateAt, countryClimate, sourceText } from './lib/climate.js';
-import { cityPhotos } from './lib/photos.js';
+import { cityPhotos, photosCached } from './lib/photos.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
 import { serveIndex, serveServiceWorker } from './lib/pwa.js';
@@ -40,6 +40,7 @@ import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from '
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
 import { sharedRuns, gate, perClient } from './lib/crowd.js';
+import { SECURITY_HEADERS, API_CSP, clientIp, crossSite } from './lib/security.js';
 
 const PUBLIC = path.join(config.root, 'public');
 const DATA = path.join(config.root, 'data');
@@ -133,21 +134,30 @@ function serveFile(req, res, file, { maxAge = 300 } = {}) {
   return true;
 }
 
+// Tělo nad limit: dál se nečte a odpověď 413 spojení zavře (badBody) – dřív se spojení utrhlo hned a klient
+// nedostal žádnou odpověď.
 function readBody(req, limit = 64 * 1024) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     req.on('data', (c) => {
+      if (size > limit) return;
       size += c.length;
       if (size > limit) {
-        reject(new UserError('Příliš velký požadavek'));
-        req.destroy();
+        chunks.length = 0;
+        req.pause();
+        reject(Object.assign(new UserError('Příliš velký požadavek'), { status: 413 }));
       } else chunks.push(c);
     });
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
 }
+
+/** Chyba čtení těla: nad limit 413 (spojení se pak zavře, zbytek těla se nečte), jinak neplatný JSON 400. */
+const badBody = (req, res, e) => (e && e.status === 413
+  ? sendJson(req, res, 413, { error: e.message }, { Connection: 'close' })
+  : sendJson(req, res, 400, { error: 'Neplatný JSON' }));
 
 // Limity z jedné adresy za 10 minut (RateLimiter: omezená paměť, při návalu se nemaže všem najednou)
 const hits = new RateLimiter();
@@ -158,7 +168,9 @@ const explores = new RateLimiter(); // Objevuj (místa, program, výlety, kolo, 
 const mapySugs = new RateLimiter(); // návrhy Mapy.com v hledání Objevuj (jen dotazy mimo mezipaměť serveru)
 const tileHits = new RateLimiter(); // dlaždice Mapy.com přes server (jen mimo mezipaměť serveru)
 const clientErrs = new RateLimiter({ windowMs: 60 * 60e3 }); // hlášení chyb z prohlížeče (/api/client-error): 30 za hodinu z jedné adresy
-const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+const photoHits = new RateLimiter(); // fotky měst mimo mezipaměť serveru (Wikimedia, Pexels, Unsplash)
+const geoHits = new RateLimiter(); // geokódování mimo mezipaměť serveru (Open-Meteo) – našeptávač a hledání míst
+// clientIp (server/lib/security.js): na Renderu adresa od Cloudflare, ne podvrhnutelná první z X-Forwarded-For
 /** Nad limitem → true a req.retryAfter = za kolik sekund to půjde znovu (hlavička Retry-After u 429). */
 function rateLimited(req, max = config.searchesPer10Min, bucket = hits) {
   const wait = bucket.hit(clientIp(req), max);
@@ -208,8 +220,10 @@ async function handleSearch(req, res) {
     text = await readBody(req);
     body = JSON.parse(text || '{}');
   } catch (e) {
-    return sendJson(req, res, 400, { error: e instanceof UserError ? e.message : 'Neplatný JSON' });
+    return badBody(req, res, e);
   }
+  // null, pole, číslo: hledání by spadlo uvnitř („Cannot read properties of null“) – hned srozumitelně 400
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return sendJson(req, res, 400, { error: 'Neplatný JSON' });
   // Přetížený server: nové hledání (stejné neběží) nad frontou se odmítne hned – do limitu adresy se nepočítá.
   const shareKey = JSON.stringify(body);
   const fresh = !searchRuns.has(shareKey);
@@ -275,7 +289,8 @@ async function streamSearch(req, res, body, shareKey = JSON.stringify(body)) {
     if (result) write({ type: 'result', result });
   } catch (e) {
     if (!(e instanceof UserError)) console.error('[search]', e);
-    write({ type: 'error', error: e instanceof UserError ? e.message : `Chyba serveru: ${e.message}` });
+    // text neočekávané chyby (názvy proměnných, adresy zdrojů) jen do logu, uživateli česky obecně
+    write({ type: 'error', error: e instanceof UserError ? e.message : 'Chyba serveru – hledání se nepovedlo, zkus to prosím za chvíli znovu.' });
   } finally {
     clearInterval(ping);
   }
@@ -320,7 +335,7 @@ async function diagnose() {
         }
         return { id: p.id, ok: true, ms: Date.now() - t0, detail };
       } catch (e) {
-        return { id: p.id, ok: false, ms: Date.now() - t0, error: e.message || String(e) };
+        return { id: p.id, ok: false, ms: Date.now() - t0, error: publicMessage(e) };
       }
     });
     const probe = async (id, fn) => {
@@ -329,7 +344,7 @@ async function diagnose() {
         const detail = await fn();
         return { id, ok: true, ms: Date.now() - t0, detail };
       } catch (e) {
-        return { id, ok: false, ms: Date.now() - t0, error: e.message || String(e) };
+        return { id, ok: false, ms: Date.now() - t0, error: publicMessage(e) };
       }
     };
     const extra = [];
@@ -354,6 +369,12 @@ async function route(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const p = url.pathname;
 
+  if (p.startsWith('/api/')) {
+    // API je jen pro ATLAS: z cizího webu (skript, obrázek, formulář) 403 – viz crossSite; odpověď API se nikdy
+    // nevykreslí jako stránka (CSP bez ničeho)
+    res.setHeader('Content-Security-Policy', API_CSP);
+    if (crossSite(req)) return sendJson(req, res, 403, { error: 'API ATLASu jde používat jen z aplikace ATLAS.' });
+  }
   if (p === '/healthz') {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
     return res.end('ok');
@@ -378,7 +399,7 @@ async function route(req, res) {
     try {
       b = JSON.parse((await readBody(req, CLIENT_ERR_MAX)) || 'null');
     } catch (e) {
-      return sendJson(req, res, e instanceof UserError ? 413 : 400, { error: e instanceof UserError ? e.message : 'Neplatný JSON' });
+      return badBody(req, res, e);
     }
     const r = cleanReport(b);
     const line = r && recordClientError(r);
@@ -395,7 +416,9 @@ async function route(req, res) {
     // partial: geokódování teď nejde (návrhy jen z vlastních dat) – našeptávač to zkusí znovu
     const meta = {};
     // nature=1: i hory a příroda přesným názvem (jen Objevuj – místo z věty), pole letů je nechtějí
-    const items = await suggest(q, { remote, near, role, meta, nature: url.searchParams.get('nature') === '1' });
+    // geokódování mimo mezipaměť jen do limitu z adresy (geoHits) – nad ním návrhy z vlastních dat (partial)
+    const allow = () => !rateLimited(req, config.geocodePer10Min, geoHits);
+    const items = await suggest(q, { remote, near, role, meta, nature: url.searchParams.get('nature') === '1', allow });
     return sendJson(req, res, 200, { items, ...(meta.geoErr ? { partial: true } : {}) });
   }
   if (p === '/api/geocode') {
@@ -407,9 +430,11 @@ async function route(req, res) {
     try {
       // regions: oblast přesným názvem (Toskánsko, Kanáry) jako její hlavní město a hory a příroda z vlastního seznamu
       // (Sněžka, Šumava) – jen hledání v Objevuj (mapy=1)
-      items = await geocodeExplore(q, { mapy, regions: url.searchParams.get('mapy') === '1' });
+      items = await geocodeExplore(q, { mapy, regions: url.searchParams.get('mapy') === '1', allow: () => !rateLimited(req, config.geocodePer10Min, geoHits) });
     } catch (e) {
-      return sendJson(req, res, 502, { error: `Geokódování nedostupné: ${e.message}` });
+      if (e.code === 'LIMIT') return sendJson(req, res, 429, { error: e.message });
+      console.warn(`geocode: ${e.message}`);
+      return sendJson(req, res, 502, { error: 'Hledání míst teď nefunguje (geokódování neodpovídá) – zkus to prosím za chvíli.' });
     }
     const cc = (url.searchParams.get('cc') || '').toUpperCase();
     if (cc) items = [...items.filter((x) => x.cc === cc), ...items.filter((x) => x.cc !== cc)];
@@ -499,13 +524,16 @@ async function route(req, res) {
       }
       return sendJson(req, res, 200, { available: true, items });
     } catch (e) {
-      return sendJson(req, res, 200, { available: true, items: [], error: e.message });
+      return sendJson(req, res, 200, { available: true, items: [], error: publicMessage(e) });
     }
   }
   if (p === '/api/photos') {
     // fotky měst na karty radaru (Wikipedia) – ?t=Řím|Tirana|…
     const t = (url.searchParams.get('t') || '').split('|').filter(Boolean);
     if (!t.length) return sendJson(req, res, 400, { error: 'Zadej názvy měst (t=Řím|Tirana).' });
+    // Názvy, ke kterým server fotky ještě nemá, stojí dotazy na Wikipedii a s klíčem i na Pexels / Unsplash (strop pro celý
+    // server) – jen do limitu z adresy; odpověď celá z mezipaměti zdarma. Aplikace 429 snese (karty bez fotky, příště znovu).
+    if (!photosCached(t) && rateLimited(req, config.photosPer10Min, photoHits)) return sendJson(req, res, 429, { error: 'Příliš mnoho fotek najednou – zkus to za pár minut.' });
     const r = await cityPhotos(t);
     // fotky z Wikimedie jen na 6 h – po přidání klíče (Unsplash, Pexels) se brzy vymění za hezčí
     return sendJson(req, res, 200, r, { 'Cache-Control': `public, max-age=${r.partial ? 3600 : r.prov === 'wiki' ? 21600 : 86400}` });
@@ -614,8 +642,8 @@ async function route(req, res) {
     let b;
     try {
       b = JSON.parse((await readBody(req)) || '{}');
-    } catch {
-      return sendJson(req, res, 400, { error: 'Neplatný JSON' });
+    } catch (e) {
+      return badBody(req, res, e);
     }
     if (!b || typeof b !== 'object' || Array.isArray(b)) return sendJson(req, res, 400, { error: 'Neplatný JSON' });
     const lat = Number(b.lat);
@@ -641,8 +669,8 @@ async function route(req, res) {
     let b;
     try {
       b = JSON.parse((await readBody(req)) || '{}');
-    } catch {
-      return sendJson(req, res, 400, { error: 'Neplatný JSON' });
+    } catch (e) {
+      return badBody(req, res, e);
     }
     if (!b || typeof b !== 'object' || Array.isArray(b)) return sendJson(req, res, 400, { error: 'Neplatný JSON' });
     const lat = Number(b.lat);
@@ -691,8 +719,8 @@ async function route(req, res) {
     let b;
     try {
       b = JSON.parse((await readBody(req)) || '{}');
-    } catch {
-      return sendJson(req, res, 400, { error: 'Neplatný JSON' });
+    } catch (e) {
+      return badBody(req, res, e);
     }
     if (b && typeof b === 'object' && b.bases === undefined && rateLimited(req)) return sendJson(req, res, 429, { error: 'Příliš mnoho požadavků – zkus to za pár minut.' });
     // Přepočet nad svým limitem se neodmítá: odpoví bez nových dotazů na BRouter (trasy z mezipaměti, jinak odhad).
@@ -710,8 +738,8 @@ async function route(req, res) {
     let b;
     try {
       b = JSON.parse((await readBody(req)) || '{}');
-    } catch {
-      return sendJson(req, res, 400, { error: 'Neplatný JSON' });
+    } catch (e) {
+      return badBody(req, res, e);
     }
     if (!b || typeof b !== 'object' || Array.isArray(b)) return sendJson(req, res, 400, { error: 'Neplatný JSON' });
     const lat = Number(b.lat);
@@ -795,9 +823,12 @@ async function route(req, res) {
   }
   const file = path.normalize(path.join(PUBLIC, rel));
   if (!file.startsWith(PUBLIC + path.sep)) {
-    res.writeHead(403);
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end('Forbidden');
   }
+  // Skryté soubory a složky (.env, .git, .DS_Store) se nikdy neposílají – kdyby se do public/ dostaly; service worker
+  // je taky nebere (pwa.js walk)
+  if (/(^|[\\/])\./.test(path.relative(PUBLIC, file))) return serveIndex(req, res, { publicDir: PUBLIC, dataDir: DATA });
   // Kód aplikace (HTML, JS, CSS, manifest) se vždy ověří u serveru (no-cache → levné 304): po nasazení nikdy stará
   // verze – ani z paměti otevřeného panelu, která by soubor s max-age použila bez ptaní. Obrázky, písma a data mapy
   // ve vendor/ mají mezipaměť jako dřív.
@@ -811,6 +842,7 @@ export function createServer() {
   // Pomalý klient (hlavičky / tělo po kapkách) nesmí držet spojení minuty: hlavičky do 20 s, celý požadavek do 30 s.
   // Platí jen pro příjem požadavku – dlouhé streamované hledání (odpověď) se tím nezkracuje.
   return http.createServer({ headersTimeout: 20e3, requestTimeout: 30e3 }, (req, res) => {
+    for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v); // server/lib/security.js
     route(req, res).catch((e) => {
       // Chyba cizí služby (HttpError z request()) není chyba uživatele: 503 a česky, bez adresy API.
       if (e instanceof HttpError) {
@@ -822,8 +854,10 @@ export function createServer() {
         return res.end();
       }
       if (/^Timeout \d+ ms/.test(e.message || '') && !res.headersSent) return sendJson(req, res, 503, { error: 'Zdroj dat odpovídá příliš pomalu – zkus to prosím za chvíli.' });
-      if (!e.status || e.status >= 500) console.error(e);
-      if (!res.headersSent) sendJson(req, res, e.status || 500, { error: e.message });
+      const status = e.status >= 400 && e.status < 600 ? e.status : 500;
+      if (status >= 500) console.error(e);
+      // chyba uživatele (400 – UserError, StayQueryError) má český text pro aplikaci; jiná (chyba v kódu) jen do logu
+      if (!res.headersSent) sendJson(req, res, status, { error: status < 500 ? e.message : 'Chyba serveru – zkus to prosím za chvíli znovu.' });
       else res.end();
     });
   });
