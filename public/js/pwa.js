@@ -192,7 +192,7 @@
   function iosHint() {
     if (typeof modalOpen !== 'function') return;
     const close = typeof ico === 'function' ? ico('M18 6L6 18M6 6l12 12') : '×';
-    modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" onclick="modalClose()" aria-label="Zavřít">${close}</button>
+    modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${close}</button>
       <div class="modal-hero-inner"><h2 class="pwa-h">📲 ATLAS na plochu</h2><div class="pwa-sub">iPhone a iPad · pár vteřin</div></div></div>
       <div class="modal-body"><ol class="pwa-steps">
         <li>Klepni na <b>Sdílet</b> ${SHARE_ICO} – v Safari dole uprostřed, na iPadu nahoře vedle adresy.</li>
