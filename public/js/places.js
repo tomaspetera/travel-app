@@ -292,16 +292,18 @@
   // Mapa bez podkladu (nenačetly se dlaždice ani záložní OpenStreetMap): poznámka nad mapou, značky a trasa zůstanou.
   const blankHtml = center => `<div class="map-blank" role="status"><div>🗺️ Mapa se nenačetla</div>${gmBtn(center)}</div>`;
 
-  // Knihovna mapy (~1 MB) se načte až při prvním zobrazení mapy, ne s celou aplikací.
+  // Knihovna mapy (~1 MB) se načte až při prvním zobrazení mapy, ne s celou aplikací – z adresy s otiskem obsahu od
+  // serveru (lazy.js Lazy.url), kterou Cloudflare a prohlížeč drží bez ptaní serveru.
   let mapLibP = null;
+  const libUrl = u => (window.Lazy && Lazy.url ? Lazy.url(u) : u);
   const loadMapLib = () => mapLibP || (mapLibP = new Promise((res, rej) => {
     if (typeof maplibregl !== 'undefined') return res();
     const css = document.createElement('link');
-    css.rel = 'stylesheet'; css.href = 'vendor/maplibre/maplibre-gl.css';
+    css.rel = 'stylesheet'; css.href = libUrl('vendor/maplibre/maplibre-gl.css');
     // před styly aplikace, aby jejich úpravy (vyskakovací okna, sticky mapa) měly přednost
     document.head.insertBefore(css, document.head.querySelector('link[rel="stylesheet"]'));
     const sc = document.createElement('script');
-    sc.src = 'vendor/maplibre/maplibre-gl.js';
+    sc.src = libUrl('vendor/maplibre/maplibre-gl.js');
     sc.onload = () => res();
     sc.onerror = () => { mapLibP = null; sc.remove(); rej(new Error('Mapu se nepodařilo načíst.')); };
     document.head.appendChild(sc);

@@ -8,11 +8,17 @@
      klepnutí před dostažením) – s moduly před ním v seznamu;
    - Lazy.run('trip', fn): načtený modul → fn hned (jako dřív, beze změny chování), jinak fn po načtení.
    Seznam z data-later ukládá i service worker (server/lib/pwa.js shellAssets) – offline jsou i odložené moduly.
+   Server do seznamu doplní otisk obsahu (js/trip.js?v=…, pwa.js versionAssets) – Cloudflare i prohlížeč pak soubor
+   drží bez ptaní serveru. Stejně knihovny map z data-files (d3, MapLibre): Lazy.url('vendor/d3.min.js') = adresa
+   s otiskem, kterou aplikace načte, až mapu otevře.
    Skripty z vlastního serveru CSP stránky pouští (script-src 'self'). */
 (function () {
   const me = document.currentScript;
-  const LIST = String((me && me.getAttribute('data-later')) || '').split(/\s+/).filter(Boolean);
-  const nameOf = src => src.replace(/^.*\//, '').replace(/\.js$/, '');
+  const list = name => String((me && me.getAttribute(name)) || '').split(/\s+/).filter(Boolean);
+  const LIST = list('data-later');
+  const FILES = list('data-files');
+  const bare = src => src.replace(/[?#].*$/, '');
+  const nameOf = src => bare(src).replace(/^.*\//, '').replace(/\.js$/, '');
   const loads = new Map(); // src → Promise rozběhnutého nebo hotového načtení
   const done = new Set(); // názvy načtených modulů
   let allDone = null;
@@ -62,5 +68,8 @@
     if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 2000 }); else setTimeout(go, 300);
   }
 
-  window.Lazy = { LIST, need, has, run, soon, settled };
+  /** Adresa souboru z data-files s otiskem obsahu od serveru; bez něj (soubor v seznamu není) beze změny. */
+  const url = path => FILES.find(u => bare(u) === path) || path;
+
+  window.Lazy = { LIST, need, has, run, soon, settled, url };
 })();

@@ -1,7 +1,10 @@
 /* ATLAS – service worker: aplikace se otevře i bez internetu (uložené cesty a plány), ale nikdy neukáže starý kód.
    - Stránka a soubory aplikace (HTML, JS, CSS, vendor/, data/*.json): vždy nejdřív ze sítě, a to s ověřením u serveru
      (cache: 'no-cache' – ne neověřená kopie z mezipaměti prohlížeče). Každou úspěšnou odpověď uloží; uloženou kopii
-     použije, jen když síť selže (offline).
+     použije, jen když síť selže (offline). Výjimka: skripty a styly s otiskem obsahu v adrese (js/app.js?v=…, doplní
+     server do stránky) – obsah pod takovou adresou se nikdy nezmění, server je posílá s immutable, takže je stačí vzít
+     z mezipaměti prohlížeče (Cloudflare) bez ptaní serveru; nová verze souboru = nová adresa, stará se tak nikdy
+     nepodstrčí.
    - Stránku prohlížeč žádá ze sítě hned při otevření, souběžně se spouštěním service workeru (navigation preload –
      na telefonu se uspaný service worker probouzí i stovky ms). Ověření u serveru zajistí jeho Cache-Control: no-cache
      u stránky (server/lib/pwa.js serveIndex) – stejně jako u běžné navigace bez service workeru.
@@ -54,8 +57,21 @@ function route(req, scope) {
 
 const shellKey = () => self.registration.scope;
 
-/** Požadavek na síť s ověřením u serveru (cache: 'no-cache' – nikdy neověřená kopie z mezipaměti prohlížeče). */
+/** Otisk obsahu z adresy (js/app.js?v=…, server/lib/pwa.js versionAssets) – pod ní je vždy tentýž obsah –, nebo null. */
+const hashOf = (url) => (String(url).match(/[?&]v=([0-9a-f]{8,})(?:&|#|$)/) || [])[1] || null;
+const versioned = (url) => Boolean(hashOf(url));
+// Pod adresu s otiskem se uloží jen obsah, který server potvrdil (X-Atlas-Hash = otisk z adresy). Jiný (během
+// nasazení odpoví ještě starý server – bez potvrzení, s no-cache) by v uložené sadě zůstal do další verze; příště
+// přijde správný.
+const confirmed = (url, res) => !versioned(url) || res.headers.get('x-atlas-hash') === hashOf(url);
+
+/**
+ * Požadavek na síť s ověřením u serveru (cache: 'no-cache' – nikdy neověřená kopie z mezipaměti prohlížeče). Soubor
+ * s otiskem v adrese beze změny: mezipaměť prohlížeče ho vrátí bez ptaní serveru a ověřit není co (server posílá
+ * immutable jen pro obsah s tímto otiskem, jiný s no-cache – ten prohlížeč ověří sám).
+ */
 function fresh(req, kind) {
+  if (kind === 'asset' && versioned(req.url)) return req;
   try {
     // Navigace: nový požadavek se stejnou adresou (navigační nejde přepsat); redirect: 'manual' = přesměrování
     // dostane prohlížeč jako u běžné navigace.
@@ -128,8 +144,9 @@ async function networkFirst(event, kind) {
 async function remember(req, kind, res) {
   const html = /^text\/html\b/i.test(res.headers.get('content-type') || '');
   // Místo souboru přišla stránka (wifi s přihlášením ji vrátí se stavem 200; chybějící soubor má od serveru stránku
-  // 404, ta se neuloží už podle stavu) – pod adresu souboru se neukládá.
-  if (kind === 'asset' && html) return;
+  // 404, ta se neuloží už podle stavu) – pod adresu souboru se neukládá. Ani obsah, který server pro adresu s otiskem
+  // nepotvrdil (confirmed).
+  if (kind === 'asset' && (html || !confirmed(req.url, res))) return;
   const cache = await caches.open(CACHE);
   // Stránka aplikace (i pod jinou adresou, např. s ?parametrem) se ukládá jen jednou, pod adresou rozsahu: offline se
   // pak otevře vždy ta poslední, ne starší kopie z jiné adresy s jinými skripty.
@@ -139,11 +156,13 @@ async function remember(req, kind, res) {
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    // Vše ze sítě s ověřením – do nové verze nesmí přijít stará kopie z mezipaměti prohlížeče. Soubor, který server
-    // nemá (404), se přeskočí; výpadek sítě instalaci zastaví a prohlížeč ji zkusí znovu při další návštěvě.
+    // Vše ze sítě s ověřením – do nové verze nesmí přijít stará kopie z mezipaměti prohlížeče. Soubory s otiskem
+    // v adrese ne: stránka je právě stáhla a pod jejich adresou starší obsah být nemůže (fresh) – instalace je vezme
+    // z mezipaměti prohlížeče bez dalšího dotazu. Soubor, který server nemá (404), se přeskočí; výpadek sítě instalaci
+    // zastaví a prohlížeč ji zkusí znovu při další návštěvě.
     await Promise.all(PRECACHE.map(async (u) => {
-      const res = await fetch(new Request(u, { cache: 'no-cache' }));
-      if (res.ok) await cache.put(u, res);
+      const res = await fetch(new Request(u, { cache: versioned(u) ? 'default' : 'no-cache' }));
+      if (res.ok && confirmed(u, res)) await cache.put(u, res);
     }));
     // Nový service worker hned převezme otevřené stránky: soubory bere vždy ze sítě stejně jako ten starý, takže jim
     // nepodstrčí jiný kód – mění se jen mezipaměť pro offline. Na novou verzi upozorní pwa.js („Obnovit“).
@@ -173,7 +192,7 @@ self.addEventListener('activate', (event) => {
  */
 async function rewriteScripts() {
   const cache = await caches.open(CACHE);
-  await Promise.all(PRECACHE.filter((u) => /\.js$/.test(u)).map(async (u) => {
+  await Promise.all(PRECACHE.filter((u) => /\.js(?:\?|$)/.test(u)).map(async (u) => {
     const res = await cache.match(u);
     if (res) await cache.put(u, res);
   }));

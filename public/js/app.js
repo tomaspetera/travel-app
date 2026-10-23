@@ -1540,7 +1540,9 @@ let d3Load = null;
 function loadD3() {
   if (typeof d3 !== 'undefined' && typeof topojson !== 'undefined') return Promise.resolve();
   const add = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => bad(new Error('nenačteno: ' + src)); document.head.append(s); });
-  return d3Load || (d3Load = add('vendor/d3.min.js').then(() => add('vendor/topojson-client.min.js')).catch(e => { d3Load = null; throw e; }));
+  // adresa s otiskem obsahu od serveru (lazy.js Lazy.url) – Cloudflare a prohlížeč knihovnu drží bez ptaní serveru
+  const at = u => (window.Lazy && Lazy.url ? Lazy.url(u) : u);
+  return d3Load || (d3Load = add(at('vendor/d3.min.js')).then(() => add(at('vendor/topojson-client.min.js'))).catch(e => { d3Load = null; throw e; }));
 }
 window.loadD3 = loadD3;
 async function loadWorld() {

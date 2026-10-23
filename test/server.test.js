@@ -508,9 +508,10 @@ test('statické soubory, data a ochrana proti path traversal', async () => {
   assert.match(e.headers.get('cache-control'), /max-age=3600/);
   const ej = await e.json();
   assert.equal(ej.countries.length, c.length);
-  assert.ok(page.indexOf('<script src="js/entry.js">') > page.indexOf('<script src="js/app.js">'), 'entry.js po app.js');
-  assert.match(page, /<script src="js\/lazy\.js" data-later="[^"]*\bjs\/trip\.js\b/, 'trip.js odložený (lazy.js) – po entry.js');
-  assert.ok(!page.includes('<script src="js/trip.js">'));
+  // adresy skriptů mají od serveru otisk obsahu (js/app.js?v=… – test/pwa.test.js)
+  assert.ok(page.indexOf('<script src="js/entry.js?v=') > page.indexOf('<script src="js/app.js?v='), 'entry.js po app.js');
+  assert.match(page, /<script src="js\/lazy\.js\?v=[0-9a-f]+" data-later="[^"]*\bjs\/trip\.js\?v=[0-9a-f]+/, 'trip.js odložený (lazy.js) – po entry.js');
+  assert.ok(!page.includes('<script src="js/trip.js'));
   assert.equal((await fetch(`${base}/js/entry.js`)).status, 200);
   assert.match(page, /id="sgEntry"/, 'vstupní podmínky v průvodci „Jak hledat chytře“');
   // fetch() by „..“ normalizoval, proto surový HTTP požadavek.

@@ -1497,6 +1497,11 @@ nic se neukládá na server a nepotřebuje to účet.
   Soubory mají vedle `Last-Modified` i **ETag podle obsahu** (zvlášť pro brotli / gzip / bez komprese) a ten má přednost:
   nasazení posune čas změny u všech souborů, ale nezměněné dál odpoví `304` – po nasazení se stáhne jen to, co se
   opravdu změnilo (místo celé aplikace ~600 kB).
+  **Skripty a styly s otiskem obsahu v adrese** (`server/lib/pwa.js` `versionAssets`): server ve stránce doplní ke
+  skriptům, stylům, odloženým modulům (`data-later`) a knihovnám map (`data-files` → `Lazy.url`) `?v=<otisk>` a takovou
+  adresu posílá s `Cache-Control: public, max-age=31536000, immutable` – obsah pod ní se nikdy nezmění (nová verze =
+  nová adresa), takže ji Cloudflare i prohlížeč drží bez ptaní serveru. Adresa bez otisku nebo s jiným (starší stránka
+  či service worker) dostane dnešní soubor s `no-cache` jako dřív. Měření a co hlídat v Cloudflare: `docs/skalovani.md`.
 - **Opakované otevření bez ptaní serveru:** stránka ze sítě nese verzi v hlavičce `X-Atlas-Build`; je-li stejná jako
   verze service workeru (otisk obsahu všech souborů), vezme service worker skripty a styly té stránky rovnou z uložené
   sady (jsou totožné) – ušetří ~30 ověření u serveru při každém otevření (na Renderu 0,2–0,8 s). Jiná verze = soubory
@@ -1528,7 +1533,8 @@ nic se neukládá na server a nepotřebuje to účet.
   start počká na průvodce jako dřív.
 - `/sw.js` skládá server: verze je otisk obsahu všech souborů v `public/` a uložených dat (ne čas změny – nasazení
   se stejnými soubory nic nezmění) a seznam souborů k uložení při instalaci je stránka + vše, na co odkazuje
-  `index.html` (skripty i odložené moduly z `data-later`, styly, manifest a jeho ikony) + `data/countries.json`,
+  `index.html` (skripty i odložené moduly z `data-later` a styly – pod adresou s otiskem jako ve stránce, manifest a jeho
+  ikony) + `data/countries.json`,
   `data/entry.json` a mapa světa – offline jsou tak i průvodce, Objevuj a Před cestou.
   Přejmenovaný skript se do seznamu dostane sám, chybějící soubor se vynechá.
 - Nové nasazení = jiný `sw.js` → prohlížeč nainstaluje nový service worker, ten si uloží novou sadu souborů, hned

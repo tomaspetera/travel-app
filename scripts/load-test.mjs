@@ -9,6 +9,8 @@
 //   ONLY=search-same NS=50 node scripts/load-test.mjs            jen vybrané fáze, NS = počet hledání ve fázi
 //   SERVER_CPUS=0 …                                             server jen na 1. jádře (taskset) – jako 1 CPU
 //   CPU_QUOTA=0.1 …                                             server s desetinou jádra (cgroup, Linux a root) – jako Render zdarma
+//   EDGE=1 …                                                    „users“ s Cloudflare před serverem: soubor s otiskem v adrese
+//                                                               (immutable) jde na server jen poprvé, další ho mají z Cloudflare
 //
 // DEMO zdroje dostanou prodlevu 75–225 ms na dotaz (DELAY_MS=150) jako skutečné aerolinky – bez ní by celé hledání
 // proběhlo v jednom kuse a požadavky by se vůbec neprolínaly – a mezipaměť odpovědí jako skutečné zdroje (stejná trasa
@@ -116,7 +118,7 @@ async function run(base, pid, serverStats) {
       const text = await r.text();
       // hledání: chyba může přijít až uvnitř streamu (poslední řádek není výsledek)
       const ok = (r.ok || r.status === 304) && (!/ndjson/.test(r.headers.get('content-type') || '') || JSON.parse(text.trim().split('\n').at(-1)).type === 'result');
-      return { cat, ms: performance.now() - t0, ok, status: ok ? r.status : r.ok ? 'stream' : r.status, text };
+      return { cat, ms: performance.now() - t0, ok, status: ok ? r.status : r.ok ? 'stream' : r.status, text, cc: r.headers.get('cache-control') };
     } catch (e) {
       return { cat, ms: performance.now() - t0, ok: false, status: e.cause?.code || e.name };
     }
@@ -178,7 +180,13 @@ async function run(base, pid, serverStats) {
 
   if (want('users')) {
     const { shellAssets, RUNTIME_ASSETS } = await import(new URL('server/lib/pwa.js', ROOT));
-    const assets = ['/sw.js', ...[...shellAssets(readFileSync(new URL('public/index.html', ROOT), 'utf8')), ...RUNTIME_ASSETS].map((u) => `/${u}`)];
+    // adresy jako v prohlížeči: ze stránky od serveru (skripty a styly s otiskem obsahu – server/lib/pwa.js versionAssets)
+    const shell = shellAssets(await (await fetch(`${base}/`)).text());
+    const assets = ['/sw.js', ...[...shell, ...RUNTIME_ASSETS].map((u) => `/${u}`)];
+    // EDGE=1: Cloudflare před serverem – soubor s otiskem v adrese (immutable) jde na server jen poprvé, další návštěvníci
+    // ho mají z Cloudflare (kategorie „edge“). Každá fáze začíná s prázdným Cloudflare jako po nasazení nové verze.
+    const EDGE = process.env.EDGE === '1';
+    let edge = new Set();
     // ETagy jako u vracejícího se návštěvníka (brotli podoba souboru)
     const etags = {};
     for (const a of ['/', ...assets]) etags[a] = (await fetch(`${base}${a}`, { headers: { 'accept-encoding': 'br, gzip' } }).then(async (r) => { await r.arrayBuffer(); return r.headers.get('etag'); }));
@@ -202,7 +210,13 @@ async function run(base, pid, serverStats) {
       const fresh = i % 3 === 0;
       out.push(await get('page', '/', fresh ? {} : { 'if-none-match': etags['/'] }));
       const list = fresh ? assets : ['/sw.js'];
-      for (let k = 0; k < list.length; k += 6) out.push(...await Promise.all(list.slice(k, k + 6).map((a) => get('static', a, fresh ? {} : { 'if-none-match': etags[a] }))));
+      const file = async (a) => {
+        if (EDGE && edge.has(a)) return { cat: 'edge', ms: 0, ok: true, status: 200 };
+        const x = await get('static', a, fresh ? {} : { 'if-none-match': etags[a] });
+        if (EDGE && /\bimmutable\b/.test(x.cc || '')) edge.add(a);
+        return x;
+      };
+      for (let k = 0; k < list.length; k += 6) out.push(...await Promise.all(list.slice(k, k + 6).map(file)));
       out.push(await get('api', '/api/health'));
       const home = homeOf(i);
       const [iata, city, lat, lon] = DEST[i % DEST.length];
@@ -224,7 +238,8 @@ async function run(base, pid, serverStats) {
       return out;
     }
     for (const n of (process.env.USERS || '50,200').split(',').map(Number)) {
-      await phase(`users-${n}`, n, () => Promise.all(Array.from({ length: n }, (_, i) => visit(i + n * 1000))));
+      edge = new Set();
+      await phase(`users-${n}${EDGE ? '-edge' : ''}`, n, () => Promise.all(Array.from({ length: n }, (_, i) => visit(i + n * 1000))));
     }
   }
 }

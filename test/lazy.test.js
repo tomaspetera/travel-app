@@ -11,17 +11,18 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const read = (f) => readFileSync(path.join(ROOT, f), 'utf8');
 const INDEX = read('public/index.html');
-const LAZY_TAG = INDEX.match(/<script src="js\/lazy\.js" data-later="([^"]+)"><\/script>/);
+const LAZY_TAG = INDEX.match(/<script src="js\/lazy\.js" data-later="([^"]+)" data-files="([^"]+)"><\/script>/);
 const LATER = LAZY_TAG ? LAZY_TAG[1].split(' ') : [];
+const FILES = LAZY_TAG ? LAZY_TAG[2].split(' ') : [];
 const tick = () => new Promise((r) => setImmediate(r));
 
 /** lazy.js ve falešném prohlížeči: scripts = přidané <script> (onload / onerror volá test), idle = naplánované úlohy. */
-function loadLazy({ later = 'js/pretrip.js js/places.js js/trip.js', idle = true } = {}) {
+function loadLazy({ later = 'js/pretrip.js js/places.js js/trip.js', files = null, idle = true } = {}) {
   const scripts = [], idleQ = [], timers = [], toasts = [];
   const ctx = {
     Promise, Map, Set, String, Error,
     document: {
-      currentScript: { getAttribute: (n) => (n === 'data-later' ? later : null) },
+      currentScript: { getAttribute: (n) => (n === 'data-later' ? later : n === 'data-files' ? files : null) },
       createElement: (tag) => ({ tag, remove() { this.removed = true; } }),
       head: { appendChild: (el) => { scripts.push(el); return el; } },
     },
@@ -37,7 +38,7 @@ function loadLazy({ later = 'js/pretrip.js js/places.js js/trip.js', idle = true
 const srcs = (list) => list.map((s) => s.src);
 
 test('index.html: lazy.js před ostatními skripty stránky; odložené moduly nemají vlastní <script> (nenačtou se dvakrát)', () => {
-  assert.ok(LAZY_TAG, '<script src="js/lazy.js" data-later="…">');
+  assert.ok(LAZY_TAG, '<script src="js/lazy.js" data-later="…" data-files="…">');
   assert.deepEqual(LATER, ['js/sharecard.js', 'js/pretrip.js', 'js/places.js', 'js/trip.js'], 'pořadí = závislosti: trip.js používá sharecard.js, places.js a pretrip.js');
   const body = [...INDEX.matchAll(/<script src="(js\/[a-z0-9]+\.js)"/g)].map((m) => m[1]).filter((u) => u !== 'js/pwa.js' && u !== 'js/errlog.js' && u !== 'js/flags.js');
   assert.equal(body[0], 'js/lazy.js', 'Lazy existuje dřív než skripty, které ho volají');
@@ -48,15 +49,53 @@ test('index.html: lazy.js před ostatními skripty stránky; odložené moduly n
 });
 
 test('service worker ukládá pro offline všechny skripty z public/js – i odložené moduly a lazy.js', async () => {
-  const { serviceWorker, shellAssets } = await import('../server/lib/pwa.js');
-  const { precache } = serviceWorker({ publicDir: path.join(ROOT, 'public'), dataDir: path.join(ROOT, 'data') });
+  const { serviceWorker, shellAssets, contentVersion } = await import('../server/lib/pwa.js');
+  const { precache, html } = serviceWorker({ publicDir: path.join(ROOT, 'public'), dataDir: path.join(ROOT, 'data') });
   const all = readdirSync(path.join(ROOT, 'public/js')).filter((f) => f.endsWith('.js')).map((f) => `js/${f}`);
   assert.ok(all.length >= 20);
-  for (const u of all) assert.ok(precache.includes(u), `v seznamu pro offline chybí ${u}`);
+  // pod adresou s otiskem obsahu, jakou má stránka od serveru (i v data-later) – ne pod holou adresou
+  for (const u of all) {
+    const v = `${u}?v=${contentVersion(readFileSync(path.join(ROOT, 'public', u)))}`;
+    assert.ok(precache.includes(v), `v seznamu pro offline chybí ${v}`);
+    assert.ok(!precache.includes(u), `${u} bez otisku`);
+  }
   for (const u of LATER) assert.ok(shellAssets(INDEX).includes(u), u);
+  const served = html.match(/<script src="js\/lazy\.js\?v=\w+" data-later="([^"]+)" data-files="([^"]+)"><\/script>/);
+  assert.ok(served, 'stránka od serveru: lazy.js s otiskem');
+  assert.deepEqual(served[1].split(' ').map((u) => u.split('?v=')[0]), LATER);
+  for (const u of served[1].split(' ')) assert.ok(precache.includes(u), `odložený modul ${u} offline`);
+  // knihovny map (data-files) s otiskem, ale offline se neukládají (~1,3 MB – jako dřív)
+  assert.deepEqual(served[2].split(' ').map((u) => u.split('?v=')[0]), FILES);
+  for (const u of served[2].split(' ')) {
+    assert.match(u, /^vendor\/\S+\?v=[0-9a-f]{10}$/);
+    assert.ok(!precache.some((x) => x.split('?')[0] === u.split('?')[0]), `${u} se při instalaci nestahuje`);
+  }
   // data-later jen u skriptu; cizí adresy ne
   assert.deepEqual(shellAssets('<script src="js/a.js" data-later="js/b.js  ./js/c.js https://cdn.example/x.js //cdn/y.js js/a.js"></script><link rel="stylesheet" href="css/a.css" data-later="js/z.js">'),
     ['js/a.js', 'js/b.js', 'js/c.js', 'css/a.css']);
+});
+
+test('Lazy s adresami s otiskem obsahu (od serveru): moduly podle jména, adresy do <script> beze změny; Lazy.url knihovny map', async () => {
+  const later = 'js/pretrip.js?v=1111111111 js/places.js?v=2222222222 js/trip.js?v=3333333333';
+  const { L, scripts } = loadLazy({ later, files: 'vendor/d3.min.js?v=aaaaaaaaaa vendor/maplibre/maplibre-gl.css?v=bbbbbbbbbb' });
+  assert.equal(L.has('trip'), false);
+  const p = L.need('places');
+  assert.deepEqual(srcs(scripts), ['js/pretrip.js?v=1111111111', 'js/places.js?v=2222222222'], 'adresa s otiskem – tu má Cloudflare i service worker');
+  scripts.forEach((s) => s.onload());
+  await p;
+  assert.deepEqual([L.has('pretrip'), L.has('places'), L.has('trip')], [true, true, false], 'jméno modulu bez ?v=');
+  assert.equal(L.url('vendor/d3.min.js'), 'vendor/d3.min.js?v=aaaaaaaaaa');
+  assert.equal(L.url('vendor/maplibre/maplibre-gl.css'), 'vendor/maplibre/maplibre-gl.css?v=bbbbbbbbbb');
+  assert.equal(L.url('vendor/topojson-client.min.js'), 'vendor/topojson-client.min.js', 'mimo seznam beze změny (server ho pošle s no-cache)');
+  assert.equal(loadLazy().L.url('vendor/d3.min.js'), 'vendor/d3.min.js', 'bez data-files (stránka bez otisků) beze změny');
+  // aplikace knihovny map načítá přes Lazy.url – všechny z data-files a jen ty
+  const app = read('public/js/app.js'), places = read('public/js/places.js');
+  assert.match(app, /add\(at\('vendor\/d3\.min\.js'\)\)\.then\(\(\) => add\(at\('vendor\/topojson-client\.min\.js'\)\)\)/);
+  assert.match(places, /css\.href = libUrl\('vendor\/maplibre\/maplibre-gl\.css'\)/);
+  assert.match(places, /sc\.src = libUrl\('vendor\/maplibre\/maplibre-gl\.js'\)/);
+  const used = [...`${app}\n${places}`.matchAll(/\b(?:at|libUrl)\('([^']+)'\)/g)].map((m) => m[1]).sort();
+  assert.deepEqual(used, [...FILES].sort());
+  for (const u of FILES) assert.ok(readFileSync(path.join(ROOT, 'public', u)).length > 0, `${u} existuje`);
 });
 
 test('aplikace žádá jen moduly ze seznamu (Lazy.need / run / has, withMod, lazyView)', () => {
