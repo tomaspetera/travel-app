@@ -38,7 +38,7 @@ const srcs = (list) => list.map((s) => s.src);
 
 test('index.html: lazy.js před ostatními skripty stránky; odložené moduly nemají vlastní <script> (nenačtou se dvakrát)', () => {
   assert.ok(LAZY_TAG, '<script src="js/lazy.js" data-later="…">');
-  assert.deepEqual(LATER, ['js/pretrip.js', 'js/places.js', 'js/trip.js'], 'pořadí = závislosti: trip.js používá places.js a pretrip.js');
+  assert.deepEqual(LATER, ['js/sharecard.js', 'js/pretrip.js', 'js/places.js', 'js/trip.js'], 'pořadí = závislosti: trip.js používá sharecard.js, places.js a pretrip.js');
   const body = [...INDEX.matchAll(/<script src="(js\/[a-z0-9]+\.js)"/g)].map((m) => m[1]).filter((u) => u !== 'js/pwa.js' && u !== 'js/errlog.js' && u !== 'js/flags.js');
   assert.equal(body[0], 'js/lazy.js', 'Lazy existuje dřív než skripty, které ho volají');
   for (const u of LATER) {

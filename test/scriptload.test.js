@@ -30,10 +30,10 @@ test('skripty z index.html se načtou bez chyby (pořadí jako v prohlížeči)'
 });
 
 test('skripty stránky se načtou i bez odložených modulů (průvodce, Objevuj, Před cestou ještě nejsou – lazy.js)', () => {
-  assert.deepEqual(LATER, ['pretrip.js', 'places.js', 'trip.js']);
-  // Trip, Places a PreTrip při načtení skriptů stránky neexistují: `window.Trip && …` projde, `Trip.x` na nejvyšší
+  assert.deepEqual(LATER, ['sharecard.js', 'pretrip.js', 'places.js', 'trip.js']);
+  // Trip, Places, PreTrip a ShareCard při načtení skriptů stránky neexistují: `window.Trip && …` projde, `Trip.x` na nejvyšší
   // úrovni skriptu by spadlo (TypeError)
-  const gone = new Set(['Trip', 'Places', 'PreTrip']);
+  const gone = new Set(['Trip', 'Places', 'PreTrip', 'ShareCard']);
   const ctx = new Proxy({ ...BASE }, { has: () => true, get: (t, k) => (k in t ? t[k] : gone.has(k) ? undefined : dummy()) });
   vm.createContext(ctx);
   ctx.window = ctx;

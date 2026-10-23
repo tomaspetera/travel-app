@@ -1294,11 +1294,17 @@ názvem a popisem. Vše skládá server (`server/lib/seo.js`) z jednoho místa �
 - **Náhledový obrázek** `public/og-image.png` (1200 × 630, ~215 kB – WhatsApp větší než ~300 kB nemusí ukázat).
   Sdílené odkazy na cestu, plán nebo nabídku nesou data za `#`, která roboti sociálních sítí nevidí, takže náhled je
   u všech odkazů stejný, obecný.
+- **Karta „Jede někdo se mnou?“** (`public/js/sharecard.js`, Shrnutí průvodce a budoucí cesta v plánovači → 📤 Sdílet
+  cestu): obrázek ve tvaru palubní vstupenky, který kreslí telefon (canvas) – Story 1080 × 1920 a příspěvek 1080 × 1350
+  (4:5, Facebook i Instagram ho ve feedu ukážou celý). Jen odkud, kam a měsíc; cena, přesné datum ani ubytování ne.
+  Story nechává volné pruhy, které Instagram překryje (nahoře ~14 %, dole ~20 %). Sdílí se nabídkou telefonu (soubor),
+  odkaz nebo text s odkazem jde do schránky (Instagram klikací odkaz dovolí jen nálepkou ve Story); počítač obrázek
+  stáhne. Odkaz `/#jed=…` otevře kamarádovi termín, počasí v tom měsíci a hledání letů na stejné dny z jeho letiště.
 - **`/robots.txt`** (vše povoleno, odkaz na mapu webu) a **`/sitemap.xml`** (jediná stránka – sekce aplikace jsou za `#`).
 - **Stránka 404** pro neznámé adresy mimo API: česky, světlá i tmavá podle systému, s tlačítkem *Otevřít ATLAS*, které
   vezme s sebou i část adresy za `#`. Dřív server na každou neznámou adresu poslal stránku aplikace se stavem 200 –
   vyhledávačům se pak jevila jako nekonečno kopií úvodní stránky. Sekce i sdílené odkazy (`/#trip=`, `/#plan=`,
-  `/#offer=`, zkratky `/#flights`) jsou na `/`, takže se pro ně nic nemění; offline dá service worker na jakoukoli
+  `/#offer=`, `/#jed=`, zkratky `/#flights`) jsou na `/`, takže se pro ně nic nemění; offline dá service worker na jakoukoli
   adresu dál uloženou aplikaci. Chybějící soubor (`/js/neni.js`) dostane taky 404, ne stránku aplikace.
 - **Manifest** (`/manifest.webmanifest`) posílá server se jménem a popisem z `brand.js`; ikony, barvy a zkratky jsou
   v souboru `public/manifest.webmanifest`.

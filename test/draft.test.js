@@ -75,8 +75,8 @@ test('flights.js: koncept se vrací při startu hned po posledním hledání (p�
   const F = read('flights.js');
   // otisk S.form před setForm (posun minulých letů cesty přes víc měst mění i S.form), koncept před restoreLast
   assert.match(F, /const base = SearchHelp\.formSig\(S\.form\);\s*setForm\(S\.form \|\| defaultForm\(\)\);\s*draftStart\(base\);[^\n]*\n\s*updateHomeChip\(\);\s*restoreLast\(\);/);
-  // odkazy (#offer=, #trip=, #watch=) zpracuje app.js až po Flights.init – co nastaví, platí
-  assert.match(read('app.js'), /if \(window\.Flights\) await Flights\.init\(\);[\s\S]*?Trip\.importFromHash\(\)[\s\S]*?openOfferFromHash\(\) \|\| openWatchFromHash\(\)/);
+  // odkazy (#offer=, #trip=, #jed=, #watch=) zpracuje app.js až po Flights.init – co nastaví, platí
+  assert.match(read('app.js'), /if \(window\.Flights\) await Flights\.init\(\);[\s\S]*?Trip\.importFromHash\(\)[\s\S]*?openOfferFromHash\(\) \|\| await openJedFromHash\(\) \|\| openWatchFromHash\(\)/);
   // hledání: hned po uložení S.form; ↺ Začít znovu: po uložení prázdného formuláře
   assert.match(F, /S\.form = f; if \(!S\.home[^\n]*save\(\); updateHomeChip\(\);\s*draftClear\(\);/);
   assert.match(F, /function resetSearch\(\) \{[\s\S]*?S\.form = getForm\(\); save\(\); draftClear\(\);/);

@@ -532,9 +532,9 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
 </defs></svg>
 
 <!-- d3 a topojson (mapa světa, mapa výsledků) se načtou až při první mapě – app.js loadD3 -->
-<!-- průvodce cestou, Objevuj a „Co zařídit a co sbalit“ (data-later) až po vykreslení Přehledu nebo hned, když je něco
+<!-- karty „Jede někdo se mnou?“, průvodce cestou, Objevuj a „Co zařídit a co sbalit“ (data-later) až po vykreslení Přehledu nebo hned, když je něco
      potřebuje – js/lazy.js; service worker je ukládá pro offline stejně jako ostatní skripty (server/lib/pwa.js) -->
-<script src="js/lazy.js" data-later="js/pretrip.js js/places.js js/trip.js"></script>
+<script src="js/lazy.js" data-later="js/sharecard.js js/pretrip.js js/places.js js/trip.js"></script>
 <script src="js/data.js"></script>
 <script src="js/recs.js"></script>
 <script src="js/ics.js"></script>
