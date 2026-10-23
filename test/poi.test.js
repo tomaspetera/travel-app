@@ -369,6 +369,20 @@ test('tripsFromRows (živá data, Praha): část sériové památky UNESCO je je
   assert.equal(by['Žatec'].unesco, true);
 });
 
+test('tripsFromRows: kraj, spolková země, autonomní společenství ani vojvodství s typem obce nejsou cíl výletu', async () => {
+  const { tripsFromRows } = await import('../server/lib/poi.js');
+  const { bindings } = await import('./fixtures/wikidata.js');
+  const rows = bindings([
+    ['Q1', 'Bavorsko', 'spolková země v Německu', 50.5, 14, 150, ['Q515'], [], []],
+    ['Q2', 'Katalánsko', 'autonomní společenství Španělska', 49.5, 14, 150, ['Q515'], [], []],
+    ['Q3', 'Malopolské vojvodství', 'vojvodství v Polsku', 50.5, 14.6, 150, ['Q515'], [], []],
+    ['Q4', 'Středočeský kraj', 'kraj v Česku', 49.5, 14.6, 150, ['Q515'], [], []],
+    ['Q5', 'Okresní Město', 'okresní město v Česku', 50, 14.8, 60, ['Q515'], [], []],
+  ]);
+  const names = tripsFromRows(rows, { lat: 50, lon: 14 }, 15, { road: true }).map((t) => t.name);
+  assert.deepEqual(names, ['Okresní Město']);
+});
+
 test('groupBindings: muzeum v paláci se jménem muzea je muzeum (Museo Poldi Pezzoli), palác se sbírkou bez něj palácem; městská brána památník, ne hrad', async () => {
   const { bindings } = await import('./fixtures/wikidata.js');
   const rows = bindings([

@@ -521,7 +521,8 @@ export function mockTrips({ lat, lon }) {
 // významné památky (průmyslové město, předměstí) cílem výletu není.
 // road = true: skóre bez penalizace vzdálenosti (plánovač výletů autem počítá s časem jízdy sám).
 // Kraj, okres, provincie… mívají ve Wikidatech typ obce a souřadnice hlavního města (Alentejo = Évora).
-const REGION_DESC = /^(kraj|region|regione|región|okres|district|distrikt|distretto|provincie|province|provincia|county|departement|département|spolková země|federal state|state of|autonomní|autonomous community|comarca|voivodeship|vojvodství)\b/i;
+// Konec slova přes \p{L}, ne \b: to zná jen ASCII, takže za „země“, „autonomní“ nebo „vojvodství“ by nikdy neplatilo.
+const REGION_DESC = /^(kraj|region|regione|región|okres|district|distrikt|distretto|provincie|province|provincia|county|departement|département|spolková země|federal state|state of|autonomní|autonomous community|comarca|voivodeship|vojvodství)(?![\p{L}\p{N}])/iu;
 
 const DAYTRIP_KINDS = new Set(['town', 'nature', 'castle']);
 const ROAD_KINDS = new Set(['town', 'nature', 'castle', 'palace', 'ruins', 'zoo', 'theme']);
