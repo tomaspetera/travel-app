@@ -134,6 +134,31 @@ test('cars: vyzvednutí po příletu se zaokrouhlí nahoru i přes půlnoc a kon
   assert.deepEqual([q.pickupCc, q.dropoffCc], ['DE', 'AT']);
 });
 
+test('cars: vyzvednutí ve městě – srovnávače na nejbližším letišti (Florencie → FLR, ne letiště příletu PSA), pobočky ve městě na Google Mapách', () => {
+  const [d1, d2] = [ymdPlus(40), ymdPlus(41)];
+  // auto jen na 2 dny uprostřed pobytu v Lisabonu: letiště příletu LIS je ve městě (7 km)
+  const lis = searchCars({ pickup: 'LIS', dropoff: 'LIS', from: `${d1}T09:00`, to: `${d2}T18:00`, puCity: 'Lisabon', puLat: '38.7223', puLon: '-9.1393', puCc: 'PT', doCity: 'Lisabon', doLat: '38.7223', doLon: '-9.1393' });
+  assert.deepEqual([lis.query.pickupCity.name, lis.query.pickupCity.iata, lis.query.pickupCity.km, lis.query.dropoffCity.iata, lis.query.days], ['Lisabon', 'LIS', 7, 'LIS', 2]);
+  assert.equal(lis.links.find((l) => l.id === 'kayak').url, `https://www.cz.kayak.com/cars/LIS/${d1}-9h/${d2}-18h?sort=price_a`);
+  const maps = lis.links.filter((l) => /^mapy/.test(l.id));
+  assert.equal(maps.length, 1, 'stejné město vyzvednutí i vrácení jen jednou');
+  const mu = new URL(maps[0].url);
+  assert.deepEqual([mu.origin + mu.pathname, mu.searchParams.get('api'), mu.searchParams.get('query')], ['https://www.google.com/maps/search/', '1', 'půjčovna aut Lisabon, Portugalsko']);
+  // trasa Pisa → Florencie (vlak) → Siena (auto) → Pisa: vyzvednutí ve Florencii, vrácení na letišti PSA
+  const fi = searchCars({ pickup: 'PSA', dropoff: 'PSA', from: `${d1}T09:00`, to: `${d2}T10:00`, puCity: 'Florencie', puLat: '43.7696', puLon: '11.2558' });
+  assert.deepEqual([fi.query.pickupCity.iata, fi.query.pickupCity.km, fi.query.pickupCc, fi.query.dropoffCity], ['FLR', 6, 'IT', null]);
+  assert.match(fi.query.pickupName, /^Florencie/);
+  assert.equal(fi.links.find((l) => l.id === 'kayak').url, `https://www.cz.kayak.com/cars/FLR/PSA/${d1}-9h/${d2}-10h?sort=price_a`);
+  const rc = new URL(fi.links.find((l) => l.id === 'rentalcars').url).searchParams;
+  assert.deepEqual([rc.get('locationIata'), rc.get('dropLocationIata'), rc.get('ftsType')], ['FLR', 'PSA', 'A'], 'jen ověřený tvar (kód letiště)');
+  assert.equal(fi.links.filter((l) => /^mapy/.test(l.id)).length, 1);
+  // bez polohy (nebo s nesmyslnou) jako dřív – jen letiště
+  const bad = searchCars({ pickup: 'LIS', from: `${d1}T09:00`, to: `${d2}T18:00`, puCity: 'Lisabon', puLat: 'x', puLon: '' }).query;
+  assert.deepEqual([bad.pickupCity, bad.dropoffCity], [null, null]);
+  assert.ok(!searchCars({ pickup: 'LIS', from: `${d1}T09:00`, to: `${d2}T18:00` }).links.some((l) => /^mapy/.test(l.id)));
+  assert.equal(searchCars({ pickup: 'LIS', from: `${d1}T09:00`, to: `${d2}T18:00`, puCity: '<b>Lisabon</b>', puLat: '38.72', puLon: '-9.14' }).query.pickupCity.name, 'bLisabon/b');
+});
+
 test('affiliate: bez čísla projektu (trs) zůstávají odkazy přímé; s ním jen ověřené značky přes tp.media', async () => {
   const { config } = await import('../server/config.js');
   const { affiliate } = await import('../server/lib/links.js');

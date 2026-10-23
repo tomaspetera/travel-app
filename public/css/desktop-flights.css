@@ -52,7 +52,7 @@
   #results>.res-more::before{content:"Filtry a řazení";display:block;margin:0 0 14px;font:800 15px/1.2 Sora,Inter,sans-serif;letter-spacing:-.01em;color:var(--text)}
   /* max-width: i prvky se šířkou 100 % („▼ Další cíle“) končí na pravém okraji obsahu */
   #results>.res-more~*{margin-left:calc(var(--side) + var(--gap));max-width:calc(100% - var(--side) - var(--gap))}
-  #results>.res-more~.res-foot{margin-top:16px}
+  #results>.res-more~.res-foot{margin-top:16px;max-width:min(calc(100% - var(--side) - var(--gap)),90ch)} /* řádek ~110 znaků (desktop.css) */
   #results>.res-more~.section-head:first-of-type{margin-top:4px}
 
   /* filtry pod sebou: popisek nad skupinou, výběr řazení a posuvník přes šířku panelu, přepínače po dvou */
@@ -182,6 +182,8 @@
   /* plné pozadí začíná už pod průhledným spodkem horní lišty – mezi lištou a filtry neprosvítají karty */
   #view-countries .toolbar{position:sticky;top:80px;z-index:15;margin:-16px calc(-1 * var(--gutter)) 22px;padding:26px var(--gutter) 14px;
     background:linear-gradient(180deg,var(--bg) calc(100% - 12px),transparent)}
+  /* karta, na kterou skočí Tab / Shift+Tab, pod přilepenými filtry (končí ~220 px), ne schovaná za nimi */
+  html:has(#view-countries.active){scroll-padding-top:232px}
 }
 /* velký monitor: radar ve dvou řadách po šesti (12 karet) */
 @media (min-width:1800px){

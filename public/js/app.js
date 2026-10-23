@@ -629,8 +629,9 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-23d';
+const WN_ID = '2026-10-23e';
 const WHATS_NEW = [
+  ['🔀', 'Auto jen na část cesty', 'v kroku <b>Auto</b> průvodce Cestou vybereš <b>📅 dny auta</b> – třeba v Lisabonu jen 2. a 3. den na výlety: vyzvednutí i vrácení ve městě a z letiště do města dál metrem. Na trase přes víc míst má každý přejezd přepínač <b>🚗 / 🚆</b> s časem a cenou – auto se půjčí jen na úseky autem a ATLAS řekne, kde ho vyzvednout a kde vrátit.'],
   ['🚗', 'Auto na místě s radou', 'v kroku <b>Auto</b> průvodce Cestou ATLAS řekne, kdy auto nepotřebuješ (bydlíš ve městě s metrem nebo vlakem z letiště, mezi místy trasy je rychlejší vlak), upozorní na zóny ZTL v italských městech, elektronické mýtné v Portugalsku a vrácení auta v jiné zemi a napíše, co je v ceně auta a co se počítá zvlášť.'],
   ['📲', 'Přenos do jiného zařízení QR kódem', 'pod <b>Další</b> (na počítači vlevo dole) je <b>📲 Přenést do jiného zařízení</b>: QR kód, který naskenuješ fotoaparátem druhého telefonu, nebo odkaz, který si pošleš (AirDrop, Quick Share, e-mail, chat). Přenese cesty, hlídané ceny, odložené nabídky, ⭐ / 🙈 města, navštívené země i domov – bez účtu, data jdou jen v odkazu, na server ne. Druhé zařízení ukáže, co přibude, a nabídne <b>Sloučit</b> nebo <b>Nahradit</b>.'],
   ['💡', 'Kdy koupit hlídanou letenku', 'karta hlídání na <b>Přehledu</b> má graf ceny od uložení se zeleně vyznačenou nejnižší cenou, řádky <b>Nejníž</b> (kdy to bylo), <b>Teď</b> a šipku, jak se cena změnila za týden. Pod tím krátký <b>💡 tip</b> s důvodem – koupit, nebo ještě počkat – podle historie cen, dní do odletu a „Je to dobrá cena?“. Je to jen odhad, jistotu nedává nikdo.'],
@@ -881,7 +882,7 @@ function renderDash() {
   renderDashStats();
   renderWhatsNew();
   renderDashTip();
-  $$('.link[data-go]').forEach(l => l.onclick = () => go(l.dataset.go));
+  $$('.link[data-go]').forEach(l => { l.onclick = () => go(l.dataset.go); kbClick(l); });
   if (window.Flights) { Flights.renderResume(); Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); Flights.renderFav(); Flights.renderPins(); }
 }
 /** Dlaždice a „Kam vyrazit“ na přehledu (po změně navštívených zemí nebo cest – bez radaru a hlídaných cen). */
@@ -1051,7 +1052,18 @@ function destCard(c, score) {
 // Vstupní podmínky (entry.js): čip na kartě; data se načítají po startu, pak se čipy doplní (paintEntryChips).
 const entryChip = iso => (window.Entry && Entry.ready() ? Entry.cardChip(iso) : '');
 function paintEntryChips() { $$('.dest[data-iso]').forEach(el => { const m = $('.meta', el); if (m && !$('.ec', el)) m.insertAdjacentHTML('beforebegin', entryChip(el.dataset.iso)); }); }
-function bindDest(sel) { $$(sel + ' .dest[data-iso]').forEach(el => el.onclick = () => openCountry(el.dataset.iso)); }
+function bindDest(sel) { $$(sel + ' .dest[data-iso]').forEach(el => { el.onclick = () => openCountry(el.dataset.iso); kbClick(el); }); }
+/**
+ * Karta nebo odkaz z <div>/<span> s klikem (karta země, dlaždice Rychlého hledání, cesta v Plánovači, „Obnovit →“) i pro
+ * klávesnici: Tab na ně skočí a Enter / mezerník je otevře jako klik – na počítači se k nim bez myši nedalo dostat
+ * (Země, Doporučení i Plánovač jen myší). Jako postranní lišta (.nav-item). Klávesa na tlačítku uvnitř karty (ⓘ autor
+ * fotky) kartu neotevře.
+ */
+function kbClick(el) {
+  if (!el) return;
+  el.tabIndex = 0; el.setAttribute('role', 'button');
+  el.onkeydown = e => { if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); el.click(); } };
+}
 
 /* ================= RECOMMENDATIONS ENGINE ================= */
 function scoreCountries(month, opt) {
@@ -1125,6 +1137,7 @@ function renderCountries() {
 // o.hist === false: okno si krok historie řídí samo (náhled cíle – flights.js dpOpen)
 function modalOpen(html, o = {}) {
   const was = $('#modalBg').classList.contains('show');
+  if (!was) modalKb.ret = document.activeElement; // tlačítko, které okno otevřelo – po zavření na něj vrátit fokus
   $('#modal').innerHTML = html; $('#modalBg').classList.add('show');
   if (!was) { $('#toast').classList.remove('show'); $('#modal').scrollTop = 0; } // nové okno nahoře, ne s posunem z minulého
   // krok historie jen pro nově otevřené okno – okno otevřené z okna (Info o zemi z náhledu…) ho jen nahradí
@@ -1143,6 +1156,36 @@ function modalClose() {
   if (hist.mq) { hist.queue = hist.queue.filter(f => f !== hist.mq); hist.mq = null; } else histBack();
 }
 $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) modalClose(); };
+/* Okno a klávesnice na počítači: fokus zůstával na tlačítku pod oknem a Tab chodil po stránce schované za ním (okno
+   je v HTML až na konci) – z klávesnice se v okně nedalo nic vybrat. Otevřené okno teď fokus dostane (šipky a PageDown
+   posouvají okno), Tab v něm koluje dokola a po zavření (✕, Escape, Zpět, klik vedle) se fokus vrátí na tlačítko,
+   které okno otevřelo. Jen počítač s myší – na telefonu beze změny. Okno, které fokus dá samo dovnitř (nabídka ⋯), si
+   ho nechá. */
+const modalKb = { ret: null, mq: window.matchMedia ? matchMedia('(min-width:1024px) and (hover:hover) and (pointer:fine)') : null };
+new MutationObserver(() => {
+  const m = $('#modal'), on = $('#modalBg').classList.contains('show');
+  if (on === modalKb.on) return;
+  modalKb.on = on;
+  if (!modalKb.mq || !modalKb.mq.matches) return;
+  const a = document.activeElement;
+  if (on) { if (!m.contains(a)) { m.tabIndex = -1; m.focus({ preventScroll: true }); } return; }
+  const r = modalKb.ret; modalKb.ret = null;
+  // fokus někam přesunula sama akce okna (náhled cíle vrací na 🔎) → nechat
+  if ((!a || a === document.body || $('#modalBg').contains(a)) && r && r.isConnected && r.getClientRects().length) r.focus({ preventScroll: true });
+}).observe($('#modalBg'), { attributes: true, attributeFilter: ['class'] });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab' || e.defaultPrevented || !$('#modalBg').classList.contains('show')) return;
+  const m = $('#modal'), a = document.activeElement;
+  const fs = $$('a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])', m)
+    .filter(x => x.getClientRects().length && getComputedStyle(x).visibility !== 'hidden');
+  const i = fs.indexOf(a);
+  const to = !fs.length ? m : !m.contains(a) || (e.shiftKey && a === m) ? fs[e.shiftKey ? fs.length - 1 : 0]
+    : e.shiftKey && i === 0 ? fs[fs.length - 1] : !e.shiftKey && i === fs.length - 1 ? fs[0] : null;
+  if (!to) return;
+  e.preventDefault();
+  if (to === m) m.tabIndex = -1;
+  to.focus();
+});
 // ✕ (data-close) ve všech oknech jednou obsluhou: obsluhy v atributech HTML (onclick) CSP stránky nepustí (server/lib/security.js)
 $('#modal').addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-close]')) modalClose(); });
 // telefon: panel zespodu jde zavřít stažením za horní okraj (úchyt) dolů – jen když je obsah odscrollovaný nahoru
@@ -1390,10 +1433,10 @@ function renderPlanner() {
   const past = all.filter(x => (x.t.end || x.t.start) && (x.t.end || x.t.start) < now).sort((a, b) => (b.t.start || '').localeCompare(a.t.start || ''));
   const coming = all.filter(x => !past.includes(x)).sort((a, b) => (a.t.start || '9999').localeCompare(b.t.start || '9999'));
   host.innerHTML = `${bkTools()}<div class="trip-grid">${coming.map(x => tripCard(x.t, x.i)).join('')}<div class="card new-trip" id="newTripTile"><div class="plus">${ico('M12 5v14M5 12h14')}</div><div style="font-weight:700">Nová cesta</div></div>${pick ? `<div class="card new-trip" id="lastTripTile"><div class="plus">✈️</div><div style="font-weight:700">Z posledního hledání</div><div class="faint" style="font-size:12.5px;margin-top:2px">${pickTxt}</div></div>` : ''}</div>${past.length ? `<div class="section-head"><h2>Proběhlé cesty</h2></div><div class="trip-grid past">${past.map(x => tripCard(x.t, x.i)).join('')}</div>` : ''}`;
-  $$('.trip[data-ti]').forEach(el => el.onclick = () => openTrip(+el.dataset.ti));
-  $('#newTripTile').onclick = () => newTrip();
+  $$('.trip[data-ti]').forEach(el => { el.onclick = () => openTrip(+el.dataset.ti); kbClick(el); });
+  $('#newTripTile').onclick = () => newTrip(); kbClick($('#newTripTile'));
   Photos.paint(host);
-  if (pick) $('#lastTripTile').onclick = fromPick;
+  if (pick) { $('#lastTripTile').onclick = fromPick; kbClick($('#lastTripTile')); }
   bkWire();
 }
 // kdy cesta je: „za 12 dní“, „právě probíhá“, „proběhla“ (bez data nic)

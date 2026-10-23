@@ -27,13 +27,18 @@
   /* Shrnutí má cenu ve vlastní kartě vpravo – bublina „Celkem zatím“ ve fotce by ji jen opakovala */
   #tripRoot[data-step=summary] .th-total{display:none}
   #tripRoot[data-step=program] .ex-map{top:var(--trip-stick);height:min(720px,calc(100vh - var(--trip-stick) - 24px))}
+  /* posun k prvku (Tab, odrolování k výsledku) pod lištou kroků, ne pod ní (desktop.css má jen výšku horní lišty) */
+  html:has(#view-trip.active){scroll-padding-top:var(--trip-stick)}
 }
 @media (min-width:1280px){
   :root{--trip-aside:320px}
 
   /* ---------- krok + přehled cesty vpravo ---------- */
   #tripRoot .tw-body{display:grid;grid-template-columns:minmax(0,1fr) var(--trip-aside);gap:var(--gap);align-items:start}
-  #tripRoot .trip-aside{display:block;position:sticky;top:var(--trip-stick)}
+  /* přilepený panel vyšší než zbytek okna (nižší notebook, 125 % zvětšení) se posouvá sám – spodek s tlačítkem Další
+     by jinak zůstal pod okrajem okna, dokud se nedojede na konec kroku (jako dřív postranní lišta) */
+  #tripRoot .trip-aside{display:block;position:sticky;top:var(--trip-stick);max-height:calc(100vh - var(--trip-stick) - 6px);overflow-y:auto;
+    scrollbar-width:thin;margin:-10px -10px 0;padding:10px 10px 0}
   #tripRoot:is([data-step=flight],[data-step=route],[data-step=stay],[data-step=car]) .th-total{display:none}
   #tripRoot:is([data-step=program],[data-step=summary]) .tw-body{display:block}
   #tripRoot:is([data-step=program],[data-step=summary]) .trip-aside{display:none}
@@ -65,7 +70,8 @@
   .ta-tot>b{font:800 24px/1.1 Sora,Inter,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
   .ta-tot>small{grid-column:1/-1;font-size:12px;color:var(--muted)}
   /* hlavní tlačítko kroku i tady – v kroku je u dlouhého seznamu až dole */
-  .ta-next{padding-top:14px}
+  /* v posouvaném přehledu (nižší okno) zůstane vidět dole – řádky se posouvají pod ním; podklad jako karta (rozmazaný) */
+  .ta-next{padding-top:14px;position:sticky;bottom:0;z-index:1;background:var(--card);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
   .ta-next[hidden]{display:none}
   .ta-next .btn{width:100%;justify-content:center;min-height:46px;white-space:normal;text-align:center;text-wrap:balance} /* „Další místo: Modelín na Kopci →“ bez osamělé šipky na druhém řádku */
 
@@ -97,13 +103,20 @@
   /* ---------- Shrnutí: vlevo průběh cesty, vstup a Co zařídit; vpravo cena, rezervace a tlačítka ---------- */
   #tripRoot[data-step=summary] #tripStep{display:grid;grid-template-columns:minmax(0,1fr) 384px;column-gap:var(--gap);align-items:start}
   #tripRoot[data-step=summary] #tripStep>*{grid-column:1;min-width:0}
-  #tripRoot[data-step=summary] #tripStep>.sum-side{display:flex;flex-direction:column;grid-column:2;grid-row:1/span 40;position:sticky;top:var(--trip-stick)}
+  /* pravý sloupec Shrnutí (cena, Co zarezervovat, 💾 Uložit do plánovače) je ~1100 px vysoký: přilepený bez vlastního
+     posouvání měl tlačítka pod okrajem okna i na 1912 × 904, dokud se nedojelo na konec stránky – teď se posouvá sám;
+     okraj 10 px kolem, ať se stíny karet neořežou (i u přehledu cesty) */
+  #tripRoot[data-step=summary] #tripStep>.sum-side{display:flex;flex-direction:column;grid-column:2;grid-row:1/span 40;position:sticky;top:var(--trip-stick);
+    max-height:calc(100vh - var(--trip-stick) - 6px);overflow-y:auto;scrollbar-width:thin;margin:-10px -10px 0;padding:10px 10px 0}
   #tripRoot[data-step=summary] #tripStep>.sum-tl{order:-1}
   #tripRoot[data-step=summary] .sum-grid{grid-template-columns:minmax(0,1fr);gap:0}
   #tripRoot[data-step=summary] #tripStep .step-card{margin-bottom:var(--gap)}
   #tripRoot[data-step=summary] .sum-acts{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:stretch;margin:0 !important}
   #tripRoot[data-step=summary] .sum-acts>.btn{justify-content:center;text-align:center;min-width:0;white-space:normal}
   #tripRoot[data-step=summary] .sum-acts>#sumSave{grid-column:1/-1;min-height:48px}
+  /* tlačítka (💾 Uložit do plánovače…) vždy vidět dole v posouvaném pravém sloupci – nad nimi se posouvá cena a rezervace */
+  #tripRoot[data-step=summary] #tripStep>.sum-side>.sum-acts{position:sticky;bottom:0;z-index:2;padding:14px 0 10px;
+    background:linear-gradient(180deg,transparent,var(--bg) 14px)}
   #tripRoot[data-step=summary] .tl-row{grid-template-columns:96px 26px minmax(0,1fr)}
 }
 /* menší notebook: ve Shrnutí je levý sloupec jen ~550–630 px – Co zařídit a Co sbalit pod sebou (vedle sebe po ~240 px

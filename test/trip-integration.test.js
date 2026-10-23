@@ -443,7 +443,8 @@ test('průvodce: západní Afrika – čas podle trasy, autobusem / minibusem (n
   const list = () => sp(c.__els['#rtList'].innerHTML);
   render(c, t);
   let h = list();
-  assert.ok(h.includes('<b>123 km · ~3 h 25 min autem</b> <span class="faint">(podle trasy; 🚌 autobusem / minibusem ~6 h 10 min)</span>'), h.slice(h.indexOf('rt-tr'), h.indexOf('rt-tr') + 400));
+  // u přejezdu čas i cena zvolenou dopravou (palivo a mýtné), v závorce druhá doprava s jízdenkami za oba
+  assert.match(h, /<b>123 km · ~3 h 25 min autem · ~\d[\d ]* Kč<\/b> <span class="faint">\(podle trasy; 🚌 autobusem \/ minibusem ~6 h 10 min, ~\d[\d ]* Kč za 2 os\.\)<\/span>/, h.slice(h.indexOf('rt-tr'), h.indexOf('rt-tr') + 400));
   assert.ok(h.includes('🛂 přechod hranice Nigérie → Benin – počítej s kontrolou a vízem – ověř podmínky vstupu'));
   assert.ok(h.includes('🛂 přechod hranice Benin → Nigérie'));
   assert.ok(!/vlakem/.test(h), 'v Beninu ani Nigérii vlakem nejezdí');
@@ -454,7 +455,7 @@ test('průvodce: západní Afrika – čas podle trasy, autobusem / minibusem (n
   render(c, t);
   h = list();
   assert.ok(h.includes('<span class="rt-ic">🚌</span>'));
-  assert.ok(h.includes('<b>~6 h 10 min autobusem / minibusem</b> <span class="faint">(odhad; autem ~3 h 25 min)</span>'));
+  assert.match(h, /<b>~6 h 10 min autobusem \/ minibusem · ~\d[\d ]* Kč za 2 os\.<\/b> <span class="faint">\(odhad; autem ~3 h 25 min, ~\d[\d ]* Kč\)<\/span>/);
   assert.ok(h.includes('ověř spoje v Google Maps ↗'));
   assert.ok(t.route.transfers[0].long && t.route.transfers[1].long, 'přes 3 h 45 min veřejnou dopravou = dlouhý přejezd');
   // shrnutí a kalendář: stejné časy, hranice v časové ose
