@@ -347,20 +347,23 @@ async function enrich(places, { preferCs = false } = {}) {
 // ---------- záloha bez SPARQL: Wikipedia geosearch + počet jazykových verzí z Wikidat ----------
 
 // Klasifikace podle krátkého popisu (Wikidata description) a názvu – cs i en.
+// Pořadí rozhoduje: zoo, zábavní a národní park před obecným „park / zahrada“ (jinak by je nikdy nenašlo).
 const TEXT_CATS = [
   ['museum', /muzeum|museum|museo|musée/],
   ['gallery', /galerie|gallery|pinacoteca|galleria/],
   ['church', /kostel|katedrál|bazilik|chrám|klášter|kaple|mešit|synagog|church|cathedral|basilica|monastery|abbey|chapel|mosque|synagogue|temple|duomo/],
-  ['castle', /hrad|pevnost|tvrz|castle|fortress|citadel|fort\b/],
+  // „hrad“ jen na začátku slova – „zahrada“ (botanická, zoologická) hrad není
+  ['castle', /\bhrad|pevnost|tvrz|castle|fortress|citadel|fort\b/],
   ['palace', /palác|zámek|palace|palazzo|château|schloss/],
   ['oldtown', /historické centrum|staré město|old town|historic (centre|center|district)/],
   ['square', /náměstí|square|piazza|plaza|platz/],
+  ['zoo', /zoo|akvárium|aquarium/],
+  ['theme', /zábavní park|amusement park|theme park/],
+  ['nature', /národní park|national park/],
   ['park', /park|zahrad|garden|giardino/],
   ['viewpoint', /vyhlídk|viewpoint|lookout|belvedere/],
   ['nature', /jezero|hora|vodopád|jeskyn|národní park|lake|mountain|waterfall|cave|national park|island|ostrov/],
   ['beach', /pláž|beach|playa|spiaggia/],
-  ['zoo', /zoo|akvárium|aquarium/],
-  ['theme', /zábavní park|amusement park|theme park/],
   ['bridge', /\bmost\b|bridge|ponte|puente/],
   ['tower', /věž|mrakodrap|maják|tower|skyscraper|lighthouse|torre/],
   ['ruins', /zřícenin|archeolog|ruins|archaeological|roman (theatre|amphitheatre)|amfiteátr/],
