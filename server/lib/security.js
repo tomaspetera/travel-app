@@ -27,11 +27,17 @@ export const API_CSP = "default-src 'none'; frame-ancestors 'none'";
 // z jakéhokoli https – zdrojů je mnoho a obrázek kód nespustí.
 const CONNECT = ['https://api.open-meteo.com', 'https://geocoding-api.open-meteo.com', 'https://open.er-api.com', 'https://tiles.openfreemap.org', 'https://tile.openstreetmap.org'];
 
+// Typ <script>, který prohlížeč spustí jako JavaScript; jiný (application/ld+json – JSON-LD pro vyhledávače) je jen
+// datový blok: nespustí se a CSP se ho netýká, otisk do script-src nepatří.
+const JS_TYPE = /^(?:|module|(?:text|application)\/(?:x-)?(?:java|ecma)script)$/i;
+
 /** Otisky (sha256) vložených <script> bez src v HTML – přesně to, co prohlížeč spustí (konce řádků jako po parseru HTML). */
 export function inlineScriptHashes(html) {
   const out = [];
   for (const m of String(html).matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
     if (/\ssrc\s*=/i.test(m[1])) continue;
+    const type = m[1].match(/\stype\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i)?.slice(1).find((x) => x !== undefined);
+    if (type !== undefined && !JS_TYPE.test(type.trim())) continue;
     const h = `'sha256-${createHash('sha256').update(m[2].replace(/\r\n?/g, '\n')).digest('base64')}'`;
     if (!out.includes(h)) out.push(h);
   }

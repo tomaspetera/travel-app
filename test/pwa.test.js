@@ -14,6 +14,7 @@ process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
 const { serviceWorker, shellAssets, manifestIcons, RUNTIME_ASSETS } = await import('../server/lib/pwa.js');
 const { ICONS, renderIcon, crc32, ANCHOR, BG, splashImages, splashLinks, solidPng } = await import('../scripts/build-icons.mjs');
+const { BRAND } = await import('../server/brand.js');
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const PUB = path.join(ROOT, 'public');
@@ -68,9 +69,11 @@ test('manifest: česky, standalone, barvy z atlas.css, ikony 192/512 i maskovate
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('content-type'), 'application/manifest+json');
   const m = JSON.parse(await r.text());
-  // Chrome na Androidu píše name dole na úvodní obrazovku aplikace – krátce, popis je v description
-  assert.equal(m.short_name, 'ATLAS');
-  assert.equal(m.name, 'ATLAS');
+  // Chrome na Androidu píše name dole na úvodní obrazovku aplikace – krátce, popis je v description; obojí dosadí
+  // server z server/brand.js (test/seo.test.js)
+  assert.equal(m.short_name, BRAND.name);
+  assert.equal(m.name, BRAND.name);
+  assert.ok(BRAND.name.length <= 12, 'pod ikonou na ploše se vejde celý');
   assert.ok(m.description.length > 40);
   assert.deepEqual([m.id, m.start_url, m.scope, m.display, m.lang], ['/', '/', '/', 'standalone', 'cs']);
   assert.equal(m.theme_color, themeBg('dark'), 'výchozí motiv ATLASu je tmavý');
@@ -175,7 +178,9 @@ test('index.html: manifest, barva lišty pro tmavý i světlý motiv, ikona pro 
   const metas = [...INDEX.matchAll(/<meta name="theme-color" content="(#[0-9a-f]{6})" media="\(prefers-color-scheme: (dark|light)\)">/g)];
   assert.deepEqual(metas.map((x) => [x[2], x[1]]), [['dark', themeBg('dark')], ['light', themeBg('light')]]);
   assert.match(INDEX, /<link rel="apple-touch-icon" href="icons\/apple-touch-icon\.png">/);
-  assert.match(INDEX, /<meta name="apple-mobile-web-app-title" content="ATLAS">/);
+  // název pod ikonou na iPhonu (apple-mobile-web-app-title) dosadí server z server/brand.js – test/seo.test.js
+  assert.match(INDEX, /<!-- brand\b[\s\S]*?<!-- \/brand -->/);
+  assert.doesNotMatch(INDEX, /apple-mobile-web-app-title/, 'název jen v brand.js');
   assert.match(INDEX, /<meta name="mobile-web-app-capable" content="yes">/);
   assert.match(INDEX, /<script src="js\/pwa\.js" defer><\/script>/, 'pwa.js odloženě – oprava hlášek fetch je hotová před startem aplikace');
   // barvy, které pwa.js nastaví podle přepínače motivu, = --bg z atlas.css
@@ -201,7 +206,8 @@ test('server: /sw.js bez mezipaměti s verzí a 304, HEAD; kód aplikace (HTML, 
   assert.equal(head.headers.get('x-atlas-build'), build, 'pwa.js zjišťuje verzi na serveru přes HEAD');
   assert.equal(await head.text(), '');
 
-  for (const p of ['/', '/index.html', '/neexistujici-stranka']) {
+  // neznámá adresa (/neexistujici-stranka) už stránku aplikace nedostane – 404, test/seo.test.js
+  for (const p of ['/', '/index.html', '/?zdroj=plocha']) {
     const h = await fetch(`${base}${p}`);
     // service worker se stejnou verzí vezme soubory stránky z uložené sady (sw.js fromCache)
     assert.equal(h.headers.get('x-atlas-build'), build, `${p}: verze stránky`);
@@ -499,11 +505,18 @@ test('service worker v akci: instalace ze sítě s ověřením, aktivace smaže 
   x = await run(req('/css/atlas.css'));
   assert.equal(x.res.status, 500, 'online se chyba serveru ukáže, kopie z mezipaměti ne');
   assert.equal(store.get('atlas-v2').get(`${SCOPE}css/atlas.css`), 'css v2');
-  // za chybějící soubor pošle server stránku aplikace (SPA) – ta se pod adresu souboru neukládá
+  // místo souboru přijde stránka se stavem 200 (wifi s přihlášením) – pod adresu souboru se neukládá
   file('apple-touch-icon-precomposed.png', '<html>v3</html>', 'text/html; charset=utf-8');
   x = await run(req('/apple-touch-icon-precomposed.png'));
   assert.equal(x.res.status, 200);
   assert.ok(!store.get('atlas-v2').has(`${SCOPE}apple-touch-icon-precomposed.png`));
+  // neznámá adresa: server pošle stránku 404 (seo.js) – online ji service worker ukáže beze změny a neuloží (uložená
+  // stránka aplikace zůstane), offline na ni dá uloženou stránku aplikace jako na každou jinou adresu
+  file('neznama-stranka', '<html>404</html>', 'text/html; charset=utf-8', 404);
+  x = await run(req('/neznama-stranka', { mode: 'navigate' }));
+  assert.deepEqual([x.res.status, x.text], [404, '<html>404</html>']);
+  assert.equal(store.get('atlas-v2').get(SCOPE), '<html>v3</html>', 'stránka 404 nepřepíše uloženou stránku aplikace');
+  assert.ok(!store.get('atlas-v2').has(`${SCOPE}neznama-stranka`));
 
   // offline: uložené kopie, stránka pod libovolnou adresou = poslední uložená stránka aplikace
   net.offline = true;
@@ -511,6 +524,7 @@ test('service worker v akci: instalace ze sítě s ověřením, aktivace smaže 
   assert.equal((await run(req('/data/countries.json', { mode: 'cors' }))).text, '[2]');
   assert.equal((await run(req('/#planner', { mode: 'navigate' }))).text, '<html>v3</html>');
   assert.equal((await run(req('/?zdroj=plocha', { mode: 'navigate' }))).text, '<html>v3</html>');
+  assert.equal((await run(req('/neznama-stranka', { mode: 'navigate' }))).text, '<html>v3</html>');
   await assert.rejects(run(req('/vendor/maplibre/maplibre-gl.js')), /Failed to fetch/, 'neuložený soubor offline selže jako bez service workeru');
   const api = await run(req('/api/search', { method: 'POST', mode: 'cors' }));
   assert.equal(api.ev.responded, null, 'API offline: prohlížeč request odmítne a aplikace ukáže svou hlášku');

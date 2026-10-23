@@ -124,7 +124,8 @@ async function networkFirst(event, kind) {
 
 async function remember(req, kind, res) {
   const html = /^text\/html\b/i.test(res.headers.get('content-type') || '');
-  // Za soubor, který na serveru není, pošle server stránku aplikace (index.html) – ta se pod jeho adresu neukládá.
+  // Místo souboru přišla stránka (wifi s přihlášením ji vrátí se stavem 200; chybějící soubor má od serveru stránku
+  // 404, ta se neuloží už podle stavu) – pod adresu souboru se neukládá.
   if (kind === 'asset' && html) return;
   const cache = await caches.open(CACHE);
   // Stránka aplikace (i pod jinou adresou, např. s ?parametrem) se ukládá jen jednou, pod adresou rozsahu: offline se

@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { BRAND } from './brand.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const envFile = path.join(root, '.env');
@@ -16,6 +17,15 @@ const env = process.env;
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== '' && v != null ? Number(v) : d);
 // Jedna obyčejná adresa (bez mezer, čárek a znaků, které by v mailto: odkazu přidaly další adresáty nebo hlavičky).
 export const cleanEmail = (v) => { const s = String(v || '').trim(); return /^[\w.+-]{1,64}@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,24}$/i.test(s) ? s : ''; };
+// Veřejná adresa webu (PUBLIC_URL): http(s) bez lomítka na konci, bez ?dotazu a #; cokoli jiného → '' (pak výchozí).
+export const cleanSiteUrl = (v) => {
+  try {
+    const u = new URL(String(v || '').trim());
+    return /^https?:$/.test(u.protocol) && !u.username && !u.password ? (u.origin + u.pathname).replace(/\/+$/, '') : '';
+  } catch {
+    return '';
+  }
+};
 
 export const config = {
   root,
@@ -91,4 +101,7 @@ export const config = {
   // 💬 Napsat nám v ℹ️ O aplikaci: kam vede mailto. Bez adresy (nebo s neplatnou) se tlačítko neukáže – adresa
   // jen v proměnné prostředí, v kódu žádná.
   feedbackEmail: cleanEmail(env.FEEDBACK_EMAIL),
+  // Veřejná adresa webu pro kanonickou adresu, náhledy odkazů a sitemap.xml (server/lib/seo.js). Až bude vlastní doména
+  // (.cz), stačí PUBLIC_URL na Renderu; bez ní výchozí z server/brand.js.
+  publicUrl: cleanSiteUrl(env.PUBLIC_URL) || BRAND.url,
 };

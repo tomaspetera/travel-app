@@ -1158,6 +1158,7 @@ Zkopíruj `.env.example` na `.env`:
 | `PHOTOS_RATE_LIMIT` | `60` | max. dotazů na fotky měst (`/api/photos`, dávka až 30 karet) z jedné IP za 10 minut – jen ty, které nejdou celé z mezipaměti serveru (Wikimedia, Pexels, Unsplash mají strop pro celý server) |
 | `GEOCODE_RATE_LIMIT` | `200` | max. geokódování přes Open-Meteo (našeptávač, hledání míst) z jedné IP za 10 minut, jen mimo mezipaměť; nad limitem našeptávač nabídne místa z vlastních dat |
 | `FEEDBACK_EMAIL` | – | volitelné: adresa pro **💬 Napsat nám** v *⋯ Další → ℹ️ O aplikaci a soukromí* (mailto s předmětem „ATLAS – zpětná vazba (verze …, obrazovka: …)“). `/api/health` ji pošle jako `feedback: { email }` jen když je nastavená a platná (jedna adresa); bez ní tlačítko chybí. Adresa jen tady, v kódu žádná |
+| `PUBLIC_URL` | `https://atlas-letenky.onrender.com` | veřejná adresa webu (bez `/` na konci) pro kanonickou adresu, náhledy sdílených odkazů a `sitemap.xml` – až bude vlastní doména, stačí ji nastavit tady (viz [Přejmenování a doména](#přejmenování-a-doména)); výchozí je `url` v `server/brand.js` |
 | `ATLAS_MOCK` | `0` | `1` = demo data (totéž co `npm run demo`) |
 
 ### Mapy.com (volitelně, zdarma)
@@ -1247,6 +1248,50 @@ docker build -t atlas . && docker run -p 8080:8080 --env-file .env atlas
 ```
 
 GitHub Pages nestačí (je to jen statický hosting bez serveru).
+
+## Vyhledávače a náhledy odkazů
+
+Když někdo pošle odkaz na ATLAS (WhatsApp, Messenger, Facebook, X, Slack, iMessage), ukáže se náhled s obrázkem,
+názvem a popisem. Vše skládá server (`server/lib/seo.js`) z jednoho místa – `server/brand.js` a `PUBLIC_URL`:
+
+- **Stránka** dostane `<title>`, popis, kanonickou adresu, Open Graph (`og:title`, `og:description`, `og:image`
+  1200 × 630 s absolutní adresou, `og:locale` `cs_CZ`), Twitter Card `summary_large_image`, název aplikace pro iOS
+  a JSON-LD `WebApplication` – jen stálá fakta (česky, zdarma), žádná hodnocení. V `public/index.html` je místo nich
+  jen blok `<!-- brand … -->` / `<!-- /brand -->`, který server nahradí. JSON-LD je datový blok: CSP ho nehashuje
+  (prohlížeč ho nespouští).
+- **Náhledový obrázek** `public/og-image.png` (1200 × 630, ~215 kB – WhatsApp větší než ~300 kB nemusí ukázat).
+  Sdílené odkazy na cestu, plán nebo nabídku nesou data za `#`, která roboti sociálních sítí nevidí, takže náhled je
+  u všech odkazů stejný, obecný.
+- **`/robots.txt`** (vše povoleno, odkaz na mapu webu) a **`/sitemap.xml`** (jediná stránka – sekce aplikace jsou za `#`).
+- **Stránka 404** pro neznámé adresy mimo API: česky, světlá i tmavá podle systému, s tlačítkem *Otevřít ATLAS*, které
+  vezme s sebou i část adresy za `#`. Dřív server na každou neznámou adresu poslal stránku aplikace se stavem 200 –
+  vyhledávačům se pak jevila jako nekonečno kopií úvodní stránky. Sekce i sdílené odkazy (`/#trip=`, `/#plan=`,
+  `/#offer=`, zkratky `/#flights`) jsou na `/`, takže se pro ně nic nemění; offline dá service worker na jakoukoli
+  adresu dál uloženou aplikaci. Chybějící soubor (`/js/neni.js`) dostane taky 404, ne stránku aplikace.
+- **Manifest** (`/manifest.webmanifest`) posílá server se jménem a popisem z `brand.js`; ikony, barvy a zkratky jsou
+  v souboru `public/manifest.webmanifest`.
+- Po nasazení náhled ověříš ve [Sharing Debuggeru Facebooku](https://developers.facebook.com/tools/debug/) – tlačítko
+  *Scrape Again* stáhne nový náhled (Facebook a Messenger si ho jinak pamatují i dny).
+
+### Přejmenování a doména
+
+| Co | Kde to změnit |
+|---|---|
+| Název, titulek, popis pro vyhledávače a náhled, popis aplikace na ploše, slogan a tři body na obrázku, popis obrázku | `server/brand.js` (jedno místo – stránka, náhled, manifest, JSON-LD, 404) |
+| Adresa webu (kanonická, náhled, `sitemap.xml`, `robots.txt`) | proměnná `PUBLIC_URL` na Renderu; výchozí `url` v `server/brand.js` |
+| Náhledový obrázek `public/og-image.png` | `npm run build:og` – šablona je v `scripts/build-og-image.mjs`, texty bere z `brand.js`. Potřebuje Playwright s Chromiem (`npm i -g playwright && npx playwright install chromium`), projekt závislost nemá. `npm test` pozná, když se obrázek po změně `brand.js` nebo šablony znovu nevygeneroval |
+| Logo a ikony (na plochu, úvodní obrazovky iOS) | `scripts/build-icons.mjs` (`npm run build:icons`); favicon a logo v postranním panelu a na úvodní obrazovce `#launch` v `public/index.html` |
+| Barvy | `public/css/atlas.css` (`--grad`, `--bg`), `theme_color` a `background_color` v `public/manifest.webmanifest` |
+| Název v textech aplikace (postranní panel, hlášky, *O aplikaci*) | `public/index.html` a `public/js/*.js` (`grep -rn ATLAS public/`) |
+
+Změna `brand.js` nebo `PUBLIC_URL` je nová verze aplikace (patří do otisku verze v `server/lib/pwa.js`): service
+worker se aktualizuje a aplikace na ploše si nový název vezme sama (Chrome kontroluje manifest nejvýš jednou denně).
+
+**Vlastní doména (.cz):** Render → služba → **Settings → Custom Domains**, u registrátora DNS záznam podle Renderu
+(HTTPS zařídí Render), pak `PUBLIC_URL=https://…` v **Environment**. Uložené cesty a hlídané ceny jsou v prohlížeči
+pod adresou webu – na nové doméně je uživatel neuvidí. Starou adresu `…onrender.com` proto nepřesměrovávej (kanonická
+adresa vede vyhledávače na novou) a uživatelům doporuč přenos přes **💾 Přenos a záloha**: soubor stažený na staré
+adrese nahrají na nové.
 
 ## Na počítači
 

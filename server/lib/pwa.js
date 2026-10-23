@@ -97,17 +97,20 @@ let memo = null;
  * public/sw.js s dosazenou verzí a seznamem souborů → { body, build, etag, precache }.
  * Verze = otisk obsahu všech souborů v public/ a dat z RUNTIME_ASSETS – ne časů změny, takže nové nasazení se stejnými
  * soubory má stejnou verzi a prohlížeč nic znovu nestahuje. Přepočítá se, jen když se u některého souboru změní
- * velikost nebo čas změny (úprava během vývoje se tak projeví i bez restartu serveru).
+ * velikost nebo čas změny (úprava během vývoje se tak projeví i bez restartu serveru). salt = co server do stránky
+ * a manifestu dosazuje mimo public/ (název, popis a adresa webu – server/brand.js, PUBLIC_URL): i jeho změna je nová
+ * verze, jinak by aplikace na ploše dál brala starý název z uložené sady.
  */
-export function serviceWorker({ publicDir, dataDir }) {
+export function serviceWorker({ publicDir, dataDir, salt = '' }) {
   const dirs = { publicDir, dataDir };
   const data = RUNTIME_ASSETS.filter((u) => u.startsWith('data/')).map((u) => ({ rel: u, ...fileFor(u, dirs) })).filter((f) => f.abs);
   const files = [...walk(publicDir, 'public/'), ...data];
-  const key = [publicDir, dataDir, ...files.map((f) => `${f.rel}:${f.size}:${f.mtime}`)].join('|');
+  const key = [publicDir, dataDir, salt, ...files.map((f) => `${f.rel}:${f.size}:${f.mtime}`)].join('|');
   if (memo && memo.key === key) return memo.value;
 
   const hash = createHash('sha256');
   for (const f of files) hash.update(`${f.rel}\0`).update(readFileSync(f.abs)).update('\0');
+  if (salt) hash.update(`salt\0${salt}`);
   const build = hash.digest('hex').slice(0, 12);
   const shell = shellAssets(readFileSync(path.join(publicDir, 'index.html'), 'utf8'));
   const icons = shell.filter((u) => u.endsWith('.webmanifest') && fileFor(u, dirs))
@@ -143,14 +146,17 @@ export function serveServiceWorker(req, res, dirs) {
 }
 
 const BUILD_META_RE = /<meta name="atlas-build" content="[^"]*">/;
+// titulek, popis, náhled odkazu a JSON-LD (server/lib/seo.js headTags) – v index.html jen značky s poznámkou
+const BRAND_RE = /<!-- brand\b[\s\S]*?<!-- \/brand -->/;
 let indexMemo = null;
 
 /**
- * GET/HEAD stránky aplikace (/, /index.html i neznámé adresy): index.html s dosazenou verzí do <meta name="atlas-build">
- * – pwa.js tak zná verzi stránky, i když ji service worker dal z uložené kopie, a hned pozná novější na serveru.
+ * GET/HEAD stránky aplikace (/ a /index.html): index.html s dosazenou verzí do <meta name="atlas-build"> – pwa.js tak
+ * zná verzi stránky, i když ji service worker dal z uložené kopie, a hned pozná novější na serveru – a se značkami
+ * head (titulek, popis, náhled odkazu) místo bloku <!-- brand … --> … <!-- /brand -->.
  * no-cache + ETag podle obsahu (levné 304), gzip podle Accept-Encoding.
  */
-export function serveIndex(req, res, dirs) {
+export function serveIndex(req, res, dirs, head = '') {
   const file = path.join(dirs.publicDir, 'index.html');
   let st, build = null;
   try {
@@ -164,9 +170,9 @@ export function serveIndex(req, res, dirs) {
   } catch (e) {
     console.error('[index.html]', e.message); // bez verze – aplikace ji zjistí jako dřív (HEAD /sw.js)
   }
-  const key = `${build}|${st.size}|${st.mtimeMs}`;
+  const key = `${build}|${st.size}|${st.mtimeMs}|${head}`;
   if (!indexMemo || indexMemo.key !== key) {
-    const html = readFileSync(file, 'utf8');
+    const html = readFileSync(file, 'utf8').replace(BRAND_RE, () => head);
     const body = Buffer.from(build ? html.replace(BUILD_META_RE, `<meta name="atlas-build" content="${build}">`) : html);
     // CSP s otisky vložených skriptů právě této stránky (security.js) – změna skriptu v index.html se projeví sama
     indexMemo = { key, body, gz: zlib.gzipSync(body), etag: `"ix-${createHash('sha256').update(body).digest('hex').slice(0, 16)}"`, csp: pageCsp(body.toString('utf8')) };
