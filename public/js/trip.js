@@ -20,7 +20,7 @@
     cheapest: ['💰 Nejlevnější', 'info'],
     'top-rated': ['⭐ Nejlépe hodnocené', 'hot'],
   };
-  let stayView = { sort: 'value', minRating: 0, maxNight: null, type: '' };
+  let stayView = { sort: 'value', minRating: 0, maxNight: null, type: '', free: false };
   let staysData = null;
   let carsData = null;
   // odkaz na srovnávač jen z nabídek pro tatáž letiště a časy (nabídky se načítají asynchronně – mohou být ke starým)
@@ -276,8 +276,9 @@
   // na weby počítají s celou rodinou (server/lib/links.js)
   const stayKidsNote = t => (kidsN(t) ? `<div class="faint stay-kids">👶 Ceny hotelů jsou za pokoj pro ${csN(+t.adults, 'dospělého', 'dospělé', 'dospělých')} – s dětmi může být pokoj dražší. Odkazy na weby počítají s celou rodinou, věk dětí doplníš tam.</div>` : '');
   // Hledání ubytování na Booking.com (stejný formát jako odkazy ve zbytku aplikace) – místo bez načtených nabídek; děti
-  // a miminka jako group_children (věk si Booking vyžádá), bez dětí odkaz jako dřív.
-  const bookingSearch = (place, checkin, checkout, t) => `https://www.booking.com/searchresults.cs.html?${new URLSearchParams({ ss: place, checkin, checkout, group_adults: String(t.adults), no_rooms: '1', ...(kidsN(t) ? { group_children: String(kidsN(t)) } : {}), lang: 'cs', selected_currency: 'CZK' })}`;
+  // a miminka jako group_children (věk si Booking vyžádá), bez dětí odkaz jako dřív. Pokoje po dvou dospělých (nejvýš 5)
+  // jako nabídky ze serveru (normalizeStayQuery) – 4 dospělí v jednom pokoji by na Bookingu našli jen apartmány.
+  const bookingSearch = (place, checkin, checkout, t) => `https://www.booking.com/searchresults.cs.html?${new URLSearchParams({ ss: place, checkin, checkout, group_adults: String(t.adults), no_rooms: String(Math.min(5, Math.max(1, Math.ceil((+t.adults || 1) / 2)))), ...(kidsN(t) ? { group_children: String(kidsN(t)) } : {}), lang: 'cs', selected_currency: 'CZK' })}`;
   // Odkaz z nabídek partnerů jen pro stejný termín (po změně nocí by vedl na jiná data); partneři
   // spolehlivěji poznají anglický název města („Bologna“) než český („Boloňa“).
   const baseSearchUrl = (t, b, d) => (b.searchUrl && b.searchUrl.includes(d.checkin) && b.searchUrl.includes(d.checkout) ? b.searchUrl
@@ -2034,6 +2035,9 @@
   // hotel z okolí (malé místo bez hotelů na TripAdvisoru): „📍 v okolí: Noto · 24 km od místa Palazzolo Acreide“ (název
   // místa v 1. pádě – „od Ragusa“ by nesedělo)
   const nearLine = (h, base) => h.nearby ? `<div class="st-near">📍 v okolí${h.nearby.place ? `: <b>${esc(h.nearby.place)}</b>` : ''}${h.distanceKm != null ? ` · ${kmTxt(Math.round(h.distanceKm))} od ${base ? `místa ${esc(base)}` : 'místa pobytu'}` : ''}</div>` : '';
+  // Hlavní odkaz karty bez cen u jednotlivých webů (LiteAPI, ukázková data): kam vede – hledání hotelu na Booking.com
+  // (i přes partnerský tp.media) s termínem a hosty, jinak rezervace u zdroje (white-label LiteAPI); „detail“ neříkal kam.
+  const bookName = u => (/^https:\/\/www\.booking\.com\//.test(u || '') || /^https:\/\/tp\.media\/r\?.*u=https%3A%2F%2Fwww\.booking\.com%2F/.test(u || '') ? 'Booking.com' : 'rezervovat');
   function stayCard(h, i, base = '', q = null) {
     // hotel z místa TripAdvisoru se stejným názvem (Montalcino) jako hotel v místě – „km od centra“, bez „v okolí“
     if (h.nearby && !nearFar(h, q) && q) h = { ...h, nearby: null };
@@ -2053,7 +2057,9 @@
         : h.osm ? bkLink(h.bookUrl, 'Booking.com', 'Hledání ubytování na Booking.com na tvoje dny – cenu a volno ověř tam', h.bookSponsored)
           + (h.website ? bkLink(h.website, 'web ubytování', 'Vlastní web ubytování (z OpenStreetMap)', false) : '')
           + (h.mapUrl ? bkLink(h.mapUrl, 'mapa', 'Ubytování na Google Mapách', false) : '')
-          : bkLink(h.bookUrl, 'detail', '', h.bookSponsored);
+          : bkLink(h.bookUrl, bookName(h.bookUrl), bookName(h.bookUrl) === 'Booking.com' ? 'Hotel na Booking.com na tvoje dny a hosty – cenu a volno ověř tam' : 'Rezervace hotelu na tvoje dny', h.bookSponsored);
+    // cena celkem za kolik nocí (q = dotaz s počtem nocí) – „celkem“ samo neříkalo, za co
+    const forN = q && q.nights > 0 ? `za ${nightsTxt(q.nights)}` : 'celkem';
     // hotel bez ceny na tvoje dny (TripAdvisor ji zatím nemá): běžné rozpětí za noc
     const guess = h.guess ? `<div class="pp-guess" title="${h.nightToCzk > h.nightFromCzk ? `běžně ${czk(h.nightFromCzk)}–${czk(h.nightToCzk)} za noc` : ''}">${h.nightFromCzk ? `od ~${czk(h.nightFromCzk)}/noc` : 'cena na webu'}</div><div class="faint">běžná cena · volno na tvoje dny neověřené</div>` : '';
     return `<div class="stay ${chosen ? 'chosen' : ''}">
@@ -2066,7 +2072,7 @@
         ${otaChips(h)}${top && !bk ? '<div class="faint st-nobk">Booking.com na tvoje dny nic nenabízí</div>' : ''}${top && top.site === 'trip' ? '<div class="faint st-nobk">Trip.com: hledání potvrď tlačítkem Hledat</div>' : ''}
       </div>
       <div class="st-rating">${rt.col}</div>
-      <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">celkem · ${czk(h.pricePerNightCzk)}/noc</div>` : guess || `<div class="faint">${h.osm ? 'cenu ověř u partnera' : 'cena na webu'}</div>`}</div>
+      <div class="st-price"><div class="st-pp">${h.priceTotalCzk ? `<div class="pp">${czk(h.priceTotalCzk)}</div><div class="faint">${forN} · ${czk(h.pricePerNightCzk)}/noc</div>` : guess || `<div class="faint">${h.osm ? 'cenu ověř u partnera' : 'cena na webu'}</div>`}</div>
         ${h.soldOut && !chosen ? '<div class="st-sold">❌ na tvoje dny vyprodáno</div>' : ''}
         <button class="btn sm ${h.soldOut && !chosen ? 'ghost' : 'primary'}" data-pick="${i}"${h.soldOut && !chosen ? ' data-anyway="1" title="Volno jsem ověřil teď – TripAdvisor na tvoje dny nic nenabízí"' : ''}>${chosen ? '✓ Vybráno' : h.soldOut ? 'Vybrat i tak' : 'Vybrat'}</button>
         ${links}</div>
@@ -2150,10 +2156,15 @@
     const split = Boolean(near) && d.items.some(isOsm) && d.items.some(h => !isOsm(h));
     const main = split ? d.items.filter(h => !isOsm(h)) : d.items;
     const inTown = split ? d.items.filter(h => isOsm(h) && (!stayView.type || h.type === stayView.type)) : [];
+    // Storno zdarma zná jen část zdrojů (LiteAPI, ukázková data; TripAdvisor ne) – filtr jen tam, kde ho aspoň jeden hotel
+    // má; zapamatovaný z jiného místa by tu skryl všechno
+    const freeKnown = main.some(h => h.freeCancellation === true);
+    if (!freeKnown) stayView.free = false;
     // bez hodnocení u žádného (ubytování z OpenStreetMap) filtr hodnocení z jiného místa neplatí
     let items = main.filter(h => (h.rating ?? 0) >= stayView.minRating || stayView.minRating === 0 || !main.some(x => x.rating != null))
       .filter(h => !stayView.maxNight || ((h.pricePerNightCzk || h.nightFromCzk) && (h.pricePerNightCzk || h.nightFromCzk) <= stayView.maxNight))
-      .filter(h => !stayView.type || h.type === stayView.type);
+      .filter(h => !stayView.type || h.type === stayView.type)
+      .filter(h => !stayView.free || h.freeCancellation === true);
     const sorters = {
       value: (a, b) => (b.value ?? -1) - (a.value ?? -1),
       price: (a, b) => (a.priceTotalCzk || Infinity) - (b.priceTotalCzk || Infinity),
@@ -2224,14 +2235,19 @@
         ${inTown.length > osmLim ? `<button type="button" class="more-btn" id="stayTownN">▼ Další v místě (${inTown.length - osmLim})</button>` : ''}</div>` : '';
     // nejdřív 6 hotelů (na telefonu je každý ~200 px) – „Ubytování neřeším“ a vlastní cena jsou pak blízko
     const lim = stayView.n || 6;
+    // vybraný hotel je vidět vždy, i když ho filtry nebo řazení odsunuly (návrat do kroku: co mám vybráno, změnit, porovnat)
+    const cur = staySlot && staySlot.get();
+    const picked = cur && cur.mode === 'pick' ? main.find(h => h.id === cur.id) : null;
+    let shown = items.slice(0, lim);
+    if (picked && !shown.includes(picked)) shown = [picked, ...shown];
     host.innerHTML = `${testNote}${osmNote}${srcNote}<div class="stay-tools">
         <select id="staySort">${[['value', '🏆 Nejlepší poměr cena/hodnocení'], ['price', '💰 Nejlevnější'], ['rating', '⭐ Nejlépe hodnocené'], ['dist', '📍 Nejblíž centru']].map(o => `<option value="${o[0]}" ${stayView.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
         ${rated ? `<div class="seg" id="stayMin">${[[0, 'vše'], [7, five ? '3,5+' : '7+'], [8, five ? '4+' : '8+'], [9, five ? '4,5+' : '9+']].map(o => `<button type="button" data-v="${o[0]}" class="${stayView.minRating === o[0] ? 'on' : ''}">${o[1]}</button>`).join('')}</div>` : ''}
         ${types.length > 1 ? `<select id="stayType"><option value="">všechny typy</option>${types.map(x => `<option ${stayView.type === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}
         <input class="input" id="stayMax" type="number" min="0" step="100" placeholder="max Kč/noc" value="${stayView.maxNight || ''}" style="max-width:130px">
-        <span class="faint" style="font-size:12px">${items.length} z ${main.length} nabídek${hideGuess ? ` · ${nGuess} bez ceny skryto` : ''}${split ? ` · ${inTown.length} v místě bez ceny` : ''}</span>
+        <span class="faint" style="font-size:12px">${freeKnown ? `<button type="button" class="chip st-free${stayView.free ? ' accent' : ''}" id="stayFree" aria-pressed="${stayView.free}">${stayView.free ? '✓ ' : ''}zdarma storno</button>` : ''}${items.length} z ${main.length} nabídek${hideGuess ? ` · ${nGuess} bez ceny skryto` : ''}${split ? ` · ${inTown.length} v místě bez ceny` : ''}</span>
       </div>
-      <div class="stay-list">${items.slice(0, lim).map((h) => stayCard(h, d.items.indexOf(h), base, dq)).join('') || `<div class="empty">Filtrům nic neodpovídá. Uvolni hodnocení, max. cenu nebo typ ubytování.<div style="margin-top:10px"><button type="button" class="btn sm" id="stayClear">Zrušit filtry</button></div></div>`}</div>
+      <div class="stay-list">${shown.map((h) => stayCard(h, d.items.indexOf(h), base, dq)).join('')}${items.length ? '' : `<div class="empty">Filtrům nic neodpovídá. Uvolni hodnocení, max. cenu, typ ubytování nebo storno zdarma.<div style="margin-top:10px"><button type="button" class="btn sm" id="stayClear">Zrušit filtry</button></div></div>`}</div>
       ${items.length > lim ? `<button type="button" class="more-btn" id="stayMoreN">▼ Další hotely (${items.length - lim})</button>` : ''}
       ${hideGuess ? `<button type="button" class="linkbtn st-guess-btn" id="stayGuess">Ukázat i ${nGuess} ${nGuess === 1 ? 'hotel' : nGuess <= 4 ? 'hotely' : 'hotelů'} bez ceny na tvoje dny (často obsazené)</button>` : ''}
       ${townHtml}
@@ -2244,8 +2260,9 @@
     $$('#stayMin button').forEach(b => b.onclick = () => { stayView.minRating = +b.dataset.v; stayView.n = 0; renderStays(); });
     const ty = $('#stayType'); if (ty) ty.onchange = e => { stayView.type = e.target.value; stayView.n = 0; renderStays(); };
     $('#stayMax').onchange = e => { stayView.maxNight = +e.target.value || null; stayView.n = 0; renderStays(); };
-    // filtry skryly všechno: hodnocení, max. cena a typ pryč jedním klepnutím (řazení zůstane)
-    const sc = $('#stayClear'); if (sc) sc.onclick = () => { Object.assign(stayView, { minRating: 0, maxNight: null, type: '', n: 0 }); renderStays(); };
+    const fr = $('#stayFree'); if (fr) fr.onclick = () => { stayView.free = !stayView.free; stayView.n = 0; renderStays(); };
+    // filtry skryly všechno: hodnocení, max. cena, typ a storno pryč jedním klepnutím (řazení zůstane)
+    const sc = $('#stayClear'); if (sc) sc.onclick = () => { Object.assign(stayView, { minRating: 0, maxNight: null, type: '', free: false, n: 0 }); renderStays(); };
     const mn = $('#stayMoreN'); if (mn) mn.onclick = () => { stayView.n = lim + 10; renderStays(); };
     const tn = $('#stayTownN'); if (tn) tn.onclick = () => { stayView.osm = d.key; renderStays(); };
     // hotely bez ceny jsou v pořadí až za limitem výpisu – ukázat celý seznam a posunout se k prvnímu z nich

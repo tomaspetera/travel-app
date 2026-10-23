@@ -121,7 +121,8 @@ export function mapHotels(hotels, ratesData, q, center, extra = []) {
       pricePerNightCzk: Math.round(total / q.nights),
       freeCancellation: /RFN|refundable/i.test(best.rate?.cancellationPolicies?.refundableTag || '') && !/NRFN|non/i.test(best.rate?.cancellationPolicies?.refundableTag || ''),
       breakfast: /breakfast|snídan/i.test(best.rate?.boardName || ''),
-      bookUrl: config.liteapiWhitelabel ? whiteLabelUrl(h.id, q) : affiliate(bookingSearchUrl(h.name, q.city, q), 'booking'),
+      // hledání hotelu na Booking.com anglickým názvem místa jako u ostatních zdrojů („Hotel Duomo, Milan“, ne „…, Milán“)
+      bookUrl: config.liteapiWhitelabel ? whiteLabelUrl(h.id, q) : affiliate(bookingSearchUrl(h.name, q.cityEn || q.city, q), 'booking'),
       bookSponsored: !config.liteapiWhitelabel && affiliateOn('booking'), // partnerský odkaz – karta ho označí „reklama“
     });
   }

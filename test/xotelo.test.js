@@ -1080,14 +1080,14 @@ test('karta hotelu z TripAdvisoru: nepovedená aktualizace řekne pravdu (vše /
   assert.ok(sum.includes('Ubytování: The Manes Boutique Hotel Prague – na Trip.com potvrď Hledat'), sum.slice(0, 400));
 });
 
-test('karta hotelu jiného zdroje (LiteAPI, DEMO) beze změny: „detail ↗“, bez poznámek o Booking.com, času cen a aktualizaci', async () => {
+test('karta hotelu jiného zdroje (LiteAPI, DEMO): odkaz „rezervovat ↗“ (ne Booking.com), bez poznámek o Booking.com, času cen a aktualizaci', async () => {
   const items = rankStays([{ id: 'la:1', provider: 'liteapi', name: 'Hotel Lite', type: 'hotel', typeLabel: 'hotel', stars: 4, rating: 8.6, reviews: 120, address: 'Main 1', lat: 50.08, lon: 14.42, distanceKm: 1.2, photo: null, priceTotalCzk: 5000, pricePerNightCzk: 2500, bookUrl: 'https://hotel.example/1', bookSponsored: false, freeCancellation: true, breakfast: null }]);
   const c = loadTrip(() => ({ query: STAY_Q, providers: [{ id: 'liteapi', name: 'LiteAPI', ok: true, count: 1, ms: 5, test: false }], items, links: stayLinks(STAY_Q) }));
   c.S.trip = pragueTrip();
   c.window.Trip.render();
   await tick();
   const html = sp(c.__els['#stayBody'].innerHTML);
-  assert.match(cardOf(html, 'Hotel Lite'), /<span class="st-bk"><a class="linkbtn" href="https:\/\/hotel\.example\/1" target="_blank" rel="noopener">detail ↗<\/a><\/span>/);
+  assert.match(cardOf(html, 'Hotel Lite'), /<span class="st-bk"><a class="linkbtn" href="https:\/\/hotel\.example\/1" target="_blank" rel="noopener" title="Rezervace hotelu na tvoje dny">rezervovat ↗<\/a><\/span>/);
   for (const s of ['nic nenabízí', 'Ceny z', 'stayFresh', 'místních poplatků', 'st-otas']) assert.ok(!html.includes(s), s);
 });
 
