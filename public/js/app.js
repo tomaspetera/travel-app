@@ -757,8 +757,10 @@ function showNow() {
 }
 /* ---------- ✨ Co je nového ----------
    Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
-const WN_ID = '2026-10-23g';
+const WN_ID = '2026-10-23h';
 const WHATS_NEW = [
+  ['🌍', 'Doporučení podle sezóny a tebe', 'v <b>Doporučení</b> (menu ☰) i v tipech na Přehledu je u země proč – třeba „🏖️ Kanárské ostrovy: ~25 °C přes den“ nebo „✈️ tam i zpět od 1 890 Kč“ z radaru – a tlačítko <b>✈️ Najít lety</b> s odletem v tom měsíci. Od 20. dne tipuje už na příští měsíc, k moři jen tam, kde je opravdu teplo, blízké země výš; když hledáš hlavně k moři nebo s dětmi, vezme to v úvahu, ⭐ moje cíle dá výš a země s 🙈 městem vynechá. Země, kam MZV ČR nedoporučuje cestovat, mají v seznamu zemí štítek ⚠️.'],
+  ['🗓️', 'Program s časy a obědem', '<b>Program ve městě</b> v <b>Objevuj</b> i v průvodci Cestou má u každé zastávky přibližný čas (podle chůze a MHD), pauzu na oběd s tipem na tržnici nebo kavárnu kousek od ní, co uvidíš cestou kolem, kam na večer a – když předpověď na ten den hlásí déšť – místa pod střechou. Nejznámější místa (Koloseum, Fontána di Trevi, Belémská věž) v programu nechybí, za den nejvýš 2 muzea, muzeum a zoo spíš dopoledne. Cesta s dětmi má rovnou zájem <b>🧒 S dětmi</b>.'],
   ['🚆', 'Vlak na cestě s časem a počasí', 'v <b>Plánovači</b> zapíšeš k vlaku nebo busu mezi místy trasy (třeba Lisabon → Porto) čas odjezdu z jízdenky, nástupiště, vůz a místo i kód. Karta <b>📍 Dnes na cestě</b> pak odpočítává („vlak do Porta v 10:42 – za 1 h 20 min“) s odkazem na nádraží v mapě a ukáže dnešní předpověď počasí – i bez signálu. Během cesty má plán nahoře dnešní den a kódy rezervací.'],
   ['👍', 'Doporučené pořadí letů', 'výsledky <b>Kamkoliv</b> i radar <b>Kam letět levně</b> řadí nahoru nabídky, které by sis opravdu vybral – ne jen nejlevnější letenku: počítá s cestou na letiště a do města (cena i čas), nočními odjezdy bez spojů, tím, kolik času zbude na místě, a cenou pod obvyklou; další cíl ze stejné země dá o kus níž. Proč je nabídka nad levnější letenkou, řekne štítek <b>✓</b> (třeba „i s cestou na letiště nejlevnější“). Čistě podle ceny dál řadí <b>Nejlevnější letenka</b> ve <b>Filtrech</b>.'],
   ['🔀', 'Auto jen na část cesty', 'v kroku <b>Auto</b> průvodce Cestou vybereš <b>📅 dny auta</b> – třeba v Lisabonu jen 2. a 3. den na výlety: vyzvednutí i vrácení ve městě a z letiště do města dál metrem. Na trase přes víc míst má každý přejezd přepínač <b>🚗 / 🚆</b> s časem a cenou – auto se půjčí jen na úseky autem a ATLAS řekne, kde ho vyzvednout a kde vrátit.'],
@@ -1018,8 +1020,10 @@ function renderDash() {
 /** Dlaždice a „Kam vyrazit“ na přehledu (po změně navštívených zemí nebo cest – bez radaru a hlídaných cen). */
 function renderDashStats() {
   renderNow();
-  const st = stats(); const m = new Date().getMonth() + 1;
-  const topRec = scoreCountries(m, {}).filter(r => !visited.has(r.c.iso2))[0];
+  // tipy na měsíc, na který se teď plánuje (od 20. dne už příští), bez navštívených zemí; s počasím, až dorazí
+  const st = stats(), m = Recs.defaultMonth();
+  const season = seasonOf(m, 'dash', () => { if (activeView === 'dashboard') renderDashStats(); });
+  const recs = recsFor(m, { season, skip: visited, n: 4 }).list, topRec = recs[0];
   const w = (S.watch || []).length;
   // jen dlaždice, ve kterých něco je (nový uživatel neuvidí řadu nul); bez nich ani tip měsíce – ten je níž v Tipech
   const tiles = [
@@ -1030,9 +1034,9 @@ function renderDashStats() {
   if (tiles.length) tiles.push(['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs : '', topRec ? `<button type="button" class="linkbtn nt-open" data-tipiso="${topRec.c.iso2}">Proč tam →</button>` : '']);
   $('#statGrid').hidden = !tiles.length;
   $('#statGrid').innerHTML = tiles.map(s => `<div class="card stat"><div class="lab">${s[0]}</div><div class="val">${s[1]}</div><div class="sub">${s[2]}</div>${s[3] || ''}</div>`).join('');
-  const recs = scoreCountries(m, {}).filter(r => !visited.has(r.c.iso2)).slice(0, 4);
   paintHero();
-  $('#dashRecs').innerHTML = recs.map(r => destCard(r.c, r.score)).join('');
+  $('#dashRecsH').textContent = 'Tipy na ' + MNS_FULL[m - 1];
+  $('#dashRecs').innerHTML = recs.map(r => destCard(r.c, r.score, r.why)).join('');
   bindDest('#dashRecs');
   Photos.paint($('#dashRecs'));
   $$('[data-nt]').forEach(b => b.onclick = () => { go('planner'); setTimeout(() => openTrip(+b.dataset.nt), 250); });
@@ -1169,14 +1173,19 @@ window.ccHue = ccHue;
 // místo dne s posunem (Lety mají jiné než Přehled)
 window.heroPlace = (off = 0) => HERO_PLACES[(Math.floor(Date.now() / 864e5) + off) % HERO_PLACES.length];
 
-function destCard(c, score) {
+// Bezpečnost země (countries.json safety 1–5) slovy jako doporučení MZV ČR: 1 varuje před cestami, 2 cesty jen
+// v nezbytných případech, 3 zvýšená opatrnost nebo nezbytné cesty jen do části země, 4 výhrady jen k oblastem, 5 bez výhrad.
+// Dřív „velmi rizikové / zvýšená opatrnost / střední“ – u SAE (MZV: jen nezbytné cesty) znělo „zvýšená opatrnost“ mírněji.
+const SAFE_TXT = ['', 'MZV ČR varuje', 'jen nezbytné cesty', 'zvýšená opatrnost', 'bezpečné', 'velmi bezpečné'];
+// why = proč (Doporučení – recs.js), na kartě první věta; země, kam MZV ČR nedoporučuje cestovat, se štítkem ⚠️
+function destCard(c, score, why) {
   const months = c.months ? monthRanges(c.months) : '';
   return `<div class="card dest ${visited.has(c.iso2) ? 'visited' : ''}" data-iso="${c.iso2}" data-photo="${esc(c.capCs || c.cap || c.cs)}" style="--h:${ccHue(c.iso2)}">
     ${score ? `<div class="score-pill">${score}</div>` : `<div class="vmark"><svg viewBox="0 0 24 24" width="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>`}
     <div class="flag">${flag(c.iso2)}</div>
     <div class="dest-panel"><div class="cname">${c.cs}</div><div class="ccont">${c.cont}${c.cap ? ' · ' + (c.capCs || c.cap) : ''}</div>
-    <div class="cblurb">${c.blurb || 'Objev tuto zemi – počasí, ceny i odkazy najdeš uvnitř.'}</div>
-    ${entryChip(c.iso2)}<div class="meta">${c.cost ? costDots(c.cost) : '<span></span>'}${months ? `<span>${months}</span>` : ''}</div></div>
+    <div class="cblurb">${c.blurb || 'Objev tuto zemi – počasí, ceny i odkazy najdeš uvnitř.'}</div>${why ? recWhy(why, 1) : ''}
+    ${c.safety <= 2 ? `<span class="ec ec-hard" title="Doporučení MZV ČR – podrobnosti v detailu země">⚠️ ${c.safety === 1 ? 'MZV varuje' : 'jen nezbytné cesty'}</span>` : ''}${entryChip(c.iso2)}<div class="meta">${c.cost ? costDots(c.cost) : '<span></span>'}${months ? `<span>${months}</span>` : ''}</div></div>
   </div>`;
 }
 // Vstupní podmínky (entry.js): čip na kartě; data se načítají po startu, pak se čipy doplní (paintEntryChips).
@@ -1195,35 +1204,62 @@ function kbClick(el) {
   el.onkeydown = e => { if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); el.click(); } };
 }
 
-/* ================= RECOMMENDATIONS ENGINE ================= */
-function scoreCountries(month, opt) {
-  const { vibe = '', budget = 9, safe = 0 } = opt || {};
-  return COUNTRIES.filter(c => c.cost).filter(c => c.cost <= budget && c.safety >= safe).map(c => {
-    let season = 0; if (c.months.includes(month)) season = 1; else if (c.months.includes(month % 12 + 1) || c.months.includes((month + 10) % 12 + 1)) season = .5;
-    const value = (6 - c.cost) / 5, safety = c.safety / 5;
-    let vm = 0; if (vibe) { const kws = VIBES[vibe] || []; const hay = norm(c.blurb + ' ' + (c.tags || []).join(' ')); if (kws.some(k => hay.includes(norm(k)))) vm = 1; }
-    // mimo nejlepší měsíce (ani o měsíc vedle) výrazně níž: levná a bezpečná země v monzunu (Srí Lanka v červenci)
-    // nesmí předběhnout zemi, kde je teď sezóna
-    const total = (season * 3 + value * 2 + safety * 1.5 + vm * 3 + (c.safety >= 4 ? .3 : 0)) * (season ? 1 : 0.55);
-    const max = vibe ? 9.8 : 6.8;
-    return { c, score: Math.round(total / max * 100), season, vibe: vm ? vibe : '' };
-  }).sort((a, b) => b.score - a.score);
+/* ================= DOPORUČENÍ (pořadí a proč počítá recs.js) ================= */
+// Měsíc ve všech zemích (api/climate?month=): počasí u moře a u hlavního letiště, vzdálenost z Prahy. Data se nemění –
+// jednou na měsíc a běh stránky; bez nich (offline, chyba) Doporučení počítá jen s nejlepšími měsíci zemí.
+// SEASON[m] = { data } | { p (načítá se), cb: { klíč: fn } } | { fail: čas } (po minutě zkusit znovu)
+const SEASON = {};
+function seasonOf(m, key, then) {
+  let s = SEASON[m];
+  if (s && s.data) return s.data;
+  if (!s || (s.fail && Date.now() - s.fail > 6e4)) {
+    s = SEASON[m] = { cb: {} };
+    s.p = fetch('api/climate?month=' + m).then(r => (r.ok ? r.json() : null)).catch(() => null).then(j => {
+      SEASON[m] = j && j.countries ? { data: j.countries } : { fail: Date.now() };
+      if (SEASON[m].data) Object.values(s.cb).forEach(fn => fn());
+    });
+  }
+  if (s.cb && key) s.cb[key] = then; // jedno překreslení na místo, i když se mezitím kreslilo víckrát
+  return null;
 }
-const VIBE_TAG = { 'pláže': 'pláže a moře', hory: 'hory', historie: 'historie', safari: 'příroda', 'město': 'města' };
+/** Doporučení pro měsíc m s tím, co víme o uživateli (hledání, děti, ⭐ / 🙈, prohlížené cíle, radar) – recs.js rank. */
+function recsFor(m, o = {}) {
+  const prof = Recs.profile({ recent: S.recent, form: S.form, fav: S.fav, mute: S.mute, viewed: S.viewed });
+  const radar = Recs.radarBest(S.radar, Date.now(), fmtYMD(new Date()), S.mute);
+  return { prof, ...Recs.rank(COUNTRIES, m, { vibes: VIBES, prof, radar, ...o }) };
+}
+/** Proč (věty z recs.js) pod názvem na kartě – nejvýš n (tipy na Přehledu jen první); vysvětlení v title. */
+const recWhy = (why, n = 2) => (why && why.length ? `<div class="rec-why">${why.slice(0, n).map(w => `<span title="${esc(w.title)}">${w.ic} ${esc(w.t)}</span>`).join('')}</div>` : '');
+/** ✈️ Najít lety z karty doporučení: do země (nebo oblasti u moře) s odletem v měsíci tipu. */
+function recFly(r, m) {
+  const id = r.fly.id, region = id.startsWith('rg:');
+  if (window.Flights) Flights.searchTo([{ id, label: r.fly.label, flag: flag(r.c.iso2), type: region ? 'region' : 'country' }], Recs.monthRange(m, fmtYMD(new Date())) || {});
+}
 function renderRecs() {
   const m = +$('#rMonth').value, vibe = $('#rVibe').value, budget = +$('#rBudget').value, safe = +$('#rSafe').value;
   $('#recTitle').textContent = 'Kam vyrazit · ' + MNS_FULL[m - 1];
-  const list = scoreCountries(m, { vibe, budget, safe }).slice(0, 18);
-  $('#recGrid').innerHTML = list.map(r => {
-    // zvolený styl, který země splňuje, napřed („✓ hory“) – jinak by Litva mezi horami vypadala jako horská
-    const reasons = r.vibe ? [VIBE_TAG[r.vibe] || r.vibe] : []; if (r.season === 1) reasons.push('ideální počasí'); if (r.c.cost <= 2) reasons.push('levné'); if (r.c.safety >= 5) reasons.push('velmi bezpečné'); else if (r.c.safety >= 4) reasons.push('bezpečné');
+  const season = seasonOf(m, 'rec', () => { if (activeView === 'recommend' && +$('#rMonth').value === m) renderRecs(); });
+  const { list, hidden, prof } = recsFor(m, { vibe, budget, safe, season });
+  const pl = Recs.profileLine(prof, hidden, vibe);
+  $('#recProf').hidden = !pl;
+  $('#recProf').textContent = pl ? 'Podle tvého hledání: ' + pl : '';
+  $('#recGrid').innerHTML = list.length ? list.map((r, i) => {
     const c = r.c;
-    return `<div class="card dest" data-iso="${c.iso2}" data-photo="${esc(c.capCs || c.cap || c.cs)}" style="--h:${ccHue(c.iso2)}"><div class="score-pill">${r.score}</div>
+    // zvolený styl, který země splňuje, napřed („✓ hory“) – jinak by Litva mezi horami vypadala jako horská
+    return `<div class="card dest" data-iso="${c.iso2}" data-photo="${esc(c.capCs || c.cap || c.cs)}" style="--h:${ccHue(c.iso2)}"><div class="score-pill" title="Jak dobře se země hodí na ${MNS_FULL[m - 1]} (0–99): sezóna, vzdálenost, ceny, bezpečnost a styl">${r.score}</div>
       <div class="flag">${flag(c.iso2)}</div><div class="dest-panel"><div class="cname">${c.cs}</div><div class="ccont">${c.cont}</div>
       <div class="cblurb">${c.blurb}</div>
-      <div class="tags">${reasons.map(x => `<span class="tag">✓ ${x}</span>`).join('')}</div>
-      ${entryChip(c.iso2)}<div class="meta">${costDots(c.cost)}<span>${monthRanges(c.months)}</span></div></div></div>`;
-  }).join('');
+      ${recWhy(r.why)}
+      <div class="tags">${r.tags.map(x => `<span class="tag">✓ ${x}</span>`).join('')}</div>
+      ${entryChip(c.iso2)}<div class="meta">${costDots(c.cost)}<span>${monthRanges(c.months)}</span></div>
+      <button type="button" class="btn sm rec-fly" data-fly="${i}" title="Nejlevnější lety: ${esc(r.fly.label)}, odlet ${MNS_LOC[m - 1]}">✈️ Najít lety</button></div></div>`;
+  }).join('') : `<div class="empty" style="grid-column:1/-1">Zvoleným filtrům nic neodpovídá – uvolni rozpočet nebo bezpečnost.</div>`;
+  // vynechané (ať je vidět proč tu nějaká země není)
+  const foot = [hidden.unsafe ? `Doporučení vynechává ${hidden.unsafe} zemí, před kterými MZV ČR varuje nebo kam doporučuje jen nezbytné cesty.` : '',
+    hidden.mute.length ? `🙈 Vynechané kvůli Nezajímá mě: ${hidden.mute.join(', ')} – seznam upravíš přes ⋯ u cíle ve výsledcích hledání.` : '',
+    season ? 'Teploty jsou dlouhodobý průměr denních maxim u letiště (ne předpověď); teplotu moře ATLAS nezná.' : ''].filter(Boolean);
+  $('#recFoot').innerHTML = foot.map(x => `<div>${esc(x)}</div>`).join('');
+  $$('#recGrid [data-fly]').forEach(b => { b.onclick = e => { e.stopPropagation(); recFly(list[+b.dataset.fly], m); }; });
   bindDest('#recGrid');
   Photos.paint($('#recGrid'));
 }
@@ -1392,7 +1428,7 @@ function openCountry(iso) {
   const isV = visited.has(iso);
   const mzv = 'https://www.mzv.gov.cz/jnp/cz/cestujeme/index.html';
   const geoNote = c.geo ? `<div class="note ${c.safety <= 2 ? 'bad' : 'warn'}" style="margin-bottom:14px">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${c.geo}</div></div>` : '';
-  const safeTxt = c.safety ? ['', 'velmi rizikové', 'zvýšená opatrnost', 'střední', 'bezpečné', 'velmi bezpečné'][c.safety] : '—';
+  const safeTxt = c.safety ? SAFE_TXT[c.safety] : '—';
   const costTxt = c.cost ? ['', 'velmi levné', 'levné', 'střední', 'dražší', 'drahé'][c.cost] : '—';
   modalOpen(`
    <div class="modal-hero mh-photo" data-photo="${esc(c.capCs || c.cap || c.cs)}"><div class="mh-bg ${c.cost >= 4 ? 'warm' : ''}"></div>
@@ -1707,6 +1743,7 @@ function rideEd(r) {
     + `<div class="ride-in">${f('dep', 'Odjezd', ' type="time"')}${f('plat', 'Nástupiště', ' maxlength="12"')}${f('seat', 'Vůz / místo', ' maxlength="30"')}${f('kod', 'Kód jízdenky', ' maxlength="40" autocapitalize="characters" spellcheck="false"')}</div></div>`;
 }
 function openTrip(i) {
+  flushRide(); // rozepsané pole vlaku (rideSoon) napřed uložit – překreslené okno ho ukáže
   const t = S.trips[i]; if (!t) return; tripShown = t; const c = t.iso ? byIso[t.iso] : null; const city = c && c.cap ? c.cap : t.dest;
   const local = localTrip(t) && !t.flight && !t.wizard;
   // výlet z Objevuj uložený dřív s cestovním seznamem (pas, adaptér…), nic neodškrtnuté → seznam na den venku
@@ -1749,7 +1786,10 @@ function openTrip(i) {
     $$('input[data-addact]', b).forEach(x => { x.onkeydown = enter(() => addAct(i, d)); });
     $$('button[data-addact]', b).forEach(x => { x.onclick = () => addAct(i, d); });
   });
-  $$('[data-ride]', m).forEach(b => $$('[data-rf]', b).forEach(x => { x.onchange = () => setRide(i, b.dataset.ride, x.dataset.rf, x.value); }));
+  $$('[data-ride]', m).forEach(b => $$('[data-rf]', b).forEach(x => {
+    x.onchange = () => setRide(i, b.dataset.ride, x.dataset.rf, x.value);
+    x.oninput = () => setRideSoon(i, b.dataset.ride, x.dataset.rf, x.value);
+  }));
   // vlaky a busy mezi místy trasy zná průvodce (trip.js se stahuje až po startu) – po jeho načtení okno znovu
   if (t.wizard && !window.Trip && window.Lazy) Lazy.need('trip').then(() => { if (tripShown === t && $('#modalBg').classList.contains('show') && S.trips.includes(t)) openTrip(S.trips.indexOf(t)); }, () => { });
   $$('[data-check]', m).forEach(x => { x.onchange = () => toggleCheck(i, +x.dataset.check); });
@@ -1935,14 +1975,39 @@ function rideSet(t, key, k, v) {
  * 🚆 Pole vlaku / busu v itineráři – uloží se bez překreslení okna (psaní v dalším poli zůstane). Karta „Dnes na cestě“
  * i připravený odkaz na plán hned s novým časem.
  */
-window.setRide = (i, key, k, v) => {
-  i = tripIdx(i); const t = S.trips[i], next = t && rideSet(t, key, k, v);
+function putRide(t, key, k, v) {
+  const next = t && rideSet(t, key, k, v);
   if (!next) return;
   if (next.length) t.rides = next; else delete t.rides;
   save();
   ShareLink.prepare('plan', PlanShare.json(t));
   if (activeView === 'dashboard') renderNow();
+}
+// Pole vlaku už při psaní (jako poznámky): „change“ přijde až po opuštění pole – kód jízdenky vložený z e-mailu by
+// aplikace zavřená (nebo uspaná a systémem ukončená) dřív, než pole opustil, ztratila. Čekající hodnota patří k cestě
+// (ne k pořadí v plánovači – mezitím smazaná cesta nic nepřepíše).
+let rideP = null;
+/** Čekající hodnotu pole vlaku uložit hned (další pole, skrytí nebo zavření aplikace). */
+function flushRide() {
+  if (!rideP) return;
+  const { t, key, k, v, tm } = rideP;
+  clearTimeout(tm); rideP = null;
+  if (S.trips.includes(t)) putRide(t, key, k, v);
+}
+/** Psaní v poli k vlaku key cesty t: uloží se za 400 ms od posledního znaku (jiné pole napřed uloží to předchozí). */
+function rideSoon(t, key, k, v) {
+  if (rideP && (rideP.t !== t || rideP.key !== key || rideP.k !== k)) flushRide();
+  if (rideP) clearTimeout(rideP.tm);
+  rideP = { t, key, k, v, tm: setTimeout(flushRide, 400) };
+}
+window.setRide = (i, key, k, v) => {
+  i = tripIdx(i); const t = S.trips[i];
+  if (rideP && rideP.t === t && rideP.key === key && rideP.k === k) { clearTimeout(rideP.tm); rideP = null; } // „change“ = totéž hned
+  putRide(t, key, k, v);
 };
+window.setRideSoon = (i, key, k, v) => { const t = S.trips[tripIdx(i)]; if (t) rideSoon(t, key, k, v); };
+window.addEventListener('pagehide', flushRide);
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushRide(); });
 // „change“ přijde i při překreslení okna po změně z jiného panelu – patří k cestě v okně (smazaná: nic)
 window.setBudget = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].budget = v; reTrip(i); };
 window.setNotes = (i, v) => { i = tripIdx(i); if (i < 0) return; S.trips[i].notes = v; save(); };
@@ -2029,7 +2094,7 @@ function fillSelects() {
   // „Kontinent: vše“ jako „Cena: vše“ a „Vstup: vše“ vedle – „Všechny kontinenty“ se na telefonu (360 px, dva výběry
   // vedle sebe) nevešlo a končilo „Všechny kontine“
   $('#cCont').innerHTML = '<option value="">Kontinent: vše</option>' + CONTS.map(c => `<option>${c}</option>`).join('');
-  const m = new Date().getMonth() + 1;
+  const m = Recs.defaultMonth(); // od 20. dne už příští měsíc (23. 10. → listopad)
   $('#rMonth').innerHTML = MNS_FULL.map((n, i) => `<option value="${i + 1}" ${i + 1 === m ? 'selected' : ''}>${n.charAt(0).toUpperCase() + n.slice(1)}</option>`).join('');
 }
 function wireEvents() {

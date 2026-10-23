@@ -256,7 +256,8 @@
     const where = (city, st) => (st ? `${city} – ${st}` : city);
     const dur = Number(g.min) > 0 ? `${Math.floor(g.min / 60)} h ${String(Math.round(g.min % 60)).padStart(2, '0')} min` : '';
     const lines = timed
-      ? [`Odjezd ${hm(g.dep)} místního času (${where(g.from, g.fromStation)})`, isLocal(g.arr) ? `Příjezd ${hm(g.arr)} místního času (${where(g.to, g.toStation)})` : '']
+      // arrEst: příjezd dopočtený z odjezdu zapsaného v plánovači a délky cesty (app.js rideOn) – jako na kartě „~13:32“
+      ? [`Odjezd ${hm(g.dep)} místního času (${where(g.from, g.fromStation)})`, isLocal(g.arr) ? `Příjezd ${g.arrEst ? '~' : ''}${hm(g.arr)} místního času (${where(g.to, g.toStation)})${g.arrEst ? ' – odhad podle délky cesty' : ''}` : '']
       : [`Konkrétní spoj vyber a ověř u dopravce${dur ? ` – cesta trvá ~${dur} (odhad)` : ''}.`];
     const ev = {
       title: `${icon} ${g.from} → ${g.to}${g.carrier ? ' · ' + g.carrier : ''}${g.kind ? ` (${g.kind})` : ''}`,

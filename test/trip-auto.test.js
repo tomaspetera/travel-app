@@ -36,9 +36,9 @@ const MID = leg('FCO', 'BCN', '2026-11-13', '07:35', '09:20', 'Europe/Rome', 'Eu
 const BACK = leg('FCO', 'PRG', '2026-11-14', '18:10', '20:05', 'Europe/Rome', 'Europe/Prague');
 const BACK_BCN = leg('BCN', 'PRG', '2026-11-16', '18:10', '20:35', 'Europe/Madrid', 'Europe/Prague');
 // Řím na 4 noci (jedno místo), nebo Řím → Barcelona letadlem (trasa podle letů = postavená trasa přes víc míst)
-function begin(ctx, { multi = false } = {}) {
+function begin(ctx, { multi = false, children = 0 } = {}) {
   const t = { id: 'x', out: OUT, ...(multi ? { mid: [MID], back: BACK_BCN } : { back: BACK }), flightCzk: 3000, groundCzk: 200, bagCzk: 0, arrCzk: 0, perPersonCzk: 3200, totalCzk: 6400, provider: 'demo-air', combined: false, bookUrl: null, deal: { level: 'normal' } };
-  ctx.window.Trip.start({ t, g: { dest: ROM }, result: { origins: [], query: { adults: 2, bags: 'none' }, home: null, arrivals: {} }, ...(multi ? { stops: [ROM, BCN] } : {}) });
+  ctx.window.Trip.start({ t, g: { dest: ROM }, result: { origins: [], query: { adults: 2, bags: 'none', ...(children ? { children } : {}) }, home: null, arrivals: {} }, ...(multi ? { stops: [ROM, BCN] } : {}) });
   ctx.S.trip.verifiedAt = 1; // bez živého ověření ceny letu
   return ctx.S.trip;
 }
@@ -95,6 +95,32 @@ test('⚡ Poskládej: jedno místo – hotel s nejlepším poměrem, bez auta, p
   const o = calls.at(-1);
   assert.equal(o.plan, t.plan);
   assert.deepEqual([o.lat, o.lon, o.start, o.end, o.arrivalTime, o.departureTime], [t.plan.center.lat, t.plan.center.lon, t.plan.span.start, t.plan.span.end, t.plan.span.arrivalTime, t.plan.span.departureTime]);
+});
+
+test('⚡ Poskládej s dětmi: program rovnou se zájmem „S dětmi“ (server dostane kids), krok Program ho předvybere', async () => {
+  const c = load();
+  const t = begin(c, { children: 2 });
+  const asked = fakeFetch(c);
+  render(c, 'flight');
+  await c.__els['#tfAuto'].onclick();
+  for (let i = 0; i < 4; i++) await tick();
+  const it = asked.find((a) => a[0] === 'api/itinerary')[1];
+  assert.equal(it.kids, true);
+  assert.deepEqual(plain(t.plan.prefs.interests), ['kids']);
+  // krok Program: plánovač dostane zájem „S dětmi“ i pro nový program (jiný termín)
+  const calls = [];
+  c.Places = c.window.Places = { renderPlanner: (host, opts) => calls.push(opts) };
+  c.S.trip.step = 'program'; c.window.Trip.render();
+  for (let i = 0; i < 3; i++) await tick();
+  assert.deepEqual(plain(calls.at(-1).interests), ['kids']);
+  // bez dětí nic navíc
+  const c2 = load();
+  begin(c2);
+  const asked2 = fakeFetch(c2);
+  render(c2, 'flight');
+  await c2.__els['#tfAuto'].onclick();
+  for (let i = 0; i < 4; i++) await tick();
+  assert.equal(asked2.find((a) => a[0] === 'api/itinerary')[1].kids, undefined);
 });
 
 test('⚡ Poskládej: co už uživatel vybral, zůstane (ubytování, auto, program); rozdělaná trasa s jedním místem = jedno místo', async () => {

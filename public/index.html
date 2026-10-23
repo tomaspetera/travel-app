@@ -232,7 +232,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
         <div class="section-head"><h2>Rychlé hledání</h2><span class="link" data-go="flights">Otevřít vyhledávač →</span></div>
         <div class="dest-grid" id="quickFlights"></div>
 
-        <div class="section-head"><h2>Tipy na tenhle měsíc</h2><span class="link" data-go="recommend">Více doporučení →</span></div>
+        <div class="section-head"><h2 id="dashRecsH">Tipy na tenhle měsíc</h2><span class="link" data-go="recommend">Více doporučení →</span></div>
         <div class="dest-grid" id="dashRecs"></div>
       </section>
 
@@ -496,15 +496,17 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
       <!-- RECOMMEND -->
       <section class="view" id="view-recommend">
         <div class="card" style="padding:20px;margin-bottom:18px">
-          <div class="row wrap" style="gap:14px">
+          <div class="row wrap rec-filters">
             <div class="field" style="margin:0"><label>Kdy chceš jet</label><select id="rMonth"></select></div>
             <div class="field" style="margin:0"><label>Styl cesty</label><select id="rVibe"><option value="">Cokoliv</option><option value="pláže">🏖️ Pláže a moře</option><option value="hory">⛰️ Hory a treky</option><option value="historie">🏛️ Historie a kultura</option><option value="safari">🦁 Příroda a safari</option><option value="město">🌆 Města</option></select></div>
             <div class="field" style="margin:0"><label>Rozpočet</label><select id="rBudget"><option value="9">Bez omezení</option><option value="2">💰 Levně</option><option value="3">💰💰 Středně</option></select></div>
             <div class="field" style="margin:0"><label>Bezpečnost</label><select id="rSafe"><option value="0">Nezáleží</option><option value="4">Jen bezpečné</option><option value="5">Velmi bezpečné</option></select></div>
           </div>
         </div>
-        <div class="section-head"><h2 id="recTitle">Kam teď vyrazit</h2><span class="faint" style="font-size:12px">seřazeno podle skóre cena/výkon</span></div>
+        <div class="section-head"><h2 id="recTitle">Kam teď vyrazit</h2><span class="faint" style="font-size:12px">sezóna, ceny, blízkost</span></div>
+        <div class="rec-prof faint" id="recProf" hidden></div>
         <div class="dest-grid" id="recGrid"></div>
+        <div class="rec-foot faint" id="recFoot"></div>
       </section>
     </div>
   </div>
@@ -534,6 +536,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
      potřebuje – js/lazy.js; service worker je ukládá pro offline stejně jako ostatní skripty (server/lib/pwa.js) -->
 <script src="js/lazy.js" data-later="js/pretrip.js js/places.js js/trip.js"></script>
 <script src="js/data.js"></script>
+<script src="js/recs.js"></script>
 <script src="js/ics.js"></script>
 <script src="js/sharelink.js"></script>
 <script src="js/planshare.js"></script>

@@ -31,7 +31,7 @@ import { isYmd, daysBetween } from './lib/dates.js';
 import { affiliateOn } from './lib/links.js';
 import { HttpError, publicMessage } from './lib/http.js';
 import { makeTrip } from './lib/fares.js';
-import { airportClimate, climateAt, countryClimate, sourceText } from './lib/climate.js';
+import { airportClimate, climateAt, countryClimate, seasonMonth, sourceText } from './lib/climate.js';
 import { cityPhotos, photosCached } from './lib/photos.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
@@ -371,7 +371,14 @@ async function diagnose() {
 }
 
 async function route(req, res) {
-  const url = new URL(req.url, 'http://localhost');
+  let url;
+  try {
+    url = new URL(req.url, 'http://localhost');
+  } catch {
+    // „//“ (roboti, překlep v odkazu) URL nepřečte – 400 jako u poškozené adresy, ne 500 s výpisem chyby do logu
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('Bad request');
+  }
   const p = url.pathname;
 
   if (p.startsWith('/api/')) {
@@ -549,6 +556,12 @@ async function route(req, res) {
     const iata = (sp.get('iata') || '').toUpperCase();
     const cc = (sp.get('cc') || '').toUpperCase();
     let c;
+    if (sp.has('month')) {
+      // Doporučení: měsíc ve všech zemích najednou (u moře, u hlavního letiště, vzdálenost z Prahy) – jeden dotaz místo 190
+      const s = seasonMonth(sp.get('month'));
+      if (!s) return sendJson(req, res, 400, { error: 'Měsíc musí být 1–12.' });
+      return sendJson(req, res, 200, { ...s, source: 'meteostanice u letišť (normály 1991–2020), jinde NASA POWER – dlouhodobý průměr, ne předpověď' }, { 'Cache-Control': 'public, max-age=604800' });
+    }
     if (cc) {
       if (!/^[A-Z]{2}$/.test(cc)) return sendJson(req, res, 400, { error: 'Neplatný kód země.' });
       c = countryClimate(cc);
@@ -667,6 +680,8 @@ async function route(req, res) {
       center: { lat, lon }, start: b.start, end: b.end, pace: ['relaxed', 'normal', 'intense'].includes(b.pace) ? b.pace : 'normal',
       arrivalTime: /^\d{2}:\d{2}$/.test(b.arrivalTime || '') ? b.arrivalTime : '09:00',
       departureTime: /^\d{2}:\d{2}$/.test(b.departureTime || '') ? b.departureTime : null, interests,
+      // s dětmi (zájem „S dětmi“, cesta s dětmi): zoo a park výš, nejvýš 1 muzeum za den, pomalejší chůze
+      kids: b.kids === true,
     });
     return sendJson(req, res, 200, { demo: config.mock, ...plan, places });
   }

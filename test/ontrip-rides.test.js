@@ -125,7 +125,8 @@ test('🚆 vlak v odkazu na plán, v kalendáři (.ics) a v záloze – kód jí
   // kalendář: událost vlaku s časem a nástupištěm, bez kódu
   const ev = plain(c.planEvents(t)).find((e) => /^🚆/u.test(e.title));
   assert.deepEqual([ev.title, ev.start, ev.tz, ev.end, ev.location], ['🚆 Lisabon → Porto (vlak)', '2026-10-26T10:42', 'Europe/Lisbon', '2026-10-26T13:32', 'Lisabon']);
-  assert.match(ev.description, /^Odjezd 10:42 místního času \(Lisabon\)\nPříjezd 13:32 místního času \(Porto\)\nNástupiště 4\nvůz 3, místo 45\n/);
+  // příjezd jen odhadem (zapsaný odjezd + délka přejezdu z průvodce) – v kalendáři s „~“ jako na kartě, ne jako jistý čas
+  assert.match(ev.description, /^Odjezd 10:42 místního času \(Lisabon\)\nPříjezd ~13:32 místního času \(Porto\) – odhad podle délky cesty\nNástupiště 4\nvůz 3, místo 45\n/);
   const ics = c.Ics.build(c.planEvents(t), { name: t.name, now: 0 });
   assert.ok(ics.includes('DTSTART:20261026T104200Z') && !/CP7QX2/.test(ics), ics);
   // bez zapsaného času vlak do kalendáře nejde (čas nikdo nezná)
@@ -143,6 +144,41 @@ test('🚆 vlak v odkazu na plán, v kalendáři (.ics) a v záloze – kód jí
   assert.equal(c.S.trips.length, 1);
   assert.deepEqual(plain(c.S.trips[0].rides).map((x) => [x.from, x.to, x.dep, x.kod]), [['Lisabon', 'Porto', '10:42', 'CP7QX2']]);
   assert.ok(!/CP7QX2/.test(JSON.stringify(c.S.trips[0].wizard)));
+});
+
+test('🚆 pole vlaku se ukládá už při psaní: kód jízdenky vložený z e-mailu nezmizí, když aplikace skončí dřív, než pole opustí', async () => {
+  const c = load(), t = porto(c, { dep: '10:42' });
+  c.setTimeout = setTimeout; c.clearTimeout = clearTimeout;
+  vm.runInContext(pick('putRide', 'flushRide', 'rideSoon') + '\n' + APP.match(/^let rideP = .*$/m)[0]
+    + `\nvar activeView = 'planner', __saves = 0, ShareLink = { prepare() {} }; save = () => { __saves++; };
+    Object.assign(window, { flushRide, rideSoon });`, c, { filename: 'app-ride.js' });
+  c.S.trips = [t];
+  const r = () => plain(t.rides[0]);
+  // psaní: ještě neuloženo; skrytí aplikace (visibilitychange / pagehide → flushRide) uloží rozepsané
+  c.rideSoon(t, KEY, 'kod', 'CP7');
+  c.rideSoon(t, KEY, 'kod', 'CP7QX2');
+  assert.deepEqual([r().kod, c.__saves], ['', 0]);
+  c.flushRide();
+  assert.deepEqual([r().kod, r().dep, c.__saves], ['CP7QX2', '10:42', 1]);
+  // samo za chvíli po posledním znaku; jiné pole napřed uloží to rozepsané
+  c.rideSoon(t, KEY, 'plat', '4');
+  await new Promise((ok) => setTimeout(ok, 450));
+  assert.equal(r().plat, '4');
+  c.rideSoon(t, KEY, 'seat', 'vůz 3');
+  c.rideSoon(t, KEY, 'plat', '5');
+  assert.deepEqual([r().seat, r().plat], ['vůz 3', '4']);
+  c.flushRide();
+  assert.equal(r().plat, '5');
+  // cesta mezitím smazaná: čekající hodnota nic nepřepíše
+  c.rideSoon(t, KEY, 'kod', 'JINY');
+  c.S.trips = [];
+  c.flushRide();
+  assert.equal(r().kod, 'CP7QX2');
+  // v aplikaci: psaní v polích (input), skrytí i zavření aplikace a nové vykreslení okna cesty uloží čekající hodnotu
+  assert.match(APP, /x\.oninput = \(\) => setRideSoon\(i, b\.dataset\.ride, x\.dataset\.rf, x\.value\)/);
+  assert.match(APP, /^window\.addEventListener\('pagehide', flushRide\);$/m);
+  assert.match(APP, /^document\.addEventListener\('visibilitychange', \(\) => \{ if \(document\.hidden\) flushRide\(\); \}\);$/m);
+  assert.match(APP, /^function openTrip\(i\) \{\n {2}flushRide\(\);/m);
 });
 
 test('🌤️ předpověď na kartě: kde dnes jsi (v den přejezdu obě místa), zítřejší další místo, den před odletem cíl – po návratu ani 2 dny předem nic', () => {

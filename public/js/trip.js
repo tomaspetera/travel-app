@@ -3039,6 +3039,8 @@
     const ps = $('#progSum'); if (ps) ps.onclick = () => setStep('summary');
     if (window.Places) Places.renderPlanner($('#tripPlaces'), { ...opts, plan: b.plan, onPlan: plan => { b.plan = plan; persist(); } });
   }
+  // Cesta s dětmi: program rovnou se zájmem „🧒 S dětmi“ (zoo, park, nejvýš 1 muzeum za den, pomalejší chůze) – jde vypnout
+  const kidsProg = t => (kidsN(t) ? { interests: ['kids'] } : {});
   /** Program místa trasy: termín, střed (u ubytování, jinak střed místa) a volby plánovače – krok Program i ⚡ Poskládej. */
   function baseProgOpts(t, i) {
     const b = t.route.bases[i], p = baseProgram(t, i);
@@ -3046,7 +3048,7 @@
     const out = outStay(b.stay, bp);
     const atStay = b.stay && b.stay.mode === 'pick' && b.stay.lat != null && !out;
     const center = atStay ? { lat: b.stay.lat, lon: b.stay.lon, label: b.stay.name } : { lat: b.lat, lon: b.lon, label: b.name };
-    return { p, bp, out, opts: { lat: center.lat, lon: center.lon, label: center.label, city: b.name, country: b.country || t.dest.country || '', cc: b.cc || t.dest.cc, ...p, ...(out ? { startAt: 'center' } : {}) } };
+    return { p, bp, out, opts: { lat: center.lat, lon: center.lon, label: center.label, city: b.name, country: b.country || t.dest.country || '', cc: b.cc || t.dest.cc, ...p, ...(out ? { startAt: 'center' } : {}), ...kidsProg(t) } };
   }
   /**
    * Program jednoho místa: střed města (souřadnice cíle bývají poloha letiště, které může být daleko od centra) – i s hotelem:
@@ -3070,6 +3072,7 @@
     const opts = center.lat == null ? null : {
       lat: center.lat, lon: center.lon, label: center.label || t.dest.label, city: t.cityCenter ? t.cityCenter.label : t.dest.label.replace(/ \(.*\)$/, ''), country: t.dest.country || '', cc: t.dest.cc,
       ...progSpan(t), ...(nearStay(t.stay) || far ? { startAt: 'center' } : {}), // termín a časy jako tripPlan (shrnutí, kalendář, plánovač)
+      ...kidsProg(t),
     };
     return { own, far, opts };
   }
@@ -3194,11 +3197,12 @@
   }
   /** Program z api/itinerary ve tvaru plánovače (places.js makePlan) – krok Program ho pak použije (stejný střed a termín). */
   async function autoPlan(o) {
-    const j = await postJson('api/itinerary', { lat: o.lat, lon: o.lon, start: o.start, end: o.end, arrivalTime: o.arrivalTime, departureTime: o.departureTime, pace: 'normal', interests: {}, exclude: [], include: [] });
+    const kids = Array.isArray(o.interests) && o.interests.includes('kids'); // váhy „S dětmi“ doplní server (kids)
+    const j = await postJson('api/itinerary', { lat: o.lat, lon: o.lon, start: o.start, end: o.end, arrivalTime: o.arrivalTime, departureTime: o.departureTime, pace: 'normal', interests: {}, ...(kids ? { kids } : {}), exclude: [], include: [] });
     if (!Array.isArray(j.days)) throw new Error('bez programu');
     const center = { lat: o.lat, lon: o.lon, label: o.label, city: o.city, country: o.country, ...(o.startAt === 'center' ? { startAt: 'center' } : {}) };
     const span = { start: o.start, end: o.end, arrivalTime: o.arrivalTime || null, departureTime: o.departureTime || null };
-    return { days: j.days, spare: j.spare, warnings: j.warnings || [], center, span, prefs: { interests: [], pace: 'normal', exclude: [], must: [] }, created: Date.now() };
+    return { days: j.days, spare: j.spare, warnings: j.warnings || [], center, span, prefs: { interests: kids ? ['kids'] : [], pace: 'normal', exclude: [], must: [] }, created: Date.now() };
   }
 
   /* ---------- průběh cesty ---------- */
@@ -3757,7 +3761,7 @@
     if (window.PreTrip) slim.pretrip = PreTrip.shareState(t);
     if (t.route) {
       // Program míst jen s tím, co vykreslí plánovač a shrnutí (bez popisů, fotek a „dalších míst“) – kratší odkaz.
-      const item = x => ({ id: x.id, name: x.name, lat: x.lat, lon: x.lon, category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, transit: x.transit, note: x.note, cc: x.cc, includes: x.includes });
+      const item = x => ({ id: x.id, name: x.name, lat: x.lat, lon: x.lon, category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, transit: x.transit, boat: x.boat, at: x.at, note: x.note, cc: x.cc, includes: x.includes });
       const plan = p => (p ? { ...p, spare: undefined, days: (p.days || []).map(d => ({ ...d, items: (d.items || []).map(item) })) } : null);
       slim.route = { ...t.route, candidates: undefined, bases: (t.route.bases || []).map((b, i) => ({ ...b, plan: plan(isMulti(t) ? basePlan(t, i) : b.plan) })) };
     }
@@ -3774,7 +3778,7 @@
     const r5 = v => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 1e5) / 1e5 : v);
     const geo = x => (x && x.lat != null ? { ...x, lat: r5(x.lat), lon: r5(x.lon) } : x);
     // cc = země zastávky výletu (odkazy na mapy), includes = „Zahrnuje: …“ u celku s částmi
-    const item = x => ({ id: x.id, name: x.name, lat: r5(x.lat), lon: r5(x.lon), category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, ...(x.transit ? { transit: true } : {}), note: x.note,
+    const item = x => ({ id: x.id, name: x.name, lat: r5(x.lat), lon: r5(x.lon), category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, ...(x.transit ? { transit: true } : {}), ...(x.boat ? { boat: true } : {}), ...(x.at ? { at: x.at } : {}), note: x.note,
       ...(x.cc ? { cc: x.cc } : {}), ...(Array.isArray(x.includes) && x.includes.length ? { includes: x.includes } : {}) });
     const plan = p => (p && Array.isArray(p.days) ? { ...p, spare: undefined, created: undefined, center: geo(p.center), days: p.days.map(d => ({ ...d, items: (d.items || []).map(item) })) } : p);
     delete o.step; delete o.booked; delete o.created; // příjemce je nastaví sám (importFromHash)
