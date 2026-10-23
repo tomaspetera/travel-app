@@ -678,6 +678,35 @@ test('POST /api/hike – pěší okruh (DEMO): délka 2–40 km, odkazy pěšky,
   assert.equal((await post('{nope')).status, 400);
 });
 
+test('POST /api/hikeplan – túra na každý den (DEMO) a GET /api/nature – oblast hor podle polohy', async () => {
+  const post = (body) => fetch(`${base}/api/hikeplan`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+  const start = ymdPlus(30);
+  const end = ymdPlus(32);
+  const j = await (await post({ lat: 50.6917, lon: 15.7333, label: 'Pec pod Sněžkou', start, end, arrivalTime: '10:00', departureTime: '18:00', kids: true })).json();
+  assert.equal(j.demo, true);
+  assert.equal(j.kind, 'hike');
+  assert.equal(j.area.cs, 'Krkonoše');
+  assert.equal(j.days.length, 3);
+  const ids = j.days.filter((d) => d.hike).map((d) => d.hike.goal.id);
+  assert.ok(ids.length >= 2 && new Set(ids).size === ids.length, 'každý den jiný cíl');
+  for (const d of j.days.filter((x) => x.hike)) {
+    assert.ok(d.hike.km > 0 && d.hike.minutes > 0 && d.hike.difficulty && d.hike.kids && d.hike.rain);
+    assert.match(d.hike.mapyUrl, /routeType=foot_hiking/);
+    assert.equal(d.items.length, 1);
+  }
+  // vyřazený cíl (✕ jiný cíl) se znovu nevybere
+  const again = await (await post({ lat: 50.6917, lon: 15.7333, start, end, exclude: [ids[0]] })).json();
+  assert.ok(!again.days.some((d) => d.hike && d.hike.goal.id === ids[0]));
+  assert.equal((await post({ lat: 'x', lon: 14, start, end })).status, 400);
+  assert.equal((await post({ lat: 50, lon: 14, start: end, end: start })).status, 400);
+  assert.equal((await post({ lat: 50, lon: 14, start, end: ymdPlus(80) })).status, 400, 'nejvýš 31 dní');
+  assert.equal((await post('[]')).status, 400);
+  const area = async (q) => (await (await fetch(`${base}/api/nature?${q}`)).json()).area;
+  assert.equal((await area('lat=49.0614&lon=20.298')).cs, 'Vysoké Tatry');
+  assert.equal(await area('lat=50.0875&lon=14.4213'), null);
+  assert.equal((await fetch(`${base}/api/nature?lat=x`)).status, 400);
+});
+
 test('POST /api/bike kind=train – vlakem tam, na kole zpět (DEMO)', async () => {
   const post = (body) => fetch(`${base}/api/bike`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const j = await (await post({ lat: 50.0875, lon: 14.4213, km: 40, bike: 'gravel', kind: 'train', label: 'Praha', cc: 'CZ' })).json();

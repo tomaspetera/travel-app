@@ -3198,6 +3198,10 @@
   /** Program z api/itinerary ve tvaru plánovače (places.js makePlan) – krok Program ho pak použije (stejný střed a termín). */
   async function autoPlan(o) {
     const kids = Array.isArray(o.interests) && o.interests.includes('kids'); // váhy „S dětmi“ doplní server (kids)
+    // v horách a přírodě (Pec pod Sněžkou = Krkonoše) túra na každý den jako v kroku Program, ne program po památkách
+    let area = null;
+    try { const r = await fetch(`api/nature?lat=${+o.lat}&lon=${+o.lon}`); area = r.ok ? (await r.json()).area || null : null; } catch (e) { area = null; }
+    if (area && window.Places && Places.makeHikePlan) return Places.makeHikePlan({ ...o, kids });
     const j = await postJson('api/itinerary', { lat: o.lat, lon: o.lon, start: o.start, end: o.end, arrivalTime: o.arrivalTime, departureTime: o.departureTime, pace: 'normal', interests: {}, ...(kids ? { kids } : {}), exclude: [], include: [] });
     if (!Array.isArray(j.days)) throw new Error('bez programu');
     const center = { lat: o.lat, lon: o.lon, label: o.label, city: o.city, country: o.country, ...(o.startAt === 'center' ? { startAt: 'center' } : {}) };
@@ -3761,7 +3765,8 @@
     if (window.PreTrip) slim.pretrip = PreTrip.shareState(t);
     if (t.route) {
       // Program míst jen s tím, co vykreslí plánovač a shrnutí (bez popisů, fotek a „dalších míst“) – kratší odkaz.
-      const item = x => ({ id: x.id, name: x.name, lat: x.lat, lon: x.lon, category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, transit: x.transit, boat: x.boat, at: x.at, note: x.note, cc: x.cc, includes: x.includes });
+      // reach / why = u celodenního výletu jak se tam dostat a proč tam jet (krátké – jen u výletů)
+      const item = x => ({ id: x.id, name: x.name, lat: x.lat, lon: x.lon, category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, transit: x.transit, boat: x.boat, at: x.at, hoursNote: x.hoursNote, note: x.note, cc: x.cc, includes: x.includes, reach: x.reach, why: x.why });
       const plan = p => (p ? { ...p, spare: undefined, days: (p.days || []).map(d => ({ ...d, items: (d.items || []).map(item) })) } : null);
       slim.route = { ...t.route, candidates: undefined, bases: (t.route.bases || []).map((b, i) => ({ ...b, plan: plan(isMulti(t) ? basePlan(t, i) : b.plan) })) };
     }
@@ -3778,9 +3783,12 @@
     const r5 = v => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 1e5) / 1e5 : v);
     const geo = x => (x && x.lat != null ? { ...x, lat: r5(x.lat), lon: r5(x.lon) } : x);
     // cc = země zastávky výletu (odkazy na mapy), includes = „Zahrnuje: …“ u celku s částmi
-    const item = x => ({ id: x.id, name: x.name, lat: r5(x.lat), lon: r5(x.lon), category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, ...(x.transit ? { transit: true } : {}), ...(x.boat ? { boat: true } : {}), ...(x.at ? { at: x.at } : {}), note: x.note,
-      ...(x.cc ? { cc: x.cc } : {}), ...(Array.isArray(x.includes) && x.includes.length ? { includes: x.includes } : {}) });
-    const plan = p => (p && Array.isArray(p.days) ? { ...p, spare: undefined, created: undefined, center: geo(p.center), days: p.days.map(d => ({ ...d, items: (d.items || []).map(item) })) } : p);
+    const item = x => ({ id: x.id, name: x.name, lat: r5(x.lat), lon: r5(x.lon), category: x.category, tripKind: x.tripKind, visitMin: x.visitMin, fromPrevKm: x.fromPrevKm, fromPrevMin: x.fromPrevMin, ...(x.transit ? { transit: true } : {}), ...(x.boat ? { boat: true } : {}), ...(x.at ? { at: x.at } : {}), ...(x.hoursNote ? { hoursNote: x.hoursNote } : {}), note: x.note,
+      ...(x.cc ? { cc: x.cc } : {}), ...(Array.isArray(x.includes) && x.includes.length ? { includes: x.includes } : {}),
+      ...(x.reach ? { reach: x.reach } : {}), ...(x.why ? { why: x.why } : {}) });
+    // túra na každý den: bez geometrie trasy (stovky bodů) – příjemce má odkazy do Mapy.com a Google Map
+    const hike = h => (h && typeof h === 'object' ? { ...h, geometry: undefined } : h);
+    const plan = p => (p && Array.isArray(p.days) ? { ...p, spare: undefined, created: undefined, center: geo(p.center), days: p.days.map(d => ({ ...d, items: (d.items || []).map(item), ...(d.hike ? { hike: hike(d.hike) } : {}) })) } : p);
     delete o.step; delete o.booked; delete o.created; // příjemce je nastaví sám (importFromHash)
     // den sdílení – příjemce uvidí „ceny jsou z doby sdílení (12. 10.)“; jen den (ne čas), ať je odkaz připravený při
     // vykreslení shrnutí stejný jako ten po kliknutí (ShareLink.prepare). Starší verze aplikace pole přeskočí.
