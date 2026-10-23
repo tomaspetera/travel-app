@@ -867,8 +867,9 @@ test('POST /api/search – průběžné výsledky přijdou gzip i brotli streame
     assert.ok(part.ev.result.groups.length > 0);
     assert.ok(part.at < last.at - 400, `náhled za ${part.at} ms, výsledek za ${last.at} ms`);
     assert.ok(lines.indexOf(part) < lines.length - 1 && last.ev.result.partial === undefined);
-    // brotli (prohlížeče ho posílají v Accept-Encoding): náhled taky hned, ne až na konci proudu
-    const br = await read(q, 'br');
+    // brotli (prohlížeče ho posílají v Accept-Encoding): náhled taky hned, ne až na konci proudu – jiné hledání (stejné by
+    // přišlo rovnou hotové z paměti, index.js _recentSearches)
+    const br = await read({ ...q, nightsMax: 6 }, 'br');
     const bp = br.find((l) => l.ev.type === 'partial');
     assert.ok(bp && bp.at < br.at(-1).at - 400, `brotli: náhled za ${bp?.at} ms, výsledek za ${br.at(-1).at} ms`);
     const off = await read({ ...q, noPartial: true });

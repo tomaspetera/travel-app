@@ -85,6 +85,104 @@ export function gate(concurrency, maxQueue) {
 }
 
 /**
+ * Hotové výsledky na krátko: get(key) → uložená hodnota (nebo undefined, i po ttlMs), set(key, value, bytes) – celkem
+ * nejvýš maxBytes, při nedostatku místa ven nejdřív prošlé a nejstarší. ttlMs 0 = nic se neukládá.
+ */
+export function recentResults({ ttlMs, maxBytes }) {
+  const map = new Map(); // klíč → { value, bytes, exp }; pořadí vložení = od nejstaršího
+  let total = 0;
+  const drop = (key) => {
+    const e = map.get(key);
+    if (!e) return;
+    total -= e.bytes;
+    map.delete(key);
+  };
+  return {
+    get(key, now = Date.now()) {
+      const e = map.get(key);
+      if (!e) return undefined;
+      if (e.exp <= now) {
+        drop(key);
+        return undefined;
+      }
+      return e.value;
+    },
+    set(key, value, bytes, now = Date.now()) {
+      if (!(ttlMs > 0) || !(bytes <= maxBytes)) return false;
+      drop(key);
+      for (const [k, e] of map) {
+        if (e.exp > now && total + bytes <= maxBytes) break;
+        drop(k);
+      }
+      map.set(key, { value, bytes, exp: now + ttlMs });
+      total += bytes;
+      return true;
+    },
+    get size() {
+      return map.size;
+    },
+    get bytes() {
+      return total;
+    },
+  };
+}
+
+/*
+ * Střídání na jednom vlákně: Node má jedno vlákno a hledání skládá lety stovek tras – odpovědi aerolinek často přijdou
+ * naráz a jejich zpracování by běželo v kuse i sekundy (zátěžový test v DEMO na jednom jádře až 10–20 s, na Renderu
+ * zdarma s desetinou procesoru desetkrát déle – docs/skalovani.md). Celou dobu by čekalo všechno ostatní: stránka, /healthz, našeptávač i ostatní hledání.
+ * Proto se hledání po každém kousku práce (lety jedné trasy) zeptá breathe(): dokud tohle kolo smyčky událostí běží
+ * kratší dobu než sliceMs, vrátí null a pokračuje se hned (žádné čekání navíc); jinak vrátí slib, který se splní
+ * v dalším kole – mezitím se vyřídí síť, časovače a ostatní požadavky. Čekající kousky se pouštějí v pořadí, v jakém
+ * přišly (FIFO, i z různých hledání), a v jednom kole jen do sliceMs – i když jich čeká sto najednou. Výsledek hledání
+ * se tím nemění: mění se jen to, kdy se kousek spočítá, ne pořadí kousků.
+ */
+let sliceMs = 15;
+const waiting = [];
+let sliceAt = performance.now();
+let pumping = false;
+
+/** Délka kola v ms (testy: 0 = po každém kousku další kolo, Infinity = nikdy nečekat) → předchozí hodnota. */
+export function setSliceMs(ms) {
+  const prev = sliceMs;
+  sliceMs = ms;
+  return prev;
+}
+
+/** Pustit ke slovu ostatní? null = pokračuj hned, jinak slib, na který počkat: `const w = breathe(); if (w) await w;` */
+export function breathe() {
+  // kdo přijde, když už jiní čekají, se zařadí za ně (jinak by předběhl a změnil pořadí)
+  if (!waiting.length && performance.now() - sliceAt < sliceMs) return null;
+  return new Promise((resolve) => {
+    waiting.push(resolve);
+    if (!pumping) {
+      pumping = true;
+      setImmediate(pump);
+    }
+  });
+}
+
+// Nové kolo: pouštět čekající po jednom (další až po synchronní části předchozího – queueMicrotask za ním), dokud
+// nevyprší sliceMs; zbytek v dalším kole. První vždy, ať se práce pohne i se sliceMs 0.
+function pump() {
+  sliceAt = performance.now();
+  const next = () => {
+    if (!waiting.length) {
+      pumping = false;
+      return;
+    }
+    if (performance.now() - sliceAt >= sliceMs) {
+      setImmediate(pump);
+      return;
+    }
+    waiting.shift()();
+    queueMicrotask(next);
+  };
+  waiting.shift()();
+  queueMicrotask(next);
+}
+
+/**
  * Počet rozběhnutých úloh na klienta (adresu) se stropem: full(key, max) = klient už má `max` úloh (novou odmítnout;
  * max 0 = bez stropu), take(key) = započte jednu a vrátí release(). Ta vrací místo jen poprvé – volá se bez obav při
  * konci, chybě i odchodu klienta, podle toho, co přijde dřív. Záznam zmizí, jakmile klient nemá nic rozběhnutého,

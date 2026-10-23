@@ -43,7 +43,7 @@ import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from '
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
 import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, ogPhoto, PREVIEW_BOT, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
-import { sharedRuns, gate, perClient } from './lib/crowd.js';
+import { sharedRuns, gate, perClient, recentResults } from './lib/crowd.js';
 import { SECURITY_HEADERS, API_CSP, clientIp, crossSite } from './lib/security.js';
 
 const PUBLIC = path.join(config.root, 'public');
@@ -226,6 +226,28 @@ const BUSY = { error: 'ATLAS teď hledá pro hodně lidí najednou – zkus to p
 // Export jen pro testy (počty se po skončení vrátí na prázdno).
 export const _searchClients = perClient();
 const MANY_AT_ONCE = { error: 'Z tvého připojení teď běží moc hledání naráz – počkej prosím, až některé doběhne, a zkus to znovu.' };
+// Hotový výsledek na chvíli i pro další se stejným dotazem – searchRuns sdílí jen právě běžící hledání. Radar na přehledu
+// posílá z jednoho domova pořád tentýž dotaz a návštěvníci chodí postupně: každý další z Prahy by ho jinak počítal znovu
+// (1–3 s procesoru, na Renderu zdarma desítky sekund; zátěžový test: 200 návštěvníků = ~100× tentýž radar). Jen úplný
+// výsledek (completeResult), nejvýš config.searchResultTtlS a klíč i s dnešním datem (dotaz „od dneška“ se o půlnoci
+// mění). Drží se hotový řádek odpovědi (ndjsonLine) – bez dalšího převodu na JSON, nejvýš config.searchResultMb MB.
+// Export jen pro testy.
+export const _recentSearches = recentResults({ ttlMs: config.searchResultTtlS * 1000, maxBytes: config.searchResultMb * 2 ** 20 });
+let readyHits = 0; // kolikrát hotový výsledek ušetřil hledání (/api/health → searches)
+
+/**
+ * Výsledek, který by stejné hledání hned zopakovalo: všechny zdroje doběhly bez chyby a výpadku, bez vynechaných tras
+ * a tras z paměti (pak „Zkusit znovu“ a „Prohledat zbylé trasy“ musí opravdu hledat znovu) a bez časového limitu
+ * zdroje („po … s ukončeno“ – napodruhé by z mezipaměti stihl víc).
+ */
+export function completeResult(r) {
+  const ps = r && r.providers;
+  return Array.isArray(ps) && ps.length > 0 && !r.partial && ps.every((s) => s && s.state === 'done' && !s.error && !s.outage && !s.failed
+    && !(s.coverage && (s.coverage.skipped || s.coverage.memory)) && !/ukončeno/.test(s.note || ''));
+}
+
+/** Hledání teď (/api/health): běžící a čekající ve frontě, hotové výsledky v paměti a kolikrát ušetřily hledání. */
+const searchStats = () => ({ ...searchGate.stats(), shared: searchRuns.running(), ready: _recentSearches.size, readyMb: Math.round(_recentSearches.bytes / 2 ** 20 * 10) / 10, readyHits });
 
 // Hledání streamuje průběh jako NDJSON (1 JSON objekt na řádek), na konci { type: 'result' }.
 async function handleSearch(req, res) {
@@ -241,7 +263,9 @@ async function handleSearch(req, res) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return sendJson(req, res, 400, { error: 'Neplatný JSON' });
   // Přetížený server: nové hledání (stejné neběží) nad frontou se odmítne hned – do limitu adresy se nepočítá.
   const shareKey = JSON.stringify(body);
-  const fresh = !searchRuns.has(shareKey);
+  const recentKey = `${todayYmd()}|${shareKey}`;
+  const ready = _recentSearches.get(recentKey); // hotový výsledek: nic se nepočítá – frontu ani strop adresy nezabere
+  const fresh = !ready && !searchRuns.has(shareKey);
   if (fresh && searchGate.full()) return sendJson(req, res, 503, BUSY, { 'Retry-After': '60' });
   // Strop na adresu: nové hledání nad ním hned 429 (do limitu adresy se nepočítá). Připojení ke stejnému běžícímu
   // hledání frontu nezabere – projde vždy, ale počítá se (drží běh naživu, i když ten, kdo ho spustil, odešel).
@@ -258,7 +282,7 @@ async function handleSearch(req, res) {
   const release = _searchClients.take(ip);
   res.once('close', release); // klient odešel (nebo odpověď skončila) – místo hned, nečeká se na konec hledání
   try {
-    await streamSearch(req, res, body, shareKey);
+    await streamSearch(req, res, body, shareKey, { ready, recentKey });
   } finally {
     release();
     const n = (runningSearches.get(key) || 1) - 1;
@@ -267,7 +291,20 @@ async function handleSearch(req, res) {
   }
 }
 
-async function streamSearch(req, res, body, shareKey = JSON.stringify(body)) {
+// Řádek NDJSON s výsledkem nebo náhledem sdíleného hledání (crowd.js sharedRuns): dostanou ho naráz všichni, kdo na
+// stejné hledání čekají – JSON se udělá jednou pro všechny, ne pro každého znovu (výsledek radaru má 1–2 MB textu,
+// ~10 ms procesoru v kuse; 100 stejných hledání = 1 s, kdy server nic jiného neobslouží). Jen pro objekty, které se po
+// odeslání nemění (výsledek, náhled) – průběh (progress) drží živý stav zdrojů, ten se převádí pokaždé.
+const lines = new WeakMap();
+export function ndjsonLine(obj) {
+  const key = obj && obj.type === 'result' ? obj.result : obj && obj.type === 'partial' ? obj : null;
+  if (!key || typeof key !== 'object') return JSON.stringify(obj) + '\n';
+  let line = lines.get(key);
+  if (line === undefined) lines.set(key, (line = JSON.stringify(obj) + '\n'));
+  return line;
+}
+
+async function streamSearch(req, res, body, shareKey = JSON.stringify(body), { ready = null, recentKey = null } = {}) {
   const enc = wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '';
   res.writeHead(200, {
     'Content-Type': 'application/x-ndjson; charset=utf-8',
@@ -285,7 +322,7 @@ async function streamSearch(req, res, body, shareKey = JSON.stringify(body)) {
   const write = (obj) => {
     if (closed) return;
     lastAt = Date.now();
-    const line = JSON.stringify(obj) + '\n';
+    const line = typeof obj === 'string' ? obj : ndjsonLine(obj);
     if (out) {
       out.write(line);
       out.flush(enc === 'br' ? zlib.constants.BROTLI_OPERATION_FLUSH : zlib.constants.Z_SYNC_FLUSH); // řádek hned
@@ -300,8 +337,19 @@ async function streamSearch(req, res, body, shareKey = JSON.stringify(body)) {
   try {
     // Stejné běžící hledání: připojit se (poslední průběh a náhled hned, další živě). Jinak nové – hned, nebo až
     // na něj přijde řada; odešli-li do té doby všichni, kdo na něj čekají, vůbec se nespustí (null).
-    const result = await searchRuns(shareKey, (fan, run) => searchGate(() => search(body, fan), () => [...run.subs].every((w) => w.gone())), write);
-    if (result) write({ type: 'result', result });
+    // Hotový výsledek stejného dotazu (_recentSearches): rovnou celý řádek, bez průběhu.
+    const keep = (result) => {
+      if (recentKey && completeResult(result)) {
+        const line = ndjsonLine({ type: 'result', result });
+        _recentSearches.set(recentKey, line, line.length * 2);
+      }
+      return result;
+    };
+    const result = ready ? null : await searchRuns(shareKey, (fan, run) => searchGate(() => search(body, fan).then(keep), () => [...run.subs].every((w) => w.gone())), write);
+    if (ready) {
+      readyHits++;
+      write(ready);
+    } else if (result) write({ type: 'result', result });
   } catch (e) {
     if (!(e instanceof UserError)) console.error('[search]', e);
     // text neočekávané chyby (názvy proměnných, adresy zdrojů) jen do logu, uživateli česky obecně
@@ -410,7 +458,7 @@ async function route(req, res) {
     // maps: mapové služby (Mapy.com) – mimo providers, ty jsou zdroje cen (Zdroje cen, průběh hledání);
     // feedback: adresa pro 💬 Napsat nám – jen když je FEEDBACK_EMAIL nastavená, jinak tlačítko v aplikaci chybí
     const feedback = config.feedbackEmail ? { feedback: { email: config.feedbackEmail } } : {};
-    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), maps: [mapyStatus()], fx: fxInfo(), cache: cache.stats(), clientErrors: clientErrorCount(), shortLinks: shareStore ? shareStore.kind : false, ...feedback });
+    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), maps: [mapyStatus()], fx: fxInfo(), cache: cache.stats(), searches: searchStats(), clientErrors: clientErrorCount(), shortLinks: shareStore ? shareStore.kind : false, ...feedback });
   }
   if (p === '/api/client-error') {
     // Chyba z prohlížeče (public/js/errlog.js): jeden řádek do logu Renderu, v paměti posledních 50 – v /api/health
