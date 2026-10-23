@@ -252,9 +252,10 @@
    * Kdy vyrazit z domu na let tam a kdy budeš doma po letu zpět; gOut / gBack = doprava na letiště ze serveru
    * (origins[].ground). → { out, back }, každé null (neznámý čas nebo doprava) nebo { min (od půlnoci dne letu, záporné =
    * předchozí den), clock, prevDay, early | late, mode, local, warn (veřejnou dopravou v noci, ne z letiště ve tvém městě),
-   * text, title }. Texty jsou čisté – do HTML jen přes esc().
+   * text, title }. Texty jsou čisté – do HTML jen přes esc(). bare = bez clock, text a title (doporučené pořadí v rank.js
+   * volá reach u každé nabídky hledání – stovky řetězců, které nikdo nečte, by na telefonu zdržely první vykreslení).
    */
-  function reach(t, gOut, gBack, { before = REACH.before } = {}) {
+  function reach(t, gOut, gBack, { before = REACH.before, bare = false } = {}) {
     const ok = g => Boolean(g && !g.off && g.minutes > 0);
     const how = g => (g.mode === 'car' ? 'autem' : 'vlak / bus a MHD');
     const note = (g, night, warn) => (warn ? NIGHT : night && g.local ? ' Letiště je ve tvém městě – v noci taxi nebo noční linka.' : g.mode === 'car' ? ' Autem – jen pro informaci.' : '');
@@ -266,22 +267,22 @@
       // letiště ve tvém městě v noci: taxi (čas autem, server nightMin) místo denní MHD
       const taxi = early && !car && gOut.local && gOut.nightMin > 0 && gOut.nightMin < gm;
       if (taxi) { gm = gOut.nightMin; min = dep - before - gm; }
-      const c = clockTxt(min), warn = early && !car && !gOut.local;
-      out = {
-        min, clock: c, prevDay: min < 0, early, mode: gOut.mode, local: Boolean(gOut.local), warn, ...(taxi ? { taxi: true } : {}),
+      const c = bare ? '' : clockTxt(min), warn = early && !car && !gOut.local;
+      out = { min, clock: c, prevDay: min < 0, early, mode: gOut.mode, local: Boolean(gOut.local), warn, ...(taxi ? { taxi: true } : {}) };
+      if (!bare) Object.assign(out, {
         text: car ? `🚗 z domu ${ve(min)} ${c}` : taxi ? `🚕 z domu ${ve(min)} ${c}` : `⏰ z domu už ${ve(min)} ${c}`,
         title: `Odlet ${hhmm(o)} − ${hm(before)} na letišti − ~${hm(gm)} cesta na letiště ${o.from} (${taxi ? 'v noci taxi' : how(gOut)}, odhad) = vyrazit z domu ~${c}${min < 0 ? ' předchozího dne' : ''}.${taxi ? ` Denní MHD by trvala ~${hm(gOut.minutes)}.` : note(gOut, early, warn)}`,
-      };
+      });
     }
     const b = t && t.back, arr = b && b.hasTime && b.arr ? clock(b.arr) : null;
     if (arr != null && ok(gBack)) {
-      const min = arr + REACH.after + gBack.minutes, c = clockTxt(min), car = gBack.mode === 'car';
+      const min = arr + REACH.after + gBack.minutes, c = bare ? '' : clockTxt(min), car = gBack.mode === 'car';
       const late = dayMin(min) >= REACH.lateFrom && dayMin(min) < REACH.lateTo, warn = late && !car && !gBack.local;
-      back = {
-        min, clock: c, prevDay: min < 0, late, mode: gBack.mode, local: Boolean(gBack.local), warn,
+      back = { min, clock: c, prevDay: min < 0, late, mode: gBack.mode, local: Boolean(gBack.local), warn };
+      if (!bare) Object.assign(back, {
         text: car ? `🚗 domů ~${c}` : `🏠 domů až ~${c}`,
         title: `Přílet ${String(b.arr).slice(11, 16)} + ${hm(REACH.after)} na letišti + ~${hm(gBack.minutes)} cesta z letiště ${b.to} domů (${how(gBack)}, odhad) = doma ~${c}.${note(gBack, late, warn).replace('první spoj', 'spoj')}`,
-      };
+      });
     }
     return { out, back };
   }
@@ -1591,9 +1592,10 @@
       // doporučené pořadí (rank.js) může u cíle vybrat jinou nabídku (jiný den, letiště – lepší časy) s dražší letenkou:
       // to není zdražení – bez značky „↑“ (levnější jiná nabídka je „↓“ dál, cíl opravdu zlevnil)
       const same = o.from === x.from && o.to === x.to && o.d1 === x.d1 && o.d2 === x.d2 && (o.bt || '') === (x.bt || '');
-      if (moved && !same && x.czk > o.czk) return y;
-      if (moved) y.was = { czk: o.czk, at: prev.at };
-      else if (o.was && now - o.was.at < 3 * 864e5) y.was = o.was;
+      // (značka „nové“ z minula ale zůstane – cíl je pořád nový, jen s jinou nabídkou)
+      const other = moved && !same && x.czk > o.czk;
+      if (moved && !other) y.was = { czk: o.czk, at: prev.at };
+      else if (!moved && o.was && now - o.was.at < 3 * 864e5) y.was = o.was;
       if (o.newAt && now - o.newAt < 864e5) y.newAt = o.newAt;
       return y;
     });
