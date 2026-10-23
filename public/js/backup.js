@@ -1,7 +1,8 @@
 /* ATLAS – 💾 Přenos a záloha: cesty z plánovače, hlídané ceny, 📌 odložené nabídky, domov radaru, navštívené země,
    ⭐ moje cíle a 🙈 skrytá města, odškrtnutí „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v localStorage jednoho
    prohlížeče. Záloha je jeden soubor JSON (v telefonu se posílá jako .txt – Chrome sdílí jen některé typy souborů),
-   obnova ho sloučí s tím, co v zařízení už je. Nic se neukládá na server.
+   obnova ho sloučí s tím, co v zařízení už je. Nic se neukládá na server. Totéž nese odkaz 📲 Přenést do jiného
+   zařízení (transfer.js) – jeho náhled (incoming) nabídne vedle Sloučit i Nahradit (replace, s potvrzením a Vrátit).
    Soubor je cizí vstup (mohl ho poslat kdokoli): parse() z něj postaví nové objekty jen se známými poli – plány přes
    PlanShare.sanitize, cesty z průvodce přes Trip.sanitizeTrip, odložené nabídky přes Pins.clean, zbytek podle pravidel tady. */
 (function () {
@@ -368,6 +369,48 @@
     return n;
   }
 
+  /* ---------- 📲 přenos odkazem (transfer.js): počty, nahrazení ---------- */
+  /** Kolik čeho data nesou – pročištěná záloha i stav zařízení (current) mají stejné klíče. */
+  function counts(x) {
+    const n = v => (Array.isArray(v) ? v.length : 0);
+    return { trips: n(x.trips), watch: n(x.watch), pins: n(x.pins), fav: n(x.fav), mute: n(x.mute), visited: n(x.visited), home: Boolean(x.home && Array.isArray(x.home.from) && x.home.from.length), own: obj(x.own) ? Object.keys(x.own).length : 0 };
+  }
+  const isEmpty = c => !c.trips && !c.watch && !c.pins && !c.fav && !c.mute && !c.visited && !c.home && !c.own;
+  /** „3 cesty · 5 hlídaných cen · 📌 2 odložené nabídky · …“; nic → ''. */
+  function countsTxt(c) {
+    return [c.trips ? pl(c.trips, 'cesta', 'cesty', 'cest') : '', c.watch ? pl(c.watch, 'hlídaná cena', 'hlídané ceny', 'hlídaných cen') : '',
+      c.pins ? `📌 ${pl(c.pins, 'odložená nabídka', 'odložené nabídky', 'odložených nabídek')}` : '', c.fav ? `⭐ ${pl(c.fav, 'můj cíl', 'moje cíle', 'mých cílů')}` : '',
+      c.mute ? `🙈 ${pl(c.mute, 'skryté město', 'skrytá města', 'skrytých měst')}` : '', c.visited ? `${pl(c.visited, 'země', 'země', 'zemí')} na mapě` : '',
+      c.home ? 'domov radaru' : '', c.own ? `🏠 vlastní cena na ${pl(c.own, 'letiště', 'letiště', 'letišť')}` : ''].filter(Boolean).join(' · ');
+  }
+  /**
+   * 📲 Nahradit: v zařízení zůstane jen to, co nese přenos – jako sloučení do prázdného zařízení (stejná cesta či
+   * hledání v přenosu dvakrát jen jednou, limity stejné). Domov radaru zůstane, když ho přenos nenese (není čím ho
+   * nahradit). Vstupní pole nemění → { trips, watch, home, visited, fav, mute, own, pins }.
+   */
+  function replace(cur, inc, { watchKey = w => w.id, deps = DEPS() } = {}) {
+    const none = { trips: [], watch: [], home: null, visited: [], fav: [], mute: [], own: {}, pins: [] };
+    return { ...merge(none, inc, { watchKey, deps }), home: inc.home || (cur && cur.home) || null };
+  }
+  /**
+   * Co by 📲 Nahradit v zařízení smazalo nebo přepsalo: cesty, které přenos nemá (lost.trips) nebo má v jiné verzi
+   * (changed), hledání, odložené nabídky, ⭐ / 🙈 města a navštívené země, které přenos nemá.
+   */
+  function lost(cur, inc, { watchKey = w => w.id, deps = DEPS() } = {}) {
+    const d = { txt: defTxt, ...deps };
+    const ms = match(cur, inc, d), kept = new Set(ms.filter(x => x.i != null).map(x => x.i));
+    const wk = new Set(inc.watch.map(watchKey)), wid = new Set(inc.watch.map(w => w.id));
+    const pk = new Set((inc.pins || []).map(p => p.k)), dk = new Set([...inc.fav, ...inc.mute].map(x => x.key)), vis = new Set(inc.visited);
+    return {
+      trips: (cur.trips || []).filter((t, i) => !kept.has(i)).length,
+      changed: ms.filter(x => x.st === 'changed').length,
+      watch: (cur.watch || []).filter(w => obj(w) && !wk.has(watchKey(w)) && !wid.has(w.id)).length,
+      pins: (cur.pins || []).filter(p => obj(p) && !pk.has(p.k)).length,
+      dests: [...(cur.fav || []), ...(cur.mute || [])].filter(x => obj(x) && !dk.has(x.key)).length,
+      visited: (cur.visited || []).filter(c => !vis.has(c)).length,
+    };
+  }
+
   /* ---------- okno ---------- */
   const ymd = (ms = Date.now()) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   const fileName = (ext = 'json') => `atlas-zaloha-${ymd()}.${ext}`;
@@ -437,48 +480,100 @@
     return parts.length ? esc(parts.join(' · ')) : 'Záloha je prázdná.';
   }
 
-  function preview(inc) {
-    const df = diff(current(), inc, { watchKey });
+  /**
+   * Náhled obnovy: co by přibylo, volby a Sloučit. link = přenos odkazem (📲 transfer.js): k Sloučit i Nahradit…
+   * (jen když v zařízení něco je – do prázdného je to totéž, pak jedno tlačítko Přenést sem).
+   */
+  function preview(inc, { link = false } = {}) {
+    const cur = current(), df = diff(cur, inc, { watchKey });
     const body = $('#bkBody');
     if (!body) return;
     const nothing = !df.trips.add && !df.trips.changed && !df.watch.add && !df.visited.add && !df.home.take && !df.home.differs && !df.pretrip && !df.refs && !df.own.add && !df.dests.fav && !df.dests.mute && !df.pins.add && !df.pins.newer;
     const empty = !inc.trips.length && !inc.watch.length && !inc.visited.length && !inc.home && !inc.fav.length && !inc.mute.length && !Object.keys(inc.pretrip).length && !Object.keys(inc.own || {}).length && !(inc.pins || []).length;
-    body.innerHTML = `<p style="font-size:14px;margin-bottom:10px"><b>Záloha${inc.at ? ' z ' + esc(new Date(inc.at).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : ''}:</b> ${summaryHtml(inc, df)}</p>
-      ${df.trips.changed ? `<label class="bk-opt"><input type="checkbox" id="bkOver"> Přepsat změněné cesty verzí ze zálohy (${df.trips.changed})</label>` : ''}
-      ${df.home.differs ? `<label class="bk-opt"><input type="checkbox" id="bkHome"> Převzít domov radaru ze zálohy (${esc(homeTxt(inc.home))})</label>` : ''}
+    const fresh = isEmpty(counts(cur)), canReplace = link && !fresh && !empty;
+    const from = link ? 'Odkaz' : 'Záloha', src = link ? 'z odkazu' : 'ze zálohy';
+    const acts = link
+      ? `${nothing ? '' : `<button type="button" class="btn primary" id="bkApply">${fresh ? '📥 Přenést sem' : 'Sloučit'}</button>`}${canReplace ? '<button type="button" class="btn" id="bkReplace">Nahradit…</button>' : ''}<button type="button" class="btn ghost" id="bkCancel">${nothing ? 'Zavřít' : 'Zrušit'}</button>`
+      : `${nothing ? '' : '<button type="button" class="btn primary" id="bkApply">Sloučit do tohoto zařízení</button>'}<button type="button" class="btn ghost" id="bkCancel">${nothing ? 'Zavřít' : 'Zrušit'}</button>`;
+    body.innerHTML = `<p style="font-size:14px;margin-bottom:10px"><b>${from}${inc.at ? ' z ' + esc(new Date(inc.at).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })) : ''}:</b> ${empty && link ? 'Odkaz je prázdný.' : summaryHtml(inc, df)}</p>
+      ${df.trips.changed ? `<label class="bk-opt"><input type="checkbox" id="bkOver"> Přepsat změněné cesty verzí ${src} (${df.trips.changed})</label>` : ''}
+      ${df.home.differs ? `<label class="bk-opt"><input type="checkbox" id="bkHome"> Převzít domov radaru ${src} (${esc(homeTxt(inc.home))})</label>` : ''}
       ${df.watch.over ? `<div class="note warn" style="margin:8px 0">⚠️ <div>Hlídat jde nejvýš ${WATCH_CAP} hledání – ${pl(df.watch.over, 'se nevešlo', 'se nevešla', 'se nevešlo')}.</div></div>` : ''}
       ${df.dests.over ? `<div class="note warn" style="margin:8px 0">⚠️ <div>⭐ Moje cíle i 🙈 Nezajímá mě pojmou nejvýš ${DEST_MAX} měst – ${pl(df.dests.over, 'město se nevešlo', 'města se nevešla', 'měst se nevešlo')}.</div></div>` : ''}
       ${df.own.over ? `<div class="note warn" style="margin:8px 0">⚠️ <div>🏠 Vlastní cenu jde mít nejvýš u ${OWN_MAX} letišť – ${pl(df.own.over, 'letiště se nevešlo', 'letiště se nevešla', 'letišť se nevešlo')}.</div></div>` : ''}
       ${df.pins.over ? `<div class="note warn" style="margin:8px 0">⚠️ <div>📌 Odložit jde nejvýš ${PINS_MAX} nabídek – ${pl(df.pins.over, 'se nevešla', 'se nevešly', 'se nevešlo')}.</div></div>` : ''}
-      ${nothing && !empty && !df.watch.over && !df.dests.over && !df.own.over && !df.pins.over ? '<div class="note info" style="margin:8px 0">ℹ️ <div>Všechno ze zálohy už v tomhle zařízení je.</div></div>' : ''}
-      <div class="bk-actions" style="margin-top:14px">${nothing ? '' : '<button type="button" class="btn primary" id="bkApply">Sloučit do tohoto zařízení</button>'}<button type="button" class="btn ghost" id="bkCancel">${nothing ? 'Zavřít' : 'Zrušit'}</button></div>`;
+      ${nothing && !empty && !df.watch.over && !df.dests.over && !df.own.over && !df.pins.over ? `<div class="note info" style="margin:8px 0">ℹ️ <div>Všechno ${src} už v tomhle zařízení je.</div></div>` : ''}
+      ${link && !fresh && !empty ? '<p class="faint" style="font-size:12.5px;margin-top:8px"><b>Sloučit</b> přidá, co tu chybí, a nic nesmaže. <b>Nahradit</b> dá místo dat v tomhle zařízení ta z odkazu – nejdřív ukáže, co by zmizelo.</p>' : ''}
+      <div class="bk-actions" style="margin-top:14px">${acts}</div>`;
     $('#bkCancel').onclick = () => modalClose();
     const ap = $('#bkApply');
-    if (ap) ap.onclick = () => apply(inc, { overwrite: Boolean($('#bkOver') && $('#bkOver').checked), takeHome: Boolean($('#bkHome') && $('#bkHome').checked) }, df);
+    if (ap) ap.onclick = () => apply(inc, { overwrite: Boolean($('#bkOver') && $('#bkOver').checked), takeHome: Boolean($('#bkHome') && $('#bkHome').checked) }, df, link && fresh ? 'Přeneseno' : 'Sloučeno');
+    const rp = $('#bkReplace');
+    if (rp) rp.onclick = () => confirmReplace(inc);
   }
 
-  function apply(inc, opts, df) {
-    const before = { trips: S.trips, watch: S.watch, home: S.home, visited: S.visited, fav: S.fav, mute: S.mute, trip: S.trip, accessOwn: S.accessOwn, pins: S.pins };
-    // přepsaná cesta, která je zrovna v průvodci: průvodce by ji otevřel v původní verzi (a uložením zálohu přepsal)
-    const cur = current(), overIds = opts.overwrite ? match(cur, inc, { txt: defTxt, ...DEPS() }).filter(x => x.st === 'changed' && cur.trips[x.i].tripId).map(x => cur.trips[x.i].tripId) : [];
-    const m = merge(cur, inc, { watchKey, ...opts });
-    // přidaná cesta bez seznamu „Sbaleno“ dostane výchozí (jako import sdíleného plánu)
-    const added = new Set(inc.trips);
-    for (const t of m.trips) if (added.has(t) && !(t.checklist || []).length && typeof PACK !== 'undefined') t.checklist = PACK.map(x => ({ t: x, done: false }));
-    const homeChanged = JSON.stringify(m.home) !== JSON.stringify(S.home || null);
-    // jen země, které aplikace zná (jinak by šly z mapy odškrtnout jen těžko a zkreslily počty)
-    const known = typeof byIso === 'object' && byIso && Object.keys(byIso).length ? cc => Boolean(byIso[cc]) || (S.visited || []).includes(cc) : () => true;
-    Object.assign(S, { trips: m.trips, watch: m.watch, home: m.home, visited: m.visited.filter(known), fav: m.fav, mute: m.mute, accessOwn: m.own, pins: m.pins });
-    if (S.trip && overIds.includes(S.trip.created)) S.trip = null; // „Otevřít v průvodci“ pak vezme verzi ze zálohy
-    // plné úložiště: nic nesloučit (jinak by aplikace ukazovala data, která po obnovení stránky zmizí)
+  /** 📲 Odkaz z jiného zařízení (transfer.js): okno s náhledem – Sloučit, nebo Nahradit (s potvrzením). */
+  function incoming(inc) {
+    modalOpen(`<div class="modal-body bk-modal">
+      <h3 style="margin-bottom:8px">📲 Přenos z jiného zařízení</h3>
+      <div id="bkBody"></div>
+      <p class="faint" style="font-size:12px;margin-top:12px">Data byla jen v odkazu – server je neviděl. Odkaz od někoho jiného nesluč: jeho cesty a hlídání by se přidaly k tvým.</p></div>`);
+    preview(inc, { link: true });
+  }
+
+  /** Potvrzení 📲 Nahradit: co zůstane, co zmizí nebo se přepíše; nejdřív jde stáhnout zálohu tohoto zařízení. */
+  function confirmReplace(inc) {
+    const body = $('#bkBody');
+    if (!body) return;
+    const ls = lost(current(), inc, { watchKey }), r = replace(current(), inc, { watchKey });
+    const gone = [ls.trips ? pl(ls.trips, 'cesta', 'cesty', 'cest') : '', ls.watch ? pl(ls.watch, 'hlídaná cena', 'hlídané ceny', 'hlídaných cen') : '',
+      ls.pins ? pl(ls.pins, 'odložená nabídka', 'odložené nabídky', 'odložených nabídek') : '', ls.dests ? `${pl(ls.dests, 'město', 'města', 'měst')} z ⭐ / 🙈` : '',
+      ls.visited ? `${pl(ls.visited, 'země', 'země', 'zemí')} z mapy` : ''].filter(Boolean);
+    body.innerHTML = `<p style="font-size:14px;margin-bottom:10px"><b>Nahradit data v tomhle zařízení?</b> Zůstane jen to z odkazu: ${esc(countsTxt(counts(r)) || 'nic')}.</p>
+      ${gone.length ? `<div class="note warn" style="margin:8px 0">⚠️ <div>Z tohoto zařízení zmizí ${esc(gone.join(', '))}.</div></div>` : '<div class="note info" style="margin:8px 0">ℹ️ <div>Nic se neztratí – všechno z tohoto zařízení odkaz má.</div></div>'}
+      ${ls.changed ? `<div class="note warn" style="margin:8px 0">✏️ <div>${pl(ls.changed, 'cesta se přepíše', 'cesty se přepíšou', 'cest se přepíše')} verzí z odkazu.</div></div>` : ''}
+      <p class="faint" style="font-size:12.5px;margin-top:8px">Motiv a nastavení zařízení zůstanou${r.home && !inc.home ? ', domov radaru taky (odkaz žádný nemá)' : ''}. Hned po nahrazení to jde vrátit tlačítkem <b>Vrátit</b> v hlášce.</p>
+      <div class="bk-actions" style="margin-top:14px"><button type="button" class="btn warm" id="bkReplaceGo">Nahradit</button><button type="button" class="btn" id="bkSaveFirst">⬇️ Nejdřív stáhnout zálohu</button><button type="button" class="btn ghost" id="bkBack">Zpět</button></div>`;
+    $('#bkReplaceGo').onclick = () => replaceNow(inc);
+    $('#bkSaveFirst').onclick = () => { download(); toast('Záloha tohoto zařízení stažena'); };
+    $('#bkBack').onclick = () => preview(inc, { link: true });
+  }
+
+  // stav, který sloučení a nahrazení mění – pro návrat při plném úložišti a pro Vrátit
+  const keep = () => ({ trips: S.trips, watch: S.watch, home: S.home, visited: S.visited, fav: S.fav, mute: S.mute, trip: S.trip, accessOwn: S.accessOwn, pins: S.pins });
+  // jen země, které aplikace zná (jinak by šly z mapy odškrtnout jen těžko a zkreslily počty)
+  const knownCc = () => (typeof byIso === 'object' && byIso && Object.keys(byIso).length ? cc => Boolean(byIso[cc]) || (S.visited || []).includes(cc) : () => true);
+  // přidaná cesta bez seznamu „Sbaleno“ dostane výchozí (jako import sdíleného plánu)
+  const packFor = (trips, added) => { for (const t of trips) if (added.has(t) && !(t.checklist || []).length && typeof PACK !== 'undefined') t.checklist = PACK.map(x => ({ t: x, done: false })); };
+
+  /** 📲 Nahradit: data z odkazu místo dat zařízení; plné úložiště = nic se nezmění; hláška s Vrátit. */
+  function replaceNow(inc) {
+    const before = keep(), cur = current(), r = replace(cur, inc, { watchKey });
+    packFor(r.trips, new Set(inc.trips));
+    const known = knownCc();
+    Object.assign(S, { trips: r.trips, watch: r.watch, home: r.home, visited: r.visited.filter(known), fav: r.fav, mute: r.mute, accessOwn: r.own, pins: r.pins });
+    // cesta z plánovače otevřená v průvodci: průvodce by ji uložil zpátky ve staré verzi
+    if (S.trip && S.trip.created && cur.trips.some(t => t && t.tripId === S.trip.created)) S.trip = null;
     if (save() === false) {
       Object.assign(S, before);
-      toast('V prohlížeči není pro zálohu místo – nic se nesloučilo. Uvolni místo (třeba smaž staré cesty) a zkus to znovu.', 'err');
+      toast('V prohlížeči není pro data místo – nic se nenahradilo. Uvolni místo a zkus to znovu.', 'err');
       return;
     }
-    visited.clear(); S.visited.forEach(cc => visited.add(cc));
-    if (window.PreTrip && PreTrip.mergeDone) PreTrip.mergeDone(inc.pretrip);
+    if (window.PreTrip && PreTrip.mergeDone) PreTrip.mergeDone(inc.pretrip); // odškrtnutí patří k cestám – sloučit
     modalClose();
+    const all = { homeChanged: true, own: true, dests: true, pins: true };
+    repaint(all);
+    // krátce (celý výčet by na telefonu zakryl půl obrazovky) – podrobnosti ukázalo potvrzení
+    const c = counts(r), short = [c.trips ? pl(c.trips, 'cesta', 'cesty', 'cest') : '', c.watch ? pl(c.watch, 'hlídaná cena', 'hlídané ceny', 'hlídaných cen') : ''].filter(Boolean).join(', ');
+    toast(`Nahrazeno daty z odkazu${short ? ` (${short})` : ''}`, '', 9000, {
+      label: 'Vrátit',
+      run: () => { Object.assign(S, before); save(); repaint(all); toast('Vráceno – data jsou jako před nahrazením'); },
+    });
+  }
+
+  /** Po sloučení / nahrazení: mapa, počty, plánovač, Přehled a co ukazuje Flights (hlídání, domov, ⭐ / 🙈, 📌…). */
+  function repaint({ homeChanged = false, own = false, dests = false, pins = false } = {}) {
+    visited.clear(); (S.visited || []).forEach(cc => visited.add(cc));
     if (typeof refreshStats === 'function') refreshStats();
     if (typeof paintMap === 'function') paintMap();
     if (activeView === 'planner') renderPlanner();
@@ -488,15 +583,35 @@
       Flights.renderWatch();
       if (Flights.updateHomeChip) Flights.updateHomeChip();
       if (homeChanged && Flights.homeChanged) Flights.homeChanged(); // i Odkud v hledání na Přehledu
-      else if (df.own.add && activeView === 'dashboard') Flights.renderRadar();
-      if (df.own.add && Flights.refreshOrigins) Flights.refreshOrigins(); // 🏠 vlastní ceny ve formuláři
+      else if (own && activeView === 'dashboard') Flights.renderRadar();
+      if (own && Flights.refreshOrigins) Flights.refreshOrigins(); // 🏠 vlastní ceny ve formuláři
       if (Flights.refreshVisited) Flights.refreshVisited();
-      if ((df.dests.fav || df.dests.mute) && Flights.refreshPrefs) Flights.refreshPrefs(); // radar, pruh ⭐ Moje cíle, Kamkoliv
-      if ((df.pins.add || df.pins.newer) && Flights.refreshPins) Flights.refreshPins(); // 📌 Přehled, radar, výpis
+      if (dests && Flights.refreshPrefs) Flights.refreshPrefs(); // radar, pruh ⭐ Moje cíle, Kamkoliv
+      if (pins && Flights.refreshPins) Flights.refreshPins(); // 📌 Přehled, radar, výpis
     }
+  }
+
+  function apply(inc, opts, df, verb = 'Sloučeno') {
+    const before = keep();
+    // přepsaná cesta, která je zrovna v průvodci: průvodce by ji otevřel v původní verzi (a uložením zálohu přepsal)
+    const cur = current(), overIds = opts.overwrite ? match(cur, inc, { txt: defTxt, ...DEPS() }).filter(x => x.st === 'changed' && cur.trips[x.i].tripId).map(x => cur.trips[x.i].tripId) : [];
+    const m = merge(cur, inc, { watchKey, ...opts });
+    packFor(m.trips, new Set(inc.trips));
+    const homeChanged = JSON.stringify(m.home) !== JSON.stringify(S.home || null);
+    Object.assign(S, { trips: m.trips, watch: m.watch, home: m.home, visited: m.visited.filter(knownCc()), fav: m.fav, mute: m.mute, accessOwn: m.own, pins: m.pins });
+    if (S.trip && overIds.includes(S.trip.created)) S.trip = null; // „Otevřít v průvodci“ pak vezme verzi ze zálohy
+    // plné úložiště: nic nesloučit (jinak by aplikace ukazovala data, která po obnovení stránky zmizí)
+    if (save() === false) {
+      Object.assign(S, before);
+      toast('V prohlížeči není pro zálohu místo – nic se nesloučilo. Uvolni místo (třeba smaž staré cesty) a zkus to znovu.', 'err');
+      return;
+    }
+    if (window.PreTrip && PreTrip.mergeDone) PreTrip.mergeDone(inc.pretrip);
+    modalClose();
+    repaint({ homeChanged, own: Boolean(df.own.add), dests: Boolean(df.dests.fav || df.dests.mute), pins: Boolean(df.pins.add || df.pins.newer) });
     const over = opts.overwrite ? df.trips.changed : 0;
     const bits = [df.trips.add ? `+${pl(df.trips.add, 'cesta', 'cesty', 'cest')}` : '', over ? pl(over, 'cesta přepsána', 'cesty přepsány', 'cest přepsáno') : '', df.watch.add ? `+${pl(df.watch.add, 'hlídaná cena', 'hlídané ceny', 'hlídaných cen')}` : '', df.visited.add ? `+${pl(df.visited.add, 'země', 'země', 'zemí')}` : '', df.dests.fav ? `+${pl(df.dests.fav, 'můj cíl', 'moje cíle', 'mých cílů')}` : '', df.dests.mute ? `+${pl(df.dests.mute, 'skryté město', 'skrytá města', 'skrytých měst')}` : '', df.pins.add ? `+${pl(df.pins.add, 'odložená nabídka', 'odložené nabídky', 'odložených nabídek')}` : '', df.pins.newer ? `📌 novější cena u ${pl(df.pins.newer, 'odložené nabídky', 'odložených nabídek', 'odložených nabídek')}` : '', homeChanged ? 'domov radaru převzat' : '', df.pretrip ? `odškrtnutí „Před cestou“ u ${pl(df.pretrip, 'cesty', 'cest', 'cest')}` : '', df.refs ? `🔖 kódy rezervací u ${pl(df.refs, 'cesty', 'cest', 'cest')}` : '', df.own.add ? `🏠 vlastní cena na +${pl(df.own.add, 'letiště', 'letiště', 'letišť')}` : ''].filter(Boolean);
-    toast(bits.length ? 'Sloučeno: ' + bits.join(', ') : 'Nic nového se nesloučilo');
+    toast(bits.length ? `${verb}: ${bits.join(', ')}` : 'Nic nového se nesloučilo');
   }
 
   function restore(file) {
@@ -522,20 +637,22 @@
     // záloha i obnova potřebují průvodce (cesty z průvodce – Trip.sanitizeTrip) a „Před cestou“ (odškrtnutí): bez nich
     // by v záloze tiše chyběly – stahují se až po startu (lazy.js), klepnutí před dostažením na ně počká
     if (window.Lazy && !Lazy.has('trip')) return Lazy.run('trip', open);
-    const canShare = typeof navigator.share === 'function' && typeof File === 'function';
+    const canShare = typeof navigator.share === 'function' && typeof File === 'function', link = Boolean(window.Transfer);
     modalOpen(`<div class="modal-body bk-modal">
       <h3 style="margin-bottom:8px">💾 Přenos a záloha</h3>
-      <p class="muted" style="font-size:14px;margin-bottom:12px">Cesty z plánovače, hlídané ceny, 📌 odložené nabídky, domov radaru, navštívené země, ⭐ moje cíle a 🙈 skrytá města, odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v tomhle prohlížeči. Přenes je do telefonu nebo počítače souborem – nic se neukládá na server.</p>
+      <p class="muted" style="font-size:14px;margin-bottom:12px">Cesty z plánovače, hlídané ceny, 📌 odložené nabídky, domov radaru, navštívené země, ⭐ moje cíle a 🙈 skrytá města, odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v tomhle prohlížeči. Přenes je do telefonu nebo počítače ${link ? 'odkazem s QR kódem, nebo souborem' : 'souborem'} – nic se neukládá na server.</p>
       <div id="bkBody">
         <div class="bk-actions">
-          ${canShare ? '<button type="button" class="btn primary" id="bkShare">📲 Poslat do jiného zařízení</button>' : ''}
-          <button type="button" class="btn${canShare ? '' : ' primary'}" id="bkDown">⬇️ Stáhnout zálohu</button>
+          ${link ? '<button type="button" class="btn primary" id="bkLink">📲 Přenést odkazem / QR kódem</button>' : ''}
+          ${canShare ? `<button type="button" class="btn${link ? '' : ' primary'}" id="bkShare">📤 Poslat soubor zálohy</button>` : ''}
+          <button type="button" class="btn${canShare || link ? '' : ' primary'}" id="bkDown">⬇️ Stáhnout zálohu</button>
           <button type="button" class="btn ghost" id="bkPick">📂 Obnovit ze zálohy…</button>
           <input type="file" id="bkFile" accept=".json,.txt,application/json,text/plain" hidden>
         </div>
         <div class="faint" style="font-size:12.5px;margin-top:12px"><span id="bkStatus">${statusTxt()}</span><span id="bkStore"></span></div>
-        <div class="faint" style="font-size:12px;margin-top:8px">Na druhém zařízení otevři ATLAS → ${canShare ? 'Plánovač' : 'Plánovač nebo ⋯ Další'} → 💾 Přenos a záloha → 📂 Obnovit ze zálohy. Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (uložené cesty v plánovači ji mají), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
+        <div class="faint" style="font-size:12px;margin-top:8px">Soubor: na druhém zařízení otevři ATLAS → ${canShare ? 'Plánovač' : 'Plánovač nebo ⋯ Další'} → 💾 Přenos a záloha → 📂 Obnovit ze zálohy. Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (uložené cesty v plánovači ji mají), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
       </div></div>`);
+    if (link) $('#bkLink').onclick = () => Transfer.open();
     if (canShare) $('#bkShare').onclick = () => share();
     $('#bkDown').onclick = () => { download(); toast('Záloha stažena'); };
     $('#bkPick').onclick = () => $('#bkFile').click();
@@ -551,5 +668,10 @@
     return `<div class="row wrap plan-tools"><button type="button" class="btn sm ghost" id="bkOpen">💾 Přenos a záloha</button>${nudge}</div>`;
   }
 
-  window.Backup = { V, pack, parse, diff, merge, mergeDests, match, ensurePids, cleanForm, cleanRefs, summaryHtml, open, plannerTools, WATCH_CAP, REFS_MAX, REF_LEN };
+  // 📲 přenos odkazem (transfer.js): stav zařízení k zabalení (cesty bez tripId dostanou pid jako u zálohy – bez razítka
+  // „poslední záloha“: odkaz není soubor, který si uživatel schová) a jeho počty
+  const snapshot = () => text();
+  const countsNow = () => counts(current());
+
+  window.Backup = { V, pack, parse, diff, merge, mergeDests, match, ensurePids, cleanForm, cleanRefs, summaryHtml, open, plannerTools, counts, countsTxt, isEmpty, replace, lost, incoming, snapshot, countsNow, WATCH_CAP, REFS_MAX, REF_LEN };
 })();

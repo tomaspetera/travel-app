@@ -1091,7 +1091,7 @@
     const k = n => kc(n).replace(/ Kč$/, '\u00a0Kč');
     if (!(a.fare > 0) || !a.cur || a.cur === 'CZK') return `~${k(a.czk)}`;
     const sign = CUR_SIGN[a.cur] || a.cur;
-    // od (online předem) i běžná cena v den cesty – v Kč (odhad do ceny cesty) ta běžná: „od 9,90 £, běžně 23 £ (~560 Kč)“
+    // od (online předem) i běžná cena v den cesty – v Kč (odhad do ceny cesty) ta běžná: „od 9,90 £, běžně 21 £ (~600 Kč)“
     if (a.from && a.typ > a.fare) return `od ${fareNum(a.fare)}\u00a0${sign}, běžně ${fareNum(a.typ)}\u00a0${sign} (~${k(a.czk)})`;
     return `${a.from ? 'od ' : ''}${fareNum(a.fare)}\u00a0${sign} (~${k(a.czk)})`;
   }
@@ -2045,6 +2045,11 @@
   }
   /** Ukázat cenu celkem: víc sedadel, nebo miminko navíc (i u jednoho dospělého). */
   const paxTotalOn = x => { const p = paxOf(x); return p.seats > 1 || p.infants > 0; };
+  /**
+   * Cestující do formuláře z radaru (karta, ⭐ Moje cíle, 📌 odložená karta radaru – n = počet lidí radaru): radar děti
+   * nezná a cena za osobu je stejná – rodina z minulého hledání (form s dětmi) zůstane ({}), jinak n dospělých bez dětí.
+   */
+  const radarPax = (form, n) => (form && (form.children > 0 || form.infants > 0) ? {} : { adults: n, children: 0, infants: 0 });
   /** Poznámka k ceně s dětmi: dítě platí sedadlo jako dospělý, miminko jen poplatek aerolinky (ten ATLAS nezná); bez dětí ''. */
   function paxNote(x) {
     const p = paxOf(x);
@@ -2088,6 +2093,6 @@
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
     destCenter, geoNames, geoCenter, stayPlan, smartDirect,
     wazeUrl, WAZE_HOME, PID_APP, pidLeg,
-    PAX_MAX, paxOf, paxTxt, paxShort, paxTotalLbl, paxTotalOn, paxNote, kidsBuyNote,
+    PAX_MAX, paxOf, paxTxt, paxShort, paxTotalLbl, paxTotalOn, paxNote, kidsBuyNote, radarPax,
   };
 })();

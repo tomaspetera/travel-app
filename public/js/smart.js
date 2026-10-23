@@ -21,7 +21,8 @@
   const dm = s => `${+s.slice(8, 10)}. ${+s.slice(5, 7)}.`;
   const czk = n => `${Math.round(n).toLocaleString('cs-CZ').replace(/ /g, ' ')} Kč`;
 
-  const NUM = { jeden: 1, jedna: 1, jednu: 1, jednoho: 1, dva: 2, dve: 2, dvou: 2, tri: 3, trech: 3, ctyri: 4, ctyrech: 4, pet: 5, peti: 5, sest: 6, sesti: 6, sedm: 7, osm: 8, devet: 9, deset: 10, jedenact: 11, dvanact: 12, trinact: 13, ctrnact: 14 };
+  // i 7. pád („se dvěma dětmi“, „s jedním dítětem“) – jinak by z „dvěma dětmi“ bylo místo a děti by se nepočítaly
+  const NUM = { jeden: 1, jedna: 1, jednu: 1, jednoho: 1, jednim: 1, dva: 2, dve: 2, dvou: 2, dvema: 2, tri: 3, trech: 3, tremi: 3, ctyri: 4, ctyrech: 4, ctyrmi: 4, pet: 5, peti: 5, sest: 6, sesti: 6, sedm: 7, sedmi: 7, osm: 8, osmi: 8, devet: 9, deviti: 9, deset: 10, jedenact: 11, dvanact: 12, trinact: 13, ctrnact: 14 };
   const NUM_RE = `\\d{1,2}|${Object.keys(NUM).sort((a, b) => b.length - a.length).join('|')}`;
   const num = v => (/^\d+$/.test(v) ? +v : NUM[v] || 0);
   const MONTHS = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
@@ -320,12 +321,12 @@
     rule(new RegExp(`(?:sam|sama|samotn[yaá]|solo|jen\\s+ja)${W}`), () => { people(1); });
     // děti 2–11 let platí sedadlo, miminko letí na klíně: „2 dospělí a 2 děti“ = 2 dospělí + 2 děti, „s miminkem“ =
     // miminko navíc (bez počtu dospělých dva); „dítě“ / „miminko“ i bez předložky („2 dospělí, dítě a miminko“)
-    rule(new RegExp(`(?:a\\s+|s\\s+)?(${NUM_RE})\\s*(?:deti|ditka|detmi|ditetem|dite)${W}|(?:(?:s|se|a)\\s+)?(?:ditetem|ditkem|dite|ditko)${W}`), m => {
+    rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:deti|ditka|detmi|ditetem|ditkem|dite)${W}|(?:(?:s|se|a)\\s+)?(?:ditetem|ditkem|dite|ditko)${W}`), m => {
       const k = m[1] ? num(m[1]) : 1;
       if (!(k >= 1 && k <= 6)) return false;
       kids = k;
     });
-    rule(new RegExp(`(?:a\\s+|s\\s+)?(${NUM_RE})\\s*(?:miminka|miminek|miminky|mimina)${W}|(?:(?:s|se|a)\\s+)?(?:miminkem|miminko|mimino|miminem)${W}`), m => {
+    rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:miminka|miminek|miminky|mimina|miminkem)${W}|(?:(?:s|se|a)\\s+)?(?:miminkem|miminko|mimino|miminem)${W}`), m => {
       const k = m[1] ? num(m[1]) : 1;
       if (!(k >= 1 && k <= 4)) return false;
       babies = k;

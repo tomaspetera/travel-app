@@ -89,6 +89,13 @@ test('délka, lidé, cena, zavazadla, přímé lety, druh cíle', () => {
   const baby = P('s miminkem do Říma');
   assert.deepEqual([baby.patch.adults, baby.patch.children, baby.patch.infants, baby.to], [2, 0, 1, ['Říma']]);
   assert.deepEqual([P('dva dospělí, dítě a miminko').patch.children, P('dva dospělí, dítě a miminko').patch.infants], [1, 1]);
+  // počet v 7. pádě („se dvěma dětmi“): děti, ne místo „dvěma dětmi“
+  const two = P('dva dospělí se dvěma dětmi do Barcelony');
+  assert.deepEqual([two.patch.adults, two.patch.children, two.patch.infants, two.to], [2, 2, 0, ['Barcelony']]);
+  assert.deepEqual([P('s dvěma dětmi do Říma').patch.children, P('s dvěma dětmi do Říma').to], [2, ['Říma']]);
+  assert.deepEqual([P('se třemi dětmi k moři').patch.children, P('se třemi dětmi k moři').to], [3, []]);
+  assert.deepEqual([P('s jedním dítětem').patch.children, P('s jedním dítětem').to], [1, []]);
+  assert.deepEqual([P('se dvěma miminky').patch.infants, P('s jedním miminkem').patch.infants, P('s jedním miminkem').to], [2, 1, []]);
   // „ve dvou“ = dva lidé celkem – děti z minulého hledání pryč
   assert.deepEqual([P('ve dvou').patch.children, P('ve dvou').patch.infants], [0, 0]);
   assert.equal(P('do Říma').patch.children, undefined, 'bez lidí ve větě zůstanou cestující z formuláře');

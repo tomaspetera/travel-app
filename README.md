@@ -316,7 +316,7 @@ krém…).
 
 | | ATLAS |
 |---|---|
-| **Lišta podle tebe (telefon)** | Dole je *Přehled* a 3 sekce, které otevíráš nejčastěji (bez historie Lety, Cesta, Objevuj; Svět, Plánovač a Doporučení se do lišty dostanou, když je používáš víc). Pořadí se počítá jen při spuštění, takže se lišta pod rukou nemění, a má pořád 5 míst – nerozjede se ani na úzkém telefonu. Zbytek je pod *⋯ Další* jako dlaždice s popisem, pod nimi Přenos a záloha, Světlý/Tmavý režim a Přidat na plochu (dřív menu ☰ nahoře). |
+| **Lišta podle tebe (telefon)** | Dole je *Přehled* a 3 sekce, které otevíráš nejčastěji (bez historie Lety, Cesta, Objevuj; Svět, Plánovač a Doporučení se do lišty dostanou, když je používáš víc). Pořadí se počítá jen při spuštění, takže se lišta pod rukou nemění, a má pořád 5 míst – nerozjede se ani na úzkém telefonu. Zbytek je pod *⋯ Další* jako dlaždice s popisem, pod nimi 📲 Přenést do jiného zařízení, Přenos a záloha, Světlý/Tmavý režim a Přidat na plochu (dřív menu ☰ nahoře). |
 | **Výsledky na telefonu** | U hledání do konkrétního cíle je nejlevnější kombinace rozbalená celá, ostatní jsou krátké řádky (termín, noci, letiště, cena, 🔥/💚) – klepnutí rozbalí celou kartu s koupí a *Vybrat a pokračovat*. Když chybí *Odkud* (nový uživatel napíše jen „Barcelona v listopadu“), pole se zvýrazní s nápovědou a po výběru místa hledání proběhne samo. |
 | **Odlet odkudkoliv** | Zadáš město, obec, zemi nebo polohu → prohledá *všechna* letiště v okruhu (např. z Jihlavy PED, BRQ, PRG, VIE, BTS, LNZ…). Letiště lze ručně vyřadit. |
 | **Cena včetně cesty na letiště** | Ke každé letence přičte odhad cesty na letiště a zpět – 🚌 veřejnou dopravou (vlak/bus do města letiště za běžnou cenu + MHD na letiště; kde cestu znáš líp, 🏠 vlastní cena), nebo 🚗 autem (nafta, benzín nebo nabíjení elektroauta za aktuální ceny, parkování podle délky cesty, dálniční známky). Let z Vídně za 600 Kč tak férově porovná s letem z Brna za 900 Kč. Viz [Doprava na letiště](#doprava-na-letiště). |
@@ -795,11 +795,14 @@ na osobu – do ceny letenky se nepřičítá.
 **Odkud jsou čísla** (`data/arrival.json`, `server/lib/arrival.js`) – na osobu a jeden směr, jízdenka pro dospělého,
 nejlevnější běžná cesta letištním busem, vlakem nebo metrem do centra; kde z letiště veřejná doprava nejezdí (Hurghada,
 Šarm aš-Šajch, Marsa Alam, Akaba, Djerba), 🚕 taxi – cena za auto děleno dvěma; „od“ = cena online předem; kde je známá i
-běžná cena v den cesty (pole `typ` – Stansted Express od 9,90 £, běžně 23 £; flibco Charleroi od 14,99 €, v den odjezdu
+běžná cena v den cesty (pole `typ` – Stansted Express od 9,90 £, běžně 21 £; flibco Charleroi od 14,99 €, v den odjezdu
 ~19 €; Terravision Bergamo od 5 €, běžně 8 €; Memmingen flibco online od 6,99 €, běžně ~15 € (Allgäu Airport Express online 15 €, v autobuse 20 €); Funchal 702 předem 2 €,
 na palubě 2,65 €; Luton od 10 £, běžně ~17 £; Manchester od 2,90 £, běžně ~6 £; Torp-ekspressen od 289 NOK, běžně
-~360 NOK), štítek ukáže obě a do odhadu ceny cesty (Kč) jde ta běžná. U Stanstedu, Lutonu, Manchesteru a Torpu je běžná
-cena jen ze sekundárních zdrojů (²; oficiální stránka cenu v den cesty neuvádí) a poznámka štítku to říká. Kde se cena
+~360 NOK), štítek ukáže obě a do odhadu ceny cesty (Kč) jde ta běžná. U Stanstedu a Lutonu je běžná cena bezkontaktní
+jízdné mimo špičku z [vyhledávače jízdného TfL](https://api.tfl.gov.uk/Stoppoint/910GSTANAIR/FareTo/910GLIVST)
+(Stansted – Liverpool Street 21 £, ve špičce 23 £; Luton Airport Parkway – St Pancras 12,30 £ + Luton DART 4,90 £, ověřeno
+23. 10. 2026); u Manchesteru a Torpu je běžná cena jen ze sekundárních zdrojů (²; oficiální stránka cenu v den cesty
+neuvádí) a poznámka štítku to říká. Kde se cena
 v den cesty neliší, „od“ se nepíše (Heathrow metro 5,90 £ kdykoli podle TfL, Flybus Keflavík pevně 3 999 ISK); Southend:
 Off-Peak 13,40 £ platí i v den cesty (ve špičce 20,10 £). Bez běžné ceny zůstávají Flygbussarna ve Stockholmu (Skavsta,
 Arlanda, Västerås) a flibco Hahn – cenu v den cesty neuvádí oficiální ani důvěryhodný sekundární zdroj. Cesta *na*
@@ -810,7 +813,10 @@ letiště (odlet, `access.js`) počítá s cenou „od“ – jízdenka na odlet
    britská regionální letiště, Itálie, Francie, Kanáry, Madeira, Řecko, Balkán, Kavkaz, Maroko, Perský záliv, Thajsko,
    Male, Cancún, New York, Tokio) a 24 dalších (18. 10.: řecké a španělské ostrovy, Chorvatsko, turecká letoviska,
    Pobaltí, Jordánsko, taxi v Egyptě, Akabě a na Djerbě); stránky, které se z cloudu nenačtou, ověřené ve skutečném Chromu (PC, `research/
-   arrival-check-2.md` na větvi `pc-research`). U 24 letišť (²) jen sekundární zdroj – oficiální stránka cenu neuvádí,
+   arrival-check-2.md` na větvi `pc-research`). **23. 10. 2026** znovu ověřených ~40 nejčastějších letišť českých
+   nízkonákladových cest; opraveno: Stansted běžně 21 £ (TfL, dřív 23 £ ze sekundárního zdroje), Gatwick z TfL (oficiální),
+   Alicante C-6 4,70 € (od 24. 7. 2026), Soluň 01X 2 € (od 12/2024), Amsterdam NS 5,50 €, Istanbul Havaist HVL-9 470 TRY,
+   Treviso Barzi končí na Tronchettu (ne Piazzale Roma). U 24 letišť (²) jen sekundární zdroj – oficiální stránka cenu neuvádí,
    ukazuje ji až po vyplnění formuláře nebo se nedala načíst; u 19 dalších je jízdné oficiální a jen čas jízdy ze
    sekundárních zdrojů nebo odhadem (uvedeno v poznámce). Přepočet na Kč kurzem ČNB k 6. 10. 2026 (MAD, EGP, AED, ALL, RSD, MDL, GEL, AMD, QAR, MVR,
    JOD, TND kurzy ostatních měn k 30. 9. 2026), zaokrouhleno na 10 Kč a aspoň 10 Kč (městský autobus v Tbilisi, Batumi nebo
@@ -834,9 +840,9 @@ letiště (odlet, `access.js`) počítá s cenou „od“ – jízdenka na odlet
 | ORY Paříž | metro 14 do Châtelet | 14 € | 340 | 25 min | [iledefrance-mobilites.fr](https://www.iledefrance-mobilites.fr/titres-et-tarifs/detail/ticket-paris-region-aeroports) |
 | CRL Brusel | autobus flibco do Bruxelles-Midi | od 14,99 €, běžně ~19 € | 460 ⚠ | 55 min | [flibco.com](https://www.flibco.com/en/shuttle/bus-brussels-charleroi-airport) |
 | BRU Brusel | autobus STIB Airport Line 12 do evropské čtvrti | 7,90 € | 190 | 30 min | [stib-mivb.be](https://www.stib-mivb.be/travel/other-mobility-solutions/airport-line) |
-| STN Londýn | vlak Stansted Express do Liverpool Street | od 9,90 £, běžně 23 £ ² | 660 ⚠ | 48 min | [stanstedexpress.com](https://www.stanstedexpress.com/tickets-fares/ticket-types) |
-| LTN Londýn | Luton DART + vlak Luton Airport Express do St Pancras | od 10 £, běžně ~17 £ ² | 490 ⚠ | 32 min | [london-luton.co.uk](https://www.london-luton.co.uk/to-and-from-lla/trains/luton-airport-express) |
-| LGW Londýn | vlak Southern / Thameslink do Victoria nebo London Bridge | 10,70 £ | 310 | 35 min | [lasttrip.uk](https://lasttrip.uk/blog/cheapest-way-london-to-gatwick.html) ² |
+| STN Londýn | vlak Stansted Express do Liverpool Street | od 9,90 £, běžně 21 £ | 600 ⚠ | 48 min | [stanstedexpress.com](https://www.stanstedexpress.com/tickets-fares/ticket-types) |
+| LTN Londýn | Luton DART + vlak Luton Airport Express do St Pancras | od 10 £, běžně ~17 £ | 490 ⚠ | 32 min | [london-luton.co.uk](https://www.london-luton.co.uk/to-and-from-lla/trains/luton-airport-express) |
+| LGW Londýn | vlak Southern / Thameslink do Victoria nebo London Bridge | 10,70 £ | 310 | 35 min | [api.tfl.gov.uk](https://api.tfl.gov.uk/Stoppoint/910GGTWK/FareTo/910GVICTRIC) |
 | LHR Londýn | metro Piccadilly line do centra | 5,90 £ | 170 | 50 min | [api.tfl.gov.uk](https://api.tfl.gov.uk/Stoppoint/940GZZLUHRC/FareTo/940GZZLUPCC) |
 | SEN Londýn | vlak Greater Anglia do Liverpool Street | od 13,40 £ (Off-Peak) | 390 ⚠ | 52 min | [greateranglia.co.uk](https://www.greateranglia.co.uk/train-times/southend-airport-to-london-liverpool-street) |
 | MAN Manchester | vlak do Manchester Piccadilly | od 2,90 £, běžně ~6 £ ² | 170 | 20 min | [tpexpress.co.uk](https://www.tpexpress.co.uk/travelling-with-us/routes/trains-from-manchester-airport-to-manchester-piccadilly) |
@@ -845,7 +851,7 @@ letiště (odlet, `access.js`) počítá s cenou „od“ – jízdenka na odlet
 | BGY Milán | autobus Terravision do Milano Centrale | od 5 €, běžně 8 € | 200 | 50 min | [terravision.eu](https://www.terravision.eu/airport_transfer/bus-bergamo-airport-milan/) |
 | MXP Milán | vlak Malpensa Express do Milano Cadorna | 15 € | 370 ⚠ | 37 min | [malpensaexpress.it](https://www.malpensaexpress.it/en/travel-documents/tickets/) |
 | LIN Milán | metro M4 do San Babila | 2,20 € | 50 | 12 min | [atm.it](https://www.atm.it/en/ViaggiaConNoi/InfoTraffico/Pages/M4passengerserviceinformation2.aspx) |
-| TSF Benátky | autobus Barzi Service do Mestre a na Piazzale Roma | 10 € | 240 | 40 min | [barziservice.com](https://barziservice.com/en/travel-with-us/treviso-airport-line/) |
+| TSF Benátky | autobus Barzi Service do Mestre a na Tronchetto | 10 € | 240 | 40 min | [barziservice.com](https://barziservice.com/en/travel-with-us/treviso-airport-line/) |
 | VCE Benátky | autobus ACTV 5 Aerobus na Piazzale Roma | 10 € | 240 | 20 min | [veneziaunica.it](https://www.veneziaunica.it/en/buy-tickets/airport-transfers-marco-polo-and-canova) |
 | CIA Řím | autobus SIT Bus Shuttle do Roma Termini | 6 € | 150 | 40 min | [sitbusshuttle.com](https://www.sitbusshuttle.com/en/transfer-ciampino-airport/) |
 | FCO Řím | vlak Leonardo Express do Roma Termini | 14 € | 340 | 32 min | [trenitalia.com](https://www.trenitalia.com/en/connections/leonardo-express.html) |
@@ -870,7 +876,7 @@ letiště (odlet, `access.js`) počítá s cenou „od“ – jízdenka na odlet
 | BCN Barcelona | autobus Aerobús na Plaça de Catalunya | 7,45 € | 180 | 35 min | [aerobusbarcelona.es](https://aerobusbarcelona.es/en/rates/) |
 | MAD Madrid | autobus Exprés Aeropuerto na Atochu | 5 € | 120 | 35 min | [emtmadrid.es](https://www.emtmadrid.es/Aeropuerto?lang=en-GB) |
 | AGP Málaga | autobus A Express do centra | 4 € | 100 | 15 min | [aena.es](https://www.aena.es/en/malaga-costa-del-sol/getting-there/bus.html) |
-| ALC Alicante | autobus C-6 do centra a na nádraží | 4,60 € | 110 | 25 min | [alicante.vectalia.es](https://alicante.vectalia.es/notificacion/modificacion-tarifas/) |
+| ALC Alicante | autobus C-6 do centra a na nádraží | 4,70 € | 110 | 25 min | [alicante.vectalia.es](https://alicante.vectalia.es/notificacion/modificacion-tarifas-2/) |
 | PMI Palma | autobus EMT A1 na Plaça d'Espanya | 5 € | 120 | 25 min | [aena.es](https://www.aena.es/en/palma-de-mallorca/getting-there/bus.html) |
 | VLC Valencie | metro 3 / 5 do centra (Xàtiva, Colón) | 4,80 € | 120 | 20 min | [metrovalencia.es](https://www.metrovalencia.es/en/fares/) |
 | SVQ Sevilla | autobus EA (Tussam) do centra | 6 € | 150 | 35 min | [tussam.es](https://www.tussam.es/en/node/1397) |
@@ -878,7 +884,7 @@ letiště (odlet, `access.js`) počítá s cenou „od“ – jízdenka na odlet
 | LIS Lisabon | metro (červená linka) do centra | 1,90 € | 50 | 20 min | [metrolisboa.pt](https://www.metrolisboa.pt/en/2025/12/19/new-fares-2026-2/) |
 | FAO Faro | autobus Próximo 16 na autobusové nádraží | 2,50 € | 60 | 15 min | [citiesinsider.com](https://citiesinsider.com/country/portugal/faro/guides/faro-transport/de) ² |
 | ATH Atény | autobus X95 na Syntagma | 5,50 € | 130 | 1 h | [oasa.gr](https://www.oasa.gr/en/visit-athens/airport-express-bus-lines/) |
-| SKG Soluň | autobus 01X do centra a na nádraží | 1,80 € | 40 | 45 min | [skg-airport.gr](https://www.skg-airport.gr/en/category-detailed/ctg_id-37/nd_id-425) |
+| SKG Soluň | autobus 01X do centra a na nádraží | 2 € | 50 | 45 min | [emakedonia.gr](https://www.emakedonia.gr/43-1731267976-p0bulpvmd3-731098) ² |
 | LCA Larnaka | městský autobus do centra (Finikoudes) | 2,70 € (karta Motion 2 €) | 70 | 20 min | [publictransport.com.cy](https://www.publictransport.com.cy/cms/page/cash-tickets) |
 | PFO Pafos | městský autobus 612 do Kato Pafos (přístav) | 2 € (po 21:00 3 €) | 50 | 35 min | [pafosbuses.com](https://www.pafosbuses.com/tickets) |
 | MLA Valletta | autobus Airport Direct TD4 do Valletty | 3 € | 70 | 25 min | [publictransport.com.mt](https://www.publictransport.com.mt/easy-and-convenient-airport-transfers-with-airport-direct/) |
@@ -892,11 +898,11 @@ letiště (odlet, `access.js`) počítá s cenou „od“ – jízdenka na odlet
 | WAW Varšava | vlak SKM / KM nebo autobus 175 do centra | 4,40 zł | 20 | 30 min | [wtp.waw.pl](https://www.wtp.waw.pl/en/public-transport-step-by-step/airports-transport/) |
 | WMI Varšava | autobus KM na nádraží Modlin + vlak KM do centra | 20 zł | 110 | 1 h | [mazowieckie.com.pl](https://www.mazowieckie.com.pl/en/travelers-area/airport-ticket-special-offer) |
 | GDN Gdaňsk | autobus 210 na Gdańsk Główny | 4,80 zł | 30 | 40 min | [airport.gdansk.pl](https://www.airport.gdansk.pl/en/before-travel/getting-to-the-airport/bus) |
-| AMS Amsterdam | vlak NS na Amsterdam Centraal | 5,60 € | 140 | 17 min | [amsterdamtips.com](https://www.amsterdamtips.com/?p=2759) ² |
+| AMS Amsterdam | vlak NS na Amsterdam Centraal | 5,50 € | 130 | 17 min | [rijdendetreinen.nl](https://www.rijdendetreinen.nl/en/tickets/schiphol-airport/amsterdam-centraal) ² |
 | EIN Eindhoven | autobus Hermes 400 na Eindhoven Centraal | 5,15 € | 130 | 20 min | [eindhovenairport.nl](https://www.eindhovenairport.nl/en/public-transport) |
 | RTM Rotterdam | autobus 33 + metro E do centra | 5,50 € | 130 | 20 min | [ret.nl](https://www.ret.nl/en/home/travel-products/tourist/rotterdam-the-hague-airport.html) |
 | KEF Reykjavík | autobus Flybus na terminál BSÍ | 3 999 ISK | 710 ⚠ | 45 min | [flybus.is](https://flybus.is/keflavik-reykjavik-airport-transfer/) |
-| IST Istanbul | autobus Havaist na Taksim | 426 TRY | 190 ⚠ | 1 h 30 | [hava.ist](https://www.hava.ist/) |
+| IST Istanbul | autobus Havaist HVL-9 na Taksim | 470 TRY | 210 ⚠ | 1 h 30 | [hava.ist](https://www.hava.ist/) |
 | SAW Istanbul | autobus Havabüs na Taksim | 485 TRY | 210 ⚠ | 1 h 30 | [havabus.com](https://www.havabus.com/yolcuservisi/taksim-sabihagokcenhavalimani.aspx) |
 | TLV Tel Aviv | vlak Israel Railways do Tel Avivu (HaHagana, Savidor) | 13,50 ILS | 100 | 20 min | [visit.tel-aviv.gov.il](https://visit.tel-aviv.gov.il/move/airport) |
 | RAK Marrákeš | autobus 19 (ALSA) na Jemaa el-Fna | 30 MAD | 70 | 25 min | [pointswithacrew.com](https://www.pointswithacrew.com/how-to-use-marrakech-airport-bus-19-to-marrakech-city-center-a-step-by-step-guide/) ² |
@@ -1303,8 +1309,25 @@ k internetu a zkus to znovu.“ (při připojení, ale nedostupném serveru „S
 ### 💾 Přenos a záloha (PC ↔ telefon)
 
 Cesty z plánovače, hlídané ceny, 📌 odložené nabídky, domov radaru, navštívené země, ⭐ moje cíle a 🙈 skrytá města,
-odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v localStorage jednoho prohlížeče. **💾 Přenos a záloha** (nad plánovačem, na mobilu i v nabídce **Více**) je přenese souborem –
+odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v localStorage jednoho prohlížeče. **📲 Přenést do jiného zařízení** (⋯ Další, na počítači postranní panel)
+je přenese odkazem s QR kódem, **💾 Přenos a záloha** (nad plánovačem, na mobilu i v nabídce **Více**) souborem –
 nic se neukládá na server a nepotřebuje to účet.
+
+- **📲 Přenést do jiného zařízení** (`public/js/transfer.js`, QR kodér `public/js/qr.js`): totéž co soubor zálohy
+  (stejný formát s verzí `v`, stejné pročištění a sloučení v `backup.js`) zkomprimované (deflate-raw, base64url –
+  `sharelink.js`) v odkazu `#sync=…`. Část za `#` prohlížeč na server neposílá, hlášení chyb ji vynechává a aplikace ji
+  po otevření hned smaže z adresy (`history.replaceState`), takže nezůstane v historii. QR kód je vlastní kodér podle
+  ISO/IEC 18004 (bajtový režim, oprava M, a když se nevejde, L, verze 1–40 podle délky): odkaz do 2 331 bajtů s M,
+  do 2 953 s L – menší data (pár hlídání, cest z plánovače, ⭐ a domov) se vejdou, s několika cestami z průvodce obvykle
+  ne. Pak okno nabídne **📤 Poslat odkaz** (sdílení telefonu – AirDrop, Quick Share, e-mail, chat) nebo na počítači
+  **🔗 Kopírovat odkaz**, a soubor zálohy; odkaz nad 200 000 znaků jen soubor. Klepnutí na QR kód ho ukáže přes celou
+  obrazovku, velikost je na celé pixely displeje (ostřejší pro fotoaparát). Druhé zařízení po otevření odkazu ukáže, co
+  přibude, a nabídne **Sloučit** (jako obnova ze zálohy – nic nesmaže) nebo **Nahradit…**: to nejdřív řekne, co by
+  z tohoto zařízení zmizelo nebo se přepsalo, nabídne stáhnout zálohu, a hláška po nahrazení má **Vrátit**. Do
+  prázdného zařízení jen **📥 Přenést sem**. Odkaz jde i vložit (**📥 Mám odkaz z jiného zařízení**) – pro ATLAS na
+  ploše iPhonu, který má jiné úložiště než Safari, kam se otevře odkaz z fotoaparátu. Motiv a nastavení zařízení se
+  nepřenášejí. Testy: `test/qr.test.js` (příklady normy, matice referenčního kodéru segno pro všech 40 verzí × L/M,
+  zpětné dekódování nezávislým dekodérem `test/qrdecode.js`), `test/transfer.test.js`.
 
 - **⬇️ Stáhnout zálohu** uloží `atlas-zaloha-RRRR-MM-DD.json`. **📲 Poslat do jiného zařízení** (telefon s Chromem)
   otevře systémové sdílení (e-mail, Disk, Nearby Share…); soubor se posílá jako `.txt`, protože Chrome sdílí jen
