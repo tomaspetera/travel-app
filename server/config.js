@@ -80,6 +80,11 @@ export const config = {
   // svátků – předchozí se neruší, výsledek se uloží – + hledání v Letech + ruční kontrola hlídané ceny), běžně 1–3.
   // Výchozí 8 = jeden uživatel nic nepozná (ani se dvěma zařízeními za jednou adresou). 0 = bez stropu.
   searchPerClient: Math.max(0, num(env.SEARCH_PER_CLIENT, 8)),
+  // Hotový úplný výsledek hledání (server/index.js completeResult) dostane i další se stejným dotazem do tolika sekund –
+  // radar na přehledu posílá z jednoho domova pořád tentýž dotaz. Ceny zdrojů jsou v mezipaměti 20–30 min, nové hledání
+  // by dalo totéž. 0 = vypnuto. Paměť nejvýš SEARCH_RESULT_MB (hotové řádky odpovědi, radar ~3 MB).
+  searchResultTtlS: Math.max(0, num(env.SEARCH_RESULT_TTL, 120)),
+  searchResultMb: Math.max(1, num(env.SEARCH_RESULT_MB, 24)),
   // Hledání ve frontě (nebo zdroj, který dlouho mlčí): po tolika ms bez řádku pošle server znamení { type: 'wait' } –
   // aplikace hledání bez dat vzdává po 2 minutách (public/js/pwa.js API_WAIT); 20 s je s velkou rezervou.
   searchPingMs: 20e3,

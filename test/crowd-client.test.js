@@ -61,11 +61,17 @@ test('běžný uživatel strop nepozná: 7 různých hledání naráz z jedné a
 test('jedna adresa nezaplní frontu: z 30 různých hledání naráz projde 8, zbytek 429 (ne 503 pro všechny) a jiní dál hledají', async () => {
   const restore = slowMock(300);
   try {
-    const flood = await Promise.all(Array.from({ length: 30 }, (_, i) => post(nth(i), '10.21.0.1')));
+    // jiná hledání než v testu výš: hotový výsledek stejného dotazu (index.js _recentSearches) se nepočítá – níž
+    const other = (i) => ({ ...nth(i), nightsMin: 2 });
+    const flood = await Promise.all(Array.from({ length: 30 }, (_, i) => post(other(i), '10.21.0.1')));
     const codes = flood.map((r) => r.status);
     assert.equal(codes.filter((c) => c === 200).length, 8, codes.join(','));
     assert.equal(codes.filter((c) => c === 429).length, 22, codes.join(','));
     assert.equal(_searchClients.count('10.21.0.1'), 8);
+    // hotový výsledek (stejná hledání jako v testu výš) nic nepočítá – frontu ani strop adresy nezabere, projde i nad ním
+    const again = await Promise.all(Array.from({ length: 7 }, (_, i) => post(nth(i), '10.21.0.1')));
+    assert.deepEqual(again.map((r) => r.status), Array(7).fill(200));
+    assert.ok((await Promise.all(again.map(lastLine))).every((l) => l.type === 'result'));
     // fronta má pro ostatní dál místo: 10 dalších lidí najednou projde
     const others = await Promise.all(Array.from({ length: 10 }, (_, i) => post({ ...nth(i), nightsMax: 6 }, `10.22.0.${i + 1}`)));
     assert.deepEqual(others.map((r) => r.status), Array(10).fill(200));

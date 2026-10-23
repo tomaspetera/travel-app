@@ -1,6 +1,6 @@
 // Nával uživatelů: limit z jedné adresy s omezenou pamětí, mezipaměť s úklidem a pojistkou paměti, sdílené stejné
-// hledání, strop souběžných hledání s frontou, strop rozběhnutých hledání na adresu, časové limity příjmu požadavku
-// a pojistky po 429 u Ryanairu a Wizz Air.
+// hledání, hotový výsledek stejného hledání na chvíli z paměti, strop souběžných hledání s frontou, strop rozběhnutých
+// hledání na adresu, časové limity příjmu požadavku a pojistky po 429 u Ryanairu a Wizz Air.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -12,8 +12,8 @@ process.env.SEARCH_CONCURRENCY = '1';
 process.env.SEARCH_QUEUE = '1';
 const { RateLimiter } = await import('../server/lib/ratelimit.js');
 const { TTLCache } = await import('../server/lib/cache.js');
-const { sharedRuns, gate, perClient } = await import('../server/lib/crowd.js');
-const { createServer, _searchClients } = await import('../server/index.js');
+const { sharedRuns, gate, perClient, recentResults } = await import('../server/lib/crowd.js');
+const { createServer, _searchClients, completeResult } = await import('../server/index.js');
 const { config } = await import('../server/config.js');
 const { mockProviders } = await import('../server/providers/mock.js');
 const { ryanair, _resetRyanairBlock } = await import('../server/providers/ryanair.js');
@@ -178,6 +178,44 @@ test('perClient: strop na klienta, místo se vrátí jen jednou (konec i odchod 
   assert.equal(pc.size, 0);
 });
 
+test('recentResults: hotový výsledek jen do ttl, celkem do maxBytes (ven nejdřív prošlé a nejstarší), ttl 0 = nic', () => {
+  const r = recentResults({ ttlMs: 1000, maxBytes: 100 });
+  assert.equal(r.set('a', 'A', 40, 0), true);
+  assert.equal(r.set('b', 'B', 40, 10), true);
+  assert.equal(r.get('a', 999), 'A');
+  assert.equal(r.get('a', 1000), undefined, 'po ttl pryč');
+  assert.equal(r.size, 1);
+  assert.equal(r.set('c', 'C', 40, 20), true);
+  assert.equal(r.set('d', 'D', 40, 30), true); // 120 > 100 → nejstarší (b) ven
+  assert.equal(r.get('b', 30), undefined);
+  assert.deepEqual([r.get('c', 30), r.get('d', 30)], ['C', 'D']);
+  assert.equal(r.bytes, 80);
+  assert.equal(r.set('e', 'E', 101, 40), false, 'větší než celý strop se neuloží');
+  assert.equal(r.set('c', 'C2', 40, 50), true, 'nový výsledek téhož dotazu nahradí starý');
+  assert.equal(r.get('c', 50), 'C2');
+  assert.equal(r.bytes, 80);
+  assert.equal(r.set('f', 'F', 40, 2000), true, 'prošlé záznamy uvolní místo');
+  assert.deepEqual([r.size, r.bytes], [1, 40]);
+  const off = recentResults({ ttlMs: 0, maxBytes: 100 });
+  assert.equal(off.set('a', 'A', 1), false);
+  assert.equal(off.get('a'), undefined);
+});
+
+test('completeResult: na chvíli se drží jen výsledek, který by stejné hledání hned zopakovalo', () => {
+  const ok = { id: 'ryanair', state: 'done', error: null, outage: null, failed: 0, note: null };
+  const r = (...ps) => ({ groups: [], providers: ps });
+  // vynechané trasy bez paměti tras (pevný rozpočet od nejbližších) dopadnou napodruhé stejně
+  assert.equal(completeResult(r(ok, { ...ok, id: 'wizzair', coverage: { total: 10, live: 10, memory: 0, skipped: 0 }, note: 'prohledáno 40 nejbližších z 90 tras – zbytek kvůli limitu dotazů' })), true);
+  for (const bad of [{ state: 'partial' }, { state: 'error', error: 'x' }, { error: '1/3 dotazů selhalo' }, { outage: 'partial' }, { failed: 1 },
+    { coverage: { total: 10, live: 6, memory: 0, skipped: 4 } }, { coverage: { total: 10, live: 6, memory: 4, skipped: 0 } },
+    { note: 'celý svět + dálkové země · po 25 s ukončeno – 2 z 9 dotazů vynecháno' }]) {
+    assert.equal(completeResult(r(ok, { ...ok, ...bad })), false, JSON.stringify(bad));
+  }
+  assert.equal(completeResult({ ...r(ok), partial: true }), false);
+  assert.equal(completeResult(r()), false);
+  assert.equal(completeResult(null), false);
+});
+
 const q = { from: ['ap:VIE'], to: ['ap:BCN'], radiusKm: 0, dateFrom: ymdPlus(20), dateTo: ymdPlus(30), trip: 'return', nightsMin: 3, nightsMax: 5 };
 const post = (body, ip, signal) => fetch(`${base}/api/search`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': ip }, body: JSON.stringify(body), signal });
 const lastLine = async (r) => JSON.parse((await r.text()).trim().split('\n').at(-1));
@@ -220,6 +258,56 @@ test('server: stejné hledání od 6 lidí naráz = jedno hledání (stejně dot
     assert.deepEqual(lines[5].result.groups, lines[0].result.groups);
   } finally {
     mock.restore();
+  }
+});
+
+test('server: stejné hledání po doběhnutí = hotový výsledek z paměti (bez dotazů na zdroje, tentýž řádek), frontu nezabere', async () => {
+  const mock = slowMock(150);
+  try {
+    const body = { ...q, dateTo: ymdPlus(37), noPartial: true };
+    const first = (await (await post(body, '10.9.0.1')).text()).trim().split('\n');
+    const ours = () => mock.calls.filter((x) => x.dateTo === ymdPlus(37)).length; // dotazy tam právě tohoto hledání
+    const once = ours();
+    assert.ok(once > 0);
+    // strop 1 hledání + fronta 1 plné jiným hledáním – hotový výsledek přesto hned (nic se nepočítá)
+    const a = await post({ ...q, dateTo: ymdPlus(38) }, '10.9.0.2');
+    const b = await post({ ...q, dateTo: ymdPlus(39) }, '10.9.0.3');
+    const again = await post(body, '10.9.0.4');
+    assert.equal(again.status, 200);
+    const lines = (await again.text()).trim().split('\n');
+    assert.deepEqual(lines, [first.at(-1)], 'rovnou výsledek, tentýž do posledního znaku');
+    assert.equal(JSON.parse(lines[0]).type, 'result');
+    await Promise.all([a.text(), b.text()]);
+    assert.equal(ours(), once, 'na zdroje jen za první hledání');
+  } finally {
+    mock.restore();
+  }
+});
+
+test('server: neúplný výsledek (část dotazů na zdroj selhala) se nedrží – stejné hledání („Zkusit znovu“) se počítá znovu', async () => {
+  const orig = mockProviders.map((p) => p.daily);
+  let calls = 0;
+  mockProviders.forEach((p, i) => {
+    p.daily = async (a) => {
+      if (++calls === 1) throw new Error('výpadek zdroje');
+      return orig[i].call(p, a);
+    };
+  });
+  try {
+    const body = { ...q, dateTo: ymdPlus(40) };
+    const r1 = await lastLine(await post(body, '10.9.1.1'));
+    assert.equal(r1.type, 'result');
+    assert.ok(r1.result.providers.some((s) => s.state === 'partial' || s.state === 'error'), 'jeden zdroj s výpadkem');
+    const before = calls;
+    const r2 = await lastLine(await post(body, '10.9.1.2'));
+    assert.ok(calls > before, 'hledalo se znovu');
+    assert.ok(r2.result.providers.every((s) => s.state === 'done'));
+    const done = calls;
+    const r3 = await lastLine(await post(body, '10.9.1.3'));
+    assert.equal(calls, done, 'úplný výsledek už z paměti');
+    assert.deepEqual(r3.result.groups, r2.result.groups);
+  } finally {
+    mockProviders.forEach((p, i) => { p.daily = orig[i]; });
   }
 });
 

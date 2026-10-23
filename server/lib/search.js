@@ -15,6 +15,7 @@ import { legBagEur } from './baggage.js';
 import { priceLevelOf, priceStats, refOf, referencePrice } from './pricelevel.js';
 import { MULTI, buildCombos, linkMatrix, mergeStatus, pairsPerLeg, pickOptions, runLimited } from './multi.js';
 import { arrivalCzk, arrivalOn, arrivalsFor, legArrivalCzk } from './arrival.js';
+import { breathe } from './crowd.js';
 
 export { referencePrice, refOf };
 import { attachGround } from './ground.js';
@@ -691,6 +692,14 @@ export async function search(raw, emit = () => {}, opts = {}) {
       mixRouteDone(p, o, d);
     }
   };
+  /** Před konečným výsledkem: zbylé cíle složit po jednom s přestávkami (breathe) – compose pak jen seřadí hotové. */
+  async function mixFinish() {
+    for (const k of [...mix.buckets.keys()]) {
+      const w = breathe();
+      if (w) await w;
+      mixFlush(k);
+    }
+  }
   /** Konečný výsledek: složí i cíle, na které se ještě čekalo, a vrátí kombinace všech cílů. */
   function mixAll() {
     for (const k of [...mix.buckets.keys()]) mixFlush(k);
@@ -859,6 +868,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
           origin: c.origin, ...(c.destination ? { destination: c.destination } : {}), dateFrom: q.dateFrom, dateTo: q.dateTo, ret, country: singleCountry,
           ...pax(q), directOnly: q.directOnly,
         });
+        const w = breathe(); // pustit ke slovu ostatní požadavky (crowd.js) – odpovědi zdrojů chodí často naráz
+        if (w) await w;
         for (const t of res) {
           // cíl v okruhu domova (z cache Travelpayouts třeba Vídeň → Bratislava) není „kamkoliv“ – jako u ostatních zdrojů
           if (!destOk(t.out.to) || originSet.has(t.out.to)) continue;
@@ -941,13 +952,23 @@ export async function search(raw, emit = () => {}, opts = {}) {
 
   // Ceny po dnech pro jednu trasu → nejlepší cesty (bez open-jaw; kombinace s lety jiných tras a zdrojů skládá mixTrips).
   async function routeTrips(p, o, d, { perPair, memoryOnly = false }) {
+    // Lety jedné trasy = jeden kousek práce: dotazy stovek tras startují naráz, odpovědi (i z mezipaměti zdroje) chodí
+    // často naráz a jejich skládání by jinak běželo v kuse i sekundy – mezitím by čekaly všechny ostatní požadavky
+    // (crowd.js breathe). Mezi kousky se smí pustit ke slovu ostatní, pořadí kousků zůstává.
+    let w = breathe();
+    if (w) await w;
     const all = await p.daily({ from: o, to: d, dateFrom: q.dateFrom, dateTo: q.dateTo, ...pax(q), directOnly: q.directOnly, memoryOnly });
+    if ((w = breathe())) await w;
     const out = all.filter((l) => warmLeg(l) && depOk(l));
-    if (!ret) return bestOneWays(out, rankGround, { ...constraints, perDestLimit: perPair, limit: perPair });
+    if (!ret) {
+      if ((w = breathe())) await w;
+      return bestOneWays(out, rankGround, { ...constraints, perDestLimit: perPair, limit: perPair });
+    }
     // Lety tam jsou, jen je filtr vyřadil (za teplem, odlet v předvečer od 16:00): zpáteční směr, se kterým plán trasy
     // počítal, se stejně načte – jinak by trasa zůstala navždy „nehledaná“ a brala rozpočet každému hledání.
     if (!out.length && !(all.length && p.routeState && !memoryOnly)) return [];
     const back = await p.daily({ from: d, to: o, dateFrom: backFrom, dateTo: backTo, ...pax(q), directOnly: q.directOnly, memoryOnly });
+    if ((w = breathe())) await w;
     // ceny z mezipaměti (Travelpayouts dohledává po dnech taky) se nekombinují (mixAdd jen živé zdroje)
     mixAdd(p, out, back);
     return bestRoundTrips(out, back, rankGround, { ...constraints, openJawHome: false, openJawDest: false, perDestLimit: perPair, limit: perPair });
@@ -1275,6 +1296,9 @@ export async function search(raw, emit = () => {}, opts = {}) {
   await Promise.all(providers.map((p) => settle(() => (routeMode ? routeProvider(p) : exploreProvider(p)), stOf(p), p, ctxOf(p)).then(partialSoon)));
   clearTimeout(timer);
   progress(true);
+  if (mixOn && !mixWhole) await mixFinish();
+  const w = breathe();
+  if (w) await w;
   const { res, flat } = compose(true);
   // Další odlety Ryanairu téhož dne z letového řádu (bez cen) – jen u zobrazených tras, pár dotazů. Jen do konečného
   // výsledku: dopíše otherDeps letům Ryanairu, které už v něm jsou (Wizz Air W6 v compose se s tím nekříží).
