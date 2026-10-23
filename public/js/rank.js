@@ -354,7 +354,9 @@
     const groups = ((res && res.groups) || []).filter(g => g && g.dest);
     const stats = new Map(groups.map(g => [g.dest.key, g.priceStats || null]));
     const cc = new Map(groups.map(g => [g.dest.key, g.dest.cc || null]));
-    const route = (res && res.priceStats) || null;
+    // statistika celého hledání jen u výsledku s jedním cílem – u „kamkoliv“ by cíl bez vlastní statistiky dostal slevu
+    // za cenu pod mediánem letenek do všech cílů (jako PriceCheck.statsOf)
+    const route = (groups.length <= 1 && res && res.priceStats) || null;
     // jak hluboko pod mediánem cíle bývá jeho nejlevnější letenka (medián přes cíle s aspoň dealN nabídkami)
     const qs = groups.filter(g => g.priceStats && g.priceStats.n >= W.dealN && g.priceStats.median > 0 && g.minFlightCzk > 0)
       .map(g => g.minFlightCzk / g.priceStats.median).sort((a, b) => a - b);

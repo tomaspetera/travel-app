@@ -47,7 +47,7 @@
   function fromRow(t, g, res, at, now = Date.now()) {
     if (!t || typeof t.id !== 'string' || !obj(t.out) || !res || res.mode === 'multi' || !obj(res.query)) return null;
     const q = qOf(res.query, t.back ? 'return' : 'oneway'), part = Boolean(res.partial), d = (g && g.dest) || {}, A = obj(res.arrivals) ? res.arrivals : {};
-    const tt = {}, aps = [t.out.from, t.back && t.back.to], st = !part && ((g && g.priceStats) || res.priceStats);
+    const tt = {}, aps = [t.out.from, t.back && t.back.to], st = !part && ((g && g.priceStats) || ((res.groups || []).length <= 1 && res.priceStats)); // celé hledání jen s jedním cílem (jako PriceCheck.statsOf)
     for (const k of T_KEYS) if (t[k] !== undefined && !(part && k === 'priceLevel')) tt[k] = t[k];
     return copy({
       k: rowKey(t, basis(q)), kind: 'f', at: at > 0 ? at : now, pinnedAt: now, q, pv: 2,
