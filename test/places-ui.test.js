@@ -116,6 +116,14 @@ test('popis jen anglicky: první věta se štítkem; sloučené části „Zahrn
   assert.ok(!T.poiCard({ id: 'Q2', name: 'Bez částí', category: 'church' }, {}).includes('Zahrnuje'));
 });
 
+test('výlet: cesta tam vlakem / lodí; neznámý druh z cizího odkazu (#trip=) jako bus, vykreslení nespadne', () => {
+  const center = { lat: 38.72, lon: -9.14, label: 'Lisabon' };
+  const trip = (mode) => T.poiCard({ id: 'Q1', name: 'Sintra', category: 'daytrip', lat: 38.8, lon: -9.39, reach: { transitMin: 40, carMin: 30, mode } }, { center });
+  assert.match(trip('rail'), /🚆 ~40 min vlakem · 🚗 ~30 min autem/);
+  assert.match(trip('boat'), /⛴️ ~40 min lodí/);
+  for (const mode of ['constructor', 'toString', '__proto__', 'nesmysl']) assert.match(trip(mode), /🚌 ~40 min busem/, mode);
+});
+
 test('Enter v hledání: staré návrhy ani čekání nevyberou cizí místo', () => {
   const a = (o) => T.enterAction({ err: false, count: 0, sugFor: '', ...o });
   assert.equal(a({ text: 'Bari', sugFor: 'Bar', count: 5 }), 'fetch', 'návrhy patří k „Bar“ → hledej „Bari“');

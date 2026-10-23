@@ -1479,6 +1479,8 @@ nic se neukládá na server a nepotřebuje to účet.
 - Service worker bere stránku i soubory aplikace (HTML, JS, CSS, `vendor/`, `data/*.json`) **vždy nejdřív ze sítě**
   s ověřením u serveru a každou úspěšnou odpověď si uloží; uloženou kopii použije, **jen když síť selže**. Na `/api/*`,
   jiné metody než GET a cizí weby (dlaždice map, písma, partneři) nesahá – jdou rovnou na server a nic z nich neukládá.
+  Stejně krátký odkaz `/c/…`: je to stránka serveru s přesměrováním do aplikace – uložená místo aplikace by se offline
+  otevírala jen jako „Otevírám cestu…“ a přesměrovávala pořád dokola.
 - **Pomalá síť nebo uspaný server** (Render zdarma po 15 minutách bez návštěvy usne a probouzí se až minutu): stránka,
   která ze sítě nepřijde do 1,5 s, se otevře z uložené kopie a **všechny její soubory taky** (stejná verze, nikdy směs
   staré stránky s novými skripty). `pwa.js` se od service workeru dozví, že stránka je z uložené kopie, vezme si její

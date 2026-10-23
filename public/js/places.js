@@ -688,7 +688,8 @@
   function reachHtml(p, center, cls = 'poi-inc') {
     const r = p.reach;
     if (!r || !okMin(r.transitMin)) return '';
-    const [ico, how] = REACH[r.mode] || REACH.bus;
+    // mode z cizího odkazu (#trip=) jen ze seznamu – „constructor“ by vrátil funkci a program by se nevykreslil
+    const [ico, how] = Object.hasOwn(REACH, r.mode) ? REACH[r.mode] : REACH.bus;
     const from = center && center.lat != null ? centerQ(center) : '';
     const link = from ? ` · <a href="${esc(safeUrl(gmDir(from, [poiQ(p, center)], 'transit')))}" target="_blank" rel="noopener">spoje ↗</a>` : '';
     return `<div class="${cls}">${ico} ~${minTxt(Math.round(+r.transitMin))} ${how}${okMin(r.carMin) ? ` · 🚗 ~${minTxt(Math.round(+r.carMin))} autem` : ''} <span class="faint">(odhad)</span>${link}</div>`;
@@ -789,6 +790,8 @@
   const sameSpan = (plan, o) => plan.span && plan.span.start === o.start && plan.span.end === o.end
     && plan.span.arrivalTime === (o.arrivalTime || null) && plan.span.departureTime === (o.departureTime || null);
 
+  // místo stránky (krok Program) → číslo posledního plánovače v něm; dřívější plánovač, jehož dotaz ještě běží, už nekreslí
+  const painters = new WeakMap();
   /**
    * Program v rámci cesty: opts { lat, lon, label, cc, start, end, arrivalTime, departureTime, plan, onPlan, interests }.
    * V horách a přírodě (api/nature: Pec pod Sněžkou = Krkonoše, Poprad = Vysoké Tatry) rovnou túra na každý den a program
@@ -811,15 +814,20 @@
         area ? `<div class="faint tp-area">⛰️ ${esc(area.cs)} – v horách je na každý den lepší túra než program po památkách.</div>` : ''}`;
       $$('[data-tpk]', kindEl).forEach(b => b.onclick = () => { if (mode !== b.dataset.tpk) { mode = b.dataset.tpk; go(); } });
     };
-    // každý druh si pamatuje svůj poslední plán (přepnutí tam a zpět nic znovu neplánuje)
+    // každý druh si pamatuje svůj poslední plán (přepnutí tam a zpět nic znovu neplánuje). Plán druhu, od kterého
+    // uživatel mezitím přepnul (túry se poprvé plánují i 40 s), se jen zapamatuje – programem cesty se nestane.
     let current = saved; // plán uložený v cestě
-    const keep = k => plan => { plans[k] = current = plan; opts.onPlan && opts.onPlan(plan); };
+    const keep = k => plan => { plans[k] = plan; if (mode !== k) return; current = plan; opts.onPlan && opts.onPlan(plan); };
     const go = () => {
+      // vykreslovat smí jen poslední plánovač v tomto místě stránky (přepnutí druhu, jiné místo trasy)
+      const my = (painters.get(host) || 0) + 1;
+      painters.set(host, my);
+      const alive = () => painters.get(host) === my;
       showKind(Boolean(area) || mode === 'hike' || isRural(plans.city));
       // zvolený druh je program cesty (shrnutí, kalendář) – i když se jen vrací k už hotovému plánu
       if (plans[mode] && plans[mode] !== current) { current = plans[mode]; opts.onPlan && opts.onPlan(current); }
-      if (mode === 'hike') hikePlanner(body, { ...opts, plan: plans.hike, onPlan: keep('hike') });
-      else cityPlanner(body, { ...opts, plan: plans.city, onPlan: keep('city') }, rural => { if (rural && kindEl.hidden) showKind(true); });
+      if (mode === 'hike') hikePlanner(body, { ...opts, plan: plans.hike, onPlan: keep('hike'), alive });
+      else cityPlanner(body, { ...opts, plan: plans.city, onPlan: keep('city'), alive }, rural => { if (rural && kindEl.hidden) showKind(true); });
     };
     go();
   }
@@ -847,9 +855,10 @@
         const plan = await makeHikePlan({ ...opts, kids: st.kids, exclude: [...st.exclude] });
         if (my !== seq) return;
         opts.onPlan && opts.onPlan(plan);
+        if (opts.alive && !opts.alive()) return; // mezitím přepnuto na program po místech – místo patří jemu
         paint(plan);
       } catch (e) {
-        if (my !== seq) return;
+        if (my !== seq || (opts.alive && !opts.alive())) return;
         $('#tpPlan', host).innerHTML = errHtml(errLead('hikes'), e.message, 'tpRetry');
         $('#tpRetry', host).onclick = () => run();
       }
@@ -878,9 +887,10 @@
         const plan = await makePlan(st, center, opts);
         if (my !== seq) return;
         opts.onPlan && opts.onPlan(plan);
+        if (opts.alive && !opts.alive()) return; // mezitím přepnuto na túry – místo patří jim
         paint(plan);
       } catch (e) {
-        if (my !== seq) return;
+        if (my !== seq || (opts.alive && !opts.alive())) return;
         $('#tpPlan', host).innerHTML = errHtml(errLead('city'), e.message, 'tpRetry');
         $('#tpRetry', host).onclick = () => { $('#tpPlan', host).innerHTML = '<div class="loading-row"><span class="spin dark"></span> Skládám program…</div>'; run(); };
       }
@@ -905,6 +915,7 @@
     $('[data-pace]', host).onchange = e => { st.pace = e.target.value; run(); };
     if (opts.plan && opts.plan.days && opts.plan.center && Math.abs(opts.plan.center.lat - center.lat) < 1e-4 && Math.abs(opts.plan.center.lon - center.lon) < 1e-4 && sameSpan(opts.plan, opts)) {
       try { const j = await getJson(`api/poi?lat=${center.lat}&lon=${center.lon}`); st.items = j.items; st.demo = j.demo; } catch { st.items = []; }
+      if (opts.alive && !opts.alive()) return;
       paint(opts.plan);
     } else run();
   }
