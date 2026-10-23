@@ -204,7 +204,9 @@
       e.done = fetch('api/share', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: kind, j: json }) })
         .then(r => (r.ok ? r.json() : null))
         .then(j => (j && /^[A-Za-z0-9]{8}$/.test(j.id) ? (e.url = `${location.origin}/c/${j.id}`) : null))
-        .catch(() => null);
+        .catch(() => null)
+        // nepovedlo se (výpadek, limit): příští sdílení to zkusí znovu, tohle pošle dlouhý odkaz
+        .then(u => { if (!u && shorts.get(key) === e) shorts.delete(key); return u; });
       shorts.set(key, e);
       if (shorts.size > 4) shorts.delete(shorts.keys().next().value);
     }

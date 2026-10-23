@@ -42,7 +42,7 @@ import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
-import { upstashStore, memoryStore, createShare, loadShare, sharePage, ogPhoto, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
+import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, ogPhoto, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
 import { sharedRuns, gate, perClient } from './lib/crowd.js';
 import { SECURITY_HEADERS, API_CSP, clientIp, crossSite } from './lib/security.js';
 
@@ -177,8 +177,13 @@ const tileHits = new RateLimiter(); // dlaždice Mapy.com přes server (jen mimo
 const clientErrs = new RateLimiter({ windowMs: 60 * 60e3 }); // hlášení chyb z prohlížeče (/api/client-error): 30 za hodinu z jedné adresy
 const photoHits = new RateLimiter(); // fotky měst mimo mezipaměť serveru (Wikimedia, Pexels, Unsplash)
 const shareHits = new RateLimiter({ windowMs: 60 * 60e3 }); // nové krátké odkazy (/api/share): 30 za hodinu z jedné adresy
-// Krátké odkazy na sdílenou cestu: Upstash, v demu paměť; bez klíčů vypnuté (aplikace pošle dlouhý odkaz)
-const shareStore = config.upstashUrl && config.upstashToken ? upstashStore(config.upstashUrl, config.upstashToken) : config.mock ? memoryStore() : null;
+// Krátké odkazy na sdílenou cestu: Upstash, v demu paměť; bez klíčů vypnuté (aplikace pošle dlouhý odkaz). Před úložištěm
+// mezipaměť serveru (cachedStore) – opakovaná otevření a náhledy sítí neubírají z měsíčního stropu příkazů Upstash.
+const shareStore = config.upstashUrl && config.upstashToken ? cachedStore(upstashStore(config.upstashUrl, config.upstashToken)) : config.mock ? cachedStore(memoryStore()) : null;
+// Otevření krátkého odkazu mimo mezipaměť (= příkaz do Upstash): 60 za 10 minut z jedné adresy – zkoušení náhodných id
+// by jinak strop zdarma vyčerpalo všem a odkazy by do konce měsíce nešly otevřít.
+const shareGets = new RateLimiter();
+const shareGetLimited = (req, id) => !shareStore.has('s:' + id) && rateLimited(req, 60, shareGets);
 const geoHits = new RateLimiter(); // geokódování mimo mezipaměť serveru (Open-Meteo) – našeptávač a hledání míst
 // clientIp (server/lib/security.js): na Renderu adresa od Cloudflare, ne podvrhnutelná první z X-Forwarded-For
 /** Nad limitem → true a req.retryAfter = za kolik sekund to půjde znovu (hlavička Retry-After u 429). */
@@ -431,7 +436,9 @@ async function route(req, res) {
     if (rateLimited(req, 30, shareHits)) return sendJson(req, res, 429, { error: 'Příliš mnoho odkazů – zkus to za chvíli.' });
     let b;
     try {
-      b = JSON.parse((await readBody(req, SHARE_MAX + 2048)) || 'null');
+      // cesta jde jako text JSON uvnitř JSON: uvozovky se zdvojí (\") a diakritika má 2 bajty – limit těla s rezervou,
+      // délku samotné cesty (MAX_JSON znaků) hlídá createShare
+      b = JSON.parse((await readBody(req, 3 * SHARE_MAX)) || 'null');
     } catch (e) {
       return badBody(req, res, e);
     }
@@ -448,6 +455,7 @@ async function route(req, res) {
   if (p.startsWith('/api/share/')) {
     const id = p.slice(11);
     if (!SHARE_ID.test(id) || !shareStore) return sendJson(req, res, 404, { error: 'Odkaz neexistuje nebo vypršel.' });
+    if (shareGetLimited(req, id)) return sendJson(req, res, 429, { error: 'Příliš mnoho odkazů najednou – zkus to za pár minut.' });
     const r = await loadShare(shareStore, id);
     if (!r) return sendJson(req, res, 404, { error: 'Odkaz neexistuje nebo vypršel.' });
     return sendJson(req, res, 200, { k: r.k, j: r.j }, { 'Cache-Control': 'public, max-age=86400' });
@@ -909,8 +917,13 @@ async function route(req, res) {
   if (p === '/manifest.webmanifest' && serveManifest(req, res, path.join(PUBLIC, 'manifest.webmanifest'))) return;
   // Krátký odkaz na sdílenou cestu: náhled odkazu (cíl, termín, fotka) a přesměrování do aplikace na /#s=<id>
   if (/^\/c\/[A-Za-z0-9]{8}$/.test(p) && shareStore) {
-    const id = p.slice(3), r = await loadShare(shareStore, id);
-    if (r) return sendGenerated(req, res, 200, sharePage(id, r, config.publicUrl, `${config.publicUrl}/${BRAND.image.path}`), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+    // nad limitem adresy nebo při výpadku Upstash stránka bez náhledu – přesměrování do aplikace funguje dál (ta to
+    // zkusí znovu přes /api/share/<id>); dřív výpadek dal na odkaz od kamaráda chybu serveru v JSON
+    const id = p.slice(3);
+    let r = null;
+    let down = shareGetLimited(req, id);
+    if (!down) try { r = await loadShare(shareStore, id); } catch (e) { down = true; console.warn(`krátký odkaz: ${e.message}`); }
+    if (r || down) return sendGenerated(req, res, 200, sharePage(id, r || { m: {} }, config.publicUrl, `${config.publicUrl}/${BRAND.image.path}`), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': r ? 'public, max-age=3600' : 'no-store' });
   }
 
   // Statické soubory

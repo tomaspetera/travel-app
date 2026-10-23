@@ -42,6 +42,36 @@ export function memoryStore(now = Date.now) {
   };
 }
 
+/**
+ * Mezipaměť serveru před Upstash: uložená cesta se nemění, takže stačí ji načíst jednou – každé otevření odkazu jsou
+ * jinak dva příkazy (/c/ a /api/share/) a náhledy sítí (WhatsApp, Facebook, Telegram) stránku stahují znovu; strop
+ * zdarma je 500 000 příkazů měsíčně. Neexistující id si pamatuje 10 minut (zkoušení náhodných id). Nejvýš max
+ * záznamů (~7 kB jeden). has(k) = odpověď bude bez dotazu do úložiště (do limitu adresy se nepočítá).
+ */
+export function cachedStore(store, { max = 300, missMs = 10 * 60e3, now = Date.now } = {}) {
+  const hits = new Map(); // nejdéle nepoužitý na začátku
+  const misses = new Map(); // id → do kdy platí „neexistuje“
+  const keep = (k, v) => { hits.delete(k); hits.set(k, v); if (hits.size > max) hits.delete(hits.keys().next().value); };
+  const missing = (k) => (misses.get(k) || 0) > now();
+  return {
+    kind: store.kind,
+    has: (k) => hits.has(k) || missing(k),
+    async get(k) {
+      if (hits.has(k)) { const v = hits.get(k); keep(k, v); return v; }
+      if (missing(k)) return null;
+      const v = await store.get(k);
+      if (typeof v === 'string') keep(k, v);
+      else { misses.set(k, now() + missMs); if (misses.size > 10 * max) misses.delete(misses.keys().next().value); }
+      return v;
+    },
+    async add(k, v, ttlSec) {
+      const ok = await store.add(k, v, ttlSec);
+      if (ok) { misses.delete(k); keep(k, v); }
+      return ok;
+    },
+  };
+}
+
 // text z cizí cesty do náhledu: bez řídicích znaků a HTML (do stránky jde ještě přes esc)
 const txt = (v, n) => (typeof v === 'string' ? v.replace(/[\x00-\x1f\x7f<>"`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '');
 const ymd = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);

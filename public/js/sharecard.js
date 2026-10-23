@@ -388,7 +388,6 @@
   function open(d0, o = {}) {
     let d;
     try { d = sanitize(d0); } catch (e) { if (o.send) o.send(); return; }
-    if (o.prime) o.prime(); // krátký odkaz na celou cestu se chystá, než uživatel vybere (sharelink.js short)
     const past = d.o < fmtYMD(new Date());
     const link = ShareLink.prepare('jed', json(d0));
     const cardTxt = `${d.f ? `${esc(d.f)} → ` : ''}${esc(d.dest)} · ${MONTHS[monthOf(d) - 1]}`;
@@ -406,6 +405,8 @@
       <div class="jed-lock">${SVG(I_LOCK, 16)}Bez účtu. Ubytování ani adresa se nikdy nesdílí.</div>
     </div>`);
     $$('#modal [data-close]').forEach(b => { b.onclick = () => modalClose(); });
+    // krátký odkaz na celou cestu (sharelink.js short) se začne ukládat už při dotyku – až když ji opravdu posílá
+    $('#jedSend').onpointerdown = () => { if (o.prime) o.prime(); };
     $('#jedSend').onclick = () => { modalClose(); if (o.send) o.send(); };
     if (past) return;
     let cards = null, kind = 'story';
