@@ -22,7 +22,7 @@ const DATA = JSON.parse(readFileSync(path.join(root, 'data', 'arrival.json'), 'u
 /**
  * Ověřená tabulka: IATA → { city, gen, lat, lon, mode, how, fare, cur, from?, typ?, min, sec?, note?, src, date, taxi? }.
  * from = fare je nejnižší cena (online předem); typ = co se běžně platí v den cesty (Stansted Express od 9,90 £,
- * běžně 23 £) – do odhadu ceny cesty (czk) jde typ, je-li, jinak fare. taxi = úřední pevná cena taxi do centra za auto
+ * běžně 21 £) – do odhadu ceny cesty (czk) jde typ, je-li, jinak fare. taxi = úřední pevná cena taxi do centra za auto
  * { fare, hi?, night?, nightFrom?, nightTo?, cur, pax, to, src, date } (Řím 55 €, Paříž-CDG 56–65 €…) – průvodce cestou
  * ji počítá místo MHD u úseků v noci (vyráží se / přistává před 5:00 nebo po 23:00), výsledky hledání dál MHD; noční
  * cena (night) jen v hodinách nightFrom–nightTo (Atény 0–5 h, Florencie 22–6 h), bez nich v celé noci.

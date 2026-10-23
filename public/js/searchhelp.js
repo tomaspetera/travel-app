@@ -1091,7 +1091,7 @@
     const k = n => kc(n).replace(/ Kč$/, '\u00a0Kč');
     if (!(a.fare > 0) || !a.cur || a.cur === 'CZK') return `~${k(a.czk)}`;
     const sign = CUR_SIGN[a.cur] || a.cur;
-    // od (online předem) i běžná cena v den cesty – v Kč (odhad do ceny cesty) ta běžná: „od 9,90 £, běžně 23 £ (~560 Kč)“
+    // od (online předem) i běžná cena v den cesty – v Kč (odhad do ceny cesty) ta běžná: „od 9,90 £, běžně 21 £ (~600 Kč)“
     if (a.from && a.typ > a.fare) return `od ${fareNum(a.fare)}\u00a0${sign}, běžně ${fareNum(a.typ)}\u00a0${sign} (~${k(a.czk)})`;
     return `${a.from ? 'od ' : ''}${fareNum(a.fare)}\u00a0${sign} (~${k(a.czk)})`;
   }
