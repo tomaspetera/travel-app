@@ -4100,6 +4100,7 @@
     host.oninput = e => { if (e.target.dataset.wt) setTarget(e.target.dataset.wt, e.target.value); };
     host.onchange = e => { if (e.target.dataset.wt) setTarget(e.target.dataset.wt, e.target.value, true); else if (e.target.dataset.wr) setRoll(e.target.dataset.wr, e.target.checked); };
     $('#watchCheckAll').onclick = () => Promise.all((S.watch || []).filter(w => !Alerts.isPast(w.form, today())).map(w => checkWatch(w.id)));
+    kbClick($('#watchCheckAll')); // „Zkontrolovat vše →“ (<span>) i z klávesnice
     updateWatchBadges();
     observeSeen();
   }
@@ -4413,7 +4414,7 @@
     // Svátky: výběr z nejbližších prodloužených víkendů (s cenou, kterou radar už zná)
     paintLw(q);
     $('#radarHome').onclick = () => radarSetup(true);
-    $('#radarReload').style.visibility = ''; $('#radarReload').onclick = () => renderRadar(true);
+    $('#radarReload').style.visibility = ''; $('#radarReload').onclick = () => renderRadar(true); kbClick($('#radarReload'));
     if (q.none) { renderNews(); radarEmpty(q, '🗓️'); return; }
     const c = radarCached(q);
     if (!force && c && c.key === key && Date.now() - c.at < 30 * 60e3 && SearchHelp.radarOwnOk(c, S.accessOwn)) return paintRadar(c, q);
@@ -4644,7 +4645,8 @@
       + QF.map((q, i) => `<div class="card dest" data-qf="${i}" data-photo="${esc(q[4])}" style="--h:${ccHue(q[1])}"><div class="flag">${q[0]}</div><div class="dest-panel"><div class="cname">${q[1]}</div><div class="cblurb">${q[2]}</div><div class="meta"><span class="chip accent">Hledat lety</span><span>→</span></div></div></div>`).join('');
     // Přehled (Rychlé hledání) i Lety (Nápady, kam letět)
     ['#quickFlights', '#flIdeas'].forEach(sel => { const el = $(sel); if (el) { el.innerHTML = qfHtml; if (window.Photos) Photos.paint(el); } });
-    $$('[data-qfav]').forEach(qv => { qv.onclick = () => searchFavs(prefLists().fav); });
+    $$('[data-qfav]').forEach(qv => { qv.onclick = () => searchFavs(prefLists().fav); kbClick(qv); });
+    $$('[data-qf]').forEach(kbClick); // dlaždice Rychlého hledání i z klávesnice (Tab, Enter)
     $$('[data-qf]').forEach(el => el.onclick = () => {
       const q = QF[+el.dataset.qf][3];
       go('flights');

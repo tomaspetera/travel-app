@@ -30,6 +30,7 @@ function app() {
   const ctx = {
     console, structuredClone, setTimeout: () => 0, clearTimeout: () => {}, Number, Math, Boolean,
     $: (s) => els[s], scrolls: [],
+    document: { activeElement: null }, // modalOpen si pamatuje tlačítko, které okno otevřelo (modalKb – fokus na počítači)
     location: { get hash() { return H.list[H.i].url; } },
     history: {
       get state() { return H.list[H.i].state; },
@@ -53,7 +54,7 @@ function app() {
       activeView = v;
       if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));
     }`, ctx);
-  vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'histPop', 'hashView', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
+  vm.runInContext(pick('hist', 'histFlush', 'histBack', 'histDo', 'histDepth', 'viewHist', 'viewStep', 'trailNext', 'histTrip', 'tripEntry', 'histPop', 'hashView', 'modalKb', 'modalOpen', 'modalClose'), ctx, { filename: 'app-hist.js' });
   // go() v app.js volá viewStep přes histDo – ověřit, že řádek ve stubu je opravdu ten z app.js
   assert.ok(APP.includes("if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));"), 'go(): zápis do historie');
   // posun stránky se čte jen pro nový krok (čtení scrollY vynutí rozvržení – při startu zbytečně)
