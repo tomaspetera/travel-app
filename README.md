@@ -1370,6 +1370,12 @@ nic se neukládá na server a nepotřebuje to účet.
   prohlížeče). Bez poskakování: pole úvodu mají výšku už v HTML (třídy `pi pi-dark`) a sekce Přehledu pod úvodem jsou
   do startu (`html.booted`, app.js `boot`) skryté – dřív se nadpisy bez obsahu po vykreslení radaru a karet posunuly
   dolů (CLS 0,14 → 0,005). Mizející úvodní obrazovka aplikace na ploše už nepřekáží klepnutí.
+  Opakované otevření (service worker): skripty uložené při instalaci service worker po aktivaci jednou znovu uloží
+  z uložené sady (`sw.js` `rewriteScripts`) – Chrome k nim jinak přidá úplnou předkompilaci, jejíž načítání stálo
+  na hlavním vlákně ~0,9 s (4× pomalejší procesor) při každém startu; DOMContentLoaded ~1,6 s → ~0,8 s, přehled
+  použitelný ~1,9 s → ~1,1 s. Výsledky posledního hledání (uložené až ~0,6 MB) se při startu jen načtou (plánovač,
+  hlídání a průvodce je čtou), vykreslí se ale až při prvním otevření Letů (flights.js `lastDrawNow`) a předpověď
+  počasí k nim se stáhne, až prohlížeč nemá co dělat; `go()` při startu nečte posun stránky (vynucené rozvržení).
 - `/sw.js` skládá server: verze je otisk obsahu všech souborů v `public/` a uložených dat (ne čas změny – nasazení
   se stejnými soubory nic nezmění) a seznam souborů k uložení při instalaci je stránka + vše, na co odkazuje
   `index.html` (skripty, styly, manifest a jeho ikony) + `data/countries.json`, `data/entry.json` a mapa světa.

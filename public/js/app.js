@@ -270,7 +270,9 @@ function hashView() {
   if (y != null) window.scrollTo(0, y);
 }
 function go(v, opts = {}) {
-  const from = activeView, y0 = Math.round(window.scrollY || 0); // kde uživatel byl – Zpět ho tam vrátí (viewStep)
+  // kde uživatel byl – Zpět ho tam vrátí (viewStep); bez nového kroku historie (start, Zpět) se posun nečte: čtení
+  // scrollY si vynutí rozvržení celé stránky ještě před vykreslením sekce (při startu na telefonu desítky ms navíc)
+  const from = activeView, y0 = opts.noHash ? 0 : Math.round(window.scrollY || 0);
   activeView = v;
   if (v !== 'dashboard') nowAsk = false;
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
@@ -281,7 +283,8 @@ function go(v, opts = {}) {
   navCount(v);
   if (WORLD_VIEWS.includes(v)) { lastWorld = v; $$('.world-tabs [data-w]').forEach(b => { b.classList.toggle('on', b.dataset.w === v); b.setAttribute('aria-pressed', String(b.dataset.w === v)); }); }
   const n = NAV.find(x => x[0] === v); $('#pageTitle').textContent = n[1]; $('#pageSub').textContent = n[2];
-  if (!opts.keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
+  // i left: 0 – posun na (0, 0) prohlížeč provede bez vynuceného rozvržení stránky (jen top by si ho vyžádal)
+  if (!opts.keepScroll) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
   if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));
   if (v === 'map') initMap();
   if (v === 'countries') renderCountries();
