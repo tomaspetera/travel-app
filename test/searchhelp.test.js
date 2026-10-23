@@ -563,7 +563,7 @@ test('radarQuery: Kdykoliv jako dřív, Víkendy jen odlet Pá/So a návrat Ne/P
   assert.equal(wk.mode, 'weekend');
   assert.deepEqual(wk.payload, { ...all.payload, nightsMin: 1, nightsMax: 3, outDays: [5, 6], backDays: [0, 1] });
   assert.deepEqual(wk.form, { ...all.form, nMin: 1, nMax: 3, outDays: [5, 6], backDays: [0, 1] });
-  assert.equal(wk.sub, '· Brno, Vídeň +150 km · víkendy: odlet Pá/So, návrat Ne/Po · příštích 6 týdnů');
+  assert.equal(wk.sub, '· Brno, Vídeň +150 km · víkendy: odlet pá nebo so, návrat ne nebo po · příštích 6 týdnů');
   assert.match(wk.empty, /víkendy/);
   // každý den odletu má v rozsahu nocí návrat v neděli nebo v pondělí a naopak – a jiný návrat rozsah nepřipustí
   const nights = [1, 2, 3];
@@ -578,6 +578,21 @@ test('radarQuery: Kdykoliv jako dřív, Víkendy jen odlet Pá/So a návrat Ne/P
   assert.equal(H.radarQuery('all', { ...home, adults: 'x' }, '2026-10-07').payload.adults, 1);
   assert.equal(H.radarQuery('all', { ...home, adults: 50 }, '2026-10-07').payload.adults, 9);
   assert.equal(H.radarQuery(undefined, { from: [{ id: 'ap:PRG', label: 'Praha' }] }, '2026-10-07').payload.radiusKm, 200);
+});
+
+test('dowList: dny v týdnu česky jako jinde v aplikaci („pá nebo so“, ne „Pá,So“), od pondělí, bez neplatných', () => {
+  assert.equal(H.dowList([5, 6]), 'pá nebo so');
+  assert.equal(H.dowList([6, 5]), 'pá nebo so', 'pořadí podle týdne, ne podle klepnutí');
+  assert.equal(H.dowList([0, 1]), 'po nebo ne', 'týden od pondělí jako tlačítka dnů ve formuláři');
+  assert.equal(H.dowList([4, 5, 6]), 'čt, pá nebo so');
+  assert.equal(H.dowList([3]), 'st');
+  assert.equal(H.dowList([5, 5, 9, -1, 'x', null]), 'pá');
+  assert.equal(H.dowList([]), '');
+  assert.equal(H.dowList(undefined), '');
+  // shrnutí „Další možnosti“ v Letech skládá „odlet …“ z dowList (dřív DOW[d].join(','))
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  assert.match(fl, /bits\.push\('odlet ' \+ SearchHelp\.dowList\(f\.outDays\)\)/);
+  assert.doesNotMatch(fl, /DOW\[d\]\)\.join\(','\)/);
 });
 
 test('radarStale: starší výsledek stejného dotazu (i z jiného dne) bez prošlých odletů; jiný domov, režim nebo okruh ne', () => {
@@ -1374,6 +1389,18 @@ test('smartDirect: „jen přímé“ z věty platí pro tu větu – další v�
   assert.deepEqual(plain(H.smartDirect(null, false)), { smart: false });
 });
 
+test('resumeKind: cesta kamaráda z odkazu (#trip=), kterou si příjemce neuložil, není na Přehledu „Tvoje cesta“', () => {
+  // importFromHash dává cizí cestě shared a krok Shrnutí – dřív z toho karta ↩ Pokračuj udělala „Tvoje cesta“
+  assert.equal(H.resumeKind({ step: 'summary', shared: { on: '2026-10-23' } }), 'shared');
+  assert.equal(H.resumeKind({ step: 'stay', shared: { on: null } }), 'shared', 'i když si v ní příjemce prochází kroky');
+  // po 💾 Uložit si ji (shared smazané) je vlastní
+  assert.equal(H.resumeKind({ step: 'summary' }), 'done');
+  assert.equal(H.resumeKind({ step: 'program' }), 'draft');
+  assert.equal(H.resumeKind(null), 'draft');
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  assert.match(fl, /shared \? 'Sdílená cesta' : done \? 'Tvoje cesta' : 'Rozpracovaná cesta'/);
+});
+
 test('homeOf: čip „Odkud letíš?“ v uvítání → domov radaru jako z nastavení domova (místo z našeptávače, 150 km, 2 osoby)', async () => {
   const { localSuggestions } = await import('../server/lib/places.js');
   assert.deepEqual(plain(H.HOME_CITIES.map((c) => c[0])), ['Praha', 'Brno', 'Ostrava', 'Vídeň', 'Bratislava']);
@@ -1397,4 +1424,27 @@ test('homeOf: čip „Odkud letíš?“ v uvítání → domov radaru jako z nas
   assert.equal(H.homeOf('Plzeň'), null);
   assert.equal(H.homeOf(null), null);
   assert.equal(H.homeOf({}), null);
+  // místo z našeptávače (pole „Jiné město nebo letiště…“ v uvítání) = domov jako z čipu
+  const ped = { id: 'ap:PED', label: 'Pardubice', flag: '🇨🇿', type: 'airport' };
+  assert.deepEqual(plain(H.homeOf(ped)), { from: [ped], radius: 150, adults: 2 });
+});
+
+test('„Odkud letíš?“ se nový uživatel ptá jedno místo: uvítání (čipy + pole), radar jen odkáže, čip domova dá kurzor do pole', () => {
+  const app = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  // uvítání: otázka, čipy měst a pole pro jiné město (výběr = domov jako z čipu)
+  assert.match(app, /<b id="wcHomeL">Odkud letíš\?<\/b><div class="wc-chips">.*<div class="place-input wc-from" id="wcFrom"><\/div>/);
+  assert.match(app, /new Flights\.PlaceInput\(wf, \{ origin: true, max: 1, [^}]*onChange: \(\) => \{ if \(pi\.items\.length\) setHome\(pi\.items\[0\]\); \} \}\)/);
+  // radar se mezitím neptá podruhé (jen věta) a po skrytí uvítání se zeptá on
+  assert.match(fl, /if \(!edit && \$\('#whatsNew:not\(\[hidden\]\) \.wc-home'\)\) \{\n\s+host\.innerHTML = '<div class="card radar-setup radar-wait">/);
+  assert.doesNotMatch(fl.match(/radar-wait">([^']*)'/)[1], /\?/, 'věta bez otázky');
+  assert.match(app, /if \(asked && window\.Flights && !S\.home\?\.from\?\.length\) Flights\.renderRadar\(\);/);
+  // čip domova bez domova není další otázka a vede do pole (posun + kurzor), změna domova klávesnici neotvírá
+  assert.match(fl, /: '📍 Nastavit domov';/);
+  assert.doesNotMatch(fl, /'📍 Odkud létáš\?'/);
+  assert.match(fl, /chip\.onclick = \(\) => \{ go\('dashboard'\); setTimeout\(\(\) => homeAsk\(Boolean\(h\)\), 60\); \};/);
+  const ask = fl.slice(fl.indexOf('function homeAsk(edit)'), fl.indexOf('function homeAsk(edit)') + 600);
+  assert.match(ask, /const wc = !edit && \$\('#whatsNew:not\(\[hidden\]\) \.wc-home \.pi-input'\);/);
+  assert.match(ask, /const inp = wc \|\| \(!edit && \$\('#radarFrom \.pi-input'\)\);/);
+  assert.match(ask, /inp\.scrollIntoView\(\{ behavior: 'smooth', block: 'center' \}\);\n\s+inp\.focus\(\{ preventScroll: true \}\);/);
 });
