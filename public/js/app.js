@@ -291,9 +291,25 @@ function go(v, opts = {}) {
   if (v === 'recommend') renderRecs();
   if (v === 'planner') renderPlanner();
   if (v === 'dashboard') renderDash();
-  if (v === 'trip' && window.Trip) Trip.render();
+  if (v === 'trip') lazyView('trip', '#tripRoot', () => Trip.render());
   if (v === 'flights' && window.Flights && Flights.ageCheck) Flights.ageCheck(Boolean(opts.keepScroll)); // výsledky hledání z dřívějška: 🕘 kdy byly
-  if (v === 'explore' && window.Places) Places.renderExplore($('#exploreRoot'));
+  if (v === 'explore') lazyView('places', '#exploreRoot', () => Places.renderExplore($('#exploreRoot')));
+}
+/** fn s modulem, který se stahuje až po startu (lazy.js): načtený → hned jako dřív, jinak po načtení; bez zavaděče hned. */
+const withMod = (mod, fn) => (window.Lazy ? Lazy.run(mod, fn) : fn());
+/**
+ * Sekce z modulu, který se stahuje až po startu (lazy.js): načtený → vykreslit hned jako dřív; jinak „Načítám…“ a po
+ * načtení vykreslit, je-li sekce pořád otevřená. Modul se nenačetl (výpadek sítě) → hláška a tlačítko Zkusit znovu.
+ */
+function lazyView(mod, root, render) {
+  if (!window.Lazy || Lazy.has(mod)) return render();
+  const el = $(root), v = activeView;
+  if (el && !el.childElementCount) el.innerHTML = '<div class="card"><div class="faint">⏳ Načítám…</div></div>';
+  Lazy.need(mod).then(() => { if (activeView === v) render(); }, () => {
+    if (activeView !== v || !el) return;
+    el.innerHTML = '<div class="card"><div class="note warn">⚠️ <div>Tahle část aplikace se nenačetla – zkontroluj připojení.</div></div><div class="row" style="margin-top:12px"><button type="button" class="btn primary" data-lazy-retry>Zkusit znovu</button></div></div>';
+    $('[data-lazy-retry]', el).onclick = () => { el.innerHTML = ''; lazyView(mod, root, render); };
+  });
 }
 // act = { label, run }: tlačítko v hlášce (↩ Vrátit) – hláška pak vydrží déle, ať se na něj stihne klepnout
 function toast(msg, kind, ms = 2600, act = null) {
@@ -592,6 +608,17 @@ function renderNow() {
   const cd = $('[data-nw="cd"]', el), clock = $('[data-nw="clock"]', el);
   if (cd && p.ahead) cd.textContent = 'za ' + hmTxt(p.ahead.min);
   if (clock) clock.textContent = p.clock.replace(/^0/, '');
+}
+/**
+ * Potřebuje Přehled při startu průvodce (trip.js, stahuje se až po startu – lazy.js)? Rozpracovaná cesta z průvodce
+ * (↩ Pokračuj, neuložená cesta na kartě „Dnes na cestě“; ne sestavená a uložená v plánovači) nebo cesta v okně karty
+ * „Dnes na cestě“ (průběh dne – Trip.timeline). Zda se karta ukáže, na průvodci nezávisí (tripNow bez něj).
+ */
+function tripSoon() {
+  try {
+    const w = S.trip, saved = w && w.step === 'summary' && w.created && (S.trips || []).some(x => x && x.tripId === w.created);
+    return Boolean((w && w.flight && w.flight.out && !saved) || tripNow(S.trips));
+  } catch (e) { return true; }
 }
 /** Zkratka aplikace „Na cestě“ (#now): Přehled s kartou nahoře (bez probíhající cesty poznámka s nejbližší cestou). */
 function showNow() {
@@ -1192,7 +1219,7 @@ function openCountry(iso) {
      ${geoNote}
      <div class="row wrap cm-acts">
        <button class="btn primary" data-cm="search">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Najít lety sem</button>
-       ${window.Places && Places.openCountryView ? `<button class="btn" data-cm="explore">🌍 Objevuj celou zemi</button>` : ''}
+       ${window.Lazy || (window.Places && Places.openCountryView) ? `<button class="btn" data-cm="explore">🌍 Objevuj celou zemi</button>` : ''}
        <button class="btn" data-cm="stay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>
        <button class="btn" data-cm="plan">${ico('M12 5v14M5 12h14')} Do plánu</button>
        <button class="btn ${isV ? 'warm' : 'ghost'}" id="visBtn" data-cm="vis">${isV ? '✓ Navštíveno' : 'Byl/a jsem tu'}</button>
@@ -1212,7 +1239,7 @@ function openCountry(iso) {
      <div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Bezpečnostní a geopolitická situace se mění. Před cestou si vždy ověř aktuální doporučení na <a href="${mzv}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">MZV ČR</a>.</div></div>
    </div>`);
   // tlačítka okna (data-cm) – obsluha tady, ne atributem onclick v HTML (CSP)
-  const cmActs = { search: () => { modalClose(); fromCountrySearch(iso); }, explore: () => { modalClose(); Places.openCountryView(iso); }, stay: () => stayLinks(iso), plan: () => addToPlan(iso), vis: () => toggleVis(iso) };
+  const cmActs = { search: () => { modalClose(); fromCountrySearch(iso); }, explore: () => { modalClose(); withMod('places', () => Places.openCountryView(iso)); }, stay: () => stayLinks(iso), plan: () => addToPlan(iso), vis: () => toggleVis(iso) };
   $$('#modal [data-cm]').forEach(b => { b.onclick = () => cmActs[b.dataset.cm](); });
   Photos.paint($('#modal')); // fotka hlavního města v hlavičce
   loadWeather(c);
@@ -1466,7 +1493,7 @@ function openTrip(i) {
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div></div></div>
   <div class="modal-body">
     ${t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${planFlightHtml(t.flight)}</div></div>` : ''}
-    <div class="row wrap">${local ? '' : `<button class="btn primary" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${t.wizard && window.Trip ? '<button class="btn" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${c ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>
+    <div class="row wrap">${local ? '' : `<button class="btn primary" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${t.wizard && (window.Trip || window.Lazy) ? '<button class="btn" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${c ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>
     ${tripEntryHtml(t)}${visitedPrompt(t)}
     <div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>
     <div class="divider"></div>
@@ -1505,8 +1532,9 @@ function openTrip(i) {
   $$('[data-delref]', m).forEach(x => { x.onclick = () => delRef(i, +x.dataset.delref); });
   $$('[data-addref]', m).forEach(x => { x.onclick = () => addRef(i); });
   $('#tripDel').onclick = () => delTrip(i);
-  const ts = $('#tripStay'); if (ts) ts.onclick = () => (routeStays(t) || openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2));
-  const tw = $('#tripWizard'); if (tw) tw.onclick = () => { modalClose(); Trip.openSaved(t.wizard, t.tripId); };
+  // termíny míst trasy počítá průvodce (routeStays – Trip.baseDates): klepnutí před jeho dostažením na něj počká
+  const ts = $('#tripStay'); if (ts) ts.onclick = () => withMod('trip', () => routeStays(t) || openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2));
+  const tw = $('#tripWizard'); if (tw) tw.onclick = () => { modalClose(); withMod('trip', () => Trip.openSaved(t.wizard, t.tripId)); };
   const tv = $('#tripVisited');
   if (tv) tv.onclick = () => { const ccs = tripNotVisited(t); ccs.forEach(cc => setVisited(cc, true)); toast(`Na mapě navštívených: ${ccs.map(cc => byIso[cc].cs).join(', ')}`); openTrip(i); };
   const ics = $('#tripIcs'); if (ics) ics.onclick = () => exportPlan(i);
@@ -1771,6 +1799,7 @@ function wireEvents() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden && activeView === 'dashboard') renderNow(); });
   // Odkaz na cestu, plán nebo sekci vložený do už otevřené stránky (mění se jen #, stránka se nenačte znovu).
   window.addEventListener('hashchange', async () => {
+    if (window.Lazy && /^#trip=/.test(location.hash)) await Lazy.need('trip').catch(() => { }); // průvodce ještě nedostažený (lazy.js)
     if (window.Trip && await Trip.importFromHash()) return go('trip', { noHash: true });
     if (await importPlanFromHash()) return go('planner', { noHash: true });
     if (await openOfferFromHash()) return;
@@ -1833,6 +1862,7 @@ async function boot() {
   try { await start(); } finally {
     document.documentElement.classList.add('booted'); // Přehled je vykreslený – ukázat i sekce pod úvodem (atlas.css)
     launchDone();
+    if (window.Lazy) Lazy.soon(); // průvodce, Objevuj a Před cestou, až prohlížeč nemá co dělat (lazy.js)
   }
 }
 async function start() {
@@ -1854,6 +1884,9 @@ async function start() {
   }
   if (window.Flights) await Flights.init();
   refreshStats();
+  // průvodce cestou (trip.js) se stahuje až po startu (lazy.js); hned ho potřebuje sdílená cesta z odkazu a Přehled
+  // s rozpracovanou nebo právě probíhající cestou – na něj se počká (karty se pak nepřekreslují pod rukama)
+  if (window.Lazy && (/^#trip=/.test(location.hash) || tripSoon())) await Lazy.need('trip').catch(() => { });
   const shared = window.Trip && await Trip.importFromHash();
   const plan = !shared && await importPlanFromHash();
   if (!shared && !plan && (await openOfferFromHash() || openWatchFromHash())) return;

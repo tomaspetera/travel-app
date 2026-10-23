@@ -477,14 +477,17 @@ test('statické soubory, data a ochrana proti path traversal', async () => {
   assert.match(page, /id="smartGuide"/, 'průvodce „Jak hledat chytře“ na stránce letů');
   const c =await (await fetch(`${base}/data/countries.json`)).json();
   assert.ok(c.length > 150);
-  // vstupní podmínky: zvlášť, komprimované a s hodinovou cache; entry.js po app.js a před trip.js
+  // vstupní podmínky: zvlášť, komprimované a s hodinovou cache; entry.js po app.js a před trip.js (ten načte lazy.js
+  // až po všech skriptech stránky)
   const e = await fetch(`${base}/data/entry.json`, { headers: { 'accept-encoding': 'gzip' } });
   assert.equal(e.status, 200);
   assert.equal(e.headers.get('content-encoding'), 'gzip');
   assert.match(e.headers.get('cache-control'), /max-age=3600/);
   const ej = await e.json();
   assert.equal(ej.countries.length, c.length);
-  assert.ok(page.indexOf('js/entry.js') > page.indexOf('js/app.js') && page.indexOf('js/entry.js') < page.indexOf('js/trip.js'), 'entry.js po app.js, před trip.js');
+  assert.ok(page.indexOf('<script src="js/entry.js">') > page.indexOf('<script src="js/app.js">'), 'entry.js po app.js');
+  assert.match(page, /<script src="js\/lazy\.js" data-later="[^"]*\bjs\/trip\.js\b/, 'trip.js odložený (lazy.js) – po entry.js');
+  assert.ok(!page.includes('<script src="js/trip.js">'));
   assert.equal((await fetch(`${base}/js/entry.js`)).status, 200);
   assert.match(page, /id="sgEntry"/, 'vstupní podmínky v průvodci „Jak hledat chytře“');
   // fetch() by „..“ normalizoval, proto surový HTTP požadavek.

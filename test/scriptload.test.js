@@ -13,12 +13,33 @@ const dummy = () => new Proxy(function () {}, {
   apply: () => dummy(), construct: () => dummy(),
 });
 
+// skripty stránky v pořadí z index.html, pak moduly, které lazy.js načte až po startu (data-later – v prohlížeči se
+// spustí po všech skriptech stránky)
+const INDEX = read('index.html');
+const EAGER = [...INDEX.matchAll(/<script src="js\/([a-z0-9]+\.js)"/g)].map((m) => m[1]);
+const LATER = INDEX.match(/<script src="js\/lazy\.js" data-later="([^"]+)"><\/script>/)[1].split(' ').map((u) => u.replace(/^js\//, ''));
+const BASE = { console, URLSearchParams, TextEncoder, TextDecoder, Date, Math, JSON, Set, Map, WeakMap, Promise, Intl, Number, String, Array, Object, RegExp, Error, Symbol, encodeURIComponent, decodeURIComponent, setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {} };
+
 test('skripty z index.html se načtou bez chyby (pořadí jako v prohlížeči)', () => {
-  const order = [...read('index.html').matchAll(/<script src="js\/([a-z0-9]+\.js)"/g)].map((m) => m[1]);
+  const order = [...EAGER, ...LATER];
   assert.ok(order.length >= 15 && order.includes('flights.js') && order.includes('trip.js'), order.join(', '));
-  const base = { console, URLSearchParams, TextEncoder, TextDecoder, Date, Math, JSON, Set, Map, WeakMap, Promise, Intl, Number, String, Array, Object, RegExp, Error, Symbol, encodeURIComponent, decodeURIComponent, setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {} };
-  const ctx = new Proxy(base, { has: () => true, get: (t, k) => (k in t ? t[k] : dummy()) });
+  const ctx = new Proxy({ ...BASE }, { has: () => true, get: (t, k) => (k in t ? t[k] : dummy()) });
   vm.createContext(ctx);
   ctx.window = ctx;
   for (const f of order) assert.doesNotThrow(() => vm.runInContext(read(`js/${f}`), ctx, { filename: f }), f);
+});
+
+test('skripty stránky se načtou i bez odložených modulů (průvodce, Objevuj, Před cestou ještě nejsou – lazy.js)', () => {
+  assert.deepEqual(LATER, ['pretrip.js', 'places.js', 'trip.js']);
+  // Trip, Places a PreTrip při načtení skriptů stránky neexistují: `window.Trip && …` projde, `Trip.x` na nejvyšší
+  // úrovni skriptu by spadlo (TypeError)
+  const gone = new Set(['Trip', 'Places', 'PreTrip']);
+  const ctx = new Proxy({ ...BASE }, { has: () => true, get: (t, k) => (k in t ? t[k] : gone.has(k) ? undefined : dummy()) });
+  vm.createContext(ctx);
+  ctx.window = ctx;
+  for (const f of EAGER) {
+    assert.ok(!LATER.includes(f), `${f}: odložený modul se nesmí načítat i se stránkou`);
+    assert.doesNotThrow(() => vm.runInContext(read(`js/${f}`), ctx, { filename: f }), f);
+  }
+  for (const g of gone) assert.equal(ctx[g], undefined, `${g} vznikl až s odloženým modulem`);
 });

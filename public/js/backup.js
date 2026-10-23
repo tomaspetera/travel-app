@@ -519,6 +519,9 @@
   }
 
   function open() {
+    // záloha i obnova potřebují průvodce (cesty z průvodce – Trip.sanitizeTrip) a „Před cestou“ (odškrtnutí): bez nich
+    // by v záloze tiše chyběly – stahují se až po startu (lazy.js), klepnutí před dostažením na ně počká
+    if (window.Lazy && !Lazy.has('trip')) return Lazy.run('trip', open);
     const canShare = typeof navigator.share === 'function' && typeof File === 'function';
     modalOpen(`<div class="modal-body bk-modal">
       <h3 style="margin-bottom:8px">💾 Přenos a záloha</h3>

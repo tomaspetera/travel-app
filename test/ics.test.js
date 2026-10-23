@@ -385,8 +385,11 @@ test('index.html: ics.js, sharelink.js a planshare.js se načtou před skripty, 
   assert.ok(at('sharelink.js') > 0 && at('sharelink.js') < at('planshare.js'), 'sharelink.js před planshare.js');
   for (const f of ['ics.js', 'sharelink.js', 'planshare.js']) {
     assert.ok(at(f) > 0, f);
-    for (const user of ['app.js', 'trip.js']) assert.ok(at(f) < at(user), `${f} před ${user}`);
+    assert.ok(at(f) < at('app.js'), `${f} před app.js`);
   }
+  // trip.js načte lazy.js až po všech skriptech stránky (tedy i po nich)
+  assert.match(html, /<script src="js\/lazy\.js" data-later="[^"]*\bjs\/trip\.js\b/);
+  assert.equal(at('trip.js'), -1);
 });
 
 test('Ics.checkin: online check-in Ryanair / Wizz Air 24 h před odletem (i přes půlnoc a přelom měsíce), jiní dopravci nic', () => {

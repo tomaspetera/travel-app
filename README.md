@@ -1376,9 +1376,20 @@ nic se neukládá na server a nepotřebuje to účet.
   použitelný ~1,9 s → ~1,1 s. Výsledky posledního hledání (uložené až ~0,6 MB) se při startu jen načtou (plánovač,
   hlídání a průvodce je čtou), vykreslí se ale až při prvním otevření Letů (flights.js `lastDrawNow`) a předpověď
   počasí k nim se stáhne, až prohlížeč nemá co dělat; `go()` při startu nečte posun stránky (vynucené rozvržení).
+  **Moduly mimo Přehled až po startu** (`public/js/lazy.js`): průvodce cestou (`trip.js`), Objevuj (`places.js`)
+  a „Co zařídit a co sbalit“ (`pretrip.js`) – ~160 kB po kompresi, třetina skriptů – nejsou v `index.html` jako
+  `<script>`, ale v `data-later` skriptu `lazy.js`. Stáhnou se, až je Přehled vykreslený a prohlížeč nemá co dělat
+  (`Lazy.soon` z app.js `boot`), nebo hned, když je něco potřebuje dřív (`Lazy.need('trip')`: sdílená cesta `#trip=`,
+  Přehled s rozpracovanou nebo právě probíhající cestou – karty ↩ Pokračuj a 📍 Dnes na cestě se tak vykreslí jednou,
+  hned celé). Klepnutí před dostažením na modul počká (`Lazy.run`; Cesta a Objevuj mezitím „Načítám…“, bez sítě
+  „Zkusit znovu“), načtený modul se volá hned jako dřív. Service worker se zaregistruje až po nich – instalace je jen
+  ověří (304), nestahuje je podruhé. První návštěva (demo, stejné měření): přehled použitelný ~4,2 s → ~3,4 s,
+  LCP ~4,35 s → ~3,5 s, staženo do té doby 656 → 499 kB; opakovaná beze změny (~1,25 s); s rozpracovanou cestou
+  start počká na průvodce jako dřív.
 - `/sw.js` skládá server: verze je otisk obsahu všech souborů v `public/` a uložených dat (ne čas změny – nasazení
   se stejnými soubory nic nezmění) a seznam souborů k uložení při instalaci je stránka + vše, na co odkazuje
-  `index.html` (skripty, styly, manifest a jeho ikony) + `data/countries.json`, `data/entry.json` a mapa světa.
+  `index.html` (skripty i odložené moduly z `data-later`, styly, manifest a jeho ikony) + `data/countries.json`,
+  `data/entry.json` a mapa světa – offline jsou tak i průvodce, Objevuj a Před cestou.
   Přejmenovaný skript se do seznamu dostane sám, chybějící soubor se vynechá.
 - Nové nasazení = jiný `sw.js` → prohlížeč nainstaluje nový service worker, ten si uloží novou sadu souborů, hned
   převezme otevřené stránky a staré mezipaměti smaže. Verzi stránky nese stránka sama – server ji dosadí do

@@ -37,6 +37,10 @@
   // a po dočtení vstupních podmínek se kreslil ještě jednou. Data (lastResult, parse ~20 ms) jsou načtená hned –
   // plánovač, hlídání cen i průvodce je čtou.
   let lastDraw = false;
+  // Průvodce cestou (trip.js) a Objevuj (places.js) se stahují až po startu (lazy.js): načtený modul → fn hned jako
+  // dřív, klepnutí před dostažením na něj počká; bez zavaděče hned. tripWait: překreslení výpisu po dostažení průvodce
+  const withMod = (mod, fn) => (window.Lazy ? Lazy.run(mod, fn) : fn());
+  let tripWait = false;
   let running = null; // právě běžící hledání uživatele: { key (dotaz JSON), ctl (AbortController), job (Promise) }
   let fromInput, toInput, heroFrom, heroTo;
   let radarAll = false; // telefon: radar rozbalený na všechny karty („Ukázat další“)
@@ -2294,7 +2298,7 @@
     for (const l of [t.out, t.back].filter(Boolean)) { const e = Ics.checkinEvent({ ...brief(l), carrier: l.carrier || l.carrierName }); if (e) ev.push(e); }
     return ev;
   }
-  const scalIcs = (t, dest) => icsDownload(`atlas-${dest}-${t.out.date}`, scalEvents(t, dest), { name: dest });
+  const scalIcs = (t, dest) => withMod('trip', () => icsDownload(`atlas-${dest}-${t.out.date}`, scalEvents(t, dest), { name: dest }));
   /** Klepnutí na „📅 V kalendáři“ v nabídce výpisu: kalendář vloží / schová bez překreslení výpisu. */
   function scalToggle(b) {
     const i = +b.dataset.scal, r = rowRegistry[i]; if (!r) return;
@@ -2692,9 +2696,9 @@
       $('#mcPick').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     $$('[data-mcmore]', host).forEach(b => b.onclick = () => { view.mCombos += 10; rerender(true); });
-    $$('[data-mgo]', host).forEach(b => b.onclick = () => { const p = best(); if (p) (mWizOk(res, p) ? multiWizard : multiSave)(res, p); });
-    $$('[data-msave]', host).forEach(b => b.onclick = () => { const p = best(); if (p) multiSave(res, p); });
-    $$('[data-mics]', host).forEach(b => b.onclick = () => { const p = best(); if (p) multiIcs(res, p); });
+    $$('[data-mgo]', host).forEach(b => b.onclick = () => withMod('trip', () => { const p = best(); if (p) (mWizOk(res, p) ? multiWizard : multiSave)(res, p); }));
+    $$('[data-msave]', host).forEach(b => b.onclick = () => withMod('trip', () => { const p = best(); if (p) multiSave(res, p); }));
+    $$('[data-mics]', host).forEach(b => b.onclick = () => withMod('trip', () => { const p = best(); if (p) multiIcs(res, p); }));
     $$('[data-mday]', host).forEach(b => b.onclick = () => { const [i, d] = b.dataset.mday.split(':'); mRerunLeg(+i, { date: d }); });
     $$('[data-mflex]', host).forEach(b => b.onclick = () => mRerunLeg(+b.dataset.mflex, { flex: 3 }));
   }
@@ -2720,6 +2724,11 @@
     if (n < 2) return false;
     if (n === 2 && res.returnsHome) return true;
     const opts = picks.map((p, i) => mOpt(res, i, p));
+    // průvodce ještě nedostažený (lazy.js): po načtení výpis překreslit – karta pak nabídne průvodce, jde-li to
+    if (!window.Trip && window.Lazy && !tripWait) {
+      tripWait = true;
+      Lazy.need('trip').then(() => { if (lastResult) rerender(true); }, () => { }).finally(() => { tripWait = false; });
+    }
     return Boolean(window.Trip && Trip.flyOk) && opts.every(Boolean)
       && Trip.flyOk({ out: opts[0].out, mid: opts.slice(1, res.returnsHome ? -1 : n).map(o => o.out), back: res.returnsHome ? opts[n - 1].out : null }, mStops(res, opts));
   }
@@ -2970,8 +2979,10 @@
   // z lastResultAt (i obnovený), náhled ze svého času (i ten, který po nedokončeném hledání zůstal na obrazovce);
   // 📌 odložená nabídka nese svůj čas (at)
   function pickTrip(t, g, res, at = SearchHelp.shownAt(res, lastResultAt, Date.now())) {
-    Trip.start({ t, g, result: res, at });
-    if (lastResult && !lastResult.partial && Trip.finalStats) Trip.finalStats(lastResult);
+    withMod('trip', () => {
+      Trip.start({ t, g, result: res, at });
+      if (lastResult && !lastResult.partial && Trip.finalStats) Trip.finalStats(lastResult);
+    });
   }
   /** Náhled cíle z karty výsledků: g = cíl, t = nejlepší nabídka karty, res = výsledek, ze kterého karta je. */
   /**
@@ -3051,7 +3062,7 @@
   }
   function dpHtml(d) {
     // „víkend“ podle termínu cesty, jak ho okno ukazuje (ne podle dne příletu – noční let pá → so by z pá–út udělal víkend)
-    const c = byIso[d.cc], geo = Boolean(window.Places && wxGeo(d)), w = dpClim(d, Boolean(window.Weather) && wxGeo(d) && wxWin(d.d1)), st = SearchHelp.stayPlan(d.d1, d.d2);
+    const c = byIso[d.cc], geo = Boolean((window.Places || window.Lazy) && wxGeo(d)), w = dpClim(d, Boolean(window.Weather) && wxGeo(d) && wxWin(d.d1)), st = SearchHelp.stayPlan(d.d1, d.d2);
     const ent = window.Entry && d.cc && d.cc !== 'CZ' ? Entry.flightChip(d.cc, d.d2 || d.d1) || Entry.cardChip(d.cc) : '';
     const day = x => `<span class="dp-nw">${dayLabel(x)}</span>`;
     return `<div class="dp" role="dialog" aria-modal="true" aria-labelledby="dpTitle">
@@ -3098,7 +3109,7 @@
     center.then(c => {
       // místa jiného města než v názvu cíle (Memmingen → Mnichov, Mallorca → Palma): řekne, kterého
       const h = mine('#dpSightsH'); if (h && norm(c.label) !== norm(SearchHelp.geoNames(d.label)[0] || '')) h.textContent = `Co vidět · ${c.label}`;
-      return Places.preview(c);
+      return (window.Lazy ? Lazy.need('places') : Promise.resolve()).then(() => Places.preview(c)); // Objevuj se stahuje až po startu (lazy.js)
     }).then(j => { got = j; fill(Places.previewHtml(j.items, j.km) + (j.demo ? '<div class="faint dp-more">⚠️ demo data – místa jsou vymyšlená</div>' : '')); })
       .catch(e => { if (!got) fill(dpFail(e && e.message)); })
       .finally(() => clearTimeout(slow));
@@ -3107,7 +3118,7 @@
       pb.disabled = true; // střed města se ještě dohledává (nejvýš 6 s)
       const c = await center, st = SearchHelp.stayPlan(d.arrDay, d.d2);
       if (!mine('#dpPlan')) return; // mezitím zavřené – Objevuj neotevírat
-      dpClose(() => Places.openAt({ label: c.label, lat: c.lat, lon: c.lon, cc: d.cc, country: d.country }, { start: d.arrDay, days: st.days }));
+      dpClose(() => withMod('places', () => Places.openAt({ label: c.label, lat: c.lat, lon: c.lon, cc: d.cc, country: d.country }, { start: d.arrDay, days: st.days })));
     };
   }
   // Okno náhledu má krok v historii: Zpět (gesto, tlačítko) ho zavře a z aplikace neodejde. Zavřené jinak (✕, Escape,
