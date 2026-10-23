@@ -543,18 +543,24 @@ nabídky, které by si rozumný cestovatel opravdu vybral – ne jen nejlevněj�
 | Cena | letenka + zavazadla + odhad cesty na letiště a z letiště do města (`tripCzk`) |
 | Cesta | hodiny z domova na letiště a z letiště do města tam i zpět × 150 Kč |
 | Přestup | čas navíc proti přímému letu × 150 Kč/h, přestup 6 h a víc (často přes noc) +500 Kč |
-| Noc | z domu před 4:30 nebo domů po 0:30 ([Kdy vyrazit](#-kdy-vyrazit)): veřejnou dopravou mimo tvoje město +700 Kč, jinak +250 Kč; v cíli do města po 23:30 nebo z města před 4:30 +300 Kč |
+| Noc | cesta z domu začne před 4:30 dne letu (i večer předem na ranní let ze vzdáleného letiště, nebo let před 4:30), cesta domů skončí po 0:30 (i ráno po celé noci v autobuse) nebo začne přistáním před 5:00 ([Kdy vyrazit](#-kdy-vyrazit)): veřejnou dopravou mimo tvoje město +700 Kč, autem a z letiště ve tvém městě +250 Kč; v cíli do města po 23:30 nebo z města před 4:30 +300 Kč |
 | Pobyt | na místě přes den (8–22 h) méně než 85 % z 12 h na noc → až +80 % ceny (přílet v sobotu večer, odlet v neděli ráno) |
 | Výhodnost | letenka aspoň o 15 % pod obvyklou cenou do cíle (medián nabídek hledání, „Je to dobrá cena?“ = dobrá) a hlouběji, než bývá nejlevnější nabídka cílů hledání → sleva o ten rozdíl, nejvýš 25 % ceny |
 
 V každém cíli se vezme nabídka s nejnižší srovnávací cenou (proto může karta ukázat dražší letenku z Prahy místo
-levnější z Vídně v noci); každý další cíl ze stejné země se porovná o 8 % dráž (nejvýš 5×), aby nahoře nebylo pětkrát
-Německo. Kde pořadí předběhne levnější letenku, řekne proč štítek **✓** (*i s cestou na letiště nejlevnější*, *rozumné
-časy*, *víc času na místě*, *o 30 % pod obvyklou cenou*, *kratší cesta na letiště*, *pestřejší výběr*…) – po najetí
-myší celá věta s rozpisem srovnávací ceny, na telefonu v rozbalené kartě cíle. Ceny na kartách zůstávají cenou letenky;
+levnější z Vídně v noci); každý další cíl ze stejné země se porovná o 8 % dráž (nejvýš 3×, tj. +24 % – odhady cesty
+jsou přesné asi na pětinu, o víc horší cíl pestrost nepředřadí), aby nahoře nebylo pětkrát Německo. Kde pořadí předběhne
+levnější letenku, řekne proč štítek **✓** (*i s cestou na letiště nejlevnější*, *rozumné časy*, *víc času na místě*,
+*o 30 % pod obvyklou cenou*, *kratší cesta na letiště*, *levnější cesta z letiště do města*, *pestřejší výběr*…) – jen
+to, co platí doslova (ne *rozumné časy* u letu s nočním odjezdem nebo bez známých časů, ne *víc času na místě*, když je
+hodin míň a jen méně nocí), a proti levnější letence, kterou nabídka předběhla srovnávací cenou; *pestřejší výběr* jen
+tam, kde nic jiného neplatí. Po najetí myší celá věta s rozpisem srovnávací ceny, na telefonu v rozbalené kartě cíle.
+Ceny na kartách zůstávají cenou letenky;
 čistě podle ceny řadí *Nejlevnější letenka*. Radar u cíle, kde doporučené pořadí vybralo jinou nabídku s dražší
 letenkou, neukáže falešné *↑ zdražilo*. Server k nabídkám cíle přidává i tu nejlevnější i s cestou (`groupOptions`).
-Testy: `test/rank.test.js` (tabulky vymyšlených nabídek z Prahy +200 km a demo hledání).
+Testy: `test/rank.test.js` (tabulky vymyšlených nabídek z Prahy +200 i +300 km a Brna +200 km s reálnými odhady cesty,
+k moři v květnu, chybějící odhady, stabilita, výkon a demo hledání). Výkon: 150 cílů × ~6 nabídek ~4 ms (zahřáté),
+první výpočet po načtení stránky ~18 ms (Node 22).
 
 ## Doprava na letiště
 
