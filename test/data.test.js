@@ -50,6 +50,33 @@ test('countries.json: země platící eurem mají měnu EUR (Bulharsko od 1. 1. 
   assert.deepEqual(COUNTRIES.filter((c) => c.cur === 'EUR' && !EURO.includes(c.iso2)).map((c) => c.iso2), ['KP']);
 });
 
+// Kontrola 10/2026 u ~40 zemí, kam Češi jezdí nejčastěji – opravy se zdrojem, ať se nevrátí:
+// - cenová hladina (tečky, Česko = 2): Eurostat prc_ppp_ind, restaurace a hotely 2024 (EU = 100): Česko 74, Španělsko 84,
+//   Řecko 86, Chorvatsko 95, Itálie 107, Rakousko a Francie 110, Norsko 140, Dánsko 148, Island 167, Švýcarsko 171 →
+//   Itálie 3 → 4 (blíž Rakousku než Španělsku), Dánsko 4 → 5 (dražší než Norsko)
+// - bezpečnost a upozornění: MZV ČR, Přehled upozornění na cesty a stránky států „Cestování“ (23. 10. 2026) – Egypt bez
+//   aktuálního varování (výhrady jen k Sinaji mimo silnice, hranici s Libyí a střednímu Egyptu) 3 → 4; nová upozornění
+//   Francie (protesty, 21. 10. 2026), Island (sopky), Kanada (požáry), USA (hurikány, požáry), Maroko, Indonésie (Papua),
+//   Dominikánská republika (hurikány červen–listopad); Thajsko: varování jen pro pohraničí s Kambodžou, jih „zvýšená
+//   opatrnost“ (dřív „nejezdi“); Jordánsko: bez neověřených „útoků u Akaby“
+// - nejlepší měsíce: Rakousko i leden–březen (lyže), Srí Lanka i prosinec (západ a jih: Kolombo v prosinci 131 mm srážek,
+//   v březnu 105 mm – data/climate.json)
+test('countries.json: opravy cen, bezpečnosti a sezón z kontroly 10/2026 (Eurostat, MZV ČR)', () => {
+  assert.equal(BY.IT.cost, 4);
+  assert.equal(BY.DK.cost, 5);
+  assert.ok(BY.DK.cost >= BY.NO.cost && BY.IT.cost === BY.AT.cost && BY.IT.cost > BY.ES.cost);
+  assert.equal(BY.EG.safety, 4);
+  assert.match(BY.EG.geo, /Sinaj.*Libyí|Libyí.*Sinaj/);
+  for (const cc of ['FR', 'IS', 'CA', 'US', 'MA', 'ID', 'DO']) assert.match(BY[cc].geo, /Ověř aktuální situaci\.$/, cc);
+  assert.match(BY.TH.geo, /Kambodž/);
+  assert.doesNotMatch(BY.TH.geo, /Nejezdi .*Yala/);
+  assert.doesNotMatch(BY.JO.geo, /Akab/);
+  for (const m of [1, 2, 3, 7]) assert.ok(BY.AT.months.includes(m), `Rakousko ${m}`);
+  assert.ok(BY.LK.months.includes(12));
+  // země, kam MZV ČR doporučuje jen nezbytné cesty nebo před nimi varuje (SAE, Jordánsko, Kuba), mají bezpečnost 1–2
+  assert.ok(BY.AE.safety <= 2 && BY.JO.safety <= 2 && BY.CU.safety === 1);
+});
+
 test('arrival.json: jízdné v měně země letiště (stejně jako countries.json)', () => {
   const cc = Object.fromEntries(AIRPORTS.map((a) => [a[0], a[3]]));
   // Marsa Alam: veřejná doprava nejezdí, soukromé transfery se v Egyptě nabízejí v eurech
