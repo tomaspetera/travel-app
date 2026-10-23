@@ -3207,6 +3207,12 @@
       if (ao && !carCovers(t, 'out')) rows.push([arrivalAt(f.out).slice(0, 10), ARR_ICO[ao.mode] || '🚌', esc(arrivalRow(ao) + nightTxt(null, null, 'out'))]);
     }
     if (t.car && t.car.mode !== 'skip' && t.car.from) rows.push([t.car.from.slice(0, 10), '🚗', `Vyzvednutí auta ${esc(carPlace(t.car, 'pu'))} ${t.car.from.slice(11, 16)}`]);
+    const carBack = t.car && t.car.mode !== 'skip' && t.car.to ? [t.car.to.slice(0, 10), '🚗', `Vrácení auta ${esc(carPlace(t.car, 'do'))} ${t.car.to.slice(11, 16)}`] : null;
+    // auto vrácené ve městě, odkud se ten den jede dál vlakem / busem (Lisabon → Porto vlakem): vrací se před přejezdem,
+    // ne až večer po příjezdu do dalšího místa – řádek na začátek dne
+    const backFirst = Boolean(carBack && multi && !fly && t.car.doCity) && r.bases.some((b, i) => i < r.bases.length - 1 && dates[i].checkout === carBack[0]
+      && b.name === t.car.doCity.name && legModeOf(r, b, r.bases[i + 1]) !== 'car');
+    if (backFirst) rows.push(carBack);
     if (multi) {
       // Pořadí v rámci dne přejezdu: dopoledne program, přejezd, ubytování a program na dalším místě.
       // každý úsek svou dopravou (část trasy autem, část vlakem / busem – routeLegs)
@@ -3244,7 +3250,7 @@
       for (const d of (tp?.days || []).map(y => progDay(y, null, o.drop))) if (d.items.length || d.cap) rows.push([d.date, '📍', d.items.map(x => esc(x.name)).join(' · ') || 'volný den', { plan: tp, day: d }]);
       ownRows(rows, o.own);
     }
-    if (t.car && t.car.mode !== 'skip' && t.car.to) rows.push([t.car.to.slice(0, 10), '🚗', `Vrácení auta ${esc(carPlace(t.car, 'do'))} ${t.car.to.slice(11, 16)}`]);
+    if (carBack && !backFirst) rows.push(carBack);
     if (!multi) hotelRow(lb.hotel);
     const ab = !ov && (!multi || fly) && f.back && t.arrival && t.arrival.back;
     const lg = fly ? gapLeg(t, gapAt(t, r.bases.length - 1)) : null;

@@ -122,8 +122,11 @@ plánem a hledání v e-mailu, i bez signálu (vše je v telefonu, žádný dota
 - **Na cestě** „📍 Dnes na cestě · den 3 z 6 · Lisabon“: dnešní řádky (program s trasou pěšky do Google Map a Mapy.com,
   přejezd, kdy vyrazit z ubytování na letiště, let zpět) a první řádek zítřka; ubytování toho dne s odkazem
   **navigovat** (Google Maps odtud, kde právě jsi – až po příletu a jen do odletu zpět), místní čas a posun proti Praze, odpočet do odletu či odjezdu
-  (posledních 24 h, jen u spoje s časem – u „čas ověř“ si karta čas nevymýšlí). U trasy přes víc míst je to místo, kde
-  ten den spíš. **📋 Celý plán →** otevře okno cesty.
+  (posledních 24 h, jen u spoje s časem – u „čas ověř“ si karta čas nevymýšlí) a u letu Ryanairu či Wizz Air, do kdy je
+  otevřený online check-in („online check-in do zítra 4:25“ – řádek 📲 je jen v den otevření). U trasy přes víc míst je
+  to místo, kde ten den spíš, v den přejezdu „Lisabon → **Porto**“. 🚗 Waze u hotelu jen ve dny s půjčeným autem (ne před
+  vyzvednutím ani po vrácení – auto vrácené ráno v Lisabonu před vlakem do Porta je v průběhu cesty první řádek dne,
+  ne až po příjezdu). **📋 Celý plán →** otevře okno cesty.
 - Řádky jsou tytéž jako v časové ose shrnutí průvodce (`Trip.timeline` – karta a shrnutí se nerozejdou); u cesty jen
   z plánovače z jejích letů či vlaku a aktivit dnů, u cesty z průvodce i s aktivitami přidanými v plánovači – a bez
   těch, které jsi v Itineráři smazal nebo přejmenoval (karta ukáže totéž co plán, trasa pěšky jen k tomu, co zbylo).
@@ -249,7 +252,10 @@ a seznam věcí na míru cestě (země, termín, doprava, zavazadla z hledání,
   powerbanka jen do kabiny; s malým zavazadlem na delší cestu „bal na vrstvy“ jen v chladu, při velkém rozdílu dne
   a noci, na horách nebo na sněhu – ve stálém horku ne; vlak/bus jízdenky), **dokladů** (občanský průkaz, nebo pas
   s datem platnosti; potvrzení ESTA, eTA, e-víza), **zdraví** (repelent a antimalarika jen podle doporučených očkování
-  a v teple, očkovací průkaz u žluté zimnice), **auta** (řidičák, MŘP) a **aktivit**: 🏖️ pláž, 🥾 turistika, 🏙️ města,
+  a v teple, očkovací průkaz u žluté zimnice), **auta** (řidičák, MŘP), **dětí** z hledání letů (vlastní doklad pro
+  dítě – zápis v pasu rodiče neplatí; EHIC pro každého; skupina *Pro děti*: k autu dětská autosedačka – v EU povinná
+  do 135–150 cm podle země, směrnice 2003/20/ES –, zábava na cestu, u miminka plenky a výživa, kterou smíš vzít na
+  palubu i nad 100 ml) a **aktivit**: 🏖️ pláž, 🥾 turistika, 🏙️ města,
   ⛷️ sníh – výchozí výběr podle programu (kategorie míst), štítků země a podnebí, přepíná se čipy; u kostelů a chrámů
   v programu oblečení zakrývající ramena a kolena.
 - **Vlastní položky** – pole „Přidat vlastní položku…“ pod seznamem věcí. Položky (nejvýš 30 po 80 znacích, bez HTML)
@@ -1279,7 +1285,7 @@ otevře se ona, jinak její web. Odkazy jsou malé štítky vedle odkazu na tras
   - autem na letiště odletu (poloha letiště z hledání) a z letiště domů (`favorite=home` – adresa Domov uložená ve Waze);
   - z letiště do prvního místa, přejezdy mezi místy a z posledního místa na letiště (krok Trasa i Průběh cesty);
   - zastávky výletu autem v Objevuj;
-  - v kartě 📍 Dnes na cestě u hotelu, jen u cesty s půjčeným autem. Tam jde o hledání podle názvu (`q=`), protože hotel polohu nemá.
+  - v kartě 📍 Dnes na cestě u hotelu, jen ve dny s půjčeným autem. Tam jde o hledání podle názvu (`q=`), protože hotel polohu nemá.
 - **🎫 Jízdenka v PID Lítačka**: u cesty na letiště pražskou MHD (na Ruzyni autobus 59 + metro A, k vlaku/busu na jiné letiště MHD na nádraží; podle
   rozpisu ceny ze serveru) v kroku Let, v souhrnu a v průběhu cesty. Odkaz vede na oficiální stránku aplikace
   `app.pidlitacka.cz` s odkazy do App Store a Google Play (odkaz z pid.cz). Jízdenku předvyplnit nejde.

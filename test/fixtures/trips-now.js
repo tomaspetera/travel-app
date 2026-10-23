@@ -112,3 +112,38 @@ export function saved(w, over = {}) {
     genDays: {}, ...over,
   };
 }
+
+const LIS_CITY = { name: 'Lisabon', lat: 38.7223, lon: -9.1393, cc: 'PT' };
+// přejezd ze serveru (stayplan.js): km, čas autem i vlakem, palivo, mýtné a jízdenka na osobu
+const move = (km, carMin, transitMin, fuelCzk, tollCzk, fareCzk) => ({ km, carMin, transitMin, transitKind: 'rail', basis: 'route', fuelCzk, tollCzk, fareCzk, carUrl: gm('A', 'B', 'driving'), transitUrl: gm('A', 'B', 'transit') });
+/**
+ * Lisabon → Porto (2 dospělí + dítě, so 24. – st 28. 10. 2026 – přes změnu času 25. 10.): let PRG → LIS, Lisabon 2 noci,
+ * auto jen 2.–3. den (vyzvednutí v neděli ráno ve městě, vrácení v pondělí dopoledne v Lisabonu), do Porta vlakem,
+ * Porto 2 noci, let OPO → PRG. Z letiště do města a na letiště metrem.
+ */
+export function lisbonPorto(over = {}) {
+  const L = (from, to, date, dep, arr, fromTz, toTz, flightNo) => leg(from, to, date, dep, arr, fromTz, toTz, { flightNo });
+  return {
+    v: 1, created: 1792000000000, adults: 2, children: 1, bags: 'cabin', nightsOneWay: 3, booked: {}, step: 'summary',
+    flight: { out: L('PRG', 'LIS', '2026-10-24', '06:25', '09:00', 'Europe/Prague', 'Europe/Lisbon', 'FR 7012'), back: L('OPO', 'PRG', '2026-10-28', '10:30', '14:50', 'Europe/Lisbon', 'Europe/Prague', 'FR 7013'), flightCzk: 2600, groundCzk: 120, bagCzk: 0, arrCzk: 104 },
+    dest: { label: 'Lisabon', country: 'Portugalsko', cc: 'PT', lat: 38.7742, lon: -9.1342 },
+    ground: { out: { minutes: 40 }, back: { minutes: 40 } }, groundMode: 'transit', overland: null, stay: null, plan: null,
+    arrival: { out: { ...LIS_ARR }, back: { ...LIS_ARR, iata: 'OPO', city: 'Porto', how: 'metro (fialová linka E) do Trindade', czk: 58, lat: 41.1496, lon: -8.6109, fare: 2.35 } },
+    car: { mode: 'manual', totalCzk: 2400, age: 30, pickup: 'LIS', dropoff: 'LIS', from: '2026-10-25T09:00', to: '2026-10-26T10:00', puCity: { ...LIS_CITY }, doCity: { ...LIS_CITY } },
+    route: {
+      mode: 'multi', transport: 'transit', legModes: [], exclude: [], candidates: [], notes: [],
+      arrival: { iata: 'LIS', name: 'Lisabon (LIS)', lat: 38.7742, lon: -9.1342 }, departure: { iata: 'OPO', name: 'Porto (OPO)', lat: 41.2481, lon: -8.6814 },
+      bases: [
+        { id: 'city:LIS', name: 'Lisabon', lat: 38.7223, lon: -9.1393, nights: 2, cc: 'PT', country: 'Portugalsko', anchor: 'arrival', highlights: [],
+          stay: { mode: 'pick', id: 'h1', name: 'Hotel Lisboa Centro', totalCzk: 7200, url: 'https://hotel.example/h1', lat: 38.7139, lon: -9.1394 },
+          plan: { center: { lat: 38.7139, lon: -9.1394, label: 'Hotel Lisboa Centro', city: 'Lisabon', country: 'Portugalsko' }, days: [day('2026-10-24', 300, ['Alfama'], 38.71, -9.13), day('2026-10-25', 420, ['Sintra', 'Cabo da Roca'], 38.79, -9.39), day('2026-10-26', 120, ['Belém'], 38.69, -9.2)] } },
+        { id: 'city:OPO', name: 'Porto', lat: 41.1579, lon: -8.6291, nights: 2, cc: 'PT', country: 'Portugalsko', anchor: 'departure', highlights: [],
+          stay: { mode: 'pick', id: 'h2', name: 'Porto Ribeira Guesthouse', totalCzk: 6400, url: 'https://hotel.example/h2', lat: 41.1405, lon: -8.6131 },
+          plan: { center: { lat: 41.1405, lon: -8.6131, label: 'Porto Ribeira Guesthouse', city: 'Porto', country: 'Portugalsko' }, days: [day('2026-10-26', 180, ['Ribeira'], 41.14, -8.61), day('2026-10-27', 420, ['Livraria Lello'], 41.15, -8.61)] } },
+      ],
+      transfers: [move(313, 190, 170, 900, 520, 620)],
+      legs: { arrival: move(7, 20, 25, 30, 0, 50), departure: move(15, 25, 35, 40, 0, 60) },
+    },
+    ...over,
+  };
+}
