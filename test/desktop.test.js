@@ -112,3 +112,10 @@ test('desktop.css: obsah i horní lišta ve stejném kontejneru uprostřed (stej
   assert.match(css, /--content-max:1240px/);
   assert.match(css, /@media \(min-width:1600px\)\{:root\{--content-max:1360px\}\}/);
 });
+
+test('postranní lišta: obsah, který se nevejde do výšky okna, jde posunout (dřív zůstal pod okrajem)', () => {
+  const css = readFileSync(new URL('../public/css/atlas.css', import.meta.url), 'utf8');
+  const rule = css.match(/\.sidebar\{[^}]*\}/)[0];
+  assert.match(rule, /position:sticky/);
+  assert.match(rule, /overflow-y:auto/);
+});
