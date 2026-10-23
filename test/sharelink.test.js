@@ -9,9 +9,10 @@ import { deflateRawSync, inflateRawSync } from 'node:zlib';
 
 const SRC = readFileSync(new URL('../public/js/sharelink.js', import.meta.url), 'utf8');
 /** Kontext jako v prohlížeči; zip: false = prohlížeč bez CompressionStream, clipboard a ClipboardItem podle potřeby. */
-function load({ zip = true, clipboard, ClipboardItem } = {}) {
-  const ctx = { window: {}, TextEncoder, TextDecoder, btoa, atob, Blob, location: { origin: 'https://atlas.example', pathname: '/' }, navigator: clipboard ? { clipboard } : {} };
+function load({ zip = true, clipboard, ClipboardItem, fetch } = {}) {
+  const ctx = { window: {}, TextEncoder, TextDecoder, btoa, atob, Blob, setTimeout, location: { origin: 'https://atlas.example', pathname: '/' }, navigator: clipboard ? { clipboard } : {} };
   if (zip) Object.assign(ctx, { CompressionStream, DecompressionStream });
+  if (fetch) ctx.fetch = fetch;
   if (ClipboardItem) ctx.ClipboardItem = ClipboardItem;
   vm.createContext(ctx);
   vm.runInContext(SRC, ctx, { filename: 'sharelink.js' });
@@ -156,4 +157,20 @@ test('prepare: drží jen pár posledních odkazů', async () => {
   assert.notEqual(S.prepare('trip', '{"i":0}'), first, 'nejstarší vypadl');
   assert.notEqual(S.prepare('plan', '{"i":4}'), S.prepare('trip', '{"i":4}'), 'cesta a plán zvlášť');
   await first.done;
+});
+
+test('krátký odkaz: cesta se uloží jednou (/api/share), sdílí a kopíruje se /c/<id>; bez úložiště zůstane dlouhý odkaz', async () => {
+  const sent = [], writes = [];
+  const clipboard = { writeText: async (t) => { writes.push(t); } };
+  const ok = load({ clipboard, fetch: async (url, o) => { sent.push([url, JSON.parse(o.body)]); return { ok: true, json: async () => ({ id: 'Ab3kQ9xZ' }) }; } });
+  const a = ok.short('trip', TRIP), b = ok.short('trip', TRIP);
+  assert.equal(a, b, 'stejná cesta = jeden záznam na serveru');
+  assert.equal(await a.done, 'https://atlas.example/c/Ab3kQ9xZ');
+  assert.deepEqual(sent, [['api/share', { k: 'trip', j: TRIP }]]);
+  assert.equal((await ok.send('trip', TRIP)).url, 'https://atlas.example/c/Ab3kQ9xZ');
+  assert.deepEqual(writes, ['https://atlas.example/c/Ab3kQ9xZ']);
+  assert.equal(ok.short('offer', '{}').url, null, 'nabídka letu krátký odkaz nedostane');
+  const off = load({ clipboard, fetch: async () => ({ ok: false, json: async () => ({}) }) });
+  const r = await off.send('trip', TRIP);
+  assert.match(r.url, /#trip=z/, 'server bez úložiště (503) → dlouhý odkaz jako dřív');
 });

@@ -42,6 +42,7 @@ import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
+import { upstashStore, memoryStore, createShare, loadShare, sharePage, ogPhoto, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
 import { sharedRuns, gate, perClient } from './lib/crowd.js';
 import { SECURITY_HEADERS, API_CSP, clientIp, crossSite } from './lib/security.js';
 
@@ -175,6 +176,9 @@ const mapySugs = new RateLimiter(); // návrhy Mapy.com v hledání Objevuj (jen
 const tileHits = new RateLimiter(); // dlaždice Mapy.com přes server (jen mimo mezipaměť serveru)
 const clientErrs = new RateLimiter({ windowMs: 60 * 60e3 }); // hlášení chyb z prohlížeče (/api/client-error): 30 za hodinu z jedné adresy
 const photoHits = new RateLimiter(); // fotky měst mimo mezipaměť serveru (Wikimedia, Pexels, Unsplash)
+const shareHits = new RateLimiter({ windowMs: 60 * 60e3 }); // nové krátké odkazy (/api/share): 30 za hodinu z jedné adresy
+// Krátké odkazy na sdílenou cestu: Upstash, v demu paměť; bez klíčů vypnuté (aplikace pošle dlouhý odkaz)
+const shareStore = config.upstashUrl && config.upstashToken ? upstashStore(config.upstashUrl, config.upstashToken) : config.mock ? memoryStore() : null;
 const geoHits = new RateLimiter(); // geokódování mimo mezipaměť serveru (Open-Meteo) – našeptávač a hledání míst
 // clientIp (server/lib/security.js): na Renderu adresa od Cloudflare, ne podvrhnutelná první z X-Forwarded-For
 /** Nad limitem → true a req.retryAfter = za kolik sekund to půjde znovu (hlavička Retry-After u 429). */
@@ -401,7 +405,7 @@ async function route(req, res) {
     // maps: mapové služby (Mapy.com) – mimo providers, ty jsou zdroje cen (Zdroje cen, průběh hledání);
     // feedback: adresa pro 💬 Napsat nám – jen když je FEEDBACK_EMAIL nastavená, jinak tlačítko v aplikaci chybí
     const feedback = config.feedbackEmail ? { feedback: { email: config.feedbackEmail } } : {};
-    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), maps: [mapyStatus()], fx: fxInfo(), cache: cache.stats(), clientErrors: clientErrorCount(), ...feedback });
+    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), maps: [mapyStatus()], fx: fxInfo(), cache: cache.stats(), clientErrors: clientErrorCount(), shortLinks: shareStore ? shareStore.kind : false, ...feedback });
   }
   if (p === '/api/client-error') {
     // Chyba z prohlížeče (public/js/errlog.js): jeden řádek do logu Renderu, v paměti posledních 50 – v /api/health
@@ -419,6 +423,34 @@ async function route(req, res) {
     if (line) console.warn(line);
     res.writeHead(204, { 'Cache-Control': 'no-store' });
     return res.end();
+  }
+  if (p === '/api/share') {
+    // Krátký odkaz na sdílenou cestu nebo plán (server/lib/shortlinks.js): { k: 'trip' | 'plan', j: JSON } → { id }
+    if (req.method !== 'POST') return sendJson(req, res, 405, { error: 'Jen POST' }, { Allow: 'POST' });
+    if (!shareStore) return sendJson(req, res, 503, { error: 'Krátké odkazy nejsou zapnuté.' });
+    if (rateLimited(req, 30, shareHits)) return sendJson(req, res, 429, { error: 'Příliš mnoho odkazů – zkus to za chvíli.' });
+    let b;
+    try {
+      b = JSON.parse((await readBody(req, SHARE_MAX + 2048)) || 'null');
+    } catch (e) {
+      return badBody(req, res, e);
+    }
+    // fotka cíle do náhledu: z mezipaměti fotek, nová nejvýš 3 s (odkaz bez fotky má obecný náhled ATLASu)
+    const photo = async (place) => ogPhoto(String(((await Promise.race([cityPhotos([place]), new Promise((r) => setTimeout(() => r(null), 3000))])) || {}).photos?.[place] || ''));
+    try {
+      const id = await createShare(shareStore, b && b.k, b && b.j, { photo });
+      return sendJson(req, res, 200, { id }, { 'Cache-Control': 'no-store' });
+    } catch (e) {
+      if (e.status === 400) return sendJson(req, res, 400, { error: e.message });
+      throw e;
+    }
+  }
+  if (p.startsWith('/api/share/')) {
+    const id = p.slice(11);
+    if (!SHARE_ID.test(id) || !shareStore) return sendJson(req, res, 404, { error: 'Odkaz neexistuje nebo vypršel.' });
+    const r = await loadShare(shareStore, id);
+    if (!r) return sendJson(req, res, 404, { error: 'Odkaz neexistuje nebo vypršel.' });
+    return sendJson(req, res, 200, { k: r.k, j: r.j }, { 'Cache-Control': 'public, max-age=86400' });
   }
   if (p === '/api/places') {
     const q = (url.searchParams.get('q') || '').slice(0, 80);
@@ -875,6 +907,11 @@ async function route(req, res) {
   if (p === '/robots.txt') return sendGenerated(req, res, 200, robotsTxt(config.publicUrl), { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
   if (p === '/sitemap.xml') return sendGenerated(req, res, 200, sitemapXml(config.publicUrl), { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
   if (p === '/manifest.webmanifest' && serveManifest(req, res, path.join(PUBLIC, 'manifest.webmanifest'))) return;
+  // Krátký odkaz na sdílenou cestu: náhled odkazu (cíl, termín, fotka) a přesměrování do aplikace na /#s=<id>
+  if (/^\/c\/[A-Za-z0-9]{8}$/.test(p) && shareStore) {
+    const id = p.slice(3), r = await loadShare(shareStore, id);
+    if (r) return sendGenerated(req, res, 200, sharePage(id, r, config.publicUrl, `${config.publicUrl}/${BRAND.image.path}`), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+  }
 
   // Statické soubory
   if (p === '/data/countries.json' || p === '/data/entry.json') {

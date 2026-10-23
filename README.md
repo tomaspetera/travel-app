@@ -1165,6 +1165,7 @@ Zkopíruj `.env.example` na `.env`:
 | `KIWI_ENABLED` | `1` | Kiwi.com: živá cena a porovnání aerolinek k vybranému letu (zdarma, bez klíče); `0` = vypnout |
 | `XOTELO` | zapnuto | ceny hotelů z TripAdvisoru přes neoficiální bezplatné API Xotelo (bez klíče, bez provizí), když není ostrý klíč LiteAPI – viz [Ceny hotelů](#ceny-hotelů); `off` = vypnout (zůstanou odkazy na partnery). Na místo a termín 1 + nejvýš 12 dotazů, v mezipaměti |
 | `PEXELS_API_KEY` | – | krásné fotky měst na kartách (radar, tipy, detail cíle) z Pexels – zdarma klíč na pexels.com/api (200 dotazů/h, fotky se drží 7 dní na serveru a 30 dní v prohlížeči; **Pexels teď nové klíče nevydává** – stávající klíč funguje dál). Bez klíče fotky z Unsplash (klíč níž), jinak z Wikimedia Commons (oceněné fotky z článku o městě) |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | – | **krátké odkazy na sdílenou cestu** (`/c/Ab3kQ9xZ` místo `#trip=…` s tisíci znaky) s náhledem ve WhatsAppu (cíl, termín, fotka): cesta se uloží jen při sdílení, na 400 dní, v Redis od Upstash (zdarma 500 000 příkazů a 256 MB; console.upstash.com → Create database → REST API). Bez nich aplikace posílá dlouhý odkaz jako dřív (`/api/health` → `shortLinks`) |
 | `UNSPLASH_ACCESS_KEY` | – | totéž z Unsplash, když Pexels klíč chybí nebo fotku nenajde. Zdarma: účet na [unsplash.com/developers](https://unsplash.com/developers) → *Your apps* → *New Application* (souhlas s podmínkami, název ATLAS) → do Renderu se vkládá **Access Key** (ne Secret key). Nová aplikace je v ukázkovém režimu (50 dotazů/h) – stačí, fotka města se drží 7 dní na serveru a 30 v prohlížeči; při vyčerpání limitu se Unsplash na 15 min vynechá a karta má zatím fotku z Wikimedie. Bere se jen fotka, v jejímž popisu, adrese nebo štítcích je jméno města; podle podmínek Unsplash se fotky vkládají přímo z jeho serveru a u každé je drobně „Foto: autor / Unsplash“ s odkazy (u Pexels „/ Pexels“) |
 | `LITEAPI_KEY` | – | hotely s cenou na tvoje data a hodnocením hostů (zdarma klíč na dashboard.liteapi.travel; `sand_…` = testovací data, pak se použije Xotelo). Ostrý klíč má přednost před Xotelem a umožňuje provize |
 | `LITEAPI_WHITELABEL` | – | doména white-label rezervační stránky LiteAPI – tlačítko „detail“ pak vede tam místo na Booking.com |
@@ -1304,7 +1305,7 @@ názvem a popisem. Vše skládá server (`server/lib/seo.js`) z jednoho místa �
 - **Stránka 404** pro neznámé adresy mimo API: česky, světlá i tmavá podle systému, s tlačítkem *Otevřít ATLAS*, které
   vezme s sebou i část adresy za `#`. Dřív server na každou neznámou adresu poslal stránku aplikace se stavem 200 –
   vyhledávačům se pak jevila jako nekonečno kopií úvodní stránky. Sekce i sdílené odkazy (`/#trip=`, `/#plan=`,
-  `/#offer=`, `/#jed=`, zkratky `/#flights`) jsou na `/`, takže se pro ně nic nemění; offline dá service worker na jakoukoli
+  `/#offer=`, `/#jed=`, `/#s=`, zkratky `/#flights`) jsou na `/`, takže se pro ně nic nemění; offline dá service worker na jakoukoli
   adresu dál uloženou aplikaci. Chybějící soubor (`/js/neni.js`) dostane taky 404, ne stránku aplikace.
 - **Manifest** (`/manifest.webmanifest`) posílá server se jménem a popisem z `brand.js`; ikony, barvy a zkratky jsou
   v souboru `public/manifest.webmanifest`.

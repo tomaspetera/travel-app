@@ -388,6 +388,7 @@
   function open(d0, o = {}) {
     let d;
     try { d = sanitize(d0); } catch (e) { if (o.send) o.send(); return; }
+    if (o.prime) o.prime(); // krátký odkaz na celou cestu se chystá, než uživatel vybere (sharelink.js short)
     const past = d.o < fmtYMD(new Date());
     const link = ShareLink.prepare('jed', json(d0));
     const cardTxt = `${d.f ? `${esc(d.f)} → ` : ''}${esc(d.dest)} · ${MONTHS[monthOf(d) - 1]}`;
