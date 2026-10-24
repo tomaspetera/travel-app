@@ -413,6 +413,29 @@ test('scheduler: chyba sítě → ticho, zkusí se až příští cyklus; ručn�
   assert.ok(!h.log.slice(3).includes('y'), 'čerstvě ručně zkontrolované se automaticky znovu nekontroluje');
 });
 
+test('scheduler: přetížený nebo nedostupný server (check → stop) – cyklus hned skončí, zbylá hlídání příště', async () => {
+  const f = flex('2026-10-10', '2026-12-01');
+  const list = Array.from({ length: 12 }, (_, i) => ({ id: 'w' + i, form: f, checked: NOW - (20 + i) * H }));
+  const log = [];
+  let now = NOW, stop = true;
+  const sched = A.scheduler({
+    list: () => list, today: () => TODAY, now: () => now, firstMax: 12,
+    sleep: async (ms) => { now += ms; await new Promise((r) => setImmediate(r)); },
+    // 503 „hledá pro hodně lidí“: kontrola selže a řekne stop (dřív se zkusilo všech 12, každé odmítnuté)
+    check: async (id) => { log.push(id); if (stop) { list.find((w) => w.id === id).tried = now; return 'stop'; } list.find((w) => w.id === id).checked = now; },
+  });
+  assert.equal(await sched.cycle(), 1);
+  assert.deepEqual(log, ['w11'], 'jen jedno hledání');
+  // příští cyklus (server zase odpovídá): napřed ostatní, odmítnuté až nakonec
+  stop = false;
+  now += 30 * 60e3;
+  assert.equal(await sched.cycle(), 4);
+  assert.deepEqual(log.slice(1), ['w10', 'w9', 'w8', 'w7']);
+  // výjimka z kontroly cyklus nezastaví (jedno vadné hledání nebrzdí ostatní)
+  const h = harness([{ id: 'x', form: f, checked: NOW - 10 * H }, { id: 'y', form: f, checked: NOW - 9 * H }], { failIds: ['x'] });
+  assert.equal(await h.sched.cycle(), 2);
+});
+
 test('scheduler: hledání, které mezitím zkontroloval jiný panel, se nepočítá do limitu 4', async () => {
   const f = flex('2026-10-10', '2026-12-01');
   const list = ['a', 'b', 'c', 'd', 'e', 'f'].map((id, i) => ({ id, form: f, checked: NOW - (20 + i) * H }));

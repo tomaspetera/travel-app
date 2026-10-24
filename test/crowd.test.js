@@ -396,8 +396,8 @@ test('server: 429 z limitu adresy má Retry-After (za kolik sekund znovu) a čes
     assert.match((await r.json()).error, /Příliš mnoho hledání/);
     // aplikace u chybové odpovědi hledání (429, 503) ukáže českou hlášku serveru (pole error), ne „HTTP 429“
     const flights = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
-    assert.match(flights, /const r = await fetch\('api\/search'[^\n]*\n\s*if \(!r\.ok \|\| !r\.body\) throw await httpErr\(r\);/);
-    assert.match(flights, /async function httpErr\(r\) \{\s*const j = await r\.json\(\)\.catch\(\(\) => \(\{\}\)\);\s*return new Error\(j\.error \|\|/);
+    assert.match(flights, /const r = await fetch\('api\/search'[^\n]*\n\s*if \(!r\.ok \|\| !r\.body\) \{\s*const e = await httpErr\(r\);/);
+    assert.match(flights, /async function httpErr\(r\) \{\s*if \(window\.Pwa && Pwa\.httpError\) return Pwa\.httpError\(r\);\s*const j = await r\.json\(\)\.catch\(\(\) => \(\{\}\)\);\s*return new Error\(j\.error \|\|/);
   } finally {
     config.searchesPer10Min = prev;
   }

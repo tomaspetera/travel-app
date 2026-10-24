@@ -77,6 +77,44 @@
     return Promise.race([reader.read(), stall]).finally(() => clearTimeout(t));
   }
 
+  /* Přetížený server: 503 „ATLAS teď hledá pro hodně lidí najednou“ a 429 (limit z adresy) říkají v Retry-After, za kolik
+     sekund to jde znovu; 502–504 bez hlavičky posílá Render, když se server probouzí nebo nestíhá. Do té doby aplikace
+     sama nehledá (radar po návratu, kontrola hlídaných cen) a „Zkusit znovu“ odpočítává – každý další pokus by dostal
+     totéž odmítnutí a serveru, který nestíhá, jen přidal práci. */
+  const BUSY_WAIT_S = 30; // přetížení bez Retry-After
+  /** Hlavička Retry-After (sekundy nebo datum HTTP) → za kolik sekund (nejvýš hodina); chybí nebo nedává smysl → null. */
+  function retryAfterS(v, now = Date.now()) {
+    const s = String(v == null ? '' : v).trim();
+    if (!s) return null;
+    const n = /^\d+$/.test(s) ? Number(s) : Math.ceil((Date.parse(s) - now) / 1000);
+    return Number.isFinite(n) && n > 0 ? Math.min(3600, n) : null;
+  }
+  /** Česká hláška k chybové odpovědi API bez vlastního textu serveru (HTML z proxy, prázdné tělo) – nikdy „HTTP 503“. */
+  function statusMsg(status) {
+    if (status === 429) return 'Příliš mnoho požadavků za krátkou dobu – zkus to prosím za pár minut.';
+    if (status >= 502 && status <= 504) return 'Server se právě probouzí nebo je přetížený – zkus to prosím za chvíli znovu.';
+    if (status >= 500) return 'Na serveru se něco pokazilo – zkus to prosím za chvíli znovu.';
+    return 'Server požadavek nepřijal – zkus to prosím znovu.';
+  }
+  /**
+   * Chybová odpověď API → Error s hláškou serveru (pole error), jinak statusMsg. status = kód; busy = přetížení (429,
+   * 502–504); until = čas (ms), odkdy to zkusit znovu (Retry-After, u přetížení bez hlavičky za BUSY_WAIT_S).
+   */
+  async function httpError(r, now = Date.now()) {
+    const j = await r.json().catch(() => null);
+    const e = new Error(j && typeof j.error === 'string' && j.error ? j.error : statusMsg(r.status));
+    e.status = r.status;
+    e.busy = r.status === 429 || (r.status >= 502 && r.status <= 504);
+    const s = retryAfterS(r.headers && typeof r.headers.get === 'function' ? r.headers.get('retry-after') : null, now) || (e.busy ? BUSY_WAIT_S : null);
+    if (s) e.until = now + s * 1000;
+    return e;
+  }
+  /** Odpočet na tlačítku „↻ Zkusit znovu za 45 s“ / „za 3 min“ (zbývá ms). */
+  const waitTxt = (ms) => {
+    const s = Math.max(1, Math.ceil(ms / 1000));
+    return s < 90 ? `za ${s} s` : `za ${Math.round(s / 60)} min`;
+  };
+
   // Obsah, který se načítá sám (radar, místa v Objevuj) a nenačetl se, protože zařízení bylo offline: po návratu
   // připojení se jednou načte znovu (bez klepnutí na „Zkusit znovu“). Pod jedním klíčem čeká jen poslední – opakovaný
   // výpadek nic nehromadí. Hledání letů se samo nespouští (to je na uživateli).
@@ -99,7 +137,7 @@
     return ios && !/FBAN|FBAV|Instagram/.test(ua) ? 'ios' : null;
   }
 
-  const api = { netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, addToMenu() {} };
+  const api = { netError, installMode, isApi, slowError, withDeadline, readOrStall, whenOnline, flushOnline, retryAfterS, statusMsg, httpError, waitTxt, OFFLINE_MSG, DOWN_MSG, SLOW_MSG, API_WAIT, THEME, addToMenu() {} };
   window.Pwa = api;
   if (typeof document === 'undefined' || !document.documentElement) return; // testy v node:vm – jen funkce výše
 

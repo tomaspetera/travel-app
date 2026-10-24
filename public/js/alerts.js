@@ -544,6 +544,8 @@
    * otevření nebo po dlouhé pauze (staleMs – aplikace z pozadí na telefonu) – aplikace bývá otevřená jen chvíli a
    * s limitem 4 by se 12 hlídaných dostalo na řadu až za pár návštěv. costOf(w) = kolik hledání kontrola stojí na
    * serveru (cesta přes víc měst 2) – limit cyklu se počítá v nich, ať kontroly nevyčerpají limit hledání uživatele.
+   * check(id) → 'stop': server je přetížený nebo nedostupný – cyklus skončí hned (zbylá hlídání příště), jinak by
+   * přetížený server dostal až 12 hledání za sebou a všechna by odmítl.
    */
   function scheduler({ list, check, today, now = () => Date.now(), sleep, canRun = () => true, sync = () => { }, cfg = CFG, firstMax = 0, costOf = () => 1 }) {
     let lock = Promise.resolve(), cycling = false, lastCycle = 0, cycles = 0;
@@ -580,10 +582,10 @@
             try { sync(); } catch (e) { }
             const cur = list().find(x => x.id === w.id);
             if (!cur || !isStale(cur, now(), cfg.staleMs) || isPast(cur.form, today())) return false;
-            try { await check(w.id); } catch (e) { }
-            return true;
+            try { return (await check(w.id)) === 'stop' ? 'stop' : true; } catch (e) { return true; }
           });
           if (ran) { n++; spent += cost; }
+          if (ran === 'stop') break;
         }
       } finally { cycling = false; }
       return n;

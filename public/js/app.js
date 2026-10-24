@@ -1111,6 +1111,10 @@ const Photos = (() => {
   try { ['atlas_ph', 'atlas_ph2', 'atlas_ph3', 'atlas_ph4', 'atlas_ph5', 'atlas_ph6', 'atlas_ph7'].forEach(k => localStorage.removeItem(k)); } catch (e) { /* nevadí */ }
   let mem = null, timer = null, io = null;
   const queue = new Set();
+  // rozběhnutý dotaz podle názvu: karty překreslené, než odpověď přijde (radar, hlídané ceny po kontrole), se neptají
+  // znovu – počkají na něj; pause = do kdy se po odmítnutí (limit fotek 429, přetížený server) na nové fotky neptat
+  const asking = new Map();
+  let pause = 0;
   const store = () => { if (!mem) { try { mem = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { mem = {}; } } return mem; };
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(Object.fromEntries(Object.entries(store()).sort((a, b) => b[1].t - a[1].t).slice(0, 400)))); } catch (e) { /* plné úložiště */ } };
   const fresh = (e, now) => e && now - e.t < (TTL[e.p] || TTL.wiki);
@@ -1185,16 +1189,27 @@ const Photos = (() => {
     // fotky uložené v prohlížeči hned (i starší – obnoví se na pozadí); na server (po uspání se i minutu probouzí)
     // čekají jen karty, které fotku ještě nemají
     els.forEach(el => { if (st[el.dataset.photo] && st[el.dataset.photo].u) show(el); });
-    const ask = [...new Set(els.map(el => el.dataset.photo).filter(t => t && !fresh(st[t], now)))].slice(0, 30);
+    const need = [...new Set(els.map(el => el.dataset.photo).filter(t => t && !fresh(st[t], now)))];
+    const wait = new Set(need.filter(t => asking.has(t)).map(t => asking.get(t)));
+    const ask = now < pause ? [] : need.filter(t => !asking.has(t)).slice(0, 30);
     if (ask.length) {
-      try {
-        // v=3 (a nový klíč atlas_ph8): fotky uložené v prohlížeči před lepším výběrem z Unsplash se znovu nepoužijí
-        const j = await (await fetch('api/photos?v=3&t=' + enc(ask.join('|')))).json(), p = Object.hasOwn(TTL, j.prov) ? j.prov : 'wiki';
-        // náhradní výběr (zdroj neodpověděl) jen na den – pak hezčí fotka
-        for (const [t, u] of Object.entries(j.photos || {})) st[t] = { u: String(u || ''), t: j.partial ? now - TTL[p] + 864e5 : now, p, by: String((j.by || {})[t] || ''), bu: String((j.bu || {})[t] || '') };
-        save();
-      } catch (e) { /* bez sítě: karty bez fotek, příště znovu */ }
+      const job = (async () => {
+        try {
+          // v=3 (a nový klíč atlas_ph8): fotky uložené v prohlížeči před lepším výběrem z Unsplash se znovu nepoužijí
+          const r = await fetch('api/photos?v=3&t=' + enc(ask.join('|')));
+          // odmítnuto (429 – Retry-After, přetížený server): karty zatím bez fotek, další se chvíli nežádají
+          if (!r.ok) { pause = Date.now() + ((window.Pwa && Pwa.retryAfterS && Pwa.retryAfterS(r.headers.get('retry-after'))) || 120) * 1000; return; }
+          const j = await r.json(), p = Object.hasOwn(TTL, j.prov) ? j.prov : 'wiki';
+          // náhradní výběr (zdroj neodpověděl) jen na den – pak hezčí fotka
+          for (const [t, u] of Object.entries(j.photos || {})) st[t] = { u: String(u || ''), t: j.partial ? now - TTL[p] + 864e5 : now, p, by: String((j.by || {})[t] || ''), bu: String((j.bu || {})[t] || '') };
+          save();
+        } catch (e) { /* bez sítě: karty bez fotek, příště znovu */ }
+      })();
+      ask.forEach(t => asking.set(t, job));
+      job.then(() => ask.forEach(t => { if (asking.get(t) === job) asking.delete(t); }));
+      wait.add(job);
     }
+    await Promise.all(wait);
     els.forEach(show);
   }
   function want(el) { queue.add(el); clearTimeout(timer); timer = setTimeout(flush, 60); }
