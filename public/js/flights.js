@@ -303,17 +303,21 @@
     }
     return null;
   }
+  let piSeq = 0; // id našeptávačů (aria-controls)
   class PlaceInput {
     // smart = { run(hit), tips() } – chytré hledání (pole Kam): věta „k moři v květnu do 5000“ → ✨ řádek nahoře
     // s tím, jak jí rozumím, a prázdné pole po klepnutí → tipy podle toho, co uživatel hledá (Smart, smartTips)
-    constructor(el, { placeholder, max = 5, onChange, dark = false, allowAnywhere = false, origin = false, near = null, smart = null }) {
+    // label = jméno pole pro čtečku obrazovky (Odkud, Kam) – placeholder („Např. Brno…“) se po prvním místě mění
+    constructor(el, { placeholder, label = '', max = 5, onChange, dark = false, allowAnywhere = false, origin = false, near = null, smart = null }) {
       this.el = el; this.items = []; this.max = max; this.onChange = onChange || (() => { }); this.allowAnywhere = allowAnywhere;
       this.origin = origin; // odkud: světadíl nedává smysl
       this.near = near || (() => (S.home && S.home.from && S.home.from[0] && S.home.from[0].id) || ''); // domov pro pořadí návrhů
       this.smart = smart && window.Smart ? smart : null; this.hit = null; this.tips = [];
       el.classList.add('pi'); if (dark) el.classList.add('pi-dark');
-      el.innerHTML = `<div class="pi-chips"></div><input class="pi-input" placeholder="${esc(placeholder || '')}" autocomplete="off" spellcheck="false"><div class="pi-dd" hidden></div>`;
-      this.chipsEl = $('.pi-chips', el); this.input = $('.pi-input', el); this.dd = $('.pi-dd', el);
+      // našeptávač jako combobox: čtečka obrazovky ohlásí, že se nabídka otevřela, a šipkami vybraný návrh (aria-activedescendant)
+      const id = 'pi' + (++piSeq), name = label || (origin ? 'Odkud' : 'Kam');
+      el.innerHTML = `<div class="pi-chips"></div><input class="pi-input" placeholder="${esc(placeholder || '')}" aria-label="${esc(name)}" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${id}" autocomplete="off" spellcheck="false"><div class="pi-dd" id="${id}" role="listbox" aria-label="${esc(`Návrhy – ${name}`)}" hidden></div>`;
+      this.chipsEl = $('.pi-chips', el); this.input = $('.pi-input', el); this.dd = $('.pi-dd', el); this.id = id;
       this.active = -1; this.sugs = []; this.ctl = null; this.ph = placeholder;
       const load = debounce(() => this.fetch(), 160);
       this.input.addEventListener('input', () => { if (this.input.value.trim().length >= 2) load(); else if (!this.input.value.trim()) this.showTips(); else this.close(); });
@@ -400,25 +404,29 @@
       const rows = this.rows();
       const row = (r, i) => {
         const on = i === this.active ? ' on' : '';
+        const opt = cls => `class="pi-opt${cls}${on}" data-i="${i}" id="${this.id}-${i}" role="option" aria-selected="${i === this.active}"`;
         if (r.hit) {
           const h = r.hit, places = h.chain ? [`🧳 ${h.chain.map(x => x.label).join(' → ')}`] : [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`), ...(h.back ? [`↩ návrat: ${h.back.label}`] : [])];
           const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}`)].join(' · ');
           const sub = h.chain ? 'víc měst – nastavím lety, rozdělím termíny a hledám'
             : h.back && !h.miss.length ? 'tam a zpět z jiného města – nastavím 2 lety (přejezd mezi městy je na tobě) a hledám'
             : h.miss.length ? `„${h.miss.join('“, „')}“ neznám – hledám bez toho` : (h.sm.items && !h.to.length ? h.sm.items.map(x => x.label).join(', ') : 'klepni nebo Enter – nastavím a hledám');
-          return `<div class="pi-opt pi-smart${on}" data-i="${i}"><span class="pi-flag">✨</span><span class="pi-t"><b>${esc(what)}</b><small>${esc(sub)}</small></span><span class="pi-type">hledat</span></div>`;
+          return `<div ${opt(' pi-smart')}><span class="pi-flag">✨</span><span class="pi-t"><b>${esc(what)}</b><small>${esc(sub)}</small></span><span class="pi-type">hledat</span></div>`;
         }
-        if (r.tip) return `<div class="pi-opt pi-tip${on}" data-i="${i}"><span class="pi-flag">${r.tip.icon}</span><span class="pi-t"><b>${esc(r.tip.text)}</b>${r.tip.sub ? `<small>${esc(r.tip.sub)}</small>` : ''}</span></div>`;
+        if (r.tip) return `<div ${opt(' pi-tip')}><span class="pi-flag">${r.tip.icon}</span><span class="pi-t"><b>${esc(r.tip.text)}</b>${r.tip.sub ? `<small>${esc(r.tip.sub)}</small>` : ''}</span></div>`;
         const s = r.sug;
-        return `<div class="pi-opt${on}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span><span class="pi-type">${typeLbl[s.type] || ''}</span></div>`;
+        return `<div ${opt('')}><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span><span class="pi-type">${typeLbl[s.type] || ''}</span></div>`;
       };
       this.dd.innerHTML = (this.tips.length ? '<div class="pi-head">✨ Pro tebe – nebo napiš celou větu, třeba „k moři v květnu do 5000“</div>' : '')
         + (rows[0] && rows[0].sug && rows[0].sug.fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '')
         + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err === 'slow' ? '<span class="spin dark"></span> Hledání míst je teď pomalé – zkouším znovu…' : err ? 'Našeptávač je nedostupný' : `Nic nenalezeno – zkus jiný název nebo kód letiště${this.smart ? ', nebo napiš větu, třeba „k moři v květnu“' : ''}`}</div>`);
       this.dd.hidden = false;
+      this.input.setAttribute('aria-expanded', 'true');
+      if (this.active >= 0 && this.active < rows.length) this.input.setAttribute('aria-activedescendant', `${this.id}-${this.active}`); else this.input.removeAttribute('aria-activedescendant');
+      if (!rows.length) say($('.pi-empty', this.dd).textContent); // „Nic nenalezeno…“ – v nabídce není co vybrat
       $$('.pi-opt', this.dd).forEach(o => o.onmousedown = e => { e.preventDefault(); this.choose(rows[+o.dataset.i]); });
     }
-    close() { this.dd.hidden = true; }
+    close() { this.dd.hidden = true; this.input.setAttribute('aria-expanded', 'false'); this.input.removeAttribute('aria-activedescendant'); }
     /**
      * Text napsaný v poli, ale nevybraný z nabídky, a formulář odeslaný tlačítkem: věta → ✨ jako Enter ('run'),
      * název → první návrh ('pick'); nic → false (a hláška). Prázdné pole → 'none'.
@@ -470,7 +478,7 @@
     set(items, silent) { this.items = (items || []).slice(0, this.max); this.render(); if (!silent) this.onChange(this.items); }
     add(item) { this.pick(item); }
     render() {
-      this.chipsEl.innerHTML = this.items.map((x, i) => `<span class="pi-chip"><span>${x.flag || ''}</span>${esc(x.label)}<button type="button" data-x="${i}" aria-label="Odebrat">×</button></span>`).join('');
+      this.chipsEl.innerHTML = this.items.map((x, i) => `<span class="pi-chip"><span>${x.flag || ''}</span>${esc(x.label)}<button type="button" data-x="${i}" aria-label="${esc(`Odebrat ${x.label}`)}">×</button></span>`).join('');
       $$('[data-x]', this.chipsEl).forEach(b => b.onclick = e => { e.stopPropagation(); this.items.splice(+b.dataset.x, 1); this.render(); this.onChange(this.items); });
       this.input.placeholder = this.items.length ? 'přidat další…' : this.ph;
     }
@@ -970,8 +978,8 @@
     mlRows = legs.map((l, i) => {
       const el = $(`[data-ml="${i}"]`, host);
       const row = { el, from: null, to: null, prevTo: idsOf(l.to) };
-      if (i) row.from = new PlaceInput($('.ml-from', el), { placeholder: 'Město nebo letiště', max: 3, onChange: () => { mlTouched = true; mlInfo(); formEdited(); } });
-      row.to = new PlaceInput($('.ml-to', el), { placeholder: i === legs.length - 1 ? 'Město – nebo zpět domů' : 'Město nebo letiště', max: 3, onChange: () => { mlFollow(i); formEdited(); } });
+      if (i) row.from = new PlaceInput($('.ml-from', el), { placeholder: 'Město nebo letiště', label: `${i + 1}. let – odkud`, max: 3, onChange: () => { mlTouched = true; mlInfo(); formEdited(); } });
+      row.to = new PlaceInput($('.ml-to', el), { placeholder: i === legs.length - 1 ? 'Město – nebo zpět domů' : 'Město nebo letiště', label: `${i + 1}. let – kam`, max: 3, onChange: () => { mlFollow(i); formEdited(); } });
       if (row.from) row.from.set(l.from || [], true);
       row.to.set(l.to || [], true);
       $('.ml-flex', el).onchange = () => { mlTouched = true; mlInfo(); };
@@ -1304,6 +1312,12 @@
   }
 
   /* ---------- hledání ---------- */
+  /** Konec hledání pro čtečku obrazovky: cíl (u Kamkoliv počet destinací) a nejnižší cena z hlavičky výsledků, jinak hláška. */
+  function sayDone() {
+    const h = $('#results .res-head h2'), best = $('#results .res-head b.good'), note = $('#results .note');
+    say(h ? `Hledání hotové: ${h.textContent.replace(/\s+/g, ' ').trim()}${best ? `, nejlevněji ${best.textContent} za osobu` : ''}.`
+      : note ? note.textContent.replace(/\s+/g, ' ').trim().slice(0, 200) : 'Hledání hotové.');
+  }
   async function startSearch(opts = {}) {
     const f = getForm();
     nudge = null;
@@ -1345,6 +1359,7 @@
     lastDraw = false; // nevykreslené výsledky z minula už na obrazovku nepatří (Lety ukážou průběh tohoto hledání)
     $('#results').innerHTML = ''; $('#results').classList.remove('aged'); paintGroundStale(true);
     const btn = $('#doSearch'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Hledám…';
+    say('Hledám nejlevnější lety…'); // čtečka obrazovky: fokus zůstal na tlačítku, průběh se mění pod ním
     renderProgress({ providers: [], ...(f.trip === 'multi' ? { legs: f.legs.map((l, i) => ({ label: `${(i ? l.from : f.from).map(x => x.label).join(', ')} → ${l.to.map(x => x.label).join(', ')}`, state: 'pending' })) } : {}) }, true);
     if (!opts.noScroll) $('#progress').scrollIntoView({ behavior: 'smooth', block: 'start' });
     const job = (async () => {
@@ -1365,7 +1380,7 @@
       fitOrigins(res);
       nudge = seenBump(f); // stejné hledání po několikáté → nabídka ♡ Hlídat cenu nad výsledky
       // po průběžných výsledcích jen překreslit (filtry, pohled, rozbalení, posun i fokus zůstanou) – ne pod rukou
-      const paint = () => { renderProgress({ providers: res.providers }, false, res); if (s.shown) rerenderKeep(); else renderResults(); };
+      const paint = () => { renderProgress({ providers: res.providers }, false, res); if (s.shown) rerenderKeep(); else renderResults(); sayDone(); };
       paintDrop();
       if (s.shown) paintSoon(paint); else paint();
       if (!health && healthNow) healthNow(); // stav serveru při startu nedorazil – hledání prošlo, server žije: načíst hned
@@ -1384,6 +1399,7 @@
       const msg = failMsg(e);
       $('#progress').innerHTML = `<div class="note bad kiwi-note">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(s.shown ? SearchHelp.partialFail(msg) : msg)}</div><button type="button" class="btn sm" id="searchRetry">↻ Zkusit znovu</button></div>`;
       $('#searchRetry').onclick = () => startSearch();
+      say(msg);
       // na telefonu je hláška pod rozbaleným formulářem – posunout k ní, ať chyba není vidět jen jako „nic se nestalo“
       $('#progress').scrollIntoView({ block: 'center' });
     } finally {
@@ -1610,7 +1626,7 @@
     const sum = $('#searchSum'); if (!sum || !f || !f.from?.length) return;
     const lw = f.len === 'holiday' && f.trip === 'return' && f.dateMode !== 'exact' && SearchHelp.holidayOf(f, today()); // „🎉 Vánoce 24.–27. 12.“ stačí
     const when = f.trip !== 'multi' && f.dateMode !== 'exact' && !lw ? `${fmtDate(f.dFrom)}–${fmtDate(f.dTo)} · ` : '';
-    sum.innerHTML = `<div class="ss-txt"><b>${esc(watchLabel(f))}</b><span class="faint">${esc(when + recentSub(f, !when))} · ${esc(SearchHelp.paxShort(f))}</span></div><button type="button" class="btn sm ghost" id="ssWatch">♡</button><button type="button" class="btn sm" id="ssEdit">✎ Upravit</button>`;
+    sum.innerHTML = `<div class="ss-txt"><b>${esc(watchLabel(f))}</b><span class="faint">${esc(when + recentSub(f, !when))} · ${esc(SearchHelp.paxShort(f))}</span></div><button type="button" class="btn sm ghost" id="ssWatch" aria-label="Hlídat cenu">♡</button><button type="button" class="btn sm" id="ssEdit">✎ Upravit</button>`;
     sum.hidden = false;
     $('#searchForm').classList.add('collapsed');
     $('#ssEdit').onclick = () => { expandForm(); $('#searchForm').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
@@ -2001,11 +2017,11 @@
       ${filterChips(chips)}
       <div class="res-more${moreOpen ? ' open' : ''}" id="resMore">
       <div class="res-filters">
-        <div class="rf-group rf-sort"><span class="faint">Řazení:</span><select id="sortSel" title="Řazení">
+        <div class="rf-group rf-sort"><span class="faint">Řazení:</span><select id="sortSel" title="Řazení" aria-label="Řazení">
           ${[['best', 'Doporučené (i s cestou na letiště, časy, výhodnost)'], ['total', `Nejlevnější letenka${BAG_LBL[res.query.bags] ? ' (vč. zavazadel)' : ''}`], ['trip', 'Nejlevnější i s cestou na letiště (odhad)'], ['fast', 'Cena + délka cesty'], ['deal', 'Nejvýhodnější vůči běžné ceně'], ['season', 'Cena + ideální sezóna'], ['warm', 'Nejtepleji'], ['date', 'Nejdřívější odlet'], ...(res.query.trip === 'return' ? [['leave', 'Nejméně dovolené']] : []), ['near', 'Nejblíž'], ['far', 'Nejdál']].map(o => `<option value="${o[0]}" ${view.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
         <div class="rf-group"><span class="faint">Letiště:</span>${res.origins.map(o => { const l = SearchHelp.accessLabel(o.ground, { nights: resNights(res) }); return `<button type="button" class="fchip ${view.excludeOrigins.has(o.iata) ? '' : 'on'}" data-fo="${o.iata}" title="${esc((o.name || '') + (o.hub ? ` – velké přestupní letiště pro dálkové lety (${o.distKm} km – cesta na letiště je u nabídek zvlášť)` : '') + (l ? ` · ${l.title}` : ''))}">${o.hub ? '✈︎ ' : ''}${o.iata}${o.ground && o.ground.czk ? ` <small>${o.ground.mode === 'car' ? `🚗+${Math.round(SearchHelp.carTrip(o.ground, resNights(res)).perPerson / 10) * 10}` : `${o.ground.own ? '🏠' : ''}+${o.ground.czk}`}</small>` : ''}</button>`; }).join('')}</div>
         ${usedProviders.length > 1 ? `<div class="rf-group"><span class="faint">Aerolinky:</span>${usedProviders.map(p => `<button type="button" class="fchip ${view.excludeCarriers.has(p) ? '' : 'on'}" data-fc="${p}"><i style="background:${provColor(p)}"></i>${esc(provName(p))}</button>`).join('')}</div>` : ''}
-        <div class="rf-group rf-price"><span class="faint">Max.</span><input type="range" id="fPrice" min="0" max="${Math.ceil(maxP / 100) * 100}" step="100" value="${view.maxPrice || Math.ceil(maxP / 100) * 100}"><b id="fPriceVal">${view.maxPrice ? czk(view.maxPrice) : 'bez limitu'}</b></div>
+        <div class="rf-group rf-price"><span class="faint">Max.</span><input type="range" id="fPrice" aria-label="Nejvyšší cena za osobu" min="0" max="${Math.ceil(maxP / 100) * 100}" step="100" value="${view.maxPrice || Math.ceil(maxP / 100) * 100}"><b id="fPriceVal">${view.maxPrice ? czk(view.maxPrice) : 'bez limitu'}</b></div>
         <button type="button" class="fchip ${view.onlyDeals ? 'on' : ''}" id="fDeals" title="Jen nabídky s 🔥 Super cenou nebo 💚 Dobrou cenou">🔥 jen výhodné</button>
         ${nsplit && (view.newOnly || (nsplit.hidden && nsplit.keep)) ? `<button type="button" class="fchip ${view.newOnly ? 'on' : ''}" id="fNew" aria-pressed="${view.newOnly}" title="Jen země, které ještě nemáš na mapě navštívených (máš tam ${(S.visited || []).length} ${(S.visited || []).length <= 4 ? 'země' : 'zemí'}; domovská země se počítá jako navštívená)">🆕 jen nové země</button>` : ''}
         ${prefNow.favIn && (view.favOnly || prefNow.favIn < groups.length) ? `<button type="button" class="fchip ${view.favOnly ? 'on' : ''}" id="fFav" aria-pressed="${view.favOnly}" title="Jen města, která máš v ⭐ Moje cíle (ve výsledcích ${prefNow.favIn})">⭐ jen moje cíle</button>` : ''}
@@ -3088,7 +3104,8 @@
     const c = byIso[d.cc], geo = Boolean((window.Places || window.Lazy) && wxGeo(d)), w = dpClim(d, Boolean(window.Weather) && wxGeo(d) && wxWin(d.d1)), st = SearchHelp.stayPlan(d.d1, d.d2);
     const ent = window.Entry && d.cc && d.cc !== 'CZ' ? Entry.flightChip(d.cc, d.d2 || d.d1) || Entry.cardChip(d.cc) : '';
     const day = x => `<span class="dp-nw">${dayLabel(x)}</span>`;
-    return `<div class="dp" role="dialog" aria-modal="true" aria-labelledby="dpTitle">
+    // role okna a jméno (nadpis #dpTitle) dává celé okno #modal (app.js modalName) – tady by bylo okno v okně
+    return `<div class="dp">
       <div class="dp-hero" data-photo="${esc(d.label)}" style="--h:${ccHue(d.cc)}" aria-hidden="true"></div>
       <div class="dp-head"><span class="dp-flag" aria-hidden="true">${flag(d.cc)}</span><div class="dp-ttl"><h2 id="dpTitle">${esc(d.label)}</h2><div class="muted">${[esc(d.country), `letiště ${d.aps.map(esc).join(', ')}`].filter(Boolean).join(' · ')}</div></div>
         <button type="button" class="icon-btn dp-x" id="dpX" aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button></div>
@@ -3152,8 +3169,10 @@
   function dpFinish({ then = null, from = null }) {
     if (then) return then();
     // fokus zpět na 🔎 / ⓘ, i když se výpis nebo radar mezitím překreslil
-    const el = from && (from.isConnected ? from : from.dataset.dp != null ? $(`#results [data-dp="${CSS.escape(from.dataset.dp)}"]`)
-      : from.dataset.rinfo != null ? $(`#radar [data-rinfo="${CSS.escape(from.dataset.rinfo)}"]`) : null);
+    const ri = from && (from.dataset.rinfo != null ? from.dataset.rinfo : from.dataset.ri);
+    const el = from && (from.isConnected && from.dataset.ri == null ? from : from.dataset.dp != null ? $(`#results [data-dp="${CSS.escape(from.dataset.dp)}"]`)
+      // karta radaru (<div>) fokus nebere – na její ⓘ (otevírá totéž), jinak by čtečka obrazovky začínala znovu od začátku stránky
+      : ri != null ? $(`#radar [data-rinfo="${CSS.escape(ri)}"]`) : null);
     if (el && !$('#modalBg').classList.contains('show')) el.focus({ preventScroll: true });
   }
   // Krok, ze kterého se okno otevřelo, má ruční obnovu posunu a původní zapsanou v history.state (atlasSr, dpOpen). Jakmile
@@ -3286,9 +3305,9 @@
       return `<button type="button" class="${on ? 'on' : ''}" data-tp="${side}:${k}" aria-pressed="${on}"><b>${name}</b><small>${a}–${b} h</small></button>`;
     }).join('')}</div>`;
     const seg = (attr, opts, cur) => `<div class="seg tf-seg" role="group">${opts.map(([v, l]) => `<button type="button" class="${cur === v ? 'on' : ''}" ${attr}="${v ?? ''}" aria-pressed="${cur === v}">${l}</button>`).join('')}</div>`;
-    const slider = (id, r, v) => {
+    const slider = (id, r, v, name) => {
       const set = v && v < r.max;
-      return `<div class="tf-range"><input type="range" id="${id}" min="${r.min}" max="${r.max}" step="${r.step}" value="${set ? v : r.max}"><b id="${id}Val">${set ? 'do ' + hm(v) : 'bez limitu'}</b></div>`;
+      return `<div class="tf-range"><input type="range" id="${id}" aria-label="${name}" min="${r.min}" max="${r.max}" step="${r.step}" value="${set ? v : r.max}"><b id="${id}Val">${set ? 'do ' + hm(v) : 'bez limitu'}</b></div>`;
     };
     const stops = [[null, 'Libovolně'], ...(st.maxStops >= 2 || tf.stops === 1 ? [[1, 'Max. 1 přestup']] : []), [0, 'Jen přímé']];
     const on = SearchHelp.timeActive(tf);
@@ -3305,8 +3324,8 @@
           return `<button type="button" class="${tf.arrBy === v ? 'on' : ''}" data-tarr="${v ?? ''}" aria-pressed="${tf.arrBy === v}" title="${esc(tip)}"><b>${l}</b></button>`;
         }).join('')}</div>`)}
         ${st.maxStops > 0 || tf.stops != null ? field('🔁 Přestupy', seg('data-tst', stops, tf.stops)) : ''}
-        ${st.dur ? field(`⏱ Max. délka cesty <small>${ret ? 'každým směrem' : 'vč. přestupů'}</small>`, slider('tfDur', st.dur, tf.maxDur)) : ''}
-        ${st.lay ? field('⌛ Nejdelší přestup', slider('tfLay', st.lay, tf.maxLay)) : ''}
+        ${st.dur ? field(`⏱ Max. délka cesty <small>${ret ? 'každým směrem' : 'vč. přestupů'}</small>`, slider('tfDur', st.dur, tf.maxDur, 'Max. délka cesty')) : ''}
+        ${st.lay ? field('⌛ Nejdelší přestup', slider('tfLay', st.lay, tf.maxLay, 'Nejdelší přestup')) : ''}
         ${home ? field('🏠 Z domova', `<div class="tf-parts tf-one" role="group"><button type="button" class="${tf.reach ? 'on' : ''}" data-treach aria-pressed="${Boolean(tf.reach)}" title="Skryje lety, na které se z domova (nebo z nichž domů) veřejnou dopravou nejspíš nedostaneš: odjezd z domu před 4:30 nebo návrat domů mezi půl jednou a pátou ráno (odhad: cesta na letiště + 2 h před odletem, mimo Schengen 2,5 h, 45 min po přistání). U letiště ve tvém městě počítá s taxi."><b>Jen dostupné z domova</b></button></div>`) : ''}
       </div>
       <div class="tf-note faint">Časy jsou místní (odlet na letišti odletu, přílet v cíli). Lety bez známého času, délky nebo časů přestupů filtry neskrývají.${home ? ' Čas z domova je odhad.' : ''}</div>
@@ -3994,7 +4013,7 @@
     b.classList.toggle('on', on);
     b.onclick = on ? () => { go('dashboard'); setTimeout(() => $('#watchHead')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300); } : () => addWatch();
     const w = $('#ssWatch'); // ♡ ve sbaleném formuláři (telefon)
-    if (w) { w.textContent = on ? '♥' : '♡'; w.title = b.textContent; w.classList.toggle('on', on); w.onclick = b.onclick; }
+    if (w) { w.textContent = on ? '♥' : '♡'; w.title = b.textContent; w.setAttribute('aria-label', b.textContent.slice(2)); w.classList.toggle('on', on); w.onclick = b.onclick; }
   }
 
   // Stav karet během kontroly: id → 'wait' (ve frontě) | 'run' (právě se kontroluje).
@@ -5144,7 +5163,7 @@
       ${old ? `<div class="note warn pin-note">⚠️ <div>${old === 1 ? '1 cena je starší než 24 h – před nákupem ji ověř.' : `${old} ${old <= 4 ? 'ceny jsou' : 'cen je'} starší než 24 h – před nákupem je ověř.`}</div></div>` : ''}
       <div class="pin-cards">${rk.rows.map(card).join('')}</div>
       <div class="pin-foot"><button type="button" class="btn sm" id="pinShare">📤 Poslat k výběru</button>${pinBusy || todo.length ? `<button type="button" class="btn sm" id="pinVerify"${pinBusy ? ' disabled' : ''}>${pinBusy ? '<span class="spin dark"></span> Ověřuji…' : `⚡ Ověřit ceny (${todo.length})`}</button><span class="faint pin-vn">přes Kiwi.com, nejvýš 3 nejstarší ceny</span>` : ''}</div>
-      <textarea class="pin-txt" id="pinTxt" rows="8" readonly hidden></textarea></div>`);
+      <textarea class="pin-txt" id="pinTxt" rows="8" readonly hidden aria-label="Text k zkopírování"></textarea></div>`);
     const sc = $('.pin-cards', m), byK = k => list.find(p => p.k === k);
     if (keep) { sc.scrollLeft = sx; m.scrollTop = sy; }
     else {
@@ -5344,7 +5363,7 @@
           <li>V části <b>API Keys</b> zkopíruj klíč. <b>Sandbox</b> (začíná <code>sand_</code>) dává jen testovací hotely – pro skutečné ceny zapni <b>Production</b> (chce kartu, ale za hledání se neplatí).</li>
           <li>Na Renderu přidej proměnnou <code>LITEAPI_KEY</code> se zkopírovaným klíčem → <b>Save Changes</b>.</li>
         </ol>`;
-    modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close>${ico('M18 6L6 18M6 6l12 12')}</button>
+    modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>
       <div class="modal-hero-inner"><h2 style="font-size:23px">${title}</h2><div style="opacity:.85;font-size:13px">${sub}</div></div></div>
       <div class="modal-body">
         ${tpOn ? '<div class="note good" style="margin-bottom:12px">✓ <div><b>Všechny aerolinky jsou zapnuté</b> – Ryanair a Wizz Air živě, ostatní přes Travelpayouts / Aviasales, živé ceny k vybranému letu přes Kiwi.com. Tady není co nastavovat.</div></div>' : `<p class="muted" style="font-size:14px;margin-bottom:12px">Ryanair a Wizz Air ATLAS hledá přímo. Ostatní aerolinky (nízkonákladové i dálkové lety s přestupy) přidá bezplatný přístup k datům <b>Travelpayouts / Aviasales</b>:</p>

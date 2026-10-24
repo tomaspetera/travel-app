@@ -110,8 +110,6 @@
      tu spadly o lištu níž */
   html{scroll-padding-top:104px}
   #watchList .watch,#radarHead,#progress,.lcol,.legs-pick,.smart-guide,.dc-head,#mcol-0,#mcol-1,#mcol-2,#mcol-3,#mcPick,.cmp-row,#exPlanOut,.ex-err{scroll-margin-top:0}
-  /* okno dostane po otevření fokus (app.js modalKb) – bez rámečku kolem celého okna */
-  #modal:focus{outline:none}
   /* odkazy v nadpisech sekcí („Obnovit →“, „Porovnat →“) a čipy filtrů na najetí myší reagují jako ostatní tlačítka */
   .section-head .link:hover{text-decoration:underline;text-underline-offset:3px}
   .fchip:hover:not(:disabled){border-color:var(--accent);color:var(--text)}

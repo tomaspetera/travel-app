@@ -119,7 +119,7 @@ test('telefon: dny dovolené na kartě radaru na vlastním řádku (ne „🏖�
   const phone = mediaBody(read('css/flights.css'), '@media(max-width:560px)');
   assert.match(phone, /\.rc-sub \.rc-lv\{display:block/);
   assert.match(phone, /\.rc-sub \.rc-lv::before\{content:none\}/);
-  assert.match(read('index.html'), /<select id="cCont"><option value="">Kontinent: vše<\/option><\/select>/);
+  assert.match(read('index.html'), /<select id="cCont"[^>]*><option value="">Kontinent: vše<\/option><\/select>/);
   assert.match(read('js/app.js'), /\$\('#cCont'\)\.innerHTML = '<option value="">Kontinent: vše<\/option>'/);
 });
 

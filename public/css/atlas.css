@@ -1,6 +1,9 @@
 /* ============ DESIGN TOKENS ============ */
 :root{
   --accent:#5b8cff; --accent2:#a855f7; --accent3:#22d3ee;
+  /* --accent-ink: modrý text (odkazy „Obnovit →“, „změnit“, rozbalovací „Podrobnosti“…) – ve světlém režimu tmavší,
+     #5b8cff měl na světlém pozadí jen 2,7–3,1 : 1 (ve dne na slunci špatně čitelné); tmavý režim beze změny */
+  --accent-ink:#5b8cff;
   --grad:linear-gradient(135deg,#22d3ee 0%,#5b8cff 45%,#a855f7 100%);
   --grad-warm:linear-gradient(135deg,#fb7185 0%,#f59e0b 100%);
   --good:#34d399; --warn:#fbbf24; --bad:#fb7185; --info:#38bdf8;
@@ -29,7 +32,7 @@
   --border:rgba(13,22,48,.1); --border-2:rgba(13,22,48,.18);
   /* --faint: popisky a poznámky (trasa a termín u výsledku, „cena z …“, nápovědy) – na pozadí, kartě i v okně aspoň
      4,5 : 1 (ve dne na slunci); dřívější #8a96b8 měl jen 2,6–2,9 : 1. Pořád slabší než --muted. */
-  --text:#0f1830; --muted:#56638a; --faint:#606d92;
+  --text:#0f1830; --muted:#56638a; --faint:#606d92; --accent-ink:#2f5fd0;
   --nav-bg:rgba(15,24,48,.93); --nav-line:rgba(255,255,255,.06); --nav-ico:rgba(255,255,255,.62);
 }
 /* Mapy (svět, výsledky letů, výlety): světlé jako atlas – čitelné i na slunci, v tmavém i světlém režimu.
@@ -123,6 +126,8 @@ a{color:inherit}
 @keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
 /* ============ COMPONENTS ============ */
+/* text jen pro čtečku obrazovky (hlášení hledání #srSay, „zlevnilo“ u Přehledu v liště) – na obrazovce nic */
+.sr-only{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .grid{display:grid;gap:16px}
 /* okno cesty: Sbaleno a Rozpočet vedle sebe, na telefonu pod sebou (2 × 150 px = položky na dva řádky) */
@@ -140,18 +145,20 @@ a{color:inherit}
 .more-nav .btn .faint{min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* ⋯ Další: sekce mimo spodní lištu jako dlaždice, pod nimi nastavení */
 .more-sheet h3{margin-bottom:12px}
-.mn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.mn-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:16px}
 .mn-grid .more-tile:last-child:nth-child(odd){grid-column:1/-1} /* lichá poslední dlaždice přes celou šířku */
 .more-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:14px;border-radius:18px;border:1px solid var(--border);
   background:var(--surface-2);color:var(--text);font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s var(--ease)}
 .more-tile:active{transform:scale(.97)}
-.more-tile .mt-ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;margin-bottom:6px;color:var(--accent);
+.more-tile .mt-ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;margin-bottom:6px;color:var(--accent-ink);
   background:color-mix(in srgb,var(--accent) 14%,transparent)}
 .more-tile .mt-ico svg{width:20px;height:20px}
 .more-tile b{font-size:15px;line-height:1.2}
 .more-tile small{color:var(--muted);font-size:12.5px;line-height:1.3}
 .more-h{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px}
-.more-sheet .more-nav .btn{justify-content:flex-start;width:100%;margin-bottom:8px;gap:8px}
+.more-sheet .more-nav .btn{justify-content:flex-start;width:100%;margin-bottom:8px;gap:8px;white-space:normal;text-align:left}
+/* velké písmo systému (200 %): dlouhá slova a popisky dlaždic a nastavení se zalomí v okně, ne za jeho pravý okraj */
+.more-tile b,.more-tile small{max-width:100%;overflow-wrap:break-word}
 .more-sheet .more-nav .btn .faint{font-weight:400}
 .more-tip{font-size:12px;margin-top:6px}
 .btn.primary{background:#fff;border-color:transparent;color:#0b1226;box-shadow:0 10px 26px -12px rgba(0,0,0,.6)}
@@ -165,7 +172,7 @@ a{color:inherit}
 .chip.accent{background:rgba(91,140,255,.14);color:#9db8ff;border-color:rgba(91,140,255,.3)}
 [data-theme="light"] .chip.accent{color:#2f5fd0;background:rgba(91,140,255,.12)}
 /* odkaz do aplikace v mobilu (🚗 Waze, 🎫 PID Lítačka) – malý štítek vedle odkazu na trasu, nezalomí se uvnitř */
-.app-chip{display:inline-block;padding:0 8px;border-radius:10px;font-size:11.5px;font-weight:600;line-height:1.65;white-space:nowrap;background:var(--surface-2);border:1px solid var(--border);color:var(--accent);text-decoration:none;vertical-align:baseline}
+.app-chip{display:inline-block;padding:0 8px;border-radius:10px;font-size:11.5px;font-weight:600;line-height:1.65;white-space:nowrap;background:var(--surface-2);border:1px solid var(--border);color:var(--accent-ink);text-decoration:none;vertical-align:baseline}
 .app-chip:hover{border-color:var(--border-2)}
 /* 320 px: „🎫 Jízdenka v PID Lítačka“ vedle cesty na letiště v Průběhu cesty je širší než sloupec textu – bez zalomení
    roztáhla celou kartu Shrnutí doprava; štítek se zalomí uvnitř jen tehdy, když se nevejde ani na samostatný řádek */
@@ -213,10 +220,12 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 /* fotka místa pod úvodem (paintHero): přes celé pole, dole i nahoře ztmavená kvůli textu a hledání na skle */
 .hero[data-photo]{border:none;min-height:300px;display:flex;flex-direction:column;justify-content:flex-end}
 .hero.ph .hero-bg{background:#0b1226 var(--ph) center 40%/cover no-repeat;opacity:1}
-.hero.ph .hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,10,24,.55) 0%,rgba(6,10,24,.12) 40%,rgba(6,10,24,.55) 100%)}
+/* uprostřed (nadpis „Kam poletíme?“) dřív jen .12 – na světlé fotce (Santorini, Benátky) měl nadpis ~2,8 : 1 a popisky
+   hledání ~2,6 : 1; teď i na bílé fotce nadpis aspoň 3 : 1 a text na skle 4,5 : 1 */
+.hero.ph .hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,10,24,.5) 0%,rgba(6,10,24,.42) 40%,rgba(6,10,24,.6) 100%)}
 .hero.ph .hero-aurora,.hero.ph .hero-grain{display:none}
 .hero.ph h1,.hero.ph p{text-shadow:0 2px 14px rgba(0,0,0,.5)}
-.hero.ph .hero-search2{background:rgba(10,14,30,.4);border-color:rgba(255,255,255,.22)}
+.hero.ph .hero-search2{background:rgba(10,14,30,.6);border-color:rgba(255,255,255,.22)}
 .hero h1{font-size:34px;font-weight:800;line-height:1.1;max-width:620px}
 .hero p{color:rgba(255,255,255,.78);margin-top:10px;max-width:560px;font-size:15px}
 .hero-search{margin-top:22px;display:flex;gap:10px;max-width:600px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);padding:8px;border-radius:16px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
@@ -245,7 +254,7 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 .now-card{padding:14px 16px;border-color:rgba(91,140,255,.4);background:linear-gradient(135deg,rgba(34,211,238,.09),rgba(168,85,247,.07)),var(--card)}
 .now-card:focus{outline:none}
 .now-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.now-card a{color:var(--accent);font-weight:600;text-decoration:none}
+.now-card a{color:var(--accent-ink);font-weight:600;text-decoration:none}
 .now-card a:hover{text-decoration:underline}
 .nw-top{display:flex;align-items:baseline;justify-content:space-between;gap:4px 12px;flex-wrap:wrap}
 .nw-h{font:700 15.5px/1.35 'Sora','Inter',sans-serif;min-width:0;overflow-wrap:anywhere}
@@ -260,7 +269,7 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 .nw-rows .nw-next{padding-top:6px;border-top:1px dashed var(--border);color:var(--muted)}
 /* dnešní řádky, které už proběhly (let odletěl, cesta na letiště za tebou) – ztlumené, ne schované */
 .nw-rows .nw-past{opacity:.55}
-.nw-rows .nw-day,.nw-d{display:inline-block;margin-right:6px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.nw-rows .nw-day,.nw-d{display:inline-block;margin-right:6px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent-ink)}
 .nw-rows .nw-day{display:block;margin-top:2px}
 .nw-walk{display:block;font-size:12.5px;color:var(--muted)}
 .nw-walk a{white-space:nowrap}
@@ -293,15 +302,16 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 /* úzký den (telefon, na počítači itinerář ve dvou sloupcích): pole 2 × 2 */
 @container (max-width:460px){.ride-in{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 /* okno cesty během cesty: dnešek a 🔖 rezervace nahoře, v itineráři na dnešní den jen odkaz */
-.trip-live .live-h{font:800 13px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.trip-live .live-h{font:800 13px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:8px}
 .day-block.today{border-color:rgba(91,140,255,.5)}
-.day-now{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.day-now{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent-ink)}
 .day-ptr{padding:9px 12px;margin-bottom:12px;border:1px dashed var(--border-2);border-radius:14px;font-size:13px;color:var(--muted)}
 [data-theme="light"] .trip-live .live-h,[data-theme="light"] .day-now{color:#2f5fd0}
 /* světlý motiv: drobné modré texty karty tmavší – čitelné i venku na slunci */
 [data-theme="light"] .now-card a,[data-theme="light"] .now-card .linkbtn,[data-theme="light"] .nw-d,[data-theme="light"] .nw-rows .nw-day{color:#2f5fd0}
 .section-head h2{font-size:18px;font-weight:800}
-.section-head .link{font-size:13px;color:var(--accent);cursor:pointer;font-weight:700;white-space:nowrap;margin-left:10px}
+.section-head .link{font-size:13px;color:var(--accent-ink);cursor:pointer;font-weight:700;white-space:nowrap;margin-left:10px;position:relative}
+.section-head .link::after{content:"";position:absolute;inset:-12px -6px} /* „Obnovit →“ jen 20 px vysoký – plocha pro prst 44 px */
 
 /* destination cards */
 .dest-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
@@ -344,16 +354,17 @@ button.dest{font:inherit;text-align:left;width:100%}
 .ex-insp-h{margin-top:8px}
 .dest[data-photo] .flag{position:absolute;top:12px;left:12px;width:42px;height:42px;display:grid;place-items:center;font-size:22px;border-radius:50%;
   background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.28);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
-.dest-panel{padding:12px 13px;border-radius:18px;background:rgba(10,14,30,.42);border:1px solid rgba(255,255,255,.2);box-shadow:0 10px 26px -14px rgba(0,0,0,.6);
+/* sklo pod textem .6 (dřív .42): na světlé fotce (obloha, sníh) měl popis karty jen ~2,5 : 1 – teď aspoň 4,5 : 1 */
+.dest-panel{padding:12px 13px;border-radius:18px;background:rgba(10,14,30,.6);border:1px solid rgba(255,255,255,.2);box-shadow:0 10px 26px -14px rgba(0,0,0,.6);
   -webkit-backdrop-filter:blur(16px) saturate(160%);backdrop-filter:blur(16px) saturate(160%)}
 .dest[data-photo] .cname{margin-top:0;font:700 17px/1.25 Sora,Inter,sans-serif;color:#fff}
-.dest[data-photo] .ccont,.dest[data-photo] .cblurb,.dest[data-photo] .meta,.dest[data-photo] .tag{color:rgba(255,255,255,.84)}
+.dest[data-photo] .ccont,.dest[data-photo] .cblurb,.dest[data-photo] .meta,.dest[data-photo] .tag{color:rgba(255,255,255,.92)}
 .dest[data-photo] .cblurb{min-height:0;margin-top:4px}
 .dest[data-photo] .meta{margin-top:8px}
 .dest[data-photo] .tags{margin-top:6px}
 .dest[data-photo] .tag{background:rgba(255,255,255,.16);border-color:transparent}
 [data-theme] .dest[data-photo] .chip.accent{background:#fff;color:#0b1226;border-color:transparent}
-[data-theme] .dest[data-photo] .ec{background:rgba(255,255,255,.18);color:#fff}
+[data-theme] .dest[data-photo] .ec{background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.3);color:#fff} /* světlejší podklad by bílý text na skle zesvětlil pod 4,5 : 1 */
 /* úzká karta (2 sloupce na 360 px): „🛂 vízum na hranici“ radši na dva řádky než useknuté */
 .dest .ec{white-space:normal}
 .dest[data-photo] .score-pill,.dest[data-photo] .vmark{top:12px;right:12px}
@@ -458,6 +469,13 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   .modal:has(.modal-hero)::before{background:rgba(255,255,255,.55)}
 }
 @media(prefers-reduced-motion:reduce){.modal{animation:none}}
+/* okno dostane po otevření fokus (app.js modalKb, i na telefonu) – bez rámečku kolem celého okna */
+#modal:focus{outline:none}
+/* Omezit pohyb (nastavení systému): bez plujících barev v úvodu Přehledu, vyjetí sekce, třpytu načítaných karet
+   a prolnutí okna – točící se kolečko „hledám“ zůstává (říká, že se něco děje) */
+@media(prefers-reduced-motion:reduce){
+  .hero-aurora,.view,.skel,.modal-bg.show{animation:none}
+}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:6px 0 4px}
 .kv .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
 .kv .v{font-size:16px;font-weight:800;margin-top:3px}
@@ -549,7 +567,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   .new-trip .plus{width:38px;height:38px;border-radius:12px;margin:0}.new-trip .plus:not(:nth-last-child(2)){grid-row:span 2}}
 .empty{text-align:center;padding:54px 20px;color:var(--muted)}
 .empty .ei{width:64px;height:64px;border-radius:18px;background:var(--surface);display:grid;place-items:center;margin:0 auto 16px}
-.empty .ei svg{width:30px;height:30px;color:var(--accent)}
+.empty .ei svg{width:30px;height:30px;color:var(--accent-ink)}
 .plan-last{display:flex;flex-direction:column;gap:3px;max-width:420px;margin:0 auto 14px;padding:12px 16px;border-radius:16px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:14px}
 .plan-last .faint{font-size:12px}
 .plan-empty-act{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
@@ -597,6 +615,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
     background:var(--nav-bg);border:1px solid var(--nav-line);box-shadow:0 18px 40px -14px rgba(0,0,0,.6),0 2px 10px rgba(0,0,0,.18);
     -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
   .mobile-nav .mi{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:center;justify-content:center;border-radius:999px;color:var(--nav-ico);
+    border:0;padding:0;background:none;font:inherit; /* <button> bez vzhledu tlačítka prohlížeče */
     cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;
     transition:flex-grow .32s var(--ease),background-color .25s var(--ease),color .25s var(--ease)}
   .mobile-nav .mi svg{flex:none;width:22px;height:22px;transition:transform .14s var(--ease)}
@@ -606,6 +625,9 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   .mobile-nav .mi.active span{max-width:96px;opacity:1;margin-left:7px}
   .mobile-nav .mi:active svg{transform:scale(.84)}
   .toast{bottom:calc(90px + env(safe-area-inset-bottom));max-width:calc(100% - 32px)}
+  /* Tab z klávesnice (a posun k poli): prvek se odroluje nad plovoucí lištu, ne pod ni – dřív končil fokus na tlačítkách
+     a kartách schovaný za lištou */
+  html{scroll-padding-bottom:calc(90px + env(safe-area-inset-bottom))}
   .airport-pills{display:none}
   .menu-btn{display:none} /* menu je dole v liště: ⋯ Další */
   .world-tabs{display:flex;width:100%;margin:0 0 14px}
@@ -742,7 +764,8 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .dt-ic{flex:none;width:22px;text-align:center;font-size:17px}
 .dt-b{flex:1;min-width:0;overflow-wrap:anywhere}
 .dt-b .btn{margin-top:8px}
-.dt-x{flex:none;border:none;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;padding:6px 8px;border-radius:7px}
+.dt-x{flex:none;border:none;background:none;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;padding:6px 8px;border-radius:7px;position:relative}
+.dt-x::after{content:"";position:absolute;inset:-8px} /* ✕ 29 × 27 px – plocha pro prst kolem 44 px, vzhled stejný */
 .dt-x:hover,.dt-x:focus-visible{color:var(--text);background:var(--surface-2)}
 /* 🕘 Od minula (Přehled nahoře po návratu jiný den, app.js renderSince): nejvýš 3 řádky, celý řádek je tlačítko
    (na telefonu dost velký cíl pro prst), dlouhý název se zalomí */
@@ -759,7 +782,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .sc-i{text-align:center;font-size:15px}
 .sc-t{min-width:0;overflow-wrap:anywhere;color:var(--muted)}
 .sc-t b{color:var(--text)}
-.sc-go{color:var(--accent);font-weight:800;font-size:17px;line-height:1.2}
+.sc-go{color:var(--accent-ink);font-weight:800;font-size:17px;line-height:1.2}
 [data-theme="light"] .sc-go{color:#2f5fd0}
 #watchList .watch{scroll-margin-top:90px} /* klepnutí na zlevnění v Od minula: karta hlídání pod lepicí hlavičkou */
 /* Vítej – první návštěva: 3 kroky místo seznamu novinek */

@@ -90,7 +90,7 @@
 .pt-packd[open]>summary::after{content:' ▴'}
 /* Co zařídit: popis doporučení a informací sbalený pod „Podrobnosti“ */
 .pt-bd{margin:2px 0 0 26px}
-.pt-bd>summary{font-size:12.5px;color:var(--accent);cursor:pointer;list-style:none;display:inline-block;padding:2px 0}
+.pt-bd>summary{font-size:12.5px;color:var(--accent-ink);cursor:pointer;list-style:none;display:inline-block;padding:2px 0}
 .pt-bd>summary::-webkit-details-marker{display:none}
 .pt-bd>summary::after{content:' ▾'}
 .pt-bd[open]>summary::after{content:' ▴'}
