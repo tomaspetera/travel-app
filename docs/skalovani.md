@@ -2,6 +2,91 @@
 
 Podklad k podnikatelskému plánu (cíl: 1000+ lidí naráz, později desítky tisíc uživatelů). Stav k 24. 10. 2026.
 
+## Starší výsledek radaru hned, přepočet na pozadí (24. 10. 2026)
+
+Navazuje na „Další kroky“ bod 5. Na Renderu zdarma (0,1 CPU) trvá výpočet radaru při návalu minuty (níž: p50 141–157 s
+pro 10 návštěvníků). Hotový výsledek server drží jen 2 min (`SEARCH_RESULT_TTL`) – kdo přišel později, čekal na celý
+nový výpočet, i když stejný radar server spočítal před pár minutami pro někoho jiného.
+
+### Jak to funguje (server/index.js revalidate, server/lib/crowd.js recentResults, public/js/flights.js radarSearch)
+- **Co se drží**: jen úplný výsledek radaru (`radar: true`, completeResult) – po 2 min dál jako „starší“, nejvýš 30 min
+  od spočítání (`SEARCH_STALE_TTL` v s, výchozí a zároveň nejvýš 1800 – aplikace radar starší 30 min sama hledá znovu,
+  starší by jí nebyl k ničemu; 0 = vypnuto, chování jako dřív). Ve stejném stropu paměti `SEARCH_RESULT_MB` (radar
+  ~1,2–1,4 MB, 24 MB ≈ 17 radarů): při nedostatku místa ven nejdřív prošlé, pak nejstarší. Hledání v Letech se nemění
+  (hotový výsledek jen 2 min, starší nikdy).
+- **Klíč** = celé tělo dotazu a dnešní datum serveru: domov (letiště), okruh, režim Kdykoliv / Víkendy / Svátky (noci,
+  dny odletu a návratu, odlet od, termíny), počet lidí, cesta na letiště i 🏠 vlastní ceny. Nic proměnlivého (čas,
+  náhodné číslo) aplikace neposílá (SearchHelp.radarQuery), takže radar z Prahy +200 km pro 2 os. sdílí každý se stejným
+  nastavením. Přes půlnoc nepřejde (dotaz „od dneška“ se mění).
+- **Kdo přijde po 2 min**, dostane hned starší výsledek se značkou `{ type: 'result', stale: { at, ageS }, result }` –
+  bez průběhu, i když se stejné hledání právě počítá, i při plné frontě (frontu ani strop adresy nezabere, do limitu
+  hledání z adresy se počítá jako hotový výsledek). Server výsledek znovu na JSON nepřevádí, jen změní začátek řádku.
+  Aplikace uloží radar s časem spočítání (podle `ageS` serveru, ne hodin telefonu) a v patičce ukáže
+  **„Aktualizováno 12:18 (před 12 min)“** – stáří u každého radaru staršího 2 min, i uloženého; za otevřené aplikace
+  se každou minutu a po návratu do aplikace dopočítá (jen text, žádné hledání). Paměť cen (⭐, „Je to dobrá cena?“) ceny
+  zapíše k času spočítání. 30min platnost uloženého radaru v aplikaci běží od spočítání – po ní hledá znovu a dostane
+  už nový výsledek.
+- **Přepočet na pozadí**: kdo starší výsledek dostane, spustí jeden přepočet – obyčejné sdílené hledání (fronta, strop
+  souběžných hledání; připojí se k němu i ↻ Obnovit), jen bez klienta, takže doběhne, i když všichni odejdou. **Jen na
+  skutečný požadavek** – žádný časovač, plánované dotazy ani keep-alive (server po 15 min bez návštěvy klidně usne).
+  Stejné hledání už běží nebo čeká → druhý přepočet ne, jen ho podrží do konce (fronta by ho jinak zahodila, kdyby
+  jeho zakladatel zavřel stránku). Přepočet se zařadí, jen když hned začne nebo zůstane aspoň polovina fronty volná pro
+  hledání lidí (refreshRoom) – jinak nic, starší výsledek stačí a zkusí to další požadavek. Nepovede se (výpadek zdroje,
+  chyba) → starší platí dál do 30 min, další požadavek zkusí přepočet znovu.
+- **↻ Obnovit / Zkusit znovu** u radaru, který už ceny ukazuje: aplikace pošle `newerThanS` = stáří cen na obrazovce –
+  starší výsledek dostane, jen když je novější, jinak se hledá jako dřív (nebo se připojí k běžícímu přepočtu).
+  `newerThanS` do klíče nepatří. Nový domov, první otevření a návrat po 30 min starší výsledek rády vezmou.
+- **Přetížení (Retry-After, výš „Aplikace u přetíženého serveru“)**: starší výsledek odklad v aplikaci nezruší – server
+  ho posílá i při plné frontě; kontrola hlídaných cen a radar dál samy nehledají do Retry-After.
+- **`/api/health` → `searches`**: `staleHits` (kolikrát někdo dostal starší výsledek), `staleRefreshes` (rozběhnuté
+  přepočty), `staleFailed` (přepočet nedal úplný výsledek), `staleSkipped` (přepočet se kvůli frontě nespustil);
+  `ready` a `readyMb` počítají i starší výsledky.
+
+Testy: test/swr.test.js (po TTL všem hned starší výsledek se stářím a jen jeden přepočet, pak nový; nepovedený přepočet
+starší nezahodí; plná fronta = jen starší výsledek a nové hledání dál 503; `newerThanS`; přepočet podrží čekající
+hledání, jehož zakladatel odešel; Lety bez staršího výsledku; klíč dotazu z SearchHelp.radarQuery; aplikace: stáří
+z runSearch, odklad po přetížení, patička), test/crowd.test.js (starší výsledky do `staleMs`, strop paměti a pořadí
+vyhazování).
+
+Ručně (Playwright, DEMO, telefon 412 px, světlý režim): první návštěvník z Prahy čeká na radar 15 s (stroj vytížený
+jinými úlohami); nový návštěvník (prázdný prohlížeč) po 2 min má karty za 4,6 s (načtení celé stránky – jako s hotovým
+novým výsledkem, 5,7 s) se stejnými kartami a patičkou „Aktualizováno 12:18 (před 2 min)“, server spustí jeden
+přepočet; další nový návštěvník po přepočtu dostane nový výsledek bez stáří; ↻ Obnovit pošle `newerThanS` a ukáže
+nové ceny.
+
+### Zátěž jako Render zdarma: noví návštěvníci po vypršení hotových výsledků
+
+`CPU_QUOTA=0.1 SERVER_CPUS=0 ONLY=users USERS=10 AFTER_TTL=1 SEARCH_RESULT_TTL=10 node scripts/load-test.mjs` (DEMO,
+hlavička skriptu): radary všech 10 návštěvníků (7 různých dotazů) se napřed jednou spočítají na plném jádře, po
+vypršení hotových výsledků (tady 10 s místo 2 min) dostane server desetinu jádra a přijde 10 nových návštěvníků
+naráz (stránka, soubory, API, radar…). „Před“ = `SEARCH_STALE_TTL=0` (bez staršího výsledku – stejné chování jako
+dřív). „Karty“ = od příchodu návštěvníka (stránka, soubory aplikace, stav, našeptávač) po výsledek radaru.
+
+| desetina jádra, 10 nových návštěvníků | před (2 běhy) | po (3 běhy) |
+|---|---|---|
+| **karty od příchodu** p50 / p95 | 134–145 / 288–295 s | **15–29 / 22–31 s** |
+| odpověď radaru p50 / p95 | 128–137 / 264–270 s | 2,9–10 / 12–19 s |
+| všichni návštěvníci hotovi za | 290–296 s | 29–36 s |
+| stránka / soubory / API p95 | 13–20 / 2–17 / 2,5–4,8 s | 12–16 / 5–8 / 2,8–7,8 s |
+| `/healthz` nejdéle | 11–19 s | 7–14 s |
+| smyčka událostí nejdéle | 11–19 s | 7–8 s |
+| procesor serveru | 29–30 s (během fáze) | 2,9–3,6 s během fáze + 27 s přepočty na pozadí |
+
+Přepočty (7, jeden na dotaz, žádný nepropadl ani se nepřeskočil) doběhly 270 s po příchodu návštěvníků a vzaly
+skoro stejně procesoru jako dřív hledání návštěvníků – práce je stejná, jen se na ni nečeká. Odpověď radaru
+se starším výsledkem trvá na desetině jádra pořád sekundy: komprese ~0,6 MB a smyčka událostí sdílená
+s přepočty (stejně jako stránka a API). Stroj sdílely jiné úlohy (zátěž 1–4,7 na 4 jádrech), čísla jsou orientační.
+
+### Na co dát pozor
+- Ceny na kartách můžou být až 30 min staré (dřív nejvýš 2 min) – vždy s poctivým stářím. Ceny zdrojů má server
+  v mezipaměti 20–30 min tak jako tak; detail karty a „Všechny termíny“ hledají znovu, koupě je u prodejce.
+- Procesor se tím neušetří: každý radar se po 2 min dál přepočítá (jen na pozadí, bez čekání). Stránka a API během
+  přepočtů jsou pomalé jako dřív během čekání na radar.
+- Výpadek zdroje: po nepovedeném přepočtu zkusí další požadavek nový (jako dřív každý návštěvník sám), pro jeden dotaz
+  ale nejvýš jeden naráz.
+- Po nasazení nebo probuzení serveru je paměť prázdná – první návštěvník z každého domova počítá jako dřív. Víc
+  instancí (Další kroky bod 4) = každá vlastní starší výsledky.
+
 ## Menší odpověď radaru a konečné složení výsledku po kouscích (24. 10. 2026)
 
 Navazuje na „Co zbývá“ z 23. 10. (níž): výsledek radaru byl velký a konečné složení výsledku běželo v kuse.
@@ -417,8 +502,9 @@ až po radaru), fotky (3–5 dotazů podle rychlosti odpovědí). Testy: `test/o
   zastaví se jen hledání, které ještě čekalo ve frontě.
 
 ## Další kroky při růstu (zatím nestavět – až to bude potřeba)
-1. **Teď (Render zdarma, 1 instance)**: sledovat `/api/health` → `searches` (`readyHits` = ušetřená hledání, `queued`
-   = fronta) a `cache.trims`; v logu Renderu 503 „hledá pro hodně lidí“. Nic placeného, žádná údržba navíc.
+1. **Teď (Render zdarma, 1 instance)**: sledovat `/api/health` → `searches` (`readyHits` = ušetřená hledání, `staleHits`
+   = radar hned ze staršího výsledku, `staleFailed` = nepovedené přepočty, `queued` = fronta) a `cache.trims`; v logu
+   Renderu 503 „hledá pro hodně lidí“. Nic placeného, žádná údržba navíc.
 2. **Desítky lidí naráz → placený plán s 1 CPU / 2 GB** (Render Standard): `SEARCH_CONCURRENCY` 6–8, `SEARCH_QUEUE`
    40, `CACHE_SOFT_MB` ~1200, `SEARCH_RESULT_MB` 64; `SEARCH_RESULT_TTL` klidně 300 (ceny zdrojů platí 20–30 min).
    Bez dalších úprav kódu – jen proměnné prostředí. Výpočet hledání mimo hlavní vlákno (`worker_threads`, 1 vlákno
@@ -430,10 +516,11 @@ až po radaru), fotky (3–5 dotazů podle rychlosti odpovědí). Testy: `test/o
 4. **Stovky lidí naráz → víc instancí**: každá má vlastní mezipaměť cen, hotové výsledky, limity a frontu. Pak
    sdílená mezipaměť a hotové výsledky + limity z adresy ve sdíleném úložišti (Redis/Valkey, např. Render Key Value)
    a směrování stejného dotazu na stejnou instanci (sticky podle klíče hledání), jinak se běžící hledání nesdílí.
-5. **Oblíbené dotazy předem**: radar z hlavních domovů (Praha, Brno, Ostrava, Vídeň, Katovice) je pořád tentýž –
+5. **Oblíbené dotazy předem**: ~~radar z hlavních domovů (Praha, Brno, Ostrava, Vídeň, Katovice) je pořád tentýž –
    při stálém provozu (server nespí) vrátit hotový výsledek i chvíli po vypršení a přepočítat ho na pozadí
-   („stale-while-revalidate“, bez plánovaných dotazů a keep-alive). Odpověď radaru jen s 12–20 kartami místo 150 cílů
-   chce doporučené pořadí (rank.js) na serveru – 24. 10. zmenšena jen o pole, která radar nečte (výš).
+   („stale-while-revalidate“, bez plánovaných dotazů a keep-alive)~~ – od 24. 10. (nahoře: starší výsledek radaru do
+   30 min, přepočet jen na požadavek). Odpověď radaru jen s 12–20 kartami místo 150 cílů chce doporučené pořadí
+   (rank.js) na serveru – 24. 10. zmenšena jen o pole, která radar nečte (výš).
 6. **Tisíce uživatelů → smluvní zdroje dat**: neoficiální rozhraní Ryanairu a Wizz Air z jedné adresy serveru tolik
    dotazů neunesou (blokace postihne všechny). Affiliate API (Travelpayouts/Aviasales – už zapojené, Kiwi Tequila
    partner), později GDS/NDC (Duffel, Amadeus – placené). Mezipaměť cen pak sdílená mezi instancemi (bod 4).

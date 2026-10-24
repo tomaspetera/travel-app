@@ -226,10 +226,13 @@
       if (e.busy && e.until) overload = { message: e.message, until: Math.max(e.until, overload ? overload.until : 0), at: Date.now() };
       throw e;
     }
-    overload = null; // server hledání přijal – zase normálně
+    // server hledání přijal – zase normálně; jen starší hotový výsledek radaru (stale níž) server pošle i při plné frontě,
+    // ten odklad (Retry-After) nezruší
+    const ov0 = overload;
+    overload = null;
     const reader = r.body.getReader();
     const dec = new TextDecoder();
-    let buf = '', result = null, error = null;
+    let buf = '', result = null, error = null, stale = null;
     for (; ;) {
       // Spojení, které se uprostřed zaseklo (slabý signál), skončí po limitu bez dat chybou (pwa.js readOrStall) – jinak
       // by „Hledám…“ viselo donekonečna a stejné hledání by nešlo spustit znovu (startSearch čeká na běžící).
@@ -244,12 +247,15 @@
         if (ev.type === 'progress' && onProgress) onProgress(ev);
         // náhled je navíc – chyba při jeho vykreslení nesmí shodit hledání
         else if (ev.type === 'partial' && onPartial && ev.result) { try { onPartial(ev.result); } catch (e) { console.error(e); } }
-        else if (ev.type === 'result') result = ev.result;
+        else if (ev.type === 'result') { result = ev.result; stale = ev.stale; }
         else if (ev.type === 'error') error = ev.error;
       }
     }
+    if (stale && !overload) overload = ov0;
     if (error) throw new Error(error);
     if (!result) throw new Error('Server neposlal výsledek');
+    // starší hotový výsledek radaru (server: stale-while-revalidate) – jak je starý (s, podle serveru, ne hodin telefonu)
+    if (stale && stale.ageS >= 0) result.staleAgeS = +stale.ageS;
     return result;
   }
 
@@ -4471,6 +4477,7 @@
   // vidět, dokud nedorazí nové).
   document.addEventListener('visibilitychange', () => {
     ageTick(); // výsledky hledání na Letech a cena letu v průvodci: jak jsou staré
+    radarAgoTick();
     if (document.hidden || !document.querySelector('#view-dashboard.active') || !(S.home && S.home.from?.length) || $('#radarGo')) return; // rozdělané „Odkud obvykle létáš?“ nechat
     const c = radarCached(SearchHelp.radarQuery(S.radarMode, radarHome(), today(), S.radarHoliday));
     if (!c || Date.now() - c.at >= 30 * 60e3 || !SearchHelp.radarOwnOk(c, S.accessOwn)) renderRadar();
@@ -4543,7 +4550,10 @@
     if (ov) return radarFail(q, old, ov);
     if (old) paintRadar(old, q, { busy: true });
     else host.innerHTML = `<div class="faint radar-stale"><span class="spin"></span> Hledám nejlevnější lety z okolí – obvykle do půl minuty<span class="rp"></span></div><div class="radar-grid">${Array.from({ length: 8 }, () => '<div class="card radar-card skel"></div>').join('')}</div>`;
-    const job = radarJobs[key] || (radarJobs[key] = radarSearch(q, key).finally(() => { delete radarJobs[key]; }));
+    // ↻ Obnovit / Zkusit znovu (force) u radaru, který už ceny ukazuje: starší hotový výsledek serveru jen novější než
+    // ceny na obrazovce (newerThanS = jejich stáří) – stejný by nic neobnovil; jinak (nový domov, první otevření, návrat
+    // po 30 min) ho rádo vezme
+    const job = radarJobs[key] || (radarJobs[key] = radarSearch(q, key, force && old ? Math.max(0, Math.floor((Date.now() - old.at) / 1000)) : null).finally(() => { delete radarJobs[key]; }));
     try {
       const r = await job;
       if (radarWant === key) paintRadar(r, q);
@@ -4616,13 +4626,18 @@
     if (chip !== 'geo') { const h = SearchHelp.homeOf(chip); return h ? set(h) : done(false); }
     useMyLocation(p => set(SearchHelp.homeOf(p)), msg => { toast(msg + ' – vyber město', 'err'); done(false); });
   }
-  async function radarSearch(q, key) {
+  async function radarSearch(q, key, newerThanS = null) {
     busySearches++;
     try {
       // radar: true – server pošle jen to, co radar níž čte (search.js radarResult, ~40 % velikosti); čte-li radar
       // z výsledku další pole, musí ho server posílat taky (test/radar-slim.test.js)
-      const res = SearchHelp.radarRes(await runSearch({ ...q.payload, radar: true }, { onProgress: ev => radarProgress(ev, key) }));
-      PriceCheck.remember(res);
+      // newerThanS – radar ukazuje ceny staré tolik sekund (↻ Obnovit): starší hotový výsledek serveru jen novější
+      const res = SearchHelp.radarRes(await runSearch({ ...q.payload, radar: true, ...(newerThanS != null ? { newerThanS } : {}) }, { onProgress: ev => radarProgress(ev, key) }));
+      // čas cen: starší hotový výsledek od serveru (staleAgeS – spočítal ho před chvílí pro jiného návštěvníka a teď ho
+      // přepočítává) platí od spočítání – „Aktualizováno“ ukáže skutečné stáří, paměť cen ho zapíše k tomu času a 30min
+      // platnost uloženého radaru běží od něj, takže příští hledání po ní dostane už nový výsledek
+      const at = Date.now() - (res.staleAgeS > 0 ? res.staleAgeS * 1e3 : 0);
+      PriceCheck.remember(res, { now: at });
       renderFav(); // ⭐ Moje cíle: ceny, které radar právě viděl
       // u svátků jen odlet první volný den nebo večer předem (SearchHelp.radarPick); s rezervou (RADAR_KEEP cílů mimo 🙈),
       // aby 🙈 později jen schovalo kartu a posunula se další – bez nového hledání; 🙈 cíle zůstanou uložené na svém
@@ -4636,7 +4651,7 @@
         const all = [g.best, ...(g.options || [])].filter(Boolean), alt = q.lw ? t : all.reduce((a, b) => (b.perPersonCzk < a.perPersonCzk ? b : a), t);
         return { t, sc: Rank.score(t, rc), label: g.dest.label, cc: g.dest.cc, minTrip: Math.min(...all.map(x => x.tripCzk ?? x.perPersonCzk)), ...(alt !== t ? { alt: { t: alt, sc: Rank.score(alt, rc) } } : {}) };
       }), picked.length);
-      const at = Date.now(), items = picked.map(({ g, t }, i) => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: t.perPersonCzk, from: t.out.from, to: t.out.to, d1: t.out.date, d2: t.back?.date,
+      const items = picked.map(({ g, t }, i) => ({ label: g.dest.label, cc: g.dest.cc, id: g.dest.id, czk: t.perPersonCzk, from: t.out.from, to: t.out.to, d1: t.out.date, d2: t.back?.date,
         // zpět z jiného letiště / na jiné letiště (kombinace z Kamkoliv) – na kartě „JCL → POZ ↩ PED“ (SearchHelp.radarRoute)
         ...(t.back && (t.back.from !== t.out.to || t.back.to !== t.out.from) ? { bf: t.back.from, bt: t.back.to } : {}),
         // čas odletu a přílet zpět kvůli dnům dovolené na kartě (SearchHelp.leaveDays)
@@ -4688,6 +4703,12 @@
     const lt = SearchHelp.leaveTxt(lv);
     return `<span class="rc-lv" title="${esc(lt.title)}">${esc(lt.text)}</span>`;
   }
+  // stáří cen radaru za časem v patičce, jen když už nejsou čerstvé: „Aktualizováno 14:02 (před 12 min)“ – starší hotový
+  // výsledek od serveru bývá starý až 30 min, uložený radar taky; za otevřené aplikace se dopočítává (radarAgoTick)
+  const radarAgo = at => (at > 0 && Date.now() - at >= 2 * 60e3 ? ` (${Alerts.agoTxt(Date.now() - at)})` : '');
+  // jen text na obrazovce (žádné hledání): po minutě a po návratu do aplikace
+  const radarAgoTick = () => $$('#radar [data-rago]').forEach(el => { el.textContent = radarAgo(+el.dataset.rago); });
+  setInterval(radarAgoTick, 60e3);
   /** st: { busy } = starší výsledek, nový se hledá · { error } = starší výsledek, nový se nepodařilo načíst. */
   // název na kartě radaru s „i“: poslední slovo a „i“ nezalomitelné – „i“ nezůstane samo na dalším řádku (Memmingen (Mnichov))
   const rcName = (label, btn) => {
@@ -4729,7 +4750,7 @@
         <div class="rc-foot"><div class="rc-price">${czk(x.czk)}<small>/os.</small></div><span class="rc-go" aria-hidden="true">›</span></div>
       </div>
     </div>`;
-    }).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klepni na kartu: detail, koupit let nebo všechny termíny · fotky měst z <a href="https://unsplash.com/?utm_source=atlas_letenky&utm_medium=referral" target="_blank" rel="noopener">Unsplash</a>, <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> a Wikimedia Commons (autor u fotky)</div>`;
+    }).join('')}</div><div class="faint" style="font-size:11.5px;margin-top:8px">Aktualizováno ${when}<span data-rago="${+r.at || 0}">${radarAgo(r.at)}</span>${r.partial ? ' · ⚠️ část aerolinek neodpověděla – ceny můžou být vyšší' : ''} · klepni na kartu: detail, koupit let nebo všechny termíny · fotky měst z <a href="https://unsplash.com/?utm_source=atlas_letenky&utm_medium=referral" target="_blank" rel="noopener">Unsplash</a>, <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> a Wikimedia Commons (autor u fotky)</div>`;
     // telefon: nejdřív 6 karet, zbytek tlačítkem (CSS skryje 7.+ jen na úzké obrazovce; rozbalené zůstane do zavření aplikace)
     const rg = $('.radar-grid', host), rcN = rg ? rg.children.length : 0;
     if (rg && rcN > 6) {
