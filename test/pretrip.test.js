@@ -566,6 +566,59 @@ test('plánovač ↔ průvodce: odškrtnutí v „Sbaleno“ uložené cesty a v
   assert.equal(old.checklist.at(-1).id, undefined);
 });
 
+test('plánovač ↔ průvodce: smazaná vlastní položka nepředá odškrtnutí další se stejným číslem (my-1)', () => {
+  // vlastní položky se číslují nejmenším volným číslem – stará kopie v „Sbaleno“ plánovače spojila odškrtnutí s novou
+  const c = load({ storage: memStorage() });
+  const P2 = c.window.PreTrip, o = { isos: ['JP'], climate: [] };
+  c.save = () => { };
+  const w = trip({ cc: 'JP', label: 'Tokio' }), key = P2.tripKey(w);
+  assert.equal(P2.addCustom(w, 'Powerbanka'), '');
+  P2.setDone(key, 'pack:my-1', true);
+  const saved = { name: 'Tokio', tripId: w.created, wizard: { ...plain(w), created: undefined }, checklist: plain(P2.plannerChecklist(w, o)) };
+  c.S.trips = [saved];
+  assert.equal(saved.checklist.find((x) => x.t === 'Powerbanka').id, 'pack:my-1');
+  assert.equal(P2.delCustom(w, 'my-1'), true);
+  P2.html(w, o); // překreslení karty
+  assert.equal(P2.doneOf(key)['pack:my-1'], undefined, 'stará kopie v plánovači odškrtnutí nevrátí');
+  assert.equal(P2.addCustom(w, 'Deštník'), '');
+  assert.equal(w.pretrip.custom[0].id, 'my-1');
+  assert.doesNotMatch(P2.html(w, o), /data-ptk="pack:my-1" checked/, 'nová položka není odškrtnutá');
+  assert.equal(P2.toPlanner(c.S.trips, key, 'pack:my-1', true), 0, 'nová položka nepřepíná „Powerbanku“ v plánovači');
+  assert.equal(saved.checklist.find((x) => x.t === 'Powerbanka').done, true);
+  // stejný text u vlastní položky ze starší verze bez id se spojí dál
+  const w2 = trip({ cc: 'JP', label: 'Tokio', created: 1767225600001 }), key2 = P2.tripKey(w2);
+  P2.addCustom(w2, 'Kindle');
+  const s2 = { name: 'Tokio 2', tripId: w2.created, wizard: { ...plain(w2), created: undefined }, checklist: [{ t: 'Kindle', done: true }] };
+  c.S.trips = [s2];
+  assert.match(P2.html(w2, o), /data-ptk="pack:my-1" checked/);
+  assert.equal(s2.checklist[0].id, 'pack:my-1');
+  assert.equal(P2.doneOf(key2)['pack:my-1'], 1);
+});
+
+test('💾 záloha a 📲 přenos: id položek „Sbaleno“ zůstanou – zrušené odškrtnutí v plánovači se po otevření v průvodci nevrátí', () => {
+  const { c, Trip } = wizard(memStorage());
+  vm.runInContext(read('public/js/planshare.js'), c, { filename: 'planshare.js' });
+  vm.runInContext(read('public/js/backup.js'), c, { filename: 'backup.js' });
+  const B = c.window.Backup, P2 = c.window.PreTrip, o = { isos: ['JP'], climate: [] };
+  const deps = { sanitizePlan: c.window.PlanShare.sanitize, sanitizeWizard: Trip.sanitizeTrip, txt: c.window.PlanShare.txt };
+  const t = tokyo(), key = P2.tripKey(t);
+  P2.setDone(key, 'todo:ins', true);
+  const entry = { name: 'Tokio', dest: 'Tokio', iso: 'JP', start: '2027-03-12', end: '2027-03-21', pax: '2', tripId: t.created, wizard: plain(t), checklist: plain(P2.plannerChecklist(t, o)) };
+  const inc = B.parse(B.pack({ trips: [entry] }, P2.exportDone()), deps);
+  const ins = inc.trips[0].checklist.find((x) => x.t === 'Zařídit: cestovní pojištění');
+  assert.deepEqual(plain(ins), { t: 'Zařídit: cestovní pojištění', done: true, id: 'todo:ins' }, 'id přežije zálohu');
+  // jen platná id; #plan= (json) dál bez nich
+  assert.equal(c.window.PlanShare.sanitize({ name: 'x', checklist: [{ t: 'a', done: false, id: 'javascript:x' }] }).checklist[0].id, undefined);
+  // nové zařízení: v plánovači zrušit odškrtnutí → v průvodci taky; karta průvodce ho nevrátí
+  c.S.trips = [inc.trips[0]];
+  ins.done = false; P2.fromPlanner(inc.trips[0], ins);
+  P2.html(t, o);
+  assert.equal(ins.done, false);
+  // starší záloha bez id: cesta není „změněná“ jen kvůli id
+  const noIds = { ...entry, checklist: entry.checklist.map(({ id, ...x }) => x) };
+  assert.deepEqual(plain(B.diff({ trips: [entry] }, B.parse(B.pack({ trips: [noIds] }), deps), { deps }).trips), { add: 0, same: 1, changed: 0 });
+});
+
 test('odškrtnutí: localStorage pro každou cestu, nejvýš 30 cest, rozbité nebo zakázané úložiště nevadí', () => {
   const mem = new Map();
   const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)) };

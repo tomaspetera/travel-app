@@ -734,7 +734,10 @@
    */
   function linkSaved(trips, key, list) {
     let n = 0;
-    const done = doneOf(key), add = {};
+    const done = doneOf(key), add = {}, cur = new Map((list || []).map(x => [x.id, x.t]));
+    // spojit jen položky, které karta teď má; vlastní (pack:my-N) i se stejným textem – číslo smazané vlastní položky
+    // dostane další přidaná a stará kopie v plánovači by jí jinak předala své odškrtnutí
+    const same = c => !list || (cur.has(c.id) && (!/^pack:my-/.test(c.id) || cur.get(c.id) === c.t));
     for (const p of savedOf(trips, key)) {
       for (const c of p.checklist) {
         if (!c || typeof c !== 'object') continue;
@@ -743,7 +746,7 @@
           if (!m || p.checklist.some(y => y && y.id === m.id)) continue;
           c.id = m.id; n++;
         }
-        if (!CK_ID.test(c.id)) continue;
+        if (!CK_ID.test(c.id) || !same(c)) continue;
         if (c.done && !done[c.id]) add[c.id] = true;
         else if (!c.done && done[c.id]) { c.done = true; n++; }
       }
@@ -878,6 +881,9 @@
     const list = customOf(t), key = tripKey(t);
     if (!list.some(x => x.id === id)) return false;
     if (doneOf(key)[`pack:${id}`]) setDone(key, `pack:${id}`, false);
+    // kopie v „Sbaleno“ uložené cesty zůstane (smaže se až novým uložením), ale už bez spojení – jinak by ji převzala
+    // další přidaná položka se stejným číslem (i s odškrtnutím)
+    for (const p of savedOf(plannerTrips(), key)) for (const c of p.checklist) if (c && c.id === `pack:${id}`) delete c.id;
     patch(t, { custom: list.filter(x => x.id !== id) });
     return true;
   }
