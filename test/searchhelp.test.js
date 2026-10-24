@@ -589,10 +589,32 @@ test('dowList: dny v týdnu česky jako jinde v aplikaci („pá nebo so“, ne 
   assert.equal(H.dowList([5, 5, 9, -1, 'x', null]), 'pá');
   assert.equal(H.dowList([]), '');
   assert.equal(H.dowList(undefined), '');
-  // shrnutí „Další možnosti“ v Letech skládá „odlet …“ z dowList (dřív DOW[d].join(','))
+  // shrnutí „Další možnosti“ v Letech skládá „odlet …“ a „návrat …“ z dowList (dřív DOW[d].join(','))
   const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
-  assert.match(fl, /bits\.push\('odlet ' \+ SearchHelp\.dowList\(f\.outDays\)\)/);
+  assert.match(fl, /bits\.push\(\.\.\.SearchHelp\.dowBits\(f\)\)/);
   assert.doesNotMatch(fl, /DOW\[d\]\)\.join\(','\)/);
+});
+
+test('dowBits: shrnutí Další možnosti – dny odletu i návratu, jen kde je hledání použije', () => {
+  const f = { trip: 'return', dateMode: 'flex', outDays: [6, 4, 5], backDays: [1, 0] };
+  // návrat po odletu: týden u dnů návratu od dne za prvním dnem odletu (dřív by dowList dal „po nebo ne“)
+  assert.deepEqual(plain(H.dowBits(f)), ['odlet čt, pá nebo so', 'návrat ne nebo po'], 'dřív chyběly dny návratu');
+  assert.deepEqual(plain(H.dowBits({ ...f, outDays: [3, 4, 5], backDays: [2, 1, 0] })), ['odlet st, čt nebo pá', 'návrat ne, po nebo út'], 'prodloužený víkend');
+  assert.deepEqual(plain(H.dowBits({ ...f, outDays: [5], backDays: [0, 5] })), ['odlet pá', 'návrat ne nebo pá'], 'pá → ne, nebo za týden pá');
+  assert.deepEqual(plain(H.dowBits({ ...f, outDays: [6, 0], backDays: [1, 2] })), ['odlet so nebo ne', 'návrat po nebo út']);
+  // bez dnů odletu od začátku bloku: ne + po přes konec týdne
+  assert.deepEqual(plain(H.dowBits({ ...f, outDays: [] })), ['návrat ne nebo po'], 'jen návrat');
+  assert.deepEqual(plain(H.dowBits({ ...f, outDays: [], backDays: [6, 0] })), ['návrat so nebo ne']);
+  assert.deepEqual(plain(H.dowBits({ ...f, outDays: [], backDays: [5, 1, 3] })), ['návrat po, st nebo pá']);
+  assert.deepEqual(plain(H.dowBits({ ...f, outDays: [], backDays: [2] })), ['návrat út']);
+  assert.equal(H.dowList([0, 1], 0), 'ne nebo po', 'from = den, od kterého se týden počítá');
+  assert.equal(H.dowList([0, 1]), 'po nebo ne', 'bez from od pondělí jako dřív');
+  assert.deepEqual(plain(H.dowBits({ ...f, backDays: [] })), ['odlet čt, pá nebo so']);
+  assert.deepEqual(plain(H.dowBits({ ...f, trip: 'oneway' })), ['odlet čt, pá nebo so'], 'jen tam: návrat se nehledá');
+  assert.deepEqual(plain(H.dowBits({ ...f, dateMode: 'exact' })), [], 'přesná data dny v týdnu nemají (pole je schované)');
+  assert.deepEqual(plain(H.dowBits({ ...f, trip: 'multi' })), [], 'víc měst taky ne');
+  assert.deepEqual(plain(H.dowBits({ trip: 'return', dateMode: 'flex', outDays: [], backDays: [] })), []);
+  assert.deepEqual(plain(H.dowBits(null)), []);
 });
 
 test('radarStale: starší výsledek stejného dotazu (i z jiného dne) bez prošlých odletů; jiný domov, režim nebo okruh ne', () => {

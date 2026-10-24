@@ -4,7 +4,8 @@
   const CFG = {
     cycleMs: 30 * 60e3, // jak často se dívat, jestli je co kontrolovat
     staleMs: 6 * 3600e3, // hledání starší než 6 h se zkontroluje znovu
-    maxPerCycle: 4,
+    maxPerCycle: 4, // hledání za cyklus – i hned po otevření (s radarem jinak až 13 hledání během minuty)
+    moreMs: 5 * 60e3, // zbyla zastaralá hlídání (víc než 4): další várka za 5 min, ne až za půl hodiny
     gapMs: 4000, // pauza mezi dvěma kontrolami
     startMs: 6000, // první kontrola chvíli po startu (ať nepřebíjí radar)
     waitMs: 5000, // jak často zkusit znovu, když je stránka skrytá nebo běží hledání
@@ -349,16 +350,43 @@
     const cur = num(w && w.best && w.best.czk), seen = num(w && w.seen);
     return !!(cur && seen && cur <= seen * (1 - pct / 100));
   }
-  // hledání s proběhlým termínem (today = 'YYYY-MM-DD') se nepočítá – jako v „Od minula“ (odznak by hlásil zlevnění, které nikde není)
-  function droppedCount(list, today = null) { return (list || []).filter(w => isDropped(w) && !(today && isPast(w && w.form, today))).length; }
+  /**
+   * Den odletu nejlevnější nabídky z poslední kontroly ('YYYY-MM-DD', null = nevím): w.best.dep, u kontrol ze starší
+   * verze (dep až od 23. 10. 2026 – vracející se uživatel má právě takové) první datum z popisu („Lisabon · 5.12.–9.12.
+   * · z KLV“, víc měst „5.12. PRG→LIS · …“). Rok podle dne kontroly: nabídka neodlétá dřív, než ji kontrola našla
+   * (den rezervy na časové pásmo).
+   */
+  function bestDep(w) {
+    const b = w && w.best;
+    if (!b) return null;
+    if (isYmd(b.dep)) return b.dep;
+    const m = /(?:^|[\s·])(\d{1,2})\.(\d{1,2})\.(?!\d)/.exec(typeof b.desc === 'string' ? b.desc : ''), at = num(w.checked);
+    if (!m || !at || +m[2] < 1 || +m[2] > 12 || +m[1] < 1 || +m[1] > 31) return null;
+    const from = new Date(at - 864e5).toISOString().slice(0, 10), md = `-${pad2(m[2])}-${pad2(m[1])}`;
+    const d = from.slice(0, 4) + md >= from ? from.slice(0, 4) + md : +from.slice(0, 4) + 1 + md;
+    return isYmd(d) ? d : null;
+  }
+  /**
+   * Nejlevnější nabídka z poslední kontroly už odletěla (bestDep před today), i když termín hledání ještě trvá
+   * (rozsah 1.–31. 12., nabídka 5.–9. 12.). Po týdnech pryč by ji 📉 karta a odznak ukazovaly jako zlevnění, dokud ji
+   * automatická kontrola nenahradí – koupit už nejde.
+   */
+  function bestGone(w, today) {
+    const d = isYmd(today) ? bestDep(w) : null;
+    return !!d && d < today;
+  }
+  // hledání s proběhlým termínem nebo odlétlou nabídkou (today = 'YYYY-MM-DD') se nepočítá – jako v „Od minula“ (odznak by
+  // hlásil zlevnění, které nikde není)
+  const gone = (w, today) => !!today && (isPast(w && w.form, today) || bestGone(w, today));
+  function droppedCount(list, today = null) { return (list || []).filter(w => isDropped(w) && !gone(w, today)).length; }
 
   /**
    * Řádek „Od minula“ nahoře na Přehledu: hlídání pod cílovou cenou (hits), zlevněná od posledního pohledu na seznam
    * (watch, o kolik, nejvíc první; bez těch pod cílem) a změny radaru (down = levněji než minule, fresh = nové cíle).
    */
   function news(list, radar, today = null) {
-    // hledání s proběhlým termínem se už nehlídá – ani do „Od minula“
-    const ws = (list || []).filter(w => w && w.best && num(w.best.czk) && !(today && isPast(w.form, today)));
+    // hledání s proběhlým termínem se už nehlídá – ani do „Od minula“; nabídka, která už odletěla, není zlevnění (📉 karta)
+    const ws = (list || []).filter(w => w && w.best && num(w.best.czk) && !gone(w, today));
     const hits = ws.filter(w => num(w.target) && w.best.czk <= w.target).map(w => ({ id: w.id, label: w.label, czk: w.best.czk }));
     const hit = new Set(hits.map(x => x.id));
     const watch = ws.filter(w => !hit.has(w.id) && isDropped(w)).map(w => ({ id: w.id, label: w.label, d: num(w.seen) - w.best.czk })).sort((a, b) => b.d - a.d);
@@ -540,15 +568,18 @@
   /**
    * Fronta kontrol: v jednu chvíli běží nejvýš jedna kontrola (ruční i automatická),
    * cyklus nikdy dvakrát najednou. check(id) běží uvnitř zámku a smí vyhodit chybu (zkusí se příští cyklus).
-   * sync() před kontrolou převezme výsledky z jiného panelu. firstMax = kolik hledání smí zkontrolovat první cyklus po
-   * otevření nebo po dlouhé pauze (staleMs – aplikace z pozadí na telefonu) – aplikace bývá otevřená jen chvíli a
-   * s limitem 4 by se 12 hlídaných dostalo na řadu až za pár návštěv. costOf(w) = kolik hledání kontrola stojí na
-   * serveru (cesta přes víc měst 2) – limit cyklu se počítá v nich, ať kontroly nevyčerpají limit hledání uživatele.
-   * check(id) → 'stop': server je přetížený nebo nedostupný – cyklus skončí hned (zbylá hlídání příště), jinak by
-   * přetížený server dostal až 12 hledání za sebou a všechna by odmítl.
+   * sync() před kontrolou převezme výsledky z jiného panelu. costOf(w) = kolik hledání kontrola stojí na serveru
+   * (cesta přes víc měst 2) – limit cyklu (cfg.maxPerCycle) se počítá v nich, ať kontroly nevyčerpají limit hledání
+   * uživatele. Limit platí i pro první cyklus po otevření: vracející se uživatel s 12 zastaralými hlídáními by jinak
+   * s radarem poslal 13 hledání během minuty. Zbytek přijde v dalších cyklech, nejdéle nekontrolovaná napřed: more =
+   * cyklus vyčerpal limit a zbyla zastaralá hlídání, která v téhle řadě cyklů ještě nebyla na řadě – volající pak
+   * spustí další cyklus dřív (cfg.moreMs). V jedné řadě se každé hlídání zkusí jen jednou (nepovedené kontroly by se
+   * jinak opakovaly každých 5 min místo 30); řada končí cyklem, po kterém nic nezbylo, nebo dlouhou pauzou (staleMs).
+   * check(id) → 'stop': server je přetížený nebo nedostupný – cyklus skončí hned bez dohánění (zbylá hlídání až
+   * v příštím běžném cyklu), jinak by přetížený server dostal další hledání a všechna by odmítl.
    */
-  function scheduler({ list, check, today, now = () => Date.now(), sleep, canRun = () => true, sync = () => { }, cfg = CFG, firstMax = 0, costOf = () => 1 }) {
-    let lock = Promise.resolve(), cycling = false, lastCycle = 0, cycles = 0;
+  function scheduler({ list, check, today, now = () => Date.now(), sleep, canRun = () => true, sync = () => { }, cfg = CFG, costOf = () => 1 }) {
+    let lock = Promise.resolve(), cycling = false, lastCycle = 0, more = false, done = new Set();
     const exclusive = fn => { const p = lock.then(() => fn()); lock = p.catch(() => { }); return p; };
     async function ready() {
       for (let t = 0; !canRun(); t += cfg.waitMs) {
@@ -560,23 +591,25 @@
     async function cycle() {
       if (cycling) return -1;
       cycling = true;
-      const tried = new Set();
       let n = 0;
       try {
         if (!await ready()) return 0;
         const prev = lastCycle;
         lastCycle = now();
-        const big = (cycles++ === 0 || now() - prev >= cfg.staleMs) && firstMax > cfg.maxPerCycle;
-        const max = big ? firstMax : cfg.maxPerCycle;
+        // nová řada: minulý cyklus nic nedlužil, nebo po dlouhé pauze (zkontrolovaná jsou zase zastaralá)
+        if (!more || lastCycle - prev >= cfg.staleMs) done = new Set();
+        more = false;
+        const max = cfg.maxPerCycle;
         let spent = 0;
-        while (spent < max) {
-          const w = dueWatches(list(), { now: now(), today: today(), max: 1, skip: tried, staleMs: cfg.staleMs })[0];
+        for (;;) {
+          const w = dueWatches(list(), { now: now(), today: today(), max: 1, skip: done, staleMs: cfg.staleMs })[0];
           if (!w) break;
           // cena předem: cesta přes víc měst (2 hledání) se do zbytku rozpočtu nevejde → až příště (jako první, nehladoví)
           const cost = Math.max(1, Number(costOf(w)) || 1);
-          if (spent && spent + cost > max) break;
-          if (n && (await sleep(cfg.gapMs), !await ready())) break;
-          tried.add(w.id);
+          if (spent >= max || (spent && spent + cost > max)) { more = true; break; }
+          // stránka se mezitím schovala (a dlouho nevrátila): zbytek po návratu
+          if (n && (await sleep(cfg.gapMs), !await ready())) { more = true; break; }
+          done.add(w.id);
           const ran = await exclusive(async () => {
             // mezitím ho mohla zkontrolovat ruční kontrola (i v jiném panelu) nebo ho uživatel smazal
             try { sync(); } catch (e) { }
@@ -590,8 +623,8 @@
       } finally { cycling = false; }
       return n;
     }
-    return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; } };
+    return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; }, get more() { return more; } };
   }
 
-  window.Alerts = { CFG, PV, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, TIP, dayTxt, watchStats, depDays, buyTip, notifState, scheduler, nextMonday9, remindEvent, watchFromHash };
+  window.Alerts = { CFG, PV, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, bestDep, bestGone, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, TIP, dayTxt, watchStats, depDays, buyTip, notifState, scheduler, nextMonday9, remindEvent, watchFromHash };
 })();

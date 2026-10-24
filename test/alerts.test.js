@@ -347,7 +347,7 @@ test('texty: procenta, „před 2 h“, stav upozornění', () => {
 });
 
 /* fronta kontrol s falešným časem */
-function harness(list, { failIds = [], visible = () => true, sync, firstMax = 0, costOf } = {}) {
+function harness(list, { failIds = [], visible = () => true, sync, costOf } = {}) {
   let now = NOW;
   const log = [];
   let running = 0, maxRunning = 0;
@@ -359,7 +359,6 @@ function harness(list, { failIds = [], visible = () => true, sync, firstMax = 0,
     sleep: async (ms) => { now += ms; await tick(); },
     canRun: visible,
     sync,
-    firstMax,
     ...(costOf ? { costOf } : {}),
     check: async (id) => {
       running++; maxRunning = Math.max(maxRunning, running);
@@ -419,18 +418,20 @@ test('scheduler: přetížený nebo nedostupný server (check → stop) – cykl
   const log = [];
   let now = NOW, stop = true;
   const sched = A.scheduler({
-    list: () => list, today: () => TODAY, now: () => now, firstMax: 12,
+    list: () => list, today: () => TODAY, now: () => now,
     sleep: async (ms) => { now += ms; await new Promise((r) => setImmediate(r)); },
     // 503 „hledá pro hodně lidí“: kontrola selže a řekne stop (dřív se zkusilo všech 12, každé odmítnuté)
     check: async (id) => { log.push(id); if (stop) { list.find((w) => w.id === id).tried = now; return 'stop'; } list.find((w) => w.id === id).checked = now; },
   });
   assert.equal(await sched.cycle(), 1);
   assert.deepEqual(log, ['w11'], 'jen jedno hledání');
+  assert.equal(sched.more, false, 'po odmítnutí žádné dohánění za 5 min – až běžný cyklus');
   // příští cyklus (server zase odpovídá): napřed ostatní, odmítnuté až nakonec
   stop = false;
   now += 30 * 60e3;
   assert.equal(await sched.cycle(), 4);
   assert.deepEqual(log.slice(1), ['w10', 'w9', 'w8', 'w7']);
+  assert.equal(sched.more, true, 'zbylá hlídání v dalších cyklech');
   // výjimka z kontroly cyklus nezastaví (jedno vadné hledání nebrzdí ostatní)
   const h = harness([{ id: 'x', form: f, checked: NOW - 10 * H }, { id: 'y', form: f, checked: NOW - 9 * H }], { failIds: ['x'] });
   assert.equal(await h.sched.cycle(), 2);
@@ -473,26 +474,90 @@ test('news: řádek „Od minula“ – pod cílovou cenou, zlevněná od posled
   assert.equal(A.news([past], null).hits.length, 1, 'bez dneška jako dřív');
 });
 
-test('scheduler: první cyklus po otevření zkontroluje všechna zastaralá (firstMax), další zase po 4', async () => {
-  const f = flex('2026-10-10', '2026-12-01');
-  const list = Array.from({ length: 10 }, (_, i) => ({ id: 'w' + i, form: f, checked: NOW - (20 + i) * H }));
-  const h = harness(list, { firstMax: 12 });
-  assert.equal(await h.sched.cycle(), 10);
-  list.forEach((w) => { w.checked = 0; });
-  assert.equal(await h.sched.cycle(), 4, 'další cyklus zase s limitem');
+test('bestGone: 📉 karta, „Od minula“ ani odznak neukážou nabídku, která už odletěla (termín hledání ještě trvá)', () => {
+  // návrat po týdnech: hlídání Lisabonu 1.–31. 12. má z poslední kontroly nabídku 5.–9. 12., dnes je 22. 12.
+  const f = { dateMode: 'flex', dFrom: '2026-12-01', dTo: '2026-12-31' };
+  const lis = { id: 'lis', label: 'Praha → Lisabon', form: f, best: { czk: 3573, desc: 'Lisabon · 5.12.–9.12. · z KLV', dep: '2026-12-05' }, seen: 4123, target: 3600 };
+  assert.equal(A.isPast(f, '2026-12-22'), false, 'termín hledání trvá');
+  assert.equal(A.bestGone(lis, '2026-12-22'), true);
+  assert.equal(A.bestGone(lis, '2026-12-05'), false, 'odlet dnes ještě platí');
+  assert.equal(A.bestGone(lis, '2026-12-04'), false);
+  assert.equal(A.bestGone({ ...lis, best: { czk: 3573 } }, '2026-12-22'), false, 'bez data odletu i popisu – podle termínu hledání');
+  // kontrola ze starší verze (dep až od 23. 10. 2026): den z popisu, rok podle dne kontroly
+  const old = { ...lis, best: { czk: 3573, desc: 'Lisabon · 5.12.–9.12. · z KLV' }, checked: Date.parse('2026-11-20T18:00:00Z') };
+  assert.equal(A.bestDep(old), '2026-12-05');
+  assert.equal(A.bestGone(old, '2026-12-22'), true, 'vracející se uživatel: kontroly ze starší verze');
+  assert.equal(A.bestGone(old, '2026-12-05'), false);
+  assert.equal(A.bestDep({ ...old, best: { czk: 1, desc: 'Řím · 3.1.–6.1. · z VIE' }, checked: Date.parse('2026-12-20T10:00:00Z') }), '2027-01-03', 'přes Nový rok');
+  assert.equal(A.bestDep({ ...old, best: { czk: 1, desc: '20.12. PRG→LIS · 27.12. LIS→OPO' } }), '2026-12-20', 'víc měst: první let');
+  assert.equal(A.bestDep({ ...old, checked: null }), null, 'bez dne kontroly rok nevím');
+  assert.equal(A.bestDep({ ...old, best: { czk: 1, desc: 'Lisabon · z KLV' } }), null);
+  assert.equal(A.bestDep({ ...old, best: { czk: 1, desc: 'Lisabon · 5.12.', dep: '2026-12-07' } }), '2026-12-07', 'dep má přednost');
+  assert.equal(A.bestGone(lis, null), false);
+  assert.equal(A.bestGone({}, '2026-12-22'), false);
+  const n = A.news([lis, { ...lis, id: 'w2', target: null }], null, '2026-12-22');
+  assert.deepEqual([n.hits.length, n.watch.length], [0, 0], 'ani pod cílem, ani zlevnění');
+  assert.equal(A.droppedCount([lis], '2026-12-22'), 0, 'odznak 📉 taky ne');
+  // po kontrole s novou nabídkou zase normálně
+  const fresh = { ...lis, best: { czk: 3500, dep: '2026-12-30' } };
+  assert.equal(A.news([fresh], null, '2026-12-22').hits.length, 1);
+  assert.equal(A.droppedCount([fresh], '2026-12-22'), 1);
+  // bez dneška jako dřív
+  assert.equal(A.news([lis], null).hits.length, 1);
 });
 
-test('scheduler: velký cyklus i po dlouhé pauze (aplikace z pozadí); cesta přes víc měst stojí 2 hledání', async () => {
+test('scheduler: i první cyklus po otevření jen 4 hledání (nejdéle nekontrolovaná), zbytek v dalších cyklech (more)', async () => {
+  // vracející se uživatel s 12 zastaralými hlídáními: dřív 12 hledání (+ radar) během minuty, teď 4 + 4 + 4 po 5 min
   const f = flex('2026-10-10', '2026-12-01');
-  const list = Array.from({ length: 10 }, (_, i) => ({ id: 'w' + i, form: i < 4 ? { ...f, trip: 'multi' } : f, checked: NOW - (20 + i) * H }));
-  const h = harness(list, { firstMax: 12, costOf: (w) => (w.form.trip === 'multi' ? 2 : 1) });
-  const n1 = await h.sched.cycle();
-  assert.ok(n1 < 10 && n1 >= 8, 'rozpočet 12 hledání: ' + n1);
-  list.forEach((w) => { w.checked = 0; });
-  assert.ok(await h.sched.cycle() <= 4, 'hned další cyklus malý');
-  list.forEach((w) => { w.checked = 0; });
-  h.advance(7 * H); // aplikace byla v pozadí přes 6 h
-  assert.ok(await h.sched.cycle() >= 8, 'po pauze zase velký');
+  const list = Array.from({ length: 10 }, (_, i) => ({ id: 'w' + i, form: f, checked: NOW - (20 + i) * H }));
+  const h = harness(list);
+  assert.equal(h.sched.more, false);
+  assert.equal(await h.sched.cycle(), 4);
+  assert.deepEqual(h.log, ['w9', 'w8', 'w7', 'w6'], 'nejstarší napřed');
+  assert.equal(h.sched.more, true, 'zbyla zastaralá → další cyklus dřív (CFG.moreMs)');
+  h.advance(A.CFG.moreMs);
+  assert.equal(await h.sched.cycle(), 4);
+  assert.deepEqual(h.log.slice(4), ['w5', 'w4', 'w3', 'w2']);
+  assert.equal(h.sched.more, true);
+  h.advance(A.CFG.moreMs);
+  assert.equal(await h.sched.cycle(), 2);
+  assert.deepEqual(h.log.slice(8), ['w1', 'w0']);
+  assert.equal(h.sched.more, false, 'vše zkontrolováno → zase po 30 min');
+  assert.equal(await h.sched.cycle(), 0);
+  assert.ok(A.CFG.maxPerCycle <= 4 && A.CFG.moreMs >= 5 * 60e3 && A.CFG.moreMs < A.CFG.cycleMs);
+});
+
+test('scheduler: dohánění zkusí každé hlídání jen jednou – nepovedené až v příštím běžném cyklu; po dlouhé pauze znovu všechna', async () => {
+  const f = flex('2026-10-10', '2026-12-01');
+  const list = Array.from({ length: 6 }, (_, i) => ({ id: 'w' + i, form: f, checked: NOW - (20 + i) * H }));
+  const h = harness(list, { failIds: ['w5', 'w4'] });
+  assert.equal(await h.sched.cycle(), 4);
+  assert.deepEqual(h.log, ['w5', 'w4', 'w3', 'w2']);
+  assert.equal(h.sched.more, true);
+  h.advance(A.CFG.moreMs);
+  assert.equal(await h.sched.cycle(), 2);
+  assert.deepEqual(h.log.slice(4), ['w1', 'w0'], 'nepovedené w5, w4 se v dohánění neopakují');
+  assert.equal(h.sched.more, false, 'nepovedené neudrží dohánění každých 5 min');
+  h.advance(A.CFG.cycleMs);
+  assert.equal(await h.sched.cycle(), 2);
+  assert.deepEqual(h.log.slice(6), ['w5', 'w4'], 'běžný cyklus je zkusí znovu');
+  // dlouhá pauza uprostřed dohánění (aplikace v pozadí přes 6 h): zkontrolovaná jsou zase zastaralá – nová řada
+  const l2 = Array.from({ length: 6 }, (_, i) => ({ id: 'v' + i, form: f, checked: NOW - (20 + i) * H }));
+  const h2 = harness(l2);
+  await h2.sched.cycle();
+  assert.deepEqual(h2.log, ['v5', 'v4', 'v3', 'v2']);
+  h2.advance(7 * H);
+  assert.equal(await h2.sched.cycle(), 4);
+  assert.deepEqual(h2.log.slice(4), ['v1', 'v0', 'v5', 'v4'], 'po pauze i dřív zkontrolovaná (nejstarší napřed)');
+});
+
+test('flights.js: kontrola hlídaných cen bez velkého prvního cyklu, zbytek po CFG.moreMs (i po návratu do aplikace)', () => {
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(fl, /firstMax/);
+  assert.match(fl, /if \(sched\.more\) moreT = setTimeout\(tick, C\.moreMs\)/);
+  assert.match(fl, /Date\.now\(\) - sched\.lastCycle >= \(sched\.more \? C\.moreMs : C\.cycleMs\)/);
+  // ruční „Zkontrolovat vše“ jde dál přes stejnou frontu (bez limitu cyklu)
+  assert.match(fl, /\$\('#watchCheckAll'\)\.onclick = \(\) => Promise\.all\(/);
 });
 
 test('scheduler: rozpočet se nepřečerpá – cesta přes víc měst, která se nevejde, jde příště jako první', async () => {
@@ -503,8 +568,9 @@ test('scheduler: rozpočet se nepřečerpá – cesta přes víc měst, která s
   const cost = (w) => (w.form.trip === 'multi' ? 2 : 1);
   const h = harness(list, { costOf: cost });
   h.log.length = 0;
-  await h.sched.cycle(); // první cyklus bez firstMax: limit 4
+  await h.sched.cycle(); // limit 4 hledání
   assert.deepEqual(h.log, ['s0', 's1', 's2'], '3 + 2 > 4 → víc měst až příště');
+  assert.equal(h.sched.more, true);
   h.log.length = 0;
   await h.sched.cycle();
   assert.deepEqual(h.log, ['m', 's3', 's4'], 'víc měst první: 2 + 1 + 1 = 4');

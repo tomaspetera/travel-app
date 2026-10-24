@@ -88,6 +88,8 @@ test('digest: hlídání bez nové kontroly, viděné, s proběhlým termínem n
   assert.deepEqual(plain(S.digest(base({ watch: [watch('A', 2160, { checked: FROM - H })] }))), [], 'od minula nekontrolováno (kontrola po otevření ještě nedoběhla)');
   assert.deepEqual(plain(S.digest(base({ watch: [watch('B', 2160, { seen: 2160 })] }))), [], 'už viděné (prohlédnutý seznam, 📉 karta)');
   assert.deepEqual(plain(S.digest(base({ watch: [watch('C', 2160, { form: { dateMode: 'exact', xOut: '2026-10-20' } })] }))), [], 'proběhlý termín');
+  assert.deepEqual(plain(S.digest(base({ watch: [watch('C2', 2160, { best: { czk: 2160, dep: '2026-10-21' } })] }))), [], 'nabídka už odletěla (termín hledání trvá)');
+  assert.equal(plain(S.digest(base({ watch: [watch('C3', 2160, { best: { czk: 2160, dep: TODAY } })] }))).length, 1, 'odlet dnes ještě platí');
   assert.deepEqual(plain(S.digest(base({ watch: [watch('D', 2490)] }))), [], 'jen drobný výkyv');
   assert.deepEqual(plain(S.digest(base({ watch: [watch('E', 2700)] }))), [], 'zdražení');
   const nov = watch('F', 2160, { history: [{ at: NOW - H, czk: 2160 }] });

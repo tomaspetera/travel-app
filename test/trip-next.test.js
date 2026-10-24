@@ -109,3 +109,18 @@ test('lišta „Je k dispozici nová verze – Obnovit“ na telefonu nad tlač�
   // kopie: 70 px nad okrajem + až 2 řádky (~70 px) + mezera
   assert.ok(+lift[1] >= 70 + 70, `lišta ${lift[1]} px nad okrajem`);
 });
+
+test('hláška (toast) na telefonu nad tlačítkem kroku, dokud je kopie vidět – nepřekryje „Pokračovat“', () => {
+  // toast 90 px nad okrajem ležel přes kopii tlačítka (70 px nad okrajem, až 2 řádky)
+  const atlas = read('css/atlas.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.match(atlas.slice(atlas.indexOf('@media(max-width:860px){')), /\.toast\{bottom:calc\(90px \+ env\(safe-area-inset-bottom\)\)/);
+  const css = read('css/trip.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const phone = css.slice(css.indexOf('@media(max-width:860px){\n  .trip-next'));
+  const block = phone.slice(0, phone.indexOf('\n}'));
+  const lift = block.match(/body:has\(\.trip-next:not\(\[hidden\]\)\) \.toast\{bottom:calc\(max\(12px,env\(safe-area-inset-bottom\)\) \+ (\d+)px\)\}/);
+  assert.ok(lift, 'toast se zvedne jen na telefonu, když je kopie tlačítka vidět');
+  assert.ok(+lift[1] >= 70 + 70, `toast ${lift[1]} px nad okrajem`);
+  // stejná výška jako lišta nové verze (pwa.css) – obě nad tlačítkem
+  const pwa = read('css/pwa.css').match(/\.pwa-update\{bottom:calc\(max\(12px,env\(safe-area-inset-bottom\)\) \+ (\d+)px\)\}/);
+  assert.equal(lift[1], pwa[1]);
+});

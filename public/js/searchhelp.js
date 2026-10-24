@@ -1368,14 +1368,42 @@
   /** „14.–17. 11.“, „24.–27. 12.“, „31. 12.–3. 1.“ – rozsah dnů na čip (měsíc jen jednou, když je stejný). */
   const dmRange = (a, b) => (a.slice(0, 7) === b.slice(0, 7) ? `${+a.slice(8, 10)}.–${dm(b)}` : `${dm(a)}–${dm(b)}`);
   const DOW_LC = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
+  const dowSet = days => [...new Set((Array.isArray(days) ? days : []).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))];
   /**
    * Dny v týdnu do textu jako jinde v aplikaci (malá zkratka jako u data „pá 21. 11.“), od pondělí: [5, 6] → „pá nebo so“,
    * [4, 5, 6] → „čt, pá nebo so“, [0] → „ne“. Dny odletu jsou možnosti, ne výčet – proto „nebo“ (dřív „Pá,So“).
+   * from = den, od kterého se týden počítá (0 = ne … 6 = so; dny návratu po odletu – dowBits).
    */
-  function dowList(days) {
-    const ds = [...new Set((Array.isArray(days) ? days : []).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))]
-      .sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map(d => DOW_LC[d]);
+  function dowList(days, from = 1) {
+    const ds = dowSet(days).sort((a, b) => ((a - from + 7) % 7) - ((b - from + 7) % 7)).map(d => DOW_LC[d]);
     return ds.length > 1 ? `${ds.slice(0, -1).join(', ')} nebo ${ds[ds.length - 1]}` : ds.join('');
+  }
+  /** První den bloku dnů v týdnu (den za nejdelší mezerou): [4, 5, 6] → 4, [0, 1] → 0 (ne + po přes konec týdne), [] → null. */
+  function dowStart(days) {
+    const b = dowSet(days).sort((x, y) => x - y);
+    let first = b.length ? b[0] : null, gap = 0;
+    b.forEach((d, i) => { const g = (d - b[(i + b.length - 1) % b.length] + 7) % 7 || 7; if (g > gap) { gap = g; first = d; } });
+    return first;
+  }
+  /**
+   * Odkud počítat týden u dnů návratu: návrat je po odletu – od dne za prvním dnem odletu (čt–so a návrat ne, po →
+   * „ne nebo po“, ne „po nebo ne“; odlet pá a návrat pá nebo ne → „ne nebo pá“); bez dnů odletu od začátku bloku dnů
+   * návratu (ne + po přes konec týdne).
+   */
+  function backFrom(outDays, backDays) {
+    const o = dowStart(outDays);
+    if (o != null) return (o + 1) % 7;
+    const b = dowStart(backDays);
+    return b == null ? 1 : b;
+  }
+  /**
+   * Dny v týdnu do shrnutí „Další možnosti“ v Letech (formulář f): ['odlet čt, pá nebo so', 'návrat ne nebo po']. Jen kde
+   * je hledání použije (jako dotaz na server): přesná data a cesta přes víc měst dny nemají, dny návratu jen zpáteční let.
+   */
+  function dowBits(f) {
+    if (!f || f.trip === 'multi' || f.dateMode === 'exact') return [];
+    const out = dowList(f.outDays), back = f.trip === 'return' ? dowList(f.backDays, backFrom(f.outDays, f.backDays)) : '';
+    return [out && 'odlet ' + out, back && 'návrat ' + back].filter(Boolean);
   }
   /** Řádek pod čipy svátků: „Odlet pá 13. 11. od 16:00 nebo so 14. 11. · návrat út 17. 11. · s volnem po 16. 11.“ */
   function holidayHint(lw, today) {
@@ -2118,7 +2146,7 @@
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, directNear, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
-    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRes, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, dowList, lwPrices, lwKeep,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRes, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, dowList, dowBits, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows, spanCal, SPAN_DOW,
     lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, DRAFT_MAX_AGE, formSig, formKey, draftPack, draftLoad, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips, dayCal,
     partialHead, reusable, partialFail,

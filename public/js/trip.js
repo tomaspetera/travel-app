@@ -888,7 +888,8 @@
       const F = window.Flights;
       if (F && F.PlaceInput) {
         const home = () => (S.home && S.home.from) || [];
-        const pi = new F.PlaceInput($('#tripAskTo'), { placeholder: 'např. Lisabon, kamkoliv 🌍…', max: 4,
+        // vedle „Najít lety“ zbývá na 360 px ~165 px – celý popis dostane čtečka (hint)
+        const pi = new F.PlaceInput($('#tripAskTo'), { placeholder: 'Lisabon, kamkoliv…', hint: 'Město, kamkoliv nebo celá věta, třeba „Řím na víkend ve dvou“', max: 4,
           smart: F.smartRun ? { run: hit => F.smartRun(hit, home()), tips: () => (F.smartTips ? F.smartTips(home) : []) } : null });
         $('#tripAsk').onsubmit = async e => {
           e.preventDefault();
