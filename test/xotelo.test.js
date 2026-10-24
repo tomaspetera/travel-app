@@ -1393,7 +1393,7 @@ test('malé místo bez cen z TripAdvisoru: ubytování z OpenStreetMap jde vybra
   await tick();
   const step = sp(c.__els['#tripStep'].innerHTML);
   assert.match(step, /Cenu za <b>Hotel Colle Acre<\/b> ověř u partnera a zadej ji \(celkem za pobyt\):/);
-  assert.match(step, /id="manName" placeholder="Název \(nepovinné\)" value="Hotel Colle Acre"/);
+  assert.match(step, /id="manName" placeholder="Název \(nepovinné\)"[^>]* value="Hotel Colle Acre"/);
   c.$('#manName').value = 'Hotel Colle Acre';
   c.$('#manPrice').value = '4500';
   c.$('#manSave').onclick();

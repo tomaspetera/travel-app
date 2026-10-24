@@ -735,7 +735,7 @@
         ${d.items.length ? d.items.map((p, j) => `<div class="dp-item" data-poi="${esc(p.id)}"><span class="dp-n">${j + 1}</span><div><b>${icon(p.category)} ${esc(p.name)}</b> <span class="faint">· ${p.at ? `~${esc(p.at)}, ` : ''}${minTxt(p.visitMin)}</span>
           ${inclHtml(p, 'dp-walk')}${trip && p.reach ? reachHtml(p, center, 'dp-walk') + whyHtml(p, 'dp-walk') : `<div class="dp-walk">${!p.transit && !(p.fromPrevKm >= 0.1) ? (j === 0 ? (fromC ? 'hned v centru' : 'hned u ubytování') : 'hned vedle') // Casa Amatller vedle Casa Batlló – ne „0 km pěšky (~0 min)“
             : `${j === 0 ? (fromC ? 'od centra' : 'od ubytování') : 'dál'} ${p.transit ? `${num(p.fromPrevKm)}\u00a0km – ${p.boat ? 'lodí' : ride}` : `${num(p.fromPrevKm)}\u00a0km pěšky (~${minTxt(p.fromPrevMin)})`}`}${passByTxt(p)}</div>${p.hoursNote ? `<div class="dp-walk dp-hours">🕘 ${esc(p.hoursNote)}</div>` : ''}`}</div>
-          <button type="button" title="Vyřadit z plánu" data-drop="${esc(p.id)}">✕</button></div>${lunchHtml(d, j)}`).join('')
+          <button type="button" title="Vyřadit z plánu" aria-label="${esc(`Vyřadit z plánu: ${p.name}`)}" data-drop="${esc(p.id)}">✕</button></div>${lunchHtml(d, j)}`).join('')
           : `<div class="faint" style="font-size:13px;padding:6px 0">${d.cap ? 'Volno – odpočinek, jídlo, procházka.' : 'Den cesty – bez programu.'}</div>`}
         ${d.items.length && d.kind !== 'daytrip' ? `<div class="faint" style="font-size:11.5px;margin-top:4px">celkem ~${minTxt(d.minutes)} prohlídek · ${num(d.walkKm)} km pěšky${d.end ? ` · konec ~${esc(d.end)}` : ''}</div>` : ''}
         ${tipsHtml(d)}
@@ -759,7 +759,7 @@
   function plannerControls(st) {
     return `<div class="row wrap" style="gap:8px;margin:10px 0">
       ${INTERESTS.map(([id, label]) => `<button type="button" class="fchip ${st.interests.has(id) ? 'on' : ''}" data-int="${id}">${label}</button>`).join('')}
-      <select data-pace style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', '🐢 V klidu'], ['normal', '🚶 Normálně'], ['intense', '🏃 Nabitě']].map(o => `<option value="${o[0]}" ${st.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+      <select data-pace aria-label="Tempo programu" style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', '🐢 V klidu'], ['normal', '🚶 Normálně'], ['intense', '🏃 Nabitě']].map(o => `<option value="${o[0]}" ${st.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
     </div>`;
   }
 
@@ -1072,10 +1072,10 @@
     // bez místa: fotka krásného místa s nadpisem nahoře, hledání na ní (jako Lety)
     root.innerHTML = `${ex.place ? '' : `<div class="fl-hero ex-hero" data-photo="${esc(window.heroPlace ? heroPlace(9) : 'Porto')}"><div class="fl-hero-in"><h1>Objev, co stojí za vidění</h1><p>Památky, muzea, vyhlídky a výlety kdekoliv na světě – a z nich program na pár dní</p></div></div>`}<div class="card search-card${ex.place ? '' : ' on-hero'}">
       <div class="ex-search">
-        <div class="field" style="margin:0"><label>Kam se chceš podívat? <span class="lab-hint">město, obec, ostrov, místo…</span></label>
+        <div class="field" style="margin:0"><label for="exQ">Kam se chceš podívat? <span class="lab-hint">město, obec, ostrov, místo…</span></label>
           <div style="position:relative"><input class="input${ex.place ? ' has-clear' : ''}" id="exQ" placeholder="Např. Lisabon, Francie, nebo „Lisabon na 3 dny“" autocomplete="off" value="${esc(qLabel())}">${ex.place ? '<button type="button" class="in-clear" id="exClear" title="Začít znovu – zrušit místo i plány" aria-label="Začít znovu">✕</button>' : ''}<div class="pi-dd" id="exDd" hidden></div></div></div>
         <button class="btn ghost" id="exGeo" title="Moje poloha" style="align-self:end">📍 Tady</button>
-        <div class="field" style="margin:0"><label>Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}<option value="${COUNTRY}" ${ex.radius === COUNTRY ? 'selected' : ''}>🌍 Celá země</option></select></div>
+        <div class="field" style="margin:0"><label for="exRad">Okruh</label><select id="exRad">${RADII.map(r => `<option value="${r}" ${ex.radius === r ? 'selected' : ''}>${r} km</option>`).join('')}<option value="${COUNTRY}" ${ex.radius === COUNTRY ? 'selected' : ''}>🌍 Celá země</option></select></div>
       </div><div class="ex-recent" id="exRecent" hidden></div>${ex.place || !window.Smart ? '' : `<div class="ex-try"><span class="faint">✨ Zkus:</span>${EX_TRY.map((x, i) => `<button type="button" class="fchip" data-extry="${i}">${esc(x)}</button>`).join('')}</div>`}</div>
       <div id="exBody">${ex.place ? '' : ex.radius === COUNTRY ? pickerHtml() : inspHtml(insp)}</div>
       <button type="button" class="ex-back" id="exBack" hidden></button>`;
@@ -1736,7 +1736,7 @@
       ${s.highlights?.length ? `<div class="dp-walk">👀 Uvidíš: ${esc(s.highlights.join(', '))}</div>` : ''}
       ${s.extract ? `<div class="poi-desc" style="-webkit-line-clamp:2">${descHtml(s.extract, s.descLang)}</div>` : ''}
       <div class="poi-acts">${s.url ? `<a href="${esc(safeUrl(s.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}<a href="${esc(gmSearch(q))}" target="_blank" rel="noopener">Google Maps ↗</a>${transit ? '' : wazeLink(s)}</div></div>
-      <button type="button" title="Vyřadit z výletu" data-tdrop="${esc(s.id)}">✕</button></div>`;
+      <button type="button" title="Vyřadit z výletu" aria-label="${esc(`Vyřadit z výletu: ${s.name}`)}" data-tdrop="${esc(s.id)}">✕</button></div>`;
   }
   // Výlet autem: navigace na zastávku ve Waze (otevře aplikaci v mobilu, jinak web; SearchHelp.wazeUrl)
   const wazeLink = s => {
@@ -2280,15 +2280,15 @@
     const hikeKinds = hikeMode ? `<div class="seg wrap" style="margin:0 0 10px">${segBtns(HIKE_KINDS, 'data-hkind', ex.hike.kind)}</div>` : '';
     // túra na každý den: od kdy, kolik dní, s dětmi (stejný zájem jako u programu ve městě)
     const hikeDaysCtl = `${hikeKinds}<div class="row wrap" style="gap:10px;align-items:end">
-          <div class="field" style="margin:0"><label>Od</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
-          <div class="field" style="margin:0"><label>Počet dní</label><select id="exDays">${dayOpts.map(n => `<option ${curDays === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+          <div class="field" style="margin:0"><label for="exStart">Od</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
+          <div class="field" style="margin:0"><label for="exDays">Počet dní</label><select id="exDays">${dayOpts.map(n => `<option ${curDays === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
           ${planBtn}${saveBtn}
         </div>
         <div class="row wrap" style="gap:8px;margin:10px 0"><button type="button" class="fchip ${ex.interests.has('kids') ? 'on' : ''}" data-hkids aria-pressed="${ex.interests.has('kids')}">🧒 S dětmi</button></div>`;
     const routeCtl = `${bikeMode ? `<div class="seg wrap" style="margin:0 0 10px">${segBtns(BIKE_KINDS, 'data-bkind', ex.bike.kind)}</div>` : hikeKinds}
         <div class="row wrap" style="gap:10px;align-items:end">
-          <div class="field" style="margin:0"><label>Kdy</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
-          <div class="field" style="margin:0"><label>${train ? 'Délka jízdy zpět' : 'Délka okruhu'}</label><select id="routeKm">${(hikeMode ? [5, 8, 10, 12, 15, 20, 25, 30] : [15, 25, 40, 60, 80, 100, 130]).map(n => `<option value="${n}" ${ro.km === n ? 'selected' : ''}>${n} km</option>`).join('')}</select></div>
+          <div class="field" style="margin:0"><label for="exStart">Kdy</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
+          <div class="field" style="margin:0"><label for="routeKm">${train ? 'Délka jízdy zpět' : 'Délka okruhu'}</label><select id="routeKm">${(hikeMode ? [5, 8, 10, 12, 15, 20, 25, 30] : [15, 25, 40, 60, 80, 100, 130]).map(n => `<option value="${n}" ${ro.km === n ? 'selected' : ''}>${n} km</option>`).join('')}</select></div>
           ${planBtn}${saveBtn}
         </div>
         ${bikeMode ? `<div class="row wrap" style="gap:8px;margin:10px 0 0"><div class="seg wrap">${segBtns(BIKE_TYPES, 'data-bike', ex.bike.bike)}</div></div>` : ''}
@@ -2328,10 +2328,10 @@
           : ex.mode === 'day' ? `Ráno ${ex.transport === 'transit' ? 'vlakem nebo busem' : 'autem'} ven, večer zpátky: města, hrady a příroda do ~${ex.transport === 'transit' ? '3' : '2,5'} h cesty. Každý výlet jiný.`
           : `Okruh ${ex.transport === 'transit' ? 'vlakem a autobusem' : 'autem'} s přespáním po cestě – každý den pár zastávek, poslední den zpět na start.`}</div>
         ${hikeDays ? hikeDaysCtl : routeMode ? routeCtl : `<div class="row wrap" style="gap:10px;align-items:end">
-          <div class="field" style="margin:0"><label>Od</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
-          <div class="field" style="margin:0"><label>${ex.mode === 'day' ? 'Počet výletů' : 'Počet dní'}</label><select id="exDays">${dayOpts.map(n => `<option ${curDays === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+          <div class="field" style="margin:0"><label for="exStart">Od</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
+          <div class="field" style="margin:0"><label for="exDays">${ex.mode === 'day' ? 'Počet výletů' : 'Počet dní'}</label><select id="exDays">${dayOpts.map(n => `<option ${curDays === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
           ${planBtn}${road ? '' : `<span class="ex-mustn" id="exMustN">${mustHtml(st.must.size)}</span>`}${saveBtn}
-        </div>${road ? `<div class="row wrap" style="gap:8px;margin:10px 0"><div class="seg" id="exTransport">${TRANSPORTS.map(([id, l]) => `<button type="button" data-transport="${id}" class="${ex.transport === id ? 'on' : ''}">${l}</button>`).join('')}</div><select data-pace style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', '🐢 V klidu'], ['normal', '🚶 Normálně'], ['intense', '🏃 Nabitě']].map(o => `<option value="${o[0]}" ${ex.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+        </div>${road ? `<div class="row wrap" style="gap:8px;margin:10px 0"><div class="seg" id="exTransport">${TRANSPORTS.map(([id, l]) => `<button type="button" data-transport="${id}" class="${ex.transport === id ? 'on' : ''}">${l}</button>`).join('')}</div><select data-pace aria-label="Tempo programu" style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', '🐢 V klidu'], ['normal', '🚶 Normálně'], ['intense', '🏃 Nabitě']].map(o => `<option value="${o[0]}" ${ex.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
         <div class="row wrap" style="gap:8px;margin:0 0 10px"><span class="faint" style="font-size:12.5px;align-self:center">Co tě láká:</span>${TRIP_INTERESTS.map(([id, l]) => `<button type="button" class="fchip ${ex.tripInterests.has(id) ? 'on' : ''}" data-tint="${id}">${l}</button>`).join('')}</div>` : plannerControls(st)}`}
         <div id="exPlanOut" class="${bz ? 'stale' : ''}">${wait}${errNote}${out}</div></div>
       <div id="exMapSlot"></div>
