@@ -200,6 +200,26 @@ test('↻ Obnovit (newerThanS = stáří cen na obrazovce): starší výsledek j
   }
 });
 
+test('↻ Obnovit hned po starším výsledku nevrátí tentýž, i když ageS zaokrouhlené nahoru (240,6 s → 241)', async () => {
+  const body = radarQ(8);
+  await lines(await post(body, '10.56.0.1'));
+  age(body, 240600); // po SEARCH_RESULT_TTL (2 min)
+  const mock = slowMock(300); // přepočet na pozadí ještě běží, starší výsledek je pořád uložený
+  try {
+    const [s1] = await lines(await post(body, '10.56.1.1'));
+    assert.equal(s1.stale.ageS, 241);
+    // jako flights.js: čas cen z ageS, newerThanS = jejich stáří na obrazovce
+    const at = Date.now() - s1.stale.ageS * 1000;
+    const newerThanS = Math.max(0, Math.floor((Date.now() - at) / 1000));
+    const ls = await lines(await post({ ...body, newerThanS }, '10.56.1.2'));
+    assert.equal(ls.at(-1).type, 'result');
+    assert.equal(ls.at(-1).stale, undefined, 'nový výsledek, ne tentýž starší');
+    await idle();
+  } finally {
+    mock.restore();
+  }
+});
+
 test('přepočet podrží stejné hledání, které už čeká ve frontě a jeho zakladatel odešel – fronta ho nezahodí', async () => {
   const body = radarQ(7);
   await lines(await post(body, '10.55.0.1'));

@@ -362,9 +362,11 @@ async function handleSearch(req, res) {
   const ready = _recentSearches.get(recentKey); // hotový výsledek: nic se nepočítá – frontu ani strop adresy nezabere
   // starší úplný výsledek radaru (revalidate): taky hned, i když se stejné hledání právě počítá (na Renderu zdarma minuty)
   // a i při plné frontě; newerThanS = aplikace už ukazuje ceny staré tolik sekund (↻ Obnovit) – starší výsledek jen
-  // novější než ony, jinak se hledá jako dřív
+  // novější než ony, jinak se hledá jako dřív. Stáří se porovná zaokrouhlené jako ageS ve staleLine: aplikace si čas
+  // cen spočítá z ageS, takže při 100,6 s pošle newerThanS 101 a nezaokrouhlené 100,6 < 101 by jí ↻ Obnovit vrátilo
+  // tentýž výsledek
   const old = ready ? undefined : _recentSearches.stale(recentKey);
-  const oldLine = old && (Date.now() - old.at) / 1000 < keys.maxAgeS ? staleLine(old.value, old.at) : null;
+  const oldLine = old && Math.round((Date.now() - old.at) / 1000) < keys.maxAgeS ? staleLine(old.value, old.at) : null;
   const fresh = !ready && !oldLine && !searchRuns.has(shareKey);
   if (fresh && searchGate.full()) return sendJson(req, res, 503, BUSY, { 'Retry-After': '60' });
   // Strop na adresu: nové hledání nad ním hned 429 (do limitu adresy se nepočítá). Připojení ke stejnému běžícímu
