@@ -139,6 +139,7 @@ export function recentResults({ ttlMs, maxBytes }) {
  */
 let sliceMs = 15;
 const waiting = [];
+const ahead = []; // breathe(true): dokončení hledání – před ostatními čekajícími (viz breathe)
 let sliceAt = performance.now();
 let pumping = false;
 
@@ -149,12 +150,18 @@ export function setSliceMs(ms) {
   return prev;
 }
 
-/** Pustit ke slovu ostatní? null = pokračuj hned, jinak slib, na který počkat: `const w = breathe(); if (w) await w;` */
-export function breathe() {
-  // kdo přijde, když už jiní čekají, se zařadí za ně (jinak by předběhl a změnil pořadí)
-  if (!waiting.length && performance.now() - sliceAt < sliceMs) return null;
+/**
+ * Pustit ke slovu ostatní? null = pokračuj hned, jinak slib, na který počkat: `const w = breathe(); if (w) await w;`
+ * first = dokončení hledání (všechny zdroje doběhly, zbývá složit výsledek – search.js): síť, časovače a ostatní
+ * požadavky se mezi kousky ke slovu dostanou stejně, ale čekající kousky ostatních hledání až po něm. Jinak by se
+ * dokončení dělilo s rozběhnutými hledáními a při plném procesoru (Render zdarma) každé hledání doběhlo až s ostatními
+ * – a později uvolnilo místo dalšímu ve frontě. Dokončení mezi sebou zase v pořadí, v jakém přišla.
+ */
+export function breathe(first = false) {
+  // kdo přijde, když už jiní čekají, se zařadí za ně (jinak by předběhl a změnil pořadí); dokončení jen za dokončení
+  if (!ahead.length && (first || !waiting.length) && performance.now() - sliceAt < sliceMs) return null;
   return new Promise((resolve) => {
-    waiting.push(resolve);
+    (first ? ahead : waiting).push(resolve);
     if (!pumping) {
       pumping = true;
       setImmediate(pump);
@@ -163,11 +170,12 @@ export function breathe() {
 }
 
 // Nové kolo: pouštět čekající po jednom (další až po synchronní části předchozího – queueMicrotask za ním), dokud
-// nevyprší sliceMs; zbytek v dalším kole. První vždy, ať se práce pohne i se sliceMs 0.
+// nevyprší sliceMs; zbytek v dalším kole. První vždy, ať se práce pohne i se sliceMs 0. Dokončení hledání napřed.
 function pump() {
   sliceAt = performance.now();
+  const go = () => (ahead.length ? ahead : waiting).shift()();
   const next = () => {
-    if (!waiting.length) {
+    if (!ahead.length && !waiting.length) {
       pumping = false;
       return;
     }
@@ -175,10 +183,10 @@ function pump() {
       setImmediate(pump);
       return;
     }
-    waiting.shift()();
+    go();
     queueMicrotask(next);
   };
-  waiting.shift()();
+  go();
   queueMicrotask(next);
 }
 
