@@ -284,8 +284,8 @@ test('stayLinks: víc partnerů – co je předvyplněné (místo, termín, host
   assert.ok(ids.every((l) => l.prefill === 'full'), 'všechny odkazy předvyplněné');
   assert.ok(ids.every((l) => !/zadej|potvrď/.test(l.note)), ids.map((l) => l.note).join(' | '));
   assert.equal(withId.trip.url, `https://www.trip.com/hotels/list?cityId=38742&checkin=${q.checkin}&checkout=${q.checkout}&crn=2&adult=3&children=0&curr=CZK&locale=cs-CZ`);
-  assert.equal(withId.agoda.url, `https://www.agoda.com/search?city=67491&checkIn=${q.checkin}&checkOut=${q.checkout}&los=3&rooms=2&adults=3&children=0`);
-  assert.equal(withId.hostelworld.url, `https://www.hostelworld.com/pwa/s?type=city&id=10508&from=${q.checkin}&to=${q.checkout}&guests=3`);
+  assert.equal(withId.agoda.url, `https://www.agoda.com/search?city=67491&checkIn=${q.checkin}&checkOut=${q.checkout}&los=3&rooms=2&adults=3&children=0&currency=CZK`);
+  assert.equal(withId.hostelworld.url, `https://www.hostelworld.com/pwa/s?type=city&id=10508&from=${q.checkin}&to=${q.checkout}&guests=3&currency=CZK`);
   assert.deepEqual(ids.filter((l) => !['trip', 'agoda', 'hostelworld'].includes(l.id)), links.filter((l) => !['trip', 'agoda', 'hostelworld'].includes(l.id)), 'ostatní beze změny');
   // Hostelworld v místě hostely nemá (404 nebo „0 Hostels“) → stránka země, poctivá poznámka a až na konec seznamu;
   // neplatné ID → odkaz bez něj
