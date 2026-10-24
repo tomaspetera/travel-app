@@ -3,6 +3,20 @@
 
 /* ================= HELPERS ================= */
 const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+/* Omezit pohyb (nastavení systému): plynulé rolování z kódu (behavior: 'smooth' – asi 50 míst: nahoru, k výsledku, k poli)
+   skočí rovnou na místo. CSS prefers-reduced-motion na rolování z JS nedosáhne; jedno místo místo úprav každého volání. */
+function calmScroll(w, proto) {
+  const mq = w.matchMedia ? w.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  if (!mq) return;
+  const calm = o => (mq.matches && o && typeof o === 'object' && o.behavior === 'smooth' ? { ...o, behavior: 'auto' } : o);
+  for (const [obj, names] of [[w, ['scrollTo', 'scrollBy', 'scroll']], [proto, ['scrollIntoView', 'scrollTo', 'scrollBy', 'scroll']]]) {
+    for (const k of names) {
+      const f = obj[k];
+      if (typeof f === 'function') obj[k] = function (o, ...rest) { return f.call(this, calm(o), ...rest); };
+    }
+  }
+}
+calmScroll(window, Element.prototype);
 const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 const flag = iso => iso && iso.length === 2 ? String.fromCodePoint(...[...iso.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65)) : '🏳️';
 const enc = encodeURIComponent;
@@ -333,18 +347,55 @@ function say(msg) {
   el.textContent = ''; clearTimeout(el._t);
   el._t = setTimeout(() => { el.textContent = String(msg || ''); }, 60);
 }
+/**
+ * Našeptávač mimo Odkud/Kam (Objevuj, místo do trasy cesty): nabídka .pi-dd s řádky .pi-opt, šipkami vybraný má třídu
+ * on. Pro čtečku obrazovky combobox jako Odkud/Kam (listbox, option, aria-activedescendant) – stav se čte z nabídky samé,
+ * takže se nemusí měnit každé místo, které ji otevírá, zavírá nebo překresluje. Prázdná nabídka („Nic nenalezeno“) se
+ * přečte (#srSay), jinak by čtečka jen ohlásila rozbalení.
+ */
+function comboAria(input, dd, name) {
+  const id = dd.id;
+  input.setAttribute('role', 'combobox'); input.setAttribute('aria-autocomplete', 'list'); input.setAttribute('aria-controls', id);
+  dd.setAttribute('role', 'listbox'); dd.setAttribute('aria-label', `Návrhy – ${name}`);
+  let said = '';
+  const sync = () => {
+    const open = !dd.hidden;
+    let act = null;
+    $$('.pi-opt', dd).forEach((o, i) => {
+      o.id = `${id}-${i}`; o.setAttribute('role', 'option');
+      const on = o.classList.contains('on'); o.setAttribute('aria-selected', String(on)); if (on) act = o;
+    });
+    input.setAttribute('aria-expanded', String(open));
+    if (open && act) input.setAttribute('aria-activedescendant', act.id); else input.removeAttribute('aria-activedescendant');
+    const empty = open && !act && $('.pi-empty', dd), msg = empty ? empty.textContent.trim() : '';
+    if (msg && msg !== said) say(msg);
+    said = msg;
+  };
+  new MutationObserver(sync).observe(dd, { childList: true, attributes: true, attributeFilter: ['hidden'] });
+  sync();
+}
 /* Přepínače (.seg – Tam i zpět / Jen tam, Flexibilně, Týden, Kdykoliv / Víkendy…, dny v týdnu, ± dny): vybraná
    možnost se pozná jen barvou (třída on, nastavují ji desítky míst ve všech modulech). Pro čtečku obrazovky stav
    aria-pressed podle třídy – jedno hlídání tříd a nově vykreslených přepínačů místo úprav u každého z nich. */
 const SEG_BTN = '.seg>button,.dow>button,#xFlex>button';
 function segPressed(b) { const on = String(b.classList.contains('on')); if (b.getAttribute('aria-pressed') !== on) b.setAttribute('aria-pressed', on); }
+/* Název sekce v horní liště (Cesta, Země, Plánovač…) je pro čtečku nadpis stránky 1. úrovně – navigace po nadpisech
+   začínala až nadpisy 2. úrovně v obsahu. Sekce s vlastním h1 ve fotce (Přehled, Lety, Objevuj bez místa) ho nemají
+   dvakrát. Role místo <h1>: lišta vypadá stejně (h1 má jiné písmo); hlídá ho stejné sledování změn jako přepínače. */
+function pageHeading() {
+  const t = $('#pageTitle'), own = Boolean($('.view.active h1'));
+  if (!t || (t.getAttribute('role') === 'heading') !== own) return;
+  if (own) { t.removeAttribute('role'); t.removeAttribute('aria-level'); } else { t.setAttribute('role', 'heading'); t.setAttribute('aria-level', '1'); }
+}
 new MutationObserver(recs => {
   for (const r of recs) {
     if (r.type === 'attributes') { if (r.target.matches && r.target.matches(SEG_BTN)) segPressed(r.target); continue; }
     for (const n of r.addedNodes) if (n.nodeType === 1) { if (n.matches(SEG_BTN)) segPressed(n); n.querySelectorAll(SEG_BTN).forEach(segPressed); }
   }
+  pageHeading();
 }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
 $$(SEG_BTN).forEach(segPressed);
+pageHeading();
 
 /* theme */
 // Motiv zvolený přepínačem ('light' / 'dark'), jinak podle systému: nový uživatel má S.theme null (světlý telefon =
@@ -2220,7 +2271,7 @@ window.openStay = (city, start, end, adults = 2, opts = {}) => {
   const b = `https://www.booking.com/searchresults.cs.html?ss=${enc(city)}${start ? `&checkin=${start}&checkout=${end || ''}` : ''}&group_adults=${n}&no_rooms=1&selected_currency=CZK`;
   const a = `https://www.airbnb.cz/s/${enc(city)}/homes?${start ? `checkin=${start}&checkout=${end || ''}&` : ''}adults=${n}`;
   const h = opts.hw || 'https://www.hostelworld.com/';
-  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování · ${esc(opts.label || city)}</h2><div style="opacity:.85;font-size:13px">${start ? fmtDate(start) + (end ? ' – ' + fmtDate(end) : '') : 'vyber si termín na webu'}</div></div></div><div class="modal-body"><div class="grid" style="gap:12px">${opts.chosen ? stayChosenHtml(opts.chosen) : ''}${provLink('Booking.com', 'Hotely, apartmány, penziony', b, '#003580', 'B.')}${provLink('Airbnb', 'Bydlení u místních', a, '#ff385c', 'A')}${provLink('Hostelworld', opts.hw ? 'Hostely a levná lůžka – stránka města, termín zadej na webu' : 'Hostely a levná lůžka – město a termín zadej na webu', h, '#ff5a00', 'H')}</div><div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Booking a Airbnb otevřou hledání s předvyplněnou destinací (a termínem, pokud je v cestě zadaný).</div></div></div>`);
+  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování · ${esc(opts.label || city)}</h2><div style="opacity:.85;font-size:13px">${start ? fmtDate(start) + (end ? ' – ' + fmtDate(end) : '') : 'vyber si termín na webu'}</div></div></div><div class="modal-body"><div class="grid" style="gap:12px">${opts.chosen ? stayChosenHtml(opts.chosen) : ''}${provLink('Booking.com', 'Hotely, apartmány, penziony', b, '#003580', 'B.')}${provLink('Airbnb', 'Bydlení u místních', a, '#db304f', 'A')}${provLink('Hostelworld', opts.hw ? 'Hostely a levná lůžka – stránka města, termín zadej na webu' : 'Hostely a levná lůžka – město a termín zadej na webu', h, '#cc4800', 'H')}</div><div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Booking a Airbnb otevřou hledání s předvyplněnou destinací (a termínem, pokud je v cestě zadaný).</div></div></div>`);
 };
 
 /* ================= INIT / EVENTS ================= */

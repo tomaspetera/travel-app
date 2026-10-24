@@ -5503,8 +5503,8 @@
     }
     // výsledky vykreslené dřív, než dorazily vstupní podmínky, doplnit o čipy
     if (window.Entry) Entry.whenReady(() => { guideEntry(); if (lastResult) rerender(true); });
-    PROV.travelpayouts = PROV.travelpayouts || { name: 'Ostatní aerolinky', color: '#ff6b00' };
-    PROV.mix = { name: 'kombinace', color: '#5b8cff' };
+    PROV.travelpayouts = PROV.travelpayouts || { name: 'Ostatní aerolinky', color: '#c25100' };
+    PROV.mix = { name: 'kombinace', color: '#4970cc' };
     renderSources();
     buildForm();
     const base = SearchHelp.formSig(S.form);

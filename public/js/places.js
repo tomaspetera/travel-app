@@ -1383,6 +1383,7 @@
 
   function wireExploreSearch(root) {
     const q = $('#exQ', root), dd = $('#exDd', root);
+    if (window.comboAria) comboAria(q, dd, 'Kam se chceš podívat'); // čtečka: combobox jako Odkud/Kam v Letech
     // sugFor = text, ke kterému návrhy patří (starý seznam se po dalším písmenu nesmí vybrat)
     let ctl = null, sugs = [], act = 0, sugFor = '', err = false, t = null;
     // ✨ věta („Lisabon na 3 dny“, „výlety z Brna“): jen řádek s tím, jak jí rozumím – návrhy pro celou větu by mátly

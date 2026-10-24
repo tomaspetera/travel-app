@@ -105,6 +105,10 @@ a{color:inherit}
      do průhledna přechází jen spodní okraj bez textu (14 px ≤ padding) */
   background:linear-gradient(180deg,var(--bg) calc(100% - 14px),transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
 }
+/* posun k prvku (Shift+Tab nahoru, posun k poli, odrolování k výsledku): cíl pod lepicí lištou, ne schovaný za ní –
+   lišta má na telefonu 68 px, spodních 14 px průhledných (fokus na tlačítku pod ní dřív nebyl vidět); prvky s vlastním
+   odsazením (scroll-margin-top) ho mají jen nad tuto rezervu; počítač má vlastní (desktop.css) */
+html{scroll-padding-top:calc(58px + max(14px,env(safe-area-inset-top)))}
 .page-title{font-size:22px;font-weight:800}
 .page-sub{font-size:12.5px;color:var(--muted)}
 @media(max-width:560px){.page-sub{display:none}} /* telefon: podtitulek nahoře zabíral dva řádky na každé obrazovce */
@@ -182,6 +186,13 @@ a{color:inherit}
   font-family:inherit;font-size:14px;outline:none;transition:.15s
 }
 .input:focus,select:focus,textarea:focus{border-color:var(--accent);background:var(--surface-2)}
+/* Telefon a tablet: pole aspoň 16 px. iPhone/iPad stránku při klepnutí do pole s menším písmem přiblíží (a sám zpět
+   neoddálí) – dřív tomu bránil viewport s maximum-scale=1, který ale v aplikaci na ploše zakázal i přiblížení prsty
+   (slabozrací). !important: přebije i menší písmo jednotlivých polí (filtry, tempo programu, cílová cena…) a styly v řádku. */
+@media (max-width:1023px),(pointer:coarse){
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=image]),
+  select,textarea{font-size:16px!important}
+}
 /* výchozí šedý placeholder prohlížeče (#757575) má na tmavém poli jen 3,3–3,5 : 1 („Přidej aktivitu…“, „bez limitu“) */
 [data-theme="dark"] ::placeholder{color:var(--faint)}
 .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
@@ -340,7 +351,9 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 .ph-cr{position:absolute;right:8px;bottom:7px;z-index:3;display:flex;flex-direction:row-reverse;align-items:center;gap:6px;max-width:calc(100% - 16px);
   font:500 10.5px/1.3 Inter,system-ui,sans-serif;color:#fff;pointer-events:none}
 .ph-i{pointer-events:auto;flex:none;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;cursor:pointer;
-  font:italic 700 10.5px/1 Georgia,serif;color:rgba(255,255,255,.9);background:rgba(0,0,0,.32);border:1px solid rgba(255,255,255,.35);opacity:.7;transition:opacity .15s}
+  font:italic 700 10.5px/1 Georgia,serif;color:rgba(255,255,255,.9);background:rgba(0,0,0,.32);border:1px solid rgba(255,255,255,.35);opacity:.7;transition:opacity .15s;position:relative}
+/* plocha pro prst 31 × 31 px bez změny vzhledu (17 px kroužek se trefoval špatně, klepnutí vedle otevřelo kartu) */
+.ph-i::after{content:"";position:absolute;inset:-7px}
 .ph-i:hover,.ph-cr.open .ph-i{opacity:1}
 .ph-pop{display:none;min-width:0;gap:0 .3em;white-space:nowrap;padding:3px 8px;border-radius:9px;background:rgba(10,14,28,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .ph-cr.open .ph-pop{display:flex;pointer-events:auto}
@@ -664,7 +677,8 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   #recGrid .rec-fly{margin-top:8px;padding:7px 8px;font-size:12.5px}
   /* výběr měsíce, stylu, rozpočtu a bezpečnosti 2 × 2 i na 360 px (pod sebou zabíral celou obrazovku) */
   .rec-filters{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .rec-filters select{width:100%;min-width:0;padding-right:28px;background-position:right 9px center}
+  /* (užší okraje: „Bez omezení“ se s písmem polí 16 px vejde i na 360 px) */
+  .rec-filters select{width:100%;min-width:0;padding-left:10px;padding-right:26px;background-position:right 8px center}
   /* dlaždice v pruhu: odsazení uvnitř pruhu, ať stín karet není useknutý do šedého obdélníku; dvě dlaždice na celou šířku */
   .stat-grid{grid-auto-columns:minmax(43%,1fr);margin:0 -16px 4px;padding:2px 16px 18px;scroll-padding:0 16px}
   .stat-grid>*,#quickFlights>*,#flIdeas>*,#dashRecs>*{scroll-snap-align:start}
@@ -788,7 +802,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .sc-t b{color:var(--text)}
 .sc-go{color:var(--accent-ink);font-weight:800;font-size:17px;line-height:1.2}
 [data-theme="light"] .sc-go{color:#2f5fd0}
-#watchList .watch{scroll-margin-top:90px} /* klepnutí na zlevnění v Od minula: karta hlídání pod lepicí hlavičkou */
+#watchList .watch{scroll-margin-top:18px} /* klepnutí na zlevnění v Od minula: karta hlídání pod lepicí hlavičkou */
 /* Vítej – první návštěva: 3 kroky místo seznamu novinek */
 .whats-new.welcome{padding:16px 16px 14px;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(52,211,153,.08))}
 .wc-h{font-size:16px;line-height:1.35;margin:0 0 12px}
@@ -805,7 +819,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .wc-from{margin-top:8px}
 /* našeptávač pole „Jiné město“ přes karty pod uvítáním (karty s backdrop-filter by ho jinak překryly) */
 .whats-new:has(.pi-dd:not([hidden])){position:relative;z-index:30}
-#radarHead{scroll-margin-top:90px} /* posun z uvítání: nadpis radaru pod lepicí hlavičkou */
+#radarHead{scroll-margin-top:18px} /* posun z uvítání: nadpis radaru pod lepicí hlavičkou */
 /* úzký telefon (≤ 340 px): přepínače (seg) se vejdou – menší odsazení tlačítek, nikdy širší než řádek */
 @media (max-width:340px){
   .seg{max-width:100%}

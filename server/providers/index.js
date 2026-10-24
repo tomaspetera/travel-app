@@ -15,13 +15,15 @@ import { mockProviders } from './mock.js';
 import { liteapiTestKey, liteapiLive } from './stays/index.js';
 import { xoteloBlocked, xoteloRetryAfter, xoteloBlockReason } from './stays/xotelo.js';
 
+// color: tečka zdroje a podklad bílé zkratky aerolinky ve výsledcích (FR, W6…) – aspoň 4,5 : 1 (světlá oranžová, tyrkysová
+// a šedá měly jen 2,6–3 : 1)
 export const PROVIDER_INFO = {
   ryanair: { name: 'Ryanair', color: '#073590', kind: 'live', note: 'živé ceny z ryanair.com' },
   wizzair: { name: 'Wizz Air', color: '#c6007e', kind: 'live', note: 'živé ceny z wizzair.com' },
-  travelpayouts: { name: 'Ostatní aerolinky', color: '#ff6b00', kind: 'cached', note: 'Aviasales – ceny z vyhledávání za posledních ~48 h, nutno ověřit' },
-  kiwi: { name: 'Kiwi.com (všechny aerolinky)', color: '#00a991', kind: 'live', note: 'živé ceny stovek aerolinek vč. kombinací s přestupem – pro konkrétní cíl' },
+  travelpayouts: { name: 'Ostatní aerolinky', color: '#c25100', kind: 'cached', note: 'Aviasales – ceny z vyhledávání za posledních ~48 h, nutno ověřit' },
+  kiwi: { name: 'Kiwi.com (všechny aerolinky)', color: '#008471', kind: 'live', note: 'živé ceny stovek aerolinek vč. kombinací s přestupem – pro konkrétní cíl' },
   'demo-air': { name: 'Demo Air', color: '#64748b', kind: 'demo', note: 'VYMYŠLENÁ ukázková data' },
-  'demo-jet': { name: 'Demo Jet', color: '#94a3b8', kind: 'demo', note: 'VYMYŠLENÁ ukázková data' },
+  'demo-jet': { name: 'Demo Jet', color: '#6b7584', kind: 'demo', note: 'VYMYŠLENÁ ukázková data' },
 };
 
 export function activeProviders() {

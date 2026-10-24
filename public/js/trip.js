@@ -1078,7 +1078,7 @@
   // let jako v jízdence: den, velké časy s letišti a čára mezi nimi, pod tím aerolinka a přestupy
   function legLine(l, back, label = '') {
     const meta = [l.carrierName, l.flightNo, l.stops > 0 ? stopsTxt(l) : l.stops === 0 ? 'přímý' : ''].filter(Boolean).join(' · ');
-    return `<div class="tl-leg"><span class="cbadge" style="background:#5b8cff">${esc(l.carrier || '✈')}</span>
+    return `<div class="tl-leg"><span class="cbadge" style="background:#4970cc">${esc(l.carrier || '✈')}</span>
       <div class="tl-main"><div class="tl-day">${label || (back ? '↩ Zpět' : 'Tam')} · ${dayLbl(l.date)}</div>
         <div class="tl-route"><span><b>${depHm(l) || '–'}</b><small>${esc(l.from)}</small></span><i class="tl-line" aria-hidden="true"></i><span><b>${arrHm(l) || '–'}</b><small>${esc(l.to)}</small></span></div>
         ${meta ? `<div class="tl-meta">${esc(meta)}</div>` : ''}${depHm(l) ? '' : '<div class="tl-meta">čas odletu ověř u aerolinky</div>'}</div></div>`;
@@ -1841,6 +1841,7 @@
   function wireRouteSearch() {
     const q = $('#rtQ'), dd = $('#rtDd');
     if (!q) return;
+    if (window.comboAria) comboAria(q, dd, 'Přidat místo do trasy'); // čtečka: combobox jako Odkud/Kam v Letech
     let ctl = null, sugs = [], act = 0, tm;
     const pick = s => {
       dd.hidden = true; q.value = '';
@@ -2203,8 +2204,9 @@
   const affUrl = u => /^https:\/\/tp\.media\//.test(String(u || ''));
   // Odkazy na partnery; affiliate odkazy viditelně označené (zákon o ochraně spotřebitele, rel=sponsored).
   const SPONSOR_NOTE = '<div class="faint" style="font-size:11.5px;margin-top:6px">Odkazy označené „reklama“ jsou partnerské (affiliate): při rezervaci přes ně může ATLAS dostat provizi. Cenu pro tebe to nezvyšuje a pořadí nabídek to neovlivňuje.</div>';
-  // Barvy značek partnerů ubytování (jen podklad zkratky; neznámé id → barva skupiny).
-  const BRAND = { booking: '#003580', 'booking-best': '#003580', airbnb: '#d93a5b', trip: '#287dfa', hotelscom: '#c8102e', kayak: '#d9480f', google: '#1a73e8', hostelworld: '#d4471c', agoda: '#5b3a9b' };
+  // Barvy značek partnerů ubytování (jen podklad bílé zkratky; neznámé id → barva skupiny) – světlé o kus tmavší, ať má
+  // zkratka aspoň 4,5 : 1 (Airbnb, Trip.com, Kayak, Hostelworld měly 3,9–4,46 : 1).
+  const BRAND = { booking: '#003580', 'booking-best': '#003580', airbnb: '#d53959', trip: '#2470e1', hotelscom: '#c8102e', kayak: '#d0450e', google: '#1a73e8', hostelworld: '#d0461b', agoda: '#5b3a9b' };
   /** Odkazy na partnery; compact = menší karty, na telefonu ve dvou sloupcích (ubytování má partnerů víc). */
   function linkGrid(links, color, compact = false) {
     const html = links.map(l => `<a class="result-link" href="${esc(safeUrl(l.url))}" target="_blank" rel="${l.sponsored ? 'sponsored nofollow noopener' : 'noopener'}"><div class="lg" style="background:${(compact && BRAND[l.id]) || color}">${esc(l.name.slice(0, 2))}</div><div class="rl-b"><div class="rl-t">${esc(l.name)}${l.sponsored ? ' <span class="ad-tag">reklama</span>' : ''}</div><div class="rl-s">${esc(l.note)}</div></div><div class="go">↗</div></a>`).join('');
@@ -2895,7 +2897,7 @@
         const near = cities.map(c => `${esc(c.iata)} ~${kmTxt(c.km)} od města ${esc(c.name)}`).filter((x, i, a) => a.indexOf(x) === i).join(', ');
         $('#carBody').innerHTML = `${abroad ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>Vrácení v jiné zemi</b> (${esc(ccName(jq.dropoffCc))}) – mezinárodní jednosměrný pronájem bývá výrazně dražší a ne každá půjčovna ho dovolí; ověř příplatek v podmínkách nabídky.</div></div>` : ''}
           <div class="muted" style="font-size:13px;margin-bottom:8px">Srovnávače půjčoven – <b>předvyplněné na letiště ${esc(jq.pickupName || q.pickup)} a tvoje časy</b>${cities.length ? ` (nejbližší letiště: ${near}). Pobočky přímo ve městě ukáže mapa – stejné časy zadej tam.` : ':'}</div>
-          ${linkGrid(j.links, '#ff690f')}`;
+          ${linkGrid(j.links, '#c4510c')}`;
       } catch (e) {
         if (my === carSeq && $('#carBody')) $('#carBody').innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
       }
