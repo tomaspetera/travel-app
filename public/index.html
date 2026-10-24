@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- bez maximum-scale a user-scalable=no (ani jen na iOS): přiblížení prsty musí jít i v aplikaci na ploše (slabozrací);
+     iPhone při klepnutí do pole stránku nepřiblíží, protože pole mají na telefonu a tabletu 16 px (atlas.css) -->
 <!-- brand: titulek, popis, kanonickou adresu, náhled sdíleného odkazu (Open Graph, Twitter Card), název aplikace na ploše
      a JSON-LD sem dosadí server – název a popis ze server/brand.js, adresu z PUBLIC_URL (server/lib/seo.js headTags) -->
 <!-- /brand -->
@@ -69,12 +71,6 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
   root.setAttribute('data-map', s && s.mapStyle === 'dark' ? 'dark' : 'light');
   var m = document.querySelectorAll('meta[name="theme-color"]');
   for (var i = 0; i < m.length; i++) m[i].setAttribute('content', light ? '#eef2fb' : '#080c1a');
-  // iPhone/iPad: bez přiblížení stránky při klepnutí do pole (písmo polí 14 px) – prsty přibližovat jde dál (iOS
-  // maximum-scale u gesta ignoruje); na Androidu by to přiblížení zakázalo, proto jen iOS
-  if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)) {
-    var vp = document.querySelector('meta[name="viewport"]');
-    if (vp) vp.setAttribute('content', vp.getAttribute('content') + ', maximum-scale=1');
-  }
   window.atlasLaunchAt = performance.now(); // úvodní obrazovka se začne kreslit teď (vzlet vlaštovky – app.js launchDone)
 })();
 </script>

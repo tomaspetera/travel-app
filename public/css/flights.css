@@ -184,7 +184,7 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ---------- průběh ---------- */
-#progress{scroll-margin-top:100px} /* odrolování na začátku hledání: průběh i tenký pruh pod přilepenou horní lištou */
+#progress{scroll-margin-top:28px} /* odrolování na začátku hledání: průběh i tenký pruh pod přilepenou horní lištou */
 .progress-card{padding:16px 18px;margin-bottom:18px}
 .progress-card.done,.progress-card.part{padding:12px 18px}
 /* průběžné výsledky: tenký pruh nad výpisem, dokud pomalejší zdroje hledají; v nadpisu konkrétního cíle „⏳ zatím…“ */
@@ -457,7 +457,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .lr-p small.lr-f{color:var(--faint)}
 .lrow.dim .lr-p small:first-child{white-space:normal;max-width:96px}
 .legs-pick{margin-top:20px}
-.lcol,.legs-pick,.smart-guide{scroll-margin-top:100px} /* pod lepicí hlavičkou */
+.lcol,.legs-pick,.smart-guide{scroll-margin-top:28px} /* pod lepicí hlavičkou */
 
 /* chytrá nápověda a průvodce hledáním */
 .smart-help{margin-top:16px}
@@ -524,7 +524,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .dc-back{margin-top:2px;border-top:1px solid var(--border);padding-top:10px}
 .dc-back>summary{cursor:pointer;font-size:14px;font-weight:800;margin-bottom:8px;list-style-position:inside}
 .dc-back:not([open])>summary{margin-bottom:0}
-.dc-head{scroll-margin-top:90px;gap:10px}
+.dc-head{scroll-margin-top:18px;gap:10px}
 .dc-head .linkbtn{white-space:nowrap;font-size:13px}
 /* mřížka termínů: den odletu × počet nocí (posouvá se uvnitř karty, datum a noci zůstanou vidět) */
 .dg-card{padding:16px 18px;margin-bottom:14px}
@@ -877,7 +877,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .mc-cp{white-space:nowrap;text-align:right}
 .mc-cp b{font:800 16px Sora,sans-serif}
 .mc-cp small{color:var(--muted);font-size:11px}
-#mcol-0,#mcol-1,#mcol-2,#mcol-3,#mcPick{scroll-margin-top:100px}
+#mcol-0,#mcol-1,#mcol-2,#mcol-3,#mcPick{scroll-margin-top:28px}
 @media(max-width:860px){
   #multiField{grid-column:auto}
   .ml-row{grid-template-columns:24px minmax(0,1fr) 30px;align-items:start}
@@ -1344,7 +1344,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .res-top-c .rt-price small{font-size:12px;font-weight:600;opacity:.8}
 .res-top-c .rt-price .rt-trip{display:block;margin-top:2px;font-size:11px}
 .res-top-h{margin-top:4px}
-.cmp-row{scroll-margin-top:90px}
+.cmp-row{scroll-margin-top:18px}
 @media(max-width:560px){
   .res-top{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:66%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:12px;
     margin:0 -16px 6px;padding:2px 16px 12px;scroll-padding:0 16px}

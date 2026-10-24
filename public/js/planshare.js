@@ -114,9 +114,12 @@
       budget: raw.budget !== '' && Number.isFinite(budget) && budget > 0 ? String(Math.round(Math.min(budget, 1e8))) : '',
       flight: T(raw.flight, 500) || null,
       days,
-      // položka { t, done } z plánovače, nebo text z odkazu s odškrtnutím v masce done (index = pořadí v odkazu)
+      // položka { t, done } z plánovače, nebo text z odkazu s odškrtnutím v masce done (index = pořadí v odkazu); id
+      // položky z „Co zařídit a co sbalit“ průvodce (pretrip.js) zůstane – záloha a přenos do zařízení bez něj rozpojily
+      // odškrtnutí v plánovači a v průvodci (odkaz #plan= posílá jen texty)
       checklist: (Array.isArray(raw.checklist) ? raw.checklist.slice(0, L.ck) : [])
-        .map((x, i) => ({ t: T(obj(x) ? x.t : x, L.ckLen), done: obj(x) ? x.done === true : doneAt(raw.done, i) })).filter(x => x.t),
+        .map((x, i) => ({ t: T(obj(x) ? x.t : x, L.ckLen), done: obj(x) ? x.done === true : doneAt(raw.done, i),
+          ...(obj(x) && typeof x.id === 'string' && /^(todo|pack):[\w-]{1,40}$/.test(x.id) ? { id: x.id } : {}) })).filter(x => x.t),
       notes: T(raw.notes, L.notes, true),
     };
     if (legs.length) plan.legs = legs;

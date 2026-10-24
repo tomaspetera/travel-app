@@ -237,7 +237,12 @@
   // Stejný plán (bez „Sbaleno“) – jako import sdíleného plánu; cesty bez tripId i pid se poznají jen takhle.
   const planKey = (t, d) => { const p = planOf(t, d); if (!p) return '?'; const { checklist, ...rest } = p; return stable(rest); };
   // Podpis pro „změněná“: plán i se „Sbaleno“ a cesta z průvodce – obojí po stejném pročištění na obou stranách.
-  const tripSig = (t, d) => stable([planOf(t, d), t.wizard ? cleanWiz(t.wizard, d) : null]);
+  // Bez id položek „Sbaleno“ (spojení s průvodcem doplní id i starší cestě) – jinak by starší záloha hlásila cestu jako změněnou.
+  const tripSig = (t, d) => {
+    const p = planOf(t, d);
+    if (p && Array.isArray(p.checklist)) p.checklist = p.checklist.map(({ id, ...x }) => x);
+    return stable([p, t.wizard ? cleanWiz(t.wizard, d) : null]);
+  };
 
   /**
    * Která cesta ze zálohy je která v zařízení: stejné tripId (z průvodce), stejné pid (planner id ze zálohy), jinak stejný
@@ -321,10 +326,14 @@
   }
 
   // Přepsaná cesta: odškrtnutí „Sbaleno“ z obou zařízení zůstanou a vlastní položky ze zařízení se neztratí.
+  // Id položky (spojení s „Co zařídit a co sbalit“ průvodce) zůstane i ze zařízení, když ho příchozí položka nemá.
   function keepChecks(inc, old) {
-    const was = new Map((old.checklist || []).map(x => [x.t, x.done]));
+    const was = new Map((old.checklist || []).map(x => [x.t, x]));
     const have = new Set((inc.checklist || []).map(x => x.t));
-    return [...(inc.checklist || []).map(x => ({ ...x, done: x.done || was.get(x.t) === true })), ...(old.checklist || []).filter(x => !have.has(x.t))];
+    return [...(inc.checklist || []).map(x => {
+      const o = was.get(x.t);
+      return { ...x, done: x.done || (o && o.done === true) || false, ...(!x.id && o && o.id ? { id: o.id } : {}) };
+    }), ...(old.checklist || []).filter(x => !have.has(x.t))];
   }
 
   /** Nové seznamy po sloučení (vstupní pole nemění). Změněné cesty nahradí jen s overwrite, domov jen s takeHome. */

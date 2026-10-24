@@ -231,7 +231,7 @@ details.more.ex-places>summary::before{content:none}
 .ex-err>div{flex:1;min-width:0}
 .ex-err .btn{flex:none}
 #exBody>.ex-err{margin-top:14px}
-#exPlanOut,.ex-err{scroll-margin-top:100px} /* odrolování k výsledku / chybě: ne pod přilepenou horní lištu */
+#exPlanOut,.ex-err{scroll-margin-top:28px} /* odrolování k výsledku / chybě: ne pod přilepenou horní lištu */
 /* plovoucí „zpět na seznam / plán“ po odrolování k mapě (jen na telefonu) */
 .ex-back{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:55;padding:10px 18px;border-radius:999px;border:1px solid var(--border-2);background:var(--surface-solid);color:var(--text);font:700 13.5px Inter,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.4);cursor:pointer;white-space:nowrap}
 .ex-back[hidden]{display:none}
@@ -240,7 +240,8 @@ details.more.ex-places>summary::before{content:none}
   /* telefon a úzké okno: plán → mapa (menší) → místa; mapa tak není až pod celým seznamem */
   .ex-layout.ex-main{grid-template-columns:minmax(0,1fr);grid-template-areas:"plan" "map" "places";grid-template-rows:auto}
   .ex-main>.ex-map{height:300px}}
-@media(max-width:860px){.sum-grid{grid-template-columns:1fr}.manual-row{grid-template-columns:1fr 1fr}.manual-row>div{grid-column:1/-1}.ex-back{bottom:calc(90px + env(safe-area-inset-bottom,0px))}}
+/* cena a název vlastního ubytování / auta: užší okraje v poli – „Cena celkem v Kč“ se s písmem polí 16 px vejde na 412 px */
+@media(max-width:860px){.sum-grid{grid-template-columns:1fr}.manual-row{grid-template-columns:1fr 1fr}.manual-row>div{grid-column:1/-1}.manual-row .input{padding-left:10px;padding-right:10px}.ex-back{bottom:calc(90px + env(safe-area-inset-bottom,0px))}}
 @media(max-width:560px){.ex-search{grid-template-columns:auto minmax(0,1fr)}.ex-search>.field:first-child{grid-column:1/-1}.poi{grid-template-columns:72px 1fr}.poi-img{width:72px;height:64px}
   /* kategorie v jednom posuvném řádku místo pěti; chyba se „Zkusit znovu“ pod textem */
   .ex-cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
@@ -320,7 +321,8 @@ details.more.ex-places>summary::before{content:none}
 .map-blank{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center;max-width:calc(100% - 32px);padding:14px 18px;border-radius:12px;border:1px solid var(--border-2);background:var(--surface-solid);color:var(--muted);font-size:13.5px;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 .mk{width:13px;height:13px;border-radius:50%;border:2px solid #0b1226;box-shadow:0 1px 4px rgba(0,0,0,.45);cursor:pointer}
 .mk.ctr{width:18px;height:18px;border:3px solid #fff}
-.mk.num{width:22px;height:22px;border:2px solid #fff;color:#fff;font:800 11px/18px Inter,sans-serif;text-align:center}
+/* číslo zastávky na pestré barvě dne / místa: tmavé (bílé mělo na oranžové, zelené, tyrkysové jen 2,2–2,5 : 1, tmavé ≥ 4,7 : 1) */
+.mk.num{width:22px;height:22px;border:2px solid #fff;color:#0b1226;font:800 11px/18px Inter,sans-serif;text-align:center}
 .mk.big.num{width:26px;height:26px;line-height:22px;font-size:12px}
 .ex-map .maplibregl-popup-content{background:var(--surface-solid);color:var(--text);border-radius:10px;padding:8px 11px;font:600 12.5px/1.4 Inter,sans-serif;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 .ex-map .maplibregl-popup-content a{color:var(--accent-ink);font-weight:700}
@@ -401,7 +403,8 @@ details.more.ex-places>summary::before{content:none}
 @container route (max-width:899px){.route-layout{grid-template-columns:minmax(0,1fr)}.route-map{height:340px}}
 .route-list{display:flex;flex-direction:column}
 .rb{display:grid;grid-template-columns:30px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:11px 12px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
-.rb-n,.bt-n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font:800 13px Inter,sans-serif;flex:none}
+/* pořadí místa v trase na jeho barvě (stejná jako na mapě): tmavé číslo – bílé mělo 2,2–4 : 1, tmavé ≥ 4,7 : 1 */
+.rb-n,.bt-n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#0b1226;font:800 13px Inter,sans-serif;flex:none}
 .rb-name{font-weight:800;font-size:15px}
 .rb-dates{font-size:12.5px;color:var(--muted)}
 .rb-why{font-size:12px;color:var(--faint);margin-top:2px}

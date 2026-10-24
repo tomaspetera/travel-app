@@ -11,6 +11,8 @@ const read = (f) => readFileSync(new URL(`../public/${f}`, import.meta.url), 'ut
 const noComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
 const html = read('index.html'), appJs = read('js/app.js'), flightsJs = read('js/flights.js');
 const atlasCss = noComments(read('css/atlas.css')), flightsCss = noComments(read('css/flights.css'));
+const placesJs = read('js/places.js'), tripJs = read('js/trip.js');
+const tripCss = noComments(read('css/trip.css')), desktopCss = noComments(read('css/desktop.css'));
 const jsFiles = readdirSync(new URL('../public/js/', import.meta.url)).filter((f) => f.endsWith('.js'));
 const templates = [['index.html', html], ...jsFiles.map((f) => [`js/${f}`, read(`js/${f}`)])];
 /** Funkce nebo konstanta z app.js podle jména (na jednom řádku, nebo víceřádková do „}“ na začátku řádku). */
@@ -202,8 +204,146 @@ test('omezit pohyb, přiblížení a jazyk: bez plujících barev a vyjetí sekc
   for (const s of ['.hero-aurora', '.view', '.skel']) assert.ok(rm.includes(s), s);
   assert.match(html, /<html lang="cs"/);
   const vp = html.match(/<meta name="viewport" content="([^"]+)">/)[1];
-  assert.doesNotMatch(vp, /user-scalable=no|maximum-scale/, 'Android: přiblížení prsty musí jít');
+  assert.doesNotMatch(vp, /user-scalable|maximum-scale/, 'Android: přiblížení prsty musí jít');
   // velké písmo systému: hlavní tlačítko hledání a nabídka Další se zalomí, ne vytečou z okna
   assert.match(flightsCss, /\.sf-actions #doSearch\{[^}]*white-space:normal/);
   assert.match(atlasCss, /\.mn-grid\{display:grid;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
+});
+
+test('přiblížení prsty i na iPhonu a v aplikaci na ploše: viewport bez omezení (ani skriptem pro iOS), pole na telefonu a tabletu aspoň 16 px – iOS pak při klepnutí do pole stránku nepřibližuje', () => {
+  const code = html.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  assert.doesNotMatch(code, /maximum-scale|minimum-scale|user-scalable/, 'dřív skript na iPhonu přidal maximum-scale=1');
+  for (const [f, src] of templates.slice(1)) assert.doesNotMatch(src, /maximum-scale|user-scalable|meta\[name="viewport"\]/, f);
+  // jedno pravidlo pro všechna textová pole (i nově vykreslená, i se stylem v řádku): telefon (vše pod počítačovým
+  // rozvržením od 1024 px) a dotykový displej (iPad na šířku)
+  const m = atlasCss.match(/@media \(max-width:1023px\),\(pointer:coarse\)\{\s*(input[^{]*)\{font-size:16px!important\}\s*\}/);
+  assert.ok(m, 'pravidlo pro pole na telefonu a dotykovém displeji');
+  const sel = m[1].split(',').map((s) => s.trim());
+  assert.deepEqual(sel.slice(1), ['select', 'textarea']);
+  assert.match(sel[0], /^input(:not\(\[type=[a-z]+\]\))+$/);
+  const skip = [...sel[0].matchAll(/\[type=([a-z-]+)\]/g)].map((x) => x[1]);
+  for (const t of ['text', 'search', 'number', 'date', 'datetime-local', 'url', 'email', 'tel']) assert.ok(!skip.includes(t), `pole ${t} má 16 px`);
+  for (const t of ['checkbox', 'radio', 'range']) assert.ok(skip.includes(t), `${t} bez textu`);
+  // žádné jiné !important písmo u polí, které by pravidlo přebilo (styl v řádku !important nepřebije)
+  const bad = [];
+  for (const f of readdirSync(new URL('../public/css/', import.meta.url)).filter((x) => x.endsWith('.css'))) {
+    for (const r of noComments(read(`css/${f}`)).matchAll(/([^{};]*)\{[^{}]*font(-size)?:[^;}]*!important/g)) if (/\b(input|select|textarea)\b|\.input\b|\.pi-input\b/.test(r[1]) && !/font-size:16px!important/.test(r[0])) bad.push(`${f}: ${r[0].slice(0, 90)}`);
+  }
+  for (const [f, src] of templates) for (const r of src.matchAll(/<(input|select|textarea)\b[^>]*style="[^"]*!important/g)) bad.push(`${f}: ${r[0].slice(0, 90)}`);
+  assert.deepEqual(bad, []);
+});
+
+test('našeptávač v Objevuj a místo do trasy cesty: combobox jako Odkud/Kam – rozbalení, šipkami vybraný návrh, prázdná nabídka nahlas', () => {
+  assert.match(placesJs, /const q = \$\('#exQ', root\), dd = \$\('#exDd', root\);\n\s*if \(window\.comboAria\) comboAria\(q, dd, 'Kam se chceš podívat'\);/);
+  assert.match(tripJs, /const q = \$\('#rtQ'\), dd = \$\('#rtDd'\);\n\s*if \(!q\) return;\n\s*if \(window\.comboAria\) comboAria\(q, dd, 'Přidat místo do trasy'\);/);
+  // klávesy: šipky (návrh, třída on), Enter (vybrat), Escape (zavřít)
+  for (const src of [placesJs, tripJs]) assert.match(src, /if \(e\.key === 'ArrowDown' \|\| e\.key === 'ArrowUp'\) \{ if \(!sugs\.length\) return; e\.preventDefault\(\); act = [^\n]*show\(\); \}\n\s*else if \(e\.key === 'Enter'\)[\s\S]{0,900}?else if \(e\.key === 'Escape'\) dd\.hidden = true;/);
+  const el = () => { const a = {}; return { a, hidden: true, id: '', opts: [], empty: null, setAttribute: (k, v) => { a[k] = String(v); }, getAttribute: (k) => a[k] ?? null, removeAttribute: (k) => { delete a[k]; } }; };
+  const opt = (on) => ({ ...el(), classList: { contains: (k) => k === 'on' && on } });
+  const said = [], obs = [];
+  const ctx = vm.createContext({ $: (s, r) => (s === '.pi-empty' ? r.empty : null), $$: (s, r) => (s === '.pi-opt' ? r.opts : []), say: (m) => said.push(m),
+    MutationObserver: class { constructor(cb) { obs.push(cb); } observe(n, o) { assert.deepEqual(JSON.parse(JSON.stringify(o)), { childList: true, attributes: true, attributeFilter: ['hidden'] }); } } });
+  vm.runInContext(pick('comboAria'), ctx);
+  const input = el(), dd = el(); dd.id = 'exDd';
+  ctx.comboAria(input, dd, 'Kam se chceš podívat');
+  assert.deepEqual(input.a, { role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'exDd', 'aria-expanded': 'false' });
+  assert.deepEqual(dd.a, { role: 'listbox', 'aria-label': 'Návrhy – Kam se chceš podívat' });
+  // otevřená nabídka, šipkou vybraný druhý návrh
+  dd.opts = [opt(false), opt(true), opt(false)]; dd.hidden = false; obs[0]();
+  assert.deepEqual([input.a['aria-expanded'], input.a['aria-activedescendant']], ['true', 'exDd-1']);
+  assert.deepEqual(dd.opts.map((o) => [o.id, o.a.role, o.a['aria-selected']]), [['exDd-0', 'option', 'false'], ['exDd-1', 'option', 'true'], ['exDd-2', 'option', 'false']]);
+  // nic nenalezeno: přečte se jednou (ne při každé změně), vybraný návrh není
+  dd.opts = []; dd.empty = { textContent: ' Nic nenalezeno ' }; obs[0](); obs[0]();
+  assert.deepEqual(said, ['Nic nenalezeno']);
+  assert.equal(input.a['aria-activedescendant'], undefined);
+  // zavřeno (Escape, klik jinam, výběr)
+  dd.hidden = true; obs[0]();
+  assert.deepEqual([input.a['aria-expanded'], input.a['aria-activedescendant']], ['false', undefined]);
+  dd.hidden = false; obs[0]();
+  assert.deepEqual(said, ['Nic nenalezeno', 'Nic nenalezeno'], 'po zavření a novém otevření znovu');
+});
+
+test('kontrast: bílá zkratka aerolinky a partnera na barvě značky aspoň 4,5 : 1, čísla míst v trase a na mapě tmavá na pestré barvě', () => {
+  const prov = readFileSync(new URL('../server/providers/index.js', import.meta.url), 'utf8').match(/export const PROVIDER_INFO = \{([\s\S]*?)\n\};/)[1];
+  const cols = [...prov.matchAll(/color: '(#[0-9a-f]{6})'/g)].map((x) => x[1]);
+  assert.equal(cols.length, 6, 'aerolinky a demo');
+  // v prohlížeči: kombinace a záložní Ostatní aerolinky (zkratka ve výsledcích), letenka v průvodci, partneři ubytování
+  // a půjčoven aut, okno Ubytování
+  cols.push(...[...flightsJs.matchAll(/PROV\.\w+ = [^;\n]*color: '(#[0-9a-f]{6})'/g)].map((x) => x[1]));
+  cols.push(tripJs.match(/<span class="cbadge" style="background:(#[0-9a-f]{6})">/)[1]);
+  cols.push(...[...tripJs.match(/const BRAND = \{([^}]*)\}/)[1].matchAll(/'(#[0-9a-f]{6})'/g)].map((x) => x[1]));
+  cols.push(...[...tripJs.matchAll(/linkGrid\([^\n]*?'(#[0-9a-f]{6})'/g)].map((x) => x[1]));
+  cols.push(...[...appJs.matchAll(/provLink\([^\n]*?'(#[0-9a-f]{6})', '[^']*'\)/g)].map((x) => x[1]));
+  assert.ok(cols.length >= 21, String(cols.length));
+  for (const c of cols) assert.ok(contrast(WHITE, hex(c)) >= 4.5, `${c}: ${contrast(WHITE, hex(c)).toFixed(2)}`);
+  assert.equal((flightsJs.match(/<span class="cbadge" style="background:\$\{provColor\(l\.provider\)\}"/g) || []).length, 3, 'zkratka ve výsledcích na barvě zdroje');
+  // čísla míst: barvy trasy (průvodce) a dnů programu (Objevuj) jsou i na mapě – tmavé číslo místo bílého
+  const navy = hex('#0b1226');
+  assert.match(tripCss, /\.rb-n,\.bt-n\{[^}]*color:#0b1226;font:800 13px/);
+  assert.match(tripCss, /\.mk\.num\{[^}]*color:#0b1226;font:800 11px/);
+  const arr = (src, name) => JSON.parse(src.match(new RegExp(`const ${name} = (\\[[^\\]]*\\])`))[1].replace(/'/g, '"'));
+  for (const c of [...arr(tripJs, 'BASE_COLORS'), ...arr(placesJs, 'DAY_COLORS'), '#0ea5e9']) assert.ok(contrast(navy, hex(c)) >= 4.5, `${c}: ${contrast(navy, hex(c)).toFixed(2)}`);
+});
+
+test('ⓘ autora fotky: plocha pro prst aspoň 24 px bez změny vzhledu', () => {
+  assert.match(atlasCss, /\.ph-i\{[^}]*width:17px;height:17px;[^}]*position:relative\}/);
+  assert.match(atlasCss, /\.ph-i::after\{content:"";position:absolute;inset:-7px\}/); // 17 + 2 × 7 = 31 px
+});
+
+test('Shift+Tab nahoru: fokus pod lepicí horní lištou, ne za ní – prvky s vlastním odsazením končí tam, kde dřív', () => {
+  const top = atlasCss.match(/html\{scroll-padding-top:calc\((\d+)px \+ max\((\d+)px,env\(safe-area-inset-top\)\)\)\}/);
+  assert.ok(top, 'rezerva lišty (s výřezem iPhonu)');
+  const pad = +top[1] + +top[2];
+  assert.ok(pad >= 68 && pad <= 80, `lišta na telefonu má 68 px (z toho 14 px průhledných): ${pad}`);
+  // dřívější odsazení 90 / 100 px od horního okraje = rezerva lišty + nové odsazení
+  const was = { '#watchList .watch': 90, '#radarHead': 90, '#progress': 100, '.lcol,.legs-pick,.smart-guide': 100, '.dc-head': 90, '#mcol-0,#mcol-1,#mcol-2,#mcol-3,#mcPick': 100, '.cmp-row': 90, '#exPlanOut,.ex-err': 100 };
+  const all = [atlasCss, flightsCss, tripCss].join('\n');
+  for (const [s, px] of Object.entries(was)) {
+    const m = all.match(new RegExp(`^${s.replace(/[.#]/g, '\\$&')}\\{scroll-margin-top:(\\d+)px`, 'm'));
+    assert.ok(m, s);
+    assert.equal(pad + +m[1], px, s);
+  }
+  // počítač: vlastní rezerva pod vyšší lištou, odsazení pro telefon tam neplatí
+  assert.match(desktopCss, /html\{scroll-padding-top:104px\}/);
+  assert.match(desktopCss, /#watchList \.watch,#radarHead,#progress,\.lcol,\.legs-pick,\.smart-guide,\.dc-head,#mcol-0,#mcol-1,#mcol-2,#mcol-3,#mcPick,\.cmp-row,#exPlanOut,\.ex-err\{scroll-margin-top:0\}/);
+});
+
+test('název sekce v horní liště je pro čtečku nadpis 1. úrovně – jen v sekcích bez vlastního h1 ve fotce', () => {
+  assert.match(html, /<div class="page-title" id="pageTitle">/, 'vzhled lišty beze změny (ne <h1> s jiným písmem)');
+  const a = {};
+  const t = { getAttribute: (k) => a[k] ?? null, setAttribute: (k, v) => { a[k] = v; }, removeAttribute: (k) => { delete a[k]; } };
+  let h1 = null;
+  const ctx = vm.createContext({ $: (s) => (s === '#pageTitle' ? t : s === '.view.active h1' ? h1 : null) });
+  vm.runInContext(pick('pageHeading'), ctx);
+  ctx.pageHeading();
+  assert.deepEqual({ ...a }, { role: 'heading', 'aria-level': '1' }, 'Cesta, Země, Plánovač…');
+  h1 = {}; ctx.pageHeading();
+  assert.deepEqual({ ...a }, {}, 'Přehled, Lety, Objevuj bez místa: h1 ve fotce');
+  h1 = null; ctx.pageHeading(); ctx.pageHeading();
+  assert.deepEqual({ ...a }, { role: 'heading', 'aria-level': '1' });
+  // hlídá ho sledování změn stránky (přepnutí sekce, Objevuj s místem a bez)
+  assert.match(appJs, /\n {2}pageHeading\(\);\n\}\)\.observe\(document\.body, \{ subtree: true, childList: true, attributes: true, attributeFilter: \['class'\] \}\);/);
+  assert.match(html, /<h1 id="heroGreet">/);
+  assert.match(html, /<div class="fl-hero-in"><h1>/);
+  assert.match(placesJs, /<div class="fl-hero-in"><h1>Objev, co stojí za vidění<\/h1>/);
+});
+
+test('omezit pohyb: plynulé rolování z kódu (behavior smooth, ~50 míst) skočí rovnou – jen s nastavením systému', () => {
+  assert.match(appJs, /^calmScroll\(window, Element\.prototype\);$/m);
+  assert.ok(appJs.indexOf('calmScroll(window') < appJs.indexOf('scrollIntoView('), 'dřív než první rolování');
+  for (const reduce of [true, false]) {
+    const calls = [];
+    const w = { matchMedia: () => ({ matches: reduce }), scrollTo(o, y) { calls.push(['w', o, y]); }, scrollBy() {}, scroll() {} };
+    const proto = { scrollIntoView(o) { calls.push(['el', this.id, o]); }, scrollTo() {}, scrollBy() {}, scroll() {} };
+    const ctx = vm.createContext({});
+    vm.runInContext(pick('calmScroll'), ctx);
+    ctx.calmScroll(w, proto);
+    const el = Object.create(proto); el.id = 'x';
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el.scrollIntoView(true);
+    w.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    w.scrollTo(0, 50);
+    const b = reduce ? 'auto' : 'smooth';
+    assert.deepEqual(JSON.parse(JSON.stringify(calls)), [['el', 'x', { behavior: b, block: 'start' }], ['el', 'x', true], ['w', { top: 0, left: 0, behavior: b }, null], ['w', 0, 50]]);
+  }
 });
