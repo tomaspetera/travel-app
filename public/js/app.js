@@ -409,8 +409,9 @@ function nextTripStat() {
   const t = next.t, d = daysTo(now, t.start);
   const todo = (t.checklist || []).filter(x => !x.done && /^Zařídit/i.test(x.t || '')).length;
   const when = d <= 0 ? 'právě probíhá' : inDays(d);
+  // „zbývá zařídit“ jen před cestou – na cestě (i v den odletu) už pojištění ani EHIC nikdo nezařizuje
   return ['Nejbližší cesta', `<span class="nt-name">${t.iso && byIso[t.iso] ? flag(t.iso) + ' ' : ''}${esc(t.dest && t.dest !== '—' ? t.dest : t.name)}</span>`,
-    `${when}${todo ? ` · zbývá zařídit ${todo}` : ''}`, `<button type="button" class="linkbtn nt-open" data-nt="${next.i}">Otevřít plán →</button>`];
+    `${when}${todo && d > 0 ? ` · zbývá zařídit ${todo}` : ''}`, `<button type="button" class="linkbtn nt-open" data-nt="${next.i}">Otevřít plán →</button>`];
 }
 
 /* ---------- 📍 Dnes na cestě ----------
@@ -2048,7 +2049,13 @@ function previewPlan(shared) {
 const reTrip = i => { save(); openTrip(i); if (activeView === 'planner') renderPlanner(); else if (activeView === 'dashboard') renderDashStats(); };
 window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.value.trim(); if (!v) return; S.trips[i].days[d] = S.trips[i].days[d] || []; S.trips[i].days[d].push(v); reTrip(i); };
 window.delAct = (i, d, ai) => { S.trips[i].days[d].splice(ai, 1); reTrip(i); };
-window.toggleCheck = (i, xi) => { S.trips[i].checklist[xi].done = !S.trips[i].checklist[xi].done; reTrip(i); };
+window.toggleCheck = (i, xi) => {
+  const t = S.trips[i], x = t.checklist[xi];
+  x.done = !x.done;
+  // položka z „Co zařídit a co sbalit“ průvodce (id): odškrtnutí i tam – je to tatáž věc (PreTrip.fromPlanner)
+  if (x.id && t.wizard) { const f = () => PreTrip.fromPlanner(t, x); if (window.PreTrip) f(); else if (window.Lazy) Lazy.need('pretrip').then(f, () => { }); }
+  reTrip(i);
+};
 window.addCheck = i => { const inp = $('#newCheck-' + i); const v = inp.value.trim(); if (!v) return; S.trips[i].checklist.push({ t: v, done: false }); reTrip(i); };
 window.addRef = i => {
   const t = S.trips[i], v = k => ($(`#${k}-${i}`) || { value: '' }).value;

@@ -505,9 +505,10 @@ test('plánovač: „Sbaleno“ = úkoly a věci na míru i s odškrtnutím, max
   c.window.PreTrip.setDone(key, 'pack:doc-pass', true);
   const list = plain(c.window.PreTrip.plannerChecklist(t, { isos: ['JP'], climate: [] }));
   assert.ok(list.length > 15 && list.length <= 80, String(list.length));
-  assert.deepEqual(list[0], { t: 'Zařídit: cestovní pojištění', done: true });
+  assert.deepEqual(list[0], { t: 'Zařídit: cestovní pojištění', done: true, id: 'todo:ins' });
   assert.ok(list.some((x) => x.t === 'Zařídit: mezinárodní řidičský průkaz (vzor 1949)' && !x.done));
-  assert.ok(list.some((x) => x.t === 'Cestovní pas (občanský průkaz nestačí)' && x.done));
+  assert.ok(list.some((x) => x.t === 'Cestovní pas (občanský průkaz nestačí)' && x.done && x.id === 'pack:doc-pass'));
+  assert.ok(list.every((x) => /^(todo|pack):[\w-]+$/.test(x.id)) && new Set(list.map((x) => x.id)).size === list.length, 'každá položka s vlastním id');
   assert.ok(list.every((x) => x.t.length <= 120 && !/["<>`]/.test(x.t)));
   assert.ok(!list.some((x) => /^Zařídit: peníze/.test(x.t)), 'informace bez úkolu ne');
   // prochází pročištěním sdíleného plánu beze změny (#plan=)
@@ -516,6 +517,53 @@ test('plánovač: „Sbaleno“ = úkoly a věci na míru i s odškrtnutím, max
   vm.runInContext(read('public/js/planshare.js'), ps);
   const back = plain(ps.window.PlanShare.decode(ps.window.PlanShare.encode({ name: 'Tokio', start: '2027-07-10', end: '2027-07-17', checklist: list })).checklist);
   assert.deepEqual(back.map((x) => x.t), list.map((x) => x.t));
+});
+
+test('plánovač ↔ průvodce: odškrtnutí v „Sbaleno“ uložené cesty a v „Co zařídit a co sbalit“ je totéž (i u seznamu bez id ze starší verze)', () => {
+  const mem = new Map();
+  const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)) };
+  const c = load({ storage });
+  const P2 = c.window.PreTrip, o = { isos: ['JP'], climate: [] };
+  // cesta z průvodce uložená v plánovači (tripId = created, wizard = kopie cesty) a táž otevřená zpět v průvodci (openSaved)
+  const w = trip({ cc: 'JP', label: 'Tokio' });
+  const saved = { name: 'Tokio 10.7.', tripId: w.created, wizard: { ...w, created: undefined }, checklist: plain(P2.plannerChecklist(w, o)) };
+  const key = P2.tripKey(w);
+  assert.equal(P2.savedKey(saved), key);
+  assert.equal(P2.savedKey({ name: 'Jen plánovač', checklist: [] }), '', 'cesta bez průvodce');
+  c.S.trips = [{ name: 'Jiná', checklist: [{ t: 'Zařídit: cestovní pojištění', done: false }] }, saved];
+  let saves = 0;
+  c.save = () => { saves++; };
+  // plánovač → průvodce (app.js toggleCheck)
+  const ins = saved.checklist.find((x) => x.id === 'todo:ins');
+  ins.done = true; P2.fromPlanner(saved, ins);
+  assert.equal(P2.doneOf(key)['todo:ins'], 1);
+  assert.match(P2.html(w, o), /data-ptk="todo:ins" checked/);
+  ins.done = false; P2.fromPlanner(saved, ins);
+  assert.equal(P2.doneOf(key)['todo:ins'], undefined, 'zrušené odškrtnutí taky');
+  // průvodce → plánovač (zaškrtávátko karty)
+  assert.equal(P2.toPlanner(c.S.trips, key, 'pack:doc-pass', true), 1);
+  assert.equal(saved.checklist.find((x) => x.id === 'pack:doc-pass').done, true);
+  assert.equal(P2.toPlanner(c.S.trips, key, 'pack:doc-pass', true), 0, 'beze změny nic');
+  assert.equal(c.S.trips[0].checklist[0].done, false, 'jiná cesta se nemění');
+  assert.equal(P2.toPlanner(c.S.trips, 'jiny:klic', 'todo:ins', true), 0);
+  // seznam uložený starší verzí (bez id) s odškrtnutím jen v plánovači: karta průvodce doplní id podle textu
+  // a odškrtnuté sjednotí na obou stranách
+  const old = { ...saved, checklist: saved.checklist.map((x) => ({ t: x.t, done: x.t === 'Zařídit: cestovní pojištění' })) };
+  P2.setDone(key, 'pack:doc-pass', true);
+  P2.setDone(key, 'todo:ins', false);
+  c.S.trips = [old];
+  saves = 0;
+  const h = P2.html(w, o);
+  assert.match(h, /data-ptk="todo:ins" checked/, 'z plánovače do průvodce');
+  assert.ok(old.checklist.every((x) => /^(todo|pack):/.test(x.id)), 'id podle textu');
+  assert.equal(old.checklist.find((x) => x.id === 'pack:doc-pass').done, true, 'z průvodce do plánovače');
+  assert.ok(saves >= 1, 'uloženo');
+  saves = 0; P2.html(w, o);
+  assert.equal(saves, 0, 'podruhé už není co měnit');
+  // vlastní položka plánovače (text bez protějšku) zůstane bez id
+  old.checklist.push({ t: 'Dárek pro Janu', done: false });
+  P2.html(w, o);
+  assert.equal(old.checklist.at(-1).id, undefined);
 });
 
 test('odškrtnutí: localStorage pro každou cestu, nejvýš 30 cest, rozbité nebo zakázané úložiště nevadí', () => {

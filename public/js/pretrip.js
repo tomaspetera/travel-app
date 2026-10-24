@@ -686,15 +686,70 @@
   }
 
   /* ---------- plánovač ---------- */
-  /** Seznam „Sbaleno“ pro plánovač (a sdílený plán #plan=): úkoly a věci s odškrtnutím z této cesty; max 80 × 120 znaků. */
+  /**
+   * Seznam „Sbaleno“ pro plánovač (a sdílený plán #plan=): úkoly a věci s odškrtnutím z této cesty; max 80 × 120 znaků.
+   * id = položka této karty (todo:ins, pack:doc-op) – odškrtnutí v plánovači a v průvodci je pak jedno a totéž (savedKey).
+   */
   function plannerChecklist(t, o = {}) {
     if (!DATA || !t) return null;
     const ctx = contextOf(t, o), done = doneOf(tripKey(t));
     const items = [
-      ...todos(ctx).filter(x => x.level !== 'info').map(x => ({ t: `Zařídit: ${x.short}`, done: Boolean(done[`todo:${x.id}`]) })),
-      ...pack(ctx).flatMap(g => g.items.map(x => ({ t: x.note ? `${x.text} (${x.note})` : x.text, done: Boolean(done[`pack:${x.id}`]) }))),
+      ...todos(ctx).filter(x => x.level !== 'info').map(x => ({ id: `todo:${x.id}`, t: `Zařídit: ${x.short}` })),
+      ...pack(ctx).flatMap(g => g.items.map(x => ({ id: `pack:${x.id}`, t: x.note ? `${x.text} (${x.note})` : x.text }))),
     ];
-    return items.slice(0, 80).map(x => ({ t: x.t.replace(/["<>`]/g, '').slice(0, 120), done: x.done }));
+    return items.slice(0, 80).map(x => ({ t: x.t.replace(/["<>`]/g, '').slice(0, 120), done: Boolean(done[x.id]), id: x.id }));
+  }
+  /*
+   * Uložená cesta z průvodce má v plánovači svůj seznam „Sbaleno“ (kopie plannerChecklist z uložení) a Přehled z něj
+   * počítá „Před cestou zbývá zařídit a sbalit“. Odškrtnutí tam a v této kartě průvodce je totéž – jinak uživatel
+   * odškrtal v průvodci a Přehled dál hlásil, že zbývá všechno (a naopak). Položky se poznají podle id.
+   */
+  const CK_ID = /^(todo|pack):[\w-]{1,40}$/;
+  /** Klíč odškrtnutí cesty p z plánovače – jako tripKey cesty, kterou z ní otevře „Otevřít v průvodci“ (created =
+   *  tripId); cesta jen z plánovače → ''. */
+  function savedKey(p) {
+    return p && p.wizard && typeof p.wizard === 'object' && Number.isFinite(p.tripId) ? tripKey({ ...p.wizard, created: p.tripId }) : '';
+  }
+  const savedOf = (trips, key) => (key && Array.isArray(trips) ? trips.filter(p => p && Array.isArray(p.checklist) && savedKey(p) === key) : []);
+  // cesty plánovače (S z app.js; html() má vlastní proměnnou S se zdroji, proto přes tuhle funkci)
+  const plannerTrips = () => (typeof S !== 'undefined' && S && Array.isArray(S.trips) ? S.trips : null);
+  /** Položka x „Sbaleno“ cesty p odškrtnutá (nebo odškrtnutí zrušené) v plánovači → stejně i v kartě průvodce. */
+  function fromPlanner(p, x) {
+    const key = savedKey(p);
+    if (key && x && CK_ID.test(x.id || '')) setDone(key, x.id, Boolean(x.done));
+  }
+  /** Odškrtnutí id v kartě průvodce (cesta s klíčem key) → položka „Sbaleno“ uložené cesty. → počet změněných položek */
+  function toPlanner(trips, key, id, on) {
+    let n = 0;
+    for (const p of savedOf(trips, key)) {
+      const x = p.checklist.find(c => c && c.id === id);
+      if (x && Boolean(x.done) !== Boolean(on)) { x.done = Boolean(on); n++; }
+    }
+    return n;
+  }
+  /**
+   * Při vykreslení karty pro uloženou cestu: seznamu „Sbaleno“ uloženému starší verzí (bez id) doplní id podle textu
+   * položky (list = plannerChecklist cesty) a co je odškrtnuté jen na jedné straně, odškrtne i na druhé.
+   * → počet změn v plánovači (pak uložit)
+   */
+  function linkSaved(trips, key, list) {
+    let n = 0;
+    const done = doneOf(key), add = {};
+    for (const p of savedOf(trips, key)) {
+      for (const c of p.checklist) {
+        if (!c || typeof c !== 'object') continue;
+        if (!c.id) {
+          const m = (list || []).find(x => x.t === c.t);
+          if (!m || p.checklist.some(y => y && y.id === m.id)) continue;
+          c.id = m.id; n++;
+        }
+        if (!CK_ID.test(c.id)) continue;
+        if (c.done && !done[c.id]) add[c.id] = true;
+        else if (!c.done && done[c.id]) { c.done = true; n++; }
+      }
+    }
+    if (Object.keys(add).length) writeDone(key, add);
+    return n;
   }
 
   /* ---------- vykreslení ---------- */
@@ -743,6 +798,9 @@
     }
     const ctx = contextOf(t, o);
     if (!ctx.isos.length) return '';
+    // cesta uložená v plánovači: odškrtnuté v jeho „Sbaleno“ i tady (a naopak)
+    const trips = plannerTrips();
+    if (savedOf(trips, key).length && linkSaved(trips, key, plannerChecklist(t, o)) && typeof save === 'function') save();
     const done = doneOf(key), list = todos(ctx), groups = pack(ctx);
     const todoHtml = list.map(x => {
       const [lbl, cls] = LEVEL[x.level] || LEVEL.info;
@@ -865,6 +923,8 @@
       if (!cb) return;
       const root = cb.closest('#preTrip');
       setDone(root.dataset.ptkey, cb.dataset.ptk, cb.checked);
+      // i „Sbaleno“ téže cesty v plánovači (Přehled z něj počítá, co zbývá zařídit a sbalit)
+      if (toPlanner(plannerTrips(), root.dataset.ptkey, cb.dataset.ptk, cb.checked) && typeof save === 'function') save();
       const li = cb.closest('li');
       if (li) li.classList.toggle('done', cb.checked);
       progress(root);
@@ -892,7 +952,7 @@
 
   window.PreTrip = {
     set, load, ready, contextOf, defaultActs, summarize, monthsOf, insuranceNote, drivingOf, plugOf, idpPlan, todos, pack, bagTips, layers, reminders,
-    plannerChecklist, html, tripKey, doneOf, setDone, copyDone, customOf, addCustom, delCustom, shareState, sanitize, adopt, ACTS,
+    plannerChecklist, savedKey, fromPlanner, toPlanner, linkSaved, html, tripKey, doneOf, setDone, copyDone, customOf, addCustom, delCustom, shareState, sanitize, adopt, ACTS,
     exportDone, mergeDone,
   };
 })();
