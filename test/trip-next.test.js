@@ -79,3 +79,33 @@ test('kopie tlačítka: jen na telefonu se spodní lištou, pevně nad ní a pod
   assert.match(js, /<div class="trip-next" id="tripNext" hidden><\/div>`;/);
   assert.match(js, /addEventListener\('scroll', pnSoon, \{ passive: true \}\)/);
 });
+
+test('kopie tlačítka: dvojí klepnutí nepřeskočí krok – 0,7 s po zmáčknutí se další klepnutí nebere', () => {
+  // po přepnutí kroku je na stejném místě hned tlačítko dalšího kroku; druhé klepnutí dvojkliku ho zmáčklo taky
+  const D = vm.runInContext('Date', ctx), real = D.now;
+  let t = real.call(D) + 10e3; // po klepnutí z předchozích testů
+  D.now = () => t;
+  try {
+    const p = page({ btn: { id: 'tfNext', text: 'Pokračovat: Trasa →', top: 1200 } });
+    const press = p['#tripNext'].firstElementChild.onclick;
+    press();
+    t += 300;
+    press(); // druhé klepnutí – v kroku už je „Pokračovat k ubytování →“
+    assert.equal(p['#tripStep #tfNext'].clicks, 1, 'druhé klepnutí do 0,7 s se nebere');
+    t += 500;
+    press();
+    assert.equal(p['#tripStep #tfNext'].clicks, 2, 'po 0,7 s klepnutí zase platí');
+  } finally {
+    D.now = real;
+  }
+});
+
+test('lišta „Je k dispozici nová verze – Obnovit“ na telefonu nad tlačítkem kroku, ne přes něj', () => {
+  // lišta (z-index 250) ležela přesně přes kopii tlačítka – klepnutí na „Pokračovat“ trefilo „Obnovit“
+  const css = read('css/pwa.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const phone = css.slice(css.indexOf('@media(max-width:860px){'));
+  const lift = phone.match(/body:has\(\.trip-next:not\(\[hidden\]\)\) \.pwa-update\{bottom:calc\(max\(12px,env\(safe-area-inset-bottom\)\) \+ (\d+)px\)\}/);
+  assert.ok(lift, 'lišta se zvedne, když je kopie tlačítka vidět');
+  // kopie: 70 px nad okrajem + až 2 řádky (~70 px) + mezera
+  assert.ok(+lift[1] >= 70 + 70, `lišta ${lift[1]} px nad okrajem`);
+});

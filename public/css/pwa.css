@@ -28,4 +28,7 @@
   .pwa-bar{padding:8px 16px}
   .pwa-update{left:12px;right:12px;bottom:calc(88px + env(safe-area-inset-bottom))}
   .pwa-update span{flex:1;min-width:0}
+  /* nad hlavním tlačítkem kroku průvodce (trip.css .trip-next, 70 px nad lištou, až 2 řádky) – lišta ho zakryla celé
+     a klepnutí na „Pokračovat“ trefilo „Obnovit“ */
+  body:has(.trip-next:not([hidden])) .pwa-update{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 148px)}
 }

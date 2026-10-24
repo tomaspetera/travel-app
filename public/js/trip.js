@@ -1015,8 +1015,18 @@
   const NEXT_IDS = ['tfNext', 'rtNext', 'stayNext', 'carNext', 'progNext', 'carSkip'];
   const NEXT_ALT = { carSkip: 'carSkipTop', stayNext: 'stayDone' }; // stejná akce výš v kroku
   const nextBtn = () => NEXT_IDS.map(id => $(`#tripStep #${id}`)).find(b => b && b.isConnected !== false && String(b.textContent || '').trim());
-  // kopie zmáčkne tlačítko, které je v kroku teď; ještě nepovolené jen ukáže, kde je
-  const nextPress = () => { const b = nextBtn(); if (!b) return; if (b.disabled) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); else b.click(); };
+  // kopie zmáčkne tlačítko, které je v kroku teď; ještě nepovolené jen ukáže, kde je. Po přepnutí kroku je na stejném
+  // místě hned tlačítko dalšího kroku – druhé klepnutí dvojkliku (netrpělivé klepnutí) by krok přeskočilo, proto se
+  // 0,7 s po zmáčknutí kopie další klepnutí na ni nebere.
+  let pressHold = 0;
+  const nextPress = () => {
+    const b = nextBtn(), now = Date.now();
+    if (!b) return;
+    if (b.disabled) return b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (now < pressHold) return;
+    pressHold = now + 700;
+    b.click();
+  };
   function asideNext() {
     phoneNext();
     const slot = $('#taNext');
