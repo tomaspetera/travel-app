@@ -290,22 +290,33 @@ test('ⓘ autora fotky: plocha pro prst aspoň 24 px bez změny vzhledu', () => 
   assert.match(atlasCss, /\.ph-i::after\{content:"";position:absolute;inset:-7px\}/); // 17 + 2 × 7 = 31 px
 });
 
-test('Shift+Tab nahoru: fokus pod lepicí horní lištou, ne za ní – prvky s vlastním odsazením končí tam, kde dřív', () => {
-  const top = atlasCss.match(/html\{scroll-padding-top:calc\((\d+)px \+ max\((\d+)px,env\(safe-area-inset-top\)\)\)\}/);
-  assert.ok(top, 'rezerva lišty (s výřezem iPhonu)');
+test('Shift+Tab nahoru: fokus pod lepicí horní lištou, ne za ní – bez odskoku stránky u tlačítek v liště; cíle odrolování jako dřív', () => {
+  // rezerva jen pro ovládací prvky v sekcích (.view) – s html{scroll-padding-top} fokus na ☰ / ⟳ / 📍 v lepicí liště
+  // stránku odskočil o stovky px nahoru (lepicí prvek nikdy nebude níž než rezerva)
+  assert.doesNotMatch(atlasCss, /^html\{scroll-padding-top/m);
+  const top = atlasCss.match(/@media\(max-width:1023px\)\{\.view :is\(a\[href\],button,input,select,textarea,summary,\[tabindex\]\)\{scroll-margin-top:calc\((\d+)px \+ max\((\d+)px,env\(safe-area-inset-top\)\)\)\}\}/);
+  assert.ok(top, 'rezerva lišty (s výřezem iPhonu) u prvků v sekcích');
   const pad = +top[1] + +top[2];
   assert.ok(pad >= 68 && pad <= 80, `lišta na telefonu má 68 px (z toho 14 px průhledných): ${pad}`);
-  // dřívější odsazení 90 / 100 px od horního okraje = rezerva lišty + nové odsazení
+  // cíle odrolování dál 90 / 100 px od horního okraje
   const was = { '#watchList .watch': 90, '#radarHead': 90, '#progress': 100, '.lcol,.legs-pick,.smart-guide': 100, '.dc-head': 90, '#mcol-0,#mcol-1,#mcol-2,#mcol-3,#mcPick': 100, '.cmp-row': 90, '#exPlanOut,.ex-err': 100 };
   const all = [atlasCss, flightsCss, tripCss].join('\n');
   for (const [s, px] of Object.entries(was)) {
     const m = all.match(new RegExp(`^${s.replace(/[.#]/g, '\\$&')}\\{scroll-margin-top:(\\d+)px`, 'm'));
     assert.ok(m, s);
-    assert.equal(pad + +m[1], px, s);
+    assert.equal(+m[1], px, s);
   }
   // počítač: vlastní rezerva pod vyšší lištou, odsazení pro telefon tam neplatí
   assert.match(desktopCss, /html\{scroll-padding-top:104px\}/);
   assert.match(desktopCss, /#watchList \.watch,#radarHead,#progress,\.lcol,\.legs-pick,\.smart-guide,\.dc-head,#mcol-0,#mcol-1,#mcol-2,#mcol-3,#mcPick,\.cmp-row,#exPlanOut,\.ex-err\{scroll-margin-top:0\}/);
+});
+
+test('zvětšená plocha ⓘ autora fotky nepřekryje „✈️ Najít lety“ na kartách Doporučení', () => {
+  // klepnutí na roh tlačítka otevřelo autora fotky (openCredit zachytí klepnutí dřív) a hledání se nespustilo
+  const ph = atlasCss.match(/\.ph-cr\{[^}]*z-index:(\d+)/);
+  const fly = atlasCss.match(/#recGrid \.rec-fly\{position:relative;z-index:(\d+)\}/);
+  assert.ok(ph && fly, 'z-index ⓘ i tlačítka');
+  assert.ok(+fly[1] > +ph[1]);
 });
 
 test('název sekce v horní liště je pro čtečku nadpis 1. úrovně – jen v sekcích bez vlastního h1 ve fotce', () => {
