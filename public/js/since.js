@@ -76,14 +76,14 @@
    * Hlídání, která od minulé návštěvy (from) zlevnila: cena při ní = poslední kontrola do from (jen se stejným
    * základem ceny – Alerts.epoch; po změně 🏠 vlastních cen nic), teď = poslední kontrola po from (ta, kterou aplikace
    * po otevření dělá stejně). Jen zlevnění aspoň o Alerts.CFG.seenPct %, ještě neviděné (seen – prohlédnutý seznam
-   * nebo 📉 karta) a s termínem, který neproběhl; hit = od minula kleslo pod cílovou cenu. skip = id hlídání, které
-   * už ukazuje velká 📉 karta. → [{ id, label, cur, base, at (kdy byla cena base), d, hit, target }] (cíle napřed,
-   * pak největší zlevnění)
+   * nebo 📉 karta) a s termínem, který neproběhl (ani nabídka, která už odletěla – Alerts.bestGone); hit = od minula
+   * kleslo pod cílovou cenu. skip = id hlídání, které už ukazuje velká 📉 karta. → [{ id, label, cur, base, at (kdy byla
+   * cena base), d, hit, target }] (cíle napřed, pak největší zlevnění)
    */
   function watchNews(list, { from, today, skip = [], A = window.Alerts } = {}) {
     const pct = A.CFG.seenPct, sk = new Set(skip), out = [];
     for (const w of Array.isArray(list) ? list : []) {
-      if (!obj(w) || !obj(w.best) || sk.has(w.id) || A.isPast(w.form, today)) continue;
+      if (!obj(w) || !obj(w.best) || sk.has(w.id) || A.isPast(w.form, today) || A.bestGone(w, today)) continue;
       const cur = num(w.best.czk);
       if (!cur || !(num(w.checked) > from)) continue;
       const before = A.epoch(w.history).filter(p => obj(p) && num(p.at) && p.at <= from && num(p.czk)), b = before[before.length - 1];

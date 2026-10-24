@@ -115,6 +115,19 @@ test('pole formulářů mají jméno: <label for>, obalující <label> nebo aria
   assert.match(flightsJs, /this\.input\.setAttribute\('aria-activedescendant', `\$\{this\.id\}-\$\{this\.active\}`\)/);
 });
 
+test('zkrácené placeholdery (360 px): celý popis dostane čtečka – aria-description u Odkud/Kam, aria-label u rezervace', () => {
+  // PlaceInput: hint → aria-description (placeholder se kvůli úzkému telefonu zkrátil)
+  assert.match(flightsJs, /aria-controls="\$\{id\}"\$\{hint \? ` aria-description="\$\{esc\(hint\)\}"` : ''\}/);
+  assert.match(flightsJs, /toInput = new PlaceInput\(\$\('#toInput'\), \{ placeholder: 'Kamkoliv 🌍 nebo „k moři“', hint: KAM_HINT,/);
+  assert.match(flightsJs, /heroTo = new PlaceInput\(\$\('#heroTo'\), \{ placeholder: '[^']+', hint: KAM_HINT,/);
+  assert.match(flightsJs, /fromInput = new PlaceInput\(\$\('#fromInput'\), \{ origin: true, placeholder: 'Brno, Vídeň, Česko…', hint: ODKUD_HINT,/);
+  assert.match(flightsJs, /const KAM_HINT = '[^']*„k moři v květnu“';/);
+  assert.match(tripJs, /new F\.PlaceInput\(\$\('#tripAskTo'\), \{ placeholder: 'Lisabon, kamkoliv…', hint: '[^']+'/);
+  // vedle místa jen krátké „+ další“ (dřív „přidat další…“ uříznuté na „přidat d“)
+  assert.match(flightsJs, /this\.input\.placeholder = this\.items\.length \? '\+ další' : this\.ph;/);
+  assert.match(appJs, /placeholder="Co \(let, hotel…\)" aria-label="Co je to za rezervaci \(let tam, hotel…\)"/);
+});
+
 test('spodní lišta: sekce jako <button> (Tab, čtečka) a aktivní sekce s aria-current', () => {
   assert.match(html, /<nav class="mobile-nav" id="mobileNav" aria-label="Sekce"><\/nav>/);
   const nav = appJs.match(/^function buildNav\(\) \{[\s\S]*?^\}/m)[0];

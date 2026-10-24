@@ -241,7 +241,9 @@ details.more.ex-places>summary::before{content:none}
   .ex-layout.ex-main{grid-template-columns:minmax(0,1fr);grid-template-areas:"plan" "map" "places";grid-template-rows:auto}
   .ex-main>.ex-map{height:300px}}
 /* cena a název vlastního ubytování / auta: užší okraje v poli – „Cena celkem v Kč“ se s písmem polí 16 px vejde na 412 px */
-@media(max-width:860px){.sum-grid{grid-template-columns:1fr}.manual-row{grid-template-columns:1fr 1fr}.manual-row>div{grid-column:1/-1}.manual-row .input{padding-left:10px;padding-right:10px}.ex-back{bottom:calc(90px + env(safe-area-inset-bottom,0px))}}
+@media(max-width:860px){.sum-grid{grid-template-columns:1fr}.manual-row{grid-template-columns:1fr 1fr}.manual-row>div{grid-column:1/-1}.manual-row .input{padding-left:10px;padding-right:10px}.ex-back{bottom:calc(90px + env(safe-area-inset-bottom,0px))}
+  /* název ubytování přes celou šířku, cena s Uložit pod ním (jako u auta) – vedle ceny se „Název (nepovinné)“ na 360 px nevešel */
+  .manual-row #manName{grid-column:1/-1}}
 @media(max-width:560px){.ex-search{grid-template-columns:auto minmax(0,1fr)}.ex-search>.field:first-child{grid-column:1/-1}.poi{grid-template-columns:72px 1fr}.poi-img{width:72px;height:64px}
   /* kategorie v jednom posuvném řádku místo pěti; chyba se „Zkusit znovu“ pod textem */
   .ex-cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
@@ -578,6 +580,8 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
     box-shadow:0 12px 30px -10px rgba(0,0,0,.55)}
   .trip-next .btn:not(.primary){background:var(--surface-solid)} /* „Auto nepotřebuji →“: obsah pod ním neprosvítá */
   .trip-next .btn[aria-disabled="true"]{opacity:.6}
+  /* hláška (atlas.css .toast, 90 px nad okrajem) nad kopií tlačítka, ne přes ni – jako lišta nové verze (pwa.css) */
+  body:has(.trip-next:not([hidden])) .toast{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 148px)}
 }
 @media(min-width:861px){.trip-head{min-height:220px;padding:22px 24px}.th-dest h2{font-size:32px}.step-act{flex-direction:row-reverse;align-items:center}.step-act>.btn.primary{flex:none;padding:0 26px}.step-act2{flex:1}.step-act2 .btn{flex:none}}
 @media(max-width:560px){

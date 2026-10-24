@@ -241,9 +241,93 @@ const MANY_AT_ONCE = { error: 'Z tvého připojení teď běží moc hledání n
 // (1–3 s procesoru, na Renderu zdarma desítky sekund; zátěžový test: 200 návštěvníků = ~100× tentýž radar). Jen úplný
 // výsledek (completeResult), nejvýš config.searchResultTtlS a klíč i s dnešním datem (dotaz „od dneška“ se o půlnoci
 // mění). Drží se hotový řádek odpovědi (ndjsonLine) – bez dalšího převodu na JSON, nejvýš config.searchResultMb MB.
+// Úplný výsledek radaru navíc déle (config.searchStaleS, ve stejném stropu paměti) jako starší – viz revalidate níž.
 // Export jen pro testy.
-export const _recentSearches = recentResults({ ttlMs: config.searchResultTtlS * 1000, maxBytes: config.searchResultMb * 2 ** 20 });
+export const _recentSearches = recentResults({ ttlMs: config.searchResultTtlS * 1000, staleMs: config.searchStaleS * 1000, maxBytes: config.searchResultMb * 2 ** 20 });
 let readyHits = 0; // kolikrát hotový výsledek ušetřil hledání (/api/health → searches)
+// starší výsledek radaru (/api/health → searches): kolikrát ho někdo dostal, kolik přepočtů na pozadí se rozběhlo, kolik
+// z nich nedalo nový úplný výsledek (chyba, výpadek zdroje – starší pak platí dál) a kolikrát se přepočet kvůli frontě
+// vůbec nespustil (refreshRoom). `ready` v /api/health počítá i starší výsledky radaru, které ještě žijí.
+const swr = { staleHits: 0, staleRefreshes: 0, staleFailed: 0, staleSkipped: 0 };
+
+/**
+ * Klíče hledání z těla dotazu: share = běžící hledání (searchRuns), recent = hotový výsledek (_recentSearches, i s dnešním
+ * datem – dotaz „od dneška“ se o půlnoci mění a starší výsledek radaru tak nikdy nepřejde přes půlnoc). Celé tělo kromě
+ * newerThanS (jen „starší výsledek ano, ale mladší než tolik sekund“ – výsledek nemění) – domov, okruh, režim (noci, dny
+ * odletu a návratu, odlet od), termíny, počet lidí, cesta na letiště i 🏠 vlastní ceny; nic proměnlivého aplikace
+ * neposílá (SearchHelp.radarQuery), takže radar z Prahy pro 2 os. sdílí každý, kdo ho má stejně nastavený.
+ * → { body (pro search), share, recent, maxAgeS (starší výsledek jen mladší než tolik s; bez newerThanS Infinity) }
+ */
+export function searchKeys(raw) {
+  const { newerThanS, ...body } = raw;
+  const share = JSON.stringify(body);
+  return { body, share, recent: `${todayYmd()}|${share}`, maxAgeS: typeof newerThanS === 'number' && newerThanS >= 0 ? newerThanS : Infinity };
+}
+
+/** Uložit úplný výsledek (completeResult) jako hotový řádek; výsledek radaru (radar: true) i jako starší. → result */
+function keepResult(body, recentKey, result) {
+  if (recentKey && completeResult(result)) {
+    const line = ndjsonLine({ type: 'result', result });
+    _recentSearches.set(recentKey, line, line.length * 2, Date.now(), { stale: body.radar === true });
+  }
+  return result;
+}
+
+/**
+ * Sdílené hledání (searchRuns) ve frontě (searchGate): připojí emit k běžícímu se stejným klíčem, jinak spustí nové,
+ * hned nebo až na něj přijde řada; odejdou-li do té doby všichni, kdo na něj čekají (emit.gone), vůbec se nespustí (null).
+ */
+const sharedSearch = (body, shareKey, recentKey, emit) => searchRuns(shareKey, (fan, run) => searchGate(() => search(body, fan).then((r) => keepResult(body, recentKey, r)), () => [...run.subs].every((w) => w.gone())), emit);
+
+/**
+ * Přepočet na pozadí se smí zařadit (searchGate.stats()): hned začne, nebo zůstane aspoň polovina fronty volná pro
+ * hledání lidí – nový návštěvník s jiným dotazem nebo hledání v Letech kvůli přepočtům nedostane 503 (ten, kdo dostal
+ * starší výsledek, ho má hned i bez přepočtu). Jinak se přepočet nespustí a zkusí to až další požadavek.
+ */
+export const refreshRoom = ({ active, concurrency, queued, maxQueue }) => active < concurrency || queued < Math.ceil(maxQueue / 2);
+
+// Odběratel přepočtu na pozadí: nikomu nepíše a nikdy neodejde – sdílené hledání s ním fronta nezahodí (gate gone),
+// ani když ostatní, kdo na něj čekají, zavřou stránku. Jeden pro všechny (searchRuns ho u běhu drží jen jednou).
+const BG = Object.assign(() => {}, { gone: () => false });
+
+/**
+ * Starší výsledek radaru (stale-while-revalidate): kdo přijde po config.searchResultTtlS, dostane hned starší úplný
+ * výsledek se stářím (staleLine) a server ho jednou přepočítá na pozadí – přepočet je obyčejné sdílené hledání (fronta,
+ * strop souběžných hledání, připojí se k němu i „↻ Obnovit“), jen bez klienta: doběhne, i když všichni připojení odejdou.
+ * Jen na skutečný požadavek, nikdy časovačem. Mezitím nový výsledek → nic. Stejné hledání už běží nebo čeká (přepočet,
+ * ↻ Obnovit, kdo přišel bez staršího výsledku) → nový přepočet ne, jen ho BG podrží do konce (kdyby ho jeho zakladatel
+ * opustil, fronta by ho zahodila). Málo místa ve frontě (refreshRoom) → nic, starší výsledek stačí a další požadavek
+ * to zkusí znovu. Nedá-li přepočet úplný výsledek (chyba, výpadek zdroje), platí starší dál, dokud mu nevyprší
+ * config.searchStaleS.
+ */
+function revalidate(body, shareKey, recentKey) {
+  if (_recentSearches.get(recentKey) !== undefined) return;
+  if (searchRuns.has(shareKey)) {
+    sharedSearch(body, shareKey, recentKey, BG).catch(() => {}); // chybu dostanou ti, kdo ho spustili
+    return;
+  }
+  if (searchGate.full() || !refreshRoom(searchGate.stats())) {
+    swr.staleSkipped++;
+    return;
+  }
+  swr.staleRefreshes++;
+  sharedSearch(body, shareKey, recentKey, BG).then((r) => {
+    if (!completeResult(r)) swr.staleFailed++;
+  }, (e) => {
+    swr.staleFailed++;
+    if (!(e instanceof UserError)) console.error('[search] přepočet staršího výsledku radaru:', e);
+  });
+}
+
+// Řádek hotového výsledku (ndjsonLine) se značkou staršího výsledku – { type: 'result', stale: { at, ageS }, result }:
+// aplikace podle ageS (ne podle hodin telefonu, ty se můžou lišit) ukáže skutečné stáří a radar si uloží s časem
+// spočítání (flights.js radarSearch). Bez nového převodu výsledku na JSON (radar ~0,6 MB textu) – jen jiný začátek řádku.
+const RESULT_HEAD = '{"type":"result","result":';
+export function staleLine(line, at, now = Date.now()) {
+  if (typeof line !== 'string' || !line.startsWith(RESULT_HEAD)) return null;
+  const mark = JSON.stringify({ at: new Date(at).toISOString(), ageS: Math.max(0, Math.round((now - at) / 1000)) });
+  return `{"type":"result","stale":${mark},"result":${line.slice(RESULT_HEAD.length)}`;
+}
 
 /**
  * Výsledek, který by stejné hledání hned zopakovalo: všechny zdroje doběhly bez chyby a výpadku, bez vynechaných tras
@@ -257,7 +341,7 @@ export function completeResult(r) {
 }
 
 /** Hledání teď (/api/health): běžící a čekající ve frontě, hotové výsledky v paměti a kolikrát ušetřily hledání. */
-const searchStats = () => ({ ...searchGate.stats(), shared: searchRuns.running(), ready: _recentSearches.size, readyMb: Math.round(_recentSearches.bytes / 2 ** 20 * 10) / 10, readyHits });
+const searchStats = () => ({ ...searchGate.stats(), shared: searchRuns.running(), ready: _recentSearches.size, readyMb: Math.round(_recentSearches.bytes / 2 ** 20 * 10) / 10, readyHits, ...swr });
 
 // Hledání streamuje průběh jako NDJSON (1 JSON objekt na řádek), na konci { type: 'result' }.
 async function handleSearch(req, res) {
@@ -272,10 +356,18 @@ async function handleSearch(req, res) {
   // null, pole, číslo: hledání by spadlo uvnitř („Cannot read properties of null“) – hned srozumitelně 400
   if (!body || typeof body !== 'object' || Array.isArray(body)) return sendJson(req, res, 400, { error: 'Neplatný JSON' });
   // Přetížený server: nové hledání (stejné neběží) nad frontou se odmítne hned – do limitu adresy se nepočítá.
-  const shareKey = JSON.stringify(body);
-  const recentKey = `${todayYmd()}|${shareKey}`;
+  const keys = searchKeys(body);
+  const shareKey = keys.share;
+  const recentKey = keys.recent;
   const ready = _recentSearches.get(recentKey); // hotový výsledek: nic se nepočítá – frontu ani strop adresy nezabere
-  const fresh = !ready && !searchRuns.has(shareKey);
+  // starší úplný výsledek radaru (revalidate): taky hned, i když se stejné hledání právě počítá (na Renderu zdarma minuty)
+  // a i při plné frontě; newerThanS = aplikace už ukazuje ceny staré tolik sekund (↻ Obnovit) – starší výsledek jen
+  // novější než ony, jinak se hledá jako dřív. Stáří se porovná zaokrouhlené jako ageS ve staleLine: aplikace si čas
+  // cen spočítá z ageS, takže při 100,6 s pošle newerThanS 101 a nezaokrouhlené 100,6 < 101 by jí ↻ Obnovit vrátilo
+  // tentýž výsledek
+  const old = ready ? undefined : _recentSearches.stale(recentKey);
+  const oldLine = old && Math.round((Date.now() - old.at) / 1000) < keys.maxAgeS ? staleLine(old.value, old.at) : null;
+  const fresh = !ready && !oldLine && !searchRuns.has(shareKey);
   if (fresh && searchGate.full()) return sendJson(req, res, 503, BUSY, { 'Retry-After': '60' });
   // Strop na adresu: nové hledání nad ním hned 429 (do limitu adresy se nepočítá). Připojení ke stejnému běžícímu
   // hledání frontu nezabere – projde vždy, ale počítá se (drží běh naživu, i když ten, kdo ho spustil, odešel).
@@ -292,7 +384,11 @@ async function handleSearch(req, res) {
   const release = _searchClients.take(ip);
   res.once('close', release); // klient odešel (nebo odpověď skončila) – místo hned, nečeká se na konec hledání
   try {
-    await streamSearch(req, res, body, shareKey, { ready, recentKey });
+    await streamSearch(req, res, keys.body, shareKey, { ready: ready || oldLine, stale: !ready && Boolean(oldLine), recentKey });
+    if (oldLine) {
+      swr.staleHits++;
+      revalidate(keys.body, shareKey, recentKey); // až po odeslání – starší výsledek odejde dřív, než se přepočet rozběhne
+    }
   } finally {
     release();
     const n = (runningSearches.get(key) || 1) - 1;
@@ -314,7 +410,7 @@ export function ndjsonLine(obj) {
   return line;
 }
 
-async function streamSearch(req, res, body, shareKey = JSON.stringify(body), { ready = null, recentKey = null } = {}) {
+async function streamSearch(req, res, body, shareKey = JSON.stringify(body), { ready = null, stale = false, recentKey = null } = {}) {
   const enc = wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '';
   res.writeHead(200, {
     'Content-Type': 'application/x-ndjson; charset=utf-8',
@@ -346,18 +442,11 @@ async function streamSearch(req, res, body, shareKey = JSON.stringify(body), { r
   const ping = setInterval(() => { if (Date.now() - lastAt >= config.searchPingMs) write({ type: 'wait' }); }, config.searchPingMs);
   try {
     // Stejné běžící hledání: připojit se (poslední průběh a náhled hned, další živě). Jinak nové – hned, nebo až
-    // na něj přijde řada; odešli-li do té doby všichni, kdo na něj čekají, vůbec se nespustí (null).
-    // Hotový výsledek stejného dotazu (_recentSearches): rovnou celý řádek, bez průběhu.
-    const keep = (result) => {
-      if (recentKey && completeResult(result)) {
-        const line = ndjsonLine({ type: 'result', result });
-        _recentSearches.set(recentKey, line, line.length * 2);
-      }
-      return result;
-    };
-    const result = ready ? null : await searchRuns(shareKey, (fan, run) => searchGate(() => search(body, fan).then(keep), () => [...run.subs].every((w) => w.gone())), write);
+    // na něj přijde řada; odešli-li do té doby všichni, kdo na něj čekají, vůbec se nespustí (null) – sharedSearch.
+    // Hotový výsledek stejného dotazu (_recentSearches, i starší výsledek radaru – staleLine): rovnou celý řádek, bez průběhu.
+    const result = ready ? null : await sharedSearch(body, shareKey, recentKey, write);
     if (ready) {
-      readyHits++;
+      if (!stale) readyHits++;
       write(ready);
     } else if (result) {
       // Sdílené hledání doběhlo všem naráz: zápis výsledku (řádek 1–2 MB do komprese) každému zvlášť a mezi nimi ke slovu

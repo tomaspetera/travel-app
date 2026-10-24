@@ -87,9 +87,11 @@ export function gate(concurrency, maxQueue) {
 /**
  * Hotové výsledky na krátko: get(key) → uložená hodnota (nebo undefined, i po ttlMs), set(key, value, bytes) – celkem
  * nejvýš maxBytes, při nedostatku místa ven nejdřív prošlé a nejstarší. ttlMs 0 = nic se neukládá.
+ * Starší výsledek (stale-while-revalidate): set(…, { stale: true }) drží hodnotu i po ttlMs, celkem staleMs od uložení –
+ * get ji po ttlMs už nevrátí, stale(key) ano i s časem uložení ({ value, at }). Ostatní (stale: false) žijí jen ttlMs.
  */
-export function recentResults({ ttlMs, maxBytes }) {
-  const map = new Map(); // klíč → { value, bytes, exp }; pořadí vložení = od nejstaršího
+export function recentResults({ ttlMs, staleMs = 0, maxBytes }) {
+  const map = new Map(); // klíč → { value, bytes, at, exp (do kdy čerstvý), end (do kdy vůbec) }; pořadí vložení = od nejstaršího
   let total = 0;
   const drop = (key) => {
     const e = map.get(key);
@@ -97,24 +99,32 @@ export function recentResults({ ttlMs, maxBytes }) {
     total -= e.bytes;
     map.delete(key);
   };
+  const live = (key, now) => {
+    const e = map.get(key);
+    if (e && e.end <= now) drop(key);
+    return e && e.end > now ? e : null;
+  };
   return {
     get(key, now = Date.now()) {
-      const e = map.get(key);
-      if (!e) return undefined;
-      if (e.exp <= now) {
-        drop(key);
-        return undefined;
-      }
-      return e.value;
+      const e = live(key, now);
+      return e && e.exp > now ? e.value : undefined;
     },
-    set(key, value, bytes, now = Date.now()) {
+    /** Uložená hodnota, dokud žije (i po ttlMs, je-li uložená se stale) → { value, at } | undefined. */
+    stale(key, now = Date.now()) {
+      const e = live(key, now);
+      return e ? { value: e.value, at: e.at } : undefined;
+    },
+    set(key, value, bytes, now = Date.now(), { stale = false } = {}) {
       if (!(ttlMs > 0) || !(bytes <= maxBytes)) return false;
       drop(key);
-      for (const [k, e] of map) {
-        if (e.exp > now && total + bytes <= maxBytes) break;
+      // napřed všechny prošlé (starší výsledky žijí déle než ostatní, pořadí vložení tak neodpovídá konci), pak nejstarší
+      for (const [k, e] of map) if (e.end <= now) drop(k);
+      for (const [k] of map) {
+        if (total + bytes <= maxBytes) break;
         drop(k);
       }
-      map.set(key, { value, bytes, exp: now + ttlMs });
+      const exp = now + ttlMs;
+      map.set(key, { value, bytes, at: now, exp, end: stale ? Math.max(exp, now + staleMs) : exp });
       total += bytes;
       return true;
     },

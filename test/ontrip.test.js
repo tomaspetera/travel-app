@@ -316,7 +316,8 @@ test('🔖 rezervace v okně cesty: Enter v „Co“ (a v prázdném „Kódu“
   vm.runInContext(pick('refsHtml', 'refKey'), c);
   const h = c.refsHtml({ refs: [] }, 3);
   // pole s data-refk (Enter obslouží openTrip přes refKey) – bez obsluh v HTML (atribut onkeydown CSP stránky nepustí)
-  assert.ok(h.includes('id="refCo-3" maxlength="40" placeholder="Co (let tam, hotel…)" aria-label="Co je to za rezervaci" enterkeyhint="next" data-refk="0"'), h);
+  // placeholder krátce (na 360 px má pole ~127 px – „Co (let tam, hotel…)“ se uřízlo), celý popis v aria-label
+  assert.ok(h.includes('id="refCo-3" maxlength="40" placeholder="Co (let, hotel…)" aria-label="Co je to za rezervaci (let tam, hotel…)" enterkeyhint="next" data-refk="0"'), h);
   assert.ok(h.includes('enterkeyhint="done" data-refk="1"') && h.includes('enterkeyhint="done" data-refk="2"') && h.includes('data-addref>Přidat'), h);
   assert.doesNotMatch(h, /\son[a-z]+=/, 'žádná obsluha v HTML');
   const focus = [];
