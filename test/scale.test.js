@@ -1,12 +1,13 @@
 // Nával uživatelů (docs/skalovani.md): hledání se dělí na kousky a mezi nimi pouští ke slovu ostatní požadavky
-// (crowd.js breathe), počítání s daty má paměť (dates.js) a výsledek sdíleného hledání se převádí na JSON jednou pro
-// všechny (index.js ndjsonLine). Všechno se stejnými výsledky jako dřív.
+// (crowd.js breathe) – i konečné složení výsledku a průběžné náhledy (search.js compose, buildGroups) –, počítání s daty
+// má paměť (dates.js) a výsledek sdíleného hledání se převádí na JSON jednou pro všechny (index.js ndjsonLine). Všechno
+// se stejnými výsledky jako dřív.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ymdPlus } from './helpers.js';
 
 process.env.ATLAS_MOCK = '1';
-const { search } = await import('../server/lib/search.js');
+const { search, PARTIAL } = await import('../server/lib/search.js');
 const { mockProviders } = await import('../server/providers/mock.js');
 const { breathe, setSliceMs } = await import('../server/lib/crowd.js');
 const dates = await import('../server/lib/dates.js');
@@ -88,6 +89,26 @@ test('breathe: bez čekání nic nestojí, čekající kousky jdou v pořadí, v
   }
 });
 
+test('breathe(true): dokončení hledání předběhne čekající kousky ostatních hledání, mezi sebou v pořadí příchodu', async () => {
+  const prev = setSliceMs(0); // každý kousek ve vlastním kole
+  try {
+    const order = [];
+    const job = async (name, first, n) => {
+      for (let i = 0; i < n; i++) {
+        const w = breathe(first);
+        if (w) await w;
+        order.push(`${name}${i}`);
+      }
+    };
+    await Promise.all([job('a', false, 3), job('b', false, 3), job('F', true, 2), job('G', true, 2)]);
+    assert.deepEqual(order, ['F0', 'G0', 'F1', 'G1', 'a0', 'b0', 'a1', 'b1', 'a2', 'b2']);
+    setSliceMs(Infinity);
+    assert.equal(breathe(true), null, 'bez stropu kola se nečeká ani u dokončení');
+  } finally {
+    setSliceMs(prev);
+  }
+});
+
 test('breathe: 200 ms práce ve 4 úlohách se rozdělí do kol do sliceMs – časovač se mezitím dostane ke slovu', async () => {
   const prev = setSliceMs(10);
   let ticks = 0;
@@ -137,6 +158,7 @@ const plain = (r) => JSON.parse(JSON.stringify(r, (k, v) => (k === 'ms' ? undefi
 const QUERIES = {
   'Kamkoliv zpáteční s kombinacemi': { from: ['ap:BRQ'], radiusKm: 130, to: [], dateFrom: ymdPlus(5), dateTo: ymdPlus(13), trip: 'return', nightsMin: 2, nightsMax: 4, adults: 1, kmRate: 1, groundMode: 'transit', arrival: true },
   'radar Víkendy': { from: ['ap:PRG'], radiusKm: 0, to: [], dateFrom: ymdPlus(3), dateTo: ymdPlus(45), trip: 'return', nightsMin: 1, nightsMax: 3, outDays: [5, 6], backDays: [0, 1], adults: 1, kmRate: 1, groundMode: 'transit', arrival: true },
+  'radar Kdykoliv (zmenšený výsledek)': { from: ['ap:PRG'], radiusKm: 0, to: [], dateFrom: ymdPlus(3), dateTo: ymdPlus(45), trip: 'return', nightsMin: 2, nightsMax: 7, adults: 2, kmRate: 1, groundMode: 'transit', arrival: true, radar: true },
   'Kamkoliv jednosměrně': { from: ['ap:VIE'], radiusKm: 60, to: [], dateFrom: ymdPlus(5), dateTo: ymdPlus(20), trip: 'oneway', adults: 2 },
   'konkrétní cíl s kalendářem a mřížkou': { from: ['ap:PRG'], radiusKm: 250, to: ['ap:FCO', 'ap:CIA'], dateFrom: ymdPlus(10), dateTo: ymdPlus(40), trip: 'return', nightsMin: 3, nightsMax: 6, adults: 1, bags: 'cabin' },
 };
@@ -156,6 +178,108 @@ test('hledání po kouscích (breathe) dá přesně stejný výsledek jako v kus
     setSliceMs(prev);
   }
 });
+
+// Průběžné náhledy (compose(false)) jdou po kouscích taky. Demo Air doběhne, druhý zdroj čeká (gate) – náhled ze stavu po
+// Demo Air. Hledání může mezi kousky náhledu pokračovat i skončit: náhled se skládá ze stavu, kdy začal, a skončí-li
+// hledání dřív, než ho doskládá, zahodí se (konečný výsledek je hned za ním, náhled po výsledku nepřijde).
+const waiting = (gate) => ({
+  id: 'demo-slow', name: 'Demo Slow', live: false, demo: true,
+  async stations() { return null; },
+  async destinations() {
+    await gate;
+    return [];
+  },
+});
+async function withPartials(fn) {
+  const prev = setSliceMs(Infinity);
+  const first = PARTIAL.firstMs;
+  PARTIAL.firstMs = 0; // náhled hned, jak Demo Air doběhne
+  try {
+    return await fn();
+  } finally {
+    setSliceMs(prev);
+    PARTIAL.firstMs = first;
+  }
+}
+
+// Zdroj p, který začne hledat, až se otevře gate (Demo Jet až po Demo Air).
+const after = (p, gate) => ({
+  ...p,
+  async destinations(...a) {
+    await gate;
+    return p.destinations(...a);
+  },
+});
+// Až Demo Air doběhne (stav zdrojů z průběhu hledání), za ms otevřít → zastaví.
+function whenAirDone(open, ms) {
+  let status = null;
+  const poll = setInterval(() => {
+    if (status && status.find((s) => s.id === 'demo-air').state === 'done') {
+      clearInterval(poll);
+      setTimeout(open, ms);
+    }
+  }, 1);
+  return { seen: (ev) => { if (ev.type === 'progress' && !status) status = ev.providers; }, stop: () => clearInterval(poll) };
+}
+
+test('průběžný náhled po kouscích = v kuse: ze stavu, kdy začal, i když další zdroj mezitím hledá; konečný výsledek taky', () => withPartials(async () => {
+  const q = QUERIES['Kamkoliv zpáteční s kombinacemi'];
+  const run = async (slice) => {
+    setSliceMs(slice);
+    let openJet;
+    let openSlow;
+    const jet = new Promise((r) => { openJet = r; });
+    const slow = new Promise((r) => { openSlow = r; });
+    // Demo Jet začne 2 ms po Demo Air – v kuse až po náhledu, po kouscích během jeho skládání; Demo Slow až po náhledu
+    const air = whenAirDone(openJet, 2);
+    const safety = setTimeout(() => openSlow(), 20000); // náhled nepřišel – test selže níž, nezasekne se
+    const partials = [];
+    const res = await search(q, (ev) => {
+      air.seen(ev);
+      if (ev.type !== 'partial') return;
+      partials.push(plain(ev.result));
+      openSlow();
+    }, { providers: [mockProviders[0], after(mockProviders[1], jet), waiting(slow)] });
+    air.stop();
+    clearTimeout(safety);
+    return { partials, res: plain(res) };
+  };
+  const whole = await run(Infinity);
+  const sliced = await run(0);
+  assert.equal(whole.partials.length, 1);
+  const p = whole.partials[0];
+  assert.ok(p.partial && p.groups.length > 0);
+  assert.deepEqual(p.providers.map((x) => [x.id, x.state, x.found > 0]), [['demo-air', 'done', true], ['demo-jet', 'running', false], ['demo-slow', 'running', false]]);
+  assert.ok(whole.res.providers.find((x) => x.id === 'demo-jet').found > 0, 'Demo Jet pak našel taky');
+  assert.deepEqual(sliced.partials, whole.partials);
+  assert.deepEqual(sliced.res, whole.res);
+}));
+
+test('náhled, jehož hledání skončilo uprostřed skládání, se zahodí – po výsledku nepřijde, výsledek je stejný', () => withPartials(async () => {
+  const q = QUERIES['Kamkoliv zpáteční s kombinacemi'];
+  const run = async (slice) => {
+    setSliceMs(slice);
+    let open;
+    const gate = new Promise((r) => { open = r; });
+    // druhý zdroj doběhne 2 ms po Demo Air – náhled (hned po Demo Air) se v kuse stihne, po kouscích ne
+    const air = whenAirDone(open, 2);
+    let done = false;
+    const events = [];
+    const res = await search(q, (ev) => {
+      air.seen(ev);
+      if (ev.type === 'partial') events.push(done ? 'po výsledku' : 'náhled');
+    }, { providers: [mockProviders[0], waiting(gate)] });
+    done = true;
+    air.stop();
+    await new Promise((r) => setTimeout(r, 30)); // rozpracovaný náhled by přišel až teď
+    return { events, res: plain(res) };
+  };
+  const whole = await run(Infinity);
+  const sliced = await run(0);
+  assert.deepEqual(whole.events, ['náhled']);
+  assert.deepEqual(sliced.events, [], 'hledání skončilo, než se náhled doskládal');
+  assert.deepEqual(sliced.res, whole.res);
+}));
 
 test('hledání neblokuje server: během hledání se dostane ke slovu časovač (dřív celé hledání v kuse)', async () => {
   const q = { ...QUERIES['Kamkoliv zpáteční s kombinacemi'], noPartial: true };
@@ -182,7 +306,8 @@ test('hledání neblokuje server: během hledání se dostane ke slovu časovač
     const whole = await measure();
     setSliceMs(15);
     const sliced = await measure();
-    // běžně: v kuse 2 tiky a blok ~300 ms, po kouscích ~20 tiků a nejdelší blok ~50 ms (konečné složení výsledku)
+    // běžně: v kuse 3–5 tiků a blok ~200–300 ms, po kouscích ~20 tiků a nejdelší blok ~30 ms (dřív ~50 ms – konečné
+    // složení výsledku, teď i to po kouscích)
     assert.ok(sliced.ticks >= 4 * Math.max(2, whole.ticks), `časovač: po kouscích ${sliced.ticks}×, v kuse ${whole.ticks}× (${Math.round(whole.ms)} ms)`);
     assert.ok(sliced.gap < whole.gap * 0.6, `nejdelší blok po kouscích ${Math.round(sliced.gap)} ms, v kuse ${Math.round(whole.gap)} ms`);
   } finally {

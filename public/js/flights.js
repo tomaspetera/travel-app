@@ -4509,7 +4509,9 @@
   async function radarSearch(q, key) {
     busySearches++;
     try {
-      const res = await runSearch(q.payload, { onProgress: ev => radarProgress(ev, key) });
+      // radar: true – server pošle jen to, co radar níž čte (search.js radarResult, ~40 % velikosti); čte-li radar
+      // z výsledku další pole, musí ho server posílat taky (test/radar-slim.test.js)
+      const res = SearchHelp.radarRes(await runSearch({ ...q.payload, radar: true }, { onProgress: ev => radarProgress(ev, key) }));
       PriceCheck.remember(res);
       renderFav(); // ⭐ Moje cíle: ceny, které radar právě viděl
       // u svátků jen odlet první volný den nebo večer předem (SearchHelp.radarPick); s rezervou (RADAR_KEEP cílů mimo 🙈),

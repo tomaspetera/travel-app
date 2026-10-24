@@ -188,7 +188,7 @@ async function run(base, pid, serverStats) {
     const DEST = [['FCO', 'Řím', 41.9, 12.5], ['BCN', 'Barcelona', 41.39, 2.17], ['LIS', 'Lisabon', 38.72, -9.14], ['ATH', 'Atény', 37.98, 23.73], ['NAP', 'Neapol', 40.85, 14.27], ['OPO', 'Porto', 41.15, -8.61]];
     const radar = (home, mode) => ({
       from: [home], radiusKm: 200, to: [], dateFrom: ymd(3), dateTo: ymd(45), trip: 'return', ...(mode === 'weekend' ? { nightsMin: 1, nightsMax: 3, outDays: [5, 6], backDays: [0, 1] } : { nightsMin: 2, nightsMax: 7 }),
-      adults: 1, kmRate: 1, groundMode: 'transit', arrival: true, noPartial: true,
+      adults: 1, kmRate: 1, groundMode: 'transit', arrival: true, noPartial: true, radar: true, // jako aplikace (flights.js radarSearch)
     });
     const think = () => sleep(Math.random() * 300);
     // jeden návštěvník: stránka (nový stáhne všechno, vracející se jen ověří stránku a service worker), stav serveru,

@@ -1273,6 +1273,14 @@
   // odlet v předvečer prodlouženého víkendu nejdřív v (po práci)
   const LW_DEP = '16:00';
   /**
+   * Výsledek hledání radaru (radar: true): server posílá jen to, co radar čte (search.js radarResult), a nejlevnější
+   * nabídku cíle jen jednou – best = první z options. Výsledek bez zmenšení (starší server) zůstane, jak je. → res
+   */
+  function radarRes(res) {
+    for (const g of (res && res.groups) || []) if (g && !g.best && Array.isArray(g.options)) g.best = g.options[0];
+    return res;
+  }
+  /**
    * Letiště na kartě radaru: „BRQ → WAW“; nejlevnější cesta z Kamkoliv se může vracet jinam (bf/bt = let zpět, jen když
    * nejde z cíle do místa odletu) – „JCL → POZ ↩ PED“, zpět z jiného letiště v cíli „BRQ → WAW ↩ WMI → BRQ“ (návrat
    * nerozdělitelně – na úzké kartě se zalomí před ↩).
@@ -2094,7 +2102,7 @@
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, directNear, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
-    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRes, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows, spanCal, SPAN_DOW,
     lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, DRAFT_MAX_AGE, formSig, formKey, draftPack, draftLoad, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips, dayCal,
     partialHead, reusable, partialFail,

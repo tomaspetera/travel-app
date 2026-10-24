@@ -408,7 +408,15 @@ test('průběžné výsledky: náhled, dokud pomalejší zdroj hledá; konečný
   const keep = { ...PARTIAL };
   Object.assign(PARTIAL, { firstMs: 20, gapMs: 40 });
   const plain = (v) => JSON.parse(JSON.stringify(v));
-  const strip = (r) => { const x = plain(r); x.stats.ms = 0; for (const p of x.providers) p.ms = 0; return x; };
+  // bez časů a bez toho, kolik letů kombinací se drželo a zahodilo naráz (stats.mix peak, dropped) – to záleží na tom,
+  // jak se kousky hledání střídají s náhledem, který jde taky po kouscích (crowd.js breathe); nabídky ne
+  const strip = (r) => {
+    const x = plain(r);
+    x.stats.ms = 0;
+    if (x.stats.mix) x.stats.mix.peak = x.stats.mix.dropped = 0;
+    for (const p of x.providers) p.ms = 0;
+    return x;
+  };
   const third = makeMock({ id: 'demo-three', name: 'Demo Three', code: 'D3', seed: 'c', share: 0.2 });
   async function run(raw, partials) {
     const events = [];
