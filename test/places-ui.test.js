@@ -167,7 +167,11 @@ test('chyby: ve výsledku se „Zkusit znovu“, „Jiná trasa“ neskončí ti
   assert.ok(!T.errHtml('X', XSS, 'r').includes('<img src=x'));
   // chyba bez textu serveru (Render při probouzení vrací HTML) česky
   assert.match(T.httpErr(502, {}), /probouzí/);
-  assert.equal(T.httpErr(500, {}), 'Chyba serveru (HTTP 500).');
+  // bez kódu („HTTP 500“) – lidsky, co dělat
+  assert.equal(T.httpErr(500, {}), 'Na serveru se něco pokazilo – zkus to prosím za chvíli znovu.');
+  assert.match(T.httpErr(429, {}), /za pár minut/);
+  assert.equal(T.httpErr(400, null), 'Server požadavek nepřijal – zkus to prosím znovu.');
+  for (const s of [400, 404, 429, 500, 502, 503, 504]) assert.doesNotMatch(T.httpErr(s, {}), /HTTP|\d{3}/, String(s));
   assert.equal(T.httpErr(429, { error: 'Příliš mnoho požadavků' }), 'Příliš mnoho požadavků');
 });
 

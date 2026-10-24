@@ -186,7 +186,8 @@
     const p = (async () => {
       const r = await fetch('api/ground?' + qs);
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      // bez hlášky serveru (502–504 z Renderu jako HTML při probouzení nebo přetížení) česky, ne „HTTP 503“
+      if (!r.ok) throw new Error(j.error || (window.Pwa && Pwa.statusMsg ? Pwa.statusMsg(r.status) : 'Server teď neodpovídá – zkus to za chvíli znovu.'));
       return j;
     })();
     if (cache.size > 60) cache.delete(cache.keys().next().value);

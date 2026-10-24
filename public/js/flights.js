@@ -173,10 +173,33 @@
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
   // Chyba bez hlášky serveru (výpadek, 502 z proxy, HTML místo JSON) česky, ne „HTTP 502“; hlášky serveru (limit hledání,
-  // špatný dotaz) zůstanou.
+  // špatný dotaz) zůstanou. Pwa.httpError přidá status a u přetížení (429, 502–504) busy a until z Retry-After.
   async function httpErr(r) {
+    if (window.Pwa && Pwa.httpError) return Pwa.httpError(r);
     const j = await r.json().catch(() => ({}));
-    return new Error(j.error || (r.status >= 500 ? 'Server teď neodpovídá – zkus to za chvíli znovu.' : `Server odpověděl chybou (HTTP ${r.status}) – zkus to znovu.`));
+    return new Error(j.error || 'Server teď neodpovídá – zkus to za chvíli znovu.');
+  }
+  /* Přetížený server odmítl hledání (503 „hledá pro hodně lidí“, 429, 502–504 z Renderu): do Retry-After se samo nehledá –
+     radar po návratu do aplikace nebo na Přehled ukáže starší ceny s odpočtem a kontrola hlídaných cen počká. Každé další
+     hledání by dostalo stejné odmítnutí a serveru, který nestíhá, jen přidalo práci. Hledání, o které uživatel požádá
+     (Najít, ↻ v radaru, ↻ u hlídání), jde vždy; úspěšné hledání odklad zruší. */
+  let overload = null; // { message, until, at } – poslední odmítnutí přetíženým serverem (at = kdy)
+  const overloadNow = () => (overload && overload.until > Date.now() ? overload : null);
+  const waitTxt = ms => (window.Pwa && Pwa.waitTxt ? Pwa.waitTxt(ms) : `za ${Math.ceil(ms / 1000)} s`);
+  // ↻ Zkusit znovu: když server řekl, za jak dlouho (until), do té doby neaktivní s odpočtem (retryTick), pak normálně
+  const retryBtn = (id, until) => {
+    const left = (+until || 0) - Date.now();
+    return `<button type="button" class="btn sm" id="${id}"${left > 0 ? ` disabled data-until="${+until}"` : ''}>↻ Zkusit znovu${left > 0 ? ` ${waitTxt(left)}` : ''}</button>`;
+  };
+  function retryTick(b) {
+    if (!b || !b.dataset.until) return;
+    const t = setInterval(() => {
+      if (!b.isConnected) return clearInterval(t);
+      const left = +b.dataset.until - Date.now();
+      if (left > 0) { b.textContent = `↻ Zkusit znovu ${waitTxt(left)}`; return; }
+      clearInterval(t);
+      b.disabled = false; delete b.dataset.until; b.textContent = '↻ Zkusit znovu';
+    }, 1000);
   }
   // Výpadek spojení (fetch selže) a nečitelná odpověď (useknutý stream) taky česky.
   const failMsg = e => (e instanceof TypeError && /fetch|network|load failed/i.test(e.message) ? 'Spojení se serverem se nepovedlo – zkontroluj připojení a zkus to znovu.'
@@ -195,7 +218,12 @@
   // (noPartial – kontrola hlídaných cen, radar). Starší server je nepošle vůbec.
   async function runSearch(payload, { onProgress, onPartial, signal } = {}) {
     const r = await fetch('api/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(onPartial ? payload : { ...payload, noPartial: true }), signal });
-    if (!r.ok || !r.body) throw await httpErr(r);
+    if (!r.ok || !r.body) {
+      const e = await httpErr(r);
+      if (e.busy && e.until) overload = { message: e.message, until: Math.max(e.until, overload ? overload.until : 0), at: Date.now() };
+      throw e;
+    }
+    overload = null; // server hledání přijal – zase normálně
     const reader = r.body.getReader();
     const dec = new TextDecoder();
     let buf = '', result = null, error = null;
@@ -233,6 +261,8 @@
   // návrhy míst našeptávače (api/places)
   async function placesFor(q, origin, near, signal, remote = true) {
     const r = await fetch('api/places?q=' + enc(q) + placeCtx(origin, near) + (remote ? '' : '&remote=0'), { signal });
+    // přetížený nebo probouzející se server (502–504): „našeptávač teď neodpovídá“, ne „Nic nenalezeno“ / „neznám“
+    if (!r.ok) throw await httpErr(r);
     const j = await r.json(), items = j.items || [];
     if (j.partial) items.partial = true; // geokódování na serveru teď nešlo – jen vlastní data
     return items;
@@ -419,7 +449,7 @@
       };
       this.dd.innerHTML = (this.tips.length ? '<div class="pi-head">✨ Pro tebe – nebo napiš celou větu, třeba „k moři v květnu do 5000“</div>' : '')
         + (rows[0] && rows[0].sug && rows[0].sug.fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '')
-        + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err === 'slow' ? '<span class="spin dark"></span> Hledání míst je teď pomalé – zkouším znovu…' : err ? 'Našeptávač je nedostupný' : `Nic nenalezeno – zkus jiný název nebo kód letiště${this.smart ? ', nebo napiš větu, třeba „k moři v květnu“' : ''}`}</div>`);
+        + (rows.length ? rows.map(row).join('') : `<div class="pi-empty">${err === 'slow' ? '<span class="spin dark"></span> Hledání míst je teď pomalé – zkouším znovu…' : err ? 'Našeptávač teď neodpovídá – zkus to za chvíli znovu' : `Nic nenalezeno – zkus jiný název nebo kód letiště${this.smart ? ', nebo napiš větu, třeba „k moři v květnu“' : ''}`}</div>`);
       this.dd.hidden = false;
       this.input.setAttribute('aria-expanded', 'true');
       if (this.active >= 0 && this.active < rows.length) this.input.setAttribute('aria-activedescendant', `${this.id}-${this.active}`); else this.input.removeAttribute('aria-activedescendant');
@@ -444,8 +474,8 @@
         if (hit) { this.input.value = ''; this.smart.run(hit); return 'run'; }
         if (items[0]) { this.pick(items[0]); return 'pick'; }
         slow = partial; // geokódování na serveru teď nešlo – místo možná existuje
-      } catch (e) { down = true; } // našeptávač nedostupný (výpadek sítě / serveru) – nejde o neznámé místo
-      toast(down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : slow ? 'Hledání míst je teď pomalé – zkus to za chvilku znovu' : `„${q}“ neznám – vyber místo z nabídky`, 'err');
+      } catch (e) { down = e.busy ? 'busy' : true; } // našeptávač nedostupný (výpadek sítě / serveru) – nejde o neznámé místo
+      toast(down === 'busy' ? 'Server je teď přetížený a místa nejde dohledat – zkus to za chvíli znovu' : down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : slow ? 'Hledání míst je teď pomalé – zkus to za chvilku znovu' : `„${q}“ neznám – vyber místo z nabídky`, 'err');
       this.input.focus();
       return false;
     }
@@ -1411,7 +1441,8 @@
       expandForm(); // chyba hledání: formulář zase vidět (hláška radí ho upravit)
       paintDrop();
       const msg = failMsg(e);
-      $('#progress').innerHTML = `<div class="note bad kiwi-note">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(s.shown ? SearchHelp.partialFail(msg) : msg)}</div><button type="button" class="btn sm" id="searchRetry">↻ Zkusit znovu</button></div>`;
+      $('#progress').innerHTML = `<div class="note bad kiwi-note">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${esc(s.shown ? SearchHelp.partialFail(msg) : msg)}</div>${retryBtn('searchRetry', e.until)}</div>`;
+      retryTick($('#searchRetry')); // přetížený server: až po Retry-After (odpočet na tlačítku)
       $('#searchRetry').onclick = () => startSearch();
       say(msg);
       // na telefonu je hláška pod rozbaleným formulářem – posunout k ní, ať chyba není vidět jen jako „nic se nestalo“
@@ -4039,7 +4070,8 @@
     sync: syncWatches,
     today,
     sleep: ms => new Promise(r => setTimeout(r, ms)),
-    canRun: () => !document.hidden && !busySearches,
+    // přetížený server (overloadNow – Retry-After): kontrola počká, až to půjde znovu
+    canRun: () => !document.hidden && !busySearches && !overloadNow(),
     firstMax: 12, // po otevření (i po dlouhé pauze) zkontrolovat zastaralá hlídání za nejvýš 12 hledání, pak po 4
     costOf: w => (w.form && w.form.trip === 'multi' ? 2 : 1), // cesta přes víc měst = 2 hledání v limitu serveru
   });
@@ -4247,6 +4279,10 @@
       const w = (S.watch || []).find(x => x.id === id);
       // mezitím ho zkontrolovala automatická kontrola → jen ukázat výsledek
       if (w && w.checked >= asked) return toast(`${w.label}: ${w.best ? czk(w.best.czk) : 'nic nenalezeno'}`);
+      // přetížený server mezitím odmítl jiné hledání (třeba první ze „Zkontrolovat vše“): čekající kontroly se nepošlou,
+      // dopadly by stejně – proč, už řekla hláška té první
+      const ov = overloadNow();
+      if (ov && ov.at >= asked) return;
       return checkOne(id, false);
     }).finally(() => { if (wState.get(id) === 'wait') setState(id, null); });
   }
@@ -4279,6 +4315,9 @@
       // automatická kontrola chybu jen zapíše a zkusí to příští cyklus
       ((S.watch || []).find(x => x.id === id) || w).tried = Date.now(); save();
       if (!auto) toast(e.name === 'AbortError' ? `${w.label}: kontrola trvala moc dlouho – zkus to později` : e.message, 'err');
+      // přetížený server (429, 502–504), chyba serveru, výpadek spojení nebo kontrola přes limit: další hledání by dopadla
+      // stejně – automatický cyklus skončí (Alerts.scheduler 'stop'), zbylá hlídání příště
+      else if (e.busy || e.status >= 500 || e.name === 'NetworkError' || e.name === 'AbortError') return 'stop';
     } finally {
       clearTimeout(tm); setState(id, null); updateWatchBadges(); observeSeen();
     }
@@ -4477,6 +4516,10 @@
     if (!force && c && c.key === key && Date.now() - c.at < 30 * 60e3 && SearchHelp.radarOwnOk(c, S.accessOwn)) return paintRadar(c, q);
     // Starší výsledek stejného dotazu se ukáže hned a nový se hledá na pozadí – po uspání serveru to trvá i přes minutu.
     const old = SearchHelp.radarStale(c, key, today());
+    // Server před chvílí hledání odmítl (přetížený – Retry-After): samo (návrat do aplikace, na Přehled, jiný režim) se
+    // teď nehledá – starší ceny zůstanou a ↻ Zkusit znovu odpočítává; ↻ Obnovit (force) hledá hned
+    const ov = !force && !radarJobs[key] && overloadNow();
+    if (ov) return radarFail(q, old, ov);
     if (old) paintRadar(old, q, { busy: true });
     else host.innerHTML = `<div class="faint radar-stale"><span class="spin"></span> Hledám nejlevnější lety z okolí – obvykle do půl minuty<span class="rp"></span></div><div class="radar-grid">${Array.from({ length: 8 }, () => '<div class="card radar-card skel"></div>').join('')}</div>`;
     const job = radarJobs[key] || (radarJobs[key] = radarSearch(q, key).finally(() => { delete radarJobs[key]; }));
@@ -4488,12 +4531,19 @@
       // nenačetl se jen kvůli výpadku připojení (hledání na server ani nedošlo): po návratu online znovu sám – jinak
       // by „Jsi offline“ zůstalo, dokud uživatel neklepne; jinde než na přehledu ho načte příští otevření přehledu
       if (e.offline && window.Pwa && Pwa.whenOnline) Pwa.whenOnline('radar', () => { if (radarWant === key && $('#view-dashboard.active')) renderRadar(); });
-      if (old) paintRadar(old, q, { error: e.message });
-      else {
-        host.innerHTML = `<div class="note warn kiwi-note">⚠️ <div>Radar se nepodařilo načíst: ${esc(e.message)}</div><button type="button" class="btn sm" id="radarRetry">↻ Zkusit znovu</button></div>`;
-        $('#radarRetry').onclick = () => renderRadar(true);
-      }
+      radarFail(q, old, e);
     }
+  }
+  /** Radar se nenačetl (e.message, u přetíženého serveru e.until): starší ceny s upozorněním, jinak hláška – obojí s ↻ Zkusit znovu. */
+  function radarFail(q, old, e) {
+    const host = $('#radar');
+    if (old) return paintRadar(old, q, { error: e.message, until: e.until });
+    host.innerHTML = `<div class="note warn kiwi-note">⚠️ <div>Radar se nepodařilo načíst: ${esc(e.message)}</div>${retryBtn('radarRetry', e.until)}</div>`;
+    radarRetryOn(host);
+  }
+  function radarRetryOn(host) {
+    const b = $('#radarRetry', host);
+    if (b) { retryTick(b); b.onclick = () => renderRadar(true); }
   }
   /** Prázdný radar: hláška (větší okruh, Kdykoliv, Víkendy) i s tlačítky, ať se nemusí hledat, kde to změnit. */
   function radarEmpty(q, icon) {
@@ -4634,7 +4684,9 @@
     const day = d => (q.mode === 'weekend' ? DOW[new Date(d + 'T12:00:00Z').getUTCDay()] + '\u00a0' : '') + fmtDate(d);
     // čas výsledku, u staršího než dnešního i den (8.10. 9:12)
     const at = new Date(r.at), when = (at.toDateString() === new Date().toDateString() ? '' : `${at.getDate()}.${at.getMonth() + 1}. `) + at.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
-    const stale = !st ? '' : `<div class="faint radar-stale">${st.error ? `⚠️ Aktuální ceny se nepodařilo načíst (${esc(st.error)}) – ukazuji ceny z ${when}.` : `<span class="spin"></span> Ukazuji ceny z ${when}, hledám aktuální…<span class="rp"></span>`}</div>`;
+    // nové ceny se nenačetly: proč (přetížený server: „hledá pro hodně lidí – zkus to za minutu“) a ↻ s odpočtem do Retry-After
+    const stale = !st ? '' : st.error ? `<div class="note warn kiwi-note radar-stale">⚠️ <div>Aktuální ceny se nepodařilo načíst: ${esc(String(st.error).replace(/[.\s]+$/, ''))}. Zatím ukazuji ceny z ${when}.</div>${retryBtn('radarRetry', st.until)}</div>`
+      : `<div class="faint radar-stale"><span class="spin"></span> Ukazuji ceny z ${when}, hledám aktuální…<span class="rp"></span></div>`;
     // 🔥 jen u 3 karet nejvýhodnějších vůči běžné ceně na tu vzdálenost – u 12 nejlevnějších cílů má „super cenu“ skoro každý
     const hot = new Set(shown.filter(({ x }) => x.deal === 'super').sort((a, b) => (b.x.score || 0) - (a.x.score || 0)).slice(0, 3).map(({ i }) => i));
     // 📌 karta, jejíž nabídku má uživatel odloženou (z radaru, nebo celou z hledání se stejným nastavením)
@@ -4669,6 +4721,7 @@
     $$('[data-rinfo]', host).forEach(b => b.onclick = e => { e.stopPropagation(); openRadarPreview(r, r.items[+b.dataset.rinfo], q, b); });
     // klepnutí na kartu: detail cíle (fotka, termín, cesta z letiště, Koupit let, Všechny termíny) – k nákupu o krok blíž
     $$('[data-ri]', host).forEach(c => c.onclick = () => openRadarPreview(r, r.items[+c.dataset.ri], q, c));
+    radarRetryOn(host); // starší ceny po chybě: ↻ Zkusit znovu
     radarWx(r);
     radarPhotos(r);
   }
@@ -5484,7 +5537,8 @@
           if (pc && !restored && !running) { const open = pc.open; renderProgress({ providers: lastResult.providers }, false, lastResult); $('#progress details').open = open; }
         }, retry);
       };
-      const t = setTimeout(go, wait); wait = Math.min(wait * 2, 300000);
+      // ±20 % náhodně: po výpadku nebo nasazení se všechny otevřené aplikace neptají znovu ve stejnou vteřinu
+      const t = setTimeout(go, Math.round(wait * (0.8 + Math.random() * 0.4))); wait = Math.min(wait * 2, 300000);
       window.addEventListener('online', go);
       healthNow = go;
     };

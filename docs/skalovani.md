@@ -220,6 +220,35 @@ skriptu; tehdy zdroje bez mezipaměti – od 23. 10. ji skript zdrojům dává j
   dotazu ven, souběžnost na zdroj (Ryanair 6, Kiwi 3, Wizz 3 relace za sebou), pojistky Kiwi/Xotelo/Mapy.com,
   limit těla požadavku 64 kB, limity hledání / Objevuj / ověření z jedné adresy.
 
+## Aplikace u přetíženého serveru (24. 10. 2026)
+
+Aplikace sama nic neopakovala ve smyčce, ale přetížení násobila: vracející se uživatel s 12 hlídanými cenami po odmítnutí
+radaru (503 „hledá pro hodně lidí“) poslal dalších 12 hledání po 4 s – všechna odmítnutá; „Zkontrolovat vše“ totéž;
+každý návrat do aplikace nebo na Přehled hledal radar znovu. Teď (public/js/flights.js, alerts.js, pwa.js):
+- **Retry-After platí**: po 503 / 429 / 502–504 (Pwa.httpError – bez hlavičky 30 s) se do té doby samo nehledá – radar
+  po návratu ukáže starší ceny s hláškou a **↻ Zkusit znovu za 58 s** (odpočet, pak aktivní), kontrola hlídaných cen
+  počká. Hledání, o které uživatel požádá (Najít, Obnovit radar), jde vždy; úspěšné hledání odklad zruší.
+- **Kontrola hlídaných cen** skončí po prvním odmítnutí, chybě serveru, výpadku spojení nebo limitu (zbylá hlídání
+  příště); „Zkontrolovat vše“ po prvním odmítnutí další nepošle.
+- Hlášky česky i bez textu serveru (HTML z Renderu): Pwa.statusMsg místo „HTTP 503“ / „Unexpected token“ (ověření
+  ceny, auta, přejezdy, cesta po zemi, Objevuj); našeptávač při přetížení „teď neodpovídá“, ne „Nic nenalezeno“.
+- Fotky karet: stejný název se během rozběhnutého dotazu neptá znovu, po 429 se nové chvíli nežádají (Retry-After).
+- Stav serveru po výpadku znovu za 15 s, 30 s … 5 min s odchylkou ±20 % (otevřené aplikace se nezeptají naráz).
+
+Vracející se uživatel (domov Praha, radar starší 2 h, 12 hlídaných), DEMO, Playwright 412 px, 75 s od otevření
++ 3–5 návratů do aplikace (hledání = `POST /api/search`):
+
+| odpověď serveru na hledání | hledání před | po |
+|---|---|---|
+| 503 „hledá pro hodně lidí“ (Retry-After 60), 5 návratů | 18 | **2** (radar, po minutě 1 hlídání) |
+| 429 strop na adresu (Retry-After 30), 3 návraty | 16 | **3** |
+| 502 HTML z Renderu na všechno, 3 návraty | 16 | **3** (fotky 5 → 1) |
+| 500 (chyba v kódu) / spojení odmítnuto, 3 návraty | 16 | 5 (bez odkladu – radar při návratu znovu) |
+| „Zkontrolovat vše“ (12) při 503 | 12 | **1** |
+
+Bez chyby se start nemění: stav serveru, podnebí měsíce, náhled letišť, radar, zastaralá hlídání po jednom (4 s pauza,
+až po radaru), fotky (3–5 dotazů podle rychlosti odpovědí). Testy: `test/overload-client.test.js`, `test/alerts.test.js`.
+
 ## Co zdarma vyřešit nejde
 - **Render zdarma**: 512 MB paměti, 0,1 CPU, jedna instance, po 15 min bez návštěvy usne (první načtení ~1 min).
   Hledání, které tady stojí 1–3 s procesoru, tam trvá desítky sekund – reálně jednotky hledání naráz.

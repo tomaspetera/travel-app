@@ -62,7 +62,8 @@
 
   // Chyba bez vlastního textu serveru (Render při probouzení vrací 502–504 jako HTML) – česky, ne „HTTP 502“.
   const httpErr = (status, j) => (j && j.error) || (status >= 502 && status <= 504
-    ? 'Server se právě probouzí nebo je přetížený – zkus to za chvíli znovu.' : `Chyba serveru (HTTP ${status}).`);
+    ? 'Server se právě probouzí nebo je přetížený – zkus to za chvíli znovu.' : status >= 500 ? 'Na serveru se něco pokazilo – zkus to prosím za chvíli znovu.'
+      : status === 429 ? 'Příliš mnoho požadavků za krátkou dobu – zkus to prosím za pár minut.' : 'Server požadavek nepřijal – zkus to prosím znovu.');
   async function getJson(url, opts) {
     let r;
     try {

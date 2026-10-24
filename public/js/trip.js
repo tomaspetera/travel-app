@@ -21,6 +21,10 @@
     cheapest: ['💰 Nejlevnější', 'info'],
     'top-rated': ['⭐ Nejlépe hodnocené', 'hot'],
   };
+  // Chybová odpověď API bez vlastního textu serveru (502–504 z Renderu jako HTML při probouzení nebo přetížení) česky
+  // (Pwa.statusMsg), ne „HTTP 503“ ani anglické „Unexpected token“
+  const apiErr = (r, j) => new Error((j && j.error) || (r.ok ? 'Server poslal neúplnou odpověď – zkus to znovu.'
+    : window.Pwa && Pwa.statusMsg ? Pwa.statusMsg(r.status) : 'Server teď neodpovídá – zkus to za chvíli znovu.'));
   let stayView = { sort: 'value', minRating: 0, maxNight: null, type: '', free: false };
   let staysData = null;
   let carsData = null;
@@ -1193,8 +1197,8 @@
       if (t.bags && t.bags !== 'none') qs.set('bags', t.bags); // příplatek za zavazadla i u jiné nabídky
       if (f.back) { qs.set('back', f.back.date); qs.set('backFrom', f.back.from); qs.set('backTo', f.back.to); }
       const r = await fetch('api/verify?' + qs);
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j) throw apiErr(r, j);
       if (!j.available) { host.innerHTML = auto ? '' : '<div class="note info" style="margin-top:12px">ℹ️ <div>Živé ověření není v tomto režimu dostupné.</div></div>'; return; }
       if (!j.items.length) { host.innerHTML = `<div class="note warn" style="margin-top:12px">⚠️ <div>Pro tato data jsem živé nabídky nenašel${j.error ? ` (${esc(j.error)})` : ''}. Cenu ověř přímo u aerolinky.</div></div>`; return; }
       const cur = f.flightCzk;
@@ -1383,7 +1387,7 @@
   async function postJson(url, body) {
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    if (!r.ok) throw apiErr(r, j);
     return j;
   }
 
@@ -1891,7 +1895,7 @@
       // 502–504 z Renderu při probouzení (HTML místo JSON) česky – ne „Unexpected token“ (výpadek sítě přeloží pwa.js)
       const r = await fetch('api/stays?' + new URLSearchParams({ ...params, ...(retry ? { retry: 1 } : {}), ...(fresh ? { fresh: 1 } : {}) }));
       const j = await r.json().catch(() => null);
-      if (!r.ok || !j) throw new Error(j?.error || (r.ok || r.status >= 500 ? 'Server se právě probouzí nebo je přetížený – zkus to za chvíli znovu.' : `Chyba serveru (HTTP ${r.status}).`));
+      if (!r.ok || !j) throw (j || (!r.ok && r.status < 500)) ? apiErr(r, j) : new Error('Server se právě probouzí nebo je přetížený – zkus to za chvíli znovu.');
       if (retry) staysRetry = null;
       const d = { key, ...j, got: Date.now(), params: { ...params } };
       if (staysIncomplete(d)) staysCache.delete(key);
@@ -2881,8 +2885,8 @@
       }
       try {
         const r = await fetch('api/cars?' + new URLSearchParams({ pickup: q.pickup, dropoff: q.dropoff || q.pickup, from: q.from, to: q.to, age: q.age, ...cityQ('pu', q.puCity), ...cityQ('do', q.doCity) }));
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+        const j = await r.json().catch(() => null);
+        if (!r.ok || !j) throw apiErr(r, j);
         if (my !== carSeq) return;
         carsData = j;
         // uložené auto bez odkazu („Pokračovat“ dřív, než se nabídky k novým časům načetly) ho dostane teď
