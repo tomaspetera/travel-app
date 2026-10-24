@@ -822,6 +822,47 @@ test('Inspirace: cesta kamaráda z odkazu (#trip=), kterou si příjemce neulož
   assert.equal(T.inspSub({ ...own[0], from: '' }), '🧳 Tvoje cesta');
 });
 
+test('Inspirace: i nadcházející cesty z plánovače – nejbližší první, proběhlé ne, cesta z průvodce jednou, nejvýš 6 míst', () => {
+  const C = load({ byIso: { PT: { cs: 'Portugalsko' }, ES: { cs: 'Španělsko' }, AT: { cs: 'Rakousko' }, IT: { cs: 'Itálie' }, DK: { cs: 'Dánsko' }, FR: { cs: 'Francie' } } }).window.Places._t;
+  const wiz = (label, cc, lat, lon, out, o = {}) => ({ created: o.created || 1, flight: { out: { date: out } }, dest: { label, cc, lat, lon, country: '' }, ...o });
+  const lis = wiz('Lisabon', 'PT', 38.78, -9.13, '2099-01-03', { created: 11 });
+  const bases = ['Barcelona', 'Girona', 'Tarragona'].map((name, i) => ({ name, lat: 41.4 + i / 10, lon: 2.1, cc: 'ES', country: 'Španělsko' }));
+  const bcn = wiz('Barcelona', 'ES', 41.39, 2.17, '2099-03-01', { created: 22, route: { mode: 'multi', bases } });
+  const rome = wiz('Řím', 'IT', 41.9, 12.5, '2001-10-12', { created: 33 });
+  const saved = (w, start, end) => ({ name: w.dest.label, dest: w.dest.label, iso: w.dest.cc, start, end, tripId: w.created, wizard: plain({ ...w, created: undefined }), checklist: [] });
+  const trips = [
+    saved(bcn, '2099-03-01', '2099-03-06'), saved(rome, '2001-10-12', '2001-10-14'), saved(lis, '2099-01-03', '2099-01-07'),
+    { name: 'Vídeň s Janou', dest: 'Vídeň', iso: 'AT', start: '2099-01-20', end: '2099-01-22', checklist: [] }, // jen z plánovače
+    { name: 'Léto v Itálii', dest: 'Itálie', iso: 'IT', start: '2099-05-01', end: '2099-05-14', checklist: [] }, // celá země
+    { name: 'Kodaň', dest: 'Kodaň', iso: 'DK', start: '2099-08-01', end: '2099-08-03', checklist: [] }, // za limitem
+    { name: 'Bez data', dest: 'Paříž', iso: 'FR', start: '', checklist: [] }, { name: 'Bez cíle', dest: '—', start: '2099-01-10', checklist: [] }, null,
+  ];
+  // v průvodci proběhlý Řím: z plánovače jen nadcházející, nejbližší první
+  const own = plain(C.ownPlaces(rome, trips));
+  assert.deepEqual(own.map((p) => [p.label, p.from || '', p.trip]), [['Lisabon', '2099-01-03', true], ['Vídeň', '2099-01-20', true],
+    ['Barcelona', '', true], ['Girona', '', true], ['Tarragona', '', true], ['Itálie', '2099-05-01', true]]);
+  assert.deepEqual([own[0].lat, own[0].shared], [38.78, undefined], 'uložená z průvodce s polohou z kopie cesty');
+  assert.equal(C.inspSub({ ...own[0], from: '' }), '🧳 Tvoje cesta');
+  assert.deepEqual([own[1].lat, own[1].cc, own[1].country, own[1].whole], [undefined, 'AT', 'Rakousko', undefined], 'jen z plánovače: poloha až po klepnutí');
+  assert.equal(own[5].whole, 'IT', 'cíl = země: celá země');
+  // známé město z Inspirace s polohou, „Řím, Barcelona“ (víc letů) a „(…)“ v názvu jen první místo
+  assert.equal(C.savedPlaces({ dest: 'Kodaň', iso: 'DK', start: '2099-08-01' })[0].lat, 55.6761);
+  assert.deepEqual(plain(C.savedPlaces({ dest: 'Řím (Itálie), Barcelona', start: '2099-08-01' })).map((p) => p.label), ['Řím']);
+  // rozpracovaná cesta v průvodci (novější než uložená kopie, jiné datum): jen jednou, z průvodce, zařazená podle data
+  const lis2 = { ...lis, flight: { out: { date: '2099-04-02' } } };
+  const own2 = plain(C.ownPlaces(lis2, trips));
+  assert.deepEqual(own2.map((p) => p.label), ['Vídeň', 'Barcelona', 'Girona', 'Tarragona', 'Lisabon', 'Itálie']);
+  assert.equal(own2[4].from, '2099-04-02');
+  // druhá cesta do stejného města se neopakuje; probíhající cesta (odjezd proběhl, návrat ne) ano
+  const more = [...trips, { ...saved(lis, '2099-02-01', '2099-02-03'), tripId: 44 }, { name: 'Kjóto', dest: 'Kjóto', iso: 'JP', start: '2001-01-01', end: '2099-01-01', checklist: [] }];
+  assert.deepEqual(plain(C.ownPlaces(null, more)).map((p) => p.label), ['Kjóto', 'Lisabon', 'Vídeň', 'Barcelona', 'Girona', 'Tarragona']);
+  // sdílená cesta kamaráda v průvodci zůstane „🔗 Sdílená cesta“, cesty z plánovače jsou vlastní
+  const sh = plain(C.ownPlaces(wiz('Paříž', 'FR', 48.86, 2.35, '2099-01-01', { created: 55, shared: { on: '2098-12-01' } }), trips));
+  assert.deepEqual(sh.slice(0, 2).map((p) => [p.label, Boolean(p.shared)]), [['Paříž', true], ['Lisabon', false]]);
+  assert.equal(C.inspSub({ ...sh[0], from: '' }), '🔗 Sdílená cesta');
+  assert.deepEqual(plain(C.ownPlaces(null, null)), []);
+});
+
 test('Inspirace: 🔁 města z nedávných hledání letů (nejvýš 2, bez cesty a oblastí); známá s polohou, jiná až po klepnutí', () => {
   const r = (...to) => ({ form: { to } });
   const recent = [
