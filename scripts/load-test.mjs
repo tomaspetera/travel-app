@@ -11,6 +11,12 @@
 //   CPU_QUOTA=0.1 …                                             server s desetinou jádra (cgroup, Linux a root) – jako Render zdarma
 //   EDGE=1 …                                                    „users“ s Cloudflare před serverem: soubor s otiskem v adrese
 //                                                               (immutable) jde na server jen poprvé, další ho mají z Cloudflare
+//   AFTER_TTL=1 SEARCH_RESULT_TTL=10 …                          „users“ po vypršení hotových výsledků: radary všech návštěvníků
+//                                                               se napřed jednou spočítají (rozehřátí, s CPU_QUOTA ještě na
+//                                                               plném procesoru), pak se počká SEARCH_RESULT_TTL + 1 s a teprve
+//                                                               přijdou návštěvníci. SEARCH_STALE_TTL=0 = bez staršího výsledku
+//                                                               radaru (jako před 24. 10.). Kategorie „cards“ = od příchodu
+//                                                               návštěvníka po karty radaru.
 //
 // DEMO zdroje dostanou prodlevu 75–225 ms na dotaz (DELAY_MS=150) jako skutečné aerolinky – bez ní by celé hledání
 // proběhlo v jednom kuse a požadavky by se vůbec neprolínaly – a mezipaměť odpovědí jako skutečné zdroje (stejná trasa
@@ -72,7 +78,10 @@ if (process.argv[2] === '--serve') {
   const cpus = process.env.SERVER_CPUS;
   const args = cpus ? ['-c', cpus, process.execPath, script, '--serve'] : [script, '--serve'];
   const child = spawn(cpus ? 'taskset' : process.execPath, args, { stdio: ['ignore', 'inherit', 'inherit', 'ipc'] });
-  const group = process.env.CPU_QUOTA ? cpuQuota(child.pid, Number(process.env.CPU_QUOTA)) : null;
+  // AFTER_TTL: desetina jádra až po rozehřátí (limitCpu v run) – jinak hned
+  let group = null;
+  const limitCpu = () => { if (process.env.CPU_QUOTA && !group) group = cpuQuota(child.pid, Number(process.env.CPU_QUOTA)); };
+  if (process.env.AFTER_TTL !== '1') limitCpu();
   let waiting = null;
   const port = await new Promise((resolve, reject) => {
     child.on('message', (m) => {
@@ -83,7 +92,7 @@ if (process.argv[2] === '--serve') {
   });
   const stats = () => new Promise((r) => { waiting = r; child.send('stats'); });
   try {
-    await run(`http://127.0.0.1:${port}`, child.pid, stats);
+    await run(`http://127.0.0.1:${port}`, child.pid, stats, limitCpu);
   } finally {
     child.kill();
     if (group) setTimeout(() => { try { rmdirSync(group); } catch { /* ještě se ukončuje */ } }, 500);
@@ -103,7 +112,7 @@ function cpuQuota(pid, share) {
   return dir;
 }
 
-async function run(base, pid, serverStats) {
+async function run(base, pid, serverStats, limitCpu = () => {}) {
   const proc = (f) => { try { return readFileSync(`/proc/${pid}/${f}`, 'utf8'); } catch { return ''; } };
   // při spuštění přes taskset je server potomkem (taskset se nahradí – exec, takže PID zůstává)
   const rssMb = () => { const m = /VmRSS:\s+(\d+)/.exec(proc('status')); return m ? Math.round(m[1] / 1024) : null; };
@@ -201,8 +210,10 @@ async function run(base, pid, serverStats) {
     const think = () => sleep(Math.random() * 300);
     // jeden návštěvník: stránka (nový stáhne všechno, vracející se jen ověří stránku a service worker), stav serveru,
     // našeptávač, radar, fotky karet, podnebí, ubytování a program v plánovači
+    const radarOf = (i) => radar(homeOf(i), i % 10 < 7 ? 'all' : 'weekend');
     async function visit(i) {
       await sleep(Math.random() * Number(process.env.RAMP_MS ?? 2000));
+      const tv = performance.now();
       const addr = ip(i, 7);
       const h = { 'accept-encoding': 'br, gzip', 'x-forwarded-for': addr };
       const get = (cat, u, extra = {}) => timed(() => fetch(`${base}${u}`, { headers: { ...h, ...extra } }), cat);
@@ -222,9 +233,9 @@ async function run(base, pid, serverStats) {
       const [iata, city, lat, lon] = DEST[i % DEST.length];
       for (const q of [city.slice(0, 2), city]) out.push(await get('api', `/api/places?q=${encodeURIComponent(q)}&role=to&near=${encodeURIComponent(home)}`));
       await think();
-      const r = await timed(() => post(radar(home, i % 10 < 7 ? 'all' : 'weekend'), addr), 'search');
+      const r = await timed(() => post(radarOf(i), addr), 'search');
       delete r.text;
-      out.push(r);
+      out.push(r, { cat: 'cards', ms: performance.now() - tv, ok: r.ok, status: r.status });
       const photos = Array.from({ length: 12 }, (_, k) => CITIES[(i + k) % CITIES.length]).join('|');
       out.push(await get('api', `/api/photos?t=${encodeURIComponent(photos)}`));
       out.push(await get('api', `/api/climate?iata=${iata}`), await get('api', `/api/climate?month=${(i % 12) + 1}`));
@@ -237,9 +248,29 @@ async function run(base, pid, serverStats) {
       for (const x of out) delete x.text;
       return out;
     }
+    const searches = async () => (await (await fetch(`${base}/api/health`)).json()).searches;
+    const AFTER_TTL = process.env.AFTER_TTL === '1';
     for (const n of (process.env.USERS || '50,200').split(',').map(Number)) {
       edge = new Set();
-      await phase(`users-${n}${EDGE ? '-edge' : ''}`, n, () => Promise.all(Array.from({ length: n }, (_, i) => visit(i + n * 1000))));
+      if (AFTER_TTL) {
+        // radary, které návštěvníci budou chtít, se napřed spočítají (různé dotazy po jednom, naráz) a pak vyprší
+        const qs = [...new Map(Array.from({ length: n }, (_, i) => radarOf(i + n * 1000)).map((b) => [JSON.stringify(b), b])).values()];
+        const t0 = performance.now();
+        const warm = await Promise.all(qs.map((b, k) => timed(() => post(b, ip(k, 8)))));
+        const ttl = Number(process.env.SEARCH_RESULT_TTL ?? 120);
+        console.log(JSON.stringify({ warm: qs.length, ok: warm.filter((r) => r.ok).length, wallMs: Math.round(performance.now() - t0), waitS: ttl + 1 }));
+        await sleep((ttl + 1) * 1000);
+        limitCpu();
+      }
+      await phase(`users-${n}${EDGE ? '-edge' : ''}${AFTER_TTL ? '-after-ttl' : ''}`, n, () => Promise.all(Array.from({ length: n }, (_, i) => visit(i + n * 1000))));
+      console.log(JSON.stringify({ searches: await searches() }));
+      if (AFTER_TTL) {
+        // přepočty starších výsledků na pozadí (a dobíhající hledání): za jak dlouho po fázi doběhly a kolik procesoru vzaly
+        const t0 = performance.now();
+        const cpu0 = cpuMs();
+        for (let s = await searches(); s.active || s.queued || s.shared; s = await searches()) await sleep(1000);
+        console.log(JSON.stringify({ settledMs: Math.round(performance.now() - t0), serverCpuMs: cpuMs() - cpu0, searches: await searches() }));
+      }
     }
   }
 }

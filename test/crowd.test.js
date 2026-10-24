@@ -201,6 +201,60 @@ test('recentResults: hotový výsledek jen do ttl, celkem do maxBytes (ven nejd�
   assert.equal(off.get('a'), undefined);
 });
 
+test('recentResults: starší výsledek (stale) žije do staleMs – get ho po ttl nevrátí, stale ano i s časem; ostatní jen ttl', () => {
+  const r = recentResults({ ttlMs: 100, staleMs: 1000, maxBytes: 100 });
+  assert.equal(r.set('radar', 'R', 30, 0, { stale: true }), true);
+  assert.equal(r.set('lety', 'L', 30, 0), true);
+  assert.equal(r.get('radar', 99), 'R');
+  assert.deepEqual(r.stale('radar', 99), { value: 'R', at: 0 }, 'stale vrací i čerstvý');
+  assert.equal(r.get('radar', 100), undefined, 'po ttl už ne jako čerstvý');
+  assert.deepEqual(r.stale('radar', 999), { value: 'R', at: 0 }, 'jako starší do staleMs');
+  assert.equal(r.stale('lety', 100), undefined, 'bez stale jen do ttl');
+  assert.equal(r.get('lety', 100), undefined);
+  assert.equal(r.stale('radar', 1000), undefined, 'po staleMs pryč');
+  assert.deepEqual([r.size, r.bytes], [0, 0], 'prošlé se uklidí');
+  // nový výsledek téhož dotazu (přepočet) nahradí starší – zase čerstvý, starší od nového času
+  r.set('radar', 'R1', 30, 0, { stale: true });
+  r.set('radar', 'R2', 30, 500, { stale: true });
+  assert.equal(r.get('radar', 550), 'R2');
+  assert.deepEqual(r.stale('radar', 1400), { value: 'R2', at: 500 });
+  assert.equal(r.bytes, 30);
+  // staleMs 0 (SEARCH_STALE_TTL=0) = jako dřív, i se stale jen do ttl
+  const off = recentResults({ ttlMs: 100, staleMs: 0, maxBytes: 100 });
+  off.set('radar', 'R', 30, 0, { stale: true });
+  assert.equal(off.stale('radar', 100), undefined);
+  // staleMs kratší než ttl: aspoň ttl
+  const short = recentResults({ ttlMs: 100, staleMs: 10, maxBytes: 100 });
+  short.set('radar', 'R', 30, 0, { stale: true });
+  assert.equal(short.get('radar', 99), 'R');
+});
+
+test('recentResults: starší výsledky ve stejném stropu paměti – napřed ven prošlé (i za živými), pak nejstarší', () => {
+  const r = recentResults({ ttlMs: 100, staleMs: 1000, maxBytes: 100 });
+  r.set('radar-a', 'A', 30, 0, { stale: true }); // starší do 1000
+  r.set('lety-b', 'B', 30, 10); // do 110 – za živým starším, pořadí vložení neodpovídá konci
+  r.set('radar-c', 'C', 30, 20, { stale: true });
+  assert.equal(r.bytes, 90);
+  // v 200: lety-b je prošlé (místo uvolní ono, ne nejstarší živý radar-a)
+  assert.equal(r.set('radar-d', 'D', 30, 200, { stale: true }), true);
+  assert.equal(r.stale('lety-b', 200), undefined);
+  assert.deepEqual(['radar-a', 'radar-c', 'radar-d'].map((k) => r.stale(k, 200)?.value), ['A', 'C', 'D']);
+  assert.equal(r.bytes, 90);
+  // plno živých: ven nejstarší (radar-a), strop drží
+  assert.equal(r.set('lety-e', 'E', 30, 210), true);
+  assert.equal(r.stale('radar-a', 210), undefined);
+  assert.ok(r.bytes <= 100, `bajtů ${r.bytes}`);
+  assert.deepEqual(['radar-c', 'radar-d', 'lety-e'].map((k) => r.stale(k, 210)?.value), ['C', 'D', 'E']);
+  // velký výsledek vytlačí víc starších; víc než strop se neuloží vůbec
+  assert.equal(r.set('big', 'X', 70, 220), true);
+  assert.ok(r.bytes <= 100, `bajtů ${r.bytes}`);
+  assert.equal(r.get('big', 220), 'X');
+  assert.equal(r.set('huge', 'H', 101, 230, { stale: true }), false);
+  // tisíc starších výsledků po sobě: paměť pořád do stropu
+  for (let i = 0; i < 1000; i++) r.set(`radar-${i}`, 'R', 7 + (i % 13), 300 + i, { stale: true });
+  assert.ok(r.bytes <= 100 && r.size <= 100 / 7, `${r.size} záznamů, ${r.bytes} bajtů`);
+});
+
 test('completeResult: na chvíli se drží jen výsledek, který by stejné hledání hned zopakovalo', () => {
   const ok = { id: 'ryanair', state: 'done', error: null, outage: null, failed: 0, note: null };
   const r = (...ps) => ({ groups: [], providers: ps });

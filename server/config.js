@@ -89,6 +89,12 @@ export const config = {
   // by dalo totéž. 0 = vypnuto. Paměť nejvýš SEARCH_RESULT_MB (hotové řádky odpovědi, radar ~3 MB).
   searchResultTtlS: Math.max(0, num(env.SEARCH_RESULT_TTL, 120)),
   searchResultMb: Math.max(1, num(env.SEARCH_RESULT_MB, 24)),
+  // Úplný výsledek radaru (radar: true) po SEARCH_RESULT_TTL ještě do tolika sekund od spočítání: další se stejným dotazem
+  // ho dostane hned i se stářím („Aktualizováno … (před 12 min)“) a server ho jednou přepočítá na pozadí – jen na
+  // skutečný požadavek, nikdy časovačem (server/index.js revalidate). Na Renderu zdarma trvá výpočet radaru při návalu
+  // minuty, nový návštěvník by jinak čekal. Ceny zdrojů jsou v mezipaměti 20–30 min. Nejvýš 30 min – aplikace radar
+  // starší 30 min sama hledá znovu (starší by jí nebyl k ničemu). Paměť ve stejném stropu SEARCH_RESULT_MB. 0 = vypnuto.
+  searchStaleS: Math.min(1800, Math.max(0, num(env.SEARCH_STALE_TTL, 1800))),
   // Hledání ve frontě (nebo zdroj, který dlouho mlčí): po tolika ms bez řádku pošle server znamení { type: 'wait' } –
   // aplikace hledání bez dat vzdává po 2 minutách (public/js/pwa.js API_WAIT); 20 s je s velkou rezervou.
   searchPingMs: 20e3,
