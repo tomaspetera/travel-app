@@ -907,7 +907,8 @@
       </div>
       <div class="stepbar">${STEPS.map((s, i) => `${i ? `<i${i <= idx ? ' class="done"' : ''}></i>` : ''}<button type="button" class="st ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${i < idx ? '✓' : s[1]}</span>${s[2]}</button>`).join('')}</div>
       ${sharedHtml(t)}
-      <div class="tw-body"><div id="tripStep"></div><aside class="trip-aside" id="tripAside" aria-label="Přehled cesty">${asideHtml(t)}</aside></div>`;
+      <div class="tw-body"><div id="tripStep"></div><aside class="trip-aside" id="tripAside" aria-label="Přehled cesty">${asideHtml(t)}</aside></div>
+      <div class="trip-next" id="tripNext" hidden></div>`;
     if (window.Photos) Photos.paint(root); // fotka cíle v hlavičce
     asideWire();
     $$('.stepbar [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step));
@@ -921,6 +922,8 @@
     else summaryStep();
     tabIntoView();
     asideNext(); // tlačítko kroku i v přehledu vpravo (krok už je vykreslený)
+    // krok se dokresluje i bez posunu stránky (hotely, trasa, auta dorazí později) – kopie tlačítka na telefonu podle něj
+    if (typeof ResizeObserver === 'function') { stepRO = stepRO || new ResizeObserver(pnSoon); stepRO.disconnect(); stepRO.observe($('#tripStep')); }
   }
   /**
    * Cesta otevřená z cizího odkazu (#trip=, importFromHash), dokud si ji příjemce neuloží: ceny jsou z doby sdílení
@@ -1010,16 +1013,64 @@
    * nepovolené (trasa bez míst) jen ukáže, kde je.
    */
   const NEXT_IDS = ['tfNext', 'rtNext', 'stayNext', 'carNext', 'progNext', 'carSkip'];
+  const NEXT_ALT = { carSkip: 'carSkipTop', stayNext: 'stayDone' }; // stejná akce výš v kroku
+  const nextBtn = () => NEXT_IDS.map(id => $(`#tripStep #${id}`)).find(b => b && b.isConnected !== false && String(b.textContent || '').trim());
+  // kopie zmáčkne tlačítko, které je v kroku teď; ještě nepovolené jen ukáže, kde je. Po přepnutí kroku je na stejném
+  // místě hned tlačítko dalšího kroku – druhé klepnutí dvojkliku (netrpělivé klepnutí) by krok přeskočilo, proto se
+  // 0,7 s po zmáčknutí kopie další klepnutí na ni nebere.
+  let pressHold = 0;
+  const nextPress = () => {
+    const b = nextBtn(), now = Date.now();
+    if (!b) return;
+    if (b.disabled) return b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (now < pressHold) return;
+    pressHold = now + 700;
+    b.click();
+  };
   function asideNext() {
+    phoneNext();
     const slot = $('#taNext');
     if (!slot) return;
-    const find = () => NEXT_IDS.map(id => $(`#tripStep #${id}`)).find(b => b && b.isConnected !== false && String(b.textContent || '').trim());
-    const nx = find();
+    const nx = nextBtn();
     slot.hidden = !nx;
     if (!nx) { slot.innerHTML = ''; return; }
     slot.innerHTML = `<button type="button" class="btn${nx.classList && nx.classList.contains('primary') ? ' primary' : ''}">${esc(String(nx.textContent).trim())}</button>`;
     const btn = slot.firstElementChild;
-    if (btn) btn.onclick = () => { const b = find(); if (!b) return; if (b.disabled) b.scrollIntoView({ behavior: 'smooth', block: 'center' }); else b.click(); };
+    if (btn) btn.onclick = nextPress;
+  }
+  /**
+   * Telefon: hlavní tlačítko kroku nad plovoucí spodní lištou, dokud v kroku není celé vidět. Po přepnutí kroku je
+   * stránka nahoře a tlačítko leží podle délky kroku kdekoliv – často napůl pod lištou (klepnutí na jeho viditelný kus
+   * trefilo lištu a odvedlo z průvodce) nebo daleko dole. Kopie jako v přehledu vpravo na počítači (asideNext); jakmile
+   * je tlačítko v kroku celé vidět, zmizí. Bez spodní lišty (počítač) se neukazuje.
+   */
+  function phoneNext() {
+    const bar = $('#tripNext'), nav = $('.mobile-nav'), view = $('#view-trip');
+    if (!bar || !nav || !nav.getBoundingClientRect || typeof getComputedStyle !== 'function') return;
+    const b = nextBtn(), r = b && b.getBoundingClientRect ? b.getBoundingClientRect() : null;
+    let show = false;
+    if (r && r.height && view && view.classList.contains('active') && getComputedStyle(nav).display !== 'none') {
+      const head = $('.topbar'), top = head ? head.getBoundingClientRect().bottom : 0, end = nav.getBoundingClientRect().top - 6;
+      const seen = x => x && x.top >= top && x.bottom <= end;
+      // totéž tlačítko i nahoře v kroku („Auto nepotřebuji →“, „Pokračovat k autu →“ u hotelů ve všech místech) – když je
+      // vidět to, kopie by ho jen zdvojila
+      const alt = NEXT_ALT[b.id] && $(`#tripStep #${NEXT_ALT[b.id]}`), ar = alt && alt.getBoundingClientRect ? alt.getBoundingClientRect() : null;
+      show = !seen(r) && !(ar && ar.height && seen(ar));
+    }
+    bar.hidden = !show;
+    if (!show) return;
+    const cls = `btn${b.classList.contains('primary') ? ' primary' : ''}`, txt = String(b.textContent).trim(), key = `${cls}|${b.disabled}|${txt}`;
+    if (bar.dataset.k === key) return;
+    bar.dataset.k = key;
+    bar.innerHTML = `<button type="button" class="${cls}"${b.disabled ? ' aria-disabled="true"' : ''}>${esc(txt)}</button>`;
+    bar.firstElementChild.onclick = nextPress;
+  }
+  // po přepnutí kroku stránka plyne nahoru a krok se posouvá prstem – kopie tlačítka se dopočítá jednou za snímek
+  let pnFrame = 0, stepRO = null;
+  const pnSoon = () => { if (!pnFrame) pnFrame = requestAnimationFrame(() => { pnFrame = 0; phoneNext(); }); };
+  if (typeof addEventListener === 'function' && typeof requestAnimationFrame === 'function') {
+    addEventListener('scroll', pnSoon, { passive: true });
+    addEventListener('resize', pnSoon);
   }
 
   // Přestupy letu jako ve výsledcích („1× přestup (FRA 1 h 35 min)“) – ať je vidět i země „jen přestup“ z 🛂 Před cestou.
@@ -1337,7 +1388,7 @@
   }
 
   // Počet nocí u letu jen tam (u zpátečního ho dávají data letů) – v kroku Trasa i Ubytování.
-  const oneWayField = t => !backLeg(t) ? `<div class="field" style="max-width:220px;margin-bottom:12px"><label>Kolik nocí zůstaneš?</label><input class="input" type="number" min="1" max="30" id="owNights" value="${t.nightsOneWay}"></div>` : '';
+  const oneWayField = t => !backLeg(t) ? `<div class="field" style="max-width:220px;margin-bottom:12px"><label for="owNights">Kolik nocí zůstaneš?</label><input class="input" type="number" min="1" max="30" id="owNights" value="${t.nightsOneWay}"></div>` : '';
   function wireOneWay(t) {
     const ow = $('#owNights');
     if (!ow) return;
@@ -1911,8 +1962,8 @@
       <div id="stayBody">${STAY_LOADING}</div>
       <div class="divider"></div>
       <div class="manual-row"><div class="muted" style="font-size:13px">${manLead(t.stay, 'pobyt')}</div>
-        <input class="input" id="manName" placeholder="Název (nepovinné)" value="${esc(manNameVal(t.stay))}">
-        <input class="input" id="manPrice" type="number" min="0" step="100" placeholder="Cena celkem v Kč" value="${t.stay && t.stay.mode === 'manual' ? t.stay.totalCzk : ''}">
+        <input class="input" id="manName" placeholder="Název (nepovinné)" aria-label="Název ubytování" value="${esc(manNameVal(t.stay))}">
+        <input class="input" id="manPrice" type="number" min="0" step="100" placeholder="Cena celkem v Kč" aria-label="Cena ubytování celkem v Kč" value="${t.stay && t.stay.mode === 'manual' ? t.stay.totalCzk : ''}">
         <button class="btn" id="manSave">Uložit</button></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ghost" id="staySkip">Ubytování neřeším →</button>${t.stay ? '<button class="btn primary" id="stayNext">Pokračovat →</button>' : ''}</div>
     </div>`;
@@ -1989,8 +2040,8 @@
       <div id="stayBody">${STAY_LOADING}</div>
       <div class="divider"></div>
       <div class="manual-row"><div class="muted" style="font-size:13px">${manLead(b.stay, nightsTxt(d.nights))}</div>
-        <input class="input" id="manName" placeholder="Název (nepovinné)" value="${esc(manNameVal(b.stay))}">
-        <input class="input" id="manPrice" type="number" min="0" step="100" placeholder="Cena celkem v Kč" value="${b.stay && b.stay.mode === 'manual' ? b.stay.totalCzk : ''}">
+        <input class="input" id="manName" placeholder="Název (nepovinné)" aria-label="Název ubytování" value="${esc(manNameVal(b.stay))}">
+        <input class="input" id="manPrice" type="number" min="0" step="100" placeholder="Cena celkem v Kč" aria-label="Cena ubytování celkem v Kč" value="${b.stay && b.stay.mode === 'manual' ? b.stay.totalCzk : ''}">
         <button class="btn" id="manSave">Uložit</button></div>
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ghost" id="stayLinks">Vyberu později – jen odkazy →</button><button class="btn primary" id="stayNext">${i < n - 1 && !allDone ? `Další místo: ${esc(r.bases[i + 1].name)} →` : 'Pokračovat k autu →'}</button></div>
     </div>`;
@@ -2429,10 +2480,10 @@
     let shown = items.slice(0, lim);
     if (picked && !shown.includes(picked)) shown = [picked, ...shown];
     host.innerHTML = `${testNote}${osmNote}${srcNote}<div class="stay-tools">
-        <select id="staySort">${[['value', '🏆 Nejlepší poměr cena/hodnocení'], ['price', '💰 Nejlevnější'], ['rating', '⭐ Nejlépe hodnocené'], ['dist', '📍 Nejblíž centru']].map(o => `<option value="${o[0]}" ${stayView.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+        <select id="staySort" aria-label="Řazení ubytování">${[['value', '🏆 Nejlepší poměr cena/hodnocení'], ['price', '💰 Nejlevnější'], ['rating', '⭐ Nejlépe hodnocené'], ['dist', '📍 Nejblíž centru']].map(o => `<option value="${o[0]}" ${stayView.sort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
         ${rated ? `<div class="seg" id="stayMin">${[[0, 'vše'], [7, five ? '3,5+' : '7+'], [8, five ? '4+' : '8+'], [9, five ? '4,5+' : '9+']].map(o => `<button type="button" data-v="${o[0]}" class="${stayView.minRating === o[0] ? 'on' : ''}">${o[1]}</button>`).join('')}</div>` : ''}
-        ${types.length > 1 ? `<select id="stayType"><option value="">všechny typy</option>${types.map(x => `<option ${stayView.type === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}
-        <input class="input" id="stayMax" type="number" min="0" step="100" placeholder="max Kč/noc" value="${stayView.maxNight || ''}" style="max-width:130px">
+        ${types.length > 1 ? `<select id="stayType" aria-label="Typ ubytování"><option value="">všechny typy</option>${types.map(x => `<option ${stayView.type === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}
+        <input class="input" id="stayMax" type="number" min="0" step="100" placeholder="max Kč/noc" aria-label="Nejvýš Kč za noc" value="${stayView.maxNight || ''}" style="max-width:130px">
         <span class="faint" style="font-size:12px">${freeKnown ? `<button type="button" class="chip st-free${stayView.free ? ' accent' : ''}" id="stayFree" aria-pressed="${stayView.free}">${stayView.free ? '✓ ' : ''}zdarma storno</button>` : ''}${items.length} z ${main.length} nabídek${hideGuess ? ` · ${nGuess} bez ceny skryto` : ''}${split ? ` · ${inTown.length} v místě bez ceny` : ''}</span>
       </div>
       <div class="stay-list">${shown.map((h) => stayCard(h, d.items.indexOf(h), base, dq)).join('')}${items.length ? '' : `<div class="empty">Filtrům nic neodpovídá. Uvolni hodnocení, max. cenu, typ ubytování nebo storno zdarma.<div style="margin-top:10px"><button type="button" class="btn sm" id="stayClear">Zrušit filtry</button></div></div>`}</div>
@@ -2803,14 +2854,14 @@
       <div class="car-form">
         ${locField('carPu', 'Vyzvednutí', def.pickup, pu, 'carFrom', def.from)}
         ${locField('carDo', 'Vrácení', def.dropoff, dc, 'carTo', def.to)}
-        <div class="field"><label>Věk řidiče</label><input class="input" type="number" id="carAge" min="18" max="99" value="${def.age || 30}" style="max-width:90px"></div>
+        <div class="field"><label for="carAge">Věk řidiče</label><input class="input" type="number" id="carAge" min="18" max="99" value="${def.age || 30}" style="max-width:90px"></div>
       </div>
       <div class="faint" style="font-size:12.5px;margin:6px 0 12px" id="carDays">${daysLine({ ...def, puCity: pu, doCity: dc })}</div>
       ${carPaxNote(t)}
       <div id="carBody"><div class="loading-row"><span class="spin dark"></span> Připravuji nabídky…</div></div>
       <div class="divider"></div>
       <div class="manual-row"><div class="muted" style="font-size:13px">Vybral sis auto? Zadej celkovou cenu:</div>
-        <input class="input" id="carPrice" type="number" min="0" step="100" placeholder="Cena celkem v Kč" value="${t.car && t.car.mode === 'manual' ? t.car.totalCzk : ''}">
+        <input class="input" id="carPrice" type="number" min="0" step="100" placeholder="Cena celkem v Kč" aria-label="Cena auta celkem v Kč" value="${t.car && t.car.mode === 'manual' ? t.car.totalCzk : ''}">
         <button class="btn" id="carSave">Uložit</button></div>
       ${carCostNote(t)}
       <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ${byTrain && !t.car ? 'primary' : 'ghost'}" id="carSkip">Auto nepotřebuji →</button>${byCar ? `<button class="btn ${trainAll ? 'primary' : 'ghost'}" id="carTransit" title="Přejezdy mezi místy trasy se přepočítají na vlak a autobus (jízdenky místo paliva)">Bez auta – mezi místy vlakem a busem →</button>` : ''}${t.car ? '<button class="btn primary" id="carNext">Pokračovat →</button>' : ''}</div>
@@ -4142,6 +4193,6 @@
   if (typeof S !== 'undefined' && S && S.trip && S.trip.statsWait) { giveUpStats(S.trip); persist(); }
 
   window.Trip = { start, cardData, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, placePt, rideLegs, legBack,
-    // doprava po úsecích trasy a auto jen na některé dny (testy)
-    routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts };
+    // doprava po úsecích trasy a auto jen na některé dny, tlačítko kroku nad spodní lištou (testy)
+    routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts, phoneNext };
 })();

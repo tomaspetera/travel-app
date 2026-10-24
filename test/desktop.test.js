@@ -170,8 +170,9 @@ test('klávesnice: karty a odkazy z <div>/<span> jdou Tabem vybrat a Enterem ote
   assert.match(flightsJs, /kbClick\(\$\('#watchCheckAll'\)\)/);
 });
 
-test('klávesnice: otevřené okno dostane fokus, Tab v něm koluje a po zavření se fokus vrátí (jen počítač s myší)', () => {
-  assert.match(appJs, /const modalKb = \{ ret: null, sel: '', mq: [^\n]*matchMedia\('\(min-width:1024px\) and \(hover:hover\) and \(pointer:fine\)'\)/);
+test('klávesnice: otevřené okno dostane fokus, Tab v něm koluje a po zavření se fokus vrátí (počítač i telefon)', () => {
+  // dřív jen počítač s myší – na telefonu čtečka obrazovky po otevření okna mlčela (test/a11y.test.js)
+  assert.doesNotMatch(appJs, /modalKb\.mq/);
   // okno z okna přes modalClose() + modalOpen() (Info o zemi z okna cesty): fokus je na tlačítku zavřeného okna, které
   // zmizí – zůstane původní tlačítko
   assert.match(appJs, /if \(!was && !\$\('#modal'\)\.contains\(document\.activeElement\)\) \{ modalKb\.ret = document\.activeElement; modalKb\.sel = kbSel\(modalKb\.ret\); \}/);
@@ -180,7 +181,7 @@ test('klávesnice: otevřené okno dostane fokus, Tab v něm koluje a po zavřen
   assert.match(appJs, /const r = r0 && r0\.isConnected \? r0 : sel \? \$\$\(sel\)\.find\(x => !m\.contains\(x\) && x\.getClientRects\(\)\.length\) : null;/);
   assert.match(appJs, /r\.focus\(\{ preventScroll: true \}\)/);
   assert.match(appJs, /if \(e\.key !== 'Tab' \|\| e\.defaultPrevented \|\| !\$\('#modalBg'\)\.classList\.contains\('show'\)\) return;/);
-  assert.match(css, /#modal:focus\{outline:none\}/);
+  assert.match(readFileSync(new URL('../public/css/atlas.css', import.meta.url), 'utf8'), /#modal:focus\{outline:none\}/);
 });
 
 test('myš a dlouhé řádky: odkazy sekcí a čipy reagují na najetí, „Jak hledat chytře“ ve dvou sloupcích, poznámka pod výsledky užší', () => {

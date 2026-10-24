@@ -2,6 +2,8 @@
 // service worker při instalaci uloží pro offline. Obojí se odvozuje ze souborů na disku: skript přejmenovaný
 // v index.html se do seznamu dostane sám a smazaný z něj vypadne (instalace tak nikdy nespadne na 404) a každá
 // změna v public/ (nebo v datech, která se ukládají) změní verzi → prohlížeč nainstaluje nový service worker.
+// Kód aplikace (JS, CSS) má ve stránce adresu s otiskem obsahu (js/app.js?v=…, versionAssets) – Cloudflare a prohlížeč
+// ho pak drží bez ptaní serveru (server/index.js serveFile) a změněný soubor má novou adresu.
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -14,25 +16,65 @@ import { pageCsp } from './security.js';
 export const RUNTIME_ASSETS = ['data/countries.json', 'data/entry.json', 'data/pretrip.json', 'vendor/countries-110m.json'];
 const LINK_RELS = /^(?:stylesheet|manifest|icon|shortcut icon|apple-touch-icon)$/i;
 
+/** Hodnota atributu ze značky (v uvozovkách, apostrofech i bez nich), nebo undefined. */
+const attrOf = (tag, name) => tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'))?.slice(1).find((x) => x !== undefined);
+const FOREIGN = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i;
+
 /**
  * Místní soubory, na které odkazuje index.html: skripty, styly, manifest a ikony (ne cizí weby, data: ani preconnect).
- * Skripty i z data-later (moduly, které js/lazy.js načte až po startu) – offline musí být všechny.
+ * Skripty i z data-later (moduly, které js/lazy.js načte až po startu) – offline musí být všechny. Knihovny map
+ * z data-files (lazy.js Lazy.url – načtou se, až je uživatel otevře, ~1,3 MB) ne: offline se neukládaly ani dřív.
  */
 export function shellAssets(html) {
   const out = [];
   for (const m of html.matchAll(/<(script|link)\b[^>]*>/gi)) {
     const tag = m[0];
-    const attr = (name) => tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'))?.slice(1).find((x) => x !== undefined);
+    const attr = (name) => attrOf(tag, name);
     const isScript = m[1].toLowerCase() === 'script';
     if (!isScript && !LINK_RELS.test((attr('rel') || '').trim())) continue;
     const later = isScript ? (attr('data-later') || '').split(/\s+/) : [];
     for (const url of [attr(isScript ? 'src' : 'href'), ...later]) {
-      if (!url || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(url)) continue;
+      if (!url || FOREIGN.test(url)) continue;
       const rel = url.replace(/^\.?\//, '').split('#')[0];
       if (rel && !out.includes(rel)) out.push(rel);
     }
   }
   return out;
+}
+
+/** Krátký otisk obsahu souboru do adresy (?v=…) – podle něj server pozná, že požadavek chce právě tento obsah. */
+export const contentVersion = (buf) => createHash('sha256').update(buf).digest('hex').slice(0, 10);
+
+// Verzi v adrese má kód aplikace (JS, CSS): bez ní ho server posílá s no-cache. Obrázky a data mají max-age jako dřív,
+// manifest zůstává na své adrese (podle ní Chrome pozná nainstalovanou aplikaci).
+const VERSIONED = /\.(?:js|css)$/i;
+
+/**
+ * index.html s otiskem obsahu v adresách kódu aplikace: <script src>, <link rel="stylesheet" href> a seznamy data-later
+ * (moduly po startu) a data-files (knihovny map – lazy.js Lazy.url). versionOf(rel) → otisk, nebo null (soubor není –
+ * adresa zůstane jak je). Cizí weby, adresy s ?parametrem, ostatní značky, poznámky a obsah vložených skriptů (jejich
+ * otisky jsou v CSP stránky) se nemění. Bez verze (starší stránka v mezipaměti) server soubory posílá dál – s no-cache.
+ */
+export function versionAssets(html, versionOf) {
+  const one = (url) => {
+    if (!url || FOREIGN.test(url) || /[?#]/.test(url) || !VERSIONED.test(url)) return url;
+    const v = versionOf(url.replace(/^\.?\//, ''));
+    return v ? `${url}?v=${v}` : url;
+  };
+  const tag = (start, isScript) => {
+    if (!isScript && !/^stylesheet$/i.test((attrOf(start, 'rel') || '').trim())) return start;
+    const names = isScript ? /^(?:src|data-later|data-files)$/i : /^href$/i;
+    return start.replace(/(\s([\w-]+)\s*=\s*)(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g, (m, pre, attr, dq, sq, bare) => {
+      if (!names.test(attr)) return m;
+      const value = dq ?? sq ?? bare;
+      const out = /^data-/i.test(attr) ? value.split(/\s+/).filter(Boolean).map(one).join(' ') : one(value);
+      const q = dq !== undefined ? '"' : sq !== undefined ? "'" : '';
+      return `${pre}${q}${out}${q}`;
+    });
+  };
+  // u <script> jen začátek značky – text vloženého skriptu (i s „<script src=…>“ v řetězci) zůstane, jak je
+  return html.replace(/<!--[\s\S]*?-->|(<script\b[^>]*>)([\s\S]*?<\/script\s*>)|<link\b[^>]*>/gi, (m, start, rest) => (
+    m.startsWith('<!--') ? m : start ? tag(start, true) + rest : tag(m, false)));
 }
 
 /** Ikony z manifestu (i u zkratek) jako adresy vůči kořeni – Chrome je čte i offline (okno a ikona aplikace). */
@@ -94,7 +136,8 @@ const PRECACHE_RE = /^const PRECACHE = \[[^\]\n]*\];/m;
 let memo = null;
 
 /**
- * public/sw.js s dosazenou verzí a seznamem souborů → { body, build, etag, precache }.
+ * public/sw.js s dosazenou verzí a seznamem souborů → { body, build, etag, precache, html }; html = index.html
+ * s otiskem obsahu v adresách kódu aplikace (versionAssets) – stejné adresy jako v seznamu, který si service worker uloží.
  * Verze = otisk obsahu všech souborů v public/ a dat z RUNTIME_ASSETS – ne časů změny, takže nové nasazení se stejnými
  * soubory má stejnou verzi a prohlížeč nic znovu nestahuje. Přepočítá se, jen když se u některého souboru změní
  * velikost nebo čas změny (úprava během vývoje se tak projeví i bez restartu serveru). salt = co server do stránky
@@ -109,10 +152,17 @@ export function serviceWorker({ publicDir, dataDir, salt = '' }) {
   if (memo && memo.key === key) return memo.value;
 
   const hash = createHash('sha256');
-  for (const f of files) hash.update(`${f.rel}\0`).update(readFileSync(f.abs)).update('\0');
+  const versions = new Map(); // soubor na disku → otisk obsahu do adresy (jen kód aplikace)
+  for (const f of files) {
+    const buf = readFileSync(f.abs);
+    hash.update(`${f.rel}\0`).update(buf).update('\0');
+    // do 3 MB jako server (serveFile: větší soubor nedrží v paměti, immutable by nedostal)
+    if (VERSIONED.test(f.rel) && f.size < 3e6) versions.set(f.abs, contentVersion(buf));
+  }
   if (salt) hash.update(`salt\0${salt}`);
   const build = hash.digest('hex').slice(0, 12);
-  const shell = shellAssets(readFileSync(path.join(publicDir, 'index.html'), 'utf8'));
+  const html = versionAssets(readFileSync(path.join(publicDir, 'index.html'), 'utf8'), (rel) => versions.get(fileFor(rel, dirs)?.abs) || null);
+  const shell = shellAssets(html);
   const icons = shell.filter((u) => u.endsWith('.webmanifest') && fileFor(u, dirs))
     .flatMap((u) => manifestIcons(readFileSync(fileFor(u, dirs).abs, 'utf8'), u));
   const precache = ['./', ...[...shell, ...icons, ...RUNTIME_ASSETS].filter((u, i, all) => all.indexOf(u) === i && fileFor(u, dirs))];
@@ -121,7 +171,7 @@ export function serviceWorker({ publicDir, dataDir, salt = '' }) {
   const body = Buffer.from(tpl
     .replace(BUILD_RE, `const BUILD = '${build}';`)
     .replace(PRECACHE_RE, () => `const PRECACHE = ${JSON.stringify(precache)};`));
-  const value = { body, build, etag: `"sw-${build}"`, precache };
+  const value = { body, build, etag: `"sw-${build}"`, precache, html };
   memo = { key, value };
   return value;
 }
@@ -153,8 +203,9 @@ let indexMemo = null;
 /**
  * GET/HEAD stránky aplikace (/ a /index.html): index.html s dosazenou verzí do <meta name="atlas-build"> – pwa.js tak
  * zná verzi stránky, i když ji service worker dal z uložené kopie, a hned pozná novější na serveru – a se značkami
- * head (titulek, popis, náhled odkazu) místo bloku <!-- brand … --> … <!-- /brand -->.
- * no-cache + ETag podle obsahu (levné 304), gzip podle Accept-Encoding.
+ * head (titulek, popis, náhled odkazu) místo bloku <!-- brand … --> … <!-- /brand -->. Skripty a styly s otiskem obsahu
+ * v adrese (versionAssets) – ty pak Cloudflare i prohlížeč drží napořád; stránka sama no-cache + ETag podle obsahu
+ * (levné 304), gzip podle Accept-Encoding. CSP se počítá z hotové stránky (verze v adresách otisky vložených skriptů nemění).
  */
 export function serveIndex(req, res, dirs, head = '') {
   const file = path.join(dirs.publicDir, 'index.html');
@@ -165,14 +216,16 @@ export function serveIndex(req, res, dirs, head = '') {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end('Not found');
   }
+  let versioned = null;
   try {
-    build = serviceWorker(dirs).build;
+    ({ build, html: versioned } = serviceWorker(dirs));
   } catch (e) {
-    console.error('[index.html]', e.message); // bez verze – aplikace ji zjistí jako dřív (HEAD /sw.js)
+    // bez verze – aplikace ji zjistí jako dřív (HEAD /sw.js) a soubory bez otisku v adrese dostane s no-cache
+    console.error('[index.html]', e.message);
   }
   const key = `${build}|${st.size}|${st.mtimeMs}|${head}`;
   if (!indexMemo || indexMemo.key !== key) {
-    const html = readFileSync(file, 'utf8').replace(BRAND_RE, () => head);
+    const html = (versioned ?? readFileSync(file, 'utf8')).replace(BRAND_RE, () => head);
     const body = Buffer.from(build ? html.replace(BUILD_META_RE, `<meta name="atlas-build" content="${build}">`) : html);
     // CSP s otisky vložených skriptů právě této stránky (security.js) – změna skriptu v index.html se projeví sama
     indexMemo = { key, body, gz: zlib.gzipSync(body), etag: `"ix-${createHash('sha256').update(body).digest('hex').slice(0, 16)}"`, csp: pageCsp(body.toString('utf8')) };

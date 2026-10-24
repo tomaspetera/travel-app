@@ -1201,7 +1201,7 @@
      nebo jen víkendy (odlet v pátek nebo sobotu, návrat v neděli nebo pondělí, 1–3 noci). */
   const RADAR = {
     all: { nMin: 2, nMax: 7, out: [], back: [], what: 'zpáteční 2–7 nocí', empty: 'Na příštích 6 týdnů jsem z okolí nic nenašel. Zkus větší okruh.' },
-    weekend: { nMin: 1, nMax: 3, out: [5, 6], back: [0, 1], what: 'víkendy: odlet Pá/So, návrat Ne/Po', empty: 'Na víkendy v příštích 6 týdnech jsem z okolí nic nenašel. Zkus větší okruh nebo Kdykoliv.' },
+    weekend: { nMin: 1, nMax: 3, out: [5, 6], back: [0, 1], what: 'víkendy: odlet pá nebo so, návrat ne nebo po', empty: 'Na víkendy v příštích 6 týdnech jsem z okolí nic nenašel. Zkus větší okruh nebo Kdykoliv.' },
     holiday: { out: [], back: [], empty: 'Na nejbližší prodloužený víkend jsem z okolí nic nenašel. Zkus větší okruh nebo Kdykoliv.' },
   };
 
@@ -1360,6 +1360,15 @@
   /** „14.–17. 11.“, „24.–27. 12.“, „31. 12.–3. 1.“ – rozsah dnů na čip (měsíc jen jednou, když je stejný). */
   const dmRange = (a, b) => (a.slice(0, 7) === b.slice(0, 7) ? `${+a.slice(8, 10)}.–${dm(b)}` : `${dm(a)}–${dm(b)}`);
   const DOW_LC = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
+  /**
+   * Dny v týdnu do textu jako jinde v aplikaci (malá zkratka jako u data „pá 21. 11.“), od pondělí: [5, 6] → „pá nebo so“,
+   * [4, 5, 6] → „čt, pá nebo so“, [0] → „ne“. Dny odletu jsou možnosti, ne výčet – proto „nebo“ (dřív „Pá,So“).
+   */
+  function dowList(days) {
+    const ds = [...new Set((Array.isArray(days) ? days : []).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))]
+      .sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map(d => DOW_LC[d]);
+    return ds.length > 1 ? `${ds.slice(0, -1).join(', ')} nebo ${ds[ds.length - 1]}` : ds.join('');
+  }
   /** Řádek pod čipy svátků: „Odlet pá 13. 11. od 16:00 nebo so 14. 11. · návrat út 17. 11. · s volnem po 16. 11.“ */
   function holidayHint(lw, today) {
     if (!lw) return '';
@@ -2001,6 +2010,13 @@
   /** Cesta na letiště veřejnou dopravou vede pražskou MHD (rozpis ze serveru: „… (PID 90 min …)“, „MHD na nádraží (PID)“). */
   const pidLeg = g => Boolean(g && g.mode !== 'car' && (g.breakdown || []).some(x => /\bPID\b/.test(String((x && x.label) || ''))));
 
+  /**
+   * Cesta z průvodce na kartě ↩ Pokračuj (Přehled): 'shared' = otevřená z cizího odkazu (#trip=) a ještě neuložená –
+   * není příjemcova, proto „Sdílená cesta“ jako poznámka v průvodci, ne „Tvoje cesta“ (vlastní je až po 💾 Uložit si ji);
+   * 'done' = vlastní sestavená (Shrnutí), 'draft' = rozpracovaná.
+   */
+  const resumeKind = t => (t && t.shared ? 'shared' : t && t.step === 'summary' ? 'done' : 'draft');
+
   /* ---------- první spuštění: „Odkud letíš?“ v uvítání ---------- */
   // Města domova se stejným ID jako v našeptávači (server/lib/names.js CITIES → places.js citySuggestion): domov z čipu
   // je totéž, jako vybrat město v „Odkud obvykle létáš?“ (radar, pořadí návrhů, cesta na letiště podle města)
@@ -2094,14 +2110,14 @@
     DAYPARTS, freshTime, dayPart, legMinutes, maxLayover, timeActive, timeFails, timeOk, fillLegs, fastPair, directHint, directNear, timeHidden, timeStats, timeChips, hm, multiPlan, multiWhy,
     REACH, reach, reachCtx, clockTxt, ve,
     radarQuery, radarStale, radarSame, radarDiff, radarEntry, radarOwnOk,
-    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, lwPrices, lwKeep,
+    easter, czHolidays, longWeekend, longWeekends, radarPick, radarRoute, placeGuess, isCached, liveKey, liveVerdict, livePick, holidayList, holidayDates, holidayOf, holidayHint, dmRange, dowList, lwPrices, lwKeep,
     leaveDays, leaveTxt, leaveWindows, spanCal, SPAN_DOW,
     lastPack, lastLoad, savedWhen, resultAge, shownAt, ageNote, recentAdd, viewedAdd, viewedPick, weekendHabit, recentForm, DRAFT_MAX_AGE, formSig, formKey, draftPack, draftLoad, dataAge, tripMinutes, fastKey, nightsTxt, gridModel, gridSummary, gridTrips, cellTrips, dayCal,
     partialHead, reusable, partialFail,
     NEW_MIN, wasThere, isNewCountry, newSplit, SCHENGEN, beforeFor,
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
     destCenter, geoNames, geoCenter, stayPlan, smartDirect,
-    wazeUrl, WAZE_HOME, PID_APP, pidLeg,
+    wazeUrl, WAZE_HOME, PID_APP, pidLeg, resumeKind,
     PAX_MAX, paxOf, paxTxt, paxShort, paxTotalLbl, paxTotalOn, paxNote, kidsBuyNote, radarPax,
   };
 })();

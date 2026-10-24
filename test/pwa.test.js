@@ -12,7 +12,8 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, copyFileSync, rmSy
 
 process.env.ATLAS_MOCK = '1';
 const { createServer } = await import('../server/index.js');
-const { serviceWorker, shellAssets, manifestIcons, RUNTIME_ASSETS } = await import('../server/lib/pwa.js');
+const { serviceWorker, serveIndex, shellAssets, manifestIcons, RUNTIME_ASSETS, versionAssets, contentVersion } = await import('../server/lib/pwa.js');
+const { inlineScriptHashes } = await import('../server/lib/security.js');
 const { ICONS, renderIcon, crc32, ANCHOR, BG, splashImages, splashLinks, solidPng } = await import('../scripts/build-icons.mjs');
 const { BRAND } = await import('../server/brand.js');
 
@@ -246,17 +247,76 @@ test('seznam pro offline: stránka, vše z index.html a data – každý soubor 
   assert.equal(list[0], './');
   const local = [...INDEX.matchAll(/<script src="([^"]+)"/g), ...INDEX.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((x) => x[1]).filter((u) => !/^https?:/.test(u));
   assert.ok(local.length >= 18);
-  // + ikony z manifestu (Chrome je čte i offline) a data, která aplikace stahuje za běhu
+  // skripty a styly pod adresou s otiskem obsahu – stejnou, jakou má stránka od serveru (jinak by je offline nenašla)
+  for (const u of local) assert.ok(list.includes(`${u}?v=${contentVersion(readFileSync(path.join(PUB, u)))}`), `v seznamu chybí ${u}?v=…`);
+  // + ikony z manifestu (Chrome je čte i offline) a data, která aplikace stahuje za běhu – adresy beze změny
   const icons = ['icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/icon-96.png'];
-  for (const u of [...local, 'manifest.webmanifest', 'icons/apple-touch-icon.png', ...icons, ...RUNTIME_ASSETS]) assert.ok(list.includes(u), `v seznamu chybí ${u}`);
+  for (const u of ['manifest.webmanifest', 'icons/apple-touch-icon.png', ...icons, ...RUNTIME_ASSETS]) assert.ok(list.includes(u), `v seznamu chybí ${u}`);
   assert.ok(list.every((u) => !/^(?:https?:|\/\/|api\/|data:)/.test(u)), 'jen vlastní soubory, nikdy API');
+  assert.ok(list.filter((u) => /\?/.test(u)).every((u) => /^[\w/.-]+\.(?:js|css)\?v=[0-9a-f]{10}$/.test(u)), 'otisk jen u skriptů a stylů');
   assert.equal(new Set(list).size, list.length);
+  const page = await (await fetch(`${base}/`)).text();
   const type = { css: /text\/css/, js: /javascript/, json: /application\/json/, png: /image\/png/, webmanifest: /manifest\+json/ };
   for (const u of list.slice(1)) {
     const res = await fetch(`${base}/${u}`);
     assert.equal(res.status, 200, u);
-    assert.match(res.headers.get('content-type'), type[u.split('.').pop()], `${u}: skutečný soubor, ne náhradní index.html`);
+    assert.match(res.headers.get('content-type'), type[u.split('?')[0].split('.').pop()], `${u}: skutečný soubor, ne náhradní index.html`);
+    if (u.includes('?v=')) {
+      assert.equal(res.headers.get('cache-control'), 'public, max-age=31536000, immutable', `${u}: otisk sedí s obsahem`);
+      assert.ok(page.includes(u), `${u}: stejná adresa jako ve stránce`);
+    }
+    await res.arrayBuffer();
   }
+});
+
+test('verze v adrese: stránka má skripty a styly s otiskem obsahu → Cloudflare i prohlížeč je drží napořád; jiný otisk a holá adresa jako dřív', async () => {
+  const res = await fetch(`${base}/`);
+  const page = await res.text();
+  const urls = [...page.matchAll(/<script src="([^"]+)"/g), ...page.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((x) => x[1]).filter((u) => !/^https?:/.test(u));
+  const later = page.match(/<script src="js\/lazy\.js\?v=\w+" data-later="([^"]+)" data-files="([^"]+)">/);
+  assert.ok(later, 'lazy.js: seznamy s otiskem');
+  const all = [...urls, ...later[1].split(' '), ...later[2].split(' ')];
+  assert.ok(all.length >= 40, String(all.length));
+  for (const u of all) {
+    const [file, v] = u.split('?v=');
+    assert.equal(v, contentVersion(readFileSync(path.join(PUB, file))), `${u}: otisk = obsah souboru`);
+  }
+  // vložené skripty (CSP s jejich otisky) se nemění: stránka = index.html jen s ?v= navíc
+  assert.deepEqual(inlineScriptHashes(page), inlineScriptHashes(INDEX));
+  for (const h of inlineScriptHashes(page)) assert.ok(res.headers.get('content-security-policy').includes(h), h);
+
+  const get = (u, headers = {}) => fetch(`${base}/${u}`, { headers: { 'accept-encoding': 'br', ...headers } });
+  const app = all.find((u) => u.startsWith('js/app.js?v='));
+  const a = await get(app);
+  assert.equal(a.status, 200);
+  assert.equal(a.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+  assert.equal(a.headers.get('x-atlas-hash'), app.split('?v=')[1], 'potvrzení obsahu pro service worker');
+  assert.equal(a.headers.get('content-encoding'), 'br', 'komprese jako dřív');
+  assert.equal(a.headers.get('vary'), 'Accept-Encoding');
+  const body = Buffer.from(await a.arrayBuffer());
+  assert.deepEqual(body, readFileSync(path.join(PUB, 'js/app.js')), 'fetch brotli rozbalí sám');
+  // ověření (304) i s otiskem: obnovená doba v mezipaměti
+  const same = await get(app, { 'if-none-match': a.headers.get('etag') });
+  assert.equal(same.status, 304);
+  assert.equal(same.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+  // stará stránka (service worker, mezipaměť) chce soubor bez otisku nebo s jiným: dnešní obsah, ale no-cache –
+  // do mezipaměti napořád se nesmí dostat jiný obsah, než jaký otisk slibuje
+  for (const u of ['js/app.js', 'js/app.js?v=0123456789', 'js/app.js?v=', 'js/app.js?x=1', `js/app.js?v=${app.split('?v=')[1].toUpperCase()}`]) {
+    const r = await get(u);
+    assert.equal(r.status, 200, u);
+    assert.equal(r.headers.get('cache-control'), 'no-cache', u);
+    assert.equal(r.headers.get('x-atlas-hash'), null, u);
+    assert.deepEqual(Buffer.from(await r.arrayBuffer()), readFileSync(path.join(PUB, 'js/app.js')), u);
+  }
+  // knihovny map (data-files) a styly stejně
+  for (const u of [...later[2].split(' '), urls.find((x) => x.startsWith('css/atlas.css?v='))]) {
+    const r = await get(u);
+    assert.equal(r.headers.get('cache-control'), 'public, max-age=31536000, immutable', u);
+    await r.arrayBuffer();
+  }
+  // otisk u obrázku nebo neexistujícího souboru nic nemění
+  assert.equal((await get('icons/icon-192.png?v=0123456789')).headers.get('cache-control'), 'public, max-age=60');
+  assert.equal((await get('js/neexistuje.js?v=0123456789')).status, 404);
 });
 
 test('server/lib/pwa.js: seznam z index.html, verze podle obsahu (ne času změny), přejmenovaný i smazaný soubor', () => {
@@ -280,21 +340,27 @@ test('server/lib/pwa.js: seznam z index.html, verze podle obsahu (ne času změn
     writeFileSync(path.join(data, 'countries.json'), '[]');
     const dirs = { publicDir: pub, dataDir: data };
     const v1 = serviceWorker(dirs);
-    assert.deepEqual(v1.precache, ['./', 'js/a.js', 'app.webmanifest', 'i/a.png', 'data/countries.json'],
-      'ikony z manifestu ano (cizí a chybějící ne); chybějící soubory (css, entry.json, mapa) se neukládají – instalace nespadne na 404');
+    const a1 = `js/a.js?v=${contentVersion('console.log(1)')}`;
+    assert.deepEqual(v1.precache, ['./', a1, 'app.webmanifest', 'i/a.png', 'data/countries.json'],
+      'skript s otiskem obsahu; ikony z manifestu ano (cizí a chybějící ne); chybějící soubory (css, entry.json, mapa) se neukládají – instalace nespadne na 404');
+    assert.equal(v1.html, `<link rel="stylesheet" href="css/chybi.css"><script src="${a1}"></script><link rel="manifest" href="app.webmanifest">`,
+      'stránka se stejnými adresami jako seznam; chybějící soubor a manifest beze změny');
     assert.ok(v1.body.toString().includes(`const BUILD = '${v1.build}';`));
-    // stejný obsah, jiný čas změny (nové nasazení) → stejná verze
+    // stejný obsah, jiný čas změny (nové nasazení) → stejná verze i adresa
     utimesSync(path.join(pub, 'js/a.js'), new Date(), new Date(Date.now() + 5000));
     assert.equal(serviceWorker(dirs).build, v1.build);
-    // změna obsahu → nová verze
+    assert.equal(serviceWorker(dirs).precache[1], a1);
+    // změna obsahu → nová verze a nová adresa souboru (stará kopie z mezipaměti se pod ni nedostane)
     writeFileSync(path.join(pub, 'js/a.js'), 'console.log(2)');
     const v2 = serviceWorker(dirs);
     assert.notEqual(v2.build, v1.build);
     assert.ok(!v2.body.equals(v1.body), 'jiný sw.js → prohlížeč nainstaluje nový service worker');
+    assert.equal(v2.precache[1], `js/a.js?v=${contentVersion('console.log(2)')}`);
+    assert.ok(v2.html.includes(`src="${v2.precache[1]}"`));
     // přejmenovaný skript: seznam se řídí index.html
     renameSync(path.join(pub, 'js/a.js'), path.join(pub, 'js/app-2.js'));
     writeFileSync(path.join(pub, 'index.html'), '<script src="js/app-2.js"></script>');
-    assert.deepEqual(serviceWorker(dirs).precache, ['./', 'js/app-2.js', 'data/countries.json']);
+    assert.deepEqual(serviceWorker(dirs).precache, ['./', `js/app-2.js?v=${contentVersion('console.log(2)')}`, 'data/countries.json']);
     assert.deepEqual(manifestIcons('{"icons":[{"src":"../x.png"},{"src":"a.png"}]}', 'm/app.webmanifest'), ['x.png', 'm/a.png'], 'vůči adrese manifestu');
     assert.deepEqual(manifestIcons('nesmysl'), []);
     // data mimo public/ jsou ve verzi taky
@@ -306,15 +372,47 @@ test('server/lib/pwa.js: seznam z index.html, verze podle obsahu (ne času změn
     writeFileSync(path.join(pub, 'data/pretrip.json'), '{}');
     writeFileSync(path.join(pub, 'data/countries.json'), 'stara kopie');
     const v4 = serviceWorker(dirs);
-    assert.deepEqual(v4.precache, ['./', 'js/app-2.js', 'data/countries.json', 'data/pretrip.json']);
+    assert.deepEqual(v4.precache, ['./', `js/app-2.js?v=${contentVersion('console.log(2)')}`, 'data/countries.json', 'data/pretrip.json']);
     writeFileSync(path.join(data, 'countries.json'), '[{},{}]');
     assert.notEqual(serviceWorker(dirs).build, v4.build, 'verze se řídí tím, co server opravdu posílá');
     // sw.js bez řádků pro dosazení = chyba (test na serveru by ji odhalil dřív než prohlížeč)
     writeFileSync(path.join(pub, 'sw.js'), 'self.addEventListener("fetch", () => {});');
     assert.throws(() => serviceWorker(dirs), /const BUILD/);
+    // stránka se pak pošle bez verze i bez otisků v adresách – soubory server dá i tak (s no-cache), aplikace funguje
+    const res = { writeHead(status, headers) { Object.assign(this, { status, headers }); }, end(b) { this.body = String(b); } };
+    const err = console.error;
+    console.error = () => {};
+    try {
+      serveIndex({ method: 'GET', headers: {} }, res, dirs);
+    } finally {
+      console.error = err;
+    }
+    assert.equal(res.status, 200);
+    assert.equal(res.body, '<script src="js/app-2.js"></script>');
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
+});
+
+test('versionAssets: otisk jen u místních skriptů a stylů (i v data-later / data-files), vše ostatní beze změny', () => {
+  const v = (rel) => ({ 'js/a.js': '1111111111', 'js/b.js': '2222222222', 'css/a.css': '3333333333', 'vendor/m.js': '4444444444', 'vendor/m.css': '5555555555' })[rel] || null;
+  const html = `<link rel="stylesheet" href="css/a.css" media="(min-width:1024px)"><link rel='stylesheet' href='./css/a.css'><link rel=stylesheet href=css/a.css>
+<link rel="icon" href="js/a.js"><link rel="manifest" href="m.webmanifest"><link rel="preload" href="css/a.css" as="style"><link href="https://fonts.googleapis.com/css2?x" rel="stylesheet">
+<script src="js/a.js" defer></script><script src="/js/b.js"></script><script src="js/chybi.js"></script><script src="js/a.js?x=1"></script><script src="//cdn.example/x.js"></script>
+<script src="js/a.js" data-later="js/b.js  js/chybi.js https://cdn.example/y.js" data-files="vendor/m.js vendor/m.css"></script>
+<script>var s = '<script src="js/a.js"><\\/script>'; // href="css/a.css"</script><a href="css/a.css">css/a.css</a><img src="js/a.js">
+<!-- <script src="js/a.js"></script> -->`;
+  const out = versionAssets(html, v);
+  assert.equal(out, `<link rel="stylesheet" href="css/a.css?v=3333333333" media="(min-width:1024px)"><link rel='stylesheet' href='./css/a.css?v=3333333333'><link rel=stylesheet href=css/a.css?v=3333333333>
+<link rel="icon" href="js/a.js"><link rel="manifest" href="m.webmanifest"><link rel="preload" href="css/a.css" as="style"><link href="https://fonts.googleapis.com/css2?x" rel="stylesheet">
+<script src="js/a.js?v=1111111111" defer></script><script src="/js/b.js?v=2222222222"></script><script src="js/chybi.js"></script><script src="js/a.js?x=1"></script><script src="//cdn.example/x.js"></script>
+<script src="js/a.js?v=1111111111" data-later="js/b.js?v=2222222222 js/chybi.js https://cdn.example/y.js" data-files="vendor/m.js?v=4444444444 vendor/m.css?v=5555555555"></script>
+<script>var s = '<script src="js/a.js"><\\/script>'; // href="css/a.css"</script><a href="css/a.css">css/a.css</a><img src="js/a.js">
+<!-- <script src="js/a.js"></script> -->`);
+  // vložený skript beze změny → CSP stránky (otisky vložených skriptů) platí dál
+  assert.deepEqual(inlineScriptHashes(out), inlineScriptHashes(html));
+  // bez otisků (soubory nejsou) stránka beze změny
+  assert.equal(versionAssets(INDEX, () => null), INDEX);
 });
 
 /* ---------- service worker ve falešném prostředí (node:vm) ---------- */
@@ -355,7 +453,7 @@ function loadSw(src = read('public/sw.js')) {
       if (net.delay) await new Promise((r) => setTimeout(r, net.delay));
       if (net.offline) throw new TypeError('Failed to fetch');
       const f = net.files[req.url];
-      return f ? new BasicResponse(f.body, { status: f.status || 200, headers: { 'content-type': f.type || 'text/javascript' } }) : new BasicResponse('', { status: 404 });
+      return f ? new BasicResponse(f.body, { status: f.status || 200, headers: { 'content-type': f.type || 'text/javascript', ...f.headers } }) : new BasicResponse('', { status: 404 });
     },
     addEventListener: (type, fn) => { handlers[type] = fn; },
     registration: { scope: SCOPE },
@@ -537,6 +635,68 @@ test('service worker v akci: instalace ze sítě s ověřením, aktivace smaže 
   let answer = null;
   sw.handlers.message({ data: 'atlas-build', ports: [{ postMessage: (m) => { answer = m; } }] });
   assert.equal(answer, 'v2');
+});
+
+test('service worker: soubory s otiskem v adrese (js/app.js?v=…) bez ověření u serveru; uloží jen obsah, který server potvrdil (X-Atlas-Hash)', async () => {
+  const A = 'js/app.js?v=aaaaaaaaaa', C = 'css/atlas.css?v=cccccccccc', OLD = 'js/stary.js?v=0000000000', CF = 'js/cf.js?v=dddddddddd';
+  const precache = ['./', A, C, 'js/pwa.js', OLD, CF];
+  const sw = loadSw(read('public/sw.js').replace(/^const BUILD = .*$/m, "const BUILD = 'v5';").replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(precache)};`));
+  const { net, store, event } = sw;
+  // odpověď serveru na adresu, jejíž otisk sedí s obsahem (server/index.js serveFile)
+  const ok = (p) => ({ 'cache-control': 'public, max-age=31536000, immutable', 'x-atlas-hash': p.split('?v=')[1] });
+  const file = (p, body, type = 'text/javascript', headers = {}) => { net.files[SCOPE + p] = { body, type, headers }; };
+  file('', '<html>v5</html>', 'text/html; charset=utf-8', { 'cache-control': 'no-cache' });
+  file(A, 'app v5', 'text/javascript', ok(A));
+  file(C, 'css v5', 'text/css', ok(C));
+  file('js/pwa.js', 'pwa v5', 'text/javascript', { 'cache-control': 'no-cache' });
+  // během nasazení odpověděl ještě starý server: jiný obsah s no-cache, bez potvrzení – pod adresu s otiskem se neuloží
+  file(OLD, 'jiný obsah', 'text/javascript', { 'cache-control': 'no-cache' });
+  // Cloudflare přepsal Cache-Control (Browser Cache TTL) – potvrzení otisku zůstane, uloží se
+  file(CF, 'cf v5', 'text/javascript', { 'cache-control': 'public, max-age=14400', 'x-atlas-hash': 'dddddddddd' });
+  await Promise.all(event('install').waits);
+  const cache = store.get('atlas-v5');
+  const modes = Object.fromEntries(net.log.map((r) => [r.url.slice(SCOPE.length), r.cache]));
+  assert.deepEqual(modes, { '': 'no-cache', [A]: 'default', [C]: 'default', 'js/pwa.js': 'no-cache', [OLD]: 'default', [CF]: 'default' },
+    's otiskem z mezipaměti prohlížeče (stránka je právě stáhla), bez otisku s ověřením');
+  assert.deepEqual([...cache.keys()].sort(), [SCOPE, SCOPE + C, SCOPE + A, `${SCOPE}js/pwa.js`, SCOPE + CF].sort());
+  sw.puts.length = 0;
+  await Promise.all(event('activate').waits);
+  assert.deepEqual(sw.puts.sort(), [SCOPE + A, `${SCOPE}js/pwa.js`, SCOPE + CF].sort(), 'skripty s otiskem taky jednou znovu uložit (rewriteScripts)');
+  delete net.files[SCOPE + CF];
+
+  const run = async (r) => {
+    const ev = event('fetch', { request: r });
+    const res = ev.responded && (await ev.responded);
+    await Promise.all(ev.waits);
+    return { ev, text: res ? await res.text() : null };
+  };
+  net.log.length = 0;
+  const ra = req(`/${A}`);
+  assert.equal((await run(ra)).text, 'app v5');
+  assert.equal(net.log[0], ra, 'požadavek beze změny – odpoví mezipaměť prohlížeče nebo Cloudflare, ne server');
+  await run(req('/js/pwa.js'));
+  assert.equal(net.log[1].cache, 'no-cache', 'bez otisku dál s ověřením u serveru');
+  // nepotvrzený obsah se ukáže (stránka běží), ale neuloží; potvrzený se uloží
+  const B = 'js/novy.js?v=bbbbbbbbbb';
+  file(B, 'starý obsah', 'text/javascript', { 'cache-control': 'no-cache' });
+  assert.equal((await run(req(`/${B}`))).text, 'starý obsah');
+  assert.ok(!cache.has(SCOPE + B));
+  file(B, 'cizí obsah', 'text/javascript', { ...ok(B), 'x-atlas-hash': 'eeeeeeeeee' });
+  await run(req(`/${B}`));
+  assert.ok(!cache.has(SCOPE + B), 'potvrzení jiného otisku nestačí');
+  file(B, 'nový obsah', 'text/javascript', ok(B));
+  await run(req(`/${B}`));
+  assert.equal(cache.get(SCOPE + B), 'nový obsah');
+  // offline: uložená kopie podle celé adresy i s otiskem – jiný otisk offline není (nikdy jiný obsah)
+  net.offline = true;
+  assert.equal((await run(req(`/${A}`))).text, 'app v5');
+  assert.equal((await run(req(`/${C}`))).text, 'css v5');
+  await assert.rejects(run(req('/js/app.js?v=ffffffffff')), /Failed to fetch/);
+  const versioned = vm.runInContext('versioned', sw.ctx);
+  assert.equal(versioned('https://atlas.test/js/app.js?v=0123456789'), true);
+  for (const u of ['https://atlas.test/js/app.js', 'https://atlas.test/js/app.js?v=', 'https://atlas.test/js/app.js?v=xyz', 'https://atlas.test/js/app.js?vv=0123456789']) {
+    assert.equal(versioned(u), false, u);
+  }
 });
 
 test('service worker: po aktivaci skripty z uložené sady jednou znovu uloží (bez předkompilace z instalace) – bez sítě, obsah stejný', async () => {

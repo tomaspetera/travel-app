@@ -17,7 +17,7 @@ const dummy = () => new Proxy(function () {}, {
 // spustí po všech skriptech stránky)
 const INDEX = read('index.html');
 const EAGER = [...INDEX.matchAll(/<script src="js\/([a-z0-9]+\.js)"/g)].map((m) => m[1]);
-const LATER = INDEX.match(/<script src="js\/lazy\.js" data-later="([^"]+)"><\/script>/)[1].split(' ').map((u) => u.replace(/^js\//, ''));
+const LATER = INDEX.match(/<script src="js\/lazy\.js" data-later="([^"]+)"[^>]*><\/script>/)[1].split(' ').map((u) => u.replace(/^js\//, ''));
 const BASE = { console, URLSearchParams, TextEncoder, TextDecoder, Date, Math, JSON, Set, Map, WeakMap, Promise, Intl, Number, String, Array, Object, RegExp, Error, Symbol, encodeURIComponent, decodeURIComponent, setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {} };
 
 test('skripty z index.html se načtou bez chyby (pořadí jako v prohlížeči)', () => {

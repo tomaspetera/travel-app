@@ -2,13 +2,91 @@
 
 Podklad k podnikatelskému plánu (cíl: 1000+ lidí naráz, později desítky tisíc uživatelů). Stav k 23. 10. 2026.
 
+## Soubory aplikace z Cloudflare (23. 10. 2026)
+
+Skripty a styly dostával každý návštěvník od serveru: měly `no-cache` (každé použití se ověří u serveru, aby po
+nasazení nikdy neběžel starý kód) – i 304 šlo až na server s desetinou jádra.
+
+**Kde to pomáhá dnes a kde až později** (ověřeno na produkci 24. 10.): Cloudflare před Renderem je Renderův a na plánu
+zdarma nic neukládá – všechny odpovědi mají `cf-cache-status: DYNAMIC`, i obrázky s `max-age` (docs Renderu: „Edge
+caching is not available for free web services“). Dnes proto úspora jde z **mezipaměti prohlížeče**: vracející se
+návštěvník a aktualizace po nasazení vezmou nezměněné soubory z telefonu bez ptaní (níž „bez service workeru“ a „po
+nasazení“). Řádky „další nový návštěvník“ a „nový návštěvník po nasazení“ platí až s ukládáním na okraji: placený
+web service na Renderu → Settings → Edge Caching → „Common static file types“ (Render při každém nasazení mezipaměť
+sám vyprázdní), nebo vlastní doména přes vlastní účet Cloudflare. Kód se pro to už měnit nemusí.
+
+### Co se změnilo
+- **Otisk obsahu v adrese**: server ve stránce doplní ke každému skriptu a stylu otisk obsahu – `js/app.js?v=b481b0bbfa`
+  (server/lib/pwa.js `versionAssets`, 10 znaků sha256). Týká se `<script src>`, `<link rel="stylesheet">`, odložených
+  modulů (`data-later`) i knihoven map, které aplikace stahuje až na požádání (`data-files` u lazy.js → `Lazy.url`:
+  d3, topojson, MapLibre). Stránka (`index.html`) zůstává `no-cache`, manifest, ikony a data (`*.json`) beze změny.
+- **Odpověď s otiskem**: sedí-li `?v=` s obsahem souboru na disku, server pošle `Cache-Control: public,
+  max-age=31536000, immutable` – Cloudflare i prohlížeč soubor drží rok bez ptaní. Změněný soubor má novou adresu,
+  nezměněný starou (po nasazení se stáhne jen to, co se změnilo). Adresa bez otisku nebo s jiným (starší stránka
+  v mezipaměti, starý service worker) dostane dnešní soubor jako dřív – s `no-cache`, takže jiný obsah, než otisk
+  slibuje, nikde napořád neuvízne.
+- **Service worker** (public/sw.js): seznam pro offline má adresy s otiskem (stejné jako stránka). Soubory s otiskem bere
+  bez ověření u serveru (z mezipaměti prohlížeče, i při instalaci – stránka je právě stáhla) a pod adresu s otiskem
+  uloží jen obsah, který server potvrdil (hlavička `X-Atlas-Hash` = otisk z adresy; vlastní hlavičku Cloudflare
+  nepřepisuje, `Cache-Control` může); jinak se nic nemění: verze (`BUILD`) je dál otisk všech souborů,
+  nová verze = nový sw.js → nová uložená sada, offline z ní, upozornění „Je k dispozici nová verze – Obnovit“.
+- **CSP**: mění se jen adresy v začátcích značek `<script>`/`<link>`; vložené skripty zůstanou, otisky v CSP sedí
+  (počítají se z hotové stránky).
+
+### Kolik požadavků jde na server
+Skutečný Chromium (Playwright, 412 px) přes simulovaný Cloudflare s výchozím nastavením (Cache Level Standard – adresa
+i s `?v=`; drží jen js/css/obrázky/písma s `max-age`, ne HTML a JSON; hlavičky požadavku prohlížeče ignoruje), DEMO
+server. Počet požadavků, které došly na server (bez API), a kolik kB poslal:
+
+| situace | před | po |
+|---|---|---|
+| první návštěvník nové verze (prázdný Cloudflare) | 94 (826 kB) | 55 (829 kB) |
+| další nový návštěvník | 89 (787 kB) | **11 (110 kB)** |
+| vracející se, service worker, stejná verze | 3 | 3 |
+| vracející se bez service workeru (jen mezipaměť prohlížeče) | 41 | **2** |
+| vracející se po nasazení (změněný 1 skript), service worker | 89 (31 kB) | **12 (34 kB)** |
+| totéž bez service workeru | 41 (19 kB) | **2 (16 kB)** |
+| nový návštěvník po nasazení | 94 (826 kB) | **16 (150 kB)** |
+
+Dřív byl každý skript a styl na serveru dvakrát (stránka + ověření při instalaci service workeru) – 39 souborů = 78
+požadavků. Teď je jen první návštěvník nové verze stáhne ze serveru, ostatní je mají z Cloudflare. Na server dál jde
+stránka (+ její ověření při instalaci service workeru), sw.js (registrace a kontrola verze), manifest a data
+(`data/countries.json`, `entry.json`, `pretrip.json`, `vendor/countries-110m.json` – JSON Cloudflare bez pravidla
+„Cache Rule“ nedrží; viz Další kroky) a API.
+Zátěžový test `ONLY=users USERS=50 SERVER_CPUS=0` s modelem Cloudflare (`EDGE=1`): souborů aplikace na server 832 → 208
+(624 z Cloudflare). Procesor se v tomto mixu skoro nezmění (~50 s) – ten bere radar; samotné soubory aplikace pro
+200 nových návštěvníků naráz (jednorázový skript, 50 souborů na návštěvníka, 1 jádro): 10 000 → 3 070 požadavků,
+procesor 2,1 s → 1,3 s (Render zdarma ~10×), vše doběhlo za 11 s → 4,6 s. Zbytek jsou JSON a ikony – a souběžní první
+návštěvníci, než Cloudflare soubor má.
+
+Ověřeno v prohlížeči (DEMO, 412 px, světlý režim): uživatel se starým service workerem (kód před úpravou) otevře novou
+verzi → běží, nový service worker se nainstaluje se sadou s otisky a starou smaže; obnovení stránky = 3 požadavky na
+server; offline obnovení ze service workeru včetně odložených modulů (Cesta, Objevuj, Plánovač, Sdílet); d3 a MapLibre
+z adres s otiskem; další nasazení za běhu → „Je k dispozici nová verze – Obnovit“ → nový kód. Testy: test/pwa.test.js
+(otisky ve stránce a v seznamu, hlavičky, jiný otisk a holá adresa, service worker), test/lazy.test.js (moduly
+a `Lazy.url` s otiskem).
+
+### Na co dát pozor (nasazení)
+- **Až se zapne ukládání na okraji** (Render Edge Caching nebo vlastní Cloudflare): `?v=` musí být součást adresy
+  v mezipaměti (u vlastního Cloudflare Caching Level „Standard“, výchozí, a žádné Cache Rule s „Ignore query string“).
+  Kontrola (jen statické soubory, ne `/api/search`): `curl -sI '…/js/app.js?v=0000000000'` → `cache-control: no-cache`;
+  adresa skriptu ze stránky podruhé → `cf-cache-status: HIT` a `cache-control: public, max-age=31536000, immutable`.
+  Render navíc při každém nasazení mezipaměť okraje vyprázdní; u vlastního Cloudflare při chybě „Purge Everything“.
+- **Starší verze u uživatelů**: stará stránka a starý service worker chtějí adresy bez otisku – server je dál posílá
+  (`no-cache`). Ověřeno: první otevření po nasazení se starým service workerem funguje a nainstaluje nový.
+- **Chvíle nasazení**, kdy odpovídá stará i nová instance (Render přepíná): soubor s cizím otiskem dostane obsah
+  dané instance s `no-cache` – nikde se neuloží napořád a service worker ho pod adresu s otiskem neuloží. Stránka
+  načtená přesně v tu chvíli může dostat směs verzí jako dřív; „Obnovit“ ji spraví.
+- Na Renderu zdarma se na okraji nic neukládá, takže ani nic neuvízne; ručně se nic neudržuje.
+
 ## Návštěvníci aplikace naráz (23. 10. 2026)
 
 Jak se měřilo – `ONLY=users USERS=50,200 SERVER_CPUS=0 node scripts/load-test.mjs` (hlavička skriptu):
 - DEMO server (vymyšlené ceny, bez sítě) jen na **jednom jádře** (`taskset`), zátěž z jiného jádra. Render zdarma má
   desetinu jádra – tam trvá všechno ~10× déle (`CPU_QUOTA=0.1` = omezení přes cgroup, Linux a root; níž).
-- Každý „návštěvník“ (vlastní adresa) projde, co dělá aplikace: stránka (třetina nových stáhne všech 44 souborů,
-  ostatní jen ověří stránku a service worker – 304), `/api/health`, našeptávač (`/api/places`), radar na přehledu
+- Každý „návštěvník“ (vlastní adresa) projde, co dělá aplikace: stránka (třetina nových stáhne všech 44 souborů –
+  od 23. 10. s otiskem v adrese jako prohlížeč; s `EDGE=1` je po prvním má Cloudflare –, ostatní jen ověří stránku
+  a service worker – 304), `/api/health`, našeptávač (`/api/places`), radar na přehledu
   (Kdykoliv 70 %, Víkendy 30 %; domov Praha 45 %, Brno 15 %, Ostrava a Vídeň po 10 %, Pardubice, Katovice,
   Bratislava, Drážďany po 5 % – 16 různých dotazů), fotky karet (`/api/photos`), podnebí (`/api/climate`), ubytování
   a program v plánovači (`/api/stays`, `/api/nature`, `/api/itinerary`). Přijdou během 2 s, mezi kroky do 0,3 s.
@@ -178,11 +256,10 @@ skriptu; tehdy zdroje bez mezipaměti – od 23. 10. ji skript zdrojům dává j
    40, `CACHE_SOFT_MB` ~1200, `SEARCH_RESULT_MB` 64; `SEARCH_RESULT_TTL` klidně 300 (ceny zdrojů platí 20–30 min).
    Bez dalších úprav kódu – jen proměnné prostředí. Výpočet hledání mimo hlavní vlákno (`worker_threads`, 1 vlákno
    na jádro) až s 2+ CPU – na jednom jádře nic nezrychlí.
-3. **Soubory aplikace přes Cloudflare**: dnes mají `no-cache` (každé použití se ověří u serveru – nová verze se tak
-   nikdy nemíchá se starou), takže každý nový návštěvník = ~44 požadavků na server. Verze v adrese souboru
-   (`js/app.js?v=<otisk>` doplněný serverem do index.html a service workeru) + `Cache-Control: public, max-age=31536000,
-   immutable` → Cloudflare a prohlížeč drží celou aplikaci, na server jde jen stránka a API. Totéž pro neměnné odpovědi
-   API (`/api/climate`, `/api/nature` mají `max-age` – Cloudflare je ale bez pravidla „Cache Rule“ nedrží).
+3. **Soubory aplikace z okraje sítě** – skripty a styly mají otisk v adrese (23. 10., výš); na Renderu zdarma pomáhá
+   jen mezipaměť prohlížeče. S placeným plánem zapnout Settings → Edge Caching („Common static file types“; data
+   `/data/*.json` a `/vendor/*.json`, ~320 kB na nového návštěvníka, a neměnné odpovědi API jako `/api/climate`
+   s `max-age` by chtěly „All file types“ – pak ověřit, že dynamické odpovědi mají `no-store`/`private`).
 4. **Stovky lidí naráz → víc instancí**: každá má vlastní mezipaměť cen, hotové výsledky, limity a frontu. Pak
    sdílená mezipaměť a hotové výsledky + limity z adresy ve sdíleném úložišti (Redis/Valkey, např. Render Key Value)
    a směrování stejného dotazu na stejnou instanci (sticky podle klíče hledání), jinak se běžící hledání nesdílí.

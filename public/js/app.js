@@ -87,11 +87,13 @@ function buildNav() {
   // a ⋯ Další – ostatní sekce jako dlaždice, záloha, vzhled, instalace. Výběr jen při spuštění (lišta se pod rukou
   // nemění), sekce v liště v pevném pořadí; pět míst = stejná šířka jako dřív. Svět = mapa a země s přepínačem nahoře.
   navBar = navSlots(S.navUse);
+  // tlačítka (ne <div>): čtečka obrazovky je ohlásí jako tlačítka a jdou vybrat Tabem; jméno z popisku (u neaktivní
+  // sekce schovaný jen zúžením – čtečka ho čte dál), u Přehledu i tečka „zlevnilo“
   const mi = k => k === 'world'
-    ? `<div class="mi" id="worldNav" title="Svět" aria-label="Svět – mapa a země">${ico(NAV.find(n => n[0] === 'countries')[3])}<span>Svět</span></div>`
-    : (n => `<div class="mi" data-view="${k}" title="${n[1]}" aria-label="${n[1]}">${ico(n[3])}<span>${n[1]}</span>${k === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden></i>' : ''}</div>`)(NAV.find(n => n[0] === k));
+    ? `<button type="button" class="mi" id="worldNav" title="Svět" aria-label="Svět – mapa a země">${ico(NAV.find(n => n[0] === 'countries')[3])}<span>Svět</span></button>`
+    : (n => `<button type="button" class="mi" data-view="${k}" title="${n[1]}">${ico(n[3])}<span>${n[1]}</span>${k === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden><span class="sr-only"> – zlevnilo</span></i>' : ''}</button>`)(NAV.find(n => n[0] === k));
   $('#mobileNav').innerHTML = ['dashboard', ...navBar].map(mi).join('')
-    + `<div class="mi" id="moreNav" title="Další" aria-label="Další – ostatní sekce, záloha a vzhled">${ico('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z')}<span>Další</span></div>`;
+    + `<button type="button" class="mi" id="moreNav" title="Další" aria-label="Další – ostatní sekce, záloha a vzhled">${ico('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6h-6zM14 14h6v6h-6z')}<span>Další</span></button>`;
   $$('[data-view]').forEach(el => el.onclick = () => go(el.dataset.view));
   // Postranní panel (počítač, tablet – na telefonu skrytý): sekce přidá krok historie jako na webu – Zpět prohlížeče
   // vrátí na sekci, odkud uživatel přišel (ne vždy na Přehled), a tam, kde na ní byl. Z klávesnice Tab + Enter.
@@ -242,7 +244,7 @@ function histPop() {
     return histFlush();
   }
   // Zpět při otevřeném okně: krok okna už je pryč – jen ho zavřít
-  if (hist.modal) { hist.modal = false; $('#modalBg').classList.remove('show'); }
+  if (hist.modal) { hist.modal = false; modalShow(false); }
   const st = history.state;
   // Zpět z kroku průvodce: předchozí krok, kterým uživatel prošel (krok, na kterém cesta už je, se přeskočí); krok
   // průvodce se vrátí, dokud je kam couvat – nebylo-li kam, Zpět pokračuje o krok dál (výsledky, Přehled)
@@ -277,10 +279,12 @@ function go(v, opts = {}) {
   activeView = v;
   if (v !== 'dashboard') nowAsk = false;
   $$('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
-  $$('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === v));
+  // aktivní sekce i pro čtečku obrazovky (aria-current) – jen barvou by ji nepoznala
+  const cur = (el, on) => { el.classList.toggle('active', on); if (on) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current'); };
+  $$('.nav-item').forEach(el => cur(el, el.dataset.view === v));
   // sekce mimo lištu (z ⋯ Další) rozsvítí Další
   const inBar = v === 'dashboard' || navBar.includes(WORLD_VIEWS.includes(v) ? 'world' : v);
-  $$('.mobile-nav .mi').forEach(el => el.classList.toggle('active', el.dataset.view === v || (el.id === 'worldNav' && WORLD_VIEWS.includes(v)) || (el.id === 'moreNav' && !inBar)));
+  $$('.mobile-nav .mi').forEach(el => cur(el, el.dataset.view === v || (el.id === 'worldNav' && WORLD_VIEWS.includes(v)) || (el.id === 'moreNav' && !inBar)));
   navCount(v);
   if (WORLD_VIEWS.includes(v)) { lastWorld = v; $$('.world-tabs [data-w]').forEach(b => { b.classList.toggle('on', b.dataset.w === v); b.setAttribute('aria-pressed', String(b.dataset.w === v)); }); }
   const n = NAV.find(x => x[0] === v); $('#pageTitle').textContent = n[1]; $('#pageSub').textContent = n[2];
@@ -319,6 +323,28 @@ function toast(msg, kind, ms = 2600, act = null) {
   if (act) $('.toast-act', t).onclick = () => { t.classList.remove('show'); act.run(); };
   t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), act ? Math.max(ms, 6000) : ms);
 }
+/**
+ * Hlášení jen pro čtečku obrazovky (#srSay, role status – zdvořile, nepřeruší): začátek a konec hledání, kdy se na
+ * obrazovce mění průběh a výsledky, ale fokus zůstává jinde. Průběžné stavy (až 4× za s) se nehlásí. Text se vloží
+ * až po vyprázdnění – stejné hlášení dvakrát po sobě („Hledám…“) čtečka přečte znovu.
+ */
+function say(msg) {
+  const el = $('#srSay'); if (!el) return;
+  el.textContent = ''; clearTimeout(el._t);
+  el._t = setTimeout(() => { el.textContent = String(msg || ''); }, 60);
+}
+/* Přepínače (.seg – Tam i zpět / Jen tam, Flexibilně, Týden, Kdykoliv / Víkendy…, dny v týdnu, ± dny): vybraná
+   možnost se pozná jen barvou (třída on, nastavují ji desítky míst ve všech modulech). Pro čtečku obrazovky stav
+   aria-pressed podle třídy – jedno hlídání tříd a nově vykreslených přepínačů místo úprav u každého z nich. */
+const SEG_BTN = '.seg>button,.dow>button,#xFlex>button';
+function segPressed(b) { const on = String(b.classList.contains('on')); if (b.getAttribute('aria-pressed') !== on) b.setAttribute('aria-pressed', on); }
+new MutationObserver(recs => {
+  for (const r of recs) {
+    if (r.type === 'attributes') { if (r.target.matches && r.target.matches(SEG_BTN)) segPressed(r.target); continue; }
+    for (const n of r.addedNodes) if (n.nodeType === 1) { if (n.matches(SEG_BTN)) segPressed(n); n.querySelectorAll(SEG_BTN).forEach(segPressed); }
+  }
+}).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+$$(SEG_BTN).forEach(segPressed);
 
 /* theme */
 // Motiv zvolený přepínačem ('light' / 'dark'), jinak podle systému: nový uživatel má S.theme null (světlý telefon =
@@ -856,16 +882,23 @@ function renderWhatsNew() {
   el.hidden = !mode;
   if (el.hidden) return;
   if (mode === 'welcome' && seen !== WN_ID + WN_NEW) try { localStorage.setItem('atlas_wn', WN_ID + WN_NEW); } catch (e) { /* soukromé okno */ }
-  const hide = () => { try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* nevadí */ } el.hidden = true; };
+  const hide = () => {
+    try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* nevadí */ }
+    const asked = Boolean($('.wc-home', el));
+    el.hidden = true;
+    // uvítání se ptalo „Odkud letíš?“ místo radaru – bez domova se teď ptá radar (radarSetup ve flights.js)
+    if (asked && window.Flights && !S.home?.from?.length) Flights.renderRadar();
+  };
   // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
   const unit = s => s.replace(/(\d) (?=(Kč|km|h|min|°C)(?![\p{L}]))/gu, '$1\u00a0').replace(/(\d\u00a0h) (?=\d)/g, '$1\u00a0');
   const li = x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${unit(x[2])}</div></li>`;
   if (mode === 'welcome') {
     el.classList.add('welcome');
     // „Odkud letíš?“ hned nahoře: jedno klepnutí nastaví domov a radar níž začne ukazovat lety (bez domova je prázdný
-    // a jeho „Odkud obvykle létáš?“ je až pod přehybem)
-    const homeRow = window.Flights && Flights.homeFromChip && !S.home?.from?.length
-      ? `<div class="wc-home"><b>Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div></div>` : '';
+    // a jeho „Odkud obvykle létáš?“ je až pod přehybem). Jediné místo, kde se Přehled ptá – radar pod ním mezitím jen
+    // odkáže sem (radarSetup ve flights.js) a čip domova nahoře sem dá kurzor; jiné město než na čipech napíše do pole.
+    const homeRow = window.Flights && Flights.homeFromChip && Flights.PlaceInput && !S.home?.from?.length
+      ? `<div class="wc-home"><b id="wcHomeL">Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div><div class="place-input wc-from" id="wcFrom"></div></div>` : '';
     el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
       ${homeRow}
       <ol class="wc-steps">
@@ -879,12 +912,19 @@ function renderWhatsNew() {
       const inp = $('#heroTo input'); if (inp) { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus({ preventScroll: true }); }
     };
     // domov nastavený → řádek zmizí (uvítání zůstane); bez polohy čipy zůstanou na výběr
-    $$('[data-wch]', el).forEach(b => b.onclick = () => {
+    const setHome = chip => {
       $$('[data-wch]', el).forEach(x => { x.disabled = true; });
-      Flights.homeFromChip(b.dataset.wch, ok => {
+      Flights.homeFromChip(chip, ok => {
         if (ok) { const r = $('.wc-home', el); if (r) r.remove(); } else $$('[data-wch]', el).forEach(x => { x.disabled = false; });
       });
-    });
+    };
+    $$('[data-wch]', el).forEach(b => b.onclick = () => setHome(b.dataset.wch));
+    // jiné město nebo letiště z našeptávače = domov jako z čipu (letiště do 150 km, 2 osoby – SearchHelp.homeOf)
+    const wf = $('#wcFrom', el);
+    if (wf) {
+      const pi = new Flights.PlaceInput(wf, { origin: true, max: 1, placeholder: 'Jiné město nebo letiště…', onChange: () => { if (pi.items.length) setHome(pi.items[0]); } });
+      pi.input.setAttribute('aria-labelledby', 'wcHomeL');
+    }
   } else {
     el.classList.remove('welcome');
     const more = WHATS_NEW.slice(WN_TOP);
@@ -1317,7 +1357,8 @@ function modalOpen(html, o = {}) {
   // tlačítko, které okno otevřelo – po zavření na něj vrátit fokus; okno z okna přes modalClose() a hned modalOpen()
   // (Info o zemi z okna cesty) má fokus ještě na tlačítku zavřeného okna, které zmizí – vrátit na původní tlačítko
   if (!was && !$('#modal').contains(document.activeElement)) { modalKb.ret = document.activeElement; modalKb.sel = kbSel(modalKb.ret); }
-  $('#modal').innerHTML = html; $('#modalBg').classList.add('show');
+  $('#modal').innerHTML = html; modalShow(true);
+  modalName();
   if (!was) { $('#toast').classList.remove('show'); $('#modal').scrollTop = 0; } // nové okno nahoře, ne s posunem z minulého
   // krok historie jen pro nově otevřené okno – okno otevřené z okna (Info o zemi z náhledu…) ho jen nahradí
   if (!was && o.hist !== false && !hist.modal) {
@@ -1328,19 +1369,35 @@ function modalOpen(html, o = {}) {
   }
 }
 function modalClose() {
-  $('#modalBg').classList.remove('show');
+  modalShow(false);
   if (!hist.modal) return;
   // krok okna zpět (Zpět by jinak napoprvé „nic neudělal“); ještě nezapsaný krok jen zrušit – návrat navíc by vedl mimo
   hist.modal = false;
   if (hist.mq) { hist.queue = hist.queue.filter(f => f !== hist.mq); hist.mq = null; } else histBack();
 }
 $('#modalBg').onclick = e => { if (e.target === $('#modalBg')) modalClose(); };
-/* Okno a klávesnice na počítači: fokus zůstával na tlačítku pod oknem a Tab chodil po stránce schované za ním (okno
-   je v HTML až na konci) – z klávesnice se v okně nedalo nic vybrat. Otevřené okno teď fokus dostane (šipky a PageDown
-   posouvají okno), Tab v něm koluje dokola a po zavření (✕, Escape, Zpět, klik vedle) se fokus vrátí na tlačítko,
-   které okno otevřelo. Jen počítač s myší – na telefonu beze změny. Okno, které fokus dá samo dovnitř (nabídka ⋯), si
-   ho nechá. */
-const modalKb = { ret: null, sel: '', mq: window.matchMedia ? matchMedia('(min-width:1024px) and (hover:hover) and (pointer:fine)') : null };
+/**
+ * Okno otevřené / zavřené. Stránka pod otevřeným oknem je inert: čtečka obrazovky (TalkBack, VoiceOver) se na ni
+ * gestem nedostane a Tab ani klepnutí ji neovládnou – okno je v HTML až za stránkou a bez toho čtečka po jeho konci
+ * pokračovala schovanou stránkou. Hned (ne až v MutationObserveru níž): fokus, který akce okna po zavření dá na stránku
+ * (Najít lety sem → pole formuláře), by na inertní stránce nezabral.
+ */
+function modalShow(on) {
+  $('#modalBg').classList.toggle('show', on);
+  for (const el of [$('.app'), $('#mobileNav')]) if (el) el.inert = on;
+}
+/** Jméno okna pro čtečku obrazovky: první nadpis v okně (země, Další, Sdílet cestu, Cestující…), jinak obecné „Okno“. */
+function modalName() {
+  const m = $('#modal'), h = $('h1,h2,h3', m);
+  if (h) { if (!h.id) h.id = 'modalH'; m.setAttribute('aria-labelledby', h.id); m.removeAttribute('aria-label'); }
+  else { m.removeAttribute('aria-labelledby'); m.setAttribute('aria-label', 'Okno'); }
+}
+/* Okno a klávesnice / čtečka obrazovky: fokus zůstával na tlačítku pod oknem a Tab chodil po stránce schované za ním
+   (okno je v HTML až na konci) – z klávesnice se v okně nedalo nic vybrat a TalkBack po otevření okna mlčel. Otevřené
+   okno teď fokus dostane (čtečka přečte jeho jméno, šipky a PageDown posouvají okno), Tab v něm koluje dokola a po
+   zavření (✕, Escape, Zpět, klik vedle) se fokus vrátí na tlačítko, které okno otevřelo. Na počítači i na telefonu
+   (dřív jen počítač s myší). Okno, které fokus dá samo dovnitř (náhled cíle → ✕), si ho nechá. */
+const modalKb = { ret: null, sel: '', touch: window.matchMedia ? matchMedia('(pointer:coarse)') : null };
 /**
  * Jak tlačítko, které okno otevřelo, najít i po překreslení stránky (karta cesty v Plánovači po úpravě v okně, karta
  * země): podle id, jinak podle prvního data-* atributu ('' = nejde).
@@ -1355,11 +1412,12 @@ new MutationObserver(() => {
   const m = $('#modal'), on = $('#modalBg').classList.contains('show');
   if (on === modalKb.on) return;
   modalKb.on = on;
-  if (!modalKb.mq || !modalKb.mq.matches) return;
   const a = document.activeElement;
   if (on) { if (!m.contains(a)) { m.tabIndex = -1; m.focus({ preventScroll: true }); } return; }
   const r0 = modalKb.ret, sel = modalKb.sel; modalKb.ret = null; modalKb.sel = '';
   const r = r0 && r0.isConnected ? r0 : sel ? $$(sel).find(x => !m.contains(x) && x.getClientRects().length) : null;
+  // telefon: do textového pole fokus nevracet – vyskočila by klávesnice, kterou nikdo nechtěl
+  if (r && modalKb.touch && modalKb.touch.matches && /^(INPUT|TEXTAREA|SELECT)$/.test(r.tagName)) return;
   // fokus někam přesunula sama akce okna (náhled cíle vrací na 🔎) → nechat
   if ((!a || a === document.body || $('#modalBg').contains(a)) && r && r.getClientRects().length) r.focus({ preventScroll: true });
 }).observe($('#modalBg'), { attributes: true, attributeFilter: ['class'] });
@@ -1540,7 +1598,9 @@ let d3Load = null;
 function loadD3() {
   if (typeof d3 !== 'undefined' && typeof topojson !== 'undefined') return Promise.resolve();
   const add = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => bad(new Error('nenačteno: ' + src)); document.head.append(s); });
-  return d3Load || (d3Load = add('vendor/d3.min.js').then(() => add('vendor/topojson-client.min.js')).catch(e => { d3Load = null; throw e; }));
+  // adresa s otiskem obsahu od serveru (lazy.js Lazy.url) – Cloudflare a prohlížeč knihovnu drží bez ptaní serveru
+  const at = u => (window.Lazy && Lazy.url ? Lazy.url(u) : u);
+  return d3Load || (d3Load = add(at('vendor/d3.min.js')).then(() => add(at('vendor/topojson-client.min.js'))).catch(e => { d3Load = null; throw e; }));
 }
 window.loadD3 = loadD3;
 async function loadWorld() {
@@ -1647,10 +1707,10 @@ function newTrip(c, pre = {}) {
   const dest = pre.dest || (c ? c.cs : '');
   modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:24px">Nová cesta</h2><div style="opacity:.85;font-size:13px">Vyplň základ, detaily doladíš potom</div></div></div>
   <div class="modal-body">
-    <div class="field"><label>Název cesty</label><input class="input" id="ntName" placeholder="Např. Léto v Portugalsku" value="${esc(pre.name || (dest ? 'Cesta: ' + dest : ''))}"></div>
-    <div class="field" style="margin-top:12px"><label>Destinace</label><input class="input" id="ntDest" placeholder="Země nebo město" value="${esc(dest)}"></div>
-    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Odjezd</label><input class="input" type="date" id="ntStart" value="${pre.start || ''}"></div><div class="field"><label>Návrat</label><input class="input" type="date" id="ntEnd" value="${pre.end || ''}" min="${pre.start || ''}"></div></div>
-    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label>Cestující</label><select id="ntPax">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<option ${n === (pre.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label>Rozpočet (Kč)</label><input class="input" type="number" id="ntBudget" placeholder="nepovinné" value="${pre.budget || ''}">${pre.budget && pre.budgetNote ? `<small class="faint" style="display:block;font-size:11.5px;margin-top:4px">${esc(pre.budgetNote)}</small>` : ''}</div></div>
+    <div class="field"><label for="ntName">Název cesty</label><input class="input" id="ntName" placeholder="Např. Léto v Portugalsku" value="${esc(pre.name || (dest ? 'Cesta: ' + dest : ''))}"></div>
+    <div class="field" style="margin-top:12px"><label for="ntDest">Destinace</label><input class="input" id="ntDest" placeholder="Země nebo město" value="${esc(dest)}"></div>
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label for="ntStart">Odjezd</label><input class="input" type="date" id="ntStart" value="${pre.start || ''}"></div><div class="field"><label for="ntEnd">Návrat</label><input class="input" type="date" id="ntEnd" value="${pre.end || ''}" min="${pre.start || ''}"></div></div>
+    <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label for="ntPax">Cestující</label><select id="ntPax">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<option ${n === (pre.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div><div class="field"><label for="ntBudget">Rozpočet (Kč)</label><input class="input" type="number" id="ntBudget" placeholder="nepovinné" value="${pre.budget || ''}">${pre.budget && pre.budgetNote ? `<small class="faint" style="display:block;font-size:11.5px;margin-top:4px">${esc(pre.budgetNote)}</small>` : ''}</div></div>
     <button class="btn primary block" style="margin-top:18px" id="ntSave">Vytvořit cestu</button>
   </div>`);
   $('#ntStart').onchange = e => { $('#ntEnd').min = e.target.value; };
@@ -1760,7 +1820,7 @@ function openTrip(i) {
   // výlet z Objevuj uložený dřív s cestovním seznamem (pas, adaptér…), nic neodškrtnuté → seznam na den venku
   if (local && Array.isArray(t.checklist) && t.checklist.length === PACK.length && t.checklist.every((x, k) => x && x.t === PACK[k] && !x.done)) { t.checklist = packFor(t.src).map(x => ({ t: x, done: false })); save(); }
   const days = dateRange(t.start, t.end), live = tripLive(t), rides = tripRides(t);
-  const dayHtml = (d, di) => { const acts = t.days[d] || [], now = live && live.today === d; return `<div class="day-block${now ? ' today' : ''}" data-day="${d}"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span>${now ? '<span class="day-now">dnes</span>' : ''}</h4>${rides.filter(r => r.date === d).map(rideEd).join('')}${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button data-delact="${ai}" aria-label="Smazat aktivitu">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" data-addact placeholder="Přidej aktivitu…"><button class="btn sm" data-addact>Přidat</button></div></div>`; };
+  const dayHtml = (d, di) => { const acts = t.days[d] || [], now = live && live.today === d; return `<div class="day-block${now ? ' today' : ''}" data-day="${d}"><h4>Den ${di + 1} <span class="faint" style="font-weight:600">· ${fmtDate(d)}</span>${now ? '<span class="day-now">dnes</span>' : ''}</h4>${rides.filter(r => r.date === d).map(rideEd).join('')}${acts.map((a, ai) => `<div class="act"><span>${esc(a)}</span><button data-delact="${ai}" aria-label="Smazat aktivitu">${ico('M18 6L6 18M6 6l12 12')}</button></div>`).join('')}<div class="row" style="gap:8px;margin-top:8px"><input class="input" id="act-${i}-${d}" data-addact placeholder="Přidej aktivitu…" aria-label="Nová aktivita – den ${di + 1}"><button class="btn sm" data-addact>Přidat</button></div></div>`; };
   const part = {
     // na cestě: dnešek a kódy rezervací nahoře (dnešní den v itineráři jen odkazem sem)
     live: live ? `<div class="trip-live"><div class="live-h">📍 Dnes na cestě · den ${live.day} z ${live.days}</div>${days.includes(live.today) ? dayHtml(live.today, days.indexOf(live.today)) : ''}${refsHtml(t, i)}</div><div class="divider"></div>` : '',
@@ -1774,8 +1834,8 @@ function openTrip(i) {
     refs: refsHtml(t, i),
     pack: `<div class="divider"></div>
     <div class="grid trip-two">
-      <div><h3 style="font-size:16px;margin-bottom:10px">🧾 Sbaleno</h3><div id="checkList">${(t.checklist || []).map((x, xi) => `<label class="check"><input type="checkbox" ${x.done ? 'checked' : ''} data-check="${xi}"><span style="${x.done ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.t)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" data-addcheck placeholder="Přidej položku…"><button class="btn sm" data-addcheck aria-label="Přidat položku">+</button></div></div>
-      <div><h3 style="font-size:16px;margin-bottom:10px">💰 Rozpočet</h3><div class="field"><label>Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${esc(t.budget || '')}"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label>Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…">${esc(t.notes || '')}</textarea></div></div>
+      <div><h3 style="font-size:16px;margin-bottom:10px">🧾 Sbaleno</h3><div id="checkList">${(t.checklist || []).map((x, xi) => `<label class="check"><input type="checkbox" ${x.done ? 'checked' : ''} data-check="${xi}"><span style="${x.done ? 'opacity:.5;text-decoration:line-through' : ''}">${esc(x.t)}</span></label>`).join('')}</div><div class="row" style="gap:8px;margin-top:10px"><input class="input" id="newCheck-${i}" data-addcheck placeholder="Přidej položku…" aria-label="Nová položka do seznamu Sbaleno"><button class="btn sm" data-addcheck aria-label="Přidat položku">+</button></div></div>
+      <div><h3 style="font-size:16px;margin-bottom:10px">💰 Rozpočet</h3><div class="field"><label for="bud-${i}">Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${esc(t.budget || '')}"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label for="notes-${i}">Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…">${esc(t.notes || '')}</textarea></div></div>
     </div>`,
   };
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="opacity:.85;font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div></div></div>
@@ -1815,7 +1875,8 @@ function openTrip(i) {
   $$('[data-addref]', m).forEach(x => { x.onclick = () => addRef(i); });
   $('#tripDel').onclick = () => delTrip(i);
   // termíny míst trasy počítá průvodce (routeStays – Trip.baseDates): klepnutí před jeho dostažením na něj počká
-  const ts = $('#tripStay'); if (ts) ts.onclick = () => withMod('trip', () => routeStays(t) || openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2));
+  // hotel vybraný v průvodci (cesta uložená z průvodce) první, obecné odkazy jen pod ním
+  const ts = $('#tripStay'); if (ts) ts.onclick = () => withMod('trip', () => routeStays(t) || openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2, { chosen: stayChoice((tripWiz(t) || {}).stay) }));
   const tw = $('#tripWizard'); if (tw) tw.onclick = () => { modalClose(); withMod('trip', () => Trip.openSaved(t.wizard, t.tripId)); };
   const tv = $('#tripVisited');
   if (tv) tv.onclick = () => { const ccs = tripNotVisited(t); ccs.forEach(cc => setVisited(cc, true)); toast(`Na mapě navštívených: ${ccs.map(cc => byIso[cc].cs).join(', ')}`); openTrip(i); };
@@ -2115,26 +2176,51 @@ function tripModalSync(mi, mt, mj) {
 function routeStays(t) {
   const w = t.wizard, bs = w && w.route && w.route.mode === 'multi' && Array.isArray(w.route.bases) ? w.route.bases : [];
   if (bs.length < 2 || !window.Trip) return false;
-  let ds = [];
-  try { ds = Trip.baseDates(Trip.sanitizeTrip(JSON.parse(JSON.stringify(w)))); } catch (e) { ds = []; }
+  let ds = [], sw = null;
+  try { sw = Trip.sanitizeTrip(JSON.parse(JSON.stringify(w)), { quotes: true }); ds = Trip.baseDates(sw); } catch (e) { ds = []; } // výstup escapuje
   const pax = +t.pax || 2;
+  // hotel vybraný v průvodci pro místo trasy (z pročištěné cesty) – v okně místa první
+  const chosen = i => stayChoice(sw && sw.route && Array.isArray(sw.route.bases) && sw.route.bases[i] ? sw.route.bases[i].stay : null);
   modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování na trase</h2><div style="opacity:.85;font-size:13px">${bs.length} ${bs.length <= 4 ? 'místa' : 'míst'} · vyber místo</div></div></div>
     <div class="modal-body"><div class="grid" style="gap:10px">${bs.map((b, i) => `<button type="button" class="result-link" data-rs="${i}" style="text-align:left;width:100%"><div class="lg" style="background:#003580">${i + 1}</div><div class="rl-b"><div class="rl-t">${esc(b.name)}</div><div class="rl-s">${ds[i] ? `${fmtDate(ds[i].checkin)} – ${fmtDate(ds[i].checkout)}` : ''}${b.stay && b.stay.name ? ` · vybráno: ${esc(b.stay.name)}` : ''}</div></div><div class="go">→</div></button>`).join('')}</div></div>`);
-  $$('[data-rs]').forEach(x => x.onclick = () => { const i = +x.dataset.rs, d = ds[i] || {}; openStay(bs[i].name, d.checkin || '', d.checkout || '', pax); });
+  $$('[data-rs]').forEach(x => x.onclick = () => { const i = +x.dataset.rs, d = ds[i] || {}; openStay(bs[i].name, d.checkin || '', d.checkout || '', pax, { chosen: chosen(i) }); });
   return true;
+}
+/**
+ * Ubytování vybrané v průvodci (hotel z nabídky nebo zadané ručně) → { name, url, sub, aff } | null. Okno Ubytování
+ * v plánovači ho ukáže první, obecné hledání (Booking, Airbnb, Hostelworld) jen pod ním – dřív tam bylo jen hledání
+ * a vybraný hotel uživatel nenašel. „Jen odkazy“ a „neřeším“ nic nevybraly → null. aff = partnerský odkaz (reklama).
+ */
+function stayChoice(s) {
+  const name = s && typeof s === 'object' && ['pick', 'manual'].includes(s.mode) ? String(s.name || '').trim() : '';
+  if (!name) return null;
+  const url = /^https:\/\//.test(String(s.url || '')) ? String(s.url) : '', aff = /^https:\/\/tp\.media\//.test(url);
+  // web, na který odkaz vede (u partnerského odkazu cílová adresa v u=)
+  let site = '';
+  try { const u = new URL(url); site = (aff ? new URL(u.searchParams.get('u') || '') : u).hostname.replace(/^www\./, ''); } catch (e) { site = ''; }
+  const price = +s.totalCzk > 0 ? `${s.est ? '~' : ''}${czk(+s.totalCzk)} celkem` : '';
+  return { name, url, aff, sub: [s.mode === 'manual' ? 'zadané ručně' : 'vybráno v průvodci', price, site].filter(Boolean).join(' · ') };
+}
+/** Vybrané ubytování nahoře v okně Ubytování: odkaz na hotel (na termín cesty), ručně zadané bez odkazu jen jako řádek. */
+function stayChosenHtml(c) {
+  const body = `<div class="lg" style="background:#16a34a">✓</div><div class="rl-b"><div class="rl-t">${esc(c.name)}</div><div class="rl-s">${esc(c.sub)}${c.aff ? ' <span class="ad-tag">reklama</span>' : ''}</div></div>`;
+  return `<div class="faint stay-h">🏨 Tvoje ubytování</div>${c.url
+    ? `<a class="result-link stay-own" href="${esc(safeUrl(c.url))}" target="_blank" rel="${c.aff ? 'sponsored nofollow noopener' : 'noopener'}">${body}<div class="go">${ico('M5 12h14M13 6l6 6-6 6')}</div></a>`
+    : `<div class="result-link stay-own">${body}</div>`}<div class="faint stay-h">Nebo hledej jinde</div>`;
 }
 // Hostelworld: hledání z adresy (/s?q=) vede na 404 – stránka města /hostels/<kontinent>/<země>/<město>/ (jako
 // server/lib/links.js; termín z adresy nebere), když známe zemi a anglický název města; jinak úvodní stránka webu
 const HW_CONT = { Evropa: 'europe', Afrika: 'africa', Asie: 'asia', 'Severní Amerika': 'north-america', 'Jižní Amerika': 'south-america', 'Oceánie': 'oceania' };
 const hwSlug = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const hwCityPage = (c, cityEn) => (c && HW_CONT[c.cont] && c.en && hwSlug(cityEn) ? `https://www.hostelworld.com/hostels/${HW_CONT[c.cont]}/${hwSlug(c.en)}/${hwSlug(cityEn)}/` : null);
-// opts: label = název do nadpisu (jinak city), hw = stránka města na Hostelworldu
+// opts: label = název do nadpisu (jinak city), hw = stránka města na Hostelworldu, chosen = ubytování vybrané v průvodci
+// (stayChoice) – první, obecné hledání pod ním
 window.openStay = (city, start, end, adults = 2, opts = {}) => {
   const n = Math.min(9, Math.max(1, Math.round(+adults) || 2));
   const b = `https://www.booking.com/searchresults.cs.html?ss=${enc(city)}${start ? `&checkin=${start}&checkout=${end || ''}` : ''}&group_adults=${n}&no_rooms=1&selected_currency=CZK`;
   const a = `https://www.airbnb.cz/s/${enc(city)}/homes?${start ? `checkin=${start}&checkout=${end || ''}&` : ''}adults=${n}`;
   const h = opts.hw || 'https://www.hostelworld.com/';
-  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování · ${esc(opts.label || city)}</h2><div style="opacity:.85;font-size:13px">${start ? fmtDate(start) + (end ? ' – ' + fmtDate(end) : '') : 'vyber si termín na webu'}</div></div></div><div class="modal-body"><div class="grid" style="gap:12px">${provLink('Booking.com', 'Hotely, apartmány, penziony', b, '#003580', 'B.')}${provLink('Airbnb', 'Bydlení u místních', a, '#ff385c', 'A')}${provLink('Hostelworld', opts.hw ? 'Hostely a levná lůžka – stránka města, termín zadej na webu' : 'Hostely a levná lůžka – město a termín zadej na webu', h, '#ff5a00', 'H')}</div><div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Booking a Airbnb otevřou hledání s předvyplněnou destinací (a termínem, pokud je v cestě zadaný).</div></div></div>`);
+  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:23px">Ubytování · ${esc(opts.label || city)}</h2><div style="opacity:.85;font-size:13px">${start ? fmtDate(start) + (end ? ' – ' + fmtDate(end) : '') : 'vyber si termín na webu'}</div></div></div><div class="modal-body"><div class="grid" style="gap:12px">${opts.chosen ? stayChosenHtml(opts.chosen) : ''}${provLink('Booking.com', 'Hotely, apartmány, penziony', b, '#003580', 'B.')}${provLink('Airbnb', 'Bydlení u místních', a, '#ff385c', 'A')}${provLink('Hostelworld', opts.hw ? 'Hostely a levná lůžka – stránka města, termín zadej na webu' : 'Hostely a levná lůžka – město a termín zadej na webu', h, '#ff5a00', 'H')}</div><div class="note info" style="margin-top:16px">${ico('M12 16v-4M12 8h.01M12 2a10 10 0 100 20 10 10 0 000-20z')}<div>Booking a Airbnb otevřou hledání s předvyplněnou destinací (a termínem, pokud je v cestě zadaný).</div></div></div>`);
 };
 
 /* ================= INIT / EVENTS ================= */

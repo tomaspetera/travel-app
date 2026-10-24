@@ -36,7 +36,7 @@ import { airportClimate, climateAt, countryClimate, seasonMonth, sourceText } fr
 import { cityPhotos, photosCached } from './lib/photos.js';
 import { groundQuery, groundInfo, GroundError } from './lib/ground.js';
 import { fuelInfo, fuelText, refreshFuel } from './lib/fuel.js';
-import { serveIndex, serveServiceWorker } from './lib/pwa.js';
+import { serveIndex, serveServiceWorker, contentVersion } from './lib/pwa.js';
 import { headTags, robotsTxt, sitemapXml, sendGenerated, serveManifest, serveNotFound } from './lib/seo.js';
 import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from './lib/mapy.js';
@@ -74,6 +74,10 @@ function packedFile(file, st) {
 // ETag podle obsahu: nasazení posune čas změny u všech souborů (Last-Modified), nezměněné ale dál odpoví 304 –
 // po nasazení se stáhne jen to, co se opravdu změnilo (bez ETagu celá aplikace znovu, ~600 kB)
 const etagOf = (file, st) => { const p = packedFile(file, st); return p.etag || (p.etag = `"${createHash('sha1').update(p.raw).digest('base64url').slice(0, 22)}"`); };
+// Otisk obsahu jako v adrese ze stránky (js/app.js?v=… – server/lib/pwa.js versionAssets), jednou na verzi souboru
+const versionOf = (file, st) => { const p = packedFile(file, st); return p.ver || (p.ver = contentVersion(p.raw)); };
+// Adresa s otiskem obsahu se nikdy nezmění: Cloudflare i prohlížeč ji drží rok bez ptaní serveru (nová verze = nová adresa)
+const IMMUTABLE = 'public, max-age=31536000, immutable';
 function packedBody(file, st, enc) {
   const p = packedFile(file, st);
   if (enc === 'br') return p.br || (p.br = zlib.brotliCompressSync(p.raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: p.raw.length } }));
@@ -99,7 +103,7 @@ function sendJson(req, res, status, obj, extra = {}) {
   }
 }
 
-function serveFile(req, res, file, { maxAge = 300 } = {}) {
+function serveFile(req, res, file, { maxAge = 300, version = null } = {}) {
   let st;
   try {
     st = statSync(file);
@@ -108,8 +112,14 @@ function serveFile(req, res, file, { maxAge = 300 } = {}) {
     return false;
   }
   const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  // version = ?v= z adresy: jen přesně tento obsah smí do mezipaměti napořád. Jiný otisk (stránka starší či novější
+  // verze, než má server – po nasazení) i adresa bez něj dostanou dnešní soubor jako dřív, tedy podle maxAge.
+  const immutable = Boolean(version) && st.size < 3e6 && versionOf(file, st) === version;
   // maxAge 0 = no-cache: prohlížeč (i service worker) se u každého použití zeptá serveru (304 je levné)
-  const headers = { 'Content-Type': type, 'Cache-Control': maxAge > 0 ? `public, max-age=${maxAge}` : 'no-cache', 'Last-Modified': st.mtime.toUTCString() };
+  const headers = { 'Content-Type': type, 'Cache-Control': immutable ? IMMUTABLE : maxAge > 0 ? `public, max-age=${maxAge}` : 'no-cache', 'Last-Modified': st.mtime.toUTCString() };
+  // X-Atlas-Hash: service worker podle ní pozná, že obsah opravdu patří k otisku v adrese (sw.js confirmed) – vlastní
+  // hlavičku Cloudflare nemění, Cache-Control může (Browser Cache TTL)
+  if (immutable) headers['X-Atlas-Hash'] = version;
   const compressible = /text|json|javascript|svg/.test(type) && st.size > 1024;
   if (compressible) headers.Vary = 'Accept-Encoding';
   const enc = compressible ? (wantsBr(req) ? 'br' : wantsGzip(req) ? 'gzip' : '') : '';
@@ -1001,9 +1011,10 @@ async function route(req, res) {
   if (/(^|[\\/])\./.test(path.relative(PUBLIC, file))) return serveNotFound(req, res);
   // Kód aplikace (HTML, JS, CSS, manifest) se vždy ověří u serveru (no-cache → levné 304): po nasazení nikdy stará
   // verze – ani z paměti otevřeného panelu, která by soubor s max-age použila bez ptaní. Obrázky, písma a data mapy
-  // ve vendor/ mají mezipaměť jako dřív.
+  // ve vendor/ mají mezipaměť jako dřív. Výjimka: adresa s otiskem obsahu ze stránky (js/app.js?v=…) – ta se už nikdy
+  // nezmění, takže ji Cloudflare i prohlížeč drží napořád a na server nejde (serveFile, server/lib/pwa.js versionAssets).
   const maxAge = /\.(?:html|js|css|webmanifest)$/.test(rel) ? 0 : rel.startsWith('/vendor/') ? 86400 * 30 : 60;
-  if (serveFile(req, res, file, { maxAge })) return;
+  if (serveFile(req, res, file, { maxAge, version: url.searchParams.get('v') })) return;
   // Neznámá adresa: česká stránka 404 s odkazem do aplikace. Dřív stránka aplikace se stavem 200 – vyhledávačům se pak
   // každá adresa jevila jako kopie úvodní stránky. Aplikace má sekce i sdílené odkazy za # na „/“, takže je to nemění;
   // offline dá service worker na každou adresu dál uloženou stránku aplikace (sw.js), online ukáže tuhle 404.

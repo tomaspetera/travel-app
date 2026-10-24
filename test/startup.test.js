@@ -47,8 +47,9 @@ test('service worker ukládá i nové skripty (errlog.js, offershare.js) a deskt
   const { serviceWorker } = await import('../server/lib/pwa.js');
   const dirs = { publicDir: new URL('../public', import.meta.url).pathname, dataDir: new URL('../data', import.meta.url).pathname };
   const { precache, build, body } = serviceWorker(dirs);
+  // skripty a styly v seznamu s otiskem obsahu v adrese (js/errlog.js?v=… – test/pwa.test.js)
   for (const f of ['js/errlog.js', 'js/offershare.js', 'js/flags.js', 'css/desktop.css', 'css/desktop-flights.css', 'css/desktop-explore.css', 'css/desktop-trip.css']) {
-    assert.ok(precache.includes(f), f);
+    assert.ok(precache.some((u) => u.startsWith(`${f}?v=`)), f);
   }
   // nová verze (jiný obsah souborů) = jiný sw.js → prohlížeč po nasazení nainstaluje nový service worker
   assert.match(build, /^[0-9a-f]{12}$/);
