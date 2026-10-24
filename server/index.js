@@ -43,7 +43,7 @@ import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from '
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
 import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, ogPhoto, PREVIEW_BOT, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
-import { sharedRuns, gate, perClient, recentResults } from './lib/crowd.js';
+import { sharedRuns, gate, perClient, recentResults, breathe } from './lib/crowd.js';
 import { SECURITY_HEADERS, API_CSP, clientIp, crossSite } from './lib/security.js';
 
 const PUBLIC = path.join(config.root, 'public');
@@ -359,7 +359,14 @@ async function streamSearch(req, res, body, shareKey = JSON.stringify(body), { r
     if (ready) {
       readyHits++;
       write(ready);
-    } else if (result) write({ type: 'result', result });
+    } else if (result) {
+      // Sdílené hledání doběhlo všem naráz: zápis výsledku (řádek 1–2 MB do komprese) každému zvlášť a mezi nimi ke slovu
+      // ostatní požadavky (crowd.js breathe; jako dokončení hledání před kousky rozběhnutých hledání) – 100 lidí se
+      // stejným hledáním by jinak drželo server v kuse 1–2 s (zátěžový test, docs/skalovani.md).
+      const w = breathe(true);
+      if (w) await w;
+      write({ type: 'result', result });
+    }
   } catch (e) {
     if (!(e instanceof UserError)) console.error('[search]', e);
     // text neočekávané chyby (názvy proměnných, adresy zdrojů) jen do logu, uživateli česky obecně

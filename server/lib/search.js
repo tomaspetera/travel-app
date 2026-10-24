@@ -295,6 +295,8 @@ export function planRoutes(p, routes, { q, backFrom, backTo, ret, budget, now = 
  * nejvýš groups cílů a top nabídek ve výpisu (+ nejlevnější z každého letiště a dne).
  */
 export const PARTIAL = { firstMs: 1200, gapMs: 3000, max: 3, groups: 30, top: 60 };
+// Náhled, jehož hledání mezitím doběhlo: skládání se při nejbližší přestávce zastaví (konečný výsledek je hned za ním).
+const STALE = Symbol('náhled už není potřeba');
 
 /**
  * Hlavní hledání. emit(event) dostává průběh: { type: 'progress', providers } a průběžné výsledky { type: 'partial',
@@ -388,6 +390,8 @@ export async function search(raw, emit = () => {}, opts = {}) {
   const outLegs = [];
   const backLegs = [];
   const routeMode = dest.kind === 'airports';
+  // Radar na přehledu (raw.radar z flights.js radarSearch): jen „kamkoliv“, odpověď zmenšená na to, co čte (radarResult).
+  const radar = raw.radar === true && !routeMode;
   const destAirports = routeMode ? dest.airports.filter((a) => !originSet.has(a)) : [];
   const countries = dest.kind === 'countries' ? new Set(dest.countries) : null;
   const singleCountry = countries && countries.size === 1 ? [...countries][0] : null;
@@ -692,10 +696,13 @@ export async function search(raw, emit = () => {}, opts = {}) {
       mixRouteDone(p, o, d);
     }
   };
-  /** Před konečným výsledkem: zbylé cíle složit po jednom s přestávkami (breathe) – compose pak jen seřadí hotové. */
+  /**
+   * Před konečným výsledkem: zbylé cíle složit po jednom s přestávkami (breathe – dokončení hledání před kousky
+   * ostatních) – compose pak jen seřadí hotové.
+   */
   async function mixFinish() {
     for (const k of [...mix.buckets.keys()]) {
-      const w = breathe();
+      const w = breathe(true);
       if (w) await w;
       mixFlush(k);
     }
@@ -1153,13 +1160,25 @@ export async function search(raw, emit = () => {}, opts = {}) {
    * a letů (buildGroups do nich píše ceny a štítky), bez mřížky termínů a nejbližších dnů, nejvýš PARTIAL.groups cílů
    * a ve výpisu PARTIAL.top nejlevnějších nabídek (+ nejlevnější z každého letiště a dne), res.partial = true.
    * Kombinace aerolinek a letišť v Kamkoliv (mixAll) jen v konečném.
+   * Po kouscích (buildGroups a mezi částmi): přestávka pause() pustí ke slovu ostatní požadavky (crowd.js breathe) –
+   * v kuse by to u radaru z Brna bylo ~0,1 s (Render ~1 s). Náhled se skládá ze stavu, kdy začal (kopie cest a letů,
+   * stavu zdrojů i letů kolem data), i když zdroje mezi kousky hledají dál, a skončí-li mezitím hledání, zastaví se (STALE).
    */
-  function compose(final) {
+  async function compose(final) {
+    // konečné složení = dokončení hledání (breathe(true): před kousky ostatních hledání), náhled se řadí za ně
+    const pause = async () => {
+      const w = breathe(final);
+      if (w) await w;
+      if (!final && finished) throw STALE;
+    };
     const cp = new Map();
     const dup = (l) => (l ? cp.get(l) || cp.set(l, { ...l }).get(l) : l);
     const tr = final ? trips : trips.map((t) => ({ ...t, out: dup(t.out), back: dup(t.back) }));
     const outs = final ? outLegs : outLegs.map(dup);
     const backs = final ? backLegs : backLegs.map(dup);
+    const near = [...nearLegs.out, ...nearLegs.back];
+    // náhled: stav zdrojů v okamžiku skládání (hledání běží dál)
+    const provs = final ? status : status.map((s) => ({ ...s }));
     let cal = null;
     let cellTrips = []; // mřížka termínů: nejlevnější cesta každé buňky (ocení se jako ostatní, do statistik cen nepatří)
     const dayOpts = q.exact ? { legsPerDay: EXACT_LEGS_PER_DAY, variety: true } : { legsPerDay: 2 };
@@ -1201,14 +1220,16 @@ export async function search(raw, emit = () => {}, opts = {}) {
       }
     }
 
+    await pause();
     // pojistka pro zdroje, které lety skládají samy (celé zpáteční letenky)
     if (q.depAfter) { const ok = tr.filter((t) => depOk(t.out)); tr.length = 0; tr.push(...ok); }
-    const { groups, flat, warm, hidden, priceStats: routeStats, byOrigin, cells } = buildGroups(tr, {
+    const { groups, flat, warm, hidden, priceStats: routeStats, byOrigin, cells } = await buildGroups(tr, {
       q, originSet: allOrigins, groundOf, park, arrOf, legCosts: routeMode && Boolean(q.exact), cells: cellTrips, ...(final ? {} : { maxGroups: PARTIAL.groups }),
-      mixed: final && mixOn ? mixAll() : [],
+      mixed: final && mixOn ? mixAll() : [], pause,
     });
+    await pause();
     // Wizz Air: odlety dne už jsou v jeho datech – přenést i na tytéž přímé lety W6 nalezené přes Kiwi.
-    if (routeMode) shareDepartures([...nearLegs.out, ...nearLegs.back], flat.concat(cells), 'wizzair', 'W6');
+    if (routeMode) shareDepartures(near, flat.concat(cells), 'wizzair', 'W6');
     if (warm && !groups.length && dest.kind !== 'anywhere') {
       // Konkrétní cíl, kam se za teplem nic nenašlo: jak teplo tam v těch měsících vůbec bývá (pro vysvětlení).
       const aps = routeMode ? destAirports : [...countries].flatMap((cc) => airportsInCountry(cc).map((a) => a.iata));
@@ -1218,7 +1239,9 @@ export async function search(raw, emit = () => {}, opts = {}) {
     const usedHubs = hubs.filter((h) => flat.some((t) => t.out.from === h.iata || t.back?.to === h.iata));
     // Vlak/bus místo letadla: odhad bez sítě ke skupinám v dosahu (Evropa po souši) a u konkrétního cíle i celkově.
     const destinationLabels = q.to.map((id) => describe(id)).filter(Boolean);
-    const ground = attachGround({ home: origins.home, origins: [...origins.airports, ...hubs], groups, flat, dests: routeMode ? destinationLabels : [] });
+    // radar odhad vlakem/busem u cílů nečte (radarResult) – u „kamkoliv“ je jen u skupin
+    const ground = radar ? null : attachGround({ home: origins.home, origins: [...origins.airports, ...hubs], groups, flat, dests: routeMode ? destinationLabels : [] });
+    await pause();
     const top = routeMode ? topWithDays(flat, final ? { exact: Boolean(q.exact) } : { max: PARTIAL.top, perDay: 1 }) : null;
     if (cal && cal.grid) {
       const { grid, sent: cellSent } = gridTrips(cal.grid.cells, flat.concat(cells), top);
@@ -1259,8 +1282,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       filters: { maxPrice: q.maxPrice, directOnly: q.directOnly, active: Boolean(q.maxPrice || q.directOnly), hidden },
       // Za teplem: kolik nabídek filtr vyřadil (a nejvyšší průměrné maximum mezi nimi) – pro prázdný výsledek.
       warm,
-      // náhled: stav zdrojů v okamžiku skládání (hledání běží dál)
-      providers: final ? status : status.map((s) => ({ ...s })),
+      providers: provs,
       fx: fxInfo(),
       demo: config.mock,
       stats: { trips: tr.length, groups: groups.length, ms: Date.now() - t0, ...(final && mixOn ? { mix: { legs: mix.seen, peak: mix.peak, dropped: mix.dropped } } : {}) },
@@ -1271,22 +1293,38 @@ export async function search(raw, emit = () => {}, opts = {}) {
   // Průběžné výsledky: zdroj doběhl a jiný ještě hledá → náhled z toho, co je zatím nalezené (jen když už něco je),
   // nejdřív PARTIAL.firstMs od začátku a PARTIAL.gapMs po minulém, nejvýš PARTIAL.max×. Skládá se z kopií cest a letů
   // (compose(false)) – konečný výsledek je stejný jako bez náhledů.
+  // Náhled se skládá po kouscích (compose) – podnět, který přijde mezitím, počká, až ten doskládá (again).
   const partials = !opts.noPartial && !raw.noPartial;
   let sent = 0;
   let sentAt = 0;
   let timer = null;
+  let finished = false; // všechny zdroje doběhly – náhledy už ne
+  let composing = null; // rozpracovaný náhled
+  let again = false;
   const partialNow = () => {
     timer = null;
-    if (sent >= PARTIAL.max || !status.some((s) => s.state === 'pending' || s.state === 'running') || !status.some((s) => s.found > 0)) return;
-    try {
-      const { res } = compose(false);
-      if (!res.groups.length) return;
-      sent++;
-      sentAt = Date.now();
-      emit({ type: 'partial', result: res });
-    } catch (e) {
-      console.error('[search] průběžný výsledek:', e); // náhled je navíc – hledání (ani server) kvůli němu nespadne
+    if (composing) {
+      again = true;
+      return;
     }
+    if (finished || sent >= PARTIAL.max || !status.some((s) => s.state === 'pending' || s.state === 'running') || !status.some((s) => s.found > 0)) return;
+    composing = (async () => {
+      try {
+        const { res } = await compose(false);
+        if (!res.groups.length || finished) return;
+        sent++;
+        sentAt = Date.now();
+        emit({ type: 'partial', result: res });
+      } catch (e) {
+        if (e !== STALE) console.error('[search] průběžný výsledek:', e); // náhled je navíc – hledání (ani server) kvůli němu nespadne
+      } finally {
+        composing = null;
+        if (again && !finished) {
+          again = false;
+          partialSoon();
+        }
+      }
+    })();
   };
   const partialSoon = () => {
     if (!partials || timer || sent >= PARTIAL.max) return;
@@ -1294,18 +1332,22 @@ export async function search(raw, emit = () => {}, opts = {}) {
   };
 
   await Promise.all(providers.map((p) => settle(() => (routeMode ? routeProvider(p) : exploreProvider(p)), stOf(p), p, ctxOf(p)).then(partialSoon)));
+  finished = true;
   clearTimeout(timer);
   progress(true);
+  // rozpracovaný náhled se při nejbližší přestávce zastaví – konečný výsledek se skládá až po něm (nikdy ne náhled po
+  // výsledku a dvě skládání téhož hledání naráz)
+  if (composing) await composing;
   if (mixOn && !mixWhole) await mixFinish();
-  const w = breathe();
+  const w = breathe(true);
   if (w) await w;
-  const { res, flat } = compose(true);
+  const { res, flat } = await compose(true);
   // Další odlety Ryanairu téhož dne z letového řádu (bez cen) – jen u zobrazených tras, pár dotazů. Jen do konečného
   // výsledku: dopíše otherDeps letům Ryanairu, které už v něm jsou (Wizz Air W6 v compose se s tím nekříží).
   const fr = providers.find((p) => p.departures);
   if (fr && (routeMode || q.exact)) await attachDepartures(fr, flat, limits.departures);
   res.stats.ms = Date.now() - t0;
-  return res;
+  return radar ? radarResult(res) : res;
 }
 
 /**
@@ -1820,12 +1862,61 @@ export function groupOptions(trips) {
   return picked;
 }
 
+/*
+ * Radar na přehledu (flights.js radarSearch, v dotazu radar: true) čte z výsledku „kamkoliv“ jen:
+ *  • karty a jejich pořadí – SearchHelp.radarPick s doporučeným pořadím (rank.js: z nabídek cíle ta s nejnižší
+ *    srovnávací cenou, výhodnost proti cílům celého hledání, pestrost zemí) a štítek ✓ proti všem cílům (Rank.reasons),
+ *  • paměť cen (PriceCheck.remember: priceStats.mins a letenky nabídek – ⭐ Moje cíle, „Je to dobrá cena?“),
+ *  • dopravu na letiště a do města (origins, arrivals, Pins.extras), stav zdrojů a dotaz.
+ * Výsledek ale nese i vše pro výpis v Letech (radar z Brna ~1,7 MB JSON, ~130 kB brotli) a server ho převádí na JSON,
+ * komprimuje a 2 min drží v paměti hotových výsledků. Radaru stačí stejné cíle i nabídky – pořadí počítá prohlížeč
+ * ze všech a cíle v 🙈 přeskakuje, takže ubrat cíle ani nabídky bez změny karet nejde – jen s poli, která čte
+ * (RADAR_*), a bez kopie best (= options[0]; doplní ji SearchHelp.radarRes): ~40 % velikosti. Čte-li radar další pole,
+ * patří sem (test/radar-slim.test.js porovná karty, štítky a paměť cen z plného a zmenšeného výsledku).
+ */
+const RADAR_DEST = ['key', 'id', 'label', 'cc', 'lat', 'lon'];
+const RADAR_TRIP = ['perPersonCzk', 'tripCzk', 'flightCzk', 'groundCzk', 'arrCzk', 'destKey', 'distanceKm', 'nights', 'tempHi', 'bookUrl', 'provider'];
+const RADAR_LEG = ['from', 'to', 'date', 'dep', 'arr', 'hasTime', 'arrUnknown', 'stops', 'durationMin', 'estMin', 'layovers', 'provider', 'bookUrl'];
+const fieldsOf = (o, keys) => {
+  const x = {};
+  for (const k of keys) if (o[k] !== undefined) x[k] = o[k];
+  return x;
+};
+/** Výsledek „kamkoliv“ → zmenšený pro radar (viz výš); ostatní části výsledku (dotaz, zdroje, letiště) beze změny. */
+export function radarResult(res) {
+  const air = new Set(); // letiště, ke kterým radar čte cestu do města: přílet tam a odlet zpět
+  const leg = (l) => (l ? fieldsOf(l, RADAR_LEG) : l);
+  const groups = res.groups.map((g) => ({
+    dest: fieldsOf(g.dest, RADAR_DEST),
+    options: g.options.map((t) => {
+      air.add(t.out.to);
+      if (t.back) air.add(t.back.from);
+      return {
+        ...fieldsOf(t, RADAR_TRIP), out: leg(t.out), back: leg(t.back),
+        deal: t.deal && { level: t.deal.level, score: t.deal.score }, priceLevel: t.priceLevel && { level: t.priceLevel.level },
+      };
+    }),
+    minFlightCzk: g.minFlightCzk,
+    priceStats: g.priceStats && { n: g.priceStats.n, median: g.priceStats.median, mins: g.priceStats.mins },
+  }));
+  const arrivals = {};
+  for (const [k, v] of Object.entries(res.arrivals || {})) if (air.has(k)) arrivals[k] = v;
+  return { ...res, arrivals, groups };
+}
+
+// Kousek práce v buildGroups: tolik cest (~1 ms) a tolik cílů (řazení jejich nabídek, statistika cen) mezi přestávkami.
+const STEP = 256;
+const STEP_DEST = 32;
+
 // cells (mřížka termínů) = nejlevnější cesty buněk: ocení se a projdou filtry stejně, ale do skupin, výpisu, počtu
 // skrytých ani statistiky cen („Je to dobrá cena?“, výhodnost) nepatří – vrátí se zvlášť (cells), nabídky se nezmění.
 // maxGroups = kolik nejlevnějších cílů odpověď nese (průběžný náhled méně). mixed = kombinace aerolinek a letišť
 // v Kamkoliv (mixTrips): do skupin a výpisu ano, do statistiky cen ne – ta zůstane z nabídek zdrojů jako dřív
 // („Je to dobrá cena?“ a výhodnost z ní dostanou i ony).
-function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () => 0, legCosts = false, cells = [], mixed = [], maxGroups = 150 }) {
+// pause = přestávka mezi kousky (compose: crowd.js breathe) – po STEP cestách a STEP_DEST cílech; radar z Brna skládá
+// tisíce nabídek do stovek cílů a v kuse by to bylo ~50 ms (Render ~0,5 s), kdy server nic jiného neobslouží. Kousky
+// jdou v pořadí jako v kuse, výsledek je stejný.
+async function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () => 0, legCosts = false, cells = [], mixed = [], maxGroups = 150, pause = null }) {
   const map = new Map();
   const seen = new Set();
   const flat = [];
@@ -1837,6 +1928,7 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
   // „Je to dobrá cena?“: ceny letenek všech nabídek podle cíle (i těch nad limitem ceny, které výpis skryje).
   const pools = new Map();
   for (const [i, t] of [...trips, ...mixed, ...cells].entries()) {
+    if (pause && i && i % STEP === 0) await pause();
     const cell = i >= trips.length + mixed.length;
     const own = i < trips.length; // nabídka zdroje (ne kombinace z mixTrips, ne buňka mřížky)
     if (!validTrip(t) || seen.has(t.id)) continue;
@@ -1909,10 +2001,15 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
     flat.push(t);
   }
   flat.sort((a, b) => a.perPersonCzk - b.perPersonCzk);
-  const stats = new Map([...pools].map(([k, list]) => [k, priceStats(list)]));
+  const stats = new Map();
+  for (const [k, list] of pools) {
+    if (pause && stats.size && stats.size % STEP_DEST === 0) await pause();
+    stats.set(k, priceStats(list));
+  }
   const groups = [];
   const obOf = new Map(); // skupina → nejlevnější cesta z každého letiště { czk, n }
   for (const [key, g] of map) {
+    if (pause && groups.length && groups.length % STEP_DEST === 0) await pause();
     g.trips.sort((a, b) => a.perPersonCzk - b.perPersonCzk);
     const picked = groupOptions(g.trips);
     const ob = originBests(g.trips);
@@ -1933,8 +2030,13 @@ function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () =>
   groups.sort((a, b) => a.best.perPersonCzk - b.best.perPersonCzk || (a.dest.key < b.dest.key ? -1 : a.dest.key > b.dest.key ? 1 : 0));
   // „Super cena“ jen pro to nejlepší z výsledků: absolutní skóre i relativní pořadí (horních 20 %).
   const p20 = groups.length ? groups[Math.floor((groups.length - 1) * 0.2)].best.perPersonCzk : 0;
-  const sorted = new Map([...pools].map(([k, list]) => [k, list.map((e) => e.czk).sort((a, b) => a - b)]));
-  for (const t of flat.concat(cellFlat)) {
+  const sorted = new Map();
+  for (const [k, list] of pools) {
+    if (pause && sorted.size && sorted.size % STEP_DEST === 0) await pause();
+    sorted.set(k, list.map((e) => e.czk).sort((a, b) => a - b));
+  }
+  for (const [i, t] of flat.concat(cellFlat).entries()) {
+    if (pause && i && i % STEP === 0) await pause();
     if (t.deal.level === 'super' && t.perPersonCzk > p20) t.deal.level = 'good';
     t.priceLevel = priceLevelOf(t, stats.get(t.destKey), sorted.get(t.destKey));
     // 🔥 Super cena / 👍 Výhodné jen u dobré ceny – na jedné nabídce nikdy „výhodné“ a zároveň „běžná / dražší“

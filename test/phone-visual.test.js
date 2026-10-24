@@ -115,6 +115,16 @@ test('telefon: ✕ náhledu cíle bez fokusového rámečku po klepnutí na kart
   assert.match(noComments(read('css/flights.css')), /@media \(hover:none\) and \(pointer:coarse\)\{\.dp-x:focus-visible\{outline:none\}\}/);
 });
 
+test('telefon: hlídaná cena – název a termín se zalomí, ne „Praha → Lis…“ a „vždy odlet za 38–68 dní (t…“ bez dnů a nocí', () => {
+  // poslední pravidlo pro selektor (platí – dřívější přebije)
+  const css = noComments(read('css/flights.css')), rule = (sel) => ([...css.matchAll(new RegExp(`^${sel.replace(/\./g, '\\.')}\\{([^}]*)\\}`, 'gm'))].at(-1) || [])[1] || '';
+  for (const sel of ['.w-t', '.w-sub']) {
+    assert.ok(rule(sel), sel);
+    assert.doesNotMatch(rule(sel), /white-space:nowrap|text-overflow:ellipsis/, sel);
+  }
+  assert.match(rule('.w-t'), /-webkit-line-clamp:2/, 'název nejvýš na 2 řádky');
+});
+
 test('telefon: dny dovolené na kartě radaru na vlastním řádku (ne „🏖️ 5 dní dov…“), Země: „Kontinent: vše“ se vejde', () => {
   const phone = mediaBody(read('css/flights.css'), '@media(max-width:560px)');
   assert.match(phone, /\.rc-sub \.rc-lv\{display:block/);

@@ -424,3 +424,17 @@ test('průvodce cestou: odhad vlaku/busu za běžnou cenu („od“ jen v popisk
   assert.equal(g({ out: { minutes: 45 }, back: { minutes: 50 } }).row, 'Doprava na letiště a zpět (odhad)');
   assert.equal(g({ out: { minutes: 45, own: true }, back: { minutes: 50, own: true } }).out, 'Cesta na letiště PRG (~45\u00a0min, odhad)', 'čas zůstává odhad');
 });
+
+test('trip: proběhlá cesta v průvodci – poznámka „už proběhla“ s ✈️ Nová cesta; dnešní a budoucí ani sdílená ne', () => {
+  // vracející se uživatel: průvodce ukazoval Shrnutí staré cesty jako před odletem
+  const fly = trip({ overland: { ...OV(), on: false } }); // návrat 14. 11. 2026
+  const past = Trip.pastHtml(fly, '2026-11-15');
+  assert.match(past, /Tahle cesta už proběhla<\/b> \(návrat [^)]*14[^)]*\)/);
+  assert.match(past, /id="tripPastNew"/);
+  assert.equal(Trip.pastHtml(fly, '2026-11-14'), '', 'den návratu ještě běží');
+  assert.equal(Trip.pastHtml(fly, '2026-11-01'), '');
+  assert.equal(Trip.pastHtml({ ...fly, shared: { on: '2026-10-01' } }, '2026-12-01'), '', 'sdílená má vlastní poznámku');
+  // vlak místo letu: podle návratu vlakem (15. 11.)
+  assert.equal(Trip.pastHtml(trip(), '2026-11-15'), '');
+  assert.match(Trip.pastHtml(trip(), '2026-11-16'), /už proběhla/);
+});

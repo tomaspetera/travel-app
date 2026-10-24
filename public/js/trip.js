@@ -910,7 +910,7 @@
         <div class="th-dest"><h2>${esc(tripName(t))}</h2><div class="th-sub" id="thSub">${headSub(t)}</div></div>
       </div>
       <div class="stepbar">${STEPS.map((s, i) => `${i ? `<i${i <= idx ? ' class="done"' : ''}></i>` : ''}<button type="button" class="st ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${i < idx ? '✓' : s[1]}</span>${s[2]}</button>`).join('')}</div>
-      ${sharedHtml(t)}
+      ${sharedHtml(t)}${pastHtml(t)}
       <div class="tw-body"><div id="tripStep"></div><aside class="trip-aside" id="tripAside" aria-label="Přehled cesty">${asideHtml(t)}</aside></div>
       <div class="trip-next" id="tripNext" hidden></div>`;
     if (window.Photos) Photos.paint(root); // fotka cíle v hlavičce
@@ -918,6 +918,7 @@
     $$('.stepbar [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step));
     $('#tripRestart').onclick = () => restart();
     if (t.shared) $('#tripSharedSave').onclick = () => saveToPlanner();
+    if ($('#tripPastNew')) $('#tripPastNew').onclick = () => newAfterPast();
     if (t.step === 'flight') flightStep();
     else if (t.step === 'route') routeStep();
     else if (t.step === 'stay') stayStep();
@@ -938,6 +939,29 @@
     const on = t.shared.on;
     return `<div class="note info trip-shared"><span aria-hidden="true">🔗</span><div class="ts-t"><b>Sdílená cesta</b> – ${on ? `ceny jsou z doby sdílení (${+on.slice(8, 10)}.\u00a0${+on.slice(5, 7)}.)` : 'ceny se mohly změnit'}. Před nákupem je ověř.</div>
       <button type="button" class="btn sm primary" id="tripSharedSave">💾 Uložit si ji</button></div>`;
+  }
+  /**
+   * Cesta, která už skončila (pobyt do včerejška a dřív): průvodce ukazoval Shrnutí jako před odletem („Co zarezervovat“,
+   * „Vyraž z domu nejpozději…“, ceny před týdny) – vracející se uživatel nevěděl, že je to stará cesta. Poznámka
+   * a ✈️ Nová cesta (uložená zůstane v plánovači). today = dnešek YYYY-MM-DD (pro testy).
+   */
+  function pastHtml(t, today = fmtYMD(new Date())) {
+    if (!t || t.shared || !t.flight || !t.flight.out) return '';
+    const { checkout } = stayDates(t);
+    if (!checkout || checkout >= today) return '';
+    return `<div class="note info trip-shared trip-past"><span aria-hidden="true">🗓️</span><div class="ts-t"><b>Tahle cesta už proběhla</b> (návrat ${fmtDate(checkout)}). Zůstává v Plánovači – další cestu začneš výběrem letu.</div>
+      <button type="button" class="btn sm primary" id="tripPastNew">✈️ Nová cesta</button></div>`;
+  }
+  /** ✈️ Nová cesta po proběhlé: uložená v plánovači zůstane – bez ptaní; neuložená jako ↺ Začít znovu (s potvrzením). */
+  function newAfterPast() {
+    const t = T();
+    if (!t) return;
+    const saved = Array.isArray(S.trips) && S.trips.some(x => x && x.tripId && x.tripId === t.created);
+    if (!saved) return restart();
+    S.trip = null; staysData = null; carsData = null;
+    persist();
+    toast('Proběhlá cesta zůstává v Plánovači – vyber další let');
+    go('flights');
   }
   /** Záložky míst trasy (Ubytování, Program) se na telefonu nevejdou: vybrané místo posunout doprostřed lišty. */
   function tabIntoView() {
@@ -4196,7 +4220,7 @@
   // Aplikace zavřená nebo znovu načtená dřív, než hledání doběhlo: na jeho konečný výsledek už cesta nepočká.
   if (typeof S !== 'undefined' && S && S.trip && S.trip.statsWait) { giveUpStats(S.trip); persist(); }
 
-  window.Trip = { start, cardData, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, placePt, rideLegs, legBack,
+  window.Trip = { start, cardData, pastHtml, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, placePt, rideLegs, legBack,
     // doprava po úsecích trasy a auto jen na některé dny, tlačítko kroku nad spodní lištou (testy)
     routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts, phoneNext };
 })();

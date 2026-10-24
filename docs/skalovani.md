@@ -1,6 +1,144 @@
 # Škálování ATLAS – co snese jeden server zdarma a co ne
 
-Podklad k podnikatelskému plánu (cíl: 1000+ lidí naráz, později desítky tisíc uživatelů). Stav k 23. 10. 2026.
+Podklad k podnikatelskému plánu (cíl: 1000+ lidí naráz, později desítky tisíc uživatelů). Stav k 24. 10. 2026.
+
+## Menší odpověď radaru a konečné složení výsledku po kouscích (24. 10. 2026)
+
+Navazuje na „Co zbývá“ z 23. 10. (níž): výsledek radaru byl velký a konečné složení výsledku běželo v kuse.
+
+### Co radar z výsledku hledání čte
+Radar na přehledu (flights.js radarSearch) hledá „kamkoliv“ a z výsledku vezme jen:
+- **karty a jejich pořadí** – SearchHelp.radarPick s doporučeným pořadím (rank.js): z nabídek každého cíle (best
+  a options) ta s nejnižší srovnávací cenou (letenka, cesta na letiště a do města, časy letů, přestupy, čas na místě,
+  výhodnost proti statistice cen cíle), pořadí **všech** cílů s pestrostí zemí; výhodnost bere i medián „nejlevnější /
+  obvyklá cena“ přes všechny cíle (Rank.ctxOf),
+- **štítek ✓** „proč výš než levnější letenka“ – proti všem cílům (nejlevnější letenka bývá až za 20. kartou),
+- **paměť cen** (PriceCheck.remember → ⭐ Moje cíle, „Je to dobrá cena?“, trend): statistika cen a letenky nabídek
+  všech 150 cílů,
+- **dopravu** na letiště a do města (origins, arrivals, Pins.extras → 📌 Porovnat), otisk 🏠 vlastních cen, výpadek
+  zdroje, demo.
+
+Všechno ostatní – Kdykoliv / Víkendy / Svátky, další karty (na telefonu pruh do strany), 🔎 detail karty, Od minula,
+Tipy na tenhle měsíc, 📌 odložené karty radaru – už bere jen uložené karty (20 na režim v S.radar), ne výsledek
+hledání. Hledání v Letech (výpis, karty, mapa, kalendář, filtry, porovnání) jde jiným dotazem a dostává výsledek celý
+jako dřív.
+
+### Co se změnilo
+1. **Menší odpověď radaru**: aplikace posílá v dotazu radaru `radar: true` a server (search.js radarResult) vrátí
+   stejných 150 cílů se stejnými nabídkami, jen s poli, která radar čte (let 13 polí místo ~25, nabídka 11 + úroveň
+   ceny a výhodnost, cíl 6, statistika cen jen n / medián / minima po měsících), bez druhé kopie nejlevnější nabídky
+   (best = options[0], doplní ji SearchHelp.radarRes) a s cestou do města jen k letištím nabídek. Odhad vlakem/busem
+   u cílů (attachGround), který radar nečte, se pro něj ani nepočítá. Starší aplikace (bez `radar: true`) dostane
+   výsledek celý; nová aplikace se starým serverem taky (radarRes ho nechá být). Hotový výsledek radaru se drží
+   a sdílí zvlášť (jiný klíč dotazu), Lety ho nikdy nedostanou.
+   **Méně cílů ani nabídek poslat nejde, aniž by se změnily karty**: pořadí počítá prohlížeč ze všech cílů podle cesty
+   na letiště, časů a výhodnosti (to server nezná), 🙈 cíle (jen v prohlížeči) přeskakuje a bere další a paměť cen
+   ukládá všech 150 cílů. Šlo by to jen s doporučeným pořadím na serveru (rank.js do serveru, 🙈 v dotazu – pak ale
+   každý uživatel jiný dotaz a hotový výsledek by se nesdílel).
+2. **Konečné složení výsledku a průběžné náhledy po kouscích**: compose a buildGroups (search.js) se po 256
+   nabídkách, 32 cílech a mezi částmi (skupiny, odhad vlakem/busem, výpis) zeptají breathe() (crowd.js) – jako
+   hledání tras od 23. 10. Náhled v Letech se skládá ze stavu, kdy začal (kopie nabídek, letů i stavu zdrojů), i když
+   zdroje mezi kousky hledají dál; skončí-li hledání dřív, než se náhled doskládá, zahodí se a konečný výsledek se
+   skládá až po něm (náhled po výsledku nepřijde, dvě skládání téhož hledání naráz neběží).
+3. **Dokončení hledání má přednost** (`breathe(true)` v crowd.js: zbylé kombinace mixFinish a konečné složení): síť,
+   časovače a ostatní požadavky se mezi kousky ke slovu dostanou dál, ale čekající kousky rozběhnutých hledání až po
+   něm. Bez toho (první verze téhle úpravy) se při plném procesoru dokončení dělilo s ostatními hledáními a každé
+   doběhlo až s nimi – jako Render zdarma radar p50 209 → 244 s; s předností 149 s (tabulka níž). Náhledy přednost
+   nemají (jsou navíc).
+4. **Výsledek sdíleného hledání se zapisuje každému zvlášť** (index.js streamSearch, `breathe(true)` před zápisem):
+   dřív dostalo 100 lidí se stejným hledáním výsledek (řádek 1–2 MB do komprese) v jednom kuse. Našlo se to až při
+   měření: se složením po kouscích (bod 2) se tenhle kus prodloužil (100 stejných hledání: smyčka nejdéle 0,6–1,2 s →
+   1,5–2,0 s, příčinu jsem nenašel – úklid paměti to není); zápis po jednom ho odstranil úplně (tabulka níž).
+
+Výsledky jsou stejné jako dřív: test/radar-slim.test.js (z plného i zmenšeného výsledku stejné karty, pořadí všech
+cílů, srovnávací ceny všech nabídek, štítky ✓, paměť cen a doprava – Kdykoliv z Brna, Víkendy z Prahy, Svátky, i s 🙈;
+pole, která DEMO nemá – odkaz obchodu, neznámý přílet, přestupy; přes /api/search: Lety dál celé),
+test/scale.test.js (hledání po kouscích = v kuse i pro zmenšený radar; náhled po kouscích = v kuse, i když další
+zdroj během jeho skládání hledá; náhled, jehož hledání mezitím skončilo, se zahodí; breathe(true) předběhne čekající
+kousky, mezi sebou v pořadí). V test/engine.test.js se při porovnání výsledku s náhledy a bez nich už nesrovnává
+statistika kombinací stats.mix peak / dropped (kolik letů se drželo a zahodilo naráz) – závisí na tom, jak se kousky
+střídají; nabídky ne.
+
+Ručně (DEMO, Praha +200 km, 2 os., telefon 412 px i počítač): radar Kdykoliv a Víkendy, všech 12 karet v pruhu,
+🔎 detail karty, Tipy na tenhle měsíc, návrat na Kdykoliv z uloženého výsledku, Kamkoliv v Letech (přehled i mapa) –
+texty i snímky stejné před a po (liší se jen štítek předpovědi počasí, když open-meteo přes proxy sandboxu neodpoví).
+
+### Velikost odpovědi radaru (DEMO, 2 dospělí, z okolí 200 km)
+
+| radar | JSON před | JSON po | brotli 4 (jako server) před → po | gzip před → po |
+|---|---|---|---|---|
+| Praha Kdykoliv | 1 527 kB | 601 kB | 131 → 62 kB | 149 → 63 kB |
+| Brno Kdykoliv | 1 734 kB | 695 kB | 152 → 72 kB | 174 → 73 kB |
+| Praha Víkendy | 1 548 kB | 610 kB | 132 → 63 kB | 151 → 63 kB |
+| Brno Víkendy | 1 783 kB | 719 kB | 155 → 74 kB | 178 → 74 kB |
+
+V prohlížeči (Praha, po síti): Kdykoliv 130,5 → 62,2 kB, Víkendy ~132–140 → 62,5 kB. Převod na JSON ~14–31 ms → 5–12 ms
+(jednou na výsledek), brotli ~21–38 ms → 7–11 ms (pro každého, kdo výsledek dostane), hotový výsledek v paměti
+(`_recentSearches`, řádek odpovědi) ~3,1–3,6 MB → 1,2–1,4 MB – do `SEARCH_RESULT_MB` 24 se vejde ~17 radarů místo ~7.
+
+### Smyčka událostí při konečném složení (DEMO, 1 hledání po 2 rozehřívacích, nejdelší blok během compose)
+
+| Kamkoliv z okolí 200 km, 3 běhy | před (celé složení v kuse) | po – Lety (bez `radar`) | po – radar |
+|---|---|---|---|
+| Brno | 75–117 ms | 19–25 ms | 20–30 ms |
+| Praha | 72–109 ms | 33–51 ms | 26–29 ms |
+
+Stroj byl sdílený (zátěž 5–9 na 4 jádrech) – časy jsou orientační a delší než na volném jádře. Zbylé delší kousky:
+odhad vlakem/busem u cílů v Kamkoliv v Letech (attachGround v kuse, ~10–20 ms; radar ho nepočítá) a cesta do města
+a výpis na konci (~5–10 ms). Render zdarma (0,1 CPU) je ~10× pomalejší: složení dřív ~1 s v kuse, teď kousky
+~0,2–0,5 s.
+
+### Zátěž (scripts/load-test.mjs, DEMO; stroj sdílely jiné úlohy – zátěž 3–10 na 4 jádrech, čísla orientační)
+
+100 stejných hledání naráz (`ONLY=search-same NS=100 SERVER_CPUS=0` – jedno hledání v Letech sdílí 100 lidí):
+
+| 1 jádro | před (6 běhů) | jen složení po kouscích (6 běhů) | po (2 běhy) |
+|---|---|---|---|
+| smyčka událostí nejdelší | 0,58–1,21 s | 1,45–1,97 s | 0,70 s |
+| `/healthz` nejdelší | 0,55–1,29 s | 1,44–1,94 s | 0,59–0,74 s |
+| procesor serveru | 5,4–6,1 s | 5,2–5,9 s | 5,3 s |
+| paměť (RSS) nejvýš, jen tahle fáze | 0,67–0,68 GB (3 běhy) | 0,65–0,66 GB (3 běhy) | 0,38–0,40 GB |
+
+50 návštěvníků naráz (`ONLY=users USERS=50 SERVER_CPUS=0`):
+
+| 1 jádro, 50 návštěvníků | před (4 běhy) | po (2 běhy) | mezikroky (8 běhů) |
+|---|---|---|---|
+| procesor serveru | 49,0–53,1 s | 50,9 s | 46,1–50,0 s |
+| vše doběhlo za | 51–55 s | 53–54 s | 48–52 s |
+| radar p50 / p95 | 17,5–20,6 / 44,8–49,0 s | 15,5–24,7 / 38,5–43,6 s | 15,8–26,4 / 38,1–43,9 s |
+| smyčka událostí p99 / nejdelší | 0,73–1,10 / 2,3–4,2 s | 0,71–1,07 / 2,6–3,0 s | 0,65–1,23 / 2,1–4,5 s |
+| `/healthz` nejdelší | 2,4–9,4 s | 4,2–5,9 s | 2,3–10,6 s |
+| stránka p95 | 4,6–10,2 s | 4,7–9,2 s | 1,4–10,4 s |
+| API (stav, našeptávač, fotky, podnebí) p95 | 1,4–2,9 s | 1,3–1,7 s | 1,6–3,5 s |
+| paměť (RSS) nejvýš | 1,09–1,37 GB | 1,39–1,51 GB | 1,07–1,48 GB |
+| utržená spojení / chyby | 0 | 0 | 0 |
+
+Mezikroky = bez přednosti dokončení a bez zápisu po jednom (4 běhy) a s předností, bez zápisu po jednom (4 běhy). Radar p95 o ~10–15 %
+kratší; procesor a ostatní v rozptylu běhů. Fáze `users` je hlavně o stránce a souborech aplikace a 16 různých
+radarech (hotový výsledek 2 min), menší odpověď a složení po kouscích v ní tvoří malou část práce. Paměť v DEMO
+kolísá podle toho, kdy proběhne úklid (varianty jen s jednou z úprav: 1,13–1,41 GB) – rozdíl se tímto testem
+neprokáže ani nevyloučí; DEMO hledání je navíc těžší než skutečné (viz „Paměť“ níž).
+
+Jako Render zdarma (`CPU_QUOTA=0.1 SERVER_CPUS=0 ONLY=users USERS=10`, 2 běhy každé; bez zápisu po jednom – bod 4):
+
+| desetina jádra, 10 návštěvníků | před | po kouscích bez přednosti | s předností dokončení |
+|---|---|---|---|
+| radar p50 / p95 | 207–211 / 261–264 s | 241–247 / 255–287 s | 141–157 / 258–299 s |
+| procesor serveru | 29,6–30,5 s | 27,7–28,9 s | 28,7–32,5 s |
+| vše doběhlo za | 297–306 s | 278–290 s | 288–326 s |
+| smyčka událostí p99 / nejdelší | 4,5–5,6 / 12,8–16,9 s | 5,4–6,0 / 11,4–13,5 s | 4,2–4,7 / 13,4–16,5 s |
+| `/healthz` nejdelší | 19,7–21,5 s | 11,3–11,8 s | 16,4–18,6 s |
+| stránka / soubory / API p95 | 21–28 / 7–19 / 4–12 s | 1–3 / 6–27 / 8–16 s | 8–18 / 3–4 / 5–7 s |
+| paměť (RSS) nejvýš | 0,79–0,87 GB | 0,79–1,01 GB | 0,85–1,10 GB |
+
+Radar p50 o ~30 % kratší (dokončení hledání hned uvolní místo dalšímu), stránka a soubory aplikace rychleji; nejdelší
+bloky (~12–17 s) dál dělá hlavně začátek hledání a DEMO data, ne složení výsledku.
+
+### Co zbývá
+- **V kuse zůstává**: u hledání ke konkrétnímu cíli kalendář a mřížka termínů (optimizer.js bestRoundTrips nad všemi
+  lety trasy: Praha → Řím ~50–75 ms, Render ~0,5–0,75 s), u Kamkoliv v Letech odhad vlakem/busem (~10–20 ms) a na
+  začátku hledání odpovědi zdrojů, které přijdou naráz (v DEMO kopie dat z mezipaměti).
+- **Menší radar dál** jen s doporučeným pořadím na serveru (viz výš) – zatím nestavět.
 
 ## Soubory aplikace z Cloudflare (23. 10. 2026)
 
@@ -151,17 +289,16 @@ nedrží, úklid paměti hotových výsledků.
 - **Procesor**: při 200 návštěvnících naráz je jedno jádro celé vytížené (71 s procesoru za 73 s) – stránka p95 ~17 s.
   Z toho ~20 % úklid paměti (GC: radar = desítky tisíc letů a 1,5 MB výsledku). Render zdarma (0,1 CPU) zvládne
   plynule jednotky lidí naráz; desítky a víc chtějí placený plán (viz Další kroky).
-- **Konečné složení výsledku** (skupiny, ceny, štítky – `compose` v search.js) běží pořád v kuse: u radaru z Brna
-  ~0,1 s na tomto stroji (Render ~1 s). Stejně průběžné náhledy hledání v Letech. Rozdělit = přepsat `buildGroups`
-  na kousky.
+- ~~**Konečné složení výsledku** (`compose` v search.js) běží pořád v kuse: u radaru z Brna ~0,1 s (Render ~1 s),
+  stejně průběžné náhledy v Letech~~ – od 24. 10. po kouscích (výš).
 - **Paměť**: 4 hledání naráz v DEMO až ~1,2–1,4 GB RSS (DEMO hledání je těžší než skutečné a DEMO zdroje drží
   v mezipaměti ceny na každý den každé trasy) – tímto testem se 512 MB Renderu neověří. Hlídá ji strop
   `SEARCH_CONCURRENCY` 4 a pojistka mezipaměti (`CACHE_SOFT_MB`); kdyby Render hlásil nedostatek paměti, snížit
   `SEARCH_CONCURRENCY` na 2–3.
 - **První komprese souborů aplikace** po nasazení nebo probuzení (brotli 9, 44 souborů): ~0,65 s procesoru v kuse po
   souborech (nejvíc 56 ms – flights.js), na Renderu zdarma ~6,5 s rozložených do prvních načtení.
-- **Výsledek radaru je velký**: radar ukáže 12 karet, server posílá 150 cílů (~1,5 MB JSON, ~130 kB brotli) –
-  zmenšit = změna aplikace i serveru.
+- ~~**Výsledek radaru je velký**: radar ukáže 12 karet, server posílá 150 cílů (~1,5 MB JSON, ~130 kB brotli)~~ – od
+  24. 10. ~0,6–0,7 MB a ~62–74 kB (stejných 150 cílů jen s poli, která radar čte – výš).
 
 ## Hledání naráz (22. 10. 2026)
 
@@ -253,8 +390,9 @@ až po radaru), fotky (3–5 dotazů podle rychlosti odpovědí). Testy: `test/o
 - **Render zdarma**: 512 MB paměti, 0,1 CPU, jedna instance, po 15 min bez návštěvy usne (první načtení ~1 min).
   Hledání, které tady stojí 1–3 s procesoru, tam trvá desítky sekund – reálně jednotky hledání naráz.
   Pro stovky lidí naráz je potřeba placený plán (aspoň 1 CPU / 2 GB), pak zvýšit `SEARCH_CONCURRENCY`, a víc instancí.
-- **Smyčka událostí**: skládání výsledků hledání už se dělí na kousky (23. 10., výš) – v kuse zbývá konečné složení
-  výsledku (~0,1 s, Render ~1 s). Všechno ale pořád počítá jedno vlákno: víc hledání naráz zrychlí jen víc procesoru
+- **Smyčka událostí**: skládání výsledků hledání i konečné složení výsledku už se dělí na kousky (23. a 24. 10., výš) –
+  v kuse zbývá kalendář a mřížka termínů u konkrétního cíle (~50–75 ms, Render ~0,5–0,75 s). Všechno ale pořád počítá
+  jedno vlákno: víc hledání naráz zrychlí jen víc procesoru
   (worker_threads nebo víc instancí – Další kroky).
 - **Víc instancí** = každá má vlastní mezipaměť, hotové výsledky, limity a sdílení hledání (Další kroky).
 - **Neoficiální rozhraní**: Ryanair, Wizz Air (a Xotelo/TripAdvisor) nemají veřejné API; jejich podmínky
@@ -294,8 +432,8 @@ až po radaru), fotky (3–5 dotazů podle rychlosti odpovědí). Testy: `test/o
    a směrování stejného dotazu na stejnou instanci (sticky podle klíče hledání), jinak se běžící hledání nesdílí.
 5. **Oblíbené dotazy předem**: radar z hlavních domovů (Praha, Brno, Ostrava, Vídeň, Katovice) je pořád tentýž –
    při stálém provozu (server nespí) vrátit hotový výsledek i chvíli po vypršení a přepočítat ho na pozadí
-   („stale-while-revalidate“, bez plánovaných dotazů a keep-alive). Případně menší odpověď pro radar (12–20 karet místo
-   150 cílů).
+   („stale-while-revalidate“, bez plánovaných dotazů a keep-alive). Odpověď radaru jen s 12–20 kartami místo 150 cílů
+   chce doporučené pořadí (rank.js) na serveru – 24. 10. zmenšena jen o pole, která radar nečte (výš).
 6. **Tisíce uživatelů → smluvní zdroje dat**: neoficiální rozhraní Ryanairu a Wizz Air z jedné adresy serveru tolik
    dotazů neunesou (blokace postihne všechny). Affiliate API (Travelpayouts/Aviasales – už zapojené, Kiwi Tequila
    partner), později GDS/NDC (Duffel, Amadeus – placené). Mezipaměť cen pak sdílená mezi instancemi (bod 4).

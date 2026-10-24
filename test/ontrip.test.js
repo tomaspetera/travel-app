@@ -700,3 +700,17 @@ test('zkratka aplikace „Na cestě“ (/#now) vedle Letů a Plánovače', () =>
   // pod ní jen krátká karta 🕘 Od minula (po návratu jiný den) a karta 📉 Zlevnilo (hlídaná cena), pak úvod s hledáním
   assert.match(src('../index.html'), /<div class="now-trip" id="nowTrip" hidden><\/div>\s*(?:<!--[^>]*-->\s*)?<div class="since-wrap" id="sinceCard" hidden><\/div>\s*(?:<!--[^>]*-->\s*)?<div class="drop-wrap" id="dropCard" hidden><\/div>\s*<div class="hero"[^>]*>/);
 });
+
+test('Přehled – karta Nejbližší cesta: „zbývá zařídit“ jen před cestou, ne během ní (pojištění na cestě nikdo nezařizuje)', () => {
+  const c = load();
+  vm.runInContext(pick('nextTripStat'), c, { filename: 'app-stat.js' });
+  const today = vm.runInContext('todayLocal()', c), plus = (n) => vm.runInContext(`ymdPlus(${JSON.stringify(today)}, ${n})`, c);
+  const stat = () => vm.runInContext('nextTripStat()[2]', c);
+  const ck = [{ t: 'Zařídit: cestovní pojištění', done: false }, { t: 'Pas', done: false }];
+  c.S.trips = [{ name: 'Lisabon', dest: 'Lisabon', iso: 'PT', start: plus(2), end: plus(6), checklist: ck }];
+  assert.equal(stat(), 'za 2 dny · zbývá zařídit 1');
+  c.S.trips[0].start = plus(-1);
+  assert.equal(stat(), 'právě probíhá');
+  c.S.trips[0].start = today;
+  assert.equal(stat(), 'právě probíhá', 'den odletu');
+});
