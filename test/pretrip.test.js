@@ -1046,6 +1046,70 @@ test('vlak/bus místo letu jindy (a zpět k letu): odškrtnutí „Co zařídit 
   assert.equal(JSON.parse(w.c.localStorage.getItem('atlas_pretrip_v1'))['nic:2'], undefined);
 });
 
+test('plánovač ↔ průvodce po změně data v průvodci (bez nového uložení): odškrtnutí se propisují dál, dvě cesty do stejného místa zůstanou zvlášť', () => {
+  const w = wizard(memStorage());
+  const P2 = w.P, o = { isos: ['AT'], climate: [] };
+  const place = (label, lat, lon) => ({ label, cc: label === 'Praha' ? 'CZ' : 'AT', lat, lon, tz: 'Europe/Prague' });
+  const g = (date) => ({ source: 'regiojet', id: 'rj1', date, dep: `${date}T06:01`, arr: `${date}T09:55`, min: 234, czk: 299, kinds: ['TRAIN'], transfers: 0 });
+  const ov = { on: true, q: null, km: 254, est: null, from: place('Praha', 50.08, 14.43), to: place('Vídeň', 48.19, 16.38), out: g('2027-07-11'), back: g('2027-07-18'), links: { out: [], back: [] } };
+  // cesta vlakem uložená v plánovači (klíč kopie k0), pak v průvodci „✈️ Radši letět“ o den dřív – zatím neuložená
+  const t = trip({ cc: 'AT', label: 'Vídeň', out: '2027-07-10', back: '2027-07-17', step: 'flight', verifiedAt: 1, overland: ov });
+  w.c.S.trip = t;
+  const k0 = P2.tripKey(t);
+  P2.setDone(k0, 'todo:ins', true);
+  const saved = { name: 'Vídeň 11.7.', dest: 'Vídeň', iso: 'AT', start: '2027-07-11', tripId: t.created, wizard: plain(t), checklist: plain(P2.plannerChecklist(t, o)) };
+  // druhá uložená cesta do Vídně (jiný vznik, stejné datum jako průvodce teď): nesmí se s první plést
+  const t2 = trip({ cc: 'AT', label: 'Vídeň', out: '2027-07-10', back: '2027-07-17', created: 1767225600999 }), k2 = P2.tripKey(t2);
+  const other = { name: 'Vídeň s Janou', dest: 'Vídeň', iso: 'AT', start: '2027-07-10', tripId: t2.created, wizard: plain(t2), checklist: plain(P2.plannerChecklist(t2, o)) };
+  w.c.S.trips = [other, saved];
+  assert.equal(P2.savedKey(saved), k0);
+  w.Trip.render();
+  w.els['#ovFly'].onclick();
+  const k1 = P2.tripKey(t);
+  assert.notEqual(k1, k0);
+  assert.equal(P2.savedKey(saved), k0, 'kopie v plánovači má pořád staré datum');
+  const ck = (p, id) => p.checklist.find((x) => x.id === id);
+  // plánovač → průvodce (app.js toggleCheck): karta průvodce s novým datem to ukáže
+  const pass = ck(saved, 'pack:doc-op');
+  pass.done = true; P2.fromPlanner(saved, pass);
+  assert.equal(P2.doneOf(k1)['pack:doc-op'], 1, 'pod klíčem průvodce');
+  assert.equal(P2.doneOf(k0)['pack:doc-op'], 1, 'i pod klíčem uložené kopie');
+  assert.match(P2.html(t, o), /data-ptk="pack:doc-op" checked/);
+  // průvodce → plánovač (zaškrtávátko karty: setDone + toPlanner)
+  const tick = (id, on) => { P2.setDone(k1, id, on); return P2.toPlanner(w.c.S.trips, k1, id, on); };
+  assert.equal(tick('pack:cl-shoes', true), 1);
+  assert.equal(ck(saved, 'pack:cl-shoes').done, true);
+  assert.equal(P2.doneOf(k0)['pack:cl-shoes'], 1);
+  // zrušené odškrtnutí: v plánovači i pod klíčem kopie – otevření uložené verze (openSaved) ho nevrátí
+  assert.equal(tick('todo:ins', false), 1);
+  assert.equal(ck(saved, 'todo:ins').done, false);
+  assert.equal(P2.doneOf(k0)['todo:ins'], undefined);
+  // druhá cesta do Vídně se nezměnila (ani její odškrtnutí)
+  assert.ok(other.checklist.every((x) => !x.done), 'jiná uložená cesta beze změny');
+  assert.deepEqual(plain(P2.doneOf(k2)), {});
+  // odškrtnutí ve druhé cestě v plánovači jde jen k ní, ne do průvodce s první cestou
+  const ins2 = ck(other, 'todo:ins');
+  ins2.done = true; P2.fromPlanner(other, ins2);
+  assert.equal(P2.doneOf(k2)['todo:ins'], 1);
+  assert.equal(P2.doneOf(k1)['todo:ins'], undefined);
+  assert.doesNotMatch(P2.html(t, o), /data-ptk="todo:ins" checked/);
+  assert.equal(ck(saved, 'todo:ins').done, false);
+  // karta průvodce nic nepřehodí (vše už sedí); po otevření uložené verze platí totéž
+  let saves = 0;
+  w.c.save = () => { saves++; };
+  P2.html(t, o);
+  assert.equal(saves, 0);
+  w.c.S.trip = { ...plain(saved.wizard), created: saved.tripId };
+  assert.equal(P2.tripKey(w.c.S.trip), k0);
+  const h0 = P2.html(w.c.S.trip, o);
+  assert.match(h0, /data-ptk="pack:doc-op" checked/);
+  assert.match(h0, /data-ptk="pack:cl-shoes" checked/);
+  assert.doesNotMatch(h0, /data-ptk="todo:ins" checked/);
+  assert.equal(ck(saved, 'todo:ins').done, false, 'zrušené odškrtnutí se nevrátilo');
+  // klíč bez vzniku cesty (0) se spojí jen přesně
+  assert.equal(P2.toPlanner([{ tripId: 0, wizard: { ...plain(t), created: 0 }, checklist: [{ t: 'x', id: 'todo:ins', done: false }] }], P2.tripKey({ ...t, created: 0, overland: { ...ov, on: true } }), 'todo:ins', true), 0);
+});
+
 test('vlastní položky: přidat, pročistit, nejvýš 30, smazat i s odškrtnutím; uložené s cestou, v kartě escapované, v tisku i v plánovači', () => {
   const c = load({ storage: memStorage() });
   let saves = 0;

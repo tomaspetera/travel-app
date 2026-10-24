@@ -42,7 +42,7 @@ function tripCandidates(keyword, { get, timeoutMs }) {
         .filter((c) => c?.tripType === 'CT' && Number.isInteger(c.keywordId) && c.keywordId > 0)
         .map((c) => {
           const p = (c.coordinateItemList || []).find((x) => x?.coordinateType === 'NORMAL');
-          return { id: c.keywordId, lat: Number(p?.latitude), lon: Number(p?.longitude) };
+          return { id: c.keywordId, name: typeof c.keyword === 'string' ? c.keyword : '', lat: Number(p?.latitude), lon: Number(p?.longitude) };
         })
         .filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lon) && !(c.lat === -1 && c.lon === -1));
     } catch {
@@ -51,16 +51,23 @@ function tripCandidates(keyword, { get, timeoutMs }) {
   });
 }
 
+// Název ke srovnání s hledaným: bez diakritiky a velikosti písmen, pomlčky jako mezery („Porto-Novo“ = „Porto Novo“).
+const sameName = (x) => String(x || '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[-‐–\s]+/g, ' ').trim().toLowerCase();
+
 /**
  * Trip.com: ID města (cityId) – z měst stejného jména to nejbližší k místu (ref = { lat, lon }), nejvýš 50 km.
+ * Přednost má město, které se jmenuje přesně jako hledané: „Province of Barcelona“ má střed skoro ve středu
+ * Barcelony (o pár metrů blíž k místu než město) a odkaz by vedl na celou provincii (ověřeno 24. 10. 2026).
+ * Když se tak nejmenuje žádné, rozhodne jen vzdálenost jako dřív.
  * Bez polohy místa se nehádá (nedá se ověřit, že jde o totéž místo). → cityId | false (nenašel) | null (nevíme)
  */
 export async function tripCityId(keyword, ref, { get = request, timeoutMs = TIMEOUT_MS } = {}) {
   if (!keyword || !Number.isFinite(ref?.lat) || !Number.isFinite(ref?.lon)) return null;
   const list = await tripCandidates(keyword, { get, timeoutMs });
   if (!list) return null;
-  const best = list.map((c) => ({ id: c.id, km: haversineKm(ref.lat, ref.lon, c.lat, c.lon) }))
-    .filter((c) => c.km <= MAX_KM).sort((a, b) => a.km - b.km)[0];
+  const near = list.map((c) => ({ id: c.id, name: c.name, km: haversineKm(ref.lat, ref.lon, c.lat, c.lon) }))
+    .filter((c) => c.km <= MAX_KM).sort((a, b) => a.km - b.km);
+  const best = near.find((c) => sameName(c.name) === sameName(keyword)) || near[0];
   return best ? best.id : false;
 }
 

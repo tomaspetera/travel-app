@@ -168,21 +168,23 @@ export function stayLinks(q, ids = {}) {
   const kayak = `${KAYAK}/hotels/${enc(kayakPlace)}/${q.checkin}/${q.checkout}/${bedsOf(q)}adults`;
   const gts = googleHotelsTs(q.checkin, q.checkout, bedsOf(q));
   // Hostelworld: s ID města vlastní hledání webu (místo doplní samo); místo bez hostelů (404 nebo „0 Hostels“, Lagos,
-  // Mikulov) stránka země – i stránka města by s daty nic nenašla.
+  // Mikulov) stránka země – i stránka města by s daty nic nenašla. Měnu bere web jinak podle IP (z USA ukázal USD),
+  // currency=CZK ji nastaví na Kč (ověřeno 24. 10. 2026 v Chromu: „From CZK 613“).
   const hwId = partnerId(ids.hostelworld);
   const hwPage = hostelworldCityPage(q);
   const hwNone = Boolean(hwPage) && ids.hostelworld === false;
   const hostelworld = hwId
-    ? { note: 'hostely a levná lůžka', prefill: 'full', url: `https://www.hostelworld.com/pwa/s?${new URLSearchParams({ type: 'city', id: String(hwId), from: q.checkin, to: q.checkout, guests: String(bedsOf(q)) })}` }
+    ? { note: 'hostely a levná lůžka', prefill: 'full', url: `https://www.hostelworld.com/pwa/s?${new URLSearchParams({ type: 'city', id: String(hwId), from: q.checkin, to: q.checkout, guests: String(bedsOf(q)), currency: 'CZK' })}` }
     : hwNone
       ? { note: 'v místě hostely nemá – zkus jinde v zemi', prefill: 'none', url: hwPage.replace(/[\w-]+\/$/, '') }
       : hwPage
         ? { note: 'hostely a levná lůžka – zadej data', prefill: 'city', url: hwPage }
         : { note: 'hostely a levná lůžka – zadej místo a data', prefill: 'none', url: 'https://www.hostelworld.com/' };
-  // Agoda: bez ID města jen úvodní stránka (na stránku města se termín ani hosté přidat nedají).
+  // Agoda: bez ID města jen úvodní stránka (na stránku města se termín ani hosté přidat nedají). Jazyk volí podle
+  // prohlížeče (cs-cz), měnu podle IP (z USA USD) – currency=CZK ceny v Kč (ověřeno 24. 10. 2026 v Chromu).
   const agodaId = partnerId(ids.agoda);
   const agoda = agodaId
-    ? { note: 'silná v Asii', prefill: 'full', url: `https://www.agoda.com/search?${new URLSearchParams({ city: String(agodaId), checkIn: q.checkin, checkOut: q.checkout, los: String(nights), rooms: String(q.rooms), adults: String(q.adults), children: String(kidsOf(q)) })}` }
+    ? { note: 'silná v Asii', prefill: 'full', url: `https://www.agoda.com/search?${new URLSearchParams({ city: String(agodaId), checkIn: q.checkin, checkOut: q.checkout, los: String(nights), rooms: String(q.rooms), adults: String(q.adults), children: String(kidsOf(q)), currency: 'CZK' })}` }
     : { note: 'silná v Asii – zadej místo a data', prefill: 'none', url: 'https://www.agoda.com/cs-cz/' };
   const links = [
     // nflt=review_score=80 → jen hodnocení 8+, order=price → od nejlevnějšího.

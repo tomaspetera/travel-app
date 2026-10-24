@@ -137,6 +137,36 @@ test('Trip.com: víc měst stejného jména → nejbližší k místu, nejvýš 
   }
 });
 
+test('Trip.com: město stejného jména má přednost před provincií se středem skoro na stejném místě (Barcelona)', async () => {
+  // skutečné polohy z našeptávače 24. 10. 2026: střed provincie je o pár metrů blíž ke středu města z hledání letů
+  // (41.3874, 2.1686) než město samo – podle vzdálenosti by odkaz vedl na celou provincii (3 655 ubytování místo 2 217)
+  const stub = stubFetch((url, init) => {
+    const k = tripKeyword(init);
+    if (k === 'Barcelona') {
+      return {
+        body: tripBody(
+          kw(40795, 'Barcelona', 'CT', 41.3850639, 2.1734035, 'Barcelonès, Catalonia, Spain'),
+          kw(40795, 'Stays in Barcelona', 'N', 41.3850639, 2.1734035, 'Barcelona, Spain'),
+          kw(531679, 'Province of Barcelona', 'CT', 41.3850477, 2.1733131, 'Catalonia, Spain'),
+        ),
+      };
+    }
+    // „Kraków“ hledaný bez diakritiky, Trip.com ho jmenuje s ní; Gotham: žádné město toho jména → nejbližší jako dřív
+    if (k === 'Krakow') return { body: tripBody(kw(501, 'Lesser Poland Province', 'CT', 50.06, 19.94, 'Poland'), kw(500, 'Kraków', 'CT', 50.0647, 19.945, 'Lesser Poland, Poland')) };
+    if (k === 'Gotham') return { body: tripBody(kw(701, 'Gotham County', 'CT', 40.71, -74.0, 'USA'), kw(702, 'Gotham Heights', 'CT', 40.9, -74.2, 'USA')) };
+    return { status: 404, body: '{}' };
+  });
+  try {
+    assert.equal(await tripCityId('Barcelona', { lat: 41.3874, lon: 2.1686 }), 40795, 'město, ne provincie');
+    const r = await stays({ city: 'Barcelona', cityEn: 'Barcelona', cc: 'ES', lat: 41.3874, lon: 2.1686 }, { trip: tripCityId });
+    assert.match(link(r, 'trip').url, /^https:\/\/www\.trip\.com\/hotels\/list\?cityId=40795&/);
+    assert.equal(await tripCityId('Krakow', { lat: 50.0614, lon: 19.9366 }), 500, 'shoda názvu bez diakritiky');
+    assert.equal(await tripCityId('Gotham', { lat: 40.72, lon: -74.0 }), 701, 'bez shody názvu nejbližší');
+  } finally {
+    stub.restore();
+  }
+});
+
 test('Trip.com: nic nenalezeno, chyba, timeout nebo nečekaná odpověď → odkaz jako dosud; prázdný výsledek v mezipaměti 30 dní, chyba jen hodinu', async () => {
   const ref = { lat: 50, lon: 15 };
   const stub = stubFetch((url, init) => {
@@ -189,7 +219,7 @@ test('Agoda: ID města ze stránky města → hledání s termínem a hosty; str
     assert.equal(stub.calls.length, 1);
     assert.deepEqual([stub.calls[0].init.method, stub.calls[0].init.redirect], ['GET', 'follow']);
     const a = link(r, 'agoda');
-    assert.equal(a.url, `https://www.agoda.com/search?city=20636&checkIn=${ymdPlus(30)}&checkOut=${ymdPlus(33)}&los=3&rooms=1&adults=2&children=0`);
+    assert.equal(a.url, `https://www.agoda.com/search?city=20636&checkIn=${ymdPlus(30)}&checkOut=${ymdPlus(33)}&los=3&rooms=1&adults=2&children=0&currency=CZK`);
     assert.deepEqual([a.prefill, a.note], ['full', 'silná v Asii']);
     assert.ok(ttlLeft('agoda-city:cotonou-bj') > 29 * DAY);
 
@@ -231,7 +261,7 @@ test('Hostelworld: jedno GET na stránku města – s ID hledání s termínem a
     assert.equal(stub.calls.length, 1);
     assert.equal(stub.calls[0].url, 'https://www.hostelworld.com/hostels/africa/benin/cotonou/');
     assert.equal(stub.calls[0].init.method, 'GET', 'jedno GET místo dřívějšího HEAD');
-    assert.equal(hw(co).url, `https://www.hostelworld.com/pwa/s?type=city&id=5504&from=${ymdPlus(30)}&to=${ymdPlus(33)}&guests=2`);
+    assert.equal(hw(co).url, `https://www.hostelworld.com/pwa/s?type=city&id=5504&from=${ymdPlus(30)}&to=${ymdPlus(33)}&guests=2&currency=CZK`);
     assert.deepEqual([hw(co).prefill, hw(co).note], ['full', 'hostely a levná lůžka']);
 
     // stránka bez odkazu s ID (a bez počtu hostelů) → stránka města, data zadáš na webu

@@ -956,20 +956,54 @@
     { label: 'Český Krumlov', lat: 48.8127, lon: 14.3175, cc: 'CZ', country: 'Česko' }, { label: 'Kjóto', lat: 35.0116, lon: 135.7681, cc: 'JP', country: 'Japonsko' },
   ];
   /**
-   * Místa rozpracované cesty z průvodce Cesta (let ještě neproběhl) – v Inspiraci první se štítkem „🧳 Tvoje cesta“:
-   * cíl, nebo všechna místa trasy (od kdy tam jsi). Cesta kamaráda z odkazu (#trip=), kterou si příjemce neuložil,
-   * „🔗 Sdílená cesta“ (shared) – jeho cesta to ještě není.
+   * Místa rozpracované cesty z průvodce Cesta (let ještě neproběhl) – v Inspiraci mezi cestami uživatele (ownPlaces)
+   * se štítkem „🧳 Tvoje cesta“: cíl, nebo všechna místa trasy (od kdy tam jsi). Cesta kamaráda z odkazu (#trip=), kterou
+   * si příjemce neuložil, „🔗 Sdílená cesta“ (shared) – jeho cesta to ještě není.
    */
   function tripPlaces(t = typeof S !== 'undefined' && S.trip) {
     const out = t && t.flight && t.flight.out;
     if (!out || !(out.date >= fmtYMD(new Date()))) return [];
+    return wizPlaces(t, out.date).map(p => ({ ...p, ...(t.shared ? { shared: true } : {}) }));
+  }
+  /** Místa cesty z průvodce t (i její kopie v plánovači): cíl od dne start, nebo místa trasy – bez opakování, nejvýš 4. */
+  function wizPlaces(t, start) {
     let dates = [];
     try { dates = window.Trip && Trip.baseDates ? Trip.baseDates(t) : []; } catch (e) { dates = []; }
     const bases = t.route && t.route.mode === 'multi' && Array.isArray(t.route.bases) && t.route.bases.length ? t.route.bases : null;
     const list = bases ? bases.map((b, i) => ({ label: b.name, lat: b.lat, lon: b.lon, cc: b.cc, country: b.country, from: dates[i] && dates[i].checkin }))
-      : t.dest ? [{ label: String(t.dest.label || '').replace(/ \(.*\)$/, ''), lat: t.dest.lat, lon: t.dest.lon, cc: t.dest.cc, country: t.dest.country, from: out.date }] : [];
+      : t.dest ? [{ label: String(t.dest.label || '').replace(/ \(.*\)$/, ''), lat: t.dest.lat, lon: t.dest.lon, cc: t.dest.cc, country: t.dest.country, from: start }] : [];
     const seen = new Set();
-    return list.filter(p => p.label && p.lat != null && p.lon != null && cleanPlace(p) && !seen.has(p.label) && seen.add(p.label)).slice(0, 4).map(p => ({ ...p, trip: true, ...(t.shared ? { shared: true } : {}) }));
+    return list.filter(p => p.label && p.lat != null && p.lon != null && cleanPlace(p) && !seen.has(p.label) && seen.add(p.label)).slice(0, 4).map(p => ({ ...p, trip: true }));
+  }
+  /**
+   * Místa cesty z plánovače: uložená z průvodce z jeho kopie (wizard), cesta jen z plánovače má jen název cíle – poloha
+   * z Inspirace, jinak ji po klepnutí najde smartPlace (jako 🔁); cíl = země („Itálie“) otevře celou zemi (whole).
+   */
+  function savedPlaces(t) {
+    if (t.wizard && typeof t.wizard === 'object') {
+      try { const l = wizPlaces(t.wizard, t.start); if (l.length) return l; } catch (e) { /* poškozená kopie: aspoň podle názvu */ }
+    }
+    // „Řím, Barcelona“ (víc letů z hledání) i „Řím → Barcelona“: první místo, jako fotka karty v plánovači
+    const label = String((t.place && t.place.label) || t.dest || '').split(/,|→/)[0].replace(/\s*\(.*\)$/, '').trim().slice(0, 120);
+    if (!label || label === '—') return [];
+    const cc = /^[A-Z]{2}$/.test(t.iso || '') && countryCs(t.iso) ? t.iso : '';
+    if (cc && foldName(label) === foldName(countryCs(cc))) return [{ label, cc, country: countryCs(cc), whole: cc, from: t.start, trip: true }];
+    return [{ ...(INSP.find(p => p.label === label) || { label, cc, country: countryCs(cc) }), from: t.start, trip: true }];
+  }
+  /**
+   * 🧳 Místa cest uživatele v Inspiraci, nejbližší cesta první: rozpracovaná v průvodci (tripPlaces) a nadcházející
+   * z plánovače (S.trips – s datem, proběhlé ne). Tatáž cesta uložená z průvodce (tripId = created) jen jednou, z průvodce
+   * (může být novější než uložená kopie). Bez opakování, nejvýš 6 – za nimi 🔁 hledání a oblíbená města.
+   */
+  function ownPlaces(w = typeof S !== 'undefined' && S.trip, trips = typeof S !== 'undefined' && S.trips, today = fmtYMD(new Date())) {
+    const wp = tripPlaces(w), groups = wp.length ? [{ start: w.flight.out.date, list: wp }] : [];
+    for (const t of Array.isArray(trips) ? trips : []) {
+      if (!t || typeof t !== 'object' || !/^\d{4}-\d{2}-\d{2}$/.test(t.start || '') || (t.end || t.start) < today) continue;
+      if (wp.length && t.tripId && t.tripId === w.created) continue;
+      groups.push({ start: t.start, list: savedPlaces(t) });
+    }
+    const seen = new Set();
+    return groups.sort((a, b) => a.start.localeCompare(b.start)).flatMap(g => g.list).filter(p => !seen.has(p.label) && seen.add(p.label)).slice(0, 6);
   }
   const ccOfFlag = f => { const c = [...String(f || '')].map(x => x.codePointAt(0) - 0x1F1E6); return c.length === 2 && c.every(x => x >= 0 && x < 26) ? String.fromCharCode(65 + c[0], 65 + c[1]) : ''; };
   /**
@@ -992,7 +1026,7 @@
     return out;
   }
   const inspList = () => {
-    const tp = tripPlaces(), sp = searchedPlaces(tp.map(p => p.label)), own = new Set([...tp, ...sp].map(p => p.label));
+    const tp = ownPlaces(), sp = searchedPlaces(tp.map(p => p.label)), own = new Set([...tp, ...sp].map(p => p.label));
     return [...tp, ...sp, ...INSP.filter(p => !own.has(p.label))];
   };
   const inspSub = p => (p.trip ? `${p.shared ? '🔗 Sdílená cesta' : '🧳 Tvoje cesta'}${p.from ? ` · od ${fmtDate(p.from)}` : ''}` : p.searched ? '🔁 hledal jsi sem lety' : esc(p.country || ''));
@@ -1088,8 +1122,9 @@
     $$('[data-insp]', root).forEach(b => b.onclick = async () => {
       const it = insp[+b.dataset.insp], p = cleanPlace(it);
       if (p) return openPlace(p);
-      if (!it || !it.searched || b.disabled) return;
-      // 🔁 město z hledání letů bez souřadnic: najít (jako ✨ věta)
+      if (it && it.whole) return openWholeCountry(it.whole); // cesta z plánovače do celé země
+      if (!it || !(it.searched || it.trip) || b.disabled) return;
+      // 🔁 město z hledání letů (i cíl cesty jen z plánovače) bez souřadnic: najít (jako ✨ věta)
       b.disabled = true;
       let down = false;
       const s = await smartPlace(it.label).catch(e => { down = Boolean(e && e.down); return null; });
@@ -2673,7 +2708,7 @@
   window.Places = {
     renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir, openAt, preview, previewHtml, openCountryView, makeHikePlan,
     // jen pro testy (test/places-ui.test.js)
-    _t: { tripPlaces, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
+    _t: { tripPlaces, ownPlaces, savedPlaces, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,

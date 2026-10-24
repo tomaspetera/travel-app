@@ -710,18 +710,37 @@
   function savedKey(p) {
     return p && p.wizard && typeof p.wizard === 'object' && Number.isFinite(p.tripId) ? tripKey({ ...p.wizard, created: p.tripId }) : '';
   }
-  const savedOf = (trips, key) => (key && Array.isArray(trips) ? trips.filter(p => p && Array.isArray(p.checklist) && savedKey(p) === key) : []);
+  /*
+   * Tatáž cesta i s jiným datem cesty tam: v průvodci jde termín změnit bez nového uložení (vlak/bus místo letu jindy) –
+   * klíč karty se pak liší od klíče uložené kopie v plánovači a odškrtnutí by se přestala propisovat. Cestu proto pozná
+   * vznik (created = tripId, každá uložená cesta má svůj) a cíl; datum ne. Klíč bez vzniku (0) jen přesně.
+   */
+  const idOf = k => { const m = /^([1-9]\d*):[\d-]*:(.+)$/.exec(k || ''); return m ? `${m[1]}:${m[2]}` : ''; };
+  const sameTrip = (a, b) => Boolean(a && b) && (a === b || (idOf(a) !== '' && idOf(a) === idOf(b)));
+  const savedOf = (trips, key) => (key && Array.isArray(trips) ? trips.filter(p => p && Array.isArray(p.checklist) && sameTrip(savedKey(p), key)) : []);
   // cesty plánovače (S z app.js; html() má vlastní proměnnou S se zdroji, proto přes tuhle funkci)
   const plannerTrips = () => (typeof S !== 'undefined' && S && Array.isArray(S.trips) ? S.trips : null);
-  /** Položka x „Sbaleno“ cesty p odškrtnutá (nebo odškrtnutí zrušené) v plánovači → stejně i v kartě průvodce. */
+  // klíč cesty, kterou má teď průvodce (může mít jiné datum než její uložená kopie)
+  const wizardKey = () => (typeof S !== 'undefined' && S && S.trip && typeof S.trip === 'object' ? tripKey(S.trip) : '');
+  /**
+   * Položka x „Sbaleno“ cesty p odškrtnutá (nebo odškrtnutí zrušené) v plánovači → stejně i v kartě průvodce: pod klíčem
+   * uložené kopie a, má-li průvodce tutéž cestu s jiným datem, i pod jejím – ať sedí, ať se otevře kterákoli z nich.
+   */
   function fromPlanner(p, x) {
     const key = savedKey(p);
-    if (key && x && CK_ID.test(x.id || '')) setDone(key, x.id, Boolean(x.done));
+    if (!key || !x || !CK_ID.test(x.id || '')) return;
+    const live = wizardKey();
+    for (const k of new Set([key, sameTrip(live, key) ? live : key])) setDone(k, x.id, Boolean(x.done));
   }
-  /** Odškrtnutí id v kartě průvodce (cesta s klíčem key) → položka „Sbaleno“ uložené cesty. → počet změněných položek */
+  /**
+   * Odškrtnutí id v kartě průvodce (cesta s klíčem key) → položka „Sbaleno“ uložené cesty a odškrtnutí pod klíčem její
+   * kopie, když má jiné datum (jinak by ho karta po otevření uložené verze vrátila). → počet změněných položek
+   */
   function toPlanner(trips, key, id, on) {
     let n = 0;
     for (const p of savedOf(trips, key)) {
+      const k = savedKey(p);
+      if (k !== key && CK_ID.test(id || '')) setDone(k, id, Boolean(on));
       const x = p.checklist.find(c => c && c.id === id);
       if (x && Boolean(x.done) !== Boolean(on)) { x.done = Boolean(on); n++; }
     }
@@ -751,7 +770,8 @@
         else if (!c.done && done[c.id]) { c.done = true; n++; }
       }
     }
-    if (Object.keys(add).length) writeDone(key, add);
+    // i pod klíčem uložené kopie s jiným datem (tatáž cesta, viz sameTrip)
+    if (Object.keys(add).length) for (const k of new Set([key, ...savedOf(trips, key).map(savedKey)])) writeDone(k, add);
     return n;
   }
 
