@@ -211,6 +211,23 @@ test('kiwi: initialize trvale 503 → nejvýš 3 pokusy na dotaz (opakování se
   }
 });
 
+test('kiwi: initialize trvale neodpovídá (timeout) → chyba se počítá a pojistka napříč hledáními se spustí', async () => {
+  const stub = scripted((n, body) => {
+    if (body.method === 'initialize') throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    return null;
+  });
+  try {
+    const ctx = kiwiContext();
+    await assert.rejects(kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: ymdPlus(160), dateTo: ymdPlus(160), ctx }), /timeout/);
+    assert.equal(ctx.failed, 1, 'timeout initialize (plný strop 20 s) není zkrácený termínem hledání');
+    await assert.rejects(kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: ymdPlus(161), dateTo: ymdPlus(161), ctx: kiwiContext() }));
+    await assert.rejects(kiwi.daily({ from: 'VIE', to: 'LIS', dateFrom: ymdPlus(162), dateTo: ymdPlus(162), ctx: kiwiContext() }));
+    assert.equal(kiwiBlocked(), true, 'výpadek napříč hledáními → pojistka');
+  } finally {
+    stub.restore();
+  }
+});
+
 test('kiwi: úplný výpadek – po 3 neúspěšných pokusech za sebou v jednom hledání se už neopakuje (souběžné dotazy)', async () => {
   const stub = scripted((n, body) => (body.method === 'tools/call' ? { status: 503, body: 'down' } : null));
   try {
