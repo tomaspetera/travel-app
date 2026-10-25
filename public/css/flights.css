@@ -1498,6 +1498,10 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .jed-go2{height:50px;border:0;border-radius:16px;background:linear-gradient(135deg,#2563eb 0%,#7c3aed 100%);color:#fff;font:inherit;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
 .jed-go2:disabled{opacity:.6;cursor:default}
 .jed-hint{margin-top:-2px;font-size:12.5px;line-height:1.4;color:var(--muted);text-align:center}
+.jed-msg{min-height:46px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text);font:inherit;font-weight:700;font-size:14.5px;
+  display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 12px;cursor:pointer;text-align:center}
+.jed-msg svg{flex:none;color:var(--accent-ink)}
+.jed-msg:active{transform:scale(.98)}
 .jed-lock{display:flex;gap:8px;align-items:center;margin-top:14px;font-size:12.5px;color:var(--muted)}
 .jed-lock svg{flex:none}
 [data-theme="dark"] .jed-ic{color:#8fb0ff}

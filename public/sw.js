@@ -10,7 +10,7 @@
      u stránky (server/lib/pwa.js serveIndex) – stejně jako u běžné navigace bez service workeru.
    - /api/*, jiné metody než GET a cizí weby (dlaždice map, písma, partneři): do těch se service worker neplete –
      jdou rovnou na server, nic se neukládá; offline selžou a aplikace ukáže svou hlášku. Stejně krátký odkaz na cestu
-     /c/<id>: je to stránka serveru s náhledem a přesměrováním do aplikace, ne stránka aplikace – uložená místo ní by
+     /c/<id> (a pozvánka /j/<data>): je to stránka serveru s náhledem a přesměrováním do aplikace, ne stránka aplikace – uložená místo ní by
      offline (i při pomalé síti) otevřela jen „Otevírám cestu…“ a přesměrovávala by pořád dokola.
    - Verzi (BUILD = otisk obsahu souborů aplikace) a seznam souborů k uložení při instalaci dosadí server
      (server/lib/pwa.js). Nová verze na serveru = jiný sw.js → prohlížeč nainstaluje nový service worker, ten si uloží
@@ -50,7 +50,7 @@ function route(req, scope) {
   }
   if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) return null;
   const rel = url.pathname.slice(base.pathname.length);
-  if (/^(?:api(?:\/|$)|c\/|healthz$|sw\.js$)/.test(rel)) return null;
+  if (/^(?:api(?:\/|$)|[cj]\/|healthz$|sw\.js$)/.test(rel)) return null;
   if (req.headers && typeof req.headers.get === 'function' && req.headers.get('range')) return null;
   return req.mode === 'navigate' ? 'page' : 'asset';
 }
