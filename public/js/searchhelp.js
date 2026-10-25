@@ -2136,6 +2136,30 @@
     return [yes.length ? `${names(yes)}: ${who} už v odkazu` : '', no.length ? `${names(no)}: ${who} přidej na webu (odkaz jen s dospělými)` : ''].filter(Boolean).join(' · ');
   }
 
+  /**
+   * Obojí v jedné rezervaci: odkaz na zpáteční let u Ryanairu a Wizz Air z odkazu na let tam – stejná aerolinka, zpět
+   * stejnou trasou. Formát jako bookingUrl v server/providers s datem zpět (test hlídá shodu). Pod dvěma odkazy jako
+   * volba, když je let zpět v jiné měně (z Prahy tam Kč, zpět eura): v jedné rezervaci ho aerolinka přepočte svým
+   * kurzem (search.js roundTripUrl). → url | null
+   */
+  function roundBookUrl(t) {
+    const o = t && t.out, b = t && t.back;
+    if (!o || !b || o.provider !== b.provider || b.from !== o.to || b.to !== o.from || !o.bookUrl || !/^\d{4}-\d{2}-\d{2}$/.test(b.date || '') || !(b.date >= o.date)) return null;
+    if (o.provider === 'wizzair') {
+      const u = String(o.bookUrl).replace(/(\/select-flight\/[A-Z]{3}\/[A-Z]{3}\/\d{4}-\d{2}-\d{2}\/)null\//, `$1${b.date}/`);
+      return u !== o.bookUrl ? u : null;
+    }
+    if (o.provider === 'ryanair') {
+      try {
+        const u = new URL(o.bookUrl);
+        if (u.searchParams.get('isReturn') !== 'false') return null;
+        [['dateIn', b.date], ['isReturn', 'true'], ['tpEndDate', b.date]].forEach(([k, v]) => u.searchParams.set(k, v));
+        return u.toString();
+      } catch (e) { return null; }
+    }
+    return null;
+  }
+
   window.SearchHelp = {
     HOME_CITIES, myPlace, homeOf,
     onlyOriginSet, recentWhen,
@@ -2154,6 +2178,6 @@
     DEST_MAX, RADAR_N, RADAR_KEEP, destKeyOf, destKeys, destPref, destPrefSet, destTop, radarShown, prefGroups,
     destCenter, geoNames, geoCenter, stayPlan, smartDirect,
     wazeUrl, WAZE_HOME, PID_APP, pidLeg, resumeKind,
-    PAX_MAX, paxOf, paxTxt, paxShort, paxTotalLbl, paxTotalOn, paxNote, kidsBuyNote, radarPax,
+    PAX_MAX, paxOf, paxTxt, paxShort, paxTotalLbl, paxTotalOn, paxNote, kidsBuyNote, radarPax, roundBookUrl,
   };
 })();
