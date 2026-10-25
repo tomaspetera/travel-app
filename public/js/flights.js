@@ -2295,11 +2295,22 @@
   function buyNote(t) {
     const eur = lastResult && lastResult.fx && lastResult.fx.eurCzk, tp = l => l && l.provider === 'travelpayouts';
     const inEur = czk => (eur > 0 && czk > 0 ? ` – ~${esc(curFmt(czk / eur, 'EUR'))}/os.` : '');
-    if (t.bookUrl) return tp(t.out) ? `<div class="buy-cur faint">💱 Aviasales ukáže cenu v eurech${inEur(t.flightCzk)} (v korunách web neumí)</div>` : '';
-    const legs = [['tam', t.out], ['zpět', t.back]].filter(([, l]) => l && l.bookUrl && (tp(l) || (/^[A-Z]{3}$/.test(l.siteCur || '') && l.siteCur !== 'CZK')));
+    const foreign = l => Boolean(l && /^[A-Z]{3}$/.test(l.siteCur || '') && l.siteCur !== 'CZK');
+    if (t.bookUrl) {
+      if (tp(t.out)) return `<div class="buy-cur faint">💱 Aviasales ukáže cenu v eurech${inEur(t.flightCzk)} (v korunách web neumí)</div>`;
+      // zpáteční v jedné rezervaci (search.js roundTripUrl): oba lety v téže cizí měně – z Vídně tam i zpět eura
+      const o = t.out, b = t.back, cur = o && o.siteCur;
+      if (!b || b.provider !== o.provider || !foreign(o) || b.siteCur !== cur) return '';
+      const sum = o.sitePrice > 0 && b.sitePrice > 0 ? ` – ~${esc(curFmt(o.sitePrice + b.sitePrice, cur))}/os. tam i zpět` : '';
+      return `<div class="buy-cur faint">💱 ${esc(shopName(o.provider))} ukáže cenu v ${esc(cur)}${sum} (aerolinka účtuje v měně země odletu)</div>`;
+    }
+    const legs = [['tam', t.out], ['zpět', t.back]].filter(([, l]) => l && l.bookUrl && (tp(l) || foreign(l)));
     if (!legs.length) return '';
+    // dvě rezervace, aby cena seděla; jedna (zpět v měně letu tam) jako volba – aerolinka let zpět přepočte svým kurzem
+    const one = SearchHelp.roundBookUrl(t), cur1 = t.out.siteCur === 'CZK' ? 'Kč' : t.out.siteCur;
+    const oneTxt = one && cur1 ? `<br>Obojí v jedné rezervaci: <a href="${esc(safeUrl(one))}" target="_blank" rel="noopener">${esc(shopName(t.out.provider))} ↗</a> – celé v ${esc(cur1)}, let zpět ale aerolinka přepočte svým kurzem (bývá o pár % dráž)` : '';
     return `<div class="buy-cur faint">💱 ${legs.map(([d, l]) => `${t.back ? `Let ${d}: ` : ''}${tp(l) ? `Aviasales ukáže cenu v eurech${inEur(l.czk)} (v korunách web neumí)`
-      : `${esc(shopName(l.provider))} ukáže cenu v ${esc(l.siteCur)}${l.sitePrice > 0 ? ` – ~${esc(curFmt(l.sitePrice, l.siteCur))}/os.` : ''} (aerolinka účtuje v měně země odletu)`}`).join(' · ')}</div>`;
+      : `${esc(shopName(l.provider))} ukáže cenu v ${esc(l.siteCur)}${l.sitePrice > 0 ? ` – ~${esc(curFmt(l.sitePrice, l.siteCur))}/os.` : ''} (aerolinka účtuje v měně země odletu)`}`).join(' · ')}${oneTxt}</div>`;
   }
 
   // S dětmi pod tlačítky Koupit: u kterého prodejce jsou děti a miminka v odkazu (Ryanair, Wizz Air) a kde je přidat na

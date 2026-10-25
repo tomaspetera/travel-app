@@ -19,6 +19,8 @@ import { breathe } from './crowd.js';
 
 export { referencePrice, refOf };
 import { attachGround } from './ground.js';
+import { bookingUrl as ryanairUrl } from '../providers/ryanair.js';
+import { bookingUrl as wizzairUrl } from '../providers/wizzair.js';
 
 export class UserError extends Error {
   constructor(msg) {
@@ -103,6 +105,21 @@ export function paxQuery(raw = {}) {
 // Cestující do dotazu na zdroj letů: každý zdroj si z nich vezme, co umí (Wizz Air sedadla, odkazy Ryanairu a Wizz Air
 // i děti a miminka, ostatní jen dospělé).
 const pax = (q) => ({ adults: q.adults, children: q.children, infants: q.infants });
+
+/**
+ * Zpáteční cesta složená ze dvou letů jedné aerolinky (Ryanair, Wizz Air) tam a zpět stejnou trasou → odkaz na obojí
+ * v jedné rezervaci, když jsou oba lety v téže měně (siteCur – z Vídně tam i zpět v eurech): cena je pak stejná jako
+ * za dvě samostatné letenky, jen se platí jednou. Z Prahy (tam Kč, zpět eura) ne – v jedné rezervaci aerolinka let
+ * zpět přepočte na koruny svým kurzem (Wizz Air ~5 % dráž: 22,99 € = 589 Kč místo 559 Kč), cena v ATLASu by neseděla;
+ * tam zůstanou dva odkazy a jedna rezervace jen jako volba pod nimi (SearchHelp.roundBookUrl). → url | null
+ */
+const ROUND_URL = { ryanair: ryanairUrl, wizzair: wizzairUrl };
+export function roundTripUrl(t, p) {
+  const o = t && t.out, b = t && t.back, url = b && o.provider === b.provider && ROUND_URL[o.provider];
+  if (!url || !o.bookUrl || !b.bookUrl || b.from !== o.to || b.to !== o.from || !(b.date >= o.date)) return null;
+  if ((o.siteCur || '') !== (b.siteCur || '')) return null;
+  return url({ from: o.from, to: o.to, dateOut: o.date, dateIn: b.date, ...p });
+}
 
 // Pole společná pro všechna hledání (i cestu přes víc měst).
 const sharedQuery = (raw) => ({
@@ -1940,6 +1957,7 @@ async function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf =
       continue;
     }
     seen.add(t.id);
+    if (!t.bookUrl && t.back) t.bookUrl = roundTripUrl(t, pax(q));
     const gOut = groundOf(t.out.from);
     const gBack = t.back ? groundOf(t.back.to) : 0;
     // autem: parkování u letiště na celou cestu (podle počtu nocí) – v ceně dopravy, zvlášť i parkCzk
