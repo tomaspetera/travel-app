@@ -151,22 +151,55 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 // by pak byl obecný z úvodní stránky místo cíle a termínu cesty.
 export const PREVIEW_BOT = /facebookexternalhit|facebookcatalog|meta-externalagent|WhatsApp|Twitterbot|TelegramBot|Slackbot|Discordbot|LinkedInBot|Pinterest|SkypeUriPreview|Viber|Applebot|Googlebot|bingbot/i;
 export function sharePage(id, rec, base, fallbackImg, { bot = false } = {}) {
-  const m = rec.m || {}, url = `${base}/c/${id}`, to = `/#s=${id}`, img = m.img || fallbackImg;
-  const title = m.title || 'Cesta z ATLASu';
+  const m = rec.m || {};
+  return previewPage({ url: `${base}/c/${id}`, to: `/#s=${id}`, title: m.title || 'Cesta z ATLASu', desc: m.desc, img: m.img, wait: 'Otevírám cestu v ATLASu…' }, fallbackImg, { bot });
+}
+
+/* ---------- Pozvánka „Jede někdo se mnou?“ /j/<data>: náhled odkazu bez úložiště ---------- */
+// Odkaz z karty na sítě (public/js/sharecard.js) nese cíl, termín a odkud přímo v adrese – dřív jen za #jed=, kam
+// WhatsApp, Messenger ani Facebook nevidí (náhled byl obecný ATLAS). Pod /j/ je server přečte: náhled s otázkou,
+// cílem, měsícem a fotkou cíle a hned přesměrování do aplikace na /#jed=<data>. Nic se neukládá, Upstash netřeba.
+// Formát jako za # (sharelink.js pack): „z“ + deflate-raw v base64url, nebo starší base64url JSON.
+export const INVITE_RE = /^[A-Za-z0-9_-]{8,2000}$/;
+const MONTHS_IN = ['v lednu', 'v únoru', 'v březnu', 'v dubnu', 'v květnu', 'v červnu', 'v červenci', 'v srpnu', 'v září', 'v říjnu', 'v listopadu', 'v prosinci'];
+/** Data pozvánky z adresy → { title, desc, place } | null (poškozená nebo cizí data). Přesné datum ne – jako na kartě. */
+export function inviteMeta(data) {
+  if (!INVITE_RE.test(String(data || ''))) return null;
+  try {
+    const z = data[0] === 'z', buf = Buffer.from(z ? data.slice(1) : data, 'base64url');
+    // karta má pár desítek bajtů – víc rozbalovat nemá smysl (kompresní bomba)
+    const o = JSON.parse((z ? zlib.inflateRawSync(buf, { maxOutputLength: 4096 }) : buf).toString('utf8'));
+    const dest = txt(o && o.d, 60), out = ymd(o && o.o), from = txt(o && o.f, 40);
+    if (!dest || !out || (o.v != null && o.v !== 1)) return null;
+    return {
+      title: `Jede někdo se mnou? ${dest} ${MONTHS_IN[+out.slice(5, 7) - 1]} ✈️`,
+      desc: `${from ? `Odlet: ${from}. ` : ''}Klepni na termín a najdi si lety ze svého letiště – v ATLASu, zdarma a bez registrace.`,
+      place: dest,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+/** Stránka /j/<data>: náhled pozvánky a přesměrování do aplikace (jako /c/). */
+export function invitePage(data, m, base, fallbackImg, { bot = false } = {}) {
+  return previewPage({ url: `${base}/j/${data}`, to: `/#jed=${data}`, title: m.title, desc: m.desc, img: m.img, wait: 'Otevírám pozvánku v ATLASu…' }, fallbackImg, { bot });
+}
+
+function previewPage({ url, to, title, desc = '', img = null, wait }, fallbackImg, { bot = false } = {}) {
   const meta = (k, v, a = 'property') => `<meta ${a}="${k}" content="${esc(v)}">`;
   return `<!doctype html>
 <html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} · ATLAS</title>
-${meta('description', m.desc || '', 'name')}
+${meta('description', desc || '', 'name')}
 ${meta('robots', 'noindex', 'name')}
 ${meta('og:type', 'website')}
 ${meta('og:site_name', 'ATLAS')}
 ${meta('og:locale', 'cs_CZ')}
 ${meta('og:url', url)}
 ${meta('og:title', title)}
-${meta('og:description', m.desc || '')}
-${meta('og:image', img)}
-${m.img ? '' : `${meta('og:image:width', '1200')}\n${meta('og:image:height', '630')}\n`}${meta('twitter:card', 'summary_large_image', 'name')}
+${meta('og:description', desc || '')}
+${meta('og:image', img || fallbackImg)}
+${img ? '' : `${meta('og:image:width', '1200')}\n${meta('og:image:height', '630')}\n`}${meta('twitter:card', 'summary_large_image', 'name')}
 ${bot ? '' : `<meta http-equiv="refresh" content="0;url=${esc(to)}">\n`}<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:system-ui,sans-serif;background:#eef2fb;color:#0f1830}a{color:#1d4ed8;font-weight:700}</style>
-</head><body><p>Otevírám cestu v ATLASu… <a href="${esc(to)}">Otevřít</a></p></body></html>`;
+</head><body><p>${esc(wait)} <a href="${esc(to)}">Otevřít</a></p></body></html>`;
 }

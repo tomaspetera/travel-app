@@ -42,7 +42,7 @@ import { BRAND } from './brand.js';
 import { mapyOn, mapyReady, mapyStatus, parseTile, mapyTile, tileCached } from './lib/mapy.js';
 import { cleanReport, recordClientError, clientErrorCount, MAX_BODY as CLIENT_ERR_MAX } from './lib/clienterr.js';
 import { RateLimiter } from './lib/ratelimit.js';
-import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, ogPhoto, PREVIEW_BOT, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
+import { upstashStore, memoryStore, cachedStore, createShare, loadShare, sharePage, inviteMeta, invitePage, ogPhoto, PREVIEW_BOT, MAX_JSON as SHARE_MAX, ID_RE as SHARE_ID } from './lib/shortlinks.js';
 import { sharedRuns, gate, perClient, recentResults, breathe } from './lib/crowd.js';
 import { SECURITY_HEADERS, API_CSP, clientIp, crossSite } from './lib/security.js';
 
@@ -194,6 +194,8 @@ const shareStore = config.upstashUrl && config.upstashToken ? cachedStore(upstas
 // by jinak strop zdarma vyčerpalo všem a odkazy by do konce měsíce nešly otevřít.
 const shareGets = new RateLimiter();
 const shareGetLimited = (req, id) => !shareStore.has('s:' + id) && rateLimited(req, 60, shareGets);
+// fotka cíle do náhledu odkazu: z mezipaměti fotek, nová nejvýš 3 s (odkaz bez fotky má obecný náhled ATLASu)
+const previewPhoto = async (place) => ogPhoto(String(((await Promise.race([cityPhotos([place]), new Promise((r) => setTimeout(() => r(null), 3000))])) || {}).photos?.[place] || ''));
 const geoHits = new RateLimiter(); // geokódování mimo mezipaměť serveru (Open-Meteo) – našeptávač a hledání míst
 // clientIp (server/lib/security.js): na Renderu adresa od Cloudflare, ne podvrhnutelná první z X-Forwarded-For
 /** Nad limitem → true a req.retryAfter = za kolik sekund to půjde znovu (hlavička Retry-After u 429). */
@@ -596,10 +598,8 @@ async function route(req, res) {
     } catch (e) {
       return badBody(req, res, e);
     }
-    // fotka cíle do náhledu: z mezipaměti fotek, nová nejvýš 3 s (odkaz bez fotky má obecný náhled ATLASu)
-    const photo = async (place) => ogPhoto(String(((await Promise.race([cityPhotos([place]), new Promise((r) => setTimeout(() => r(null), 3000))])) || {}).photos?.[place] || ''));
     try {
-      const id = await createShare(shareStore, b && b.k, b && b.j, { photo });
+      const id = await createShare(shareStore, b && b.k, b && b.j, { photo: previewPhoto });
       return sendJson(req, res, 200, { id }, { 'Cache-Control': 'no-store' });
     } catch (e) {
       if (e.status === 400) return sendJson(req, res, 400, { error: e.message });
@@ -1080,6 +1080,18 @@ async function route(req, res) {
     // robot náhledu dostane stránku bez přesměrování (PREVIEW_BOT) – obsah podle User-Agent, proto jen soukromá mezipaměť
     const bot = PREVIEW_BOT.test(req.headers['user-agent'] || '');
     if (r || down) return sendGenerated(req, res, 200, sharePage(id, r || { m: {} }, config.publicUrl, `${config.publicUrl}/${BRAND.image.path}`, { bot }), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': r ? 'private, max-age=3600' : 'no-store', Vary: 'User-Agent' });
+  }
+
+  // Pozvánka „Jede někdo se mnou?“ (data v adrese, nic se neukládá): náhled odkazu s otázkou, cílem, měsícem a fotkou
+  // cíle a přesměrování do aplikace na /#jed=<data>. Fotku hledá jen robot náhledu (člověka stránka hned přesměruje),
+  // novou nad limitem adresy ne – vymyšlené cíle v odkazech by jinak vyčerpaly limity fotobank.
+  if (p.startsWith('/j/')) {
+    const data = p.slice(3), m = inviteMeta(data);
+    if (m) {
+      const bot = PREVIEW_BOT.test(req.headers['user-agent'] || '');
+      if (bot && (photosCached([m.place]) || !rateLimited(req, 60, shareGets))) m.img = await previewPhoto(m.place).catch(() => null);
+      return sendGenerated(req, res, 200, invitePage(data, m, config.publicUrl, `${config.publicUrl}/${BRAND.image.path}`, { bot }), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, max-age=3600', Vary: 'User-Agent' });
+    }
   }
 
   // Statické soubory
