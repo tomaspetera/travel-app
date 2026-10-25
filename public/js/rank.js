@@ -338,7 +338,9 @@
         sum: `po započtení cesty, časů a pobytu vyjde tahle na ~${kc(x.sc.czk)}, ${ta} na ~${kc(r.sc.czk)}`,
       }[k];
       const text = k === 'deal' ? `o ${x.sc.pct} % pod obvyklou cenou` : SHORT[k];
-      out.set(i, { k, text, title: `${who} má levnější letenku (${kc(r.t.perPersonCzk)}), ale ${long}. Doporučené pořadí: ${explain(x.sc)}.` });
+      // lead = věta, kterou vidí telefon na kartě; rozpis srovnávací ceny jen v title (na telefonu by to byla zeď textu)
+      const lead = `${who} má levnější letenku (${kc(r.t.perPersonCzk)}), ale ${long}.`;
+      out.set(i, { k, text, lead, title: `${lead} Doporučené pořadí: ${explain(x.sc)}.` });
     }
     return out;
   }

@@ -241,6 +241,9 @@ test('reasons: štítek „proč výš“ jen nad levnější letenkou a s pravd
     assert.equal(w.get(0).text, r.want[1], r.name);
     assert.match(w.get(0).title, r.want[2], r.name);
     assert.match(w.get(0).title, /Doporučené pořadí: srovnávací cena ~/);
+    // na kartě (telefon) jen věta proč – rozpis srovnávací ceny zůstane v title
+    assert.ok(w.get(0).title.startsWith(`${w.get(0).lead} Doporučené pořadí: `), r.name);
+    assert.doesNotMatch(w.get(0).lead, /Doporučené pořadí|srovnávací cena/, r.name);
     for (const [i] of w) assert.ok(list.slice(i + 1).some((y) => y.t.perPersonCzk < list[i].t.perPersonCzk) || list[i].alt, `${r.name}: štítek jen nad levnější letenkou`);
   }
 });
