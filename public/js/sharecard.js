@@ -410,7 +410,6 @@
           <div class="jed-on"><span>Na kartě:</span><b>${cardTxt}</b><span>bez ceny, bez ubytování</span></div></div>
         <button type="button" class="jed-go2" id="jedShare" disabled>${SVG(I_SHARE, 18)}<span>Chystám obrázky…</span></button>
         <div class="jed-hint" id="jedHint">${HINT.story}</div>
-        <button type="button" class="jed-msg" id="jedMsg">${SVG(I_CHAT, 18)}<span>Pozvat zprávou (WhatsApp…)</span></button>
       </div>`}
       ${past ? '' : `<div class="jed-lock">${SVG(I_LOCK, 16)}Bez účtu. Karta pro sítě nikdy neukáže ubytování ani adresu.</div>`}
     </div>`);
@@ -436,17 +435,6 @@
       btn.disabled = false;
       btn.innerHTML = `${SVG(canFiles(r.story.file) ? I_SHARE : I_DOWN, 18)}<span>${label()}</span>`;
     }).catch(() => { if (btn.isConnected) btn.querySelector('span').textContent = 'Obrázky se nepodařilo připravit'; });
-    // pozvánka do zprávy: text a odkaz /j/ – náhled ve WhatsAppu a Messengeru s fotkou cíle a otázkou
-    $('#jedMsg').onclick = async () => {
-      const url = pathUrl(link.url);
-      if (!url) { toast('Odkaz se ještě chystá – klepni znovu za chvilku'); return; }
-      const text = `${d.dest} ${MONTHS_IN[monthOf(d) - 1]} – jede někdo se mnou? ✈️`;
-      if (navigator.share) {
-        try { await navigator.share({ text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
-      }
-      if (clip(`${text}\n${url}`)) toast('Pozvánka je zkopírovaná – vlož ji do zprávy');
-      else prompt('Zkopíruj pozvánku:', url);
-    };
     btn.onclick = async () => {
       if (!cards) return;
       const file = cards[kind].file, url = pathUrl(link.url);
