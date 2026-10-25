@@ -2503,7 +2503,7 @@
         <button type="button" class="btn sm ghost rc-dp" data-dp="${esc(g.dest.key)}" title="Místa k vidění, cesta z letiště do města, počasí a vstup">🔎 Co tam je</button>
         ${dmBtn(g.dest, `data-dm="${esc(g.dest.key)}" data-dmr="${i0}"`)}
       </div>
-      ${whyNow.has(g.dest.key) ? `<div class="faint rc-why">✓ ${esc(whyNow.get(g.dest.key).title)}</div>` : ''}
+      ${whyNow.has(g.dest.key) ? (w => `<div class="faint rc-why" title="${esc(w.title)}">✓ ${esc(w.lead || w.title)}</div>`)(whyNow.get(g.dest.key)) : ''}
       ${fb.length >= 2 ? `<div class="faint rc-from" title="Nejlevnější letenka sem z každého letiště (doprava na letiště je u nabídky zvlášť)">${fb.slice(0, 4).map(([k, v]) => `z ${esc(k)} od ${czk(v)}`).join(' · ')}</div>` : ''}
       ${gc && (gc.worth || g.ground.min <= GROUND_CHIP_MAX_MIN) ? groundChip(g, gc) : ''}
       ${tripRow(t, g, i0)}
@@ -3119,7 +3119,7 @@
       wxP: radarWxP && radarWxP.r === r ? radarWxP.p : null, ground: null,
       legs: { out: { date: x.d1, from: x.from, to: x.to, hasTime: false }, back: x.d2 ? { date: x.d2, from: x.bf || x.to, to: x.bt || x.from, hasTime: false } : null, t: null },
       go: () => radarGo(x, q), goLbl: x.buy && x.buy.length ? 'Všechny termíny →' : 'Hledat lety sem →', buy: x.buy,
-      why: x.why && x.whyT ? { text: x.why, title: x.whyT } : null, // ✓ proč je karta nad levnější letenkou (na telefonu bez najetí myší)
+      why: x.why && x.whyT ? { text: x.why, title: x.whyT, lead: x.whyL || x.whyT } : null, // ✓ proč je karta nad levnější letenkou (na telefonu bez najetí myší)
     }, from);
   }
   const dpFact = (ic, b, s, { cls = '', title = '' } = {}) => `<div class="dp-f${cls}"${title ? ` title="${esc(title)}"` : ''}><span class="dp-fi" aria-hidden="true">${ic}</span><div><b>${b}</b>${s ? `<small>${s}</small>` : ''}</div></div>`;
@@ -3171,7 +3171,7 @@
       ${d.legs ? `<div class="dp-scal scal-slot">${scalBtn(false, 'id="dpScal"')}</div>` : ''}
       <div class="dp-chips">${ent}${c && c.cost ? `<span class="b dp-cost" title="Cenová hladina země – jídlo, doprava a ubytování na místě">ceny na místě ${costDots(c.cost)} ${COST_TXT[c.cost]}</span>` : ''}${c ? '<button type="button" class="linkbtn" id="dpCountry">Info o zemi</button>' : ''}</div>
       <div class="dp-facts">
-        ${d.why ? dpFact('✓', esc(cap(d.why.text)), esc(d.why.title)) : ''}
+        ${d.why ? dpFact('✓', esc(cap(d.why.text)), esc(d.why.lead || d.why.title), { title: d.why.title }) : ''}
         ${d.arr.map(a => dpFact(a.ic, esc(a.b), esc(a.s), { cls: a.warn ? ' warn' : '', title: a.title })).join('')}
         ${w ? dpWxRow(w) : '<div class="dp-f" id="dpWx" hidden></div>'}
         ${d.ground ? dpGround(d.ground) : ''}
@@ -4666,7 +4666,7 @@
         // odkaz na nabídku z karty – hledání do jednoho cíle ji nemusí vrátit (Kiwi dává pro „kamkoliv“ jiné nabídky)
         ...(t.bookUrl ? { buy: [[t.bookUrl, t.provider, 'all']] } : t.out.bookUrl || t.back?.bookUrl ? { buy: [...(t.out.bookUrl ? [[t.out.bookUrl, t.out.provider, 'out']] : []), ...(t.back?.bookUrl ? [[t.back.bookUrl, t.back.provider, 'back']] : [])] } : {}),
         // ✓ proč je karta výš než levnější letenka (štítek a rozpis v title)
-        ...(why.has(i) ? { why: why.get(i).text, whyT: why.get(i).title } : {}) }));
+        ...(why.has(i) ? { why: why.get(i).text, whyT: why.get(i).title, whyL: why.get(i).lead } : {}) }));
       // co se od minulého výsledku změnilo (↓ cena, nový cíl – proti kartám, které radar ukazoval); s výpadkem zdroje bez značek
       const r = SearchHelp.radarEntry(radarCached(q), items, key, at, { demo: res.demo, partial: Alerts.incomplete(res.providers), mute, own: SearchHelp.ownPrint(res), ap: (res.origins || []).map(o => o.iata) });
       // domov se mezitím změnil: starý dotaz už nic nepřepíše
