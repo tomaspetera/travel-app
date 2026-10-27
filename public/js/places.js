@@ -2330,7 +2330,8 @@
     const entryOf = () => plannerEntry({ rr, trip, plan: ex.plan, hikes: hp, place: p, start: ex.start });
     const saveBtn = hasPlan ? saveHtml(findTripFor(S.trips, entryOf()), S.trips) : '';
     const planLbl = routeMode ? 'Naplánovat trasu' : road ? 'Naplánovat výlet' : hikeDays ? 'Naplánovat túry' : 'Sestavit program';
-    const planBtn = `<button class="btn primary" id="exPlan"${bz ? ' disabled' : ''}>${bz && !bz.other ? `<span class="spin"></span> ${BTN_BUSY[kind]}` : planLbl}</button>`;
+    // hotový program: tlačítko už jen „↻ znovu“ a vedlejší – hlavní akce je teď program sám (a 💾 Uložit)
+    const planBtn = `<button class="btn${hasPlan ? '' : ' primary'}" id="exPlan"${bz ? ' disabled' : ''}>${bz && !bz.other ? `<span class="spin"></span> ${BTN_BUSY[kind]}` : hasPlan ? `↻ ${planLbl}` : planLbl}</button>`;
     // Vlakem tam: jízda nevede přes památky, „městem“ = smíšeně.
     const scen = train ? BIKE_SCENERY.filter(([id]) => id !== 'city') : BIKE_SCENERY;
     const hikeKinds = hikeMode ? `<div class="seg wrap" style="margin:0 0 10px">${segBtns(HIKE_KINDS, 'data-hkind', ex.hike.kind)}</div>` : '';

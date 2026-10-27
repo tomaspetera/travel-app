@@ -303,7 +303,8 @@ function go(v, opts = {}) {
   $$('.mobile-nav .mi').forEach(el => cur(el, el.dataset.view === v || (el.id === 'worldNav' && WORLD_VIEWS.includes(v)) || (el.id === 'moreNav' && !inBar)));
   navCount(v);
   if (WORLD_VIEWS.includes(v)) { lastWorld = v; $$('.world-tabs [data-w]').forEach(b => { b.classList.toggle('on', b.dataset.w === v); b.setAttribute('aria-pressed', String(b.dataset.w === v)); }); }
-  const n = NAV.find(x => x[0] === v); $('#pageTitle').textContent = n[1]; $('#pageSub').textContent = n[2];
+  // Mapa a Země jsou jedna sekce Svět (přepínač nahoře, v liště i v menu „Svět“) – nadpis Svět, ne „Mapa“
+  const [ttl, sub] = WORLD_VIEWS.includes(v) ? NAV_INFO.world : NAV.find(x => x[0] === v).slice(1); $('#pageTitle').textContent = ttl; $('#pageSub').textContent = sub;
   // i left: 0 – posun na (0, 0) prohlížeč provede bez vynuceného rozvržení stránky (jen top by si ho vyžádal)
   if (!opts.keepScroll) window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
   if (!opts.noHash) histDo(() => viewStep(v, opts.drill, from === 'dashboard' || opts.drill ? y0 : null));

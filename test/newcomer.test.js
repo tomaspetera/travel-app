@@ -77,3 +77,13 @@ test('Cesta → Program bez vybraného hotelu (vyberu později, neřeším, vlas
   assert.match(js, /\.\.\.progSpan\(t\), \.\.\.\(nearStay\(t\.stay\) \|\| far \|\| !own \? \{ startAt: 'center' \} : \{\}\)/, 'jeden cíl');
   assert.match(js, /const own = t\.stay && t\.stay\.lat != null && !nearStay\(t\.stay\) \? t\.stay : null;/);
 });
+
+test('drobnosti: filtr hodnocení hotelů s ⭐ a popiskem, hotový program „↻ …“ vedlejší, sekce Svět s nadpisem Svět', () => {
+  assert.match(read('js/trip.js'), /<div class="seg" id="stayMin" role="group" aria-label="Nejnižší hodnocení hostů">\$\{\[\[0, '⭐ vše'\],/);
+  const pl = read('js/places.js');
+  assert.match(pl, /const planBtn = `<button class="btn\$\{hasPlan \? '' : ' primary'\}" id="exPlan"/);
+  assert.match(pl, /: hasPlan \? `↻ \$\{planLbl\}` : planLbl\}<\/button>`;/);
+  const app = read('js/app.js');
+  assert.match(app, /const \[ttl, sub\] = WORLD_VIEWS\.includes\(v\) \? NAV_INFO\.world : NAV\.find\(x => x\[0\] === v\)\.slice\(1\); \$\('#pageTitle'\)\.textContent = ttl; \$\('#pageSub'\)\.textContent = sub;/);
+  assert.match(app, /const NAV_INFO = \{ world: \['Svět', /);
+});
