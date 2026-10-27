@@ -760,9 +760,22 @@
   ].join('');
 
   /* ---------- plánovač (sdílený pro Objevuj i Cestu) ---------- */
+  /**
+   * ✕ u místa v programu: vyřadit a naplánovat znovu – program se po vyřazení přeskládá (místa se přesunou mezi dny),
+   * proto hláška s ↩ Vrátit. Plánování je pro stejná místa a volby stejné (server bez náhody), takže vrácení místa
+   * a nové naplánování vrátí program, jak byl.
+   */
+  function dropUndo(st, id, plan, replan) {
+    const was = st.must.has(id);
+    const name = plan && plan.days ? (plan.days.flatMap(d => d.items).find(x => x.id === id) || {}).name : '';
+    st.exclude.add(id); st.must.delete(id);
+    replan();
+    toast(`Vyřazeno${name ? `: ${name}` : ''} – program jsem přeskládal`, '', 6000, { label: '↩ Vrátit', run: () => { st.exclude.delete(id); if (was) st.must.add(id); replan(); } });
+  }
   function plannerControls(st) {
+    // zájmy nejsou filtr – vybraná místa dostanou v programu přednost; „on“ s barvou a aria-pressed, ať je vidět, co platí
     return `<div class="row wrap" style="gap:8px;margin:10px 0">
-      ${INTERESTS.map(([id, label]) => `<button type="button" class="fchip ${st.interests.has(id) ? 'on' : ''}" data-int="${id}">${label}</button>`).join('')}
+      <span class="faint" style="font-size:12.5px;align-self:center">Víc toho, co tě baví:</span>${INTERESTS.map(([id, label]) => `<button type="button" class="fchip ${st.interests.has(id) ? 'on' : ''}" data-int="${id}" aria-pressed="${st.interests.has(id)}">${label}</button>`).join('')}
       <select data-pace aria-label="Tempo programu" style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', '🐢 V klidu'], ['normal', '🚶 Normálně'], ['intense', '🏃 Nabitě']].map(o => `<option value="${o[0]}" ${st.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
     </div>`;
   }
@@ -914,10 +927,10 @@
       fillWx($('#tpPlan', host));
       if (onRural) onRural(isRural(plan));
       drawOnMap(st, center, st.items.filter(p => plan.days.some(d => d.items.some(q => q.id === p.id)) || p.category !== 'daytrip'), plan, p => { const el = $(`[data-poi="${CSS.escape(p.id)}"]`, host); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
-      $$('[data-drop]', host).forEach(b => b.onclick = () => { st.exclude.add(b.dataset.drop); st.must.delete(b.dataset.drop); run(); });
+      $$('[data-drop]', host).forEach(b => b.onclick = () => dropUndo(st, b.dataset.drop, plan, run));
       $$('[data-must]', host).forEach(b => b.onclick = e => { e.stopPropagation(); st.must.add(b.dataset.must); st.exclude.delete(b.dataset.must); run(); });
     };
-    $$('[data-int]', host).forEach(b => b.onclick = () => { st.interests.has(b.dataset.int) ? st.interests.delete(b.dataset.int) : st.interests.add(b.dataset.int); b.classList.toggle('on'); run(); });
+    $$('[data-int]', host).forEach(b => b.onclick = () => { st.interests.has(b.dataset.int) ? st.interests.delete(b.dataset.int) : st.interests.add(b.dataset.int); b.classList.toggle('on', st.interests.has(b.dataset.int)); b.setAttribute('aria-pressed', st.interests.has(b.dataset.int)); run(); });
     $('[data-pace]', host).onchange = e => { st.pace = e.target.value; run(); };
     if (opts.plan && opts.plan.days && opts.plan.center && Math.abs(opts.plan.center.lat - center.lat) < 1e-4 && Math.abs(opts.plan.center.lon - center.lon) < 1e-4 && sameSpan(opts.plan, opts)) {
       try { const j = await getJson(`api/poi?lat=${center.lat}&lon=${center.lon}`); st.items = j.items; st.demo = j.demo; } catch { st.items = []; }
@@ -2302,7 +2315,7 @@
     // program ve městě v horách (Krkonoše z Pece): nabídnout túru na každý den místo programu po místech
     const ruralTip = isRural(ex.plan) ? '<div class="note info hk-tip" style="margin-bottom:10px">⛰️ <div>Tady je hlavně příroda – místo programu po místech zkus túru na každý den. <button type="button" class="btn sm" data-tohike>🥾 Túra na každý den</button></div></div>' : '';
     const out = hikeDays ? hikePlanHtml(hp, p) : routeMode ? routeHtml(rr, p, ex.start) : road ? tripHtml(trip, p) : !ex.plan ? ''
-      : cityPlan ? ruralTip + planHtml(ex.plan, p) : planEmptyHtml(ex.radius);
+      : cityPlan ? ruralTip + planHtml(ex.plan, p.geo ? p : { ...p, startAt: 'center' }) : planEmptyHtml(ex.radius);
     const inPlan = ex.mode === 'city' ? planIds(ex.plan) : new Set();
     // V režimu výletů jde z výpisu přidat jen výlet mimo město (do programu ve městě patří ostatní). Místo z okolí
     // (okruh 50/100 km), které program ve městě nezná, nabídne „🎒 Výlet sem“ (jednodenní výlety s ním).
@@ -2375,7 +2388,7 @@
           <div class="field" style="margin:0"><label for="exDays">${ex.mode === 'day' ? 'Počet výletů' : 'Počet dní'}</label><select id="exDays">${dayOpts.map(n => `<option ${curDays === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
           ${planBtn}${road ? '' : `<span class="ex-mustn" id="exMustN">${mustHtml(st.must.size)}</span>`}${saveBtn}
         </div>${road ? `<div class="row wrap" style="gap:8px;margin:10px 0"><div class="seg" id="exTransport">${TRANSPORTS.map(([id, l]) => `<button type="button" data-transport="${id}" class="${ex.transport === id ? 'on' : ''}">${l}</button>`).join('')}</div><select data-pace aria-label="Tempo programu" style="width:auto;padding:7px 30px 7px 10px;font-size:12.5px">${[['relaxed', '🐢 V klidu'], ['normal', '🚶 Normálně'], ['intense', '🏃 Nabitě']].map(o => `<option value="${o[0]}" ${ex.pace === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
-        <div class="row wrap" style="gap:8px;margin:0 0 10px"><span class="faint" style="font-size:12.5px;align-self:center">Co tě láká:</span>${TRIP_INTERESTS.map(([id, l]) => `<button type="button" class="fchip ${ex.tripInterests.has(id) ? 'on' : ''}" data-tint="${id}">${l}</button>`).join('')}</div>` : plannerControls(st)}`}
+        <div class="row wrap" style="gap:8px;margin:0 0 10px"><span class="faint" style="font-size:12.5px;align-self:center">Co tě láká:</span>${TRIP_INTERESTS.map(([id, l]) => `<button type="button" class="fchip ${ex.tripInterests.has(id) ? 'on' : ''}" data-tint="${id}" aria-pressed="${ex.tripInterests.has(id)}">${l}</button>`).join('')}</div>` : plannerControls(st)}`}
         <div id="exPlanOut" class="${bz ? 'stale' : ''}">${wait}${errNote}${out}</div></div>
       <div id="exMapSlot"></div>
       ${places}
@@ -2427,7 +2440,7 @@
     $$('[data-tint]', body).forEach(b => b.onclick = () => {
       const id = b.dataset.tint;
       ex.tripInterests.has(id) ? ex.tripInterests.delete(id) : ex.tripInterests.add(id);
-      b.classList.toggle('on', ex.tripInterests.has(id));
+      b.classList.toggle('on', ex.tripInterests.has(id)); b.setAttribute('aria-pressed', ex.tripInterests.has(id));
       remember();
       onlyThisTrip();
       if (trip) replanSoon(seqKey); // zobrazený plán se přeplánuje (i po víc kliknutích jen jednou)
@@ -2457,7 +2470,7 @@
     });
     $$('[data-int]', body).forEach(b => b.onclick = () => {
       st.interests.has(b.dataset.int) ? st.interests.delete(b.dataset.int) : st.interests.add(b.dataset.int);
-      b.classList.toggle('on');
+      b.classList.toggle('on', st.interests.has(b.dataset.int)); b.setAttribute('aria-pressed', st.interests.has(b.dataset.int));
       remember();
       if (ex.plan) replanSoon('city');
     });
@@ -2652,7 +2665,7 @@
     on('#routeOther', 'onclick', () => replan($('#routeOther'), { other: true }));
     on('#exRetry', 'onclick', () => replan(null, { other: er?.other }));
     on('#routeGpx', 'onclick', () => downloadText(`atlas-${hikeMode ? 'pesky' : rr.kind === 'train' ? 'vlak-kolo' : 'kolo'}-${slug(p.label)}-${rr.km}km.gpx`, gpxOf(rr, routeName(rr, p)), 'application/gpx+xml'));
-    $$('[data-drop]', body).forEach(b => b.onclick = () => { st.exclude.add(b.dataset.drop); st.must.delete(b.dataset.drop); replan(); });
+    $$('[data-drop]', body).forEach(b => b.onclick = () => dropUndo(st, b.dataset.drop, ex.plan, () => replan()));
     $$('[data-tdrop]', body).forEach(b => b.onclick = () => { ex.tripEx.add(b.dataset.tdrop); ex.tripMust.delete(b.dataset.tdrop); onlyThisTrip(); replan(); });
     $$('[data-tmust]', body).forEach(b => b.onclick = e => { e.stopPropagation(); ex.tripMust.add(b.dataset.tmust); ex.tripEx.delete(b.dataset.tmust); onlyThisTrip(); replan(); });
     // 🎒 Výlet sem (místo z okolí v okruhu 50/100 km): jednodenní výlety s tímto místem – naplánují se hned

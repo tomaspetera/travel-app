@@ -224,6 +224,8 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .dots{display:inline-flex;gap:3px}
 .dots i{width:7px;height:7px;border-radius:50%;background:var(--border-2)}
 .dots i.f{background:var(--accent)}
+/* karta s fotkou: panel je tmavé sklo i ve světlém režimu – prázdné tečky ceny světlé, ať je vidět stupnice 1–5 */
+.dest .dest-panel .dots i:not(.f){background:rgba(255,255,255,.32)}
 .dots.warm i.f{background:var(--warn)}
 .dots.good i.f{background:var(--good)}
 

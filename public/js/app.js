@@ -90,7 +90,7 @@ const NAV = [['dashboard', 'Přehled', 'Radar cen a tvoje cesty', 'M3 12l9-9 9 9
 ['explore', 'Objevuj', 'Co vidět a kam vyrazit kdekoliv na světě', 'M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zM12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z'],
 ['map', 'Mapa', 'Procestuj svět a odškrtávej země', 'M9 20l-5.5 2.5V5L9 2.5m0 17.5l6-3m-6 3V2.5m6 14.5l5.5 2.5V5L15 2.5m0 14.5V2.5m-6 0l6 3'],
 ['countries', 'Země', 'Počasí, ceny, bezpečnost a tipy', 'M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2c2.5 2.7 4 6.3 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.3-4-10s1.5-7.3 4-10z'],
-['planner', 'Plánovač', 'Naplánuj si celou cestu', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z'],
+['planner', 'Plánovač', 'Uložené cesty – program, balení, rozpočet', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z'],
 ['recommend', 'Doporučení', 'Kam se vyplatí jet právě teď', 'M12 2l2.4 7.4H22l-6 4.3 2.3 7.3-6.3-4.6L5.7 21 8 13.7 2 9.4h7.6z']];
 let activeView = 'dashboard';
 function ico(d) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`; }
@@ -1233,7 +1233,8 @@ function renderDashStats() {
 }
 
 /* ================= DEST CARD ================= */
-function costDots(n) { return `<span class="dots warm">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? 'f' : ''}"></i>`).join('')}</span>`; }
+// title a role=img: na kartě bez popisku nováček nepoznal, že tečky jsou ceny na místě (1 levné – 5 drahé)
+function costDots(n) { return `<span class="dots warm" role="img" title="Ceny na místě: ${n} z 5 (1 = levné, 5 = drahé)" aria-label="Ceny na místě: ${n} z 5">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? 'f' : ''}"></i>`).join('')}</span>`; }
 /* ================= 📷 FOTKY NA KARTÁCH =================
    Prvek s data-photo="Řím" dostane fotku města jako pozadí (--ph, třída ph), až je skoro vidět. Adresy z api/photos
    (Pexels nebo Unsplash s klíčem, jinak Wikimedia; jeden dotaz na viditelné karty), v prohlížeči 30 dní – fotky
@@ -1388,7 +1389,7 @@ function destCard(c, score, why) {
     <div class="flag">${flag(c.iso2)}</div>
     <div class="dest-panel"><div class="cname">${c.cs}</div><div class="ccont">${c.cont}${c.cap ? ' · ' + (c.capCs || c.cap) : ''}</div>
     <div class="cblurb">${c.blurb || 'Objev tuto zemi – počasí, ceny i odkazy najdeš uvnitř.'}</div>${why ? recWhy(why, 1) : ''}
-    ${c.safety <= 2 ? `<span class="ec ec-hard" title="Doporučení MZV ČR – podrobnosti v detailu země">⚠️ ${c.safety === 1 ? 'MZV varuje' : 'jen nezbytné cesty'}</span>` : ''}${entryChip(c.iso2)}<div class="meta">${c.cost ? costDots(c.cost) : '<span></span>'}${months ? `<span>${months}</span>` : ''}</div></div>
+    ${c.safety <= 2 ? `<span class="ec ec-hard" title="Doporučení MZV ČR – podrobnosti v detailu země">⚠️ ${c.safety === 1 ? 'MZV varuje' : 'jen nezbytné cesty'}</span>` : ''}${entryChip(c.iso2)}<div class="meta">${c.cost ? costDots(c.cost) : '<span></span>'}${months ? `<span title="Nejlepší měsíce na cestu">☀️ ${months}</span>` : ''}</div></div>
   </div>`;
 }
 // Vstupní podmínky (entry.js): čip na kartě; data se načítají po startu, pak se čipy doplní (paintEntryChips).
@@ -1454,7 +1455,7 @@ function renderRecs() {
       <div class="cblurb">${c.blurb}</div>
       ${recWhy(r.why)}
       <div class="tags">${r.tags.map(x => `<span class="tag">✓ ${x}</span>`).join('')}</div>
-      ${entryChip(c.iso2)}<div class="meta">${costDots(c.cost)}<span>${monthRanges(c.months)}</span></div>
+      ${entryChip(c.iso2)}<div class="meta">${costDots(c.cost)}<span title="Nejlepší měsíce na cestu">☀️ ${monthRanges(c.months)}</span></div>
       <button type="button" class="btn sm rec-fly" data-fly="${i}" title="Nejlevnější lety: ${esc(r.fly.label)}, odlet ${MNS_LOC[m - 1]}">✈️ Najít lety</button></div></div>`;
   }).join('') : `<div class="empty" style="grid-column:1/-1">Zvoleným filtrům nic neodpovídá – uvolni rozpočet nebo bezpečnost${hidden.mute.length ? ', nebo uprav 🙈 Nezajímá mě (vynechané země jsou pod tímhle)' : ''}.</div>`;
   // vynechané (ať je vidět proč tu nějaká země není)
@@ -1977,7 +1978,8 @@ function openTrip(i) {
     // na cestě: dnešek a kódy rezervací nahoře (dnešní den v itineráři jen odkazem sem)
     live: live ? `<div class="trip-live"><div class="live-h">📍 Dnes na cestě · den ${live.day} z ${live.days}</div>${days.includes(live.today) ? dayHtml(live.today, days.indexOf(live.today)) : ''}${refsHtml(t, i)}</div><div class="divider"></div>` : '',
     flight: t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${planFlightHtml(t.flight)}</div></div>` : '',
-    acts: `<div class="row wrap">${local ? '' : `<button class="btn primary" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${t.wizard && (window.Trip || window.Lazy) ? '<button class="btn" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${c ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>`,
+    // cesta z průvodce už má let vybraný: hlavní je „Otevřít v průvodci“ (napřed), hledání letů vedlejší
+    acts: `<div class="row wrap">${t.wizard && (window.Trip || window.Lazy) ? '<button class="btn primary" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${local ? '' : `<button class="btn${t.wizard ? '' : ' primary'}" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${c ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>`,
     entry: `${tripEntryHtml(t)}${visitedPrompt(t)}`,
     share: `<div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${t.wizard && okYmd(t.start) && t.start >= todayLocal() ? '<button class="btn sm" id="tripJed">🙋 Jede někdo se mnou?</button>' : ''}${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>`,
     days: `<div class="divider"></div>
