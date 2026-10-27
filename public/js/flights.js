@@ -2111,7 +2111,9 @@
       body = destCalHtml(res, vis) + `<div class="section-head dc-head"><h2>${view.outDate ? `Cíle s odletem ${dayLabel(view.outDate)}` : 'Všechny cíle'}</h2>${view.outDate ? '<button type="button" class="linkbtn" data-af="outDate">✕ zrušit den</button>' : ''}</div>`
         + (groups.length ? compactList(groups, { strip: false }) : `<div class="empty">${view.outDate ? 'Pro tento den odletu nic neodpovídá filtrům – vyber jiný den v kalendáři.' : 'Filtrům nic neodpovídá.'}</div>`);
     }
-    else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(g.vis[0].perPersonCzk)}</b></span>`).join('')}</div>` : '') + directHintHtml(flat, pre) + flatList(flat)
+    // cíle hledání do víc míst („k moři v prosinci“): s filtrem tepla nebo řazením „Nejtepleji“ i teplota (dlouhodobý
+    // průměr, podle kterého se řadí) – jinak nebylo vidět, proč je který cíl první
+    else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(g.vis[0].perPersonCzk)}</b>${(view.sort === 'warm' || res.query?.minTemp) && g.vis[0].tempHi != null ? ` · 🌡️ ${Math.round(g.vis[0].tempHi)}\u00a0°C` : ''}</span>`).join('')}</div>` : '') + directHintHtml(flat, pre) + flatList(flat)
       : view.mode === 'cards' ? groups.map(g => groupCard(g)).join('') : compactList(groups);
     // konkrétní cíl: výpis je z res.top (flat), ne z 6 nabídek skupiny – podle něj, jinak hláška pod nalezenými lety
     if (!body.trim() || ((view.mode === 'list' || view.mode === 'cards') && !(isRoute ? flat.length : groups.length))) body += `<div class="empty">Filtrům nic neodpovídá. Uvolni filtr ceny, letišť, aerolinek, nových zemí${view.favOnly ? ', mých cílů' : ''} nebo času a přestupů${prefNow.muted ? ' – nebo ukaž 🙈 skryté cíle' : ''}.</div>`;

@@ -193,4 +193,6 @@ test('telefon: cíle hledání do víc míst („k moři“) v pruhu do strany �
   // jinde (počítač, tablet) dál zalomené pod sebou
   assert.match(css, /^\.dest-mini\{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px\}/m);
   assert.match(read('js/flights.js'), /<div class="dest-mini">\$\{groups\.map\(g => `<span class="chip">/);
+  // „Nejtepleji“ / filtr tepla: u cíle i teplota, podle které se řadí
+  assert.match(read('js/flights.js'), /\(view\.sort === 'warm' \|\| res\.query\?\.minTemp\) && g\.vis\[0\]\.tempHi != null \? ` · 🌡️ \$\{Math\.round\(g\.vis\[0\]\.tempHi\)\}\\u00a0°C` : ''/);
 });

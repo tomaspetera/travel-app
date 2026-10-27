@@ -1989,6 +1989,7 @@
       ${t.stay ? `<div class="chosen">Vybráno: <b>${esc(t.stay.name || (t.stay.mode === 'skip' ? 'bez ubytování' : ''))}</b>${t.stay.totalCzk ? ` · ${czk(t.stay.totalCzk)}${t.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : ''}</div>` : ''}</div>
       ${autoNoteHtml(t, 'stay')}
       ${oneWayField(t)}
+      ${t.stay ? '' : '<div class="car-quick"><span class="muted">Ubytování máš zařízené, nebo spíš u známých?</span><button type="button" class="btn sm" id="staySkipTop">Ubytování neřeším →</button></div>'}
       <div id="stayBody">${STAY_LOADING}</div>
       <div class="divider"></div>
       <div class="manual-row"><div class="muted" style="font-size:13px">${manLead(t.stay, 'pobyt')}</div>
@@ -2005,6 +2006,8 @@
       persist(); setStep('car');
     };
     $('#staySkip').onclick = () => { pickSeq++; t.stay = { mode: 'skip', name: 'bez ubytování', totalCzk: 0 }; persist(); setStep('car'); };
+    // hned nahoře jako „Auto nepotřebuji →“ – dole je až pod hotely a vlastní cenou (na telefonu několik obrazovek)
+    const sq = $('#staySkipTop'); if (sq) sq.onclick = $('#staySkip').onclick;
     const nx = $('#stayNext'); if (nx) nx.onclick = () => setStep('car');
 
     if (nights < 1) {
