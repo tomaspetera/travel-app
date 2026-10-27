@@ -585,7 +585,7 @@
     visited.clear(); (S.visited || []).forEach(cc => visited.add(cc));
     if (typeof refreshStats === 'function') refreshStats();
     if (typeof paintMap === 'function') paintMap();
-    if (activeView === 'planner') renderPlanner();
+    if (typeof tripsChanged === 'function') tripsChanged(); else if (activeView === 'planner') renderPlanner();
     if (activeView === 'dashboard' && typeof renderDash === 'function') renderDash();
     if (activeView === 'countries' && typeof renderCountries === 'function') renderCountries(); // filtr „Navštívené“
     if (window.Flights) {

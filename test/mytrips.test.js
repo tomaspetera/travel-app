@@ -37,3 +37,14 @@ test('Co je nového: Moje cesty', () => {
   const app = read('js/app.js');
   assert.match(app, /const WN_ID = '2026-10-27c';\s*const WHATS_NEW = \[\s*\['🧳', 'Moje cesty v záložce Cesta',/);
 });
+
+test('změna cest (nová, úprava v okně, smazání, záloha, jiný panel) překreslí seznam, který je vidět – i Moje cesty v Cestě', () => {
+  const app = read('js/app.js');
+  assert.match(app, /function tripsChanged\(\) \{\s*if \(activeView === 'planner'\) renderPlanner\(\);\s*else if \(activeView === 'trip' && window\.Trip && Trip\.render\) Trip\.render\(\);\s*else if \(activeView === 'dashboard'\) renderDashStats\(\);\s*\}/);
+  assert.match(app, /const reTrip = i => \{ save\(\); openTrip\(i\); tripsChanged\(\); \};/);
+  assert.match(app, /const redraw = \(\) => \{ save\(\); renderPlanner\(\); tripsChanged\(\); \};/);
+  assert.match(app, /if \(ch\.has\('trips'\) && activeView !== 'dashboard'\) tripsChanged\(\);/);
+  // nová vlastní cesta z Moje cest: zůstat v Cestě
+  assert.match(app, /modalClose\(\); if \(activeView === 'trip'\) tripsChanged\(\); else go\('planner'\);/);
+  assert.match(read('js/backup.js'), /if \(typeof tripsChanged === 'function'\) tripsChanged\(\);/);
+});

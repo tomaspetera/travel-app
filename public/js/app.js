@@ -1813,6 +1813,13 @@ const planTransport = f => /^🚆/u.test(String(f || '')) ? String(f) : '✈️ 
 // Lety v detailu plánu: cesta přes víc měst („1. PRG→FCO 11.11. 16:35 (…), 2. …“) po řádcích, ať se dá přečíst
 const planFlightHtml = f => String(f || '').replace(/^🚆\s*/u, '').split(/, (?=\d+\. )| · (?=samostatné letenky$)/u).map(esc).join('<br>');
 // 💾 Přenos a záloha (backup.js) nad plánovačem
+/** Cesty se změnily (nová, úprava v okně, smazání, záloha, jiný panel): překreslit seznam, který je vidět – Plánovač,
+ *  Moje cesty v záložce Cesta (Trip.render), nebo dlaždice Přehledu. */
+function tripsChanged() {
+  if (activeView === 'planner') renderPlanner();
+  else if (activeView === 'trip' && window.Trip && Trip.render) Trip.render();
+  else if (activeView === 'dashboard') renderDashStats();
+}
 const bkTools = () => (window.Backup ? Backup.plannerTools() : '');
 const bkWire = (host = document) => { const b = $('#bkOpen', host); if (b) b.onclick = () => Backup.open(); }; // Plánovač i Moje cesty v Cestě
 function renderPlanner() {
@@ -1946,9 +1953,10 @@ async function saveTrip(iso, flightTxt) {
   S.trips.push(trip);
   save();
   // okno mezitím zavřené nebo nahrazené jiným: uložit potichu, nic nezavírat ani neotevírat
-  if (b && !(b.isConnected && $('#modalBg').classList.contains('show'))) { toast('Cesta vytvořena'); renderPlanner(); return; }
+  if (b && !(b.isConnected && $('#modalBg').classList.contains('show'))) { toast('Cesta vytvořena'); tripsChanged(); return; }
   // právě uložená cesta (jiné uložení z dřívějšího okna mohlo mezitím přidat další)
-  modalClose(); go('planner'); toast('Cesta vytvořena'); setTimeout(() => { const i = S.trips.indexOf(trip); if (i >= 0) openTrip(i); }, 250);
+  // z Moje cest (záložka Cesta) zůstat v nich – nová cesta je v seznamu
+  modalClose(); if (activeView === 'trip') tripsChanged(); else go('planner'); toast('Cesta vytvořena'); setTimeout(() => { const i = S.trips.indexOf(trip); if (i >= 0) openTrip(i); }, 250);
 }
 /** „Hledat lety“ u cesty v plánovači: do jejího města (nebo země) v termínu cesty, je-li ještě před ní. */
 window.planSearch = i => {
@@ -2245,7 +2253,7 @@ function previewPlan(shared) {
   };
 }
 // úprava v okně cesty: uložit a překreslit okno i kartu v plánovači pod ním (rozpočet, aktivity, sbaleno)
-const reTrip = i => { save(); openTrip(i); if (activeView === 'planner') renderPlanner(); else if (activeView === 'dashboard') renderDashStats(); };
+const reTrip = i => { save(); openTrip(i); tripsChanged(); };
 window.addAct = (i, d) => { const inp = $('#act-' + i + '-' + d); const v = inp.value.trim(); if (!v) return; S.trips[i].days[d] = S.trips[i].days[d] || []; S.trips[i].days[d].push(v); reTrip(i); };
 window.delAct = (i, d, ai) => { S.trips[i].days[d].splice(ai, 1); reTrip(i); };
 window.toggleCheck = (i, xi) => {
@@ -2344,7 +2352,7 @@ document.addEventListener('click', e => {
 // smaže hned – „↩ Vrátit“ v hlášce ji vrátí na stejné místo (jako smazané hlídání; na telefonu bez systémového dotazu)
 window.delTrip = i => {
   const t = S.trips[i]; if (!t) return;
-  const redraw = () => { save(); renderPlanner(); if (activeView === 'dashboard') renderDashStats(); };
+  const redraw = () => { save(); renderPlanner(); tripsChanged(); };
   S.trips.splice(i, 1); modalClose(); redraw();
   toast(`Cesta ${t.name ? `„${t.name}“ ` : ''}smazána`, '', 6000, { label: '↩ Vrátit', run: () => { S.trips.splice(Math.min(i, S.trips.length), 0, t); redraw(); toast('Cesta je zpět'); } });
 };
@@ -2502,7 +2510,7 @@ function wireEvents() {
       refreshStats(); paintMap(); if (window.Flights && Flights.refreshVisited) Flights.refreshVisited();
       if (activeView === 'countries') renderCountries();
     }
-    if (activeView === 'planner' && ch.has('trips')) renderPlanner();
+    if (ch.has('trips') && activeView !== 'dashboard') tripsChanged();
     if (activeView === 'dashboard' && (ch.has('trips') || ch.has('visited'))) renderDashStats();
     if (mt && ch.has('trips')) tripModalSync(mi, mt, mj);
     if (ch.has('trip') && activeView === 'trip' && window.Trip) Trip.render(); // handlery průvodce na převzatou S.trip
