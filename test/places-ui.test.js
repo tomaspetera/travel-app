@@ -268,6 +268,31 @@ test('program v průvodci: zájmy, tempo, vyřazená a vybraná místa jdou s pr
   assert.deepEqual([[...def.interests], def.pace], [['nature'], 'relaxed']);
 });
 
+test('✕ v programu: přeplánování pošle dny ostatních míst (keep, jen dny ve městě) jednou – další a ↩ Vrátit bez nich', async () => {
+  const bodies = [];
+  const toasts = [];
+  const fetch = async (url, o) => { bodies.push(JSON.parse(o.body)); return { ok: true, status: 200, json: async () => ({ days: [], spare: [], places: [] }) }; };
+  const TP = load({ fetch, toast: (...a) => toasts.push(a) }).window.Places._t;
+  const st = { ...TP.prefsOf(null, {}), items: [] };
+  st.must.add('Q2');
+  const plan = { days: [
+    { date: '2026-10-12', kind: 'city', items: [{ id: 'Q1', name: 'Sagrada Família' }, { id: 'Q2', name: 'Park Güell' }] },
+    { date: '2026-10-13', kind: 'daytrip', items: [{ id: 'T1', name: 'Montserrat' }] },
+    { date: '2026-10-14', kind: 'city', items: [{ id: 'Q3', name: 'Casa Milà' }] },
+  ] };
+  const replan = () => TP.makePlan(st, BCN_C, { start: '2026-10-12', end: '2026-10-14' });
+  TP.dropUndo(st, 'Q2', plan, replan);
+  assert.deepEqual(plain(bodies[0].keep), { Q1: '2026-10-12', Q3: '2026-10-14' }, 'bez vyřazeného a bez výletu');
+  assert.deepEqual([bodies[0].exclude, bodies[0].include], [['Q2'], []]);
+  assert.equal(st.keep, null, 'jen pro toto přeplánování');
+  await replan(); // jiné přeplánování (zájmy, tempo) – program se skládá celý
+  assert.equal(bodies[1].keep, undefined);
+  // ↩ Vrátit: místo zpátky (i vybrané) a bez keep – stejný dotaz jako před ✕, tedy stejný program
+  assert.match(toasts[0][0], /^Vyřazeno: Park Güell – program jsem upravil$/);
+  toasts[0][3].run();
+  assert.deepEqual([bodies[2].keep, bodies[2].exclude, bodies[2].include], [undefined, [], ['Q2']]);
+});
+
 test('„Naposledy“: nejnovější první, bez opakování, nejvýš 5, bez „Moje okolí“', () => {
   const P = (label, lat = 50, lon = 14) => ({ lat, lon, label, cc: 'CZ', geo: false, country: 'Česko' });
   let l = [];

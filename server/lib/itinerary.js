@@ -4,7 +4,7 @@
 // když tak muzea a zoo stihnou zavírací dobu) → časy zastávek s chůzí, MHD a obědem v okně dne → tipy (oběd, cestou,
 // na večer, na déšť) z míst, která v programu nejsou. Známé památky ne v jejich zavírací den (data/sight-hours.json).
 import { haversineKm, normalize } from './geo.js';
-import { addDays, daysBetween } from './dates.js';
+import { addDays, daysBetween, isYmd } from './dates.js';
 import { sightHours, closedOn, closedWhy, hoursNote } from './hours.js';
 
 // Typická délka návštěvy podle kategorie (min).
@@ -274,9 +274,25 @@ const CAP_KIDS = { ...CAP_ALL, museum: 1, church: 2 };
 // Národní park, ve kterém program je (Krkonoše), není zastávka – jsou jí vrcholy a vodopády v něm.
 const NATIONAL_PARK = /národní park|national park|nationalpark|parque nacional|parc national|parco nazionale|park narodowy/i;
 
+const KEEP_MAX = 300;
+/**
+ * Po ✕ v programu: dny míst, která v programu zůstala ({ id: 'RRRR-MM-DD' }). Jen prostý objekt do 300 položek (víc
+ * z aplikace nepřijde – pak bez něj, program se složí znovu celý), id do 120 znaků a datum v termínu start–end;
+ * neplatné položky se zahodí. → objekt, nebo undefined.
+ */
+export function keepOf(raw, start, end) {
+  if (!raw || typeof raw !== 'object' || Object.getPrototypeOf(raw) !== Object.prototype) return undefined;
+  const all = Object.entries(raw);
+  if (all.length > KEEP_MAX) return undefined;
+  const ok = all.filter(([id, date]) => id && id.length <= 120 && typeof date === 'string' && isYmd(date)
+    && daysBetween(start, date) >= 0 && daysBetween(date, end) >= 0);
+  return ok.length ? Object.fromEntries(ok) : undefined;
+}
+
 /**
  * pois: [{ id, name, lat, lon, score, category, ... }] (vyšší score = zajímavější)
- * opts: { center:{lat,lon}, start, end, arrivalTime, departureTime, pace, interests:{category:weight}, kids, maxDayTripKm }
+ * opts: { center:{lat,lon}, start, end, arrivalTime, departureTime, pace, interests:{category:weight}, kids, maxDayTripKm,
+ *   keep:{id:datum} – po ✕ v programu: místa zůstanou ve svých dnech (viz níž) }
  */
 export function planItinerary(pois, opts) {
   const { center, pace = 'normal', kids = false } = opts;
@@ -388,17 +404,36 @@ export function planItinerary(pois, opts) {
   }
 
   const days = caps.map((c) => ({ date: c.date, cap: c.cap, items: [], kind: tripDayDates.has(c.date) ? 'daytrip' : c.cap ? 'city' : 'travel' }));
+  // Po ✕ v programu (opts.keep = { id: datum }): místa, která v programu zůstala, zůstanou ve svých dnech. Nové
+  // rozdělení k-means přeskládalo i to, čeho se ✕ netýkalo (Lisabon na 3 dny: po vyřazení jednoho místa zůstala ve
+  // svém dni třeba jen 2 z 15). Jen místa, která do programu smějí (bez vyřazených), a dny ve městě; nesedí-li nic,
+  // program se složí celý.
+  const keepAt = new Map(Object.entries(opts.keep || {}));
+  const cityDates = new Set(cityDays.map((c) => c.date));
+  const keptList = ranked.filter((p) => cityDates.has(keepAt.get(p.id)));
+  const kept = keptList.length ? new Set(keptList.map((p) => p.id)) : null;
   if (chosen.length && cityDays.length) {
-    const k = Math.min(cityDays.length, chosen.length);
-    const { assign, centers } = clusterDays(chosen, cityDays.map((c) => c.cap), center.lat);
-    const clusters = Array.from({ length: k }, (_, i) => chosen.filter((_, j) => assign[j] === i));
-    // Přiřazení shluků ke dnům: největší program do nejdelších dnů – a čtvrť za městem (Belém 6 km od centra Lisabonu)
-    // vždy do celého dne: krátký den příletu bere jen místa do 4 km, takže by Belémská věž i Jerónimos vypadly.
-    const farCl = (cl) => cl.length && haversineKm(center.lat, center.lon, centroid(cl).lat, centroid(cl).lon) > 4;
-    const order = clusters.map((cl, i) => ({ cl, i, mins: cl.reduce((s, p) => s + p.visitMin, 0), far: farCl(cl) }))
-      .sort((a, b) => b.far - a.far || b.mins - a.mins);
     const dayOrder = cityDays.map((c) => days.find((d) => d.date === c.date)).sort((a, b) => b.cap - a.cap);
-    order.forEach((o, idx) => { dayOrder[idx].items = o.cl; dayOrder[idx].center = centers[o.i]; });
+    const key = (p) => (must.has(p.id) || p.pinned ? 1 : 0);
+    if (kept) {
+      // Do svého dne, když tam má otevřeno a vejde se (10 % navíc jako u vyvážení níž) – nejznámější a připnuté
+      // i přes to, jak je tam nechalo vyvážení (Hrad sv. Jiří v krátkém dni příletu). Uvolněný čas doplní místa
+      // z okolí toho dne („Doplnění“ níž), takže den neskáče přes město; pořadí zastávek se složí znovu.
+      for (const p of keptList) {
+        const d = dayOrder.find((x) => x.date === keepAt.get(p.id));
+        if (!shutOn(p, d.date) && (mins(d.items) + p.visitMin <= d.cap * 1.1 || key(p))) d.items.push(p);
+      }
+    } else {
+      const k = Math.min(cityDays.length, chosen.length);
+      const { assign, centers } = clusterDays(chosen, cityDays.map((c) => c.cap), center.lat);
+      const clusters = Array.from({ length: k }, (_, i) => chosen.filter((_, j) => assign[j] === i));
+      // Přiřazení shluků ke dnům: největší program do nejdelších dnů – a čtvrť za městem (Belém 6 km od centra Lisabonu)
+      // vždy do celého dne: krátký den příletu bere jen místa do 4 km, takže by Belémská věž i Jerónimos vypadly.
+      const farCl = (cl) => cl.length && haversineKm(center.lat, center.lon, centroid(cl).lat, centroid(cl).lon) > 4;
+      const order = clusters.map((cl, i) => ({ cl, i, mins: cl.reduce((s, p) => s + p.visitMin, 0), far: farCl(cl) }))
+        .sort((a, b) => b.far - a.far || b.mins - a.mins);
+      order.forEach((o, idx) => { dayOrder[idx].items = o.cl; dayOrder[idx].center = centers[o.i]; });
+    }
     // Pestrost: limity kategorií za den (3 kostely, 2 muzea…) – přebytek přesuň jinam (nebo vynech).
     for (const d of dayOrder) {
       d.items.sort((a, b) => weight(b) - weight(a));
@@ -415,9 +450,8 @@ export function planItinerary(pois, opts) {
       d.items = keep;
     }
     // Vyvážení: co přeteče kapacitu dne, přesuň do dne s volnou kapacitou (nejbližší místo napřed). Přesouvá se od
-    // nejméně významného; nejznámější a připnutá místa až nakonec.
-    const key = (p) => (must.has(p.id) || p.pinned ? 1 : 0);
-    for (const d of dayOrder) {
+    // nejméně významného; nejznámější a připnutá místa až nakonec. Po ✕ ne – kapacitu hlídalo už zařazení do dnů výš.
+    for (const d of kept ? [] : dayOrder) {
       d.items.sort((a, b) => key(b) - key(a) || weight(b) - weight(a));
       let load = mins(d.items);
       // I poslední místo, když se do krátkého dne (přílet večer, odlet ráno) vůbec nevejde.
@@ -446,7 +480,8 @@ export function planItinerary(pois, opts) {
     }
     // Výměny mezi dny: když místo A (den 1) leží blíž středu dne 2 a místo B (den 2) blíž středu
     // dne 1, prohoď je (pokud to sedí s kapacitou a limity kategorií). Odstraní „skoky přes město“.
-    improveDays(dayOrder, CAP);
+    // Po ✕ ne – místa zůstanou ve dnech, ve kterých je uživatel viděl.
+    if (!kept) improveDays(dayOrder, CAP);
     // Krátké dny (přílet/odlet): jen místa do 4 km od ubytování – vzdálenější přesuň jinam, nebo vynech. Nejznámější
     // místo se nevynechá: nemá-li celý den nic do 3 km, jde do celého dne s volným časem, který mu je nejblíž.
     for (const d of dayOrder.filter((x) => x.cap < full * 0.7)) {
@@ -502,9 +537,10 @@ export function planItinerary(pois, opts) {
   }
   // Stejně dlouhé dny: den s nejvýznamnějším místem (Papežský palác v Avignonu) co nejdřív, ne až poslední celý den
   // (kdyby se plán změnil, hlavní věci nepropadnou). Jen výměna programů mezi dny se stejným časem – limity sedí dál.
+  // Po ✕ ne: dny zůstanou, jak je uživatel viděl.
   const topW = (items) => items.reduce((m, p) => Math.max(m, weight(p)), -Infinity);
   const byCap = new Map();
-  for (const d of days.filter((x) => x.kind === 'city' && x.items.length)) byCap.set(d.cap, [...(byCap.get(d.cap) || []), d]);
+  for (const d of days.filter((x) => !kept && x.kind === 'city' && x.items.length)) byCap.set(d.cap, [...(byCap.get(d.cap) || []), d]);
   for (const g of byCap.values()) {
     if (g.length < 2) continue;
     const sets = g.map((d) => d.items).sort((a, b) => topW(b) - topW(a));
@@ -561,7 +597,9 @@ export function planItinerary(pois, opts) {
       let tl = dayTimeline(r, { start: center, from, kids });
       while (tl.end > to + 15 && r.length > 1) {
         const free = r.filter((p) => !p.pinned);
-        const pool = free.some((p) => !must.has(p.id)) ? free.filter((p) => !must.has(p.id)) : free;
+        let pool = free.some((p) => !must.has(p.id)) ? free.filter((p) => !must.has(p.id)) : free;
+        // po ✕ napřed místo, které do dne přibylo, ne to, které tam uživatel už viděl
+        if (kept && pool.some((p) => !kept.has(p.id))) pool = pool.filter((p) => !kept.has(p.id));
         if (!pool.length) break;
         const out = pool.reduce((m, p) => (weight(p) < weight(m) ? p : m));
         r = route(r.filter((p) => p !== out));

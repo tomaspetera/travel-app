@@ -5,11 +5,13 @@ import { readFileSync } from 'node:fs';
 
 const read = (f) => readFileSync(new URL(`../public/${f}`, import.meta.url), 'utf8');
 
-test('✕ u místa v programu: program se přeskládá – hláška s ↩ Vrátit (Objevuj i krok Program v Cestě)', () => {
+test('✕ u místa v programu: ostatní místa zůstanou ve svých dnech – hláška s ↩ Vrátit (Objevuj i krok Program v Cestě)', () => {
   const js = read('js/places.js');
   const fn = js.slice(js.indexOf('function dropUndo('), js.indexOf('function plannerControls('));
-  assert.match(fn, /st\.exclude\.add\(id\); st\.must\.delete\(id\);\s*replan\(\);/);
-  assert.match(fn, /toast\(`Vyřazeno\$\{name \? `: \$\{name\}` : ''\} – program jsem přeskládal`, '', 6000, \{ label: '↩ Vrátit', run: \(\) => \{ st\.exclude\.delete\(id\); if \(was\) st\.must\.add\(id\); replan\(\); \} \}\);/);
+  // dny ostatních míst (keep) jen s tímto přeplánováním; ↩ Vrátit plánuje bez nich (= původní program)
+  assert.match(fn, /st\.exclude\.add\(id\); st\.must\.delete\(id\);\s*st\.keep = keptDays\(plan, id\);\s*replan\(\);/);
+  assert.match(fn, /toast\(`Vyřazeno\$\{name \? `: \$\{name\}` : ''\} – program jsem upravil`, '', 6000, \{ label: '↩ Vrátit', run: \(\) => \{ st\.exclude\.delete\(id\); if \(was\) st\.must\.add\(id\); replan\(\); \} \}\);/);
+  assert.match(js, /async function makePlan\(st, center, dates, extra\) \{\s*const keep = st\.keep;\s*st\.keep = null;/);
   // oba ✕ (Cesta → Program a Objevuj) jdou přes dropUndo
   assert.match(js, /\$\$\('\[data-drop\]', host\)\.forEach\(b => b\.onclick = \(\) => dropUndo\(st, b\.dataset\.drop, plan, run\)\);/);
   assert.match(js, /\$\$\('\[data-drop\]', body\)\.forEach\(b => b\.onclick = \(\) => dropUndo\(st, b\.dataset\.drop, ex\.plan, \(\) => replan\(\)\)\);/);

@@ -24,7 +24,7 @@ import { findPlaces, findTrips, mockPlaces, mockTrips, placesCached, tripsCached
 import { planTrips } from './lib/roadtrip.js';
 import { keepInRegion } from './lib/regions.js';
 import { bikeLoop, mockBikeLoop, hikeLoop, mockHikeLoop, bikeFromStation, mockBikeFromStation } from './lib/bike.js';
-import { planItinerary } from './lib/itinerary.js';
+import { planItinerary, keepOf } from './lib/itinerary.js';
 import { planHikes, mockHikePlan, natureAreaAt } from './lib/hikeplan.js';
 import { planStay, StayPlanError } from './lib/stayplan.js';
 import { kiwi } from './providers/kiwi.js';
@@ -881,6 +881,8 @@ async function route(req, res) {
       departureTime: /^\d{2}:\d{2}$/.test(b.departureTime || '') ? b.departureTime : null, interests,
       // s dětmi (zájem „S dětmi“, cesta s dětmi): zoo a park výš, nejvýš 1 muzeum za den, pomalejší chůze
       kids: b.kids === true,
+      // po ✕ v programu: dny míst, která zůstala ({ id: datum }) – zůstanou v nich; neplatné se zahodí
+      keep: keepOf(b.keep, b.start, b.end),
     });
     return sendJson(req, res, 200, { demo: config.mock, ...plan, places });
   }
