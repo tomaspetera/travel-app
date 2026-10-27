@@ -1453,6 +1453,11 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   background:none;color:var(--text);font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .trip-mini .tm-when{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .trip-mini .tm-when b{font-size:15px;font-weight:700}
+/* cíl nabídky u hledání do víc míst – nad termínem, nejdůležitější údaj řádku */
+.trip-mini .tm-dest{font-size:15px;font-weight:800;color:var(--text);overflow-wrap:anywhere}
+.res-card.flat .tr-dest{display:block;font-size:17px;font-weight:800;padding:14px 0 0}
+.res-card.flat .tr-dest:not(:first-child){border-top:1px solid var(--border)}
+.res-card.flat .tr-dest+.trip-row{border-top:none}
 .trip-mini .tm-when small{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* úzký telefon (360 px): „7 nocí · KLV → K…“ – raději na dva řádky, letiště celá */
 @media(max-width:430px){.trip-mini .tm-when small{white-space:normal}}

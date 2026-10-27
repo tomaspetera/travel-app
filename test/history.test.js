@@ -324,6 +324,13 @@ test('vracející se uživatel: uvítání se při dalším otevření skryje sa
   assert.equal(wnAtStart('A+vitej', '#flights', 'A'), 'A');
   // během první návštěvy (bez nového startu) uvítání zůstává – rozhoduje jen start
   assert.equal(wnMode('A+vitej', 'A'), 'welcome');
+  // … až na nováčka, který už hlídá cenu: při návratu na Přehled uvítání zmizí (wnDoneNow), tipy až příště
+  const wnDoneNow = new Function(`${pick('wnDoneNow')}; return wnDoneNow;`)();
+  assert.equal(wnDoneNow('welcome', { watch: [], recent: [{}] }), false, 'jen hledal – návod zůstává');
+  assert.equal(wnDoneNow('welcome', { watch: [{ id: 'w1' }] }), true);
+  assert.equal(wnDoneNow('', { watch: [{ id: 'w1' }] }), false);
+  assert.match(APP, /const done = wnDoneNow\(mode, S\);[\s\S]{0,120}localStorage\.setItem\('atlas_wn', WN_ID\)[\s\S]{0,40}el\.hidden = mode !== 'welcome' \|\| done;/);
+  assert.match(APP, /if \(wnFirst\) \{ el\.hidden = true; el\.innerHTML = ''; return; \}/, '💡 tip při první návštěvě ne');
   // jiná sada novinek nebo už skryté: beze změny
   assert.equal(wnAtStart('A+vitej', '', 'B'), null);
   assert.equal(wnAtStart('A', '', 'A'), null);
@@ -375,7 +382,7 @@ test('✨ lišta Co je nového: jen novinky od minulého otevření (nejvýš 3)
   assert.match(pwa, /^body:has\(\.pi-dd:not\(\[hidden\]\)\) \.wn-pop,body:has\(\.ex-back:not\(\[hidden\]\)\) \.wn-pop\{display:none\}$/m);
   assert.match(pwa, /@media\(max-width:860px\) and \(max-height:700px\)\{\.wn-pop\{max-height:30vh\}\}/);
   // karta na Přehledu už jen uvítání
-  assert.match(app, /el\.hidden = mode !== 'welcome';/);
+  assert.match(app, /el\.hidden = mode !== 'welcome' \|\| done;/);
 });
 
 test('📍 Dnes na cestě: cesta z průvodce bez uložení do plánovače → nabídka uložit (do 2 dnů před odletem až do návratu)', () => {
