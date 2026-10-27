@@ -76,3 +76,23 @@ test('úvodní obrazovka aplikace na ploše ve světlém motivu světlá – bez
   // tmavá zůstane jako úvodní obrazovka Androidu z manifestu
   assert.match(standalone, new RegExp(`#launch\\{position:fixed;[^}]*background:${bg('dark')};`));
 });
+
+test('světlý režim: bílá spodní lišta s tmavou aktivní sekcí, bílá tlačítka a dlaždice, modrošedé stíny; tmavý beze změny', () => {
+  const block = (t) => CSS.match(new RegExp(`\\[data-theme="${t}"\\]\\{([^}]*)\\}`))[1];
+  const light = block('light'), dark = block('dark');
+  assert.match(light, /--nav-bg:rgba\(255,255,255,\.9\); --nav-line:rgba\(13,22,48,\.09\); --nav-ico:#5a6687;/);
+  assert.match(light, /--btn-bg:#fff; --btn-sh:/);
+  assert.match(light, /--shadow:0 1px 2px rgba\(15,24,48,\.05\)/, 'stín do modrošeda, ne černý');
+  assert.doesNotMatch(dark, /--btn-bg|--btn-sh|--nav-shadow/, 'tmavý režim beze změny (výchozí hodnoty v pravidlech)');
+  // ikony a popisky lišty na bílé aspoň 4,5 : 1
+  const lum = (h) => { const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  assert.ok((1.05) / (lum('#5a6687') + 0.05) >= 4.5);
+  // výchozí hodnoty = dřívější vzhled tmavého režimu
+  assert.match(CSS, /background:var\(--btn-bg,var\(--surface-2\)\);box-shadow:var\(--btn-sh,none\)/);
+  assert.match(CSS, /box-shadow:var\(--nav-shadow,0 18px 40px -14px rgba\(0,0,0,\.6\),0 2px 10px rgba\(0,0,0,\.18\)\)/);
+  assert.match(CSS, /\[data-theme="light"\] \.mobile-nav \.mi\.active\{background:#0f1830;color:#fff;/);
+  // hledání v úvodu Přehledu na bílém panelu
+  const fl = read('css/flights.css');
+  assert.match(fl, /\[data-theme="light"\] \.hero-search2,\[data-theme="light"\] \.hero\.ph \.hero-search2\{background:rgba\(255,255,255,\.96\);/);
+  assert.match(fl, /\[data-theme="light"\] \.hero-search2 \.pi-dark \.pi-input\{color:var\(--text\)\}/);
+});

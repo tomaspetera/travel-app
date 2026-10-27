@@ -33,7 +33,15 @@
   /* --faint: popisky a poznámky (trasa a termín u výsledku, „cena z …“, nápovědy) – na pozadí, kartě i v okně aspoň
      4,5 : 1 (ve dne na slunci); dřívější #8a96b8 měl jen 2,6–2,9 : 1. Pořád slabší než --muted. */
   --text:#0f1830; --muted:#56638a; --faint:#606d92; --accent-ink:#2f5fd0;
-  --nav-bg:rgba(15,24,48,.93); --nav-line:rgba(255,255,255,.06); --nav-ico:rgba(255,255,255,.62);
+  /* spodní lišta bílá (tmavá kapsle na světlé stránce byla nejtěžší věc na obrazovce), aktivní sekce tmavá – obráceně
+     než v tmavém režimu; ikony a popisky #5a6687 mají na bílé ~5,7 : 1 */
+  --nav-bg:rgba(255,255,255,.9); --nav-line:rgba(13,22,48,.09); --nav-ico:#5a6687;
+  --nav-shadow:0 14px 34px -16px rgba(15,24,48,.38),0 2px 8px rgba(15,24,48,.08);
+  /* stíny do modrošeda místo černých (černý stín pod bílou kartou dělal plochy špinavé); tlačítka a dlaždice bílé
+     s okrajem místo šedých průhledných (ve světlém režimu vypadaly vybledle) */
+  --shadow:0 1px 2px rgba(15,24,48,.05),0 12px 32px -18px rgba(15,24,48,.28);
+  --shadow-lg:0 2px 6px rgba(15,24,48,.06),0 28px 64px -24px rgba(15,24,48,.4);
+  --btn-bg:#fff; --btn-sh:0 1px 2px rgba(15,24,48,.07);
 }
 /* Mapy (svět, výsledky letů, výlety): světlé jako atlas – čitelné i na slunci, v tmavém i světlém režimu.
    Tmavé jen na přání (přepínač u mapy světa → <html data-map="dark">). */
@@ -122,7 +130,7 @@ a{color:inherit}
 }
 .pill:hover{color:var(--text);border-color:var(--border-2)}
 .pill.on{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 6px 18px -8px rgba(91,140,255,.8)}
-.icon-btn{width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:.15s}
+.icon-btn{width:40px;height:40px;border-radius:12px;border:1px solid var(--border);background:var(--btn-bg,var(--surface));box-shadow:var(--btn-sh,none);color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:.15s}
 .icon-btn:hover{color:var(--text);border-color:var(--border-2)}
 .icon-btn svg{width:19px;height:19px}
 .content{padding:6px 26px 60px;max-width:1280px;width:100%}
@@ -143,7 +151,7 @@ a{color:inherit}
 .wrap{flex-wrap:wrap}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;border-radius:12px;border:1px solid var(--border-2);
-  background:var(--surface-2);color:var(--text);font-weight:700;font-size:14px;cursor:pointer;transition:.16s var(--ease);font-family:inherit;text-decoration:none;white-space:nowrap
+  background:var(--btn-bg,var(--surface-2));box-shadow:var(--btn-sh,none);color:var(--text);font-weight:700;font-size:14px;cursor:pointer;transition:.16s var(--ease);font-family:inherit;text-decoration:none;white-space:nowrap
 }
 .btn:hover{transform:translateY(-1px);border-color:var(--accent)}
 .btn svg{width:17px;height:17px;flex-shrink:0}
@@ -153,7 +161,7 @@ a{color:inherit}
 .mn-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:16px}
 .mn-grid .more-tile:last-child:nth-child(odd){grid-column:1/-1} /* lichá poslední dlaždice přes celou šířku */
 .more-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:14px;border-radius:18px;border:1px solid var(--border);
-  background:var(--surface-2);color:var(--text);font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s var(--ease)}
+  background:var(--btn-bg,var(--surface-2));box-shadow:var(--btn-sh,none);color:var(--text);font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s var(--ease)}
 .more-tile:active{transform:scale(.97)}
 .more-tile .mt-ico{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;margin-bottom:6px;color:var(--accent-ink);
   background:color-mix(in srgb,var(--accent) 14%,transparent)}
@@ -170,7 +178,7 @@ a{color:inherit}
 .btn.primary:hover{box-shadow:0 14px 30px -12px rgba(0,0,0,.7)}
 [data-theme="light"] .btn.primary{background:#0f1830;color:#fff}
 .btn.warm{background:var(--grad-warm);border-color:transparent;color:#fff}
-.btn.ghost{background:transparent}
+.btn.ghost{background:transparent;box-shadow:none}
 .btn.sm{padding:8px 12px;font-size:13px;border-radius:10px}
 .btn.block{width:100%}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:600;background:var(--surface-2);border:1px solid var(--border);color:var(--muted)}
@@ -594,7 +602,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .empty{text-align:center;padding:54px 20px;color:var(--muted)}
 .empty .ei{width:64px;height:64px;border-radius:18px;background:var(--surface);display:grid;place-items:center;margin:0 auto 16px}
 .empty .ei svg{width:30px;height:30px;color:var(--accent-ink)}
-.plan-last{display:flex;flex-direction:column;gap:3px;max-width:420px;margin:0 auto 14px;padding:12px 16px;border-radius:16px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:14px}
+.plan-last{display:flex;flex-direction:column;gap:3px;max-width:420px;margin:0 auto 14px;padding:12px 16px;border-radius:16px;background:var(--btn-bg,var(--surface));border:1px solid var(--border);color:var(--text);font-size:14px}
 .plan-last .faint{font-size:12px}
 .plan-empty-act{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 #lastTripTile{align-content:center;text-align:center;padding:16px}
@@ -639,7 +647,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
      mřížka – nováček nepoznal, co je Cesta, Objevuj a Další), aktivní sekce v bílé kapsli */
   .mobile-nav{display:flex;align-items:center;gap:2px;position:fixed;z-index:50;height:62px;padding:6px;border-radius:999px;
     left:max(14px,env(safe-area-inset-left));right:max(14px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));
-    background:var(--nav-bg);border:1px solid var(--nav-line);box-shadow:0 18px 40px -14px rgba(0,0,0,.6),0 2px 10px rgba(0,0,0,.18);
+    background:var(--nav-bg);border:1px solid var(--nav-line);box-shadow:var(--nav-shadow,0 18px 40px -14px rgba(0,0,0,.6),0 2px 10px rgba(0,0,0,.18));
     -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
   .mobile-nav .mi{flex:1 1 0;min-width:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:26px;color:var(--nav-ico);
     border:0;padding:0 2px;background:none;font:inherit; /* <button> bez vzhledu tlačítka prohlížeče */
@@ -648,6 +656,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   .mobile-nav .mi svg{flex:none;width:21px;height:21px;transition:transform .14s var(--ease)}
   .mobile-nav .mi span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:700;line-height:1.15;letter-spacing:-.01em}
   .mobile-nav .mi.active{background:#fff;color:#0b1226;box-shadow:0 4px 14px -6px rgba(0,0,0,.45)}
+  [data-theme="light"] .mobile-nav .mi.active{background:#0f1830;color:#fff;box-shadow:0 6px 16px -8px rgba(15,24,48,.7)}
   .mobile-nav .mi:active svg{transform:scale(.84)}
   .toast{bottom:calc(90px + env(safe-area-inset-bottom));max-width:calc(100% - 32px)}
   /* Tab z klávesnice (a posun k poli): prvek se odroluje nad plovoucí lištu, ne pod ni – dřív končil fokus na tlačítkách
