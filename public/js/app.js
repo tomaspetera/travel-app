@@ -936,6 +936,13 @@ const wnMode = (seen, id = WN_ID) => (seen === id ? '' : seen === id + WN_NEW ||
  * → nová hodnota atlas_wn, nebo null (beze změny).
  */
 const wnAtStart = (seen, hash, id = WN_ID) => (!/^#sync=/.test(String(hash || '')) && firstVisit(seen) ? id + WN_NEW : seen === id + WN_NEW && (S.recent.length || S.watch.length) ? id : null);
+/**
+ * Uvítání ještě během první návštěvy: nováček, který už hlídá cenu (prošel hledání až po ♡), návod na první hledání
+ * nepotřebuje – při návratu na Přehled by nad radarem jen odsouval jeho hlídanou cenu. → true = skrýt jako „Rozumím“.
+ * Mizí jen při vykreslení Přehledu (návrat z Letů), ne pod rukama; při dalším startu rozhoduje wnAtStart.
+ */
+const wnDoneNow = (mode, s) => mode === 'welcome' && (s.watch || []).length > 0;
+let wnFirst = false; // v tomhle otevření se ukázalo uvítání: 💡 tipy až příště (renderDashTip) – dvě rady naráz zahltí
 const WN_TOP = 4; // v celém seznamu nejnovější novinky hned, starší pod „Starší novinky“
 // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
 const wnUnit = s => s.replace(/(\d) (?=(Kč|km|h|min|°C)(?![\p{L}]))/gu, '$1\u00a0').replace(/(\d\u00a0h) (?=\d)/g, '$1\u00a0');
@@ -945,7 +952,10 @@ function renderWhatsNew() {
   const el = $('#whatsNew'); if (!el) return;
   let seen = null; try { seen = localStorage.getItem('atlas_wn'); } catch (e) { /* soukromé okno */ }
   const mode = wnMode(seen);
-  el.hidden = mode !== 'welcome';
+  if (mode === 'welcome') wnFirst = true;
+  const done = wnDoneNow(mode, S);
+  if (done) try { localStorage.setItem('atlas_wn', WN_ID); } catch (e) { /* soukromé okno */ }
+  el.hidden = mode !== 'welcome' || done;
   if (el.hidden) return;
   if (mode === 'welcome' && seen !== WN_ID + WN_NEW) try { localStorage.setItem('atlas_wn', WN_ID + WN_NEW); } catch (e) { /* soukromé okno */ }
   const hide = () => {
@@ -1173,6 +1183,7 @@ function tipPick(s, x, mem, today) {
 let tipMem = null;
 function renderDashTip() {
   const el = $('#dashTip'); if (!el) return;
+  if (wnFirst) { el.hidden = true; el.innerHTML = ''; return; } // první návštěva: stačí uvítání (renderWhatsNew)
   let mem = null, explore = false;
   try { mem = JSON.parse(localStorage.getItem('atlas_tip')); explore = localStorage.getItem('atlas_explore_v1') != null; } catch (e) { /* soukromé okno, poškozený zápis */ }
   if (tipMem) mem = tipMem;

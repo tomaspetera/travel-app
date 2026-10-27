@@ -2539,24 +2539,29 @@
   // Telefon: kombinace jako krátké řádky (termín, noci, letiště, cena) – první celá, ostatní se rozbalí klepnutím;
   // celé karty pod sebou (~500 px každá) se na telefonu nedaly porovnat
   const flatCompact = () => Boolean(window.matchMedia && matchMedia('(max-width: 700px)').matches);
-  function tripMini(t) {
+  // Hledání do víc cílů („k moři v květnu“ = Kréta, Kypr, Baleáry…): výpis míchá cíle, a tak každá nabídka nese i název
+  // cíle – kódy letišť (PRG → CHQ) nováček nepřečte. U jednoho cíle ho říká nadpis výsledků.
+  const destTag = (g, cls) => (g ? `<span class="${cls}">${flag(g.dest.cc)} ${esc(g.dest.label)}</span>` : '');
+  function tripMini(t, g = null) {
     // letiště tam a zpět každé jako celek (nedělitelné mezery) – na úzkém telefonu se zalomí za nocemi nebo před ↩, ne
     // uprostřed letu; celá trasa jako jeden kus se na 360 px vedle ceny nevešla a konec („→ PRG“) uřízly tři tečky
     const r = `${t.out.from}\u00a0→\u00a0${t.out.to}${t.back ? ` ↩\u00a0${t.back.from !== t.out.to ? `${t.back.from}\u00a0→\u00a0` : ''}${t.back.to}` : ''}`;
     const pl = levelFor(t), tag = t.deal && t.deal.level === 'super' && (!pl || pl.level === 'low') ? '🔥 ' : pl && pl.level === 'low' ? '💚 ' : '';
     const stops = [t.out, t.back].some(l => l && l.stops) ? ' · s přestupem' : '';
     return `<button type="button" class="trip-mini" data-tmini="${esc(t.id)}" aria-expanded="false">
-      <span class="tm-when"><b>${dayLabel(t.out.date)}${t.back ? ` – ${dayLabel(t.back.date)}` : ''}</b><small>${t.back ? nightsTxt(t.nights) : 'jen tam'} · ${esc(r)}${stops}</small></span>
+      <span class="tm-when">${destTag(g, 'tm-dest')}<b>${dayLabel(t.out.date)}${t.back ? ` – ${dayLabel(t.back.date)}` : ''}</b><small>${t.back ? nightsTxt(t.nights) : 'jen tam'} · ${esc(r)}${stops}</small></span>
       <span class="tm-price">${tag}${czk(t.perPersonCzk)}<small>/os.</small>${tripLine(t, 'tm-trip')}</span><span class="tm-chev" aria-hidden="true">▾</span></button>`;
   }
   function flatList(list) {
     if (!list || !list.length) return `<div class="empty">${view.nights != null ? 'Pro tento odlet a počet nocí nic neodpovídá filtrům – vyber jiný termín v kalendáři nebo mřížce.' : view.outDate ? 'Pro tento den odletu nic neodpovídá filtrům – vyber jiný den v kalendáři.' : 'Filtrům nic neodpovídá.'}</div>`;
     const byKey = new Map(lastResult.groups.map(g => [g.dest.key, g]));
     const n = view.flatN, rest = list.length - n, mini = flatCompact();
+    const multi = new Set(list.map(t => t.destKey)).size > 1;
     view.fopen = view.fopen || new Set();
     return `<div class="card res-card flat${mini ? ' compact' : ''}">${list.slice(0, n).map((t, i) => {
-      if (mini && i > 0 && !view.fopen.has(t.id)) return tripMini(t);
-      const g = byKey.get(t.destKey); return tripRow(t, g, reg(t, g));
+      const g = byKey.get(t.destKey), dg = multi ? g : null;
+      if (mini && i > 0 && !view.fopen.has(t.id)) return tripMini(t, dg);
+      return destTag(dg, 'tr-dest') + tripRow(t, g, reg(t, g));
     }).join('')}</div>
       ${rest > 0 ? `<button type="button" class="more-btn" data-fmore="1">▼ ${Math.min(flatPage(), rest) <= 4 ? 'Další' : 'Dalších'} ${plural(Math.min(flatPage(), rest), 'kombinace', 'kombinace', 'kombinací')} (${rest >= 2 && rest <= 4 ? 'zbývají' : 'zbývá'} ${rest})</button>` : ''}`;
   }
@@ -4880,7 +4885,11 @@
     fromWait = { then, until: Date.now() + 5 * 60e3 };
     const field = fromInput.el.closest('.field') || fromInput.el;
     field.classList.add('need');
-    if (!$('#fromNeed')) fromInput.el.parentElement.insertAdjacentHTML('afterend', '<div class="need-hint" id="fromNeed">👆 Odkud letíš? Napiš město nebo zemi, nebo klepni na 📍 – hledání pak spustím sám.</div>');
+    // nejčastější města jedním klepnutím jako v uvítání (nováček, který napsal jen cíl, nemusí psát odkud)
+    if (!$('#fromNeed')) {
+      fromInput.el.parentElement.insertAdjacentHTML('afterend', `<div class="need-hint" id="fromNeed">👆 Odkud letíš? Klepni na město, napiš jiné, nebo klepni na 📍 – hledání pak spustím sám.<div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-need="${esc(c[0])}">${esc(c[0])}</button>`).join('')}</div></div>`);
+      $$('#fromNeed [data-need]').forEach(b => b.onclick = () => { const h = SearchHelp.homeOf(b.dataset.need); if (h) fromInput.set(h.from); });
+    }
     toast('Odkud letíš? Vyplň pole Odkud', 'info');
     setTimeout(() => { field.scrollIntoView({ block: 'center', behavior: 'smooth' }); fromInput.input.focus(); }, 250);
   }

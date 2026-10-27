@@ -125,3 +125,25 @@ test('⋯ u cíle: ♡ Hlídat cenu sem – z domova, termíny a lidé jako rada
   assert.match(js, /function watchFormTo\(d\) \{\s*const q = favQuery\(\), from = S\.home\?\.from\?\.length \? S\.home\.from : \(fromInput \? fromInput\.items : \[\]\);\s*return \{ \.\.\.defaultForm\(\), \.\.\.prefsOf\(S\.form\), from, to: \[\{ id: d\.id, label: d\.label, flag: flag\(d\.cc\) \}\], \.\.\.q\.form, \.\.\.radarPax\(q\.payload\.adults\), directOnly: false \};/);
   assert.match(read('css/flights.css'), /\.dm-acts #dmPin,\.dm-acts #dmWatch\{flex-basis:100%;white-space:normal\}/);
 });
+
+test('výsledky do víc cílů („k moři v květnu“): u každé nabídky vlajka a název cíle – kódy letišť (PRG → CHQ) nováček nepřečte', () => {
+  const js = read('js/flights.js');
+  assert.match(js, /const destTag = \(g, cls\) => \(g \? `<span class="\$\{cls\}">\$\{flag\(g\.dest\.cc\)\} \$\{esc\(g\.dest\.label\)\}<\/span>` : ''\);/);
+  const fl = js.slice(js.indexOf('function flatList('), js.indexOf('/* ---------- přesná data'));
+  // jen když výpis míchá cíle; u jednoho cíle ho říká nadpis výsledků
+  assert.match(fl, /const multi = new Set\(list\.map\(t => t\.destKey\)\)\.size > 1;/);
+  assert.match(fl, /if \(mini && i > 0 && !view\.fopen\.has\(t\.id\)\) return tripMini\(t, dg\);\s*return destTag\(dg, 'tr-dest'\) \+ tripRow\(t, g, reg\(t, g\)\);/);
+  assert.match(js, /<span class="tm-when">\$\{destTag\(g, 'tm-dest'\)\}<b>/, 'krátký řádek: cíl nad termínem');
+  const css = read('css/flights.css');
+  assert.match(css, /\.trip-mini \.tm-dest\{[^}]*overflow-wrap:anywhere\}/, 'celý název – na 360 px se zalomí, neuřízne („Kréta (C…“)');
+  assert.match(css, /\.res-card\.flat \.tr-dest\+\.trip-row\{border-top:none\}/);
+});
+
+test('chybí Odkud (nováček napsal jen cíl): pod polem nejčastější města jedním klepnutím, hledání pak běží samo', () => {
+  const js = read('js/flights.js');
+  const ask = js.slice(js.indexOf('function askFrom('), js.indexOf('function fromAnswered('));
+  assert.match(ask, /👆 Odkud letíš\? Klepni na město, napiš jiné, nebo klepni na 📍 – hledání pak spustím sám\.<div class="wc-chips">\$\{SearchHelp\.HOME_CITIES\.map\(c => `<button type="button" class="fchip" data-need="\$\{esc\(c\[0\]\)\}">/);
+  // stejné místo jako čip uvítání (SearchHelp.homeOf) – vyplní Odkud a onChange → fromAnswered spustí hledání
+  assert.match(ask, /\$\$\('#fromNeed \[data-need\]'\)\.forEach\(b => b\.onclick = \(\) => \{ const h = SearchHelp\.homeOf\(b\.dataset\.need\); if \(h\) fromInput\.set\(h\.from\); \}\);/);
+  assert.match(js, /onChange: \(\) => \{ refreshOrigins\(\); updateHomeChip\(\); mlHomeChanged\(\); formEdited\(\); if \(fromInput\.items\.length\) fromAnswered\(\); \}/);
+});
