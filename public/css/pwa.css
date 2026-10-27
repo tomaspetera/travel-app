@@ -23,6 +23,18 @@
 /* otevřené okno (náhled cíle, Porovnat…): lišta nové verze nezakryje jeho tlačítka */
 .modal-bg.show ~ .pwa-update{display:none}
 .pwa-x{width:30px;height:30px;border-radius:9px;border:none;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
+/* ✨ Novinky od minula (app.js whatsNewPop) – lišta na stejném místě jako nová verze; okno ji skryje a lišta nové verze
+   má přednost (po obnovení se ukáže) */
+.wn-pop{position:fixed;right:22px;bottom:22px;z-index:250;width:min(400px,calc(100vw - 44px));max-height:min(50vh,440px);display:flex;flex-direction:column;
+  padding:12px 12px 10px 16px;border-radius:16px;background:var(--surface-solid);border:1px solid var(--border-2);box-shadow:var(--shadow-lg);animation:fade .3s var(--ease)}
+.wn-pop-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:15px}
+/* záhlaví a OK vždy vidět, posouvá se jen seznam; novinka na 3 řádky – klepnutím celá (app.js) */
+.wn-pop .wn-list{margin:6px 0 10px;overflow:auto;min-height:0;overscroll-behavior:contain}
+.wn-pop .wn-list li>div{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;cursor:pointer}
+.wn-pop .wn-list li.open>div{display:block;-webkit-line-clamp:unset}
+.wn-pop-f{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.wn-pop-f .linkbtn{font-size:13px}
+.modal-bg.show ~ .wn-pop,body:has(.pwa-update:not([hidden])) .wn-pop{display:none}
 .pwa-x:hover{color:var(--text);background:var(--surface-2)}
 @media(max-width:860px){
   .pwa-bar{padding:8px 16px}
@@ -31,4 +43,6 @@
   /* nad hlavním tlačítkem kroku průvodce (trip.css .trip-next, 70 px nad lištou, až 2 řádky) – lišta ho zakryla celé
      a klepnutí na „Pokračovat“ trefilo „Obnovit“ */
   body:has(.trip-next:not([hidden])) .pwa-update{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 148px)}
+  .wn-pop{left:12px;right:12px;width:auto;bottom:calc(88px + env(safe-area-inset-bottom));max-height:42vh}
+  body:has(.trip-next:not([hidden])) .wn-pop{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 148px)}
 }

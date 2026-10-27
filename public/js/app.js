@@ -160,6 +160,8 @@ function openMore() {
     list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">💾 Přenos a záloha <span class="faint">soubor</span></button>`);
     $('#moreBk').onclick = () => { modalClose(); Backup.open(); };
   }
+  list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreWn">✨ Co je nového <span class="faint">novinky</span></button>`);
+  $('#moreWn').onclick = () => { modalClose(); whatsNewOpen(); };
   if (window.About) About.addToMenu(list); // ℹ️ O aplikaci a soukromí (about.js)
   // motiv: přepínač v postranním panelu je na telefonu skrytý
   list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreTheme">🌗 ${themeNow() === 'dark' ? 'Světlý' : 'Tmavý'} režim <span class="faint">vzhled</span></button>`);
@@ -834,7 +836,9 @@ function showNow() {
   const c = $('#nowCard'); if (c) c.focus({ preventScroll: true });
 }
 /* ---------- ✨ Co je nového ----------
-   Novinky posledních verzí a kde je v aplikaci najít – na Přehledu, dokud je uživatel neskryje (nová sada = WN_ID). */
+   Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
+   od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
+   sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
 const WN_ID = '2026-10-27a';
 const WHATS_NEW = [
   ['🔗', 'Krátký odkaz na cestu', '<b>📤 Sdílet cestu</b> → <b>Poslat kamarádům</b> (i <b>🔗 Sdílet plán</b> v plánovači) teď pošle krátký odkaz <b>…/c/…</b> místo dlouhé stěny písmen – ve WhatsAppu a Messengeru s fotkou cíle a termínem. Kamarád po klepnutí uvidí celou cestu a může si ji uložit.'],
@@ -927,12 +931,16 @@ const wnMode = (seen, id = WN_ID) => (seen === id ? '' : seen === id + WN_NEW ||
  * které nikdy neviděl. Přenos z jiného zařízení (#sync=) nováček není. → nová hodnota atlas_wn, nebo null (beze změny).
  */
 const wnAtStart = (seen, hash, id = WN_ID) => (!/^#sync=/.test(String(hash || '')) && firstVisit(seen) ? id + WN_NEW : null);
-const WN_TOP = 4; // nejnovější novinky hned, starší pod „Starší novinky“
+const WN_TOP = 4; // v celém seznamu nejnovější novinky hned, starší pod „Starší novinky“
+// „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
+const wnUnit = s => s.replace(/(\d) (?=(Kč|km|h|min|°C)(?![\p{L}]))/gu, '$1\u00a0').replace(/(\d\u00a0h) (?=\d)/g, '$1\u00a0');
+const wnLi = x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${wnUnit(x[2])}</div></li>`;
+/** Karta na Přehledu už jen pro nováčka (uvítání); novinky ukazuje lišta (whatsNewPop) a menu (whatsNewOpen). */
 function renderWhatsNew() {
   const el = $('#whatsNew'); if (!el) return;
   let seen = null; try { seen = localStorage.getItem('atlas_wn'); } catch (e) { /* soukromé okno */ }
   const mode = wnMode(seen);
-  el.hidden = !mode;
+  el.hidden = mode !== 'welcome';
   if (el.hidden) return;
   if (mode === 'welcome' && seen !== WN_ID + WN_NEW) try { localStorage.setItem('atlas_wn', WN_ID + WN_NEW); } catch (e) { /* soukromé okno */ }
   const hide = () => {
@@ -942,51 +950,88 @@ function renderWhatsNew() {
     // uvítání se ptalo „Odkud letíš?“ místo radaru – bez domova se teď ptá radar (radarSetup ve flights.js)
     if (asked && window.Flights && !S.home?.from?.length) Flights.renderRadar();
   };
-  // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
-  const unit = s => s.replace(/(\d) (?=(Kč|km|h|min|°C)(?![\p{L}]))/gu, '$1\u00a0').replace(/(\d\u00a0h) (?=\d)/g, '$1\u00a0');
-  const li = x => `<li><span class="wn-ic" aria-hidden="true">${x[0]}</span><div><b>${esc(x[1])}</b> – ${unit(x[2])}</div></li>`;
-  if (mode === 'welcome') {
-    el.classList.add('welcome');
-    // „Odkud letíš?“ hned nahoře: jedno klepnutí nastaví domov a radar níž začne ukazovat lety (bez domova je prázdný
-    // a jeho „Odkud obvykle létáš?“ je až pod přehybem). Jediné místo, kde se Přehled ptá – radar pod ním mezitím jen
-    // odkáže sem (radarSetup ve flights.js) a čip domova nahoře sem dá kurzor; jiné město než na čipech napíše do pole.
-    const homeRow = window.Flights && Flights.homeFromChip && Flights.PlaceInput && !S.home?.from?.length
-      ? `<div class="wc-home"><b id="wcHomeL">Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div><div class="place-input wc-from" id="wcFrom"></div></div>` : '';
-    el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
-      ${homeRow}
-      <ol class="wc-steps">
-        <li><span class="wc-n">1</span><div><b>Napiš, kam chceš</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
-        <li><span class="wc-n">2</span><div><b>Vyber let</b><small>nejlevnější letenky nahoře, doprava na letiště zvlášť pod cenou</small></div></li>
-        <li><span class="wc-n">3</span><div><b>Poskládej cestu</b><small>ubytování, auto, program a shrnutí s odkazy k rezervaci</small></div></li>
-      </ol>
-      <div class="row wrap" style="gap:8px"><button type="button" class="btn primary" id="wcGo">Začít hledat</button><button type="button" class="btn ghost" id="wnHide">Rozumím</button></div>`;
-    $('#wcGo').onclick = () => {
-      hide();
-      const inp = $('#heroTo input'); if (inp) { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus({ preventScroll: true }); }
-    };
-    // domov nastavený → řádek zmizí (uvítání zůstane); bez polohy čipy zůstanou na výběr
-    const setHome = chip => {
-      $$('[data-wch]', el).forEach(x => { x.disabled = true; });
-      Flights.homeFromChip(chip, ok => {
-        if (ok) { const r = $('.wc-home', el); if (r) r.remove(); } else $$('[data-wch]', el).forEach(x => { x.disabled = false; });
-      });
-    };
-    $$('[data-wch]', el).forEach(b => b.onclick = () => setHome(b.dataset.wch));
-    // jiné město nebo letiště z našeptávače = domov jako z čipu (letiště do 150 km, 2 osoby – SearchHelp.homeOf)
-    const wf = $('#wcFrom', el);
-    if (wf) {
-      const pi = new Flights.PlaceInput(wf, { origin: true, max: 1, placeholder: 'Jiné město nebo letiště…', onChange: () => { if (pi.items.length) setHome(pi.items[0]); } });
-      pi.input.setAttribute('aria-labelledby', 'wcHomeL');
-    }
-  } else {
-    el.classList.remove('welcome');
-    const more = WHATS_NEW.slice(WN_TOP);
-    el.innerHTML = `<details open><summary><b>✨ Co je nového</b> <span class="faint">– kde novinky najdeš</span></summary>
-      <ul class="wn-list">${WHATS_NEW.slice(0, WN_TOP).map(li).join('')}</ul>
-      ${more.length ? `<details class="wn-more"><summary>Starší novinky (${more.length})</summary><ul class="wn-list">${more.map(li).join('')}</ul></details>` : ''}
-      <button type="button" class="btn sm ghost" id="wnHide">Rozumím, skrýt</button></details>`;
+  el.classList.add('welcome');
+  // „Odkud letíš?“ hned nahoře: jedno klepnutí nastaví domov a radar níž začne ukazovat lety (bez domova je prázdný
+  // a jeho „Odkud obvykle létáš?“ je až pod přehybem). Jediné místo, kde se Přehled ptá – radar pod ním mezitím jen
+  // odkáže sem (radarSetup ve flights.js) a čip domova nahoře sem dá kurzor; jiné město než na čipech napíše do pole.
+  const homeRow = window.Flights && Flights.homeFromChip && Flights.PlaceInput && !S.home?.from?.length
+    ? `<div class="wc-home"><b id="wcHomeL">Odkud letíš?</b><div class="wc-chips">${SearchHelp.HOME_CITIES.map(c => `<button type="button" class="fchip" data-wch="${esc(c[0])}">${esc(c[0])}</button>`).join('')}<button type="button" class="fchip" data-wch="geo">📍 Moje poloha</button></div><div class="place-input wc-from" id="wcFrom"></div></div>` : '';
+  el.innerHTML = `<h3 class="wc-h">👋 Vítej! Najdu levné letenky a poskládám z nich celou cestu.</h3>
+    ${homeRow}
+    <ol class="wc-steps">
+      <li><span class="wc-n">1</span><div><b>Napiš, kam chceš</b><small>město, „kamkoliv“, nebo celou větu – třeba „k moři v květnu do 5000“</small></div></li>
+      <li><span class="wc-n">2</span><div><b>Vyber let</b><small>nejlevnější letenky nahoře, doprava na letiště zvlášť pod cenou</small></div></li>
+      <li><span class="wc-n">3</span><div><b>Poskládej cestu</b><small>ubytování, auto, program a shrnutí s odkazy k rezervaci</small></div></li>
+    </ol>
+    <div class="row wrap" style="gap:8px"><button type="button" class="btn primary" id="wcGo">Začít hledat</button><button type="button" class="btn ghost" id="wnHide">Rozumím</button></div>`;
+  $('#wcGo').onclick = () => {
+    hide();
+    const inp = $('#heroTo input'); if (inp) { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); inp.focus({ preventScroll: true }); }
+  };
+  // domov nastavený → řádek zmizí (uvítání zůstane); bez polohy čipy zůstanou na výběr
+  const setHome = chip => {
+    $$('[data-wch]', el).forEach(x => { x.disabled = true; });
+    Flights.homeFromChip(chip, ok => {
+      if (ok) { const r = $('.wc-home', el); if (r) r.remove(); } else $$('[data-wch]', el).forEach(x => { x.disabled = false; });
+    });
+  };
+  $$('[data-wch]', el).forEach(b => b.onclick = () => setHome(b.dataset.wch));
+  // jiné město nebo letiště z našeptávače = domov jako z čipu (letiště do 150 km, 2 osoby – SearchHelp.homeOf)
+  const wf = $('#wcFrom', el);
+  if (wf) {
+    const pi = new Flights.PlaceInput(wf, { origin: true, max: 1, placeholder: 'Jiné město nebo letiště…', onChange: () => { if (pi.items.length) setHome(pi.items[0]); } });
+    pi.input.setAttribute('aria-labelledby', 'wcHomeL');
   }
   $('#wnHide').onclick = hide;
+}
+/* Lišta „Co je nového“ po aktualizaci: novinky od posledního otevření, jednou – atlas_wn_top = název nejnovější
+   novinky, kterou už uživatel viděl. Při startu se ukážou jen novější (nejvýš WN_POP, zbytek „a 2 další ›“) a hned se
+   zapamatují: další otevření je už neukáže, ani když lištu zavře bez čtení – nic se nehromadí jako dřív karta. */
+const WN_TOP_LS = 'atlas_wn_top';
+const WN_POP = 3;
+/**
+ * Které novinky ukázat v liště: top = atlas_wn_top, seen = atlas_wn (uvítání, dřívější „Rozumím“ u karty). → { show,
+ * more } – show nejnovější nové (nejvýš WN_POP), more = kolik dalších nových se nevešlo.
+ * - nováček (uvítání) nic – novinky o funkcích, které nezná, by ho zahltily;
+ * - dřívější uživatel bez atlas_wn_top: kartu s aktuální sadou skryl (seen = id) → nic, jinak jen nejnovější;
+ * - název, který v seznamu už není (přejmenovaná novinka) → nic.
+ */
+function wnFresh(top, seen, list = WHATS_NEW, id = WN_ID) {
+  if (wnMode(seen, id) === 'welcome') return { show: [], more: 0 };
+  let n = top == null ? (seen === id ? 0 : 1) : list.findIndex(x => x[1] === top);
+  if (n < 0) n = 0;
+  return { show: list.slice(0, Math.min(n, WN_POP)), more: Math.max(0, n - WN_POP) };
+}
+function whatsNewPop() {
+  let f;
+  try {
+    f = wnFresh(localStorage.getItem(WN_TOP_LS), localStorage.getItem('atlas_wn'));
+    localStorage.setItem(WN_TOP_LS, WHATS_NEW[0][1]);
+  } catch (e) { return; /* soukromé okno: bez paměti by lišta vyskočila při každém otevření */ }
+  if (!f.show.length) return;
+  const bar = document.createElement('div');
+  bar.className = 'wn-pop';
+  bar.setAttribute('role', 'region');
+  bar.setAttribute('aria-label', 'Co je nového');
+  const n = f.show.length + f.more;
+  bar.innerHTML = `<div class="wn-pop-h"><b>✨ ${n > 1 ? 'Novinky' : 'Novinka'} od minula</b><button type="button" class="pwa-x" aria-label="Zavřít">×</button></div>
+    <ul class="wn-list">${f.show.map(wnLi).join('')}</ul>
+    <div class="wn-pop-f"><button type="button" class="linkbtn" data-wn-all>${f.more ? `a ${f.more} ${f.more < 5 ? 'další' : 'dalších'} ›` : 'Všechny novinky ›'}</button><button type="button" class="btn sm primary" data-wn-ok>OK</button></div>`;
+  const close = () => bar.remove();
+  $('.pwa-x', bar).onclick = close;
+  $('[data-wn-ok]', bar).onclick = close;
+  $('[data-wn-all]', bar).onclick = () => { close(); whatsNewOpen(); };
+  $$('.wn-list li', bar).forEach(li => { li.onclick = () => li.classList.toggle('open'); });
+  document.body.append(bar); // za oknem (#modalBg): otevřené okno ji skryje (atlas.css .modal-bg.show ~ .wn-pop)
+}
+/** Celý seznam novinek v okně (menu ☰ → Co je nového, postranní panel na počítači, „Všechny novinky ›“ v liště). */
+function whatsNewOpen() {
+  const more = WHATS_NEW.slice(WN_TOP);
+  modalOpen(`<div class="modal-body"><h3>✨ Co je nového</h3><p class="faint" style="margin:0 0 4px">Novinky posledních verzí a kde je v aplikaci najdeš.</p>
+    <ul class="wn-list">${WHATS_NEW.slice(0, WN_TOP).map(wnLi).join('')}</ul>
+    ${more.length ? `<details class="wn-more"><summary>Starší novinky (${more.length})</summary><ul class="wn-list">${more.map(wnLi).join('')}</ul></details>` : ''}
+    <button type="button" class="btn ghost" data-close>Zavřít</button></div>`);
+  $$('#modal [data-close]').forEach(b => { b.onclick = () => modalClose(); });
 }
 /* ---------- 🕘 Od minula ----------
    Karta nahoře na Přehledu po návratu jiný den (since.js): co se od poslední návštěvy změnilo pro uživatele – bez
@@ -2404,6 +2449,7 @@ async function boot() {
     document.documentElement.classList.add('booted'); // Přehled je vykreslený – ukázat i sekce pod úvodem (atlas.css)
     launchDone();
     if (window.Lazy) Lazy.soon(); // průvodce, Objevuj a Před cestou, až prohlížeč nemá co dělat (lazy.js)
+    setTimeout(whatsNewPop, 1200); // ✨ novinky od minula – až po úvodní animaci
   }
 }
 async function start() {
@@ -2415,6 +2461,9 @@ async function start() {
   sinceStart(); // 🕘 Od minula: dřív, než aplikace uklidí propadlé odložené nabídky
   if (window.Flights) Flights.warm(); // stav serveru souběžně s daty zemí – rychlejší start
   applyTheme(); applyMapStyle(); buildNav(); fillSelects(); wireEvents(); renderTips();
+  // ✨ Co je nového v postranním panelu (počítač a tablet nemají menu ☰) – pod přepínačem motivu jako O aplikaci
+  const tt = $('#themeToggle');
+  if (tt && !$('#sideWn')) { tt.insertAdjacentHTML('afterend', '<button type="button" class="theme-toggle side-about" id="sideWn">✨ Co je nového</button>'); $('#sideWn').onclick = whatsNewOpen; }
   if (window.Entry) {
     // vstupní podmínky (~20 kB gzip) souběžně se startem; po načtení doplnit čipy a otevřený seznam zemí
     Entry.whenReady(() => { paintEntryChips(); if (activeView === 'countries' && $('#cEntry').value) renderCountries(); });
