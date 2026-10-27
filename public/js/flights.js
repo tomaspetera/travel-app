@@ -2451,7 +2451,7 @@
   // cíl, 🙈 ho neschová
   const prefFor = (res, groups, opts = {}) => SearchHelp.prefGroups(groups, prefLists(), { ...opts, keep: (res && res.destination && res.destination.sole) || null });
   const prefBadge = (key, lists = prefLists()) => ({ fav: ' <span class="b fav-b" title="Moje cíle – chci tam">⭐</span>', mute: ' <span class="b mute-b" title="Nezajímá mě – jinak se tu neukazuje">🙈</span>' }[SearchHelp.destPref(key, lists)] || '');
-  const dmBtn = (d, attr = `data-dm="${esc(d.key)}"`) => (SearchHelp.destKeyOf(d.id) ? `<button type="button" class="dm-btn" ${attr} aria-label="${esc(d.label)}: chci tam / nezajímá mě / odložit" title="⭐ Chci tam · 🙈 Nezajímá mě · 📌 Odložit">⋯</button>` : '<span></span>');
+  const dmBtn = (d, attr = `data-dm="${esc(d.key)}"`) => (SearchHelp.destKeyOf(d.id) ? `<button type="button" class="dm-btn" ${attr} aria-label="${esc(d.label)}: chci tam / nezajímá mě / odložit / hlídat cenu" title="⭐ Chci tam · 🙈 Nezajímá mě · 📌 Odložit · ♡ Hlídat cenu">⋯</button>` : '<span></span>');
   let rowRegistry = [];
   function reg(t, g) { rowRegistry.push({ t, g }); return rowRegistry.length - 1; }
   // Výsledek, ze kterého jsou řádky na obrazovce (rowRegistry): konečný výsledek může v lastResult čekat, než se dá
@@ -5054,6 +5054,11 @@
     const q = SearchHelp.radarQuery(S.radarMode, home, today(), S.radarHoliday);
     return q.none ? SearchHelp.radarQuery('all', home, today()) : q;
   }
+  /** Hledání z domova (jinak z Odkud v Letech) do jednoho cíle d = { id, label, cc }, termíny a lidé jako radar. */
+  function watchFormTo(d) {
+    const q = favQuery(), from = S.home?.from?.length ? S.home.from : (fromInput ? fromInput.items : []);
+    return { ...defaultForm(), ...prefsOf(S.form), from, to: [{ id: d.id, label: d.label, flag: flag(d.cc) }], ...q.form, ...radarPax(q.payload.adults), directOnly: false };
+  }
   /** ⭐ Hledat moje cíle: jedno hledání uživatele do prvních 5 cílů z domova radaru, termíny i počet lidí jako radar. */
   function searchFavs(list) {
     if (!list.length) return;
@@ -5084,9 +5089,12 @@
     const key = SearchHelp.destKeyOf(d.id); if (!key) return;
     const pl = prefLists(), p = SearchHelp.destPref(key, pl), now = Date.now();
     const pin = !offer ? null : offer.row ? Pins.fromRow(offer.row.t, offer.row.g, offer.res, SearchHelp.shownAt(offer.res, lastResultAt, now), now) : Pins.fromRadar(offer.radar, { at: offer.r.at, adults: offer.q.payload?.adults }, now);
+    // ♡ hlídání sem jedním klepnutím: z domova do města, termíny a lidé jako radar (jako ⭐ Hledat moje cíle) – dřív
+    // jen přes formulář v Letech; na Přehledu pak „zlevnilo“, když cena spadne
+    const wf = watchFormTo(d), wOn = wf.from.length > 0 && isWatched(wf);
     modalOpen(`<div class="modal-body dm-modal"><h3>${flag(d.cc)} ${esc(d.label)}</h3>
-      <div class="dm-acts"><button type="button" class="btn${p === 'fav' ? '' : ' primary'}" data-dmp="${p === 'fav' ? '' : 'fav'}">${p === 'fav' ? '⭐ Odebrat z mých cílů' : '⭐ Chci tam'}</button><button type="button" class="btn" data-dmp="${p === 'mute' ? '' : 'mute'}">${p === 'mute' ? '👀 Zase ukazovat' : '🙈 Nezajímá mě'}</button>${pin ? `<button type="button" class="btn" id="dmPin">${Pins.has(pinList(), pin) ? '📌 Odebrat z odložených' : `<span>📌 Odložit nabídku · <span class="dp-nw">${czk(Pins.price(pin))}</span> · <span class="dp-nw">${esc(pinWhen(pin))}</span></span>`}</button>` : ''}</div>
-      <p class="faint dm-note">⭐ Moje cíle mají štítek ⭐ a na Přehledu nejnižší cenu, kterou ATLAS viděl. S 🙈 se město v radaru ani v Kamkoliv neukáže – hledání přímo sem ho ukáže vždy.${pin ? ' 📌 Odložit schová nabídku k porovnání (Přehled → 📌 Odložené nabídky).' : ''}</p>
+      <div class="dm-acts"><button type="button" class="btn${p === 'fav' ? '' : ' primary'}" data-dmp="${p === 'fav' ? '' : 'fav'}">${p === 'fav' ? '⭐ Odebrat z mých cílů' : '⭐ Chci tam'}</button><button type="button" class="btn" data-dmp="${p === 'mute' ? '' : 'mute'}">${p === 'mute' ? '👀 Zase ukazovat' : '🙈 Nezajímá mě'}</button>${pin ? `<button type="button" class="btn" id="dmPin">${Pins.has(pinList(), pin) ? '📌 Odebrat z odložených' : `<span>📌 Odložit nabídku · <span class="dp-nw">${czk(Pins.price(pin))}</span> · <span class="dp-nw">${esc(pinWhen(pin))}</span></span>`}</button>` : ''}<button type="button" class="btn" id="dmWatch"${wOn ? ' disabled title="Hledání sem už hlídáš – Přehled → 🔔 Hlídané ceny"' : ''}>${wOn ? '♥ Cenu sem už hlídáš' : '♡ Hlídat cenu sem'}</button></div>
+      <p class="faint dm-note">⭐ Moje cíle mají štítek ⭐ a na Přehledu nejnižší cenu, kterou ATLAS viděl. S 🙈 se město v radaru ani v Kamkoliv neukáže – hledání přímo sem ho ukáže vždy.${pin ? ' 📌 Odložit schová nabídku k porovnání (Přehled → 📌 Odložené nabídky).' : ''} ♡ Hlídat cenu sem najde lety (termíny jako radar) a když zlevní, uvidíš to na Přehledu.</p>
       <div class="dm-foot"><button type="button" class="linkbtn" id="dmEdit">Upravit seznamy (⭐ ${pl.fav.length} · 🙈 ${pl.mute.length})</button><button type="button" class="btn ghost sm" id="dmClose">Zavřít</button></div></div>`);
     $$('[data-dmp]', $('#modal')).forEach(b => b.onclick = () => {
       const which = b.dataset.dmp || null, nx = SearchHelp.destPrefSet(prefLists(), d, which);
@@ -5098,6 +5106,12 @@
       toast(which === 'fav' ? `Přidáno do mých cílů: ${d.label}` : which === 'mute' ? `${d.label} se v radaru ani v Kamkoliv už neukáže` : p === 'fav' ? `Odebráno z mých cílů: ${d.label}` : `${d.label} se zase bude ukazovat`, null, 2600, undo);
     });
     const dp = $('#dmPin'); if (dp) dp.onclick = () => { modalClose(); if (offer.row) pinToggleRow(offer.row.t, offer.row.g, offer.res); else pinToggleRadar(offer.radar, offer.r, offer.q); };
+    // hledání proběhne v Letech (uživatel hned vidí nabídky), uloží ho addWatch; bez domova se nejdřív zeptá, odkud
+    $('#dmWatch').onclick = () => {
+      modalClose(); go('flights');
+      if (!wf.from.length) { setForm(wf); askFrom(() => addWatch(getForm())); return; }
+      addWatch(wf);
+    };
     $('#dmEdit').onclick = () => prefsEdit();
     $('#dmClose').onclick = () => modalClose();
     $('[data-dmp]', $('#modal')).focus();

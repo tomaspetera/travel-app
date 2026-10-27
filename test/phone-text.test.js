@@ -113,3 +113,15 @@ test('spodní lišta: popisek pod každou ikonou (dřív jen u aktivní sekce �
   // tečka „zlevnilo“ u ikony Přehledu (ikona je teď nahoře)
   assert.match(noComments(read('css/flights.css')), /\.mi-dot\{position:absolute;top:6px;left:calc\(50% \+ 5px\)/);
 });
+
+test('⋯ u cíle: ♡ Hlídat cenu sem – z domova, termíny a lidé jako radar; už hlídané „♥ Cenu sem už hlídáš“', () => {
+  const js = read('js/flights.js');
+  const menu = js.slice(js.indexOf('function destMenu('), js.indexOf('function prefsEdit('));
+  assert.match(menu, /const wf = watchFormTo\(d\), wOn = wf\.from\.length > 0 && isWatched\(wf\);/);
+  assert.match(menu, /<button type="button" class="btn" id="dmWatch"\$\{wOn \? ' disabled[^']*' : ''\}>\$\{wOn \? '♥ Cenu sem už hlídáš' : '♡ Hlídat cenu sem'\}<\/button>/);
+  // hledání proběhne v Letech (nabídky hned vidět), bez domova se nejdřív zeptá, odkud
+  assert.match(menu, /modalClose\(\); go\('flights'\);\s*if \(!wf\.from\.length\) \{ setForm\(wf\); askFrom\(\(\) => addWatch\(getForm\(\)\)\); return; \}\s*addWatch\(wf\);/);
+  // stejné hledání jako ⭐ Hledat moje cíle: domov, termín a lidé z radaru (favQuery, radarPax)
+  assert.match(js, /function watchFormTo\(d\) \{\s*const q = favQuery\(\), from = S\.home\?\.from\?\.length \? S\.home\.from : \(fromInput \? fromInput\.items : \[\]\);\s*return \{ \.\.\.defaultForm\(\), \.\.\.prefsOf\(S\.form\), from, to: \[\{ id: d\.id, label: d\.label, flag: flag\(d\.cc\) \}\], \.\.\.q\.form, \.\.\.radarPax\(q\.payload\.adults\), directOnly: false \};/);
+  assert.match(read('css/flights.css'), /\.dm-acts #dmPin,\.dm-acts #dmWatch\{flex-basis:100%;white-space:normal\}/);
+});

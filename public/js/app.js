@@ -839,8 +839,9 @@ function showNow() {
    Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
    od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
-const WN_ID = '2026-10-27a';
+const WN_ID = '2026-10-27b';
 const WHATS_NEW = [
+  ['♡', 'Hlídání ceny jedním klepnutím', 'u karty radaru na <b>Přehledu</b> i u cíle v <b>Kamkoliv</b> klepni na <b>⋯</b> → <b>♡ Hlídat cenu sem</b>: ATLAS najde lety z tvého domova (termíny jako radar) a cenu hlídá – když zlevní, uvidíš to na Přehledu. Bez vyplňování formuláře.'],
   ['🔗', 'Krátký odkaz na cestu', '<b>📤 Sdílet cestu</b> → <b>Poslat kamarádům</b> (i <b>🔗 Sdílet plán</b> v plánovači) teď pošle krátký odkaz <b>…/c/…</b> místo dlouhé stěny písmen – ve WhatsAppu a Messengeru s fotkou cíle a termínem. Kamarád po klepnutí uvidí celou cestu a může si ji uložit.'],
   ['🙋', 'Jede někdo se mnou?', 've <b>Shrnutí</b> průvodce Cestou (i u budoucí cesty v plánovači) je pod <b>📤 Sdílet cestu</b> kromě poslání celé cesty kamarádům i karta na sítě: <b>Instagram Story</b> nebo <b>příspěvek na Instagram či Facebook</b> ve tvaru palubní vstupenky – odkud, kam, měsíc a „vedle mě: třeba ty?“. Cena, přesné datum ani ubytování na kartě nejsou. Kdo klepne na odkaz, uvidí termín a jedním klepnutím lety na stejné dny ze svého letiště.'],
   ['🚆', 'Lepší výlety z města', '<b>Výlety</b> v <b>Objevuj</b> a celodenní výlety v programu cesty vybírá ATLAS podle toho, co tam je k vidění (UNESCO, známé památky, doporučení průvodce Wikivoyage, klasiky jako Sintra z Lisabonu, Tivoli a Ostia Antica z Říma nebo Wieliczka z Krakova) a jak daleko to je – předměstí a města u letiště už nevycházejí. U každého výletu je čas cesty vlakem, busem nebo lodí i autem (odhad), odkaz <b>spoje ↗</b> a jednou větou, proč tam jet.'],
