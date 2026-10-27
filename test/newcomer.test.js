@@ -87,3 +87,8 @@ test('drobnosti: filtr hodnocení hotelů s ⭐ a popiskem, hotový program „�
   assert.match(app, /const \[ttl, sub\] = WORLD_VIEWS\.includes\(v\) \? NAV_INFO\.world : NAV\.find\(x => x\[0\] === v\)\.slice\(1\); \$\('#pageTitle'\)\.textContent = ttl; \$\('#pageSub'\)\.textContent = sub;/);
   assert.match(app, /const NAV_INFO = \{ world: \['Svět', /);
 });
+
+test('vracející se uživatel: ⭐ Moje cíle s jednou větou o ceně (dřív 5 řádků při každém otevření Přehledu), podrobnosti v title', () => {
+  const js = read('js/flights.js');
+  assert.match(js, /<div class="faint fav-note" title="Jen letenka – bez cesty na letiště, do města a zavazadel; s odletem od tohoto měsíce\. Telefon a počítač mají každý svou paměť cen\.">Cena = nejlevnější zpáteční letenka na osobu, jakou ATLAS viděl v tomhle zařízení\.<\/div>/);
+});
