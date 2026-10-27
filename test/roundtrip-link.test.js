@@ -65,3 +65,25 @@ test('aplikace: obojí v jedné rezervaci z odkazu na let tam – stejný odkaz 
   assert.equal(H.roundBookUrl(rt), null);
   assert.equal(H.roundBookUrl({ out: { provider: 'wizzair', from: 'PRG', to: 'TAT', date: '2026-12-12', bookUrl: 'x' } }), null, 'jen tam');
 });
+
+test('aplikace: dvojice složená v prohlížeči ve stejné měně → jedno tlačítko na zpáteční let, bez věty o přepočtu', () => {
+  const src = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  const a = src.indexOf('  // Dvojice složená v prohlížeči'), b = src.indexOf('  // S dětmi pod tlačítky Koupit');
+  const ctx2 = { URL, Intl, SearchHelp: H, lastResult: { fx: { eurCzk: 24.3 } }, esc: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'),
+    safeUrl: (u) => u, provColor: () => '#000', shopName: (p) => ({ wizzair: 'Wizz Air', ryanair: 'Ryanair' })[p] || p };
+  vm.runInNewContext(`${src.slice(a, b)}\nthis.bookButtons = bookButtons; this.buyNote = buyNote;`, ctx2);
+  for (const p of ['ryanair', 'wizzair']) {
+    // složená v prohlížeči (composeTrip) – bez bookUrl
+    const vie = { ...makeTrip(leg(p, 'VIE', 'BCN', '2026-12-12', 30, 'EUR'), leg(p, 'BCN', 'VIE', '2026-12-20', 25.5, 'EUR')), bookUrl: null };
+    const html = ctx2.bookButtons(vie);
+    assert.equal((html.match(/<a /g) || []).length, 1, `${p}: jedno tlačítko`);
+    assert.ok(html.includes(URLS[p]({ from: 'VIE', to: 'BCN', dateOut: '2026-12-12', dateIn: '2026-12-20', ...PAX }).replace(/&/g, '&amp;')), p);
+    const note = ctx2.buyNote(vie);
+    assert.match(note, /ukáže cenu v EUR – ~55,50\s€\/os\. tam i zpět/);
+    assert.doesNotMatch(note, /přepočte/, 've stejné měně se nic nepřepočítává');
+    // z Prahy (tam Kč, zpět eura): dvě tlačítka a jedna rezervace jako volba s přepočtem
+    const prg = { ...makeTrip(leg(p, 'PRG', 'TAT', '2026-12-12', 639, 'CZK'), leg(p, 'TAT', 'PRG', '2026-12-20', 22.99, 'EUR')), bookUrl: null };
+    assert.equal((ctx2.bookButtons(prg).match(/<a /g) || []).length, 2);
+    assert.match(ctx2.buyNote(prg), /Obojí v jedné rezervaci: <a [^>]+>[^<]+ ↗<\/a> – celé v Kč, let zpět ale aerolinka přepočte svým kurzem/);
+  }
+});

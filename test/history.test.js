@@ -306,6 +306,44 @@ test('kamarád z odkazu na cestu je nováček: uvítání se zapamatuje při sta
   assert.equal(wnAtStart('stará', '#trip=zAbc', 'A'), null);
 });
 
+test('✨ lišta Co je nového: jen novinky od minulého otevření (nejvýš 3), nováček nic, žádné hromadění', () => {
+  const S = { home: { from: [{ id: 'city:PRG' }] }, trip: null, trips: [], recent: [{}], watch: [] };
+  const wnFresh = new Function('S', `${pick('WN_NEW', 'firstVisit', 'wnMode', 'WN_POP', 'wnFresh')}; return wnFresh;`)(S);
+  const L = ['E', 'D', 'C', 'B', 'A'].map((t) => ['✨', t, 'text']);
+  const titles = (f) => f.show.map((x) => x[1]);
+  // naposledy viděl „C“ → jen D a E (novější), C a starší ne
+  assert.deepEqual(titles(wnFresh('C', 'X', L, 'X')), ['E', 'D']);
+  assert.deepEqual(titles(wnFresh('E', 'X', L, 'X')), [], 'nic nového');
+  // dlouho neotevřel (viděl „A“): nejvýš 3 nejnovější + kolik dalších
+  const f = wnFresh('A', 'X', L, 'X');
+  assert.deepEqual([titles(f), f.more], [['E', 'D', 'C'], 1]);
+  // dřívější uživatel bez záznamu: kartu s aktuální sadou skryl → nic, jinak jen nejnovější
+  assert.deepEqual(titles(wnFresh(null, 'X', L, 'X')), []);
+  assert.deepEqual(titles(wnFresh(null, 'starší', L, 'X')), ['E']);
+  // přejmenovaná novinka (název už v seznamu není) → nic místo všech
+  assert.deepEqual(titles(wnFresh('neznámá', 'X', L, 'X')), []);
+  // nováček s uvítáním novinky nedostane
+  assert.deepEqual(titles(wnFresh(null, 'X+vitej', L, 'X')), []);
+  S.home = null; S.recent = [];
+  assert.deepEqual(titles(wnFresh(null, null, L, 'X')), [], 'úplně nový');
+  // uložená novinka i se sadou (WN_ID); dřívější zápis jen s názvem
+  const wnTopParse = new Function(`${pick('wnTopParse')}; return wnTopParse;`)();
+  assert.deepEqual({ ...wnTopParse('2026-10-27a\nKrátký odkaz') }, { id: '2026-10-27a', title: 'Krátký odkaz' });
+  assert.deepEqual({ ...wnTopParse('Krátký odkaz') }, { id: '', title: 'Krátký odkaz' });
+  assert.deepEqual({ ...wnTopParse(null) }, { id: '', title: null });
+  const app = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+  const pop = app.match(/function whatsNewPop\(\) \{[\s\S]*?\n\}/)[0];
+  // starší verze stránky (z mezipaměti) nic nepřepíše – jinak by nová verze ukázala tutéž novinku znovu
+  assert.match(pop, /if \(top\.id && top\.id > WN_ID\) return;/);
+  // zapamatuje se se sadou, hned bez lišty i když je lišta vidět – ne až po zavření (jinak by se hromadila); schovaná
+  // za lištou nové verze ne (po Obnovit by se ztratila)
+  assert.match(pop, /localStorage\.setItem\(WN_TOP_LS, `\$\{WN_ID\}\\n\$\{WHATS_NEW\[0\]\[1\]\}`\)/);
+  assert.match(pop, /if \(!f\.show\.length\) return mark\(\);/);
+  assert.match(pop, /if \(shown\(\)\) return mark\(\);/);
+  // karta na Přehledu už jen uvítání
+  assert.match(app, /el\.hidden = mode !== 'welcome';/);
+});
+
 test('📍 Dnes na cestě: cesta z průvodce bez uložení do plánovače → nabídka uložit (do 2 dnů před odletem až do návratu)', () => {
   const ctx = { console, URLSearchParams, TextEncoder, TextDecoder, btoa, atob, navigator: {} };
   ctx.window = ctx;

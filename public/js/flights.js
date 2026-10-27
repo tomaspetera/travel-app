@@ -2281,9 +2281,14 @@
     return out.join('');
   }
 
+  // Dvojice složená v prohlížeči (SearchHelp.composeTrip – bez bookUrl) ze dvou letů Ryanair/Wizz Air zpět stejnou
+  // trasou v téže měně: jako server (search.js roundTripUrl) jeden odkaz na zpáteční let – cena stejná, platí se jednou
+  const sameRound = t => (!t.bookUrl && t.back && (t.out.siteCur || '') === (t.back.siteCur || '') ? SearchHelp.roundBookUrl(t) : null);
   function bookButtons(t) {
     const btn = (url, label, prov) => url ? `<a class="btn sm book" style="--pc:${provColor(prov)}" href="${esc(safeUrl(url))}" target="_blank" rel="noopener">${label}</a>` : `<span class="btn sm ghost" title="Demo data nemají rezervační odkaz" style="opacity:.55">${label}</span>`;
     if (t.bookUrl) return btn(t.bookUrl, `Koupit ${t.provider === 'travelpayouts' ? 'na Aviasales' : 'u ' + esc(shopName(t.provider))} ↗`, t.provider);
+    const rt = sameRound(t);
+    if (rt) return btn(rt, `Koupit u ${esc(shopName(t.out.provider))} ↗`, t.out.provider);
     if (!t.back) return btn(t.out.bookUrl, `Koupit u ${esc(shopName(t.out.provider))} ↗`, t.out.provider);
     return btn(t.out.bookUrl, `Tam: ${esc(shopName(t.out.provider))} ↗`, t.out.provider) + btn(t.back.bookUrl, `Zpět: ${esc(shopName(t.back.provider))} ↗`, t.back.provider);
   }
@@ -2296,7 +2301,7 @@
     const eur = lastResult && lastResult.fx && lastResult.fx.eurCzk, tp = l => l && l.provider === 'travelpayouts';
     const inEur = czk => (eur > 0 && czk > 0 ? ` – ~${esc(curFmt(czk / eur, 'EUR'))}/os.` : '');
     const foreign = l => Boolean(l && /^[A-Z]{3}$/.test(l.siteCur || '') && l.siteCur !== 'CZK');
-    if (t.bookUrl) {
+    if (t.bookUrl || sameRound(t)) {
       if (tp(t.out)) return `<div class="buy-cur faint">💱 Aviasales ukáže cenu v eurech${inEur(t.flightCzk)} (v korunách web neumí)</div>`;
       // zpáteční v jedné rezervaci (search.js roundTripUrl): oba lety v téže cizí měně – z Vídně tam i zpět eura
       const o = t.out, b = t.back, cur = o && o.siteCur;
