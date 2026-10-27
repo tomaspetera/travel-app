@@ -180,3 +180,17 @@ test('Kamkoliv – řádek cíle: štítky (🔥, počasí) se zalomí pod náze
   assert.match(rule('.cmp-city'), /overflow-wrap:anywhere/);
   assert.match(rule('.cmp-bdg'), /flex:none/, 'štítky se nezmačkají – celé přejdou na další řádek');
 });
+
+test('telefon: cíle hledání do víc míst („k moři“) v pruhu do strany – první nabídka ne až pod spodní lištou', () => {
+  const css = noComments(read('css/flights.css'));
+  // 9 cílů „Marsa Alam od 4 157 Kč“ zalomených pod sebe zabralo na 412 px ~280 px, na 360 px ~320 px
+  const phone = mediaBody(css, '@media(max-width:560px)');
+  assert.match(phone, /\.dest-mini\{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-16px;padding-right:16px\}/);
+  assert.match(phone, /\.dest-mini::-webkit-scrollbar\{display:none\}/);
+  assert.match(phone, /\.dest-mini \.chip\{flex:none\}/, 'štítky se nezmačkají ani nezalomí');
+  // pruh dojede k okraji displeje: stejný okraj jako .content na telefonu (16 px)
+  assert.match(mediaBody(read('css/atlas.css'), '@media(max-width:860px)'), /\.content\{padding:6px max\(16px,env\(safe-area-inset-right\)\)/);
+  // jinde (počítač, tablet) dál zalomené pod sebou
+  assert.match(css, /^\.dest-mini\{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px\}/m);
+  assert.match(read('js/flights.js'), /<div class="dest-mini">\$\{groups\.map\(g => `<span class="chip">/);
+});

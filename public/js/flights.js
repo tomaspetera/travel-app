@@ -564,7 +564,7 @@
   }
   function setForm(f) {
     f = { ...defaultForm(), ...SearchHelp.groundForm(f) }; // starší uložená hledání: kmRate v Kč/km → násobek
-    rollTouched = false; // 📅 Posouvat termín s časem: zase podle začátku rozsahu
+    rollTouched = false; // 📅 Hlídat s posouváním termínu: zase podle začátku rozsahu
     if (f.dFrom < today()) {
       // termín, který už začal: hledání, které se hlídá klouzavě, dostane dnešní rozsah hlídání (od dneška + 3 by u „odlet
       // za 7–60 dní“ bylo jiné hledání), ostatní stejně dlouhý rozsah od dneška + 3
@@ -598,7 +598,7 @@
     syncFormUI(); refreshOrigins();
   }
   let pendingExclude = new Set();
-  let rollTouched = false; // 📅 Posouvat termín s časem přepnuté ručně (jinak podle začátku rozsahu – rollWanted)
+  let rollTouched = false; // 📅 Hlídat s posouváním termínu přepnuté ručně (jinak podle začátku rozsahu – rollWanted)
   // Prodloužený víkend (karta radaru „Svátky“): v předvečer volna jen odlety od daného času. Platí, dokud je den
   // v rozsahu odletu, hledání není přesná data / víc měst a uživatel ho nevypnul.
   let depAfterVal = null;
@@ -1305,7 +1305,7 @@
     };
     $('#watchBtn').onclick = () => addWatch();
     $('#formReset').onclick = () => resetSearch();
-    // 📅 Posouvat termín s časem mění jen způsob uložení ♡, ne hledání (žádné rozbalení formuláře ani Nedávno)
+    // 📅 Hlídat s posouváním termínu mění jen způsob uložení ♡, ne hledání (žádné rozbalení formuláře ani Nedávno)
     $('#rollOn').addEventListener('change', e => { e.stopPropagation(); rollTouched = true; updateWatchBtn(); });
     $('#searchForm').addEventListener('change', formEdited);
     $('#guideLink').onclick = openGuide;
@@ -4015,7 +4015,7 @@
       return Alerts.searchKey(roll ? { ...p, roll: f.roll } : p);
     } catch (e) { return `?${w.id}`; }
   }
-  // 📅 Posouvat termín s časem: klouzavý termín pro ♡ z formuláře f (bez ručního přepnutí zapnutý, když rozsah začíná
+  // 📅 Hlídat s posouváním termínu: klouzavý termín pro ♡ z formuláře f (bez ručního přepnutí zapnutý, když rozsah začíná
   // nejpozději za 7 dní) → roll nebo null
   function rollWanted(f) {
     const roll = Alerts.rollSpec(f, today());
@@ -4087,7 +4087,7 @@
   function updateWatchBtn() {
     const b = $('#watchBtn'); if (!b || !fromInput) return;
     const f = getForm(), on = isWatched(f);
-    // 📅 Posouvat termín s časem jen u flexibilního termínu, který jde posouvat (a jen dokud se nehlídá)
+    // 📅 Hlídat s posouváním termínu jen u flexibilního termínu, který jde posouvat (a jen dokud se nehlídá)
     const rl = $('#rollLbl'), roll = !on && Alerts.rollSpec(f, today());
     if (rl) {
       rl.hidden = !roll;
@@ -4182,10 +4182,11 @@
     const id = esc(w.id);
     const when = st === 'run' ? '<span class="spin dark"></span> kontroluji…' : st === 'wait' ? '⏳ čeká na kontrolu…'
       : w.checked ? `zkontrolováno <span data-ago="${+w.checked}" title="${esc(new Date(w.checked).toLocaleString('cs-CZ'))}">${Alerts.agoTxt(now - w.checked)}</span>` : 'zatím nezkontrolováno';
-    // 📅 klouzavý termín: přepínač (zapnutý), u pevného flexibilního „převést na klouzavé“ (u proběhlého v poznámce)
+    // 📅 klouzavý termín: přepínač zapnutý, u pevného flexibilního vypnutý (u proběhlého tlačítko v poznámce) – dřív
+    // u pevného odkaz „převést na klouzavé“, kterému běžný člověk nerozumí; vypnutý přepínač je stejný jako zapnutý
     const rolled = Alerts.rolls(w.form), canRoll = !rolled && Boolean(rollOf(w));
     const roll = rolled ? `<div class="w-roll"><label class="check-inline"><input type="checkbox" data-wr="${id}" checked> 📅 Posouvat termín s časem</label><span class="faint">porovnává se vždy aktuální termín</span></div>`
-      : canRoll && !past ? `<div class="w-roll"><button type="button" class="linkbtn" data-wr="${id}" title="Termín se bude každý den posouvat (jako při uložení) – historie, cílová cena i „od uložení“ zůstanou">📅 převést na klouzavé</button></div>` : '';
+      : canRoll && !past ? `<div class="w-roll"><label class="check-inline" title="Termín se bude každý den posouvat (jako při uložení) – historie, cílová cena i „od uložení“ zůstanou"><input type="checkbox" data-wr="${id}"> 📅 Posouvat termín s časem</label></div>` : '';
     // karta: fotka cíle, hledání a cena nahoře, pod tím vývoj ceny, cílová cena a tlačítka
     const city = w.best && w.best.key ? String(w.best.desc || '').split(' · ')[0] : (w.form && w.form.to && w.form.to.length === 1 && !/^ct:/.test(w.form.to[0].id) ? w.form.to[0].label : '');
     return `<div class="card watch${st ? ' checking' : ''}${past ? ' past' : ''}${drop ? ' dropped' : ''}" data-w="${id}">
@@ -4195,7 +4196,7 @@
         ${drop ? '<span class="b good w-drop">📉 zlevnilo</span>' : ''}${roll}
         ${sv || ln ? `<div class="w-main${sv ? '' : ' nochart'}">${sv}<div class="w-stats">${ln}</div></div>` : ''}
         <div class="w-desc">${gone ? `<s>${esc(w.best.desc || '')}</s> ⌛ termín už proběhl – novou nabídku najde příští kontrola` : esc(w.best?.desc || 'zatím bez výsledku')}</div>${past || gone ? '' : tipHtml(w, ps)}
-        ${past ? `<div class="note warn w-past">⌛ <div>Termín proběhl – tohle hledání už hlídat nejde. ${canRoll ? `<button type="button" class="linkbtn" data-wr="${id}">📅 Převést na klouzavé</button> – termín se pak bude posouvat s časem a historie i cílová cena zůstanou. Nebo ho smaž.` : 'Smaž ho, nebo ho otevři a vyber nové datum.'}</div></div>`
+        ${past ? `<div class="note warn w-past">⌛ <div>Termín proběhl – tohle hledání už hlídat nejde. ${canRoll ? `<button type="button" class="linkbtn" data-wr="${id}">📅 Posouvat termín s časem</button> – hlídání pojede dál s novým termínem, historie i cílová cena zůstanou. Nebo ho smaž.` : 'Smaž ho, nebo ho otevři a vyber nové datum.'}</div></div>`
         : `<label class="w-target">🎯 Upozornit pod <input class="input" type="number" inputmode="numeric" min="0" data-wt="${id}" value="${+w.target > 0 ? +w.target : ''}" aria-label="Cílová cena v Kč na osobu"> Kč <span class="good w-hit" ${cur && cur <= w.target && !gone ? '' : 'hidden'}>✓ splněno</span></label>
         <div class="w-cal"><button type="button" class="linkbtn" data-wcal="${id}" title="Stáhne událost do kalendáře: každé pondělí v 9:00 (8 týdnů) s odkazem zpět na tohle hlídání">📅 Připomínat</button><span class="faint">v pondělí v kalendáři</span></div>`}
         <div class="w-foot"><div class="w-st faint">${when}</div>
@@ -4298,7 +4299,7 @@
     const at = Alerts.savedAt(w, Date.now());
     return Alerts.rollSpec({ ...defaultForm(), ...w.form }, today(), { saved: at ? fmtYMD(new Date(at)) : null });
   }
-  /** 📅 na kartě: zapnout (i „převést na klouzavé“ u proběhlého – hned se zkontroluje), vypnout = zůstane dnešní termín. */
+  /** 📅 na kartě: zapnout (i u proběhlého – hned se zkontroluje), vypnout = zůstane dnešní termín. */
   function setRoll(id, on) {
     const w = (S.watch || []).find(x => x.id === id); if (!w) return;
     const t = today(), was = Alerts.isPast(w.form, t), spec = on && rollOf(w);
@@ -4639,6 +4640,19 @@
     // prázdné Odkud ve formuláři: domov i s okruhem (jinak by hledání z Lety šlo s výchozími 200 km)
     if (fromInput && !fromInput.items.length) { $('#radius').value = home.radius; $('#radiusVal').textContent = $('#radius').value + ' km'; fromInput.set(home.from); }
     renderRadar(true); heroFrom && heroFrom.set(home.from, true);
+  }
+  /**
+   * Nováček bez domova vyplnil Odkud v hledání na Přehledu: to je odpověď i na „Odkud letíš?“ v uvítání hned pod ním –
+   * domov jako z čipu uvítání (SearchHelp.homeOf, applyHome), řádek s otázkou zmizí a radar začne hledat. Dřív se
+   * uvítání ptalo podruhé, čip nahoře dál nabízel „Nastavit domov“ a radar čekal na odpověď. Bez posunu stránky (píše
+   * se dál do Kam); s domovem nebo bez otázky v uvítání nic – hledání odjinud domov nemění.
+   */
+  function heroHome(items) {
+    const ask = $('#whatsNew:not([hidden]) .wc-home');
+    if (!ask || S.home?.from?.length || items.length !== 1) return;
+    const h = SearchHelp.homeOf(items[0]); if (!h) return;
+    ask.remove();
+    applyHome(h);
   }
   /**
    * Domov z uvítání („Odkud letíš?“): čip města (SearchHelp.HOME_CITIES) nebo 'geo' = 📍 Moje poloha. Radar pak hned
@@ -5636,7 +5650,7 @@
     restoreLast();
     renderRecent();
     renderQuick(); // Nápady, kam letět – i na Letech
-    heroFrom = new PlaceInput($('#heroFrom'), { origin: true, placeholder: 'Brno, Vídeň, Česko…', hint: ODKUD_HINT, dark: true, max: 3 });
+    heroFrom = new PlaceInput($('#heroFrom'), { origin: true, placeholder: 'Brno, Vídeň, Česko…', hint: ODKUD_HINT, dark: true, max: 3, onChange: heroHome });
     heroTo = new PlaceInput($('#heroTo'), { placeholder: 'kamkoliv 🌍, „k moři v květnu“', hint: KAM_HINT, dark: true, max: 4,
       smart: { run: hit => smartRun(hit, heroFrom.items), tips: () => smartTips(() => heroFrom.items) } });
     paintSmartTry();

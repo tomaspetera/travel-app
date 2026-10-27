@@ -1470,3 +1470,28 @@ test('„Odkud letíš?“ se nový uživatel ptá jedno místo: uvítání (či
   assert.match(ask, /const inp = wc \|\| \(!edit && \$\('#radarFrom \.pi-input'\)\);/);
   assert.match(ask, /inp\.scrollIntoView\(\{ behavior: 'smooth', block: 'center' \}\);\n\s+inp\.focus\(\{ preventScroll: true \}\);/);
 });
+
+test('nováček vyplní Odkud v hledání na Přehledu → domov jako z uvítání, „Odkud letíš?“ se už neptá podruhé', () => {
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  // skutečná funkce z flights.js (celý soubor potřebuje DOM) s napodobeným uvítáním a domovem
+  const src = fl.match(/^ {2}function heroHome\(items\) \{\n[\s\S]*?^ {2}\}$/m)[0];
+  const run = (home, items, { asking = true } = {}) => {
+    const st = { removed: 0, applied: [] };
+    const ask = asking ? { remove: () => { st.removed++; } } : null;
+    const c = vm.createContext({ S: { home }, SearchHelp: H, $: (sel) => (sel === '#whatsNew:not([hidden]) .wc-home' ? ask : null), applyHome: (h) => st.applied.push(plain(h)) });
+    vm.runInContext(`${src}; heroHome(${JSON.stringify(items)});`, c);
+    return st;
+  };
+  const prg = { id: 'geo:50.0880,14.4208|Praha', type: 'city', label: 'Praha', flag: '🇨🇿', cc: 'CZ', lat: 50.088, lon: 14.4208 };
+  // první místo v Odkud, uvítání se ptá → domov jako čip uvítání (150 km, 2 osoby), otázka pryč
+  assert.deepEqual(run(null, [prg]), { removed: 1, applied: [{ from: [prg], radius: 150, adults: 2 }] });
+  assert.deepEqual(run({ from: [] }, [prg]).applied.length, 1, 'prázdný domov = bez domova');
+  // s domovem, bez otázky v uvítání (skryté, „Rozumím“), druhé místo nebo smazání: nic – hledání odjinud domov nemění
+  assert.deepEqual(run({ from: [prg] }, [prg]), { removed: 0, applied: [] });
+  assert.deepEqual(run(null, [prg], { asking: false }), { removed: 0, applied: [] });
+  assert.deepEqual(run(null, [prg, { id: 'ap:BRQ', label: 'Brno' }]), { removed: 0, applied: [] });
+  assert.deepEqual(run(null, []), { removed: 0, applied: [] });
+  // napojené na pole Odkud na Přehledu; applyHome ho pak nastaví potichu (bez další změny = bez smyčky)
+  assert.match(fl, /heroFrom = new PlaceInput\(\$\('#heroFrom'\), \{ [^}]*max: 3, onChange: heroHome \}\);/);
+  assert.match(fl, /renderRadar\(true\); heroFrom && heroFrom\.set\(home\.from, true\);/);
+});

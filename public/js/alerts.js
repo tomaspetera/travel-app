@@ -14,7 +14,7 @@
     dropPct: 3,
     seenPct: 1, // „zlevnilo“ na přehledu až od 1 % (drobné výkyvy kurzu nepočítat)
     histCap: 60,
-    rollNear: 7, // 📅 Posouvat termín s časem zapnuté předem, když rozsah začíná nejpozději za 7 dní
+    rollNear: 7, // 📅 Hlídat s posouváním termínu zapnuté předem, když rozsah začíná nejpozději za 7 dní
   };
   const num = v => (typeof v === 'number' && isFinite(v) && v > 0 ? v : null);
   // verze ceny hlídání: 2 = cena letenky (+ zavazadla) bez dopravy na letiště – dřív i s ní (jiný základ, neporovnávat)
@@ -57,7 +57,7 @@
     return { ...form, dFrom, dTo: plusDays(dFrom, r.span), depAfter: null };
   }
   /**
-   * Klouzavý termín z formuláře f ke dni today (♡ Hlídat s 📅 Posouvat termín s časem, „převést na klouzavé“ na kartě):
+   * Klouzavý termín z formuláře f ke dni today (♡ s 📅 Hlídat s posouváním termínu ve formuláři, 📅 Posouvat termín s časem na kartě):
    * 🎉 Svátky → { lw: 'next' } (s vypnutým „v předvečer jen odlety od 16:00“ { lw: 'next', eve: false }; konkrétní pozdější
    * víkend ze seznamu ne – ten zůstane pevný), jinak { off, span } podle rozsahu odletu. Rozsah, který už začal nebo
    * proběhl, se posune jako v den uložení (saved = 'YYYY-MM-DD', jinak od začátku) a meze se ořežou; budoucí rozsah mimo
@@ -95,7 +95,7 @@
     return day >= saved && day <= today && (f.dFrom === start || (start < today && f.dFrom === today));
   }
   /**
-   * Kdy bylo hlídání w uložené (ms, „převést na klouzavé“ – odstup jako v den uložení): id = Date.now().toString(36)
+   * Kdy bylo hlídání w uložené (ms, 📅 Posouvat termín s časem na kartě – odstup jako v den uložení): id = Date.now().toString(36)
    * (věrohodný čas od roku 2020 do now + den – hodiny jiného zařízení), jinak první bod historie – ta drží jen
    * posledních 60 kontrol, takže u starších hlídání už den uložení není; z obou dřívější. Bez nich null.
    */
