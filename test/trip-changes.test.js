@@ -259,6 +259,17 @@ test('🧳 ↺ Začít znovu sama uloženou cestu odebere z Mých cest, uloženo
   assert.ok(c.__toasts.includes('Vídeň zůstává v Mých cestách – vyber další let'), c.__toasts.join(' | '));
 });
 
+test('🧳 otevření jiné uložené cesty z Mých cest: rozpracovaná tam zůstane bez otázky i bez hlášky (seznam je vidět)', () => {
+  const c = load();
+  const mine = vie({ step: 'summary' });
+  render(c, mine);
+  c.window.Trip.saveToPlanner({ stay: true });
+  c.__toasts.length = 0;
+  const other = vie({ step: 'summary', created: 42 });
+  assert.equal(c.window.Trip.openSaved(JSON.parse(JSON.stringify(other)), 42), true);
+  assert.deepEqual(plain([c.S.trip.created, c.__confirms.length, c.__toasts, c.S.trips.map((x) => x.tripId)]), [42, 0, [], [mine.created]]);
+});
+
 test('🧳 Shrnutí: „Uloženo v Mých cestách“ uloží hned (na přání) a zůstane; sdílená „💾 Uložit do Mých cest“', () => {
   const c = load();
   const h = render(c, vie({ step: 'summary' }));
