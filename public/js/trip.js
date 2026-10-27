@@ -862,18 +862,52 @@
   }
 
   /* ---------- vykreslení ---------- */
+  // 🧳 Moje cesty (app.js myTrips): seznam uložených cest a rozpracované cesty místo zvláštního Plánovače. Bez
+  // rozpracované cesty ho záložka Cesta ukáže hned (jsou-li nějaké cesty), z průvodce přes „‹ Moje cesty“: mineFor = id
+  // rozpracované cesty, nad kterou je seznam otevřený – jiná nebo nová cesta (výběr letu, otevření uložené) ukáže průvodce.
+  let mineFor = null;
+  const askHtml = (lead = 'Kam chceš jet?') => `<form class="card trip-ask" id="tripAsk"><label class="trip-ask-l">${lead}</label>
+          <div class="trip-ask-row"><div class="place-input" id="tripAskTo"></div><button class="btn primary" type="submit">Najít lety</button></div>
+          <small class="faint">Město, „kamkoliv“, nebo celá věta – „Řím na víkend ve dvou“. Z nabídek pak vybereš let a průvodce pokračuje.</small></form>`;
+  // Kam chceš jet? – rovnou hledání letů (věta jako ✨ v Letech, odkud domov / minulé hledání)
+  function askWire() {
+    const F = window.Flights;
+    if (!F || !F.PlaceInput) { $('#tripAsk').hidden = true; return; }
+    const home = () => (S.home && S.home.from) || [];
+    // vedle „Najít lety“ zbývá na 360 px ~165 px – celý popis dostane čtečka (hint)
+    const pi = new F.PlaceInput($('#tripAskTo'), { placeholder: 'Lisabon, kamkoliv…', hint: 'Město, kamkoliv nebo celá věta, třeba „Řím na víkend ve dvou“', max: 4,
+      smart: F.smartRun ? { run: hit => F.smartRun(hit, home()), tips: () => (F.smartTips ? F.smartTips(home) : []) } : null });
+    $('#tripAsk').onsubmit = async e => {
+      e.preventDefault();
+      const r = await pi.settle();
+      if (r === 'run' || r === false) return;
+      F.searchTo(pi.items);
+    };
+  }
+  /** Moje cesty nad rozpracovanou cestou t (nebo bez ní): karta rozpracované, uložené cesty, nová cesta. */
+  function renderMine(root, t) {
+    if (root.dataset) delete root.dataset.step;
+    let info = null;
+    if (t) {
+      let start = null, end = null;
+      try { start = outLeg(t).date; end = backLeg(t) ? backLeg(t).date : stayDates(t).checkout; } catch (e) { /* cesta bez letu */ }
+      info = { name: tripName(t), cc: t.dest && t.dest.cc, start, end, step: (STEPS.find(x => x[0] === t.step) || STEPS[0])[2] };
+    }
+    window.myTrips(root, { active: t, info, ask: askHtml('Nová cesta – kam chceš jet?'), resume: () => { mineFor = null; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
+    askWire();
+  }
   function render() {
     const root = $('#tripRoot'); if (!root) return;
     const t = T();
+    const mine = window.myTrips && ((!t && Array.isArray(S.trips) && S.trips.some(Boolean)) || (t && mineFor === t.created));
+    if (mine) return renderMine(root, t);
     if (!t) {
       if (root.dataset) delete root.dataset.step;
       // úvod jako cestovní aplikace: fotka, co průvodce umí po krocích, dvě tlačítka
       root.innerHTML = `<div class="trip-intro">
         <div class="card dest trip-hero" data-photo="Amalfi" style="--h:200"><div class="flag">🧳</div><div class="dest-panel"><div class="cname">Sestav si celou cestu</div>
           <div class="cblurb">Let, ubytování, auto i program na místě – a celková cena na jednom místě.</div></div></div>
-        <form class="card trip-ask" id="tripAsk"><label class="trip-ask-l">Kam chceš jet?</label>
-          <div class="trip-ask-row"><div class="place-input" id="tripAskTo"></div><button class="btn primary" type="submit">Najít lety</button></div>
-          <small class="faint">Město, „kamkoliv“, nebo celá věta – „Řím na víkend ve dvou“. Z nabídek pak vybereš let a průvodce pokračuje.</small></form>
+        ${askHtml()}
         <div class="trip-intro-act"><button type="button" class="btn ghost" id="tripGoExplore">🗺️ Jen objevovat místa</button></div>
         <div class="trip-steps-h">Jak to funguje</div>
         <ol class="trip-steps">
@@ -884,26 +918,14 @@
           <li><span>✅</span><div><b>Shrnutí</b><small>Celková cena, uložení do Plánovače a kalendáře.</small></div></li>
         </ol></div>`;
       $('#tripGoExplore').onclick = () => go('explore');
-      // Kam chceš jet? – rovnou hledání letů (věta jako ✨ v Letech, odkud domov / minulé hledání)
-      const F = window.Flights;
-      if (F && F.PlaceInput) {
-        const home = () => (S.home && S.home.from) || [];
-        // vedle „Najít lety“ zbývá na 360 px ~165 px – celý popis dostane čtečka (hint)
-        const pi = new F.PlaceInput($('#tripAskTo'), { placeholder: 'Lisabon, kamkoliv…', hint: 'Město, kamkoliv nebo celá věta, třeba „Řím na víkend ve dvou“', max: 4,
-          smart: F.smartRun ? { run: hit => F.smartRun(hit, home()), tips: () => (F.smartTips ? F.smartTips(home) : []) } : null });
-        $('#tripAsk').onsubmit = async e => {
-          e.preventDefault();
-          const r = await pi.settle();
-          if (r === 'run' || r === false) return;
-          F.searchTo(pi.items);
-        };
-      } else $('#tripAsk').hidden = true;
+      askWire();
       if (window.Photos) Photos.paint(root);
       return;
     }
     const idx = STEPS.findIndex(s => s[0] === t.step);
     if (root.dataset) root.dataset.step = t.step; // rozvržení kroku na počítači (desktop-trip.css)
     root.innerHTML = `
+      ${window.myTrips ? `<div class="mt-back"><button type="button" class="linkbtn" id="tripMine">‹ Moje cesty</button></div>` : ''}
       <div class="trip-head card" data-photo="${esc(t.dest.label)}" style="--h:${window.ccHue ? ccHue(t.dest.cc) : 210}">
         <span class="th-flag">${flag(t.dest.cc)}</span>
         <button type="button" class="th-reset" id="tripRestart" title="Zahodit tuhle cestu a začít znovu výběrem letu" aria-label="Začít znovu">↺<span class="th-rl"> Začít znovu</span></button>
@@ -918,6 +940,8 @@
     asideWire();
     $$('.stepbar [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step));
     $('#tripRestart').onclick = () => restart();
+    // seznam cest nad rozpracovanou – ta zůstane, klepnutím na její kartu zpět
+    const mb = $('#tripMine'); if (mb) mb.onclick = () => { mineFor = t.created; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
     if (t.shared) $('#tripSharedSave').onclick = () => saveToPlanner();
     if ($('#tripPastNew')) $('#tripPastNew').onclick = () => newAfterPast();
     if (t.step === 'flight') flightStep();

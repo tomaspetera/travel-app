@@ -840,8 +840,9 @@ function showNow() {
    Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
    od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
-const WN_ID = '2026-10-27b';
+const WN_ID = '2026-10-27c';
 const WHATS_NEW = [
+  ['🧳', 'Moje cesty v záložce Cesta', 'všechny tvoje cesty na jednom místě – rozpracovaná v průvodci i uložené. Klepnutím na kartu v ní pokračuješ, z průvodce se k seznamu vrátíš přes <b>‹ Moje cesty</b>.'],
   ['♡', 'Hlídání ceny jedním klepnutím', 'u karty radaru na <b>Přehledu</b> i u cíle v <b>Kamkoliv</b> klepni na <b>⋯</b> → <b>♡ Hlídat cenu sem</b>: ATLAS najde lety z tvého domova (termíny jako radar) a cenu hlídá – když zlevní, uvidíš to na Přehledu. Bez vyplňování formuláře.'],
   ['🔗', 'Krátký odkaz na cestu', '<b>📤 Sdílet cestu</b> → <b>Poslat kamarádům</b> (i <b>🔗 Sdílet plán</b> v plánovači) teď pošle krátký odkaz <b>…/c/…</b> místo dlouhé stěny písmen – ve WhatsAppu a Messengeru s fotkou cíle a termínem. Kamarád po klepnutí uvidí celou cestu a může si ji uložit.'],
   ['🙋', 'Jede někdo se mnou?', 've <b>Shrnutí</b> průvodce Cestou (i u budoucí cesty v plánovači) je pod <b>📤 Sdílet cestu</b> kromě poslání celé cesty kamarádům i karta na sítě: <b>Instagram Story</b> nebo <b>příspěvek na Instagram či Facebook</b> ve tvaru palubní vstupenky – odkud, kam, měsíc a „vedle mě: třeba ty?“. Cena, přesné datum ani ubytování na kartě nejsou. Kdo klepne na odkaz, uvidí termín a jedním klepnutím lety na stejné dny ze svého letiště.'],
@@ -1813,7 +1814,7 @@ const planTransport = f => /^🚆/u.test(String(f || '')) ? String(f) : '✈️ 
 const planFlightHtml = f => String(f || '').replace(/^🚆\s*/u, '').split(/, (?=\d+\. )| · (?=samostatné letenky$)/u).map(esc).join('<br>');
 // 💾 Přenos a záloha (backup.js) nad plánovačem
 const bkTools = () => (window.Backup ? Backup.plannerTools() : '');
-const bkWire = () => { const b = $('#bkOpen'); if (b) b.onclick = () => Backup.open(); };
+const bkWire = (host = document) => { const b = $('#bkOpen', host); if (b) b.onclick = () => Backup.open(); }; // Plánovač i Moje cesty v Cestě
 function renderPlanner() {
   const host = $('#plannerList');
   // ✈️ z posledního hledání: nejlevnější nabídka (cíl, dny, cestující, rozpočet a let) rovnou do formuláře nové cesty
@@ -1852,10 +1853,54 @@ function tripWhen(t) {
 }
 // název z průvodce je „Barcelona 10.11.“ – datum je hned pod ním, na kartě stačí „Barcelona“
 const tripTitle = t => (t.start && t.name && t.name.endsWith(' ' + fmtDate(t.start)) && t.name.length > fmtDate(t.start).length + 1 ? t.name.slice(0, -fmtDate(t.start).length - 1) : t.name);
-function tripCard(t, i) {
+// attr: atribut s indexem cesty (Plánovač data-ti, Moje cesty v záložce Cesta data-mt – každý seznam má své klepnutí);
+// extra: HTML na konec karty (Moje cesty: odkaz na detail cesty z průvodce)
+function tripCard(t, i, attr = 'data-ti', extra = '') {
   const c = t.iso ? byIso[t.iso] : null, warm = c && c.cost >= 4, na = t.days ? Object.values(t.days).flat().length : 0;
   const photo = t.place?.label || (t.dest && t.dest !== '—' ? String(t.dest).split(',')[0] : '') || c?.cs || '', when = tripWhen(t);
-  return `<div class="card trip" data-ti="${i}"><div class="trip-top ${warm ? 'warm' : ''}"${photo ? ` data-photo="${esc(photo)}" style="--h:${ccHue(t.iso || photo)}"` : ''}>${when ? `<span class="tt-when">${when}</span>` : ''}<div class="tt-name">${esc(tripTitle(t))}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end) : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os.</span><span>${t.budget ? (+t.budget).toLocaleString('cs') + ' Kč' : 'rozpočet —'}</span></div>${t.flight ? `<div class="faint" style="font-size:12px;margin-bottom:4px">${esc(planTransport(t.flight))}</div>` : ''}<div class="muted" style="font-size:12.5px">${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</div></div></div>`;
+  return `<div class="card trip" ${attr}="${i}"><div class="trip-top ${warm ? 'warm' : ''}"${photo ? ` data-photo="${esc(photo)}" style="--h:${ccHue(t.iso || photo)}"` : ''}>${when ? `<span class="tt-when">${when}</span>` : ''}<div class="tt-name">${esc(tripTitle(t))}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end) : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os.</span><span>${t.budget ? (+t.budget).toLocaleString('cs') + ' Kč' : 'rozpočet —'}</span></div>${t.flight ? `<div class="faint" style="font-size:12px;margin-bottom:4px">${esc(planTransport(t.flight))}</div>` : ''}<div class="muted" style="font-size:12.5px">${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</div>${extra}</div></div>`;
+}
+/**
+ * 🧳 Moje cesty v záložce Cesta: uložené cesty (dřív jen v Plánovači, který nováček nerozlišil od Cesty) a rozpracovaná
+ * cesta z průvodce, pod nimi nová cesta. o = { active: rozpracovaná cesta (S.trip) nebo null, info: { name, cc, start,
+ * end, step } pro její kartu, resume(): zpět do ní, ask: HTML „Kam chceš jet?“ (zapojí ho trip.js) }. Cesta z průvodce
+ * se klepnutím otevře v průvodci (detail jako v Plánovači odkazem na kartě), ostatní cesty detail.
+ */
+function myTrips(host, o = {}) {
+  const a = o.active || null, now = todayLocal(), all = S.trips.map((t, i) => ({ t, i })).filter(x => x.t);
+  const cur = a ? all.find(x => x.t.tripId && x.t.tripId === a.created) : null;
+  const end = x => x.t.end || x.t.start;
+  const past = all.filter(x => x !== cur && end(x) && end(x) < now).sort((p, q) => (q.t.start || '').localeCompare(p.t.start || ''));
+  const coming = all.filter(x => x !== cur && !past.includes(x)).sort((p, q) => (p.t.start || '9999').localeCompare(q.t.start || '9999'));
+  let pick = window.Flights && Flights.lastPick ? Flights.lastPick() : null;
+  if (pick && S.trips.some(t => t.dest === pick.dest && t.start === pick.start)) pick = null; // z téhle nabídky už cesta je
+  const card = x => tripCard(x.t, x.i, 'data-mt', x.t.wizard ? `<button type="button" class="linkbtn mt-det" data-mdet="${x.i}">Program, balení a poznámky ›</button>` : '');
+  // rozpracovaná cesta: uložená = její karta nahoře s „v průvodci“, neuložená = karta z údajů průvodce
+  const inf = o.info || {};
+  const curCard = cur ? card(cur).replace('<div class="trip-body">', '<div class="trip-body"><div class="mt-cur">🧳 Rozpracovaná v průvodci – pokračovat ›</div>')
+    : a ? `<div class="card trip" data-mcur="1"><div class="trip-top"${inf.name ? ` data-photo="${esc(inf.name)}" style="--h:${ccHue(inf.cc || inf.name)}"` : ''}><span class="tt-when">rozpracovaná</span><div class="tt-name">${esc(inf.name || 'Cesta')}</div><div class="tt-meta">${inf.cc ? flag(inf.cc) + ' ' : ''}${inf.start ? dateSpan(inf.start, inf.end) : ''}</div></div>
+      <div class="trip-body"><div class="mt-cur">🧳 Krok ${esc(inf.step || '')} – pokračovat v průvodci ›</div></div></div>` : '';
+  host.innerHTML = `<div class="trip-mine">
+    <div class="section-head"><h2>🧳 Moje cesty</h2></div>
+    ${curCard || coming.length ? `<div class="trip-grid">${curCard}${coming.map(card).join('')}</div>` : ''}
+    ${past.length ? `<details class="mt-past"><summary>Proběhlé cesty (${past.length})</summary><div class="trip-grid past">${past.map(card).join('')}</div></details>` : ''}
+    ${o.ask || ''}
+    <div class="mt-more"><button type="button" class="btn sm ghost" id="mtNew">📝 Vlastní cesta bez letu</button>${pick ? `<button type="button" class="btn sm ghost" id="mtLast">✈️ Z posledního hledání: ${esc(pick.dest)} · ${fmtDate(pick.start)}${pick.end ? '–' + fmtDate(pick.end) : ''}</button>` : ''}</div>
+    ${bkTools()}</div>`;
+  const open = i => {
+    const t = S.trips[i];
+    if (!t) return;
+    if (t.wizard && a && t.tripId === a.created && o.resume) return o.resume();
+    if (t.wizard && window.Trip && Trip.openSaved) return Trip.openSaved(t.wizard, t.tripId);
+    openTrip(i);
+  };
+  $$('[data-mt]', host).forEach(el => { el.onclick = e => { if (!e.target.closest('[data-mdet]')) open(+el.dataset.mt); }; kbClick(el); });
+  $$('[data-mdet]', host).forEach(b => b.onclick = e => { e.stopPropagation(); openTrip(+b.dataset.mdet); });
+  const c0 = $('[data-mcur]', host); if (c0) { c0.onclick = () => o.resume && o.resume(); kbClick(c0); }
+  $('#mtNew', host).onclick = () => newTrip();
+  if (pick) $('#mtLast', host).onclick = () => newTrip(null, { dest: pick.dest, iso: pick.iso, start: pick.start, end: pick.end, pax: pick.pax, budget: pick.budget, budgetNote: pick.budgetNote, flight: pick.flight });
+  bkWire(host);
+  Photos.paint(host);
 }
 function newTrip(c, pre = {}) {
   const dest = pre.dest || (c ? c.cs : '');

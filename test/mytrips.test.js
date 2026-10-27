@@ -1,0 +1,39 @@
+// 🧳 Moje cesty v záložce Cesta (místo zvláštního Plánovače, který nováček nerozlišil od Cesty): seznam uložených cest
+// a rozpracované cesty z průvodce; app.js myTrips + trip.js render / renderMine.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const read = (f) => readFileSync(new URL(`../public/${f}`, import.meta.url), 'utf8');
+
+test('záložka Cesta: bez rozpracované cesty seznam Moje cesty (jsou-li cesty), jinak úvod; z průvodce „‹ Moje cesty“', () => {
+  const js = read('js/trip.js');
+  assert.match(js, /const mine = window\.myTrips && \(\(!t && Array\.isArray\(S\.trips\) && S\.trips\.some\(Boolean\)\) \|\| \(t && mineFor === t\.created\)\);\s*if \(mine\) return renderMine\(root, t\);/);
+  assert.match(js, /<div class="mt-back"><button type="button" class="linkbtn" id="tripMine">‹ Moje cesty<\/button><\/div>/);
+  // rozpracovaná zůstane: seznam je jen nad ní (mineFor), karta rozpracované vrátí zpět
+  assert.match(js, /mb\.onclick = \(\) => \{ mineFor = t\.created; render\(\);/);
+  assert.match(js, /resume: \(\) => \{ mineFor = null; render\(\);/);
+  // „Kam chceš jet?“ jednou (úvod i Moje cesty)
+  assert.equal((js.match(/<form class="card trip-ask" id="tripAsk">/g) || []).length, 1);
+  assert.match(js, /ask: askHtml\('Nová cesta – kam chceš jet\?'\)/);
+});
+
+test('myTrips: cesta z průvodce se otevře v průvodci (rozpracovaná zpět do ní), ostatní detail; proběhlé sbalené', () => {
+  const app = read('js/app.js');
+  const fn = app.slice(app.indexOf('function myTrips('), app.indexOf('function newTrip('));
+  assert.match(fn, /if \(t\.wizard && a && t\.tripId === a\.created && o\.resume\) return o\.resume\(\);/);
+  assert.match(fn, /if \(t\.wizard && window\.Trip && Trip\.openSaved\) return Trip\.openSaved\(t\.wizard, t\.tripId\);/);
+  assert.match(fn, /openTrip\(i\);/);
+  assert.match(fn, /data-mdet="\$\{x\.i\}">Program, balení a poznámky ›<\/button>/, 'detail z průvodce dál dostupný');
+  assert.match(fn, /<details class="mt-past"><summary>Proběhlé cesty \(\$\{past\.length\}\)<\/summary>/);
+  assert.match(fn, /📝 Vlastní cesta bez letu/);
+  assert.match(fn, /bkWire\(host\);/);
+  // karta Plánovače beze změny (data-ti), Moje cesty vlastní atribut – každý seznam své klepnutí
+  assert.match(app, /function tripCard\(t, i, attr = 'data-ti', extra = ''\) \{/);
+  assert.match(app, /const bkWire = \(host = document\) => \{ const b = \$\('#bkOpen', host\);/);
+});
+
+test('Co je nového: Moje cesty', () => {
+  const app = read('js/app.js');
+  assert.match(app, /const WN_ID = '2026-10-27c';\s*const WHATS_NEW = \[\s*\['🧳', 'Moje cesty v záložce Cesta',/);
+});

@@ -688,3 +688,13 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .rt-total{margin:10px 0 0;font-size:13px}
 .rt-sug{margin:6px 0 0;font-size:12.5px}
 .rt-sug .linkbtn{font-size:12.5px}
+
+/* 🧳 Moje cesty v záložce Cesta (app.js myTrips): uložené cesty a rozpracovaná z průvodce, pod nimi nová cesta */
+.mt-back{margin:0 0 8px}
+.mt-back .linkbtn{font-weight:700;font-size:13.5px}
+.trip-mine .trip-grid{margin-bottom:16px}
+.mt-cur{font-weight:700;color:var(--accent-ink);font-size:13px;margin-bottom:6px}
+.mt-det{display:block;margin-top:8px;font-size:12.5px;text-align:left}
+.mt-past{margin:0 0 16px}
+.mt-past>summary{cursor:pointer;font-weight:700;color:var(--muted);padding:6px 0 10px}
+.mt-more{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
