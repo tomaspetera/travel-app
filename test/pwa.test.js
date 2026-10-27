@@ -547,6 +547,49 @@ test('service worker: pomalá síť nebo uspaný server → uložená stránka a
   assert.equal(await text(fresh.event('fetch', { request: req('/', { mode: 'navigate' }), resultingClientId: 'x' })), '<html>v2</html>');
 });
 
+test('service worker: uspaný server (aplikace se serveru dlouho neptala) → uložená stránka hned, bez čekání PAGE_TIMEOUT; čas posledního požadavku přežije uspání service workeru', async () => {
+  const src = read('public/sw.js').replace(/^const BUILD = .*$/m, "const BUILD = 'v1';")
+    .replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(['./', 'js/app.js'])};`)
+    .replace(/^const PAGE_TIMEOUT = .*$/m, 'const PAGE_TIMEOUT = 400;')
+    .replace(/^const ASLEEP_AFTER = .*$/m, 'const ASLEEP_AFTER = 60;');
+  const sw = loadSw(src);
+  const { net, event, store } = sw;
+  const file = (p, body, type = 'text/javascript') => { net.files[SCOPE + p] = { body, type }; };
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  file('', '<html>v1</html>', 'text/html; charset=utf-8');
+  file('js/app.js', 'app v1');
+  await Promise.all(event('install').waits);
+  // ze sítě by přišla v2 za 150 ms – dřív než PAGE_TIMEOUT, takže bez zkratky by vyhrála síť
+  file('', '<html>v2</html>', 'text/html; charset=utf-8');
+  net.delay = 150;
+  const open = async (worker, id) => {
+    const ev = worker.event('fetch', { request: req('/', { mode: 'navigate' }), resultingClientId: id });
+    const body = await (await ev.responded).text();
+    await Promise.all(ev.waits);
+    return body;
+  };
+  assert.equal(await open(sw, 'a'), '<html>v1</html>', 'o žádném požadavku nevíme (server spí) → uložená stránka hned');
+  assert.equal(await open(sw, 'b'), '<html>v2</html>', 'serveru jsme se právě ptali (je vzhůru) → stránka ze sítě jako dřív');
+  await wait(100);
+  event('fetch', { request: req('/api/health', { mode: 'cors' }) });
+  assert.equal(await open(sw, 'c'), '<html>v2</html>', 'požadavek na API před chvílí → server vzhůru');
+  event('fetch', { request: req('https://fonts.googleapis.com/css2?family=Inter', { mode: 'cors' }) });
+  await wait(100);
+  file('', '<html>v3</html>', 'text/html; charset=utf-8');
+  assert.equal(await open(sw, 'd'), '<html>v2</html>', 'dlouho nic (cizí weby se nepočítají) → zase uložená stránka (poslední ze sítě) hned');
+
+  // čas posledního požadavku je i v mezipaměti: service worker, kterého prohlížeč mezitím uspal, ho převezme
+  assert.ok(Date.now() - Number(store.get('atlas-seen').get(SCOPE)) < 1000);
+  const again = loadSw(src);
+  Object.assign(again.net, { files: net.files, delay: 150 });
+  again.store.set('atlas-v1', store.get('atlas-v1'));
+  again.store.set('atlas-seen', new Map([[SCOPE, String(Date.now())]]));
+  assert.equal(await open(again, 'e'), '<html>v3</html>');
+  // nová verze maže staré mezipaměti verzí, čas posledního požadavku nechá
+  await Promise.all(event('activate').waits);
+  assert.ok(store.has('atlas-seen'));
+});
+
 test('service worker v akci: instalace ze sítě s ověřením, aktivace smaže staré verze, síť má vždy přednost, offline kopie, API nikdy', async () => {
   const precache = ['./', 'js/app.js', 'css/atlas.css', 'data/countries.json', 'js/smazany.js'];
   const sw = loadSw(read('public/sw.js').replace(/^const BUILD = .*$/m, "const BUILD = 'v2';").replace(/^const PRECACHE = .*$/m, `const PRECACHE = ${JSON.stringify(precache)};`));
