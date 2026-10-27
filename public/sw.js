@@ -8,6 +8,8 @@
    - Stránku prohlížeč žádá ze sítě hned při otevření, souběžně se spouštěním service workeru (navigation preload –
      na telefonu se uspaný service worker probouzí i stovky ms). Ověření u serveru zajistí jeho Cache-Control: no-cache
      u stránky (server/lib/pwa.js serveIndex) – stejně jako u běžné navigace bez service workeru.
+   - Uspaný server (Render zdarma usíná po 15 min bez požadavků): po delší pauze se uložená stránka otevře hned, bez
+     čekání na síť (ASLEEP_AFTER); po kratší pauze nejvýš PAGE_TIMEOUT. Na novější verzi pak upozorní pwa.js.
    - /api/*, jiné metody než GET a cizí weby (dlaždice map, písma, partneři): do těch se service worker neplete –
      jdou rovnou na server, nic se neukládá; offline selžou a aplikace ukáže svou hlášku. Stejně krátký odkaz na cestu
      /c/<id> (a pozvánka /j/<data>): je to stránka serveru s náhledem a přesměrováním do aplikace, ne stránka aplikace – uložená místo ní by
@@ -26,6 +28,12 @@ const CACHE = PREFIX + BUILD;
 // ze sítě, se otevře z uložené kopie a její soubory taky (stejná verze). Že je na serveru novější verze, pak řekne
 // pwa.js („Je k dispozici nová verze – Obnovit“), stejně jako když se verze změní za běhu.
 const PAGE_TIMEOUT = 1500;
+// Render zdarma uspí server po 15 minutách bez požadavků. Neptala-li se tahle aplikace serveru déle než ASLEEP_AFTER
+// ms, server nejspíš spí a stránka by ze sítě nepřišla ani za PAGE_TIMEOUT: uložená se otevře hned (požadavek na síť
+// běží dál a server tím probouzí). Čas posledního požadavku drží vlastní mezipaměť SEEN – service worker prohlížeč po
+// chvíli nečinnosti uspí i s proměnnými a nová verze maže jen mezipaměti verzí.
+const ASLEEP_AFTER = 14 * 60e3;
+const SEEN = 'atlas-seen';
 // Klienti (otevřené stránky), jejichž soubory se berou z uložené sady bez ptaní serveru: dostali uloženou stránku, nebo
 // stránku ze sítě se stejnou verzí (X-Atlas-Build = BUILD – otisk obsahu všech souborů, uložená sada je tedy totožná).
 // Ušetří ověřování ~30 souborů u serveru při každém otevření; jiná verze = soubory dál ze sítě, nikdy starý kód.
@@ -56,6 +64,35 @@ function route(req, scope) {
 }
 
 const shellKey = () => self.registration.scope;
+
+let seen = null; // čas posledního požadavku na server (ms); null = ještě nenačtený z mezipaměti SEEN
+let seenSaved = 0;
+async function lastSeen() {
+  if (seen === null) {
+    try {
+      const r = await (await caches.open(SEEN)).match(shellKey());
+      seen = (r && +(await r.text())) || 0;
+    } catch (e) {
+      seen = 0;
+    }
+  }
+  return seen;
+}
+/** Požadavek na náš server (stránka, soubor, API): zapamatovat čas – do mezipaměti nejvýš jednou za minutu. */
+function touch(event) {
+  const now = Date.now();
+  seen = now;
+  if (now - seenSaved < 60e3) return;
+  seenSaved = now;
+  event.waitUntil(caches.open(SEEN).then((c) => c.put(shellKey(), new Response(String(now)))).catch(() => { }));
+}
+const ours = (req) => {
+  try {
+    return new URL(req.url).origin === new URL(self.registration.scope).origin;
+  } catch (e) {
+    return false;
+  }
+};
 
 /** Otisk obsahu z adresy (js/app.js?v=…, server/lib/pwa.js versionAssets) – pod ní je vždy tentýž obsah –, nebo null. */
 const hashOf = (url) => (String(url).match(/[?&]v=([0-9a-f]{8,})(?:&|#|$)/) || [])[1] || null;
@@ -99,6 +136,9 @@ async function networkFirst(event, kind) {
     const hit = await cached(req, kind);
     if (hit) return hit;
   }
+  // spící server (ASLEEP_AFTER): na síť se nečeká – co už přišlo, má ale přednost (Promise.race)
+  const asleep = kind === 'page' && Date.now() - (await lastSeen()) > ASLEEP_AFTER;
+  touch(event);
   // stránka: požadavek, který prohlížeč poslal už při spouštění service workeru (navigation preload); bez něj (starší
   // prohlížeč, nepovedený) nový požadavek jako dřív
   const net = kind === 'page'
@@ -108,7 +148,7 @@ async function networkFirst(event, kind) {
   try {
     if (kind === 'page') {
       let timer;
-      const slow = new Promise((resolve) => { timer = setTimeout(resolve, PAGE_TIMEOUT, 'slow'); });
+      const slow = new Promise((resolve) => { timer = setTimeout(resolve, asleep ? 0 : PAGE_TIMEOUT, 'slow'); });
       const first = await Promise.race([net, slow]).finally(() => clearTimeout(timer));
       if (first === 'slow') {
         const hit = await cached(req, kind);
@@ -173,7 +213,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k.startsWith(PREFIX) && k !== CACHE).map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => k.startsWith(PREFIX) && k !== CACHE && k !== SEEN).map((k) => caches.delete(k)));
     // stránka ze sítě souběžně se spouštěním service workeru (networkFirst – event.preloadResponse)
     if (self.registration.navigationPreload) await self.registration.navigationPreload.enable().catch(() => { });
     await self.clients.claim();
@@ -200,9 +240,10 @@ async function rewriteScripts() {
 
 self.addEventListener('fetch', (event) => {
   const kind = route(event.request, self.registration.scope);
-  if (kind) event.respondWith(networkFirst(event, kind));
+  if (kind) return event.respondWith(networkFirst(event, kind));
+  if (ours(event.request)) touch(event); // API a ostatní požadavky na server, do kterých se nepleteme
   // navigace, do které se nepleteme (api/…, sw.js): prohlížeč použije už odeslaný požadavek – jen ho nezrušit
-  else if (event.preloadResponse) event.waitUntil(Promise.resolve(event.preloadResponse).catch(() => { }));
+  if (event.preloadResponse) event.waitUntil(Promise.resolve(event.preloadResponse).catch(() => { }));
 });
 
 // Stránka načtená offline se ptá, z jaké verze je její uložená kopie (pwa.js – upozornění na novou verzi).
