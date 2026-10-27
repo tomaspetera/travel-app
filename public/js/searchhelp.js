@@ -1897,8 +1897,15 @@
   }
   /** Odkdy jsou ceny výsledku na obrazovce: konečný z času hledání (at), náhled (i po nedokončeném hledání) ze svého času. */
   function shownAt(res, at, now) { return !res ? 0 : res.partial ? (res.at > 0 ? res.at : now) : at; }
-  /** Poznámka 🕘 nad starými výsledky (a = resultAge) – u náhledu nedokončeného hledání i to, že je jen průběžný. */
-  function ageNote(a, partial) { return `${partial ? 'Průběžné výsledky' : 'Výsledky hledání'} ${a.z} ${a.txt} – ${partial ? 'hledání se nedokončilo a ' : ''}ceny se mezitím mohly změnit.`; }
+  /**
+   * Poznámka 🕘 nad obnovenými a starými výsledky (a = resultAge) – u náhledu nedokončeného hledání i to, že je jen
+   * průběžný. „ceny se mezitím mohly změnit“ až po hodině (a.stale), jak slibuje i Co je nového – po obnovení stránky
+   * „před chvílí“ by jen strašila.
+   */
+  function ageNote(a, partial) {
+    const why = [partial && 'hledání se nedokončilo', a.stale && 'ceny se mezitím mohly změnit'].filter(Boolean).join(' a ');
+    return `${partial ? 'Průběžné výsledky' : 'Výsledky hledání'} ${a.z} ${a.txt}${why ? ` – ${why}` : ''}.`;
+  }
   /* ---------- průběžné výsledky (pomalejší zdroje ještě hledají) ---------- */
   /**
    * Pruh nad průběžnými výsledky: „Průběžné výsledky – Kiwi.com ještě hledá (12/30)…“, „… – Wizz Air (5/9) a Kiwi.com

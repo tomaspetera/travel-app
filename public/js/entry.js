@@ -319,12 +319,21 @@
       return x.transit && r && r.transitEta !== true ? null : reminder(x.iso, depart, today, { transit: x.transit });
     }).filter(Boolean);
   }
-  /** Vstupní poplatky na celou skupinu: [{ iso, label, eur, czk }] (registrace, e-vízum, vízum s udanou cenou). */
-  function costs(isos, pax = 1, via = []) {
+  /**
+   * Vstupní poplatky na celou skupinu: [{ iso, label, eur, czk, free? }] (registrace, e-vízum, vízum s udanou cenou).
+   * zone = { airports, days } – letiště příletu a odletu v cíli a dní pobytu včetně příletu a odletu: když všechna leží
+   * v oblasti bez víza (freeZone, Sinaj: Šarm aš-Šajch, Taba) a pobyt se vejde do maxDays, poplatek 0 a free: true
+   * (zemi ukázat, ale do součtu nic). Jiné letiště (Hurghada, Káhira), cesta přes víc míst nebo delší pobyt = poplatek.
+   */
+  function costs(isos, pax = 1, via = [], zone = null) {
     const k = eurCzk();
     return tripList(isos, via).map(({ iso, transit: tr }) => {
       const r = get(iso);
       if (!r || !NEED.includes(r.visa) || !(r.etaCostEur > 0) || (tr && r.transitEta !== true)) return null;
+      const z = !tr && r.freeZone, ap = zone && Array.isArray(zone.airports) ? zone.airports : [];
+      if (z && ap.length && ap.every(a => z.airports.includes(a)) && zone.days > 0 && zone.days <= z.maxDays) {
+        return { iso, label: `${shortName(iso)}: ${z.text} (jinde ${what(r)} ~${r.etaCostEur} €)`, eur: 0, czk: 0, free: true };
+      }
       const p = Math.max(1, pax | 0);
       // na desítky Kč jako ostatní orientační částky
       return { iso, label: `${what(r)} (${shortName(iso)}${tr ? ', přestup' : ''}) · ${p} × ~${r.etaCostEur} €`, eur: r.etaCostEur * p, czk: Math.round(r.etaCostEur * p * k / 10) * 10 };

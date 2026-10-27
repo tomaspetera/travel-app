@@ -36,7 +36,7 @@ const sp = (s) => String(s).replace(/\u00a0/g, ' ');
 
 /* ---------- data ---------- */
 const ENUM = ['none', 'eu', 'eta', 'evisa', 'voa', 'visa'];
-const KEYS = ['iso2', 'visa', 'idCard', 'maxStayDays', 'etaName', 'etaCostEur', 'etaUrl', 'transitEta', 'passportValidity', 'vaccinesRequired', 'vaccinesRecommended', 'notes', 'validUntil', 'arrivalForm', 'source', 'verified'];
+const KEYS = ['iso2', 'visa', 'idCard', 'maxStayDays', 'etaName', 'etaCostEur', 'etaUrl', 'transitEta', 'passportValidity', 'vaccinesRequired', 'vaccinesRecommended', 'notes', 'validUntil', 'arrivalForm', 'freeZone', 'source', 'verified'];
 // Zprostředkovatelé a agentury – na jejich weby nikdy neodkazovat (vybírají několikanásobek poplatku).
 const AGENCY = /ivisa|visahq|atlys|visasnews|visa-?central|cibt|evisa-?express|esta-?(online|us|form|apply)|(online|apply|fast|easy|my|go)-?visa|visa-?(online|apply|service|go|direct)|e-?visas?\.(com|org|net|co)\b|travel-?visa|eta-?(online|form|apply|canada|uk)|(canada|uk|us)-?eta|visagov|govisa|esta\.us/i;
 // Oficiální weby, které nemají vládní doménu (portály úřadů, provozovatelé pověření vládou) – nový musí někdo zkontrolovat.
@@ -454,6 +454,29 @@ test('vstupní poplatky: na osobu × cestující v Kč, jen kde se platí (zdarm
   assert.equal(Entry.costs(['US', 'PR'], 1).length, 1);
 });
 
+test('Sinaj bez víza: přílet i odlet Šarm aš-Šajch / Taba do 15 dní – poplatek 0 (zdarma), jinak e-Visa', () => {
+  const eg = ENTRY.countries.find((r) => r.iso2 === 'EG');
+  assert.deepEqual(eg.freeZone.airports, ['SSH', 'TCP']);
+  assert.match(eg.notes, /sinajské resorty .* do 15 dní bez víza/, 'MZV: stejná výjimka i v poznámce');
+  // každá oblast bez víza: letiště z databáze v té zemi, počet dní, text
+  const AP = new Map(JSON.parse(readFileSync(new URL('../data/airports.json', import.meta.url), 'utf8')).map((a) => [a[0], a[3]]));
+  for (const r of ENTRY.countries.filter((x) => x.freeZone)) {
+    assert.deepEqual(Object.keys(r.freeZone), ['airports', 'maxDays', 'text'], r.iso2);
+    for (const a of r.freeZone.airports) assert.equal(AP.get(a), r.iso2, `${r.iso2}: ${a}`);
+    assert.ok(Number.isInteger(r.freeZone.maxDays) && r.freeZone.maxDays > 0, r.iso2);
+    assert.ok(r.freeZone.text.length > 10 && r.freeZone.text.length <= 90, r.iso2);
+  }
+  const free = { iso: 'EG', label: 'Egypt: jen Sinaj (Šarm aš-Šajch, Dahab, Nuwejba, Taba) do 15 dní bez víza (jinde e-Visa ~27 €)', eur: 0, czk: 0, free: true };
+  assert.deepEqual(plain(Entry.costs(['EG'], 2, [], { airports: ['SSH', 'SSH'], days: 8 })), [free]);
+  assert.deepEqual(plain(Entry.costs(['EG'], 2, [], { airports: ['SSH', 'TCP'], days: 15 })), [free], '15. den odlet ještě platí');
+  assert.equal(Entry.costs(['EG'], 2, [], { airports: ['SSH'], days: 16 })[0].czk, 1350, 'déle než 15 dní');
+  assert.equal(Entry.costs(['EG'], 2, [], { airports: ['SSH', 'HRG'], days: 8 })[0].czk, 1350, 'zpět z Hurghady');
+  assert.equal(Entry.costs(['EG'], 2, [], { airports: ['HRG'], days: 8 })[0].czk, 1350, 'Hurghada');
+  assert.equal(Entry.costs(['EG'], 2, [], null)[0].czk, 1350, 'bez letišť (vlak, víc míst) jako dřív');
+  // přestup v Egyptě poplatek nemá (tranzit e-Visa nepotřebuje), cíl bez víza
+  assert.deepEqual(plain(Entry.costs(['AE'], 1, ['EG'], { airports: ['DXB'], days: 5 })), []);
+});
+
 test('detail země: režim česky, pobyt, doklad, platnost pasu, cena v € a Kč, zdroj a upozornění', () => {
   const us = sp(Entry.detailHtml('US'));
   assert.match(us, /<h3>🛂 Vstup pro občany ČR<\/h3>/);
@@ -520,6 +543,18 @@ test('průvodce cestou: shrnutí má „🛂 Před cestou“ a vstupní poplatky
   assert.equal((m.match(/entry-fee/g) || []).length, 1);
   assert.deepEqual(plain(c.window.Trip.tripVia(mx)), ['US', 'GB']);
   assert.deepEqual(plain(c.window.Trip.calendarEvents(mx)).filter((e) => e.title.startsWith('🛂')).map((e) => [e.title, e.start]), [['🛂 Vyřídit ESTA (USA – přestup)', '2030-03-06']]);
+  // Šarm aš-Šajch na týden: Egypt „zdarma“, do součtu nic (dřív + e-Visa ~1 350 Kč, i když stránka říká „Sinaj bez víza“)
+  const ssh = { ...usTrip(), dest: { label: 'Šarm aš-Šajch', country: 'Egypt', cc: 'EG' } };
+  ssh.flight = { ...ssh.flight, out: { ...ssh.flight.out, to: 'SSH' }, back: { ...ssh.flight.back, from: 'SSH' } };
+  c.S.trip = ssh;
+  c.window.Trip.render();
+  const s = sp(host.innerHTML);
+  assert.match(s, /<tr class="entry-fee"><td>🛂<\/td><td>Egypt: jen Sinaj \(Šarm aš-Šajch, Dahab, Nuwejba, Taba\) do 15 dní bez víza \(jinde e-Visa ~27 €\)<\/td><td>zdarma<\/td><\/tr>/);
+  assert.doesNotMatch(s, /Celkem i se vstupními poplatky/);
+  // Hurghada: e-Visa jako dřív
+  c.S.trip = { ...ssh, flight: { ...ssh.flight, out: { ...ssh.flight.out, to: 'HRG' }, back: { ...ssh.flight.back, from: 'HRG' } } };
+  c.window.Trip.render();
+  assert.match(sp(host.innerHTML), /<td>Celkem i se vstupními poplatky<\/td><td>45 350 Kč<\/td>/);
 });
 
 test('průvodce cestou: země cesty (cíl, místa trasy, víc měst) a připomínka v kalendáři', () => {
