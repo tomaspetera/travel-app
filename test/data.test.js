@@ -56,7 +56,7 @@ test('countries.json: země platící eurem mají měnu EUR (Bulharsko od 1. 1. 
 //   Itálie 3 → 4 (blíž Rakousku než Španělsku), Dánsko 4 → 5 (dražší než Norsko)
 // - bezpečnost a upozornění: MZV ČR, Přehled upozornění na cesty a stránky států „Cestování“ (23. 10. 2026) – Egypt bez
 //   aktuálního varování (výhrady jen k Sinaji mimo silnice, hranici s Libyí a střednímu Egyptu) 3 → 4; nová upozornění
-//   Francie (protesty, 21. 10. 2026), Island (sopky), Kanada (požáry), USA (hurikány, požáry), Maroko, Indonésie (Papua),
+//   Francie (protesty, 21. 10. 2026), Island (sopky), Kanada (požáry), USA (hurikány na Floridě, u Mexického zálivu a na Havaji, požáry na západě), Maroko, Indonésie (Papua),
 //   Dominikánská republika (hurikány červen–listopad); Thajsko: varování jen pro pohraničí s Kambodžou, jih „zvýšená
 //   opatrnost“ (dřív „nejezdi“); Jordánsko: bez neověřených „útoků u Akaby“
 // - nejlepší měsíce: Rakousko i leden–březen (lyže), Srí Lanka i prosinec (západ a jih: Kolombo v prosinci 131 mm srážek,
@@ -75,6 +75,13 @@ test('countries.json: opravy cen, bezpečnosti a sezón z kontroly 10/2026 (Euro
   assert.ok(BY.LK.months.includes(12));
   // země, kam MZV ČR doporučuje jen nezbytné cesty nebo před nimi varuje (SAE, Jordánsko, Kuba), mají bezpečnost 1–2
   assert.ok(BY.AE.safety <= 2 && BY.JO.safety <= 2 && BY.CU.safety === 1);
+  // USA: hurikány hrozí hlavně na Floridě a u Mexického zálivu (a na Havaji), na západě požáry – ne „hurikány na západě“
+  assert.match(BY.US.geo, /Florid.*Mexického zálivu.*Havaj.*na západě USA v létě lesní požáry/);
+  assert.doesNotMatch(BY.US.geo, /západě[^;]*hurikán/);
+});
+
+test('countries.json: hlavní město Řecka jako v celé aplikaci (server/lib/names.js: Athens → Atény)', () => {
+  assert.equal(BY.GR.capCs, 'Atény');
 });
 
 test('arrival.json: jízdné v měně země letiště (stejně jako countries.json)', () => {
