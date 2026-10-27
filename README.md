@@ -1255,8 +1255,8 @@ pro Clauda jsou v `CLAUDE.md`.
 
 - **`@claude`** v novém issue nebo v komentáři k issue („@claude na mobilu v Objevuj přetéká …“) → oprava jako PR
   a odkaz v issue; na otázku jen odpoví komentářem. Reaguje jen na lidi s právem zápisu do repozitáře.
-- **Pravidelná kontrola** (6:17 UTC, každé 4 dny – 1., 5., 9.… den v měsíci) – jedna oblast aplikace (Lety, Cesta, Objevuj,
-  Přehled, zdroje cen, data, vzhled); ověřené chyby opraví a pošle jako PR, jinak nic nezaloží. Po 8. 11. 2026 (konec propagačního kreditu)
+- **Denní kontrola** (6:17 UTC) – každý den jedna oblast aplikace (Lety, Cesta, Objevuj, Přehled, zdroje cen, data,
+  vzhled); ověřené chyby opraví a pošle jako PR, jinak nic nezaloží. Po 8. 11. 2026 (konec propagačního kreditu)
   se sama nespouští.
 - **Ručně**: Actions → **Claude (Agent SDK)** → **Run workflow**, s vlastním úkolem, nebo prázdné = denní kontrola.
 
