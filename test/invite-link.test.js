@@ -40,7 +40,7 @@ test('server: náhled bez přesného data, starší base64 JSON, poškozená a c
   assert.doesNotMatch(inviteMeta(pack(CARD)).title + inviteMeta(pack(CARD)).desc, /12|19/, 'přesné datum až po klepnutí');
   assert.equal(inviteMeta(Buffer.from(JSON.stringify({ d: 'Řím', o: '2026-03-04' })).toString('base64url')).place, 'Řím');
   assert.equal(inviteMeta(pack({ d: '<b>Řím</b>"', o: '2026-03-04' })).place, 'b Řím /b', 'bez HTML');
-  for (const bad of ['', 'abc', 'zzzzzzzzzz', pack({ d: 'Řím' }), pack({ o: '2026-03-04' }), pack({ v: 2, d: 'Řím', o: '2026-03-04' }), 'z' + zlib.deflateRawSync('x'.repeat(10000)).toString('base64url')]) {
+  for (const bad of ['', 'abc', 'zzzzzzzzzz', pack({ d: 'Řím' }), pack({ d: 'Řím', o: '2026-13-01' }), pack({ d: 'Řím', o: '2026-00-10' }), pack({ o: '2026-03-04' }), pack({ v: 2, d: 'Řím', o: '2026-03-04' }), 'z' + zlib.deflateRawSync('x'.repeat(10000)).toString('base64url')]) {
     assert.equal(inviteMeta(bad), null, bad.slice(0, 20));
   }
   const html = invitePage('zAbcdefgh', { title: 'Jede někdo se mnou? Řím v březnu ✈️', desc: 'x', img: null }, 'https://atlas.example', 'https://atlas.example/og.png');
@@ -66,6 +66,8 @@ test('stránka /j/: prohlížeč přesměruje do aplikace, robot náhledu (Whats
   assert.match(html, new RegExp(`<meta http-equiv="refresh" content="0;url=/#jed=${data}">`));
   assert.match(html, /og:title" content="Jede někdo se mnou\? Madeira v listopadu ✈️"/);
   assert.equal(page.headers.get('vary'), 'User-Agent');
+  // verze, kterou žádný service worker nemá – starší by stránku jinak uložil místo stránky aplikace
+  assert.equal(page.headers.get('x-atlas-build'), 'preview');
   const bot = await (await fetch(`${base}/j/${data}`, { headers: { 'User-Agent': 'WhatsApp/2.23.20.0 A' } })).text();
   assert.match(bot, /og:title" content="Jede někdo se mnou\? Madeira/);
   assert.doesNotMatch(bot, /http-equiv="refresh"/);

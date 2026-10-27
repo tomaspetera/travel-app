@@ -194,6 +194,10 @@ const shareStore = config.upstashUrl && config.upstashToken ? cachedStore(upstas
 // by jinak strop zdarma vyčerpalo všem a odkazy by do konce měsíce nešly otevřít.
 const shareGets = new RateLimiter();
 const shareGetLimited = (req, id) => !shareStore.has('s:' + id) && rateLimited(req, 60, shareGets);
+// Stránky /c/ a /j/ (náhled a přesměrování) nejsou stránka aplikace: verze, kterou žádný service worker nemá – starší
+// service worker (z doby před /j/) by je jinak uložil místo stránky aplikace (sw.js remember ukládá stránku bez verze)
+// a offline by se otevřelo jen „Otevírám…“ s nekonečným přesměrováním
+const PREVIEW_BUILD = { 'X-Atlas-Build': 'preview' };
 // fotka cíle do náhledu odkazu: z mezipaměti fotek, nová nejvýš 3 s (odkaz bez fotky má obecný náhled ATLASu)
 const previewPhoto = async (place) => ogPhoto(String(((await Promise.race([cityPhotos([place]), new Promise((r) => setTimeout(() => r(null), 3000))])) || {}).photos?.[place] || ''));
 const geoHits = new RateLimiter(); // geokódování mimo mezipaměť serveru (Open-Meteo) – našeptávač a hledání míst
@@ -1079,7 +1083,7 @@ async function route(req, res) {
     if (!down) try { r = await loadShare(shareStore, id); } catch (e) { down = true; console.warn(`krátký odkaz: ${e.message}`); }
     // robot náhledu dostane stránku bez přesměrování (PREVIEW_BOT) – obsah podle User-Agent, proto jen soukromá mezipaměť
     const bot = PREVIEW_BOT.test(req.headers['user-agent'] || '');
-    if (r || down) return sendGenerated(req, res, 200, sharePage(id, r || { m: {} }, config.publicUrl, `${config.publicUrl}/${BRAND.image.path}`, { bot }), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': r ? 'private, max-age=3600' : 'no-store', Vary: 'User-Agent' });
+    if (r || down) return sendGenerated(req, res, 200, sharePage(id, r || { m: {} }, config.publicUrl, `${config.publicUrl}/${BRAND.image.path}`, { bot }), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': r ? 'private, max-age=3600' : 'no-store', Vary: 'User-Agent', ...PREVIEW_BUILD });
   }
 
   // Pozvánka „Jede někdo se mnou?“ (data v adrese, nic se neukládá): náhled odkazu s otázkou, cílem, měsícem a fotkou
@@ -1090,7 +1094,7 @@ async function route(req, res) {
     if (m) {
       const bot = PREVIEW_BOT.test(req.headers['user-agent'] || '');
       if (bot && (photosCached([m.place]) || !rateLimited(req, 60, shareGets))) m.img = await previewPhoto(m.place).catch(() => null);
-      return sendGenerated(req, res, 200, invitePage(data, m, config.publicUrl, `${config.publicUrl}/${BRAND.image.path}`, { bot }), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, max-age=3600', Vary: 'User-Agent' });
+      return sendGenerated(req, res, 200, invitePage(data, m, config.publicUrl, `${config.publicUrl}/${BRAND.image.path}`, { bot }), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, max-age=3600', Vary: 'User-Agent', ...PREVIEW_BUILD });
     }
   }
 

@@ -74,7 +74,8 @@ export function cachedStore(store, { max = 300, missMs = 10 * 60e3, now = Date.n
 
 // text z cizí cesty do náhledu: bez řídicích znaků a HTML (do stránky jde ještě přes esc)
 const txt = (v, n) => (typeof v === 'string' ? v.replace(/[\x00-\x1f\x7f<>"`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n) : '');
-const ymd = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+// i platný měsíc a den – podvržený odkaz s „2026-13-01“ by jinak dal náhled „Řím undefined“
+const ymd = (v) => (typeof v === 'string' && /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(v) ? v : null);
 /** „3.–8. 11.“, přes měsíc „28. 10.–3. 11.“, jen odlet „od 3. 11.“ */
 export function datesTxt(a, b) {
   if (!a) return '';

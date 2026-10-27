@@ -34,7 +34,9 @@
 .wn-pop .wn-list li.open>div{display:block;-webkit-line-clamp:unset}
 .wn-pop-f{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .wn-pop-f .linkbtn{font-size:13px}
-.modal-bg.show ~ .wn-pop,body:has(.pwa-update:not([hidden])) .wn-pop{display:none}
+/* dvě pravidla: prohlížeč bez :has() by jinak zahodil i první a lišta by zůstala nad oknem */
+.modal-bg.show ~ .wn-pop{display:none}
+body:has(.pwa-update:not([hidden])) .wn-pop{display:none}
 .pwa-x:hover{color:var(--text);background:var(--surface-2)}
 @media(max-width:860px){
   .pwa-bar{padding:8px 16px}

@@ -984,11 +984,18 @@ function renderWhatsNew() {
   }
   $('#wnHide').onclick = hide;
 }
-/* Lišta „Co je nového“ po aktualizaci: novinky od posledního otevření, jednou – atlas_wn_top = název nejnovější
-   novinky, kterou už uživatel viděl. Při startu se ukážou jen novější (nejvýš WN_POP, zbytek „a 2 další ›“) a hned se
-   zapamatují: další otevření je už neukáže, ani když lištu zavře bez čtení – nic se nehromadí jako dřív karta. */
+/* Lišta „Co je nového“ po aktualizaci: novinky od posledního otevření, jednou – atlas_wn_top = „WN_ID\nnázev“
+   nejnovější novinky, kterou už uživatel viděl. Při startu se ukážou jen novější (nejvýš WN_POP, zbytek „a 2 další ›“)
+   a zapamatují se, jakmile je lišta vidět: další otevření je už neukáže, ani když ji zavře bez čtení – nic se
+   nehromadí jako dřív karta. */
 const WN_TOP_LS = 'atlas_wn_top';
 const WN_POP = 3;
+/** atlas_wn_top → { id: sada WN_ID, title } (dřívější zápis jen s názvem: id ''; nic: title null). */
+const wnTopParse = raw => {
+  if (raw == null) return { id: '', title: null };
+  const s = String(raw), i = s.indexOf('\n');
+  return i < 0 ? { id: '', title: s } : { id: s.slice(0, i), title: s.slice(i + 1) };
+};
 /**
  * Které novinky ukázat v liště: top = atlas_wn_top, seen = atlas_wn (uvítání, dřívější „Rozumím“ u karty). → { show,
  * more } – show nejnovější nové (nejvýš WN_POP), more = kolik dalších nových se nevešlo.
@@ -1003,12 +1010,14 @@ function wnFresh(top, seen, list = WHATS_NEW, id = WN_ID) {
   return { show: list.slice(0, Math.min(n, WN_POP)), more: Math.max(0, n - WN_POP) };
 }
 function whatsNewPop() {
-  let f;
-  try {
-    f = wnFresh(localStorage.getItem(WN_TOP_LS), localStorage.getItem('atlas_wn'));
-    localStorage.setItem(WN_TOP_LS, WHATS_NEW[0][1]);
-  } catch (e) { return; /* soukromé okno: bez paměti by lišta vyskočila při každém otevření */ }
-  if (!f.show.length) return;
+  let top, seen;
+  try { top = wnTopParse(localStorage.getItem(WN_TOP_LS)); seen = localStorage.getItem('atlas_wn'); } catch (e) { return; /* soukromé okno: bez paměti by lišta vyskočila při každém otevření */ }
+  // starší verze stránky (z mezipaměti, než se načte nová): nic neukázat ani nepřepsat – nová verze by pak tutéž
+  // novinku ukázala znovu (WN_ID je datum, porovnává se jako text)
+  if (top.id && top.id > WN_ID) return;
+  const f = wnFresh(top.title, seen);
+  const mark = () => { try { localStorage.setItem(WN_TOP_LS, `${WN_ID}\n${WHATS_NEW[0][1]}`); } catch (e) { /* nevadí */ } };
+  if (!f.show.length) return mark();
   const bar = document.createElement('div');
   bar.className = 'wn-pop';
   bar.setAttribute('role', 'region');
@@ -1022,7 +1031,12 @@ function whatsNewPop() {
   $('[data-wn-ok]', bar).onclick = close;
   $('[data-wn-all]', bar).onclick = () => { close(); whatsNewOpen(); };
   $$('.wn-list li', bar).forEach(li => { li.onclick = () => li.classList.toggle('open'); });
-  document.body.append(bar); // za oknem (#modalBg): otevřené okno ji skryje (atlas.css .modal-bg.show ~ .wn-pop)
+  document.body.append(bar); // za oknem (#modalBg): otevřené okno ji skryje (pwa.css .modal-bg.show ~ .wn-pop)
+  // viděno, až je lišta opravdu vidět – schovaná za lištou nové verze by se po „Obnovit“ ztratila (nová verze už by ji
+  // měla za viděnou), za oknem by ji uživatel nespatřil
+  const shown = () => getComputedStyle(bar).display !== 'none';
+  if (shown()) return mark();
+  const t = setInterval(() => { if (!bar.isConnected) clearInterval(t); else if (shown()) { clearInterval(t); mark(); } }, 1000);
 }
 /** Celý seznam novinek v okně (menu ☰ → Co je nového, postranní panel na počítači, „Všechny novinky ›“ v liště). */
 function whatsNewOpen() {

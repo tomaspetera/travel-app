@@ -326,9 +326,20 @@ test('✨ lišta Co je nového: jen novinky od minulého otevření (nejvýš 3)
   assert.deepEqual(titles(wnFresh(null, 'X+vitej', L, 'X')), []);
   S.home = null; S.recent = [];
   assert.deepEqual(titles(wnFresh(null, null, L, 'X')), [], 'úplně nový');
-  // zapamatuje se při startu, ne až po zavření (jinak by se při dalším otevření ukázala znovu a hromadila)
+  // uložená novinka i se sadou (WN_ID); dřívější zápis jen s názvem
+  const wnTopParse = new Function(`${pick('wnTopParse')}; return wnTopParse;`)();
+  assert.deepEqual({ ...wnTopParse('2026-10-27a\nKrátký odkaz') }, { id: '2026-10-27a', title: 'Krátký odkaz' });
+  assert.deepEqual({ ...wnTopParse('Krátký odkaz') }, { id: '', title: 'Krátký odkaz' });
+  assert.deepEqual({ ...wnTopParse(null) }, { id: '', title: null });
   const app = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
-  assert.match(app, /f = wnFresh\(localStorage\.getItem\(WN_TOP_LS\), localStorage\.getItem\('atlas_wn'\)\);\n\s*localStorage\.setItem\(WN_TOP_LS, WHATS_NEW\[0\]\[1\]\);/);
+  const pop = app.match(/function whatsNewPop\(\) \{[\s\S]*?\n\}/)[0];
+  // starší verze stránky (z mezipaměti) nic nepřepíše – jinak by nová verze ukázala tutéž novinku znovu
+  assert.match(pop, /if \(top\.id && top\.id > WN_ID\) return;/);
+  // zapamatuje se se sadou, hned bez lišty i když je lišta vidět – ne až po zavření (jinak by se hromadila); schovaná
+  // za lištou nové verze ne (po Obnovit by se ztratila)
+  assert.match(pop, /localStorage\.setItem\(WN_TOP_LS, `\$\{WN_ID\}\\n\$\{WHATS_NEW\[0\]\[1\]\}`\)/);
+  assert.match(pop, /if \(!f\.show\.length\) return mark\(\);/);
+  assert.match(pop, /if \(shown\(\)\) return mark\(\);/);
   // karta na Přehledu už jen uvítání
   assert.match(app, /el\.hidden = mode !== 'welcome';/);
 });
