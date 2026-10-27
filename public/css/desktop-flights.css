@@ -114,6 +114,7 @@
   .hero-search2 .hs-field:nth-child(2) .hs-lab::after{content:"/";display:inline-grid;place-items:center;min-width:16px;height:16px;
     margin-left:8px;padding:0 4px;border-radius:5px;border:1px solid rgba(255,255,255,.35);font:700 10px/1 Inter,sans-serif;
     color:rgba(255,255,255,.75);letter-spacing:0;text-transform:none;vertical-align:1px}
+  [data-theme="light"] .hero-search2 .hs-field:nth-child(2) .hs-lab::after{border-color:var(--border-2);color:var(--muted)} /* bílý panel */
 
   /* ---------- Radar: přepínač Kdykoliv/Víkendy/Svátky a poznámky („Za osobu…“) vedle sebe, ne pod sebou ---------- */
   #radarModes:not([hidden]){float:left;margin:0 20px 14px 0}
