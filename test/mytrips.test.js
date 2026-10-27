@@ -11,7 +11,8 @@ test('záložka Cesta: bez rozpracované cesty seznam Moje cesty (jsou-li cesty)
   assert.match(js, /const mine = window\.myTrips && \(\(!t && Array\.isArray\(S\.trips\) && S\.trips\.some\(Boolean\)\) \|\| \(t && mineFor === t\.created\)\);\s*if \(mine\) return renderMine\(root, t\);/);
   assert.match(js, /<div class="mt-back"><button type="button" class="linkbtn" id="tripMine">‹ Moje cesty<\/button><\/div>/);
   // rozpracovaná zůstane: seznam je jen nad ní (mineFor), karta rozpracované vrátí zpět
-  assert.match(js, /mb\.onclick = \(\) => \{ mineFor = t\.created; render\(\);/);
+  assert.match(js, /mb\.onclick = \(\) => showMine\(t\);/);
+  assert.match(js, /function showMine\(t\) \{\s*if \(autoT \|\| !entryOf\(t\)\) autoSave\(\);\s*if \(!window\.myTrips\) return;\s*mineFor = t\.created; render\(\);/);
   assert.match(js, /resume: \(\) => \{ mineFor = null; render\(\);/);
   // „Kam chceš jet?“ jednou (úvod i Moje cesty)
   assert.equal((js.match(/<form class="card trip-ask" id="tripAsk">/g) || []).length, 1);
@@ -33,9 +34,16 @@ test('myTrips: cesta z průvodce se otevře v průvodci (rozpracovaná zpět do 
   assert.match(app, /const bkWire = \(host = document\) => \{ const b = \$\('#bkOpen', host\);/);
 });
 
-test('Co je nového: Moje cesty', () => {
+test('Co je nového: Moje cesty a cesta se ukládá sama', () => {
   const app = read('js/app.js');
-  assert.match(app, /const WN_ID = '2026-10-27c';\s*const WHATS_NEW = \[\s*\['🧳', 'Moje cesty v záložce Cesta',/);
+  assert.match(app, /const WN_ID = '2026-10-27d';\s*const WHATS_NEW = \[\s*\['💾', 'Cesta se ukládá sama',[^\n]*\],\s*\['🧳', 'Moje cesty v záložce Cesta',/);
+});
+
+test('smazání cesty otevřené v průvodci ji zavře i v průvodci (jinak by se zase sama uložila); ↩ Vrátit vrátí obojí', () => {
+  const app = read('js/app.js');
+  assert.match(app, /const act = S\.trip && t\.tripId && S\.trip\.created === t\.tripId \? S\.trip : null;/);
+  assert.match(app, /S\.trips\.splice\(i, 1\); if \(act\) S\.trip = null; modalClose\(\); redraw\(\);/);
+  assert.match(app, /if \(act && !S\.trip\) S\.trip = act; redraw\(\);/);
 });
 
 test('změna cest (nová, úprava v okně, smazání, záloha, jiný panel) překreslí seznam, který je vidět – i Moje cesty v Cestě', () => {

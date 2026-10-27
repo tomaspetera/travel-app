@@ -48,12 +48,14 @@
   let entryWait = false; // čeká se na vstupní podmínky (poznámka u přechodu hranice)
   let routePoll = null; // přepočet přejezdů, které server ještě počítá (trasa autem)
   let autoNote = null; // hláška ⚡ Poskládej celou cestu: { t, step, kind: 'run' | 'warn' | 'ok', msg }
+  let autoT = 0; // čekající uložení cesty do Mých cest (autoSoon)
   const MAX_BASES = 6;
   const BASE_COLORS = ['#5b8cff', '#f59e0b', '#22c55e', '#ec4899', '#14b8a6', '#a855f7'];
 
   /* ---------- pomocné ---------- */
   const T = () => S.trip;
-  const persist = () => save();
+  // každá změna cesty se zapíše hned (save) a chvilku po ní i do Mých cest (autoSoon)
+  const persist = () => { save(); autoSoon(); };
   const addDaysYmd = (ymd, n) => { const d = new Date(ymd + 'T12:00:00'); d.setDate(d.getDate() + n); return fmtYMD(d); };
   const dayLbl = ymd => { const d = new Date(ymd + 'T12:00:00'); return `${DOW[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`; };
   const hhmm = s => (s && s.length >= 16 ? s.slice(11, 16) : '');
@@ -745,8 +747,8 @@
     const originsBy = Object.fromEntries((result.origins || []).map(o => [o.iata, o]));
     const dest = g ? g.dest : { label: t.out.to, cc: '', country: '', lat: null, lon: null };
     const mem = memAgeMs(t);
-    // Rozpracovaná cesta (vybraná trasa, ubytování, auto, program nebo odškrtnuté rezervace) se nezahodí bez zeptání –
-    // „↩ Vybrat jiný let“ i nový výběr z výsledků by ji jinak potichu přepsaly.
+    // Rozpracovaná cesta (vybraná trasa, ubytování, auto, program nebo odškrtnuté rezervace) se nezahodí – uložená zůstane
+    // v Mých cestách, neuložená jen po zeptání („↩ Vybrat jiný let“ i nový výběr z výsledků by ji jinak potichu přepsaly).
     const mine = S.trip;
     // stejný let tam i zpět znovu (z výsledků, z uložených výsledků) pro stejně lidí a zavazadla → pokračovat v rozpracované
     // cestě; za stejnou cenu z novějšího hledání platí cena k jeho času
@@ -755,10 +757,7 @@
       if (at > 0 && at - mem > (mine.flight.pricedAt || 0) && at <= Date.now() && mine.flight.flightCzk === t.flightCzk) { mine.flight.pricedAt = at - mem; persist(); }
       go('trip', { drill: true }); return;
     }
-    if (mine && mine.flight) {
-      const done = progressOf(mine);
-      if (done.length && !confirm(`Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
-    }
+    if (!leaveTrip(mine, done => `Máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji novou cestou s tímto letem?`)) return;
     // Let z průběžných výsledků (pomalejší zdroje ještě hledaly): statistika cen i úroveň ceny letu jsou jen z části
     // zdrojů – neuložit, doplní je konečný výsledek téhož hledání (finalStats, statsWait = jeho dotaz). Statistika
     // průběžného výsledku čeká stranou (statsPreview) pro případ, že hledání konečný výsledek nepřinese (statsGiveUp).
@@ -866,6 +865,12 @@
   // rozpracované cesty ho záložka Cesta ukáže hned (jsou-li nějaké cesty), z průvodce přes „‹ Moje cesty“: mineFor = id
   // rozpracované cesty, nad kterou je seznam otevřený – jiná nebo nová cesta (výběr letu, otevření uložené) ukáže průvodce.
   let mineFor = null;
+  // seznam Moje cest nad rozpracovanou cestou (ta v něm s posledními změnami)
+  function showMine(t) {
+    if (autoT || !entryOf(t)) autoSave();
+    if (!window.myTrips) return;
+    mineFor = t.created; render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
   const askHtml = (lead = 'Kam chceš jet?') => `<form class="card trip-ask" id="tripAsk"><label class="trip-ask-l">${lead}</label>
           <div class="trip-ask-row"><div class="place-input" id="tripAskTo"></div><button class="btn primary" type="submit">Najít lety</button></div>
           <small class="faint">Město, „kamkoliv“, nebo celá věta – „Řím na víkend ve dvou“. Z nabídek pak vybereš let a průvodce pokračuje.</small></form>`;
@@ -915,7 +920,7 @@
           <li><span>🏨</span><div><b>Ubytování</b><small>Hotely s cenou na tvoje dny a odkazy na Booking, Airbnb a další.</small></div></li>
           <li><span>🚗</span><div><b>Auto</b><small>Půjčení auta na místě – nebo jen veřejná doprava.</small></div></li>
           <li><span>🗺️</span><div><b>Program</b><small>Co vidět den po dni, výlety, kolo i pěšky.</small></div></li>
-          <li><span>✅</span><div><b>Shrnutí</b><small>Celková cena, uložení do Plánovače a kalendáře.</small></div></li>
+          <li><span>✅</span><div><b>Shrnutí</b><small>Celková cena a kalendář. Cesta se ukládá sama do Mých cest.</small></div></li>
         </ol></div>`;
       $('#tripGoExplore').onclick = () => go('explore');
       askWire();
@@ -924,6 +929,7 @@
     }
     const idx = STEPS.findIndex(s => s[0] === t.step);
     if (root.dataset) root.dataset.step = t.step; // rozvržení kroku na počítači (desktop-trip.css)
+    if (!autoT && autoOk(t) && !entryOf(t)) autoSoon(); // rozpracovaná z doby před samoukládáním → do Mých cest
     root.innerHTML = `
       ${window.myTrips ? `<div class="mt-back"><button type="button" class="linkbtn" id="tripMine">‹ Moje cesty</button></div>` : ''}
       <div class="trip-head card" data-photo="${esc(t.dest.label)}" style="--h:${window.ccHue ? ccHue(t.dest.cc) : 210}">
@@ -941,8 +947,9 @@
     $$('.stepbar [data-step]').forEach(b => b.onclick = () => setStep(b.dataset.step));
     $('#tripRestart').onclick = () => restart();
     // seznam cest nad rozpracovanou – ta zůstane, klepnutím na její kartu zpět
-    const mb = $('#tripMine'); if (mb) mb.onclick = () => { mineFor = t.created; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-    if (t.shared) $('#tripSharedSave').onclick = () => saveToPlanner();
+    const mb = $('#tripMine'); if (mb) mb.onclick = () => showMine(t);
+    // sdílená se stane vlastní: zůstat v průvodci (poznámka zmizí), cesta je v Mých cestách
+    if (t.shared) $('#tripSharedSave').onclick = () => { saveToPlanner({ stay: true }); render(); };
     if ($('#tripPastNew')) $('#tripPastNew').onclick = () => newAfterPast();
     if (t.step === 'flight') flightStep();
     else if (t.step === 'route') routeStep();
@@ -968,24 +975,27 @@
   /**
    * Cesta, která už skončila (pobyt do včerejška a dřív): průvodce ukazoval Shrnutí jako před odletem („Co zarezervovat“,
    * „Vyraž z domu nejpozději…“, ceny před týdny) – vracející se uživatel nevěděl, že je to stará cesta. Poznámka
-   * a ✈️ Nová cesta (uložená zůstane v plánovači). today = dnešek YYYY-MM-DD (pro testy).
+   * a ✈️ Nová cesta (uložená zůstane v Mých cestách). today = dnešek YYYY-MM-DD (pro testy).
    */
   function pastHtml(t, today = fmtYMD(new Date())) {
     if (!t || t.shared || !t.flight || !t.flight.out) return '';
     const { checkout } = stayDates(t);
     if (!checkout || checkout >= today) return '';
-    return `<div class="note info trip-shared trip-past"><span aria-hidden="true">🗓️</span><div class="ts-t"><b>Tahle cesta už proběhla</b> (návrat ${fmtDate(checkout)}). Zůstává v Plánovači – další cestu začneš výběrem letu.</div>
+    return `<div class="note info trip-shared trip-past"><span aria-hidden="true">🗓️</span><div class="ts-t"><b>Tahle cesta už proběhla</b> (návrat ${fmtDate(checkout)}). Zůstává v Mých cestách – další cestu začneš výběrem letu.</div>
       <button type="button" class="btn sm primary" id="tripPastNew">✈️ Nová cesta</button></div>`;
   }
-  /** ✈️ Nová cesta po proběhlé: uložená v plánovači zůstane – bez ptaní; neuložená jako ↺ Začít znovu (s potvrzením). */
+  /** ✈️ Nová cesta po proběhlé a „Začít novou cestu“ ve Shrnutí: cesta v Mých cestách tam zůstane – bez ptaní (už ne
+   *  jako sama uložená, ↺ Začít znovu by ji po otevření odebral); neuložená jako ↺ Začít znovu (s potvrzením). */
   function newAfterPast() {
     const t = T();
     if (!t) return;
-    const saved = Array.isArray(S.trips) && S.trips.some(x => x && x.tripId && x.tripId === t.created);
-    if (!saved) return restart();
+    autoSave(); // poslední změny do seznamu
+    const e = entryOf(t);
+    if (!e) return restart();
+    delete e.auto;
     S.trip = null; staysData = null; carsData = null;
-    persist();
-    toast('Proběhlá cesta zůstává v Plánovači – vyber další let');
+    save();
+    toast(`${tripName(t)} zůstává v Mých cestách – vyber další let`);
     go('flights');
   }
   /** Záložky míst trasy (Ubytování, Program) se na telefonu nevejdou: vybrané místo posunout doprostřed lišty. */
@@ -995,16 +1005,18 @@
     bar.scrollLeft += on.getBoundingClientRect().left - bar.getBoundingClientRect().left - (bar.clientWidth - on.offsetWidth) / 2;
   }
 
-  /** ↺ Začít znovu: rozpracovanou cestu zahodit (po potvrzení, když v ní něco je) a vybrat let znovu. Uložená kopie
-   *  v plánovači zůstane. */
+  /** ↺ Začít znovu: rozpracovanou cestu zahodit (po potvrzení, když v ní něco je) a vybrat let znovu. Sama uložená
+   *  zmizí i z Mých cest, uložená na přání (💾, „Začít novou cestu“) tam zůstane. */
   function restart() {
     const t = T();
     if (!t) return;
     // bez rozpracovaného (jen vybraný let) bez ptaní
-    const done = progressOf(t), saved = Array.isArray(S.trips) && S.trips.some(x => x && x.tripId && x.tripId === t.created);
-    if (done.length && !confirm(`Zahodit rozpracovanou cestu ${t.dest?.label || t.flight.out.to} (${done.join(', ')}) a začít znovu?${saved ? ' Kopie v plánovači zůstane.' : ''}`)) return;
+    const done = progressOf(t), e = entryOf(t);
+    if (done.length && !confirm(`Zahodit rozpracovanou cestu ${t.dest?.label || t.flight.out.to} (${done.join(', ')}) a začít znovu?${e ? e.auto ? ' Zmizí i z Mých cest.' : ' Uložená cesta v Mých cestách zůstane.' : ''}`)) return;
+    if (autoT) { clearTimeout(autoT); autoT = 0; }
+    if (e && e.auto) S.trips.splice(S.trips.indexOf(e), 1);
     S.trip = null; staysData = null; carsData = null;
-    persist();
+    save();
     toast('Cesta zahozena – vyber nový let');
     go('flights');
   }
@@ -3595,7 +3607,7 @@
           : !ov && f.back && f.back.provider !== f.out.provider ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Lety tam a zpět jsou dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká.</div></div>' : ''}
       </div></div>
       <div class="row wrap sum-acts" style="gap:8px;margin:0 0 14px">
-        <button class="btn primary" id="sumSave">💾 Uložit do plánovače</button>
+        <button class="btn primary" id="sumSave">${t.shared ? '💾 Uložit do Mých cest' : '🧳 Uloženo v Mých cestách'}</button>
         <button class="btn" id="sumShare">📤 Sdílet cestu</button>
         <button class="btn" id="sumIcs">📅 Do kalendáře</button>
         <a class="btn ghost" href="${esc(safeUrl(Ics.gcalUrl(tripEvent(t))))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>
@@ -3613,14 +3625,15 @@
     // rozpočet se ukládá při psaní a přepíše se jen řádek pod polem (překreslení celého shrnutí by vzalo poli kurzor)
     const est = budgetGroups(t, c).some(g => g.est), miss = budgetMissing(t);
     $('#myBudget').oninput = () => { const v = Math.max(0, +$('#myBudget').value || 0); setBudget(t, v); $('#budgetOut').innerHTML = budgetOutHtml(c.total, v, est, miss); };
-    $('#sumSave').onclick = () => saveToPlanner();
+    // cesta se ukládá sama – tlačítko ji uloží hned (i na přání: ↺ Začít znovu ji pak nechá) a ukáže Moje cesty
+    $('#sumSave').onclick = () => { saveToPlanner({ stay: true }); showMine(t); };
     // okno Sdílet: celá cesta kamarádům (share – jako dřív) nebo karta „Jede někdo se mnou?“ na sítě (sharecard.js)
     // prime: krátký odkaz se začne ukládat při dotyku Poslat kamarádům – sdílení pak skoro nečeká
     $('#sumShare').onclick = () => (window.ShareCard ? ShareCard.open(cardData(t), { send: share, prime: () => ShareLink.short('trip', linkJson(t)) }) : share());
     // odkaz se zkomprimuje hned, aby ho kliknutí jen zkopírovalo (Safari dovolí zápis do schránky jen v obsluze kliknutí)
     if (window.ShareLink) ShareLink.prepare('trip', linkJson(t));
     $('#sumIcs').onclick = () => icsDownload(`atlas-${t.dest.label}-${checkin}`, calendarEvents(t), { name: `Cesta: ${t.dest.label}` });
-    $('#sumNew').onclick = () => restart();
+    $('#sumNew').onclick = () => newAfterPast(); // hotová cesta zůstane v Mých cestách
     // vstupní podmínky dorazily až po vykreslení → shrnutí znovu (jen když je pořád otevřené)
     if (window.Entry && !Entry.ready()) Entry.whenReady(() => { if ($('#tripEntry') && T() && T().step === 'summary') summaryStep(); });
   }
@@ -3775,9 +3788,49 @@
     return { label: tripName(t), cc: t.dest && t.dest.cc, start, end };
   }
 
-  // o.stay: zůstat, kde uživatel je (uložení z karty „Dnes na cestě“ na Přehledu) – jinak se otevře plánovač
+  /**
+   * 🧳 Moje cesty: cesta z průvodce se do seznamu cest uloží sama, jakmile s ní uživatel pokročí za výběr letu (jen
+   * prohlédnutý let seznam nezaplní). Sdílená až po „💾 Uložit si ji“ – je cizí. S prodlevou: klepání a psaní
+   * nepřepočítává cestu pro seznam pořád dokola; před odchodem z cesty a při zavření aplikace se dokončí hned.
+   */
+  const autoOk = t => Boolean(t && t.flight && t.flight.out && t.dest && !t.shared && (t.step !== 'flight' || progressOf(t).length));
+  function autoSoon() {
+    if (typeof setTimeout !== 'function' || typeof clearTimeout !== 'function') return;
+    clearTimeout(autoT); autoT = setTimeout(autoSave, 1200);
+  }
+  function autoSave() {
+    if (autoT) { clearTimeout(autoT); autoT = 0; }
+    if (!autoOk(T())) return;
+    try { saveToPlanner({ quiet: true }); } catch (e) { return; } // neúplná cesta – uloží se při další změně
+    // seznam cest jinde na obrazovce (Plánovač, Přehled) – průvodce se kvůli tomu nepřekresluje
+    if (typeof tripsChanged === 'function' && typeof activeView === 'string' && activeView !== 'trip') tripsChanged();
+  }
+  if (typeof addEventListener === 'function') addEventListener('pagehide', () => { if (autoT) autoSave(); });
+  if (typeof document === 'object' && document && document.addEventListener) document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && autoT) autoSave(); });
+  /** Záznam cesty z průvodce v Mých cestách (stejné id), jinak null. */
+  const entryOf = t => (t && Array.isArray(S.trips) && S.trips.find(x => x && x.tripId && x.tripId === t.created)) || null;
+  /**
+   * Rozpracovaná cesta se nahrazuje jinou (nový let, uložená cesta): uložená v Mých cestách tam zůstane bez ptaní (jen
+   * prohlédnutá – bez trasy, hotelu, auta… – zmizí, ať seznam nezaplní), neuložená s něčím rozpracovaným → zeptat se
+   * (ask = otázka podle toho, co v ní je). → false = nenahrazovat.
+   */
+  function leaveTrip(mine, ask) {
+    if (!mine || !mine.flight) return true;
+    if (T() === mine) autoSave(); // poslední změny do seznamu
+    const done = progressOf(mine), e = entryOf(mine);
+    if (!e) return !done.length || confirm(ask(done));
+    if (e.auto && !done.length) S.trips.splice(S.trips.indexOf(e), 1);
+    else { delete e.auto; toast(`${tripName(mine)} zůstává v Mých cestách`); }
+    return true;
+  }
+
+  // o.stay: zůstat, kde uživatel je (uložení z karty „Dnes na cestě“ na Přehledu) – jinak se otevře plánovač;
+  // o.quiet: samo uložení z průvodce (autoSave) – bez hlášky a přechodu, nová cesta v seznamu s auto: true
+  // (↺ Začít znovu ji zase odebere); uložení na přání (💾) ji nechá i po ↺ Začít znovu
   function saveToPlanner(o = {}) {
     const t = T();
+    if (autoT) { clearTimeout(autoT); autoT = 0; } // ukládá se teď
+    if (!Number.isFinite(t.created)) t.created = Date.now(); // jedno id = jedna cesta v seznamu (bez kopií)
     const c = costs(t);
     const { checkin, checkout } = stayDates(t);
     const f = t.flight;
@@ -3819,7 +3872,7 @@
       // „Sbaleno“: seznam z „Před cestou“ (úkoly a věci na míru, i s odškrtnutím), bez dat obecný PACK
       checklist: (window.PreTrip && PreTrip.plannerChecklist(t, { isos: tripCountries(t), via: tripVia(t), ret: returnDate(t) })) || PACK.map(x => ({ t: x, done: false })), notes,
       // celá cesta z průvodce (hotely, trasa, program, odškrtnuté rezervace) – „Otevřít v průvodci“ ji vrátí
-      tripId: t.created || Date.now(), wizard: wizardJson(t),
+      tripId: t.created, wizard: wizardJson(t),
     };
     // co vygeneroval průvodce – při opětovném uložení se pozná, co uživatel v plánovači přidal nebo změnil
     Object.assign(entry, { genName: entry.name, genNotes: notes, genBudget: entry.budget, genDays: JSON.parse(JSON.stringify(entry.days)), genChecklist: entry.checklist.map(x => x.t) });
@@ -3847,12 +3900,13 @@
         notes: was(old.notes, old.genNotes) ? old.notes : entry.notes,
         budget: was(old.budget, old.genBudget) ? old.budget : entry.budget,
         checklist: [...entry.checklist.map(x => ({ ...x, done: x.done || done.has(x.t) })), ...ownCk],
-        days,
+        days, auto: o.quiet ? old.auto : undefined,
       };
-    } else S.trips.push(entry);
+    } else S.trips.push(o.quiet ? { ...entry, auto: true } : entry);
+    if (o.quiet) return save(); // save, ne persist – jinak by se ukládání samo znovu naplánovalo
     delete t.shared; // sdílená cesta je teď vlastní (poznámka o stáří cen a „💾 Uložit si ji“ zmizí)
-    persist();
-    toast(i >= 0 ? 'Cesta v plánovači aktualizována' : 'Cesta uložena do plánovače');
+    save();
+    toast(i >= 0 ? 'Cesta je uložená v Mých cestách' : 'Cesta uložena do Mých cest');
     if (!o.stay) go('planner', { drill: true }); // Zpět telefonu vrátí do Shrnutí
   }
   /** Cesta z průvodce k uložení v plánovači: jako sdílený odkaz, ale s odškrtnutými rezervacemi. */
@@ -3860,8 +3914,8 @@
     try { return { ...JSON.parse(shareJson(t)), booked: { ...(t.booked || {}) } }; } catch (e) { return null; }
   }
   /**
-   * Uloženou cestu z plánovače zpět do průvodce (id = tripId – odškrtnutí „Před cestou“ jsou pod ním). Rozpracovanou
-   * jinou cestu nahradí až po otázce; stejná cesta, která v průvodci je, se jen otevře (může být novější).
+   * Uloženou cestu z plánovače zpět do průvodce (id = tripId – odškrtnutí „Před cestou“ jsou pod ním). Rozpracovaná
+   * jiná cesta zůstane v Mých cestách (neuložená až po otázce – leaveTrip); stejná, která v průvodci je, se jen otevře.
    */
   function openSaved(w, id) {
     let t = null;
@@ -3869,13 +3923,12 @@
     if (!t) { toast('Cestu se nepodařilo otevřít', 'err'); return false; }
     const mine = S.trip;
     if (mine && mine.created === id) { go('trip'); return true; }
-    if (mine && mine.flight && progressOf(mine).length
-      && !confirm(`V průvodci máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${progressOf(mine).join(', ')}). Nahradit ji uloženou cestou ${t.dest.label || t.flight.out.to}?`)) return false;
+    if (!leaveTrip(mine, done => `V průvodci máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji uloženou cestou ${t.dest.label || t.flight.out.to}?`)) return false;
     const booked = {};
     for (const [k, v] of Object.entries(w.booked || {})) if (v === true && /^[\w:.,-]{1,140}$/.test(k)) booked[k] = true; // i id míst „geo:48.85,2.35“
     S.trip = { ...t, booked, step: 'summary', created: id };
     staysData = null; carsData = null;
-    persist();
+    save(); // jen otevřená – do Mých cest není co ukládat
     go('trip');
     return true;
   }
