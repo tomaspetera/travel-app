@@ -131,7 +131,7 @@ table.bud-t tr.bud-sum td{font-weight:800;border-bottom:none}
 .ex-layout{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;align-items:start}
 .ex-map{height:520px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);background:var(--card);position:sticky;top:90px}
 .poi-list{display:flex;flex-direction:column;gap:10px}
-.poi{display:grid;grid-template-columns:96px 1fr;gap:12px;padding:10px;border-radius:14px;border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:.15s}
+.poi{display:grid;grid-template-columns:96px 1fr;gap:12px;padding:10px;border-radius:14px;border:1px solid var(--border);background:var(--btn-bg,var(--surface));box-shadow:var(--btn-sh,none);cursor:pointer;transition:.15s}
 .poi:hover,.poi.hl{border-color:var(--accent)}
 .poi-img{width:96px;height:80px;border-radius:10px;background:var(--surface-2) center/cover no-repeat;display:grid;place-items:center;font-size:26px}
 .poi-name{font-weight:800;font-size:14.5px}
