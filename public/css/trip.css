@@ -698,3 +698,5 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 .mt-past{margin:0 0 16px}
 .mt-past>summary{cursor:pointer;font-weight:700;color:var(--muted);padding:6px 0 10px}
 .mt-more{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+/* jako tlačítka v úvodu Cesty: na telefonu přes celou šířku pod sebou (různě dlouhé popisky nevisí vlevo), na počítači vedle sebe */
+.mt-more .btn{flex:1 1 220px;justify-content:center}

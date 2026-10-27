@@ -68,3 +68,11 @@ test('Moje cesty místo Plánovače: Trip.mine ukáže seznam i nad rozpracovano
   assert.match(app, /const NAV_PICK = \['flights', 'trip', 'explore', 'world', 'recommend'\];/);
   assert.match(app, /data-gop>Moje cesty →<\/button>/);
 });
+
+test('karta cesty otevřené v průvodci: ve Shrnutí „Sestavená“, jinak „Rozpracovaná“ s krokem', () => {
+  const app = read('js/app.js');
+  assert.match(app, /const curTxt = inf\.done \? '✅ Sestavená v průvodci – otevřít shrnutí ›' : `🧳 Rozpracovaná v průvodci\$\{inf\.step \? ` \(krok \$\{esc\(inf\.step\)\}\)` : ''\} – pokračovat ›`;/);
+  assert.match(read('js/trip.js'), /step: \(STEPS\.find\(x => x\[0\] === t\.step\) \|\| STEPS\[0\]\)\[2\], done: t\.step === 'summary' \};/);
+  // tlačítka pod seznamem jako v úvodu Cesty
+  assert.match(read('css/trip.css'), /\.mt-more \.btn\{flex:1 1 220px;justify-content:center\}/);
+});

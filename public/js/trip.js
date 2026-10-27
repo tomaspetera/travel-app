@@ -896,7 +896,7 @@
     if (t) {
       let start = null, end = null;
       try { start = outLeg(t).date; end = backLeg(t) ? backLeg(t).date : stayDates(t).checkout; } catch (e) { /* cesta bez letu */ }
-      info = { name: tripName(t), cc: t.dest && t.dest.cc, start, end, step: (STEPS.find(x => x[0] === t.step) || STEPS[0])[2] };
+      info = { name: tripName(t), cc: t.dest && t.dest.cc, start, end, step: (STEPS.find(x => x[0] === t.step) || STEPS[0])[2], done: t.step === 'summary' };
     }
     window.myTrips(root, { active: t, info, ask: askHtml('Nová cesta – kam chceš jet?'), resume: () => { mineFor = null; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
     askWire();
@@ -3813,15 +3813,16 @@
   /**
    * Rozpracovaná cesta se nahrazuje jinou (nový let, uložená cesta): uložená v Mých cestách tam zůstane bez ptaní (jen
    * prohlédnutá – bez trasy, hotelu, auta… – zmizí, ať seznam nezaplní), neuložená s něčím rozpracovaným → zeptat se
-   * (ask = otázka podle toho, co v ní je). → false = nenahrazovat.
+   * (ask = otázka podle toho, co v ní je). quiet: bez hlášky – uživatel je v Mých cestách a cestu tam vidí. → false =
+   * nenahrazovat.
    */
-  function leaveTrip(mine, ask) {
+  function leaveTrip(mine, ask, quiet = false) {
     if (!mine || !mine.flight) return true;
     if (T() === mine) autoSave(); // poslední změny do seznamu
     const done = progressOf(mine), e = entryOf(mine);
     if (!e) return !done.length || confirm(ask(done));
     if (e.auto && !done.length) S.trips.splice(S.trips.indexOf(e), 1);
-    else { delete e.auto; toast(`${tripName(mine)} zůstává v Mých cestách`); }
+    else { delete e.auto; if (!quiet) toast(`${tripName(mine)} zůstává v Mých cestách`); }
     return true;
   }
 
@@ -3924,7 +3925,7 @@
     if (!t) { toast('Cestu se nepodařilo otevřít', 'err'); return false; }
     const mine = S.trip;
     if (mine && mine.created === id) { go('trip'); return true; }
-    if (!leaveTrip(mine, done => `V průvodci máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji uloženou cestou ${t.dest.label || t.flight.out.to}?`)) return false;
+    if (!leaveTrip(mine, done => `V průvodci máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji uloženou cestou ${t.dest.label || t.flight.out.to}?`, true)) return false;
     const booked = {};
     for (const [k, v] of Object.entries(w.booked || {})) if (v === true && /^[\w:.,-]{1,140}$/.test(k)) booked[k] = true; // i id míst „geo:48.85,2.35“
     S.trip = { ...t, booked, step: 'summary', created: id };
