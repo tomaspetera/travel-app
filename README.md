@@ -43,7 +43,7 @@ hledají místo podle názvu. S volitelným bezplatným klíčem [Mapy.com](#map
 kole turistická mapa se značenými trasami a hledání v Objevuj najde i malé vesnice, hrady a rozhledny. Plán jde **exportovat do kalendáře** (.ics, Google Kalendář) a **sdílet odkazem**.
 
 K tomu zůstalo vše z původního ATLAS: mapa navštívených zemí, přehled všech 197 zemí s cenovou hladinou, nejlepšími
-měsíci, průměrnými teplotami a aktuálními varováními MZV ČR, doporučení podle měsíce a plánovač cest. Nově u každé
+měsíci, průměrnými teplotami a aktuálními varováními MZV ČR, doporučení podle měsíce a 🧳 Moje cesty v záložce Cesta (dřív Plánovač). Nově u každé
 země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registrace, občanský průkaz, očkování – viz níže).
 
 ## Celá cesta krok za krokem
@@ -85,7 +85,7 @@ země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registra
    od centra…“, ne kolem hotelu. Ze stejně dlouhých dnů dostane nejdřív ten s nejvýznamnějším místem (Papežský palác
    první celý den, ne poslední).
 6. **Shrnutí** – cena celkem a na osobu, co zarezervovat a v jakém pořadí, **🛂 Před cestou** (doklady, registrace
-   nebo vízum, očkování pro každou zemi cesty), časová osa, uložení do plánovače a odkaz na sdílení.
+   nebo vízum, očkování pro každou zemi cesty), časová osa, odkaz na sdílení; cesta se do Mých cest ukládá sama.
 
 ### Je to umělá inteligence?
 
@@ -171,7 +171,7 @@ z poznámky. Karta je ukáže s tlačítkem **Kopírovat**. Kódy zůstanou **je
 (obnova je k cestě doplní, nic nesmaže) – do odkazů na cestu a plán (`#trip=`, `#plan=`) ani do kalendáře (.ics) nejdou.
 
 **Zkratka „Na cestě“**: nainstalovaná aplikace má v nabídce ikony (dlouhý stisk na Androidu, pravé tlačítko na počítači)
-vedle *Lety* a *Plánovač* i **Na cestě** (`/#now`) – otevře Přehled rovnou s kartou; když žádná cesta neprobíhá, řekne
+vedle *Lety* a *Moje cesty* (`/#planner`) i **Na cestě** (`/#now`) – otevře Přehled rovnou s kartou; když žádná cesta neprobíhá, řekne
 to a ukáže nejbližší naplánovanou.
 
 ## Vstupní podmínky pro občany ČR

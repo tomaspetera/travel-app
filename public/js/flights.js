@@ -2770,8 +2770,8 @@
         ? `<span class="b warn" title="Cena počítá s návratem k autu – cesta mezi letišti v ní není">🚗 auto stojí u ${esc(opts[0].out.from)}, návrat na ${esc(opts[n - 1].out.to)}</span>` : ''].join('');
     const why = wiz ? (n === 2 && res.returnsHome ? `Průvodce cestou: ubytování (i ve víc městech), auto a program – přílet ${esc(opts[0].out.to)}, odlet ${esc(opts[1].out.from)}.`
       : `Průvodce cestou: ubytování a program v každém městě (${esc(mVisit(res).map(l => (l.dest ? l.dest.label : l.to).replace(/ \(.*\)$/, '')).join(', '))}) – noci podle letů${res.returnsHome ? '' : ', v posledním městě kolik chceš'}.`)
-      : n === 2 && res.returnsHome ? 'Návrat nevede na začátek cesty – průvodce cestou ho neumí, cestu uložím do plánovače (lety i do kalendáře).'
-          : 'Mezi lety není v některém městě ani jedna noc (nebo ho neznám) – cestu uložím do plánovače (lety i do kalendáře).';
+      : n === 2 && res.returnsHome ? 'Návrat nevede na začátek cesty – průvodce cestou ho neumí, cestu uložím do Mých cest (lety i do kalendáře).'
+          : 'Mezi lety není v některém městě ani jedna noc (nebo ho neznám) – cestu uložím do Mých cest (lety i do kalendáře).';
     return `<div class="card res-card flat"><div class="trip-row mc-row" id="mcSel">
       <div class="tr-legs">${legs}<div class="tr-badges">${badges}</div></div>
       <div class="pbox"><div class="pp">${czk(total)}</div><div class="pl">letenky celé cesty na osobu</div>
@@ -2779,8 +2779,8 @@
         ${SearchHelp.paxTotalOn(res.query) ? `<div class="pd">${SearchHelp.paxTotalLbl(res.query)}: <b>${czk(total * pax)}</b></div>` : ''}
         ${note ? `<div class="pd pax-note">👶 ${esc(note)}</div>` : ''}${kidsNote(res.query, opts.map(o => (o.bookUrl ? o.provider : o.out.bookUrl ? o.out.provider : null)))}
         ${sum('groundCzk') || sum('arrCzk') ? `<div class="pd px">${[sum('groundCzk') ? `<span title="${esc(groundFoot(res, true))}">${res.query.groundMode === 'car' ? '🚗 autem' : '🚆 doprava'} na letiště${res.returnsHome ? ' a zpět' : ''} ~${czk(sum('groundCzk'))}/os.</span>` : '', sum('arrCzk') ? `<span title="${esc(arrivalFoot(res, true))}">🚌 z letišť do měst a zpět ~${czk(sum('arrCzk'))}/os.</span>` : ''].filter(Boolean).join(' · ')}<span class="px-n">průměrná cena, odhad – v ceně letenek není</span></div>` : ''}</div>
-      <div class="tr-act"><button type="button" class="btn sm primary" data-mgo="1">${wiz ? 'Vybrat a pokračovat →' : 'Vybrat a uložit do plánovače →'}</button>
-        ${wiz ? '<button type="button" class="btn sm" data-msave="1">💾 Do plánovače</button>' : ''}
+      <div class="tr-act"><button type="button" class="btn sm primary" data-mgo="1">${wiz ? 'Vybrat a pokračovat →' : 'Vybrat a uložit do Mých cest →'}</button>
+        ${wiz ? '<button type="button" class="btn sm" data-msave="1">💾 Do Mých cest</button>' : ''}
         <button type="button" class="btn sm" data-mics="1">📅 Do kalendáře (.ics)</button>
         <div class="tr-more faint">${why}</div></div>
     </div></div>`;
@@ -2894,8 +2894,8 @@
       notes: ['Každý let je samostatná letenka – kup je zvlášť:', ...opts.map((o, i) => `${i + 1}. let ${o.out.from}→${o.out.to} ${fmtDate(o.out.date)}: ${o.bookUrl || o.out.bookUrl || 'rezervace u aerolinky'}`)].join('\n'),
     });
     save();
-    toast('Cesta uložena do plánovače');
-    go('planner');
+    toast('Cesta uložena do Mých cest');
+    go('planner'); // Moje cesty (app.js go)
     setTimeout(() => openTrip(S.trips.length - 1), 250);
   }
   /** Všechny lety cesty (+ celodenní blok celé cesty) do kalendáře (.ics). */

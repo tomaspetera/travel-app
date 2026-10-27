@@ -15,7 +15,7 @@
   ],
   "shortcuts": [
     { "name": "Hledat lety", "short_name": "Lety", "url": "/#flights", "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96", "type": "image/png" }] },
-    { "name": "Moje cesty v plánovači", "short_name": "Plánovač", "url": "/#planner", "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96", "type": "image/png" }] },
+    { "name": "Moje cesty", "short_name": "Moje cesty", "url": "/#planner", "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96", "type": "image/png" }] },
     { "name": "Na cestě", "short_name": "Na cestě", "description": "Co tě dnes čeká na cestě – i bez signálu", "url": "/#now", "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96", "type": "image/png" }] }
   ]
 }

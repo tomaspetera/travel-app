@@ -585,7 +585,7 @@
     visited.clear(); (S.visited || []).forEach(cc => visited.add(cc));
     if (typeof refreshStats === 'function') refreshStats();
     if (typeof paintMap === 'function') paintMap();
-    if (typeof tripsChanged === 'function') tripsChanged(); else if (activeView === 'planner') renderPlanner();
+    if (typeof tripsChanged === 'function') tripsChanged();
     if (activeView === 'dashboard' && typeof renderDash === 'function') renderDash();
     if (activeView === 'countries' && typeof renderCountries === 'function') renderCountries(); // filtr „Navštívené“
     if (window.Flights) {
@@ -649,7 +649,7 @@
     const canShare = typeof navigator.share === 'function' && typeof File === 'function', link = Boolean(window.Transfer);
     modalOpen(`<div class="modal-body bk-modal">
       <h3 style="margin-bottom:8px">💾 Přenos a záloha</h3>
-      <p class="muted" style="font-size:14px;margin-bottom:12px">Cesty z plánovače, hlídané ceny, 📌 odložené nabídky, domov radaru, navštívené země, ⭐ moje cíle a 🙈 skrytá města, odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v tomhle prohlížeči. Přenes je do telefonu nebo počítače ${link ? 'odkazem s QR kódem, nebo souborem' : 'souborem'} – nic se neukládá na server.</p>
+      <p class="muted" style="font-size:14px;margin-bottom:12px">🧳 Moje cesty, hlídané ceny, 📌 odložené nabídky, domov radaru, navštívené země, ⭐ moje cíle a 🙈 skrytá města, odškrtnuté položky „Před cestou“ a 🏠 vlastní ceny na letiště jsou jen v tomhle prohlížeči. Přenes je do telefonu nebo počítače ${link ? 'odkazem s QR kódem, nebo souborem' : 'souborem'} – nic se neukládá na server.</p>
       <div id="bkBody">
         <div class="bk-actions">
           ${link ? '<button type="button" class="btn primary" id="bkLink">📲 Přenést odkazem / QR kódem</button>' : ''}
@@ -659,7 +659,7 @@
           <input type="file" id="bkFile" accept=".json,.txt,application/json,text/plain" hidden>
         </div>
         <div class="faint" style="font-size:12.5px;margin-top:12px"><span id="bkStatus">${statusTxt()}</span><span id="bkStore"></span></div>
-        <div class="faint" style="font-size:12px;margin-top:8px">Soubor: na druhém zařízení otevři ATLAS → ${canShare ? 'Plánovač' : 'Plánovač nebo ⋯ Další'} → 💾 Přenos a záloha → 📂 Obnovit ze zálohy. Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (uložené cesty v plánovači ji mají), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
+        <div class="faint" style="font-size:12px;margin-top:8px">Soubor: na druhém zařízení otevři ATLAS → ${canShare ? 'Cesta' : 'Cesta nebo ⋯ Další'} → 💾 Přenos a záloha → 📂 Obnovit ze zálohy. Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (v Mých cestách je uložená), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
       </div></div>`);
     if (link) $('#bkLink').onclick = () => Transfer.open();
     if (canShare) $('#bkShare').onclick = () => share();

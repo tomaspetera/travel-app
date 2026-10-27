@@ -162,11 +162,10 @@ test('klávesnice: karty a odkazy z <div>/<span> jdou Tabem vybrat a Enterem ote
   assert.ok(kb, 'app.js: kbClick');
   assert.match(kb[0], /el\.tabIndex = 0; el\.setAttribute\('role', 'button'\)/);
   assert.match(kb[0], /e\.target === el && \(e\.key === 'Enter' \|\| e\.key === ' '\)/);
-  // karta země (Země, Doporučení, Tipy), odkaz v nadpisu sekce, cesta v Plánovači a Nová cesta
+  // karta země (Země, Doporučení, Tipy), odkaz v nadpisu sekce, cesta v Mých cestách
   assert.match(appJs, /function bindDest\(sel\) \{[^\n]*kbClick\(el\)/);
   assert.match(appJs, /\$\$\('\.link\[data-go\]'\)\.forEach\(l => \{ l\.onclick = [^\n]*kbClick\(l\)/);
-  assert.match(appJs, /\$\$\('\.trip\[data-ti\]'\)\.forEach\(el => \{ el\.onclick = [^\n]*kbClick\(el\)/);
-  assert.match(appJs, /kbClick\(\$\('#newTripTile'\)\)/);
+  assert.match(appJs, /\$\$\('\[data-mt\]', host\)\.forEach\(el => \{ el\.onclick = [^\n]*kbClick\(el\)/);
   // Rychlé hledání / Nápady, ⭐ Moje cíle, Obnovit → a Zkontrolovat vše →
   assert.match(flightsJs, /\$\$\('\[data-qf\]'\)\.forEach\(kbClick\)/);
   assert.match(flightsJs, /qv\.onclick = [^\n]*kbClick\(qv\)/);
