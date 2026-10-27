@@ -165,7 +165,7 @@ test('telefon: štítek radaru „✓ levnější i s cestou na letiště“ se 
   const css = noComments(read('css/flights.css'));
   const wrap = /\.radar-card \.rc-badges \.b\{max-width:100%;white-space:normal;border-radius:14px\}/;
   assert.match(mediaBody(css, '@media(max-width:560px)'), wrap);
-  // jen na telefonu: v mřížce na počítači je nad panelem místo jen na dva řádky štítků
+  // ve flights.css jen pro telefon – počítač má vlastní pravidlo v desktop-flights.css (štítky tam jsou v toku karty)
   assert.equal(css.match(new RegExp(wrap.source, 'g')).length, 1);
 });
 
@@ -176,5 +176,7 @@ test('Kamkoliv – řádek cíle: štítky (🔥, počasí) se zalomí pod náze
   assert.match(rule('.cmp-city'), /white-space:normal/);
   assert.match(rule('.cmp-city'), /-webkit-line-clamp:2/, 'dlouhý název („Frankfurt nad Mohanem“) nejvýš na 2 řádky');
   assert.doesNotMatch(rule('.cmp-city'), /text-overflow:ellipsis/);
+  // jedno slovo širší než sloupec (vedle „✓ živě od …“ ~65 px) se zalomí – line-clamp do strany „…“ nedá („Klagenfu“)
+  assert.match(rule('.cmp-city'), /overflow-wrap:anywhere/);
   assert.match(rule('.cmp-bdg'), /flex:none/, 'štítky se nezmačkají – celé přejdou na další řádek');
 });

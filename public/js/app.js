@@ -1022,6 +1022,7 @@ function whatsNewPop() {
   bar.className = 'wn-pop';
   bar.setAttribute('role', 'region');
   bar.setAttribute('aria-label', 'Co je nového');
+  bar.setAttribute('aria-live', 'polite'); // čtečka ohlásí, že se lišta objevila (jako lišta nové verze)
   const n = f.show.length + f.more;
   bar.innerHTML = `<div class="wn-pop-h"><b>✨ ${n > 1 ? 'Novinky' : 'Novinka'} od minula</b><button type="button" class="pwa-x" aria-label="Zavřít">×</button></div>
     <ul class="wn-list">${f.show.map(wnLi).join('')}</ul>
@@ -1030,7 +1031,15 @@ function whatsNewPop() {
   $('.pwa-x', bar).onclick = close;
   $('[data-wn-ok]', bar).onclick = close;
   $('[data-wn-all]', bar).onclick = () => { close(); whatsNewOpen(); };
-  $$('.wn-list li', bar).forEach(li => { li.onclick = () => li.classList.toggle('open'); });
+  // novinka zkrácená na 3 řádky: celá klepnutím i z klávesnice (Tab, Enter / mezerník), čtečka ví, že jde rozbalit;
+  // Esc v liště ji zavře
+  $$('.wn-list li>div', bar).forEach(d => {
+    d.tabIndex = 0; d.setAttribute('role', 'button'); d.setAttribute('aria-expanded', 'false');
+    const tog = () => d.setAttribute('aria-expanded', String(d.parentElement.classList.toggle('open')));
+    d.onclick = tog;
+    d.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(); } };
+  });
+  bar.onkeydown = e => { if (e.key === 'Escape') close(); };
   document.body.append(bar); // za oknem (#modalBg): otevřené okno ji skryje (pwa.css .modal-bg.show ~ .wn-pop)
   // viděno, až je lišta opravdu vidět – schovaná za lištou nové verze by se po „Obnovit“ ztratila (nová verze už by ji
   // měla za viděnou), za oknem by ji uživatel nespatřil

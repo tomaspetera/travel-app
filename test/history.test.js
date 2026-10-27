@@ -340,6 +340,15 @@ test('✨ lišta Co je nového: jen novinky od minulého otevření (nejvýš 3)
   assert.match(pop, /localStorage\.setItem\(WN_TOP_LS, `\$\{WN_ID\}\\n\$\{WHATS_NEW\[0\]\[1\]\}`\)/);
   assert.match(pop, /if \(!f\.show\.length\) return mark\(\);/);
   assert.match(pop, /if \(shown\(\)\) return mark\(\);/);
+  // z klávesnice: novinka se rozbalí Enterem / mezerníkem (čtečka ví, že jde rozbalit), Esc lištu zavře; ohlásí se
+  assert.match(pop, /d\.tabIndex = 0; d\.setAttribute\('role', 'button'\); d\.setAttribute\('aria-expanded', 'false'\);/);
+  assert.match(pop, /if \(e\.key === 'Enter' \|\| e\.key === ' '\) \{ e\.preventDefault\(\); tog\(\); \}/);
+  assert.match(pop, /bar\.onkeydown = e => \{ if \(e\.key === 'Escape'\) close\(\); \};/);
+  assert.match(pop, /bar\.setAttribute\('aria-live', 'polite'\);/);
+  // lišta nezakryje otevřený našeptávač ani „↓ zpět na …“ v Objevuj; na nízkém telefonu nesahá přes „Najít lety“
+  const pwa = readFileSync(new URL('../public/css/pwa.css', import.meta.url), 'utf8');
+  assert.match(pwa, /^body:has\(\.pi-dd:not\(\[hidden\]\)\) \.wn-pop,body:has\(\.ex-back:not\(\[hidden\]\)\) \.wn-pop\{display:none\}$/m);
+  assert.match(pwa, /@media\(max-width:860px\) and \(max-height:700px\)\{\.wn-pop\{max-height:30vh\}\}/);
   // karta na Přehledu už jen uvítání
   assert.match(app, /el\.hidden = mode !== 'welcome';/);
 });

@@ -624,9 +624,10 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cmp-ph.ph{background:#0b1226 var(--ph) center/cover no-repeat}
 .cmp-ph.ph i{position:absolute;right:3px;bottom:3px;font-size:13px;line-height:1;padding:2px 3px;border-radius:6px;background:rgba(10,14,30,.45)}
 /* město má přednost: štítky (🔥, počasí, ⭐…) se, když se nevejdou, zalomí pod název a dlouhý název na 2 řádky –
-   na 360 px zbylo z „Plovdiv 🔥 🌦️ 8°“ jen „Pl…“ a z „Katovice 🌨️ 0°“ „Katovi…“ */
+   na 360 px zbylo z „Plovdiv 🔥 🌦️ 8°“ jen „Pl…“ a z „Katovice 🌨️ 0°“ „Katovi…“; jedno dlouhé slovo se zalomí
+   (overflow-wrap) – line-clamp dává „…“ jen dole, do strany by „Klagenfurt“ vedle ověřené ceny skončil „Klagenfu“ */
 .cmp-name{font-size:14.5px;white-space:nowrap;display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;min-width:0}
-.cmp-city{min-width:0;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.cmp-city{min-width:0;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}
 .cmp-bdg{flex:none;white-space:nowrap}
 .cmp-bdg:empty{display:none}
 .cmp-name .b{font-size:11px;padding:1px 6px;vertical-align:1px}
@@ -1142,6 +1143,17 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   /* termín na vlastním řádku – na telefonu se jinak uřízne hned za letišti */
   .cmp-when{display:block;overflow:hidden;text-overflow:ellipsis}
   .cmp-dot{display:none}
+  /* termín a ✓ důvod přes celou šířku pod názvem i cenou (vedle ceny zbylo na 360 px ~105 px a z termínu „3.11.–8.11.
+     · 5 …“); cena nahoře vedle názvu, letiště pod názvem vedle ověření ceny. .cmp-main a .cmp-sub bez vlastního rámečku,
+     jejich části se rovnají přímo do mřížky řádku (barva a velikost písma se dědí dál) */
+  .cmp-hit{row-gap:1px}
+  .cmp-main,.cmp-sub{display:contents}
+  .cmp-hit>.cmp-flag,.cmp-hit:has(>.cmp-why)>.cmp-flag{grid-area:1/1/5/2}
+  .cmp-name{grid-area:1/2}
+  .cmp-price{grid-area:1/3/3/4;align-self:start}
+  .cmp-ap{grid-area:2/2;min-width:0;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cmp-when{grid-area:3/2/4/4}
+  .cmp-why{grid-area:4/2/5/4;margin-top:1px;white-space:normal;line-height:1.3}
   .cmp-row .dm-btn{width:28px;height:28px}
   /* na telefonu pruh, který se posouvá do strany (stránka zůstane na šířku displeje); dlaždice 58 % šířky, ať další
      vždy vykoukne – minmax(160px,58%) zůstane v přetékající mřížce na 160 px a dvě dlaždice na 390 px končí přesně u okraje */
