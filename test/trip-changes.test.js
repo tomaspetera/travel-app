@@ -9,8 +9,9 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 
 const src = (f) => readFileSync(new URL(`../public/js/${f}`, import.meta.url), 'utf8');
-function load() {
-  const ctx = { window: { scrollTo() {} }, URLSearchParams, TextEncoder, TextDecoder, btoa, atob, console };
+// extra: další globály (časovače pro samoukládání do Mých cest)
+function load(extra = {}) {
+  const ctx = { window: { scrollTo() {} }, URLSearchParams, TextEncoder, TextDecoder, btoa, atob, console, ...extra };
   vm.createContext(ctx);
   vm.runInContext(src('ics.js'), ctx, { filename: 'ics.js' });
   const helpers = src('app.js').match(/^const (esc|safeUrl|pad|fmtYMD|fmtDate|czk) = .*$/gm);
@@ -175,7 +176,7 @@ test('trasa přes víc míst zapnutá po změně termínu (vlak jindy, když byl
   assert.equal(c.window.Trip.costs(t).stay, 4000);
 });
 
-test('nové hledání pro jiný počet lidí nebo zavazadla se stejným letem: ne stará cesta, ale otázka / nová cesta', () => {
+test('nové hledání pro jiný počet lidí nebo zavazadla se stejným letem: nová cesta – rozpracovaná zůstane v Mých cestách, neuložená sdílená až po otázce', () => {
   const c = load();
   const mine = vie({ step: 'summary' });
   const pick = (adults, bags = 'none') => c.window.Trip.start({ t: JSON.parse(JSON.stringify(mine.flight)), g: null, result: { query: { adults, bags }, origins: [] } });
@@ -183,14 +184,92 @@ test('nové hledání pro jiný počet lidí nebo zavazadla se stejným letem: n
   pick(2);
   assert.deepEqual([c.__confirms.length, c.__go.at(-1), c.S.trip], [0, 'trip', mine], 'stejný let i lidé → rozpracovaná cesta');
   pick(4);
-  assert.equal(c.__confirms.length, 1);
-  assert.match(c.__confirms[0], /^Máš rozpracovanou cestu: Vídeň \(ubytování, auto, program\)\. Nahradit ji/);
-  assert.equal(c.S.trip, mine, 'bez souhlasu zůstane');
+  // rozpracovaná se uloží do Mých cest a zůstane tam (už ne jako sama uložená) – bez otázky
+  assert.equal(c.__confirms.length, 0);
+  assert.deepEqual([c.S.trip.adults, c.S.trip.stay, c.S.trip.step], [4, null, 'flight']);
+  assert.deepEqual(plain(c.S.trips.map((x) => [x.tripId, x.dest, x.auto || false])), [[mine.created, 'Vídeň', false]]);
+  assert.ok(c.__toasts.includes('Vídeň zůstává v Mých cestách'), c.__toasts.join(' | '));
+  // sdílená cesta (cizí – sama se neukládá) s rozpracovaným: otázka jako dřív
+  const shared = vie({ step: 'summary', created: 5, shared: { on: '2026-10-01' } });
+  c.S.trip = shared;
   pick(2, 'cabin');
-  assert.equal(c.__confirms.length, 2, 'jiná zavazadla → také otázka');
+  assert.equal(c.__confirms.length, 1, 'jiná zavazadla → otázka');
+  assert.match(c.__confirms[0], /^Máš rozpracovanou cestu: Vídeň \(ubytování, auto, program\)\. Nahradit ji/);
+  assert.equal(c.S.trip, shared, 'bez souhlasu zůstane');
   c.__ok = true;
   pick(4);
-  assert.deepEqual([c.S.trip.adults, c.S.trip.stay, c.S.trip.step], [4, null, 'flight']);
+  assert.deepEqual([c.S.trip.adults, c.S.trip.stay, c.S.trip.step, c.S.trips.length], [4, null, 'flight', 1]);
+});
+
+test('🧳 cesta se ukládá sama do Mých cest: až za výběrem letu, s prodlevou, bez kopií; sdílená ne', () => {
+  const timers = [];
+  const c = load({ setTimeout: (f) => timers.push(f), clearTimeout: (id) => { if (id) timers[id - 1] = null; } });
+  const run = () => timers.splice(0).forEach((f) => f && f());
+  const T = c.window.Trip;
+  // jen vybraný let: do seznamu nic (prohlédnutý let ho nezaplní)
+  const t = vie({ step: 'flight', stay: null, car: null, plan: null });
+  render(c, t);
+  run();
+  assert.equal(c.S.trips.length, 0);
+  // další krok → po chvilce v seznamu, jako sama uložená
+  T.stepTo('stay');
+  assert.equal(c.S.trips.length, 0, 'až po prodlevě');
+  run();
+  assert.deepEqual(plain(c.S.trips.map((x) => [x.tripId, x.dest, x.auto, Boolean(x.wizard)])), [[t.created, 'Vídeň', true, true]]);
+  // další změny přepíšou tutéž cestu – žádná kopie, bez hlášek a přechodů
+  T.stepTo('car'); T.stepTo('program'); run();
+  assert.equal(c.S.trips.length, 1);
+  assert.deepEqual([c.__toasts.length, c.__go.length], [0, 0]);
+  // cesta bez id (starší) dostane jedno a pak se už nezdvojí
+  const old = vie({ step: 'stay', created: undefined });
+  render(c, old); run(); T.stepTo('car'); run();
+  assert.ok(Number.isFinite(old.created));
+  assert.equal(c.S.trips.filter((x) => x.tripId === old.created).length, 1);
+  // sdílená (cizí) až po „💾 Uložit si ji“
+  c.S.trips = [];
+  const sh = vie({ step: 'summary', created: 7, shared: { on: '2026-10-01' } });
+  render(c, sh); T.stepTo('program'); run();
+  assert.equal(c.S.trips.length, 0);
+});
+
+test('🧳 ↺ Začít znovu sama uloženou cestu odebere z Mých cest, uloženou na přání nechá; „Začít novou cestu“ ji nechá vždy', () => {
+  const c = load();
+  c.__ok = true;
+  const T = c.window.Trip;
+  // sama uložená → zahodit i ze seznamu
+  render(c, vie({ step: 'summary' }));
+  c.S.trips.push({ tripId: c.S.trip.created, dest: 'Vídeň', auto: true });
+  c.__els['#tripRestart'].onclick();
+  assert.match(c.__confirms.at(-1), /a začít znovu\? Zmizí i z Mých cest\.$/);
+  assert.deepEqual([c.S.trip, c.S.trips.length, c.__go.at(-1)], [null, 0, 'flights']);
+  // uložená na přání (💾) zůstane
+  render(c, vie({ step: 'summary' }));
+  T.saveToPlanner({ stay: true });
+  assert.equal(c.S.trips[0].auto, undefined);
+  c.__els['#tripRestart'].onclick();
+  assert.match(c.__confirms.at(-1), /Uložená cesta v Mých cestách zůstane\.$/);
+  assert.deepEqual([c.S.trip, c.S.trips.length], [null, 1]);
+  // „Začít novou cestu“ ve Shrnutí: hotová cesta zůstane (už ne jako sama uložená), bez otázky
+  c.S.trips = [];
+  const n = c.__confirms.length;
+  const t = vie({ step: 'summary', created: 9 });
+  render(c, t);
+  c.__els['#sumNew'].onclick();
+  assert.deepEqual(plain([c.S.trip, c.S.trips.map((x) => [x.tripId, x.auto || false]), c.__confirms.length, c.__go.at(-1)]), [null, [[9, false]], n, 'flights']);
+  assert.ok(c.__toasts.includes('Vídeň zůstává v Mých cestách – vyber další let'), c.__toasts.join(' | '));
+});
+
+test('🧳 Shrnutí: „Uloženo v Mých cestách“ uloží hned (na přání) a zůstane; sdílená „💾 Uložit do Mých cest“', () => {
+  const c = load();
+  const h = render(c, vie({ step: 'summary' }));
+  assert.match(h, /<button class="btn primary" id="sumSave">🧳 Uloženo v Mých cestách<\/button>/);
+  c.__els['#sumSave'].onclick();
+  assert.deepEqual([c.S.trips.length, c.S.trips[0].auto, c.__go.length], [1, undefined, 0]);
+  assert.deepEqual(plain(c.__toasts), ['Cesta uložena do Mých cest']);
+  c.__toasts.length = 0;
+  c.__els['#sumSave'].onclick();
+  assert.deepEqual(plain([c.S.trips.length, c.__toasts]), [1, ['Cesta je uložená v Mých cestách']]);
+  assert.match(render(c, vie({ step: 'summary', shared: { on: '2026-10-01' } })), /id="sumSave">💾 Uložit do Mých cest<\/button>/);
 });
 
 test('auto: délka pronájmu a příplatek za vrácení jinde podle upravených časů; úpravy u zadané ceny platí i po „Pokračovat“', () => {

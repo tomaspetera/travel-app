@@ -747,7 +747,7 @@ function nowUnsaved(today) {
   const u = window.Trip && Trip.unsavedNow ? Trip.unsavedNow(today) : null;
   if (!u) return '';
   const d = daysTo(today, u.start);
-  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">📍 Cesta ${u.cc ? flag(u.cc) + ' ' : ''}${esc(u.label)} ${d > 0 ? 'začíná ' + inDays(d) : 'právě probíhá'}</div><div class="nw-meta"><span>Ještě není v plánovači – ulož ji a tady uvidíš na každý den program, ubytování a spoje, i bez signálu. <button type="button" class="linkbtn" data-nw-save>💾 Uložit do plánovače</button></span></div></div>`;
+  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">📍 Cesta ${u.cc ? flag(u.cc) + ' ' : ''}${esc(u.label)} ${d > 0 ? 'začíná ' + inDays(d) : 'právě probíhá'}</div><div class="nw-meta"><span>Ještě není v Mých cestách – ulož ji a tady uvidíš na každý den program, ubytování a spoje, i bez signálu. <button type="button" class="linkbtn" data-nw-save>💾 Uložit do Mých cest</button></span></div></div>`;
 }
 /* 🌤️ Počasí na kartě: předpověď Open-Meteo (Weather.forecast – jeden dotaz na všechna místa karty) uložená
    v localStorage, ať je vidět i bez signálu. Jen když karta místa chce (na cestě, den před odjezdem) – jinak žádný dotaz.
@@ -840,8 +840,9 @@ function showNow() {
    Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
    od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
-const WN_ID = '2026-10-27c';
+const WN_ID = '2026-10-27d';
 const WHATS_NEW = [
+  ['💾', 'Cesta se ukládá sama', 'jakmile v průvodci pokročíš za výběr letu, cesta je sama v <b>Mých cestách</b> – nemusíš nic ukládat. Nová cesta tu rozpracovanou nezahodí, zůstane v seznamu. <b>↺ Začít znovu</b> ji odebere.'],
   ['🧳', 'Moje cesty v záložce Cesta', 'všechny tvoje cesty na jednom místě – rozpracovaná v průvodci i uložené. Klepnutím na kartu v ní pokračuješ, z průvodce se k seznamu vrátíš přes <b>‹ Moje cesty</b>.'],
   ['♡', 'Hlídání ceny jedním klepnutím', 'u karty radaru na <b>Přehledu</b> i u cíle v <b>Kamkoliv</b> klepni na <b>⋯</b> → <b>♡ Hlídat cenu sem</b>: ATLAS najde lety z tvého domova (termíny jako radar) a cenu hlídá – když zlevní, uvidíš to na Přehledu. Bez vyplňování formuláře.'],
   ['🔗', 'Krátký odkaz na cestu', '<b>📤 Sdílet cestu</b> → <b>Poslat kamarádům</b> (i <b>🔗 Sdílet plán</b> v plánovači) teď pošle krátký odkaz <b>…/c/…</b> místo dlouhé stěny písmen – ve WhatsAppu a Messengeru s fotkou cíle a termínem. Kamarád po klepnutí uvidí celou cestu a může si ji uložit.'],
@@ -2352,9 +2353,11 @@ document.addEventListener('click', e => {
 // smaže hned – „↩ Vrátit“ v hlášce ji vrátí na stejné místo (jako smazané hlídání; na telefonu bez systémového dotazu)
 window.delTrip = i => {
   const t = S.trips[i]; if (!t) return;
+  // cesta otevřená v průvodci zmizí i z něj – jinak by se do Mých cest zase sama uložila (↩ Vrátit vrátí obojí)
+  const act = S.trip && t.tripId && S.trip.created === t.tripId ? S.trip : null;
   const redraw = () => { save(); renderPlanner(); tripsChanged(); };
-  S.trips.splice(i, 1); modalClose(); redraw();
-  toast(`Cesta ${t.name ? `„${t.name}“ ` : ''}smazána`, '', 6000, { label: '↩ Vrátit', run: () => { S.trips.splice(Math.min(i, S.trips.length), 0, t); redraw(); toast('Cesta je zpět'); } });
+  S.trips.splice(i, 1); if (act) S.trip = null; modalClose(); redraw();
+  toast(`Cesta ${t.name ? `„${t.name}“ ` : ''}smazána`, '', 6000, { label: '↩ Vrátit', run: () => { S.trips.splice(Math.min(i, S.trips.length), 0, t); if (act && !S.trip) S.trip = act; redraw(); toast('Cesta je zpět'); } });
 };
 /** Cesty z jiného panelu: nezměněné zůstanou tytéž objekty (okno cesty, rozepsaná poznámka), cesta upravená na svém
  *  místě (stejný počet cest) se přepíše na místě; ostatní se převezmou. */
