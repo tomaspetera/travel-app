@@ -95,4 +95,12 @@ test('světlý režim: bílá spodní lišta s tmavou aktivní sekcí, bílá tl
   const fl = read('css/flights.css');
   assert.match(fl, /\[data-theme="light"\] \.hero-search2,\[data-theme="light"\] \.hero\.ph \.hero-search2\{background:rgba\(255,255,255,\.96\);/);
   assert.match(fl, /\[data-theme="light"\] \.hero-search2 \.pi-dark \.pi-input\{color:var\(--text\)\}/);
+  // pole, karty míst v Objevuj, uvítání a ovládání mapy ve světlém režimu bílé; tmavý režim beze změny
+  assert.match(light, /--input-bg:#fff; --input-line:rgba\(13,22,48,\.16\);/);
+  assert.doesNotMatch(dark, /--input-bg|--input-line/);
+  assert.match(CSS, /border:1px solid var\(--input-line,var\(--border\)\);background:var\(--input-bg,var\(--surface\)\)/);
+  assert.match(fl, /\.pi\{[^}]*border:1px solid var\(--input-line,var\(--border\)\);background:var\(--input-bg,var\(--surface\)\)/);
+  assert.match(read('css/trip.css'), /\.poi\{[^}]*background:var\(--btn-bg,var\(--surface\)\);box-shadow:var\(--btn-sh,none\)/);
+  assert.match(CSS, /\[data-theme="light"\] \.whats-new\.welcome\{background:linear-gradient\(.*?\),#fff\}/);
+  assert.match(CSS, /:root\[data-theme="light"\]:not\(\[data-map="dark"\]\) \.map-zoom,:root\[data-theme="light"\]:not\(\[data-map="dark"\]\) \.map-chip\{background:rgba\(255,255,255,\.92\)/);
 });

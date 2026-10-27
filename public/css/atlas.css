@@ -42,6 +42,8 @@
   --shadow:0 1px 2px rgba(15,24,48,.05),0 12px 32px -18px rgba(15,24,48,.28);
   --shadow-lg:0 2px 6px rgba(15,24,48,.06),0 28px 64px -24px rgba(15,24,48,.4);
   --btn-bg:#fff; --btn-sh:0 1px 2px rgba(15,24,48,.07);
+  /* pole bílá s okrajem (šedá průhledná na barevném podkladu – uvítání, poznámky – vypadala vybledle) */
+  --input-bg:#fff; --input-line:rgba(13,22,48,.16);
 }
 /* Mapy (svět, výsledky letů, výlety): světlé jako atlas – čitelné i na slunci, v tmavém i světlém režimu.
    Tmavé jen na přání (přepínač u mapy světa → <html data-map="dark">). */
@@ -198,10 +200,10 @@ a{color:inherit}
 .foot-more>summary::after{content:' ▾'}
 .foot-more[open]>summary::after{content:' ▴'}
 .input,select,textarea{
-  width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);
+  width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--input-line,var(--border));background:var(--input-bg,var(--surface));color:var(--text);
   font-family:inherit;font-size:14px;outline:none;transition:.15s
 }
-.input:focus,select:focus,textarea:focus{border-color:var(--accent);background:var(--surface-2)}
+.input:focus,select:focus,textarea:focus{border-color:var(--accent);background:var(--input-bg,var(--surface-2))}
 /* Telefon a tablet: pole aspoň 16 px. iPhone/iPad stránku při klepnutí do pole s menším písmem přiblíží (a sám zpět
    neoddálí) – dřív tomu bránil viewport s maximum-scale=1, který ale v aplikaci na ploše zakázal i přiblížení prsty
    (slabozrací). !important: přebije i menší písmo jednotlivých polí (filtry, tempo programu, cílová cena…) a styly v řádku. */
@@ -455,6 +457,10 @@ button.dest{font:inherit;text-align:left;width:100%}
 .map-chip:empty{display:none}
 .map-chip b{font:800 17px Sora,Inter,sans-serif}
 .map-chip small{font-size:11px;font-weight:600;opacity:.8}
+/* světlý režim se světlou mapou: ovládání a štítek bílé jako ostatní tlačítka (tmavé sklo na světlé mapě trčelo) */
+:root[data-theme="light"]:not([data-map="dark"]) .map-zoom,:root[data-theme="light"]:not([data-map="dark"]) .map-chip{background:rgba(255,255,255,.92);border-color:rgba(13,22,48,.12);color:var(--text);box-shadow:0 8px 22px -12px rgba(15,24,48,.4)}
+:root[data-theme="light"]:not([data-map="dark"]) .map-zoom button{color:var(--text)}
+:root[data-theme="light"]:not([data-map="dark"]) .map-zoom button:hover{background:var(--surface-2)}
 .visited-card{padding:18px 20px;margin-top:16px}
 .vc-h{font-weight:800;margin-bottom:10px}
 .vc-list{display:flex;flex-wrap:wrap;gap:6px}
@@ -823,6 +829,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 #watchList .watch{scroll-margin-top:90px} /* klepnutí na zlevnění v Od minula: karta hlídání pod lepicí hlavičkou */
 /* Vítej – první návštěva: 3 kroky místo seznamu novinek */
 .whats-new.welcome{padding:16px 16px 14px;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(52,211,153,.08))}
+[data-theme="light"] .whats-new.welcome{background:linear-gradient(135deg,rgba(99,102,241,.09),rgba(52,211,153,.06)),#fff} /* na bílém podkladu */
 .wc-h{font-size:16px;line-height:1.35;margin:0 0 12px}
 .wc-steps{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:10px}
 .wc-steps li{display:flex;gap:12px;align-items:flex-start}
@@ -832,7 +839,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 /* „Odkud letíš?“ – čipy jako filtry (.fchip), na telefonu větší na prst; zalomí se do dvou řádků */
 .wc-home{margin:0 0 14px;font-size:14px}
 .wc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
-.wc-chips .fchip{padding:8px 12px;font-size:13px;color:var(--text)}
+.wc-chips .fchip{padding:8px 12px;font-size:13px;color:var(--text);background:var(--btn-bg,var(--surface));box-shadow:var(--btn-sh,none)}
 .wc-chips .fchip:disabled{opacity:.55;cursor:default}
 .wc-from{margin-top:8px}
 /* našeptávač pole „Jiné město“ přes karty pod uvítáním (karty s backdrop-filter by ho jinak překryly) */

@@ -22,8 +22,8 @@
 .hero-search2 .btn{align-self:stretch;padding:0 22px}
 
 /* ---------- PlaceInput ---------- */
-.pi{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:46px;padding:6px 8px;border-radius:12px;border:1px solid var(--border);background:var(--surface);cursor:text;transition:.15s}
-.pi:focus-within{border-color:var(--accent);background:var(--surface-2)}
+.pi{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:46px;padding:6px 8px;border-radius:12px;border:1px solid var(--input-line,var(--border));background:var(--input-bg,var(--surface));cursor:text;transition:.15s}
+.pi:focus-within{border-color:var(--accent);background:var(--input-bg,var(--surface-2))}
 .pi-chips{display:contents}
 .pi-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border-radius:9px;background:rgba(91,140,255,.16);border:1px solid rgba(91,140,255,.32);font-size:13px;font-weight:700;white-space:nowrap}
 .pi-chip button{border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 3px;border-radius:5px;position:relative}
