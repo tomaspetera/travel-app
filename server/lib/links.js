@@ -40,7 +40,7 @@ export function bookingSearchUrl(name, city, q) {
 
 /** Trip.com podle názvu (searchWord – místo, nebo „hotel, místo“): vyplní hledání i termín a hosty, potvrdí se Hledat. */
 export function tripSearchUrl(word, q) {
-  return `https://www.trip.com/hotels/list?${new URLSearchParams({ searchWord: word, checkin: q.checkin, checkout: q.checkout, adult: String(q.adults), ...(kidsOf(q) ? { children: String(kidsOf(q)) } : {}), crn: String(q.rooms), curr: 'CZK', locale: 'cs-CZ' })}`;
+  return `https://www.trip.com/hotels/list?${new URLSearchParams({ searchWord: word, checkin: q.checkin, checkout: q.checkout, adult: String(q.adults), ...(kidsOf(q) ? { children: String(kidsOf(q)) } : {}), crn: String(q.rooms), curr: 'EUR', locale: 'cs-CZ' })}`;
 }
 
 /** Hledání Expedia Group (Hotels.com, Expedia): destination = místo, nebo „hotel, místo“, s termínem, hosty a pokoji. */
@@ -129,8 +129,8 @@ export function googleHotelsTs(checkin, checkout, adults, currency = 'CZK') {
  * prefill: 'full' = místo, termín i hosté předvyplněné; 'city' = jen místo (data zadáš na webu); 'none' = úvodní stránka.
  * Ověřeno 10/2026 ve skutečném Chromu: Booking.com, Airbnb, Kayak (si „Město-Země“ přeloží na své ID místa; česká
  * verze v Kč) a Google Hotels (termín a hosté v ts) předvyplní vše. Trip.com s ID města (cityId) rovnou ukáže nabídky,
- * jen s názvem (searchWord) vyplní místo, termín i hosty do formuláře a hledání se potvrdí tlačítkem (anglicky v USD –
- * česká verze s Kč neexistuje). Agoda s ID města otevře hledání s termínem a hosty, bez něj jen úvodní stránku.
+ * jen s názvem (searchWord) vyplní místo, termín i hosty do formuláře a hledání se potvrdí tlačítkem (anglicky; koruny
+ * Trip.com neumí – s curr=CZK ukázal dolary, proto eura: curr=EUR ověřeno 27. 10. 2026 v Chromu „€147“). Agoda s ID města otevře hledání s termínem a hosty, bez něj jen úvodní stránku.
  * Hostelworld s ID města hledání s termínem a hosty, bez něj stránku města (data z adresy nebere), místo bez hostelů
  * (false) stránku země na konci seznamu. Hotels.com: formát hledání Expedia Group (z ověřovacího prostředí ho
  * zablokovala ochrana proti robotům).
@@ -159,7 +159,7 @@ export function stayLinks(q, ids = {}) {
   // uživatel nepotvrdí Hledat.
   const tripId = partnerId(ids.trip);
   const trip = tripId
-    ? { note: 'silný v Asii', url: `https://www.trip.com/hotels/list?${new URLSearchParams({ cityId: String(tripId), checkin: q.checkin, checkout: q.checkout, crn: String(q.rooms), adult: String(q.adults), children: String(kidsOf(q)), curr: 'CZK', locale: 'cs-CZ' })}` }
+    ? { note: 'silný v Asii', url: `https://www.trip.com/hotels/list?${new URLSearchParams({ cityId: String(tripId), checkin: q.checkin, checkout: q.checkout, crn: String(q.rooms), adult: String(q.adults), children: String(kidsOf(q)), curr: 'EUR', locale: 'cs-CZ' })}` }
     : { note: 'silný v Asii – potvrď Hledat', url: tripSearchUrl(place, q) };
   // Kayak: „Město-Země“ anglicky s pomlčkami (Porto-Novo-Benin) – samotné jméno pošle Lagos do Portugalska a Porto Novo
   // na Kapverdy, tvar „Město, Země“ s čárkou skončí na úvodní stránce bez místa i dat (ověřeno 10/2026 v Chromu).

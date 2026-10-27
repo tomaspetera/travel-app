@@ -85,7 +85,7 @@ test('Trip.com: ID města z našeptávače webu → odkaz rovnou s nabídkami na
       head: { platform: 'PC', bu: 'IBU', group: 'trip', locale: 'en-XX', currency: 'USD' },
     }, 'anglický název bez diakritiky, hlavička se všemi poli (jen s locale HTTP 500)');
     const t = link(r, 'trip');
-    assert.equal(t.url, `https://www.trip.com/hotels/list?cityId=38742&checkin=${ymdPlus(30)}&checkout=${ymdPlus(33)}&crn=2&adult=3&children=0&curr=CZK&locale=cs-CZ`);
+    assert.equal(t.url, `https://www.trip.com/hotels/list?cityId=38742&checkin=${ymdPlus(30)}&checkout=${ymdPlus(33)}&crn=2&adult=3&children=0&curr=EUR&locale=cs-CZ`);
     assert.deepEqual([t.prefill, t.note], ['full', 'silný v Asii']);
     // bez dotazu na Agodu a Hostelworld zůstanou jejich odkazy jako dosud
     assert.deepEqual([link(r, 'agoda').url, link(r, 'hostelworld').url], ['https://www.agoda.com/cs-cz/', 'https://www.hostelworld.com/hostels/europe/czechia/kutna-hora/']);
