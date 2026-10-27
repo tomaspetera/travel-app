@@ -760,17 +760,23 @@
   ].join('');
 
   /* ---------- plánovač (sdílený pro Objevuj i Cestu) ---------- */
+  // Dny míst z programu ({ id: datum }) bez vyřazeného – jen dny ve městě (výlet mimo město ne)
+  const keptDays = (plan, id) => Object.fromEntries((plan && Array.isArray(plan.days) ? plan.days : [])
+    .filter(d => d.kind === 'city' && Array.isArray(d.items)).flatMap(d => d.items.filter(x => x.id !== id).map(x => [x.id, d.date])));
   /**
-   * ✕ u místa v programu: vyřadit a naplánovat znovu – program se po vyřazení přeskládá (místa se přesunou mezi dny),
-   * proto hláška s ↩ Vrátit. Plánování je pro stejná místa a volby stejné (server bez náhody), takže vrácení místa
-   * a nové naplánování vrátí program, jak byl.
+   * ✕ u místa v programu: vyřadit a naplánovat znovu – ostatní místa zůstanou ve svých dnech (st.keep pošle makePlan
+   * jen s tímto přeplánováním; uvolněný čas server doplní místem z okolí), změnit se může jen pořadí v dni. Dřív se
+   * program skládal znovu celý a po vyřazení jednoho místa byla ostatní v jiných dnech. Hláška s ↩ Vrátit: plánování
+   * je pro stejná místa a volby stejné (server bez náhody), takže vrácení místa a nové naplánování bez keep vrátí
+   * program, jak byl.
    */
   function dropUndo(st, id, plan, replan) {
     const was = st.must.has(id);
     const name = plan && plan.days ? (plan.days.flatMap(d => d.items).find(x => x.id === id) || {}).name : '';
     st.exclude.add(id); st.must.delete(id);
+    st.keep = keptDays(plan, id);
     replan();
-    toast(`Vyřazeno${name ? `: ${name}` : ''} – program jsem přeskládal`, '', 6000, { label: '↩ Vrátit', run: () => { st.exclude.delete(id); if (was) st.must.add(id); replan(); } });
+    toast(`Vyřazeno${name ? `: ${name}` : ''} – program jsem upravil`, '', 6000, { label: '↩ Vrátit', run: () => { st.exclude.delete(id); if (was) st.must.add(id); replan(); } });
   }
   function plannerControls(st) {
     // zájmy nejsou filtr – vybraná místa dostanou v programu přednost; „on“ s barvou a aria-pressed, ať je vidět, co platí
@@ -792,11 +798,14 @@
     };
   }
   // extra: Objevuj posílá okruh načteného seznamu (server vezme stejná místa z mezipaměti) a místa za zvoleným okruhem
-  // mezi vyřazenými; Cesta nic (okruh 10 km).
+  // mezi vyřazenými; Cesta nic (okruh 10 km). st.keep (po ✕) jen jednou: další přeplánování (zájmy, tempo, ↩ Vrátit)
+  // skládá program znovu celý.
   async function makePlan(st, center, dates, extra) {
+    const keep = st.keep;
+    st.keep = null;
     const body = {
       lat: center.lat, lon: center.lon, start: dates.start, end: dates.end, arrivalTime: dates.arrivalTime, departureTime: dates.departureTime,
-      pace: st.pace, interests: interestWeights(st.interests), kids: st.interests.has('kids'), exclude: [...st.exclude], include: [...st.must], ...extra,
+      pace: st.pace, interests: interestWeights(st.interests), kids: st.interests.has('kids'), exclude: [...st.exclude], include: [...st.must], ...(keep ? { keep } : {}), ...extra,
     };
     const j = await getJson('api/itinerary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     st.items = j.places;
@@ -2732,7 +2741,7 @@
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
-      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan,
+      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan, dropUndo,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
       countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,
       makeHikePlan, hikePlanHtml, hikeDayHtml, rainTxt, kidsTxt, foodTxt, startTxt, isRural, HIKE_KINDS, curKey, keyKind },

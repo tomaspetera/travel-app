@@ -2,7 +2,7 @@
 // odlehlá místa mimo program, delší návštěva celku se sloučenými částmi.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planItinerary, visitMinutes } from '../server/lib/itinerary.js';
+import { planItinerary, visitMinutes, keepOf } from '../server/lib/itinerary.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { LIS_PLACES, PRA_PLACES } from './fixtures/wikidata.js';
 
@@ -119,4 +119,102 @@ test('stejně dlouhé dny: den s nejvýznamnějším místem co nejdřív (Avign
   const full = r.days.filter((d) => d.cap === r.days[0].cap && d.items.length);
   assert.ok(full.length >= 2, days);
   assert.ok(full[0].items.some((p) => p.id === 'P1'), days);
+});
+
+// ✕ v programu: aplikace pošle dny míst, která v programu zůstala (keep = { id: datum }), a vyřazené místo v exclude
+const dayOf = (r) => new Map(r.days.filter((d) => d.kind === 'city').flatMap((d) => d.items.map((p) => [p.id, d.date])));
+const dropOne = (pool, r0, id, opts) => planItinerary(pool.filter((p) => p.id !== id), { ...opts, keep: Object.fromEntries([...dayOf(r0)].filter(([x]) => x !== id)) });
+
+test('✕ v programu (16 míst na 3 dny): ostatní místa zůstanou ve svých dnech; ↩ Vrátit (bez keep) = původní program', () => {
+  // dřív nové rozdělení k-means: po vyřazení jednoho místa zůstala ve svém dni jen 3 z 15
+  const C = { lat: 48.2082, lon: 16.3738 };
+  const CATS = ['museum', 'church', 'square', 'park', 'viewpoint', 'monument', 'palace', 'market', 'gallery', 'bridge', 'tower', 'sight'];
+  const pool = Array.from({ length: 16 }, (_, i) => {
+    const a = (i * 137.5 * Math.PI) / 180;
+    const d = 0.004 + (i % 6) * 0.005;
+    return { id: `P${i + 1}`, name: `Místo ${i + 1}`, lat: C.lat + Math.sin(a) * d, lon: C.lon + Math.cos(a) * d * 1.5, category: CATS[i % CATS.length], score: 100 - i * 4 };
+  });
+  const opts = { center: C, start: '2026-10-12', end: '2026-10-14', pace: 'normal', arrivalTime: '09:00', interests: {} };
+  const r0 = planItinerary(pool, opts);
+  const before = dayOf(r0);
+  assert.equal(before.size, 16, 'všechna místa v programu');
+  for (const id of before.keys()) {
+    const after = dayOf(dropOne(pool, r0, id, opts));
+    assert.ok(!after.has(id), `${id} vyřazené`);
+    const moved = [...before].filter(([x, date]) => x !== id && after.get(x) !== date).map(([x]) => x);
+    assert.ok(moved.length <= 0.2 * 15, `✕ ${id}: přesunutá ${moved.join(',')}`);
+    assert.deepEqual(moved, [], `✕ ${id}: ideálně žádné`);
+  }
+  // ↩ Vrátit: místo zpátky a bez keep – plánovač je bez náhody, takže stejný program jako před ✕
+  assert.deepEqual(planItinerary(pool, opts), r0);
+});
+
+test('✕ v programu (živá data, Lisabon): po každém vyřazení ostatní ve svých dnech, uvolněný čas doplní místo z okolí', () => {
+  const pool = places(LIS_PLACES);
+  for (const n of [3, 5]) {
+    const opts = { center: LIS, start: '2026-10-11', end: end(n), pace: 'normal', arrivalTime: '09:00', interests: {} };
+    const r0 = planItinerary(pool, opts);
+    const before = dayOf(r0);
+    let filled = 0;
+    for (const [id, date] of before) {
+      const r1 = dropOne(pool, r0, id, opts);
+      const after = dayOf(r1);
+      assert.deepEqual([...before].filter(([x, d]) => x !== id && after.get(x) !== d).map(([x]) => x), [], `${n} dní, ✕ ${id}`);
+      if (r1.days.find((d) => d.date === date).items.some((p) => !before.has(p.id))) filled++;
+      // den přes kapacitu jen tam, kde už byl (nejznámější místo v krátkém dni příletu)
+      for (const d of r1.days.filter((x) => x.kind === 'city')) {
+        const was = r0.days.find((x) => x.date === d.date);
+        assert.ok(d.minutes <= d.cap * 1.1 || d.minutes <= was.minutes, `${n} dní, ✕ ${id}, ${d.date}: ${d.minutes} / ${d.cap} min`);
+      }
+    }
+    // jen když je v okolí toho dne ještě něco, co stojí za to a vejde se – jinak tam zůstane volno
+    assert.ok(filled > 0, `${n} dní: uvolněný čas ani jednou nedoplněný`);
+  }
+});
+
+test('✕ v programu: místo ne v den, kdy je zavřené (Louvre v úterý), i když ho keep do toho dne dá', () => {
+  const PAR = { lat: 48.8566, lon: 2.3522 };
+  const pool = [
+    { id: 'Q19675', name: 'Louvre', lat: 48.8606, lon: 2.3376, category: 'museum', score: 90 },
+    ...Array.from({ length: 12 }, (_, k) => ({ id: `S${k}`, name: `Památka ${k}`, lat: 48.8566 + (k % 4) * 0.004, lon: 2.3422 + Math.floor(k / 4) * 0.006, category: ['church', 'square', 'monument', 'sight'][k % 4], score: 60 - k })),
+  ];
+  // po 12. 10. – st 14. 10. 2026; v úterý 13. 10. má Louvre zavřeno
+  const opts = { center: PAR, start: '2026-10-12', end: '2026-10-14', pace: 'normal', arrivalTime: '09:00', interests: {} };
+  const r0 = planItinerary(pool, opts);
+  assert.notEqual(dayOf(r0).get('Q19675'), '2026-10-13');
+  const keep = Object.fromEntries([...dayOf(r0)].filter(([x]) => x !== 'S0').map(([x, d]) => [x, x === 'Q19675' ? '2026-10-13' : d]));
+  const r1 = planItinerary(pool.filter((p) => p.id !== 'S0'), { ...opts, keep });
+  assert.notEqual(dayOf(r1).get('Q19675'), '2026-10-13', r1.days.map((d) => d.items.map((p) => p.name).join(', ')).join(' | '));
+});
+
+test('bez keep (i prázdný, neplatný nebo bez místa z programu) program beze změny – jako před ✕', () => {
+  const pool = places(LIS_PLACES);
+  const r = plan(pool, LIS, 3);
+  // stejný program jako před přidáním keep (Lisabon, 3 dny)
+  assert.deepEqual(r.days.map((d) => d.items.map((p) => p.id)), [
+    ['Q212459', 'Q2657972', 'Q1464499', 'Q1146936', 'Q1470414', 'Q1078864', 'Q99636'],
+    ['Q721152', 'Q1478288', 'Q1144592', 'Q272781', 'Q1133712', 'Q215003'],
+    ['Q168001', 'Q999002', 'Q432290', 'Q636780', 'Q1776168', 'Q1601019'],
+  ]);
+  for (const keep of [undefined, null, {}, { Q404: '2026-10-11' }, { Q212459: '2026-10-20' }, { Q212459: 'zítra' }]) {
+    assert.deepEqual(plan(pool, LIS, 3, { keep }), r, JSON.stringify(keep));
+  }
+});
+
+test('keepOf (api/itinerary): jen prostý objekt do 300 položek, id do 120 znaků a datum v termínu – jinak nic', () => {
+  const k = (raw) => keepOf(raw, '2026-10-11', '2026-10-13');
+  assert.deepEqual(k({ Q1: '2026-10-11', Q2: '2026-10-13' }), { Q1: '2026-10-11', Q2: '2026-10-13' });
+  // neplatné položky pryč, platné zůstanou
+  const bad = { Q2: '2026-10-14', Q3: '2026-10-10', Q4: 20261012, Q5: ['2026-10-12'], Q6: '12. 10. 2026', Q7: null, Q8: '2026-13-45', '': '2026-10-12', [`Q${'9'.repeat(120)}`]: '2026-10-12' };
+  assert.deepEqual(k({ Q1: '2026-10-12', ...bad }), { Q1: '2026-10-12' });
+  for (const raw of [undefined, null, 'Q1', 5, true, ['2026-10-11'], [['Q1', '2026-10-11']], {}, bad, new Map([['Q1', '2026-10-11']]), Object.assign(Object.create(null), { Q1: '2026-10-11' })]) {
+    assert.equal(k(raw), undefined, JSON.stringify(raw));
+  }
+  // víc než 300 položek z aplikace nepřijde (31 dní programu) – pak celé pryč
+  const many = Object.fromEntries(Array.from({ length: 301 }, (_, i) => [`Q${i}`, '2026-10-12']));
+  assert.equal(k(many), undefined);
+  assert.equal(Object.keys(k(Object.fromEntries(Object.entries(many).slice(0, 300)))).length, 300);
+  // „__proto__“ z JSON zůstane obyčejným klíčem
+  const proto = k(JSON.parse('{"__proto__":"2026-10-12","Q1":"2026-10-12"}'));
+  assert.deepEqual([Object.keys(proto), Object.getPrototypeOf(proto)], [['__proto__', 'Q1'], Object.prototype]);
 });

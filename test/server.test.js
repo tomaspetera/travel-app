@@ -743,6 +743,28 @@ test('POST /api/itinerary (DEMO): časy zastávek, oběd a konec dne; s dětmi (
   assert.deepEqual(str.days.map((d) => d.cap), plan.days.map((d) => d.cap));
 });
 
+test('POST /api/itinerary (DEMO) po ✕: keep nechá ostatní místa ve svých dnech; neplatný keep se zahodí (jako bez něj)', async () => {
+  const headers = { 'content-type': 'application/json', 'x-forwarded-for': '10.20.30.77' };
+  const post = async (body) => (await fetch(`${base}/api/itinerary`, { method: 'POST', headers, body: JSON.stringify(body) })).json();
+  const q = { lat: 38.7223, lon: -9.1393, start: ymdPlus(20), end: ymdPlus(22), arrivalTime: '09:00' };
+  const dayOf = (r) => new Map(r.days.filter((d) => d.kind === 'city').flatMap((d) => d.items.map((p) => [p.id, d.date])));
+  const r0 = await post(q);
+  const before = dayOf(r0);
+  assert.ok(before.size >= 10, `${before.size} míst`);
+  const drop = [...before.keys()][1];
+  const keep = Object.fromEntries([...before].filter(([id]) => id !== drop));
+  const after = dayOf(await post({ ...q, exclude: [drop], keep }));
+  assert.ok(!after.has(drop));
+  assert.deepEqual(Object.entries(keep).filter(([id, d]) => after.get(id) !== d), [], 'všechna ostatní ve svém dni');
+  // bez keep se program skládá znovu celý; neplatný keep = totéž
+  const plain = (await post({ ...q, exclude: [drop] })).days;
+  const off = Object.fromEntries([...before].map(([id]) => [id, ymdPlus(30)]));
+  const many = { ...keep, ...Object.fromEntries(Array.from({ length: 300 }, (_, i) => [`Q${i}`, q.start])) };
+  for (const bad of [[...before.keys()], 'demo0', 5, off, many, { [`${drop}${'x'.repeat(120)}`]: q.start }]) {
+    assert.deepEqual((await post({ ...q, exclude: [drop], keep: bad })).days, plain, JSON.stringify(bad).slice(0, 80));
+  }
+});
+
 test('POST /api/stayplan – trasa přes víc míst (DEMO): návrh open-jaw, přepočet upravené trasy, chyby', async () => {
   const post = (body) => fetch(`${base}/api/stayplan`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: typeof body === 'string' ? body : JSON.stringify(body) });
   const r = await post({ arrival: 'BGY', departure: 'FCO', nights: 8, transport: 'car' });
