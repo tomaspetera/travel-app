@@ -134,7 +134,8 @@ export function parseRpcBody(text) {
   return last;
 }
 
-async function post(body, sessionId, timeoutMs = 30000) {
+// fullMs = běžný strop pokusu (search-flight 30 s, initialize 20 s) – podle něj se pozná timeout zkrácený termínem hledání
+async function post(body, sessionId, timeoutMs = 30000, fullMs = 30000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), Math.max(1000, timeoutMs));
   try {
@@ -161,8 +162,9 @@ async function post(body, sessionId, timeoutMs = 30000) {
   } catch (e) {
     if (e.name === 'AbortError') {
       const err = new Error('Kiwi: timeout');
-      // Zkrácený čas podle termínu hledání není chyba služby (nepočítá se do pojistky).
-      err.short = timeoutMs < 25000;
+      // Zkrácený čas podle termínu hledání není chyba služby (nepočítá se do pojistky). Práh podle stropu pokusu:
+      // s pevným „< 25 s“ byl timeout initialize (strop 20 s) vždy „zkrácený“ a výpadek Kiwi pojistku nespustil.
+      err.short = timeoutMs < fullMs - 5000;
       throw err;
     }
     throw e;
@@ -179,7 +181,7 @@ async function ensureSession({ end = Date.now() + 40000, ctx = null } = {}) {
       const { sessionId } = await withRetry((left) => post({
         jsonrpc: '2.0', id: 1, method: 'initialize',
         params: { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: 'atlas-travel', version: '2.0.0' } },
-      }, null, Math.min(20000, left)), { end, ctx });
+      }, null, Math.min(20000, left), 20000), { end, ctx });
       // Bezstavový server hlavičku vynechá – pak se pokračuje bez ní.
       session.id = (sessionId || '').trim() || null;
       // MCP: po initialize klient oznámí dokončení (notifications/initialized); chyba nevadí.
