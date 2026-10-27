@@ -98,3 +98,18 @@ test('krok Ubytování: „Ubytování neřeším →“ i nahoře (jako „Auto
   assert.match(js, /\$\{t\.stay \? '' : '<div class="car-quick"><span class="muted">Ubytování máš zařízené, nebo spíš u známých\?<\/span><button type="button" class="btn sm" id="staySkipTop">Ubytování neřeším →<\/button><\/div>'\}\s*<div id="stayBody">/);
   assert.match(js, /const sq = \$\('#staySkipTop'\); if \(sq\) sq\.onclick = \$\('#staySkip'\)\.onclick;/);
 });
+
+test('spodní lišta: popisek pod každou ikonou (dřív jen u aktivní sekce – kufr, špendlík a mřížku nováček nepoznal)', () => {
+  const css = noComments(read('css/atlas.css'));
+  assert.match(css, /\.mobile-nav \.mi\{flex:1 1 0;min-width:0;height:100%;display:flex;flex-direction:column;[^}]*gap:3px;/);
+  const span = css.match(/\.mobile-nav \.mi span\{([^}]*)\}/)[1];
+  assert.doesNotMatch(span, /max-width:0|opacity:0/, 'popisek vidět i u neaktivní sekce');
+  assert.match(span, /text-overflow:ellipsis;white-space:nowrap;font-size:11px/);
+  // aktivní sekce bílá kapsle, stejně široká jako ostatní (dřív roztažená, ostatní jen ikony)
+  assert.match(css, /\.mobile-nav \.mi\.active\{background:#fff;color:#0b1226;/);
+  assert.doesNotMatch(css, /flex-grow:2\.6/);
+  // nejdelší popisek („Doporučení“) i na 360 px
+  assert.match(css, /@media\(max-width:360px\)\{\.mobile-nav \.mi\{padding:0 1px\}\.mobile-nav \.mi span\{font-size:10px;/);
+  // tečka „zlevnilo“ u ikony Přehledu (ikona je teď nahoře)
+  assert.match(noComments(read('css/flights.css')), /\.mi-dot\{position:absolute;top:6px;left:calc\(50% \+ 5px\)/);
+});
