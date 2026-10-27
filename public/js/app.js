@@ -917,9 +917,10 @@ const WHATS_NEW = [
   ['🏨', 'Hotely s cenami', 'v průvodci Cesta → Ubytování: odkaz na web, kde je pokoj na tvoje dny volný, a ↻ Aktualizovat ceny.'],
 ];
 // Úplně nový uživatel (nic uloženého): místo seznamu novinek krátké „Vítej“ ve 3 krocích – novinky by ho jen zahltily.
-// Uvítání vydrží, dokud ho uživatel neskryje: atlas_wn = WN_ID + WN_NEW. Bez toho by po výběru domova nebo prvním
-// hledání (už „není nový“) místo uvítání vyskočilo 50 novinek – pro někoho, kdo aplikaci otevřel před minutou, nic
-// nového. Novinky pak uvidí až s další sadou (jiné WN_ID).
+// Uvítání vydrží celou první návštěvu, dokud ho uživatel neskryje: atlas_wn = WN_ID + WN_NEW. Bez toho by po výběru
+// domova nebo prvním hledání (už „není nový“) místo uvítání vyskočilo 50 novinek – pro někoho, kdo aplikaci otevřel
+// před minutou, nic nového. Novinky pak uvidí až s další sadou (jiné WN_ID). Při dalším otevření se skryje samo
+// (wnAtStart), když už uživatel hledal.
 const WN_NEW = '+vitej';
 const firstVisit = seen => seen == null && !S.home && !S.trip && !S.trips.length && !S.recent.length && !S.watch.length;
 /** Co ukázat v kartě novinek: 'welcome' (uvítání), 'news' (novinky), '' (nic – skryté). seen = atlas_wn. */
@@ -928,9 +929,12 @@ const wnMode = (seen, id = WN_ID) => (seen === id ? '' : seen === id + WN_NEW ||
  * Při startu, dřív než odkaz něco uloží: úplně nový uživatel má dostat uvítání, i když přišel z odkazu kamaráda (cesta
  * #trip=, plán #plan=, nabídka, „Jede někdo se mnou?“) nebo rovnou na Lety. Přehled se vykreslí až po importu cesty
  * nebo prvním hledání – firstVisit by pak vrátil false a nováček by místo „Vítej“ dostal desítky novinek o funkcích,
- * které nikdy neviděl. Přenos z jiného zařízení (#sync=) nováček není. → nová hodnota atlas_wn, nebo null (beze změny).
+ * které nikdy neviděl. Přenos z jiného zařízení (#sync=) nováček není. Kdo se vrací a už hledal lety (Nedávno) nebo
+ * hlídá cenu, uvítání viděl celou první návštěvu – skryje se samo jako po „Rozumím“ (WN_ID, žádné novinky navíc):
+ * na telefonu by jinak nad radarem odsouvalo hlídané ceny o čtyři obrazovky níž a vítalo ho návodem na první hledání.
+ * → nová hodnota atlas_wn, nebo null (beze změny).
  */
-const wnAtStart = (seen, hash, id = WN_ID) => (!/^#sync=/.test(String(hash || '')) && firstVisit(seen) ? id + WN_NEW : null);
+const wnAtStart = (seen, hash, id = WN_ID) => (!/^#sync=/.test(String(hash || '')) && firstVisit(seen) ? id + WN_NEW : seen === id + WN_NEW && (S.recent.length || S.watch.length) ? id : null);
 const WN_TOP = 4; // v celém seznamu nejnovější novinky hned, starší pod „Starší novinky“
 // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
 const wnUnit = s => s.replace(/(\d) (?=(Kč|km|h|min|°C)(?![\p{L}]))/gu, '$1\u00a0').replace(/(\d\u00a0h) (?=\d)/g, '$1\u00a0');

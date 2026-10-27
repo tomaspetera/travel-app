@@ -306,6 +306,31 @@ test('kamarád z odkazu na cestu je nováček: uvítání se zapamatuje při sta
   assert.equal(wnAtStart('stará', '#trip=zAbc', 'A'), null);
 });
 
+test('vracející se uživatel: uvítání se při dalším otevření skryje samo, když už hledal nebo hlídá cenu', () => {
+  const S = { home: null, trip: null, trips: [], recent: [], watch: [] };
+  const [wnMode, wnAtStart] = new Function('S', `${pick('WN_NEW', 'firstVisit', 'wnMode', 'wnAtStart')}; return [wnMode, wnAtStart];`)(S);
+  // jen vybral domov (a třeba si prohlédl radar), ještě nehledal → uvítání i po obnovení stránky
+  S.home = { from: [{ id: 'city:PRG' }] };
+  assert.equal(wnAtStart('A+vitej', '', 'A'), null);
+  assert.equal(wnMode('A+vitej', 'A'), 'welcome');
+  // kamarád z odkazu na cestu, který ještě nic nehledal, uvítání dál má
+  S.home = null; S.trip = { dest: { label: 'Klagenfurt' }, shared: { on: '2026-10-23' } };
+  assert.equal(wnAtStart('A+vitej', '#trip=zAbc', 'A'), null);
+  // hledal (Nedávno) nebo hlídá cenu → při dalším otevření skryté jako po „Rozumím“ (bez novinek – stejná sada)
+  S.trip = null; S.home = { from: [{ id: 'city:PRG' }] }; S.recent = [{}];
+  assert.equal(wnAtStart('A+vitej', '', 'A'), 'A');
+  assert.equal(wnMode(wnAtStart('A+vitej', '', 'A'), 'A'), '', 'karta na Přehledu skrytá');
+  S.recent = []; S.watch = [{ id: 'w1' }];
+  assert.equal(wnAtStart('A+vitej', '#flights', 'A'), 'A');
+  // během první návštěvy (bez nového startu) uvítání zůstává – rozhoduje jen start
+  assert.equal(wnMode('A+vitej', 'A'), 'welcome');
+  // jiná sada novinek nebo už skryté: beze změny
+  assert.equal(wnAtStart('A+vitej', '', 'B'), null);
+  assert.equal(wnAtStart('A', '', 'A'), null);
+  // v app.js se rozhoduje při startu, dřív než Přehled vykreslí uvítání
+  assert.match(APP, /try \{ const wn = wnAtStart\(localStorage\.getItem\('atlas_wn'\), location\.hash\); if \(wn\) localStorage\.setItem\('atlas_wn', wn\); \}/);
+});
+
 test('✨ lišta Co je nového: jen novinky od minulého otevření (nejvýš 3), nováček nic, žádné hromadění', () => {
   const S = { home: { from: [{ id: 'city:PRG' }] }, trip: null, trips: [], recent: [{}], watch: [] };
   const wnFresh = new Function('S', `${pick('WN_NEW', 'firstVisit', 'wnMode', 'WN_POP', 'wnFresh')}; return wnFresh;`)(S);

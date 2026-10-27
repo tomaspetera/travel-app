@@ -141,7 +141,7 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 /* autem: „návrat i na jiné letiště“ vypnuté (vracíš se k autu) */
 .field label.check-inline.dis{opacity:.55;cursor:not-allowed}
 .oj-hint{font-size:12px;line-height:1.4;margin:-2px 0 6px 25px}
-/* ♡ Hlídat: 📅 Posouvat termín s časem (klouzavé hlídání) */
+/* ♡ Hlídat: 📅 Hlídat s posouváním termínu (klouzavé hlídání) */
 .roll-opt{margin:0;font-size:13px;color:var(--muted)}
 .roll-opt[hidden]{display:none}
 .gm-lbl{font-size:13px;color:var(--muted)}
@@ -1155,6 +1155,11 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   .cmp-when{grid-area:3/2/4/4}
   .cmp-why{grid-area:4/2/5/4;margin-top:1px;white-space:normal;line-height:1.3}
   .cmp-row .dm-btn{width:28px;height:28px}
+  /* hledání do víc míst („k moři“ = 9 cílů s cenou): cíle v jednom pruhu, který se posouvá do strany – zalomené
+     zabraly na 412 px ~280 px (na 360 px ~320) a první nabídka spadla až pod spodní lištu; pruh dojede k okraji displeje */
+  .dest-mini{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-16px;padding-right:16px}
+  .dest-mini::-webkit-scrollbar{display:none}
+  .dest-mini .chip{flex:none}
   /* na telefonu pruh, který se posouvá do strany (stránka zůstane na šířku displeje); dlaždice 58 % šířky, ať další
      vždy vykoukne – minmax(160px,58%) zůstane v přetékající mřížce na 160 px a dvě dlaždice na 390 px končí přesně u okraje */
   .fav-strip{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:max(150px,58%);overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}
