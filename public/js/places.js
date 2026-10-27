@@ -1935,7 +1935,7 @@
   const shortName = s => (s.length > 32 ? `${s.slice(0, 30).trim()}…` : s);
   const saveHtml = (i, trips) => (i >= 0
     ? `<button class="btn" id="exSave" title="${esc(`Přidat k cestě ${trips[i].name} (stejné místo a začátek)`)}">💾 Přidat k cestě ${esc(shortName(trips[i].name))}</button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</button>`
-    : '<button class="btn" id="exSave">💾 Uložit do plánovače</button>');
+    : '<button class="btn" id="exSave">💾 Uložit do Mých cest</button>');
   // Hláška s tlačítkem (toast z app.js tlačítko neumí); delší, ať se na tlačítko stihne kliknout.
   function actToast(msg, label, fn) {
     const t = $('#toast');
@@ -2701,7 +2701,7 @@
       const sv = $('#exSave', body);
       if (sv) sv.textContent = '✓ Uloženo';
       $('#exSaveNew', body)?.remove();
-      actToast(i >= 0 ? `Přidáno k cestě ${t.name}` : 'Uloženo do plánovače', 'Otevřít v plánovači', () => {
+      actToast(i >= 0 ? `Přidáno k cestě ${t.name}` : 'Uloženo do Mých cest', 'Otevřít v Mých cestách', () => {
         go('planner');
         setTimeout(() => { const j = S.trips.indexOf(t); if (j >= 0 && typeof openTrip === 'function') openTrip(j); }, 250);
       });

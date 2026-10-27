@@ -178,7 +178,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
       <button class="icon-btn" id="refreshBtn" title="Aktualizovat data" aria-label="Aktualizovat data">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>
       </button>
-      <button class="icon-btn menu-btn" id="menuBtn" title="Menu" aria-label="Menu – plánovač, doporučení, záloha, vzhled">
+      <button class="icon-btn menu-btn" id="menuBtn" title="Menu" aria-label="Menu – doporučení, záloha, vzhled">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
     </header>
@@ -484,11 +484,6 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
           <div class="seg" id="cVisited" role="group" aria-label="Navštívené země"><button type="button" class="on" data-v="all">Vše</button><button type="button" data-v="no">Chci navštívit</button><button type="button" data-v="yes">Navštívené</button></div>
         </div>
         <div class="dest-grid" id="countryGrid"></div>
-      </section>
-
-      <!-- PLANNER -->
-      <section class="view" id="view-planner">
-        <div id="plannerList"></div>
       </section>
 
       <!-- RECOMMEND -->

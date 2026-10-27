@@ -34,9 +34,9 @@ test('myTrips: cesta z průvodce se otevře v průvodci (rozpracovaná zpět do 
   assert.match(app, /const bkWire = \(host = document\) => \{ const b = \$\('#bkOpen', host\);/);
 });
 
-test('Co je nového: Moje cesty a cesta se ukládá sama', () => {
+test('Co je nového: Moje cesty, cesta se ukládá sama, Plánovač je v Mých cestách', () => {
   const app = read('js/app.js');
-  assert.match(app, /const WN_ID = '2026-10-27d';\s*const WHATS_NEW = \[\s*\['💾', 'Cesta se ukládá sama',[^\n]*\],\s*\['🧳', 'Moje cesty v záložce Cesta',/);
+  assert.match(app, /const WN_ID = '2026-10-27e';\s*const WHATS_NEW = \[\s*\['🧳', 'Plánovač je teď v Mých cestách',[^\n]*\],\s*\['💾', 'Cesta se ukládá sama',[^\n]*\],\s*\['🧳', 'Moje cesty v záložce Cesta',/);
 });
 
 test('smazání cesty otevřené v průvodci ji zavře i v průvodci (jinak by se zase sama uložila); ↩ Vrátit vrátí obojí', () => {
@@ -48,11 +48,23 @@ test('smazání cesty otevřené v průvodci ji zavře i v průvodci (jinak by s
 
 test('změna cest (nová, úprava v okně, smazání, záloha, jiný panel) překreslí seznam, který je vidět – i Moje cesty v Cestě', () => {
   const app = read('js/app.js');
-  assert.match(app, /function tripsChanged\(\) \{\s*if \(activeView === 'planner'\) renderPlanner\(\);\s*else if \(activeView === 'trip' && window\.Trip && Trip\.render\) Trip\.render\(\);\s*else if \(activeView === 'dashboard'\) renderDashStats\(\);\s*\}/);
+  assert.match(app, /function tripsChanged\(\) \{\s*if \(activeView === 'trip' && window\.Trip && Trip\.render\) Trip\.render\(\);\s*else if \(activeView === 'dashboard'\) renderDashStats\(\);\s*\}/);
+  assert.ok(!app.includes('renderPlanner'), 'Plánovač jako zvláštní seznam už není');
   assert.match(app, /const reTrip = i => \{ save\(\); openTrip\(i\); tripsChanged\(\); \};/);
-  assert.match(app, /const redraw = \(\) => \{ save\(\); renderPlanner\(\); tripsChanged\(\); \};/);
+  assert.match(app, /const redraw = \(\) => \{ save\(\); tripsChanged\(\); \};/);
   assert.match(app, /if \(ch\.has\('trips'\) && activeView !== 'dashboard'\) tripsChanged\(\);/);
   // nová vlastní cesta z Moje cest: zůstat v Cestě
   assert.match(app, /modalClose\(\); if \(activeView === 'trip'\) tripsChanged\(\); else go\('planner'\);/);
   assert.match(read('js/backup.js'), /if \(typeof tripsChanged === 'function'\) tripsChanged\(\);/);
+});
+
+test('Moje cesty místo Plánovače: Trip.mine ukáže seznam i nad rozpracovanou; úvod bez cest nabídne vlastní cestu bez letu', () => {
+  const js = read('js/trip.js');
+  assert.match(js, /function mine\(\) \{\s*const t = T\(\);\s*if \(t\) \{ if \(autoT \|\| !entryOf\(t\)\) autoSave\(\); mineFor = t\.created; \}\s*safeRender\(\);\s*\}/);
+  assert.match(js, /render: safeRender, mine,/);
+  assert.match(js, /\$\{window\.newTrip \? '<button type="button" class="btn ghost" id="tripOwn">📝 Vlastní cesta bez letu<\/button>' : ''\}/);
+  const app = read('js/app.js');
+  assert.match(app, /if \(v === 'trip'\) lazyView\('trip', '#tripRoot', \(\) => \(opts\.mine \? Trip\.mine\(\) : Trip\.render\(\)\)\);/);
+  assert.match(app, /const NAV_PICK = \['flights', 'trip', 'explore', 'world', 'recommend'\];/);
+  assert.match(app, /data-gop>Moje cesty →<\/button>/);
 });

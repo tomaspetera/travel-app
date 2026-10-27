@@ -641,9 +641,9 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   TB.mergeInto(w, bike);
   assert.equal(w.name, 'Výlet: Barcelona');
 
-  // tlačítko: „Přidat k cestě …“ + „uložit jako novou“, jinak „Uložit do plánovače“
+  // tlačítko: „Přidat k cestě …“ + „uložit jako novou“, jinak „Uložit do Mých cest“
   assert.match(TB.saveHtml(1, trips), /💾 Přidat k cestě Výlet: Barcelona<\/button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</);
-  assert.equal(TB.saveHtml(-1, trips), '<button class="btn" id="exSave">💾 Uložit do plánovače</button>');
+  assert.equal(TB.saveHtml(-1, trips), '<button class="btn" id="exSave">💾 Uložit do Mých cest</button>');
   const long = TB.saveHtml(0, [{ name: `Dlouhá cesta ${XSS} po celém Španělsku a Portugalsku` }]);
   assert.ok(!long.includes('<img src=x'));
   assert.match(long, /…<\/button>/);

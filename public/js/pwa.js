@@ -279,7 +279,7 @@
   const isApp = () => Boolean(standaloneMq && standaloneMq.matches) || navigator.standalone === true;
   // Obnovit se sama smí aplikace jen „v klidu“: nikde kurzor, žádné otevřené okno ani hledání či výsledky (ty by
   // zmizely) a pohled, jehož stav je uložený (přehled, cesta, mapa, země, plánovač, doporučení).
-  const QUIET_VIEWS = ['view-dashboard', 'view-trip', 'view-map', 'view-countries', 'view-planner', 'view-recommend'];
+  const QUIET_VIEWS = ['view-dashboard', 'view-trip', 'view-map', 'view-countries', 'view-recommend'];
   function quietToReload() {
     const a = document.activeElement;
     if (a && /^(?:INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;

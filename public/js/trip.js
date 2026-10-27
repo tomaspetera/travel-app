@@ -913,7 +913,7 @@
         <div class="card dest trip-hero" data-photo="Amalfi" style="--h:200"><div class="flag">🧳</div><div class="dest-panel"><div class="cname">Sestav si celou cestu</div>
           <div class="cblurb">Let, ubytování, auto i program na místě – a celková cena na jednom místě.</div></div></div>
         ${askHtml()}
-        <div class="trip-intro-act"><button type="button" class="btn ghost" id="tripGoExplore">🗺️ Jen objevovat místa</button></div>
+        <div class="trip-intro-act"><button type="button" class="btn ghost" id="tripGoExplore">🗺️ Jen objevovat místa</button>${window.newTrip ? '<button type="button" class="btn ghost" id="tripOwn">📝 Vlastní cesta bez letu</button>' : ''}</div>
         <div class="trip-steps-h">Jak to funguje</div>
         <ol class="trip-steps">
           <li><span>✈️</span><div><b>Let</b><small>Napiš výš, kam chceš (nebo hledej v Letech či radaru), a u nabídky klikni na <b>Vybrat a pokračovat</b>.</small></div></li>
@@ -923,6 +923,7 @@
           <li><span>✅</span><div><b>Shrnutí</b><small>Celková cena a kalendář. Cesta se ukládá sama do Mých cest.</small></div></li>
         </ol></div>`;
       $('#tripGoExplore').onclick = () => go('explore');
+      if (window.newTrip) $('#tripOwn').onclick = () => newTrip(); // jako v Mých cestách (dřív prázdný Plánovač)
       askWire();
       if (window.Photos) Photos.paint(root);
       return;
@@ -4299,6 +4300,12 @@
   }
 
   // Poškozená uložená cesta nesmí zablokovat celou sekci – nabídni ji zahodit.
+  /** 🧳 Moje cesty (dřív Plánovač – #planner, „Otevřít plán →“): seznam cest, i když je v průvodci rozpracovaná. */
+  function mine() {
+    const t = T();
+    if (t) { if (autoT || !entryOf(t)) autoSave(); mineFor = t.created; }
+    safeRender();
+  }
   function safeRender() {
     try {
       render();
@@ -4315,7 +4322,7 @@
   // Aplikace zavřená nebo znovu načtená dřív, než hledání doběhlo: na jeho konečný výsledek už cesta nepočká.
   if (typeof S !== 'undefined' && S && S.trip && S.trip.statsWait) { giveUpStats(S.trip); persist(); }
 
-  window.Trip = { start, cardData, pastHtml, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, placePt, rideLegs, legBack,
+  window.Trip = { start, cardData, pastHtml, flyOk, finalStats, statsGiveUp, openSaved, saveToPlanner, unsavedNow, stepTo, render: safeRender, mine, ageRefresh, importFromHash, costs, budgetGroups, budgetLeft, budgetMissing, sanitizeTrip, calendarEvents, leaveBy, baseDates, baseProgram, legBrief, stayDates, tripEvent, tripCountries, tripVia, groundLines, groundApps, timeline, placeOn, placePt, rideLegs, legBack,
     // doprava po úsecích trasy a auto jen na některé dny, tlačítko kroku nad spodní lištou (testy)
     routeLegs, carRuns, suggestModes, setLegModes, rangeModes, carDays, carRange, carStart, transferParts, phoneNext };
 })();

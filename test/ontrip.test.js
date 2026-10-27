@@ -690,9 +690,9 @@ test('kalendář z plánovače (.ics): připomínka online check-inu u letů, dn
   assert.deepEqual(one.map((e) => [e.title, e.location]), [['Den 2 – Lisabon', 'Lisabon']]);
 });
 
-test('zkratka aplikace „Na cestě“ (/#now) vedle Letů a Plánovače', () => {
+test('zkratka aplikace „Na cestě“ (/#now) vedle Letů a Mých cest', () => {
   const m = JSON.parse(readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'));
-  assert.deepEqual(m.shortcuts.map((s) => [s.short_name, s.url]), [['Lety', '/#flights'], ['Plánovač', '/#planner'], ['Na cestě', '/#now']]);
+  assert.deepEqual(m.shortcuts.map((s) => [s.short_name, s.url]), [['Lety', '/#flights'], ['Moje cesty', '/#planner'], ['Na cestě', '/#now']]);
   const s = m.shortcuts[2];
   assert.equal(s.name, 'Na cestě');
   assert.deepEqual(plain(s.icons), plain(m.shortcuts[0].icons));

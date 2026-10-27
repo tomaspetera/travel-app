@@ -215,7 +215,7 @@ test('aplikace: soon po startu, sdílená cesta a Přehled s cestou počkají na
   assert.match(app, /launchDone\(\);\n\s*if \(window\.Lazy\) Lazy\.soon\(\);/, 'načtení po startu (boot)');
   assert.match(app, /if \(window\.Lazy && \(\/\^#trip=\/\.test\(location\.hash\) \|\| tripSoon\(\)\)\) await Lazy\.need\('trip'\)[^\n]*\n\s*const shared = window\.Trip && await Trip\.importFromHash\(\);/);
   assert.match(app, /if \(window\.Lazy && \/\^#trip=\/\.test\(location\.hash\)\) await Lazy\.need\('trip'\)[^\n]*\n\s*if \(window\.Trip && await Trip\.importFromHash\(\)\)/, 'odkaz vložený do otevřené stránky');
-  assert.match(app, /if \(v === 'trip'\) lazyView\('trip', '#tripRoot', \(\) => Trip\.render\(\)\);/);
+  assert.match(app, /if \(v === 'trip'\) lazyView\('trip', '#tripRoot', \(\) => \(opts\.mine \? Trip\.mine\(\) : Trip\.render\(\)\)\);/);
   assert.match(app, /if \(v === 'explore'\) lazyView\('places', '#exploreRoot', /);
   assert.match(read('public/js/backup.js'), /function open\(\) \{\n(?:\s*\/\/[^\n]*\n)*\s*if \(window\.Lazy && !Lazy\.has\('trip'\)\) return Lazy\.run\('trip', open\);/, 'záloha s cestami z průvodce a odškrtnutím Před cestou');
   assert.match(read('public/js/pwa.js'), /Promise\.race\(\[Lazy\.settled, new Promise\(\(r\) => setTimeout\(r, 15e3\)\)\]\)[\s\S]{0,120}\.then\(\(\) => sw\.register\('sw\.js'/);

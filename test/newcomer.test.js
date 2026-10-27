@@ -58,9 +58,14 @@ test('Shrnutí: rozpis po položkách sbalený – pod „Cenou cesty“ se stej
   assert.match(js, /<td>\$\{czk\(c\.total\)\}<\/td><\/tr><\/table><\/details>/);
 });
 
-test('Plánovač vs. Cesta: Plánovač = uložené cesty; cesta z průvodce otevře hlavním tlačítkem průvodce', () => {
+test('Plánovač je Moje cesty v Cestě (bez zvláštní sekce); cesta z průvodce otevře hlavním tlačítkem průvodce', () => {
   const app = read('js/app.js');
-  assert.match(app, /\['planner', 'Plánovač', 'Uložené cesty – program, balení, rozpočet',/);
+  assert.ok(!/\['planner', /.test(app), 'v menu ani postranním panelu už Plánovač není');
+  assert.match(app, /\['trip', 'Cesta', 'Moje cesty a průvodce: let, ubytování, auto, program',/);
+  // staré odkazy (#planner, zástupce na ploše, „Moje cesty →“) vedou na seznam cest
+  assert.match(app, /if \(v === 'planner'\) \{ v = 'trip'; opts = \{ \.\.\.opts, mine: true \}; \}/);
+  assert.match(app, /const isView = v => v === 'planner' \|\| NAV\.some\(n => n\[0\] === v\);/);
+  assert.ok(!read('index.html').includes('view-planner'));
   assert.match(app, /acts: `<div class="row wrap">\$\{t\.wizard && \(window\.Trip \|\| window\.Lazy\) \? '<button class="btn primary" id="tripWizard">🧳 Otevřít v průvodci<\/button>' : ''\}\$\{local \? '' : `<button class="btn\$\{t\.wizard \? '' : ' primary'\}" id="tripSearch">/);
 });
 
