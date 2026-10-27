@@ -381,7 +381,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 
 /* filtry času a přestupů */
 .fchip.tf-toggle{color:var(--muted)}
-.fchip.tf-toggle.on{color:var(--text);border-color:rgba(91,140,255,.42);background:rgba(91,140,255,.13)}
+.fchip.tf-toggle.on,.fchip[data-int].on,.fchip[data-tint].on{color:var(--text);border-color:rgba(91,140,255,.42);background:rgba(91,140,255,.13)}
 .tf-n{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:#fff;font-size:10.5px}
 .tf-panel{padding:12px 16px;margin:-6px 0 16px}
 .tf-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;font-size:14px;margin-bottom:10px}

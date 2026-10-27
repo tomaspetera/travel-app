@@ -1194,7 +1194,7 @@
       ${arrivalLines(t, fly)}
       <div id="tfPl">${priceRow(t)}</div>
       <div class="step-act"><button class="btn primary" id="tfNext">Pokračovat: Trasa →</button><div class="step-act2"><button class="btn" id="tfBack">↩ Jiný let</button>${fly ? '' : '<button class="btn" id="tfVerify" title="Ověřit živou cenu a porovnat aerolinky">🔄 Ověřit živou cenu</button>'}</div></div>
-      <div class="auto-trip"><button type="button" class="btn" id="tfAuto"${tripAuto ? ' disabled' : ''}>${tripAuto ? '<span class="spin dark"></span> Skládám cestu…' : AUTO_BTN}</button><small>Ubytování s nejlepším poměrem ceny a hodnocení, bez auta a program na místě${isMulti(t) ? ' – trasa zůstane' : ''}. Co už máš vybrané, nechám; kterýkoli krok pak můžeš změnit.</small></div>
+      <div class="auto-trip"><button type="button" class="btn" id="tfAuto"${tripAuto ? ' disabled' : ''}>${tripAuto ? '<span class="spin dark"></span> Skládám cestu…' : AUTO_BTN}</button><small>Ubytování s nejlepším poměrem ceny a hodnocení blízko centra (do 3 km), bez auta a program na místě${isMulti(t) ? ' – trasa zůstane' : ''}. Co už máš vybrané, nechám; kterýkoli krok pak můžeš změnit.</small></div>
       <div id="tfAlt"></div></div>${groundOffer(t)}`;
     $('#tfBack').onclick = () => go('flights');
     $('#tfNext').onclick = () => setStep('route');
@@ -1986,7 +1986,7 @@
     const { checkin, checkout, nights } = stayDates(t);
     host.innerHTML = `<div class="card step-card">
       <div class="sc-head"><div><h3>🏨 Ubytování · ${esc(t.dest.label)}</h3><div class="muted">${dayLbl(checkin)} – ${dayLbl(checkout)} · ${nightsTxt(nights)} · ${guestsTxt(t)}</div>${stayKidsNote(t)}</div>
-      ${t.stay ? `<div class="chosen">Vybráno: <b>${esc(t.stay.name || (t.stay.mode === 'skip' ? 'bez ubytování' : ''))}</b>${t.stay.totalCzk ? ` · ${czk(t.stay.totalCzk)}${t.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : ''}</div>` : ''}</div>
+      ${t.stay ? `<div class="chosen">Vybráno: <b>${esc(t.stay.name || (t.stay.mode === 'skip' ? 'bez ubytování' : t.stay.mode === 'links' ? 'vyberu později (jen odkazy)' : ''))}</b>${t.stay.totalCzk ? ` · ${czk(t.stay.totalCzk)}${t.stay.est ? ' <span class="faint">(odhad)</span>' : ''}` : ''}</div>` : ''}</div>
       ${autoNoteHtml(t, 'stay')}
       ${oneWayField(t)}
       ${t.stay ? '' : '<div class="car-quick"><span class="muted">Ubytování máš zařízené, nebo spíš u známých?</span><button type="button" class="btn sm" id="staySkipTop">Ubytování neřeším →</button></div>'}
@@ -1996,7 +1996,7 @@
         <input class="input" id="manName" placeholder="Název (nepovinné)" aria-label="Název ubytování" value="${esc(manNameVal(t.stay))}">
         <input class="input" id="manPrice" type="number" min="0" step="100" placeholder="Celkem Kč" aria-label="Cena ubytování celkem v Kč" value="${t.stay && t.stay.mode === 'manual' ? t.stay.totalCzk : ''}">
         <button class="btn" id="manSave">Uložit</button></div>
-      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ghost" id="staySkip">Ubytování neřeším →</button>${t.stay ? '<button class="btn primary" id="stayNext">Pokračovat →</button>' : ''}</div>
+      <div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn ghost" id="stayLinks">Vyberu později – jen odkazy →</button><button class="btn ghost" id="staySkip">Ubytování neřeším →</button>${t.stay ? '<button class="btn primary" id="stayNext">Pokračovat →</button>' : ''}</div>
     </div>`;
     wireOneWay(t);
     $('#manSave').onclick = () => {
@@ -2006,6 +2006,9 @@
       persist(); setStep('car');
     };
     $('#staySkip').onclick = () => { pickSeq++; t.stay = { mode: 'skip', name: 'bez ubytování', totalCzk: 0 }; persist(); setStep('car'); };
+    // hotel ještě nemá (nováček většinou): ubytování zůstane ve shrnutí a v „Co zarezervovat“ s odkazem na hledání –
+    // „neřeším“ by ho z ceny i ze seznamu vyřadilo (jako u cesty přes víc míst, stayStepMulti)
+    $('#stayLinks').onclick = () => { pickSeq++; t.stay = { mode: 'links', name: '', totalCzk: 0 }; persist(); setStep('car'); };
     // hned nahoře jako „Auto nepotřebuji →“ – dole je až pod hotely a vlastní cenou (na telefonu několik obrazovek)
     const sq = $('#staySkipTop'); if (sq) sq.onclick = $('#staySkip').onclick;
     const nx = $('#stayNext'); if (nx) nx.onclick = () => setStep('car');
@@ -3133,7 +3136,8 @@
     const out = outStay(b.stay, bp);
     const atStay = b.stay && b.stay.mode === 'pick' && b.stay.lat != null && !out;
     const center = atStay ? { lat: b.stay.lat, lon: b.stay.lon, label: b.stay.name } : { lat: b.lat, lon: b.lon, label: b.name };
-    return { p, bp, out, opts: { lat: center.lat, lon: center.lon, label: center.label, city: b.name, country: b.country || t.dest.country || '', cc: b.cc || t.dest.cc, ...p, ...(out ? { startAt: 'center' } : {}), ...kidsProg(t) } };
+    // bez vybraného hotelu (jen odkazy, neřeším, vlastní cena) program začíná ve středu místa – „od centra“, ne „od ubytování“
+    return { p, bp, out, opts: { lat: center.lat, lon: center.lon, label: center.label, city: b.name, country: b.country || t.dest.country || '', cc: b.cc || t.dest.cc, ...p, ...(out || !atStay ? { startAt: 'center' } : {}), ...kidsProg(t) } };
   }
   /**
    * Program jednoho místa: střed města (souřadnice cíle bývají poloha letiště, které může být daleko od centra) – i s hotelem:
@@ -3156,7 +3160,8 @@
     const center = own && !far ? { lat: own.lat, lon: own.lon, label: own.name } : t.cityCenter || { lat: t.dest.lat, lon: t.dest.lon, label: t.dest.label };
     const opts = center.lat == null ? null : {
       lat: center.lat, lon: center.lon, label: center.label || t.dest.label, city: t.cityCenter ? t.cityCenter.label : t.dest.label.replace(/ \(.*\)$/, ''), country: t.dest.country || '', cc: t.dest.cc,
-      ...progSpan(t), ...(nearStay(t.stay) || far ? { startAt: 'center' } : {}), // termín a časy jako tripPlan (shrnutí, kalendář, plánovač)
+      // od centra i bez vlastního hotelu se souřadnicemi (vyberu později, neřeším, vlastní cena) – „od ubytování“ by mátlo
+      ...progSpan(t), ...(nearStay(t.stay) || far || !own ? { startAt: 'center' } : {}), // termín a časy jako tripPlan (shrnutí, kalendář, plánovač)
       ...kidsProg(t),
     };
     return { own, far, opts };
@@ -3253,7 +3258,7 @@
     if (t.stay) return {};
     // návrat týž den: ubytování není potřeba (jako „Ubytování neřeším“)
     if (stayDates(t).nights < 1) { t.stay = { mode: 'skip', name: 'bez ubytování', totalCzk: 0 }; return {}; }
-    autoGo(t, 'stay', 'run', 'Skládám celou cestu – vybírám ubytování s nejlepším poměrem ceny a hodnocení…');
+    autoGo(t, 'stay', 'run', 'Skládám celou cestu – vybírám ubytování s nejlepším poměrem ceny a hodnocení blízko centra…');
     const q = singleStayQuery(t), seq = ++pickSeq;
     autoBusy = true;
     let r;
@@ -3507,7 +3512,8 @@
       ...(multi ? [
         ...r.bases.map(b => stayCzk(b.stay) ? ['🏨', `Ubytování · ${b.name} · ${nightsTxt(b.nights)}${hotelName(b.stay) ? ' · ' + hotelName(b.stay) + nearOf(b.stay) : ''}${b.stay.est ? ' (odhad – ověř cenu)' : ''}`, stayCzk(b.stay)] : null),
         unpriced.length ? ['🏨', `Ubytování zatím bez ceny · ${unpriced.join(', ')}`, null] : null,
-      ] : [t.stay && t.stay.mode !== 'skip' ? ['🏨', `Ubytování · ${nightsTxt(nights)}${t.stay.name ? ' · ' + t.stay.name : ''}${t.stay.est ? ' (odhad – ověř cenu)' : ''}`, c.stay] : null]),
+      ] : [t.stay && t.stay.mode !== 'skip' ? (c.stay ? ['🏨', `Ubytování · ${nightsTxt(nights)}${t.stay.name ? ' · ' + t.stay.name : ''}${t.stay.est ? ' (odhad – ověř cenu)' : ''}`, c.stay]
+        : ['🏨', `Ubytování · ${nightsTxt(nights)} – zatím bez ceny, vyber přes odkaz níž`, null]) : null]),
       t.car && t.car.mode !== 'skip' ? ['🚗', `Auto${t.car.from && t.car.to ? ` · ${carPlace(t.car, 'pu')} ${fmtDate(t.car.from.slice(0, 10))} → ${carPlace(t.car, 'do')} ${fmtDate(t.car.to.slice(0, 10))}` : ''}`, c.car] : null,
       ...(c.transfers ? (fly ? [['🚆', `Přejezdy na trase – jízdenky (${paxTxt(t)}, odhad)`, c.transfers]] : [
         tp.fuel ? ['⛽', `Přejezdy autem – palivo${routeLegs(t).some(l => l.mode === 'car' && legCzk(t, l) && l.x.tollCzk) ? ' a mýtné' : ''} (odhad, nafta 6\u00a0l/100\u00a0km)`, tp.fuel] : null,
@@ -3542,7 +3548,7 @@
       ...(multi ? r.bases.map((b, i) => b.stay && b.stay.mode === 'skip' ? null : {
         id: stayBookId(b, dates[i]), label: `Ubytování ${b.name} (${fmtDate(dates[i].checkin)}–${fmtDate(dates[i].checkout)})${hotelName(b.stay) ? ': ' + hotelName(b.stay) : ' – vyber přes odkaz'}${b.stay && b.stay.mode === 'pick' ? tripHint(b.stay.url) : ''}`,
         url: (b.stay && b.stay.mode === 'pick' && b.stay.url) || baseSearchUrl(t, b, dates[i]),
-      }) : [t.stay && t.stay.mode !== 'skip' ? { id: 'stay', label: `Ubytování${t.stay.name ? ': ' + t.stay.name : ''}${tripHint(t.stay.url)}`, url: t.stay.url || (staysData && staysData.key === stayKeyOf(t) && staysData.links[0]?.url) || stayFallbackUrl(t) } : null]),
+      }) : [t.stay && t.stay.mode !== 'skip' ? { id: 'stay', label: `Ubytování${t.stay.mode === 'links' ? ` (${fmtDate(checkin)}–${fmtDate(checkout)}) – vyber přes odkaz` : t.stay.name ? ': ' + t.stay.name : ''}${tripHint(t.stay.url)}`, url: t.stay.url || (staysData && staysData.key === stayKeyOf(t) && staysData.links[0]?.url) || stayFallbackUrl(t) } : null]),
       // odkaz na půjčovnu uložený s cenou auta (po znovuotevření aplikace nebo ve sdílené cestě už načtené nabídky nejsou)
       t.car && t.car.mode !== 'skip' ? { id: 'car', label: 'Auto', url: t.car.url || carLinkFor(t.car) } : null,
     ].filter(Boolean);
@@ -3598,9 +3604,10 @@
   /** Rozpočet ve Shrnutí: skupiny za osobu i celkem (odhady označené) a pole Můj rozpočet s pruhem. */
   function budgetHtml(t, c) {
     const g = budgetGroups(t, c), mine = budgetOf(t), est = g.some(x => x.est);
-    return `<div class="bud"><table class="cost bud-t"><tr class="bud-h"><td></td><td>Po položkách</td><td>na osobu</td><td>celkem</td></tr>
+    // rozpis po skupinách sbalený: hned pod „Cenou cesty“ se stejným součtem vypadal jako druhá, jiná tabulka
+    return `<div class="bud"><details class="bud-more"><summary>Na osobu po položkách</summary><table class="cost bud-t"><tr class="bud-h"><td></td><td>Po položkách</td><td>na osobu</td><td>celkem</td></tr>
       ${g.map(x => `<tr><td>${x.icon}</td><td>${esc(x.label)}${x.est ? ' <span class="faint">· odhad</span>' : ''}</td><td>${x.est ? '~' : ''}${czk(x.pp)}</td><td>${x.est ? '~' : ''}${czk(x.czk)}</td></tr>`).join('')}
-      <tr class="bud-sum"><td></td><td>Celkem${est ? ' <span class="faint">· s odhady</span>' : ''}</td><td>${czk(c.perPerson)}</td><td>${czk(c.total)}</td></tr></table>
+      <tr class="bud-sum"><td></td><td>Celkem${est ? ' <span class="faint">· s odhady</span>' : ''}</td><td>${czk(c.perPerson)}</td><td>${czk(c.total)}</td></tr></table></details>
       ${kidsN(t) ? `<div class="faint bud-pax">👶 Na osobu = celkem / ${csN(paxN(t), 'sedadlo', 'sedadla', 'sedadel')} (${esc(paxTxt(t))}). ${[t.children > 0 ? (+t.children === 1 ? 'Dítě platí na sedadlo jako dospělý' : 'Děti platí na sedadlo jako dospělí') : '', t.infants > 0 ? `${t.children > 0 ? 'm' : 'M'}iminko na klíně – poplatek aerolinky se doplní při nákupu` : ''].filter(Boolean).join(', ')}.</div>` : ''}
       <label class="bud-in"><span>Můj rozpočet</span><input class="input" id="myBudget" type="number" inputmode="numeric" min="0" step="1000" placeholder="Kč za celou cestu" value="${mine || ''}"></label>
       <div id="budgetOut">${budgetOutHtml(c.total, mine, est, budgetMissing(t))}</div></div>`;
