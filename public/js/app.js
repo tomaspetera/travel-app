@@ -101,8 +101,8 @@ function buildNav() {
   // a ⋯ Další – ostatní sekce jako dlaždice, záloha, vzhled, instalace. Výběr jen při spuštění (lišta se pod rukou
   // nemění), sekce v liště v pevném pořadí; pět míst = stejná šířka jako dřív. Svět = mapa a země s přepínačem nahoře.
   navBar = navSlots(S.navUse);
-  // tlačítka (ne <div>): čtečka obrazovky je ohlásí jako tlačítka a jdou vybrat Tabem; jméno z popisku (u neaktivní
-  // sekce schovaný jen zúžením – čtečka ho čte dál), u Přehledu i tečka „zlevnilo“
+  // tlačítka (ne <div>): čtečka obrazovky je ohlásí jako tlačítka a jdou vybrat Tabem; jméno z popisku pod ikonou,
+  // u Přehledu i tečka „zlevnilo“
   const mi = k => k === 'world'
     ? `<button type="button" class="mi" id="worldNav" title="Svět" aria-label="Svět – mapa a země">${ico(NAV.find(n => n[0] === 'countries')[3])}<span>Svět</span></button>`
     : (n => `<button type="button" class="mi" data-view="${k}" title="${n[1]}">${ico(n[3])}<span>${n[1]}</span>${k === 'dashboard' ? '<i class="mi-dot" id="mobDrops" hidden><span class="sr-only"> – zlevnilo</span></i>' : ''}</button>`)(NAV.find(n => n[0] === k));

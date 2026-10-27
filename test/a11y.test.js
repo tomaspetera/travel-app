@@ -135,7 +135,7 @@ test('spodní lišta: sekce jako <button> (Tab, čtečka) a aktivní sekce s ari
   assert.equal(nav.match(/<button type="button" class="mi"/g).length, 3, 'sekce, Svět, Další');
   assert.match(appJs, /const cur = \(el, on\) => \{ el\.classList\.toggle\('active', on\); if \(on\) el\.setAttribute\('aria-current', 'page'\); else el\.removeAttribute\('aria-current'\); \};/);
   // <button> bez vzhledu tlačítka prohlížeče – lišta vypadá stejně jako s <div>
-  assert.match(atlasCss, /\.mobile-nav \.mi\{[^}]*border:0;padding:0;background:none;font:inherit/);
+  assert.match(atlasCss, /\.mobile-nav \.mi\{[^}]*border:0;padding:0( 2px)?;background:none;font:inherit/);
 });
 
 test('hlášky pro čtečku: toast (role status), začátek a konec hledání v #srSay – stejné hlášení dvakrát po sobě se přečte znovu', () => {

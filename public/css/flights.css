@@ -604,7 +604,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 #watchStatSub.jump{cursor:pointer}
 .nav-badge.drop{background:rgba(52,211,153,.16);color:var(--good)}
 .mobile-nav .mi{position:relative}
-.mi-dot{position:absolute;top:13px;left:calc(50% + 6px);width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 2px var(--surface-solid)}
+.mi-dot{position:absolute;top:6px;left:calc(50% + 5px);width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 0 2px var(--surface-solid)}
 .mi-dot[hidden]{display:none}
 .mobile-nav .mi.active .mi-dot{display:none} /* na Přehledu je „zlevnilo“ vidět přímo */
 

@@ -635,20 +635,19 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   .content{padding:6px max(16px,env(safe-area-inset-right)) calc(100px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
   .topbar{padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 14px max(16px,env(safe-area-inset-left))}
   .hero{padding:28px 22px}.hero h1{font-size:26px}
-  /* spodní lišta: plovoucí tmavá kapsle nad obsahem, aktivní sekce v bílé kapsli s popiskem, ostatní jen ikony */
+  /* spodní lišta: plovoucí tmavá kapsle nad obsahem, u každé sekce ikona s popiskem pod ní (jen ikony – kufr, špendlík,
+     mřížka – nováček nepoznal, co je Cesta, Objevuj a Další), aktivní sekce v bílé kapsli */
   .mobile-nav{display:flex;align-items:center;gap:2px;position:fixed;z-index:50;height:62px;padding:6px;border-radius:999px;
     left:max(14px,env(safe-area-inset-left));right:max(14px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));
     background:var(--nav-bg);border:1px solid var(--nav-line);box-shadow:0 18px 40px -14px rgba(0,0,0,.6),0 2px 10px rgba(0,0,0,.18);
     -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
-  .mobile-nav .mi{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:center;justify-content:center;border-radius:999px;color:var(--nav-ico);
-    border:0;padding:0;background:none;font:inherit; /* <button> bez vzhledu tlačítka prohlížeče */
+  .mobile-nav .mi{flex:1 1 0;min-width:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:26px;color:var(--nav-ico);
+    border:0;padding:0 2px;background:none;font:inherit; /* <button> bez vzhledu tlačítka prohlížeče */
     cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;
-    transition:flex-grow .32s var(--ease),background-color .25s var(--ease),color .25s var(--ease)}
-  .mobile-nav .mi svg{flex:none;width:22px;height:22px;transition:transform .14s var(--ease)}
-  .mobile-nav .mi span{max-width:0;opacity:0;overflow:hidden;white-space:nowrap;font-size:13px;font-weight:800;letter-spacing:-.01em;
-    transition:max-width .32s var(--ease),opacity .2s,margin .32s var(--ease)}
-  .mobile-nav .mi.active{flex-grow:2.6;background:#fff;color:#0b1226;box-shadow:0 4px 14px -6px rgba(0,0,0,.45)}
-  .mobile-nav .mi.active span{max-width:96px;opacity:1;margin-left:7px}
+    transition:background-color .25s var(--ease),color .25s var(--ease)}
+  .mobile-nav .mi svg{flex:none;width:21px;height:21px;transition:transform .14s var(--ease)}
+  .mobile-nav .mi span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:700;line-height:1.15;letter-spacing:-.01em}
+  .mobile-nav .mi.active{background:#fff;color:#0b1226;box-shadow:0 4px 14px -6px rgba(0,0,0,.45)}
   .mobile-nav .mi:active svg{transform:scale(.84)}
   .toast{bottom:calc(90px + env(safe-area-inset-bottom));max-width:calc(100% - 32px)}
   /* Tab z klávesnice (a posun k poli): prvek se odroluje nad plovoucí lištu, ne pod ni – dřív končil fokus na tlačítkách
@@ -661,7 +660,8 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
   .modal-hero{padding:20px}.modal-body{padding:18px}
   .forecast{grid-template-columns:repeat(4,1fr)}
 }
-@media(max-width:360px){.mobile-nav .mi span{font-size:12px}.mobile-nav .mi.active span{margin-left:5px}}
+/* nejdelší popisek („Doporučení“, když je sekce v liště) se vejde i na 360 px; 320 px ho výjimečně zkrátí „…“ */
+@media(max-width:360px){.mobile-nav .mi{padding:0 1px}.mobile-nav .mi span{font-size:10px;letter-spacing:-.02em}}
 @media(max-width:520px){.stat-grid{grid-template-columns:1fr 1fr}.dest-grid{grid-template-columns:1fr 1fr}
   .map-wrap{aspect-ratio:auto;height:340px;border-radius:24px}
   .map-layout>div:last-child>.card{border-radius:22px}
