@@ -176,5 +176,7 @@ test('Kamkoliv – řádek cíle: štítky (🔥, počasí) se zalomí pod náze
   assert.match(rule('.cmp-city'), /white-space:normal/);
   assert.match(rule('.cmp-city'), /-webkit-line-clamp:2/, 'dlouhý název („Frankfurt nad Mohanem“) nejvýš na 2 řádky');
   assert.doesNotMatch(rule('.cmp-city'), /text-overflow:ellipsis/);
+  // jedno slovo širší než sloupec (vedle „✓ živě od …“ ~65 px) se zalomí – line-clamp do strany „…“ nedá („Klagenfu“)
+  assert.match(rule('.cmp-city'), /overflow-wrap:anywhere/);
   assert.match(rule('.cmp-bdg'), /flex:none/, 'štítky se nezmačkají – celé přejdou na další řádek');
 });

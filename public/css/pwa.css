@@ -37,6 +37,9 @@
 /* dvě pravidla: prohlížeč bez :has() by jinak zahodil i první a lišta by zůstala nad oknem */
 .modal-bg.show ~ .wn-pop{display:none}
 body:has(.pwa-update:not([hidden])) .wn-pop{display:none}
+/* otevřený našeptávač (poslední návrhy jsou dole nad lištou) a plovoucí „↓ zpět na …“ v Objevuj: lišta by je zakryla –
+   počká, viděná se označí, až se zase ukáže (app.js) */
+body:has(.pi-dd:not([hidden])) .wn-pop,body:has(.ex-back:not([hidden])) .wn-pop{display:none}
 .pwa-x:hover{color:var(--text);background:var(--surface-2)}
 @media(max-width:860px){
   .pwa-bar{padding:8px 16px}
@@ -48,3 +51,5 @@ body:has(.pwa-update:not([hidden])) .wn-pop{display:none}
   .wn-pop{left:12px;right:12px;width:auto;bottom:calc(88px + env(safe-area-inset-bottom));max-height:42vh}
   body:has(.trip-next:not([hidden])) .wn-pop{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 148px)}
 }
+/* nízký telefon (iPhone SE, 667 px): 42 % výšky sahalo od lišty až přes „Najít lety“ – seznam se posouvá uvnitř */
+@media(max-width:860px) and (max-height:700px){.wn-pop{max-height:30vh}}

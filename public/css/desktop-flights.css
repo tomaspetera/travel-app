@@ -127,7 +127,8 @@
      řádku vjel pod ⋯ a za okraj karty a třetí štítek (počasí u „🔥 super cena“) zmizel pod panelem. */
   #radar .radar-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
   #radar .radar-grid>.radar-card{aspect-ratio:auto;min-height:200px}
-  #radar .radar-card.skel{aspect-ratio:auto;min-height:200px}
+  /* kostra zhruba tak vysoká jako karta se štítky (~230 px) – ať stránka při načtení cen neposkočí */
+  #radar .radar-card.skel{aspect-ratio:auto;min-height:230px}
   #radar .radar-card .rc-badges{position:static;margin:0 42px auto 0;padding-bottom:10px}
   #radar .radar-card .rc-badges .b{max-width:100%;white-space:normal;border-radius:14px}
   .radar-card:focus-visible,.dest:focus-visible{outline:3px solid var(--accent);outline-offset:3px}

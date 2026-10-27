@@ -624,9 +624,10 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cmp-ph.ph{background:#0b1226 var(--ph) center/cover no-repeat}
 .cmp-ph.ph i{position:absolute;right:3px;bottom:3px;font-size:13px;line-height:1;padding:2px 3px;border-radius:6px;background:rgba(10,14,30,.45)}
 /* město má přednost: štítky (🔥, počasí, ⭐…) se, když se nevejdou, zalomí pod název a dlouhý název na 2 řádky –
-   na 360 px zbylo z „Plovdiv 🔥 🌦️ 8°“ jen „Pl…“ a z „Katovice 🌨️ 0°“ „Katovi…“ */
+   na 360 px zbylo z „Plovdiv 🔥 🌦️ 8°“ jen „Pl…“ a z „Katovice 🌨️ 0°“ „Katovi…“; jedno dlouhé slovo se zalomí
+   (overflow-wrap) – line-clamp dává „…“ jen dole, do strany by „Klagenfurt“ vedle ověřené ceny skončil „Klagenfu“ */
 .cmp-name{font-size:14.5px;white-space:nowrap;display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;min-width:0}
-.cmp-city{min-width:0;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.cmp-city{min-width:0;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}
 .cmp-bdg{flex:none;white-space:nowrap}
 .cmp-bdg:empty{display:none}
 .cmp-name .b{font-size:11px;padding:1px 6px;vertical-align:1px}
