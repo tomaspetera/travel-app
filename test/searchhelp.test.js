@@ -759,6 +759,10 @@ test('shownAt/ageNote: čas cen na obrazovce – náhled nedokončeného hledán
   assert.equal(H.ageNote(a, true), 'Průběžné výsledky z 5:49 (před 5 h) – hledání se nedokončilo a ceny se mezitím mohly změnit.');
   assert.equal(H.ageNote(H.resultAge(at, now), false), 'Výsledky hledání z 5:39 (před 5 h) – ceny se mezitím mohly změnit.');
   assert.equal(H.ageNote(H.resultAge(at, new Date(2026, 9, 11, 9, 0).getTime()), false), 'Výsledky hledání ze včera 5:39 (před 27 h) – ceny se mezitím mohly změnit.');
+  // obnovené před chvílí / před 20 min: jen čas a ↻ Hledat znovu, „mohly změnit“ až po hodině
+  assert.equal(H.ageNote(H.resultAge(at, at + 60e3), false), 'Výsledky hledání z 5:39 (před chvílí).');
+  assert.equal(H.ageNote(H.resultAge(at, at + 20 * 60e3), true), 'Průběžné výsledky z 5:39 (před 20 min) – hledání se nedokončilo.');
+  assert.equal(H.ageNote(H.resultAge(at, at + 60 * 60e3), false), 'Výsledky hledání z 5:39 (před 1 h) – ceny se mezitím mohly změnit.');
 });
 
 test('recentAdd/recentForm: nedávná hledání bez opakování, termíny v minulosti pryč, začatý rozsah od dneška', () => {

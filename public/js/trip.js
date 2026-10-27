@@ -3513,7 +3513,11 @@
     ].filter(Boolean);
     // vstupní poplatky (ESTA, e-vízum…): zvlášť pod součtem, do „Celkem“ se nezapočítávají – platí se mimo cestu
     const isos = tripCountries(t), via = tripVia(t);
-    const fees = window.Entry && Entry.ready() ? Entry.costs(isos, paxN(t) + (+t.infants || 0), via) : []; // povolení (ESTA, ETA…) potřebuje každý, i miminko
+    // přílet i odlet v cíli a délka pobytu – oblast bez víza (Sinaj do 15 dní) poplatek nepočítá; jen jedno místo bez
+    // letů mezi městy (cesta přes víc míst může vést i do Káhiry)
+    const ol = outLeg(t), bl = backLeg(t);
+    const zone = !ovOn(t) && !isMulti(t) && !midLegs(t).length && ol && ol.to ? { airports: [ol.to, bl && bl.from].filter(Boolean), days: daysBetween(ol.date, returnDate(t)) + 1 } : null;
+    const fees = window.Entry && Entry.ready() ? Entry.costs(isos, paxN(t) + (+t.infants || 0), via, zone) : []; // povolení (ESTA, ETA…) potřebuje každý, i miminko
     const feeCzk = fees.reduce((s, x) => s + x.czk, 0);
     const provLabel = p => ({ kiwi: 'Kiwi.com', travelpayouts: 'Aviasales', ryanair: 'Ryanair', wizzair: 'Wizz Air' })[p] || p;
     // Ryanair a Wizz Air účtují v měně země odletu (let zpět z Itálie v eurech) – předem říct v čem a kolik
@@ -3545,8 +3549,9 @@
       <div class="card step-card"><h3>🧾 Cena cesty</h3>
         <table class="cost">${rows.map(r => `<tr><td>${r[0]}</td><td>${esc(r[1])}${r[3] || ''}</td><td>${czk(r[2])}</td></tr>`).join('')}
         <tr class="tot"><td></td><td>Celkem</td><td>${czk(c.total)}</td></tr><tr><td></td><td class="faint">na osobu</td><td class="faint">${czk(c.perPerson)}</td></tr>
-        ${fees.map(x => `<tr class="entry-fee"><td>🛂</td><td>${esc(x.label)} <span class="faint">– vstupní poplatek, orientačně</span></td><td>+ ${czk(x.czk)}</td></tr>`).join('')}
-        ${fees.length ? `<tr class="entry-tot"><td></td><td>Celkem i se vstupními poplatky</td><td>${czk(c.total + feeCzk)}</td></tr>` : ''}</table>
+        ${fees.map(x => x.free ? `<tr class="entry-fee"><td>🛂</td><td>${esc(x.label)}</td><td>zdarma</td></tr>`
+          : `<tr class="entry-fee"><td>🛂</td><td>${esc(x.label)} <span class="faint">– vstupní poplatek, orientačně</span></td><td>+ ${czk(x.czk)}</td></tr>`).join('')}
+        ${feeCzk > 0 ? `<tr class="entry-tot"><td></td><td>Celkem i se vstupními poplatky</td><td>${czk(c.total + feeCzk)}</td></tr>` : ''}</table>
         <div class="faint" style="font-size:12px;margin-top:8px">${ov ? 'Vlak / bus: cena vybraného spoje RegioJetu, nebo odhad – jízdenky kup u dopravce.' : c.bags ? 'Zavazadla jsou odhad podle dopravce.' : t.bags && t.bags !== 'none' ? 'Zavazadlo je podle ceníku dopravce v ceně letenky.' : 'Letenky bez zavazadel.'} Ceny u partnerů ověř před zaplacením.</div>
         ${budgetHtml(t, c)}
       </div>
