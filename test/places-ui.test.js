@@ -401,6 +401,25 @@ const ROUTE = (o = {}) => ({ km: 40, target: 40, ascent: 320, minutes: 150, unpa
   geometry: [[2.1686, 41.3874, 10], [2.2, 41.42, 60], [2.1686, 41.3874, 10]], activity: 'bike', kind: 'loop', bike: 'trekking', variant: 0,
   mapyUrl: 'https://mapy.com/fnc/v1/route?x=1', googleUrl: 'https://www.google.com/maps/dir/?api=1', ...o });
 
+test('poznámka pod trasou kola a pěšky: vidět čas bez přestávek a zdroj, výpočet a GPX pod „Jak počítám“ (dřív 5–8 řádků)', () => {
+  const foot = (r) => T.routeHtml(r, BCN_C, '2026-10-12').replace(/\s+/g, ' ')
+    .match(/<div class="faint" style="font-size:11\.5px;margin-top:6px">(.*?) <details class="foot-more"><summary>Jak počítám<\/summary>(.*?)<\/details><\/div>/);
+  const bike = foot(ROUTE());
+  assert.equal(bike[1], 'Čas v sedle je bez zastávek. Trasa: BRouter (brouter.de) nad mapou © OpenStreetMap.');
+  assert.match(bike[2], /^Čas je odhad podle kola a převýšení\. GPX nahraješ do Mapy\.com, Garminu, Komootu či Stravy/);
+  const hike = foot(ROUTE({ activity: 'hike' }));
+  assert.equal(hike[1], 'Čas chůze je bez přestávek. Trasa: BRouter (profil pěší turistiky) nad mapou © OpenStreetMap.');
+  assert.match(hike[2], /^Čas chůze podle turistického vzorce DIN 33466 \(4 km\/h, 300 m stoupání a 500 m klesání za hodinu\)\. „Spíš rovina“/);
+  const th = foot(ROUTE({ activity: 'hike', trailhead: { kind: 'town', name: 'Karpacz' } }));
+  assert.match(th[1], /^Čas chůze je bez přestávek\. Start túry: Wikidata\. Trasa: BRouter/);
+  const train = foot(ROUTE({ kind: 'train', station: { name: 'Vic', lat: 41.93, lon: 2.25, cc: 'ES' }, train: { googleUrl: 'https://www.google.com/maps/dir/?api=1' } }));
+  assert.match(train[1], /^Čas v sedle je bez zastávek\. Nádraží: Wikidata\. Trasa: BRouter \(brouter\.de\)/);
+  // záloha Mapy.com: logo a proč bez povrchu zůstávají vidět (podmínky Mapy.com API)
+  const mapy = foot(ROUTE({ source: 'mapy', activity: 'hike' }));
+  assert.match(mapy[1], /^Čas chůze je bez přestávek\. Trasa: <a class="mapy-by"[^>]*>Plánují <img[^>]*><\/a> – plánovač BRouter teď neodpovídá, proto bez rozboru povrchu a cest\.$/);
+  assert.match(mapy[2], /^Výšky jsou z výškového profilu Mapy\.com\. Čas chůze podle turistického vzorce DIN 33466\. GPX/);
+});
+
 test('drobnosti: „varianta n/10“ u Jiné trasy, prázdný okruh, mapa bez podkladu, anglický popis bez údaje o jazyku', () => {
   assert.equal(T.ROUTE_VARIANTS, 10);
   assert.deepEqual([0, 4, 9, 10, 13].map((v) => T.variantTxt({ kind: 'loop', variant: v })), ['varianta 1/10', 'varianta 5/10', 'varianta 10/10', 'varianta 1/10', 'varianta 4/10']);
@@ -476,7 +495,7 @@ test('Mapy.com: logo u návrhů z Mapy.com; trasa ze zálohy Mapy.com bez rozbor
   assert.match(h, /Trasa: <a class="mapy-by" href="https:\/\/mapy\.com\/"[^>]*>Plánují <img[^>]*alt="Mapy\.com"/);
   assert.match(h, /BRouter teď neodpovídá/);
   assert.match(h, /↗ 320 m stoupání/);
-  assert.match(h, /výšky z výškového profilu Mapy\.com/);
+  assert.match(h, /<summary>Jak počítám<\/summary>Výšky jsou z výškového profilu Mapy\.com\./);
   const noEle = T.routeHtml(ROUTE({ ...NIL, ascent: null, descent: null, kind: 'train', station: { name: 'Vic', lat: 41.93, lon: 2.25, cc: 'ES' }, train: { googleUrl: 'https://www.google.com/maps/dir/?api=1' } }), BCN_C, '2026-10-12');
   assert.ok(!/stoupání|klesání|null/.test(noEle.replace(/výškového profilu/g, '')), 'bez výšek žádné „↗ null m“');
   assert.match(noEle, /Nádraží: Wikidata\. Trasa: <a class="mapy-by"/);

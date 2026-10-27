@@ -623,9 +623,11 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cmp-ph i{font-style:normal;font-size:22px}
 .cmp-ph.ph{background:#0b1226 var(--ph) center/cover no-repeat}
 .cmp-ph.ph i{position:absolute;right:3px;bottom:3px;font-size:13px;line-height:1;padding:2px 3px;border-radius:6px;background:rgba(10,14,30,.45)}
-.cmp-name{font-size:14.5px;white-space:nowrap;display:flex;align-items:center;min-width:0}
-.cmp-city{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.cmp-bdg{flex:none;white-space:nowrap;margin-left:4px}
+/* město má přednost: štítky (🔥, počasí, ⭐…) se, když se nevejdou, zalomí pod název a dlouhý název na 2 řádky –
+   na 360 px zbylo z „Plovdiv 🔥 🌦️ 8°“ jen „Pl…“ a z „Katovice 🌨️ 0°“ „Katovi…“ */
+.cmp-name{font-size:14.5px;white-space:nowrap;display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;min-width:0}
+.cmp-city{min-width:0;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.cmp-bdg{flex:none;white-space:nowrap}
 .cmp-bdg:empty{display:none}
 .cmp-name .b{font-size:11px;padding:1px 6px;vertical-align:1px}
 .cmp-sub{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
@@ -688,8 +690,12 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .radar-card .rc-info{display:inline-grid;place-items:center;vertical-align:-2px;width:20px;height:20px;margin-left:3px;padding:0;border:1px solid rgba(255,255,255,.45);border-radius:50%;background:rgba(255,255,255,.06);
   color:#fff;font:600 12px/1 Inter,sans-serif;cursor:pointer;position:relative}
 .radar-card .rc-info::after{content:"";position:absolute;inset:-8px} /* plocha pro prst 36 × 36 px, kroužek dál 20 px */
-.rc-meta{font-size:12.5px;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rc-meta .rcf{margin-right:3px}
+/* země se zkrátí („Bosna a Herceg…“), termín zůstane celý – na telefonu jinak dlouhá země nebo víkend s dny
+   („So 28.11.–Ne 29.11.“) končily „· So 28.11.–N…“ a z karty zmizelo, kdy se letí; země je vidět i z vlajky */
+.rc-meta{display:flex;align-items:baseline;font-size:12.5px;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden}
+.rc-meta .rcf{flex:none;margin-right:3px}
+.rc-meta .rc-cn{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.rc-meta .rc-dt{flex:none}
 .rc-sub{font-size:11.5px;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rc-sub .rc-lv::before{content:" · "}
 .rc-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
@@ -706,6 +712,9 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
   /* dny dovolené na vlastním řádku pod letišti – za nimi se na úzké kartě nevešly a končily „🏖️ 5 dní dov…“ */
   .rc-sub .rc-lv{display:block;overflow:hidden;text-overflow:ellipsis}
   .rc-sub .rc-lv::before{content:none}
+  /* „✓ levnější i s cestou na letiště“ je na 360 px širší než místo vedle ⋯ a vjel pod něj – štítek se zalomí uvnitř
+     (karta 4 : 5 má nad panelem místo i na dvouřádkový štítek; zaoblení 14 px = jednořádkový je pořád kapsle) */
+  .radar-card .rc-badges .b{max-width:100%;white-space:normal;border-radius:14px}
   .radar-card .rc-city{font-size:19px}
   .radar-card .rc-price{font-size:19px}
 }

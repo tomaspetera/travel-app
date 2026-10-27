@@ -151,3 +151,30 @@ test('světlý režim (ve dne na slunci): --faint na pozadí, kartě i v okně a
     assert.ok(c < contrast(rgb(tok('muted')), bg), `popisky slabší než --muted (${where})`);
   }
 });
+
+test('telefon: karta radaru – dlouhá země se zkrátí, termín zůstane celý (ne „Bosna a Hercegovina · 10.11.–1…“)', () => {
+  const css = noComments(read('css/flights.css'));
+  assert.match(css, /\.rc-meta\{display:flex;[^}]*white-space:nowrap;overflow:hidden\}/);
+  assert.match(css, /\.rc-meta \.rc-cn\{min-width:0;overflow:hidden;text-overflow:ellipsis\}/, 'země se zkrátí');
+  assert.match(css, /\.rc-meta \.rc-dt\{flex:none\}/, 'termín (u víkendů i s dny „So 28.11.–Ne 29.11.“) nikdy');
+  // oddělovač „ · “ patří k termínu (ve flexu by obyčejné mezery kolem tečky zmizely)
+  assert.match(read('js/flights.js'), /\$\{cn \? `<span class="rc-cn">\$\{esc\(cn\)\}<\/span>` : ''\}<span class="rc-dt">\$\{cn \? '\\u00a0·\\u00a0' : ''\}\$\{day\(x\.d1\)\}/);
+});
+
+test('telefon: štítek radaru „✓ levnější i s cestou na letiště“ se na 360 px zalomí uvnitř – nevjede pod ⋯', () => {
+  const css = noComments(read('css/flights.css'));
+  const wrap = /\.radar-card \.rc-badges \.b\{max-width:100%;white-space:normal;border-radius:14px\}/;
+  assert.match(mediaBody(css, '@media(max-width:560px)'), wrap);
+  // jen na telefonu: v mřížce na počítači je nad panelem místo jen na dva řádky štítků
+  assert.equal(css.match(new RegExp(wrap.source, 'g')).length, 1);
+});
+
+test('Kamkoliv – řádek cíle: štítky (🔥, počasí) se zalomí pod název, název celý (ne „Pl…“ z „Plovdiv 🔥 🌦️ 8°“)', () => {
+  const css = noComments(read('css/flights.css'));
+  const rule = (sel) => ([...css.matchAll(new RegExp(`^${sel.replace(/\./g, '\\.')}\\{([^}]*)\\}`, 'gm'))].at(-1) || [])[1] || '';
+  assert.match(rule('.cmp-name'), /display:flex;flex-wrap:wrap/);
+  assert.match(rule('.cmp-city'), /white-space:normal/);
+  assert.match(rule('.cmp-city'), /-webkit-line-clamp:2/, 'dlouhý název („Frankfurt nad Mohanem“) nejvýš na 2 řádky');
+  assert.doesNotMatch(rule('.cmp-city'), /text-overflow:ellipsis/);
+  assert.match(rule('.cmp-bdg'), /flex:none/, 'štítky se nezmačkají – celé přejdou na další řádek');
+});

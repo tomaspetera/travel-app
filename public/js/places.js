@@ -125,6 +125,9 @@
   // Logo Mapy.com (podmínka jejich API): u návrhů z Mapy.com („Hledají i Mapy.com“) a nad turistickou mapou.
   const MAPY_LOGO = 'https://api.mapy.com/img/api/logo.svg';
   const mapyBy = what => `<a class="mapy-by" href="https://mapy.com/" target="_blank" rel="noopener">${what} <img src="${MAPY_LOGO}" alt="Mapy.com" height="14"></a>`;
+  // Poznámka pod trasou a túrami: zdroje a výpočet času sbalené pod „Jak počítám ▾“ (na telefonu to bylo 8–12 řádků);
+  // vidět zůstane, co je potřeba hned (čas bez přestávek, ověř chaty a počasí) a atribuce dat
+  const footMore = html => ` <details class="foot-more"><summary>Jak počítám</summary>${html}</details>`;
   const sugHtml = (sugs, act, err) => (err ? '<div class="pi-empty">Hledání míst teď nefunguje – zkus to za chvíli</div>'
     : sugs.length ? (sugs[0].fuzzy ? '<div class="pi-head">🔤 Překlep? Asi myslíš:</div>' : '') + sugs.map((s, i) => `<div class="pi-opt ${i === act ? 'on' : ''}" data-i="${i}"><span class="pi-flag">${s.flag || '📍'}</span><span class="pi-t"><b>${esc(s.label)}</b><small>${esc(s.sub || '')}</small></span></div>`).join('')
       + (sugs.some(s => s.src === 'mapy') ? `<div class="pi-by">${mapyBy('Hledají i')}</div>` : '')
@@ -2043,12 +2046,15 @@
         <a class="btn" href="${esc(safeUrl(r.mapyUrl))}" target="_blank" rel="noopener">Otevřít v Mapy.com ↗</a>
         <a class="btn" href="${esc(safeUrl(r.googleUrl))}" target="_blank" rel="noopener">Google Maps ↗</a>
       </div></div>
-      <div class="faint" style="font-size:11.5px;margin-top:6px">${r.source === 'mapy'
-        ? `${train ? 'Nádraží: Wikidata. ' : r.trailhead ? 'Start túry: Wikidata. ' : ''}Trasa: ${mapyBy('Plánují')} – plánovač BRouter teď neodpovídá, proto bez rozboru povrchu a cest${r.ascent != null ? '; výšky z výškového profilu Mapy.com' : ''}. ${hike ? 'Čas chůze podle turistického vzorce DIN 33466, bez přestávek.' : 'Čas je odhad Mapy.com, bez zastávek.'}`
+      <div class="faint" style="font-size:11.5px;margin-top:6px">${hike ? 'Čas chůze je bez přestávek.' : 'Čas v sedle je bez zastávek.'} ${r.source === 'mapy'
+        ? `${train ? 'Nádraží: Wikidata. ' : r.trailhead ? 'Start túry: Wikidata. ' : ''}Trasa: ${mapyBy('Plánují')} – plánovač BRouter teď neodpovídá, proto bez rozboru povrchu a cest.`
+        : `${train ? 'Nádraží: Wikidata. ' : r.trailhead ? 'Start túry: Wikidata. ' : ''}Trasa: BRouter${hike ? ' (profil pěší turistiky)' : ' (brouter.de)'} nad mapou © OpenStreetMap.`}
+        ${footMore(`${r.source === 'mapy'
+        ? `${r.ascent != null ? 'Výšky jsou z výškového profilu Mapy.com. ' : ''}${hike ? 'Čas chůze podle turistického vzorce DIN 33466.' : 'Čas je odhad Mapy.com.'}`
         : hike
-        ? `${r.trailhead ? 'Start túry: Wikidata. ' : ''}Trasa: BRouter (profil pěší turistiky) nad mapou © OpenStreetMap. Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu), bez přestávek. „Spíš rovina“ se vyhýbá stoupání, „Do kopců“ dává přednost pěšinám a horským stezkám (kopce ale plánovač sám nevyhledá).`
-        : `${train ? 'Nádraží: Wikidata. ' : ''}Trasa: BRouter (brouter.de) nad mapou © OpenStreetMap. Čas je odhad podle kola a převýšení, bez zastávek.`}
-        GPX nahraješ do Mapy.com, Garminu, Komootu či Stravy; odkazy do Mapy.com a Google Map vedou trasu přes několik bodů, takže se může mírně lišit.</div>`;
+        ? 'Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu). „Spíš rovina“ se vyhýbá stoupání, „Do kopců“ dává přednost pěšinám a horským stezkám (kopce ale plánovač sám nevyhledá).'
+        : 'Čas je odhad podle kola a převýšení.'}
+        GPX nahraješ do Mapy.com, Garminu, Komootu či Stravy; odkazy do Mapy.com a Google Map vedou trasu přes několik bodů, takže se může mírně lišit.`)}</div>`;
   }
 
   /* ---------- 🗓️ túra na každý den (hory a příroda; server/lib/hikeplan.js) ---------- */
@@ -2165,7 +2171,7 @@
       <div class="faint hk-intro">🥾 ${n ? `Túra na každý den${plan.area ? ` · ${esc(plan.area.cs)}` : ''} – každý den jiný cíl, ✕ u cíle naplánuje jiný.` : 'Na túru tu nevyšel ani jeden den.'}</div>
       ${plan.days.map((d, i) => hikeDayHtml(d, i, center, plan)).join('')}
       ${spare.length ? `<details class="more"><summary>Další cíle v okolí (${spare.length})</summary><div class="hk-spare">${spare.map(s => `<div>${GOAL_ICON[s.kind] || '📍'} <b>${esc(s.name)}</b> <span class="faint">· ${esc(GOAL_KIND[s.kind] || '')}${s.d != null && plan.fromBase !== false ? ` · ${kmTxt(s.d)}` : ''}</span> <a class="linkbtn" href="${esc(safeUrl(mapyAt(s)))}" target="_blank" rel="noopener">Mapy.com ↗</a></div>`).join('')}</div></details>` : ''}
-      <div class="faint" style="font-size:11.5px;margin-top:8px">Cíle: Wikidata (nejznámější vrcholy, hřbety, vodopády, jezera, skály, hrady a chaty v okolí), start u cíle: Wikidata, trasa tam a zpět: BRouter (profil pěší turistiky) nad © OpenStreetMap, občerstvení po cestě: © OpenStreetMap (Overpass). Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu, kratší z obou časů se přičte polovinou), bez přestávek – na ně počítám ~20 %. Obtížnost: lehká do 3 h chůze a 400 m stoupání, náročná nad 6 h, 1 000 m stoupání nebo 20 km. Bez trasy odhad: vzdušná čára × 1,35 tam a zpět. Provoz chat a lanovek ověř; v horách sleduj předpověď a značení. ${WX_SRC}.</div>`;
+      <div class="faint" style="font-size:11.5px;margin-top:8px">Provoz chat a lanovek ověř; v horách sleduj předpověď a značení. Data: Wikidata, BRouter a © OpenStreetMap. ${WX_SRC}.${footMore('Cíle: Wikidata (nejznámější vrcholy, hřbety, vodopády, jezera, skály, hrady a chaty v okolí), start u cíle: Wikidata, trasa tam a zpět: BRouter (profil pěší turistiky) nad © OpenStreetMap, občerstvení po cestě: © OpenStreetMap (Overpass). Čas chůze podle turistického vzorce DIN 33466 (4 km/h, 300 m stoupání a 500 m klesání za hodinu, kratší z obou časů se přičte polovinou), bez přestávek – na ně počítám ~20 %. Obtížnost: lehká do 3 h chůze a 400 m stoupání, náročná nad 6 h, 1 000 m stoupání nebo 20 km. Bez trasy odhad: vzdušná čára × 1,35 tam a zpět.')}</div>`;
   }
   // Mapa túr: cíle očíslované po dnech, start u cíle, trasa dne plnou čarou (odhad čárkovaně start → cíl).
   function drawHikes(state, center, plan, onClick) {

@@ -182,6 +182,13 @@ a{color:inherit}
 /* 320 px: „🎫 Jízdenka v PID Lítačka“ vedle cesty na letiště v Průběhu cesty je širší než sloupec textu – bez zalomení
    roztáhla celou kartu Shrnutí doprava; štítek se zalomí uvnitř jen tehdy, když se nevejde ani na samostatný řádek */
 @media(max-width:380px){.app-chip{white-space:normal}}
+/* poznámka pod výsledky / trasou: podstatné je vidět, zdroje a výpočet se rozbalí („Jak počítám ▾“) – na telefonu
+   byla jinak pod výsledky Letů nebo pod túrou zeď 8–20 řádků drobného písma, kterou nikdo nečte */
+.foot-more{margin-top:2px}
+.foot-more>summary{display:inline-block;padding:3px 0;cursor:pointer;color:var(--accent-ink);font-weight:600;list-style:none}
+.foot-more>summary::-webkit-details-marker{display:none}
+.foot-more>summary::after{content:' ▾'}
+.foot-more[open]>summary::after{content:' ▴'}
 .input,select,textarea{
   width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);
   font-family:inherit;font-size:14px;outline:none;transition:.15s

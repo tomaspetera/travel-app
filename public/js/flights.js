@@ -2061,7 +2061,8 @@
     // 📅 Kalendář u jednoho cíle ze serveru, u Kamkoliv a země z načtených nabídek (destCalHtml)
     const modes = [...(exactRoute ? [['legs', '✈︎ Lety']] : []), ['list', exactRoute ? '☰ Kombinace' : isRoute ? '☰ Seznam' : '≡ Přehled'], ...(!isRoute ? [['cards', '☰ Karty']] : []), ['map', '🗺️ Mapa'], ['cal', '📅 Kalendář']];
     // telefon: filtry, řazení a „Odkud se vyplatí letět“ za jedním tlačítkem – výsledky hned pod hlavičkou (na počítači
-    // vidět vždy); otevřené zůstane i po překreslení, otevřený panel času a přestupů ho drží otevřené
+    // vidět vždy); otevřené zůstane i po překreslení, otevřený panel času a přestupů ho drží otevřené. Poznámka o pořadí
+    // pod filtry krátce (rozpis doporučeného pořadí jen v title – na telefonu to bylo 6–7 řádků drobného písma)
     const moreOpen = Boolean(view.moreOpen || view.timeOpen), nMore = chips.length + (view.sort !== 'best' ? 1 : 0);
     const summary = kiwiBanner(res) + `<div class="res-head">
       <div><h2>${isRoute ? `✈️ ${destTxt}${res.partial ? ' <span class="part-tag">⏳ zatím část nabídek</span>' : ''}` : `🌍 ${res.partial ? 'Zatím ' : ''}${groups.length < res.groups.length ? `${groups.length} ${zeN(res.groups.length)} ${res.groups.length} destinací` : plural(res.groups.length, 'destinace', 'destinace', 'destinací')} ${res.destination.kind === 'countries' ? '· ' + destTxt : ''}`}</h2>
@@ -2088,7 +2089,7 @@
       </div>
       ${view.timeOpen ? timePanel(res, SearchHelp.timeStats(base), th) : ''}
       ${originCard(res)}
-      <div class="faint rank-note">Pořadí určuje jen zvolené řazení – žádná aerolinka ani partner si za lepší pozici neplatí.${view.sort === 'best' ? ' Doporučené počítá s cenou i s cestou na letiště a do města, časem na cestě, nočními odjezdy, tím, kolik zbude času na místě, a cenou pod obvyklou; další cíl ze stejné země dá o kus níž. Proč je nabídka nad levnější letenkou, řekne štítek ✓ (po najetí nebo podržení rozpis).' : ''}${health?.affiliate ? ' Odkazy na Aviasales jsou partnerské (affiliate, <span class="ad-tag">reklama</span>): při nákupu přes ně může ATLAS dostat provizi, cenu to pro tebe nemění.' : ''}</div>
+      <div class="faint rank-note"${view.sort === 'best' ? ' title="Doporučené počítá s cenou i s cestou na letiště a do města, časem na cestě, nočními odjezdy, tím, kolik zbude času na místě, a cenou pod obvyklou; další cíl ze stejné země dá o kus níž."' : ''}>Pořadí určuje jen zvolené řazení – žádná aerolinka ani partner si za lepší pozici neplatí.${view.sort === 'best' ? ' Doporučené počítá i s cestou na letiště a do města a s časy letů; proč je cíl výš, řekne ✓ u nabídky.' : ''}${health?.affiliate ? ' Odkazy na Aviasales jsou partnerské (affiliate, <span class="ad-tag">reklama</span>): při nákupu přes ně může ATLAS dostat provizi, cenu to pro tebe nemění.' : ''}</div>
       </div>
       ${onlyFilled ? `<div class="note info tf-filled" style="margin-bottom:14px">🔀 <div><b>Filtrům času a přestupů nevyhoví žádná z nalezených kombinací celá</b> – lety tam a zpět, které jim vyhoví, jsem spároval sám (${plural(filledNow.length, 'dvojice', 'dvojice', 'dvojic')} dvou samostatných letenek, každou kupuješ zvlášť).</div></div>` : ''}
       ${nearbyHtml(res, thin)}
@@ -2117,7 +2118,8 @@
     // Málo výsledků: ze serveru (thin), nebo je skryly filtry času a přestupů – pak nabídnout hlavně jejich zrušení.
     const thinVis = !res.partial && th.any > 0 && (isRoute ? flat.length : groups.length) < 3;
     if (thin || thinVis) body += smartHelp(res, false, { chips: chips.filter(c => c.time), any: th.any, onlyClear: !thin });
-    host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letiště do města je u nabídek zvlášť, jen pro představu (průměrná cena) – do ceny se nepočítá${view.sort === 'trip' ? ', jen do řazení „i s cestou na letiště“' : view.sort === 'best' ? ', jen do doporučeného pořadí' : view.sort === 'fast' ? ', jen do řazení „Cena + délka cesty“' : ' ani do pořadí'}: ${esc(groundFoot(res))}; ${esc(arrivalFoot(res))}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2).replace('.', ',')} Kč (${esc(res.fx.source)})` : '—'}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020) – ne předpověď počasí; u cest do 15 dní je u nabídky předpověď Open-Meteo.</div>`;
+    // patička: co cena je, vidět hned; z čeho je odhad dopravy, kurz a teplota až po rozbalení (na telefonu 16–20 řádků)
+    host.innerHTML = summary + body + `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letiště do města je u nabídek zvlášť – do ceny se nepočítá.${footMore(`Doprava je jen pro představu (průměrná cena)${view.sort === 'trip' ? ' a počítá se jen do řazení „i s cestou na letiště“' : view.sort === 'best' ? ' a počítá se jen do doporučeného pořadí' : view.sort === 'fast' ? ' a počítá se jen do řazení „Cena + délka cesty“' : ' a nepočítá se ani do pořadí'}: ${esc(groundFoot(res))}; ${esc(arrivalFoot(res))}. Živé ceny (Ryanair, Wizz Air) se mohou do rezervace změnit; ceny „z cache“ ověř. Kurz: ${fxFoot(res)}. 🌡️ Teplota u cíle je dlouhodobý průměr denních maxim v měsíci odletu (meteostanice u letiště, průměr 1991–2020; kde stanice není, NASA POWER 2001–2020) – ne předpověď počasí; u cest do 15 dní je u nabídky předpověď Open-Meteo.`)}</div>`;
     wireResults();
     if (window.Photos) Photos.paint(host); // fotky měst v řádcích výsledků (jen viditelné)
     wxFill();
@@ -2133,6 +2135,9 @@
     return `<div class="direct-hint"><span>✈️ Bez přestupu od <b>${czk(d.czk)}</b>/os.${d.more ? ` <small>(o ${czk(d.more)} víc · z ${esc(d.from)})</small>` : ` <small>(z ${esc(d.from)})</small>`}</span><button type="button" class="btn sm" data-tst="0">Jen přímé</button></div>`;
   }
 
+  // Rozpis v patičce výsledků (zdroje odhadů, kurz) – sbalený pod „Jak počítám ▾“; vidět zůstane jen, co cena je.
+  function footMore(html) { return ` <details class="foot-more"><summary>Jak počítám</summary>${html}</details>`; }
+  function fxFoot(res) { return res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2).replace('.', ',')} Kč (${esc(res.fx.source)})` : '—'; }
   // Co je v ceně za zavazadla (patička výsledků); příplatky jsou jen odhad podle dopravce.
   function bagFoot(bags) {
     if (!BAG_LBL[bags]) return 'jen s malým zavazadlem pod sedadlo (kufr si přidej v „Další možnosti → 🧳 Zavazadla“)';
@@ -2654,7 +2659,7 @@
     const title = full ? 'Vybraná cesta' : any ? 'Nejlevnější cesta s vybranými lety' : 'Nejlevnější celá cesta';
     const body = `<div class="section-head legs-pick" id="mcPick"><h2>${title}</h2></div>`
       + (plan.best ? mCard(res, plan.best.picks) : `<div class="empty">${any ? 'Vybrané lety spolu nejdou spojit – vyber jiný let nebo zruš výběr.' : esc(mEmptyTxt(res))}</div>`);
-    const foot = `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letišť do měst je u cesty zvlášť, jen pro představu (průměrná cena): ${esc(groundFoot(res, true))}; ${esc(arrivalFoot(res, true))}; přejezdy mezi městy na cestě se nepočítají. Živé ceny se mohou do rezervace změnit. Kurz: ${res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2).replace('.', ',')} Kč (${esc(res.fx.source)})` : '—'}.</div>`;
+    const foot = `<div class="res-foot faint">Ceny jsou za letenky na osobu ${bagFoot(res.query.bags)}. Doprava na letiště a z letišť do měst je u cesty zvlášť a přejezdy mezi městy se nepočítají.${footMore(`Doprava je jen pro představu (průměrná cena): ${esc(groundFoot(res, true))}; ${esc(arrivalFoot(res, true))}. Živé ceny se mohou do rezervace změnit. Kurz: ${fxFoot(res)}.`)}</div>`;
     host.innerHTML = head + steps + body + (res.combos.length > 1 ? mCombos(res, picks) : '') + foot;
     wireMulti(host, res);
     wireHelp(host);
@@ -3523,9 +3528,12 @@
     const tipBack = (x, key) => `${dayLabel(key)}: návrat nejlevněji z cíle ${x.label} – ${czk(x.cost)}/os. tam i zpět (odlet ${fmtDate(x.outDate)})${cnt(x)} s návratem tento den`;
     const mark = x => (x.cc ? `<i class="cd-f" aria-hidden="true">${flag(x.cc)}</i>` : '');
     const incl = [trip ? 'letenky tam i zpět' : 'letenka tam', BAG_LBL[q.bags] ? 'zavazadla' : ''].filter(Boolean).join(' + ');
+    // co je v ceně, jen když to nadpis kalendáře neříká (zavazadla, max. cena hledání) – poznámka pod kalendářem měla
+    // na telefonu 6–7 řádků
+    const inclTxt = BAG_LBL[q.bags] || q.maxPrice ? `${incl}${q.maxPrice ? `, nejvýš ${czk(q.maxPrice)} (max. cena hledání)` : ''}` : '';
     // dny návratu sbalené (na telefonu by odsunuly cíle vybraného dne o několik obrazovek), otevřené zůstanou otevřené
     const back = trip ? `<details class="dc-back" id="dcBack"${view.calBack ? ' open' : ''}><summary>🛬 Podle dne návratu – nejlevnější cíl</summary>${calBox(cal.back, '', false, all.back, { fOn, by, tip: tipBack, mark, trim: true })}</details>` : '';
-    return `<div class="card cal-card dest-cal">${calBox(cal.out, trip ? '🛫 Podle dne odletu – nejlevnější cíl, letenky tam i zpět (Kč/os.)' : '🛫 Podle dne odletu – nejlevnější cíl (Kč/os.)', true, all.out, { fOn, by, tip: tipOut, mark, trim: true })}${back}<div class="faint" style="font-size:12px;margin-top:8px">V každém dni nejlevnější cíl s vlajkou. Z nabídek, které hledání našlo (u každého cíle pár nejlevnějších termínů – jiné dny můžou mít let taky, ukáže je hledání do jednoho cíle). Cena na osobu: ${incl}${trip && !q.exact ? ', se zadaným počtem nocí' : ''}${q.maxPrice ? `, nejvýš ${czk(q.maxPrice)} (max. cena hledání)` : ''}. Klepni na den odletu a uvidíš cíle s odletem v ten den.${fOn ? ` <b>${lOn ? `🔎 Podle filtrů výpisu${tOn ? ' i času a přestupů' : ''}` : '🕐 Podle filtrů času a přestupů'}</b> – ✕ = ten den žádná nabídka neprošla.` : ''}</div></div>`;
+    return `<div class="card cal-card dest-cal">${calBox(cal.out, trip ? '🛫 Podle dne odletu – nejlevnější cíl, letenky tam i zpět (Kč/os.)' : '🛫 Podle dne odletu – nejlevnější cíl (Kč/os.)', true, all.out, { fOn, by, tip: tipOut, mark, trim: true })}${back}<div class="faint" style="font-size:12px;margin-top:8px">V každém dni nejlevnější cíl z nalezených nabídek – další termíny ukáže hledání do jednoho cíle.${inclTxt ? ` Cena na osobu: ${inclTxt}.` : ''} Klepni na den odletu a uvidíš všechny cíle s odletem v ten den.${fOn ? ` <b>${lOn ? `🔎 Podle filtrů výpisu${tOn ? ' i času a přestupů' : ''}` : '🕐 Podle filtrů času a přestupů'}</b> – ✕ = ten den žádná nabídka neprošla.` : ''}</div></div>`;
   }
   function calendarHtml(res, extra = []) {
     const cal = res.calendar; if (!cal) return '';
@@ -4761,7 +4769,7 @@
       ${dmBtn({ ...x, key: SearchHelp.destKeyOf(x.id) }, `data-rdm="${i}"`)}
       <div class="rc-panel">
         <div class="rc-city">${rcName(x.label, `<button type="button" class="rc-info" data-rinfo="${i}" aria-label="Co tam je – ${esc(x.label)}" title="🔎 Co tam je: místa k vidění, z letiště do města, počasí, vstup">i</button>`)}</div>
-        <div class="rc-meta"><span class="rcf">${flag(x.cc)}</span>${esc(cn)}${cn ? ' · ' : ''}${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}</div>
+        <div class="rc-meta"><span class="rcf">${flag(x.cc)}</span>${cn ? `<span class="rc-cn">${esc(cn)}</span>` : ''}<span class="rc-dt">${cn ? '\u00a0·\u00a0' : ''}${day(x.d1)}${x.d2 ? '–' + day(x.d2) : ''}</span></div>
         <div class="rc-sub"${x.bt ? ' title="Zpět z jiného letiště nebo na jiné letiště než odlet"' : ''}>${esc(SearchHelp.radarRoute(x))}${radarLeave(x)}</div>
         <div class="rc-foot"><div class="rc-price">${czk(x.czk)}<small>/os.</small></div><span class="rc-go" aria-hidden="true">›</span></div>
       </div>
