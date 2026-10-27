@@ -1255,8 +1255,8 @@ pro Clauda jsou v `CLAUDE.md`.
 
 - **`@claude`** v novém issue nebo v komentáři k issue („@claude na mobilu v Objevuj přetéká …“) → oprava jako PR
   a odkaz v issue; na otázku jen odpoví komentářem. Reaguje jen na lidi s právem zápisu do repozitáře.
-- **Denní kontrola** (6:17 UTC) – každý den jedna oblast aplikace (Lety, Cesta, Objevuj, Přehled, zdroje cen, data,
-  vzhled); ověřené chyby opraví a pošle jako PR, jinak nic nezaloží. Po 8. 11. 2026 (konec propagačního kreditu)
+- **Pravidelná kontrola** (6:17 UTC, každé 4 dny – 1., 5., 9.… den v měsíci) – jedna oblast aplikace (Lety, Cesta, Objevuj,
+  Přehled, zdroje cen, data, vzhled); ověřené chyby opraví a pošle jako PR, jinak nic nezaloží. Po 8. 11. 2026 (konec propagačního kreditu)
   se sama nespouští.
 - **Ručně**: Actions → **Claude (Agent SDK)** → **Run workflow**, s vlastním úkolem, nebo prázdné = denní kontrola.
 
@@ -1946,7 +1946,7 @@ přes víc míst jedou úseky v ty dny autem a ostatní vlakem / busem. Srovnáv
   „0 Hostels in …“ a odkaz s ID nemá (Lagos, Porto-Novo, Abeokuta, Mikulov, Telč 10/2026; i s daty by na ní nic nebylo)
   –, dostane stránku země s poznámkou „v místě hostely nemá – zkus jinde v zemi“ a odkaz se přesune na konec seznamu.
   `PARTNER_LOOKUP=0` dohledávání vypne, DEMO se partnerů neptá. Ověřeno 6. a 7. 10. 2026 ve skutečném Chromu (Hotels.com
-  předvyplní místo, termín i hosty; Trip.com zůstává anglicky v USD – česká verze s Kč neexistuje).
+  předvyplní místo, termín i hosty; Trip.com zůstává anglicky a v eurech – koruny neumí, s `curr=CZK` ukázal dolary).
 - Vlak mimo tabulku přímých spojů je čas autem + cesta na nádraží: na regionálních tratích sedí, na rychlé trati,
   která v tabulce chybí, bývá ve skutečnosti kratší (mezi městy z tabulky platí jízdní řád – Vídeň → Brno ~1 h 50 min).
 - Cesta přes víc měst = samostatné letenky na každý let; přejezdy mezi městy (třeba Řím → Neapol) ATLAS nepočítá do ceny ani nehledá.

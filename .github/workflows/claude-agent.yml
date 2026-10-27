@@ -2,7 +2,8 @@
 # pokrývá Agent SDK a API, ne Claude Code GitHub Action). Claude jen mění soubory (.github/claude/agent.mjs), větev,
 # commit, PR a komentář dělá tenhle workflow – Claude sám ke GitHubu ani git push přístup nemá.
 # - @claude v novém issue nebo v komentáři k issue (jen lidé s právem zápisu) → oprava jako PR + odkaz v issue
-# - každý den 6:17 UTC kontrola jedné oblasti aplikace (do vypršení kreditu 8. 11. 2026) → PR, jen když něco opravil
+# - každé 4 dny (1., 5., 9.… den v měsíci) v 6:17 UTC kontrola jedné oblasti aplikace (do vypršení kreditu 8. 11. 2026)
+#   → PR, jen když něco opravil; jednou za 4 dny kvůli ceně (~1–1,6 $ z kreditu API za běh)
 # - ručně: Actions → Claude (Agent SDK) → Run workflow, s vlastním úkolem nebo prázdné = denní kontrola
 name: Claude (Agent SDK)
 
@@ -12,7 +13,7 @@ on:
   issue_comment:
     types: [created]
   schedule:
-    - cron: "17 6 * * *"
+    - cron: "17 6 */4 * *"
   workflow_dispatch:
     inputs:
       task:

@@ -232,7 +232,7 @@ test('odkaz na hotel u webu nabídky: Booking.com, Trip.com, Hotels.com a Expedi
   assert.deepEqual([b.site, b.sponsored, b.totalCzk, b.code], ['booking', false, 9000, 'BookingCom'], 'nabídka zůstane celá');
   assert.deepEqual(params(b.url), ['https://www.booking.com/searchresults.cs.html', { ss: 'Hotel Josef, Prague', checkin: '2026-11-12', checkout: '2026-11-15', group_adults: '3', no_rooms: '2', lang: 'cs', selected_currency: 'CZK' }]);
   // Trip.com: hledání podle názvu vyplní formulář (potvrdí se Hledat) – stejný formát jako odkaz na místo ve stayLinks
-  assert.deepEqual(params(link('Trip.com', 'CtripTA').url), ['https://www.trip.com/hotels/list', { searchWord: 'Hotel Josef, Prague', checkin: '2026-11-12', checkout: '2026-11-15', adult: '3', crn: '2', curr: 'CZK', locale: 'cs-CZ' }]);
+  assert.deepEqual(params(link('Trip.com', 'CtripTA').url), ['https://www.trip.com/hotels/list', { searchWord: 'Hotel Josef, Prague', checkin: '2026-11-12', checkout: '2026-11-15', adult: '3', crn: '2', curr: 'EUR', locale: 'cs-CZ' }]);
   const exp = { destination: 'Hotel Josef, Prague', startDate: '2026-11-12', endDate: '2026-11-15', adults: '3', rooms: '2' };
   assert.deepEqual(params(link('Hotels.com', 'HotelsCom2').url), ['https://www.hotels.com/Hotel-Search', exp]);
   assert.deepEqual(params(link('Expedia', 'Expedia').url), ['https://www.expedia.com/Hotel-Search', exp]);
@@ -245,7 +245,7 @@ test('odkaz na hotel u webu nabídky: Booking.com, Trip.com, Hotels.com a Expedi
   assert.match(link('Agoda', 'Agoda', { ...q, cityEn: '' }).url, /\?q=Hotel%20Josef%20Praha&/);
   // stayLinks (odkazy na místo) mají pořád stejný tvar
   const sl = stayLinks({ ...q, cc: 'CZ' });
-  assert.equal(sl.find((l) => l.id === 'trip').url, 'https://www.trip.com/hotels/list?searchWord=Prague%2C+Czechia&checkin=2026-11-12&checkout=2026-11-15&adult=3&crn=2&curr=CZK&locale=cs-CZ');
+  assert.equal(sl.find((l) => l.id === 'trip').url, 'https://www.trip.com/hotels/list?searchWord=Prague%2C+Czechia&checkin=2026-11-12&checkout=2026-11-15&adult=3&crn=2&curr=EUR&locale=cs-CZ');
   assert.equal(sl.find((l) => l.id === 'hotelscom').url, 'https://www.hotels.com/Hotel-Search?destination=Prague%2C+Czechia&startDate=2026-11-12&endDate=2026-11-15&adults=3&rooms=2');
   assert.equal(sl.find((l) => l.id === 'google').url, `https://www.google.com/travel/search?q=hotels%20Prague%2C%20Czechia&hl=cs&curr=CZK&ts=${googleHotelsTs('2026-11-12', '2026-11-15', 3)}`);
   // partnerský odkaz jen u Booking.com
