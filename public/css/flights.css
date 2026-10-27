@@ -1103,7 +1103,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .pin-sec[hidden]{display:none}
 .b.pin-b{background:rgba(91,140,255,.14);color:var(--accent-ink)}
 .pin-open{font-size:inherit}
-.dm-acts #dmPin{flex-basis:100%;white-space:normal}
+.dm-acts #dmPin,.dm-acts #dmWatch{flex-basis:100%;white-space:normal}
 .pin-age{color:var(--muted)}
 .pin-age.old,.pin-warn{color:var(--warn)}
 [data-theme=light] .pin-age.old,[data-theme=light] .pin-warn{color:#8a5a00}
