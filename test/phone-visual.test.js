@@ -165,7 +165,7 @@ test('telefon: štítek radaru „✓ levnější i s cestou na letiště“ se 
   const css = noComments(read('css/flights.css'));
   const wrap = /\.radar-card \.rc-badges \.b\{max-width:100%;white-space:normal;border-radius:14px\}/;
   assert.match(mediaBody(css, '@media(max-width:560px)'), wrap);
-  // jen na telefonu: v mřížce na počítači je nad panelem místo jen na dva řádky štítků
+  // ve flights.css jen pro telefon – počítač má vlastní pravidlo v desktop-flights.css (štítky tam jsou v toku karty)
   assert.equal(css.match(new RegExp(wrap.source, 'g')).length, 1);
 });
 

@@ -65,7 +65,11 @@ test('desktop-flights.css: jen v @media od 1024 px, načtený za desktop.css', (
 test('desktop-flights.css (průchod uživatele): nabídky nad ohybem, nižší karty, mozaika Rychlého hledání, srovnání podle karet; „/“ do hledání', () => {
   const src = readFileSync(new URL('../public/css/desktop-flights.css', import.meta.url), 'utf8');
   // radar: výška podle textu (ne 4:5), 3 / 4 / 6 sloupců podle šířky
-  assert.match(src, /#radar \.radar-grid>\.radar-card\{aspect-ratio:auto;min-height:200px;padding-top:48px\}/);
+  assert.match(src, /#radar \.radar-grid>\.radar-card\{aspect-ratio:auto;min-height:200px\}/);
+  // štítky v toku karty nad panelem (karta se jim přizpůsobí), zalomené, vpravo místo na ⋯ – ne pevné odsazení shora
+  assert.match(src, /#radar \.radar-card \.rc-badges\{position:static;margin:0 42px auto 0;padding-bottom:10px\}/);
+  assert.match(src, /#radar \.radar-card \.rc-badges \.b\{max-width:100%;white-space:normal;border-radius:14px\}/);
+  assert.doesNotMatch(src, /padding-top:(48|80)px/);
   assert.match(src, /@media \(min-width:1024px\) and \(max-width:1279px\)\{\s*#radar \.radar-grid\{grid-template-columns:repeat\(3,/);
   assert.match(src, /@media \(min-width:1800px\)\{\s*#radar \.radar-grid\{grid-template-columns:repeat\(6,/);
   // Rychlé hledání: 7 dlaždic = první přes dvě řady + 6 ve třech sloupcích (bez díry)

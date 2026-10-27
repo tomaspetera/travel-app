@@ -58,3 +58,18 @@ test('kalendář Kamkoliv: poznámka pod kalendářem na 3–4 řádky, „tam i
   assert.match(fn, /const inclTxt = BAG_LBL\[q\.bags\] \|\| q\.maxPrice \?/);
   assert.match(fn, /\$\{inclTxt \? ` Cena na osobu: \$\{inclTxt\}\.` : ''\}/);
 });
+
+test('řádek Kamkoliv na telefonu: termín a ✓ důvod přes celou šířku pod názvem i cenou (vedle ceny zbylo ~105 px)', () => {
+  const js = read('js/flights.js');
+  // letiště ve vlastním prvku (do mřížky se rovná samo), dny dovolené na začátku termínu – ne před letišti
+  assert.match(js, /<div class="faint cmp-sub"><span class="cmp-ap">\$\{esc\(t\.out\.from\)\} → \$\{esc\(t\.out\.to\)\}.*?<\/span><span class="cmp-when"><span class="cmp-dot"> · <\/span>\$\{lt \? `<span class="cmp-lv"/);
+  const css = noComments(read('css/flights.css'));
+  const phone = css.slice(css.indexOf('@media(max-width:560px){\n  .cmp-row{'));
+  const block = phone.slice(0, phone.indexOf('\n}\n'));
+  assert.match(block, /\.cmp-main,\.cmp-sub\{display:contents\}/);
+  // vyšší selektor než základní .cmp-hit:has(>.cmp-why)>.cmp-flag{grid-row:span 2} – jinak fotka roztáhla první dva řádky
+  assert.match(block, /\.cmp-hit>\.cmp-flag,\.cmp-hit:has\(>\.cmp-why\)>\.cmp-flag\{grid-area:1\/1\/5\/2\}/);
+  assert.match(block, /\.cmp-price\{grid-area:1\/3\/3\/4;align-self:start\}/);
+  assert.match(block, /\.cmp-when\{grid-area:3\/2\/4\/4\}/);
+  assert.match(block, /\.cmp-why\{grid-area:4\/2\/5\/4;[^}]*white-space:normal/, 'na 360 px se důvod zalomí, neuřízne');
+});
