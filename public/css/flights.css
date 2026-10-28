@@ -783,6 +783,8 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 @media(max-width:560px){
   .trip-row{grid-template-columns:1fr}
   .pbox{text-align:left;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  /* cena nabídky nahoře, nad lety a časy – pod nimi byla na telefonu až mimo první obrazovku výsledků */
+  .trip-row>.pbox{order:-1}
   .ld{min-width:0}
   .search-card{padding:16px}
   .res-tools{width:100%}

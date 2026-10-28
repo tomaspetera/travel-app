@@ -107,3 +107,11 @@ test('Lety u vracejícího se (už hledal): na telefonu bez úvodní fotky – t
   const m = css.match(/@media\(max-width:560px\)\{\n  \.fl-hero\{height:178px;[\s\S]*?#view-flights\.fl-back \.fl-hero\{display:none\}/);
   assert.ok(m, 'jen na telefonu (do 560 px)');
 });
+
+test('Lety na telefonu: cena nabídky nad lety a časy (dřív pod nimi, mimo první obrazovku výsledků); počítač beze změny', () => {
+  const css = read('css/flights.css');
+  const m = css.match(/@media\(max-width:560px\)\{\n  \.trip-row\{grid-template-columns:1fr\}[\s\S]*?\n\}/);
+  assert.ok(m, 'blok telefonu');
+  assert.match(m[0], /\.trip-row>\.pbox\{order:-1\}/);
+  assert.ok(!/(^|\n)\.trip-row>\.pbox\{order/.test(css.replace(m[0], '')), 'jen na telefonu');
+});
