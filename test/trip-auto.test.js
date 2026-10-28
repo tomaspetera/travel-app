@@ -97,6 +97,26 @@ test('⚡ Poskládej: jedno místo – hotel s nejlepším poměrem, bez auta, p
   assert.deepEqual([o.lat, o.lon, o.start, o.end, o.arrivalTime, o.departureTime], [t.plan.center.lat, t.plan.center.lon, t.plan.span.start, t.plan.span.end, t.plan.span.arrivalTime, t.plan.span.departureTime]);
 });
 
+test('⚡ Poskládej: u hotové cesty (ubytování, auto i platný program) v kroku Let chybí – nic by nepřidal', async () => {
+  const c = load();
+  const t = begin(c);
+  fakeFetch(c);
+  render(c, 'flight');
+  await c.__els['#tfAuto'].onclick();
+  for (let i = 0; i < 4; i++) await tick();
+  assert.equal(t.step, 'summary');
+  delete c.__els['#tfAuto'];
+  const f = render(c, 'flight');
+  assert.doesNotMatch(f, /tfAuto|Poskládej/);
+  assert.match(f, /id="tfNext"/);
+  // chybí jen auto (nebo program po změně letu) → nabídka je zpátky
+  t.car = null;
+  assert.match(render(c, 'flight'), /id="tfAuto">⚡ Poskládej/);
+  t.car = { mode: 'skip', totalCzk: 0 };
+  t.plan.span = { ...t.plan.span, start: '2026-11-09' };
+  assert.match(render(c, 'flight'), /id="tfAuto">⚡ Poskládej/);
+});
+
 test('⚡ Poskládej s dětmi: program rovnou se zájmem „S dětmi“ (server dostane kids), krok Program ho předvybere', async () => {
   const c = load();
   const t = begin(c, { children: 2 });
