@@ -314,6 +314,19 @@
     const w = progSpan(t), s = p.span;
     return (s ? spanOk(s, w) : p.days.every(d => d.date >= w.start && d.date <= w.end)) ? p : null;
   }
+  /**
+   * Krok má vybráno – ✓ v liště kroků (a v přehledu na počítači) i po návratu na dřívější krok, ať vracející se
+   * uživatel vidí, co už má: trasa (u víc míst s rozdělenými nocemi), ubytování a program všude, kde jsou potřeba, auto.
+   */
+  function stepDone(t, k) {
+    const bs = isMulti(t) ? t.route.bases : null;
+    if (k === 'flight') return true;
+    if (k === 'route') return bs ? nightsLeft(t) === 0 : Boolean(t.route || t.stay || t.car || t.plan);
+    if (k === 'stay') return bs ? bs.length > 0 && bs.every(b => b.stay) : Boolean(t.stay);
+    if (k === 'car') return Boolean(t.car);
+    if (k === 'program') return bs ? bs.length > 0 && bs.every((b, i) => basePlan(t, i)) : Boolean(tripPlan(t));
+    return false; // Shrnutí je přehled, ne volba
+  }
   /** Příjezd a odjezd cesty (den i čas) – po jejich změně neplatí program ani časy auta. */
   const tripTimes = t => { const b = backLeg(t); return JSON.stringify([stayDates(t), arrivalAt(outLeg(t)), b && b.hasTime ? String(b.dep).slice(0, 16) : null]); };
   /** Po změně spoje s jiným příjezdem nebo odjezdem: program znovu (místa trasy hlídá basePlan), auto s časy podle
@@ -928,7 +941,7 @@
       if (window.Photos) Photos.paint(root);
       return;
     }
-    const idx = STEPS.findIndex(s => s[0] === t.step);
+    const idx = STEPS.findIndex(s => s[0] === t.step), done = i => i !== idx && (i < idx || stepDone(t, STEPS[i][0]));
     if (root.dataset) root.dataset.step = t.step; // rozvržení kroku na počítači (desktop-trip.css)
     if (!autoT && autoOk(t) && !entryOf(t)) autoSoon(); // rozpracovaná z doby před samoukládáním → do Mých cest
     root.innerHTML = `
@@ -939,7 +952,7 @@
         <div class="th-total" id="thTotal">${headTotal(t)}</div>
         <div class="th-dest"><h2>${esc(tripName(t))}</h2><div class="th-sub" id="thSub">${headSub(t)}</div></div>
       </div>
-      <div class="stepbar">${STEPS.map((s, i) => `${i ? `<i${i <= idx ? ' class="done"' : ''}></i>` : ''}<button type="button" class="st ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${i < idx ? '✓' : s[1]}</span>${s[2]}</button>`).join('')}</div>
+      <div class="stepbar">${STEPS.map((s, i) => `${i ? `<i${i <= idx || done(i) ? ' class="done"' : ''}></i>` : ''}<button type="button" class="st ${done(i) ? 'done' : ''} ${i === idx ? 'on' : ''}" data-step="${s[0]}" title="${s[2]}" ${s[0] === 'flight' ? 'data-flight="1"' : ''}><span>${done(i) ? '✓' : s[1]}</span>${s[2]}</button>`).join('')}</div>
       ${sharedHtml(t)}${pastHtml(t)}
       <div class="tw-body"><div id="tripStep"></div><aside class="trip-aside" id="tripAside" aria-label="Přehled cesty">${asideHtml(t)}</aside></div>
       <div class="trip-next" id="tripNext" hidden></div>`;
@@ -1066,7 +1079,7 @@
     return `<div class="card ta-card">
       <div class="ta-h"><span class="ta-flag">${flag(t.dest.cc)}</span><div><b>${esc(tripName(t))}</b>
         <small>${fmtDate(checkin)}–${fmtDate(checkout)} · ${backLeg(t) ? nightsTxt(nights) : 'jen tam'} · ${paxTxt(t)}</small></div></div>
-      <div class="ta-rows">${rows.map(([k, ico, label, txt, czkVal]) => `<${k ? 'button type="button"' : 'div'} class="ta-row${k === t.step ? ' on' : ''}${k && at(k) < idx ? ' done' : ''}${k ? '' : ' sub'}"${k ? ` data-step="${k}"` : ''}>
+      <div class="ta-rows">${rows.map(([k, ico, label, txt, czkVal]) => `<${k ? 'button type="button"' : 'div'} class="ta-row${k === t.step ? ' on' : ''}${k && k !== t.step && (at(k) < idx || stepDone(t, k)) ? ' done' : ''}${k ? '' : ' sub'}"${k ? ` data-step="${k}"` : ''}>
         <span class="ta-ico" aria-hidden="true">${ico}</span><span class="ta-l"><b>${label}</b><small>${esc(txt)}</small></span><span class="ta-p">${czkVal ? czk(czkVal) : '–'}</span></${k ? 'button' : 'div'}>`).join('')}</div>
       <div class="ta-tot"><span>Celkem zatím</span><b>${czk(c.total)}</b><small>${czk(c.perPerson)} na osobu · ceny ověř u partnerů</small></div>
       <div class="ta-next" id="taNext" hidden></div>
