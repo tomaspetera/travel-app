@@ -589,7 +589,7 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .trip-body{padding:16px 18px}
 /* lidé, aktivity a balení vlevo, rozpočet vpravo – na úzké kartě rozpočet zalomí pod ně */
 .trip-body .bar{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;font-size:12px;color:var(--muted);margin-bottom:4px}
-.trip-body .bar>span:last-child{margin-left:auto}
+.trip-body .bar>span:last-child:not(:first-child){margin-left:auto} /* rozpočet vpravo; bez rozpočtu lidé vlevo */
 /* Plánovač: cesta jako karta s fotkou cíle a štítkem, kdy je */
 .trip{border-radius:24px}
 .trip-top[data-photo]{min-height:150px;display:flex;flex-direction:column;justify-content:flex-end;isolation:isolate;

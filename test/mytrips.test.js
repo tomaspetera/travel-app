@@ -91,9 +91,11 @@ test('záložka Cesty; menší karty v Mých cestách jen na telefonu a tabletu 
 
 test('karta cesty: lidé, aktivity a balení v jednom řádku s rozpočtem (na úzké kartě rozpočet vpravo pod nimi)', () => {
   const app = read('js/app.js');
-  assert.match(app, /<div class="bar"><span>👤 \$\{t\.pax \|\| 1\} os\. · \$\{na\} \$\{na === 1 \? 'aktivita'[^`]*sbaleno<\/span><span>\$\{t\.budget/);
+  assert.match(app, /<div class="bar"><span>👤 \$\{t\.pax \|\| 1\} os\. · \$\{na\} \$\{na === 1 \? 'aktivita'[^`]*sbaleno<\/span>\$\{t\.budget \? `<span>\$\{\(\+t\.budget\)\.toLocaleString\('cs'\)\} Kč<\/span>` : ''\}<\/div>/);
+  assert.ok(!app.includes('rozpočet —'), 'bez rozpočtu nic (zadává se v detailu cesty), ne pomlčka');
   assert.ok(!app.includes('class="muted tb-n"'), 'samostatný řádek aktivit pryč');
   const css = read('css/atlas.css');
   assert.match(css, /\.trip-body \.bar\{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;/);
-  assert.match(css, /\.trip-body \.bar>span:last-child\{margin-left:auto\}/);
+  assert.match(css, /\.trip-body \.bar>span:last-child:not\(:first-child\)\{margin-left:auto\}/, 'jen rozpočet vpravo – sám řádek s lidmi vlevo');
+  assert.match(read('css/desktop-explore.css'), /\.mt-more \.btn\{flex:0 1 auto;padding-inline:20px\}/, 'počítač: tlačítko podle popisku');
 });
