@@ -28,7 +28,7 @@
     season: 3, seasonNear: 1.5, offSeason: 0.55,
     near: 1.5, nearKm: 4000, midKm: 6000, mid: 0.75, popular: 1,
     value: 2, safety: 1.5, safe4: 0.3,
-    vibe: 3, seaHint: 1.5, fav: 1, viewed: 0.4, flight: 0.5, kidsNear: 1, kidsSafe: 0.5,
+    vibe: 3, seaHint: 1.5, fav: 1, viewed: 0.4, flight: 0.5, kidsNear: 1, kidsSafe: 0.5, been: 0.8,
     seaHi: 22, seaHot: 33, seaRain: 250, seaDry: 100, seaWarm: 1, seaWarmTo: 28,
     sameCont: 0.05, sameMax: 3,
     viewedDays: 21, radarDays: 7,
@@ -139,13 +139,13 @@
    * Pořadí zemí pro měsíc m (1–12). countries = data/countries.json, opt:
    *   vibe ('' | 'pláže' | 'hory' …), vibes (VIBES z data.js), budget (nejvýš tolik teček), safe (aspoň taková bezpečnost),
    *   season (api/climate?month= → countries | null), prof (profile()), radar (radarBest()), skip (Set iso – Přehled
-   *   bez navštívených), n (kolik)
+   *   bez navštívených), been (Set iso – kde už uživatel byl: níž, ne pryč), n (kolik)
    * → { list: [{ c, score, season, vibe, sea, tags, why: [{ ic, t, title }], fly: { id, label } }],
-   *     hidden: { mute: [názvy zemí], unsafe: počet } }
+   *     hidden: { mute: [názvy zemí], unsafe: počet, been: počet níž } }
    */
   function rank(countries, m, opt = {}) {
-    const { vibe = '', vibes = {}, budget = 9, safe = 0, season = null, prof = profile(), radar = new Map(), skip = null, n = 18 } = opt;
-    const hidden = { mute: [], unsafe: 0 };
+    const { vibe = '', vibes = {}, budget = 9, safe = 0, season = null, prof = profile(), radar = new Map(), skip = null, been = null, n = 18 } = opt;
+    const hidden = { mute: [], unsafe: 0, been: 0 };
     const seaWanted = vibe === 'pláže' || (!vibe && prof.sea);
     const kws = vibe ? (vibes[vibe] || []).map(norm) : [];
     const seaKws = (vibes['pláže'] || []).map(norm);
@@ -182,6 +182,10 @@
         + (fav ? W.fav : 0) + (seen && !fav ? W.viewed : 0) + (fl ? W.flight : 0)
         + (prof.kids ? (near === W.near ? W.kidsNear : 0) + (c.safety >= 4 ? W.kidsSafe : 0) : 0);
       if (!s) total *= W.offSeason;
+      // kde už byl (mapa navštívených, proběhlá cesta): níž, ať jsou nahoře i nové země – ne pryč, oblíbené místo znovu
+      // je v pořádku; se ⭐ cílem tam ne (tam se chce vrátit)
+      const was = Boolean(been && been.has(c.iso2) && !fav);
+      if (was) { total *= W.been; hidden.been++; }
       const tags = [];
       if (vm) tags.push(VIBE_TAG[vibe] || vibe); else if (!vibe && prof.sea && seaOk) tags.push('moře');
       if (s === 1) tags.push('ideální počasí');
@@ -195,6 +199,7 @@
       if (fl) why.push({ ic: '✈️', t: `tam i zpět od ${kc(fl.czk)}`, title: `Radar na Přehledu: nejlevnější zpáteční letenka do země z ${fl.from || 'okolí domova'}, odlet ${dm(fl.d1)} (cena na osobu bez dopravy na letiště)` });
       if (fav) why.push({ ic: '⭐', t: `Moje cíle: ${fav.slice(0, 2).join(', ')}`, title: 'Máš tu cíl v ⭐ Moje cíle' });
       else if (seen) why.push({ ic: '👀', t: `zaujalo tě: ${seen.slice(0, 2).join(', ')}`, title: 'Nedávno sis tenhle cíl rozbalil ve výsledcích hledání' });
+      if (was) why.push({ ic: '🗺️', t: 'už jsi tu byl/a', title: 'Země je na mapě navštívených nebo v proběhlé cestě – v Doporučení je níž, ať vidíš i nové země' });
       if (prof.kids && near === W.near) why.push({ ic: '👨‍👩‍👧', t: `s dětmi blízko: ~${km(dist)}`, title: 'Hledáš s dětmi – blízké a bezpečné země výš (vzdušnou čarou z Prahy)' });
       const fly = useSea && clim.sea.rg ? { id: `rg:${clim.sea.rg}`, label: clim.sea.name } : { id: `cc:${c.iso2}`, label: c.cs };
       scored.push({ c, raw: total, season: s, vibe: vm ? vibe : '', sea: seaOk, tags, why, fly });
@@ -222,6 +227,7 @@
     if (!vibe && prof.sea) parts.push('🏖️ hledáš hlavně moře – je výš');
     if (prof.kids) parts.push('👨‍👩‍👧 s dětmi – blízké a bezpečné výš');
     if (prof.fav.size) parts.push('⭐ země s mými cíli výš');
+    if (hidden.been) parts.push('🗺️ země, kde už jsi byl/a, níž');
     if (hidden.mute.length) parts.push(`🙈 vynechávám ${hidden.mute.slice(0, 3).join(', ')}${hidden.mute.length > 3 ? ` a další ${hidden.mute.length - 3}` : ''} (máš tam město v Nezajímá mě)`);
     return parts.join(' · ');
   }

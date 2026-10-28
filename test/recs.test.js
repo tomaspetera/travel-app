@@ -177,3 +177,28 @@ test('radar zná letenku: věta „tam i zpět od …“ a trochu výš; Přehle
   const cheap = rank(11, { budget: 2, safe: 5 });
   assert.ok(cheap.list.every((x) => x.c.cost <= 2 && x.c.safety === 5));
 });
+
+test('kde už jsi byl (mapa, proběhlá cesta): země níž s větou „už jsi tu byl/a“, ne pryč; se ⭐ cílem ne', () => {
+  const base = rank(11), ma = isos(base).indexOf('MA');
+  assert.ok(ma >= 0 && ma < 3, `Maroko v listopadu nahoře: ${ma}`);
+  const r = rank(11, { been: new Set(['MA']) });
+  assert.ok(isos(r).includes('MA'), 'zůstává');
+  assert.ok(isos(r).indexOf('MA') > ma + 2, `níž: ${ma} → ${isos(r).indexOf('MA')}`);
+  const x = r.list.find((y) => y.c.iso2 === 'MA');
+  assert.ok(x.why.some((w) => w.ic === '🗺️' && w.t === 'už jsi tu byl/a'));
+  assert.ok(x.score < base.list.find((y) => y.c.iso2 === 'MA').score);
+  assert.equal(r.hidden.been, 1);
+  assert.match(R.profileLine(R.profile({}), r.hidden, ''), /🗺️ země, kde už jsi byl\/a, níž/);
+  // ⭐ cíl v zemi, kde už byl: chce se vrátit – pořadí jako bez návštěvy
+  const fav = R.profile({ fav: [{ key: 'RAK', label: 'Marrákeš', cc: 'MA' }] });
+  assert.deepEqual(isos(rank(11, { prof: fav, been: new Set(['MA']) })), isos(rank(11, { prof: fav })));
+  assert.equal(rank(11, { prof: fav, been: new Set(['MA']) }).hidden.been, 0);
+  // bez been beze změny
+  assert.deepEqual(isos(rank(11, { been: new Set() })), isos(base));
+});
+
+test('app.js: Doporučení počítají s mapou navštívených i proběhlými cestami (beenIn)', () => {
+  const app = read('public/js/app.js');
+  assert.match(app, /Recs\.rank\(COUNTRIES, m, \{ vibes: VIBES, prof, radar, been: beenIn\(\), \.\.\.o \}\)/);
+  assert.match(app, /const beenIn = \(\) => new Set\(\[\.\.\.visited, \.\.\.\(S\.trips \|\| \[\]\)\.filter\(t => t && \(t\.end \|\| t\.start\) && \(t\.end \|\| t\.start\) < todayLocal\(\)\)/);
+});
