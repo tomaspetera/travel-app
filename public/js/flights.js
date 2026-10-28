@@ -4858,10 +4858,11 @@
     ];
     // ⭐ Moje cíle: prvních 5 (pole Kam jich víc nepojme) v termínech radaru
     const fav = prefLists().fav;
-    const qfHtml = (fav.length ? `<div class="card dest" data-qfav="1" data-photo="${esc(String(favNames(fav)).split(', ')[0])}" style="--h:200"><div class="flag">⭐</div><div class="dest-panel"><div class="cname">Moje cíle</div><div class="cblurb">${esc(favNames(fav))} · termíny jako radar</div><div class="meta"><span class="chip accent">Hledat lety</span><span>→</span></div></div></div>` : '')
-      + QF.map((q, i) => `<div class="card dest" data-qf="${i}" data-photo="${esc(q[4])}" style="--h:${ccHue(q[1])}"><div class="flag">${q[0]}</div><div class="dest-panel"><div class="cname">${q[1]}</div><div class="cblurb">${q[2]}</div><div class="meta"><span class="chip accent">Hledat lety</span><span>→</span></div></div></div>`).join('');
-    // Přehled (Rychlé hledání) i Lety (Nápady, kam letět)
-    ['#quickFlights', '#flIdeas'].forEach(sel => { const el = $(sel); if (el) { el.innerHTML = qfHtml; if (window.Photos) Photos.paint(el); } });
+    const favCard = fav.length ? `<div class="card dest" data-qfav="1" data-photo="${esc(String(favNames(fav)).split(', ')[0])}" style="--h:200"><div class="flag">⭐</div><div class="dest-panel"><div class="cname">Moje cíle</div><div class="cblurb">${esc(favNames(fav))} · termíny jako radar</div><div class="meta"><span class="chip accent">Hledat lety</span><span>→</span></div></div></div>` : '';
+    const qfHtml = QF.map((q, i) => `<div class="card dest" data-qf="${i}" data-photo="${esc(q[4])}" style="--h:${ccHue(q[1])}"><div class="flag">${q[0]}</div><div class="dest-panel"><div class="cname">${q[1]}</div><div class="cblurb">${q[2]}</div><div class="meta"><span class="chip accent">Hledat lety</span><span>→</span></div></div></div>`).join('');
+    // Přehled (Rychlé hledání) i Lety (Nápady, kam letět); ⭐ Moje cíle jen v Letech – Přehled je má vlastní sekcí
+    // i s „Hledat moje cíle“ (renderFav), v Rychlém hledání by byly podruhé
+    [['#quickFlights', qfHtml], ['#flIdeas', favCard + qfHtml]].forEach(([sel, h]) => { const el = $(sel); if (el) { el.innerHTML = h; if (window.Photos) Photos.paint(el); } });
     $$('[data-qfav]').forEach(qv => { qv.onclick = () => searchFavs(prefLists().fav); kbClick(qv); });
     $$('[data-qf]').forEach(kbClick); // dlaždice Rychlého hledání i z klávesnice (Tab, Enter)
     $$('[data-qf]').forEach(el => el.onclick = () => {

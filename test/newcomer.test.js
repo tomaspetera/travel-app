@@ -115,3 +115,9 @@ test('Lety na telefonu: cena nabídky nad lety a časy (dřív pod nimi, mimo pr
   assert.match(m[0], /\.trip-row>\.pbox\{order:-1\}/);
   assert.ok(!/(^|\n)\.trip-row>\.pbox\{order/.test(css.replace(m[0], '')), 'jen na telefonu');
 });
+
+test('Přehled: ⭐ Moje cíle jen jednou (vlastní sekce s „Hledat moje cíle“) – v Rychlém hledání ne, v Letech (Nápady) ano', () => {
+  const fl = read('js/flights.js');
+  assert.match(fl, /\[\['#quickFlights', qfHtml\], \['#flIdeas', favCard \+ qfHtml\]\]\.forEach/);
+  assert.match(fl, /🔎 Hledat moje cíle/);
+});
