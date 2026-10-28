@@ -328,6 +328,8 @@ test('vracející se uživatel: uvítání se při dalším otevření skryje sa
   const wnDoneNow = new Function(`${pick('wnDoneNow')}; return wnDoneNow;`)();
   assert.equal(wnDoneNow('welcome', { watch: [], recent: [{}] }), false, 'jen hledal – návod zůstává');
   assert.equal(wnDoneNow('welcome', { watch: [{ id: 'w1' }] }), true);
+  assert.equal(wnDoneNow('welcome', { watch: [], recent: [{}], trips: [{ name: 'Řím 30.11.' }] }), true, 'cesta z průvodce v Mých cestách – návod splněný');
+  assert.equal(wnDoneNow('welcome', { watch: [], trips: [] }), false);
   assert.equal(wnDoneNow('', { watch: [{ id: 'w1' }] }), false);
   assert.match(APP, /const done = wnDoneNow\(mode, S\);[\s\S]{0,120}localStorage\.setItem\('atlas_wn', WN_ID\)[\s\S]{0,40}el\.hidden = mode !== 'welcome' \|\| done;/);
   assert.match(APP, /if \(wnFirst\) \{ el\.hidden = true; el\.innerHTML = ''; return; \}/, '💡 tip při první návštěvě ne');
