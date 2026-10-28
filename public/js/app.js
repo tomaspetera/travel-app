@@ -955,11 +955,12 @@ const wnMode = (seen, id = WN_ID) => (seen === id ? '' : seen === id + WN_NEW ||
  */
 const wnAtStart = (seen, hash, id = WN_ID) => (!/^#sync=/.test(String(hash || '')) && firstVisit(seen) ? id + WN_NEW : seen === id + WN_NEW && (S.recent.length || S.watch.length) ? id : null);
 /**
- * Uvítání ještě během první návštěvy: nováček, který už hlídá cenu (prošel hledání až po ♡), návod na první hledání
- * nepotřebuje – při návratu na Přehled by nad radarem jen odsouval jeho hlídanou cenu. → true = skrýt jako „Rozumím“.
- * Mizí jen při vykreslení Přehledu (návrat z Letů), ne pod rukama; při dalším startu rozhoduje wnAtStart.
+ * Uvítání ještě během první návštěvy: nováček, který už hlídá cenu (prošel hledání až po ♡) nebo má cestu v Mých
+ * cestách (hledání → Vybrat a pokračovat → průvodce), návod na první hledání nepotřebuje – při návratu na Přehled by
+ * nad radarem jen odsouval jeho hlídanou cenu a rozpracovanou cestu. → true = skrýt jako „Rozumím“.
+ * Mizí jen při vykreslení Přehledu (návrat z Letů, Cest), ne pod rukama; při dalším startu rozhoduje wnAtStart.
  */
-const wnDoneNow = (mode, s) => mode === 'welcome' && (s.watch || []).length > 0;
+const wnDoneNow = (mode, s) => mode === 'welcome' && ((s.watch || []).length > 0 || (s.trips || []).length > 0);
 let wnFirst = false; // v tomhle otevření se ukázalo uvítání: 💡 tipy až příště (renderDashTip) – dvě rady naráz zahltí
 const WN_TOP = 4; // v celém seznamu nejnovější novinky hned, starší pod „Starší novinky“
 // „~350 Kč“, „~3 h 25“ v textu novinek s pevnou mezerou – na úzkém telefonu se jednotka neodtrhne od čísla
@@ -1909,7 +1910,9 @@ function myTrips(host, o = {}) {
   const past = all.filter(x => x !== cur && end(x) && end(x) < now).sort((p, q) => (q.t.start || '').localeCompare(p.t.start || ''));
   const coming = all.filter(x => x !== cur && !past.includes(x)).sort((p, q) => (p.t.start || '9999').localeCompare(q.t.start || '9999'));
   let pick = window.Flights && Flights.lastPick ? Flights.lastPick() : null;
-  if (pick && S.trips.some(t => t.dest === pick.dest && t.start === pick.start)) pick = null; // z téhle nabídky už cesta je
+  // z téhle nabídky už cesta je – nebo z toho hledání vznikla cesta v průvodci (jiná nabídka než nejlevnější, jiný termín):
+  // nováček by jinak hned pod svou cestou do Říma dostal „Z posledního hledání: Řím“ jako další cestu
+  if (pick && S.trips.some(t => t.dest === pick.dest && (t.start === pick.start || (t.wizard && (t.end || t.start || '') >= todayLocal())))) pick = null;
   const card = x => tripCard(x.t, x.i, 'data-mt', x.t.wizard ? `<button type="button" class="linkbtn mt-det" data-mdet="${x.i}">Program, balení a poznámky ›</button>` : '');
   // rozpracovaná cesta: uložená = její karta nahoře s „v průvodci“, neuložená = karta z údajů průvodce
   const inf = o.info || {};

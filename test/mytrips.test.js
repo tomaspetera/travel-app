@@ -28,6 +28,8 @@ test('myTrips: cesta z průvodce se otevře v průvodci (rozpracovaná zpět do 
   assert.match(fn, /data-mdet="\$\{x\.i\}">Program, balení a poznámky ›<\/button>/, 'detail z průvodce dál dostupný');
   assert.match(fn, /<details class="mt-past"><summary>Proběhlé cesty \(\$\{past\.length\}\)<\/summary>/);
   assert.match(fn, /📝 Vlastní cesta bez letu/);
+  // „Z posledního hledání“ ne, když z toho hledání už je cesta v průvodci (i s jinou nabídkou / termínem)
+  assert.match(fn, /if \(pick && S\.trips\.some\(t => t\.dest === pick\.dest && \(t\.start === pick\.start \|\| \(t\.wizard && \(t\.end \|\| t\.start \|\| ''\) >= todayLocal\(\)\)\)\)\) pick = null;/);
   assert.match(fn, /bkWire\(host\);/);
   // karta Plánovače beze změny (data-ti), Moje cesty vlastní atribut – každý seznam své klepnutí
   assert.match(app, /function tripCard\(t, i, attr = 'data-ti', extra = ''\) \{/);
