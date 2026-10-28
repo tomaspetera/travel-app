@@ -1449,8 +1449,10 @@ function seasonOf(m, key, then) {
 function recsFor(m, o = {}) {
   const prof = Recs.profile({ recent: S.recent, form: S.form, fav: S.fav, mute: S.mute, viewed: S.viewed });
   const radar = Recs.radarBest(S.radar, Date.now(), fmtYMD(new Date()), S.mute);
-  return { prof, ...Recs.rank(COUNTRIES, m, { vibes: VIBES, prof, radar, ...o }) };
+  return { prof, ...Recs.rank(COUNTRIES, m, { vibes: VIBES, prof, radar, been: beenIn(), ...o }) };
 }
+/** Kde už uživatel byl: mapa navštívených a země proběhlých cest v Mých cestách (i když je na mapu ještě nepřidal). */
+const beenIn = () => new Set([...visited, ...(S.trips || []).filter(t => t && (t.end || t.start) && (t.end || t.start) < todayLocal()).flatMap(t => [t.iso, ...(t.isos || [])]).filter(Boolean)]);
 /** Proč (věty z recs.js) pod názvem na kartě – nejvýš n (tipy na Přehledu jen první); vysvětlení v title. */
 const recWhy = (why, n = 2) => (why && why.length ? `<div class="rec-why">${why.slice(0, n).map(w => `<span title="${esc(w.title)}">${w.ic} ${esc(w.t)}</span>`).join('')}</div>` : '');
 /** ✈️ Najít lety z karty doporučení: do země (nebo oblasti u moře) s odletem v měsíci tipu. */
@@ -1465,7 +1467,7 @@ function renderRecs() {
   const { list, hidden, prof } = recsFor(m, { vibe, budget, safe, season });
   const pl = Recs.profileLine(prof, hidden, vibe);
   $('#recProf').hidden = !pl;
-  $('#recProf').textContent = pl ? 'Podle tvého hledání: ' + pl : '';
+  $('#recProf').textContent = pl ? 'Podle tebe: ' + pl : ''; // hledání, ⭐ / 🙈, kde už jsi byl
   $('#recGrid').innerHTML = list.length ? list.map((r, i) => {
     const c = r.c;
     // zvolený styl, který země splňuje, napřed („✓ hory“) – jinak by Litva mezi horami vypadala jako horská
