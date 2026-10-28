@@ -1872,7 +1872,8 @@ export function groupOptions(trips) {
     picked.push(t);
     if (picked.length >= 6) break;
   }
-  const have = new Set(picked.map((t) => t.out.from));
+  // jen nabídky s návratem na letiště odletu – open-jaw z VIE (zpět do PRG) filtr „jen z VIE“ schová, VIE → VIE musí přibýt
+  const have = new Set(picked.filter(homeOf).map((t) => t.out.from));
   for (const t of trips) if (homeOf(t) && !have.has(t.out.from)) { have.add(t.out.from); picked.push(t); }
   const byTrip = trips.reduce((a, t) => (t.tripCzk < a.tripCzk ? t : a), trips[0]);
   if (byTrip && !picked.includes(byTrip)) picked.push(byTrip);

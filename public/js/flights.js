@@ -829,7 +829,7 @@
     btn.setAttribute('aria-expanded', String(refineOpen));
     if (!btn.onclick) btn.onclick = () => { refineOpen = !refineOpen; refineUi(false); };
     const word = el => (el ? el.textContent.replace(/^[^\p{L}≥]+/u, '').trim().toLowerCase() : '');
-    const len = $('#lenField').style.display === 'none' ? '' : `${word($('#lenPreset .on'))} ${$('#nMin').value}–${$('#nMax').value} nocí`;
+    const len = $('#lenField').style.display === 'none' ? '' : `${word($('#lenPreset .on'))} ${SearchHelp.nightsRange($('#nMin').value, $('#nMax').value)}`; // „víkend 1–3 noci“, ne „1–3 nocí“
     const t = +($('#minTemp .on')?.dataset.t || 0);
     $('#refineSum').textContent = [word($('#tripType .on')), len, t ? `≥ ${t} °C` : ''].filter(Boolean).join(' · ');
   }
@@ -1413,6 +1413,8 @@
     // filtry výpisu (i 🔥 jen výhodné, čas a přestupy) platí jen pro jedno hledání
     view = { ...view, excludeOrigins: new Set(), onlyOrigin: null, excludeCarriers: new Set(), outDate: null, nights: null, expanded: new Set(), maxPrice: null, onlyDeals: false, newOnly: false, favOnly: false, showMuted: false, ...freshView() };
     if (opts.keepView) Object.assign(view, opts.keepView); // ✕ u filtru hledání: ostatní filtry výpisu zůstanou
+    // „Nejméně dovolené“ má jen zpáteční let – jinak by výběr ukazoval Doporučené, nadpis dovolenou a řadilo se podle ceny
+    if (view.sort === 'leave' && f.trip !== 'return') view.sort = 'best';
     lastDraw = false; // nevykreslené výsledky z minula už na obrazovku nepatří (Lety ukážou průběh tohoto hledání)
     $('#results').innerHTML = ''; $('#results').classList.remove('aged'); paintGroundStale(true);
     const btn = $('#doSearch'); btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Hledám…';
@@ -3509,7 +3511,7 @@
         if (!x && fOn && had.has(key)) { cells += `<div class="cd none gone" title="${esc(dayLabel(key))}: žádná z načtených nabídek neprošla ${by}"><span>${d}</span><b>✕</b></div>`; continue; }
         if (!x) { cells += `<div class="cd none"><span>${d}</span></div>`; continue; }
         const h = heat(x.cost);
-        cells += `<div class="cd ${clickable ? 'click' : ''} ${view.outDate === key ? 'sel' : ''}" ${clickable ? `data-day="${key}"` : ''} style="--h:${h}" title="${esc(tip(x, key))}"><span>${d}${mark ? mark(x) : ''}</span><b>${calNum(x.cost)}</b></div>`;
+        cells += `<div class="cd ${clickable ? 'click' : ''} ${clickable && view.outDate === key ? 'sel' : ''}" ${clickable ? `data-day="${key}"` : ''} style="--h:${h}" title="${esc(tip(x, key))}"><span>${d}${mark ? mark(x) : ''}</span><b>${calNum(x.cost)}</b></div>`;
       }
       // --cr = řádky měsíce (nadpis + týdny): na počítači tolik řádků mřížky měsíců, pod krátký měsíc se vejde další
       const rows = 1 + Math.ceil((offset + d1 - Math.max(1, d0) + 1) / 7);
@@ -3900,7 +3902,12 @@
     const geo = { type: 'MultiPoint', coordinates: [...pts.map(p => [p.lon, p.lat]), ...orig.map(o => [o.lon, o.lat])] };
     const kept = keep && keep.W === W;
     const proj = kept ? d3.geoNaturalEarth1().scale(keep.scale).translate(keep.translate) : d3.geoNaturalEarth1().fitExtent([[30, 30], [W - 30, H - 30]], geo);
-    if (proj.scale() > 2600) proj.scale(2600);
+    if (proj.scale() > 2600) {
+      // fitExtent nastavil posun k původnímu měřítku – po zmenšení body znovu doprostřed, jinak ujedou mimo mapu
+      proj.scale(2600);
+      const [[x0, y0], [x1, y1]] = d3.geoPath(proj).bounds(geo), [tx, ty] = proj.translate();
+      proj.translate([tx + W / 2 - (x0 + x1) / 2, ty + H / 2 - (y0 + y1) / 2]);
+    }
     const path = d3.geoPath(proj);
     el.innerHTML = '';
     const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('class', 'rm-svg');
@@ -3954,9 +3961,10 @@
     const origins = g0.append('g').selectAll('rect').data(orig).join('rect').attr('class', 'rm-origin');
     const sizeOrigins = k => { const a = 8 / Math.sqrt(k); origins.attr('x', d => proj([d.lon, d.lat])[0] - a / 2).attr('y', d => proj([d.lon, d.lat])[1] - a / 2).attr('width', a).attr('height', a); };
     sizeOrigins(1);
-    if (home) svg.append('circle').attr('cx', proj(home)[0]).attr('cy', proj(home)[1]).attr('r', 4).attr('class', 'rm-home');
+    // domov v g0 jako ostatní vrstvy – při přiblížení a posunu mapy jde s nimi
+    const homeDot = home ? g0.append('circle').attr('cx', proj(home)[0]).attr('cy', proj(home)[1]).attr('r', 4).attr('class', 'rm-home') : null;
     const zoom = d3.zoom().scaleExtent([1, 10])
-      .on('zoom', ev => { const k = ev.transform.k; g0.attr('transform', ev.transform); g0.selectAll('circle').attr('r', d => (d.t.deal.level === 'super' ? 7 : 5.5) / Math.sqrt(k)); sizeOrigins(k); g0.selectAll('.rm-lbl').style('font-size', lblSize(k) + 'px'); })
+      .on('zoom', ev => { const k = ev.transform.k; g0.attr('transform', ev.transform); g0.selectAll('.rm-dot').attr('r', d => (d.t.deal.level === 'super' ? 7 : 5.5) / Math.sqrt(k)); if (homeDot) homeDot.attr('r', 4 / Math.sqrt(k)); sizeOrigins(k); g0.selectAll('.rm-lbl').style('font-size', lblSize(k) + 'px'); })
       .on('end', ev => placeLabels(ev.transform.k));
     svg.call(zoom);
     if (kept && keep.z) svg.call(zoom.transform, d3.zoomIdentity.translate(keep.z.x, keep.z.y).scale(keep.z.k));
