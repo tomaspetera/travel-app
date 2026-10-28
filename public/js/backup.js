@@ -659,7 +659,7 @@
           <input type="file" id="bkFile" accept=".json,.txt,application/json,text/plain" hidden>
         </div>
         <div class="faint" style="font-size:12.5px;margin-top:12px"><span id="bkStatus">${statusTxt()}</span><span id="bkStore"></span></div>
-        <div class="faint" style="font-size:12px;margin-top:8px">Soubor: na druhém zařízení otevři ATLAS → ${canShare ? 'Cesta' : 'Cesta nebo ⋯ Další'} → 💾 Přenos a záloha → 📂 Obnovit ze zálohy. Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (v Mých cestách je uložená), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
+        <div class="faint" style="font-size:12px;margin-top:8px">Soubor: na druhém zařízení otevři ATLAS → ${canShare ? 'Cesty' : 'Cesty nebo ⋯ Další'} → 💾 Přenos a záloha → 📂 Obnovit ze zálohy. Obnova nic nesmaže: přidá, co chybí. Nepřenáší se rozpracovaná cesta v průvodci (v Mých cestách je uložená), uložené výsledky hledání a radaru, nedávná hledání, paměť cen, Objevuj a motiv.</div>
       </div></div>`);
     if (link) $('#bkLink').onclick = () => Transfer.open();
     if (canShare) $('#bkShare').onclick = () => share();

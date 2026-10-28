@@ -43,7 +43,7 @@ hledají místo podle názvu. S volitelným bezplatným klíčem [Mapy.com](#map
 kole turistická mapa se značenými trasami a hledání v Objevuj najde i malé vesnice, hrady a rozhledny. Plán jde **exportovat do kalendáře** (.ics, Google Kalendář) a **sdílet odkazem**.
 
 K tomu zůstalo vše z původního ATLAS: mapa navštívených zemí, přehled všech 197 zemí s cenovou hladinou, nejlepšími
-měsíci, průměrnými teplotami a aktuálními varováními MZV ČR, doporučení podle měsíce a 🧳 Moje cesty v záložce Cesta (dřív Plánovač). Nově u každé
+měsíci, průměrnými teplotami a aktuálními varováními MZV ČR, doporučení podle měsíce a 🧳 Moje cesty v záložce Cesty (dřív Plánovač a Cesta). Nově u každé
 země i **vstupní podmínky pro občany ČR** (vízum, ESTA a podobné registrace, občanský průkaz, očkování – viz níže).
 
 ## Celá cesta krok za krokem
