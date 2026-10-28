@@ -1214,7 +1214,8 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .dp-h{font-size:15px;margin:16px 0 8px}
 .dp-sl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .dp-poi{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;padding:8px;border-radius:12px;border:1px solid var(--border);background:var(--surface)}
-.dp-img{width:64px;height:58px;border-radius:9px;background:var(--surface-2) center/cover no-repeat;display:grid;place-items:center;font-size:24px}
+.dp-img{width:64px;height:58px;border-radius:9px;background:var(--surface-2) center/cover no-repeat;display:grid;place-items:center;font-size:24px;position:relative;overflow:hidden}
+.dp-img.has-ph::after{content:"";position:absolute;inset:0;background:var(--ph) center/cover no-repeat} /* nenačtená fotka → ikona */
 .dp-pt{min-width:0;display:flex;flex-direction:column;gap:2px}
 .dp-pt b{font-size:13.5px;line-height:1.3;overflow-wrap:anywhere}
 .dp-pm{font-size:11.5px;color:var(--faint)}

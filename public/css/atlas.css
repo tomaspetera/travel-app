@@ -410,6 +410,8 @@ button.dest{font:inherit;text-align:left;width:100%}
 .rec-fly{width:100%;justify-content:center;margin-top:10px;background:rgba(255,255,255,.92);border-color:transparent;color:#0b1226;font-weight:700}
 .rec-fly:hover{border-color:transparent;background:#fff}
 #recGrid .rec-fly{position:relative;z-index:4} /* nad zvětšenou plochou ⓘ autora fotky (.ph-i::after) */
+/* telefon: vysvětlivka pod „Kam vyrazit · listopad“ – vedle sebe se obojí lámalo do dvou řádků */
+@media(max-width:1023px){.rec-head{flex-direction:column;align-items:flex-start;gap:4px}}
 .rec-prof{font-size:12.5px;line-height:1.45;margin:-4px 0 14px}
 .rec-filters{gap:14px}
 .rec-foot{display:grid;gap:4px;font-size:12px;line-height:1.45;margin-top:16px}
