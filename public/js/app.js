@@ -86,7 +86,7 @@ function initCountries(list) {
 /* ================= NAV / SHELL ================= */
 const NAV = [['dashboard', 'Přehled', 'Radar cen a tvoje cesty', 'M3 12l9-9 9 9M5 10v10h14V10'],
 ['flights', 'Lety', 'Nejlevnější letenky ze všech letišť v okolí', 'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z'],
-['trip', 'Cesta', 'Moje cesty a průvodce: let, ubytování, auto, program', 'M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13'],
+['trip', 'Cesty', 'Moje cesty a průvodce: let, ubytování, auto, program', 'M9 6V4h6v2M3 7h18v13H3zM8 7v13M16 7v13'],
 ['explore', 'Objevuj', 'Co vidět a kam vyrazit kdekoliv na světě', 'M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7zM12 11.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z'],
 ['map', 'Mapa', 'Procestuj svět a odškrtávej země', 'M9 20l-5.5 2.5V5L9 2.5m0 17.5l6-3m-6 3V2.5m6 14.5l5.5 2.5V5L15 2.5m0 14.5V2.5m-6 0l6 3'],
 ['countries', 'Země', 'Počasí, ceny, bezpečnost a tipy', 'M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2c2.5 2.7 4 6.3 4 10s-1.5 7.3-4 10c-2.5-2.7-4-6.3-4-10s1.5-7.3 4-10z'],
@@ -845,9 +845,9 @@ function showNow() {
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
 const WN_ID = '2026-10-27e';
 const WHATS_NEW = [
-  ['🧳', 'Plánovač je teď v Mých cestách', 'už není zvlášť v menu – všechny cesty najdeš v záložce <b>Cesta</b> pod <b>🧳 Moje cesty</b>. Program, balení a poznámky cesty z průvodce otevřeš odkazem <b>Program, balení a poznámky ›</b> na její kartě, ostatní cesty klepnutím na kartu.'],
+  ['🧳', 'Plánovač je teď v Mých cestách', 'už není zvlášť v menu – všechny cesty najdeš v záložce <b>Cesty</b> pod <b>🧳 Moje cesty</b>. Program, balení a poznámky cesty z průvodce otevřeš odkazem <b>Program, balení a poznámky ›</b> na její kartě, ostatní cesty klepnutím na kartu.'],
   ['💾', 'Cesta se ukládá sama', 'jakmile v průvodci pokročíš za výběr letu, cesta je sama v <b>Mých cestách</b> – nemusíš nic ukládat. Nová cesta tu rozpracovanou nezahodí, zůstane v seznamu. <b>↺ Začít znovu</b> ji odebere.'],
-  ['🧳', 'Moje cesty v záložce Cesta', 'všechny tvoje cesty na jednom místě – rozpracovaná v průvodci i uložené. Klepnutím na kartu v ní pokračuješ, z průvodce se k seznamu vrátíš přes <b>‹ Moje cesty</b>.'],
+  ['🧳', 'Moje cesty v záložce Cesty', 'všechny tvoje cesty na jednom místě – rozpracovaná v průvodci i uložené. Klepnutím na kartu v ní pokračuješ, z průvodce se k seznamu vrátíš přes <b>‹ Moje cesty</b>.'],
   ['♡', 'Hlídání ceny jedním klepnutím', 'u karty radaru na <b>Přehledu</b> i u cíle v <b>Kamkoliv</b> klepni na <b>⋯</b> → <b>♡ Hlídat cenu sem</b>: ATLAS najde lety z tvého domova (termíny jako radar) a cenu hlídá – když zlevní, uvidíš to na Přehledu. Bez vyplňování formuláře.'],
   ['🔗', 'Krátký odkaz na cestu', '<b>📤 Sdílet cestu</b> → <b>Poslat kamarádům</b> (i <b>🔗 Sdílet plán</b> v plánovači) teď pošle krátký odkaz <b>…/c/…</b> místo dlouhé stěny písmen – ve WhatsAppu a Messengeru s fotkou cíle a termínem. Kamarád po klepnutí uvidí celou cestu a může si ji uložit.'],
   ['🙋', 'Jede někdo se mnou?', 've <b>Shrnutí</b> průvodce Cestou (i u budoucí cesty v plánovači) je pod <b>📤 Sdílet cestu</b> kromě poslání celé cesty kamarádům i karta na sítě: <b>Instagram Story</b> nebo <b>příspěvek na Instagram či Facebook</b> ve tvaru palubní vstupenky – odkud, kam, měsíc a „vedle mě: třeba ty?“. Cena, přesné datum ani ubytování na kartě nejsou. Kdo klepne na odkaz, uvidí termín a jedním klepnutím lety na stejné dny ze svého letiště.'],
@@ -1167,7 +1167,7 @@ const DASH_TIPS = [
     used: s => (s.watch || []).length > 0, run: () => go('flights') },
   { id: 'pin', ico: '📌', h: 'Odložené nabídky', t: '📌 Odložit u nabídky ji schová na později – pak je porovnáš vedle sebe a pošleš k výběru.', btn: 'Otevřít Lety',
     used: s => (s.pins || []).length > 0, run: () => go('flights') },
-  { id: 'auto', ico: '⚡', h: 'Hotová cesta', t: 'v Cestě vyber let a klepni na ⚡ Poskládej celou cestu za mě – ubytování i program vyberu za tebe.', btn: 'Otevřít Cestu',
+  { id: 'auto', ico: '⚡', h: 'Hotová cesta', t: 'v průvodci cestou vyber let a klepni na ⚡ Poskládej celou cestu za mě – ubytování i program vyberu za tebe.', btn: 'Otevřít Cesty',
     used: s => Boolean(s.trip) || (s.trips || []).some(t => t && t.wizard), run: () => go('trip') },
   { id: 'explore', ico: '🧭', h: 'Objevuj', t: 'napiš město nebo „Lisabon na 3 dny“ – ukážu, co tam vidět, a naplánuju program po dnech.', btn: 'Otevřít Objevuj',
     used: (s, x) => Boolean(x.explore || (s.navUse && s.navUse.explore)), run: () => go('explore') },
@@ -1819,13 +1819,13 @@ const planTransport = f => /^🚆/u.test(String(f || '')) ? String(f) : '✈️ 
 const planFlightHtml = f => String(f || '').replace(/^🚆\s*/u, '').split(/, (?=\d+\. )| · (?=samostatné letenky$)/u).map(esc).join('<br>');
 // 💾 Přenos a záloha (backup.js) nad plánovačem
 /** Cesty se změnily (nová, úprava v okně, smazání, záloha, jiný panel): překreslit seznam, který je vidět – Moje cesty
- *  v záložce Cesta (Trip.render), nebo dlaždice Přehledu. */
+ *  v záložce Cesty (Trip.render), nebo dlaždice Přehledu. */
 function tripsChanged() {
   if (activeView === 'trip' && window.Trip && Trip.render) Trip.render();
   else if (activeView === 'dashboard') renderDashStats();
 }
 const bkTools = () => (window.Backup ? Backup.plannerTools() : '');
-const bkWire = (host = document) => { const b = $('#bkOpen', host); if (b) b.onclick = () => Backup.open(); }; // Moje cesty v Cestě
+const bkWire = (host = document) => { const b = $('#bkOpen', host); if (b) b.onclick = () => Backup.open(); }; // Moje cesty v záložce Cesty
 // kdy cesta je: „za 12 dní“, „právě probíhá“, „proběhla“ (bez data nic)
 function tripWhen(t) {
   if (!t.start) return '';
@@ -1840,10 +1840,10 @@ const tripTitle = t => (t.start && t.name && t.name.endsWith(' ' + fmtDate(t.sta
 function tripCard(t, i, attr = 'data-ti', extra = '') {
   const c = t.iso ? byIso[t.iso] : null, warm = c && c.cost >= 4, na = t.days ? Object.values(t.days).flat().length : 0;
   const photo = t.place?.label || (t.dest && t.dest !== '—' ? String(t.dest).split(',')[0] : '') || c?.cs || '', when = tripWhen(t);
-  return `<div class="card trip" ${attr}="${i}"><div class="trip-top ${warm ? 'warm' : ''}"${photo ? ` data-photo="${esc(photo)}" style="--h:${ccHue(t.iso || photo)}"` : ''}>${when ? `<span class="tt-when">${when}</span>` : ''}<div class="tt-name">${esc(tripTitle(t))}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end) : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os.</span><span>${t.budget ? (+t.budget).toLocaleString('cs') + ' Kč' : 'rozpočet —'}</span></div>${t.flight ? `<div class="faint" style="font-size:12px;margin-bottom:4px">${esc(planTransport(t.flight))}</div>` : ''}<div class="muted" style="font-size:12.5px">${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</div>${extra}</div></div>`;
+  return `<div class="card trip" ${attr}="${i}"><div class="trip-top ${warm ? 'warm' : ''}"${photo ? ` data-photo="${esc(photo)}" style="--h:${ccHue(t.iso || photo)}"` : ''}>${when ? `<span class="tt-when">${when}</span>` : ''}<div class="tt-name">${esc(tripTitle(t))}</div><div class="tt-meta">${c ? flag(t.iso) + ' ' : '📍 '}${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end) : ''}</div></div><div class="trip-body"><div class="bar"><span>👤 ${t.pax || 1} os.</span><span>${t.budget ? (+t.budget).toLocaleString('cs') + ' Kč' : 'rozpočet —'}</span></div>${t.flight ? `<div class="faint tb-fl" style="font-size:12px;margin-bottom:4px">${esc(planTransport(t.flight))}</div>` : ''}<div class="muted tb-n" style="font-size:12.5px">${na} ${na === 1 ? 'aktivita' : na >= 2 && na <= 4 ? 'aktivity' : 'aktivit'} · ${(t.checklist || []).filter(x => x.done).length}/${(t.checklist || []).length} sbaleno</div>${extra}</div></div>`;
 }
 /**
- * 🧳 Moje cesty v záložce Cesta: uložené cesty (dřív jen v Plánovači, který nováček nerozlišil od Cesty) a rozpracovaná
+ * 🧳 Moje cesty v záložce Cesty: uložené cesty (dřív jen v Plánovači, který nováček nerozlišil od Cesty) a rozpracovaná
  * cesta z průvodce, pod nimi nová cesta. o = { active: rozpracovaná cesta (S.trip) nebo null, info: { name, cc, start,
  * end, step } pro její kartu, resume(): zpět do ní, ask: HTML „Kam chceš jet?“ (zapojí ho trip.js) }. Cesta z průvodce
  * se klepnutím otevře v průvodci (detail jako v Plánovači odkazem na kartě), ostatní cesty detail.

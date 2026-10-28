@@ -36,7 +36,7 @@ test('myTrips: cesta z průvodce se otevře v průvodci (rozpracovaná zpět do 
 
 test('Co je nového: Moje cesty, cesta se ukládá sama, Plánovač je v Mých cestách', () => {
   const app = read('js/app.js');
-  assert.match(app, /const WN_ID = '2026-10-27e';\s*const WHATS_NEW = \[\s*\['🧳', 'Plánovač je teď v Mých cestách',[^\n]*\],\s*\['💾', 'Cesta se ukládá sama',[^\n]*\],\s*\['🧳', 'Moje cesty v záložce Cesta',/);
+  assert.match(app, /const WN_ID = '2026-10-27e';\s*const WHATS_NEW = \[\s*\['🧳', 'Plánovač je teď v Mých cestách',[^\n]*\],\s*\['💾', 'Cesta se ukládá sama',[^\n]*\],\s*\['🧳', 'Moje cesty v záložce Cesty',/);
 });
 
 test('smazání cesty otevřené v průvodci ji zavře i v průvodci (jinak by se zase sama uložila); ↩ Vrátit vrátí obojí', () => {
@@ -75,4 +75,16 @@ test('karta cesty otevřené v průvodci: ve Shrnutí „Sestavená“, jinak �
   assert.match(read('js/trip.js'), /step: \(STEPS\.find\(x => x\[0\] === t\.step\) \|\| STEPS\[0\]\)\[2\], done: t\.step === 'summary' \};/);
   // tlačítka pod seznamem jako v úvodu Cesty
   assert.match(read('css/trip.css'), /\.mt-more \.btn\{flex:1 1 220px;justify-content:center\}/);
+});
+
+test('záložka Cesty; menší karty v Mých cestách jen na telefonu a tabletu (počítač beze změny)', () => {
+  const app = read('js/app.js');
+  assert.match(app, /\['trip', 'Cesty', /);
+  assert.match(app, /<div class="faint tb-fl" style="font-size:12px;margin-bottom:4px">/);
+  const css = read('css/trip.css');
+  const m = css.match(/@media\(max-width:1023px\)\{\n  \.trip-mine \.trip-grid\{gap:10px\}[\s\S]*?\n\}/);
+  assert.ok(m, 'blok menších karet');
+  assert.match(m[0], /\.trip-mine \.trip-top\[data-photo\]\{min-height:0;padding:36px 14px 11px\}/, 'místo nahoře pro štítek „za X dní“');
+  assert.match(m[0], /\.trip-mine \.tb-fl\{white-space:nowrap;overflow:hidden;text-overflow:ellipsis\}/, 'let na jeden řádek');
+  assert.match(read('css/desktop-explore.css'), /\.trip-top\[data-photo\]\{min-height:168px\}/, 'počítač: velké fotky');
 });

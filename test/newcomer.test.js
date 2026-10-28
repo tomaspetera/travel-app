@@ -61,7 +61,7 @@ test('Shrnutí: rozpis po položkách sbalený – pod „Cenou cesty“ se stej
 test('Plánovač je Moje cesty v Cestě (bez zvláštní sekce); cesta z průvodce otevře hlavním tlačítkem průvodce', () => {
   const app = read('js/app.js');
   assert.ok(!/\['planner', /.test(app), 'v menu ani postranním panelu už Plánovač není');
-  assert.match(app, /\['trip', 'Cesta', 'Moje cesty a průvodce: let, ubytování, auto, program',/);
+  assert.match(app, /\['trip', 'Cesty', 'Moje cesty a průvodce: let, ubytování, auto, program',/);
   // staré odkazy (#planner, zástupce na ploše, „Moje cesty →“) vedou na seznam cest
   assert.match(app, /if \(v === 'planner'\) \{ v = 'trip'; opts = \{ \.\.\.opts, mine: true \}; \}/);
   assert.match(app, /const isView = v => v === 'planner' \|\| NAV\.some\(n => n\[0\] === v\);/);
