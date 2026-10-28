@@ -449,6 +449,15 @@ function refreshStats() {
         : '<span class="faint">Zatím žádná – klepni na zemi v mapě a dej „Byl/a jsem tu“.</span>';
       $$('[data-vi]', vl).forEach(b => b.onclick = () => openCountry(b.dataset.vi));
     }
+    // země z proběhlých cest, které na mapě chybí: jedním klepnutím navštívené (jako 🗺️ u cesty v Mých cestách) –
+    // vracející se uživatel jinak otevře Svět s 0 % i po cestě
+    const mt = $('#mapTrips');
+    if (mt) {
+      const miss = pastMissing();
+      mt.hidden = !miss.length;
+      mt.innerHTML = miss.length ? `🧳 <div>Z proběhlých cest na mapě chybí – klepni a přidej:<div class="mtr-ccs">${miss.map(cc => `<button type="button" class="pill" data-tvi="${cc}">${flag(cc)} ${esc(byIso[cc].cs)} ＋</button>`).join('')}</div></div>` : '';
+      $$('[data-tvi]', mt).forEach(b => b.onclick = () => { const cc = b.dataset.tvi; setVisited(cc, true); toast('Přidáno: ' + byIso[cc].cs); });
+    }
     $('#contBars').innerHTML = CONTS.map(c => { const tot = CONT_TOT[c] || 1; const n = [...visited].filter(i => byIso[i]?.cont === c).length; const p = Math.round(n / tot * 100); return `<div class="cont-row"><div class="ct"><span>${c}</span><b>${n}/${tot}</b></div><div class="progress"><span style="width:${p}%"></span></div></div>`; }).join('');
   }
 }
@@ -843,8 +852,9 @@ function showNow() {
    Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
    od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
-const WN_ID = '2026-10-27e';
+const WN_ID = '2026-10-28a';
 const WHATS_NEW = [
+  ['🗺️', 'Svět zná tvoje cesty', 'pod mapou jsou země z proběhlých cest, které na ní ještě chybí – klepnutím je přidáš. V detailu země (<b>Svět → Země</b>, <b>Doporučení</b>) je nahoře tvoje nadcházející cesta tam – klepnutím ji otevřeš.'],
   ['🧳', 'Plánovač je teď v Mých cestách', 'už není zvlášť v menu – všechny cesty najdeš v záložce <b>Cesty</b> pod <b>🧳 Moje cesty</b>. Program, balení a poznámky cesty z průvodce otevřeš odkazem <b>Program, balení a poznámky ›</b> na její kartě, ostatní cesty klepnutím na kartu.'],
   ['💾', 'Cesta se ukládá sama', 'jakmile v průvodci pokročíš za výběr letu, cesta je sama v <b>Mých cestách</b> – nemusíš nic ukládat. Nová cesta tu rozpracovanou nezahodí, zůstane v seznamu. <b>↺ Začít znovu</b> ji odebere.'],
   ['🧳', 'Moje cesty v záložce Cesty', 'všechny tvoje cesty na jednom místě – rozpracovaná v průvodci i uložené. Klepnutím na kartu v ní pokračuješ, z průvodce se k seznamu vrátíš přes <b>‹ Moje cesty</b>.'],
@@ -1652,6 +1662,13 @@ async function loadClimate(iso) {
   }
 }
 
+/** Nejbližší nadcházející (i právě probíhající) cesta do země iso v Mých cestách: { t, i }, jinak null. */
+function tripTo(iso) {
+  const today = todayLocal();
+  return (S.trips || []).map((t, i) => ({ t, i }))
+    .filter(({ t }) => t && (t.iso === iso || (t.isos || []).includes(iso)) && (t.end || t.start || '') >= today)
+    .sort((a, b) => String(a.t.start).localeCompare(String(b.t.start)))[0] || null;
+}
 function openCountry(iso) {
   const c = byIso[iso]; if (!c) return; curIso = iso;
   const isV = visited.has(iso);
@@ -1659,6 +1676,8 @@ function openCountry(iso) {
   const geoNote = c.geo ? `<div class="note ${c.safety <= 2 ? 'bad' : 'warn'}" style="margin-bottom:14px">${ico('M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}<div>${c.geo}</div></div>` : '';
   const safeTxt = c.safety ? SAFE_TXT[c.safety] : '—';
   const costTxt = c.cost ? ['', 'velmi levné', 'levné', 'střední', 'dražší', 'drahé'][c.cost] : '—';
+  // vracející se uživatel: cesta do téhle země v Mých cestách – otevřít ji, ne hledat a zakládat znovu
+  const mine = tripTo(iso);
   modalOpen(`
    <div class="modal-hero mh-photo" data-photo="${esc(c.capCs || c.cap || c.cs)}"><div class="mh-bg ${c.cost >= 4 ? 'warm' : ''}"></div>
      <button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button>
@@ -1671,11 +1690,12 @@ function openCountry(iso) {
    </div>
    <div class="modal-body">
      ${geoNote}
+     ${mine ? `<div class="note info cm-trip">🧳 <div>Tvoje cesta: <button type="button" class="linkbtn" id="cmTrip">${esc(tripTitle(mine.t))}${mine.t.start ? ' · ' + dateSpan(mine.t.start, mine.t.end) : ''} ›</button></div></div>` : ''}
      <div class="row wrap cm-acts">
        <button class="btn primary" data-cm="search">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Najít lety sem</button>
        ${window.Lazy || (window.Places && Places.openCountryView) ? `<button class="btn" data-cm="explore">🌍 Objevuj celou zemi</button>` : ''}
        <button class="btn" data-cm="stay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>
-       <button class="btn" data-cm="plan">${ico('M12 5v14M5 12h14')} Do plánu</button>
+       <button class="btn" data-cm="plan">${ico('M12 5v14M5 12h14')} Nová cesta</button>
        <button class="btn ${isV ? 'warm' : 'ghost'}" id="visBtn" data-cm="vis">${isV ? '✓ Navštíveno' : 'Byl/a jsem tu'}</button>
      </div>
      <div id="wxBox" class="weather-now"><div class="wico">⏳</div><div><div class="muted" style="font-size:12px">Načítám počasí…</div><div class="temp">--°</div></div></div>
@@ -1695,6 +1715,9 @@ function openCountry(iso) {
   // tlačítka okna (data-cm) – obsluha tady, ne atributem onclick v HTML (CSP)
   const cmActs = { search: () => { modalClose(); fromCountrySearch(iso); }, explore: () => { modalClose(); withMod('places', () => Places.openCountryView(iso)); }, stay: () => stayLinks(iso), plan: () => addToPlan(iso), vis: () => toggleVis(iso) };
   $$('#modal [data-cm]').forEach(b => { b.onclick = () => cmActs[b.dataset.cm](); });
+  // cesta z průvodce do průvodce (Shrnutí), vlastní cesta do svého okna – jako klepnutí na kartu v Mých cestách
+  const ct = $('#cmTrip');
+  if (ct) ct.onclick = () => { const t = S.trips[mine.i]; modalClose(); if (!t) return; if (t.wizard) withMod('trip', () => Trip.openSaved(t.wizard, t.tripId)); else openTrip(mine.i); };
   Photos.paint($('#modal')); // fotka hlavního města v hlavičce
   loadWeather(c);
   loadFx(c);
@@ -1950,6 +1973,8 @@ window.planSearch = i => {
   Flights.searchTo(to, { xOut: t.start, xBack: t.end });
 };
 /** Po cestě: země, které ještě nejsou na mapě navštívených – jedním klikem je přidat. */
+/** Země z proběhlých cest v Mých cestách, které na mapě navštívených chybí (pod mapou – refreshStats). */
+const pastMissing = () => [...new Set((S.trips || []).filter(Boolean).flatMap(tripNotVisited))];
 function tripNotVisited(t) {
   const end = t.end || t.start;
   if (!end || end >= todayLocal()) return [];
