@@ -5005,13 +5005,19 @@
    * uživatel po návratu neztratí. Nic rozpracovaného → schované.
    */
   const STEP_LBL = { flight: 'let', route: 'trasa', stay: 'ubytování', car: 'auto', program: 'program', summary: 'shrnutí' };
+  /**
+   * Cesta z průvodce pro kartu ↩ Pokračuj → { t: S.trip, d: termín ubytování } nebo null: jen ta, která ještě nezačala
+   * (průvodce pro uplynulý let už nepomůže); sestavenou a uloženou v Mých cestách ukazuje dlaždice „Nejbližší cesta“
+   * (s odpočtem), rozpracovanou naopak tahle karta a dlaždice ji přeskočí (app.js nextTripStat) – jedna cesta jednou.
+   */
+  function resumeTrip() {
+    const t = S.trip, d = t && t.flight && t.flight.out && window.Trip ? (() => { try { return Trip.stayDates(t); } catch (e) { return null; } })() : null;
+    const saved = t && t.step === 'summary' && t.created && (S.trips || []).some(x => x && x.tripId === t.created);
+    return d && t.flight.out.date >= today() && !saved ? { t, d } : null;
+  }
   function renderResume() {
     const host = $('#resumeRow'); if (!host) return;
-    const t = S.trip, d = t && t.flight && t.flight.out && window.Trip ? (() => { try { return Trip.stayDates(t); } catch (e) { return null; } })() : null;
-    // cesta, která ještě nezačala (průvodce pro uplynulý let už nepomůže); sestavená a uložená v plánovači tu není –
-    // ukazuje ji karta „Nejbližší cesta“ níž (s odpočtem) a z plánovače jde „Otevřít v průvodci“
-    const saved = t && t.step === 'summary' && t.created && (S.trips || []).some(x => x && x.tripId === t.created);
-    const trip = d && t.flight.out.date >= today() && !saved ? t : null;
+    const rs = resumeTrip(), trip = rs && rs.t, d = rs && rs.d;
     const bases = trip && trip.route && trip.route.mode === 'multi' && Array.isArray(trip.route.bases) && trip.route.bases.length >= 2 ? trip.route.bases : null;
     const name = trip ? (bases ? bases.map(b => b.name).join(' → ') : trip.dest && trip.dest.label) || trip.flight.out.to : '';
     const picked = bases ? bases.filter(b => b.stay).length : 0;
@@ -5026,8 +5032,10 @@
     // u shrnutí je cesta sestavená – „Tvoje cesta“ a Otevřít (ne „rozpracovaná“ a Pokračovat); cesta kamaráda z odkazu,
     // kterou si příjemce neuložil, „Sdílená cesta“ (tvoje je až po 💾 Uložit si ji) – SearchHelp.resumeKind
     const kind = trip ? SearchHelp.resumeKind(trip) : '', done = kind === 'done', shared = kind === 'shared';
+    // odpočet do odletu – dřív ho ukazovala dlaždice „Nejbližší cesta“ níž, ta teď tuhle cestu přeskakuje
+    const dd = trip ? daysTo(today(), trip.flight.out.date) : null, soon = dd == null || shared ? '' : dd <= 0 ? 'dnes' : inDays(dd);
     host.innerHTML = `${trip ? `<div class="card resume-trip"><span class="rs-ico">${shared ? '🔗' : '🧳'}</span><div class="rs-t"><b>${shared ? 'Sdílená cesta' : done ? 'Tvoje cesta' : 'Rozpracovaná cesta'}: ${esc(name)}</b>
-        <small>${fmtDate(d.checkin)}–${fmtDate(d.checkout)} · ${shared ? 'z odkazu, zatím neuložená' : done ? 'sestavená – shrnutí a co zarezervovat' : `krok ${esc(STEP_LBL[trip.step] || 'let')}`}${bases && trip.step === 'stay' && !shared ? ` (vybráno ${picked} z ${bases.length})` : ''}</small></div>
+        <small>${fmtDate(d.checkin)}–${fmtDate(d.checkout)}${soon ? ` · ${soon}` : ''} · ${shared ? 'z odkazu, zatím neuložená' : done ? 'sestavená – shrnutí a co zarezervovat' : `krok ${esc(STEP_LBL[trip.step] || 'let')}`}${bases && trip.step === 'stay' && !shared ? ` (vybráno ${picked} z ${bases.length})` : ''}</small></div>
         <button type="button" class="btn sm primary" id="rsTrip">${done || shared ? 'Otevřít' : 'Pokračovat'} →</button></div>` : ''}
       ${recent.length ? `<div class="resume-recent"><span class="faint">🔁 Naposledy:</span>${recent.map((f, i) => `<button type="button" class="recent-chip" data-rsr="${i}" title="Hledat znovu">${esc(watchLabel(f))} <small>${esc(recentSub(f))}</small></button>`).join('')}</div>` : ''}`;
     const b = $('#rsTrip', host); if (b) b.onclick = () => go('trip');
@@ -5701,7 +5709,7 @@
 
   // běží hledání (uživatel, radar, kontrola hlídané ceny)? – PWA se pak po návratu sama neobnoví (zrušila by ho)
   const busy = () => busySearches > 0 || [...wState.values()].includes('run');
-  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, renderWatch, showWatch, renderRadar, renderNews, radarNow, renderFav, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, openOffer, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
+  window.Flights = { init, warm, busy, ageCheck, lastPick, renderQuick, renderResume, resumeTrip, renderWatch, showWatch, renderRadar, renderNews, radarNow, renderFav, refreshPrefs: prefsPaint, homeChanged, homeFromChip,renderPins, refreshPins: pinsPaint, openOffer, searchTo, searchLegs, repaintMap: () => { if (view.mode === 'map' && lastResult) rerender(true); }, PlaceInput, smartRun, smartTips, runSearch, watchStatTxt, priceCheck: openPriceCheck, priceTag, watchKey, updateHomeChip,
     // navštívené země se změnily (mapa, země, 💾 obnova) → 🆕 a „jen nové země“ ve výsledcích hned podle nich
     refreshVisited: () => { if (lastResult && lastResult.mode !== 'multi' && !running && $('#results') && $('#results').children.length) rerender(true); },
     // 🏠 vlastní ceny na letiště se změnily (💾 obnova) → náhled letišť a seznam cen ve formuláři znovu
