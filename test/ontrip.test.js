@@ -715,3 +715,36 @@ test('Přehled – karta Nejbližší cesta: „zbývá zařídit“ jen před c
   c.S.trips[0].start = today;
   assert.equal(stat(), 'právě probíhá', 'den odletu');
 });
+
+test('Přehled – rozpracovaná cesta z průvodce jen jednou: nahoře ↩ Pokračuj s odpočtem, dlaždice ukáže další cestu', () => {
+  const c = load();
+  vm.runInContext(pick('nextTripStat'), c, { filename: 'app-stat.js' });
+  const today = vm.runInContext('todayLocal()', c), plus = (n) => vm.runInContext(`ymdPlus(${JSON.stringify(today)}, ${n})`, c);
+  const stat = () => plain(vm.runInContext('nextTripStat()', c));
+  const rim = { name: 'Řím', dest: 'Řím', iso: 'IT', start: plus(33), end: plus(41), tripId: 7 };
+  const lis = { name: 'Lisabon', dest: 'Lisabon', iso: 'PT', start: plus(78), end: plus(82), tripId: 9 };
+  const vid = { name: 'Vídeň', dest: 'Vídeň', iso: 'AT', start: plus(-40), end: plus(-38) };
+  c.S.trips = [lis, rim, null, vid];
+  assert.equal(stat()[0], 'Nejbližší cesta', 'bez rozpracované v průvodci beze změny (prázdné místo v seznamu nevadí)');
+  assert.match(stat()[1], /Řím/);
+  c.Flights = { resumeTrip: () => ({ t: { created: 7 } }) };
+  assert.equal(stat()[0], 'Další cesta', 'Řím je nahoře v ↩ Pokračuj');
+  assert.match(stat()[1], /Lisabon/);
+  assert.match(stat()[3], /data-nt="0"/, 'Otevřít plán otevře Lisabon');
+  c.Flights = { resumeTrip: () => ({ t: { created: 9 } }) };
+  assert.deepEqual([stat()[0], /Řím/.test(stat()[1])], ['Nejbližší cesta', true], 'rozpracovaná je až pozdější cesta');
+  c.Flights = { resumeTrip: () => ({ t: { created: 7 } }) };
+  c.S.trips = [rim, vid];
+  assert.equal(stat(), null, 'jediná nadcházející je nahoře – dlaždice by byla jen druhá karta téže cesty');
+  c.Flights = { resumeTrip: () => null };
+  c.S.trips = [vid];
+  assert.equal(stat()[0], 'Naplánované cesty', 'jen proběhlé: odkaz na Moje cesty zůstává');
+  assert.match(APP, /S\.trips\.length \? nextTripStat\(\) : null,\s*\]\.filter\(Boolean\);/, 'null = bez dlaždice');
+  // karta ↩ Pokračuj: stejná podmínka jako dlaždice (Flights.resumeTrip) a odpočet do odletu místo dlaždice
+  const fl = src('flights.js');
+  assert.match(fl, /function renderResume\(\) \{\s*const host = \$\('#resumeRow'\); if \(!host\) return;\s*const rs = resumeTrip\(\), trip = rs && rs\.t, d = rs && rs\.d;/);
+  assert.match(fl, /return d && t\.flight\.out\.date >= today\(\) && !saved \? \{ t, d \} : null;/);
+  assert.match(fl, /soon = dd == null \|\| shared \? '' : dd <= 0 \? 'dnes' : inDays\(dd\);/);
+  assert.match(fl, /\$\{fmtDate\(d\.checkin\)\}–\$\{fmtDate\(d\.checkout\)\}\$\{soon \? ` · \$\{soon\}` : ''\} · /);
+  assert.match(fl, /renderResume, resumeTrip, /);
+});

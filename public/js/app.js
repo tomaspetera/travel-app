@@ -467,16 +467,21 @@ function refreshStats() {
 const todayLocal = () => fmtYMD(new Date());
 const daysTo = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5);
 const inDays = d => (d === 1 ? 'zítra' : `za ${d} ${d <= 4 ? 'dny' : 'dní'}`);
-/** Karta „Naplánované cesty“: nejbližší cesta s odpočtem a co ještě zbývá zařídit (bez upozornění – vidět na Přehledu). */
+/** Karta „Naplánované cesty“: nejbližší cesta s odpočtem a co ještě zbývá zařídit (bez upozornění – vidět na Přehledu);
+ *  null, když jediná nadcházející je rozpracovaná nahoře v ↩ Pokračuj (odkaz na Moje cesty by byl jen druhá karta téhož). */
 function nextTripStat() {
   const now = todayLocal();
-  const next = S.trips.map((t, i) => ({ t, i })).filter(x => x.t.start && (x.t.end || x.t.start) >= now).sort((a, b) => a.t.start.localeCompare(b.t.start))[0];
+  const up = S.trips.map((t, i) => ({ t, i })).filter(x => x.t && x.t.start && (x.t.end || x.t.start) >= now).sort((a, b) => a.t.start.localeCompare(b.t.start));
+  // rozpracovanou cestu z průvodce ukazuje nahoře karta ↩ Pokračuj (s odpočtem a Pokračovat) – tady ta další, ne podruhé
+  const rs = window.Flights && Flights.resumeTrip ? Flights.resumeTrip() : null;
+  const next = up.find(x => !(rs && x.t.tripId && x.t.tripId === rs.t.created));
+  if (!next && up.length) return null;
   if (!next) return ['Naplánované cesty', `${S.trips.length}`, S.trips.length ? 'Mrkni do Mých cest' : 'Začni plánovat', '<button type="button" class="linkbtn nt-open" data-gop>Moje cesty →</button>'];
   const t = next.t, d = daysTo(now, t.start);
   const todo = (t.checklist || []).filter(x => !x.done && /^Zařídit/i.test(x.t || '')).length;
   const when = d <= 0 ? 'právě probíhá' : inDays(d);
   // „zbývá zařídit“ jen před cestou – na cestě (i v den odletu) už pojištění ani EHIC nikdo nezařizuje
-  return ['Nejbližší cesta', `<span class="nt-name">${t.iso && byIso[t.iso] ? flag(t.iso) + ' ' : ''}${esc(t.dest && t.dest !== '—' ? t.dest : t.name)}</span>`,
+  return [next === up[0] ? 'Nejbližší cesta' : 'Další cesta', `<span class="nt-name">${t.iso && byIso[t.iso] ? flag(t.iso) + ' ' : ''}${esc(t.dest && t.dest !== '—' ? t.dest : t.name)}</span>`,
     `${when}${todo && d > 0 ? ` · zbývá zařídit ${todo}` : ''}`, `<button type="button" class="linkbtn nt-open" data-nt="${next.i}">Otevřít plán →</button>`];
 }
 
