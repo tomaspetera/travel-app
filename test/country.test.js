@@ -65,7 +65,7 @@ test('skupiny: Wikivoyage v pořadí redaktorů, UNESCO a parky podle významu b
   const g = countryGroups(rows, wv, { unesco: ['Q2', 'Q1', 'Q597', 'Q3'], park: ['Q4'] });
   assert.deepEqual(g.city.map((x) => x.name), ['Lisabon', 'Porto'], 'Évora bez QID a polohy vypadne');
   assert.equal(g.city[0].unesco, true, 'Lisabon je i UNESCO');
-  assert.equal(g.city[0].image, 'https://commons.wikimedia.org/wiki/Special:FilePath/Lisboa.jpg?width=500');
+  assert.equal(g.city[0].image, 'https://commons.wikimedia.org/wiki/Special:FilePath/Lisboa.jpg?width=330');
   assert.equal(g.city[0].blurb, wv.city[0].blurb);
   assert.deepEqual(g.dest.map((x) => [x.name, x.wv]), [['Cabo da Roca', true], ['Peneda-Gerês National Park', true]], 'park bez QID s polohou ze šablony');
   assert.deepEqual(g.unesco.map((x) => x.name), ['Klášter jeronymitů', 'Sintra (kulturní krajina)'], 'Lisabon už je mezi městy, položka bez jména ne');
