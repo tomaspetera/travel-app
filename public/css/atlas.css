@@ -467,6 +467,10 @@ button.dest{font:inherit;text-align:left;width:100%}
 .vc-h{font-weight:800;margin-bottom:10px}
 .vc-list{display:flex;flex-wrap:wrap;gap:6px}
 .vc-list .pill{cursor:pointer;font:600 13px Inter,sans-serif}
+/* země z proběhlých cest, které na mapě chybí (app.js refreshStats) – pod mapou, klepnutím navštívené */
+.map-trips[hidden]{display:none}
+.map-trips .mtr-ccs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.map-trips .pill{cursor:pointer;font:600 13px Inter,sans-serif}
 .map-zoom button svg{width:18px;height:18px}
 .legend .land-dot{background:var(--map-land);box-shadow:inset 0 0 0 1px var(--map-line)}
 .map-tooltip{position:fixed;pointer-events:none;z-index:200;background:var(--surface-solid);border:1px solid var(--border-2);padding:8px 12px;border-radius:10px;font-size:13px;font-weight:700;box-shadow:var(--shadow);opacity:0;transition:opacity .12s;transform:translate(-50%,-130%)}
@@ -731,6 +735,8 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .ed-regime.ec-free{background:var(--surface-2)}
 [data-theme="light"] .entry-detail a,[data-theme="light"] .entry-card a{color:#0369a1}
 .cm-acts{margin-bottom:16px;gap:8px}
+.cm-trip{margin-bottom:12px} /* 🧳 Tvoje cesta do země (openCountry) */
+.cm-trip .linkbtn{font-size:inherit}
 /* detail země: fotka hlavního města v hlavičce, název a krátký popis na ní */
 .modal-hero.mh-photo{min-height:230px;display:flex;flex-direction:column;justify-content:flex-end}
 .modal-hero.mh-photo.ph{background:#0b1226 var(--ph) center/cover no-repeat}
