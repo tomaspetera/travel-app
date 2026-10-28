@@ -117,6 +117,35 @@ test('⚡ Poskládej: u hotové cesty (ubytování, auto i platný program) v kr
   assert.match(render(c, 'flight'), /id="tfAuto">⚡ Poskládej/);
 });
 
+test('lišta kroků: ✓ podle vybraného – po návratu na Let zůstanou hotové kroky odškrtnuté, chybějící ne', async () => {
+  const c = load();
+  const t = begin(c);
+  fakeFetch(c);
+  const bar = () => sp(c.__els['#tripRoot'].innerHTML).match(/<div class="stepbar">.*?<\/div>/s)[0];
+  const st = (k) => bar().match(new RegExp(`<button type="button" class="st ([^"]*)" data-step="${k}"[^>]*><span>([^<]*)</span>`)).slice(1);
+  render(c, 'flight');
+  // nová cesta: za Letem nic vybráno
+  assert.deepEqual(st('flight'), [' on', '✈️']);
+  assert.deepEqual(st('stay'), [' ', '🏨']);
+  await c.__els['#tfAuto'].onclick();
+  for (let i = 0; i < 4; i++) await tick();
+  assert.equal(t.step, 'summary');
+  // zpět na Let: trasa, ubytování, auto i program ✓, Shrnutí ne (není to volba)
+  render(c, 'flight');
+  assert.deepEqual(st('flight'), [' on', '✈️']);
+  for (const k of ['route', 'stay', 'car', 'program']) assert.deepEqual(st(k), ['done ', '✓'], k);
+  assert.deepEqual(st('summary'), [' ', '✅']);
+  assert.match(bar(), /<i class="done"><\/i><button type="button" class="st done " data-step="route"/, 'čára k hotovému kroku');
+  // bez auta (zahozené po změně letu): Auto bez ✓, program po změně termínu taky
+  t.car = null;
+  t.plan.span = { ...t.plan.span, start: '2026-11-09' };
+  render(c, 'stay');
+  assert.deepEqual(st('route'), ['done ', '✓']);
+  assert.deepEqual(st('stay'), [' on', '🏨']);
+  assert.deepEqual(st('car'), [' ', '🚗']);
+  assert.deepEqual(st('program'), [' ', '📍']);
+});
+
 test('⚡ Poskládej s dětmi: program rovnou se zájmem „S dětmi“ (server dostane kids), krok Program ho předvybere', async () => {
   const c = load();
   const t = begin(c, { children: 2 });
@@ -210,6 +239,13 @@ test('⚡ Poskládej: trasa přes víc míst zůstane – ubytování přes „V
   assert.deepEqual(plain(t.route.bases.map((b) => b.plan && b.plan.days.length)), [1, 1]);
   assert.deepEqual(asked.filter((a) => a[0] === 'api/itinerary').map((a) => [a[1].start, a[1].end]), [['2026-11-10', '2026-11-13'], ['2026-11-13', '2026-11-16']]);
   assert.match(sp(c.__els['#tripStep'].innerHTML), /Poskládáno automaticky/);
+  // lišta kroků po návratu na Let: hotel i program v každém místě → ✓; bez hotelu v jednom místě Ubytování bez ✓
+  render(c, 'flight');
+  const bar = () => sp(c.__els['#tripRoot'].innerHTML);
+  for (const k of ['route', 'stay', 'car', 'program']) assert.match(bar(), new RegExp(`class="st done " data-step="${k}"[^>]*><span>✓</span>`), k);
+  t.route.bases[1].stay = null;
+  render(c, 'flight');
+  assert.match(bar(), /class="st  " data-step="stay"[^>]*><span>🏨<\/span>/);
 });
 
 test('⚡ Poskládej: trasa – v jednom místě ubytování nejde → stop na tom místě, vybrané hotely a vlastní volba zůstanou', async () => {
