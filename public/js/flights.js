@@ -1725,6 +1725,8 @@
   /** „Nedávno hledané“ pod formulářem (bez toho, co je ve formuláři teď) – jedním klepnutím znovu. */
   function renderRecent() {
     const host = $('#recentSearches'); if (!host || !fromInput) return;
+    // kdo už hledal, nepotřebuje úvodní fotku „Najdi nejlevnější letenky“ – na telefonu by tlačítko hledání odsunula pod lištu
+    const v = $('#view-flights'); if (v) v.classList.toggle('fl-back', (S.recent || []).length > 0);
     // každé hledání jednou (stejné hledání z různých dnů je od dneška totéž)
     const seen = new Set([watchKey({ form: getForm() })]);
     const items = (S.recent || []).map(e => ({ e, f: SearchHelp.recentForm(e.form, today()) })).filter(x => { const k = x.f && watchKey({ form: x.f }); return k && !seen.has(k) && seen.add(k); }).slice(0, 4);

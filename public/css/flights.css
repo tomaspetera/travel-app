@@ -1299,6 +1299,9 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .fl-ideas-h{margin-top:22px}
 @media(max-width:560px){
   .fl-hero{height:178px;margin-bottom:-58px;border-radius:24px}
+  /* vracející se (už hledal): bez úvodní fotky – „Najít nejlevnější lety“ je hned vidět nad spodní lištou (s fotkou 807 px
+     pod lištou od 770 px na 412 × 844) */
+  #view-flights.fl-back .fl-hero{display:none}
   .fl-hero-in{padding:18px 18px 0}
   .fl-hero h1{font-size:24px}
   .fl-hero p{font-size:13px}
