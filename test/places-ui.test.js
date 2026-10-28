@@ -1121,3 +1121,20 @@ test('🌍 Co hledáš?: kategorie se načte jednou na zemi (api/poi/country?cat
   await P._t.loadCountryCat('castle');
   assert.equal(urls.length, 3, 'po chybě znovu (Zkusit znovu smaže stav, tady načte znovu i sám)');
 });
+
+test('Objevuj: místo, kam jedeš – termín programu podle cesty (od příjezdu do odjezdu, probíhající od dneška), jinak nic', () => {
+  const C = load({ byIso: { PT: { cs: 'Portugalsko' } } }).window.Places._t;
+  const own = [{ label: 'Lisabon', from: '2099-01-14', to: '2099-01-18', trip: true }, { label: 'Vídeň', from: '2026-10-20', to: '2026-10-30', trip: true },
+    { label: 'Kodaň', from: '2026-01-01', to: '2026-01-05', trip: true }];
+  assert.deepEqual(plain(C.tripDatesFor({ label: 'Lisabon' }, own, '2026-10-28')), { from: '2099-01-14', to: '2099-01-18', n: 5 });
+  assert.deepEqual(plain(C.tripDatesFor({ label: 'vídeň' }, own, '2026-10-28')), { from: '2026-10-28', to: '2026-10-30', n: 3 }, 'probíhající od dneška, název bez ohledu na velká písmena');
+  assert.equal(C.tripDatesFor({ label: 'Kodaň' }, own, '2026-10-28'), null, 'proběhlá cesta ne');
+  assert.equal(C.tripDatesFor({ label: 'Porto' }, own, '2026-10-28'), null);
+  assert.deepEqual(plain(C.tripDatesFor({ label: 'Lisabon' }, [{ label: 'Lisabon', from: '2099-01-14', trip: true }], '2026-10-28')), { from: '2099-01-14', to: '2099-01-14', n: 1 }, 'bez konce: den příjezdu');
+  // cesta z plánovače nese i konec (to) – podle něj počet dní programu
+  assert.deepEqual(plain(C.savedPlaces({ dest: 'Kodaň', iso: 'DK', start: '2099-08-01', end: '2099-08-03' })).map((p) => [p.from, p.to]), [['2099-08-01', '2099-08-03']]);
+  // openPlace: termín z cesty, jen co věta („Lisabon na 3 dny“) sama neurčila; poznámka v Naplánovat
+  const js = readFileSync(new URL('../public/js/places.js', import.meta.url), 'utf8');
+  assert.match(js, /if \(px\.place\) openPlace\(s, \{ start: !px\.start, days: !px\.days \}\);/);
+  assert.match(js, /🧳 Termín tvé cesty: \$\{fmtDate\(th\.from\)\}/);
+});

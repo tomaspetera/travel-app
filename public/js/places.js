@@ -990,13 +990,15 @@
     if (!out || !(out.date >= fmtYMD(new Date()))) return [];
     return wizPlaces(t, out.date).map(p => ({ ...p, ...(t.shared ? { shared: true } : {}) }));
   }
-  /** Místa cesty z průvodce t (i její kopie v plánovači): cíl od dne start, nebo místa trasy – bez opakování, nejvýš 4. */
+  /** Místa cesty z průvodce t (i její kopie v plánovači): cíl od dne start, nebo místa trasy – bez opakování, nejvýš 4.
+   *  to = den odjezdu z místa (termín programu v Objevuj – tripDatesFor). */
   function wizPlaces(t, start) {
-    let dates = [];
+    let dates = [], end = '';
     try { dates = window.Trip && Trip.baseDates ? Trip.baseDates(t) : []; } catch (e) { dates = []; }
+    try { end = window.Trip && Trip.stayDates ? Trip.stayDates(t).checkout || '' : ''; } catch (e) { end = ''; }
     const bases = t.route && t.route.mode === 'multi' && Array.isArray(t.route.bases) && t.route.bases.length ? t.route.bases : null;
-    const list = bases ? bases.map((b, i) => ({ label: b.name, lat: b.lat, lon: b.lon, cc: b.cc, country: b.country, from: dates[i] && dates[i].checkin }))
-      : t.dest ? [{ label: String(t.dest.label || '').replace(/ \(.*\)$/, ''), lat: t.dest.lat, lon: t.dest.lon, cc: t.dest.cc, country: t.dest.country, from: start }] : [];
+    const list = bases ? bases.map((b, i) => ({ label: b.name, lat: b.lat, lon: b.lon, cc: b.cc, country: b.country, from: dates[i] && dates[i].checkin, ...(dates[i] && dates[i].checkout ? { to: dates[i].checkout } : {}) }))
+      : t.dest ? [{ label: String(t.dest.label || '').replace(/ \(.*\)$/, ''), lat: t.dest.lat, lon: t.dest.lon, cc: t.dest.cc, country: t.dest.country, from: start, ...(end ? { to: end } : {}) }] : [];
     const seen = new Set();
     return list.filter(p => p.label && p.lat != null && p.lon != null && cleanPlace(p) && !seen.has(p.label) && seen.add(p.label)).slice(0, 4).map(p => ({ ...p, trip: true }));
   }
@@ -1012,8 +1014,8 @@
     const label = String((t.place && t.place.label) || t.dest || '').split(/,|→/)[0].replace(/\s*\(.*\)$/, '').trim().slice(0, 120);
     if (!label || label === '—') return [];
     const cc = /^[A-Z]{2}$/.test(t.iso || '') && countryCs(t.iso) ? t.iso : '';
-    if (cc && foldName(label) === foldName(countryCs(cc))) return [{ label, cc, country: countryCs(cc), whole: cc, from: t.start, trip: true }];
-    return [{ ...(INSP.find(p => p.label === label) || { label, cc, country: countryCs(cc) }), from: t.start, trip: true }];
+    if (cc && foldName(label) === foldName(countryCs(cc))) return [{ label, cc, country: countryCs(cc), whole: cc, from: t.start, to: t.end, trip: true }];
+    return [{ ...(INSP.find(p => p.label === label) || { label, cc, country: countryCs(cc) }), from: t.start, to: t.end, trip: true }];
   }
   /**
    * 🧳 Místa cest uživatele v Inspiraci, nejbližší cesta první: rozpracovaná v průvodci (tripPlaces) a nadcházející
@@ -1316,8 +1318,25 @@
     const root = $('#exploreRoot');
     if (root) { renderExplore(root); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   }
-  function openPlace(s) {
+  /**
+   * 🧳 Místo, kam uživatel jede (cesta v Mých cestách nebo v průvodci – stejný název jako „Tvoje cesta“ v Inspiraci):
+   * termín programu podle cesty – od dne příjezdu (u probíhající od dneška) do odjezdu → { from, to, n } nebo null.
+   * Uložený program pak patří k té cestě (findTripFor: stejné místo a začátek), ne jako druhá cesta od zítřka.
+   */
+  function tripDatesFor(p, own = ownPlaces(), today = fmtYMD(new Date())) {
+    const f = foldName(p && p.label);
+    const x = f ? own.find(o => foldName(o.label) === f && /^\d{4}-\d{2}-\d{2}$/.test(o.from || '') && (o.to || o.from) >= today) : null;
+    if (!x) return null;
+    const from = x.from > today ? x.from : today, to = /^\d{4}-\d{2}-\d{2}$/.test(x.to || '') && x.to >= from ? x.to : from;
+    return { from, to, n: Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1 };
+  }
+  // o.start / o.days: termín z cesty jen tam, kde ho věta („Lisabon na 3 dny“) sama neurčila
+  function openPlace(s, o = { start: true, days: true }) {
     setPlace(s);
+    const td = !s.geo && tripDatesFor(ex.place);
+    ex.tripHint = td ? { label: ex.place.label, ...td } : null;
+    if (td && o.start) { ex.start = td.from; ex.datePicked = true; }
+    if (td && o.days) { const d = [1, 2, 3, 4, 5, 6, 7, 10].filter(n => n <= td.n).pop(); if (d) ex.days = d; }
     // první místo: úvodní fotka nahoře už není potřeba – Objevuj znovu (s ✕ a místy rovnou pod hledáním)
     const root = $('#exploreRoot');
     if (root && $('.ex-hero', root)) return renderExplore(root);
@@ -1473,7 +1492,7 @@
       if (!s) { dd.innerHTML = `<div class="pi-empty">${down ? 'Místa teď nejde dohledat – zkontroluj připojení a zkus to znovu' : `Místo „${esc(px.place)}“ jsem nenašel – zkus jen jeho název`}</div>`; return; }
       dd.hidden = true; q.blur();
       exploreApply(px, s);
-      if (px.place) openPlace(s); else paintExplore();
+      if (px.place) openPlace(s, { start: !px.start, days: !px.days }); else paintExplore();
     };
     const pick = s => { if (!s) return; dd.hidden = true; if (s.ccPick) { q.blur(); openWholeCountry(s.ccPick); } else openPlace(s); };
     // Návrhy k textu; null = předběhl je novější dotaz (nebo psaní).
@@ -2317,6 +2336,8 @@
     const bz = busy[seqKey];
     const er = ex.errs[seqKey];
     const dayOpts = ex.mode === 'loop' ? [2, 3, 4, 5, 6, 7, 10] : ex.mode === 'day' ? [1, 2, 3, 4, 5, 7] : [1, 2, 3, 4, 5, 6, 7, 10];
+    // termín z cesty uživatele (openPlace) – poznámka, dokud ho uživatel nezměnil
+    const th = ex.tripHint && ex.tripHint.label === p.label && ex.tripHint.from === ex.start ? ex.tripHint : null;
     const curDays = road ? ex.tripDays[ex.mode] : ex.days;
     // Program bez jediného místa (prázdný okruh) se neukládá a místo dnů „Volno“ řekne proč.
     const cityPlan = Boolean(ex.plan?.days.some(d => d.items.length));
@@ -2393,6 +2414,7 @@
           : hikeMode ? `Pěší okruh ze startu (${esc(p.label)}) a zpět: zvol délku, krajinu a kopce. Plánovač dává přednost pěšinám, turistickým trasám a klidným cestám.`
           : ex.mode === 'day' ? `Ráno ${ex.transport === 'transit' ? 'vlakem nebo busem' : 'autem'} ven, večer zpátky: města, hrady a příroda do ~${ex.transport === 'transit' ? '3' : '2,5'} h cesty. Každý výlet jiný.`
           : `Okruh ${ex.transport === 'transit' ? 'vlakem a autobusem' : 'autem'} s přespáním po cestě – každý den pár zastávek, poslední den zpět na start.`}</div>
+        ${th ? `<div class="faint ex-triphint">🧳 Termín tvé cesty: ${fmtDate(th.from)}${th.to > th.from ? `–${fmtDate(th.to)}` : ''}</div>` : ''}
         ${hikeDays ? hikeDaysCtl : routeMode ? routeCtl : `<div class="row wrap" style="gap:10px;align-items:end">
           <div class="field" style="margin:0"><label for="exStart">Od</label><input class="input" type="date" id="exStart" value="${ex.start}"></div>
           <div class="field" style="margin:0"><label for="exDays">${ex.mode === 'day' ? 'Počet výletů' : 'Počet dní'}</label><select id="exDays">${dayOpts.map(n => `<option ${curDays === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
@@ -2737,7 +2759,7 @@
   window.Places = {
     renderExplore, renderPlanner, retheme, routeMap, dayRoute, gmDir, openAt, preview, previewHtml, openCountryView, makeHikePlan,
     // jen pro testy (test/places-ui.test.js)
-    _t: { tripPlaces, ownPlaces, savedPlaces, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
+    _t: { tripPlaces, ownPlaces, savedPlaces, tripDatesFor, inspSub, searchedPlaces, plural, placesTxt, mustTxt, inRadius, needsFetch, outsideIds, planIds, withPlanStops, enterAction, sugHtml, waitHtml, errLead, errHtml, httpErr, mustBtn, poiCard,
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
