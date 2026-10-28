@@ -62,6 +62,10 @@
   .map-layout>div:last-child>.card{margin:0 !important;height:100%}
   .map-layout>div:last-child>.legend{order:-1;grid-column:1/-1;margin:-8px 2px 0}
   .map-add{max-width:560px} /* pole „Přidat zemi…“ pod mapou: ne přes celou šířku (štítky zemí pod ním) */
+  /* „Z proběhlých cest…“ jen tak široká jako obsah (přes 950 px prázdný modrý pruh s jedním štítkem); procento světa
+     na mapě opakovalo kartu Procestováno světa hned pod mapou (na telefonu je ta karta skrytá, čip zůstává) */
+  .map-layout>.map-trips{justify-self:start}
+  .map-chip{display:none}
 }
 /* menší notebook: Objevuj půl na půl (seznam by vedle mapy byl moc úzký), statistiky mapy ve dvou sloupcích */
 @media (min-width:1024px) and (max-width:1279px){

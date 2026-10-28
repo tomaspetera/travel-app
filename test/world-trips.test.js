@@ -103,3 +103,11 @@ test('Přidat zemi: pole pod mapou, klepnutí / Enter → navštívená, navšt�
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   assert.match(html, /id="mapTrips" hidden><\/div>\s*<div class="map-add"><input class="input" id="mapAdd" type="search" placeholder="🔎 Přidat zemi, kde jsi byl\/a…" aria-label="Přidat navštívenou zemi"/);
 });
+
+test('počítač: poznámka „Z proběhlých cest“ jen na šířku obsahu, bez čipu procent v mapě (karta Procestováno je pod mapou)', () => {
+  const css = readFileSync(new URL('../public/css/desktop-explore.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('@media (min-width:1024px){'), css.indexOf('@media (min-width:1024px) and (max-width:1279px)'));
+  assert.match(block, /\.map-layout>\.map-trips\{justify-self:start\}/);
+  assert.match(block, /\.map-chip\{display:none\}/);
+  assert.match(block, /\.map-add\{max-width:560px\}/);
+});
