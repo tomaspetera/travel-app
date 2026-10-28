@@ -1231,11 +1231,11 @@
       ${arrivalLines(t, fly)}
       <div id="tfPl">${priceRow(t)}</div>
       <div class="step-act"><button class="btn primary" id="tfNext">Pokračovat: Trasa →</button><div class="step-act2"><button class="btn" id="tfBack">↩ Jiný let</button>${fly ? '' : '<button class="btn" id="tfVerify" title="Ověřit živou cenu a porovnat aerolinky">🔄 Ověřit živou cenu</button>'}</div></div>
-      <div class="auto-trip"><button type="button" class="btn" id="tfAuto"${tripAuto ? ' disabled' : ''}>${tripAuto ? '<span class="spin dark"></span> Skládám cestu…' : AUTO_BTN}</button><small>Ubytování s nejlepším poměrem ceny a hodnocení blízko centra (do 3 km), bez auta a program na místě${isMulti(t) ? ' – trasa zůstane' : ''}. Co už máš vybrané, nechám; kterýkoli krok pak můžeš změnit.</small></div>
+      ${autoAll(t) ? '' : `<div class="auto-trip"><button type="button" class="btn" id="tfAuto"${tripAuto ? ' disabled' : ''}>${tripAuto ? '<span class="spin dark"></span> Skládám cestu…' : AUTO_BTN}</button><small>Ubytování s nejlepším poměrem ceny a hodnocení blízko centra (do 3 km), bez auta a program na místě${isMulti(t) ? ' – trasa zůstane' : ''}. Co už máš vybrané, nechám; kterýkoli krok pak můžeš změnit.</small></div>`}
       <div id="tfAlt"></div></div>${groundOffer(t)}`;
     $('#tfBack').onclick = () => go('flights');
     $('#tfNext').onclick = () => setStep('route');
-    $('#tfAuto').onclick = () => autoTrip();
+    const ab = $('#tfAuto'); if (ab) ab.onclick = () => autoTrip();
     const vb = $('#tfVerify'); if (vb) vb.onclick = () => verifyFlight({ show: true });
     wireAge();
     wirePrice(t);
@@ -2924,7 +2924,7 @@
       ${cityTip ? `<div class="note info car-city-tip" style="margin-bottom:12px">🏙️ <div>${cityTip}<div style="margin-top:8px"><button type="button" class="btn sm primary" id="carSkipTop">Auto nepotřebuji →</button></div></div></div>`
         : !isMulti(t) && !t.car ? '<div class="car-quick"><span class="muted">Na místě se obejdeš bez auta?</span><button type="button" class="btn sm" id="carSkipTop">Auto nepotřebuji →</button></div>' : ''}
       ${carCountryNotes(t)}
-      ${days.length >= 2 ? `<div class="car-range"><span class="cr-l">📅 Auto na dny</span><span class="cr-sel"><select id="carD1" aria-label="Auto od dne">${dayOpts(r1)}</select><span aria-hidden="true">–</span><select id="carD2" aria-label="Auto do dne">${dayOpts(r2)}</select></span><span class="faint cr-n" id="carRangeN">${rangeN(r1, r2)}</span></div>` : ''}
+      ${days.length >= 2 ? `<div class="car-range"><span class="cr-l">📅 Auto na dny</span><span class="cr-sel"><span class="cr-f"><span aria-hidden="true">od</span><select id="carD1" aria-label="Auto od dne">${dayOpts(r1)}</select></span><span class="cr-f"><span aria-hidden="true">do</span><select id="carD2" aria-label="Auto do dne">${dayOpts(r2)}</select></span></span><span class="faint cr-n" id="carRangeN">${rangeN(r1, r2)}</span></div>` : ''}
       <div class="car-form">
         ${locField('carPu', 'Vyzvednutí', def.pickup, pu, 'carFrom', def.from)}
         ${locField('carDo', 'Vrácení', def.dropoff, dc, 'carTo', def.to)}
@@ -3237,6 +3237,8 @@
    */
   let tripAuto = false;
   const AUTO_DONE = 'Poskládáno automaticky – kterýkoli krok můžeš upravit.';
+  // vracející se do kroku Let s hotovou cestou: ⚡ by nic nepřidal (vybrané nechává) – jen by přeskočil na Shrnutí
+  const autoAll = t => Boolean(t.car) && (isMulti(t) ? t.route.bases.every((b, i) => b.stay && basePlan(t, i)) : Boolean(t.stay && tripPlan(t)));
   // hláška ⚡ v kroku (běží / zastaveno / hotovo) – jen u cesty a kroku, kam patří; přepnutí kroku ji zahodí (setStep)
   const autoNoteHtml = (t, step) => (autoNote && autoNote.t === t && autoNote.step === step
     ? `<div class="note ${autoNote.kind === 'warn' ? 'warn' : 'info'} auto-note" id="autoNote">${autoNote.kind === 'run' ? '<span class="spin dark"></span>' : autoNote.kind === 'warn' ? '⚠️' : '⚡'} <div>${esc(autoNote.msg)}</div></div>` : '');

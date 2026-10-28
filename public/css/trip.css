@@ -669,8 +669,11 @@ table.cost tr.entry-tot td{font-weight:800;border-bottom:none}
 /* 📅 auto jen na některé dny: dva výběry dne vedle sebe, na telefonu se celé vejdou do řádku pod popiskem */
 .car-range{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 12px;padding:9px 12px;border-radius:14px;background:var(--surface-2);font-size:13px}
 .car-range .cr-l{font-weight:700}
-.car-range .cr-sel{display:flex;align-items:center;gap:6px;min-width:0}
-.car-range select{width:auto;min-width:0;padding:7px 9px;border-radius:10px;font-size:13px}
+/* „od / do“ jako dvojice: na telefonu (výběr 16 px kvůli iOS) se oba dny vedle sebe nevešly a „přílet“ se usekl –
+   dvojice teď přejde pod sebe celá */
+.car-range .cr-sel{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;min-width:0}
+.car-range .cr-f{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}
+.car-range select{width:auto;min-width:0;padding:7px 26px 7px 9px;background-position:right 8px center;border-radius:10px;font-size:13px} /* vpravo místo pro šipku výběru (atlas.css select) */
 .car-range .cr-n{font-size:12.5px}
 /* místo vyzvednutí / vrácení: popisek s přepínačem 🏙️ ve městě ⇄ ✈️ na letišti, město jako štítek místo kódu letiště */
 .car-lbl{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px}

@@ -165,6 +165,9 @@ test('krok Auto: 📅 dny auta – Lisabon jen 2. a 3. den: odkazy s městem a �
   const t = lisbon();
   const h = render(c, t);
   assert.match(h, /<span class="cr-l">📅 Auto na dny<\/span>/);
+  // „od“ a „do“ s výběrem jako dvojice – na telefonu přejdou pod sebe celé (dřív se „přílet“ usekl)
+  assert.match(h, /<span class="cr-f"><span aria-hidden="true">od<\/span><select id="carD1" aria-label="Auto od dne">/);
+  assert.match(h, /<span class="cr-f"><span aria-hidden="true">do<\/span><select id="carD2" aria-label="Auto do dne">/);
   assert.match(h, /<option value="2026-11-10" selected>út 10\. 11\. · přílet<\/option>/);
   assert.match(h, /<option value="2026-11-15" selected>ne 15\. 11\. · odlet<\/option>/);
   assert.match(h, /id="carRangeN">celý pobyt</);
