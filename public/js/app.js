@@ -156,7 +156,7 @@ function openMore() {
   const list = $('.more-nav', $('#modal'));
   if (window.Transfer) Transfer.addToMenu(list); // 📲 Přenést do jiného zařízení – odkaz a QR kód (transfer.js)
   if (window.Backup) {
-    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">💾 Přenos a záloha <span class="faint">soubor</span></button>`);
+    list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreBk">💾 Přenos a záloha <span class="faint">soubor, obnova</span></button>`);
     $('#moreBk').onclick = () => { modalClose(); Backup.open(); };
   }
   list.insertAdjacentHTML('beforeend', `<button type="button" class="btn ghost" id="moreWn">✨ Co je nového <span class="faint">novinky</span></button>`);
