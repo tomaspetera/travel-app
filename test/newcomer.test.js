@@ -99,3 +99,11 @@ test('vracející se uživatel: ⭐ Moje cíle s jednou větou o ceně (dřív 5
   const js = read('js/flights.js');
   assert.match(js, /<div class="faint fav-note" title="Jen letenka – bez cesty na letiště, do města a zavazadel; s odletem od tohoto měsíce\. Telefon a počítač mají každý svou paměť cen\.">Cena = nejlevnější zpáteční letenka na osobu, jakou ATLAS viděl v tomhle zařízení\.<\/div>/);
 });
+
+test('Lety u vracejícího se (už hledal): na telefonu bez úvodní fotky – tlačítko hledání nad spodní lištou', () => {
+  const fl = read('js/flights.js');
+  assert.match(fl, /const v = \$\('#view-flights'\); if \(v\) v\.classList\.toggle\('fl-back', \(S\.recent \|\| \[\]\)\.length > 0\);/);
+  const css = read('css/flights.css');
+  const m = css.match(/@media\(max-width:560px\)\{\n  \.fl-hero\{height:178px;[\s\S]*?#view-flights\.fl-back \.fl-hero\{display:none\}/);
+  assert.ok(m, 'jen na telefonu (do 560 px)');
+});
