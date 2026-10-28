@@ -42,7 +42,7 @@ test('karta dne túry: cíl a start, délka, převýšení, čas a obtížnost, 
   const day = sp(T.hikeDayHtml(plan.days[i], i, PEC, plan));
   assert.match(day, /<b>⛰️ Sněžka<\/b> <span class="faint">z: Pec pod Sněžkou · hlavní vrchol · nejvýš/);
   assert.match(day, /nejvýš ~1\u00a0\d{3}\u00a0m n\.\u00a0m\./);
-  assert.match(day, /<b>13,9\u00a0km<\/b><span>↗ 934 m<\/span><span>↘ 934 m<\/span><span>⏱️ ~6\u00a0h 43\u00a0min chůze<\/span><span class="hk-diff hk-d3">náročná<\/span>/);
+  assert.match(day, /<b>13,9\u00a0km<\/b><span>↗ 934 m<\/span><span>↘ 934 m<\/span><span>⏱️ ~6\u00a0h\u00a043\u00a0min chůze<\/span><span class="hk-diff hk-d3">náročná<\/span>/);
   assert.match(day, /🚶 Start: <b>Pec pod Sněžkou<\/b> – pěšky tam a zpět/);
   assert.match(day, /🍽️ Po cestě: 🛖 Bouda Růžohorky <span class="faint">\(3,1\u00a0km\)<\/span> · ☕ Česká poštovna/);
   assert.match(day, /🌧️ Když prší nebo je mlha: jen k chatě <b>Bouda Růžohorky<\/b> a zpět \(~6,2\u00a0km, ~3\u00a0h\)\. Za bouřky, mlhy či silného větru na hřebeny a vrcholy nechoď\./);
@@ -87,7 +87,7 @@ test('odhad bez trasy, občerstvení „nevím“, den bez túry, kratší den b
   const short = { ...est, type: 'short', departure: true, budget: 125, hike: { ...est.hike, minutes: 285, km: 10.9, ascent: 636, descent: 636, estimate: false, long: true, difficulty: { level: 2, label: 'střední' }, food: [] } };
   const s = sp(T.hikeDayHtml(short, 2, PEC, { fromBase: true }));
   assert.match(s, /Den 3 · [^·]+ · den odjezdu · kratší túra/);
-  assert.match(s, /Na celou túru dnes není čas \(~4\u00a0h 45\u00a0min chůze, den má na chůzi ~2\u00a0h 5\u00a0min\) – jdi jen kus cesty a otoč to nejpozději po ~1\u00a0h/);
+  assert.match(s, /Na celou túru dnes není čas \(~4\u00a0h\u00a045\u00a0min chůze, den má na chůzi ~2\u00a0h\u00a05\u00a0min\) – jdi jen kus cesty a otoč to nejpozději po ~1\u00a0h/);
   assert.match(s, /🍽️ Po cestě jsem chatu ani restauraci nenašel – vezmi si svačinu a pití\./);
 });
 

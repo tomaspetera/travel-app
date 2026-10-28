@@ -49,8 +49,8 @@
   const dayLbl = ymd => { const d = new Date(ymd + 'T12:00:00'); return `${['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'][d.getDay()]}\u00a0${d.getDate()}.\u00a0${d.getMonth() + 1}.`; };
   // desetinná čárka („0,6 km“), ne tečka
   const num = x => String(x).replace('.', ',');
-  // číslo a jednotka nezlomitelně („30 min“, „1 h“ – na telefonu ne „30“ a „min“ na dalším řádku)
-  const minTxt = m => m >= 60 ? `${Math.floor(m / 60)}\u00a0h${m % 60 ? ' ' + (m % 60) + '\u00a0min' : ''}` : `${m}\u00a0min`;
+  // nezlomitelně („30 min“, „1 h 40 min“ – na telefonu ne „30“ a „min“ ani „40 min“ v programu dne na dalším řádku)
+  const minTxt = m => m >= 60 ? `${Math.floor(m / 60)}\u00a0h${m % 60 ? '\u00a0' + (m % 60) + '\u00a0min' : ''}` : `${m}\u00a0min`;
   const TRIP_ICON = { town: '🏘️', castle: '🏰', nature: '⛰️', monastery: '⛪', palace: '🏯', ruins: '🏚️' };
   const NATURE_ICON = { park: '🏞️', waterfall: '💧', cave: '🕳️', gorge: '🏞️', rock: '🪨', mountain: '⛰️', lake: '🌊', reserve: '🌿' };
   const tripIcon = p => (p.spa ? '♨️' : NATURE_ICON[p.natureKind] || TRIP_ICON[p.tripKind] || icon(p.tripKind || p.category));
