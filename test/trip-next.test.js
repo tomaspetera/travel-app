@@ -22,10 +22,11 @@ function page({ btn = null, alt = null, navShown = true, active = true } = {}) {
     '.topbar': { getBoundingClientRect: () => box(0, 68) },
     '#view-trip': { classList: { contains: (c) => c === 'active' && active } },
   };
-  if (btn) els[`#tripStep #${btn.id}`] = { textContent: btn.text, disabled: Boolean(btn.disabled), id: btn.id, isConnected: true, clicks: 0, click() { this.clicks++; },
+  if (btn) els[`#tripStep #${btn.id}`] = { textContent: btn.text, disabled: Boolean(btn.disabled), id: btn.id, isConnected: true, clicks: 0, click() { this.clicks++; }, style: {},
     classList: { contains: (c) => c === 'primary' && btn.primary !== false }, getBoundingClientRect: () => box(btn.top, 52) };
   if (alt) els[`#tripStep #${alt.id}`] = { id: alt.id, getBoundingClientRect: () => box(alt.top, 34) };
   ctx.$ = (s) => els[s] || null;
+  ctx.innerHeight = 844;
   ctx.getComputedStyle = (el) => ({ display: el.display || 'block' });
   ctx.Trip.phoneNext();
   return els;
@@ -55,6 +56,15 @@ test('phoneNext: tlačítko celé vidět, počítač bez spodní lišty, jiná s
   const p = page({ btn: { id: 'carSkip', text: 'Auto nepotřebuji →', top: 1712, primary: false }, alt: { id: 'carSkipTop', top: -200 } });
   assert.equal(p['#tripNext'].hidden, false);
   assert.match(p['#tripNext'].innerHTML, /class="btn">Auto nepotřebuji →/);
+});
+
+test('phoneNext: tlačítko v kroku napůl pod kopií se skryje (nevykukuje jako druhé „Pokračovat“), jinak je vidět', () => {
+  const vis = (top, o = {}) => page({ btn: { id: 'rtNext', text: 'Pokračovat k ubytování →', top }, ...o })['#tripStep #rtNext'].style.visibility;
+  assert.equal(vis(733), 'hidden', 'krok Trasa na telefonu: 733–785 px, kopie 710–762, lišta od 770');
+  assert.equal(vis(-30), 'hidden', 'odrolované pod horní lištu');
+  assert.equal(vis(1712), '', 'daleko dole – není co skrývat');
+  assert.equal(vis(600), '', 'celé vidět – bez kopie, tlačítko normálně');
+  assert.equal(vis(733, { navShown: false }), '', 'počítač bez spodní lišty');
 });
 
 test('phoneNext: nepovolené tlačítko kroku jen ukáže, kde je (kopie aria-disabled)', () => {

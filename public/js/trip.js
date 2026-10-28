@@ -1136,6 +1136,9 @@
       const alt = NEXT_ALT[b.id] && $(`#tripStep #${NEXT_ALT[b.id]}`), ar = alt && alt.getBoundingClientRect ? alt.getBoundingClientRect() : null;
       show = !seen(r) && !(ar && ar.height && seen(ar));
     }
+    // tlačítko v kroku napůl pod kopií (těsně nad lištou) vykukovalo jako druhé „Pokračovat“ – dokud je kopie vidět, je
+    // neviditelné (místo mu zůstane, krok neposkočí); celé vidět → kopie zmizí a tlačítko je zpátky
+    if (b && b.style) b.style.visibility = show && r.bottom > 0 && r.top < (window.innerHeight || Infinity) ? 'hidden' : '';
     bar.hidden = !show;
     if (!show) return;
     const cls = `btn${b.classList.contains('primary') ? ' primary' : ''}`, txt = String(b.textContent).trim(), key = `${cls}|${b.disabled}|${txt}`;
