@@ -1748,9 +1748,13 @@ window.addToPlan = iso => { newTrip(byIso[iso]); };
 // Počasí a kurz v okně země: bez odpovědi do 8 s chyba (jinak „Načítám počasí…“ visí, když open-meteo neodpovídá)
 const wxSignal = () => (typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined);
 async function geocode(c) {
+  // poloha hlavního města z dat zemí (scripts/build-capitals.mjs): počasí jedním dotazem místo dvou – a přednost i před
+  // uloženým S.geo, kde geokódování jen podle názvu nechalo San José v Kalifornii místo Kostariky
+  if (Array.isArray(c.capLL) && c.capLL.length === 2) return { lat: c.capLL[0], lon: c.capLL[1] };
   if (S.geo[c.iso2]) return S.geo[c.iso2];
   try {
-    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${enc(c.cap || c.en)}&count=1&language=cs&format=json`, { signal: wxSignal() }); const j = await r.json();
+    // záloha pro starší data zemí bez capLL (z mezipaměti) – s filtrem země
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${enc(c.cap || c.en)}&count=1&language=cs&format=json&countryCode=${enc(c.iso2)}`, { signal: wxSignal() }); const j = await r.json();
     if (j.results && j.results[0]) { const g = { lat: j.results[0].latitude, lon: j.results[0].longitude }; S.geo[c.iso2] = g; save(); return g; }
   } catch (e) { }
   return null;
