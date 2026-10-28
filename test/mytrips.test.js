@@ -80,11 +80,20 @@ test('karta cesty otevřené v průvodci: ve Shrnutí „Sestavená“, jinak �
 test('záložka Cesty; menší karty v Mých cestách jen na telefonu a tabletu (počítač beze změny)', () => {
   const app = read('js/app.js');
   assert.match(app, /\['trip', 'Cesty', /);
-  assert.match(app, /<div class="faint tb-fl" style="font-size:12px;margin-bottom:4px">/);
+  assert.match(app, /<div class="faint tb-fl" style="font-size:12px">/);
   const css = read('css/trip.css');
   const m = css.match(/@media\(max-width:1023px\)\{\n  \.trip-mine \.trip-grid\{gap:10px\}[\s\S]*?\n\}/);
   assert.ok(m, 'blok menších karet');
   assert.match(m[0], /\.trip-mine \.trip-top\[data-photo\]\{min-height:0;padding:36px 14px 11px\}/, 'místo nahoře pro štítek „za X dní“');
   assert.match(m[0], /\.trip-mine \.tb-fl\{white-space:nowrap;overflow:hidden;text-overflow:ellipsis\}/, 'let na jeden řádek');
   assert.match(read('css/desktop-explore.css'), /\.trip-top\[data-photo\]\{min-height:168px\}/, 'počítač: velké fotky');
+});
+
+test('karta cesty: lidé, aktivity a balení v jednom řádku s rozpočtem (na úzké kartě rozpočet vpravo pod nimi)', () => {
+  const app = read('js/app.js');
+  assert.match(app, /<div class="bar"><span>👤 \$\{t\.pax \|\| 1\} os\. · \$\{na\} \$\{na === 1 \? 'aktivita'[^`]*sbaleno<\/span><span>\$\{t\.budget/);
+  assert.ok(!app.includes('class="muted tb-n"'), 'samostatný řádek aktivit pryč');
+  const css = read('css/atlas.css');
+  assert.match(css, /\.trip-body \.bar\{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;/);
+  assert.match(css, /\.trip-body \.bar>span:last-child\{margin-left:auto\}/);
 });
