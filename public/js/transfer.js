@@ -149,7 +149,7 @@
         return;
       }
       if (!f.qr) {
-        box.innerHTML = `<div class="note info">📏 <div>Dat je na QR kód moc (odkaz má ${f.bytes.toLocaleString('cs-CZ')} znaků, QR kód pojme nejvýš 2 953). Pošli si odkaz – AirDropem, Quick Share, e-mailem nebo do chatu sám sobě – nebo soubor zálohy.</div></div>`;
+        box.innerHTML = `<div class="note info">📏 <div>Dat je na QR kód moc. Pošli si odkaz – AirDropem, Quick Share, e-mailem nebo do chatu sám sobě – nebo soubor zálohy.</div></div>`;
         return;
       }
       box.innerHTML = `<button type="button" class="tf-qr" id="tfQr" aria-label="QR kód s odkazem na přenos – klepnutím zvětšíš">${QR.svg(f.qr, { label: 'QR kód s odkazem na přenos dat' })}</button>
@@ -162,7 +162,7 @@
 
   /** Položka v ⋯ Další (app.js openMore). */
   function addToMenu(list) {
-    list.insertAdjacentHTML('beforeend', '<button type="button" class="btn ghost" id="moreXfer">📲 Přenést do jiného zařízení <span class="faint">QR kód</span></button>');
+    list.insertAdjacentHTML('beforeend', '<button type="button" class="btn ghost" id="moreXfer">📲 Přenést do jiného zařízení <span class="faint">odkaz, QR kód</span></button>');
     list.querySelector('#moreXfer').onclick = () => open();
   }
   // Počítač a tablet nemají ⋯ Další: odkaz v postranním panelu pod přepínačem motivu (vzhled .side-about jako
