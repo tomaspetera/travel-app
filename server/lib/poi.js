@@ -191,6 +191,11 @@ const WDQS_RETRY_MS = 1500;
 
 const qid = (uri) => String(uri || '').split('/').pop();
 const val = (b, k) => b[k]?.value;
+// Fotka místa jen jako náhled na kartě (Objevuj, přehled země, náhled cíle: nejvýš 96 × 80 px, telefon 72 × 64):
+// 330 px – standardní šířka náhledů Wikimedie – stačí i na displeji s hustotou 3× a má asi polovinu dat proti 500 px
+// (Alfama 13 kB místo 25 kB), na mobilních datech znát u každé stránky míst.
+const THUMB = 330;
+const commonsThumb = (img) => `${img.replace(/^http:/, 'https:')}?width=${THUMB}`;
 const title = (uri) => (uri ? decodeURIComponent(uri.split('/wiki/')[1] || '').replace(/_/g, ' ') : null);
 
 /**
@@ -232,7 +237,7 @@ export function groupBindings(rows, center, { islands = null } = {}) {
     // má článek v cestovním průvodci Wikivoyage (jen dotaz na výlety); název článku pro doporučení „Go next“
     if (val(b, 'wv')) { p.wv = true; p.wvTitle ||= title(val(b, 'wv')); }
     const img = val(b, 'img');
-    if (img && !p.image) p.image = `${img.replace(/^http:/, 'https:')}?width=500`;
+    if (img && !p.image) p.image = commonsThumb(img);
   }
   const out = [];
   for (const p of by.values()) {
@@ -351,7 +356,7 @@ async function enrich(places, { preferCs = false } = {}) {
       const batch = need.slice(i, i + 20);
       const qs = new URLSearchParams({
         action: 'query', format: 'json', formatversion: '2', redirects: '1', prop: 'extracts|pageimages',
-        exintro: '1', explaintext: '1', exsentences: '3', exlimit: '20', piprop: 'thumbnail|name', pithumbsize: '500', pilimit: '20',
+        exintro: '1', explaintext: '1', exsentences: '3', exlimit: '20', piprop: 'thumbnail|name', pithumbsize: String(THUMB), pilimit: '20',
         titles: batch.map((p) => p.wiki[lang]).join('|'),
       });
       try {
@@ -375,7 +380,7 @@ async function enrich(places, { preferCs = false } = {}) {
             // omezuje (429). Pak raději náhled přes Special:FilePath ve standardní šířce.
             p.image = /\/thumb\//.test(pg.thumbnail.source) || !pg.pageimage
               ? pg.thumbnail.source
-              : `https://${lang}.wikipedia.org/wiki/Special:FilePath/${encodeURIComponent(pg.pageimage)}?width=330`;
+              : `https://${lang}.wikipedia.org/wiki/Special:FilePath/${encodeURIComponent(pg.pageimage)}?width=${THUMB}`;
           }
         }
       } catch {
@@ -436,7 +441,7 @@ async function wikiGeosearch(lang, lat, lon) {
   const qs = new URLSearchParams({
     action: 'query', format: 'json', formatversion: '2', generator: 'geosearch', ggscoord: `${lat}|${lon}`,
     ggsradius: '10000', ggslimit: '50', prop: 'coordinates|pageimages|description|pageprops', ppprop: 'wikibase_item',
-    piprop: 'thumbnail', pithumbsize: '500', pilimit: '50', colimit: '50',
+    piprop: 'thumbnail', pithumbsize: String(THUMB), pilimit: '50', colimit: '50',
   });
   const j = await limitWiki(() => request(`https://${lang}.wikipedia.org/w/api.php?${qs}`, { headers: { 'User-Agent': UA }, retry429: true, timeoutMs: 15000, retries: 1 }));
   return (j.query?.pages || []).map((pg) => ({ lang, ...pg }));
@@ -787,7 +792,7 @@ const natureQuery = (lat, lon) => cache.wrap(`wdqs-nature:${lat.toFixed(1)}:${lo
     const img = val(b, 'img');
     by.set(id, {
       id, name, description: val(b, 'itemDescription') || '', lat: lat2, lon: lon2, sitelinks: Number(val(b, 'sl')) || 0,
-      natureKind: kindOf.get(qid(val(b, 't'))) || 'nature', image: img ? `${img.replace(/^http:/, 'https:')}?width=500` : null,
+      natureKind: kindOf.get(qid(val(b, 't'))) || 'nature', image: img ? commonsThumb(img) : null,
       wiki: { cs: title(val(b, 'cs')), en: title(val(b, 'en')) }, heritage: false, unesco: false,
     });
   }
@@ -813,7 +818,7 @@ const heritageQuery = (lat, lon) => cache.wrap(`wdqs-heritage:${lat.toFixed(1)}:
     const img = val(b, 'img');
     by.set(id, {
       id, name, description: val(b, 'itemDescription') || '', lat: lat2, lon: lon2, sitelinks: Number(val(b, 'sl')) || 0, tripKind: kind,
-      image: img ? `${img.replace(/^http:/, 'https:')}?width=500` : null, wiki: { cs: title(val(b, 'cs')), en: title(val(b, 'en')) }, heritage: true, unesco: false,
+      image: img ? commonsThumb(img) : null, wiki: { cs: title(val(b, 'cs')), en: title(val(b, 'en')) }, heritage: true, unesco: false,
     });
   }
   return [...by.values()];
@@ -1298,7 +1303,7 @@ export function countryById(rows) {
       const wiki = { cs: title(val(b, 'cs')), en: title(val(b, 'en')) };
       p = {
         id, name: CS_NAMES[id] || csName(val(b, 'itemLabel'), val(b, 'csl'), wiki.cs), description: val(b, 'csd') || val(b, 'itemDescription') || '', descLang: val(b, 'csd') ? 'cs' : 'en',
-        lat, lon, sitelinks: Number(val(b, 'sl')) || 0, kinds: new Set(), types: new Set(), image: img ? `${img.replace(/^http:/, 'https:')}?width=500` : null, wiki,
+        lat, lon, sitelinks: Number(val(b, 'sl')) || 0, kinds: new Set(), types: new Set(), image: img ? commonsThumb(img) : null, wiki,
       };
       by.set(id, p);
     }

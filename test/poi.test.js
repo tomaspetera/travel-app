@@ -42,7 +42,7 @@ test('groupBindings: sloučí řádky, rozpozná kategorie, vyřadí nádraží 
   const duomo = places.find((p) => p.id === 'Q18068');
   assert.equal(duomo.category, 'church');
   assert.equal(duomo.heritage, true);
-  assert.equal(duomo.image, 'https://commons.wikimedia.org/wiki/Special:FilePath/Duomo.jpg?width=500');
+  assert.equal(duomo.image, 'https://commons.wikimedia.org/wiki/Special:FilePath/Duomo.jpg?width=330');
   const supper = places.find((p) => p.id === 'Q1060');
   assert.equal(supper.unesco, true);
   assert.ok(scorePlace(supper) > scorePlace({ ...supper, unesco: false, heritage: false }));
@@ -73,6 +73,9 @@ test('findPlaces: Wikidata + popisy z Wikipedie, výlety mimo město, User-Agent
     assert.match(sparql[0].init.headers['User-Agent'], /^ATLAS-travel\/.*github\.com/);
     const duomo = items.find((p) => p.id === 'Q18068');
     assert.equal(duomo.extract, 'Milánská katedrála je gotická katedrála v Miláně.');
+    // fotky jen jako náhled na kartě: 330 px (standardní šířka Wikimedie), ne 500 – polovina dat na mobilu
+    const wiki = stub.calls.filter((c) => c.url.includes('wikipedia.org/w/api.php'));
+    assert.ok(wiki.length && wiki.every((c) => new URL(c.url).searchParams.get('pithumbsize') === '330'), wiki.map((c) => c.url).join('\n'));
     assert.equal(duomo.extractLang, 'cs');
     assert.equal(duomo.image, 'https://upload.wikimedia.org/duomo-480.jpg');
     assert.equal(duomo.categoryLabel, 'Kostel / chrám');
