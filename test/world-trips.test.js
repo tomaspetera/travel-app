@@ -111,3 +111,16 @@ test('počítač: poznámka „Z proběhlých cest“ jen na šířku obsahu, be
   assert.match(block, /\.map-chip\{display:none\}/);
   assert.match(block, /\.map-add\{max-width:560px\}/);
 });
+
+test('počasí v okně země: poloha hlavního města z dat (capLL) bez geokódování – i přes staré S.geo; bez capLL geokódování se zemí', async () => {
+  const calls = [];
+  const ctx = { S: { geo: { CR: { lat: 37.34, lon: -121.89 } } }, enc: encodeURIComponent, wxSignal: () => undefined, save() {},
+    fetch: async (u) => { calls.push(u); return { json: async () => ({ results: [{ latitude: 9.93, longitude: -84.08 }] }) }; } };
+  vm.createContext(ctx);
+  vm.runInContext(`${grab('async function geocode(c)', '\nasync function loadWeather(')}\nthis.geocode = geocode;`, ctx);
+  assert.deepEqual(plain(await ctx.geocode({ iso2: 'CR', cap: 'San José', capLL: [9.93, -84.08] })), { lat: 9.93, lon: -84.08 }, 'ne San José v Kalifornii z uloženého S.geo');
+  assert.equal(calls.length, 0, 'jen předpověď, bez dotazu na geokódování');
+  // starší countries.json z mezipaměti bez capLL: geokódování s filtrem země
+  assert.deepEqual(plain(await ctx.geocode({ iso2: 'SC', cap: 'Victoria' })), { lat: 9.93, lon: -84.08 });
+  assert.match(calls[0], /name=Victoria&count=1&language=cs&format=json&countryCode=SC$/);
+});

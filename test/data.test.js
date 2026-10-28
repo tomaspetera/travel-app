@@ -84,6 +84,23 @@ test('countries.json: hlavní město Řecka jako v celé aplikaci (server/lib/na
   assert.equal(BY.GR.capCs, 'Atény');
 });
 
+test('countries.json: poloha hlavního města (capLL) u každé země – počasí v okně země jedním dotazem a ve správné zemi', () => {
+  const R = 6371, rad = Math.PI / 180;
+  const km = (a, b, c, d) => 2 * R * Math.asin(Math.sqrt(Math.sin((c - a) * rad / 2) ** 2 + Math.cos(a * rad) * Math.cos(c * rad) * Math.sin((d - b) * rad / 2) ** 2));
+  for (const c of COUNTRIES) {
+    const [lat, lon] = c.capLL || [];
+    assert.ok(Array.isArray(c.capLL) && c.capLL.length === 2 && Math.abs(lat) <= 90 && Math.abs(lon) <= 180, `${c.iso2}: capLL ${JSON.stringify(c.capLL)}`);
+    // hlavní město leží u letiště své země (bez letiště v datech: Andorra, Lichtenštejnsko, Monako, San Marino, Palestina, Ukrajina)
+    const aps = AIRPORTS.filter((a) => a[3] === c.iso2);
+    if (aps.length) assert.ok(Math.min(...aps.map((a) => km(lat, lon, a[4], a[5]))) < 120, `${c.iso2} ${c.cap}: daleko od letišť své země`);
+  }
+  // geokódování jen podle názvu vracelo San José v Kalifornii a Vitórii v Brazílii
+  assert.ok(km(...BY.CR.capLL, 9.93, -84.08) < 10, 'Kostarika: San José v Kostarice');
+  assert.ok(km(...BY.SC.capLL, -4.62, 55.45) < 10, 'Seychely: Victoria na Mahé');
+  assert.ok(km(...BY.PA.capLL, 8.99, -79.52) < 10, 'Panama: Panama City v Panamě, ne na Floridě');
+  assert.ok(km(...BY.CZ.capLL, 50.09, 14.42) < 10);
+});
+
 test('arrival.json: jízdné v měně země letiště (stejně jako countries.json)', () => {
   const cc = Object.fromEntries(AIRPORTS.map((a) => [a[0], a[3]]));
   // Marsa Alam: veřejná doprava nejezdí, soukromé transfery se v Egyptě nabízejí v eurech
