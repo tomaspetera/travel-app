@@ -471,6 +471,12 @@ button.dest{font:inherit;text-align:left;width:100%}
 .map-trips[hidden]{display:none}
 .map-trips .mtr-ccs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .map-trips .pill{cursor:pointer;font:600 13px Inter,sans-serif}
+/* „Přidat zemi…“ pod mapou (app.js mapAddWire): pole a pod ním země jako štítky */
+.map-add{display:grid;gap:8px}
+.map-add-hits{display:flex;flex-wrap:wrap;gap:6px}
+.map-add-hits:empty{display:none}
+.map-add-hits .pill{font:600 13px Inter,sans-serif}
+.map-add-hits button.pill{cursor:pointer}
 .map-zoom button svg{width:18px;height:18px}
 .legend .land-dot{background:var(--map-land);box-shadow:inset 0 0 0 1px var(--map-line)}
 .map-tooltip{position:fixed;pointer-events:none;z-index:200;background:var(--surface-solid);border:1px solid var(--border-2);padding:8px 12px;border-radius:10px;font-size:13px;font-weight:700;box-shadow:var(--shadow);opacity:0;transition:opacity .12s;transform:translate(-50%,-130%)}
