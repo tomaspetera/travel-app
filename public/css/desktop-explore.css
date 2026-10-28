@@ -40,6 +40,9 @@
   /* ---------- Plánovač: karty cest ve stejné mřížce jako ostatní (4 vedle sebe na 1440 px), „Nová cesta“ stejně vysoká ---------- */
   .trip-grid{grid-template-columns:repeat(auto-fill,minmax(max(250px,calc((100% - 60px) / 4)),1fr));gap:20px} /* nejvýš 4 vedle sebe */
   .trip-top[data-photo]{min-height:168px}
+  /* Moje cesty: „📝 Vlastní cesta bez letu“ podle popisku – sama by se roztáhla přes celý řádek (na telefonu přes celou
+     šířku záměrně, trip.css) */
+  .mt-more .btn{flex:0 1 auto;padding-inline:20px}
 
   /* ---------- Doporučení: karta bez fotky má velkou vlajku jako v Zemích (ne prázdný přechod) ---------- */
   /* velikost jako v Zemích (72 px od 20 px) – vlajka 84 px od 24 px sahala pod horní okraj karty (padding 100 px) a panel
