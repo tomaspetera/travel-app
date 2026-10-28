@@ -689,7 +689,8 @@ test('náhled cíle: karta (fotka, druh, jedna věta, anglicky se štítkem), po
   const img = "https://upload.wikimedia.org/a b'(c).jpg";
   const card = T.previewCard(PV(XSS, 5, img, { extract: 'Gotická katedrála ze 14. století s věží. Druhá věta už se nevypíše.', unesco: true, distanceKm: 0.8 }));
   assert.ok(!card.includes('<img src=x'), 'název escapovaný');
-  assert.ok(card.includes("background-image:url('https://upload.wikimedia.org/a%20b%27%28c%29.jpg')"));
+  // fotka jako vrstva nad ikonou druhu – nenačtená nechá vidět 🏛️, ne prázdný čtverec
+  assert.ok(card.includes(`<div class="dp-img has-ph" style="--ph:url('https://upload.wikimedia.org/a%20b%27%28c%29.jpg')" aria-hidden="true">🏛️</div>`), card);
   assert.ok(card.includes('🏛️ Muzeum · UNESCO · 0,8\u00a0km'));
   assert.ok(card.includes('Gotická katedrála ze 14. století s věží.') && !card.includes('Druhá věta'));
   const sv = T.previewCard(PV('Kostel sv. Mikuláše', 5, IMG, { extract: 'Barokní římskokatolický kostel sv. Mikuláše stojí na hlavním náměstí a patří k nejcennějším stavbám města. Postaven v 18. století.', descLang: 'cs' }));
@@ -1137,4 +1138,19 @@ test('Objevuj: místo, kam jedeš – termín programu podle cesty (od příjezd
   const js = readFileSync(new URL('../public/js/places.js', import.meta.url), 'utf8');
   assert.match(js, /if \(px\.place\) openPlace\(s, \{ start: !px\.start, days: !px\.days \}\);/);
   assert.match(js, /🧳 Termín tvé cesty: \$\{fmtDate\(th\.from\)\}/);
+});
+
+test('Objevuj: fotka místa leží přes ikonu druhu – když se nenačte (slabý signál), je vidět ikona, ne šedý čtverec', () => {
+  const img = "https://upload.wikimedia.org/x y'.jpg";
+  const card = T.poiCard({ id: 'Q1', name: 'Hrad', category: 'castle', categoryLabel: 'Hrad / pevnost', image: img }, {});
+  assert.match(card, /<div class="poi-img has-ph" style="--ph:url\('https:\/\/upload\.wikimedia\.org\/x%20y%27\.jpg'\)">🏰<\/div>/);
+  assert.match(T.poiCard({ id: 'Q2', name: 'Bez fotky', category: 'castle' }, {}), /<div class="poi-img">🏰<\/div>/, 'bez fotky jen ikona');
+  assert.ok(!card.includes('background-image'), 'fotka už není pozadí přímo čtverce (to by ikonu zakrylo i bez fotky)');
+  const g = ['city', '🏙️', 'Města', 'Město'];
+  assert.match(T.countryCard({ id: 'c1', name: 'Řím', image: img }, g, { label: 'Řím', country: 'Itálie' }), /<div class="poi-img has-ph" style="--ph:url\([^)]*\)">🏙️<\/div>/);
+  const css = readFileSync(new URL('../public/css/trip.css', import.meta.url), 'utf8');
+  assert.match(css, /\.poi-img\{[^}]*position:relative;overflow:hidden\}/);
+  assert.match(css, /\.poi-img\.has-ph::after\{content:"";position:absolute;inset:0;background:var\(--ph\) center\/cover no-repeat\}/);
+  const fcss = readFileSync(new URL('../public/css/flights.css', import.meta.url), 'utf8');
+  assert.match(fcss, /\.dp-img\.has-ph::after\{content:"";position:absolute;inset:0;background:var\(--ph\) center\/cover no-repeat\}/);
 });

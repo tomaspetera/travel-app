@@ -701,9 +701,12 @@
     return `<div class="${cls}">${ico} ~${minTxt(Math.round(+r.transitMin))} ${how}${okMin(r.carMin) ? ` · 🚗 ~${minTxt(Math.round(+r.carMin))} autem` : ''} <span class="faint">(odhad)</span>${link}</div>`;
   }
   const whyHtml = (p, cls = 'poi-inc') => (p.why ? `<div class="${cls}">✨ ${esc(p.why)}</div>` : '');
+  // Fotka místa jako vrstva nad ikonou druhu (CSS .poi-img.has-ph::after): než dorazí – nebo když nedorazí vůbec (slabý
+  // signál, soubor smazaný na Wikimedii) – je vidět 🏰 ⛪ 🌲, ne prázdný šedý čtverec.
+  const poiImg = (img, ico) => `<div class="poi-img${img ? ' has-ph' : ''}"${img ? ` style="--ph:url('${esc(cssUrl(img))}')"` : ''}>${ico}</div>`;
   function poiCard(p, opts = {}) {
     return `<div class="poi" data-poi="${esc(p.id)}">
-      <div class="poi-img" ${p.image ? `style="background-image:url('${esc(cssUrl(p.image))}')"` : ''}>${p.image ? '' : picon(p)}</div>
+      ${poiImg(p.image, picon(p))}
       <div><div class="poi-name">${picon(p)} ${esc(p.name)}</div>
         <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${num(p.distanceKm)} km` : ''}${opts.drive && p.distanceKm != null && !p.reach ? ` · ~${minTxt(driveMin(p.distanceKm))} autem` : ''}${p.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : p.heritage ? ' · památka' : ''}${p.wikivoyage ? ' · <b style="color:var(--good)" title="Místo doporučuje cestovní průvodce Wikivoyage">👍 doporučuje Wikivoyage</b>' : ''}</div>
         ${inclHtml(p, 'poi-inc')}${reachHtml(p, opts.center)}${whyHtml(p)}<div class="poi-desc">${descHtml(p.extract || p.description || '', p.descLang)}</div>
@@ -1413,10 +1416,10 @@
     const t = trips > 0 ? `${plural(trips, 'výlet', 'výlety', 'výletů')} do okolí` : '';
     return c || t ? `${[c, t].filter(Boolean).join(' a ')} najdeš v Objevuj.` : '';
   };
-  /** Karta místa v náhledu: fotka (jinak ikona druhu), název, druh, vzdálenost a jedna věta popisu. */
+  /** Karta místa v náhledu: fotka přes ikonu druhu (jako poiImg v Objevuj), název, druh, vzdálenost a jedna věta popisu. */
   const previewCard = p => {
     const d = p.extract || p.description || '';
-    return `<div class="dp-poi"><div class="dp-img"${p.image ? ` style="background-image:url('${esc(cssUrl(p.image))}')"` : ''} aria-hidden="true">${p.image ? '' : icon(p.category)}</div>
+    return `<div class="dp-poi"><div class="dp-img${p.image ? ' has-ph' : ''}"${p.image ? ` style="--ph:url('${esc(cssUrl(p.image))}')"` : ''} aria-hidden="true">${icon(p.category)}</div>
       <div class="dp-pt"><b>${esc(p.name)}</b><span class="dp-pm">${picon(p)} ${esc(p.categoryLabel || (CAT[p.category] || CAT.sight)[1])}${p.unesco ? ' · UNESCO' : ''}${p.distanceKm != null ? ` · ${String(p.distanceKm).replace('.', ',')}\u00a0km` : ''}</span>${
         d ? `<span class="dp-pd">${descHtml(isEnglish(d, p.descLang) ? d : firstSentence(d), p.descLang)}</span>` : ''}</div></div>`;
   };
@@ -1642,7 +1645,7 @@
   function countryCard(x, g, center) {
     const desc = x.extract || x.description || x.blurb || '';
     return `<div class="poi" data-cpoi="${esc(x.id)}">
-      <div class="poi-img" ${x.image ? `style="background-image:url('${esc(cssUrl(x.image))}')"` : ''}>${x.image ? '' : g[1]}</div>
+      ${poiImg(x.image, g[1])}
       <div><div class="poi-name">${g[1]} ${esc(x.name)}</div>
         <div class="poi-meta">${esc(g[3])}${x.distanceKm != null ? ` · ${num(x.distanceKm)} km` : ''}${x.unesco && g[0] !== 'unesco' ? ' · <b style="color:var(--warn)">UNESCO</b>' : ''}${x.wv ? ' · <b style="color:var(--good)" title="Vybral cestovní průvodce Wikivoyage">👍 Wikivoyage</b>' : ''}</div>
         <div class="poi-desc">${descHtml(desc, x.extract || x.description ? x.descLang : 'en')}</div>

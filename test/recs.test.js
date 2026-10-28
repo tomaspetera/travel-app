@@ -202,3 +202,8 @@ test('app.js: Doporučení počítají s mapou navštívených i proběhlými ce
   assert.match(app, /Recs\.rank\(COUNTRIES, m, \{ vibes: VIBES, prof, radar, been: beenIn\(\), \.\.\.o \}\)/);
   assert.match(app, /const beenIn = \(\) => new Set\(\[\.\.\.visited, \.\.\.\(S\.trips \|\| \[\]\)\.filter\(t => t && \(t\.end \|\| t\.start\) && \(t\.end \|\| t\.start\) < todayLocal\(\)\)/);
 });
+
+test('Doporučení na telefonu: vysvětlivka pod nadpisem „Kam vyrazit · měsíc“ (vedle sebe se obojí lámalo do dvou řádků), počítač beze změny', () => {
+  assert.match(read('public/index.html'), /<div class="section-head rec-head"><h2 id="recTitle">Kam teď vyrazit<\/h2><span class="faint" style="font-size:12px">číslo = jak se hodí teď · ● ceny · ☀️ sezóna<\/span><\/div>/);
+  assert.match(read('public/css/atlas.css'), /@media\(max-width:1023px\)\{\.rec-head\{flex-direction:column;align-items:flex-start;gap:4px\}\}/);
+});
