@@ -61,6 +61,7 @@
   .map-layout>div:last-child{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.1fr) minmax(0,1.1fr);gap:var(--gap);align-items:start}
   .map-layout>div:last-child>.card{margin:0 !important;height:100%}
   .map-layout>div:last-child>.legend{order:-1;grid-column:1/-1;margin:-8px 2px 0}
+  .map-add{max-width:560px} /* pole „Přidat zemi…“ pod mapou: ne přes celou šířku (štítky zemí pod ním) */
 }
 /* menší notebook: Objevuj půl na půl (seznam by vedle mapy byl moc úzký), statistiky mapy ve dvou sloupcích */
 @media (min-width:1024px) and (max-width:1279px){

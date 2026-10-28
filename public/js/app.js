@@ -446,7 +446,7 @@ function refreshStats() {
     if (vl) {
       const v = [...visited].filter(i => byIso[i]).sort((a, b) => byIso[a].cs.localeCompare(byIso[b].cs, 'cs'));
       vl.innerHTML = v.length ? v.map(i => `<button type="button" class="pill" data-vi="${i}">${flag(i)} ${esc(byIso[i].cs)}</button>`).join('')
-        : '<span class="faint">Zatím žádná – klepni na zemi v mapě a dej „Byl/a jsem tu“.</span>';
+        : '<span class="faint">Zatím žádná – klepni na zemi v mapě, nebo ji napiš do „Přidat zemi“ pod mapou.</span>';
       $$('[data-vi]', vl).forEach(b => b.onclick = () => openCountry(b.dataset.vi));
     }
     // země z proběhlých cest, které na mapě chybí: jedním klepnutím navštívené (jako 🗺️ u cesty v Mých cestách) –
@@ -852,8 +852,9 @@ function showNow() {
    Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
    od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
-const WN_ID = '2026-10-28a';
+const WN_ID = '2026-10-28b';
 const WHATS_NEW = [
+  ['🔎', 'Země na mapu napsáním', 'pod mapou ve <b>Světě</b> napiš začátek názvu („ital“, „usa“) a klepni – malé země už nemusíš trefovat v mapě.'],
   ['🗺️', 'Svět zná tvoje cesty', 'pod mapou jsou země z proběhlých cest, které na ní ještě chybí – klepnutím je přidáš. V detailu země (<b>Svět → Země</b>, <b>Doporučení</b>) je nahoře tvoje nadcházející cesta tam – klepnutím ji otevřeš.'],
   ['🧳', 'Plánovač je teď v Mých cestách', 'už není zvlášť v menu – všechny cesty najdeš v záložce <b>Cesty</b> pod <b>🧳 Moje cesty</b>. Program, balení a poznámky cesty z průvodce otevřeš odkazem <b>Program, balení a poznámky ›</b> na její kartě, ostatní cesty klepnutím na kartu.'],
   ['💾', 'Cesta se ukládá sama', 'jakmile v průvodci pokročíš za výběr letu, cesta je sama v <b>Mých cestách</b> – nemusíš nic ukládat. Nová cesta tu rozpracovanou nezahodí, zůstane v seznamu. <b>↺ Začít znovu</b> ji odebere.'],
@@ -1794,7 +1795,7 @@ async function loadWorld() {
 function isoOf(d) { return (byM49[String(d.id).padStart(3, '0')] || byEn[norm(d.properties && d.properties.name)] || {}).iso2 || null; }
 function paintMap() { if (mapSel) mapSel.classed('visited', function () { return this.dataset.iso && visited.has(this.dataset.iso); }); }
 async function initMap() {
-  refreshStats();
+  refreshStats(); mapAddWire();
   if (mapInited) return; mapInited = true;
   try { await loadD3(); } catch (e) { return mapFallback('Mapové knihovny se nenačetly.'); }
   try {
@@ -1815,6 +1816,36 @@ async function initMap() {
     $('#zoomReset').onclick = () => svg.transition().call(mapZoom.transform, d3.zoomIdentity);
     paintMap();
   } catch (e) { mapFallback('Mapu se teď nepodařilo načíst.'); }
+}
+/** Země pro „Přidat zemi…“ pod mapou: začátek názvu i dalšího slova („státy“, „Kong“), česky i anglicky – nejdřív
+ *  ty, jejichž český název tak začíná; nejvýš 6. */
+function countryHits(q) {
+  const t = norm(q);
+  if (!t) return [];
+  const starts = s => norm(s).startsWith(t), word = s => { const n = norm(s); return n.startsWith(t) || n.includes(' ' + t) || n.includes('-' + t); };
+  const al = new Set(Object.entries(COUNTRY_ALIAS).filter(([k]) => k.startsWith(t)).map(([, iso]) => iso));
+  const rank = c => (al.has(c.iso2) || starts(c.cs) ? 1 : 0);
+  return COUNTRIES.filter(c => al.has(c.iso2) || word(c.cs) || word(c.en)).sort((a, b) => rank(b) - rank(a)).slice(0, 6);
+}
+// hovorové názvy, pod kterými země v datech nejsou (tam „Spojené státy americké“, „Spojené království“, „Nizozemsko“)
+const COUNTRY_ALIAS = { usa: 'US', amerika: 'US', 'velka britanie': 'GB', britanie: 'GB', anglie: 'GB', skotsko: 'GB', wales: 'GB', uk: 'GB', holandsko: 'NL', emiraty: 'AE', 'cesko': 'CZ', 'ceska republika': 'CZ' };
+// „Přidat zemi…“ pod mapou: malou zemi (Itálie ~23 px na telefonu) je v mapě těžké trefit – soused se označí místo
+// ní; napsat začátek a klepnout (Enter = první nenavštívená)
+function mapAddWire() {
+  const inp = $('#mapAdd'), hits = $('#mapAddHits');
+  if (!inp || !hits || inp.dataset.on) return;
+  inp.dataset.on = '1';
+  const paint = () => {
+    const list = countryHits(inp.value);
+    hits.innerHTML = list.map(c => (visited.has(c.iso2)
+      ? `<span class="pill on">✓ ${flag(c.iso2)} ${esc(c.cs)}</span>`
+      : `<button type="button" class="pill" data-addiso="${c.iso2}">${flag(c.iso2)} ${esc(c.cs)} ＋</button>`)).join('')
+      || (inp.value.trim() ? '<span class="faint">Takovou zemi neznám – zkus začátek jejího názvu.</span>' : '');
+    $$('[data-addiso]', hits).forEach(b => b.onclick = () => add(b.dataset.addiso));
+  };
+  const add = iso => { setVisited(iso, true); toast('Přidáno: ' + byIso[iso].cs); inp.value = ''; paint(); };
+  inp.oninput = paint;
+  inp.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault(); const c = countryHits(inp.value).find(x => !visited.has(x.iso2)); if (c) add(c.iso2); };
 }
 function mapPopover(e, iso) {
   const c = byIso[iso], isV = visited.has(iso), p = $('#mapPop');

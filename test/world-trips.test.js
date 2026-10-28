@@ -1,5 +1,6 @@
 // Svět pro vracejícího se uživatele (public/js/app.js): pod mapou země z proběhlých cest, které na mapě chybí
-// (pastMissing), v detailu země nejbližší nadcházející cesta tam (tripTo) a „Nová cesta“ místo dřívějšího „Do plánu“.
+// (pastMissing), v detailu země nejbližší nadcházející cesta tam (tripTo), „Nová cesta“ místo dřívějšího „Do plánu“
+// a „Přidat zemi…“ pod mapou (countryHits, mapAddWire).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -59,10 +60,46 @@ test('pod mapou: poznámka s klepnutím na zemi → navštívená; bez chybějí
   assert.match(fn, /data-tvi="\$\{cc\}">\$\{flag\(cc\)\} \$\{esc\(byIso\[cc\]\.cs\)\} ＋<\/button>/);
   assert.match(fn, /setVisited\(cc, true\); toast\('Přidáno: ' \+ byIso\[cc\]\.cs\);/);
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.match(html, /<\/div>\s*<div class="note info map-trips" id="mapTrips" hidden><\/div>\s*<div>/, 'mezi mapou a statistikami');
+  assert.match(html, /<\/div>\s*<div class="note info map-trips" id="mapTrips" hidden><\/div>\s*<div class="map-add">/, 'mezi mapou a statistikami');
   assert.match(readFileSync(new URL('../public/css/atlas.css', import.meta.url), 'utf8'), /\.map-trips\[hidden\]\{display:none\}/, '.note má display:flex');
 });
 
-test('Co je nového: Svět zná tvoje cesty (nová sada novinek)', () => {
-  assert.match(app, /const WN_ID = '2026-10-28a';\s*const WHATS_NEW = \[\s*\['🗺️', 'Svět zná tvoje cesty',/);
+test('Co je nového: Země na mapu napsáním a Svět zná tvoje cesty (nová sada novinek)', () => {
+  assert.match(app, /const WN_ID = '2026-10-28b';\s*const WHATS_NEW = \[\s*\['🔎', 'Země na mapu napsáním',[^\n]*\],\s*\['🗺️', 'Svět zná tvoje cesty',/);
+});
+
+const countries = JSON.parse(readFileSync(new URL('../data/countries.json', import.meta.url), 'utf8'));
+function hits(q) {
+  const ctx = { COUNTRIES: countries, norm: (x) => (x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() };
+  vm.createContext(ctx);
+  vm.runInContext(`${grab('function countryHits(q)', '\n// „Přidat zemi…“')}\nthis.countryHits = countryHits;`, ctx);
+  return plain(ctx.countryHits(q).map((c) => c.cs));
+}
+
+test('Přidat zemi: začátek názvu bez diakritiky, i dalšího slova a anglicky; nejdřív česky začínající, nejvýš 6', () => {
+  assert.equal(hits('ital')[0], 'Itálie');
+  assert.equal(hits('Itálie')[0], 'Itálie');
+  assert.ok(hits('spoj').includes('Spojené státy americké') || hits('spoj').some((n) => /^Spojené státy/.test(n)), JSON.stringify(hits('spoj')));
+  assert.ok(hits('státy').some((n) => /Spojené státy/.test(n)), 'druhé slovo');
+  assert.ok(hits('germ').includes('Německo'), 'anglicky');
+  assert.equal(hits('ma')[0].slice(0, 2), 'Ma', 'česky začínající první');
+  assert.ok(hits('a').length <= 6);
+  assert.deepEqual(hits(''), []);
+  assert.deepEqual(hits('qqq'), []);
+  // hovorové názvy
+  assert.equal(hits('usa')[0], 'Spojené státy americké');
+  assert.equal(hits('velka brit')[0], 'Spojené království');
+  assert.equal(hits('Anglie')[0], 'Spojené království');
+  assert.equal(hits('holand')[0], 'Nizozemsko');
+});
+
+test('Přidat zemi: pole pod mapou, klepnutí / Enter → navštívená, navštívené jen s ✓; zapojené při otevření mapy', () => {
+  const fn = grab('function mapAddWire()', '\nfunction mapPopover(');
+  assert.match(fn, /`<span class="pill on">✓ \$\{flag\(c\.iso2\)\} \$\{esc\(c\.cs\)\}<\/span>`/);
+  assert.match(fn, /data-addiso="\$\{c\.iso2\}">\$\{flag\(c\.iso2\)\} \$\{esc\(c\.cs\)\} ＋<\/button>/);
+  assert.match(fn, /const add = iso => \{ setVisited\(iso, true\); toast\('Přidáno: ' \+ byIso\[iso\]\.cs\); inp\.value = ''; paint\(\); \};/);
+  assert.match(fn, /const c = countryHits\(inp\.value\)\.find\(x => !visited\.has\(x\.iso2\)\); if \(c\) add\(c\.iso2\);/);
+  assert.match(app, /async function initMap\(\) \{\s*refreshStats\(\); mapAddWire\(\);/);
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(html, /id="mapTrips" hidden><\/div>\s*<div class="map-add"><input class="input" id="mapAdd" type="search" placeholder="🔎 Přidat zemi, kde jsi byl\/a…" aria-label="Přidat navštívenou zemi"/);
 });
