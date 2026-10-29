@@ -438,3 +438,9 @@ test('trip: proběhlá cesta v průvodci – poznámka „už proběhla“ s ✈
   assert.equal(Trip.pastHtml(trip(), '2026-11-15'), '');
   assert.match(Trip.pastHtml(trip(), '2026-11-16'), /už proběhla/);
 });
+
+test('Lety, Mapa a Kalendář: bez poznámek ♡ Hlídat cenu a vlak/bus (jsou v Seznamu) – na telefonu mapa hned nahoře', () => {
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  assert.match(fl, /\$\{kidsHtml\(\)\}\$\{view\.mode === 'map' \|\| view\.mode === 'cal' \? '' : nudgeHtml\(\) \+ groundBanner\(res\)\}/);
+  assert.ok(!/\$\{nudgeHtml\(\)\}\$\{groundBanner\(res\)\}/.test(fl), 'jinde se už neskládají natvrdo');
+});

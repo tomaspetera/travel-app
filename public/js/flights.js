@@ -2067,6 +2067,8 @@
     // telefon: filtry, řazení a „Odkud se vyplatí letět“ za jedním tlačítkem – výsledky hned pod hlavičkou (na počítači
     // vidět vždy); otevřené zůstane i po překreslení, otevřený panel času a přestupů ho drží otevřené. Poznámka o pořadí
     // pod filtry krátce (rozpis doporučeného pořadí jen v title – na telefonu to bylo 6–7 řádků drobného písma)
+    // Mapa a Kalendář bez poznámek „♡ Hlídat cenu“ a vlak/bus (jsou v Seznamu) – na telefonu jinak mapa začínala až pod
+    // nimi kolem 600 px a na první obrazovce z ní nebylo skoro nic
     const moreOpen = Boolean(view.moreOpen || view.timeOpen), nMore = chips.length + (view.sort !== 'best' ? 1 : 0);
     const summary = kiwiBanner(res) + `<div class="res-head">
       <div><h2>${isRoute ? `✈️ ${destTxt}${res.partial ? ' <span class="part-tag">⏳ zatím část nabídek</span>' : ''}` : `🌍 ${res.partial ? 'Zatím ' : ''}${groups.length < res.groups.length ? `${groups.length} ${zeN(res.groups.length)} ${res.groups.length} destinací` : plural(res.groups.length, 'destinace', 'destinace', 'destinací')} ${res.destination.kind === 'countries' ? '· ' + destTxt : ''}`}</h2>
@@ -2076,7 +2078,7 @@
         <button type="button" class="btn sm ghost res-more-btn" id="resMoreBtn" aria-expanded="${moreOpen}" aria-controls="resMore" title="Filtry, řazení a srovnání letišť">⚙️ Filtry${nMore ? ` <b class="tf-n">${nMore}</b>` : ''} <span aria-hidden="true">${moreOpen ? '▴' : '▾'}</span></button>
         <div class="seg" id="viewSeg">${modes.map(v => { const [ic, ...w] = v[1].split(' '); return `<button type="button" data-v="${v[0]}" class="${view.mode === v[0] ? 'on' : ''}"><span class="vs-ic">${ic} </span>${w.join(' ')}</button>`; }).join('')}</div>
       </div></div>
-      ${kidsHtml()}${nudgeHtml()}${groundBanner(res)}
+      ${kidsHtml()}${view.mode === 'map' || view.mode === 'cal' ? '' : nudgeHtml() + groundBanner(res)}
       ${filterChips(chips)}
       <div class="res-more${moreOpen ? ' open' : ''}" id="resMore">
       <div class="res-filters">
