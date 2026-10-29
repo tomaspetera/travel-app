@@ -1339,7 +1339,14 @@ export function countryGroups(rows, wv = { city: [], dest: [] }, lists = {}) {
   const rank = (k) => [...by.values()].filter((p) => p.kinds.has(k) && p.name).sort((a, b) => b.sitelinks - a.sitelinks);
   // města z Wikidat jen, když Wikivoyage (nedostupná, článek bez seznamu) dala méně než 3
   if (out.city.length < 3) for (const p of rank('city')) take('city', p);
-  for (const p of rank('unesco')) take('unesco', p);
+  // památka UNESCO do 2 km od už vybraného místa se neopakuje – tentýž klášter pod dvěma položkami Wikidat (Jerónimos),
+  // historické centrum města ze seznamu nebo jeho část (budova v Portu): město dostane štítek UNESCO (u Portugalska
+  // 20 položek, z nich 10 opakování)
+  const near = (p) => Number.isFinite(p.lat) && COUNTRY_KINDS.flatMap((g) => out[g]).find((q) => Number.isFinite(q.lat) && haversineKm(p.lat, p.lon, q.lat, q.lon) < 2);
+  for (const p of rank('unesco')) {
+    const q = !used.has(p.id) && near(p);
+    if (q) q.kinds.add('unesco'); else take('unesco', p);
+  }
   for (const p of rank('park')) take('park', p);
   for (const g of COUNTRY_KINDS) {
     for (const p of out[g]) {
