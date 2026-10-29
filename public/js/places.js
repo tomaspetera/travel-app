@@ -1639,8 +1639,8 @@
   }
   // Země místa česky (byIso), jinak z odpovědi serveru
   const countryName = (p, d) => d?.country || countryCs(p.cc) || p.country || '';
-  // země jako cíl hledání letů (cc:IT – všechna letiště země)
-  const countryTarget = (cc, name) => (/^[A-Z]{2}$/.test(cc || '') && name ? { id: `cc:${cc}`, type: 'country', label: name, flag: flag(cc) } : null);
+  // země jako cíl hledání letů (cc:IT – všechna letiště země); do Česka (domov) ne
+  const countryTarget = (cc, name) => (/^[A-Z]{2}$/.test(cc || '') && cc !== 'CZ' && name ? { id: `cc:${cc}`, type: 'country', label: name, flag: flag(cc) } : null);
   /** Karta cíle v přehledu země: fotka, druh, vzdálenost od místa, popis (český, jinak úryvek z Wikivoyage) a akce. */
   function countryCard(x, g, center) {
     const desc = x.extract || x.description || x.blurb || '';
@@ -1870,8 +1870,8 @@
   }
 
   /* ---------- ✈️ Najít lety sem (Lety: cíl = místo, letiště do ~130 km vybere server) ---------- */
-  // „geo:lat,lon|Název“ jako místo z našeptávače; „Moje okolí“ ne (tam se neletí).
-  const flyTarget = p => (!p || p.geo || !Number.isFinite(+p.lat) || !Number.isFinite(+p.lon) ? null : {
+  // „geo:lat,lon|Název“ jako místo z našeptávače; „Moje okolí“ ani místo v Česku ne (tam se neletí – Krumlov, Krkonoše).
+  const flyTarget = p => (!p || p.geo || p.cc === 'CZ' || !Number.isFinite(+p.lat) || !Number.isFinite(+p.lon) ? null : {
     id: `geo:${(+p.lat).toFixed(4)},${(+p.lon).toFixed(4)}|${String(p.label || '').replace(/[|<>"'`]/g, '').slice(0, 60)}`,
     label: p.label, flag: p.cc ? flag(p.cc) : '📍', type: 'place',
   });
