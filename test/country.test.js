@@ -77,6 +77,21 @@ test('skupiny: Wikivoyage v pořadí redaktorů, UNESCO a parky podle významu b
   assert.equal(countryWithDistance(g, NaN, NaN).city[0].distanceKm, undefined);
 });
 
+test('skupiny: UNESCO do 2 km od už vybraného místa se neopakuje – druhá položka téhož kláštera, centrum města ze seznamu (město dostane štítek)', () => {
+  // podle skutečného přehledu Portugalska (10/2026): 20 položek UNESCO, z toho 10 opakování
+  const rows = [
+    row('Q597', 'Lisabon', 38.7223, -9.1393, 250), row('Q36433', 'Porto', 41.1496, -8.6110, 200),
+    row('Q1', 'Klášter svatého Jeronýma', 38.6979, -9.2068, 53), row('Q2', 'Monastery of the Hieronymites and Tower of Belém in Lisbon', 38.6915, -9.2160, 3),
+    row('Q3', 'Palác Mafra', 38.9369, -9.3260, 31), row('Q4', 'Royal Building of Mafra', 38.9369, -9.3260, 2),
+    row('Q5', 'Cadeia da Relação', 41.1435, -8.6155, 8), row('Q6', 'Historic Centre of Porto', 41.1414, -8.6110, 7),
+    row('Q7', 'Bom Jesus do Monte', 41.5546, -8.3770, 28), // 4 km od Bragy – samostatná památka zůstane
+  ];
+  const wv = { city: [{ label: 'Lisabon', wikidata: 'Q597' }, { label: 'Porto', wikidata: 'Q36433' }], dest: [] };
+  const g = countryGroups(rows, wv, { unesco: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7'] });
+  assert.deepEqual(g.unesco.map((x) => x.name), ['Klášter svatého Jeronýma', 'Palác Mafra', 'Bom Jesus do Monte']);
+  assert.deepEqual(g.city.map((x) => [x.name, x.unesco]), [['Lisabon', false], ['Porto', true]], 'Porto se štítkem UNESCO místo tří karet');
+});
+
 test('countryHighlights: Wikivoyage + 4 krátké dotazy na Wikidata + popisy; mezipaměť; výpadek Wikivoyage = jen UNESCO a parky na hodinu', async () => {
   const sparql = [];
   const stub = stubFetch((url) => {
