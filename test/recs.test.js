@@ -207,3 +207,16 @@ test('Doporučení na telefonu: vysvětlivka pod nadpisem „Kam vyrazit · měs
   assert.match(read('public/index.html'), /<div class="section-head rec-head"><h2 id="recTitle">Kam teď vyrazit<\/h2><span class="faint" style="font-size:12px">číslo = jak se hodí teď · ● ceny · ☀️ sezóna<\/span><\/div>/);
   assert.match(read('public/css/atlas.css'), /@media\(max-width:1023px\)\{\.rec-head\{flex-direction:column;align-items:flex-start;gap:4px\}\}/);
 });
+
+test('Přehled – dlaždice „Tip na měsíc“: k názvu země teplota přes den z Doporučení, bez údaje jen název', async () => {
+  const vmod = await import('node:vm');
+  const line = read('public/js/app.js').match(/^const tipDeg = .*$/m)[0];
+  const c = { };
+  vmod.createContext(c);
+  vmod.runInContext(`${line}\nthis.tipDeg = tipDeg;`, c);
+  assert.equal(c.tipDeg({ why: [{ ic: '🏖️', t: 'Hurghada: ~28 °C přes den' }] }), ' · 🏖️ ~28 °C');
+  assert.equal(c.tipDeg({ why: [{ ic: '✈️', t: 'tam i zpět od 2 900 Kč' }, { ic: '🌡️', t: 'Ulánbátar: ~-8 °C přes den' }] }), ' · 🌡️ ~-8 °C', 'i pod nulou, i když není první');
+  assert.equal(c.tipDeg({ why: [{ ic: '⭐', t: 'Moje cíle: Řím' }] }), '');
+  assert.equal(c.tipDeg({}), '');
+  assert.match(read('public/js/app.js'), /topRec \? topRec\.c\.cs \+ tipDeg\(topRec\) : ''/);
+});
