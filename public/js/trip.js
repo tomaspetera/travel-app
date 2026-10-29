@@ -3636,7 +3636,7 @@
       ${multi && nightsLeft(t) !== 0 ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div>Noci v trase nesedí s délkou pobytu – uprav je v kroku <b>Trasa</b>, jinak termíny ubytování nebudou navazovat na lety.</div></div>' : ''}
       ${window.Entry && Entry.ready() ? Entry.checklistHtml(isos, { ret: returnDate(t), pax: paxN(t) + (+t.infants || 0), via }) : '<div id="tripEntry"></div>'}
       ${window.PreTrip ? PreTrip.html(t, { isos, via, ret: returnDate(t) }) : ''}
-      <div class="card step-card sum-tl"><h3>🗓️ Průběh cesty</h3><div class="timeline">${tlRows(tl.slice(0, TL_TOP))}</div>${tl.length > TL_TOP ? `<details class="tl-more"><summary>Zobrazit celý průběh (ještě ${tl.length - TL_TOP} ${tl.length - TL_TOP < 5 ? 'řádky' : 'řádků'})</summary><div class="timeline">${tlRows(tl.slice(TL_TOP))}</div></details>` : ''}</div>
+      <div class="card step-card sum-tl"><h3>🗓️ Průběh cesty</h3><div class="timeline">${tlRows(tl.slice(0, TL_TOP))}</div>${tl.length > TL_TOP ? `<details class="tl-more"><summary>Zobrazit celý průběh (ještě ${csN(tl.length - TL_TOP, 'řádek', 'řádky', 'řádků')})</summary><div class="timeline">${tlRows(tl.slice(TL_TOP))}</div></details>` : ''}</div>
 `;
     // odškrtnutá (i zase zrušená) letenka: „↻ Ověř cenu“ u ceny letenek zmizí (vrátí se) hned
     $$('[data-bk]', host).forEach(cb => cb.onchange = () => { t.booked[cb.dataset.bk] = cb.checked; persist(); if (/^flight\d+$/.test(cb.dataset.bk)) ageRefresh(); });
@@ -3709,7 +3709,8 @@
     if (!ov && f.back) ev.push(Ics.flightEvent(legBrief(f.back), { url: f.back.bookUrl || f.bookUrl, note: `Zpáteční let · ${dest}` }));
     // cesta přes víc měst: lety mezi místy (každý samostatná letenka)
     const fly = isFly(t), mid = midLegs(t);
-    if (fly) mid.forEach((l, i) => ev.push(Ics.flightEvent(legBrief(l), { url: l.bookUrl || undefined, note: `${i + 2}. let z ${mid.length + 2} · ${t.route.bases[i].name} → ${t.route.bases[i + 1].name} · samostatná letenka` })));
+    // počet letů: s letem zpět i bez něj (cesta přes víc měst jen tam)
+    if (fly) mid.forEach((l, i) => ev.push(Ics.flightEvent(legBrief(l), { url: l.bookUrl || undefined, note: `${i + 2}. let z ${allLegs(t).length} · ${t.route.bases[i].name} → ${t.route.bases[i + 1].name} · samostatná letenka` })));
     // Ryanair / Wizz Air: připomínka online check-inu (24 h před odletem, na letišti se platí)
     if (!ov) for (const l of allLegs(t)) { const e = Ics.checkinEvent({ ...legBrief(l), carrier: l.carrier || l.carrierName }); if (e) ev.push(e); }
     // kdy nejpozději vyrazit na letiště (odhad): z domu a z ubytování

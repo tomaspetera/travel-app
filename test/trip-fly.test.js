@@ -110,6 +110,7 @@ test('cesta přes víc měst: průběh cesty, kalendář, shrnutí a plánovač 
   assert.ok(!rows.some((x) => /Přejezd/.test(x)));
   const ev = c.window.Trip.calendarEvents(t).map((e) => e.title);
   assert.equal(ev.filter((x) => /^✈️/.test(x)).length, 3, ev.join('\n'));
+  assert.match(c.window.Trip.calendarEvents(t).find((e) => /FCO → BCN/.test(e.title)).description, /2\. let z 3 · Řím → Barcelona/);
   assert.ok(ev.includes('🚪 Vyraž na letiště FCO'));
   assert.ok(!ev.some((x) => /Přejezd/.test(x)));
   const s = render(c, 'summary');
@@ -228,6 +229,9 @@ test('cesta přes víc měst jen tam (Praha → Řím → Barcelona): poslední 
   const s = render(c, 'summary');
   assert.match(s, /1\. Letenka PRG → FCO/); assert.match(s, /2\. Letenka FCO → BCN/);
   assert.doesNotMatch(s, /3\. Letenka/);
+  // kalendář: let mezi místy je 2. ze 2 (bez letu zpět), ne „z 3“
+  const midEv = plain(Trip.calendarEvents(t)).find((e) => /FCO.*BCN/.test(e.title) && /^✈️/u.test(e.title));
+  assert.match(midEv.description, /2\. let z 2 · Řím → Barcelona/);
   const back = Trip.sanitizeTrip(plain(t));
   assert.equal(back.flight.mid.length, 1);
   assert.equal(back.route.fixed, 'flights');
