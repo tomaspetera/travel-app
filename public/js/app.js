@@ -1229,6 +1229,9 @@ function renderDash() {
   $$('.link[data-go]').forEach(l => { l.onclick = () => go(l.dataset.go); kbClick(l); });
   if (window.Flights) { Flights.renderResume(); Flights.renderQuick(); Flights.renderWatch(); Flights.renderRadar(); Flights.renderFav(); Flights.renderPins(); }
 }
+// Dlaždice „Tip na listopad“: k názvu země teplota přes den z Doporučení („Egypt · 🏖️ ~28 °C“) – samotná vlajka
+// a název neříkaly, proč zrovna tam; bez údaje o počasí (žádné letiště s podnebím) jen název.
+const tipDeg = r => { const w = (r.why || []).find(x => /°C/.test(x.t || '')), d = w && (w.t.match(/~-?\d+\s?°C/) || [])[0]; return d ? ` · ${w.ic} ${d}` : ''; };
 /** Dlaždice a „Kam vyrazit“ na přehledu (po změně navštívených zemí nebo cest – bez radaru a hlídaných cen). */
 function renderDashStats() {
   renderNow();
@@ -1243,7 +1246,7 @@ function renderDashStats() {
     w ? ['Hlídané ceny', `<span id="watchStatVal">${w}</span>`, `<span id="watchStatSub">${window.Flights ? Flights.watchStatTxt() : ''}</span>`, ''] : null,
     S.trips.length ? nextTripStat() : null,
   ].filter(Boolean);
-  if (tiles.length) tiles.push(['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs : '', topRec ? `<button type="button" class="linkbtn nt-open" data-tipiso="${topRec.c.iso2}">Proč tam →</button>` : '']);
+  if (tiles.length) tiles.push(['Tip na ' + MNS_FULL[m - 1], topRec ? `${flag(topRec.c.iso2)}` : '—', topRec ? topRec.c.cs + tipDeg(topRec) : '', topRec ? `<button type="button" class="linkbtn nt-open" data-tipiso="${topRec.c.iso2}">Proč tam →</button>` : '']);
   $('#statGrid').hidden = !tiles.length;
   $('#statGrid').innerHTML = tiles.map(s => `<div class="card stat"><div class="lab">${s[0]}</div><div class="val">${s[1]}</div><div class="sub">${s[2]}</div>${s[3] || ''}</div>`).join('');
   paintHero();
@@ -2070,7 +2073,7 @@ function rideEd(r) {
 function openTrip(i) {
   flushRide(); // rozepsané pole vlaku (rideSoon) napřed uložit – překreslené okno ho ukáže
   const t = S.trips[i]; if (!t) return; tripShown = t; const c = t.iso ? byIso[t.iso] : null; const city = c && c.cap ? c.cap : t.dest;
-  const local = localTrip(t) && !t.flight && !t.wizard;
+  const local = localTrip(t) && !t.flight && !t.wizard, home = t.iso === 'CZ' && !t.flight && !t.wizard;
   // výlet z Objevuj uložený dřív s cestovním seznamem (pas, adaptér…), nic neodškrtnuté → seznam na den venku
   if (local && Array.isArray(t.checklist) && t.checklist.length === PACK.length && t.checklist.every((x, k) => x && x.t === PACK[k] && !x.done)) { t.checklist = packFor(t.src).map(x => ({ t: x, done: false })); save(); }
   const days = dateRange(t.start, t.end), live = tripLive(t), rides = tripRides(t);
@@ -2079,8 +2082,9 @@ function openTrip(i) {
     // na cestě: dnešek a kódy rezervací nahoře (dnešní den v itineráři jen odkazem sem)
     live: live ? `<div class="trip-live"><div class="live-h">📍 Dnes na cestě · den ${live.day} z ${live.days}</div>${days.includes(live.today) ? dayHtml(live.today, days.indexOf(live.today)) : ''}${refsHtml(t, i)}</div><div class="divider"></div>` : '',
     flight: t.flight ? `<div class="note info" style="margin-bottom:14px">${planIco(t.flight)} <div>${planFlightHtml(t.flight)}</div></div>` : '',
-    // cesta z průvodce už má let vybraný: hlavní je „Otevřít v průvodci“ (napřed), hledání letů vedlejší
-    acts: `<div class="row wrap">${t.wizard && (window.Trip || window.Lazy) ? '<button class="btn primary" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${local ? '' : `<button class="btn${t.wizard ? '' : ' primary'}" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button><button class="btn" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${c ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>`,
+    // cesta z průvodce už má let vybraný: hlavní je „Otevřít v průvodci“ (napřed), hledání letů vedlejší; cesta po Česku
+    // (Krkonoše) bez letů a bez Info o zemi (vstup, měna, počasí v Praze) – hlavní je ubytování
+    acts: `<div class="row wrap">${t.wizard && (window.Trip || window.Lazy) ? '<button class="btn primary" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${local ? '' : `${home ? '' : `<button class="btn${t.wizard ? '' : ' primary'}" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button>`}<button class="btn${home ? ' primary' : ''}" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${c && !home ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>`,
     entry: `${tripEntryHtml(t)}${visitedPrompt(t)}`,
     share: `<div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${t.wizard && okYmd(t.start) && t.start >= todayLocal() ? '<button class="btn sm" id="tripJed">🙋 Jede někdo se mnou?</button>' : ''}${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>`,
     days: `<div class="divider"></div>
