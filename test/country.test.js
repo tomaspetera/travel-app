@@ -86,9 +86,12 @@ test('skupiny: UNESCO do 2 km od už vybraného místa se neopakuje – druhá p
     row('Q5', 'Cadeia da Relação', 41.1435, -8.6155, 8), row('Q6', 'Historic Centre of Porto', 41.1414, -8.6110, 7),
     row('Q7', 'Bom Jesus do Monte', 41.5546, -8.3770, 28), // 4 km od Bragy – samostatná památka zůstane
   ];
-  const wv = { city: [{ label: 'Lisabon', wikidata: 'Q597' }, { label: 'Porto', wikidata: 'Q36433' }], dest: [] };
-  const g = countryGroups(rows, wv, { unesco: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7'] });
-  assert.deepEqual(g.unesco.map((x) => x.name), ['Klášter svatého Jeronýma', 'Palác Mafra', 'Bom Jesus do Monte']);
+  rows.push(row('Q8', 'Údolí Côa a Siega Verde', 41.0806, -7.1122, 20), row('Q9', 'Penascosa', 41.0420, -7.1060, 1), row('Q10', 'Broeira', 41.0920, -7.0850, 1),
+    row('Q11', 'Cabo da Roca', 38.7804, -9.4989, 40), row('Q12', 'Cultural Landscape of Sintra', 38.7876, -9.4300, 5));
+  const wv = { city: [{ label: 'Lisabon', wikidata: 'Q597' }, { label: 'Porto', wikidata: 'Q36433' }], dest: [{ label: 'Údolí Côa', wikidata: 'Q8' }, { label: 'Cabo da Roca', wikidata: 'Q11' }] };
+  const g = countryGroups(rows, wv, { unesco: ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'Q10', 'Q12'] });
+  // naleziště v údolí Côa (cíl sám UNESCO) do 10 km pryč; Sintra 6 km od mysu Roca (cíl, ne UNESCO) zůstává
+  assert.deepEqual(g.unesco.map((x) => x.name), ['Klášter svatého Jeronýma', 'Palác Mafra', 'Bom Jesus do Monte', 'Cultural Landscape of Sintra']);
   assert.deepEqual(g.city.map((x) => [x.name, x.unesco]), [['Lisabon', false], ['Porto', true]], 'Porto se štítkem UNESCO místo tří karet');
 });
 

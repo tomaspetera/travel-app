@@ -1341,8 +1341,10 @@ export function countryGroups(rows, wv = { city: [], dest: [] }, lists = {}) {
   if (out.city.length < 3) for (const p of rank('city')) take('city', p);
   // památka UNESCO do 2 km od už vybraného místa se neopakuje – tentýž klášter pod dvěma položkami Wikidat (Jerónimos),
   // historické centrum města ze seznamu nebo jeho část (budova v Portu): město dostane štítek UNESCO (u Portugalska
-  // 20 položek, z nich 10 opakování)
-  const near = (p) => Number.isFinite(p.lat) && COUNTRY_KINDS.flatMap((g) => out[g]).find((q) => Number.isFinite(q.lat) && haversineKm(p.lat, p.lon, q.lat, q.lon) < 2);
+  // 20 položek, z nich 10 opakování). Do 10 km od cíle, který je sám UNESCO (oblast – údolí Côa), jsou to jeho části
+  // (jednotlivá naleziště skalních rytin 3–5 km od něj; nejbližší samostatná památka u takového cíle je 84 km).
+  const near = (p) => Number.isFinite(p.lat) && COUNTRY_KINDS.flatMap((g) => out[g]).find((q) => Number.isFinite(q.lat)
+    && haversineKm(p.lat, p.lon, q.lat, q.lon) < (q.kinds.has('unesco') && out.dest.includes(q) ? 10 : 2));
   for (const p of rank('unesco')) {
     const q = !used.has(p.id) && near(p);
     if (q) q.kinds.add('unesco'); else take('unesco', p);
