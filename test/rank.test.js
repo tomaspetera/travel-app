@@ -303,6 +303,17 @@ test('groupOptions (server): 6 nejlevnějších různých, + z každého letišt
   assert.deepEqual(groupOptions(trips.slice(0, 3)).map((x) => x.id), ['a', 'b', 'c'], 'nejlevnější i s cestou už mezi nimi je');
 });
 
+test('groupOptions (server): open-jaw z letiště mezi 6 nejlevnějšími nebrání nabídce s návratem tam', () => {
+  const t = (id, from, backTo, czk, date) => ({ id, provider: 'ryanair', perPersonCzk: czk, tripCzk: czk + 500, out: { from, to: 'BCN', date }, back: { from: 'BCN', to: backTo, date: '2026-12-20' } });
+  const trips = [
+    t('a', 'PRG', 'PRG', 1000, '2026-12-01'), t('b', 'PRG', 'PRG', 1001, '2026-12-05'), t('c', 'PRG', 'PRG', 1002, '2026-12-09'),
+    t('d', 'PRG', 'PRG', 1003, '2026-12-13'), t('e', 'PRG', 'PRG', 1004, '2026-12-17'),
+    t('f', 'VIE', 'PRG', 1100, '2026-12-02'), // z VIE zpět do PRG – filtr „jen z VIE“ ji schová
+    t('g', 'PRG', 'PRG', 1200, '2026-12-03'), t('h', 'VIE', 'VIE', 1300, '2026-12-04'),
+  ];
+  assert.deepEqual(groupOptions(trips).map((x) => x.id), ['a', 'b', 'c', 'd', 'e', 'f', 'h']);
+});
+
 test('noc na cestě: ranní let ze vzdáleného letiště s odjezdem večer předem ani přílet s domovem až ráno nevyjdou líp než o hodinu jindy', () => {
   // Praha → Vídeň 5 h 15 min veřejnou dopravou: let v 6:00 = z domu ve 22:45 předchozího dne – podle hodiny (štítek ⏰)
   // „ne brzy“, ale noc v autobuse a na letišti stejně jako let v 9:00 s odjezdem v 1:45
