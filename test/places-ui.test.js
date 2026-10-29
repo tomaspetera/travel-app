@@ -654,6 +654,7 @@ test('„Najít lety sem“: místo jako cíl letů, termín jen vybraný v Obje
   assert.deepEqual(plain(TF.flyTarget({ ...BCN_C, label: 'Barcelona' })), { id: 'geo:41.3874,2.1686|Barcelona', label: 'Barcelona', flag: '🇪🇸', type: 'place' });
   assert.equal(TF.flyTarget({ lat: 50, lon: 14, label: 'Moje okolí', geo: true }), null, 'z vlastní polohy se neletí');
   assert.equal(TF.flyTarget({ lat: 'x', lon: 14, label: 'X' }), null);
+  assert.equal(TF.flyTarget({ lat: 48.81, lon: 14.32, label: 'Český Krumlov', cc: 'CZ' }), null, 'do Česka se neletí – bez ✈️ Najít lety sem');
   assert.equal(TF.flyTarget({ lat: 1, lon: 2, label: 'A|B<"x">' }).id, 'geo:1.0000,2.0000|ABx', 'oddělovač a značky z názvu pryč');
   const s = { mode: 'city', start: '2026-10-20', days: 4, tripDays: { day: 2, loop: 5 } };
   assert.deepEqual(plain(TF.flyDates(s)), { xOut: '2026-10-20', xBack: '2026-10-23' });
@@ -979,6 +980,7 @@ test('🌍 celá země: skupiny (města, cíle, UNESCO, parky), karty bez XSS, l
   assert.match(coast, /anglicky<\/span> stunningly beautiful/, 'popis z Wikivoyage označený jako anglický');
   assert.ok(!T.countryCard(items[2], g('unesco'), { label: 'Řím' }).includes('· <b style="color:var(--warn)">UNESCO'), 've skupině UNESCO se značka neopakuje');
   assert.deepEqual(plain(T.countryTarget('IT', 'Itálie')), { id: 'cc:IT', type: 'country', label: 'Itálie', flag: plain(T.countryTarget('IT', 'Itálie')).flag });
+  assert.equal(T.countryTarget('CZ', 'Česko'), null, 'celé Česko: bez ✈️ Najít lety sem');
   assert.equal(T.countryTarget('Itálie', 'Itálie'), null);
   assert.equal(T.countryTarget('IT', ''), null);
 });
