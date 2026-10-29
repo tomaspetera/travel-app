@@ -1875,6 +1875,15 @@
     id: `geo:${(+p.lat).toFixed(4)},${(+p.lon).toFixed(4)}|${String(p.label || '').replace(/[|<>"'`]/g, '').slice(0, 60)}`,
     label: p.label, flag: p.cc ? flag(p.cc) : '📍', type: 'place',
   });
+  /* ---------- 🚆 Spojení (místo v Česku: tam se neletí – vlak a autobus z domova v IDOS, jen odkaz) ---------- */
+  // Odkud = domov z nastavení, jen město (letiště IDOS nezná – pak odkud doplní uživatel sám); hory a příroda ne
+  // (Krkonoše nejsou zastávka). Termín jen vybraný v Objevuj, jinak IDOS hledá od teď.
+  const homeCity = () => { const h = typeof S !== 'undefined' && S.home && S.home.from && S.home.from[0]; return h && h.type === 'city' ? String(h.label || '').trim() : ''; };
+  const idosUrl = (p, from = homeCity(), date = '') => {
+    if (!p || p.geo || p.cc !== 'CZ' || p.nature || !p.label || from.toLowerCase() === String(p.label).toLowerCase()) return null;
+    const [y, m, d] = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split('-').map(Number) : [];
+    return `https://idos.cz/vlakyautobusy/spojeni/?${new URLSearchParams({ ...(from ? { f: from } : {}), t: p.label, ...(y ? { date: `${d}.${m}.${y}`, time: '7:00' } : {}), ...(from ? { submit: 'true' } : {}) })}`;
+  };
   // Termín jen, když ho uživatel v Objevuj vybral: přílet první den, odlet poslední den pobytu.
   // Kolo a pěšky mají jen jeden den („Kdy“) – let tam, zpáteční termín nechat na uživateli.
   const flyDates = s => {
@@ -2401,12 +2410,14 @@
         <div class="poi-list${ex.listAll ? ' all' : ''}" id="exList">${listIn}</div>
         ${hidden && !ex.listAll ? `<button type="button" class="btn ghost poi-morebtn" id="exListMore">Zobrazit další místa (${hidden})</button>` : ''}`;
     // Na kole, pěšky a u výletů je hlavní výsledek trasa na mapě – seznam míst ve městě je sbalený.
+    // místo v Česku: místo ✈️ (tam se neletí) spojení vlakem a autobusem v IDOS
+    const idos = idosUrl(p, homeCity(), ex.datePicked ? ex.start : '');
     const places = ex.mode === 'city' ? `<div class="ex-places">${placesIn}</div>`
       : `<details class="more ex-places" id="exPlaces"${ex.listOpen ? ' open' : ''}><summary>📍 Místa v okolí (${ex.items.length})</summary>${placesIn}</details>`;
     body.innerHTML = `${ex.demo ? '<div class="note warn" style="margin-bottom:12px">⚠️ <div><b>DEMO data</b> – místa jsou vymyšlená.</div></div>' : ''}
       <div class="section-head ex-head" style="margin-top:6px"><h2>${p.cc ? flag(p.cc) : '📍'} ${esc(p.label)} · ${placesTxt(cityN)} do ${cityKm(ex.radius)} km${far ? (tripN ? ` <span class="ex-head-more">+ ${placesTxt(tripN)} v okolí do ${ex.radius} km</span>` : '')
           : tripN ? ` <span class="ex-head-more">+ ${plural(tripN, 'výlet', 'výlety', 'výletů')}</span>` : ''}</h2>${
-        `<span class="ex-head-act">${window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">✈️ Najít lety sem</button>' : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span>`}</div>
+        `<span class="ex-head-act">${window.Flights && flyTarget(p) ? '<button type="button" class="btn sm ghost" id="exFly">✈️ Najít lety sem</button>' : idos ? `<a class="btn sm ghost" id="exIdos" href="${esc(safeUrl(idos))}" target="_blank" rel="noopener" title="Vlak a autobus sem – jízdní řády IDOS">🚆 Spojení ↗</a>` : ''}<button type="button" class="btn sm ghost" id="exReset" title="Zrušit místo, plán i výběr míst">↺ Začít znovu</button></span>`}</div>
       <div class="ex-layout ex-main">
       <div class="card step-card ex-plan${ex.planOpen || out || bz || wait ? '' : ' shut'}" id="exPlanCard"><h3 class="ex-plan-h"><button type="button" class="ex-plan-tg" id="exPlanTg">🗓️ Naplánovat <span class="faint ex-plan-hint">– program, výlety, kolo, pěšky</span><span class="ex-plan-chev" aria-hidden="true">▾</span></button></h3>
         <div class="seg wrap" id="exMode" style="margin:4px 0 12px">${modeBtns(ex.mode)}</div>
@@ -2733,6 +2744,8 @@
     };
     on('#exSave', 'onclick', () => store(false));
     on('#exFly', 'onclick', () => window.Flights && Flights.searchTo([flyTarget(p)], ex.datePicked ? flyDates(ex) : {}));
+    // termín změněný po vykreslení (hlavička se hned nepřekresluje) – adresa až při klepnutí
+    on('#exIdos', 'onclick', e => { e.currentTarget.href = safeUrl(idosUrl(p, homeCity(), ex.datePicked ? ex.start : '') || e.currentTarget.href); });
     on('#exReset', 'onclick', () => resetExplore());
     on('#exSaveNew', 'onclick', () => store(true));
     remember();
@@ -2766,7 +2779,7 @@
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
-      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, prefsOf, makePlan, dropUndo,
+      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, idosUrl, prefsOf, makePlan, dropUndo,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
       countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,
       makeHikePlan, hikePlanHtml, hikeDayHtml, rainTxt, kidsTxt, foodTxt, startTxt, isRural, HIKE_KINDS, curKey, keyKind },
