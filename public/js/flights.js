@@ -3440,10 +3440,17 @@
     g.open = true;
     g.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+  // 🚆 Vlakem/busem z nápovědy „Málo výsledků?“: panel se spoji je jen u srovnání v Seznamu – Mapa a Kalendář ho
+  // nemají (#290), tlačítko by tam nic neudělalo. Přepne do seznamu (u přesné trasy do Letů, pokud je uživatel měl) a
+  // spoje rozbalí tam.
+  function groundAct() {
+    if (!$('#gndPanel') && (view.mode === 'map' || view.mode === 'cal')) { view.mode = legsOk(lastResult) && legsPref ? 'legs' : 'list'; rerender(); }
+    showGround(true);
+  }
   // Ovládání nápovědy, nejbližších dnů, filtrů a pohledu „Lety“ (výsledky i prázdný stav).
   function wireHelp(host) {
     // akce s clear zruší filtr výpisu hned, ostatní upraví formulář a hledají znovu
-    $$('[data-act]', host).forEach(b => b.onclick = () => { const a = actReg[+b.dataset.act]; if (a) a.ground ? showGround(true) : a.clear ? clearFilter(a.clear) : rerun(a.patch); });
+    $$('[data-act]', host).forEach(b => b.onclick = () => { const a = actReg[+b.dataset.act]; if (a) a.ground ? groundAct() : a.clear ? clearFilter(a.clear) : rerun(a.patch); });
     $$('[data-gshow]', host).forEach(b => b.onclick = () => showGround(!view.gndOpen));
     $$('[data-guide]', host).forEach(b => b.onclick = openGuide);
     $$('[data-nb]', host).forEach(b => b.onclick = () => { const [w, d] = b.dataset.nb.split(':'); pickNearDay(w, d); });

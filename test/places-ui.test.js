@@ -665,6 +665,18 @@ test('„Najít lety sem“: místo jako cíl letů, termín jen vybraný v Obje
   assert.equal(TF.idosUrl({ ...CK, label: 'Krkonoše', nature: 'range' }, 'Praha'), null, 'pohoří není zastávka');
   assert.equal(TF.idosUrl({ ...BCN_C, label: 'Barcelona' }, 'Praha'), null, 'do zahraničí ✈️, ne IDOS');
   assert.equal(TF.idosUrl({ lat: 50, lon: 14, label: 'Moje okolí', cc: 'CZ', geo: true }, 'Praha'), null);
+  // park, UNESCO nebo oblast z přehledu Česka (🔎 Prozkoumat) – IDOS je nezná („Takové místo neznáme“); značka přežije obnovení
+  assert.equal(TF.idosUrl({ ...CK, label: 'Krkonošský národní park', poi: true }, 'Praha'), null);
+  assert.equal(TF.cleanPlace({ ...CK, poi: true }).poi, true);
+  assert.equal(TF.cleanPlace({ ...CK, poi: 'x' }).poi, undefined);
+  // odkud: domov jako město, obec i letiště (návrh letiště má název města), ne země ani oblast
+  const home = (h) => load({ S: { home: { from: [h] } } }).window.Places._t.homeCity();
+  assert.equal(home({ id: 'geo:50.0880,14.4208|Praha', type: 'city', label: 'Praha' }), 'Praha');
+  assert.equal(home({ id: 'ap:BRQ', type: 'airport', label: 'Brno' }), 'Brno');
+  assert.equal(home({ id: 'BRQ', type: 'airport', label: 'Brno (BRQ)' }), 'Brno', 'starší tvar s kódem v závorce');
+  assert.equal(home({ id: 'cc:CZ', type: 'country', label: 'Česko' }), '');
+  assert.equal(home({ id: 'rg:kreta', type: 'region', label: 'Kréta' }), '');
+  assert.equal(load().window.Places._t.homeCity(), '', 'bez nastavení domova');
   const s = { mode: 'city', start: '2026-10-20', days: 4, tripDays: { day: 2, loop: 5 } };
   assert.deepEqual(plain(TF.flyDates(s)), { xOut: '2026-10-20', xBack: '2026-10-23' });
   assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'loop' })), { xOut: '2026-10-20', xBack: '2026-10-24' });
