@@ -1707,8 +1707,8 @@ function openCountry(iso) {
      ${geoNote}
      ${mine ? `<div class="note info cm-trip">🧳 <div>Tvoje cesta: <button type="button" class="linkbtn" id="cmTrip">${esc(tripTitle(mine.t))}${mine.t.start ? ' · ' + dateSpan(mine.t.start, mine.t.end) : ''} ›</button></div></div>` : ''}
      <div class="row wrap cm-acts">
-       <button class="btn primary" data-cm="search">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Najít lety sem</button>
-       ${window.Lazy || (window.Places && Places.openCountryView) ? `<button class="btn" data-cm="explore">🌍 Objevuj celou zemi</button>` : ''}
+       ${iso === 'CZ' ? '' : `<button class="btn primary" data-cm="search">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Najít lety sem</button>`}
+       ${window.Lazy || (window.Places && Places.openCountryView) ? `<button class="btn${iso === 'CZ' ? ' primary' : ''}" data-cm="explore">🌍 Objevuj celou zemi</button>` : ''}
        <button class="btn" data-cm="stay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>
        <button class="btn" data-cm="plan">${ico('M12 5v14M5 12h14')} Nová cesta</button>
        <button class="btn ${isV ? 'warm' : 'ghost'}" id="visBtn" data-cm="vis">${isV ? '✓ Navštíveno' : 'Byl/a jsem tu'}</button>

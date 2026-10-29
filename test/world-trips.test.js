@@ -124,3 +124,10 @@ test('počasí v okně země: poloha hlavního města z dat (capLL) bez geokódo
   assert.deepEqual(plain(await ctx.geocode({ iso2: 'SC', cap: 'Victoria' })), { lat: 9.93, lon: -84.08 });
   assert.match(calls[0], /name=Victoria&count=1&language=cs&format=json&countryCode=SC$/);
 });
+
+test('detail země Česko: bez „Najít lety sem“ (domov), hlavní je 🌍 Objevuj celou zemi; jiné země beze změny', () => {
+  const fn = grab('function openCountry(iso)', '\nfunction ');
+  assert.match(fn, /\$\{iso === 'CZ' \? '' : `<button class="btn primary" data-cm="search">/);
+  assert.match(fn, /`<button class="btn\$\{iso === 'CZ' \? ' primary' : ''\}" data-cm="explore">🌍 Objevuj celou zemi<\/button>`/);
+  assert.match(app, /\$\$\('#modal \[data-cm\]'\)\.forEach\(b => \{ b\.onclick = \(\) => cmActs\[b\.dataset\.cm\]\(\); \}\);/, 'obsluha jen existujících tlačítek');
+});
