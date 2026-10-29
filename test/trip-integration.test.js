@@ -74,6 +74,20 @@ function render(ctx, t) {
   return sp(ctx.__els['#tripStep'].innerHTML);
 }
 
+test('Shrnutí: „Zobrazit celý průběh (ještě 1 řádek)“ – číslo se slovem ve správném tvaru (dřív „1 řádky“)', () => {
+  const c = load();
+  // jedno místo, let tam 10. 11. a zpět 17. 11.; program po dnech přidá do průběhu po řádku
+  const t = trip({ overland: null, route: null, flight: { ...trip().flight, back: leg('VIE', 'PRG', '2026-11-17', '19:00', '20:00', 'Europe/Vienna', 'Europe/Prague') } });
+  const base = c.window.Trip.timeline(t).length;
+  const withDays = (n) => ({ ...t, plan: { days: Array.from({ length: n }, (_, i) => ({ date: `2026-11-1${i}`, items: [{ name: `Místo ${i}`, lat: 48.2, lon: 16.37 }] })) } });
+  const more = (n) => render(c, withDays(n)).match(/Zobrazit celý průběh \(ještě ([^)]*)\)/)?.[1];
+  // průběh ukáže prvních 8 řádků, zbytek pod „Zobrazit celý průběh“
+  assert.ok(base < 9 && 10 - base <= 8, `průběh bez programu má ${base} řádků`);
+  assert.equal(c.window.Trip.timeline(withDays(9 - base)).length, 9);
+  assert.equal(more(9 - base), '1 řádek');
+  assert.equal(more(10 - base), '2 řádky');
+});
+
 test('průvodce: vlak/bus + víc míst – přejezd z posledního místa zpět k vlaku/busu v trase i ve shrnutí, ne „na letiště“', () => {
   const c = load();
   const back = GROUND.departure; // přejezd zpět k vlaku ze serveru
