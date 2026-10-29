@@ -475,7 +475,7 @@ function nextTripStat() {
   // rozpracovanou cestu z průvodce ukazuje nahoře karta ↩ Pokračuj (s odpočtem a Pokračovat), probíhající nebo do 2 dnů
   // karta 📍 Dnes na cestě (i „zbývá zařídit“; renderNow před dlaždicemi) – tady ta další, ne podruhé
   const rs = window.Flights && Flights.resumeTrip ? Flights.resumeTrip() : null;
-  const next = up.find(x => x.i !== nowIdx && !(rs && x.t.tripId && x.t.tripId === rs.t.created));
+  const next = up.find(x => !nowIdx.includes(x.i) && !(rs && x.t.tripId && x.t.tripId === rs.t.created));
   if (!next && up.length) return null;
   if (!next) return ['Naplánované cesty', `${S.trips.length}`, S.trips.length ? 'Mrkni do Mých cest' : 'Začni plánovat', '<button type="button" class="linkbtn nt-open" data-gop>Moje cesty →</button>'];
   const t = next.t, d = daysTo(now, t.start);
@@ -811,8 +811,9 @@ function nowWxFetch(pts, now) {
     renderNow();
   }, () => { nwxFail = now; }).finally(() => { nwxBusy = false; });
 }
-// nowAsk: otevřeno přes #now – bez cesty aspoň poznámka; nowIdx: cesta v kartě (dlaždice Nejbližší cesta ji neopakuje)
-let nowAsk = false, nowShown = '', nowIdx = -1;
+// nowAsk: otevřeno přes #now – bez cesty aspoň poznámka; nowIdx: cesty v kartě, i „také dnes“ (dlaždice Nejbližší
+// cesta je neopakuje)
+let nowAsk = false, nowShown = '', nowIdx = [];
 /** Karta nahoře na Přehledu; překreslí se jen při změně, hodiny a odpočet se jen přepíšou (výběr kódu zůstane). */
 function renderNow() {
   const el = $('#nowTrip'); if (!el) return;
@@ -824,7 +825,7 @@ function renderNow() {
     if (p && p.wx.length) p.wxNow = nowWx(p.wx, nwxLoad(), now, { tz: x.tz, offline: navigator.onLine === false });
     h = p ? nowCard(x, p) : nowUnsaved(todayLocal()) || (nowAsk ? nowNone() : '');
   } catch (e) { p = null; h = ''; }
-  nowIdx = p && x ? x.i : -1;
+  nowIdx = p && x ? [x.i, ...(x.also || []).map(y => y.i)] : [];
   if (h !== nowShown) {
     nowShown = h; el.innerHTML = h; el.hidden = !h;
     $$('[data-nw-plan]', el).forEach(b => b.onclick = () => openTrip(+b.dataset.nwPlan));

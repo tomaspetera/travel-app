@@ -162,7 +162,7 @@
   const cleanPlace = p => (p && typeof p === 'object' && Number.isFinite(+p.lat) && Number.isFinite(+p.lon) && Math.abs(+p.lat) <= 90 && Math.abs(+p.lon) <= 180
     && typeof p.label === 'string' && p.label.trim()
     ? { lat: +p.lat, lon: +p.lon, label: p.label.slice(0, 120), cc: /^[A-Z]{2}$/.test(p.cc) ? p.cc : '', geo: Boolean(p.geo), country: typeof p.country === 'string' ? p.country.slice(0, 60) : '',
-      ...(/^[a-z-]{2,30}$/.test(p.region) ? { region: p.region } : {}),
+      ...(/^[a-z-]{2,30}$/.test(p.region) ? { region: p.region } : {}), ...(p.poi === true ? { poi: true } : {}),
       ...(NATURE_KINDS.includes(p.nature) ? { nature: p.nature, ...(RADII.includes(+p.km) ? { km: +p.km } : {}) } : {}) } : null);
   const samePlace = (a, b) => Boolean(a && b && a.label === b.label && Math.abs(a.lat - b.lat) < 1e-3 && Math.abs(a.lon - b.lon) < 1e-3);
   // „Naposledy“: nejnovější první, bez opakování, bez „Moje okolí“ (poloha se mění).
@@ -1276,7 +1276,7 @@
   function setPlace(s) {
     // země podle kódu (česky, „Španělsko“) – kontext pro odkazy do Google Map
     const country = s.geo ? '' : s.country || (typeof byIso !== 'undefined' && byIso[s.cc]?.cs) || '';
-    ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc || '', geo: Boolean(s.geo), country, ...(s.region ? { region: s.region } : {}), ...(s.capital ? { capital: true } : {}),
+    ex.place = { lat: s.lat, lon: s.lon, label: s.label, cc: s.cc || '', geo: Boolean(s.geo), country, ...(s.region ? { region: s.region } : {}), ...(s.capital ? { capital: true } : {}), ...(s.poi ? { poi: true } : {}),
       ...(NATURE_KINDS.includes(s.nature) ? { nature: s.nature, ...(RADII.includes(+s.km) ? { km: +s.km } : {}) } : {}) };
     natureMode(ex.place);
     forget();
@@ -1731,7 +1731,8 @@
     const go = x => {
       ex.radius = 10;
       const sel = $('#exRad'); if (sel) sel.value = String(ex.radius);
-      openPlace({ lat: x.lat, lon: x.lon, label: x.name, cc: d.cc || p.cc || '', country: name });
+      // poi: park, památka UNESCO, oblast z Wikivoyage… nejsou zastávka – bez 🚆 Spojení do IDOS (ten je nezná)
+      openPlace({ lat: x.lat, lon: x.lon, label: x.name, cc: d.cc || p.cc || '', country: name, ...(x.group === 'city' ? {} : { poi: true }) });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
     $$('[data-cgo]', body).forEach(b => b.onclick = e => { e.stopPropagation(); const x = all.find(i => i.id === b.dataset.cgo); if (x) go(x); });
@@ -1876,11 +1877,13 @@
     label: p.label, flag: p.cc ? flag(p.cc) : '📍', type: 'place',
   });
   /* ---------- 🚆 Spojení (místo v Česku: tam se neletí – vlak a autobus z domova v IDOS, jen odkaz) ---------- */
-  // Odkud = domov z nastavení, jen město (letiště IDOS nezná – pak odkud doplní uživatel sám); hory a příroda ne
-  // (Krkonoše nejsou zastávka). Termín jen vybraný v Objevuj, jinak IDOS hledá od teď.
-  const homeCity = () => { const h = typeof S !== 'undefined' && S.home && S.home.from && S.home.from[0]; return h && h.type === 'city' ? String(h.label || '').trim() : ''; };
+  // Odkud = domov z nastavení: město, obec nebo letiště (návrh letiště má jako název město – „Praha“); země ani oblast ne,
+  // odkud pak doplní uživatel sám. Hory, příroda a parky z přehledu země ne (Krkonoše nejsou zastávka – IDOS je nezná).
+  // Termín jen vybraný v Objevuj, jinak IDOS hledá od teď.
+  const HOME_TYPES = ['city', 'airport', 'metro', 'place'];
+  const homeCity = () => { const h = typeof S !== 'undefined' && S.home && S.home.from && S.home.from[0]; return h && HOME_TYPES.includes(h.type) ? String(h.label || '').replace(/\s*\(.*\)$/, '').trim() : ''; };
   const idosUrl = (p, from = homeCity(), date = '') => {
-    if (!p || p.geo || p.cc !== 'CZ' || p.nature || !p.label || from.toLowerCase() === String(p.label).toLowerCase()) return null;
+    if (!p || p.geo || p.cc !== 'CZ' || p.nature || p.poi || !p.label || from.toLowerCase() === String(p.label).toLowerCase()) return null;
     const [y, m, d] = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split('-').map(Number) : [];
     return `https://idos.cz/vlakyautobusy/spojeni/?${new URLSearchParams({ ...(from ? { f: from } : {}), t: p.label, ...(y ? { date: `${d}.${m}.${y}`, time: '7:00' } : {}), ...(from ? { submit: 'true' } : {}) })}`;
   };
@@ -2779,7 +2782,7 @@
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
-      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, idosUrl, prefsOf, makePlan, dropUndo,
+      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, idosUrl, homeCity, prefsOf, makePlan, dropUndo,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
       countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,
       makeHikePlan, hikePlanHtml, hikeDayHtml, rainTxt, kidsTxt, foodTxt, startTxt, isRural, HIKE_KINDS, curKey, keyKind },

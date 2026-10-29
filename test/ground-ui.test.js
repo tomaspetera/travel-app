@@ -443,4 +443,7 @@ test('Lety, Mapa a Kalendář: bez poznámek ♡ Hlídat cenu a vlak/bus (jsou v
   const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
   assert.match(fl, /\$\{kidsHtml\(\)\}\$\{view\.mode === 'map' \|\| view\.mode === 'cal' \? '' : nudgeHtml\(\) \+ groundBanner\(res\)\}/);
   assert.ok(!/\$\{nudgeHtml\(\)\}\$\{groundBanner\(res\)\}/.test(fl), 'jinde se už neskládají natvrdo');
+  // 🚆 Vlakem/busem z nápovědy „Málo výsledků?“ v Mapě a Kalendáři (panel se spoji tam není) přepne do Seznamu
+  assert.match(fl, /a\.ground \? groundAct\(\)/);
+  assert.match(fl, /function groundAct\(\) \{\s*if \(!\$\('#gndPanel'\) && \(view\.mode === 'map' \|\| view\.mode === 'cal'\)\) \{ view\.mode = legsOk\(lastResult\) && legsPref \? 'legs' : 'list'; rerender\(\); \}\s*showGround\(true\);/);
 });

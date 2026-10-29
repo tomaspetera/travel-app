@@ -704,7 +704,7 @@ test('zkratka aplikace „Na cestě“ (/#now) vedle Letů a Mých cest', () => 
 
 test('Přehled – karta Nejbližší cesta: „zbývá zařídit“ jen před cestou, ne během ní (pojištění na cestě nikdo nezařizuje)', () => {
   const c = load();
-  vm.runInContext(`var nowIdx = -1;\n${pick('nextTripStat')}`, c, { filename: 'app-stat.js' });
+  vm.runInContext(`var nowIdx = [];\n${pick('nextTripStat')}`, c, { filename: 'app-stat.js' });
   const today = vm.runInContext('todayLocal()', c), plus = (n) => vm.runInContext(`ymdPlus(${JSON.stringify(today)}, ${n})`, c);
   const stat = () => vm.runInContext('nextTripStat()[2]', c);
   const ck = [{ t: 'Zařídit: cestovní pojištění', done: false }, { t: 'Pas', done: false }];
@@ -718,7 +718,7 @@ test('Přehled – karta Nejbližší cesta: „zbývá zařídit“ jen před c
 
 test('Přehled – rozpracovaná cesta z průvodce jen jednou: nahoře ↩ Pokračuj s odpočtem, dlaždice ukáže další cestu', () => {
   const c = load();
-  vm.runInContext(`var nowIdx = -1;\n${pick('nextTripStat')}`, c, { filename: 'app-stat.js' });
+  vm.runInContext(`var nowIdx = [];\n${pick('nextTripStat')}`, c, { filename: 'app-stat.js' });
   const today = vm.runInContext('todayLocal()', c), plus = (n) => vm.runInContext(`ymdPlus(${JSON.stringify(today)}, ${n})`, c);
   const stat = () => plain(vm.runInContext('nextTripStat()', c));
   const rim = { name: 'Řím', dest: 'Řím', iso: 'IT', start: plus(33), end: plus(41), tripId: 7 };
@@ -751,16 +751,21 @@ test('Přehled – rozpracovaná cesta z průvodce jen jednou: nahoře ↩ Pokra
 
 test('Přehled – cesta v kartě 📍 Dnes na cestě (probíhá nebo do 2 dnů) se v dlaždici neopakuje: ukáže další cestu', () => {
   const c = load();
-  vm.runInContext(`var nowIdx = -1;\n${pick('nextTripStat')}`, c, { filename: 'app-stat.js' });
+  vm.runInContext(`var nowIdx = [];\n${pick('nextTripStat')}`, c, { filename: 'app-stat.js' });
   const today = vm.runInContext('todayLocal()', c), plus = (n) => vm.runInContext(`ymdPlus(${JSON.stringify(today)}, ${n})`, c);
   const stat = () => plain(vm.runInContext('nextTripStat()', c));
   c.S.trips = [{ name: 'Řím', dest: 'Řím', iso: 'IT', start: plus(-1), end: plus(6) }, { name: 'Krkonoše', dest: 'Krkonoše', iso: 'CZ', start: plus(44), end: plus(45) }];
   assert.deepEqual([stat()[0], /Řím/.test(stat()[1]), stat()[2]], ['Nejbližší cesta', true, 'právě probíhá'], 'bez karty Dnes na cestě beze změny');
-  vm.runInContext('nowIdx = 0', c);
+  vm.runInContext('nowIdx = [0]', c);
   assert.deepEqual([stat()[0], /Krkonoše/.test(stat()[1]), stat()[3].includes('data-nt="1"')], ['Další cesta', true, true]);
+  // druhá probíhající cesta je v kartě jako „také dnes“ – ani ta se v dlaždici neopakuje
+  c.S.trips.splice(1, 0, { name: 'Výlet do Tivoli', dest: 'Tivoli', iso: 'IT', start: plus(0), end: plus(0) });
+  vm.runInContext('nowIdx = [0, 1]', c);
+  assert.deepEqual([stat()[0], /Krkonoše/.test(stat()[1]), stat()[3].includes('data-nt="2"')], ['Další cesta', true, true]);
   c.S.trips = [c.S.trips[0]];
+  vm.runInContext('nowIdx = [0]', c);
   assert.equal(stat(), null, 'jediná nadcházející je v kartě nahoře');
   // renderNow (na začátku renderDashStats) si cestu karty zapamatuje – jen když se karta opravdu ukáže
-  assert.match(APP, /\} catch \(e\) \{ p = null; h = ''; \}\n  nowIdx = p && x \? x\.i : -1;/);
+  assert.match(APP, /\} catch \(e\) \{ p = null; h = ''; \}\n  nowIdx = p && x \? \[x\.i, \.\.\.\(x\.also \|\| \[\]\)\.map\(y => y\.i\)\] : \[\];/);
   assert.match(APP, /function renderDashStats\(\) \{\n  renderNow\(\);/);
 });
