@@ -656,6 +656,15 @@ test('„Najít lety sem“: místo jako cíl letů, termín jen vybraný v Obje
   assert.equal(TF.flyTarget({ lat: 'x', lon: 14, label: 'X' }), null);
   assert.equal(TF.flyTarget({ lat: 48.81, lon: 14.32, label: 'Český Krumlov', cc: 'CZ' }), null, 'do Česka se neletí – bez ✈️ Najít lety sem');
   assert.equal(TF.flyTarget({ lat: 1, lon: 2, label: 'A|B<"x">' }).id, 'geo:1.0000,2.0000|ABx', 'oddělovač a značky z názvu pryč');
+  // místo v Česku: místo letů 🚆 Spojení v IDOS z domova (termín jen vybraný)
+  const CK = { lat: 48.81, lon: 14.32, label: 'Český Krumlov', cc: 'CZ' };
+  assert.equal(TF.idosUrl(CK, 'Praha'), 'https://idos.cz/vlakyautobusy/spojeni/?f=Praha&t=%C4%8Cesk%C3%BD+Krumlov&submit=true');
+  assert.equal(TF.idosUrl(CK, 'Praha', '2026-11-07'), 'https://idos.cz/vlakyautobusy/spojeni/?f=Praha&t=%C4%8Cesk%C3%BD+Krumlov&date=7.11.2026&time=7%3A00&submit=true');
+  assert.equal(TF.idosUrl(CK, ''), 'https://idos.cz/vlakyautobusy/spojeni/?t=%C4%8Cesk%C3%BD+Krumlov', 'bez domova jen cíl, odkud doplní uživatel');
+  assert.equal(TF.idosUrl({ ...CK, label: 'Praha' }, 'praha'), null, 'z Prahy do Prahy ne');
+  assert.equal(TF.idosUrl({ ...CK, label: 'Krkonoše', nature: 'range' }, 'Praha'), null, 'pohoří není zastávka');
+  assert.equal(TF.idosUrl({ ...BCN_C, label: 'Barcelona' }, 'Praha'), null, 'do zahraničí ✈️, ne IDOS');
+  assert.equal(TF.idosUrl({ lat: 50, lon: 14, label: 'Moje okolí', cc: 'CZ', geo: true }, 'Praha'), null);
   const s = { mode: 'city', start: '2026-10-20', days: 4, tripDays: { day: 2, loop: 5 } };
   assert.deepEqual(plain(TF.flyDates(s)), { xOut: '2026-10-20', xBack: '2026-10-23' });
   assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'loop' })), { xOut: '2026-10-20', xBack: '2026-10-24' });
