@@ -704,7 +704,7 @@ test('zkratka aplikace „Na cestě“ (/#now) vedle Letů a Mých cest', () => 
 
 test('Přehled – karta Nejbližší cesta: „zbývá zařídit“ jen před cestou, ne během ní (pojištění na cestě nikdo nezařizuje)', () => {
   const c = load();
-  vm.runInContext(pick('nextTripStat'), c, { filename: 'app-stat.js' });
+  vm.runInContext(`var nowIdx = -1;\n${pick('nextTripStat')}`, c, { filename: 'app-stat.js' });
   const today = vm.runInContext('todayLocal()', c), plus = (n) => vm.runInContext(`ymdPlus(${JSON.stringify(today)}, ${n})`, c);
   const stat = () => vm.runInContext('nextTripStat()[2]', c);
   const ck = [{ t: 'Zařídit: cestovní pojištění', done: false }, { t: 'Pas', done: false }];
@@ -718,7 +718,7 @@ test('Přehled – karta Nejbližší cesta: „zbývá zařídit“ jen před c
 
 test('Přehled – rozpracovaná cesta z průvodce jen jednou: nahoře ↩ Pokračuj s odpočtem, dlaždice ukáže další cestu', () => {
   const c = load();
-  vm.runInContext(pick('nextTripStat'), c, { filename: 'app-stat.js' });
+  vm.runInContext(`var nowIdx = -1;\n${pick('nextTripStat')}`, c, { filename: 'app-stat.js' });
   const today = vm.runInContext('todayLocal()', c), plus = (n) => vm.runInContext(`ymdPlus(${JSON.stringify(today)}, ${n})`, c);
   const stat = () => plain(vm.runInContext('nextTripStat()', c));
   const rim = { name: 'Řím', dest: 'Řím', iso: 'IT', start: plus(33), end: plus(41), tripId: 7 };
@@ -747,4 +747,20 @@ test('Přehled – rozpracovaná cesta z průvodce jen jednou: nahoře ↩ Pokra
   assert.match(fl, /soon = dd == null \|\| shared \? '' : dd <= 0 \? 'dnes' : inDays\(dd\);/);
   assert.match(fl, /\$\{fmtDate\(d\.checkin\)\}–\$\{fmtDate\(d\.checkout\)\}\$\{soon \? ` · \$\{soon\}` : ''\} · /);
   assert.match(fl, /renderResume, resumeTrip, /);
+});
+
+test('Přehled – cesta v kartě 📍 Dnes na cestě (probíhá nebo do 2 dnů) se v dlaždici neopakuje: ukáže další cestu', () => {
+  const c = load();
+  vm.runInContext(`var nowIdx = -1;\n${pick('nextTripStat')}`, c, { filename: 'app-stat.js' });
+  const today = vm.runInContext('todayLocal()', c), plus = (n) => vm.runInContext(`ymdPlus(${JSON.stringify(today)}, ${n})`, c);
+  const stat = () => plain(vm.runInContext('nextTripStat()', c));
+  c.S.trips = [{ name: 'Řím', dest: 'Řím', iso: 'IT', start: plus(-1), end: plus(6) }, { name: 'Krkonoše', dest: 'Krkonoše', iso: 'CZ', start: plus(44), end: plus(45) }];
+  assert.deepEqual([stat()[0], /Řím/.test(stat()[1]), stat()[2]], ['Nejbližší cesta', true, 'právě probíhá'], 'bez karty Dnes na cestě beze změny');
+  vm.runInContext('nowIdx = 0', c);
+  assert.deepEqual([stat()[0], /Krkonoše/.test(stat()[1]), stat()[3].includes('data-nt="1"')], ['Další cesta', true, true]);
+  c.S.trips = [c.S.trips[0]];
+  assert.equal(stat(), null, 'jediná nadcházející je v kartě nahoře');
+  // renderNow (na začátku renderDashStats) si cestu karty zapamatuje – jen když se karta opravdu ukáže
+  assert.match(APP, /\} catch \(e\) \{ p = null; h = ''; \}\n  nowIdx = p && x \? x\.i : -1;/);
+  assert.match(APP, /function renderDashStats\(\) \{\n  renderNow\(\);/);
 });

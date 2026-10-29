@@ -468,13 +468,14 @@ const todayLocal = () => fmtYMD(new Date());
 const daysTo = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5);
 const inDays = d => (d === 1 ? 'zítra' : `za ${d} ${d <= 4 ? 'dny' : 'dní'}`);
 /** Karta „Naplánované cesty“: nejbližší cesta s odpočtem a co ještě zbývá zařídit (bez upozornění – vidět na Přehledu);
- *  null, když jediná nadcházející je rozpracovaná nahoře v ↩ Pokračuj (odkaz na Moje cesty by byl jen druhá karta téhož). */
+ *  null, když jediná nadcházející je nahoře v ↩ Pokračuj nebo 📍 Dnes na cestě (byla by jen druhá karta téhož). */
 function nextTripStat() {
   const now = todayLocal();
   const up = S.trips.map((t, i) => ({ t, i })).filter(x => x.t && x.t.start && (x.t.end || x.t.start) >= now).sort((a, b) => a.t.start.localeCompare(b.t.start));
-  // rozpracovanou cestu z průvodce ukazuje nahoře karta ↩ Pokračuj (s odpočtem a Pokračovat) – tady ta další, ne podruhé
+  // rozpracovanou cestu z průvodce ukazuje nahoře karta ↩ Pokračuj (s odpočtem a Pokračovat), probíhající nebo do 2 dnů
+  // karta 📍 Dnes na cestě (i „zbývá zařídit“; renderNow před dlaždicemi) – tady ta další, ne podruhé
   const rs = window.Flights && Flights.resumeTrip ? Flights.resumeTrip() : null;
-  const next = up.find(x => !(rs && x.t.tripId && x.t.tripId === rs.t.created));
+  const next = up.find(x => x.i !== nowIdx && !(rs && x.t.tripId && x.t.tripId === rs.t.created));
   if (!next && up.length) return null;
   if (!next) return ['Naplánované cesty', `${S.trips.length}`, S.trips.length ? 'Mrkni do Mých cest' : 'Začni plánovat', '<button type="button" class="linkbtn nt-open" data-gop>Moje cesty →</button>'];
   const t = next.t, d = daysTo(now, t.start);
@@ -810,7 +811,8 @@ function nowWxFetch(pts, now) {
     renderNow();
   }, () => { nwxFail = now; }).finally(() => { nwxBusy = false; });
 }
-let nowAsk = false, nowShown = ''; // nowAsk: otevřeno přes #now – bez cesty aspoň poznámka
+// nowAsk: otevřeno přes #now – bez cesty aspoň poznámka; nowIdx: cesta v kartě (dlaždice Nejbližší cesta ji neopakuje)
+let nowAsk = false, nowShown = '', nowIdx = -1;
 /** Karta nahoře na Přehledu; překreslí se jen při změně, hodiny a odpočet se jen přepíšou (výběr kódu zůstane). */
 function renderNow() {
   const el = $('#nowTrip'); if (!el) return;
@@ -822,6 +824,7 @@ function renderNow() {
     if (p && p.wx.length) p.wxNow = nowWx(p.wx, nwxLoad(), now, { tz: x.tz, offline: navigator.onLine === false });
     h = p ? nowCard(x, p) : nowUnsaved(todayLocal()) || (nowAsk ? nowNone() : '');
   } catch (e) { p = null; h = ''; }
+  nowIdx = p && x ? x.i : -1;
   if (h !== nowShown) {
     nowShown = h; el.innerHTML = h; el.hidden = !h;
     $$('[data-nw-plan]', el).forEach(b => b.onclick = () => openTrip(+b.dataset.nwPlan));
