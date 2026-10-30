@@ -195,7 +195,7 @@ test('pojištění: vždy; mimo EU důraz, v EU kvůli spoluúčasti a převozu;
   assert.ok(txt.includes('Podmínka vstupu – Bělorusko: nutný pas, pojištění min. 10 000 EUR.'), txt.join('\n'));
   assert.deepEqual(plain(by.links.map((l) => l[0])), [PT.sources.desatero, PT.sources.kzpInsurance]);
   const es = byId(todo(trip()), 'ins').lines.map(strip);
-  assert.ok(es.includes('I v EU se vyplatí: EHIC nekryje spoluúčast, převoz do ČR ani asistenční službu.'));
+  assert.ok(es.includes('I tam, kde platí EHIC, se vyplatí: EHIC nekryje spoluúčast, převoz do ČR ani asistenční službu.'));
   assert.ok(!es.some((l) => /mimo EU/.test(l)));
   // věta o pojištění z poznámky ke vstupu – data ani „min.“ větu nekončí
   const note = (iso) => P.insuranceNote(ENTRY.countries.find((r) => r.iso2 === iso));
@@ -1258,4 +1258,48 @@ test('💾 záloha: cesta z průvodce projde zálohou (pravý Trip.sanitizeTrip)
   assert.equal(c.S.trip.dest.label, 'Tokio');
   assert.equal(c.S.trip.created, t.created);
   assert.equal(c.S.trip.booked.flight, true);
+});
+
+/* ---------- opravy z procházky (městská cesta, jednodenní, přes Nový rok, proběhlá) ---------- */
+test('hlavní město (Vídeň, Oslo): bez výchozí turistiky a sněhu podle štítků země; Innsbruck v lednu sníh, ne turistika', () => {
+  const acts = (cc, label, lat, lon, cl) => [...ctxOf(trip({ cc, dest: { label, cc, lat, lon } }), { climate: [cl] }).acts];
+  assert.deepEqual(acts('AT', 'Vídeň', 48.21, 16.37, flat(25, 15, 80)), ['city']);
+  assert.deepEqual(acts('NO', 'Oslo', 59.91, 10.75, flat(16, 6, 60)), ['city']);
+  assert.deepEqual(acts('AT', 'Vídeň', 48.21, 16.37, flat(3, -2, 40)), ['city'], 'Vídeň v lednu: město, ne lyžařské brýle');
+  assert.deepEqual(acts('AT', 'Innsbruck', 47.26, 11.39, flat(4, -4, 50)), ['city', 'snow'], 'u letiště 4 °C, na horách sníh');
+  assert.deepEqual(acts('AT', 'Innsbruck', 47.26, 11.39, flat(22, 10, 120)), ['hike', 'city'], 'v létě dál hory');
+  const vie = ctxOf(trip({ cc: 'AT', dest: { label: 'Vídeň', cc: 'AT', lat: 48.21, lon: 16.37 } }), { climate: [flat(25, 15, 80)] });
+  assert.ok(!byId(P.todos(vie), 'ins').lines.join(' ').includes('turistiku na horách'));
+  // zvolená turistika platí i ve městě
+  assert.ok(ctxOf(trip({ cc: 'AT', dest: { label: 'Vídeň', cc: 'AT', lat: 48.21, lon: 16.37 }, pretrip: { acts: ['hike'] } })).acts.has('hike'));
+});
+
+test('výlet na jeden den: jedno datum, bez oblečení na spaní a potvrzení rezervací; přes Nový rok rok i u začátku', () => {
+  const day = trip({ out: '2027-07-10', back: '2027-07-10', stay: { mode: 'skip' } });
+  const h = sp(P.html(day, { isos: ['ES'], climate: [] }));
+  assert.match(h, /<div class="muted pt-sub">Španělsko · 10\. 7\. 2027 · 1 den ·/);
+  const ids = itemIds(day);
+  assert.ok(!ids.includes('cl-sleep') && !ids.includes('doc-stay'), ids.join(','));
+  // s autem jen potvrzení auta; s nocí a ubytováním obojí
+  assert.equal(items(trip({ out: '2027-07-10', back: '2027-07-10', stay: { mode: 'skip' }, car: CAR })).find((x) => x.id === 'doc-stay').text, 'Potvrzení rezervace auta');
+  assert.equal(items(trip({ car: CAR })).find((x) => x.id === 'doc-stay').text, 'Potvrzení rezervací (ubytování, auto)');
+  assert.equal(items(trip()).find((x) => x.id === 'doc-stay').text, 'Potvrzení rezervace ubytování');
+  assert.ok(itemIds(trip()).includes('cl-sleep'));
+  const ny = sp(P.html(trip({ out: '2026-12-28', back: '2027-01-08' }), { isos: ['ES'], climate: [] }));
+  assert.match(ny, /pt-sub">Španělsko · 28\. 12\. 2026 – 8\. 1\. 2027 · 12 dní/);
+});
+
+test('mimo EU: autosedačka bez „v EU povinná“, pojištění bez „I v EU“ (Británie)', () => {
+  const us = items(trip({ cc: 'US', label: 'New York', car: CAR, children: 1 }));
+  assert.match(us.find((x) => x.id === 'kd-seat').note, /^pravidla a výška dítěte se liší podle země/);
+  const gb = byId(todo(trip({ cc: 'GB', label: 'Londýn' })), 'ins').lines.map(strip).join(' ');
+  assert.doesNotMatch(gb, /I v EU/);
+});
+
+test('souhrn „🎒 Seznam věcí … · sbaleno N“ se přepočítá při odškrtnutí; proběhlá cesta kartu „Co zařídit“ nemá', () => {
+  const src = read('public/js/pretrip.js');
+  const prog = src.slice(src.indexOf('function progress(root)'), src.indexOf('function printList()'));
+  assert.match(prog, /details\.pt-packd > summary/);
+  assert.match(prog, /packTxt\(pk\.length, pk\.filter\(b => b\.checked\)\.length\)/);
+  assert.match(read('public/js/trip.js'), /\$\{window\.PreTrip && !pastHtml\(t\) \? PreTrip\.html\(/);
 });

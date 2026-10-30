@@ -20,9 +20,10 @@
   const daysTo = (a, b) => Math.round((ymdMs(b) - ymdMs(a)) / 864e5);
   /** Místní den okamžiku ms ('YYYY-MM-DD'). */
   const dayOf = ms => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-  const dm = d => `${+d.slice(8, 10)}. ${+d.slice(5, 7)}.`;
+  // pevné mezery: „út 3. 11.“ se na telefonu nerozdělí na „út 3.“ a „11.“ (jako dm v recs.js)
+  const dm = d => `${+d.slice(8, 10)}.\u00a0${+d.slice(5, 7)}.`;
   const DOW = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
-  const dow = d => `${DOW[new Date(ymdMs(d)).getUTCDay()]} ${dm(d)}`;
+  const dow = d => `${DOW[new Date(ymdMs(d)).getUTCDay()]}\u00a0${dm(d)}`;
   const V_DEN = ['v neděli', 'v pondělí', 'v úterý', 've středu', 've čtvrtek', 'v pátek', 'v sobotu'];
   // „733 Kč“ s pevnou mezerou jako czk() v app.js – na telefonu se „Kč“ neodtrhne
   const czk = n => Math.round(n).toLocaleString('cs-CZ') + ' Kč';

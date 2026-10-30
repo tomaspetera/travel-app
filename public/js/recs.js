@@ -228,7 +228,8 @@
     if (prof.kids) parts.push('👨‍👩‍👧 s dětmi – blízké a bezpečné výš');
     if (prof.fav.size) parts.push('⭐ země s mými cíli výš');
     if (hidden.been) parts.push('🗺️ země, kde už jsi byl/a, níž');
-    if (hidden.mute.length) parts.push(`🙈 vynechávám ${hidden.mute.slice(0, 3).join(', ')}${hidden.mute.length > 3 ? ` a další ${hidden.mute.length - 3}` : ''} (máš tam město v Nezajímá mě)`);
+    // jména zemí v 1. pádě („vynechávám Itálie“ zní jako 2. pád) – proto „bez zemí: …“
+    if (hidden.mute.length) parts.push(`🙈 bez zemí: ${hidden.mute.slice(0, 3).join(', ')}${hidden.mute.length > 3 ? ` a další ${hidden.mute.length - 3}` : ''} (máš tam město v Nezajímá mě)`);
     return parts.join(' · ');
   }
 

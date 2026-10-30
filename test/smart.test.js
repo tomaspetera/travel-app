@@ -511,3 +511,41 @@ test('„s mámou a tátou“ = 3 osoby (já + oba), „se ženou“ dál 2', ()
   // „a 2 dětmi“ dál děti, ne třetí dospělý
   assert.deepEqual([P('s mámou a 2 dětmi').patch.adults, P('s mámou a 2 dětmi').patch.children], [2, 2]);
 });
+
+test('„k oceánu“ = k moři; „na Balkán / do Skandinávie / Pobaltí“ = země té oblasti (ne letiště Balkanabat)', () => {
+  assert.equal(P('k oceánu').kind, 'sea');
+  assert.deepEqual(P('k oceánu').to, []);
+  assert.deepEqual(P('Atlantský oceán').to, ['Atlantský oceán'], 'jméno oceánu bez předložky zůstane místem');
+  const b = P('na Balkán v červnu');
+  assert.deepEqual([b.group, b.to, b.items.map((x) => x.id)], ['balkan', [], ['cc:HR', 'cc:ME', 'cc:AL', 'cc:RS', 'cc:BA']]);
+  assert.deepEqual(chips(b), ['Balkán', 'červen']);
+  assert.deepEqual(P('do Skandinávie').items.map((x) => x.id), ['cc:NO', 'cc:SE', 'cc:DK', 'cc:FI']);
+  assert.deepEqual(chips(P('Pobaltí na víkend')), ['Pobaltí', 'víkend']);
+  // s „k moři“ oblast vyhrává (konkrétnější než regiony u moře), štítek moře zůstane
+  const s = P('k moři na Balkán');
+  assert.deepEqual([chips(s), s.items[0].id], [['k moři', 'Balkán'], 'cc:HR']);
+});
+
+test('„do tisícovky / pětistovky“ = cena; „celkem / dohromady / za oba“ se vydělí počtem lidí (ceny jsou na osobu)', () => {
+  const mp = (q) => P(q).patch.maxPrice;
+  assert.deepEqual([mp('do tisícovky'), mp('do pětistovky'), mp('Řím do dvoutisícovky')], ['1000', '500', '2000']);
+  assert.deepEqual(P('do tisícovky').to, []);
+  assert.deepEqual(P('Řím do dvoutisícovky').to, ['Řím']);
+  assert.equal(mp('celkem do 10 000 pro dva'), '5000');
+  assert.deepEqual(chips(P('celkem do 10 000 pro dva')), ['do 5 000 Kč/os.', '2 osoby']);
+  assert.deepEqual(P('celkem do 10 000 pro dva').to, [], '„celkem“ není místo');
+  const oba = P('do 4000 za oba');
+  assert.deepEqual([oba.patch.maxPrice, oba.patch.adults], ['2000', 2]);
+  assert.equal(mp('dohromady do 12000 pro 2 dospělé a 2 děti'), '3000');
+  // počet lidí neznámý: částka zůstane, „na osobu“ beze změny
+  assert.deepEqual([mp('celkem do 5000'), mp('do 3000 na osobu')], ['5000', '3000']);
+});
+
+test('„přes Vídeň“ je přestup, ne cíl; „odkudkoliv“, „z okolí Brna“, „z domova“ místo neurčují', () => {
+  assert.deepEqual([P('z Prahy přes Vídeň do Bangkoku').from, P('z Prahy přes Vídeň do Bangkoku').to], [['Prahy'], ['Bangkoku']]);
+  assert.deepEqual(P('Bangkok přes Dubaj').to, ['Bangkok']);
+  assert.deepEqual(P('přes víkend do Říma').to, ['Říma']);
+  assert.deepEqual(P('odkudkoliv do Londýna').to, ['Londýna']);
+  assert.deepEqual(P('z okolí Brna').from, ['Brna']);
+  assert.deepEqual([P('z domova k moři').from, P('z domova k moři').kind], [[], 'sea']);
+});

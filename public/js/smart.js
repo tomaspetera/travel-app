@@ -46,6 +46,13 @@
   const MOUNTAINS = [['INN', 'Innsbruck', '🇦🇹'], ['SZG', 'Salcburk', '🇦🇹'], ['GVA', 'Ženeva', '🇨🇭'], ['TRN', 'Turín', '🇮🇹']];
   // daleko za teplem (jako 🌏 Exotika v Letech)
   // polární záře: letiště za polárním kruhem a Island (září–březen)
+  // oblasti z víc zemí („na Balkán“, „do Skandinávie“, „Pobaltí“) – hledání do těch zemí (místa by našla nesmysl:
+  // „Balkán“ letiště Balkanabat v Turkmenistánu, „Skandinávie“ nic)
+  const GROUPS = {
+    balkan: ['Balkán', [['HR', 'Chorvatsko', '🇭🇷'], ['ME', 'Černá Hora', '🇲🇪'], ['AL', 'Albánie', '🇦🇱'], ['RS', 'Srbsko', '🇷🇸'], ['BA', 'Bosna a Hercegovina', '🇧🇦']]],
+    skandinavie: ['Skandinávie', [['NO', 'Norsko', '🇳🇴'], ['SE', 'Švédsko', '🇸🇪'], ['DK', 'Dánsko', '🇩🇰'], ['FI', 'Finsko', '🇫🇮']]],
+    pobalti: ['Pobaltí', [['LT', 'Litva', '🇱🇹'], ['LV', 'Lotyšsko', '🇱🇻'], ['EE', 'Estonsko', '🇪🇪']]],
+  };
   const AURORA = [['TOS', 'Tromsø', '🇳🇴'], ['RVN', 'Rovaniemi', '🇫🇮'], ['KTT', 'Kittilä', '🇫🇮'], ['KEF', 'Reykjavík', '🇮🇸']];
   const EXOTIC = [['TH', 'Thajsko', '🇹🇭'], ['ID', 'Indonésie', '🇮🇩'], ['VN', 'Vietnam', '🇻🇳'], ['AE', 'Spojené arabské emiráty', '🇦🇪'], ['LK', 'Srí Lanka', '🇱🇰']];
 
@@ -64,6 +71,8 @@
     + 'romanticky romanticka romanticke romantickou romantiku relax relaxacni odpocinek odpocinkovy mam mame '
     // „do 2000 na osobu“, „s rodinou“, „oba“ (jinak z „osobu“ Osorno, z „rodinu“ místo)
     + 'osobu osobe osoba hlavu rodina rodinu rodinou oba obe celou cela cely '
+    // „odkudkoliv do Londýna“, „z okolí Brna“, „z domova“ – odkud je domov (s okruhem), ne místo „okolí Brna“
+    + 'odkudkoliv odkudkoli okoli domova doma '
     // s kým („s přáteli do Paříže“, „s partou na hory“, „s mámou a tátou“) – dřív z toho bylo místo cesty
     + 'pratele prateli pratelama kamaradi kamarady kamaradama kamaradkami kamaradkama kamosi kamosema kamose partou parta partu '
     + 'kolegy kolegou kolegyni kolegynemi kolegama holkama klukama holkami kluky rodici rodicema babickou dedou dedeckem '
@@ -82,7 +91,7 @@
     const s = fold(raw);
     const used = new Array(s.length).fill(false);
     const chips = [], patch = {};
-    let kind = null, month = null, dates = null, len = null, kids = 0, babies = 0, withKids = false;
+    let kind = null, group = null, month = null, dates = null, len = null, kids = 0, babies = 0, withKids = false;
     // obrat najdi, označ jako použitý; fn vrátí false = nepoužít (shoda zůstane ve zbytku věty)
     const rule = (re, fn) => {
       const g = new RegExp(re.source, 'g' + (re.flags.includes('i') ? 'i' : ''));
@@ -362,6 +371,12 @@
       patch.maxPrice = String(n);
     });
     rule(new RegExp(`${AMT}\\s*(tisic\\w*|tis\\.?)?\\s*(?:kc|korun\\w*|czk)${W}`), m => { const n = price(m[1], m[2]); if (!n || patch.maxPrice) return false; patch.maxPrice = String(n); });
+    // „do tisícovky“, „do pětistovky“ (dřív místo „tisícovky“)
+    const BILLS = { petistovk: 500, tisicovk: 1000, dvoutisicovk: 2000, petitisicovk: 5000 };
+    rule(new RegExp(`(?:do|za|pod|max(?:\\.|imalne)?|maximum)\\s+(${Object.keys(BILLS).join('|')})\\w*${W}`), m => { if (patch.maxPrice) return false; patch.maxPrice = String(BILLS[m[1]]); });
+    // „celkem / dohromady do 10 000 pro dva“, „do 4000 za oba“: částka za všechny → na osobu se vydělí počtem lidí níž
+    let priceAll = false, pairAll = false;
+    rule(new RegExp(`(?:celkem|dohromady|za\\s+(?:oba|obe|vsechny|nas\\s+vsechny))${W}`), m => { priceAll = true; pairAll = pairAll || /ob[ae]$/.test(m[0]); });
 
     // --- lidé, přestupy, zavazadla, jen tam ---
     // „ve dvou“, „pro 4 osoby“ = tolik lidí celkem – děti z minulého hledání ne (zmíněné děti se přidají níž)
@@ -402,6 +417,9 @@
       if (m[0] === 'pobrezi' && prev && !FILL.has(prev) && !TO_WORDS.has(prev) && !FROM_WORDS.has(prev)) return false;
       kind = kind || 'sea';
     });
+    // „k oceánu“, „u oceánu“ = k moři (místo by našlo Austrálii a Oceánii); „Atlantský oceán“ bez předložky zůstane místem
+    rule(new RegExp(`(?:k|ke|u|na)\\s+ocean\\w*${W}`), () => { kind = kind || 'sea'; });
+    rule(new RegExp(`(?:na|do|po|v|ve)?\\s*(balkan\\w*|skandinavi\\w*|pobalti\\w*)${W}`), m => { group = /^balk/.test(m[1]) ? 'balkan' : /^sk/.test(m[1]) ? 'skandinavie' : 'pobalti'; });
     rule(new RegExp(`(?:za|do|na)?\\s*(?:tepl(?:o|a|em|e|eho|emu|ou|y|ych|ym|ymi|ejsi[a-z]*|eji|ot[a-z]*)|slunce|sluncem|slunicko|slunicka|slunickem|jih|jihu)${W}`), () => { kind = kind || 'warm'; patch.minTemp = Math.max(patch.minTemp || 0, 20); });
     rule(new RegExp(`(?:do\\s+)?(?:horka|horko|vedra|vedro)${W}`), () => { kind = kind || 'warm'; patch.minTemp = 25; });
     rule(new RegExp(`(?:do\\s+|na\\s+)?(?:exotik\\w*|exoticky\\w*|tropu|tropy|do\\s+dalky|daleko)${W}`), () => { kind = 'exotic'; });
@@ -417,7 +435,8 @@
     const to = [], from = [];
     let mode = 'to', cur = [], arrows = 0, soft = null, backNext = false;
     const back = []; // „a zpět z Neapole“: návrat z jiného místa
-    const flush = () => { if (cur.length) (mode === 'from' ? from : mode === 'back' ? back : to).push(cur.join(' ')); cur = []; };
+    // „přes Vídeň“ = přestup, ne cíl – místo se zahodí (přestupní letiště hledání neurčuje)
+    const flush = () => { if (cur.length && mode !== 'via') (mode === 'from' ? from : mode === 'back' ? back : to).push(cur.join(' ')); cur = []; };
     const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+>~]/gu;
     let m;
     while ((m = re.exec(s))) {
@@ -437,6 +456,7 @@
       if (backNext && (w === 'z' || w === 'ze' || w === 'od')) { backNext = false; mode = 'back'; continue; }
       backNext = false;
       if (FROM_WORDS.has(w)) { flush(); mode = 'from'; continue; }
+      if (w === 'pres') { flush(); mode = 'via'; continue; }
       if (TO_WORDS.has(w)) { flush(); mode = 'to'; continue; }
       // „město“ hned za slovem názvu patří k němu („Nové Město“, „do Nového Města“) – samotné („do města“) ne
       if ((FILL.has(w) && !(cur.length && /^mest[aeou]?$|^mestem$/.test(w))) || /^\d+$/.test(w)) { flush(); continue; }
@@ -490,8 +510,13 @@
     else if (kind === 'exotic') items = EXOTIC.map(([cc, label, flag]) => ({ id: `cc:${cc}`, label, flag, type: 'country' }));
     else if (kind === 'mountains') items = MOUNTAINS.map(([iata, label, flag]) => ({ id: `ap:${iata}`, label, flag, type: 'airport' }));
     else if (kind === 'aurora') items = AURORA.map(([iata, label, flag]) => ({ id: `ap:${iata}`, label, flag, type: 'airport' }));
+    if (group) { items = GROUPS[group][1].map(([cc, label, flag]) => ({ id: `cc:${cc}`, label, flag, type: 'country' })); chips.unshift(['🗺️', GROUPS[group][0]]); }
     if (kind) chips.unshift([{ sea: '🏖️', warm: '☀️', exotic: '🌴', any: '🌍', mountains: '🏔️', aurora: '🌌' }[kind], { sea: 'k moři', warm: patch.minTemp >= 25 ? 'do horka' : 'za teplem', exotic: 'exotika', any: 'kamkoliv', mountains: 'na hory', aurora: 'polární záře' }[kind]]);
-    if (patch.maxPrice) chips.push(['💰', `do ${czk(+patch.maxPrice)}`]);
+    // částka za všechny („celkem“, „za oba“): ceny v hledání jsou na osobu – vydělit dospělými a dětmi (na stovky)
+    if (pairAll && !patch.adults) Object.assign(patch, { adults: 2, children: 0, infants: 0 }); // „za oba“ = 2 osoby
+    const payers = (patch.adults || 0) + (patch.children || 0);
+    if (priceAll && patch.maxPrice && payers > 1) patch.maxPrice = String(Math.max(100, Math.round(+patch.maxPrice / payers / 100) * 100));
+    if (patch.maxPrice) chips.push(['💰', `do ${czk(+patch.maxPrice)}${priceAll && payers > 1 ? '/os.' : ''}`]);
     const cs3 = (n, a, b, c) => `${n} ${n === 1 ? a : n < 5 ? b : c}`;
     if (patch.adults && !patch.children && !patch.infants) chips.push(['👥', cs3(patch.adults, 'osoba', 'osoby', 'osob')]);
     else if (patch.adults) chips.push(['👥', [cs3(patch.adults, 'dospělý', 'dospělí', 'dospělých'), patch.children ? cs3(patch.children, 'dítě', 'děti', 'dětí') : '', patch.infants ? cs3(patch.infants, 'miminko', 'miminka', 'miminek') : ''].filter(Boolean).join(' + ')]);
@@ -501,7 +526,7 @@
     if (patch.trip === 'oneway') chips.push(['➡️', 'jen tam']);
     // „Praha → Řím → Barcelona → Praha“: dvě a víc šipek = cesta přes víc měst (odkud, pak místa v pořadí)
     const chain = arrows >= 2 && from.length === 1 && to.length >= 2 && !kind;
-    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(chain ? { chain: true } : {}), ...(withKids && !kids && !babies && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
+    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(group ? { group } : {}), ...(chain ? { chain: true } : {}), ...(withKids && !kids && !babies && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
   }
 
   /**

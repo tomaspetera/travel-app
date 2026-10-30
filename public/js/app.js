@@ -1469,8 +1469,10 @@ const beenIn = () => new Set([...visited, ...(S.trips || []).filter(t => t && (t
 const recWhy = (why, n = 2) => (why && why.length ? `<div class="rec-why">${why.slice(0, n).map(w => `<span title="${esc(w.title)}">${w.ic} ${esc(w.t)}</span>`).join('')}</div>` : '');
 /** ✈️ Najít lety z karty doporučení: do země (nebo oblasti u moře) s odletem v měsíci tipu. */
 function recFly(r, m) {
-  const id = r.fly.id, region = id.startsWith('rg:');
-  if (window.Flights) Flights.searchTo([{ id, label: r.fly.label, flag: flag(r.c.iso2), type: region ? 'region' : 'country' }], Recs.monthRange(m, fmtYMD(new Date())) || {});
+  const id = r.fly.id, region = id.startsWith('rg:'), range = Recs.monthRange(m, fmtYMD(new Date()));
+  // z měsíce zbývají poslední 1–2 dny: hledá se výchozí termín (za rok by bylo moc daleko) – říct to, tlačítko slibuje „odlet v říjnu“
+  if (!range) { const mn = MNS_FULL[m - 1]; toast(`${mn[0].toUpperCase()}${mn.slice(1)} už končí – hledám nejbližší termíny`); }
+  if (window.Flights) Flights.searchTo([{ id, label: r.fly.label, flag: flag(r.c.iso2), type: region ? 'region' : 'country' }], range || {});
 }
 function renderRecs() {
   const m = +$('#rMonth').value, vibe = $('#rVibe').value, budget = +$('#rBudget').value, safe = +$('#rSafe').value;

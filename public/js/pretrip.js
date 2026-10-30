@@ -260,6 +260,12 @@
       }
     }
     const tags = isos.flatMap(i => (country(i) && Array.isArray(country(i).tags) ? country(i).tags : [])).join(' ');
+    // cíl je hlavní město země (do 25 km od něj): výlet do města – turistiku a sníh podle štítků země (Alpy, hory)
+    // nezapínat (Vídeň, Oslo, Bratislava dřív dostaly pevné boty, čelovku a pojištění na hory)
+    const d0 = t.dest || {}, cap = !multi && Number.isFinite(+d0.lat) && Number.isFinite(+d0.lon) && isos.some(i => {
+      const ll = country(i) && country(i).capLL;
+      return Array.isArray(ll) && Math.hypot(+d0.lat - ll[0], (+d0.lon - ll[1]) * Math.cos(ll[0] * Math.PI / 180)) * 111 <= 25;
+    });
     const months = monthsOf(start, end);
     let climate = null, pending = false;
     if (o.climate !== undefined) climate = summarize(o.climate, months);
@@ -275,7 +281,9 @@
     const ctx = {
       isos, via, start, end, nights: start && end ? nightsBetween(start, end) : t.nightsOneWay || 3, car, kids: kidN(t.children), babies: kidN(t.infants),
       mode: ov ? 'ground' : 'flight', bags: ov ? null : ['none', 'cabin', 'checked'].includes(t.bags) ? t.bags : 'none',
-      cats, tags, climate, pending, custom: customOf(t),
+      cats, tags, climate, pending, custom: customOf(t), capital: Boolean(cap),
+      // ubytování: aspoň noc a ne „neřeším“ (u trasy přes víc míst aspoň jedno místo s ubytováním)
+      stay: (start && end ? nightsBetween(start, end) : t.nightsOneWay || 3) >= 1 && (multi ? t.route.bases.some(b => !(b && b.stay && b.stay.mode === 'skip')) : !(t.stay && t.stay.mode === 'skip')),
     };
     const chosen = actsOf(t);
     ctx.acts = new Set(chosen || defaultActs(ctx));
@@ -307,10 +315,12 @@
   function defaultActs(ctx) {
     const c = ctx.climate, cats = ctx.cats, out = [];
     if (cats.has('beach') || (BEACH_TAGS.test(ctx.tags) && c && c.hi >= 24)) out.push('beach');
-    // hory a treky podle štítků země jen bez programu (program ve městě = výlet do hor neplánuje)
-    if (cats.has('nature') || (!cats.size && HIKE_TAGS.test(ctx.tags) && !(c && c.minHi <= 3))) out.push('hike');
+    // sníh v horské zemi už od 5 °C přes den (Innsbruck v lednu ~4 °C u letiště, ve skiareálu pod nulou) – pak místo turistiky
+    const snowy = Boolean(c) && c.minHi <= 5 && SNOW_TAGS.test(ctx.tags) && !ctx.capital;
+    // hory a treky podle štítků země jen bez programu (program ve městě = výlet do hor neplánuje) a mimo hlavní město
+    if (cats.has('nature') || (!cats.size && !ctx.capital && HIKE_TAGS.test(ctx.tags) && !(c && c.minHi <= 3) && !snowy)) out.push('hike');
     if (!cats.size || CITY_CATS.some(x => cats.has(x))) out.push('city');
-    if (c && c.minHi <= 3 && SNOW_TAGS.test(ctx.tags)) out.push('snow');
+    if (snowy) out.push('snow');
     return out;
   }
 
@@ -377,7 +387,7 @@
     const ins = ['Bez pojištění léčebných výloh MZV nedoporučuje vůbec vycestovat. Přečti si, co pojistka kryje a jaké má limity.'];
     if (third.length) ins.push(`<b>${esc(names(third))}</b>: mimo EU, EHP, Švýcarsko a Velkou Británii ošetření platíš sám – česká zdravotní pojišťovna proplatí jen neodkladnou péči, a to nejvýš do výše českých cen. Pojištění kryje léčení, převoz domů i asistenční službu.`);
     if (ctr.length) ins.push(`<b>${esc(names(ctr))}</b>: smluvní stát – ze zdravotního pojištění máš nárok jen na nutnou a neodkladnou péči, Kancelář zdravotního pojištění doporučuje i cestovní pojištění.`);
-    if (!third.length && !ctr.length) ins.push('I v EU se vyplatí: EHIC nekryje spoluúčast, převoz do ČR ani asistenční službu.');
+    if (!third.length && !ctr.length) ins.push('I tam, kde platí EHIC, se vyplatí: EHIC nekryje spoluúčast, převoz do ČR ani asistenční službu.'); // i Británie, Island, Švýcarsko – ne „v EU“
     for (const i of dest) { const n = insuranceNote(entry(i)); if (n) ins.push(`<b>Podmínka vstupu – ${esc(name(i))}:</b> ${esc(n)}.`); }
     const risky = ['hike', 'snow'].filter(a => ctx.acts.has(a));
     if (risky.length) ins.push(`Ověř, že pojistka kryje i ${risky.length === 2 ? 'horskou turistiku a zimní sporty' : risky[0] === 'hike' ? 'turistiku na horách' : 'zimní sporty'} – úrazy při sportu běžná pojistka krýt nemusí.`);
@@ -528,7 +538,8 @@
       add(docs, 'doc-card-car', 'Platební karta na jméno řidiče', 'kauce v půjčovně – ověř její podmínky');
     }
     add(docs, 'doc-tickets', flight ? 'Letenky a palubní vstupenky' : 'Jízdenky na vlak / autobus', 'v mobilu nebo vytištěné');
-    add(docs, 'doc-stay', 'Potvrzení rezervací (ubytování, auto)');
+    // jen to, co se rezervuje (výlet na den bez ubytování a auta potvrzení nemá)
+    if (ctx.stay || ctx.car) add(docs, 'doc-stay', ctx.stay && ctx.car ? 'Potvrzení rezervací (ubytování, auto)' : ctx.stay ? 'Potvrzení rezervace ubytování' : 'Potvrzení rezervace auta');
     add(docs, 'doc-card', 'Platební karta a záložní karta');
     const curs = [...new Set(dest.map(i => country(i) && country(i).cur).filter(x => typeof x === 'string' && /^[A-Z]{3}$/.test(x) && x !== 'CZK'))];
     if (curs.length) add(docs, 'doc-cash', `Trochu hotovosti: ${curs.map(curName).join(', ')}`);
@@ -547,7 +558,7 @@
     const clo = group('clothes', '👕', 'Oblečení');
     const days = Math.max(1, ctx.nights + 1);
     add(clo, 'cl-under', `Spodní prádlo a ponožky (${Math.min(days, 7)}×)`, days > 7 ? 'na delší cestu počítej s praním' : '');
-    add(clo, 'cl-sleep', 'Oblečení na spaní');
+    if (ctx.nights >= 1) add(clo, 'cl-sleep', 'Oblečení na spaní'); // výlet tam a zpět v jeden den bez spaní
     if (c) {
       if (c.hi >= 27) add(clo, 'cl-light', 'Lehké vzdušné oblečení (trička, kraťasy)', `přes den až ~${degC(c.hi)}`);
       else if (c.hi >= 20) add(clo, 'cl-tee', 'Trička a lehké kalhoty nebo kraťasy', `přes den ${spanC(c.minHi, c.hi)}`);
@@ -598,7 +609,7 @@
     // děti: autosedačka k půjčenému autu (směrnice 2003/20/ES: do 150 cm, státy smějí 135 cm), zabavení na cestu, miminko
     if (kids) {
       const kg = group('kids', '🧸', 'Pro děti');
-      if (ctx.car) add(kg, 'kd-seat', 'Dětská autosedačka', 'v EU povinná pro děti do 135–150 cm podle země – objednej ji k autu, nebo vezmi vlastní');
+      if (ctx.car) add(kg, 'kd-seat', 'Dětská autosedačka', `${dest.every(isEea) ? 'v EU povinná pro děti do 135–150 cm podle země' : 'pravidla a výška dítěte se liší podle země'} – objednej ji k autu, nebo vezmi vlastní`);
       if (ctx.kids) add(kg, 'kd-fun', 'Zábava na cestu', 'knížka, hra, sluchátka');
       if (ctx.babies) add(kg, 'kd-baby', 'Plenky, vlhčené ubrousky a jídlo pro miminko', flight ? 'dětskou výživu a mléko smíš vzít na palubu i nad 100 ml' : '');
     }
@@ -781,7 +792,8 @@
     const bits = [names(ctx.isos)];
     // dny na cestě od odjezdu do návratu (balí se i na den cesty tam a zpět)
     const days = ctx.nights + 1;
-    if (ctx.start && ctx.end) bits.push(`${dmy(ctx.start).replace(/ \d{4}$/, '')} – ${dmy(ctx.end)}`, days === 1 ? '1 den' : days <= 4 ? `${days} dny` : `${days} dní`);
+    // tam i zpět týž den jedno datum; přes Nový rok i rok u začátku (jinak se „28. 12. – 8. 1. 2027“ čte jako prosinec 2027)
+    if (ctx.start && ctx.end) bits.push(ctx.start === ctx.end ? dmy(ctx.start) : `${ctx.start.slice(0, 4) === ctx.end.slice(0, 4) ? dmy(ctx.start).replace(/ \d{4}$/, '') : dmy(ctx.start)} – ${dmy(ctx.end)}`, days === 1 ? '1 den' : days <= 4 ? `${days} dny` : `${days} dní`);
     bits.push(ctx.mode === 'ground' ? 'vlakem / busem' : ctx.bags === 'none' ? 'let jen s malým zavazadlem' : ctx.bags === 'cabin' ? 'let s kabinovým kufrem' : 'let s kufrem k odbavení');
     if (ctx.car) bits.push('auto na místě');
     if (ctx.kids + ctx.babies) bits.push(ctx.kids + ctx.babies === 1 ? 's dítětem' : 's dětmi');
@@ -803,10 +815,8 @@
   // Seznam věcí sbalený do řádku „🎒 Seznam věcí: 24 položek · sbaleno 3“ (Shrnutí je jinak dlouhé); rozbalený zůstane
   // rozbalený i po překreslení karty (podnebí, aktivity)
   let packOpen = false;
-  const packSum = (groups, done) => {
-    const n = groups.reduce((s, g) => s + g.items.length, 0), k = groups.reduce((s, g) => s + g.items.filter(x => done[`pack:${x.id}`]).length, 0);
-    return `🎒 Seznam věcí na míru: ${n} ${n === 1 ? 'položka' : n < 5 ? 'položky' : 'položek'}${k ? ` · sbaleno ${k}` : ''}`;
-  };
+  const packTxt = (n, k) => `🎒 Seznam věcí na míru: ${n} ${n === 1 ? 'položka' : n < 5 ? 'položky' : 'položek'}${k ? ` · sbaleno ${k}` : ''}`;
+  const packSum = (groups, done) => packTxt(groups.reduce((s, g) => s + g.items.length, 0), groups.reduce((s, g) => s + g.items.filter(x => done[`pack:${x.id}`]).length, 0));
   function html(t, o = {}) {
     if (!t) return '';
     last = { t, o };
@@ -932,6 +942,9 @@
     const boxes = [...root.querySelectorAll('input[data-ptk]')];
     const el = root.querySelector('[data-pt-prog]');
     if (el) el.textContent = `✔ ${boxes.filter(b => b.checked).length}/${boxes.length}`;
+    // „· sbaleno N“ v řádku seznamu věcí taky – jinak zůstal z posledního překreslení karty
+    const sum = root.querySelector('details.pt-packd > summary'), pk = boxes.filter(b => /^pack:/.test(b.dataset.ptk || ''));
+    if (sum) sum.textContent = packTxt(pk.length, pk.filter(b => b.checked).length);
   }
   /** Tisk jen karty „Před cestou“ (tisková CSS skryje zbytek stránky podle třídy na body). */
   function printList() {

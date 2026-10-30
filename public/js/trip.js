@@ -3640,7 +3640,7 @@
       ${carLegs.length && !ov && (!t.car || t.car.mode === 'skip') ? `<div class="note warn" style="margin-bottom:14px">🚗 <div>${carLegs.length < legsAll.length ? `Část přejezdů trasy (${esc(carLegs.map(l => legName(t, l)).join(', '))}) počítám <b>autem</b>` : 'Přejezdy mezi místy trasy počítám <b>autem</b>'}, ale auto nemáš vybrané – vyber ho v kroku <b>Auto</b>, nebo tam zvol <b>Bez auta – mezi místy vlakem a busem</b>.</div></div>` : ''}
       ${multi && nightsLeft(t) !== 0 ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div>Noci v trase nesedí s délkou pobytu – uprav je v kroku <b>Trasa</b>, jinak termíny ubytování nebudou navazovat na lety.</div></div>' : ''}
       ${window.Entry && Entry.ready() ? Entry.checklistHtml(isos, { ret: returnDate(t), pax: paxN(t) + (+t.infants || 0), via }) : '<div id="tripEntry"></div>'}
-      ${window.PreTrip ? PreTrip.html(t, { isos, via, ret: returnDate(t) }) : ''}
+      ${window.PreTrip && !pastHtml(t) ? PreTrip.html(t, { isos, via, ret: returnDate(t) }) : ''}
       <div class="card step-card sum-tl"><h3>🗓️ Průběh cesty</h3><div class="timeline">${tlRows(tl.slice(0, TL_TOP))}</div>${tl.length > TL_TOP ? `<details class="tl-more"><summary>Zobrazit celý průběh (ještě ${csN(tl.length - TL_TOP, 'řádek', 'řádky', 'řádků')})</summary><div class="timeline">${tlRows(tl.slice(TL_TOP))}</div></details>` : ''}</div>
 `;
     // odškrtnutá (i zase zrušená) letenka: „↻ Ověř cenu“ u ceny letenek zmizí (vrátí se) hned
