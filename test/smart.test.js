@@ -500,3 +500,14 @@ test('„mezi 10. a 20. listopadem“ = odlet v tom rozmezí; „do konce listop
   assert.deepEqual(d('koncem listopadu'), ['flex', '2026-11-20', '2026-11-30', 0]);
   assert.deepEqual(d('na konci listopadu'), ['flex', '2026-11-20', '2026-11-30', 0]);
 });
+
+test('„s mámou a tátou“ = 3 osoby (já + oba), „se ženou“ dál 2', () => {
+  const ad = (q) => P(q).patch.adults;
+  assert.equal(ad('s mámou a tátou do Londýna'), 3);
+  assert.equal(ad('s manželkou a se synem k moři'), 3);
+  assert.equal(ad('se ženou do Říma'), 2);
+  assert.equal(ad('s přítelkyní'), 2);
+  assert.deepEqual(chips(P('s mámou a tátou do Londýna')), ['3 osoby']);
+  // „a 2 dětmi“ dál děti, ne třetí dospělý
+  assert.deepEqual([P('s mámou a 2 dětmi').patch.adults, P('s mámou a 2 dětmi').patch.children], [2, 2]);
+});

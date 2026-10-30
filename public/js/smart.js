@@ -383,7 +383,9 @@
     });
     // „s dětmi“ bez počtu: kolik jich je, nevím – jen se nebere jako místo a připomene upravit počet osob
     rule(new RegExp(`(?:s|se)\\s+(?:detmi|detma|deckama|ditkama)${W}|pro\\s+deti${W}`), () => { withKids = true; });
-    rule(new RegExp(`(?:s|se)\\s+(?:pritelkyni|pritelem|partnerem|partnerkou|manzelkou|manzelem|holkou|klukem|zenou|muzem|synem|dcerou|mamou|tatou|kamaradem|kamaradkou)${W}`), () => { people(2); });
+    // „se ženou“ = 2 osoby, „s mámou a tátou“ / „s klukem a dcerou“ = 3 (já + oba)
+    const MATE = 'pritelkyni|pritelem|partnerem|partnerkou|manzelkou|manzelem|holkou|klukem|zenou|muzem|synem|dcerou|mamou|tatou|kamaradem|kamaradkou';
+    rule(new RegExp(`(?:s|se)\\s+(?:${MATE})(\\s+(?:a|i)\\s+(?:se\\s+|s\\s+)?(?:${MATE}))?${W}`), m => { people(m[1] ? 3 : 2); });
     rule(new RegExp(`(?:primy|prime|primo|primym|primou|bez\\s+prestupu|bez\\s+prestupovani)${W}`), () => { patch.directOnly = true; });
     // „bez kufru“ před „kufr“ (jinak by „kufru“ znamenalo kufr k odbavení)
     rule(new RegExp(`(?:jen\\s+(?:s\\s+)?batoh\\w*|bez\\s+(?:velk\\w+\\s+)?kufr\\w*|bez\\s+(?:odbaven\\w+\\s+)?zavazad\\w*|jen\\s+(?:s\\s+)?(?:malym\\s+)?(?:batoh\\w*|taskou|kabelkou))${W}`), () => { patch.bags = 'none'; });
