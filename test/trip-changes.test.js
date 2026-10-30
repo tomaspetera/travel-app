@@ -436,3 +436,21 @@ test('trasa vlakem / busem: cesta z letiště do města se nepočítá ve směru
   const r = rows(render(c, t)).filter((x) => x.includes('📍'));
   assert.deepEqual(r, ['čt 5. 11. 📍 Vídeň: volno', 'pá 6. 11. 📍 Vídeň: Prátr']);
 });
+
+test('ubytování „jen odkazy“: v průběhu i poznámkách „zatím nevybráno“; nový hotel / auto zruší ✓ v Co zarezervovat; týž den bez „jen odkazy“', () => {
+  const tj = src('trip.js');
+  // průběh cesty a poznámky do Mých cest – ne prázdné „Ubytování:“
+  assert.match(tj, /rows\.push\(\[checkin, '🏨', `Ubytování: \$\{esc\(hotelName\(t\.stay\) \|\| 'zatím nevybráno'\)\}`\]\)/);
+  assert.match(tj, /`Ubytování: \$\{hotelName\(t\.stay\) \|\| 'zatím nevybráno'\}\$\{t\.stay\.totalCzk \? ' – ' \+ czk\(t\.stay\.totalCzk\) : ''\}/);
+  assert.doesNotMatch(tj, /Ubytování: \$\{esc\(t\.stay\.name \|\| ''\)\}/);
+  // ✓ patří k výběru: každé nové ubytování (jedno místo i místo trasy) a auto ho zruší
+  assert.match(tj, /const unbook = \(t, id\) => \{ if \(t && t\.booked\) delete t\.booked\[id\]; \};/);
+  assert.match(tj, /set: v => \{ T\(\)\.stay = v; unbook\(T\(\), 'stay'\); \}/);
+  assert.match(tj, /set: v => \{ b\.stay = \{ \.\.\.v, checkin: d\.checkin, checkout: d\.checkout \}; unbook\(t, stayBookId\(b, d\)\); \}/);
+  assert.equal((tj.match(/unbook\(t, 'stay'\)/g) || []).length, 3, 'vlastní cena, jen odkazy, ⚡ výběr');
+  assert.equal((tj.match(/unbook\(t, 'car'\)/g) || []).length, 3, 'nové auto, změna míst a časů (i bez Uložit)');
+  // zpáteční let týž den: jen „Ubytování neřeším“ (bez ceny a „jen odkazy“, které by ve shrnutí neměly odkaz)
+  assert.match(tj, /\$\{nights < 1 \? '' : '<button class="btn ghost" id="stayLinks">Vyberu později – jen odkazy →<\/button>'\}/);
+  assert.match(tj, /const sl = \$\('#stayLinks'\); if \(sl\) sl\.onclick =/);
+  assert.match(tj, /const ms = \$\('#manSave'\); if \(ms\) ms\.onclick =/);
+});
