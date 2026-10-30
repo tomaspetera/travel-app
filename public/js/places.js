@@ -1887,10 +1887,18 @@
     const [y, m, d] = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.split('-').map(Number) : [];
     return `https://idos.cz/vlakyautobusy/spojeni/?${new URLSearchParams({ ...(from ? { f: from } : {}), t: p.label, ...(y ? { date: `${d}.${m}.${y}`, time: '7:00' } : {}), ...(from ? { submit: 'true' } : {}) })}`;
   };
+  // Odkaz do IDOS ze serveru (vlakem tam, na kole zpět) na zvolený den v 7:00 – server datum nezná a IDOS by hledal
+  // spoje od teď, ne na vybranou sobotu
+  const idosOn = (u, ymd) => {
+    if (!/^https:\/\/idos\.cz\//.test(u || '') || /[?&]date=/.test(u) || !/^\d{4}-\d{2}-\d{2}$/.test(ymd || '')) return u;
+    const [y, m, d] = ymd.split('-').map(Number);
+    return `${u}${u.includes('?') ? '&' : '?'}${new URLSearchParams({ date: `${d}.${m}.${y}`, time: '7:00' })}`;
+  };
   // Termín jen, když ho uživatel v Objevuj vybral: přílet první den, odlet poslední den pobytu.
-  // Kolo a pěšky mají jen jeden den („Kdy“) – let tam, zpáteční termín nechat na uživateli.
+  // Kolo a jedna túra mají jen jeden den („Kdy“) – let tam, zpáteční termín nechat na uživateli; túry na každý den
+  // mají počet dní jako program ve městě.
   const flyDates = s => {
-    const n = s.mode === 'loop' ? s.tripDays.loop : s.mode === 'day' ? s.tripDays.day : s.mode === 'city' ? s.days : 0;
+    const n = s.mode === 'loop' ? s.tripDays.loop : s.mode === 'day' ? s.tripDays.day : s.mode === 'city' || (s.mode === 'hike' && s.hike && s.hike.kind === 'days') ? s.days : 0;
     return n ? { xOut: s.start, xBack: plusDays(s.start, Math.max(1, n) - 1) } : { xOut: s.start };
   };
 
@@ -1906,7 +1914,7 @@
     if (rr) {
       const day = start || fmtYMD(new Date());
       days[day] = routeLines(rr, p);
-      notes = `${rr.train ? `Spojení vlakem: ${rr.train.idosUrl || rr.train.googleUrl}\n` : ''}Trasa v Mapy.com: ${rr.mapyUrl}\nGoogle Maps: ${rr.googleUrl}`;
+      notes = `${rr.train ? `Spojení vlakem: ${idosOn(rr.train.idosUrl, day) || rr.train.googleUrl}\n` : ''}Trasa v Mapy.com: ${rr.mapyUrl}\nGoogle Maps: ${rr.googleUrl}`;
       name = routeName(rr, p);
       dates = [day, day];
     } else if (hikes) {
@@ -2086,7 +2094,7 @@
     // návrat po půlnoci se porovná jako 23:59 (toHm by čas přetočil na „01:59“ a varování by zmizelo)
     const late = back.back >= 1440;
     const trainHtml = train ? `<div class="ride-train">🚆 Vlakem: <b>${esc(center.label)}</b> → <b>${esc(st.name)}</b> <span class="faint">(${Math.round(kmBetween([center.lon, center.lat], [st.lon, st.lat]))} km vzdušnou čarou)</span>
-        <div>${r.train.idosUrl ? `${link(r.train.idosUrl, 'spojení na IDOS ↗')} · ` : ''}${link(r.train.googleUrl, 'spoje v Google Maps ↗')}</div></div>` : '';
+        <div>${r.train.idosUrl ? `${link(idosOn(r.train.idosUrl, date), 'spojení na IDOS ↗')} · ` : ''}${link(r.train.googleUrl, 'spoje v Google Maps ↗')}</div></div>` : '';
     return `${head}<div class="day-plan"><h4><span>${title}</span></h4>
       ${wxSlot(train ? st : center, date, true)}
       ${sunSlot(train ? st : center, date, late ? '23:59' : toHm(back.back), `Počítám se startem v 9:00${back.train ? ` (vlakem ~${minTxt(back.train)})` : ''} a s přestávkami – zpět kolem ${toHm(back.back)}${late ? ' (po půlnoci)' : ''}.`)}
@@ -2492,7 +2500,9 @@
       b.classList.toggle('on', ex.tripInterests.has(id)); b.setAttribute('aria-pressed', ex.tripInterests.has(id));
       remember();
       onlyThisTrip();
-      if (trip) replanSoon(seqKey); // zobrazený plán se přeplánuje (i po víc kliknutích jen jednou)
+      // zobrazený plán se přeplánuje (i po víc kliknutích jen jednou) – i ten, který se teprve skládá: dotaz už
+      // odešel bez téhle volby a jeho výsledek by ji neměl
+      if (trip || busy[seqKey]) replanSoon(seqKey);
     });
     // odkaz v kartě (Wikipedie, Google Maps) jen otevře odkaz – kartu nezaměří (dřív atribut onclick se stopPropagation v HTML – ten CSP nepustí)
     $$('#exList [data-poi]', body).forEach(c => c.onclick = e => { if (!e.target.closest('a')) focus(ex.items.find(i => i.id === c.dataset.poi), c, 'seznam'); });
@@ -2503,7 +2513,8 @@
       focus(pool.find(i => i.id === c.dataset.poi), c, 'plán');
     });
     // „Chci vidět“: počítadlo u „Sestavit program“; hotový program se přeplánuje sám.
-    const wireMustClear = () => on('[data-mustclear]', 'onclick', () => { st.must.clear(); paintExplore(); if (ex.plan) replanSoon('city'); });
+    // i program, který se teprve skládá (busy) – dotaz odešel bez téhle volby
+    const wireMustClear = () => on('[data-mustclear]', 'onclick', () => { st.must.clear(); paintExplore(); if (ex.plan || busy.city) replanSoon('city'); });
     wireMustClear();
     $$('[data-must]', body).forEach(b => b.onclick = e => {
       e.stopPropagation();
@@ -2515,13 +2526,16 @@
       b.textContent = sel ? '★ chci vidět' : '+ chci vidět';
       on('#exMustN', 'innerHTML', mustHtml(st.must.size));
       wireMustClear();
-      if (ex.plan) replanSoon('city');
+      if (ex.plan || busy.city) replanSoon('city');
     });
     $$('[data-int]', body).forEach(b => b.onclick = () => {
       st.interests.has(b.dataset.int) ? st.interests.delete(b.dataset.int) : st.interests.add(b.dataset.int);
       b.classList.toggle('on', st.interests.has(b.dataset.int)); b.setAttribute('aria-pressed', st.interests.has(b.dataset.int));
       remember();
-      if (ex.plan) replanSoon('city');
+      // S dětmi sdílí i túry (Pěšky → Túra na každý den): hotové (i rozplánované) bez téhle volby zešednou a po
+      // návratu do Pěšky se přeplánují samy – jako po změně termínu (redo)
+      if (b.dataset.int === 'kids' && (ex.hikePlan || busy.hikes)) { if (busy.hikes) { replanSeq.hikes++; delete busy.hikes; } redo.add('hikes'); }
+      if (ex.plan || busy.city) replanSoon('city');
     });
     // Tempo platí pro všechny plány: zobrazený se přeplánuje, ostatní (jiný režim, doprava) se zahodí jako u zájmů.
     on('[data-pace]', 'onchange', e => {
@@ -2638,11 +2652,14 @@
       const my = replanSeq[key] = (replanSeq[key] || 0) + 1; // jen poslední dotaz smí vykreslit (rychlé klikání na ✕ / +)
       delete ex.errs[key];
       const b0 = busy[key] = { my, kind, t0: Date.now(), other: Boolean(o.other) };
-      // Spinner v tlačítku i ve výsledku (tlačítko bývá na telefonu po odrolování mimo obrazovku).
-      $$('#exPlan, #routeOther', body).forEach(x => { x.disabled = true; });
-      if (btn) btn.innerHTML = `<span class="spin"></span> ${BTN_BUSY[kind]}`;
-      $('#exPlanOut .ex-err', body)?.remove();
-      showBusy();
+      // Spinner v tlačítku i ve výsledku (tlačítko bývá na telefonu po odrolování mimo obrazovku) – jen když je ten
+      // režim na obrazovce: „↩ Vrátit“ po přepnutí přeplánuje starý režim a tlačítka nového by zůstala zašedlá
+      if (curKey() === key) {
+        $$('#exPlan, #routeOther', body).forEach(x => { x.disabled = true; });
+        if (btn) btn.innerHTML = `<span class="spin"></span> ${BTN_BUSY[kind]}`;
+        $('#exPlanOut .ex-err', body)?.remove();
+        showBusy();
+      }
       const slowT = setTimeout(showBusy, SLOW_MS);
       const note = txt => { b0.note = txt; if (busy[key] === b0) showBusy(); if (btn?.isConnected) btn.innerHTML = `<span class="spin"></span> ${esc(txt)}`; };
       let ok = false;
@@ -2782,7 +2799,7 @@
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
-      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, idosUrl, homeCity, prefsOf, makePlan, dropUndo,
+      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
       countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,
       makeHikePlan, hikePlanHtml, hikeDayHtml, rainTxt, kidsTxt, foodTxt, startTxt, isRural, HIKE_KINDS, curKey, keyKind },
