@@ -456,3 +456,58 @@ test('✨ Zkus napsat: věta přes víc měst jen s domovem, který jde najít (
   // Rychlé hledání bez délky (Kamkoliv nejlevněji): vlastní 3–9 nocí, ne předvolba „týden“ (5–9)
   assert.match(fl, /else Object\.assign\(f, \{ len: 'custom', nMin: 3, nMax: 9, outDays: \[\], backDays: \[\] \}\);/);
 });
+
+test('s kým: „s přáteli / s partou / s kolegy / s rodiči / se psem“ nejsou místo cesty', () => {
+  assert.deepEqual(P('s přáteli do Paříže').to, ['Paříže']);
+  assert.deepEqual(P('s kolegy do Berlína').to, ['Berlína']);
+  assert.deepEqual(P('s rodiči do Vídně').to, ['Vídně']);
+  assert.deepEqual(P('se psem do Itálie').to, ['Itálie']);
+  assert.deepEqual(P('s babičkou do Říma').to, ['Říma']);
+  assert.deepEqual(P('s mámou a tátou do Londýna').to, ['Londýna']);
+  assert.deepEqual(P('s klukem a dcerou').to, []);
+  assert.deepEqual(P('pro celou rodinu').to, []);
+  for (const q of ['s partou na hory', 's holkama k moři', 'k moři s kamarády', 's kámoši na víkend', 's kamarádkami']) assert.deepEqual(P(q).to, [], q);
+  assert.deepEqual(chips(P('s kámoši na víkend')), ['víkend']);
+  // jména míst s podobným začátkem zůstanou místy
+  for (const q of ['Celle', 'Partenkirchen', 'Kolín', 'Holkham']) assert.deepEqual(P(q).to, [q]);
+});
+
+test('„první / poslední víkend v prosinci“, „druhý týden v únoru“: jen ten týden měsíce, ne celý měsíc a „první“ jako místo', () => {
+  const d = (q, t) => { const r = P(q, t); return [r.patch.dateMode, r.patch.dFrom, r.patch.dTo, r.patch.len, r.to.length]; };
+  assert.deepEqual(d('první víkend v prosinci'), ['flex', '2026-12-03', '2026-12-05', 'weekend', 0]);
+  assert.deepEqual(chips(P('první víkend v prosinci')), ['první víkend prosince', 'víkend']);
+  assert.deepEqual(d('poslední víkend v listopadu'), ['flex', '2026-11-26', '2026-11-28', 'weekend', 0]);
+  assert.deepEqual(d('druhý týden v únoru'), ['flex', '2027-02-08', '2027-02-14', 'week', 0]);
+  assert.deepEqual(d('poslední týden v prosinci'), ['flex', '2026-12-25', '2026-12-31', 'week', 0]);
+  // letošní první víkend v říjnu už byl → příští rok; sobota 2. 10. 2027 → odlet od čtvrtka 30. 9.
+  assert.deepEqual(d('první víkend v říjnu'), ['flex', '2027-09-30', '2027-10-02', 'weekend', 0]);
+  // probíhající víkend: od dneška
+  assert.deepEqual(d('poslední víkend v říjnu', '2026-10-30'), ['flex', '2026-10-30', '2026-10-31', 'weekend', 0]);
+  assert.deepEqual(P('první víkend v listopadu do Vídně').to, ['Vídně']);
+});
+
+test('„mezi 10. a 20. listopadem“ = odlet v tom rozmezí; „do konce listopadu / roku“ = od dneška', () => {
+  const d = (q) => { const r = P(q); return [r.patch.dateMode, r.patch.dFrom, r.patch.dTo, r.to.length]; };
+  assert.deepEqual(d('mezi 10. a 20. listopadem'), ['flex', '2026-11-10', '2026-11-20', 0]);
+  assert.deepEqual(d('mezi 10. 11. a 20. 11.'), ['flex', '2026-11-10', '2026-11-20', 0]);
+  assert.deepEqual(d('mezi 28. 12. a 3. 1.'), ['flex', '2026-12-28', '2027-01-03', 0]);
+  assert.deepEqual(chips(P('mezi 10. a 20. listopadem')), ['10. 11. – 20. 11.']);
+  assert.deepEqual(d('do konce listopadu'), ['flex', '2026-10-18', '2026-11-30', 0]);
+  assert.deepEqual(chips(P('Řím do konce března')), ['do konce března']);
+  assert.deepEqual(P('Řím do konce března').to, ['Řím']);
+  assert.deepEqual(d('do konce roku'), ['flex', '2026-10-18', '2026-12-31', 0]);
+  // „koncem / na konci listopadu“ dál jen poslední třetina
+  assert.deepEqual(d('koncem listopadu'), ['flex', '2026-11-20', '2026-11-30', 0]);
+  assert.deepEqual(d('na konci listopadu'), ['flex', '2026-11-20', '2026-11-30', 0]);
+});
+
+test('„s mámou a tátou“ = 3 osoby (já + oba), „se ženou“ dál 2', () => {
+  const ad = (q) => P(q).patch.adults;
+  assert.equal(ad('s mámou a tátou do Londýna'), 3);
+  assert.equal(ad('s manželkou a se synem k moři'), 3);
+  assert.equal(ad('se ženou do Říma'), 2);
+  assert.equal(ad('s přítelkyní'), 2);
+  assert.deepEqual(chips(P('s mámou a tátou do Londýna')), ['3 osoby']);
+  // „a 2 dětmi“ dál děti, ne třetí dospělý
+  assert.deepEqual([P('s mámou a 2 dětmi').patch.adults, P('s mámou a 2 dětmi').patch.children], [2, 2]);
+});

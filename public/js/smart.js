@@ -63,7 +63,11 @@
     + 'sever severu zapad zapadu vychod vychodu autem vlakem autobusem busem zajezd zajezdy zajezdu pobyt pobytu pobyty ne '
     + 'romanticky romanticka romanticke romantickou romantiku relax relaxacni odpocinek odpocinkovy mam mame '
     // „do 2000 na osobu“, „s rodinou“, „oba“ (jinak z „osobu“ Osorno, z „rodinu“ místo)
-    + 'osobu osobe osoba hlavu rodina rodinu rodinou oba obe').split(' '));
+    + 'osobu osobe osoba hlavu rodina rodinu rodinou oba obe celou cela cely '
+    // s kým („s přáteli do Paříže“, „s partou na hory“, „s mámou a tátou“) – dřív z toho bylo místo cesty
+    + 'pratele prateli pratelama kamaradi kamarady kamaradama kamaradkami kamaradkama kamosi kamosema kamose partou parta partu '
+    + 'kolegy kolegou kolegyni kolegynemi kolegama holkama klukama holkami kluky rodici rodicema babickou dedou dedeckem '
+    + 'psem pejskem mamou tatou mamkou tatkou synem dcerou klukem holkou zenou muzem manzelkou manzelem partnerem partnerkou pritelem pritelkyni').split(' '));
   const TO_WORDS = new Set(['do', 'na', 'k', 'ke', 'kam', 'v', 've', 'za', 'u', 'pres', 'po']);
   const FROM_WORDS = new Set(['z', 'ze', 'odkud', 'od']);
   // před „moře“ jméno moře → je to místo (Rudé moře), ne „k moři“
@@ -106,6 +110,15 @@
       if (!y && v < today) { yr++; v = `${yr}-${pad(m)}-${pad(d)}`; }
       return v;
     };
+    // „mezi 10. a 20. listopadem“, „mezi 10. 11. a 20. 11.“: odlet kdykoli v tom rozmezí, ne přesná data tam a zpět
+    // (dřív z toho bylo místo „mezi listopadem“)
+    const MINS = ['lednem', 'unorem', 'breznem', 'dubnem', 'kvetnem', 'cervnem', 'cervencem', 'srpnem', 'zarim', 'rijnem', 'listopadem', 'prosincem'];
+    rule(new RegExp(`mezi\\s+(\\d{1,2})\\.\\s*(?:(\\d{1,2})\\.\\s*)?a\\s+(\\d{1,2})\\.\\s*(?:(\\d{1,2})\\.?|(${MINS.join('|')}))${W}`), m => {
+      const mb = m[4] ? +m[4] : MINS.indexOf(m[5]) + 1, ma = m[2] ? +m[2] : mb;
+      const a = mkDate(m[1], ma), b = a && mkDate(m[3], mb, mb < ma ? +a.slice(0, 4) + 1 : a.slice(0, 4));
+      if (!a || !b || b < a || dates) return false;
+      dates = { from: a, to: b, label: `${dm(a)} – ${dm(b)}` };
+    });
     rule(new RegExp(`(?:od\\s*)?(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?(?:\\s*(?:-|–|az|do)\\s*(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?)?${W}`), (m, at) => {
       const a = mkDate(m[1], m[2], m[3]);
       // „3.–10. 6.“: konec rozsahu dnů ve stejném měsíci – patří pravidlu níž
@@ -135,6 +148,24 @@
       const n = m[1] ? num(m[1]) : 1, d = /^ty/.test(m[2]) ? n * 7 : n;
       if (!(d >= 1 && d <= 120)) return false;
       dates = dates || { from: addDays(today, Math.max(0, d - 3)), to: addDays(today, d + 4), label: `za ${m[1] ? `${n} ` : ''}${m[2] === 'tyden' ? 'týden' : m[2].replace('tydn', 'týdn').replace('dni', 'dní')}` };
+    });
+    // „první / druhý / poslední víkend v prosinci“, „první týden v lednu“: jen ten týden měsíce (dřív z „první“ bylo místo
+    // a termín celý měsíc). Víkend = odlet čt–so jako u „příští víkend“, týden = odlet v těch 7 dnech.
+    const ORD = { prvni: [1, 'první'], druhy: [2, 'druhý'], treti: [3, 'třetí'], ctvrty: [4, 'čtvrtý'], posledni: [-1, 'poslední'] };
+    rule(new RegExp(`(?:na\\s+|o\\s+|v\\s+)?(${Object.keys(ORD).join('|')})\\s+(vikend|tyden)\\s+(?:v|ve)\\s+(${MONTH_FORMS.map(x => x[0]).join('|')})${W}`), m => {
+      if (dates) return false;
+      const k = MONTH_OF[m[3]], [n, word] = ORD[m[1]], wk = m[2] === 'vikend';
+      const span = y => {
+        const ym = `${y}-${pad(k + 1)}-`, last = lastDay(y, k);
+        if (!wk) return n < 0 ? [ym + pad(last - 6), ym + pad(last)] : [ym + pad(n * 7 - 6), ym + pad(n * 7)];
+        const sat1 = 1 + (6 - dow(ym + '01') + 7) % 7, satL = last - (dow(ym + pad(last)) + 1) % 7, sat = n < 0 ? satL : sat1 + 7 * (n - 1);
+        return sat > last ? null : [addDays(ym + pad(sat), -2), ym + pad(sat)]; // čtvrtek může být ještě v minulém měsíci
+      };
+      let y = +today.slice(0, 4), r = span(y);
+      if (r && r[1] < today) r = span(++y);
+      if (!r) return false;
+      dates = { from: r[0] < today ? today : r[0], to: r[1], label: `${word} ${wk ? 'víkend' : 'týden'} ${MGEN_CZ[k]}` };
+      if (wk) len = 'weekend'; else len = len || 'week';
     });
     // --- délka pobytu ---
     rule(new RegExp(`(?:na\\s+)?(?:prodlouzen[yeyj]+|dlouh[yej]+)\\s+vikend\\w*${W}`), () => { len = 'long'; });
@@ -174,17 +205,24 @@
     // začátkem / v polovině / koncem měsíce: jen ta třetina (1.–10., 10.–20., od 20.)
     // („na začátku / na konci / ke konci / uprostřed prosince“ – jinak by z „začátku“ bylo místo)
     const PART = [[/zacat|pocat/, 1, 10, 'začátek'], [/pul|polov|uprostred/, 10, 20, 'polovina'], [/kon/, 20, 31, 'konec']];
-    rule(new RegExp(`(?:(na\\s+zacatku|na\\s+pocatku|na\\s+konci|ke\\s+konci|uprostred|v|ve|na|behem|koncem|konec|zacatkem|zacatek|pocatkem|polovinou|polovina|v\\s+polovine|v\\s+pulce|pulka|od|do)\\s+)?(${MONTH_FORMS.map(x => x[0]).join('|')})${W}`), m => {
+    rule(new RegExp(`(?:(do\\s+konce|na\\s+zacatku|na\\s+pocatku|na\\s+konci|ke\\s+konci|uprostred|v|ve|na|behem|koncem|konec|zacatkem|zacatek|pocatkem|polovinou|polovina|v\\s+polovine|v\\s+pulce|pulka|od|do)\\s+)?(${MONTH_FORMS.map(x => x[0]).join('|')})${W}`), m => {
       if (dates && !dates.month) return false;
       const k = MONTH_OF[m[2]], r = monthRange(k);
       if (dates && dates.month) { dates.to = monthRange(k).to; dates.label = `${dates.label}–${MONTHS[k]}`; month = month ?? k; return; } // „v květnu a červnu“
       month = k;
+      if (/^do\s+konce/.test(m[1] || '')) { dates = { from: today, to: r.to, month: true, label: `do konce ${MGEN_CZ[k]}` }; return; }
       const part = PART.find(x => x[0].test(m[1] || ''));
       if (part) {
         const ym = r.to.slice(0, 8), from = ym + pad(part[1]), to = ym + pad(Math.min(part[2], +r.to.slice(8)));
         if (to >= today) { dates = { from: from < today ? today : from, to, month: true, label: `${part[3]} ${MGEN_CZ[k]}` }; return; }
       }
       dates = { ...r, month: true, label: MONTHS[k] };
+    });
+    // „do konce roku / měsíce“: odlet kdykoli od dneška do konce roku (měsíce)
+    rule(new RegExp(`(?:nekdy\\s+)?do\\s+konce\\s+(roku|mesice|tohoto\\s+mesice)${W}`), m => {
+      if (dates) return false;
+      const y = +today.slice(0, 4), mo = +today.slice(5, 7) - 1;
+      dates = m[1] === 'roku' ? { from: today, to: `${y}-12-31`, label: 'do konce roku' } : { from: today, to: `${today.slice(0, 8)}${pad(lastDay(y, mo))}`, label: 'do konce měsíce' };
     });
     // nejbližší výskyt pevného období v roce (měsíc-den od–do), které ještě neskončilo
     const nextSpan = (a, b, label) => { let y = +today.slice(0, 4); if (`${y}-${b}` < today) y++; const from = `${y}-${a}`; return { from: from < today ? today : from, to: `${y}-${b}`, label }; };
@@ -345,7 +383,9 @@
     });
     // „s dětmi“ bez počtu: kolik jich je, nevím – jen se nebere jako místo a připomene upravit počet osob
     rule(new RegExp(`(?:s|se)\\s+(?:detmi|detma|deckama|ditkama)${W}|pro\\s+deti${W}`), () => { withKids = true; });
-    rule(new RegExp(`(?:s|se)\\s+(?:pritelkyni|pritelem|partnerem|partnerkou|manzelkou|manzelem|holkou|klukem|zenou|muzem|synem|dcerou|mamou|tatou|kamaradem|kamaradkou)${W}`), () => { people(2); });
+    // „se ženou“ = 2 osoby, „s mámou a tátou“ / „s klukem a dcerou“ = 3 (já + oba)
+    const MATE = 'pritelkyni|pritelem|partnerem|partnerkou|manzelkou|manzelem|holkou|klukem|zenou|muzem|synem|dcerou|mamou|tatou|kamaradem|kamaradkou';
+    rule(new RegExp(`(?:s|se)\\s+(?:${MATE})(\\s+(?:a|i)\\s+(?:se\\s+|s\\s+)?(?:${MATE}))?${W}`), m => { people(m[1] ? 3 : 2); });
     rule(new RegExp(`(?:primy|prime|primo|primym|primou|bez\\s+prestupu|bez\\s+prestupovani)${W}`), () => { patch.directOnly = true; });
     // „bez kufru“ před „kufr“ (jinak by „kufru“ znamenalo kufr k odbavení)
     rule(new RegExp(`(?:jen\\s+(?:s\\s+)?batoh\\w*|bez\\s+(?:velk\\w+\\s+)?kufr\\w*|bez\\s+(?:odbaven\\w+\\s+)?zavazad\\w*|jen\\s+(?:s\\s+)?(?:malym\\s+)?(?:batoh\\w*|taskou|kabelkou))${W}`), () => { patch.bags = 'none'; });
