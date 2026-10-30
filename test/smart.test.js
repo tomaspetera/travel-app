@@ -540,3 +540,12 @@ test('„do tisícovky / pětistovky“ = cena; „celkem / dohromady / za oba�
   // počet lidí neznámý: částka zůstane, „na osobu“ beze změny
   assert.deepEqual([mp('celkem do 5000'), mp('do 3000 na osobu')], ['5000', '3000']);
 });
+
+test('„přes Vídeň“ je přestup, ne cíl; „odkudkoliv“, „z okolí Brna“, „z domova“ místo neurčují', () => {
+  assert.deepEqual([P('z Prahy přes Vídeň do Bangkoku').from, P('z Prahy přes Vídeň do Bangkoku').to], [['Prahy'], ['Bangkoku']]);
+  assert.deepEqual(P('Bangkok přes Dubaj').to, ['Bangkok']);
+  assert.deepEqual(P('přes víkend do Říma').to, ['Říma']);
+  assert.deepEqual(P('odkudkoliv do Londýna').to, ['Londýna']);
+  assert.deepEqual(P('z okolí Brna').from, ['Brna']);
+  assert.deepEqual([P('z domova k moři').from, P('z domova k moři').kind], [[], 'sea']);
+});

@@ -71,6 +71,8 @@
     + 'romanticky romanticka romanticke romantickou romantiku relax relaxacni odpocinek odpocinkovy mam mame '
     // „do 2000 na osobu“, „s rodinou“, „oba“ (jinak z „osobu“ Osorno, z „rodinu“ místo)
     + 'osobu osobe osoba hlavu rodina rodinu rodinou oba obe celou cela cely '
+    // „odkudkoliv do Londýna“, „z okolí Brna“, „z domova“ – odkud je domov (s okruhem), ne místo „okolí Brna“
+    + 'odkudkoliv odkudkoli okoli domova doma '
     // s kým („s přáteli do Paříže“, „s partou na hory“, „s mámou a tátou“) – dřív z toho bylo místo cesty
     + 'pratele prateli pratelama kamaradi kamarady kamaradama kamaradkami kamaradkama kamosi kamosema kamose partou parta partu '
     + 'kolegy kolegou kolegyni kolegynemi kolegama holkama klukama holkami kluky rodici rodicema babickou dedou dedeckem '
@@ -433,7 +435,8 @@
     const to = [], from = [];
     let mode = 'to', cur = [], arrows = 0, soft = null, backNext = false;
     const back = []; // „a zpět z Neapole“: návrat z jiného místa
-    const flush = () => { if (cur.length) (mode === 'from' ? from : mode === 'back' ? back : to).push(cur.join(' ')); cur = []; };
+    // „přes Vídeň“ = přestup, ne cíl – místo se zahodí (přestupní letiště hledání neurčuje)
+    const flush = () => { if (cur.length && mode !== 'via') (mode === 'from' ? from : mode === 'back' ? back : to).push(cur.join(' ')); cur = []; };
     const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+>~]/gu;
     let m;
     while ((m = re.exec(s))) {
@@ -453,6 +456,7 @@
       if (backNext && (w === 'z' || w === 'ze' || w === 'od')) { backNext = false; mode = 'back'; continue; }
       backNext = false;
       if (FROM_WORDS.has(w)) { flush(); mode = 'from'; continue; }
+      if (w === 'pres') { flush(); mode = 'via'; continue; }
       if (TO_WORDS.has(w)) { flush(); mode = 'to'; continue; }
       // „město“ hned za slovem názvu patří k němu („Nové Město“, „do Nového Města“) – samotné („do města“) ne
       if ((FILL.has(w) && !(cur.length && /^mest[aeou]?$|^mestem$/.test(w))) || /^\d+$/.test(w)) { flush(); continue; }
