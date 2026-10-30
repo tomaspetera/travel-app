@@ -72,7 +72,9 @@
     // „do 2000 na osobu“, „s rodinou“, „oba“ (jinak z „osobu“ Osorno, z „rodinu“ místo)
     + 'osobu osobe osoba hlavu rodina rodinu rodinou oba obe celou cela cely '
     // „odkudkoliv do Londýna“, „z okolí Brna“, „z domova“ – odkud je domov (s okruhem), ne místo „okolí Brna“
-    + 'odkudkoliv odkudkoli okoli domova doma '
+    + 'odkudkoliv odkudkoli okoli domova doma ted '
+    // „odlet 20.11. návrat 25.11.“ – slova u data (dřív místo „odlet“)
+    + 'odlet odletu odletem prilet priletu navrat navratu vracim vracime vratim vratime '
     // s kým („s přáteli do Paříže“, „s partou na hory“, „s mámou a tátou“) – dřív z toho bylo místo cesty
     + 'pratele prateli pratelama kamaradi kamarady kamaradama kamaradkami kamaradkama kamosi kamosema kamose partou parta partu '
     + 'kolegy kolegou kolegyni kolegynemi kolegama holkama klukama holkami kluky rodici rodicema babickou dedou dedeckem '
@@ -134,6 +136,12 @@
       if (!a || (!m[4] && /\b\d{1,2}\.?\s*(?:-|–|az)\s*$/.test(s.slice(0, at)))) return false;
       const b = m[4] ? mkDate(m[4], m[5], m[6] || (+m[5] < +m[2] ? +a.slice(0, 4) + 1 : a.slice(0, 4))) : null;
       if (m[4] && (!b || b < a)) return false;
+      // druhé samostatné datum („15.11. a zpět 18.11.“, „odlet 20.11. návrat 25.11.“) je návrat – dřív přepsalo odlet
+      if (!b && dates && dates.exact && dates.out && !dates.back) {
+        const back = a >= dates.out ? a : mkDate(m[1], m[2], +dates.out.slice(0, 4) + 1); // „28.12. – zpět 3.1.“ = příští rok
+        if (!back || back <= dates.out) return false;
+        dates.back = back; return;
+      }
       dates = { exact: true, out: a, back: b };
     });
 
@@ -147,8 +155,15 @@
     // „20. listopadu“, „od 3. do 7. prosince“, „3.–7. prosince“: dny se jménem měsíce (2. pád)
     const MGEN = ['ledna', 'unora', 'brezna', 'dubna', 'kvetna', 'cervna', 'cervence', 'srpna', 'zari', 'rijna', 'listopadu', 'prosince'];
     rule(new RegExp(`(?:od\\s*)?(\\d{1,2})\\.?\\s*(?:(?:-|–|az|do)\\s*(\\d{1,2})\\.?\\s*)?(${MGEN.join('|')})(?:\\s*(20\\d\\d))?${W}`), m => {
+      const mo = MGEN.indexOf(m[3]) + 1;
+      // „odlet 20. listopadu, návrat 25. listopadu“: druhé samostatné datum je návrat (jako u „15.11. a zpět 18.11.“)
+      if (!m[2] && dates && dates.exact && dates.out && !dates.back) {
+        const back = mkDate(m[1], mo, m[4] || dates.out.slice(0, 4)), nx = back && back <= dates.out ? mkDate(m[1], mo, +dates.out.slice(0, 4) + 1) : back;
+        if (!nx || nx <= dates.out) return false;
+        dates.back = nx; return;
+      }
       if (dates && dates.exact) return false;
-      const mo = MGEN.indexOf(m[3]) + 1, b = m[2] ? mkDate(m[2], mo, m[4]) : null, a = mkDate(m[1], mo, m[4] || (b ? b.slice(0, 4) : undefined));
+      const b = m[2] ? mkDate(m[2], mo, m[4]) : null, a = mkDate(m[1], mo, m[4] || (b ? b.slice(0, 4) : undefined));
       if (!a || (m[2] && (!b || b < a))) return false;
       dates = { exact: true, out: a, back: b };
     });
@@ -195,7 +210,7 @@
       const sat = addDays(today, ((6 - dow(today) + 7) % 7) + 7);
       dates = dates || { from: addDays(sat, -2), to: sat, label: 'příští víkend' };
     });
-    rule(new RegExp(`(?:na\\s+)?vikend\\w*${W}`), () => { len = len || 'weekend'; });
+    rule(new RegExp(`(?:na\\s+)?(?:vikend|weekend)\\w*${W}`), () => { len = len || 'weekend'; });
     rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:noc|noci|nocich)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 30)) return false; len = { n }; });
     // „na 10 dní“, „na 3 týdny“ je přibližná délka (jako „na 2 týdny“): od 5 nocí pár nocí na obě strany, kratší přesně
     const about = k => { const d = k <= 4 ? 0 : k <= 6 ? 1 : k <= 10 ? 2 : 3; return { n: k, lo: Math.max(1, k - d), hi: Math.min(30, k + d) }; };
