@@ -525,3 +525,18 @@ test('„k oceánu“ = k moři; „na Balkán / do Skandinávie / Pobaltí“ =
   const s = P('k moři na Balkán');
   assert.deepEqual([chips(s), s.items[0].id], [['k moři', 'Balkán'], 'cc:HR']);
 });
+
+test('„do tisícovky / pětistovky“ = cena; „celkem / dohromady / za oba“ se vydělí počtem lidí (ceny jsou na osobu)', () => {
+  const mp = (q) => P(q).patch.maxPrice;
+  assert.deepEqual([mp('do tisícovky'), mp('do pětistovky'), mp('Řím do dvoutisícovky')], ['1000', '500', '2000']);
+  assert.deepEqual(P('do tisícovky').to, []);
+  assert.deepEqual(P('Řím do dvoutisícovky').to, ['Řím']);
+  assert.equal(mp('celkem do 10 000 pro dva'), '5000');
+  assert.deepEqual(chips(P('celkem do 10 000 pro dva')), ['do 5 000 Kč/os.', '2 osoby']);
+  assert.deepEqual(P('celkem do 10 000 pro dva').to, [], '„celkem“ není místo');
+  const oba = P('do 4000 za oba');
+  assert.deepEqual([oba.patch.maxPrice, oba.patch.adults], ['2000', 2]);
+  assert.equal(mp('dohromady do 12000 pro 2 dospělé a 2 děti'), '3000');
+  // počet lidí neznámý: částka zůstane, „na osobu“ beze změny
+  assert.deepEqual([mp('celkem do 5000'), mp('do 3000 na osobu')], ['5000', '3000']);
+});

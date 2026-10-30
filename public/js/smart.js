@@ -369,6 +369,12 @@
       patch.maxPrice = String(n);
     });
     rule(new RegExp(`${AMT}\\s*(tisic\\w*|tis\\.?)?\\s*(?:kc|korun\\w*|czk)${W}`), m => { const n = price(m[1], m[2]); if (!n || patch.maxPrice) return false; patch.maxPrice = String(n); });
+    // „do tisícovky“, „do pětistovky“ (dřív místo „tisícovky“)
+    const BILLS = { petistovk: 500, tisicovk: 1000, dvoutisicovk: 2000, petitisicovk: 5000 };
+    rule(new RegExp(`(?:do|za|pod|max(?:\\.|imalne)?|maximum)\\s+(${Object.keys(BILLS).join('|')})\\w*${W}`), m => { if (patch.maxPrice) return false; patch.maxPrice = String(BILLS[m[1]]); });
+    // „celkem / dohromady do 10 000 pro dva“, „do 4000 za oba“: částka za všechny → na osobu se vydělí počtem lidí níž
+    let priceAll = false, pairAll = false;
+    rule(new RegExp(`(?:celkem|dohromady|za\\s+(?:oba|obe|vsechny|nas\\s+vsechny))${W}`), m => { priceAll = true; pairAll = pairAll || /ob[ae]$/.test(m[0]); });
 
     // --- lidé, přestupy, zavazadla, jen tam ---
     // „ve dvou“, „pro 4 osoby“ = tolik lidí celkem – děti z minulého hledání ne (zmíněné děti se přidají níž)
@@ -502,7 +508,11 @@
     else if (kind === 'aurora') items = AURORA.map(([iata, label, flag]) => ({ id: `ap:${iata}`, label, flag, type: 'airport' }));
     if (group) { items = GROUPS[group][1].map(([cc, label, flag]) => ({ id: `cc:${cc}`, label, flag, type: 'country' })); chips.unshift(['🗺️', GROUPS[group][0]]); }
     if (kind) chips.unshift([{ sea: '🏖️', warm: '☀️', exotic: '🌴', any: '🌍', mountains: '🏔️', aurora: '🌌' }[kind], { sea: 'k moři', warm: patch.minTemp >= 25 ? 'do horka' : 'za teplem', exotic: 'exotika', any: 'kamkoliv', mountains: 'na hory', aurora: 'polární záře' }[kind]]);
-    if (patch.maxPrice) chips.push(['💰', `do ${czk(+patch.maxPrice)}`]);
+    // částka za všechny („celkem“, „za oba“): ceny v hledání jsou na osobu – vydělit dospělými a dětmi (na stovky)
+    if (pairAll && !patch.adults) Object.assign(patch, { adults: 2, children: 0, infants: 0 }); // „za oba“ = 2 osoby
+    const payers = (patch.adults || 0) + (patch.children || 0);
+    if (priceAll && patch.maxPrice && payers > 1) patch.maxPrice = String(Math.max(100, Math.round(+patch.maxPrice / payers / 100) * 100));
+    if (patch.maxPrice) chips.push(['💰', `do ${czk(+patch.maxPrice)}${priceAll && payers > 1 ? '/os.' : ''}`]);
     const cs3 = (n, a, b, c) => `${n} ${n === 1 ? a : n < 5 ? b : c}`;
     if (patch.adults && !patch.children && !patch.infants) chips.push(['👥', cs3(patch.adults, 'osoba', 'osoby', 'osob')]);
     else if (patch.adults) chips.push(['👥', [cs3(patch.adults, 'dospělý', 'dospělí', 'dospělých'), patch.children ? cs3(patch.children, 'dítě', 'děti', 'dětí') : '', patch.infants ? cs3(patch.infants, 'miminko', 'miminka', 'miminek') : ''].filter(Boolean).join(' + ')]);
