@@ -5471,7 +5471,9 @@
     prompt('Zkopíruj odkaz na nabídku:', url);
   }
   // let sdílené nabídky jedním řádkem „🛫 pá 14. 11. 06:10 PRG → NAP 08:05 · přímý · Ryanair“
-  const offerLeg = (l, back) => `<div class="pin-ln">${back ? '🛬' : '🛫'} <span class="dp-nw">${dayLabel(l.date)}</span> ${[`${l.dep ? esc(l.dep.slice(11, 16)) + ' ' : ''}${esc(l.from)} → ${esc(l.to)}${l.arr ? ' ' + esc(l.arr.slice(11, 16)) : ''}`, l.stops ? `${l.stops}× přestup` : l.stops === 0 ? 'přímý' : '', esc(l.air)].filter(Boolean).join(' · ')}</div>`;
+  // (přílet další den „15:05 +1“ jako ve výsledcích – dřív to vypadalo jako přílet týž den)
+  const offerArr = l => (typeof l.arr === 'string' && /^\d{4}-\d\d-\d\d/.test(l.arr) && /^\d{4}-\d\d-\d\d$/.test(l.date || '') && l.arr.slice(0, 10) > l.date ? ` +${SearchHelp.diffDays(l.date, l.arr.slice(0, 10))}` : '');
+  const offerLeg = (l, back) => `<div class="pin-ln">${back ? '🛬' : '🛫'} <span class="dp-nw">${dayLabel(l.date)}</span> ${[`${l.dep ? esc(l.dep.slice(11, 16)) + ' ' : ''}${esc(l.from)} → ${esc(l.to)}${l.arr ? ' ' + esc(l.arr.slice(11, 16)) + offerArr(l) : ''}`, l.stops ? `${l.stops}× přestup` : l.stops === 0 ? 'přímý' : '', esc(l.air)].filter(Boolean).join(' · ')}</div>`;
   /** Karta nabídky ze sdíleného odkazu (#offer=, app.js): cena z doby sdílení s upozorněním, Koupit a Hledat znovu. */
   function openOffer(o) {
     const a = o.at ? Pins.age(o.at, Date.now()) : null, past = o.out.date < today(), pq = OfferShare.paxQ(o), note = SearchHelp.paxNote(pq);
