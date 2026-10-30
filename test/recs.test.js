@@ -157,7 +157,7 @@ test('⭐ Moje cíle výš, 🙈 Nezajímá mě: země s městem v 🙈 vynechan
   assert.deepEqual([...r.hidden.mute], ['Egypt']);
   assert.ok(isos(r).indexOf('PT') < isos(base).indexOf('PT'), 'Portugalsko výš');
   assert.ok(r.list.find((x) => x.c.iso2 === 'PT').why.some((w) => w.t === 'Moje cíle: Lisabon'));
-  assert.match(R.profileLine(R.profile({ fav }), r.hidden, ''), /🙈 vynechávám Egypt/);
+  assert.match(R.profileLine(R.profile({ fav }), r.hidden, ''), /🙈 bez zemí: Egypt/);
   // ⭐ i 🙈 v téže zemi: zemi chce – zůstává
   const both = rank(11, { prof: R.profile({ fav: [{ key: 'SSH', label: 'Šarm aš-Šajch', cc: 'EG' }], mute: [{ key: 'HRG', label: 'Hurghada', cc: 'EG' }] }) });
   assert.ok(isos(both).includes('EG'));
@@ -219,4 +219,12 @@ test('Přehled – dlaždice „Tip na měsíc“: k názvu země teplota přes 
   assert.equal(c.tipDeg({ why: [{ ic: '⭐', t: 'Moje cíle: Řím' }] }), '');
   assert.equal(c.tipDeg({}), '');
   assert.match(read('public/js/app.js'), /topRec \? topRec\.c\.cs \+ tipDeg\(topRec\) : ''/);
+});
+
+test('✈️ Najít lety v končícím měsíci (monthRange null): toast „… už končí – hledám nejbližší termíny“, ne tiše jiný termín', () => {
+  const app = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+  const fn = app.slice(app.indexOf('function recFly('), app.indexOf('function renderRecs('));
+  assert.match(fn, /range = Recs\.monthRange\(m, fmtYMD\(new Date\(\)\)\)/);
+  assert.match(fn, /if \(!range\) \{[^}]*toast\(`\$\{mn\[0\]\.toUpperCase\(\)\}\$\{mn\.slice\(1\)\} už končí – hledám nejbližší termíny`\)/);
+  assert.match(fn, /Flights\.searchTo\(\[[^\]]+\], range \|\| \{\}\)/);
 });

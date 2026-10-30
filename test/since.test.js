@@ -123,12 +123,12 @@ const trip = (extra = {}) => ({
 
 test('digest: cesta za 3–7 dní – kdy odlet a kdy se otevře online check-in, jinak co zbývá zařídit', () => {
   const l = plain(S.digest(base({ trips: [{ name: 'Proběhlá', start: '2026-10-01' }, trip()] })));
-  assert.deepEqual(l, [{ kind: 'trip', sig: 't:2026-10-27|Lisabon', ico: '✈️', b: 'Lisabon', t: 'odlet za 5 dní (út 27. 10.) · online check-in Ryanair od po 26. 10. v 6:10', go: { to: 'trip', i: 1 } }]);
+  assert.deepEqual(l, [{ kind: 'trip', sig: 't:2026-10-27|Lisabon', ico: '✈️', b: 'Lisabon', t: 'odlet za 5 dní (út\u00a027.\u00a010.) · online check-in Ryanair od po\u00a026.\u00a010. v 6:10', go: { to: 'trip', i: 1 } }]);
   const noTime = plain(S.digest(base({ trips: [trip({ legs: [], flight: 'PRG → LIS' })] })))[0];
-  assert.equal(noTime.t, 'odlet za 5 dní (út 27. 10.) · zbývá zařídit 1');
+  assert.equal(noTime.t, 'odlet za 5 dní (út\u00a027.\u00a010.) · zbývá zařídit 1'); // datum s pevnými mezerami – na telefonu se nerozdělí
   const train = plain(S.digest(base({ trips: [trip({ legs: [], start: '2026-10-25', ground: [{ from: 'Praha', to: 'Vídeň', date: '2026-10-25' }], checklist: [] })] })))[0];
   assert.equal(train.ico, '🧳');
-  assert.equal(train.t, 'odjezd za 3 dny (ne 25. 10.)');
+  assert.equal(train.t, 'odjezd za 3 dny (ne\u00a025.\u00a010.)');
   assert.deepEqual(plain(S.digest(base({ trips: [trip({ start: '2026-10-24' })] }))), [], 'za 2 dny ukazuje karta 📍 Dnes na cestě');
   assert.deepEqual(plain(S.digest(base({ trips: [trip({ start: '2026-11-05' })] }))), [], 'za 2 týdny ještě ne');
   assert.equal(plain(S.digest(base({ trips: [trip({ start: '2026-10-29', name: 'Pozdější' }), trip()] })))[0].go.i, 1, 'nejbližší');
@@ -149,7 +149,7 @@ test('digest: propadlé odložené nabídky – hledat nové termíny do stejný
   const gone = [{ k: 'a', d1: '2026-10-20', label: 'Řím', id: 'metro:ROM', cc: 'IT' }, { k: 'b', d1: '2026-10-21', label: 'Lisabon', id: 'ap:LIS', cc: 'PT' }];
   const l = plain(S.digest(base({ gone })));
   assert.deepEqual(l, [{ kind: 'pins', sig: 'p:a,b', ico: '📌', b: 'Řím a Lisabon', t: '2 odložené nabídky už propadly – hledat nové termíny', go: { to: 'search', places: [{ id: 'metro:ROM', label: 'Řím', cc: 'IT' }, { id: 'ap:LIS', label: 'Lisabon', cc: 'PT' }] } }]);
-  assert.equal(plain(S.digest(base({ gone: gone.slice(0, 1) })))[0].t, 'odložená nabídka na 20. 10. už propadla – hledat nový termín');
+  assert.equal(plain(S.digest(base({ gone: gone.slice(0, 1) })))[0].t, 'odložená nabídka na 20.\u00a010. už propadla – hledat nový termín');
 });
 
 test('digest: nejvýš 3 řádky v pořadí důležitosti, ✕ skryje jen ten stav řádku, bez změn nic', () => {
