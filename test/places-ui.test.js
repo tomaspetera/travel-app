@@ -683,6 +683,30 @@ test('„Najít lety sem“: místo jako cíl letů, termín jen vybraný v Obje
   assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'day', tripDays: { day: 1 } })), { xOut: '2026-10-20', xBack: '2026-10-20' });
   assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'bike' })), { xOut: '2026-10-20' }, 'kolo: jen let tam');
   assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'hike' })), { xOut: '2026-10-20' });
+  assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'hike', hike: { kind: 'loop' } })), { xOut: '2026-10-20' }, 'jedna túra: jen let tam');
+  assert.deepEqual(plain(TF.flyDates({ ...s, mode: 'hike', hike: { kind: 'days' }, days: 5 })), { xOut: '2026-10-20', xBack: '2026-10-24' }, 'túry na každý den: tam i zpět');
+  // vlakem tam, na kole zpět: odkaz do IDOS ze serveru na zvolený den v 7:00 (server datum nezná)
+  const I = 'https://idos.cz/vlakyautobusy/spojeni/?f=Praha&t=Beroun';
+  assert.equal(TF.idosOn(I, '2026-11-07'), `${I}&date=7.11.2026&time=7%3A00`);
+  assert.equal(TF.idosOn(`${I}&date=1.1.2027`, '2026-11-07'), `${I}&date=1.1.2027`, 'datum už má – beze změny');
+  assert.equal(TF.idosOn(I, ''), I);
+  assert.equal(TF.idosOn('https://www.google.com/maps/dir/?api=1', '2026-11-07'), 'https://www.google.com/maps/dir/?api=1', 'jen IDOS');
+  assert.equal(TF.idosOn(undefined, '2026-11-07'), undefined);
+});
+
+test('Naplánovat: volby během skládání prvního plánu se nezahodí, S dětmi přeplánuje i túry, Vrátit nezašedí jiný režim', () => {
+  const pl = src('places.js');
+  // zájmy, „chci vidět“ a jeho zrušení: i program, který se teprve skládá (busy.city); výlety i ten, který se skládá
+  assert.equal((pl.match(/if \(ex\.plan \|\| busy\.city\) replanSoon\('city'\);/g) || []).length, 3);
+  assert.doesNotMatch(pl, /if \(ex\.plan\) replanSoon\('city'\)/);
+  assert.match(pl, /if \(trip \|\| busy\[seqKey\]\) replanSoon\(seqKey\);/);
+  // 🧒 S dětmi v programu ve městě: túry zešednou a po návratu do Pěšky se přeplánují (redo jako po změně termínu)
+  assert.match(pl, /if \(b\.dataset\.int === 'kids' && \(ex\.hikePlan \|\| busy\.hikes\)\) \{ if \(busy\.hikes\) \{ replanSeq\.hikes\+\+; delete busy\.hikes; \} redo\.add\('hikes'\); \}\s*if \(ex\.plan \|\| busy\.city\) replanSoon\('city'\);/);
+  // replan jiného režimu (↩ Vrátit po přepnutí) tlačítka zobrazeného režimu nezašedí
+  assert.match(pl, /if \(curKey\(\) === key\) \{\s*\$\$\('#exPlan, #routeOther', body\)\.forEach\(x => \{ x\.disabled = true; \}\);/);
+  // IDOS u vlaku s datem i v kartě i v poznámkách uložené cesty
+  assert.match(pl, /link\(idosOn\(r\.train\.idosUrl, date\), 'spojení na IDOS ↗'\)/);
+  assert.match(pl, /Spojení vlakem: \$\{idosOn\(rr\.train\.idosUrl, day\) \|\| rr\.train\.googleUrl\}/);
 });
 
 // 🔎 Co tam je (flights.js): „Co vidět“ z míst Objevuj, stejný dotaz jako Objevuj, předání do Objevuj (Places.openAt).
