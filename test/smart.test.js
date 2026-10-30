@@ -367,10 +367,38 @@ test('„5-9.12.“ bez tečky za prvním dnem; svátek s delším pobytem („n
   // cena s pomlčkou není začátek rozsahu dnů
   const c = P('do 3000 – 9.12.');
   assert.deepEqual([c.patch.xOut, +c.patch.maxPrice], ['2026-12-09', 3000]);
+  // Silvestr = být tam 31. 12.: odlet 27.–31. 12. (ne prodloužený víkend Nového roku – odlet 1. 1. by ho minul)
   const s = P('Tenerife na Silvestra na týden');
-  assert.deepEqual([s.patch.len, s.patch.dateMode, s.patch.dFrom, s.patch.dTo], ['week', 'flex', '2026-12-29', '2027-01-01']);
-  // bez délky dál prodloužený víkend
-  assert.equal(P('Tenerife na Silvestra').patch.len, 'holiday');
+  assert.deepEqual([s.patch.len, s.patch.dateMode, s.patch.dFrom, s.patch.dTo], ['week', 'flex', '2026-12-27', '2026-12-31']);
+  const s2 = P('Tenerife na Silvestra');
+  assert.deepEqual([s2.patch.len, s2.patch.dFrom, s2.patch.dTo], ['long', '2026-12-27', '2026-12-31']);
+  // „na Nový rok“ dál podle prodlouženého víkendu
+  assert.equal(P('Londýn na Nový rok').patch.len, 'holiday');
+});
+
+test('věta: vánoční / velikonoční / pololetní / letní prázdniny, „na začátku / ke konci / uprostřed“ měsíce, „max.“, osoby bez náhodných míst', () => {
+  const T = '2026-10-30', Q = (q) => P(q, T);
+  const d = (r) => [r.patch.dFrom || r.patch.xOut, r.patch.dTo || r.patch.xBack];
+  // vánoční prázdniny nejsou letní (dřív 1. 7.–31. 8. a „vánoční“ neznám)
+  assert.notEqual(d(Q('k moři na vánoční prázdniny'))[0], '2027-07-01');
+  assert.deepEqual(Q('k moři na vánoční prázdniny').miss || [], []);
+  assert.match(d(Q('Řím na velikonoční prázdniny'))[0], /^2027-0[34]-/);
+  assert.deepEqual(d(Q('na pololetní prázdniny do Londýna')), ['2027-01-28', '2027-02-03']);
+  assert.deepEqual([...d(Q('k moři o letních prázdninách')), Q('k moři o letních prázdninách').to.length], ['2027-07-01', '2027-08-31', 0]);
+  assert.deepEqual(Q('v létě o prázdninách').to, [], 'druhé období se spolkne, ne místo');
+  // část měsíce i s „na začátku“, „ke konci“, „uprostřed“
+  assert.deepEqual([...d(Q('Londýn na začátku prosince')), ...Q('Londýn na začátku prosince').to], ['2026-12-01', '2026-12-10', 'Londýn']);
+  assert.deepEqual(d(Q('Paříž ke konci listopadu')), ['2026-11-20', '2026-11-30']);
+  assert.deepEqual(d(Q('Paříž na konci listopadu')), ['2026-11-20', '2026-11-30']);
+  assert.deepEqual(d(Q('Řím uprostřed ledna')), ['2027-01-10', '2027-01-20']);
+  // „max.“ s tečkou
+  assert.deepEqual([Q('Řím max. 4000').patch.maxPrice, Q('Řím max. 4000').to], ['4000', ['Řím']]);
+  assert.equal(Q('k moři max. 5000').patch.maxPrice, '5000');
+  // osoby a výplň – žádná náhodná místa (Ženeva, Osorno, Džidda, Lichtenštejnsko)
+  assert.deepEqual([Q('na víkend se ženou').to, Q('na víkend se ženou').patch.adults], [[], 2]);
+  assert.deepEqual([Q('do 2000 na osobu').to, Q('do 2000 za osobu').to], [[], []]);
+  assert.deepEqual([Q('dva dospělí a jedno dítě').to, Q('dva dospělí a jedno dítě').patch.adults, Q('dva dospělí a jedno dítě').patch.children], [[], 2, 1]);
+  assert.deepEqual([Q('ve dvou lidech do Říma').to, Q('ve dvou lidech do Říma').patch.adults], [['Říma'], 2]);
 });
 
 test('rozpočet: „mám 5000“, „za 2 litry“ (= 2 000 Kč), eura kurzem ze serveru (bez něj ~25 Kč)', () => {
@@ -412,4 +440,19 @@ test('placeForms: „Kutné Hory“ → Kutná Hora, „Mariánských Lázní“
   assert.ok(F('Mladé Boleslavi').includes('Mladá Boleslav'));
   // jednoslovné a bez přídavného jména nic (žádné dotazy navíc)
   assert.deepEqual([F('Řím'), F('Hradce Králové'), F('Brno Londýn')], [[], [], []]);
+});
+
+test('✨ Zkus napsat: věta přes víc měst jen s domovem, který jde najít (ne „📍 Moje poloha“); Kamkoliv nejlevněji „3–9 nocí“, ne „týden“', () => {
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  const src = fl.slice(fl.indexOf('const homeWord = '), fl.indexOf('function paintSmartTry()'));
+  const ctx = { S: {}, MNS_IN: ['lednu', 'únoru', 'březnu', 'dubnu', 'květnu', 'červnu', 'červenci', 'srpnu', 'září', 'říjnu', 'listopadu', 'prosinci'], today: () => '2026-10-30' };
+  vm.createContext(ctx);
+  vm.runInContext(`${src}; this.tryList = tryList; this.homeWord = homeWord;`, ctx);
+  const at = (home) => { ctx.S.home = home ? { from: [home] } : null; return ctx.tryList('2026-10-30'); };
+  assert.ok(at({ id: 'ap:BRQ', type: 'airport', label: 'Brno' }).includes('Brno → Řím → Barcelona → Brno'));
+  assert.ok(at({ id: 'BRQ', label: 'Brno (BRQ)' }).includes('Brno → Řím → Barcelona → Brno'));
+  assert.ok(!at({ id: 'geo:50.0880,14.4208|Moje poloha', type: 'place', label: 'Moje poloha' }).some((x) => /→/.test(x)), 'Moje poloha: bez věty přes víc měst');
+  assert.ok(!at(null).some((x) => /→/.test(x)), 'bez domova taky');
+  // Rychlé hledání bez délky (Kamkoliv nejlevněji): vlastní 3–9 nocí, ne předvolba „týden“ (5–9)
+  assert.match(fl, /else Object\.assign\(f, \{ len: 'custom', nMin: 3, nMax: 9, outDays: \[\], backDays: \[\] \}\);/);
 });
