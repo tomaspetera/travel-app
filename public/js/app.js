@@ -2260,13 +2260,18 @@ async function openOfferFromHash() {
 async function shortFromHash() {
   const m = location.hash.match(/^#s=([A-Za-z0-9]{8})$/);
   if (!m) return false;
+  let gone = false;
   try {
     const r = await fetch('api/share/' + m[1]), j = r.ok ? await r.json() : null;
+    gone = r.status === 404 || r.ok;
     if (!j || !['trip', 'plan'].includes(j.k) || typeof j.j !== 'string') throw new Error('odkaz vypršel');
     history.replaceState(null, '', `#${j.k}=${await ShareLink.pack(j.j)}`);
   } catch (e) {
     history.replaceState(null, '', '#dashboard');
-    toast('Odkaz na cestu neexistuje nebo vypršel', 'err');
+    // „vypršel“ jen když to server řekne (404, nesmyslná odpověď); bez signálu, přetížený server (429) nebo jeho výpadek
+    // odkaz neruší – zkusit znovu (adresa #s= znovu → hashchange), ne poslat kamaráda pro nový odkaz
+    if (gone) toast('Odkaz na cestu neexistuje nebo vypršel', 'err');
+    else toast('Cestu z odkazu se teď nepodařilo načíst – zkontroluj připojení', 'err', 6000, { label: 'Zkusit znovu', run: () => { location.hash = `#s=${m[1]}`; } });
   }
   return true;
 }
