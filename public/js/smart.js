@@ -63,7 +63,11 @@
     + 'sever severu zapad zapadu vychod vychodu autem vlakem autobusem busem zajezd zajezdy zajezdu pobyt pobytu pobyty ne '
     + 'romanticky romanticka romanticke romantickou romantiku relax relaxacni odpocinek odpocinkovy mam mame '
     // „do 2000 na osobu“, „s rodinou“, „oba“ (jinak z „osobu“ Osorno, z „rodinu“ místo)
-    + 'osobu osobe osoba hlavu rodina rodinu rodinou oba obe').split(' '));
+    + 'osobu osobe osoba hlavu rodina rodinu rodinou oba obe celou cela cely '
+    // s kým („s přáteli do Paříže“, „s partou na hory“, „s mámou a tátou“) – dřív z toho bylo místo cesty
+    + 'pratele prateli pratelama kamaradi kamarady kamaradama kamaradkami kamaradkama kamosi kamosema kamose partou parta partu '
+    + 'kolegy kolegou kolegyni kolegynemi kolegama holkama klukama holkami kluky rodici rodicema babickou dedou dedeckem '
+    + 'psem pejskem mamou tatou mamkou tatkou synem dcerou klukem holkou zenou muzem manzelkou manzelem partnerem partnerkou pritelem pritelkyni').split(' '));
   const TO_WORDS = new Set(['do', 'na', 'k', 'ke', 'kam', 'v', 've', 'za', 'u', 'pres', 'po']);
   const FROM_WORDS = new Set(['z', 'ze', 'odkud', 'od']);
   // před „moře“ jméno moře → je to místo (Rudé moře), ne „k moři“

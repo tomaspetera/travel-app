@@ -456,3 +456,18 @@ test('✨ Zkus napsat: věta přes víc měst jen s domovem, který jde najít (
   // Rychlé hledání bez délky (Kamkoliv nejlevněji): vlastní 3–9 nocí, ne předvolba „týden“ (5–9)
   assert.match(fl, /else Object\.assign\(f, \{ len: 'custom', nMin: 3, nMax: 9, outDays: \[\], backDays: \[\] \}\);/);
 });
+
+test('s kým: „s přáteli / s partou / s kolegy / s rodiči / se psem“ nejsou místo cesty', () => {
+  assert.deepEqual(P('s přáteli do Paříže').to, ['Paříže']);
+  assert.deepEqual(P('s kolegy do Berlína').to, ['Berlína']);
+  assert.deepEqual(P('s rodiči do Vídně').to, ['Vídně']);
+  assert.deepEqual(P('se psem do Itálie').to, ['Itálie']);
+  assert.deepEqual(P('s babičkou do Říma').to, ['Říma']);
+  assert.deepEqual(P('s mámou a tátou do Londýna').to, ['Londýna']);
+  assert.deepEqual(P('s klukem a dcerou').to, []);
+  assert.deepEqual(P('pro celou rodinu').to, []);
+  for (const q of ['s partou na hory', 's holkama k moři', 'k moři s kamarády', 's kámoši na víkend', 's kamarádkami']) assert.deepEqual(P(q).to, [], q);
+  assert.deepEqual(chips(P('s kámoši na víkend')), ['víkend']);
+  // jména míst s podobným začátkem zůstanou místy
+  for (const q of ['Celle', 'Partenkirchen', 'Kolín', 'Holkham']) assert.deepEqual(P(q).to, [q]);
+});
