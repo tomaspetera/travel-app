@@ -2702,7 +2702,9 @@
           // Okruh: server vezme seznam z mezipaměti (načtený okruh) a místa za zvoleným okruhem vynechá; u okruhu
           // 50/100 km jen místa ve městě (do CITY_KM) – den programu nevede 90 km daleko.
           const km = cityKm(ex.radius);
-          const plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '09:00', departureTime: null },
+          // V Objevuj se nepřilétá: první den od 9:00 jako ostatní – server začíná den příletu 1,5 h po něm (z „09:00“
+          // by program začínal až v 10:30)
+          const plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '07:30', departureTime: null },
             { radius: ex.loaded?.radius || km, exclude: [...st.exclude, ...outsideIds(ex.all, km, st.must)] });
           if (my !== replanSeq[key] || ex.place !== p) return;
           plan.radius = km;
