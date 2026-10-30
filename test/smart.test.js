@@ -549,3 +549,21 @@ test('„přes Vídeň“ je přestup, ne cíl; „odkudkoliv“, „z okolí Br
   assert.deepEqual(P('z okolí Brna').from, ['Brna']);
   assert.deepEqual([P('z domova k moři').from, P('z domova k moři').kind], [[], 'sea']);
 });
+
+test('dvě samostatná data = tam a zpět: „do Říma 15.11. a zpět 18.11.“, „odlet 20. listopadu, návrat 25. listopadu“', () => {
+  const d = (q) => { const r = P(q); return [r.patch.dateMode, r.patch.xOut, r.patch.xBack, r.to]; };
+  // dřív druhé datum přepsalo odlet: 18. 11. – 25. 11.
+  assert.deepEqual(d('chci letět do Říma 15.11. a zpět 18.11.'), ['exact', '2026-11-15', '2026-11-18', ['Říma']]);
+  assert.deepEqual(d('odlet 20.11. návrat 25.11.'), ['exact', '2026-11-20', '2026-11-25', []]);
+  assert.deepEqual(d('letím 15.11., vracím se 18.11.'), ['exact', '2026-11-15', '2026-11-18', []]);
+  assert.deepEqual(d('28.12. a zpět 3.1.'), ['exact', '2026-12-28', '2027-01-03', []]);
+  assert.deepEqual(d('odlet 20. listopadu, návrat 25. listopadu'), ['exact', '2026-11-20', '2026-11-25', []]);
+  assert.deepEqual(d('tam 20. listopadu a zpět 2. prosince'), ['exact', '2026-11-20', '2026-12-02', []]);
+  assert.deepEqual(d('15.11. a zpět 18. listopadu'), ['exact', '2026-11-15', '2026-11-18', []]);
+  // jedno datum dál odlet (návrat dopočítá formulář), rozsah dál rozsah
+  assert.deepEqual(d('od 3. do 7. prosince').slice(1, 3), ['2026-12-03', '2026-12-07']);
+  assert.equal(P('Barcelona 12.12. jen tam').patch.xBack, undefined);
+  // „weekend“ jako víkend, „teď“ není místo
+  assert.deepEqual([P('London weekend').patch.len, P('London weekend').to], ['weekend', ['London']]);
+  assert.deepEqual(P('kde je teď teplo').to, []);
+});
