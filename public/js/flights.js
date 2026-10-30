@@ -4894,7 +4894,8 @@
       const f = { ...base, ...q };
       if (q.len && PRESETS[q.len]) Object.assign(f, { nMin: PRESETS[q.len].nMin, nMax: PRESETS[q.len].nMax, outDays: PRESETS[q.len].out, backDays: PRESETS[q.len].back });
       else if (q.nMin != null) Object.assign(f, { outDays: [], backDays: [] }); // vlastní počet nocí (dálkové lety)
-      else Object.assign(f, { len: 'week', nMin: 3, nMax: 9, outDays: [], backDays: [] });
+      // 3–9 nocí není „týden“ (5–9) – souhrn hledání by psal „· týden“ a výsledky „3–9 nocí“
+      else Object.assign(f, { len: 'custom', nMin: 3, nMax: 9, outDays: [], backDays: [] });
       setForm(f);
       if (!f.from.length) { askFrom(); return; }
       startSearch();
@@ -5067,7 +5068,9 @@
    * ✨ Zkus napsat: příklady vět pod hledáním na Přehledu (klepnutí = hledat) – podle ročního období (příští měsíc):
    * v létě k moři a na hory, v zimě za teplem a na lyže, jinak za teplem a k moři na jaře.
    */
-  function tryList(t = today(), home = String((S.home && S.home.from && S.home.from[0] && S.home.from[0].label) || '').replace(/\s*\(.*\)$/, '')) {
+  // domov „📍 Moje poloha“ (geo:…|Moje poloha) do věty ne – podruhé ho nenajde a místo cesty přes víc měst by hledal tam a zpět
+  const homeWord = (h = S.home && S.home.from && S.home.from[0]) => (h && !/\|Moje poloha$/.test(h.id || '') ? String(h.label || '').replace(/\s*\(.*\)$/, '') : '');
+  function tryList(t = today(), home = homeWord()) {
     const nm = (+t.slice(5, 7)) % 12, mn = MNS_IN[nm], summer = nm >= 4 && nm <= 8, hike = nm >= 5 && nm <= 8, snow = nm === 11 || nm <= 2;
     return [summer ? `k moři v ${mn} do 5000` : 'k moři v květnu do 5000', 'Řím na víkend ve dvou',
       ...(hike ? [`na hory v ${mn} na týden`] : [`za teplem v ${mn} na týden`, ...(snow ? [`na hory v ${mn} na lyže`] : [])]),
