@@ -4051,8 +4051,10 @@
   function sanitizeTrip(raw, o = {}) {
     // Odkazy (…url/Url) mohou být dlouhé (Ryanair ~400 znaků) – nezkracovat; texty do 300 znaků. o.quotes: apostrofy
     // a uvozovky nechat (Castel Sant'Angelo) – jen pro výstup, který všechno escapuje (karta „📍 Dnes na cestě“).
-    const bad = o.quotes ? /[<>`]/g : /[<>"'`]/g;
-    const clean = (v, key = '') => typeof v === 'string' ? v.replace(bad, '').slice(0, /url$/i.test(key) ? 4000 : 300)
+    // Bez o.quotes se apostrof v textu mění na typografický (Hotel D’Angleterre) jako ve sdíleném plánu (PlanShare.txt) –
+    // dřív se vypustil („DAngleterre“, „SantAngelo“) ve sdílené cestě i v cestě otevřené z Mých cest; v odkazech se vypouští dál.
+    const bad = o.quotes ? /[<>`]/g : /[<>"`]/g;
+    const clean = (v, key = '') => typeof v === 'string' ? (o.quotes ? v : /url$/i.test(key) ? v.replace(/'/g, '') : v.replace(/'/g, '’')).replace(bad, '').slice(0, /url$/i.test(key) ? 4000 : 300)
       : typeof v === 'number' ? (Number.isFinite(v) ? v : 0)
       : typeof v === 'boolean' || v == null ? v
       : Array.isArray(v) ? v.slice(0, 200).map(x => clean(x, key))

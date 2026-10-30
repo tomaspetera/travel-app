@@ -306,8 +306,9 @@ test('nowParts: apostrofy a uvozovky z průvodce na kartě zůstanou (program, h
   bad.stay.name = 'Hotel <b>`X`</b>';
   const b = real(bad), bx = C.tripNow([b], m);
   assert.equal(C.nowParts(bx, m).hotel.name, 'Hotel bX/b');
-  // Trip.sanitizeTrip bez volby dál apostrofy a uvozovky vyhazuje (odkaz #trip=, záloha, „Otevřít v průvodci“)
-  assert.equal(C.Trip.sanitizeTrip(plain(l.wizard)).stay.name, 'Hotel DAngleterre Centro');
+  // Trip.sanitizeTrip bez volby (odkaz #trip=, záloha, „Otevřít v průvodci“): apostrof typografický (jako sdílený plán),
+  // uvozovky pryč – dřív se vypustil i apostrof („DAngleterre“)
+  assert.equal(C.Trip.sanitizeTrip(plain(l.wizard)).stay.name, 'Hotel D’Angleterre Centro');
 });
 
 test('🔖 rezervace v okně cesty: Enter v „Co“ (a v prázdném „Kódu“) jen přejde na další pole, uloží kód nebo poznámka', () => {
@@ -523,9 +524,9 @@ test('nowParts: aktivita od průvodce smazaná či přejmenovaná v plánovači 
   assert.deepEqual(day(q, '2026-11-13'), ["📍 Belém (&#39;Torre&#39;) [Belém ('Torre')]"]);
   q.days['2026-11-13'] = ['Jerónimos'];
   assert.deepEqual(day(q, '2026-11-13'), ['📍 Jerónimos [Jerónimos]']);
-  // cesta ze zálohy: průvodce bez apostrofů (sanitizeTrip), Itinerář s typografickým (PlanShare.txt) – smazání se pozná
+  // cesta ze zálohy: průvodce i Itinerář s typografickým apostrofem (sanitizeTrip, PlanShare.txt) – smazání se pozná
   const bk = { ...q, wizard: C.Trip.sanitizeTrip(plain(q.wizard)), genDays: { ...q.genDays, '2026-11-13': ['Belém (’Torre’)', 'Jerónimos'] }, days: { ...q.days, '2026-11-13': ['Jerónimos'] } };
-  assert.equal(bk.wizard.plan.days[1].items[0].name, 'Belém (Torre)');
+  assert.equal(bk.wizard.plan.days[1].items[0].name, 'Belém (’Torre’)');
   assert.deepEqual(day(bk, '2026-11-13'), ['📍 Jerónimos [Jerónimos]']);
 });
 

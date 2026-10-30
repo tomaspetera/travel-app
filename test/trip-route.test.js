@@ -151,10 +151,10 @@ test('sanitizeTrip: trasa ze sdíleného odkazu – škodlivá místa, odkazy, �
   assert.equal(r.mode, 'multi');
   assert.equal(r.transport, 'car');
   assert.equal(r.want, null);
-  assert.deepEqual(r.bases.map((b) => b.name), ['img src=x onerror=alert(1)Milán', 'Florencie', 'Řím'], 'neplatná místa vyřazená, texty bez HTML');
+  assert.deepEqual(r.bases.map((b) => b.name), ['img src=x onerror=alert(1)’Milán', 'Florencie', 'Řím'], 'neplatná místa vyřazená, texty bez HTML (apostrof typografický)');
   const [m, f, rome] = r.bases;
   assert.deepEqual(Object.keys(m).sort(), ['anchor', 'cc', 'country', 'highlights', 'id', 'lat', 'lon', 'name', 'nameEn', 'nights', 'plan', 'reason', 'searchUrl', 'stay'].sort(), 'jen známá pole');
-  assert.equal(m.nameEn, 'img src=x onerror=alert(1)Milan');
+  assert.equal(m.nameEn, 'img src=x onerror=alert(1)’Milan');
   assert.equal(f.nameEn, '', 'chybějící anglický název = prázdný');
   assert.equal(m.id, 'b0', 'podezřelé id nahrazené');
   assert.equal(m.anchor, null);
