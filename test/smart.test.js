@@ -511,3 +511,17 @@ test('„s mámou a tátou“ = 3 osoby (já + oba), „se ženou“ dál 2', ()
   // „a 2 dětmi“ dál děti, ne třetí dospělý
   assert.deepEqual([P('s mámou a 2 dětmi').patch.adults, P('s mámou a 2 dětmi').patch.children], [2, 2]);
 });
+
+test('„k oceánu“ = k moři; „na Balkán / do Skandinávie / Pobaltí“ = země té oblasti (ne letiště Balkanabat)', () => {
+  assert.equal(P('k oceánu').kind, 'sea');
+  assert.deepEqual(P('k oceánu').to, []);
+  assert.deepEqual(P('Atlantský oceán').to, ['Atlantský oceán'], 'jméno oceánu bez předložky zůstane místem');
+  const b = P('na Balkán v červnu');
+  assert.deepEqual([b.group, b.to, b.items.map((x) => x.id)], ['balkan', [], ['cc:HR', 'cc:ME', 'cc:AL', 'cc:RS', 'cc:BA']]);
+  assert.deepEqual(chips(b), ['Balkán', 'červen']);
+  assert.deepEqual(P('do Skandinávie').items.map((x) => x.id), ['cc:NO', 'cc:SE', 'cc:DK', 'cc:FI']);
+  assert.deepEqual(chips(P('Pobaltí na víkend')), ['Pobaltí', 'víkend']);
+  // s „k moři“ oblast vyhrává (konkrétnější než regiony u moře), štítek moře zůstane
+  const s = P('k moři na Balkán');
+  assert.deepEqual([chips(s), s.items[0].id], [['k moři', 'Balkán'], 'cc:HR']);
+});

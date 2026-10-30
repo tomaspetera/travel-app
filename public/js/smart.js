@@ -46,6 +46,13 @@
   const MOUNTAINS = [['INN', 'Innsbruck', '🇦🇹'], ['SZG', 'Salcburk', '🇦🇹'], ['GVA', 'Ženeva', '🇨🇭'], ['TRN', 'Turín', '🇮🇹']];
   // daleko za teplem (jako 🌏 Exotika v Letech)
   // polární záře: letiště za polárním kruhem a Island (září–březen)
+  // oblasti z víc zemí („na Balkán“, „do Skandinávie“, „Pobaltí“) – hledání do těch zemí (místa by našla nesmysl:
+  // „Balkán“ letiště Balkanabat v Turkmenistánu, „Skandinávie“ nic)
+  const GROUPS = {
+    balkan: ['Balkán', [['HR', 'Chorvatsko', '🇭🇷'], ['ME', 'Černá Hora', '🇲🇪'], ['AL', 'Albánie', '🇦🇱'], ['RS', 'Srbsko', '🇷🇸'], ['BA', 'Bosna a Hercegovina', '🇧🇦']]],
+    skandinavie: ['Skandinávie', [['NO', 'Norsko', '🇳🇴'], ['SE', 'Švédsko', '🇸🇪'], ['DK', 'Dánsko', '🇩🇰'], ['FI', 'Finsko', '🇫🇮']]],
+    pobalti: ['Pobaltí', [['LT', 'Litva', '🇱🇹'], ['LV', 'Lotyšsko', '🇱🇻'], ['EE', 'Estonsko', '🇪🇪']]],
+  };
   const AURORA = [['TOS', 'Tromsø', '🇳🇴'], ['RVN', 'Rovaniemi', '🇫🇮'], ['KTT', 'Kittilä', '🇫🇮'], ['KEF', 'Reykjavík', '🇮🇸']];
   const EXOTIC = [['TH', 'Thajsko', '🇹🇭'], ['ID', 'Indonésie', '🇮🇩'], ['VN', 'Vietnam', '🇻🇳'], ['AE', 'Spojené arabské emiráty', '🇦🇪'], ['LK', 'Srí Lanka', '🇱🇰']];
 
@@ -82,7 +89,7 @@
     const s = fold(raw);
     const used = new Array(s.length).fill(false);
     const chips = [], patch = {};
-    let kind = null, month = null, dates = null, len = null, kids = 0, babies = 0, withKids = false;
+    let kind = null, group = null, month = null, dates = null, len = null, kids = 0, babies = 0, withKids = false;
     // obrat najdi, označ jako použitý; fn vrátí false = nepoužít (shoda zůstane ve zbytku věty)
     const rule = (re, fn) => {
       const g = new RegExp(re.source, 'g' + (re.flags.includes('i') ? 'i' : ''));
@@ -402,6 +409,9 @@
       if (m[0] === 'pobrezi' && prev && !FILL.has(prev) && !TO_WORDS.has(prev) && !FROM_WORDS.has(prev)) return false;
       kind = kind || 'sea';
     });
+    // „k oceánu“, „u oceánu“ = k moři (místo by našlo Austrálii a Oceánii); „Atlantský oceán“ bez předložky zůstane místem
+    rule(new RegExp(`(?:k|ke|u|na)\\s+ocean\\w*${W}`), () => { kind = kind || 'sea'; });
+    rule(new RegExp(`(?:na|do|po|v|ve)?\\s*(balkan\\w*|skandinavi\\w*|pobalti\\w*)${W}`), m => { group = /^balk/.test(m[1]) ? 'balkan' : /^sk/.test(m[1]) ? 'skandinavie' : 'pobalti'; });
     rule(new RegExp(`(?:za|do|na)?\\s*(?:tepl(?:o|a|em|e|eho|emu|ou|y|ych|ym|ymi|ejsi[a-z]*|eji|ot[a-z]*)|slunce|sluncem|slunicko|slunicka|slunickem|jih|jihu)${W}`), () => { kind = kind || 'warm'; patch.minTemp = Math.max(patch.minTemp || 0, 20); });
     rule(new RegExp(`(?:do\\s+)?(?:horka|horko|vedra|vedro)${W}`), () => { kind = kind || 'warm'; patch.minTemp = 25; });
     rule(new RegExp(`(?:do\\s+|na\\s+)?(?:exotik\\w*|exoticky\\w*|tropu|tropy|do\\s+dalky|daleko)${W}`), () => { kind = 'exotic'; });
@@ -490,6 +500,7 @@
     else if (kind === 'exotic') items = EXOTIC.map(([cc, label, flag]) => ({ id: `cc:${cc}`, label, flag, type: 'country' }));
     else if (kind === 'mountains') items = MOUNTAINS.map(([iata, label, flag]) => ({ id: `ap:${iata}`, label, flag, type: 'airport' }));
     else if (kind === 'aurora') items = AURORA.map(([iata, label, flag]) => ({ id: `ap:${iata}`, label, flag, type: 'airport' }));
+    if (group) { items = GROUPS[group][1].map(([cc, label, flag]) => ({ id: `cc:${cc}`, label, flag, type: 'country' })); chips.unshift(['🗺️', GROUPS[group][0]]); }
     if (kind) chips.unshift([{ sea: '🏖️', warm: '☀️', exotic: '🌴', any: '🌍', mountains: '🏔️', aurora: '🌌' }[kind], { sea: 'k moři', warm: patch.minTemp >= 25 ? 'do horka' : 'za teplem', exotic: 'exotika', any: 'kamkoliv', mountains: 'na hory', aurora: 'polární záře' }[kind]]);
     if (patch.maxPrice) chips.push(['💰', `do ${czk(+patch.maxPrice)}`]);
     const cs3 = (n, a, b, c) => `${n} ${n === 1 ? a : n < 5 ? b : c}`;
@@ -501,7 +512,7 @@
     if (patch.trip === 'oneway') chips.push(['➡️', 'jen tam']);
     // „Praha → Řím → Barcelona → Praha“: dvě a víc šipek = cesta přes víc měst (odkud, pak místa v pořadí)
     const chain = arrows >= 2 && from.length === 1 && to.length >= 2 && !kind;
-    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(chain ? { chain: true } : {}), ...(withKids && !kids && !babies && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
+    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(group ? { group } : {}), ...(chain ? { chain: true } : {}), ...(withKids && !kids && !babies && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
   }
 
   /**
