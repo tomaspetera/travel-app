@@ -471,3 +471,32 @@ test('s kým: „s přáteli / s partou / s kolegy / s rodiči / se psem“ nejs
   // jména míst s podobným začátkem zůstanou místy
   for (const q of ['Celle', 'Partenkirchen', 'Kolín', 'Holkham']) assert.deepEqual(P(q).to, [q]);
 });
+
+test('„první / poslední víkend v prosinci“, „druhý týden v únoru“: jen ten týden měsíce, ne celý měsíc a „první“ jako místo', () => {
+  const d = (q, t) => { const r = P(q, t); return [r.patch.dateMode, r.patch.dFrom, r.patch.dTo, r.patch.len, r.to.length]; };
+  assert.deepEqual(d('první víkend v prosinci'), ['flex', '2026-12-03', '2026-12-05', 'weekend', 0]);
+  assert.deepEqual(chips(P('první víkend v prosinci')), ['první víkend prosince', 'víkend']);
+  assert.deepEqual(d('poslední víkend v listopadu'), ['flex', '2026-11-26', '2026-11-28', 'weekend', 0]);
+  assert.deepEqual(d('druhý týden v únoru'), ['flex', '2027-02-08', '2027-02-14', 'week', 0]);
+  assert.deepEqual(d('poslední týden v prosinci'), ['flex', '2026-12-25', '2026-12-31', 'week', 0]);
+  // letošní první víkend v říjnu už byl → příští rok; sobota 2. 10. 2027 → odlet od čtvrtka 30. 9.
+  assert.deepEqual(d('první víkend v říjnu'), ['flex', '2027-09-30', '2027-10-02', 'weekend', 0]);
+  // probíhající víkend: od dneška
+  assert.deepEqual(d('poslední víkend v říjnu', '2026-10-30'), ['flex', '2026-10-30', '2026-10-31', 'weekend', 0]);
+  assert.deepEqual(P('první víkend v listopadu do Vídně').to, ['Vídně']);
+});
+
+test('„mezi 10. a 20. listopadem“ = odlet v tom rozmezí; „do konce listopadu / roku“ = od dneška', () => {
+  const d = (q) => { const r = P(q); return [r.patch.dateMode, r.patch.dFrom, r.patch.dTo, r.to.length]; };
+  assert.deepEqual(d('mezi 10. a 20. listopadem'), ['flex', '2026-11-10', '2026-11-20', 0]);
+  assert.deepEqual(d('mezi 10. 11. a 20. 11.'), ['flex', '2026-11-10', '2026-11-20', 0]);
+  assert.deepEqual(d('mezi 28. 12. a 3. 1.'), ['flex', '2026-12-28', '2027-01-03', 0]);
+  assert.deepEqual(chips(P('mezi 10. a 20. listopadem')), ['10. 11. – 20. 11.']);
+  assert.deepEqual(d('do konce listopadu'), ['flex', '2026-10-18', '2026-11-30', 0]);
+  assert.deepEqual(chips(P('Řím do konce března')), ['do konce března']);
+  assert.deepEqual(P('Řím do konce března').to, ['Řím']);
+  assert.deepEqual(d('do konce roku'), ['flex', '2026-10-18', '2026-12-31', 0]);
+  // „koncem / na konci listopadu“ dál jen poslední třetina
+  assert.deepEqual(d('koncem listopadu'), ['flex', '2026-11-20', '2026-11-30', 0]);
+  assert.deepEqual(d('na konci listopadu'), ['flex', '2026-11-20', '2026-11-30', 0]);
+});
