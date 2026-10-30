@@ -143,3 +143,14 @@ test('robot náhledu (Facebook, WhatsApp) dostane stránku bez přesměrování,
   assert.match(await page.text(), /http-equiv="refresh"/);
   assert.equal(page.headers.get('vary'), 'User-Agent');
 });
+
+test('aplikace: „vypršel“ jen u 404 (nebo nesmyslné odpovědi), výpadek sítě a 429 nabídnou Zkusit znovu se stejným #s=', async () => {
+  const { readFileSync } = await import('node:fs');
+  const app = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+  const fn = app.slice(app.indexOf('async function shortFromHash()'), app.indexOf('async function openJedFromHash()'));
+  assert.match(fn, /gone = r\.status === 404 \|\| r\.ok;/);
+  assert.match(fn, /if \(gone\) toast\('Odkaz na cestu neexistuje nebo vypršel', 'err'\);/);
+  assert.match(fn, /else toast\('Cestu z odkazu se teď nepodařilo načíst – zkontroluj připojení', 'err', 6000, \{ label: 'Zkusit znovu', run: \(\) => \{ location\.hash = `#s=\$\{m\[1\]\}`; \} \}\);/);
+  // znovu přes hashchange: tam shortFromHash běží první
+  assert.match(app, /window\.addEventListener\('hashchange', async \(\) => \{\s*await shortFromHash\(\);/);
+});
