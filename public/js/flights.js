@@ -2353,10 +2353,11 @@
   }
 
   // res = výsledek, ze kterého nabídka je (📌 Porovnat: složený z odložené nabídky – pinRes); idx = řádek výpisu, jinak null
-  // ex = false: bez dopravy na letiště a do města pod cenou (📌 Porovnat ji má v řádku „Celkem i s cestou“)
+  // ex = false: bez dopravy na letiště a do města pod cenou ani „i s cestou“ (řazení výpisu) – 📌 Porovnat ji má v řádku
+  // „Celkem i s cestou“, jinak by tam byla dvakrát
   function priceBox(t, idx, res = lastResult, ex = true) {
     const q = res.query, note = SearchHelp.paxNote(q);
-    return `<div class="pbox"><div class="pp">${czk(t.perPersonCzk)}</div><div class="pl">${t.back ? 'letenky tam i zpět' : 'letenka'} na osobu</div>${tripLine(t, 'pd pt')}
+    return `<div class="pbox"><div class="pp">${czk(t.perPersonCzk)}</div><div class="pl">${t.back ? 'letenky tam i zpět' : 'letenka'} na osobu</div>${ex ? tripLine(t, 'pd pt') : ''}
       ${t.bagCzk ? `<div class="pd">letenky ${czk(t.flightCzk)} + <span title="Odhad příplatku za ${BAG_LBL[res.query.bags] || 'zavazadlo'}${t.bagEst ? ' – hrubý, dopravce se nepodařilo ověřit' : ' – typická cena u dopravce'}">zavazadla ~${czk(t.bagCzk)}</span></div>` : ''}
       ${SearchHelp.paxTotalOn(q) ? `<div class="pd">${SearchHelp.paxTotalLbl(q)}: <b>${czk(t.totalCzk)}</b></div>` : ''}
       ${note ? `<div class="pd pax-note">👶 ${esc(note)}</div>` : ''}
@@ -4303,7 +4304,11 @@
     const w = (S.watch || []).find(x => x.id === id); if (!w) return;
     // stejné hledání jako kontrola (watchForm, termín, který už začal, od dneška) – setForm by celý termín posunul
     const f = watchForm(w);
-    go('flights'); setForm(SearchHelp.recentForm(f, today()) || f); startSearch();
+    go('flights'); setForm(SearchHelp.recentForm(f, today()) || f);
+    // proběhlý termín („otevři a vyber nové datum“): setForm by datum sám posunul o 2 týdny dopředu a hledal by termín,
+    // který si nikdo nevybral – formulář jen otevřít, hledá uživatel sám
+    if (Alerts.isPast(w.form, today())) { expandForm(); toast('Termín už proběhl – vyber nový a spusť hledání'); return; }
+    startSearch();
   }
   function setTarget(id, v, done) {
     const w = (S.watch || []).find(x => x.id === id); if (!w) return;

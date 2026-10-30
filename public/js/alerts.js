@@ -201,18 +201,32 @@
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T09:00`;
   }
   /**
-   * Událost pro Ics.build: každé pondělí v 9:00 (8×) „Zkontroluj ceny: Praha → Řím“ s poslední nejnižší cenou
-   * a odkazem appUrl#watch=<id>. Bez zóny = plovoucí čas – po změně letního času zůstane 9:00 (v UTC by se posunula).
+   * Kolik pondělních připomínek od start ('YYYY-MM-DD'): nejvýš 8, a jen před posledním možným odletem – u přesných dat
+   * odlet (u cesty přes víc měst první let), u rozsahu jeho konec; po odletu už ceny hlídat nemá smysl. Klouzavý termín
+   * (form.roll) nekončí → 8. Aspoň 1 (odlet do týdne – připomínka hned v pondělí).
+   */
+  function remindCount(form, start) {
+    const f = form || {};
+    const end = rolls(f) ? null : f.trip === 'multi' ? (f.legs || [])[0] && f.legs[0].date : f.dateMode === 'exact' ? f.xOut : f.dTo;
+    if (!isYmd(end) || !isYmd(start)) return 8;
+    const d = daysTo(start, end);
+    return d <= 0 ? 1 : Math.min(8, Math.floor((d - 1) / 7) + 1);
+  }
+  /**
+   * Událost pro Ics.build: každé pondělí v 9:00 (nejvýš 8×, jen do odletu – remindCount) „Zkontroluj ceny: Praha → Řím“
+   * s poslední nejnižší cenou a odkazem appUrl#watch=<id>. Bez zóny = plovoucí čas – po změně letního času zůstane 9:00
+   * (v UTC by se posunula).
    */
   function remindEvent(w, { appUrl = '', now = Date.now() } = {}) {
     const c = num(w && w.best && w.best.czk), at = num(w && w.checked);
     const d = at && new Date(at);
     const price = c ? `Poslední nejnižší cena: ${Math.round(c).toLocaleString('cs-CZ')} Kč/os.${d ? ` (viděna ${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()})` : ''}` : 'Cenu jsem zatím nezjistil.';
     const url = appUrl ? `${String(appUrl).replace(/#.*$/, '')}#watch=${encodeURIComponent(w.id)}` : '';
+    const start = nextMonday9(now);
     return {
       title: `Zkontroluj ceny: ${w.label || 'hlídané hledání'}`,
       description: [price, w.best && w.best.desc, 'Otevři ATLAS – cenu zkontroluji znovu.'].filter(Boolean).join('\n'),
-      start: nextMonday9(now), durationMin: 15, rrule: 'FREQ=WEEKLY;COUNT=8',
+      start, durationMin: 15, rrule: `FREQ=WEEKLY;COUNT=${remindCount(w && w.form, start.slice(0, 10))}`,
       url, uid: `atlas-watch-${String(w.id).replace(/[^\w.-]/g, '')}`,
     };
   }
@@ -626,5 +640,5 @@
     return { cycle, exclusive, get cycling() { return cycling; }, get lastCycle() { return lastCycle; }, get more() { return more; } };
   }
 
-  window.Alerts = { CFG, PV, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, bestDep, bestGone, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, TIP, dayTxt, watchStats, depDays, buyTip, notifState, scheduler, nextMonday9, remindEvent, watchFromHash };
+  window.Alerts = { CFG, PV, rollOk, rolls, rollForm, rollSpec, rollSame, savedAt, rollTxt, isStale, isPast, bestDep, bestGone, dueWatches, shouldNotify, pushHistory, lowest, pctChange, fmtPct, agoTxt, epoch, applyCheck, rebaseWhy, incomplete, searchKey, upsertWatch, isDropped, droppedCount, news, mergeWatches, sparkPath, TIP, dayTxt, watchStats, depDays, buyTip, notifState, scheduler, nextMonday9, remindCount, remindEvent, watchFromHash };
 })();

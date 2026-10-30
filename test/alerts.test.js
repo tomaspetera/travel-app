@@ -829,6 +829,26 @@ test('📅 remindEvent: název, popis bez ceny, URL #watch=<id> bez starého # a
   assert.equal(A.remindEvent({ id: 'x', label: 'A → B' }).url, '', 'bez adresy aplikace bez odkazu');
 });
 
+test('📅 remindCount: pondělní připomínky jen do odletu (nejvýš 8, aspoň 1), klouzavý termín 8', () => {
+  const ex = (xOut) => ({ dateMode: 'exact', trip: 'return', xOut, xBack: '2026-11-23' });
+  // od pondělí 2. 11., odlet pátek 20. 11. → 2., 9. a 16. 11. (ne 23. 11. až 21. 12.)
+  assert.equal(A.remindCount(ex('2026-11-20'), '2026-11-02'), 3);
+  assert.equal(A.remindCount(ex('2026-11-09'), '2026-11-02'), 1, 'odlet v pondělí – připomínka jen týden předem');
+  assert.equal(A.remindCount(ex('2026-11-10'), '2026-11-02'), 2);
+  assert.equal(A.remindCount(ex('2026-11-04'), '2026-11-02'), 1, 'odlet do týdne – aspoň jedna');
+  assert.equal(A.remindCount(ex('2026-11-01'), '2026-11-02'), 1, 'odlet před první připomínkou – aspoň jedna');
+  assert.equal(A.remindCount(ex('2027-06-01'), '2026-11-02'), 8, 'daleký odlet – nejvýš 8');
+  assert.equal(A.remindCount({ dateMode: 'flex', dFrom: '2026-11-05', dTo: '2026-11-30' }, '2026-11-02'), 4, 'rozsah do konce');
+  assert.equal(A.remindCount({ trip: 'multi', legs: [{ date: '2026-11-12' }, { date: '2026-11-20' }] }, '2026-11-02'), 2, 'víc měst: první let');
+  assert.ok(A.rollOk({ off: 0, span: 30 }));
+  assert.equal(A.remindCount({ dateMode: 'flex', dFrom: '2026-11-02', dTo: '2026-11-10', roll: { off: 0, span: 30 } }, '2026-11-02'), 8, 'klouzavý termín nekončí');
+  assert.equal(A.remindCount(null, '2026-11-02'), 8);
+  // v události: pondělí 2. 11. 2026 (now = čtvrtek 29. 10.)
+  const ev = A.remindEvent({ id: 'b', label: 'Praha → Barcelona', form: ex('2026-11-20') }, { now: new Date(2026, 9, 29, 10, 0).getTime() });
+  assert.equal(ev.start, '2026-11-02T09:00');
+  assert.equal(ev.rrule, 'FREQ=WEEKLY;COUNT=3');
+});
+
 test('📅 watchFromHash: #watch=<id> z připomínky, cokoliv jiného null', () => {
   assert.equal(A.watchFromHash('#watch=mf3k9x'), 'mf3k9x');
   assert.equal(A.watchFromHash('#watch=a-b_C9'), 'a-b_C9');

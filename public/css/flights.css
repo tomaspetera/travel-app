@@ -1138,6 +1138,8 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .pin-unk{color:var(--warn)}
 [data-theme=light] .pin-unk{color:#8a5a00}
 .pin-ln,.pin-age{font-size:12.5px;line-height:1.45}
+/* dny dovolené za nocemi v porovnání (radarLeave): oddělovač jako na kartě radaru, jinak „5 nocí🏖️ 4 dny“ */
+.pin-ln .rc-lv::before{content:" · "}
 .pin-act{display:flex;flex-direction:column;gap:6px;margin-top:auto;padding-top:6px}
 .pin-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:14px}
 .pin-vn{font-size:12px}

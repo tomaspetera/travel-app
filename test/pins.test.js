@@ -435,3 +435,19 @@ test('sorted a 📤 Poslat k výběru: stejné pořadí jako 📌 Porovnat (i s 
   assert.match(t2, /^ {3}2\s600 Kč\/os\..*\n {3}BRQ → NAP/m, 'radar bez dopravy: hned trasa, žádný řádek „i s cestou“');
   assert.equal((t2.match(/i s cestou/g) || []).length, 1);
 });
+
+test('📌 Porovnat: noci a dny dovolené s oddělovačem, „i s cestou“ jen v řádku Celkem (ne i pod cenou)', () => {
+  const fl = read('public/js/flights.js'), css = read('public/css/flights.css');
+  // radarLeave dává <span class="rc-lv"> bez oddělovače (na kartě radaru ho dělá CSS) – v porovnání „5 nocí · 🏖️ 4 dny“
+  assert.match(fl, /nightsTxt\(SearchHelp\.diffDays\(r\.d1, r\.d2\)\)\}`[^\n]*\$\{radarLeave\(r\)\}<\/div>/);
+  assert.match(css, /\.pin-ln \.rc-lv::before\{content:" · "\}/);
+  // priceBox(…, false) v porovnání: bez tripLine (řazení výpisu) – „Celkem i s cestou“ má karta zvlášť
+  assert.match(fl, /na osobu<\/div>\$\{ex \? tripLine\(t, 'pd pt'\) : ''\}/);
+  assert.match(fl, /<div class="pin-pr">\$\{priceBox\(t, null, pinRes\(p\), false\)\}<\/div>/);
+});
+
+test('🔔 Otevřít u hlídání s proběhlým termínem: jen formulář k výběru data, nehledá (setForm by termín posunul sám)', () => {
+  const fl = read('public/js/flights.js');
+  const fn = fl.slice(fl.indexOf('function openWatch(id)'), fl.indexOf('function setTarget('));
+  assert.match(fn, /if \(Alerts\.isPast\(w\.form, today\(\)\)\) \{ expandForm\(\); toast\('Termín už proběhl – vyber nový a spusť hledání'\); return; \}\s*startSearch\(\);/);
+});
