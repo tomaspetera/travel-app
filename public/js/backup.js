@@ -469,7 +469,8 @@
       parts.push(`${pl(inc.watch.length, 'hlídaná cena', 'hlídané ceny', 'hlídaných cen')}${bits.length ? ` (${bits.join(', ')})` : ''}`);
     }
     if (inc.visited.length) parts.push(`${pl(inc.visited.length, 'země', 'země', 'zemí')} na mapě${df.visited.add ? ` (${df.visited.add} ${df.visited.add === 1 ? 'nová' : df.visited.add <= 4 ? 'nové' : 'nových'})` : ''}`);
-    if (inc.home) parts.push(`domov radaru ${homeTxt(inc.home)}`);
+    // stejný domov jako v zařízení „(už máš)“ – jinak by vedle „Všechno ze zálohy už v tomhle zařízení je“ vypadal jako novinka
+    if (inc.home) parts.push(`domov radaru ${homeTxt(inc.home)}${df.home.take || df.home.differs ? '' : ' (už máš)'}`);
     const nov = (n, a, b, c) => (n ? ` (${n} ${n === 1 ? a : n <= 4 ? b : c})` : '');
     if (inc.fav.length) parts.push(`⭐ ${pl(inc.fav.length, 'můj cíl', 'moje cíle', 'mých cílů')}${nov(df.dests.fav, 'nový', 'nové', 'nových')}`);
     if (inc.mute.length) parts.push(`🙈 ${pl(inc.mute.length, 'skryté město', 'skrytá města', 'skrytých měst')}${nov(df.dests.mute, 'nové', 'nová', 'nových')}`);
