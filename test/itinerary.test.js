@@ -2,7 +2,8 @@
 // odlehlá místa mimo program, delší návštěva celku se sloučenými částmi.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planItinerary, visitMinutes, keepOf } from '../server/lib/itinerary.js';
+import { readFileSync } from 'node:fs';
+import { planItinerary, visitMinutes, keepOf, dayCapacities } from '../server/lib/itinerary.js';
 import { haversineKm } from '../server/lib/geo.js';
 import { LIS_PLACES, PRA_PLACES } from './fixtures/wikidata.js';
 
@@ -217,4 +218,15 @@ test('keepOf (api/itinerary): jen prostý objekt do 300 položek, id do 120 znak
   // „__proto__“ z JSON zůstane obyčejným klíčem
   const proto = k(JSON.parse('{"__proto__":"2026-10-12","Q1":"2026-10-12"}'));
   assert.deepEqual([Object.keys(proto), Object.getPrototypeOf(proto)], [['__proto__', 'Q1'], Object.prototype]);
+});
+
+test('dayCapacities: první den od 9:00 jen s příletem do 7:30 (Objevuj posílá 07:30 – bez příletu), jinak 1,5 h po příletu', () => {
+  const from = (arrivalTime) => dayCapacities({ start: '2026-11-07', end: '2026-11-08', arrivalTime })[0].from;
+  assert.equal(from('07:30'), 9 * 60, 'Objevuj: jako ostatní dny');
+  assert.equal(from('09:00'), 10.5 * 60, 'přílet v 9:00 → od 10:30');
+  assert.equal(from('00:40'), 9 * 60, 'noční přílet ne dřív než v 9:00');
+  assert.equal(dayCapacities({ start: '2026-11-07', end: '2026-11-08', arrivalTime: '07:30' })[1].from, 9 * 60);
+  // Objevuj: program ve městě bez příletu
+  const pl = readFileSync(new URL('../public/js/places.js', import.meta.url), 'utf8');
+  assert.match(pl, /makePlan\(st, p, \{ start: ex\.start, end: plusDays\(ex\.start, ex\.days - 1\), arrivalTime: '07:30', departureTime: null \}/);
 });
