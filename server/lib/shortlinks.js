@@ -96,7 +96,9 @@ export function metaOf(kind, o) {
   }
   const place = txt(o && o.dest, 60), name = txt(o && o.name, 70) || place || 'Plán cesty';
   const dates = datesTxt(ymd(o && o.start), ymd(o && o.end));
-  return { title: txt(name.includes(dates) || !dates ? name : `${name} · ${dates}`, 90), desc: 'Plán cesty z ATLASu – program po dnech, otevři ho a ulož si ho.', place };
+  // název plánu z průvodce už datum má („Lisabon 12.11.“) – druhé „· 12.–17. 11.“ by ho zdvojilo
+  const hasDate = /\d{1,2}\.\s?\d{1,2}\./.test(name);
+  return { title: txt(hasDate || !dates ? name : `${name} · ${dates}`, 90), desc: 'Plán cesty z ATLASu – program po dnech, otevři ho a ulož si ho.', place };
 }
 
 /**

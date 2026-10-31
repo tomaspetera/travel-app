@@ -182,3 +182,14 @@ test('krátký odkaz: nepovedené uložení (výpadek) se příště zkusí znov
   assert.equal(await L2.short('trip', TRIP).done, 'https://atlas.example/c/Ab3kQ9xZ');
   assert.equal(n, 2);
 });
+
+test('krátký odkaz: server bez úložiště (503) se do obnovení stránky už neptá – Sdílet nečeká na zbytečnou odpověď', async () => {
+  let n = 0;
+  const L3 = load({ fetch: async () => { n++; return { ok: false, status: 503, json: async () => ({}) }; } });
+  assert.equal(await L3.short('trip', TRIP).done, null);
+  assert.equal(await L3.short('trip', TRIP).done, null);
+  assert.equal(await L3.short('plan', '{"p":1}').done, null);
+  assert.equal(n, 1, 'po 503 žádný další dotaz');
+  assert.match((await L3.send('trip', TRIP)).url, /#trip=z/, 'dál dlouhý odkaz');
+  assert.equal(n, 1);
+});
