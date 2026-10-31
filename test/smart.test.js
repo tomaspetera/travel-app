@@ -777,3 +777,9 @@ test('rozpočet u víc lidí: štítek „/os.“ (cena v hledání je na osobu)
   assert.ok(chips(P('rodina 2+2 k moři do 15 tisíc', '2026-10-31')).includes('do 15 000 Kč/os.'));
   assert.ok(chips(P('Londýn do 5000', '2026-10-31')).includes('do 5 000 Kč'), 'bez lidí beze změny');
 });
+
+test('náhled věty: lidé z minulého hledání, které věta neříká, se ukážou štítkem 👥 (jinak tiše hledá pro rodinu)', () => {
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  assert.match(fl, /inh = !\('adults' in \(h\.sm\.patch \|\| \{\}\)\) && \(\(\+pf\.adults \|\| 2\) !== 2 \|\| \+pf\.children > 0 \|\| \+pf\.infants > 0\);/);
+  assert.match(fl, /\.\.\.\(inh \? \[`👥 \$\{SearchHelp\.paxShort\(pf\)\} \(jako minule\)`\] : \[\]\)/);
+});

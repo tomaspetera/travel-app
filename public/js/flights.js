@@ -447,7 +447,9 @@
         const opt = cls => `class="pi-opt${cls}${on}" data-i="${i}" id="${this.id}-${i}" role="option" aria-selected="${i === this.active}"`;
         if (r.hit) {
           const h = r.hit, places = h.chain ? [`🧳 ${h.chain.map(x => x.label).join(' → ')}`] : [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`), ...(h.back ? [`↩ návrat: ${h.back.label}`] : [])];
-          const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}`)].join(' · ');
+          // lidé z minulého hledání (věta je neříká): štítek, ať „Vánoce teplo“ po „rodina 2+2“ nehledá tiše pro 4
+          const pf = S.form || {}, inh = !('adults' in (h.sm.patch || {})) && ((+pf.adults || 2) !== 2 || +pf.children > 0 || +pf.infants > 0);
+          const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}`), ...(inh ? [`👥 ${SearchHelp.paxShort(pf)} (jako minule)`] : [])].join(' · ');
           const sub = h.chain ? 'víc měst – nastavím lety, rozdělím termíny a hledám'
             : h.back && !h.miss.length ? 'tam a zpět z jiného města – nastavím 2 lety (přejezd mezi městy je na tobě) a hledám'
             : h.miss.length ? `„${h.miss.join('“, „')}“ neznám – hledám bez toho` : (h.sm.items && !h.to.length ? h.sm.items.map(x => x.label).join(', ') : 'klepni nebo Enter – nastavím a hledám');
