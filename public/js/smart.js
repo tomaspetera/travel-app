@@ -703,13 +703,16 @@
       }
     };
     take(new RegExp(`(?:na\\s+)?(?:kole|kolo|cyklo\\w*|bike)${W}`), () => { mode = 'bike'; });
-    take(new RegExp(`(?:pesky|pesi\\s+(?:vylet\\w*|okruh\\w*|tur\\w*)|tur[auy]|turistik\\w*|vyslap\\w*|hike|hiking)${W}`), () => { mode = mode || 'hike'; });
+    take(new RegExp(`(?:pesky|pesi\\s+(?:vylet\\w*|okruh\\w*|tur\\w*)|tur[auy]|turistik\\w*|vyslap\\w*|hrebenovk\\w*|hike|hiking)${W}`), () => { mode = mode || 'hike'; });
     take(new RegExp(`(?:na\\s+)?(?:okruh\\w*|road\\s*trip\\w*|autem\\s+po\\s+okoli)${W}`), () => { mode = mode || 'loop'; });
     take(new RegExp(`(?:jednodenni\\s+)?(?:vylet\\w*|do\\s+okoli)${W}|(?:v\\s+)?okoli${W}`), () => { mode = mode || 'day'; });
     // „co vidět v Římě“, „Řím co navštívit“, „co dělat v Londýně“: slova otázky nejsou místo
-    take(new RegExp(`(?:co|kam|jak)\\s+(?:videt|navstivit|delat|zazit|podniknout|stoji\\s+za\\s+to|jit|zajit)${W}|(?:zajimav\\w*|tipy|tip|doporuceni)${W}`), () => {});
+    take(new RegExp(`(?:co|kam|jak)\\s+(?:videt|navstivit|delat|zazit|podniknout|stoji\\s+za\\s+to|jit|zajit)${W}|(?:zajimav\\w*|tipy|tip|doporuceni)${W}|(?:nejhezc\\w*|nejkrasn\\w*|nejzajimav\\w*|nejlepsi)(?:\\s+(?:mist\\w*|vec\\w*|tipy|zazitky))?${W}`), () => {});
     take(new RegExp(`(\\d{1,3})\\s*km${W}`), m => { km = +m[1]; });
     take(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:den|dny|dni|dnu)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 14)) return false; days = n; });
+    // „na den“ = 1 den; „procházka po Budapešti“ – procházka není místo (místo je za „po“)
+    take(new RegExp(`na\\s+(?:jeden\\s+)?den${W}`), () => { days = days || 1; });
+    take(new RegExp(`(?:na\\s+)?(?:prochazk\\w*|prochazet|projit\\s+se)${W}`), () => {});
     // víkend bez data („Porto na víkend“): od soboty nejbližšího víkendu (prodloužený od pátku), „příští víkend“ o týden dál
     let wk = null;
     take(new RegExp(`(?:(?:na|o|pres)\\s+)?(?:(pristi|dalsi|tento|tenhle|nejblizsi)\\s+)?(?:prodlouzen\\w+\\s+)?vikend\\w*${W}`), m => {
@@ -722,7 +725,9 @@
     take(new RegExp(`(?:s|se)\\s+(?:detmi|ditetem|ditkem|deckama)${W}|pro\\s+deti${W}`), () => { interests.push('kids'); });
     take(new RegExp(`(?:muze\\w*|galeri\\w*|umeni)${W}`), () => { interests.push('art'); });
     take(new RegExp(`(?:pamatk\\w*|histori\\w*|hrad\\w*|zamk\\w*|zamek)${W}`), () => { interests.push('history'); });
-    take(new RegExp(`(?:prirod\\w*|vyhled\\w*)${W}`), () => { interests.push('nature'); });
+    take(new RegExp(`(?:prirod\\w*|vyhled\\w*|vyhlid\\w*)${W}`), () => { interests.push('nature'); });
+    // „výlet k jezeru“: jezero bez jména = příroda (místo zůstane domov / zbytek věty); „k Lipenskému jezeru“ dál místo
+    take(new RegExp(`(?:k|ke|u|na)\\s+jezer\\w*${W}`), () => { interests.push('nature'); });
     const p = parse(blank.join(''), o), pt = p.patch;
     let start = pt.xOut || pt.dFrom || null;
     // „od pátku do neděle“: dny = noci + 1, začátek nejbližší ten den v týdnu (dnes, je-li to on)

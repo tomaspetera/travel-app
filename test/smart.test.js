@@ -609,3 +609,20 @@ test('svátky a délka: „na Štědrý den“ = Vánoce, „na státní svátek
   // Dušičky: ne místo
   assert.deepEqual(P('na Dušičky').to, []);
 });
+
+test('Objevuj větou: „na den“ = 1 den, „procházka po Budapešti“ – místo je Budapešť, ne „procházka“', () => {
+  const E = (q) => JSON.parse(JSON.stringify(Smart.parseExplore(q, { today: '2026-10-31' })));
+  assert.deepEqual([E('Drážďany s dětmi na den').days, E('Drážďany s dětmi na den').place], [1, 'Drážďany']);
+  assert.deepEqual([E('na den do Vídně').days, E('na den do Vídně').place], [1, 'Vídně']);
+  assert.equal(E('Praha na 3 dny').days, 3, 'počet dní dál přednost');
+  assert.equal(E('procházka po Budapešti').place, 'Budapešti');
+});
+
+test('Objevuj větou: „nejhezčí místa v Portugalsku“, „vyhlídky v Českém Švýcarsku“, „hřebenovka“, „k jezeru“ nejsou místo', () => {
+  const E = (q) => JSON.parse(JSON.stringify(Smart.parseExplore(q, { today: '2026-10-31' })));
+  assert.equal(E('nejhezčí místa v Portugalsku').place, 'Portugalsku');
+  assert.deepEqual([E('vyhlídky v Českém Švýcarsku').place, E('vyhlídky v Českém Švýcarsku').interests], ['Českém Švýcarsku', ['nature']]);
+  assert.deepEqual([E('Beskydy hřebenovka 2 dny').place, E('Beskydy hřebenovka 2 dny').mode], ['Beskydy', 'hike']);
+  assert.deepEqual([E('výlet k jezeru').place, E('výlet k jezeru').interests], ['', ['nature']]);
+  assert.equal(E('k Lipenskému jezeru').place, 'Lipenskému jezeru', 'jezero se jménem dál místo');
+});
