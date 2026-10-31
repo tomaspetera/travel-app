@@ -122,6 +122,10 @@ test('tmavý i světlý režim: den odletu a návratu v kalendáři, „HLEDAT�
   assert.match(FLIGHTS, /\[data-theme="dark"\] \.pi-smart \.pi-type\{color:#a9c1ff\}/);
   assert.match(TRIP, /\.dp-n\{[^}]*box-shadow:inset 0 0 0 11px rgba\(0,0,0,\.2\)\}/);
   assert.match(ATL, /\.modal-hero:not\(\.ph\) \.mh-bg\{filter:brightness\(\.75\)\}/);
+  assert.match(ATL, /\.modal-hero:not\(\.ph\) \.mh-bg\.warm\{filter:brightness\(\.6\)\}/, 'teplý přechod: podtitulek okna čitelný');
+  // 🚗 Waze / 🎫 PID Lítačka: světlejší modrá na šedém štítku v tmavém režimu
+  assert.match(ATL, /\[data-theme="dark"\] \.app-chip\{color:#8fb0ff\}/);
+  for (const bg of ['#292f41', '#262b44', '#202539']) assert.ok(contrast(color('#8fb0ff'), color(bg)) >= 4.5, bg);
   assert.match(ATL, /\.trip-grid\.past \.trip\{opacity:\.88\}/);
 });
 

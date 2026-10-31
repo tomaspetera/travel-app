@@ -189,6 +189,8 @@ a{color:inherit}
 /* odkaz do aplikace v mobilu (🚗 Waze, 🎫 PID Lítačka) – malý štítek vedle odkazu na trasu, nezalomí se uvnitř */
 .app-chip{display:inline-block;padding:0 8px;border-radius:10px;font-size:11.5px;font-weight:600;line-height:1.65;white-space:nowrap;background:var(--surface-2);border:1px solid var(--border);color:var(--accent-ink);text-decoration:none;vertical-align:baseline}
 .app-chip:hover{border-color:var(--border-2)}
+/* tmavý režim: #5b8cff na šedém štítku v kartě jen ~4,2 : 1 (malé písmo) – světlejší modrá */
+[data-theme="dark"] .app-chip{color:#8fb0ff}
 /* 320 px: „🎫 Jízdenka v PID Lítačka“ vedle cesty na letiště v Průběhu cesty je širší než sloupec textu – bez zalomení
    roztáhla celou kartu Shrnutí doprava; štítek se zalomí uvnitř jen tehdy, když se nevejde ani na samostatný řádek */
 @media(max-width:380px){.app-chip{white-space:normal}}
@@ -507,6 +509,8 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .modal-hero .mh-bg.warm{background:var(--grad-warm)}
 /* bez fotky (nebo než se načte): přechod ztmavený, bílý podtitulek na něm měl jen ~3 : 1 (v tyrkysovém rohu 2 : 1) */
 .modal-hero:not(.ph) .mh-bg{filter:brightness(.75)}
+/* teplý přechod (dražší země) je světlejší – podtitulek okna (místo · termín · lidé) na něm měl ~3,9 : 1 */
+.modal-hero:not(.ph) .mh-bg.warm{filter:brightness(.6)}
 .modal-hero:not(.ph) .modal-hero-inner{text-shadow:0 1px 2px rgba(0,0,0,.25)}
 .modal-hero-inner{position:relative;z-index:1}
 .modal-close{position:absolute;top:16px;right:16px;z-index:3;width:38px;height:38px;border-radius:11px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.2);color:#fff;cursor:pointer;display:grid;place-items:center}
