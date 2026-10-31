@@ -1001,8 +1001,15 @@
     try { dates = window.Trip && Trip.baseDates ? Trip.baseDates(t) : []; } catch (e) { dates = []; }
     try { end = window.Trip && Trip.stayDates ? Trip.stayDates(t).checkout || '' : ''; } catch (e) { end = ''; }
     const bases = t.route && t.route.mode === 'multi' && Array.isArray(t.route.bases) && t.route.bases.length ? t.route.bases : null;
-    const list = bases ? bases.map((b, i) => ({ label: b.name, lat: b.lat, lon: b.lon, cc: b.cc, country: b.country, from: dates[i] && dates[i].checkin, ...(dates[i] && dates[i].checkout ? { to: dates[i].checkout } : {}) }))
-      : t.dest ? [{ label: String(t.dest.label || '').replace(/ \(.*\)$/, ''), lat: t.dest.lat, lon: t.dest.lon, cc: t.dest.cc, country: t.dest.country, from: start, ...(end ? { to: end } : {}) }] : [];
+    // časy příletu a odletu (jako krok Program průvodce): program v Objevuj první den až po příletu, poslední před odletem
+    // – dřív od 9:00 i v den, kdy letadlo přistává ve 14:13, nebo odlétá v 9:35
+    const hm = v => (/^\d\d:\d\d$/.test(v || '') ? v : null);
+    const times = (sp, from, to) => (sp ? { ...(hm(sp.arrivalTime) && sp.start === from ? { arr: sp.arrivalTime } : {}), ...(hm(sp.departureTime) && sp.end === to ? { dep: sp.departureTime } : {}) } : {});
+    const spanOf = f => { try { return f(); } catch (e) { return null; } };
+    const list = bases ? bases.map((b, i) => ({ label: b.name, lat: b.lat, lon: b.lon, cc: b.cc, country: b.country, from: dates[i] && dates[i].checkin, ...(dates[i] && dates[i].checkout ? { to: dates[i].checkout } : {}),
+      ...times(window.Trip && Trip.baseProgram ? spanOf(() => Trip.baseProgram(t, i)) : null, dates[i] && dates[i].checkin, dates[i] && dates[i].checkout) }))
+      : t.dest ? [{ label: String(t.dest.label || '').replace(/ \(.*\)$/, ''), lat: t.dest.lat, lon: t.dest.lon, cc: t.dest.cc, country: t.dest.country, from: start, ...(end ? { to: end } : {}),
+        ...times(window.Trip && Trip.progSpan ? spanOf(() => Trip.progSpan(t)) : null, start, end) }] : [];
     const seen = new Set();
     return list.filter(p => p.label && p.lat != null && p.lon != null && cleanPlace(p) && !seen.has(p.label) && seen.add(p.label)).slice(0, 4).map(p => ({ ...p, trip: true }));
   }
@@ -1332,7 +1339,18 @@
     const x = f ? own.find(o => foldName(o.label) === f && /^\d{4}-\d{2}-\d{2}$/.test(o.from || '') && (o.to || o.from) >= today) : null;
     if (!x) return null;
     const from = x.from > today ? x.from : today, to = /^\d{4}-\d{2}-\d{2}$/.test(x.to || '') && x.to >= from ? x.to : from;
-    return { from, to, n: Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1 };
+    // přílet jen v den příletu (probíhající cesta od dneška ho nemá), odlet jen v den odjezdu
+    return { from, to, n: Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1, ...(x.arr && from === x.from ? { arr: x.arr } : {}), ...(x.dep && to === x.to ? { dep: x.dep } : {}) };
+  }
+  /**
+   * Časy cesty uživatele pro program v Objevuj (tripHint): přílet, jen když program začíná v den příletu, odlet, jen když
+   * končí v den odjezdu – jinak {} (Objevuj bez příletu: arrivalTime 07:30 = první den od 9:00).
+   */
+  function tripTimes(p) {
+    const h = ex.tripHint;
+    if (!h || !p || h.label !== p.label) return {};
+    const end = plusDays(ex.start, ex.days - 1);
+    return { ...(h.arr && ex.start === h.from ? { arrivalTime: h.arr } : {}), ...(h.dep && end === h.to ? { departureTime: h.dep } : {}) };
   }
   // o.start / o.days: termín z cesty jen tam, kde ho věta („Lisabon na 3 dny“) sama neurčila
   function openPlace(s, o = { start: true, days: true }) {
@@ -2689,7 +2707,7 @@
           if (hikeMode) ex.hikeRoute = r; else if (r.kind === 'train') ex.trainRoute = r; else ex.bikeRoute = r;
         } else if (hikeDays) {
           // střed hor z Objevuj (Krkonoše) není ubytování – start každý den u cíle; místa ze stejného okruhu jako seznam
-          const plan = await makeHikePlan({ lat: p.lat, lon: p.lon, label: p.label, city: p.label, country: p.country, start: ex.start, end: plusDays(ex.start, ex.days - 1),
+          const plan = await makeHikePlan({ lat: p.lat, lon: p.lon, label: p.label, city: p.label, country: p.country, start: ex.start, end: plusDays(ex.start, ex.days - 1), ...tripTimes(p),
             kids: ex.interests.has('kids'), fromBase: !p.nature, exclude: [...ex.hikeEx], ...(ex.loaded?.radius >= 10 ? { radius: Math.min(25, ex.loaded.radius) } : {}) });
           if (my !== replanSeq[key] || ex.place !== p) return;
           ex.hikePlan = plan;
@@ -2709,7 +2727,7 @@
           const km = cityKm(ex.radius);
           // V Objevuj se nepřilétá: první den od 9:00 jako ostatní – server začíná den příletu 1,5 h po něm (z „09:00“
           // by program začínal až v 10:30)
-          const plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '07:30', departureTime: null },
+          const plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '07:30', departureTime: null, ...tripTimes(p) },
             { radius: ex.loaded?.radius || km, exclude: [...st.exclude, ...outsideIds(ex.all, km, st.must)] });
           if (my !== replanSeq[key] || ex.place !== p) return;
           plan.radius = km;

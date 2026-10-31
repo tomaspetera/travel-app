@@ -126,9 +126,17 @@
      * pravidel (číselné „18.11.“ projde celou větu dřív než „15. listopadu“) → prohodit; do příštího roku jen přes Nový
      * rok („28.12. – zpět 3.1.“, nejvýš 45 nocí) – dřív „odlet 15. listopadu, návrat 18.11.“ = 18. 11. 2026 – 15. 11. 2027.
      */
-    const second = (d, mo, y) => {
+    const second = (d, mo, y, at) => {
       const yr = y ? +y : +dates.out.slice(0, 4), same = mkDate(d, mo, yr);
       if (!same) return false;
+      // „Řím 20.11. nebo 27.11.“: dvě možnosti odletu, ne tam a zpět → odlet kdykoli mezi nimi (nejvýš 45 dní)
+      if (/(?:^|[^a-z])(?:nebo|ci)\s*$/.test(s.slice(0, at))) {
+        const o = dates.out, x = same >= o ? same : !y && mkDate(d, mo, yr + 1);
+        const [from, to] = [o, same >= today ? same : x].filter(Boolean).sort();
+        if (!to || from === to || (Date.parse(to) - Date.parse(from)) / 864e5 > 45) return false;
+        dates = { from, to, label: `${dm(from)} – ${dm(to)}` };
+        return true;
+      }
       if (same > dates.out) { dates.back = same; return true; }
       const nx = !y && mkDate(d, mo, yr + 1);
       if (nx && (Date.parse(nx) - Date.parse(dates.out)) / 864e5 <= 45) { dates.back = nx; return true; }
@@ -154,7 +162,7 @@
       const b = m[4] ? mkDate(m[4], m[5], m[6] || (+m[5] < +m[2] ? +a.slice(0, 4) + 1 : a.slice(0, 4))) : null;
       if (m[4] && (!b || b < a)) return false;
       // druhé samostatné datum („15.11. a zpět 18.11.“, „odlet 20.11. návrat 25.11.“) je návrat – dřív přepsalo odlet
-      if (!b && dates && dates.exact && dates.out && !dates.back) return second(m[1], m[2], m[3]) ? undefined : false;
+      if (!b && dates && dates.exact && dates.out && !dates.back) return second(m[1], m[2], m[3], at) ? undefined : false;
       dates = { exact: true, out: a, back: b };
     });
 
@@ -167,10 +175,10 @@
     });
     // „20. listopadu“, „od 3. do 7. prosince“, „3.–7. prosince“: dny se jménem měsíce (2. pád)
     const MGEN = ['ledna', 'unora', 'brezna', 'dubna', 'kvetna', 'cervna', 'cervence', 'srpna', 'zari', 'rijna', 'listopadu', 'prosince'];
-    rule(new RegExp(`(?:od\\s*)?(\\d{1,2})\\.?\\s*(?:(?:-|–|az|do)\\s*(\\d{1,2})\\.?\\s*)?(${MGEN.join('|')})(?:\\s*(20\\d\\d))?${W}`), m => {
+    rule(new RegExp(`(?:od\\s*)?(\\d{1,2})\\.?\\s*(?:(?:-|–|az|do)\\s*(\\d{1,2})\\.?\\s*)?(${MGEN.join('|')})(?:\\s*(20\\d\\d))?${W}`), (m, at) => {
       const mo = MGEN.indexOf(m[3]) + 1;
       // „odlet 20. listopadu, návrat 25. listopadu“: druhé samostatné datum je návrat (jako u „15.11. a zpět 18.11.“)
-      if (!m[2] && dates && dates.exact && dates.out && !dates.back) return second(m[1], mo, m[4]) ? undefined : false;
+      if (!m[2] && dates && dates.exact && dates.out && !dates.back) return second(m[1], mo, m[4], at) ? undefined : false;
       if (dates && dates.exact) return false;
       const b = m[2] ? mkDate(m[2], mo, m[4]) : null, a = mkDate(m[1], mo, m[4] || (b ? b.slice(0, 4) : undefined));
       if (!a || (m[2] && (!b || b < a))) return false;
