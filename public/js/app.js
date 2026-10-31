@@ -766,12 +766,13 @@ function nowNone() {
     : 'Naplánovanou cestu zatím nemáš · <button type="button" class="linkbtn" data-nw-go="planner">Moje cesty →</button>'}</span></div></div>`;
 }
 /** Cesta poskládaná v průvodci, ale neuložená do plánovače (Trip.unsavedNow): karta by na cestě nic neukázala –
- *  nabídnout uložení jedním klepnutím (bez něj by „Dnes na cestě“ tvrdil, že cestu nemáš). */
+ *  nabídnout uložení jedním klepnutím (bez něj by „Dnes na cestě“ tvrdil, že cestu nemáš). Sdílená (otevřená
+ *  z odkazu kamaráda) jako jeho cesta – kdo jen prohlíží, nemá číst „Cesta … právě probíhá“ jako svou. */
 function nowUnsaved(today) {
   const u = window.Trip && Trip.unsavedNow ? Trip.unsavedNow(today) : null;
   if (!u) return '';
   const d = daysTo(today, u.start);
-  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">📍 Cesta ${u.cc ? flag(u.cc) + ' ' : ''}${esc(u.label)} ${d > 0 ? 'začíná ' + inDays(d) : 'právě probíhá'}</div><div class="nw-meta"><span>Ještě není v Mých cestách – ulož ji a tady uvidíš na každý den program, ubytování a spoje, i bez signálu. <button type="button" class="linkbtn" data-nw-save>💾 Uložit do Mých cest</button></span></div></div>`;
+  return `<div class="card now-card none" id="nowCard" tabindex="-1" role="region" aria-label="Na cestě"><div class="nw-h">📍 ${u.shared ? 'Sdílená cesta' : 'Cesta'} ${u.cc ? flag(u.cc) + ' ' : ''}${esc(u.label)} ${d > 0 ? 'začíná ' + inDays(d) : 'právě probíhá'}</div><div class="nw-meta"><span>${u.shared ? 'Od kamaráda – jedeš taky? Ulož si ji' : 'Ještě není v Mých cestách – ulož ji'} a tady uvidíš na každý den program, ubytování a spoje, i bez signálu. <button type="button" class="linkbtn" data-nw-save>💾 Uložit do Mých cest</button></span></div></div>`;
 }
 /* 🌤️ Počasí na kartě: předpověď Open-Meteo (Weather.forecast – jeden dotaz na všechna místa karty) uložená
    v localStorage, ať je vidět i bez signálu. Jen když karta místa chce (na cestě, den před odjezdem) – jinak žádný dotaz.
