@@ -1964,11 +1964,12 @@ function myTrips(host, o = {}) {
   const card = x => tripCard(x.t, x.i, 'data-mt', x.t.wizard ? `<button type="button" class="linkbtn mt-det" data-mdet="${x.i}">Program, balení a poznámky ›</button>` : '');
   // rozpracovaná cesta: uložená = její karta nahoře s „v průvodci“, neuložená = karta z údajů průvodce
   const inf = o.info || {};
-  // ve Shrnutí je cesta sestavená – „rozpracovaná“ by mátla; jinak krok, na kterém uživatel skončil
+  // ve Shrnutí je cesta sestavená – „rozpracovaná“ by mátla; jinak krok, na kterém uživatel skončil. Neuložená cesta
+  // kamaráda z odkazu (#trip=) není „tvoje rozpracovaná“ – jako na Přehledu „🔗 Sdílená cesta … zatím neuložená“
   const curTxt = inf.done ? '✅ Sestavená v průvodci – otevřít shrnutí ›' : `🧳 Rozpracovaná v průvodci${inf.step ? ` (krok ${esc(inf.step)})` : ''} – pokračovat ›`;
   const curCard = cur ? card(cur).replace('<div class="trip-body">', `<div class="trip-body"><div class="mt-cur">${curTxt}</div>`)
-    : a && !curPast ? `<div class="card trip" data-mcur="1"><div class="trip-top"${inf.name ? ` data-photo="${esc(inf.name)}" style="--h:${ccHue(inf.cc || inf.name)}"` : ''}><span class="tt-when">rozpracovaná</span><div class="tt-name">${esc(inf.name || 'Cesta')}</div><div class="tt-meta">${inf.cc ? flag(inf.cc) + ' ' : ''}${inf.start ? dateSpan(inf.start, inf.end) : ''}</div></div>
-      <div class="trip-body"><div class="mt-cur">🧳 Krok ${esc(inf.step || '')} – pokračovat v průvodci ›</div></div></div>` : '';
+    : a && !curPast ? `<div class="card trip" data-mcur="1"><div class="trip-top"${inf.name ? ` data-photo="${esc(inf.name)}" style="--h:${ccHue(inf.cc || inf.name)}"` : ''}><span class="tt-when">${inf.shared ? 'sdílená' : inf.done ? 'sestavená' : 'rozpracovaná'}</span><div class="tt-name">${esc(inf.name || 'Cesta')}</div><div class="tt-meta">${inf.cc ? flag(inf.cc) + ' ' : ''}${inf.start ? dateSpan(inf.start, inf.end) : ''}</div></div>
+      <div class="trip-body"><div class="mt-cur">${inf.shared ? '🔗 Sdílená cesta z odkazu, zatím neuložená – otevřít a 💾 uložit si ji ›' : curTxt}</div></div></div>` : '';
   host.innerHTML = `<div class="trip-mine">
     <div class="section-head"><h2>🧳 Moje cesty</h2></div>
     ${curCard || coming.length ? `<div class="trip-grid">${curCard}${coming.map(card).join('')}</div>` : ''}
@@ -2136,7 +2137,7 @@ function openTrip(i) {
   <div class="modal-body">
     ${tripOrder(live).map(k => part[k]).join('\n    ')}
     <div class="divider"></div>
-    <button class="btn ghost block" style="color:var(--bad);border-color:rgba(251,113,133,.3)" id="tripDel">Smazat cestu</button>
+    <button class="btn ghost block trip-del" id="tripDel">Smazat cestu</button>
   </div>`);
   // ubytování v cíli cesty (Barcelona, ne hlavní město země) pro počet cestujících z cesty
   // ubytování v zadaném městě; země („Itálie“) nebo víc míst („Lisabon, Porto“) → hlavní město

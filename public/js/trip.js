@@ -922,7 +922,7 @@
     if (t) {
       let start = null, end = null;
       try { start = outLeg(t).date; end = backLeg(t) ? backLeg(t).date : stayDates(t).checkout; } catch (e) { /* cesta bez letu */ }
-      info = { name: tripName(t), cc: t.dest && t.dest.cc, start, end, step: (STEPS.find(x => x[0] === t.step) || STEPS[0])[2], done: t.step === 'summary' };
+      info = { name: tripName(t), cc: t.dest && t.dest.cc, start, end, step: (STEPS.find(x => x[0] === t.step) || STEPS[0])[2], done: t.step === 'summary', shared: Boolean(t.shared) };
     }
     window.myTrips(root, { active: t, info, ask: askHtml('Nová cesta – kam chceš jet?'), resume: () => { mineFor = null; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
     askWire();
@@ -4371,6 +4371,22 @@
         history.replaceState(null, '', '#trip');
         toast('Tuhle cestu už máš rozpracovanou – otevírám ji');
         return true;
+      }
+      // tatáž cesta z odkazu už uložená v Mých cestách (příjemce si ji dřív uložil, mezitím plánuje jinou): otevřít
+      // uloženou – jinak by se znovu ukázala jako neuložená „🔗 Sdílená cesta“ a 💾 Uložit si ji ji zdvojilo
+      if (!same) {
+        const sig = tripSig(t), ls = linkSig(t);
+        const saved = (S.trips || []).find(e => {
+          // uložená kopie rozpracované cesty (mine) – o té rozhoduje otázka níž (odkaz v jiné podobě)
+          if (!e || !e.wizard || typeof e.wizard !== 'object' || e.tripId == null || (mine && mine.created === e.tripId)) return false;
+          try { const x = sanitizeTrip(JSON.parse(linkJson(e.wizard))); return tripSig(x) === sig && linkSig(x) === ls; } catch (err) { return false; }
+        });
+        if (saved) {
+          history.replaceState(null, '', '#trip');
+          if (!openSaved(saved.wizard, saved.tripId)) return false;
+          toast('Tuhle cestu už máš v Mých cestách – otevírám ji');
+          return true;
+        }
       }
       // jinou cestu (i tutéž s jiným obsahem) nahradí bez ptaní, jen když v ní nic není rozpracované (jako výběr letu z výsledků)
       if (mine && mine.flight && progressOf(mine).length

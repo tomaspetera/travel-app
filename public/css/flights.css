@@ -841,6 +841,8 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 /* zelené ceny a štítky (ceny ve výpisu Lety, nejlevnější den, „💚 Dobrá cena“, „↓ zlevnilo“) a modré štítky („↩ návrat
    do…“, teplota): mátová a světle modrá na bílé mají kontrast pod 2 : 1 – na slunci skoro nečitelné */
 [data-theme=light] .good,[data-theme=light] .b.good,[data-theme=light] .cmp-price b:not(.stale),[data-theme=light] .nb-d.best b{color:#047857}
+/* zdražení (↑ 70 Kč u hlídání) jako zlevnění: světlá růžová #fb7185 má na bílé ~2,4 : 1 */
+[data-theme=light] .bad{color:#be123c}
 [data-theme=light] .b.info{color:#075985}
 ol.guide{padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:14px}
 ol.guide a{color:var(--accent-ink)}
