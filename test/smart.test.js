@@ -567,3 +567,22 @@ test('dvě samostatná data = tam a zpět: „do Říma 15.11. a zpět 18.11.“
   assert.deepEqual([P('London weekend').patch.len, P('London weekend').to], ['weekend', ['London']]);
   assert.deepEqual(P('kde je teď teplo').to, []);
 });
+
+test('čas letu, přestupy a aerolinky ve větě: nejsou místo, štítek řekne, že se nastaví ve Filtrech výsledků', () => {
+  const hint = (q) => chips(P(q)).find((c) => /nastavíš ve Filtrech/.test(c)) || '';
+  for (const q of ['Řím ráno', 'odlet po 10', 'přílet do 20 hodin', 'večerní let', 'ne brzo ráno']) {
+    assert.match(hint(q), /^čas letu – /, q);
+    assert.ok(!P(q).to.some((x) => /ráno|hodin|večerní|brzo/i.test(x)), q);
+  }
+  assert.deepEqual(P('Řím ráno').to, ['Řím']);
+  assert.match(hint('max 1 přestup'), /^přestupy – /);
+  assert.deepEqual([hint('Ryanairem do Říma'), P('Ryanairem do Říma').to], ['aerolinky – nastavíš ve Filtrech', ['Říma']]);
+  assert.deepEqual(P('bez Ryanairu').to, []);
+  // děti a výbava: „s batoletem“ = dítě, „s kočárkem“ není místo, „s lyžemi“ = na hory
+  assert.equal(P('s batoletem').patch.children, 1);
+  assert.deepEqual(P('s kočárkem do Říma').to, ['Říma']);
+  assert.equal(P('s lyžemi').kind, 'mountains');
+  // ceny a data dál beze změny
+  assert.equal(P('do 2000').patch.maxPrice, '2000');
+  assert.equal(P('do 20. listopadu').patch.xOut, '2026-11-20');
+});
