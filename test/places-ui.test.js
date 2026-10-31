@@ -637,6 +637,12 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   TB.mergeInto(pre, city);
   TB.mergeInto(pre, { ...city, days: { '2026-10-13': [items[1].name] } });
   assert.deepEqual(plain(pre.days), { '2026-10-12': [items[0].name], '2026-10-13': [items[1].name] }, 'řádek z průvodce zůstal na svém dni');
+  // cesta uložená starší verzí (t.explore = celý výsledek i s řádky z průvodce): řádek z průvodce (genDays) dál na svém dni
+  const old = { name: 'O2', dest: 'Barcelona', start: '2026-10-12', end: '2026-10-14', wizard: {}, days: { '2026-10-12': [items[0].name, items[1].name] },
+    genDays: { '2026-10-12': [items[0].name] }, explore: { city: { '2026-10-12': [items[0].name, items[1].name] } } };
+  TB.mergeInto(old, { ...city, days: { '2026-10-14': [items[0].name, items[1].name] } });
+  assert.deepEqual(plain(old.days), { '2026-10-12': [items[0].name], '2026-10-14': [items[1].name] });
+  assert.deepEqual(plain(old.explore.city), { '2026-10-14': [items[1].name] });
   // stejný název u jiného místa trasy („Porto: …“ u programu Barcelony) není duplicita
   const other = { name: 'O', dest: 'Barcelona', start: '2026-10-12', end: '2026-10-14', wizard: {}, days: { '2026-10-13': [`Porto: ${items[0].name}`] } };
   assert.equal(TB.mergeInto(other, { ...city, days: { '2026-10-12': [items[0].name] } }), 1);
@@ -1247,6 +1253,11 @@ test('Objevuj: místo, kam jedeš – termín programu podle cesty (od příjezd
   assert.deepEqual(plain(PX.roadSpan('2026-11-14', 2, H)), { start: '2026-11-14', days: 2 }, 'uprostřed cesty beze změny');
   assert.deepEqual(plain(PX.roadSpan('2026-11-17', 1, H)), { start: '2026-11-17', days: 1 }, 'nezbyl by žádný den: beze změny');
   assert.deepEqual(plain(PX.roadSpan('2026-11-12', 2, null)), { start: '2026-11-12', days: 2 });
+  // posunuté o den nepřeteče za odlet (pozdní odlet 22:15 i bez času odletu)
+  const H2 = { label: 'Lisabon', from: '2026-11-12', to: '2026-11-15', arr: '21:16', dep: '22:15' };
+  assert.deepEqual([PX.roadSpan('2026-11-12', 4, H2).start, PX.roadSpan('2026-11-12', 4, H2).days], ['2026-11-13', 3]);
+  assert.deepEqual(PX.roadSpan('2026-11-12', 4, { ...H2, dep: undefined }).days, 3);
+  assert.deepEqual(PX.roadSpan('2026-11-12', 4, { ...H2, dep: '21:30' }).days, 3, 'odlet ve 21:30: poslední den výlet ještě stihneš');
   assert.match(js0(), /const h = ex\.tripHint && ex\.tripHint\.label === p\.label \? ex\.tripHint : null, sp = roadSpan\(ex\.start, ex\.tripDays\[mode\], h\);/);
   // cesta z plánovače nese i konec (to) – podle něj počet dní programu
   assert.deepEqual(plain(C.savedPlaces({ dest: 'Kodaň', iso: 'DK', start: '2099-08-01', end: '2099-08-03' })).map((p) => [p.from, p.to]), [['2099-08-01', '2099-08-03']]);
@@ -1258,7 +1269,9 @@ test('Objevuj: místo, kam jedeš – termín programu podle cesty (od příjezd
   assert.match(js, /else if \(!td && prev && ex\.datePicked && ex\.start === prev\.from\) \{ ex\.start = plusDays\(fmtYMD\(new Date\(\)\), 1\); ex\.datePicked = false; \}/);
   // Inspirace po obnovení na #explore: termíny míst trasy až s trip.js (líně načítaný) – po jeho načtení překreslit
   assert.match(js, /Lazy\.need\('trip'\)\.then\(\(\) => \{\s*const q = \$\('#exQ', root\);\s*if \(window\.Trip && root\.isConnected && !ex\.place && ex\.radius !== COUNTRY && !\(q && \(q\.value \|\| document\.activeElement === q\)\)\) renderExplore\(root\);/);
-  assert.match(js, /if \(r\.place && !r\.place\.geo\) \{ try \{ const td = tripDatesFor\(r\.place\); if \(td\) ex\.tripHint = \{ label: r\.place\.label, \.\.\.td \}; \}/);
+  assert.match(js, /const hint = \(\) => \{ try \{ const td = tripDatesFor\(r\.place\); if \(td\) ex\.tripHint = \{ label: r\.place\.label, \.\.\.td \}; \}/);
+  // cesta jen v Mých cestách: konec a časy až s trip.js – po jeho načtení termín znovu (a překreslit, když se změnil)
+  assert.match(js, /Lazy\.need\('trip'\)\.then\(\(\) => \{\s*if \(ex\.place !== r\.place\) return;\s*const was = JSON\.stringify\(ex\.tripHint \|\| null\);\s*hint\(\);/);
 });
 
 test('Objevuj: fotka místa leží přes ikonu druhu – když se nenačte (slabý signál), je vidět ikona, ne šedý čtverec', () => {

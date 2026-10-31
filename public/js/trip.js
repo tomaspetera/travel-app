@@ -1086,7 +1086,7 @@
       ['stay', '🏨', 'Ubytování', multi ? (picked ? `vybráno ${picked} z ${n}` : 'zatím nevybráno')
         : t.stay ? (t.stay.mode === 'skip' ? 'neřeším' : hotelName(t.stay) || 'jen odkazy') : 'zatím nevybráno', c.stay],
       ['car', '🚗', 'Auto', t.car ? (t.car.mode === 'skip' ? 'bez auta' : 'vybráno') : 'zatím nevybráno', c.car],
-      ['program', '📍', 'Program', multi ? (planned ? `naplánováno ${planned} z ${n}` : 'zatím ne') : t.plan ? 'naplánováno' : 'zatím ne', 0],
+      ['program', '📍', 'Program', multi ? (planned ? `naplánováno ${planned} z ${n}` : 'zatím ne') : tripPlan(t) ? 'naplánováno' : 'zatím ne', 0],
     ].filter(Boolean);
     const at = k => STEPS.findIndex(s => s[0] === k);
     return `<div class="card ta-card">
@@ -3450,7 +3450,8 @@
     }
     const carPu = t.car && t.car.mode !== 'skip' && t.car.from ? [t.car.from.slice(0, 10), '🚗', `Vyzvednutí auta ${esc(carPlace(t.car, 'pu'))} ${t.car.from.slice(11, 16)}`] : null;
     // trasa: půjčovna ve městě v den nočního příletu (přílet 0:40, auto v 9:00) – až pod cestou z letiště do 1. místa
-    const puLater = Boolean(carPu && multi && !ov && f && f.out && t.car.pickup !== f.out.to && carPu[0] === arrivalAt(f.out).slice(0, 10) && r.legs && r.legs.arrival && r.legs.arrival.km >= 1);
+    // auto z města (puCity – pickup zůstává kód letiště, carCovers) i z jiného místa než letiště příletu
+    const puLater = Boolean(carPu && multi && !ov && f && f.out && (t.car.puCity || t.car.pickup !== f.out.to) && carPu[0] === arrivalAt(f.out).slice(0, 10) && r.legs && r.legs.arrival && r.legs.arrival.km >= 1);
     if (carPu && !puLater) rows.push(carPu);
     const carBack = t.car && t.car.mode !== 'skip' && t.car.to ? [t.car.to.slice(0, 10), '🚗', `Vrácení auta ${esc(carPlace(t.car, 'do'))} ${t.car.to.slice(11, 16)}`] : null;
     // auto vrácené ve městě, odkud se ten den jede dál vlakem / busem (Lisabon → Porto vlakem): vrací se před přejezdem,

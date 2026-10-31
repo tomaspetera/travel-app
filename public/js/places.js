@@ -970,7 +970,21 @@
     if (r.place) ex.place = r.place;
     // místo tvé cesty po obnovení (restart PWA): termín a časy příletu / odletu znovu z cesty – jinak program od 9:00
     // v den večerního příletu a poznámka „🧳 Termín tvé cesty“ zmizela
-    if (r.place && !r.place.geo) { try { const td = tripDatesFor(r.place); if (td) ex.tripHint = { label: r.place.label, ...td }; } catch (e) { /* bez cesty */ } }
+    if (r.place && !r.place.geo) {
+      const hint = () => { try { const td = tripDatesFor(r.place); if (td) ex.tripHint = { label: r.place.label, ...td }; } catch (e) { /* bez cesty */ } };
+      hint();
+      // konec a časy cesty uložené v Mých cestách (z průvodce) počítá trip.js, který se stahuje až po startu (lazy.js) –
+      // do té doby by termín byl jen den příjezdu („12.11.“ místo „12.11.–17.11.“) bez příletu ve 21:16; po načtení znovu
+      if (!window.Trip && window.Lazy && Lazy.need && typeof S !== 'undefined' && (S.trips || []).some(t => t && t.wizard)) {
+        Lazy.need('trip').then(() => {
+          if (ex.place !== r.place) return;
+          const was = JSON.stringify(ex.tripHint || null);
+          hint();
+          const root = $('#exploreRoot'), q = root && $('#exQ', root);
+          if (JSON.stringify(ex.tripHint || null) !== was && root && root.isConnected && !(q && document.activeElement === q)) renderExplore(root);
+        }, () => { /* bez průvodce termín zůstane, jak je */ });
+      }
+    }
     Object.assign(ex.tripDays, r.tripDays);
     Object.assign(ex.bike, r.bike);
     Object.assign(ex.hike, r.hike);
@@ -1352,7 +1366,7 @@
   /**
    * 🧳 Místo, kam uživatel jede (cesta v Mých cestách nebo v průvodci – stejný název jako „Tvoje cesta“ v Inspiraci):
    * termín programu podle cesty – od dne příjezdu (u probíhající od dneška) do odjezdu → { from, to, n } nebo null.
-   * Uložený program pak patří k té cestě (findTripFor: stejné místo a začátek), ne jako druhá cesta od zítřka.
+   * Uložený program pak patří k té cestě (findTripFor: stejné místo v jejím termínu), ne jako druhá cesta od zítřka.
    */
   function tripDatesFor(p, own = ownPlaces(), today = fmtYMD(new Date())) {
     const f = foldName(p && p.label);
@@ -1863,7 +1877,11 @@
     if (!h || !h.from) return { start, days };
     const why = [];
     let s = start, n = days;
-    if (h.arr && h.arr > '12:00' && s === h.from) { s = plusDays(s, 1); why.push(`${dayLbl(h.from)} přilétáš v ${h.arr}`); }
+    if (h.arr && h.arr > '12:00' && s === h.from) {
+      s = plusDays(s, 1); why.push(`${dayLbl(h.from)} přilétáš v ${h.arr}`);
+      // posunuté o den nesmí přetéct za konec cesty (okruh na 4 dny do 16. 11. při odletu 15. 11.)
+      if (h.to && plusDays(s, n - 1) > h.to) n = Math.round((Date.parse(h.to) - Date.parse(s)) / 864e5) + 1;
+    }
     if (h.dep && h.to && h.dep < '21:30' && s <= h.to && plusDays(s, n - 1) >= h.to) {
       n = Math.round((Date.parse(h.to) - Date.parse(s)) / 864e5);
       why.push(`${dayLbl(h.to)} odlétáš v ${h.dep}`);
@@ -2029,7 +2047,11 @@
     t.days = t.days && typeof t.days === 'object' ? t.days : {};
     const prev = e.src && t.explore && t.explore[e.src];
     const had = new Set();
-    if (prev) for (const [d, lines] of Object.entries(prev)) {
+    // cesta uložená starší verzí: t.explore[src] = celý tehdejší výsledek, i řádky programu z průvodce (genDays) – ty
+    // nejsou Objevuj, nesmí se smazat ani přesunout
+    const gen = t.genDays && typeof t.genDays === 'object' ? t.genDays : {};
+    if (prev) for (const [d, all] of Object.entries(prev)) {
+      const lines = Array.isArray(all) ? all.filter(x => !(Array.isArray(gen[d]) && gen[d].includes(x))) : all;
       if (!Array.isArray(t.days[d]) || !Array.isArray(lines)) continue;
       lines.forEach(x => had.add(`${d}\n${x}`));
       const keep = new Set(e.days[d] || []); // co v novém výsledku zůstává, zůstane i na svém místě
@@ -2066,7 +2088,7 @@
   }
   const shortName = s => (s.length > 32 ? `${s.slice(0, 30).trim()}…` : s);
   const saveHtml = (i, trips) => (i >= 0
-    ? `<button class="btn" id="exSave" title="${esc(`Přidat k cestě ${trips[i].name} (stejné místo a začátek)`)}">💾 Přidat k cestě ${esc(shortName(trips[i].name))}</button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</button>`
+    ? `<button class="btn" id="exSave" title="${esc(`Přidat k cestě ${trips[i].name} (stejné místo v jejím termínu)`)}">💾 Přidat k cestě ${esc(shortName(trips[i].name))}</button><button type="button" class="linkbtn ex-savenew" id="exSaveNew">uložit jako novou</button>`
     : '<button class="btn" id="exSave">💾 Uložit do Mých cest</button>');
   // Hláška s tlačítkem (toast z app.js tlačítko neumí); delší, ať se na tlačítko stihne kliknout.
   function actToast(msg, label, fn) {
@@ -2664,7 +2686,7 @@
       if (ex.mode !== 'city') dropPlan('city');
       if (!hikeDays) dropPlan('hikes'); // túry pro starý termín (Pěšky → jiný režim) se naplánují znovu
       replanShown(typed);
-      // Uložení k cestě závisí na datu (stejné místo a začátek) – tlačítko podle nového dne (i po „✓ Uloženo“)
+      // Uložení k cestě závisí na datu (stejné místo v termínu cesty) – tlačítko podle nového dne (i po „✓ Uloženo“)
       if (rr) {
         const old = $$('#exSave, #exSaveNew', body);
         if (old.length) {

@@ -675,6 +675,18 @@ test('„Řím 20.11. nebo 27.11.“ = odlet kdykoli mezi nimi (dvě možnosti),
   assert.deepEqual(r('do Londýna 20. listopadu nebo 27. listopadu'), [false, '2026-11-20', '2026-11-27']);
   assert.deepEqual(r('Řím 28.12. nebo 2.1.'), [false, '2026-12-28', '2027-01-02']);
   assert.deepEqual(r('Řím 20.11. a zpět 27.11.'), [true, '2026-11-20', '2026-11-27'], '„a zpět“ dál tam a zpět');
+  // „nebo“ mezi místy (ne přímo mezi daty) návrat nezahodí
+  assert.deepEqual(r('20.11. Řím nebo Milán, zpět 27.11.'), [true, '2026-11-20', '2026-11-27']);
+  assert.deepEqual(r('Londýn 20.11. nebo Paříž zpět 24.11.'), [true, '2026-11-20', '2026-11-24']);
+  assert.deepEqual(r('20.11. z Prahy nebo z Vídně, zpět 27.11.'), [true, '2026-11-20', '2026-11-27']);
+  assert.deepEqual(r('Řím 20.11., nebo 27.11.'), [false, '2026-11-20', '2026-11-27'], 'čárka před „nebo“ nevadí');
+});
+
+test('svátek a „zpět / návrat“ s datem před koncem svátku: datum je návrat, svátek odlet (z kontroly #317–#323)', () => {
+  const x = (q) => { const p = P(q, '2026-10-31').patch; return p.dateMode === 'exact' ? [p.xOut, p.xBack] : [p.dFrom, p.dTo]; };
+  assert.deepEqual(x('Vánoce v Londýně a zpět 26.12.'), ['2026-12-24', '2026-12-26']);
+  assert.deepEqual(x('o Vánocích do Londýna, návrat 26.12.'), ['2026-12-24', '2026-12-26']);
+  assert.deepEqual(x('Štědrý den do Londýna a zpět 27.12.'), ['2026-12-24', '2026-12-27'], 'jako dřív');
 });
 
 test('z kontroly #312–#316: „do 5 k na víkend“, návrat přes Nový rok přes 45 nocí, svátek s datem odletu, batolata, „v příštím měsíci“, „nebo“ v obou pořadích', () => {

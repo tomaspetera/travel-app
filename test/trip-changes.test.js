@@ -476,6 +476,12 @@ test('trasa vlakem / busem: cesta z letiště do města se nepočítá ve směru
   const all = rows(render(c, t));
   const iRide = all.findIndex((x) => /Z letiště VIE → Vídeň/.test(x)), iHotel = all.findIndex((x) => /🏨 <b>Vídeň<\/b>|🏨 Vídeň/.test(x));
   assert.ok(iRide >= 0 && iHotel > iRide && /v noci spíš taxi/.test(all[iRide]) && all[iHotel].startsWith('čt 5. 11.'), all.join('\n'));
+  // auto půjčené ve městě (puCity – pickup zůstává kód letiště): vyzvednutí až pod cestou z letiště, ne nad ní
+  const wc = { ...t, car: { mode: 'manual', totalCzk: 2000, pickup: 'VIE', dropoff: 'VIE', from: '2026-11-05T09:00', to: '2026-11-11T08:10', age: 30, puCity: { name: 'Vídeň', lat: 48.2082, lon: 16.3738, cc: 'AT' } } };
+  const rc = rows(render(c, wc)), iR = rc.findIndex((x) => /Z letiště VIE → Vídeň/.test(x)), iC = rc.findIndex((x) => /Vyzvednutí auta/.test(x));
+  assert.ok(iR >= 0 && iC > iR, rc.join('\n'));
+  // boční panel na počítači: program po změně letu uložený, ale neplatný (tripPlan) – ne „naplánováno“
+  assert.match(src('trip.js'), /: tripPlan\(t\) \? 'naplánováno' : 'zatím ne', 0\],/);
 });
 
 test('ubytování „jen odkazy“: v průběhu i poznámkách „zatím nevybráno“; nový hotel / auto zruší ✓ v Co zarezervovat; týž den bez „jen odkazy“', () => {

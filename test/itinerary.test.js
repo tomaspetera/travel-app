@@ -173,6 +173,22 @@ test('✕ v programu (živá data, Lisabon): po každém vyřazení ostatní ve 
   }
 });
 
+test('změna letu (přílet později) s keep: místa zkráceného nebo zrušeného dne příletu se přesunou, nevypadnou', () => {
+  const pool = places(LIS_PLACES);
+  const opts = { center: LIS, start: '2026-11-12', end: '2026-11-15', pace: 'normal', arrivalTime: '09:05', interests: {} };
+  const r0 = planItinerary(pool, opts);
+  const top = r0.days[0].items[0].id;
+  const keep = Object.fromEntries(dayOf(r0));
+  for (const arr of ['13:30', '18:30']) {
+    const r1 = planItinerary(pool, { ...opts, arrivalTime: arr, keep });
+    const after = dayOf(r1);
+    assert.ok(after.has(top), `${arr}: nejznámější místo dne příletu zůstalo (${top})`);
+    // ostatní dny: místa zůstala ve svých dnech
+    for (const [id, d] of dayOf(r0)) if (d !== opts.start && after.has(id)) assert.equal(after.get(id), d, `${arr}: ${id}`);
+    for (const d of r1.days.filter((x) => x.kind === 'city')) assert.ok(d.minutes <= d.cap * 1.1 || d.items.length === 1, `${arr} ${d.date}: ${d.minutes}/${d.cap}`);
+  }
+});
+
 test('✕ v programu: místo ne v den, kdy je zavřené (Louvre v úterý), i když ho keep do toho dne dá', () => {
   const PAR = { lat: 48.8566, lon: 2.3522 };
   const pool = [
