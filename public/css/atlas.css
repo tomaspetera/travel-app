@@ -277,6 +277,8 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 .section-head{display:flex;align-items:center;justify-content:space-between;margin:26px 2px 14px}
 .section-head[hidden],.stat-grid[hidden]{display:none}
 .trip-grid.past .trip{opacity:.88} /* ztlumené, ale odkazy čitelné (při .78 jen 3,6–4 : 1) */
+/* Smazat cestu v detailu cesty: ve světlém režimu tmavší červená (světlá růžová měla na bílé ~2,7 : 1) */
+.trip-del{color:var(--bad);border-color:rgba(251,113,133,.3)}[data-theme="light"] .trip-del{color:#be123c}
 .nt-name{font-size:.62em;line-height:1.2;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 .nt-open{font-size:12.5px;margin-top:6px}
 /* 📍 Dnes na cestě – karta nahoře na Přehledu (app.js nowCard); na telefonu kompaktní, dlouhé texty se zalomí */

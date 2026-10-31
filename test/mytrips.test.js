@@ -30,6 +30,10 @@ test('myTrips: cesta z průvodce se otevře v průvodci (rozpracovaná zpět do 
   // cesta naposledy otevřená v průvodci, která proběhla: mezi Proběhlé, nahoře žádná karta „v průvodci“
   assert.match(fn, /curPast = Boolean\(cur0 && end\(cur0\) && end\(cur0\) < now\);\s*const cur = curPast \? null : cur0;/);
   assert.match(fn, /: a && !curPast \? `<div class="card trip" data-mcur="1">/);
+  // neuložená cesta kamaráda z odkazu: „sdílená“, ne „rozpracovaná“ ani „Krok Shrnutí“; sestavená vlastní „sestavená“
+  assert.match(fn, /<span class="tt-when">\$\{inf\.shared \? 'sdílená' : inf\.done \? 'sestavená' : 'rozpracovaná'\}<\/span>/);
+  assert.match(fn, /<div class="mt-cur">\$\{inf\.shared \? '🔗 Sdílená cesta z odkazu, zatím neuložená – otevřít a 💾 uložit si ji ›' : curTxt\}<\/div>/);
+  assert.match(read('js/trip.js'), /done: t\.step === 'summary', shared: Boolean\(t\.shared\) \};/);
   assert.match(fn, /📝 Vlastní cesta bez letu/);
   // „Z posledního hledání“ ne, když z toho hledání už je cesta v průvodci (i s jinou nabídkou / termínem)
   assert.match(fn, /if \(pick && S\.trips\.some\(t => t\.dest === pick\.dest && \(t\.start === pick\.start \|\| \(t\.wizard && \(t\.end \|\| t\.start \|\| ''\) >= todayLocal\(\)\)\)\)\) pick = null;/);
@@ -77,7 +81,7 @@ test('Moje cesty místo Plánovače: Trip.mine ukáže seznam i nad rozpracovano
 test('karta cesty otevřené v průvodci: ve Shrnutí „Sestavená“, jinak „Rozpracovaná“ s krokem', () => {
   const app = read('js/app.js');
   assert.match(app, /const curTxt = inf\.done \? '✅ Sestavená v průvodci – otevřít shrnutí ›' : `🧳 Rozpracovaná v průvodci\$\{inf\.step \? ` \(krok \$\{esc\(inf\.step\)\}\)` : ''\} – pokračovat ›`;/);
-  assert.match(read('js/trip.js'), /step: \(STEPS\.find\(x => x\[0\] === t\.step\) \|\| STEPS\[0\]\)\[2\], done: t\.step === 'summary' \};/);
+  assert.match(read('js/trip.js'), /step: \(STEPS\.find\(x => x\[0\] === t\.step\) \|\| STEPS\[0\]\)\[2\], done: t\.step === 'summary', shared: Boolean\(t\.shared\) \};/);
   // tlačítka pod seznamem jako v úvodu Cesty
   assert.match(read('css/trip.css'), /\.mt-more \.btn\{flex:1 1 220px;justify-content:center\}/);
 });

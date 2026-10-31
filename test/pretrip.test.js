@@ -910,11 +910,45 @@ test('vlastní odkaz na cestu otevřený v tomtéž prohlížeči: bez otázky, 
   const c2 = open(other, false);
   assert.equal(await c2.Trip.importFromHash(), false);
   assert.deepEqual([c2.asked, c2.c.S.trip.stay.name], [1, 'U kamaráda']);
-  // bez rozpracovaného (jen vybraný let): sdílená cesta bez otázky, jako výběr letu z výsledků
+  // bez rozpracovaného (jen vybraný let): bez otázky; cesta z odkazu je uložená v Mých cestách → otevře se ta uložená
+  // (i s odškrtnutými rezervacemi), ne další neuložená kopie
   const d = open({ ...tokyo(), created: 5 }, false);
   assert.equal(await d.Trip.importFromHash(), true);
-  assert.deepEqual([d.asked, d.c.S.trip.stay.name, plain(d.c.S.trip.booked)], [0, 'Hotel Sakura', {}]);
-  assert.notEqual(d.c.S.trip.created, 5);
+  assert.deepEqual([d.asked, d.c.S.trip.stay.name, plain(d.c.S.trip.booked), d.c.S.trip.created], [0, 'Hotel Sakura', { flight0: true }, t.created]);
+  // bez uložené kopie: sdílená cesta bez otázky, jako výběr letu z výsledků
+  const e = open({ ...tokyo(), created: 5 }, false);
+  e.c.S.trips = [];
+  assert.equal(await e.Trip.importFromHash(), true);
+  assert.deepEqual([e.asked, e.c.S.trip.stay.name, plain(e.c.S.trip.booked)], [0, 'Hotel Sakura', {}]);
+  assert.notEqual(e.c.S.trip.created, 5);
+});
+
+test('odkaz kamaráda na cestu, kterou už mám uloženou v Mých cestách: otevře uloženou, ne další neuloženou kopii', async () => {
+  const a = wizard(memStorage());
+  a.c.S.trip = { ...tokyo(), stay: { mode: 'pick', id: 'h1', name: 'Hotel Sakura', totalCzk: 20000, url: 'https://hotel.example/s' } };
+  a.Trip.render();
+  await a.els['#sumShare'].onclick();
+  const hash = a.c.copied[0].slice(a.c.copied[0].indexOf('#'));
+  // příjemce: odkaz otevře a uloží si ho
+  const st = memStorage(), b = wizard(st, hash);
+  b.c.confirm = () => true;
+  assert.equal(await b.Trip.importFromHash(), true);
+  assert.ok(b.c.S.trip.shared, 'poprvé sdílená');
+  b.Trip.render();
+  b.els['#sumSave'].onclick();
+  assert.equal(b.c.S.trips.length, 1);
+  const id = b.c.S.trips[0].tripId;
+  // mezitím plánuje vlastní cestu (Milán s ubytováním) a odkaz otevře znovu
+  const c = wizard(st, hash);
+  c.c.S.trips = JSON.parse(JSON.stringify(b.c.S.trips));
+  c.c.S.trip = { ...tokyo(), flight: { ...tokyo().flight, out: { ...tokyo().flight.out, to: 'MXP', date: '2099-03-01' } }, dest: { label: 'Milán' }, stay: { mode: 'manual', name: 'U Luigiho', totalCzk: 3000 }, created: 77 };
+  let asked = 0;
+  c.c.confirm = () => { asked++; return true; };
+  assert.equal(await c.Trip.importFromHash(), true);
+  assert.deepEqual([c.c.S.trip.created, Boolean(c.c.S.trip.shared), c.c.location.hash], [id, false, '#trip'], 'otevřená uložená cesta');
+  // Tokio v Mých cestách jednou; rozpracovaný Milán se před opuštěním uložil (leaveTrip), nezmizel
+  assert.deepEqual(c.c.S.trips.map((x) => x.tripId).sort(), [77, id].sort());
+  assert.equal(asked, 0, 'Milán se uložil sám (leaveTrip) – bez otázky „Nahradit jí tvoji rozpracovanou cestu?“');
 });
 
 test('novější odkaz na tutéž cestu (spolucestující poslal program a odškrtnutí): otázka, po souhlasu nová verze se starými rezervacemi i časem založení', async () => {

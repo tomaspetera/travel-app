@@ -219,14 +219,19 @@
    * (v UTC by se posunula).
    */
   function remindEvent(w, { appUrl = '', now = Date.now() } = {}) {
-    const c = num(w && w.best && w.best.czk), at = num(w && w.checked);
+    const n = new Date(now), today = `${n.getFullYear()}-${pad2(n.getMonth() + 1)}-${pad2(n.getDate())}`;
+    // nejlevnější nabídka už odletěla (karta ji škrtá „⌛ termín už proběhl“): do kalendáře ani její cenu, ani termín –
+    // připomínka by týdny lákala na let, který koupit nejde
+    const gone = Boolean(w) && bestGone(w, today);
+    const c = gone ? 0 : num(w && w.best && w.best.czk), at = num(w && w.checked);
     const d = at && new Date(at);
-    const price = c ? `Poslední nejnižší cena: ${Math.round(c).toLocaleString('cs-CZ')} Kč/os.${d ? ` (viděna ${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()})` : ''}` : 'Cenu jsem zatím nezjistil.';
+    const price = c ? `Poslední nejnižší cena: ${Math.round(c).toLocaleString('cs-CZ')} Kč/os.${d ? ` (viděna ${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()})` : ''}`
+      : gone ? 'Nejlevnější nalezený let už odletěl – aktuální cenu zjistím při příštím otevření.' : 'Cenu jsem zatím nezjistil.';
     const url = appUrl ? `${String(appUrl).replace(/#.*$/, '')}#watch=${encodeURIComponent(w.id)}` : '';
     const start = nextMonday9(now);
     return {
       title: `Zkontroluj ceny: ${w.label || 'hlídané hledání'}`,
-      description: [price, w.best && w.best.desc, 'Otevři ATLAS – cenu zkontroluji znovu.'].filter(Boolean).join('\n'),
+      description: [price, !gone && w.best && w.best.desc, 'Otevři ATLAS – cenu zkontroluji znovu.'].filter(Boolean).join('\n'),
       start, durationMin: 15, rrule: `FREQ=WEEKLY;COUNT=${Math.max(1, remindCount(w && w.form, start.slice(0, 10)))}`,
       url, uid: `atlas-watch-${String(w.id).replace(/[^\w.-]/g, '')}`,
     };

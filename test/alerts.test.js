@@ -827,6 +827,13 @@ test('📅 remindEvent: název, popis bez ceny, URL #watch=<id> bez starého # a
   assert.match(ev.description, /^Cenu jsem zatím nezjistil\./);
   assert.equal(ev.tz, undefined, 'plovoucí čas – 9:00 i po změně letního času');
   assert.equal(A.remindEvent({ id: 'x', label: 'A → B' }).url, '', 'bez adresy aplikace bez odkazu');
+  // nejlevnější nabídka už odletěla: v připomínce ani její cena, ani termín (karta ji škrtá „⌛ termín už proběhl“)
+  const w = { id: 'l', label: 'Praha → Lisabon', checked: new Date(2026, 9, 20, 10).getTime(), best: { czk: 2700, desc: 'Lisabon · 28.10.–1.11. · z PRG', dep: '2026-10-28' } };
+  const gone = plain(A.remindEvent(w, { now: new Date(2026, 9, 31, 10).getTime() }));
+  assert.ok(!gone.description.includes('2 700') && !gone.description.includes('28.10.'), gone.description);
+  assert.match(gone.description, /^Nejlevnější nalezený let už odletěl/);
+  const fresh = plain(A.remindEvent(w, { now: new Date(2026, 9, 25, 10).getTime() }));
+  assert.match(fresh.description, /^Poslední nejnižší cena: 2\s700 Kč\/os\. \(viděna 20\. 10\. 2026\)\nLisabon · 28\.10\.–1\.11\. · z PRG/);
 });
 
 test('📅 remindCount: pondělní připomínky jen do odletu (nejvýš 8, po odletu žádná), klouzavý termín 8', () => {
