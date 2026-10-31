@@ -293,3 +293,14 @@ test('den přejezdu Lisabon → Porto: navigace do hotelu v Portu až po příje
   assert.ok(odpo.p.hotel && odpo.p.hotel.name, 'po příjezdu hotel v Portu');
   assert.equal(at(C, t, '2026-10-25T09:22:00Z').p.hotel?.name, at(C, t, '2026-10-24T12:00:00Z').p.hotel?.name, 'jiné dny beze změny');
 });
+
+test('🚆 čas vlaku zapsaný v Mých cestách platí i v kalendáři ze Shrnutí (dřív přejezd vždy v 11:00)', () => {
+  const t = porto(); // uložená cesta s vlakem Lisabon → Porto v 10:42
+  C.S.trips = [t];
+  const w = C.window.Trip.sanitizeTrip(plain({ ...t.wizard, created: t.tripId }));
+  const ev = plain(C.window.Trip.calendarEvents(w)).find((e) => /Přejezd Lisabon → Porto/.test(e.title));
+  assert.equal(ev.start, '2026-10-26T10:42');
+  C.S.trips = [];
+  const ev0 = plain(C.window.Trip.calendarEvents(w)).find((e) => /Přejezd Lisabon → Porto/.test(e.title));
+  assert.equal(ev0.start, '2026-10-26T11:00', 'bez zapsaného času odhad po check-outu');
+});
