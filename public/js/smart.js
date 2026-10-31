@@ -710,6 +710,9 @@
     take(new RegExp(`(?:co|kam|jak)\\s+(?:videt|navstivit|delat|zazit|podniknout|stoji\\s+za\\s+to|jit|zajit)${W}|(?:zajimav\\w*|tipy|tip|doporuceni)${W}`), () => {});
     take(new RegExp(`(\\d{1,3})\\s*km${W}`), m => { km = +m[1]; });
     take(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:den|dny|dni|dnu)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 14)) return false; days = n; });
+    // „na den“ = 1 den; „procházka po Budapešti“ – procházka není místo (místo je za „po“)
+    take(new RegExp(`na\\s+(?:jeden\\s+)?den${W}`), () => { days = days || 1; });
+    take(new RegExp(`(?:na\\s+)?(?:prochazk\\w*|prochazet|projit\\s+se)${W}`), () => {});
     // víkend bez data („Porto na víkend“): od soboty nejbližšího víkendu (prodloužený od pátku), „příští víkend“ o týden dál
     let wk = null;
     take(new RegExp(`(?:(?:na|o|pres)\\s+)?(?:(pristi|dalsi|tento|tenhle|nejblizsi)\\s+)?(?:prodlouzen\\w+\\s+)?vikend\\w*${W}`), m => {

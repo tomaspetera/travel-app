@@ -609,3 +609,11 @@ test('svátky a délka: „na Štědrý den“ = Vánoce, „na státní svátek
   // Dušičky: ne místo
   assert.deepEqual(P('na Dušičky').to, []);
 });
+
+test('Objevuj větou: „na den“ = 1 den, „procházka po Budapešti“ – místo je Budapešť, ne „procházka“', () => {
+  const E = (q) => JSON.parse(JSON.stringify(Smart.parseExplore(q, { today: '2026-10-31' })));
+  assert.deepEqual([E('Drážďany s dětmi na den').days, E('Drážďany s dětmi na den').place], [1, 'Drážďany']);
+  assert.deepEqual([E('na den do Vídně').days, E('na den do Vídně').place], [1, 'Vídně']);
+  assert.equal(E('Praha na 3 dny').days, 3, 'počet dní dál přednost');
+  assert.equal(E('procházka po Budapešti').place, 'Budapešti');
+});
