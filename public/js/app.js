@@ -804,7 +804,10 @@ function nowWxFetch(pts, now) {
   const cache = nwxLoad(), need = pts.filter(q => { const d = (cache[Weather.key(q.lat, q.lon)] || {})[q.date]; return !Array.isArray(d) || !(now - d[4] < NWX_TTL); });
   if (!need.length) return;
   nwxBusy = true;
-  Weather.forecast(need.map(q => ({ lat: q.lat, lon: q.lon, date: q.date })), { now: new Date(now) }).then(res => {
+  // telefon na pražském čase v Lisabonu po půlnoci: v cíli je ještě včera (den karty) – rozsah předpovědi od dne cíle,
+  // jinak by Weather den „v minulosti“ vynechal a počasí mezi 0 a 1 h z karty zmizelo
+  const first = need.map(q => q.date).sort()[0], dn = first < fmtYMD(new Date(now)) ? new Date(`${first}T12:00:00`) : new Date(now);
+  Weather.forecast(need.map(q => ({ lat: q.lat, lon: q.lon, date: q.date })), { now: dn }).then(res => {
     const at = now; // okamžik vykreslení karty (s ním se pak porovnává stáří)
     res.forEach((w, k) => { if (w) { const key = Weather.key(need[k].lat, need[k].lon); cache[key] = { ...(cache[key] || {}), [need[k].date]: [w.code, w.hi, w.lo, w.pop, at] }; } });
     if (!res.some(Boolean)) { nwxFail = at; return; }

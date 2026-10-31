@@ -242,6 +242,12 @@ test('🌤️ stažení předpovědi: jeden dotaz na Open-Meteo pro všechna mí
   assert.equal(calls.length, 1);
   assert.deepEqual(plain(off.nowWx(d.p.wx, off.nwxLoad(), d.n + 3 * 36e5, { tz: 'Europe/Lisbon', offline: true })), {
     rows: [{ name: 'Lisabon', tag: 'dnes', w: { code: 1, hi: 22, lo: 15, pop: 10 } }, { name: 'Porto', tag: 'dnes', w: { code: 61, hi: 19, lo: 13, pop: 70 } }], from: '9:22' });
+  // telefon na pražském čase v cíli o hodinu dál na západ po půlnoci: den karty je včera podle zařízení – i tak dotaz
+  const y = load({ fetch, storage: {} });
+  y.nowWxFetch([{ lat: 38.7223, lon: -9.1393, date: '2026-10-25', name: 'Lisabon', tag: 'dnes' }], Date.parse('2026-10-26T00:30:00Z'));
+  await tick();
+  assert.equal(new URL(calls.at(-1)).searchParams.get('start_date'), '2026-10-25', calls.at(-1));
+  calls.pop();
   // bez míst (po návratu, cesta jen z plánovače) žádný dotaz
   c.nowWxFetch([], d.n + 3 * 36e5);
   assert.equal(calls.length, 1);
