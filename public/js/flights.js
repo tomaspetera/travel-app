@@ -4119,6 +4119,8 @@
     // stejné hledání podruhé (♡ pod formulářem i v „Je to dobrá cena?“) jen aktualizuje cenu té, co už je
     const r = Alerts.upsertWatch(S.watch || [], w, watchKey, { now: Date.now(), cap: 12, partial: Alerts.incomplete(res.providers) });
     S.watch = r.list; save();
+    // výzva „Tohle hledáš už po 3. – ♡ Hlídat cenu“ po uložení (i přes ♡ pod formulářem) pryč – hledání už se hlídá
+    nudge = null; document.querySelectorAll('.watch-nudge').forEach(el => el.remove());
     updateWatchBadges(); updateWatchBtn();
     toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : roll ? `Hlídám na Přehledu, dokud máš ATLAS otevřený – termín se posouvá s časem (${Alerts.rollTxt(wf, today(), { now: false })})` : 'Hledání uloženo – cenu hlídám na Přehledu, dokud máš ATLAS otevřený');
   }

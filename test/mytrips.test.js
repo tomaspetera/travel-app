@@ -108,3 +108,7 @@ test('karta cesty: lidé, aktivity a balení v jednom řádku s rozpočtem (na �
   assert.match(css, /\.trip-body \.bar>span:last-child:not\(:first-child\)\{margin-left:auto\}/, 'jen rozpočet vpravo – sám řádek s lidmi vlevo');
   assert.match(read('css/desktop-explore.css'), /\.mt-more \.btn\{flex:0 1 auto;padding-inline:20px\}/, 'počítač: tlačítko podle popisku');
 });
+
+test('„🧳 Otevřít v průvodci“ z detailu cesty, která v průvodci je: průvodce, ne zase seznam Moje cesty', () => {
+  assert.match(read('js/trip.js'), /if \(mine && mine\.created === id\) \{ mineFor = null; go\('trip'\); render\(\); return true; \}/);
+});

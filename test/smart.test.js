@@ -765,3 +765,15 @@ test('hledání větou: rodina 2+2, „do 2,5 tisíce“, „odlet 28. prosince,
   const d = P('odlet 28. prosince, návrat 3.1.', T).patch;
   assert.deepEqual([d.xOut, d.xBack], ['2026-12-28', '2027-01-03']);
 });
+
+test('„tento měsíc“ v posledních dnech měsíce: nejbližší týden, ne jen dnešek', () => {
+  const p = P('kamkoliv do 3000 tento měsíc', '2026-10-31').patch;
+  assert.deepEqual([p.dFrom, p.dTo], ['2026-10-31', '2026-11-06']);
+  const q = P('kamkoliv tento měsíc', '2026-10-10').patch;
+  assert.deepEqual([q.dFrom, q.dTo], ['2026-10-10', '2026-10-31'], 'jinak do konce měsíce');
+});
+
+test('rozpočet u víc lidí: štítek „/os.“ (cena v hledání je na osobu)', () => {
+  assert.ok(chips(P('rodina 2+2 k moři do 15 tisíc', '2026-10-31')).includes('do 15 000 Kč/os.'));
+  assert.ok(chips(P('Londýn do 5000', '2026-10-31')).includes('do 5 000 Kč'), 'bez lidí beze změny');
+});

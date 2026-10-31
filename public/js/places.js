@@ -1397,12 +1397,21 @@
     const arr = [t.arrivalTime, nowArr].filter(x => /^\d\d:\d\d$/.test(x || '')).sort().pop();
     return { ...t, ...(arr ? { arrivalTime: arr } : {}) };
   }
+  /** Místo p patří k cestě z průvodce (rozpracované nebo uložené), ve které je zvoleno „Auto nepotřebuji“. */
+  function carSkipFor(p) {
+    if (!p || typeof S === 'undefined') return false;
+    const k = normDest(p.label);
+    const ws = [S.trip, ...(S.trips || []).map(t => t && t.wizard)].filter(w => w && typeof w === 'object' && w.car && w.car.mode === 'skip');
+    return ws.some(w => { try { return wizPlaces(w, w.flight && w.flight.out && w.flight.out.date).some(x => normDest(x.label) === k); } catch (e) { return false; } });
+  }
   // o.start / o.days: termín z cesty jen tam, kde ho věta („Lisabon na 3 dny“) sama neurčila
   function openPlace(s, o = { start: true, days: true }) {
     const prev = ex.tripHint;
     setPlace(s);
     const td = !s.geo && tripDatesFor(ex.place);
     ex.tripHint = td ? { label: ex.place.label, ...td } : null;
+    // cesta s „Auto nepotřebuji“: výlety a okruh vlakem a busem, ne autem (dřív „🚗 Navigovat ve Waze“ bez auta)
+    if (td && carSkipFor(ex.place)) ex.transport = 'transit';
     if (td && o.start) { ex.start = td.from; ex.datePicked = true; }
     // jiné místo bez cesty: termín cesty (Lisabon 12.–17. 11.) nepřenášet – IDOS do Brna by hledal na den odletu do Lisabonu
     else if (!td && prev && ex.datePicked && ex.start === prev.from) { ex.start = plusDays(fmtYMD(new Date()), 1); ex.datePicked = false; }
@@ -2037,6 +2046,12 @@
     return list.findIndex(t => t && t.start && e.start >= t.start && e.start <= (t.end || t.start)
       && (normDest(t.dest) === k || (t.wizard && typeof t.wizard === 'object' && savedPlaces(t).some(p => normDest(p.label) === k))));
   };
+  /** Dny celodenního výsledku e (výlety, túry, kolo – ne program města), které v cestě t už mají jiný program. */
+  function busyDays(t, e) {
+    if (!t || !e || e.src === 'city' || !e.days || !t.days || typeof t.days !== 'object') return [];
+    const mine = (t.explore && t.explore[e.src]) || {};
+    return Object.keys(e.days).filter(d => (Array.isArray(t.days[d]) ? t.days[d] : []).some(x => !(Array.isArray(mine[d]) && mine[d].includes(x)))).sort();
+  }
   /**
    * Přidá řádky dnů (bez opakování), prodlouží konec a připíše poznámky; vrátí počet nových řádků. Řádky, které do cesty
    * dřív uložil stejný druh výsledku (t.explore[src]), nejdřív odebere – přeplánovaný program nahradí ten starý, místo
@@ -2864,6 +2879,7 @@
       const entry = entryOf();
       const i = asNew ? -1 : findTripFor(S.trips, entry);
       let t = S.trips[i];
+      const busy = t ? busyDays(t, entry) : [];
       if (t) mergeInto(t, entry);
       else S.trips.push(t = { ...entry, explore: { [entry.src]: entry.days }, exploreNotes: { [entry.src]: entry.notes }, genName: entry.name, pax: '2', budget: '', checklist: packFor(entry.src).map(x => ({ t: x, done: false })) });
       save();
@@ -2871,7 +2887,10 @@
       const sv = $('#exSave', body);
       if (sv) sv.textContent = '✓ Uloženo';
       $('#exSaveNew', body)?.remove();
-      actToast(i >= 0 ? `Přidáno k cestě ${t.name}` : 'Uloženo do Mých cest', 'Otevřít v Mých cestách', () => {
+      // celodenní výlet / túra / kolo do dne, který už má program (město z průvodce nebo z Objevuj): říct to – oboje
+      // ten den nestihneš (dřív tiše výlet i celý program města v jednom dni)
+      const warn = busy.length ? ` · pozor, ${busy.map(dayLbl).join(', ')} už ${busy.length > 1 ? 'mají' : 'má'} program – uprav ho v Mých cestách` : '';
+      actToast(i >= 0 ? `Přidáno k cestě ${t.name}${warn}` : 'Uloženo do Mých cest', 'Otevřít v Mých cestách', () => {
         go('planner');
         setTimeout(() => { const j = S.trips.indexOf(t); if (j >= 0 && typeof openTrip === 'function') openTrip(j); }, 250);
       });
@@ -2913,7 +2932,7 @@
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
-      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo, planTimes, tripTimes, roadSpan,
+      plannerEntry, findTripFor, mergeInto, busyDays, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo, planTimes, tripTimes, roadSpan, carSkipFor,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
       countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,
       makeHikePlan, hikePlanHtml, hikeDayHtml, rainTxt, kidsTxt, foodTxt, startTxt, isRural, HIKE_KINDS, curKey, keyKind },

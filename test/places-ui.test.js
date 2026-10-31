@@ -681,6 +681,16 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   assert.match(long, /…<\/button>/);
 });
 
+test('výlety do dnů, které už mají program: upozornění (busyDays) – vlastní řádky stejného druhu se nepočítají', () => {
+  const TB = load({ byIso: {} }).window.Places._t;
+  const t = { days: { '2026-11-21': ['Koloseum', 'Forum'], '2026-11-22': ['⛪ Tivoli (příjezd ~10:00)'] }, explore: { 'day-car': { '2026-11-22': ['⛪ Tivoli (příjezd ~10:00)'] } } };
+  const e = { src: 'day-car', days: { '2026-11-21': ['🏰 Ostia'], '2026-11-22': ['⛪ Tivoli (příjezd ~10:00)'], '2026-11-23': ['🏖️ Sperlonga'] } };
+  assert.deepEqual(plain(TB.busyDays(t, e)), ['2026-11-21'], 'den s programem města; přeplánovaný výlet ne');
+  assert.deepEqual(plain(TB.busyDays(t, { ...e, src: 'city' })), [], 'program města sám sebe nehlásí');
+  assert.deepEqual(plain(TB.busyDays({ days: null }, e)), []);
+  assert.match(src('places.js'), /pozor, \$\{busy\.map\(dayLbl\)\.join\(', '\)\} už \$\{busy\.length > 1 \? 'mají' : 'má'\} program/);
+});
+
 test('„Najít lety sem“: místo jako cíl letů, termín jen vybraný v Objevuj', () => {
   const TF = T;
   assert.deepEqual(plain(TF.flyTarget({ ...BCN_C, label: 'Barcelona' })), { id: 'geo:41.3874,2.1686|Barcelona', label: 'Barcelona', flag: '🇪🇸', type: 'place' });
@@ -1272,6 +1282,18 @@ test('Objevuj: místo, kam jedeš – termín programu podle cesty (od příjezd
   assert.match(js, /const hint = \(\) => \{ try \{ const td = tripDatesFor\(r\.place\); if \(td\) ex\.tripHint = \{ label: r\.place\.label, \.\.\.td \}; \}/);
   // cesta jen v Mých cestách: konec a časy až s trip.js – po jeho načtení termín znovu (a překreslit, když se změnil)
   assert.match(js, /Lazy\.need\('trip'\)\.then\(\(\) => \{\s*if \(ex\.place !== r\.place\) return;\s*const was = JSON\.stringify\(ex\.tripHint \|\| null\);\s*hint\(\);/);
+});
+
+test('Objevuj: místo cesty s „Auto nepotřebuji“ – výlety vlakem a busem (carSkipFor)', () => {
+  const wiz = (car) => ({ flight: { out: { date: '2099-05-10' } }, dest: { label: 'Řím', lat: 41.9, lon: 12.5, cc: 'IT', country: 'Itálie' }, car });
+  const C = load({ byIso: { IT: { cs: 'Itálie' } }, S: { trip: wiz({ mode: 'skip' }), trips: [] } });
+  assert.equal(C.window.Places._t.carSkipFor({ label: 'Řím' }), true);
+  assert.equal(C.window.Places._t.carSkipFor({ label: 'Milán' }), false, 'jiné místo');
+  const D = load({ byIso: { IT: { cs: 'Itálie' } }, S: { trip: null, trips: [{ wizard: wiz({ mode: 'manual', totalCzk: 2000 }) }, { wizard: wiz({ mode: 'skip' }) }] } });
+  assert.equal(D.window.Places._t.carSkipFor({ label: 'řím' }), true, 'uložená cesta v Mých cestách');
+  const E = load({ byIso: { IT: { cs: 'Itálie' } }, S: { trip: wiz(null), trips: [] } });
+  assert.equal(E.window.Places._t.carSkipFor({ label: 'Řím' }), false, 'auto zatím nevybrané: beze změny');
+  assert.match(src('places.js'), /if \(td && carSkipFor\(ex\.place\)\) ex\.transport = 'transit';/);
 });
 
 test('Objevuj: fotka místa leží přes ikonu druhu – když se nenačte (slabý signál), je vidět ikona, ne šedý čtverec', () => {
