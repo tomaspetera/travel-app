@@ -1550,10 +1550,18 @@ function roundRobin(lists) {
 // let tam s různými návraty a dražší přímé lety by se do výpisu nedostaly). Vždy i nejlevnější nabídka z každého
 // letiště („Odkud se vyplatí letět“ – po klepnutí na letiště ve výpisu je ta cena, kterou karta ukazuje).
 // Průběžný náhled: max nejlevnějších a perDay na den.
-function topWithDays(flat, { exact = false, max = 60, perDay: dayMax = 3 } = {}) {
+export function topWithDays(flat, { exact = false, max = 60, perDay: dayMax = 3, perDest: destMax = 5 } = {}) {
   const picked = new Set(flat.slice(0, max));
   const homes = new Set();
   for (const t of flat) { const k = homeOf(t); if (k && !homes.has(k)) { homes.add(k); picked.add(t); } }
+  // hledání do víc míst (Řím + Barcelona + Lisabon, „k moři v prosinci“): z každého cíle pár nejlevnějších – jinak
+  // 60 nejlevnějších celkem mohlo být jen z levnějších cílů, dražší cíl ve výpisu chyběl a štítek „od“ ukazoval cenu,
+  // kterou seznam neměl
+  const perDest = new Map();
+  for (const t of flat) {
+    const n = perDest.get(t.destKey) || 0;
+    if (t.destKey && n < destMax) { picked.add(t); perDest.set(t.destKey, n + 1); }
+  }
   const perDay = new Map();
   for (const t of flat) {
     const n = perDay.get(t.out.date) || 0;

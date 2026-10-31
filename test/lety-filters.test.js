@@ -25,3 +25,27 @@ test('štítky cílů nad výpisem („Hurghada od 4 748 Kč“) ukazují nejlev
   const of = new Function('g', `return ${m[1]};`);
   assert.equal(of({ vis: [{ perPersonCzk: 4157 }, { perPersonCzk: 4083 }, { perPersonCzk: 5200 }] }), 4083);
 });
+
+test('hledání do víc míst: výpis drží z každého cíle pár nejlevnějších (dřív dražší cíl mezi 60 nejlevnějšími chyběl)', async () => {
+  const { topWithDays } = await import('../server/lib/search.js');
+  const offer = (destKey, czk, day) => ({ destKey, perPersonCzk: czk, out: { date: `2026-12-${String(day).padStart(2, '0')}`, from: 'PRG' } });
+  // 70 levných do Říma a Barcelony (po 3 na den je jich dost), Lisabon až za nimi
+  const flat = [];
+  for (let i = 0; i < 70; i++) flat.push(offer(i % 2 ? 'city:FCO' : 'city:BCN', 900 + i, 1 + (i % 25)));
+  for (let i = 0; i < 8; i++) flat.push(offer('city:LIS', 1900 + i, 1 + i));
+  flat.sort((a, b) => a.perPersonCzk - b.perPersonCzk);
+  const top = topWithDays(flat);
+  assert.equal(top.filter((t) => t.destKey === 'city:LIS').length, 5, 'pět nejlevnějších do Lisabonu');
+  assert.equal(top.find((t) => t.destKey === 'city:LIS').perPersonCzk, 1900, 'štítek „Lisabon od 1 900“ je ve výpisu');
+});
+
+test('konkrétní cíl: skupiny (hlavička, štítky „od“, Mapa) z nabídek výpisu; nadpis karet podle řazení; mapa s nejnižší cenou', () => {
+  assert.match(src, /const top = res\.mode === 'route' && \(res\.top \|\| \[\]\)\.length \? res\.top : null;/);
+  assert.match(src, /visibleTrips\(top \? top\.filter\(t => t\.destKey === g\.dest\.key\) : g\.options\)/);
+  assert.match(src, /date: '📅 Nejdřívější odlet', near: '📍 Nejblíž', far: '🌍 Nejdál' \}\[view\.sort\] \|\| '💸 Nejlevnější teď'/);
+  assert.match(src, /t: g\.vis\.reduce\(\(m, x\) => \(x\.perPersonCzk < m\.perPersonCzk \? x : m\)\)/);
+  // prázdný výpis jen jednou; „nových zemí“ jen u Kamkoliv a zemí; „Hledám jen pro dospělé (2 dospělí)“
+  assert.match(src, /if \(!body\.includes\('class="empty"'\) && /);
+  assert.match(src, /aerolinek\$\{isRoute \? '' : ', nových zemí'\}/);
+  assert.match(src, /Hledám jen pro dospělé \(\$\{esc\(SearchHelp\.paxTxt\(lastForm\)\)\}\)/);
+});
