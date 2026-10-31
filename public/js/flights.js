@@ -4353,8 +4353,11 @@
     // pevný termín může být stejné hledání jako jiné hlídání (a naopak) – dvakrát totéž ne
     const k = watchKey({ ...w, form });
     if ((S.watch || []).some(x => x !== w && watchKey(x) === k)) { toast('Tohle hledání už hlídáš v jiné kartě', 'err'); return renderWatch(); }
-    // jiný termín = jiné ceny: první kontrola nového termínu je nový základ, ne zlevnění / zdražení (Alerts.rebaseWhy)
-    if (watchKey({ ...w, form: { ...w.form } }) !== k || was) w.rebNext = 'term';
+    // jiný termín = jiné ceny: první kontrola nového termínu je nový základ, ne zlevnění / zdražení (Alerts.rebaseWhy).
+    // Porovnávají se dnešní data obou (vypnutí 📅 nechá dnešní termín, zapnutí u budoucího rozsahu dá dnes tentýž) –
+    // jinak by i beze změny termínu další skutečné zlevnění spolkl „nový termín“
+    const eff = f => { const { roll: r0, ...x } = Alerts.rollForm(f, t); return watchKey({ ...w, form: x }); };
+    if (eff(w.form) !== eff(form) || was) w.rebNext = 'term';
     w.form = form; w.sub = watchSub(watchForm(w)); save(); renderWatch();
     toast(on ? `📅 Termín se posouvá s časem – ${Alerts.rollTxt(form, t)}` : `Termín zůstane ${fmtDate(fixed.dFrom)}–${fmtDate(fixed.dTo)}`);
     if (on && was) checkWatch(id);
