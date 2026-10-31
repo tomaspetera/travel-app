@@ -1957,9 +1957,13 @@
       t.days[d] = t.days[d].filter(x => keep.has(x) || !lines.includes(x));
       if (!t.days[d].length) delete t.days[d];
     }
+    // program ve městě: místo, které cesta už má v jiný den (program z průvodce „Koloseum – otevřeno 9–19“, místo trasy
+    // „Řím: Koloseum“), se nepřidá podruhé – dřív „Přidat k cestě“ dalo totéž místo do dne 1 i 2
+    const key = x => String(x).replace(/^[^:]{1,40}: /, '').replace(/ – .*$/, '').replace(/[<>"'`’]/g, '').trim().toLowerCase();
+    const known = e.src === 'city' ? new Set(Object.values(t.days).flatMap(v => (Array.isArray(v) ? v.map(key) : []))) : new Set();
     for (const [d, lines] of Object.entries(e.days)) {
       const have = t.days[d] || [];
-      const add = lines.filter(x => !have.includes(x));
+      const add = lines.filter(x => !have.includes(x) && !known.has(key(x)));
       if (add.length) { t.days[d] = [...have, ...add]; added += add.filter(x => !had.has(`${d}\n${x}`)).length; }
     }
     if (e.src) t.explore = { ...(t.explore && typeof t.explore === 'object' ? t.explore : {}), [e.src]: e.days };
