@@ -79,7 +79,7 @@ test('Doporučení a Země: tečky = ceny na místě (popisek, viditelná stupni
   assert.match(app, /function costDots\(n\) \{ return `<span class="dots warm" role="img" title="Ceny na místě: \$\{n\} z 5 \(1 = levné, 5 = drahé\)" aria-label="Ceny na místě: \$\{n\} z 5">/);
   assert.match(app, /\$\{months \? `<span title="Nejlepší měsíce na cestu">☀️ \$\{months\}<\/span>` : ''\}/);
   assert.match(app, /<div class="meta">\$\{costDots\(c\.cost\)\}<span title="Nejlepší měsíce na cestu">☀️ \$\{monthRanges\(c\.months\)\}<\/span><\/div>/, 'karta Doporučení');
-  assert.match(read('index.html'), /<span class="faint" style="font-size:12px">číslo = jak se hodí teď · ● ceny · ☀️ sezóna<\/span>/);
+  assert.match(read('index.html'), /<span class="faint" style="font-size:12px" id="recSub">číslo = jak se hodí teď · ● ceny · ☀️ sezóna<\/span>/);
   assert.match(read('css/atlas.css'), /\.dest \.dest-panel \.dots i:not\(\.f\)\{background:rgba\(255,255,255,\.32\)\}/);
 });
 

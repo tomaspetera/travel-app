@@ -124,3 +124,16 @@ test('tmavý i světlý režim: den odletu a návratu v kalendáři, „HLEDAT�
   assert.match(ATL, /\.modal-hero:not\(\.ph\) \.mh-bg\{filter:brightness\(\.75\)\}/);
   assert.match(ATL, /\.trip-grid\.past \.trip\{opacity:\.88\}/);
 });
+
+test('světlý režim: značky UNESCO a Wikivoyage u míst v Objevuj čitelné na bílé kartě (dřív žlutá a mátová ~1,7 : 1)', () => {
+  const TRIP = noComments(read('css/trip.css')), PL = read('js/places.js');
+  assert.doesNotMatch(PL, /style="color:var\(--(warn|good)\)"/, 'barva přes třídu – jinak ji světlý režim nepřebije');
+  assert.match(PL, /<b class="poi-unesco">UNESCO<\/b>/);
+  assert.match(PL, /<b class="poi-wv" title=/);
+  const WHITE = { r: 255, g: 255, b: 255, a: 1 };
+  for (const cls of ['poi-unesco', 'poi-wv']) {
+    const m = TRIP.match(new RegExp(`\\[data-theme="light"\\] \\.${cls}[^{]*\\{color:(#[0-9a-f]{6})\\}`));
+    assert.ok(m, `světlá barva .${cls}`);
+    assert.ok(contrast(color(m[1]), WHITE) >= 4.5, `.${cls}: ${contrast(color(m[1]), WHITE).toFixed(2)} : 1`);
+  }
+});

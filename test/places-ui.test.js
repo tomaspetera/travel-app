@@ -598,8 +598,16 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   const trips = [{ name: 'Léto', dest: 'Lisabon', start: '2026-10-12', end: '2026-10-14', days: {} }, { ...plain(city), pax: '2' }];
   assert.equal(TB.findTripFor(trips, day), 1);
   assert.equal(TB.findTripFor(trips, { ...day, dest: ' barcelona ' }), 1, 'velikost písmen a mezery nevadí');
-  assert.equal(TB.findTripFor(trips, { ...day, start: '2026-10-13' }), -1, 'jiný začátek = jiná cesta');
+  // jiný začátek v termínu cesty (12.–14. 10.) = k té cestě (dřív druhá překrývající se cesta); mimo termín nová
+  assert.equal(TB.findTripFor(trips, { ...day, start: '2026-10-13' }), 1, 'den v termínu cesty do stejného místa');
+  assert.equal(TB.findTripFor(trips, { ...day, start: '2026-10-20' }), -1, 'mimo termín = jiná cesta');
   assert.equal(TB.findTripFor([{ dest: 'Barcelona' }, null], day), -1, 'cesta bez data nic');
+  // cesta přes víc míst (z průvodce): den programu Girony v jejím termínu patří k ní, i když cíl cesty je Barcelona
+  const bases = ['Barcelona', 'Girona'].map((name, i) => ({ name, lat: 41.39 + i / 2, lon: 2.17, cc: 'ES', country: 'Španělsko' }));
+  const route = { name: 'Katalánsko', dest: 'Barcelona', start: '2026-10-12', end: '2026-10-16', days: {},
+    wizard: { flight: { out: { date: '2026-10-12' } }, dest: { label: 'Barcelona', lat: 41.39, lon: 2.17, cc: 'ES' }, route: { mode: 'multi', bases } } };
+  assert.equal(TB.findTripFor([trips[0], route], { ...day, dest: 'Girona', start: '2026-10-14' }), 1, 'místo trasy v termínu cesty');
+  assert.equal(TB.findTripFor([trips[0], route], { ...day, dest: 'Sevilla', start: '2026-10-14' }), -1, 'jiné místo ne');
   const t = trips[1];
   assert.equal(TB.mergeInto(t, day), 2);
   assert.equal(TB.mergeInto(t, bike), 1);
@@ -623,6 +631,12 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   const city3 = { ...city, days: { '2026-10-12': [items[1].name, 'Nové místo'], '2026-10-13': [items[0].name] } };
   assert.equal(TB.mergeInto(wz, city3), 1);
   assert.deepEqual(plain(wz.days), { '2026-10-12': [`${items[0].name} – otevřeno 9–19`, 'Nové místo'], '2026-10-13': [`Barcelona: ${items[1].name}`] });
+  // za své (t.explore) Objevuj bere jen řádky, které přidalo: program z průvodce další uložení nesmaže ani nepřesune
+  assert.deepEqual(plain(wz.explore.city), { '2026-10-12': ['Nové místo'] });
+  const pre = { name: 'P', dest: 'Barcelona', start: '2026-10-12', end: '2026-10-14', wizard: {}, days: { '2026-10-12': [items[0].name] } };
+  TB.mergeInto(pre, city);
+  TB.mergeInto(pre, { ...city, days: { '2026-10-13': [items[1].name] } });
+  assert.deepEqual(plain(pre.days), { '2026-10-12': [items[0].name], '2026-10-13': [items[1].name] }, 'řádek z průvodce zůstal na svém dni');
   // stejný název u jiného místa trasy („Porto: …“ u programu Barcelony) není duplicita
   const other = { name: 'O', dest: 'Barcelona', start: '2026-10-12', end: '2026-10-14', wizard: {}, days: { '2026-10-13': [`Porto: ${items[0].name}`] } };
   assert.equal(TB.mergeInto(other, { ...city, days: { '2026-10-12': [items[0].name] } }), 1);
@@ -909,6 +923,13 @@ test('Inspirace: místa rozpracované cesty první („Tvoje cesta“) – jen b
   assert.deepEqual(plain(T.tripPlaces(trip({ flight: { out: { date: '2001-01-01' } } }))), []);
   assert.deepEqual(plain(T.tripPlaces(null)), []);
   assert.deepEqual(plain(T.tripPlaces(trip({ dest: { label: 'Někde', cc: 'IT' } }))), []);
+  // poloha: střed města (cityCenter, jinak město z cesty z letiště), ne letiště cíle (Vídeň 18 km od centra)
+  const vie = { label: 'Vídeň', lat: 48.11, lon: 16.57, cc: 'AT', country: 'Rakousko' };
+  const at = (o) => plain(T.tripPlaces(trip({ dest: vie, ...o })))[0];
+  assert.deepEqual([at({}).lat, at({}).lon], [48.11, 16.57], 'bez středu letiště');
+  assert.deepEqual([at({ arrival: { out: { lat: '48.2', lon: 16.37 } } }).lat, at({ arrival: { out: { lat: '48.2', lon: 16.37 } } }).lon], [48.2, 16.37]);
+  assert.deepEqual([at({ cityCenter: { lat: 48.21, lon: 16.37 }, arrival: { out: { lat: 1, lon: 1 } } }).lat], [48.21], 'střed z průvodce první');
+  assert.deepEqual([at({ cityCenter: { lat: null, lon: 1 } }).lat], [48.11], 'neplatný střed: letiště');
   // trasa přes víc míst: všechna místa (bez opakování, nejvýš 4)
   const bases = ['Řím', 'Florencie', 'Řím', 'Pisa', 'Lucca', 'Siena'].map((name, i) => ({ name, lat: 43 + i / 10, lon: 11, cc: 'IT', country: 'Itálie' }));
   assert.deepEqual(T.tripPlaces(trip({ route: { mode: 'multi', bases } })).map((p) => p.label), ['Řím', 'Florencie', 'Pisa', 'Lucca']);
@@ -1035,7 +1056,7 @@ test('🌍 celá země: skupiny (města, cíle, UNESCO, parky), karty bez XSS, l
   assert.ok(!coast.includes('<img src=x'), 'název escapovaný');
   assert.match(coast, /UNESCO/);
   assert.match(coast, /anglicky<\/span> stunningly beautiful/, 'popis z Wikivoyage označený jako anglický');
-  assert.ok(!T.countryCard(items[2], g('unesco'), { label: 'Řím' }).includes('· <b style="color:var(--warn)">UNESCO'), 've skupině UNESCO se značka neopakuje');
+  assert.ok(!T.countryCard(items[2], g('unesco'), { label: 'Řím' }).includes('· <b class="poi-unesco">UNESCO'), 've skupině UNESCO se značka neopakuje');
   assert.deepEqual(plain(T.countryTarget('IT', 'Itálie')), { id: 'cc:IT', type: 'country', label: 'Itálie', flag: plain(T.countryTarget('IT', 'Itálie')).flag });
   assert.equal(T.countryTarget('CZ', 'Česko'), null, 'celé Česko: bez ✈️ Najít lety sem');
   assert.equal(T.countryTarget('Itálie', 'Itálie'), null);
@@ -1203,13 +1224,28 @@ test('Objevuj: místo, kam jedeš – termín programu podle cesty (od příjezd
   assert.deepEqual(plain(W.window.Places._t.ownPlaces(wt, [], '2026-10-28')).map((x) => [x.from, x.to, x.arr, x.dep]), [['2099-02-01', '2099-02-05', '14:13', '09:35']]);
   W.window.Trip.progSpan = W.Trip.progSpan = () => ({ start: '2099-02-02', end: '2099-02-05', arrivalTime: '00:40', departureTime: null });
   assert.deepEqual(plain(W.window.Places._t.ownPlaces(wt, [], '2026-10-28')).map((x) => [x.arr, x.dep]), [[undefined, undefined]], 'přílet po půlnoci = jiný den');
-  assert.match(js0(), /arrivalTime: '07:30', departureTime: null, \.\.\.tripTimes\(p\) \}/);
+  assert.match(js0(), /arrivalTime: '07:30', departureTime: null, \.\.\.planTimes\(p\) \}/);
+  // program od dneška: první den od teď (server +1,5 h → za půl hodiny), ne od 9:00; pozdější přílet cesty má přednost
+  const PX = load({ byIso: {} }).window.Places._t, at = (h, m) => new Date(2026, 9, 31, h, m);
+  Object.assign(PX.ex, { start: '2026-10-31', days: 2, tripHint: null });
+  assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(15, 20))), { arrivalTime: '14:20' });
+  assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(0, 30))), { arrivalTime: '00:00' }, 'po půlnoci ne 23:30 včerejška');
+  PX.ex.tripHint = { label: 'Brno', from: '2026-10-31', to: '2026-11-01', n: 2, arr: '21:16', dep: '17:35' };
+  assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(15, 20))), { arrivalTime: '21:16', departureTime: '17:35' });
+  assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(23, 0))), { arrivalTime: '22:00', departureTime: '17:35' });
+  PX.ex.start = '2026-11-01'; PX.ex.days = 1; PX.ex.tripHint = null;
+  assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(15, 20))), {}, 'zítra: od 9:00 jako dřív');
   // cesta z plánovače nese i konec (to) – podle něj počet dní programu
   assert.deepEqual(plain(C.savedPlaces({ dest: 'Kodaň', iso: 'DK', start: '2099-08-01', end: '2099-08-03' })).map((p) => [p.from, p.to]), [['2099-08-01', '2099-08-03']]);
   // openPlace: termín z cesty, jen co věta („Lisabon na 3 dny“) sama neurčila; poznámka v Naplánovat
   const js = readFileSync(new URL('../public/js/places.js', import.meta.url), 'utf8');
   assert.match(js, /if \(px\.place\) openPlace\(s, \{ start: !px\.start, days: !px\.days \}\);/);
   assert.match(js, /🧳 Termín tvé cesty: \$\{fmtDate\(th\.from\)\}/);
+  // jiné místo bez cesty termín cesty nepřebírá (IDOS do Brna na den odletu do Lisabonu); po restartu PWA termín i časy znovu
+  assert.match(js, /else if \(!td && prev && ex\.datePicked && ex\.start === prev\.from\) \{ ex\.start = plusDays\(fmtYMD\(new Date\(\)\), 1\); ex\.datePicked = false; \}/);
+  // Inspirace po obnovení na #explore: termíny míst trasy až s trip.js (líně načítaný) – po jeho načtení překreslit
+  assert.match(js, /Lazy\.need\('trip'\)\.then\(\(\) => \{\s*const q = \$\('#exQ', root\);\s*if \(window\.Trip && root\.isConnected && !ex\.place && ex\.radius !== COUNTRY && !\(q && \(q\.value \|\| document\.activeElement === q\)\)\) renderExplore\(root\);/);
+  assert.match(js, /if \(r\.place && !r\.place\.geo\) \{ try \{ const td = tripDatesFor\(r\.place\); if \(td\) ex\.tripHint = \{ label: r\.place\.label, \.\.\.td \}; \}/);
 });
 
 test('Objevuj: fotka místa leží přes ikonu druhu – když se nenačte (slabý signál), je vidět ikona, ne šedý čtverec', () => {
