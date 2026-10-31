@@ -337,9 +337,13 @@
    */
   function retime(t, times) {
     if (tripTimes(t) === times) return '';
-    if (t.car && t.car.mode !== 'skip') { t.car = null; return 'car'; }
-    return t.plan && Array.isArray(t.plan.days) && t.plan.days.some(d => d.items && d.items.length) && !tripPlan(t) ? 'plan' : '';
+    let car = false;
+    if (t.car && t.car.mode !== 'skip') { t.car = null; car = true; }
+    // auto i program: hláška řekne obojí (dřív jen auto – program pak tiše chyběl ve shrnutí)
+    const plan = Boolean(t.plan && Array.isArray(t.plan.days) && t.plan.days.some(d => d.items && d.items.length) && !tripPlan(t));
+    return car && plan ? 'both' : car ? 'car' : plan ? 'plan' : '';
   }
+  const RETIME_TXT = { car: 'zadej znovu auto', plan: 'program uprav v kroku Program', both: 'zadej znovu auto a program uprav v kroku Program' };
   /** Ubytování v jednom místě bez vlastního odkazu (zadaná cena): hledání na Bookingu pro cíl a termín cesty – načtené
    *  nabídky kroku Ubytování po znovuotevření aplikace nebo ve sdílené cestě nejsou. */
   const stayFallbackUrl = t => { const d = stayDates(t); return d.nights >= 1 ? bookingSearch([t.dest.label, t.dest.country].filter(Boolean).join(', '), d.checkin, d.checkout, t) : null; };
@@ -1322,7 +1326,7 @@
         if (!bagOk) t.bags = 'none';
         // jiný čas příletu nebo odletu: program se sestaví znovu, auto s časy podle starého letu zadej znovu
         const rt = retime(t, times);
-        toast(rt === 'car' ? 'Let aktualizován – jiný čas příletu nebo odletu, zadej znovu auto' : rt === 'plan' ? 'Let aktualizován – jiný čas příletu nebo odletu, program uprav v kroku Program' : 'Let aktualizován');
+        toast(rt ? `Let aktualizován – jiný čas příletu nebo odletu, ${RETIME_TXT[rt]}` : 'Let aktualizován');
         // jiný den příletu nebo odletu: hotel vybraný na staré dny neplatí (jako po přepnutí na vlak / bus)
         if (JSON.stringify(stayDates(t)) !== before) {
           staysData = null;
@@ -1393,7 +1397,7 @@
     }
     // program a auto podle starých dní nebo časů příjezdu a odjezdu neplatí
     const rt = retime(t, times);
-    if (rt && !moved) toast(`${msg}. Jiný čas příjezdu nebo odjezdu – ${rt === 'car' ? 'zadej znovu auto' : 'program uprav v kroku Program'}`);
+    if (rt && !moved) toast(`${msg}. Jiný čas příjezdu nebo odjezdu – ${RETIME_TXT[rt]}`);
     persist(); render();
   }
 

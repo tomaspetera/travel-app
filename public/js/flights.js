@@ -4177,7 +4177,8 @@
       + `<path class="ws-dot${lo && both ? ' lo' : ''}" d="${dot(cx, cy)}"/></svg>`;
   }
   /** Řádky vedle grafu: Nejníž (kdy), Teď, změna za týden (šipka) a od uložení. */
-  // old = proběhlý termín nebo odlétlá nabídka: cena je „Naposledy“, bez vývoje za týden (zelené ↓ by lákalo ke koupi)
+  // old = proběhlý termín nebo odlétlá nabídka: cena je „Naposledy“, bez vývoje za týden a „od uložení“ bez zelené
+  // a červené (zelené −13 % u letu, který už odletěl, by lákalo ke koupi)
   function watchLines(w, st, h, own, now, old = false) {
     const since = Alerts.pctChange(w.base ?? h[0]?.czk, st.cur), wk = old ? null : st.week, L = [];
     // po první kontrole je nejnižší cena ta dnešní – stačí „Teď“
@@ -4188,7 +4189,7 @@
       const tip = `${Alerts.dayTxt(wk.at, now)} ${czk(wk.czk)} → teď ${czk(st.cur)} (${Alerts.fmtPct(wk.pct)})`;
       L.push(`<span class="w-wk ${wk.dir === 'down' ? 'good' : wk.dir === 'up' ? 'bad' : ''}" title="${esc(tip)}">${wk.dir === 'down' ? `↓ ${czk(-wk.d)}` : wk.dir === 'up' ? `↑ ${czk(wk.d)}` : '→ beze změny'} ${per}</span>`);
     }
-    if (since != null) L.push(`<span${own ? ` title="${w.rebWhy === 'price' ? 'Ceny jsou teď jen za letenku (doprava na letiště zvlášť) – ceny před tím byly i s ní a s novými se nesrovnávají' : w.rebWhy === 'term' ? 'Termín se posunul – ceny starého termínu se s novými nesrovnávají' : 'Cena se přepočítala po změně 🏠 vlastní ceny na letiště nebo seznamu 🙈 – ceny před tím se s novými nesrovnávají'}"` : ''}>${own ? (w.rebWhy === 'price' ? 'od přepočtu cen' : w.rebWhy === 'term' ? 'od změny termínu' : 'od změny nastavení') : 'od uložení'} <b class="${since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>`);
+    if (since != null) L.push(`<span${own ? ` title="${w.rebWhy === 'price' ? 'Ceny jsou teď jen za letenku (doprava na letiště zvlášť) – ceny před tím byly i s ní a s novými se nesrovnávají' : w.rebWhy === 'term' ? 'Termín se posunul – ceny starého termínu se s novými nesrovnávají' : 'Cena se přepočítala po změně 🏠 vlastní ceny na letiště nebo seznamu 🙈 – ceny před tím se s novými nesrovnávají'}"` : ''}>${own ? (w.rebWhy === 'price' ? 'od přepočtu cen' : w.rebWhy === 'term' ? 'od změny termínu' : 'od změny nastavení') : 'od uložení'} <b class="${old ? '' : since < 0 ? 'good' : since > 0 ? 'bad' : ''}">${Alerts.fmtPct(since)}</b></span>`);
     return L.join('');
   }
   /** 💡 Tip: koupit, nebo počkat (Alerts.buyTip) – jen u hlídání, které ještě jde koupit. */

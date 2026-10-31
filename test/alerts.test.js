@@ -903,6 +903,7 @@ test('karta hlídání: 💡 bez hodnocení vůči témuž hledání, proběhlé
   assert.match(fl, /const diff = prev && cur && !gone && !past \? cur - prev : 0;/);
   assert.match(fl, /ln = watchLines\(w, ps, h, own, now, past \|\| gone\)/);
   assert.match(fl, /wk = old \? null : st\.week/);
+  assert.match(fl, /<b class="\$\{old \? '' : since < 0 \? 'good' : since > 0 \? 'bad' : ''\}">\$\{Alerts\.fmtPct\(since\)\}<\/b>/);
   assert.match(fl, /\$\{old \? 'Naposledy' : 'Teď'\}/);
   assert.match(fl, /\$\('#watchCheckAll'\)\.hidden = !live\.length;/);
   assert.match(fl, /live \? 'Hlídám, dokud máš ATLAS otevřený' : 'Termíny proběhly – smaž je, nebo zapni 📅 posouvání'/);
