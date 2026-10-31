@@ -1942,8 +1942,30 @@ const STEP_DEST = 32;
 // pause = přestávka mezi kousky (compose: crowd.js breathe) – po STEP cestách a STEP_DEST cílech; radar z Brna skládá
 // tisíce nabídek do stovek cílů a v kuse by to bylo ~50 ms (Render ~0,5 s), kdy server nic jiného neobslouží. Kousky
 // jdou v pořadí jako v kuse, výsledek je stejný.
+// Let tam, který už odletěl nebo odlétá dřív než za DEP_LEAD_MIN (místní čas letiště odletu): koupit ho nejde. Zdroje
+// vracejí i dnešní lety, které ráno odletěly (nabídka z mezipaměti, „tento měsíc“ 31. 10. večer) – výpis je nabízel.
+const DEP_LEAD_MIN = 120;
+const localStamp = (tz, at) => {
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(new Date(at)).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  } catch {
+    return null;
+  }
+};
+export function departedSoon(leg, { now = Date.now(), cache = new Map() } = {}) {
+  if (!leg || !leg.hasTime || typeof leg.dep !== 'string' || leg.dep.length < 16) return false;
+  const tz = getAirport(leg.from)?.tz;
+  if (!tz) return false;
+  if (!cache.has(tz)) cache.set(tz, localStamp(tz, now + DEP_LEAD_MIN * 6e4));
+  const lim = cache.get(tz);
+  return Boolean(lim) && leg.dep.slice(0, 16) < lim;
+}
+
 async function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf = () => 0, legCosts = false, cells = [], mixed = [], maxGroups = 150, pause = null }) {
   const map = new Map();
+  const soon = new Map(); // časové pásmo → místní čas za DEP_LEAD_MIN (jednou na skládání)
   const seen = new Set();
   const flat = [];
   const cellFlat = [];
@@ -1961,6 +1983,7 @@ async function buildGroups(trips, { q, originSet, groundOf, park = null, arrOf =
     if (!originSet.has(t.out.from)) continue;
     if (t.back && !originSet.has(t.back.to)) continue;
     if (t.out.date < q.dateFrom || t.out.date > q.dateTo) continue;
+    if (departedSoon(t.out, { cache: soon })) continue;
     if (q.directOnly && (t.out.stops > 0 || (t.back && t.back.stops > 0))) {
       if (!cell) hiddenIds.directOnly.add(t.id);
       continue;
