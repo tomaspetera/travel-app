@@ -49,8 +49,9 @@
 .pi-smart.on,.pi-smart:hover{background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 26%,transparent),color-mix(in srgb,var(--accent-2,#a855f7) 16%,transparent))}
 .pi-smart .pi-t b{white-space:normal;line-height:1.35}
 /* vysvětlení chytrého hledání („víc měst – nastavím lety mezi nimi…“) celé: nejvýš na 2 řádky, ne useknuté na jednom */
-.pi-smart .pi-t small{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.35}
+.pi-smart .pi-t small{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-height:1.35}
 .pi-smart .pi-type{color:var(--accent-ink)}
+[data-theme="dark"] .pi-smart .pi-type{color:#a9c1ff} /* „HLEDAT“ na fialovém návrhu: --accent-ink jen 4,4 : 1 */
 .pi-tip .pi-t b{font-weight:650}
 .smart-try{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:2px;scrollbar-width:none;align-items:center}
 .smart-try::-webkit-scrollbar{display:none}
@@ -518,7 +519,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .cd span{color:var(--muted);font-weight:600}
 /* cena v tmavém režimu světlejší (66 %): červená „dražší“ měla na svém dni jen 4 : 1, takhle aspoň 4,9 : 1 */
 .cd b{font-size:11.5px;font-weight:800;color:hsl(var(--h),70%,66%)}
-[data-theme=light] .cd b{color:hsl(var(--h),70%,35%)}
+[data-theme=light] .cd b{color:hsl(var(--h),75%,25%)} /* 35 %: žlutozelená cena na svém dni jen 2,9 : 1 */
 .cd.empty{background:none;border:none}
 .cd.none{background:var(--surface);border:1px solid var(--border)}
 .cd.none span{color:var(--faint)}
@@ -548,7 +549,7 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 .dg tr.on th{color:var(--accent-ink)}
 .dg td{padding:2px}
 .dg-c{display:block;width:100%;min-width:50px;padding:7px 4px;border-radius:8px;border:1px solid hsla(var(--h),70%,50%,.35);background:hsla(var(--h),70%,50%,.2);color:hsl(var(--h),70%,66%);font:500 12px Inter,sans-serif;font-variant-numeric:tabular-nums;cursor:pointer}
-[data-theme=light] .dg-c{color:hsl(var(--h),70%,35%)}
+[data-theme=light] .dg-c{color:hsl(var(--h),75%,25%)}
 .dg-c.rmin{font-weight:800}
 .dg-c.best{box-shadow:inset 0 0 0 2px var(--text)}
 @media(hover:hover){.dg-c:hover{outline:2px solid var(--accent)}}
@@ -1498,10 +1499,11 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .sc-d.now span{box-shadow:0 0 0 1.5px var(--text);border-radius:6px;padding:0 3px}
 /* pobyt = pás od odletu do návratu: den odletu začíná, den návratu končí zaobleně */
 .sc-d.r-night{background:rgba(91,140,255,.16)}
-.sc-d.r-out{background:var(--accent);border-radius:10px 0 0 10px}
-.sc-d.r-back{background:var(--accent2);border-radius:0 10px 10px 0}
+/* den odletu a návratu sytější než --accent / --accent2 – bílé číslo a čas na nich měly jen 3,2 a 4 : 1 */
+.sc-d.r-out{background:#2f5fd0;border-radius:10px 0 0 10px}
+.sc-d.r-back{background:#7c3aed;border-radius:0 10px 10px 0}
 .sc-d.r-both,.sc-d.r-out.solo{border-radius:10px}
-.sc-d.r-both{background:linear-gradient(135deg,var(--accent) 50%,var(--accent2) 50%)}
+.sc-d.r-both{background:linear-gradient(135deg,#2f5fd0 50%,#7c3aed 50%)}
 .sc-d.r-out span,.sc-d.r-back span,.sc-d.r-both span,.sc-d.r-out small,.sc-d.r-back small,.sc-d.r-both small{color:#fff}
 .sc-d.a-out,.sc-d.a-back{box-shadow:inset 0 0 0 1.5px var(--accent);border-radius:8px}
 .sc-d.a-back{box-shadow:inset 0 0 0 1.5px var(--accent2)}
@@ -1510,11 +1512,12 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
 .scal-legs{display:flex;flex-direction:column;gap:3px;margin-top:10px;font-size:12.5px;color:var(--muted);line-height:1.4}
 .scal-legs b{color:var(--text)}
 .sl{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
-.sl-out{background:var(--accent)}.sl-back{background:var(--accent2)}.sl-night{background:rgba(91,140,255,.3)}
+.sl-out{background:#2f5fd0}.sl-back{background:#7c3aed}.sl-night{background:rgba(91,140,255,.3)}
 .sl-hol{background:#f59e0b;border-radius:50%;width:7px;height:7px;margin:0 8px 0 1.5px;vertical-align:1px}
 .scal-act{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:12.5px}
 [data-theme="dark"] .sc-w.wk,[data-theme="dark"] .sc-d.wk span,[data-theme="dark"] .sc-d.hol span{color:#fb7185}
 [data-theme="dark"] .sc-d.r-night{background:rgba(91,140,255,.22)}
+[data-theme="dark"] .sc-d.r-night.wk span{color:#fda4af} /* víkend uvnitř pobytu: #fb7185 na modrém pásu jen 4,3 : 1 */
 [data-theme="dark"] .sc-d:is(.r-out,.r-back,.r-both) span{color:#fff}
 /* 📤 Sdílet cestu: celá cesta kamarádům, nebo karta „Jede někdo se mnou?“ na sítě (sharecard.js) */
 .jed-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}

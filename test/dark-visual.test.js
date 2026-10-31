@@ -96,3 +96,31 @@ test('tmavý režim: měsíc na barevné dlaždici teploty (detail země) čitel
   for (let h = 0; h <= 220; h += 5) worst = Math.min(worst, contrast(fg, over(hsl(h, s, l, a), color(token('dark', 'surface-solid')))));
   assert.ok(worst >= 4.5, `měsíc na dlaždici: ${worst.toFixed(2)} : 1`);
 });
+
+test('světlý režim: ceny v kalendáři čitelné na své barevné buňce i u žlutozelené (dřív 2,9 : 1)', () => {
+  const light = (sel) => {
+    const m = FLIGHTS.match(new RegExp(`\\[data-theme=light\\] ${sel.replace(/\./g, '\\.')}\\{color:hsl\\(var\\(--h\\),(\\d+)%,(\\d+)%\\)\\}`));
+    assert.ok(m, `chybí světlá barva ${sel}`);
+    return [+m[1], +m[2]];
+  };
+  const WHITE = { r: 255, g: 255, b: 255, a: 1 };
+  for (const [sel, cell] of [['.cd b', '.cd'], ['.dg-c', '.dg-c']]) {
+    const [s, l] = light(sel);
+    const [, bs, bl, ba] = FLIGHTS.match(new RegExp(`(?:^|\\})${cell.replace(/\./g, '\\.')}\\{[^}]*background:hsla\\(var\\(--h\\),(\\d+)%,(\\d+)%,([\\d.]+)\\)`, 'm')).map(Number);
+    let worst = Infinity;
+    for (let h = 0; h <= 140; h += 5) worst = Math.min(worst, contrast(hsl(h, s, l), over(hsl(h, bs, bl, ba), WHITE)));
+    assert.ok(worst >= 4.5, `${sel}: nejhorší odstín ${worst.toFixed(2)} : 1`);
+  }
+});
+
+test('tmavý i světlý režim: den odletu a návratu v kalendáři, „HLEDAT“, čísla programu, hlavička okna bez fotky', () => {
+  const ATL = ATLAS, TRIP = noComments(read('css/trip.css'));
+  // bílé číslo dne na sytém pozadí odletu / návratu
+  for (const bg of ['#2f5fd0', '#7c3aed']) assert.ok(contrast(color('#ffffff'), color(bg)) >= 4.5, bg);
+  assert.match(FLIGHTS, /\.sc-d\.r-out\{background:#2f5fd0;/);
+  assert.match(FLIGHTS, /\.sc-d\.r-back\{background:#7c3aed;/);
+  assert.match(FLIGHTS, /\[data-theme="dark"\] \.pi-smart \.pi-type\{color:#a9c1ff\}/);
+  assert.match(TRIP, /\.dp-n\{[^}]*box-shadow:inset 0 0 0 11px rgba\(0,0,0,\.2\)\}/);
+  assert.match(ATL, /\.modal-hero:not\(\.ph\) \.mh-bg\{filter:brightness\(\.75\)\}/);
+  assert.match(ATL, /\.trip-grid\.past \.trip\{opacity:\.88\}/);
+});

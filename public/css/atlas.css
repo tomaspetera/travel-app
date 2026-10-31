@@ -276,7 +276,7 @@ html:not(.booted) #view-dashboard>.hero~*{visibility:hidden;animation:boot-show 
 
 .section-head{display:flex;align-items:center;justify-content:space-between;margin:26px 2px 14px}
 .section-head[hidden],.stat-grid[hidden]{display:none}
-.trip-grid.past .trip{opacity:.78}
+.trip-grid.past .trip{opacity:.88} /* ztlumené, ale odkazy čitelné (při .78 jen 3,6–4 : 1) */
 .nt-name{font-size:.62em;line-height:1.2;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 .nt-open{font-size:12.5px;margin-top:6px}
 /* 📍 Dnes na cestě – karta nahoře na Přehledu (app.js nowCard); na telefonu kompaktní, dlouhé texty se zalomí */
@@ -503,6 +503,9 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .modal-hero{position:relative;padding:26px;border-radius:24px 24px 0 0;overflow:hidden;color:#fff}
 .modal-hero .mh-bg{position:absolute;inset:0;background:var(--grad);opacity:.92}
 .modal-hero .mh-bg.warm{background:var(--grad-warm)}
+/* bez fotky (nebo než se načte): přechod ztmavený, bílý podtitulek na něm měl jen ~3 : 1 (v tyrkysovém rohu 2 : 1) */
+.modal-hero:not(.ph) .mh-bg{filter:brightness(.75)}
+.modal-hero:not(.ph) .modal-hero-inner{text-shadow:0 1px 2px rgba(0,0,0,.25)}
 .modal-hero-inner{position:relative;z-index:1}
 .modal-close{position:absolute;top:16px;right:16px;z-index:3;width:38px;height:38px;border-radius:11px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.2);color:#fff;cursor:pointer;display:grid;place-items:center}
 .modal-body{padding:24px}
