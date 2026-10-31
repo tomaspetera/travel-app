@@ -60,7 +60,7 @@
   const FILL = new Set(('nekdy kdykoli kdykoliv chci chtel chtela chteli chtela chceme chtej bych bychom rad rada radi letet letim letime poletim poletime poletet let letem lety letenka letenky letenku letadlem '
     + 'levne levny levnou levna levnej nejlevneji nejlevnejsi hledam hledame najdi najit ukaz jet jedu jedeme pojedu pojedeme cesta cestu cesty dovolena dovolenou dovolene '
     + 'vylet vyletu i pro nas me mi my ja jsem nejak nejaky nejakou nejake termin terminu okolo kolem cca asi prosim potrebuji potrebujem idealne klidne treba zase ten ta '
-    + 'to tento tenhle ktery nebo ale jen jenom jeste uz nejlepe mozna nam vam si se nejlevnejsi nejlepsi super hezky hezkou nekde nekam kam odkud kdy kdyz tak taky take '
+    + 'to tento tenhle ktery nebo az ale jen jenom jeste uz nejlepe mozna nam vam si se nejlevnejsi nejlepsi super hezky hezkou nekde nekam kam odkud kdy kdyz tak taky take '
     + 'tam zpet zpatky domu letadlo letadla mesto mesta kde neco nejakeho nejakem nejakou je jsou bude budou nez all inclusive allinclusive '
     // proč a jak levně („na svatbu do Milána“, „na trhy“, „za babku“) – místo to není
     + 'svatbu svatba svatbe koncert koncertu festival festivalu zapas zapasu konferenci konference oslavu oslavy narozeniny navstevu trhy trh '
@@ -131,9 +131,11 @@
       if (!same) return false;
       // „Řím 20.11. nebo 27.11.“: dvě možnosti odletu, ne tam a zpět → odlet kdykoli mezi nimi (nejvýš 45 dní); „nebo“
       // mezi oběma daty v kterémkoli pořadí ve větě (číselné datum projde větu dřív než „20. listopadu“) – jen „nebo“ přímo
-      // mezi nimi: „20.11. Řím nebo Milán, zpět 27.11.“ je tam a zpět (nebo mezi místy)
+      // mezi nimi bez „zpět / návrat“ („nebo až 27.11.“, „(nebo 27.11.)“): „20.11. Řím nebo Milán, zpět 27.11.“ je tam
+      // a zpět (nebo mezi místy)
       const gap = dates.at == null ? null : at > dates.at ? s.slice(dates.end ?? at, at) : s.slice(end ?? dates.at, dates.at);
-      if (gap != null ? /^[\s,;:–-]*(?:nebo|ci)[\s,;:–-]*$/.test(gap) : /(?:^|[^a-z])(?:nebo|ci)\s*$/.test(s.slice(0, at))) {
+      const or = g => /(?:^|[^a-z])(?:nebo|ci)(?=[^a-z]|$)/.test(g) && !/(?:^|[^a-z])(?:zpet|zpatky|navrat\w*)(?=[^a-z]|$)/.test(g);
+      if (gap != null ? or(gap) : /(?:^|[^a-z])(?:nebo|ci)\s*$/.test(s.slice(0, at))) {
         const o = dates.out, x = same >= o ? same : !y && mkDate(d, mo, yr + 1);
         const [from, to] = [o, same >= today ? same : x].filter(Boolean).sort();
         if (!to || from === to || (Date.parse(to) - Date.parse(from)) / 864e5 > 45) return false;
@@ -299,6 +301,8 @@
       });
     }
     const hol = (o.holidays || []);
+    // datum hned po „zpět / zpátky / návrat“ (i „zpět v sobotu 26.12.“, „zpět do Prahy 26.12.“ – nejvýš 3 slova mezi)
+    const retBefore = at => at != null && /(?:^|[^a-z])(?:zpet|zpatky|navrat\w*)(?:\s+(?!nebo\b|ci\b)[a-z]+){0,3}[\s,:–-]*$/.test(s.slice(0, at));
     const holRule = (re, name, fallback) => rule(new RegExp(`(?:(?:na|o|pres|na\\s+svatky)\\s+)?(?:${re})${W}`), () => {
       const lw = hol.find(x => fold(x.name || '').includes(name));
       // „Štědrý den do Londýna a zpět 27.12.“: datum z věty je návrat, svátek odlet (dřív „Štědrý den“ neznámé místo)
@@ -312,7 +316,7 @@
         // poslední den svátku: datum z věty je návrat jen od něj dál („zpět 27.12.“), ne „od 26.3. o Velikonocích“ (odlet)
         const end = lw ? lw.end : fb ? (name === 'vanoce' ? addDays(fb.to, 2) : name === 'velikonoce' ? addDays(fb.from, 4) : name === 'novy rok' ? addDays(fb.to, 1) : fb.to) : '';
         // … i dřív, když před datem stojí „zpět“ / „návrat“ („Vánoce v Londýně a zpět 26.12.“ = 24.–26. 12.)
-        const ret = dates.at != null && /(?:^|[^a-z])(?:zpet|zpatky|navrat\w*)(?:\s+(?:dne|v|ve))?[\s,:–-]*$/.test(s.slice(0, dates.at));
+        const ret = retBefore(dates.at);
         if (dates.exact && dates.out && !dates.back && /^\d{4}-\d\d-\d\d$/.test(st || '') && st < dates.out && end && (ret || dates.out >= end) && (Date.parse(dates.out) - Date.parse(st)) / 864e5 <= 45) dates = { exact: true, out: st, back: dates.out };
         return;
       }
@@ -340,7 +344,17 @@
     // by Silvestra minul); „na Nový rok“ dál podle prodlouženého víkendu
     const silvestr = () => { const y = +today.slice(0, 4) + (today.slice(5) > '12-31' ? 1 : 0); len = len || 'long'; return { from: [today, `${y}-12-27`].sort()[1], to: `${y}-12-31`, label: 'Silvestr' }; };
     // s daty z věty („Silvestr v Londýně 27.12.–2.1.“) platí data – Silvestr už není místo
-    rule(new RegExp(`(?:(?:na|o|pres)\\s+)?silvestr\\w*${W}`), () => { if (dates) return; dates = silvestr(); month = 11; });
+    rule(new RegExp(`(?:(?:na|o|pres)\\s+)?silvestr\\w*${W}`), () => {
+      if (dates) {
+        // „Silvestr v Londýně a zpět 1.1.“: datum po „zpět / návrat“ je návrat, odlet na Silvestra (dřív odlet 1. 1.)
+        if (dates.exact && dates.out && !dates.back && retBefore(dates.at)) {
+          const st = `${+dates.out.slice(0, 4) - (dates.out.slice(5) < '12-31' ? 1 : 0)}-12-31`;
+          if (st < dates.out && (Date.parse(dates.out) - Date.parse(st)) / 864e5 <= 45) dates = { exact: true, out: st, back: dates.out };
+        }
+        return;
+      }
+      dates = silvestr(); month = 11;
+    });
     holRule('novy\\s+rok|novyho\\s+roku', 'novy rok', silvestr);
     // Velikonoce bez prodlouženého víkendu v seznamu (dál než pár měsíců): odlet čt–pá před Velikonoční nedělí
     holRule('velikonocni\\s+prazdnin\\w*|velikonoc\\w*', 'velikonoce', () => {

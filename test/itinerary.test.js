@@ -218,11 +218,14 @@ test('bez keep (i prázdný, neplatný nebo bez místa z programu) program beze 
   }
 });
 
-test('keepOf (api/itinerary): jen prostý objekt do 300 položek, id do 120 znaků a datum v termínu – jinak nic', () => {
+test('keepOf (api/itinerary): jen prostý objekt do 300 položek, id do 120 znaků a platné datum (i mimo termín) – jinak nic', () => {
   const k = (raw) => keepOf(raw, '2026-10-11', '2026-10-13');
   assert.deepEqual(k({ Q1: '2026-10-11', Q2: '2026-10-13' }), { Q1: '2026-10-11', Q2: '2026-10-13' });
   // neplatné položky pryč, platné zůstanou
-  const bad = { Q2: '2026-10-14', Q3: '2026-10-10', Q4: 20261012, Q5: ['2026-10-12'], Q6: '12. 10. 2026', Q7: null, Q8: '2026-13-45', '': '2026-10-12', [`Q${'9'.repeat(120)}`]: '2026-10-12' };
+  // datum mimo termín zůstane (spoj posunutý o den – plánovač místo přesune), jen ne dál než rok
+  assert.deepEqual(k({ Q2: '2026-10-14', Q3: '2026-10-10' }), { Q2: '2026-10-14', Q3: '2026-10-10' });
+  assert.equal(k({ Q2: '2028-10-14' }), undefined);
+  const bad = { Q4: 20261012, Q5: ['2026-10-12'], Q6: '12. 10. 2026', Q7: null, Q8: '2026-13-45', '': '2026-10-12', [`Q${'9'.repeat(120)}`]: '2026-10-12' };
   assert.deepEqual(k({ Q1: '2026-10-12', ...bad }), { Q1: '2026-10-12' });
   for (const raw of [undefined, null, 'Q1', 5, true, ['2026-10-11'], [['Q1', '2026-10-11']], {}, bad, new Map([['Q1', '2026-10-11']]), Object.assign(Object.create(null), { Q1: '2026-10-11' })]) {
     assert.equal(k(raw), undefined, JSON.stringify(raw));
