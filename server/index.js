@@ -879,6 +879,7 @@ async function route(req, res) {
       center: { lat, lon }, start: b.start, end: b.end, pace: ['relaxed', 'normal', 'intense'].includes(b.pace) ? b.pace : 'normal',
       arrivalTime: /^\d{2}:\d{2}$/.test(b.arrivalTime || '') ? b.arrivalTime : '09:00',
       departureTime: /^\d{2}:\d{2}$/.test(b.departureTime || '') ? b.departureTime : null, interests,
+      endBy: /^\d{2}:\d{2}$/.test(b.endBy || '') ? b.endBy : null,
       // s dětmi (zájem „S dětmi“, cesta s dětmi): zoo a park výš, nejvýš 1 muzeum za den, pomalejší chůze
       kids: b.kids === true,
       // po ✕ v programu: dny míst, která zůstala ({ id: datum }) – zůstanou v nich; neplatné se zahodí
@@ -911,7 +912,7 @@ async function route(req, res) {
     // radius = okruh míst načtených v Objevuj (stejná mezipaměť), fromBase false = střed oblasti z Objevuj, ne ubytování
     const radius = Number(b.radius) > 0 ? Math.min(25, Math.max(5, Number(b.radius))) : 0;
     const q = {
-      lat, lon, label: String(b.label || '').slice(0, 120), start: b.start, end: b.end, arrivalTime: hm(b.arrivalTime), departureTime: hm(b.departureTime),
+      lat, lon, label: String(b.label || '').slice(0, 120), start: b.start, end: b.end, arrivalTime: hm(b.arrivalTime), departureTime: hm(b.departureTime), endBy: hm(b.endBy),
       kids: b.kids === true, fromBase: b.fromBase !== false, radius, exclude: Array.isArray(b.exclude) ? b.exclude.map(String).slice(0, 60) : [],
     };
     if (config.mock) {

@@ -2122,7 +2122,7 @@
     }
     // cíle hledání do víc míst („k moři v prosinci“): s filtrem tepla nebo řazením „Nejtepleji“ i teplota (dlouhodobý
     // průměr, podle kterého se řadí) – jinak nebylo vidět, proč je který cíl první
-    else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(g.vis[0].perPersonCzk)}</b>${(view.sort === 'warm' || res.query?.minTemp) && g.vis[0].tempHi != null ? ` · 🌡️ ${Math.round(g.vis[0].tempHi)}\u00a0°C` : ''}</span>`).join('')}</div>` : '') + directHintHtml(flat, pre) + flatList(flat)
+    else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(Math.min(...g.vis.map(x => x.perPersonCzk)))}</b>${(view.sort === 'warm' || res.query?.minTemp) && g.vis[0].tempHi != null ? ` · 🌡️ ${Math.round(g.vis[0].tempHi)}\u00a0°C` : ''}</span>`).join('')}</div>` : '') + directHintHtml(flat, pre) + flatList(flat)
       : view.mode === 'cards' ? groups.map(g => groupCard(g)).join('') : compactList(groups);
     // konkrétní cíl: výpis je z res.top (flat), ne z 6 nabídek skupiny – podle něj, jinak hláška pod nalezenými lety
     if (!body.trim() || ((view.mode === 'list' || view.mode === 'cards') && !(isRoute ? flat.length : groups.length))) body += `<div class="empty">Filtrům nic neodpovídá. Uvolni filtr ceny, letišť, aerolinek, nových zemí${view.favOnly ? ', mých cílů' : ''} nebo času a přestupů${prefNow.muted ? ' – nebo ukaž 🙈 skryté cíle' : ''}.</div>`;

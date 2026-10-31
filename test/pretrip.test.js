@@ -288,6 +288,9 @@ test('seznam věcí: zima → teplé oblečení; pláž + horko → plavky a opa
   // horko bez pláže (aktivity zvolené ručně) → bez plavek, opalovací krém zůstává
   const c3 = itemIds(trip({ cc: 'ES', pretrip: { acts: ['city'] } }), { climate: [flat(31, 22, 10)] });
   assert.ok(!c3.includes('ac-swim') && c3.includes('hl-sun') && c3.includes('ac-daybag'));
+  // u moře i v teplé zimě (Marsa Alam v prosinci ~23 °C přes den) – dřív až od 24 °C, plavky chyběly; chladněji ne
+  assert.ok(ctxOf(trip({ cc: 'ES' }), { climate: [flat(23, 16, 20)] }).acts.has('beach'));
+  assert.ok(!ctxOf(trip({ cc: 'ES' }), { climate: [flat(20, 12, 20)] }).acts.has('beach'));
   // pláž z programu (kategorie beach) i bez štítku země
   const plan = { days: [{ date: '2027-07-11', items: [{ name: 'Pláž', category: 'beach' }] }] };
   assert.ok(ctxOf(trip({ cc: 'AT', plan }), { climate: [flat(28, 18, 60)] }).acts.has('beach'));

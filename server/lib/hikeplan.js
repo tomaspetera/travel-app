@@ -125,14 +125,16 @@ export const toHm = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:
  * Okna dnů pobytu: od 8:30 (den příjezdu 1,5 h po příjezdu) do 18:00 (den odjezdu 3 h před odjezdem). budget = minut chůze
  * (okno bez ~20 % na přestávky, nejvýš 8 h, s dětmi 4 h); type: full (aspoň 5 h), short (1,5–5 h), rest (méně).
  */
-export function hikeWindows({ start, end, arrivalTime = null, departureTime = null, kids = false }) {
+export function hikeWindows({ start, end, arrivalTime = null, departureTime = null, endBy = null, kids = false }) {
   const n = Math.max(1, Math.min(MAX_DAYS, daysBetween(start, end) + 1));
   const out = [];
   for (let i = 0; i < n; i++) {
     const a = i === 0 ? toMin(arrivalTime) : null;
     const dep = i === n - 1 ? toMin(departureTime) : null;
     const from = a != null ? Math.max(DAY_FROM, a + 90) : DAY_FROM;
-    const to = dep != null ? Math.min(DAY_TO, dep - 180) : DAY_TO;
+    // endBy: kdy nejpozději zpátky (průvodce: odjezd z ubytování na letiště) – i když je dřív než 3 h před odletem
+    const by = i === n - 1 ? toMin(endBy) : null;
+    const to = Math.min(dep != null ? Math.min(DAY_TO, dep - 180) : DAY_TO, by != null ? by : DAY_TO);
     const cap = Math.round((to - from) / BREAKS);
     const budget = Math.max(0, Math.min(kids ? KIDS_WALK : MAX_WALK, cap));
     const type = cap >= FULL_MIN ? 'full' : cap >= SHORT_MIN ? 'short' : 'rest';

@@ -808,7 +808,8 @@
     st.keep = null;
     const body = {
       lat: center.lat, lon: center.lon, start: dates.start, end: dates.end, arrivalTime: dates.arrivalTime, departureTime: dates.departureTime,
-      pace: st.pace, interests: interestWeights(st.interests), kids: st.interests.has('kids'), exclude: [...st.exclude], include: [...st.must], ...(keep ? { keep } : {}), ...extra,
+      pace: st.pace, interests: interestWeights(st.interests), kids: st.interests.has('kids'), exclude: [...st.exclude], include: [...st.must], ...(keep ? { keep } : {}),
+      ...(dates.endBy ? { endBy: dates.endBy } : {}), ...extra,
     };
     const j = await getJson('api/itinerary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     st.items = j.places;
@@ -2139,7 +2140,7 @@
   /** Túry ze serveru (api/hikeplan) ve tvaru plánu (kind 'hike') – Objevuj, krok Program i ⚡ Poskládej v průvodci Cestou. */
   async function makeHikePlan(o) {
     const exclude = [...(o.exclude || [])];
-    const body = { lat: o.lat, lon: o.lon, label: o.label || '', start: o.start, end: o.end, arrivalTime: o.arrivalTime || null, departureTime: o.departureTime || null,
+    const body = { lat: o.lat, lon: o.lon, label: o.label || '', start: o.start, end: o.end, arrivalTime: o.arrivalTime || null, departureTime: o.departureTime || null, ...(o.endBy ? { endBy: o.endBy } : {}),
       kids: Boolean(o.kids), fromBase: o.fromBase !== false, exclude, ...(o.radius ? { radius: o.radius } : {}) };
     const j = await getJson('api/hikeplan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!Array.isArray(j.days)) throw new Error('Túry se nepodařilo naplánovat.');

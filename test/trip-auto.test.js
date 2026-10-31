@@ -97,6 +97,22 @@ test('⚡ Poskládej: jedno místo – hotel s nejlepším poměrem, bez auta, p
   assert.deepEqual([o.lat, o.lon, o.start, o.end, o.arrivalTime, o.departureTime], [t.plan.center.lat, t.plan.center.lon, t.plan.span.start, t.plan.span.end, t.plan.span.arrivalTime, t.plan.span.departureTime]);
 });
 
+test('⚡ Poskládej: poslední den programu končí před „Z ubytování na letiště vyraž…“ (endBy), termín programu beze změny', async () => {
+  const c = load();
+  const t = begin(c);
+  // z centra na letiště FCO 55 min (+ 20 min na zastávku a spoj), 2 h na letišti: odlet 18:10 → vyrazit v 14:55
+  t.arrival = { back: { min: 55 } };
+  const asked = fakeFetch(c);
+  render(c, 'flight');
+  await c.__els['#tfAuto'].onclick();
+  for (let i = 0; i < 4; i++) await tick();
+  assert.equal(c.window.Trip.leaveBy(t).hotel.hm, '14:55');
+  const it = asked.find((a) => a[0] === 'api/itinerary')[1];
+  // půl hodiny na návrat pro zavazadla, na čtvrthodiny dolů; server dřív končil jen 3 h před odletem (15:10)
+  assert.deepEqual([it.departureTime, it.endBy], ['18:10', '14:15']);
+  assert.deepEqual(plain(t.plan.span), { start: '2026-11-10', end: '2026-11-14', arrivalTime: '12:00', departureTime: '18:10' }, 'uložený program platí dál');
+});
+
 test('⚡ Poskládej: u hotové cesty (ubytování, auto i platný program) v kroku Let chybí – nic by nepřidal', async () => {
   const c = load();
   const t = begin(c);
