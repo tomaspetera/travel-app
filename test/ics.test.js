@@ -457,3 +457,10 @@ test('Ics.build: rrule jen v jednoduchém tvaru, bez něj se událost neopakuje 
   }
   assert.ok(!build([ev, { title: 'y', start: '2026-11-03' }]).includes('RRULE'));
 });
+
+test('Ics.build: UID nezávisí na názvu kalendáře – průvodce i Moje cesty, i po přejmenování plánu, bez zdvojení', () => {
+  const evs = [{ title: '✈️ PRG → LIS', start: '2026-11-12T10:00', end: '2026-11-12T13:00', tz: 'Europe/Prague' }, { title: '🏨 Lisabon', start: '2026-11-12', end: '2026-11-15' }];
+  const a = props(build(evs, { name: 'Cesta: Lisabon' }), 'UID'), b = props(build(evs, { name: 'Lisabon 12.11.' }), 'UID');
+  assert.equal(a.length, 2);
+  assert.deepEqual(a, b);
+});
