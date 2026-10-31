@@ -415,8 +415,11 @@
     // „tento / tenhle měsíc“ = do konce měsíce; „za měsíc“, „příští měsíc“ s jiným termínem ve větě nic (ne pobyt na měsíc)
     rule(new RegExp(`(?:tento|tenhle|tenhleten|letosni)\\s+mesic${W}`), () => {
       if (dates) return;
-      const y = +today.slice(0, 4), mo = +today.slice(5, 7) - 1;
-      dates = { from: today, to: `${y}-${pad(mo + 1)}-${pad(lastDay(y, mo))}`, label: 'do konce měsíce' };
+      const y = +today.slice(0, 4), mo = +today.slice(5, 7) - 1, end = `${y}-${pad(mo + 1)}-${pad(lastDay(y, mo))}`;
+      // poslední 2–3 dny měsíce: „do konce měsíce“ by bylo jen dnes a zítra (31. 10. = jen 31. 10., lety, které už
+      // odletěly) – nejbližší týden
+      if (Date.parse(end) - Date.parse(today) < 3 * 864e5) { const to = addDays(today, 6); dates = { from: today, to, label: `nejbližší dny (do ${dm(to)})` }; return; }
+      dates = { from: today, to: end, label: 'do konce měsíce' };
       month = mo;
     });
     rule(new RegExp(`(?:za|pristi|pristim|dalsi)\\s+mesic\\w*${W}`), () => {});
@@ -661,7 +664,8 @@
     if (pairAll && !patch.adults) Object.assign(patch, { adults: 2, children: 0, infants: 0 }); // „za oba“ = 2 osoby
     const payers = (patch.adults || 0) + (patch.children || 0);
     if (priceAll && patch.maxPrice && payers > 1) patch.maxPrice = String(Math.max(100, Math.round(+patch.maxPrice / payers / 100) * 100));
-    if (patch.maxPrice) chips.push(['💰', `do ${czk(+patch.maxPrice)}${priceAll && payers > 1 ? '/os.' : ''}`]);
+    // víc lidí: cena v hledání je na osobu – „rodina 2+2 do 15 tisíc“ = do 15 000 Kč/os., ne 15 000 za rodinu (štítek to řekne)
+    if (patch.maxPrice) chips.push(['💰', `do ${czk(+patch.maxPrice)}${payers > 1 ? '/os.' : ''}`]);
     const cs3 = (n, a, b, c) => `${n} ${n === 1 ? a : n < 5 ? b : c}`;
     if (patch.adults && !patch.children && !patch.infants) chips.push(['👥', cs3(patch.adults, 'osoba', 'osoby', 'osob')]);
     else if (patch.adults) chips.push(['👥', [cs3(patch.adults, 'dospělý', 'dospělí', 'dospělých'), patch.children ? cs3(patch.children, 'dítě', 'děti', 'dětí') : '', patch.infants ? cs3(patch.infants, 'miminko', 'miminka', 'miminek') : ''].filter(Boolean).join(' + ')]);

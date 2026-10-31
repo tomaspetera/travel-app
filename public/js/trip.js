@@ -4025,7 +4025,9 @@
     try { t = w && w.flight && w.flight.out ? sanitizeTrip(JSON.parse(JSON.stringify(w))) : null; } catch (e) { t = null; }
     if (!t) { toast('Cestu se nepodařilo otevřít', 'err'); return false; }
     const mine = S.trip;
-    if (mine && mine.created === id) { go('trip'); return true; }
+    // tatáž cesta je v průvodci: otevřít průvodce, ne zůstat v seznamu Moje cesty (mineFor) – dřív „Otevřít v průvodci“
+    // z detailu cesty jen zavřelo okno
+    if (mine && mine.created === id) { mineFor = null; go('trip'); render(); return true; }
     if (!leaveTrip(mine, done => `V průvodci máš rozpracovanou cestu: ${mine.dest?.label || mine.flight.out.to} (${done.join(', ')}). Nahradit ji uloženou cestou ${t.dest.label || t.flight.out.to}?`, true)) return false;
     const booked = {};
     for (const [k, v] of Object.entries(w.booked || {})) if (v === true && /^[\w:.,-]{1,140}$/.test(k)) booked[k] = true; // i id míst „geo:48.85,2.35“
