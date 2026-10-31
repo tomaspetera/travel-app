@@ -27,6 +27,9 @@ test('myTrips: cesta z průvodce se otevře v průvodci (rozpracovaná zpět do 
   assert.match(fn, /openTrip\(i\);/);
   assert.match(fn, /data-mdet="\$\{x\.i\}">Program, balení a poznámky ›<\/button>/, 'detail z průvodce dál dostupný');
   assert.match(fn, /<details class="mt-past"><summary>Proběhlé cesty \(\$\{past\.length\}\)<\/summary>/);
+  // cesta naposledy otevřená v průvodci, která proběhla: mezi Proběhlé, nahoře žádná karta „v průvodci“
+  assert.match(fn, /curPast = Boolean\(cur0 && end\(cur0\) && end\(cur0\) < now\);\s*const cur = curPast \? null : cur0;/);
+  assert.match(fn, /: a && !curPast \? `<div class="card trip" data-mcur="1">/);
   assert.match(fn, /📝 Vlastní cesta bez letu/);
   // „Z posledního hledání“ ne, když z toho hledání už je cesta v průvodci (i s jinou nabídkou / termínem)
   assert.match(fn, /if \(pick && S\.trips\.some\(t => t\.dest === pick\.dest && \(t\.start === pick\.start \|\| \(t\.wizard && \(t\.end \|\| t\.start \|\| ''\) >= todayLocal\(\)\)\)\)\) pick = null;/);

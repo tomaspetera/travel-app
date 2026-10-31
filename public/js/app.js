@@ -477,7 +477,8 @@ function nextTripStat() {
   const rs = window.Flights && Flights.resumeTrip ? Flights.resumeTrip() : null;
   const next = up.find(x => !nowIdx.includes(x.i) && !(rs && x.t.tripId && x.t.tripId === rs.t.created));
   if (!next && up.length) return null;
-  if (!next) return ['Naplánované cesty', `${S.trips.length}`, S.trips.length ? 'Mrkni do Mých cest' : 'Začni plánovat', '<button type="button" class="linkbtn nt-open" data-gop>Moje cesty →</button>'];
+  // jen proběhlé cesty: „Naplánované cesty 2“ by po návratu tvrdilo, že nějaké ještě čekají
+  if (!next) return ['Moje cesty', `${S.trips.length}`, S.trips.length ? 'všechny proběhly – naplánuj další' : 'Začni plánovat', '<button type="button" class="linkbtn nt-open" data-gop>Moje cesty →</button>'];
   const t = next.t, d = daysTo(now, t.start);
   const todo = (t.checklist || []).filter(x => !x.done && /^Zařídit/i.test(x.t || '')).length;
   const when = d <= 0 ? 'právě probíhá' : inDays(d);
@@ -644,6 +645,8 @@ function nowParts(x, now = Date.now()) {
   const t = x.t, { w, all } = tripRows(t), also0 = Array.isArray(x.also) ? x.also : [];
   const tomorrow = ymdPlus(x.today, 1), pl = w && window.Trip ? Trip.placeOn(w, x.today) : null;
   const ls = tripLegs(t), first = ls[0] || null, back = tripBack(t, ls), ahead = ls.find(l => l.at != null && l.at > now) || null;
+  // právě ve vzduchu (noční let po půlnoci, přestup): dnešní řádky let nemají – karta řekne přílet
+  const air = ls.find(l => !l.l.ground && l.at != null && l.sw != null && l.at <= now && l.sw > now) || null;
   // v cíli: po příletu (spoj bez času – už v den odjezdu) a do odjezdu zpět; doma navigace do hotelu nemá smysl
   const there = (!first || first.at == null || first.sw == null || first.sw <= now) && !(back && back.at != null && back.at <= now);
   // posun času proti Praze: tam, kde cesta je (před odjezdem v cíli prvního spoje)
@@ -684,6 +687,7 @@ function nowParts(x, now = Date.now()) {
     hotel: x.on && there && pl && pl.hotel ? { name: pl.hotel, ...(pl.near ? { near: pl.near } : {}), q: [pl.hotel, pl.city, pl.country].filter(Boolean).join(', '), ...(carOn ? { car: true } : {}) } : null,
     shift, clock: shift ? wallAt(tz, now).slice(11, 16) : '',
     // ck = do kdy je online check-in otevřený ('YYYY-MM-DDTHH:MM' v zóně odletu)
+    air: air ? { l: air.l, min: Math.ceil((air.sw - now) / 6e4), hm: String(air.l.arr || '').slice(11, 16) } : null,
     ahead: ahead && ahead.at - now <= 864e5 ? { l: ahead.l, min: Math.ceil((ahead.at - now) / 6e4), ...(ciEnd > now ? { ck: wallAt(ahead.l.fromTz, ciEnd) } : {}) } : null,
     // před odjezdem (v den odjezdu do prvního spoje)
     todo: !x.on || (x.day === 1 && !(first && first.at != null && first.at <= now)) ? { zar: ck.filter(zar).length, bal: ck.filter(c => !zar(c)).length } : null,
@@ -736,6 +740,7 @@ function nowCard(x, p) {
   // 🌤️ předpověď z mezipaměti (renderNow – nowWx): místo dnes, zítřejší další místo; stará nebo bez signálu „předpověď z 7:15“
   const wx = p.wxNow && window.Weather ? p.wxNow.rows.map((r, k, a) => `<span class="nw-wx">${r.tag === 'zítra' ? 'zítra ' : ''}${esc(r.name)} ${Weather.badge(r.w)}${k === a.length - 1 && p.wxNow.from ? ` <span class="faint">předpověď z\u00a0${esc(p.wxNow.from)}</span>` : ''}</span>`) : [];
   const meta = [
+    p.air ? `<span>✈️ Let ${esc(p.air.l.from)} → ${esc(p.air.l.to)} · přílet${p.air.hm ? ` <b>${esc(p.air.hm.replace(/^0/, ''))}</b> <span class="faint">místního času</span>` : ''}, za\u00a0${hmTxt(p.air.min)}</span>` : '',
     p.ahead ? `<span>${p.ahead.l.ground ? rideAhead(p.ahead.l, x.today) : `✈️ Odlet ${esc(p.ahead.l.from)} → ${esc(p.ahead.l.to)} <b data-nw="cd"></b>${ck}`}</span>` : '',
     ...wx,
     p.shift && !x.home ? `<span>🕐 ${x.on ? 'Místní čas <b data-nw="clock"></b> – ' : 'V cíli je '}${shift}</span>` : '',
@@ -1225,7 +1230,17 @@ function renderDashTip() {
   $('#dtGo').onclick = () => tip.run();
   $('#dtX').onclick = () => { put({ day: today, id: null, hid: [...hid, tip.id] }); el.hidden = true; };
 }
+/** Přehled v otevřené aplikaci: každou minutu karta Dnes na cestě, nový den (půlnoc, návrat z pozadí ráno) celý Přehled. */
+function dashTick() {
+  if (activeView !== 'dashboard' || document.hidden) return;
+  const d = todayLocal();
+  if (d === dashTick.day) return renderNow();
+  dashTick.day = d;
+  renderSince();
+  renderDashStats();
+}
 function renderDash() {
+  dashTick.day = todayLocal();
   renderSince();
   renderDashStats();
   renderWhatsNew();
@@ -1925,8 +1940,10 @@ function tripCard(t, i, attr = 'data-ti', extra = '') {
  */
 function myTrips(host, o = {}) {
   const a = o.active || null, now = todayLocal(), all = S.trips.map((t, i) => ({ t, i })).filter(x => x.t);
-  const cur = a ? all.find(x => x.t.tripId && x.t.tripId === a.created) : null;
   const end = x => x.t.end || x.t.start;
+  // cesta naposledy otevřená v průvodci, která už proběhla, patří mezi Proběhlé – ne nahoru s „✅ Sestavená v průvodci“
+  const cur0 = a ? all.find(x => x.t.tripId && x.t.tripId === a.created) : null, curPast = Boolean(cur0 && end(cur0) && end(cur0) < now);
+  const cur = curPast ? null : cur0;
   const past = all.filter(x => x !== cur && end(x) && end(x) < now).sort((p, q) => (q.t.start || '').localeCompare(p.t.start || ''));
   const coming = all.filter(x => x !== cur && !past.includes(x)).sort((p, q) => (p.t.start || '9999').localeCompare(q.t.start || '9999'));
   let pick = window.Flights && Flights.lastPick ? Flights.lastPick() : null;
@@ -1939,7 +1956,7 @@ function myTrips(host, o = {}) {
   // ve Shrnutí je cesta sestavená – „rozpracovaná“ by mátla; jinak krok, na kterém uživatel skončil
   const curTxt = inf.done ? '✅ Sestavená v průvodci – otevřít shrnutí ›' : `🧳 Rozpracovaná v průvodci${inf.step ? ` (krok ${esc(inf.step)})` : ''} – pokračovat ›`;
   const curCard = cur ? card(cur).replace('<div class="trip-body">', `<div class="trip-body"><div class="mt-cur">${curTxt}</div>`)
-    : a ? `<div class="card trip" data-mcur="1"><div class="trip-top"${inf.name ? ` data-photo="${esc(inf.name)}" style="--h:${ccHue(inf.cc || inf.name)}"` : ''}><span class="tt-when">rozpracovaná</span><div class="tt-name">${esc(inf.name || 'Cesta')}</div><div class="tt-meta">${inf.cc ? flag(inf.cc) + ' ' : ''}${inf.start ? dateSpan(inf.start, inf.end) : ''}</div></div>
+    : a && !curPast ? `<div class="card trip" data-mcur="1"><div class="trip-top"${inf.name ? ` data-photo="${esc(inf.name)}" style="--h:${ccHue(inf.cc || inf.name)}"` : ''}><span class="tt-when">rozpracovaná</span><div class="tt-name">${esc(inf.name || 'Cesta')}</div><div class="tt-meta">${inf.cc ? flag(inf.cc) + ' ' : ''}${inf.start ? dateSpan(inf.start, inf.end) : ''}</div></div>
       <div class="trip-body"><div class="mt-cur">🧳 Krok ${esc(inf.step || '')} – pokračovat v průvodci ›</div></div></div>` : '';
   host.innerHTML = `<div class="trip-mine">
     <div class="section-head"><h2>🧳 Moje cesty</h2></div>
@@ -2091,7 +2108,8 @@ function openTrip(i) {
     // cesta z průvodce už má let vybraný: hlavní je „Otevřít v průvodci“ (napřed), hledání letů vedlejší; cesta po Česku
     // (Krkonoše) bez letů a bez Info o zemi (vstup, měna, počasí v Praze) – hlavní je ubytování
     acts: `<div class="row wrap">${t.wizard && (window.Trip || window.Lazy) ? '<button class="btn primary" id="tripWizard">🧳 Otevřít v průvodci</button>' : ''}${local ? '' : `${home ? '' : `<button class="btn${t.wizard ? '' : ' primary'}" id="tripSearch">${ico('M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z')} Hledat lety</button>`}<button class="btn${home ? ' primary' : ''}" id="tripStay">${ico('M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z')} Ubytování</button>`}${c && !home ? '<button class="btn ghost" id="tripCountry">Info o zemi</button>' : ''}</div>`,
-    entry: `${tripEntryHtml(t)}${visitedPrompt(t)}`,
+    // po cestě jen „přidat na mapu“ – pas, víza a očkování nad „Cesta proběhla“ nikdo nepotřebuje
+    entry: `${(t.end || t.start || '9999') < todayLocal() ? '' : tripEntryHtml(t)}${visitedPrompt(t)}`,
     share: `<div class="row wrap" style="gap:8px;margin-top:10px">${days.length ? '<button class="btn sm" id="tripIcs">📅 Do kalendáře (.ics)</button>' : ''}<button class="btn sm" id="tripShare">🔗 Sdílet plán</button>${t.wizard && okYmd(t.start) && t.start >= todayLocal() ? '<button class="btn sm" id="tripJed">🙋 Jede někdo se mnou?</button>' : ''}${days.length ? `<a class="btn sm ghost" id="tripGcal" href="${esc(safeUrl(Ics.gcalUrl(planEvents(t)[0])))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>` : ''}</div>`,
     days: `<div class="divider"></div>
     <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">🗺️ Itinerář</h3><span class="faint" style="font-size:12px">${days.length ? days.length + (days.length === 1 ? ' den' : days.length < 5 ? ' dny' : ' dní') : 'doplň termíny'}</span></div>
@@ -2536,9 +2554,11 @@ function wireEvents() {
     el.focus();
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
   });
-  // 📍 Dnes na cestě: odpočet, místní čas a půlnoc (nový den) i v otevřené aplikaci a po návratu do ní
-  setInterval(() => { if (activeView === 'dashboard' && !document.hidden) renderNow(); }, 60000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && activeView === 'dashboard') renderNow(); });
+  // 📍 Dnes na cestě: odpočet, místní čas a půlnoc (nový den) i v otevřené aplikaci a po návratu do ní. Po půlnoci
+  // celý Přehled – dlaždice („Nejbližší cesta · za 3 dny“) a Od minula jinak tvrdily jiný počet dní než karta nad nimi
+  dashTick.day = todayLocal();
+  setInterval(dashTick, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) dashTick(); });
   // Odkaz na cestu, plán nebo sekci vložený do už otevřené stránky (mění se jen #, stránka se nenačte znovu).
   window.addEventListener('hashchange', async () => {
     await shortFromHash(); // krátký odkaz → #trip= / #plan= (bez události hashchange)

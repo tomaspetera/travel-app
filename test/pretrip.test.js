@@ -510,6 +510,11 @@ test('plánovač: „Sbaleno“ = úkoly a věci na míru i s odškrtnutím, max
   assert.ok(list.length > 15 && list.length <= 80, String(list.length));
   assert.deepEqual(list[0], { t: 'Zařídit: cestovní pojištění', done: true, id: 'todo:ins' });
   assert.ok(list.some((x) => x.t === 'Zařídit: mezinárodní řidičský průkaz (vzor 1949)' && !x.done));
+  // odškrtnuté „Zařídit: cestovní pojištění“ se do kalendáře nepřidá; řidičák (neodškrtnutý) ano
+  const rem = plain(c.window.PreTrip.reminders(t, { isos: ['JP'], climate: [], today: '2026-10-07' })).map((e) => e.uid.replace(/-\d{4}-.*$/, ''));
+  assert.ok(!rem.includes('atlas-pretrip-ins') && rem.includes('atlas-pretrip-idp'), rem.join());
+  c.window.PreTrip.setDone(key, 'todo:drive', true);
+  assert.ok(!plain(c.window.PreTrip.reminders(t, { isos: ['JP'], climate: [], today: '2026-10-07' })).some((e) => /idp/.test(e.uid)), 'MŘP odškrtnutý = bez připomínky');
   assert.ok(list.some((x) => x.t === 'Cestovní pas (občanský průkaz nestačí)' && x.done && x.id === 'pack:doc-pass'));
   assert.ok(list.every((x) => /^(todo|pack):[\w-]+$/.test(x.id)) && new Set(list.map((x) => x.id)).size === list.length, 'každá položka s vlastním id');
   assert.ok(list.every((x) => x.t.length <= 120 && !/["<>`]/.test(x.t)));
@@ -1304,5 +1309,10 @@ test('souhrn „🎒 Seznam věcí … · sbaleno N“ se přepočítá při od�
   const prog = src.slice(src.indexOf('function progress(root)'), src.indexOf('function printList()'));
   assert.match(prog, /details\.pt-packd > summary/);
   assert.match(prog, /packTxt\(pk\.length, pk\.filter\(b => b\.checked\)\.length\)/);
-  assert.match(read('public/js/trip.js'), /\$\{window\.PreTrip && !pastHtml\(t\) \? PreTrip\.html\(/);
+  // proběhlá i probíhající (od dne po odletu) cesta kartu nemá; po cestě ani vstupní podmínky
+  const tj = read('public/js/trip.js');
+  assert.match(tj, /const past = Boolean\(pastHtml\(t\)\), onTrip = !past && !t\.shared && outLeg\(t\)\.date < fmtYMD\(new Date\(\)\);/);
+  assert.match(tj, /\$\{window\.PreTrip && !past && !onTrip \? PreTrip\.html\(/);
+  assert.match(tj, /\$\{past \? '' : window\.Entry && Entry\.ready\(\) \? Entry\.checklistHtml\(/);
+  assert.match(tj, /\$\{onTrip \? '<details class="sum-booked"><summary><b>✅ Co zarezervovat<\/b>/);
 });
