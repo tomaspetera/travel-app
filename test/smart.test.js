@@ -586,3 +586,26 @@ test('čas letu, přestupy a aerolinky ve větě: nejsou místo, štítek řekne
   assert.equal(P('do 2000').patch.maxPrice, '2000');
   assert.equal(P('do 20. listopadu').patch.xOut, '2026-11-20');
 });
+
+test('svátky a délka: „na Štědrý den“ = Vánoce, „na státní svátek v listopadu“, „na měsíc“, „na půl roku“ = jen tam, „příští rok“', () => {
+  const d = (q, t) => { const r = P(q, t); return [r.patch.dFrom, r.patch.dTo, r.to]; };
+  assert.deepEqual(chips(P('na Štědrý den')), ['Vánoce']);
+  assert.deepEqual(P('na Štědrý večer do Vídně').to, ['Vídně']);
+  // svátek v tom měsíci, ne celý měsíc a „státní svátek“ jako místo
+  const sv = P('na státní svátek v listopadu');
+  assert.deepEqual([chips(sv), sv.to], [['Den boje za svobodu'], []]);
+  // ~4 týdny; „za měsíc“ a „příští měsíc“ dál termín
+  assert.deepEqual([P('měsíc v Thajsku').patch.nMin, P('měsíc v Thajsku').patch.nMax, P('měsíc v Thajsku').to], [27, 30, ['Thajsku']]);
+  assert.deepEqual(chips(P('za měsíc')), ['za měsíc']);
+  // pobyt přes 45 nocí: jen tam
+  for (const q of ['na 2 měsíce do Thajska', 'na půl roku', 'na rok do Austrálie']) {
+    assert.equal(P(q).patch.trip, 'oneway', q);
+    assert.ok(chips(P(q)).includes('jen tam (zpět hledej zvlášť)'), q);
+  }
+  // „příští rok“ není místo; s měsícem (do roka dopředu) ten měsíc v příštím roce
+  assert.deepEqual(P('příští rok v létě').to, []);
+  assert.deepEqual(d('příští rok v listopadu', '2026-10-31').slice(0, 2), ['2026-11-01', '2026-11-30'], 'listopad 2027 je za víc než rok – nejbližší');
+  assert.deepEqual(d('příští rok v říjnu', '2026-10-31').slice(0, 2), ['2027-10-01', '2027-10-31'], 'letošní říjen končí – říjen příštího roku');
+  // Dušičky: ne místo
+  assert.deepEqual(P('na Dušičky').to, []);
+});
