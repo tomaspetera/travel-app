@@ -619,6 +619,9 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   const city3 = { ...city, days: { '2026-10-12': [items[1].name, 'Nové místo'], '2026-10-13': [items[0].name] } };
   assert.equal(TB.mergeInto(wz, city3), 1);
   assert.deepEqual(plain(wz.days), { '2026-10-12': [`${items[0].name} – otevřeno 9–19`, 'Nové místo'], '2026-10-13': [`Barcelona: ${items[1].name}`] });
+  // stejný název u jiného místa trasy („Porto: …“ u programu Barcelony) není duplicita
+  const other = { name: 'O', dest: 'Barcelona', start: '2026-10-12', end: '2026-10-14', wizard: {}, days: { '2026-10-13': [`Porto: ${items[0].name}`] } };
+  assert.equal(TB.mergeInto(other, { ...city, days: { '2026-10-12': [items[0].name] } }), 1);
   const x = { name: 'X', start: '2026-10-12', end: '2026-10-20', days: null };
   TB.mergeInto(x, city);
   assert.equal(x.end, '2026-10-20', 'kratší výsledek konec nezkrátí');

@@ -129,8 +129,10 @@
     const second = (d, mo, y, at) => {
       const yr = y ? +y : +dates.out.slice(0, 4), same = mkDate(d, mo, yr);
       if (!same) return false;
-      // „Řím 20.11. nebo 27.11.“: dvě možnosti odletu, ne tam a zpět → odlet kdykoli mezi nimi (nejvýš 45 dní)
-      if (/(?:^|[^a-z])(?:nebo|ci)\s*$/.test(s.slice(0, at))) {
+      // „Řím 20.11. nebo 27.11.“: dvě možnosti odletu, ne tam a zpět → odlet kdykoli mezi nimi (nejvýš 45 dní); „nebo“
+      // mezi oběma daty v kterémkoli pořadí ve větě (číselné datum projde větu dřív než „20. listopadu“)
+      const lo = Math.min(at, dates.at ?? at), hi = Math.max(at, dates.at ?? at);
+      if (/(?:^|[^a-z])(?:nebo|ci)\s*$/.test(s.slice(0, at)) || /(?:^|[^a-z])(?:nebo|ci)(?=[^a-z]|$)/.test(s.slice(lo, hi))) {
         const o = dates.out, x = same >= o ? same : !y && mkDate(d, mo, yr + 1);
         const [from, to] = [o, same >= today ? same : x].filter(Boolean).sort();
         if (!to || from === to || (Date.parse(to) - Date.parse(from)) / 864e5 > 45) return false;
@@ -138,10 +140,15 @@
         return true;
       }
       if (same > dates.out) { dates.back = same; return true; }
+      if (same === dates.out) return false;
+      // dřívější den: prohodit (data obráceně), nebo návrat příští rok – podle toho, co dá kratší cestu („28.12. – zpět
+      // 3.1.“ i v lednu příští rok; „1.12. a zpět 28.2.“ návrat v únoru, i když je to přes 45 nocí – ne tichých 7 nocí)
       const nx = !y && mkDate(d, mo, yr + 1);
-      if (nx && (Date.parse(nx) - Date.parse(dates.out)) / 864e5 <= 45) { dates.back = nx; return true; }
-      if (same < dates.out && same >= today) { dates.back = dates.out; dates.out = same; return true; }
-      return false;
+      const sw = same >= today ? Date.parse(dates.out) - Date.parse(same) : Infinity, nl = nx ? Date.parse(nx) - Date.parse(dates.out) : Infinity;
+      if (sw === Infinity && nl === Infinity) return false;
+      if (nl <= sw) dates.back = nx;
+      else { dates.back = dates.out; dates.out = same; }
+      return true;
     };
     // „mezi 10. a 20. listopadem“, „mezi 10. 11. a 20. 11.“: odlet kdykoli v tom rozmezí, ne přesná data tam a zpět
     // (dřív z toho bylo místo „mezi listopadem“)
@@ -163,7 +170,7 @@
       if (m[4] && (!b || b < a)) return false;
       // druhé samostatné datum („15.11. a zpět 18.11.“, „odlet 20.11. návrat 25.11.“) je návrat – dřív přepsalo odlet
       if (!b && dates && dates.exact && dates.out && !dates.back) return second(m[1], m[2], m[3], at) ? undefined : false;
-      dates = { exact: true, out: a, back: b };
+      dates = { exact: true, out: a, back: b, at };
     });
 
     // (i „5-9.12.“ bez tečky za prvním dnem)
@@ -182,7 +189,7 @@
       if (dates && dates.exact) return false;
       const b = m[2] ? mkDate(m[2], mo, m[4]) : null, a = mkDate(m[1], mo, m[4] || (b ? b.slice(0, 4) : undefined));
       if (!a || (m[2] && (!b || b < a))) return false;
-      dates = { exact: true, out: a, back: b };
+      dates = { exact: true, out: a, back: b, at };
     });
     // --- za týden / za 14 dní = kdy (ne jak dlouho) ---
     rule(new RegExp(`za\\s+(?:(${NUM_RE})\\s*)?(tyden|tydny|tydnu|den|dny|dni|dnu)${W}`), m => {
@@ -297,9 +304,13 @@
       if (dates) {
         // svátek mimo seznam prodloužených víkendů (Vánoce od ledna do léta tam nejsou): začátek z náhradního termínu –
         // u Vánoc Štědrý den (konec „Vánoce“ 19.–24. 12.), jinak jeho první den; nejvýš 45 nocí
-        const fb = !lw && dates.exact && dates.out && !dates.back ? fallback() : null;
+        // (náhradní termín Silvestra nastaví délku – tady jen pro začátek svátku, délku nemění)
+        const len0 = len, fb = !lw && dates.exact && dates.out && !dates.back ? fallback() : null;
+        len = len0;
         const st = lw ? lw.start : fb ? (name === 'vanoce' ? fb.to : fb.from) : '';
-        if (dates.exact && dates.out && !dates.back && /^\d{4}-\d\d-\d\d$/.test(st || '') && st < dates.out && (Date.parse(dates.out) - Date.parse(st)) / 864e5 <= 45) dates = { exact: true, out: st, back: dates.out };
+        // poslední den svátku: datum z věty je návrat jen od něj dál („zpět 27.12.“), ne „od 26.3. o Velikonocích“ (odlet)
+        const end = lw ? lw.end : fb ? (name === 'vanoce' ? addDays(fb.to, 2) : name === 'velikonoce' ? addDays(fb.from, 4) : name === 'novy rok' ? addDays(fb.to, 1) : fb.to) : '';
+        if (dates.exact && dates.out && !dates.back && /^\d{4}-\d\d-\d\d$/.test(st || '') && st < dates.out && end && dates.out >= end && (Date.parse(dates.out) - Date.parse(st)) / 864e5 <= 45) dates = { exact: true, out: st, back: dates.out };
         return;
       }
       if (lw && o.holidayDates) { dates = { holiday: lw, label: lw.name }; return; }
@@ -347,7 +358,7 @@
     rule(new RegExp(`(?:co\\s+nejdriv|hned|ihned|narychlo|last\\s*minute|lastminute|co\\s+nejdrive)${W}`), () => { if (dates) return false; dates = { from: today, to: addDays(today, 14), label: 'co nejdřív' }; });
     rule(new RegExp(`(?:pristi|dalsi)\\s+tyden${W}`), () => { if (dates) return false; const mon = addDays(today, ((8 - dow(today)) % 7) || 7); dates = { from: mon, to: addDays(mon, 6), label: 'příští týden' }; });
     rule(new RegExp(`(?:tento|tenhle)\\s+tyden${W}`), () => { if (dates) return false; dates = { from: today, to: addDays(today, (7 - dow(today)) % 7), label: 'tento týden' }; });
-    rule(new RegExp(`(?:pristi|dalsi)\\s+mesic${W}`), () => {
+    rule(new RegExp(`(?:pristi|dalsi)\\s+mesic${W}|v\\s+pristim\\s+mesici${W}`), () => {
       if (dates) return false;
       const k = (+today.slice(5, 7)) % 12;
       month = k; dates = { ...monthRange(k), label: MONTHS[k] };
@@ -440,9 +451,9 @@
       patch.maxPrice = String(n);
     });
     // („mám 5000 na víkend“, „za 2 litry“ = 2 000 Kč)
-    rule(new RegExp(`(?:do|za|max(?:\\.|imalne)?|maximum|pod|nejvys(?:e)?|levneji\\s+nez|budget|rozpocet|rozpoctem|mam|mame)\\s*${AMT}(k(?![a-z])|\\s+k(?=\\s*$|\\s*[^a-z\\s])|\\s*(?:tisic\\w*|tis\\.?|litr\\w*|liter))?\\s*(?:kc|korun\\w*|czk|,-)?${W}`), m => {
-      // („do 6k“ i „do 6 k“ = 6 000; „do 6000 k moři“: k je předložka, ne tisíc)
-      const n = price(m[1], m[2]);
+    rule(new RegExp(`(?:do|za|max(?:\\.|imalne)?|maximum|pod|nejvys(?:e)?|levneji\\s+nez|budget|rozpocet|rozpoctem|mam|mame)\\s*${AMT}(\\s*k(?![a-z])|\\s*(?:tisic\\w*|tis\\.?|litr\\w*|liter))?\\s*(?:kc|korun\\w*|czk|,-)?${W}`), m => {
+      // („do 6k“, „do 5 k na víkend“ = tisíce; „do 6000 k moři“: 6 000 000 nedává smysl – k je předložka, cena 6 000)
+      const n = price(m[1], m[2]) || (m[2] ? price(m[1]) : 0);
       if (!n) return false;
       patch.maxPrice = String(n);
     });
@@ -463,7 +474,7 @@
     rule(new RegExp(`(?:sam|sama|samotn[yaá]|solo|jen\\s+ja)${W}`), () => { people(1); });
     // děti 2–11 let platí sedadlo, miminko letí na klíně: „2 dospělí a 2 děti“ = 2 dospělí + 2 děti, „s miminkem“ =
     // miminko navíc (bez počtu dospělých dva); „dítě“ / „miminko“ i bez předložky („2 dospělí, dítě a miminko“)
-    rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:deti|ditka|detmi|ditetem|ditkem|dite)${W}|(?:(?:s|se|a)\\s+)?(?:ditetem|ditkem|dite|ditko|batoletem|batole)${W}`), m => {
+    rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:deti|ditka|detmi|ditetem|ditkem|dite|batolata|batolat|batolatum)${W}|(?:(?:s|se|a)\\s+)?(?:ditetem|ditkem|dite|ditko|batoletem|batole)${W}`), m => {
       const k = m[1] ? num(m[1]) : 1;
       if (!(k >= 1 && k <= 6)) return false;
       kids = k;
@@ -577,6 +588,8 @@
       const back = dates.back || (patch.trip === 'oneway' ? null : addDays(dates.out, n));
       Object.assign(patch, { dateMode: 'exact', xOut: dates.out, xFlex: 0, ...(back ? { xBack: back } : {}) });
       if (!dates.back && !back) patch.trip = 'oneway';
+      // návrat přes 45 nocí („1.12. a zpět 28.2.“): zpáteční tak daleko hledání nenajde – jen tam, zpět zvlášť (jako „na 3 měsíce“)
+      if (back && (Date.parse(back) - Date.parse(dates.out)) / 864e5 > 45) { patch.trip = 'oneway'; longStay = true; }
       delete patch.outDays; delete patch.backDays;
       // návrat dopočtený z délky (bez délky týden) – v čipu vidět („Řím 3 noci od 5.12.“ = 5. 12. – 8. 12.)
       // („zítra“, „pátek 23. 10.“ i s dopočteným návratem: „zítra – 26. 10.“)

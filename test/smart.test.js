@@ -676,3 +676,27 @@ test('„Řím 20.11. nebo 27.11.“ = odlet kdykoli mezi nimi (dvě možnosti),
   assert.deepEqual(r('Řím 28.12. nebo 2.1.'), [false, '2026-12-28', '2027-01-02']);
   assert.deepEqual(r('Řím 20.11. a zpět 27.11.'), [true, '2026-11-20', '2026-11-27'], '„a zpět“ dál tam a zpět');
 });
+
+test('z kontroly #312–#316: „do 5 k na víkend“, návrat přes Nový rok přes 45 nocí, svátek s datem odletu, batolata, „v příštím měsíci“, „nebo“ v obou pořadích', () => {
+  const T = '2026-10-31';
+  const x = (q, t = T) => { const p = P(q, t).patch; return p.dateMode === 'exact' ? [p.xOut, p.xBack] : [p.dFrom, p.dTo]; };
+  // mezera před „k“ = tisíce (i před dalším slovem); „k moři“ za částkou dál předložka
+  assert.deepEqual([P('Řím do 5 k na víkend', T).patch.maxPrice, P('max 5 k do Londýna', T).to, P('Londýn do 4 k Kč', T).to], ['5000', ['Londýna'], ['Londýn']]);
+  assert.deepEqual([P('do 6000 k moři', T).patch.maxPrice, P('do 6000 k moři', T).kind], ['6000', 'sea']);
+  // návrat po Novém roce přes 45 nocí: zůstane, jak ho uživatel napsal (ne tichých 7 nocí)
+  assert.deepEqual(x('Bangkok 1.12. a zpět 28.2.'), ['2026-12-01', '2027-02-28']);
+  const lg = P('Bangkok 1.12. a zpět 28.2.', T);
+  assert.deepEqual([lg.patch.trip, chips(lg).includes('jen tam (zpět hledej zvlášť)')], ['oneway', true], 'přes 45 nocí jen tam – zpáteční hledání nenajde');
+  assert.deepEqual(x('28.12. do Londýna zpět 3.1.', '2026-01-01'), ['2026-12-28', '2027-01-03'], 'v lednu dál přes Nový rok');
+  // datum před koncem svátku je odlet („od 26.3. o Velikonocích“), ne návrat; délka beze změny
+  assert.deepEqual(x('Velikonoce v Římě od 26.3.'), ['2027-03-26', '2027-04-02']);
+  assert.deepEqual(x('Londýn 30.12. na Nový rok', '2026-08-01'), ['2026-12-30', '2027-01-06']);
+  assert.deepEqual(x('Řím 10.11. o Velikonocích'), ['2026-11-10', '2026-11-17']);
+  assert.deepEqual(x('Štědrý den do Londýna a zpět 27.12.', '2026-06-01'), ['2026-12-24', '2026-12-27'], 'zpět po svátcích dál návrat');
+  // děti a měsíc
+  assert.equal(P('pro dvě batolata do Říma', T).patch.children, 2);
+  assert.deepEqual([P('Řím v příštím měsíci', T).to, P('Řím v příštím měsíci', T).patch.dFrom], [['Řím'], '2026-11-01']);
+  // „nebo“ mezi daty i v pořadí slovní → číselné
+  assert.deepEqual(x('Řím 20. listopadu nebo 27.11.'), ['2026-11-20', '2026-11-27']);
+  assert.equal(P('Řím 20. listopadu nebo 27.11.', T).patch.dateMode === 'exact', false);
+});
