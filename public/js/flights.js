@@ -4450,10 +4450,12 @@
     if (typeof renderSince === 'function') renderSince();
     const since = $('#sinceCard'), quiet = Boolean(since && since.dataset.quiet);
     const hits = n.hits.filter(x => x !== top), drops = n.watch.filter(x => x !== top);
+    const rest = hits.length + drops.length - Math.min(2, hits.length) - Math.min(2, drops.length);
     const parts = [
       ...hits.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">🎯 ${esc(x.label)} pod tvou cenou (${czk(x.czk)})</button>`),
       ...drops.slice(0, 2).map(x => `<button type="button" class="linkbtn" data-nl="watch">📉 ${esc(x.label)} −${czk(x.d)}</button>`),
-      hits.length + drops.length > Math.min(2, hits.length) + Math.min(2, drops.length) ? `<span class="faint">+${hits.length + drops.length - Math.min(2, hits.length) - Math.min(2, drops.length)} další</span>` : '',
+      // „+2 další“, „+5 dalších“ (jako „a 5 dalších“ v kartě Od minula)
+      rest ? `<span class="faint">+${rest} ${rest <= 4 ? 'další' : 'dalších'}</span>` : '',
       n.down || n.fresh ? `<button type="button" class="linkbtn" data-nl="radar">📡 radar: ${[n.down ? `${n.down} ${n.down === 1 ? 'cíl' : n.down <= 4 ? 'cíle' : 'cílů'} levněji` : '', n.fresh ? `${n.fresh} ${n.fresh === 1 ? 'nový' : n.fresh <= 4 ? 'nové' : 'nových'}` : ''].filter(Boolean).join(' · ')}</button>` : '',
     ].filter(Boolean);
     el.hidden = !parts.length || quiet;
