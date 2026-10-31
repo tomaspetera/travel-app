@@ -203,14 +203,15 @@
   /**
    * Kolik pondělních připomínek od start ('YYYY-MM-DD'): nejvýš 8, a jen před posledním možným odletem – u přesných dat
    * odlet (u cesty přes víc měst první let), u rozsahu jeho konec; po odletu už ceny hlídat nemá smysl. Klouzavý termín
-   * (form.roll) nekončí → 8. Aspoň 1 (odlet do týdne – připomínka hned v pondělí).
+   * (form.roll) nekončí → 8. Odlet do týdne → 1 (připomínka hned v pondělí); odlet před prvním pondělím → 0 (připomínka
+   * by přišla až po odletu – tlačítko to řekne místo stažení).
    */
   function remindCount(form, start) {
     const f = form || {};
     const end = rolls(f) ? null : f.trip === 'multi' ? (f.legs || [])[0] && f.legs[0].date : f.dateMode === 'exact' ? f.xOut : f.dTo;
     if (!isYmd(end) || !isYmd(start)) return 8;
     const d = daysTo(start, end);
-    return d <= 0 ? 1 : Math.min(8, Math.floor((d - 1) / 7) + 1);
+    return d < 0 ? 0 : d === 0 ? 1 : Math.min(8, Math.floor((d - 1) / 7) + 1);
   }
   /**
    * Událost pro Ics.build: každé pondělí v 9:00 (nejvýš 8×, jen do odletu – remindCount) „Zkontroluj ceny: Praha → Řím“
@@ -226,7 +227,7 @@
     return {
       title: `Zkontroluj ceny: ${w.label || 'hlídané hledání'}`,
       description: [price, w.best && w.best.desc, 'Otevři ATLAS – cenu zkontroluji znovu.'].filter(Boolean).join('\n'),
-      start, durationMin: 15, rrule: `FREQ=WEEKLY;COUNT=${remindCount(w && w.form, start.slice(0, 10))}`,
+      start, durationMin: 15, rrule: `FREQ=WEEKLY;COUNT=${Math.max(1, remindCount(w && w.form, start.slice(0, 10)))}`,
       url, uid: `atlas-watch-${String(w.id).replace(/[^\w.-]/g, '')}`,
     };
   }
@@ -257,9 +258,12 @@
    * undefined = nehlídá se), uložený w.own (dřívější hlídání bez něj = žádné). best.key = město nejlevnější nabídky,
    * best.hid = 🙈 města levnější než ona, která kontrola vynechala („OMR,BUH“): nejlevnější je teď město, které minulá
    * kontrola vynechala (vrácené z 🙈 – 'unmute'), nebo minule nejlevnější město je teď v 🙈 ('mute').
-   * → 'own' | 'unmute' | 'mute' | null.
+   * w.rebNext = 'term': změnil se termín (📅 Posouvat termín – proběhlý termín nebo zapnutí u pevného) – první cena
+   * nového termínu se s cenou starého nesrovnává (dřív hlásila „📉 −29 % od minulé kontroly“).
+   * → 'term' | 'own' | 'unmute' | 'mute' | null.
    */
   function rebaseWhy(w, best, own) {
+    if (w.rebNext === 'term') return 'term';
     if (own != null && String(w.own || '') !== String(own)) return 'own';
     const hid = b => (b && typeof b.hid === 'string' ? b.hid.split(',') : []), was = w.best && w.best.key;
     if (best && best.key && hid(w.best).includes(best.key)) return 'unmute';
@@ -289,6 +293,7 @@
     }
     const { partials, ...rest } = w;
     const out = { ...rest, best: best || null, checked: now, tried: now };
+    if (reb) delete out.rebNext; // nový základ je zapsaný (bez ceny zůstane na příští kontrolu)
     if (cur || !prev) out.pv = PV;
     // otisk se zapíše jen s cenou (nebo bez minulé) – kontrola bez výsledku by jinak příští cenu srovnala se starou
     if (own != null && (cur || !prev)) out.own = String(own);

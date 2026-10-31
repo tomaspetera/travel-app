@@ -829,14 +829,15 @@ test('📅 remindEvent: název, popis bez ceny, URL #watch=<id> bez starého # a
   assert.equal(A.remindEvent({ id: 'x', label: 'A → B' }).url, '', 'bez adresy aplikace bez odkazu');
 });
 
-test('📅 remindCount: pondělní připomínky jen do odletu (nejvýš 8, aspoň 1), klouzavý termín 8', () => {
+test('📅 remindCount: pondělní připomínky jen do odletu (nejvýš 8, po odletu žádná), klouzavý termín 8', () => {
   const ex = (xOut) => ({ dateMode: 'exact', trip: 'return', xOut, xBack: '2026-11-23' });
   // od pondělí 2. 11., odlet pátek 20. 11. → 2., 9. a 16. 11. (ne 23. 11. až 21. 12.)
   assert.equal(A.remindCount(ex('2026-11-20'), '2026-11-02'), 3);
   assert.equal(A.remindCount(ex('2026-11-09'), '2026-11-02'), 1, 'odlet v pondělí – připomínka jen týden předem');
   assert.equal(A.remindCount(ex('2026-11-10'), '2026-11-02'), 2);
   assert.equal(A.remindCount(ex('2026-11-04'), '2026-11-02'), 1, 'odlet do týdne – aspoň jedna');
-  assert.equal(A.remindCount(ex('2026-11-01'), '2026-11-02'), 1, 'odlet před první připomínkou – aspoň jedna');
+  assert.equal(A.remindCount(ex('2026-11-01'), '2026-11-02'), 0, 'odlet před první připomínkou – žádná (přišla by po odletu)');
+  assert.equal(A.remindCount(ex('2026-11-02'), '2026-11-02'), 1, 'odlet v den první připomínky – ráno ještě ano');
   assert.equal(A.remindCount(ex('2027-06-01'), '2026-11-02'), 8, 'daleký odlet – nejvýš 8');
   assert.equal(A.remindCount({ dateMode: 'flex', dFrom: '2026-11-05', dTo: '2026-11-30' }, '2026-11-02'), 4, 'rozsah do konce');
   assert.equal(A.remindCount({ trip: 'multi', legs: [{ date: '2026-11-12' }, { date: '2026-11-20' }] }, '2026-11-02'), 2, 'víc měst: první let');
@@ -856,4 +857,42 @@ test('📅 watchFromHash: #watch=<id> z připomínky, cokoliv jiného null', () 
   for (const h of ['', '#watch=', '#dashboard', '#watchx=1', 'watch=abc', '#watch=a b', '#watch=<img>', '#watch=%E0%A4%A', '#watch=a&b=1', '#plan=xyz', '#watch=' + 'a'.repeat(41), null, undefined]) {
     assert.equal(A.watchFromHash(h), null, String(h));
   }
+});
+
+test('📅 změna termínu (rebNext: term): první cena nového termínu je nový základ, ne „zlevnilo o 29 %“', () => {
+  const w = { id: 'r', pv: A.PV, best: { czk: 1500 }, base: 1500, low: 1500, seen: 1500, history: [{ at: NOW - 864e5 * 12, czk: 1500 }], rebNext: 'term', form: {} };
+  const r = A.applyCheck(w, { czk: 1058 }, NOW);
+  assert.deepEqual([r.why, r.rebased, r.w.base, r.w.low, r.w.seen, r.w.rebWhy, r.w.rebNext], [null, 'term', 1058, 1058, 1058, 'term', undefined]);
+  assert.equal(r.w.history[r.w.history.length - 1].own, 1, 'nový úsek historie');
+  // bez ceny se příznak drží na příští kontrolu
+  const nothing = A.applyCheck(w, null, NOW);
+  assert.equal(nothing.w.rebNext, 'term');
+  // další kontrola už normálně: zlevnění se hlásí
+  const r2 = A.applyCheck(r.w, { czk: 900 }, NOW + 864e5);
+  assert.equal(r2.why, 'drop');
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  assert.match(fl, /if \(watchKey\(\{ \.\.\.w, form: \{ \.\.\.w\.form \} \}\) !== k \|\| was\) w\.rebNext = 'term';/);
+});
+
+test('📅 Připomínat: hláška se skutečným počtem pondělí, odlet před pondělím bez stažení (dřív vždy „8 týdnů“)', () => {
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  const fn = fl.slice(fl.indexOf('function remindWatch(id)'), fl.indexOf('function remindWatch(id)') + 900);
+  assert.match(fn, /const n = Alerts\.remindCount\(w\.form, Alerts\.nextMonday9\(Date\.now\(\)\)\.slice\(0, 10\)\);/);
+  assert.match(fn, /if \(!n\) \{ toast\('Do odletu už žádné pondělí není/);
+  assert.doesNotMatch(fn, /8 týdnů\)'/);
+  assert.match(fl, /každé pondělí v 9:00 \(nejvýš 8 týdnů, jen do odletu\)/);
+});
+
+test('karta hlídání: 💡 bez hodnocení vůči témuž hledání, proběhlé bez ↓/↑, „Zkontrolovat vše“ jen s živým hlídáním, popisky', () => {
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  // hlídaná cena je nejlevnější v hledání → hodnocení „search“ by bylo vždy „dobrá“ a tip by radil „kup“
+  assert.match(fl, /pl = pl0 && pl0\.basis !== 'search' \? pl0 : null;/);
+  assert.match(fl, /const diff = prev && cur && !gone && !past \? cur - prev : 0;/);
+  assert.match(fl, /ln = watchLines\(w, ps, h, own, now, past \|\| gone\)/);
+  assert.match(fl, /wk = old \? null : st\.week/);
+  assert.match(fl, /\$\{old \? 'Naposledy' : 'Teď'\}/);
+  assert.match(fl, /\$\('#watchCheckAll'\)\.hidden = !live\.length;/);
+  assert.match(fl, /live \? 'Hlídám, dokud máš ATLAS otevřený' : 'Termíny proběhly – smaž je, nebo zapni 📅 posouvání'/);
+  assert.match(fl, /\$\{drop \? 'Všechna zlevnění' : 'Hlídané ceny'\} \(\$\{total\}\)/);
+  assert.match(fl, /'poslední kontrola nic nenašla – zkusím znovu'/);
 });
