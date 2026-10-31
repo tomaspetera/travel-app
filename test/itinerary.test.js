@@ -239,5 +239,6 @@ test('dayCapacities: první den od 9:00 jen s příletem do 7:30 (Objevuj posíl
   assert.equal(dayCapacities({ start: '2026-11-07', end: '2026-11-08', arrivalTime: '07:30' })[1].from, 9 * 60);
   // Objevuj: program ve městě bez příletu
   const pl = readFileSync(new URL('../public/js/places.js', import.meta.url), 'utf8');
-  assert.match(pl, /makePlan\(st, p, \{ start: ex\.start, end: plusDays\(ex\.start, ex\.days - 1\), arrivalTime: '07:30', departureTime: null \}/);
+  // (u místa tvé cesty časy příletu / odletu z ní – tripTimes)
+  assert.match(pl, /makePlan\(st, p, \{ start: ex\.start, end: plusDays\(ex\.start, ex\.days - 1\), arrivalTime: '07:30', departureTime: null, \.\.\.tripTimes\(p\) \}/);
 });
