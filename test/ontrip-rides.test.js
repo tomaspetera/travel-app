@@ -285,3 +285,11 @@ test('okno cesty během cesty: nahoře dnešní den (vlak, program) a 🔖 rezer
   assert.ok(!/<img|\son[a-z]+=/.test(h), h);
 });
 
+
+test('den přejezdu Lisabon → Porto: navigace do hotelu v Portu až po příjezdu vlaku (dřív celý den, i ráno v Lisabonu)', () => {
+  const t = porto(); // vlak 26. 10. v 10:42, ~2 h 50 min
+  const ráno = at(C, t, '2026-10-26T09:22:00Z'), odpo = at(C, t, '2026-10-26T15:00:00Z');
+  assert.equal(ráno.p.hotel, null, ráno.h);
+  assert.ok(odpo.p.hotel && odpo.p.hotel.name, 'po příjezdu hotel v Portu');
+  assert.equal(at(C, t, '2026-10-25T09:22:00Z').p.hotel?.name, at(C, t, '2026-10-24T12:00:00Z').p.hotel?.name, 'jiné dny beze změny');
+});

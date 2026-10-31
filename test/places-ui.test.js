@@ -291,6 +291,10 @@ test('✕ v programu: přeplánování pošle dny ostatních míst (keep, jen dn
   assert.match(toasts[0][0], /^Vyřazeno: Park Güell – program jsem upravil$/);
   toasts[0][3].run();
   assert.deepEqual([bodies[2].keep, bodies[2].exclude, bodies[2].include], [undefined, [], ['Q2']]);
+  // program uložený pro jiné časy (změna spoje v průvodci): krok Program přeplánuje s místy ve svých dnech (keep celého
+  // programu, jen dny ve městě) a se stejnými volbami – dřív se program smazal i s ✕
+  const js = readFileSync(new URL('../public/js/places.js', import.meta.url), 'utf8');
+  assert.match(js, /\} else \{\s*\/\/ uložený program pro jiný termín[\s\S]{0,400}?st\.keep = keptDays\(opts\.plan, null\);\s*run\(\);\s*\}/);
 });
 
 test('„Naposledy“: nejnovější první, bez opakování, nejvýš 5, bez „Moje okolí“', () => {

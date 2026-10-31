@@ -90,15 +90,17 @@ test('vlak/bus místo letu ve stejné dny: program a auto podle časů letu nepl
   assert.equal(t.overland.on, true);
   assert.equal(t.stay.name, 'Hostel Backpackers Vienna', 'stejné dny → hotel platí');
   assert.equal(t.car, null, 'auto vrácené 2 h po odjezdu vlaku neplatí');
-  assert.equal(t.plan, null);
+  // program pro časy letu zůstane uložený (krok Program ho přeplánuje se stejnými volbami), jen neplatí – dřív se smazal
+  assert.ok(t.plan && t.plan.days.length, 'program zůstane uložený');
   assert.deepEqual(plain(c.__toasts), ['Pojedeš vlakem / busem – let se nepočítá', 'Pojedeš vlakem / busem – let se nepočítá. Jiný čas příjezdu nebo odjezdu – zadej znovu auto']);
   const r = rows(render(c, { ...t, step: 'summary' }));
   assert.ok(!r.some((x) => /auta|📍/.test(x)), r.join('\n'));
-  // bez auta jen hlášení o vlaku; stejné časy (jiný spoj ve stejný čas) nic nezahodí
+  // bez auta hlášení o vlaku a kde upravit program; stejné časy (jiný spoj ve stejný čas) nic nezahodí
   const c2 = load(), t2 = vie({ car: { mode: 'skip', totalCzk: 0 } });
   await pickTrain(c2, t2, { '2026-11-04': ['06:01', '09:55'], '2026-11-11': ['06:01', '09:55'] });
-  assert.deepEqual(plain(c2.__toasts), ['Pojedeš vlakem / busem – let se nepočítá']);
+  assert.deepEqual(plain(c2.__toasts), ['Pojedeš vlakem / busem – let se nepočítá', 'Pojedeš vlakem / busem – let se nepočítá. Jiný čas příjezdu nebo odjezdu – program uprav v kroku Program']);
   assert.equal(t2.car.mode, 'skip');
+  assert.ok(t2.plan, 'bez auta: program zůstane, hláška řekne, kde ho upravit');
   const same = vie({ overland: OV() });
   same.plan.span = { ...same.plan.span, arrivalTime: '09:55', departureTime: '06:01' };
   await pickTrain(c2, same, { '2026-11-04': ['06:01', '09:55'], '2026-11-11': ['06:01', '09:55'] });
@@ -116,7 +118,7 @@ test('živá nabídka letu („Použít“) s jiným časem příletu: program z
   const t = vie();
   await use(t, 0);
   assert.equal(t.flight.out.dep, '2026-11-04T07:00:00');
-  assert.deepEqual([t.car, t.plan, t.stay.name], [null, null, 'Hostel Backpackers Vienna']);
+  assert.deepEqual([t.car, Boolean(t.plan), t.stay.name], [null, true, 'Hostel Backpackers Vienna'], 'program zůstane uložený, auto pryč');
   assert.deepEqual(plain(c.__toasts), ['Let aktualizován – jiný čas příletu nebo odletu, zadej znovu auto']);
   const u = vie();
   await use(u, 1);
@@ -464,6 +466,16 @@ test('trasa vlakem / busem: cesta z letiště do města se nepočítá ve směru
   t.route.bases[0].plan = { center: { lat: 48.2, lon: 16.37 }, days: [day('2026-11-04', 0), day('2026-11-05', 360), day('2026-11-06', 360, ['Prátr'])] };
   const r = rows(render(c, t)).filter((x) => x.includes('📍'));
   assert.deepEqual(r, ['čt 5. 11. 📍 Vídeň: volno', 'pá 6. 11. 📍 Vídeň: Prátr']);
+  // prázdný den přejezdu a odjezdu: „volno do přejezdu“ / „volno do odjezdu“ (nad přejezdem a cestou na letiště)
+  t.route.bases[0].plan.days.push(day('2026-11-07', 60));
+  t.route.bases[1].plan = { center: { lat: 47.8, lon: 13.04 }, days: [day('2026-11-08', 360, ['Pevnost']), day('2026-11-11', 30)] };
+  const r2 = rows(render(c, t)).filter((x) => x.includes('📍'));
+  assert.ok(r2.includes('so 7. 11. 📍 Vídeň: volno do přejezdu') && r2.includes('st 11. 11. 📍 Salcburk: volno do odjezdu'), r2.join('\n'));
+  // noční přílet na trase (0:40): ubytování prvního místa až pod cestou z letiště, v noci „spíš taxi“
+  t.flight.out = { ...t.flight.out, dep: '2026-11-04T22:30:00', arr: '2026-11-05T00:40:00' };
+  const all = rows(render(c, t));
+  const iRide = all.findIndex((x) => /Z letiště VIE → Vídeň/.test(x)), iHotel = all.findIndex((x) => /🏨 <b>Vídeň<\/b>|🏨 Vídeň/.test(x));
+  assert.ok(iRide >= 0 && iHotel > iRide && /v noci spíš taxi/.test(all[iRide]) && all[iHotel].startsWith('čt 5. 11.'), all.join('\n'));
 });
 
 test('ubytování „jen odkazy“: v průběhu i poznámkách „zatím nevybráno“; nový hotel / auto zruší ✓ v Co zarezervovat; týž den bez „jen odkazy“', () => {

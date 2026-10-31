@@ -646,6 +646,10 @@ function nowParts(x, now = Date.now()) {
   const t = x.t, { w, all } = tripRows(t), also0 = Array.isArray(x.also) ? x.also : [];
   const tomorrow = ymdPlus(x.today, 1), pl = w && window.Trip ? Trip.placeOn(w, x.today) : null;
   const ls = tripLegs(t), first = ls[0] || null, back = tripBack(t, ls), ahead = ls.find(l => l.at != null && l.at > now) || null;
+  // den přeletu / přejezdu mezi místy trasy (Řím → Barcelona večer): navigace do hotelu dalšího místa až po příjezdu –
+  // dřív celý den „🏨 Hostel Barcelona · navigovat“, i když cestovatel byl ještě v Římě
+  const pl1 = pl && x.on && x.day > 1 ? Trip.placeOn(w, ymdPlus(x.today, -1)) : null;
+  const hop = Boolean(pl1 && pl1.name !== pl.name && ls.some(l => l.l.date === x.today && l.sw != null && l.sw > now));
   // právě ve vzduchu (noční let po půlnoci, přestup): dnešní řádky let nemají – karta řekne přílet
   const air = ls.find(l => !l.l.ground && l.at != null && l.sw != null && l.at <= now && l.sw > now) || null;
   // v cíli: po příletu (spoj bez času – už v den odjezdu) a do odjezdu zpět; doma navigace do hotelu nemá smysl
@@ -685,7 +689,7 @@ function nowParts(x, now = Date.now()) {
     rows, next: x.on ? all.find(r => r[0] === tomorrow) || null : null, past: x.on && x.tz ? pastRows(rows, wall.slice(11, 16), x.home) : rows.map(() => false),
     place: pl ? pl.name : t.dest && t.dest !== '—' ? t.dest : t.name, from: pl0 && pl0.name !== pl.name ? pl0.name : '', verb: fly ? 'odlet' : 'odjezd', spoje: Boolean(ls.length || w || ft),
     // car = ten den s půjčeným autem → k navigaci do hotelu i Waze
-    hotel: x.on && there && pl && pl.hotel ? { name: pl.hotel, ...(pl.near ? { near: pl.near } : {}), q: [pl.hotel, pl.city, pl.country].filter(Boolean).join(', '), ...(carOn ? { car: true } : {}) } : null,
+    hotel: x.on && there && pl && pl.hotel && !hop ? { name: pl.hotel, ...(pl.near ? { near: pl.near } : {}), q: [pl.hotel, pl.city, pl.country].filter(Boolean).join(', '), ...(carOn ? { car: true } : {}) } : null,
     shift, clock: shift ? wallAt(tz, now).slice(11, 16) : '',
     // ck = do kdy je online check-in otevřený ('YYYY-MM-DDTHH:MM' v zóně odletu)
     air: air ? { l: air.l, min: Math.ceil((air.sw - now) / 6e4), hm: String(air.l.arr || '').slice(11, 16) } : null,

@@ -1314,5 +1314,5 @@ test('souhrn „🎒 Seznam věcí … · sbaleno N“ se přepočítá při od�
   assert.match(tj, /const past = Boolean\(pastHtml\(t\)\), onTrip = !past && !t\.shared && outLeg\(t\)\.date < fmtYMD\(new Date\(\)\);/);
   assert.match(tj, /\$\{window\.PreTrip && !past && !onTrip \? PreTrip\.html\(/);
   assert.match(tj, /\$\{past \? '' : window\.Entry && Entry\.ready\(\) \? Entry\.checklistHtml\(/);
-  assert.match(tj, /\$\{onTrip \? '<details class="sum-booked"><summary><b>✅ Co zarezervovat<\/b>/);
+  assert.match(tj, /\$\{onTrip \|\| past \? '<details class="sum-booked"><summary><b>✅ Co zarezervovat<\/b>/, 'sbalené na cestě i po ní');
 });
