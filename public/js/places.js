@@ -949,7 +949,12 @@
       try { const j = await getJson(`api/poi?lat=${center.lat}&lon=${center.lon}`); st.items = j.items; st.demo = j.demo; } catch { st.items = []; }
       if (opts.alive && !opts.alive()) return;
       paint(opts.plan);
-    } else run();
+    } else {
+      // uložený program pro jiný termín nebo časy (změna spoje): místa zůstanou ve svých dnech (co se do nového termínu
+      // vejde – server ostatní přeplánuje), volby (✕, zájmy, tempo) z prefs platí dál
+      if (opts.plan && Array.isArray(opts.plan.days) && opts.plan.center && Math.abs(opts.plan.center.lat - center.lat) < 1e-4 && Math.abs(opts.plan.center.lon - center.lon) < 1e-4) st.keep = keptDays(opts.plan, null);
+      run();
+    }
   }
 
   /* ---------- samostatné objevování ---------- */
