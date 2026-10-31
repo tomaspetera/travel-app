@@ -420,9 +420,29 @@ export function planItinerary(pois, opts) {
       // Do svého dne, když tam má otevřeno a vejde se (10 % navíc jako u vyvážení níž) – nejznámější a připnuté
       // i přes to, jak je tam nechalo vyvážení (Hrad sv. Jiří v krátkém dni příletu). Uvolněný čas doplní místa
       // z okolí toho dne („Doplnění“ níž), takže den neskáče přes město; pořadí zastávek se složí znovu.
+      const placed = new Set();
       for (const p of keptList) {
         const d = dayOrder.find((x) => x.date === keepAt.get(p.id));
-        if (!shutOn(p, d.date) && (mins(d.items) + p.visitMin <= d.cap * 1.1 || key(p))) d.items.push(p);
+        if (!shutOn(p, d.date) && (mins(d.items) + p.visitMin <= d.cap * 1.1 || key(p))) { d.items.push(p); placed.add(p.id); }
+      }
+      // Po změně letu (přílet později: kratší den, nebo den příletu už bez programu): místa, která se do svého dne
+      // nevejdou nebo jejichž den ve městě už není, do dne s nejvíc volna, kde mají otevřeno – nejznámější napřed.
+      // Dřív vypadla, i nejznámější místo dne příletu (vyvážení níž po ✕ neběží).
+      // Všude plno: významnější místo vytlačí méně významná (jako při vyvážení níž), místo aby vypadlo samo.
+      const free = (x) => x.cap - mins(x.items);
+      const squeeze = (x, p) => {
+        const weaker = x.items.filter((q) => !key(q) && weight(q) < weight(p)).sort((m, n) => weight(m) - weight(n));
+        let room = free(x);
+        const out = [];
+        for (const q of weaker) { if (room >= p.visitMin) break; out.push(q); room += q.visitMin; }
+        if (room < p.visitMin) return false;
+        x.items = x.items.filter((q) => !out.includes(q));
+        return true;
+      };
+      for (const p of ranked.filter((q) => keepAt.has(q.id) && !placed.has(q.id))) {
+        const open = dayOrder.filter((x) => !shutOn(p, x.date) && x.cap > 0).sort((m, n) => free(n) - free(m));
+        const d = open.find((x) => free(x) >= p.visitMin) || open.find((x) => squeeze(x, p));
+        if (d) d.items.push(p);
       }
     } else {
       const k = Math.min(cityDays.length, chosen.length);
