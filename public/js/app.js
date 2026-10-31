@@ -477,8 +477,9 @@ function nextTripStat() {
   const rs = window.Flights && Flights.resumeTrip ? Flights.resumeTrip() : null;
   const next = up.find(x => !nowIdx.includes(x.i) && !(rs && x.t.tripId && x.t.tripId === rs.t.created));
   if (!next && up.length) return null;
-  // jen proběhlé cesty: „Naplánované cesty 2“ by po návratu tvrdilo, že nějaké ještě čekají
-  if (!next) return ['Moje cesty', `${S.trips.length}`, S.trips.length ? 'všechny proběhly – naplánuj další' : 'Začni plánovat', '<button type="button" class="linkbtn nt-open" data-gop>Moje cesty →</button>'];
+  // jen proběhlé cesty: „Naplánované cesty 2“ by po návratu tvrdilo, že nějaké ještě čekají (cesta bez data není proběhlá)
+  const allPast = S.trips.length && S.trips.every(t => t && (t.end || t.start) && (t.end || t.start) < now);
+  if (!next) return [allPast ? 'Moje cesty' : 'Naplánované cesty', `${S.trips.length}`, allPast ? 'všechny proběhly – naplánuj další' : S.trips.length ? 'Mrkni do Mých cest' : 'Začni plánovat', '<button type="button" class="linkbtn nt-open" data-gop>Moje cesty →</button>'];
   const t = next.t, d = daysTo(now, t.start);
   const todo = (t.checklist || []).filter(x => !x.done && /^Zařídit/i.test(x.t || '')).length;
   const when = d <= 0 ? 'právě probíhá' : inDays(d);
@@ -740,7 +741,7 @@ function nowCard(x, p) {
   // 🌤️ předpověď z mezipaměti (renderNow – nowWx): místo dnes, zítřejší další místo; stará nebo bez signálu „předpověď z 7:15“
   const wx = p.wxNow && window.Weather ? p.wxNow.rows.map((r, k, a) => `<span class="nw-wx">${r.tag === 'zítra' ? 'zítra ' : ''}${esc(r.name)} ${Weather.badge(r.w)}${k === a.length - 1 && p.wxNow.from ? ` <span class="faint">předpověď z\u00a0${esc(p.wxNow.from)}</span>` : ''}</span>`) : [];
   const meta = [
-    p.air ? `<span>✈️ Let ${esc(p.air.l.from)} → ${esc(p.air.l.to)} · přílet${p.air.hm ? ` <b>${esc(p.air.hm.replace(/^0/, ''))}</b> <span class="faint">místního času</span>` : ''}, za\u00a0${hmTxt(p.air.min)}</span>` : '',
+    p.air ? `<span>✈️ Let ${esc(p.air.l.from)} → ${esc(p.air.l.to)} · přílet${p.air.hm ? ` <b>${p.air.l.arrEst ? '~' : ''}${esc(p.air.hm.replace(/^0/, ''))}</b> <span class="faint">místního času</span>` : ''}, za\u00a0${hmTxt(p.air.min)}</span>` : '',
     p.ahead ? `<span>${p.ahead.l.ground ? rideAhead(p.ahead.l, x.today) : `✈️ Odlet ${esc(p.ahead.l.from)} → ${esc(p.ahead.l.to)} <b data-nw="cd"></b>${ck}`}</span>` : '',
     ...wx,
     p.shift && !x.home ? `<span>🕐 ${x.on ? 'Místní čas <b data-nw="clock"></b> – ' : 'V cíli je '}${shift}</span>` : '',

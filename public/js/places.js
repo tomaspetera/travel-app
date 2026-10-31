@@ -1977,7 +1977,8 @@
     }
     // program ve městě: místo, které cesta už má v jiný den (program z průvodce „Koloseum – otevřeno 9–19“, místo trasy
     // „Řím: Koloseum“), se nepřidá podruhé – dřív „Přidat k cestě“ dalo totéž místo do dne 1 i 2
-    const key = x => String(x).replace(/^[^:]{1,40}: /, '').replace(/ – .*$/, '').replace(/[<>"'`’]/g, '').trim().toLowerCase();
+    // („Porto: Katedrála“ u programu Lisabonu se nepočítá – jiné místo trasy, jiná katedrála)
+    const key = x => { const m = /^([^:]{1,40}): (.*)$/.exec(String(x)), own = m && (!e.dest || normDest(m[1]) === normDest(e.dest)); return (own ? m[2] : String(x)).replace(/ – .*$/, '').replace(/[<>"'`’]/g, '').trim().toLowerCase(); };
     const known = e.src === 'city' ? new Set(Object.values(t.days).flatMap(v => (Array.isArray(v) ? v.map(key) : []))) : new Set();
     for (const [d, lines] of Object.entries(e.days)) {
       const have = t.days[d] || [];

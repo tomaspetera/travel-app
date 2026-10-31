@@ -744,6 +744,8 @@ test('Přehled – rozpracovaná cesta z průvodce jen jednou: nahoře ↩ Pokra
   c.Flights = { resumeTrip: () => null };
   c.S.trips = [vid];
   assert.deepEqual(plain(stat().slice(0, 3)), ['Moje cesty', '1', 'všechny proběhly – naplánuj další'], 'jen proběhlé: odkaz na Moje cesty zůstává, ne „Naplánované“');
+  c.S.trips = [vid, { name: 'Japonsko', dest: 'Japonsko', start: '', checklist: [] }];
+  assert.deepEqual(plain(stat().slice(0, 3)), ['Naplánované cesty', '2', 'Mrkni do Mých cest'], 'cesta bez data není proběhlá');
   assert.match(APP, /S\.trips\.length \? nextTripStat\(\) : null,\s*\]\.filter\(Boolean\);/, 'null = bez dlaždice');
   // karta ↩ Pokračuj: stejná podmínka jako dlaždice (Flights.resumeTrip) a odpočet do odletu místo dlaždice
   const fl = src('flights.js');
