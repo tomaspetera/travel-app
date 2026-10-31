@@ -92,7 +92,7 @@ test('vlak/bus místo letu ve stejné dny: program a auto podle časů letu nepl
   assert.equal(t.car, null, 'auto vrácené 2 h po odjezdu vlaku neplatí');
   // program pro časy letu zůstane uložený (krok Program ho přeplánuje se stejnými volbami), jen neplatí – dřív se smazal
   assert.ok(t.plan && t.plan.days.length, 'program zůstane uložený');
-  assert.deepEqual(plain(c.__toasts), ['Pojedeš vlakem / busem – let se nepočítá', 'Pojedeš vlakem / busem – let se nepočítá. Jiný čas příjezdu nebo odjezdu – zadej znovu auto']);
+  assert.deepEqual(plain(c.__toasts), ['Pojedeš vlakem / busem – let se nepočítá', 'Pojedeš vlakem / busem – let se nepočítá. Jiný čas příjezdu nebo odjezdu – zadej znovu auto a program uprav v kroku Program'], 'auto i program – hláška řekne obojí');
   const r = rows(render(c, { ...t, step: 'summary' }));
   assert.ok(!r.some((x) => /auta|📍/.test(x)), r.join('\n'));
   // bez auta hlášení o vlaku a kde upravit program; stejné časy (jiný spoj ve stejný čas) nic nezahodí
@@ -119,7 +119,7 @@ test('živá nabídka letu („Použít“) s jiným časem příletu: program z
   await use(t, 0);
   assert.equal(t.flight.out.dep, '2026-11-04T07:00:00');
   assert.deepEqual([t.car, Boolean(t.plan), t.stay.name], [null, true, 'Hostel Backpackers Vienna'], 'program zůstane uložený, auto pryč');
-  assert.deepEqual(plain(c.__toasts), ['Let aktualizován – jiný čas příletu nebo odletu, zadej znovu auto']);
+  assert.deepEqual(plain(c.__toasts), ['Let aktualizován – jiný čas příletu nebo odletu, zadej znovu auto a program uprav v kroku Program']);
   const u = vie();
   await use(u, 1);
   assert.deepEqual([u.car.totalCzk, Boolean(u.plan), u.flight.flightCzk], [2000, true, 990]);

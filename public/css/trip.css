@@ -219,7 +219,7 @@ details.more.ex-places>summary::before{content:none}
 .ex-mustn .linkbtn{font-size:12px;margin-left:4px}
 .poi-in{font-weight:700;color:var(--good)}
 /* značky UNESCO a Wikivoyage u míst: ve světlém režimu tmavší odstín (žlutá a mátová na bílé karta ~1,7 : 1) */
-.poi-unesco{color:var(--warn)}.poi-wv{color:var(--good)}
+.poi-unesco{color:var(--warn)}.poi-wv{color:var(--good);white-space:nowrap}
 .poi-inc{font-size:12px;color:var(--muted);margin-top:3px}
 .poi-lang{display:inline-block;padding:0 5px;margin-right:2px;border-radius:5px;border:1px solid var(--border-2);font-size:10.5px;font-weight:700;color:var(--muted);vertical-align:1px}
 .poi-acts .linkbtn.on{color:var(--warn)}
