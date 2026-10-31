@@ -226,3 +226,21 @@ test('trip: program místa po změně trasy neplatí – shrnutí, kalendář an
   assert.deepEqual(days(t), []);
 });
 
+
+test('kalendář: přejezd a vlak mezi místy v časovém pásmu místa odjezdu (Sevilla → Lisabon → Porto), ne v pásmu příletu', () => {
+  const t = multiTrip();
+  t.flight.out = leg('PRG', 'SVQ', '2026-11-10', '07:00', '10:30', 'Europe/Prague', 'Europe/Madrid');
+  t.flight.back = leg('OPO', 'PRG', '2026-11-18', '19:00', '23:00', 'Europe/Lisbon', 'Europe/Prague');
+  t.dest = { label: 'Sevilla', country: 'Španělsko', cc: 'ES', lat: 37.39, lon: -5.98 };
+  t.route.transport = 'transit';
+  t.route.bases = [{ ...t.route.bases[0], name: 'Sevilla', cc: 'ES' }, { ...t.route.bases[1], name: 'Lisabon', cc: 'PT' }, { ...t.route.bases[2], name: 'Porto', cc: 'PT' }];
+  const ev = plain(Trip.calendarEvents(t)).filter((e) => e.title.includes('Přejezd'));
+  assert.deepEqual(ev.map((e) => [e.title.replace(/^\S+ /, ''), e.tz]), [['Přejezd Sevilla → Lisabon', 'Europe/Madrid'], ['Přejezd Lisabon → Porto', 'Europe/Lisbon']]);
+  // přejezd v 11:00 lisabonského času = 11:00 UTC (dřív v pásmu Madridu → 10:00 UTC)
+  const ics = Ics.build(Trip.calendarEvents(t), { now: Date.UTC(2026, 9, 5) });
+  assert.match(ics.replace(/\r\n /g, ''), /DTSTART:20261116T110000Z\r\nDTEND:[^\r]*\r\nSUMMARY:\S+ Přejezd Lisabon → Porto/);
+  assert.deepEqual(plain(Trip.rideLegs(t)).map((r) => r.tz), ['Europe/Madrid', 'Europe/Lisbon']);
+  // místo v zemi příletu (nebo bez země) dál pásmo příletu
+  t.route.bases[1].cc = '';
+  assert.equal(plain(Trip.rideLegs(t))[1].tz, 'Europe/Madrid');
+});
