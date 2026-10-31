@@ -3184,6 +3184,15 @@
     const ps = $('#progSum'); if (ps) ps.onclick = () => setStep('summary');
     if (window.Places) Places.renderPlanner($('#tripPlaces'), { ...opts, plan: b.plan, onPlan: plan => { b.plan = plan; persist(); } });
   }
+  /**
+   * Poslední den programu nejpozději do „Z ubytování na letiště vyraž nejpozději …“ (leaveBy) bez půl hodiny na cestu zpět
+   * pro zavazadla – server končí den 3 h před odletem, mimo Schengen (2,5 h na letišti) a s delší cestou na letiště ale
+   * poslední místo programu vycházelo až po čase odjezdu. Není součástí termínu programu (span): uložený program platí dál.
+   */
+  function endByOf(t, span) {
+    const h = leaveBy(t).hotel;
+    return h && !h.noStay && h.date === span.end ? { endBy: subHm(h.hm, 30) } : {};
+  }
   // Cesta s dětmi: program rovnou se zájmem „🧒 S dětmi“ (zoo, park, nejvýš 1 muzeum za den, pomalejší chůze) – jde vypnout
   const kidsProg = t => (kidsN(t) ? { interests: ['kids'] } : {});
   /** Program místa trasy: termín, střed (u ubytování, jinak střed místa) a volby plánovače – krok Program i ⚡ Poskládej. */
@@ -3194,7 +3203,8 @@
     const atStay = b.stay && b.stay.mode === 'pick' && b.stay.lat != null && !out;
     const center = atStay ? { lat: b.stay.lat, lon: b.stay.lon, label: b.stay.name } : { lat: b.lat, lon: b.lon, label: b.name };
     // bez vybraného hotelu (jen odkazy, neřeším, vlastní cena) program začíná ve středu místa – „od centra“, ne „od ubytování“
-    return { p, bp, out, opts: { lat: center.lat, lon: center.lon, label: center.label, city: b.name, country: b.country || t.dest.country || '', cc: b.cc || t.dest.cc, ...p, ...(out || !atStay ? { startAt: 'center' } : {}), ...kidsProg(t) } };
+    return { p, bp, out, opts: { lat: center.lat, lon: center.lon, label: center.label, city: b.name, country: b.country || t.dest.country || '', cc: b.cc || t.dest.cc, ...p, ...(out || !atStay ? { startAt: 'center' } : {}), ...kidsProg(t),
+      ...(i === t.route.bases.length - 1 ? endByOf(t, p) : {}) } };
   }
   /**
    * Program jednoho místa: střed města (souřadnice cíle bývají poloha letiště, které může být daleko od centra) – i s hotelem:
@@ -3219,6 +3229,7 @@
       lat: center.lat, lon: center.lon, label: center.label || t.dest.label, city: t.cityCenter ? t.cityCenter.label : t.dest.label.replace(/ \(.*\)$/, ''), country: t.dest.country || '', cc: t.dest.cc,
       // od centra i bez vlastního hotelu se souřadnicemi (vyberu později, neřeším, vlastní cena) – „od ubytování“ by mátlo
       ...progSpan(t), ...(nearStay(t.stay) || far || !own ? { startAt: 'center' } : {}), // termín a časy jako tripPlan (shrnutí, kalendář, plánovač)
+      ...endByOf(t, progSpan(t)),
       ...kidsProg(t),
     };
     return { own, far, opts };
@@ -3351,7 +3362,7 @@
     let area = null;
     try { const r = await fetch(`api/nature?lat=${+o.lat}&lon=${+o.lon}`); area = r.ok ? (await r.json()).area || null : null; } catch (e) { area = null; }
     if (area && window.Places && Places.makeHikePlan) return Places.makeHikePlan({ ...o, kids });
-    const j = await postJson('api/itinerary', { lat: o.lat, lon: o.lon, start: o.start, end: o.end, arrivalTime: o.arrivalTime, departureTime: o.departureTime, pace: 'normal', interests: {}, ...(kids ? { kids } : {}), exclude: [], include: [] });
+    const j = await postJson('api/itinerary', { lat: o.lat, lon: o.lon, start: o.start, end: o.end, arrivalTime: o.arrivalTime, departureTime: o.departureTime, ...(o.endBy ? { endBy: o.endBy } : {}), pace: 'normal', interests: {}, ...(kids ? { kids } : {}), exclude: [], include: [] });
     if (!Array.isArray(j.days)) throw new Error('bez programu');
     const center = { lat: o.lat, lon: o.lon, label: o.label, city: o.city, country: o.country, ...(o.startAt === 'center' ? { startAt: 'center' } : {}) };
     const span = { start: o.start, end: o.end, arrivalTime: o.arrivalTime || null, departureTime: o.departureTime || null };
@@ -3904,15 +3915,17 @@
         : [t.stay && t.stay.mode !== 'skip' ? `Ubytování: ${hotelName(t.stay) || 'zatím nevybráno'}${t.stay.totalCzk ? ' – ' + czk(t.stay.totalCzk) : ''}${t.stay.url ? ' ' + t.stay.url : ''}` : '']),
       t.car && t.car.mode !== 'skip' ? `Auto: ${carPlace(t.car, 'pu')} ${t.car.from || ''} → ${carPlace(t.car, 'do')} ${t.car.to || ''} – ${czk(t.car.totalCzk)}` : '',
     ].filter(Boolean).join('\n');
+    // bez dat „Před cestou“ (ještě se načítají, nebo bez sítě) je null – viz znovu uložená cesta níž
+    const ck = window.PreTrip && PreTrip.plannerChecklist(t, { isos: tripCountries(t), via: tripVia(t), ret: returnDate(t) });
     const entry = {
       name: `${tripName(t)} ${fmtDate(checkin)}`, dest: tripName(t), iso: byIso[t.dest.cc] ? t.dest.cc : null,
       // víc zemí, nebo území mimo seznam zemí (Portoriko → pravidla USA): kódy zemí pro vstupní podmínky
       ...(tripCountries(t).length > 1 || (tripCountries(t).length && !byIso[t.dest.cc]) ? { isos: tripCountries(t) } : {}),
       ...(tripVia(t).length ? { via: tripVia(t) } : {}),
-      start: outLeg(t).date, end: backLeg(t) ? backLeg(t).date : checkout, pax: String(paxN(t)), budget: String(c.total), flight: flightTxt,
+      start: outLeg(t).date, end: backLeg(t) ? backLeg(t).date : checkout, pax: String(paxN(t)), budget: String(budgetOf(t) || c.total), flight: flightTxt,
       ...(ov ? { ground: groundBriefs(ov) } : { legs: allLegs(t).map(legBrief) }), days,
       // „Sbaleno“: seznam z „Před cestou“ (úkoly a věci na míru, i s odškrtnutím), bez dat obecný PACK
-      checklist: (window.PreTrip && PreTrip.plannerChecklist(t, { isos: tripCountries(t), via: tripVia(t), ret: returnDate(t) })) || PACK.map(x => ({ t: x, done: false })), notes,
+      checklist: ck || PACK.map(x => ({ t: x, done: false })), notes,
       // celá cesta z průvodce (hotely, trasa, program, odškrtnuté rezervace) – „Otevřít v průvodci“ ji vrátí
       tripId: t.created, wizard: wizardJson(t),
     };
@@ -3942,6 +3955,8 @@
         notes: was(old.notes, old.genNotes) ? old.notes : entry.notes,
         budget: was(old.budget, old.genBudget) ? old.budget : entry.budget,
         checklist: [...entry.checklist.map(x => ({ ...x, done: x.done || done.has(x.t) })), ...ownCk],
+        // seznam na míru zatím bez dat nejde sestavit: obecný PACK by ho přepsal i s odškrtnutím – zůstane uložený
+        ...(!ck && Array.isArray(old.checklist) && old.checklist.length ? { checklist: old.checklist, genChecklist: old.genChecklist } : {}),
         days, auto: o.quiet ? old.auto : undefined,
       };
     } else S.trips.push(o.quiet ? { ...entry, auto: true } : entry);

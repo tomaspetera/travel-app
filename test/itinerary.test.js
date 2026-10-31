@@ -220,6 +220,17 @@ test('keepOf (api/itinerary): jen prostý objekt do 300 položek, id do 120 znak
   assert.deepEqual([Object.keys(proto), Object.getPrototypeOf(proto)], [['__proto__', 'Q1'], Object.prototype]);
 });
 
+test('dayCapacities: poslední den nejpozději do endBy (odjezd z ubytování na letiště), nikdy déle než 3 h před odletem', () => {
+  const last = (o) => dayCapacities({ start: '2026-12-02', end: '2026-12-08', arrivalTime: '14:13', departureTime: '14:00', ...o }).at(-1);
+  assert.equal(last({}).to, 11 * 60);
+  // Marsa Alam: mimo Schengen 2,5 h na letišti + cesta → z hotelu v 10:15, program do 9:45 (dřív do 11:00 – po odjezdu)
+  assert.equal(last({ endBy: '09:45' }).to, 9.75 * 60);
+  assert.ok(last({ endBy: '09:45' }).cap < last({}).cap);
+  assert.equal(last({ endBy: '13:00' }).to, 11 * 60, 'pozdější endBy den neprodlouží');
+  assert.equal(dayCapacities({ start: '2026-12-02', end: '2026-12-03', endBy: '10:00' }).at(-1).to, 10 * 60, 'i bez času odletu');
+  assert.equal(dayCapacities({ start: '2026-12-02', end: '2026-12-03', endBy: '10:00' })[0].to, 20 * 60, 'jen poslední den');
+});
+
 test('dayCapacities: první den od 9:00 jen s příletem do 7:30 (Objevuj posílá 07:30 – bez příletu), jinak 1,5 h po příletu', () => {
   const from = (arrivalTime) => dayCapacities({ start: '2026-11-07', end: '2026-11-08', arrivalTime })[0].from;
   assert.equal(from('07:30'), 9 * 60, 'Objevuj: jako ostatní dny');

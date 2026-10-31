@@ -85,6 +85,9 @@ test('dny: den příjezdu 1,5 h po příjezdu a odjezdu 3 h před odjezdem krat�
   assert.ok(H.hikeWindows({ start: '2027-07-09', end: '2027-07-12' }).every((x) => x.type === 'full' && x.budget === 475));
   assert.ok(H.hikeWindows({ start: '2027-07-09', end: '2027-07-10', kids: true }).every((x) => x.type === 'full' && x.budget === 240));
   assert.equal(H.hikeWindows({ start: '2027-07-09', end: '2027-07-09', arrivalTime: '09:00', departureTime: '20:00' })[0].type, 'full', 'jednodenní');
+  // endBy (průvodce: z ubytování na letiště) zkrátí den odjezdu i pod 3 h před odletem, nikdy ho neprodlouží
+  const by = (endBy) => H.hikeWindows({ start: '2027-07-09', end: '2027-07-11', arrivalTime: '15:30', departureTime: '14:00', endBy }).at(-1).to;
+  assert.deepEqual([by('10:00'), by('12:30'), by(null)], [600, 660, 660]);
 });
 
 test('cíle na dny: hlavní vrchol v nejdelší den, každý den jiný cíl v jiné části hor, kratší den blízko; s dětmi blíž', () => {

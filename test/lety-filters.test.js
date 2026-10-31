@@ -17,3 +17,11 @@ test('posuvník max. ceny začíná na nejlevnější nabídce – úplně vlevo
   // úplně vlevo zůstane aspoň nejlevnější nabídka
   for (const prices of [[516, 910], [499, 1200], [1000, 1001]]) assert.ok(Math.min(...prices) <= minOf(prices, Math.max(...prices)));
 });
+
+test('štítky cílů nad výpisem („Hurghada od 4 748 Kč“) ukazují nejlevnější nabídku cíle, ne první doporučenou', () => {
+  // dřív g.vis[0] – výpis je řazený podle doporučení, štítek tak tvrdil „od“ vyšší cenu než nejlevnější let v seznamu
+  const m = src.match(/<div class="dest-mini">\$\{groups\.map\(g => `<span class="chip">\$\{flag\(g\.dest\.cc\)\} \$\{esc\(g\.dest\.label\)\} od <b>\$\{czk\(([^}]+)\)\}<\/b>/);
+  assert.ok(m, 'štítek cíle s cenou „od“');
+  const of = new Function('g', `return ${m[1]};`);
+  assert.equal(of({ vis: [{ perPersonCzk: 4157 }, { perPersonCzk: 4083 }, { perPersonCzk: 5200 }] }), 4083);
+});

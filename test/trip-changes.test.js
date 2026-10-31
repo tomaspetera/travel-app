@@ -270,6 +270,31 @@ test('🧳 otevření jiné uložené cesty z Mých cest: rozpracovaná tam zůs
   assert.deepEqual(plain([c.S.trip.created, c.__confirms.length, c.__toasts, c.S.trips.map((x) => x.tripId)]), [42, 0, [], [mine.created]]);
 });
 
+test('🧳 znovu uložená cesta bez dat „Před cestou“ (ještě se načítají) nechá seznam na míru i s odškrtnutím; rozpočet = můj', () => {
+  const mem = {}, localStorage = { getItem: (k) => mem[k] ?? null, setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
+  const c = load({ localStorage });
+  const list = [{ t: 'Zařídit: pojištění', done: false, id: 'todo:ins' }, { t: 'Plavky', done: false, id: 'pack:ac-swim' }];
+  const pt = { html: () => '', shareState: () => undefined, sanitize: () => undefined, tripKey: () => 'k', copyDone() {}, adopt() {}, reminders: () => [], plannerChecklist: () => list.map((x) => ({ ...x })) };
+  c.window.PreTrip = pt; c.PreTrip = pt;
+  // „Můj rozpočet“ ze Shrnutí (cíl + den cesty tam) – dřív se do Mých cest uložila cena cesty jako rozpočet
+  mem.atlas_budget = JSON.stringify({ 'ATVídeň:2026-11-04': { czk: 20000, at: 1 } });
+  render(c, vie({ step: 'summary' }));
+  c.window.Trip.saveToPlanner({ stay: true });
+  assert.equal(c.S.trips[0].budget, '20000');
+  c.S.trips[0].checklist[1].done = true;
+  // jiné zařízení / pomalá síť: data „Před cestou“ ještě nejsou → null; obecný PACK by seznam přepsal i s odškrtnutím
+  pt.plannerChecklist = () => null;
+  c.window.Trip.saveToPlanner({ stay: true });
+  assert.deepEqual(plain(c.S.trips[0].checklist.map((x) => [x.t, x.done])), [['Zařídit: pojištění', false], ['Plavky', true]]);
+  assert.deepEqual(plain(c.S.trips[0].genChecklist), ['Zařídit: pojištění', 'Plavky']);
+  // bez vlastního rozpočtu: jako dřív cena cesty
+  delete mem.atlas_budget;
+  c.S.trips = [];
+  c.window.Trip.saveToPlanner({ stay: true });
+  assert.ok(+c.S.trips[0].budget > 0 && c.S.trips[0].budget !== '20000', c.S.trips[0].budget);
+  assert.deepEqual(plain(c.S.trips[0].checklist.map((x) => x.t)), ['Pas']);
+});
+
 test('🧳 Shrnutí: „Uloženo v Mých cestách“ uloží hned (na přání) a zůstane; sdílená „💾 Uložit do Mých cest“', () => {
   const c = load();
   const h = render(c, vie({ step: 'summary' }));

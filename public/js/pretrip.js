@@ -314,7 +314,8 @@
   /** Výchozí aktivity: podle kategorií v programu, štítků země a podnebí v termínu. */
   function defaultActs(ctx) {
     const c = ctx.climate, cats = ctx.cats, out = [];
-    if (cats.has('beach') || (BEACH_TAGS.test(ctx.tags) && c && c.hi >= 24)) out.push('beach');
+    // u moře už od 22 °C přes den: Marsa Alam v prosinci (~23 °C, moře 24 °C) nebo Kanáry v zimě jsou pořád na koupání
+    if (cats.has('beach') || (BEACH_TAGS.test(ctx.tags) && c && c.hi >= 22)) out.push('beach');
     // sníh v horské zemi už od 5 °C přes den (Innsbruck v lednu ~4 °C u letiště, ve skiareálu pod nulou) – pak místo turistiky
     const snowy = Boolean(c) && c.minHi <= 5 && SNOW_TAGS.test(ctx.tags) && !ctx.capital;
     // hory a treky podle štítků země jen bez programu (program ve městě = výlet do hor neplánuje) a mimo hlavní město

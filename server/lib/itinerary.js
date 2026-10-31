@@ -42,7 +42,7 @@ export function walkKm(a, b) {
 }
 
 /** Kapacita dnů v minutách podle příletu/odletu. */
-export function dayCapacities({ start, end, arrivalTime = '12:00', departureTime = null, pace = 'normal' }) {
+export function dayCapacities({ start, end, arrivalTime = '12:00', departureTime = null, endBy = null, pace = 'normal' }) {
   const n = Math.max(1, daysBetween(start, end) + 1);
   const full = PACE[pace] || PACE.normal;
   const hour = (t) => {
@@ -54,7 +54,8 @@ export function dayCapacities({ start, end, arrivalTime = '12:00', departureTime
     // Okno dne: od 9:00 (den příletu 1,5 h po příletu, ale ne dřív než v 9:00 – přílet v 0:40 neznamená prohlídku
     // Andělského hradu ve 2:37) do 20:00 (den odletu 3 h před odletem); u jednodenní cesty platí obojí naráz.
     const from = i === 0 ? Math.max(9, hour(arrivalTime) + 1.5) : 9;
-    const to = i === n - 1 && departureTime ? Math.min(20, hour(departureTime) - 3) : 20;
+    // endBy: poslední den nejpozději do (průvodce: kdy vyrazit z ubytování na letiště, mimo Schengen dřív než 3 h)
+    const to = i === n - 1 ? Math.min(departureTime ? Math.min(20, hour(departureTime) - 3) : 20, endBy ? hour(endBy) : 24) : 20;
     const cap = Math.max(0, Math.min(full, (to - from) * 60 * (full / 600)));
     // from/to = okno dne v minutách od půlnoci (časy zastávek a oběd v dayTimeline)
     caps.push({ date: addDays(start, i), cap: Math.round(cap), from: Math.round(from * 60), to: Math.round(to * 60) });
