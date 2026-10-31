@@ -296,7 +296,7 @@
       dates = { from: [today, `${y}-11-27`].sort()[1], to: `${y}-12-21`, label: 'vánoční trhy' };
       month = 11;
     });
-    holRule('vanocni\\s+prazdnin\\w*|vanoc\\w*|vanocni\\s+svatky', 'vanoce', () => { const y = today.slice(5) > '12-27' ? +today.slice(0, 4) + 1 : +today.slice(0, 4); return { from: [today, `${y}-12-19`].sort()[1], to: `${y}-12-24`, label: 'Vánoce' }; });
+    holRule('vanocni\\s+prazdnin\\w*|vanoc\\w*|vanocni\\s+svatky|stedr\\w+\\s+(?:den|dne|vecer\\w*)|stedrovecer\\w*', 'vanoce', () => { const y = today.slice(5) > '12-27' ? +today.slice(0, 4) + 1 : +today.slice(0, 4); return { from: [today, `${y}-12-19`].sort()[1], to: `${y}-12-24`, label: 'Vánoce' }; });
     // Silvestr: být tam 31. 12. – odlet 27.–31. 12., ne prodloužený víkend Nového roku (odlet 31. 12. večer nebo 1. 1.
     // by Silvestra minul); „na Nový rok“ dál podle prodlouženého víkendu
     const silvestr = () => { const y = +today.slice(0, 4) + (today.slice(5) > '12-31' ? 1 : 0); len = len || 'long'; return { from: [today, `${y}-12-27`].sort()[1], to: `${y}-12-31`, label: 'Silvestr' }; };
@@ -311,9 +311,13 @@
     });
     // „na státní svátek“, „o svátcích“: nejbližší prodloužený víkend
     rule(new RegExp(`(?:na\\s+|o\\s+|pres\\s+)?(?:statni\\s+svat\\w*|svatek|svatky|svatcich)${W}`), () => {
-      if (dates || !hol[0] || !o.holidayDates) return false;
+      // „na státní svátek v listopadu“: svátek v tom měsíci (dřív zůstal celý měsíc a „státní svátek“ jako místo)
+      if (dates && dates.month) { const h = o.holidayDates && hol.find(x => x.start >= dates.from && x.start <= dates.to); if (h) dates = { holiday: h, label: h.name }; return; }
+      if (dates) return;
+      if (!hol[0] || !o.holidayDates) return false;
       dates = { holiday: hol[0], label: hol[0].name };
     });
+    rule(new RegExp(`(?:na\\s+|o\\s+|pres\\s+)?dusick\\w*${W}`), () => { if (dates) return; dates = nextSpan('10-30', '11-02', 'Dušičky'); len = len || 'long'; });
     rule(new RegExp(`(?:co\\s+nejdriv|hned|ihned|narychlo|last\\s*minute|lastminute|co\\s+nejdrive)${W}`), () => { if (dates) return false; dates = { from: today, to: addDays(today, 14), label: 'co nejdřív' }; });
     rule(new RegExp(`(?:pristi|dalsi)\\s+tyden${W}`), () => { if (dates) return false; const mon = addDays(today, ((8 - dow(today)) % 7) || 7); dates = { from: mon, to: addDays(mon, 6), label: 'příští týden' }; });
     rule(new RegExp(`(?:tento|tenhle)\\s+tyden${W}`), () => { if (dates) return false; dates = { from: today, to: addDays(today, (7 - dow(today)) % 7), label: 'tento týden' }; });
@@ -328,6 +332,20 @@
       if (!n || !unit) return false;
       const d = unit.startsWith('mesic') ? n * 30 : n * 7;
       dates = { from: addDays(today, Math.max(1, d - 4)), to: addDays(today, d + 7), label: `za ${m[1] === 'mesic' ? 'měsíc' : `${n} ${unit.startsWith('mesic') ? (n < 5 ? 'měsíce' : 'měsíců') : (n < 5 ? 'týdny' : 'týdnů')}`}` };
+    });
+    // „na měsíc“, „měsíc v Thajsku“ = ~4 týdny (27–30 nocí); „na 2 měsíce / půl roku / rok“ – zpáteční let tak daleko
+    // hledání nenajde (nejvýš 45 nocí) → jen tam. Dřív z „měsíc“, „půl roku“ bylo místo. (Až za „za měsíc“ a „příští měsíc“.)
+    // „příští rok v prosinci“: měsíc až v příštím roce (letošní prosinec by byl nejbližší); jinak jen není místo
+    rule(new RegExp(`(?:pristi|pristim|dalsi)\\s+rok\\w*${W}|v\\s+pristim\\s+roce${W}`), () => {
+      const y = +today.slice(0, 4);
+      // (jen do ~roka dopředu – dál hledání letů nesahá, pak zůstane nejbližší)
+      if (dates && dates.month && month != null && +dates.to.slice(0, 4) === y && `${y + 1}-${pad(month + 1)}-01` <= addDays(today, 359)) dates = { from: `${y + 1}-${pad(month + 1)}-01`, to: `${y + 1}-${pad(month + 1)}-${pad(lastDay(y + 1, month))}`, month: true, label: `${MONTHS[month]} ${y + 1}` };
+    });
+    let longStay = false;
+    rule(new RegExp(`(?:na\\s+)?(?:cely\\s+)?mesic${W}`), () => { len = len || about(30); });
+    rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*mesic\\w*${W}|na\\s+(?:pul\\s+roku|cely\\s+rok|rok)${W}`), m => {
+      if (m[1] && !(num(m[1]) >= 2 && num(m[1]) <= 24)) return false;
+      patch.trip = 'oneway'; longStay = true;
     });
     rule(new RegExp(`(?:zitra|zejtra)${W}`), () => { if (dates) return false; dates = { exact: true, out: addDays(today, 1), back: null, label: 'zítra' }; });
     rule(new RegExp(`(?:dnes|dneska)${W}`), () => { if (dates) return false; dates = { exact: true, out: today, back: null, label: 'dnes' }; });
@@ -546,7 +564,7 @@
     if (patch.directOnly) chips.push(['✈️', 'jen přímé']);
     if (later.size) chips.push(['⚙️', `${[...later].join(', ')} – nastavíš ve Filtrech`]);
     if (patch.bags) chips.push(['🧳', { none: 'bez kufru', cabin: 'kabinový kufr', checked: 'kufr k odbavení' }[patch.bags]]);
-    if (patch.trip === 'oneway') chips.push(['➡️', 'jen tam']);
+    if (patch.trip === 'oneway') chips.push(['➡️', longStay ? 'jen tam (zpět hledej zvlášť)' : 'jen tam']);
     // „Praha → Řím → Barcelona → Praha“: dvě a víc šipek = cesta přes víc měst (odkud, pak místa v pořadí)
     const chain = arrows >= 2 && from.length === 1 && to.length >= 2 && !kind;
     return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(group ? { group } : {}), ...(chain ? { chain: true } : {}), ...(withKids && !kids && !babies && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
