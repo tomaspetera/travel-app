@@ -130,7 +130,9 @@
     if (name) lines.push('X-WR-CALNAME:' + escText(name));
     const used = new Set();
     for (const ev of (Array.isArray(events) ? events : []).map(prepare).filter(Boolean)) {
-      const uid0 = ev.uid || `${hash(`${name}|${ev.key}|${ev.title}`)}@${host}`;
+      // UID bez názvu kalendáře: tatáž cesta z průvodce („Cesta: Lisabon“) i z Mých cest (název plánu), i po přejmenování
+      // plánu, má stejná UID – import druhého souboru události aktualizuje, nezdvojí (dřív byly všechny dvakrát)
+      const uid0 = ev.uid || `${hash(`${ev.key}|${ev.title}`)}@${host}`;
       let uid = uid0;
       for (let n = 2; used.has(uid); n++) uid = `${uid0}-${n}`;
       used.add(uid);

@@ -468,7 +468,12 @@
   }
   /** Okno pro kamaráda: kam a kdy, počasí v tom měsíci a hledání letů na stejný termín z jeho letiště (Flights.searchTo). */
   function landing(d) {
-    const past = d.o < fmtYMD(new Date()), tm = termTxt(d), home = S.home && S.home.from && S.home.from[0];
+    // proběhlý termín až po návratu – cesta, která právě probíhá, dřív hlásila „už proběhl“; kamarád se může přidat
+    // od zítřka do návratu. Nad 45 nocí hledání letů najde jen let tam (zpáteční server nehledá) – říct to u tlačítka.
+    const now = fmtYMD(new Date()), past = (d.b || d.o) < now, tm = termTxt(d), home = S.home && S.home.from && S.home.from[0];
+    const tmw = fmtYMD(new Date(Date.now() + 864e5)), on = !past && d.o < now, join = on && d.b && tmw < d.b;
+    const long = !past && !on && d.b && days(d.o, d.b) > 45;
+    const when = past || (on && !join) ? {} : join ? { xOut: tmw, xBack: d.b } : { xOut: d.o, xBack: d.b || '' };
     const item = { id: d.id || '', label: d.dest, flag: flag(d.cc) };
     modalOpen(`<div class="jed-land">
       <div class="jed-hero" data-photo="${esc(d.dest)}">
@@ -478,8 +483,9 @@
       <div class="modal-body">
         <div class="card jed-term"><span class="jed-ic">🗓️</span><div><div class="faint">Termín</div><b>${esc(tm.main)}</b><div class="faint">${esc(tm.sub)}</div></div></div>
         <div class="card jed-term" id="jedWx" hidden></div>
-        ${past ? '<div class="note warn">⚠️ <div><b>Tenhle termín už proběhl.</b> Lety do stejného místa najdeš i na jiný termín.</div></div>' : ''}
-        ${d.id ? `<button type="button" class="btn primary jed-go" id="jedGo">✈️ ${past ? 'Najít lety – ' + esc(d.dest) : 'Najít lety na tenhle termín'}</button>
+        ${past ? '<div class="note warn">⚠️ <div><b>Tenhle termín už proběhl.</b> Lety do stejného místa najdeš i na jiný termín.</div></div>'
+          : on ? `<div class="note info">🧳 <div><b>Cesta už začala.</b> ${join ? 'Můžeš se přidat – hledám lety od zítřka do návratu.' : 'Lety do stejného místa najdeš i na jiný termín.'}</div></div>` : ''}
+        ${d.id ? `<button type="button" class="btn primary jed-go" id="jedGo">✈️ ${past || (on && !join) ? 'Najít lety – ' + esc(d.dest) : join ? 'Najít lety – přidat se' : long ? 'Najít lety tam (pobyt přes 45 nocí – zpět hledej zvlášť)' : 'Najít lety na tenhle termín'}</button>
         <div class="faint jed-home">${home ? `Hledám z tvého letiště: <b>${esc(home.label)}</b> – můžeš ho změnit ve formuláři.` : 'Zeptám se, odkud letíš – Praha, Brno, Vídeň…'}</div>` : ''}
         <div class="note info jed-dm">💬 <div><b>Chceš jet?</b> Napiš kamarádovi tam, kde jsi to viděl – do komentářů nebo do zpráv.</div></div>
         <div class="faint jed-foot">ATLAS – levné letenky a plánování cest. Zdarma, bez registrace. Odkaz nese jen cíl a termín.</div>
@@ -488,7 +494,7 @@
     $$('#modal [data-close]').forEach(b => { b.onclick = () => modalClose(); });
     if (window.Photos) Photos.paint($('#modal'));
     const go = $('#jedGo');
-    if (go) go.onclick = () => { modalClose(); Flights.searchTo([item], past ? {} : { xOut: d.o, xBack: d.b || '' }); };
+    if (go) go.onclick = () => { modalClose(); Flights.searchTo([item], when); };
     // počasí v měsíci cesty (dlouhodobý průměr u letiště cíle)
     if (d.a) fetch('api/climate?iata=' + d.a).then(r => (r.ok ? r.json() : null)).then(j => {
       const m = monthOf(d), hi = j && Array.isArray(j.hi) ? j.hi[m - 1] : null, el = $('#jedWx');

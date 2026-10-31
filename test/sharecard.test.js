@@ -111,3 +111,13 @@ test('okno Sdílet: písma Googlu se nestáhla (bez sítě, blokovaná) – kart
   assert.equal(await photosAsked(true), true, 'styl písem se nestáhl → nečeká se');
   assert.equal(await photosAsked(false), false, 'styl se ještě stahuje → čeká se (nejvýš 8 s)');
 });
+
+test('#jed= okno: proběhlé až po návratu, probíhající cesta „Cesta už začala“ (přidat se od zítřka), nad 45 nocí jen tam', () => {
+  const sc = readFileSync(new URL('../public/js/sharecard.js', import.meta.url), 'utf8');
+  const fn = sc.slice(sc.indexOf('  function landing(d)'), sc.indexOf('// počasí v měsíci cesty'));
+  assert.match(fn, /past = \(d\.b \|\| d\.o\) < now/);
+  assert.match(fn, /join = on && d\.b && tmw < d\.b/);
+  assert.match(fn, /<b>Cesta už začala\.<\/b>/);
+  assert.match(fn, /long \? 'Najít lety tam \(pobyt přes 45 nocí – zpět hledej zvlášť\)'/);
+  assert.match(fn, /Flights\.searchTo\(\[item\], when\)/);
+});

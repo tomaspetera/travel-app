@@ -111,3 +111,16 @@ test('index.html: offershare.js po sharelink.js; tlačítko 📤 Sdílet v kart�
   assert.match(src('flights.js'), /data-oshare="\$\{idx\}"/);
   assert.match(src('app.js'), /await openOfferFromHash\(\)/);
 });
+
+test('karta sdílené nabídky: přílet další den „15:05 +1“ jako ve výsledcích (dřív vypadal jako týž den)', () => {
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  const line = fl.match(/^ {2}const offerArr = .*$/m)[0];
+  const ctx = { SearchHelp: { diffDays: (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5) } };
+  vm.createContext(ctx);
+  vm.runInContext(`${line.trim()}; this.offerArr = offerArr;`, ctx);
+  assert.equal(ctx.offerArr({ date: '2026-11-13', dep: '2026-11-13T21:40', arr: '2026-11-14T15:05' }), ' +1');
+  assert.equal(ctx.offerArr({ date: '2026-11-13', dep: '2026-11-13T06:10', arr: '2026-11-13T08:05' }), '');
+  assert.equal(ctx.offerArr({ date: '2026-12-31', arr: '2027-01-02T07:00' }), ' +2');
+  assert.equal(ctx.offerArr({ date: 'x', arr: '<b>' }), '', 'nesmyslná data ze sdíleného odkazu nic nepřidají');
+  assert.match(fl, /esc\(l\.arr\.slice\(11, 16\)\) \+ offerArr\(l\)/);
+});

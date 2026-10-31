@@ -3507,16 +3507,33 @@
     // jedno místo: střed programu (hotel), město, cíl (u ostrova letiště)
     return pt(placeOn(t, ymd).name, ovOn(t) ? t.overland.to : null, tripPlan(t)?.center, t.cityCenter, t.dest);
   }
+  // Časové pásmo zemí s jedním pásmem (místa trasy pásmo nemají – jen země): přejezdy a vlaky mezi místy trasy v pásmu
+  // místa odjezdu. Dřív měly všechny pásmo příletu – Sevilla → Lisabon → Porto: vlak z Lisabonu v .ics o hodinu vedle.
+  const CC_TZ = {
+    AT: 'Europe/Vienna', BE: 'Europe/Brussels', BG: 'Europe/Sofia', HR: 'Europe/Zagreb', CY: 'Asia/Nicosia', CZ: 'Europe/Prague', DK: 'Europe/Copenhagen',
+    EE: 'Europe/Tallinn', FI: 'Europe/Helsinki', FR: 'Europe/Paris', DE: 'Europe/Berlin', GR: 'Europe/Athens', HU: 'Europe/Budapest', IE: 'Europe/Dublin',
+    IT: 'Europe/Rome', LV: 'Europe/Riga', LT: 'Europe/Vilnius', LU: 'Europe/Luxembourg', MT: 'Europe/Malta', NL: 'Europe/Amsterdam', PL: 'Europe/Warsaw',
+    RO: 'Europe/Bucharest', SK: 'Europe/Bratislava', SI: 'Europe/Ljubljana', SE: 'Europe/Stockholm', GB: 'Europe/London', CH: 'Europe/Zurich', NO: 'Europe/Oslo',
+    IS: 'Atlantic/Reykjavik', AL: 'Europe/Tirane', BA: 'Europe/Sarajevo', ME: 'Europe/Podgorica', MK: 'Europe/Skopje', RS: 'Europe/Belgrade', MD: 'Europe/Chisinau',
+    UA: 'Europe/Kiev', TR: 'Europe/Istanbul', GE: 'Asia/Tbilisi', AM: 'Asia/Yerevan', MA: 'Africa/Casablanca', TN: 'Africa/Tunis', EG: 'Africa/Cairo',
+    IL: 'Asia/Jerusalem', JO: 'Asia/Amman', AE: 'Asia/Dubai', TH: 'Asia/Bangkok', VN: 'Asia/Ho_Chi_Minh', JP: 'Asia/Tokyo', LK: 'Asia/Colombo', IN: 'Asia/Kolkata',
+    SG: 'Asia/Singapore', MY: 'Asia/Kuala_Lumpur', PH: 'Asia/Manila', KR: 'Asia/Seoul', CN: 'Asia/Shanghai', ES: 'Europe/Madrid', PT: 'Europe/Lisbon',
+  };
+  /** Pásmo místa trasy: v zemi cíle pásmo příletu (Kanáry, Azory, USA…), jinde podle země, neznámá země → pásmo příletu. */
+  function baseTz(t, b) {
+    const arr = (ovOn(t) ? t.overland.to.tz : t.flight.out.toTz) || null;
+    const cc = b && typeof b.cc === 'string' ? b.cc.toUpperCase() : '', home = String((t.dest && t.dest.cc) || '').toUpperCase();
+    return !cc || cc === home ? arr : CC_TZ[cc] || arr;
+  }
   /**
    * Vlaky a busy mezi místy trasy (přejezd vlakem / busem, ne autem ani letadlem): čas odjezdu průvodce nezná, v plánovači
-   * ho uživatel k úseku zapíše (app.js tripRides) → [{ date, from, to, kind 'vlak' | 'bus', min, tz }]. Zóna jako
-   * u přejezdů v kalendáři (calendarEvents): cíl cesty.
+   * ho uživatel k úseku zapíše (app.js tripRides) → [{ date, from, to, kind 'vlak' | 'bus', min, tz }]. Zóna místa odjezdu
+   * (baseTz), jako u přejezdů v kalendáři (calendarEvents).
    */
   function rideLegs(t) {
     if (!isMulti(t) || isFly(t)) return [];
-    const tz = (ovOn(t) ? t.overland.to.tz : t.flight.out.toTz) || null;
     return routeLegs(t).filter(l => l.a && l.b && l.mode === 'transit').map(l => ({
-      date: l.date, from: l.a.name, to: l.b.name, kind: l.x && l.x.transitKind === 'bus' ? 'bus' : 'vlak', min: l.x && l.x.transitMin > 0 ? Math.round(l.x.transitMin) : null, tz,
+      date: l.date, from: l.a.name, to: l.b.name, kind: l.x && l.x.transitKind === 'bus' ? 'bus' : 'vlak', min: l.x && l.x.transitMin > 0 ? Math.round(l.x.transitMin) : null, tz: baseTz(t, l.a),
     }));
   }
   /** Spoj last je cesta zpět: končí, kde spoj first začal – stejné letiště / město, nebo aspoň stejná časová zóna (návrat
@@ -3745,7 +3762,7 @@
         if (!next || fly) return;
         const x = r.transfers && r.transfers[i], tr = legModeOf(r, b, next);
         ev.push({
-          title: `${trIcon(tr, x)} Přejezd ${b.name} → ${next.name}`, start: `${d.checkout}T${CHECKOUT_HM}`, tz: (ov ? ov.to.tz : f.out.toTz) || null, durationMin: legMin(x, tr) || 120,
+          title: `${trIcon(tr, x)} Přejezd ${b.name} → ${next.name}`, start: `${d.checkout}T${CHECKOUT_HM}`, tz: baseTz(t, b), durationMin: legMin(x, tr) || 120,
           location: next.name, url: legUrl(x, tr) || undefined,
           description: [x ? `${legTxt(x, tr)} (${estTxt(x, tr)})` : '', x && x.border ? `🛂 Přechod hranice ${ccName(x.border.from)} → ${ccName(x.border.to)} – počítej s kontrolou a vstupními podmínkami` : '',
             `Check-out ${b.name}, check-in ${next.name}`].filter(Boolean).join('\n'),
@@ -3761,9 +3778,8 @@
       // Zóna letiště vyzvednutí/vrácení z letů (auto se půjčuje na letišti příletu/odletu).
       const tz = { ...Object.fromEntries(mid.map(l => [l.from, l.fromTz])), [f.out.to]: f.out.toTz, ...(f.back ? { [f.back.from]: f.back.fromTz } : {}) };
       const note = `Auto na místě${t.car.totalCzk ? ` · ${czk(t.car.totalCzk)}` : ''}`, c = t.car;
-      // ve městě (auto jen na některé dny): zóna cíle, místo = město – pobočku vybereš u půjčovny
-      const cityTz = (ovOn(t) ? t.overland.to.tz : f.out.toTz) || null;
-      const at = (city, iata) => (city ? { tz: cityTz, location: [city.name, ccName(city.cc)].filter(Boolean).join(', '), what: city.name } : { tz: tz[iata], location: `Letiště ${iata}`, what: iata });
+      // ve městě (auto jen na některé dny): zóna města (baseTz), místo = město – pobočku vybereš u půjčovny
+      const at = (city, iata) => (city ? { tz: baseTz(t, city), location: [city.name, ccName(city.cc)].filter(Boolean).join(', '), what: city.name } : { tz: tz[iata], location: `Letiště ${iata}`, what: iata });
       const a = at(c.puCity, c.pickup), z = at(c.doCity, c.dropoff);
       ev.push({ title: `🚗 Vyzvednutí auta (${a.what})`, start: c.from, tz: a.tz, durationMin: 30, location: a.location, description: note });
       ev.push({ title: `🚗 Vrácení auta (${z.what})`, start: c.to, tz: z.tz, durationMin: 30, location: z.location, description: note });
@@ -4051,8 +4067,10 @@
   function sanitizeTrip(raw, o = {}) {
     // Odkazy (…url/Url) mohou být dlouhé (Ryanair ~400 znaků) – nezkracovat; texty do 300 znaků. o.quotes: apostrofy
     // a uvozovky nechat (Castel Sant'Angelo) – jen pro výstup, který všechno escapuje (karta „📍 Dnes na cestě“).
-    const bad = o.quotes ? /[<>`]/g : /[<>"'`]/g;
-    const clean = (v, key = '') => typeof v === 'string' ? v.replace(bad, '').slice(0, /url$/i.test(key) ? 4000 : 300)
+    // Bez o.quotes se apostrof v textu mění na typografický (Hotel D’Angleterre) jako ve sdíleném plánu (PlanShare.txt) –
+    // dřív se vypustil („DAngleterre“, „SantAngelo“) ve sdílené cestě i v cestě otevřené z Mých cest; v odkazech se vypouští dál.
+    const bad = o.quotes ? /[<>`]/g : /[<>"`]/g;
+    const clean = (v, key = '') => typeof v === 'string' ? (o.quotes ? v : /url$/i.test(key) ? v.replace(/'/g, '') : v.replace(/'/g, '’')).replace(bad, '').slice(0, /url$/i.test(key) ? 4000 : 300)
       : typeof v === 'number' ? (Number.isFinite(v) ? v : 0)
       : typeof v === 'boolean' || v == null ? v
       : Array.isArray(v) ? v.slice(0, 200).map(x => clean(x, key))
