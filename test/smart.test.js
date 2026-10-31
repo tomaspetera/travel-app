@@ -723,3 +723,32 @@ test('z kontroly #312–#316: „do 5 k na víkend“, návrat přes Nový rok p
   assert.deepEqual(x('Řím 20. listopadu nebo 27.11.'), ['2026-11-20', '2026-11-27']);
   assert.equal(P('Řím 20. listopadu nebo 27.11.', T).patch.dateMode === 'exact', false);
 });
+
+test('regrese z přehledu 609 vět (#308–#327): „nebo“ mezi místy s „zpátky“ za datem, po svátku, zpátky v neděli, třetí datum, zítra a zpět', () => {
+  const T = '2026-10-31';
+  const x = (q, t = T) => { const p = P(q, t).patch; return p.dateMode === 'exact' ? [p.xOut, p.xBack] : [p.dFrom, p.dTo]; };
+  // „nebo“ mezi místy, „zpátky / zpět“ až za druhým datem: tam a zpět
+  assert.deepEqual(x('20.11. do Říma nebo Milána a 27.11. zpátky'), ['2026-11-20', '2026-11-27']);
+  assert.equal(P('20.11. Londýn nebo Dublin a 27.11. zpět', T).patch.dateMode, 'exact');
+  assert.deepEqual(x('Řím 20.11. nebo 27.11. a zpět 30.11.'), ['2026-11-20', '2026-11-27'], 'za „zpět“ další datum: „nebo“ dál dvě možnosti');
+  // po svátku: datum je odlet
+  assert.deepEqual(x('po Vánocích do Londýna 28.12.')[0], '2026-12-28');
+  assert.deepEqual(x('po Velikonocích do Říma 6.4.')[0], '2027-04-06');
+  assert.deepEqual(x('Vánoce v Londýně a zpět 26.12.'), ['2026-12-24', '2026-12-26'], 'se „zpět“ dál návrat');
+  // „od 5. do 9. 12.“ = rozsah; třetí datum termín nepřepíše
+  assert.deepEqual(x('Londýn od 5. do 9. 12.'), ['2026-12-05', '2026-12-09']);
+  assert.deepEqual(x('Londýn 20.11. a zpět 27.11. nebo 28.11.'), ['2026-11-20', '2026-11-27']);
+  // „20. nebo 27. listopadu“ = odlet kdykoli mezi nimi
+  const nb = P('20. nebo 27. listopadu do Říma', T).patch;
+  assert.deepEqual([nb.dateMode === 'exact', nb.dFrom, nb.dTo], [false, '2026-11-20', '2026-11-27']);
+  // zítra a zpět datem; den v týdnu po „zpátky“ = návrat
+  assert.deepEqual(x('zítra do Londýna a zpět 5.11.'), ['2026-11-01', '2026-11-05']);
+  assert.deepEqual(P('zítra do Londýna a zpět 5.11.', T).to, ['Londýna']);
+  assert.deepEqual(x('do Říma 20.11., zpátky v neděli'), ['2026-11-20', '2026-11-22']);
+  const wd = P('Řím v pátek zpátky v neděli', T).patch;
+  assert.deepEqual([wd.outDays, wd.backDays], [[5], [0]]);
+  // výplňová slova a Silvestr bez „r“ na konci
+  assert.deepEqual(P('potřebuju letenku do Londýna', T).to, ['Londýna']);
+  assert.deepEqual(P('pátek 20.11. – neděle 22.11. Londýn', T).to, ['Londýn']);
+  assert.ok(P('na silvester do berlina', T).patch.dFrom, 'Silvestr i jako „silvester“');
+});
