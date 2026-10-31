@@ -626,3 +626,10 @@ test('Objevuj větou: „nejhezčí místa v Portugalsku“, „vyhlídky v Čes
   assert.deepEqual([E('výlet k jezeru').place, E('výlet k jezeru').interests], ['', ['nature']]);
   assert.equal(E('k Lipenskému jezeru').place, 'Lipenskému jezeru', 'jezero se jménem dál místo');
 });
+
+test('„Štědrý den do Londýna a zpět 27.12.“ = 24.–27. 12.; „přímým letem“ – „letem“ není místo', () => {
+  const r = P('Štědrý den do Londýna a zpět 27.12.', '2026-10-31');
+  assert.deepEqual([r.patch.xOut, r.patch.xBack, r.to], ['2026-12-24', '2026-12-27', ['Londýna']]);
+  assert.deepEqual(P('přímým letem do Říma').to, ['Říma']);
+  assert.deepEqual(P('k moři v květnu přímým letem').to, []);
+});

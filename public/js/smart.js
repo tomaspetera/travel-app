@@ -57,7 +57,7 @@
   const EXOTIC = [['TH', 'Thajsko', '🇹🇭'], ['ID', 'Indonésie', '🇮🇩'], ['VN', 'Vietnam', '🇻🇳'], ['AE', 'Spojené arabské emiráty', '🇦🇪'], ['LK', 'Srí Lanka', '🇱🇰']];
 
   // slova, která místo neurčují (zbytek věty po vyřazení rozpoznaných obratů)
-  const FILL = new Set(('chci chtel chtela chteli chtela chceme chtej bych bychom rad rada radi letet letim letime poletim poletime poletet let lety letenka letenky letenku letadlem '
+  const FILL = new Set(('chci chtel chtela chteli chtela chceme chtej bych bychom rad rada radi letet letim letime poletim poletime poletet let letem lety letenka letenky letenku letadlem '
     + 'levne levny levnou levna levnej nejlevneji nejlevnejsi hledam hledame najdi najit ukaz jet jedu jedeme pojedu pojedeme cesta cestu cesty dovolena dovolenou dovolene '
     + 'vylet vyletu i pro nas me mi my ja jsem nejak nejaky nejakou nejake termin terminu okolo kolem cca asi prosim potrebuji potrebujem idealne klidne treba zase ten ta '
     + 'to tento tenhle ktery nebo ale jen jenom jeste uz nejlepe mozna nam vam si se nejlevnejsi nejlepsi super hezky hezkou nekde nekam kam odkud kdy kdyz tak taky take '
@@ -275,8 +275,12 @@
     }
     const hol = (o.holidays || []);
     const holRule = (re, name, fallback) => rule(new RegExp(`(?:(?:na|o|pres|na\\s+svatky)\\s+)?(?:${re})${W}`), () => {
-      if (dates) return false;
       const lw = hol.find(x => fold(x.name || '').includes(name));
+      // „Štědrý den do Londýna a zpět 27.12.“: datum z věty je návrat, svátek odlet (dřív „Štědrý den“ neznámé místo)
+      if (dates) {
+        if (dates.exact && dates.out && !dates.back && lw && /^\d{4}-\d\d-\d\d$/.test(lw.start || '') && lw.start < dates.out) dates = { exact: true, out: lw.start, back: dates.out };
+        return;
+      }
       if (lw && o.holidayDates) { dates = { holiday: lw, label: lw.name }; return; }
       const r = fallback();
       if (!r) return false;

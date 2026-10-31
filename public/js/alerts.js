@@ -406,9 +406,12 @@
   function news(list, radar, today = null) {
     // hledání s proběhlým termínem se už nehlídá – ani do „Od minula“; nabídka, která už odletěla, není zlevnění (📉 karta)
     const ws = (list || []).filter(w => w && w.best && num(w.best.czk) && !gone(w, today));
-    const hits = ws.filter(w => num(w.target) && w.best.czk <= w.target).map(w => ({ id: w.id, label: w.label, czk: w.best.czk }));
+    // dvě hlídání stejné trasy (Praha → Řím v listopadu a v prosinci): k názvu den odletu nabídky, jinak vypadají jako duplikát
+    const twice = new Set(ws.map(w => w.label).filter((l, i, a) => a.indexOf(l) !== i));
+    const lbl = w => (twice.has(w.label) && isYmd(w.best.dep) ? `${w.label} (${+w.best.dep.slice(8, 10)}. ${+w.best.dep.slice(5, 7)}.)` : w.label);
+    const hits = ws.filter(w => num(w.target) && w.best.czk <= w.target).map(w => ({ id: w.id, label: lbl(w), czk: w.best.czk }));
     const hit = new Set(hits.map(x => x.id));
-    const watch = ws.filter(w => !hit.has(w.id) && isDropped(w)).map(w => ({ id: w.id, label: w.label, d: num(w.seen) - w.best.czk })).sort((a, b) => b.d - a.d);
+    const watch = ws.filter(w => !hit.has(w.id) && isDropped(w)).map(w => ({ id: w.id, label: lbl(w), d: num(w.seen) - w.best.czk })).sort((a, b) => b.d - a.d);
     const items = radar && Array.isArray(radar.items) ? radar.items.filter(Boolean) : [];
     return { hits, watch, down: items.filter(x => x.was && x.czk < x.was.czk).length, fresh: items.filter(x => x.newAt).length };
   }
