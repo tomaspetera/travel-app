@@ -680,6 +680,10 @@ test('„Řím 20.11. nebo 27.11.“ = odlet kdykoli mezi nimi (dvě možnosti),
   assert.deepEqual(r('Londýn 20.11. nebo Paříž zpět 24.11.'), [true, '2026-11-20', '2026-11-24']);
   assert.deepEqual(r('20.11. z Prahy nebo z Vídně, zpět 27.11.'), [true, '2026-11-20', '2026-11-27']);
   assert.deepEqual(r('Řím 20.11., nebo 27.11.'), [false, '2026-11-20', '2026-11-27'], 'čárka před „nebo“ nevadí');
+  // „nebo“ s dalším slovem mezi daty dál dvě možnosti odletu
+  for (const q of ['Řím 20.11. nebo až 27.11.', 'Řím 20.11. nebo klidně 27.11.', 'Řím v pátek 20.11. nebo v pátek 27.11.', 'Řím 20.11. (nebo 27.11.)', 'Řím 20. listopadu nebo až 27. listopadu']) {
+    assert.deepEqual(r(q), [false, '2026-11-20', '2026-11-27'], q);
+  }
 });
 
 test('svátek a „zpět / návrat“ s datem před koncem svátku: datum je návrat, svátek odlet (z kontroly #317–#323)', () => {

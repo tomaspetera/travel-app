@@ -131,9 +131,11 @@
       if (!same) return false;
       // „Řím 20.11. nebo 27.11.“: dvě možnosti odletu, ne tam a zpět → odlet kdykoli mezi nimi (nejvýš 45 dní); „nebo“
       // mezi oběma daty v kterémkoli pořadí ve větě (číselné datum projde větu dřív než „20. listopadu“) – jen „nebo“ přímo
-      // mezi nimi: „20.11. Řím nebo Milán, zpět 27.11.“ je tam a zpět (nebo mezi místy)
+      // mezi nimi bez „zpět / návrat“ („nebo až 27.11.“, „(nebo 27.11.)“): „20.11. Řím nebo Milán, zpět 27.11.“ je tam
+      // a zpět (nebo mezi místy)
       const gap = dates.at == null ? null : at > dates.at ? s.slice(dates.end ?? at, at) : s.slice(end ?? dates.at, dates.at);
-      if (gap != null ? /^[\s,;:–-]*(?:nebo|ci)[\s,;:–-]*$/.test(gap) : /(?:^|[^a-z])(?:nebo|ci)\s*$/.test(s.slice(0, at))) {
+      const or = g => /(?:^|[^a-z])(?:nebo|ci)(?=[^a-z]|$)/.test(g) && !/(?:^|[^a-z])(?:zpet|zpatky|navrat\w*)(?=[^a-z]|$)/.test(g);
+      if (gap != null ? or(gap) : /(?:^|[^a-z])(?:nebo|ci)\s*$/.test(s.slice(0, at))) {
         const o = dates.out, x = same >= o ? same : !y && mkDate(d, mo, yr + 1);
         const [from, to] = [o, same >= today ? same : x].filter(Boolean).sort();
         if (!to || from === to || (Date.parse(to) - Date.parse(from)) / 864e5 > 45) return false;

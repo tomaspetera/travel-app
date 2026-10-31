@@ -278,15 +278,18 @@ const NATIONAL_PARK = /národní park|national park|nationalpark|parque nacional
 const KEEP_MAX = 300;
 /**
  * Po ✕ v programu: dny míst, která v programu zůstala ({ id: 'RRRR-MM-DD' }). Jen prostý objekt do 300 položek (víc
- * z aplikace nepřijde – pak bez něj, program se složí znovu celý), id do 120 znaků a datum v termínu start–end;
- * neplatné položky se zahodí. → objekt, nebo undefined.
+ * z aplikace nepřijde – pak bez něj, program se složí znovu celý), id do 120 znaků a platné datum (i mimo termín –
+ * spoj posunutý o den); neplatné položky se zahodí. → objekt, nebo undefined.
  */
 export function keepOf(raw, start, end) {
   if (!raw || typeof raw !== 'object' || Object.getPrototypeOf(raw) !== Object.prototype) return undefined;
   const all = Object.entries(raw);
   if (all.length > KEEP_MAX) return undefined;
-  const ok = all.filter(([id, date]) => id && id.length <= 120 && typeof date === 'string' && isYmd(date)
-    && daysBetween(start, date) >= 0 && daysBetween(date, end) >= 0);
+  // i datum mimo termín (spoj posunutý o den: místa dne 12. 11. v termínu 13.–16. 11.) – plánovač je přesune do jiného
+  // dne, nejznámější napřed; dřív se zahodila a s nimi i nejznámější místa původního prvního dne (nejvýš rok od začátku)
+  const real = (d) => { const t = Date.parse(`${d}T12:00:00Z`); return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === d; };
+  const ok = all.filter(([id, date]) => id && id.length <= 120 && typeof date === 'string' && isYmd(date) && real(date)
+    && Math.abs(daysBetween(start, date)) <= 366 && Math.abs(daysBetween(date, end)) <= 366);
   return ok.length ? Object.fromEntries(ok) : undefined;
 }
 
@@ -430,12 +433,14 @@ export function planItinerary(pois, opts) {
       // Dřív vypadla, i nejznámější místo dne příletu (vyvážení níž po ✕ neběží).
       // Všude plno: významnější místo vytlačí méně významná (jako při vyvážení níž), místo aby vypadlo samo.
       const free = (x) => x.cap - mins(x.items);
+      // Jen když vytlačená místa dohromady váží míň než to přesouvané (nebo je připnuté / chci vidět): běžné místo
+      // nevytlačí šest jiných z dne, kterého se změna letu netýkala
       const squeeze = (x, p) => {
         const weaker = x.items.filter((q) => !key(q) && weight(q) < weight(p)).sort((m, n) => weight(m) - weight(n));
         let room = free(x);
         const out = [];
         for (const q of weaker) { if (room >= p.visitMin) break; out.push(q); room += q.visitMin; }
-        if (room < p.visitMin) return false;
+        if (room < p.visitMin || (!key(p) && out.reduce((sum, q) => sum + weight(q), 0) >= weight(p))) return false;
         x.items = x.items.filter((q) => !out.includes(q));
         return true;
       };
