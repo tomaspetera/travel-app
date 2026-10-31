@@ -708,7 +708,7 @@
     return `<div class="poi" data-poi="${esc(p.id)}">
       ${poiImg(p.image, picon(p))}
       <div><div class="poi-name">${picon(p)} ${esc(p.name)}</div>
-        <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${num(p.distanceKm)} km` : ''}${opts.drive && p.distanceKm != null && !p.reach ? ` · ~${minTxt(driveMin(p.distanceKm))} autem` : ''}${p.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : p.heritage ? ' · památka' : ''}${p.wikivoyage ? ' · <b style="color:var(--good)" title="Místo doporučuje cestovní průvodce Wikivoyage">👍 doporučuje Wikivoyage</b>' : ''}</div>
+        <div class="poi-meta">${esc(p.categoryLabel || '')}${p.distanceKm != null ? ` · ${num(p.distanceKm)} km` : ''}${opts.drive && p.distanceKm != null && !p.reach ? ` · ~${minTxt(driveMin(p.distanceKm))} autem` : ''}${p.unesco ? ' · <b class="poi-unesco">UNESCO</b>' : p.heritage ? ' · památka' : ''}${p.wikivoyage ? ' · <b class="poi-wv" title="Místo doporučuje cestovní průvodce Wikivoyage">👍 doporučuje Wikivoyage</b>' : ''}</div>
         ${inclHtml(p, 'poi-inc')}${reachHtml(p, opts.center)}${whyHtml(p)}<div class="poi-desc">${descHtml(p.extract || p.description || '', p.descLang)}</div>
         <div class="poi-acts">${p.url ? `<a href="${esc(safeUrl(p.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}
           <a href="${esc(gmSearch(opts.center ? poiQ(p, opts.center) : p.name))}" target="_blank" rel="noopener" data-gm>Google Maps ↗</a>
@@ -968,6 +968,9 @@
     const r = uiRestore(raw, fmtYMD(new Date()));
     for (const k of ['radius', 'mode', 'start', 'datePicked', 'days', 'transport', 'pace', 'recent', 'cCat']) if (r[k] !== undefined) ex[k] = r[k];
     if (r.place) ex.place = r.place;
+    // místo tvé cesty po obnovení (restart PWA): termín a časy příletu / odletu znovu z cesty – jinak program od 9:00
+    // v den večerního příletu a poznámka „🧳 Termín tvé cesty“ zmizela
+    if (r.place && !r.place.geo) { try { const td = tripDatesFor(r.place); if (td) ex.tripHint = { label: r.place.label, ...td }; } catch (e) { /* bez cesty */ } }
     Object.assign(ex.tripDays, r.tripDays);
     Object.assign(ex.bike, r.bike);
     Object.assign(ex.hike, r.hike);
@@ -1001,6 +1004,7 @@
   }
   /** Místa cesty z průvodce t (i její kopie v plánovači): cíl od dne start, nebo místa trasy – bez opakování, nejvýš 4.
    *  to = den odjezdu z místa (termín programu v Objevuj – tripDatesFor). */
+  const centerOf = t => { const c = [t.cityCenter, t.arrival && t.arrival.out, t.dest].find(okPt); return c ? { lat: +c.lat, lon: +c.lon } : { lat: null, lon: null }; };
   function wizPlaces(t, start) {
     let dates = [], end = '';
     try { dates = window.Trip && Trip.baseDates ? Trip.baseDates(t) : []; } catch (e) { dates = []; }
@@ -1013,7 +1017,9 @@
     const spanOf = f => { try { return f(); } catch (e) { return null; } };
     const list = bases ? bases.map((b, i) => ({ label: b.name, lat: b.lat, lon: b.lon, cc: b.cc, country: b.country, from: dates[i] && dates[i].checkin, ...(dates[i] && dates[i].checkout ? { to: dates[i].checkout } : {}),
       ...times(window.Trip && Trip.baseProgram ? spanOf(() => Trip.baseProgram(t, i)) : null, dates[i] && dates[i].checkin, dates[i] && dates[i].checkout) }))
-      : t.dest ? [{ label: String(t.dest.label || '').replace(/ \(.*\)$/, ''), lat: t.dest.lat, lon: t.dest.lon, cc: t.dest.cc, country: t.dest.country, from: start, ...(end ? { to: end } : {}),
+      // poloha cíle: střed města (průvodce si ho zjistil – cityCenter, jinak město z cesty z letiště), ne letiště – u měst
+      // s jedním letištěm je cíl letiště (Vídeň 18 km od centra) a místa v Objevuj byla kolem letiště
+      : t.dest ? [{ label: String(t.dest.label || '').replace(/ \(.*\)$/, ''), ...centerOf(t), cc: t.dest.cc, country: t.dest.country, from: start, ...(end ? { to: end } : {}),
         ...times(window.Trip && Trip.progSpan ? spanOf(() => Trip.progSpan(t)) : null, start, end) }] : [];
     const seen = new Set();
     return list.filter(p => p.label && p.lat != null && p.lon != null && cleanPlace(p) && !seen.has(p.label) && seen.add(p.label)).slice(0, 4).map(p => ({ ...p, trip: true }));
@@ -1177,6 +1183,15 @@
     // ✨ příklady vět: vepsat do hledání a spustit jako Enter (místo, druh plánu, dny)
     $$('[data-extry]', root).forEach(b => b.onclick = () => { const q = $('#exQ', root); q.value = EX_TRY[+b.dataset.extry]; q.focus(); q.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
     if (window.Photos) Photos.paint(root);
+    // termíny míst cesty z průvodce („· od 13. 11.“) počítá trip.js, který se stahuje až po startu (lazy.js) – po
+    // obnovení stránky rovnou na #explore by Inspirace zůstala bez nich; po jeho načtení ji překreslit, jen dokud je
+    // Objevuj pořád prázdné a nic se do hledání nepíše
+    if (!ex.place && ex.radius !== COUNTRY && !window.Trip && window.Lazy && Lazy.need && typeof S !== 'undefined' && (S.trip || (S.trips || []).some(t => t && t.wizard))) {
+      Lazy.need('trip').then(() => {
+        const q = $('#exQ', root);
+        if (window.Trip && root.isConnected && !ex.place && ex.radius !== COUNTRY && !(q && (q.value || document.activeElement === q))) renderExplore(root);
+      }, () => { /* bez průvodce Inspirace zůstane, jak je */ });
+    }
     // Návrat do Objevuj: už načtený seznam (přehled země) se jen překreslí (žádný nový dotaz na server).
     if (ex.place && ex.radius === COUNTRY) { if (ex.country?.place === ex.place && ex.country.data) paintCountry(); else loadCountry(); }
     else if (ex.place && ex.loaded?.place === ex.place && !needsFetch(ex.loaded.radius, cityKm(ex.radius))) paintExplore();
@@ -1359,10 +1374,13 @@
   }
   // o.start / o.days: termín z cesty jen tam, kde ho věta („Lisabon na 3 dny“) sama neurčila
   function openPlace(s, o = { start: true, days: true }) {
+    const prev = ex.tripHint;
     setPlace(s);
     const td = !s.geo && tripDatesFor(ex.place);
     ex.tripHint = td ? { label: ex.place.label, ...td } : null;
     if (td && o.start) { ex.start = td.from; ex.datePicked = true; }
+    // jiné místo bez cesty: termín cesty (Lisabon 12.–17. 11.) nepřenášet – IDOS do Brna by hledal na den odletu do Lisabonu
+    else if (!td && prev && ex.datePicked && ex.start === prev.from) { ex.start = plusDays(fmtYMD(new Date()), 1); ex.datePicked = false; }
     if (td && o.days) { const d = [1, 2, 3, 4, 5, 6, 7, 10].filter(n => n <= td.n).pop(); if (d) ex.days = d; }
     // první místo: úvodní fotka nahoře už není potřeba – Objevuj znovu (s ✕ a místy rovnou pod hledáním)
     const root = $('#exploreRoot');
@@ -1671,7 +1689,7 @@
     return `<div class="poi" data-cpoi="${esc(x.id)}">
       ${poiImg(x.image, g[1])}
       <div><div class="poi-name">${g[1]} ${esc(x.name)}</div>
-        <div class="poi-meta">${esc(g[3])}${x.distanceKm != null ? ` · ${num(x.distanceKm)} km` : ''}${x.unesco && g[0] !== 'unesco' ? ' · <b style="color:var(--warn)">UNESCO</b>' : ''}${x.wv ? ' · <b style="color:var(--good)" title="Vybral cestovní průvodce Wikivoyage">👍 Wikivoyage</b>' : ''}</div>
+        <div class="poi-meta">${esc(g[3])}${x.distanceKm != null ? ` · ${num(x.distanceKm)} km` : ''}${x.unesco && g[0] !== 'unesco' ? ' · <b class="poi-unesco">UNESCO</b>' : ''}${x.wv ? ' · <b class="poi-wv" title="Vybral cestovní průvodce Wikivoyage">👍 Wikivoyage</b>' : ''}</div>
         <div class="poi-desc">${descHtml(desc, x.extract || x.description ? x.descLang : 'en')}</div>
         <div class="poi-acts"><button type="button" class="linkbtn" data-cgo="${esc(x.id)}">🔎 Prozkoumat</button>${x.url ? `<a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">Wikipedie ↗</a>` : ''}
           <a href="${esc(gmSearch(gq(x.name, center.country || '')))}" target="_blank" rel="noopener" data-gm>Google Maps ↗</a></div></div>
@@ -1840,7 +1858,7 @@
   function tripStopHtml(s, j, transit, fromQ, date, center) {
     const q = stopQ(s, center);
     return `<div class="dp-item" data-poi="${esc(s.id)}"><span class="dp-n">${j + 1}</span><div>
-      <b>${tripIcon(s)} ${esc(s.name)}</b> <span class="faint">· ${esc(s.categoryLabel || '')}${s.unesco ? ' · <b style="color:var(--warn)">UNESCO</b>' : s.unescoPart ? ' · <span style="color:var(--warn)">část památky UNESCO</span>' : ''}</span>
+      <b>${tripIcon(s)} ${esc(s.name)}</b> <span class="faint">· ${esc(s.categoryLabel || '')}${s.unesco ? ' · <b class="poi-unesco">UNESCO</b>' : s.unescoPart ? ' · <span class="poi-unesco">část památky UNESCO</span>' : ''}</span>
       <div class="dp-walk">${legTxt(transit, s.travelKm, s.travelMin, fromQ, q, `${dayLbl(date)} ~${s.depart}`)} · ${transit ? `odjezd ~${esc(s.depart)} · ` : ''}příjezd ~${esc(s.arrive)} · na místě ~${minTxt(s.visitMin)}</div>
       ${s.highlights?.length ? `<div class="dp-walk">👀 Uvidíš: ${esc(s.highlights.join(', '))}</div>` : ''}
       ${s.extract ? `<div class="poi-desc" style="-webkit-line-clamp:2">${descHtml(s.extract, s.descLang)}</div>` : ''}
@@ -1962,7 +1980,15 @@
   }
   const normDest = s => String(s || '').trim().toLowerCase();
   // Cesta do stejného místa se stejným začátkem (program, výlety i kolo z jedné Barcelony = jedna cesta); jinak −1.
-  const findTripFor = (trips, e) => (trips || []).findIndex(t => t && t.start && t.start === e.start && normDest(t.dest) === normDest(e.dest));
+  // stejné místo a začátek; jinak cesta, jejíž termín den programu obsahuje a místo v ní je (Lisabon od dneška uprostřed
+  // cesty, 2. místo trasy) – dřív se uložila druhá, překrývající se cesta a Přehled ukazoval oba programy
+  const findTripFor = (trips, e) => {
+    const list = trips || [], k = normDest(e.dest);
+    const i = list.findIndex(t => t && t.start && t.start === e.start && normDest(t.dest) === k);
+    if (i >= 0 || !e.start || !k) return i;
+    return list.findIndex(t => t && t.start && e.start >= t.start && e.start <= (t.end || t.start)
+      && (normDest(t.dest) === k || (t.wizard && typeof t.wizard === 'object' && savedPlaces(t).some(p => normDest(p.label) === k))));
+  };
   /**
    * Přidá řádky dnů (bez opakování), prodlouží konec a připíše poznámky; vrátí počet nových řádků. Řádky, které do cesty
    * dřív uložil stejný druh výsledku (t.explore[src]), nejdřív odebere – přeplánovaný program nahradí ten starý, místo
@@ -1985,12 +2011,17 @@
     // („Porto: Katedrála“ u programu Lisabonu se nepočítá – jiné místo trasy, jiná katedrála)
     const key = x => { const m = /^([^:]{1,40}): (.*)$/.exec(String(x)), own = m && (!e.dest || normDest(m[1]) === normDest(e.dest)); return (own ? m[2] : String(x)).replace(/ – .*$/, '').replace(/[<>"'`’]/g, '').trim().toLowerCase(); };
     const known = e.src === 'city' ? new Set(Object.values(t.days).flatMap(v => (Array.isArray(v) ? v.map(key) : []))) : new Set();
+    // „vlastní“ řádky Objevuj (t.explore[src]): jen přidané teď a dřív přidané, které zůstávají – ne řádky, které cesta
+    // měla sama (program z průvodce): další uložení by je jinak jako své smazalo nebo přesunulo do jiného dne
+    const own = {};
     for (const [d, lines] of Object.entries(e.days)) {
       const have = t.days[d] || [];
       const add = lines.filter(x => !have.includes(x) && !known.has(key(x)));
       if (add.length) { t.days[d] = [...have, ...add]; added += add.filter(x => !had.has(`${d}\n${x}`)).length; }
+      const mine = lines.filter(x => add.includes(x) || (had.has(`${d}\n${x}`) && (t.days[d] || []).includes(x)));
+      if (mine.length) own[d] = mine;
     }
-    if (e.src) t.explore = { ...(t.explore && typeof t.explore === 'object' ? t.explore : {}), [e.src]: e.days };
+    if (e.src) t.explore = { ...(t.explore && typeof t.explore === 'object' ? t.explore : {}), [e.src]: own };
     if (e.end && (!t.end || e.end > t.end)) t.end = e.end;
     // Poznámky (odkazy na trasu) stejného druhu výsledku se nahradí jako řádky – po „Jiná trasa“ nezůstanou odkazy na tu starou.
     const notesBy = t.exploreNotes && typeof t.exploreNotes === 'object' ? t.exploreNotes : {};

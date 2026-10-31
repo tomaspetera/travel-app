@@ -1501,6 +1501,8 @@ function recFly(r, m) {
 function renderRecs() {
   const m = +$('#rMonth').value, vibe = $('#rVibe').value, budget = +$('#rBudget').value, safe = +$('#rSafe').value;
   $('#recTitle').textContent = 'Kam vyrazit · ' + MNS_FULL[m - 1];
+  // vysvětlivka podle zvoleného měsíce (u července „teď“ neplatí – skóre je pro červenec)
+  const rs = $('#recSub'); if (rs) rs.textContent = `číslo = jak se hodí ${MNS_LOC[m - 1]} · ● ceny · ☀️ sezóna`;
   const season = seasonOf(m, 'rec', () => { if (activeView === 'recommend' && +$('#rMonth').value === m) renderRecs(); });
   const { list, hidden, prof } = recsFor(m, { vibe, budget, safe, season });
   const pl = Recs.profileLine(prof, hidden, vibe);
