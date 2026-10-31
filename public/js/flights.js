@@ -1858,8 +1858,11 @@
     const out = [];
     newHiddenNow = 0;
     const vis = view.newOnly ? visitedNow() : null;
+    // konkrétní cíl: skupiny z nabídek výpisu (res.top) – hlavička „nejlevněji“, štítky „od“ i Mapa pak sedí se
+    // Seznamem i po filtrech (dřív z možností skupiny: Mapa „Filtrům nic neodpovídá“, štítek jiná cena než seznam)
+    const top = res.mode === 'route' && (res.top || []).length ? res.top : null;
     for (const g of res.groups) {
-      const trips = visibleTrips(g.options).concat(extra.filter(t => t.destKey === g.dest.key));
+      const trips = visibleTrips(top ? top.filter(t => t.destKey === g.dest.key) : g.options).concat(extra.filter(t => t.destKey === g.dest.key));
       if (!trips.length) continue;
       if (view.newOnly && SearchHelp.wasThere(g.dest.cc, vis)) { newHiddenNow++; continue; }
       trips.sort((a, b) => cmp(sortKey(a, g), sortKey(b, g)) || a.perPersonCzk - b.perPersonCzk);
@@ -2125,7 +2128,8 @@
     else body = isRoute ? (groups.length > 1 ? `<div class="dest-mini">${groups.map(g => `<span class="chip">${flag(g.dest.cc)} ${esc(g.dest.label)} od <b>${czk(Math.min(...g.vis.map(x => x.perPersonCzk)))}</b>${(view.sort === 'warm' || res.query?.minTemp) && g.vis[0].tempHi != null ? ` · 🌡️ ${Math.round(g.vis[0].tempHi)}\u00a0°C` : ''}</span>`).join('')}</div>` : '') + directHintHtml(flat, pre) + flatList(flat)
       : view.mode === 'cards' ? groups.map(g => groupCard(g)).join('') : compactList(groups);
     // konkrétní cíl: výpis je z res.top (flat), ne z 6 nabídek skupiny – podle něj, jinak hláška pod nalezenými lety
-    if (!body.trim() || ((view.mode === 'list' || view.mode === 'cards') && !(isRoute ? flat.length : groups.length))) body += `<div class="empty">Filtrům nic neodpovídá. Uvolni filtr ceny, letišť, aerolinek, nových zemí${view.favOnly ? ', mých cílů' : ''} nebo času a přestupů${prefNow.muted ? ' – nebo ukaž 🙈 skryté cíle' : ''}.</div>`;
+    // (výpis konkrétního cíle – flatList – svou hlášku už má; „nových zemí“ jen u Kamkoliv a zemí)
+    if (!body.includes('class="empty"') && (!body.trim() || ((view.mode === 'list' || view.mode === 'cards') && !(isRoute ? flat.length : groups.length)))) body += `<div class="empty">Filtrům nic neodpovídá. Uvolni filtr ceny, letišť, aerolinek${isRoute ? '' : ', nových zemí'}${view.favOnly ? ', mých cílů' : ''} nebo času a přestupů${prefNow.muted ? ' – nebo ukaž 🙈 skryté cíle' : ''}.</div>`;
     // Málo výsledků: ze serveru (thin), nebo je skryly filtry času a přestupů – pak nabídnout hlavně jejich zrušení.
     const thinVis = !res.partial && th.any > 0 && (isRoute ? flat.length : groups.length) < 3;
     if (thin || thinVis) body += smartHelp(res, false, { chips: chips.filter(c => c.time), any: th.any, onlyClear: !thin });
@@ -2509,7 +2513,8 @@
   // nahoře nad přehledem cílů: první 3 podle řazení jako velké karty s fotkou (klepnutí rozbalí cíl v seznamu)
   function topStrip(groups) {
     if (groups.length < 3) return '';
-    const lbl = { best: '👍 Doporučené', warm: '☀️ Nejtepleji', leave: '🏖️ Nejméně dovolené', fast: '⚡ Nejrychleji', trip: '🚆 Nejlevnější i s cestou' }[view.sort] || '💸 Nejlevnější teď';
+    // nadpis podle řazení – „Nejlevnější teď“ jen u ceny (u Nejdřívějšího odletu to nejlevnější nebyly)
+    const lbl = { best: '👍 Doporučené', warm: '☀️ Nejtepleji', leave: '🏖️ Nejméně dovolené', fast: '⚡ Nejrychleji', trip: '🚆 Nejlevnější i s cestou', deal: '🏷️ Nejvýhodnější vůči běžné ceně', season: '🌤️ Cena a sezóna', date: '📅 Nejdřívější odlet', near: '📍 Nejblíž', far: '🌍 Nejdál' }[view.sort] || '💸 Nejlevnější teď';
     return `<div class="section-head res-top-h"><h2>${lbl}</h2></div><div class="dest-grid res-top">${groups.slice(0, 3).map(g => {
       const t = g.vis[0];
       return `<button type="button" class="card dest res-top-c" data-rtop="${esc(g.dest.key)}" data-photo="${esc(g.dest.label)}" style="--h:${ccHue(g.dest.cc)}"><div class="flag">${flag(g.dest.cc)}</div>
@@ -3910,7 +3915,8 @@
     const feats = topojson.feature(world, world.objects.countries).features;
     const W = el.clientWidth || 900, H = Math.max(380, Math.min(620, W * 0.58));
     const res = lastResult;
-    const pts = groups.filter(g => g.dest.lat != null).map(g => ({ g, t: g.vis[0], lon: g.dest.lon, lat: g.dest.lat }));
+    // cena bodu = nejlevnější nabídka cíle (jako štítky „od“ a legenda nejlevnější / střední / dražší), ne první doporučená
+    const pts = groups.filter(g => g.dest.lat != null).map(g => ({ g, t: g.vis.reduce((m, x) => (x.perPersonCzk < m.perPersonCzk ? x : m)), lon: g.dest.lon, lat: g.dest.lat }));
     const orig = res.origins.filter(o => o.lat != null);
     const geo = { type: 'MultiPoint', coordinates: [...pts.map(p => [p.lon, p.lat]), ...orig.map(o => [o.lon, o.lat])] };
     const kept = keep && keep.W === W;
@@ -4072,7 +4078,7 @@
   let nudge = null;
   // věta „s dětmi“ bez počtu: hledá se s počtem osob z formuláře – nad výsledky připomenout, ať ho upraví
   let kidsAsk = false;
-  const kidsHtml = () => (kidsAsk && lastForm ? `<div class="note info watch-nudge">🧒 <div>Hledám pro ${esc(SearchHelp.paxTxt(lastForm))} – <button type="button" class="linkbtn" id="kidsPax"><b>přidej děti</b></button> (2–11 let platí sedadlo, miminko do 2 let letí na klíně) a hledej znovu.</div></div>` : '');
+  const kidsHtml = () => (kidsAsk && lastForm ? `<div class="note info watch-nudge">🧒 <div>Hledám jen pro dospělé (${esc(SearchHelp.paxTxt(lastForm))}) – <button type="button" class="linkbtn" id="kidsPax"><b>přidej děti</b></button> (2–11 let platí sedadlo, miminko do 2 let letí na klíně) a hledej znovu.</div></div>` : '');
   function seenBump(f) {
     const k = watchKey({ form: f }); if (!k) return null;
     const m = { ...(S.seen && typeof S.seen === 'object' ? S.seen : {}) }, n = ((m[k] && +m[k][0]) || 0) + 1;
@@ -4124,7 +4130,7 @@
     const rl = $('#rollLbl'), roll = !on && Alerts.rollSpec(f, today());
     if (rl) {
       rl.hidden = !roll;
-      if (roll) { if (!rollTouched) $('#rollOn').checked = Boolean(rollWanted(f)); rl.title = `♡ uloží hledání jako „${Alerts.rollTxt({ ...f, roll }, today(), { now: false })}“ – ${roll.lw ? 'po každém prodlouženém víkendu se posune na další' : 'termín se každý den posune'}, hlídání neproběhne`; }
+      if (roll) { if (!rollTouched) $('#rollOn').checked = Boolean(rollWanted(f)); rl.title = `♡ uloží hledání jako „${Alerts.rollTxt({ ...f, roll }, today(), { now: false })}“ – ${roll.lw ? 'po každém prodlouženém víkendu se posune na další' : 'termín se každý den posune'}, takže hlídání nevyprší`; }
     }
     b.textContent = on ? '♥ Hlídáš – na Přehledu' : '♡ Hlídat cenu';
     b.classList.toggle('on', on);

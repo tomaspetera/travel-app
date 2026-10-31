@@ -2547,7 +2547,8 @@ function wireEvents() {
   $('#cFiltBtn').onclick = () => { const tb = $('#cFiltBtn').closest('.toolbar'), on = !tb.classList.contains('f-open'); tb.classList.toggle('f-open', on); $('#cFiltBtn').setAttribute('aria-expanded', String(on)); };
   ['#rMonth', '#rVibe', '#rBudget', '#rSafe'].forEach(s => $(s).onchange = renderRecs);
   // ⟳: počasí a kurz znovu; radar se obnoví s dosavadními kartami (ne šedé dlaždice) a se značkami změn od minula
-  $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; save(); toast('Aktualizuji…'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') { renderDash(); Flights.renderRadar(true); } };
+  // ⟳ obnoví počasí a kurzy (Přehled, detail země); ceny letů ne – na Letech to hláška řekne (dřív „Aktualizuji…“ a nic)
+  $('#refreshBtn').onclick = () => { S.weather = {}; S.fx = null; save(); toast(activeView === 'flights' ? 'Počasí a kurzy načtu znovu – ceny letů obnoví nové hledání' : 'Aktualizuji…'); if ($('#modalBg').classList.contains('show') && curIso) openCountry(curIso); if (activeView === 'dashboard') { renderDash(); Flights.renderRadar(true); } };
   document.addEventListener('keydown', e => { if (e.key === 'Escape') modalClose(); });
   // „/“ (na počítači, jako na webech zvykem): kurzor do hlavního hledání obrazovky – Přehled a Lety pole Kam, Objevuj
   // místo, Země hledání; sbalený formulář Letů se rozbalí. Ne při psaní v poli a s otevřeným oknem.
