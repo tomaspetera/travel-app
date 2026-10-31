@@ -3397,6 +3397,8 @@
   const progDay = (d, place, drop) => { const g = drop && Array.isArray(drop[d.date]) ? drop[d.date].map(cutQ) : null; return g ? { ...d, items: d.items.filter(x => !g.includes(cutQ(actTxt(place, x)))) } : d; };
   // 🚆 co k vlaku / busu zapsal uživatel v plánovači (o.rides, PlanShare.rides): čas odjezdu, nástupiště, vůz / místo
   const rideOf = (rides, date, a, b) => (Array.isArray(rides) && window.PlanShare ? rides.find(r => r && PlanShare.rideKey(r) === PlanShare.rideKey({ date, from: a, to: b })) : null) || null;
+  // vlaky / busy zapsané u uložené cesty (Moje cesty) – i do Shrnutí a jeho kalendáře, ne jen do plánovače a karty Dnes
+  const savedRides = t => { try { const e = entryOf(t); return e && window.PlanShare ? PlanShare.rides(e.rides, { kod: true, raw: true }) : []; } catch (err) { return []; } };
   // příjezd odhadem: odjezd + délka přejezdu ('HH:MM', po půlnoci „+1“ – karta podle posledního času řádek ztlumí)
   const rideArr = (date, hm, min) => { if (!hm || !(min > 0)) return ''; const a = new Date(Date.parse(`${date}T${hm}:00Z`) + min * 6e4).toISOString(); return a.slice(11, 16) + plusDay(date, a); };
   const rideMore = r => (r ? [r.plat ? `nástupiště ${esc(r.plat)}` : '', r.seat ? esc(r.seat) : ''].filter(Boolean).map(s => ' · ' + s).join('') : '');
@@ -3663,7 +3665,7 @@
       // odkaz na půjčovnu uložený s cenou auta (po znovuotevření aplikace nebo ve sdílené cestě už načtené nabídky nejsou)
       t.car && t.car.mode !== 'skip' ? { id: 'car', label: 'Auto', url: t.car.url || carLinkFor(t.car) } : null,
     ].filter(Boolean);
-    const tl = timeline(t);
+    const tl = timeline(t, { rides: savedRides(t) });
     // na cestě (od dne po odletu, vlastní cesta): balení a pojištění už nikdo nezařizuje a rezervace jsou za námi –
     // „Před cestou“ pryč, „Co zarezervovat“ sbalené; po cestě ani vstupní podmínky (pas, víza, očkování)
     const past = Boolean(pastHtml(t)), onTrip = !past && !t.shared && outLeg(t).date < fmtYMD(new Date());
@@ -3798,8 +3800,10 @@
         });
         if (!next || fly) return;
         const x = r.transfers && r.transfers[i], tr = legModeOf(r, b, next);
+        // odjezd zapsaný v Mých cestách (🚆 čas vlaku) místo odhadu „po check-outu v 11:00“ – jako kalendář z Mých cest
+        const rd = tr === 'transit' ? rideOf(savedRides(t), d.checkout, b.name, next.name) : null;
         ev.push({
-          title: `${trIcon(tr, x)} Přejezd ${b.name} → ${next.name}`, start: `${d.checkout}T${CHECKOUT_HM}`, tz: baseTz(t, b), durationMin: legMin(x, tr) || 120,
+          title: `${trIcon(tr, x)} Přejezd ${b.name} → ${next.name}`, start: `${d.checkout}T${rd && rd.dep ? rd.dep : CHECKOUT_HM}`, tz: baseTz(t, b), durationMin: legMin(x, tr) || 120,
           location: next.name, url: legUrl(x, tr) || undefined,
           description: [x ? `${legTxt(x, tr)} (${estTxt(x, tr)})` : '', x && x.border ? `🛂 Přechod hranice ${ccName(x.border.from)} → ${ccName(x.border.to)} – počítej s kontrolou a vstupními podmínkami` : '',
             `Check-out ${b.name}, check-in ${next.name}`].filter(Boolean).join('\n'),
