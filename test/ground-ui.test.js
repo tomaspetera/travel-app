@@ -423,6 +423,12 @@ test('průvodce cestou: odhad vlaku/busu za běžnou cenu („od“ jen v popisk
   assert.equal(g({ out: { minutes: 45, own: true }, back: { minutes: 50 } }).row, 'Doprava na letiště a zpět (vlastní cena a odhad)');
   assert.equal(g({ out: { minutes: 45 }, back: { minutes: 50 } }).row, 'Doprava na letiště a zpět (odhad)');
   assert.equal(g({ out: { minutes: 45, own: true }, back: { minutes: 50, own: true } }).out, 'Cesta na letiště PRG (~45\u00a0min, odhad)', 'čas zůstává odhad');
+  // hlavní úsek z rozpisu (vlakem do Pardubic) je vidět i na telefonu – jen tam; autem ne
+  const bd = [{ k: 'home', label: 'MHD na nádraží (PID)', czk: 40 }, { k: 'intercity', label: 'Praha → Pardubice vlakem / busem', czk: 170 }, { k: 'access', label: 'MHD / bus', czk: 30 }];
+  const via = g({ out: { minutes: 130, breakdown: bd }, back: { minutes: 130, breakdown: bd } });
+  assert.deepEqual([via.out, via.back], ['Cesta na letiště PRG (Praha → Pardubice vlakem / busem, ~2\u00a0h 10\u00a0min, odhad)', 'Cesta z letiště PRG domů (~2\u00a0h 10\u00a0min)']);
+  assert.equal(Trip.groundLines(Trip.sanitizeTrip(plain(trip({ overland: null, groundMode: 'car', ground: { out: { minutes: 45, breakdown: bd } } })))).out, 'Autem na letiště PRG (palivo, ~45\u00a0min, odhad)');
+  assert.equal(g({ out: { minutes: 45, breakdown: [{ k: 'intercity', label: '<img src=x> Brno → Vídeň' }] } }).out, 'Cesta na letiště PRG (img src=x Brno → Vídeň, ~45\u00a0min, odhad)');
 });
 
 test('trip: proběhlá cesta v průvodci – poznámka „už proběhla“ s ✈️ Nová cesta; dnešní a budoucí ani sdílená ne', () => {

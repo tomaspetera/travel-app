@@ -361,6 +361,14 @@
    * a zpět (nafta, parkování, odhad)“ a cesta tam / zpět „Autem na letiště PRG (nafta, ~45 min, odhad)“ (elektroauto
    * „Elektroautem …“); out / back null, když cestu na letiště neznáme.
    */
+  // hlavní úsek veřejnou dopravou z rozpisu (server: „Praha → Pardubice vlakem / busem“) – na telefonu jinak nebylo vidět,
+  // že se na letiště jede i vlakem (rozpis jen v title) a štítek PID Lítačky vypadal jako jediná rada; jen tam (zpět by
+  // šipka vedla obráceně), z cizího odkazu bez <>"'` a zkrácený
+  const viaTxt = g => {
+    const x = g && Array.isArray(g.breakdown) ? g.breakdown.find(y => y && y.k === 'intercity' && typeof y.label === 'string') : null;
+    const v = x ? x.label.replace(/[<>"'`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 70) : '';
+    return v ? `${v}, ` : '';
+  };
   function groundLines(t) {
     const car = t.groundMode === 'car', ev = car && t.carFuel === 'ev', f = t.flight, g = t.ground || {};
     const gw = !car ? 'Cesta' : ev ? 'Elektroautem' : 'Autem', gf = car && !ev ? `${carFuelTxt(t)}, ` : '';
@@ -369,7 +377,7 @@
     return {
       icon: car ? '🚗' : '🚆',
       row: `${groundWhat(t, true)} (${car ? `${carFuelTxt(t)}, parkování, ` : ''}${own ? (own === legs.length ? 'vlastní cena' : 'vlastní cena a odhad') : 'odhad'})`,
-      out: g.out ? `${gw} na letiště ${f.out.from} (${gf}~${minutesToHm(g.out.minutes)}, odhad)` : null,
+      out: g.out ? `${gw} na letiště ${f.out.from} (${gf}${car ? '' : viaTxt(g.out)}~${minutesToHm(g.out.minutes)}, odhad)` : null,
       back: f.back && g.back ? `${gw} z letiště ${f.back.to} domů (${gf}~${minutesToHm(g.back.minutes)})` : null,
     };
   }
