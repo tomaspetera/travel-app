@@ -667,3 +667,12 @@ test('z kontroly dnešních změn: obrácená data, „přes víkend“, „tent
   assert.deepEqual(P('Silvestr v Londýně 27.12.–2.1.', T).to, ['Londýně']);
   assert.deepEqual([P('do 6000 k moři', T).patch.maxPrice, P('do 6k k moři', T).patch.maxPrice, P('do 6 k', T).patch.maxPrice], ['6000', '6000', '6000']);
 });
+
+test('„Řím 20.11. nebo 27.11.“ = odlet kdykoli mezi nimi (dvě možnosti), ne tam a zpět', () => {
+  const r = (q) => { const p = P(q, '2026-10-31').patch; return [p.dateMode === 'exact', p.dFrom || p.xOut, p.dTo || p.xBack]; };
+  assert.deepEqual(r('Řím 20.11. nebo 27.11.'), [false, '2026-11-20', '2026-11-27']);
+  assert.deepEqual(r('Řím 27.11. nebo 20.11.'), [false, '2026-11-20', '2026-11-27']);
+  assert.deepEqual(r('do Londýna 20. listopadu nebo 27. listopadu'), [false, '2026-11-20', '2026-11-27']);
+  assert.deepEqual(r('Řím 28.12. nebo 2.1.'), [false, '2026-12-28', '2027-01-02']);
+  assert.deepEqual(r('Řím 20.11. a zpět 27.11.'), [true, '2026-11-20', '2026-11-27'], '„a zpět“ dál tam a zpět');
+});
