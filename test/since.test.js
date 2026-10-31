@@ -169,6 +169,16 @@ test('digest: nejvýš 3 řádky v pořadí důležitosti, ✕ skryje jen ten st
   assert.deepEqual(plain(S.digest({ ...all, from: null })), [], 'bez okna (poprvé, týž den)');
 });
 
+test('řádek „Od minula“ pod hledáním: „+2 další“, ale „+5 dalších“; novinka jmenuje tlačítko „💾 Uložit do Mých cest“ jako karta', () => {
+  const FL = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  assert.match(FL, /\+\$\{rest\} \$\{rest <= 4 \? 'další' : 'dalších'\}/);
+  assert.doesNotMatch(FL, /\} další<\/span>/);
+  const APP = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
+  assert.match(APP, /data-nw-save>💾 Uložit do Mých cest</);
+  assert.match(APP, /'Dnes na cestě i bez plánovače', [^\n]*💾 Uložit do Mých cest/);
+  assert.doesNotMatch(APP, /<b>💾 Uložit do plánovače<\/b>/);
+});
+
 test('app.js sinceNb: předložky s pevnou mezerou (i dvě za sebou), „check-in“ se nerozdělí, HTML escapované', () => {
   const APP = readFileSync(new URL('../public/js/app.js', import.meta.url), 'utf8');
   const line = (re) => APP.match(re)[0];
