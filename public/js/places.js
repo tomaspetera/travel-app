@@ -1372,6 +1372,17 @@
     const end = plusDays(ex.start, ex.days - 1);
     return { ...(h.arr && ex.start === h.from ? { arrivalTime: h.arr } : {}), ...(h.dep && end === h.to ? { departureTime: h.dep } : {}) };
   }
+  /**
+   * Časy programu města v Objevuj: časy cesty (tripTimes) a u programu od dneška první den od teď – server začne
+   * 1,5 h po „příletu“, tedy za půl hodiny (odpoledne by program začínal ranními místy v 9:00, která už nestihneš;
+   * večer zbude den bez programu). Pozdější z obou; bez nich přílet 07:30 = první den od 9:00.
+   */
+  function planTimes(p, now = new Date()) {
+    const t = tripTimes(p);
+    const nowArr = ex.start === fmtYMD(now) ? toHm(Math.max(0, now.getHours() * 60 + now.getMinutes() - 60)) : null;
+    const arr = [t.arrivalTime, nowArr].filter(x => /^\d\d:\d\d$/.test(x || '')).sort().pop();
+    return { ...t, ...(arr ? { arrivalTime: arr } : {}) };
+  }
   // o.start / o.days: termín z cesty jen tam, kde ho věta („Lisabon na 3 dny“) sama neurčila
   function openPlace(s, o = { start: true, days: true }) {
     const prev = ex.tripHint;
@@ -2764,7 +2775,7 @@
           const km = cityKm(ex.radius);
           // V Objevuj se nepřilétá: první den od 9:00 jako ostatní – server začíná den příletu 1,5 h po něm (z „09:00“
           // by program začínal až v 10:30)
-          const plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '07:30', departureTime: null, ...tripTimes(p) },
+          const plan = await makePlan(st, p, { start: ex.start, end: plusDays(ex.start, ex.days - 1), arrivalTime: '07:30', departureTime: null, ...planTimes(p) },
             { radius: ex.loaded?.radius || km, exclude: [...st.exclude, ...outsideIds(ex.all, km, st.must)] });
           if (my !== replanSeq[key] || ex.place !== p) return;
           plan.radius = km;
@@ -2861,7 +2872,7 @@
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
-      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo,
+      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo, planTimes, tripTimes,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
       countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,
       makeHikePlan, hikePlanHtml, hikeDayHtml, rainTxt, kidsTxt, foodTxt, startTxt, isRural, HIKE_KINDS, curKey, keyKind },

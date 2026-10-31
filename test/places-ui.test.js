@@ -1224,7 +1224,17 @@ test('Objevuj: místo, kam jedeš – termín programu podle cesty (od příjezd
   assert.deepEqual(plain(W.window.Places._t.ownPlaces(wt, [], '2026-10-28')).map((x) => [x.from, x.to, x.arr, x.dep]), [['2099-02-01', '2099-02-05', '14:13', '09:35']]);
   W.window.Trip.progSpan = W.Trip.progSpan = () => ({ start: '2099-02-02', end: '2099-02-05', arrivalTime: '00:40', departureTime: null });
   assert.deepEqual(plain(W.window.Places._t.ownPlaces(wt, [], '2026-10-28')).map((x) => [x.arr, x.dep]), [[undefined, undefined]], 'přílet po půlnoci = jiný den');
-  assert.match(js0(), /arrivalTime: '07:30', departureTime: null, \.\.\.tripTimes\(p\) \}/);
+  assert.match(js0(), /arrivalTime: '07:30', departureTime: null, \.\.\.planTimes\(p\) \}/);
+  // program od dneška: první den od teď (server +1,5 h → za půl hodiny), ne od 9:00; pozdější přílet cesty má přednost
+  const PX = load({ byIso: {} }).window.Places._t, at = (h, m) => new Date(2026, 9, 31, h, m);
+  Object.assign(PX.ex, { start: '2026-10-31', days: 2, tripHint: null });
+  assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(15, 20))), { arrivalTime: '14:20' });
+  assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(0, 30))), { arrivalTime: '00:00' }, 'po půlnoci ne 23:30 včerejška');
+  PX.ex.tripHint = { label: 'Brno', from: '2026-10-31', to: '2026-11-01', n: 2, arr: '21:16', dep: '17:35' };
+  assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(15, 20))), { arrivalTime: '21:16', departureTime: '17:35' });
+  assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(23, 0))), { arrivalTime: '22:00', departureTime: '17:35' });
+  PX.ex.start = '2026-11-01'; PX.ex.days = 1; PX.ex.tripHint = null;
+  assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(15, 20))), {}, 'zítra: od 9:00 jako dřív');
   // cesta z plánovače nese i konec (to) – podle něj počet dní programu
   assert.deepEqual(plain(C.savedPlaces({ dest: 'Kodaň', iso: 'DK', start: '2099-08-01', end: '2099-08-03' })).map((p) => [p.from, p.to]), [['2099-08-01', '2099-08-03']]);
   // openPlace: termín z cesty, jen co věta („Lisabon na 3 dny“) sama neurčila; poznámka v Naplánovat
