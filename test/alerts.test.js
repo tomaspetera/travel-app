@@ -896,3 +896,9 @@ test('karta hlídání: 💡 bez hodnocení vůči témuž hledání, proběhlé
   assert.match(fl, /\$\{drop \? 'Všechna zlevnění' : 'Hlídané ceny'\} \(\$\{total\}\)/);
   assert.match(fl, /'poslední kontrola nic nenašla – zkusím znovu'/);
 });
+
+test('Od minula: dvě hlídání stejné trasy mají u názvu den odletu (jinak vypadají jako duplikát)', () => {
+  const w = (id, dep, czk) => ({ id, label: 'Praha → Řím', target: 2000, best: { czk, dep }, form: { dateMode: 'flex', dFrom: '2026-11-01', dTo: '2026-12-31' } });
+  const n = A.news([w('a', '2026-11-22', 1500), w('b', '2026-12-04', 1800), { id: 'c', label: 'Praha → Londýn', target: 2000, best: { czk: 900, dep: '2026-11-10' }, form: {} }], null, '2026-10-31');
+  assert.deepEqual(n.hits.map((x) => x.label), ['Praha → Řím (22. 11.)', 'Praha → Řím (4. 12.)', 'Praha → Londýn']);
+});
