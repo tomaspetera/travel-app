@@ -752,3 +752,16 @@ test('regrese z přehledu 609 vět (#308–#327): „nebo“ mezi místy s „zp
   assert.deepEqual(P('pátek 20.11. – neděle 22.11. Londýn', T).to, ['Londýn']);
   assert.ok(P('na silvester do berlina', T).patch.dFrom, 'Silvestr i jako „silvester“');
 });
+
+test('hledání větou: rodina 2+2, „do 2,5 tisíce“, „odlet 28. prosince, návrat 3.1.“', () => {
+  const T = '2026-10-31';
+  const r = P('rodina 2+2 k moři', T).patch;
+  assert.deepEqual([r.adults, r.children], [2, 2]);
+  const q = P('2+1 do Říma', T);
+  assert.deepEqual([q.patch.adults, q.patch.children, q.to], [2, 1, ['Říma']]);
+  const pr = P('do 2,5 tisíce do Londýna', T);
+  assert.deepEqual([pr.patch.maxPrice, pr.to], ['2500', ['Londýna']]);
+  assert.equal(P('max 3,5k Řím', T).patch.maxPrice, '3500');
+  const d = P('odlet 28. prosince, návrat 3.1.', T).patch;
+  assert.deepEqual([d.xOut, d.xBack], ['2026-12-28', '2027-01-03']);
+});

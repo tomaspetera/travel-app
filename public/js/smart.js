@@ -147,6 +147,12 @@
         dates = { from, to, label: `${dm(from)} – ${dm(to)}` };
         return true;
       }
+      // dřív ve větě a bez roku („odlet 28. prosince, návrat 3.1.“ – číselné 3.1. prošlo větu první, rok 2027): odlet
+      // v roce před návratem, ne 28. 12. 2027
+      if (!y && dates.at != null && at < dates.at && same > dates.out) {
+        const prev = mkDate(d, mo, yr - 1);
+        if (prev && prev >= today && prev < dates.out && (Date.parse(dates.out) - Date.parse(prev)) / 864e5 <= 45) { dates = { exact: true, out: prev, back: dates.out, at, end: dates.end }; return true; }
+      }
       if (same > dates.out) { dates.back = same; return true; }
       if (same === dates.out) return false;
       // dřívější den: prohodit (data obráceně), nebo návrat příští rok – podle toho, co dá kratší cestu („28.12. – zpět
@@ -481,6 +487,12 @@
       if (!(n >= 300 && n <= 500000) || patch.maxPrice) return false;
       patch.maxPrice = String(n);
     });
+    // „do 2,5 tisíce“, „max 3,5k“ = 2 500 / 3 500 Kč (dřív bez ceny a místo „tisíce“)
+    rule(new RegExp(`(?:do|za|max(?:\\.|imalne)?|maximum|pod|nejvys(?:e)?|budget|rozpocet|rozpoctem|mam|mame)\\s*(\\d{1,3}),(\\d)\\s*(?:k(?![a-z])|tisic\\w*|tis\\.?)\\s*(?:kc|korun\\w*|czk|,-)?${W}`), m => {
+      const n = (+m[1] + +m[2] / 10) * 1000;
+      if (!(n >= 300 && n <= 500000) || patch.maxPrice) return false;
+      patch.maxPrice = String(n);
+    });
     // („mám 5000 na víkend“, „za 2 litry“ = 2 000 Kč)
     rule(new RegExp(`(?:do|za|max(?:\\.|imalne)?|maximum|pod|nejvys(?:e)?|levneji\\s+nez|budget|rozpocet|rozpoctem|mam|mame)\\s*${AMT}(\\s*k(?![a-z])|\\s*(?:tisic\\w*|tis\\.?|litr\\w*|liter))?\\s*(?:kc|korun\\w*|czk|,-)?${W}`), m => {
       // („do 6k“, „do 5 k na víkend“ = tisíce; „do 6000 k moři“: 6 000 000 nedává smysl – k je předložka, cena 6 000)
@@ -503,6 +515,8 @@
     rule(new RegExp(`(?:ve|pro)\\s+(${NUM_RE})(?:\\s+(?:lidech|lidi|lide|osobach|osoby|osob|dospele|dospeli|dospelych))?(?!\\s+(?:dit|deti|miminek|miminka|miminko|batol))${W}`), m => (people(num(m[1])) ? undefined : false));
     rule(new RegExp(`(${NUM_RE})\\s*(?:lidi|lide|osoby|osob|dospeli|dospelych|dospele|pasazeri|pasazery|cestujici)${W}`), m => (people(num(m[1])) ? undefined : false));
     rule(new RegExp(`(?:sam|sama|samotn[yaá]|solo|jen\\s+ja)${W}`), () => { people(1); });
+    // „rodina 2+2“, „2+1 do Říma“: dospělí + děti (dřív bez lidí)
+    rule(new RegExp(`(?:rodina\\s+)?([1-9])\\s*\\+\\s*([1-6])(?![\\d.])${W}`), m => { if (!people(+m[1])) return false; kids = +m[2]; });
     // děti 2–11 let platí sedadlo, miminko letí na klíně: „2 dospělí a 2 děti“ = 2 dospělí + 2 děti, „s miminkem“ =
     // miminko navíc (bez počtu dospělých dva); „dítě“ / „miminko“ i bez předložky („2 dospělí, dítě a miminko“)
     rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:deti|ditka|detmi|ditetem|ditkem|dite|batolata|batolat|batolatum)${W}|(?:(?:s|se|a)\\s+)?(?:ditetem|ditkem|dite|ditko|batoletem|batole)${W}`), m => {
