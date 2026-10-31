@@ -3862,7 +3862,7 @@
     try { const b = backLeg(t); start = outLeg(t).date; end = b ? b.date : stayDates(t).checkout; } catch (e) { return null; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start || '')) return null;
     if (today > (end && end > start ? end : start) || daysBetween(today, start) > 2) return null;
-    return { label: tripName(t), cc: t.dest && t.dest.cc, start, end };
+    return { label: tripName(t), cc: t.dest && t.dest.cc, start, end, ...(t.shared ? { shared: true } : {}) };
   }
 
   /**

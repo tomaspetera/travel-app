@@ -407,6 +407,11 @@ test('📍 Dnes na cestě: cesta z průvodce bez uložení do plánovače → na
   assert.match(h, /Cesta 🇵🇹 Lisabon právě probíhá/);
   assert.match(h, /data-nw-save/);
   assert.match(ctx.nowUnsaved('2026-11-11'), /začíná zítra/);
+  // sdílená cesta kamaráda: „Sdílená cesta“ a „jedeš taky?“, ne jako vlastní
+  ctx.S.trip.shared = { on: '2026-11-01' };
+  assert.deepEqual(plain(T.unsavedNow('2026-11-14')).shared, true);
+  assert.match(ctx.nowUnsaved('2026-11-14'), /📍 Sdílená cesta 🇵🇹 Lisabon právě probíhá.*Od kamaráda – jedeš taky\? Ulož si ji/);
+  delete ctx.S.trip.shared;
   // uložení z karty: zůstane na Přehledu (bez přepnutí do plánovače), pak už se nenabízí
   T.saveToPlanner({ stay: true });
   assert.deepEqual(plain(ctx.__go), []);
