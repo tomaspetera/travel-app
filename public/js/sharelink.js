@@ -194,15 +194,18 @@
    */
   const SHORT = ['trip', 'plan'];
   const shorts = new Map();
+  // server krátké odkazy nemá (503 – bez úložiště): do obnovení stránky se už nezkouší – jinak každé „Sdílet“ čekalo
+  // na odpověď před nabídkou sdílení a Safari pak chtělo druhé klepnutí („Odkaz je připravený“)
+  let shortOff = false;
   /** Krátký odkaz {url (až po uložení), done: Promise<url | null>} – další volání se stejnou cestou vrátí tentýž. */
   function short(kind, json) {
-    if (!SHORT.includes(kind) || typeof fetch !== 'function') return { url: null, done: Promise.resolve(null) };
+    if (!SHORT.includes(kind) || typeof fetch !== 'function' || shortOff) return { url: null, done: Promise.resolve(null) };
     const key = kind + '\n' + json;
     let e = shorts.get(key);
     if (!e) {
       e = { url: null };
       e.done = fetch('api/share', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ k: kind, j: json }) })
-        .then(r => (r.ok ? r.json() : null))
+        .then(r => { if (r.status === 503) shortOff = true; return r.ok ? r.json() : null; })
         .then(j => (j && /^[A-Za-z0-9]{8}$/.test(j.id) ? (e.url = `${location.origin}/c/${j.id}`) : null))
         .catch(() => null)
         // nepovedlo se (výpadek, limit): příští sdílení to zkusí znovu, tohle pošle dlouhý odkaz

@@ -32,6 +32,7 @@ test('náhled: termín přes měsíc, jen odlet, cesta přes víc měst, plán z
   assert.equal(S.datesTxt('2026-11-03', null), 'od 3. 11.');
   assert.equal(S.metaOf('trip', { ...TRIP, route: { fixed: 'flights', bases: [{ name: 'Lisabon' }, { name: 'Porto' }] } }).title, 'Lisabon → Porto 3.–8. 11.');
   assert.equal(S.metaOf('plan', { name: 'Řím s dětmi', dest: 'Řím', start: '2027-04-01', end: '2027-04-05' }).title, 'Řím s dětmi · 1.–5. 4.');
+  assert.equal(S.metaOf('plan', { name: 'Lisabon 12.11.', dest: 'Lisabon', start: '2026-11-12', end: '2026-11-17' }).title, 'Lisabon 12.11.', 'datum v názvu plánu se nezdvojí');
   assert.equal(S.metaOf('trip', { ...TRIP, dest: { label: 'Ti<script>rana' } }).title, 'Ti script rana 3.–8. 11.');
 });
 
