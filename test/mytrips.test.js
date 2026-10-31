@@ -112,3 +112,18 @@ test('karta cesty: lidé, aktivity a balení v jednom řádku s rozpočtem (na �
 test('„🧳 Otevřít v průvodci“ z detailu cesty, která v průvodci je: průvodce, ne zase seznam Moje cesty', () => {
   assert.match(read('js/trip.js'), /if \(mine && mine\.created === id\) \{ mineFor = null; go\('trip'\); render\(\); return true; \}/);
 });
+
+test('karta cesty: pod názvem „Řím“ země, ne zase „Řím“; krok Auto bez zdvojeného názvu letiště', () => {
+  const app = read('js/app.js');
+  const m = app.match(/^const metaDest = .*$/m)[0], tt = app.match(/^const tripTitle = .*$/m)[0];
+  const fmtDate = (s) => { const [, mo, d] = s.split('-'); return `${+d}.${+mo}.`; };
+  const metaDest = new Function('fmtDate', `${tt}\n${m.replace('const metaDest =', 'return')}`)(fmtDate);
+  const IT = { cs: 'Itálie' };
+  assert.equal(metaDest({ name: 'Řím 20.11.', dest: 'Řím', start: '2026-11-20' }, IT), 'Itálie');
+  assert.equal(metaDest({ name: 'Léto s Janou', dest: 'Řím' }, IT), 'Řím', 'vlastní název: cíl');
+  assert.equal(metaDest({ name: 'Řím', dest: 'Řím' }, null), 'Řím', 'bez země beze změny');
+  const tj = read('js/trip.js');
+  const apShort = new Function(`${tj.match(/^\s*const apShort = .*$/m)[0]}\nreturn apShort;`)();
+  assert.equal(apShort('Řím-Ciampino – Ciampino–G. B. Pastine International Airport'), 'Řím-Ciampino');
+  assert.equal(apShort('Řím – Leonardo da Vinci–Fiumicino Airport'), 'Řím – Leonardo da Vinci–Fiumicino Airport');
+});

@@ -2739,6 +2739,9 @@
     return carRange(t, legs[keep[0]].date, legs[keep[1]].date);
   }
   /** Místo vyzvednutí (side 'pu') / vrácení ('do') auta: „Lisabon (město)“, jinak kód letiště. */
+  // „Řím-Ciampino – Ciampino–G. B. Pastine International Airport“ → „Řím-Ciampino“: český název už letiště jmenuje
+  // (města s víc letišti); „Řím – Leonardo da Vinci–Fiumicino Airport“ zůstane. Odkazy srovnávačů dál s celým názvem.
+  const apShort = s => String(s || '').replace(/^(\S+-\S+) – .+$/, '$1');
   const carPlace = (c, side) => { const city = c[`${side}City`]; return city ? `${city.name} (město)` : (side === 'pu' ? c.pickup : c.dropoff || c.pickup) || ''; };
   /** Auto na trase přes víc míst vybrané podle dřívější dopravy úseků (jiné dny a místa) neplatí – zadej ho znovu. */
   function dropCarForLegs(t) {
@@ -3004,7 +3007,7 @@
         const cities = [jq.pickupCity, jq.dropoffCity].filter(Boolean);
         const near = cities.map(c => `${esc(c.iata)} ~${kmTxt(c.km)} od města ${esc(c.name)}`).filter((x, i, a) => a.indexOf(x) === i).join(', ');
         $('#carBody').innerHTML = `${abroad ? `<div class="note warn" style="margin-bottom:10px">⚠️ <div><b>Vrácení v jiné zemi</b> (${esc(ccName(jq.dropoffCc))}) – mezinárodní jednosměrný pronájem bývá výrazně dražší a ne každá půjčovna ho dovolí; ověř příplatek v podmínkách nabídky.</div></div>` : ''}
-          <div class="muted" style="font-size:13px;margin-bottom:8px">Srovnávače půjčoven – <b>předvyplněné na letiště ${esc(jq.pickupName || q.pickup)} a tvoje časy</b>${cities.length ? ` (nejbližší letiště: ${near}). Pobočky přímo ve městě ukáže mapa – stejné časy zadej tam.` : ':'}</div>
+          <div class="muted" style="font-size:13px;margin-bottom:8px">Srovnávače půjčoven – <b>předvyplněné na letiště ${esc(apShort(jq.pickupName || q.pickup))} a tvoje časy</b>${cities.length ? ` (nejbližší letiště: ${near}). Pobočky přímo ve městě ukáže mapa – stejné časy zadej tam.` : ':'}</div>
           ${linkGrid(j.links, '#c4510c')}`;
       } catch (e) {
         if (my === carSeq && $('#carBody')) $('#carBody').innerHTML = `<div class="note warn">⚠️ <div>${esc(e.message)}</div></div>`;
