@@ -1854,10 +1854,29 @@
   /* ---------- výlety autem (jednodenní / vícedenní okruh) ---------- */
   // Výsledky výletů zvlášť pro každý režim a dopravu (přepnutím se nic neztratí ani nesmíchá).
   const tripKey = (mode, transport) => `${mode}:${transport}`;
+  /**
+   * Výlety a okruh v termínu tvé cesty (tripHint): výlet vyráží v 9:00 a vrací se večer – den příletu po poledni
+   * a den odletu před 21:30 se přeskočí („Výlet 1 · odjezd ~09:00“ v den, kdy přiletíš ve 21:16, nejde stihnout).
+   * Vrací { start, days, note }; bez cesty, s jiným dnem nebo když by nezbyl žádný den, beze změny.
+   */
+  function roadSpan(start, days, h) {
+    if (!h || !h.from) return { start, days };
+    const why = [];
+    let s = start, n = days;
+    if (h.arr && h.arr > '12:00' && s === h.from) { s = plusDays(s, 1); why.push(`${dayLbl(h.from)} přilétáš v ${h.arr}`); }
+    if (h.dep && h.to && h.dep < '21:30' && s <= h.to && plusDays(s, n - 1) >= h.to) {
+      n = Math.round((Date.parse(h.to) - Date.parse(s)) / 864e5);
+      why.push(`${dayLbl(h.to)} odlétáš v ${h.dep}`);
+    }
+    if (!why.length || n < 1) return { start, days };
+    return { start: s, days: n, note: `Podle tvé cesty: ${why.join(' a ')} – na výlet ten den nezbude čas.` };
+  }
   async function makeTrip(p, mode, transport) {
-    const body = { lat: p.lat, lon: p.lon, label: p.label, start: ex.start, days: ex.tripDays[mode], mode, transport, pace: ex.pace, interests: [...ex.tripInterests],
+    const h = ex.tripHint && ex.tripHint.label === p.label ? ex.tripHint : null, sp = roadSpan(ex.start, ex.tripDays[mode], h);
+    const body = { lat: p.lat, lon: p.lon, label: p.label, start: sp.start, days: sp.days, mode, transport, pace: ex.pace, interests: [...ex.tripInterests],
       exclude: [...ex.tripEx], include: [...ex.tripMust], region: p.region || undefined };
-    return getJson('api/roadtrip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const t = await getJson('api/roadtrip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return sp.note && t && typeof t === 'object' ? { ...t, note: [sp.note, t.note].filter(Boolean).join(' ') } : t;
   }
 
   // Úsek cesty: autem km a čas; vlakem/busem odhad času + odkaz na skutečné spoje v Google Maps.
@@ -2872,7 +2891,7 @@
       uiSnapshot, uiRestore, okStart, pushRecent, samePlace, cleanPlace, getJson, firstSentence, descHtml, inclHtml, gq, poiQ, centerQ, gmDir, dayLbl, slug, gpxOf, SLOW_MS, UI_LS,
       countryCs, stopQ, mapyDir, dayLinks, planHtml, tripHtml, MAPY_WP, emptyHtml, planEmptyHtml, variantTxt, routeHtml, ROUTE_VARIANTS, blankHtml, looksEnglish, surfaceRows, surfaceHtml,
       afterDark, routeBack, sunSlot, sunHtml, fillSun, toHm, modeBtns, previewPick, previewCard, moreTxt, poiUrl, pvFor, PREVIEW_KM, ex, loadExplore,
-      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo, planTimes, tripTimes,
+      plannerEntry, findTripFor, mergeInto, saveHtml, flyTarget, flyDates, idosUrl, idosOn, homeCity, prefsOf, makePlan, dropUndo, planTimes, tripTimes, roadSpan,
       RADII, CITY_KM, COUNTRY, cityKm, farOn, withFar, driveMin, countryItems, countryCard, countryTarget, C_GROUPS, CC_CATS, countryPick, loadCountryCat, setRadius, paintCountry, loadFar,
       countryOfText, countrySugs, wholeCountryOf, pickerHtml, openWholeCountry, CC_POP, smartPlace, smartName, setPlace, natureMode, exploreApply, hikeNature,
       makeHikePlan, hikePlanHtml, hikeDayHtml, rainTxt, kidsTxt, foodTxt, startTxt, isRural, HIKE_KINDS, curKey, keyKind },

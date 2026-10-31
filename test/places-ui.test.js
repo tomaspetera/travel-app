@@ -1235,6 +1235,19 @@ test('Objevuj: místo, kam jedeš – termín programu podle cesty (od příjezd
   assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(23, 0))), { arrivalTime: '22:00', departureTime: '17:35' });
   PX.ex.start = '2026-11-01'; PX.ex.days = 1; PX.ex.tripHint = null;
   assert.deepEqual(plain(PX.planTimes({ label: 'Brno' }, at(15, 20))), {}, 'zítra: od 9:00 jako dřív');
+  // Výlety a okruh v termínu cesty: den příletu po poledni a den odletu před 21:30 přeskočit, s vysvětlením
+  const H = { label: 'Lisabon', from: '2026-11-12', to: '2026-11-17', n: 6, arr: '21:16', dep: '17:35' };
+  const r1 = plain(PX.roadSpan('2026-11-12', 2, H));
+  assert.deepEqual([r1.start, r1.days], ['2026-11-13', 2]);
+  assert.match(r1.note, /^Podle tvé cesty: čt\u00a012\.\u00a011\. přilétáš v 21:16 – na výlet ten den nezbude čas\.$/);
+  const r2 = plain(PX.roadSpan('2026-11-15', 5, H));
+  assert.deepEqual([r2.start, r2.days], ['2026-11-15', 2], 'den odletu 17. 11. (17:35) bez výletu');
+  assert.match(r2.note, /odlétáš v 17:35/);
+  assert.deepEqual(plain(PX.roadSpan('2026-11-12', 2, { ...H, arr: '08:10' })), { start: '2026-11-12', days: 2 }, 'ranní přílet: výlet ještě stihneš');
+  assert.deepEqual(plain(PX.roadSpan('2026-11-14', 2, H)), { start: '2026-11-14', days: 2 }, 'uprostřed cesty beze změny');
+  assert.deepEqual(plain(PX.roadSpan('2026-11-17', 1, H)), { start: '2026-11-17', days: 1 }, 'nezbyl by žádný den: beze změny');
+  assert.deepEqual(plain(PX.roadSpan('2026-11-12', 2, null)), { start: '2026-11-12', days: 2 });
+  assert.match(js0(), /const h = ex\.tripHint && ex\.tripHint\.label === p\.label \? ex\.tripHint : null, sp = roadSpan\(ex\.start, ex\.tripDays\[mode\], h\);/);
   // cesta z plánovače nese i konec (to) – podle něj počet dní programu
   assert.deepEqual(plain(C.savedPlaces({ dest: 'Kodaň', iso: 'DK', start: '2099-08-01', end: '2099-08-03' })).map((p) => [p.from, p.to]), [['2099-08-01', '2099-08-03']]);
   // openPlace: termín z cesty, jen co věta („Lisabon na 3 dny“) sama neurčila; poznámka v Naplánovat
