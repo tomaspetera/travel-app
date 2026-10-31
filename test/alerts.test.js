@@ -871,7 +871,13 @@ test('📅 změna termínu (rebNext: term): první cena nového termínu je nov�
   const r2 = A.applyCheck(r.w, { czk: 900 }, NOW + 864e5);
   assert.equal(r2.why, 'drop');
   const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
-  assert.match(fl, /if \(watchKey\(\{ \.\.\.w, form: \{ \.\.\.w\.form \} \}\) !== k \|\| was\) w\.rebNext = 'term';/);
+  // dnešní data před a po přepnutí 📅 (vypnutí nechá dnešní termín → beze změny, žádný nový základ)
+  assert.match(fl, /const eff = f => \{ const \{ roll: r0, \.\.\.x \} = Alerts\.rollForm\(f, t\); return watchKey\(\{ \.\.\.w, form: x \}\); \};\n\s*if \(eff\(w\.form\) !== eff\(form\) \|\| was\) w\.rebNext = 'term';/);
+  // hlídání zatím bez ceny: první cena je základ sama – příznak pryč, další zlevnění (2000 → 1400) se hlásí
+  const empty = { id: 'e', pv: A.PV, best: null, history: [], rebNext: 'term', form: {} };
+  const e1 = A.applyCheck(empty, { czk: 2000 }, NOW);
+  assert.equal(e1.w.rebNext, undefined);
+  assert.equal(A.applyCheck(e1.w, { czk: 1400 }, NOW + 864e5).why, 'drop');
 });
 
 test('📅 Připomínat: hláška se skutečným počtem pondělí, odlet před pondělím bez stažení (dřív vždy „8 týdnů“)', () => {

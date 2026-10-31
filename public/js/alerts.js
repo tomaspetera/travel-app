@@ -293,7 +293,9 @@
     }
     const { partials, ...rest } = w;
     const out = { ...rest, best: best || null, checked: now, tried: now };
-    if (reb) delete out.rebNext; // nový základ je zapsaný (bez ceny zůstane na příští kontrolu)
+    // nový základ je zapsaný, nebo první cena hlídání vůbec (ta je základ sama) – bez ceny zůstane na příští kontrolu;
+    // jinak by první skutečné zlevnění po další kontrole spolkl „nový termín“
+    if (reb || (cur && !prev)) delete out.rebNext;
     if (cur || !prev) out.pv = PV;
     // otisk se zapíše jen s cenou (nebo bez minulé) – kontrola bez výsledku by jinak příští cenu srovnala se starou
     if (own != null && (cur || !prev)) out.own = String(own);

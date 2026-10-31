@@ -633,3 +633,37 @@ test('„Štědrý den do Londýna a zpět 27.12.“ = 24.–27. 12.; „přím�
   assert.deepEqual(P('přímým letem do Říma').to, ['Říma']);
   assert.deepEqual(P('k moři v květnu přímým letem').to, []);
 });
+
+test('z kontroly dnešních změn: obrácená data, „přes víkend“, „tento měsíc“, „v příštích 2 měsících“, Vánoce v létě, děti, „k moři“', () => {
+  const T = '2026-10-31';
+  const x = (q, t = T) => { const p = P(q, t).patch; return p.dateMode === 'exact' ? [p.xOut, p.xBack] : [p.dFrom, p.dTo]; };
+  // druhé datum dřív než první (číselné pravidlo projde větu dřív než „15. listopadu“) – dřív návrat za rok
+  assert.deepEqual(x('odlet 15. listopadu, návrat 18.11. do Říma'), ['2026-11-15', '2026-11-18']);
+  assert.deepEqual(x('15. prosince do Londýna, zpět 20.12.'), ['2026-12-15', '2026-12-20']);
+  assert.deepEqual(x('do Říma 20.11. a zpět 15.11.'), ['2026-11-15', '2026-11-20']);
+  assert.deepEqual(x('28.12. do Londýna zpět 3.1.'), ['2026-12-28', '2027-01-03'], 'přes Nový rok dál do příštího roku');
+  // „přes“ + slovo vzaté pravidlem: cíl za ním zůstane
+  assert.deepEqual(P('přes víkend Londýn', T).to, ['Londýn']);
+  assert.deepEqual(P('přes léto Chorvatsko', T).to, ['Chorvatsko']);
+  assert.deepEqual(P('z Prahy přes Vídeň do Bangkoku', T).to, ['Bangkoku']);
+  // „tento měsíc“ = do konce měsíce, „za měsíc“ s jiným termínem není pobyt na měsíc
+  const tm = P('tento měsíc do Říma', '2026-11-10').patch;
+  assert.deepEqual([tm.dFrom, tm.dTo, tm.len], ['2026-11-10', '2026-11-30', undefined]);
+  assert.equal(P('v prosinci nebo za měsíc do Říma', T).patch.len, undefined);
+  assert.equal(P('na měsíc do Thajska', T).patch.nMin, 27, '„na měsíc“ dál ~4 týdny');
+  // „v příštích dvou měsících“, „do 3 měsíců“ = kdy od dneška, ne jen tam
+  const two = P('někdy v příštích dvou měsících do Londýna', T);
+  assert.deepEqual([two.patch.trip, two.patch.dFrom, two.patch.dTo, two.to], [undefined, T, '2026-12-30', ['Londýna']]);
+  assert.equal(P('do 3 měsíců do Londýna', T).patch.trip, undefined);
+  assert.equal(P('na 2 měsíce do Thajska', T).patch.trip, 'oneway', '„na 2 měsíce“ dál jen tam');
+  // Štědrý den s návratem i v létě (Vánoce ještě nejsou mezi prodlouženými víkendy)
+  assert.deepEqual(x('Štědrý den do Londýna a zpět 27.12.', '2026-06-01'), ['2026-12-24', '2026-12-27']);
+  // rozmezí, které už začalo: od dneška, ne za rok
+  assert.deepEqual(x('mezi 1. a 15. listopadem do Říma', '2026-11-05'), ['2026-11-05', '2026-11-15']);
+  // „pro jedno dítě a dva dospělé“ = 2 + 1
+  const k = P('pro jedno dítě a dva dospělé do Říma', T);
+  assert.deepEqual([k.patch.adults, k.patch.children, k.to], [2, 1, ['Říma']]);
+  // Silvestr s daty není místo; „k moři“ za částkou není tisíc
+  assert.deepEqual(P('Silvestr v Londýně 27.12.–2.1.', T).to, ['Londýně']);
+  assert.deepEqual([P('do 6000 k moři', T).patch.maxPrice, P('do 6k k moři', T).patch.maxPrice, P('do 6 k', T).patch.maxPrice], ['6000', '6000', '6000']);
+});

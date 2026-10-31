@@ -614,6 +614,11 @@ test('uložení do plánovače: stejné místo a začátek → přidat k cestě 
   const city2 = { ...city, days: { '2026-10-12': [items[1].name], '2026-10-13': [items[0].name] } };
   assert.equal(TB.mergeInto(y, city2), 1, 'nové jen místo na nový den');
   assert.deepEqual(plain(y.days), { '2026-10-12': [items[1].name, 'Večeře u Pepy'], '2026-10-13': [items[0].name] }, 'zůstávající místo na svém místě');
+  // cesta z průvodce už má program: místa z Objevuj, která tam jsou (i jiný den, s poznámkou nebo s místem trasy), se neopakují
+  const wz = { name: 'Řím', dest: 'Barcelona', start: '2026-10-12', end: '2026-10-14', wizard: {}, days: { '2026-10-12': [`${items[0].name} – otevřeno 9–19`], '2026-10-13': [`Barcelona: ${items[1].name}`] } };
+  const city3 = { ...city, days: { '2026-10-12': [items[1].name, 'Nové místo'], '2026-10-13': [items[0].name] } };
+  assert.equal(TB.mergeInto(wz, city3), 1);
+  assert.deepEqual(plain(wz.days), { '2026-10-12': [`${items[0].name} – otevřeno 9–19`, 'Nové místo'], '2026-10-13': [`Barcelona: ${items[1].name}`] });
   const x = { name: 'X', start: '2026-10-12', end: '2026-10-20', days: null };
   TB.mergeInto(x, city);
   assert.equal(x.end, '2026-10-20', 'kratší výsledek konec nezkrátí');
