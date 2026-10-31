@@ -675,7 +675,10 @@
     const list = todos(ctx), byId = id => list.find(x => x.id === id);
     const where = names(ctx.isos);
     const ev = [];
+    // odškrtnuté „Zařídit: …“ (Před cestou i Moje cesty) se do kalendáře nepřidá – připomínalo i sjednané pojištění
+    const done = doneOf(tripKey(t)), tid = id => (id === 'idp' ? 'drive' : id.replace(/-.*$/, ''));
     const push = (id, days, title, url, lines) => {
+      if (done[`todo:${tid(id)}`]) return;
       let date = addDays(depart, -days);
       if (today && date < today) { if (today >= depart) return; date = today; }
       ev.push({ title, start: date, uid: `atlas-pretrip-${id}-${depart}`, url: safeUrl(url) === '#' ? undefined : safeUrl(url), description: [...lines, `Odjezd: ${dmy(depart)}. Stav informací ${checkedTxt()} – před cestou ověř.`].join('\n') });

@@ -3439,7 +3439,8 @@
       rows.push([f.out.date, '🛫', fRow(f.out)]);
       // z letiště do města (jedno místo pobytu a trasa podle letů; u trasy přes víc míst je to přejezd na 1. místo) – ne s autem z letiště
       const ao = (!multi || fly) && t.arrival && t.arrival.out;
-      if (ao && !carCovers(t, 'out')) rows.push([arrivalAt(f.out).slice(0, 10), ARR_ICO[ao.mode] || '🚌', esc(arrivalRow(ao) + nightTxt(null, null, 'out'))]);
+      // přílet v noci (4:52, 23:30): metro ještě / už nejede – jako u cesty na letiště „v noci spíš taxi“
+      if (ao && !carCovers(t, 'out')) rows.push([arrivalAt(f.out).slice(0, 10), ARR_ICO[ao.mode] || '🚌', esc(arrivalRow(ao) + nightTxt({ hm: arrivalAt(f.out).slice(11, 16) }, ao.mode, 'out'))]);
     }
     if (t.car && t.car.mode !== 'skip' && t.car.from) rows.push([t.car.from.slice(0, 10), '🚗', `Vyzvednutí auta ${esc(carPlace(t.car, 'pu'))} ${t.car.from.slice(11, 16)}`]);
     const carBack = t.car && t.car.mode !== 'skip' && t.car.to ? [t.car.to.slice(0, 10), '🚗', `Vrácení auta ${esc(carPlace(t.car, 'do'))} ${t.car.to.slice(11, 16)}`] : null;
@@ -3471,7 +3472,7 @@
           if (gx) rows.push([legDay(lx, mid[i]), trIcon('transit', gx), `${esc(b.name)} → letiště ${esc(mid[i].from)} · ${legTxt(gx, 'transit')} (${estTxt(gx, 'transit')})${nightTxt(lx)}${legLink(gx, 'transit') ? ` · ${legLink(gx, 'transit')}` : ''}`]);
           else if (am.from) rows.push([legDay(lx, mid[i]), ARR_ICO[am.from.mode] || '🚌', esc(arrivalRow(am.from, true) + nightTxt(lx, am.from.mode, `from${i}`))]);
           rows.push([mid[i].date, '✈️', `${fRow(mid[i])} · ${esc(b.name)} → ${esc(r.bases[i + 1].name)}`]);
-          if (am.to) rows.push([arrivalAt(mid[i]).slice(0, 10), ARR_ICO[am.to.mode] || '🚌', esc(arrivalRow(am.to) + nightTxt(null, null, `to${i}`))]);
+          if (am.to) rows.push([arrivalAt(mid[i]).slice(0, 10), ARR_ICO[am.to.mode] || '🚌', esc(arrivalRow(am.to) + nightTxt({ hm: arrivalAt(mid[i]).slice(11, 16) }, am.to.mode, `to${i}`))]);
         } else if (i < r.bases.length - 1) {
           // vlakem / busem s časem odjezdu z plánovače: „Přejezd Lisabon 10:42 → Porto ~13:32“ (příjezd odhadem)
           const d = dates[i].checkout, rd = tr === 'transit' ? rideOf(o.rides, d, b.name, r.bases[i + 1].name) : null, arr = rd ? rideArr(d, rd.dep, legMin(x, tr)) : '';
@@ -3485,9 +3486,11 @@
       if (ovl && ovl.departure && ovl.departure.km >= 1) rows.push([ov.back.date, trIcon(tr, ovl.departure), `${esc(r.bases.at(-1).name)} → ${esc(ov.to.label)} · ${legTxt(ovl.departure, tr)} (${estTxt(ovl.departure, tr)})${esc(borderTxt(ovl.departure))}`]);
     } else {
       // „Vyberu později – jen odkazy“ nemá název – jako u víc míst „zatím nevybráno“, ne prázdné „Ubytování:“
-      if (t.stay && t.stay.mode !== 'skip') rows.push([checkin, '🏨', `Ubytování: ${esc(hotelName(t.stay) || 'zatím nevybráno')}`]);
-      const tp = tripPlan(t);
-      for (const d of (tp?.days || []).map(y => progDay(y, null, o.drop))) if (d.items.length || d.cap) rows.push([d.date, '📍', d.items.map(x => esc(x.name)).join(' · ') || 'volný den', { plan: tp, day: d }]);
+      // přílet po půlnoci (pokoj od večera předem): ubytování až pod cestou z letiště, ne den předem nad ní
+      if (t.stay && t.stay.mode !== 'skip') rows.push([[checkin, arrivalAt(outLeg(t)).slice(0, 10)].sort()[1], '🏨', `Ubytování: ${esc(hotelName(t.stay) || 'zatím nevybráno')}`]);
+      const tp = tripPlan(t), bl = backLeg(t);
+      // prázdný den odjezdu: „volno do odjezdu“ – „volný den“ hned nad „Z ubytování na letiště vyraž…“ mátl
+      for (const d of (tp?.days || []).map(y => progDay(y, null, o.drop))) if (d.items.length || d.cap) rows.push([d.date, '📍', d.items.map(x => esc(x.name)).join(' · ') || (bl && bl.date === d.date ? 'volno do odjezdu' : 'volný den'), { plan: tp, day: d }]);
       ownRows(rows, o.own);
     }
     if (carBack && !backFirst) rows.push(carBack);
@@ -3649,6 +3652,9 @@
       t.car && t.car.mode !== 'skip' ? { id: 'car', label: 'Auto', url: t.car.url || carLinkFor(t.car) } : null,
     ].filter(Boolean);
     const tl = timeline(t);
+    // na cestě (od dne po odletu, vlastní cesta): balení a pojištění už nikdo nezařizuje a rezervace jsou za námi –
+    // „Před cestou“ pryč, „Co zarezervovat“ sbalené; po cestě ani vstupní podmínky (pas, víza, očkování)
+    const past = Boolean(pastHtml(t)), onTrip = !past && !t.shared && outLeg(t).date < fmtYMD(new Date());
     // sum-side: na počítači cena, rezervace a tlačítka vpravo vedle průběhu cesty (na telefonu bez vlivu – display:contents)
     host.innerHTML = `${autoNoteHtml(t, 'summary')}<div class="sum-side"><div class="sum-grid">
       <div class="card step-card"><h3>🧾 Cena cesty</h3>
@@ -3660,12 +3666,12 @@
         <div class="faint" style="font-size:12px;margin-top:8px">${ov ? 'Vlak / bus: cena vybraného spoje RegioJetu, nebo odhad – jízdenky kup u dopravce.' : c.bags ? 'Zavazadla jsou odhad podle dopravce.' : t.bags && t.bags !== 'none' ? 'Zavazadlo je podle ceníku dopravce v ceně letenky.' : 'Letenky bez zavazadel.'} Ceny u partnerů ověř před zaplacením.</div>
         ${budgetHtml(t, c)}
       </div>
-      <div class="card step-card"><h3>✅ Co zarezervovat (v tomhle pořadí)</h3>
+      <div class="card step-card">${onTrip ? '<details class="sum-booked"><summary><b>✅ Co zarezervovat</b> <span class="faint">– před cestou</span></summary>' : '<h3>✅ Co zarezervovat (v tomhle pořadí)</h3>'}
         ${steps.map((s, i) => `<label class="check"><input type="checkbox" data-bk="${esc(s.id)}" ${t.booked[s.id] ? 'checked' : ''}><span>${i + 1}. ${esc(s.label)}</span>${s.url ? `${affUrl(s.url) ? '<span class="ad-tag" style="margin-left:auto">reklama</span>' : ''}<a class="btn sm" href="${esc(safeUrl(s.url))}" target="_blank" rel="${affUrl(s.url) ? 'sponsored nofollow noopener' : 'noopener'}"${affUrl(s.url) ? '' : ' style="margin-left:auto"'}>Otevřít ↗</a>` : ''}</label>`).join('')}
         ${steps.some(s => affUrl(s.url)) ? SPONSOR_NOTE : ''}
         ${fly ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Každý let je samostatná letenka – při zpoždění jednoho letu další aerolinka nečeká.</div></div>'
           : !ov && f.back && f.back.provider !== f.out.provider ? '<div class="note warn" style="margin-top:10px">⚠️ <div>Lety tam a zpět jsou dvě samostatné letenky – při zpoždění prvního letu druhá aerolinka nečeká.</div></div>' : ''}
-      </div></div>
+      ${onTrip ? '</details>' : ''}</div></div>
       <div class="row wrap sum-acts" style="gap:8px;margin:0 0 14px">
         <button class="btn primary" id="sumSave">${t.shared ? '💾 Uložit do Mých cest' : '🧳 Uloženo v Mých cestách'}</button>
         <button class="btn" id="sumShare">📤 Sdílet cestu</button>
@@ -3675,8 +3681,8 @@
       </div></div>
       ${carLegs.length && !ov && (!t.car || t.car.mode === 'skip') ? `<div class="note warn" style="margin-bottom:14px">🚗 <div>${carLegs.length < legsAll.length ? `Část přejezdů trasy (${esc(carLegs.map(l => legName(t, l)).join(', '))}) počítám <b>autem</b>` : 'Přejezdy mezi místy trasy počítám <b>autem</b>'}, ale auto nemáš vybrané – vyber ho v kroku <b>Auto</b>, nebo tam zvol <b>Bez auta – mezi místy vlakem a busem</b>.</div></div>` : ''}
       ${multi && nightsLeft(t) !== 0 ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div>Noci v trase nesedí s délkou pobytu – uprav je v kroku <b>Trasa</b>, jinak termíny ubytování nebudou navazovat na lety.</div></div>' : ''}
-      ${window.Entry && Entry.ready() ? Entry.checklistHtml(isos, { ret: returnDate(t), pax: paxN(t) + (+t.infants || 0), via }) : '<div id="tripEntry"></div>'}
-      ${window.PreTrip && !pastHtml(t) ? PreTrip.html(t, { isos, via, ret: returnDate(t) }) : ''}
+      ${past ? '' : window.Entry && Entry.ready() ? Entry.checklistHtml(isos, { ret: returnDate(t), pax: paxN(t) + (+t.infants || 0), via }) : '<div id="tripEntry"></div>'}
+      ${window.PreTrip && !past && !onTrip ? PreTrip.html(t, { isos, via, ret: returnDate(t) }) : ''}
       <div class="card step-card sum-tl"><h3>🗓️ Průběh cesty</h3><div class="timeline">${tlRows(tl.slice(0, TL_TOP))}</div>${tl.length > TL_TOP ? `<details class="tl-more"><summary>Zobrazit celý průběh (ještě ${csN(tl.length - TL_TOP, 'řádek', 'řádky', 'řádků')})</summary><div class="timeline">${tlRows(tl.slice(TL_TOP))}</div></details>` : ''}</div>
 `;
     // odškrtnutá (i zase zrušená) letenka: „↻ Ověř cenu“ u ceny letenek zmizí (vrátí se) hned
@@ -3807,11 +3813,22 @@
     if (window.Entry) ev.push(...Entry.reminders(tripCountries(t), outLeg(t).date, fmtYMD(new Date()), tripVia(t)));
     // „🛡️ Sjednat cestovní pojištění“, „🚘 Vyřídit MŘP“ (jen když je nutný), „📝 Registrace v DROZD“ (pretrip.js)
     if (window.PreTrip) ev.push(...PreTrip.reminders(t, { isos: tripCountries(t), via: tripVia(t), ret: returnDate(t), today: fmtYMD(new Date()) }));
+    // „Den N“ = den cesty od odletu (jako kalendář z Mých cest a karta Dnes na cestě), ne den v místě – „Den 1 – Řím“ byl
+    // 8. den cesty a oba kalendáře se zdvojily s jinými čísly; den přejezdu jedna událost „Lisabon → Porto“
     const progDays = multi ? t.route.bases.map((b, i) => [b.name, basePlan(t, i)?.days || []]) : [[dest, tripPlan(t)?.days || []]];
+    const byDay = new Map(), t0 = outLeg(t).date;
     for (const [place, days] of progDays) {
-      days.forEach((d, i) => {
-        if (d.items && d.items.length) ev.push({ title: `Den ${i + 1} – ${place}`, start: d.date, location: place, description: d.items.map(x => `• ${x.name}${x.note ? ` – ${x.note}` : ''}`).join('\n') });
-      });
+      for (const d of days) {
+        if (!d.items || !d.items.length) continue;
+        const x = byDay.get(d.date) || [];
+        x.push([place, d.items]);
+        byDay.set(d.date, x);
+      }
+    }
+    for (const [date, x] of [...byDay].sort((a, b) => a[0].localeCompare(b[0]))) {
+      const places = [...new Set(x.map(p => p[0]))], two = places.length > 1;
+      ev.push({ title: `Den ${Math.round((Date.parse(date) - Date.parse(t0)) / 864e5) + 1} – ${places.join(' → ')}`, start: date, location: places.at(-1),
+        description: x.flatMap(([place, items]) => items.map(it => `• ${two ? place + ': ' : ''}${it.name}${it.note ? ` – ${it.note}` : ''}`)).join('\n') });
     }
     return ev;
   }

@@ -193,6 +193,10 @@ test('tripNow + nowCard: výlet z plánovače či z Objevuj ve dnech cesty se sp
     assert.ok(m.h.includes(`<li class="nw-also"><span class="nw-i">📌</span><span><span class="nw-d">také dnes</span><b>Odpoledne v Alfamě</b> · <button type="button" class="linkbtn" data-nw-plan="${ai}">Otevřít plán →</button></span></li>`), m.h);
     assert.equal(m.p.hotel, null, 'doma před odletem bez navigace do hotelu v Lisabonu');
   }
+  // ve vzduchu (PRG 06:25 → LIS 09:05, v 8:00 pražského času): přílet místního času a za jak dlouho
+  const inAir = card([lis], '2026-11-12T07:00:00Z');
+  assert.match(inAir.h, /✈️ Let PRG → LIS · přílet <b>9:05<\/b> <span class="faint">místního času<\/span>, za.2.h 5.min/, inAir.h);
+  assert.equal(card([lis], '2026-11-12T10:00:00Z').p.air, null, 'po přistání už ne');
   // další den výlet pěšky: hotel, místní čas a rezervace cesty, výlet s programem pod dnešními řádky
   const d = card([hike, lis], '2026-11-13T10:00:00Z');
   assert.equal(d.x.t, lis);
@@ -739,7 +743,7 @@ test('Přehled – rozpracovaná cesta z průvodce jen jednou: nahoře ↩ Pokra
   assert.equal(stat(), null, 'jediná nadcházející je nahoře – dlaždice by byla jen druhá karta téže cesty');
   c.Flights = { resumeTrip: () => null };
   c.S.trips = [vid];
-  assert.equal(stat()[0], 'Naplánované cesty', 'jen proběhlé: odkaz na Moje cesty zůstává');
+  assert.deepEqual(plain(stat().slice(0, 3)), ['Moje cesty', '1', 'všechny proběhly – naplánuj další'], 'jen proběhlé: odkaz na Moje cesty zůstává, ne „Naplánované“');
   assert.match(APP, /S\.trips\.length \? nextTripStat\(\) : null,\s*\]\.filter\(Boolean\);/, 'null = bez dlaždice');
   // karta ↩ Pokračuj: stejná podmínka jako dlaždice (Flights.resumeTrip) a odpočet do odletu místo dlaždice
   const fl = src('flights.js');

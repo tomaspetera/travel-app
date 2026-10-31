@@ -140,6 +140,10 @@ test('program jednoho místa sestavený pro jiné časy příjezdu / odjezdu: sh
   // let (program pro let): po příletu ve 20:56 není „volný den“, ale nic
   const fly = vie({ step: 'summary' });
   assert.deepEqual(prog(fly)[0], ['čt 5. 11. 📍 Hofburg', 'pá 6. 11. 📍 volný den']);
+  // prázdný den odjezdu: „volno do odjezdu“ (ne „volný den“ nad „Z ubytování na letiště vyraž…“)
+  const dep = vie({ step: 'summary' });
+  dep.plan.days = [...dep.plan.days, day('2026-11-11', 30)];
+  assert.deepEqual(prog(dep)[0], ['čt 5. 11. 📍 Hofburg', 'pá 6. 11. 📍 volný den', 'st 11. 11. 📍 volno do odjezdu']);
 });
 
 test('vlak/bus jen tam místo zpátečního letu: pobyt zůstane stejně dlouhý (ne 3 noci cesty jen tam), hotel platí', async () => {
@@ -465,7 +469,8 @@ test('trasa vlakem / busem: cesta z letiště do města se nepočítá ve směru
 test('ubytování „jen odkazy“: v průběhu i poznámkách „zatím nevybráno“; nový hotel / auto zruší ✓ v Co zarezervovat; týž den bez „jen odkazy“', () => {
   const tj = src('trip.js');
   // průběh cesty a poznámky do Mých cest – ne prázdné „Ubytování:“
-  assert.match(tj, /rows\.push\(\[checkin, '🏨', `Ubytování: \$\{esc\(hotelName\(t\.stay\) \|\| 'zatím nevybráno'\)\}`\]\)/);
+  // (přílet po půlnoci: řádek až v den příletu, pod cestou z letiště)
+  assert.match(tj, /rows\.push\(\[\[checkin, arrivalAt\(outLeg\(t\)\)\.slice\(0, 10\)\]\.sort\(\)\[1\], '🏨', `Ubytování: \$\{esc\(hotelName\(t\.stay\) \|\| 'zatím nevybráno'\)\}`\]\)/);
   assert.match(tj, /`Ubytování: \$\{hotelName\(t\.stay\) \|\| 'zatím nevybráno'\}\$\{t\.stay\.totalCzk \? ' – ' \+ czk\(t\.stay\.totalCzk\) : ''\}/);
   assert.doesNotMatch(tj, /Ubytování: \$\{esc\(t\.stay\.name \|\| ''\)\}/);
   // ✓ patří k výběru: každé nové ubytování (jedno místo i místo trasy) a auto ho zruší
@@ -478,4 +483,19 @@ test('ubytování „jen odkazy“: v průběhu i poznámkách „zatím nevybr�
   assert.match(tj, /\$\{nights < 1 \? '' : '<button class="btn ghost" id="stayLinks">Vyberu později – jen odkazy →<\/button>'\}/);
   assert.match(tj, /const sl = \$\('#stayLinks'\); if \(sl\) sl\.onclick =/);
   assert.match(tj, /const ms = \$\('#manSave'\); if \(ms\) ms\.onclick =/);
+});
+
+test('průběh cesty: přílet po půlnoci – ubytování pod cestou z letiště (ne den předem nad ní), v noci „spíš taxi“', () => {
+  const c = load();
+  const ao = { iata: 'VIE', city: 'Vídeň', gen: 'Vídně', mode: 'train', how: 'vlak S7 do centra', czk: 110, min: 25, basis: 'table', lat: 48.2082, lon: 16.3738 };
+  const t = vie({ step: 'summary', car: null, plan: null, arrival: { out: ao } });
+  // let 4. 11. ve 23:30, přílet 5. 11. ve 4:52 (pokoj od večera 4. 11.)
+  t.flight.out = { ...t.flight.out, dep: '2026-11-04T23:30:00', arr: '2026-11-05T04:52:00' };
+  const r = rows(render(c, t));
+  const iArr = r.findIndex((x) => x.startsWith('čt 5. 11. 🚆')), iHotel = r.findIndex((x) => x.includes('🏨 Ubytování'));
+  assert.ok(iArr >= 0 && iHotel > iArr && r[iHotel].startsWith('čt 5. 11.'), r.join('\n'));
+  assert.match(r[iArr], /v noci spíš taxi/);
+  // přílet večer ve 20:56 beze změny: bez nočního upozornění, ubytování v den příletu
+  const day = rows(render(c, vie({ step: 'summary', car: null, plan: null, arrival: { out: ao } })));
+  assert.ok(day.some((x) => x.startsWith('st 4. 11. 🏨')) && !day.some((x) => /v noci spíš taxi/.test(x)), day.join('\n'));
 });

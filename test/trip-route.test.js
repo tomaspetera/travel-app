@@ -90,7 +90,7 @@ test('trip: kalendář – pobyt na každém místě (celodenní), přejezdy s �
   ]);
   assert.match(moves[0].url, /travelmode=driving/);
   const prog = ev.filter((e) => e.title.startsWith('Den '));
-  assert.deepEqual(prog.map((e) => [e.title, e.start]), [['Den 1 – Milán', '2026-11-10'], ['Den 2 – Milán', '2026-11-11'], ['Den 1 – Řím', '2026-11-17']]);
+  assert.deepEqual(prog.map((e) => [e.title, e.start]), [['Den 1 – Milán', '2026-11-10'], ['Den 2 – Milán', '2026-11-11'], ['Den 8 – Řím', '2026-11-17']]);
   // z posledního místa na letiště: odlet 19:00 − 2 h − 37 min autem
   assert.deepEqual(ev.filter((e) => e.title.startsWith('🚪')).map((e) => [e.title, e.start, e.tz, e.durationMin]), [['🚪 Vyraž na letiště FCO', '2026-11-18T16:23', 'Europe/Rome', 37]]);
   // Celý soubor .ics: 2 lety + 3 pobyty + 2 přejezdy + 3 dny programu + kdy vyrazit na letiště; přejezd v UTC (11:00 v Římě = 10:00Z).
@@ -210,7 +210,7 @@ test('trip: program místa po změně trasy neplatí – shrnutí, kalendář an
   t.route.bases[0].plan.span = { start: '2026-11-10', end: '2026-11-13', arrivalTime: '08:30', departureTime: '14:00' };
   t.route.bases[2].plan.span = { start: '2026-11-16', end: '2026-11-18', arrivalTime: '14:00', departureTime: '19:00' };
   const days = (tt) => plain(Trip.calendarEvents(tt)).filter((e) => e.title.startsWith('Den ')).map((e) => [e.title, e.start]);
-  assert.deepEqual(days(t), [['Den 1 – Milán', '2026-11-10'], ['Den 2 – Milán', '2026-11-11'], ['Den 1 – Řím', '2026-11-17']]);
+  assert.deepEqual(days(t), [['Den 1 – Milán', '2026-11-10'], ['Den 2 – Milán', '2026-11-11'], ['Den 8 – Řím', '2026-11-17']]);
   // Jiný čas odletu (ve stejný den): program posledního místa (končí 3 h před odletem) neplatí, ostatní místa ano.
   const back = t.flight.back;
   t.flight.back = { ...back, dep: '2026-11-18T12:00:00', arr: '2026-11-18T14:00:00' };
@@ -219,7 +219,7 @@ test('trip: program místa po změně trasy neplatí – shrnutí, kalendář an
   // Milán o noc kratší, Florencie o noc delší: Milán končí 12. 11. → jeho program (do 13. 11.) neplatí; Řím beze změny.
   t.route.bases[0].nights = 2;
   t.route.bases[1].nights = 4;
-  assert.deepEqual(days(t), [['Den 1 – Řím', '2026-11-17']]);
+  assert.deepEqual(days(t), [['Den 8 – Řím', '2026-11-17']]);
   // Program bez termínu (starší sdílený odkaz): platí, jen když všechny dny leží v termínu místa.
   delete t.route.bases[2].plan.span;
   t.route.bases[2].plan.days.push({ date: '2026-11-15', items: [{ id: 'x', name: 'Mimo termín', lat: 41.9, lon: 12.5 }] });
