@@ -888,6 +888,11 @@
     take(new RegExp(`(?:muze\\w*|galeri\\w*|umeni)${W}`), () => { interests.push('art'); });
     take(new RegExp(`(?:pamatk\\w*|histori\\w*|hrad\\w*|zamk\\w*|zamek)${W}`), () => { interests.push('history'); });
     take(new RegExp(`(?:prirod\\w*|vyhled\\w*|vyhlid\\w*)${W}`), () => { interests.push('nature'); });
+    // „Barcelona pláže“ = příroda (váha pláží v Objevuj), „Vídeň zoo s dětmi“, „aquapark“ = s dětmi; kavárny, jídlo,
+    // nákupy zájem nemají – jen nejsou místo (dřív „Vídeň zoo“, „Krakov kavárny“ jako místo); „Plaza Mayor“ zůstane
+    take(new RegExp(`(?:plaz(?:e|i|ich|emi)?|koupani)${W}`), () => { interests.push('nature'); });
+    take(new RegExp(`(?:zoo|zoologick\\w+\\s+zahrad\\w*|aquapark\\w*|akvapark\\w*|zabavni\\w*\\s+park\\w*)${W}`), () => { interests.push('kids'); });
+    take(new RegExp(`(?:kavarn\\w*|restaurac\\w*|gastro\\w*|jidl\\w*|jidel|nakup\\w*|shopping)${W}`), () => {});
     // „výlet k jezeru“: jezero bez jména = příroda (místo zůstane domov / zbytek věty); „k Lipenskému jezeru“ dál místo
     take(new RegExp(`(?:k|ke|u|na)\\s+jezer\\w*${W}`), () => { interests.push('nature'); });
     const p = parse(blank.join(''), o), pt = p.patch;
