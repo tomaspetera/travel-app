@@ -1158,6 +1158,8 @@
         <b>${a.iata}</b> <span class="n">${esc(a.city)}</span>${a.distKm ? ` <span>${a.distKm} km</span>` : ''}${l ? ` <span class="g">${esc(l.text)}</span>` : ''}</button>`;
       }).join('')
         + (originPreview.length > max ? `<span class="faint" style="font-size:12px" title="Přednost mají blízká letiště, odkud se hodně létá; malá letiště s pár linkami jen když zbude místo.">prohledá se ${max} – blízká a větší mají přednost</span>` : '');
+      // že jde letiště vyřadit, jinak nikde nestálo (jen v title, který telefon neukáže)
+      host.insertAdjacentHTML('beforeend', '<span class="faint op-hint">klepnutím letiště vyřadíš z hledání (přeškrtne se)</span>');
       // telefon: jen 2 letiště, zbytek tlačítkem (formulář je jinak přes celou obrazovku)
       if (originPreview.length > 2) {
         const n = originPreview.length - 2;

@@ -250,7 +250,7 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
               </div>
               <button type="button" class="ap-sum" id="apSum" aria-expanded="false" hidden></button>
               <div class="radius-row">
-                <span class="muted">+ letiště do</span>
+                <span class="muted">letiště v okruhu</span>
                 <input type="range" id="radius" min="0" max="500" step="25" value="200" aria-label="Další letiště do vzdálenosti (km)">
                 <b id="radiusVal">200 km</b>
               </div>
@@ -326,8 +326,9 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
                 <input class="input" type="date" id="dFrom" aria-label="Odlet nejdřív">
                 <input class="input" type="date" id="dTo" aria-label="Odlet nejpozději">
               </div>
-              <div class="quick-range" id="quickRange" role="group" aria-label="Odlet během">
-                <button type="button" data-d="14">2 týdny</button><button type="button" data-d="30">měsíc</button><button type="button" data-d="60">2 měsíce</button><button type="button" data-d="90">3 měsíce</button><button type="button" data-m="1">příští měsíc</button>
+              <div class="quick-range" id="quickRange" role="group" aria-label="Rozmezí odletu">
+                <!-- „2 týdny“ bez popisku splývalo s délkou pobytu „2 týdny“ v Upřesnit – tady je to rozmezí dnů odletu -->
+                <span class="qr-l" aria-hidden="true">rozmezí</span><button type="button" data-d="14">2 týdny</button><button type="button" data-d="30">měsíc</button><button type="button" data-d="60">2 měsíce</button><button type="button" data-d="90">3 měsíce</button><button type="button" data-m="1">příští měsíc</button>
               </div>
             </div>
           </div>

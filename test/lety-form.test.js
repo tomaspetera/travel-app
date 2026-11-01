@@ -85,3 +85,12 @@ test('texty v aplikaci odkazují na nový název sekce (Další možnosti už ve
   }
   assert.doesNotMatch(html, /Další možnosti/);
 });
+
+test('horní část formuláře: rozmezí odletu má popisek, okruh letišť říká co je, u letišť stojí, že jdou vyřadit', () => {
+  // „2 týdny“ bez popisku splývalo s délkou pobytu „2 týdny“ v Upřesnit
+  assert.match(html, /<div class="quick-range" id="quickRange" role="group" aria-label="Rozmezí odletu">[\s\S]*?<span class="qr-l" aria-hidden="true">rozmezí<\/span><button type="button" data-d="14">2 týdny<\/button>/);
+  assert.match(html, /<span class="muted">letiště v okruhu<\/span>/);
+  // delší popisek: posuvník se musí umět zúžit, jinak „200 km“ na telefonu vyteče z karty
+  assert.match(css, /\.radius-row input\{flex:1;min-width:0;/);
+  assert.match(src, /host\.insertAdjacentHTML\('beforeend', '<span class="faint op-hint">klepnutím letiště vyřadíš z hledání \(přeškrtne se\)<\/span>'\);/);
+});
