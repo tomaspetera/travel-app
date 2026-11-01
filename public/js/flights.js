@@ -5109,7 +5109,10 @@
   const homeWord = (h = S.home && S.home.from && S.home.from[0]) => (h && !/\|Moje poloha$/.test(h.id || '') ? String(h.label || '').replace(/\s*\(.*\)$/, '') : '');
   function tryList(t = today(), home = homeWord()) {
     const nm = (+t.slice(5, 7)) % 12, mn = MNS_IN[nm], summer = nm >= 4 && nm <= 8, hike = nm >= 5 && nm <= 8, snow = nm === 11 || nm <= 2;
-    return [summer ? `k moři v ${mn} do 5000` : 'k moři v květnu do 5000', 'Řím na víkend ve dvou',
+    // před Vánoci (listopad – 20. 12.) i obojí svátky najednou – věta, kterou formulář sám nenastaví (přesná data ± 1 den);
+    // nm je index PŘÍŠTÍHO měsíce (listopad → 11, prosinec → 0)
+    const xmas = nm === 11 || (nm === 0 && t.slice(8) <= '20');
+    return [summer ? `k moři v ${mn} do 5000` : 'k moři v květnu do 5000', 'Řím na víkend ve dvou', ...(xmas ? ['Kanáry přes Vánoce a Silvestr'] : []),
       ...(hike ? [`na hory v ${mn} na týden`] : [`za teplem v ${mn} na týden`, ...(snow ? [`na hory v ${mn} na lyže`] : [])]),
       'Londýn příští měsíc jen přímé',
       // víc měst jednou větou – z domova (bez něj by věta neměla odkud)
