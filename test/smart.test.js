@@ -870,3 +870,13 @@ test('Objevuj větou: rozsah dat („Paříž 20.–23. 11.“) dá počet dní;
   assert.equal(E('Lisabon 1.12.–30.12.').days, null);
   assert.equal(E('Řím 3 noci od 5.12.').days, 4, 'noci + 1 dál');
 });
+
+test('Objevuj větou: pláže = příroda, zoo / aquapark = s dětmi, kavárny / jídlo / nákupy nejsou místo', () => {
+  const E = (q) => JSON.parse(JSON.stringify(Smart.parseExplore(q, { today: '2026-11-01' })));
+  assert.deepEqual([E('Barcelona pláže a muzea').place, E('Barcelona pláže a muzea').interests], ['Barcelona', ['art', 'nature']]);
+  assert.deepEqual([E('Vídeň zoo s dětmi').place, E('Vídeň zoo s dětmi').interests], ['Vídeň', ['kids']]);
+  assert.deepEqual([E('Zoo Dvůr Králové').place, E('Zoo Dvůr Králové').interests], ['Dvůr Králové', ['kids']]);
+  assert.deepEqual([E('Praha s dětmi zoo a aquapark').place, E('Krakov kavárny').place, E('Londýn nákupy').place], ['Praha', 'Krakov', 'Londýn']);
+  // „Plaza“ není pláž
+  assert.deepEqual(E('Madrid Plaza Mayor').interests, []);
+});
