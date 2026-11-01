@@ -95,7 +95,7 @@
     const s = fold(raw);
     const used = new Array(s.length).fill(false);
     const chips = [], patch = {};
-    let kind = null, group = null, month = null, dates = null, len = null, kids = 0, babies = 0, teens = 0, withKids = false;
+    let soonWk = false, kind = null, group = null, month = null, dates = null, len = null, kids = 0, babies = 0, teens = 0, withKids = false;
     // obrat najdi, označ jako použitý; fn vrátí false = nepoužít (shoda zůstane ve zbytku věty)
     const rule = (re, fn) => {
       const g = new RegExp(re.source, 'g' + (re.flags.includes('i') ? 'i' : ''));
@@ -235,11 +235,14 @@
     });
     // --- délka pobytu ---
     rule(new RegExp(`(?:na\\s+)?(?:prodlouzen[yeyj]+|dlouh[yej]+)\\s+vikend\\w*${W}`), () => { len = 'long'; });
-    rule(new RegExp(`(?:na\\s+)?(?:tento|tenhle|tenhleten|nejblizsi)\\s+vikend${W}|o\\s+vikendu${W}`), () => {
+    // odlet čt–so nejbližšího víkendu (v neděli už ten příští)
+    const thisWk = () => ({ from: today, to: addDays(today, (6 - dow(today) + 7) % 7), label: 'tento víkend' });
+    rule(new RegExp(`(?:na\\s+)?(?:tento|tenhle|tenhleten|nejblizsi)\\s+vikend${W}|o\\s+vikendu${W}`), m => {
       len = 'weekend';
-      // odlet čt–so nejbližšího víkendu (v neděli už ten příští)
-      const sat = addDays(today, (6 - dow(today) + 7) % 7);
-      dates = dates || { from: today, to: sat, label: 'tento víkend' };
+      // „o víkendu“ jen délka, když věta termín má i jinde („v prosinci o víkendu“, „adventní trhy … o víkendu“) –
+      // dřív vyhrál tento víkend a prosinec se zahodil; bez jiného termínu nejbližší víkend (doplní se po termínech níž)
+      if (/^o\s/.test(m[0])) { soonWk = true; return; }
+      dates = dates || thisWk();
     });
     // „příští týden“ / „tento týden“ = kdy (odlet v tom týdnu, po–ne), ne délka pobytu „týden“
     rule(new RegExp(`(?:(pristi|dalsi)|tento|tenhle)\\s+tyden${W}`), m => {
@@ -296,6 +299,8 @@
     // jarní / podzimní prázdniny (ne letní): jarní se liší podle okresu – únor až polovina března
     rule(new RegExp(`(?:na\\s+|o\\s+)?(?:jarni|jarnich)\\s+prazdnin\\w*${W}`), () => { if (dates) return false; dates = nextSpan('02-01', '03-20', 'jarní prázdniny'); len = len || 'week'; });
     rule(new RegExp(`(?:na\\s+|o\\s+)?(?:podzimni|podzimnich)\\s+prazdnin\\w*${W}`), () => { if (dates) return false; dates = nextSpan('10-24', '11-01', 'podzimní prázdniny'); len = len || 'long'; });
+    // Mikuláš (5. 12.): víkend kolem něj; jen „na / o Mikuláše“ – „do Liptovského Mikuláše“ je místo
+    rule(new RegExp(`(?:na|o)\\s+mikulas(?:e|i)?${W}`), () => { if (dates) return false; dates = nextSpan('12-03', '12-06', 'Mikuláš'); len = len || 'weekend'; });
     // Valentýn: prodloužený víkend kolem 14. 2.
     rule(new RegExp(`(?:na\\s+|o\\s+)?valentyn\\w*${W}`), () => { if (dates) return false; dates = nextSpan('02-12', '02-14', 'Valentýn'); len = len || 'weekend'; });
     // pololetní prázdniny: pátek na přelomu ledna a února – prodloužený víkend
@@ -584,6 +589,7 @@
       kind = kind || 'mountains';
     });
 
+    if (soonWk && !dates && month == null) dates = thisWk();
     // --- zbytek věty: místa (z X = odkud, jinak kam) ---
     const to = [], from = [];
     let mode = 'to', cur = [], arrows = 0, soft = null, backNext = false, justBack = false;

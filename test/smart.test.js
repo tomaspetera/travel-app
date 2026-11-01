@@ -830,3 +830,18 @@ test('období, které končí do 2 dnů („podzimní prázdniny“ 31. 10.), je
   assert.deepEqual(r.to, ['Neapol']);
   assert.ok(chips(r).some(c => /čas letu/.test(c)), 'po práci = čas letu ve Filtrech');
 });
+
+test('„o víkendu“ s jiným termínem je jen délka (dřív vyhrál tento víkend); „na Mikuláše“ je termín, ne místo', () => {
+  const t = '2026-11-01';
+  const d = P('Vídeň v prosinci o víkendu', t);
+  assert.deepEqual([d.to, d.patch.dFrom, d.patch.dTo, d.patch.len], [['Vídeň'], '2026-12-01', '2026-12-31', 'weekend']);
+  const a = P('adventní trhy v Drážďanech o víkendu', t);
+  assert.deepEqual([a.to, a.patch.dFrom, a.patch.dTo, a.patch.len], [['Drážďanech'], '2026-11-27', '2026-12-21', 'weekend']);
+  // bez jiného termínu dál nejbližší víkend
+  const l = P('Londýn o víkendu', t);
+  assert.deepEqual([chips(l)[0], l.patch.dFrom, l.patch.dTo], ['tento víkend', '2026-11-01', '2026-11-07']);
+  const m = P('na Mikuláše do Amsterdamu', t);
+  assert.deepEqual([m.to, m.patch.dFrom, m.patch.dTo, m.patch.len], [['Amsterdamu'], '2026-12-03', '2026-12-06', 'weekend']);
+  // Liptovský Mikuláš je místo
+  assert.deepEqual(P('do Liptovského Mikuláše v prosinci', t).to, ['Liptovského Mikuláše']);
+});
