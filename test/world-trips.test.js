@@ -65,7 +65,7 @@ test('pod mapou: poznámka s klepnutím na zemi → navštívená; bez chybějí
 });
 
 test('Co je nového: Země na mapu napsáním a Svět zná tvoje cesty (nová sada novinek)', () => {
-  assert.match(app, /const WN_ID = '2026-10-28b';\s*const WHATS_NEW = \[\s*\['🔎', 'Země na mapu napsáním',[^\n]*\],\s*\['🗺️', 'Svět zná tvoje cesty',/);
+  assert.match(app, /const WHATS_NEW = \[[\s\S]*?\['🔎', 'Země na mapu napsáním',[^\n]*\],\s*\['🗺️', 'Svět zná tvoje cesty',/);
 });
 
 const countries = JSON.parse(readFileSync(new URL('../data/countries.json', import.meta.url), 'utf8'));
@@ -130,4 +130,8 @@ test('detail země Česko: bez „Najít lety sem“ (domov), hlavní je 🌍 Ob
   assert.match(fn, /\$\{iso === 'CZ' \? '' : `<button class="btn primary" data-cm="search">/);
   assert.match(fn, /`<button class="btn\$\{iso === 'CZ' \? ' primary' : ''\}" data-cm="explore">🌍 Objevuj celou zemi<\/button>`/);
   assert.match(app, /\$\$\('#modal \[data-cm\]'\)\.forEach\(b => \{ b\.onclick = \(\) => cmActs\[b\.dataset\.cm\]\(\); \}\);/, 'obsluha jen existujících tlačítek');
+});
+
+test('Co je nového: hledání větou rozumí víc (nová sada novinek nahoře)', () => {
+  assert.match(app, /const WN_ID = '2026-11-01';\s*const WHATS_NEW = \[\s*\['✨', 'Hledání větou rozumí víc',[^\n]*Vánoce a Silvestr[^\n]*Den boje za svobodu[^\n]*s dětmi 5 a 8 let[^\n]*\],\s*\['🔎', 'Země na mapu napsáním',/);
 });
