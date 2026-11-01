@@ -940,3 +940,13 @@ test('Objevuj větou: svátek a víkend v měsíci – začátek a počet dní (
   assert.equal(E('Praha na den').days, 1);
   assert.deepEqual([E('Porto na víkend').start, E('Krakov na prodloužený víkend').start], ['2026-11-07', '2026-11-06']);
 });
+
+test('„✨ Zkus napsat“ před Vánoci nabídne „Kanáry přes Vánoce a Silvestr“ a ta věta dá Vánoce i Silvestr', () => {
+  const src = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  assert.match(src, /const xmas = nm === 11 \|\| \(nm === 0 && t\.slice\(8\) <= '20'\);/);
+  // nm = index příštího měsíce: listopad → 11, prosinec → 0, říjen → 10 (bez příkladu)
+  const nmOf = t => (+t.slice(5, 7)) % 12, xm = t => nmOf(t) === 11 || (nmOf(t) === 0 && t.slice(8) <= '20');
+  assert.deepEqual(['2026-10-31', '2026-11-01', '2026-11-30', '2026-12-20', '2026-12-21'].map(xm), [false, true, true, true, false]);
+  assert.match(src, /\.\.\.\(xmas \? \['Kanáry přes Vánoce a Silvestr'\] : \[\]\)/);
+  assert.equal(P('Kanáry přes Vánoce a Silvestr', '2026-11-01').patch.xFlex, 1);
+});
