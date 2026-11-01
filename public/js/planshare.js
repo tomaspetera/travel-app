@@ -135,7 +135,54 @@
     if (via.length) plan.via = via;
     // město cesty (letiště / metropole) pro „Hledat lety“ – jen platný kód, vlajka se dopočítá ze země
     if (obj(raw.place) && typeof raw.place.id === 'string' && /^(ap|metro):[A-Z]{3}$/.test(raw.place.id)) plan.place = { id: raw.place.id, label: txt(raw.place.label, 80) || plan.dest };
+    // sid = stálé označení sdílené cesty (dává ho první sdílení): novější verze od kamaráda pak cestu aktualizuje, ne zkopíruje
+    if (typeof raw.sid === 'string' && SID.test(raw.sid)) plan.sid = raw.sid;
     return plan;
+  }
+  const SID = /^[a-z0-9]{10}$/;
+  /** Nové označení sdílené cesty (10 znaků a–z, 0–9). */
+  function newSid() {
+    const a = 'abcdefghijklmnopqrstuvwxyz0123456789', n = new Uint8Array(10);
+    if (typeof crypto === 'object' && crypto && crypto.getRandomValues) crypto.getRandomValues(n); else for (let i = 0; i < 10; i++) n[i] = Math.floor(Math.random() * 256);
+    return Array.from(n, x => a[x % 36]).join('');
+  }
+
+  /**
+   * Novější verze sdíleného plánu do už uložené cesty (stejné sid, u starších odkazů stejný název a cíl) – místo kopie.
+   * Od kamaráda: termín, cíl, let, vlaky, cestující, rozpočet a program. Tvoje zůstane: název, „Sbaleno“ i s odškrtnutím
+   * (nové položky se přidají), kódy rezervací, místo a kód jízdenky u vlaku a vlastní aktivity – ty, které nebyly
+   * v minulé verzi plánu (own.sharedSnap; bez ní se nic nezahodí, jen se přidají chybějící). Poznámky: změněné u obou →
+   * tvoje a pod nimi kamarádovy. Aktivity mimo nový termín se přesunou na jeho první / poslední den.
+   */
+  function merge(own, p) {
+    const snap = obj(own.sharedSnap) ? own.sharedSnap : null, start = p.start, end = p.end || p.start;
+    const days = {};
+    for (const [d, items] of Object.entries(p.days || {})) days[d] = items.slice();
+    for (const d of Object.keys(obj(own.days) ? own.days : {}).sort()) {
+      const items = Array.isArray(own.days[d]) ? own.days[d] : [];
+      const was = new Set(snap && obj(snap.days) && Array.isArray(snap.days[d]) ? snap.days[d] : []);
+      let k = d;
+      if (start && k < start) k = start;
+      if (start && k > end) k = end;
+      const have = new Set(days[k] || []), add = items.filter(x => typeof x === 'string' && x && !was.has(x) && !have.has(x));
+      if (add.length) days[k] = [...(days[k] || []), ...add];
+    }
+    const ownCk = Array.isArray(own.checklist) ? own.checklist.filter(x => obj(x) && x.t) : [];
+    const hasCk = new Set(ownCk.map(x => x.t));
+    const checklist = [...ownCk, ...(p.checklist || []).filter(x => !hasCk.has(x.t)).map(x => ({ t: x.t, done: false, ...(x.id ? { id: x.id } : {}) }))];
+    const prevNotes = snap && typeof snap.notes === 'string' ? snap.notes : null, mine = own.notes || '';
+    const notes = !mine || mine === prevNotes || mine === p.notes ? p.notes
+      : !p.notes || p.notes === prevNotes ? mine : `${mine}\n\n${p.notes}`;
+    // vlak: čas a nástupiště od kamaráda, místo a kód jízdenky tvoje; tvoje vlaky, které v plánu nejsou, zůstanou
+    const ownR = Array.isArray(own.rides) ? own.rides.filter(obj) : [], byKey = new Map(ownR.map(r => [rideKey(r), r]));
+    const pR = (p.rides || []).map(r => { const o = byKey.get(rideKey(r)); return o ? { ...r, seat: o.seat || r.seat, ...(o.kod ? { kod: o.kod } : {}) } : r; });
+    const pKeys = new Set(pR.map(rideKey));
+    const rs = [...pR, ...ownR.filter(r => !pKeys.has(rideKey(r)) && (!start || (r.date >= start && r.date <= end)))].slice(0, RIDES_MAX);
+    const out = { ...own, dest: p.dest, iso: p.iso, start: p.start, end: p.end, pax: p.pax, budget: p.budget, flight: p.flight,
+      legs: p.legs, ground: p.ground, isos: p.isos, via: p.via, place: p.place, rides: rs.length ? rs : undefined,
+      days, checklist, notes, sid: p.sid || own.sid, sharedSnap: JSON.parse(JSON.stringify({ days: p.days || {}, notes: p.notes || '' })) };
+    for (const k of Object.keys(out)) if (out[k] === undefined) delete out[k];
+    return out;
   }
 
   // dnešek v místním čase (YYYY-MM-DD)
@@ -175,5 +222,5 @@
     return m ? unpack(m[1]) : null;
   }
 
-  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash, txt, rides, rideKey, RIDE_LEN };
+  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash, txt, rides, rideKey, RIDE_LEN, newSid, merge };
 })();
