@@ -887,6 +887,9 @@
     const bits = [!f.children && !f.infants ? SearchHelp.paxTxt(f) : SearchHelp.paxShort(f), BAG_SUM[f.bags] || BAG_SUM.none];
     if (f.maxPrice) bits.push(`do ${czk(+f.maxPrice)}`);
     $('.gm-field').classList.toggle('gm-off', !f.ground);
+    // schované pole „jízdné ×“ (vypnutá cesta na letiště, autem) mimo kontrolu formuláře: neplatná hodnota (0,75) by
+    // jinak potichu zablokovala hledání – prohlížeč nemá kam ukázat chybu
+    $('#kmRate').disabled = !f.ground || f.groundMode === 'car';
     if (!f.ground) bits.push('bez dopravy na letiště');
     else if (f.groundMode === 'car') bits.push(`🚗 na letiště autem (${FUEL_SHORT[f.carFuel] || 'nafta'})`);
     else if (+f.kmRate > 0) { // s jízdným × 0 se doprava nepočítá – ani vlastní ceny (seznam 🏠 je schovaný)

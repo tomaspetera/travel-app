@@ -151,16 +151,25 @@
    * Novější verze sdíleného plánu do už uložené cesty (stejné sid, u starších odkazů stejný název a cíl) – místo kopie.
    * Od kamaráda: termín, cíl, let, vlaky, cestující, rozpočet a program. Tvoje zůstane: název, „Sbaleno“ i s odškrtnutím
    * (nové položky se přidají), kódy rezervací, místo a kód jízdenky u vlaku a vlastní aktivity – ty, které nebyly
-   * v minulé verzi plánu (own.sharedSnap; bez ní se nic nezahodí, jen se přidají chybějící). Poznámky: změněné u obou →
-   * tvoje a pod nimi kamarádovy. Aktivity mimo nový termín se přesunou na jeho první / poslední den.
+   * v naposledy vyměněné verzi plánu (own.sharedSnap: co jsi poslal nebo dostal; bez ní se nic nezahodí, jen se přidají
+   * chybějící). Aktivita z té verze se pozná v kterýkoli den – kamarád ji mohl přesunout, nebo jsi posunul termín.
+   * Poznámky: změněné u obou → tvoje a pod nimi kamarádovy (další verze kamarádovy jen nahradí). Aktivity mimo nový
+   * termín se přesunou na jeho první / poslední den.
    */
+  /**
+   * Záznam vyměněné verze plánu (sharedSnap): jen texty aktivit (bez dnů – aktivita se pozná i po posunu termínu, menší
+   * záloha a přenos do zařízení) a poznámky. Ukládá se při importu, aktualizaci i vlastním sdílení.
+   */
+  const snapOf = p => ({ acts: [...new Set(Object.values(obj(p && p.days) ? p.days : {}).flat().filter(x => typeof x === 'string' && x))].slice(0, 600), notes: (p && typeof p.notes === 'string' && p.notes) || '' });
+  // aktivity ze záznamu; dřívější tvar (1. 11. 2026) měl { days }
+  const snapActs = snap => new Set(!snap ? [] : Array.isArray(snap.acts) ? snap.acts : obj(snap.days) ? Object.values(snap.days).filter(Array.isArray).flat() : []);
   function merge(own, p) {
     const snap = obj(own.sharedSnap) ? own.sharedSnap : null, start = p.start, end = p.end || p.start;
+    const was = snapActs(snap);
     const days = {};
     for (const [d, items] of Object.entries(p.days || {})) days[d] = items.slice();
     for (const d of Object.keys(obj(own.days) ? own.days : {}).sort()) {
       const items = Array.isArray(own.days[d]) ? own.days[d] : [];
-      const was = new Set(snap && obj(snap.days) && Array.isArray(snap.days[d]) ? snap.days[d] : []);
       let k = d;
       if (start && k < start) k = start;
       if (start && k > end) k = end;
@@ -172,7 +181,9 @@
     const checklist = [...ownCk, ...(p.checklist || []).filter(x => !hasCk.has(x.t)).map(x => ({ t: x.t, done: false, ...(x.id ? { id: x.id } : {}) }))];
     const prevNotes = snap && typeof snap.notes === 'string' ? snap.notes : null, mine = own.notes || '';
     const notes = !mine || mine === prevNotes || mine === p.notes ? p.notes
-      : !p.notes || p.notes === prevNotes ? mine : `${mine}\n\n${p.notes}`;
+      : !p.notes || p.notes === prevNotes ? mine
+      // minule připojené kamarádovy poznámky nahradit novými (dřív se každou verzí přidávaly pod sebe)
+      : prevNotes && mine.endsWith(`\n\n${prevNotes}`) ? mine.slice(0, -prevNotes.length) + p.notes : `${mine}\n\n${p.notes}`;
     // vlak: čas a nástupiště od kamaráda, místo a kód jízdenky tvoje; tvoje vlaky, které v plánu nejsou, zůstanou
     const ownR = Array.isArray(own.rides) ? own.rides.filter(obj) : [], byKey = new Map(ownR.map(r => [rideKey(r), r]));
     const pR = (p.rides || []).map(r => { const o = byKey.get(rideKey(r)); return o ? { ...r, seat: o.seat || r.seat, ...(o.kod ? { kod: o.kod } : {}) } : r; });
@@ -180,7 +191,7 @@
     const rs = [...pR, ...ownR.filter(r => !pKeys.has(rideKey(r)) && (!start || (r.date >= start && r.date <= end)))].slice(0, RIDES_MAX);
     const out = { ...own, dest: p.dest, iso: p.iso, start: p.start, end: p.end, pax: p.pax, budget: p.budget, flight: p.flight,
       legs: p.legs, ground: p.ground, isos: p.isos, via: p.via, place: p.place, rides: rs.length ? rs : undefined,
-      days, checklist, notes, sid: p.sid || own.sid, sharedSnap: JSON.parse(JSON.stringify({ days: p.days || {}, notes: p.notes || '' })) };
+      days, checklist, notes, sid: p.sid || own.sid, sharedSnap: snapOf(p) };
     for (const k of Object.keys(out)) if (out[k] === undefined) delete out[k];
     return out;
   }
@@ -222,5 +233,5 @@
     return m ? unpack(m[1]) : null;
   }
 
-  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash, txt, rides, rideKey, RIDE_LEN, newSid, merge };
+  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash, txt, rides, rideKey, RIDE_LEN, newSid, merge, snapOf };
 })();

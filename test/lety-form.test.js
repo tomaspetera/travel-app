@@ -14,7 +14,7 @@ test('sekce se jmenuje podle toho, co v ní je, a pole jdou podle důležitosti 
   const order = ['paxBtn', 'maxPrice', 'bags', 'directOnly', 'openJaw', 'outDays', 'backDays', 'groundOn', 'groundMode', 'kmHalf', 'gmOwn', 'gmCar', 'arrivalOn'];
   assert.deepEqual(order.map(at), order.map(at).slice().sort((a, b) => a - b), 'pořadí polí');
   // na víc sloupcích (počítač) se Max. cena a Lety posunou vedle Cestujících – Zavazadla jsou přes celou šířku
-  assert.match(css, /\.more-grid\{[^}]*grid-auto-flow:row dense/);
+  assert.match(readFileSync(new URL("../public/css/desktop-flights.css", import.meta.url), "utf8"), /@media \(min-width:1024px\)\{\n  \/\*[^*]*\*\/\n  \.more-grid\{grid-auto-flow:row dense\}/);
 });
 
 test('seznam letišť s vlastní cenou je sbalený pod jedním řádkem; styly sekce nesahají na jeho summary', () => {
@@ -93,4 +93,8 @@ test('horní část formuláře: rozmezí odletu má popisek, okruh letišť ř�
   // delší popisek: posuvník se musí umět zúžit, jinak „200 km“ na telefonu vyteče z karty
   assert.match(css, /\.radius-row input\{flex:1;min-width:0;/);
   assert.match(src, /host\.insertAdjacentHTML\('beforeend', '<span class="faint op-hint">klepnutím letiště vyřadíš z hledání \(přeškrtne se\)<\/span>'\);/);
+});
+
+test('schované pole „jízdné ×“ (vypnutá cesta na letiště, autem) je mimo kontrolu formuláře – neplatná hodnota nezablokuje hledání', () => {
+  assert.match(src, /\$\('#kmRate'\)\.disabled = !f\.ground \|\| f\.groundMode === 'car';/);
 });

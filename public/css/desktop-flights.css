@@ -2,6 +2,9 @@
    Navazuje na desktop.css (kontejner, tokeny --gap/--section/--card-min). Telefon a tablet (< 1024 px) beze změny –
    všechna pravidla jsou jen v @media (min-width:1024px). Načítá se za desktop.css. */
 @media (min-width:1024px){
+  /* Cestující, zavazadla a další: 3 sloupce hustě – Max. cena a Lety vedle Cestujících (jinak by Cestující zůstali
+     v řádku sami před Zavazadly přes celou šířku) */
+  .more-grid{grid-auto-flow:row dense}
   /* ---------- Přehled: úvodní hledání na jednom řádku i na menším notebooku ---------- */
   /* Kam (delší nápověda „kamkoliv, nebo k moři v květnu“) o kousek širší; pole se nelámou na dva řádky */
   .hero-search2{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) auto;align-items:stretch}

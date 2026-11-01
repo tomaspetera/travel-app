@@ -27,7 +27,7 @@ test('sid: stálé označení sdílené cesty projde odkazem i zálohou, nesmysl
 
 test('aktualizace: termín, let, program a rozpočet od kamaráda; můj název, odškrtnutí, rezervace a vlastní aktivity zůstanou', () => {
   const own = { ...plain(v1), name: 'Řím 🍕', checklist: [{ t: 'Pas', done: true }, { t: 'Opalovací krém', done: false }],
-    refs: [{ co: 'hotel', kod: 'ABC123', pozn: '' }], sharedSnap: plain({ days: v1.days, notes: v1.notes }) };
+    refs: [{ co: 'hotel', kod: 'ABC123', pozn: '' }], sharedSnap: PlanShare.snapOf(v1) };
   own.days['2026-12-12'] = ['Vatikán', 'pizza u Gina'];
   const u = plain(PlanShare.merge(own, PlanShare.sanitize(v2)));
   assert.equal(u.name, 'Řím 🍕');
@@ -39,7 +39,7 @@ test('aktualizace: termín, let, program a rozpočet od kamaráda; můj název, 
   assert.equal(u.notes, 'sraz v 6:00', 'poznámky jsem neměnil → kamarádovy');
   assert.equal(u.sid, 'abcde12345');
   // další aktualizace se řídí touto verzí
-  assert.deepEqual(u.sharedSnap, { days: v2.days, notes: v2.notes });
+  assert.deepEqual(u.sharedSnap, { acts: ['Koloseum', 'Trastevere'], notes: 'sraz v 6:00' });
 });
 
 test('aktualizace bez záznamu minulé verze (starší import, obnova ze zálohy): nic se nezahodí, jen přidá', () => {
@@ -50,7 +50,7 @@ test('aktualizace bez záznamu minulé verze (starší import, obnova ze zálohy
 
 test('poznámky změněné u obou: moje a pod nimi kamarádovy; vlak: čas od kamaráda, místo a kód jízdenky moje', () => {
   const ride = { date: '2026-12-17', from: 'Praha', to: 'Pardubice', kind: 'vlak', dep: '05:10', plat: '3' };
-  const own = { ...plain(v1), notes: 'beru deštník', sharedSnap: { days: v1.days, notes: v1.notes },
+  const own = { ...plain(v1), notes: 'beru deštník', sharedSnap: PlanShare.snapOf(v1),
     rides: [{ ...ride, date: '2026-12-10', dep: '06:00' }, { ...ride, dep: '04:50', seat: 'vůz 5, 61', kod: 'RJ999' }] };
   const p = PlanShare.sanitize({ ...v2, rides: [{ ...ride, dep: '05:10', plat: '4' }] });
   const u = plain(PlanShare.merge(own, p));
@@ -60,30 +60,65 @@ test('poznámky změněné u obou: moje a pod nimi kamarádovy; vlak: čas od ka
   assert.equal(PlanShare.merge(own, PlanShare.sanitize({ ...v2, notes: v1.notes })).notes, 'beru deštník');
 });
 
-test('stejná cesta v Mých cestách: stejné sid; bez sid (starší odkaz nebo import) stejný název a cíl; cesta z průvodce ne', () => {
-  const m = app.match(/const sharedMatch = \(trips, p\) => ([^\n]+);\n/);
-  assert.ok(m, 'sharedMatch');
-  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-  const sharedMatch = new Function('norm', `return (trips, p) => ${m[1]};`)(norm);
-  const a = { name: 'Řím s kámoši', dest: 'Řím', sid: 'abcde12345' };
-  assert.equal(sharedMatch([{ name: 'X', dest: 'Y' }, a], { name: 'Jiný název', dest: 'Řím', sid: 'abcde12345' }), 1);
-  assert.equal(sharedMatch([a], { name: 'Řím s kámoši', dest: 'Řím', sid: 'zzzzz99999' }), -1, 'jiné sid = jiná cesta');
-  assert.equal(sharedMatch([{ name: 'Rim s kamosi', dest: 'Řím' }], { name: 'Řím s kámoši', dest: 'Řím', sid: 'abcde12345' }), 0, 'starší import bez sid');
-  assert.equal(sharedMatch([{ ...a, sid: undefined }], { name: 'Řím s kámoši', dest: 'Řím' }), 0, 'starší odkaz bez sid');
-  assert.equal(sharedMatch([{ ...a, wizard: {} }], { ...a }), -1, 'cestu z průvodce drží průvodce');
+test('stejná cesta v Mých cestách: stejné sid; bez sid (starší odkaz nebo import) stejný název, cíl a termín do 45 dní; cesta z průvodce ne', () => {
+  const src = app.slice(app.indexOf('const nearStart = '), app.indexOf('/** Náhled plánu z odkazu'));
+  const okYmd = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + 'T00:00:00Z'));
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const sharedMatch = new Function('norm', 'okYmd', `${src}; return sharedMatch;`)(norm, okYmd);
+  const a = { name: 'Řím s kámoši', dest: 'Řím', sid: 'abcde12345', start: '2026-12-10' };
+  assert.deepEqual(sharedMatch([{ name: 'X', dest: 'Y' }, a], { name: 'Jiný název', dest: 'Řím', sid: 'abcde12345' }), { i: 1, byName: false });
+  assert.equal(sharedMatch([a], { name: 'Řím s kámoši', dest: 'Řím', sid: 'zzzzz99999', start: '2026-12-10' }).i, -1, 'jiné sid = jiná cesta');
+  assert.deepEqual(sharedMatch([{ name: 'Rim s kamosi', dest: 'Řím', start: '2026-12-10' }], { name: 'Řím s kámoši', dest: 'Řím', sid: 'abcde12345', start: '2026-12-17' }), { i: 0, byName: true }, 'starší import bez sid');
+  assert.equal(sharedMatch([{ ...a, sid: undefined }], { name: 'Řím s kámoši', dest: 'Řím', start: '2026-12-10' }).i, 0, 'starší odkaz bez sid');
+  assert.equal(sharedMatch([{ ...a, wizard: {} }], { ...a }).i, -1, 'cestu z průvodce drží průvodce');
+  // výchozí název „Cesta: Řím“ – dubnová cesta není prosincová (dřív ji 🔄 přepsalo)
+  assert.equal(sharedMatch([{ name: 'Cesta: Řím', dest: 'Řím', start: '2027-04-02' }], { name: 'Cesta: Řím', dest: 'Řím', start: '2026-12-10' }).i, -1);
+  assert.equal(sharedMatch([{ name: 'Cesta: Řím', dest: 'Řím', start: '' }], { name: 'Cesta: Řím', dest: 'Řím', start: '2026-12-10' }).i, 0, 'bez data se nerozliší');
 });
 
-test('náhled odkazu: u novější verze 🔄 Aktualizovat moji cestu i Uložit jako novou; sdílení dá cestě sid', () => {
+test('náhled odkazu: 🔄 Aktualizovat i Uložit jako novou (u shody jen podle názvu je jistější nová cesta); shrnutí z výsledku aktualizace', () => {
   const fn = app.slice(app.indexOf('function previewPlan(shared)'), app.indexOf('// úprava v okně cesty'));
-  assert.match(fn, /<button class="btn primary" id="planUpdate">🔄 Aktualizovat moji cestu<\/button><button class="btn" id="planImport">Uložit jako novou<\/button>/);
-  assert.match(fn, /S\.trips\[i\] = PlanShare\.merge\(mine, p\);/);
-  // stejná verze znovu → „už máš“ (aktualizace by nic nezměnila)
-  assert.match(fn, /if \(key\(u\) === key\(t\) && JSON\.stringify\(u\.checklist\) === JSON\.stringify\(t\.checklist\)\) \{ same = mi; mi = -1; \}/);
-  // vlastní kopie záznamu verze (jinak sdílí pole dnů s cestou)
-  assert.match(fn, /const snap = JSON\.parse\(JSON\.stringify\(\{ days: p\.days, notes: p\.notes \}\)\);/);
-  assert.match(app, /const planJson = t => \{ if \(t && !t\.sid && window\.PlanShare && PlanShare\.newSid\) \{ t\.sid = PlanShare\.newSid\(\); save\(\); \} return PlanShare\.json\(t\); \};/);
-  // sdílení a odkaz připravený při otevření detailu přes planJson (cesta dostane sid)
-  assert.match(app, /return ShareLink\.send\('plan', planJson\(t\), \{/);
+  assert.match(fn, /'<button class="btn primary" id="planUpdate">🔄 Aktualizovat moji cestu<\/button><button class="btn" id="planImport">Uložit jako novou<\/button>'/);
+  assert.match(fn, /\? '<button class="btn primary" id="planImport">Uložit jako novou<\/button><button class="btn" id="planUpdate">🔄 Aktualizovat moji cestu<\/button>'/);
+  assert.match(fn, /let upd = m\.i >= 0 \? PlanShare\.merge\(S\.trips\[m\.i\], p\) : null;/);
+  assert.match(fn, /`program \$\{nActs\(mine\)\} → <b>\$\{nActs\(upd\)\}<\/b>/, 'počet aktivit po aktualizaci, ne kamarádových');
+  assert.match(fn, /S\.trips\[i\] = upd;/);
+  // jen jiné sid = nic nového
+  assert.match(fn, /const key = x => \{ const \{ checklist, sid, \.\.\.rest \} = PlanShare\.sanitize\(x\); return JSON\.stringify\(rest\); \};/);
+  assert.match(fn, /const snap = PlanShare\.snapOf\(p\);/);
+});
+
+test('sid a záznam toho, co odešlo, až skutečným sdílením – samo otevření detailu je neuloží', () => {
+  const src = app.slice(app.indexOf('const pendSid = new WeakMap();'), app.indexOf('/** Odkaz na plán (zkomprimovaný'));
+  let saves = 0;
+  const planJson = new Function('PlanShare', 'save', 'window', `${src}; return planJson;`)(PlanShare, () => saves++, { PlanShare });
+  const t = plain({ ...v1, sid: undefined });
+  const j1 = JSON.parse(planJson(t)), j2 = JSON.parse(planJson(t));
+  assert.match(j1.sid, /^[a-z0-9]{10}$/); assert.equal(j1.sid, j2.sid, 'předpřipravený odkaz = odkaz po kliknutí (Safari)');
+  assert.equal(t.sid, undefined); assert.equal(t.sharedSnap, undefined); assert.equal(saves, 0);
+  const j3 = JSON.parse(planJson(t, true));
+  assert.equal(j3.sid, j1.sid); assert.equal(t.sid, j1.sid); assert.equal(saves, 1);
+  assert.deepEqual(plain(t.sharedSnap), { acts: ['Koloseum', 'Vatikán'], notes: 'sraz na letišti' });
+  assert.match(app, /return ShareLink\.send\('plan', planJson\(t, true\), \{/);
   assert.match(app, /\$\('#tripShare'\)\.onpointerdown = \(\) => ShareLink\.short\('plan', planJson\(t\)\);/);
-  assert.match(app, /ShareLink\.prepare\('plan', planJson\(t\)\); \/\/ kliknutí pak jen zkopíruje hotový odkaz/);
+});
+
+test('kdo sdílel první: kamarádova upravená verze nezdvojí aktivity ani poznámky (dřív bez záznamu toho, co odešlo)', () => {
+  // A sdílí (záznam), B posune termín o týden, „Vatikán“ přesune, pozmění poznámky a pošle zpět
+  const a = { ...plain(v1), sharedSnap: PlanShare.snapOf(v1) };
+  const b = PlanShare.sanitize({ ...v1, start: '2026-12-17', end: '2026-12-20', days: { '2026-12-17': ['Koloseum'], '2026-12-19': ['Vatikán'] }, notes: 'sraz v 6:00 u brány' });
+  const u = plain(PlanShare.merge(a, b));
+  assert.deepEqual(u.days, { '2026-12-17': ['Koloseum'], '2026-12-19': ['Vatikán'] });
+  assert.equal(u.notes, 'sraz v 6:00 u brány');
+  // moje vlastní aktivita (po sdílení) zůstane
+  const a2 = { ...a, days: { ...a.days, '2026-12-11': ['pizza'] } };
+  assert.deepEqual(plain(PlanShare.merge(a2, b)).days, { '2026-12-17': ['Koloseum', 'pizza'], '2026-12-19': ['Vatikán'] });
+  // dřívější tvar záznamu ({ days }) se přečte taky
+  assert.deepEqual(plain(PlanShare.merge({ ...a, sharedSnap: { days: v1.days, notes: v1.notes } }, b)).days, u.days);
+});
+
+test('poznámky se při dalších verzích nehromadí – minule připojené kamarádovy se nahradí', () => {
+  let own = { ...plain(v1), notes: 'beru deštník', sharedSnap: PlanShare.snapOf(v1) };
+  for (const n of ['sraz v 6:00', 'sraz v 6:30', 'sraz v 7:00']) own = plain(PlanShare.merge(own, PlanShare.sanitize({ ...v1, notes: n })));
+  assert.equal(own.notes, 'beru deštník\n\nsraz v 7:00');
 });
