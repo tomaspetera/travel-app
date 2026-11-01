@@ -816,3 +816,17 @@ test('věk dětí: do 2 let miminko, 2–11 dítě, od 12 let platí jako dospě
   assert.equal(P('s dětmi 2 týdny v Chorvatsku').patch.children, undefined);
   assert.equal(P('s dětmi 2 týdny v Chorvatsku').patch.len, '2weeks');
 });
+
+test('období, které končí do 2 dnů („podzimní prázdniny“ 31. 10.), je až příští rok; „20 kg“ a „po práci“ nejsou místo', () => {
+  // dřív odlet jen 31. 10.–1. 11. se dny odletu st–pá → žádný let
+  for (const t of ['2026-10-31', '2026-11-01']) {
+    const r = P('Mallorca na podzimní prázdniny', t);
+    assert.deepEqual([r.patch.dFrom, r.patch.dTo], ['2027-10-24', '2027-11-01'], t);
+  }
+  // v pátek 30. 10. se ještě stihne
+  assert.deepEqual([P('Mallorca na podzimní prázdniny', '2026-10-30').patch.dFrom, P('Mallorca na podzimní prázdniny', '2026-10-30').patch.dTo], ['2026-10-30', '2026-11-01']);
+  assert.deepEqual(P('Londýn s odbaveným zavazadlem 20 kg').to, ['Londýn']);
+  const r = P('Neapol v pátek po práci');
+  assert.deepEqual(r.to, ['Neapol']);
+  assert.ok(chips(r).some(c => /čas letu/.test(c)), 'po práci = čas letu ve Filtrech');
+});
