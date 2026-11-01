@@ -962,3 +962,19 @@ test('překlep v dlouhém měsíci za „v“ („v prosnci“, „v listpadu“
   assert.deepEqual(P('Řím v Prosecco', t).to, ['Řím', 'Prosecco']);
   assert.deepEqual(P('Ledeč v prosinci', t).to, ['Ledeč']);
 });
+
+test('„do / před Vánoci“, „po Vánocích“ (i Velikonoce) = období před / po svátku, ne o svátcích', () => {
+  const t = '2026-11-01';
+  const d = P('Londýn kdykoliv do Vánoc', t);
+  assert.deepEqual([d.to, chips(d), d.patch.dFrom, d.patch.dTo, d.patch.len], [['Londýn'], ['do Vánoc'], '2026-11-02', '2026-12-23', undefined]);
+  const p = P('před Vánoci do Říma', t);
+  assert.deepEqual([p.to, chips(p)], [['Říma'], ['před Vánoci']]);
+  const a = P('po Vánocích do Londýna', t);
+  assert.deepEqual([chips(a), a.patch.dFrom, a.patch.dTo], [['po Vánocích'], '2026-12-27', '2027-01-16']);
+  assert.deepEqual([chips(P('do Velikonoc do Paříže', t)), P('do Velikonoc do Paříže', t).patch.dTo], [['do Velikonoc'], '2027-03-25']);
+  // s víkendem: víkendy v tom období
+  assert.equal(P('Řím ještě před Vánoci na víkend', t).patch.len, 'weekend');
+  // beze změny: o Vánocích, s datem po Vánocích
+  assert.equal(P('o Vánocích do Říma', t).patch.len, 'holiday');
+  assert.equal(P('po Vánocích do Londýna 28.12.', t).patch.xOut, '2026-12-28');
+});
