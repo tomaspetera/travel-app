@@ -398,18 +398,23 @@
     });
     // „do Vánoc“, „(ještě) před Vánoci“, „po Vánocích“ (i Velikonoce): období před svátkem (od zítřka do dne před ním)
     // nebo po něm (3 týdny) – dřív se hledalo přímo o svátcích. S datem ve větě („po Vánocích … 28.12.“) dál holRule.
-    const around = (re, labels, span) => rule(new RegExp(`(?:(?:kdykoliv?|jeste|uz)\\s+)?(do|pred|po)\\s+(?:${re})${W}`), m => {
+    // „hned po“, „těsně před“: jen týden u svátku
+    const around = (re, labels, span) => rule(new RegExp(`(?:(kdykoliv?|jeste|uz|hned|tesne)\\s+)?(do|pred|po)\\s+(?:${re})${W}`), m => {
       if (dates) return false;
-      const [st, en] = span();
-      if (m[1] === 'po') { dates = { from: [addDays(today, 1), addDays(en, 1)].sort()[1], to: addDays(en, 21), label: labels.po }; return; }
+      const [st, en] = span(), near = /^(?:hned|tesne)$/.test(m[1] || '');
+      if (m[2] === 'po') { dates = { from: [addDays(today, 1), addDays(en, 1)].sort()[1], to: addDays(en, near ? 7 : 21), label: labels.po }; return; }
       const to = addDays(st, -1);
       if (to <= addDays(today, 1)) return false;
-      dates = { from: addDays(today, 1), to, label: labels[m[1]] };
+      dates = { from: [addDays(today, 1), near ? addDays(st, -7) : ''].sort()[1], to, label: labels[m[2]] };
     });
     around('vanoc|vanocemi|vanocich|vanoci', { do: 'do Vánoc', pred: 'před Vánoci', po: 'po Vánocích' }, () => {
       const y = +today.slice(0, 4) + (today.slice(5) > '12-26' ? 1 : 0);
       return [`${y}-12-24`, `${y}-12-26`];
     });
+    // Silvestr a Nový rok („před Silvestrem“, „po Novém roce“) – dřív Silvestr na prodloužený víkend, „Novém roce“ jako místo
+    const nyY = () => +today.slice(0, 4) + (today.slice(5) > '12-31' ? 1 : 0);
+    around('silvestr|silvestra|silvestrem|silvestru', { do: 'do Silvestra', pred: 'před Silvestrem', po: 'po Silvestru' }, () => [`${nyY()}-12-31`, `${nyY()}-12-31`]);
+    around('novy\\s+rok|noveho\\s+roku|novym\\s+rokem|novem\\s+roce', { do: 'do Nového roku', pred: 'před Novým rokem', po: 'po Novém roce' }, () => [`${nyY() + 1}-01-01`, `${nyY() + 1}-01-01`]);
     around('velikonoc|velikonocemi|velikonocich', { do: 'do Velikonoc', pred: 'před Velikonocemi', po: 'po Velikonocích' }, () => {
       let y = +today.slice(0, 4), e = easter(y);
       if (addDays(e, 1) < today) e = easter(++y);
