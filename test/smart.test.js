@@ -859,3 +859,14 @@ test('„přes Vánoce a Silvestr“ (i obráceně, i Nový rok): odlet před Š
   assert.equal(P('o Vánocích do Říma', t).patch.len, 'holiday');
   assert.deepEqual([P('Silvestr v Londýně', t).patch.dFrom, P('Silvestr v Londýně', t).patch.dTo], ['2026-12-27', '2026-12-31']);
 });
+
+test('Objevuj větou: rozsah dat („Paříž 20.–23. 11.“) dá počet dní; samotné datum ne', () => {
+  const E = (q) => JSON.parse(JSON.stringify(Smart.parseExplore(q, { today: '2026-11-01' })));
+  assert.deepEqual([E('Paříž 20.-23.11.').days, E('Paříž 20.-23.11.').start], [4, '2026-11-20']);
+  assert.equal(E('Řím od 5.12. do 7.12.').days, 3);
+  // jen začátek: počet dní zůstane na Objevuj (ne dopočtený týden z hledání letů)
+  assert.equal(E('Paříž 20.11.').days, null);
+  // delší než 14 dní: program by byl moc dlouhý – dny se nenastaví
+  assert.equal(E('Lisabon 1.12.–30.12.').days, null);
+  assert.equal(E('Řím 3 noci od 5.12.').days, 4, 'noci + 1 dál');
+});
