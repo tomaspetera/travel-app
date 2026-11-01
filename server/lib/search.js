@@ -1194,6 +1194,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
     const outs = final ? outLegs : outLegs.map(dup);
     const backs = final ? backLegs : backLegs.map(dup);
     const near = [...nearLegs.out, ...nearLegs.back];
+    const soonTz = new Map(); // departedSoon: místní čas za 2 h po pásmech (jednou na skládání)
     // náhled: stav zdrojů v okamžiku skládání (hledání běží dál)
     const provs = final ? status : status.map((s) => ({ ...s }));
     let cal = null;
@@ -1203,8 +1204,10 @@ export async function search(raw, emit = () => {}, opts = {}) {
     // klepnutí nic neukázal (takové nabídky skryje).
     const under = (list) => (q.maxPrice ? list.filter((e) => e.cost <= q.maxPrice) : list);
     if (routeMode) {
-      // Za teplem jen odlety v dost teplých měsících – i v kalendáři (jinak by nabízel dny, které seznam vyřadí).
-      const warmOut = outs.filter((l) => warmLeg(l) && depOk(l));
+      // Za teplem jen odlety v dost teplých měsících – i v kalendáři (jinak by nabízel dny, které seznam vyřadí); ani
+      // lety, které už odletěly nebo odlétají do 2 h (departedSoon – výpis je vynechá, kalendář a mřížka by je nabízely)
+      const live = (l) => !departedSoon(l, { cache: soonTz });
+      const warmOut = outs.filter((l) => warmLeg(l) && depOk(l) && live(l));
       if (ret) {
         // Mřížka termínů (den odletu × počet nocí) jen u flexibilního termínu s rozsahem nocí (limits.grid: false = bez ní).
         const grid = final && !q.exact && q.nightsMax > q.nightsMin && limits.grid !== false;
@@ -1214,7 +1217,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
         tr.push(...bestRoundTrips(warmOut, backs, rankGround, { ...constraints, limit: 300, perDestLimit: 120, perDay: 3, calendar: maps, ...dayOpts }));
         // Celé zpáteční letenky (Travelpayouts, dálkové hledání Kiwi) patří do kalendáře taky.
         for (const t of tr) {
-          if (!t.back || !t.combined || !warmLeg(t.out) || !depOk(t.out) || (car && t.back.to !== t.out.from)) continue;
+          if (!t.back || !t.combined || !warmLeg(t.out) || !depOk(t.out) || !live(t.out) || (car && t.back.to !== t.out.from)) continue;
           const n = daysBetween(t.out.date, t.back.date);
           const cost = t.flightCzk + legBagCzk(t.out, q.bags).czk + legBagCzk(t.back, q.bags).czk;
           const entry = { cost, from: t.out.from, to: t.out.to, backTo: t.back.to, outDate: t.out.date, backDate: t.back.date, provider: t.provider };
@@ -1294,7 +1297,7 @@ export async function search(raw, emit = () => {}, opts = {}) {
       calendar: cal,
       // Přesná data: nejlevnější známá cena po dnech ±3 kolem odletu/návratu (z už stažených dat) + nápověda,
       // když v zadaný den Ryanair/Wizz nelétá, ale vedle ano.
-      nearby: final && routeMode && q.exact ? nearbyOf({ out: nearLegs.out, back: nearLegs.back, q, nearOut, nearBack, groundOf: rankGround, extra: constraints.extra, park: park ? () => 0 : null }) : null,
+      nearby: final && routeMode && q.exact ? nearbyOf({ out: nearLegs.out.filter((l) => !departedSoon(l, { cache: soonTz })), back: nearLegs.back, q, nearOut, nearBack, groundOf: rankGround, extra: constraints.extra, park: park ? () => 0 : null }) : null,
       // Aktivní uživatelské filtry (UI je ukáže a nabídne zrušit) a kolik nabídek kvůli nim zmizelo.
       filters: { maxPrice: q.maxPrice, directOnly: q.directOnly, active: Boolean(q.maxPrice || q.directOnly), hidden },
       // Za teplem: kolik nabídek filtr vyřadil (a nejvyšší průměrné maximum mezi nimi) – pro prázdný výsledek.

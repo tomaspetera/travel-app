@@ -782,4 +782,5 @@ test('náhled věty: lidé z minulého hledání, které věta neříká, se uk�
   const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
   assert.match(fl, /inh = !\('adults' in \(h\.sm\.patch \|\| \{\}\)\) && \(\(\+pf\.adults \|\| 2\) !== 2 \|\| \+pf\.children > 0 \|\| \+pf\.infants > 0\);/);
   assert.match(fl, /\.\.\.\(inh \? \[`👥 \$\{SearchHelp\.paxShort\(pf\)\} \(jako minule\)`\] : \[\]\)/);
+  assert.match(fl, /const perOs = c => \(inh && c\.icon === '💰' && !\/\\\/os\\\.\$\/\.test\(c\.text\)/, 'cena s lidmi z minula /os.');
 });

@@ -1397,12 +1397,18 @@
     const arr = [t.arrivalTime, nowArr].filter(x => /^\d\d:\d\d$/.test(x || '')).sort().pop();
     return { ...t, ...(arr ? { arrivalTime: arr } : {}) };
   }
-  /** Místo p patří k cestě z průvodce (rozpracované nebo uložené), ve které je zvoleno „Auto nepotřebuji“. */
-  function carSkipFor(p) {
+  /**
+   * Místo p patří k nadcházející cestě z průvodce, ve které je zvoleno „Auto nepotřebuji“. Rozhoduje první cesta s tím
+   * místem: rozpracovaná, pak uložené (bez kopie rozpracované a bez proběhlých) – loňský Řím bez auta nepřebije letošní
+   * Řím s půjčeným autem.
+   */
+  function carSkipFor(p, today = fmtYMD(new Date())) {
     if (!p || typeof S === 'undefined') return false;
-    const k = normDest(p.label);
-    const ws = [S.trip, ...(S.trips || []).map(t => t && t.wizard)].filter(w => w && typeof w === 'object' && w.car && w.car.mode === 'skip');
-    return ws.some(w => { try { return wizPlaces(w, w.flight && w.flight.out && w.flight.out.date).some(x => normDest(x.label) === k); } catch (e) { return false; } });
+    const k = normDest(p.label), cur = S.trip && typeof S.trip === 'object' ? S.trip : null;
+    const saved = (S.trips || []).filter(t => t && t.wizard && typeof t.wizard === 'object' && (t.end || t.start || '') >= today && !(cur && t.tripId === cur.created)).map(t => t.wizard);
+    const has = w => { try { return wizPlaces(w, w.flight && w.flight.out && w.flight.out.date).some(x => normDest(x.label) === k); } catch (e) { return false; } };
+    const w = [cur, ...saved].find(x => x && has(x));
+    return Boolean(w && w.car && w.car.mode === 'skip');
   }
   // o.start / o.days: termín z cesty jen tam, kde ho věta („Lisabon na 3 dny“) sama neurčila
   function openPlace(s, o = { start: true, days: true }) {
@@ -1411,7 +1417,10 @@
     const td = !s.geo && tripDatesFor(ex.place);
     ex.tripHint = td ? { label: ex.place.label, ...td } : null;
     // cesta s „Auto nepotřebuji“: výlety a okruh vlakem a busem, ne autem (dřív „🚗 Navigovat ve Waze“ bez auta)
-    if (td && carSkipFor(ex.place)) ex.transport = 'transit';
+    // přepnutí zpět, až místo cestu bez auta mít nebude (ex.autoTransit = volba před přepnutím) – jen dokud uživatel
+    // dopravu sám nezmění (data-transport níž volbu smaže)
+    if (td && carSkipFor(ex.place)) { if (ex.transport !== 'transit') ex.autoTransit = { was: ex.transport }; ex.transport = 'transit'; }
+    else if (ex.autoTransit) { ex.transport = ex.autoTransit.was; ex.autoTransit = null; }
     if (td && o.start) { ex.start = td.from; ex.datePicked = true; }
     // jiné místo bez cesty: termín cesty (Lisabon 12.–17. 11.) nepřenášet – IDOS do Brna by hledal na den odletu do Lisabonu
     else if (!td && prev && ex.datePicked && ex.start === prev.from) { ex.start = plusDays(fmtYMD(new Date()), 1); ex.datePicked = false; }
@@ -2617,7 +2626,7 @@
     $$('[data-rad]', body).forEach(b => b.onclick = () => setRadius(+b.dataset.rad));
     on('#exPlaces', 'ontoggle', e => { ex.listOpen = e.target.open; });
     $$('[data-mode]', body).forEach(b => b.onclick = () => { if (ex.mode !== b.dataset.mode) { ex.mode = b.dataset.mode; paintExplore(); } });
-    $$('[data-transport]', body).forEach(b => b.onclick = () => { if (ex.transport !== b.dataset.transport) { ex.transport = b.dataset.transport; paintExplore(); } });
+    $$('[data-transport]', body).forEach(b => b.onclick = () => { ex.autoTransit = null; if (ex.transport !== b.dataset.transport) { ex.transport = b.dataset.transport; paintExplore(); } });
     // Vyřazení / přidání cíle nebo jiné zájmy platí pro všechny výlety – ostatní uložené plány (jiný režim, doprava)
     // by je ještě neměly, proto se zahodí a při přepnutí se naplánují znovu.
     const onlyThisTrip = () => { for (const k of new Set([...Object.keys(ex.trips), ...Object.keys(busy)])) if (k !== seqKey && keyKind(k) === 'trips') dropPlan(k); };
