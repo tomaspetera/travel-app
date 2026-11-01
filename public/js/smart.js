@@ -61,7 +61,7 @@
     + 'levne levny levnou levna levnej nejlevneji nejlevnejsi hledam hledame najdi najit ukaz jet jedu jedeme pojedu pojedeme cesta cestu cesty dovolena dovolenou dovolene '
     + 'vylet vyletu i pro nas me mi my ja jsem nejak nejaky nejakou nejake termin terminu okolo kolem cca asi prosim potrebuji potrebujem idealne klidne treba zase ten ta '
     + 'to tento tenhle ktery nebo az ale jen jenom jeste uz nejlepe mozna nam vam si se nejlevnejsi nejlepsi super hezky hezkou nekde nekam kam odkud kdy kdyz tak taky take '
-    + 'tam zpet zpatky domu letadlo letadla mesto mesta kde neco nejakeho nejakem nejakou je jsou bude budou nez all inclusive allinclusive '
+    + 'tam zpet zpatky domu letadlo letadla mesto mesta kde neco nejakeho nejakem nejakou je jsou bude budou nez all inclusive allinclusive kg kilo kil kila '
     // proč a jak levně („na svatbu do Milána“, „na trhy“, „za babku“) – místo to není
     + 'svatbu svatba svatbe koncert koncertu festival festivalu zapas zapasu konferenci konference oslavu oslavy narozeniny navstevu trhy trh '
     + 'nakupy nakupum vylety s batohem batoh rande sluzebne sluzebni pracovne pracovni co par korun babku hubicku bez '
@@ -290,8 +290,9 @@
       const y = +today.slice(0, 4), mo = +today.slice(5, 7) - 1;
       dates = m[1] === 'roku' ? { from: today, to: `${y}-12-31`, label: 'do konce roku' } : { from: today, to: `${today.slice(0, 8)}${pad(lastDay(y, mo))}`, label: 'do konce měsíce' };
     });
-    // nejbližší výskyt pevného období v roce (měsíc-den od–do), které ještě neskončilo
-    const nextSpan = (a, b, label) => { let y = +today.slice(0, 4); if (`${y}-${b}` < today) y++; const from = `${y}-${a}`; return { from: from < today ? today : from, to: `${y}-${b}`, label }; };
+    // nejbližší výskyt pevného období v roce (měsíc-den od–do), které ještě neskončilo – a nekončí do 2 dnů: „na podzimní
+    // prázdniny“ v neděli 1. 11. dřív dalo odlet jen 1. 11. se dny odletu st–pá → žádný let (jako svátky: holidayList)
+    const nextSpan = (a, b, label) => { let y = +today.slice(0, 4); if (`${y}-${b}` < addDays(today, 2)) y++; const from = `${y}-${a}`; return { from: from < today ? today : from, to: `${y}-${b}`, label }; };
     // jarní / podzimní prázdniny (ne letní): jarní se liší podle okresu – únor až polovina března
     rule(new RegExp(`(?:na\\s+|o\\s+)?(?:jarni|jarnich)\\s+prazdnin\\w*${W}`), () => { if (dates) return false; dates = nextSpan('02-01', '03-20', 'jarní prázdniny'); len = len || 'week'; });
     rule(new RegExp(`(?:na\\s+|o\\s+)?(?:podzimni|podzimnich)\\s+prazdnin\\w*${W}`), () => { if (dates) return false; dates = nextSpan('10-24', '11-01', 'podzimní prázdniny'); len = len || 'long'; });
@@ -550,7 +551,7 @@
     // čas letu, přestupy a aerolinky formulář hledání nemá – vybírají se ve výsledcích (⚙️ Filtry). Věta je nebere jako
     // místo („Řím ráno“ dřív hledalo i místo „ráno“, „Ryanairem“ místo „Ryanairem“) a řekne, kde je najít.
     const later = new Set();
-    rule(new RegExp(`(?:(?:odlet\\w*|prilet\\w*|let)\\s+)?(?:ne\\s+)?(?:(?:brzo|brzy)\\s+)?(?:rano|ranni(?:m|ho)?|dopoledne|odpoledne|vecer|vecerni(?:m|ho)?|v\\s+noci|nocni(?:m|ho)?)(?:\\s+let\\w*)?(?:\\s+ne)?${W}`), () => { later.add('čas letu'); });
+    rule(new RegExp(`(?:(?:odlet\\w*|prilet\\w*|let)\\s+)?(?:ne\\s+)?(?:(?:brzo|brzy)\\s+)?(?:rano|ranni(?:m|ho)?|dopoledne|odpoledne|vecer|vecerni(?:m|ho)?|v\\s+noci|nocni(?:m|ho)?|po\\s+praci)(?:\\s+let\\w*)?(?:\\s+ne)?${W}`), () => { later.add('čas letu'); });
     rule(new RegExp(`(?:(?:odlet\\w*|prilet\\w*)\\s+)?(?:po|do|od|pred)\\s+\\d{1,2}(?:[:.]\\d{2})?\\s*(?:h|hod\\w*)${W}|(?:odlet\\w*|prilet\\w*)\\s+(?:po|do|od|pred)\\s+\\d{1,2}(?::\\d{2})?${W}`), () => { later.add('čas letu'); });
     rule(new RegExp(`(?:max(?:\\.|imalne)?\\s*)?(?:1|jeden|jednim)\\s+prestup\\w*${W}|s\\s+jednim\\s+prestupem${W}|kratk\\w+\\s+prestup\\w*${W}`), () => { later.add('přestupy'); });
     rule(new RegExp(`(?:s\\s+|se\\s+|bez\\s+|jen\\s+|pres\\s+)?(?:ryanair\\w*|wizz\\w*|easyjet\\w*|smartwings\\w*|lufthans\\w*|eurowings\\w*|vueling\\w*|transavi\\w*|norwegian\\w*|emirates\\w*|turkish\\w*)(?:\\s+air\\w*)?${W}`), () => { later.add('aerolinky'); });
