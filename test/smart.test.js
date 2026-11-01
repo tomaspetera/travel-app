@@ -992,3 +992,14 @@ test('„před Silvestrem“, „po Novém roce“, „hned po / těsně před�
   assert.equal(P('na Silvestra do Londýna', t).patch.dTo, '2026-12-31');
   assert.equal(P('na Nový rok do Berlína', t).patch.len, 'holiday');
 });
+
+test('„kolem 15.12.“, „okolo 20. listopadu“, „cca 3.12.“: okolní dny ± 2 (dřív přesně ten den)', () => {
+  const t = '2026-11-01';
+  const r = P('Řím 3 noci kolem 15.12.', t);
+  assert.deepEqual([r.patch.xOut, r.patch.xBack, r.patch.xFlex, chips(r)[0]], ['2026-12-15', '2026-12-18', 2, '15. 12. – 18. 12. ± 2 dny']);
+  assert.equal(P('Vídeň kolem 20. listopadu', t).patch.xFlex, 2);
+  assert.equal(P('cca 3.12. do Říma', t).patch.xFlex, 2);
+  // bez „kolem“ přesně; „kolem 5.000 Kč“ není datum
+  assert.equal(P('Londýn 15.12.', t).patch.xFlex, 0);
+  assert.equal(P('Řím 15.12. za kolem 5.000 Kč', t).patch.xFlex, 0);
+});

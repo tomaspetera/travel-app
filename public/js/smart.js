@@ -777,14 +777,16 @@
         if (k > 10) dates.out = [addDays(dates.back, -k), addDays(today, 1)].sort()[1];
         dates.label = `Vánoce i Silvestr (${dm(dates.out)} – ${dm(dates.back)} ± 1 den)`;
       }
-      Object.assign(patch, { dateMode: 'exact', xOut: dates.out, xFlex: dates.flex || 0, ...(back ? { xBack: back } : {}) });
+      // „kolem 15.12.“, „okolo 20. listopadu“, „cca 3.12.“: okolní dny ± 2 (dřív přesně ten den)
+      const fx = dates.flex || (/(?:^|[^a-z])(?:kolem|okolo|cca|zhruba|priblizne)\s+\d{1,2}\.\s*(?:\d{1,2}\.?(?!\d)|[a-z])/.test(s) ? 2 : 0);
+      Object.assign(patch, { dateMode: 'exact', xOut: dates.out, xFlex: fx, ...(back ? { xBack: back } : {}) });
       if (!dates.back && !back) patch.trip = 'oneway';
       // návrat přes 45 nocí („1.12. a zpět 28.2.“): zpáteční tak daleko hledání nenajde – jen tam, zpět zvlášť (jako „na 3 měsíce“)
       if (back && (Date.parse(back) - Date.parse(dates.out)) / 864e5 > 45) { patch.trip = 'oneway'; longStay = true; }
       delete patch.outDays; delete patch.backDays;
       // návrat dopočtený z délky (bez délky týden) – v čipu vidět („Řím 3 noci od 5.12.“ = 5. 12. – 8. 12.)
       // („zítra“, „pátek 23. 10.“ i s dopočteným návratem: „zítra – 26. 10.“)
-      chips.push(['📅', dates.label ? `${dates.label}${back && !dates.back ? ` – ${dm(back)}` : ''}` : back ? `${dm(dates.out)} – ${dm(back)}` : dm(dates.out)]);
+      chips.push(['📅', (dates.label ? `${dates.label}${back && !dates.back ? ` – ${dm(back)}` : ''}` : back ? `${dm(dates.out)} – ${dm(back)}` : dm(dates.out)) + (fx && !dates.flex ? ` ± ${fx} dny` : '')]);
     } else if (dates) {
       Object.assign(patch, { dateMode: 'flex', dFrom: dates.from, dTo: dates.to < dates.from ? dates.from : dates.to });
       chips.push(['📅', dates.label]);
