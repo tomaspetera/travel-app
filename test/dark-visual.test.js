@@ -121,8 +121,8 @@ test('tmavý i světlý režim: den odletu a návratu v kalendáři, „HLEDAT�
   assert.match(FLIGHTS, /\.sc-d\.r-back\{background:#7c3aed;/);
   assert.match(FLIGHTS, /\[data-theme="dark"\] \.pi-smart \.pi-type\{color:#a9c1ff\}/);
   assert.match(TRIP, /\.dp-n\{[^}]*box-shadow:inset 0 0 0 11px rgba\(0,0,0,\.2\)\}/);
-  assert.match(ATL, /\.modal-hero:not\(\.ph\) \.mh-bg\{filter:brightness\(\.75\)\}/);
-  assert.match(ATL, /\.modal-hero:not\(\.ph\) \.mh-bg\.warm\{filter:brightness\(\.6\)\}/, 'teplý přechod: podtitulek okna čitelný');
+  assert.match(ATL, /\.modal-hero:not\(\.ph\) \.mh-bg\{filter:brightness\(\.6\)\}/, 'okno bez fotky: podtitulek čitelný (i teplý přechod, i široké okno na počítači)');
+  assert.doesNotMatch(read('js/app.js'), /opacity:\.85;font-size:13px/, 'podtitulek okna plnou bílou');
   // 🚗 Waze / 🎫 PID Lítačka: světlejší modrá na šedém štítku v tmavém režimu
   assert.match(ATL, /\[data-theme="dark"\] \.app-chip\{color:#8fb0ff\}/);
   for (const bg of ['#292f41', '#262b44', '#202539']) assert.ok(contrast(color('#8fb0ff'), color(bg)) >= 4.5, bg);

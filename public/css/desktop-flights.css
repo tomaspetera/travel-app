@@ -8,6 +8,8 @@
   .hero-search2 .pi{flex-wrap:nowrap;min-height:40px}
   .hero-search2 .pi-chip{flex:none}
   .hero-search2 .pi-input{min-width:60px;text-overflow:ellipsis}
+  /* náhled věty pod Kam: na menším notebooku je sloupec jen ~260 px – náhled se lámal do 10 řádků přes „Zkus napsat“ */
+  .hero-search2 .hs-field:nth-child(2) .pi-dd{right:auto;width:max(100%,400px)}
   /* „Naposledy“ a „Od minula“ s odstupem pod fotkou (ne nalepené na její spodní hranu) */
   .resume{margin:18px 0 0}
   .news-line{margin:14px 2px 0}

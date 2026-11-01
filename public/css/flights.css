@@ -832,6 +832,8 @@ button.b:hover{filter:brightness(1.18);text-decoration:underline}
 [data-theme=light] .b.sun{color:#c2410c}
 [data-theme=light] .b.dear{color:#b91c1c}
 [data-theme=light] .b.wxb.wet{color:#075985}
+/* žlutý štítek cesty na odletové letiště (autem/vlakem · cena): --warn na bílé jen ~2,3 : 1 */
+[data-theme=light] .opill span.g{color:#8a5a00}
 /* --faint na šedém podkladu (čipy filtrů, vybraný čip, řádek nabídky našeptávače, cena za přejezd) jen 4,0–4,4 : 1 –
    tam tmavší --muted (na bílé kartě --faint stačí) */
 [data-theme=light] .fchip:not(.on),[data-theme=light] .fchip small,[data-theme=light] .px-n,[data-theme=light] .pi-opt:not(.pi-smart) .pi-type{color:var(--muted)}
