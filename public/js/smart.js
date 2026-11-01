@@ -739,9 +739,10 @@
       cur.push(orig);
     }
     flush();
-    // „zpátky do Brna z Londýna“: jediné místo kam = cíl; „z Vídně do Londýna a zpět do Prahy“ (návrat jinam) se zahodí –
-    // hledat Prahu jako druhý cíl by bylo špatně
-    if (home.length) (!from.length ? from : !to.length ? to : []).push(home[0]);
+    // „zpátky do Brna z Londýna“: jediné místo kam = cíl; „z Vídně do Londýna a zpět do Prahy“ (návrat jinam): návrat do
+    // jiného města (backTo – 2 lety jako „a zpět z Neapole“), ne druhý cíl
+    let backTo = null;
+    if (home.length) { if (!from.length) from.push(home[0]); else if (!to.length) to.push(home[0]); else backTo = home[0]; }
     // pomlčka bez místa za ní („Řím – víkend“) nebyla odkud → kam: místo před ní je cíl
     if (soft && !to.length && !kind && from.length === 1) { to.push(from.pop()); arrows--; }
 
@@ -820,6 +821,7 @@
     // „Praha → Řím → Barcelona → Praha“: dvě a víc šipek = cesta přes víc měst (odkud, pak místa v pořadí)
     const chain = arrows >= 2 && from.length === 1 && to.length >= 2 && !kind;
     return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(group ? { group } : {}), ...(chain ? { chain: true } : {}), ...(withKids && !kids && !babies && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}),
+      ...(backTo && !back.length && to.length === 1 && !kind && !chain ? { backTo } : {}),
       // návrat z věty (ne dopočtený z délky) – Objevuj z něj vezme počet dní („Paříž 20.–23. 11.“ = 4 dny)
       ...(dates && dates.exact && dates.back ? { backSet: true } : {}) };
   }
