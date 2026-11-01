@@ -888,3 +888,13 @@ test('„2x dospělý 1x dítě“ (jako v rezervacích) a „1 dospělý“: po
   assert.deepEqual([l.to, l.patch.adults, l.patch.children, l.patch.infants], [['Londýn'], 3, 2, 1]);
   assert.deepEqual([P('Paříž 1 dospělý').to, P('Paříž 1 dospělý').patch.adults], [['Paříž'], 1]);
 });
+
+test('„4.–6. 12. nebo 11.–13. 12.“: odlet v jeden z obou dnů se stejnou délkou (dřív druhý termín zahozený)', () => {
+  const t = '2026-11-01';
+  const r = P('Řím víkend 4.-6.12. nebo 11.-13.12.', t);
+  assert.deepEqual([r.patch.dateMode, r.patch.dFrom, r.patch.dTo, r.patch.nMin, r.patch.nMax, r.patch.outDays, r.patch.backDays], ['flex', '2026-12-04', '2026-12-11', 2, 2, [5], [0]]);
+  assert.equal(chips(r)[0], '4. 12. – 6. 12. nebo 11. 12. – 13. 12.');
+  assert.deepEqual([P('Londýn 4.12.-6.12. nebo 11.12.-13.12.', t).patch.dFrom, P('Londýn 4.12.-6.12. nebo 11.12.-13.12.', t).patch.dTo], ['2026-12-04', '2026-12-11']);
+  // jiná délka: první termín zůstane
+  assert.deepEqual([P('Řím 4.-6.12. nebo 11.-20.12.', t).patch.dateMode, P('Řím 4.-6.12. nebo 11.-20.12.', t).patch.xBack], ['exact', '2026-12-06']);
+});

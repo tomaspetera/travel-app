@@ -176,6 +176,17 @@
       if (!a || !b || b < a || dates) return false;
       dates = { from: a, to: b, label: `${dm(a)} – ${dm(b)}` };
     });
+    // „4.–6. 12. nebo 11.–13. 12.“: dva termíny se stejnou délkou (± 1 noc) → odlet v jeden z obou dnů, délka z nich
+    // (dřív druhý termín tiše zahozený); druhý nejvýš 60 dní po prvním
+    const orRange = (a, b, at) => {
+      if (!dates || !dates.exact || !dates.back || dates.end == null || a <= dates.out) return false;
+      if (!/^[\s,(]*(?:nebo|ci)[\s,(]*$/.test(s.slice(dates.end, at))) return false;
+      const nd = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5), n1 = nd(dates.out, dates.back), n2 = nd(a, b);
+      if (Math.abs(n1 - n2) > 1 || nd(dates.out, a) > 60) return false;
+      len = { n: Math.min(n1, n2), lo: Math.min(n1, n2), hi: Math.max(n1, n2), out: [...new Set([dow(dates.out), dow(a)])], back: [...new Set([dow(dates.back), dow(b)])] };
+      dates = { from: dates.out, to: a, label: `${dm(dates.out)} – ${dm(dates.back)} nebo ${dm(a)} – ${dm(b)}` };
+      return true;
+    };
     rule(new RegExp(`(?:od\\s*)?(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?(?:\\s*(?:-|–|az|do)\\s*(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?)?${W}`), (m, at) => {
       const a = mkDate(m[1], m[2], m[3]);
       // „3.–10. 6.“: konec rozsahu dnů ve stejném měsíci – patří pravidlu níž
@@ -184,17 +195,18 @@
       if (m[4] && (!b || b < a)) return false;
       // druhé samostatné datum („15.11. a zpět 18.11.“, „odlet 20.11. návrat 25.11.“) je návrat – dřív přepsalo odlet
       if (!b && dates && dates.exact && dates.out && !dates.back) return second(m[1], m[2], m[3], at, at + m[0].length) ? undefined : false;
+      if (b && dates) return orRange(a, b, at) ? undefined : false;
       // třetí datum („a zpět 27.11. nebo 28.11.“) termín z prvních dvou nepřepíše
       if (dates) return false;
       dates = { exact: true, out: a, back: b, at, end: at + m[0].length };
     });
 
     // (i „5-9.12.“ bez tečky za prvním dnem)
-    rule(new RegExp(`(?:od\\s*)?\\b(\\d{1,2})\\.?\\s*(?:-|–|az|do)\\s*(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?${W}`), m => {
+    rule(new RegExp(`(?:od\\s*)?\\b(\\d{1,2})\\.?\\s*(?:-|–|az|do)\\s*(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?${W}`), (m, at) => {
       const b = mkDate(m[2], m[3], m[4]), a = b && mkDate(m[1], m[3], m[4] || b.slice(0, 4));
       if (!a || !b || b < a) return false;
-      if (dates && dates.exact) return false;
-      dates = { exact: true, out: a, back: b };
+      if (dates && dates.exact) return orRange(a, b, at) ? undefined : false;
+      dates = { exact: true, out: a, back: b, at, end: at + m[0].length };
     });
     // „20. listopadu“, „od 3. do 7. prosince“, „3.–7. prosince“: dny se jménem měsíce (2. pád)
     const MGEN = ['ledna', 'unora', 'brezna', 'dubna', 'kvetna', 'cervna', 'cervence', 'srpna', 'zari', 'rijna', 'listopadu', 'prosince'];
