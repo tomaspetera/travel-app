@@ -1289,11 +1289,18 @@ test('Objevuj: místo cesty s „Auto nepotřebuji“ – výlety vlakem a busem
   const C = load({ byIso: { IT: { cs: 'Itálie' } }, S: { trip: wiz({ mode: 'skip' }), trips: [] } });
   assert.equal(C.window.Places._t.carSkipFor({ label: 'Řím' }), true);
   assert.equal(C.window.Places._t.carSkipFor({ label: 'Milán' }), false, 'jiné místo');
-  const D = load({ byIso: { IT: { cs: 'Itálie' } }, S: { trip: null, trips: [{ wizard: wiz({ mode: 'manual', totalCzk: 2000 }) }, { wizard: wiz({ mode: 'skip' }) }] } });
+  const D = load({ byIso: { IT: { cs: 'Itálie' } }, S: { trip: null, trips: [{ start: '2099-05-10', wizard: wiz({ mode: 'skip' }) }, { start: '2099-06-10', wizard: wiz({ mode: 'manual', totalCzk: 2000 }) }] } });
   assert.equal(D.window.Places._t.carSkipFor({ label: 'řím' }), true, 'uložená cesta v Mých cestách');
   const E = load({ byIso: { IT: { cs: 'Itálie' } }, S: { trip: wiz(null), trips: [] } });
   assert.equal(E.window.Places._t.carSkipFor({ label: 'Řím' }), false, 'auto zatím nevybrané: beze změny');
-  assert.match(src('places.js'), /if \(td && carSkipFor\(ex\.place\)\) ex\.transport = 'transit';/);
+  // proběhlá uložená cesta bez auta nepřebije nadcházející s autem; uložená kopie rozpracované se nepočítá
+  const F = load({ byIso: { IT: { cs: 'Itálie' } }, S: { trip: { ...wiz({ mode: 'manual', totalCzk: 2000 }), created: 9 }, trips: [{ tripId: 9, start: '2099-05-10', end: '2099-05-14', wizard: wiz({ mode: 'skip' }) }, { tripId: 1, start: '2020-05-10', end: '2020-05-14', wizard: wiz({ mode: 'skip' }) }] } });
+  assert.equal(F.window.Places._t.carSkipFor({ label: 'Řím' }), false, 'rozpracovaná s autem rozhoduje');
+  const G = load({ byIso: { IT: { cs: 'Itálie' } }, S: { trip: null, trips: [{ tripId: 1, start: '2020-05-10', end: '2020-05-14', wizard: wiz({ mode: 'skip' }) }] } });
+  assert.equal(G.window.Places._t.carSkipFor({ label: 'Řím' }, '2026-11-01'), false, 'proběhlá cesta ne');
+  const js = src('places.js');
+  assert.match(js, /if \(td && carSkipFor\(ex\.place\)\) \{ if \(ex\.transport !== 'transit'\) ex\.autoTransit = \{ was: ex\.transport \}; ex\.transport = 'transit'; \}\s*else if \(ex\.autoTransit\) \{ ex\.transport = ex\.autoTransit\.was; ex\.autoTransit = null; \}/);
+  assert.match(js, /b\.onclick = \(\) => \{ ex\.autoTransit = null; if \(ex\.transport !== b\.dataset\.transport\)/, 'vlastní volba dopravy se pak nepřepíše');
 });
 
 test('Objevuj: fotka místa leží přes ikonu druhu – když se nenačte (slabý signál), je vidět ikona, ne šedý čtverec', () => {

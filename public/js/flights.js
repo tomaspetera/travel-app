@@ -449,7 +449,9 @@
           const h = r.hit, places = h.chain ? [`🧳 ${h.chain.map(x => x.label).join(' → ')}`] : [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`), ...(h.back ? [`↩ návrat: ${h.back.label}`] : [])];
           // lidé z minulého hledání (věta je neříká): štítek, ať „Vánoce teplo“ po „rodina 2+2“ nehledá tiše pro 4
           const pf = S.form || {}, inh = !('adults' in (h.sm.patch || {})) && ((+pf.adults || 2) !== 2 || +pf.children > 0 || +pf.infants > 0);
-          const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}`), ...(inh ? [`👥 ${SearchHelp.paxShort(pf)} (jako minule)`] : [])].join(' · ');
+          // cena v hledání je na osobu: s lidmi z minula (věta je neříká) i u „💰 do 15 000 Kč“ „/os.“ – jinak vypadá jako za rodinu
+          const perOs = c => (inh && c.icon === '💰' && !/\/os\.$/.test(c.text) && (+pf.adults || 2) + (+pf.children || 0) > 1 ? '/os.' : '');
+          const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}${perOs(c)}`), ...(inh ? [`👥 ${SearchHelp.paxShort(pf)} (jako minule)`] : [])].join(' · ');
           const sub = h.chain ? 'víc měst – nastavím lety, rozdělím termíny a hledám'
             : h.back && !h.miss.length ? 'tam a zpět z jiného města – nastavím 2 lety (přejezd mezi městy je na tobě) a hledám'
             : h.miss.length ? `„${h.miss.join('“, „')}“ neznám – hledám bez toho` : (h.sm.items && !h.to.length ? h.sm.items.map(x => x.label).join(', ') : 'klepni nebo Enter – nastavím a hledám');
@@ -4122,7 +4124,8 @@
     const r = Alerts.upsertWatch(S.watch || [], w, watchKey, { now: Date.now(), cap: 12, partial: Alerts.incomplete(res.providers) });
     S.watch = r.list; save();
     // výzva „Tohle hledáš už po 3. – ♡ Hlídat cenu“ po uložení (i přes ♡ pod formulářem) pryč – hledání už se hlídá
-    nudge = null; document.querySelectorAll('.watch-nudge').forEach(el => el.remove());
+    // jen výzva k hlídání – „🧒 přidej děti“ má stejnou třídu a zůstane
+    nudge = null; document.getElementById('nudgeWatch')?.closest('.watch-nudge')?.remove();
     updateWatchBadges(); updateWatchBtn();
     toast(r.dup ? `Tohle hledání už hlídáš na Přehledu${b ? ` – cena teď ${czk(b.czk)}/os.` : ''}` : roll ? `Hlídám na Přehledu, dokud máš ATLAS otevřený – termín se posouvá s časem (${Alerts.rollTxt(wf, today(), { now: false })})` : 'Hledání uloženo – cenu hlídám na Přehledu, dokud máš ATLAS otevřený');
   }

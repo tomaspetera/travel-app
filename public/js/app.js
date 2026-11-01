@@ -1937,7 +1937,9 @@ function tripWhen(t) {
 // název z průvodce je „Barcelona 10.11.“ – datum je hned pod ním, na kartě stačí „Barcelona“
 const tripTitle = t => (t.start && t.name && t.name.endsWith(' ' + fmtDate(t.start)) && t.name.length > fmtDate(t.start).length + 1 ? t.name.slice(0, -fmtDate(t.start).length - 1) : t.name);
 // pod názvem „Řím“ ne zase „🇮🇹 Řím“ (cesta z průvodce se jmenuje podle cíle) – země; jiný název („Léto s Janou“) dál cíl
-const metaDest = (t, c) => (c && c.cs && String(tripTitle(t) || '').trim().toLowerCase() === String(t.dest || '').trim().toLowerCase() ? c.cs : t.dest);
+// (cesta přes víc zemí „Řím → Barcelona“ dál s místy – jedna země by lhala)
+const metaDest = (t, c) => (c && c.cs && !(Array.isArray(t.isos) && t.isos.length > 1) && !/[→,]/.test(String(t.dest || ''))
+  && String(tripTitle(t) || '').trim().toLowerCase() === String(t.dest || '').trim().toLowerCase() ? c.cs : t.dest);
 // attr: atribut s indexem cesty (Moje cesty v záložce Cesta: data-mt); extra: HTML na konec karty (odkaz na detail
 // cesty z průvodce)
 function tripCard(t, i, attr = 'data-ti', extra = '') {

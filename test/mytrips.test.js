@@ -115,13 +115,14 @@ test('„🧳 Otevřít v průvodci“ z detailu cesty, která v průvodci je: p
 
 test('karta cesty: pod názvem „Řím“ země, ne zase „Řím“; krok Auto bez zdvojeného názvu letiště', () => {
   const app = read('js/app.js');
-  const m = app.match(/^const metaDest = .*$/m)[0], tt = app.match(/^const tripTitle = .*$/m)[0];
+  const m = app.match(/^const metaDest = [\s\S]*?: t\.dest\);$/m)[0], tt = app.match(/^const tripTitle = .*$/m)[0];
   const fmtDate = (s) => { const [, mo, d] = s.split('-'); return `${+d}.${+mo}.`; };
   const metaDest = new Function('fmtDate', `${tt}\n${m.replace('const metaDest =', 'return')}`)(fmtDate);
   const IT = { cs: 'Itálie' };
   assert.equal(metaDest({ name: 'Řím 20.11.', dest: 'Řím', start: '2026-11-20' }, IT), 'Itálie');
   assert.equal(metaDest({ name: 'Léto s Janou', dest: 'Řím' }, IT), 'Řím', 'vlastní název: cíl');
   assert.equal(metaDest({ name: 'Řím', dest: 'Řím' }, null), 'Řím', 'bez země beze změny');
+  assert.equal(metaDest({ name: 'Řím → Barcelona 20.11.', dest: 'Řím → Barcelona', start: '2026-11-20', iso: 'IT', isos: ['IT', 'ES'] }, IT), 'Řím → Barcelona', 'víc zemí: místa');
   const tj = read('js/trip.js');
   const apShort = new Function(`${tj.match(/^\s*const apShort = .*$/m)[0]}\nreturn apShort;`)();
   assert.equal(apShort('Řím-Ciampino – Ciampino–G. B. Pastine International Airport'), 'Řím-Ciampino');
