@@ -62,6 +62,8 @@
     + 'vylet vyletu i pro nas me mi my ja jsem nejak nejaky nejakou nejake termin terminu okolo kolem cca asi prosim potrebuji potrebujem idealne klidne treba zase ten ta '
     + 'to tento tenhle ktery nebo az ale jen jenom jeste uz nejlepe mozna nam vam si se nejlevnejsi nejlepsi super hezky hezkou nekde nekam kam odkud kdy kdyz tak taky take '
     + 'tam zpet zpatky domu letadlo letadla mesto mesta kde neco nejakeho nejakem nejakou je jsou bude budou nez all inclusive allinclusive kg kilo kil kila '
+    // „zpět do pondělka / soboty / večera / práce“, „a pak zpět“, „nejbližší“ – čas, ne místo (dřív jako odkud)
+    + 'pondelka uterka stredy ctvrtka patku soboty nedele vecera rana prace tydne mesice pak nejblizsi pred hodiny hodina hodin '
     // proč a jak levně („na svatbu do Milána“, „na trhy“, „za babku“) – místo to není
     + 'svatbu svatba svatbe koncert koncertu festival festivalu zapas zapasu konferenci konference oslavu oslavy narozeniny navstevu trhy trh '
     + 'nakupy nakupum vylety s batohem batoh rande sluzebne sluzebni pracovne pracovni co par korun babku hubicku bez '
@@ -178,13 +180,25 @@
     });
     // „4.–6. 12. nebo 11.–13. 12.“: dva termíny se stejnou délkou (± 1 noc) → odlet v jeden z obou dnů, délka z nich
     // (dřív druhý termín tiše zahozený); druhý nejvýš 60 dní po prvním
-    const orRange = (a, b, at) => {
+    // (i třetí termín „… nebo 18.–20. 12.“ – prodlouží okno; dřív přepsal první dva)
+    const orRange = (a, b, at, end) => {
+      const nd = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5);
+      if (dates && dates.orN != null) {
+        if (a <= dates.to || !/^[\s,(]*(?:nebo|ci)[\s,(]*$/.test(s.slice(dates.end, at))) return false;
+        const n = nd(a, b);
+        if (Math.abs(n - dates.orN) > 1 || nd(dates.from, a) > 60) return false;
+        len = { ...len, lo: Math.min(len.lo, n), hi: Math.max(len.hi, n), n: Math.min(len.lo, n), out: [...new Set([...len.out, dow(a)])], back: [...new Set([...len.back, dow(b)])] };
+        dates = { ...dates, to: a, end, label: `${dates.label} nebo ${dm(a)} – ${dm(b)}` };
+        return true;
+      }
       if (!dates || !dates.exact || !dates.back || dates.end == null || a <= dates.out) return false;
       if (!/^[\s,(]*(?:nebo|ci)[\s,(]*$/.test(s.slice(dates.end, at))) return false;
-      const nd = (x, y) => Math.round((Date.parse(y) - Date.parse(x)) / 864e5), n1 = nd(dates.out, dates.back), n2 = nd(a, b);
+      const n1 = nd(dates.out, dates.back), n2 = nd(a, b);
       if (Math.abs(n1 - n2) > 1 || nd(dates.out, a) > 60) return false;
+      // první termín už proběhl (5. 12. „4.–6. 12. nebo 11.–13. 12.“): zbývá jen druhý
+      if (dates.out < today) { dates = { exact: true, out: a, back: b, at, end }; return true; }
       len = { n: Math.min(n1, n2), lo: Math.min(n1, n2), hi: Math.max(n1, n2), out: [...new Set([dow(dates.out), dow(a)])], back: [...new Set([dow(dates.back), dow(b)])] };
-      dates = { from: dates.out, to: a, label: `${dm(dates.out)} – ${dm(dates.back)} nebo ${dm(a)} – ${dm(b)}` };
+      dates = { from: dates.out, to: a, orN: n1, end, label: `${dm(dates.out)} – ${dm(dates.back)} nebo ${dm(a)} – ${dm(b)}` };
       return true;
     };
     rule(new RegExp(`(?:od\\s*)?(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?(?:\\s*(?:-|–|az|do)\\s*(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?)?${W}`), (m, at) => {
@@ -195,7 +209,7 @@
       if (m[4] && (!b || b < a)) return false;
       // druhé samostatné datum („15.11. a zpět 18.11.“, „odlet 20.11. návrat 25.11.“) je návrat – dřív přepsalo odlet
       if (!b && dates && dates.exact && dates.out && !dates.back) return second(m[1], m[2], m[3], at, at + m[0].length) ? undefined : false;
-      if (b && dates) return orRange(a, b, at) ? undefined : false;
+      if (b && dates) return orRange(a, b, at, at + m[0].length) ? undefined : false;
       // třetí datum („a zpět 27.11. nebo 28.11.“) termín z prvních dvou nepřepíše
       if (dates) return false;
       dates = { exact: true, out: a, back: b, at, end: at + m[0].length };
@@ -205,7 +219,7 @@
     rule(new RegExp(`(?:od\\s*)?\\b(\\d{1,2})\\.?\\s*(?:-|–|az|do)\\s*(\\d{1,2})\\.\\s*(\\d{1,2})\\.?(?:\\s*(20\\d\\d))?${W}`), (m, at) => {
       const b = mkDate(m[2], m[3], m[4]), a = b && mkDate(m[1], m[3], m[4] || b.slice(0, 4));
       if (!a || !b || b < a) return false;
-      if (dates && dates.exact) return orRange(a, b, at) ? undefined : false;
+      if (dates) return orRange(a, b, at, at + m[0].length) ? undefined : false;
       dates = { exact: true, out: a, back: b, at, end: at + m[0].length };
     });
     // „20. listopadu“, „od 3. do 7. prosince“, „3.–7. prosince“: dny se jménem měsíce (2. pád)
@@ -250,12 +264,12 @@
     // – dřív „nejbližší“ jako místo a termín žádný
     rule(new RegExp(`(?:na\\s+|o\\s+|pres\\s+)?(?:nejblizsi|nejbližší)\\s+(?:prodlouzen\\w+\\s+vikend\\w*|svatk\\w*|svatky|volno|volnu)${W}`), () => {
       const lw = (o.holidays || [])[0];
-      if (dates || !lw || !o.holidayDates) return false;
+      if (dates || !lw || !o.holidayDates || new RegExp(`(?:^|[^a-z])(?:${MONTH_FORMS.map(x => x[0]).join('|')})(?=$|[^a-z])`).test(s)) return false;
       dates = { holiday: lw, label: lw.name };
     });
     rule(new RegExp(`(?:na\\s+)?(?:prodlouzen[yeyj]+|dlouh[yej]+)\\s+vikend\\w*${W}`), () => { len = 'long'; });
     // odlet čt–so nejbližšího víkendu (v neděli už ten příští)
-    const thisWk = () => ({ from: today, to: addDays(today, (6 - dow(today) + 7) % 7), label: 'tento víkend' });
+    const thisWk = () => ({ from: today, to: addDays(today, (6 - dow(today) + 7) % 7), label: 'tento víkend', soon: true });
     rule(new RegExp(`(?:na\\s+)?(?:tento|tenhle|tenhleten|nejblizsi)\\s+vikend${W}|o\\s+vikendu${W}`), m => {
       len = 'weekend';
       // „o víkendu“ jen délka, když věta termín má i jinde („v prosinci o víkendu“, „adventní trhy … o víkendu“) –
@@ -315,14 +329,14 @@
     });
     // nejbližší výskyt pevného období v roce (měsíc-den od–do), které ještě neskončilo – a nekončí do 2 dnů: „na podzimní
     // prázdniny“ v neděli 1. 11. dřív dalo odlet jen 1. 11. se dny odletu st–pá → žádný let (jako svátky: holidayList)
-    const nextSpan = (a, b, label) => { let y = +today.slice(0, 4); if (`${y}-${b}` < addDays(today, 2)) y++; const from = `${y}-${a}`; return { from: from < today ? today : from, to: `${y}-${b}`, label }; };
+    const nextSpan = (a, b, label, lead = 2) => { let y = +today.slice(0, 4); if (`${y}-${b}` < addDays(today, lead)) y++; const from = `${y}-${a}`; return { from: from < today ? today : from, to: `${y}-${b}`, label }; };
     // jarní / podzimní prázdniny (ne letní): jarní se liší podle okresu – únor až polovina března
     rule(new RegExp(`(?:na\\s+|o\\s+)?(?:jarni|jarnich)\\s+prazdnin\\w*${W}`), () => { if (dates) return false; dates = nextSpan('02-01', '03-20', 'jarní prázdniny'); len = len || 'week'; });
     rule(new RegExp(`(?:na\\s+|o\\s+)?(?:podzimni|podzimnich)\\s+prazdnin\\w*${W}`), () => { if (dates) return false; dates = nextSpan('10-24', '11-01', 'podzimní prázdniny'); len = len || 'long'; });
     // Mikuláš (5. 12.): víkend kolem něj; jen „na / o Mikuláše“ – „do Liptovského Mikuláše“ je místo
-    rule(new RegExp(`(?:na|o)\\s+mikulas(?:e|i)?${W}`), () => { if (dates) return false; dates = nextSpan('12-03', '12-06', 'Mikuláš'); len = len || 'weekend'; });
+    rule(new RegExp(`(?:na|o)\\s+mikulas(?:e|i)?${W}`), () => { if (dates) return false; dates = nextSpan('12-03', '12-06', 'Mikuláš', 1); len = len || 'weekend'; });
     // Valentýn: prodloužený víkend kolem 14. 2.
-    rule(new RegExp(`(?:na\\s+|o\\s+)?valentyn\\w*${W}`), () => { if (dates) return false; dates = nextSpan('02-12', '02-14', 'Valentýn'); len = len || 'weekend'; });
+    rule(new RegExp(`(?:na\\s+|o\\s+)?valentyn\\w*${W}`), () => { if (dates) return false; dates = nextSpan('02-12', '02-14', 'Valentýn', 1); len = len || 'weekend'; });
     // pololetní prázdniny: pátek na přelomu ledna a února – prodloužený víkend
     rule(new RegExp(`(?:na\\s+|o\\s+)?(?:pololetni|pololetnich)\\s+prazdnin\\w*${W}`), () => { if (dates) return false; dates = nextSpan('01-28', '02-03', 'pololetní prázdniny'); len = len || 'long'; });
     const seasons = [['(?:(?:o|na|pres)\\s+)?letni\\w*\\s+prazdnin\\w*|(?:v\\s+)?lete|leto|letni|o\\s+prazdninach|prazdniny|na\\s+leto', 5, 7, 'léto'], ['(?:na\\s+)?jare|jaro', 2, 4, 'jaro'], ['(?:na\\s+)?podzim\\w*', 8, 10, 'podzim'], ['(?:v\\s+)?zime|zima|na\\s+zimu|zimni', 11, 13, 'zima']];
@@ -350,9 +364,9 @@
       const xmas = x => (x.holiday && /vanoc/.test(fold(x.holiday.name || ''))) || x.label === 'Vánoce';
       const ny = x => (x.holiday && /novy rok/.test(fold(x.holiday.name || ''))) || x.label === 'Silvestr';
       if (!d || !(name === 'vanoce' ? ny(d) : xmas(d))) return null;
-      const ds = (d.holiday ? d.holiday.start : d.to) || '';
-      if (!/^\d{4}-\d\d-\d\d$/.test(ds)) return null;
-      const y = +ds.slice(0, 4) - (ds.slice(5) < '06-01' ? 1 : 0);
+      if (/(?:^|[^a-z])(?:ne|bez)\s+(?:na\s+|o\s+|pres\s+)?(?:silvest|novy|noveho|vanoc)|(?:silveste?r\w*|novy\s+rok|vanoc\w*)\s+doma|(?:vanoc\w*|silveste?r\w*)\s+(?:nebo|ci)\s+(?:na\s+|o\s+)?(?:silvest|vanoc|novy)/.test(s)) return null;
+      // nejbližší Vánoce s Novým rokem: do 29. 12. letošní (26. 12. „přes Vánoce a Silvestr“ = 27. 12. – 2. 1.)
+      const y = +today.slice(0, 4) + (today.slice(5) > '12-29' ? 1 : 0);
       const out = [`${y}-12-23`, addDays(today, 1)].sort()[1], back = `${y + 1}-01-02`;
       if (out > `${y}-12-29`) return null;
       return { exact: true, out, back, flex: 1, xmasNy: true };
@@ -399,28 +413,29 @@
     // „do Vánoc“, „(ještě) před Vánoci“, „po Vánocích“ (i Velikonoce): období před svátkem (od zítřka do dne před ním)
     // nebo po něm (3 týdny) – dřív se hledalo přímo o svátcích. S datem ve větě („po Vánocích … 28.12.“) dál holRule.
     // „hned po“, „těsně před“: jen týden u svátku
+    // Druhý svátek ve větě („přes Vánoce do Nového roku“, „na Vánoce a zpět po Silvestru“): ne „období kolem“, ale svátky
+    // (holRule / Vánoce i Silvestr). span(y) = [začátek, konec] svátku v roce y; „po“ = poslední, jehož 3 týdny po něm
+    // ještě běží (27. 12. „po Vánocích“ = letos, ne za rok), „do / před“ = nejbližší a nejvýš 150 dní dopředu
+    const HOLW = /vanoc|stedr\w+\s+(?:den|dne|vecer)|silveste?r|novy\s+rok|noveho\s+roku|novym\s+rokem|novem\s+roce|velikonoc/g;
     const around = (re, labels, span) => rule(new RegExp(`(?:(kdykoliv?|jeste|uz|hned|tesne)\\s+)?(do|pred|po)\\s+(?:${re})${W}`), m => {
-      if (dates) return false;
-      const [st, en] = span(), near = /^(?:hned|tesne)$/.test(m[1] || '');
-      if (m[2] === 'po') { dates = { from: [addDays(today, 1), addDays(en, 1)].sort()[1], to: addDays(en, near ? 7 : 21), label: labels.po }; return; }
-      const to = addDays(st, -1);
-      if (to <= addDays(today, 1)) return false;
-      dates = { from: [addDays(today, 1), near ? addDays(st, -7) : ''].sort()[1], to, label: labels[m[2]] };
+      if (dates || (s.match(HOLW) || []).length > 1) return false;
+      const near = /^(?:hned|tesne)$/.test(m[1] || ''), y0 = +today.slice(0, 4);
+      if (m[2] === 'po') {
+        const [, en] = [y0 - 1, y0, y0 + 1].map(span).find(([, e]) => addDays(e, near ? 7 : 21) > today);
+        dates = { from: [addDays(today, 1), addDays(en, 1)].sort()[1], to: addDays(en, near ? 7 : 21), label: labels.po };
+        return;
+      }
+      const [st] = [y0, y0 + 1].map(span).find(([a]) => addDays(a, -1) > addDays(today, 1));
+      const to = addDays(st, -1), from = [addDays(today, 1), near ? addDays(st, -7) : ''].sort()[1];
+      if ((Date.parse(to) - Date.parse(from)) / 864e5 > 150) return false;
+      dates = { from, to, label: labels[m[2]] };
     });
-    around('vanoc|vanocemi|vanocich|vanoci', { do: 'do Vánoc', pred: 'před Vánoci', po: 'po Vánocích' }, () => {
-      const y = +today.slice(0, 4) + (today.slice(5) > '12-26' ? 1 : 0);
-      return [`${y}-12-24`, `${y}-12-26`];
-    });
+    around('vanoc|vanocemi|vanocich|vanoci', { do: 'do Vánoc', pred: 'před Vánoci', po: 'po Vánocích' }, y => [`${y}-12-24`, `${y}-12-26`]);
     // Silvestr a Nový rok („před Silvestrem“, „po Novém roce“) – dřív Silvestr na prodloužený víkend, „Novém roce“ jako místo
-    const nyY = () => +today.slice(0, 4) + (today.slice(5) > '12-31' ? 1 : 0);
-    around('silvestr|silvestra|silvestrem|silvestru', { do: 'do Silvestra', pred: 'před Silvestrem', po: 'po Silvestru' }, () => [`${nyY()}-12-31`, `${nyY()}-12-31`]);
-    around('novy\\s+rok|noveho\\s+roku|novym\\s+rokem|novem\\s+roce', { do: 'do Nového roku', pred: 'před Novým rokem', po: 'po Novém roce' }, () => [`${nyY() + 1}-01-01`, `${nyY() + 1}-01-01`]);
-    around('velikonoc|velikonocemi|velikonocich', { do: 'do Velikonoc', pred: 'před Velikonocemi', po: 'po Velikonocích' }, () => {
-      let y = +today.slice(0, 4), e = easter(y);
-      if (addDays(e, 1) < today) e = easter(++y);
-      return [addDays(e, -2), addDays(e, 1)];
-    });
-    holRule('vanocni\\s+prazdnin\\w*|vanoc\\w*|vanocni\\s+svatky|stedr\\w+\\s+(?:den|dne|vecer\\w*)|stedrovecer\\w*', 'vanoce', () => { const y = today.slice(5) > '12-27' ? +today.slice(0, 4) + 1 : +today.slice(0, 4); return { from: [today, `${y}-12-19`].sort()[1], to: `${y}-12-24`, label: 'Vánoce' }; });
+    around('silvestr|silvestra|silvestrem|silvestru', { do: 'do Silvestra', pred: 'před Silvestrem', po: 'po Silvestru' }, y => [`${y}-12-31`, `${y}-12-31`]);
+    around('novy\\s+rok|noveho\\s+roku|novym\\s+rokem|novem\\s+roce', { do: 'do Nového roku', pred: 'před Novým rokem', po: 'po Novém roce' }, y => [`${y}-01-01`, `${y}-01-01`]);
+    around('velikonoc|velikonocemi|velikonocich', { do: 'do Velikonoc', pred: 'před Velikonocemi', po: 'po Velikonocích' }, y => [addDays(easter(y), -2), addDays(easter(y), 1)]);
+    holRule('vanocni\\s+prazdnin\\w*|vanoc\\w*|vanocni\\s+svatky|stedr\\w+\\s+(?:den|dne|vecer\\w*)|stedrovecer\\w*', 'vanoce', () => { const y = today.slice(5) > '12-24' ? +today.slice(0, 4) + 1 : +today.slice(0, 4); return { from: [today, `${y}-12-19`].sort()[1], to: `${y}-12-24`, label: 'Vánoce' }; });
     // Silvestr: být tam 31. 12. – odlet 27.–31. 12., ne prodloužený víkend Nového roku (odlet 31. 12. večer nebo 1. 1.
     // by Silvestra minul); „na Nový rok“ dál podle prodlouženého víkendu
     const silvestr = () => { const y = +today.slice(0, 4) + (today.slice(5) > '12-31' ? 1 : 0); len = len || 'long'; return { from: [today, `${y}-12-27`].sort()[1], to: `${y}-12-31`, label: 'Silvestr' }; };
@@ -438,7 +453,7 @@
       }
       dates = silvestr(); month = 11;
     });
-    holRule('novy\\s+rok|novyho\\s+roku', 'novy rok', silvestr);
+    holRule('novy\\s+rok|novyho\\s+roku|noveho\\s+roku|novym\\s+rokem|novem\\s+roce', 'novy rok', silvestr);
     // Velikonoce bez prodlouženého víkendu v seznamu (dál než pár měsíců): odlet čt–pá před Velikonoční nedělí
     holRule('velikonocni\\s+prazdnin\\w*|velikonoc\\w*', 'velikonoce', () => {
       let y = +today.slice(0, 4), e = easter(y);
@@ -459,12 +474,12 @@
       ['vznik\\w*\\s+(?:samostatn\\w+\\s+)?(?:ceskoslovensk\\w*|republiky|csr)', '10-28', 'vznik', 'Vznik Československa'],
     ];
     for (const [re, md, key, label] of NAMED) {
-      rule(new RegExp(`(?:(?:na|o|pres|kolem)\\s+)?(?:${re})${W}`), () => {
-        if (dates) return false;
+      rule(new RegExp(`(?:(?:na|o|pres|kolem)\\s+)?(?:${re})${W}`), (m, at) => {
+        if (dates || /namest\w*\s+$/.test(s.slice(0, at + m[0].search(/svat|den|cyril|mistr|jan|vznik|sametov|prvn|1\./)))) return false;
         let y = +today.slice(0, 4); if (`${y}-${md}` < addDays(today, 2)) y++;
         const d = `${y}-${md}`;
         let lw = hol.find(x => fold(x.name || '').includes(key) && x.start <= d && x.end >= d);
-        if (!lw && o.longWeekend) { const x = o.longWeekend(addDays(d, -4), 8); if (x && x.start <= d && x.end >= d) lw = x; }
+        if (!lw && o.longWeekend) { const x = o.longWeekend(addDays(d, -4), 8); if (x && x.start <= d && x.end >= d && x.start >= addDays(today, 2)) lw = x; }
         if (lw && o.holidayDates) { dates = { holiday: lw, label: lw.name }; return; }
         // svátek ve středu (prodloužený víkend není) nebo bez seznamu: odlet pár dní před ním, délka prodlouženého víkendu
         dates = { from: [addDays(today, 1), addDays(d, -4)].sort()[1], to: d, label };
@@ -617,8 +632,9 @@
     // miminko navíc (bez počtu dospělých dva); „dítě“ / „miminko“ i bez předložky („2 dospělí, dítě a miminko“)
     // věk dětí („s dětmi 5 a 8 let“, „s dítětem 1 rok“): letenka podle věku – do 2 let miminko na klíně, 2–11 dítě,
     // od 12 let platí jako dospělý (dřív jen „s dětmi – kolik jich je, uprav“, „s dítětem 1 rok“ = dítě se sedadlem)
-    const AGES = '(\\d{1,2}(?:\\s*(?:,|a|i)\\s*\\d{1,2}){0,5})';
-    rule(new RegExp(`(?:s|se)\\s+(?:detmi|detma|deckama|ditkama|ditetem|ditkem)\\s*\\(?\\s*(?:(?:ve\\s+)?veku\\s+${AGES}(?:\\s*(?:let|roky|roku|rok))?|${AGES}\\s*(?:let|roky|roku|rok))\\s*\\)?${W}`), m => {
+    const AGE = '\\d{1,2}(?:\\s*(?:let|roky|roku|rok))?', AGES = `(${AGE}(?:\\s*(?:,|a|i)\\s*${AGE}){0,5})`;
+    rule(new RegExp(`(?:s|se)\\s+(?:detmi|detma|deckama|ditkama|ditetem|ditkem)\\s*\\(?\\s*(?:(?:ve\\s+)?veku\\s+${AGES}|${AGES})\\s*\\)?${W}`), m => {
+      if (!m[1] && !/(?:let|roky|roku|rok)$/.test(m[2])) return false; // bez „let / roky“ to věk není („s dětmi 2 týdny“)
       const ages = (m[1] || m[2]).match(/\d{1,2}/g).map(Number);
       if (ages.some(a => a > 17)) return false;
       if (/^s[e]?\s+(?:ditetem|ditkem)/.test(m[0]) && ages.length > 1) return false; // „s dítětem 5 a 8 let“ – nevím
@@ -684,10 +700,11 @@
     // „do Londýna a zpět do Prahy“: kam se vracím = odkud letím (dřív Praha druhý cíl) – jen jedno místo, pak zase kam;
     // jen „do“ hned za „zpět“ („tam 20.11. a zpátky 24.11. do Londýna“: Londýn je cíl)
     const home = [];
+    let homeFrom = -1, justHome = false; // počet míst odkud v době „zpět do X“; „zpět do Prahy z Neapole“ = návrat z Neapole
     // „přes Vídeň“ = přestup, ne cíl – místo se zahodí (přestupní letiště hledání neurčuje)
     const flush = () => {
       if (cur.length && mode !== 'via') (mode === 'from' ? from : mode === 'back' ? back : mode === 'home' ? home : to).push(cur.join(' '));
-      if (mode === 'home') mode = 'to';
+      if (mode === 'home') { if (cur.length && homeFrom < 0) homeFrom = from.length; justHome = cur.length > 0; mode = 'to'; }
       cur = [];
     };
     // překlep v dlouhém měsíci za „v / ve“ („v prosnci“, „v listopdu“): jedno písmeno navíc, chybí, jiné nebo prohozené –
@@ -698,13 +715,14 @@
       if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1) || (a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2));
       return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
     };
-    const typoMonth = w => { if (w.length < 6) return null; const f = MONTH_FORMS.find(([x]) => x.length >= 7 && ed1(w, x)); return f ? f[1] : null; };
+    const typoMonth = w => { if (w.length < 6 || /^cerven(?:a|e|eho|em|emu|ou|y|ych|ym|ymi)$/.test(w)) return null; const f = MONTH_FORMS.find(([x]) => x.length >= 7 && ed1(w, x)); return f ? f[1] : null; };
     const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+>~]/gu;
     let m, prevW = '';
     while ((m = re.exec(s))) {
       const at = m.index, w = m[0], orig = raw.slice(at, at + w.length), pw = prevW;
       prevW = w;
       const afterBack = justBack; justBack = false;
+      const afterHome = justHome; justHome = false;
       // slovo vzaté pravidlem („přes víkend Londýn“, „přes léto“) „přes“ ukončí – jinak by zahodilo i cíl za ním
       if (used.slice(at, at + w.length).some(Boolean)) { flush(); if (mode === 'via') mode = 'to'; continue; }
       // šipka: co bylo před ní (místo právě psané, jinak poslední „kam“), je odkud; za ní kam
@@ -721,18 +739,21 @@
       if (backNext && (w === 'z' || w === 'ze' || w === 'od')) { backNext = false; mode = 'back'; continue; }
       if (afterBack && w === 'do') { backNext = false; flush(); mode = 'home'; continue; }
       backNext = false;
-      if (FROM_WORDS.has(w)) { flush(); mode = 'from'; continue; }
+      // „do Říma a zpět do Prahy z Neapole“: z Neapole = návrat odtud (jen když cíl už je – „zpátky do Brna z Londýna“ je odkud)
+      if (FROM_WORDS.has(w)) { flush(); mode = (afterHome || justHome) && to.length ? 'back' : 'from'; justHome = false; continue; }
       if (w === 'pres') { flush(); mode = 'via'; continue; }
       if (TO_WORDS.has(w)) { flush(); mode = 'to'; continue; }
       // „město“ hned za slovem názvu patří k němu („Nové Město“, „do Nového Města“) – samotné („do města“) ne
-      if (/^(?:v|ve)$/.test(pw) && !dates && !used.slice(at, at + w.length).some(Boolean)) {
+      if (/^(?:v|ve)$/.test(pw) && (!dates || dates.soon) && !used.slice(at, at + w.length).some(Boolean)) {
         const k = typoMonth(w);
         if (k != null) { const r = monthRange(k); dates = { from: r.from, to: r.to, label: MONTHS[k] }; month = k; flush(); continue; }
       }
       // „na vykend“, „o vykendu“ (y místo i): víkend, ne místo
       if (/^vykend\w*$/.test(w)) {
-        len = len || 'weekend';
-        if (/^(?:o|tento|tenhle|nejblizsi)$/.test(pw)) { if (cur.length && fold(cur[cur.length - 1]) === pw) cur.pop(); if (!dates) dates = thisWk(); }
+        len = /^(?:prodlouz|dlouh)/.test(pw) ? 'long' : len || 'weekend';
+        if (cur.length && fold(cur[cur.length - 1]) === pw && /^(?:o|tento|tenhle|nejblizsi|pristi|dalsi|prodlouz\w*|dlouh\w*)$/.test(pw)) cur.pop();
+        if (/^(?:o|tento|tenhle|nejblizsi)$/.test(pw) && !dates) dates = thisWk();
+        if (/^(?:pristi|dalsi)$/.test(pw) && !dates) { const sat = addDays(today, ((6 - dow(today) + 7) % 7) + 7); dates = { from: addDays(sat, -2), to: sat, label: 'příští víkend' }; }
         flush(); continue;
       }
       if ((FILL.has(w) && !(cur.length && /^mest[aeou]?$|^mestem$/.test(w))) || /^\d+$/.test(w)) { flush(); continue; }
@@ -741,8 +762,17 @@
     flush();
     // „zpátky do Brna z Londýna“: jediné místo kam = cíl; „z Vídně do Londýna a zpět do Prahy“ (návrat jinam): návrat do
     // jiného města (backTo – 2 lety jako „a zpět z Neapole“), ne druhý cíl
+    // „z Brna … a zpět do Brna“ = obyčejná zpáteční; řetězec („Praha → Řím → Barcelona a zpět do Prahy“) končí doma jako dřív
     let backTo = null;
-    if (home.length) { if (!from.length) from.push(home[0]); else if (!to.length) to.push(home[0]); else backTo = home[0]; }
+    if (home.length) {
+      const h = home[0], same = from.some(x => fold(x) === fold(h));
+      if (arrows) to.push(h);
+      else if (!from.length) from.push(h);
+      else if (same) { /* návrat do odkud – nic navíc */ }
+      else if (!to.length) to.push(h);
+      else if (homeFrom >= 0 && homeFrom < from.length) { /* odkud až za „zpět do“ – nejasné, návrat jinam se nehledá */ }
+      else backTo = h;
+    }
     // pomlčka bez místa za ní („Řím – víkend“) nebyla odkud → kam: místo před ní je cíl
     if (soft && !to.length && !kind && from.length === 1) { to.push(from.pop()); arrows--; }
 
@@ -779,7 +809,7 @@
         dates.label = `Vánoce i Silvestr (${dm(dates.out)} – ${dm(dates.back)} ± 1 den)`;
       }
       // „kolem 15.12.“, „okolo 20. listopadu“, „cca 3.12.“: okolní dny ± 2 (dřív přesně ten den)
-      const fx = dates.flex || (/(?:^|[^a-z])(?:kolem|okolo|cca|zhruba|priblizne)\s+\d{1,2}\.\s*(?:\d{1,2}\.?(?!\d)|[a-z])/.test(s) ? 2 : 0);
+      const fx = dates.flex || (/(?:^|[^a-z])(?:kolem|okolo|cca|zhruba|priblizne)\s+\d{1,2}\.\s*(?:\d{1,2}\.?(?!\d)|(?!hod|min)[a-z])/.test(s) ? 2 : 0);
       Object.assign(patch, { dateMode: 'exact', xOut: dates.out, xFlex: fx, ...(back ? { xBack: back } : {}) });
       if (!dates.back && !back) patch.trip = 'oneway';
       // návrat přes 45 nocí („1.12. a zpět 28.2.“): zpáteční tak daleko hledání nenajde – jen tam, zpět zvlášť (jako „na 3 měsíce“)
