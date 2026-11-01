@@ -666,10 +666,20 @@
       if (mode === 'home') mode = 'to';
       cur = [];
     };
+    // překlep v dlouhém měsíci za „v / ve“ („v prosnci“, „v listopdu“): jedno písmeno navíc, chybí, jiné nebo prohozené –
+    // jen tvary od 7 písmen (u krátkých by to chytalo místa); dřív „prosnci“ jako místo a termín žádný
+    const ed1 = (a, b) => {
+      if (a === b || Math.abs(a.length - b.length) > 1) return false;
+      let i = 0; while (i < a.length && a[i] === b[i]) i++;
+      if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1) || (a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2));
+      return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+    };
+    const typoMonth = w => { if (w.length < 6) return null; const f = MONTH_FORMS.find(([x]) => x.length >= 7 && ed1(w, x)); return f ? f[1] : null; };
     const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+>~]/gu;
-    let m;
+    let m, prevW = '';
     while ((m = re.exec(s))) {
-      const at = m.index, w = m[0], orig = raw.slice(at, at + w.length);
+      const at = m.index, w = m[0], orig = raw.slice(at, at + w.length), pw = prevW;
+      prevW = w;
       const afterBack = justBack; justBack = false;
       // slovo vzaté pravidlem („přes víkend Londýn“, „přes léto“) „přes“ ukončí – jinak by zahodilo i cíl za ním
       if (used.slice(at, at + w.length).some(Boolean)) { flush(); if (mode === 'via') mode = 'to'; continue; }
@@ -691,6 +701,16 @@
       if (w === 'pres') { flush(); mode = 'via'; continue; }
       if (TO_WORDS.has(w)) { flush(); mode = 'to'; continue; }
       // „město“ hned za slovem názvu patří k němu („Nové Město“, „do Nového Města“) – samotné („do města“) ne
+      if (/^(?:v|ve)$/.test(pw) && !dates && !used.slice(at, at + w.length).some(Boolean)) {
+        const k = typoMonth(w);
+        if (k != null) { const r = monthRange(k); dates = { from: r.from, to: r.to, label: MONTHS[k] }; month = k; flush(); continue; }
+      }
+      // „na vykend“, „o vykendu“ (y místo i): víkend, ne místo
+      if (/^vykend\w*$/.test(w)) {
+        len = len || 'weekend';
+        if (/^(?:o|tento|tenhle|nejblizsi)$/.test(pw)) { if (cur.length && fold(cur[cur.length - 1]) === pw) cur.pop(); if (!dates) dates = thisWk(); }
+        flush(); continue;
+      }
       if ((FILL.has(w) && !(cur.length && /^mest[aeou]?$|^mestem$/.test(w))) || /^\d+$/.test(w)) { flush(); continue; }
       cur.push(orig);
     }
