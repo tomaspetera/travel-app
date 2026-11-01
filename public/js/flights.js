@@ -277,7 +277,7 @@
     return items;
   }
   // chytré hledání: termíny podle svátků a délky pobytu jako ve formuláři
-  const smartOpts = () => ({ today: today(), presets: PRESETS, holidays: SearchHelp.holidayList(today()), holidayDates: SearchHelp.holidayDates, eurCzk: health && health.fx ? health.fx.eurCzk : null });
+  const smartOpts = () => ({ today: today(), presets: PRESETS, holidays: SearchHelp.holidayList(today()), holidayDates: SearchHelp.holidayDates, longWeekend: SearchHelp.longWeekend, eurCzk: health && health.fx ? health.fx.eurCzk : null });
   /** Místa z věty („do Říma“, „z Vídně“): tvar slova i se zkrácenou koncovkou → nejlepší návrh (Smart.bestPlace). */
   // Místo z tvaru ve větě („Říma“ → Řím): napřed vlastní data (rychle); geokódování (pomalejší, vesnice a místa mimo
   // databázi) jen když nic nenajdou

@@ -246,6 +246,13 @@
       if (wk) len = 'weekend'; else len = len || 'week';
     });
     // --- délka pobytu ---
+    // „na nejbližší prodloužený víkend“, „nejbližší svátky / volno“: první ze seznamu prodloužených víkendů (jako 🎉 Svátky)
+    // – dřív „nejbližší“ jako místo a termín žádný
+    rule(new RegExp(`(?:na\\s+|o\\s+|pres\\s+)?(?:nejblizsi|nejbližší)\\s+(?:prodlouzen\\w+\\s+vikend\\w*|svatk\\w*|svatky|volno|volnu)${W}`), () => {
+      const lw = (o.holidays || [])[0];
+      if (dates || !lw || !o.holidayDates) return false;
+      dates = { holiday: lw, label: lw.name };
+    });
     rule(new RegExp(`(?:na\\s+)?(?:prodlouzen[yeyj]+|dlouh[yej]+)\\s+vikend\\w*${W}`), () => { len = 'long'; });
     // odlet čt–so nejbližšího víkendu (v neděli už ten příští)
     const thisWk = () => ({ from: today, to: addDays(today, (6 - dow(today) + 7) % 7), label: 'tento víkend' });
@@ -414,6 +421,31 @@
       len = len || 'long';
       return { from: [today, addDays(e, -3)].sort()[1], to: addDays(e, -2), label: 'Velikonoce' };
     });
+    // svátek jménem („na Den boje za svobodu“, „na 1. máje“, „o svatém Václavu“): jeho prodloužený víkend – ze seznamu,
+    // jinak spočtený (o.longWeekend), jinak pár dní před svátkem s délkou prodlouženého víkendu; dřív jméno svátku jako
+    // místo. Datum („17. listopadu“) zůstává datem.
+    const NAMED = [
+      ['den\\s+boje\\s+za\\s+svobodu(?:\\s+a\\s+demokracii)?|sametov\\w+\\s+revoluc\\w*', '11-17', 'den boje', 'Den boje za svobodu'],
+      ['svatek\\s+prace|(?:1\\.|prvniho)\\s*maje|prvni\\s+maj', '05-01', 'svatek prace', 'Svátek práce'],
+      ['den\\s+vitezstvi|den\\s+osvobozeni', '05-08', 'den vitezstvi', 'Den vítězství'],
+      ['(?:svat\\w+\\s+)?cyril\\w*\\s+a\\s+metod\\w*', '07-05', 'cyril', 'Cyril a Metoděj'],
+      ['(?:mistr\\w*\\s+)?jan\\w*\\s+hus\\w*', '07-06', 'hus', 'Mistr Jan Hus'],
+      ['den\\s+ceske\\s+statnosti|svat\\w+\\s+vaclav\\w*', '09-28', 'statnosti', 'Den české státnosti'],
+      ['vznik\\w*\\s+(?:samostatn\\w+\\s+)?(?:ceskoslovensk\\w*|republiky|csr)', '10-28', 'vznik', 'Vznik Československa'],
+    ];
+    for (const [re, md, key, label] of NAMED) {
+      rule(new RegExp(`(?:(?:na|o|pres|kolem)\\s+)?(?:${re})${W}`), () => {
+        if (dates) return false;
+        let y = +today.slice(0, 4); if (`${y}-${md}` < addDays(today, 2)) y++;
+        const d = `${y}-${md}`;
+        let lw = hol.find(x => fold(x.name || '').includes(key) && x.start <= d && x.end >= d);
+        if (!lw && o.longWeekend) { const x = o.longWeekend(addDays(d, -4), 8); if (x && x.start <= d && x.end >= d) lw = x; }
+        if (lw && o.holidayDates) { dates = { holiday: lw, label: lw.name }; return; }
+        // svátek ve středu (prodloužený víkend není) nebo bez seznamu: odlet pár dní před ním, délka prodlouženého víkendu
+        dates = { from: [addDays(today, 1), addDays(d, -4)].sort()[1], to: d, label };
+        len = len || 'long';
+      });
+    }
     // „na státní svátek“, „o svátcích“: nejbližší prodloužený víkend
     rule(new RegExp(`(?:na\\s+|o\\s+|pres\\s+)?(?:statni\\s+svat\\w*|svatek|svatky|svatcich)${W}`), () => {
       // „na státní svátek v listopadu“: svátek v tom měsíci (dřív zůstal celý měsíc a „státní svátek“ jako místo)

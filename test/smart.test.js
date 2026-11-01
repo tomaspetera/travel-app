@@ -898,3 +898,21 @@ test('„4.–6. 12. nebo 11.–13. 12.“: odlet v jeden z obou dnů se stejnou
   // jiná délka: první termín zůstane
   assert.deepEqual([P('Řím 4.-6.12. nebo 11.-20.12.', t).patch.dateMode, P('Řím 4.-6.12. nebo 11.-20.12.', t).patch.xBack], ['exact', '2026-12-06']);
 });
+
+test('svátek jménem („na Den boje za svobodu“, „na 1. máje“, „svatého Václava“) a „nejbližší prodloužený víkend“ = termín, ne místo', () => {
+  const t = '2026-11-01';
+  const PL = q => JSON.parse(JSON.stringify(Smart.parse(q, { today: t, presets, holidays: H.holidayList(t), holidayDates: H.holidayDates, longWeekend: H.longWeekend })));
+  const b = PL('Londýn na Den boje za svobodu');
+  assert.deepEqual([b.to, chips(b), b.patch.len, b.patch.dFrom, b.patch.dTo], [['Londýn'], ['Den boje za svobodu'], 'holiday', '2026-11-13', '2026-11-14']);
+  const n = PL('na nejbližší prodloužený víkend');
+  assert.deepEqual([n.to, chips(n)], [[], ['Den boje za svobodu']]);
+  // svátek mimo seznam: prodloužený víkend spočtený (o.longWeekend) – Cyril a Metoděj 2027 po 5. 7.
+  const c = PL('Paříž na Cyrila a Metoděje');
+  assert.deepEqual([c.to, c.patch.len, c.patch.dFrom, c.patch.dTo], [['Paříž'], 'holiday', '2027-07-02', '2027-07-03']);
+  // svátek v sobotu (1. 5. 2027) – prodloužený víkend není: pár dní před ním s délkou prodlouženého víkendu
+  const m = PL('na 1. máje do Říma');
+  assert.deepEqual([m.to, chips(m)[0], m.patch.dFrom, m.patch.dTo, m.patch.len], [['Říma'], 'Svátek práce', '2027-04-27', '2027-05-01', 'long']);
+  assert.deepEqual(PL('o svatém Václavu do Berlína').to, ['Berlína']);
+  // datum zůstává datem
+  assert.equal(PL('17. listopadu do Vídně').patch.dateMode, 'exact');
+});
