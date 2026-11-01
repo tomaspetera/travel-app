@@ -513,6 +513,8 @@ html:has(#modalBg.show) body{overflow:hidden} /* na body, ne na html: přejde na
 .modal-hero:not(.ph) .mh-bg{filter:brightness(.6)}
 .modal-hero:not(.ph) .modal-hero-inner{text-shadow:0 1px 2px rgba(0,0,0,.25)}
 .modal-hero-inner{position:relative;z-index:1}
+/* ✏️ Upravit název a termín v detailu cesty: na fotce i na barevném pozadí bílé, podtržené jako odkaz */
+.trip-edit{margin-top:8px;padding:4px 0;border:0;background:none;color:inherit;font:600 12.5px Inter,sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer;opacity:.95}
 .modal-close{position:absolute;top:16px;right:16px;z-index:3;width:38px;height:38px;border-radius:11px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.2);color:#fff;cursor:pointer;display:grid;place-items:center}
 .modal-body{padding:24px}
 /* telefon: okna jako panel zespodu (jako v iOS/Androidu) – palcem dosažitelné, nad proužkem iPhonu */
