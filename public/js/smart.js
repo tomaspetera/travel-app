@@ -527,7 +527,7 @@
       if (!(k >= 1 && k <= 6)) return false;
       kids = k;
     });
-    rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:miminka|miminek|miminky|mimina|miminkem)${W}|(?:(?:s|se|a)\\s+)?(?:miminkem|miminko|mimino|miminem)${W}`), m => {
+    rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:miminka|miminek|miminky|mimina|miminkem|miminko|mimino|miminem)${W}|(?:(?:s|se|a)\\s+)?(?:miminkem|miminko|mimino|miminem)${W}`), m => {
       const k = m[1] ? num(m[1]) : 1;
       if (!(k >= 1 && k <= 4)) return false;
       babies = k;
@@ -576,14 +576,22 @@
 
     // --- zbytek věty: místa (z X = odkud, jinak kam) ---
     const to = [], from = [];
-    let mode = 'to', cur = [], arrows = 0, soft = null, backNext = false;
+    let mode = 'to', cur = [], arrows = 0, soft = null, backNext = false, justBack = false;
     const back = []; // „a zpět z Neapole“: návrat z jiného místa
+    // „do Londýna a zpět do Prahy“: kam se vracím = odkud letím (dřív Praha druhý cíl) – jen jedno místo, pak zase kam;
+    // jen „do“ hned za „zpět“ („tam 20.11. a zpátky 24.11. do Londýna“: Londýn je cíl)
+    const home = [];
     // „přes Vídeň“ = přestup, ne cíl – místo se zahodí (přestupní letiště hledání neurčuje)
-    const flush = () => { if (cur.length && mode !== 'via') (mode === 'from' ? from : mode === 'back' ? back : to).push(cur.join(' ')); cur = []; };
+    const flush = () => {
+      if (cur.length && mode !== 'via') (mode === 'from' ? from : mode === 'back' ? back : mode === 'home' ? home : to).push(cur.join(' '));
+      if (mode === 'home') mode = 'to';
+      cur = [];
+    };
     const re = /[\p{L}\p{N}]+(?:[-'][\p{L}\p{N}]+)*|[,/;&+>~]/gu;
     let m;
     while ((m = re.exec(s))) {
       const at = m.index, w = m[0], orig = raw.slice(at, at + w.length);
+      const afterBack = justBack; justBack = false;
       // slovo vzaté pravidlem („přes víkend Londýn“, „přes léto“) „přes“ ukončí – jinak by zahodilo i cíl za ním
       if (used.slice(at, at + w.length).some(Boolean)) { flush(); if (mode === 'via') mode = 'to'; continue; }
       // šipka: co bylo před ní (místo právě psané, jinak poslední „kam“), je odkud; za ní kam
@@ -596,8 +604,9 @@
       }
       if (/^[,/;&+]$/.test(w) || w === 'a' || w === 'nebo' || w === 'ci') { flush(); backNext = false; continue; }
       // „zpět z X“ / „návrat z X“ (ne „tam a zpět“): X je místo návratu
-      if (/^(?:zpet|zpatky|navrat\w*)$/.test(w)) { flush(); backNext = true; continue; }
+      if (/^(?:zpet|zpatky|navrat\w*)$/.test(w)) { flush(); backNext = true; justBack = true; continue; }
       if (backNext && (w === 'z' || w === 'ze' || w === 'od')) { backNext = false; mode = 'back'; continue; }
+      if (afterBack && w === 'do') { backNext = false; flush(); mode = 'home'; continue; }
       backNext = false;
       if (FROM_WORDS.has(w)) { flush(); mode = 'from'; continue; }
       if (w === 'pres') { flush(); mode = 'via'; continue; }
@@ -607,6 +616,9 @@
       cur.push(orig);
     }
     flush();
+    // „zpátky do Brna z Londýna“: jediné místo kam = cíl; „z Vídně do Londýna a zpět do Prahy“ (návrat jinam) se zahodí –
+    // hledat Prahu jako druhý cíl by bylo špatně
+    if (home.length) (!from.length ? from : !to.length ? to : []).push(home[0]);
     // pomlčka bez místa za ní („Řím – víkend“) nebyla odkud → kam: místo před ní je cíl
     if (soft && !to.length && !kind && from.length === 1) { to.push(from.pop()); arrows--; }
 

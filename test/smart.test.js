@@ -784,3 +784,20 @@ test('náhled věty: lidé z minulého hledání, které věta neříká, se uk�
   assert.match(fl, /\.\.\.\(inh \? \[`👥 \$\{SearchHelp\.paxShort\(pf\)\} \(jako minule\)`\] : \[\]\)/);
   assert.match(fl, /const perOs = c => \(inh && c\.icon === '💰' && !\/\\\/os\\\.\$\/\.test\(c\.text\)/, 'cena s lidmi z minula /os.');
 });
+
+test('„zpět do X“ = odkud letím, ne druhý cíl; „jedno miminko“ není místo', () => {
+  const r = P('Řím 12.11. zpět do Prahy 16.11.');
+  assert.deepEqual([r.from, r.to], [['Prahy'], ['Řím']]);
+  assert.deepEqual([r.patch.xOut, r.patch.xBack], ['2026-11-12', '2026-11-16']);
+  assert.deepEqual([P('do Londýna a zpět do Prahy').from, P('do Londýna a zpět do Prahy').to], [['Prahy'], ['Londýna']]);
+  // odkud už je dané: návrat jinam se nehledá jako druhý cíl
+  assert.deepEqual([P('z Vídně do Londýna a zpět do Prahy').from, P('z Vídně do Londýna a zpět do Prahy').to], [['Vídně'], ['Londýna']]);
+  // jediné místo kam zůstane cílem
+  assert.deepEqual(P('zpátky do Brna z Londýna v neděli').to, ['Brna']);
+  // „do“ až za datem po „zpátky“ je cíl
+  assert.deepEqual(P('tam 20.11. a zpátky 24.11. do Londýna').to, ['Londýna']);
+  const b = P('Barcelona pro jedno miminko a 2 dospělé');
+  assert.deepEqual(b.to, ['Barcelona']);
+  assert.deepEqual([b.patch.adults, b.patch.children, b.patch.infants], [2, 0, 1]);
+  assert.deepEqual(P('Paříž s jedním dítětem a jedno miminko').to, ['Paříž']);
+});
