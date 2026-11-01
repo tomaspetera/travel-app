@@ -994,7 +994,7 @@
       };
     }
     // 🏠 vlastní cena uživatele místo odhadu (čas zůstává odhad)
-    if (g.own) return { text: `🏠 ${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: vlastní cena ${kc(g.czk)} na osobu jedním směrem (zpět totéž)${g.estCzk >= 0 ? ` místo odhadu ~${kc(g.estCzk)}` : ''}, cesta ~${hm(g.minutes)} (odhad). Změníš ji v Další možnosti → Doprava na letiště.` };
+    if (g.own) return { text: `🏠 ${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: vlastní cena ${kc(g.czk)} na osobu jedním směrem (zpět totéž)${g.estCzk >= 0 ? ` místo odhadu ~${kc(g.estCzk)}` : ''}, cesta ~${hm(g.minutes)} (odhad). Změníš ji v Letech → Cestující, zavazadla a další → ✏️ Uprav cenu u letišť.` };
     const items = (g.breakdown || []).map(x => `${x.label} ~${kc(x.czk)}`);
     const sum = items.length > 1 ? `${items.join(' + ')} = ~${kc(g.czk)}` : items.length ? items[0] : `~${kc(g.czk)}`;
     return { text: `~${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: ${sum} na osobu jedním směrem (zpět totéž), ~${hm(g.minutes)}. Odhad podle vzdálenosti a ceníků dopravců (vlak / bus za běžnou cenu), ne jízdní řád.` };
@@ -1125,7 +1125,7 @@
   }
   /** Odkud je jízdné: „Zdroj: aeroportparisbeauvais.com, ověřeno 7. 10. 2026.“ (odhad bez zdroje → ''), u staršího i stáří. */
   const arrivalSource = (a, today = localToday()) => (a && a.basis === 'table' && a.src ? `Zdroj${a.sec ? ' (sekundární, oficiální neuvádí)' : ''}: ${srcHost(a.src)}, ověřeno ${dm(a.date)} ${String(a.date).slice(0, 4)}${dataAge(a.date, today).txt}.` : '');
-  const inPrice = (on, czk, both) => (on ? ` Odhad ${both ? 'tam i zpět ' : ''}~${kc(czk)}/os. – v ceně letenky není.` : ' Neukazuje se (vypnuto v Další možnosti).');
+  const inPrice = (on, czk, both) => (on ? ` Odhad ${both ? 'tam i zpět ' : ''}~${kc(czk)}/os. – v ceně letenky není.` : ' Neukazuje se (vypnuto v Cestující, zavazadla a další).');
   // sub = čím jet a poznámka ve směru štítku (na letiště spoj bez cíle cesty do města – arrivalVia)
   const arrChip = (x, text, title, dir = 'from') => ({
     text: `${ARR_ICON[x.mode] || '🚌'} ${text} ${arrivalFare(x)} · ${hhmmTxt(x.min)}${x.basis !== 'table' ? ' (odhad)' : ''}`,
@@ -1397,7 +1397,7 @@
     return b == null ? 1 : b;
   }
   /**
-   * Dny v týdnu do shrnutí „Další možnosti“ v Letech (formulář f): ['odlet čt, pá nebo so', 'návrat ne nebo po']. Jen kde
+   * Dny v týdnu do shrnutí „Cestující, zavazadla a další“ v Letech (formulář f): ['odlet čt, pá nebo so', 'návrat ne nebo po']. Jen kde
    * je hledání použije (jako dotaz na server): přesná data a cesta přes víc měst dny nemají, dny návratu jen zpáteční let.
    */
   function dowBits(f) {

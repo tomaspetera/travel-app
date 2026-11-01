@@ -134,11 +134,15 @@
 .input.sm{width:68px;padding:8px 10px;text-align:center}
 .input.xs{width:62px;padding:4px 6px;display:inline-block;text-align:center}
 details.more{margin-top:16px;border-top:1px solid var(--border);padding-top:12px}
-details.more summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--muted);list-style:none;-webkit-user-select:none;user-select:none}
-details.more summary::-webkit-details-marker{display:none} /* Safari: bez vlastní šipky navíc */
-details.more summary::before{content:'⚙️ ';}
-details.more[open] summary{margin-bottom:14px;color:var(--text)}
-.more-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+/* >summary: uvnitř je i sbalený seznam letišť (✏️ Uprav cenu u letišť) se svým summary – ten má vlastní vzhled */
+details.more>summary{cursor:pointer;font-weight:700;font-size:13.5px;color:var(--muted);list-style:none;-webkit-user-select:none;user-select:none}
+details.more>summary::-webkit-details-marker{display:none} /* Safari: bez vlastní šipky navíc */
+details.more>summary::before{content:'⚙️ ';}
+details.more[open]>summary{margin-bottom:14px;color:var(--text)}
+details.more #moreSummary{margin-left:10px;font-weight:500}
+/* dense: na 2–3 sloupcích se Max. cena a Lety posunou vedle Cestujících (jinak by Cestující zůstali v řádku sami
+   před Zavazadly přes celou šířku); na telefonu je jeden sloupec a pořadí zůstává, jak je v HTML */
+.more-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));grid-auto-flow:row dense}
 .check-inline{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--text);margin:6px 0;text-transform:none;letter-spacing:0;font-weight:500}
 .check-inline input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent)}
 /* zaškrtávátko v poli formuláře: ne velkými písmeny jako popisek pole */
@@ -153,17 +157,18 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 /* ♡ Hlídat: 📅 Hlídat s posouváním termínu (klouzavé hlídání) */
 .roll-opt{margin:0;font-size:13px;color:var(--muted)}
 .roll-opt[hidden]{display:none}
-.gm-lbl{font-size:13px;color:var(--muted)}
 .gm-row .seg button{padding:6px 11px;font-size:12.5px;white-space:nowrap}
 .gm-opt{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:8px;font-size:13px}
 .gm-opt[hidden]{display:none}
 .gm-opt .faint{font-size:12px}
-.gm-off .seg,.gm-off .gm-opt,.gm-off .gm-lbl{opacity:.45}
+/* cesta na letiště vypnutá: volby k ní schovat (dřív jen zešedly – a formulář zbytečně zabíral místo) */
+.gm-off .gm-row,.gm-off .gm-opt{display:none}
 /* autem: pohon, spotřeba, aktuální cena a vlastní cena */
 .gm-car{flex-direction:column;align-items:stretch;gap:8px}
 .gm-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
 .gm-line .seg button{padding:6px 11px;font-size:12.5px;white-space:nowrap}
 .field label.gm-in{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:13px;font-weight:500;color:var(--text);text-transform:none;letter-spacing:0;white-space:nowrap}
+.field label.gm-in[hidden]{display:none}
 .gm-in .input.xs{width:68px}
 .gm-km{font-weight:700;color:var(--muted);white-space:nowrap}
 .gm-price{font-size:12.5px;color:var(--muted)}
@@ -171,8 +176,20 @@ details.more[open] summary{margin-bottom:14px;color:var(--text)}
 /* 🏠 Moje cena na letiště: vlastní cena tam na osobu u letišť z náhledu (prázdné = odhad) */
 .gm-own{flex-basis:100%;margin-top:6px;padding:8px 10px;border:1px dashed var(--border);border-radius:10px}
 .gm-own[hidden]{display:none}
-.gm-own-h{font-size:13px;font-weight:600;margin-bottom:6px}
-.gm-own-h .faint{font-weight:400}
+/* sbalené: jen řádek „✏️ Jezdíš levněji? Uprav cenu u letišť · 5 letišť ▾“ – seznam letišť byl na telefonu přes celou obrazovku */
+.gm-own>summary{display:flex;align-items:baseline;gap:6px;cursor:pointer;list-style:none;font-size:13px;font-weight:600;color:var(--text)}
+.gm-own>summary::-webkit-details-marker{display:none}
+.gm-own>summary::after{content:'▾';color:var(--muted);transition:transform .2s}
+.gm-own[open]>summary{margin-bottom:8px}
+.gm-own[open]>summary::after{transform:rotate(180deg)}
+.gm-own>summary .faint{font-weight:500;font-size:12px}
+.gm-own-h{font-size:12px;line-height:1.4;margin-bottom:8px}
+/* summary: název vlevo (zalomí se celý), počet letišť / tvoje ceny a šipka vpravo */
+.gm-own-t{flex:1;min-width:0}
+.gm-own>summary #gmOwnSum{white-space:nowrap}
+.gm-opt .check-inline.gm-half{flex-basis:100%;margin:2px 0 0}
+.gm-field .gm-on{margin-top:2px}
+.field label.check-inline.gm-arr{margin-top:14px}
 .gm-own-list{display:grid;gap:10px}
 /* řádek letiště: kód, město, pole s cenou; pod tím z čeho odhad je (jízdné a čas) */
 .field label.gm-own-it{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:2px 8px;white-space:normal}
@@ -1268,6 +1285,7 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   .refine-panel{display:flex;flex-direction:column;gap:8px;padding:6px 2px 4px}
   #searchForm:not(.refine) .refine-panel{display:none}
   .refine-panel .warm-row{order:3;margin-top:4px}
+  .refine-panel .warm-row>.muted{flex-basis:100%;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
   .refine-panel #lenField{order:2;margin:6px 0 0}
   .refine-panel>label{margin:2px 0 -2px}
   .refine-btn{display:flex;align-items:center;gap:8px;width:100%;margin:14px 0 4px;padding:12px 14px;border-radius:16px;border:1px solid var(--border);
@@ -1361,15 +1379,17 @@ ol.guide code,.note code{background:var(--surface-2);padding:1px 6px;border-radi
   .quick-range{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-12px;padding-right:12px}
   .quick-range button{flex:none;padding:7px 13px;font-size:12.5px}
   #flexField .row .input,#exactField .input{border-radius:14px}
-  /* Upřesnit a Další možnosti jako dva řádky seznamu */
+  /* Upřesnit a Cestující, zavazadla a další jako dva řádky seznamu */
   .refine-btn{margin:16px 0 0;border-radius:16px}
   details.more{margin-top:8px;border:1px solid var(--border);border-radius:16px;padding:0;background:var(--surface)}
-  details.more summary{display:flex;align-items:center;gap:8px;padding:12px 14px;color:var(--text);font-size:14px;font-weight:800}
-  details.more summary::before{content:'🧳'}
-  details.more summary::after{content:'▾';margin-left:auto;color:var(--muted);transition:transform .2s}
-  details.more[open] summary{margin-bottom:0}
-  details.more[open] summary::after{transform:rotate(180deg)}
-  details.more #moreSummary{font-size:12.5px;font-weight:600;color:var(--muted)}
+  /* název a pod ním souhrn „1 dospělý · jen malé zavazadlo · …“ – na jednom řádku se dlouhý souhrn lámal pod ikonu */
+  details.more>summary{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:2px 8px;padding:12px 14px;color:var(--text);font-size:14px;font-weight:800}
+  details.more>summary::before{content:'🧳';grid-row:1}
+  details.more>summary::after{content:'▾';grid-row:1;grid-column:3;color:var(--muted);transition:transform .2s}
+  details.more[open]>summary{margin-bottom:0}
+  details.more[open]>summary::after{transform:rotate(180deg)}
+  details.more #moreSummary{grid-column:2;grid-row:2;margin:0;font-size:12.5px;font-weight:600;color:var(--muted);line-height:1.35}
+  details.more #moreSummary:empty{display:none}
   details.more .more-grid{padding:4px 14px 14px}
   /* tlačítka: velké hledání přes celou šířku, hlídání pod ním */
   .sf-actions{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:16px !important}

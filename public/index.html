@@ -315,10 +315,10 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
               </div>
               <div class="len-lw" id="lenLw" role="group" aria-label="Prodloužený víkend" hidden></div>
               <div class="faint len-lw-hint" id="lenLwHint" hidden></div>
-              <button type="button" class="linkbtn len-leave" id="leavePlan">🗓️ Kdy si vzít dovolenou – nejvíc volna za nejmíň dní</button>
               <div class="nights-row" id="nightsRow">
                 <input class="input sm" type="number" id="nMin" min="0" max="45" value="5" aria-label="Nejméně nocí"> – <input class="input sm" type="number" id="nMax" min="0" max="45" value="9" aria-label="Nejvíc nocí"> nocí
               </div>
+              <button type="button" class="linkbtn len-leave" id="leavePlan">🗓️ Kdy si vzít dovolenou – nejvíc volna za nejmíň dní</button>
             </div>
             <div class="field" id="flexField">
               <label>Odlet mezi</label>
@@ -336,7 +336,10 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
           <button type="button" class="refine-btn" id="refineBtn" aria-expanded="false"><span class="refine-l">⚙️ Upřesnit</span><span class="refine-sum" id="refineSum"></span><span class="refine-chev" aria-hidden="true">▾</span></button>
           <div class="refine-panel field" id="refinePanel"></div>
           <details class="more" id="moreOpts">
-            <summary>Další možnosti <span class="faint" id="moreSummary"></span></summary>
+            <summary><span class="more-t">Cestující, zavazadla a další</span><span class="faint" id="moreSummary"></span></summary>
+            <!-- pořadí podle toho, co mění cenu letenky: kdo letí a s čím, pak které lety; doprava na letiště a z letiště
+                 (jen pro představu, do ceny se nepočítá) až na konci jako jedna skupina. Na počítači 3 sloupce – hustě
+                 skládané (.more-grid), aby Cestující nezůstali v řádku sami před zavazadly přes celou šířku. -->
             <div class="sf-grid more-grid">
               <div class="field"><label for="paxBtn">Cestující <span class="lab-hint">děti i miminka</span></label>
                 <!-- počty v hidden polích (getForm/setForm), upravují se v okně Cestující (flights.js paxSheet) -->
@@ -344,16 +347,33 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
                 <input type="hidden" id="adults" value="2"><input type="hidden" id="children" value="0"><input type="hidden" id="infants" value="0">
               </div>
               <div class="field"><label for="maxPrice">Max. cena letenky na osobu</label><input class="input" type="number" id="maxPrice" placeholder="bez limitu" min="0" step="100"></div>
-              <div class="field gm-field" style="grid-column:1/-1"><label>Doprava na letiště <span class="lab-hint">odhad na osobu – u nabídky zvlášť, do ceny letenky se nepočítá</span></label>
+              <div class="field" style="grid-column:1/-1"><label>🧳 Zavazadla <span class="lab-hint">příplatek aerolinky se přičte k ceně letenky</span></label>
+                <div class="seg wrap" id="bags" role="group" aria-label="Zavazadla"><button type="button" data-b="none" class="on">Jen malé pod sedadlo (v ceně)</button><button type="button" data-b="cabin">+ kabinový kufr do 10 kg</button><button type="button" data-b="checked">+ kufr k odbavení 20 kg</button></div>
+              </div>
+              <div class="field"><label>Lety</label>
+                <label class="check-inline"><input type="checkbox" id="directOnly"> jen přímé lety</label>
+                <label class="check-inline" id="openJawLbl"><input type="checkbox" id="openJaw" checked> návrat i na jiné letiště v okolí</label>
+                <div class="faint oj-hint" id="ojHint" hidden>🚗 Autem se vracíš na letiště, kde parkuje auto – návrat na jiné letiště nehledám.</div>
+              </div>
+              <div class="field" style="grid-column:1/-1"><label>Dny odletu <span class="lab-hint">nic = libovolný den</span></label>
+                <div class="dow" id="outDays" role="group" aria-label="Dny odletu"></div>
+                <label class="check-inline" id="depAfterLbl" hidden><input type="checkbox" id="depAfterOn" checked> <span id="depAfterTxt"></span></label>
+              </div>
+              <div class="field" style="grid-column:1/-1" id="backDaysField"><label>Dny návratu</label>
+                <div class="dow" id="backDays" role="group" aria-label="Dny návratu"></div>
+              </div>
+              <div class="field gm-field" style="grid-column:1/-1"><label>Doprava na letiště a z letiště <span class="lab-hint">jen pro představu u nabídky – do ceny letenky se nepočítá</span></label>
+                <label class="check-inline gm-on"><input type="checkbox" id="groundOn" checked> ukázat cestu na letiště</label>
                 <div class="gm-row">
-                  <label class="check-inline"><input type="checkbox" id="groundOn" checked> ukázat</label>
-                  <span class="gm-lbl">Na letiště:</span>
                   <div class="seg" id="groundMode" role="group" aria-label="Na letiště"><button type="button" data-g="transit" class="on" aria-pressed="true">🚌 veřejnou dopravou</button><button type="button" data-g="car" aria-pressed="false">🚗 autem</button></div>
                 </div>
-                <div class="gm-opt" id="gmTransit"><span title="Násobek odhadu jízdného: 1 = plné jízdné, 0,5 = sleva 50 % (žák, student, senior), 0 = nepočítat">jízdné × <input class="input xs" type="number" id="kmRate" value="1" step="0.1" min="0" max="5" aria-label="Násobek odhadu jízdného"></span>
-                  <span class="faint">1 = plné jízdné, 0,5 = sleva (žák, student, senior), 0 = nepočítat</span>
-                  <div class="gm-own" id="gmOwn" hidden><div class="gm-own-h">🏠 Kolik tě stojí cesta na letiště <span class="faint">odhad na osobu jedním směrem (zpět totéž) – vlak / bus za běžnou cenu + MHD. Jezdíš levněji nebo jinak? Přepiš ho.</span></div>
-                    <div class="gm-own-list" id="gmOwnList"></div></div></div>
+                <!-- jízdné: poloviční (státní sleva) jedním zaškrtnutím; jiný násobek ze starších uložených hledání ukáže pole „jízdné ×“ -->
+                <div class="gm-opt" id="gmTransit">
+                  <label class="check-inline gm-half"><input type="checkbox" id="kmHalf"> poloviční jízdné (žák, student, senior)</label>
+                  <label class="gm-in" id="kmRateOwn" hidden title="Násobek odhadu jízdného: 1 = plné jízdné, 0,5 = poloviční, 0 = nepočítat">jízdné × <input class="input xs" type="number" id="kmRate" value="1" step="0.1" min="0" max="5" aria-label="Násobek odhadu jízdného"></label>
+                  <details class="gm-own" id="gmOwn" hidden><summary><span class="gm-own-t">✏️ Jezdíš levněji? Uprav cenu</span><span class="faint" id="gmOwnSum"></span></summary>
+                    <div class="faint gm-own-h">Odhad na osobu jedním směrem (zpět totéž) – vlak nebo bus za běžnou cenu + MHD. Přepiš ho svou cenou, prázdné = odhad.</div>
+                    <div class="gm-own-list" id="gmOwnList"></div></details></div>
                 <div class="gm-opt gm-car" id="gmCar" hidden>
                   <div class="gm-line">
                     <div class="seg" id="gmFuel" role="group" aria-label="Pohon auta"><button type="button" data-f="diesel" class="on" aria-pressed="true">⛽ nafta</button><button type="button" data-f="petrol" aria-pressed="false">⛽ benzín</button><button type="button" data-f="ev" aria-pressed="false">⚡ elektro</button></div>
@@ -365,25 +385,8 @@ if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', { configur
                     <label class="gm-in" title="Nech prázdné = aktuální cena (nafta a benzín: týdenní průměr ČSÚ, v sousedních zemích Oil Bulletin EU; elektroauto: odhad nabíjení DC)">vlastní cena <input class="input xs" type="number" id="gmPrice" step="0.01" min="5" max="150" inputmode="decimal"> <span id="gmPriceUnit">Kč/l</span></label>
                   </div>
                   <span class="faint"><span id="gmWhat">palivo</span> tam i zpět + parkování u letiště podle délky cesty + dálniční známky v cizině, děleno počtem cestujících; „Jen tam“ = někdo tě odveze (jízda tam i zpět, bez parkování)<span id="gmEvNote" hidden>; elektroauto platí parkování i známky stejně (výjimky nepočítám)</span></span></div>
-              </div>
-              <div class="field"><label>Kombinace</label>
-                <label class="check-inline" id="openJawLbl"><input type="checkbox" id="openJaw" checked> návrat i na jiné letiště v okolí</label>
-                <div class="faint oj-hint" id="ojHint" hidden>🚗 Autem se vracíš na letiště, kde parkuje auto – návrat na jiné letiště nehledám.</div>
-                <label class="check-inline"><input type="checkbox" id="directOnly"> jen přímé lety</label>
-              </div>
-              <div class="field"><label>Z letiště do města <span class="lab-hint">jízdné na osobu</span></label>
-                <label class="check-inline"><input type="checkbox" id="arrivalOn" checked> ukázat cestu z letiště do města</label>
+                <label class="check-inline gm-arr"><input type="checkbox" id="arrivalOn" checked> ukázat cestu z letiště do města</label>
                 <div class="faint arr-hint">letištní bus, vlak nebo metro do centra a zpět – vzdálená letiště (Beauvais, Girona, Torp…) bývají dražší i delší</div>
-              </div>
-              <div class="field" style="grid-column:1/-1"><label>🧳 Zavazadla <span class="lab-hint">odhad příplatku aerolinky se přičte k ceně letenky</span></label>
-                <div class="seg wrap" id="bags" role="group" aria-label="Zavazadla"><button type="button" data-b="none" class="on">Jen malé pod sedadlo (v ceně)</button><button type="button" data-b="cabin">+ kabinový kufr do 10 kg</button><button type="button" data-b="checked">+ kufr k odbavení 20 kg</button></div>
-              </div>
-              <div class="field" style="grid-column:1/-1"><label>Dny odletu <span class="lab-hint">nic = libovolný den</span></label>
-                <div class="dow" id="outDays" role="group" aria-label="Dny odletu"></div>
-                <label class="check-inline" id="depAfterLbl" hidden><input type="checkbox" id="depAfterOn" checked> <span id="depAfterTxt"></span></label>
-              </div>
-              <div class="field" style="grid-column:1/-1" id="backDaysField"><label>Dny návratu</label>
-                <div class="dow" id="backDays" role="group" aria-label="Dny návratu"></div>
               </div>
             </div>
           </details>

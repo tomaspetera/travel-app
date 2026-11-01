@@ -627,7 +627,7 @@
   /* ---------- 👥 Cestující: dospělí, děti 2–11 let, miminka do 2 let (okno se stepery) ---------- */
   // Počty jsou ve skrytých polích formuláře (#adults, #children, #infants) – getForm, koncept i hlídání je čtou jako
   // ostatní pole. Na telefonu jen řádek „2 dospělí · 1 dítě“, stepery v okně zespodu; každá změna pošle 'change' jako
-  // jiná políčka (souhrn Další možnosti, náhled letišť autem, rozepsané hledání).
+  // jiná políčka (souhrn Cestující, zavazadla a další, náhled letišť autem, rozepsané hledání).
   const paxNow = () => SearchHelp.paxOf({ adults: $('#adults').value, children: $('#children').value, infants: $('#infants').value });
   function setPax(f) {
     const p = SearchHelp.paxOf(f);
@@ -658,6 +658,15 @@
   }
   // Zavazadla: none = jen malé pod sedadlo (starší uložená hledání a hlídané ceny pole nemají).
   const BAG_LBL = { cabin: 'kabinový kufr', checked: 'kufr k odbavení' };
+  const BAG_SUM = { none: 'jen malé zavazadlo', cabin: 's kabinovým kufrem', checked: 's kufrem k odbavení' };
+  /* Jízdné na letiště: plné (× 1), nebo zaškrtnuté „mám poloviční jízdné“ (× 0,5 – státní sleva žák, student, senior).
+     Násobek zůstává v #kmRate (getForm/setForm, koncept, hlídání ho čtou jako dřív); jiný násobek ze staršího uloženého
+     hledání (0,7, 0 = nepočítat) ukáže pole „jízdné ×“, ať jde vidět a změnit – zaškrtávátko ho jinak neumí. */
+  function paintKmRate() {
+    const inp = $('#kmRate'), k = +inp.value;
+    $('#kmHalf').checked = k === 0.5;
+    if (document.activeElement !== inp) $('#kmRateOwn').hidden = k === 1 || k === 0.5;
+  }
   function setBags(b) { $$('#bags button').forEach(x => x.classList.toggle('on', x.dataset.b === (BAG_LBL[b] ? b : 'none'))); }
   // Na letiště 🚌 veřejnou dopravou / 🚗 autem (starší uložená hledání pole nemají = veřejnou dopravou).
   function setGroundMode(m) {
@@ -873,24 +882,26 @@
     refineUi(multi);
     paintFlHero();
     const f = getForm();
-    const bits = [];
-    if (f.adults !== 1 || f.children || f.infants) bits.push(SearchHelp.paxShort(f));
+    // souhrn pod „Cestující, zavazadla a další“: kdo letí a s čím vždy (cena letenky na tom stojí – i výchozí
+    // „1 dospělý · jen malé zavazadlo“ je dobré vidět bez rozbalení), ostatní jen když se liší od výchozího
+    const bits = [!f.children && !f.infants ? SearchHelp.paxTxt(f) : SearchHelp.paxShort(f), BAG_SUM[f.bags] || BAG_SUM.none];
     if (f.maxPrice) bits.push(`do ${czk(+f.maxPrice)}`);
     $('.gm-field').classList.toggle('gm-off', !f.ground);
     if (!f.ground) bits.push('bez dopravy na letiště');
     else if (f.groundMode === 'car') bits.push(`🚗 na letiště autem (${FUEL_SHORT[f.carFuel] || 'nafta'})`);
     else if (+f.kmRate > 0) { // s jízdným × 0 se doprava nepočítá – ani vlastní ceny (seznam 🏠 je schovaný)
-      if (+f.kmRate !== 1) bits.push(`jízdné × ${String(+f.kmRate).replace('.', ',')}`);
+      if (+f.kmRate === 0.5) bits.push('poloviční jízdné');
+      else if (+f.kmRate !== 1) bits.push(`jízdné × ${String(+f.kmRate).replace('.', ',')}`);
       const own = SearchHelp.ownClean(S.accessOwn) || {}, ks = originPreview.filter(a => !a.off && Object.hasOwn(own, a.iata)).map(a => a.iata);
       if (ks.length) bits.push(`🏠 vlastní cena na letiště ${ks.join(', ')}`);
     } else bits.push('bez dopravy na letiště (jízdné × 0)');
     if (f.arrival === false) bits.push('bez cesty z letiště do města');
     if (f.directOnly) bits.push('jen přímé');
-    if (BAG_LBL[f.bags]) bits.push('🧳 ' + BAG_LBL[f.bags]);
     bits.push(...SearchHelp.dowBits(f)); // „odlet čt, pá nebo so · návrat ne nebo po“ (dřív jen odlet)
     syncDepAfter();
     if (f.depAfter) bits.push(`${fmtDate(f.depAfter.date)} odlet od ${f.depAfter.time}`);
-    $('#moreSummary').textContent = bits.length ? '· ' + bits.join(' · ') : '';
+    $('#moreSummary').textContent = bits.join(' · ');
+    paintKmRate();
     $('#quickDest').querySelectorAll('[data-any]').forEach(b => b.classList.toggle('on', !toInput.items.length));
   }
   /* Délka pobytu → 🎉 Svátky: termín prodlouženého víkendu jako karta radaru (SearchHelp.holidayDates) */
@@ -1171,6 +1182,9 @@
     const aps = originPreview.filter(a => !a.off && a.ground && a.ground.mode === 'transit' && !a.ground.off);
     box.hidden = !aps.length;
     const own = S.accessOwn || {};
+    // sbalený seznam: kolik letišť a kde už počítám s tvou cenou (rozbalovat jen kvůli kontrole nemusíš)
+    const mine = aps.filter(a => Object.hasOwn(own, a.iata)).map(a => a.iata);
+    $('#gmOwnSum').textContent = mine.length ? `tvoje: ${mine.join(', ')}` : `${aps.length} ${aps.length === 1 ? 'letiště' : aps.length <= 4 ? 'letiště' : 'letišť'}`;
     const item = a => {
       const g = a.ground, est = g.own ? g.estCzk : g.czk, v = Object.hasOwn(own, a.iata) ? own[a.iata] : '';
       return { v, est, how: (a.seasonal ? `☀️ ${a.seasonal} · ` : '') + ownHow(g), title: `${a.name} – odhad ~${czk(est)} na osobu tam${v !== '' ? `, počítám s tvou cenou ${czk(v)}` : ''}` };
@@ -1264,6 +1278,9 @@
     ['#nMin', '#nMax'].forEach(s => $(s).oninput = () => { $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); syncHoliday(); });
     $('#radius').oninput = () => { $('#radiusVal').textContent = $('#radius').value + ' km'; refreshOrigins(); updateHomeChip(); mlHomeChanged(); };
     ['#groundOn', '#kmRate'].forEach(s => $(s).onchange = () => { refreshOrigins(); syncFormUI(); paintGroundStale(); });
+    // zaškrtávátko jen přepíše násobek – change z #kmRate pak udělá totéž co ruční změna (náhled letišť, ↻ Přepočítat);
+    // vlastní change zaškrtávátka formulář nepotřebuje (stopPropagation: formEdited by běželo dvakrát)
+    $('#kmHalf').onchange = e => { e.stopPropagation(); $('#kmRate').value = e.target.checked ? '0.5' : '1'; $('#kmRate').dispatchEvent(new Event('change', { bubbles: true })); };
     $$('#groundMode button').forEach(b => b.onclick = () => { setGroundMode(b.dataset.g); refreshOrigins(); syncFormUI(); paintGroundStale(); });
     // autem: pohon (spotřeba a vlastní cena se pamatují pro každý zvlášť), spotřeba, vlastní cena
     $$('#gmFuel button').forEach(b => b.onclick = () => { readCar(); setCarFuel(b.dataset.f); refreshOrigins(); syncFormUI(); paintGroundStale(); });
@@ -1935,7 +1952,7 @@
   /** Patička výsledků: jak se počítá doprava na letiště. */
   function groundFoot(res, multi = false) {
     const q = res.query;
-    if (!q.kmRate) return 'doprava na letiště se neukazuje (vypnuto v Další možnosti)';
+    if (!q.kmRate) return 'doprava na letiště se neukazuje (vypnuto v Cestující, zavazadla a další)';
     if (res.origins && res.origins.length && !res.origins.some(o => o && o.ground)) return 'doprava na letiště se neukazuje (odkud je celá země – není odkud ji počítat)';
     const where = multi ? 'na letiště na začátku cesty a z letiště domů' : 'na letiště a zpět';
     if (q.groundMode === 'car') {
@@ -1947,7 +1964,7 @@
         : `zpět jen na letiště, kde auto stojí; autem jen tam = odvoz – ${fuel} tam i zpět, bez parkování`})`;
     }
     const own = (res.origins || []).filter(o => o.ground && o.ground.own).map(o => o.iata);
-    return `doprava ${where} veřejnou dopravou je odhad (jízdenka vlak/bus do města letiště za běžnou cenu podle vzdálenosti a živých cen RegioJetu + MHD nebo vlak na letiště, případně přímý bus až na letiště s příplatkem za mezinárodní spoj${q.kmRate !== 1 ? `; odhad jízdného × ${String(q.kmRate).replace('.', ',')}` : ''}${own.length ? `; ${own.join(', ')} – vlastní cena z 🏠 Kolik tě stojí cesta na letiště${q.kmRate !== 1 ? ', bez násobku' : ''}` : ''})`;
+    return `doprava ${where} veřejnou dopravou je odhad (jízdenka vlak/bus do města letiště za běžnou cenu podle vzdálenosti a živých cen RegioJetu + MHD nebo vlak na letiště, případně přímý bus až na letiště s příplatkem za mezinárodní spoj${q.kmRate === 0.5 ? '; poloviční jízdné' : q.kmRate !== 1 ? `; odhad jízdného × ${String(q.kmRate).replace('.', ',')}` : ''}${own.length ? `; ${own.join(', ')} – vlastní cena z ✏️ Uprav cenu u letišť${q.kmRate !== 1 ? ', bez násobku' : ''}` : ''})`;
   }
   /* ---------- cesta z letiště do města (server/lib/arrival.js; tabulka ověřená 10/2026, jinde odhad) ---------- */
   /** Štítky u nabídky – „🚌 z letiště BVA do Paříže 17,90 € (~440 Kč) · 1 h 15“, drahé nebo dlouhé varovně. */
@@ -1976,7 +1993,7 @@
   };
   const arrivalFoot = (res, multi = false) => (res.query.arrival
     ? `cesta z letiště ${multi ? 'do měst na cestě a z nich zpět na letiště' : 'do města a zpět na letiště'}: jízdné letištního busu, vlaku nebo metra ${arrivalChecked(res) ? `ověřené${arrivalChecked(res)}` : 'z ověřené tabulky'}, jinde odhad`
-    : 'cesta z letiště do města se neukazuje (vypnuto v Další možnosti)');
+    : 'cesta z letiště do města se neukazuje (vypnuto v Cestující, zavazadla a další)');
   /**
    * „🛫 Odkud se vyplatí letět“: nejlevnější letenky z každého letiště (ze všech nalezených nabídek, server o.best)
    * proti nejbližšímu – sbalená karta, souhrn odpoví hned. Klepnutí na letiště = jen lety odsud, další klepnutí = všechna.
@@ -2169,7 +2186,7 @@
   function fxFoot(res) { return res.fx ? `1 EUR = ${res.fx.eurCzk.toFixed(2).replace('.', ',')} Kč (${esc(res.fx.source)})` : '—'; }
   // Co je v ceně za zavazadla (patička výsledků); příplatky jsou jen odhad podle dopravce.
   function bagFoot(bags) {
-    if (!BAG_LBL[bags]) return 'jen s malým zavazadlem pod sedadlo (kufr si přidej v „Další možnosti → 🧳 Zavazadla“)';
+    if (!BAG_LBL[bags]) return 'jen s malým zavazadlem pod sedadlo (kufr si přidej v „Cestující, zavazadla a další → 🧳 Zavazadla“)';
     return `vč. odhadu příplatku za ${bags === 'cabin' ? 'kabinový kufr do 10 kg' : 'kufr k odbavení 20–23 kg (kabinový kufr se nepočítá)'} – typická cena u dopravce při nákupu s letenkou, přesnou ukáže až rezervace`;
   }
 
