@@ -875,8 +875,9 @@ function showNow() {
    Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
    od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
-const WN_ID = '2026-11-01';
+const WN_ID = '2026-11-01b';
 const WHATS_NEW = [
+  ['✏️', 'Cestu upravíš i po uložení', 'v <b>Cesty</b> → Moje cesty otevři cestu a klepni na <b>✏️ Upravit název a termín</b> – přejmenuješ ji, posuneš termín (program dnů se posune s ním) nebo změníš počet cestujících. Dřív to šlo jen smazat a založit znovu.'],
   ['✨', 'Hledání větou rozumí víc', 'napiš třeba <b>„Kanáry přes Vánoce a Silvestr“</b>, <b>„Londýn na Den boje za svobodu“</b>, <b>„Řím s dětmi 5 a 8 let“</b> nebo <b>„Vídeň 4.–6. 12. nebo 11.–13. 12.“</b> – termín, délku i počet lidí nastaví ATLAS sám. Funguje v <b>Letech</b> i v <b>Objevuj</b>.'],
   ['🔎', 'Země na mapu napsáním', 'pod mapou ve <b>Světě</b> napiš začátek názvu („ital“, „usa“) a klepni – malé země už nemusíš trefovat v mapě.'],
   ['🗺️', 'Svět zná tvoje cesty', 'pod mapou jsou země z proběhlých cest, které na ní ještě chybí – klepnutím je přidáš. V detailu země (<b>Svět → Země</b>, <b>Doporučení</b>) je nahoře tvoje nadcházející cesta tam – klepnutím ji otevřeš.'],
@@ -2110,6 +2111,55 @@ function rideEd(r) {
   return `<div class="ride-ed" data-ride="${esc(r.key)}"><div class="ride-h">${r.kind === 'bus' ? '🚌' : '🚆'} <b>${esc(r.from)} → ${esc(r.to)}</b>${r.min ? ` <span class="faint">· ~${hmTxt(r.min)}</span>` : ''}</div>`
     + `<div class="ride-in">${f('dep', 'Odjezd', ' type="time"')}${f('plat', 'Nástupiště', ' maxlength="12"')}${f('seat', 'Vůz / místo', ' maxlength="30"')}${f('kod', 'Kód jízdenky', ' maxlength="40" autocapitalize="characters" spellcheck="false"')}</div></div>`;
 }
+/**
+ * Nový termín cesty: aktivity dnů se posunou s odjezdem (den 1 zůstane dnem 1); dny za novým návratem se přidají
+ * k poslednímu dni a dny před odjezdem k prvnímu – nic se neztratí. Bez původního odjezdu se jen srovnají do termínu.
+ */
+function shiftDays(days, oldStart, start, end) {
+  const off = okYmd(oldStart) && okYmd(start) ? Math.round((Date.parse(start) - Date.parse(oldStart)) / 864e5) : 0;
+  const out = {};
+  for (const d of Object.keys(days || {}).filter(okYmd).sort()) {
+    const items = Array.isArray(days[d]) ? days[d] : [];
+    if (!items.length) continue;
+    let k = new Date(Date.parse(d + 'T00:00:00Z') + off * 864e5).toISOString().slice(0, 10);
+    if (okYmd(end) && k > end) k = end;
+    if (okYmd(start) && k < start) k = start;
+    out[k] = [...(out[k] || []), ...items];
+  }
+  return out;
+}
+/**
+ * ✏️ Upravit v detailu cesty: název, termín a počet cestujících (dřív jen při vytvoření – překlep nebo posunutá cesta
+ * znamenaly smazat a založit znovu). Cesta z průvodce má termín a cestující podle letu – ty se mění v průvodci (při
+ * dalším uložení by je průvodce stejně přepsal); vlastní název jí průvodce nechá.
+ */
+function editTrip(i) {
+  const t = S.trips[i]; if (!t) return;
+  const fixed = Boolean(t.wizard);
+  modalOpen(`<div class="modal-hero"><div class="mh-bg"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><h2 style="font-size:24px">✏️ Upravit cestu</h2><div style="font-size:13px">${esc(t.dest)}</div></div></div>
+  <div class="modal-body">
+    <div class="field"><label for="etName">Název cesty</label><input class="input" id="etName" value="${esc(t.name || '')}" maxlength="120"></div>
+    ${fixed ? `<div class="note info" style="margin-top:12px">📅 ${t.start ? esc(dateSpan(t.start, t.end, ' – ')) + ' – ' : ''}termín a počet cestujících jsou podle letu, změníš je v průvodci (🧳 Otevřít v průvodci).</div>`
+    : `<div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px"><div class="field"><label for="etStart">Odjezd</label><input class="input" type="date" id="etStart" value="${okYmd(t.start) ? t.start : ''}"></div><div class="field"><label for="etEnd">Návrat</label><input class="input" type="date" id="etEnd" value="${okYmd(t.end) ? t.end : ''}" min="${okYmd(t.start) ? t.start : ''}"></div></div>
+    <div class="faint" style="font-size:12px;margin-top:6px">Program dnů se posune s odjezdem; co by vypadlo za návrat, přidám k poslednímu dni.</div>
+    <div class="field" style="margin-top:12px"><label for="etPax">Cestující</label><select id="etPax">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<option ${n === (+t.pax || 2) ? 'selected' : ''}>${n}</option>`).join('')}</select></div>`}
+    <div class="row" style="gap:8px;margin-top:18px"><button class="btn primary" style="flex:1" id="etSave">Uložit</button><button class="btn ghost" id="etBack">Zpět</button></div>
+  </div>`);
+  const st = $('#etStart'); if (st) st.onchange = e => { $('#etEnd').min = e.target.value; if ($('#etEnd').value && $('#etEnd').value < e.target.value) $('#etEnd').value = e.target.value; };
+  $('#etBack').onclick = () => openTrip(i);
+  $('#etSave').onclick = () => {
+    const x = S.trips[i]; if (x !== t) return modalClose(); // mezitím smazaná nebo jiná cesta (jiný panel, záloha)
+    const name = $('#etName').value.trim();
+    if (!fixed) {
+      const start = $('#etStart').value, end = $('#etEnd').value;
+      if (start && end && end < start) { toast('Návrat je před odjezdem', 'err'); return; }
+      if (start !== (t.start || '') || end !== (t.end || '')) { t.days = shiftDays(t.days, t.start, start, end || start); t.start = start; t.end = end; }
+      t.pax = $('#etPax').value;
+    }
+    if (name) t.name = name;
+    save(); tripsChanged(); openTrip(i); toast('Cesta upravená');
+  };
+}
 function openTrip(i) {
   flushRide(); // rozepsané pole vlaku (rideSoon) napřed uložit – překreslené okno ho ukáže
   const t = S.trips[i]; if (!t) return; tripShown = t; const c = t.iso ? byIso[t.iso] : null; const city = c && c.cap ? c.cap : t.dest;
@@ -2138,7 +2188,7 @@ function openTrip(i) {
       <div><h3 style="font-size:16px;margin-bottom:10px">💰 Rozpočet</h3><div class="field"><label for="bud-${i}">Celkový rozpočet (Kč)</label><input class="input" type="number" id="bud-${i}" value="${esc(t.budget || '')}"></div>${t.budget ? `<div class="muted" style="font-size:13px;margin-top:10px">Na osobu: <b style="color:var(--text)">${Math.round(t.budget / (t.pax || 1)).toLocaleString('cs')} Kč</b></div>` : ''}<div class="field" style="margin-top:14px"><label for="notes-${i}">Poznámky</label><textarea id="notes-${i}" rows="3" placeholder="Cokoliv k cestě…">${esc(t.notes || '')}</textarea></div></div>
     </div>`,
   };
-  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div></div></div>
+  modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(t.iso) : '🧳'}</div><h2 style="font-size:25px;margin-top:4px;overflow-wrap:anywhere">${esc(t.name)}</h2><div style="font-size:13px">${esc(t.dest)}${t.start ? ' · ' + dateSpan(t.start, t.end, ' – ') : ''} · ${t.pax} os.</div><button type="button" class="trip-edit" id="tripEdit">✏️ Upravit název a termín</button></div></div>
   <div class="modal-body">
     ${tripOrder(live).map(k => part[k]).join('\n    ')}
     <div class="divider"></div>
@@ -2174,6 +2224,7 @@ function openTrip(i) {
   $$('[data-delref]', m).forEach(x => { x.onclick = () => delRef(i, +x.dataset.delref); });
   $$('[data-addref]', m).forEach(x => { x.onclick = () => addRef(i); });
   $('#tripDel').onclick = () => delTrip(i);
+  $('#tripEdit').onclick = () => editTrip(i);
   // termíny míst trasy počítá průvodce (routeStays – Trip.baseDates): klepnutí před jeho dostažením na něj počká
   // hotel vybraný v průvodci (cesta uložená z průvodce) první, obecné odkazy jen pod ním
   const ts = $('#tripStay'); if (ts) ts.onclick = () => withMod('trip', () => routeStays(t) || openStay(oneCity ? t.dest : city, t.start || '', t.end || '', +t.pax || 2, { chosen: stayChoice((tripWiz(t) || {}).stay) }));
