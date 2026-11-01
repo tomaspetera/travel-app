@@ -733,7 +733,13 @@
         if (w === '~' && from.length > n) soft = from[from.length - 1];
         continue;
       }
-      if (/^[,/;&+]$/.test(w) || w === 'a' || w === 'nebo' || w === 'ci') { flush(); backNext = false; continue; }
+      if (/^[,/;&+]$/.test(w) || w === 'a' || w === 'nebo' || w === 'ci') {
+        // „zpět do Prahy nebo Brna“ (i „…, nebo Brna“): i druhé místo je domov, ne další cíl (dřív Brno do kam)
+        const homeOr = (w === 'nebo' || w === 'ci') && ((mode === 'home' && cur.length > 0) || afterHome);
+        flush(); backNext = false;
+        if (homeOr) mode = 'home';
+        continue;
+      }
       // „zpět z X“ / „návrat z X“ (ne „tam a zpět“): X je místo návratu
       if (/^(?:zpet|zpatky|navrat\w*)$/.test(w)) { flush(); backNext = true; justBack = true; continue; }
       if (backNext && (w === 'z' || w === 'ze' || w === 'od')) { backNext = false; mode = 'back'; continue; }
@@ -763,13 +769,16 @@
     // „zpátky do Brna z Londýna“: jediné místo kam = cíl; „z Vídně do Londýna a zpět do Prahy“ (návrat jinam): návrat do
     // jiného města (backTo – 2 lety jako „a zpět z Neapole“), ne druhý cíl
     // „z Brna … a zpět do Brna“ = obyčejná zpáteční; řetězec („Praha → Řím → Barcelona a zpět do Prahy“) končí doma jako dřív
+    // „zpět do Prahy nebo Brna“: víc míst domova – všechna odkud (návrat i na jiné letiště v okolí je hledá), resp. kam;
+    // návrat jinam (backTo) jen do prvního
     let backTo = null;
     if (home.length) {
       const h = home[0], same = from.some(x => fold(x) === fold(h));
+      const more = home.filter((x, i) => i > 0 && !from.some(y => fold(y) === fold(x)));
       if (arrows) to.push(h);
-      else if (!from.length) from.push(h);
-      else if (same) { /* návrat do odkud – nic navíc */ }
-      else if (!to.length) to.push(h);
+      else if (!from.length) from.push(...home);
+      else if (same) from.push(...more); // „z Prahy … a zpět do Prahy nebo Brna“: i Brno
+      else if (!to.length) to.push(...home);
       else if (homeFrom >= 0 && homeFrom < from.length) { /* odkud až za „zpět do“ – nejasné, návrat jinam se nehledá */ }
       else backTo = h;
     }
@@ -792,6 +801,13 @@
     } else if (len && len.n) Object.assign(patch, { len: 'custom', nMin: len.lo || len.n, nMax: len.hi || len.n, outDays: len.out || patch.outDays || [], backDays: len.back || [] });
 
     // --- termín → pole formuláře ---
+    // „Vánoce a Silvestr na 3 noci“: Štědrý den i Silvestr se do pobytu pod 8 nocí nevejdou – odlet kdykoli od 23. 12.
+    // tak, aby i nejkratší pobyt skončil do 2. 1. (flexibilně s tou délkou); dřív přesně 23. 12. – 2. 1. a délka se
+    // tiše zahodila. „Na týden“ (až 9 nocí) obojí pokryje – dál přesně 23. 12. – 2. 1. ± 1 den, nad 10 nocí dřívější odlet (níž).
+    if (dates && dates.xmasNy && patch.nMax != null && patch.nMax < 8) {
+      const last = [addDays(dates.back, -patch.nMin), dates.out].sort()[1];
+      dates = { from: dates.out, to: last, label: `Vánoce i Silvestr – odlet ${dm(dates.out)} – ${dm(last)}` };
+    }
     // svátek a k němu delší pobyt („na Silvestra na týden“): odlet v okolí svátku s tou délkou, ne prodloužený víkend
     if (dates && dates.holiday && (len === 'week' || len === '2weeks' || (len && len.n >= 4))) {
       dates = { from: [addDays(today, 1), addDays(dates.holiday.start, -3)].sort()[1], to: dates.holiday.start, label: dates.label };

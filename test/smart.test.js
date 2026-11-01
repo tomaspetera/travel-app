@@ -1066,3 +1066,39 @@ test('kontrola dnešních pravidel: svátky, „zpět do“, tři termíny, pře
   assert.ok(PL('o Vánocích do Říma', '2026-12-25').patch.dFrom <= PL('o Vánocích do Říma', '2026-12-25').patch.dTo);
   assert.equal(PL('do Říma přes Vánoce a Silvestr', '2026-12-26').patch.xOut, '2026-12-27');
 });
+
+test('„zpět do Prahy nebo Brna“: i druhé místo je domov (odkud), ne další cíl – dřív Brno do kam', () => {
+  const ft = (q) => { const r = P(q); return [r.from, r.to]; };
+  assert.deepEqual(ft('Londýn a zpět do Prahy nebo Brna'), [['Prahy', 'Brna'], ['Londýn']]);
+  assert.deepEqual(ft('do Říma a zpátky do Brna nebo Vídně'), [['Brna', 'Vídně'], ['Říma']]);
+  assert.deepEqual(ft('do Londýna a zpět do Prahy, nebo Brna'), [['Prahy', 'Brna'], ['Londýna']]);
+  // odkud už je Praha: přidá se jen Brno
+  assert.deepEqual(ft('z Prahy do Londýna a zpět do Prahy nebo Brna'), [['Prahy', 'Brna'], ['Londýna']]);
+  // „z Londýna zpět do Prahy nebo Brna“: cíl ještě není – obě místa jsou kam (dřív Praha zmizela)
+  assert.deepEqual(ft('z Londýna zpět do Prahy nebo Brna v prosinci'), [['Londýna'], ['Prahy', 'Brna']]);
+  // návrat jinam (2 lety) jen do prvního
+  const r = P('z Vídně do Londýna a zpět do Prahy nebo Brna');
+  assert.deepEqual([r.from, r.to, r.backTo], [['Vídně'], ['Londýna'], 'Prahy']);
+  // „nebo“ mezi cíli dál cíle
+  assert.deepEqual(ft('do Říma nebo Milána a zpět do Prahy'), [['Prahy'], ['Říma', 'Milána']]);
+});
+
+test('„Vánoce a Silvestr na 3 noci“: krátký pobyt – odlet kdykoli 23.–30. 12. s tou délkou (dřív přesně 23. 12. – 2. 1. a délka pryč)', () => {
+  const t = '2026-11-01';
+  const r = P('Kanáry přes Vánoce a Silvestr na 3 noci', t);
+  assert.deepEqual(chips(r), ['Vánoce i Silvestr – odlet 23. 12. – 30. 12.', '3 noci']);
+  assert.equal(r.patch.dateMode, 'flex');
+  assert.deepEqual([r.patch.dFrom, r.patch.dTo, r.patch.nMin, r.patch.nMax], ['2026-12-23', '2026-12-30', 3, 3]);
+  // prodloužený víkend (3–5 nocí): nejkratší pobyt skončí 2. 1.
+  const lw = P('přes Vánoce a Silvestr na prodloužený víkend', t).patch;
+  assert.deepEqual([lw.dateMode, lw.dFrom, lw.dTo], ['flex', '2026-12-23', '2026-12-30']);
+  // 7 nocí: 23.–26. 12.
+  assert.deepEqual(chips(P('Vánoce a Silvestr na 7 nocí', t))[0], 'Vánoce i Silvestr – odlet 23. 12. – 26. 12.');
+  // týden obojí pokryje – dál přesně kolem svátků; 2 týdny dřívější odlet (beze změny)
+  assert.deepEqual(chips(P('přes Vánoce a Silvestr na týden', t)), ['Vánoce i Silvestr (23. 12. – 2. 1. ± 1 den)']);
+  assert.deepEqual(chips(P('Vánoce i Silvestr v Lisabonu na 2 týdny', t)), ['Vánoce i Silvestr (19. 12. – 2. 1. ± 1 den)']);
+  assert.deepEqual(chips(P('přes Vánoce a Silvestr do Říma', t)), ['Vánoce i Silvestr (23. 12. – 2. 1. ± 1 den)']);
+  // po Vánocích (27. 12.): okno od zítřka
+  const late = P('Vánoce a Silvestr na 3 noci', '2026-12-27').patch;
+  assert.deepEqual([late.dFrom, late.dTo], ['2026-12-28', '2026-12-30']);
+});
