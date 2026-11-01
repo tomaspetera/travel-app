@@ -1016,3 +1016,53 @@ test('„z Vídně do Londýna a zpět do Prahy“: návrat do jiného města (b
   assert.match(src, /if \(\(hit\.back \|\| hit\.backTo\) && hit\.to\.length === 1\) return smartBackRun\(hit, from\);/);
   assert.match(src, /\{ from: \[hit\.back \|\| hit\.to\[0\]\], to: hit\.backTo \? \[hit\.backTo\] : home, date: ds\[1\], flex: 0 \}/);
 });
+
+test('kontrola dnešních pravidel: svátky, „zpět do“, tři termíny, překlepy vs. místa, věk dětí, „kolem 10. hodiny“', () => {
+  const PL = (q, t = '2026-11-01') => JSON.parse(JSON.stringify(Smart.parse(q, { today: t, presets, holidays: H.holidayList(t), holidayDates: H.holidayDates, longWeekend: H.longWeekend })));
+  // druhý svátek ve větě: ne „období kolem“, ale Vánoce i Silvestr
+  for (const q of ['Kanáry přes Vánoce do Nového roku', 'Kanáry od Vánoc do Silvestra', 'Kanáry na Vánoce a zpátky po Silvestru']) {
+    assert.deepEqual([PL(q).patch.xOut, PL(q).patch.xBack], ['2026-12-23', '2027-01-02'], q);
+  }
+  assert.deepEqual(PL('Londýn na Vánoce a zpět před Silvestrem').to, ['Londýn']);
+  // „po“ svátku = poslední, jehož 3 týdny ještě běží; „do Vánoc“ daleko dopředu ne (drahé hledání)
+  assert.deepEqual([PL('po Vánocích do Londýna', '2026-12-27').patch.dFrom, PL('po Vánocích do Londýna', '2026-12-27').patch.dTo], ['2026-12-28', '2027-01-16']);
+  assert.equal(PL('Londýn po Novém roce', '2027-01-01').patch.dTo, '2027-01-22');
+  assert.notEqual(chips(PL('Řím do Vánoc', '2027-03-20'))[0], 'do Vánoc');
+  // „zpět do“ odkud = obyčejná zpáteční; řetězec končí doma
+  const b = PL('z Brna do Londýna a zpět do Brna o víkendu');
+  assert.deepEqual([b.from, b.to, b.backTo, b.patch.len], [['Brna'], ['Londýna'], undefined, 'weekend']);
+  assert.deepEqual(PL('Praha → Řím → Barcelona a zpět do Prahy').to, ['Řím', 'Barcelona', 'Prahy']);
+  const n = PL('do Říma a zpět do Prahy z Neapole');
+  assert.deepEqual([n.from, n.to, n.back], [['Prahy'], ['Říma'], 'Neapole']);
+  assert.deepEqual(PL('zpátky do Brna z Londýna v neděli').to, ['Brna']);
+  assert.deepEqual([PL('z Vídně do Londýna a pak zpět do Prahy').to, PL('z Vídně do Londýna a pak zpět do Prahy').backTo], [['Londýna'], 'Prahy']);
+  // čas za „zpět do“ není místo
+  assert.deepEqual(PL('Londýn v pátek a zpět do pondělka').from, []);
+  // tři termíny „nebo“; první proběhlý → druhý
+  const r3 = PL('Řím 4.–6. 12. nebo 11.–13. 12. nebo 18.–20. 12.');
+  assert.deepEqual([r3.patch.dFrom, r3.patch.dTo, r3.patch.nMin], ['2026-12-04', '2026-12-18', 2]);
+  assert.deepEqual([PL('do Říma 4.–6. 12. nebo 11.–13. 12.', '2026-12-05').patch.xOut], ['2026-12-11']);
+  // přídavná jména míst nejsou překlep měsíce
+  assert.deepEqual([PL('v Červené Lhotě').to, PL('v Červené Lhotě').patch.dFrom], [['Červené Lhotě'], undefined]);
+  assert.deepEqual(PL('v Červeném Kostelci na víkend').to, ['Červeném Kostelci']);
+  assert.deepEqual([PL('Londýn o víkendu v prosnci').to, PL('Londýn o víkendu v prosnci').patch.dFrom], [['Londýn'], '2026-12-01']);
+  assert.deepEqual([PL('Londýn prodloužený vykend').to, PL('Londýn prodloužený vykend').patch.len], [['Londýn'], 'long']);
+  // nejbližší prodloužený víkend s měsícem = ten měsíc
+  assert.deepEqual([PL('Paříž nejbližší prodloužený víkend v prosinci').to, PL('Paříž nejbližší prodloužený víkend v prosinci').patch.dFrom], [['Paříž'], '2026-12-01']);
+  // věk s jednotkou u každého dítěte
+  assert.equal(PL('Řím s dětmi 5 let a 8 let').patch.children, 2);
+  assert.equal(PL('s dětmi 3 roky a 5 let do Říma').patch.children, 2);
+  // Vánoce bez Silvestra
+  for (const q of ['Londýn na Vánoce, ne na Silvestra', 'Vánoce v Londýně, Silvestr doma', 'Kanáry na Vánoce nebo Silvestr']) assert.equal(PL(q).patch.len, 'holiday', q);
+  // „kolem 10. hodiny“ není datum ± 2
+  assert.equal(PL('Řím 15.12. odlet kolem 10. hodiny').patch.xFlex, 0);
+  assert.deepEqual(PL('Řím 15.12. odlet kolem 10. hodiny').to, ['Řím']);
+  // svátek během vlastního prodlouženého víkendu: okno ne obráceně
+  const d = PL('Paříž na Den boje za svobodu', '2026-11-14');
+  assert.ok(d.patch.dFrom <= d.patch.dTo);
+  assert.equal(PL('na Valentýna do Paříže', '2027-02-13').patch.dFrom, '2027-02-13');
+  assert.deepEqual(PL('z Prahy na náměstí svatého Václava').patch.dFrom, undefined);
+  // Vánoce po Štědrém dni: příští, ne prázdné okno; Vánoce i Silvestr ještě letos
+  assert.ok(PL('o Vánocích do Říma', '2026-12-25').patch.dFrom <= PL('o Vánocích do Říma', '2026-12-25').patch.dTo);
+  assert.equal(PL('do Říma přes Vánoce a Silvestr', '2026-12-26').patch.xOut, '2026-12-27');
+});
