@@ -919,12 +919,15 @@
     take(new RegExp(`(\\d{1,3})\\s*km${W}`), m => { km = +m[1]; });
     take(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:den|dny|dni|dnu)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 14)) return false; days = n; });
     // „na den“ = 1 den; „procházka po Budapešti“ – procházka není místo (místo je za „po“)
-    take(new RegExp(`na\\s+(?:jeden\\s+)?den${W}`), () => { days = days || 1; });
+    // („na Den boje za svobodu“, „na Den vítězství“ je svátek, ne 1 den – dřív místo „Paříž boje“ a 1 den)
+    take(new RegExp(`na\\s+(?:jeden\\s+)?den${W}(?!\\s+(?:boje|vitezstvi|osvobozeni|ceske))`), () => { days = days || 1; });
     take(new RegExp(`(?:na\\s+)?(?:prochazk\\w*|prochazet|projit\\s+se)${W}`), () => {});
     // víkend bez data („Porto na víkend“): od soboty nejbližšího víkendu (prodloužený od pátku), „příští víkend“ o týden dál
-    let wk = null;
+    let wk = null, nearLw = null;
     take(new RegExp(`(?:(?:na|o|pres)\\s+)?(?:(pristi|dalsi|tento|tenhle|nejblizsi)\\s+)?(?:prodlouzen\\w+\\s+)?vikend\\w*${W}`), m => {
       const long = /prodlouz/.test(m[0]);
+      // „nejbližší prodloužený víkend“ se seznamem svátků: ten skutečný (první ze seznamu), ne nejbližší pátek
+      if (long && /nejblizsi/.test(m[1] || '') && (o.holidays || []).length) { nearLw = o.holidays[0]; return; }
       days = days || (long ? 3 : 2);
       wk = { long, next: /pristi|dalsi/.test(m[1] || '') };
     });
@@ -948,6 +951,15 @@
     // „Paříž 20.–23. 11.“: dny z rozsahu dat (dřív jen začátek a program na výchozí počet dní)
     if (!days && p.backSet && pt.xOut && pt.xBack) { const n = Math.round((Date.parse(pt.xBack) - Date.parse(pt.xOut)) / 864e5) + 1; if (n >= 1 && n <= 14) days = n; }
     if (!start && pt.outDays && pt.outDays.length === 1) { const t = o.today || ymd(new Date()); start = addDays(t, (pt.outDays[0] - dow(t) + 7) % 7); }
+    if (nearLw && !start) { start = nearLw.start; days = days || Math.min(14, (nearLw.nights || 2) + 1); }
+    // svátek („o Vánocích“, „na Den boje za svobodu“): od prvního volného dne celý prodloužený víkend (noci + 1 den) –
+    // dřív od večera před ním bez počtu dní
+    if (pt.len === 'holiday' && pt.dTo) { start = pt.dTo; days = days || Math.min(14, (pt.nMin || 2) + 1); }
+    // víkend z věty pro lety („na Mikuláše“ = víkend kolem 5. 12., „na prodloužený víkend“): jako „na víkend“ tady
+    if (!wk && (pt.len === 'weekend' || pt.len === 'long')) { wk = { long: pt.len === 'long', next: false }; days = days || (wk.long ? 3 : 2); }
+    // víkend v pružném termínu („o víkendu v prosinci“, „adventní trhy na víkend“): od první soboty v něm (prodloužený od
+    // pátku) – dřív od 1. 12. (úterý)
+    if (start && wk && !pt.xOut) { const sat = addDays(start, (6 - dow(start) + 7) % 7), s0 = wk.long ? addDays(sat, -1) : sat; if (!pt.dTo || s0 <= pt.dTo) start = s0 < start ? start : s0; }
     if (!start && wk) {
       // v neděli už ten příští (jako „tento víkend“ u letů); prodloužený v sobotu = od dneška
       const t = o.today || ymd(new Date()), sat = addDays(t, ((6 - dow(t) + 7) % 7) + (wk.next ? 7 : 0)), s0 = wk.long ? addDays(sat, -1) : sat;

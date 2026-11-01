@@ -924,3 +924,19 @@ test('měsíc navíc k datu v něm („Řím 4.–6. 12. v prosinci“) není m�
   // jiný měsíc než datum: nic se nepolyká potichu (rozpor zůstane vidět)
   assert.deepEqual(P('Řím 12.11. v prosinci', t).to, ['Řím', 'prosinci']);
 });
+
+test('Objevuj větou: svátek a víkend v měsíci – začátek a počet dní („na Den boje za svobodu“, „o víkendu v prosinci“)', () => {
+  const t = '2026-11-01';
+  const E = (q, hol = true) => JSON.parse(JSON.stringify(Smart.parseExplore(q, { today: t, ...(hol ? { holidays: H.holidayList(t), holidayDates: H.holidayDates, longWeekend: H.longWeekend } : {}) })));
+  // „na Den“ tu není „na den“ (1 den) – dřív místo „Paříž boje“
+  assert.deepEqual([E('Paříž na Den boje za svobodu').place, E('Paříž na Den boje za svobodu').start, E('Paříž na Den boje za svobodu').days], ['Paříž', '2026-11-14', 4]);
+  assert.deepEqual([E('Řím o Vánocích').start, E('Řím o Vánocích').days], ['2026-12-24', 4]);
+  assert.deepEqual([E('Krakov na nejbližší prodloužený víkend').start, E('Krakov na nejbližší prodloužený víkend').days], ['2026-11-14', 4]);
+  // víkend v pružném termínu: od první soboty v něm
+  assert.deepEqual([E('Vídeň o víkendu v prosinci').start, E('Vídeň o víkendu v prosinci').days], ['2026-12-05', 2]);
+  assert.equal(E('Drážďany adventní trhy na víkend').start, '2026-11-28');
+  assert.deepEqual([E('Londýn na Mikuláše').start, E('Londýn na Mikuláše').days], ['2026-12-05', 2]);
+  // beze změny
+  assert.equal(E('Praha na den').days, 1);
+  assert.deepEqual([E('Porto na víkend').start, E('Krakov na prodloužený víkend').start], ['2026-11-07', '2026-11-06']);
+});
