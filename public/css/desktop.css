@@ -5,6 +5,8 @@
    (--section), nadpisy na fotkách čitelné (tmavý přechod zleva pod textem). Telefon a tablet (< 1024 px) beze změny –
    všechna pravidla jsou jen v @media (min-width:1024px). Načítá se jako poslední styl. */
 @media (min-width:1024px){
+  /* hláška uprostřed obsahu, ne přes postranní panel (dlouhá hláška s tlačítkem dřív blokovala odkazy v panelu) */
+  .toast{left:calc(50% + 124px);max-width:calc(100vw - 280px)}
   :root{--content-max:1240px;--gutter:40px;--gap:24px;--section:40px;--card-min:228px}
 
   /* ---------- kontejner: horní lišta i obsah se stejnými okraji (pozadí lišty dál přes celou šířku) ---------- */
@@ -133,6 +135,7 @@
 @media (min-width:1024px) and (max-width:1279px){
   :root{--gutter:28px}
   .app{grid-template-columns:216px 1fr}
+  .toast{left:calc(50% + 108px);max-width:calc(100vw - 248px)}
   #view-flights .search-card,.search-card.on-hero{margin-left:12px;margin-right:12px;padding:22px}
 }
 /* široký monitor: o trochu širší obsah (stále uprostřed) */
