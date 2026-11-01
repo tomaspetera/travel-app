@@ -413,7 +413,7 @@ test('štítek u nabídky: „🚌 z letiště BVA do Paříže 17,90 € (~440 
   assert.match(H.arrivalChips({ out: { to: 'AMS' } }, { AMS: A.arrivalTransfer('AMS') })[0].title, /Zdroj \(sekundární, oficiální neuvádí\): rijdendetreinen\.nl/);
   assert.match(H.arrivalChips({ out: { to: 'LGW' } }, ARR)[0].title, /Zdroj: api\.tfl\.gov\.uk/);
   // vypnuto: informace zůstane, jen se nepočítá do ceny
-  assert.match(H.arrivalChips({ out: { to: 'BVA' } }, ARR, { on: false })[0].title, /Neukazuje se \(vypnuto v Další možnosti\)\./);
+  assert.match(H.arrivalChips({ out: { to: 'BVA' } }, ARR, { on: false })[0].title, /Neukazuje se \(vypnuto v Cestující, zavazadla a další\)\./);
   assert.deepEqual(plain(H.arrivalChips({ out: { to: 'XXX' } }, ARR)), []);
   assert.deepEqual(plain(H.arrivalChips({ out: { to: 'BVA' } }, null)), []);
   assert.equal(H.arrivalFare({ czk: 2500 * 0.06688, fare: 2500, cur: 'HUF' }), '2\u00a0500\u00a0Ft (~167\u00a0Kč)');

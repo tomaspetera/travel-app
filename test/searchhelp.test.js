@@ -589,13 +589,13 @@ test('dowList: dny v týdnu česky jako jinde v aplikaci („pá nebo so“, ne 
   assert.equal(H.dowList([5, 5, 9, -1, 'x', null]), 'pá');
   assert.equal(H.dowList([]), '');
   assert.equal(H.dowList(undefined), '');
-  // shrnutí „Další možnosti“ v Letech skládá „odlet …“ a „návrat …“ z dowList (dřív DOW[d].join(','))
+  // shrnutí „Cestující, zavazadla a další“ v Letech skládá „odlet …“ a „návrat …“ z dowList (dřív DOW[d].join(','))
   const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
   assert.match(fl, /bits\.push\(\.\.\.SearchHelp\.dowBits\(f\)\)/);
   assert.doesNotMatch(fl, /DOW\[d\]\)\.join\(','\)/);
 });
 
-test('dowBits: shrnutí Další možnosti – dny odletu i návratu, jen kde je hledání použije', () => {
+test('dowBits: shrnutí Cestující, zavazadla a další – dny odletu i návratu, jen kde je hledání použije', () => {
   const f = { trip: 'return', dateMode: 'flex', outDays: [6, 4, 5], backDays: [1, 0] };
   // návrat po odletu: týden u dnů návratu od dne za prvním dnem odletu (dřív by dowList dal „po nebo ne“)
   assert.deepEqual(plain(H.dowBits(f)), ['odlet čt, pá nebo so', 'návrat ne nebo po'], 'dřív chyběly dny návratu');
