@@ -916,3 +916,11 @@ test('svátek jménem („na Den boje za svobodu“, „na 1. máje“, „svat�
   // datum zůstává datem
   assert.equal(PL('17. listopadu do Vídně').patch.dateMode, 'exact');
 });
+
+test('měsíc navíc k datu v něm („Řím 4.–6. 12. v prosinci“) není místo', () => {
+  const t = '2026-11-01';
+  assert.deepEqual([P('Řím 4.-6.12. v prosinci', t).to, P('Řím 4.-6.12. v prosinci', t).patch.xOut], [['Řím'], '2026-12-04']);
+  assert.deepEqual(P('Londýn 12.11. v listopadu', t).to, ['Londýn']);
+  // jiný měsíc než datum: nic se nepolyká potichu (rozpor zůstane vidět)
+  assert.deepEqual(P('Řím 12.11. v prosinci', t).to, ['Řím', 'prosinci']);
+});
