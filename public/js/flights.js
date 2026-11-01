@@ -2056,7 +2056,9 @@
     const best = all.length ? all.reduce((m, t) => t.perPersonCzk < m.perPersonCzk ? t : m) : null;
     // z víc letišť: u nejlevnější letenky i odkud – výpis řadí i s cestou na letiště, takže „nejlevněji 910 Kč“ z KLV
     // bývá hluboko ve výpisu a bez letiště nebylo jasné, proč to není první karta
-    const bestFrom = best && best.out && best.out.from && res.origins.length > 1 ? ` z <b>${esc(best.out.from)}</b>` : '';
+    // „z PED ↓“ sjede na tu letenku ve výpisu (není-li vykreslená, seřadí podle nejlevnější letenky)
+    const bestFrom = best && best.out && best.out.from && res.origins.length > 1
+      ? ` z <button type="button" class="linkbtn best-jump" id="bestJump" data-tid="${esc(best.id)}" title="Ukázat tuhle letenku ve výpisu"><b>${esc(best.out.from)}</b>&nbsp;↓</button>` : '';
     // konkrétní cíl: posuvník přes ceny výpisu (res.top a složené dvojice), ne jen přes nejlevnější cestu skupiny
     const prices = (isRoute && (res.top || []).length ? [...res.top, ...filledNow] : res.groups.map(g => g.best)).map(t => t.perPersonCzk);
     const maxP = prices.length ? Math.max(...prices) : 0;
@@ -3644,6 +3646,21 @@
     const nw = $('#nudgeWatch', host); if (nw) nw.onclick = async () => { const f = nudge && nudge.form; nudge = null; await addWatch(f || undefined); rerender(true); };
     const kp = $('#kidsPax', host); if (kp) kp.onclick = () => { expandForm(); paxSheet(); };
     $('#sortSel', host).onchange = e => { view.sort = e.target.value; rerender(); };
+    const bj = $('#bestJump', host);
+    if (bj) bj.onclick = () => {
+      const show = () => {
+        // plná karta, na telefonu i zkrácený řádek výpisu (.trip-mini)
+        const id = CSS.escape(bj.dataset.tid), el = $(`.trip-row[data-tid="${id}"]`, $('#results')) || $(`.trip-mini[data-tmini="${id}"]`, $('#results'));
+        if (!el) return false;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+        return true;
+      };
+      if (show()) return;
+      // ve výpisu (dál než první stránka, v Mapě či Kalendáři) není: Seznam seřazený podle nejlevnější letenky – je první
+      view.sort = 'total'; if (view.mode === 'map' || view.mode === 'cal') view.mode = 'list';
+      rerender(); show();
+    };
     const mb = $('#resMoreBtn', host);
     if (mb) mb.onclick = () => { const open = !$('#resMore', host).classList.contains('open'); view.moreOpen = open; if (!open) view.timeOpen = false; rerender(true); };
     $$('#viewSeg button', host).forEach(b => b.onclick = () => {

@@ -51,6 +51,8 @@ test('konkrétní cíl: skupiny (hlavička, štítky „od“, Mapa) z nabídek 
 });
 
 test('hlavička „nejlevněji … /os.“ z víc letišť řekne i odkud – výpis řadí i s cestou na letiště, nejlevnější letenka bývá níž', () => {
-  assert.match(src, /const bestFrom = best && best\.out && best\.out\.from && res\.origins\.length > 1 \? ` z <b>\$\{esc\(best\.out\.from\)\}<\/b>` : '';/);
+  assert.match(src, /const bestFrom = best && best\.out && best\.out\.from && res\.origins\.length > 1\s*\? ` z <button type="button" class="linkbtn best-jump" id="bestJump" data-tid="\$\{esc\(best\.id\)\}"[^`]*><b>\$\{esc\(best\.out\.from\)\}<\/b>&nbsp;↓<\/button>` : '';/);
+  // klepnutí sjede na letenku; když ve výpisu není, Seznam podle nejlevnější letenky
+  assert.match(src, /if \(show\(\)\) return;[\s\S]{0,200}view\.sort = 'total'; if \(view\.mode === 'map' \|\| view\.mode === 'cal'\) view\.mode = 'list';\s*rerender\(\); show\(\);/);
   assert.match(src, /nejlevněji <b class="good">\$\{czk\(best\.perPersonCzk\)\}<\/b>\/os\.\$\{bestFrom\}/);
 });
