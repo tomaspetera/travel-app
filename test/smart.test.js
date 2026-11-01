@@ -845,3 +845,17 @@ test('„o víkendu“ s jiným termínem je jen délka (dřív vyhrál tento v�
   // Liptovský Mikuláš je místo
   assert.deepEqual(P('do Liptovského Mikuláše v prosinci', t).to, ['Liptovského Mikuláše']);
 });
+
+test('„přes Vánoce a Silvestr“ (i obráceně, i Nový rok): odlet před Štědrým dnem, návrat po Novém roce ± 1 den', () => {
+  const t = '2026-11-01';
+  for (const q of ['Kanáry přes Vánoce a Silvestr', 'přes Silvestr a Vánoce na Tenerife', 'Vánoce a Nový rok v Thajsku', 'Vánoce a Silvestr v Londýně']) {
+    const r = P(q, t);
+    assert.deepEqual([r.patch.dateMode, r.patch.xOut, r.patch.xBack, r.patch.xFlex], ['exact', '2026-12-23', '2027-01-02', 1], q);
+    assert.deepEqual(chips(r), ['Vánoce i Silvestr (23. 12. – 2. 1. ± 1 den)'], q);
+  }
+  // delší pobyt: návrat po Novém roce zůstane, odlet dřív
+  assert.equal(P('Vánoce a Silvestr na Kanárech na 2 týdny', t).patch.xOut, '2026-12-19');
+  // samotné Vánoce / Silvestr beze změny
+  assert.equal(P('o Vánocích do Říma', t).patch.len, 'holiday');
+  assert.deepEqual([P('Silvestr v Londýně', t).patch.dFrom, P('Silvestr v Londýně', t).patch.dTo], ['2026-12-27', '2026-12-31']);
+});
