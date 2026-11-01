@@ -1102,3 +1102,17 @@ test('„Vánoce a Silvestr na 3 noci“: krátký pobyt – odlet kdykoli 23.�
   const late = P('Vánoce a Silvestr na 3 noci', '2026-12-27').patch;
   assert.deepEqual([late.dFrom, late.dTo], ['2026-12-28', '2026-12-30']);
 });
+
+test('„zpět do X nebo Y“ z kontroly: domov kdekoli v odkud, „nebo do Brna“, jiný cíl v 1. pádě („nebo Milán“)', () => {
+  const ft = (q) => { const r = P(q); return [r.from, r.to, r.backTo]; };
+  // Brno je odkud – obyčejná zpáteční z Brna i Prahy (dřív záleželo na pořadí: návrat jinam do Prahy)
+  assert.deepEqual(ft('z Brna do Londýna a zpět do Prahy nebo Brna'), [['Brna', 'Prahy'], ['Londýna'], undefined]);
+  assert.deepEqual(ft('z Brna do Londýna a zpět do Brna nebo Prahy'), [['Brna', 'Prahy'], ['Londýna'], undefined]);
+  // „nebo do Brna“ (dřív Brno cíl a Praha návrat jinam)
+  assert.deepEqual(ft('z Londýna zpět do Prahy nebo do Brna'), [['Londýna'], ['Prahy', 'Brna'], undefined]);
+  assert.deepEqual(ft('Londýn a zpět do Prahy nebo do Brna'), [['Prahy', 'Brna'], ['Londýn'], undefined]);
+  // 1. pád za „nebo“ = jiný cíl (dřív Milán do odkud)
+  assert.deepEqual(ft('do Říma a zpět do Prahy, nebo Milán'), [['Prahy'], ['Říma', 'Milán'], undefined]);
+  // 2. pád množného čísla (Košic, Pardubic) dál domov
+  assert.deepEqual(ft('Londýn a zpět do Prahy nebo Pardubic'), [['Prahy', 'Pardubic'], ['Londýn'], undefined]);
+});

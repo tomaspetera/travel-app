@@ -443,3 +443,22 @@ test('náhled obnovy: stejný domov radaru „(už máš)“, jiný nebo chyběj
   assert.doesNotMatch(sum(state()), /už máš/, 'zařízení bez domova – převezme se');
   assert.doesNotMatch(sum(state({ home: { from: [BRQ], radius: 100, adults: 2 } })), /domov radaru[^·]*už máš/, 'jiný okruh – nabídne převzetí');
 });
+
+test('sdílený plán v záloze: sid nic nemění, záznam vyměněné verze (sharedSnap) projde, „přepsat“ ho nezahodí', () => {
+  // záloha z doby, kdy cesta ještě nebyla sdílená; v zařízení ji mezitím uživatel sdílel (sid + sharedSnap)
+  const old = state({ trips: [plan('Řím', '2026-12-01')] });
+  const now = state({ trips: [{ ...plan('Řím', '2026-12-01'), sid: 'abcde12345', sharedSnap: { acts: ['Alfama'], notes: '' } }] });
+  const inc = B.parse(B.pack(old), deps);
+  assert.deepEqual(plain(B.diff(now, inc, { watchKey: wk, deps }).trips), { add: 0, same: 1, changed: 0 }, 'jen sdílená = pořád tatáž');
+  // přenos do jiného zařízení: sid i záznam přijdou (dřívější tvar { days } se převede)
+  const back = B.parse(B.pack(state({ trips: [{ ...plan('Řím', '2026-12-01'), sid: 'abcde12345', sharedSnap: { days: { '2026-12-01': ['Alfama', '<b>x</b>'] }, notes: 'sraz' } }] })), deps);
+  assert.equal(back.trips[0].sid, 'abcde12345');
+  assert.deepEqual(plain(back.trips[0].sharedSnap), { acts: ['Alfama', '<b>x</b>'], notes: 'sraz' });
+  // „přepsat změněné“ starší zálohou: sid a záznam ze zařízení zůstanou
+  const changed = B.parse(B.pack(state({ trips: [{ ...plan('Řím', '2026-12-01'), tripId: 9, name: 'Řím jinak' }] })), deps);
+  const mine = state({ trips: [{ ...plan('Řím', '2026-12-01'), tripId: 9, sid: 'abcde12345', sharedSnap: { acts: ['Alfama'], notes: '' } }] });
+  const over = B.merge(mine, changed, { watchKey: wk, overwrite: true, deps });
+  assert.equal(over.trips[0].name, 'Řím jinak');
+  assert.equal(over.trips[0].sid, 'abcde12345');
+  assert.deepEqual(plain(over.trips[0].sharedSnap), { acts: ['Alfama'], notes: '' });
+});

@@ -149,7 +149,7 @@ test('🚆 vlak v odkazu na plán, v kalendáři (.ics) a v záloze – kód jí
 test('🚆 pole vlaku se ukládá už při psaní: kód jízdenky vložený z e-mailu nezmizí, když aplikace skončí dřív, než pole opustí', async () => {
   const c = load(), t = porto(c, { dep: '10:42' });
   c.setTimeout = setTimeout; c.clearTimeout = clearTimeout;
-  vm.runInContext(pick('putRide', 'flushRide', 'rideSoon') + '\n' + APP.match(/^let rideP = .*$/m)[0]
+  vm.runInContext(pick('pendSid', 'planJson', 'putRide', 'flushRide', 'rideSoon') + '\n' + APP.match(/^let rideP = .*$/m)[0]
     + `\nvar activeView = 'planner', __saves = 0, ShareLink = { prepare() {} }; save = () => { __saves++; };
     Object.assign(window, { flushRide, rideSoon });`, c, { filename: 'app-ride.js' });
   c.S.trips = [t];

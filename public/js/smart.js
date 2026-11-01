@@ -701,11 +701,13 @@
     // jen „do“ hned za „zpět“ („tam 20.11. a zpátky 24.11. do Londýna“: Londýn je cíl)
     const home = [];
     let homeFrom = -1, justHome = false; // počet míst odkud v době „zpět do X“; „zpět do Prahy z Neapole“ = návrat z Neapole
+    // „zpět do Prahy nebo (do) Brna“: druhé místo domova (orHome), „do“ hned za „nebo“ ho neukončí (orDo)
+    let orHome = false, orDo = false;
     // „přes Vídeň“ = přestup, ne cíl – místo se zahodí (přestupní letiště hledání neurčuje)
     const flush = () => {
       if (cur.length && mode !== 'via') (mode === 'from' ? from : mode === 'back' ? back : mode === 'home' ? home : to).push(cur.join(' '));
       if (mode === 'home') { if (cur.length && homeFrom < 0) homeFrom = from.length; justHome = cur.length > 0; mode = 'to'; }
-      cur = [];
+      cur = []; orHome = false;
     };
     // překlep v dlouhém měsíci za „v / ve“ („v prosnci“, „v listopdu“): jedno písmeno navíc, chybí, jiné nebo prohozené –
     // jen tvary od 7 písmen (u krátkých by to chytalo místa); dřív „prosnci“ jako místo a termín žádný
@@ -723,6 +725,7 @@
       prevW = w;
       const afterBack = justBack; justBack = false;
       const afterHome = justHome; justHome = false;
+      const afterOr = orDo; orDo = false;
       // slovo vzaté pravidlem („přes víkend Londýn“, „přes léto“) „přes“ ukončí – jinak by zahodilo i cíl za ním
       if (used.slice(at, at + w.length).some(Boolean)) { flush(); if (mode === 'via') mode = 'to'; continue; }
       // šipka: co bylo před ní (místo právě psané, jinak poslední „kam“), je odkud; za ní kam
@@ -737,7 +740,7 @@
         // „zpět do Prahy nebo Brna“ (i „…, nebo Brna“): i druhé místo je domov, ne další cíl (dřív Brno do kam)
         const homeOr = (w === 'nebo' || w === 'ci') && ((mode === 'home' && cur.length > 0) || afterHome);
         flush(); backNext = false;
-        if (homeOr) mode = 'home';
+        if (homeOr) { mode = 'home'; orHome = true; orDo = true; }
         continue;
       }
       // „zpět z X“ / „návrat z X“ (ne „tam a zpět“): X je místo návratu
@@ -748,6 +751,7 @@
       // „do Říma a zpět do Prahy z Neapole“: z Neapole = návrat odtud (jen když cíl už je – „zpátky do Brna z Londýna“ je odkud)
       if (FROM_WORDS.has(w)) { flush(); mode = (afterHome || justHome) && to.length ? 'back' : 'from'; justHome = false; continue; }
       if (w === 'pres') { flush(); mode = 'via'; continue; }
+      if (afterOr && w === 'do') { orDo = false; continue; } // „zpět do Prahy nebo do Brna“
       if (TO_WORDS.has(w)) { flush(); mode = 'to'; continue; }
       // „město“ hned za slovem názvu patří k němu („Nové Město“, „do Nového Města“) – samotné („do města“) ne
       if (/^(?:v|ve)$/.test(pw) && (!dates || dates.soon) && !used.slice(at, at + w.length).some(Boolean)) {
@@ -763,6 +767,9 @@
         flush(); continue;
       }
       if ((FILL.has(w) && !(cur.length && /^mest[aeou]?$|^mestem$/.test(w))) || /^\d+$/.test(w)) { flush(); continue; }
+      // „do Říma a zpět do Prahy, nebo Milán“: místo v 1. pádě (Milán, Paříž, Brno – po „do“ by bylo Milána, Paříže,
+      // Brna) není další domov, ale jiný cíl; „Košic“, „Pardubic“ (2. pád množného čísla) domov zůstane
+      if (orHome && mode === 'home' && !cur.length && !/(?:[aeiyu]|ic)$/.test(w)) mode = 'to';
       cur.push(orig);
     }
     flush();
@@ -773,8 +780,9 @@
     // návrat jinam (backTo) jen do prvního
     let backTo = null;
     if (home.length) {
-      const h = home[0], same = from.some(x => fold(x) === fold(h));
-      const more = home.filter((x, i) => i > 0 && !from.some(y => fold(y) === fold(x)));
+      // „z Brna … a zpět do Prahy nebo Brna“: domov mezi odkud (kterýkoli z nich, ne jen první) = zpáteční, Praha k odkud
+      const h = home[0], same = home.some(x => from.some(y => fold(y) === fold(x)));
+      const more = home.filter(x => !from.some(y => fold(y) === fold(x)));
       if (arrows) to.push(h);
       else if (!from.length) from.push(...home);
       else if (same) from.push(...more); // „z Prahy … a zpět do Prahy nebo Brna“: i Brno

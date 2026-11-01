@@ -39,3 +39,14 @@ test('detail cesty má ✏️ Upravit; cesta z průvodce mění jen název (term
   // mezitím smazaná / jiná cesta se nepřepíše
   assert.match(ed, /const x = S\.trips\[i\]; if \(x !== t\) return modalClose\(\);/);
 });
+
+test('smazané datum neslije program do jednoho dne (dřív návrat prázdný = vše na odjezd; nové datum po smazání = vše na den 1)', () => {
+  const days = { '2026-12-10': ['Koloseum'], '2026-12-11': ['Trastevere'], '2026-12-12': ['Vatikán'] };
+  // jen odjezd, bez návratu: posun bez slučování
+  assert.deepEqual(shiftDays(days, '2026-12-10', '2027-03-03', ''), { '2027-03-03': ['Koloseum'], '2027-03-04': ['Trastevere'], '2027-03-05': ['Vatikán'] });
+  // cesta bez původního data (smazané) → posun od prvního dne s programem
+  assert.deepEqual(shiftDays(days, '', '2027-03-03', '2027-03-06'), { '2027-03-03': ['Koloseum'], '2027-03-04': ['Trastevere'], '2027-03-05': ['Vatikán'] });
+  // editTrip bez odjezdu program nechá
+  const ed = src.match(/function editTrip\(i\) \{[\s\S]*?\n\}/)[0];
+  assert.match(ed, /if \(start !== \(t\.start \|\| ''\) \|\| end !== \(t\.end \|\| ''\)\) \{ if \(start\) t\.days = shiftDays\(t\.days, t\.start, start, end\); t\.start = start; t\.end = end; \}/);
+});

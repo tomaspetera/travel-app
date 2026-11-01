@@ -186,6 +186,12 @@
     if (ex) t.explore = ex;
     const refs = cleanRefs(raw.refs, d.txt);
     if (refs.length) t.refs = refs;
+    // záznam naposledy vyměněné verze sdíleného plánu (PlanShare.snapOf): bez něj by další aktualizace od kamaráda
+    // po obnově ze zálohy nepoznala, co kamarád smazal (dřívější tvar s days se převede)
+    if (obj(raw.sharedSnap)) {
+      const sn = raw.sharedSnap, list = Array.isArray(sn.acts) ? sn.acts : obj(sn.days) ? Object.values(sn.days).filter(Array.isArray).flat() : [];
+      t.sharedSnap = { acts: [...new Set(list.slice(0, 600).map(x => d.txt(x, LIM.act, false, true)).filter(Boolean))], notes: d.txt(sn.notes, LIM.notes, true, true) };
+    }
     return t;
   }
   function cleanHome(h, txt) {
@@ -236,12 +242,14 @@
   const stable = v => (Array.isArray(v) ? `[${v.map(stable).join(',')}]` : obj(v) ? `{${Object.keys(v).sort().filter(k => v[k] !== undefined).map(k => JSON.stringify(k) + ':' + stable(v[k])).join(',')}}` : JSON.stringify(v === undefined ? null : v));
   const planOf = (t, d) => { try { return d.sanitizePlan(t, LIM); } catch (e) { return null; } };
   // Stejný plán (bez „Sbaleno“) – jako import sdíleného plánu; cesty bez tripId i pid se poznají jen takhle.
-  const planKey = (t, d) => { const p = planOf(t, d); if (!p) return '?'; const { checklist, ...rest } = p; return stable(rest); };
+  // bez sid: cesta, kterou mezitím sdílela (dostala sid), je pořád tatáž
+  const planKey = (t, d) => { const p = planOf(t, d); if (!p) return '?'; const { checklist, sid, ...rest } = p; return stable(rest); };
   // Podpis pro „změněná“: plán i se „Sbaleno“ a cesta z průvodce – obojí po stejném pročištění na obou stranách.
   // Bez id položek „Sbaleno“ (spojení s průvodcem doplní id i starší cestě) – jinak by starší záloha hlásila cestu jako změněnou.
   const tripSig = (t, d) => {
     const p = planOf(t, d);
     if (p && Array.isArray(p.checklist)) p.checklist = p.checklist.map(({ id, ...x }) => x);
+    if (p) delete p.sid; // sdílením se cesta nezmění (sid dostane až při sdílení – starší záloha ho nemá)
     return stable([p, t.wizard ? cleanWiz(t.wizard, d) : null]);
   };
 
@@ -348,7 +356,9 @@
         const old = trips[m.i];
         // 🔖 kódy rezervací z obou stran (i u stejné cesty – na rezervacích plán nezávisí)
         const refs = m.st === 'changed' && overwrite ? addRefs(m.t.refs, old.refs) : addRefs(old.refs, m.t.refs);
-        if (m.st === 'changed' && overwrite) trips[m.i] = { ...m.t, ...(old.tripId ? { tripId: old.tripId } : {}), ...(old.pid ? { pid: old.pid } : {}), checklist: keepChecks(m.t, old), ...(refs.length ? { refs } : {}) };
+        // sid a záznam sdíleného plánu ze zařízení, když je záloha nemá (jinak by se kamarádova další verze nespárovala)
+        if (m.st === 'changed' && overwrite) trips[m.i] = { ...m.t, ...(old.tripId ? { tripId: old.tripId } : {}), ...(old.pid ? { pid: old.pid } : {}), checklist: keepChecks(m.t, old), ...(refs.length ? { refs } : {}),
+          ...(!m.t.sid && old.sid ? { sid: old.sid } : {}), ...(!m.t.sharedSnap && old.sharedSnap ? { sharedSnap: old.sharedSnap } : {}) };
         else {
           // stejná cesta poznaná podle plánu: převzít pid ze zálohy, ať se příště pozná i po úpravě
           if (!old.pid && !old.tripId && m.t.pid) trips[m.i] = { ...old, pid: m.t.pid };
