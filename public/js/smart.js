@@ -396,6 +396,30 @@
       dates = { from: [today, `${y}-11-27`].sort()[1], to: `${y}-12-21`, label: 'vánoční trhy' };
       month = 11;
     });
+    // „do Vánoc“, „(ještě) před Vánoci“, „po Vánocích“ (i Velikonoce): období před svátkem (od zítřka do dne před ním)
+    // nebo po něm (3 týdny) – dřív se hledalo přímo o svátcích. S datem ve větě („po Vánocích … 28.12.“) dál holRule.
+    // „hned po“, „těsně před“: jen týden u svátku
+    const around = (re, labels, span) => rule(new RegExp(`(?:(kdykoliv?|jeste|uz|hned|tesne)\\s+)?(do|pred|po)\\s+(?:${re})${W}`), m => {
+      if (dates) return false;
+      const [st, en] = span(), near = /^(?:hned|tesne)$/.test(m[1] || '');
+      if (m[2] === 'po') { dates = { from: [addDays(today, 1), addDays(en, 1)].sort()[1], to: addDays(en, near ? 7 : 21), label: labels.po }; return; }
+      const to = addDays(st, -1);
+      if (to <= addDays(today, 1)) return false;
+      dates = { from: [addDays(today, 1), near ? addDays(st, -7) : ''].sort()[1], to, label: labels[m[2]] };
+    });
+    around('vanoc|vanocemi|vanocich|vanoci', { do: 'do Vánoc', pred: 'před Vánoci', po: 'po Vánocích' }, () => {
+      const y = +today.slice(0, 4) + (today.slice(5) > '12-26' ? 1 : 0);
+      return [`${y}-12-24`, `${y}-12-26`];
+    });
+    // Silvestr a Nový rok („před Silvestrem“, „po Novém roce“) – dřív Silvestr na prodloužený víkend, „Novém roce“ jako místo
+    const nyY = () => +today.slice(0, 4) + (today.slice(5) > '12-31' ? 1 : 0);
+    around('silvestr|silvestra|silvestrem|silvestru', { do: 'do Silvestra', pred: 'před Silvestrem', po: 'po Silvestru' }, () => [`${nyY()}-12-31`, `${nyY()}-12-31`]);
+    around('novy\\s+rok|noveho\\s+roku|novym\\s+rokem|novem\\s+roce', { do: 'do Nového roku', pred: 'před Novým rokem', po: 'po Novém roce' }, () => [`${nyY() + 1}-01-01`, `${nyY() + 1}-01-01`]);
+    around('velikonoc|velikonocemi|velikonocich', { do: 'do Velikonoc', pred: 'před Velikonocemi', po: 'po Velikonocích' }, () => {
+      let y = +today.slice(0, 4), e = easter(y);
+      if (addDays(e, 1) < today) e = easter(++y);
+      return [addDays(e, -2), addDays(e, 1)];
+    });
     holRule('vanocni\\s+prazdnin\\w*|vanoc\\w*|vanocni\\s+svatky|stedr\\w+\\s+(?:den|dne|vecer\\w*)|stedrovecer\\w*', 'vanoce', () => { const y = today.slice(5) > '12-27' ? +today.slice(0, 4) + 1 : +today.slice(0, 4); return { from: [today, `${y}-12-19`].sort()[1], to: `${y}-12-24`, label: 'Vánoce' }; });
     // Silvestr: být tam 31. 12. – odlet 27.–31. 12., ne prodloužený víkend Nového roku (odlet 31. 12. večer nebo 1. 1.
     // by Silvestra minul); „na Nový rok“ dál podle prodlouženého víkendu
