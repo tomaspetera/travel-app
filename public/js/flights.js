@@ -2054,6 +2054,9 @@
     const nTime = chips.filter(c => c.time).length;
     const all = groups.flatMap(g => g.vis);
     const best = all.length ? all.reduce((m, t) => t.perPersonCzk < m.perPersonCzk ? t : m) : null;
+    // z víc letišť: u nejlevnější letenky i odkud – výpis řadí i s cestou na letiště, takže „nejlevněji 910 Kč“ z KLV
+    // bývá hluboko ve výpisu a bez letiště nebylo jasné, proč to není první karta
+    const bestFrom = best && best.out && best.out.from && res.origins.length > 1 ? ` z <b>${esc(best.out.from)}</b>` : '';
     // konkrétní cíl: posuvník přes ceny výpisu (res.top a složené dvojice), ne jen přes nejlevnější cestu skupiny
     const prices = (isRoute && (res.top || []).length ? [...res.top, ...filledNow] : res.groups.map(g => g.best)).map(t => t.perPersonCzk);
     const maxP = prices.length ? Math.max(...prices) : 0;
@@ -2083,7 +2086,7 @@
     const summary = kiwiBanner(res) + `<div class="res-head">
       <div><h2>${isRoute ? `✈️ ${destTxt}${res.partial ? ' <span class="part-tag">⏳ zatím část nabídek</span>' : ''}` : `🌍 ${res.partial ? 'Zatím ' : ''}${groups.length < res.groups.length ? `${groups.length} ${zeN(res.groups.length)} ${res.groups.length} destinací` : plural(res.groups.length, 'destinace', 'destinace', 'destinací')} ${res.destination.kind === 'countries' ? '· ' + destTxt : ''}`}</h2>
       <div class="muted" style="font-size:13px">z ${res.origins.map(o => `<b>${o.iata}</b>`).join(', ')} · ${whenTxt(res.query)} · ${esc(SearchHelp.paxShort(res.query))}${BAG_LBL[res.query.bags] ? ` · 🧳 vč. ${res.query.bags === 'cabin' ? 'kabinového kufru' : 'kufru k odbavení'}` : ''}
-      ${best ? ` · nejlevněji <b class="good">${czk(best.perPersonCzk)}</b>/os.` : ''}<span id="pinHead">${pinNow.n ? ` · <button type="button" class="linkbtn pin-open" id="pinOpen">📌 Odložené (${pinNow.n})</button>` : ''}</span></div></div>
+      ${best ? ` · nejlevněji <b class="good">${czk(best.perPersonCzk)}</b>/os.${bestFrom}` : ''}<span id="pinHead">${pinNow.n ? ` · <button type="button" class="linkbtn pin-open" id="pinOpen">📌 Odložené (${pinNow.n})</button>` : ''}</span></div></div>
       <div class="res-tools">
         <button type="button" class="btn sm ghost res-more-btn" id="resMoreBtn" aria-expanded="${moreOpen}" aria-controls="resMore" title="Filtry, řazení a srovnání letišť">⚙️ Filtry${nMore ? ` <b class="tf-n">${nMore}</b>` : ''} <span aria-hidden="true">${moreOpen ? '▴' : '▾'}</span></button>
         <div class="seg" id="viewSeg">${modes.map(v => { const [ic, ...w] = v[1].split(' '); return `<button type="button" data-v="${v[0]}" class="${view.mode === v[0] ? 'on' : ''}"><span class="vs-ic">${ic} </span>${w.join(' ')}</button>`; }).join('')}</div>

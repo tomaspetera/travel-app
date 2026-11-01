@@ -49,3 +49,8 @@ test('konkrétní cíl: skupiny (hlavička, štítky „od“, Mapa) z nabídek 
   assert.match(src, /aerolinek\$\{isRoute \? '' : ', nových zemí'\}/);
   assert.match(src, /Hledám jen pro dospělé \(\$\{esc\(SearchHelp\.paxTxt\(lastForm\)\)\}\)/);
 });
+
+test('hlavička „nejlevněji … /os.“ z víc letišť řekne i odkud – výpis řadí i s cestou na letiště, nejlevnější letenka bývá níž', () => {
+  assert.match(src, /const bestFrom = best && best\.out && best\.out\.from && res\.origins\.length > 1 \? ` z <b>\$\{esc\(best\.out\.from\)\}<\/b>` : '';/);
+  assert.match(src, /nejlevněji <b class="good">\$\{czk\(best\.perPersonCzk\)\}<\/b>\/os\.\$\{bestFrom\}/);
+});
