@@ -1003,3 +1003,16 @@ test('„kolem 15.12.“, „okolo 20. listopadu“, „cca 3.12.“: okolní dn
   assert.equal(P('Londýn 15.12.', t).patch.xFlex, 0);
   assert.equal(P('Řím 15.12. za kolem 5.000 Kč', t).patch.xFlex, 0);
 });
+
+test('„z Vídně do Londýna a zpět do Prahy“: návrat do jiného města (backTo, 2 lety) – dřív se Praha zahodila', () => {
+  const r = P('z Vídně do Londýna a zpět do Prahy');
+  assert.deepEqual([r.from, r.to, r.backTo], [['Vídně'], ['Londýna'], 'Prahy']);
+  assert.equal(P('z Brna do Říma 12.11. a zpět do Prahy 16.11.').backTo, 'Prahy');
+  // bez odkud: Praha je odkud (návrat domů), ne backTo
+  assert.deepEqual([P('do Londýna a zpět do Prahy').from, P('do Londýna a zpět do Prahy').backTo], [['Prahy'], undefined]);
+  // víc cílů: 2 lety by nestačily – beze změny
+  assert.equal(P('z Vídně do Říma a Milána a zpět do Prahy').backTo, undefined);
+  const src = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(\(hit\.back \|\| hit\.backTo\) && hit\.to\.length === 1\) return smartBackRun\(hit, from\);/);
+  assert.match(src, /\{ from: \[hit\.back \|\| hit\.to\[0\]\], to: hit\.backTo \? \[hit\.backTo\] : home, date: ds\[1\], flex: 0 \}/);
+});

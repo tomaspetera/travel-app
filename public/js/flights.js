@@ -314,6 +314,10 @@
     const bk = hit.sm.back ? await one(hit.sm.back, true) : null;
     hit.back = stop(bk) ? item(bk) : null;
     if (hit.sm.back && !hit.back) hit.miss.push(hit.sm.back);
+    // „z Vídně do Londýna a zpět do Prahy“: návrat do jiného města
+    const bt = hit.sm.backTo ? await one(hit.sm.backTo, true) : null;
+    hit.backTo = stop(bt) ? item(bt) : null;
+    if (hit.sm.backTo && !hit.backTo) hit.miss.push(hit.sm.backTo);
   }
   /**
    * „Praha Londýn“ (bez z/do a pomlčky), které jako jedno místo neexistuje: zkusit rozdělit na odkud → kam
@@ -384,7 +388,7 @@
     // remote = false: jen vlastní data, bez geokódování (rychlý první náhled nabídky)
     async lookup(q, signal, remote = true) {
       const sm = window.Smart ? Smart.parse(q, smartOpts()) : null;
-      const hit = this.smart && sm && (sm.chips.length || sm.from.length || sm.to.length >= 2 || sm.back) ? { sm, to: [], from: [], miss: [] } : null;
+      const hit = this.smart && sm && (sm.chips.length || sm.from.length || sm.to.length >= 2 || sm.back || sm.backTo) ? { sm, to: [], from: [], miss: [] } : null;
       if (hit) { await smartResolve(hit, this.near(), signal, remote); return { hit, items: [] }; }
       const one = sm && !sm.kind && !sm.chips.length && sm.to.length + sm.from.length === 1 ? sm.to[0] || sm.from[0] : null;
       const qq = one && Smart.fold(one) !== Smart.fold(q) ? one : q;
@@ -446,7 +450,7 @@
         const on = i === this.active ? ' on' : '';
         const opt = cls => `class="pi-opt${cls}${on}" data-i="${i}" id="${this.id}-${i}" role="option" aria-selected="${i === this.active}"`;
         if (r.hit) {
-          const h = r.hit, places = h.chain ? [`🧳 ${h.chain.map(x => x.label).join(' → ')}`] : [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`), ...(h.back ? [`↩ návrat: ${h.back.label}`] : [])];
+          const h = r.hit, places = h.chain ? [`🧳 ${h.chain.map(x => x.label).join(' → ')}`] : [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`), ...(h.back ? [`↩ návrat: ${h.back.label}`] : []), ...(h.backTo ? [`↩ zpět do: ${h.backTo.label}`] : [])];
           // lidé z minulého hledání (věta je neříká): štítek, ať „Vánoce teplo“ po „rodina 2+2“ nehledá tiše pro 4
           const pf = S.form || {}, inh = !('adults' in (h.sm.patch || {})) && ((+pf.adults || 2) !== 2 || +pf.children > 0 || +pf.infants > 0);
           // cena v hledání je na osobu: s lidmi z minula (věta je neříká) i u „💰 do 15 000 Kč“ „/os.“ – jinak vypadá jako za rodinu
@@ -454,6 +458,7 @@
           const what = [...places, ...h.sm.chips.map(c => `${c.icon} ${c.text}${perOs(c)}`), ...(inh ? [`👥 ${SearchHelp.paxShort(pf)} (jako minule)`] : [])].join(' · ');
           const sub = h.chain ? 'víc měst – nastavím lety, rozdělím termíny a hledám'
             : h.back && !h.miss.length ? 'tam a zpět z jiného města – nastavím 2 lety (přejezd mezi městy je na tobě) a hledám'
+            : h.backTo && !h.miss.length ? 'zpět do jiného města – nastavím 2 lety a hledám'
             : h.miss.length ? `„${h.miss.join('“, „')}“ neznám – hledám bez toho` : (h.sm.items && !h.to.length ? h.sm.items.map(x => x.label).join(', ') : 'klepni nebo Enter – nastavím a hledám');
           return `<div ${opt(' pi-smart')}><span class="pi-flag">✨</span><span class="pi-t"><b>${esc(what)}</b><small>${esc(sub)}</small></span><span class="pi-type">hledat</span></div>`;
         }
@@ -5019,14 +5024,15 @@
     go('flights');
     if (!home.length) { askFrom(() => smartBackRun(hit, fromInput.items)); return; }
     const ds = chainDates(p, 2);
-    const legs = [{ from: home, to: [hit.to[0]], date: ds[0], flex: 0 }, { from: [hit.back], to: home, date: ds[1], flex: 0 }];
+    // návrat z jiného místa (hit.back) nebo do jiného místa (hit.backTo)
+    const legs = [{ from: home, to: [hit.to[0]], date: ds[0], flex: 0 }, { from: [hit.back || hit.to[0]], to: hit.backTo ? [hit.backTo] : home, date: ds[1], flex: 0 }];
     const keep = Object.fromEntries(['adults', 'children', 'infants', 'bags', 'directOnly', 'maxPrice'].filter(k => p[k] != null).map(k => [k, p[k]]));
     setForm({ ...defaultForm(), ...prefsOf(S.form), ...keep, ...smartDirect(p), from: home, to: [], trip: 'multi', legs });
     startSearch();
   }
   function smartRun(hit, from) {
     if (hit.chain && hit.chain.length >= 3) return smartChainRun(hit);
-    if (hit.back && hit.to.length === 1) return smartBackRun(hit, from);
+    if ((hit.back || hit.backTo) && hit.to.length === 1) return smartBackRun(hit, from);
     const p = hit.sm.patch, to = (hit.to.length ? hit.to : hit.sm.items || []).slice(0, 5);
     const f = { ...defaultForm(), ...prefsOf(S.form), from: hit.from.length ? hit.from : (from && from.length ? from : S.home?.from || []), to, ...p, ...smartDirect(p) };
     if (f.dateMode === 'exact' && !f.xBack) f.trip = 'oneway';
