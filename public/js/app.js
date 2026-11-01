@@ -875,8 +875,9 @@ function showNow() {
    Novinky posledních verzí a kde je v aplikaci najít (nejnovější nahoře). Po aktualizaci je ukáže lišta dole – jen ty
    od posledního otevření (whatsNewPop); celý seznam je v menu ☰ / v postranním panelu → Co je nového. WN_ID = verze
    sady (O aplikaci ji ukazuje, uvítání nováčka se k ní váže). */
-const WN_ID = '2026-11-01b';
+const WN_ID = '2026-11-01c';
 const WHATS_NEW = [
+  ['🔄', 'Upravený plán od kamaráda bez kopií', 'když ti kamarád pošle novější verzi plánu, který už máš, nabídnu <b>🔄 Aktualizovat moji cestu</b> – převezmeš termín, let a program, tvoje odškrtnuté „Sbaleno“, kódy rezervací a vlastní aktivity zůstanou. Dřív vznikla druhá kopie.'],
   ['✏️', 'Cestu upravíš i po uložení', 'v <b>Cesty</b> → Moje cesty otevři cestu a klepni na <b>✏️ Upravit název a termín</b> – přejmenuješ ji, posuneš termín (program dnů se posune s ním) nebo změníš počet cestujících. Dřív to šlo jen smazat a založit znovu.'],
   ['✨', 'Hledání větou rozumí víc', 'napiš třeba <b>„Kanáry přes Vánoce a Silvestr“</b>, <b>„Londýn na Den boje za svobodu“</b>, <b>„Řím s dětmi 5 a 8 let“</b> nebo <b>„Vídeň 4.–6. 12. nebo 11.–13. 12.“</b> – termín, délku i počet lidí nastaví ATLAS sám. Funguje v <b>Letech</b> i v <b>Objevuj</b>.'],
   ['🔎', 'Země na mapu napsáním', 'pod mapou ve <b>Světě</b> napiš začátek názvu („ital“, „usa“) a klepni – malé země už nemusíš trefovat v mapě.'],
@@ -2236,10 +2237,10 @@ function openTrip(i) {
   const gcal = $('#tripGcal'); if (gcal) $('#notes-' + i).addEventListener('change', () => { gcal.href = safeUrl(Ics.gcalUrl(planEvents(t)[0])); });
   $('#tripShare').onclick = () => sharePlan(i);
   // krátký odkaz se začne ukládat už při dotyku – sdílení pak nečeká (Safari ho chce ještě v obsluze klepnutí)
-  $('#tripShare').onpointerdown = () => ShareLink.short('plan', PlanShare.json(t));
+  $('#tripShare').onpointerdown = () => ShareLink.short('plan', planJson(t));
   // karta „Jede někdo se mnou?“ na sítě z cesty uložené z průvodce (data cesty umí Trip.cardData)
-  const tj = $('#tripJed'); if (tj) tj.onclick = () => withMod('trip', () => window.ShareCard && ShareCard.open(Trip.cardData(t.wizard), { send: () => sharePlan(i), prime: () => ShareLink.short('plan', PlanShare.json(t)) }));
-  ShareLink.prepare('plan', PlanShare.json(t)); // kliknutí pak jen zkopíruje hotový odkaz (Safari)
+  const tj = $('#tripJed'); if (tj) tj.onclick = () => withMod('trip', () => window.ShareCard && ShareCard.open(Trip.cardData(t.wizard), { send: () => sharePlan(i), prime: () => ShareLink.short('plan', planJson(t)) }));
+  ShareLink.prepare('plan', planJson(t)); // kliknutí pak jen zkopíruje hotový odkaz (Safari)
 }
 
 /** 🔖 Rezervace v okně cesty: kódy letenek, potvrzení ubytování… (nejvýš 6) – jen v tomto zařízení a v záloze (backup.js
@@ -2298,11 +2299,14 @@ function icsDownload(filename, events, opts) {
   const n = Ics.download(filename, events, opts).split('\r\nBEGIN:VEVENT\r\n').length - 1;
   toast(`Soubor .ics stažen (${n} ${n === 1 ? 'událost' : n >= 2 && n <= 4 ? 'události' : 'událostí'}) – otevři ho v kalendáři`);
 }
+/** JSON plánu do odkazu; cesta dostane při prvním sdílení stálé označení (sid) – kamarádova novější verze ji pak
+ *  aktualizuje, ne zkopíruje (previewPlan). */
+const planJson = t => { if (t && !t.sid && window.PlanShare && PlanShare.newSid) { t.sid = PlanShare.newSid(); save(); } return PlanShare.json(t); };
 /** Odkaz na plán (zkomprimovaný – sharelink.js; připravený už při otevření plánu): na telefonu rovnou nabídka sdílení
  *  (WhatsApp, e-mail…), s myší do schránky (ShareLink.send), jinak k ručnímu zkopírování. */
 function sharePlan(i) {
   const t = S.trips[i];
-  return ShareLink.send('plan', PlanShare.json(t), { title: `🧳 ${t.name || 'Plán cesty'}`, text: `🧳 ${t.name || 'Plán cesty'} – plán cesty v ATLASu:` })
+  return ShareLink.send('plan', planJson(t), { title: `🧳 ${t.name || 'Plán cesty'}`, text: `🧳 ${t.name || 'Plán cesty'} – plán cesty v ATLASu:` })
     .then(r => (r.shared || r.aborted ? null : r.copied ? toast('Odkaz na plán zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz na plán:', r.url)));
 }
 /**
@@ -2378,25 +2382,56 @@ async function openJedFromHash() {
   if (d) ShareCard.landing(d);
   return true;
 }
-/** Náhled plánu z odkazu (#plan=): co v něm je, z kdy jsou ceny (sharedOn) a 💾 Uložit si ji – pak je to vlastní plán. */
+/**
+ * Tatáž sdílená cesta už v Mých cestách (index, jinak -1): stejné sid; u odkazu nebo uložené cesty bez sid (starší
+ * verze) stejný název a cíl. Cesta z průvodce ne – termín a let jí drží průvodce (aktualizace by se při dalším uložení
+ * přepsala).
+ */
+const sharedMatch = (trips, p) => trips.findIndex(t => t && !t.wizard && (p.sid && t.sid ? t.sid === p.sid : norm(t.name || '') === norm(p.name || '') && (t.dest || '') === (p.dest || '')));
+/** Náhled plánu z odkazu (#plan=): co v něm je, z kdy jsou ceny (sharedOn) a 💾 Uložit si ji – pak je to vlastní plán.
+ *  Novější verze cesty, kterou už mám (kamarád plán upravil a poslal znovu): 🔄 Aktualizovat moji cestu místo kopie. */
 function previewPlan(shared) {
   const { sharedOn, ...p } = shared; // den sdílení jen pro poznámku, do plánovače ne
+  const key = x => { const { checklist, ...rest } = PlanShare.sanitize(x); return JSON.stringify(rest); };
+  let same = S.trips.findIndex(t => t && key(t) === key(p)), mi = same >= 0 ? -1 : sharedMatch(S.trips, p);
+  // stejná verze znovu (jen u mě přibyly vlastní aktivity nebo odškrtnutí): aktualizace by nic nezměnila – „už máš“
+  if (mi >= 0) { const u = PlanShare.merge(S.trips[mi], p), t = S.trips[mi]; if (key(u) === key(t) && JSON.stringify(u.checklist) === JSON.stringify(t.checklist)) { same = mi; mi = -1; } }
+  const mine = mi >= 0 ? S.trips[mi] : null;
+  const nActs = t => Object.values(t.days || {}).reduce((n, x) => n + (Array.isArray(x) ? x.length : 0), 0);
+  // co je v nové verzi jinak (termín, program, let) – ať je vidět, co aktualizace změní
+  const diff = mine ? [
+    (mine.start || '') !== p.start || (mine.end || '') !== p.end ? `termín ${dateSpan(mine.start, mine.end, ' – ') || 'bez data'} → <b>${dateSpan(p.start, p.end, ' – ') || 'bez data'}</b>` : '',
+    JSON.stringify(mine.days || {}) !== JSON.stringify(p.days) ? `program ${nActs(mine)} → <b>${nActs(p)}</b> ${nActs(p) === 1 ? 'aktivita' : nActs(p) >= 2 && nActs(p) <= 4 ? 'aktivity' : 'aktivit'}` : '',
+    (mine.flight || '') !== (p.flight || '') ? 'jiný let' : '',
+  ].filter(Boolean) : [];
   const c = p.iso ? byIso[p.iso] : null, days = Object.keys(p.days).sort(), acts = days.reduce((n, d) => n + p.days[d].length, 0);
   modalOpen(`<div class="modal-hero"><div class="mh-bg ${c && c.cost >= 4 ? 'warm' : ''}"></div><button class="modal-close" data-close aria-label="Zavřít">${ico('M18 6L6 18M6 6l12 12')}</button><div class="modal-hero-inner"><div style="font-size:40px;line-height:1">${c ? flag(p.iso) : '🧳'}</div><h2 style="font-size:24px;margin-top:4px;overflow-wrap:anywhere">${esc(p.name)}</h2><div style="font-size:13px">Sdílený plán · ${esc(p.dest)}${p.start ? ' · ' + fmtDate(p.start) + (p.end && p.end !== p.start ? ' – ' + fmtDate(p.end) : '') : ''} · ${esc(p.pax)} os.</div></div></div>
   <div class="modal-body">
-    <p class="muted" style="font-size:14px;margin-bottom:12px">Někdo ti poslal plán cesty. Zkontroluj ho a ulož si ho do Mých cest – uloží se jen u tebe.</p>
+    <p class="muted" style="font-size:14px;margin-bottom:12px">${mine ? 'Někdo ti poslal novější verzi plánu, který už máš.' : 'Někdo ti poslal plán cesty. Zkontroluj ho a ulož si ho do Mých cest – uloží se jen u tebe.'}</p>
+    ${mine ? `<div class="note info" style="margin-bottom:12px">🔄 <div>Tuhle cestu už máš jako <b>„${esc(mine.name || '')}“</b>${diff.length ? ` – ${diff.join(' · ')}` : ''}. Aktualizací převezmeš termín, let a program; tvůj název, odškrtnuté „Sbaleno“, kódy rezervací a vlastní aktivity zůstanou.</div></div>` : ''}
     <div class="note info" style="margin-bottom:12px">🔗 <div><b>Sdílená cesta</b> – ${sharedOn ? `ceny jsou z doby sdílení (${+sharedOn.slice(8, 10)}.\u00a0${+sharedOn.slice(5, 7)}.)` : 'ceny se mohly změnit'}. Před nákupem je ověř.</div></div>
     ${p.flight ? `<div class="note info" style="margin-bottom:12px">${planIco(p.flight)} <div>${planFlightHtml(p.flight)}</div></div>` : ''}
     ${days.slice(0, 6).map(d => `<div class="act"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${fmtDate(d)}</b> ${esc(p.days[d].join(' · '))}</span></div>`).join('')}
     <div class="faint" style="font-size:12.5px;margin-top:8px">${acts} ${acts === 1 ? 'aktivita' : acts >= 2 && acts <= 4 ? 'aktivity' : 'aktivit'}${days.length > 6 ? ` · ${days.length} dní s programem` : ''}${+p.budget ? ' · rozpočet ' + czk(+p.budget) : ''}${p.notes ? ' · s poznámkami' : ''}</div>
-    <div class="row wrap" style="gap:8px;margin-top:16px"><button class="btn primary" id="planImport">💾 Uložit si ji</button><button class="btn ghost" id="planSkip">Nepřidávat</button></div>
+    <div class="row wrap" style="gap:8px;margin-top:16px">${mine ? '<button class="btn primary" id="planUpdate">🔄 Aktualizovat moji cestu</button><button class="btn" id="planImport">Uložit jako novou</button>' : '<button class="btn primary" id="planImport">💾 Uložit si ji</button>'}<button class="btn ghost" id="planSkip">Nepřidávat</button></div>
   </div>`);
   $('#planSkip').onclick = modalClose;
+  // minulá verze plánu (sharedSnap) – při další aktualizaci se podle ní pozná, které aktivity a poznámky jsou tvoje
+  // vlastní kopie: s cestou by jinak sdílela pole dnů a přidaná aktivita by se „objevila“ i v minulé verzi
+  const snap = JSON.parse(JSON.stringify({ days: p.days, notes: p.notes }));
   $('#planImport').onclick = () => {
-    const key = x => { const { checklist, ...rest } = PlanShare.sanitize(x); return JSON.stringify(rest); };
-    let i = S.trips.findIndex(t => key(t) === key(p));
-    if (i < 0) { S.trips.push({ ...p, checklist: p.checklist.length ? p.checklist : PACK.map(t => ({ t, done: false })) }); i = S.trips.length - 1; save(); toast('Plán přidán do Mých cest'); }
+    let i = same >= 0 && S.trips[same] ? same : S.trips.findIndex(t => t && key(t) === key(p));
+    // „Uložit jako novou“: kopie bez sid – další verze od kamaráda se nabídne k té původní
+    if (i < 0) { const { sid, ...q } = p; S.trips.push({ ...(mine ? q : p), checklist: p.checklist.length ? p.checklist : PACK.map(t => ({ t, done: false })), ...(mine ? {} : { sharedSnap: snap }) }); i = S.trips.length - 1; save(); toast('Plán přidán do Mých cest'); }
     else toast('Tenhle plán už v Mých cestách máš');
+    modalClose(); go('planner'); setTimeout(() => openTrip(i), 250);
+  };
+  const up = $('#planUpdate');
+  if (up) up.onclick = () => {
+    const i = S.trips.indexOf(mine);
+    if (i < 0) return toast('Cesta mezitím zmizela – ulož si plán jako novou', 'err');
+    S.trips[i] = PlanShare.merge(mine, p); save(); tripsChanged();
+    toast('Cesta aktualizovaná – tvoje odškrtnutí a rezervace zůstaly');
     modalClose(); go('planner'); setTimeout(() => openTrip(i), 250);
   };
 }
@@ -2451,7 +2486,7 @@ function putRide(t, key, k, v) {
   if (!next) return;
   if (next.length) t.rides = next; else delete t.rides;
   save();
-  ShareLink.prepare('plan', PlanShare.json(t));
+  ShareLink.prepare('plan', PlanShare.json(t)); // jen předpřipravený odkaz – sid dá cestě otevření detailu i samo sdílení (planJson)
   if (activeView === 'dashboard') renderNow();
 }
 // Pole vlaku už při psaní (jako poznámky): „change“ přijde až po opuštění pole – kód jízdenky vložený z e-mailu by
