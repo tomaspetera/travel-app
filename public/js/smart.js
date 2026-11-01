@@ -539,7 +539,8 @@
     const people = n => { if (n >= 1 && n <= 9) { patch.adults = n; patch.children = 0; patch.infants = 0; return true; } return false; };
     // („pro jedno dítě a dva dospělé“: „pro jedno“ jsou děti, ne 1 dospělý)
     rule(new RegExp(`(?:ve|pro)\\s+(${NUM_RE})(?:\\s+(?:lidech|lidi|lide|osobach|osoby|osob|dospele|dospeli|dospelych))?(?!\\s+(?:dit|deti|miminek|miminka|miminko|batol))${W}`), m => (people(num(m[1])) ? undefined : false));
-    rule(new RegExp(`(${NUM_RE})\\s*(?:lidi|lide|osoby|osob|dospeli|dospelych|dospele|pasazeri|pasazery|cestujici)${W}`), m => (people(num(m[1])) ? undefined : false));
+    // „2x dospělý 1x dítě“ (jako v rezervacích): „x“ za počtem a jednotné číslo „dospělý“ – dřív „2x dospělý 1x“ jako místo
+    rule(new RegExp(`(${NUM_RE})\\s*(?:x\\s*)?(?:lidi|lide|osoby|osob|dospeli|dospelych|dospele|dospely|dospelou|pasazeri|pasazery|cestujici)${W}`), m => (people(num(m[1])) ? undefined : false));
     rule(new RegExp(`(?:sam|sama|samotn[yaá]|solo|jen\\s+ja)${W}`), () => { people(1); });
     // „rodina 2+2“, „2+1 do Říma“: dospělí + děti (dřív bez lidí)
     rule(new RegExp(`(?:rodina\\s+)?([1-9])\\s*\\+\\s*([1-6])(?![\\d.])${W}`), m => { if (!people(+m[1])) return false; kids = +m[2]; });
@@ -554,12 +555,12 @@
       if (/^s[e]?\s+(?:ditetem|ditkem)/.test(m[0]) && ages.length > 1) return false; // „s dítětem 5 a 8 let“ – nevím
       babies = ages.filter(a => a < 2).length; kids = ages.filter(a => a >= 2 && a < 12).length; teens = ages.filter(a => a >= 12).length;
     });
-    rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:deti|ditka|detmi|ditetem|ditkem|dite|batolata|batolat|batolatum)${W}|(?:(?:s|se|a)\\s+)?(?:ditetem|ditkem|dite|ditko|batoletem|batole)${W}`), m => {
+    rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:x\\s*)?(?:deti|ditka|detmi|ditetem|ditkem|dite|batolata|batolat|batolatum)${W}|(?:(?:s|se|a)\\s+)?(?:ditetem|ditkem|dite|ditko|batoletem|batole)${W}`), m => {
       const k = m[1] ? num(m[1]) : 1;
       if (!(k >= 1 && k <= 6)) return false;
       kids = k;
     });
-    rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:miminka|miminek|miminky|mimina|miminkem|miminko|mimino|miminem)${W}|(?:(?:s|se|a)\\s+)?(?:miminkem|miminko|mimino|miminem)${W}`), m => {
+    rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:x\\s*)?(?:miminka|miminek|miminky|mimina|miminkem|miminko|mimino|miminem)${W}|(?:(?:s|se|a)\\s+)?(?:miminkem|miminko|mimino|miminem)${W}`), m => {
       const k = m[1] ? num(m[1]) : 1;
       if (!(k >= 1 && k <= 4)) return false;
       babies = k;

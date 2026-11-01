@@ -880,3 +880,11 @@ test('Objevuj větou: pláže = příroda, zoo / aquapark = s dětmi, kavárny /
   // „Plaza“ není pláž
   assert.deepEqual(E('Madrid Plaza Mayor').interests, []);
 });
+
+test('„2x dospělý 1x dítě“ (jako v rezervacích) a „1 dospělý“: počty osob, ne místo', () => {
+  const r = P('Řím 2x dospělý 1x dítě');
+  assert.deepEqual([r.to, r.patch.adults, r.patch.children], [['Řím'], 2, 1]);
+  const l = P('Londýn 3x dospělý, 2x dítě, 1x miminko');
+  assert.deepEqual([l.to, l.patch.adults, l.patch.children, l.patch.infants], [['Londýn'], 3, 2, 1]);
+  assert.deepEqual([P('Paříž 1 dospělý').to, P('Paříž 1 dospělý').patch.adults], [['Paříž'], 1]);
+});
