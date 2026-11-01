@@ -950,3 +950,15 @@ test('„✨ Zkus napsat“ před Vánoci nabídne „Kanáry přes Vánoce a Si
   assert.match(src, /\.\.\.\(xmas \? \['Kanáry přes Vánoce a Silvestr'\] : \[\]\)/);
   assert.equal(P('Kanáry přes Vánoce a Silvestr', '2026-11-01').patch.xFlex, 1);
 });
+
+test('překlep v dlouhém měsíci za „v“ („v prosnci“, „v listpadu“) a „vykend“: termín, ne místo', () => {
+  const t = '2026-11-01';
+  const r = P('Řím v prosnci', t);
+  assert.deepEqual([r.to, chips(r), r.patch.dFrom, r.patch.dTo], [['Řím'], ['prosinec'], '2026-12-01', '2026-12-31']);
+  assert.deepEqual([P('v listpadu do rima', t).to, chips(P('v listpadu do rima', t))], [['rima'], ['listopad']]);
+  assert.deepEqual([P('Řím na vykend', t).to, P('Řím na vykend', t).patch.len], [['Řím'], 'weekend']);
+  assert.deepEqual([P('Paříž o vykendu', t).to, chips(P('Paříž o vykendu', t))[0]], [['Paříž'], 'tento víkend']);
+  // krátké měsíce a místa podobná měsíci zůstávají (Ledeč ≠ leden, Prosecco není prosinec)
+  assert.deepEqual(P('Řím v Prosecco', t).to, ['Řím', 'Prosecco']);
+  assert.deepEqual(P('Ledeč v prosinci', t).to, ['Ledeč']);
+});
