@@ -294,8 +294,9 @@
     // („na začátku / na konci / ke konci / uprostřed prosince“ – jinak by z „začátku“ bylo místo)
     const PART = [[/zacat|pocat/, 1, 10, 'začátek'], [/pul|polov|uprostred/, 10, 20, 'polovina'], [/kon/, 20, 31, 'konec']];
     rule(new RegExp(`(?:(do\\s+konce|na\\s+zacatku|na\\s+pocatku|na\\s+konci|ke\\s+konci|uprostred|v|ve|na|behem|koncem|konec|zacatkem|zacatek|pocatkem|polovinou|polovina|v\\s+polovine|v\\s+pulce|pulka|od|do)\\s+)?(${MONTH_FORMS.map(x => x[0]).join('|')})${W}`), m => {
-      if (dates && !dates.month) return false;
       const k = MONTH_OF[m[2]], r = monthRange(k);
+      // měsíc navíc k datu v něm („Řím 4.–6. 12. v prosinci“, „12. 11. v listopadu“): jen spolknout – dřív „prosinci“ jako místo
+      if (dates && !dates.month) { const d = dates.out || dates.from || (dates.holiday && dates.holiday.start) || ''; return +d.slice(5, 7) - 1 === k && !m[1]?.startsWith('do') ? undefined : false; }
       if (dates && dates.month) { dates.to = monthRange(k).to; dates.label = `${dates.label}–${MONTHS[k]}`; month = month ?? k; return; } // „v květnu a červnu“
       month = k;
       if (/^do\s+konce/.test(m[1] || '')) { dates = { from: today, to: r.to, month: true, label: `do konce ${MGEN_CZ[k]}` }; return; }
