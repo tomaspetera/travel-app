@@ -1556,7 +1556,9 @@
     let ctl = null, sugs = [], act = 0, sugFor = '', err = false, t = null;
     // ✨ věta („Lisabon na 3 dny“, „výlety z Brna“): jen řádek s tím, jak jí rozumím – návrhy pro celou větu by mátly
     // věta s volbami („Lisabon na 3 dny“), nebo jen otázka kolem místa („co vidět v Římě“ → Řím)
-    const smartOf = text => { const px = window.Smart && Smart.parseExplore(text, { today: fmtYMD(new Date()) }); return px && (px.chips.length || (px.place && Smart.fold(px.place) !== Smart.fold(text))) && (px.place || ex.place) ? px : null; };
+    // svátky jako u hledání letů („Paříž na Den boje za svobodu“ = jeho prodloužený víkend, ne odhad)
+    const exOpts = () => { const t = fmtYMD(new Date()), H = window.SearchHelp; return { today: t, ...(H ? { holidays: H.holidayList(t), holidayDates: H.holidayDates, longWeekend: H.longWeekend } : {}) }; };
+    const smartOf = text => { const px = window.Smart && Smart.parseExplore(text, exOpts()); return px && (px.chips.length || (px.place && Smart.fold(px.place) !== Smart.fold(text))) && (px.place || ex.place) ? px : null; };
     const show = () => {
       const px = smartOf(q.value.trim());
       const wc = px && wholeCountryOf(px);
