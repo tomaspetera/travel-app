@@ -727,7 +727,9 @@
     if (patch.trip === 'oneway') chips.push(['➡️', longStay ? 'jen tam (zpět hledej zvlášť)' : 'jen tam']);
     // „Praha → Řím → Barcelona → Praha“: dvě a víc šipek = cesta přes víc měst (odkud, pak místa v pořadí)
     const chain = arrows >= 2 && from.length === 1 && to.length >= 2 && !kind;
-    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(group ? { group } : {}), ...(chain ? { chain: true } : {}), ...(withKids && !kids && !babies && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}) };
+    return { chips: chips.map(([i, t]) => ({ icon: i, text: t })), patch, to, from, kind, items, ...(group ? { group } : {}), ...(chain ? { chain: true } : {}), ...(withKids && !kids && !babies && !patch.adults ? { askPax: true } : {}), ...(back.length === 1 && to.length === 1 && !kind && !chain ? { back: back[0] } : {}),
+      // návrat z věty (ne dopočtený z délky) – Objevuj z něj vezme počet dní („Paříž 20.–23. 11.“ = 4 dny)
+      ...(dates && dates.exact && dates.back ? { backSet: true } : {}) };
   }
 
   /**
@@ -892,6 +894,8 @@
     let start = pt.xOut || pt.dFrom || null;
     // „od pátku do neděle“: dny = noci + 1, začátek nejbližší ten den v týdnu (dnes, je-li to on)
     if (!days && pt.len === 'custom' && pt.nMin) days = Math.min(14, pt.nMin + 1);
+    // „Paříž 20.–23. 11.“: dny z rozsahu dat (dřív jen začátek a program na výchozí počet dní)
+    if (!days && p.backSet && pt.xOut && pt.xBack) { const n = Math.round((Date.parse(pt.xBack) - Date.parse(pt.xOut)) / 864e5) + 1; if (n >= 1 && n <= 14) days = n; }
     if (!start && pt.outDays && pt.outDays.length === 1) { const t = o.today || ymd(new Date()); start = addDays(t, (pt.outDays[0] - dow(t) + 7) % 7); }
     if (!start && wk) {
       // v neděli už ten příští (jako „tento víkend“ u letů); prodloužený v sobotu = od dneška
