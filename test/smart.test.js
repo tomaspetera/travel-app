@@ -801,3 +801,18 @@ test('„zpět do X“ = odkud letím, ne druhý cíl; „jedno miminko“ není
   assert.deepEqual([b.patch.adults, b.patch.children, b.patch.infants], [2, 0, 1]);
   assert.deepEqual(P('Paříž s jedním dítětem a jedno miminko').to, ['Paříž']);
 });
+
+test('věk dětí: do 2 let miminko, 2–11 dítě, od 12 let platí jako dospělý', () => {
+  const pax = q => { const r = P(q); return [r.patch.adults, r.patch.children, r.patch.infants]; };
+  assert.deepEqual(pax('Řecko v červnu s dětmi 5 a 8 let'), [2, 2, 0]);
+  assert.equal(P('Řecko v červnu s dětmi 5 a 8 let').askPax, undefined, 'počet dětí je známý – bez „uprav v Cestujících“');
+  assert.deepEqual(pax('Řecko s dětmi (1, 4 a 13 let)'), [3, 1, 1]);
+  assert.deepEqual(pax('Itálie s dítětem 1 rok'), [2, 0, 1]);
+  assert.deepEqual(pax('Itálie s dítětem 6 let'), [2, 1, 0]);
+  assert.deepEqual(pax('Řím pro 3 dospělé s dětmi 4 a 9 let'), [3, 2, 0]);
+  const m = P('Malta s dětmi ve věku 3 a 7');
+  assert.deepEqual([m.to, m.patch.children], [['Malta'], 2]);
+  // „2 týdny“ není věk
+  assert.equal(P('s dětmi 2 týdny v Chorvatsku').patch.children, undefined);
+  assert.equal(P('s dětmi 2 týdny v Chorvatsku').patch.len, '2weeks');
+});

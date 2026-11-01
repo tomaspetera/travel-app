@@ -95,7 +95,7 @@
     const s = fold(raw);
     const used = new Array(s.length).fill(false);
     const chips = [], patch = {};
-    let kind = null, group = null, month = null, dates = null, len = null, kids = 0, babies = 0, withKids = false;
+    let kind = null, group = null, month = null, dates = null, len = null, kids = 0, babies = 0, teens = 0, withKids = false;
     // obrat najdi, označ jako použitý; fn vrátí false = nepoužít (shoda zůstane ve zbytku věty)
     const rule = (re, fn) => {
       const g = new RegExp(re.source, 'g' + (re.flags.includes('i') ? 'i' : ''));
@@ -522,6 +522,15 @@
     rule(new RegExp(`(?:rodina\\s+)?([1-9])\\s*\\+\\s*([1-6])(?![\\d.])${W}`), m => { if (!people(+m[1])) return false; kids = +m[2]; });
     // děti 2–11 let platí sedadlo, miminko letí na klíně: „2 dospělí a 2 děti“ = 2 dospělí + 2 děti, „s miminkem“ =
     // miminko navíc (bez počtu dospělých dva); „dítě“ / „miminko“ i bez předložky („2 dospělí, dítě a miminko“)
+    // věk dětí („s dětmi 5 a 8 let“, „s dítětem 1 rok“): letenka podle věku – do 2 let miminko na klíně, 2–11 dítě,
+    // od 12 let platí jako dospělý (dřív jen „s dětmi – kolik jich je, uprav“, „s dítětem 1 rok“ = dítě se sedadlem)
+    const AGES = '(\\d{1,2}(?:\\s*(?:,|a|i)\\s*\\d{1,2}){0,5})';
+    rule(new RegExp(`(?:s|se)\\s+(?:detmi|detma|deckama|ditkama|ditetem|ditkem)\\s*\\(?\\s*(?:(?:ve\\s+)?veku\\s+${AGES}(?:\\s*(?:let|roky|roku|rok))?|${AGES}\\s*(?:let|roky|roku|rok))\\s*\\)?${W}`), m => {
+      const ages = (m[1] || m[2]).match(/\d{1,2}/g).map(Number);
+      if (ages.some(a => a > 17)) return false;
+      if (/^s[e]?\s+(?:ditetem|ditkem)/.test(m[0]) && ages.length > 1) return false; // „s dítětem 5 a 8 let“ – nevím
+      babies = ages.filter(a => a < 2).length; kids = ages.filter(a => a >= 2 && a < 12).length; teens = ages.filter(a => a >= 12).length;
+    });
     rule(new RegExp(`(?:a\\s+|se?\\s+)?(${NUM_RE})\\s*(?:deti|ditka|detmi|ditetem|ditkem|dite|batolata|batolat|batolatum)${W}|(?:(?:s|se|a)\\s+)?(?:ditetem|ditkem|dite|ditko|batoletem|batole)${W}`), m => {
       const k = m[1] ? num(m[1]) : 1;
       if (!(k >= 1 && k <= 6)) return false;
@@ -622,8 +631,8 @@
     // pomlčka bez místa za ní („Řím – víkend“) nebyla odkud → kam: místo před ní je cíl
     if (soft && !to.length && !kind && from.length === 1) { to.push(from.pop()); arrows--; }
 
-    if (kids || babies) {
-      patch.adults = patch.adults || 2;
+    if (kids || babies || teens) {
+      patch.adults = Math.min(9, (patch.adults || 2) + teens); // dítě od 12 let letí za cenu dospělého
       patch.children = Math.min(kids, 9 - patch.adults);
       patch.infants = Math.min(babies, patch.adults); // miminko na klíně – nejvýš jedno na dospělého
     }
