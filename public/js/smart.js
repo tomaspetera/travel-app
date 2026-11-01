@@ -324,8 +324,23 @@
     const hol = (o.holidays || []);
     // datum hned po „zpět / zpátky / návrat“ (i „zpět v sobotu 26.12.“, „zpět do Prahy 26.12.“ – nejvýš 3 slova mezi)
     const retBefore = at => at != null && /(?:^|[^a-z])(?:zpet|zpatky|navrat\w*)(?:\s+(?!nebo\b|ci\b)[a-z]+){0,3}[\s,:–-]*$/.test(s.slice(0, at));
+    // „přes Vánoce a Silvestr“ (i obráceně, i „Nový rok“): obojí – odlet před Štědrým dnem, návrat po Novém roce, ± 1 den;
+    // dřív jen Vánoce na 3–4 noci (Silvestr se tiše zahodil). name = svátek, který přišel druhý; null = nejde o tuto dvojici
+    const xmasNy = (d, name) => {
+      const xmas = x => (x.holiday && /vanoc/.test(fold(x.holiday.name || ''))) || x.label === 'Vánoce';
+      const ny = x => (x.holiday && /novy rok/.test(fold(x.holiday.name || ''))) || x.label === 'Silvestr';
+      if (!d || !(name === 'vanoce' ? ny(d) : xmas(d))) return null;
+      const ds = (d.holiday ? d.holiday.start : d.to) || '';
+      if (!/^\d{4}-\d\d-\d\d$/.test(ds)) return null;
+      const y = +ds.slice(0, 4) - (ds.slice(5) < '06-01' ? 1 : 0);
+      const out = [`${y}-12-23`, addDays(today, 1)].sort()[1], back = `${y + 1}-01-02`;
+      if (out > `${y}-12-29`) return null;
+      return { exact: true, out, back, flex: 1, xmasNy: true };
+    };
     const holRule = (re, name, fallback) => rule(new RegExp(`(?:(?:na|o|pres|na\\s+svatky)\\s+)?(?:${re})${W}`), (m, at) => {
       const lw = hol.find(x => fold(x.name || '').includes(name));
+      const xn = (name === 'vanoce' || name === 'novy rok') && xmasNy(dates, name);
+      if (xn) { dates = xn; return; }
       // „Štědrý den do Londýna a zpět 27.12.“: datum z věty je návrat, svátek odlet (dřív „Štědrý den“ neznámé místo)
       if (dates) {
         // svátek mimo seznam prodloužených víkendů (Vánoce od ledna do léta tam nejsou): začátek z náhradního termínu –
@@ -367,6 +382,8 @@
     const silvestr = () => { const y = +today.slice(0, 4) + (today.slice(5) > '12-31' ? 1 : 0); len = len || 'long'; return { from: [today, `${y}-12-27`].sort()[1], to: `${y}-12-31`, label: 'Silvestr' }; };
     // s daty z věty („Silvestr v Londýně 27.12.–2.1.“) platí data – Silvestr už není místo
     rule(new RegExp(`(?:(?:na|o|pres)\\s+)?silveste?r\\w*${W}`), () => {
+      const xn = xmasNy(dates, 'silvestr');
+      if (xn) { dates = xn; return; }
       if (dates) {
         // „Silvestr v Londýně a zpět 1.1.“: datum po „zpět / návrat“ je návrat, odlet na Silvestra (dřív odlet 1. 1.)
         if (dates.exact && dates.out && !dates.back && retBefore(dates.at)) {
@@ -664,7 +681,13 @@
     } else if (dates && dates.exact) {
       const n = patch.nMin != null ? Math.round((patch.nMin + patch.nMax) / 2) : 7;
       const back = dates.back || (patch.trip === 'oneway' ? null : addDays(dates.out, n));
-      Object.assign(patch, { dateMode: 'exact', xOut: dates.out, xFlex: 0, ...(back ? { xBack: back } : {}) });
+      // Vánoce i Silvestr s delším pobytem („na 2 týdny“): návrat po Novém roce zůstane, odlet o tolik dřív
+      if (dates.xmasNy) {
+        const k = patch.nMin != null ? Math.round((patch.nMin + patch.nMax) / 2) : 0;
+        if (k > 10) dates.out = [addDays(dates.back, -k), addDays(today, 1)].sort()[1];
+        dates.label = `Vánoce i Silvestr (${dm(dates.out)} – ${dm(dates.back)} ± 1 den)`;
+      }
+      Object.assign(patch, { dateMode: 'exact', xOut: dates.out, xFlex: dates.flex || 0, ...(back ? { xBack: back } : {}) });
       if (!dates.back && !back) patch.trip = 'oneway';
       // návrat přes 45 nocí („1.12. a zpět 28.2.“): zpáteční tak daleko hledání nenajde – jen tam, zpět zvlášť (jako „na 3 měsíce“)
       if (back && (Date.parse(back) - Date.parse(dates.out)) / 864e5 > 45) { patch.trip = 'oneway'; longStay = true; }
