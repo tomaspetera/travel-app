@@ -1156,3 +1156,17 @@ test('„zpět do Prahy nebo Drážďan“: 2. pád množného čísla končí s
   assert.deepEqual(ft('do Říma a zpět do Prahy, nebo Milán'), [['Prahy'], ['Říma', 'Milán'], undefined, undefined]);
   assert.deepEqual(ft('do Říma a zpět do Prahy nebo Paříž'), [['Prahy'], ['Říma', 'Paříž'], undefined, undefined]);
 });
+
+test('„zpět do Prahy nebo Ústí nad Labem“: pád podle slova před „nad / pod“; pevný odlet s rozsahem nocí = celý rozsah', () => {
+  const r = P('z Vídně do Londýna a zpět do Prahy nebo Ústí nad Labem');
+  assert.deepEqual([r.to, r.backTo, r.backAlt], [['Londýna'], 'Prahy', ['Ústí nad Labem']]);
+  assert.deepEqual(P('do Londýna a zpět do Prahy nebo Frankfurtu nad Mohanem').from, ['Prahy', 'Frankfurtu nad Mohanem']);
+  // „od 10. 12. na 3–5 nocí“: odlet 10. 12., 3–5 nocí (dřív přesně 4 noci)
+  const a = P('Řím od 10. 12. na 3–5 nocí', '2026-11-01');
+  assert.deepEqual([a.patch.dateMode, a.patch.dFrom, a.patch.dTo, a.patch.nMin, a.patch.nMax], ['flex', '2026-12-10', '2026-12-10', 3, 5]);
+  assert.deepEqual(chips(a), ['odlet 10. 12.', '3–5 nocí']);
+  const k = P('kolem 15. 12. na 3–5 nocí', '2026-11-01').patch;
+  assert.deepEqual([k.dFrom, k.dTo], ['2026-12-13', '2026-12-17']);
+  // bez rozsahu beze změny
+  assert.deepEqual(chips(P('Řím od 10. 12. na týden', '2026-11-01')), ['10. 12. – 17. 12.']);
+});

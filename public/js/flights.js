@@ -869,6 +869,9 @@
     $('#dateMode').style.display = $('#dateModeLbl').style.display = multi ? 'none' : '';
     $('#fromHint').textContent = multi ? 'začátek cesty – okruh letišť a doprava platí pro 1. let a návrat domů' : 'město, letiště, země nebo tvoje poloha';
     $('#lenField').style.display = ret && !exact ? '' : 'none';
+    // schovaná délka pobytu (jen tam, přesná data, víc měst) mimo kontrolu formuláře – neplatné „nocí“ by jinak potichu
+    // zablokovalo hledání, kde noci ani nejsou vidět
+    $('#nMin').disabled = $('#nMax').disabled = !(ret && !exact);
     syncHoliday();
     $('#flexField').style.display = exact || multi ? 'none' : '';
     $('#exactField').hidden = !exact;

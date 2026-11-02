@@ -251,9 +251,10 @@
     && typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   /**
    * Pošle odkaz nabídkou sdílení telefonu (jako 📤 u nabídky letu), jinak ho zkopíruje (copy) → Promise<{ url, shared,
-   * aborted, copied }>. Zavřená nabídka (aborted) = uživatel si to rozmyslel – žádné kopírování ani hláška.
+   * aborted, copied }>. Zavřená nabídka (aborted) = uživatel si to rozmyslel – žádné kopírování ani hláška. onShared:
+   * odkaz odešel až z hlášky „Odkaz je připravený“ (Safari) – výsledek send už je tou dobou aborted.
    */
-  async function send(kind, json, { title = '', text = '' } = {}) {
+  async function send(kind, json, { title = '', text = '', onShared = null } = {}) {
     const ready = Boolean(short(kind, json).url), sUrl = await shortNow(kind, json, 2500);
     if (native()) {
       const e = prepare(kind, json), url = sUrl || e.url || await e.done;
@@ -261,7 +262,7 @@
         if (err && err.name === 'AbortError') return { url, aborted: true };
         // čekání na krátký odkaz prohlížeči „spotřebovalo“ klepnutí (Safari): sdílet dalším klepnutím na hlášce
         if (err && err.name === 'NotAllowedError' && !ready && typeof window.toast === 'function') {
-          window.toast('Odkaz je připravený', 'info', 8000, { label: '📤 Sdílet', run: () => navigator.share({ title, text, url }).catch(() => { }) });
+          window.toast('Odkaz je připravený', 'info', 8000, { label: '📤 Sdílet', run: () => navigator.share({ title, text, url }).then(() => { if (onShared) onShared(url); }, () => { }) });
           return { url, aborted: true };
         }
       }

@@ -154,3 +154,42 @@ test('poznámky se při dalších verzích nehromadí – minule připojené kam
   for (const n of ['sraz v 6:00', 'sraz v 6:30', 'sraz v 7:00']) own = plain(PlanShare.merge(own, PlanShare.sanitize({ ...v1, notes: n })));
   assert.equal(own.notes, 'beru deštník\n\nsraz v 7:00');
 });
+
+test('střídavé úpravy: kamarádovo mazání, přesuny a poznámky platí (podle otisku verze, kterou viděl – ver / base)', () => {
+  // A pošle v1 (sentSnaps[ver1]); B importuje, přidá Trastevere a Operu, upraví poznámky a pošle zpět (base = ver1)
+  const A0 = plain(v1); const j1 = JSON.parse(PlanShare.json(A0));
+  const A = { ...A0, sid: j1.sid, sharedSnap: PlanShare.snapOf(j1), sentSnaps: { [j1.ver]: PlanShare.snapOf(j1) } };
+  const p1 = PlanShare.sanitize(j1);
+  let B = { ...plain(p1), sharedSnap: PlanShare.snapOf(p1), gotVer: p1.ver };
+  delete B.ver; delete B.base;
+  B.days['2026-12-11'] = ['Trastevere', 'Opera']; B.notes = 'sraz na letišti v 6:00';
+  const jb = JSON.parse(PlanShare.json(B)); B.sentSnaps = { [jb.ver]: PlanShare.snapOf(jb) };
+  assert.equal(jb.base, p1.ver);
+  // A aktualizuje, smaže Trastevere, přesune Operu na 13. 12., upraví poznámky a pošle zpět (base = ver B)
+  let A2 = plain(PlanShare.merge(A, PlanShare.sanitize(jb)));
+  assert.deepEqual(A2.days['2026-12-11'], ['Trastevere', 'Opera']);
+  A2.days['2026-12-11'] = []; A2.days['2026-12-13'] = ['Opera']; A2.notes = 'sraz na letišti v 6:00, terminál 2';
+  const ja = JSON.parse(PlanShare.json(A2));
+  assert.equal(ja.base, jb.ver);
+  // B aktualizuje: Trastevere pryč, Opera jen 13. 12., poznámky Ádiny (dřív Trastevere zůstalo, Opera dvakrát, poznámky dvakrát)
+  const B2 = plain(PlanShare.merge(B, PlanShare.sanitize(ja)));
+  assert.deepEqual(Object.fromEntries(Object.entries(B2.days).filter(([, v]) => v.length)), { '2026-12-10': ['Koloseum'], '2026-12-12': ['Vatikán'], '2026-12-13': ['Opera'] });
+  assert.equal(B2.notes, 'sraz na letišti v 6:00, terminál 2');
+  // odesílatel pošle novější verzi, kamarád v ní něco smaže a vrátí: smazání platí (dřív Opera zůstala)
+  const A3 = { ...plain(v1), days: { ...v1.days, '2026-12-11': ['Opera'] } }, j3 = JSON.parse(PlanShare.json(A3));
+  const A3s = { ...A3, sharedSnap: PlanShare.snapOf(PlanShare.sanitize(v1)), sentSnaps: { [j3.ver]: PlanShare.snapOf(j3) } };
+  const back = PlanShare.sanitize({ ...v1, base: j3.ver });
+  assert.equal(plain(PlanShare.merge(A3s, back)).days['2026-12-11'], undefined);
+  // otisk je stejný pro stejný obsah (předpřipravený odkaz = odeslaný)
+  assert.equal(PlanShare.verOf(A3), PlanShare.verOf(plain(A3)));
+});
+
+test('Safari: odkaz odeslaný až z hlášky „Odkaz je připravený“ se zaznamená (onShared)', () => {
+  const sl = readFileSync(new URL('../public/js/sharelink.js', import.meta.url), 'utf8');
+  assert.match(sl, /run: \(\) => navigator\.share\(\{ title, text, url \}\)\.then\(\(\) => \{ if \(onShared\) onShared\(url\); \}, \(\) => \{ \}\)/);
+  assert.match(app, /onShared: \(\) => sharedOut\(t, j\) \}\)/);
+});
+
+test('„už máš“ nedá sid kopii, když ho má jiná cesta („Uložit jako novou“)', () => {
+  assert.match(app, /if \(p\.sid && !t\.sid && !S\.trips\.some\(x => x && x !== t && x\.sid === p\.sid\)\)/);
+});

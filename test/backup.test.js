@@ -475,3 +475,11 @@ test('stejná cesta v záloze se sid, které zařízení nemá: sloučení ho p�
   // zařízení už sid má: nic
   assert.equal(B.diff(m, inc, { watchKey: wk, deps }).share, 0);
 });
+
+test('záloha drží opakované aktivity v záznamu sdíleného plánu, odeslané verze (sentSnaps) i otisk přijaté (gotVer)', () => {
+  const t = { ...plan('Řím', '2026-12-01'), sid: 'abcde12345', sharedSnap: { acts: ['Pláž', 'Pláž', 'Muzeum'], notes: '' }, sentSnaps: { k3j4h5: { acts: ['Pláž'], notes: 'x' }, 'BAD!': { acts: [] } }, gotVer: 'z9y8x7' };
+  const back = B.parse(B.pack(state({ trips: [t] })), deps).trips[0];
+  assert.deepEqual(plain(back.sharedSnap).acts, ['Pláž', 'Pláž', 'Muzeum']);
+  assert.deepEqual(plain(back.sentSnaps), { k3j4h5: { acts: ['Pláž'], notes: 'x' } });
+  assert.equal(back.gotVer, 'z9y8x7');
+});

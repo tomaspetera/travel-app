@@ -145,6 +145,7 @@
   // Vlastní záloha nese plán celý – delší limity než sdílený odkaz (poznámky, aktivity, „Sbaleno“).
   // raw: texty beze změn (uvozovky, < >) – plánovač vše vypisuje přes esc()
   const LIM = { act: 1000, acts: 100, ck: 300, ckLen: 300, notes: 20000, raw: true };
+  const VER_RE = /^[a-z0-9]{1,13}$/; // otisk verze sdíleného plánu (PlanShare.verOf)
   const PID = /^[a-z0-9]{6,24}$/;
   // 🔖 Rezervace u cesty (okno cesty v app.js): kódy letenek, potvrzení hotelu… – jen v zařízení a v záloze, do odkazů
   // nikdy (PlanShare.json zná jen pole plánu). Nejvýš REFS_MAX řádků { co, kod, pozn }, texty jednořádkové a zkrácené.
@@ -188,10 +189,18 @@
     if (refs.length) t.refs = refs;
     // záznam naposledy vyměněné verze sdíleného plánu (PlanShare.snapOf): bez něj by další aktualizace od kamaráda
     // po obnově ze zálohy nepoznala, co kamarád smazal (dřívější tvar s days se převede)
-    if (obj(raw.sharedSnap)) {
-      const sn = raw.sharedSnap, list = Array.isArray(sn.acts) ? sn.acts : obj(sn.days) ? Object.values(sn.days).filter(Array.isArray).flat() : [];
-      t.sharedSnap = { acts: [...new Set(list.slice(0, 600).map(x => d.txt(x, LIM.act, false, true)).filter(Boolean))], notes: d.txt(sn.notes, LIM.notes, true, true) };
+    // (aktivity i opakované – „Pláž“ dva dny jsou dvě; dřív se slily do jedné a smazaná se po obnově vrátila)
+    const snapClean = sn => {
+      const list = Array.isArray(sn.acts) ? sn.acts : obj(sn.days) ? Object.values(sn.days).filter(Array.isArray).flat() : [];
+      return { acts: list.slice(0, 600).map(x => d.txt(x, LIM.act, false, true)).filter(Boolean), notes: d.txt(sn.notes, LIM.notes, true, true) };
+    };
+    if (obj(raw.sharedSnap)) t.sharedSnap = snapClean(raw.sharedSnap);
+    // odeslané verze pod otiskem (nejvýš 5) a otisk naposledy přijaté – párování verzí při střídavých úpravách
+    if (obj(raw.sentSnaps)) {
+      const e = Object.entries(raw.sentSnaps).filter(([k, v]) => VER_RE.test(k) && obj(v)).slice(-5);
+      if (e.length) t.sentSnaps = Object.fromEntries(e.map(([k, v]) => [k, snapClean(v)]));
     }
+    if (typeof raw.gotVer === 'string' && VER_RE.test(raw.gotVer)) t.gotVer = raw.gotVer;
     return t;
   }
   function cleanHome(h, txt) {
@@ -296,9 +305,10 @@
     return { fav, mute, add, over };
   }
 
-  /** sid / záznam sdíleného plánu, které záloha má a cesta v zařízení ne → co doplnit, jinak null. */
+  /** sid / záznamy sdíleného plánu, které záloha má a cesta v zařízení ne → co doplnit, jinak null. */
   const shareFill = (old, t) => {
-    const o = { ...(!old.sid && t.sid ? { sid: t.sid } : {}), ...(!old.sharedSnap && t.sharedSnap ? { sharedSnap: t.sharedSnap } : {}) };
+    const o = {};
+    for (const k of ['sid', 'sharedSnap', 'sentSnaps', 'gotVer']) if (!old[k] && t[k]) o[k] = t[k];
     return Object.keys(o).length ? o : null;
   };
   /** Co by obnova přidala: nové / změněné / stejné cesty, nové hlídání, nové země, domov, ⭐ / 🙈 města, nová odškrtnutí. */
@@ -364,7 +374,7 @@
         const refs = m.st === 'changed' && overwrite ? addRefs(m.t.refs, old.refs) : addRefs(old.refs, m.t.refs);
         // sid a záznam sdíleného plánu ze zařízení, když je záloha nemá (jinak by se kamarádova další verze nespárovala)
         if (m.st === 'changed' && overwrite) trips[m.i] = { ...m.t, ...(old.tripId ? { tripId: old.tripId } : {}), ...(old.pid ? { pid: old.pid } : {}), checklist: keepChecks(m.t, old), ...(refs.length ? { refs } : {}),
-          ...(!m.t.sid && old.sid ? { sid: old.sid } : {}), ...(!m.t.sharedSnap && old.sharedSnap ? { sharedSnap: old.sharedSnap } : {}) };
+          ...shareFill(m.t, old) };
         else {
           // stejná cesta poznaná podle plánu: převzít pid ze zálohy, ať se příště pozná i po úpravě
           if (!old.pid && !old.tripId && m.t.pid) trips[m.i] = { ...old, pid: m.t.pid };

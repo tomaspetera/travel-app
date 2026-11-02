@@ -293,7 +293,7 @@
     rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:-|–|az)\\s*(${NUM_RE})\\s*(noc|noci|nocich|den|dny|dni|dnu)${W}`), m => {
       const d = /^d/.test(m[3]) ? 1 : 0, a = num(m[1]) - d, b = num(m[2]) - d;
       if (!(a >= 1 && b > a && b <= 30)) return false;
-      len = { n: a, lo: a, hi: b };
+      len = { n: a, lo: a, hi: b, range: true };
     });
     rule(new RegExp(`(?:na\\s+)?(${NUM_RE})\\s*(?:noc|noci|nocich)${W}`), m => { const n = num(m[1]); if (!(n >= 1 && n <= 30)) return false; len = { n }; });
     // „na 10 dní“, „na 3 týdny“ je přibližná délka (jako „na 2 týdny“): od 5 nocí pár nocí na obě strany, kratší přesně
@@ -717,7 +717,11 @@
     // „přes Vídeň“ = přestup, ne cíl – místo se zahodí (přestupní letiště hledání neurčuje)
     const flush = () => {
       // „…, nebo Milán“: místo v 1. pádě za „nebo“ (bez „do“) je jiný cíl; „nebo do Drážďan“ je vždy domov
-      if (orHome && mode === 'home' && cur.length && !orDoUsed && nomin(String(cur[cur.length - 1]).toLowerCase())) mode = 'to';
+      // pád pozná slovo před „nad / pod / na / u / v“ („Ústí nad Labem“, „Frankfurtu nad Mohanem“), jinak poslední
+      if (orHome && mode === 'home' && cur.length && !orDoUsed) {
+        const ws = cur.map(x => String(x).toLowerCase()), pi = ws.findIndex((x, i) => i > 0 && /^(?:nad|pod|na|u|v|ve)$/.test(x));
+        if (nomin(ws[pi > 0 ? pi - 1 : ws.length - 1])) mode = 'to';
+      }
       if (cur.length && mode !== 'via') (mode === 'from' ? from : mode === 'back' ? back : mode === 'home' ? home : to).push(cur.join(' '));
       if (mode === 'home') { if (cur.length && homeFrom < 0) homeFrom = from.length; justHome = cur.length > 0; mode = 'to'; }
       cur = []; orHome = false; orDoUsed = false;
@@ -821,6 +825,14 @@
     // --- termín → pole formuláře ---
     // po Vánocích (odlet od 27. 12.) už jen Silvestr – čip neslibuje Vánoce, které proběhly
     const xnName = out => (out.slice(5) >= '12-27' ? 'Silvestr' : 'Vánoce i Silvestr');
+    // „kolem 15.12.“, „okolo 20. listopadu“, „cca 3.12.“: okolní dny ± 2 (dřív přesně ten den)
+    const aroundFx = /(?:^|[^a-z])(?:kolem|okolo|cca|zhruba|priblizne)\s+\d{1,2}\.\s*(?:\d{1,2}\.?(?!\d)|(?!hod|min)[a-z])/.test(s) ? 2 : 0;
+    // „Řím od 10. 12. na 3–5 nocí“: pevný odlet a rozsah nocí – flexibilně s odletem ten den (u „kolem“ ± 2) a celým
+    // rozsahem; dřív přesně na průměr (4 noci) a 3 ani 5 nocí se nehledalo
+    if (dates && dates.exact && !dates.back && !dates.xmasNy && patch.trip !== 'oneway' && len && len.range) {
+      const fx = dates.flex || aroundFx, from = [addDays(dates.out, -fx), addDays(today, 1)].sort()[1];
+      dates = { from, to: [addDays(dates.out, fx), from].sort()[1], label: `odlet ${dm(dates.out)}${fx ? ` ± ${fx} dny` : ''}` };
+    }
     // „Vánoce a Silvestr na 3 noci“: Štědrý den i Silvestr se do pobytu pod 8 nocí nevejdou – odlet kdykoli od 23. 12.
     // tak, aby i nejkratší pobyt skončil do 2. 1. (flexibilně s tou délkou); dřív přesně 23. 12. – 2. 1. a délka se
     // tiše zahodila. „Na týden“ (až 9 nocí) obojí pokryje – dál přesně 23. 12. – 2. 1. ± 1 den, nad 10 nocí dřívější odlet (níž).
@@ -844,8 +856,7 @@
         if (k > 10) dates.out = [addDays(dates.back, -k), addDays(today, 1)].sort()[1];
         dates.label = `${xnName(dates.out)} (${dm(dates.out)} – ${dm(dates.back)} ± 1 den)`;
       }
-      // „kolem 15.12.“, „okolo 20. listopadu“, „cca 3.12.“: okolní dny ± 2 (dřív přesně ten den)
-      const fx = dates.flex || (/(?:^|[^a-z])(?:kolem|okolo|cca|zhruba|priblizne)\s+\d{1,2}\.\s*(?:\d{1,2}\.?(?!\d)|(?!hod|min)[a-z])/.test(s) ? 2 : 0);
+      const fx = dates.flex || aroundFx;
       Object.assign(patch, { dateMode: 'exact', xOut: dates.out, xFlex: fx, ...(back ? { xBack: back } : {}) });
       if (!dates.back && !back) patch.trip = 'oneway';
       // návrat přes 45 nocí („1.12. a zpět 28.2.“): zpáteční tak daleko hledání nenajde – jen tam, zpět zvlášť (jako „na 3 měsíce“)
