@@ -88,19 +88,51 @@ test('náhled odkazu: 🔄 Aktualizovat i Uložit jako novou (u shody jen podle 
   assert.match(fn, /const snap = PlanShare\.snapOf\(p\);/);
 });
 
-test('sid a záznam toho, co odešlo, až skutečným sdílením – samo otevření detailu je neuloží', () => {
+test('sid a záznam toho, co odešlo, až odeslaným odkazem – otevření detailu ani zavřená nabídka je neuloží; existující záznam se nepřepíše', () => {
   const src = app.slice(app.indexOf('const pendSid = new WeakMap();'), app.indexOf('/** Odkaz na plán (zkomprimovaný'));
   let saves = 0;
-  const planJson = new Function('PlanShare', 'save', 'window', `${src}; return planJson;`)(PlanShare, () => saves++, { PlanShare });
+  const [planJson, sharedOut] = new Function('PlanShare', 'save', 'window', `${src}; return [planJson, sharedOut];`)(PlanShare, () => saves++, { PlanShare });
   const t = plain({ ...v1, sid: undefined });
-  const j1 = JSON.parse(planJson(t)), j2 = JSON.parse(planJson(t));
-  assert.match(j1.sid, /^[a-z0-9]{10}$/); assert.equal(j1.sid, j2.sid, 'předpřipravený odkaz = odkaz po kliknutí (Safari)');
+  const j1 = planJson(t), j2 = planJson(t), sid = JSON.parse(j1).sid;
+  assert.match(sid, /^[a-z0-9]{10}$/); assert.equal(j1, j2, 'předpřipravený odkaz = odkaz po kliknutí (Safari)');
   assert.equal(t.sid, undefined); assert.equal(t.sharedSnap, undefined); assert.equal(saves, 0);
-  const j3 = JSON.parse(planJson(t, true));
-  assert.equal(j3.sid, j1.sid); assert.equal(t.sid, j1.sid); assert.equal(saves, 1);
+  sharedOut(t, j1);
+  assert.equal(t.sid, sid); assert.equal(saves, 1);
   assert.deepEqual(plain(t.sharedSnap), { acts: ['Koloseum', 'Vatikán'], notes: 'sraz na letišti' });
-  assert.match(app, /return ShareLink\.send\('plan', planJson\(t, true\), \{/);
+  // další sdílení (s mými novými aktivitami) záznam nepřepíše – kamarád ho otevřít nemusí
+  t.days['2026-12-11'] = ['Opera (moje)'];
+  sharedOut(t, planJson(t));
+  assert.deepEqual(plain(t.sharedSnap).acts, ['Koloseum', 'Vatikán']);
+  // sharePlan: uložit až po odeslání (sdíleno, zkopírováno, ruční kopie), ne po zavřené nabídce
+  const sp = app.slice(app.indexOf('function sharePlan(i)'), app.indexOf('/**', app.indexOf('function sharePlan(i)')));
+  assert.match(sp, /if \(!r\.aborted && \(r\.shared \|\| r\.copied \|\| r\.url\)\) sharedOut\(t, j\);/);
   assert.match(app, /\$\('#tripShare'\)\.onpointerdown = \(\) => ShareLink\.short\('plan', planJson\(t\)\);/);
+});
+
+test('vlastní aktivity při současných úpravách zůstanou: odeslaný, ale neotevřený odkaz se nebere jako „kamarád smazal“', () => {
+  // B má v1 (import), přidá „Trastevere (B)“ a poznámku; A mezitím pošle v2 (jiný let) – B aktualizuje
+  const b = { ...plain(v1), sharedSnap: PlanShare.snapOf(v1) };
+  b.days['2026-12-11'] = ['Trastevere (B)']; b.notes = 'sraz na letišti; B má klíče';
+  const u = plain(PlanShare.merge(b, PlanShare.sanitize({ ...v1, flight: 'PRG→FCO' })));
+  assert.deepEqual(u.days, { '2026-12-10': ['Koloseum'], '2026-12-11': ['Trastevere (B)'], '2026-12-12': ['Vatikán'] });
+  assert.equal(u.notes, 'sraz na letišti; B má klíče');
+});
+
+test('opakovaná aktivita („Pláž“ každý den) – moje přidaná jiný den zůstane; texty s uvozovkami a apostrofem se nezdvojí', () => {
+  const base = { ...v1, days: { '2026-12-10': ['Pláž'], '2026-12-12': ['Vatikán'] } };
+  const own = { ...plain(base), sharedSnap: PlanShare.snapOf(PlanShare.sanitize(base)) };
+  own.days['2026-12-11'] = ['Muzeum', 'Pláž'];
+  const u = plain(PlanShare.merge(own, PlanShare.sanitize(base)));
+  assert.deepEqual(u.days, { '2026-12-10': ['Pláž'], '2026-12-11': ['Muzeum', 'Pláž'], '2026-12-12': ['Vatikán'] });
+  // kamarád „Pláž“ 10. 12. smazal: pryč, moje 11. 12. zůstane
+  const u2 = plain(PlanShare.merge(own, PlanShare.sanitize({ ...base, days: { '2026-12-12': ['Vatikán'] } })));
+  assert.deepEqual(u2.days, { '2026-12-11': ['Muzeum', 'Pláž'], '2026-12-12': ['Vatikán'] });
+  // text, který odkaz upraví (uvozovky, apostrof): táž aktivita i poznámka
+  const q = { ...v1, days: { '2026-12-10': ['Večeře v "Dishoom"', "Gail's"] }, notes: 'sraz u "hodin" v 6:00' };
+  const mine = { ...plain(q), sharedSnap: PlanShare.snapOf(PlanShare.sanitize(q)) };
+  const u3 = plain(PlanShare.merge(mine, PlanShare.sanitize(q)));
+  assert.equal(u3.days['2026-12-10'].length, 2);
+  assert.equal(u3.notes.includes('\n\n'), false);
 });
 
 test('kdo sdílel první: kamarádova upravená verze nezdvojí aktivity ani poznámky (dřív bez záznamu toho, co odešlo)', () => {

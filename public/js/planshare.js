@@ -160,30 +160,43 @@
    * Záznam vyměněné verze plánu (sharedSnap): jen texty aktivit (bez dnů – aktivita se pozná i po posunu termínu, menší
    * záloha a přenos do zařízení) a poznámky. Ukládá se při importu, aktualizaci i vlastním sdílení.
    */
-  const snapOf = p => ({ acts: [...new Set(Object.values(obj(p && p.days) ? p.days : {}).flat().filter(x => typeof x === 'string' && x))].slice(0, 600), notes: (p && typeof p.notes === 'string' && p.notes) || '' });
-  // aktivity ze záznamu; dřívější tvar (1. 11. 2026) měl { days }
-  const snapActs = snap => new Set(!snap ? [] : Array.isArray(snap.acts) ? snap.acts : obj(snap.days) ? Object.values(snap.days).filter(Array.isArray).flat() : []);
+  const snapOf = p => ({ acts: Object.values(obj(p && p.days) ? p.days : {}).flat().filter(x => typeof x === 'string' && x).slice(0, 600), notes: (p && typeof p.notes === 'string' && p.notes) || '' });
+  // aktivity ze záznamu (i opakované – „Pláž“ každý den); dřívější tvar (1. 11. 2026) měl { days }
+  const snapList = snap => (!snap ? [] : Array.isArray(snap.acts) ? snap.acts : obj(snap.days) ? Object.values(snap.days).filter(Array.isArray).flat() : []).filter(x => typeof x === 'string');
+  // porovnání jako v odkazu: kamarádův plán i záznam prošly sanitize (bez uvozovek, ’ místo '), moje cesta má text, jak
+  // jsem ho napsal – „Večeře v "Dishoom"“ je pořád táž aktivita
+  const ak = x => txt(x, 300), nk = x => txt(x || '', 3000, true);
   function merge(own, p) {
     const snap = obj(own.sharedSnap) ? own.sharedSnap : null, start = p.start, end = p.end || p.start;
-    const was = snapActs(snap);
+    // aktivity z vyměněné verze jako počty (multimnožina): opakovaná „Pláž“ přidaná jiný den je moje, ne kamarádova
+    const was = new Map();
+    for (const x of snapList(snap)) was.set(ak(x), (was.get(ak(x)) || 0) + 1);
     const days = {};
     for (const [d, items] of Object.entries(p.days || {})) days[d] = items.slice();
-    for (const d of Object.keys(obj(own.days) ? own.days : {}).sort()) {
-      const items = Array.isArray(own.days[d]) ? own.days[d] : [];
-      let k = d;
-      if (start && k < start) k = start;
-      if (start && k > end) k = end;
-      const have = new Set(days[k] || []), add = items.filter(x => typeof x === 'string' && x && !was.has(x) && !have.has(x));
-      if (add.length) days[k] = [...(days[k] || []), ...add];
+    const clampDay = d => (start && d < start ? start : start && d > end ? end : d);
+    const ownItems = [];
+    for (const d of Object.keys(obj(own.days) ? own.days : {}).sort()) for (const x of Array.isArray(own.days[d]) ? own.days[d] : []) if (typeof x === 'string' && x) ownItems.push({ k: clampDay(d), x });
+    // 1) aktivita, kterou má kamarád týž den, je společná (spotřebuje se ze záznamu)
+    const rest = [];
+    for (const it of ownItems) {
+      const at = (days[it.k] || []).map(ak), n = was.get(ak(it.x)) || 0;
+      if (at.includes(ak(it.x))) { if (n) was.set(ak(it.x), n - 1); } else rest.push(it);
+    }
+    // 2) zbytek: co bylo ve vyměněné verzi (a kamarád to smazal nebo přesunul), pryč; jinak moje – přidat
+    for (const it of rest) {
+      const n = was.get(ak(it.x)) || 0;
+      if (n) { was.set(ak(it.x), n - 1); continue; }
+      if (!(days[it.k] || []).map(ak).includes(ak(it.x))) days[it.k] = [...(days[it.k] || []), it.x];
     }
     const ownCk = Array.isArray(own.checklist) ? own.checklist.filter(x => obj(x) && x.t) : [];
     const hasCk = new Set(ownCk.map(x => x.t));
     const checklist = [...ownCk, ...(p.checklist || []).filter(x => !hasCk.has(x.t)).map(x => ({ t: x.t, done: false, ...(x.id ? { id: x.id } : {}) }))];
-    const prevNotes = snap && typeof snap.notes === 'string' ? snap.notes : null, mine = own.notes || '';
-    const notes = !mine || mine === prevNotes || mine === p.notes ? p.notes
-      : !p.notes || p.notes === prevNotes ? mine
+    const prevNotes = snap && typeof snap.notes === 'string' ? nk(snap.notes) : null, mine = own.notes || '', pn = p.notes || '';
+    const notes = !mine || nk(mine) === prevNotes || nk(mine) === nk(pn) ? pn
+      : !pn || nk(pn) === prevNotes ? mine
       // minule připojené kamarádovy poznámky nahradit novými (dřív se každou verzí přidávaly pod sebe)
-      : prevNotes && mine.endsWith(`\n\n${prevNotes}`) ? mine.slice(0, -prevNotes.length) + p.notes : `${mine}\n\n${p.notes}`;
+      // (připojené jsou přesně text ze záznamu – oba pocházejí z kamarádovy verze)
+      : snap && snap.notes && mine.endsWith(`\n\n${snap.notes}`) ? mine.slice(0, -snap.notes.length) + pn : `${mine}\n\n${pn}`;
     // vlak: čas a nástupiště od kamaráda, místo a kód jízdenky tvoje; tvoje vlaky, které v plánu nejsou, zůstanou
     const ownR = Array.isArray(own.rides) ? own.rides.filter(obj) : [], byKey = new Map(ownR.map(r => [rideKey(r), r]));
     const pR = (p.rides || []).map(r => { const o = byKey.get(rideKey(r)); return o ? { ...r, seat: o.seat || r.seat, ...(o.kod ? { kod: o.kod } : {}) } : r; });

@@ -50,3 +50,9 @@ test('smazané datum neslije program do jednoho dne (dřív návrat prázdný = 
   const ed = src.match(/function editTrip\(i\) \{[\s\S]*?\n\}/)[0];
   assert.match(ed, /if \(start !== \(t\.start \|\| ''\) \|\| end !== \(t\.end \|\| ''\)\) \{ if \(start\) t\.days = shiftDays\(t\.days, t\.start, start, end\); t\.start = start; t\.end = end; \}/);
 });
+
+test('termín s programem nejde smazat (aktivity mimo termín by nebyly vidět a záloha i odkaz by je zahodily)', () => {
+  const ed = src.match(/function editTrip\(i\) \{[\s\S]*?\n\}/)[0];
+  assert.match(ed, /if \(moved && acts\.length && \(!start \|\| \(!end && acts\[acts\.length - 1\] > start\)\)\) \{/);
+  assert.match(ed, /'Cesta má program – termín nejde smazat, jen posunout'/);
+});

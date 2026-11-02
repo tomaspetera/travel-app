@@ -296,14 +296,20 @@
     return { fav, mute, add, over };
   }
 
+  /** sid / záznam sdíleného plánu, které záloha má a cesta v zařízení ne → co doplnit, jinak null. */
+  const shareFill = (old, t) => {
+    const o = { ...(!old.sid && t.sid ? { sid: t.sid } : {}), ...(!old.sharedSnap && t.sharedSnap ? { sharedSnap: t.sharedSnap } : {}) };
+    return Object.keys(o).length ? o : null;
+  };
   /** Co by obnova přidala: nové / změněné / stejné cesty, nové hlídání, nové země, domov, ⭐ / 🙈 města, nová odškrtnutí. */
   function diff(cur, inc, { watchKey = w => w.id, deps = DEPS() } = {}) {
     const d = { txt: defTxt, ...deps };
     const trips = { add: 0, same: 0, changed: 0 };
-    let refs = 0; // cesty, kterým přibudou 🔖 kódy rezervací
+    let refs = 0, share = 0; // cesty, kterým přibudou 🔖 kódy rezervací / propojení se sdíleným plánem
     for (const m of match(cur, inc, d)) {
       trips[m.st === 'dup' ? 'same' : m.st]++;
       if (m.i != null && addRefs(cur.trips[m.i].refs, m.t.refs).length > (cur.trips[m.i].refs || []).length) refs++;
+      if (m.i != null && m.st !== 'dup' && shareFill(cur.trips[m.i], m.t)) share++;
     }
     const wk = new Set((cur.watch || []).map(watchKey)), wid = new Set((cur.watch || []).map(w => w.id));
     const fresh = [];
@@ -324,7 +330,7 @@
       dests: { ...ds.add, over: ds.over },
       // 📌 nové, s novější cenou (nahradí tu v zařízení), už máš, nevešly se (nejvýš 12)
       pins: { add: pm.add, newer: pm.newer, same: pm.same, over: pm.over },
-      pretrip, refs,
+      pretrip, refs, share,
       // 🏠 vlastní ceny: nová letiště, ta, kde má zařízení jinou cenu (zůstane ta ze zařízení), stejná a nová, která se
       // nevešla (nejvýš 12 letišť)
       own: (() => {
@@ -363,6 +369,10 @@
           // stejná cesta poznaná podle plánu: převzít pid ze zálohy, ať se příště pozná i po úpravě
           if (!old.pid && !old.tripId && m.t.pid) trips[m.i] = { ...old, pid: m.t.pid };
           if (refs.length > (old.refs || []).length) trips[m.i] = { ...trips[m.i], refs };
+          // sdílená cesta: sid a záznam vyměněné verze ze zálohy, když je zařízení nemá (jinak se kamarádova další verze
+          // spáruje jen podle názvu a smazané aktivity se vrátí)
+          const sh = shareFill(trips[m.i], m.t);
+          if (sh) trips[m.i] = { ...trips[m.i], ...sh };
         }
       }
     }
@@ -487,6 +497,7 @@
     if (inc.mute.length) parts.push(`🙈 ${pl(inc.mute.length, 'skryté město', 'skrytá města', 'skrytých měst')}${nov(df.dests.mute, 'nové', 'nová', 'nových')}`);
     if (df.pretrip) parts.push(`odškrtnutí „Před cestou“ u ${pl(df.pretrip, 'cesty', 'cest', 'cest')}`);
     if (df.refs) parts.push(`🔖 kódy rezervací u ${pl(df.refs, 'cesty', 'cest', 'cest')}`);
+    if (df.share) parts.push(`🔄 propojení se sdíleným plánem u ${pl(df.share, 'cesty', 'cest', 'cest')}`);
     const np = (inc.pins || []).length, ps = df.pins;
     if (np) {
       const bits = [ps.add ? `${ps.add} ${ps.add === 1 ? 'nová' : ps.add <= 4 ? 'nové' : 'nových'}` : '', ps.newer ? `${ps.newer} s novější cenou` : '', ps.same ? (np === 1 ? 'už ji máš' : `${ps.same} už máš`) : '', ps.over ? (np === 1 ? 'nevešla se' : `${ps.over} se nevešl${ps.over === 1 ? 'a' : ps.over <= 4 ? 'y' : 'o'}`) : ''].filter(Boolean);
@@ -509,7 +520,7 @@
     const cur = current(), df = diff(cur, inc, { watchKey });
     const body = $('#bkBody');
     if (!body) return;
-    const nothing = !df.trips.add && !df.trips.changed && !df.watch.add && !df.visited.add && !df.home.take && !df.home.differs && !df.pretrip && !df.refs && !df.own.add && !df.dests.fav && !df.dests.mute && !df.pins.add && !df.pins.newer;
+    const nothing = !df.trips.add && !df.trips.changed && !df.watch.add && !df.visited.add && !df.home.take && !df.home.differs && !df.pretrip && !df.refs && !df.share && !df.own.add && !df.dests.fav && !df.dests.mute && !df.pins.add && !df.pins.newer;
     const empty = !inc.trips.length && !inc.watch.length && !inc.visited.length && !inc.home && !inc.fav.length && !inc.mute.length && !Object.keys(inc.pretrip).length && !Object.keys(inc.own || {}).length && !(inc.pins || []).length;
     const fresh = isEmpty(counts(cur)), canReplace = link && !fresh && !empty;
     const from = link ? 'Odkaz' : 'Záloha', src = link ? 'z odkazu' : 'ze zálohy';
