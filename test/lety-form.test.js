@@ -98,3 +98,13 @@ test('horní část formuláře: rozmezí odletu má popisek, okruh letišť ř�
 test('schované pole „jízdné ×“ (vypnutá cesta na letiště, autem) je mimo kontrolu formuláře – neplatná hodnota nezablokuje hledání', () => {
   assert.match(src, /\$\('#kmRate'\)\.disabled = !f\.ground \|\| f\.groundMode === 'car';/);
 });
+
+test('autem bez cesty na letiště nic neomezuje: v dotazu veřejnou dopravou × 0, návrat i na jiné letiště jde zaškrtnout', () => {
+  assert.match(src, /const carOn = \(\) => carMode\(\) && \$\('#groundOn'\)\.checked;/);
+  assert.match(src, /function syncOpenJaw\(\) \{\n    const cb = \$\('#openJaw'\), car = carOn\(\);/);
+  assert.match(src, /\['#groundOn', '#kmRate'\]\.forEach\(s => \$\(s\)\.onchange = \(\) => \{ syncOpenJaw\(\);/);
+  const m = src.match(/const groundPayload = f => \{\n([\s\S]*?)\n  \};/);
+  const gp = new Function('S', 'SearchHelp', `return f => {\n${m[1]}\n};`)({ accessOwn: {} }, { ownClean: () => null, carPayload: () => ({ carFuel: 'diesel' }) });
+  assert.deepEqual(gp({ ground: false, groundMode: 'car', kmRate: 1 }), { kmRate: 0, groundMode: 'transit' });
+  assert.deepEqual(gp({ ground: true, groundMode: 'car', kmRate: 1 }), { kmRate: 1, groundMode: 'car', carFuel: 'diesel' });
+});

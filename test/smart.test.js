@@ -1014,7 +1014,7 @@ test('„z Vídně do Londýna a zpět do Prahy“: návrat do jiného města (b
   assert.equal(P('z Vídně do Říma a Milána a zpět do Prahy').backTo, undefined);
   const src = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
   assert.match(src, /if \(\(hit\.back \|\| hit\.backTo\) && hit\.to\.length === 1\) return smartBackRun\(hit, from\);/);
-  assert.match(src, /\{ from: \[hit\.back \|\| hit\.to\[0\]\], to: hit\.backTo \? \[hit\.backTo\] : home, date: ds\[1\], flex: 0 \}/);
+  assert.match(src, /\{ from: \[hit\.back \|\| hit\.to\[0\]\], to: hit\.backTo \? \[hit\.backTo, \.\.\.\(hit\.backAlt \|\| \[\]\)\] : home, date: ds\[1\], flex: 0 \}/);
 });
 
 test('kontrola dnešních pravidel: svátky, „zpět do“, tři termíny, překlepy vs. místa, věk dětí, „kolem 10. hodiny“', () => {
@@ -1115,4 +1115,34 @@ test('„zpět do X nebo Y“ z kontroly: domov kdekoli v odkud, „nebo do Brna
   assert.deepEqual(ft('do Říma a zpět do Prahy, nebo Milán'), [['Prahy'], ['Říma', 'Milán'], undefined]);
   // 2. pád množného čísla (Košic, Pardubic) dál domov
   assert.deepEqual(ft('Londýn a zpět do Prahy nebo Pardubic'), [['Prahy', 'Pardubic'], ['Londýn'], undefined]);
+});
+
+test('rozsah nocí „na 3–5 nocí“, „3 až 5 noci“, „4–6 dní“ (dřív jen horní mez – 5 nocí)', () => {
+  const n = (q) => { const p = P(q, '2026-11-01').patch; return [p.nMin, p.nMax]; };
+  assert.deepEqual(n('Řím na 3–5 nocí'), [3, 5]);
+  assert.deepEqual(n('Řím na 3-5 nocí'), [3, 5]);
+  assert.deepEqual(n('Řím na 3 až 5 noci'), [3, 5]);
+  assert.deepEqual(n('Řím na 4–6 dní'), [3, 5], 'dny = noci + 1');
+  assert.deepEqual(chips(P('Lisabon 3 až 4 noci v prosinci', '2026-11-01')), ['prosinec', '3–4 nocí']);
+  assert.deepEqual(n('Řím na 3 noci'), [3, 3]);
+  // datum „3–5. 12.“ zůstane datem
+  assert.equal(P('Řím 3–5. 12.', '2026-11-01').patch.xOut, '2026-12-03');
+});
+
+test('„Vánoce a Silvestr“ 29. a 30. 12.: už jen Silvestr (dřív jen Vánoce, nebo až za rok)', () => {
+  assert.deepEqual(chips(P('Vánoce a Silvestr v Římě', '2026-12-29')), ['Silvestr (30. 12. – 2. 1. ± 1 den)']);
+  assert.deepEqual(chips(P('Vánoce a Silvestr v Římě', '2026-12-30')), ['Silvestr (31. 12. – 2. 1. ± 1 den)']);
+  assert.deepEqual(chips(P('Vánoce a Silvestr v Římě', '2026-12-27')), ['Silvestr (28. 12. – 2. 1. ± 1 den)']);
+  assert.deepEqual(chips(P('Vánoce a Silvestr na 3 noci', '2026-12-29')), ['Silvestr – odlet 30. 12.', '3 noci']);
+  // před Vánoci beze změny
+  assert.deepEqual(chips(P('Vánoce a Silvestr v Římě', '2026-12-20')), ['Vánoce i Silvestr (23. 12. – 2. 1. ± 1 den)']);
+});
+
+test('návrat jinam do víc měst: „z Vídně do Londýna a zpět do Prahy nebo Brna“ = 2. let do Prahy i Brna (backAlt)', () => {
+  const r = P('z Vídně do Londýna a zpět do Prahy nebo Brna');
+  assert.deepEqual([r.from, r.to, r.backTo, r.backAlt], [['Vídně'], ['Londýna'], 'Prahy', ['Brna']]);
+  assert.equal(P('z Vídně do Londýna a zpět do Prahy').backAlt, undefined);
+  const fl = readFileSync(new URL('../public/js/flights.js', import.meta.url), 'utf8');
+  assert.match(fl, /to: hit\.backTo \? \[hit\.backTo, \.\.\.\(hit\.backAlt \|\| \[\]\)\] : home/);
+  assert.match(fl, /`↩ zpět do: \$\{\[h\.backTo, \.\.\.\(h\.backAlt \|\| \[\]\)\]\.map\(x => x\.label\)\.join\(' nebo '\)\}`/);
 });
