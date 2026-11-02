@@ -483,3 +483,14 @@ test('záloha drží opakované aktivity v záznamu sdíleného plánu, odeslan�
   assert.deepEqual(plain(back.sentSnaps), { k3j4h5: { acts: ['Pláž'], notes: 'x' } });
   assert.equal(back.gotVer, 'z9y8x7');
 });
+
+test('záloha drží u odeslané verze otisk kamarádovy, kterou jsem tehdy měl (base); otisk přijaté verze se doplní jen s jejím záznamem', () => {
+  const t = { ...plan('Řím', '2026-12-01'), sid: 'abcde12345', sentSnaps: { vk3j4h5: { acts: ['Pláž'], notes: '', base: 'vz9y8x7' }, v2: { acts: [], notes: '', base: 'BAD!' } } };
+  const back = B.parse(B.pack(state({ trips: [t] })), deps).trips[0];
+  assert.deepEqual(plain(back.sentSnaps), { vk3j4h5: { acts: ['Pláž'], notes: '', base: 'vz9y8x7' }, v2: { acts: [], notes: '' } });
+  // zařízení má jen záznam vlastní odeslané verze (sharedSnap bez gotVer), záloha přijatou verzi s otiskem: doplní se obojí
+  const mine = state({ trips: [{ ...plan('Řím', '2026-12-01'), sid: 'abcde12345', sharedSnap: { acts: ['moje'], notes: '' } }] });
+  const inc = B.parse(B.pack(state({ trips: [{ ...plan('Řím', '2026-12-01'), sid: 'abcde12345', sharedSnap: { acts: ['od kamaráda'], notes: '' }, gotVer: 'vz9y8x7' }] })), deps);
+  const m = B.merge(mine, inc, { watchKey: wk, deps });
+  assert.deepEqual([m.trips[0].gotVer, plain(m.trips[0].sharedSnap).acts], ['vz9y8x7', ['od kamaráda']]);
+});

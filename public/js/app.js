@@ -2332,7 +2332,8 @@ function sharedOut(t, json) {
   const j = JSON.parse(json), snap = PlanShare.snapOf(j);
   if (!t.sid) t.sid = j.sid;
   if (!t.sharedSnap) t.sharedSnap = snap;
-  if (j.ver) { const prev = Object.entries(t.sentSnaps && typeof t.sentSnaps === 'object' ? t.sentSnaps : {}).filter(([k]) => k !== j.ver).slice(-4); t.sentSnaps = Object.fromEntries([...prev, [j.ver, snap]]); }
+  // u odeslané verze i otisk kamarádovy, kterou jsem tehdy měl (base) – merge pozná, jestli jeho verzi, kterou mám, už obsahovala
+  if (j.ver) { const prev = Object.entries(t.sentSnaps && typeof t.sentSnaps === 'object' ? t.sentSnaps : {}).filter(([k]) => k !== j.ver).slice(-4); t.sentSnaps = Object.fromEntries([...prev, [j.ver, j.base ? { ...snap, base: j.base } : snap]]); }
   save();
 }
 /** Odkaz na plán (zkomprimovaný – sharelink.js; připravený už při otevření plánu): na telefonu rovnou nabídka sdílení
@@ -2437,7 +2438,8 @@ const sharedMatch = (trips, p) => {
 function previewPlan(shared) {
   const { sharedOn, ...p } = shared; // den sdílení jen pro poznámku, do plánovače ne
   // stejný plán bez ohledu na sid (jen sid jinak = nic nového)
-  const key = x => { const { checklist, sid, ...rest } = PlanShare.sanitize(x); return JSON.stringify(rest); };
+  // (otisky verzí – ver / base / prev – nese jen odkaz, cesta ne)
+  const key = x => { const { checklist, sid, ver, base, prev, ...rest } = PlanShare.sanitize(x); return JSON.stringify(rest); };
   let same = S.trips.findIndex(t => t && key(t) === key(p)), m = same >= 0 ? { i: -1, byName: false } : sharedMatch(S.trips, p);
   // výsledek aktualizace: z něj shrnutí změn (dřív počty z kamarádovy verze – po sloučení jich bylo jinak)
   let upd = m.i >= 0 ? PlanShare.merge(S.trips[m.i], p) : null;
@@ -2472,12 +2474,22 @@ function previewPlan(shared) {
     let i = same >= 0 && S.trips[same] ? same : S.trips.findIndex(t => t && key(t) === key(p));
     // „Uložit jako novou“: kopie bez sid – další verze od kamaráda se nabídne k té původní
     // ver / base z odkazu nepatří do cesty – jen otisk přijaté verze (gotVer), ať další odkaz řekne, co jsem viděl
-    if (i < 0) { const { sid, ver, base, ...q } = p; S.trips.push({ ...q, ...(mine ? {} : { ...(sid ? { sid } : {}), sharedSnap: snap, ...(ver ? { gotVer: ver } : {}) }), checklist: p.checklist.length ? p.checklist : PACK.map(t => ({ t, done: false })) }); i = S.trips.length - 1; save(); toast('Plán přidán do Mých cest'); }
+    if (i < 0) { const { sid, ver, base, prev, ...q } = p; S.trips.push({ ...q, ...(mine ? {} : { ...(sid ? { sid } : {}), sharedSnap: snap, ...(ver ? { gotVer: ver } : {}) }), checklist: p.checklist.length ? p.checklist : PACK.map(t => ({ t, done: false })) }); i = S.trips.length - 1; save(); toast('Plán přidán do Mých cest'); }
     else {
       // tentýž plán s označením (sid), které moje kopie nemá: převzít, ať se kamarádova další verze spáruje (ne jen podle názvu)
       const t = S.trips[i];
       // (jen když sid nemá jiná cesta – kopie „Uložit jako novou“ ho mít nesmí)
-      if (p.sid && !t.sid && !S.trips.some(x => x && x !== t && x.sid === p.sid)) { t.sid = p.sid; if (!t.sharedSnap) t.sharedSnap = snap; if (p.ver) t.gotVer = p.ver; save(); }
+      const adopt = p.sid && !t.sid && !S.trips.some(x => x && x !== t && x.sid === p.sid);
+      if (adopt) t.sid = p.sid;
+      // novější kamarádova verze, kterou už mám (vrátil mi plán beze změny): beru ji jako přijatou – můj další odkaz
+      // řekne, že jsem ji viděl (base); jinak by jeho další úpravy merge porovnával se starší verzí. Ne starší odkaz
+      // (moje přijatá verze není mezi jeho dřív odeslanými – p.prev: záznam by se vrátil do minulosti) ani můj vlastní
+      // (sentSnaps: záznam by bral moje aktivity, které kamarád nikdy neviděl, jako jím smazané)
+      const own = p.ver && t.sentSnaps && typeof t.sentSnaps === 'object' && Object.prototype.hasOwnProperty.call(t.sentSnaps, p.ver);
+      const fwd = Boolean(p.ver) && !own && t.gotVer !== p.ver && (!t.gotVer || (Array.isArray(p.prev) && p.prev.includes(t.gotVer)));
+      const got = p.sid && t.sid === p.sid && (fwd || (adopt && !t.sharedSnap));
+      if (got) { t.sharedSnap = snap; if (p.ver) t.gotVer = p.ver; else delete t.gotVer; }
+      if (adopt || got) save();
       toast('Tenhle plán už v Mých cestách máš');
     }
     modalClose(); go('planner'); setTimeout(() => openTrip(i), 250);

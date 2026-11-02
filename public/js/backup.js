@@ -198,7 +198,8 @@
     // odeslané verze pod otiskem (nejvýš 5) a otisk naposledy přijaté – párování verzí při střídavých úpravách
     if (obj(raw.sentSnaps)) {
       const e = Object.entries(raw.sentSnaps).filter(([k, v]) => VER_RE.test(k) && obj(v)).slice(-5);
-      if (e.length) t.sentSnaps = Object.fromEntries(e.map(([k, v]) => [k, snapClean(v)]));
+      // (base = otisk kamarádovy verze, kterou jsem při odeslání měl – PlanShare.merge podle něj pozná, jestli ji obsahovala)
+      if (e.length) t.sentSnaps = Object.fromEntries(e.map(([k, v]) => [k, { ...snapClean(v), ...(typeof v.base === 'string' && VER_RE.test(v.base) ? { base: v.base } : {}) }]));
     }
     if (typeof raw.gotVer === 'string' && VER_RE.test(raw.gotVer)) t.gotVer = raw.gotVer;
     return t;
@@ -309,6 +310,8 @@
   const shareFill = (old, t) => {
     const o = {};
     for (const k of ['sid', 'sharedSnap', 'sentSnaps', 'gotVer']) if (!old[k] && t[k]) o[k] = t[k];
+    // otisk přijaté verze jen s jejím záznamem – k záznamu ze zařízení (třeba vlastní odeslané verze) by nepatřil
+    if (o.gotVer && t.sharedSnap) o.sharedSnap = t.sharedSnap;
     return Object.keys(o).length ? o : null;
   };
   /** Co by obnova přidala: nové / změněné / stejné cesty, nové hlídání, nové země, domov, ⭐ / 🙈 města, nová odškrtnutí. */
