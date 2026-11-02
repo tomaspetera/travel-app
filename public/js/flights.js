@@ -318,6 +318,9 @@
     const bt = hit.sm.backTo ? await one(hit.sm.backTo, true) : null;
     hit.backTo = stop(bt) ? item(bt) : null;
     if (hit.sm.backTo && !hit.backTo) hit.miss.push(hit.sm.backTo);
+    // „… a zpět do Prahy nebo Brna“: i další města návratu (2. let do kteréhokoli z nich)
+    hit.backAlt = [];
+    for (const x of hit.backTo ? hit.sm.backAlt || [] : []) { const r = await one(x, true); if (stop(r)) hit.backAlt.push(item(r)); else hit.miss.push(x); }
   }
   /**
    * „Praha Londýn“ (bez z/do a pomlčky), které jako jedno místo neexistuje: zkusit rozdělit na odkud → kam
@@ -450,7 +453,7 @@
         const on = i === this.active ? ' on' : '';
         const opt = cls => `class="pi-opt${cls}${on}" data-i="${i}" id="${this.id}-${i}" role="option" aria-selected="${i === this.active}"`;
         if (r.hit) {
-          const h = r.hit, places = h.chain ? [`🧳 ${h.chain.map(x => x.label).join(' → ')}`] : [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`), ...(h.back ? [`↩ návrat: ${h.back.label}`] : []), ...(h.backTo ? [`↩ zpět do: ${h.backTo.label}`] : [])];
+          const h = r.hit, places = h.chain ? [`🧳 ${h.chain.map(x => x.label).join(' → ')}`] : [...h.from.map(x => `🛫 ${x.label} →`), ...h.to.map(x => `📍 ${x.label}`), ...(h.back ? [`↩ návrat: ${h.back.label}`] : []), ...(h.backTo ? [`↩ zpět do: ${[h.backTo, ...(h.backAlt || [])].map(x => x.label).join(' nebo ')}`] : [])];
           // lidé z minulého hledání (věta je neříká): štítek, ať „Vánoce teplo“ po „rodina 2+2“ nehledá tiše pro 4
           const pf = S.form || {}, inh = !('adults' in (h.sm.patch || {})) && ((+pf.adults || 2) !== 2 || +pf.children > 0 || +pf.infants > 0);
           // cena v hledání je na osobu: s lidmi z minula (věta je neříká) i u „💰 do 15 000 Kč“ „/os.“ – jinak vypadá jako za rodinu
@@ -680,8 +683,11 @@
   // „Návrat i na jiné letiště v okolí“: autem se vracíš k autu – zaškrtávátko je vypnuté a prázdné (server autem návrat
   // na jiné letiště nehledá), volba z veřejné dopravy se pamatuje (ojPref) a v dotazu platí jen pro letiště v cíli.
   let ojPref = true;
+  // autem jen s cestou na letiště: vypnutá doprava (☐ ukázat cestu na letiště) nic neomezuje – v dotazu veřejnou dopravou
+  // s jízdným × 0 (groundPayload); dřív zůstal návrat na jiné letiště vypnutý, i když přepínač 🚌/🚗 nebyl vidět
+  const carOn = () => carMode() && $('#groundOn').checked;
   function syncOpenJaw() {
-    const cb = $('#openJaw'), car = carMode();
+    const cb = $('#openJaw'), car = carOn();
     cb.disabled = car;
     cb.checked = car ? false : ojPref;
     $('#openJawLbl').classList.toggle('dis', car);
@@ -774,7 +780,7 @@
   // letiště (S.accessOwn – nastavení zařízení, ne formuláře) jako accessOverride – starší server pole ignoruje; s jízdným
   // × 0 ne (doprava se nepočítá, server by je stejně nepoužil).
   const groundPayload = f => {
-    const car = f.groundMode === 'car', own = !car && f.ground && +f.kmRate > 0 ? SearchHelp.ownClean(S.accessOwn) : null;
+    const car = f.ground && f.groundMode === 'car', own = !car && f.ground && +f.kmRate > 0 ? SearchHelp.ownClean(S.accessOwn) : null;
     return { kmRate: f.ground ? (car ? 1 : f.kmRate) : 0, groundMode: car ? 'car' : 'transit', ...(car ? SearchHelp.carPayload(f) : {}), ...(own ? { accessOverride: own } : {}) };
   };
   // Cestující do dotazu: děti a miminka jen s nimi – hledání bez dětí (i hlídané ceny a jejich klíče) zůstane stejné
@@ -1282,7 +1288,7 @@
     $('#leavePlan').onclick = openLeavePlan;
     ['#nMin', '#nMax'].forEach(s => $(s).oninput = () => { $$('#lenPreset button').forEach(x => x.classList.toggle('on', x.dataset.v === 'custom')); syncHoliday(); });
     $('#radius').oninput = () => { $('#radiusVal').textContent = $('#radius').value + ' km'; refreshOrigins(); updateHomeChip(); mlHomeChanged(); };
-    ['#groundOn', '#kmRate'].forEach(s => $(s).onchange = () => { refreshOrigins(); syncFormUI(); paintGroundStale(); });
+    ['#groundOn', '#kmRate'].forEach(s => $(s).onchange = () => { syncOpenJaw(); refreshOrigins(); syncFormUI(); paintGroundStale(); });
     // zaškrtávátko jen přepíše násobek – change z #kmRate pak udělá totéž co ruční změna (náhled letišť, ↻ Přepočítat);
     // vlastní change zaškrtávátka formulář nepotřebuje (stopPropagation: formEdited by běželo dvakrát)
     $('#kmHalf').onchange = e => { e.stopPropagation(); $('#kmRate').value = e.target.checked ? '0.5' : '1'; $('#kmRate').dispatchEvent(new Event('change', { bubbles: true })); };
@@ -1296,7 +1302,7 @@
     ['#maxPrice', '#arrivalOn', '#depAfterOn'].forEach(s => $(s).onchange = syncFormUI);
     $('#directOnly').onchange = () => { S.directSmart = false; syncFormUI(); }; // zaškrtnuté ručně – další věta ho nechá
     ['#dFrom', '#dTo'].forEach(s => $(s).onchange = () => { leaveHolidayDays(); syncFormUI(); });
-    $('#openJaw').onchange = () => { if (!carMode()) ojPref = $('#openJaw').checked; syncFormUI(); };
+    $('#openJaw').onchange = () => { if (!carOn()) ojPref = $('#openJaw').checked; syncFormUI(); };
     // autem: cena na osobu a parkování závisí na počtu cestujících a délce cesty (okno Cestující posílá 'change' na #adults)
     $('#adults').onchange = () => { syncFormUI(); if (carMode()) refreshOrigins(); };
     $('#paxBtn').onclick = paxSheet;
@@ -5047,7 +5053,7 @@
     if (!home.length) { askFrom(() => smartBackRun(hit, fromInput.items)); return; }
     const ds = chainDates(p, 2);
     // návrat z jiného místa (hit.back) nebo do jiného místa (hit.backTo)
-    const legs = [{ from: home, to: [hit.to[0]], date: ds[0], flex: 0 }, { from: [hit.back || hit.to[0]], to: hit.backTo ? [hit.backTo] : home, date: ds[1], flex: 0 }];
+    const legs = [{ from: home, to: [hit.to[0]], date: ds[0], flex: 0 }, { from: [hit.back || hit.to[0]], to: hit.backTo ? [hit.backTo, ...(hit.backAlt || [])] : home, date: ds[1], flex: 0 }];
     const keep = Object.fromEntries(['adults', 'children', 'infants', 'bags', 'directOnly', 'maxPrice'].filter(k => p[k] != null).map(k => [k, p[k]]));
     setForm({ ...defaultForm(), ...prefsOf(S.form), ...keep, ...smartDirect(p), from: home, to: [], trip: 'multi', legs });
     startSearch();
