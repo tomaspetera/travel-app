@@ -2157,15 +2157,17 @@ function editTrip(i) {
     if (!fixed) {
       const start = $('#etStart').value, end = $('#etEnd').value;
       if (start && end && end < start) { toast('Návrat je před odjezdem', 'err'); return; }
-      // smazané datum s programem: aktivity mimo termín by nebyly vidět a záloha, přenos i odkaz by je zahodily
-      const acts = Object.keys(t.days || {}).filter(d => okYmd(d) && Array.isArray(t.days[d]) && t.days[d].length).sort();
-      const moved = start !== (t.start || '') || end !== (t.end || '');
-      if (moved && acts.length && (!start || (!end && acts[acts.length - 1] > start))) {
-        toast(!start ? 'Cesta má program – termín nejde smazat, jen posunout' : `Program pokračuje do ${fmtDate(acts[acts.length - 1])} – návrat nech vyplněný`, 'err');
-        return;
+      // smazané datum s programem: aktivity mimo termín by nebyly vidět a záloha, přenos i odkaz by je zahodily – kontrola
+      // až po posunu programu (odjezd 1. → 10. 12. bez návratu: aktivity 10., 12., 14. 12. – za odjezdem)
+      if (start !== (t.start || '') || end !== (t.end || '')) {
+        const nd = start ? shiftDays(t.days, t.start, start, end) : t.days || {};
+        const acts = Object.keys(nd).filter(d => okYmd(d) && Array.isArray(nd[d]) && nd[d].length).sort();
+        if (acts.length && (!start || acts[acts.length - 1] > (end || start))) {
+          toast(!start ? 'Cesta má program – termín nejde smazat, jen posunout' : `Program pokračuje do ${fmtDate(acts[acts.length - 1])} – návrat nech vyplněný`, 'err');
+          return;
+        }
+        t.days = nd; t.start = start; t.end = end;
       }
-      // smazaný odjezd: program zůstane, jak je (posune se, až se termín zase zadá)
-      if (start !== (t.start || '') || end !== (t.end || '')) { if (start) t.days = shiftDays(t.days, t.start, start, end); t.start = start; t.end = end; }
       t.pax = $('#etPax').value;
     }
     if (name) t.name = name;
@@ -2320,22 +2322,25 @@ const planJson = t => {
   return PlanShare.json({ ...t, sid: t.sid || pendSid.get(t) });
 };
 /**
- * Odkaz opravdu odešel (sdílení, schránka, ruční zkopírování – ne zavřená nabídka): cesta si uloží sid, a když ještě
- * nemá záznam vyměněné verze (sharedSnap), tak i ten – co odešlo, kamarád dostal. Existující záznam (verzi, kterou mají
- * oba – z importu nebo poslední aktualizace) další sdílení nepřepíše: kamarád nový odkaz otevřít nemusí, a moje aktivity
- * od té doby by se pak při jeho další verzi braly jako „kamarád smazal“.
+ * Odkaz opravdu odešel (sdílení, schránka, ruční zkopírování – ne zavřená nabídka): cesta si uloží sid a co odešlo
+ * pod otiskem verze (sentSnaps, posledních 5) – kamarádova další verze nese otisk té, kterou viděl (base), a podle ní
+ * merge pozná, co smazal. sharedSnap (záloha, když otisk chybí – starší odkaz) jen když ještě není: přepsat ho
+ * odeslanou verzí by moje pozdější aktivity braly jako „kamarád smazal“, i když odkaz neotevřel.
  */
 function sharedOut(t, json) {
   if (!t) return;
-  if (!t.sid) t.sid = JSON.parse(json).sid;
-  if (!t.sharedSnap) t.sharedSnap = PlanShare.snapOf(JSON.parse(json));
+  const j = JSON.parse(json), snap = PlanShare.snapOf(j);
+  if (!t.sid) t.sid = j.sid;
+  if (!t.sharedSnap) t.sharedSnap = snap;
+  if (j.ver) { const prev = Object.entries(t.sentSnaps && typeof t.sentSnaps === 'object' ? t.sentSnaps : {}).filter(([k]) => k !== j.ver).slice(-4); t.sentSnaps = Object.fromEntries([...prev, [j.ver, snap]]); }
   save();
 }
 /** Odkaz na plán (zkomprimovaný – sharelink.js; připravený už při otevření plánu): na telefonu rovnou nabídka sdílení
  *  (WhatsApp, e-mail…), s myší do schránky (ShareLink.send), jinak k ručnímu zkopírování. */
 function sharePlan(i) {
   const t = S.trips[i], j = planJson(t);
-  return ShareLink.send('plan', j, { title: `🧳 ${t.name || 'Plán cesty'}`, text: `🧳 ${t.name || 'Plán cesty'} – plán cesty v ATLASu:` })
+  // onShared: sdílení až z hlášky „Odkaz je připravený“ (Safari) – odešel taky
+  return ShareLink.send('plan', j, { title: `🧳 ${t.name || 'Plán cesty'}`, text: `🧳 ${t.name || 'Plán cesty'} – plán cesty v ATLASu:`, onShared: () => sharedOut(t, j) })
     .then(r => {
       if (!r.aborted && (r.shared || r.copied || r.url)) sharedOut(t, j);
       return r.shared || r.aborted ? null : r.copied ? toast('Odkaz na plán zkopírován – pošli ho komukoliv') : prompt('Zkopíruj odkaz na plán:', r.url);
@@ -2466,11 +2471,13 @@ function previewPlan(shared) {
   $('#planImport').onclick = () => {
     let i = same >= 0 && S.trips[same] ? same : S.trips.findIndex(t => t && key(t) === key(p));
     // „Uložit jako novou“: kopie bez sid – další verze od kamaráda se nabídne k té původní
-    if (i < 0) { const { sid, ...q } = p; S.trips.push({ ...(mine ? q : p), checklist: p.checklist.length ? p.checklist : PACK.map(t => ({ t, done: false })), ...(mine ? {} : { sharedSnap: snap }) }); i = S.trips.length - 1; save(); toast('Plán přidán do Mých cest'); }
+    // ver / base z odkazu nepatří do cesty – jen otisk přijaté verze (gotVer), ať další odkaz řekne, co jsem viděl
+    if (i < 0) { const { sid, ver, base, ...q } = p; S.trips.push({ ...q, ...(mine ? {} : { ...(sid ? { sid } : {}), sharedSnap: snap, ...(ver ? { gotVer: ver } : {}) }), checklist: p.checklist.length ? p.checklist : PACK.map(t => ({ t, done: false })) }); i = S.trips.length - 1; save(); toast('Plán přidán do Mých cest'); }
     else {
       // tentýž plán s označením (sid), které moje kopie nemá: převzít, ať se kamarádova další verze spáruje (ne jen podle názvu)
       const t = S.trips[i];
-      if (p.sid && !t.sid) { t.sid = p.sid; if (!t.sharedSnap) t.sharedSnap = snap; save(); }
+      // (jen když sid nemá jiná cesta – kopie „Uložit jako novou“ ho mít nesmí)
+      if (p.sid && !t.sid && !S.trips.some(x => x && x !== t && x.sid === p.sid)) { t.sid = p.sid; if (!t.sharedSnap) t.sharedSnap = snap; if (p.ver) t.gotVer = p.ver; save(); }
       toast('Tenhle plán už v Mých cestách máš');
     }
     modalClose(); go('planner'); setTimeout(() => openTrip(i), 250);

@@ -112,3 +112,7 @@ test('autem bez cesty na letiště nic neomezuje: v dotazu veřejnou dopravou ×
 test('neplatné pole ve sbalené sekci se rozbalí – hledání potichu nestojí', () => {
   assert.match(src, /\$\('#searchForm'\)\.addEventListener\('invalid', e => \{\n      const d = e\.target\.closest\('details'\);\n      if \(d && !d\.open\) d\.open = true;/);
 });
+
+test('schovaná délka pobytu (jen tam, přesná data) je mimo kontrolu formuláře', () => {
+  assert.match(src, /\$\('#nMin'\)\.disabled = \$\('#nMax'\)\.disabled = !\(ret && !exact\);/);
+});

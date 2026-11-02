@@ -137,9 +137,20 @@
     if (obj(raw.place) && typeof raw.place.id === 'string' && /^(ap|metro):[A-Z]{3}$/.test(raw.place.id)) plan.place = { id: raw.place.id, label: txt(raw.place.label, 80) || plan.dest };
     // sid = stálé označení sdílené cesty (dává ho první sdílení): novější verze od kamaráda pak cestu aktualizuje, ne zkopíruje
     if (typeof raw.sid === 'string' && SID.test(raw.sid)) plan.sid = raw.sid;
+    // ver = otisk odeslané verze, base = otisk verze druhé strany, kterou odesílatel naposledy dostal (merge podle ní
+    // pozná, co z mé odeslané verze kamarád viděl – a tedy co smazal)
+    if (typeof raw.ver === 'string' && VER.test(raw.ver)) plan.ver = raw.ver;
+    if (typeof raw.base === 'string' && VER.test(raw.base)) plan.base = raw.base;
     return plan;
   }
-  const SID = /^[a-z0-9]{10}$/;
+  const SID = /^[a-z0-9]{10}$/, VER = /^[a-z0-9]{1,13}$/;
+  /** Otisk obsahu verze plánu (FNV-1a, base36): stejný obsah = stejný otisk – předpřipravený odkaz i odeslaný ho mají stejný. */
+  function verOf(t) {
+    const { sid, ver, base, ...rest } = sanitize(t);
+    let h = 0x811c9dc5;
+    for (const ch of JSON.stringify(rest)) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(36);
+  }
   /** Nové označení sdílené cesty (10 znaků a–z, 0–9). */
   function newSid() {
     const a = 'abcdefghijklmnopqrstuvwxyz0123456789', n = new Uint8Array(10);
@@ -167,7 +178,10 @@
   // jsem ho napsal – „Večeře v "Dishoom"“ je pořád táž aktivita
   const ak = x => txt(x, 300), nk = x => txt(x || '', 3000, true);
   function merge(own, p) {
-    const snap = obj(own.sharedSnap) ? own.sharedSnap : null, start = p.start, end = p.end || p.start;
+    // společný základ: moje odeslaná verze, kterou kamarád viděl (p.base → own.sentSnaps), jinak naposledy přijatá
+    // (sharedSnap) – při střídavých úpravách tak jeho mazání a přesuny platí a moje nové aktivity zůstanou
+    const sent = p.base && obj(own.sentSnaps) && obj(own.sentSnaps[p.base]) ? own.sentSnaps[p.base] : null;
+    const snap = sent || (obj(own.sharedSnap) ? own.sharedSnap : null), start = p.start, end = p.end || p.start;
     // aktivity z vyměněné verze jako počty (multimnožina): opakovaná „Pláž“ přidaná jiný den je moje, ne kamarádova
     const was = new Map();
     for (const x of snapList(snap)) was.set(ak(x), (was.get(ak(x)) || 0) + 1);
@@ -176,17 +190,20 @@
     const clampDay = d => (start && d < start ? start : start && d > end ? end : d);
     const ownItems = [];
     for (const d of Object.keys(obj(own.days) ? own.days : {}).sort()) for (const x of Array.isArray(own.days[d]) ? own.days[d] : []) if (typeof x === 'string' && x) ownItems.push({ k: clampDay(d), x });
-    // 1) aktivita, kterou má kamarád týž den, je společná (spotřebuje se ze záznamu)
+    // 1) aktivita, kterou má kamarád týž den, je společná (spotřebuje se ze záznamu); i počty – druhá moje „Pláž“
+    //    v den, kdy má kamarád jednu, je moje navíc
+    const pday = new Map();
+    for (const [d, items] of Object.entries(days)) for (const x of items) pday.set(`${d}|${ak(x)}`, (pday.get(`${d}|${ak(x)}`) || 0) + 1);
     const rest = [];
     for (const it of ownItems) {
-      const at = (days[it.k] || []).map(ak), n = was.get(ak(it.x)) || 0;
-      if (at.includes(ak(it.x))) { if (n) was.set(ak(it.x), n - 1); } else rest.push(it);
+      const key = `${it.k}|${ak(it.x)}`, at = pday.get(key) || 0, n = was.get(ak(it.x)) || 0;
+      if (at) { pday.set(key, at - 1); if (n) was.set(ak(it.x), n - 1); } else rest.push(it);
     }
-    // 2) zbytek: co bylo ve vyměněné verzi (a kamarád to smazal nebo přesunul), pryč; jinak moje – přidat
+    // 2) zbytek: co bylo ve společném základu (a kamarád to smazal nebo přesunul), pryč; jinak moje – přidat
     for (const it of rest) {
       const n = was.get(ak(it.x)) || 0;
       if (n) { was.set(ak(it.x), n - 1); continue; }
-      if (!(days[it.k] || []).map(ak).includes(ak(it.x))) days[it.k] = [...(days[it.k] || []), it.x];
+      days[it.k] = [...(days[it.k] || []), it.x];
     }
     const ownCk = Array.isArray(own.checklist) ? own.checklist.filter(x => obj(x) && x.t) : [];
     const hasCk = new Set(ownCk.map(x => x.t));
@@ -204,7 +221,7 @@
     const rs = [...pR, ...ownR.filter(r => !pKeys.has(rideKey(r)) && (!start || (r.date >= start && r.date <= end)))].slice(0, RIDES_MAX);
     const out = { ...own, dest: p.dest, iso: p.iso, start: p.start, end: p.end, pax: p.pax, budget: p.budget, flight: p.flight,
       legs: p.legs, ground: p.ground, isos: p.isos, via: p.via, place: p.place, rides: rs.length ? rs : undefined,
-      days, checklist, notes, sid: p.sid || own.sid, sharedSnap: snapOf(p) };
+      days, checklist, notes, sid: p.sid || own.sid, sharedSnap: snapOf(p), gotVer: p.ver || own.gotVer };
     for (const k of Object.keys(out)) if (out[k] === undefined) delete out[k];
     return out;
   }
@@ -216,7 +233,8 @@
     const p = sanitize(trip), done = doneMask(p.checklist);
     // sharedOn = den sdílení („ceny jsou z doby sdílení“ u příjemce) – jen den, ať je odkaz připravený při otevření plánu
     // stejný jako ten po kliknutí (ShareLink.prepare); verze zůstává 1, starší verze aplikace pole přeskočí
-    return JSON.stringify({ v: 1, ...p, checklist: p.checklist.map(x => x.t), ...(done ? { done } : {}), sharedOn: today() });
+    const base = typeof trip.gotVer === 'string' && VER.test(trip.gotVer) ? trip.gotVer : null;
+    return JSON.stringify({ v: 1, ...p, checklist: p.checklist.map(x => x.t), ...(done ? { done } : {}), ver: verOf(trip), ...(base ? { base } : {}), sharedOn: today() });
   }
 
   const checked = payload => {
@@ -246,5 +264,5 @@
     return m ? unpack(m[1]) : null;
   }
 
-  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash, txt, rides, rideKey, RIDE_LEN, newSid, merge, snapOf };
+  window.PlanShare = { sanitize, json, encode, decode, unpack, fromHash, txt, rides, rideKey, RIDE_LEN, newSid, merge, snapOf, verOf };
 })();

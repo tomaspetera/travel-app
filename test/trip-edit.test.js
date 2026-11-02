@@ -46,13 +46,18 @@ test('smazané datum neslije program do jednoho dne (dřív návrat prázdný = 
   assert.deepEqual(shiftDays(days, '2026-12-10', '2027-03-03', ''), { '2027-03-03': ['Koloseum'], '2027-03-04': ['Trastevere'], '2027-03-05': ['Vatikán'] });
   // cesta bez původního data (smazané) → posun od prvního dne s programem
   assert.deepEqual(shiftDays(days, '', '2027-03-03', '2027-03-06'), { '2027-03-03': ['Koloseum'], '2027-03-04': ['Trastevere'], '2027-03-05': ['Vatikán'] });
-  // editTrip bez odjezdu program nechá
+  // editTrip: posun jen s odjezdem
   const ed = src.match(/function editTrip\(i\) \{[\s\S]*?\n\}/)[0];
-  assert.match(ed, /if \(start !== \(t\.start \|\| ''\) \|\| end !== \(t\.end \|\| ''\)\) \{ if \(start\) t\.days = shiftDays\(t\.days, t\.start, start, end\); t\.start = start; t\.end = end; \}/);
+  assert.match(ed, /const nd = start \? shiftDays\(t\.days, t\.start, start, end\) : t\.days \|\| \{\};/);
 });
 
 test('termín s programem nejde smazat (aktivity mimo termín by nebyly vidět a záloha i odkaz by je zahodily)', () => {
   const ed = src.match(/function editTrip\(i\) \{[\s\S]*?\n\}/)[0];
-  assert.match(ed, /if \(moved && acts\.length && \(!start \|\| \(!end && acts\[acts\.length - 1\] > start\)\)\) \{/);
+  // kontrola až po posunu programu: odjezd 1. → 10. 12. bez návratu s aktivitami 1., 3., 5. 12. → 10., 12., 14. 12. – nejde;
+  // jednodenní cesta s programem jen ten den se posunout dá
+  assert.match(ed, /const acts = Object\.keys\(nd\)\.filter\(d => okYmd\(d\) && Array\.isArray\(nd\[d\]\) && nd\[d\]\.length\)\.sort\(\);\n\s+if \(acts\.length && \(!start \|\| acts\[acts\.length - 1\] > \(end \|\| start\)\)\) \{/);
+  const guard = (days, oldStart, start, end) => { const nd = start ? shiftDays(days, oldStart, start, end) : days; const a = Object.keys(nd).sort(); return a.length && (!start || a[a.length - 1] > (end || start)); };
+  assert.equal(guard({ '2026-12-01': ['a'], '2026-12-03': ['b'], '2026-12-05': ['c'] }, '2026-12-01', '2026-12-10', ''), true);
+  assert.equal(guard({ '2026-12-10': ['a'] }, '2026-12-10', '2026-12-05', ''), false);
   assert.match(ed, /'Cesta má program – termín nejde smazat, jen posunout'/);
 });
