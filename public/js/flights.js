@@ -1345,6 +1345,13 @@
     // 📅 Hlídat s posouváním termínu mění jen způsob uložení ♡, ne hledání (žádné rozbalení formuláře ani Nedávno)
     $('#rollOn').addEventListener('change', e => { e.stopPropagation(); rollTouched = true; updateWatchBtn(); });
     $('#searchForm').addEventListener('change', formEdited);
+    // neplatné pole ve sbalené sekci (jízdné × 0,75, max. cena 150 při kroku 100, noci v zavřeném Upřesnit): rozbalit,
+    // ať prohlížeč může pole ukázat – jinak hledání potichu nic neudělá („invalid form control is not focusable“)
+    $('#searchForm').addEventListener('invalid', e => {
+      const d = e.target.closest('details');
+      if (d && !d.open) d.open = true;
+      if (e.target.closest('.sf-ref') && refineMq.matches && !refineOpen) { refineOpen = true; refineUi(false); }
+    }, true);
     $('#guideLink').onclick = openGuide;
   }
   // Úprava formuláře – i bez události 'change' (čipy míst, Za teplem, letiště, lety cesty přes víc měst).

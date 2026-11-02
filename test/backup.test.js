@@ -53,7 +53,7 @@ test('záloha → obnova do prázdného zařízení vrátí cesty, hlídání, d
   assert.deepEqual(plain(inc.home), { from: [BRQ], radius: 200, adults: 2 });
   assert.deepEqual(plain(inc.pretrip), { '1760000000000:2026-11-12:PT': { d: { 'pack:doc-pass': 1 }, at: 5 } });
   const df = B.diff(state(), inc, { watchKey: wk, deps });
-  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, dests: { fav: 0, mute: 0, over: 0 }, pins: { add: 0, newer: 0, same: 0, over: 0 }, pretrip: 1, refs: 0, own: { add: 0, differs: 0, same: 0, over: 0 } });
+  assert.deepEqual(plain(df), { trips: { add: 1, same: 0, changed: 0 }, watch: { add: 1, same: 0, over: 0 }, visited: { add: 2 }, home: { take: true, differs: false }, dests: { fav: 0, mute: 0, over: 0 }, pins: { add: 0, newer: 0, same: 0, over: 0 }, pretrip: 1, refs: 0, share: 0, own: { add: 0, differs: 0, same: 0, over: 0 } });
   const m = B.merge(state(), inc, { watchKey: wk, deps });
   assert.equal(m.trips.length, 1);
   assert.equal(m.watch.length, 1);
@@ -461,4 +461,17 @@ test('sdílený plán v záloze: sid nic nemění, záznam vyměněné verze (sh
   assert.equal(over.trips[0].name, 'Řím jinak');
   assert.equal(over.trips[0].sid, 'abcde12345');
   assert.deepEqual(plain(over.trips[0].sharedSnap), { acts: ['Alfama'], notes: '' });
+});
+
+test('stejná cesta v záloze se sid, které zařízení nemá: sloučení ho převezme (a nabídne se, ne „všechno už máš“)', () => {
+  const mine = state({ trips: [plan('Řím', '2026-12-01')] });
+  const inc = B.parse(B.pack(state({ trips: [{ ...plan('Řím', '2026-12-01'), sid: 'abcde12345', sharedSnap: { acts: ['Alfama'], notes: '' } }] })), deps);
+  const df = B.diff(mine, inc, { watchKey: wk, deps });
+  assert.deepEqual(plain(df.trips), { add: 0, same: 1, changed: 0 });
+  assert.equal(df.share, 1);
+  const m = B.merge(mine, inc, { watchKey: wk, deps });
+  assert.equal(m.trips[0].sid, 'abcde12345');
+  assert.deepEqual(plain(m.trips[0].sharedSnap), { acts: ['Alfama'], notes: '' });
+  // zařízení už sid má: nic
+  assert.equal(B.diff(m, inc, { watchKey: wk, deps }).share, 0);
 });

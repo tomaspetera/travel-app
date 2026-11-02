@@ -1146,3 +1146,13 @@ test('návrat jinam do víc měst: „z Vídně do Londýna a zpět do Prahy neb
   assert.match(fl, /to: hit\.backTo \? \[hit\.backTo, \.\.\.\(hit\.backAlt \|\| \[\]\)\] : home/);
   assert.match(fl, /`↩ zpět do: \$\{\[h\.backTo, \.\.\.\(h\.backAlt \|\| \[\]\)\]\.map\(x => x\.label\)\.join\(' nebo '\)\}`/);
 });
+
+test('„zpět do Prahy nebo Drážďan“: 2. pád množného čísla končí souhláskou, ale je to domov („Milán“ s dlouhým á je cíl)', () => {
+  const ft = (q) => { const r = P(q); return [r.from, r.to, r.backTo, r.backAlt]; };
+  for (const [x, y] of [['Drážďan', 'Drážďan'], ['Karlových Varů', 'Karlových Varů'], ['Českých Budějovic', 'Českých Budějovic'], ['Athén', 'Athén'], ['Benátek', 'Benátek'], ['Vídně', 'Vídně'], ['do Drážďan', 'Drážďan'], ['do Karlových Varů', 'Karlových Varů']]) {
+    assert.deepEqual(ft(`do Londýna a zpět do Prahy nebo ${x}`), [['Prahy', y], ['Londýna'], undefined, undefined], x);
+  }
+  assert.deepEqual(ft('z Brna do Londýna a zpět do Prahy nebo Drážďan'), [['Brna'], ['Londýna'], 'Prahy', ['Drážďan']]);
+  assert.deepEqual(ft('do Říma a zpět do Prahy, nebo Milán'), [['Prahy'], ['Říma', 'Milán'], undefined, undefined]);
+  assert.deepEqual(ft('do Říma a zpět do Prahy nebo Paříž'), [['Prahy'], ['Říma', 'Paříž'], undefined, undefined]);
+});

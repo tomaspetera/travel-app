@@ -108,3 +108,7 @@ test('autem bez cesty na letiště nic neomezuje: v dotazu veřejnou dopravou ×
   assert.deepEqual(gp({ ground: false, groundMode: 'car', kmRate: 1 }), { kmRate: 0, groundMode: 'transit' });
   assert.deepEqual(gp({ ground: true, groundMode: 'car', kmRate: 1 }), { kmRate: 1, groundMode: 'car', carFuel: 'diesel' });
 });
+
+test('neplatné pole ve sbalené sekci se rozbalí – hledání potichu nestojí', () => {
+  assert.match(src, /\$\('#searchForm'\)\.addEventListener\('invalid', e => \{\n      const d = e\.target\.closest\('details'\);\n      if \(d && !d\.open\) d\.open = true;/);
+});
