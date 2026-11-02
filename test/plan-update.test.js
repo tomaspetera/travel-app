@@ -84,7 +84,9 @@ test('náhled odkazu: 🔄 Aktualizovat i Uložit jako novou (u shody jen podle 
   assert.match(fn, /`program \$\{nActs\(mine\)\} → <b>\$\{nActs\(upd\)\}<\/b>/, 'počet aktivit po aktualizaci, ne kamarádových');
   assert.match(fn, /S\.trips\[i\] = upd;/);
   // jen jiné sid = nic nového
-  assert.match(fn, /const key = x => \{ const \{ checklist, sid, \.\.\.rest \} = PlanShare\.sanitize\(x\); return JSON\.stringify\(rest\); \};/);
+  // jen jiné sid nebo otisky verzí (ver / base / prev – nese je každý nový odkaz) = nic nového
+  assert.match(fn, /const key = x => \{ const \{ checklist, sid, ver, base, prev, \.\.\.rest \} = PlanShare\.sanitize\(x\); return JSON\.stringify\(rest\); \};/);
+  assert.match(fn, /if \(i < 0\) \{ const \{ sid, ver, base, prev, \.\.\.q \} = p;/);
   assert.match(fn, /const snap = PlanShare\.snapOf\(p\);/);
 });
 
@@ -190,6 +192,105 @@ test('Safari: odkaz odeslaný až z hlášky „Odkaz je připravený“ se zazn
   assert.match(app, /onShared: \(\) => sharedOut\(t, j\) \}\)/);
 });
 
+// „💾 Uložit si ji“ u plánu, který už mám (previewPlan): převzetí sid a otisku přijaté verze
+const usedSrc = app.match(/ {6}const adopt = [\s\S]*?if \(adopt \|\| got\) save\(\);/)[0];
+const already = (t, p, trips = [t]) => { let saves = 0; new Function('t', 'p', 'S', 'snap', 'save', usedSrc)(t, p, { trips }, PlanShare.snapOf(p), () => saves++); return saves; };
+
 test('„už máš“ nedá sid kopii, když ho má jiná cesta („Uložit jako novou“)', () => {
-  assert.match(app, /if \(p\.sid && !t\.sid && !S\.trips\.some\(x => x && x !== t && x\.sid === p\.sid\)\)/);
+  const p = PlanShare.sanitize(JSON.parse(PlanShare.json(v1)));
+  const orig = { ...plain(v1) }, copy = { ...plain(v1), sid: undefined };
+  already(copy, p, [orig, copy]);
+  assert.equal(copy.sid, undefined);
+  assert.equal(copy.gotVer, undefined);
+  const lone = { ...plain(v1), sid: undefined };
+  already(lone, p);
+  assert.deepEqual([lone.sid, lone.gotVer], ['abcde12345', p.ver], 'jediná cesta sid převezme i s otiskem verze');
+});
+
+// dvě zařízení: odeslání (planJson + sharedOut z app.js), „💾 Uložit si ji“ a „🔄 Aktualizovat“
+const shareSrc = app.slice(app.indexOf('const pendSid = new WeakMap();'), app.indexOf('/** Odkaz na plán (zkomprimovaný'));
+const [planJsonS, sharedOutS] = new Function('PlanShare', 'save', 'window', `${shareSrc}; return [planJson, sharedOut];`)(PlanShare, () => {}, { PlanShare });
+const send = t => { const j = planJsonS(t); sharedOutS(t, j); return PlanShare.sanitize(JSON.parse(j)); };
+const take = p => { const { sid, ver, base, prev, ...q } = plain(p); return { ...q, sid, sharedSnap: PlanShare.snapOf(p), ...(ver ? { gotVer: ver } : {}) }; };
+const upd = (own, p) => plain(PlanShare.merge(own, p));
+const prog = t => Object.fromEntries(Object.entries(t.days).filter(([, v]) => v.length));
+
+test('kamarád pošle víc verzí po sobě: jeho mazání, přesuny i poznámky z dalších verzí platí (dřív zůstávaly a zdvojovaly se)', () => {
+  let A = plain(v1); const B = take(send(A));
+  B.days['2026-12-11'] = ['Trastevere']; B.days['2026-12-12'] = ['Vatikán', 'Pizza']; B.notes = 'sraz v 6:00';
+  A = upd(A, send(B));
+  assert.deepEqual(prog(A), prog(B));
+  // B dál: Trastevere smaže, Pizzu přesune, poznámky upraví (base pořád moje první verze – nic dalšího ode mě nedostal)
+  B.days['2026-12-11'] = []; B.days['2026-12-12'] = ['Vatikán']; B.days['2026-12-13'] = ['Pizza']; B.notes = 'sraz v 6:30';
+  const y2 = send(B);
+  assert.equal(y2.prev.length, 1, 'odkaz nese otisk dřív odeslané verze');
+  A = upd(A, y2);
+  assert.deepEqual(prog(A), prog(B));
+  assert.equal(A.notes, 'sraz v 6:30');
+  B.days['2026-12-11'] = ['Opera'];
+  A = upd(A, send(B));
+  assert.deepEqual([prog(A), A.notes], [prog(B), 'sraz v 6:30']);
+  // moje poznámky s připojenými kamarádovými: připojené se nahradí jeho novými
+  A.notes = 'beru deštník\n\nsraz v 6:30'; B.notes = 'sraz v 7:00';
+  assert.equal(upd(A, send(B)).notes, 'beru deštník\n\nsraz v 7:00');
+});
+
+test('tři lidé: verze kamaráda, který tu od druhého neviděl, jeho aktivity nesmaže', () => {
+  let A = plain(v1); const x1 = send(A), B = take(x1), C = take(x1);
+  B.days['2026-12-11'] = ['Trastevere']; A = upd(A, send(B));
+  C.days['2026-12-12'] = []; A = upd(A, send(C));
+  assert.deepEqual(prog(A), { '2026-12-10': ['Koloseum'], '2026-12-11': ['Trastevere'] });
+});
+
+test('střídavě: co smažu, pošlu a před odpovědí zase přidám, po odpovědi zůstane', () => {
+  let A = plain(v1); let B = take(send(A));
+  B.days['2026-12-12'] = [];
+  A = upd(A, send(B));
+  B.days['2026-12-12'] = ['Vatikán'];
+  A.flight = 'PRG→FCO';
+  B = upd(B, send(A));
+  assert.deepEqual(prog(B), { '2026-12-10': ['Koloseum'], '2026-12-12': ['Vatikán'] });
+  assert.equal(B.flight, 'PRG→FCO');
+});
+
+test('„už máš“ (kamarád vrátil plán beze změny): otisk jeho verze se převezme, starší odkaz ani můj vlastní ne', () => {
+  let A = plain(v1); const B = take(send(A));
+  B.days['2026-12-11'] = ['Trastevere']; A = upd(A, send(B));
+  // A vrátí plán beze změny (týž obsah = týž otisk jako B odeslal – od vlastního odkazu nerozeznatelné, otisk zůstane);
+  // B pak Trastevere smaže: u A taky (dřív zůstalo a „už máš“)
+  const gotB = B.gotVer;
+  assert.equal(already(B, send(A)), 0);
+  B.days['2026-12-11'] = [];
+  A = upd(A, send(B));
+  assert.deepEqual(prog(A), { '2026-12-10': ['Koloseum'], '2026-12-12': ['Vatikán'] });
+  // A si cestu jen přejmenuje (název zůstává každému svůj) a pošle: B ji má, otisk A převezme
+  A.name = 'Řím 🍕';
+  const x2 = send(A);
+  assert.equal(JSON.stringify(prog(upd(B, x2))), JSON.stringify(prog(B)), 'aktualizace by nic nezměnila – „už máš“');
+  assert.equal(already(B, x2), 1);
+  assert.deepEqual([B.gotVer, plain(B.sharedSnap)], [x2.ver, plain(PlanShare.snapOf(x2))]);
+  // starší odkaz (moje přijatá verze není mezi jeho dřív odeslanými): záznam se nevrací
+  const b2 = { ...take(PlanShare.sanitize(JSON.parse(PlanShare.json(v1)))), gotVer: 'vnewer1' };
+  assert.equal(already(b2, PlanShare.sanitize({ ...JSON.parse(PlanShare.json(v1)), prev: [gotB] })), 0);
+  assert.equal(b2.gotVer, 'vnewer1');
+  // můj vlastní odkaz: nic
+  const a0 = plain(v1), mineLink = send(a0), snap0 = plain(a0.sharedSnap);
+  assert.equal(already(a0, mineLink), 0);
+  assert.deepEqual([a0.gotVer, plain(a0.sharedSnap)], [undefined, snap0]);
+});
+
+test('otisk verze: vždy začíná písmenem (jen číslice by JS v sentSnaps řadil první), posledních 5 odeslaných podle pořadí', () => {
+  for (let i = 0; i < 3000; i++) assert.match(PlanShare.verOf({ ...v1, notes: `poznámka ${i}` }), /^v[a-z0-9]{1,7}$/);
+  const t = plain(v1), sent = [];
+  for (let i = 0; i < 7; i++) { t.notes = `verze ${i}`; sent.push(send(t).ver); }
+  assert.deepEqual(Object.keys(t.sentSnaps), sent.slice(-5));
+  // odkaz s ver / base / prev od starší verze aplikace bez písmene projde (párování se staršími záznamy)
+  assert.deepEqual(plain(PlanShare.sanitize({ ...v1, ver: '1962059', base: 'k3j4h5', prev: ['1962059', 'BAD!', 7, 'k3j4h5'] }).prev), ['1962059', 'k3j4h5']);
+});
+
+test('odkaz starší verze aplikace (bez otisku): otisk přijaté verze se smaže – patřil k nahrazenému záznamu', () => {
+  const own = { ...plain(v1), sharedSnap: PlanShare.snapOf(v1), gotVer: 'vstary1' };
+  const u = upd(own, PlanShare.sanitize({ ...v2 }));
+  assert.equal('gotVer' in u, false);
+  assert.equal(JSON.parse(PlanShare.json(u)).base, undefined);
 });

@@ -1170,3 +1170,11 @@ test('„zpět do Prahy nebo Ústí nad Labem“: pád podle slova před „nad 
   // bez rozsahu beze změny
   assert.deepEqual(chips(P('Řím od 10. 12. na týden', '2026-11-01')), ['10. 12. – 17. 12.']);
 });
+
+test('„Řím dnes na 2–3 noci“: odlet dnes, jak říká čip (dřív se hledalo až od zítřka)', () => {
+  const r = P('Řím dnes na 2–3 noci', '2026-12-12');
+  assert.deepEqual([r.patch.dFrom, r.patch.dTo], ['2026-12-12', '2026-12-12']);
+  assert.deepEqual(chips(r), ['odlet 12. 12.', '2–3 nocí']);
+  // „kolem“ se dnes neprotáhne do minulosti
+  assert.deepEqual(['dFrom', 'dTo'].map(k => P('Řím kolem 13. 12. na 3–5 nocí', '2026-12-12').patch[k]), ['2026-12-12', '2026-12-15']);
+});

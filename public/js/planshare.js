@@ -141,15 +141,21 @@
     // pozná, co z mé odeslané verze kamarád viděl – a tedy co smazal)
     if (typeof raw.ver === 'string' && VER.test(raw.ver)) plan.ver = raw.ver;
     if (typeof raw.base === 'string' && VER.test(raw.base)) plan.base = raw.base;
+    // prev = otisky verzí, které odesílatel poslal dřív (nejvýš 5): merge podle nich pozná, že nová verze vychází
+    // z jeho verze, kterou už mám (poslal jich víc po sobě)
+    const prev = Array.isArray(raw.prev) ? [...new Set(raw.prev.filter(x => typeof x === 'string' && VER.test(x)))].slice(-5) : [];
+    if (prev.length) plan.prev = prev;
     return plan;
   }
   const SID = /^[a-z0-9]{10}$/, VER = /^[a-z0-9]{1,13}$/;
   /** Otisk obsahu verze plánu (FNV-1a, base36): stejný obsah = stejný otisk – předpřipravený odkaz i odeslaný ho mají stejný. */
   function verOf(t) {
-    const { sid, ver, base, ...rest } = sanitize(t);
+    const { sid, ver, base, prev, ...rest } = sanitize(t);
     let h = 0x811c9dc5;
     for (const ch of JSON.stringify(rest)) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
-    return h.toString(36);
+    // „v“ na začátku: otisk jen z číslic by byl v sentSnaps číselný klíč – JS ho řadí první, takže by se nejnovější
+    // odeslaná verze zahodila jako nejstarší
+    return 'v' + h.toString(36);
   }
   /** Nové označení sdílené cesty (10 znaků a–z, 0–9). */
   function newSid() {
@@ -161,9 +167,10 @@
   /**
    * Novější verze sdíleného plánu do už uložené cesty (stejné sid, u starších odkazů stejný název a cíl) – místo kopie.
    * Od kamaráda: termín, cíl, let, vlaky, cestující, rozpočet a program. Tvoje zůstane: název, „Sbaleno“ i s odškrtnutím
-   * (nové položky se přidají), kódy rezervací, místo a kód jízdenky u vlaku a vlastní aktivity – ty, které nebyly
-   * v naposledy vyměněné verzi plánu (own.sharedSnap: co jsi poslal nebo dostal; bez ní se nic nezahodí, jen se přidají
-   * chybějící). Aktivita z té verze se pozná v kterýkoli den – kamarád ji mohl přesunout, nebo jsi posunul termín.
+   * (nové položky se přidají), kódy rezervací, místo a kód jízdenky u vlaku a vlastní aktivity – ty, které kamarád
+   * neviděl (nebyly v mé verzi, ze které vychází – sentSnaps[p.base], ani v jeho dřívější, kterou mám – sharedSnap;
+   * u staršího odkazu bez otisku jen sharedSnap; bez záznamu se nic nezahodí, jen se přidají chybějící). Aktivita
+   * z té verze se pozná v kterýkoli den – kamarád ji mohl přesunout, nebo jsi posunul termín.
    * Poznámky: změněné u obou → tvoje a pod nimi kamarádovy (další verze kamarádovy jen nahradí). Aktivity mimo nový
    * termín se přesunou na jeho první / poslední den.
    */
@@ -181,10 +188,21 @@
     // společný základ: moje odeslaná verze, kterou kamarád viděl (p.base → own.sentSnaps), jinak naposledy přijatá
     // (sharedSnap) – při střídavých úpravách tak jeho mazání a přesuny platí a moje nové aktivity zůstanou
     const sent = p.base && obj(own.sentSnaps) && obj(own.sentSnaps[p.base]) ? own.sentSnaps[p.base] : null;
-    const snap = sent || (obj(own.sharedSnap) ? own.sharedSnap : null), start = p.start, end = p.end || p.start;
+    const got = obj(own.sharedSnap) ? own.sharedSnap : null, start = p.start, end = p.end || p.start;
+    // k ní i kamarádova verze, kterou už mám, když poslal víc verzí po sobě: nová z ní vychází (je mezi jeho dřív
+    // odeslanými – p.prev) a moje odeslaná ji ještě neobsahovala (dostal jsem ji až potom – sent.base). Jinak by
+    // jeho smazané a přesunuté aktivity zůstaly jako moje a poznámky se zdvojily; verze třetího člověka, který tu
+    // kamarádovu neviděl, jeho aktivity nesmaže
+    const gotToo = got && sent && typeof own.gotVer === 'string' && sent.base !== own.gotVer && Array.isArray(p.prev) && p.prev.includes(own.gotVer);
+    const snaps = sent ? (gotToo ? [sent, got] : [sent]) : got ? [got] : [];
     // aktivity z vyměněné verze jako počty (multimnožina): opakovaná „Pláž“ přidaná jiný den je moje, ne kamarádova
+    // (ze dvou verzí víc z obou – co kamarád viděl aspoň v jedné)
     const was = new Map();
-    for (const x of snapList(snap)) was.set(ak(x), (was.get(ak(x)) || 0) + 1);
+    for (const sn of snaps) {
+      const c = new Map();
+      for (const x of snapList(sn)) c.set(ak(x), (c.get(ak(x)) || 0) + 1);
+      for (const [k, n] of c) was.set(k, Math.max(was.get(k) || 0, n));
+    }
     const days = {};
     for (const [d, items] of Object.entries(p.days || {})) days[d] = items.slice();
     const clampDay = d => (start && d < start ? start : start && d > end ? end : d);
@@ -208,12 +226,14 @@
     const ownCk = Array.isArray(own.checklist) ? own.checklist.filter(x => obj(x) && x.t) : [];
     const hasCk = new Set(ownCk.map(x => x.t));
     const checklist = [...ownCk, ...(p.checklist || []).filter(x => !hasCk.has(x.t)).map(x => ({ t: x.t, done: false, ...(x.id ? { id: x.id } : {}) }))];
-    const prevNotes = snap && typeof snap.notes === 'string' ? nk(snap.notes) : null, mine = own.notes || '', pn = p.notes || '';
-    const notes = !mine || nk(mine) === prevNotes || nk(mine) === nk(pn) ? pn
-      : !pn || nk(pn) === prevNotes ? mine
-      // minule připojené kamarádovy poznámky nahradit novými (dřív se každou verzí přidávaly pod sebe)
-      // (připojené jsou přesně text ze záznamu – oba pocházejí z kamarádovy verze)
-      : snap && snap.notes && mine.endsWith(`\n\n${snap.notes}`) ? mine.slice(0, -snap.notes.length) + pn : `${mine}\n\n${pn}`;
+    const mine = own.notes || '', pn = p.notes || '';
+    const prevNotes = snaps.map(sn => (typeof sn.notes === 'string' ? nk(sn.notes) : null)).filter(x => x != null), known = v => prevNotes.includes(nk(v));
+    // minule připojené kamarádovy poznámky (přesně text ze záznamu – oba pocházejí z kamarádovy verze)
+    const added = snaps.map(sn => sn.notes).find(n => typeof n === 'string' && n && mine.endsWith(`\n\n${n}`));
+    const notes = !mine || known(mine) || nk(mine) === nk(pn) ? pn
+      : !pn || known(pn) ? mine
+      // … nahradit novými (dřív se každou verzí přidávaly pod sebe)
+      : added ? mine.slice(0, -added.length) + pn : `${mine}\n\n${pn}`;
     // vlak: čas a nástupiště od kamaráda, místo a kód jízdenky tvoje; tvoje vlaky, které v plánu nejsou, zůstanou
     const ownR = Array.isArray(own.rides) ? own.rides.filter(obj) : [], byKey = new Map(ownR.map(r => [rideKey(r), r]));
     const pR = (p.rides || []).map(r => { const o = byKey.get(rideKey(r)); return o ? { ...r, seat: o.seat || r.seat, ...(o.kod ? { kod: o.kod } : {}) } : r; });
@@ -221,7 +241,9 @@
     const rs = [...pR, ...ownR.filter(r => !pKeys.has(rideKey(r)) && (!start || (r.date >= start && r.date <= end)))].slice(0, RIDES_MAX);
     const out = { ...own, dest: p.dest, iso: p.iso, start: p.start, end: p.end, pax: p.pax, budget: p.budget, flight: p.flight,
       legs: p.legs, ground: p.ground, isos: p.isos, via: p.via, place: p.place, rides: rs.length ? rs : undefined,
-      days, checklist, notes, sid: p.sid || own.sid, sharedSnap: snapOf(p), gotVer: p.ver || own.gotVer };
+      // otisk patří k záznamu přijaté verze – starší odkaz bez otisku ho smaže (jinak by další odkaz tvrdil, že jsem
+      // viděl verzi, kterou záznam už nepopisuje)
+      days, checklist, notes, sid: p.sid || own.sid, sharedSnap: snapOf(p), gotVer: p.ver };
     for (const k of Object.keys(out)) if (out[k] === undefined) delete out[k];
     return out;
   }
@@ -230,11 +252,14 @@
   const today = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   /** JSON plánu do odkazu (plán se před zakódováním pročistí stejně jako při načtení). */
   function json(trip) {
-    const p = sanitize(trip), done = doneMask(p.checklist);
+    // otisky (ver / base / prev) jen z cesty samé – ne ty, které by cesta nesla z importu
+    const { ver: _v, base: _b, prev: _p, ...p } = sanitize(trip), done = doneMask(p.checklist);
     // sharedOn = den sdílení („ceny jsou z doby sdílení“ u příjemce) – jen den, ať je odkaz připravený při otevření plánu
     // stejný jako ten po kliknutí (ShareLink.prepare); verze zůstává 1, starší verze aplikace pole přeskočí
     const base = typeof trip.gotVer === 'string' && VER.test(trip.gotVer) ? trip.gotVer : null;
-    return JSON.stringify({ v: 1, ...p, checklist: p.checklist.map(x => x.t), ...(done ? { done } : {}), ver: verOf(trip), ...(base ? { base } : {}), sharedOn: today() });
+    // prev: co jsem poslal dřív (sentSnaps) – kamarád pozná, že tahle verze vychází z mé, kterou už má
+    const prev = obj(trip.sentSnaps) ? Object.keys(trip.sentSnaps).filter(k => VER.test(k)).slice(-5) : [];
+    return JSON.stringify({ v: 1, ...p, checklist: p.checklist.map(x => x.t), ...(done ? { done } : {}), ver: verOf(trip), ...(base ? { base } : {}), ...(prev.length ? { prev } : {}), sharedOn: today() });
   }
 
   const checked = payload => {

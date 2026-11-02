@@ -830,7 +830,8 @@
     // „Řím od 10. 12. na 3–5 nocí“: pevný odlet a rozsah nocí – flexibilně s odletem ten den (u „kolem“ ± 2) a celým
     // rozsahem; dřív přesně na průměr (4 noci) a 3 ani 5 nocí se nehledalo
     if (dates && dates.exact && !dates.back && !dates.xmasNy && patch.trip !== 'oneway' && len && len.range) {
-      const fx = dates.flex || aroundFx, from = [addDays(dates.out, -fx), addDays(today, 1)].sort()[1];
+      // (nejdřív dnes – „dnes na 2–3 noci“ hledá dnešek, jak říká čip, dřív až zítřek)
+      const fx = dates.flex || aroundFx, from = [addDays(dates.out, -fx), today].sort()[1];
       dates = { from, to: [addDays(dates.out, fx), from].sort()[1], label: `odlet ${dm(dates.out)}${fx ? ` ± ${fx} dny` : ''}` };
     }
     // „Vánoce a Silvestr na 3 noci“: Štědrý den i Silvestr se do pobytu pod 8 nocí nevejdou – odlet kdykoli od 23. 12.
