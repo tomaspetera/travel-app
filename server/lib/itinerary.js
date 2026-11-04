@@ -225,7 +225,8 @@ export function dayTimeline(items, { start, from = 9 * 60, kids = false }) {
     const km = walkKm(prev, p);
     const leg = boat(prev, p) ? BOAT_MIN : km > transitKm(kids) ? transitMin(km) : (km / speed) * 60;
     // po 11:45, nebo už od 11:00, když by cesta a další prohlídka (zoo, dvouhodinové muzeum) skončila až po 14:30
-    const hungry = t >= LUNCH_FROM || (t >= 11 * 60 && t + leg + p.visitMin > LUNCH_LATE);
+    // (od 10:30, když by dlouhá prohlídka – zábavní park – skončila až po 14:45 a na oběd by už nebyl čas)
+    const hungry = t >= LUNCH_FROM || (t >= 11 * 60 && t + leg + p.visitMin > LUNCH_LATE) || (t >= 10.5 * 60 && t + leg + p.visitMin > LUNCH_LAST);
     if (i && lunch < 0 && hungry && t <= LUNCH_LAST) { lunch = i - 1; lunchAt = Math.round(t); t += LUNCH_MIN; }
     t += leg;
     at.push(Math.round(t));
@@ -335,7 +336,9 @@ export function planItinerary(pois, opts) {
   // Celodenní výlety mimo město, když je na ně čas (od 4 plných dnů, max. každý třetí den).
   // Nikdy ne první ani poslední den (přílet / odlet); výlet, který si uživatel připnul, má přednost.
   const full = PACE[pace] || 360;
-  const fullDays = caps.filter((c) => c.cap >= full * 0.9);
+  // celý den s dětmi má o 15 % méně (výš) – jinak by žádný den nebyl „celý“ a výlet by se nedal nikdy
+  const fullDay = kids ? Math.round(full * 0.85) : full;
+  const fullDays = caps.filter((c) => c.cap >= fullDay * 0.9);
   const tripEligible = fullDays.filter((c) => c.date !== caps[0].date && c.date !== caps.at(-1).date);
   const pinnedTrips = trips.filter((p) => p.pinned).length;
   const baseTrips = fullDays.length >= 4 ? Math.floor(fullDays.length / 3) : 0;
@@ -588,16 +591,17 @@ export function planItinerary(pois, opts) {
   }
   // Den bez programu (malé místo: v dosahu pěšky nic, krátký den příjezdu bere jen místa do 4 km) a s aspoň 2,5 h času:
   // výlet do okolí do 30 km (Nizza Monferrato → Asti 18 km), ať den není jen „volno“, když kousek je co vidět. Ne
-  // čtvrť, kterou už program prochází (Řím na 12 dní: poslední den „výlet“ do Vatikánu, kde byl den 3).
+  // čtvrť, kterou už program prochází (Řím na 12 dní: poslední den „výlet“ do Vatikánu, kde byl den 3). Jen z míst,
+  // která do programu smějí (near: s dětmi bez muzeí pro dospělé, ne národní park, ve kterém program je) a z výletů.
   const taken = new Set([...days.flatMap((d) => d.items.map((p) => p.id)), ...areas.map((p) => p.id)]);
   for (const d of days.filter((x) => !x.items.length && x.cap >= 150)) {
-    const p = pois.filter((x) => !taken.has(x.id) && !shutOn(x, d.date))
+    const p = [...near, ...trips].filter((x) => !taken.has(x.id) && !shutOn(x, d.date))
       .map((x) => ({ x, km: haversineKm(center.lat, center.lon, x.lat, x.lon) }))
       .filter((c) => c.km > 4 && c.km <= 30)
       .sort((a, b) => weight(b.x) - weight(a.x))[0]?.x;
     if (!p) continue;
     taken.add(p.id);
-    Object.assign(d, { kind: 'daytrip', half: d.cap < full * 0.9, items: [{ ...p, visitMin: Math.min(d.cap, VISIT_MIN.daytrip) }] });
+    Object.assign(d, { kind: 'daytrip', half: d.cap < fullDay * 0.9, items: [{ ...p, visitMin: Math.min(d.cap, VISIT_MIN.daytrip) }] });
   }
 
   const speed = kids ? KIDS_WALK_KMH : WALK_KMH;
