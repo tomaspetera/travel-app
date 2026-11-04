@@ -507,13 +507,19 @@ test('prohlížeč: stejné parkování a cesta autem jako server, štítky leti
   assert.match(own.title, /palivo \d+ km × 7,5 l\/100 km × 44,90 Kč\/l = .* Cena: benzín N95 44,90 Kč\/l · vlastní cena\./);
   // dřívější dotaz v Kč/km: popisek jako dřív
   const legacy = H.accessLabel(plain(car(PRAHA_GEO, 'VIE', { adults: 2, carKmCzk: 2.6 })), { nights: 7 });
-  assert.match(legacy.title, /palivo tam i zpět \d+ km × 2,6 Kč = ~[\d\s ]+ Kč \+ parkování online předem ~850 Kč \+ 150 Kč\/den × 8 dní = ~2[\s ]050 Kč \+ dálniční známka Rakousko \(10 dní\) ~320 Kč/);
+  assert.match(legacy.title, /palivo tam i zpět \d+ km × 2,6 Kč\/km = ~[\d\s ]+ Kč \+ parkování online předem ~850 Kč \+ 150 Kč\/den × 8 dní = ~2[\s ]050 Kč \+ dálniční známka Rakousko \(10 dní\) ~320 Kč/);
   // starší odpověď serveru bez základu parkování (jen sazba za den): počítá a popisuje se jako dřív
   const old = { ...plain(vie), parkBaseCzk: undefined, parkDayCzk: 300 };
   assert.equal(H.parkCzk(old, 7), Math.round(300 * 8 / 2));
   assert.match(H.accessLabel(old, { nights: 7 }).title, / \+ parkování ~300 Kč\/den × 8 dní = ~2[\s ]400 Kč/);
   assert.doesNotMatch(legacy.title, /Cena:/);
   assert.match(H.accessLabel(plain(car(PRAHA_GEO, 'VIE', { adults: 2 })), { nights: 2 }).text, /na 3 dny$/);
+  // 14 nocí = 15 dní parkování > 10 dní známky: carTrip počítá dvě – popisek taky, ať součet sedí
+  const long = H.accessLabel(plain(vie), { nights: 14 }), lt = H.carTrip(plain(vie), 14);
+  assert.match(long.title, /dálniční známka Rakousko \(10 dní\) 2× ~320 Kč/);
+  assert.equal(lt.tolls, 640);
+  assert.ok(long.title.includes(`= ~${kc(lt.total)} Kč za auto`), long.title);
+  assert.doesNotMatch(c.title, /2× ~320/, '8 dní se do 10denní známky vejde');
   // Pardubice: parkování zdarma (P1 + P2 bez rezervace) – štítek i popisek bez „0 Kč/den“
   const ped = H.accessLabel(plain(car(PRAHA, 'PED', { adults: 2 })), { nights: 7 });
   assert.match(ped.text, /^~[\d\s ]+ Kč\/os\. tam i zpět, parkování zdarma$/);

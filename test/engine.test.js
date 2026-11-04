@@ -291,6 +291,7 @@ test('routesNote: průběh hledání u Wizz Air česky, bez názvu proměnné z 
   assert.equal(routesNote({ total: 39, live: 25, memory: 10, skipped: 4, oldestMin: 120 }), 'prohledáno 35 z 39 tras, 10 z nich s cenami z hledání před 2 h – zbylé 4 přijdou na řadu při dalším hledání');
   assert.equal(routesNote({ total: 39, live: 38, memory: 0, skipped: 1 }), 'prohledáno 38 z 39 tras – zbylá 1 přijde na řadu při dalším hledání');
   assert.equal(routesNote({ total: 39, live: 15, memory: 24, skipped: 0, oldestMin: 45 }), 'všech 39 tras, 24 z nich s cenami z hledání před 45 min (ověř v rezervaci)');
+  assert.equal(routesNote({ total: 1, live: 0, memory: 1, skipped: 0, oldestMin: 45 }), 'jediná trasa s cenami z hledání před 45 min (ověř v rezervaci)', 'ne „všech 1 tras“');
   assert.equal(routesNote({ total: 39, live: 39, memory: 0, skipped: 0 }), null, 'vše čerstvé – bez poznámky');
   assert.match(routesNote({ total: 39, live: 0, memory: 30, skipped: 9, oldestMin: 40, blocked: true }), /^Wizz Air teď blokuje dotazy – 30 z 39 tras jen z paměti/);
   for (const t of [routesNoteNearest(1, 2), routesNote({ total: 2, live: 1, memory: 0, skipped: 1 })]) assert.doesNotMatch(t, /WIZZ|MAX_CALLS/);

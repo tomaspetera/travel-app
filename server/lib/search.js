@@ -270,7 +270,8 @@ export function routesNote({ total, live, memory, skipped, oldestMin, blocked = 
   if (!memory && !skipped) return null;
   const mem = memory ? `${memory} z nich s cenami z hledání před ${agoMin(oldestMin)}` : '';
   if (blocked) return `Wizz Air teď blokuje dotazy – ${memory ? `${memory} z ${total} tras jen z paměti (ceny před ${agoMin(oldestMin)})` : 'žádná trasa v paměti'}`;
-  if (!skipped) return `všech ${total} tras, ${mem} (ověř v rezervaci)`;
+  // jediná trasa (filtr cíle nechal Wizz Air jednu) – „všech 1 tras, 1 z nich“ nedávalo smysl
+  if (!skipped) return total === 1 ? `jediná trasa s cenami z hledání před ${agoMin(oldestMin)} (ověř v rezervaci)` : `všech ${total} tras, ${mem} (ověř v rezervaci)`;
   const rest = skipped === 1 ? 'zbylá 1 přijde' : skipped < 5 ? `zbylé ${skipped} přijdou` : `zbylých ${skipped} přijde`;
   return `prohledáno ${live + memory} z ${total} tras${mem ? `, ${mem}` : ''} – ${rest} na řadu při dalším hledání`;
 }

@@ -965,10 +965,11 @@
     if (!g || g.off || !(g.czk >= 0)) return null;
     if (g.mode === 'car') {
       const t = carTrip(g, nights), n = g.adults || 1, e = fuelItem(g);
-      const tolls = (g.tolls || []).map(x => ` + ${x.label} ~${kc(x.days ? x.czk : 2 * x.czk)}`).join('');
+      // známka na dny: když parkování trvá déle, než platí, počítá carTrip druhou – popisek musí sedět se součtem
+      const tolls = (g.tolls || []).map(x => ` + ${x.label} ${x.days ? (!g.dropOff && t.days > x.days ? `2× ~${kc(x.czk)}` : `~${kc(x.czk)}`) : `~${kc(2 * x.czk)}`}`).join('');
       // palivo jedním směrem: km × spotřeba × aktuální cena, pak tam i zpět (dřívější dotaz: Kč/km)
       const fuel = e ? `${fuelFormula(g)}, tam i zpět ~${kc(t.fuel)}`
-        : `palivo tam i zpět ${2 * g.roadKm} km × ${rate(g.carKmCzk)} Kč = ~${kc(t.fuel)}`;
+        : `palivo tam i zpět ${2 * g.roadKm} km × ${rate(g.carKmCzk)} Kč/km = ~${kc(t.fuel)}`;
       const src = e ? ` Cena: ${e.priceLabel}.${e.fuel === 'ev' ? ' Parkování a známky platí elektroauto stejně.' : ''}` : '';
       const per = `~${kc(t.total)} za auto, na osobu (${n} os.) ~${kc(t.perPerson)}`;
       if (g.dropOff) {
