@@ -994,7 +994,7 @@
       };
     }
     // 🏠 vlastní cena uživatele místo odhadu (čas zůstává odhad)
-    if (g.own) return { text: `🏠 ${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: vlastní cena ${kc(g.czk)} na osobu jedním směrem (zpět totéž)${g.estCzk >= 0 ? ` místo odhadu ~${kc(g.estCzk)}` : ''}, cesta ~${hm(g.minutes)} (odhad). Změníš ji v Letech → Cestující, zavazadla a další → ✏️ Uprav cenu u letišť.` };
+    if (g.own) return { text: `🏠 ${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: vlastní cena ${kc(g.czk)} na osobu jedním směrem (zpět totéž)${g.estCzk >= 0 ? ` místo odhadu ~${kc(g.estCzk)}` : ''}, cesta ~${hm(g.minutes)} (odhad). Změníš ji v Letech → Cestující, zavazadla a další → ✏️ Jezdíš levněji? Uprav cenu.` };
     const items = (g.breakdown || []).map(x => `${x.label} ~${kc(x.czk)}`);
     const sum = items.length > 1 ? `${items.join(' + ')} = ~${kc(g.czk)}` : items.length ? items[0] : `~${kc(g.czk)}`;
     return { text: `~${kc(g.czk)}/os. tam`, title: `Veřejnou dopravou: ${sum} na osobu jedním směrem (zpět totéž), ~${hm(g.minutes)}. Odhad podle vzdálenosti a ceníků dopravců (vlak / bus za běžnou cenu), ne jízdní řád.` };
@@ -2122,7 +2122,7 @@
   function paxNote(x) {
     const p = paxOf(x);
     if (!kidsOf(p)) return '';
-    const kids = p.children ? `${p.children === 1 ? 'dítě platí' : 'děti platí'} na sedadlo jako ${p.children === 1 ? 'dospělý' : 'dospělí'}` : '';
+    const kids = p.children ? `${p.children === 1 ? 'dítě platí' : 'děti platí'} sedadlo jako ${p.children === 1 ? 'dospělý' : 'dospělí'}` : '';
     const baby = p.infants ? `${p.infants === 1 ? 'miminko' : 'miminka'} na klíně – poplatek aerolinky se doplní při nákupu` : '';
     return [kids, baby].filter(Boolean).join(', ');
   }

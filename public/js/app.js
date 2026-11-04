@@ -903,10 +903,10 @@ const WHATS_NEW = [
   ['🕘', 'Od minula', 'když ATLAS otevřeš jiný den, nahoře na <b>Přehledu</b> uvidíš, co se od minula změnilo pro tebe: která hlídaná cena zlevnila a o kolik, kdy odlétáš na uloženou cestu (i kdy se otevírá online check-in), nové levné cíle v radaru a propadlé odložené nabídky. Nejvýš 3 řádky, klepnutím na místo, ✕ je skryje, dokud nebude něco nového. Bez upozornění v telefonu.'],
   ['📝', 'Rozepsané hledání se neztratí', 'když v <b>Letech</b> upravíš formulář (odkud, kam, termín, noci, cestující, zavazadla…) a hledat nestihneš, ATLAS si ho zapamatuje – i když telefon aplikaci na pozadí zavře. Po návratu ho najdeš vyplněný (3 dny, minulé termíny vynechá); <b>↺ Začít znovu</b> ho smaže.'],
   ['📌', 'Porovnat i s cestou na letiště', 'odložené nabídky v <b>📌 Porovnat</b> se řadí podle ceny <b>i s cestou</b> – letenka + odhad dopravy na letiště a zpět a z letiště do města. Levnější letenka z Mnichova tak nevyhraje, když cesta na letiště stojí o 500 Kč víc. Co neznám, napíšu – cena letenky zůstává vidět.'],
-  ['🔗', 'Sdílená cesta', 'cesta nebo plán z odkazu od kamaráda ukáže, z kdy jsou ceny (u nových odkazů den sdílení), a <b>💾 Uložit si ji</b> ji přidá do tvého plánovače – pak je to tvoje cesta.'],
+  ['🔗', 'Sdílená cesta', 'cesta nebo plán z odkazu od kamaráda ukáže, ze kterého dne jsou ceny (u nových odkazů den sdílení), a <b>💾 Uložit si ji</b> ji přidá do tvého plánovače – pak je to tvoje cesta.'],
   ['◀️', 'Zpět na telefonu', 'tlačítko nebo gesto Zpět nejdřív zavře otevřené okno, v průvodci <b>Cestou</b> vrátí o krok a z Cesty zpět k výsledkům, ze kterých jsi let vybral (na stejné místo ve výpisu) – aplikace se zavře až z Přehledu.'],
   ['📤', 'Sdílet cestu rovnou do WhatsAppu', 've Shrnutí průvodce a u plánu v plánovači otevře <b>Sdílet</b> na telefonu nabídku sdílení (WhatsApp, Messenger, e-mail) – bez kopírování odkazu.'],
-  ['📍', 'Dnes na cestě i bez plánovače', 'cestu poskládanou v průvodci, kterou jsi neuložil, ti Přehled 2 dny před odletem nabídne <b>💾 Uložit do plánovače</b> – pak tam každý den uvidíš program, ubytování a spoje.'],
+  ['📍', 'Dnes na cestě i bez plánovače', 'cestu poskládanou v průvodci, kterou jsi neuložil, ti Přehled 2 dny před odletem nabídne <b>💾 Uložit do Mých cest</b> – pak tam každý den uvidíš program, ubytování a spoje.'],
   ['💡', 'Věděl jsi?', 'na Přehledu občas malý tip na funkci, kterou jsi ještě nezkusil (Kamkoliv, hlídání ceny, ⚡ Poskládej cestu…) – nejvýš jeden denně, tlačítkem ji rovnou otevřeš, křížkem tip skryješ natrvalo.'],
   ['🧾', 'Rozpočet cesty', 've <b>Shrnutí</b> průvodce Cestou je cena po položkách (letenky, doprava, ubytování, auto a přejezdy) za osobu i celkem – odhady jsou označené. Do pole <b>Můj rozpočet</b> zadej, kolik chceš utratit, a uvidíš, kolik zbývá, nebo o kolik je cesta dražší.'],
   ['📤', 'Sdílet jednu letenku', 'u nabídky ve výsledcích je <b>📤 Sdílet</b> (vedle 📌 Odložit) – pošle krátký odkaz s trasou, termínem, cenou, aerolinkou a odkazem na koupi. Příjemci se otevře karta nabídky s upozorněním, že se cena mohla změnit, a <b>🔎 Hledat znovu</b> mu předvyplní formulář.'],
@@ -923,7 +923,7 @@ const WHATS_NEW = [
   ['🚆', 'Vlak nebo bus místo letadla', 'cena konkrétního spoje za běžnou cenu (Praha–Vídeň ~500 Kč, ne akční 249) a čas i s cestou na nádraží. Auto na letiště počítá parkování podle ceníku letiště.'],
   ['🔄', 'Přepočítat po změně', 'když po hledání změníš v <b>Cestující, zavazadla a další</b> cestu na letiště (vlastní cenu, jízdné nebo auto), nad výsledky je <b>↻ Přepočítat</b>. Čipy 📝 a 🛂 u letu otevřou podmínky vstupu i na telefonu.'],
   ['🏨', 'Ubytování s ověřeným volnem', 'když v Cestě klepneš na <b>Vybrat</b>, ATLAS hned zjistí, jestli má hotel na tvoje dny pořád volno a za kolik – vyprodaný se nevybere. Hotely bez ceny na tvoje dny (často obsazené) jsou schované pod tlačítkem.'],
-  ['🎫', 'Cesta na letiště za skutečné ceny', 'odhad teď počítá jízdenku na konkrétní spoj v danou hodinu (ne nejlevnější spoj dne), MHD z domova na nádraží a běžný čas jízdy – z Prahy do Pardubic ~240 Kč, do Brna ~350 Kč. V <b>Cestující, zavazadla a další</b> → ✏️ Uprav cenu u letišť uvidíš u každého letiště, z čeho odhad je.'],
+  ['🎫', 'Cesta na letiště za skutečné ceny', 'odhad teď počítá jízdenku na konkrétní spoj v danou hodinu (ne nejlevnější spoj dne), MHD z domova na nádraží a běžný čas jízdy – z Prahy do Pardubic ~240 Kč, do Brna ~350 Kč. V <b>Cestující, zavazadla a další</b> → ✏️ Jezdíš levněji? Uprav cenu uvidíš u každého letiště, z čeho odhad je.'],
   ['🚆', 'Reálnější časy cest', 'vlak mezi městy jede rychlotratí jen tam, kde opravdu vede (Barcelona → Valencie ~3 h 25, ne 2 h 10), jízdenky po Itálii, Španělsku a Francii za běžné ceny, autem na letiště podle skutečné rychlosti a „Vyraž z ubytování“ i s cestou na zastávku. Když brzy ráno vyrážíš na letiště ve svém městě a MHD ještě nejede, počítám v průběhu cesty s taxi 🚕.'],
   ['📝', 'Formulář před příletem', 'Thajsko (TDAC), Filipíny, Malajsie, Singapur, Korea, Indonésie a další chtějí online formulář – uvidíš to u letu, v Před cestou i v Co zařídit s odkazem na oficiální web.'],
   ['↻', 'Když hledání selže', 'uvidíš hned proč a tlačítko <b>Zkusit znovu</b>; 🙈 Nezajímá mě v radaru jde vrátit.'],
@@ -957,7 +957,7 @@ const WHATS_NEW = [
   ['📌', 'Odložené nabídky', '„📌 Odložit“ u nabídky nebo v ⋯ na kartě – pak <b>Porovnat</b> vedle sebe a 📤 poslat k výběru.'],
   ['🔎', 'Co tam je', 'na kartě výsledku a pod ⓘ v radaru: místa s fotkou, cesta z letiště do města, počasí, vstup.'],
   ['⭐', 'Moje cíle / 🙈 Nezajímá mě', 'v ⋯ na kartě; oblíbené s cenami v pruhu níž na Přehledu.'],
-  ['🚆', 'Vlak a bus podle skutečných jízdenek', '„běžně ~X Kč (od ~Y)“; vlastní cenu cesty na letiště zadáš v Lety → Cestující, zavazadla a další → ✏️ Uprav cenu u letišť.'],
+  ['🚆', 'Vlak a bus podle skutečných jízdenek', '„běžně ~X Kč (od ~Y)“; vlastní cenu cesty na letiště zadáš v Letech → Cestující, zavazadla a další → ✏️ Jezdíš levněji? Uprav cenu.'],
   ['🕘', 'Stáří cen', '„ceny z 14:32“ nad výsledky, po hodině upozornění a ↻ Hledat znovu; v průvodci „cena z …“.'],
   ['🏨', 'Hotely s cenami', 'v průvodci Cesta → Ubytování: odkaz na web, kde je pokoj na tvoje dny volný, a ↻ Aktualizovat ceny.'],
 ];
@@ -1308,7 +1308,7 @@ function renderDashStats() {
   const w = (S.watch || []).length;
   // jen dlaždice, ve kterých něco je (nový uživatel neuvidí řadu nul); bez nich ani tip měsíce – ten je níž v Tipech
   const tiles = [
-    st.count ? ['Navštívené země', `${st.count}<small> / ${TOT}</small>`, `${st.pct}% světa`, `<div class="progress"><span style="width:${st.pct}%"></span></div>`] : null,
+    st.count ? ['Navštívené země', `${st.count}<small> / ${TOT}</small>`, `${st.pct} % světa`, `<div class="progress"><span style="width:${st.pct}%"></span></div>`] : null,
     w ? ['Hlídané ceny', `<span id="watchStatVal">${w}</span>`, `<span id="watchStatSub">${window.Flights ? Flights.watchStatTxt() : ''}</span>`, ''] : null,
     S.trips.length ? nextTripStat() : null,
   ].filter(Boolean);
@@ -1558,7 +1558,7 @@ function renderRecs() {
       <button type="button" class="btn sm rec-fly" data-fly="${i}" title="Nejlevnější lety: ${esc(r.fly.label)}, odlet ${MNS_LOC[m - 1]}">✈️ Najít lety</button></div></div>`;
   }).join('') : `<div class="empty" style="grid-column:1/-1">Zvoleným filtrům nic neodpovídá – uvolni rozpočet nebo bezpečnost${hidden.mute.length ? ', nebo uprav 🙈 Nezajímá mě (vynechané země jsou pod tímhle)' : ''}.</div>`;
   // vynechané (ať je vidět proč tu nějaká země není)
-  const foot = [hidden.unsafe ? `Doporučení vynechává ${hidden.unsafe} zemí, před kterými MZV ČR varuje nebo kam doporučuje jen nezbytné cesty.` : '',
+  const foot = [hidden.unsafe ? `Doporučení vynechává ${hidden.unsafe} ${hidden.unsafe === 1 ? 'zemi' : hidden.unsafe <= 4 ? 'země' : 'zemí'}, před kterými MZV ČR varuje nebo kam doporučuje jen nezbytné cesty.` : '',
     hidden.mute.length ? `🙈 Vynechané kvůli Nezajímá mě: ${hidden.mute.join(', ')} – seznam upravíš přes ⋯ u cíle ve výsledcích hledání.` : '',
     season ? 'Teploty jsou dlouhodobý průměr denních maxim u letiště (ne předpověď); teplotu moře ATLAS nezná.' : ''].filter(Boolean);
   $('#recFoot').innerHTML = foot.map(x => `<div>${esc(x)}</div>`).join('');
@@ -1934,7 +1934,7 @@ function mapAddWire() {
 }
 function mapPopover(e, iso) {
   const c = byIso[iso], isV = visited.has(iso), p = $('#mapPop');
-  p.innerHTML = `<div class="row" style="gap:10px"><div style="font-size:30px">${flag(iso)}</div><div><div style="font-weight:800">${c.cs}</div><div class="faint" style="font-size:12px">${c.cont}</div></div></div><div class="row" style="margin-top:12px;gap:8px"><button class="btn sm ${isV ? 'warm' : 'primary'}" style="flex:1" id="popVis">${isV ? '✓ Byl/a jsem' : 'Byl/a jsem tu'}</button><button class="btn sm ghost" id="popDet">Detail</button></div>`;
+  p.innerHTML = `<div class="row" style="gap:10px"><div style="font-size:30px">${flag(iso)}</div><div><div style="font-weight:800">${c.cs}</div><div class="faint" style="font-size:12px">${c.cont}</div></div></div><div class="row" style="margin-top:12px;gap:8px"><button class="btn sm ${isV ? 'warm' : 'primary'}" style="flex:1" id="popVis">${isV ? '✓ Navštíveno' : 'Byl/a jsem tu'}</button><button class="btn sm ghost" id="popDet">Detail</button></div>`;
   // bublina (230 px) na střed kliknutí – nevyjet z obrazovky ani vlevo (USA, Mexiko na telefonu)
   p.style.left = Math.max(125, Math.min(e.clientX, innerWidth - 130)) + 'px'; p.style.top = Math.min(e.clientY, innerHeight - 120) + 'px'; p.classList.add('show');
   $('#popVis').onclick = () => { setVisited(iso, !visited.has(iso)); p.classList.remove('show'); toast(visited.has(iso) ? 'Přidáno: ' + c.cs : 'Odebráno: ' + c.cs); };
@@ -2532,7 +2532,7 @@ function previewPlan(shared) {
   const up = $('#planUpdate');
   if (up) up.onclick = () => {
     const i = S.trips.indexOf(mine);
-    if (i < 0) return toast('Cesta mezitím zmizela – ulož si plán jako novou', 'err');
+    if (i < 0) return toast('Cesta mezitím zmizela – ulož si plán jako novou cestu', 'err');
     S.trips[i] = upd; save(); tripsChanged();
     toast('Cesta aktualizovaná – tvoje odškrtnutí a rezervace zůstaly');
     modalClose(); go('planner'); setTimeout(() => openTrip(i), 250);

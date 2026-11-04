@@ -35,8 +35,8 @@ test('texty cestujících: tlačítko, souhrn, cena celkem a poznámka – bez d
   assert.equal(H.paxTotalLbl({ adults: 1, infants: 1 }), 'celkem za 1 osobu + miminko');
   assert.deepEqual([H.paxTotalOn({ adults: 1 }), H.paxTotalOn({ adults: 1, infants: 1 }), H.paxTotalOn({ adults: 2 })], [false, true, true]);
   assert.equal(H.paxNote({ adults: 2 }), '');
-  assert.equal(H.paxNote({ adults: 2, children: 2 }), 'děti platí na sedadlo jako dospělí');
-  assert.equal(H.paxNote({ adults: 2, children: 1, infants: 1 }), 'dítě platí na sedadlo jako dospělý, miminko na klíně – poplatek aerolinky se doplní při nákupu');
+  assert.equal(H.paxNote({ adults: 2, children: 2 }), 'děti platí sedadlo jako dospělí');
+  assert.equal(H.paxNote({ adults: 2, children: 1, infants: 1 }), 'dítě platí sedadlo jako dospělý, miminko na klíně – poplatek aerolinky se doplní při nákupu');
 });
 
 test('kidsBuyNote: Ryanair a Wizz Air mají děti v odkazu, ostatní je přidají na webu; bez dětí nic', () => {
