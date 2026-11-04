@@ -350,6 +350,14 @@ test('autem: dálniční známky a mýtné jen v cizině, cesta přes sousední 
   assert.deepEqual(cc(PRAHA, 'PRG'), [], 'domácí známku máš');
   assert.deepEqual(cc(BRATISLAVA, 'PRG'), ['CZ'], 'ze Slovenska do Česka česká známka');
   assert.deepEqual(A.tollsOn('CZ', 'HR').map((t) => [t.cc, t.days]), [['AT', 10], ['SI', 7], ['HR', 0]]);
+  // nesousední země i z ciziny: tranzitní známky nechybí (Vídeň → Záhřeb přes Slovinsko, Mnichov → Itálie přes Rakousko)
+  const via = (from, to) => A.tollsOn(from, to).map((t) => t.cc);
+  assert.deepEqual(via('AT', 'HR'), ['SI', 'HR']);
+  assert.deepEqual(via('DE', 'IT'), ['AT', 'IT']);
+  assert.deepEqual(via('DE', 'HR'), ['AT', 'SI', 'HR']);
+  assert.deepEqual(via('SK', 'IT'), ['AT', 'IT']);
+  assert.deepEqual(via('HU', 'IT'), ['SI', 'IT']);
+  assert.deepEqual(via('PL', 'IT'), ['CZ', 'AT', 'IT']);
   // Lublaň na 8 nocí: slovinská známka na 7 dní nevystačí, rakouská na 10 ano
   const lju = car(PRAHA, 'LJU', { adults: 1 });
   assert.equal(A.parkCzk(lju, 8), A.parkStay(lju, 9) + A.tollCzk(A.TOLLS.SI));

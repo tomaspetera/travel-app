@@ -259,6 +259,10 @@ test('routeTransfers: rozpočet dotazů a času, nedokončené dál na pozadí (
   const r2 = await routeTransfers([[slow, far]], { route: (a, b) => driveRoute(a, b, { get: async () => { await gate; return geo(70000, 3000); } }), deadlineMs: 30 });
   assert.equal(r2.pending, 1);
   assert.equal(r2.routes.get(routeKey(slow, far)), null);
+  // přepočet, zatímco se trasa ještě počítá: není nová – nebere limit na IP (allow) a pořád je pending
+  let asked = 0;
+  const r2b = await routeTransfers([[far, slow]], { route: () => { throw new Error('nevolat'); }, allow: () => { asked++; return false; }, deadlineMs: 30 });
+  assert.deepEqual([r2b.pending, asked], [1, 0], 'běžící výpočet: pending, limit nevyčerpán');
   release();
   await new Promise((res) => setTimeout(res, 20));
   assert.deepEqual(cachedRoute(slow, far), { km: 70, min: 50 }, 'dopočteno na pozadí');
