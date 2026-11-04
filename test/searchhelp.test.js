@@ -125,6 +125,19 @@ test('nearHeadline: v zadaný den nízkonákladovka nemá volný let → nejbli�
   assert.equal(H.nearHeadline(null), null);
 });
 
+test('nearHeadline a nearStrip: krátká cesta – den návratu před odletem nenabídne ani neoznačí jako nejlevnější', () => {
+  // odlet 12. 11., návrat 13. 11.: server posílá dny návratu 10.–16. 11., 10. a 11. 11. jsou před odletem
+  const out = { ...NB.out, lowcostOnDay: true, days: [{ date: '2026-11-12', cost: 1000 }] };
+  const back = { around: '2026-11-13', from: '2026-11-10', to: '2026-11-16', lowcostOnDay: true, lowcostNear: [], lowcostNames: ['Ryanair'],
+    days: [{ date: '2026-11-10', cost: 500 }, { date: '2026-11-11', cost: 600 }, { date: '2026-11-13', cost: 1600 }, { date: '2026-11-14', cost: 1200 }] };
+  assert.equal(H.nearHeadline({ out, back }), `Levněji vedle: zpět 14. 11. od ${kc(1200)}`, 'ne „zpět 10. 11.“ – to je před odletem');
+  assert.equal(H.nearHeadline({ out, back: { ...back, days: back.days.slice(0, 3) } }), null);
+  const noLc = { ...back, lowcostOnDay: false, lowcostNear: ['2026-11-11', '2026-11-15'], days: [{ date: '2026-11-11', cost: 600 }, { date: '2026-11-15', cost: 1300 }] };
+  assert.equal(H.nearHeadline({ out, back: noLc }), `V den návratu nemá Ryanair volný let – 15. 11. od ${kc(1300)}`);
+  const s = H.nearStrip(back, { minDate: '2026-11-12' });
+  assert.deepEqual(plain(s.filter((d) => d.best).map((d) => d.date)), ['2026-11-14']);
+});
+
 test('kiwiOutage: výpadek Kiwi a které zdroje i tak něco našly', () => {
   assert.equal(H.kiwiOutage([{ id: 'kiwi', outage: null }]), null);
   assert.equal(H.kiwiOutage([{ id: 'ryanair', found: 3 }]), null, 'Kiwi vypnuté');
@@ -232,6 +245,15 @@ test('smartActions: flexibilní hledání do země → dny v týdnu, delší ter
   assert.deepEqual(plain(by.nights.patch), { nMin: 5, nMax: 11, len: 'custom' });
   assert.deepEqual(plain(by.radius.patch), { radius: 250 }, '5 míst odletu už je maximum → aspoň větší okruh');
   assert.equal(by.continent.label, 'Celý světadíl: Asie');
+});
+
+test('smartActions: delší termín nejvýš 360 dní dopředu (dál server ořízne) – na konci horizontu se nenabízí', () => {
+  const f = { ...FORM, dateMode: 'flex', to: [{ id: 'cc:TH', type: 'country' }], dFrom: '2027-09-01', dTo: '2027-09-20', nMin: 7, nMax: 9 };
+  const r = { ...RES, destination: { kind: 'countries' }, destinationLabels: [{ id: 'cc:TH', cc: 'TH' }] };
+  const longer = (ff) => H.smartActions(ff, r, { today: '2026-10-05', country, flag }).find((a) => a.key === 'longer');
+  assert.deepEqual(plain(longer(f).patch), { dTo: '2027-09-30' }, 'today + 360 dní, ne 20. 10.');
+  assert.equal(longer(f).label, 'Delší termín (až do 30. 9.)');
+  assert.equal(longer({ ...f, dTo: '2027-09-30' }), undefined, 'konec už na horizontu → stejné hledání by nic nepřidalo');
 });
 
 test('smartActions: Za teplem do cíle, kde tak teplo nebývá → jen širší cíl nebo delší termín', () => {
