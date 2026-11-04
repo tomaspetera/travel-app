@@ -18,4 +18,8 @@ services:
 #   TRAVELPAYOUTS_TOKEN (další aerolinky), LITEAPI_KEY (hotely s cenou a hodnocením – bez něj ceny hotelů
 #   z TripAdvisoru přes Xotelo, XOTELO=off vypne), UNSPLASH_ACCESS_KEY (hezčí fotky měst – bez něj Wikimedia).
 # Vlastní doména (Settings → Custom Domains): PUBLIC_URL=https://… – kanonická adresa a náhledy sdílených odkazů.
+# Provize z partnerských odkazů: TRAVELPAYOUTS_MARKER (číslo partnera) a TRAVELPAYOUTS_TRS (číslo projektu).
+# ℹ️ O aplikaci: FEEDBACK_EMAIL (💬 Napsat nám), SUPPORT_URL (💛 Podpořit ATLAS – platební odkaz Stripe
+#   https://buy.stripe.com/…, kde si člověk zvolí částku) a OPERATOR (provozovatel, např. „Jan Novák, IČO 12345678, Praha“).
+#   Bez nich se tlačítka a řádek neukážou.
 # PORT nenastavovat – Render ho dodá sám a server ho čte.

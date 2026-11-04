@@ -3700,7 +3700,8 @@
         <button class="btn" id="sumIcs">📅 Do kalendáře</button>
         <a class="btn ghost" href="${esc(safeUrl(Ics.gcalUrl(tripEvent(t))))}" target="_blank" rel="noopener">Přidat do Google Kalendáře ↗</a>
         <button class="btn ghost" id="sumNew">Začít novou cestu</button>
-      </div></div>
+      </div>
+      <p class="faint sum-support" id="sumSupport" hidden></p></div>
       ${carLegs.length && !ov && (!t.car || t.car.mode === 'skip') ? `<div class="note warn" style="margin-bottom:14px">🚗 <div>${carLegs.length < legsAll.length ? `Část přejezdů trasy (${esc(carLegs.map(l => legName(t, l)).join(', '))}) počítám <b>autem</b>` : 'Přejezdy mezi místy trasy počítám <b>autem</b>'}, ale auto nemáš vybrané – vyber ho v kroku <b>Auto</b>, nebo tam zvol <b>Bez auta – mezi místy vlakem a busem</b>.</div></div>` : ''}
       ${multi && nightsLeft(t) !== 0 ? '<div class="note warn" style="margin-bottom:14px">⚠️ <div>Noci v trase nesedí s délkou pobytu – uprav je v kroku <b>Trasa</b>, jinak termíny ubytování nebudou navazovat na lety.</div></div>' : ''}
       ${past ? '' : window.Entry && Entry.ready() ? Entry.checklistHtml(isos, { ret: returnDate(t), pax: paxN(t) + (+t.infants || 0), via }) : '<div id="tripEntry"></div>'}
@@ -3715,6 +3716,14 @@
     $('#myBudget').oninput = () => { const v = Math.max(0, +$('#myBudget').value || 0); setBudget(t, v); $('#budgetOut').innerHTML = budgetOutHtml(c.total, v, est, miss); };
     // cesta se ukládá sama – tlačítko ji uloží hned (i na přání: ↺ Začít znovu ji pak nechá) a ukáže Moje cesty
     $('#sumSave').onclick = () => { saveToPlanner({ stay: true }); showMine(t); };
+    // 💛 pod tlačítky: jedna nevtíravá věta ve chvíli, kdy průvodce dodal hotovou cestu – jen s odkazem SUPPORT_URL
+    // (/api/health, ten už aplikace má z načítání); jinak nic
+    if (window.Flights && Flights.warm && window.About && About.okPay) Flights.warm().then(hl => {
+      const url = hl && hl.support && hl.support.url, el = $('#sumSupport');
+      if (!el || !About.okPay(url)) return;
+      el.innerHTML = `Pomohl ti ATLAS naplánovat cestu? <a href="${esc(url)}" target="_blank" rel="noopener">💛 Podpořit ATLAS ↗</a> – je zdarma a částku si zvolíš.`;
+      el.hidden = false;
+    }, () => { /* bez serveru bez věty */ });
     // okno Sdílet: celá cesta kamarádům (share – jako dřív) nebo karta „Jede někdo se mnou?“ na sítě (sharecard.js)
     // prime: krátký odkaz se začne ukládat při dotyku Poslat kamarádům – sdílení pak skoro nečeká
     $('#sumShare').onclick = () => (window.ShareCard ? ShareCard.open(cardData(t), { send: share, prime: () => ShareLink.short('trip', linkJson(t)) }) : share());

@@ -569,8 +569,11 @@ async function route(req, res) {
     await loadRates();
     // maps: mapové služby (Mapy.com) – mimo providers, ty jsou zdroje cen (Zdroje cen, průběh hledání);
     // feedback: adresa pro 💬 Napsat nám – jen když je FEEDBACK_EMAIL nastavená, jinak tlačítko v aplikaci chybí
+    // support: odkaz 💛 Podpořit ATLAS (SUPPORT_URL), operator: provozovatel (OPERATOR) – obojí jen když je nastavené
     const feedback = config.feedbackEmail ? { feedback: { email: config.feedbackEmail } } : {};
-    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), maps: [mapyStatus()], fx: fxInfo(), cache: cache.stats(), searches: searchStats(), clientErrors: clientErrorCount(), shortLinks: shareStore ? shareStore.kind : false, ...feedback });
+    const support = config.supportUrl ? { support: { url: config.supportUrl } } : {};
+    const operator = config.operator ? { operator: config.operator } : {};
+    return sendJson(req, res, 200, { ok: true, demo: config.mock, maxOrigins: config.maxOrigins, affiliate: affiliateOn('aviasales'), providers: providerStatus(), maps: [mapyStatus()], fx: fxInfo(), cache: cache.stats(), searches: searchStats(), clientErrors: clientErrorCount(), shortLinks: shareStore ? shareStore.kind : false, ...feedback, ...support, ...operator });
   }
   if (p === '/api/client-error') {
     // Chyba z prohlížeče (public/js/errlog.js): jeden řádek do logu Renderu, v paměti posledních 50 – v /api/health

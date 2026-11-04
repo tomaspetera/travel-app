@@ -95,6 +95,8 @@
 /* přehled cesty vedle kroku a pravý sloupec Shrnutí jen na počítači (desktop-trip.css) – jinde bez vlivu na rozvržení */
 .trip-aside{display:none}
 .sum-side{display:contents}
+/* 💛 Podpořit ATLAS pod tlačítky shrnutí (jen se SUPPORT_URL) – jedna věta, ne další tlačítko */
+.sum-support{margin:-4px 0 14px;font-size:13px;line-height:1.45}
 table.cost{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
 table.cost td{padding:7px 4px;border-bottom:1px solid var(--border)}
 table.cost td:first-child{width:28px}
