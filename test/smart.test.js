@@ -1178,3 +1178,40 @@ test('„Řím dnes na 2–3 noci“: odlet dnes, jak říká čip (dřív se hl
   // „kolem“ se dnes neprotáhne do minulosti
   assert.deepEqual(['dFrom', 'dTo'].map(k => P('Řím kolem 13. 12. na 3–5 nocí', '2026-12-12').patch[k]), ['2026-12-12', '2026-12-15']);
 });
+
+test('„v pátek tam, v neděli zpátky“: neděle je den návratu (dřív druhý den odletu); „v pátek zpátky v neděli“ dál', () => {
+  const r = P('do Říma v pátek tam a v neděli zpátky');
+  assert.deepEqual([r.to, r.patch.outDays, r.patch.backDays, r.patch.nMin], [['Říma'], [5], [0], 2]);
+  assert.deepEqual(chips(P('v pátek tam, v neděli zpátky')), ['odlet v pátek', 'návrat v neděli', '2 noci']);
+  assert.deepEqual([P('Řím v pátek zpátky v neděli').patch.outDays, P('Řím v pátek zpátky v neděli').patch.backDays], [[5], [0]]);
+  assert.equal(P('do Říma, v neděli zpět z Neapole').back, 'Neapole');
+});
+
+test('zavazadla, přímé lety a druh letenky dalšími slovy – nic z toho není místo', () => {
+  const B = (q) => { const r = P(q); return [r.patch.bags, r.to]; };
+  assert.deepEqual(B('se zavazadlem do Říma'), ['checked', ['Říma']]);
+  assert.deepEqual(B('s velkým zavazadlem'), ['checked', []]);
+  assert.deepEqual(B('s jedním zavazadlem'), ['checked', []]);
+  assert.deepEqual(B('s příručním zavazadlem'), ['cabin', []], 'příruční zůstane kabinový');
+  assert.deepEqual(B('s příručákem'), ['cabin', []]);
+  assert.deepEqual(B('s taškou pod sedadlo'), ['none', []]);
+  assert.deepEqual([P('nonstop do New Yorku').patch.directOnly, P('nonstop do New Yorku').to], [true, ['New Yorku']]);
+  assert.deepEqual([P('bez mezipřistání').patch.directOnly, P('bez mezipřistání').to], [true, []]);
+  assert.deepEqual([P('jednosměrka do Londýna').patch.trip, P('jednosměrka do Londýna').to], ['oneway', ['Londýna']]);
+  assert.deepEqual([P('zpátečka do Londýna').patch.trip, P('zpátečka do Londýna').to], ['return', ['Londýna']]);
+});
+
+test('výplň bez místa: „cena“, „destinace“, „city break“, „na líbánky“, „na jeden týden“; „exotické“ = exotika', () => {
+  assert.deepEqual([P('cena do 4 tisíc do Říma').to, P('cena do 4 tisíc do Říma').patch.maxPrice], [['Říma'], '4000']);
+  assert.deepEqual([P('teplé destinace v lednu').to, P('teplé destinace v lednu').kind], [[], 'warm']);
+  assert.deepEqual([P('exotické destinace v zimě').to, P('exotické destinace v zimě').kind], [[], 'exotic']);
+  assert.deepEqual([P('city break na víkend').to, P('city break na víkend').patch.len], [[], 'weekend']);
+  assert.deepEqual(P('do Mexico City').to, ['Mexico City'], '„city“ v názvu místa zůstane');
+  assert.deepEqual(P('městský výlet na víkend').to, []);
+  assert.deepEqual(P('poznávací výlet do Itálie').to, ['Itálie']);
+  assert.deepEqual(P('lowcost do Londýna').to, ['Londýna']);
+  assert.deepEqual(P('na Maledivy na svatební cestu').to, ['Maledivy']);
+  assert.deepEqual(P('na líbánky do Thajska').to, ['Thajska']);
+  assert.deepEqual([P('na jeden týden').to, P('na jeden týden').patch.len], [[], 'week']);
+  assert.deepEqual([P('v týdnu od 7. 12.').to, P('v týdnu od 7. 12.').patch.xOut], [[], '2026-12-07']);
+});
