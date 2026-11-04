@@ -137,9 +137,19 @@
     const leg = (p, x) => (distKm(ov.to, p) < 5 ? { km: 0, carMin: 0, transitMin: 0 } : x || null);
     return { arrival: leg(bs[0], g.arrival), departure: ov.back ? leg(bs[bs.length - 1], g.departure) : null };
   }
-  /** Upozornění k trase; s vlakem/busem místo „daleko na letiště odletu“ (ze serveru) daleko zpět k vlaku/busu. */
+  /**
+   * Upozornění k trase; s vlakem/busem místo „daleko na letiště odletu“ (ze serveru) daleko zpět k vlaku/busu. Dlouhé
+   * přejezdy hlásí server podle dopravy celé trasy – u úseku přepnutého na jinou dopravu (Řím → Florencie vlakem místo
+   * 3 h 50 min autem) by zůstala rada „zvaž … nebo vlak“; přejezd mezi místy pak hlídá ⚠️ u řádku (longLeg), cestu
+   * na letiště poznámka podle její dopravy.
+   */
   function routeNotes(t) {
-    const r = t.route, notes = r.notes || [];
+    const r = t.route, tr = r.transport === 'transit' ? 'transit' : 'car', legs = routeLegs(t), back = legs.find(l => l.a && !l.b);
+    const stale = n => legs.some(l => l.mode !== tr && (l.a && l.b ? n.startsWith(`Přejezd ${l.a.name} → ${l.b.name} trvá ~`) : l === back && /^Z posledního místa \(.*\) na letiště /.test(n)));
+    const notes = (r.notes || []).filter(n => !stale(n));
+    if (!ovOn(t) && back && back.mode !== tr && longLeg(r, back.x, back.mode)) {
+      notes.push(`Z posledního místa (${back.a.name}) na letiště ${(r.departure && r.departure.iata) || t.flight.back.from} je to ~${minutesToHm(legMin(back.x, back.mode))} – v den odletu vyraz včas, nebo poslední noc stráv blíž letišti.`);
+    }
     if (!ovOn(t) || !r.bases.length) return notes;
     const x = overlandLegs(t).departure;
     return [...notes.filter(n => !/^Z posledního místa \(.*\) na letiště /.test(n)),

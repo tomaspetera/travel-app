@@ -343,6 +343,31 @@ test('krok Trasa u trasy autem: 💡 vlakem rychleji – jedním klepnutím vlak
   assert.equal(modes(c, t2), 'transit transit car car');
 });
 
+test('krok Trasa: úsek přepnutý na vlak už nemá radu „zvaž … nebo vlak“ ze serveru; cesta na letiště autem u trasy vlakem upozorní podle auta', () => {
+  const c = load();
+  // Řím → Florencie autem 3 h 50 min (server: dlouhý přejezd podle dopravy celé trasy), vlakem 1 h 55 min
+  const t = { ...italy('car', [{ ...x(277, 230, 115, 800, 540, 600), long: true }, x(245, 175, 170, 700, 480, 500)]), step: 'route' };
+  t.route.notes = ['Přejezd Řím → Florencie trvá ~3 h 50 min – na jeden přesun je to hodně, zvaž místo mezi nimi nebo vlak.'];
+  let list = sp(render(c, t) && c.__els['#rtList'].innerHTML);
+  assert.match(list, /zvaž místo mezi nimi nebo vlak/);
+  assert.match(list, /⚠️ Dlouhý přejezd/);
+  c.__all['[data-lm]'] = [{ dataset: { lm: '1', m: 'transit' } }];
+  render(c, t);
+  c.__all['[data-lm]'][0].onclick();
+  assert.equal(modes(c, t), 'car transit car car');
+  list = sp(c.__els['#rtList'].innerHTML);
+  assert.doesNotMatch(list, /zvaž místo mezi nimi|Dlouhý přejezd/, 'vlakem 1 h 55 min není dlouhý přejezd');
+  // trasa vlakem a busem, z Benátek na letiště autem 3 h 40 min (> 3 h 20 min): poznámka podle auta, ne podle vlaku
+  const t2 = { ...italy('transit', undefined, { }), step: 'route' };
+  t2.route.legs.departure = x(300, 220, 30, 900, 0, 80);
+  t2.route.legModes = [{ a: '', b: ROMA.id, m: 'transit' }, { a: ROMA.id, b: FI.id, m: 'transit' }, { a: FI.id, b: VE.id, m: 'transit' }, { a: VE.id, b: '', m: 'car' }];
+  render(c, t2);
+  assert.match(sp(c.__els['#rtList'].innerHTML), /Z posledního místa \(Benátky\) na letiště VCE je to ~3 h 40 min – v den odletu vyraz včas/);
+  t2.route.legModes = [];
+  render(c, t2);
+  assert.doesNotMatch(sp(c.__els['#rtList'].innerHTML), /Z posledního místa/, 'vlakem 30 min');
+});
+
 test('kombinovaná trasa: po změně trasy (noci, pořadí, jedno místo, doprava celé trasy) auto k úsekům autem pryč; auto z letiště na letiště zůstane', () => {
   const c = load(), { Trip } = c.window;
   c.fetch = () => new Promise(() => {});
