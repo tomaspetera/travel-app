@@ -406,6 +406,13 @@ test('Ics.checkin: online check-in Ryanair / Wizz Air 24 h před odletem (i pře
   assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-03-29T10:00', fromTz: 'Europe/Prague' }).open, '2026-03-28T09:00', 'jarní změna');
   assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-10-25T10:00' }).open, '2026-10-24T10:00');
   assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-11-10T10:00', fromTz: 'Europe/Prague' }).open, '2026-11-09T10:00');
+  // 2:30 v noci změny na zimní čas nastane dvakrát – jako v události letu ten první (0:30 UTC), check-in přesně 24 h předtím
+  const night = { carrier: 'FR', dep: '2026-10-25T02:30', from: 'PRG', to: 'STN', fromTz: 'Europe/Prague' };
+  assert.equal(Ics.checkin(night).open, '2026-10-24T02:30');
+  assert.equal(prop(build([Ics.flightEvent(night)]), 'DTSTART'), '20261025T003000Z');
+  assert.equal(prop(build([Ics.checkinEvent(night)]), 'DTSTART'), '20261024T003000Z');
+  // neznámé pásmo: den předem ve stejný čas
+  assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-10-25T10:00', fromTz: 'Mars/Olympus' }).open, '2026-10-24T10:00');
   // poplatek za odbavení na letišti u Ryanairu podle země odletu
   assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-11-10T10:00', fromTz: 'Europe/Vienna' }).fee, '40 €');
   assert.equal(Ics.checkin({ carrier: 'FR', dep: '2026-11-10T10:00', fromTz: 'Atlantic/Canary' }).fee, '30 €');

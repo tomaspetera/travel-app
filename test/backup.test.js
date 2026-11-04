@@ -494,3 +494,13 @@ test('záloha drží u odeslané verze otisk kamarádovy, kterou jsem tehdy měl
   const m = B.merge(mine, inc, { watchKey: wk, deps });
   assert.deepEqual([m.trips[0].gotVer, plain(m.trips[0].sharedSnap).acts], ['vz9y8x7', ['od kamaráda']]);
 });
+
+test('cesta z Objevuj: záloha nese druh výsledku (src) i jeho poznámky – „Jiná trasa“ po obnově nahradí staré odkazy', () => {
+  const notes = 'Trasa v Mapy.com: https://mapy.com/s/abc\nGoogle Maps: https://maps.google.com/?x=1&y="2"';
+  const S = state({ trips: [plan('Na kole z: Brno – 40 km', '2026-11-12', { notes, src: 'bike', genName: 'Na kole z: Brno – 40 km', explore: { bike: { '2026-11-12': ['🚲 Brno → Tišnov'] } }, exploreNotes: { bike: notes, 'day-car': '', '<bad>': 'x', city: 5 } })] });
+  const t = B.parse(B.pack(S), deps).trips[0];
+  assert.equal(t.src, 'bike');
+  assert.deepEqual(plain(t.exploreNotes), { bike: notes, 'day-car': '' }, 'texty beze změny (jako poznámky cesty), neznámé klíče a ne-texty pryč');
+  assert.ok(t.notes.includes(t.exploreNotes.bike), 'poznámky druhu jdou v poznámkách cesty najít a nahradit');
+  assert.equal(B.parse(B.pack(state({ trips: [plan('X', '2026-11-12', { src: '<img>' })] })), deps).trips[0].src, undefined);
+});

@@ -91,6 +91,19 @@ test('TTLCache: nad měkkým stropem paměti zahodí starší polovinu – nejv�
   assert.equal(c.stats().trims, 1, 'další zahození až po 30 s (paměť se uvolňuje s GC)');
 });
 
+test('TTLCache: přepsaný klíč je nejnovější – strop ho nevyhodí první a plná mezipaměť kvůli němu nic nemaže', () => {
+  const c = new TTLCache(10, { softBytes: 0 });
+  for (let i = 0; i < 10; i++) c.set(`k${i}`, i, 60e3);
+  c.set('k5', 'nove', 60e3);
+  assert.equal(c.map.size, 10, 'přepsání plnou mezipaměť nezmenší');
+  assert.equal(c.get('k5'), 'nove');
+  c.set('k0', 'nove', 60e3);
+  c.set('k10', 10, 60e3); // plná → ven nejstarší (k1), ne právě obnovené k0
+  assert.equal(c.get('k1'), undefined);
+  assert.equal(c.get('k0'), 'nove');
+  assert.equal(c.get('k10'), 10);
+});
+
 test('sharedRuns: stejná práce jednou pro všechny, pozdě příchozí dostane poslední průběh hned, chyba jednoho odběratele neshodí ostatní', async () => {
   const run = sharedRuns();
   let calls = 0;
