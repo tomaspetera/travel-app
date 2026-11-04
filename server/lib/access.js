@@ -147,11 +147,13 @@ export const tollCzk = (t) => Math.round((toCzk(t.price, t.cur) ?? t.price) / 10
 // Přes které země vede cesta autem (domov → země letiště), když nejsou sousední; jinak jen země letiště.
 const VIA = {
   CZ: { HU: ['SK', 'HU'], SI: ['AT', 'SI'], HR: ['AT', 'SI', 'HR'], IT: ['AT', 'IT'], CH: ['DE', 'CH'] },
-  SK: { DE: ['CZ', 'DE'], SI: ['AT', 'SI'], HR: ['HU', 'HR'] },
-  PL: { AT: ['CZ', 'AT'], HU: ['SK', 'HU'], SI: ['CZ', 'AT', 'SI'] },
-  DE: { SK: ['CZ', 'SK'], HU: ['AT', 'HU'], SI: ['AT', 'SI'] },
-  AT: { PL: ['CZ', 'PL'] },
-  HU: { CZ: ['SK', 'CZ'], DE: ['AT', 'DE'], PL: ['SK', 'PL'] },
+  SK: { DE: ['CZ', 'DE'], SI: ['AT', 'SI'], HR: ['HU', 'HR'], IT: ['AT', 'IT'] },
+  PL: { AT: ['CZ', 'AT'], HU: ['SK', 'HU'], SI: ['CZ', 'AT', 'SI'], IT: ['CZ', 'AT', 'IT'] },
+  // Mnichov → Benátky přes Brenner, → Záhřeb přes Rakousko a Slovinsko
+  DE: { SK: ['CZ', 'SK'], HU: ['AT', 'HU'], SI: ['AT', 'SI'], IT: ['AT', 'IT'], HR: ['AT', 'SI', 'HR'] },
+  // Vídeň → Záhřeb přes Štýrský Hradec a Maribor
+  AT: { PL: ['CZ', 'PL'], HR: ['SI', 'HR'] },
+  HU: { CZ: ['SK', 'CZ'], DE: ['AT', 'DE'], PL: ['SK', 'PL'], IT: ['SI', 'IT'] },
 };
 
 export const CAR_KM_CZK = 2.6; // dřívější výchozí Kč/km za auto (6,5 l/100 km × ~40 Kč/l) – jen dotazy s carKmCzk
