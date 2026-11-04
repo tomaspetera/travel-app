@@ -15,6 +15,12 @@ test('CSS: žádné pravidlo pro samotné .ph (kolize s třídou načtené fotky
   assert.match(readFileSync(new URL('flights.css', dir), 'utf8'), /\.progress-card \.ph\{font-weight:800/);
 });
 
+test('trip.css: řádek Průběhu cesty s dlouhou vlastní aktivitou (odkaz) nepřeteče na telefonu', () => {
+  const rule = readFileSync(new URL('trip.css', dir), 'utf8').match(/\.tl-row\{[^}]*\}/)[0];
+  assert.match(rule, /grid-template-columns:90px 26px minmax\(0,1fr\)/);
+  assert.match(rule, /overflow-wrap:anywhere/);
+});
+
 test('flights.css: vysvětlivka „Co to znamená?“ v modré poznámce nepřebírá žlutou barvu varování', () => {
   assert.match(readFileSync(new URL('flights.css', dir), 'utf8'), /\.mc-note \.mc-why\{[^}]*color:inherit/);
 });
